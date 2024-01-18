@@ -360,7 +360,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
   rrev :: (GoodScalar r, KnownNat n)
        => (forall f. ADReady f => Domains f -> f r n)
        -> DomainsOD
-       -> DomainsOf (ADVal ranked)
+       -> Domains (ADVal ranked)
        -> DomainsOf (ADVal ranked)
   rrev f _parameters0 parameters =
     -- This computes the derivative of f again for each new @parmeters@.
@@ -368,7 +368,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
   rrevDt :: (GoodScalar r, KnownNat n)
          => (forall f. ADReady f => Domains f -> f r n)
          -> DomainsOD
-         -> DomainsOf (ADVal ranked)
+         -> Domains (ADVal ranked)
          -> ADVal ranked r n
          -> DomainsOf (ADVal ranked)
   rrevDt f _parameters0 parameters dt =
@@ -376,7 +376,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
   rfwd :: (GoodScalar r, KnownNat n)
        => (forall f. ADReady f => Domains f -> f r n)
        -> DomainsOD
-       -> DomainsOf (ADVal ranked)
+       -> Domains (ADVal ranked)
        -> DomainsOf (ADVal ranked)
        -> ADVal ranked r n
   rfwd f _parameters0 parameters ds =
@@ -444,10 +444,6 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
            -> ADVal ranked rm (1 + m)
            -> ADVal ranked rn n
   rfoldDer f df rf (D l1 x0 x0') (D l2 as as') =
-    -- This potentially duplicates some AST terms, but we do this here,
-    -- in the context of sharing information, so let's hope all big things
-    -- are shared. If not, we'd need to extend @rregister@ to also work
-    -- on @DomainsOf f@.
     let p :: ranked rn (1 + n)
         p = rscanDer f df rf x0 as
         width = rlength p - 1
@@ -467,17 +463,17 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
         g :: Domains (ADVal ranked) -> ADVal ranked rn n
         g doms = uncurry f (domsToPair doms)
-        df :: ranked rn n -> DomainsOf ranked -> ranked rn n -> DomainsOf ranked
+        df :: ranked rn n -> Domains ranked -> ranked rn n -> Domains ranked
            -> ranked rn n
         df cx ca x a =
-          fst $ cfwdOnDomains (V.cons (DynamicRanked x) $ dunDomains domsOD a)
+          fst $ cfwdOnDomains (V.cons (DynamicRanked x) a)
                               g
-                              (V.cons (DynamicRanked cx) $ dunDomains domsOD ca)
-        rf :: ranked rn n -> ranked rn n -> DomainsOf ranked -> DomainsOf ranked
+                              (V.cons (DynamicRanked cx) ca)
+        rf :: ranked rn n -> ranked rn n -> Domains ranked -> DomainsOf ranked
         rf dt x a =
           fst $ crevOnDomains (Just dt)
                               g
-                              (V.cons (DynamicRanked x) $ dunDomains domsOD a)
+                              (V.cons (DynamicRanked x) a)
         p :: ranked rn (1 + n)
         p = rscanZip f domsOD x0 as
         width = rlength p - 1
@@ -488,10 +484,10 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
   rfoldZipDer :: forall rn n. (GoodScalar rn, KnownNat n)
             => (forall f. ADReady f => f rn n -> Domains f -> f rn n)
             -> (forall f. ADReady f
-                => f rn n -> DomainsOf f -> f rn n -> DomainsOf f
+                => f rn n -> Domains f -> f rn n -> Domains f
                 -> f rn n)
             -> (forall f. ADReady f
-                => f rn n -> f rn n -> DomainsOf f
+                => f rn n -> f rn n -> Domains f
                 -> DomainsOf f)
             -> DomainsOD
             -> ADVal ranked rn n
@@ -582,17 +578,17 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
         g :: Domains (ADVal ranked) -> ADVal ranked rn n
         g doms = uncurry f (domsToPair doms)
-        df :: ranked rn n -> DomainsOf ranked -> ranked rn n -> DomainsOf ranked
+        df :: ranked rn n -> Domains ranked -> ranked rn n -> Domains ranked
            -> ranked rn n
         df cx ca x a =
-          fst $ cfwdOnDomains (V.cons (DynamicRanked x) $ dunDomains domsOD a)
+          fst $ cfwdOnDomains (V.cons (DynamicRanked x) a)
                               g
-                              (V.cons (DynamicRanked cx) $ dunDomains domsOD ca)
-        rf :: ranked rn n -> ranked rn n -> DomainsOf ranked -> DomainsOf ranked
+                              (V.cons (DynamicRanked cx) ca)
+        rf :: ranked rn n -> ranked rn n -> Domains ranked -> DomainsOf ranked
         rf dt x a =
           fst $ crevOnDomains (Just dt)
                               g
-                              (V.cons (DynamicRanked x) $ dunDomains domsOD a)
+                              (V.cons (DynamicRanked x) a)
         p :: ranked rn (1 + n)
         p = rscanZip f domsOD x0 as
         (l3, pShared) =
@@ -615,10 +611,10 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
   rscanZipDer :: forall rn n. (GoodScalar rn, KnownNat n)
             => (forall f. ADReady f => f rn n -> Domains f -> f rn n)
             -> (forall f. ADReady f
-                => f rn n -> DomainsOf f -> f rn n -> DomainsOf f
+                => f rn n -> Domains f -> f rn n -> Domains f
                 -> f rn n)
             -> (forall f. ADReady f
-                => f rn n -> f rn n -> DomainsOf f
+                => f rn n -> f rn n -> Domains f
                 -> DomainsOf f)
             -> DomainsOD
             -> ADVal ranked rn n
@@ -684,7 +680,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
             (FoldS pShared as df rf x0' as')
   sfoldZip :: forall rn sh. (GoodScalar rn, Sh.Shape sh)
          => (forall f. ADReadyS f
-             => f rn sh -> DomainsOf (RankedOf f) -> f rn sh)
+             => f rn sh -> Domains (RankedOf f) -> f rn sh)
          -> DomainsOD
          -> ADVal shaped rn sh
          -> Domains (ADVal (RankedOf shaped))
@@ -697,19 +693,18 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         domsToPair doms = (sfromD $ doms V.! 0, V.tail doms)
         g :: Domains (ADVal (RankedOf shaped)) -> ADVal shaped rn sh
         g doms = uncurry f (domsToPair doms)
-        df :: shaped rn sh -> DomainsOf ranked -> shaped rn sh
-           -> DomainsOf ranked
+        df :: shaped rn sh -> Domains ranked -> shaped rn sh -> Domains ranked
            -> shaped rn sh
         df cx ca x a =
-          fst $ cfwdOnDomains (V.cons (DynamicShaped x) $ dunDomains domsOD a)
+          fst $ cfwdOnDomains (V.cons (DynamicShaped x) a)
                               g
-                              (V.cons (DynamicShaped cx) $ dunDomains domsOD ca)
-        rf :: shaped rn sh -> shaped rn sh -> DomainsOf ranked
+                              (V.cons (DynamicShaped cx) ca)
+        rf :: shaped rn sh -> shaped rn sh -> Domains ranked
            -> DomainsOf ranked
         rf dt x a =
           fst $ crevOnDomains (Just dt)
                               g
-                              (V.cons (DynamicShaped x) $ dunDomains domsOD a)
+                              (V.cons (DynamicShaped x) a)
         width = case V.unsnoc as of
           Nothing -> error "sfoldD: can't determine argument width"
           Just (_, d) -> case shapeDynamic d of
@@ -726,13 +721,13 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
       _ -> error "sfoldD: impossible someNatVal"
   sfoldZipDer :: forall rn sh. (GoodScalar rn, Sh.Shape sh)
             => (forall f. ADReadyS f
-                => f rn sh -> DomainsOf (RankedOf f) -> f rn sh)
+                => f rn sh -> Domains (RankedOf f) -> f rn sh)
             -> (forall f. ADReadyS f
-                => f rn sh -> DomainsOf (RankedOf f) -> f rn sh
-                -> DomainsOf (RankedOf f)
+                => f rn sh -> Domains (RankedOf f) -> f rn sh
+                -> Domains (RankedOf f)
                 -> f rn sh)
             -> (forall f. ADReadyS f
-                => f rn sh -> f rn sh -> DomainsOf (RankedOf f)
+                => f rn sh -> f rn sh -> Domains (RankedOf f)
                 -> DomainsOf (RankedOf f))
             -> DomainsOD
             -> ADVal shaped rn sh
@@ -823,7 +818,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
             (ScanS pShared as df rf x0' as')
   sscanZip :: forall rn sh k. (GoodScalar rn, Sh.Shape sh, KnownNat k)
          => (forall f. ADReadyS f
-             => f rn sh -> DomainsOf (RankedOf f) -> f rn sh)
+             => f rn sh -> Domains (RankedOf f) -> f rn sh)
          -> DomainsOD
          -> ADVal shaped rn sh
          -> Domains (ADVal (RankedOf shaped))
@@ -837,19 +832,18 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         domsToPair doms = (sfromD $ doms V.! 0, V.tail doms)
         g :: Domains (ADVal (RankedOf shaped)) -> ADVal shaped rn sh
         g doms = uncurry f (domsToPair doms)
-        df :: shaped rn sh -> DomainsOf ranked -> shaped rn sh
-           -> DomainsOf ranked
+        df :: shaped rn sh -> Domains ranked -> shaped rn sh -> Domains ranked
            -> shaped rn sh
         df cx ca x a =
-          fst $ cfwdOnDomains (V.cons (DynamicShaped x) $ dunDomains domsOD a)
+          fst $ cfwdOnDomains (V.cons (DynamicShaped x) a)
                               g
-                              (V.cons (DynamicShaped cx) $ dunDomains domsOD ca)
-        rf :: shaped rn sh -> shaped rn sh -> DomainsOf ranked
+                              (V.cons (DynamicShaped cx) ca)
+        rf :: shaped rn sh -> shaped rn sh -> Domains ranked
            -> DomainsOf ranked
         rf dt x a =
           fst $ crevOnDomains (Just dt)
                               g
-                              (V.cons (DynamicShaped x) $ dunDomains domsOD a)
+                              (V.cons (DynamicShaped x) a)
         p :: shaped rn (1 + k ': sh)
         p = sscanZip f domsOD x0 as
         (l3, pShared) =
@@ -879,13 +873,13 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
     in D l3 pShared scanAsFold
   sscanZipDer :: forall rn sh k. (GoodScalar rn, Sh.Shape sh, KnownNat k)
             => (forall f. ADReadyS f
-                => f rn sh -> DomainsOf (RankedOf f) -> f rn sh)
+                => f rn sh -> Domains (RankedOf f) -> f rn sh)
             -> (forall f. ADReadyS f
-                => f rn sh -> DomainsOf (RankedOf f) -> f rn sh
-                -> DomainsOf (RankedOf f)
+                => f rn sh -> Domains (RankedOf f) -> f rn sh
+                -> Domains (RankedOf f)
                 -> f rn sh)
             -> (forall f. ADReadyS f
-                => f rn sh -> f rn sh -> DomainsOf (RankedOf f)
+                => f rn sh -> f rn sh -> Domains (RankedOf f)
                 -> DomainsOf (RankedOf f))
             -> DomainsOD
             -> ADVal shaped rn sh

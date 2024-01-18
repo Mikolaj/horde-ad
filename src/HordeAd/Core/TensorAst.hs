@@ -752,10 +752,10 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
   rfoldZipDer :: forall rn n. (GoodScalar rn, KnownNat n)
             => (forall f. ADReady f => f rn n -> Domains f -> f rn n)
             -> (forall f. ADReady f
-                => f rn n -> DomainsOf f -> f rn n -> DomainsOf f
+                => f rn n -> Domains f -> f rn n -> Domains f
                 -> f rn n)
             -> (forall f. ADReady f
-                => f rn n -> f rn n -> DomainsOf f
+                => f rn n -> f rn n -> Domains f
                 -> DomainsOf f)
             -> DomainsOD
             -> AstRanked s rn n
@@ -849,10 +849,10 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
   rscanZipDer :: forall rn n. (GoodScalar rn, KnownNat n)
             => (forall f. ADReady f => f rn n -> Domains f -> f rn n)
             -> (forall f. ADReady f
-                => f rn n -> DomainsOf f -> f rn n -> DomainsOf f
+                => f rn n -> Domains f -> f rn n -> Domains f
                 -> f rn n)
             -> (forall f. ADReady f
-                => f rn n -> f rn n -> DomainsOf f
+                => f rn n -> f rn n -> Domains f
                 -> DomainsOf f)
             -> DomainsOD
             -> AstRanked s rn n
@@ -907,7 +907,7 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
     AstFoldDerS (fun2ToAstS f) (fun4ToAstS df) (fun3ToAstS rf) x0 as
   sfoldZip :: forall rn sh. (GoodScalar rn, Sh.Shape sh)
          => (forall f. ADReadyS f
-             => f rn sh -> DomainsOf (RankedOf f) -> f rn sh)
+             => f rn sh -> Domains (RankedOf f) -> f rn sh)
          -> DomainsOD
          -> AstShaped s rn sh
          -> Domains (AstRanked s)
@@ -917,8 +917,8 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
     let domsF = V.cons (odFromShS @rn @sh) domsOD
         domsToPair :: forall f. ADReadyS f
                       => Domains (RankedOf f)
-                      -> (f rn sh, DomainsOf (RankedOf f))
-        domsToPair doms = (sfromD $ doms V.! 0, dmkDomains $ V.tail doms)
+                      -> (f rn sh, Domains (RankedOf f))
+        domsToPair doms = (sfromD $ doms V.! 0, V.tail doms)
         g :: Domains (AstRanked FullSpan) -> AstShaped FullSpan rn sh
         g doms = uncurry f (domsToPair doms)
     in case revProduceArtifact TensorToken True g EM.empty domsF of
@@ -939,13 +939,13 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
       _ -> error "sfoldD: wrong variables"
   sfoldZipDer :: forall rn sh. Sh.Shape sh
             => (forall f. ADReadyS f
-                => f rn sh -> DomainsOf (RankedOf f) -> f rn sh)
+                => f rn sh -> Domains (RankedOf f) -> f rn sh)
             -> (forall f. ADReadyS f
-                => f rn sh -> DomainsOf (RankedOf f) -> f rn sh
-                -> DomainsOf (RankedOf f)
+                => f rn sh -> Domains (RankedOf f) -> f rn sh
+                -> Domains (RankedOf f)
                 -> f rn sh)
             -> (forall f. ADReadyS f
-                => f rn sh -> f rn sh -> DomainsOf (RankedOf f)
+                => f rn sh -> f rn sh -> Domains (RankedOf f)
                 -> DomainsOf (RankedOf f))
             -> DomainsOD
             -> AstShaped s rn sh
@@ -1002,7 +1002,7 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
                 (fun3ToAstS @_ @_ @sh rf) x0 as
   sscanZip :: forall k rn sh. (GoodScalar rn, Sh.Shape sh, KnownNat k)
          => (forall f. ADReadyS f
-             => f rn sh -> DomainsOf (RankedOf f) -> f rn sh)
+             => f rn sh -> Domains (RankedOf f) -> f rn sh)
          -> DomainsOD
          -> AstShaped s rn sh
          -> Domains (AstRanked s)
@@ -1012,8 +1012,8 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
     let domsF = V.cons (odFromShS @rn @sh) domsOD
         domsToPair :: forall f. ADReadyS f
                       => Domains (RankedOf f)
-                      -> (f rn sh, DomainsOf (RankedOf f))
-        domsToPair doms = (sfromD $ doms V.! 0, dmkDomains $ V.tail doms)
+                      -> (f rn sh, Domains (RankedOf f))
+        domsToPair doms = (sfromD $ doms V.! 0, V.tail doms)
         g :: Domains (AstRanked FullSpan) -> AstShaped FullSpan rn sh
         g doms = uncurry f (domsToPair doms)
     in case revProduceArtifact TensorToken True g EM.empty domsF of
@@ -1034,13 +1034,13 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
       _ -> error "sscanD: wrong variables"
   sscanZipDer :: forall k rn sh. (Sh.Shape sh, KnownNat k)
             => (forall f. ADReadyS f
-                => f rn sh -> DomainsOf (RankedOf f) -> f rn sh)
+                => f rn sh -> Domains (RankedOf f) -> f rn sh)
             -> (forall f. ADReadyS f
-                => f rn sh -> DomainsOf (RankedOf f) -> f rn sh
-                -> DomainsOf (RankedOf f)
+                => f rn sh -> Domains (RankedOf f) -> f rn sh
+                -> Domains (RankedOf f)
                 -> f rn sh)
             -> (forall f. ADReadyS f
-                => f rn sh -> f rn sh -> DomainsOf (RankedOf f)
+                => f rn sh -> f rn sh -> Domains (RankedOf f)
                 -> DomainsOf (RankedOf f))
             -> DomainsOD
             -> AstShaped s rn sh
