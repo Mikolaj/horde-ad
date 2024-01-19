@@ -385,6 +385,10 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
     -- looser constraints thanks to interpreting terms in arbitrary algebras.
     -- If the refactoring is really needed, e.g., to avoid computing derivatives
     -- for each nested level of ADVal, we can add UnletGradient to ADReady.
+    -- Given this, we don't try to share subterms at all in this code.
+    -- This only matters in the case of instantiating this method directly
+    -- to dual numbers over terms, which however side-steps vectorization,
+    -- and so it's not supposed to produce small terms anyway.
     let _ws :: (Int, ShapeInt m)
         _ws@(width, _shm) = case rshape as of
           hd :$ tl -> (hd, tl)
@@ -397,7 +401,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         -- This computes the derivative of f again for each new @x@ and @a@
         -- (not even once for @as@, but for each @a@ separately).
         -- Note that this function, and similarly @rf and @f@ instantiated
-        -- and passed to FoldR, is not a function on dual numbers.
+        -- and passed to FoldRC, is not a function on dual numbers.
         -- Consequently, any dual number operations inserted there by the user
         -- are flattened away (which is represented in AST by @PrimalSpan@).
         -- TODO: what if the dual numbers are nested?
