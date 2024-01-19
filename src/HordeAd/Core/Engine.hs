@@ -52,110 +52,64 @@ import HordeAd.Core.Types
 -- VJP (vector-jacobian product) or Lop (left operations) are alternative
 -- names to @rev@, but newcomers may have trouble understanding them.
 
-{- TODO: this is temporarily replaced by a workaround needed for the SPECIALIZE
-   to work, #23798.
+-- These inlines, casts and wrappers are a workaround for no SPECIALIZE pragmas
+-- permitted for functions with type equalities,
+-- see https://gitlab.haskell.org/ghc/ghc/-/issues/23798.
 -- | These work for any @g@ of DerivativeStages class.
 rev
   :: forall r y g vals astvals.
      ( DerivativeStages g, GoodScalar r, HasSingletonDict y
-     , AdaptableDomains (AstRanked FullSpan) astvals
+     , AdaptableDomains (RankedOf g) astvals
      , AdaptableDomains (Flip OR.Array) vals
      , vals ~ Value astvals, Value vals ~ vals )
   => (astvals -> g r y) -> vals -> vals
+{-# INLINE rev #-}
 rev f vals = revDtMaybe f vals Nothing
-{- TODO: RULE left-hand side too complicated to desugar
-{-# SPECIALIZE rev
-  :: ( HasSingletonDict y
-     , AdaptableDomains (AstRanked FullSpan) astvals
-     , AdaptableDomains (Flip OR.Array) vals
-     , vals ~ Value astvals, Value vals ~ vals )
-  => (astvals -> AstRanked FullSpan Double y) -> vals
-  -> vals #-}
--}
 
 -- | This version additionally takes the sensitivity parameter.
 revDt
   :: forall r y g vals astvals.
      ( DerivativeStages g, GoodScalar r, HasSingletonDict y
-     , AdaptableDomains (AstRanked FullSpan) astvals
+     , AdaptableDomains (RankedOf g) astvals
      , AdaptableDomains (Flip OR.Array) vals
      , vals ~ Value astvals, Value vals ~ vals )
   => (astvals -> g r y) -> vals -> ConcreteOf g r y -> vals
+{-# INLINE revDt #-}
 revDt f vals dt = revDtMaybe f vals (Just dt)
-{- TODO: RULE left-hand side too complicated to desugar
-{-# SPECIALIZE revDt
-  :: ( HasSingletonDict y
-     , AdaptableDomains (AstRanked FullSpan) astvals
-     , AdaptableDomains (Flip OR.Array) vals
-     , vals ~ Value astvals, Value vals ~ vals )
-  => (astvals -> AstRanked FullSpan Double y) -> vals -> Flip OR.Array Double y
-  -> vals #-}
--}
 
+-- The redundant constraint warning is due to the SPECIALIZE workaround.
 revDtMaybe
   :: forall r y g vals astvals.
      ( DerivativeStages g, GoodScalar r, HasSingletonDict y
-     , AdaptableDomains (AstRanked FullSpan) astvals
+     , AdaptableDomains (RankedOf g) astvals
      , AdaptableDomains (Flip OR.Array) vals
      , vals ~ Value astvals, Value vals ~ vals )
-  => (astvals -> g r y) -> vals -> Maybe (ConcreteOf g) r y) -> vals
+  => (astvals -> g r y) -> vals -> Maybe (ConcreteOf g r y) -> vals
 {-# INLINE revDtMaybe #-}
-revDtMaybe f vals mdt =
-  let g domains = f $ parseDomains vals domains
-      domainsOD = toDomains vals
-      artifact = fst $ revProduceArtifact (isJust mdt) g EM.empty domainsOD
-  in parseDomains vals
-     $ fst $ revEvalArtifact artifact domainsOD mdt
--}
+revDtMaybe = revDtMaybeSpecializeWrapper
 
--- | These work for any @g@ of DerivativeStages class.
-rev
-  :: forall r y g astvals.
-     ( DerivativeStages g, GoodScalar r, HasSingletonDict y
-     , AdaptableDomains (RankedOf g) astvals
-     , AdaptableDomains (Flip OR.Array) (Value astvals) )
-  => (astvals -> g r y) -> Value astvals -> Value astvals
-rev f vals = revDtMaybe f vals Nothing
-{-# SPECIALIZE rev
-  :: ( HasSingletonDict y
-     , AdaptableDomains (AstRanked FullSpan) astvals
-     , AdaptableDomains (Flip OR.Array) (Value astvals) )
-  => (astvals -> AstRanked FullSpan Double y) -> Value astvals
-  -> Value astvals #-}
-
--- | This version additionally takes the sensitivity parameter.
-revDt
-  :: forall r y g astvals.
-     ( DerivativeStages g, GoodScalar r, HasSingletonDict y
-     , AdaptableDomains (RankedOf g) astvals
-     , AdaptableDomains (Flip OR.Array) (Value astvals) )
-  => (astvals -> g r y) -> Value astvals -> ConcreteOf g r y
-  -> Value astvals
-revDt f vals dt = revDtMaybe f vals (Just dt)
-{-# SPECIALIZE revDt
-  :: ( HasSingletonDict y
-     , AdaptableDomains (AstRanked FullSpan) astvals
-     , AdaptableDomains (Flip OR.Array) (Value astvals) )
-  => (astvals -> AstRanked FullSpan Double y) -> Value astvals
-  -> Flip OR.Array Double y
-  -> Value astvals #-}
-
-revDtMaybe
+revDtMaybeSpecializeWrapper
   :: forall r y g vals astvals.
      ( DerivativeStages g, GoodScalar r, HasSingletonDict y
      , AdaptableDomains (RankedOf g) astvals
      , AdaptableDomains (Flip OR.Array) vals
      , vals ~ Value astvals )
   => (astvals -> g r y) -> vals -> Maybe (ConcreteOf g r y) -> vals
-{-# INLINE revDtMaybe #-}
-revDtMaybe f vals mdt =
+revDtMaybeSpecializeWrapper f vals mdt =
   let g domains = f $ parseDomains vals domains
       domainsOD = toDomains vals
       artifact = fst $ revProduceArtifact TensorToken
                                           (isJust mdt) g EM.empty domainsOD
-  in gcastWith (unsafeCoerce Refl :: Value vals :~: vals) $  -- !!!
+  in gcastWith (unsafeCoerce Refl :: Value vals :~: vals) $
      parseDomains vals
      $ fst $ revEvalArtifact artifact domainsOD mdt
+{-# SPECIALIZE revDtMaybeSpecializeWrapper
+  :: ( HasSingletonDict y
+     , AdaptableDomains (AstRanked FullSpan) astvals
+     , AdaptableDomains (Flip OR.Array) (Value astvals) )
+  => (astvals -> AstRanked FullSpan Double y) -> Value astvals
+  -> Maybe (Flip OR.Array Double y)
+  -> Value astvals #-}
 
 revArtifactAdapt
   :: forall r y g vals astvals.
@@ -244,86 +198,39 @@ fwdArtifactAdapt f vals =
 
 -- * Old gradient adaptors, with constant and fixed inputs and dt
 
-{- TODO: this is temporarily replaced by a workaround needed for the SPECIALIZE
-   to work, #23798.
+-- We are inlining these function, in part, because they take function
+-- arguments and calling unknown functions is expensive and, in part,
+-- because we can't easily specialize them due to
+-- https://gitlab.haskell.org/ghc/ghc/-/issues/23798
+-- However, they are called in many places, so we break the inline chain
+-- at crevOnDomains to avoid binary blowup.
 -- | The old versions that use the fixed input and @dt@ to compute gradient
 -- only at these values, both transposing and evaluating at the same time.
 --
 -- These work for @f@ both ranked and shaped.
 crev
   :: forall r y f vals advals.
-     ( DualPart f, GoodScalar r, HasSingletonDict y
-     , AdaptableDomains (DynamicOf (ADVal f)) advals
-     , AdaptableDomains (Flip OR.Array) vals
-     , vals ~ Value advals, Value vals ~ vals )
-  => (advals -> ADVal f r y) -> vals -> vals
-crev f vals = crevDtMaybe f vals Nothing
-
--- | This version additionally takes the sensitivity parameter.
-crevDt
-  :: forall r y f vals advals.
-     ( DualPart f, GoodScalar r, HasSingletonDict y
-     , DynamicOf f ~ (Flip OR.Array)
-     , AdaptableDomains (DynamicOf (ADVal f)) advals
-     , AdaptableDomains (Flip OR.Array) vals
-     , vals ~ Value advals, Value vals ~ vals )
-  => (advals -> ADVal f r y) -> vals -> f r y -> vals
-crevDt f vals dt = crevDtMaybe f vals (Just dt)
-
-crevDtMaybe
-  :: forall r y f vals advals.
-     ( DualPart f, GoodScalar r, HasSingletonDict y
-     , DynamicOf f ~ (Flip OR.Array)
-     , AdaptableDomains (DynamicOf (ADVal f)) advals
-     , AdaptableDomains (Flip OR.Array) vals
-     , vals ~ Value advals, Value vals ~ vals )
-  => (advals -> ADVal f r y) -> vals -> Maybe (f r y) -> vals
-{-# INLINE crevDtMaybe #-}
-crevDtMaybe f vals mdt =
-  let g inputs = f $ parseDomains vals inputs
-  in parseDomains vals $ fst $ crevOnDomains mdt g (toDomains vals)
--}
-
--- | The old versions that use the fixed input and @dt@ to compute gradient
--- only at these values, both transposing and evaluating at the same time.
---
--- These work for @f@ both ranked and shaped.
-crev
-  :: forall r y f advals.
      ( DualPart f, UnletGradient f, GoodScalar r, HasSingletonDict y
      , RankedOf f ~ Flip OR.Array
      , AdaptableDomains (ADVal (RankedOf f)) advals
-     , AdaptableDomains (Flip OR.Array) (Value advals) )
-  => (advals -> ADVal f r y) -> Value advals -> Value advals
+     , AdaptableDomains (Flip OR.Array) vals
+     , vals ~ Value advals, Value vals ~ vals )
+  => (advals -> ADVal f r y) -> vals -> vals
+{-# INLINE crev #-}
 crev f vals = crevDtMaybe f vals Nothing
-{- TODO: RULE left-hand side too complicated to desugar
-{-# SPECIALIZE crev
-  :: ( HasSingletonDict y
-     , AdaptableDomains (ADVal (Flip OR.Array)) advals
-     , AdaptableDomains (Flip OR.Array) (Value advals) )
-  => (advals -> ADVal (Flip OR.Array) Double y)
-  -> Value advals
-  -> Value advals #-} -}
 
 -- | This version additionally takes the sensitivity parameter.
 crevDt
-  :: forall r y f advals.
+  :: forall r y f vals advals.
      ( RankedTensor (RankedOf f), RankedTensor (ADVal (RankedOf f))
      , DualPart f, UnletGradient f, GoodScalar r, HasSingletonDict y
      , DomainsOf (RankedOf f) ~ Domains (RankedOf f)
      , AdaptableDomains (ADVal (RankedOf f)) advals
-     , AdaptableDomains (RankedOf f) (Value advals) )
-  => (advals -> ADVal f r y) -> Value advals -> f r y -> Value advals
+     , AdaptableDomains (RankedOf f) vals
+     , vals ~ Value advals, Value vals ~ vals )
+  => (advals -> ADVal f r y) -> vals -> f r y -> vals
+{-# INLINE crevDt #-}
 crevDt f vals dt = crevDtMaybe f vals (Just dt)
-{- TODO: RULE left-hand side too complicated to desugar
-{-# SPECIALIZE crevDt
-  :: ( HasSingletonDict y
-     , AdaptableDomains (ADVal (Flip OR.Array)) advals
-     , AdaptableDomains (Flip OR.Array) (Value advals) )
-  => (advals -> ADVal (Flip OR.Array) Double y)
-  -> Value advals
-  -> Flip OR.Array Double y
-  -> Value advals #-} -}
 
 crevDtMaybe
   :: forall r y f vals advals.
@@ -332,11 +239,10 @@ crevDtMaybe
      , DomainsOf (RankedOf f) ~ Domains (RankedOf f)
      , AdaptableDomains (ADVal (RankedOf f)) advals
      , AdaptableDomains (RankedOf f) vals
-     , vals ~ Value advals )
+     , vals ~ Value advals, Value vals ~ vals )
   => (advals -> ADVal f r y) -> vals -> Maybe (f r y) -> vals
 {-# INLINE crevDtMaybe #-}
 crevDtMaybe f vals mdt =
-  gcastWith (unsafeCoerce Refl :: Value vals :~: vals) $  -- !!!
   let g inputs = f $ parseDomains vals inputs
   in parseDomains vals
      $ fst $ crevOnDomains mdt g (toDomains vals)
@@ -346,13 +252,6 @@ crevDtMaybe f vals mdt =
   => Maybe (Flip OR.Array Double y)
   -> (Domains (ADVal (Flip OR.Array)) -> ADVal (Flip OR.Array) Double y)
   -> DomainsOD
-  -> (DomainsOD, Flip OR.Array Double y) #-}
-
-{-# SPECIALIZE crevOnADInputs
-  :: HasSingletonDict y
-  => Maybe (Flip OR.Array Double y)
-  -> (Domains (ADVal (Flip OR.Array)) -> ADVal (Flip OR.Array) Double y)
-  -> Domains (ADVal (Flip OR.Array))
   -> (DomainsOD, Flip OR.Array Double y) #-}
 
 

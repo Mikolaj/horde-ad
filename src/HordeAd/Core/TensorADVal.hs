@@ -51,17 +51,15 @@ instance ( KnownNat n, GoodScalar r
          , RankedTensor (ADVal ranked) )
          => AdaptableDomains (ADVal ranked)
                              (ADVal ranked r n) where
-{- TODO: RULE left-hand side too complicated to desugar
   {-# SPECIALIZE instance
-      KnownNat y
-      => AdaptableDomains (ADValClown OD.Array)
-                          (ADVal (Flip OR.Array) Double y) #-}
--}
+      KnownNat n
+      => AdaptableDomains (ADVal (Flip OR.Array))
+                          (ADVal (Flip OR.Array) Double n) #-}
 {- TODO: this causes a cyclic dependency:
   {-# SPECIALIZE instance
-      KnownNat y
-      => AdaptableDomains (ADValClown (AstDynamic PrimalSpan))
-                          (ADVal (AstRanked PrimalSpan) Double y) #-}
+      KnownNat n
+      => AdaptableDomains (ADVal (AstRanked PrimalSpan))
+                          (ADVal (AstRanked PrimalSpan) Double n) #-}
 -}
   type Value (ADVal ranked r n) = Flip OR.Array r n  -- ! not Value(ranked)
   toDomains = undefined
@@ -80,18 +78,6 @@ instance AdaptableDomains ranked a
                          (AstRanked s Double n) )
       => AdaptableDomains (AstRanked s)
                           [AstRanked s Double n] #-}
-{- TODO: RULE left-hand side too complicated to desugar
-  {-# SPECIALIZE instance
-      KnownNat n
-      => AdaptableDomains (ADValClown OD.Array)
-                          [ADVal (Flip OR.Array) Double n] #-}
--}
-{- TODO: this causes a cyclic dependency:
-  {-# SPECIALIZE instance
-      KnownNat n
-      => AdaptableDomains (ADValClown (AstDynamic PrimalSpan))
-                          [ADVal (AstRanked PrimalSpan) Double n] #-}
--}
   type Value [a] = [Value a]
   toDomains = V.concat . map toDomains
   fromDomains lInit source =

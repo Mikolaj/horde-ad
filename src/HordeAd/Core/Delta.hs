@@ -2212,7 +2212,7 @@ buildDerivative dimR deltaDt params = do
       return (ab, cDelta)
 
 
--- * Manually fixed Show intances
+-- * Manually fixed Show instances
 
 instance (KnownNat n0,
           GoodScalar r0,
