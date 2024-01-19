@@ -26,7 +26,6 @@ import           System.IO (IOMode (ReadMode), withBinaryFile)
 import           System.Random
 
 import HordeAd
-import HordeAd.External.OptimizerTools
 
 type SizeMnistWidth = 28 :: Nat
 
@@ -174,6 +173,7 @@ chunksOf n = go where
   go l = let (chunk, rest) = splitAt n l
          in chunk : go rest
 
+
 {-# SPECIALIZE sgd
   :: KnownNat y
   => Double
@@ -184,6 +184,9 @@ chunksOf n = go where
   -> DomainsOD
   -> (DomainsOD, Flip OR.Array Double y) #-}
 
+{- TODO: I don't know how to work around
+     https://gitlab.haskell.org/ghc/ghc/-/issues/23798
+   in this case:
 {-# SPECIALIZE sgdAdam
   :: KnownNat y
   => (MnistDataBatchR Double -> Domains (ADVal (Flip OR.Array))
@@ -192,13 +195,4 @@ chunksOf n = go where
   -> DomainsOD
   -> StateAdam
   -> (DomainsOD, StateAdam) #-}
-
-{-# SPECIALIZE sgdAdamArgs
-  :: KnownNat y
-  => ArgsAdam
-  -> (MnistDataBatchR Double -> Domains (ADVal (Flip OR.Array))
-      -> ADVal (Flip OR.Array) Double y)
-  -> [MnistDataBatchR Double]
-  -> DomainsOD
-  -> StateAdam
-  -> (DomainsOD, StateAdam) #-}
+-}

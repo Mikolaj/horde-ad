@@ -41,39 +41,47 @@ sgd gamma f trainingData parameters0 = go trainingData parameters0 where
        then (parametersNew, valueNew)
        else go rest parametersNew
 
+-- We inline (possibly causing a binary blowup) until we are able to work around
+-- https://gitlab.haskell.org/ghc/ghc/-/issues/23798
+-- and specialize.
 -- | An implementation of the Adam gradient descent.
 sgdAdam
   :: forall f r a y.
      ( RankedTensor (ADVal (RankedOf f))
      , DualPart f, UnletGradient f, HasSingletonDict y, GoodScalar r
-     , RankedOf f ~ Flip OR.Array, Num (f r y))
-  => (a -> Domains (ADVal (RankedOf f)) -> ADVal f r y)
+     , Num (f r y), RankedOf f ~ Flip OR.Array)
+  => (a -> Domains (ADVal (Flip OR.Array)) -> ADVal f r y)
   -> [a]
   -> DomainsOD
   -> StateAdam
   -> (DomainsOD, StateAdam)
-sgdAdam = sgdAdamArgs defaultArgsAdam
+{-# INLINE sgdAdam #-}
+sgdAdam = sgdAdamArgs updateWithGradientAdam defaultArgsAdam
 
 sgdAdamArgs
   :: forall f r a y.
      ( RankedTensor (ADVal (RankedOf f))
      , DualPart f, UnletGradient f, GoodScalar r, HasSingletonDict y
-     , RankedOf f ~ Flip OR.Array, Num (f r y) )
-  => ArgsAdam
+     , Num (f r y), RankedTensor (RankedOf f) )
+  => (ArgsAdam -> StateAdam -> Domains (RankedOf f) -> DomainsOf (RankedOf f)
+      -> (Domains (RankedOf f), StateAdam))
+  -> ArgsAdam
   -> (a -> Domains (ADVal (RankedOf f)) -> ADVal f r y)
   -> [a]
-  -> DomainsOD
+  -> Domains (RankedOf f)
   -> StateAdam
-  -> (DomainsOD, StateAdam)
-sgdAdamArgs argsAdam f trainingData !parameters0 !stateAdam0 =
+  -> (Domains (RankedOf f), StateAdam)
+{-# INLINE sgdAdamArgs #-}
+sgdAdamArgs updateWith argsAdam f trainingData !parameters0 !stateAdam0 =
   go trainingData parameters0 stateAdam0
  where
   deltaInputs = generateDeltaInputs parameters0
-  go :: [a] -> DomainsOD -> StateAdam -> (DomainsOD, StateAdam)
+  go :: [a] -> Domains (RankedOf f) -> StateAdam
+     -> (Domains (RankedOf f), StateAdam)
   go [] parameters stateAdam = (parameters, stateAdam)
   go (a : rest) !parameters !stateAdam =
     let inputs = makeADInputs parameters deltaInputs
         gradients = fst $ crevOnADInputs (Just 1) (f a) inputs
         (parametersNew, stateAdamNew) =
-          updateWithGradientAdam argsAdam stateAdam parameters gradients
+          updateWith argsAdam stateAdam parameters gradients
     in go rest parametersNew stateAdamNew
