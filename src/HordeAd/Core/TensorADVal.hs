@@ -339,8 +339,12 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
   dmkDomains = id
   dunDomains _ = id
   dletDomainsInDomains _ = (&)
-  rletInDomains = (&)
-  sletInDomains = (&)
+  rletInDomains (D l u u') f =
+    let !(!l2, var2) = recordSharingPrimal u l
+    in f (D l2 var2 u')
+  sletInDomains (D l u u') f =
+    let !(!l2, var2) = recordSharingPrimal u l
+    in f (D l2 var2 u')
   dregister _ r l = (l, r)
   dbuild1 k f = ravelDomains $ map (f . fromIntegral) [0 .. k - 1]
   rrev :: (GoodScalar r, KnownNat n)
