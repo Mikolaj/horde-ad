@@ -26,11 +26,12 @@ import           Data.Functor.Const
 import           Data.List (foldl', scanl')
 import           Data.List.Index (imap)
 import           Data.Proxy (Proxy (Proxy))
-import           Data.Type.Equality (gcastWith, (:~:) (Refl))
+import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import           Data.Type.Ord (Compare)
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits
   (KnownNat, SomeNat (..), sameNat, someNatVal, type (+), type (-))
+import           Type.Reflection (typeRep)
 import           Unsafe.Coerce (unsafeCoerce)
 
 import           HordeAd.Core.Adaptor
@@ -108,7 +109,8 @@ instance ( Dual ranked ~ DeltaR ranked
          , RankedOf (PrimalOf ranked) ~ PrimalOf ranked
          , PrimalOf ranked ~ RankedOf (PrimalOf ranked)
          , CRankedIP ranked IsPrimal
-         , RankedTensor ranked )
+         , RankedTensor ranked
+         , DomainsTensor ranked (ShapedOf ranked) )
          => RankedTensor (ADVal ranked) where
   rlet (D l u u') f =
     let !(!l2, var2) = recordSharingPrimal u l
@@ -182,7 +184,15 @@ instance ( Dual ranked ~ DeltaR ranked
     let v = rfromIntegral u
     in dDnotShared l v (dZeroOfShape v)
   rconst t = constantADVal (rconst t)
-  rletDomainsIn _ = (&)
+  rletDomainsIn od asD f =
+    let !(!ll2, asUnshared, as') = V.unzip3 $ V.map unADValDomains asD
+        !(!l3, as) =
+          drecordSharingPrimal od (dmkDomains asUnshared) emptyADShare
+            -- This could be done with recordSharingPrimal, but the code
+            -- would be more complex and more ADShare nodes generated.
+            -- OTOH, f would be free to assume there are no dangling variables.
+        !(D l u u') = f $ V.zipWith3 aDValDomains ll2 as as'
+    in dDnotShared (mergeADShare l3 l) u u'
   rfromS = sToR
    where
     sToR :: forall r sh. (GoodScalar r, Sh.Shape sh)
@@ -230,7 +240,8 @@ instance ( Dual shaped ~ DeltaS shaped
          , shaped ~ ShapedOf (RankedOf shaped)
          , RankedOf (RankedOf shaped) ~ (RankedOf shaped)
          , CRankedIPSh shaped IsPrimal
-         , RankedTensor (RankedOf shaped), ShapedTensor shaped )
+         , RankedTensor (RankedOf shaped), ShapedTensor shaped
+         , DomainsTensor (RankedOf shaped) shaped )
          => ShapedTensor (ADVal shaped) where
   slet (D l u u') f =
     let !(!l2, var2) = recordSharingPrimal u l
@@ -306,7 +317,16 @@ instance ( Dual shaped ~ DeltaS shaped
     let v = sfromIntegral u
     in dDnotShared l v (dZeroOfShape v)
   sconst t = constantADVal (sconst t)
-  sletDomainsIn _ = (&)
+  sletDomainsIn od asD f =
+    let !(!ll2, asUnshared, as') = V.unzip3 $ V.map unADValDomains asD
+        !(!l3, as) =
+          drecordSharingPrimal @(RankedOf shaped) @shaped
+                               od (dmkDomains asUnshared) emptyADShare
+            -- This could be done with recordSharingPrimal, but the code
+            -- would be more complex and more ADShare nodes generated.
+            -- OTOH, f would be free to assume there are no dangling variables.
+        !(D l u u') = f $ V.zipWith3 aDValDomains ll2 as as'
+    in dDnotShared (mergeADShare l3 l) u u'
   sfromR = rToS
    where
     rToS :: forall r sh. (GoodScalar r, Sh.Shape sh, KnownNat (Sh.Rank sh))
@@ -338,7 +358,15 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
          => DomainsTensor (ADVal ranked) (ADVal shaped) where
   dmkDomains = id
   dunDomains _ = id
-  dletDomainsInDomains _ = (&)
+  dletDomainsInDomains od asD f =
+    let !(!ll2, asUnshared, as') = V.unzip3 $ V.map unADValDomains asD
+        !(!l3, as) =
+          drecordSharingPrimal od (dmkDomains asUnshared) emptyADShare
+        aDValDomains3 l a a' = aDValDomains (mergeADShare l3 l) a a'
+        doms = V.zipWith3 aDValDomains3 ll2 as as'
+            -- This could be done with recordSharingPrimal,
+            -- but more ADShare nodes would generated.
+    in f doms
   rletInDomains (D l u u') f =
     let !(!l2, var2) = recordSharingPrimal u l
     in f (D l2 var2 u')
@@ -482,6 +510,9 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
               drecordSharingPrimal @ranked (replicate1Domains (Proxy @k) domsOD)
                                    (dmkDomains asUnshared)
                                    (flattenADShare $ l1 : V.toList ll2)
+              -- This could be done with many calls to recordSharingPrimal,
+              -- but more ADShare nodes would generated. This reduces
+              -- to normal lets as soon as rewriting is started, anyway.
             p :: ranked rn (1 + n)
             p = rscanZip f domsOD x0 as
             (l4, pShared) = recordSharingPrimal p l3
@@ -950,6 +981,26 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         (l4, pShared) = recordSharingPrimal p l3
     in D l4 pShared
             (ScanZipS domsOD pShared as df rf x0' as')
+
+aDValDomains :: ADShare -> DynamicTensor f -> DynamicTensor (Dual f)
+             -> DynamicTensor (ADVal f)
+aDValDomains l (DynamicRanked @r1 @n1 t) (DynamicRanked @r2 @n2 t')
+  | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
+  , Just Refl <- sameNat (Proxy @n1) (Proxy @n2) =
+    DynamicRanked (D l t t')
+aDValDomains l (DynamicShaped @r1 @sh1 t) (DynamicShaped @r2 @sh2 t')
+  | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
+  , Just Refl <- sameShape @sh1 @sh2 =
+    DynamicShaped (D l t t')
+aDValDomains l (DynamicRankedDummy p1 p2) _ = assert (nullADShare l) $
+    DynamicRankedDummy p1 p2
+aDValDomains l _ (DynamicRankedDummy p1 p2) = assert (nullADShare l) $
+    DynamicRankedDummy p1 p2
+aDValDomains l (DynamicShapedDummy p1 p2) _ = assert (nullADShare l) $
+    DynamicShapedDummy p1 p2
+aDValDomains l _ (DynamicShapedDummy p1 p2) = assert (nullADShare l) $
+    DynamicShapedDummy p1 p2
+aDValDomains _ _ _ = error "aDValDomains: wrong arguments"
 
 unADValDomains :: DynamicTensor (ADVal f)
                -> (ADShare, DynamicTensor f, DynamicTensor (Dual f))
