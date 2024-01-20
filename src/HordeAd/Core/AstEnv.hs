@@ -93,7 +93,7 @@ extendEnvD vd@(AstDynamicVarName @ty @r @sh varId, d) !env = case d of
     , Just Refl <- sameShape @sh3 @sh
     , Just Refl <- testEquality (typeRep @r) (typeRep @r3) ->
       withListShape (Sh.shapeT @sh) $ \sh4 ->
-      extendEnvR @ranked @shaped @r (AstVarName varId) (rzero sh4) env
+        extendEnvR @ranked @shaped @r (AstVarName varId) (rzero sh4) env
   DynamicShapedDummy @r3 @sh3 _ _
     | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat])
     , Just Refl <- sameShape @sh3 @sh

@@ -1385,6 +1385,11 @@ mapShaped11kk f (DynamicShaped @r t) = case sshape t of
   (:$:) @n _ _ -> case sameNat (Proxy @n) (Proxy @k) of
     Just Refl -> DynamicShaped $ f t
     Nothing -> error "mapShaped11kk: wrong width"
+mapShaped11kk f (DynamicShapedDummy @r @sh _ _) = case ShapedList.shapeSh @sh of
+  ZSH -> error "mapShaped11kk: rank 0"
+  (:$:) @n @shr _ _ -> case sameNat (Proxy @n) (Proxy @k) of
+    Just Refl -> DynamicShaped @r @(k1 ': shr) $ f 0
+    Nothing -> error "mapShaped11kk: wrong width"
 mapShaped11kk _ _ = error "mapShaped11kk: not DynamicShaped"
 
 index1Domains :: ( RankedTensor ranked, ShapedTensor (ShapedOf ranked)

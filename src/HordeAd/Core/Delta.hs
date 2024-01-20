@@ -1266,6 +1266,12 @@ buildFinMaps s0 deltaDt =
                           kk :$ shm -> assert (kk == k) $
                             let padding = rzero (width - k :$ shm)
                             in DynamicRanked $ rappend t padding
+                        padRanked (DynamicRankedDummy @r2 @sh2 _ _) =
+                          case Sh.shapeT @sh2 of
+                            [] -> error "padRanked: wrong shape"
+                            kk : shm -> assert (kk == k) $
+                              Sh.withShapeP (width : shm) $ \(Proxy @kshm) ->
+                                DynamicRankedDummy @r2 @kshm Proxy Proxy
                         padRanked _ = error "padRanked: not DynamicRanked"
                     in (sg3, V.map padRanked cas)
                   (s3, g2s) = mapAccumR g2 s2 [1 .. width]

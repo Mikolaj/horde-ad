@@ -590,7 +590,7 @@ testConcatBuild3PP2 = do
   let (artifactRev, _) =
         revArtifactAdapt True t (Flip $ OR.fromList [3] [0.651,0.14,0.3414])
   printGradient6Simple renames artifactRev
-    @?= "\\dret v2 -> dmkDomains (fromList [DynamicRanked 0])"
+    @?= "\\dret v2 -> dmkDomains (fromList [DynamicRankedDummy])"
   printPrimal6Simple renames artifactRev
     @?= "\\v2 -> rfromIntegral (rgather [5,2] (rfromList [rreplicate 5 (rconst (fromList [2] [0,1])), quot (rtranspose [1,0] (rreplicate 2 (rconst (fromList [5] [0,1,2,3,4])))) (rreplicate 5 (rconst (fromList [2] [0,1]) + rreplicate 2 (rconst 1)))]) (\\[i7, i8] -> [ifF (i8 >=. quot i7 (1 + i8)) 0 1, i7, i8]))"
   printPrimal6Simple renames (simplifyArtifactRev artifactRev)

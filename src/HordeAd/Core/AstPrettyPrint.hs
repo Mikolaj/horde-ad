@@ -594,8 +594,8 @@ printAstDynamic :: AstSpan s
 printAstDynamic cfg d = \case
   DynamicRanked v -> printPrefixOp printAst cfg d "DynamicRanked" [v]
   DynamicShaped v -> printPrefixOp printAstS cfg d "DynamicShaped" [v]
-  DynamicRankedDummy{} -> showString "DynamicRanked 0"
-  DynamicShapedDummy{} -> showString "DynamicShaped 0"
+  DynamicRankedDummy{} -> showString "DynamicRankedDummy"
+  DynamicShapedDummy{} -> showString "DynamicShapedDummy"
 
 printAstUnDynamic :: AstSpan s
                   => PrintConfig -> Int -> AstDynamic s -> ShowS
