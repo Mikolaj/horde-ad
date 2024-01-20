@@ -24,7 +24,7 @@ module HordeAd.Core.TensorClass
   , mapDomainsRanked, mapDomainsRanked01, mapDomainsRanked10, mapDomainsRanked11
   , mapDomainsShaped11, mapDomainsShaped11kk
   , mapRanked, mapRanked01, mapRanked10, mapRanked11
-  , index1Domains
+  , index1Domains, replicate1Domains
   ) where
 
 import Prelude
@@ -1412,6 +1412,24 @@ index1Dynamic u i = case u of
   DynamicShapedDummy @r @sh _ _ -> case ShapedList.shapeSh @sh of
     ZSH -> error "index1Dynamic: rank 0"
     (:$:) @_ @sh2 _ _ -> DynamicShaped @r @sh2 0
+
+replicate1Domains :: forall k ranked.
+                     ( KnownNat k
+                     , RankedTensor ranked, ShapedTensor (ShapedOf ranked) )
+                  => Proxy k -> Domains ranked -> Domains ranked
+replicate1Domains i u = V.map (replicate1Dynamic i) u
+
+replicate1Dynamic :: forall k ranked.
+                     ( KnownNat k
+                     , RankedTensor ranked, ShapedTensor (ShapedOf ranked) )
+                  => Proxy k -> DynamicTensor ranked -> DynamicTensor ranked
+replicate1Dynamic _i u = case u of
+  DynamicRanked t -> DynamicRanked $ rreplicate (valueOf @k) t
+  DynamicShaped t -> DynamicShaped $ sreplicate @_ @k t
+  DynamicRankedDummy @r @sh _ _ ->
+      withListShape (Sh.shapeT @(k ': sh)) $ \(sh1 :: ShapeInt n1) ->
+        DynamicRanked @r @n1 $ rzero sh1
+  DynamicShapedDummy @r @sh _ _ -> DynamicShaped @r @(k ': sh) 0
 
 type instance SimpleBoolOf (Flip OR.Array) = Bool
 

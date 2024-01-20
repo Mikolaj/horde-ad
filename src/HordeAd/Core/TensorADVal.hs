@@ -455,7 +455,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
          -> ADVal ranked rn n
   rfoldZip f domsOD (D l1 x0 x0') asD =
     assert (domainsMatch domsOD (index1Domains asD 0)) $
-    let (ll2, as, as') = V.unzip3 $ V.map unADValDomains asD
+    let (ll2, asUnshared, as') = V.unzip3 $ V.map unADValDomains asD
         domsToPair :: forall f. ADReady f => Domains f -> (f rn n, Domains f)
         domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
         g :: Domains (ADVal ranked) -> ADVal ranked rn n
@@ -471,13 +471,23 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
           fst $ crevOnDomains (Just dt)
                               g
                               (V.cons (DynamicRanked x) a)
-        p :: ranked rn (1 + n)
-        p = rscanZip f domsOD x0 as
-        width = rlength p - 1
-        (l3, pShared) =
-          recordSharingPrimal p (flattenADShare $ l1 : V.toList ll2)
-    in D l3 (pShared ! (fromIntegral width :. ZI))
-         (FoldZipRC domsOD pShared as df rf x0' as')
+        width = case V.unsnoc asUnshared of
+          Nothing -> error "sfoldD: can't determine argument width"
+          Just (_, d) -> case shapeDynamic d of
+            [] -> error "sfoldD: wrong rank of argument"
+            w : _shm -> w
+    in case someNatVal $ toInteger width of
+      Just (SomeNat @k _) ->
+        let (l3, as) =
+              drecordSharingPrimal @ranked (replicate1Domains (Proxy @k) domsOD)
+                                   (dmkDomains asUnshared)
+                                   (flattenADShare $ l1 : V.toList ll2)
+            p :: ranked rn (1 + n)
+            p = rscanZip f domsOD x0 as
+            (l4, pShared) = recordSharingPrimal p l3
+        in D l4 (pShared ! (fromIntegral width :. ZI))
+           (FoldZipRC domsOD pShared as df rf x0' as')
+      _ -> error "rfoldZip: impossible someNatVal"
   rfoldZipDer :: forall rn n. (GoodScalar rn, KnownNat n)
             => (forall f. ADReady f => f rn n -> Domains f -> f rn n)
             -> (forall f. ADReady f
@@ -492,14 +502,24 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
             -> ADVal ranked rn n
   rfoldZipDer f df rf domsOD (D l1 x0 x0') asD =
     assert (domainsMatch domsOD (index1Domains asD 0)) $
-    let (ll2, as, as') = V.unzip3 $ V.map unADValDomains asD
-        p :: ranked rn (1 + n)
-        p = rscanZipDer f df rf domsOD x0 as
-        width = rlength p - 1
-        (l3, pShared) =
-          recordSharingPrimal p (flattenADShare $ l1 : V.toList ll2)
-    in D l3 (pShared ! (fromIntegral width :. ZI))
-         (FoldZipR domsOD pShared as df rf x0' as')
+    let (ll2, asUnshared, as') = V.unzip3 $ V.map unADValDomains asD
+        width = case V.unsnoc asUnshared of
+          Nothing -> error "sfoldD: can't determine argument width"
+          Just (_, d) -> case shapeDynamic d of
+            [] -> error "sfoldD: wrong rank of argument"
+            w : _shm -> w
+    in case someNatVal $ toInteger width of
+      Just (SomeNat @k _) ->
+        let (l3, as) =
+              drecordSharingPrimal @ranked (replicate1Domains (Proxy @k) domsOD)
+                                   (dmkDomains asUnshared)
+                                   (flattenADShare $ l1 : V.toList ll2)
+            p :: ranked rn (1 + n)
+            p = rscanZipDer f df rf domsOD x0 as
+            (l4, pShared) = recordSharingPrimal p l3
+        in D l4 (pShared ! (fromIntegral width :. ZI))
+           (FoldZipR domsOD pShared as df rf x0' as')
+      _ -> error "rfoldZipDer: impossible someNatVal"
   rscan :: forall rn rm n m.
            (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)
         => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
@@ -572,7 +592,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
          -> ADVal ranked rn (1 + n)
   rscanZip f domsOD (D l1 x0 x0') asD =
     assert (domainsMatch domsOD (index1Domains asD 0)) $
-    let (ll2, as, as') = V.unzip3 $ V.map unADValDomains asD
+    let (ll2, asUnshared, as') = V.unzip3 $ V.map unADValDomains asD
         domsToPair :: forall f. ADReady f => Domains f -> (f rn n, Domains f)
         domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
         g :: Domains (ADVal ranked) -> ADVal ranked rn n
@@ -588,25 +608,35 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
           fst $ crevOnDomains (Just dt)
                               g
                               (V.cons (DynamicRanked x) a)
-        p :: ranked rn (1 + n)
-        p = rscanZip f domsOD x0 as
-        (l3, pShared) =
-          recordSharingPrimal p (flattenADShare $ l1 : V.toList ll2)
-        width = rlength p - 1
-        scanAsFold =
-          let h (pPrefix, asPrefix, as'Prefix) =
-                FoldZipRC domsOD pPrefix asPrefix df rf x0' as'Prefix
-              initsViaSliceP = map (\k -> rslice @ranked 0 (1 + k) pShared)
-                                   [1 .. width]
-              initsViaSlice =
-                map (\k -> mapDomainsRanked11 (rslice @ranked 0 k) as)
-                    [1 .. width]
-              initsViaSliceD =
-                map (\k -> mapDomainsDeltaR11 (SliceR 0 k) as')
-                    [1 .. width]
-          in FromListR
-             $ x0' : map h (zip3 initsViaSliceP initsViaSlice initsViaSliceD)
-    in D l3 pShared scanAsFold
+        width = case V.unsnoc asUnshared of
+          Nothing -> error "sfoldD: can't determine argument width"
+          Just (_, d) -> case shapeDynamic d of
+            [] -> error "sfoldD: wrong rank of argument"
+            w : _shm -> w
+    in case someNatVal $ toInteger width of
+      Just (SomeNat @k _) ->
+        let (l3, as) =
+              drecordSharingPrimal @ranked (replicate1Domains (Proxy @k) domsOD)
+                                   (dmkDomains asUnshared)
+                                   (flattenADShare $ l1 : V.toList ll2)
+            p :: ranked rn (1 + n)
+            p = rscanZip f domsOD x0 as
+            (l4, pShared) = recordSharingPrimal p l3
+            scanAsFold =
+              let h (pPrefix, asPrefix, as'Prefix) =
+                    FoldZipRC domsOD pPrefix asPrefix df rf x0' as'Prefix
+                  initsViaSliceP = map (\k -> rslice @ranked 0 (1 + k) pShared)
+                                       [1 .. width]
+                  initsViaSlice =
+                    map (\k -> mapDomainsRanked11 (rslice @ranked 0 k) as)
+                        [1 .. width]
+                  initsViaSliceD =
+                    map (\k -> mapDomainsDeltaR11 (SliceR 0 k) as')
+                        [1 .. width]
+              in FromListR
+              $ x0' : map h (zip3 initsViaSliceP initsViaSlice initsViaSliceD)
+        in D l4 pShared scanAsFold
+      _ -> error "rscanZip: impossible someNatVal"
   rscanZipDer :: forall rn n. (GoodScalar rn, KnownNat n)
             => (forall f. ADReady f => f rn n -> Domains f -> f rn n)
             -> (forall f. ADReady f
@@ -621,13 +651,24 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
             -> ADVal ranked rn (1 + n)
   rscanZipDer f df rf domsOD (D l1 x0 x0') asD =
     assert (domainsMatch domsOD (index1Domains asD 0)) $
-    let (ll2, as, as') = V.unzip3 $ V.map unADValDomains asD
-        p :: ranked rn (1 + n)
-        p = rscanZipDer f df rf domsOD x0 as
-        (l3, pShared) =
-          recordSharingPrimal p (flattenADShare $ l1 : V.toList ll2)
-    in D l3 pShared
-         (ScanZipR domsOD pShared as df rf x0' as')
+    let (ll2, asUnshared, as') = V.unzip3 $ V.map unADValDomains asD
+        width = case V.unsnoc asUnshared of
+          Nothing -> error "sfoldD: can't determine argument width"
+          Just (_, d) -> case shapeDynamic d of
+            [] -> error "sfoldD: wrong rank of argument"
+            w : _shm -> w
+    in case someNatVal $ toInteger width of
+      Just (SomeNat @k _) ->
+        let (l3, as) =
+              drecordSharingPrimal @ranked (replicate1Domains (Proxy @k) domsOD)
+                                   (dmkDomains asUnshared)
+                                   (flattenADShare $ l1 : V.toList ll2)
+            p :: ranked rn (1 + n)
+            p = rscanZipDer f df rf domsOD x0 as
+            (l4, pShared) = recordSharingPrimal p l3
+        in D l4 pShared
+           (ScanZipR domsOD pShared as df rf x0' as')
+      _ -> error "rscanZipDer: impossible someNatVal"
   sfold :: forall rn rm sh shm k.
            (GoodScalar rn, GoodScalar rm, Sh.Shape sh, Sh.Shape shm, KnownNat k)
         => (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh)
@@ -688,7 +729,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
          -> ADVal shaped rn sh
   sfoldZip f domsOD (D l1 x0 x0') asD =
     assert (domainsMatch domsOD (index1Domains asD 0)) $
-    let (ll2, as, as') = V.unzip3 $ V.map unADValDomains asD
+    let (ll2, asUnshared, as') = V.unzip3 $ V.map unADValDomains asD
         domsToPair :: forall f. ADReadyS f
                       => Domains (RankedOf f) -> (f rn sh, Domains (RankedOf f))
         domsToPair doms = (sfromD $ doms V.! 0, V.tail doms)
@@ -706,18 +747,21 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
           fst $ crevOnDomains (Just dt)
                               g
                               (V.cons (DynamicShaped x) a)
-        width = case V.unsnoc as of
+        width = case V.unsnoc asUnshared of
           Nothing -> error "sfoldD: can't determine argument width"
           Just (_, d) -> case shapeDynamic d of
             [] -> error "sfoldD: wrong rank of argument"
             w : _shm -> w
     in case someNatVal $ toInteger width of
       Just (SomeNat @k _) ->
-        let p :: shaped rn (1 + k ': sh)
+        let (l3, as) =
+              drecordSharingPrimal @ranked
+                (replicate1Domains (Proxy @k) domsOD)
+                (dmkDomains asUnshared) (flattenADShare $ l1 : V.toList ll2)
+            p :: shaped rn (1 + k ': sh)
             p = sscanZip f domsOD x0 as
-            (l3, pShared) =
-              recordSharingPrimal p (flattenADShare $ l1 : V.toList ll2)
-        in D l3 (pShared !$ (fromIntegral width :$: ZSH))
+            (l4, pShared) = recordSharingPrimal p l3
+        in D l4 (pShared !$ (fromIntegral width :$: ZSH))
                 (FoldZipSC domsOD pShared as df rf x0' as')
       _ -> error "sfoldD: impossible someNatVal"
   sfoldZipDer :: forall rn sh. (GoodScalar rn, Sh.Shape sh)
@@ -736,19 +780,22 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
             -> ADVal shaped rn sh
   sfoldZipDer f df rf domsOD (D l1 x0 x0') asD =
     assert (domainsMatch domsOD (index1Domains asD 0)) $
-    let (ll2, as, as') = V.unzip3 $ V.map unADValDomains asD
-        width = case V.unsnoc as of
+    let (ll2, asUnshared, as') = V.unzip3 $ V.map unADValDomains asD
+        width = case V.unsnoc asUnshared of
           Nothing -> error "sfoldZipDer: can't determine argument width"
           Just (_, d) -> case shapeDynamic d of
             [] -> error "sfoldZipDer: wrong rank of argument"
             w : _shm -> w
     in case someNatVal $ toInteger width of
       Just (SomeNat @k _) ->
-        let p :: shaped rn (1 + k ': sh)
+        let (l3, as) =
+              drecordSharingPrimal @ranked
+                (replicate1Domains (Proxy @k) domsOD)
+                (dmkDomains asUnshared) (flattenADShare $ l1 : V.toList ll2)
+            p :: shaped rn (1 + k ': sh)
             p = sscanZip f domsOD x0 as
-            (l3, pShared) =
-              recordSharingPrimal p (flattenADShare $ l1 : V.toList ll2)
-        in D l3 (pShared !$ (fromIntegral width :$: ZSH))
+            (l4, pShared) = recordSharingPrimal p l3
+        in D l4 (pShared !$ (fromIntegral width :$: ZSH))
                 (FoldZipS domsOD pShared as df rf x0' as')
       _ -> error "sfoldZipDer: impossible someNatVal"
   sscan :: forall rn rm sh shm k.
@@ -828,7 +875,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
          -> ADVal shaped rn (1 + k ': sh)
   sscanZip f domsOD (D l1 x0 x0') asD =
     assert (domainsMatch domsOD (index1Domains asD 0)) $
-    let (ll2, as, as') = V.unzip3 $ V.map unADValDomains asD
+    let (ll2, asUnshared, as') = V.unzip3 $ V.map unADValDomains asD
         domsToPair :: forall f. ADReadyS f
                       => Domains (RankedOf f)
                       -> (f rn sh, Domains (RankedOf f))
@@ -847,10 +894,13 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
           fst $ crevOnDomains (Just dt)
                               g
                               (V.cons (DynamicShaped x) a)
+        (l3, as) =
+          drecordSharingPrimal @ranked (replicate1Domains (Proxy @k) domsOD)
+                               (dmkDomains asUnshared)
+                               (flattenADShare $ l1 : V.toList ll2)
         p :: shaped rn (1 + k ': sh)
         p = sscanZip f domsOD x0 as
-        (l3, pShared) =
-          recordSharingPrimal p (flattenADShare $ l1 : V.toList ll2)
+        (l4, pShared) = recordSharingPrimal p l3
         width = slength p - 1
         scanAsFold =
           let h :: KnownNat k2
@@ -873,7 +923,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
                 Nothing -> error "sscanD: impossible someNatVal error"
           in FromListS
              $ x0' : map initsViaSlice [1 .. width]
-    in D l3 pShared scanAsFold
+    in D l4 pShared scanAsFold
   sscanZipDer :: forall rn sh k. (GoodScalar rn, Sh.Shape sh, KnownNat k)
             => (forall f. ADReadyS f
                 => f rn sh -> Domains (RankedOf f) -> f rn sh)
@@ -890,12 +940,15 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
             -> ADVal shaped rn (1 + k ': sh)
   sscanZipDer f df rf domsOD (D l1 x0 x0') asD =
     assert (domainsMatch domsOD (index1Domains asD 0)) $
-    let (ll2, as, as') = V.unzip3 $ V.map unADValDomains asD
+    let (ll2, asUnshared, as') = V.unzip3 $ V.map unADValDomains asD
+        (l3, as) =
+          drecordSharingPrimal @ranked (replicate1Domains (Proxy @k) domsOD)
+                               (dmkDomains asUnshared)
+                               (flattenADShare $ l1 : V.toList ll2)
         p :: shaped rn (1 + k ': sh)
         p = sscanZipDer f df rf domsOD x0 as
-        (l3, pShared) =
-          recordSharingPrimal p (flattenADShare $ l1 : V.toList ll2)
-    in D l3 pShared
+        (l4, pShared) = recordSharingPrimal p l3
+    in D l4 pShared
             (ScanZipS domsOD pShared as df rf x0' as')
 
 unADValDomains :: DynamicTensor (ADVal f)
