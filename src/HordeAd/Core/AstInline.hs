@@ -643,12 +643,15 @@ unletAst env t = case t of
   Ast.AstCast v -> Ast.AstCast (unletAst env v)
   Ast.AstFromIntegral v -> Ast.AstFromIntegral (unletAst env v)
   Ast.AstConst{} -> t
-  Ast.AstLetDomainsIn vars l v ->
-    -- We don't unlet, but elsewhere try to reduce to constructors that we do.
-    let env2 = env {unletSet = unletSet env
-                               `ES.union`
-                               ES.fromList (map dynamicVarNameToAstVarId vars)}
-    in Ast.AstLetDomainsIn vars (unletAstDomains env l) (unletAst env2 v)
+  Ast.AstLetDomainsIn vars l v -> case vars of
+    [] -> error "unletAst: empty domains"
+    var : _ ->  -- vars are fresh, so var uniquely represent vars
+      let vv = dynamicVarNameToAstVarId var
+      in if vv `ES.member` unletSet env
+         then unletAst env v
+         else let env2 = env {unletSet = ES.insert vv (unletSet env)}
+              in Ast.AstLetDomainsIn
+                   vars (unletAstDomains env l) (unletAst env2 v)
   Ast.AstSToR v -> Ast.AstSToR (unletAstS env v)
   Ast.AstConstant v -> Ast.AstConstant (unletAst env v)
   Ast.AstPrimalPart v -> Ast.AstPrimalPart (unletAst env v)
@@ -725,13 +728,15 @@ unletAstDomains
   :: AstSpan s => UnletEnv -> AstDomains s -> AstDomains s
 unletAstDomains env = \case
   Ast.AstDomains l -> Ast.AstDomains $ V.map (unletAstDynamic env) l
-  Ast.AstLetDomainsInDomains vars u v ->
-    -- We don't unlet, but elsewhere try to reduce to constructors that we do.
-    let env2 = env {unletSet = unletSet env
-                               `ES.union`
-                               ES.fromList (map dynamicVarNameToAstVarId vars)}
-    in Ast.AstLetDomainsInDomains
-         vars (unletAstDomains env u) (unletAstDomains env2 v)
+  Ast.AstLetDomainsInDomains vars u v -> case vars of
+    [] -> error "unletAstDomains: empty domains"
+    var : _ ->  -- vars are fresh, so var uniquely represent vars
+      let vv = dynamicVarNameToAstVarId var
+      in if vv `ES.member` unletSet env
+         then unletAstDomains env v
+         else let env2 = env {unletSet = ES.insert vv (unletSet env)}
+              in Ast.AstLetDomainsInDomains
+                   vars (unletAstDomains env u) (unletAstDomains env2 v)
   Ast.AstLetInDomains var u v ->
     let vv = varNameToAstVarId var
     in if vv `ES.member` unletSet env
@@ -833,12 +838,15 @@ unletAstS env t = case t of
   Ast.AstCastS v -> Ast.AstCastS (unletAstS env v)
   Ast.AstFromIntegralS v -> Ast.AstFromIntegralS (unletAstS env v)
   Ast.AstConstS{} -> t
-  Ast.AstLetDomainsInS vars l v ->
-    -- We don't unlet, but elsewhere try to reduce to constructors that we do.
-    let env2 = env {unletSet = unletSet env
-                               `ES.union`
-                               ES.fromList (map dynamicVarNameToAstVarId vars)}
-    in Ast.AstLetDomainsInS vars (unletAstDomains env l) (unletAstS env2 v)
+  Ast.AstLetDomainsInS vars l v -> case vars of
+    [] -> error "unletAstS: empty domains"
+    var : _ ->  -- vars are fresh, so var uniquely represent vars
+      let vv = dynamicVarNameToAstVarId var
+      in if vv `ES.member` unletSet env
+         then unletAstS env v
+         else let env2 = env {unletSet = ES.insert vv (unletSet env)}
+              in Ast.AstLetDomainsInS
+                   vars (unletAstDomains env l) (unletAstS env2 v)
   Ast.AstRToS v -> Ast.AstRToS (unletAst env v)
   Ast.AstConstantS v -> Ast.AstConstantS (unletAstS env v)
   Ast.AstPrimalPartS v -> Ast.AstPrimalPartS (unletAstS env v)
