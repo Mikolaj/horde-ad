@@ -1035,6 +1035,8 @@ buildFinMaps s0 deltaDt =
                                    rletDomainsIn domsF (rf cr x a) $ \rfRes ->
                                      snd $ domsToPair rfRes)
                 cas = rg (rslice 1 width crsShared) (rslice 0 width p) as
+                  -- @rslice 0 width p@ is very cheap and @p@ (and @as@)
+                  -- is shared in TensorADVal, so not need to share them
                 s2 = evalR sShared2 (crsShared ! (0 :. ZI)) x0'
             in evalR s2 cas as'
           ZS -> error "evalR: impossible pattern needlessly required"
