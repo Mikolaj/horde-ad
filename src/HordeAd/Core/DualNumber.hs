@@ -184,7 +184,7 @@ type instance RankedOf (ADVal f) = ADVal (RankedOf f)
 
 type instance ShapedOf (ADVal f) = ADVal (ShapedOf f)
 
-type instance DomainsOf (ADVal f) = Domains (ADVal (RankedOf f))
+type instance DomainsOf (ADVal f) = Domains (ADVal f)
 
 type instance PrimalOf (ADVal f) = f
 
