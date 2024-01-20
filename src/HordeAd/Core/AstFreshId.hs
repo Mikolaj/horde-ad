@@ -90,7 +90,7 @@ astRegisterADShare :: (GoodScalar r, KnownNat n)
 astRegisterADShare !r !l | astIsSmall True r = (l, r)
 astRegisterADShare r l = unsafePerformIO $ do
   freshId <- unsafeGetFreshAstVarId
-  let !l2 = insertADShare freshId (DynamicRanked r) l
+  let !l2 = insertADShare freshId (AstBindingsSimple $ DynamicRanked r) l
       !r2 = AstVar (shapeAst r) $ AstVarName freshId
   return (l2, r2)
 
@@ -101,7 +101,7 @@ astRegisterADShareS :: (GoodScalar r, Sh.Shape sh)
 astRegisterADShareS !r !l | astIsSmallS True r = (l, r)
 astRegisterADShareS r l = unsafePerformIO $ do
   freshId <- unsafeGetFreshAstVarId
-  let !l2 = insertADShare freshId (DynamicShaped r) l
+  let !l2 = insertADShare freshId (AstBindingsSimple $ DynamicShaped r) l
       !r2 = AstVarS $ AstVarName freshId
   return (l2, r2)
 

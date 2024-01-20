@@ -345,7 +345,8 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
   sletInDomains (D l u u') f =
     let !(!l2, var2) = recordSharingPrimal u l
     in f (D l2 var2 u')
-  dregister _ r l = (l, r)
+  drecordSharingPrimal _ d l = (l, d)
+  dregister _ d l = (l, d)
   dbuild1 k f = ravelDomains $ map (f . fromIntegral) [0 .. k - 1]
   rrev :: (GoodScalar r, KnownNat n)
        => (forall f. ADReady f => Domains f -> f r n)
@@ -917,7 +918,8 @@ instance DomainsTensor (Flip OR.Array) (Flip OS.Array) where
   dletDomainsInDomains _ = (&)
   rletInDomains = (&)
   sletInDomains = (&)
-  dregister _ r l = (l, r)
+  drecordSharingPrimal _ d l = (l, d)
+  dregister _ d l = (l, d)
   dbuild1 k f = ravelDomains $ map (f . fromIntegral) [0 .. k - 1]
   rrev :: (GoodScalar r, KnownNat n)
        => (forall f. ADReady f => Domains f -> f r n)

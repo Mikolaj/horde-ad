@@ -599,6 +599,15 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
   dletDomainsInDomains = astLetDomainsInDomainsFun
   rletInDomains = astLetInDomainsFun
   sletInDomains = astLetInDomainsFunS
+  drecordSharingPrimal domsOD r l | Just Refl <- sameAstSpan @s @PrimalSpan =
+    fun1DToAst domsOD $ \vars asts -> case vars of
+      [] -> error "drecordSharingPrimal: empty domains"
+      var : _ ->  -- vars are fresh, so var uniquely represent vars
+        ( insertADShare (dynamicVarNameToAstVarId var)
+                        (AstBindingsDomains vars r)
+                        l
+        , asts )
+  drecordSharingPrimal _ _ _ = error "drecordSharingPrimal: wrong span"
   dregister domsOD r l =
     fun1DToAst domsOD $ \vars asts -> case vars of
       [] -> error "dregister: empty domains"
@@ -1295,6 +1304,7 @@ instance AstSpan s => DomainsTensor (AstNoVectorize s) (AstNoVectorizeS s) where
     rletInDomains @(AstRanked s) (unAstNoVectorize u) (f . AstNoVectorize)
   sletInDomains u f =
     sletInDomains @(AstRanked s) (unAstNoVectorizeS u) (f . AstNoVectorizeS)
+  drecordSharingPrimal = error "drecordSharingPrimal for AstNoVectorize"
   dregister = error "dregister for AstNoVectorize"
   dbuild1 k f = AstBuildDomains1 k $ funToAstI f
   rrev f parameters0 domains =
@@ -1519,6 +1529,7 @@ instance AstSpan s => DomainsTensor (AstNoSimplify s) (AstNoSimplifyS s) where
     rletInDomains @(AstRanked s) (unAstNoSimplify u) (f . AstNoSimplify)
   sletInDomains u f =
     sletInDomains @(AstRanked s) (unAstNoSimplifyS u) (f . AstNoSimplifyS)
+  drecordSharingPrimal = error "drecordSharingPrimal for AstNoVectorize"
   dregister = error "dregister for AstNoSimplify"
   dbuild1 = astBuildDomains1Vectorize
   rrev f parameters0 domains =

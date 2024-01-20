@@ -303,7 +303,7 @@ emptyADShare :: ADShareD d
 emptyADShare = ADShareNil
 
 insertADShare :: forall d.
-                 AstVarId -> DynamicTensor d -> ADShareD d -> ADShareD d
+                 AstVarId -> AstBindingsCase d -> ADShareD d -> ADShareD d
 insertADShare !key !t !s =
   -- The Maybe over-engineering ensures that we never refresh an id
   -- unnecessarily. In theory, when merging alternating equal lists
@@ -312,7 +312,7 @@ insertADShare !key !t !s =
   -- so this causes a couple percent overhead instead.
   let insertAD :: ADShareD d -> Maybe (ADShareD d)
       insertAD ADShareNil =
-        Just $ ADShareCons (- fromEnum key) key (AstBindingsSimple t) ADShareNil
+        Just $ ADShareCons (- fromEnum key) key t ADShareNil
       insertAD l2@(ADShareCons _id2 key2 t2 rest2) =
         case compare key key2 of
           EQ -> Nothing
@@ -321,7 +321,7 @@ insertADShare !key !t !s =
           LT -> case insertAD rest2 of
             Nothing -> Nothing
             Just l3 -> Just $ freshInsertADShare key2 t2 l3
-          GT -> Just $ freshInsertADShare key (AstBindingsSimple t) l2
+          GT -> Just $ freshInsertADShare key t l2
   in fromMaybe s (insertAD s)
 
 freshInsertADShare :: AstVarId -> AstBindingsCase d -> ADShareD d -> ADShareD d

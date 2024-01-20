@@ -789,6 +789,8 @@ class DomainsTensor (ranked :: RankedTensorType)
                 => shaped r sh
                 -> (shaped r sh -> DomainsOf ranked)
                 -> DomainsOf ranked
+  drecordSharingPrimal :: DomainsOD -> DomainsOf ranked -> ADShare
+                       -> (ADShare, Domains ranked)
   dregister :: DomainsOD -> DomainsOf ranked -> AstBindingsD ranked
             -> (AstBindingsD ranked, Domains ranked)
   dbuild1 :: Int  -- k
