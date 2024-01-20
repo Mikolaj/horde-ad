@@ -263,10 +263,11 @@ dynamicVarNameToAstVarId (AstDynamicVarName varId) = varId
 
 type role AstBindingsCase nominal
 data AstBindingsCase ranked =
-    AstBindingsSimple AstVarId (DynamicTensor ranked)
+    AstBindingsSimple (DynamicTensor ranked)
   | AstBindingsDomains [AstDynamicVarName] (DomainsOf ranked)
 
-type AstBindingsD (ranked :: RankedTensorType) = [AstBindingsCase ranked]
+type AstBindingsD (ranked :: RankedTensorType) =
+  [(AstVarId, AstBindingsCase ranked)]
 
 unsafeGlobalCounter :: Counter
 {-# NOINLINE unsafeGlobalCounter #-}
@@ -366,7 +367,7 @@ subtractADShare !s1 !s2 =
         else case compare key1 key2 of
           EQ -> subAD rest1 rest2
           LT -> subAD l1 rest2
-          GT -> AstBindingsSimple key1 t1 : subAD rest1 l2
+          GT -> (key1, AstBindingsSimple t1) : subAD rest1 l2
   in subAD s1 s2
 
 -- TODO: rename to concat? make it a monoid?
@@ -377,7 +378,7 @@ assocsADShare :: ADShareD d -> AstBindingsD d
 {-# INLINE assocsADShare #-}  -- help list fusion
 assocsADShare ADShareNil = []
 assocsADShare (ADShareCons _ key t rest) =
-  AstBindingsSimple key t : assocsADShare rest
+  (key, AstBindingsSimple t) : assocsADShare rest
 
 _lengthADShare :: Int -> ADShareD d -> Int
 _lengthADShare acc ADShareNil = acc

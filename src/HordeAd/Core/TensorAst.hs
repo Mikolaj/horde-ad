@@ -600,7 +600,10 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
   rletInDomains = astLetInDomainsFun
   sletInDomains = astLetInDomainsFunS
   dregister domsOD r l =
-    fun1DToAst domsOD $ \vars asts -> (AstBindingsDomains vars r : l, asts)
+    fun1DToAst domsOD $ \vars asts -> case vars of
+      [] -> error "dregister: empty domains"
+      var : _ ->  -- vars are fresh, so var uniquely represent vars
+        ((dynamicVarNameToAstVarId var, AstBindingsDomains vars r) : l, asts)
   dbuild1 = astBuildDomains1Vectorize
   rrev :: (GoodScalar r, KnownNat n)
        => (forall f. ADReady f => Domains f -> f r n)
