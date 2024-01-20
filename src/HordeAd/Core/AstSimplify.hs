@@ -375,6 +375,12 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
                    (singletonIndex i1)
   Ast.AstReplicate _k v ->
     astIndex v rest1
+  Ast.AstAppend u v | AstConst it <- i1 ->
+    let i = fromIntegral $ OR.unScalar it
+        len = lengthAst u
+    in if len > i
+       then astIndex u ix
+       else astIndex v (simplifyAst (i1 - fromIntegral len) :. rest1)
   Ast.AstAppend{} ->  -- normal form
     {- We can't do the following, because we can get, e.g., division
        by zero in the index in the counterfactual branch and sometimes
@@ -556,6 +562,13 @@ astIndexSOrStepOnly stepOnly v0 ix@((:$:) @in1 i1 (rest1 :: AstIndexS shm1)) =
                     (ShapedList.singletonShaped i1)
   Ast.AstReplicateS v ->
     astIndex v rest1
+  Ast.AstAppendS @n3 @m3 u v | AstConst it <- i1 ->
+    let i = fromIntegral $ OR.unScalar it
+        len = valueOf @m3
+    in if len > i
+       then astIndex @(m3 ': shm1) u (i1 :$: rest1)
+       else astIndex @(n3 ': shm1)
+                     v (simplifyAst (i1 - fromIntegral len) :$: rest1)
   Ast.AstAppendS{} ->  -- normal form
     {- We can't do the following, because we can get, e.g., division
        by zero in the index in the counterfactual branch and sometimes
@@ -862,6 +875,13 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
           i5 = subst i4
      in astGather sh4 (astFromVector $ V.map f l) (varsFresh, i5 :. ixFresh)
     Ast.AstReplicate _k v -> astGather sh4 v (vars4, rest4)
+    Ast.AstAppend u v | AstConst it <- i4 ->
+      let i = fromIntegral $ OR.unScalar it
+          len = lengthAst u
+      in if len > i
+         then astGather sh4 u (vars4, ix4)
+         else astGather sh4 v
+                        (vars4, simplifyAst (i4 - fromIntegral len) :. rest4)
     Ast.AstAppend{} ->  -- normal form
       {- This is wrong, see astIndexROrStepOnly:
          We can't express append as gather, because AstFromList needs
