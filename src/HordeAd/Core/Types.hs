@@ -265,6 +265,9 @@ type role AstBindingsCase nominal
 data AstBindingsCase ranked =
     AstBindingsSimple (DynamicTensor ranked)
   | AstBindingsDomains [AstDynamicVarName] (DomainsOf ranked)
+deriving instance ( Show (DomainsOf ranked)
+                  , CRanked ranked Show, CShaped (ShapedOf ranked) Show )
+                  => Show (AstBindingsCase ranked)
 
 type AstBindingsD (ranked :: RankedTensorType) =
   [(AstVarId, AstBindingsCase ranked)]
@@ -291,8 +294,9 @@ type role ADShareD nominal
 type ADShareD :: RankedTensorType -> Type
 data ADShareD ranked =
     ADShareNil
-  | ADShareCons Int AstVarId (DynamicTensor ranked) (ADShareD ranked)
-deriving instance (CRanked ranked Show, CShaped (ShapedOf ranked) Show)
+  | ADShareCons Int AstVarId (AstBindingsCase ranked) (ADShareD ranked)
+deriving instance ( Show (DomainsOf ranked)
+                  , CRanked ranked Show, CShaped (ShapedOf ranked) Show )
                   => Show (ADShareD ranked)
 
 emptyADShare :: ADShareD d
@@ -307,7 +311,8 @@ insertADShare !key !t !s =
   -- but we apparently don't have such tests or they are too small,
   -- so this causes a couple percent overhead instead.
   let insertAD :: ADShareD d -> Maybe (ADShareD d)
-      insertAD ADShareNil = Just $ ADShareCons (- fromEnum key) key t ADShareNil
+      insertAD ADShareNil =
+        Just $ ADShareCons (- fromEnum key) key (AstBindingsSimple t) ADShareNil
       insertAD l2@(ADShareCons _id2 key2 t2 rest2) =
         case compare key key2 of
           EQ -> Nothing
@@ -316,10 +321,10 @@ insertADShare !key !t !s =
           LT -> case insertAD rest2 of
             Nothing -> Nothing
             Just l3 -> Just $ freshInsertADShare key2 t2 l3
-          GT -> Just $ freshInsertADShare key t l2
+          GT -> Just $ freshInsertADShare key (AstBindingsSimple t) l2
   in fromMaybe s (insertAD s)
 
-freshInsertADShare :: AstVarId -> DynamicTensor d -> ADShareD d -> ADShareD d
+freshInsertADShare :: AstVarId -> AstBindingsCase d -> ADShareD d -> ADShareD d
 {-# NOINLINE freshInsertADShare #-}
 freshInsertADShare !key !t !s = unsafePerformIO $ do
   id0 <- unsafeGetFreshId
@@ -367,7 +372,7 @@ subtractADShare !s1 !s2 =
         else case compare key1 key2 of
           EQ -> subAD rest1 rest2
           LT -> subAD l1 rest2
-          GT -> (key1, AstBindingsSimple t1) : subAD rest1 l2
+          GT -> (key1, t1) : subAD rest1 l2
   in subAD s1 s2
 
 -- TODO: rename to concat? make it a monoid?
@@ -378,20 +383,32 @@ assocsADShare :: ADShareD d -> AstBindingsD d
 {-# INLINE assocsADShare #-}  -- help list fusion
 assocsADShare ADShareNil = []
 assocsADShare (ADShareCons _ key t rest) =
-  (key, AstBindingsSimple t) : assocsADShare rest
+  (key, t) : assocsADShare rest
 
 _lengthADShare :: Int -> ADShareD d -> Int
 _lengthADShare acc ADShareNil = acc
 _lengthADShare acc (ADShareCons _ _ _ rest) = _lengthADShare (acc + 1) rest
 
 varInADShare :: (AstVarId -> DynamicTensor d -> Bool)
+                -> (AstVarId -> DomainsOf d -> Bool)
                 -> AstVarId -> ADShareD d
                 -> Bool
 {-# INLINE varInADShare #-}
-varInADShare _ _ ADShareNil = False
-varInADShare varInAstDynamic var (ADShareCons _ _ d rest) =
-  varInAstDynamic var d || varInADShare varInAstDynamic var rest
+varInADShare _ _ _ ADShareNil = False
+varInADShare varInAstDynamic varInAstDomains var (ADShareCons _ _ d rest) =
+  varInAstBindingsCase varInAstDynamic varInAstDomains var d
+  || varInADShare varInAstDynamic varInAstDomains var rest
     -- TODO: for good Core, probably a local recursive 'go' is needed
+
+varInAstBindingsCase :: (AstVarId -> DynamicTensor d -> Bool)
+                     -> (AstVarId -> DomainsOf d -> Bool)
+                     -> AstVarId -> AstBindingsCase d
+                     -> Bool
+{-# INLINE varInAstBindingsCase #-}
+varInAstBindingsCase varInAstDynamic _varInAstDomains var
+                     (AstBindingsSimple t) = varInAstDynamic var t
+varInAstBindingsCase _varInAstDynamic varInAstDomains var
+                     (AstBindingsDomains _ t) = varInAstDomains var t
 
 nullADShare :: ADShareD d -> Bool
 {-# INLINE nullADShare #-}
