@@ -377,6 +377,14 @@ printAstAux cfg d = \case
       . printAst cfg 11 as
   AstFoldDer (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
                              (varDt2, nvar2, mvar2, doms) x0 as ->
+   if prettifyLosingSharing cfg
+   then
+    showParen (d > 10)
+    $ showString "rfoldDer f df rf "
+      . printAst cfg 11 x0
+      . showString " "
+      . printAst cfg 11 as
+   else
     showParen (d > 10)
     $ showString "rfoldDer "
       . (showParen True
@@ -429,6 +437,14 @@ printAstAux cfg d = \case
       . printDomainsAst cfg as
   AstFoldZipDer (nvar, mvars, v) (varDx, varsDa, varn1, varsm1, ast1)
                                (varDt2, nvar2, mvars2, doms) x0 as ->
+   if prettifyLosingSharing cfg
+   then
+    showParen (d > 10)
+    $ showString "rfoldZipDer f df rf "
+      . printAst cfg 11 x0
+      . showString " "
+      . printDomainsAst cfg as
+   else
     showParen (d > 10)
     $ showString "rfoldZipDer "
       . (showParen True
@@ -484,6 +500,14 @@ printAstAux cfg d = \case
       . printAst cfg 11 as
   AstScanDer (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
                              (varDt2, nvar2, mvar2, doms) x0 as ->
+   if prettifyLosingSharing cfg
+   then
+    showParen (d > 10)
+    $ showString "rscanDer f df rf "
+      . printAst cfg 11 x0
+      . showString " "
+      . printAst cfg 11 as
+   else
     showParen (d > 10)
     $ showString "rscanDer "
       . (showParen True
@@ -536,6 +560,14 @@ printAstAux cfg d = \case
       . printDomainsAst cfg as
   AstScanZipDer (nvar, mvars, v) (varDx, varsDa, varn1, varsm1, ast1)
                                (varDt2, nvar2, mvars2, doms) x0 as ->
+   if prettifyLosingSharing cfg
+   then
+    showParen (d > 10)
+    $ showString "rscanZipDer f df rf "
+      . printAst cfg 11 x0
+      . showString " "
+      . printDomainsAst cfg as
+   else
     showParen (d > 10)
     $ showString "rscanZipDer "
       . (showParen True
@@ -1023,6 +1055,14 @@ printAstS cfg d = \case
       . printAstS cfg 11 as
   AstFoldDerS (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
                               (varDt2, nvar2, mvar2, doms) x0 as ->
+   if prettifyLosingSharing cfg
+   then
+    showParen (d > 10)
+    $ showString "sfoldDer f df rf "
+      . printAstS cfg 11 x0
+      . showString " "
+      . printAstS cfg 11 as
+   else
     showParen (d > 10)
     $ showString "sfoldDer "
       . (showParen True
@@ -1075,6 +1115,14 @@ printAstS cfg d = \case
       . printDomainsAst cfg as
   AstFoldZipDerS (nvar, mvars, v) (varDx, varsDa, varn1, varsm1, ast1)
                                 (varDt2, nvar2, mvars2, doms) x0 as ->
+   if prettifyLosingSharing cfg
+   then
+    showParen (d > 10)
+    $ showString "sfoldZipDer f df rf "
+      . printAstS cfg 11 x0
+      . showString " "
+      . printDomainsAst cfg as
+   else
     showParen (d > 10)
     $ showString "sfoldZipDer "
       . (showParen True
@@ -1130,6 +1178,14 @@ printAstS cfg d = \case
       . printAstS cfg 11 as
   AstScanDerS (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
                               (varDt2, nvar2, mvar2, doms) x0 as ->
+   if prettifyLosingSharing cfg
+   then
+    showParen (d > 10)
+    $ showString "sscanDer f df rf "
+      . printAstS cfg 11 x0
+      . showString " "
+      . printAstS cfg 11 as
+   else
     showParen (d > 10)
     $ showString "sscanDer "
       . (showParen True
@@ -1182,6 +1238,14 @@ printAstS cfg d = \case
       . printDomainsAst cfg as
   AstScanZipDerS (nvar, mvars, v) (varDx, varsDa, varn1, varsm1, ast1)
                                 (varDt2, nvar2, mvars2, doms) x0 as ->
+   if prettifyLosingSharing cfg
+   then
+    showParen (d > 10)
+    $ showString "sscanZipDer f df rf "
+      . printAstS cfg 11 x0
+      . showString " "
+      . printDomainsAst cfg as
+   else
     showParen (d > 10)
     $ showString "sscanZipDer "
       . (showParen True
