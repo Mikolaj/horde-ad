@@ -853,46 +853,44 @@ buildFinMaps s0 deltaDt =
               _ -> case testEquality (typeRep @r) (typeRep @CInt) of
                 Just Refl -> evalR @n @CInt s c
                 _ -> error "an unexpected underlying scalar type"
-      evalRDynamicRanked
+      evalDynamic
         :: EvalState ranked shaped
         -> (DynamicTensor ranked, DynamicTensor (DeltaR ranked))
         -> EvalState ranked shaped
-      evalRDynamicRanked s3 ( DynamicRanked @rp @p t2
-                            , DynamicRanked @rq @q d2 )
+      evalDynamic s3 ( DynamicRanked @rp @p t2
+                     , DynamicRanked @rq @q d2 )
         | Just Refl <- sameNat (Proxy @q) (Proxy @p)
         , Just Refl <- testEquality (typeRep @rp) (typeRep @rq) =
             evalR s3 t2 d2
-      evalRDynamicRanked s3 ( DynamicRankedDummy @rp @shp _ _
-                            , DynamicRanked @rq @q d2 )
+      evalDynamic s3 ( DynamicShaped @rp @shp t2
+                     , DynamicShaped @rq @shq d2 )
+        | Just Refl <- sameShape @shq @shp
+        , Just Refl <- testEquality (typeRep @rp) (typeRep @rq) =
+            evalS s3 t2 d2
+      evalDynamic s3 ( DynamicRankedDummy @rp @shp _ _
+                     , DynamicRanked @rq @q d2 )
         | Just Refl <- matchingRank @shp @q
         , Just Refl <- testEquality (typeRep @rp) (typeRep @rq) =
             withListShape (Sh.shapeT @shp) $ \(sh4 :: ShapeInt n1) ->
               gcastWith (unsafeCoerce Refl :: Sh.Rank shp :~: n1) $
               evalR s3 (rzero sh4) d2
-      evalRDynamicRanked _ _ =
-        error "evalRDynamicRanked: wrong arguments"
-      evalSDynamicShaped
-        :: EvalState ranked shaped
-        -> (DynamicTensor ranked, DynamicTensor (DeltaR ranked))
-        -> EvalState ranked shaped
-      evalSDynamicShaped s3 ( DynamicShaped @rp @shp t2
-                            , DynamicShaped @rq @shq d2 )
-        | Just Refl <- sameShape @shq @shp
-        , Just Refl <- testEquality (typeRep @rp) (typeRep @rq) =
-            evalS s3 t2 d2
-      evalSDynamicShaped s3 ( DynamicShapedDummy @rp @shp _ _
-                            , DynamicShaped @rq @shq d2 )
+      evalDynamic s3 ( DynamicShapedDummy @rp @shp _ _
+                     , DynamicShaped @rq @shq d2 )
         | Just Refl <- sameShape @shq @shp
         , Just Refl <- testEquality (typeRep @rp) (typeRep @rq) =
             evalS s3 0 d2
-      evalSDynamicShaped _ (t, d@(DynamicShaped @rq @shq _)) =
-        error $ "evalSDynamicShaped: wrong arguments"
+      evalDynamic _ (t, d@(DynamicShaped @rq @shq _)) =
+        error $ "evalDynamic: wrong arguments"
                 `showFailure`
                 ( scalarDynamic t, scalarDynamic d
                 , shapeDynamic t, Sh.shapeT @shq
                 , t, d )
-      evalSDynamicShaped _ _ =
-        error "evalSDynamicShaped: very wrong arguments"
+      evalDynamic _ _ = error "evalDynamic: very wrong arguments"
+      evalDomains
+        :: EvalState ranked shaped
+        -> Domains ranked -> Domains (DeltaR ranked)
+        -> EvalState ranked shaped
+      evalDomains s as as' = V.foldl' evalDynamic s $ V.zip as as'
       evalR
         :: forall n r. (KnownNat n, GoodScalar r)
         => EvalState ranked shaped
@@ -1117,7 +1115,7 @@ buildFinMaps s0 deltaDt =
                   (abShared4, cas) =
                     dregister domsG casUnshared (astBindings s3)
                   s4 = s3 {astBindings = abShared4}
-              in V.foldl' evalRDynamicRanked s4 $ V.zip cas as'
+              in evalDomains s4 cas as'
         FoldZipRC @rm @m domsOD p as _df rf x0' as' ->
           -- No sharing attempted, because this constructor is usually used
           -- for non-symbolic derivatives.
@@ -1135,7 +1133,7 @@ buildFinMaps s0 deltaDt =
                               (zip (init $ runravelToList p)
                                    (unravelDomains as))
               s2 = evalR sShared cx0 x0'
-          in V.foldl' evalRDynamicRanked s2 $ V.zip (ravelDomains cas) as'
+          in evalDomains s2 (ravelDomains cas) as'
         ScanR @rm @m @_ @_ @n1 p as _df rf x0' as' -> case rshape as of
           0 :$ _ -> evalR s (c ! (0 :. ZI)) x0'
           width :$ shm ->
@@ -1278,7 +1276,7 @@ buildFinMaps s0 deltaDt =
                   g2sum = V.fromList $ map sumDynamicRanked
                           $ transpose $ map V.toList g2s
                   s4 = evalR s3 g1sum x0'
-              in V.foldl' evalRDynamicRanked s4 $ V.zip g2sum as'
+              in evalDomains s4 g2sum as'
         CastR d -> evalRRuntimeSpecialized s (rcast c) d
 
         SToR (RToS d) -> evalR s c d  -- no information lost, so no checks
@@ -1481,7 +1479,7 @@ buildFinMaps s0 deltaDt =
                   (abShared4, cas) =
                     dregister domsG casUnshared (astBindings s3)
                   s4 = s3 {astBindings = abShared4}
-              in V.foldl' evalSDynamicShaped s4 $ V.zip cas as'
+              in evalDomains s4 cas as'
         FoldZipSC @rm @shm domsOD p as _df rf x0' as' ->
           -- No sharing attempted, because this constructor is usually used
           -- for non-symbolic derivatives.
@@ -1499,7 +1497,7 @@ buildFinMaps s0 deltaDt =
                               (zip (init $ sunravelToList p)
                                    (unravelDomains as))
               s2 = evalS sShared cx0 x0'
-          in V.foldl' evalSDynamicShaped s2 $ V.zip (ravelDomains cas) as'
+          in evalDomains s2 (ravelDomains cas) as'
         ScanS @rm @shm @k3 @sh1 p as _df rf x0' as' ->
           let domsF :: DomainsOD
               domsF = V.fromList [odFromShS @r @sh1, odFromShS @rm @shm]
@@ -1669,7 +1667,7 @@ buildFinMaps s0 deltaDt =
               g2sum = V.fromList $ map sumDynamicShaped
                       $ transpose $ map V.toList g2s
               s4 = evalS s3 g1sum x0'
-          in V.foldl' evalSDynamicShaped s4 $ V.zip g2sum as'
+          in evalDomains s4 g2sum as'
         CastS d -> evalSRuntimeSpecialized s (scast c) d
         RToS (SToR @sh2 d) ->
           case sameShape @sh @sh2 of
@@ -1822,20 +1820,19 @@ buildDerivative dimR deltaDt params = do
   dMap <- newSTRef EM.empty
   nMap <- newSTRef EM.empty
   astBindings <- newSTRef []
-  let evalRDynamicRanked
+  let evalDynamic
         :: DynamicTensor (DeltaR ranked) -> ST s (DynamicTensor ranked)
-      evalRDynamicRanked (DynamicRanked @rq @q d) = do
+      evalDynamic (DynamicRanked @rq @q d) = do
         t <- evalR d
         return $! DynamicRanked t
-      evalRDynamicRanked _ =
-        error "evalRDynamicRanked: unexpected constructor"
-      evalSDynamicShaped
-        :: DynamicTensor (DeltaR ranked) -> ST s (DynamicTensor ranked)
-      evalSDynamicShaped (DynamicShaped @rq @shq d) = do
+      evalDynamic (DynamicShaped @rq @shq d) = do
         t <- evalS d
         return $! DynamicShaped t
-      evalSDynamicShaped _ =
-        error "evalSDynamicShaped: unexpected constructor"
+      evalDynamic _ =
+        error "evalDynamic: unexpected constructor"
+      evalDomains
+        :: Domains (DeltaR ranked) -> ST s (Domains ranked)
+      evalDomains = V.mapM evalDynamic
       evalR
         :: forall n r. (KnownNat n, GoodScalar r)
         => DeltaR ranked r n -> ST s (ranked r n)
@@ -1947,7 +1944,7 @@ buildDerivative dimR deltaDt params = do
               domsLen = V.length domsOD
               shn = shapeDelta x0'
           cx0 <- evalR x0'
-          cas <- V.mapM evalRDynamicRanked as'
+          cas <- evalDomains as'
           let domsF = V.concat [domsOD, V.singleton (odFromSh @r shn), domsOD]
               domsTo3 :: ADReady f
                       => Domains f -> (Domains f, f r n, Domains f)
@@ -1965,7 +1962,7 @@ buildDerivative dimR deltaDt params = do
                                      , as ])
         FoldZipRC _domsOD p as df _rf x0' as' -> do
           cx0 <- evalR x0'
-          cas <- V.mapM evalRDynamicRanked as'
+          cas <- evalDomains as'
           let lcas = unravelDomains cas
               las = unravelDomains as
               lp = runravelToList p
@@ -1999,7 +1996,7 @@ buildDerivative dimR deltaDt params = do
               domsLen = V.length domsOD
               shn = shapeDelta x0'
           cx0 <- evalR x0'
-          cas <- V.mapM evalRDynamicRanked as'
+          cas <- evalDomains as'
           let domsF = V.concat [domsOD, V.singleton (odFromSh @r shn), domsOD]
               domsTo3 :: ADReady f
                       => Domains f -> (Domains f, f r n1, Domains f)
@@ -2127,7 +2124,7 @@ buildDerivative dimR deltaDt params = do
         FoldZipS @k3 domsOD p as df _rf x0' as' -> do
           let domsLen = V.length domsOD
           cx0 <- evalS x0'
-          cas <- V.mapM evalSDynamicShaped as'
+          cas <- evalDomains as'
           let domsF = V.concat [domsOD, V.singleton (odFromShS @r @sh), domsOD]
               domsTo3 :: ADReadyS f
                       => Domains (RankedOf f)
@@ -2147,7 +2144,7 @@ buildDerivative dimR deltaDt params = do
                                      , as ])
         FoldZipSC _domsOD p as df _rf x0' as' -> do
           cx0 <- evalS x0'
-          cas <- V.mapM evalSDynamicShaped as'
+          cas <- evalDomains as'
           let lcas = unravelDomains cas
               las = unravelDomains as
               lp = sunravelToList p
@@ -2176,7 +2173,7 @@ buildDerivative dimR deltaDt params = do
         ScanZipS @sh1 @k3 domsOD p as df _rf x0' as' -> do
           let domsLen = V.length domsOD
           cx0 <- evalS x0'
-          cas <- V.mapM evalSDynamicShaped as'
+          cas <- evalDomains as'
           let domsF = V.concat [domsOD, V.singleton (odFromShS @r @sh1), domsOD]
               domsTo3 :: ADReadyS f
                       => Domains (RankedOf f)
