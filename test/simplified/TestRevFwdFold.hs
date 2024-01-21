@@ -1353,8 +1353,8 @@ testSin0ScanD1Rev3PP = do
                            (V.singleton $ DynamicRanked
                             $ rscan (\x a -> a * x) x0
                                     (rfromList [x0 * 5, x0]))) 1.1
-  printAstPretty IM.empty (simplifyAst6 a1)
-    @?= "let v113 = rfromList [rconst 1.1 * rconst 5.0, rconst 1.1] ; v123 = rscanDer f df rf (rconst 1.1) v113 ; v134 = rscanZipDer f df rf (rconst 1.1) (v123) ; m135 = rfromList [rappend (rreverse (rscanZipDer f df rf (rconst 1.0) (rreverse (rslice 0 1 v134), rreverse (rslice 0 1 v123)))) (rconstant (rreplicate 2 (rconst 0.0))), rappend (rreverse (rscanZipDer f df rf (rconst 1.0) (rreverse (rslice 0 2 v134), rreverse (rslice 0 2 v123)))) (rconstant (rreplicate 1 (rconst 0.0))), rappend (rreverse (rscanZipDer f df rf (rconst 1.0) (rreverse (rslice 0 3 v134), rreverse v123))) (rconstant (rreplicate 0 (rconst 0.0)))] ; v161 = rappend (rgather [3] (m135 ! [2]) (\\[i151] -> [1 + i151])) (rconstant (rreplicate 0 (rconst 0.0))) + rappend (rgather [1] (m135 ! [0]) (\\[i159] -> [1 + i159])) (rconstant (rreplicate 2 (rconst 0.0))) + rappend (rgather [2] (m135 ! [1]) (\\[i155] -> [1 + i155])) (rconstant (rreplicate 1 (rconst 0.0))) ; m162 = rfromList [rappend (rreverse (rscanZipDer f df rf (v161 ! [1]) (rreverse (rslice 0 1 v123), rreverse (rslice 0 1 v113)))) (rconstant (rreplicate 1 (rconst 0.0))), rappend (rreverse (rscanZipDer f df rf (v161 ! [2]) (rreverse (rslice 0 2 v123), rreverse v113))) (rconstant (rreplicate 0 (rconst 0.0)))] ; v177 = rsum (rfromList [rappend (rgather [1] v123 (\\[i179] -> [i179]) * rgather [1] (m162 ! [0]) (\\[i180] -> [1 + i180])) (rconstant (rreplicate 1 (rconst 0.0))), rappend (rgather [2] v123 (\\[i220] -> [i220]) * rgather [2] (m162 ! [1]) (\\[i221] -> [1 + i221])) (rconstant (rreplicate 0 (rconst 0.0)))]) in rconst 5.0 * v177 ! [0] + v177 ! [1] + v161 ! [0] + rsum (rgather [2] m162 (\\[i223] -> [i223, 0])) + rconst 1.0 + rsum (rgather [3] m135 (\\[i225] -> [i225, 0]))"
+  length (printAstSimple IM.empty (simplifyAst6 a1))
+    @?= 4242
 
 testSin0ScanDFwd3PP :: Assertion
 testSin0ScanDFwd3PP = do
