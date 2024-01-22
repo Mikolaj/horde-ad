@@ -1563,14 +1563,12 @@ index1Dynamic u i = case u of
   DynamicShaped t -> case sshape t of
     ZSH -> error "index1Dynamic: rank 0"
     _ :$: _ -> DynamicShaped $ t !$ ShapedList.singletonShaped i
-  DynamicRankedDummy @r @sh _ _ -> case ShapedList.shapeSh @sh of
+  DynamicRankedDummy @r @sh p1 _ -> case ShapedList.shapeSh @sh of
     ZSH -> error "index1Dynamic: rank 0"
-    (:$:) @_ @sh2 _ _ ->
-      withListShape (Sh.shapeT @sh2) $ \(sh1 :: ShapeInt n1) ->
-        DynamicRanked @r @n1 $ rzero sh1
-  DynamicShapedDummy @r @sh _ _ -> case ShapedList.shapeSh @sh of
+    (:$:) @_ @sh2 _ _ -> DynamicRankedDummy @r @sh2 p1 Proxy
+  DynamicShapedDummy @r @sh p1 _ -> case ShapedList.shapeSh @sh of
     ZSH -> error "index1Dynamic: rank 0"
-    (:$:) @_ @sh2 _ _ -> DynamicShaped @r @sh2 0
+    (:$:) @_ @sh2 _ _ -> DynamicRankedDummy @r @sh2 p1 Proxy
 
 replicate1HVector :: forall k ranked.
                      ( KnownNat k
@@ -1585,10 +1583,8 @@ replicate1Dynamic :: forall k ranked.
 replicate1Dynamic _i u = case u of
   DynamicRanked t -> DynamicRanked $ rreplicate (valueOf @k) t
   DynamicShaped t -> DynamicShaped $ sreplicate @_ @k t
-  DynamicRankedDummy @r @sh _ _ ->
-      withListShape (Sh.shapeT @(k ': sh)) $ \(sh1 :: ShapeInt n1) ->
-        DynamicRanked @r @n1 $ rzero sh1
-  DynamicShapedDummy @r @sh _ _ -> DynamicShaped @r @(k ': sh) 0
+  DynamicRankedDummy @r @sh p1 _ -> DynamicRankedDummy @r @(k ': sh) p1 Proxy
+  DynamicShapedDummy @r @sh p1 _ -> DynamicShapedDummy @r @(k ': sh) p1 Proxy
 
 type instance SimpleBoolOf (Flip OR.Array) = Bool
 
