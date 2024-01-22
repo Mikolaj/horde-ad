@@ -32,7 +32,6 @@ import           Data.Functor.Const
 import           Data.Int (Int64)
 import           Data.Maybe (isJust)
 import           Data.Type.Equality (gcastWith, (:~:) (Refl))
-import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, Nat)
 import           Type.Reflection (Typeable)
 import           Unsafe.Coerce (unsafeCoerce)
@@ -254,8 +253,8 @@ crevDtMaybe f vals mdt =
   :: HasSingletonDict y
   => Maybe (Flip OR.Array Double y)
   -> (HVector (ADVal (Flip OR.Array)) -> ADVal (Flip OR.Array) Double y)
-  -> VoidHVector
-  -> (VoidHVector, Flip OR.Array Double y) #-}
+  -> HVector (Flip OR.Array)
+  -> (HVector (Flip OR.Array), Flip OR.Array Double y) #-}
 
 
 -- * Old derivative adaptors, with constant and fixed inputs
@@ -735,12 +734,12 @@ cfwd f x ds =
   :: AstSpan s
   => AstEnv (Flip OR.Array) (Flip OS.Array)
   -> AstHVector s
-  -> VoidHVector #-}
+  -> HVector (Flip OR.Array) #-}
 {-# SPECIALIZE interpretAstHVector
   :: AstSpan s
   => AstEnv (Flip OR.Array) (Flip OS.Array)
   -> AstHVector s
-  -> VoidHVector #-}
+  -> HVector (Flip OR.Array) #-}
 
 {-# SPECIALIZE interpretAstBool
   :: AstEnv (ADVal (Flip OR.Array)) (ADVal (Flip OS.Array))
