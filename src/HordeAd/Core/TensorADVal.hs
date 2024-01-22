@@ -482,7 +482,6 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
          -> Domains (ADVal ranked)
          -> ADVal ranked rn n
   rfoldZip f domsOD (D l1 x0 x0') asD =
-    assert (domainsMatch domsOD (index1Domains asD 0)) $
     let (ll2, asUnshared, as') = V.unzip3 $ V.map unADValDomains asD
         domsToPair :: forall f. ADReady f => Domains f -> (f rn n, Domains f)
         domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
@@ -506,6 +505,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
             w : _shm -> w
     in case someNatVal $ toInteger width of
       Just (SomeNat @k _) ->
+        assert (domainsMatch (replicate1Domains (Proxy @k) domsOD) asD) $
         let (l3, as) =
               drecordSharingPrimal @ranked (replicate1Domains (Proxy @k) domsOD)
                                    (dmkDomains asUnshared)
@@ -532,7 +532,6 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
             -> Domains (ADVal ranked)
             -> ADVal ranked rn n
   rfoldZipDer f df rf domsOD (D l1 x0 x0') asD =
-    assert (domainsMatch domsOD (index1Domains asD 0)) $
     let (ll2, asUnshared, as') = V.unzip3 $ V.map unADValDomains asD
         width = case V.unsnoc asUnshared of
           Nothing -> error "sfoldD: can't determine argument width"
@@ -541,6 +540,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
             w : _shm -> w
     in case someNatVal $ toInteger width of
       Just (SomeNat @k _) ->
+        assert (domainsMatch (replicate1Domains (Proxy @k) domsOD) asD) $
         let (l3, as) =
               drecordSharingPrimal @ranked (replicate1Domains (Proxy @k) domsOD)
                                    (dmkDomains asUnshared)
@@ -622,7 +622,6 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
          -> Domains (ADVal ranked)
          -> ADVal ranked rn (1 + n)
   rscanZip f domsOD (D l1 x0 x0') asD =
-    assert (domainsMatch domsOD (index1Domains asD 0)) $
     let (ll2, asUnshared, as') = V.unzip3 $ V.map unADValDomains asD
         domsToPair :: forall f. ADReady f => Domains f -> (f rn n, Domains f)
         domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
@@ -646,6 +645,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
             w : _shm -> w
     in case someNatVal $ toInteger width of
       Just (SomeNat @k _) ->
+        assert (domainsMatch (replicate1Domains (Proxy @k) domsOD) asD) $
         let (l3, as) =
               drecordSharingPrimal @ranked (replicate1Domains (Proxy @k) domsOD)
                                    (dmkDomains asUnshared)
@@ -681,7 +681,6 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
             -> Domains (ADVal ranked)
             -> ADVal ranked rn (1 + n)
   rscanZipDer f df rf domsOD (D l1 x0 x0') asD =
-    assert (domainsMatch domsOD (index1Domains asD 0)) $
     let (ll2, asUnshared, as') = V.unzip3 $ V.map unADValDomains asD
         width = case V.unsnoc asUnshared of
           Nothing -> error "sfoldD: can't determine argument width"
@@ -690,6 +689,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
             w : _shm -> w
     in case someNatVal $ toInteger width of
       Just (SomeNat @k _) ->
+        assert (domainsMatch (replicate1Domains (Proxy @k) domsOD) asD) $
         let (l3, as) =
               drecordSharingPrimal @ranked (replicate1Domains (Proxy @k) domsOD)
                                    (dmkDomains asUnshared)
@@ -759,7 +759,6 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
          -> Domains (ADVal (RankedOf shaped))
          -> ADVal shaped rn sh
   sfoldZip f domsOD (D l1 x0 x0') asD =
-    assert (domainsMatch domsOD (index1Domains asD 0)) $
     let (ll2, asUnshared, as') = V.unzip3 $ V.map unADValDomains asD
         domsToPair :: forall f. ADReadyS f
                       => Domains (RankedOf f) -> (f rn sh, Domains (RankedOf f))
@@ -785,6 +784,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
             w : _shm -> w
     in case someNatVal $ toInteger width of
       Just (SomeNat @k _) ->
+        assert (domainsMatch (replicate1Domains (Proxy @k) domsOD) asD) $
         let (l3, as) =
               drecordSharingPrimal @ranked
                 (replicate1Domains (Proxy @k) domsOD)
@@ -810,7 +810,6 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
             -> Domains (ADVal (RankedOf shaped))
             -> ADVal shaped rn sh
   sfoldZipDer f df rf domsOD (D l1 x0 x0') asD =
-    assert (domainsMatch domsOD (index1Domains asD 0)) $
     let (ll2, asUnshared, as') = V.unzip3 $ V.map unADValDomains asD
         width = case V.unsnoc asUnshared of
           Nothing -> error "sfoldZipDer: can't determine argument width"
@@ -819,6 +818,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
             w : _shm -> w
     in case someNatVal $ toInteger width of
       Just (SomeNat @k _) ->
+        assert (domainsMatch (replicate1Domains (Proxy @k) domsOD) asD) $
         let (l3, as) =
               drecordSharingPrimal @ranked
                 (replicate1Domains (Proxy @k) domsOD)
@@ -905,7 +905,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
          -> Domains (ADVal (RankedOf shaped))
          -> ADVal shaped rn (1 + k ': sh)
   sscanZip f domsOD (D l1 x0 x0') asD =
-    assert (domainsMatch domsOD (index1Domains asD 0)) $
+    assert (domainsMatch (replicate1Domains (Proxy @k) domsOD) asD) $
     let (ll2, asUnshared, as') = V.unzip3 $ V.map unADValDomains asD
         domsToPair :: forall f. ADReadyS f
                       => Domains (RankedOf f)
@@ -970,7 +970,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
             -> Domains (ADVal (RankedOf shaped))
             -> ADVal shaped rn (1 + k ': sh)
   sscanZipDer f df rf domsOD (D l1 x0 x0') asD =
-    assert (domainsMatch domsOD (index1Domains asD 0)) $
+    assert (domainsMatch (replicate1Domains (Proxy @k) domsOD) asD) $
     let (ll2, asUnshared, as') = V.unzip3 $ V.map unADValDomains asD
         (l3, as) =
           drecordSharingPrimal @ranked (replicate1Domains (Proxy @k) domsOD)
