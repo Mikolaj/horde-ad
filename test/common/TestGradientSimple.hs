@@ -36,16 +36,16 @@ testTrees = [ testDReverse0
             , quickCheck0Tests
             ]
 
-revOnDomains0
+revOnHVector0
   :: HasDelta r
   => (ADInputs 'ADModeGradient r
       -> ADVal 'ADModeGradient r)
   -> [r]
   -> ([r], r)
-revOnDomains0 f deltaInput =
+revOnHVector0 f deltaInput =
   let (!results, !v) =
         first domainsD0
-        $ revOnDomains 1 f (domainsFrom01 (V.fromList deltaInput) V.empty)
+        $ revOnHVector 1 f (domainsFrom01 (V.fromList deltaInput) V.empty)
   in (V.toList results, v)
 
 fX :: ADInputs 'ADModeGradient Float
@@ -124,10 +124,10 @@ freluX inputs =
   in relu0 x
 
 testDReverse0 :: TestTree
-testDReverse0 = testGroup "Simple revOnDomains application tests" $
+testDReverse0 = testGroup "Simple revOnHVector application tests" $
   map (\(txt, f, v, expected) ->
         testCase txt $ do
-          let res = revOnDomains0 f v
+          let res = revOnHVector0 f v
           res @?~ expected)
     [ ("fX", fX, [99], ([1.0],99.0))
     , ("fXagain", fX, [99], ([1.0],99.0))
@@ -196,11 +196,11 @@ dReverse1
   -> (Domain1 r, r)
 dReverse1 f deltaInput =
   first domains1
-  $ revOnDomains 1 f
+  $ revOnHVector 1 f
       (domainsFrom0V V.empty (V.fromList (map V.fromList deltaInput)))
 
 testDReverse1 :: TestTree
-testDReverse1 = testGroup "Simple revOnDomains application to vectors tests" $
+testDReverse1 = testGroup "Simple revOnHVector application to vectors tests" $
   map (\(txt, f, v, (expected, ev)) ->
         testCase txt $ do
           let res = dReverse1 f v
@@ -225,7 +225,7 @@ fooMap1 r =
 testMap1Elementwise :: Assertion
 testMap1Elementwise =
   (domainsD0 $ fst
-   $ revOnDomains
+   $ revOnHVector
        (vToVec $ LA.konst 1 130)
          -- 1 wrong due to fragility of hmatrix optimization
        (\adinputs -> fooMap1 (adinputs `at0` 0))
@@ -238,7 +238,7 @@ testDForward =
   map (\(txt, f, v, expected) ->
         let vp = listsToParameters v
         in testCase txt $ do
-          let res = slowFwdOnDomains vp f vp
+          let res = slowFwdOnHVector vp f vp
           res @?~ expected)
     [ ("fquad", fquad, ([2 :: Double, 3], []), (26.0, 18.0))
     , ( "atanOldReadme", atanOldReadme, ([1.1, 2.2, 3.3], [])
@@ -312,7 +312,7 @@ atanOldReadmeDReverse :: HasDelta r
 atanOldReadmeDReverse ds =
   let (!result, !v) =
         first domainsD0
-        $ revOnDomains 1 atanOldReadme (domainsFrom01 ds V.empty)
+        $ revOnHVector 1 atanOldReadme (domainsFrom01 ds V.empty)
   in (result, v)
 
 oldReadmeTests :: TestTree
@@ -344,9 +344,9 @@ vatanOldReadme inputs =
   in sumElements10 v
 
 vatanOldReadmeDReverse :: HasDelta r
-                       => Data.Vector.Vector (Vector r) -> (Domains r, r)
+                       => Data.Vector.Vector (Vector r) -> (HVector r, r)
 vatanOldReadmeDReverse dsV =
-  let (!result, !v) = revOnDomains 1 vatanOldReadme (domainsFrom0V V.empty dsV)
+  let (!result, !v) = revOnHVector 1 vatanOldReadme (domainsFrom0V V.empty dsV)
   in (result, v)
 
 oldReadmeTestsV :: TestTree
@@ -540,7 +540,7 @@ dRev0
 dRev0 f x =
   let g adInputs = f $ adInputs `at0` 0
       (domains, val) =
-        revOnDomains 1 g (domainsFrom01 (V.singleton x) V.empty)
+        revOnHVector 1 g (domainsFrom01 (V.singleton x) V.empty)
       gradient0 = domainsD0 domains
   in (gradient0 V.! 0, val)
 

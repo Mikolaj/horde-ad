@@ -15,7 +15,7 @@ module HordeAd.Core.Ast
   , AstArtifactRev, AstArtifactFwd
   , AstIndex, AstVarList, AstIndexS, AstVarListS
     -- * ASTs
-  , AstRanked(..), AstShaped(..), AstDynamic, AstDomains(..)
+  , AstRanked(..), AstShaped(..), AstDynamic, AstHVector(..)
   , AstBool(..), OpCodeNum1(..), OpCodeNum2(..), OpCode1(..), OpCode2(..)
   , OpCodeIntegral2(..), OpCodeBool(..), OpCodeRel(..)
     -- * Boolean definitions and instances
@@ -88,13 +88,13 @@ sameAstSpan = case eqTypeRep (typeRep @s1) (typeRep @s2) of
 
 type instance RankedOf (AstRanked s) = AstRanked s
 type instance ShapedOf (AstRanked s) = AstShaped s
-type instance DomainsOf (AstRanked s) = AstDomains s
+type instance HVectorOf (AstRanked s) = AstHVector s
 type instance PrimalOf (AstRanked s) = AstRanked PrimalSpan
 type instance DualOf (AstRanked s) = AstRanked DualSpan
 
 type instance RankedOf (AstShaped s) = AstRanked s
 type instance ShapedOf (AstShaped s) = AstShaped s
-type instance DomainsOf (AstShaped s) = AstDomains s
+type instance HVectorOf (AstShaped s) = AstHVector s
 type instance PrimalOf (AstShaped s) = AstShaped PrimalSpan
 type instance DualOf (AstShaped s) = AstShaped DualSpan
 
@@ -150,7 +150,7 @@ varNameToAstVarId (AstVarName varId) = varId
 -- The reverse derivative artifact from step 6) of our full pipeline.
 type AstArtifactRev (f :: TensorType ty) r y =
   ( (AstVarName f r y, [AstDynamicVarName])
-  , DomainsOf f, f r y, OR.ShapeL )
+  , HVectorOf f, f r y, OR.ShapeL )
 
 type AstArtifactFwd (f :: TensorType ty) r y =
   ( ([AstDynamicVarName], [AstDynamicVarName])
@@ -256,8 +256,8 @@ data AstRanked :: AstSpanType -> RankedTensorType where
   AstFromIntegral :: (GoodScalar r1, Integral r1)
                   => AstRanked PrimalSpan r1 n -> AstRanked PrimalSpan r2 n
   AstConst :: OR.Array n r -> AstRanked PrimalSpan r n
-  AstLetDomainsIn :: AstSpan s
-                  => [AstDynamicVarName] -> AstDomains s
+  AstLetHVectorIn :: AstSpan s
+                  => [AstDynamicVarName] -> AstHVector s
                   -> AstRanked s2 r n
                   -> AstRanked s2 r n
   AstSToR :: Sh.Shape sh
@@ -271,8 +271,8 @@ data AstRanked :: AstSpanType -> RankedTensorType where
        -> AstRanked FullSpan r n
   AstFwd :: (GoodScalar r, KnownNat n)
          => ([AstDynamicVarName], AstRanked s r n)
-         -> Domains (AstRanked s)
-         -> Domains (AstRanked s)
+         -> HVector (AstRanked s)
+         -> HVector (AstRanked s)
          -> AstRanked s r n
   AstFold :: forall rn rm n m s. (GoodScalar rm, KnownNat m)
           => ( AstVarName (AstRanked PrimalSpan) rn n
@@ -293,7 +293,7 @@ data AstRanked :: AstSpanType -> RankedTensorType where
              -> ( AstVarName (AstRanked PrimalSpan) rn n
                 , AstVarName (AstRanked PrimalSpan) rn n
                 , AstVarName (AstRanked PrimalSpan) rm m
-                , AstDomains PrimalSpan )
+                , AstHVector PrimalSpan )
              -> AstRanked s rn n
              -> AstRanked s rm (1 + m)
              -> AstRanked s rn n
@@ -302,7 +302,7 @@ data AstRanked :: AstSpanType -> RankedTensorType where
               , [AstDynamicVarName]
               , AstRanked PrimalSpan rn n )
            -> AstRanked s rn n
-           -> Domains (AstRanked s)  -- one rank higher than above
+           -> HVector (AstRanked s)  -- one rank higher than above
            -> AstRanked s rn n
   AstFoldZipDer :: forall rn n s. KnownNat n
               => ( AstVarName (AstRanked PrimalSpan) rn n
@@ -316,9 +316,9 @@ data AstRanked :: AstSpanType -> RankedTensorType where
               -> ( AstVarName (AstRanked PrimalSpan) rn n
                  , AstVarName (AstRanked PrimalSpan) rn n
                  , [AstDynamicVarName]
-                 , AstDomains PrimalSpan )
+                 , AstHVector PrimalSpan )
               -> AstRanked s rn n
-              -> Domains (AstRanked s)  -- one rank higher than above
+              -> HVector (AstRanked s)  -- one rank higher than above
               -> AstRanked s rn n
   AstScan :: forall rn rm n m s. (GoodScalar rm, KnownNat m, KnownNat n)
           => ( AstVarName (AstRanked PrimalSpan) rn n
@@ -339,7 +339,7 @@ data AstRanked :: AstSpanType -> RankedTensorType where
              -> ( AstVarName (AstRanked PrimalSpan) rn n
                 , AstVarName (AstRanked PrimalSpan) rn n
                 , AstVarName (AstRanked PrimalSpan) rm m
-                , AstDomains PrimalSpan )
+                , AstHVector PrimalSpan )
              -> AstRanked s rn n
              -> AstRanked s rm (1 + m)
              -> AstRanked s rn (1 + n)
@@ -348,7 +348,7 @@ data AstRanked :: AstSpanType -> RankedTensorType where
               , [AstDynamicVarName]
               , AstRanked PrimalSpan rn n )
            -> AstRanked s rn n
-           -> Domains (AstRanked s)  -- one rank higher than above
+           -> HVector (AstRanked s)  -- one rank higher than above
            -> AstRanked s rn (1 + n)
   AstScanZipDer :: forall rn n s. KnownNat n
               => ( AstVarName (AstRanked PrimalSpan) rn n
@@ -362,9 +362,9 @@ data AstRanked :: AstSpanType -> RankedTensorType where
               -> ( AstVarName (AstRanked PrimalSpan) rn n
                  , AstVarName (AstRanked PrimalSpan) rn n
                  , [AstDynamicVarName]
-                 , AstDomains PrimalSpan )
+                 , AstHVector PrimalSpan )
               -> AstRanked s rn n
-              -> Domains (AstRanked s)  -- one rank higher than above
+              -> HVector (AstRanked s)  -- one rank higher than above
               -> AstRanked s rn (1 + n)
 
 deriving instance GoodScalar r => Show (AstRanked s r n)
@@ -466,8 +466,8 @@ data AstShaped :: AstSpanType -> ShapedTensorType where
   AstFromIntegralS :: (GoodScalar r1, Integral r1)
                    => AstShaped PrimalSpan r1 sh -> AstShaped PrimalSpan r2 sh
   AstConstS :: OS.Array sh r -> AstShaped PrimalSpan r sh
-  AstLetDomainsInS :: AstSpan s
-                   => [AstDynamicVarName] -> AstDomains s
+  AstLetHVectorInS :: AstSpan s
+                   => [AstDynamicVarName] -> AstHVector s
                    -> AstShaped s2 r sh
                    -> AstShaped s2 r sh
   AstRToS :: (Sh.Shape sh, KnownNat (Sh.Rank sh))
@@ -481,8 +481,8 @@ data AstShaped :: AstSpanType -> ShapedTensorType where
         -> AstShaped FullSpan r sh
   AstFwdS :: (GoodScalar r, Sh.Shape sh)
           => ([AstDynamicVarName], AstShaped s r sh)
-          -> Domains (AstRanked s)
-          -> Domains (AstRanked s)
+          -> HVector (AstRanked s)
+          -> HVector (AstRanked s)
           -> AstShaped s r sh
   AstFoldS :: forall rn rm sh shm k s. (GoodScalar rm, Sh.Shape shm, KnownNat k)
            => ( AstVarName (AstShaped PrimalSpan) rn sh
@@ -504,7 +504,7 @@ data AstShaped :: AstSpanType -> ShapedTensorType where
               -> ( AstVarName (AstShaped PrimalSpan) rn sh
                  , AstVarName (AstShaped PrimalSpan) rn sh
                  , AstVarName (AstShaped PrimalSpan) rm shm
-                 , AstDomains PrimalSpan )
+                 , AstHVector PrimalSpan )
               -> AstShaped s rn sh
               -> AstShaped s rm (k ': shm)
               -> AstShaped s rn sh
@@ -513,7 +513,7 @@ data AstShaped :: AstSpanType -> ShapedTensorType where
                , [AstDynamicVarName]
                , AstShaped PrimalSpan rn sh )
             -> AstShaped s rn sh
-            -> Domains (AstRanked s)  -- one rank higher than above
+            -> HVector (AstRanked s)  -- one rank higher than above
             -> AstShaped s rn sh
   AstFoldZipDerS :: forall rn sh s. Sh.Shape sh
                => ( AstVarName (AstShaped PrimalSpan) rn sh
@@ -527,9 +527,9 @@ data AstShaped :: AstSpanType -> ShapedTensorType where
                -> ( AstVarName (AstShaped PrimalSpan) rn sh
                   , AstVarName (AstShaped PrimalSpan) rn sh
                   , [AstDynamicVarName]
-                  , AstDomains PrimalSpan )
+                  , AstHVector PrimalSpan )
                -> AstShaped s rn sh
-               -> Domains (AstRanked s)  -- one rank higher than above
+               -> HVector (AstRanked s)  -- one rank higher than above
                -> AstShaped s rn sh
   AstScanS :: forall rn rm sh shm k s.
               (GoodScalar rm, Sh.Shape shm, Sh.Shape sh, KnownNat k)
@@ -552,7 +552,7 @@ data AstShaped :: AstSpanType -> ShapedTensorType where
               -> ( AstVarName (AstShaped PrimalSpan) rn sh
                  , AstVarName (AstShaped PrimalSpan) rn sh
                  , AstVarName (AstShaped PrimalSpan) rm shm
-                 , AstDomains PrimalSpan )
+                 , AstHVector PrimalSpan )
               -> AstShaped s rn sh
               -> AstShaped s rm (k ': shm)
               -> AstShaped s rn (1 + k ': sh)
@@ -561,7 +561,7 @@ data AstShaped :: AstSpanType -> ShapedTensorType where
                , [AstDynamicVarName]
                , AstShaped PrimalSpan rn sh )
             -> AstShaped s rn sh
-            -> Domains (AstRanked s)  -- one rank higher than above
+            -> HVector (AstRanked s)  -- one rank higher than above
             -> AstShaped s rn (1 + k ': sh)
   AstScanZipDerS :: forall rn sh k s. (Sh.Shape sh, KnownNat k)
                => ( AstVarName (AstShaped PrimalSpan) rn sh
@@ -575,62 +575,62 @@ data AstShaped :: AstSpanType -> ShapedTensorType where
                -> ( AstVarName (AstShaped PrimalSpan) rn sh
                   , AstVarName (AstShaped PrimalSpan) rn sh
                   , [AstDynamicVarName]
-                  , AstDomains PrimalSpan )
+                  , AstHVector PrimalSpan )
                -> AstShaped s rn sh
-               -> Domains (AstRanked s)  -- one rank higher than above
+               -> HVector (AstRanked s)  -- one rank higher than above
                -> AstShaped s rn (1 + k ': sh)
 
 deriving instance (GoodScalar r, Sh.Shape sh) => Show (AstShaped s r sh)
 
 type AstDynamic (s :: AstSpanType) = DynamicTensor (AstRanked s)
 
-type role AstDomains nominal
-data AstDomains s where
+type role AstHVector nominal
+data AstHVector s where
   -- There are existential variables inside DynamicTensor here.
-  AstDomains :: Domains (AstRanked s) -> AstDomains s
-  -- The operations below is why we need AstDomains and so DomainsOf.
+  AstHVector :: HVector (AstRanked s) -> AstHVector s
+  -- The operations below is why we need AstHVector and so HVectorOf.
   -- If we kept a vector of terms instead, we'd need to let-bind in each
   -- of the terms separately, duplicating the let-bound term.
-  AstLetDomainsInDomains
+  AstLetHVectorInHVector
     :: AstSpan s
-    => [AstDynamicVarName] -> AstDomains s
-    -> AstDomains s2
-    -> AstDomains s2
+    => [AstDynamicVarName] -> AstHVector s
+    -> AstHVector s2
+    -> AstHVector s2
   -- The r variable is existential here, so a proper specialization needs
   -- to be picked explicitly at runtime.
-  AstLetInDomains :: (KnownNat n, GoodScalar r, AstSpan s)
+  AstLetInHVector :: (KnownNat n, GoodScalar r, AstSpan s)
                   => AstVarName (AstRanked s) r n -> AstRanked s r n
-                  -> AstDomains s2
-                  -> AstDomains s2
-  AstLetInDomainsS :: (Sh.Shape sh, GoodScalar r, AstSpan s)
+                  -> AstHVector s2
+                  -> AstHVector s2
+  AstLetInHVectorS :: (Sh.Shape sh, GoodScalar r, AstSpan s)
                    => AstVarName (AstShaped s) r sh -> AstShaped s r sh
-                   -> AstDomains s2
-                   -> AstDomains s2
-  AstBuildDomains1 :: Int -> (IntVarName, AstDomains s) -> AstDomains s
+                   -> AstHVector s2
+                   -> AstHVector s2
+  AstBuildHVector1 :: Int -> (IntVarName, AstHVector s) -> AstHVector s
   AstRev :: (GoodScalar r, KnownNat n)
          => ([AstDynamicVarName], AstRanked s r n)
-         -> Domains (AstRanked s)
-         -> AstDomains s
+         -> HVector (AstRanked s)
+         -> AstHVector s
     -- ^ the function body can't have any free variables outside those
     -- listed in the first component of the pair; this reflects
     -- the quantification in 'rrev' and prevents cotangent confusion;
     -- the same holds for the similar operations below
   AstRevDt :: (GoodScalar r, KnownNat n)
            => ([AstDynamicVarName], AstRanked s r n)
-           -> Domains (AstRanked s)
+           -> HVector (AstRanked s)
            -> AstRanked s r n
-           -> AstDomains s
+           -> AstHVector s
   AstRevS :: (GoodScalar r, Sh.Shape sh)
           => ([AstDynamicVarName], AstShaped s r sh)
-          -> Domains (AstRanked s)
-          -> AstDomains s
+          -> HVector (AstRanked s)
+          -> AstHVector s
   AstRevDtS :: (GoodScalar r, Sh.Shape sh)
             => ([AstDynamicVarName], AstShaped s r sh)
-            -> Domains (AstRanked s)
+            -> HVector (AstRanked s)
             -> AstShaped s r sh
-            -> AstDomains s
+            -> AstHVector s
 
-deriving instance Show (AstDomains s)
+deriving instance Show (AstHVector s)
 
 data AstBool where
   AstBoolNot :: AstBool -> AstBool
@@ -990,22 +990,22 @@ maxF u v = ifF (u >=. v) u v
 
 type instance RankedOf (AstNoVectorize s) = AstNoVectorize s
 type instance ShapedOf (AstNoVectorize s) = AstNoVectorizeS s
-type instance DomainsOf (AstNoVectorize s) = AstDomains s
+type instance HVectorOf (AstNoVectorize s) = AstHVector s
 type instance PrimalOf (AstNoVectorize s) = AstRanked PrimalSpan
 type instance DualOf (AstNoVectorize s) = AstRanked DualSpan
 type instance RankedOf (AstNoVectorizeS s) = AstNoVectorize s
 type instance ShapedOf (AstNoVectorizeS s) = AstNoVectorizeS s
-type instance DomainsOf (AstNoVectorizeS s) = AstDomains s
+type instance HVectorOf (AstNoVectorizeS s) = AstHVector s
 type instance PrimalOf (AstNoVectorizeS s) = AstShaped PrimalSpan
 type instance DualOf (AstNoVectorizeS s) = AstShaped DualSpan
 type instance RankedOf (AstNoSimplify s) = AstNoSimplify s
 type instance ShapedOf (AstNoSimplify s) = AstNoSimplifyS s
-type instance DomainsOf (AstNoSimplify s) = AstDomains s
+type instance HVectorOf (AstNoSimplify s) = AstHVector s
 type instance PrimalOf (AstNoSimplify s) = AstRanked PrimalSpan
 type instance DualOf (AstNoSimplify s) = AstRanked DualSpan
 type instance RankedOf (AstNoSimplifyS s) = AstNoSimplify s
 type instance ShapedOf (AstNoSimplifyS s) = AstNoSimplifyS s
-type instance DomainsOf (AstNoSimplifyS s) = AstDomains s
+type instance HVectorOf (AstNoSimplifyS s) = AstHVector s
 type instance PrimalOf (AstNoSimplifyS s) = AstShaped PrimalSpan
 type instance DualOf (AstNoSimplifyS s) = AstShaped DualSpan
 

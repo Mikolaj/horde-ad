@@ -88,28 +88,28 @@ instance (GoodScalar r, Sh.Shape sh)
 instance DerivativeStages (AstRanked FullSpan) where
   forwardPassByInterpretation
     :: (GoodScalar r, KnownNat n)
-    => (Domains (AstRanked FullSpan) -> AstRanked FullSpan r n)
+    => (HVector (AstRanked FullSpan) -> AstRanked FullSpan r n)
     -> AstEnv (ADVal (AstRanked PrimalSpan)) (ADVal (AstShaped PrimalSpan))
-    -> Domains (AstRanked PrimalSpan)
+    -> HVector (AstRanked PrimalSpan)
     -> [AstDynamicVarName]
-    -> Domains (AstRanked FullSpan)
+    -> HVector (AstRanked FullSpan)
     -> ADVal (AstRanked PrimalSpan) r n
   {-# INLINE forwardPassByInterpretation #-}
-  forwardPassByInterpretation g envInit domainsPrimal vars domains =
-    let deltaInputs = generateDeltaInputs domainsPrimal
-        varInputs = makeADInputs domainsPrimal deltaInputs
-        ast = g domains
+  forwardPassByInterpretation g envInit hVectorPrimal vars hVector =
+    let deltaInputs = generateDeltaInputs hVectorPrimal
+        varInputs = makeADInputs hVectorPrimal deltaInputs
+        ast = g hVector
         env = foldr extendEnvD envInit $ zip vars $ V.toList varInputs
     in interpretAst env ast
 
   revArtifactFromForwardPass
     :: forall r n. (GoodScalar r, KnownNat n)
     => TensorToken (AstRanked FullSpan) -> Bool
-    -> (Domains (AstRanked PrimalSpan)
+    -> (HVector (AstRanked PrimalSpan)
         -> [AstDynamicVarName]
-        -> Domains (AstRanked FullSpan)
+        -> HVector (AstRanked FullSpan)
         -> ADVal (AstRanked PrimalSpan) r n)
-    -> DomainsOD
+    -> HVectorOD
     -> ( AstArtifactRev (AstRanked PrimalSpan) r n
        , Dual (AstRanked PrimalSpan) r n )
   {-# INLINE revArtifactFromForwardPass #-}
@@ -117,11 +117,11 @@ instance DerivativeStages (AstRanked FullSpan) where
     let -- Bangs and the compound function to fix the numbering of variables
         -- for pretty-printing and prevent sharing the impure values/effects
         -- in tests that reset the impure counters.
-        !(!varDtId, varsPrimal, domainsPrimal, vars, domains) =
+        !(!varDtId, varsPrimal, hVectorPrimal, vars, hVector) =
           funToAstRev parameters0 in
     let -- Evaluate completely after terms constructed, to free memory
         -- before gradientFromDelta allocates new memory and new FFI is started.
-        !(D l primalBody delta) = forwardPass domainsPrimal vars domains in
+        !(D l primalBody delta) = forwardPass hVectorPrimal vars hVector in
     let varDt = AstVarName varDtId
         sh = shapeAst primalBody
         astDt = AstVar sh varDt
@@ -143,27 +143,27 @@ instance DerivativeStages (AstRanked FullSpan) where
     let env = foldr extendEnvD EM.empty $ zip vars $ V.toList parameters
         dt = fromMaybe (rreplicate0N (listShapeToShape sh) 1) mdt
         envDt = extendEnvR varDt dt env
-        gradientDomain = interpretAstDomains envDt gradient
+        gradientHVector = interpretAstHVector envDt gradient
         primalTensor = interpretAstPrimal env primal
-    in (gradientDomain, primalTensor)
+    in (gradientHVector, primalTensor)
 
   fwdArtifactFromForwardPass
     :: forall r n. (GoodScalar r, KnownNat n)
     => TensorToken (AstRanked FullSpan)
-    -> (Domains (AstRanked PrimalSpan)
+    -> (HVector (AstRanked PrimalSpan)
         -> [AstDynamicVarName]
-        -> Domains (AstRanked FullSpan)
+        -> HVector (AstRanked FullSpan)
         -> ADVal (AstRanked PrimalSpan) r n)
-    -> DomainsOD
+    -> HVectorOD
     -> ( AstArtifactFwd (AstRanked PrimalSpan) r n
        , Dual (AstRanked PrimalSpan) r n )
   {-# INLINE fwdArtifactFromForwardPass #-}
   fwdArtifactFromForwardPass _ forwardPass parameters0 =
-    let !(!varsPrimalDs, domainsDs, varsPrimal, domainsPrimal, vars, domains) =
+    let !(!varsPrimalDs, hVectorDs, varsPrimal, hVectorPrimal, vars, hVector) =
           funToAstFwd parameters0 in
-    let !(D l primalBody delta) = forwardPass domainsPrimal vars domains in
+    let !(D l primalBody delta) = forwardPass hVectorPrimal vars hVector in
     let !(!astBindings, !derivative) =
-          forwardDerivative (V.length parameters0) delta domainsDs
+          forwardDerivative (V.length parameters0) delta hVectorDs
         unDerivative = unletValue l astBindings derivative
         unPrimal = unletValue l [] primalBody
     in ( ((varsPrimalDs, varsPrimal), unDerivative, unPrimal)
@@ -171,7 +171,7 @@ instance DerivativeStages (AstRanked FullSpan) where
 
   {-# INLINE fwdEvalArtifact #-}
   fwdEvalArtifact ((varDs, vars), derivative, primal) parameters ds =
-    if domainsMatch parameters ds then
+    if hVectorsMatch parameters ds then
       let env = foldr extendEnvD EM.empty $ zip vars $ V.toList parameters
           envDs = foldr extendEnvD env $ zip varDs $ V.toList ds
           derivativeTensor = interpretAstPrimal envDs derivative
@@ -181,11 +181,11 @@ instance DerivativeStages (AstRanked FullSpan) where
 
 instance UnletGradient (AstRanked PrimalSpan) where
   unletGradient
-    :: ADShare -> AstBindings -> Domains (AstRanked PrimalSpan)
-    -> AstDomains PrimalSpan
+    :: ADShare -> AstBindings -> HVector (AstRanked PrimalSpan)
+    -> AstHVector PrimalSpan
   unletGradient l astBindings gradient =
-    unletAstDomains6 astBindings l
-                     (dmkDomains @(AstRanked PrimalSpan) gradient)
+    unletAstHVector6 astBindings l
+                     (dmkHVector @(AstRanked PrimalSpan) gradient)
   unletValue
     :: (GoodScalar r, KnownNat n)
     => ADShare -> AstBindings -> AstRanked PrimalSpan r n
@@ -196,35 +196,35 @@ instance UnletGradient (AstRanked PrimalSpan) where
 instance DerivativeStages (AstShaped FullSpan) where
   forwardPassByInterpretation
     :: (GoodScalar r, Sh.Shape sh)
-    => (Domains (AstRanked FullSpan) -> AstShaped FullSpan r sh)
+    => (HVector (AstRanked FullSpan) -> AstShaped FullSpan r sh)
     -> AstEnv (ADVal (AstRanked PrimalSpan)) (ADVal (AstShaped PrimalSpan))
-    -> Domains (AstRanked PrimalSpan)
+    -> HVector (AstRanked PrimalSpan)
     -> [AstDynamicVarName]
-    -> Domains (AstRanked FullSpan)
+    -> HVector (AstRanked FullSpan)
     -> ADVal (AstShaped PrimalSpan) r sh
   {-# INLINE forwardPassByInterpretation #-}
-  forwardPassByInterpretation g envInit domainsPrimal vars domains =
-    let deltaInputs = generateDeltaInputs domainsPrimal
-        varInputs = makeADInputs domainsPrimal deltaInputs
-        ast = g domains
+  forwardPassByInterpretation g envInit hVectorPrimal vars hVector =
+    let deltaInputs = generateDeltaInputs hVectorPrimal
+        varInputs = makeADInputs hVectorPrimal deltaInputs
+        ast = g hVector
         env = foldr extendEnvD envInit $ zip vars $ V.toList varInputs
     in interpretAstS env ast
 
   revArtifactFromForwardPass
     :: forall r sh. (GoodScalar r, Sh.Shape sh)
     => TensorToken (AstShaped FullSpan) -> Bool
-    -> (Domains (AstRanked PrimalSpan)
+    -> (HVector (AstRanked PrimalSpan)
         -> [AstDynamicVarName]
-        -> Domains (AstRanked FullSpan)
+        -> HVector (AstRanked FullSpan)
         -> ADVal (AstShaped PrimalSpan) r sh)
-    -> DomainsOD
+    -> HVectorOD
     -> ( AstArtifactRev (AstShaped PrimalSpan) r sh
        , Dual (AstShaped PrimalSpan) r sh )
   {-# INLINE revArtifactFromForwardPass #-}
   revArtifactFromForwardPass _ hasDt forwardPass parameters0 =
-    let !(!varDtId, varsPrimal, domainsPrimal, vars, domains) =
+    let !(!varDtId, varsPrimal, hVectorPrimal, vars, hVector) =
           funToAstRev parameters0 in
-    let !(D l primalBody delta) = forwardPass domainsPrimal vars domains in
+    let !(D l primalBody delta) = forwardPass hVectorPrimal vars hVector in
     let varDt = AstVarName varDtId
         astDt = AstVarS varDt
         mdt = if hasDt then Just astDt else Nothing
@@ -241,27 +241,27 @@ instance DerivativeStages (AstShaped FullSpan) where
     let env = foldr extendEnvD EM.empty $ zip vars $ V.toList parameters
         dt = fromMaybe 1 mdt
         envDt = extendEnvS varDt dt env
-        gradientDomain = interpretAstDomains envDt gradient
+        gradientHVector = interpretAstHVector envDt gradient
         primalTensor = interpretAstPrimalS env primal
-    in (gradientDomain, primalTensor)
+    in (gradientHVector, primalTensor)
 
   fwdArtifactFromForwardPass
     :: forall r sh. (GoodScalar r, Sh.Shape sh)
     => TensorToken (AstShaped FullSpan)
-    -> (Domains (AstRanked PrimalSpan)
+    -> (HVector (AstRanked PrimalSpan)
         -> [AstDynamicVarName]
-        -> Domains (AstRanked FullSpan)
+        -> HVector (AstRanked FullSpan)
         -> ADVal (AstShaped PrimalSpan) r sh)
-    -> DomainsOD
+    -> HVectorOD
     -> ( AstArtifactFwd (AstShaped PrimalSpan) r sh
        , Dual (AstShaped PrimalSpan) r sh )
   {-# INLINE fwdArtifactFromForwardPass #-}
   fwdArtifactFromForwardPass _ forwardPass parameters0 =
-    let !(!varsPrimalDs, domainsDs, varsPrimal, domainsPrimal, vars, domains) =
+    let !(!varsPrimalDs, hVectorDs, varsPrimal, hVectorPrimal, vars, hVector) =
           funToAstFwd parameters0 in
-    let !(D l primalBody delta) = forwardPass domainsPrimal vars domains  in
+    let !(D l primalBody delta) = forwardPass hVectorPrimal vars hVector  in
     let !(!astBindings, !derivative) =
-          forwardDerivative (V.length parameters0) delta domainsDs
+          forwardDerivative (V.length parameters0) delta hVectorDs
         unDerivative = unletValue l astBindings derivative
         unPrimal = unletValue l [] primalBody
     in ( ((varsPrimalDs, varsPrimal), unDerivative, unPrimal)
@@ -269,7 +269,7 @@ instance DerivativeStages (AstShaped FullSpan) where
 
   {-# INLINE fwdEvalArtifact #-}
   fwdEvalArtifact ((varDs, vars), derivative, primal) parameters ds =
-    if domainsMatch parameters ds then
+    if hVectorsMatch parameters ds then
       let env = foldr extendEnvD EM.empty $ zip vars $ V.toList parameters
           envDs = foldr extendEnvD env $ zip varDs $ V.toList ds
           derivativeTensor = interpretAstPrimalS envDs derivative
@@ -279,11 +279,11 @@ instance DerivativeStages (AstShaped FullSpan) where
 
 instance UnletGradient (AstShaped PrimalSpan) where
   unletGradient
-    :: ADShare -> AstBindings -> Domains (AstRanked PrimalSpan)
-    -> AstDomains PrimalSpan
+    :: ADShare -> AstBindings -> HVector (AstRanked PrimalSpan)
+    -> AstHVector PrimalSpan
   unletGradient l astBindings gradient =
-    unletAstDomains6 astBindings l
-                     (dmkDomains @(AstRanked PrimalSpan) gradient)
+    unletAstHVector6 astBindings l
+                     (dmkHVector @(AstRanked PrimalSpan) gradient)
   unletValue
     :: (GoodScalar r,  Sh.Shape sh)
     => ADShare -> AstBindings -> AstShaped PrimalSpan r sh
@@ -379,7 +379,7 @@ instance AstSpan s
   rcast = AstCast
   rfromIntegral = fromPrimal . AstFromIntegral . astSpanPrimal
   rconst = fromPrimal . AstConst
-  rletDomainsIn = astLetDomainsInFun
+  rletHVectorIn = astLetHVectorInFun
   rfromS = astSToR
 
   rletWrap l u | Just Refl <- sameAstSpan @s @PrimalSpan =
@@ -404,21 +404,21 @@ instance AstSpan s
 
 instance ( GoodScalar r, KnownNat n
          , RankedTensor (AstRanked s) )
-         => AdaptableDomains (AstRanked s) (AstRanked s r n) where
+         => AdaptableHVector (AstRanked s) (AstRanked s r n) where
   {-# SPECIALIZE instance
       (KnownNat n, AstSpan s)
-      => AdaptableDomains (AstRanked s) (AstRanked s Double n) #-}
+      => AdaptableHVector (AstRanked s) (AstRanked s Double n) #-}
   type Value (AstRanked s r n) = Flip OR.Array r n
-  toDomains = undefined
-  fromDomains _aInit params = fromDomainsR @r @n params
+  toHVector = undefined
+  fromHVector _aInit params = fromHVectorR @r @n params
 
-astLetDomainsInFun
+astLetHVectorInFun
   :: forall n s r. (KnownNat n, GoodScalar r, AstSpan s)
-  => DomainsOD -> AstDomains s -> (Domains (AstRanked s) -> AstRanked s r n)
+  => HVectorOD -> AstHVector s -> (HVector (AstRanked s) -> AstRanked s r n)
   -> AstRanked s r n
-{-# INLINE astLetDomainsInFun #-}
-astLetDomainsInFun a0 a f =
-  fun1DToAst a0 $ \vars asts -> astLetDomainsIn vars a (f asts)
+{-# INLINE astLetHVectorInFun #-}
+astLetHVectorInFun a0 a f =
+  fun1DToAst a0 $ \vars asts -> astLetHVectorIn vars a (f asts)
 
 astSpanPrimal :: forall s r n. (KnownNat n, GoodScalar r, AstSpan s)
               => AstRanked s r n -> AstRanked PrimalSpan r n
@@ -501,7 +501,7 @@ instance AstSpan s
   scast = AstCastS
   sfromIntegral = fromPrimalS . AstFromIntegralS . astSpanPrimalS
   sconst = fromPrimalS . AstConstS
-  sletDomainsIn = astLetDomainsInFunS
+  sletHVectorIn = astLetHVectorInFunS
   sfromR = astRToS
 
   sletWrap l u | Just Refl <- sameAstSpan @s @PrimalSpan =
@@ -526,18 +526,18 @@ instance AstSpan s
 
 instance ( GoodScalar r, Sh.Shape sh
          , ShapedTensor (AstShaped s) )
-         => AdaptableDomains (AstRanked s) (AstShaped s r sh) where
+         => AdaptableHVector (AstRanked s) (AstShaped s r sh) where
   type Value (AstShaped s r sh) = Flip OS.Array r sh
-  toDomains = undefined
-  fromDomains _aInit params = fromDomainsS @r @sh params
+  toHVector = undefined
+  fromHVector _aInit params = fromHVectorS @r @sh params
 
-astLetDomainsInFunS
+astLetHVectorInFunS
   :: forall sh s r. (Sh.Shape sh, GoodScalar r, AstSpan s)
-  => DomainsOD -> AstDomains s -> (Domains (AstRanked s) -> AstShaped s r sh)
+  => HVectorOD -> AstHVector s -> (HVector (AstRanked s) -> AstShaped s r sh)
   -> AstShaped s r sh
-{-# INLINE astLetDomainsInFunS #-}
-astLetDomainsInFunS a0 a f =
-  fun1DToAst a0 $ \vars asts -> astLetDomainsInS vars a (f asts)
+{-# INLINE astLetHVectorInFunS #-}
+astLetHVectorInFunS a0 a f =
+  fun1DToAst a0 $ \vars asts -> astLetHVectorInS vars a (f asts)
 
 astSpanPrimalS :: forall s r sh. (Sh.Shape sh, GoodScalar r, AstSpan s)
                => AstShaped s r sh -> AstShaped PrimalSpan r sh
@@ -581,83 +581,83 @@ astBuild1VectorizeS f =
   build1VectorizeS $ funToAstI (f . ShapedList.shapedNat)
 
 
--- * DomainsTensor instance
+-- * HVectorTensor instance
 
-instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
-  dmkDomains = AstDomains
-  dunDomains domsOD domainsOf =
+instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
+  dmkHVector = AstHVector
+  dunHVector domsOD hVectorOf =
     let f :: Int -> DynamicTensor (Flip OR.Array) -> AstDynamic s
         f i = \case
           DynamicRankedDummy @r @sh _ _ ->
             withListShape (Sh.shapeT @sh) $ \(_ :: ShapeInt n) ->
               DynamicRanked @r @n
-              $ rletDomainsIn @(AstRanked s) domsOD domainsOf (rfromD . (V.! i))
+              $ rletHVectorIn @(AstRanked s) domsOD hVectorOf (rfromD . (V.! i))
           DynamicShapedDummy @r @sh _ _ ->
             DynamicShaped @r @sh
-            $ sletDomainsIn @(AstShaped s) domsOD domainsOf (sfromD . (V.! i))
-          _ -> error "dunDomains: unexpected OD value"
+            $ sletHVectorIn @(AstShaped s) domsOD hVectorOf (sfromD . (V.! i))
+          _ -> error "dunHVector: unexpected OD value"
     in V.imap f domsOD
-  dletDomainsInDomains = astLetDomainsInDomainsFun
-  rletInDomains = astLetInDomainsFun
-  sletInDomains = astLetInDomainsFunS
+  dletHVectorInHVector = astLetHVectorInHVectorFun
+  rletInHVector = astLetInHVectorFun
+  sletInHVector = astLetInHVectorFunS
   drecordSharingPrimal domsOD r l | Just Refl <- sameAstSpan @s @PrimalSpan =
     fun1DToAst domsOD $ \vars asts -> case vars of
-      [] -> error "drecordSharingPrimal: empty domains"
+      [] -> error "drecordSharingPrimal: empty hVector"
       var : _ ->  -- vars are fresh, so var uniquely represent vars
         ( insertADShare (dynamicVarNameToAstVarId var)
-                        (AstBindingsDomains vars r)
+                        (AstBindingsHVector vars r)
                         l
         , asts )
   drecordSharingPrimal _ _ _ = error "drecordSharingPrimal: wrong span"
   dregister domsOD r l =
     fun1DToAst domsOD $ \vars asts -> case vars of
-      [] -> error "dregister: empty domains"
+      [] -> error "dregister: empty hVector"
       var : _ ->  -- vars are fresh, so var uniquely represent vars
-        ((dynamicVarNameToAstVarId var, AstBindingsDomains vars r) : l, asts)
-  dbuild1 = astBuildDomains1Vectorize
+        ((dynamicVarNameToAstVarId var, AstBindingsHVector vars r) : l, asts)
+  dbuild1 = astBuildHVector1Vectorize
   rrev :: (GoodScalar r, KnownNat n)
-       => (forall f. ADReady f => Domains f -> f r n)
-       -> DomainsOD
-       -> Domains (AstRanked s)
-       -> AstDomains s
+       => (forall f. ADReady f => HVector f -> f r n)
+       -> HVectorOD
+       -> HVector (AstRanked s)
+       -> AstHVector s
   rrev f parameters0 =
     -- This computes the (AST of) derivative of f once and interprets it again
     -- for each new @parmeters@, which is much better than computing anew.
     let (((_varDt, vars), gradient, _primal, _sh), _delta) =
           revProduceArtifact TensorToken False (f @(AstRanked FullSpan))
                              EM.empty parameters0
-    in \parameters -> assert (domainsMatch parameters0 parameters) $
+    in \parameters -> assert (hVectorsMatch parameters0 parameters) $
       let env = extendEnvPars @(AstRanked s) vars parameters EM.empty
-      in interpretAstDomains env gradient
+      in interpretAstHVector env gradient
         -- this interpretation both substitutes parameters for the variables and
         -- reinterprets @PrimalSpan@ terms in @s@ terms;
         -- we could shortcut when @s@ is @PrimalSpan@ and @parameters@
         -- are the same variables, but it's a very special case
   rrevDt :: (GoodScalar r, KnownNat n)
-         => (forall f. ADReady f => Domains f -> f r n)
-         -> DomainsOD
-         -> Domains (AstRanked s)
+         => (forall f. ADReady f => HVector f -> f r n)
+         -> HVectorOD
+         -> HVector (AstRanked s)
          -> AstRanked s r n
-         -> AstDomains s
+         -> AstHVector s
   rrevDt f parameters0 =
     let (((varDt, vars), gradient, _primal, _sh), _delta) =
           revProduceArtifact TensorToken True (f @(AstRanked FullSpan))
                              EM.empty parameters0
-    in \parameters dt -> assert (domainsMatch parameters0 parameters) $
+    in \parameters dt -> assert (hVectorsMatch parameters0 parameters) $
       let env = extendEnvPars @(AstRanked s) vars parameters EM.empty
           envDt = extendEnvR varDt dt env
-      in interpretAstDomains envDt gradient
+      in interpretAstHVector envDt gradient
   rfwd :: (GoodScalar r, KnownNat n)
-       => (forall f. ADReady f => Domains f -> f r n)
-       -> DomainsOD
-       -> Domains (AstRanked s)
-       -> Domains (AstRanked s)
+       => (forall f. ADReady f => HVector f -> f r n)
+       -> HVectorOD
+       -> HVector (AstRanked s)
+       -> HVector (AstRanked s)
        -> AstRanked s r n
   rfwd f parameters0 =
     let (((varsDt, vars), derivative, _primal), _delta) =
           fwdProduceArtifact TensorToken (f @(AstRanked FullSpan))
                              EM.empty parameters0
-    in \parameters ds -> assert (domainsMatch parameters0 parameters) $
+    in \parameters ds -> assert (hVectorsMatch parameters0 parameters) $
       let env = extendEnvPars @(AstRanked s) vars parameters EM.empty
           envDt = extendEnvPars @(AstRanked s) varsDt ds env
       in interpretAst envDt derivative
@@ -665,22 +665,22 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
     let (((_varDt, vars), gradient, _primal, _sh), _delta) =
           revProduceArtifact TensorToken False (f @(AstShaped FullSpan))
                              EM.empty parameters0
-    in \parameters -> assert (domainsMatch parameters0 parameters) $
+    in \parameters -> assert (hVectorsMatch parameters0 parameters) $
       let env = extendEnvPars @(AstRanked s) vars parameters EM.empty
-      in interpretAstDomains env gradient
+      in interpretAstHVector env gradient
   srevDt f parameters0 =
     let (((varDt, vars), gradient, _primal, _sh), _delta) =
           revProduceArtifact TensorToken True (f @(AstShaped FullSpan))
                              EM.empty parameters0
-    in \parameters dt -> assert (domainsMatch parameters0 parameters) $
+    in \parameters dt -> assert (hVectorsMatch parameters0 parameters) $
       let env = extendEnvPars @(AstRanked s) vars parameters EM.empty
           envDt = extendEnvS varDt dt env
-      in interpretAstDomains envDt gradient
+      in interpretAstHVector envDt gradient
   sfwd f parameters0 =
     let (((varsDt, vars), derivative, _primal), _delta) =
           fwdProduceArtifact TensorToken (f @(AstShaped FullSpan))
                              EM.empty parameters0
-    in \parameters ds -> assert (domainsMatch parameters0 parameters) $
+    in \parameters ds -> assert (hVectorsMatch parameters0 parameters) $
       let env = extendEnvPars @(AstRanked s) vars parameters EM.empty
           envDt = extendEnvPars @(AstRanked s) varsDt ds env
       in interpretAstS envDt derivative
@@ -694,9 +694,9 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
     let shn = rshape x0
         shm = tailShape $ rshape as
         domsF = V.fromList [odFromSh @rn shn, odFromSh @rm shm]
-        domsToPair :: forall f. ADReady f => Domains f -> (f rn n, f rm m)
+        domsToPair :: forall f. ADReady f => HVector f -> (f rn n, f rm m)
         domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
-        g :: Domains (AstRanked FullSpan) -> AstRanked FullSpan rn n
+        g :: HVector (AstRanked FullSpan) -> AstRanked FullSpan rn n
         g doms = uncurry f (domsToPair doms)
     in -- This computes the (AST of) derivative of f once for each @x0@
        -- and @as@, which is better than once for each @a@. We could compute
@@ -723,7 +723,7 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
            => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
            -> (forall f. ADReady f => f rn n -> f rm m -> f rn n -> f rm m
                                    -> f rn n)
-           -> (forall f. ADReady f => f rn n -> f rn n -> f rm m -> DomainsOf f)
+           -> (forall f. ADReady f => f rn n -> f rn n -> f rm m -> HVectorOf f)
            -> AstRanked s rn n
            -> AstRanked s rm (1 + m)
            -> AstRanked s rn n
@@ -733,10 +733,10 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
     in AstFoldDer (fun2ToAstR shn shm f) (fun4ToAstR shn shm df)
                   (fun3ToAstR shn shm rf) x0 as
   rfoldZip :: forall rn n. (GoodScalar rn, KnownNat n)
-         => (forall f. ADReady f => f rn n -> Domains f -> f rn n)
-         -> DomainsOD
+         => (forall f. ADReady f => f rn n -> HVector f -> f rn n)
+         -> HVectorOD
          -> AstRanked s rn n
-         -> Domains (AstRanked s)
+         -> HVector (AstRanked s)
          -> AstRanked s rn n
   rfoldZip f domsOD x0 asD = case V.unsnoc asD of
     Nothing -> error "rfoldZip: can't determine argument width"
@@ -744,13 +744,13 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
       [] -> error "rfoldZip: wrong rank of argument"
       width : _shm -> case someNatVal $ toInteger width of
         Just (SomeNat @k _) ->
-          assert (domainsMatch (replicate1Domains (Proxy @k) domsOD) asD) $
+          assert (hVectorsMatch (replicate1HVector (Proxy @k) domsOD) asD) $
           let shn = rshape x0
               domsF = V.cons (odFromSh @rn shn) domsOD
               domsToPair :: forall f. ADReady f
-                         => Domains f -> (f rn n, Domains f)
+                         => HVector f -> (f rn n, HVector f)
               domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
-              g :: Domains (AstRanked FullSpan) -> AstRanked FullSpan rn n
+              g :: HVector (AstRanked FullSpan) -> AstRanked FullSpan rn n
               g doms = uncurry f (domsToPair doms)
           in case revProduceArtifact TensorToken True g EM.empty domsF of
             ( ( (varDt, AstDynamicVarName nid : mdyns)
@@ -770,16 +770,16 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
             _ -> error "rfoldD: wrong variables"
         _ -> error "rfoldZip: impossible someNatVal"
   rfoldZipDer :: forall rn n. (GoodScalar rn, KnownNat n)
-            => (forall f. ADReady f => f rn n -> Domains f -> f rn n)
+            => (forall f. ADReady f => f rn n -> HVector f -> f rn n)
             -> (forall f. ADReady f
-                => f rn n -> Domains f -> f rn n -> Domains f
+                => f rn n -> HVector f -> f rn n -> HVector f
                 -> f rn n)
             -> (forall f. ADReady f
-                => f rn n -> f rn n -> Domains f
-                -> DomainsOf f)
-            -> DomainsOD
+                => f rn n -> f rn n -> HVector f
+                -> HVectorOf f)
+            -> HVectorOD
             -> AstRanked s rn n
-            -> Domains (AstRanked s)
+            -> HVector (AstRanked s)
             -> AstRanked s rn n
   rfoldZipDer f df rf domsOD x0 asD = case V.unsnoc asD of
     Nothing -> error "rfoldZipDer: can't determine argument width"
@@ -787,7 +787,7 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
       [] -> error "rfoldZipDer: wrong rank of argument"
       width : _shm -> case someNatVal $ toInteger width of
         Just (SomeNat @k _) ->
-          assert (domainsMatch (replicate1Domains (Proxy @k) domsOD) asD) $
+          assert (hVectorsMatch (replicate1HVector (Proxy @k) domsOD) asD) $
           let shn = rshape x0
           in AstFoldZipDer (fun2DToAstR shn f domsOD)
                            (fun4DToAstR shn df domsOD)
@@ -803,9 +803,9 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
     let shn = rshape x0
         shm = tailShape $ rshape as
         domsF = V.fromList [odFromSh @rn shn, odFromSh @rm shm]
-        domsToPair :: forall f. ADReady f => Domains f -> (f rn n, f rm m)
+        domsToPair :: forall f. ADReady f => HVector f -> (f rn n, f rm m)
         domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
-        g :: Domains (AstRanked FullSpan) -> AstRanked FullSpan rn n
+        g :: HVector (AstRanked FullSpan) -> AstRanked FullSpan rn n
         g doms = uncurry f (domsToPair doms)
     in -- This computes the (AST of) derivative of f once for each @x0@
        -- and @as@, which is better than once for each @a@. We could compute
@@ -832,7 +832,7 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
            => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
            -> (forall f. ADReady f => f rn n -> f rm m -> f rn n -> f rm m
                                    -> f rn n)
-           -> (forall f. ADReady f => f rn n -> f rn n -> f rm m -> DomainsOf f)
+           -> (forall f. ADReady f => f rn n -> f rn n -> f rm m -> HVectorOf f)
            -> AstRanked s rn n
            -> AstRanked s rm (1 + m)
            -> AstRanked s rn (1 + n)
@@ -843,10 +843,10 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
                   (fun4ToAstR shn shm df)
                   (fun3ToAstR shn shm rf) x0 as
   rscanZip :: forall rn n. (GoodScalar rn, KnownNat n)
-         => (forall f. ADReady f => f rn n -> Domains f -> f rn n)
-         -> DomainsOD
+         => (forall f. ADReady f => f rn n -> HVector f -> f rn n)
+         -> HVectorOD
          -> AstRanked s rn n
-         -> Domains (AstRanked s)
+         -> HVector (AstRanked s)
          -> AstRanked s rn (1 + n)
   rscanZip f domsOD x0 asD = case V.unsnoc asD of
     Nothing -> error "rscanZip: can't determine argument width"
@@ -854,13 +854,13 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
       [] -> error "rscanZip: wrong rank of argument"
       width : _shm -> case someNatVal $ toInteger width of
         Just (SomeNat @k _) ->
-          assert (domainsMatch (replicate1Domains (Proxy @k) domsOD) asD) $
+          assert (hVectorsMatch (replicate1HVector (Proxy @k) domsOD) asD) $
           let shn = rshape x0
               domsF = V.cons (odFromSh @rn shn) domsOD
               domsToPair :: forall f. ADReady f
-                         => Domains f -> (f rn n, Domains f)
+                         => HVector f -> (f rn n, HVector f)
               domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
-              g :: Domains (AstRanked FullSpan) -> AstRanked FullSpan rn n
+              g :: HVector (AstRanked FullSpan) -> AstRanked FullSpan rn n
               g doms = uncurry f (domsToPair doms)
           in case revProduceArtifact TensorToken True g EM.empty domsF of
             ( ( (varDt, AstDynamicVarName nid : mdyns)
@@ -880,16 +880,16 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
             _ -> error "rscanD: wrong variables"
         _ -> error "rscanZip: impossible someNatVal"
   rscanZipDer :: forall rn n. (GoodScalar rn, KnownNat n)
-            => (forall f. ADReady f => f rn n -> Domains f -> f rn n)
+            => (forall f. ADReady f => f rn n -> HVector f -> f rn n)
             -> (forall f. ADReady f
-                => f rn n -> Domains f -> f rn n -> Domains f
+                => f rn n -> HVector f -> f rn n -> HVector f
                 -> f rn n)
             -> (forall f. ADReady f
-                => f rn n -> f rn n -> Domains f
-                -> DomainsOf f)
-            -> DomainsOD
+                => f rn n -> f rn n -> HVector f
+                -> HVectorOf f)
+            -> HVectorOD
             -> AstRanked s rn n
-            -> Domains (AstRanked s)
+            -> HVector (AstRanked s)
             -> AstRanked s rn (1 + n)
   rscanZipDer f df rf domsOD x0 asD = case V.unsnoc asD of
     Nothing -> error "rscanZipDer: can't determine argument width"
@@ -897,7 +897,7 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
       [] -> error "rscanZipDer: wrong rank of argument"
       width : _shm -> case someNatVal $ toInteger width of
         Just (SomeNat @k _) ->
-          assert (domainsMatch (replicate1Domains (Proxy @k) domsOD) asD) $
+          assert (hVectorsMatch (replicate1HVector (Proxy @k) domsOD) asD) $
           let shn = rshape x0
           in AstScanZipDer (fun2DToAstR shn f domsOD)
                            (fun4DToAstR shn df domsOD)
@@ -912,9 +912,9 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
   sfold f x0 as =
     let domsF = V.fromList [odFromShS @rn @sh, odFromShS @rm @shm]
         domsToPair :: forall f. ADReadyS f
-                   => Domains (RankedOf f) -> (f rn sh, f rm shm)
+                   => HVector (RankedOf f) -> (f rn sh, f rm shm)
         domsToPair doms = (sfromD $ doms V.! 0, sfromD $ doms V.! 1)
-        g :: Domains (AstRanked FullSpan) -> AstShaped FullSpan rn sh
+        g :: HVector (AstRanked FullSpan) -> AstShaped FullSpan rn sh
         g doms = uncurry f (domsToPair doms)
     in case revProduceArtifact TensorToken True g EM.empty domsF of
       ( ( (varDt, [AstDynamicVarName nid, AstDynamicVarName mid])
@@ -938,7 +938,7 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
                => f rn sh -> f rm shm -> f rn sh -> f rm shm
                -> f rn sh)
            -> (forall f. ADReadyS f
-               => f rn sh -> f rn sh -> f rm shm -> DomainsOf (RankedOf f))
+               => f rn sh -> f rn sh -> f rm shm -> HVectorOf (RankedOf f))
            -> AstShaped s rn sh
            -> AstShaped s rm (k ': shm)
            -> AstShaped s rn sh
@@ -946,10 +946,10 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
     AstFoldDerS (fun2ToAstS f) (fun4ToAstS df) (fun3ToAstS rf) x0 as
   sfoldZip :: forall rn sh. (GoodScalar rn, Sh.Shape sh)
          => (forall f. ADReadyS f
-             => f rn sh -> Domains (RankedOf f) -> f rn sh)
-         -> DomainsOD
+             => f rn sh -> HVector (RankedOf f) -> f rn sh)
+         -> HVectorOD
          -> AstShaped s rn sh
-         -> Domains (AstRanked s)
+         -> HVector (AstRanked s)
          -> AstShaped s rn sh
   sfoldZip f domsOD x0 asD = case V.unsnoc asD of
     Nothing -> error "sfoldZip: can't determine argument width"
@@ -957,13 +957,13 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
       [] -> error "sfoldZip: wrong rank of argument"
       width : _shm -> case someNatVal $ toInteger width of
         Just (SomeNat @k _) ->
-          assert (domainsMatch (replicate1Domains (Proxy @k) domsOD) asD) $
+          assert (hVectorsMatch (replicate1HVector (Proxy @k) domsOD) asD) $
           let domsF = V.cons (odFromShS @rn @sh) domsOD
               domsToPair :: forall f. ADReadyS f
-                            => Domains (RankedOf f)
-                            -> (f rn sh, Domains (RankedOf f))
+                            => HVector (RankedOf f)
+                            -> (f rn sh, HVector (RankedOf f))
               domsToPair doms = (sfromD $ doms V.! 0, V.tail doms)
-              g :: Domains (AstRanked FullSpan) -> AstShaped FullSpan rn sh
+              g :: HVector (AstRanked FullSpan) -> AstShaped FullSpan rn sh
               g doms = uncurry f (domsToPair doms)
           in case revProduceArtifact TensorToken True g EM.empty domsF of
             ( ( (varDt, AstDynamicVarName nid : mdyns)
@@ -984,17 +984,17 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
         _ -> error "sfoldZip: impossible someNatVal"
   sfoldZipDer :: forall rn sh. Sh.Shape sh
             => (forall f. ADReadyS f
-                => f rn sh -> Domains (RankedOf f) -> f rn sh)
+                => f rn sh -> HVector (RankedOf f) -> f rn sh)
             -> (forall f. ADReadyS f
-                => f rn sh -> Domains (RankedOf f) -> f rn sh
-                -> Domains (RankedOf f)
+                => f rn sh -> HVector (RankedOf f) -> f rn sh
+                -> HVector (RankedOf f)
                 -> f rn sh)
             -> (forall f. ADReadyS f
-                => f rn sh -> f rn sh -> Domains (RankedOf f)
-                -> DomainsOf (RankedOf f))
-            -> DomainsOD
+                => f rn sh -> f rn sh -> HVector (RankedOf f)
+                -> HVectorOf (RankedOf f))
+            -> HVectorOD
             -> AstShaped s rn sh
-            -> Domains (AstRanked s)
+            -> HVector (AstRanked s)
             -> AstShaped s rn sh
   sfoldZipDer f df rf domsOD x0 asD = case V.unsnoc asD of
     Nothing -> error "sfoldZipDer: can't determine argument width"
@@ -1002,7 +1002,7 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
       [] -> error "sfoldZipDer: wrong rank of argument"
       width : _shm -> case someNatVal $ toInteger width of
         Just (SomeNat @k _) ->
-          assert (domainsMatch (replicate1Domains (Proxy @k) domsOD) asD) $
+          assert (hVectorsMatch (replicate1HVector (Proxy @k) domsOD) asD) $
           AstFoldZipDerS (fun2DToAstS @_ @_ @sh f domsOD)
                          (fun4DToAstS @_ @_ @sh df domsOD)
                          (fun3DToAstS @_ @_ @sh rf domsOD) x0 asD
@@ -1016,9 +1016,9 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
   sscan f x0 as =
     let domsF = V.fromList [odFromShS @rn @sh, odFromShS @rm @shm]
         domsToPair :: forall f. ADReadyS f
-                   => Domains (RankedOf f) -> (f rn sh, f rm shm)
+                   => HVector (RankedOf f) -> (f rn sh, f rm shm)
         domsToPair doms = (sfromD $ doms V.! 0, sfromD $ doms V.! 1)
-        g :: Domains (AstRanked FullSpan) -> AstShaped FullSpan rn sh
+        g :: HVector (AstRanked FullSpan) -> AstShaped FullSpan rn sh
         g doms = uncurry f (domsToPair doms)
     in case revProduceArtifact TensorToken True g EM.empty domsF of
       ( ( (varDt, [AstDynamicVarName nid, AstDynamicVarName mid])
@@ -1043,7 +1043,7 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
                => f rn sh -> f rm shm -> f rn sh -> f rm shm
                -> f rn sh)
            -> (forall f. ADReadyS f
-               => f rn sh -> f rn sh -> f rm shm -> DomainsOf (RankedOf f))
+               => f rn sh -> f rn sh -> f rm shm -> HVectorOf (RankedOf f))
            -> AstShaped s rn sh
            -> AstShaped s rm (k ': shm)
            -> AstShaped s rn (1 + k ': sh)
@@ -1053,19 +1053,19 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
                 (fun3ToAstS @_ @_ @sh rf) x0 as
   sscanZip :: forall k rn sh. (GoodScalar rn, Sh.Shape sh, KnownNat k)
          => (forall f. ADReadyS f
-             => f rn sh -> Domains (RankedOf f) -> f rn sh)
-         -> DomainsOD
+             => f rn sh -> HVector (RankedOf f) -> f rn sh)
+         -> HVectorOD
          -> AstShaped s rn sh
-         -> Domains (AstRanked s)
+         -> HVector (AstRanked s)
          -> AstShaped s rn (1 + k ': sh)
   sscanZip f domsOD x0 asD =
-    assert (domainsMatch (replicate1Domains (Proxy @k) domsOD) asD) $
+    assert (hVectorsMatch (replicate1HVector (Proxy @k) domsOD) asD) $
     let domsF = V.cons (odFromShS @rn @sh) domsOD
         domsToPair :: forall f. ADReadyS f
-                      => Domains (RankedOf f)
-                      -> (f rn sh, Domains (RankedOf f))
+                      => HVector (RankedOf f)
+                      -> (f rn sh, HVector (RankedOf f))
         domsToPair doms = (sfromD $ doms V.! 0, V.tail doms)
-        g :: Domains (AstRanked FullSpan) -> AstShaped FullSpan rn sh
+        g :: HVector (AstRanked FullSpan) -> AstShaped FullSpan rn sh
         g doms = uncurry f (domsToPair doms)
     in case revProduceArtifact TensorToken True g EM.empty domsF of
       ( ( (varDt, AstDynamicVarName nid : mdyns)
@@ -1085,57 +1085,57 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
       _ -> error "sscanD: wrong variables"
   sscanZipDer :: forall k rn sh. (Sh.Shape sh, KnownNat k)
             => (forall f. ADReadyS f
-                => f rn sh -> Domains (RankedOf f) -> f rn sh)
+                => f rn sh -> HVector (RankedOf f) -> f rn sh)
             -> (forall f. ADReadyS f
-                => f rn sh -> Domains (RankedOf f) -> f rn sh
-                -> Domains (RankedOf f)
+                => f rn sh -> HVector (RankedOf f) -> f rn sh
+                -> HVector (RankedOf f)
                 -> f rn sh)
             -> (forall f. ADReadyS f
-                => f rn sh -> f rn sh -> Domains (RankedOf f)
-                -> DomainsOf (RankedOf f))
-            -> DomainsOD
+                => f rn sh -> f rn sh -> HVector (RankedOf f)
+                -> HVectorOf (RankedOf f))
+            -> HVectorOD
             -> AstShaped s rn sh
-            -> Domains (AstRanked s)
+            -> HVector (AstRanked s)
             -> AstShaped s rn (1 + k ': sh)
   sscanZipDer f df rf domsOD x0 asD =
-    assert (domainsMatch (replicate1Domains (Proxy @k) domsOD) asD) $
+    assert (hVectorsMatch (replicate1HVector (Proxy @k) domsOD) asD) $
     AstScanZipDerS (fun2DToAstS @_ @_ @sh f domsOD)
                    (fun4DToAstS @_ @_ @sh df domsOD)
                    (fun3DToAstS @_ @_ @sh rf domsOD) x0 asD
 
-astLetDomainsInDomainsFun
+astLetHVectorInHVectorFun
   :: AstSpan s
-  => DomainsOD -> AstDomains s -> (Domains (AstRanked s) -> AstDomains s)
-  -> AstDomains s
-{-# INLINE astLetDomainsInDomainsFun #-}
-astLetDomainsInDomainsFun a0 a f =
-  fun1DToAst a0 $ \vars asts -> astLetDomainsInDomains vars a (f asts)
+  => HVectorOD -> AstHVector s -> (HVector (AstRanked s) -> AstHVector s)
+  -> AstHVector s
+{-# INLINE astLetHVectorInHVectorFun #-}
+astLetHVectorInHVectorFun a0 a f =
+  fun1DToAst a0 $ \vars asts -> astLetHVectorInHVector vars a (f asts)
 
-astLetInDomainsFun :: (KnownNat n, GoodScalar r, AstSpan s)
-                   => AstRanked s r n -> (AstRanked s r n -> AstDomains s)
-                   -> AstDomains s
-{-# NOINLINE astLetInDomainsFun #-}
-astLetInDomainsFun a f | astIsSmall True a = f a
-astLetInDomainsFun a f = unsafePerformIO $ do  -- the id causes trouble
+astLetInHVectorFun :: (KnownNat n, GoodScalar r, AstSpan s)
+                   => AstRanked s r n -> (AstRanked s r n -> AstHVector s)
+                   -> AstHVector s
+{-# NOINLINE astLetInHVectorFun #-}
+astLetInHVectorFun a f | astIsSmall True a = f a
+astLetInHVectorFun a f = unsafePerformIO $ do  -- the id causes trouble
   let sh = shapeAst a
   (!var, _, !ast) <- funToAstIOR sh id
-  return $! astLetInDomains var a (f ast)
+  return $! astLetInHVector var a (f ast)
               -- safe because subsitution ruled out above
 
-astLetInDomainsFunS :: (Sh.Shape sh, GoodScalar r, AstSpan s)
-                    => AstShaped s r sh -> (AstShaped s r sh -> AstDomains s)
-                    -> AstDomains s
-{-# NOINLINE astLetInDomainsFunS #-}
-astLetInDomainsFunS a f | astIsSmallS True a = f a
-astLetInDomainsFunS a f = unsafePerformIO $ do  -- the id causes trouble
+astLetInHVectorFunS :: (Sh.Shape sh, GoodScalar r, AstSpan s)
+                    => AstShaped s r sh -> (AstShaped s r sh -> AstHVector s)
+                    -> AstHVector s
+{-# NOINLINE astLetInHVectorFunS #-}
+astLetInHVectorFunS a f | astIsSmallS True a = f a
+astLetInHVectorFunS a f = unsafePerformIO $ do  -- the id causes trouble
   (!var, _, !ast) <- funToAstIOS id
-  return $! astLetInDomainsS var a (f ast)
+  return $! astLetInHVectorS var a (f ast)
               -- safe because subsitution ruled out above
 
-astBuildDomains1Vectorize
+astBuildHVector1Vectorize
   :: AstSpan s
-  => Int -> (AstInt -> AstDomains s) -> AstDomains s
-astBuildDomains1Vectorize k f = build1VectorizeDomains k $ funToAstI f
+  => Int -> (AstInt -> AstHVector s) -> AstHVector s
+astBuildHVector1Vectorize k f = build1VectorizeHVector k $ funToAstI f
 
 
 -- * The auxiliary AstNoVectorize and AstNoSimplify instances, for tests
@@ -1269,9 +1269,9 @@ instance AstSpan s
   rfromIntegral = AstNoVectorize . fromPrimal . AstFromIntegral
                   . astSpanPrimal . unAstNoVectorize
   rconst = AstNoVectorize . fromPrimal . AstConst
-  rletDomainsIn a0 a f =
-    AstNoVectorize $ astLetDomainsInFun
-                       a0 a (unAstNoVectorize . f . noVectorizeDomains)
+  rletHVectorIn a0 a f =
+    AstNoVectorize $ astLetHVectorInFun
+                       a0 a (unAstNoVectorize . f . noVectorizeHVector)
   rfromS = AstNoVectorize . rfromS @(AstRanked s) . unAstNoVectorizeS
 
   rconstant = AstNoVectorize . fromPrimal
@@ -1321,9 +1321,9 @@ instance AstSpan s => ShapedTensor (AstNoVectorizeS s) where
   sfromIntegral = AstNoVectorizeS . fromPrimalS . AstFromIntegralS
                   . astSpanPrimalS . unAstNoVectorizeS
   sconst = AstNoVectorizeS . fromPrimalS . AstConstS
-  sletDomainsIn a0 a f =
-    AstNoVectorizeS $ astLetDomainsInFunS
-                        a0 a (unAstNoVectorizeS . f . noVectorizeDomains)
+  sletHVectorIn a0 a f =
+    AstNoVectorizeS $ astLetHVectorInFunS
+                        a0 a (unAstNoVectorizeS . f . noVectorizeHVector)
   sfromR = AstNoVectorizeS . sfromR @(AstShaped s) . unAstNoVectorize
 
   sconstant = AstNoVectorizeS . fromPrimalS
@@ -1333,37 +1333,37 @@ instance AstSpan s => ShapedTensor (AstNoVectorizeS s) where
   sD u u' = AstNoVectorizeS $ astSpanDS u u'
   sScale s t = astDualPartS $ AstConstantS s * AstDS 0 t
 
-instance AstSpan s => DomainsTensor (AstNoVectorize s) (AstNoVectorizeS s) where
-  dmkDomains domains = dmkDomains @(AstRanked s) (unNoVectorizeDomains domains)
-  dunDomains parameters0 doms =
-    noVectorizeDomains $ dunDomains @(AstRanked s) parameters0 doms
-  dletDomainsInDomains a0 a f =
-    astLetDomainsInDomainsFun a0 a (f . noVectorizeDomains)
-  rletInDomains u f =
-    rletInDomains @(AstRanked s) (unAstNoVectorize u) (f . AstNoVectorize)
-  sletInDomains u f =
-    sletInDomains @(AstRanked s) (unAstNoVectorizeS u) (f . AstNoVectorizeS)
+instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
+  dmkHVector hVector = dmkHVector @(AstRanked s) (unNoVectorizeHVector hVector)
+  dunHVector parameters0 doms =
+    noVectorizeHVector $ dunHVector @(AstRanked s) parameters0 doms
+  dletHVectorInHVector a0 a f =
+    astLetHVectorInHVectorFun a0 a (f . noVectorizeHVector)
+  rletInHVector u f =
+    rletInHVector @(AstRanked s) (unAstNoVectorize u) (f . AstNoVectorize)
+  sletInHVector u f =
+    sletInHVector @(AstRanked s) (unAstNoVectorizeS u) (f . AstNoVectorizeS)
   drecordSharingPrimal = error "drecordSharingPrimal for AstNoVectorize"
   dregister = error "dregister for AstNoVectorize"
-  dbuild1 k f = AstBuildDomains1 k $ funToAstI f
-  rrev f parameters0 domains =
-    rrev @(AstRanked s) f parameters0 (unNoVectorizeDomains domains)
-  rrevDt f parameters0 domains dt =
+  dbuild1 k f = AstBuildHVector1 k $ funToAstI f
+  rrev f parameters0 hVector =
+    rrev @(AstRanked s) f parameters0 (unNoVectorizeHVector hVector)
+  rrevDt f parameters0 hVector dt =
     rrevDt @(AstRanked s) f parameters0
-           (unNoVectorizeDomains domains) (unAstNoVectorize dt)
-  rfwd f parameters0 domains ds =
+           (unNoVectorizeHVector hVector) (unAstNoVectorize dt)
+  rfwd f parameters0 hVector ds =
     AstNoVectorize
     $ rfwd @(AstRanked s) f parameters0
-           (unNoVectorizeDomains domains) (unNoVectorizeDomains ds)
-  srev f parameters0 domains =
-    srev @(AstRanked s) f parameters0 (unNoVectorizeDomains domains)
-  srevDt f parameters0 domains dt =
+           (unNoVectorizeHVector hVector) (unNoVectorizeHVector ds)
+  srev f parameters0 hVector =
+    srev @(AstRanked s) f parameters0 (unNoVectorizeHVector hVector)
+  srevDt f parameters0 hVector dt =
     srevDt @(AstRanked s) f parameters0
-           (unNoVectorizeDomains domains) (unAstNoVectorizeS dt)
-  sfwd f parameters0 domains ds =
+           (unNoVectorizeHVector hVector) (unAstNoVectorizeS dt)
+  sfwd f parameters0 hVector ds =
     AstNoVectorizeS
     $ sfwd @(AstRanked s) f parameters0
-           (unNoVectorizeDomains domains) (unNoVectorizeDomains ds)
+           (unNoVectorizeHVector hVector) (unNoVectorizeHVector ds)
   rfold f x0 as =
     AstNoVectorize
     $ rfold @(AstRanked s) f (unAstNoVectorize x0) (unAstNoVectorize as)
@@ -1374,11 +1374,11 @@ instance AstSpan s => DomainsTensor (AstNoVectorize s) (AstNoVectorizeS s) where
   rfoldZip f domsOD x0 as =
     AstNoVectorize
     $ rfoldZip @(AstRanked s) f domsOD (unAstNoVectorize x0)
-                                     (unNoVectorizeDomains as)
+                                     (unNoVectorizeHVector as)
   rfoldZipDer f df rf domsOD x0 as =
     AstNoVectorize
     $ rfoldZipDer @(AstRanked s)
-                f df rf domsOD (unAstNoVectorize x0) (unNoVectorizeDomains as)
+                f df rf domsOD (unAstNoVectorize x0) (unNoVectorizeHVector as)
   rscan f x0 as =
     AstNoVectorize
     $ rscan @(AstRanked s) f (unAstNoVectorize x0) (unAstNoVectorize as)
@@ -1389,11 +1389,11 @@ instance AstSpan s => DomainsTensor (AstNoVectorize s) (AstNoVectorizeS s) where
   rscanZip f domsOD x0 as =
     AstNoVectorize
     $ rscanZip @(AstRanked s) f domsOD (unAstNoVectorize x0)
-                                     (unNoVectorizeDomains as)
+                                     (unNoVectorizeHVector as)
   rscanZipDer f df rf domsOD x0 as =
     AstNoVectorize
     $ rscanZipDer @(AstRanked s)
-                f df rf domsOD (unAstNoVectorize x0) (unNoVectorizeDomains as)
+                f df rf domsOD (unAstNoVectorize x0) (unNoVectorizeHVector as)
   sfold f x0 as =
     AstNoVectorizeS
     $ sfold @(AstRanked s) f (unAstNoVectorizeS x0) (unAstNoVectorizeS as)
@@ -1404,11 +1404,11 @@ instance AstSpan s => DomainsTensor (AstNoVectorize s) (AstNoVectorizeS s) where
   sfoldZip f domsOD x0 as =
     AstNoVectorizeS
     $ sfoldZip @(AstRanked s) f domsOD (unAstNoVectorizeS x0)
-                                     (unNoVectorizeDomains as)
+                                     (unNoVectorizeHVector as)
   sfoldZipDer f df rf domsOD x0 as =
     AstNoVectorizeS
     $ sfoldZipDer @(AstRanked s)
-                f df rf domsOD (unAstNoVectorizeS x0) (unNoVectorizeDomains as)
+                f df rf domsOD (unAstNoVectorizeS x0) (unNoVectorizeHVector as)
   sscan f x0 as =
     AstNoVectorizeS
     $ sscan @(AstRanked s) f (unAstNoVectorizeS x0) (unAstNoVectorizeS as)
@@ -1419,22 +1419,22 @@ instance AstSpan s => DomainsTensor (AstNoVectorize s) (AstNoVectorizeS s) where
   sscanZip f domsOD x0 as =
     AstNoVectorizeS
     $ sscanZip @(AstRanked s) f domsOD (unAstNoVectorizeS x0)
-                                     (unNoVectorizeDomains as)
+                                     (unNoVectorizeHVector as)
   sscanZipDer f df rf domsOD x0 as =
     AstNoVectorizeS
     $ sscanZipDer @(AstRanked s)
-                f df rf domsOD (unAstNoVectorizeS x0) (unNoVectorizeDomains as)
+                f df rf domsOD (unAstNoVectorizeS x0) (unNoVectorizeHVector as)
 
-unNoVectorizeDomains :: Domains (AstNoVectorize s) -> Domains (AstRanked s)
-unNoVectorizeDomains =
+unNoVectorizeHVector :: HVector (AstNoVectorize s) -> HVector (AstRanked s)
+unNoVectorizeHVector =
   let f (DynamicRanked (AstNoVectorize t)) = DynamicRanked t
       f (DynamicShaped (AstNoVectorizeS t)) = DynamicShaped t
       f (DynamicRankedDummy p1 p2) = DynamicRankedDummy p1 p2
       f (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
   in V.map f
 
-noVectorizeDomains :: Domains (AstRanked s) -> Domains (AstNoVectorize s)
-noVectorizeDomains =
+noVectorizeHVector :: HVector (AstRanked s) -> HVector (AstNoVectorize s)
+noVectorizeHVector =
   let f (DynamicRanked t) = DynamicRanked $ AstNoVectorize t
       f (DynamicShaped t) = DynamicShaped $ AstNoVectorizeS t
       f (DynamicRankedDummy p1 p2) = DynamicRankedDummy p1 p2
@@ -1479,9 +1479,9 @@ instance AstSpan s => RankedTensor (AstNoSimplify s) where
   rfromIntegral = AstNoSimplify . fromPrimal . AstFromIntegral
                   . astSpanPrimal . unAstNoSimplify
   rconst = AstNoSimplify . fromPrimal . AstConst
-  rletDomainsIn a0 a f =
-    AstNoSimplify $ astLetDomainsInFun
-                      a0 a (unAstNoSimplify . f . noSimplifyDomains)
+  rletHVectorIn a0 a f =
+    AstNoSimplify $ astLetHVectorInFun
+                      a0 a (unAstNoSimplify . f . noSimplifyHVector)
   rfromS = AstNoSimplify . rfromS @(AstRanked s) . unAstNoSimplifyS
 
   rconstant = AstNoSimplify . fromPrimal
@@ -1546,9 +1546,9 @@ instance AstSpan s => ShapedTensor (AstNoSimplifyS s) where
   sfromIntegral = AstNoSimplifyS . fromPrimalS . AstFromIntegralS
                   . astSpanPrimalS . unAstNoSimplifyS
   sconst = AstNoSimplifyS . fromPrimalS . AstConstS
-  sletDomainsIn a0 a f =
-    AstNoSimplifyS $ astLetDomainsInFunS
-                       a0 a (unAstNoSimplifyS . f . noSimplifyDomains)
+  sletHVectorIn a0 a f =
+    AstNoSimplifyS $ astLetHVectorInFunS
+                       a0 a (unAstNoSimplifyS . f . noSimplifyHVector)
   sfromR = AstNoSimplifyS . sfromR @(AstShaped s) . unAstNoSimplify
 
   sconstant = AstNoSimplifyS . fromPrimalS
@@ -1558,35 +1558,35 @@ instance AstSpan s => ShapedTensor (AstNoSimplifyS s) where
   sD u u' = AstNoSimplifyS $ astSpanDS u u'
   sScale s t = astDualPartS $ AstConstantS s * AstDS 0 t
 
-instance AstSpan s => DomainsTensor (AstNoSimplify s) (AstNoSimplifyS s) where
-  dmkDomains domains = dmkDomains @(AstRanked s) (unNoSimplifyDomains domains)
-  dunDomains parameters0 doms =
-    noSimplifyDomains $ dunDomains @(AstRanked s) parameters0 doms
-  dletDomainsInDomains a0 a f =
-    astLetDomainsInDomainsFun a0 a (f . noSimplifyDomains)
-  rletInDomains u f =
-    rletInDomains @(AstRanked s) (unAstNoSimplify u) (f . AstNoSimplify)
-  sletInDomains u f =
-    sletInDomains @(AstRanked s) (unAstNoSimplifyS u) (f . AstNoSimplifyS)
+instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
+  dmkHVector hVector = dmkHVector @(AstRanked s) (unNoSimplifyHVector hVector)
+  dunHVector parameters0 doms =
+    noSimplifyHVector $ dunHVector @(AstRanked s) parameters0 doms
+  dletHVectorInHVector a0 a f =
+    astLetHVectorInHVectorFun a0 a (f . noSimplifyHVector)
+  rletInHVector u f =
+    rletInHVector @(AstRanked s) (unAstNoSimplify u) (f . AstNoSimplify)
+  sletInHVector u f =
+    sletInHVector @(AstRanked s) (unAstNoSimplifyS u) (f . AstNoSimplifyS)
   drecordSharingPrimal = error "drecordSharingPrimal for AstNoVectorize"
   dregister = error "dregister for AstNoSimplify"
-  dbuild1 = astBuildDomains1Vectorize
-  rrev f parameters0 domains =
-    rrev @(AstRanked s) f parameters0 (unNoSimplifyDomains domains)
-  rrevDt f parameters0 domains dt =
+  dbuild1 = astBuildHVector1Vectorize
+  rrev f parameters0 hVector =
+    rrev @(AstRanked s) f parameters0 (unNoSimplifyHVector hVector)
+  rrevDt f parameters0 hVector dt =
     rrevDt @(AstRanked s) f parameters0
-           (unNoSimplifyDomains domains) (unAstNoSimplify dt)
-  rfwd f parameters0 domains ds =
+           (unNoSimplifyHVector hVector) (unAstNoSimplify dt)
+  rfwd f parameters0 hVector ds =
     AstNoSimplify $ rfwd @(AstRanked s) f parameters0
-                         (unNoSimplifyDomains domains) (unNoSimplifyDomains ds)
-  srev f parameters0 domains =
-    srev @(AstRanked s) f parameters0 (unNoSimplifyDomains domains)
-  srevDt f parameters0 domains dt =
+                         (unNoSimplifyHVector hVector) (unNoSimplifyHVector ds)
+  srev f parameters0 hVector =
+    srev @(AstRanked s) f parameters0 (unNoSimplifyHVector hVector)
+  srevDt f parameters0 hVector dt =
     srevDt @(AstRanked s) f parameters0
-           (unNoSimplifyDomains domains) (unAstNoSimplifyS dt)
-  sfwd f parameters0 domains ds =
+           (unNoSimplifyHVector hVector) (unAstNoSimplifyS dt)
+  sfwd f parameters0 hVector ds =
     AstNoSimplifyS $ sfwd @(AstRanked s) f parameters0
-                          (unNoSimplifyDomains domains) (unNoSimplifyDomains ds)
+                          (unNoSimplifyHVector hVector) (unNoSimplifyHVector ds)
   rfold f x0 as =
     AstNoSimplify
     $ rfold @(AstRanked s) f (unAstNoSimplify x0) (unAstNoSimplify as)
@@ -1596,11 +1596,11 @@ instance AstSpan s => DomainsTensor (AstNoSimplify s) (AstNoSimplifyS s) where
   rfoldZip f domsOD x0 as =
     AstNoSimplify
     $ rfoldZip @(AstRanked s) f domsOD (unAstNoSimplify x0)
-                                     (unNoSimplifyDomains as)
+                                     (unNoSimplifyHVector as)
   rfoldZipDer f df rf domsOD x0 as =
     AstNoSimplify
     $ rfoldZipDer @(AstRanked s)
-                f df rf domsOD (unAstNoSimplify x0) (unNoSimplifyDomains as)
+                f df rf domsOD (unAstNoSimplify x0) (unNoSimplifyHVector as)
   rscan f x0 as =
     AstNoSimplify
     $ rscan @(AstRanked s) f (unAstNoSimplify x0) (unAstNoSimplify as)
@@ -1610,11 +1610,11 @@ instance AstSpan s => DomainsTensor (AstNoSimplify s) (AstNoSimplifyS s) where
   rscanZip f domsOD x0 as =
     AstNoSimplify
     $ rscanZip @(AstRanked s) f domsOD (unAstNoSimplify x0)
-                                     (unNoSimplifyDomains as)
+                                     (unNoSimplifyHVector as)
   rscanZipDer f df rf domsOD x0 as =
     AstNoSimplify
     $ rscanZipDer @(AstRanked s)
-                f df rf domsOD (unAstNoSimplify x0) (unNoSimplifyDomains as)
+                f df rf domsOD (unAstNoSimplify x0) (unNoSimplifyHVector as)
   sfold f x0 as =
     AstNoSimplifyS
     $ sfold @(AstRanked s) f (unAstNoSimplifyS x0) (unAstNoSimplifyS as)
@@ -1625,11 +1625,11 @@ instance AstSpan s => DomainsTensor (AstNoSimplify s) (AstNoSimplifyS s) where
   sfoldZip f domsOD x0 as =
     AstNoSimplifyS
     $ sfoldZip @(AstRanked s) f domsOD (unAstNoSimplifyS x0)
-                                     (unNoSimplifyDomains as)
+                                     (unNoSimplifyHVector as)
   sfoldZipDer f df rf domsOD x0 as =
     AstNoSimplifyS
     $ sfoldZipDer @(AstRanked s)
-                f df rf domsOD (unAstNoSimplifyS x0) (unNoSimplifyDomains as)
+                f df rf domsOD (unAstNoSimplifyS x0) (unNoSimplifyHVector as)
   sscan f x0 as =
     AstNoSimplifyS
     $ sscan @(AstRanked s) f (unAstNoSimplifyS x0) (unAstNoSimplifyS as)
@@ -1640,22 +1640,22 @@ instance AstSpan s => DomainsTensor (AstNoSimplify s) (AstNoSimplifyS s) where
   sscanZip f domsOD x0 as =
     AstNoSimplifyS
     $ sscanZip @(AstRanked s) f domsOD (unAstNoSimplifyS x0)
-                                     (unNoSimplifyDomains as)
+                                     (unNoSimplifyHVector as)
   sscanZipDer f df rf domsOD x0 as =
     AstNoSimplifyS
     $ sscanZipDer @(AstRanked s)
-                f df rf domsOD (unAstNoSimplifyS x0) (unNoSimplifyDomains as)
+                f df rf domsOD (unAstNoSimplifyS x0) (unNoSimplifyHVector as)
 
-unNoSimplifyDomains :: Domains (AstNoSimplify s) -> Domains (AstRanked s)
-unNoSimplifyDomains =
+unNoSimplifyHVector :: HVector (AstNoSimplify s) -> HVector (AstRanked s)
+unNoSimplifyHVector =
   let f (DynamicRanked (AstNoSimplify t)) = DynamicRanked t
       f (DynamicShaped (AstNoSimplifyS t)) = DynamicShaped t
       f (DynamicRankedDummy p1 p2) = DynamicRankedDummy p1 p2
       f (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
   in V.map f
 
-noSimplifyDomains :: Domains (AstRanked s) -> Domains (AstNoSimplify s)
-noSimplifyDomains =
+noSimplifyHVector :: HVector (AstRanked s) -> HVector (AstNoSimplify s)
+noSimplifyHVector =
   let f (DynamicRanked t) = DynamicRanked $ AstNoSimplify t
       f (DynamicShaped t) = DynamicShaped $ AstNoSimplifyS t
       f (DynamicRankedDummy p1 p2) = DynamicRankedDummy p1 p2

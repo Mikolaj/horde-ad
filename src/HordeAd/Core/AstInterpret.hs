@@ -11,7 +11,7 @@ module HordeAd.Core.AstInterpret
   , interpretAstPrimalRuntimeSpecialized, interpretAstPrimalSRuntimeSpecialized
   , interpretAstDual, interpretAstDualS
   , interpretAstRuntimeSpecialized, interpretAstSRuntimeSpecialized
-  , interpretAstDomains, interpretAstBool
+  , interpretAstHVector, interpretAstBool
   ) where
 
 import Prelude
@@ -434,11 +434,11 @@ interpretAst !env = \case
   AstFromIntegral v ->
     rfromIntegral $ rconstant $ interpretAstPrimalRuntimeSpecialized env v
   AstConst a -> rconst a
-  AstLetDomainsIn vars l v ->
+  AstLetHVectorIn vars l v ->
     let lt0 = V.fromList $ map odFromVar vars
-        lt = interpretAstDomains env l
+        lt = interpretAstHVector env l
         env2 lw = extendEnvPars vars lw env
-    in rletDomainsIn lt0 lt (\lw -> assert (domainsMatch lt0 lw) $
+    in rletHVectorIn lt0 lt (\lw -> assert (hVectorsMatch lt0 lw) $
                                     interpretAst (env2 lw) v)
   AstSToR v -> rfromS $ interpretAstS env v
   AstConstant a -> rconstant $ interpretAstPrimal env a
@@ -476,8 +476,8 @@ interpretAst !env = \case
         t2 = interpretAstDual env u'
     in rD t1 t2
   AstFwd (vars, ast) parameters ds ->
-    let g :: forall f. ADReady f => Domains f -> f r n
-        g = interpretLambdaDomains interpretAst EM.empty (vars, ast)
+    let g :: forall f. ADReady f => HVector f -> f r n
+        g = interpretLambdaHVector interpretAst EM.empty (vars, ast)
           -- interpretation in empty environment makes sense only
           -- if there are no free variables outside of those listed
         parameters0 = V.fromList $ map odFromVar vars
@@ -501,27 +501,27 @@ interpretAst !env = \case
            => f r n -> f rm m -> f r n -> f rm m -> f r n
         df = interpretLambda4 interpretAst EM.empty df0
         rf :: forall f. ADReady f
-           => f r n -> f r n -> f rm m -> DomainsOf f
-        rf = interpretLambda3 interpretAstDomains EM.empty rf0
+           => f r n -> f r n -> f rm m -> HVectorOf f
+        rf = interpretLambda3 interpretAstHVector EM.empty rf0
         x0i = interpretAst @ranked env x0
         asi = interpretAst @ranked env as
     in rfoldDer @ranked f df rf x0i asi
   AstFoldZip @_ @n1 f@(_, vars, _) x0 as ->
-    let g :: forall f. ADReady f => f r n1 -> Domains f -> f r n1
+    let g :: forall f. ADReady f => f r n1 -> HVector f -> f r n1
         g = interpretLambda2D interpretAst EM.empty f
         od = V.fromList $ map odFromVar vars
         x0i = interpretAst env x0
         asi = interpretAstDynamic env <$> as
     in rfoldZip g od x0i asi
   AstFoldZipDer @_ @n1 f0@(_, vars, _) df0 rf0 x0 as ->
-    let f :: forall f. ADReady f => f r n1 -> Domains f -> f r n1
+    let f :: forall f. ADReady f => f r n1 -> HVector f -> f r n1
         f = interpretLambda2D interpretAst EM.empty f0
         df :: forall f. ADReady f
-           => f r n1 -> Domains f -> f r n1 -> Domains f -> f r n1
+           => f r n1 -> HVector f -> f r n1 -> HVector f -> f r n1
         df = interpretLambda4D interpretAst EM.empty df0
         rf :: forall f. ADReady f
-           => f r n1 -> f r n1 -> Domains f -> DomainsOf f
-        rf = interpretLambda3D interpretAstDomains EM.empty rf0
+           => f r n1 -> f r n1 -> HVector f -> HVectorOf f
+        rf = interpretLambda3D interpretAstHVector EM.empty rf0
         od = V.fromList $ map odFromVar vars
         x0i = interpretAst env x0
         asi = interpretAstDynamic env <$> as
@@ -539,27 +539,27 @@ interpretAst !env = \case
            => f r n1 -> f rm m -> f r n1 -> f rm m -> f r n1
         df = interpretLambda4 interpretAst EM.empty df0
         rf :: forall f. ADReady f
-           => f r n1 -> f r n1 -> f rm m -> DomainsOf f
-        rf = interpretLambda3 interpretAstDomains EM.empty rf0
+           => f r n1 -> f r n1 -> f rm m -> HVectorOf f
+        rf = interpretLambda3 interpretAstHVector EM.empty rf0
         x0i = interpretAst env x0
         asi = interpretAst env as
     in rscanDer f df rf x0i asi
   AstScanZip @_ @n1 f@(_, vars, _) x0 as ->
-    let g :: forall f. ADReady f => f r n1 -> Domains f -> f r n1
+    let g :: forall f. ADReady f => f r n1 -> HVector f -> f r n1
         g = interpretLambda2D interpretAst EM.empty f
         od = V.fromList $ map odFromVar vars
         x0i = interpretAst env x0
         asi = interpretAstDynamic env <$> as
     in rscanZip g od x0i asi
   AstScanZipDer @_ @n1 f0@(_, vars, _) df0 rf0 x0 as ->
-    let f :: forall f. ADReady f => f r n1 -> Domains f -> f r n1
+    let f :: forall f. ADReady f => f r n1 -> HVector f -> f r n1
         f = interpretLambda2D interpretAst EM.empty f0
         df :: forall f. ADReady f
-           => f r n1 -> Domains f -> f r n1 -> Domains f -> f r n1
+           => f r n1 -> HVector f -> f r n1 -> HVector f -> f r n1
         df = interpretLambda4D interpretAst EM.empty df0
         rf :: forall f. ADReady f
-           => f r n1 -> f r n1 -> Domains f -> DomainsOf f
-        rf = interpretLambda3D interpretAstDomains EM.empty rf0
+           => f r n1 -> f r n1 -> HVector f -> HVectorOf f
+        rf = interpretLambda3D interpretAstHVector EM.empty rf0
         od = V.fromList $ map odFromVar vars
         x0i = interpretAst env x0
         asi = interpretAstDynamic env <$> as
@@ -578,33 +578,33 @@ interpretAstDynamic !env = \case
   DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
   DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
 
-interpretAstDomains
+interpretAstHVector
   :: forall ranked shaped s. (ADReadyBoth ranked shaped, AstSpan s)
-  => AstEnv ranked shaped -> AstDomains s -> DomainsOf ranked
-interpretAstDomains !env = \case
-  AstDomains l ->
-    dmkDomains @ranked @shaped $ interpretAstDynamic @ranked env <$> l
-  AstLetDomainsInDomains vars u v ->
+  => AstEnv ranked shaped -> AstHVector s -> HVectorOf ranked
+interpretAstHVector !env = \case
+  AstHVector l ->
+    dmkHVector @ranked @shaped $ interpretAstDynamic @ranked env <$> l
+  AstLetHVectorInHVector vars u v ->
     let t0 = V.fromList $ map odFromVar vars
-        t = interpretAstDomains env u
+        t = interpretAstHVector env u
         env2 w = extendEnvPars vars w env
-    in dletDomainsInDomains t0 t (\w -> assert (domainsMatch t0 w) $
-                                        interpretAstDomains (env2 w) v)
-  AstLetInDomains var u v ->
+    in dletHVectorInHVector t0 t (\w -> assert (hVectorsMatch t0 w) $
+                                        interpretAstHVector (env2 w) v)
+  AstLetInHVector var u v ->
     -- We assume there are no nested lets with the same variable.
     let t = interpretAstRuntimeSpecialized env u
         env2 w = extendEnvR var w env
-    in rletInDomains t (\w -> interpretAstDomains (env2 w) v)
-  AstLetInDomainsS var u v ->
+    in rletInHVector t (\w -> interpretAstHVector (env2 w) v)
+  AstLetInHVectorS var u v ->
     -- We assume there are no nested lets with the same variable.
     let t = interpretAstSRuntimeSpecialized env u
         env2 w = extendEnvS var w env
-    in sletInDomains t (\w -> interpretAstDomains (env2 w) v)
-  AstBuildDomains1 k (var, v) ->
-    dbuild1 @ranked k (interpretLambdaIDomains interpretAstDomains env (var, v))
+    in sletInHVector t (\w -> interpretAstHVector (env2 w) v)
+  AstBuildHVector1 k (var, v) ->
+    dbuild1 @ranked k (interpretLambdaIHVector interpretAstHVector env (var, v))
   AstRev @r @n (vars, ast) parameters ->
-    let g :: forall f. ADReady f => Domains f -> f r n
-        g = interpretLambdaDomains interpretAst EM.empty (vars, ast)
+    let g :: forall f. ADReady f => HVector f -> f r n
+        g = interpretLambdaHVector interpretAst EM.empty (vars, ast)
           -- interpretation in empty environment; makes sense only
           -- if there are no free variables outside of those listed;
           -- the same below
@@ -612,21 +612,21 @@ interpretAstDomains !env = \case
         pars = interpretAstDynamic @ranked env <$> parameters
     in rrev @ranked g parameters0 pars
   AstRevDt @r @n (vars, ast) parameters dt ->
-    let g :: forall f. ADReady f => Domains f -> f r n
-        g = interpretLambdaDomains interpretAst EM.empty (vars, ast)
+    let g :: forall f. ADReady f => HVector f -> f r n
+        g = interpretLambdaHVector interpretAst EM.empty (vars, ast)
         parameters0 = V.fromList $ map odFromVar vars
         pars = interpretAstDynamic @ranked env <$> parameters
         d = interpretAst env dt
     in rrevDt @ranked g parameters0 pars d
   AstRevS @r @sh (vars, ast) parameters ->
-    let g :: forall f. ADReadyS f => Domains (RankedOf f) -> f r sh
-        g = interpretLambdaDomainsS interpretAstS EM.empty (vars, ast)
+    let g :: forall f. ADReadyS f => HVector (RankedOf f) -> f r sh
+        g = interpretLambdaHVectorS interpretAstS EM.empty (vars, ast)
         parameters0 = V.fromList $ map odFromVar vars
         pars = interpretAstDynamic @ranked env <$> parameters
     in srev @ranked g parameters0 pars
   AstRevDtS @r @sh (vars, ast) parameters dt ->
-    let g :: forall f. ADReadyS f => Domains (RankedOf f) -> f r sh
-        g = interpretLambdaDomainsS interpretAstS EM.empty (vars, ast)
+    let g :: forall f. ADReadyS f => HVector (RankedOf f) -> f r sh
+        g = interpretLambdaHVectorS interpretAstS EM.empty (vars, ast)
         parameters0 = V.fromList $ map odFromVar vars
         pars = interpretAstDynamic @ranked env <$> parameters
         d = interpretAstS env dt
@@ -1011,11 +1011,11 @@ interpretAstS !env = \case
   AstFromIntegralS v ->
     sfromIntegral $ sconstant $ interpretAstPrimalSRuntimeSpecialized env v
   AstConstS a -> sconst a
-  AstLetDomainsInS vars l v ->
+  AstLetHVectorInS vars l v ->
     let lt0 = V.fromList $ map odFromVar vars
-        lt = interpretAstDomains env l
+        lt = interpretAstHVector env l
         env2 lw = extendEnvPars vars lw env
-    in sletDomainsIn lt0 lt (\lw -> assert (domainsMatch lt0 lw) $
+    in sletHVectorIn lt0 lt (\lw -> assert (hVectorsMatch lt0 lw) $
                                     interpretAstS (env2 lw) v)
   AstRToS v -> sfromR $ interpretAst env v
   AstConstantS a -> sconstant $ interpretAstPrimalS env a
@@ -1026,8 +1026,8 @@ interpretAstS !env = \case
         t2 = interpretAstDualS env u'
     in sD t1 t2
   AstFwdS (vars, ast) parameters ds ->
-    let g :: forall f. ADReadyS f => Domains (RankedOf f) -> f r sh
-        g = interpretLambdaDomainsS interpretAstS EM.empty (vars, ast)
+    let g :: forall f. ADReadyS f => HVector (RankedOf f) -> f r sh
+        g = interpretLambdaHVectorS interpretAstS EM.empty (vars, ast)
           -- interpretation in empty environment makes sense only
           -- if there are no free variables outside of those listed
         parameters0 = V.fromList $ map odFromVar vars
@@ -1051,29 +1051,29 @@ interpretAstS !env = \case
            => f r sh -> f rm shm -> f r sh -> f rm shm -> f r sh
         df = interpretLambda4S interpretAstS EM.empty df0
         rf :: forall f. ADReadyS f
-           => f r sh -> f r sh -> f rm shm -> DomainsOf (RankedOf f)
-        rf = interpretLambda3S interpretAstDomains EM.empty rf0
+           => f r sh -> f r sh -> f rm shm -> HVectorOf (RankedOf f)
+        rf = interpretLambda3S interpretAstHVector EM.empty rf0
         x0i = interpretAstS @ranked env x0
         asi = interpretAstS @ranked env as
     in sfoldDer @ranked f df rf x0i asi
   AstFoldZipS @_ @n1 f@(_, vars, _) x0 as ->
-    let g :: forall f. ADReadyS f => f r n1 -> Domains (RankedOf f) -> f r n1
+    let g :: forall f. ADReadyS f => f r n1 -> HVector (RankedOf f) -> f r n1
         g = interpretLambda2DS interpretAstS EM.empty f
         od = V.fromList $ map odFromVar vars
         x0i = interpretAstS env x0
         asi = interpretAstDynamic env <$> as
     in sfoldZip g od x0i asi
   AstFoldZipDerS @_ @n1 f0@(_, vars, _) df0 rf0 x0 as ->
-    let f :: forall f. ADReadyS f => f r n1 -> Domains (RankedOf f) -> f r n1
+    let f :: forall f. ADReadyS f => f r n1 -> HVector (RankedOf f) -> f r n1
         f = interpretLambda2DS interpretAstS EM.empty f0
         df :: forall f. ADReadyS f
-           => f r n1 -> Domains (RankedOf f) -> f r n1 -> Domains (RankedOf f)
+           => f r n1 -> HVector (RankedOf f) -> f r n1 -> HVector (RankedOf f)
            -> f r n1
         df = interpretLambda4DS interpretAstS EM.empty df0
         rf :: forall f. ADReadyS f
-           => f r n1 -> f r n1 -> Domains (RankedOf f)
-           -> DomainsOf (RankedOf f)
-        rf = interpretLambda3DS interpretAstDomains EM.empty rf0
+           => f r n1 -> f r n1 -> HVector (RankedOf f)
+           -> HVectorOf (RankedOf f)
+        rf = interpretLambda3DS interpretAstHVector EM.empty rf0
         od = V.fromList $ map odFromVar vars
         x0i = interpretAstS env x0
         asi = interpretAstDynamic env <$> as
@@ -1091,29 +1091,29 @@ interpretAstS !env = \case
            => f r n1 -> f rm m -> f r n1 -> f rm m -> f r n1
         df = interpretLambda4S interpretAstS EM.empty df0
         rf :: forall f. ADReadyS f
-           => f r n1 -> f r n1 -> f rm m -> DomainsOf (RankedOf f)
-        rf = interpretLambda3S interpretAstDomains EM.empty rf0
+           => f r n1 -> f r n1 -> f rm m -> HVectorOf (RankedOf f)
+        rf = interpretLambda3S interpretAstHVector EM.empty rf0
         x0i = interpretAstS env x0
         asi = interpretAstS env as
     in sscanDer f df rf x0i asi
   AstScanZipS @_ @n1 f@(_, vars, _) x0 as ->
-    let g :: forall f. ADReadyS f => f r n1 -> Domains (RankedOf f) -> f r n1
+    let g :: forall f. ADReadyS f => f r n1 -> HVector (RankedOf f) -> f r n1
         g = interpretLambda2DS interpretAstS EM.empty f
         od = V.fromList $ map odFromVar vars
         x0i = interpretAstS env x0
         asi = interpretAstDynamic env <$> as
     in sscanZip g od x0i asi
   AstScanZipDerS @_ @n1 f0@(_, vars, _) df0 rf0 x0 as ->
-    let f :: forall f. ADReadyS f => f r n1 -> Domains (RankedOf f) -> f r n1
+    let f :: forall f. ADReadyS f => f r n1 -> HVector (RankedOf f) -> f r n1
         f = interpretLambda2DS interpretAstS EM.empty f0
         df :: forall f. ADReadyS f
-           => f r n1 -> Domains (RankedOf f) -> f r n1 -> Domains (RankedOf f)
+           => f r n1 -> HVector (RankedOf f) -> f r n1 -> HVector (RankedOf f)
            -> f r n1
         df = interpretLambda4DS interpretAstS EM.empty df0
         rf :: forall f. ADReadyS f
-           => f r n1 -> f r n1 -> Domains (RankedOf f)
-           -> DomainsOf (RankedOf f)
-        rf = interpretLambda3DS interpretAstDomains EM.empty rf0
+           => f r n1 -> f r n1 -> HVector (RankedOf f)
+           -> HVectorOf (RankedOf f)
+        rf = interpretLambda3DS interpretAstHVector EM.empty rf0
         od = V.fromList $ map odFromVar vars
         x0i = interpretAstS env x0
         asi = interpretAstDynamic env <$> as

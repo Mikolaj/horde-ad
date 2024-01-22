@@ -177,19 +177,19 @@ foo (x, y, z) =
 fooRrev :: forall g a. (ADReady g, GoodScalar a, Differentiable a)
         => (a, a, a) -> (g a 0, g a 0, g a 0)
 fooRrev (x, y, z) =
-  let fDomains :: forall f. ADReady f => Domains f -> f a 0
-      fDomains v = foo (rfromD $ v V.! 0, rfromD $ v V.! 1, rfromD $ v V.! 2)
+  let fHVector :: forall f. ADReady f => HVector f -> f a 0
+      fHVector v = foo (rfromD $ v V.! 0, rfromD $ v V.! 1, rfromD $ v V.! 2)
       sh = []
       zero = odFromSh @a @0 sh
       shapes = V.fromList [zero, zero, zero]
-      domsOf = rrev @g fDomains shapes
+      domsOf = rrev @g fHVector shapes
                     (V.fromList
                      $ [ DynamicRanked $ rconst @g $ OR.scalar x
                        , DynamicRanked $ rconst @g $ OR.scalar y
                        , DynamicRanked $ rconst @g $ OR.scalar z ])
-  in ( rletDomainsIn shapes domsOf (\v -> rfromD $ v V.! 0)
-     , rletDomainsIn shapes domsOf (\v -> rfromD $ v V.! 1)
-     , rletDomainsIn shapes domsOf (\v -> rfromD $ v V.! 2) )
+  in ( rletHVectorIn shapes domsOf (\v -> rfromD $ v V.! 0)
+     , rletHVectorIn shapes domsOf (\v -> rfromD $ v V.! 1)
+     , rletHVectorIn shapes domsOf (\v -> rfromD $ v V.! 2) )
 
 testFooRrev :: Assertion
 testFooRrev = do
@@ -921,7 +921,7 @@ testSin0ScanFwd2PP = do
                  (\x0 -> rscan (\x a -> sin x - a) x0
                            (rconst (OR.fromList @Double @1 [2] [5, 7]))) 1.1
   printAstSimple IM.empty (simplifyAst6 a1)
-    @?= "rlet (rconst (fromList [2] [5.0,7.0])) (\\v58 -> rscanZipDer (\\x70 [x71 @Natural @Double @[], x72 @Natural @Double @[], x73 @Natural @Double @[]] -> x70 * cos x72 + x71 * rconst -1.0) (\\x75 [x76 @Natural @Double @[], x77 @Natural @Double @[], x78 @Natural @Double @[]] x79 [x80 @Natural @Double @[], x81 @Natural @Double @[], x82 @Natural @Double @[]] -> x76 * rconst -1.0 + x75 * cos x81 + (x77 * negate (sin x81)) * x79) (\\x89 x90 [x91 @Natural @Double @[], x92 @Natural @Double @[], x93 @Natural @Double @[]] -> dmkDomains (fromList [DynamicRanked (cos x92 * x89), DynamicRanked (rconst -1.0 * x89), DynamicRanked (negate (sin x92) * (x90 * x89)), DynamicRankedDummy])) (rconst 1.1) (fromList [DynamicRanked (rconstant (rreplicate 2 (rconst 0.0))), DynamicRanked (rslice 0 2 (rscanDer (\\x59 x60 -> sin x59 - x60) (\\x61 x62 x63 x64 -> x61 * cos x63 + x62 * rconst -1.0) (\\x66 x67 x68 -> dmkDomains (fromList [DynamicRanked (cos x67 * x66), DynamicRanked (rconst -1.0 * x66)])) (rconst 1.1) v58)), DynamicRanked v58]))"
+    @?= "rlet (rconst (fromList [2] [5.0,7.0])) (\\v58 -> rscanZipDer (\\x70 [x71 @Natural @Double @[], x72 @Natural @Double @[], x73 @Natural @Double @[]] -> x70 * cos x72 + x71 * rconst -1.0) (\\x75 [x76 @Natural @Double @[], x77 @Natural @Double @[], x78 @Natural @Double @[]] x79 [x80 @Natural @Double @[], x81 @Natural @Double @[], x82 @Natural @Double @[]] -> x76 * rconst -1.0 + x75 * cos x81 + (x77 * negate (sin x81)) * x79) (\\x89 x90 [x91 @Natural @Double @[], x92 @Natural @Double @[], x93 @Natural @Double @[]] -> dmkHVector (fromList [DynamicRanked (cos x92 * x89), DynamicRanked (rconst -1.0 * x89), DynamicRanked (negate (sin x92) * (x90 * x89)), DynamicRankedDummy])) (rconst 1.1) (fromList [DynamicRanked (rconstant (rreplicate 2 (rconst 0.0))), DynamicRanked (rslice 0 2 (rscanDer (\\x59 x60 -> sin x59 - x60) (\\x61 x62 x63 x64 -> x61 * cos x63 + x62 * rconst -1.0) (\\x66 x67 x68 -> dmkHVector (fromList [DynamicRanked (cos x67 * x66), DynamicRanked (rconst -1.0 * x66)])) (rconst 1.1) v58)), DynamicRanked v58]))"
 
 testSin0Scan1Rev2 :: Assertion
 testSin0Scan1Rev2 = do
@@ -1185,7 +1185,7 @@ testSin0ScanD51S = do
                f a0 =
                  sscanZip
                    (let g :: forall f2. ADReadyS f2
-                          => f2 Double '[1,1,1,1] -> Domains (RankedOf f2)
+                          => f2 Double '[1,1,1,1] -> HVector (RankedOf f2)
                           -> f2 Double '[1,1,1,1]
                         g x a =
                           ssum
@@ -1241,7 +1241,7 @@ testSin0ScanD8 = do
                                  $ atan2 (rsum (rtr $ sin x))
                                          (rreplicate 2
                                           $ sin (rfromD $ (V.! 0)
-                                                 $ mapDomainsRanked
+                                                 $ mapHVectorRanked
                                                      (rsum . rreplicate 7) a)))
                        (V.fromList [odFromSh @Double (1 :$ 1 :$ 1 :$ ZS)])
                        (rreplicate 2 (rreplicate 5
@@ -1258,7 +1258,7 @@ testSin0ScanD8rev = do
                                  $ atan2 (rsum (rtr $ sin x))
                                          (rreplicate 2
                                           $ sin (rfromD $ (V.! 0)
-                                                 $ mapDomainsRanked
+                                                 $ mapHVectorRanked
                                                      (rsum . rreplicate 7) a)))
                        (V.fromList [odFromSh @Double ZS])
                        (rreplicate 2 (rreplicate 5 (2 * a0)))
@@ -1271,8 +1271,8 @@ testSin0ScanD8rev2 = do
                                  $ atan2 (rsum (rtr $ sin x))
                                          (rreplicate 2
                                           $ sin (rfromD $ (V.! 0)
-                                                 $ mapDomainsRanked10 rsum
-                                                 $ mapDomainsRanked01
+                                                 $ mapHVectorRanked10 rsum
+                                                 $ mapHVectorRanked01
                                                      (rreplicate 7) a)))
                        (V.fromList [odFromSh @Double ZS])
                        (rreplicate 2 (rreplicate 5 (2 * a0)))
@@ -1289,8 +1289,8 @@ testSin0ScanD8rev3 = do
                                  $ atan2 (rsum (rtr $ sin x))
                                          (rreplicate 2
                                           $ sin (rfromD $ (V.! 0)
-                                                 $ mapDomainsRanked10 rsum
-                                                 $ mapDomainsRanked01
+                                                 $ mapHVectorRanked10 rsum
+                                                 $ mapHVectorRanked01
                                                      (rreplicate 7) a)))
                        (V.fromList [odFromSh @Double ZS])
                        (rreplicate 2 (rreplicate 5 (2 * a0)))
@@ -1307,8 +1307,8 @@ testSin0ScanD8rev4 = do
                                  $ atan2 (rsum (rtr $ sin x))
                                          (rreplicate 2
                                           $ sin (rfromD $ (V.! 0)
-                                                 $ mapDomainsRanked10 rsum
-                                                 $ mapDomainsRanked01
+                                                 $ mapHVectorRanked10 rsum
+                                                 $ mapHVectorRanked01
                                                      (rreplicate 7) a)))
                        (V.fromList [ odFromSh @Double ZS
                                    , odFromShS @Double @'[] ])
@@ -1445,7 +1445,7 @@ testSin0ScanD8fwd = do
                                  $ atan2 (rsum (rtr $ sin x))
                                          (rreplicate 2
                                           $ sin (rfromD $ (V.! 0)
-                                                 $ mapDomainsRanked
+                                                 $ mapHVectorRanked
                                                      (rsum . rreplicate 7) a)))
                       (V.fromList [odFromSh @Double ZS])
                       (rreplicate 2 (rreplicate 5 (2 * a0)))
@@ -1458,8 +1458,8 @@ testSin0ScanD8fwd2 = do
                                  $ atan2 (rsum (rtr $ sin x))
                                          (rreplicate 2
                                           $ sin (rfromD $ (V.! 0)
-                                                 $ mapDomainsRanked10 rsum
-                                                 $ mapDomainsRanked01
+                                                 $ mapHVectorRanked10 rsum
+                                                 $ mapHVectorRanked01
                                                      (rreplicate 7) a)))
                        (V.fromList [odFromSh @Double ZS])
                        (rreplicate 2 (rreplicate 5 (2 * a0)))

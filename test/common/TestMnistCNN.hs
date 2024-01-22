@@ -119,18 +119,18 @@ convMnistLossCNN depth (x, target) inputs =
 
 convMnistTestCNN
   :: forall r. ADModeAndNum 'ADModeValue r
-  => Int -> [MnistData2 r] -> Domains r -> r
+  => Int -> [MnistData2 r] -> HVector r -> r
 convMnistTestCNN depth inputs parameters =
   let matchesLabels :: MnistData2 r -> Bool
       matchesLabels (glyph, label) =
         let nn xs =
               let m = convMnistCNN depth glyph xs
               in softMaxV m
-            v = valueOnDomains nn parameters
+            v = valueOnHVector nn parameters
         in V.maxIndex v == V.maxIndex label
   in fromIntegral (length (filter matchesLabels inputs))
      / fromIntegral (length inputs)
-{-# SPECIALIZE convMnistTestCNN :: Int -> [MnistData2 Double] -> Domains Double -> Double #-}
+{-# SPECIALIZE convMnistTestCNN :: Int -> [MnistData2 Double] -> HVector Double -> Double #-}
 
 -- Here, unlike in
 -- https://www.ritchieng.com/machine-learning/deep-learning/tensorflow/convnets/#Problem-1
@@ -143,7 +143,7 @@ convMnistTestCaseCNN
       -> MnistData2 Double
       -> ADInputs 'ADModeGradient Double
       -> ADVal 'ADModeGradient Double)
-  -> (Int -> [MnistData2 Double]-> Domains Double -> Double)
+  -> (Int -> [MnistData2 Double]-> HVector Double -> Double)
   -> Int
   -> Int
   -> Int
@@ -169,9 +169,9 @@ convMnistTestCaseCNN prefix epochs maxBatches trainWithLoss testLoss
        testData <- loadMnistData2 testGlyphsPath testLabelsPath
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
-       let runBatch :: Domains Double
+       let runBatch :: HVector Double
                     -> (Int, [MnistData2 Double])
-                    -> IO (Domains Double)
+                    -> IO (HVector Double)
            runBatch !domains (k, chunk) = do
              let f = trainWithLoss widthHidden
                  res = fst $ sgd gamma f chunk domains
@@ -183,8 +183,8 @@ convMnistTestCaseCNN prefix epochs maxBatches trainWithLoss testLoss
              hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
        let runEpoch :: Int
-                    -> Domains Double
-                    -> IO (Domains Double)
+                    -> HVector Double
+                    -> IO (HVector Double)
            runEpoch n params2 | n > epochs = return params2
            runEpoch n params2 = do
              hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
@@ -263,18 +263,18 @@ convMnistLossCNNS depth (x, target) inputs =
 
 convMnistTestCNNS
   :: forall r. ADModeAndNum 'ADModeValue r
-  => Int -> [MnistData2 r] -> Domains r -> r
+  => Int -> [MnistData2 r] -> HVector r -> r
 convMnistTestCNNS depth inputs parameters =
   let matchesLabels :: MnistData2 r -> Bool
       matchesLabels (glyph, label) =
         let nn xs =
               let m = convMnistCNNS depth glyph xs
               in softMaxV m
-            v = valueOnDomains nn parameters
+            v = valueOnHVector nn parameters
         in V.maxIndex v == V.maxIndex label
   in fromIntegral (length (filter matchesLabels inputs))
      / fromIntegral (length inputs)
-{-# SPECIALIZE convMnistTestCNNS :: Int -> [MnistData2 Double] -> Domains Double -> Double #-}
+{-# SPECIALIZE convMnistTestCNNS :: Int -> [MnistData2 Double] -> HVector Double -> Double #-}
 
 
 -- * A variant of @convMnistCNN@ with @conv2'@.
@@ -333,18 +333,18 @@ convMnistLossCNNP depth (x, target) inputs =
 
 convMnistTestCNNP
   :: forall r. ADModeAndNum 'ADModeValue r
-  => Int -> [MnistData2 r] -> Domains r -> r
+  => Int -> [MnistData2 r] -> HVector r -> r
 convMnistTestCNNP depth inputs parameters =
   let matchesLabels :: MnistData2 r -> Bool
       matchesLabels (glyph, label) =
         let nn xs =
               let m = convMnistCNNP depth glyph xs
               in softMaxV m
-            v = valueOnDomains nn parameters
+            v = valueOnHVector nn parameters
         in V.maxIndex v == V.maxIndex label
   in fromIntegral (length (filter matchesLabels inputs))
      / fromIntegral (length inputs)
-{-# SPECIALIZE convMnistTestCNNP :: Int -> [MnistData2 Double] -> Domains Double -> Double #-}
+{-# SPECIALIZE convMnistTestCNNP :: Int -> [MnistData2 Double] -> HVector Double -> Double #-}
 
 
 -- * A variant of @convMnistCNN@ with shaped tensors, including mini-batches
@@ -400,7 +400,7 @@ convMnistTestCaseCNNT kheight_minus_1@SNat kwidth_minus_1@SNat
         :: Value (ADConvMnistParameters kheight_minus_1 kwidth_minus_1
                                         out_channels n_hidden 'ADModeGradient r)
       valsInit = fst $ randomVals range seed
-      parametersInit = toDomains valsInit
+      parametersInit = toHVector valsInit
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show (sNatValue n_hidden :: Int)
@@ -418,13 +418,13 @@ convMnistTestCaseCNNT kheight_minus_1@SNat kwidth_minus_1@SNat
                        mnist (parseADInputs valsInit adinputs)
       ftest :: SNat batch_size'
             -> MnistDataBatchS batch_size' r
-            -> Domains r
+            -> HVector r
             -> r
       ftest batch_size' mnist testParams =
         ftestWithParams kheight_minus_1 kwidth_minus_1
                         out_channels
                         n_hidden batch_size'
-                        mnist (valueAtDomains valsInit testParams)
+                        mnist (valueAtHVector valsInit testParams)
   in testCase name $ do
     hPutStrLn stderr $ printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
                               prefix epochs maxBatches
@@ -435,9 +435,9 @@ convMnistTestCaseCNNT kheight_minus_1@SNat kwidth_minus_1@SNat
                 <$> loadMnistData testGlyphsPath testLabelsPath
     let testDataS = packBatch @100 testData  -- TODO: @LengthTestData
         -- There is some visual feedback, because some of these take long.
-        runBatch :: Domains r
+        runBatch :: HVector r
                  -> (Int, [MnistDataS r])
-                 -> IO (Domains r)
+                 -> IO (HVector r)
         runBatch !parameters (k, chunk) = do
           let chunkS = map (packBatch @batch_size)
                        $ filter (\ch -> length ch >= batchSize)
@@ -452,7 +452,7 @@ convMnistTestCaseCNNT kheight_minus_1@SNat kwidth_minus_1@SNat
           hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
           hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
           return res
-        runEpoch :: Int -> Domains r -> IO (Domains r)
+        runEpoch :: Int -> HVector r -> IO (HVector r)
         runEpoch n params2 | n > epochs = return params2
         runEpoch n params2 = do
           hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
@@ -508,7 +508,7 @@ convMnistTestCaseCNNO
       -> SNat n_hidden'
       -> [( OS.Array '[h, w] r
           , OS.Array '[SizeMnistLabel] r )]
-      -> Domains r
+      -> HVector r
       -> r)
   -> (forall kh kw h w c_out n_hidden'.
          SNat kh -> SNat kw
@@ -558,10 +558,10 @@ convMnistTestCaseCNNO kheight_minus_1@SNat kwidth_minus_1@SNat
                 . map shapeBatchS
                 <$> loadMnistData testGlyphsPath testLabelsPath
      -- There is some visual feedback, because some of these take long.
-    let runBatch :: Domains r
+    let runBatch :: HVector r
                  -> (Int, [( OS.Array '[in_height, in_width] r
                            , OS.Array '[SizeMnistLabel] r )])
-                 -> IO (Domains r)
+                 -> IO (HVector r)
         runBatch !parameters (k, chunk) = do
           let f = trainWithLoss kheight_minus_1 kwidth_minus_1
                                 in_height in_width
@@ -584,7 +584,7 @@ convMnistTestCaseCNNO kheight_minus_1@SNat kwidth_minus_1@SNat
           hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
           hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
           return res
-    let runEpoch :: Int -> Domains r -> IO (Domains r)
+    let runEpoch :: Int -> HVector r -> IO (HVector r)
         runEpoch n params2 | n > epochs = return params2
         runEpoch n params2 = do
           hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
@@ -806,7 +806,7 @@ comparisonTests volume =
                        (SNat @1)
                        (packBatch @1 [shapeBatch $ first LA.flatten mnistData])
                        (parseADInputs valsInit adinputs)
-            paramsToT (Domains p0 p1 p2 _) =
+            paramsToT (HVector p0 p1 p2 _) =
               let qX = V.fromList
                     [ OD.fromVector [depth, 1, 5, 5]
                       $ V.concat $ map LA.flatten
@@ -825,7 +825,7 @@ comparisonTests volume =
                       $ p2 V.! (depth + depth * depth + 1)
                     , OD.fromVector [sizeMnistLabelInt] $ p1 V.! 1
                     ]
-              in Domains V.empty V.empty V.empty qX
+              in HVector V.empty V.empty V.empty qX
             parametersT = paramsToT parameters
             dsT = paramsToT ds
             parametersPerturbationT = paramsToT parametersPerturbation

@@ -51,22 +51,22 @@ rev' :: forall r m n v a.
         , a, v, v )
 rev' f vals =
   let value0 = f vals
-      parameters = toDomains vals
+      parameters = toHVector vals
       dt = Nothing
-      g :: Domains (ADVal (Flip OR.Array))
+      g :: HVector (ADVal (Flip OR.Array))
         -> ADVal (Flip OR.Array) r m
-      g inputs = f $ parseDomains vals inputs
-      (advalGrad, value1) = crevOnDomains dt g parameters
-      gradient1 = parseDomains vals advalGrad
+      g inputs = f $ parseHVector vals inputs
+      (advalGrad, value1) = crevOnHVector dt g parameters
+      gradient1 = parseHVector vals advalGrad
       gradientRrev1 = rrev1 @(Flip OR.Array) @r @n @m f vals
-      g9 :: Domains (ADVal (AstRanked PrimalSpan))
+      g9 :: HVector (ADVal (AstRanked PrimalSpan))
          -> ADVal (AstRanked PrimalSpan) r m
-      g9 inputs = f $ parseDomains vals inputs
+      g9 inputs = f $ parseHVector vals inputs
       (advalGrad9, value9) =
         revEvalArtifact (fst $ revProduceArtifactWithoutInterpretation
                                  TensorToken False g9 parameters)
                         parameters dt
-      gradient9 = parseDomains vals advalGrad9
+      gradient9 = parseHVector vals advalGrad9
       hGeneral
         :: (ADReady fgen, ADReady f1)
         => (f1 r m -> AstRanked PrimalSpan r m)
@@ -82,41 +82,41 @@ rev' f vals =
         => (f1 r m -> AstRanked PrimalSpan r m)
         -> (AstRanked PrimalSpan r n -> f1 r n)
         -> (AstRanked PrimalSpan r m -> AstRanked PrimalSpan r m)
-        -> Domains (ADVal (Flip OR.Array))
+        -> HVector (ADVal (Flip OR.Array))
         -> ADVal (Flip OR.Array) r m
       h fx1 fx2 gx inputs =
-        hGeneral @(ADVal (Flip OR.Array)) fx1 fx2 gx (parseDomains vals inputs)
+        hGeneral @(ADVal (Flip OR.Array)) fx1 fx2 gx (parseHVector vals inputs)
       (astGrad, value2) =
-        crevOnDomains dt (h id id id) parameters
-      gradient2 = parseDomains vals astGrad
+        crevOnHVector dt (h id id id) parameters
+      gradient2 = parseHVector vals astGrad
       (astSimple, value3) =
-        crevOnDomains dt (h id id simplifyAst6) parameters
-      gradient3 = parseDomains vals astSimple
+        crevOnHVector dt (h id id simplifyAst6) parameters
+      gradient3 = parseHVector vals astSimple
       (astGradUnSimp, value2UnSimp) =
-        crevOnDomains dt (h unAstNoSimplify AstNoSimplify id) parameters
-      gradient2UnSimp = parseDomains vals astGradUnSimp
+        crevOnHVector dt (h unAstNoSimplify AstNoSimplify id) parameters
+      gradient2UnSimp = parseHVector vals astGradUnSimp
       gradientRrev2UnSimp =
         rrev1 @(Flip OR.Array) @r @n @m
               (hGeneral unAstNoSimplify AstNoSimplify id) vals
       (astSimpleUnSimp, value3UnSimp) =
-        crevOnDomains dt (h unAstNoSimplify AstNoSimplify simplifyAst6)
+        crevOnHVector dt (h unAstNoSimplify AstNoSimplify simplifyAst6)
                       parameters
-      gradient3UnSimp = parseDomains vals astSimpleUnSimp
+      gradient3UnSimp = parseHVector vals astSimpleUnSimp
       gradientRrev3UnSimp =
         rrev1 @(Flip OR.Array) @r @n @m
               (hGeneral unAstNoSimplify AstNoSimplify simplifyAst6) vals
       (astPrimal, value4) =
-        crevOnDomains dt (h unAstNoVectorize AstNoVectorize id)
+        crevOnHVector dt (h unAstNoVectorize AstNoVectorize id)
                       parameters
           -- use the AstNoVectorize instance that does no vectorization
           -- and then interpret the results as the Ast instance
-      gradient4 = parseDomains vals astPrimal
+      gradient4 = parseHVector vals astPrimal
       gradientRrev4 = rrev1 @(Flip OR.Array) @r @n @m
                             (hGeneral unAstNoVectorize AstNoVectorize id) vals
       (astPSimple, value5) =
-        crevOnDomains dt (h unAstNoVectorize AstNoVectorize simplifyAst6)
+        crevOnHVector dt (h unAstNoVectorize AstNoVectorize simplifyAst6)
                       parameters
-      gradient5 = parseDomains vals astPSimple
+      gradient5 = parseHVector vals astPSimple
       gradientRrev5 =
         rrev1 @(Flip OR.Array) @r @n @m
               (hGeneral unAstNoVectorize AstNoVectorize simplifyAst6) vals
@@ -129,46 +129,46 @@ rev' f vals =
            => (f1 r m -> AstRanked PrimalSpan r m)
            -> (AstRanked PrimalSpan r n -> f1 r n)
            -> (AstRanked PrimalSpan r m -> AstRanked PrimalSpan r m)
-           -> Domains (ADVal (AstRanked PrimalSpan))
+           -> HVector (ADVal (AstRanked PrimalSpan))
            -> ADVal (AstRanked PrimalSpan) r m
       hAst fx1 fx2 gx inputs
         = hGeneral @(ADVal (AstRanked PrimalSpan))
-                   fx1 fx2 gx (parseDomains vals inputs)
+                   fx1 fx2 gx (parseHVector vals inputs)
       artifactsGradAst =
         fst $ revProduceArtifactWithoutInterpretation
                 TensorToken False (hAst id id id) parameters
       (astGradAst, value2Ast) =
         revEvalArtifact artifactsGradAst parameters dt
-      gradient2Ast = parseDomains vals astGradAst
+      gradient2Ast = parseHVector vals astGradAst
       (astGradAstS, value2AstS) =
         revEvalArtifact (simplifyArtifactRev artifactsGradAst) parameters dt
-      gradient2AstS = parseDomains vals astGradAstS
+      gradient2AstS = parseHVector vals astGradAstS
       artifactsGradAstT =
         fst $ revProduceArtifactWithoutInterpretation
                 TensorToken True (hAst id id id) parameters
       (astGradAstST, value2AstST) =
         revEvalArtifact (simplifyArtifactRev artifactsGradAstT) parameters dt
-      gradient2AstST = parseDomains vals astGradAstST
+      gradient2AstST = parseHVector vals astGradAstST
       artifactsSimpleAst =
         fst $ revProduceArtifactWithoutInterpretation
                 TensorToken False (hAst id id simplifyAst6) parameters
       (astSimpleAst, value3Ast) =
         revEvalArtifact artifactsSimpleAst parameters dt
-      gradient3Ast = parseDomains vals astSimpleAst
+      gradient3Ast = parseHVector vals astSimpleAst
       (astSimpleAstS, value3AstS) =
         revEvalArtifact (simplifyArtifactRev artifactsSimpleAst) parameters dt
-      gradient3AstS = parseDomains vals astSimpleAstS
+      gradient3AstS = parseHVector vals astSimpleAstS
       artifactsGradAstUnSimp =
         fst $ revProduceArtifactWithoutInterpretation
                 TensorToken False
                 (hAst unAstNoSimplify AstNoSimplify id) parameters
       (astGradAstUnSimp, value2AstUnSimp) =
         revEvalArtifact artifactsGradAstUnSimp parameters dt
-      gradient2AstUnSimp = parseDomains vals astGradAstUnSimp
+      gradient2AstUnSimp = parseHVector vals astGradAstUnSimp
       (astGradAstSUnSimp, value2AstSUnSimp) =
         revEvalArtifact (simplifyArtifactRev artifactsGradAstUnSimp)
                         parameters dt
-      gradient2AstSUnSimp = parseDomains vals astGradAstSUnSimp
+      gradient2AstSUnSimp = parseHVector vals astGradAstSUnSimp
       artifactsSimpleAstUnSimp =
         fst $ revProduceArtifactWithoutInterpretation
                 TensorToken False
@@ -176,21 +176,21 @@ rev' f vals =
                 parameters
       (astSimpleAstUnSimp, value3AstUnSimp) =
         revEvalArtifact artifactsSimpleAstUnSimp parameters dt
-      gradient3AstUnSimp = parseDomains vals astSimpleAstUnSimp
+      gradient3AstUnSimp = parseHVector vals astSimpleAstUnSimp
       (astSimpleAstSUnSimp, value3AstSUnSimp) =
         revEvalArtifact (simplifyArtifactRev artifactsSimpleAstUnSimp)
                         parameters dt
-      gradient3AstSUnSimp = parseDomains vals astSimpleAstSUnSimp
+      gradient3AstSUnSimp = parseHVector vals astSimpleAstSUnSimp
       artifactsPrimalAst =
         fst $ revProduceArtifactWithoutInterpretation
                 TensorToken False
                 (hAst unAstNoVectorize AstNoVectorize id) parameters
       (astPrimalAst, value4Ast) =
         revEvalArtifact artifactsPrimalAst parameters dt
-      gradient4Ast = parseDomains vals astPrimalAst
+      gradient4Ast = parseHVector vals astPrimalAst
       (astPrimalAstS, value4AstS) =
         revEvalArtifact (simplifyArtifactRev artifactsPrimalAst) parameters dt
-      gradient4AstS = parseDomains vals astPrimalAstS
+      gradient4AstS = parseHVector vals astPrimalAstS
       artifactsPSimpleAst =
         fst $ revProduceArtifactWithoutInterpretation
                 TensorToken False
@@ -198,10 +198,10 @@ rev' f vals =
                 parameters
       (astPSimpleAst, value5Ast) =
         revEvalArtifact artifactsPSimpleAst parameters dt
-      gradient5Ast = parseDomains vals astPSimpleAst
+      gradient5Ast = parseHVector vals astPSimpleAst
       (astPSimpleAstS, value5AstS) =
         revEvalArtifact (simplifyArtifactRev artifactsPSimpleAst) parameters dt
-      gradient5AstS = parseDomains vals astPSimpleAstS
+      gradient5AstS = parseHVector vals astPSimpleAstS
       cderivative = cfwd f vals vals
       derivative = fwd @r @m @(AstRanked FullSpan) f vals vals
   in ( value0, value1, value2, value3, value2UnSimp, value3UnSimp
@@ -448,47 +448,47 @@ rrev1 :: forall g r n m r3.
          (ADReady g, GoodScalar r, GoodScalar r3, KnownNat n, KnownNat m)
       => (forall f. ADReady f => f r n -> f r3 m) -> g r n -> g r n
 rrev1 f u =
-  let fDomains :: forall f. ADReady f => Domains f -> f r3 m
-      fDomains v = f (rfromD $ v V.! 0)
+  let fHVector :: forall f. ADReady f => HVector f -> f r3 m
+      fHVector v = f (rfromD $ v V.! 0)
       sh = rshape u
       zero = odFromSh @r @n sh
       shapes = V.fromList [zero]
-      domsOf = rrev @g fDomains shapes (V.singleton $ DynamicRanked u)
-  in rletDomainsIn shapes domsOf (\v -> rfromD $ v V.! 0)
+      domsOf = rrev @g fHVector shapes (V.singleton $ DynamicRanked u)
+  in rletHVectorIn shapes domsOf (\v -> rfromD $ v V.! 0)
 
 rfwd1 :: forall g r n m r3.
          (ADReady g, GoodScalar r, GoodScalar r3, KnownNat n, KnownNat m)
       => (forall f. ADReady f => f r n -> f r3 m) -> g r n -> g r3 m
 rfwd1 f u =
-  let fDomains :: forall f. ADReady f => Domains f -> f r3 m
-      fDomains v = f (rfromD $ v V.! 0)
+  let fHVector :: forall f. ADReady f => HVector f -> f r3 m
+      fHVector v = f (rfromD $ v V.! 0)
       sh = rshape u
       zero = odFromSh @r @n sh
       shapes = V.fromList [zero]
-  in rfwd @g fDomains shapes (V.singleton $ DynamicRanked u)
+  in rfwd @g fHVector shapes (V.singleton $ DynamicRanked u)
                              (V.singleton $ DynamicRanked u)  -- simple
 
 srev1 :: forall g r sh sh2 r3.
          (ADReadyS g, GoodScalar r, GoodScalar r3, Sh.Shape sh, Sh.Shape sh2)
       => (forall f. ADReadyS f => f r sh -> f r3 sh2) -> g r sh -> g r sh
 srev1 f u =
-  let fDomains :: forall f. ADReadyS f
-               => Domains (RankedOf f) -> f r3 sh2
-      fDomains v = f (sfromD $ v V.! 0)
+  let fHVector :: forall f. ADReadyS f
+               => HVector (RankedOf f) -> f r3 sh2
+      fHVector v = f (sfromD $ v V.! 0)
       zero = odFromShS @r @sh
       shapes = V.fromList [zero]
       domsOf = srev @(RankedOf g)
-                    fDomains shapes (V.singleton $ DynamicShaped u)
-  in sletDomainsIn shapes domsOf (\v -> sfromD $ v V.! 0)
+                    fHVector shapes (V.singleton $ DynamicShaped u)
+  in sletHVectorIn shapes domsOf (\v -> sfromD $ v V.! 0)
 
 sfwd1 :: forall g r sh sh2 r3.
          (ADReadyS g, GoodScalar r, GoodScalar r3, Sh.Shape sh, Sh.Shape sh2)
       => (forall f. ADReadyS f => f r sh -> f r3 sh2) -> g r sh -> g r3 sh2
 sfwd1 f u =
-  let fDomains :: forall f. ADReadyS f
-               => Domains (RankedOf f) -> f r3 sh2
-      fDomains v = f (sfromD $ v V.! 0)
+  let fHVector :: forall f. ADReadyS f
+               => HVector (RankedOf f) -> f r3 sh2
+      fHVector v = f (sfromD $ v V.! 0)
       zero = odFromShS @r @sh
       shapes = V.fromList [zero]
-  in sfwd @(RankedOf g) fDomains shapes (V.singleton $ DynamicShaped u)
+  in sfwd @(RankedOf g) fHVector shapes (V.singleton $ DynamicShaped u)
                                         (V.singleton $ DynamicShaped u)

@@ -248,7 +248,7 @@ bar_3_75
      , [OS.Array (75 ': sh) r] )
   -> OS.Array (k ': 3 ': sh) r
 bar_3_75 = value (ravelFromListS . barS (SNat @3) (SNat @75))
-  -- @ravelFromListS@ is needed, because @valueOnDomains@ expects the objective
+  -- @ravelFromListS@ is needed, because @valueOnHVector@ expects the objective
   -- function to have a dual number codomain and here we'd have a list
   -- of dual numbers. The same problem is worked around with @head@ below.
 
@@ -331,7 +331,7 @@ fooNoGo _v = constant 1
 testFooNoGo :: Assertion
 testFooNoGo =
   (domains1 $ fst
-   $ revOnDomains
+   $ revOnHVector
        1
        (\adinputs -> fooNoGo (adinputs `at1` 0))
        (domainsFrom01 V.empty

@@ -47,7 +47,7 @@ sgdShow :: HasDelta r
         -> r
 sgdShow gamma f trainData params0Init =
   let result = fst $ sgd gamma f trainData (domainsFrom01 params0Init V.empty)
-  in snd $ revOnDomains 1 (f $ head trainData) result
+  in snd $ revOnHVector 1 (f $ head trainData) result
 
 sgdTestCase :: String
             -> IO [a]

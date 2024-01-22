@@ -86,7 +86,7 @@ mnistTestCase2VA prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
                         , show (sum nParams1 + nParams0), show gamma ]
       ftest mnist testParams =
         afcnnMnistTest1 widthHidden widthHidden2 mnist
-                        (valueAtDomains valsInit
+                        (valueAtHVector valsInit
                          $ uncurry domainsFrom01 testParams)
   in testCase name $ do
        hPutStrLn stderr $ printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
@@ -155,9 +155,9 @@ mnistTestCase2L prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
        testData <- loadMnistData testGlyphsPath testLabelsPath
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
-       let runBatch :: Domains Double
+       let runBatch :: HVector Double
                     -> (Int, [MnistData Double])
-                    -> IO (Domains Double)
+                    -> IO (HVector Double)
            runBatch !domains (k, chunk) = do
              let f = trainWithLoss
                  res = fst $ sgd gamma f chunk domains
@@ -169,8 +169,8 @@ mnistTestCase2L prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
              hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
        let runEpoch :: Int
-                    -> Domains Double
-                    -> IO (Domains Double)
+                    -> HVector Double
+                    -> IO (HVector Double)
            runEpoch n params2 | n > epochs = return params2
            runEpoch n params2 = do
              hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
@@ -214,9 +214,9 @@ mnistTestCase2T reallyWriteFile
        let !trainData = force $ shuffle (mkStdGen 6) trainData0
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
-       let runBatch :: (Domains Double, [(POSIXTime, Double)])
+       let runBatch :: (HVector Double, [(POSIXTime, Double)])
                     -> (Int, [MnistData Double])
-                    -> IO (Domains Double, [(POSIXTime, Double)])
+                    -> IO (HVector Double, [(POSIXTime, Double)])
            runBatch (!domains, !times)
                     (k, chunk) = do
              when (k `mod` 100 == 0) $ do
@@ -227,8 +227,8 @@ mnistTestCase2T reallyWriteFile
              time <- getPOSIXTime
              return (params0New, (time, v) : times)
        let runEpoch :: Int
-                    -> (Domains Double, [(POSIXTime, Double)])
-                    -> IO (Domains Double, [(POSIXTime, Double)])
+                    -> (HVector Double, [(POSIXTime, Double)])
+                    -> IO (HVector Double, [(POSIXTime, Double)])
            runEpoch n params2times | n > epochs = return params2times
            runEpoch n (!params2, !times2) = do
              hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
@@ -283,9 +283,9 @@ mnistTestCase2D reallyWriteFile miniBatchSize decay
        let !trainData = force $ shuffle (mkStdGen 6) trainData0
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
-       let runBatch :: (Domains Double, [(POSIXTime, Double)])
+       let runBatch :: (HVector Double, [(POSIXTime, Double)])
                     -> (Int, [MnistData Double])
-                    -> IO (Domains Double, [(POSIXTime, Double)])
+                    -> IO (HVector Double, [(POSIXTime, Double)])
            runBatch (!domains, !times)
                     (k, chunk) = do
              when (k `mod` 100 == 0) $ do
@@ -301,8 +301,8 @@ mnistTestCase2D reallyWriteFile miniBatchSize decay
              time <- getPOSIXTime
              return (params0New, (time, v) : times)
        let runEpoch :: Int
-                    -> (Domains Double, [(POSIXTime, Double)])
-                    -> IO (Domains Double, [(POSIXTime, Double)])
+                    -> (HVector Double, [(POSIXTime, Double)])
+                    -> IO (HVector Double, [(POSIXTime, Double)])
            runEpoch n params2times | n > epochs = return params2times
            runEpoch n (!params2, !times2) = do
              hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
@@ -348,14 +348,14 @@ sgdBatchForward
   -> Double  -- ^ gamma (learning_rate?)
   -> (a -> ADInputs 'ADModeGradient Double -> ADVal 'ADModeGradient Double)
   -> [a]  -- ^ training data
-  -> Domains Double  -- ^ initial parameters
+  -> HVector Double  -- ^ initial parameters
   -> (Int, [Int], [(Int, Int)], [OD.ShapeL])
-  -> (Domains Double, Double)
+  -> (HVector Double, Double)
 sgdBatchForward seed0 batchSize gamma f trainingData parameters0 nParameters =
   go seed0 trainingData parameters0 0
  where
   deltaInputs = generateDeltaInputs parameters0
-  go :: Int -> [a] -> Domains Double -> Double -> (Domains Double, Double)
+  go :: Int -> [a] -> HVector Double -> Double -> (HVector Double, Double)
   go _ [] parameters v = (parameters, v)
   go seed l parameters _ =
     let (batch, rest) = splitAt batchSize l
@@ -414,9 +414,9 @@ mnistTestCase2F reallyWriteFile miniBatchSize decay
        let !trainData = coerce $ force $ shuffle (mkStdGen 6) trainData0
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
-       let runBatch :: (Domains Double, [(POSIXTime, Double)])
+       let runBatch :: (HVector Double, [(POSIXTime, Double)])
                     -> (Int, [MnistData Double])
-                    -> IO (Domains Double, [(POSIXTime, Double)])
+                    -> IO (HVector Double, [(POSIXTime, Double)])
            runBatch (!domains, !times)
                     (k, chunk) = do
              when (k `mod` 100 == 0) $ do
@@ -432,8 +432,8 @@ mnistTestCase2F reallyWriteFile miniBatchSize decay
              time <- getPOSIXTime
              return (params0New, (time, v) : times)
        let runEpoch :: Int
-                    -> (Domains Double, [(POSIXTime, Double)])
-                    -> IO (Domains Double, [(POSIXTime, Double)])
+                    -> (HVector Double, [(POSIXTime, Double)])
+                    -> IO (HVector Double, [(POSIXTime, Double)])
            runEpoch n params2times | n > epochs = return params2times
            runEpoch n (!params2, !times2) = do
              hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
@@ -462,16 +462,16 @@ sgdBatchFastForward
   -> Double  -- ^ gamma (learning_rate?)
   -> (a -> ADInputs 'ADModeDerivative Double -> ADVal 'ADModeDerivative Double)
   -> [a]  -- ^ training data
-  -> Domains Double  -- ^ initial parameters
+  -> HVector Double  -- ^ initial parameters
   -> (Int, [Int], [(Int, Int)], [OD.ShapeL])
-  -> (Domains Double, Double)
+  -> (HVector Double, Double)
 sgdBatchFastForward seed0 batchSize gamma f trainingData
                     parameters0 nParameters =
   go seed0 trainingData parameters0 0
  where
-  go :: Int -> [a] -> Domains Double -> Double -> (Domains Double, Double)
+  go :: Int -> [a] -> HVector Double -> Double -> (HVector Double, Double)
   go _ [] parameters v = (parameters, v)
-  go seed l parameters@Domains{..} _ =
+  go seed l parameters@HVector{..} _ =
     let (batch, rest) = splitAt batchSize l
         fAdd :: ADInputs 'ADModeDerivative Double
              -> ADVal 'ADModeDerivative Double
@@ -485,11 +485,11 @@ sgdBatchFastForward seed0 batchSize gamma f trainingData
           in resBatch / fromIntegral (length batch)
         unitVarianceRange = sqrt 12 / 2
         (g1, g2) = (seed + 5, seed + 13)
-        (_, _, _, direction@(Domains dparams0 dparams1 dparams2 dparamsX)) =
+        (_, _, _, direction@(HVector dparams0 dparams1 dparams2 dparamsX)) =
           initializerFixed g1 unitVarianceRange nParameters
         inputs =
           makeADInputs
-            (Domains (coerce domains0) (coerce domains1) (coerce domains2)
+            (HVector (coerce domains0) (coerce domains1) (coerce domains2)
                      ( unsafeCoerce domainsX))
             (V.convert dparams0, dparams1, dparams2, dparamsX)
         (directionalDerivative, valueNew) =
@@ -521,7 +521,7 @@ mnistTestCase2S widthHidden@SNat widthHidden2@SNat
         :: Value (ADFcnnMnistParameters widthHidden widthHidden2
                                        'ADModeGradient Double)
       valsInit = fst $ randomVals range seed
-      parametersInit = toDomains valsInit
+      parametersInit = toHVector valsInit
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show (sNatValue widthHidden :: Int)
@@ -530,19 +530,19 @@ mnistTestCase2S widthHidden@SNat widthHidden2@SNat
                         , show (nScalars valsInit)
                         , show gamma, show range ]
       ftest :: [MnistData Double]
-            -> Domains Double
+            -> HVector Double
             -> Double
       ftest mnist testParams =
         afcnnMnistTestS widthHidden widthHidden2
-                        mnist (valueAtDomains valsInit testParams)
+                        mnist (valueAtHVector valsInit testParams)
   in testCase name $ do
     hPutStrLn stderr $ printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
                               prefix epochs maxBatches
     trainData <- loadMnistData trainGlyphsPath trainLabelsPath
     testData <- loadMnistData testGlyphsPath testLabelsPath
-    let runBatch :: Domains Double
+    let runBatch :: HVector Double
                  -> (Int, [MnistData Double])
-                 -> IO (Domains Double)
+                 -> IO (HVector Double)
         runBatch !domains (k, chunk) = do
           let f mnist adinputs =
                 trainWithLoss widthHidden widthHidden2
@@ -556,8 +556,8 @@ mnistTestCase2S widthHidden@SNat widthHidden2@SNat
           hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
           return res
     let runEpoch :: Int
-                 -> Domains Double
-                 -> IO (Domains Double)
+                 -> HVector Double
+                 -> IO (HVector Double)
         runEpoch n params2 | n > epochs = return params2
         runEpoch n params2 = do
           hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
@@ -597,9 +597,9 @@ mnistTestCase2O widthHidden@SNat widthHidden2@SNat
            prefix epochs maxBatches
     trainData <- loadMnistData trainGlyphsPath trainLabelsPath
     testData <- loadMnistData testGlyphsPath testLabelsPath
-    let runBatch :: Domains Double
+    let runBatch :: HVector Double
                  -> (Int, [MnistData Double])
-                 -> IO (Domains Double)
+                 -> IO (HVector Double)
         runBatch !domains0 (k, chunk) = do
           let f = trainWithLoss widthHidden widthHidden2
               res = fst $ sgd gamma f chunk domains0
@@ -613,8 +613,8 @@ mnistTestCase2O widthHidden@SNat widthHidden2@SNat
           hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
           return res
     let runEpoch :: Int
-                 -> Domains Double
-                 -> IO (Domains Double)
+                 -> HVector Double
+                 -> IO (HVector Double)
         runEpoch n params2 | n > epochs = return params2
         runEpoch n params2 = do
           hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
@@ -641,7 +641,7 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
           blackGlyph = V.replicate sizeMnistGlyphInt 4
           blackLabel = V.replicate sizeMnistLabelInt 5
           trainData = (blackGlyph, blackLabel)
-          output = prettyPrintDf (fcnnMnistLoss2 trainData) Domains{..}
+          output = prettyPrintDf (fcnnMnistLoss2 trainData) HVector{..}
       -- printf "%s" output
       length output @?= 176577
   , testCase "2pretty-print in grey 3 2 fused" $ do
@@ -655,7 +655,7 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
           blackGlyph = V.replicate sizeMnistGlyphInt 4
           blackLabel = V.replicate sizeMnistLabelInt 5
           trainData = (blackGlyph, blackLabel)
-          output = prettyPrintDf (fcnnMnistLossFused2 trainData) Domains{..}
+          output = prettyPrintDf (fcnnMnistLossFused2 trainData) HVector{..}
       --- printf "%s" output
       length output @?= 54268
   , testCase "3pretty-print on testset 3 2" $ do
@@ -674,7 +674,7 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
           domains2 = V.map (LA.konst 0.1) vParams2
           domainsX = V.empty
       testData <- loadMnistData testGlyphsPath testLabelsPath
-      (1 - fcnnMnistTest2 testData Domains{..})
+      (1 - fcnnMnistTest2 testData HVector{..})
         @?~ 0.902
   , testProperty "Compare two forward derivatives and gradient for Mnist1A" $
       \seed seedDs ->

@@ -24,14 +24,14 @@ import HordeAd.External.OptimizerTools
 sgd :: forall n r a. (KnownNat n, GoodScalar r)
     => Double
     -> (a
-        -> Domains (ADVal (Flip OR.Array))
+        -> HVector (ADVal (Flip OR.Array))
         -> ADVal (Flip OR.Array) r n)
     -> [a]  -- ^ training data
-    -> DomainsOD  -- ^ initial parameters
-    -> (DomainsOD, Flip OR.Array r n)
+    -> HVectorOD  -- ^ initial parameters
+    -> (HVectorOD, Flip OR.Array r n)
 sgd gamma f trainingData parameters0 = go trainingData parameters0 where
   deltaInputs = generateDeltaInputs @(Flip OR.Array) parameters0
-  go :: [a] -> DomainsOD -> (DomainsOD, Flip OR.Array r n)
+  go :: [a] -> HVectorOD -> (HVectorOD, Flip OR.Array r n)
   go [] parameters = (parameters, 0)
   go (a : rest) !parameters =
     let inputs = makeADInputs parameters deltaInputs
@@ -50,11 +50,11 @@ sgdAdam
      ( RankedTensor (ADVal (RankedOf f))
      , DualPart f, UnletGradient f, HasSingletonDict y, GoodScalar r
      , Num (f r y), RankedOf f ~ Flip OR.Array)
-  => (a -> Domains (ADVal (Flip OR.Array)) -> ADVal f r y)
+  => (a -> HVector (ADVal (Flip OR.Array)) -> ADVal f r y)
   -> [a]
-  -> DomainsOD
+  -> HVectorOD
   -> StateAdam
-  -> (DomainsOD, StateAdam)
+  -> (HVectorOD, StateAdam)
 {-# INLINE sgdAdam #-}
 sgdAdam = sgdAdamArgs updateWithGradientAdam defaultArgsAdam
 
@@ -63,21 +63,21 @@ sgdAdamArgs
      ( RankedTensor (ADVal (RankedOf f))
      , DualPart f, UnletGradient f, GoodScalar r, HasSingletonDict y
      , Num (f r y), RankedTensor (RankedOf f) )
-  => (ArgsAdam -> StateAdam -> Domains (RankedOf f) -> DomainsOf (RankedOf f)
-      -> (Domains (RankedOf f), StateAdam))
+  => (ArgsAdam -> StateAdam -> HVector (RankedOf f) -> HVectorOf (RankedOf f)
+      -> (HVector (RankedOf f), StateAdam))
   -> ArgsAdam
-  -> (a -> Domains (ADVal (RankedOf f)) -> ADVal f r y)
+  -> (a -> HVector (ADVal (RankedOf f)) -> ADVal f r y)
   -> [a]
-  -> Domains (RankedOf f)
+  -> HVector (RankedOf f)
   -> StateAdam
-  -> (Domains (RankedOf f), StateAdam)
+  -> (HVector (RankedOf f), StateAdam)
 {-# INLINE sgdAdamArgs #-}
 sgdAdamArgs updateWith argsAdam f trainingData !parameters0 !stateAdam0 =
   go trainingData parameters0 stateAdam0
  where
   deltaInputs = generateDeltaInputs parameters0
-  go :: [a] -> Domains (RankedOf f) -> StateAdam
-     -> (Domains (RankedOf f), StateAdam)
+  go :: [a] -> HVector (RankedOf f) -> StateAdam
+     -> (HVector (RankedOf f), StateAdam)
   go [] parameters stateAdam = (parameters, stateAdam)
   go (a : rest) !parameters !stateAdam =
     let inputs = makeADInputs parameters deltaInputs

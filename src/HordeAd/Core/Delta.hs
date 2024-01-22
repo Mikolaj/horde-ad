@@ -44,7 +44,7 @@ module HordeAd.Core.Delta
   , -- * Evaluation of the delta expressions
     DualPart(..), DeltaDt (..)
   , -- * Miscellaneous
-    mapDomainsDeltaR11, mapDomainsDeltaS11
+    mapHVectorDeltaR11, mapHVectorDeltaS11
   ) where
 
 import Prelude
@@ -247,7 +247,7 @@ data DeltaR :: RankedTensorType -> RankedTensorType where
         => ranked rn (1 + n) -> ranked rm (1 + m)
         -> (forall f. ADReady f => f rn n -> f rm m -> f rn n -> f rm m
                                 -> f rn n)
-        -> (forall f. ADReady f => f rn n -> f rn n -> f rm m -> DomainsOf f)
+        -> (forall f. ADReady f => f rn n -> f rn n -> f rm m -> HVectorOf f)
         -> DeltaR ranked rn n
         -> DeltaR ranked rm (1 + m)
         -> DeltaR ranked rn n
@@ -257,51 +257,51 @@ data DeltaR :: RankedTensorType -> RankedTensorType where
          -> (ranked rn n -> ranked rm m -> ranked rn n -> ranked rm m
              -> ranked rn n)
          -> (ranked rn n -> ranked rn n -> ranked rm m
-             -> DomainsOf ranked)
+             -> HVectorOf ranked)
          -> DeltaR ranked rn n
          -> DeltaR ranked rm (1 + m)
          -> DeltaR ranked rn n
-  FoldZipR :: DomainsOD
+  FoldZipR :: HVectorOD
          -> ranked rn (1 + n)
-         -> Domains ranked  -- one rank higher than the Domains above
+         -> HVector ranked  -- one rank higher than the HVector above
          -> (forall f. ADReady f
-             => f rn n -> Domains f -> f rn n -> Domains f
+             => f rn n -> HVector f -> f rn n -> HVector f
              -> f rn n)
          -> (forall f. ADReady f
-             => f rn n -> f rn n -> Domains f
-             -> DomainsOf f)
+             => f rn n -> f rn n -> HVector f
+             -> HVectorOf f)
          -> DeltaR ranked rn n
-         -> Domains (DeltaR ranked)  -- one rank higher
+         -> HVector (DeltaR ranked)  -- one rank higher
          -> DeltaR ranked rn n
-  FoldZipRC :: DomainsOD
+  FoldZipRC :: HVectorOD
           -> ranked rn (1 + n)
-          -> Domains ranked
-          -> (ranked rn n -> Domains ranked -> ranked rn n -> Domains ranked
+          -> HVector ranked
+          -> (ranked rn n -> HVector ranked -> ranked rn n -> HVector ranked
               -> ranked rn n)
-          -> (ranked rn n -> ranked rn n -> Domains ranked
-              -> DomainsOf ranked)
+          -> (ranked rn n -> ranked rn n -> HVector ranked
+              -> HVectorOf ranked)
           -> DeltaR ranked rn n
-          -> Domains (DeltaR ranked)
+          -> HVector (DeltaR ranked)
           -> DeltaR ranked rn n
   ScanR :: (GoodScalar rm, KnownNat m)
         => ranked rn (1 + n) -> ranked rm (1 + m)
         -> (forall f. ADReady f => f rn n -> f rm m -> f rn n -> f rm m
                                 -> f rn n)
-        -> (forall f. ADReady f => f rn n -> f rn n -> f rm m -> DomainsOf f)
+        -> (forall f. ADReady f => f rn n -> f rn n -> f rm m -> HVectorOf f)
         -> DeltaR ranked rn n
         -> DeltaR ranked rm (1 + m)
         -> DeltaR ranked rn (1 + n)
-  ScanZipR :: DomainsOD
+  ScanZipR :: HVectorOD
          -> ranked rn (1 + n)
-         -> Domains ranked  -- one rank higher than the Domains above
+         -> HVector ranked  -- one rank higher than the HVector above
          -> (forall f. ADReady f
-             => f rn n -> Domains f -> f rn n -> Domains f
+             => f rn n -> HVector f -> f rn n -> HVector f
              -> f rn n)
          -> (forall f. ADReady f
-             => f rn n -> f rn n -> Domains f
-             -> DomainsOf f)
+             => f rn n -> f rn n -> HVector f
+             -> HVectorOf f)
          -> DeltaR ranked rn n
-         -> Domains (DeltaR ranked)  -- one rank higher
+         -> HVector (DeltaR ranked)  -- one rank higher
          -> DeltaR ranked rn (1 + n)
   CastR :: (GoodScalar r1, RealFrac r1, RealFrac r2)
         => DeltaR ranked r1 n -> DeltaR ranked r2 n
@@ -423,7 +423,7 @@ data DeltaS :: ShapedTensorType -> ShapedTensorType where
         -> (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh -> f rm shm
                                  -> f rn sh)
         -> (forall f. ADReadyS f => f rn sh -> f rn sh -> f rm shm
-                                 -> DomainsOf (RankedOf f))
+                                 -> HVectorOf (RankedOf f))
         -> DeltaS shaped rn sh
         -> DeltaS shaped rm (k ': shm)
         -> DeltaS shaped rn sh
@@ -432,58 +432,58 @@ data DeltaS :: ShapedTensorType -> ShapedTensorType where
         -> (shaped rn sh -> shaped rm shm -> shaped rn sh -> shaped rm shm
             -> shaped rn sh)
         -> (shaped rn sh -> shaped rn sh -> shaped rm shm
-            -> DomainsOf (RankedOf shaped))
+            -> HVectorOf (RankedOf shaped))
         -> DeltaS shaped rn sh
         -> DeltaS shaped rm (k ': shm)
         -> DeltaS shaped rn sh
   FoldZipS :: KnownNat k
-         => DomainsOD
+         => HVectorOD
          -> shaped rn (1 + k ': sh)
-         -> Domains (RankedOf shaped)  -- one rank higher than the Domains above
+         -> HVector (RankedOf shaped)  -- one rank higher than the HVector above
          -> (forall f. ADReadyS f
-             => f rn sh -> Domains (RankedOf f) -> f rn sh
-             -> Domains (RankedOf f)
+             => f rn sh -> HVector (RankedOf f) -> f rn sh
+             -> HVector (RankedOf f)
              -> f rn sh)
          -> (forall f. ADReadyS f
-             => f rn sh -> f rn sh -> Domains (RankedOf f)
-             -> DomainsOf (RankedOf f))
+             => f rn sh -> f rn sh -> HVector (RankedOf f)
+             -> HVectorOf (RankedOf f))
          -> DeltaS shaped rn sh
-         -> Domains (DeltaR (RankedOf shaped))
+         -> HVector (DeltaR (RankedOf shaped))
          -> DeltaS shaped rn sh
   FoldZipSC :: KnownNat k
-          => DomainsOD
+          => HVectorOD
           -> shaped rn (1 + k ': sh)
-          -> Domains (RankedOf shaped)
-          -> (shaped rn sh -> Domains (RankedOf shaped) -> shaped rn sh
-              -> Domains (RankedOf shaped)
+          -> HVector (RankedOf shaped)
+          -> (shaped rn sh -> HVector (RankedOf shaped) -> shaped rn sh
+              -> HVector (RankedOf shaped)
               -> shaped rn sh)
-          -> (shaped rn sh -> shaped rn sh -> Domains (RankedOf shaped)
-              -> DomainsOf (RankedOf shaped))
+          -> (shaped rn sh -> shaped rn sh -> HVector (RankedOf shaped)
+              -> HVectorOf (RankedOf shaped))
           -> DeltaS shaped rn sh
-          -> Domains (DeltaR (RankedOf shaped))
+          -> HVector (DeltaR (RankedOf shaped))
           -> DeltaS shaped rn sh
   ScanS :: (GoodScalar rm, Sh.Shape shm, KnownNat k, Sh.Shape sh)
         => shaped rn (1 + k ': sh) -> shaped rm (k ': shm)
         -> (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh -> f rm shm
                                  -> f rn sh)
         -> (forall f. ADReadyS f => f rn sh -> f rn sh -> f rm shm
-                                 -> DomainsOf (RankedOf f))
+                                 -> HVectorOf (RankedOf f))
         -> DeltaS shaped rn sh
         -> DeltaS shaped rm (k ': shm)
         -> DeltaS shaped rn (1 + k ': sh)
   ScanZipS :: (Sh.Shape sh, KnownNat k)
-         => DomainsOD
+         => HVectorOD
          -> shaped rn (1 + k ': sh)
-         -> Domains (RankedOf shaped)  -- one rank higher than the Domains above
+         -> HVector (RankedOf shaped)  -- one rank higher than the HVector above
          -> (forall f. ADReadyS f
-             => f rn sh -> Domains (RankedOf f) -> f rn sh
-             -> Domains (RankedOf f)
+             => f rn sh -> HVector (RankedOf f) -> f rn sh
+             -> HVector (RankedOf f)
              -> f rn sh)
          -> (forall f. ADReadyS f
-             => f rn sh -> f rn sh -> Domains (RankedOf f)
-             -> DomainsOf (RankedOf f))
+             => f rn sh -> f rn sh -> HVector (RankedOf f)
+             -> HVectorOf (RankedOf f))
          -> DeltaS shaped rn sh
-         -> Domains (DeltaR (RankedOf shaped))
+         -> HVector (DeltaR (RankedOf shaped))
          -> DeltaS shaped rn (1 + k ': sh)
   CastS :: (GoodScalar r1, RealFrac r1, RealFrac r2)
         => DeltaS shaped r1 sh -> DeltaS shaped r2 sh
@@ -502,7 +502,7 @@ deriving instance ( Sh.Shape sh0, GoodScalar r0
                   => Show (DeltaS shaped r0 sh0)
 -}
 
--- This is needed for the Show instances due to Domains (Delta...)
+-- This is needed for the Show instances due to HVector (Delta...)
 -- referring to ShapedOf (Delta..).
 type instance RankedOf (DeltaS shaped) = DeltaR (RankedOf shaped)
 
@@ -588,11 +588,11 @@ class DualPart (f :: TensorType ty) where
   type Dual f = (result :: TensorType ty) | result -> f
   reverseDervative
     :: (HasSingletonDict y, GoodScalar r)
-    => DomainsOD -> f r y -> Maybe (f r y) -> Dual f r y
-    -> (AstBindingsD (RankedOf f), Domains (RankedOf f))
+    => HVectorOD -> f r y -> Maybe (f r y) -> Dual f r y
+    -> (AstBindingsD (RankedOf f), HVector (RankedOf f))
   forwardDerivative
     :: (HasSingletonDict y, GoodScalar r)
-    => Int -> Dual f r y -> Domains (RankedOf f)
+    => Int -> Dual f r y -> HVector (RankedOf f)
     -> (AstBindingsD (RankedOf f), f r y)
 
 instance (ADReady ranked, RankedOf ranked ~ ranked)
@@ -603,9 +603,9 @@ instance (ADReady ranked, RankedOf ranked ~ ranked)
 
 gradientDtR
   :: (KnownNat y, GoodScalar r, ADReady ranked)
-  => DomainsOD
+  => HVectorOD
   -> ranked r y -> Maybe (ranked r y) -> DeltaR ranked r y
-  -> (AstBindingsD ranked, Domains ranked)
+  -> (AstBindingsD ranked, HVector ranked)
 gradientDtR !parameters0 value !mdt !deltaTopLevel =
   let dt = fromMaybe (rreplicate0N (rshape value) 1) mdt
       deltaDt = DeltaDtR dt deltaTopLevel
@@ -613,22 +613,22 @@ gradientDtR !parameters0 value !mdt !deltaTopLevel =
 {- TODO: this causes a cyclic dependency:
 {-# SPECIALIZE gradientDtR
   :: KnownNat y
-  => DomainsOD -> Flip OR.Array Double y -> Maybe (Flip OR.Array Double y)
+  => HVectorOD -> Flip OR.Array Double y -> Maybe (Flip OR.Array Double y)
   -> DeltaR (Flip OR.Array) Double y
-  -> (AstBindingsD (Flip OR.Array), Domains (Flip OR.Array) ) #-}
+  -> (AstBindingsD (Flip OR.Array), HVector (Flip OR.Array) ) #-}
 {-# SPECIALIZE gradientDtR
   :: KnownNat y
-  => DomainsOD -> AstRanked PrimalSpan Double y
+  => HVectorOD -> AstRanked PrimalSpan Double y
   -> Maybe (AstRanked PrimalSpan Double y)
   -> DeltaR (AstRanked PrimalSpan) Double y
   -> ( AstBindingsD (AstRanked PrimalSpan)
-     , Domains (AstRanked PrimalSpan) ) #-}
+     , HVector (AstRanked PrimalSpan) ) #-}
 -}
 
 derivativeFromDeltaR
   :: forall ranked r n.
      (KnownNat n, GoodScalar r, ADReady ranked)
-  => Int -> DeltaR ranked r n -> Domains ranked
+  => Int -> DeltaR ranked r n -> HVector ranked
   -> (AstBindingsD ranked, ranked r n)
 derivativeFromDeltaR dim deltaTopLevel ds =
   let dummyZero = rzero $ listShapeToShape $ replicate (valueOf @n) 1
@@ -647,9 +647,9 @@ instance ADReadyS shaped
 gradientDtS
   :: forall shaped r y.
      (Sh.Shape y, GoodScalar r, ADReadyS shaped)
-  => DomainsOD
+  => HVectorOD
   -> Maybe (shaped r y) -> DeltaS shaped r y
-  -> (AstBindingsD (RankedOf shaped), Domains (RankedOf shaped))
+  -> (AstBindingsD (RankedOf shaped), HVector (RankedOf shaped))
 gradientDtS !parameters0 !mdt !deltaTopLevel =
   let dt = fromMaybe 1 mdt
       deltaDt = DeltaDtS dt deltaTopLevel
@@ -657,21 +657,21 @@ gradientDtS !parameters0 !mdt !deltaTopLevel =
 {- TODO: this causes a cyclic dependency:
 {-# SPECIALIZE gradientDtS
   :: Sh.Shape y
-  => DomainsOD -> Maybe (Flip OS.Array Double y)
+  => HVectorOD -> Maybe (Flip OS.Array Double y)
   -> DeltaS (Flip OS.Array) Double y
-  -> (AstBindingsD (Flip OR.Array), Domains (Flip OR.Array)) #-}
+  -> (AstBindingsD (Flip OR.Array), HVector (Flip OR.Array)) #-}
 {-# SPECIALIZE gradientDtS
   :: Sh.Shape y
-  => DomainsOD -> Maybe (AstShaped PrimalSpan Double y)
+  => HVectorOD -> Maybe (AstShaped PrimalSpan Double y)
   -> DeltaS (AstShaped PrimalSpan) Double y
   -> ( AstBindingsD (DynamicTensor (AstShaped PrimalSpan))
-     , Domains (DynamicTensor (AstShaped PrimalSpan)) ) #-}
+     , HVector (DynamicTensor (AstShaped PrimalSpan)) ) #-}
 -}
 
 derivativeFromDeltaS
   :: forall shaped r sh.
      (Sh.Shape sh, GoodScalar r, ADReadyS shaped)
-  => Int -> DeltaS shaped r sh -> Domains (RankedOf shaped)
+  => Int -> DeltaS shaped r sh -> HVector (RankedOf shaped)
   -> (AstBindingsD (RankedOf shaped), shaped r sh)
 derivativeFromDeltaS !dim !deltaTopLevel !ds =
   case runST $ buildDerivative dim (DeltaDtS 0 deltaTopLevel) ds of
@@ -754,13 +754,13 @@ data DeltaBinding :: RankedTensorType -> ShapedTensorType -> Type where
 -- in terms of forward derivatives, since it's more straightforward.
 -- Let @r@ be the type of underlying scalars. Let @f@ be a mathematical
 -- differentiable function that takes arguments (a collection
--- of finite maps or vectors) of type @Domains r@ and produces
+-- of finite maps or vectors) of type @HVector r@ and produces
 -- a single result of type @r@. Let a dual number counterpart
 -- of @f@ applied to a fixed collection of parameters @P@
--- of type @Domains r@ be represented as a Haskell value @b@.
+-- of type @HVector r@ be represented as a Haskell value @b@.
 -- Let @d :: Delta0 r@ be the delta expression that is
--- the second component of @b@, let @ds@ belong to @Domains r@.
--- The semantics of @d@ is a linear function from @Domains r@
+-- the second component of @b@, let @ds@ belong to @HVector r@.
+-- The semantics of @d@ is a linear function from @HVector r@
 -- to @r@ that is the derivative of @f@ at point @P@
 -- with respect to the perturbation @ds@. The mathematical formula
 -- for the derivative follows straightforwardly the syntactic form
@@ -769,7 +769,7 @@ data DeltaBinding :: RankedTensorType -> ShapedTensorType -> Type where
 -- Let's now describe the semantics of a delta expression @d@
 -- as the gradient of @f@ at point @P@ with respect to a @dt@ that belongs
 -- to @r@. Here the semantics of @d@ is a collection of finite maps
--- (vectors) @v0@, @v1@, ..., corresponding to @Domains r@.
+-- (vectors) @v0@, @v1@, ..., corresponding to @HVector r@.
 -- The value of @vi@ at index @k@ is the partial derivative
 -- of function @f@ at @P@ with respect to its parameter of type @ai@
 -- residing at index @k@.
@@ -788,8 +788,8 @@ data DeltaBinding :: RankedTensorType -> ShapedTensorType -> Type where
 gradientFromDelta
   :: forall ranked shaped r.
      ( GoodScalar r, ADReady ranked, shaped ~ ShapedOf ranked)
-  => DomainsOD -> DeltaDt ranked shaped r
-  -> (AstBindingsD ranked, Domains ranked)
+  => HVectorOD -> DeltaDt ranked shaped r
+  -> (AstBindingsD ranked, HVector ranked)
 gradientFromDelta !parameters0 !deltaDt =
   -- Create finite maps that hold values associated with inputs
   -- and with (possibly shared) term tree nodes.
@@ -815,11 +815,11 @@ gradientFromDelta !parameters0 !deltaDt =
 -- The warnings in the following seems spurious. A GHC issue to be opened.
 {- TODO: this causes a cyclic dependency:
 {-# SPECIALIZE gradientFromDelta
-  :: DomainsOD -> DeltaDt (Flip OR.Array) (Flip OS.Array) Double
-  -> (AstBindingsD (Flip OR.Array), DomainsOD) #-}
+  :: HVectorOD -> DeltaDt (Flip OR.Array) (Flip OS.Array) Double
+  -> (AstBindingsD (Flip OR.Array), HVectorOD) #-}
 {-# SPECIALIZE gradientFromDelta
-  :: DomainsOD -> DeltaDt (AstRanked PrimalSpan) (AstShaped PrimalSpan) Double
-  -> (AstBindingsD (AstRanked PrimalSpan), Domains (AstDynamic PrimalSpan)) #-}
+  :: HVectorOD -> DeltaDt (AstRanked PrimalSpan) (AstShaped PrimalSpan) Double
+  -> (AstBindingsD (AstRanked PrimalSpan), HVector (AstDynamic PrimalSpan)) #-}
 -}
 
 buildFinMaps
@@ -860,11 +860,11 @@ buildFinMaps s0 deltaDt =
       evalDynamic s3 (t, DynamicRanked d2) = evalR s3 (rfromD t) d2
       evalDynamic s3 (t, DynamicShaped d2) = evalS s3 (sfromD t) d2
       evalDynamic _ _ = error $ "evalDynamic: dummy delta"
-      evalDomains
+      evalHVector
         :: EvalState ranked shaped
-        -> Domains ranked -> Domains (DeltaR ranked)
+        -> HVector ranked -> HVector (DeltaR ranked)
         -> EvalState ranked shaped
-      evalDomains s as as' = V.foldl' evalDynamic s $ V.zip as as'
+      evalHVector s as as' = V.foldl' evalDynamic s $ V.zip as as'
       evalR
         :: forall n r. (KnownNat n, GoodScalar r)
         => EvalState ranked shaped
@@ -972,22 +972,22 @@ buildFinMaps s0 deltaDt =
             -- The call @rf cr x a@ is not shared here, but it's repeated
             -- just two times, so it's fine unless folds are nested.
             -- TODO: remove the double call by implementing rmapAccumR,
-            -- which however requires DeltaDomains, which is yet another
+            -- which however requires DeltaHVector, which is yet another
             -- can of worms. Unless we can express Delta for rmapAccumR
             -- as a composition of that for rscan and rzipwith, but then
             -- we probably reintroduce the double call, just one level lower.
-            -- BTW, DeltaDomains may enable taking derivatives of objective
+            -- BTW, DeltaHVector may enable taking derivatives of objective
             -- functions with codomains other than a single tensor.
             let !_A1 = assert (rlength p == width + 1) ()
                 shn = shapeDelta x0'
                 domsF = V.fromList [odFromSh @r shn, odFromSh @rm shm]
-                domsToPair :: ADReady f => Domains f -> (f r n, f rm m)
+                domsToPair :: ADReady f => HVector f -> (f r n, f rm m)
                 domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
                 crsr :: ranked r (1 + n)
                 crsr =
                   rscanZip (\cr doms ->
                               let (x, a) = domsToPair doms
-                              in rletDomainsIn
+                              in rletHVectorIn
                                    domsF (rf cr x a) $ \rfRes ->
                                      fst $ domsToPair rfRes)
                          domsF
@@ -1004,7 +1004,7 @@ buildFinMaps s0 deltaDt =
                    -> ranked rm (1 + m)
                    -> ranked rm (1 + m)
                 rg = rzipWith31 (\cr x a ->
-                                   rletDomainsIn domsF (rf cr x a) $ \rfRes ->
+                                   rletHVectorIn domsF (rf cr x a) $ \rfRes ->
                                      snd $ domsToPair rfRes)
                 cas = rg (rslice 1 width crsShared) (rslice 0 width p) as
                   -- @rslice 0 width p@ is very cheap and @p@ (and @as@)
@@ -1018,18 +1018,18 @@ buildFinMaps s0 deltaDt =
             -- for non-symbolic derivatives.
             let shn = shapeDelta x0'
                 domsF = V.fromList [odFromSh @r shn, odFromSh @rm shm]
-                domsToPair :: ADReady f => Domains f -> (f r n, f rm m)
+                domsToPair :: ADReady f => HVector f -> (f r n, f rm m)
                 domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
                 rg :: ranked r n
                    -> [(ranked r n, ranked rm m)]
                    -> (ranked r n, [ranked rm m])
                 rg = mapAccumR (\cx (x, a) ->
-                                  domsToPair $ dunDomains domsF $ rf cx x a)
-                  -- We can't replace dunDomains with
-                  --              dletDomainsInDomains @ranked
+                                  domsToPair $ dunHVector domsF $ rf cx x a)
+                  -- We can't replace dunHVector with
+                  --              dletHVectorInHVector @ranked
                   --                domsF (rf cx x a) $ \rfRes ->
                   --                  domsToPair rfRes)
-                  -- because dletDomainsInDomains can't handle a pair result.
+                  -- because dletHVectorInHVector can't handle a pair result.
                   -- Maybe we could add variants that can, but it's ad-hoc.
                 (cx0, cas) = rg cShared (zip (init $ runravelToList p)
                                              (runravelToList as))
@@ -1048,22 +1048,22 @@ buildFinMaps s0 deltaDt =
                   domsF = V.cons odShn domsOD
                   domsG = V.map odFromDynamic as
                   domsToPair :: forall f. ADReady f
-                             => Domains f -> (f r n, Domains f)
+                             => HVector f -> (f r n, HVector f)
                   domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
                   domsTo3 :: ADReady f
-                          => Domains f -> (f r n, f r n, Domains f)
+                          => HVector f -> (f r n, f r n, HVector f)
                   domsTo3 doms = ( rfromD $ doms V.! 0
                                  , rfromD $ doms V.! 1
                                  , V.drop 2 doms )
                   lp = rreverse $ rslice 0 width p
-                  las :: Domains ranked
-                  las = mapDomainsRanked11 rreverse as
+                  las :: HVector ranked
+                  las = mapHVectorRanked11 rreverse as
                   crsr :: ranked r (1 + n)
                   crsr =
                     rscanZip
                       (\cr doms ->
                           let (x, a) = domsToPair doms
-                          in rletDomainsIn domsF (rf cr x a) $ \rfRes ->
+                          in rletHVectorIn domsF (rf cr x a) $ \rfRes ->
                                fst $ domsToPair rfRes)
                       domsF
                       cShared  -- not duplicated directly, but just in case
@@ -1072,14 +1072,14 @@ buildFinMaps s0 deltaDt =
                   (abShared2, crs) = rregister crsUnshared (astBindings sShared)
                   s2 = sShared {astBindings = abShared2}
                   rg :: ranked r (1 + n) -> ranked r (1 + n)
-                     -> Domains ranked
-                     -> DomainsOf ranked
+                     -> HVector ranked
+                     -> HVectorOf ranked
                   rg cr2 x2 a2 =
                     dzipWith1 (\doms ->
                                  let (cr, x, a) = domsTo3 doms
-                                 in dletDomainsInDomains @ranked
+                                 in dletHVectorInHVector @ranked
                                       domsF (rf cr x a) $ \rfRes ->
-                                        dmkDomains $ snd $ domsToPair rfRes)
+                                        dmkHVector $ snd $ domsToPair rfRes)
                               (V.cons (DynamicRanked cr2)
                                $ V.cons (DynamicRanked x2) a2)
                   casUnshared = rg (rslice 1 width crs)
@@ -1089,25 +1089,25 @@ buildFinMaps s0 deltaDt =
                   (abShared4, cas) =
                     dregister domsG casUnshared (astBindings s3)
                   s4 = s3 {astBindings = abShared4}
-              in evalDomains s4 cas as'
+              in evalHVector s4 cas as'
         FoldZipRC @rm @m domsOD p as _df rf x0' as' ->
           -- No sharing attempted, because this constructor is usually used
           -- for non-symbolic derivatives.
           let shn = shapeDelta x0'
               domsF = V.cons (odFromSh @r shn) domsOD
               domsToPair :: forall f. ADReady f
-                         => Domains f -> (f r n, Domains f)
+                         => HVector f -> (f r n, HVector f)
               domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
               rg :: ranked r n
-                 -> [(ranked r n, Domains ranked)]
-                 -> (ranked r n, [Domains ranked])
+                 -> [(ranked r n, HVector ranked)]
+                 -> (ranked r n, [HVector ranked])
               rg = mapAccumR (\cx (x, a) ->
-                                domsToPair $ dunDomains domsF $ rf cx x a)
+                                domsToPair $ dunHVector domsF $ rf cx x a)
               (cx0, cas) = rg cShared
                               (zip (init $ runravelToList p)
-                                   (unravelDomains as))
+                                   (unravelHVector as))
               s2 = evalR sShared cx0 x0'
-          in evalDomains s2 (ravelDomains cas) as'
+          in evalHVector s2 (ravelHVector cas) as'
         ScanR @rm @m @_ @_ @n1 p as _df rf x0' as' -> case rshape as of
           0 :$ _ -> evalR s (c ! (0 :. ZI)) x0'
           width :$ shm ->
@@ -1115,7 +1115,7 @@ buildFinMaps s0 deltaDt =
                 !_A2 = assert (rlength cShared == width + 1) ()
                 shn = shapeDelta x0'
                 domsF = V.fromList [odFromSh @r shn, odFromSh @rm shm]
-                domsToPair :: ADReady f => Domains f -> (f r n1, f rm m)
+                domsToPair :: ADReady f => HVector f -> (f r n1, f rm m)
                 domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
                 -- The domain must be @Int@ due to rslice and so can't be
                 -- @IndexOf ranked 0@ for rbuild nor @ranked Int 0@ for rmap.
@@ -1129,7 +1129,7 @@ buildFinMaps s0 deltaDt =
                       rf1 =
                         rscanZip (\cr doms ->
                                     let (x, a) = domsToPair doms
-                                    in rletDomainsIn
+                                    in rletHVectorIn
                                          domsF (rf cr x a) $ \rfRes ->
                                            fst $ domsToPair rfRes)
                                domsF
@@ -1153,7 +1153,7 @@ buildFinMaps s0 deltaDt =
                          -> ranked rm (1 + m)
                          -> ranked rm (1 + m)
                       rg = rzipWith31 (\cr x a ->
-                             rletDomainsIn domsF (rf cr x a) $ \rfRes ->
+                             rletHVectorIn domsF (rf cr x a) $ \rfRes ->
                                 snd $ domsToPair rfRes)
                       cas = rg rf11 lp las
                       padding = rzero (width - k :$ shm)
@@ -1175,10 +1175,10 @@ buildFinMaps s0 deltaDt =
                   odShn = odFromSh @r shn
                   domsF = V.cons odShn domsOD
                   domsToPair :: forall f. ADReady f
-                             => Domains f -> (f r n1, Domains f)
+                             => HVector f -> (f r n1, HVector f)
                   domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
                   domsTo3 :: ADReady f
-                          => Domains f -> (f r n1, f r n1, Domains f)
+                          => HVector f -> (f r n1, f r n1, HVector f)
                   domsTo3 doms = ( rfromD $ doms V.! 0
                                  , rfromD $ doms V.! 1
                                  , V.drop 2 doms )
@@ -1186,14 +1186,14 @@ buildFinMaps s0 deltaDt =
                   g1 k =
                     let cx = cShared ! (fromIntegral k :. ZI)
                         lp = rreverse $ rslice 0 k p
-                        las :: Domains ranked
-                        las = mapDomainsRanked11 (rreverse . rslice 0 k) as
+                        las :: HVector ranked
+                        las = mapHVectorRanked11 (rreverse . rslice 0 k) as
                         rf1 :: ranked r (1 + n1)
                         rf1 =
                           rscanZip
                             (\cr doms ->
                                 let (x, a) = domsToPair doms
-                                in rletDomainsIn domsF (rf cr x a) $ \rfRes ->
+                                in rletHVectorIn domsF (rf cr x a) $ \rfRes ->
                                      fst $ domsToPair rfRes)
                             domsF
                             cx
@@ -1207,23 +1207,23 @@ buildFinMaps s0 deltaDt =
                   g1sum = cShared ! (0 :. ZI) + rsum (rtr g1t ! (0 :. ZI))
                   g2 :: EvalState ranked shaped
                      -> Int
-                     -> (EvalState ranked shaped, Domains ranked)  -- 1 + m
+                     -> (EvalState ranked shaped, HVector ranked)  -- 1 + m
                   g2 sg2 k =
                     let rf11 =
                           rslice 1 k $ g1t ! (fromIntegral k - 1 :. ZI)
                         lp = rslice 0 k p
-                        las :: Domains ranked  -- 1 + m
-                        las = mapDomainsRanked11 (rslice 0 k) as
+                        las :: HVector ranked  -- 1 + m
+                        las = mapHVectorRanked11 (rslice 0 k) as
                         rg :: ranked r (1 + n1) -> ranked r (1 + n1)
-                           -> Domains ranked
-                           -> DomainsOf ranked
+                           -> HVector ranked
+                           -> HVectorOf ranked
                         rg cr2 x2 a2 =
                           dzipWith1
                             (\doms ->
                                let (cr, x, a) = domsTo3 doms
-                               in dletDomainsInDomains @ranked
+                               in dletHVectorInHVector @ranked
                                     domsF (rf cr x a) $ \rfRes ->
-                                      dmkDomains $ snd $ domsToPair rfRes)
+                                      dmkHVector $ snd $ domsToPair rfRes)
                             (V.cons (DynamicRanked cr2)
                              $ V.cons (DynamicRanked x2) a2)
                         casUnshared = rg rf11 lp las
@@ -1240,12 +1240,12 @@ buildFinMaps s0 deltaDt =
                           kk :$ shm -> assert (kk == k) $
                             let padding = rzero (width - k :$ shm)
                             in rappend t padding
-                    in (sg3, mapDomainsRanked11 padRanked cas)
+                    in (sg3, mapHVectorRanked11 padRanked cas)
                   (s3, g2s) = mapAccumR g2 s2 [1 .. width]
                   g2sum = V.fromList $ map sumDynamicRanked
                           $ transpose $ map V.toList g2s
                   s4 = evalR s3 g1sum x0'
-              in evalDomains s4 g2sum as'
+              in evalHVector s4 g2sum as'
         CastR d -> evalRRuntimeSpecialized s (rcast c) d
 
         SToR (RToS d) -> evalR s c d  -- no information lost, so no checks
@@ -1343,13 +1343,13 @@ buildFinMaps s0 deltaDt =
         FoldS @rm @shm @k p as _df rf x0' as' ->
           let domsF = V.fromList [odFromShS @r @sh, odFromShS @rm @shm]
               domsToPair :: ADReadyS f
-                         => Domains (RankedOf f) -> (f r sh, f rm shm)
+                         => HVector (RankedOf f) -> (f r sh, f rm shm)
               domsToPair doms = (sfromD $ doms V.! 0, sfromD $ doms V.! 1)
               crsr :: shaped r (1 + k ': sh)
               crsr =
                 sscanZip (\cr doms ->
                             let (x, a) = domsToPair doms
-                            in sletDomainsIn
+                            in sletHVectorIn
                                  domsF (rf cr x a) $ \rfRes ->
                                    fst $ domsToPair rfRes)
                        domsF
@@ -1366,7 +1366,7 @@ buildFinMaps s0 deltaDt =
                  -> shaped rm (k ': shm)
                  -> shaped rm (k ': shm)
               rg = szipWith31 (\cr x a ->
-                                 sletDomainsIn domsF (rf cr x a) $ \rfRes ->
+                                 sletHVectorIn domsF (rf cr x a) $ \rfRes ->
                                    snd $ domsToPair rfRes)
               cas = rg (sslice @_ @_ @_ @_ @0
                                (Proxy @1) (Proxy @k) crsShared)
@@ -1380,13 +1380,13 @@ buildFinMaps s0 deltaDt =
           -- for non-symbolic derivatives.
           let domsF = V.fromList [odFromShS @r @sh, odFromShS @rm @shm]
               domsToPair :: ADReadyS f
-                         => Domains (RankedOf f) -> (f r sh, f rm shm)
+                         => HVector (RankedOf f) -> (f r sh, f rm shm)
               domsToPair doms = (sfromD $ doms V.! 0, sfromD $ doms V.! 1)
               rg :: shaped r sh
                  -> [(shaped r sh, shaped rm shm)]
                  -> (shaped r sh, [shaped rm shm])
               rg = mapAccumR (\cx (x, a) ->
-                                domsToPair $ dunDomains domsF $ rf cx x a)
+                                domsToPair $ dunHVector domsF $ rf cx x a)
               (cx0, cas) = rg cShared (zip (init $ sunravelToList p)
                                            (sunravelToList as))
               s2 = evalS sShared cx0 x0'
@@ -1402,25 +1402,25 @@ buildFinMaps s0 deltaDt =
                   domsF = V.cons odShn domsOD
                   domsG = V.map odFromDynamic as
                   domsToPair :: forall f. ADReadyS f
-                             => Domains (RankedOf f)
-                             -> (f r sh, Domains (RankedOf f))
+                             => HVector (RankedOf f)
+                             -> (f r sh, HVector (RankedOf f))
                   domsToPair doms = (sfromD $ doms V.! 0, V.tail doms)
                   domsTo3 :: ADReadyS f
-                          => Domains (RankedOf f)
-                          -> (f r sh, f r sh, Domains (RankedOf f))
+                          => HVector (RankedOf f)
+                          -> (f r sh, f r sh, HVector (RankedOf f))
                   domsTo3 doms = ( sfromD $ doms V.! 0
                                  , sfromD $ doms V.! 1
                                  , V.drop 2 doms )
                   lp = sreverse $ sslice @_ @_ @_ @_ @1
                                          (Proxy @0) (Proxy @k3) p
-                  las :: Domains ranked
-                  las = mapDomainsShaped11 @k3 sreverse as
+                  las :: HVector ranked
+                  las = mapHVectorShaped11 @k3 sreverse as
                   crsr :: shaped r (1 + k3 ': sh)
                   crsr =
                     sscanZip
                       (\cr doms ->
                           let (x, a) = domsToPair doms
-                          in sletDomainsIn domsF (rf cr x a) $ \rfRes ->
+                          in sletHVectorIn domsF (rf cr x a) $ \rfRes ->
                                fst $ domsToPair rfRes)
                       domsF
                       cShared  -- not duplicated directly, but just in case
@@ -1429,14 +1429,14 @@ buildFinMaps s0 deltaDt =
                   (abShared2, crs) = sregister crsUnshared (astBindings sShared)
                   s2 = sShared {astBindings = abShared2}
                   rg :: shaped r (k3 ': sh) -> shaped r (k3 ': sh)
-                     -> Domains ranked
-                     -> DomainsOf ranked
+                     -> HVector ranked
+                     -> HVectorOf ranked
                   rg cr2 x2 a2 =
                     dzipWith1 (\doms ->
                                  let (cr, x, a) = domsTo3 doms
-                                 in dletDomainsInDomains @ranked
+                                 in dletHVectorInHVector @ranked
                                       domsF (rf cr x a) $ \rfRes ->
-                                        dmkDomains $ snd $ domsToPair rfRes)
+                                        dmkHVector $ snd $ domsToPair rfRes)
                               (V.cons (DynamicShaped cr2)
                                $ V.cons (DynamicShaped x2) a2)
                   casUnshared = rg (sslice @_ @_ @_ @_ @0
@@ -1448,30 +1448,30 @@ buildFinMaps s0 deltaDt =
                   (abShared4, cas) =
                     dregister domsG casUnshared (astBindings s3)
                   s4 = s3 {astBindings = abShared4}
-              in evalDomains s4 cas as'
+              in evalHVector s4 cas as'
         FoldZipSC @rm @shm domsOD p as _df rf x0' as' ->
           -- No sharing attempted, because this constructor is usually used
           -- for non-symbolic derivatives.
           let domsF = V.cons (odFromShS @r @sh) domsOD
               domsToPair :: forall f. ADReadyS f
-                         => Domains (RankedOf f)
-                         -> (f r sh, Domains (RankedOf f))
+                         => HVector (RankedOf f)
+                         -> (f r sh, HVector (RankedOf f))
               domsToPair doms = (sfromD $ doms V.! 0, V.tail doms)
               rg :: shaped r sh
-                 -> [(shaped r sh, Domains ranked)]
-                 -> (shaped r sh, [Domains ranked])
+                 -> [(shaped r sh, HVector ranked)]
+                 -> (shaped r sh, [HVector ranked])
               rg = mapAccumR (\cx (x, a) ->
-                                domsToPair $ dunDomains domsF $ rf cx x a)
+                                domsToPair $ dunHVector domsF $ rf cx x a)
               (cx0, cas) = rg cShared
                               (zip (init $ sunravelToList p)
-                                   (unravelDomains as))
+                                   (unravelHVector as))
               s2 = evalS sShared cx0 x0'
-          in evalDomains s2 (ravelDomains cas) as'
+          in evalHVector s2 (ravelHVector cas) as'
         ScanS @rm @shm @k3 @sh1 p as _df rf x0' as' ->
-          let domsF :: DomainsOD
+          let domsF :: HVectorOD
               domsF = V.fromList [odFromShS @r @sh1, odFromShS @rm @shm]
               domsToPair :: ADReadyS f
-                         => Domains (RankedOf f) -> (f r sh1, f rm shm)
+                         => HVector (RankedOf f) -> (f r sh1, f rm shm)
               domsToPair doms = (sfromD $ doms V.! 0, sfromD $ doms V.! 1)
               g1 :: Int -> shaped r (1 + k3 ': sh1)
               g1 k = case someNatVal $ toInteger k of
@@ -1492,7 +1492,7 @@ buildFinMaps s0 deltaDt =
                     rf1 =
                       sscanZip (\cr doms ->
                                   let (x, a) = domsToPair doms
-                                  in sletDomainsIn
+                                  in sletHVectorIn
                                        domsF (rf cr x a) $ \rfRes ->
                                          fst $ domsToPair rfRes)
                              domsF
@@ -1531,7 +1531,7 @@ buildFinMaps s0 deltaDt =
                        -> shaped rm (k ': shm)
                        -> shaped rm (k ': shm)
                     rg = szipWith31 (\cr x a ->
-                           sletDomainsIn domsF (rf cr x a) $ \rfRes ->
+                           sletHVectorIn domsF (rf cr x a) $ \rfRes ->
                               snd $ domsToPair rfRes)
                     cas = rg rf11 lp las
                 in sappend cas 0
@@ -1543,12 +1543,12 @@ buildFinMaps s0 deltaDt =
           let odShn = odFromShS @r @sh1
               domsF = V.cons odShn domsOD
               domsToPair :: forall f. ADReadyS f
-                         => Domains (RankedOf f)
-                         -> (f r sh1, Domains (RankedOf f))
+                         => HVector (RankedOf f)
+                         -> (f r sh1, HVector (RankedOf f))
               domsToPair doms = (sfromD $ doms V.! 0, V.tail doms)
               domsTo3 :: ADReadyS f
-                      => Domains (RankedOf f)
-                      -> (f r sh1, f r sh1, Domains (RankedOf f))
+                      => HVector (RankedOf f)
+                      -> (f r sh1, f r sh1, HVector (RankedOf f))
               domsTo3 doms = ( sfromD $ doms V.! 0
                              , sfromD $ doms V.! 1
                              , V.drop 2 doms )
@@ -1565,8 +1565,8 @@ buildFinMaps s0 deltaDt =
                 let cx = cShared !$ (valueOf @k :$: ZSH)
                     lp = sreverse $ sslice @_ @_ @_ @_ @(1 + k3 - k)
                                            (Proxy @0) (Proxy @k) p
-                    las :: Domains ranked
-                    las = mapDomainsShaped11 @k3
+                    las :: HVector ranked
+                    las = mapHVectorShaped11 @k3
                             (sreverse . sslice @_ @_ @_ @_ @(k3 - k)
                                                (Proxy @0) (Proxy @k)) as
                     rf1 :: shaped r (1 + k ': sh1)
@@ -1574,7 +1574,7 @@ buildFinMaps s0 deltaDt =
                       sscanZip
                         (\cr doms ->
                             let (x, a) = domsToPair doms
-                            in sletDomainsIn domsF (rf cr x a) $ \rfRes ->
+                            in sletHVectorIn domsF (rf cr x a) $ \rfRes ->
                                  fst $ domsToPair rfRes)
                         domsF
                         cx
@@ -1590,7 +1590,7 @@ buildFinMaps s0 deltaDt =
                         + ssum (str g1t !$ (0 :$: ZSH))
               g2 :: EvalState ranked shaped
                  -> Int
-                 -> (EvalState ranked shaped, Domains ranked)  -- k3 ': shm
+                 -> (EvalState ranked shaped, HVector ranked)  -- k3 ': shm
               g2 sg2 k = case someNatVal $ toInteger k of
                 Just (SomeNat @k _) -> case cmpNat (Proxy @k) (Proxy @k3) of
                   LTI -> gCmp2 @k sg2
@@ -1599,7 +1599,7 @@ buildFinMaps s0 deltaDt =
                 _ -> error "evalS: impossible someNatVal"
               gCmp2 :: forall k. (KnownNat k, k <= k3)
                     => EvalState ranked shaped
-                    -> (EvalState ranked shaped, Domains ranked)  -- k3 ': shm
+                    -> (EvalState ranked shaped, HVector ranked)  -- k3 ': shm
               gCmp2 sg2 =
                 let rf11 =
                       sslice @_ @_ @_ @_ @(k3 - k)
@@ -1607,18 +1607,18 @@ buildFinMaps s0 deltaDt =
                         $ g1t !$ (fromIntegral (valueOf @k - 1 :: Int) :$: ZSH)
                     lp = sslice @_ @_ @_ @_ @(1 + k3 - k)
                                 (Proxy @0) (Proxy @k) p
-                    las = mapDomainsShaped11 @k3
+                    las = mapHVectorShaped11 @k3
                             (sslice @_ @_ @_ @_ @(k3 - k)
                                     (Proxy @0) (Proxy @k)) as
                     rg :: shaped r (k ': sh1) -> shaped r (k ': sh1)
-                       -> Domains ranked
-                       -> DomainsOf ranked
+                       -> HVector ranked
+                       -> HVectorOf ranked
                     rg cr2 x2 a2 =
                       dzipWith1 (\doms ->
                                    let (cr, x, a) = domsTo3 doms
-                                   in dletDomainsInDomains @ranked
+                                   in dletHVectorInHVector @ranked
                                         domsF (rf cr x a) $ \rfRes ->
-                                          dmkDomains $ snd $ domsToPair rfRes)
+                                          dmkHVector $ snd $ domsToPair rfRes)
                                 (V.cons (DynamicShaped cr2)
                                  $ V.cons (DynamicShaped x2) a2)
                     casUnshared = rg rf11 lp las
@@ -1631,12 +1631,12 @@ buildFinMaps s0 deltaDt =
                               => shaped rq (k ': shq)
                               -> shaped rq (k3 ': shq)
                     padShaped t = sappend @_ @_ @k @(k3 - k) t 0
-                in (sg3, mapDomainsShaped11 @k padShaped cas)
+                in (sg3, mapHVectorShaped11 @k padShaped cas)
               (s3, g2s) = mapAccumR g2 s2 [1 .. valueOf @k3]
               g2sum = V.fromList $ map sumDynamicShaped
                       $ transpose $ map V.toList g2s
               s4 = evalS s3 g1sum x0'
-          in evalDomains s4 g2sum as'
+          in evalHVector s4 g2sum as'
         CastS d -> evalSRuntimeSpecialized s (scast c) d
         RToS (SToR @sh2 d) ->
           case sameShape @sh @sh2 of
@@ -1721,13 +1721,13 @@ buildFinMaps s0 deltaDt =
   :: EvalState (AstRanked PrimalSpan) (AstShaped PrimalSpan) -> DeltaDt (AstRanked PrimalSpan) (AstShaped PrimalSpan) Double -> EvalState (AstRanked PrimalSpan) (AstShaped PrimalSpan) #-}
 -}
 
-mapDomainsDeltaR11
+mapHVectorDeltaR11
   :: ( RankedTensor ranked, ShapedTensor (ShapedOf ranked)
      , RankedOf (ShapedOf ranked) ~ ranked )
   => (forall rq q. (GoodScalar rq, KnownNat q)
       => DeltaR ranked rq (1 + q) -> DeltaR ranked rq (1 + q))
-  -> Domains (DeltaR ranked) -> Domains (DeltaR ranked)
-mapDomainsDeltaR11 f = V.map (mapDynamicDeltaR11 f)
+  -> HVector (DeltaR ranked) -> HVector (DeltaR ranked)
+mapHVectorDeltaR11 f = V.map (mapDynamicDeltaR11 f)
 
 mapDynamicDeltaR11
   :: ( RankedTensor ranked, ShapedTensor (ShapedOf ranked)
@@ -1771,14 +1771,14 @@ mapDynamicDeltaR11
             DynamicShaped @_ @shr $ RToS res
           _ -> error "mapDynamicDeltaR11: impossible someNatVal"
 
-mapDomainsDeltaS11
+mapHVectorDeltaS11
   :: forall k k1 shaped.
      ( ShapedOf (RankedOf shaped) ~ shaped, KnownNat k, KnownNat k1
      , RankedTensor (RankedOf shaped), ShapedTensor shaped )
   => (forall rq shq. (GoodScalar rq, Sh.Shape shq)
       => DeltaS shaped rq (k ': shq) -> DeltaS shaped rq (k1 ': shq))
-  -> Domains (DeltaR (RankedOf shaped)) -> Domains (DeltaR (RankedOf shaped))
-mapDomainsDeltaS11 f = V.map (mapDynamicDeltaS11 f)
+  -> HVector (DeltaR (RankedOf shaped)) -> HVector (DeltaR (RankedOf shaped))
+mapHVectorDeltaS11 f = V.map (mapDynamicDeltaS11 f)
 
 mapDynamicDeltaS11
   :: forall k k1 shaped.
@@ -1841,7 +1841,7 @@ mapDynamicDeltaS11
 buildDerivative
   :: forall ranked shaped r0 s.
      (GoodScalar r0, ADReady ranked, shaped ~ ShapedOf ranked)
-  => Int -> DeltaDt ranked shaped r0 -> Domains ranked
+  => Int -> DeltaDt ranked shaped r0 -> HVector ranked
   -> ST s (AstBindingsD ranked, DeltaDt ranked shaped r0)
 buildDerivative dimR deltaDt params = do
   dMap <- newSTRef EM.empty
@@ -1852,8 +1852,8 @@ buildDerivative dimR deltaDt params = do
       evalDynamic (DynamicRanked d) = DynamicRanked <$> evalR d
       evalDynamic (DynamicShaped d) = DynamicShaped <$> evalS d
       evalDynamic _ = error "evalDynamic: dummy delta"
-      evalDomains :: Domains (DeltaR ranked) -> ST s (Domains ranked)
-      evalDomains = V.mapM evalDynamic
+      evalHVector :: HVector (DeltaR ranked) -> ST s (HVector ranked)
+      evalHVector = V.mapM evalDynamic
       evalR
         :: forall n r. (KnownNat n, GoodScalar r)
         => DeltaR ranked r n -> ST s (ranked r n)
@@ -1938,7 +1938,7 @@ buildDerivative dimR deltaDt params = do
             let domsF =
                   V.fromList
                     [odFromSh @rm shm, odFromSh @r shn, odFromSh @rm shm]
-                domsTo3 :: ADReady f => Domains f -> (f rm m, f r n, f rm m)
+                domsTo3 :: ADReady f => HVector f -> (f rm m, f r n, f rm m)
                 domsTo3 doms = ( rfromD $ doms V.! 0
                                , rfromD $ doms V.! 1
                                , rfromD $ doms V.! 2 )
@@ -1965,10 +1965,10 @@ buildDerivative dimR deltaDt params = do
               domsLen = V.length domsOD
               shn = shapeDelta x0'
           cx0 <- evalR x0'
-          cas <- evalDomains as'
+          cas <- evalHVector as'
           let domsF = V.concat [domsOD, V.singleton (odFromSh @r shn), domsOD]
               domsTo3 :: ADReady f
-                      => Domains f -> (Domains f, f r n, Domains f)
+                      => HVector f -> (HVector f, f r n, HVector f)
               domsTo3 doms = ( V.take domsLen doms
                              , rfromD $ doms V.! domsLen
                              , V.drop (domsLen + 1) doms )
@@ -1983,9 +1983,9 @@ buildDerivative dimR deltaDt params = do
                                      , as ])
         FoldZipRC _domsOD p as df _rf x0' as' -> do
           cx0 <- evalR x0'
-          cas <- evalDomains as'
-          let lcas = unravelDomains cas
-              las = unravelDomains as
+          cas <- evalHVector as'
+          let lcas = unravelHVector cas
+              las = unravelHVector as
               lp = runravelToList p
           return $! foldl' (\cx (ca, x, a) -> df cx ca x a)
                            cx0 (zip3 lcas (init lp) las)
@@ -1998,7 +1998,7 @@ buildDerivative dimR deltaDt params = do
             let domsF =
                   V.fromList
                     [odFromSh @rm shm, odFromSh @r shn, odFromSh @rm shm]
-                domsTo3 :: ADReady f => Domains f -> (f rm m, f r n1, f rm m)
+                domsTo3 :: ADReady f => HVector f -> (f rm m, f r n1, f rm m)
                 domsTo3 doms = ( rfromD $ doms V.! 0
                                , rfromD $ doms V.! 1
                                , rfromD $ doms V.! 2 )
@@ -2017,10 +2017,10 @@ buildDerivative dimR deltaDt params = do
               domsLen = V.length domsOD
               shn = shapeDelta x0'
           cx0 <- evalR x0'
-          cas <- evalDomains as'
+          cas <- evalHVector as'
           let domsF = V.concat [domsOD, V.singleton (odFromSh @r shn), domsOD]
               domsTo3 :: ADReady f
-                      => Domains f -> (Domains f, f r n1, Domains f)
+                      => HVector f -> (HVector f, f r n1, HVector f)
               domsTo3 doms = ( V.take domsLen doms
                              , rfromD $ doms V.! domsLen
                              , V.drop (domsLen + 1) doms )
@@ -2121,7 +2121,7 @@ buildDerivative dimR deltaDt params = do
                 V.fromList
                   [odFromShS @rm @shm, odFromShS @r @sh, odFromShS @rm @shm]
               domsTo3 :: ADReadyS f
-                      => Domains (RankedOf f) -> (f rm shm, f r sh, f rm shm)
+                      => HVector (RankedOf f) -> (f rm shm, f r sh, f rm shm)
               domsTo3 doms = ( sfromD $ doms V.! 0
                              , sfromD $ doms V.! 1
                              , sfromD $ doms V.! 2 )
@@ -2145,11 +2145,11 @@ buildDerivative dimR deltaDt params = do
         FoldZipS @k3 domsOD p as df _rf x0' as' -> do
           let domsLen = V.length domsOD
           cx0 <- evalS x0'
-          cas <- evalDomains as'
+          cas <- evalHVector as'
           let domsF = V.concat [domsOD, V.singleton (odFromShS @r @sh), domsOD]
               domsTo3 :: ADReadyS f
-                      => Domains (RankedOf f)
-                      -> (Domains (RankedOf f), f r sh, Domains (RankedOf f))
+                      => HVector (RankedOf f)
+                      -> (HVector (RankedOf f), f r sh, HVector (RankedOf f))
               domsTo3 doms = ( V.take domsLen doms
                              , sfromD $ doms V.! domsLen
                              , V.drop (domsLen + 1) doms )
@@ -2165,9 +2165,9 @@ buildDerivative dimR deltaDt params = do
                                      , as ])
         FoldZipSC _domsOD p as df _rf x0' as' -> do
           cx0 <- evalS x0'
-          cas <- evalDomains as'
-          let lcas = unravelDomains cas
-              las = unravelDomains as
+          cas <- evalHVector as'
+          let lcas = unravelHVector cas
+              las = unravelHVector as
               lp = sunravelToList p
           return $! foldl' (\cx (ca, x, a) -> df cx ca x a)
                            cx0 (zip3 lcas (init lp) las)
@@ -2178,7 +2178,7 @@ buildDerivative dimR deltaDt params = do
                 V.fromList
                   [odFromShS @rm @shm, odFromShS @r @sh1, odFromShS @rm @shm]
               domsTo3 :: ADReadyS f
-                      => Domains (RankedOf f) -> (f rm shm, f r sh1, f rm shm)
+                      => HVector (RankedOf f) -> (f rm shm, f r sh1, f rm shm)
               domsTo3 doms = ( sfromD $ doms V.! 0
                              , sfromD $ doms V.! 1
                              , sfromD $ doms V.! 2 )
@@ -2194,11 +2194,11 @@ buildDerivative dimR deltaDt params = do
         ScanZipS @sh1 @k3 domsOD p as df _rf x0' as' -> do
           let domsLen = V.length domsOD
           cx0 <- evalS x0'
-          cas <- evalDomains as'
+          cas <- evalHVector as'
           let domsF = V.concat [domsOD, V.singleton (odFromShS @r @sh1), domsOD]
               domsTo3 :: ADReadyS f
-                      => Domains (RankedOf f)
-                      -> (Domains (RankedOf f), f r sh1, Domains (RankedOf f))
+                      => HVector (RankedOf f)
+                      -> (HVector (RankedOf f), f r sh1, HVector (RankedOf f))
               domsTo3 doms = ( V.take domsLen doms
                              , sfromD $ doms V.! domsLen
                              , V.drop (domsLen + 1) doms )

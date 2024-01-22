@@ -98,7 +98,7 @@ afcnnMnistTest1
   => ADFcnnMnist1Parameters ranked r
   -> Int -> Int
   -> [MnistData r]
-  -> DomainsOD
+  -> HVectorOD
   -> r
 afcnnMnistTest1 _ _ _ [] _ = 0
 afcnnMnistTest1 valsInit widthHidden widthHidden2 dataList testParams =
@@ -109,7 +109,7 @@ afcnnMnistTest1 valsInit widthHidden widthHidden2 dataList testParams =
                -> ranked r 1
             nn = inline afcnnMnist1 logistic softMax1
                                     widthHidden widthHidden2 glyph1
-            v = OR.toVector $ runFlip $ nn $ parseDomains valsInit testParams
+            v = OR.toVector $ runFlip $ nn $ parseHVector valsInit testParams
         in V.maxIndex v == V.maxIndex label
   in fromIntegral (length (filter matchesLabels dataList))
      / fromIntegral (length dataList)

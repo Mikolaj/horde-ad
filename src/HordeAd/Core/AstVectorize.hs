@@ -4,7 +4,7 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Vectorization of the AST, eliminating the build operation.
 module HordeAd.Core.AstVectorize
-  ( build1Vectorize, build1VectorizeS, build1VectorizeDomains
+  ( build1Vectorize, build1VectorizeS, build1VectorizeHVector
   , traceRuleEnabledRef
   ) where
 
@@ -37,8 +37,8 @@ import           Type.Reflection (typeRep)
 import           Unsafe.Coerce (unsafeCoerce)
 
 import           HordeAd.Core.Ast hiding
-  (AstBool (..), AstDomains (..), AstRanked (..), AstShaped (..))
-import           HordeAd.Core.Ast (AstDomains, AstRanked, AstShaped)
+  (AstBool (..), AstHVector (..), AstRanked (..), AstShaped (..))
+import           HordeAd.Core.Ast (AstHVector, AstRanked, AstShaped)
 import qualified HordeAd.Core.Ast as Ast
 import           HordeAd.Core.AstFreshId
 import           HordeAd.Core.AstPrettyPrint
@@ -242,7 +242,7 @@ build1V k (var, v00) =
     Ast.AstConst{} ->
       error "build1V: AstConst can't have free index variables"
 
-    Ast.AstLetDomainsIn vars1 l v -> case someNatVal $ toInteger k of
+    Ast.AstLetHVectorIn vars1 l v -> case someNatVal $ toInteger k of
       Just (SomeNat @k3 _) ->
         -- Here substitution traverses @v@ term tree @length vars@ times.
         --
@@ -251,8 +251,8 @@ build1V k (var, v00) =
         -- again, because the original variables might have been marked
         -- with AstShaped and here we require AstRanked.
         let (vOut, varsOut) = substProjVars @k3 var vars1 v
-        in astLetDomainsIn
-             varsOut (build1VOccurenceUnknownDomains k (var, l))
+        in astLetHVectorIn
+             varsOut (build1VOccurenceUnknownHVector k (var, l))
                      (build1VOccurenceUnknownRefresh k (var, vOut))
       _ -> error "build1V: impossible someNatVal"
     Ast.AstSToR @sh1 v -> case someNatVal $ toInteger k of
@@ -297,10 +297,10 @@ build1V k (var, v00) =
            ( AstVarName $ varNameToAstVarId varDt2
            , AstVarName $ varNameToAstVarId nvar2
            , AstVarName $ varNameToAstVarId mvar2
-           , build1VOccurenceUnknownAstDomainsRefresh
-               k (var, substProjDomains k var shn varDt2
-                       $ substProjDomains k var shn nvar2
-                       $ substProjDomains k var shm mvar2 doms) )
+           , build1VOccurenceUnknownAstHVectorRefresh
+               k (var, substProjHVector k var shn varDt2
+                       $ substProjHVector k var shn nvar2
+                       $ substProjHVector k var shm mvar2 doms) )
            (build1VOccurenceUnknown k (var, x0))
            (astTr $ build1VOccurenceUnknown k (var, as))
     Ast.AstFoldZip{} ->
@@ -315,7 +315,7 @@ build1V k (var, v00) =
            (vOut, mvarsOut) = substProjVars @k3 var mvars v
            (ast1Out, varsDaOut) = substProjVars @k3 var varsDa ast1
            (ast1Out2, varsm1Out) = substProjVars @k3 var varsm1 ast1Out
-           (domsOut, mvars2Out) = substProjVarsDomains @k3 var mvars2 doms
+           (domsOut, mvars2Out) = substProjVarsHVector @k3 var mvars2 doms
        in Ast.AstFoldZipDer
             ( AstVarName $ varNameToAstVarId nvar
             , mvarsOut
@@ -331,9 +331,9 @@ build1V k (var, v00) =
             ( AstVarName $ varNameToAstVarId varDt2
             , AstVarName $ varNameToAstVarId nvar2
             , mvars2Out
-            , build1VOccurenceUnknownAstDomainsRefresh
-                k (var, substProjDomains k var shn varDt2
-                        $ substProjDomains k var shn nvar2 domsOut) )
+            , build1VOccurenceUnknownAstHVectorRefresh
+                k (var, substProjHVector k var shn varDt2
+                        $ substProjHVector k var shn nvar2 domsOut) )
             (build1VOccurenceUnknown k (var, x0))
             (V.map (\u -> astTrDynamicRanked
                           $ build1VOccurenceUnknownDynamic k (var, u)) as)
@@ -365,10 +365,10 @@ build1V k (var, v00) =
            ( AstVarName $ varNameToAstVarId varDt2
            , AstVarName $ varNameToAstVarId nvar2
            , AstVarName $ varNameToAstVarId mvar2
-           , build1VOccurenceUnknownAstDomainsRefresh
-               k (var, substProjDomains k var shn varDt2
-                       $ substProjDomains k var shn nvar2
-                       $ substProjDomains k var shm mvar2 doms) )
+           , build1VOccurenceUnknownAstHVectorRefresh
+               k (var, substProjHVector k var shn varDt2
+                       $ substProjHVector k var shn nvar2
+                       $ substProjHVector k var shm mvar2 doms) )
            (build1VOccurenceUnknown k (var, x0))
            (astTr $ build1VOccurenceUnknown k (var, as))
     Ast.AstScanZip{} ->
@@ -383,7 +383,7 @@ build1V k (var, v00) =
            (vOut, mvarsOut) = substProjVars @k3 var mvars v
            (ast1Out, varsDaOut) = substProjVars @k3 var varsDa ast1
            (ast1Out2, varsm1Out) = substProjVars @k3 var varsm1 ast1Out
-           (domsOut, mvars2Out) = substProjVarsDomains @k3 var mvars2 doms
+           (domsOut, mvars2Out) = substProjVarsHVector @k3 var mvars2 doms
        in astTr
           $ Ast.AstScanZipDer
             ( AstVarName $ varNameToAstVarId nvar
@@ -400,9 +400,9 @@ build1V k (var, v00) =
             ( AstVarName $ varNameToAstVarId varDt2
             , AstVarName $ varNameToAstVarId nvar2
             , mvars2Out
-            , build1VOccurenceUnknownAstDomainsRefresh
-                k (var, substProjDomains k var shn varDt2
-                        $ substProjDomains k var shn nvar2 domsOut) )
+            , build1VOccurenceUnknownAstHVectorRefresh
+                k (var, substProjHVector k var shn varDt2
+                        $ substProjHVector k var shn nvar2 domsOut) )
             (build1VOccurenceUnknown k (var, x0))
             (V.map (\u -> astTrDynamicRanked
                           $ build1VOccurenceUnknownDynamic k (var, u)) as)
@@ -656,11 +656,11 @@ build1VS (var, v00) =
     Ast.AstConstS{} ->
       error "build1VS: AstConstS can't have free index variables"
 
-    Ast.AstLetDomainsInS vars1 l v ->
-      -- See the AstLetDomainsIn case for comments.
+    Ast.AstLetHVectorInS vars1 l v ->
+      -- See the AstLetHVectorIn case for comments.
       let (vOut, varsOut) = substProjVarsS @k var vars1 v
-      in astLetDomainsInS
-           varsOut (build1VOccurenceUnknownDomains (valueOf @k) (var, l))
+      in astLetHVectorInS
+           varsOut (build1VOccurenceUnknownHVector (valueOf @k) (var, l))
                    (build1VOccurenceUnknownRefreshS (var, vOut))
     Ast.AstRToS v -> Ast.AstRToS $ build1V (valueOf @k) (var, v)
 
@@ -698,11 +698,11 @@ build1VS (var, v00) =
         ( AstVarName $ varNameToAstVarId varDt2
         , AstVarName $ varNameToAstVarId nvar2
         , AstVarName $ varNameToAstVarId mvar2
-        , build1VOccurenceUnknownAstDomainsRefresh
+        , build1VOccurenceUnknownAstHVectorRefresh
             (valueOf @k)
-            (var, substProjDomainsS @k var varDt2
-                  $ substProjDomainsS @k var nvar2
-                  $ substProjDomainsS @k var mvar2 doms) )
+            (var, substProjHVectorS @k var varDt2
+                  $ substProjHVectorS @k var nvar2
+                  $ substProjHVectorS @k var mvar2 doms) )
         (build1VOccurenceUnknownS (var, x0))
         (astTrS $ build1VOccurenceUnknownS @k (var, as))
     Ast.AstFoldZipS{} ->
@@ -714,7 +714,7 @@ build1VS (var, v00) =
        let (vOut, mvarsOut) = substProjVarsS @k var mvars v
            (ast1Out, varsDaOut) = substProjVarsS @k var varsDa ast1
            (ast1Out2, varsm1Out) = substProjVarsS @k var varsm1 ast1Out
-           (domsOut, mvars2Out) = substProjVarsDomains @k var mvars2 doms
+           (domsOut, mvars2Out) = substProjVarsHVector @k var mvars2 doms
        in Ast.AstFoldZipDerS
             ( AstVarName $ varNameToAstVarId nvar
             , mvarsOut
@@ -730,10 +730,10 @@ build1VS (var, v00) =
             ( AstVarName $ varNameToAstVarId varDt2
             , AstVarName $ varNameToAstVarId nvar2
             , mvars2Out
-            , build1VOccurenceUnknownAstDomainsRefresh
+            , build1VOccurenceUnknownAstHVectorRefresh
                 (valueOf @k)
-                (var, substProjDomainsS @k var varDt2
-                      $ substProjDomainsS @k @shn var nvar2 domsOut) )
+                (var, substProjHVectorS @k var varDt2
+                      $ substProjHVectorS @k @shn var nvar2 domsOut) )
             (build1VOccurenceUnknownS @k (var, x0))
             (V.map (\u -> astTrDynamicShaped
                           $ build1VOccurenceUnknownDynamic (valueOf @k)
@@ -763,10 +763,10 @@ build1VS (var, v00) =
            ( AstVarName $ varNameToAstVarId varDt2
            , AstVarName $ varNameToAstVarId nvar2
            , AstVarName $ varNameToAstVarId mvar2
-           , build1VOccurenceUnknownAstDomainsRefresh
-               (valueOf @k) (var, substProjDomainsS @k @shn var varDt2
-                                  $ substProjDomainsS @k @shn var nvar2
-                                  $ substProjDomainsS @k @shm var mvar2 doms) )
+           , build1VOccurenceUnknownAstHVectorRefresh
+               (valueOf @k) (var, substProjHVectorS @k @shn var varDt2
+                                  $ substProjHVectorS @k @shn var nvar2
+                                  $ substProjHVectorS @k @shm var mvar2 doms) )
            (build1VOccurenceUnknownS @k (var, x0))
            (astTrS $ build1VOccurenceUnknownS @k (var, as))
     Ast.AstScanZipS{} ->
@@ -778,7 +778,7 @@ build1VS (var, v00) =
        let (vOut, mvarsOut) = substProjVarsS @k var mvars v
            (ast1Out, varsDaOut) = substProjVarsS @k var varsDa ast1
            (ast1Out2, varsm1Out) = substProjVarsS @k var varsm1 ast1Out
-           (domsOut, mvars2Out) = substProjVarsDomains @k var mvars2 doms
+           (domsOut, mvars2Out) = substProjVarsHVector @k var mvars2 doms
        in astTrS
           $ Ast.AstScanZipDerS
             ( AstVarName $ varNameToAstVarId nvar
@@ -795,10 +795,10 @@ build1VS (var, v00) =
             ( AstVarName $ varNameToAstVarId varDt2
             , AstVarName $ varNameToAstVarId nvar2
             , mvars2Out
-            , build1VOccurenceUnknownAstDomainsRefresh
+            , build1VOccurenceUnknownAstHVectorRefresh
                 (valueOf @k)
-                (var, substProjDomainsS @k @shn var varDt2
-                      $ substProjDomainsS @k @shn var nvar2 domsOut) )
+                (var, substProjHVectorS @k @shn var varDt2
+                      $ substProjHVectorS @k @shn var nvar2 domsOut) )
             (build1VOccurenceUnknownS @k (var, x0))
             (V.map (\u -> astTrDynamicShaped
                           $ build1VOccurenceUnknownDynamic (valueOf @k)
@@ -860,81 +860,81 @@ build1VIndexS (var, v0, ix@(_ :$: _)) =
             astGatherStepS v0 (var :$: ZSH, ix)
 
 
--- * Vectorization of AstDomains
+-- * Vectorization of AstHVector
 
-build1VectorizeDomains
+build1VectorizeHVector
   :: forall s. AstSpan s
-  => Int -> (IntVarName, AstDomains s) -> AstDomains s
-{-# NOINLINE build1VectorizeDomains #-}
-build1VectorizeDomains k (var, v0) = unsafePerformIO $ do
+  => Int -> (IntVarName, AstHVector s) -> AstHVector s
+{-# NOINLINE build1VectorizeHVector #-}
+build1VectorizeHVector k (var, v0) = unsafePerformIO $ do
   enabled <- readIORef traceRuleEnabledRef
   let width = 1000 * traceWidth
-      startTerm = Ast.AstBuildDomains1 k (var, v0)
+      startTerm = Ast.AstBuildHVector1 k (var, v0)
       renames = IM.fromList [(1, ""), (2, "")]
   when enabled $ do
     writeIORef traceNestingLevel 0
     hPutStrLnFlush stderr $
       "\n"
       ++ "START of vectorization for term "
-      ++ ellipsisString width (printAstDomainsSimple renames startTerm)
+      ++ ellipsisString width (printAstHVectorSimple renames startTerm)
       ++ "\n"
-  let !endTerm = build1VOccurenceUnknownDomains k (var, v0)
+  let !endTerm = build1VOccurenceUnknownHVector k (var, v0)
   when enabled $ do
     hPutStrLnFlush stderr $
       "\n"
       ++ "END of vectorization yields "
-      ++ ellipsisString width (printAstDomainsSimple renames endTerm)
+      ++ ellipsisString width (printAstHVectorSimple renames endTerm)
       ++ "\n"
   return endTerm
 
-build1VOccurenceUnknownDomains
+build1VOccurenceUnknownHVector
   :: forall s. AstSpan s
-  => Int -> (IntVarName, AstDomains s) -> AstDomains s
-build1VOccurenceUnknownDomains k (var, v0) =
- let traceRule = mkTraceRuleDomains v0 k var
+  => Int -> (IntVarName, AstHVector s) -> AstHVector s
+build1VOccurenceUnknownHVector k (var, v0) =
+ let traceRule = mkTraceRuleHVector v0 k var
  in traceRule $ case v0 of
-  Ast.AstDomains l ->
-    Ast.AstDomains $ V.map (\u -> build1VOccurenceUnknownDynamic k (var, u)) l
-  Ast.AstLetDomainsInDomains vars1 u v -> case someNatVal $ toInteger k of
+  Ast.AstHVector l ->
+    Ast.AstHVector $ V.map (\u -> build1VOccurenceUnknownDynamic k (var, u)) l
+  Ast.AstLetHVectorInHVector vars1 u v -> case someNatVal $ toInteger k of
       Just (SomeNat @k3 _) ->
-        let (vOut, varsOut) = substProjVarsDomains @k3 var vars1 v
-        in astLetDomainsInDomains
-             varsOut (build1VOccurenceUnknownDomains k (var, u))
-                     (build1VOccurenceUnknownAstDomainsRefresh k (var, vOut))
-      _ -> error "build1VOccurenceUnknownDomains: impossible someNatVal"
-  Ast.AstLetInDomains @_ @r1 @s1 var1@(AstVarName oldVarId) u v ->
+        let (vOut, varsOut) = substProjVarsHVector @k3 var vars1 v
+        in astLetHVectorInHVector
+             varsOut (build1VOccurenceUnknownHVector k (var, u))
+                     (build1VOccurenceUnknownAstHVectorRefresh k (var, vOut))
+      _ -> error "build1VOccurenceUnknownHVector: impossible someNatVal"
+  Ast.AstLetInHVector @_ @r1 @s1 var1@(AstVarName oldVarId) u v ->
     let var2 = AstVarName oldVarId  -- changed shape; TODO: shall we rename?
         sh = shapeAst u
         projection = Ast.AstIndex (Ast.AstVar (k :$ sh) var2)
                                   (Ast.AstIntVar var :. ZI)
-        v2 = substituteAstDomains
+        v2 = substituteAstHVector
                (SubstitutionPayloadRanked @s1 @r1 projection) var1 v
-    in astLetInDomains var2 (build1VOccurenceUnknown k (var, u))
-                            (build1VOccurenceUnknownAstDomainsRefresh
+    in astLetInHVector var2 (build1VOccurenceUnknown k (var, u))
+                            (build1VOccurenceUnknownAstHVectorRefresh
                                k (var, v2))
-  Ast.AstLetInDomainsS @sh2 @r1 @s1
+  Ast.AstLetInHVectorS @sh2 @r1 @s1
    var1@(AstVarName oldVarId) u v -> case someNatVal $ toInteger k of
     Just (SomeNat @k _proxy) ->
       let var2 = AstVarName oldVarId  -- changed shape; TODO: shall we rename?
           projection = Ast.AstIndexS (Ast.AstVarS @(k ': sh2) var2)
                                      (Ast.AstIntVar var :$: ZSH)
-          v2 = substituteAstDomains
+          v2 = substituteAstHVector
                  (SubstitutionPayloadShaped @s1 @r1 projection) var1 v
-      in astLetInDomainsS var2 (build1VOccurenceUnknownS @k (var, u))
-                               (build1VOccurenceUnknownAstDomainsRefresh
+      in astLetInHVectorS var2 (build1VOccurenceUnknownS @k (var, u))
+                               (build1VOccurenceUnknownAstHVectorRefresh
                                   k (var, v2))
     Nothing ->
-      error "build1VOccurenceUnknownDomains: impossible someNatVal error"
-  Ast.AstBuildDomains1{} ->
-    error "build1VOccurenceUnknownDomains: impossible case of AstBuildDomains1"
+      error "build1VOccurenceUnknownHVector: impossible someNatVal error"
+  Ast.AstBuildHVector1{} ->
+    error "build1VOccurenceUnknownHVector: impossible case of AstBuildHVector1"
   Ast.AstRev{} ->
-    error "build1VOccurenceUnknownDomains: impossible case of AstRev"
+    error "build1VOccurenceUnknownHVector: impossible case of AstRev"
   Ast.AstRevDt{} ->
-    error "build1VOccurenceUnknownDomains: impossible case of AstRevDt"
+    error "build1VOccurenceUnknownHVector: impossible case of AstRevDt"
   Ast.AstRevS{} ->
-    error "build1VOccurenceUnknownDomains: impossible case of AstRevS"
+    error "build1VOccurenceUnknownHVector: impossible case of AstRevS"
   Ast.AstRevDtS{} ->
-    error "build1VOccurenceUnknownDomains: impossible case of AstRevDtS"
+    error "build1VOccurenceUnknownHVector: impossible case of AstRevDtS"
 
 build1VOccurenceUnknownDynamic
   :: forall s. AstSpan s
@@ -958,15 +958,15 @@ build1VOccurenceUnknownDynamic k (var, d) = case d of
     Nothing ->
       error "build1VOccurenceUnknownDynamic: impossible someNatVal error"
 
-build1VOccurenceUnknownAstDomainsRefresh
+build1VOccurenceUnknownAstHVectorRefresh
   :: forall s. AstSpan s
-  => Int -> (IntVarName, AstDomains s) -> AstDomains s
-{-# NOINLINE build1VOccurenceUnknownAstDomainsRefresh #-}
-build1VOccurenceUnknownAstDomainsRefresh k (var, v0) = unsafePerformIO $ do
+  => Int -> (IntVarName, AstHVector s) -> AstHVector s
+{-# NOINLINE build1VOccurenceUnknownAstHVectorRefresh #-}
+build1VOccurenceUnknownAstHVectorRefresh k (var, v0) = unsafePerformIO $ do
   (varFresh, astVarFresh) <- funToAstIOI id
-  let v2 = substituteAstDomains  -- cheap subst, because only a renaming
+  let v2 = substituteAstHVector  -- cheap subst, because only a renaming
              (SubstitutionPayloadRanked @PrimalSpan @Int64 astVarFresh) var v0
-  return $! build1VOccurenceUnknownDomains k (varFresh, v2)
+  return $! build1VOccurenceUnknownHVector k (varFresh, v2)
 
 
 -- * Auxiliary machinery
@@ -1025,30 +1025,30 @@ substProjShapedS var var1@(AstVarName varId) =
   in substituteAstS
        (SubstitutionPayloadShaped @s1 @r1 projection) var1
 
-substProjDomains :: forall n1 r1 s1 s.
+substProjHVector :: forall n1 r1 s1 s.
                     (KnownNat n1, GoodScalar r1, AstSpan s, AstSpan s1)
                  => Int -> IntVarName -> ShapeInt n1
                  -> AstVarName (AstRanked s1) r1 n1
-                 -> AstDomains s -> AstDomains s
-substProjDomains k var sh1 var1@(AstVarName varId) =
+                 -> AstHVector s -> AstHVector s
+substProjHVector k var sh1 var1@(AstVarName varId) =
   let var2 = AstVarName varId
       projection =
         Ast.AstIndex (Ast.AstVar (k :$ sh1) var2)
                      (Ast.AstIntVar var :. ZI)
-  in substituteAstDomains
+  in substituteAstHVector
        (SubstitutionPayloadRanked @s1 @r1 projection) var1
 
-substProjDomainsS :: forall k sh1 r1 s1 s.
+substProjHVectorS :: forall k sh1 r1 s1 s.
                      ( KnownNat k, Sh.Shape sh1, GoodScalar r1
                      , AstSpan s, AstSpan s1 )
                   => IntVarName -> AstVarName (AstShaped s1) r1 sh1
-                  -> AstDomains s -> AstDomains s
-substProjDomainsS var var1@(AstVarName varId) =
+                  -> AstHVector s -> AstHVector s
+substProjHVectorS var var1@(AstVarName varId) =
   let var2 = AstVarName varId
       projection =
         Ast.AstIndexS (Ast.AstVarS @(k ': sh1) var2)
                       (Ast.AstIntVar var :$: ZSH)
-  in substituteAstDomains
+  in substituteAstHVector
        (SubstitutionPayloadShaped @s1 @r1 projection) var1
 
 substProjDynamic :: forall k n r s.
@@ -1099,27 +1099,27 @@ substProjVarsS :: forall k sh r s.
                -> (AstShaped s r sh, [AstDynamicVarName])
 substProjVarsS var vars v3 = mapAccumR (substProjDynamicS @k var) v3 vars
 
-substProjDynamicDomains :: forall k s. (KnownNat k, AstSpan s)
-                        => IntVarName -> AstDomains s -> AstDynamicVarName
-                        -> (AstDomains s, AstDynamicVarName)
-substProjDynamicDomains var v3 (AstDynamicVarName @ty @r3 @sh3 varId)
+substProjDynamicHVector :: forall k s. (KnownNat k, AstSpan s)
+                        => IntVarName -> AstHVector s -> AstDynamicVarName
+                        -> (AstHVector s, AstDynamicVarName)
+substProjDynamicHVector var v3 (AstDynamicVarName @ty @r3 @sh3 varId)
   | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat) =
     ( withListShape (Sh.shapeT @sh3) $ \sh1 ->
-        substProjDomains @_ @r3 @s (valueOf @k) var sh1 (AstVarName varId) v3
+        substProjHVector @_ @r3 @s (valueOf @k) var sh1 (AstVarName varId) v3
     , AstDynamicVarName @ty @r3 @(k ': sh3) varId )
-substProjDynamicDomains var v3 (AstDynamicVarName @ty @r3 @sh3 varId)
+substProjDynamicHVector var v3 (AstDynamicVarName @ty @r3 @sh3 varId)
   | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat]) =
-    ( substProjDomainsS @k @sh3 @r3 @s var (AstVarName varId) v3
+    ( substProjHVectorS @k @sh3 @r3 @s var (AstVarName varId) v3
     , AstDynamicVarName @ty @r3 @(k ': sh3) varId )
-substProjDynamicDomains _ _ _ =
-  error "substProjDynamicDomains: unexpected type"
+substProjDynamicHVector _ _ _ =
+  error "substProjDynamicHVector: unexpected type"
 
-substProjVarsDomains :: forall k s. (KnownNat k, AstSpan s)
+substProjVarsHVector :: forall k s. (KnownNat k, AstSpan s)
                      => IntVarName -> [AstDynamicVarName]
-                     -> AstDomains s
-                     -> (AstDomains s, [AstDynamicVarName])
-substProjVarsDomains var vars v3 =
-  mapAccumR (substProjDynamicDomains @k var) v3 vars
+                     -> AstHVector s
+                     -> (AstHVector s, [AstDynamicVarName])
+substProjVarsHVector var vars v3 =
+  mapAccumR (substProjDynamicHVector @k var) v3 vars
 
 astTrDynamicRanked :: AstSpan s
                    => DynamicTensor (AstRanked s)
@@ -1255,22 +1255,22 @@ mkTraceRuleS prefix from caseAnalysed nwords to = unsafePerformIO $ do
     modifyIORef' traceNestingLevel pred
   return $! to
 
-mkTraceRuleDomains :: AstSpan s
-                   => AstDomains s -> Int -> IntVarName -> AstDomains s
-                   -> AstDomains s
-{-# NOINLINE mkTraceRuleDomains #-}
-mkTraceRuleDomains from k var to = unsafePerformIO $ do
+mkTraceRuleHVector :: AstSpan s
+                   => AstHVector s -> Int -> IntVarName -> AstHVector s
+                   -> AstHVector s
+{-# NOINLINE mkTraceRuleHVector #-}
+mkTraceRuleHVector from k var to = unsafePerformIO $ do
   enabled <- readIORef traceRuleEnabledRef
   let width = traceWidth
       renames = IM.fromList [(1, ""), (2, "")]
-      ruleName = "build1VDomains"
+      ruleName = "build1VHVector"
       ruleNamePadded = take 20 $ ruleName ++ repeat ' '
   when enabled $ do
     nestingLevel <- readIORef traceNestingLevel
     modifyIORef' traceNestingLevel succ
     let paddedNesting = take 3 $ show nestingLevel ++ repeat ' '
-    let !stringFrom = printAstDomainsSimple renames from
-    let !stringTo = printAstDomainsSimple renames to
+    let !stringFrom = printAstHVectorSimple renames from
+    let !stringTo = printAstHVectorSimple renames to
     hPutStrLnFlush stderr $ paddedNesting ++ "rule " ++ ruleNamePadded
                             ++ " sends "
                             ++ padString width

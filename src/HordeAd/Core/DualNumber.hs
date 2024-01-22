@@ -14,7 +14,7 @@ module HordeAd.Core.DualNumber
 --  , addParameters, dotParameters
     -- * Reverse and forward derivative stages class and instances
   , DerivativeStages (..), UnletGradient (..)
-  , crevOnADInputs, crevOnDomains, cfwdOnADInputs, cfwdOnDomains
+  , crevOnADInputs, crevOnHVector, cfwdOnADInputs, cfwdOnHVector
   , generateDeltaInputs, makeADInputs
   ) where
 
@@ -184,7 +184,7 @@ type instance RankedOf (ADVal f) = ADVal (RankedOf f)
 
 type instance ShapedOf (ADVal f) = ADVal (ShapedOf f)
 
-type instance DomainsOf (ADVal f) = Domains (ADVal f)
+type instance HVectorOf (ADVal f) = HVector (ADVal f)
 
 type instance PrimalOf (ADVal f) = f
 
@@ -251,15 +251,15 @@ multNotShared (D l1 u u') (D l2 v v') =
   dDnotShared (l1 `mergeADShare` l2) (u * v) (dAdd (dScale v u') (dScale u v'))
 {-
 addParameters :: (Numeric r, Num (Vector r), DTensorOf r ~ OD.Array r)
-              => Domains r -> Domains r -> Domains r
-addParameters (Domains a0 a1) (Domains b0 b1) =
-  Domains (a0 + b0)
+              => HVector r -> HVector r -> HVector r
+addParameters (HVector a0 a1) (HVector b0 b1) =
+  HVector (a0 + b0)
           (V.zipWith (+) a1 b1)
 
 -- Dot product and sum respective ranks and then sum it all.
 dotParameters :: (Numeric r, DTensorOf r ~ OD.Array r)
-              => Domains r -> Domains r -> r
-dotParameters (Domains a0 a1) (Domains b0 b1) =
+              => HVector r -> HVector r -> r
+dotParameters (HVector a0 a1) (HVector b0 b1) =
   a0 LA.<.> b0
   + V.sum (V.zipWith (\v1 u1 ->
       if isTensorDummy v1 || isTensorDummy u1
@@ -272,9 +272,9 @@ crevOnADInputs
      ( RankedTensor (ADVal (RankedOf f))
      , DualPart f, UnletGradient f, GoodScalar r, HasSingletonDict y)
   => Maybe (f r y)
-  -> (Domains (ADVal (RankedOf f)) -> ADVal f r y)
-  -> Domains (ADVal (RankedOf f))
-  -> (DomainsOf (RankedOf f), f r y)
+  -> (HVector (ADVal (RankedOf f)) -> ADVal f r y)
+  -> HVector (ADVal (RankedOf f))
+  -> (HVectorOf (RankedOf f), f r y)
 -- The functions in which @revOnADInputs@ inlines are not inlined themselves
 -- in client code, so the bloat is limited.
 {-# INLINE crevOnADInputs #-}
@@ -287,24 +287,24 @@ crevOnADInputs mdt f inputs =
         reverseDervative parameters0 v mdt deltaTopLevel
   in (unletGradient @ty @f l astBindings gradient, unletValue l [] v)
 
-crevOnDomains
+crevOnHVector
   :: forall r y f.
      ( RankedTensor (RankedOf f), RankedTensor (ADVal (RankedOf f))
      , DualPart f, UnletGradient f, GoodScalar r, HasSingletonDict y )
   => Maybe (f r y)
-  -> (Domains (ADVal (RankedOf f)) -> ADVal f r y)
-  -> Domains (RankedOf f)
-  -> (DomainsOf (RankedOf f), f r y)
-crevOnDomains mdt f parameters =
+  -> (HVector (ADVal (RankedOf f)) -> ADVal f r y)
+  -> HVector (RankedOf f)
+  -> (HVectorOf (RankedOf f), f r y)
+crevOnHVector mdt f parameters =
   let deltaInputs = generateDeltaInputs parameters
       inputs = makeADInputs parameters deltaInputs
   in crevOnADInputs mdt f inputs
 
 cfwdOnADInputs
   :: (DualPart f, UnletGradient f, GoodScalar r, HasSingletonDict y)
-  => Domains (ADVal (RankedOf f))
-  -> (Domains (ADVal (RankedOf f)) -> ADVal f r y)
-  -> Domains (RankedOf f)
+  => HVector (ADVal (RankedOf f))
+  -> (HVector (ADVal (RankedOf f)) -> ADVal f r y)
+  -> HVector (RankedOf f)
   -> (f r y, f r y)
 {-# INLINE cfwdOnADInputs #-}
 cfwdOnADInputs inputs f ds =
@@ -313,15 +313,15 @@ cfwdOnADInputs inputs f ds =
         forwardDerivative (V.length inputs) deltaTopLevel ds
   in (unletValue l astBindings derivative, unletValue l [] v)
 
-cfwdOnDomains
+cfwdOnHVector
   :: forall r y f.
      ( RankedTensor (RankedOf f)
      , DualPart f, UnletGradient f, GoodScalar r, HasSingletonDict y )
-  => Domains (RankedOf f)
-  -> (Domains (ADVal (RankedOf f)) -> ADVal f r y)
-  -> Domains (RankedOf f)
+  => HVector (RankedOf f)
+  -> (HVector (ADVal (RankedOf f)) -> ADVal f r y)
+  -> HVector (RankedOf f)
   -> (f r y, f r y)
-cfwdOnDomains parameters f ds =
+cfwdOnHVector parameters f ds =
   let deltaInputs = generateDeltaInputs parameters
       inputs = makeADInputs parameters deltaInputs
   in cfwdOnADInputs inputs f ds
@@ -329,8 +329,8 @@ cfwdOnDomains parameters f ds =
 generateDeltaInputs
   :: forall ranked ranked2 shaped2.
      (RankedTensor ranked, shaped2 ~ ShapedOf ranked2)
-  => Domains ranked
-  -> Domains (Dual ranked2)
+  => HVector ranked
+  -> HVector (Dual ranked2)
 generateDeltaInputs =
   let f :: Int -> DynamicTensor ranked -> DynamicTensor (Dual ranked2)
       f i (DynamicRanked @r @n t) =
@@ -347,12 +347,12 @@ generateDeltaInputs =
         DynamicShaped $ InputS @shaped2 @r @sh (toInputId i)
   in V.imap f
 {-# SPECIALIZE generateDeltaInputs
-  :: DomainsOD -> Domains (Dual (Flip OR.Array)) #-}
+  :: HVectorOD -> HVector (Dual (Flip OR.Array)) #-}
 
--- Not specialized, because not overloaded (Domains is a type synonym).
+-- Not specialized, because not overloaded (HVector is a type synonym).
 makeADInputs
-  :: Domains ranked -> Domains (Dual ranked)
-  -> Domains (ADVal ranked)
+  :: HVector ranked -> HVector (Dual ranked)
+  -> HVector (ADVal ranked)
 makeADInputs =
   let f :: DynamicTensor ranked -> DynamicTensor (Dual ranked)
         -> DynamicTensor (ADVal ranked)
@@ -374,32 +374,32 @@ type DerivativeStages :: TensorType ty -> Constraint
 class DerivativeStages g where
   forwardPassByInterpretation
     :: (GoodScalar r, HasSingletonDict y)
-    => (Domains (RankedOf g) -> g r y)
+    => (HVector (RankedOf g) -> g r y)
     -> AstEnv (ADVal (RankedOf (PrimalOf g)))
               (ADVal (ShapedOf (PrimalOf g)))
-    -> Domains (RankedOf (PrimalOf g))
+    -> HVector (RankedOf (PrimalOf g))
     -> [AstDynamicVarName]
-    -> Domains (RankedOf g)
+    -> HVector (RankedOf g)
     -> ADVal (PrimalOf g) r y
 
   revArtifactFromForwardPass
     :: (GoodScalar r, HasSingletonDict y)
     => TensorToken g
     -> Bool
-    -> (Domains (RankedOf (PrimalOf g))
+    -> (HVector (RankedOf (PrimalOf g))
         -> [AstDynamicVarName]
-        -> Domains (RankedOf g)
+        -> HVector (RankedOf g)
         -> ADVal (PrimalOf g) r y)
-    -> DomainsOD
+    -> HVectorOD
     -> (AstArtifactRev (PrimalOf g) r y, Dual (PrimalOf g) r y)
 
   revProduceArtifact
     :: (GoodScalar r, HasSingletonDict y)
     => TensorToken g -> Bool
-    -> (Domains (RankedOf g) -> g r y)
+    -> (HVector (RankedOf g) -> g r y)
     -> AstEnv (ADVal (RankedOf (PrimalOf g)))
               (ADVal (ShapedOf (PrimalOf g)))
-    -> DomainsOD
+    -> HVectorOD
     -> (AstArtifactRev (PrimalOf g) r y, Dual (PrimalOf g) r y)
   {-# INLINE revProduceArtifact #-}
   revProduceArtifact tf hasDt g envInit =
@@ -407,30 +407,30 @@ class DerivativeStages g where
 
   revEvalArtifact
     :: (GoodScalar r, HasSingletonDict y)
-    => AstArtifactRev (PrimalOf g) r y -> DomainsOD -> Maybe (ConcreteOf g r y)
-    -> (DomainsOD, ConcreteOf g r y)
+    => AstArtifactRev (PrimalOf g) r y -> HVectorOD -> Maybe (ConcreteOf g r y)
+    -> (HVectorOD, ConcreteOf g r y)
 
   fwdArtifactFromForwardPass
     :: forall r y. (GoodScalar r, HasSingletonDict y)
     => TensorToken g
-    -> (Domains (RankedOf (PrimalOf g))
+    -> (HVector (RankedOf (PrimalOf g))
         -> [AstDynamicVarName]
-        -> Domains (RankedOf g)
+        -> HVector (RankedOf g)
         -> ADVal (PrimalOf g) r y)
-    -> DomainsOD
+    -> HVectorOD
     -> (AstArtifactFwd (PrimalOf g) r y, Dual (PrimalOf g) r y)
 
   fwdEvalArtifact
     :: (GoodScalar r, HasSingletonDict y)
-    => AstArtifactFwd (PrimalOf g) r y -> DomainsOD -> DomainsOD
+    => AstArtifactFwd (PrimalOf g) r y -> HVectorOD -> HVectorOD
     -> (ConcreteOf g r y, ConcreteOf g r y)
 
   fwdProduceArtifact
     :: (DerivativeStages g, GoodScalar r, HasSingletonDict y)
-    => TensorToken g -> (Domains (RankedOf g) -> g r y)
+    => TensorToken g -> (HVector (RankedOf g) -> g r y)
     -> AstEnv (ADVal (RankedOf (PrimalOf g)))
               (ADVal (ShapedOf (PrimalOf g)))
-    -> DomainsOD
+    -> HVectorOD
     -> (AstArtifactFwd (PrimalOf g) r y, Dual (PrimalOf g) r y)
   {-# INLINE fwdProduceArtifact #-}
   fwdProduceArtifact tf g envInit =
@@ -440,8 +440,8 @@ class DerivativeStages g where
 type UnletGradient :: TensorType ty -> Constraint
 class UnletGradient g where
   unletGradient
-    :: ADShare -> AstBindingsD (RankedOf g) -> Domains (RankedOf g)
-    -> DomainsOf (RankedOf g)
+    :: ADShare -> AstBindingsD (RankedOf g) -> HVector (RankedOf g)
+    -> HVectorOf (RankedOf g)
   unletValue
     :: (GoodScalar r, HasSingletonDict y)
     => ADShare -> AstBindingsD (RankedOf g) -> g r y

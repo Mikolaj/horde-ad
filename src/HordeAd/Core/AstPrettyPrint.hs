@@ -9,7 +9,7 @@ module HordeAd.Core.AstPrettyPrint
     -- * User-friendly API for pretty-printing AST terms
   , printAstSimple, printAstPretty
   , printAstSimpleS, printAstPrettyS
-  , printAstDomainsSimple, printAstDomainsPretty
+  , printAstHVectorSimple, printAstHVectorPretty
   , printGradient6Simple, printGradient6Pretty
   , printPrimal6Simple, printPrimal6Pretty
   , printGradient6SimpleS, printGradient6PrettyS
@@ -92,7 +92,7 @@ areAllArgsInts = \case
   AstCast{} -> False
   AstFromIntegral{} -> True
   AstConst{} -> True
-  AstLetDomainsIn{} -> True  -- too early to tell
+  AstLetHVectorIn{} -> True  -- too early to tell
   AstSToR{} -> False
   AstConstant{} -> True  -- the argument is emphatically a primal number; fine
   AstPrimalPart{} -> False
@@ -330,10 +330,10 @@ printAstAux cfg d = \case
           Just Refl -> shows $ OR.unScalar a
           _ -> showParen True
                $ shows a
-  AstLetDomainsIn vars l v ->
+  AstLetHVectorIn vars l v ->
     showParen (d > 10)
-    $ showString "rletDomainsIn "
-      . printAstDomains cfg 11 l
+    $ showString "rletHVectorIn "
+      . printAstHVector cfg 11 l
       . showString " "
       . (showParen True
          $ showString "\\"
@@ -358,9 +358,9 @@ printAstAux cfg d = \case
            . showString " -> "
            . printAst cfg 0 v)
       . showString " "
-      . printDomainsAst cfg parameters
+      . printHVectorAst cfg parameters
       . showString " "
-      . printDomainsAst cfg ds
+      . printHVectorAst cfg ds
   AstFold (nvar, mvar, v) x0 as ->
     showParen (d > 10)
     $ showString "rfold "
@@ -415,7 +415,7 @@ printAstAux cfg d = \case
            . showString " "
            . showString (printAstVarName (varRenames cfg) mvar2)
            . showString " -> "
-           . printAstDomains cfg 0 doms)
+           . printAstHVector cfg 0 doms)
       . showString " "
       . printAst cfg 11 x0
       . showString " "
@@ -434,7 +434,7 @@ printAstAux cfg d = \case
       . showString " "
       . printAst cfg 11 x0
       . showString " "
-      . printDomainsAst cfg as
+      . printHVectorAst cfg as
   AstFoldZipDer (nvar, mvars, v) (varDx, varsDa, varn1, varsm1, ast1)
                                (varDt2, nvar2, mvars2, doms) x0 as ->
    if prettifyLosingSharing cfg
@@ -443,7 +443,7 @@ printAstAux cfg d = \case
     $ showString "rfoldZipDer f df rf "
       . printAst cfg 11 x0
       . showString " "
-      . printDomainsAst cfg as
+      . printHVectorAst cfg as
    else
     showParen (d > 10)
     $ showString "rfoldZipDer "
@@ -479,11 +479,11 @@ printAstAux cfg d = \case
            . showListWith (showString
                            . printAstDynamicVarName (varRenames cfg)) mvars2
            . showString " -> "
-           . printAstDomains cfg 0 doms)
+           . printAstHVector cfg 0 doms)
       . showString " "
       . printAst cfg 11 x0
       . showString " "
-      . printDomainsAst cfg as
+      . printHVectorAst cfg as
   AstScan (nvar, mvar, v) x0 as ->
     showParen (d > 10)
     $ showString "rscan "
@@ -538,7 +538,7 @@ printAstAux cfg d = \case
            . showString " "
            . showString (printAstVarName (varRenames cfg) mvar2)
            . showString " -> "
-           . printAstDomains cfg 0 doms)
+           . printAstHVector cfg 0 doms)
       . showString " "
       . printAst cfg 11 x0
       . showString " "
@@ -557,7 +557,7 @@ printAstAux cfg d = \case
       . showString " "
       . printAst cfg 11 x0
       . showString " "
-      . printDomainsAst cfg as
+      . printHVectorAst cfg as
   AstScanZipDer (nvar, mvars, v) (varDx, varsDa, varn1, varsm1, ast1)
                                (varDt2, nvar2, mvars2, doms) x0 as ->
    if prettifyLosingSharing cfg
@@ -566,7 +566,7 @@ printAstAux cfg d = \case
     $ showString "rscanZipDer f df rf "
       . printAst cfg 11 x0
       . showString " "
-      . printDomainsAst cfg as
+      . printHVectorAst cfg as
    else
     showParen (d > 10)
     $ showString "rscanZipDer "
@@ -602,11 +602,11 @@ printAstAux cfg d = \case
            . showListWith (showString
                            . printAstDynamicVarName (varRenames cfg)) mvars2
            . showString " -> "
-           . printAstDomains cfg 0 doms)
+           . printAstHVector cfg 0 doms)
       . showString " "
       . printAst cfg 11 x0
       . showString " "
-      . printDomainsAst cfg as
+      . printHVectorAst cfg as
 
 -- Differs from standard only in the space after comma.
 showListWith :: (a -> ShowS) -> [a] -> ShowS
@@ -637,9 +637,9 @@ printAstUnDynamic cfg d = \case
   DynamicRankedDummy{} -> showString "0"
   DynamicShapedDummy{} -> showString "0"
 
-printDomainsAst :: forall s. AstSpan s
-                => PrintConfig -> Domains (AstRanked s) -> ShowS
-printDomainsAst cfg l =
+printHVectorAst :: forall s. AstSpan s
+                => PrintConfig -> HVector (AstRanked s) -> ShowS
+printHVectorAst cfg l =
   if prettifyLosingSharing cfg
   then
     showCollectionWith "(" ")" (\e -> printAstUnDynamic cfg 0 e) (V.toList l)
@@ -648,34 +648,34 @@ printDomainsAst cfg l =
       $ showString "fromList "
         . showListWith (\e -> printAstDynamic cfg 0 e) (V.toList l)
 
-printAstDomains :: forall s. AstSpan s
-                => PrintConfig -> Int -> AstDomains s -> ShowS
-printAstDomains cfg d = \case
-  AstDomains l ->
+printAstHVector :: forall s. AstSpan s
+                => PrintConfig -> Int -> AstHVector s -> ShowS
+printAstHVector cfg d = \case
+  AstHVector l ->
     if prettifyLosingSharing cfg
-    then printDomainsAst cfg l
+    then printHVectorAst cfg l
     else showParen (d > 10)
-         $ showString "dmkDomains " . printDomainsAst cfg l
-  AstLetDomainsInDomains vars0 u0 v0 ->
+         $ showString "dmkHVector " . printHVectorAst cfg l
+  AstLetHVectorInHVector vars0 u0 v0 ->
     showParen (d > 10)
-    $ showString "dletDomainsInDomains "
-      . printAstDomains cfg 11 u0
+    $ showString "dletHVectorInHVector "
+      . printAstHVector cfg 11 u0
       . showString " "
       . (showParen True
          $ showString "\\"
            . showListWith (showString
                            . printAstDynamicVarName (varRenames cfg)) vars0
            . showString " -> "
-           . printAstDomains cfg 0 v0)
-  t@(AstLetInDomains var0 u0 v0) ->
+           . printAstHVector cfg 0 v0)
+  t@(AstLetInHVector var0 u0 v0) ->
     if prettifyLosingSharing cfg
-    then let collect :: AstDomains s -> ([(ShowS, ShowS)], ShowS)
-             collect (AstLetInDomains var u v) =
+    then let collect :: AstHVector s -> ([(ShowS, ShowS)], ShowS)
+             collect (AstLetInHVector var u v) =
                let name = printAstVarFromLet u cfg var
                    uPP = printAst cfg 0 u
                    (rest, corePP) = collect v
                in ((name, uPP) : rest, corePP)
-             collect v = ([], printAstDomains cfg 0 v)
+             collect v = ([], printAstHVector cfg 0 v)
              (pairs, core) = collect t
          in showParen (d > 0)
             $ showString "let "
@@ -685,23 +685,23 @@ printAstDomains cfg d = \case
               . core
     else
       showParen (d > 10)
-      $ showString "rletInDomains "
+      $ showString "rletInHVector "
         . printAst cfg 11 u0
         . showString " "
         . (showParen True
            $ showString "\\"
              . printAstVarFromLet u0 cfg var0
              . showString " -> "
-             . printAstDomains cfg 0 v0)
-  t@(AstLetInDomainsS var0 u0 v0) ->
+             . printAstHVector cfg 0 v0)
+  t@(AstLetInHVectorS var0 u0 v0) ->
     if prettifyLosingSharing cfg
-    then let collect :: AstDomains s -> ([(ShowS, ShowS)], ShowS)
-             collect (AstLetInDomainsS var u v) =
+    then let collect :: AstHVector s -> ([(ShowS, ShowS)], ShowS)
+             collect (AstLetInHVectorS var u v) =
                let name = printAstVarS cfg var
                    uPP = printAstS cfg 0 u
                    (rest, corePP) = collect v
                in ((name, uPP) : rest, corePP)
-             collect v = ([], printAstDomains cfg 0 v)
+             collect v = ([], printAstHVector cfg 0 v)
              (pairs, core) = collect t
          in showParen (d > 0)
             $ showString "let "
@@ -711,15 +711,15 @@ printAstDomains cfg d = \case
               . core
     else
       showParen (d > 10)
-      $ showString "sletInDomains "
+      $ showString "sletInHVector "
         . printAstS cfg 11 u0
         . showString " "
         . (showParen True
            $ showString "\\"
              . printAstVarS cfg var0
              . showString " -> "
-             . printAstDomains cfg 0 v0)
-  AstBuildDomains1 k (var, v) ->
+             . printAstHVector cfg 0 v0)
+  AstBuildHVector1 k (var, v) ->
     showParen (d > 10)
     $ showString "dbuild1 "
       . shows k
@@ -728,7 +728,7 @@ printAstDomains cfg d = \case
          $ showString "\\"
            . printAstIntVar cfg var
            . showString " -> "
-           . printAstDomains cfg 0 v)
+           . printAstHVector cfg 0 v)
   AstRev (vars, v) parameters ->
     showParen (d > 10)
     $ showString "rrev "
@@ -739,7 +739,7 @@ printAstDomains cfg d = \case
            . showString " -> "
            . printAst cfg 0 v)
       . showString " "
-      . printDomainsAst cfg parameters
+      . printHVectorAst cfg parameters
   AstRevDt (vars, v) parameters dt ->
     showParen (d > 10)
     $ showString "rrevDt "
@@ -750,7 +750,7 @@ printAstDomains cfg d = \case
            . showString " -> "
            . printAst cfg 0 v)
       . showString " "
-      . printDomainsAst cfg parameters
+      . printHVectorAst cfg parameters
       . showString " "
       . printAst cfg 11 dt
   AstRevS (vars, v) parameters ->
@@ -763,7 +763,7 @@ printAstDomains cfg d = \case
            . showString " -> "
            . printAstS cfg 0 v)
       . showString " "
-      . printDomainsAst cfg parameters
+      . printHVectorAst cfg parameters
   AstRevDtS (vars, v) parameters dt ->
     showParen (d > 10)
     $ showString "srevDt "
@@ -774,7 +774,7 @@ printAstDomains cfg d = \case
            . showString " -> "
            . printAstS cfg 0 v)
       . showString " "
-      . printDomainsAst cfg parameters
+      . printHVectorAst cfg parameters
       . showString " "
       . printAstS cfg 11 dt
 
@@ -1007,10 +1007,10 @@ printAstS cfg d = \case
           Just Refl -> shows $ OS.unScalar a
           _ -> showParen True
                $ shows a
-  AstLetDomainsInS vars l v ->
+  AstLetHVectorInS vars l v ->
     showParen (d > 10)
-    $ showString "sletDomainsIn "
-      . printAstDomains cfg 11 l
+    $ showString "sletHVectorIn "
+      . printAstHVector cfg 11 l
       . showString " "
       . (showParen True
          $ showString "\\"
@@ -1036,9 +1036,9 @@ printAstS cfg d = \case
            . showString " -> "
            . printAstS cfg 0 v)
       . showString " "
-      . printDomainsAst cfg parameters
+      . printHVectorAst cfg parameters
       . showString " "
-      . printDomainsAst cfg ds
+      . printHVectorAst cfg ds
   AstFoldS (nvar, mvar, v) x0 as ->
     showParen (d > 10)
     $ showString "sfold "
@@ -1093,7 +1093,7 @@ printAstS cfg d = \case
            . showString " "
            . showString (printAstVarNameS (varRenames cfg) mvar2)
            . showString " -> "
-           . printAstDomains cfg 0 doms)
+           . printAstHVector cfg 0 doms)
       . showString " "
       . printAstS cfg 11 x0
       . showString " "
@@ -1112,7 +1112,7 @@ printAstS cfg d = \case
       . showString " "
       . printAstS cfg 11 x0
       . showString " "
-      . printDomainsAst cfg as
+      . printHVectorAst cfg as
   AstFoldZipDerS (nvar, mvars, v) (varDx, varsDa, varn1, varsm1, ast1)
                                 (varDt2, nvar2, mvars2, doms) x0 as ->
    if prettifyLosingSharing cfg
@@ -1121,7 +1121,7 @@ printAstS cfg d = \case
     $ showString "sfoldZipDer f df rf "
       . printAstS cfg 11 x0
       . showString " "
-      . printDomainsAst cfg as
+      . printHVectorAst cfg as
    else
     showParen (d > 10)
     $ showString "sfoldZipDer "
@@ -1157,11 +1157,11 @@ printAstS cfg d = \case
            . showListWith (showString
                            . printAstDynamicVarName (varRenames cfg)) mvars2
            . showString " -> "
-           . printAstDomains cfg 0 doms)
+           . printAstHVector cfg 0 doms)
       . showString " "
       . printAstS cfg 11 x0
       . showString " "
-      . printDomainsAst cfg as
+      . printHVectorAst cfg as
   AstScanS (nvar, mvar, v) x0 as ->
     showParen (d > 10)
     $ showString "sscan "
@@ -1216,7 +1216,7 @@ printAstS cfg d = \case
            . showString " "
            . showString (printAstVarNameS (varRenames cfg) mvar2)
            . showString " -> "
-           . printAstDomains cfg 0 doms)
+           . printAstHVector cfg 0 doms)
       . showString " "
       . printAstS cfg 11 x0
       . showString " "
@@ -1235,7 +1235,7 @@ printAstS cfg d = \case
       . showString " "
       . printAstS cfg 11 x0
       . showString " "
-      . printDomainsAst cfg as
+      . printHVectorAst cfg as
   AstScanZipDerS (nvar, mvars, v) (varDx, varsDa, varn1, varsm1, ast1)
                                 (varDt2, nvar2, mvars2, doms) x0 as ->
    if prettifyLosingSharing cfg
@@ -1244,7 +1244,7 @@ printAstS cfg d = \case
     $ showString "sscanZipDer f df rf "
       . printAstS cfg 11 x0
       . showString " "
-      . printDomainsAst cfg as
+      . printHVectorAst cfg as
    else
     showParen (d > 10)
     $ showString "sscanZipDer "
@@ -1280,11 +1280,11 @@ printAstS cfg d = \case
            . showListWith (showString
                            . printAstDynamicVarName (varRenames cfg)) mvars2
            . showString " -> "
-           . printAstDomains cfg 0 doms)
+           . printAstHVector cfg 0 doms)
       . showString " "
       . printAstS cfg 11 x0
       . showString " "
-      . printDomainsAst cfg as
+      . printHVectorAst cfg as
 
 
 -- * User-friendly API for pretty-printing AST terms
@@ -1305,13 +1305,13 @@ printAstPrettyS :: (GoodScalar r, Sh.Shape sh, AstSpan s)
                 => IntMap String -> AstShaped s r sh -> String
 printAstPrettyS renames t = printAstS (defaulPrintConfig True renames) 0 t ""
 
-printAstDomainsSimple :: AstSpan s => IntMap String -> AstDomains s -> String
-printAstDomainsSimple renames t =
-  printAstDomains (defaulPrintConfig False renames) 0 t ""
+printAstHVectorSimple :: AstSpan s => IntMap String -> AstHVector s -> String
+printAstHVectorSimple renames t =
+  printAstHVector (defaulPrintConfig False renames) 0 t ""
 
-printAstDomainsPretty :: AstSpan s => IntMap String -> AstDomains s -> String
-printAstDomainsPretty renames t =
-  printAstDomains (defaulPrintConfig True renames) 0 t ""
+printAstHVectorPretty :: AstSpan s => IntMap String -> AstHVector s -> String
+printAstHVectorPretty renames t =
+  printAstHVector (defaulPrintConfig True renames) 0 t ""
 
 printGradient6Simple :: KnownNat n
                      => IntMap String
@@ -1321,7 +1321,7 @@ printGradient6Simple renames ((varDt, vars1), gradient, _, _) =
   let varsPP = printAstVarName renames varDt
                : map (printAstDynamicVarNameBrief renames) vars1
   in "\\" ++ unwords varsPP
-          ++ " -> " ++ printAstDomainsSimple renames gradient
+          ++ " -> " ++ printAstHVectorSimple renames gradient
 
 printGradient6Pretty :: KnownNat n
                      => IntMap String
@@ -1331,7 +1331,7 @@ printGradient6Pretty renames ((varDt, vars1), gradient, _, _) =
   let varsPP = printAstVarName renames varDt
                : map (printAstDynamicVarNameBrief renames) vars1
   in "\\" ++ unwords varsPP
-          ++ " -> " ++ printAstDomainsPretty renames gradient
+          ++ " -> " ++ printAstHVectorPretty renames gradient
 
 printPrimal6Simple :: (GoodScalar r, KnownNat n)
                    => IntMap String
@@ -1359,7 +1359,7 @@ printGradient6SimpleS renames ((varDt, vars1), gradient, _, _) =
   let varsPP = printAstVarNameS renames varDt
                : map (printAstDynamicVarNameBrief renames) vars1
   in "\\" ++ unwords varsPP
-          ++ " -> " ++ printAstDomainsSimple renames gradient
+          ++ " -> " ++ printAstHVectorSimple renames gradient
 
 printGradient6PrettyS :: Sh.Shape sh
                       => IntMap String
@@ -1369,7 +1369,7 @@ printGradient6PrettyS renames ((varDt, vars1), gradient, _, _) =
   let varsPP = printAstVarNameS renames varDt
                : map (printAstDynamicVarNameBrief renames) vars1
   in "\\" ++ unwords varsPP
-          ++ " -> " ++ printAstDomainsPretty renames gradient
+          ++ " -> " ++ printAstHVectorPretty renames gradient
 
 printPrimal6SimpleS :: (GoodScalar r, Sh.Shape sh)
                     => IntMap String

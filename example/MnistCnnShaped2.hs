@@ -143,7 +143,7 @@ convMnistTestS
   -> SNat n_hidden -> SNat batch_size
   -> ADCnnMnistParametersShaped shaped h w kh kw c_out n_hidden r
   -> MnistDataBatchS batch_size r
-  -> DomainsOD
+  -> HVectorOD
   -> r
 convMnistTestS  _ _ _ _ batch_size@SNat _ _ _
   | sNatValue batch_size == (0 :: Int) = 0
@@ -158,7 +158,7 @@ convMnistTestS kh@SNat kw@SNat
             nn = convMnistTwoS kh kw (SNat @h) (SNat @w)
                                c_out n_hidden batch_size
                                input
-        in runFlip $ nn $ parseDomains valsInit testParams
+        in runFlip $ nn $ parseHVector valsInit testParams
       outputs = map OS.toVector $ tunravelToListS
                 $ OS.transpose @'[1, 0] $ outputS
       labels = map OS.toVector $ tunravelToListS labelS

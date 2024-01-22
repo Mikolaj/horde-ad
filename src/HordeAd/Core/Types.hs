@@ -7,9 +7,9 @@ module HordeAd.Core.Types
     -- * Some fundamental constraints
   , GoodScalar, HasSingletonDict, Differentiable, IfDifferentiable(..)
     -- * Type definitions for dynamic tensors and tensor collections
-  , DynamicTensor(..), CRanked, CShaped, Domains
+  , DynamicTensor(..), CRanked, CShaped, HVector
     -- * Type families that tensors will belong to
-  , RankedOf, ShapedOf, DomainsOf, PrimalOf, DualOf, DummyDual(..)
+  , RankedOf, ShapedOf, HVectorOf, PrimalOf, DualOf, DummyDual(..)
     -- * Generic types of indexes used in tensor operations
   , IntOf, IndexOf, IntSh, IndexSh
     -- * Generic types of booleans used in tensor operations
@@ -147,14 +147,14 @@ instance
 --
 -- Data invariant: the vector is non-empty.
 --
--- When r is Ast, this is used for domains composed of variables only,
+-- When r is Ast, this is used for hVector composed of variables only,
 -- to adapt them into more complex types and back again. This is not used
 -- for vectors of large terms, since they'd share values, so we'd need
--- AstDomainsLet, but these would make adapting the vector costly.
--- DomainsOf is used for that and the only reasons DomainsOf exists
+-- AstHVectorLet, but these would make adapting the vector costly.
+-- HVectorOf is used for that and the only reasons HVectorOf exists
 -- is to prevent mixing up the two (and complicating the definition
--- below with errors in the AstDomainsLet case).
-type Domains ranked = Data.Vector.Vector (DynamicTensor ranked)
+-- below with errors in the AstHVectorLet case).
+type HVector ranked = Data.Vector.Vector (DynamicTensor ranked)
 
 
 -- * Type families that tensors will belong to
@@ -164,7 +164,7 @@ type family RankedOf (f :: TensorType ty) :: RankedTensorType
 
 type family ShapedOf (f :: TensorType ty) :: ShapedTensorType
 
-type family DomainsOf (f :: TensorType ty) :: Type
+type family HVectorOf (f :: TensorType ty) :: Type
 
 type family PrimalOf (f :: TensorType ty) :: TensorType ty
 
@@ -236,8 +236,8 @@ proxyFromSNat SNat = Proxy
 -- We avoid adding a phantom type denoting the tensor functor,
 -- because it can't be easily compared (even fully applies) and so the phantom
 -- is useless. We don't add the underlying scalar nor the rank/shape,
--- because some collections differ in those too, e.g., domain,
--- e.g. in AstLetDomainsS. We don't add a phantom span, because
+-- because some collections differ in those too, e.g., HVector,
+-- e.g. in AstLetHVectorS. We don't add a phantom span, because
 -- carrying around type constructors that need to be applied to span
 -- complicates the system greatly for moderate type safety gain
 -- and also such a high number of ID types induces many conversions.
@@ -248,7 +248,7 @@ intToAstVarId :: Int -> AstVarId
 intToAstVarId = AstVarId
 
 -- This can't be replaced by AstVarId. because in some places it's used
--- to record the type, scalar and shape of arguments in a domain.
+-- to record the type, scalar and shape of arguments in a HVector.
 --
 -- A lot of the variables are existential, but there's no nesting,
 -- so no special care about picking specializations at runtime is needed.
@@ -264,8 +264,8 @@ dynamicVarNameToAstVarId (AstDynamicVarName varId) = varId
 type role AstBindingsCase nominal
 data AstBindingsCase ranked =
     AstBindingsSimple (DynamicTensor ranked)
-  | AstBindingsDomains [AstDynamicVarName] (DomainsOf ranked)
-deriving instance ( Show (DomainsOf ranked)
+  | AstBindingsHVector [AstDynamicVarName] (HVectorOf ranked)
+deriving instance ( Show (HVectorOf ranked)
                   , CRanked ranked Show, CShaped (ShapedOf ranked) Show )
                   => Show (AstBindingsCase ranked)
 
@@ -295,7 +295,7 @@ type ADShareD :: RankedTensorType -> Type
 data ADShareD ranked =
     ADShareNil
   | ADShareCons Int AstVarId (AstBindingsCase ranked) (ADShareD ranked)
-deriving instance ( Show (DomainsOf ranked)
+deriving instance ( Show (HVectorOf ranked)
                   , CRanked ranked Show, CShaped (ShapedOf ranked) Show )
                   => Show (ADShareD ranked)
 
@@ -390,25 +390,25 @@ _lengthADShare acc ADShareNil = acc
 _lengthADShare acc (ADShareCons _ _ _ rest) = _lengthADShare (acc + 1) rest
 
 varInADShare :: (AstVarId -> DynamicTensor d -> Bool)
-                -> (AstVarId -> DomainsOf d -> Bool)
+                -> (AstVarId -> HVectorOf d -> Bool)
                 -> AstVarId -> ADShareD d
                 -> Bool
 {-# INLINE varInADShare #-}
 varInADShare _ _ _ ADShareNil = False
-varInADShare varInAstDynamic varInAstDomains var (ADShareCons _ _ d rest) =
-  varInAstBindingsCase varInAstDynamic varInAstDomains var d
-  || varInADShare varInAstDynamic varInAstDomains var rest
+varInADShare varInAstDynamic varInAstHVector var (ADShareCons _ _ d rest) =
+  varInAstBindingsCase varInAstDynamic varInAstHVector var d
+  || varInADShare varInAstDynamic varInAstHVector var rest
     -- TODO: for good Core, probably a local recursive 'go' is needed
 
 varInAstBindingsCase :: (AstVarId -> DynamicTensor d -> Bool)
-                     -> (AstVarId -> DomainsOf d -> Bool)
+                     -> (AstVarId -> HVectorOf d -> Bool)
                      -> AstVarId -> AstBindingsCase d
                      -> Bool
 {-# INLINE varInAstBindingsCase #-}
-varInAstBindingsCase varInAstDynamic _varInAstDomains var
+varInAstBindingsCase varInAstDynamic _varInAstHVector var
                      (AstBindingsSimple t) = varInAstDynamic var t
-varInAstBindingsCase _varInAstDynamic varInAstDomains var
-                     (AstBindingsDomains _ t) = varInAstDomains var t
+varInAstBindingsCase _varInAstDynamic varInAstHVector var
+                     (AstBindingsHVector _ t) = varInAstHVector var t
 
 nullADShare :: ADShareD d -> Bool
 {-# INLINE nullADShare #-}

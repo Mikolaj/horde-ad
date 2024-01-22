@@ -4,9 +4,9 @@
 module HordeAd.Core.AstInline
   ( -- * Inlining and simplification pass operations to be applied after unlet
     simplifyArtifactRev, simplifyArtifactRevS
-  , simplifyAst6, simplifyAst6S, simplifyAstDomains6
+  , simplifyAst6, simplifyAst6S, simplifyAstHVector6
     -- * The unlet pass eliminating nested lets bottom-up
-  , unletAst6, unletAst6S, unletAstDomains6
+  , unletAst6, unletAst6S, unletAstHVector6
   ) where
 
 import Prelude
@@ -20,9 +20,9 @@ import           Data.List (mapAccumR)
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat)
 
-import           HordeAd.Core.Ast (AstBool, AstDomains, AstRanked, AstShaped)
+import           HordeAd.Core.Ast (AstBool, AstHVector, AstRanked, AstShaped)
 import           HordeAd.Core.Ast hiding
-  (AstBool (..), AstDomains (..), AstRanked (..), AstShaped (..))
+  (AstBool (..), AstHVector (..), AstRanked (..), AstShaped (..))
 import qualified HordeAd.Core.Ast as Ast
 import           HordeAd.Core.AstSimplify
 import           HordeAd.Core.AstTools
@@ -36,7 +36,7 @@ simplifyArtifactRev :: (GoodScalar r, KnownNat n)
                     => AstArtifactRev (AstRanked PrimalSpan) r n
                     -> AstArtifactRev (AstRanked PrimalSpan) r n
 simplifyArtifactRev (vars, gradient, primal, sh) =
-  (vars, simplifyAstDomains6 gradient, simplifyAst6 primal, sh)
+  (vars, simplifyAstHVector6 gradient, simplifyAst6 primal, sh)
 {-# SPECIALIZE simplifyArtifactRev
   :: KnownNat n
   => AstArtifactRev (AstRanked PrimalSpan) Double n
@@ -46,7 +46,7 @@ simplifyArtifactRevS :: (GoodScalar r, Sh.Shape sh)
                      => AstArtifactRev (AstShaped PrimalSpan) r sh
                      -> AstArtifactRev (AstShaped PrimalSpan) r sh
 simplifyArtifactRevS (vars, gradient, primal, sh) =
-  (vars, simplifyAstDomains6 gradient, simplifyAst6S primal, sh)
+  (vars, simplifyAstHVector6 gradient, simplifyAst6S primal, sh)
 {-# SPECIALIZE simplifyArtifactRevS
   :: Sh.Shape sh
   => AstArtifactRev (AstShaped PrimalSpan) Double sh
@@ -74,10 +74,10 @@ simplifyAst6S = simplifyAstS . snd . inlineAstS EM.empty . simplifyAstS
   => AstShaped s Double sh
   -> AstShaped s Double sh #-}
 
-simplifyAstDomains6
-  :: AstSpan s => AstDomains s -> AstDomains s
-simplifyAstDomains6 =
-  simplifyAstDomains . snd . inlineAstDomains EM.empty . simplifyAstDomains
+simplifyAstHVector6
+  :: AstSpan s => AstHVector s -> AstHVector s
+simplifyAstHVector6 =
+  simplifyAstHVector . snd . inlineAstHVector EM.empty . simplifyAstHVector
     -- no specialization possible except for the tag type s
 
 
@@ -192,11 +192,11 @@ inlineAst memo v0 = case v0 of
   Ast.AstCast v -> second Ast.AstCast $ inlineAst memo v
   Ast.AstFromIntegral v -> second Ast.AstFromIntegral $ inlineAst memo v
   Ast.AstConst{} -> (memo, v0)
-  Ast.AstLetDomainsIn vars l v ->
+  Ast.AstLetHVectorIn vars l v ->
     -- We don't inline, but elsewhere try to reduce to constructors that we do.
-    let (memo1, l2) = inlineAstDomains memo l
+    let (memo1, l2) = inlineAstHVector memo l
         (memo2, v2) = inlineAst memo1 v
-    in (memo2, Ast.AstLetDomainsIn vars l2 v2)
+    in (memo2, Ast.AstLetHVectorIn vars l2 v2)
   Ast.AstSToR v -> second Ast.AstSToR $ inlineAstS memo v
   Ast.AstConstant a -> second Ast.AstConstant $ inlineAst memo a
   Ast.AstPrimalPart a -> second Ast.AstPrimalPart $ inlineAst memo a
@@ -218,7 +218,7 @@ inlineAst memo v0 = case v0 of
   Ast.AstFoldDer (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
                                  (varDt2, nvar2, mvar2, doms) x0 as ->
     let (_, v2) = inlineAst EM.empty v
-        (_, doms2) = inlineAstDomains EM.empty doms
+        (_, doms2) = inlineAstHVector EM.empty doms
         (_, ast2) = inlineAst EM.empty ast1
         (memo1, x02) = inlineAst memo x0
         (memo2, as2) = inlineAst memo1 as
@@ -233,7 +233,7 @@ inlineAst memo v0 = case v0 of
   Ast.AstFoldZipDer (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
                                   (varDt2, nvar2, mvar2, doms) x0 as ->
     let (_, v2) = inlineAst EM.empty v
-        (_, doms2) = inlineAstDomains EM.empty doms
+        (_, doms2) = inlineAstHVector EM.empty doms
         (_, ast2) = inlineAst EM.empty ast1
         (memo1, x02) = inlineAst memo x0
         (memo2, as2) = mapAccumR inlineAstDynamic memo1 as
@@ -248,7 +248,7 @@ inlineAst memo v0 = case v0 of
   Ast.AstScanDer (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
                                  (varDt2, nvar2, mvar2, doms) x0 as ->
     let (_, v2) = inlineAst EM.empty v
-        (_, doms2) = inlineAstDomains EM.empty doms
+        (_, doms2) = inlineAstHVector EM.empty doms
         (_, ast2) = inlineAst EM.empty ast1
         (memo1, x02) = inlineAst memo x0
         (memo2, as2) = inlineAst memo1 as
@@ -263,7 +263,7 @@ inlineAst memo v0 = case v0 of
   Ast.AstScanZipDer (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
                                   (varDt2, nvar2, mvar2, doms) x0 as ->
     let (_, v2) = inlineAst EM.empty v
-        (_, doms2) = inlineAstDomains EM.empty doms
+        (_, doms2) = inlineAstHVector EM.empty doms
         (_, ast2) = inlineAst EM.empty ast1
         (memo1, x02) = inlineAst memo x0
         (memo2, as2) = mapAccumR inlineAstDynamic memo1 as
@@ -281,51 +281,51 @@ inlineAstDynamic memo = \case
   u@DynamicRankedDummy{} -> (memo, u)
   u@DynamicShapedDummy{} -> (memo, u)
 
-inlineAstDomains
+inlineAstHVector
   :: AstSpan s
-  => AstMemo -> AstDomains s -> (AstMemo, AstDomains s)
-inlineAstDomains memo v0 = case v0 of
-  Ast.AstDomains l ->
-    second Ast.AstDomains $ mapAccumR inlineAstDynamic memo l
-  Ast.AstLetDomainsInDomains vars u v ->
+  => AstMemo -> AstHVector s -> (AstMemo, AstHVector s)
+inlineAstHVector memo v0 = case v0 of
+  Ast.AstHVector l ->
+    second Ast.AstHVector $ mapAccumR inlineAstDynamic memo l
+  Ast.AstLetHVectorInHVector vars u v ->
     -- We don't inline, but elsewhere try to reduce to constructors that we do.
-    let (memo1, u2) = inlineAstDomains memo u
-        (memo2, v2) = inlineAstDomains memo1 v
-    in (memo2, Ast.AstLetDomainsInDomains vars u2 v2)
-  Ast.AstLetInDomains var u v ->
+    let (memo1, u2) = inlineAstHVector memo u
+        (memo2, v2) = inlineAstHVector memo1 v
+    in (memo2, Ast.AstLetHVectorInHVector vars u2 v2)
+  Ast.AstLetInHVector var u v ->
     -- We assume there are no nested lets with the same variable.
     let vv = varNameToAstVarId var
-        (memo1, v2) = inlineAstDomains memo v
+        (memo1, v2) = inlineAstHVector memo v
         memo1NoVar = EM.delete vv memo1
         (memo2, u2) = inlineAst memo1NoVar u
     in case EM.findWithDefault 0 vv memo1 of
       0 -> (memo1, v2)
-      1 -> (memo2, substituteAstDomains (SubstitutionPayloadRanked u2) var v2)
+      1 -> (memo2, substituteAstHVector (SubstitutionPayloadRanked u2) var v2)
       count | astIsSmall (count < 10) u ->
         let (memoU0, u0) = inlineAst EM.empty u
         in ( EM.unionWith (\c1 c0 -> c1 + count * c0) memo1NoVar memoU0
                -- u is small, so the union is fast
-           , substituteAstDomains (SubstitutionPayloadRanked u0) var v2 )
-      _ -> (memo2, Ast.AstLetInDomains var u2 v2)
-  Ast.AstLetInDomainsS var u v ->
+           , substituteAstHVector (SubstitutionPayloadRanked u0) var v2 )
+      _ -> (memo2, Ast.AstLetInHVector var u2 v2)
+  Ast.AstLetInHVectorS var u v ->
     -- We assume there are no nested lets with the same variable.
     let vv = varNameToAstVarId var
-        (memo1, v2) = inlineAstDomains memo v
+        (memo1, v2) = inlineAstHVector memo v
         memo1NoVar = EM.delete vv memo1
         (memo2, u2) = inlineAstS memo1NoVar u
     in case EM.findWithDefault 0 vv memo1 of
       0 -> (memo1, v2)
-      1 -> (memo2, substituteAstDomains (SubstitutionPayloadShaped u2) var v2)
+      1 -> (memo2, substituteAstHVector (SubstitutionPayloadShaped u2) var v2)
       count | astIsSmallS (count < 10) u ->
         let (memoU0, u0) = inlineAstS EM.empty u
         in ( EM.unionWith (\c1 c0 -> c1 + count * c0) memo1NoVar memoU0
                -- u is small, so the union is fast
-           , substituteAstDomains (SubstitutionPayloadShaped u0) var v2 )
-      _ -> (memo2, Ast.AstLetInDomainsS var u2 v2)
-  Ast.AstBuildDomains1 k (var, v) ->
-    let (memoV0, v2) = inlineAstDomains EM.empty v
+           , substituteAstHVector (SubstitutionPayloadShaped u0) var v2 )
+      _ -> (memo2, Ast.AstLetInHVectorS var u2 v2)
+  Ast.AstBuildHVector1 k (var, v) ->
+    let (memoV0, v2) = inlineAstHVector EM.empty v
         memo1 = EM.unionWith (\c1 c0 -> c1 + k * c0) memo memoV0
-    in (memo1, Ast.AstBuildDomains1 k (var, v2))
+    in (memo1, Ast.AstBuildHVector1 k (var, v2))
   Ast.AstRev (vars, v) l ->
     -- No other free variables in v, so no outside lets can reach there,
     -- so we don't need to pass the information from v upwards. Same below.
@@ -472,11 +472,11 @@ inlineAstS memo v0 = case v0 of
   Ast.AstFromIntegralS v ->
     second Ast.AstFromIntegralS $ inlineAstS memo v
   Ast.AstConstS{} -> (memo, v0)
-  Ast.AstLetDomainsInS vars l v ->
+  Ast.AstLetHVectorInS vars l v ->
     -- We don't inline, but elsewhere try to reduce to constructors that we do.
-    let (memo1, l2) = inlineAstDomains memo l
+    let (memo1, l2) = inlineAstHVector memo l
         (memo2, v2) = inlineAstS memo1 v
-    in (memo2, Ast.AstLetDomainsInS vars l2 v2)
+    in (memo2, Ast.AstLetHVectorInS vars l2 v2)
   Ast.AstRToS v -> second Ast.AstRToS $ inlineAst memo v
   Ast.AstConstantS a -> second Ast.AstConstantS $ inlineAstS memo a
   Ast.AstPrimalPartS a -> second Ast.AstPrimalPartS $ inlineAstS memo a
@@ -498,7 +498,7 @@ inlineAstS memo v0 = case v0 of
   Ast.AstFoldDerS (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
                                   (varDt2, nvar2, mvar2, doms) x0 as ->
     let (_, v2) = inlineAstS EM.empty v
-        (_, doms2) = inlineAstDomains EM.empty doms
+        (_, doms2) = inlineAstHVector EM.empty doms
         (_, ast2) = inlineAstS EM.empty ast1
         (memo1, x02) = inlineAstS memo x0
         (memo2, as2) = inlineAstS memo1 as
@@ -513,7 +513,7 @@ inlineAstS memo v0 = case v0 of
   Ast.AstFoldZipDerS (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
                                    (varDt2, nvar2, mvar2, doms) x0 as ->
     let (_, v2) = inlineAstS EM.empty v
-        (_, doms2) = inlineAstDomains EM.empty doms
+        (_, doms2) = inlineAstHVector EM.empty doms
         (_, ast2) = inlineAstS EM.empty ast1
         (memo1, x02) = inlineAstS memo x0
         (memo2, as2) = mapAccumR inlineAstDynamic memo1 as
@@ -528,7 +528,7 @@ inlineAstS memo v0 = case v0 of
   Ast.AstScanDerS (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
                                   (varDt2, nvar2, mvar2, doms) x0 as ->
     let (_, v2) = inlineAstS EM.empty v
-        (_, doms2) = inlineAstDomains EM.empty doms
+        (_, doms2) = inlineAstHVector EM.empty doms
         (_, ast2) = inlineAstS EM.empty ast1
         (memo1, x02) = inlineAstS memo x0
         (memo2, as2) = inlineAstS memo1 as
@@ -543,7 +543,7 @@ inlineAstS memo v0 = case v0 of
   Ast.AstScanZipDerS (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
                                    (varDt2, nvar2, mvar2, doms) x0 as ->
     let (_, v2) = inlineAstS EM.empty v
-        (_, doms2) = inlineAstDomains EM.empty doms
+        (_, doms2) = inlineAstHVector EM.empty doms
         (_, ast2) = inlineAstS EM.empty ast1
         (memo1, x02) = inlineAstS memo x0
         (memo2, as2) = mapAccumR inlineAstDynamic memo1 as
@@ -561,12 +561,12 @@ data UnletEnv = UnletEnv
 emptyUnletEnv :: ADShare -> UnletEnv
 emptyUnletEnv = UnletEnv ES.empty
 
-unletAstDomains6
-  :: AstBindings -> ADShare -> AstDomains PrimalSpan
-  -> AstDomains PrimalSpan
-unletAstDomains6 astBindings l t =
-  unletAstDomains (emptyUnletEnv l)
-  $ bindsToDomainsLet (bindsToDomainsLet t astBindings) (assocsADShare l)
+unletAstHVector6
+  :: AstBindings -> ADShare -> AstHVector PrimalSpan
+  -> AstHVector PrimalSpan
+unletAstHVector6 astBindings l t =
+  unletAstHVector (emptyUnletEnv l)
+  $ bindsToHVectorLet (bindsToHVectorLet t astBindings) (assocsADShare l)
 
 unletAst6
   :: (GoodScalar r, KnownNat n)
@@ -643,15 +643,15 @@ unletAst env t = case t of
   Ast.AstCast v -> Ast.AstCast (unletAst env v)
   Ast.AstFromIntegral v -> Ast.AstFromIntegral (unletAst env v)
   Ast.AstConst{} -> t
-  Ast.AstLetDomainsIn vars l v -> case vars of
-    [] -> error "unletAst: empty domains"
+  Ast.AstLetHVectorIn vars l v -> case vars of
+    [] -> error "unletAst: empty hVector"
     var : _ ->  -- vars are fresh, so var uniquely represent vars
       let vv = dynamicVarNameToAstVarId var
       in if vv `ES.member` unletSet env
          then unletAst env v
          else let env2 = env {unletSet = ES.insert vv (unletSet env)}
-              in Ast.AstLetDomainsIn
-                   vars (unletAstDomains env l) (unletAst env2 v)
+              in Ast.AstLetHVectorIn
+                   vars (unletAstHVector env l) (unletAst env2 v)
   Ast.AstSToR v -> Ast.AstSToR (unletAstS env v)
   Ast.AstConstant v -> Ast.AstConstant (unletAst env v)
   Ast.AstPrimalPart v -> Ast.AstPrimalPart (unletAst env v)
@@ -672,7 +672,7 @@ unletAst env t = case t of
                    ( varDx, varDa, varn1, varm1
                    , unletAst (emptyUnletEnv emptyADShare) ast1 )
                    ( varDt2, nvar2, mvar2
-                   , unletAstDomains (emptyUnletEnv emptyADShare) doms )
+                   , unletAstHVector (emptyUnletEnv emptyADShare) doms )
                    (unletAst env x0)
                    (unletAst env as)
   Ast.AstFoldZip (nvar, mvar, v) x0 as ->
@@ -685,7 +685,7 @@ unletAst env t = case t of
                     ( varDx, varDa, varn1, varm1
                     , unletAst (emptyUnletEnv emptyADShare) ast1 )
                     ( varDt2, nvar2, mvar2
-                    , unletAstDomains (emptyUnletEnv emptyADShare) doms )
+                    , unletAstHVector (emptyUnletEnv emptyADShare) doms )
                     (unletAst env x0)
                     (V.map (unletAstDynamic env) as)
   Ast.AstScan (nvar, mvar, v) x0 as ->
@@ -698,7 +698,7 @@ unletAst env t = case t of
                    ( varDx, varDa, varn1, varm1
                    , unletAst (emptyUnletEnv emptyADShare) ast1 )
                    ( varDt2, nvar2, mvar2
-                   , unletAstDomains (emptyUnletEnv emptyADShare) doms )
+                   , unletAstHVector (emptyUnletEnv emptyADShare) doms )
                    (unletAst env x0)
                    (unletAst env as)
   Ast.AstScanZip (nvar, mvar, v) x0 as ->
@@ -711,7 +711,7 @@ unletAst env t = case t of
                     ( varDx, varDa, varn1, varm1
                     , unletAst (emptyUnletEnv emptyADShare) ast1 )
                     ( varDt2, nvar2, mvar2
-                    , unletAstDomains (emptyUnletEnv emptyADShare) doms )
+                    , unletAstHVector (emptyUnletEnv emptyADShare) doms )
                     (unletAst env x0)
                     (V.map (unletAstDynamic env) as)
 
@@ -724,35 +724,35 @@ unletAstDynamic env = \case
   u@DynamicRankedDummy{} -> u
   u@DynamicShapedDummy{} -> u
 
-unletAstDomains
-  :: AstSpan s => UnletEnv -> AstDomains s -> AstDomains s
-unletAstDomains env = \case
-  Ast.AstDomains l -> Ast.AstDomains $ V.map (unletAstDynamic env) l
-  Ast.AstLetDomainsInDomains vars u v -> case vars of
-    [] -> error "unletAstDomains: empty domains"
+unletAstHVector
+  :: AstSpan s => UnletEnv -> AstHVector s -> AstHVector s
+unletAstHVector env = \case
+  Ast.AstHVector l -> Ast.AstHVector $ V.map (unletAstDynamic env) l
+  Ast.AstLetHVectorInHVector vars u v -> case vars of
+    [] -> error "unletAstHVector: empty hVector"
     var : _ ->  -- vars are fresh, so var uniquely represent vars
       let vv = dynamicVarNameToAstVarId var
       in if vv `ES.member` unletSet env
-         then unletAstDomains env v
+         then unletAstHVector env v
          else let env2 = env {unletSet = ES.insert vv (unletSet env)}
-              in Ast.AstLetDomainsInDomains
-                   vars (unletAstDomains env u) (unletAstDomains env2 v)
-  Ast.AstLetInDomains var u v ->
+              in Ast.AstLetHVectorInHVector
+                   vars (unletAstHVector env u) (unletAstHVector env2 v)
+  Ast.AstLetInHVector var u v ->
     let vv = varNameToAstVarId var
     in if vv `ES.member` unletSet env
-      then unletAstDomains env v
+      then unletAstHVector env v
       else let env2 = env {unletSet = ES.insert vv (unletSet env)}
-           in Ast.AstLetInDomains var (unletAst env u)
-                                      (unletAstDomains env2 v)
-  Ast.AstLetInDomainsS var u v ->
+           in Ast.AstLetInHVector var (unletAst env u)
+                                      (unletAstHVector env2 v)
+  Ast.AstLetInHVectorS var u v ->
     let vv = varNameToAstVarId var
     in if vv `ES.member` unletSet env
-       then unletAstDomains env v
+       then unletAstHVector env v
        else let env2 = env {unletSet = ES.insert vv (unletSet env)}
-            in Ast.AstLetInDomainsS var (unletAstS env u)
-                                        (unletAstDomains env2 v)
-  Ast.AstBuildDomains1 k (var, v) ->
-    Ast.AstBuildDomains1 k (var, unletAstDomains env v)
+            in Ast.AstLetInHVectorS var (unletAstS env u)
+                                        (unletAstHVector env2 v)
+  Ast.AstBuildHVector1 k (var, v) ->
+    Ast.AstBuildHVector1 k (var, unletAstHVector env v)
   Ast.AstRev (vars, v) l ->
     -- No other free variables in v, so no outside lets can reach there.
     -- The same below.
@@ -838,15 +838,15 @@ unletAstS env t = case t of
   Ast.AstCastS v -> Ast.AstCastS (unletAstS env v)
   Ast.AstFromIntegralS v -> Ast.AstFromIntegralS (unletAstS env v)
   Ast.AstConstS{} -> t
-  Ast.AstLetDomainsInS vars l v -> case vars of
-    [] -> error "unletAstS: empty domains"
+  Ast.AstLetHVectorInS vars l v -> case vars of
+    [] -> error "unletAstS: empty hVector"
     var : _ ->  -- vars are fresh, so var uniquely represent vars
       let vv = dynamicVarNameToAstVarId var
       in if vv `ES.member` unletSet env
          then unletAstS env v
          else let env2 = env {unletSet = ES.insert vv (unletSet env)}
-              in Ast.AstLetDomainsInS
-                   vars (unletAstDomains env l) (unletAstS env2 v)
+              in Ast.AstLetHVectorInS
+                   vars (unletAstHVector env l) (unletAstS env2 v)
   Ast.AstRToS v -> Ast.AstRToS (unletAst env v)
   Ast.AstConstantS v -> Ast.AstConstantS (unletAstS env v)
   Ast.AstPrimalPartS v -> Ast.AstPrimalPartS (unletAstS env v)
@@ -867,7 +867,7 @@ unletAstS env t = case t of
                     ( varDx, varDa, varn1, varm1
                     , unletAstS (emptyUnletEnv emptyADShare) ast1 )
                     ( varDt2, nvar2, mvar2
-                    , unletAstDomains (emptyUnletEnv emptyADShare) doms )
+                    , unletAstHVector (emptyUnletEnv emptyADShare) doms )
                     (unletAstS env x0)
                     (unletAstS env as)
   Ast.AstFoldZipS (nvar, mvar, v) x0 as ->
@@ -880,7 +880,7 @@ unletAstS env t = case t of
                      ( varDx, varDa, varn1, varm1
                      , unletAstS (emptyUnletEnv emptyADShare) ast1 )
                      ( varDt2, nvar2, mvar2
-                     , unletAstDomains (emptyUnletEnv emptyADShare) doms )
+                     , unletAstHVector (emptyUnletEnv emptyADShare) doms )
                      (unletAstS env x0)
                      (V.map (unletAstDynamic env) as)
   Ast.AstScanS (nvar, mvar, v) x0 as ->
@@ -893,7 +893,7 @@ unletAstS env t = case t of
                     ( varDx, varDa, varn1, varm1
                     , unletAstS (emptyUnletEnv emptyADShare) ast1 )
                     ( varDt2, nvar2, mvar2
-                    , unletAstDomains (emptyUnletEnv emptyADShare) doms )
+                    , unletAstHVector (emptyUnletEnv emptyADShare) doms )
                     (unletAstS env x0)
                     (unletAstS env as)
   Ast.AstScanZipS (nvar, mvar, v) x0 as ->
@@ -906,6 +906,6 @@ unletAstS env t = case t of
                      ( varDx, varDa, varn1, varm1
                      , unletAstS (emptyUnletEnv emptyADShare) ast1 )
                      ( varDt2, nvar2, mvar2
-                     , unletAstDomains (emptyUnletEnv emptyADShare) doms )
+                     , unletAstHVector (emptyUnletEnv emptyADShare) doms )
                      (unletAstS env x0)
                      (V.map (unletAstDynamic env) as)

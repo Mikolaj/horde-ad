@@ -544,7 +544,7 @@ testFooPP = do
   resetVarCounter
   let (artifactRev, _) = revArtifactAdapt True fooT (4, 5, 6)
   printGradient6Simple renames artifactRev
-    @?= "\\dret x y z -> rletInDomains (sin y) (\\x5 -> rletInDomains (x * x5) (\\x6 -> rletInDomains (recip (z * z + x6 * x6)) (\\x7 -> rletInDomains (sin y) (\\x8 -> rletInDomains (x * x8) (\\x9 -> rletInDomains (z * dret) (\\x10 -> rletInDomains (negate (z * x7) * dret) (\\x11 -> dmkDomains (fromList [DynamicRanked (x5 * x11 + x8 * x10), DynamicRanked (cos y * (x * x11) + cos y * (x * x10)), DynamicRanked ((x6 * x7) * dret + x9 * dret)]))))))))"
+    @?= "\\dret x y z -> rletInHVector (sin y) (\\x5 -> rletInHVector (x * x5) (\\x6 -> rletInHVector (recip (z * z + x6 * x6)) (\\x7 -> rletInHVector (sin y) (\\x8 -> rletInHVector (x * x8) (\\x9 -> rletInHVector (z * dret) (\\x10 -> rletInHVector (negate (z * x7) * dret) (\\x11 -> dmkHVector (fromList [DynamicRanked (x5 * x11 + x8 * x10), DynamicRanked (cos y * (x * x11) + cos y * (x * x10)), DynamicRanked ((x6 * x7) * dret + x9 * dret)]))))))))"
   printPrimal6Simple renames artifactRev
     @?= "\\x y z -> rlet (sin y) (\\x5 -> rlet (x * x5) (\\x6 -> rlet (recip (z * z + x6 * x6)) (\\x7 -> rlet (sin y) (\\x8 -> rlet (x * x8) (\\x9 -> atan2 z x6 + z * x9)))))"
 
@@ -576,7 +576,7 @@ testFooLetPP = do
   resetVarCounter
   let (artifactRev, _)= revArtifactAdapt True fooLetT (4, 5, 6)
   printGradient6Simple renames artifactRev
-    @?= "\\dret x y z -> rletInDomains (sin y) (\\x6 -> rletInDomains (x * x6) (\\x7 -> rletInDomains (recip (z * z + x7 * x7)) (\\x8 -> rletInDomains (negate (z * x8) * dret + z * dret) (\\x9 -> dmkDomains (fromList [DynamicRanked (x6 * x9), DynamicRanked (cos y * (x * x9)), DynamicRanked ((x7 * x8) * dret + x7 * dret)])))))"
+    @?= "\\dret x y z -> rletInHVector (sin y) (\\x6 -> rletInHVector (x * x6) (\\x7 -> rletInHVector (recip (z * z + x7 * x7)) (\\x8 -> rletInHVector (negate (z * x8) * dret + z * dret) (\\x9 -> dmkHVector (fromList [DynamicRanked (x6 * x9), DynamicRanked (cos y * (x * x9)), DynamicRanked ((x7 * x8) * dret + x7 * dret)])))))"
   printPrimal6Simple renames artifactRev
     @?= "\\x y z -> rlet (sin y) (\\x6 -> rlet (x * x6) (\\x7 -> rlet (recip (z * z + x7 * x7)) (\\x8 -> atan2 z x7 + z * x7)))"
   printGradient6Pretty renames (simplifyArtifactRev artifactRev)
@@ -596,7 +596,7 @@ testListProdPP = do
       fT = shapedListProd
   let (artifactRev, deltas)= revArtifactAdapt True fT [1, 2, 3, 4]
   printGradient6SimpleS renames artifactRev
-    @?= "\\dret x2 x3 x4 x5 -> sletInDomains (x2 * x3) (\\x6 -> sletInDomains (x6 * x4) (\\x7 -> sletInDomains (x5 * dret) (\\x8 -> sletInDomains (x4 * x8) (\\x9 -> dmkDomains (fromList [DynamicShaped (x3 * x9), DynamicShaped (x2 * x9), DynamicShaped (x6 * x8), DynamicShaped (x7 * dret)])))))"
+    @?= "\\dret x2 x3 x4 x5 -> sletInHVector (x2 * x3) (\\x6 -> sletInHVector (x6 * x4) (\\x7 -> sletInHVector (x5 * dret) (\\x8 -> sletInHVector (x4 * x8) (\\x9 -> dmkHVector (fromList [DynamicShaped (x3 * x9), DynamicShaped (x2 * x9), DynamicShaped (x6 * x8), DynamicShaped (x7 * dret)])))))"
   printPrimal6SimpleS renames artifactRev
     @?= "\\x2 x3 x4 x5 -> slet (x2 * x3) (\\x6 -> slet (x6 * x4) (\\x7 -> x7 * x5))"
   printGradient6PrettyS renames (simplifyArtifactRevS artifactRev)
@@ -618,7 +618,7 @@ testListProdrPP = do
       fT = rankedListProdr
   let (artifactRev, deltas)= revArtifactAdapt True fT [1, 2, 3, 4]
   printGradient6Simple renames artifactRev
-    @?= "\\dret x2 x3 x4 x5 -> rletInDomains (x4 * x5) (\\x6 -> rletInDomains (x3 * x6) (\\x7 -> rletInDomains (x2 * dret) (\\x8 -> rletInDomains (x3 * x8) (\\x9 -> dmkDomains (fromList [DynamicRanked (x7 * dret), DynamicRanked (x6 * x8), DynamicRanked (x5 * x9), DynamicRanked (x4 * x9)])))))"
+    @?= "\\dret x2 x3 x4 x5 -> rletInHVector (x4 * x5) (\\x6 -> rletInHVector (x3 * x6) (\\x7 -> rletInHVector (x2 * dret) (\\x8 -> rletInHVector (x3 * x8) (\\x9 -> dmkHVector (fromList [DynamicRanked (x7 * dret), DynamicRanked (x6 * x8), DynamicRanked (x5 * x9), DynamicRanked (x4 * x9)])))))"
   printPrimal6Simple renames artifactRev
     @?= "\\x2 x3 x4 x5 -> rlet (x4 * x5) (\\x6 -> rlet (x3 * x6) (\\x7 -> x2 * x7))"
   printGradient6Pretty renames (simplifyArtifactRev artifactRev)
@@ -637,7 +637,7 @@ testListProdrLongPP = do
   let (artifactRev, _)=
         revArtifactAdapt True fT [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
   printGradient6Simple renames artifactRev
-    @?= "\\dret x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 -> rletInDomains (x13 * x14) (\\x15 -> rletInDomains (x12 * x15) (\\x16 -> rletInDomains (x11 * x16) (\\x17 -> rletInDomains (x10 * x17) (\\x18 -> rletInDomains (x9 * x18) (\\x19 -> rletInDomains (x8 * x19) (\\x20 -> rletInDomains (x7 * x20) (\\x21 -> rletInDomains (x6 * x21) (\\x22 -> rletInDomains (x5 * x22) (\\x23 -> rletInDomains (x4 * x23) (\\x24 -> rletInDomains (x3 * x24) (\\x25 -> rletInDomains (x2 * dret) (\\x26 -> rletInDomains (x3 * x26) (\\x27 -> rletInDomains (x4 * x27) (\\x28 -> rletInDomains (x5 * x28) (\\x29 -> rletInDomains (x6 * x29) (\\x30 -> rletInDomains (x7 * x30) (\\x31 -> rletInDomains (x8 * x31) (\\x32 -> rletInDomains (x9 * x32) (\\x33 -> rletInDomains (x10 * x33) (\\x34 -> rletInDomains (x11 * x34) (\\x35 -> rletInDomains (x12 * x35) (\\x36 -> dmkDomains (fromList [DynamicRanked (x25 * dret), DynamicRanked (x24 * x26), DynamicRanked (x23 * x27), DynamicRanked (x22 * x28), DynamicRanked (x21 * x29), DynamicRanked (x20 * x30), DynamicRanked (x19 * x31), DynamicRanked (x18 * x32), DynamicRanked (x17 * x33), DynamicRanked (x16 * x34), DynamicRanked (x15 * x35), DynamicRanked (x14 * x36), DynamicRanked (x13 * x36)])))))))))))))))))))))))"
+    @?= "\\dret x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 -> rletInHVector (x13 * x14) (\\x15 -> rletInHVector (x12 * x15) (\\x16 -> rletInHVector (x11 * x16) (\\x17 -> rletInHVector (x10 * x17) (\\x18 -> rletInHVector (x9 * x18) (\\x19 -> rletInHVector (x8 * x19) (\\x20 -> rletInHVector (x7 * x20) (\\x21 -> rletInHVector (x6 * x21) (\\x22 -> rletInHVector (x5 * x22) (\\x23 -> rletInHVector (x4 * x23) (\\x24 -> rletInHVector (x3 * x24) (\\x25 -> rletInHVector (x2 * dret) (\\x26 -> rletInHVector (x3 * x26) (\\x27 -> rletInHVector (x4 * x27) (\\x28 -> rletInHVector (x5 * x28) (\\x29 -> rletInHVector (x6 * x29) (\\x30 -> rletInHVector (x7 * x30) (\\x31 -> rletInHVector (x8 * x31) (\\x32 -> rletInHVector (x9 * x32) (\\x33 -> rletInHVector (x10 * x33) (\\x34 -> rletInHVector (x11 * x34) (\\x35 -> rletInHVector (x12 * x35) (\\x36 -> dmkHVector (fromList [DynamicRanked (x25 * dret), DynamicRanked (x24 * x26), DynamicRanked (x23 * x27), DynamicRanked (x22 * x28), DynamicRanked (x21 * x29), DynamicRanked (x20 * x30), DynamicRanked (x19 * x31), DynamicRanked (x18 * x32), DynamicRanked (x17 * x33), DynamicRanked (x16 * x34), DynamicRanked (x15 * x35), DynamicRanked (x14 * x36), DynamicRanked (x13 * x36)])))))))))))))))))))))))"
   printPrimal6Simple renames artifactRev
     @?= "\\x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 -> rlet (x13 * x14) (\\x15 -> rlet (x12 * x15) (\\x16 -> rlet (x11 * x16) (\\x17 -> rlet (x10 * x17) (\\x18 -> rlet (x9 * x18) (\\x19 -> rlet (x8 * x19) (\\x20 -> rlet (x7 * x20) (\\x21 -> rlet (x6 * x21) (\\x22 -> rlet (x5 * x22) (\\x23 -> rlet (x4 * x23) (\\x24 -> rlet (x3 * x24) (\\x25 -> x2 * x25)))))))))))"
   printGradient6Pretty renames (simplifyArtifactRev artifactRev)
@@ -1846,7 +1846,7 @@ fblowupPP = do
 -- TODO: re-enable when GHC 9.2 no longer gives a permuted result, breaking CI:
 {-
   printGradient6Simple renames artifactRev
-    @?= "\\dret v2 -> rletInDomains (v2 ! [0]) (\\x3 -> rletInDomains (v2 ! [1]) (\\x4 -> rletInDomains (v2 ! [0]) (\\x5 -> rletInDomains (v2 ! [1]) (\\x6 -> rletInDomains ((x3 / x4 + x5 / x6) - rfromIntegral (rconst 0)) (\\x7 -> rletInDomains (rconst 0.499999985 * dret) (\\x8 -> dmkDomains (fromList [DynamicRanked (rscatter [4] (recip x4 * x8) (\\[] -> [0]) + rscatter [4] (negate (x3 / (x4 * x4)) * x8) (\\[] -> [1]) + rscatter [4] (recip x6 * x8) (\\[] -> [0]) + rscatter [4] (negate (x5 / (x6 * x6)) * x8) (\\[] -> [1]))])))))))"
+    @?= "\\dret v2 -> rletInHVector (v2 ! [0]) (\\x3 -> rletInHVector (v2 ! [1]) (\\x4 -> rletInHVector (v2 ! [0]) (\\x5 -> rletInHVector (v2 ! [1]) (\\x6 -> rletInHVector ((x3 / x4 + x5 / x6) - rfromIntegral (rconst 0)) (\\x7 -> rletInHVector (rconst 0.499999985 * dret) (\\x8 -> dmkHVector (fromList [DynamicRanked (rscatter [4] (recip x4 * x8) (\\[] -> [0]) + rscatter [4] (negate (x3 / (x4 * x4)) * x8) (\\[] -> [1]) + rscatter [4] (recip x6 * x8) (\\[] -> [0]) + rscatter [4] (negate (x5 / (x6 * x6)) * x8) (\\[] -> [1]))])))))))"
 -}
   printPrimal6Simple renames artifactRev
     @?= "\\v2 -> rlet (v2 ! [0]) (\\x3 -> rlet (v2 ! [1]) (\\x4 -> rlet (v2 ! [0]) (\\x5 -> rlet (v2 ! [1]) (\\x6 -> rlet ((x3 / x4 + x5 / x6) - rfromIntegral (rconst 0)) (\\x7 -> rconst 0.499999985 * x7 - rfromIntegral (rconst 0))))))"
@@ -1858,7 +1858,7 @@ fblowupLetPP = do
       fblowupLetT = fblowupLet @(AstRanked FullSpan) @Double 0 1
   let (artifactRev, _) = revArtifactAdapt True fblowupLetT (Flip $ OR.constant [4] 4)
   printGradient6Simple renames artifactRev
-    @?= "\\dret v2 -> rletInDomains (v2 ! [0]) (\\x4 -> rletInDomains (v2 ! [1]) (\\x5 -> rletInDomains (x4 / x5) (\\x6 -> rletInDomains ((x6 + x6) - rfromIntegral (rconst 0)) (\\x7 -> rletInDomains (rconst 0.499999985 * dret) (\\x8 -> rletInDomains (x8 + x8) (\\x9 -> dmkDomains (fromList [DynamicRanked (rscatter [4] (recip x5 * x9) (\\[] -> [0]) + rscatter [4] (negate (x4 / (x5 * x5)) * x9) (\\[] -> [1]))])))))))"
+    @?= "\\dret v2 -> rletInHVector (v2 ! [0]) (\\x4 -> rletInHVector (v2 ! [1]) (\\x5 -> rletInHVector (x4 / x5) (\\x6 -> rletInHVector ((x6 + x6) - rfromIntegral (rconst 0)) (\\x7 -> rletInHVector (rconst 0.499999985 * dret) (\\x8 -> rletInHVector (x8 + x8) (\\x9 -> dmkHVector (fromList [DynamicRanked (rscatter [4] (recip x5 * x9) (\\[] -> [0]) + rscatter [4] (negate (x4 / (x5 * x5)) * x9) (\\[] -> [1]))])))))))"
   printPrimal6Simple renames artifactRev
     @?= "\\v2 -> rlet (v2 ! [0]) (\\x4 -> rlet (v2 ! [1]) (\\x5 -> rlet (x4 / x5) (\\x6 -> rlet ((x6 + x6) - rfromIntegral (rconst 0)) (\\x7 -> rconst 0.499999985 * x7 - rfromIntegral (rconst 0)))))"
 

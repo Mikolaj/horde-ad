@@ -12,19 +12,19 @@ module HordeAd.Core.TensorClass
   ( -- * Re-exports
     ShapeInt, ShapeSh
     -- * The tensor classes
-  , RankedTensor(..), ShapedTensor(..), DomainsTensor(..)
+  , RankedTensor(..), ShapedTensor(..), HVectorTensor(..)
   , raddDynamic, saddDynamic, sumDynamicRanked, sumDynamicShaped, rfromD, sfromD
     -- * The related constraints
   , ADReady, ADReadyR, ADReadyS, ADReadySmall, ADReadyBoth
     -- * Concrete array instances auxiliary definitions
-  , DomainsOD, sizeDomainsOD, scalarDynamic, shapeDynamic, rankDynamic
-  , domainsMatch
-  , odFromVar, odFromSh, odFromShS, odFromDynamic, fromDomainsR, fromDomainsS
-  , unravelDomains, ravelDomains
-  , mapDomainsRanked, mapDomainsRanked01, mapDomainsRanked10, mapDomainsRanked11
-  , mapDomainsShaped11
+  , HVectorOD, sizeHVectorOD, scalarDynamic, shapeDynamic, rankDynamic
+  , hVectorsMatch
+  , odFromVar, odFromSh, odFromShS, odFromDynamic, fromHVectorR, fromHVectorS
+  , unravelHVector, ravelHVector
+  , mapHVectorRanked, mapHVectorRanked01, mapHVectorRanked10, mapHVectorRanked11
+  , mapHVectorShaped11
   , mapRanked, mapRanked01, mapRanked10, mapRanked11
-  , index1Domains, replicate1Domains
+  , index1HVector, replicate1HVector
   ) where
 
 import Prelude
@@ -303,10 +303,10 @@ class ( Integral (IntOf ranked), CRanked ranked Num
   rfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2, KnownNat n)
                 => ranked r1 n -> ranked r2 n
   rconst :: (GoodScalar r, KnownNat n) => OR.Array n r -> ranked r n
-  rletDomainsIn :: (KnownNat n, GoodScalar r)
-                => DomainsOD
-                -> DomainsOf ranked
-                -> (Domains ranked -> ranked r n)
+  rletHVectorIn :: (KnownNat n, GoodScalar r)
+                => HVectorOD
+                -> HVectorOf ranked
+                -> (HVector ranked -> ranked r n)
                 -> ranked r n
   rfromS :: (GoodScalar r, Sh.Shape sh)
          => ShapedOf ranked r sh -> ranked r (Sh.Rank sh)
@@ -717,10 +717,10 @@ class ( Integral (IntOf shaped), CShaped shaped Num
   sfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2, Sh.Shape sh)
                 => shaped r1 sh -> shaped r2 sh
   sconst :: (GoodScalar r, Sh.Shape sh) => OS.Array sh r -> shaped r sh
-  sletDomainsIn :: (Sh.Shape sh, GoodScalar r)
-                => DomainsOD
-                -> DomainsOf (RankedOf shaped)
-                -> (Domains (RankedOf shaped) -> shaped r sh)
+  sletHVectorIn :: (Sh.Shape sh, GoodScalar r)
+                => HVectorOD
+                -> HVectorOf (RankedOf shaped)
+                -> (HVector (RankedOf shaped) -> shaped r sh)
                 -> shaped r sh
   sfromR :: (GoodScalar r, Sh.Shape sh, KnownNat (Sh.Rank sh))
          => RankedOf shaped r (Sh.Rank sh) -> shaped r sh
@@ -823,49 +823,49 @@ sfromD (DynamicShapedDummy @r2 @sh2 _ _) = case sameShape @sh2 @sh of
   _ -> error $ "sfromD: shape mismatch " ++ show (Sh.shapeT @sh2, Sh.shapeT @sh)
 
 
--- * DomainsTensor class definition
+-- * HVectorTensor class definition
 
-class DomainsTensor (ranked :: RankedTensorType)
+class HVectorTensor (ranked :: RankedTensorType)
                     (shaped :: ShapedTensorType)
                     | ranked -> shaped, shaped -> ranked where
-  dmkDomains :: Domains ranked -> DomainsOf ranked
-  dunDomains :: DomainsOD -> DomainsOf ranked -> Domains ranked
+  dmkHVector :: HVector ranked -> HVectorOf ranked
+  dunHVector :: HVectorOD -> HVectorOf ranked -> HVector ranked
     -- ^ Warning: this operation easily breaks sharing.
-  dletDomainsInDomains
-    :: DomainsOD
-    -> DomainsOf ranked
-    -> (Domains ranked -> DomainsOf ranked)
-    -> DomainsOf ranked
-  rletInDomains :: (GoodScalar r, KnownNat n)
+  dletHVectorInHVector
+    :: HVectorOD
+    -> HVectorOf ranked
+    -> (HVector ranked -> HVectorOf ranked)
+    -> HVectorOf ranked
+  rletInHVector :: (GoodScalar r, KnownNat n)
                 => ranked r n
-                -> (ranked r n -> DomainsOf ranked)
-                -> DomainsOf ranked
-  sletInDomains :: (GoodScalar r, Sh.Shape sh)
+                -> (ranked r n -> HVectorOf ranked)
+                -> HVectorOf ranked
+  sletInHVector :: (GoodScalar r, Sh.Shape sh)
                 => shaped r sh
-                -> (shaped r sh -> DomainsOf ranked)
-                -> DomainsOf ranked
-  drecordSharingPrimal :: DomainsOD -> DomainsOf ranked -> ADShare
-                       -> (ADShare, Domains ranked)
-  dregister :: DomainsOD -> DomainsOf ranked -> AstBindingsD ranked
-            -> (AstBindingsD ranked, Domains ranked)
+                -> (shaped r sh -> HVectorOf ranked)
+                -> HVectorOf ranked
+  drecordSharingPrimal :: HVectorOD -> HVectorOf ranked -> ADShare
+                       -> (ADShare, HVector ranked)
+  dregister :: HVectorOD -> HVectorOf ranked -> AstBindingsD ranked
+            -> (AstBindingsD ranked, HVector ranked)
   dbuild1 :: Int  -- k
-          -> (IntOf ranked -> DomainsOf ranked)  -- sh
-          -> DomainsOf ranked  -- k ': sh
+          -> (IntOf ranked -> HVectorOf ranked)  -- sh
+          -> HVectorOf ranked  -- k ': sh
   dzipWith1 :: ( RankedTensor ranked, ShapedTensor (ShapedOf ranked)
                , RankedOf (PrimalOf (ShapedOf ranked))
                  ~ RankedOf (PrimalOf ranked) )
-            => (Domains ranked -> DomainsOf ranked)
-                 -- ^ both domains can have arbitrary tensors in them
-            -> Domains ranked -> DomainsOf ranked
-                 -- ^ each domain has the same tensor shapes and scalar types
-                 -- as its corresponding domain above, except for the extra
+            => (HVector ranked -> HVectorOf ranked)
+                 -- ^ both hVectors can have arbitrary tensors in them
+            -> HVector ranked -> HVectorOf ranked
+                 -- ^ each hVector has the same tensor shapes and scalar types
+                 -- as its corresponding hVector above, except for the extra
                  -- outermost dimension, which needs to be same in each tensor
-                 -- from either of the domains; the domains can't be empty
+                 -- from either of the hVectors; the hVectors can't be empty
   dzipWith1 f u = case V.unsnoc u of
     Nothing -> error "dzipWith1: can't determine argument width"
     Just (_, d) -> case shapeDynamic d of
       [] -> error "dzipWith1: wrong rank of argument"
-      width : _ -> dbuild1 @ranked width (\i -> f (index1Domains u i))
+      width : _ -> dbuild1 @ranked width (\i -> f (index1HVector u i))
   -- The second argument is only used to determine tensor shapes
   -- and the third has to have the same shapes as the second.
   --
@@ -873,41 +873,41 @@ class DomainsTensor (ranked :: RankedTensorType)
   -- because otherwise in the ADVal instance one could put an illegal
   -- InputR there, confusing two levels of contangents.
   rrev :: (GoodScalar r, KnownNat n)
-       => (forall f. ADReady f => Domains f -> f r n)
-       -> DomainsOD
-       -> Domains ranked
-       -> DomainsOf ranked
+       => (forall f. ADReady f => HVector f -> f r n)
+       -> HVectorOD
+       -> HVector ranked
+       -> HVectorOf ranked
   rrevDt :: (GoodScalar r, KnownNat n)
-         => (forall f. ADReady f => Domains f -> f r n)
-         -> DomainsOD
-         -> Domains ranked
+         => (forall f. ADReady f => HVector f -> f r n)
+         -> HVectorOD
+         -> HVector ranked
          -> ranked r n  -- ^ incoming cotangent (dt)
-         -> DomainsOf ranked
+         -> HVectorOf ranked
   rfwd :: (GoodScalar r, KnownNat n)
-       => (forall f. ADReady f => Domains f -> f r n)
-       -> DomainsOD
-       -> Domains ranked
-       -> Domains ranked  -- ^ incoming tangent (ds)
+       => (forall f. ADReady f => HVector f -> f r n)
+       -> HVectorOD
+       -> HVector ranked
+       -> HVector ranked  -- ^ incoming tangent (ds)
        -> ranked r n
   srev :: (GoodScalar r, Sh.Shape sh)
-       => (forall f. ADReadyS f => Domains (RankedOf f) -> f r sh)
-       -> DomainsOD
-       -> Domains ranked
-       -> DomainsOf ranked
+       => (forall f. ADReadyS f => HVector (RankedOf f) -> f r sh)
+       -> HVectorOD
+       -> HVector ranked
+       -> HVectorOf ranked
   srevDt :: (GoodScalar r, Sh.Shape sh)
-         => (forall f. ADReadyS f => Domains (RankedOf f) -> f r sh)
-         -> DomainsOD
-         -> Domains ranked
+         => (forall f. ADReadyS f => HVector (RankedOf f) -> f r sh)
+         -> HVectorOD
+         -> HVector ranked
          -> shaped r sh
-         -> DomainsOf ranked
+         -> HVectorOf ranked
   sfwd :: (GoodScalar r, Sh.Shape sh)
-       => (forall f. ADReadyS f => Domains (RankedOf f) -> f r sh)
-       -> DomainsOD
-       -> Domains ranked
-       -> Domains ranked
+       => (forall f. ADReadyS f => HVector (RankedOf f) -> f r sh)
+       -> HVectorOD
+       -> HVector ranked
+       -> HVector ranked
        -> shaped r sh
   -- The type mentions ADReady, so it's awkward to put this into RankedTensor,
-  -- which doesn't know about DomainsTensor.
+  -- which doesn't know about HVectorTensor.
   rfold :: (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)
         => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
         -> ranked rn n  -- ^ initial value
@@ -917,27 +917,27 @@ class DomainsTensor (ranked :: RankedTensorType)
            => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
            -> (forall f. ADReady f => f rn n -> f rm m -> f rn n -> f rm m
                                    -> f rn n)
-           -> (forall f. ADReady f => f rn n -> f rn n -> f rm m -> DomainsOf f)
+           -> (forall f. ADReady f => f rn n -> f rn n -> f rm m -> HVectorOf f)
            -> ranked rn n  -- ^ initial value
            -> ranked rm (1 + m)  -- ^ iteration is over the outermost dimension
            -> ranked rn n
   rfoldZip :: (GoodScalar rn, KnownNat n)
-         => (forall f. ADReady f => f rn n -> Domains f -> f rn n)
-         -> DomainsOD  -- shapes of the Domains above, not below
+         => (forall f. ADReady f => f rn n -> HVector f -> f rn n)
+         -> HVectorOD  -- shapes of the HVector above, not below
          -> ranked rn n
-         -> Domains ranked  -- one rank higher than above
+         -> HVector ranked  -- one rank higher than above
          -> ranked rn n
   rfoldZipDer :: (GoodScalar rn, KnownNat n)
-            => (forall f. ADReady f => f rn n -> Domains f -> f rn n)
+            => (forall f. ADReady f => f rn n -> HVector f -> f rn n)
             -> (forall f. ADReady f
-                => f rn n -> Domains f -> f rn n -> Domains f
+                => f rn n -> HVector f -> f rn n -> HVector f
                 -> f rn n)
             -> (forall f. ADReady f
-                => f rn n -> f rn n -> Domains f
-                -> DomainsOf f)
-            -> DomainsOD
+                => f rn n -> f rn n -> HVector f
+                -> HVectorOf f)
+            -> HVectorOD
             -> ranked rn n
-            -> Domains ranked
+            -> HVector ranked
             -> ranked rn n
   rscan :: (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)
         => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
@@ -948,27 +948,27 @@ class DomainsTensor (ranked :: RankedTensorType)
            => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
            -> (forall f. ADReady f => f rn n -> f rm m -> f rn n -> f rm m
                                    -> f rn n)
-           -> (forall f. ADReady f => f rn n -> f rn n -> f rm m -> DomainsOf f)
+           -> (forall f. ADReady f => f rn n -> f rn n -> f rm m -> HVectorOf f)
            -> ranked rn n
            -> ranked rm (1 + m)
            -> ranked rn (1 + n)
   rscanZip :: (GoodScalar rn, KnownNat n)
-         => (forall f. ADReady f => f rn n -> Domains f -> f rn n)
-         -> DomainsOD  -- shapes of the Domains above, not below
+         => (forall f. ADReady f => f rn n -> HVector f -> f rn n)
+         -> HVectorOD  -- shapes of the HVector above, not below
          -> ranked rn n
-         -> Domains ranked  -- one rank higher than above
+         -> HVector ranked  -- one rank higher than above
          -> ranked rn (1 + n)
   rscanZipDer :: (GoodScalar rn, KnownNat n)
-            => (forall f. ADReady f => f rn n -> Domains f -> f rn n)
+            => (forall f. ADReady f => f rn n -> HVector f -> f rn n)
             -> (forall f. ADReady f
-                => f rn n -> Domains f -> f rn n -> Domains f
+                => f rn n -> HVector f -> f rn n -> HVector f
                 -> f rn n)
             -> (forall f. ADReady f
-                => f rn n -> f rn n -> Domains f
-                -> DomainsOf f)
-            -> DomainsOD
+                => f rn n -> f rn n -> HVector f
+                -> HVectorOf f)
+            -> HVectorOD
             -> ranked rn n
-            -> Domains ranked
+            -> HVector ranked
             -> ranked rn (1 + n)
   sfold :: (GoodScalar rn, GoodScalar rm, Sh.Shape sh, Sh.Shape shm, KnownNat k)
         => (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh)
@@ -982,30 +982,30 @@ class DomainsTensor (ranked :: RankedTensorType)
                => f rn sh -> f rm shm -> f rn sh -> f rm shm
                -> f rn sh)
            -> (forall f. ADReadyS f
-               => f rn sh -> f rn sh -> f rm shm -> DomainsOf (RankedOf f))
+               => f rn sh -> f rn sh -> f rm shm -> HVectorOf (RankedOf f))
            -> shaped rn sh
            -> shaped rm (k ': shm)
            -> shaped rn sh
   sfoldZip :: (GoodScalar rn, Sh.Shape sh)
          => (forall f. ADReadyS f
-             => f rn sh -> Domains (RankedOf f) -> f rn sh)
-         -> DomainsOD
+             => f rn sh -> HVector (RankedOf f) -> f rn sh)
+         -> HVectorOD
          -> shaped rn sh
-         -> Domains (RankedOf shaped)
+         -> HVector (RankedOf shaped)
          -> shaped rn sh
   sfoldZipDer :: (GoodScalar rn, Sh.Shape sh)
             => (forall f. ADReadyS f
-                => f rn sh -> Domains (RankedOf f) -> f rn sh)
+                => f rn sh -> HVector (RankedOf f) -> f rn sh)
             -> (forall f. ADReadyS f
-                => f rn sh -> Domains (RankedOf f) -> f rn sh
-                -> Domains (RankedOf f)
+                => f rn sh -> HVector (RankedOf f) -> f rn sh
+                -> HVector (RankedOf f)
                 -> f rn sh)
             -> (forall f. ADReadyS f
-                => f rn sh -> f rn sh -> Domains (RankedOf f)
-                -> DomainsOf (RankedOf f))
-            -> DomainsOD
+                => f rn sh -> f rn sh -> HVector (RankedOf f)
+                -> HVectorOf (RankedOf f))
+            -> HVectorOD
             -> shaped rn sh
-            -> Domains (RankedOf shaped)
+            -> HVector (RankedOf shaped)
             -> shaped rn sh
   sscan :: (GoodScalar rn, GoodScalar rm, Sh.Shape sh, Sh.Shape shm, KnownNat k)
         => (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh)
@@ -1019,30 +1019,30 @@ class DomainsTensor (ranked :: RankedTensorType)
                => f rn sh -> f rm shm -> f rn sh -> f rm shm
                -> f rn sh)
            -> (forall f. ADReadyS f
-               => f rn sh -> f rn sh -> f rm shm -> DomainsOf (RankedOf f))
+               => f rn sh -> f rn sh -> f rm shm -> HVectorOf (RankedOf f))
            -> shaped rn sh
            -> shaped rm (k ': shm)
            -> shaped rn (1 + k ': sh)
   sscanZip :: (GoodScalar rn, Sh.Shape sh, KnownNat k)
          => (forall f. ADReadyS f
-             => f rn sh -> Domains (RankedOf f) -> f rn sh)
-         -> DomainsOD
+             => f rn sh -> HVector (RankedOf f) -> f rn sh)
+         -> HVectorOD
          -> shaped rn sh
-         -> Domains (RankedOf shaped)
+         -> HVector (RankedOf shaped)
          -> shaped rn (1 + k ': sh)
   sscanZipDer :: (GoodScalar rn, Sh.Shape sh, KnownNat k)
             => (forall f. ADReadyS f
-                => f rn sh -> Domains (RankedOf f) -> f rn sh)
+                => f rn sh -> HVector (RankedOf f) -> f rn sh)
             -> (forall f. ADReadyS f
-                => f rn sh -> Domains (RankedOf f) -> f rn sh
-                -> Domains (RankedOf f)
+                => f rn sh -> HVector (RankedOf f) -> f rn sh
+                -> HVector (RankedOf f)
                 -> f rn sh)
             -> (forall f. ADReadyS f
-                => f rn sh -> f rn sh -> Domains (RankedOf f)
-                -> DomainsOf (RankedOf f))
-            -> DomainsOD
+                => f rn sh -> f rn sh -> HVector (RankedOf f)
+                -> HVectorOf (RankedOf f))
+            -> HVectorOD
             -> shaped rn sh
-            -> Domains (RankedOf shaped)
+            -> HVector (RankedOf shaped)
             -> shaped rn (1 + k ': sh)
 
 
@@ -1082,18 +1082,18 @@ type ADReadySmall ranked shaped =
 
 type ADReadyBoth ranked shaped =
   ( ADReadySmall ranked shaped
-  , DomainsTensor ranked shaped
-  , DomainsTensor (PrimalOf ranked) (PrimalOf shaped) )
+  , HVectorTensor ranked shaped
+  , HVectorTensor (PrimalOf ranked) (PrimalOf shaped) )
 
 
 -- * Instances for concrete arrays
 
--- The DomainsTensor instance requires ADVal instance, so it's given elsewhere.
+-- The HVectorTensor instance requires ADVal instance, so it's given elsewhere.
 
-type DomainsOD = Domains (Flip OR.Array)
+type HVectorOD = HVector (Flip OR.Array)
 
-sizeDomainsOD :: DomainsOD -> Int
-sizeDomainsOD = let f (DynamicRanked (Flip t)) = OR.size t
+sizeHVectorOD :: HVectorOD -> Int
+sizeHVectorOD = let f (DynamicRanked (Flip t)) = OR.size t
                     f (DynamicShaped (Flip t)) = OS.size t
                     f (DynamicRankedDummy _ proxy_sh) = Sh.sizeP proxy_sh
                     f (DynamicShapedDummy _ proxy_sh) = Sh.sizeP proxy_sh
@@ -1139,9 +1139,9 @@ isDynamicDummy DynamicShaped{} = False
 isDynamicDummy DynamicRankedDummy{} = True
 isDynamicDummy DynamicShapedDummy{} = True
 
-domainsMatch :: forall f g. (RankedTensor f, RankedTensor g)
-             => Domains f -> Domains g -> Bool
-domainsMatch v1 v2 =
+hVectorsMatch :: forall f g. (RankedTensor f, RankedTensor g)
+             => HVector f -> HVector g -> Bool
+hVectorsMatch v1 v2 =
   let dynamicMatch :: DynamicTensor f -> DynamicTensor g -> Bool
       dynamicMatch t u = case (scalarDynamic @f t, scalarDynamic @g u) of
         (DynamicScalar @ru _, DynamicScalar @rt _) ->
@@ -1180,49 +1180,49 @@ odFromDynamic (DynamicShaped @r2 @sh2 _) =
 odFromDynamic (DynamicRankedDummy p1 p2) = DynamicRankedDummy p1 p2
 odFromDynamic (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
 
-fromDomainsR :: forall r n ranked.
+fromHVectorR :: forall r n ranked.
                 (RankedTensor ranked, GoodScalar r, KnownNat n)
-             => Domains ranked
-             -> Maybe (ranked r n, Domains ranked)
-fromDomainsR params = case V.uncons params of
+             => HVector ranked
+             -> Maybe (ranked r n, HVector ranked)
+fromHVectorR params = case V.uncons params of
   Just (DynamicRanked @r2 @n2 t, rest) -> case sameNat (Proxy @n2)
                                                        (Proxy @n) of
     Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
       Just Refl -> Just (t, rest)
-      _ -> error $ "fromDomainsR: scalar mismatch in "
+      _ -> error $ "fromHVectorR: scalar mismatch in "
                    ++ show (typeRep @r2, typeRep @r)
-    _ -> error "fromDomainsR: rank mismatch"
-  Just (DynamicShaped{}, _) -> error "fromDomainsR: ranked from shaped"
+    _ -> error "fromHVectorR: rank mismatch"
+  Just (DynamicShaped{}, _) -> error "fromHVectorR: ranked from shaped"
   Just (DynamicRankedDummy @r2 @sh2 _ _, rest) -> case matchingRank @sh2 @n of
     Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
       Just Refl ->
          let sh2 = listShapeToShape (Sh.shapeT @sh2)
          in Just (rzero sh2 :: ranked r2 (Sh.Rank sh2), rest)
-      _ -> error "fromDomainsR: scalar mismatch"
-    _ -> error "fromDomainsR: shape mismatch"
-  Just (DynamicShapedDummy{}, _) -> error "fromDomainsR: ranked from shaped"
+      _ -> error "fromHVectorR: scalar mismatch"
+    _ -> error "fromHVectorR: shape mismatch"
+  Just (DynamicShapedDummy{}, _) -> error "fromHVectorR: ranked from shaped"
   Nothing -> Nothing
 
-fromDomainsS :: forall r sh shaped
+fromHVectorS :: forall r sh shaped
               . ( ShapedTensor shaped, GoodScalar r, Sh.Shape sh
                 , ShapedOf (RankedOf shaped) ~ shaped )
-             => Domains (RankedOf shaped)
-             -> Maybe (shaped r sh,  Domains (RankedOf shaped))
-fromDomainsS params = case V.uncons params of
-  Just (DynamicRanked{}, _) -> error "fromDomainsS: shaped from ranked"
+             => HVector (RankedOf shaped)
+             -> Maybe (shaped r sh,  HVector (RankedOf shaped))
+fromHVectorS params = case V.uncons params of
+  Just (DynamicRanked{}, _) -> error "fromHVectorS: shaped from ranked"
   Just (DynamicShaped @r2 @sh2 t, rest) -> case sameShape @sh2 @sh of
     Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
       Just Refl -> Just (t, rest)
-      _ -> error "fromDomainsS: scalar mismatch"
-    _ -> error "fromDomainsS: shape mismatch"
-  Just (DynamicRankedDummy{}, _) -> error "fromDomainsS: shaped from ranked"
+      _ -> error "fromHVectorS: scalar mismatch"
+    _ -> error "fromHVectorS: shape mismatch"
+  Just (DynamicRankedDummy{}, _) -> error "fromHVectorS: shaped from ranked"
   Just (DynamicShapedDummy @r2 @sh2 _ _, rest) -> case sameShape @sh2 @sh of
     Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
       Just Refl ->
         -- The dummy gets removed, so we verify its types before it does.
         Just (0 :: shaped r2 sh2, rest)
-      _ -> error "fromDomainsS: scalar mismatch"
-    _ -> error "fromDomainsS: shape mismatch"
+      _ -> error "fromHVectorS: scalar mismatch"
+    _ -> error "fromHVectorS: shape mismatch"
   Nothing -> Nothing
 
 unravelDynamic
@@ -1248,11 +1248,11 @@ unravelDynamic (DynamicShapedDummy @rp @sh _ _) = case ShapedList.shapeSh @sh of
   ZSH -> error "unravelDynamic: rank 0"
   _ :$: _ -> map DynamicShaped $ sunravelToList (0 :: ShapedOf ranked rp sh)
 
-unravelDomains
+unravelHVector
   :: forall ranked. (RankedTensor ranked, ShapedTensor (ShapedOf ranked))
-  => Domains ranked  -- each tensor has outermost dimension size p
-  -> [Domains ranked]  -- p domains; each tensor of one rank lower
-unravelDomains = map V.fromList . transpose
+  => HVector ranked  -- each tensor has outermost dimension size p
+  -> [HVector ranked]  -- p hVectors; each tensor of one rank lower
+unravelHVector = map V.fromList . transpose
                  . map unravelDynamic . V.toList
 
 ravelDynamicRanked
@@ -1328,20 +1328,20 @@ ravelDynamic ld = case ld of
   DynamicRankedDummy{} : _ -> ravelDynamicRanked ld
   DynamicShapedDummy{} : _ -> ravelDynamicShaped ld
 
-ravelDomains  -- the inverse of unravelDomains
+ravelHVector  -- the inverse of unravelHVector
   :: ( RankedTensor ranked, ShapedTensor (ShapedOf ranked)
      , RankedOf (ShapedOf ranked) ~ ranked )
-  => [Domains ranked] -> Domains ranked
-ravelDomains = V.fromList . map ravelDynamic
+  => [HVector ranked] -> HVector ranked
+ravelHVector = V.fromList . map ravelDynamic
                . transpose . map V.toList
 
-mapDomainsRanked
+mapHVectorRanked
   :: ( RankedTensor ranked, ShapedTensor (ShapedOf ranked)
      , RankedOf (ShapedOf ranked) ~ ranked )
   => (forall rq q. (GoodScalar rq, KnownNat q)
       => ranked rq q -> ranked rq q)
-  -> Domains ranked -> Domains ranked
-mapDomainsRanked f = V.map (mapRanked f)
+  -> HVector ranked -> HVector ranked
+mapHVectorRanked f = V.map (mapRanked f)
 
 mapRanked
   :: ( RankedTensor ranked, ShapedTensor (ShapedOf ranked)
@@ -1370,13 +1370,13 @@ mapRanked f (DynamicShapedDummy @r @sh _ _) =
         DynamicShaped $ sfromR @_ @_ @shr res
 
 -- Hindler-Milner polymorphism is not great for existential types programming.
-mapDomainsRanked01
+mapHVectorRanked01
   :: ( RankedTensor ranked, ShapedTensor (ShapedOf ranked)
      , RankedOf (ShapedOf ranked) ~ ranked )
   => (forall rq q. (GoodScalar rq, KnownNat q)
       => ranked rq q -> ranked rq (1 + q))
-  -> Domains ranked -> Domains ranked
-mapDomainsRanked01 f = V.map (mapRanked01 f)
+  -> HVector ranked -> HVector ranked
+mapHVectorRanked01 f = V.map (mapRanked01 f)
 
 mapRanked01
   :: ( RankedTensor ranked, ShapedTensor (ShapedOf ranked)
@@ -1412,13 +1412,13 @@ mapRanked01 f (DynamicShapedDummy @r @sh _ _) =
           DynamicShaped $ sfromR @_ @_ @shr res
         _ -> error "mapRanked01: impossible someNatVal"
 
-mapDomainsRanked10
+mapHVectorRanked10
   :: ( RankedTensor ranked, ShapedTensor (ShapedOf ranked)
      , RankedOf (ShapedOf ranked) ~ ranked )
   => (forall rq q. (GoodScalar rq, KnownNat q)
       => ranked rq (1 + q) -> ranked rq q)
-  -> Domains ranked -> Domains ranked
-mapDomainsRanked10 f = V.map (mapRanked10 f)
+  -> HVector ranked -> HVector ranked
+mapHVectorRanked10 f = V.map (mapRanked10 f)
 
 mapRanked10
   :: ( RankedTensor ranked, ShapedTensor (ShapedOf ranked)
@@ -1452,13 +1452,13 @@ mapRanked10 f (DynamicShapedDummy @r @sh _ _) = case ShapedList.shapeSh @sh of
         gcastWith (unsafeCoerce Refl :: Sh.Rank shr :~: n) $
         DynamicShaped $ sfromR @_ @_ @shr res
 
-mapDomainsRanked11
+mapHVectorRanked11
   :: ( RankedTensor ranked, ShapedTensor (ShapedOf ranked)
      , RankedOf (ShapedOf ranked) ~ ranked )
   => (forall rq q. (GoodScalar rq, KnownNat q)
       => ranked rq (1 + q) -> ranked rq (1 + q))
-  -> Domains ranked -> Domains ranked
-mapDomainsRanked11 f = V.map (mapRanked11 f)
+  -> HVector ranked -> HVector ranked
+mapHVectorRanked11 f = V.map (mapRanked11 f)
 
 mapRanked11
   :: ( RankedTensor ranked, ShapedTensor (ShapedOf ranked)
@@ -1500,15 +1500,15 @@ mapRanked11 f (DynamicShapedDummy @r @sh _ _) = case ShapedList.shapeSh @sh of
             DynamicShaped $ sfromR @_ @_ @shr res
           _ -> error "mapRanked01: impossible someNatVal"
 
-mapDomainsShaped11
+mapHVectorShaped11
   :: forall k k1 shaped.
      ( ShapedTensor shaped, RankedTensor (RankedOf shaped)
      , ShapedOf (RankedOf shaped) ~ shaped
      , KnownNat k, KnownNat k1 )
   => (forall rq shq. (GoodScalar rq, Sh.Shape shq)
       => shaped rq (k ': shq) -> shaped rq (k1 ': shq))
-  -> Domains (RankedOf shaped) -> Domains (RankedOf shaped)
-mapDomainsShaped11 f = V.map (mapShaped11 f)
+  -> HVector (RankedOf shaped) -> HVector (RankedOf shaped)
+mapHVectorShaped11 f = V.map (mapShaped11 f)
 
 mapShaped11
   :: forall k k1 shaped.
@@ -1546,11 +1546,11 @@ mapShaped11 f (DynamicShapedDummy @r @sh _ _) = case ShapedList.shapeSh @sh of
     Just Refl -> DynamicShaped $ f @r @shr 0
     Nothing -> error "mapShaped11: wrong width"
 
-index1Domains :: ( RankedTensor ranked, ShapedTensor (ShapedOf ranked)
+index1HVector :: ( RankedTensor ranked, ShapedTensor (ShapedOf ranked)
                  , RankedOf (PrimalOf (ShapedOf ranked))
                    ~ RankedOf (PrimalOf ranked) )
-              => Domains ranked -> IntOf ranked -> Domains ranked
-index1Domains u i = V.map (`index1Dynamic` i) u
+              => HVector ranked -> IntOf ranked -> HVector ranked
+index1HVector u i = V.map (`index1Dynamic` i) u
 
 index1Dynamic :: ( RankedTensor ranked, ShapedTensor (ShapedOf ranked)
                  , RankedOf (PrimalOf (ShapedOf ranked))
@@ -1572,11 +1572,11 @@ index1Dynamic u i = case u of
     ZSH -> error "index1Dynamic: rank 0"
     (:$:) @_ @sh2 _ _ -> DynamicShaped @r @sh2 0
 
-replicate1Domains :: forall k ranked.
+replicate1HVector :: forall k ranked.
                      ( KnownNat k
                      , RankedTensor ranked, ShapedTensor (ShapedOf ranked) )
-                  => Proxy k -> Domains ranked -> Domains ranked
-replicate1Domains i u = V.map (replicate1Dynamic i) u
+                  => Proxy k -> HVector ranked -> HVector ranked
+replicate1HVector i u = V.map (replicate1Dynamic i) u
 
 replicate1Dynamic :: forall k ranked.
                      ( KnownNat k
@@ -1609,7 +1609,7 @@ type instance RankedOf (Flip OR.Array) = Flip OR.Array
 
 type instance ShapedOf (Flip OR.Array) = Flip OS.Array
 
-type instance DomainsOf (Flip OR.Array) = DomainsOD
+type instance HVectorOf (Flip OR.Array) = HVectorOD
 
 type instance PrimalOf (Flip OR.Array) = Flip OR.Array
 
@@ -1654,7 +1654,7 @@ instance RankedTensor (Flip OR.Array) where
   rcast = Flip . tcastR . runFlip
   rfromIntegral = Flip . tfromIntegralR . runFlip
   rconst = Flip
-  rletDomainsIn _ = (&)
+  rletHVectorIn _ = (&)
   rfromS = Flip . Data.Array.Convert.convert . runFlip
 
   rscaleByScalar s v =
@@ -1669,13 +1669,13 @@ instance RankedTensor (Flip OR.Array) where
   rScale _ _ = DummyDual
 
 instance (GoodScalar r, KnownNat n)
-         => AdaptableDomains (Flip OR.Array) (Flip OR.Array r n) where
+         => AdaptableHVector (Flip OR.Array) (Flip OR.Array r n) where
   {-# SPECIALIZE instance
       KnownNat n
-      => AdaptableDomains (Flip OR.Array) (Flip OR.Array Double n) #-}
+      => AdaptableHVector (Flip OR.Array) (Flip OR.Array Double n) #-}
   type Value (Flip OR.Array r n) = Flip OR.Array r n
-  toDomains = V.singleton . DynamicRanked
-  fromDomains _aInit params = fromDomainsR @r @n params
+  toHVector = V.singleton . DynamicRanked
+  fromHVector _aInit params = fromHVectorR @r @n params
 
 instance ForgetShape (Flip OR.Array r n) where
   type NoShape (Flip OR.Array r n) = Flip OR.Array r n
@@ -1700,7 +1700,7 @@ type instance RankedOf (Flip OS.Array) = Flip OR.Array
 
 type instance ShapedOf (Flip OS.Array) = Flip OS.Array
 
-type instance DomainsOf (Flip OS.Array) = DomainsOD
+type instance HVectorOf (Flip OS.Array) = HVectorOD
 
 type instance PrimalOf (Flip OS.Array) = Flip OS.Array
 
@@ -1751,7 +1751,7 @@ instance ShapedTensor (Flip OS.Array) where
   scast = Flip . tcastS . runFlip
   sfromIntegral = Flip . tfromIntegralS . runFlip
   sconst = Flip
-  sletDomainsIn _ = (&)
+  sletHVectorIn _ = (&)
   sfromR = Flip . Data.Array.Convert.convert . runFlip
 
   sscaleByScalar s v =
@@ -1766,10 +1766,10 @@ instance ShapedTensor (Flip OS.Array) where
   sScale _ _ = DummyDual
 
 instance (GoodScalar r, Sh.Shape sh)
-         => AdaptableDomains (Flip OR.Array) (Flip OS.Array r sh) where
+         => AdaptableHVector (Flip OR.Array) (Flip OS.Array r sh) where
   type Value (Flip OS.Array r sh) = Flip OS.Array r sh
-  toDomains = V.singleton . DynamicShaped
-  fromDomains _aInit params = fromDomainsS @r @sh @(Flip OS.Array) params
+  toHVector = V.singleton . DynamicShaped
+  fromHVector _aInit params = fromHVectorS @r @sh @(Flip OS.Array) params
 
 instance Sh.Shape sh
          => ForgetShape (Flip OS.Array r sh) where
@@ -1777,7 +1777,7 @@ instance Sh.Shape sh
   forgetShape = Flip . Data.Array.Convert.convert . runFlip
 
 instance (Sh.Shape sh, Numeric r, Fractional r, Random r, Num (Vector r))
-         => RandomDomains (Flip OS.Array r sh) where
+         => RandomHVector (Flip OS.Array r sh) where
   randomVals range g =
     let createRandomVector n seed =
           LA.scale (2 * realToFrac range)
@@ -1792,7 +1792,7 @@ instance (Sh.Shape sh, Numeric r, Fractional r, Random r, Num (Vector r))
 -- though the quality of randomness is worse (going through a single @Int@).
 instance {-# OVERLAPS #-} {-# OVERLAPPING #-}
          KnownNat n
-         => AdaptableDomains (OR.Array n Double) where
+         => AdaptableHVector (OR.Array n Double) where
   randomVals range g =
     let -- Note that hmatrix produces numbers from the range open at the top,
         -- unlike package random.

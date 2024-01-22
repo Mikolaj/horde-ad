@@ -178,21 +178,21 @@ chunksOf n = go where
   :: KnownNat y
   => Double
   -> (MnistData Double
-      -> Domains (ADVal (Flip OR.Array))
+      -> HVector (ADVal (Flip OR.Array))
       -> ADVal (Flip OR.Array) Double y)
   -> [MnistData Double]
-  -> DomainsOD
-  -> (DomainsOD, Flip OR.Array Double y) #-}
+  -> HVectorOD
+  -> (HVectorOD, Flip OR.Array Double y) #-}
 
 {- TODO: I don't know how to work around
      https://gitlab.haskell.org/ghc/ghc/-/issues/23798
    in this case:
 {-# SPECIALIZE sgdAdam
   :: KnownNat y
-  => (MnistDataBatchR Double -> Domains (ADVal (Flip OR.Array))
+  => (MnistDataBatchR Double -> HVector (ADVal (Flip OR.Array))
       -> ADVal (Flip OR.Array) Double y)
   -> [MnistDataBatchR Double]
-  -> DomainsOD
+  -> HVectorOD
   -> StateAdam
-  -> (DomainsOD, StateAdam) #-}
+  -> (HVectorOD, StateAdam) #-}
 -}

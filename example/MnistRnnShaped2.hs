@@ -150,7 +150,7 @@ rnnMnistTestS
   -> SNat batch_size
   -> ADRnnMnistParametersShaped shaped h out_width r
   -> MnistDataBatchS batch_size r
-  -> DomainsOD
+  -> HVectorOD
   -> r
 rnnMnistTestS out_width@SNat batch_size@SNat
               valsInit (glyphS, labelS) testParams =
@@ -162,7 +162,7 @@ rnnMnistTestS out_width@SNat batch_size@SNat
                                batch_size
                                (SNat @h) (SNat @w)
                                xs
-        in runFlip $ nn $ parseDomains valsInit testParams
+        in runFlip $ nn $ parseHVector valsInit testParams
       outputs = map OS.toVector $ tunravelToListS
                 $ OS.transpose @'[1, 0] outputS
       labels = map OS.toVector $ tunravelToListS labelS

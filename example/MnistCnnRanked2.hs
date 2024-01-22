@@ -116,7 +116,7 @@ convMnistTestR
   => ADCnnMnistParameters ranked r
   -> Int
   -> MnistDataBatchR r
-  -> DomainsOD
+  -> HVectorOD
   -> r
 convMnistTestR _ 0 _ _ = 0
 convMnistTestR valsInit batch_size (glyphR, labelR) testParams =
@@ -128,7 +128,7 @@ convMnistTestR valsInit batch_size (glyphR, labelR) testParams =
                -> ranked r 2  -- [SizeMnistLabel, batch_size]
             nn = convMnistTwoR sizeMnistHeightInt sizeMnistWidthInt
                                batch_size input
-        in runFlip $ nn $ parseDomains valsInit testParams
+        in runFlip $ nn $ parseHVector valsInit testParams
       outputs = map OR.toVector $ tunravelToListR $ OR.transpose [1, 0] outputR
       labels = map OR.toVector $ tunravelToListR labelR
       matchesLabels :: Vector r -> Vector r -> Int

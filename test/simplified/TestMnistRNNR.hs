@@ -66,13 +66,13 @@ mnistTestCaseRNNA prefix epochs maxBatches width miniBatchSize totalBatchSize
             $ randomVals @(MnistRnnRanked2.ADRnnMnistParametersShaped
                              (Flip OS.Array) width r)
                 0.4 (mkStdGen 44)
-      domainsInit = toDomains valsInit
+      hVectorInit = toHVector valsInit
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show width, show miniBatchSize
-                        , show (V.length domainsInit)
-                        , show (sizeDomainsOD domainsInit) ]
-      ftest :: Int -> MnistDataBatchR r -> DomainsOD -> r
+                        , show (V.length hVectorInit)
+                        , show (sizeHVectorOD hVectorInit) ]
+      ftest :: Int -> MnistDataBatchR r -> HVectorOD -> r
       ftest = MnistRnnRanked2.rnnMnistTestR valsInit
   in testCase name $ do
        hPutStrLn stderr $
@@ -83,15 +83,15 @@ mnistTestCaseRNNA prefix epochs maxBatches width miniBatchSize totalBatchSize
        testData <- map rankBatch . take (totalBatchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
        let testDataR = packBatchR testData
-           runBatch :: (DomainsOD, StateAdam) -> (Int, [MnistDataR r])
-                    -> IO (DomainsOD, StateAdam)
+           runBatch :: (HVectorOD, StateAdam) -> (Int, [MnistDataR r])
+                    -> IO (HVectorOD, StateAdam)
            runBatch (!parameters, !stateAdam) (k, chunk) = do
-             let f :: MnistDataBatchR r -> Domains (ADVal (Flip OR.Array))
+             let f :: MnistDataBatchR r -> HVector (ADVal (Flip OR.Array))
                    -> ADVal ranked r 0
                  f (glyphR, labelR) adinputs =
                    MnistRnnRanked2.rnnMnistLossFusedR
                      miniBatchSize (rconst glyphR, rconst labelR)
-                     (parseDomains valsInit adinputs)
+                     (parseHVector valsInit adinputs)
                  chunkR = map packBatchR
                           $ filter (\ch -> length ch == miniBatchSize)
                           $ chunksOf miniBatchSize chunk
@@ -106,7 +106,7 @@ mnistTestCaseRNNA prefix epochs maxBatches width miniBatchSize totalBatchSize
                hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
                hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int -> (DomainsOD, StateAdam) -> IO DomainsOD
+       let runEpoch :: Int -> (HVectorOD, StateAdam) -> IO HVectorOD
            runEpoch n (params2, _) | n > epochs = return params2
            runEpoch n paramsStateAdam@(!_, !_) = do
              unless (width < 10) $
@@ -117,7 +117,7 @@ mnistTestCaseRNNA prefix epochs maxBatches width miniBatchSize totalBatchSize
                           $ chunksOf totalBatchSize trainDataShuffled
              res <- foldM runBatch paramsStateAdam chunks
              runEpoch (succ n) res
-       res <- runEpoch 1 (domainsInit, initialStateAdam domainsInit)
+       res <- runEpoch 1 (hVectorInit, initialStateAdam hVectorInit)
        let testErrorFinal =
              1 - ftest (totalBatchSize * maxBatches) testDataR res
        testErrorFinal @?~ expected
@@ -159,13 +159,13 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
             $ randomVals @(MnistRnnRanked2.ADRnnMnistParametersShaped
                              (Flip OS.Array) width r)
                 0.4 (mkStdGen 44)
-      domainsInit = toDomains valsInit
+      hVectorInit = toHVector valsInit
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show width, show miniBatchSize
-                        , show (V.length domainsInit)
-                        , show (sizeDomainsOD domainsInit) ]
-      ftest :: Int -> MnistDataBatchR r -> DomainsOD -> r
+                        , show (V.length hVectorInit)
+                        , show (sizeHVectorOD hVectorInit) ]
+      ftest :: Int -> MnistDataBatchR r -> HVectorOD -> r
       ftest = MnistRnnRanked2.rnnMnistTestR valsInit
   in testCase name $ do
        hPutStrLn stderr $
@@ -175,7 +175,7 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
                     <$> loadMnistData trainGlyphsPath trainLabelsPath
        testData <- map rankBatch . take (totalBatchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
-       (_, domainsPrimal, vars, _) <- funToAstRevIO domainsInit
+       (_, hVectorPrimal, vars, _) <- funToAstRevIO hVectorInit
        let testDataR = packBatchR testData
        (varGlyph, _, astGlyph) <-
          funToAstIOR
@@ -186,11 +186,11 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
        let ast :: AstRanked PrimalSpan r 0
            ast = MnistRnnRanked2.rnnMnistLossFusedR
                    miniBatchSize (astGlyph, astLabel)
-                   (parseDomains valsInit domainsPrimal)
-           runBatch :: (DomainsOD, StateAdam) -> (Int, [MnistDataR r])
-                    -> IO (DomainsOD, StateAdam)
+                   (parseHVector valsInit hVectorPrimal)
+           runBatch :: (HVectorOD, StateAdam) -> (Int, [MnistDataR r])
+                    -> IO (HVectorOD, StateAdam)
            runBatch (!parameters, !stateAdam) (k, chunk) = do
-             let f :: MnistDataBatchR r -> Domains (ADVal (Flip OR.Array))
+             let f :: MnistDataBatchR r -> HVector (ADVal (Flip OR.Array))
                    -> ADVal ranked r 0
                  f (glyph, label) varInputs =
                    let env = foldr extendEnvD EM.empty
@@ -212,7 +212,7 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
                hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
                hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int -> (DomainsOD, StateAdam) -> IO DomainsOD
+       let runEpoch :: Int -> (HVectorOD, StateAdam) -> IO HVectorOD
            runEpoch n (params2, _) | n > epochs = return params2
            runEpoch n paramsStateAdam@(!_, !_) = do
              unless (width < 10) $
@@ -223,7 +223,7 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
                           $ chunksOf totalBatchSize trainDataShuffled
              res <- foldM runBatch paramsStateAdam chunks
              runEpoch (succ n) res
-       res <- runEpoch 1 (domainsInit, initialStateAdam domainsInit)
+       res <- runEpoch 1 (hVectorInit, initialStateAdam hVectorInit)
        let testErrorFinal =
              1 - ftest (totalBatchSize * maxBatches) testDataR res
        testErrorFinal @?~ expected
@@ -266,13 +266,13 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
         valsInitShaped = fst $ randomVals 0.4 (mkStdGen 44)
         valsInit :: MnistRnnRanked2.ADRnnMnistParameters ranked r
         valsInit = forgetShape valsInitShaped
-        domainsInit = toDomains valsInit
+        hVectorInit = toHVector valsInit
         name = prefix ++ ": "
                ++ unwords [ show epochs, show maxBatches
                           , show width, show miniBatchSize
-                          , show (V.length domainsInit)
-                          , show (sizeDomainsOD domainsInit) ]
-        ftest :: Int -> MnistDataBatchR r -> DomainsOD -> r
+                          , show (V.length hVectorInit)
+                          , show (sizeHVectorOD hVectorInit) ]
+        ftest :: Int -> MnistDataBatchR r -> HVectorOD -> r
         ftest = MnistRnnRanked2.rnnMnistTestR valsInit
     in testCase name $ do
        hPutStrLn stderr $
@@ -294,29 +294,29 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
                        EM.empty
            f = MnistRnnRanked2.rnnMnistLossFusedR
                  miniBatchSize (astGlyph, astLabel)
-           g domains = f $ parseDomains valsInit domains
+           g hVector = f $ parseHVector valsInit hVector
            (((varDtAgain, vars1Again), gradientRaw, primal, sh), _) =
              revProduceArtifact @Nat @(AstRanked FullSpan)
-                                TensorToken False g envInit domainsInit
-           gradient = simplifyAstDomains6 gradientRaw
+                                TensorToken False g envInit hVectorInit
+           gradient = simplifyAstHVector6 gradientRaw
            vars1AndInputAgain = vars1Again ++ [varGlyphD, varLabelD]
            vars = (varDtAgain, vars1AndInputAgain)
-           go :: [MnistDataBatchR r] -> (DomainsOD, StateAdam)
-              -> (DomainsOD, StateAdam)
+           go :: [MnistDataBatchR r] -> (HVectorOD, StateAdam)
+              -> (HVectorOD, StateAdam)
            go [] (parameters, stateAdam) = (parameters, stateAdam)
            go ((glyph, label) : rest) (!parameters, !stateAdam) =
              let glyphD = DynamicRanked $ rconst glyph
                  labelD = DynamicRanked $ rconst label
                  parametersAndInput =
                    V.concat [parameters, V.fromList [glyphD, labelD]]
-                 gradientDomain =
+                 gradientHVector =
                    fst $ revEvalArtifact @Nat @(AstRanked FullSpan)
                                          (vars, gradient, primal, sh)
                                          parametersAndInput Nothing
              in go rest (updateWithGradientAdam defaultArgsAdam stateAdam
-                                                parameters gradientDomain)
-           runBatch :: (DomainsOD, StateAdam) -> (Int, [MnistDataR r])
-                    -> IO (DomainsOD, StateAdam)
+                                                parameters gradientHVector)
+           runBatch :: (HVectorOD, StateAdam) -> (Int, [MnistDataR r])
+                    -> IO (HVectorOD, StateAdam)
            runBatch (!parameters, !stateAdam) (k, chunk) = do
              let chunkR = map packBatchR
                           $ filter (\ch -> length ch == miniBatchSize)
@@ -332,7 +332,7 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
                hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
                hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int -> (DomainsOD, StateAdam) -> IO DomainsOD
+       let runEpoch :: Int -> (HVectorOD, StateAdam) -> IO HVectorOD
            runEpoch n (params2, _) | n > epochs = return params2
            runEpoch n paramsStateAdam@(!_, !_) = do
              unless (width < 10) $
@@ -343,7 +343,7 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
                           $ chunksOf totalBatchSize trainDataShuffled
              res <- foldM runBatch paramsStateAdam chunks
              runEpoch (succ n) res
-       res <- runEpoch 1 (domainsInit, initialStateAdam domainsInit)
+       res <- runEpoch 1 (hVectorInit, initialStateAdam hVectorInit)
        let testErrorFinal =
              1 - ftest (totalBatchSize * maxBatches) testDataR res
        assertEqualUpToEpsilon 1e-1 expected testErrorFinal

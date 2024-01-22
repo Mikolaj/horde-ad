@@ -12,7 +12,7 @@ module HordeAd.Core.AstTools
     -- * Determining if a term is too small to require sharing
   , astIsSmall, astIsSmallS
     -- * Odds and ends
-  , bindsToLet, bindsToLetS, bindsToDomainsLet
+  , bindsToLet, bindsToLetS, bindsToHVectorLet
   ) where
 
 import Prelude hiding (foldl')
@@ -87,7 +87,7 @@ shapeAst = \case
   AstCast t -> shapeAst t
   AstFromIntegral a -> shapeAst a
   AstConst a -> listShapeToShape $ OR.shapeL a
-  AstLetDomainsIn _ _ v -> shapeAst v
+  AstLetHVectorIn _ _ v -> shapeAst v
   AstSToR @sh _ -> listShapeToShape $ Sh.shapeT @sh
   AstConstant a -> shapeAst a
   AstPrimalPart a -> shapeAst a
@@ -140,7 +140,7 @@ varInAst var = \case
   AstVar _ var2 -> fromEnum var == fromEnum var2
   AstLet _var2 u v -> varInAst var u || varInAst var v
   AstLetADShare l v ->
-    varInADShare varInAstDynamic varInAstDomains var l || varInAst var v
+    varInADShare varInAstDynamic varInAstHVector var l || varInAst var v
   AstCond b v w ->
     varInAstBool var b || varInAst var v || varInAst var w
   AstMinIndex a -> varInAst var a
@@ -169,7 +169,7 @@ varInAst var = \case
   AstCast t -> varInAst var t
   AstFromIntegral t -> varInAst var t
   AstConst{} -> False
-  AstLetDomainsIn _vars l v -> varInAstDomains var l || varInAst var v
+  AstLetHVectorIn _vars l v -> varInAstHVector var l || varInAst var v
   AstSToR v -> varInAstS var v
   AstConstant v -> varInAst var v
   AstPrimalPart a -> varInAst var a
@@ -189,15 +189,15 @@ varInAst var = \case
   AstScanZipDer _f _df _rf x0 as ->
     varInAst var x0 || any (varInAstDynamic var) as
 
-varInAstDomains :: AstSpan s
-                => AstVarId -> AstDomains s -> Bool
-varInAstDomains var = \case
-  AstDomains l -> any (varInAstDynamic var) l
-  AstLetDomainsInDomains _vars2 u v ->
-    varInAstDomains var u || varInAstDomains var v
-  AstLetInDomains _var2 u v -> varInAst var u || varInAstDomains var v
-  AstLetInDomainsS _var2 u v -> varInAstS var u || varInAstDomains var v
-  AstBuildDomains1 _ (_var2, v) -> varInAstDomains var v
+varInAstHVector :: AstSpan s
+                => AstVarId -> AstHVector s -> Bool
+varInAstHVector var = \case
+  AstHVector l -> any (varInAstDynamic var) l
+  AstLetHVectorInHVector _vars2 u v ->
+    varInAstHVector var u || varInAstHVector var v
+  AstLetInHVector _var2 u v -> varInAst var u || varInAstHVector var v
+  AstLetInHVectorS _var2 u v -> varInAstS var u || varInAstHVector var v
+  AstBuildHVector1 _ (_var2, v) -> varInAstHVector var v
   AstRev _f l ->  -- _f has no non-bound variables
     any (varInAstDynamic var) l
   AstRevDt _f l dt ->  -- _f has no non-bound variables
@@ -234,7 +234,7 @@ varInAstS var = \case
   AstVarS var2 -> fromEnum var == fromEnum var2
   AstLetS _var2 u v -> varInAstS var u || varInAstS var v
   AstLetADShareS l v ->
-    varInADShare varInAstDynamic varInAstDomains var l || varInAstS var v
+    varInADShare varInAstDynamic varInAstHVector var l || varInAstS var v
   AstCondS b v w ->
     varInAstBool var b || varInAstS var v || varInAstS var w
   AstMinIndexS a -> varInAstS var a
@@ -263,7 +263,7 @@ varInAstS var = \case
   AstCastS t -> varInAstS var t
   AstFromIntegralS a -> varInAstS var a
   AstConstS{} -> False
-  AstLetDomainsInS _vars l v -> varInAstDomains var l || varInAstS var v
+  AstLetHVectorInS _vars l v -> varInAstHVector var l || varInAstS var v
   AstRToS v -> varInAst var v
   AstConstantS v -> varInAstS var v
   AstPrimalPartS a -> varInAstS var a
@@ -360,8 +360,8 @@ bindsToLet = foldl' bindToLet
           gcastWith (unsafeCoerce Refl :: n3 :~: Sh.Rank sh2) $
           AstLet @n3 @n @r2 @_ @s (AstVarName varId) (AstSToR @sh2 @s @r2 0) u
       DynamicShapedDummy @r2 @sh2 _ _ -> convertShaped @r2 @sh2 0
-  bindToLet u (_, AstBindingsDomains lids d) =
-    AstLetDomainsIn lids d u
+  bindToLet u (_, AstBindingsHVector lids d) =
+    AstLetHVectorIn lids d u
 
 bindsToLetS :: forall sh s r. (AstSpan s, Sh.Shape sh)
             => AstShaped s r sh -> AstBindings -> AstShaped s r sh
@@ -387,23 +387,23 @@ bindsToLetS = foldl' bindToLetS
                       (AstVarName varId) (AstSToR @sh2 @s @r2 0) (AstSToR u)
     DynamicShapedDummy @r2 @sh2 _ _ ->
       AstLetS @sh2 @sh @r2 @_ @s (AstVarName varId) 0 u
-  bindToLetS u (_, AstBindingsDomains lids d) =
-    AstLetDomainsInS lids d u
+  bindToLetS u (_, AstBindingsHVector lids d) =
+    AstLetHVectorInS lids d u
 
-bindsToDomainsLet
+bindsToHVectorLet
    :: forall s. AstSpan s
-   => AstDomains s -> AstBindings -> AstDomains s
-{-# INLINE bindsToDomainsLet #-}   -- help list fusion
-bindsToDomainsLet = foldl' bindToDomainsLet
+   => AstHVector s -> AstBindings -> AstHVector s
+{-# INLINE bindsToHVectorLet #-}   -- help list fusion
+bindsToHVectorLet = foldl' bindToHVectorLet
  where
-  bindToDomainsLet !u (varId, AstBindingsSimple d) = case d of
-    DynamicRanked w -> AstLetInDomains (AstVarName varId) w u
-    DynamicShaped w -> AstLetInDomainsS (AstVarName varId) w u
+  bindToHVectorLet !u (varId, AstBindingsSimple d) = case d of
+    DynamicRanked w -> AstLetInHVector (AstVarName varId) w u
+    DynamicShaped w -> AstLetInHVectorS (AstVarName varId) w u
     DynamicRankedDummy @r2 @sh2 _ _ ->
       withListShape (Sh.shapeT @sh2) $ \(_ :: ShapeInt n) ->
         gcastWith (unsafeCoerce Refl :: n :~: Sh.Rank sh2) $
-        AstLetInDomains @n @r2 @s (AstVarName varId) (AstSToR @sh2 @s @r2 0) u
+        AstLetInHVector @n @r2 @s (AstVarName varId) (AstSToR @sh2 @s @r2 0) u
     DynamicShapedDummy @r2 @sh2 _ _ ->
-      AstLetInDomainsS @sh2 @r2 @s (AstVarName varId) 0 u
-  bindToDomainsLet u (_, AstBindingsDomains lids d) =
-    AstLetDomainsInDomains lids d u
+      AstLetInHVectorS @sh2 @r2 @s (AstVarName varId) 0 u
+  bindToHVectorLet u (_, AstBindingsHVector lids d) =
+    AstLetHVectorInHVector lids d u

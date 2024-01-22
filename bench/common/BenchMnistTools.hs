@@ -43,22 +43,22 @@ mnistTrainBench1VTA extraPrefix chunkLength xs widthHidden widthHidden2
                           - LA.scalar 0.5)
              nParams1
       emptyR = Flip $ OR.fromList [0] []
-      domainsInit = V.fromList params1Init
+      hVectorInit = V.fromList params1Init
       valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters ranked r
       valsInit = ( (replicate widthHidden emptyR, emptyR)
                  , (replicate widthHidden2 emptyR, emptyR)
                  , (replicate sizeMnistLabelInt emptyR, emptyR) )
-      f :: MnistData r -> Domains (ADVal ranked)
+      f :: MnistData r -> HVector (ADVal ranked)
         -> ADVal ranked r 0
       f mnist adinputs =
         MnistFcnnRanked1.afcnnMnistLoss1
           widthHidden widthHidden2
-          mnist (parseDomains valsInit adinputs)
+          mnist (parseHVector valsInit adinputs)
       chunk = take chunkLength xs
-      grad c = fst $ sgd gamma f c domainsInit
+      grad c = fst $ sgd gamma f c hVectorInit
       name = extraPrefix
              ++ unwords [ "v" ++ show (length nParams1)
-                        , "m0" ++ " =" ++ show (sizeDomainsOD domainsInit) ]
+                        , "m0" ++ " =" ++ show (sizeHVectorOD hVectorInit) ]
   bench name $ nf grad chunk
 
 mnistTestBench1VTA :: forall ranked r. (ranked ~ Flip OR.Array, r ~ Double)
@@ -73,18 +73,18 @@ mnistTestBench1VTA extraPrefix chunkLength xs widthHidden widthHidden2 = do
                           - LA.scalar 0.5)
              nParams1
       emptyR = Flip $ OR.fromList [0] []
-      domainsInit = V.fromList params1Init
+      hVectorInit = V.fromList params1Init
       valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters ranked r
       valsInit = ( (replicate widthHidden emptyR, emptyR)
                  , (replicate widthHidden2 emptyR, emptyR)
                  , (replicate sizeMnistLabelInt emptyR, emptyR) )
-      ftest :: [MnistData r] -> DomainsOD -> r
+      ftest :: [MnistData r] -> HVectorOD -> r
       ftest = MnistFcnnRanked1.afcnnMnistTest1 valsInit widthHidden widthHidden2
       chunk = take chunkLength xs
-      score c = ftest c domainsInit
+      score c = ftest c hVectorInit
       name = "test " ++ extraPrefix
              ++ unwords [ "v" ++ show (length nParams1)
-                        , "m0" ++ " =" ++ show (sizeDomainsOD domainsInit) ]
+                        , "m0" ++ " =" ++ show (sizeHVectorOD hVectorInit) ]
   bench name $ whnf score chunk
 
 mnistBGroup1VTA :: [MnistData Double] -> Int -> Benchmark
@@ -124,14 +124,14 @@ mnistTrainBench1VTO extraPrefix chunkLength xs widthHidden widthHidden2
                           - LA.scalar 0.5)
              nParams1
       emptyR = Flip $ OR.fromList [0] []
-      domainsInit = V.fromList params1Init
+      hVectorInit = V.fromList params1Init
       valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters ranked r
       valsInit = ( (replicate widthHidden emptyR, emptyR)
                  , (replicate widthHidden2 emptyR, emptyR)
                  , (replicate sizeMnistLabelInt emptyR, emptyR) )
       name = extraPrefix
              ++ unwords [ "v" ++ show (length nParams1)
-                        , "m0" ++ " =" ++ show (sizeDomainsOD domainsInit) ]
+                        , "m0" ++ " =" ++ show (sizeHVectorOD hVectorInit) ]
   bench name $ nfIO $ do
     (varGlyph, varGlyphD, astGlyph) <-
       funToAstIOR (singletonShape sizeMnistGlyphInt) id
@@ -143,13 +143,13 @@ mnistTrainBench1VTO extraPrefix chunkLength xs widthHidden widthHidden2
         f = MnistFcnnRanked1.afcnnMnistLoss1TensorData @(AstRanked FullSpan)
               widthHidden widthHidden2
               (rconstant astGlyph, rconstant astLabel)
-        g domains = f $ parseDomains valsInit domains
+        g hVector = f $ parseHVector valsInit hVector
         (((varDtAgain, vars1Again), gradientRaw, primal, sh), _) =
-          revProduceArtifact TensorToken False g envInit domainsInit
-        gradient = simplifyAstDomains6 gradientRaw
+          revProduceArtifact TensorToken False g envInit hVectorInit
+        gradient = simplifyAstHVector6 gradientRaw
         vars1AndInputAgain = vars1Again ++ [varGlyphD, varLabelD]
         vars = (varDtAgain, vars1AndInputAgain)
-        go :: [MnistData r] -> DomainsOD -> DomainsOD
+        go :: [MnistData r] -> HVectorOD -> HVectorOD
         go [] parameters = parameters
         go ((glyph, label) : rest) !parameters =
           let glyphD = DynamicRanked @r @1
@@ -158,13 +158,13 @@ mnistTrainBench1VTO extraPrefix chunkLength xs widthHidden widthHidden2
                        $ Flip $ OR.fromVector [sizeMnistLabelInt] label
               parametersAndInput =
                 V.concat [parameters, V.fromList [glyphD, labelD]]
-              gradientDomain =
+              gradientHVector =
                 fst $ revEvalArtifact @Nat @(AstRanked FullSpan)
                                       (vars, gradient, primal, sh)
                                       parametersAndInput Nothing
-          in go rest (updateWithGradient gamma parameters gradientDomain)
+          in go rest (updateWithGradient gamma parameters gradientHVector)
         chunk = take chunkLength xs
-        grad c = go c domainsInit
+        grad c = go c hVectorInit
     return $! grad chunk
 
 mnistTestBench1VTO :: forall r. r ~ Double
@@ -216,17 +216,17 @@ mnistTrainBench2VTA extraPrefix chunkLength xs widthHidden widthHidden2
                     1 (mkStdGen 44)
               Nothing -> error "valsInit: impossible someNatVal error"
           Nothing -> error "valsInit: impossible someNatVal error"
-      domainsInit = toDomains valsInit
-      f :: MnistData r -> Domains (ADVal ranked)
+      hVectorInit = toHVector valsInit
+      f :: MnistData r -> HVector (ADVal ranked)
         -> ADVal ranked r 0
       f mnist adinputs =
         MnistFcnnRanked2.afcnnMnistLoss2
-          mnist (parseDomains valsInit adinputs)
+          mnist (parseHVector valsInit adinputs)
       chunk = take chunkLength xs
-      grad c = fst $ sgd gamma f c domainsInit
+      grad c = fst $ sgd gamma f c hVectorInit
       name = extraPrefix
-             ++ unwords [ "v0 m" ++ show (V.length domainsInit)
-                        , " =" ++ show (sizeDomainsOD domainsInit) ]
+             ++ unwords [ "v0 m" ++ show (V.length hVectorInit)
+                        , " =" ++ show (sizeHVectorOD hVectorInit) ]
   bench name $ nf grad chunk
 
 mnistTestBench2VTA :: forall ranked r. (ranked ~ Flip OR.Array, r ~ Double)
@@ -246,14 +246,14 @@ mnistTestBench2VTA extraPrefix chunkLength xs widthHidden widthHidden2 = do
                     1 (mkStdGen 44)
               Nothing -> error "valsInit: impossible someNatVal error"
           Nothing -> error "valsInit: impossible someNatVal error"
-      domainsInit = toDomains valsInit
-      ftest :: [MnistData r] -> DomainsOD -> r
+      hVectorInit = toHVector valsInit
+      ftest :: [MnistData r] -> HVectorOD -> r
       ftest = MnistFcnnRanked2.afcnnMnistTest2 valsInit
       chunk = take chunkLength xs
-      score c = ftest c domainsInit
+      score c = ftest c hVectorInit
       name = "test " ++ extraPrefix
-             ++ unwords [ "v0 m" ++ show (V.length domainsInit)
-                        , " =" ++ show (sizeDomainsOD domainsInit) ]
+             ++ unwords [ "v0 m" ++ show (V.length hVectorInit)
+                        , " =" ++ show (sizeHVectorOD hVectorInit) ]
   bench name $ whnf score chunk
 
 mnistBGroup2VTA :: [MnistData Double] -> Int -> Benchmark
@@ -302,10 +302,10 @@ mnistTrainBench2VTO extraPrefix chunkLength xs widthHidden widthHidden2
                     1 (mkStdGen 44)
               Nothing -> error "valsInit: impossible someNatVal error"
           Nothing -> error "valsInit: impossible someNatVal error"
-      domainsInit = toDomains valsInit
+      hVectorInit = toHVector valsInit
       name = extraPrefix
-             ++ unwords [ "v0 m" ++ show (V.length domainsInit)
-                        , " =" ++ show (sizeDomainsOD domainsInit) ]
+             ++ unwords [ "v0 m" ++ show (V.length hVectorInit)
+                        , " =" ++ show (sizeHVectorOD hVectorInit) ]
   bench name $ nfIO $ do
     (varGlyph, varGlyphD, astGlyph) <-
       funToAstIOR (singletonShape sizeMnistGlyphInt) id
@@ -316,13 +316,13 @@ mnistTrainBench2VTO extraPrefix chunkLength xs widthHidden widthHidden2
                   EM.empty
         f = MnistFcnnRanked2.afcnnMnistLoss2TensorData @(AstRanked FullSpan)
               (rconstant astGlyph, rconstant astLabel)
-        g domains = f $ parseDomains valsInit domains
+        g hVector = f $ parseHVector valsInit hVector
         (((varDtAgain, vars1Again), gradientRaw, primal, sh), _) =
-          revProduceArtifact TensorToken False g envInit domainsInit
-        gradient = simplifyAstDomains6 gradientRaw
+          revProduceArtifact TensorToken False g envInit hVectorInit
+        gradient = simplifyAstHVector6 gradientRaw
         vars1AndInputAgain = vars1Again ++ [varGlyphD, varLabelD]
         vars = (varDtAgain, vars1AndInputAgain)
-        go :: [MnistData r] -> DomainsOD -> DomainsOD
+        go :: [MnistData r] -> HVectorOD -> HVectorOD
         go [] parameters = parameters
         go ((glyph, label) : rest) !parameters =
           let glyphD = DynamicRanked @r @1
@@ -331,13 +331,13 @@ mnistTrainBench2VTO extraPrefix chunkLength xs widthHidden widthHidden2
                        $ Flip $ OR.fromVector [sizeMnistLabelInt] label
               parametersAndInput =
                 V.concat [parameters, V.fromList [glyphD, labelD]]
-              gradientDomain =
+              gradientHVector =
                 fst $ revEvalArtifact @Nat @(AstRanked FullSpan)
                                       (vars, gradient, primal, sh)
                                       parametersAndInput Nothing
-          in go rest (updateWithGradient gamma parameters gradientDomain)
+          in go rest (updateWithGradient gamma parameters gradientHVector)
         chunk = take chunkLength xs
-        grad c = go c domainsInit
+        grad c = go c hVectorInit
     return $! grad chunk
 
 mnistTestBench2VTO :: forall r. r ~ Double
