@@ -406,34 +406,44 @@ saddDynamic r (DynamicShapedDummy @r2 @sh2 _ _) = case sameShape @sh2 @sh of
 sumDynamicRanked :: RankedTensor ranked
                  => [DynamicTensor ranked] -> DynamicTensor ranked
 sumDynamicRanked [] = error "sumDynamicRanked: empty list"
-sumDynamicRanked (DynamicRanked t : ds) =
-  DynamicRanked $ foldl' raddDynamic t ds
-sumDynamicRanked (DynamicShaped @_ @sh t : ds) =
-  withListShape (Sh.shapeT @sh) $ \(_ :: ShapeInt n) ->
-    gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: n) $
-    DynamicRanked $ foldl' raddDynamic (rfromS t) ds
-sumDynamicRanked (DynamicRankedDummy @r @sh _ _ : ds) =
-  withListShape (Sh.shapeT @sh) $ \sh1 ->
-    DynamicRanked @r $ foldl' raddDynamic (rzero sh1) ds
-sumDynamicRanked (DynamicShapedDummy @r @sh _ _ : ds) =
-  withListShape (Sh.shapeT @sh) $ \sh1 ->
-    DynamicRanked @r $ foldl' raddDynamic (rzero sh1) ds
+sumDynamicRanked dsOrig@(d : _) =
+  let dsFiltered = filter (not . isDynamicDummy) dsOrig
+  in case (dsFiltered, d) of
+    (DynamicRanked t : ds, _) ->
+      DynamicRanked $ foldl' raddDynamic t ds
+    (DynamicShaped @_ @sh t : ds, _) ->
+      withListShape (Sh.shapeT @sh) $ \(_ :: ShapeInt n) ->
+        gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: n) $
+        DynamicRanked $ foldl' raddDynamic (rfromS t) ds
+    (_ : _, _) -> error "sumDynamicRanked: wrong filtering"
+    ([], DynamicRankedDummy @r @sh _ _) ->
+      withListShape (Sh.shapeT @sh) $ \sh1 ->
+        DynamicRanked @r (rzero sh1)
+    ([], DynamicShapedDummy @r @sh _ _) ->
+      withListShape (Sh.shapeT @sh) $ \sh1 ->
+        DynamicRanked @r (rzero sh1)
+    ([], _) -> error "sumDynamicRanked: wrong filtering"
 
 sumDynamicShaped :: ( RankedTensor (RankedOf shaped), ShapedTensor shaped
                     , ShapedOf (RankedOf shaped) ~ shaped )
                  => [DynamicTensor (RankedOf shaped)]
                  -> DynamicTensor (RankedOf shaped)
 sumDynamicShaped [] = error "sumDynamicShaped: empty list"
-sumDynamicShaped (DynamicRanked @_ @n t : ds) =
-  Sh.withShapeP (shapeToList $ rshape t) $ \(Proxy @sh) ->
-    gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: n) $
-    DynamicShaped $ foldl' saddDynamic (sfromR @_ @_ @sh t) ds
-sumDynamicShaped (DynamicShaped t : ds) =
-  DynamicShaped $ foldl' saddDynamic t ds
-sumDynamicShaped (DynamicRankedDummy @r @sh _ _ : ds) =
-  DynamicShaped @r @sh $ foldl' saddDynamic 0 ds
-sumDynamicShaped (DynamicShapedDummy @r @sh _ _ : ds) =
-  DynamicShaped @r @sh $ foldl' saddDynamic 0 ds
+sumDynamicShaped dsOrig@(d : _) =
+  let dsFiltered = filter (not . isDynamicDummy) dsOrig
+  in case (dsFiltered, d) of
+    (DynamicRanked @_ @n t : ds, _) ->
+      Sh.withShapeP (shapeToList $ rshape t) $ \(Proxy @sh) ->
+        gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: n) $
+        DynamicShaped $ foldl' saddDynamic (sfromR @_ @_ @sh t) ds
+    (DynamicShaped t : ds, _) ->
+      DynamicShaped $ foldl' saddDynamic t ds
+    (_ : _, _) -> error "sumDynamicShaped: wrong filtering"
+    ([], DynamicRankedDummy @r @sh _ _) ->
+      DynamicShaped @r @sh 0
+    ([], DynamicShapedDummy @r @sh _ _) ->
+      DynamicShaped @r @sh 0
+    ([], _) -> error "sumDynamicShaped: wrong filtering"
 
 
 -- * Shaped tensor class definition
@@ -1117,11 +1127,17 @@ rankDynamic (DynamicShaped @_ @sh _) = length $ Sh.shapeT @sh
 rankDynamic (DynamicRankedDummy _ proxy_sh) = length $ Sh.shapeP proxy_sh
 rankDynamic (DynamicShapedDummy _ proxy_sh) = length $ Sh.shapeP proxy_sh
 
-isRankedDynamic :: DynamicTensor ranked -> Bool
-isRankedDynamic DynamicRanked{} = True
-isRankedDynamic DynamicShaped{} = False
-isRankedDynamic DynamicRankedDummy{} = True
-isRankedDynamic DynamicShapedDummy{} = False
+isDynamicRanked :: DynamicTensor ranked -> Bool
+isDynamicRanked DynamicRanked{} = True
+isDynamicRanked DynamicShaped{} = False
+isDynamicRanked DynamicRankedDummy{} = True
+isDynamicRanked DynamicShapedDummy{} = False
+
+isDynamicDummy :: DynamicTensor ranked -> Bool
+isDynamicDummy DynamicRanked{} = False
+isDynamicDummy DynamicShaped{} = False
+isDynamicDummy DynamicRankedDummy{} = True
+isDynamicDummy DynamicShapedDummy{} = True
 
 domainsMatch :: forall f g. (RankedTensor f, RankedTensor g)
              => Domains f -> Domains g -> Bool
@@ -1131,7 +1147,7 @@ domainsMatch v1 v2 =
         (DynamicScalar @ru _, DynamicScalar @rt _) ->
           isJust (testEquality (typeRep @rt) (typeRep @ru))
           && shapeDynamic @f t == shapeDynamic @g u
-          && isRankedDynamic @f t == isRankedDynamic @g u
+          && isDynamicRanked @f t == isDynamicRanked @g u
   in V.length v1 == V.length v2
      && and (V.zipWith dynamicMatch v1 v2)
 
