@@ -109,7 +109,7 @@ instance DerivativeStages (AstRanked FullSpan) where
         -> [AstDynamicVarName]
         -> HVector (AstRanked FullSpan)
         -> ADVal (AstRanked PrimalSpan) r n)
-    -> HVectorOD
+    -> VoidHVector
     -> ( AstArtifactRev (AstRanked PrimalSpan) r n
        , Dual (AstRanked PrimalSpan) r n )
   {-# INLINE revArtifactFromForwardPass #-}
@@ -154,7 +154,7 @@ instance DerivativeStages (AstRanked FullSpan) where
         -> [AstDynamicVarName]
         -> HVector (AstRanked FullSpan)
         -> ADVal (AstRanked PrimalSpan) r n)
-    -> HVectorOD
+    -> VoidHVector
     -> ( AstArtifactFwd (AstRanked PrimalSpan) r n
        , Dual (AstRanked PrimalSpan) r n )
   {-# INLINE fwdArtifactFromForwardPass #-}
@@ -217,7 +217,7 @@ instance DerivativeStages (AstShaped FullSpan) where
         -> [AstDynamicVarName]
         -> HVector (AstRanked FullSpan)
         -> ADVal (AstShaped PrimalSpan) r sh)
-    -> HVectorOD
+    -> VoidHVector
     -> ( AstArtifactRev (AstShaped PrimalSpan) r sh
        , Dual (AstShaped PrimalSpan) r sh )
   {-# INLINE revArtifactFromForwardPass #-}
@@ -252,7 +252,7 @@ instance DerivativeStages (AstShaped FullSpan) where
         -> [AstDynamicVarName]
         -> HVector (AstRanked FullSpan)
         -> ADVal (AstShaped PrimalSpan) r sh)
-    -> HVectorOD
+    -> VoidHVector
     -> ( AstArtifactFwd (AstShaped PrimalSpan) r sh
        , Dual (AstShaped PrimalSpan) r sh )
   {-# INLINE fwdArtifactFromForwardPass #-}
@@ -414,7 +414,7 @@ instance ( GoodScalar r, KnownNat n
 
 astLetHVectorInFun
   :: forall n s r. (KnownNat n, GoodScalar r, AstSpan s)
-  => HVectorOD -> AstHVector s -> (HVector (AstRanked s) -> AstRanked s r n)
+  => VoidHVector -> AstHVector s -> (HVector (AstRanked s) -> AstRanked s r n)
   -> AstRanked s r n
 {-# INLINE astLetHVectorInFun #-}
 astLetHVectorInFun a0 a f =
@@ -533,7 +533,7 @@ instance ( GoodScalar r, Sh.Shape sh
 
 astLetHVectorInFunS
   :: forall sh s r. (Sh.Shape sh, GoodScalar r, AstSpan s)
-  => HVectorOD -> AstHVector s -> (HVector (AstRanked s) -> AstShaped s r sh)
+  => VoidHVector -> AstHVector s -> (HVector (AstRanked s) -> AstShaped s r sh)
   -> AstShaped s r sh
 {-# INLINE astLetHVectorInFunS #-}
 astLetHVectorInFunS a0 a f =
@@ -616,7 +616,7 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   dbuild1 = astBuildHVector1Vectorize
   rrev :: (GoodScalar r, KnownNat n)
        => (forall f. ADReady f => HVector f -> f r n)
-       -> HVectorOD
+       -> VoidHVector
        -> HVector (AstRanked s)
        -> AstHVector s
   rrev f parameters0 =
@@ -625,7 +625,7 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     let (((_varDt, vars), gradient, _primal, _sh), _delta) =
           revProduceArtifact TensorToken False (f @(AstRanked FullSpan))
                              EM.empty parameters0
-    in \parameters -> assert (voidVectorMatches parameters0 parameters) $
+    in \parameters -> assert (voidHVectorMatches parameters0 parameters) $
       let env = extendEnvPars @(AstRanked s) vars parameters EM.empty
       in interpretAstHVector env gradient
         -- this interpretation both substitutes parameters for the variables and
@@ -634,7 +634,7 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
         -- are the same variables, but it's a very special case
   rrevDt :: (GoodScalar r, KnownNat n)
          => (forall f. ADReady f => HVector f -> f r n)
-         -> HVectorOD
+         -> VoidHVector
          -> HVector (AstRanked s)
          -> AstRanked s r n
          -> AstHVector s
@@ -642,13 +642,13 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     let (((varDt, vars), gradient, _primal, _sh), _delta) =
           revProduceArtifact TensorToken True (f @(AstRanked FullSpan))
                              EM.empty parameters0
-    in \parameters dt -> assert (voidVectorMatches parameters0 parameters) $
+    in \parameters dt -> assert (voidHVectorMatches parameters0 parameters) $
       let env = extendEnvPars @(AstRanked s) vars parameters EM.empty
           envDt = extendEnvR varDt dt env
       in interpretAstHVector envDt gradient
   rfwd :: (GoodScalar r, KnownNat n)
        => (forall f. ADReady f => HVector f -> f r n)
-       -> HVectorOD
+       -> VoidHVector
        -> HVector (AstRanked s)
        -> HVector (AstRanked s)
        -> AstRanked s r n
@@ -656,7 +656,7 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     let (((varsDt, vars), derivative, _primal), _delta) =
           fwdProduceArtifact TensorToken (f @(AstRanked FullSpan))
                              EM.empty parameters0
-    in \parameters ds -> assert (voidVectorMatches parameters0 parameters) $
+    in \parameters ds -> assert (voidHVectorMatches parameters0 parameters) $
       let env = extendEnvPars @(AstRanked s) vars parameters EM.empty
           envDt = extendEnvPars @(AstRanked s) varsDt ds env
       in interpretAst envDt derivative
@@ -664,14 +664,14 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     let (((_varDt, vars), gradient, _primal, _sh), _delta) =
           revProduceArtifact TensorToken False (f @(AstShaped FullSpan))
                              EM.empty parameters0
-    in \parameters -> assert (voidVectorMatches parameters0 parameters) $
+    in \parameters -> assert (voidHVectorMatches parameters0 parameters) $
       let env = extendEnvPars @(AstRanked s) vars parameters EM.empty
       in interpretAstHVector env gradient
   srevDt f parameters0 =
     let (((varDt, vars), gradient, _primal, _sh), _delta) =
           revProduceArtifact TensorToken True (f @(AstShaped FullSpan))
                              EM.empty parameters0
-    in \parameters dt -> assert (voidVectorMatches parameters0 parameters) $
+    in \parameters dt -> assert (voidHVectorMatches parameters0 parameters) $
       let env = extendEnvPars @(AstRanked s) vars parameters EM.empty
           envDt = extendEnvS varDt dt env
       in interpretAstHVector envDt gradient
@@ -679,7 +679,7 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     let (((varsDt, vars), derivative, _primal), _delta) =
           fwdProduceArtifact TensorToken (f @(AstShaped FullSpan))
                              EM.empty parameters0
-    in \parameters ds -> assert (voidVectorMatches parameters0 parameters) $
+    in \parameters ds -> assert (voidHVectorMatches parameters0 parameters) $
       let env = extendEnvPars @(AstRanked s) vars parameters EM.empty
           envDt = extendEnvPars @(AstRanked s) varsDt ds env
       in interpretAstS envDt derivative
@@ -692,7 +692,7 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   rfold f x0 as =
     let shn = rshape x0
         shm = tailShape $ rshape as
-        domsF = V.fromList [odFromSh @rn shn, odFromSh @rm shm]
+        domsF = V.fromList [voidFromSh @rn shn, voidFromSh @rm shm]
         domsToPair :: forall f. ADReady f => HVector f -> (f rn n, f rm m)
         domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
         g :: HVector (AstRanked FullSpan) -> AstRanked FullSpan rn n
@@ -733,7 +733,7 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
                   (fun3ToAstR shn shm rf) x0 as
   rfoldZip :: forall rn n. (GoodScalar rn, KnownNat n)
          => (forall f. ADReady f => f rn n -> HVector f -> f rn n)
-         -> HVectorOD
+         -> VoidHVector
          -> AstRanked s rn n
          -> HVector (AstRanked s)
          -> AstRanked s rn n
@@ -743,9 +743,9 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
       [] -> error "rfoldZip: wrong rank of argument"
       width : _shm -> case someNatVal $ toInteger width of
         Just (SomeNat @k _) ->
-          assert (voidVectorMatches (replicate1HVectorVoid (Proxy @k) domsOD) asD) $
+          assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD) asD) $
           let shn = rshape x0
-              domsF = V.cons (odFromSh @rn shn) domsOD
+              domsF = V.cons (voidFromSh @rn shn) domsOD
               domsToPair :: forall f. ADReady f
                          => HVector f -> (f rn n, HVector f)
               domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
@@ -776,7 +776,7 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
             -> (forall f. ADReady f
                 => f rn n -> f rn n -> HVector f
                 -> HVectorOf f)
-            -> HVectorOD
+            -> VoidHVector
             -> AstRanked s rn n
             -> HVector (AstRanked s)
             -> AstRanked s rn n
@@ -786,7 +786,7 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
       [] -> error "rfoldZipDer: wrong rank of argument"
       width : _shm -> case someNatVal $ toInteger width of
         Just (SomeNat @k _) ->
-          assert (voidVectorMatches (replicate1HVectorVoid (Proxy @k) domsOD) asD) $
+          assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD) asD) $
           let shn = rshape x0
           in AstFoldZipDer (fun2DToAstR shn f domsOD)
                            (fun4DToAstR shn df domsOD)
@@ -801,7 +801,7 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   rscan f x0 as =
     let shn = rshape x0
         shm = tailShape $ rshape as
-        domsF = V.fromList [odFromSh @rn shn, odFromSh @rm shm]
+        domsF = V.fromList [voidFromSh @rn shn, voidFromSh @rm shm]
         domsToPair :: forall f. ADReady f => HVector f -> (f rn n, f rm m)
         domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
         g :: HVector (AstRanked FullSpan) -> AstRanked FullSpan rn n
@@ -843,7 +843,7 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
                   (fun3ToAstR shn shm rf) x0 as
   rscanZip :: forall rn n. (GoodScalar rn, KnownNat n)
          => (forall f. ADReady f => f rn n -> HVector f -> f rn n)
-         -> HVectorOD
+         -> VoidHVector
          -> AstRanked s rn n
          -> HVector (AstRanked s)
          -> AstRanked s rn (1 + n)
@@ -853,9 +853,9 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
       [] -> error "rscanZip: wrong rank of argument"
       width : _shm -> case someNatVal $ toInteger width of
         Just (SomeNat @k _) ->
-          assert (voidVectorMatches (replicate1HVectorVoid (Proxy @k) domsOD) asD) $
+          assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD) asD) $
           let shn = rshape x0
-              domsF = V.cons (odFromSh @rn shn) domsOD
+              domsF = V.cons (voidFromSh @rn shn) domsOD
               domsToPair :: forall f. ADReady f
                          => HVector f -> (f rn n, HVector f)
               domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
@@ -886,7 +886,7 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
             -> (forall f. ADReady f
                 => f rn n -> f rn n -> HVector f
                 -> HVectorOf f)
-            -> HVectorOD
+            -> VoidHVector
             -> AstRanked s rn n
             -> HVector (AstRanked s)
             -> AstRanked s rn (1 + n)
@@ -896,7 +896,7 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
       [] -> error "rscanZipDer: wrong rank of argument"
       width : _shm -> case someNatVal $ toInteger width of
         Just (SomeNat @k _) ->
-          assert (voidVectorMatches (replicate1HVectorVoid (Proxy @k) domsOD) asD) $
+          assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD) asD) $
           let shn = rshape x0
           in AstScanZipDer (fun2DToAstR shn f domsOD)
                            (fun4DToAstR shn df domsOD)
@@ -909,7 +909,7 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
         -> AstShaped s rm (k ': shm)
         -> AstShaped s rn sh
   sfold f x0 as =
-    let domsF = V.fromList [odFromShS @rn @sh, odFromShS @rm @shm]
+    let domsF = V.fromList [voidFromShS @rn @sh, voidFromShS @rm @shm]
         domsToPair :: forall f. ADReadyS f
                    => HVector (RankedOf f) -> (f rn sh, f rm shm)
         domsToPair doms = (sfromD $ doms V.! 0, sfromD $ doms V.! 1)
@@ -946,7 +946,7 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   sfoldZip :: forall rn sh. (GoodScalar rn, Sh.Shape sh)
          => (forall f. ADReadyS f
              => f rn sh -> HVector (RankedOf f) -> f rn sh)
-         -> HVectorOD
+         -> VoidHVector
          -> AstShaped s rn sh
          -> HVector (AstRanked s)
          -> AstShaped s rn sh
@@ -956,8 +956,8 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
       [] -> error "sfoldZip: wrong rank of argument"
       width : _shm -> case someNatVal $ toInteger width of
         Just (SomeNat @k _) ->
-          assert (voidVectorMatches (replicate1HVectorVoid (Proxy @k) domsOD) asD) $
-          let domsF = V.cons (odFromShS @rn @sh) domsOD
+          assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD) asD) $
+          let domsF = V.cons (voidFromShS @rn @sh) domsOD
               domsToPair :: forall f. ADReadyS f
                             => HVector (RankedOf f)
                             -> (f rn sh, HVector (RankedOf f))
@@ -991,7 +991,7 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
             -> (forall f. ADReadyS f
                 => f rn sh -> f rn sh -> HVector (RankedOf f)
                 -> HVectorOf (RankedOf f))
-            -> HVectorOD
+            -> VoidHVector
             -> AstShaped s rn sh
             -> HVector (AstRanked s)
             -> AstShaped s rn sh
@@ -1001,7 +1001,7 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
       [] -> error "sfoldZipDer: wrong rank of argument"
       width : _shm -> case someNatVal $ toInteger width of
         Just (SomeNat @k _) ->
-          assert (voidVectorMatches (replicate1HVectorVoid (Proxy @k) domsOD) asD) $
+          assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD) asD) $
           AstFoldZipDerS (fun2DToAstS @_ @_ @sh f domsOD)
                          (fun4DToAstS @_ @_ @sh df domsOD)
                          (fun3DToAstS @_ @_ @sh rf domsOD) x0 asD
@@ -1013,7 +1013,7 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
         -> AstShaped s rm (k ': shm)
         -> AstShaped s rn (1 + k ': sh)
   sscan f x0 as =
-    let domsF = V.fromList [odFromShS @rn @sh, odFromShS @rm @shm]
+    let domsF = V.fromList [voidFromShS @rn @sh, voidFromShS @rm @shm]
         domsToPair :: forall f. ADReadyS f
                    => HVector (RankedOf f) -> (f rn sh, f rm shm)
         domsToPair doms = (sfromD $ doms V.! 0, sfromD $ doms V.! 1)
@@ -1053,13 +1053,13 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   sscanZip :: forall k rn sh. (GoodScalar rn, Sh.Shape sh, KnownNat k)
          => (forall f. ADReadyS f
              => f rn sh -> HVector (RankedOf f) -> f rn sh)
-         -> HVectorOD
+         -> VoidHVector
          -> AstShaped s rn sh
          -> HVector (AstRanked s)
          -> AstShaped s rn (1 + k ': sh)
   sscanZip f domsOD x0 asD =
-    assert (voidVectorMatches (replicate1HVectorVoid (Proxy @k) domsOD) asD) $
-    let domsF = V.cons (odFromShS @rn @sh) domsOD
+    assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD) asD) $
+    let domsF = V.cons (voidFromShS @rn @sh) domsOD
         domsToPair :: forall f. ADReadyS f
                       => HVector (RankedOf f)
                       -> (f rn sh, HVector (RankedOf f))
@@ -1092,19 +1092,19 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
             -> (forall f. ADReadyS f
                 => f rn sh -> f rn sh -> HVector (RankedOf f)
                 -> HVectorOf (RankedOf f))
-            -> HVectorOD
+            -> VoidHVector
             -> AstShaped s rn sh
             -> HVector (AstRanked s)
             -> AstShaped s rn (1 + k ': sh)
   sscanZipDer f df rf domsOD x0 asD =
-    assert (voidVectorMatches (replicate1HVectorVoid (Proxy @k) domsOD) asD) $
+    assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD) asD) $
     AstScanZipDerS (fun2DToAstS @_ @_ @sh f domsOD)
                    (fun4DToAstS @_ @_ @sh df domsOD)
                    (fun3DToAstS @_ @_ @sh rf domsOD) x0 asD
 
 astLetHVectorInHVectorFun
   :: AstSpan s
-  => HVectorOD -> AstHVector s -> (HVector (AstRanked s) -> AstHVector s)
+  => VoidHVector -> AstHVector s -> (HVector (AstRanked s) -> AstHVector s)
   -> AstHVector s
 {-# INLINE astLetHVectorInHVectorFun #-}
 astLetHVectorInHVectorFun a0 a f =

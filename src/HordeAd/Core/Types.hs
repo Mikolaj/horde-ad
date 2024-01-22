@@ -7,7 +7,7 @@ module HordeAd.Core.Types
     -- * Some fundamental constraints
   , GoodScalar, HasSingletonDict, Differentiable, IfDifferentiable(..)
     -- * Type definitions for dynamic tensors and tensor collections
-  , DynamicTensor(..), CRanked, CShaped, HVector, VoidTensor, HVectorOD
+  , DynamicTensor(..), CRanked, CShaped, HVector, VoidTensor, VoidHVector
     -- * Type families that tensors will belong to
   , RankedOf, ShapedOf, HVectorOf, PrimalOf, DualOf, DummyDual(..)
     -- * Generic types of indexes used in tensor operations
@@ -166,7 +166,7 @@ type instance RankedOf VoidTensor = VoidTensor
 
 type instance ShapedOf VoidTensor = VoidTensor
 
-type HVectorOD = HVector VoidTensor
+type VoidHVector = HVector VoidTensor
 
 
 -- * Type families that tensors will belong to

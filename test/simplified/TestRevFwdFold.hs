@@ -180,7 +180,7 @@ fooRrev (x, y, z) =
   let fHVector :: forall f. ADReady f => HVector f -> f a 0
       fHVector v = foo (rfromD $ v V.! 0, rfromD $ v V.! 1, rfromD $ v V.! 2)
       sh = []
-      zero = odFromSh @a @0 sh
+      zero = voidFromSh @a @0 sh
       shapes = V.fromList [zero, zero, zero]
       domsOf = rrev @g fHVector shapes
                     (V.fromList
@@ -1075,7 +1075,7 @@ testSin0ScanD0 = do
     1
     (rev' (let f :: forall f. ADReady f => f Double 0 -> f Double 1
                f x0 = rscanZip (\x _a -> sin x)
-                             (V.fromList [odFromSh @Double ZS])
+                             (V.fromList [voidFromSh @Double ZS])
                              x0 (V.singleton $ DynamicRanked
                                  $ rzero @f @Double (0 :$ ZS))
            in f) 1.1)
@@ -1085,7 +1085,7 @@ testSin0ScanD1 = do
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [1,1,1,1,1] [1.4535961214255773] :: OR.Array 5 Double)
     (rev' (\x0 -> rscanZip (\x _a -> sin x)
-                         (V.fromList [odFromSh @Double ZS])
+                         (V.fromList [voidFromSh @Double ZS])
                          x0 (V.singleton $ DynamicRanked
                              $ rconst (OR.constant @Double @1 [1] 42)))
           (rreplicate0N [1,1,1,1,1] 1.1))
@@ -1095,7 +1095,7 @@ testSin0ScanD2 = do
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [1,1,1,1,1] [2.2207726343670955] :: OR.Array 5 Double)
     (rev' (\x0 -> rscanZip (\x _a -> sin x)
-                         (V.fromList [odFromSh @Double ZS])
+                         (V.fromList [voidFromSh @Double ZS])
                          x0 (V.singleton $ DynamicRanked
                              $ rconst (OR.constant @Double @1 [5] 42)))
           (rreplicate0N [1,1,1,1,1] 1.1))
@@ -1107,8 +1107,8 @@ testSin0ScanD3 = do
     (rev' (\a0 -> rscanZip (\_x a ->
                             sin $ rfromD @Double @5
                                     (a V.! 0))
-                         (V.fromList [ odFromSh @Double (1 :$ 1 :$ 1 :$ 1 :$ 1 :$ ZS)
-                                     , odFromSh @Double (4 :$ 5 :$ 6 :$ 7 :$ 8 :$ ZS) ])
+                         (V.fromList [ voidFromSh @Double (1 :$ 1 :$ 1 :$ 1 :$ 1 :$ ZS)
+                                     , voidFromSh @Double (4 :$ 5 :$ 6 :$ 7 :$ 8 :$ ZS) ])
                          (rreplicate0N [1,1,1,1,1] 84)
                          (V.fromList
                             [ DynamicRanked
@@ -1124,7 +1124,7 @@ testSin0ScanD4 = do
     (OR.fromList [1,1,1,1,1] [-0.4458209450295252] :: OR.Array 5 Double)
     (rev' (\a0 -> rscanZip (\x a -> atan2 (sin x)
                                         (sin $ rfromD (a V.! 0)))
-                         (V.fromList [odFromSh @Double
+                         (V.fromList [voidFromSh @Double
                                         (1 :$ 1 :$ 1 :$ 1 :$ 1 :$ ZS)])
                          (rreplicate0N [1,1,1,1,1] 2 * a0)
                          (V.singleton $ DynamicRanked
@@ -1139,9 +1139,9 @@ testSin0ScanD5 = do
                                          (rsum $ sin $ rsum
                                           $ rtr $ rreplicate 7
                                           $ rfromD (a V.! 0)))
-                         (V.fromList [ odFromSh @Double
+                         (V.fromList [ voidFromSh @Double
                                          (2 :$ 5 :$ 1 :$ 1 :$ 1 :$ 1 :$ ZS)
-                                     , odFromSh @Double
+                                     , voidFromSh @Double
                                          (8 :$ 3 :$ 1 :$ 1 :$ 1 :$ 1 :$ ZS) ])
                          (rreplicate0N [1,1,1,1] 2 * a0)
                          (V.fromList
@@ -1163,9 +1163,9 @@ testSin0ScanD51 = do
                                           $ rreplicate 2 $ rreplicate 5
                                           $ rsum $ rsum
                                           $ rfromD (a V.! 1)))
-                         (V.fromList [ odFromSh @Double
+                         (V.fromList [ voidFromSh @Double
                                          (2 :$ 5 :$ 1 :$ 1 :$ 1 :$ 1 :$ ZS)
-                                     , odFromSh @Double
+                                     , voidFromSh @Double
                                          (8 :$ 3 :$ 1 :$ 1 :$ 1 :$ 1 :$ ZS) ])
                          (rreplicate0N [1,1,1,1] 2 * a0)
                          (V.fromList
@@ -1196,9 +1196,9 @@ testSin0ScanD51S = do
                                    $ ssum @_ @_ @3 $ ssum @_ @_ @8
                                    $ sfromD $ a V.! 1)
                     in g)
-                   (V.fromList [ odFromShS @Double
+                   (V.fromList [ voidFromShS @Double
                                                                              @'[2, 5, 1, 1, 1, 1]
-                                                                           , odFromSh @Double
+                                                                           , voidFromSh @Double
                                                                              (8 :$ 3 :$ 1 :$ 1 :$ 1 :$ 1 :$ ZS) ])
                    (sreplicate0N @_ @_ @[1,1,1,1] 2 * a0)
                    (V.fromList
@@ -1217,7 +1217,7 @@ testSin0ScanD6 = do
                                  $ rtr x + rreplicate 1
                                              (rreplicate 2
                                                 (rfromD (a V.! 0))))
-                         (V.fromList [odFromSh @Double (1 :$ 1 :$ ZS)])
+                         (V.fromList [voidFromSh @Double (1 :$ 1 :$ ZS)])
                          (rreplicate 2 (rreplicate 1 a0))
                          (V.singleton $ DynamicRanked
                           $ rreplicate 2 a0)) (rreplicate0N [1,1] 1.1))
@@ -1228,7 +1228,7 @@ testSin0ScanD7 = do
     (OR.fromList [1,1] [310] :: OR.Array 2 Double)
     (rev' (\a0 -> rscanZip (\x _a -> rtr $ rreplicate 5
                                    $ (rsum (rtr x)))
-                         (V.fromList [odFromSh @Double (1 :$ 1 :$ ZS)])
+                         (V.fromList [voidFromSh @Double (1 :$ 1 :$ ZS)])
                          (rreplicate 2 (rreplicate 5 a0))
                          (V.singleton $ DynamicRanked
                           $ rreplicate 2 a0)) (rreplicate0N [1,1] 1.1))
@@ -1243,7 +1243,7 @@ testSin0ScanD8 = do
                                           $ sin (rfromD $ (V.! 0)
                                                  $ mapHVectorRanked
                                                      (rsum . rreplicate 7) a)))
-                       (V.fromList [odFromSh @Double (1 :$ 1 :$ 1 :$ ZS)])
+                       (V.fromList [voidFromSh @Double (1 :$ 1 :$ 1 :$ ZS)])
                        (rreplicate 2 (rreplicate 5
                                         (rreplicate0N [1,1,1] 2 * a0)))
                        (V.singleton $ DynamicRanked $ rreplicate 3 a0))
@@ -1260,7 +1260,7 @@ testSin0ScanD8rev = do
                                           $ sin (rfromD $ (V.! 0)
                                                  $ mapHVectorRanked
                                                      (rsum . rreplicate 7) a)))
-                       (V.fromList [odFromSh @Double ZS])
+                       (V.fromList [voidFromSh @Double ZS])
                        (rreplicate 2 (rreplicate 5 (2 * a0)))
                        (V.singleton $ DynamicRanked $ rreplicate 3 a0)) 1.1)
 
@@ -1274,7 +1274,7 @@ testSin0ScanD8rev2 = do
                                                  $ mapHVectorRanked10 rsum
                                                  $ mapHVectorRanked01
                                                      (rreplicate 7) a)))
-                       (V.fromList [odFromSh @Double ZS])
+                       (V.fromList [voidFromSh @Double ZS])
                        (rreplicate 2 (rreplicate 5 (2 * a0)))
                        (V.singleton $ DynamicRanked $ rreplicate 3 a0))
   assertEqualUpToEpsilon 1e-10
@@ -1292,7 +1292,7 @@ testSin0ScanD8rev3 = do
                                                  $ mapHVectorRanked10 rsum
                                                  $ mapHVectorRanked01
                                                      (rreplicate 7) a)))
-                       (V.fromList [odFromSh @Double ZS])
+                       (V.fromList [voidFromSh @Double ZS])
                        (rreplicate 2 (rreplicate 5 (2 * a0)))
                        (V.singleton $ DynamicRanked $ rreplicate 3 a0))
   assertEqualUpToEpsilon' 1e-10
@@ -1310,8 +1310,8 @@ testSin0ScanD8rev4 = do
                                                  $ mapHVectorRanked10 rsum
                                                  $ mapHVectorRanked01
                                                      (rreplicate 7) a)))
-                       (V.fromList [ odFromSh @Double ZS
-                                   , odFromShS @Double @'[] ])
+                       (V.fromList [ voidFromSh @Double ZS
+                                   , voidFromShS @Double @'[] ])
                        (rreplicate 2 (rreplicate 5 (2 * a0)))
                        (V.fromList [ DynamicRanked $ rreplicate 3 a0
                                    , DynamicShaped
@@ -1326,7 +1326,7 @@ testSin0ScanD1RevPP = do
   resetVarCounter
   let a1 = rrev1 @(AstRanked FullSpan) @Double @0 @1
                  (\x0 -> rscanZip (\x _a -> sin x)
-                           (V.fromList [odFromSh @Double ZS])
+                           (V.fromList [voidFromSh @Double ZS])
                            x0 (V.singleton $ DynamicRanked
                                $ rconst (OR.constant @Double @1 [2] 42))) 1.1
   printAstPretty IM.empty (simplifyAst6 a1)
@@ -1337,7 +1337,7 @@ testSin0ScanDFwdPP = do
   resetVarCounter
   let a1 = rfwd1 @(AstRanked FullSpan) @Double @0 @1
                  (\x0 -> rscanZip (\x _a -> sin x)
-                           (V.fromList [odFromSh @Double ZS])
+                           (V.fromList [voidFromSh @Double ZS])
                            x0 (V.singleton $ DynamicRanked
                                $ rconst (OR.constant @Double @1 [2] 42))) 1.1
   printAstPretty IM.empty (simplifyAst6 a1)
@@ -1348,7 +1348,7 @@ testSin0ScanD1Rev2PP = do
   resetVarCounter
   let a1 = rrev1 @(AstRanked FullSpan) @Double @0 @1
                  (\x0 -> rscanZip (\x a -> sin x - rfromD (a V.! 0))
-                         (V.fromList [odFromSh @Double ZS])
+                         (V.fromList [voidFromSh @Double ZS])
                          x0 (V.singleton $ DynamicRanked
                              $ rconst (OR.fromList @Double @1 [2] [5, 7]))) 1.1
   printAstPretty IM.empty (simplifyAst6 a1)
@@ -1359,7 +1359,7 @@ testSin0ScanDFwd2PP = do
   resetVarCounter
   let a1 = rfwd1 @(AstRanked FullSpan) @Double @0 @1
                  (\x0 -> rscanZip (\x a -> sin x - rfromD (a V.! 0))
-                         (V.fromList [odFromSh @Double ZS])
+                         (V.fromList [voidFromSh @Double ZS])
                          x0 (V.singleton $ DynamicRanked
                          $ rconst (OR.fromList @Double @1 [2] [5, 7]))) 1.1
   printAstPretty IM.empty (simplifyAst6 a1)
@@ -1370,7 +1370,7 @@ testSin0ScanD1Rev2 = do
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [] [1.1961317861865948] :: OR.Array 0 Double)
     (rev' (\x0 -> rscanZip (\x a -> sin x - rfromD (a V.! 0))
-                         (V.fromList [odFromSh @Double ZS])
+                         (V.fromList [voidFromSh @Double ZS])
                          x0 (V.singleton $ DynamicRanked
                          $ rconst (OR.fromList @Double @1 [2] [5, 7]))) 1.1)
 
@@ -1379,7 +1379,7 @@ testSin0ScanD1Rev3 = do
   assertEqualUpToEpsilon' 1e-5
     (OR.fromList [] [47.150000000000006] :: OR.Array 0 Double)
     (rev' (\x0 -> rscanZip (\x a -> x + rfromD (a V.! 0))
-                           (V.fromList [odFromSh @Double ZS])
+                           (V.fromList [voidFromSh @Double ZS])
                            x0
                            (V.singleton $ DynamicRanked
                             $ rscan (\x a -> a * x) x0
@@ -1390,7 +1390,7 @@ testSin0ScanD1Rev3PP = do
   resetVarCounter
   let a1 = rrev1 @(AstRanked FullSpan) @Double @0 @1
                  (\x0 -> rscanZip (\x a -> x + rfromD (a V.! 0))
-                           (V.fromList [odFromSh @Double ZS])
+                           (V.fromList [voidFromSh @Double ZS])
                            x0
                            (V.singleton $ DynamicRanked
                             $ rscan (\x a -> a * x) x0
@@ -1403,7 +1403,7 @@ testSin0ScanDFwd3PP = do
   resetVarCounter
   let a1 = rfwd1 @(AstRanked FullSpan) @Double @0 @1
                  (\x0 -> rscanZip (\x a -> sin x - rfromD (a V.! 0))
-                                (V.fromList [odFromSh @Double ZS])
+                                (V.fromList [voidFromSh @Double ZS])
                                 x0 (V.singleton $ DynamicRanked
                                     $ rfromList [x0 * 5, x0 * 7])) 1.1
   printAstPretty IM.empty (simplifyAst6 a1)
@@ -1416,7 +1416,7 @@ testSin0ScanD0fwd = do
     (rfwd1 @(Flip OR.Array) @Double @0 @1
     (let f :: forall f. ADReady f => f Double 0 -> f Double 1
          f x0 = rscanZip (\x _a -> sin x)
-                       (V.fromList [odFromSh @Double ZS])
+                       (V.fromList [voidFromSh @Double ZS])
                        x0 (V.singleton $ DynamicRanked
                            $ rzero @f @Double (0 :$ ZS))
      in f) 1.1)
@@ -1427,8 +1427,8 @@ testSin0ScanD1fwd = do
     (Flip $ OR.fromList [2] [1.1,0.4989557335681351])
     (rfwd1 @(Flip OR.Array) @Double @0 @1
     (\x0 -> rscanZip (\x _a -> sin x)
-                   (V.fromList [ odFromSh @Double ZS
-                               , odFromSh @Double (3 :$ 4 :$ ZS)])
+                   (V.fromList [ voidFromSh @Double ZS
+                               , voidFromSh @Double (3 :$ 4 :$ ZS)])
                    x0 (V.fromList
                          [ DynamicRanked
                            $ rconst (OR.constant @Double @1 [1] 42)
@@ -1447,7 +1447,7 @@ testSin0ScanD8fwd = do
                                           $ sin (rfromD $ (V.! 0)
                                                  $ mapHVectorRanked
                                                      (rsum . rreplicate 7) a)))
-                      (V.fromList [odFromSh @Double ZS])
+                      (V.fromList [voidFromSh @Double ZS])
                       (rreplicate 2 (rreplicate 5 (2 * a0)))
                       (V.singleton $ DynamicRanked $ rreplicate 3 a0)) 1.1)
 
@@ -1461,7 +1461,7 @@ testSin0ScanD8fwd2 = do
                                                  $ mapHVectorRanked10 rsum
                                                  $ mapHVectorRanked01
                                                      (rreplicate 7) a)))
-                       (V.fromList [odFromSh @Double ZS])
+                       (V.fromList [voidFromSh @Double ZS])
                        (rreplicate 2 (rreplicate 5 (2 * a0)))
                        (V.singleton $ DynamicRanked $ rreplicate 3 a0))
   assertEqualUpToEpsilon 1e-10

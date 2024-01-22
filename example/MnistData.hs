@@ -181,8 +181,8 @@ chunksOf n = go where
       -> HVector (ADVal (Flip OR.Array))
       -> ADVal (Flip OR.Array) Double y)
   -> [MnistData Double]
-  -> HVectorOD
-  -> (HVectorOD, Flip OR.Array Double y) #-}
+  -> VoidHVector
+  -> (VoidHVector, Flip OR.Array Double y) #-}
 
 {- TODO: I don't know how to work around
      https://gitlab.haskell.org/ghc/ghc/-/issues/23798
@@ -192,7 +192,7 @@ chunksOf n = go where
   => (MnistDataBatchR Double -> HVector (ADVal (Flip OR.Array))
       -> ADVal (Flip OR.Array) Double y)
   -> [MnistDataBatchR Double]
-  -> HVectorOD
+  -> VoidHVector
   -> StateAdam
-  -> (HVectorOD, StateAdam) #-}
+  -> (VoidHVector, StateAdam) #-}
 -}

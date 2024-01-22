@@ -261,7 +261,7 @@ data DeltaR :: RankedTensorType -> RankedTensorType where
          -> DeltaR ranked rn n
          -> DeltaR ranked rm (1 + m)
          -> DeltaR ranked rn n
-  FoldZipR :: HVectorOD
+  FoldZipR :: VoidHVector
          -> ranked rn (1 + n)
          -> HVector ranked  -- one rank higher than the HVector above
          -> (forall f. ADReady f
@@ -273,7 +273,7 @@ data DeltaR :: RankedTensorType -> RankedTensorType where
          -> DeltaR ranked rn n
          -> HVector (DeltaR ranked)  -- one rank higher
          -> DeltaR ranked rn n
-  FoldZipRC :: HVectorOD
+  FoldZipRC :: VoidHVector
           -> ranked rn (1 + n)
           -> HVector ranked
           -> (ranked rn n -> HVector ranked -> ranked rn n -> HVector ranked
@@ -291,7 +291,7 @@ data DeltaR :: RankedTensorType -> RankedTensorType where
         -> DeltaR ranked rn n
         -> DeltaR ranked rm (1 + m)
         -> DeltaR ranked rn (1 + n)
-  ScanZipR :: HVectorOD
+  ScanZipR :: VoidHVector
          -> ranked rn (1 + n)
          -> HVector ranked  -- one rank higher than the HVector above
          -> (forall f. ADReady f
@@ -437,7 +437,7 @@ data DeltaS :: ShapedTensorType -> ShapedTensorType where
         -> DeltaS shaped rm (k ': shm)
         -> DeltaS shaped rn sh
   FoldZipS :: KnownNat k
-         => HVectorOD
+         => VoidHVector
          -> shaped rn (1 + k ': sh)
          -> HVector (RankedOf shaped)  -- one rank higher than the HVector above
          -> (forall f. ADReadyS f
@@ -451,7 +451,7 @@ data DeltaS :: ShapedTensorType -> ShapedTensorType where
          -> HVector (DeltaR (RankedOf shaped))
          -> DeltaS shaped rn sh
   FoldZipSC :: KnownNat k
-          => HVectorOD
+          => VoidHVector
           -> shaped rn (1 + k ': sh)
           -> HVector (RankedOf shaped)
           -> (shaped rn sh -> HVector (RankedOf shaped) -> shaped rn sh
@@ -472,7 +472,7 @@ data DeltaS :: ShapedTensorType -> ShapedTensorType where
         -> DeltaS shaped rm (k ': shm)
         -> DeltaS shaped rn (1 + k ': sh)
   ScanZipS :: (Sh.Shape sh, KnownNat k)
-         => HVectorOD
+         => VoidHVector
          -> shaped rn (1 + k ': sh)
          -> HVector (RankedOf shaped)  -- one rank higher than the HVector above
          -> (forall f. ADReadyS f
@@ -588,7 +588,7 @@ class DualPart (f :: TensorType ty) where
   type Dual f = (result :: TensorType ty) | result -> f
   reverseDervative
     :: (HasSingletonDict y, GoodScalar r)
-    => HVectorOD -> f r y -> Maybe (f r y) -> Dual f r y
+    => VoidHVector -> f r y -> Maybe (f r y) -> Dual f r y
     -> (AstBindingsD (RankedOf f), HVector (RankedOf f))
   forwardDerivative
     :: (HasSingletonDict y, GoodScalar r)
@@ -603,7 +603,7 @@ instance (ADReady ranked, RankedOf ranked ~ ranked)
 
 gradientDtR
   :: (KnownNat y, GoodScalar r, ADReady ranked)
-  => HVectorOD
+  => VoidHVector
   -> ranked r y -> Maybe (ranked r y) -> DeltaR ranked r y
   -> (AstBindingsD ranked, HVector ranked)
 gradientDtR !parameters0 value !mdt !deltaTopLevel =
@@ -613,12 +613,12 @@ gradientDtR !parameters0 value !mdt !deltaTopLevel =
 {- TODO: this causes a cyclic dependency:
 {-# SPECIALIZE gradientDtR
   :: KnownNat y
-  => HVectorOD -> Flip OR.Array Double y -> Maybe (Flip OR.Array Double y)
+  => VoidHVector -> Flip OR.Array Double y -> Maybe (Flip OR.Array Double y)
   -> DeltaR (Flip OR.Array) Double y
   -> (AstBindingsD (Flip OR.Array), HVector (Flip OR.Array) ) #-}
 {-# SPECIALIZE gradientDtR
   :: KnownNat y
-  => HVectorOD -> AstRanked PrimalSpan Double y
+  => VoidHVector -> AstRanked PrimalSpan Double y
   -> Maybe (AstRanked PrimalSpan Double y)
   -> DeltaR (AstRanked PrimalSpan) Double y
   -> ( AstBindingsD (AstRanked PrimalSpan)
@@ -647,7 +647,7 @@ instance ADReadyS shaped
 gradientDtS
   :: forall shaped r y.
      (Sh.Shape y, GoodScalar r, ADReadyS shaped)
-  => HVectorOD
+  => VoidHVector
   -> Maybe (shaped r y) -> DeltaS shaped r y
   -> (AstBindingsD (RankedOf shaped), HVector (RankedOf shaped))
 gradientDtS !parameters0 !mdt !deltaTopLevel =
@@ -657,12 +657,12 @@ gradientDtS !parameters0 !mdt !deltaTopLevel =
 {- TODO: this causes a cyclic dependency:
 {-# SPECIALIZE gradientDtS
   :: Sh.Shape y
-  => HVectorOD -> Maybe (Flip OS.Array Double y)
+  => VoidHVector -> Maybe (Flip OS.Array Double y)
   -> DeltaS (Flip OS.Array) Double y
   -> (AstBindingsD (Flip OR.Array), HVector (Flip OR.Array)) #-}
 {-# SPECIALIZE gradientDtS
   :: Sh.Shape y
-  => HVectorOD -> Maybe (AstShaped PrimalSpan Double y)
+  => VoidHVector -> Maybe (AstShaped PrimalSpan Double y)
   -> DeltaS (AstShaped PrimalSpan) Double y
   -> ( AstBindingsD (DynamicTensor (AstShaped PrimalSpan))
      , HVector (DynamicTensor (AstShaped PrimalSpan)) ) #-}
@@ -788,7 +788,7 @@ data DeltaBinding :: RankedTensorType -> ShapedTensorType -> Type where
 gradientFromDelta
   :: forall ranked shaped r.
      ( GoodScalar r, ADReady ranked, shaped ~ ShapedOf ranked)
-  => HVectorOD -> DeltaDt ranked shaped r
+  => VoidHVector -> DeltaDt ranked shaped r
   -> (AstBindingsD ranked, HVector ranked)
 gradientFromDelta !parameters0 !deltaDt =
   -- Create finite maps that hold values associated with inputs
@@ -802,7 +802,7 @@ gradientFromDelta !parameters0 !deltaDt =
   -- but a shape is not preserved in a dummy, so it's not shape-correct.
   let s0 =
         let iMap = EM.fromDistinctAscList $ zip [toInputId 0 ..]
-                   $ map dynamicFromOD $ V.toList parameters0
+                   $ map dynamicFromVoid $ V.toList parameters0
             dMap = EM.empty
             nMap = EM.empty
             astBindings = []
@@ -815,10 +815,10 @@ gradientFromDelta !parameters0 !deltaDt =
 -- The warnings in the following seems spurious. A GHC issue to be opened.
 {- TODO: this causes a cyclic dependency:
 {-# SPECIALIZE gradientFromDelta
-  :: HVectorOD -> DeltaDt (Flip OR.Array) (Flip OS.Array) Double
-  -> (AstBindingsD (Flip OR.Array), HVectorOD) #-}
+  :: VoidHVector -> DeltaDt (Flip OR.Array) (Flip OS.Array) Double
+  -> (AstBindingsD (Flip OR.Array), VoidHVector) #-}
 {-# SPECIALIZE gradientFromDelta
-  :: HVectorOD -> DeltaDt (AstRanked PrimalSpan) (AstShaped PrimalSpan) Double
+  :: VoidHVector -> DeltaDt (AstRanked PrimalSpan) (AstShaped PrimalSpan) Double
   -> (AstBindingsD (AstRanked PrimalSpan), HVector (AstDynamic PrimalSpan)) #-}
 -}
 
@@ -980,7 +980,7 @@ buildFinMaps s0 deltaDt =
             -- functions with codomains other than a single tensor.
             let !_A1 = assert (rlength p == width + 1) ()
                 shn = shapeDelta x0'
-                domsF = V.fromList [odFromSh @r shn, odFromSh @rm shm]
+                domsF = V.fromList [voidFromSh @r shn, voidFromSh @rm shm]
                 domsToPair :: ADReady f => HVector f -> (f r n, f rm m)
                 domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
                 crsr :: ranked r (1 + n)
@@ -1017,7 +1017,7 @@ buildFinMaps s0 deltaDt =
             -- No sharing attempted, because this constructor is usually used
             -- for non-symbolic derivatives.
             let shn = shapeDelta x0'
-                domsF = V.fromList [odFromSh @r shn, odFromSh @rm shm]
+                domsF = V.fromList [voidFromSh @r shn, voidFromSh @rm shm]
                 domsToPair :: ADReady f => HVector f -> (f r n, f rm m)
                 domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
                 rg :: ranked r n
@@ -1044,9 +1044,9 @@ buildFinMaps s0 deltaDt =
             width : _shm ->
               let !_A1 = assert (rlength p == width + 1) ()
                   shn = shapeDelta x0'
-                  odShn = odFromSh @r shn
+                  odShn = voidFromSh @r shn
                   domsF = V.cons odShn domsOD
-                  domsG = V.map odFromDynamic as
+                  domsG = voidFromHVector as
                   domsToPair :: forall f. ADReady f
                              => HVector f -> (f r n, HVector f)
                   domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
@@ -1094,7 +1094,7 @@ buildFinMaps s0 deltaDt =
           -- No sharing attempted, because this constructor is usually used
           -- for non-symbolic derivatives.
           let shn = shapeDelta x0'
-              domsF = V.cons (odFromSh @r shn) domsOD
+              domsF = V.cons (voidFromSh @r shn) domsOD
               domsToPair :: forall f. ADReady f
                          => HVector f -> (f r n, HVector f)
               domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
@@ -1114,7 +1114,7 @@ buildFinMaps s0 deltaDt =
             let !_A1 = assert (rlength p == width + 1) ()
                 !_A2 = assert (rlength cShared == width + 1) ()
                 shn = shapeDelta x0'
-                domsF = V.fromList [odFromSh @r shn, odFromSh @rm shm]
+                domsF = V.fromList [voidFromSh @r shn, voidFromSh @rm shm]
                 domsToPair :: ADReady f => HVector f -> (f r n1, f rm m)
                 domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
                 -- The domain must be @Int@ due to rslice and so can't be
@@ -1172,7 +1172,7 @@ buildFinMaps s0 deltaDt =
               let !_A1 = assert (rlength p == width + 1) ()
                   !_A2 = assert (rlength cShared == width + 1) ()
                   shn = shapeDelta x0'
-                  odShn = odFromSh @r shn
+                  odShn = voidFromSh @r shn
                   domsF = V.cons odShn domsOD
                   domsToPair :: forall f. ADReady f
                              => HVector f -> (f r n1, HVector f)
@@ -1227,7 +1227,7 @@ buildFinMaps s0 deltaDt =
                             (V.cons (DynamicRanked cr2)
                              $ V.cons (DynamicRanked x2) a2)
                         casUnshared = rg rf11 lp las
-                        domsG = V.map odFromDynamic las
+                        domsG = voidFromHVector las
                         (abShared4, cas) =
                           dregister domsG casUnshared (astBindings sg2)
                         sg3 = sg2 {astBindings = abShared4}
@@ -1341,7 +1341,7 @@ buildFinMaps s0 deltaDt =
         ReshapeS d -> evalS s (sreshape c) d
         GatherS d f -> evalS s (sscatter c f) d
         FoldS @rm @shm @k p as _df rf x0' as' ->
-          let domsF = V.fromList [odFromShS @r @sh, odFromShS @rm @shm]
+          let domsF = V.fromList [voidFromShS @r @sh, voidFromShS @rm @shm]
               domsToPair :: ADReadyS f
                          => HVector (RankedOf f) -> (f r sh, f rm shm)
               domsToPair doms = (sfromD $ doms V.! 0, sfromD $ doms V.! 1)
@@ -1378,7 +1378,7 @@ buildFinMaps s0 deltaDt =
         FoldSC @rm @shm p as _df rf x0' as' ->
           -- No sharing attempted, because this constructor is usually used
           -- for non-symbolic derivatives.
-          let domsF = V.fromList [odFromShS @r @sh, odFromShS @rm @shm]
+          let domsF = V.fromList [voidFromShS @r @sh, voidFromShS @rm @shm]
               domsToPair :: ADReadyS f
                          => HVector (RankedOf f) -> (f r sh, f rm shm)
               domsToPair doms = (sfromD $ doms V.! 0, sfromD $ doms V.! 1)
@@ -1398,9 +1398,9 @@ buildFinMaps s0 deltaDt =
             0 : _ -> evalS s c x0'  -- TODO: needed?
             width : _shm ->
               let !_A1 = assert (valueOf @k3 == width) ()
-                  odShn = odFromShS @r @sh
+                  odShn = voidFromShS @r @sh
                   domsF = V.cons odShn domsOD
-                  domsG = V.map odFromDynamic as
+                  domsG = voidFromHVector as
                   domsToPair :: forall f. ADReadyS f
                              => HVector (RankedOf f)
                              -> (f r sh, HVector (RankedOf f))
@@ -1452,7 +1452,7 @@ buildFinMaps s0 deltaDt =
         FoldZipSC @rm @shm domsOD p as _df rf x0' as' ->
           -- No sharing attempted, because this constructor is usually used
           -- for non-symbolic derivatives.
-          let domsF = V.cons (odFromShS @r @sh) domsOD
+          let domsF = V.cons (voidFromShS @r @sh) domsOD
               domsToPair :: forall f. ADReadyS f
                          => HVector (RankedOf f)
                          -> (f r sh, HVector (RankedOf f))
@@ -1468,8 +1468,8 @@ buildFinMaps s0 deltaDt =
               s2 = evalS sShared cx0 x0'
           in evalHVector s2 (ravelHVector cas) as'
         ScanS @rm @shm @k3 @sh1 p as _df rf x0' as' ->
-          let domsF :: HVectorOD
-              domsF = V.fromList [odFromShS @r @sh1, odFromShS @rm @shm]
+          let domsF :: VoidHVector
+              domsF = V.fromList [voidFromShS @r @sh1, voidFromShS @rm @shm]
               domsToPair :: ADReadyS f
                          => HVector (RankedOf f) -> (f r sh1, f rm shm)
               domsToPair doms = (sfromD $ doms V.! 0, sfromD $ doms V.! 1)
@@ -1540,7 +1540,7 @@ buildFinMaps s0 deltaDt =
               s2 = evalS sShared2 g1sum x0'
           in evalS s2 g2sum as'
         ScanZipS @sh1 @k3 domsOD p as _df rf x0' as' ->
-          let odShn = odFromShS @r @sh1
+          let odShn = voidFromShS @r @sh1
               domsF = V.cons odShn domsOD
               domsToPair :: forall f. ADReadyS f
                          => HVector (RankedOf f)
@@ -1622,7 +1622,7 @@ buildFinMaps s0 deltaDt =
                                 (V.cons (DynamicShaped cr2)
                                  $ V.cons (DynamicShaped x2) a2)
                     casUnshared = rg rf11 lp las
-                    domsG = V.map odFromDynamic las
+                    domsG = voidFromHVector las
                     (abShared4, cas) =
                       dregister domsG casUnshared (astBindings sg2)
                     sg3 = sg2 {astBindings = abShared4}
@@ -1937,7 +1937,7 @@ buildDerivative dimR deltaDt params = do
             cas <- evalR as'
             let domsF =
                   V.fromList
-                    [odFromSh @rm shm, odFromSh @r shn, odFromSh @rm shm]
+                    [voidFromSh @rm shm, voidFromSh @r shn, voidFromSh @rm shm]
                 domsTo3 :: ADReady f => HVector f -> (f rm m, f r n, f rm m)
                 domsTo3 doms = ( rfromD $ doms V.! 0
                                , rfromD $ doms V.! 1
@@ -1966,7 +1966,7 @@ buildDerivative dimR deltaDt params = do
               shn = shapeDelta x0'
           cx0 <- evalR x0'
           cas <- evalHVector as'
-          let domsF = V.concat [domsOD, V.singleton (odFromSh @r shn), domsOD]
+          let domsF = V.concat [domsOD, V.singleton (voidFromSh @r shn), domsOD]
               domsTo3 :: ADReady f
                       => HVector f -> (HVector f, f r n, HVector f)
               domsTo3 doms = ( V.take domsLen doms
@@ -1997,7 +1997,7 @@ buildDerivative dimR deltaDt params = do
             cas <- evalR as'
             let domsF =
                   V.fromList
-                    [odFromSh @rm shm, odFromSh @r shn, odFromSh @rm shm]
+                    [voidFromSh @rm shm, voidFromSh @r shn, voidFromSh @rm shm]
                 domsTo3 :: ADReady f => HVector f -> (f rm m, f r n1, f rm m)
                 domsTo3 doms = ( rfromD $ doms V.! 0
                                , rfromD $ doms V.! 1
@@ -2018,7 +2018,7 @@ buildDerivative dimR deltaDt params = do
               shn = shapeDelta x0'
           cx0 <- evalR x0'
           cas <- evalHVector as'
-          let domsF = V.concat [domsOD, V.singleton (odFromSh @r shn), domsOD]
+          let domsF = V.concat [domsOD, V.singleton (voidFromSh @r shn), domsOD]
               domsTo3 :: ADReady f
                       => HVector f -> (HVector f, f r n1, HVector f)
               domsTo3 doms = ( V.take domsLen doms
@@ -2119,7 +2119,7 @@ buildDerivative dimR deltaDt params = do
           cas <- evalS as'
           let domsF =
                 V.fromList
-                  [odFromShS @rm @shm, odFromShS @r @sh, odFromShS @rm @shm]
+                  [voidFromShS @rm @shm, voidFromShS @r @sh, voidFromShS @rm @shm]
               domsTo3 :: ADReadyS f
                       => HVector (RankedOf f) -> (f rm shm, f r sh, f rm shm)
               domsTo3 doms = ( sfromD $ doms V.! 0
@@ -2146,7 +2146,7 @@ buildDerivative dimR deltaDt params = do
           let domsLen = V.length domsOD
           cx0 <- evalS x0'
           cas <- evalHVector as'
-          let domsF = V.concat [domsOD, V.singleton (odFromShS @r @sh), domsOD]
+          let domsF = V.concat [domsOD, V.singleton (voidFromShS @r @sh), domsOD]
               domsTo3 :: ADReadyS f
                       => HVector (RankedOf f)
                       -> (HVector (RankedOf f), f r sh, HVector (RankedOf f))
@@ -2176,7 +2176,7 @@ buildDerivative dimR deltaDt params = do
           cas <- evalS as'
           let domsF =
                 V.fromList
-                  [odFromShS @rm @shm, odFromShS @r @sh1, odFromShS @rm @shm]
+                  [voidFromShS @rm @shm, voidFromShS @r @sh1, voidFromShS @rm @shm]
               domsTo3 :: ADReadyS f
                       => HVector (RankedOf f) -> (f rm shm, f r sh1, f rm shm)
               domsTo3 doms = ( sfromD $ doms V.! 0
@@ -2195,7 +2195,7 @@ buildDerivative dimR deltaDt params = do
           let domsLen = V.length domsOD
           cx0 <- evalS x0'
           cas <- evalHVector as'
-          let domsF = V.concat [domsOD, V.singleton (odFromShS @r @sh1), domsOD]
+          let domsF = V.concat [domsOD, V.singleton (voidFromShS @r @sh1), domsOD]
               domsTo3 :: ADReadyS f
                       => HVector (RankedOf f)
                       -> (HVector (RankedOf f), f r sh1, HVector (RankedOf f))

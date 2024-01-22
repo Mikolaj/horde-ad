@@ -78,7 +78,7 @@ mnistTestBench1VTA extraPrefix chunkLength xs widthHidden widthHidden2 = do
       valsInit = ( (replicate widthHidden emptyR, emptyR)
                  , (replicate widthHidden2 emptyR, emptyR)
                  , (replicate sizeMnistLabelInt emptyR, emptyR) )
-      ftest :: [MnistData r] -> HVectorOD -> r
+      ftest :: [MnistData r] -> VoidHVector -> r
       ftest = MnistFcnnRanked1.afcnnMnistTest1 valsInit widthHidden widthHidden2
       chunk = take chunkLength xs
       score c = ftest c hVectorInit
@@ -149,7 +149,7 @@ mnistTrainBench1VTO extraPrefix chunkLength xs widthHidden widthHidden2
         gradient = simplifyAstHVector6 gradientRaw
         vars1AndInputAgain = vars1Again ++ [varGlyphD, varLabelD]
         vars = (varDtAgain, vars1AndInputAgain)
-        go :: [MnistData r] -> HVectorOD -> HVectorOD
+        go :: [MnistData r] -> VoidHVector -> VoidHVector
         go [] parameters = parameters
         go ((glyph, label) : rest) !parameters =
           let glyphD = DynamicRanked @r @1
@@ -247,7 +247,7 @@ mnistTestBench2VTA extraPrefix chunkLength xs widthHidden widthHidden2 = do
               Nothing -> error "valsInit: impossible someNatVal error"
           Nothing -> error "valsInit: impossible someNatVal error"
       hVectorInit = toHVector valsInit
-      ftest :: [MnistData r] -> HVectorOD -> r
+      ftest :: [MnistData r] -> VoidHVector -> r
       ftest = MnistFcnnRanked2.afcnnMnistTest2 valsInit
       chunk = take chunkLength xs
       score c = ftest c hVectorInit
@@ -322,7 +322,7 @@ mnistTrainBench2VTO extraPrefix chunkLength xs widthHidden widthHidden2
         gradient = simplifyAstHVector6 gradientRaw
         vars1AndInputAgain = vars1Again ++ [varGlyphD, varLabelD]
         vars = (varDtAgain, vars1AndInputAgain)
-        go :: [MnistData r] -> HVectorOD -> HVectorOD
+        go :: [MnistData r] -> VoidHVector -> VoidHVector
         go [] parameters = parameters
         go ((glyph, label) : rest) !parameters =
           let glyphD = DynamicRanked @r @1

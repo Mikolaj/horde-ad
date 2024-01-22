@@ -282,7 +282,7 @@ crevOnADInputs mdt f inputs =
   let -- Evaluate completely after terms constructed, to free memory
       -- before evaluation allocates new memory and new FFI is started.
       !(D l v deltaTopLevel) = f inputs in
-  let parameters0 = V.map odFromDynamic inputs
+  let parameters0 = voidFromHVector inputs
       (!astBindings, !gradient) =
         reverseDervative parameters0 v mdt deltaTopLevel
   in (unletGradient @ty @f l astBindings gradient, unletValue l [] v)
@@ -390,7 +390,7 @@ class DerivativeStages g where
         -> [AstDynamicVarName]
         -> HVector (RankedOf g)
         -> ADVal (PrimalOf g) r y)
-    -> HVectorOD
+    -> VoidHVector
     -> (AstArtifactRev (PrimalOf g) r y, Dual (PrimalOf g) r y)
 
   revProduceArtifact
@@ -399,7 +399,7 @@ class DerivativeStages g where
     -> (HVector (RankedOf g) -> g r y)
     -> AstEnv (ADVal (RankedOf (PrimalOf g)))
               (ADVal (ShapedOf (PrimalOf g)))
-    -> HVectorOD
+    -> VoidHVector
     -> (AstArtifactRev (PrimalOf g) r y, Dual (PrimalOf g) r y)
   {-# INLINE revProduceArtifact #-}
   revProduceArtifact tf hasDt g envInit =
@@ -418,7 +418,7 @@ class DerivativeStages g where
         -> [AstDynamicVarName]
         -> HVector (RankedOf g)
         -> ADVal (PrimalOf g) r y)
-    -> HVectorOD
+    -> VoidHVector
     -> (AstArtifactFwd (PrimalOf g) r y, Dual (PrimalOf g) r y)
 
   fwdEvalArtifact
@@ -432,7 +432,7 @@ class DerivativeStages g where
     => TensorToken g -> (HVector (RankedOf g) -> g r y)
     -> AstEnv (ADVal (RankedOf (PrimalOf g)))
               (ADVal (ShapedOf (PrimalOf g)))
-    -> HVectorOD
+    -> VoidHVector
     -> (AstArtifactFwd (PrimalOf g) r y, Dual (PrimalOf g) r y)
   {-# INLINE fwdProduceArtifact #-}
   fwdProduceArtifact tf g envInit =

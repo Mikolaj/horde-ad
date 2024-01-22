@@ -143,7 +143,7 @@ funToAstS f = unsafePerformIO $ do
   (!var, _, !ast) <- funToAstIOS f
   return (var, ast)
 
-fun1DToAstIO :: HVectorOD
+fun1DToAstIO :: VoidHVector
              -> ([AstDynamicVarName] -> HVector (AstRanked s) -> a)
              -> IO a
 {-# INLINE fun1DToAstIO #-}
@@ -151,7 +151,7 @@ fun1DToAstIO od f = do
   (!vars, !asts) <- V.unzip <$> V.mapM dynamicToVar od
   return $! f (V.toList vars) asts
 
-fun1DToAst :: HVectorOD
+fun1DToAst :: VoidHVector
            -> ([AstDynamicVarName] -> HVector (AstRanked s) -> a)
            -> a
 {-# NOINLINE fun1DToAst #-}
@@ -200,7 +200,7 @@ fun2ToAstS f = unsafePerformIO $ fun2ToAstIOS f
 fun2DToAstIOR :: ShapeInt n
               -> (AstRanked s rn n -> HVector (AstRanked s)
                   -> AstRanked s rn n)
-              -> HVectorOD
+              -> VoidHVector
               -> IO ( AstVarName (AstRanked s) rn n
                     , [AstDynamicVarName]
                     , AstRanked s rn n )
@@ -214,7 +214,7 @@ fun2DToAstIOR shn f od = do
 fun2DToAstR :: ShapeInt n
             -> (AstRanked s rn n -> HVector (AstRanked s)
                 -> AstRanked s rn n)
-            -> HVectorOD
+            -> VoidHVector
             -> ( AstVarName (AstRanked s) rn n
                , [AstDynamicVarName]
                , AstRanked s rn n )
@@ -223,7 +223,7 @@ fun2DToAstR shn f od = unsafePerformIO $ fun2DToAstIOR shn f od
 
 fun2DToAstIOS :: (AstShaped s rn shn -> HVector (AstRanked s)
                   -> AstShaped s rn shn)
-              -> HVectorOD
+              -> VoidHVector
               -> IO ( AstVarName (AstShaped s) rn shn
                     , [AstDynamicVarName]
                     , AstShaped s rn shn )
@@ -236,7 +236,7 @@ fun2DToAstIOS f od = do
 
 fun2DToAstS :: (AstShaped s rn shn -> HVector (AstRanked s)
                 -> AstShaped s rn shn)
-            -> HVectorOD
+            -> VoidHVector
             -> ( AstVarName (AstShaped s) rn shn
                , [AstDynamicVarName]
                , AstShaped s rn shn )
@@ -296,7 +296,7 @@ fun3ToAstS f = unsafePerformIO $ fun3ToAstIOS f
 fun3DToAstIOR :: ShapeInt n
               -> (AstRanked s rn n -> AstRanked s rn n -> HVector (AstRanked s)
                   -> AstHVector s)
-              -> HVectorOD
+              -> VoidHVector
               -> IO ( AstVarName (AstRanked s) rn n
                     , AstVarName (AstRanked s) rn n
                     , [AstDynamicVarName]
@@ -312,7 +312,7 @@ fun3DToAstIOR shn f od = do
 fun3DToAstR :: ShapeInt n
             -> (AstRanked s rn n -> AstRanked s rn n -> HVector (AstRanked s)
                 -> AstHVector s)
-            -> HVectorOD
+            -> VoidHVector
             -> ( AstVarName (AstRanked s) rn n
                , AstVarName (AstRanked s) rn n
                , [AstDynamicVarName]
@@ -323,7 +323,7 @@ fun3DToAstR shn f od = unsafePerformIO $ fun3DToAstIOR shn f od
 fun3DToAstIOS :: (AstShaped s rn shn -> AstShaped s rn shn
                   -> HVector (AstRanked s)
                   -> AstHVector s)
-              -> HVectorOD
+              -> VoidHVector
               -> IO ( AstVarName (AstShaped s) rn shn
                     , AstVarName (AstShaped s) rn shn
                     , [AstDynamicVarName]
@@ -339,7 +339,7 @@ fun3DToAstIOS f od = do
 fun3DToAstS :: (AstShaped s rn shn -> AstShaped s rn shn
                 -> HVector (AstRanked s)
                 -> AstHVector s)
-            -> HVectorOD
+            -> VoidHVector
             -> ( AstVarName (AstShaped s) rn shn
                , AstVarName (AstShaped s) rn shn
                , [AstDynamicVarName]
@@ -413,7 +413,7 @@ fun4DToAstIOR :: ShapeInt n
               -> (AstRanked s rn n -> HVector (AstRanked s)
                   -> AstRanked s rn n -> HVector (AstRanked s)
                   -> AstRanked s rn n)
-              -> HVectorOD
+              -> VoidHVector
               -> IO ( AstVarName (AstRanked s) rn n
                     , [AstDynamicVarName]
                     , AstVarName (AstRanked s) rn n
@@ -433,7 +433,7 @@ fun4DToAstR :: ShapeInt n
             -> (AstRanked s rn n -> HVector (AstRanked s)
                 -> AstRanked s rn n -> HVector (AstRanked s)
                 -> AstRanked s rn n)
-            -> HVectorOD
+            -> VoidHVector
             -> ( AstVarName (AstRanked s) rn n
                , [AstDynamicVarName]
                , AstVarName (AstRanked s) rn n
@@ -445,7 +445,7 @@ fun4DToAstR shn f od = unsafePerformIO $ fun4DToAstIOR shn f od
 fun4DToAstIOS :: (AstShaped s rn shn -> HVector (AstRanked s)
                   -> AstShaped s rn shn -> HVector (AstRanked s)
                   -> AstShaped s rn shn)
-              -> HVectorOD
+              -> VoidHVector
               -> IO ( AstVarName (AstShaped s) rn shn
                     , [AstDynamicVarName]
                     , AstVarName (AstShaped s) rn shn
@@ -464,7 +464,7 @@ fun4DToAstIOS f od = do
 fun4DToAstS :: (AstShaped s rn shn -> HVector (AstRanked s)
                 -> AstShaped s rn shn -> HVector (AstRanked s)
                 -> AstShaped s rn shn)
-            -> HVectorOD
+            -> VoidHVector
             -> ( AstVarName (AstShaped s) rn shn
                , [AstDynamicVarName]
                , AstVarName (AstShaped s) rn shn
@@ -475,7 +475,7 @@ fun4DToAstS f od = unsafePerformIO $ fun4DToAstIOS f od
 
 funToAstHVectorIO
   :: (HVector (AstRanked s) -> AstRanked s r n)
-  -> HVectorOD
+  -> VoidHVector
   -> IO ([AstDynamicVarName], AstRanked s r n)
 {-# INLINE funToAstHVectorIO #-}
 funToAstHVectorIO g parameters0 = do
@@ -503,13 +503,13 @@ dynamicToVar (DynamicShapedDummy @r2 @sh2 _ _) = do
 
 funToAstHVector
   :: (HVector (AstRanked s) -> AstRanked s r n)
-  -> HVectorOD
+  -> VoidHVector
   -> ([AstDynamicVarName], AstRanked s r n)
 {-# NOINLINE funToAstHVector #-}
 funToAstHVector g parameters0 =
   unsafePerformIO $ funToAstHVectorIO g parameters0
 
-funToAstRevIO :: HVectorOD
+funToAstRevIO :: VoidHVector
               -> IO ( [AstDynamicVarName]
                     , HVector (AstRanked PrimalSpan)
                     , [AstDynamicVarName]
@@ -542,7 +542,7 @@ funToAstRevIO parameters0 = do
 
 -- The AstVarName type with its parameter somehow prevents cse and crashes
 -- compared with a bare AstVarId, so let's keep it.
-funToAstRev :: HVectorOD
+funToAstRev :: VoidHVector
             -> ( AstVarId
                , [AstDynamicVarName]
                , HVector (AstRanked PrimalSpan)
@@ -554,7 +554,7 @@ funToAstRev parameters0 = unsafePerformIO $ do
   (!varsPrimal, !astsPrimal, !vars, !asts) <- funToAstRevIO parameters0
   return (freshId, varsPrimal, astsPrimal, vars, asts)
 
-funToAstFwdIO :: HVectorOD
+funToAstFwdIO :: VoidHVector
               -> IO ( [AstDynamicVarName]
                     , HVector (AstRanked PrimalSpan)
                     , [AstDynamicVarName]
@@ -605,7 +605,7 @@ funToAstFwdIO parameters0 = do
 
 -- The AstVarName type with its parameter somehow prevents cse and crashes
 -- compared with a bare AstVarId, so let's keep it.
-funToAstFwd :: HVectorOD
+funToAstFwd :: VoidHVector
             -> ( [AstDynamicVarName]
                , HVector (AstRanked PrimalSpan)
                , [AstDynamicVarName]

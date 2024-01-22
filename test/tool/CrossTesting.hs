@@ -52,7 +52,7 @@ rev' :: forall r m n v a.
 rev' f vals =
   let value0 = f vals
       parameters = toHVector vals
-      parameters0 = V.map odFromDynamic parameters
+      parameters0 = voidFromHVector parameters
       dt = Nothing
       g :: HVector (ADVal (Flip OR.Array))
         -> ADVal (Flip OR.Array) r m
@@ -452,7 +452,7 @@ rrev1 f u =
   let fHVector :: forall f. ADReady f => HVector f -> f r3 m
       fHVector v = f (rfromD $ v V.! 0)
       sh = rshape u
-      zero = odFromSh @r @n sh
+      zero = voidFromSh @r @n sh
       shapes = V.fromList [zero]
       domsOf = rrev @g fHVector shapes (V.singleton $ DynamicRanked u)
   in rletHVectorIn shapes domsOf (\v -> rfromD $ v V.! 0)
@@ -464,7 +464,7 @@ rfwd1 f u =
   let fHVector :: forall f. ADReady f => HVector f -> f r3 m
       fHVector v = f (rfromD $ v V.! 0)
       sh = rshape u
-      zero = odFromSh @r @n sh
+      zero = voidFromSh @r @n sh
       shapes = V.fromList [zero]
   in rfwd @g fHVector shapes (V.singleton $ DynamicRanked u)
                              (V.singleton $ DynamicRanked u)  -- simple
@@ -476,7 +476,7 @@ srev1 f u =
   let fHVector :: forall f. ADReadyS f
                => HVector (RankedOf f) -> f r3 sh2
       fHVector v = f (sfromD $ v V.! 0)
-      zero = odFromShS @r @sh
+      zero = voidFromShS @r @sh
       shapes = V.fromList [zero]
       domsOf = srev @(RankedOf g)
                     fHVector shapes (V.singleton $ DynamicShaped u)
@@ -489,7 +489,7 @@ sfwd1 f u =
   let fHVector :: forall f. ADReadyS f
                => HVector (RankedOf f) -> f r3 sh2
       fHVector v = f (sfromD $ v V.! 0)
-      zero = odFromShS @r @sh
+      zero = voidFromShS @r @sh
       shapes = V.fromList [zero]
   in sfwd @(RankedOf g) fHVector shapes (V.singleton $ DynamicShaped u)
                                         (V.singleton $ DynamicShaped u)

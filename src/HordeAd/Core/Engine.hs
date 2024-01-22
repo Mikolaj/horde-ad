@@ -99,9 +99,9 @@ revDtMaybeSpecializeWrapper
 revDtMaybeSpecializeWrapper f vals mdt =
   let g hVector = f $ parseHVector vals hVector
       xV = toHVector @(Flip OR.Array) vals
-      hVectorOD = V.map odFromDynamic xV
+      voidV = voidFromHVector xV
       artifact = fst $ revProduceArtifact TensorToken
-                                          (isJust mdt) g EM.empty hVectorOD
+                                          (isJust mdt) g EM.empty voidV
   in gcastWith (unsafeCoerce Refl :: Value vals :~: vals) $
      parseHVector vals
      $ fst $ revEvalArtifact artifact xV mdt
@@ -123,8 +123,8 @@ revArtifactAdapt
   -> (AstArtifactRev (PrimalOf g) r y, Dual (PrimalOf g) r y)
 revArtifactAdapt hasDt f vals =
   let g hVector = f $ parseHVector vals hVector
-      hVectorOD = V.map odFromDynamic $ toHVector @(Flip OR.Array) vals
-  in revProduceArtifact TensorToken hasDt g EM.empty hVectorOD
+      voidV = voidFromHVector $ toHVector @(Flip OR.Array) vals
+  in revProduceArtifact TensorToken hasDt g EM.empty voidV
 {-# SPECIALIZE revArtifactAdapt
   :: ( HasSingletonDict y
      , AdaptableHVector (AstRanked FullSpan) astvals
@@ -140,7 +140,7 @@ revProduceArtifactWithoutInterpretation
   => TensorToken g -> Bool
   -> (HVector (ADVal (RankedOf (PrimalOf g)))
       -> ADVal (PrimalOf g) r y)
-  -> HVectorOD
+  -> VoidHVector
   -> (AstArtifactRev (PrimalOf g) r y, Dual (PrimalOf g) r y)
 {-# INLINE revProduceArtifactWithoutInterpretation #-}
 revProduceArtifactWithoutInterpretation tf hasDt g =
@@ -181,8 +181,8 @@ fwd
 fwd f x ds =
   let g hVector = f $ parseHVector x hVector
       xV = toHVector x
-      hVectorOD = V.map odFromDynamic xV
-      artifact = fst $ fwdProduceArtifact TensorToken g EM.empty hVectorOD
+      voidV = voidFromHVector xV
+      artifact = fst $ fwdProduceArtifact TensorToken g EM.empty voidV
   in fst $ fwdEvalArtifact artifact xV (toHVector ds)
 
 fwdArtifactAdapt
@@ -195,8 +195,8 @@ fwdArtifactAdapt
   -> (AstArtifactFwd (PrimalOf g) r y, Dual (PrimalOf g) r y)
 fwdArtifactAdapt f vals =
   let g hVector = f $ parseHVector vals hVector
-      hVectorOD = V.map odFromDynamic $ toHVector @(Flip OR.Array) vals
-  in fwdProduceArtifact TensorToken g EM.empty hVectorOD
+      voidV = voidFromHVector $ toHVector @(Flip OR.Array) vals
+  in fwdProduceArtifact TensorToken g EM.empty voidV
 
 
 -- * Old gradient adaptors, with constant and fixed inputs and dt
@@ -254,8 +254,8 @@ crevDtMaybe f vals mdt =
   :: HasSingletonDict y
   => Maybe (Flip OR.Array Double y)
   -> (HVector (ADVal (Flip OR.Array)) -> ADVal (Flip OR.Array) Double y)
-  -> HVectorOD
-  -> (HVectorOD, Flip OR.Array Double y) #-}
+  -> VoidHVector
+  -> (VoidHVector, Flip OR.Array Double y) #-}
 
 
 -- * Old derivative adaptors, with constant and fixed inputs
@@ -735,12 +735,12 @@ cfwd f x ds =
   :: AstSpan s
   => AstEnv (Flip OR.Array) (Flip OS.Array)
   -> AstHVector s
-  -> HVectorOD #-}
+  -> VoidHVector #-}
 {-# SPECIALIZE interpretAstHVector
   :: AstSpan s
   => AstEnv (Flip OR.Array) (Flip OS.Array)
   -> AstHVector s
-  -> HVectorOD #-}
+  -> VoidHVector #-}
 
 {-# SPECIALIZE interpretAstBool
   :: AstEnv (ADVal (Flip OR.Array)) (ADVal (Flip OS.Array))

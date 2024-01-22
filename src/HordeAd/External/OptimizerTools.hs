@@ -96,9 +96,9 @@ data StateAdam = StateAdam
   , vAdam :: HVector (Flip OR.Array)
   }
 
-initialStateAdam :: HVectorOD -> StateAdam
+initialStateAdam :: VoidHVector -> StateAdam
 initialStateAdam parameters0 =
-  let zeroP = V.map dynamicFromOD parameters0
+  let zeroP = V.map dynamicFromVoid parameters0
   in StateAdam
        { tAdam = 0
        , mAdam = zeroP

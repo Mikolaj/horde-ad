@@ -85,7 +85,7 @@ mnistTestCase1VTA prefix epochs maxBatches widthHidden widthHidden2
                         , show (length params1Init)
                         , show (sizeHVector hVectorInit)
                         , show gamma ]
-      ftest :: [MnistData r] -> (HVector (Flip OR.Array)) -> r
+      ftest :: [MnistData r] -> HVector (Flip OR.Array) -> r
       ftest = MnistFcnnRanked1.afcnnMnistTest1 valsInit widthHidden widthHidden2
   in testCase name $ do
        hPutStrLn stderr $
@@ -96,7 +96,7 @@ mnistTestCase1VTA prefix epochs maxBatches widthHidden widthHidden2
                    <$> loadMnistData testGlyphsPath testLabelsPath
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
-       let runBatch :: (HVector (Flip OR.Array)) -> (Int, [MnistData r]) -> IO (HVector (Flip OR.Array))
+       let runBatch :: HVector (Flip OR.Array) -> (Int, [MnistData r]) -> IO (HVector (Flip OR.Array))
            runBatch !hVector (k, chunk) = do
              let f :: MnistData r -> HVector (ADVal (Flip OR.Array))
                    -> ADVal ranked r 0
@@ -113,7 +113,7 @@ mnistTestCase1VTA prefix epochs maxBatches widthHidden widthHidden2
                hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
                hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int -> (HVector (Flip OR.Array)) -> IO (HVector (Flip OR.Array))
+       let runEpoch :: Int -> HVector (Flip OR.Array) -> IO (HVector (Flip OR.Array))
            runEpoch n params | n > epochs = return params
            runEpoch n !params = do
              unless (widthHidden < 10) $
@@ -181,7 +181,7 @@ mnistTestCase1VTI prefix epochs maxBatches widthHidden widthHidden2
                         , show (length params1Init)
                         , show (sizeHVector hVectorInit)
                         , show gamma ]
-      ftest :: [MnistData r] -> (HVector (Flip OR.Array)) -> r
+      ftest :: [MnistData r] -> HVector (Flip OR.Array) -> r
       ftest = MnistFcnnRanked1.afcnnMnistTest1 valsInit widthHidden widthHidden2
   in testCase name $ do
        hPutStrLn stderr $
@@ -190,7 +190,7 @@ mnistTestCase1VTI prefix epochs maxBatches widthHidden widthHidden2
        trainData <- loadMnistData trainGlyphsPath trainLabelsPath
        testData <- take (batchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
-       (_, hVectorPrimal, vars, _) <- funToAstRevIO (V.map odFromDynamic hVectorInit)
+       (_, hVectorPrimal, vars, _) <- funToAstRevIO (voidFromHVector hVectorInit)
        (varGlyph, _, astGlyph) <-
          funToAstIOR (singletonShape sizeMnistGlyphInt) id
        (varLabel, _, astLabel) <-
@@ -201,7 +201,7 @@ mnistTestCase1VTI prefix epochs maxBatches widthHidden widthHidden2
                    (parseHVector valsInit hVectorPrimal)
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
-       let runBatch :: (HVector (Flip OR.Array)) -> (Int, [MnistData r]) -> IO (HVector (Flip OR.Array))
+       let runBatch :: HVector (Flip OR.Array) -> (Int, [MnistData r]) -> IO (HVector (Flip OR.Array))
            runBatch !hVector (k, chunk) = do
              let f :: MnistData r -> HVector (ADVal (Flip OR.Array))
                    -> ADVal ranked r 0
@@ -224,7 +224,7 @@ mnistTestCase1VTI prefix epochs maxBatches widthHidden widthHidden2
                hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
                hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int -> (HVector (Flip OR.Array)) -> IO (HVector (Flip OR.Array))
+       let runEpoch :: Int -> HVector (Flip OR.Array) -> IO (HVector (Flip OR.Array))
            runEpoch n params | n > epochs = return params
            runEpoch n !params = do
              unless (widthHidden < 10) $
@@ -293,7 +293,7 @@ mnistTestCase1VTO prefix epochs maxBatches widthHidden widthHidden2
                         , show (length params1Init)
                         , show (sizeHVector hVectorInit)
                         , show gamma ]
-      ftest :: [MnistData r] -> (HVector (Flip OR.Array)) -> r
+      ftest :: [MnistData r] -> HVector (Flip OR.Array) -> r
       ftest = MnistFcnnRanked1.afcnnMnistTest1 valsInit widthHidden widthHidden2
   in testCase name $ do
        hPutStrLn stderr $
@@ -314,11 +314,11 @@ mnistTestCase1VTO prefix epochs maxBatches widthHidden widthHidden2
                  (rconstant astGlyph, rconstant astLabel)
            g hVector = f $ parseHVector valsInit hVector
            (((varDtAgain, vars1Again), gradientRaw, primal, sh), _) =
-             revProduceArtifact TensorToken False g envInit (V.map odFromDynamic hVectorInit)
+             revProduceArtifact TensorToken False g envInit (voidFromHVector hVectorInit)
            gradient = simplifyAstHVector6 gradientRaw
            vars1AndInputAgain = vars1Again ++ [varGlyphD, varLabelD]
            vars = (varDtAgain, vars1AndInputAgain)
-           go :: [MnistData r] -> (HVector (Flip OR.Array)) -> (HVector (Flip OR.Array))
+           go :: [MnistData r] -> HVector (Flip OR.Array) -> HVector (Flip OR.Array)
            go [] parameters = parameters
            go ((glyph, label) : rest) !parameters =
              let glyphD = DynamicRanked @r @1
@@ -334,7 +334,7 @@ mnistTestCase1VTO prefix epochs maxBatches widthHidden widthHidden2
              in go rest (updateWithGradient gamma parameters gradientHVector)
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
-       let runBatch :: (HVector (Flip OR.Array)) -> (Int, [MnistData r]) -> IO (HVector (Flip OR.Array))
+       let runBatch :: HVector (Flip OR.Array) -> (Int, [MnistData r]) -> IO (HVector (Flip OR.Array))
            runBatch !hVector (k, chunk) = do
              let res = go chunk hVector
                  trainScore = ftest chunk res
@@ -345,7 +345,7 @@ mnistTestCase1VTO prefix epochs maxBatches widthHidden widthHidden2
                hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
                hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int -> (HVector (Flip OR.Array)) -> IO (HVector (Flip OR.Array))
+       let runEpoch :: Int -> HVector (Flip OR.Array) -> IO (HVector (Flip OR.Array))
            runEpoch n params | n > epochs = return params
            runEpoch n !params = do
              unless (widthHidden < 10) $
@@ -410,7 +410,7 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
                         , show (V.length hVectorInit)
                         , show (sizeHVector hVectorInit)
                         , show gamma ]
-      ftest :: [MnistData r] -> (HVector (Flip OR.Array)) -> r
+      ftest :: [MnistData r] -> HVector (Flip OR.Array) -> r
       ftest = MnistFcnnRanked2.afcnnMnistTest2 valsInit
   in testCase name $ do
        hPutStrLn stderr $
@@ -421,7 +421,7 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
                    <$> loadMnistData testGlyphsPath testLabelsPath
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
-       let runBatch :: (HVector (Flip OR.Array)) -> (Int, [MnistData r]) -> IO (HVector (Flip OR.Array))
+       let runBatch :: HVector (Flip OR.Array) -> (Int, [MnistData r]) -> IO (HVector (Flip OR.Array))
            runBatch !hVector (k, chunk) = do
              let f :: MnistData r -> HVector (ADVal (Flip OR.Array))
                    -> ADVal ranked r 0
@@ -437,7 +437,7 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
                hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
                hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int -> (HVector (Flip OR.Array)) -> IO (HVector (Flip OR.Array))
+       let runEpoch :: Int -> HVector (Flip OR.Array) -> IO (HVector (Flip OR.Array))
            runEpoch n params | n > epochs = return params
            runEpoch n !params = do
              unless (widthHidden < 10) $
@@ -499,7 +499,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
                         , show (V.length hVectorInit)
                         , show (sizeHVector hVectorInit)
                         , show gamma ]
-      ftest :: [MnistData r] -> (HVector (Flip OR.Array)) -> r
+      ftest :: [MnistData r] -> HVector (Flip OR.Array) -> r
       ftest = MnistFcnnRanked2.afcnnMnistTest2 valsInit
   in testCase name $ do
        hPutStrLn stderr $
@@ -508,7 +508,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
        trainData <- loadMnistData trainGlyphsPath trainLabelsPath
        testData <- take (batchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
-       (_, hVectorPrimal, vars, _) <- funToAstRevIO (V.map odFromDynamic hVectorInit)
+       (_, hVectorPrimal, vars, _) <- funToAstRevIO (voidFromHVector hVectorInit)
        (varGlyph, _, astGlyph) <-
          funToAstIOR (singletonShape sizeMnistGlyphInt) id
        (varLabel, _, astLabel) <-
@@ -518,7 +518,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
                    (astGlyph, astLabel) (parseHVector valsInit hVectorPrimal)
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
-       let runBatch :: (HVector (Flip OR.Array)) -> (Int, [MnistData r]) -> IO (HVector (Flip OR.Array))
+       let runBatch :: HVector (Flip OR.Array) -> (Int, [MnistData r]) -> IO (HVector (Flip OR.Array))
            runBatch !hVector (k, chunk) = do
              let f :: MnistData r -> HVector (ADVal (Flip OR.Array))
                    -> ADVal ranked r 0
@@ -541,7 +541,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
                hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
                hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int -> (HVector (Flip OR.Array)) -> IO (HVector (Flip OR.Array))
+       let runEpoch :: Int -> HVector (Flip OR.Array) -> IO (HVector (Flip OR.Array))
            runEpoch n params | n > epochs = return params
            runEpoch n !params = do
              unless (widthHidden < 10) $
@@ -607,7 +607,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                           , show (V.length hVectorInit)
                           , show (sizeHVector hVectorInit)
                           , show gamma ]
-        ftest :: [MnistData r] -> (HVector (Flip OR.Array)) -> r
+        ftest :: [MnistData r] -> HVector (Flip OR.Array) -> r
         ftest = MnistFcnnRanked2.afcnnMnistTest2 valsInit
     in testCase name $ do
        hPutStrLn stderr $
@@ -627,11 +627,11 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                  (rconstant astGlyph, rconstant astLabel)
            g hVector = f $ parseHVector valsInit hVector
            (((varDtAgain, vars1Again), gradientRaw, primal, sh), _) =
-             revProduceArtifact TensorToken False g envInit (V.map odFromDynamic hVectorInit)
+             revProduceArtifact TensorToken False g envInit (voidFromHVector hVectorInit)
            gradient = simplifyAstHVector6 gradientRaw
            vars1AndInputAgain = vars1Again ++ [varGlyphD, varLabelD]
            vars = (varDtAgain, vars1AndInputAgain)
-           go :: [MnistData r] -> (HVector (Flip OR.Array)) -> (HVector (Flip OR.Array))
+           go :: [MnistData r] -> HVector (Flip OR.Array) -> HVector (Flip OR.Array)
            go [] parameters = parameters
            go ((glyph, label) : rest) !parameters =
              let glyphD = DynamicRanked @r @1
@@ -647,7 +647,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
              in go rest (updateWithGradient gamma parameters gradientHVector)
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
-       let runBatch :: (HVector (Flip OR.Array)) -> (Int, [MnistData r]) -> IO (HVector (Flip OR.Array))
+       let runBatch :: HVector (Flip OR.Array) -> (Int, [MnistData r]) -> IO (HVector (Flip OR.Array))
            runBatch !hVector (k, chunk) = do
              let res = go chunk hVector
                  trainScore = ftest chunk res
@@ -658,7 +658,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
                hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int -> (HVector (Flip OR.Array)) -> IO (HVector (Flip OR.Array))
+       let runEpoch :: Int -> HVector (Flip OR.Array) -> IO (HVector (Flip OR.Array))
            runEpoch n params | n > epochs = return params
            runEpoch n !params = do
              unless (widthHidden < 10) $

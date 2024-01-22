@@ -18,14 +18,15 @@ module HordeAd.Core.TensorClass
   , ADReady, ADReadyR, ADReadyS, ADReadySmall, ADReadyBoth
     -- * Concrete array instances auxiliary definitions
   , sizeHVector, scalarDynamic, shapeDynamic, rankDynamic
-  , hVectorsMatch, voidVectorMatches
-  , odFromVar, odFromSh, odFromShS, odFromDynamic, dynamicFromOD
+  , hVectorsMatch, voidHVectorMatches
+  , voidFromVar, voidFromVars, voidFromSh, voidFromShS
+  , voidFromDynamic, voidFromHVector, dynamicFromVoid
   , fromHVectorR, fromHVectorS
   , unravelHVector, ravelHVector
   , mapHVectorRanked, mapHVectorRanked01, mapHVectorRanked10, mapHVectorRanked11
   , mapHVectorShaped11
   , mapRanked, mapRanked01, mapRanked10, mapRanked11
-  , index1HVector, replicate1HVector, replicate1HVectorVoid
+  , index1HVector, replicate1HVector, replicate1VoidHVector
   ) where
 
 import Prelude
@@ -305,7 +306,7 @@ class ( Integral (IntOf ranked), CRanked ranked Num
                 => ranked r1 n -> ranked r2 n
   rconst :: (GoodScalar r, KnownNat n) => OR.Array n r -> ranked r n
   rletHVectorIn :: (KnownNat n, GoodScalar r)
-                => HVectorOD
+                => VoidHVector
                 -> HVectorOf ranked
                 -> (HVector ranked -> ranked r n)
                 -> ranked r n
@@ -719,7 +720,7 @@ class ( Integral (IntOf shaped), CShaped shaped Num
                 => shaped r1 sh -> shaped r2 sh
   sconst :: (GoodScalar r, Sh.Shape sh) => OS.Array sh r -> shaped r sh
   sletHVectorIn :: (Sh.Shape sh, GoodScalar r)
-                => HVectorOD
+                => VoidHVector
                 -> HVectorOf (RankedOf shaped)
                 -> (HVector (RankedOf shaped) -> shaped r sh)
                 -> shaped r sh
@@ -830,10 +831,10 @@ class HVectorTensor (ranked :: RankedTensorType)
                     (shaped :: ShapedTensorType)
                     | ranked -> shaped, shaped -> ranked where
   dmkHVector :: HVector ranked -> HVectorOf ranked
-  dunHVector :: HVectorOD -> HVectorOf ranked -> HVector ranked
+  dunHVector :: VoidHVector -> HVectorOf ranked -> HVector ranked
     -- ^ Warning: this operation easily breaks sharing.
   dletHVectorInHVector
-    :: HVectorOD
+    :: VoidHVector
     -> HVectorOf ranked
     -> (HVector ranked -> HVectorOf ranked)
     -> HVectorOf ranked
@@ -845,9 +846,9 @@ class HVectorTensor (ranked :: RankedTensorType)
                 => shaped r sh
                 -> (shaped r sh -> HVectorOf ranked)
                 -> HVectorOf ranked
-  drecordSharingPrimal :: HVectorOD -> HVectorOf ranked -> ADShare
+  drecordSharingPrimal :: VoidHVector -> HVectorOf ranked -> ADShare
                        -> (ADShare, HVector ranked)
-  dregister :: HVectorOD -> HVectorOf ranked -> AstBindingsD ranked
+  dregister :: VoidHVector -> HVectorOf ranked -> AstBindingsD ranked
             -> (AstBindingsD ranked, HVector ranked)
   dbuild1 :: Int  -- k
           -> (IntOf ranked -> HVectorOf ranked)  -- sh
@@ -875,35 +876,35 @@ class HVectorTensor (ranked :: RankedTensorType)
   -- InputR there, confusing two levels of contangents.
   rrev :: (GoodScalar r, KnownNat n)
        => (forall f. ADReady f => HVector f -> f r n)
-       -> HVectorOD
+       -> VoidHVector
        -> HVector ranked
        -> HVectorOf ranked
   rrevDt :: (GoodScalar r, KnownNat n)
          => (forall f. ADReady f => HVector f -> f r n)
-         -> HVectorOD
+         -> VoidHVector
          -> HVector ranked
          -> ranked r n  -- ^ incoming cotangent (dt)
          -> HVectorOf ranked
   rfwd :: (GoodScalar r, KnownNat n)
        => (forall f. ADReady f => HVector f -> f r n)
-       -> HVectorOD
+       -> VoidHVector
        -> HVector ranked
        -> HVector ranked  -- ^ incoming tangent (ds)
        -> ranked r n
   srev :: (GoodScalar r, Sh.Shape sh)
        => (forall f. ADReadyS f => HVector (RankedOf f) -> f r sh)
-       -> HVectorOD
+       -> VoidHVector
        -> HVector ranked
        -> HVectorOf ranked
   srevDt :: (GoodScalar r, Sh.Shape sh)
          => (forall f. ADReadyS f => HVector (RankedOf f) -> f r sh)
-         -> HVectorOD
+         -> VoidHVector
          -> HVector ranked
          -> shaped r sh
          -> HVectorOf ranked
   sfwd :: (GoodScalar r, Sh.Shape sh)
        => (forall f. ADReadyS f => HVector (RankedOf f) -> f r sh)
-       -> HVectorOD
+       -> VoidHVector
        -> HVector ranked
        -> HVector ranked
        -> shaped r sh
@@ -924,7 +925,7 @@ class HVectorTensor (ranked :: RankedTensorType)
            -> ranked rn n
   rfoldZip :: (GoodScalar rn, KnownNat n)
          => (forall f. ADReady f => f rn n -> HVector f -> f rn n)
-         -> HVectorOD  -- shapes of the HVector above, not below
+         -> VoidHVector  -- shapes of the HVector above, not below
          -> ranked rn n
          -> HVector ranked  -- one rank higher than above
          -> ranked rn n
@@ -936,7 +937,7 @@ class HVectorTensor (ranked :: RankedTensorType)
             -> (forall f. ADReady f
                 => f rn n -> f rn n -> HVector f
                 -> HVectorOf f)
-            -> HVectorOD
+            -> VoidHVector
             -> ranked rn n
             -> HVector ranked
             -> ranked rn n
@@ -955,7 +956,7 @@ class HVectorTensor (ranked :: RankedTensorType)
            -> ranked rn (1 + n)
   rscanZip :: (GoodScalar rn, KnownNat n)
          => (forall f. ADReady f => f rn n -> HVector f -> f rn n)
-         -> HVectorOD  -- shapes of the HVector above, not below
+         -> VoidHVector  -- shapes of the HVector above, not below
          -> ranked rn n
          -> HVector ranked  -- one rank higher than above
          -> ranked rn (1 + n)
@@ -967,7 +968,7 @@ class HVectorTensor (ranked :: RankedTensorType)
             -> (forall f. ADReady f
                 => f rn n -> f rn n -> HVector f
                 -> HVectorOf f)
-            -> HVectorOD
+            -> VoidHVector
             -> ranked rn n
             -> HVector ranked
             -> ranked rn (1 + n)
@@ -990,7 +991,7 @@ class HVectorTensor (ranked :: RankedTensorType)
   sfoldZip :: (GoodScalar rn, Sh.Shape sh)
          => (forall f. ADReadyS f
              => f rn sh -> HVector (RankedOf f) -> f rn sh)
-         -> HVectorOD
+         -> VoidHVector
          -> shaped rn sh
          -> HVector (RankedOf shaped)
          -> shaped rn sh
@@ -1004,7 +1005,7 @@ class HVectorTensor (ranked :: RankedTensorType)
             -> (forall f. ADReadyS f
                 => f rn sh -> f rn sh -> HVector (RankedOf f)
                 -> HVectorOf (RankedOf f))
-            -> HVectorOD
+            -> VoidHVector
             -> shaped rn sh
             -> HVector (RankedOf shaped)
             -> shaped rn sh
@@ -1027,7 +1028,7 @@ class HVectorTensor (ranked :: RankedTensorType)
   sscanZip :: (GoodScalar rn, Sh.Shape sh, KnownNat k)
          => (forall f. ADReadyS f
              => f rn sh -> HVector (RankedOf f) -> f rn sh)
-         -> HVectorOD
+         -> VoidHVector
          -> shaped rn sh
          -> HVector (RankedOf shaped)
          -> shaped rn (1 + k ': sh)
@@ -1041,7 +1042,7 @@ class HVectorTensor (ranked :: RankedTensorType)
             -> (forall f. ADReadyS f
                 => f rn sh -> f rn sh -> HVector (RankedOf f)
                 -> HVectorOf (RankedOf f))
-            -> HVectorOD
+            -> VoidHVector
             -> shaped rn sh
             -> HVector (RankedOf shaped)
             -> shaped rn (1 + k ': sh)
@@ -1154,9 +1155,9 @@ hVectorsMatch v1 v2 =
   in V.length v1 == V.length v2
      && and (V.zipWith dynamicMatch v1 v2)
 
-voidVectorMatches :: forall g. RankedTensor g
+voidHVectorMatches :: forall g. RankedTensor g
                   => HVector VoidTensor -> HVector g -> Bool
-voidVectorMatches v1 v2 =
+voidHVectorMatches v1 v2 =
   let dynamicMatch :: DynamicTensor VoidTensor -> DynamicTensor g -> Bool
       dynamicMatch t u = case (scalarDynamic t, scalarDynamic @g u) of
         (DynamicScalar @ru _, DynamicScalar @rt _) ->
@@ -1166,38 +1167,45 @@ voidVectorMatches v1 v2 =
   in V.length v1 == V.length v2
      && and (V.zipWith dynamicMatch v1 v2)
 
-odFromVar :: AstDynamicVarName -> DynamicTensor VoidTensor
-odFromVar (AstDynamicVarName @ty @rD @shD _) =
+voidFromVar :: AstDynamicVarName -> DynamicTensor VoidTensor
+voidFromVar (AstDynamicVarName @ty @rD @shD _) =
   case testEquality (typeRep @ty) (typeRep @Nat) of
     Just Refl -> DynamicRankedDummy @rD @shD Proxy Proxy
     _ -> DynamicShapedDummy @rD @shD Proxy Proxy
 
-odFromSh :: forall r n. GoodScalar r
-         => ShapeInt n -> DynamicTensor VoidTensor
-odFromSh sh = Sh.withShapeP (shapeToList sh) $ \proxySh ->
+voidFromVars :: [AstDynamicVarName] -> VoidHVector
+voidFromVars = V.fromList . map voidFromVar
+
+voidFromSh :: forall r n. GoodScalar r
+           => ShapeInt n -> DynamicTensor VoidTensor
+voidFromSh sh = Sh.withShapeP (shapeToList sh) $ \proxySh ->
               DynamicRankedDummy (Proxy @r) proxySh
 
-odFromShS :: forall r sh. (GoodScalar r, Sh.Shape sh)
-          => DynamicTensor VoidTensor
-odFromShS = DynamicShapedDummy @r @sh Proxy Proxy
+voidFromShS :: forall r sh. (GoodScalar r, Sh.Shape sh)
+            => DynamicTensor VoidTensor
+voidFromShS = DynamicShapedDummy @r @sh Proxy Proxy
 
 -- This is useful for when the normal main parameters to an objective
 -- function are used to generate the parameter template
 -- as well as when generating dummy zero parameters based on a template.
-odFromDynamic :: forall ranked. RankedTensor ranked
-              => DynamicTensor ranked -> DynamicTensor VoidTensor
-odFromDynamic (DynamicRanked @r2 @n2 t) =
+voidFromDynamic :: forall ranked. RankedTensor ranked
+                => DynamicTensor ranked -> DynamicTensor VoidTensor
+voidFromDynamic (DynamicRanked @r2 @n2 t) =
   let sh = rshape @ranked t
   in Sh.withShapeP (shapeToList sh) $ \(Proxy @sh2) ->
     DynamicRankedDummy @r2 @sh2 Proxy Proxy
-odFromDynamic (DynamicShaped @r2 @sh2 _) =
+voidFromDynamic (DynamicShaped @r2 @sh2 _) =
   DynamicShapedDummy @r2 @sh2 Proxy Proxy
-odFromDynamic (DynamicRankedDummy p1 p2) = DynamicRankedDummy p1 p2
-odFromDynamic (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
+voidFromDynamic (DynamicRankedDummy p1 p2) = DynamicRankedDummy p1 p2
+voidFromDynamic (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
 
-dynamicFromOD :: DynamicTensor VoidTensor -> DynamicTensor ranked
-dynamicFromOD (DynamicRankedDummy p1 p2) = DynamicRankedDummy p1 p2
-dynamicFromOD (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
+voidFromHVector :: forall ranked. RankedTensor ranked
+                => HVector ranked -> VoidHVector
+voidFromHVector = V.map voidFromDynamic
+
+dynamicFromVoid :: DynamicTensor VoidTensor -> DynamicTensor ranked
+dynamicFromVoid (DynamicRankedDummy p1 p2) = DynamicRankedDummy p1 p2
+dynamicFromVoid (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
 
 fromHVectorR :: forall r n ranked.
                 (RankedTensor ranked, GoodScalar r, KnownNat n)
@@ -1605,9 +1613,9 @@ replicate1Dynamic _i u = case u of
   DynamicRankedDummy @r @sh p1 _ -> DynamicRankedDummy @r @(k ': sh) p1 Proxy
   DynamicShapedDummy @r @sh p1 _ -> DynamicShapedDummy @r @(k ': sh) p1 Proxy
 
-replicate1HVectorVoid :: forall k. KnownNat k
-                      => Proxy k -> HVectorOD -> HVectorOD
-replicate1HVectorVoid i u = V.map (replicate1VoidTensor i) u
+replicate1VoidHVector :: forall k. KnownNat k
+                      => Proxy k -> VoidHVector -> VoidHVector
+replicate1VoidHVector i u = V.map (replicate1VoidTensor i) u
 
 replicate1VoidTensor :: forall k. KnownNat k
                      => Proxy k -> DynamicTensor VoidTensor
