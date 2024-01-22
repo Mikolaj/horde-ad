@@ -376,7 +376,6 @@ class DerivativeStages g where
     :: (GoodScalar r, HasSingletonDict y)
     => (HVector (RankedOf g) -> g r y)
     -> AstEnv (ADVal (RankedOf (PrimalOf g)))
-              (ADVal (ShapedOf (PrimalOf g)))
     -> HVector (RankedOf (PrimalOf g))
     -> [AstDynamicVarName]
     -> HVector (RankedOf g)
@@ -398,7 +397,6 @@ class DerivativeStages g where
     => TensorToken g -> Bool
     -> (HVector (RankedOf g) -> g r y)
     -> AstEnv (ADVal (RankedOf (PrimalOf g)))
-              (ADVal (ShapedOf (PrimalOf g)))
     -> VoidHVector
     -> (AstArtifactRev (PrimalOf g) r y, Dual (PrimalOf g) r y)
   {-# INLINE revProduceArtifact #-}
@@ -431,7 +429,6 @@ class DerivativeStages g where
     :: (DerivativeStages g, GoodScalar r, HasSingletonDict y)
     => TensorToken g -> (HVector (RankedOf g) -> g r y)
     -> AstEnv (ADVal (RankedOf (PrimalOf g)))
-              (ADVal (ShapedOf (PrimalOf g)))
     -> VoidHVector
     -> (AstArtifactFwd (PrimalOf g) r y, Dual (PrimalOf g) r y)
   {-# INLINE fwdProduceArtifact #-}

@@ -89,7 +89,7 @@ instance DerivativeStages (AstRanked FullSpan) where
   forwardPassByInterpretation
     :: (GoodScalar r, KnownNat n)
     => (HVector (AstRanked FullSpan) -> AstRanked FullSpan r n)
-    -> AstEnv (ADVal (AstRanked PrimalSpan)) (ADVal (AstShaped PrimalSpan))
+    -> AstEnv (ADVal (AstRanked PrimalSpan))
     -> HVector (AstRanked PrimalSpan)
     -> [AstDynamicVarName]
     -> HVector (AstRanked FullSpan)
@@ -197,7 +197,7 @@ instance DerivativeStages (AstShaped FullSpan) where
   forwardPassByInterpretation
     :: (GoodScalar r, Sh.Shape sh)
     => (HVector (AstRanked FullSpan) -> AstShaped FullSpan r sh)
-    -> AstEnv (ADVal (AstRanked PrimalSpan)) (ADVal (AstShaped PrimalSpan))
+    -> AstEnv (ADVal (AstRanked PrimalSpan))
     -> HVector (AstRanked PrimalSpan)
     -> [AstDynamicVarName]
     -> HVector (AstRanked FullSpan)
