@@ -44,7 +44,7 @@ module HordeAd.Core.Delta
   , -- * Evaluation of the delta expressions
     DualPart(..), DeltaDt (..)
   , -- * Miscellaneous
-    mapDomainsDeltaR11, mapDomainsDeltaS11kk
+    mapDomainsDeltaR11, mapDomainsDeltaS11
   ) where
 
 import Prelude
@@ -87,7 +87,7 @@ import           Unsafe.Coerce (unsafeCoerce)
 import           HordeAd.Core.TensorClass
 import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances
-  (matchingRank, sameShape, trustMeThisIsAPermutation)
+  (sameShape, trustMeThisIsAPermutation)
 import           HordeAd.Util.ShapedList (ShapedList (..))
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedIndex
@@ -857,35 +857,9 @@ buildFinMaps s0 deltaDt =
         :: EvalState ranked shaped
         -> (DynamicTensor ranked, DynamicTensor (DeltaR ranked))
         -> EvalState ranked shaped
-      evalDynamic s3 ( DynamicRanked @rp @p t2
-                     , DynamicRanked @rq @q d2 )
-        | Just Refl <- sameNat (Proxy @q) (Proxy @p)
-        , Just Refl <- testEquality (typeRep @rp) (typeRep @rq) =
-            evalR s3 t2 d2
-      evalDynamic s3 ( DynamicShaped @rp @shp t2
-                     , DynamicShaped @rq @shq d2 )
-        | Just Refl <- sameShape @shq @shp
-        , Just Refl <- testEquality (typeRep @rp) (typeRep @rq) =
-            evalS s3 t2 d2
-      evalDynamic s3 ( DynamicRankedDummy @rp @shp _ _
-                     , DynamicRanked @rq @q d2 )
-        | Just Refl <- matchingRank @shp @q
-        , Just Refl <- testEquality (typeRep @rp) (typeRep @rq) =
-            withListShape (Sh.shapeT @shp) $ \(sh4 :: ShapeInt n1) ->
-              gcastWith (unsafeCoerce Refl :: Sh.Rank shp :~: n1) $
-              evalR s3 (rzero sh4) d2
-      evalDynamic s3 ( DynamicShapedDummy @rp @shp _ _
-                     , DynamicShaped @rq @shq d2 )
-        | Just Refl <- sameShape @shq @shp
-        , Just Refl <- testEquality (typeRep @rp) (typeRep @rq) =
-            evalS s3 0 d2
-      evalDynamic _ (t, d@(DynamicShaped @rq @shq _)) =
-        error $ "evalDynamic: wrong arguments"
-                `showFailure`
-                ( scalarDynamic t, scalarDynamic d
-                , shapeDynamic t, Sh.shapeT @shq
-                , t, d )
-      evalDynamic _ _ = error "evalDynamic: very wrong arguments"
+      evalDynamic s3 (t, DynamicRanked d2) = evalR s3 (rfromD t) d2
+      evalDynamic s3 (t, DynamicShaped d2) = evalS s3 (sfromD t) d2
+      evalDynamic _ _ = error $ "evalDynamic: dummy delta"
       evalDomains
         :: EvalState ranked shaped
         -> Domains ranked -> Domains (DeltaR ranked)
@@ -1257,21 +1231,16 @@ buildFinMaps s0 deltaDt =
                         (abShared4, cas) =
                           dregister domsG casUnshared (astBindings sg2)
                         sg3 = sg2 {astBindings = abShared4}
-                        padRanked :: DynamicTensor ranked
-                                  -> DynamicTensor ranked
-                        padRanked (DynamicRanked t) = case rshape t of
+                        padRanked :: forall nq rq.
+                                     (KnownNat nq, GoodScalar rq)
+                                  => ranked rq (1 + nq)
+                                  -> ranked rq (1 + nq)
+                        padRanked t = case rshape t of
                           ZS -> error "padRanked: wrong shape"
                           kk :$ shm -> assert (kk == k) $
                             let padding = rzero (width - k :$ shm)
-                            in DynamicRanked $ rappend t padding
-                        padRanked (DynamicRankedDummy @r2 @sh2 _ _) =
-                          case Sh.shapeT @sh2 of
-                            [] -> error "padRanked: wrong shape"
-                            kk : shm -> assert (kk == k) $
-                              Sh.withShapeP (width : shm) $ \(Proxy @kshm) ->
-                                DynamicRankedDummy @r2 @kshm Proxy Proxy
-                        padRanked _ = error "padRanked: not DynamicRanked"
-                    in (sg3, V.map padRanked cas)
+                            in rappend t padding
+                    in (sg3, mapDomainsRanked11 padRanked cas)
                   (s3, g2s) = mapAccumR g2 s2 [1 .. width]
                   g2sum = V.fromList $ map sumDynamicRanked
                           $ transpose $ map V.toList g2s
@@ -1445,7 +1414,7 @@ buildFinMaps s0 deltaDt =
                   lp = sreverse $ sslice @_ @_ @_ @_ @1
                                          (Proxy @0) (Proxy @k3) p
                   las :: Domains ranked
-                  las = mapDomainsShaped11 sreverse as
+                  las = mapDomainsShaped11 @k3 sreverse as
                   crsr :: shaped r (1 + k3 ': sh)
                   crsr =
                     sscanZip
@@ -1597,7 +1566,7 @@ buildFinMaps s0 deltaDt =
                     lp = sreverse $ sslice @_ @_ @_ @_ @(1 + k3 - k)
                                            (Proxy @0) (Proxy @k) p
                     las :: Domains ranked
-                    las = mapDomainsShaped11kk @k3
+                    las = mapDomainsShaped11 @k3
                             (sreverse . sslice @_ @_ @_ @_ @(k3 - k)
                                                (Proxy @0) (Proxy @k)) as
                     rf1 :: shaped r (1 + k ': sh1)
@@ -1638,7 +1607,7 @@ buildFinMaps s0 deltaDt =
                         $ g1t !$ (fromIntegral (valueOf @k - 1 :: Int) :$: ZSH)
                     lp = sslice @_ @_ @_ @_ @(1 + k3 - k)
                                 (Proxy @0) (Proxy @k) p
-                    las = mapDomainsShaped11kk @k3
+                    las = mapDomainsShaped11 @k3
                             (sslice @_ @_ @_ @_ @(k3 - k)
                                     (Proxy @0) (Proxy @k)) as
                     rg :: shaped r (k ': sh1) -> shaped r (k ': sh1)
@@ -1662,7 +1631,7 @@ buildFinMaps s0 deltaDt =
                               => shaped rq (k ': shq)
                               -> shaped rq (k3 ': shq)
                     padShaped t = sappend @_ @_ @k @(k3 - k) t 0
-                in (sg3, mapDomainsShaped11kk @k padShaped cas)
+                in (sg3, mapDomainsShaped11 @k padShaped cas)
               (s3, g2s) = mapAccumR g2 s2 [1 .. valueOf @k3]
               g2sum = V.fromList $ map sumDynamicShaped
                       $ transpose $ map V.toList g2s
@@ -1753,43 +1722,101 @@ buildFinMaps s0 deltaDt =
 -}
 
 mapDomainsDeltaR11
-  :: (RankedTensor ranked, ShapedTensor (ShapedOf ranked))
+  :: ( RankedTensor ranked, ShapedTensor (ShapedOf ranked)
+     , RankedOf (ShapedOf ranked) ~ ranked )
   => (forall rq q. (GoodScalar rq, KnownNat q)
       => DeltaR ranked rq (1 + q) -> DeltaR ranked rq (1 + q))
   -> Domains (DeltaR ranked) -> Domains (DeltaR ranked)
-mapDomainsDeltaR11 f = V.map (mapDeltaR11 f)
+mapDomainsDeltaR11 f = V.map (mapDynamicDeltaR11 f)
 
-mapDeltaR11
-  :: (RankedTensor ranked, ShapedTensor (ShapedOf ranked))
+mapDynamicDeltaR11
+  :: ( RankedTensor ranked, ShapedTensor (ShapedOf ranked)
+     , RankedOf (ShapedOf ranked) ~ ranked )
   => (forall rq q. (GoodScalar rq, KnownNat q)
       => DeltaR ranked rq (1 + q) -> DeltaR ranked rq (1 + q))
   -> DynamicTensor (DeltaR ranked) -> DynamicTensor (DeltaR ranked)
-mapDeltaR11 f (DynamicRanked t) = case shapeDelta t of
-  ZS -> error "mapDeltaR11: rank 0"
+mapDynamicDeltaR11 f (DynamicRanked t) = case shapeDelta t of
+  ZS -> error "mapDynamicDeltaR11: rank 0"
   _ :$ _ -> DynamicRanked $ f t
-mapDeltaR11 _ _ = error "mapDeltaR11: not DynamicRanked"
+mapDynamicDeltaR11 f (DynamicShaped @r @sh t) = case ShapedList.shapeSh @sh of
+  ZSH -> error "mapDynamicDeltaR11: rank 0"
+  (:$:) @_ @sh0 _ _ ->
+    withListShape (Sh.shapeT @sh0) $ \(_ :: ShapeInt n) ->
+      gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: 1 + n) $
+      let res = f $ SToR @sh t
+      in Sh.withShapeP (shapeToList $ shapeDelta res) $ \(Proxy @shr) ->
+        case someNatVal $ 1 + valueOf @n of
+          Just (SomeNat @n1 _) ->
+            gcastWith (unsafeCoerce Refl :: n1 :~: 1 + n) $
+            gcastWith (unsafeCoerce Refl :: Sh.Rank shr :~: n1) $
+            DynamicShaped @r @shr $ RToS res
+          _ -> error "mapDynamicDeltaR11: impossible someNatVal"
+mapDynamicDeltaR11
+  f (DynamicRankedDummy @r @sh _ _) = case ShapedList.shapeSh @sh of
+  ZSH -> error "mapDynamicDeltaR11: rank 0"
+  (:$:) @_ @sh0 k _ ->
+    withListShape (Sh.shapeT @sh0) $ \sh1 ->
+      DynamicRanked @r $ f (ZeroR $ k :$ sh1)
+mapDynamicDeltaR11
+  f (DynamicShapedDummy @r @sh _ _) = case ShapedList.shapeSh @sh of
+  ZSH -> error "mapDynamicDeltaR11: rank 0"
+  (:$:) @_ @sh0 k _ ->
+    withListShape (Sh.shapeT @sh0) $ \(sh1 :: ShapeInt n) ->
+      let res = f @r (ZeroR $ k :$ sh1)
+      in Sh.withShapeP (shapeToList $ shapeDelta res) $ \(Proxy @shr) ->
+        case someNatVal $ 1 + valueOf @n of
+          Just (SomeNat @n1 _) ->
+            gcastWith (unsafeCoerce Refl :: n1 :~: 1 + n) $
+            gcastWith (unsafeCoerce Refl :: Sh.Rank shr :~: n1) $
+            DynamicShaped @_ @shr $ RToS res
+          _ -> error "mapDynamicDeltaR11: impossible someNatVal"
 
-mapDomainsDeltaS11kk
+mapDomainsDeltaS11
   :: forall k k1 shaped.
-     (ShapedOf (RankedOf shaped) ~ shaped, KnownNat k, KnownNat k1)
+     ( ShapedOf (RankedOf shaped) ~ shaped, KnownNat k, KnownNat k1
+     , RankedTensor (RankedOf shaped), ShapedTensor shaped )
   => (forall rq shq. (GoodScalar rq, Sh.Shape shq)
       => DeltaS shaped rq (k ': shq) -> DeltaS shaped rq (k1 ': shq))
   -> Domains (DeltaR (RankedOf shaped)) -> Domains (DeltaR (RankedOf shaped))
-mapDomainsDeltaS11kk f = V.map (mapDeltaS11kk f)
+mapDomainsDeltaS11 f = V.map (mapDynamicDeltaS11 f)
 
-mapDeltaS11kk
+mapDynamicDeltaS11
   :: forall k k1 shaped.
-     (ShapedOf (RankedOf shaped) ~ shaped, KnownNat k, KnownNat k1)
+     ( ShapedOf (RankedOf shaped) ~ shaped, KnownNat k, KnownNat k1
+     , RankedTensor (RankedOf shaped), ShapedTensor shaped )
   => (forall rq shq. (GoodScalar rq, Sh.Shape shq)
       => DeltaS shaped rq (k ': shq) -> DeltaS shaped rq (k1 ': shq))
   -> DynamicTensor (DeltaR (RankedOf shaped))
   -> DynamicTensor (DeltaR (RankedOf shaped))
-mapDeltaS11kk f (DynamicShaped @_ @sh t) = case ShapedList.shapeSh @sh of
-  ZSH -> error "mapDeltaS11kk: rank 0"
+mapDynamicDeltaS11 f (DynamicRanked @r @n2 t) =
+  Sh.withShapeP (shapeToList $ shapeDelta t) $ \(Proxy @sh) ->
+    case ShapedList.shapeSh @sh of
+      ZSH -> error "mapDynamicDeltaS11: rank 0"
+      (:$:) @n @shr _ _ -> case sameNat (Proxy @n) (Proxy @k) of
+        Just Refl -> withListShape (Sh.shapeT @shr) $ \(_ :: ShapeInt m) ->
+          gcastWith (unsafeCoerce Refl :: n2 :~: 1 + m) $
+          gcastWith (unsafeCoerce Refl :: Sh.Rank shr :~: m) $
+          DynamicRanked $ SToR $ f @r @shr $ RToS t
+        Nothing -> error "mapDynamicDeltaS11: wrong width"
+mapDynamicDeltaS11 f (DynamicShaped @_ @sh t) = case ShapedList.shapeSh @sh of
+  ZSH -> error "mapDynamicDeltaS11: rank 0"
   (:$:) @n _ _ -> case sameNat (Proxy @n) (Proxy @k) of
     Just Refl -> DynamicShaped $ f t
-    Nothing -> error "mapDeltaS11kk: wrong width"
-mapDeltaS11kk _ _ = error "mapDeltaS11kk: not DynamicRanked"
+    Nothing -> error "mapDynamicDeltaS11: wrong width"
+mapDynamicDeltaS11
+  f (DynamicRankedDummy @r @sh _ _) = case ShapedList.shapeSh @sh of
+  ZSH -> error "mapDynamicDeltaS11: rank 0"
+  (:$:) @n @shr _ _ -> case sameNat (Proxy @n) (Proxy @k) of
+    Just Refl -> withListShape (Sh.shapeT @shr) $ \(_ :: ShapeInt m) ->
+      gcastWith (unsafeCoerce Refl :: Sh.Rank shr :~: m) $
+      DynamicRanked $ SToR $ f @r @shr ZeroS
+    Nothing -> error "mapDynamicDeltaS11: wrong width"
+mapDynamicDeltaS11
+  f (DynamicShapedDummy @r @sh _ _) = case ShapedList.shapeSh @sh of
+  ZSH -> error "mapDynamicDeltaS11: rank 0"
+  (:$:) @n @shr _ _ -> case sameNat (Proxy @n) (Proxy @k) of
+    Just Refl -> DynamicShaped $ f @r @shr ZeroS
+    Nothing -> error "mapDynamicDeltaS11: wrong width"
 
 
 -- * Forward derivative computation from the delta expressions
@@ -1822,16 +1849,10 @@ buildDerivative dimR deltaDt params = do
   astBindings <- newSTRef []
   let evalDynamic
         :: DynamicTensor (DeltaR ranked) -> ST s (DynamicTensor ranked)
-      evalDynamic (DynamicRanked @rq @q d) = do
-        t <- evalR d
-        return $! DynamicRanked t
-      evalDynamic (DynamicShaped @rq @shq d) = do
-        t <- evalS d
-        return $! DynamicShaped t
-      evalDynamic _ =
-        error "evalDynamic: unexpected constructor"
-      evalDomains
-        :: Domains (DeltaR ranked) -> ST s (Domains ranked)
+      evalDynamic (DynamicRanked d) = DynamicRanked <$> evalR d
+      evalDynamic (DynamicShaped d) = DynamicShaped <$> evalS d
+      evalDynamic _ = error "evalDynamic: dummy delta"
+      evalDomains :: Domains (DeltaR ranked) -> ST s (Domains ranked)
       evalDomains = V.mapM evalDynamic
       evalR
         :: forall n r. (KnownNat n, GoodScalar r)

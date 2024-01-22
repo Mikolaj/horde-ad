@@ -503,8 +503,7 @@ dynamicToVar (DynamicShaped @r2 @sh2 _) = do
   return $!
     let !varE = AstDynamicVarName @[Nat] @r2 @sh2 freshId
         dynE :: AstDynamic s
-        !dynE = DynamicShaped @r2 @sh2
-                              (AstVarS (AstVarName freshId))
+        !dynE = DynamicShaped @r2 @sh2 (AstVarS (AstVarName freshId))
     in (varE, dynE)
 dynamicToVar (DynamicRankedDummy @r2 @sh2 _ _) = do
   let sh3 = Sh.shapeT @sh2
@@ -519,8 +518,7 @@ dynamicToVar (DynamicShapedDummy @r2 @sh2 _ _) = do
   return $!
     let !varE = AstDynamicVarName @[Nat] @r2 @sh2 freshId
         dynE :: AstDynamic s
-        !dynE = DynamicShaped @r2 @sh2
-                              (AstVarS (AstVarName freshId))
+        !dynE = DynamicShaped @r2 @sh2 (AstVarS (AstVarName freshId))
     in (varE, dynE)
 
 funToAstDomains

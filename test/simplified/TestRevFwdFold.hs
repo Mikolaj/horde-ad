@@ -132,6 +132,8 @@ testTrees =
   , testCase "4Sin0ScanD8" testSin0ScanD8
   , testCase "4Sin0ScanD8rev" testSin0ScanD8rev
   , testCase "4Sin0ScanD8rev2" testSin0ScanD8rev2
+  , testCase "4Sin0ScanD8rev3" testSin0ScanD8rev3
+  , testCase "4Sin0ScanD8rev4" testSin0ScanD8rev4
   , testCase "4Sin0ScanD1RevPP" testSin0ScanD1RevPP
   , testCase "4Sin0ScanDFwdPP" testSin0ScanDFwdPP
   , testCase "4Sin0ScanD1Rev2PP" testSin0ScanD1Rev2PP
@@ -1196,13 +1198,13 @@ testSin0ScanD51S = do
                     in g)
                    (V.fromList [ odFromShS @Double
                                                                              @'[2, 5, 1, 1, 1, 1]
-                                                                           , odFromShS @Double
-                                                                             @'[8, 3, 1, 1, 1, 1] ])
+                                                                           , odFromSh @Double
+                                                                             (8 :$ 3 :$ 1 :$ 1 :$ 1 :$ 1 :$ ZS) ])
                    (sreplicate0N @_ @_ @[1,1,1,1] 2 * a0)
                    (V.fromList
                       [ DynamicShaped
                         $ sreplicate @f @3 (sreplicate @f @2 (sreplicate @f @5 a0))
-                      , DynamicShaped
+                      , DynamicRanked $ rfromS
                         $ sreplicate @f @3 (sreplicate @f @8 (sreplicate @f @3 a0)) ]
                    )
            in rfromS . f . sfromR) (rreplicate0N [1,1,1,1] 1.1))
@@ -1278,6 +1280,46 @@ testSin0ScanD8rev2 = do
   assertEqualUpToEpsilon 1e-10
     (Flip $ OR.fromList [] [285.9579482947575])
     (crev h 1.1)
+
+testSin0ScanD8rev3 :: Assertion
+testSin0ScanD8rev3 = do
+  let h :: forall f. ADReady f => f Double 0 -> f Double 0
+      h = rrev1 @f @Double @0 @2
+        (\a0 -> rfoldZip (\x a -> rtr $ rreplicate 5
+                                 $ atan2 (rsum (rtr $ sin x))
+                                         (rreplicate 2
+                                          $ sin (rfromD $ (V.! 0)
+                                                 $ mapDomainsRanked10 rsum
+                                                 $ mapDomainsRanked01
+                                                     (rreplicate 7) a)))
+                       (V.fromList [odFromSh @Double ZS])
+                       (rreplicate 2 (rreplicate 5 (2 * a0)))
+                       (V.singleton $ DynamicRanked $ rreplicate 3 a0))
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [] [98.72666469795736])
+    (rev' h 1.1)
+
+testSin0ScanD8rev4 :: Assertion
+testSin0ScanD8rev4 = do
+  let h :: forall f. ADReady f => f Double 0 -> f Double 0
+      h = rrev1 @f @Double @0 @2
+        (\a0 -> rfoldZip (\x a -> rtr $ rreplicate 5
+                                 $ atan2 (rsum (rtr $ sin x))
+                                         (rreplicate 2
+                                          $ sin (rfromD $ (V.! 0)
+                                                 $ mapDomainsRanked10 rsum
+                                                 $ mapDomainsRanked01
+                                                     (rreplicate 7) a)))
+                       (V.fromList [ odFromSh @Double ZS
+                                   , odFromShS @Double @'[] ])
+                       (rreplicate 2 (rreplicate 5 (2 * a0)))
+                       (V.fromList [ DynamicRanked $ rreplicate 3 a0
+                                   , DynamicShaped
+                                     $ sreplicate @_ @3
+                                         (sfromR @_ @_ @'[] a0) ]))
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [] [98.72666469795736])
+    (rev' h 1.1)
 
 testSin0ScanD1RevPP :: Assertion
 testSin0ScanD1RevPP = do

@@ -946,10 +946,10 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
                   gcastWith (unsafeCoerce Refl :: Compare k1 k :~: LT) $
                   h @k1 (sslice @_ @_ @_ @_ @(k - k1)
                                 (Proxy @0) (Proxy @(1 + k1)) pShared)
-                        (mapDomainsShaped11kk @k @k1
+                        (mapDomainsShaped11 @k @k1
                            (sslice @_ @_ @_ @_ @(k - k1)
                                    (Proxy @0) (Proxy @k1)) as)
-                        (mapDomainsDeltaS11kk @k @k1
+                        (mapDomainsDeltaS11 @k @k1
                            (SliceS @_ @0 @k1 @(k - k1)) as')
                 Nothing -> error "sscanD: impossible someNatVal error"
           in FromListS

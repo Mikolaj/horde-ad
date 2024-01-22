@@ -1895,7 +1895,7 @@ astLetDomainsInDomains
   -> AstDomains s2
 astLetDomainsInDomains vars u v =
   case u of
-      Ast.AstDomains l3 ->
+      Ast.AstDomains l3 -> assert (length vars == V.length l3) $
         foldr (mapRankedShaped astLetInDomains astLetInDomainsS)
               v (zip vars (V.toList l3))
       Ast.AstLetDomainsInDomains{} -> Ast.AstLetDomainsInDomains vars u v
@@ -2638,7 +2638,8 @@ substitute1Ast i var v1 = case v1 of
       SubstitutionPayloadRanked @_ @_ @m t -> case sameAstSpan @s @s2 of
         Just Refl -> case sameNat (Proxy @m) (Proxy @n) of
           Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
-            Just Refl -> assert (shapeAst t == sh) $ Just t
+            Just Refl -> assert (shapeAst t == sh `blame` (shapeAst t, sh, t))
+                         $ Just t
             _ -> error "substitute1Ast: scalar"
           _ -> error "substitute1Ast: rank"
         _ -> error "substitute1Ast: span"
