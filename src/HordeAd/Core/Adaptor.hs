@@ -1,6 +1,7 @@
 -- | Operations on the product (heterogeneous list) object for tensors.
 -- In particular, adaptors for working with such types of collections of tensors
 -- that are isormorphic to products.
+--
 -- This is used as a representation of the domains of objective functions
 -- that become the codomains of the reverse derivative functions
 -- and also to hangle multiple arguments and results of fold-like operations.
@@ -20,6 +21,7 @@ import           System.Random
 -- import HordeAd.Core.Ast
 -- import           GHC.TypeLits (KnownNat)
 
+import HordeAd.Core.HVector
 import HordeAd.Core.Types
 
 -- * Adaptor classes

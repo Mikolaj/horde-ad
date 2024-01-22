@@ -13,6 +13,7 @@ import           GHC.TypeLits (KnownNat)
 
 import HordeAd.Core.Delta (DualPart (..))
 import HordeAd.Core.DualNumber
+import HordeAd.Core.HVector
 import HordeAd.Core.TensorADVal ()
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types

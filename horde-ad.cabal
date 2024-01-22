@@ -146,6 +146,7 @@ library horde-ad-simplified
                       HordeAd.Core.DualClass
                       HordeAd.Core.DualNumber
                       HordeAd.Core.Engine
+                      HordeAd.Core.HVector
                       HordeAd.Core.TensorADVal
                       HordeAd.Core.TensorAst
                       HordeAd.Core.TensorClass

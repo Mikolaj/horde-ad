@@ -31,6 +31,7 @@ import           System.IO.Unsafe (unsafePerformIO)
 
 import           HordeAd.Core.Ast
 import           HordeAd.Core.AstTools
+import           HordeAd.Core.HVector
 import           HordeAd.Core.Types
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedIndex

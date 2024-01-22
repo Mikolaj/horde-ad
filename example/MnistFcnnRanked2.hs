@@ -15,6 +15,7 @@ import           GHC.Exts (inline)
 import           GHC.TypeLits (Nat)
 
 import HordeAd.Core.Adaptor
+import HordeAd.Core.HVector
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.External.CommonRankedOps

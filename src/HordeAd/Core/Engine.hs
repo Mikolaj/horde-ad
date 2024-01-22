@@ -42,6 +42,7 @@ import HordeAd.Core.AstEnv
 import HordeAd.Core.AstInterpret
 import HordeAd.Core.Delta
 import HordeAd.Core.DualNumber
+import HordeAd.Core.HVector
 import HordeAd.Core.TensorADVal ()
 import HordeAd.Core.TensorAst ()
 import HordeAd.Core.TensorClass

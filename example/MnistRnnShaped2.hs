@@ -20,6 +20,7 @@ import           GHC.TypeLits (KnownNat, Nat, type (*))
 import           Numeric.LinearAlgebra (Vector)
 
 import HordeAd.Core.Adaptor
+import HordeAd.Core.HVector
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.External.CommonShapedOps (lossSoftMaxCrossEntropyS)

@@ -44,6 +44,7 @@ import           HordeAd.Core.AstFreshId
 import           HordeAd.Core.AstPrettyPrint
 import           HordeAd.Core.AstSimplify
 import           HordeAd.Core.AstTools
+import           HordeAd.Core.HVector
 import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances
   (MapSucc, trustMeThisIsAPermutation)

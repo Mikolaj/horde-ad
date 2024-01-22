@@ -14,19 +14,17 @@ module HordeAd.Core.TensorClass
     -- * The tensor classes
   , RankedTensor(..), ShapedTensor(..), HVectorTensor(..)
   , raddDynamic, saddDynamic, sumDynamicRanked, sumDynamicShaped, rfromD, sfromD
-    -- * The related constraints
-  , ADReady, ADReadyR, ADReadyS, ADReadySmall
-    -- * Concrete array instances auxiliary definitions
-  , sizeHVector, scalarDynamic, shapeDynamic, rankDynamic
+  , sizeHVector, shapeDynamic
   , hVectorsMatch, voidHVectorMatches
-  , voidFromVar, voidFromVars, voidFromSh, voidFromShS
   , voidFromDynamic, voidFromHVector, dynamicFromVoid
   , fromHVectorR, fromHVectorS
   , unravelHVector, ravelHVector
   , mapHVectorRanked, mapHVectorRanked01, mapHVectorRanked10, mapHVectorRanked11
   , mapHVectorShaped11
   , mapRanked, mapRanked01, mapRanked10, mapRanked11
-  , index1HVector, replicate1HVector, replicate1VoidHVector
+  , index1HVector, replicate1HVector
+    -- * The related constraints
+  , ADReady, ADReadyR, ADReadyS, ADReadySmall
   ) where
 
 import Prelude
@@ -47,7 +45,6 @@ import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits
   ( KnownNat
-  , Nat
   , OrderingI (..)
   , SomeNat (..)
   , cmpNat
@@ -65,6 +62,7 @@ import           Unsafe.Coerce (unsafeCoerce)
 
 import           HordeAd.Core.Adaptor
 import           HordeAd.Core.Ast
+import           HordeAd.Core.HVector
 import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances
   (matchingRank, sameShape)
@@ -1047,51 +1045,6 @@ class HVectorTensor (ranked :: RankedTensorType)
             -> HVector (RankedOf shaped)
             -> shaped rn (1 + k ': sh)
 
-
--- * The giga-constraint
-
-type ADReady ranked = ADReadyR ranked  -- backward compatibility
-
-type ADReadyR ranked = ADReadyBoth ranked (ShapedOf ranked)
-
-type ADReadyS shaped = ADReadyBoth (RankedOf shaped) shaped
-
--- Here is in other places reflexive closure of type equalities is created
--- manually (and not for all equalities) due to #23333.
-type ADReadySmall ranked shaped =
-  ( shaped ~ ShapedOf ranked, ranked ~ RankedOf shaped
-  , RankedOf (PrimalOf ranked) ~ PrimalOf ranked
-  , PrimalOf ranked ~ RankedOf (PrimalOf ranked)
-  , RankedOf (PrimalOf shaped) ~ PrimalOf ranked
-  , PrimalOf ranked ~ RankedOf (PrimalOf shaped)
-  , ShapedOf (PrimalOf ranked) ~ PrimalOf shaped
-  , PrimalOf shaped ~ ShapedOf (PrimalOf ranked)
-  , SimpleBoolOf ranked ~ SimpleBoolOf shaped
-  , SimpleBoolOf shaped ~ SimpleBoolOf ranked
-  , SimpleBoolOf ranked ~ SimpleBoolOf (PrimalOf ranked)
-  , SimpleBoolOf (PrimalOf ranked) ~ SimpleBoolOf ranked
-  , SimpleBoolOf shaped ~ SimpleBoolOf (PrimalOf shaped)
-  , SimpleBoolOf (PrimalOf shaped) ~ SimpleBoolOf shaped
-  , Boolean (SimpleBoolOf ranked)
-  , IfF ranked, IfF shaped, IfF (PrimalOf ranked), IfF (PrimalOf shaped)
-  , EqF ranked, EqF shaped, EqF (PrimalOf ranked), EqF (PrimalOf shaped)
-  , OrdF ranked, OrdF shaped, OrdF (PrimalOf ranked), OrdF (PrimalOf shaped)
-  , RankedTensor ranked, RankedTensor (PrimalOf ranked)
-  , ShapedTensor shaped, ShapedTensor (PrimalOf shaped)
-  , CRanked ranked Show, CRanked (PrimalOf ranked) Show
-  , CShaped shaped Show, CShaped (PrimalOf shaped) Show
-  )
-
-type ADReadyBoth ranked shaped =
-  ( ADReadySmall ranked shaped
-  , HVectorTensor ranked shaped
-  , HVectorTensor (PrimalOf ranked) (PrimalOf shaped) )
-
-
--- * Instances for concrete arrays
-
--- The HVectorTensor instance requires ADVal instance, so it's given elsewhere.
-
 sizeHVector :: forall ranked. RankedTensor ranked => HVector ranked -> Int
 sizeHVector = let f (DynamicRanked @r t) = rsize @ranked @r t
                   f (DynamicShaped @_ @sh _) = Sh.sizeT @sh
@@ -1099,49 +1052,12 @@ sizeHVector = let f (DynamicRanked @r t) = rsize @ranked @r t
                   f (DynamicShapedDummy _ proxy_sh) = Sh.sizeP proxy_sh
               in V.sum . V.map f
 
-type role DynamicScalar representational
-data DynamicScalar (ranked :: RankedTensorType) where
-  DynamicScalar :: GoodScalar r
-                => Proxy r -> DynamicScalar ranked
-
-instance Show (DynamicScalar ranked) where
-  showsPrec d (DynamicScalar (Proxy @t)) =
-    showsPrec d (typeRep @t)  -- abuse for better error messages
-
-scalarDynamic :: DynamicTensor ranked -> DynamicScalar ranked
-scalarDynamic (DynamicRanked @r2 _) = DynamicScalar @r2 Proxy
-scalarDynamic (DynamicShaped @r2 _) = DynamicScalar @r2 Proxy
-scalarDynamic (DynamicRankedDummy @r2 _ _) = DynamicScalar @r2 Proxy
-scalarDynamic (DynamicShapedDummy @r2 _ _) = DynamicScalar @r2 Proxy
-
 shapeDynamic :: RankedTensor ranked
              => DynamicTensor ranked -> [Int]
 shapeDynamic (DynamicRanked t) = shapeToList $ rshape t
 shapeDynamic (DynamicShaped @_ @sh _) = Sh.shapeT @sh
 shapeDynamic (DynamicRankedDummy _ proxy_sh) = Sh.shapeP proxy_sh
 shapeDynamic (DynamicShapedDummy _ proxy_sh) = Sh.shapeP proxy_sh
-
-shapeDynamicVoid :: DynamicTensor VoidTensor -> [Int]
-shapeDynamicVoid (DynamicRankedDummy _ proxy_sh) = Sh.shapeP proxy_sh
-shapeDynamicVoid (DynamicShapedDummy _ proxy_sh) = Sh.shapeP proxy_sh
-
-rankDynamic :: DynamicTensor ranked -> Int
-rankDynamic (DynamicRanked @_ @n _) = valueOf @n
-rankDynamic (DynamicShaped @_ @sh _) = length $ Sh.shapeT @sh
-rankDynamic (DynamicRankedDummy _ proxy_sh) = length $ Sh.shapeP proxy_sh
-rankDynamic (DynamicShapedDummy _ proxy_sh) = length $ Sh.shapeP proxy_sh
-
-isDynamicRanked :: DynamicTensor ranked -> Bool
-isDynamicRanked DynamicRanked{} = True
-isDynamicRanked DynamicShaped{} = False
-isDynamicRanked DynamicRankedDummy{} = True
-isDynamicRanked DynamicShapedDummy{} = False
-
-isDynamicDummy :: DynamicTensor ranked -> Bool
-isDynamicDummy DynamicRanked{} = False
-isDynamicDummy DynamicShaped{} = False
-isDynamicDummy DynamicRankedDummy{} = True
-isDynamicDummy DynamicShapedDummy{} = True
 
 hVectorsMatch :: forall f g. (RankedTensor f, RankedTensor g)
               => HVector f -> HVector g -> Bool
@@ -1166,24 +1082,6 @@ voidHVectorMatches v1 v2 =
           && isDynamicRanked t == isDynamicRanked @g u
   in V.length v1 == V.length v2
      && and (V.zipWith dynamicMatch v1 v2)
-
-voidFromVar :: AstDynamicVarName -> DynamicTensor VoidTensor
-voidFromVar (AstDynamicVarName @ty @rD @shD _) =
-  case testEquality (typeRep @ty) (typeRep @Nat) of
-    Just Refl -> DynamicRankedDummy @rD @shD Proxy Proxy
-    _ -> DynamicShapedDummy @rD @shD Proxy Proxy
-
-voidFromVars :: [AstDynamicVarName] -> VoidHVector
-voidFromVars = V.fromList . map voidFromVar
-
-voidFromSh :: forall r n. GoodScalar r
-           => ShapeInt n -> DynamicTensor VoidTensor
-voidFromSh sh = Sh.withShapeP (shapeToList sh) $ \proxySh ->
-              DynamicRankedDummy (Proxy @r) proxySh
-
-voidFromShS :: forall r sh. (GoodScalar r, Sh.Shape sh)
-            => DynamicTensor VoidTensor
-voidFromShS = DynamicShapedDummy @r @sh Proxy Proxy
 
 -- This is useful for when the normal main parameters to an objective
 -- function are used to generate the parameter template
@@ -1613,16 +1511,49 @@ replicate1Dynamic _i u = case u of
   DynamicRankedDummy @r @sh p1 _ -> DynamicRankedDummy @r @(k ': sh) p1 Proxy
   DynamicShapedDummy @r @sh p1 _ -> DynamicShapedDummy @r @(k ': sh) p1 Proxy
 
-replicate1VoidHVector :: forall k. KnownNat k
-                      => Proxy k -> VoidHVector -> VoidHVector
-replicate1VoidHVector i u = V.map (replicate1VoidTensor i) u
+-- * The giga-constraint
 
-replicate1VoidTensor :: forall k. KnownNat k
-                     => Proxy k -> DynamicTensor VoidTensor
-                     -> DynamicTensor VoidTensor
-replicate1VoidTensor _i u = case u of
-  DynamicRankedDummy @r @sh p1 _ -> DynamicRankedDummy @r @(k ': sh) p1 Proxy
-  DynamicShapedDummy @r @sh p1 _ -> DynamicShapedDummy @r @(k ': sh) p1 Proxy
+type ADReady ranked = ADReadyR ranked  -- backward compatibility
+
+type ADReadyR ranked = ADReadyBoth ranked (ShapedOf ranked)
+
+type ADReadyS shaped = ADReadyBoth (RankedOf shaped) shaped
+
+-- Here is in other places reflexive closure of type equalities is created
+-- manually (and not for all equalities) due to #23333.
+type ADReadySmall ranked shaped =
+  ( shaped ~ ShapedOf ranked, ranked ~ RankedOf shaped
+  , RankedOf (PrimalOf ranked) ~ PrimalOf ranked
+  , PrimalOf ranked ~ RankedOf (PrimalOf ranked)
+  , RankedOf (PrimalOf shaped) ~ PrimalOf ranked
+  , PrimalOf ranked ~ RankedOf (PrimalOf shaped)
+  , ShapedOf (PrimalOf ranked) ~ PrimalOf shaped
+  , PrimalOf shaped ~ ShapedOf (PrimalOf ranked)
+  , SimpleBoolOf ranked ~ SimpleBoolOf shaped
+  , SimpleBoolOf shaped ~ SimpleBoolOf ranked
+  , SimpleBoolOf ranked ~ SimpleBoolOf (PrimalOf ranked)
+  , SimpleBoolOf (PrimalOf ranked) ~ SimpleBoolOf ranked
+  , SimpleBoolOf shaped ~ SimpleBoolOf (PrimalOf shaped)
+  , SimpleBoolOf (PrimalOf shaped) ~ SimpleBoolOf shaped
+  , Boolean (SimpleBoolOf ranked)
+  , IfF ranked, IfF shaped, IfF (PrimalOf ranked), IfF (PrimalOf shaped)
+  , EqF ranked, EqF shaped, EqF (PrimalOf ranked), EqF (PrimalOf shaped)
+  , OrdF ranked, OrdF shaped, OrdF (PrimalOf ranked), OrdF (PrimalOf shaped)
+  , RankedTensor ranked, RankedTensor (PrimalOf ranked)
+  , ShapedTensor shaped, ShapedTensor (PrimalOf shaped)
+  , CRanked ranked Show, CRanked (PrimalOf ranked) Show
+  , CShaped shaped Show, CShaped (PrimalOf shaped) Show
+  )
+
+type ADReadyBoth ranked shaped =
+  ( ADReadySmall ranked shaped
+  , HVectorTensor ranked shaped
+  , HVectorTensor (PrimalOf ranked) (PrimalOf shaped) )
+
+
+-- * Instances for concrete arrays
+
+-- The HVectorTensor instance requires ADVal instance, so it's given elsewhere.
 
 type instance SimpleBoolOf (Flip OR.Array) = Bool
 

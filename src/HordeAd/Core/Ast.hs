@@ -39,6 +39,7 @@ import           Data.Type.Equality (testEquality, (:~:) (Refl))
 import           GHC.TypeLits (KnownNat, sameNat, type (+), type (<=))
 import           Type.Reflection (Typeable, eqTypeRep, typeRep, (:~~:) (HRefl))
 
+import HordeAd.Core.HVector
 import HordeAd.Core.Types
 import HordeAd.Util.ShapedList (ShapedList (..))
 import HordeAd.Util.SizedIndex

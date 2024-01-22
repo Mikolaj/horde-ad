@@ -35,6 +35,7 @@ import HordeAd.Core.Ast
 import HordeAd.Core.AstEnv
 import HordeAd.Core.AstSimplify
 import HordeAd.Core.AstTools
+import HordeAd.Core.HVector
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.Internal.OrthotopeOrphanInstances (matchingRank, sameShape)

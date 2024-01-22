@@ -13,6 +13,7 @@ import qualified Data.Vector.Generic as V
 import           GHC.Exts (inline)
 
 import HordeAd.Core.Adaptor
+import HordeAd.Core.HVector
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.External.CommonRankedOps
