@@ -564,7 +564,7 @@ astIndexSOrStepOnly stepOnly v0 ix@((:$:) @in1 i1 (rest1 :: AstIndexS shm1)) =
     astIndex v rest1
   Ast.AstAppendS @n3 @m3 u v | AstConst it <- i1 ->
     let i = fromIntegral $ OR.unScalar it
-        len = valueOf @m3
+        len = valueOf @m3 :: Int
     in if len > i
        then astIndex @(m3 ': shm1) u (i1 :$: rest1)
        else astIndex @(n3 ': shm1)

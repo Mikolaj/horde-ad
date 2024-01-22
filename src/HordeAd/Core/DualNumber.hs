@@ -347,7 +347,7 @@ generateDeltaInputs =
         DynamicShaped $ InputS @shaped2 @r @sh (toInputId i)
   in V.imap f
 {-# SPECIALIZE generateDeltaInputs
-  :: HVectorOD -> HVector (Dual (Flip OR.Array)) #-}
+  :: HVector (Flip OR.Array) -> HVector (Dual (Flip OR.Array)) #-}
 
 -- Not specialized, because not overloaded (HVector is a type synonym).
 makeADInputs
@@ -407,8 +407,9 @@ class DerivativeStages g where
 
   revEvalArtifact
     :: (GoodScalar r, HasSingletonDict y)
-    => AstArtifactRev (PrimalOf g) r y -> HVectorOD -> Maybe (ConcreteOf g r y)
-    -> (HVectorOD, ConcreteOf g r y)
+    => AstArtifactRev (PrimalOf g) r y -> HVector (Flip OR.Array)
+    -> Maybe (ConcreteOf g r y)
+    -> (HVector (Flip OR.Array), ConcreteOf g r y)
 
   fwdArtifactFromForwardPass
     :: forall r y. (GoodScalar r, HasSingletonDict y)
@@ -422,7 +423,8 @@ class DerivativeStages g where
 
   fwdEvalArtifact
     :: (GoodScalar r, HasSingletonDict y)
-    => AstArtifactFwd (PrimalOf g) r y -> HVectorOD -> HVectorOD
+    => AstArtifactFwd (PrimalOf g) r y -> HVector (Flip OR.Array)
+    -> HVector (Flip OR.Array)
     -> (ConcreteOf g r y, ConcreteOf g r y)
 
   fwdProduceArtifact

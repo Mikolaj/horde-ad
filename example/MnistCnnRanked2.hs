@@ -116,7 +116,7 @@ convMnistTestR
   => ADCnnMnistParameters ranked r
   -> Int
   -> MnistDataBatchR r
-  -> HVectorOD
+  -> HVector (Flip OR.Array)
   -> r
 convMnistTestR _ 0 _ _ = 0
 convMnistTestR valsInit batch_size (glyphR, labelR) testParams =

@@ -134,7 +134,7 @@ rnnMnistTestR
   => ADRnnMnistParameters ranked r
   -> Int
   -> MnistDataBatchR r  -- batch_size
-  -> HVectorOD
+  -> HVector (Flip OR.Array)
   -> r
 rnnMnistTestR _ 0 _ _ = 0
 rnnMnistTestR valsInit batch_size (glyphR, labelR) testParams =

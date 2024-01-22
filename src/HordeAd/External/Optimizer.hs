@@ -27,11 +27,11 @@ sgd :: forall n r a. (KnownNat n, GoodScalar r)
         -> HVector (ADVal (Flip OR.Array))
         -> ADVal (Flip OR.Array) r n)
     -> [a]  -- ^ training data
-    -> HVectorOD  -- ^ initial parameters
-    -> (HVectorOD, Flip OR.Array r n)
+    -> HVector (Flip OR.Array)  -- ^ initial parameters
+    -> (HVector (Flip OR.Array), Flip OR.Array r n)
 sgd gamma f trainingData parameters0 = go trainingData parameters0 where
   deltaInputs = generateDeltaInputs @(Flip OR.Array) parameters0
-  go :: [a] -> HVectorOD -> (HVectorOD, Flip OR.Array r n)
+  go :: [a] -> HVector (Flip OR.Array) -> (HVector (Flip OR.Array), Flip OR.Array r n)
   go [] parameters = (parameters, 0)
   go (a : rest) !parameters =
     let inputs = makeADInputs parameters deltaInputs
@@ -52,9 +52,9 @@ sgdAdam
      , Num (f r y), RankedOf f ~ Flip OR.Array)
   => (a -> HVector (ADVal (Flip OR.Array)) -> ADVal f r y)
   -> [a]
-  -> HVectorOD
+  -> HVector (Flip OR.Array)
   -> StateAdam
-  -> (HVectorOD, StateAdam)
+  -> (HVector (Flip OR.Array), StateAdam)
 {-# INLINE sgdAdam #-}
 sgdAdam = sgdAdamArgs updateWithGradientAdam defaultArgsAdam
 

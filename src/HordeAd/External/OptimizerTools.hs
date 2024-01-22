@@ -23,7 +23,7 @@ import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.Internal.OrthotopeOrphanInstances
 
-updateWithGradient :: Double -> HVectorOD -> HVectorOD -> HVectorOD
+updateWithGradient :: Double -> HVector (Flip OR.Array) -> HVector (Flip OR.Array) -> HVector (Flip OR.Array)
 updateWithGradient gamma params gradient =
   let updateVector :: (Numeric r, Fractional r, Num (Vector r))
                    => Vector r -> Vector r -> Vector r
@@ -55,19 +55,19 @@ updateWithGradient gamma params gradient =
   in V.zipWith updateR params gradient
 
 {-
-gradientIsNil :: (Eq r, Numeric r) => HVectorOD -> Bool
-gradientIsNil (HVectorOD gradient0 gradientR) =
+gradientIsNil :: (Eq r, Numeric r) => HVector (Flip OR.Array) -> Bool
+gradientIsNil (HVector (Flip OR.Array) gradient0 gradientR) =
   V.all (== 0) gradient0
   && V.all isTensorDummyD gradientR
 
-minimumGradient :: (Ord r, Numeric r) => HVectorOD -> r
-minimumGradient (HVectorOD gradient0 gradientR) =
+minimumGradient :: (Ord r, Numeric r) => HVector (Flip OR.Array) -> r
+minimumGradient (HVector (Flip OR.Array) gradient0 gradientR) =
   min (if V.null gradient0 then 0 else LA.minElement gradient0)
       (if V.null gradientR then 0
        else V.minimum (V.map OR.minimumA gradientR))
 
-maximumGradient :: (Ord r, Numeric r) => HVectorOD -> r
-maximumGradient (HVectorOD gradient0 gradientR) =
+maximumGradient :: (Ord r, Numeric r) => HVector (Flip OR.Array) -> r
+maximumGradient (HVector (Flip OR.Array) gradient0 gradientR) =
   max (if V.null gradient0 then 0 else LA.maxElement gradient0)
       (if V.null gradientR then 0
        else V.maximum (V.map OR.maximumA gradientR))
@@ -92,13 +92,13 @@ defaultArgsAdam = ArgsAdam
 
 data StateAdam = StateAdam
   { tAdam :: Int  -- iteration count
-  , mAdam :: HVectorOD
-  , vAdam :: HVectorOD
+  , mAdam :: HVector (Flip OR.Array)
+  , vAdam :: HVector (Flip OR.Array)
   }
 
 initialStateAdam :: HVectorOD -> StateAdam
 initialStateAdam parameters0 =
-  let zeroP = V.map odFromDynamic parameters0
+  let zeroP = V.map dynamicFromOD parameters0
   in StateAdam
        { tAdam = 0
        , mAdam = zeroP
@@ -129,8 +129,8 @@ liftArray43 f m1 m2 m3 m4 =
             ++ show (OR.shapeL m1, OR.shapeL m2, OR.shapeL m3, OR.shapeL m4)
 
 updateWithGradientAdam
-  :: ArgsAdam -> StateAdam -> HVectorOD -> HVectorOD
-  -> (HVectorOD, StateAdam)
+  :: ArgsAdam -> StateAdam -> HVector (Flip OR.Array) -> HVector (Flip OR.Array)
+  -> (HVector (Flip OR.Array), StateAdam)
 updateWithGradientAdam ArgsAdam{..} StateAdam{tAdam, mAdam, vAdam}
                        paramsR gradientR =
   let mAdamR = mAdam

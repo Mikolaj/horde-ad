@@ -8,6 +8,7 @@ module MnistRnnShaped2 where
 import Prelude hiding (foldl')
 
 import           Data.Array.Internal (valueOf)
+import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as Sh
 import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
@@ -150,7 +151,7 @@ rnnMnistTestS
   -> SNat batch_size
   -> ADRnnMnistParametersShaped shaped h out_width r
   -> MnistDataBatchS batch_size r
-  -> HVectorOD
+  -> HVector (Flip OR.Array)
   -> r
 rnnMnistTestS out_width@SNat batch_size@SNat
               valsInit (glyphS, labelS) testParams =

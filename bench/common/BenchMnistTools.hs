@@ -58,7 +58,7 @@ mnistTrainBench1VTA extraPrefix chunkLength xs widthHidden widthHidden2
       grad c = fst $ sgd gamma f c hVectorInit
       name = extraPrefix
              ++ unwords [ "v" ++ show (length nParams1)
-                        , "m0" ++ " =" ++ show (sizeHVectorOD hVectorInit) ]
+                        , "m0" ++ " =" ++ show (sizeHVector hVectorInit) ]
   bench name $ nf grad chunk
 
 mnistTestBench1VTA :: forall ranked r. (ranked ~ Flip OR.Array, r ~ Double)
@@ -84,7 +84,7 @@ mnistTestBench1VTA extraPrefix chunkLength xs widthHidden widthHidden2 = do
       score c = ftest c hVectorInit
       name = "test " ++ extraPrefix
              ++ unwords [ "v" ++ show (length nParams1)
-                        , "m0" ++ " =" ++ show (sizeHVectorOD hVectorInit) ]
+                        , "m0" ++ " =" ++ show (sizeHVector hVectorInit) ]
   bench name $ whnf score chunk
 
 mnistBGroup1VTA :: [MnistData Double] -> Int -> Benchmark
@@ -131,7 +131,7 @@ mnistTrainBench1VTO extraPrefix chunkLength xs widthHidden widthHidden2
                  , (replicate sizeMnistLabelInt emptyR, emptyR) )
       name = extraPrefix
              ++ unwords [ "v" ++ show (length nParams1)
-                        , "m0" ++ " =" ++ show (sizeHVectorOD hVectorInit) ]
+                        , "m0" ++ " =" ++ show (sizeHVector hVectorInit) ]
   bench name $ nfIO $ do
     (varGlyph, varGlyphD, astGlyph) <-
       funToAstIOR (singletonShape sizeMnistGlyphInt) id
@@ -226,7 +226,7 @@ mnistTrainBench2VTA extraPrefix chunkLength xs widthHidden widthHidden2
       grad c = fst $ sgd gamma f c hVectorInit
       name = extraPrefix
              ++ unwords [ "v0 m" ++ show (V.length hVectorInit)
-                        , " =" ++ show (sizeHVectorOD hVectorInit) ]
+                        , " =" ++ show (sizeHVector hVectorInit) ]
   bench name $ nf grad chunk
 
 mnistTestBench2VTA :: forall ranked r. (ranked ~ Flip OR.Array, r ~ Double)
@@ -253,7 +253,7 @@ mnistTestBench2VTA extraPrefix chunkLength xs widthHidden widthHidden2 = do
       score c = ftest c hVectorInit
       name = "test " ++ extraPrefix
              ++ unwords [ "v0 m" ++ show (V.length hVectorInit)
-                        , " =" ++ show (sizeHVectorOD hVectorInit) ]
+                        , " =" ++ show (sizeHVector hVectorInit) ]
   bench name $ whnf score chunk
 
 mnistBGroup2VTA :: [MnistData Double] -> Int -> Benchmark
@@ -305,7 +305,7 @@ mnistTrainBench2VTO extraPrefix chunkLength xs widthHidden widthHidden2
       hVectorInit = toHVector valsInit
       name = extraPrefix
              ++ unwords [ "v0 m" ++ show (V.length hVectorInit)
-                        , " =" ++ show (sizeHVectorOD hVectorInit) ]
+                        , " =" ++ show (sizeHVector hVectorInit) ]
   bench name $ nfIO $ do
     (varGlyph, varGlyphD, astGlyph) <-
       funToAstIOR (singletonShape sizeMnistGlyphInt) id

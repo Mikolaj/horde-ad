@@ -71,8 +71,8 @@ mnistTestCaseCNNA prefix epochs maxBatches kh kw c_out n_hidden
                         , show kh, show kw, show c_out, show n_hidden
                         , show miniBatchSize
                         , show (V.length hVectorInit)
-                        , show (sizeHVectorOD hVectorInit) ]
-      ftest :: Int -> MnistDataBatchR r -> HVectorOD -> r
+                        , show (sizeHVector hVectorInit) ]
+      ftest :: Int -> MnistDataBatchR r -> (HVector (Flip OR.Array)) -> r
       ftest = MnistCnnRanked2.convMnistTestR valsInit
   in testCase name $ do
        hPutStrLn stderr $
@@ -83,8 +83,8 @@ mnistTestCaseCNNA prefix epochs maxBatches kh kw c_out n_hidden
        testData <- map rankBatch . take (totalBatchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
        let testDataR = packBatchR testData
-           runBatch :: (HVectorOD, StateAdam) -> (Int, [MnistDataR r])
-                    -> IO (HVectorOD, StateAdam)
+           runBatch :: ((HVector (Flip OR.Array)), StateAdam) -> (Int, [MnistDataR r])
+                    -> IO ((HVector (Flip OR.Array)), StateAdam)
            runBatch (!parameters, !stateAdam) (k, chunk) = do
              let f :: MnistDataBatchR r -> HVector (ADVal (Flip OR.Array))
                    -> ADVal ranked r 0
@@ -106,7 +106,7 @@ mnistTestCaseCNNA prefix epochs maxBatches kh kw c_out n_hidden
                hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
                hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int -> (HVectorOD, StateAdam) -> IO HVectorOD
+       let runEpoch :: Int -> ((HVector (Flip OR.Array)), StateAdam) -> IO (HVector (Flip OR.Array))
            runEpoch n (params2, _) | n > epochs = return params2
            runEpoch n paramsStateAdam@(!_, !_) = do
              unless (n_hidden < 10) $
@@ -117,7 +117,7 @@ mnistTestCaseCNNA prefix epochs maxBatches kh kw c_out n_hidden
                           $ chunksOf totalBatchSize trainDataShuffled
              res <- foldM runBatch paramsStateAdam chunks
              runEpoch (succ n) res
-       res <- runEpoch 1 (hVectorInit, initialStateAdam hVectorInit)
+       res <- runEpoch 1 (hVectorInit, initialStateAdam (V.map odFromDynamic hVectorInit))
        let testErrorFinal =
              1 - ftest (totalBatchSize * maxBatches) testDataR res
        testErrorFinal @?~ expected
@@ -170,8 +170,8 @@ mnistTestCaseCNNI prefix epochs maxBatches kh kw c_out n_hidden
                         , show kh, show kw, show c_out, show n_hidden
                         , show miniBatchSize
                         , show (V.length hVectorInit)
-                        , show (sizeHVectorOD hVectorInit) ]
-      ftest :: Int -> MnistDataBatchR r -> HVectorOD -> r
+                        , show (sizeHVector hVectorInit) ]
+      ftest :: Int -> MnistDataBatchR r -> (HVector (Flip OR.Array)) -> r
       ftest = MnistCnnRanked2.convMnistTestR valsInit
   in testCase name $ do
        hPutStrLn stderr $
@@ -181,7 +181,7 @@ mnistTestCaseCNNI prefix epochs maxBatches kh kw c_out n_hidden
                     <$> loadMnistData trainGlyphsPath trainLabelsPath
        testData <- map rankBatch . take (totalBatchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
-       (_, hVectorPrimal, vars, _) <- funToAstRevIO hVectorInit
+       (_, hVectorPrimal, vars, _) <- funToAstRevIO (V.map odFromDynamic hVectorInit)
        let testDataR = packBatchR testData
        (varGlyph, _, astGlyph) <-
          funToAstIOR
@@ -193,8 +193,8 @@ mnistTestCaseCNNI prefix epochs maxBatches kh kw c_out n_hidden
            ast = MnistCnnRanked2.convMnistLossFusedR
                    miniBatchSize (astGlyph, astLabel)
                    (parseHVector valsInit hVectorPrimal)
-           runBatch :: (HVectorOD, StateAdam) -> (Int, [MnistDataR r])
-                    -> IO (HVectorOD, StateAdam)
+           runBatch :: ((HVector (Flip OR.Array)), StateAdam) -> (Int, [MnistDataR r])
+                    -> IO ((HVector (Flip OR.Array)), StateAdam)
            runBatch (!parameters, !stateAdam) (k, chunk) = do
              let f :: MnistDataBatchR r -> HVector (ADVal (Flip OR.Array))
                    -> ADVal ranked r 0
@@ -218,7 +218,7 @@ mnistTestCaseCNNI prefix epochs maxBatches kh kw c_out n_hidden
                hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
                hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int -> (HVectorOD, StateAdam) -> IO HVectorOD
+       let runEpoch :: Int -> ((HVector (Flip OR.Array)), StateAdam) -> IO (HVector (Flip OR.Array))
            runEpoch n (params2, _) | n > epochs = return params2
            runEpoch n paramsStateAdam@(!_, !_) = do
              unless (n_hidden < 10) $
@@ -229,7 +229,7 @@ mnistTestCaseCNNI prefix epochs maxBatches kh kw c_out n_hidden
                           $ chunksOf totalBatchSize trainDataShuffled
              res <- foldM runBatch paramsStateAdam chunks
              runEpoch (succ n) res
-       res <- runEpoch 1 (hVectorInit, initialStateAdam hVectorInit)
+       res <- runEpoch 1 (hVectorInit, initialStateAdam (V.map odFromDynamic hVectorInit))
        let testErrorFinal =
              1 - ftest (totalBatchSize * maxBatches) testDataR res
        testErrorFinal @?~ expected
@@ -283,8 +283,8 @@ mnistTestCaseCNNO prefix epochs maxBatches kh kw c_out n_hidden
                           , show kh, show kw, show c_out, show n_hidden
                           , show miniBatchSize
                           , show (V.length hVectorInit)
-                          , show (sizeHVectorOD hVectorInit) ]
-        ftest :: Int -> MnistDataBatchR r -> HVectorOD -> r
+                          , show (sizeHVector hVectorInit) ]
+        ftest :: Int -> MnistDataBatchR r -> (HVector (Flip OR.Array)) -> r
         ftest = MnistCnnRanked2.convMnistTestR valsInit
     in testCase name $ do
        hPutStrLn stderr $
@@ -309,12 +309,12 @@ mnistTestCaseCNNO prefix epochs maxBatches kh kw c_out n_hidden
            g hVector = f $ parseHVector valsInit hVector
            (((varDtAgain, vars1Again), gradientRaw, primal, sh), _) =
              revProduceArtifact @Nat @(AstRanked FullSpan)
-                                TensorToken False g envInit hVectorInit
+                                TensorToken False g envInit (V.map odFromDynamic hVectorInit)
            gradient = simplifyAstHVector6 gradientRaw
            vars1AndInputAgain = vars1Again ++ [varGlyphD, varLabelD]
            vars = (varDtAgain, vars1AndInputAgain)
-           go :: [MnistDataBatchR r] -> (HVectorOD, StateAdam)
-              -> (HVectorOD, StateAdam)
+           go :: [MnistDataBatchR r] -> ((HVector (Flip OR.Array)), StateAdam)
+              -> ((HVector (Flip OR.Array)), StateAdam)
            go [] (parameters, stateAdam) = (parameters, stateAdam)
            go ((glyph, label) : rest) (!parameters, !stateAdam) =
              let glyphD = DynamicRanked $ rconst glyph
@@ -327,8 +327,8 @@ mnistTestCaseCNNO prefix epochs maxBatches kh kw c_out n_hidden
                                          parametersAndInput Nothing
              in go rest (updateWithGradientAdam defaultArgsAdam stateAdam
                                                 parameters gradientHVector)
-           runBatch :: (HVectorOD, StateAdam) -> (Int, [MnistDataR r])
-                    -> IO (HVectorOD, StateAdam)
+           runBatch :: ((HVector (Flip OR.Array)), StateAdam) -> (Int, [MnistDataR r])
+                    -> IO ((HVector (Flip OR.Array)), StateAdam)
            runBatch (!parameters, !stateAdam) (k, chunk) = do
              let chunkR = map packBatchR
                           $ filter (\ch -> length ch == miniBatchSize)
@@ -344,7 +344,7 @@ mnistTestCaseCNNO prefix epochs maxBatches kh kw c_out n_hidden
                hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
                hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int -> (HVectorOD, StateAdam) -> IO HVectorOD
+       let runEpoch :: Int -> ((HVector (Flip OR.Array)), StateAdam) -> IO (HVector (Flip OR.Array))
            runEpoch n (params2, _) | n > epochs = return params2
            runEpoch n paramsStateAdam@(!_, !_) = do
              unless (n_hidden < 10) $
@@ -355,7 +355,7 @@ mnistTestCaseCNNO prefix epochs maxBatches kh kw c_out n_hidden
                           $ chunksOf totalBatchSize trainDataShuffled
              res <- foldM runBatch paramsStateAdam chunks
              runEpoch (succ n) res
-       res <- runEpoch 1 (hVectorInit, initialStateAdam hVectorInit)
+       res <- runEpoch 1 (hVectorInit, initialStateAdam (V.map odFromDynamic hVectorInit))
        let testErrorFinal =
              1 - ftest (totalBatchSize * maxBatches) testDataR res
        assertEqualUpToEpsilon 1e-1 expected testErrorFinal

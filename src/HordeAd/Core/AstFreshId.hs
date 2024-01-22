@@ -20,9 +20,7 @@ import Prelude
 
 import           Control.Monad (replicateM)
 import           Data.Array.Internal (valueOf)
-import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as Sh
-import           Data.Bifunctor.Flip
 import           Data.IORef.Unboxed
   (Counter, atomicAddCounter_, newCounter, writeIORefU)
 import           Data.List (unzip4, unzip6)
@@ -33,7 +31,6 @@ import           System.IO.Unsafe (unsafePerformIO)
 
 import           HordeAd.Core.Ast
 import           HordeAd.Core.AstTools
-import           HordeAd.Core.TensorClass (HVectorOD)
 import           HordeAd.Core.Types
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedIndex
@@ -486,25 +483,8 @@ funToAstHVectorIO g parameters0 = do
   let !x = g asts
   return (V.toList vars, x)
 
-dynamicToVar :: DynamicTensor (Flip OR.Array)
+dynamicToVar :: DynamicTensor VoidTensor
              -> IO (AstDynamicVarName, DynamicTensor (AstRanked s))
-dynamicToVar (DynamicRanked @r2 @n2 e) = do
-  let sh3 = OR.shapeL $ runFlip e
-  freshId <- unsafeGetFreshAstVarId
-  return $! Sh.withShapeP sh3 $ \(Proxy :: Proxy sh2) ->
-    let !varE = AstDynamicVarName @Nat @r2 @sh2 freshId
-        dynE :: AstDynamic s
-        !dynE = DynamicRanked @r2 @n2
-                              (AstVar (listShapeToShape sh3)
-                                      (AstVarName freshId))
-    in (varE, dynE)
-dynamicToVar (DynamicShaped @r2 @sh2 _) = do
-  freshId <- unsafeGetFreshAstVarId
-  return $!
-    let !varE = AstDynamicVarName @[Nat] @r2 @sh2 freshId
-        dynE :: AstDynamic s
-        !dynE = DynamicShaped @r2 @sh2 (AstVarS (AstVarName freshId))
-    in (varE, dynE)
 dynamicToVar (DynamicRankedDummy @r2 @sh2 _ _) = do
   let sh3 = Sh.shapeT @sh2
   freshId <- unsafeGetFreshAstVarId
@@ -536,23 +516,9 @@ funToAstRevIO :: HVectorOD
                     , HVector (AstRanked FullSpan) )
 {-# INLINE funToAstRevIO #-}
 funToAstRevIO parameters0 = do
-  let f (DynamicRanked @r @n e) = do
-        let sh2 = OR.shapeL $ runFlip e
-        freshId <- unsafeGetFreshAstVarId
-        return $! Sh.withShapeP sh2 $ \(Proxy :: Proxy sh) ->
-          let !varE = AstDynamicVarName @Nat @r @sh freshId
-              dynE :: AstDynamic s
-              !dynE = DynamicRanked @r @n
-                                    (AstVar (listShapeToShape sh2)
-                                            (AstVarName freshId))
-          in (varE, dynE, varE, dynE)
-      f (DynamicShaped @r @sh _) = do
-        freshId <- unsafeGetFreshAstVarId
-        return $!
-          let !varE = AstDynamicVarName @[Nat] @r @sh freshId
-              dynE :: AstDynamic s
-              !dynE = DynamicShaped @r @sh (AstVarS (AstVarName freshId))
-          in (varE, dynE, varE, dynE)
+  let f :: DynamicTensor VoidTensor
+        -> IO ( AstDynamicVarName, AstDynamic PrimalSpan
+              , AstDynamicVarName, AstDynamic FullSpan )
       f (DynamicRankedDummy @r @sh _ _) = do
         let sh2 = Sh.shapeT @sh
         freshId <- unsafeGetFreshAstVarId
@@ -597,41 +563,10 @@ funToAstFwdIO :: HVectorOD
                     , HVector (AstRanked FullSpan) )
 {-# INLINE funToAstFwdIO #-}
 funToAstFwdIO parameters0 = do
-  let f :: DynamicTensor (Flip OR.Array)
+  let f :: DynamicTensor VoidTensor
         -> IO ( AstDynamicVarName, AstDynamic PrimalSpan
               , AstDynamicVarName, AstDynamic PrimalSpan
               , AstDynamicVarName, AstDynamic FullSpan )
-      f (DynamicRanked @r @n e) = do
-        let sh2 = OR.shapeL $ runFlip e
-        freshIdDs <- unsafeGetFreshAstVarId
-        freshId <- unsafeGetFreshAstVarId
-        return $! Sh.withShapeP sh2 $ \(Proxy :: Proxy sh) ->
-          let varE :: AstVarId -> AstDynamicVarName
-              varE varId = AstDynamicVarName @Nat @r @sh varId
-              dynE :: AstVarId -> AstDynamic s
-              dynE varId = DynamicRanked @r @n
-                                     (AstVar (listShapeToShape sh2)
-                                             (AstVarName varId))
-              !vd = varE freshIdDs
-              !dd = dynE freshIdDs
-              !vi = varE freshId
-              di :: AstDynamic s
-              !di = dynE freshId
-          in (vd, dd, vi, di, vi, di)
-      f (DynamicShaped @r @sh _) = do
-        freshIdDs <- unsafeGetFreshAstVarId
-        freshId <- unsafeGetFreshAstVarId
-        return $!
-          let varE :: AstVarId -> AstDynamicVarName
-              varE varId = AstDynamicVarName @[Nat] @r @sh varId
-              dynE :: AstVarId -> AstDynamic s
-              dynE varId = DynamicShaped @r @sh (AstVarS (AstVarName varId))
-              !vd = varE freshIdDs
-              !dd = dynE freshIdDs
-              !vi = varE freshId
-              di :: AstDynamic s
-              !di = dynE freshId
-          in (vd, dd, vi, di, vi, di)
       f (DynamicRankedDummy @r @sh _ _) = do
         let sh2 = Sh.shapeT @sh
         freshIdDs <- unsafeGetFreshAstVarId

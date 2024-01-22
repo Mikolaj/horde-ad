@@ -438,7 +438,7 @@ interpretAst !env = \case
     let lt0 = V.fromList $ map odFromVar vars
         lt = interpretAstHVector env l
         env2 lw = extendEnvPars vars lw env
-    in rletHVectorIn lt0 lt (\lw -> assert (hVectorsMatch lt0 lw) $
+    in rletHVectorIn lt0 lt (\lw -> assert (voidVectorMatches lt0 lw) $
                                     interpretAst (env2 lw) v)
   AstSToR v -> rfromS $ interpretAstS env v
   AstConstant a -> rconstant $ interpretAstPrimal env a
@@ -588,7 +588,7 @@ interpretAstHVector !env = \case
     let t0 = V.fromList $ map odFromVar vars
         t = interpretAstHVector env u
         env2 w = extendEnvPars vars w env
-    in dletHVectorInHVector t0 t (\w -> assert (hVectorsMatch t0 w) $
+    in dletHVectorInHVector t0 t (\w -> assert (voidVectorMatches t0 w) $
                                         interpretAstHVector (env2 w) v)
   AstLetInHVector var u v ->
     -- We assume there are no nested lets with the same variable.
@@ -1015,7 +1015,7 @@ interpretAstS !env = \case
     let lt0 = V.fromList $ map odFromVar vars
         lt = interpretAstHVector env l
         env2 lw = extendEnvPars vars lw env
-    in sletHVectorIn lt0 lt (\lw -> assert (hVectorsMatch lt0 lw) $
+    in sletHVectorIn lt0 lt (\lw -> assert (voidVectorMatches lt0 lw) $
                                     interpretAstS (env2 lw) v)
   AstRToS v -> sfromR $ interpretAst env v
   AstConstantS a -> sconstant $ interpretAstPrimalS env a

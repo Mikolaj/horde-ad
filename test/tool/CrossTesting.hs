@@ -52,6 +52,7 @@ rev' :: forall r m n v a.
 rev' f vals =
   let value0 = f vals
       parameters = toHVector vals
+      parameters0 = V.map odFromDynamic parameters
       dt = Nothing
       g :: HVector (ADVal (Flip OR.Array))
         -> ADVal (Flip OR.Array) r m
@@ -64,7 +65,7 @@ rev' f vals =
       g9 inputs = f $ parseHVector vals inputs
       (advalGrad9, value9) =
         revEvalArtifact (fst $ revProduceArtifactWithoutInterpretation
-                                 TensorToken False g9 parameters)
+                                 TensorToken False g9 parameters0)
                         parameters dt
       gradient9 = parseHVector vals advalGrad9
       hGeneral
@@ -136,7 +137,7 @@ rev' f vals =
                    fx1 fx2 gx (parseHVector vals inputs)
       artifactsGradAst =
         fst $ revProduceArtifactWithoutInterpretation
-                TensorToken False (hAst id id id) parameters
+                TensorToken False (hAst id id id) parameters0
       (astGradAst, value2Ast) =
         revEvalArtifact artifactsGradAst parameters dt
       gradient2Ast = parseHVector vals astGradAst
@@ -145,13 +146,13 @@ rev' f vals =
       gradient2AstS = parseHVector vals astGradAstS
       artifactsGradAstT =
         fst $ revProduceArtifactWithoutInterpretation
-                TensorToken True (hAst id id id) parameters
+                TensorToken True (hAst id id id) parameters0
       (astGradAstST, value2AstST) =
         revEvalArtifact (simplifyArtifactRev artifactsGradAstT) parameters dt
       gradient2AstST = parseHVector vals astGradAstST
       artifactsSimpleAst =
         fst $ revProduceArtifactWithoutInterpretation
-                TensorToken False (hAst id id simplifyAst6) parameters
+                TensorToken False (hAst id id simplifyAst6) parameters0
       (astSimpleAst, value3Ast) =
         revEvalArtifact artifactsSimpleAst parameters dt
       gradient3Ast = parseHVector vals astSimpleAst
@@ -161,7 +162,7 @@ rev' f vals =
       artifactsGradAstUnSimp =
         fst $ revProduceArtifactWithoutInterpretation
                 TensorToken False
-                (hAst unAstNoSimplify AstNoSimplify id) parameters
+                (hAst unAstNoSimplify AstNoSimplify id) parameters0
       (astGradAstUnSimp, value2AstUnSimp) =
         revEvalArtifact artifactsGradAstUnSimp parameters dt
       gradient2AstUnSimp = parseHVector vals astGradAstUnSimp
@@ -173,7 +174,7 @@ rev' f vals =
         fst $ revProduceArtifactWithoutInterpretation
                 TensorToken False
                 (hAst unAstNoSimplify AstNoSimplify simplifyAst6)
-                parameters
+                parameters0
       (astSimpleAstUnSimp, value3AstUnSimp) =
         revEvalArtifact artifactsSimpleAstUnSimp parameters dt
       gradient3AstUnSimp = parseHVector vals astSimpleAstUnSimp
@@ -184,7 +185,7 @@ rev' f vals =
       artifactsPrimalAst =
         fst $ revProduceArtifactWithoutInterpretation
                 TensorToken False
-                (hAst unAstNoVectorize AstNoVectorize id) parameters
+                (hAst unAstNoVectorize AstNoVectorize id) parameters0
       (astPrimalAst, value4Ast) =
         revEvalArtifact artifactsPrimalAst parameters dt
       gradient4Ast = parseHVector vals astPrimalAst
@@ -195,7 +196,7 @@ rev' f vals =
         fst $ revProduceArtifactWithoutInterpretation
                 TensorToken False
                 (hAst unAstNoVectorize AstNoVectorize simplifyAst6)
-                parameters
+                parameters0
       (astPSimpleAst, value5Ast) =
         revEvalArtifact artifactsPSimpleAst parameters dt
       gradient5Ast = parseHVector vals astPSimpleAst

@@ -586,7 +586,7 @@ astBuild1VectorizeS f =
 instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   dmkHVector = AstHVector
   dunHVector domsOD hVectorOf =
-    let f :: Int -> DynamicTensor (Flip OR.Array) -> AstDynamic s
+    let f :: Int -> DynamicTensor VoidTensor -> AstDynamic s
         f i = \case
           DynamicRankedDummy @r @sh _ _ ->
             withListShape (Sh.shapeT @sh) $ \(_ :: ShapeInt n) ->
@@ -595,7 +595,6 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
           DynamicShapedDummy @r @sh _ _ ->
             DynamicShaped @r @sh
             $ sletHVectorIn @(AstShaped s) domsOD hVectorOf (sfromD . (V.! i))
-          _ -> error "dunHVector: unexpected OD value"
     in V.imap f domsOD
   dletHVectorInHVector = astLetHVectorInHVectorFun
   rletInHVector = astLetInHVectorFun
@@ -626,7 +625,7 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     let (((_varDt, vars), gradient, _primal, _sh), _delta) =
           revProduceArtifact TensorToken False (f @(AstRanked FullSpan))
                              EM.empty parameters0
-    in \parameters -> assert (hVectorsMatch parameters0 parameters) $
+    in \parameters -> assert (voidVectorMatches parameters0 parameters) $
       let env = extendEnvPars @(AstRanked s) vars parameters EM.empty
       in interpretAstHVector env gradient
         -- this interpretation both substitutes parameters for the variables and
@@ -643,7 +642,7 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     let (((varDt, vars), gradient, _primal, _sh), _delta) =
           revProduceArtifact TensorToken True (f @(AstRanked FullSpan))
                              EM.empty parameters0
-    in \parameters dt -> assert (hVectorsMatch parameters0 parameters) $
+    in \parameters dt -> assert (voidVectorMatches parameters0 parameters) $
       let env = extendEnvPars @(AstRanked s) vars parameters EM.empty
           envDt = extendEnvR varDt dt env
       in interpretAstHVector envDt gradient
@@ -657,7 +656,7 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     let (((varsDt, vars), derivative, _primal), _delta) =
           fwdProduceArtifact TensorToken (f @(AstRanked FullSpan))
                              EM.empty parameters0
-    in \parameters ds -> assert (hVectorsMatch parameters0 parameters) $
+    in \parameters ds -> assert (voidVectorMatches parameters0 parameters) $
       let env = extendEnvPars @(AstRanked s) vars parameters EM.empty
           envDt = extendEnvPars @(AstRanked s) varsDt ds env
       in interpretAst envDt derivative
@@ -665,14 +664,14 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     let (((_varDt, vars), gradient, _primal, _sh), _delta) =
           revProduceArtifact TensorToken False (f @(AstShaped FullSpan))
                              EM.empty parameters0
-    in \parameters -> assert (hVectorsMatch parameters0 parameters) $
+    in \parameters -> assert (voidVectorMatches parameters0 parameters) $
       let env = extendEnvPars @(AstRanked s) vars parameters EM.empty
       in interpretAstHVector env gradient
   srevDt f parameters0 =
     let (((varDt, vars), gradient, _primal, _sh), _delta) =
           revProduceArtifact TensorToken True (f @(AstShaped FullSpan))
                              EM.empty parameters0
-    in \parameters dt -> assert (hVectorsMatch parameters0 parameters) $
+    in \parameters dt -> assert (voidVectorMatches parameters0 parameters) $
       let env = extendEnvPars @(AstRanked s) vars parameters EM.empty
           envDt = extendEnvS varDt dt env
       in interpretAstHVector envDt gradient
@@ -680,7 +679,7 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     let (((varsDt, vars), derivative, _primal), _delta) =
           fwdProduceArtifact TensorToken (f @(AstShaped FullSpan))
                              EM.empty parameters0
-    in \parameters ds -> assert (hVectorsMatch parameters0 parameters) $
+    in \parameters ds -> assert (voidVectorMatches parameters0 parameters) $
       let env = extendEnvPars @(AstRanked s) vars parameters EM.empty
           envDt = extendEnvPars @(AstRanked s) varsDt ds env
       in interpretAstS envDt derivative
@@ -744,7 +743,7 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
       [] -> error "rfoldZip: wrong rank of argument"
       width : _shm -> case someNatVal $ toInteger width of
         Just (SomeNat @k _) ->
-          assert (hVectorsMatch (replicate1HVector (Proxy @k) domsOD) asD) $
+          assert (voidVectorMatches (replicate1HVectorVoid (Proxy @k) domsOD) asD) $
           let shn = rshape x0
               domsF = V.cons (odFromSh @rn shn) domsOD
               domsToPair :: forall f. ADReady f
@@ -787,7 +786,7 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
       [] -> error "rfoldZipDer: wrong rank of argument"
       width : _shm -> case someNatVal $ toInteger width of
         Just (SomeNat @k _) ->
-          assert (hVectorsMatch (replicate1HVector (Proxy @k) domsOD) asD) $
+          assert (voidVectorMatches (replicate1HVectorVoid (Proxy @k) domsOD) asD) $
           let shn = rshape x0
           in AstFoldZipDer (fun2DToAstR shn f domsOD)
                            (fun4DToAstR shn df domsOD)
@@ -854,7 +853,7 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
       [] -> error "rscanZip: wrong rank of argument"
       width : _shm -> case someNatVal $ toInteger width of
         Just (SomeNat @k _) ->
-          assert (hVectorsMatch (replicate1HVector (Proxy @k) domsOD) asD) $
+          assert (voidVectorMatches (replicate1HVectorVoid (Proxy @k) domsOD) asD) $
           let shn = rshape x0
               domsF = V.cons (odFromSh @rn shn) domsOD
               domsToPair :: forall f. ADReady f
@@ -897,7 +896,7 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
       [] -> error "rscanZipDer: wrong rank of argument"
       width : _shm -> case someNatVal $ toInteger width of
         Just (SomeNat @k _) ->
-          assert (hVectorsMatch (replicate1HVector (Proxy @k) domsOD) asD) $
+          assert (voidVectorMatches (replicate1HVectorVoid (Proxy @k) domsOD) asD) $
           let shn = rshape x0
           in AstScanZipDer (fun2DToAstR shn f domsOD)
                            (fun4DToAstR shn df domsOD)
@@ -957,7 +956,7 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
       [] -> error "sfoldZip: wrong rank of argument"
       width : _shm -> case someNatVal $ toInteger width of
         Just (SomeNat @k _) ->
-          assert (hVectorsMatch (replicate1HVector (Proxy @k) domsOD) asD) $
+          assert (voidVectorMatches (replicate1HVectorVoid (Proxy @k) domsOD) asD) $
           let domsF = V.cons (odFromShS @rn @sh) domsOD
               domsToPair :: forall f. ADReadyS f
                             => HVector (RankedOf f)
@@ -1002,7 +1001,7 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
       [] -> error "sfoldZipDer: wrong rank of argument"
       width : _shm -> case someNatVal $ toInteger width of
         Just (SomeNat @k _) ->
-          assert (hVectorsMatch (replicate1HVector (Proxy @k) domsOD) asD) $
+          assert (voidVectorMatches (replicate1HVectorVoid (Proxy @k) domsOD) asD) $
           AstFoldZipDerS (fun2DToAstS @_ @_ @sh f domsOD)
                          (fun4DToAstS @_ @_ @sh df domsOD)
                          (fun3DToAstS @_ @_ @sh rf domsOD) x0 asD
@@ -1059,7 +1058,7 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
          -> HVector (AstRanked s)
          -> AstShaped s rn (1 + k ': sh)
   sscanZip f domsOD x0 asD =
-    assert (hVectorsMatch (replicate1HVector (Proxy @k) domsOD) asD) $
+    assert (voidVectorMatches (replicate1HVectorVoid (Proxy @k) domsOD) asD) $
     let domsF = V.cons (odFromShS @rn @sh) domsOD
         domsToPair :: forall f. ADReadyS f
                       => HVector (RankedOf f)
@@ -1098,7 +1097,7 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
             -> HVector (AstRanked s)
             -> AstShaped s rn (1 + k ': sh)
   sscanZipDer f df rf domsOD x0 asD =
-    assert (hVectorsMatch (replicate1HVector (Proxy @k) domsOD) asD) $
+    assert (voidVectorMatches (replicate1HVectorVoid (Proxy @k) domsOD) asD) $
     AstScanZipDerS (fun2DToAstS @_ @_ @sh f domsOD)
                    (fun4DToAstS @_ @_ @sh df domsOD)
                    (fun3DToAstS @_ @_ @sh rf domsOD) x0 asD

@@ -32,6 +32,7 @@ import           Data.Functor.Const
 import           Data.Int (Int64)
 import           Data.Maybe (isJust)
 import           Data.Type.Equality (gcastWith, (:~:) (Refl))
+import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, Nat)
 import           Type.Reflection (Typeable)
 import           Unsafe.Coerce (unsafeCoerce)
@@ -97,12 +98,13 @@ revDtMaybeSpecializeWrapper
   => (astvals -> g r y) -> vals -> Maybe (ConcreteOf g r y) -> vals
 revDtMaybeSpecializeWrapper f vals mdt =
   let g hVector = f $ parseHVector vals hVector
-      hVectorOD = toHVector vals
+      xV = toHVector @(Flip OR.Array) vals
+      hVectorOD = V.map odFromDynamic xV
       artifact = fst $ revProduceArtifact TensorToken
                                           (isJust mdt) g EM.empty hVectorOD
   in gcastWith (unsafeCoerce Refl :: Value vals :~: vals) $
      parseHVector vals
-     $ fst $ revEvalArtifact artifact hVectorOD mdt
+     $ fst $ revEvalArtifact artifact xV mdt
 {-# SPECIALIZE revDtMaybeSpecializeWrapper
   :: ( HasSingletonDict y
      , AdaptableHVector (AstRanked FullSpan) astvals
@@ -121,7 +123,7 @@ revArtifactAdapt
   -> (AstArtifactRev (PrimalOf g) r y, Dual (PrimalOf g) r y)
 revArtifactAdapt hasDt f vals =
   let g hVector = f $ parseHVector vals hVector
-      hVectorOD = toHVector vals
+      hVectorOD = V.map odFromDynamic $ toHVector @(Flip OR.Array) vals
   in revProduceArtifact TensorToken hasDt g EM.empty hVectorOD
 {-# SPECIALIZE revArtifactAdapt
   :: ( HasSingletonDict y
@@ -178,9 +180,10 @@ fwd
   => (astvals -> g r y) -> vals -> vals -> ConcreteOf g r y
 fwd f x ds =
   let g hVector = f $ parseHVector x hVector
-      hVectorOD = toHVector x
+      xV = toHVector x
+      hVectorOD = V.map odFromDynamic xV
       artifact = fst $ fwdProduceArtifact TensorToken g EM.empty hVectorOD
-  in fst $ fwdEvalArtifact artifact hVectorOD (toHVector ds)
+  in fst $ fwdEvalArtifact artifact xV (toHVector ds)
 
 fwdArtifactAdapt
   :: forall r y g vals astvals.
@@ -192,7 +195,7 @@ fwdArtifactAdapt
   -> (AstArtifactFwd (PrimalOf g) r y, Dual (PrimalOf g) r y)
 fwdArtifactAdapt f vals =
   let g hVector = f $ parseHVector vals hVector
-      hVectorOD = toHVector vals
+      hVectorOD = V.map odFromDynamic $ toHVector @(Flip OR.Array) vals
   in fwdProduceArtifact TensorToken g EM.empty hVectorOD
 
 

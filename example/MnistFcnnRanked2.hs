@@ -93,7 +93,7 @@ afcnnMnistTest2
      (ranked ~ Flip OR.Array, GoodScalar r, Differentiable r)
   => ADFcnnMnist2Parameters ranked r
   -> [MnistData r]
-  -> HVectorOD
+  -> HVector (Flip OR.Array)
   -> r
 afcnnMnistTest2 _ [] _ = 0
 afcnnMnistTest2 valsInit dataList testParams =

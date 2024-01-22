@@ -17,14 +17,15 @@ module HordeAd.Core.TensorClass
     -- * The related constraints
   , ADReady, ADReadyR, ADReadyS, ADReadySmall, ADReadyBoth
     -- * Concrete array instances auxiliary definitions
-  , HVectorOD, sizeHVectorOD, scalarDynamic, shapeDynamic, rankDynamic
-  , hVectorsMatch
-  , odFromVar, odFromSh, odFromShS, odFromDynamic, fromHVectorR, fromHVectorS
+  , sizeHVector, scalarDynamic, shapeDynamic, rankDynamic
+  , hVectorsMatch, voidVectorMatches
+  , odFromVar, odFromSh, odFromShS, odFromDynamic, dynamicFromOD
+  , fromHVectorR, fromHVectorS
   , unravelHVector, ravelHVector
   , mapHVectorRanked, mapHVectorRanked01, mapHVectorRanked10, mapHVectorRanked11
   , mapHVectorShaped11
   , mapRanked, mapRanked01, mapRanked10, mapRanked11
-  , index1HVector, replicate1HVector
+  , index1HVector, replicate1HVector, replicate1HVectorVoid
   ) where
 
 import Prelude
@@ -1090,14 +1091,12 @@ type ADReadyBoth ranked shaped =
 
 -- The HVectorTensor instance requires ADVal instance, so it's given elsewhere.
 
-type HVectorOD = HVector (Flip OR.Array)
-
-sizeHVectorOD :: HVectorOD -> Int
-sizeHVectorOD = let f (DynamicRanked (Flip t)) = OR.size t
-                    f (DynamicShaped (Flip t)) = OS.size t
-                    f (DynamicRankedDummy _ proxy_sh) = Sh.sizeP proxy_sh
-                    f (DynamicShapedDummy _ proxy_sh) = Sh.sizeP proxy_sh
-                in V.sum . V.map f
+sizeHVector :: forall ranked. RankedTensor ranked => HVector ranked -> Int
+sizeHVector = let f (DynamicRanked @r t) = rsize @ranked @r t
+                  f (DynamicShaped @_ @sh _) = Sh.sizeT @sh
+                  f (DynamicRankedDummy _ proxy_sh) = Sh.sizeP proxy_sh
+                  f (DynamicShapedDummy _ proxy_sh) = Sh.sizeP proxy_sh
+              in V.sum . V.map f
 
 type role DynamicScalar representational
 data DynamicScalar (ranked :: RankedTensorType) where
@@ -1121,6 +1120,10 @@ shapeDynamic (DynamicShaped @_ @sh _) = Sh.shapeT @sh
 shapeDynamic (DynamicRankedDummy _ proxy_sh) = Sh.shapeP proxy_sh
 shapeDynamic (DynamicShapedDummy _ proxy_sh) = Sh.shapeP proxy_sh
 
+shapeDynamicVoid :: DynamicTensor VoidTensor -> [Int]
+shapeDynamicVoid (DynamicRankedDummy _ proxy_sh) = Sh.shapeP proxy_sh
+shapeDynamicVoid (DynamicShapedDummy _ proxy_sh) = Sh.shapeP proxy_sh
+
 rankDynamic :: DynamicTensor ranked -> Int
 rankDynamic (DynamicRanked @_ @n _) = valueOf @n
 rankDynamic (DynamicShaped @_ @sh _) = length $ Sh.shapeT @sh
@@ -1140,37 +1143,49 @@ isDynamicDummy DynamicRankedDummy{} = True
 isDynamicDummy DynamicShapedDummy{} = True
 
 hVectorsMatch :: forall f g. (RankedTensor f, RankedTensor g)
-             => HVector f -> HVector g -> Bool
+              => HVector f -> HVector g -> Bool
 hVectorsMatch v1 v2 =
   let dynamicMatch :: DynamicTensor f -> DynamicTensor g -> Bool
-      dynamicMatch t u = case (scalarDynamic @f t, scalarDynamic @g u) of
+      dynamicMatch t u = case (scalarDynamic t, scalarDynamic @g u) of
         (DynamicScalar @ru _, DynamicScalar @rt _) ->
           isJust (testEquality (typeRep @rt) (typeRep @ru))
-          && shapeDynamic @f t == shapeDynamic @g u
-          && isDynamicRanked @f t == isDynamicRanked @g u
+          && shapeDynamic t == shapeDynamic @g u
+          && isDynamicRanked t == isDynamicRanked @g u
   in V.length v1 == V.length v2
      && and (V.zipWith dynamicMatch v1 v2)
 
-odFromVar :: AstDynamicVarName -> DynamicTensor (Flip OR.Array)
+voidVectorMatches :: forall g. RankedTensor g
+                  => HVector VoidTensor -> HVector g -> Bool
+voidVectorMatches v1 v2 =
+  let dynamicMatch :: DynamicTensor VoidTensor -> DynamicTensor g -> Bool
+      dynamicMatch t u = case (scalarDynamic t, scalarDynamic @g u) of
+        (DynamicScalar @ru _, DynamicScalar @rt _) ->
+          isJust (testEquality (typeRep @rt) (typeRep @ru))
+          && shapeDynamicVoid t == shapeDynamic @g u
+          && isDynamicRanked t == isDynamicRanked @g u
+  in V.length v1 == V.length v2
+     && and (V.zipWith dynamicMatch v1 v2)
+
+odFromVar :: AstDynamicVarName -> DynamicTensor VoidTensor
 odFromVar (AstDynamicVarName @ty @rD @shD _) =
   case testEquality (typeRep @ty) (typeRep @Nat) of
     Just Refl -> DynamicRankedDummy @rD @shD Proxy Proxy
     _ -> DynamicShapedDummy @rD @shD Proxy Proxy
 
 odFromSh :: forall r n. GoodScalar r
-         => ShapeInt n -> DynamicTensor (Flip OR.Array)
+         => ShapeInt n -> DynamicTensor VoidTensor
 odFromSh sh = Sh.withShapeP (shapeToList sh) $ \proxySh ->
               DynamicRankedDummy (Proxy @r) proxySh
 
 odFromShS :: forall r sh. (GoodScalar r, Sh.Shape sh)
-          => DynamicTensor (Flip OR.Array)
+          => DynamicTensor VoidTensor
 odFromShS = DynamicShapedDummy @r @sh Proxy Proxy
 
 -- This is useful for when the normal main parameters to an objective
 -- function are used to generate the parameter template
 -- as well as when generating dummy zero parameters based on a template.
-odFromDynamic :: forall ranked ranked2. RankedTensor ranked
-              => DynamicTensor ranked -> DynamicTensor ranked2
+odFromDynamic :: forall ranked. RankedTensor ranked
+              => DynamicTensor ranked -> DynamicTensor VoidTensor
 odFromDynamic (DynamicRanked @r2 @n2 t) =
   let sh = rshape @ranked t
   in Sh.withShapeP (shapeToList sh) $ \(Proxy @sh2) ->
@@ -1179,6 +1194,10 @@ odFromDynamic (DynamicShaped @r2 @sh2 _) =
   DynamicShapedDummy @r2 @sh2 Proxy Proxy
 odFromDynamic (DynamicRankedDummy p1 p2) = DynamicRankedDummy p1 p2
 odFromDynamic (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
+
+dynamicFromOD :: DynamicTensor VoidTensor -> DynamicTensor ranked
+dynamicFromOD (DynamicRankedDummy p1 p2) = DynamicRankedDummy p1 p2
+dynamicFromOD (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
 
 fromHVectorR :: forall r n ranked.
                 (RankedTensor ranked, GoodScalar r, KnownNat n)
@@ -1586,6 +1605,17 @@ replicate1Dynamic _i u = case u of
   DynamicRankedDummy @r @sh p1 _ -> DynamicRankedDummy @r @(k ': sh) p1 Proxy
   DynamicShapedDummy @r @sh p1 _ -> DynamicShapedDummy @r @(k ': sh) p1 Proxy
 
+replicate1HVectorVoid :: forall k. KnownNat k
+                      => Proxy k -> HVectorOD -> HVectorOD
+replicate1HVectorVoid i u = V.map (replicate1VoidTensor i) u
+
+replicate1VoidTensor :: forall k. KnownNat k
+                     => Proxy k -> DynamicTensor VoidTensor
+                     -> DynamicTensor VoidTensor
+replicate1VoidTensor _i u = case u of
+  DynamicRankedDummy @r @sh p1 _ -> DynamicRankedDummy @r @(k ': sh) p1 Proxy
+  DynamicShapedDummy @r @sh p1 _ -> DynamicShapedDummy @r @(k ': sh) p1 Proxy
+
 type instance SimpleBoolOf (Flip OR.Array) = Bool
 
 instance EqF (Flip OR.Array) where
@@ -1605,7 +1635,7 @@ type instance RankedOf (Flip OR.Array) = Flip OR.Array
 
 type instance ShapedOf (Flip OR.Array) = Flip OS.Array
 
-type instance HVectorOf (Flip OR.Array) = HVectorOD
+type instance HVectorOf (Flip OR.Array) = HVector (Flip OR.Array)
 
 type instance PrimalOf (Flip OR.Array) = Flip OR.Array
 
@@ -1696,7 +1726,7 @@ type instance RankedOf (Flip OS.Array) = Flip OR.Array
 
 type instance ShapedOf (Flip OS.Array) = Flip OS.Array
 
-type instance HVectorOf (Flip OS.Array) = HVectorOD
+type instance HVectorOf (Flip OS.Array) = HVector (Flip OR.Array)
 
 type instance PrimalOf (Flip OS.Array) = Flip OS.Array
 

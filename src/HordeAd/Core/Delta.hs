@@ -802,7 +802,7 @@ gradientFromDelta !parameters0 !deltaDt =
   -- but a shape is not preserved in a dummy, so it's not shape-correct.
   let s0 =
         let iMap = EM.fromDistinctAscList $ zip [toInputId 0 ..]
-                   $ map odFromDynamic $ V.toList parameters0
+                   $ map dynamicFromOD $ V.toList parameters0
             dMap = EM.empty
             nMap = EM.empty
             astBindings = []

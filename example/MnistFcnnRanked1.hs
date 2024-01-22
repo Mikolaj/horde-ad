@@ -98,7 +98,7 @@ afcnnMnistTest1
   => ADFcnnMnist1Parameters ranked r
   -> Int -> Int
   -> [MnistData r]
-  -> HVectorOD
+  -> HVector (Flip OR.Array)
   -> r
 afcnnMnistTest1 _ _ _ [] _ = 0
 afcnnMnistTest1 valsInit widthHidden widthHidden2 dataList testParams =

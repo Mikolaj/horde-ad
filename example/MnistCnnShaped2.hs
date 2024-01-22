@@ -7,6 +7,7 @@ module MnistCnnShaped2 where
 
 import Prelude
 
+import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
 import           Data.Proxy (Proxy (Proxy))
@@ -143,7 +144,7 @@ convMnistTestS
   -> SNat n_hidden -> SNat batch_size
   -> ADCnnMnistParametersShaped shaped h w kh kw c_out n_hidden r
   -> MnistDataBatchS batch_size r
-  -> HVectorOD
+  -> HVector (Flip OR.Array)
   -> r
 convMnistTestS  _ _ _ _ batch_size@SNat _ _ _
   | sNatValue batch_size == (0 :: Int) = 0
