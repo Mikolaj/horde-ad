@@ -3,7 +3,7 @@
 -- | The environment and some helper operations for AST interpretation.
 module HordeAd.Core.AstEnv
   ( -- * The environment and operations for extending it
-    AstEnv, AstEnvElem(..)
+    AstEnv
   , extendEnvS, extendEnvR, extendEnvD, extendEnvPars
     -- * The operations for interpreting binding (visible lambdas)
   , interpretLambdaI, interpretLambdaIS, interpretLambdaIHVector
@@ -23,7 +23,6 @@ import Prelude
 import           Control.Exception.Assert.Sugar
 import qualified Data.Array.Shape as Sh
 import qualified Data.EnumMap.Strict as EM
-import           Data.Kind (Type)
 import           Data.Type.Equality (testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, Nat)
@@ -41,16 +40,7 @@ import           HordeAd.Util.SizedList
 -- * The environment and operations for extending it
 
 -- | The environment that keeps variables values during interpretation
-type AstEnv ranked = EM.EnumMap AstVarId (AstEnvElem ranked (ShapedOf ranked))
-
-type role AstEnvElem representational representational
-data AstEnvElem :: RankedTensorType -> ShapedTensorType -> Type where
-  AstEnvElemR :: (KnownNat n, GoodScalar r)
-              => ranked r n -> AstEnvElem ranked shaped
-  AstEnvElemS :: (Sh.Shape sh, GoodScalar r)
-              => shaped r sh -> AstEnvElem ranked shaped
-deriving instance (CRanked ranked Show, CShaped shaped Show)
-                  => Show (AstEnvElem ranked shaped)
+type AstEnv ranked = EM.EnumMap AstVarId (DynamicTensor ranked)
 
 -- An informal invariant: if s is FullSpan, ranked is dual numbers,
 -- and if s is PrimalSpan, ranked is their primal part.
@@ -61,7 +51,7 @@ extendEnvR :: forall ranked r n s.
            -> AstEnv ranked -> AstEnv ranked
 extendEnvR (AstVarName varId) !t !env =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvR: duplicate " ++ show varId)
-                   varId (AstEnvElemR t) env
+                   varId (DynamicRanked t) env
 
 extendEnvS :: forall ranked r sh s.
               (Sh.Shape sh, GoodScalar r)
@@ -69,7 +59,7 @@ extendEnvS :: forall ranked r sh s.
            -> AstEnv ranked -> AstEnv ranked
 extendEnvS (AstVarName varId) !t !env =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvS: duplicate " ++ show varId)
-                   varId (AstEnvElemS t) env
+                   varId (DynamicShaped t) env
 
 -- We don't need to manually pick a specialization for the existential
 -- variable r2, because the operations do not depend on r2.

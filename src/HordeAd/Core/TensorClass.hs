@@ -15,7 +15,7 @@ module HordeAd.Core.TensorClass
   , RankedTensor(..), ShapedTensor(..), HVectorTensor(..)
   , raddDynamic, saddDynamic, sumDynamicRanked, sumDynamicShaped, rfromD, sfromD
     -- * The related constraints
-  , ADReady, ADReadyR, ADReadyS, ADReadySmall, ADReadyBoth
+  , ADReady, ADReadyR, ADReadyS, ADReadySmall
     -- * Concrete array instances auxiliary definitions
   , sizeHVector, scalarDynamic, shapeDynamic, rankDynamic
   , hVectorsMatch, voidHVectorMatches

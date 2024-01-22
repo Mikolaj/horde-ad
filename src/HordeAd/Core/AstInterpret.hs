@@ -120,7 +120,7 @@ interpretAst
   -> AstRanked s r n -> ranked r n
 interpretAst !env = \case
   AstVar sh (AstVarName varId) -> case EM.lookup varId env of
-    Just (AstEnvElemR @n2 @r2 t) -> case sameNat (Proxy @n2) (Proxy @n) of
+    Just (DynamicRanked @r2 @n2 t) -> case sameNat (Proxy @n2) (Proxy @n) of
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
         Just Refl -> assert (rshape t == sh
                              `blame` (sh, rshape t, varId, t, env)) t
@@ -132,7 +132,7 @@ interpretAst !env = \case
     -- to existential OR/OS tensors so that we can inspect
     -- which it is and then seed Delta evaluation maps with that.
     -- Just{} -> error "interpretAst: wrong tensor type in environment"
-    Just (AstEnvElemS @sh2 @r2 t) -> case shapeToList sh == Sh.shapeT @sh2 of
+    Just (DynamicShaped @r2 @sh2 t) -> case shapeToList sh == Sh.shapeT @sh2 of
       True -> case matchingRank @sh2 @n of
         Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
           Just Refl -> rfromS @_ @r2 @sh2 t
@@ -141,8 +141,8 @@ interpretAst !env = \case
       False -> error $ "interpretAst: wrong shape in environment"
                          `showFailure`
                          (sh, Sh.shapeT @sh2, varId, t, env)
-    Nothing -> error $ "interpretAst: unknown variable " ++ show varId
-                       ++ " in environment " ++ show env
+    _ -> error $ "interpretAst: unknown variable " ++ show varId
+                 ++ " in environment " ++ show env
   AstLet var u v ->
     -- We assume there are no nested lets with the same variable.
     let t = interpretAstRuntimeSpecialized env u
@@ -716,7 +716,7 @@ interpretAstS
   -> AstShaped s r sh -> shaped r sh
 interpretAstS !env = \case
   AstVarS (AstVarName varId) -> case EM.lookup varId env of
-    Just (AstEnvElemS @sh2 @r2 t) -> case sameShape @sh2 @sh of
+    Just (DynamicShaped @r2 @sh2 t) -> case sameShape @sh2 @sh of
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
         Just Refl -> t
         _ -> error "interpretAstS: scalar mismatch"
@@ -727,14 +727,14 @@ interpretAstS !env = \case
     -- to existential OR/OS tensors so that we can inspect
     -- which it is and then seed Delta evaluation maps with that.
     -- Just{} -> error "interpretAstS: wrong tensor type in environment"
-    Just (AstEnvElemR @n2 @r2 t) -> case matchingRank @sh @n2 of
+    Just (DynamicRanked @r2 @n2 t) -> case matchingRank @sh @n2 of
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
         Just Refl -> assert (Sh.shapeT @sh == shapeToList (rshape t)
                              `blame` (Sh.shapeT @sh, rshape t, varId, t, env))
                      $ sfromR @_ @r2 @sh t
         _ -> error "interpretAstS: scalar mismatch"
       _ -> error "interpretAstS: wrong shape in environment"
-    Nothing -> error $ "interpretAstS: unknown variable " ++ show varId
+    _ -> error $ "interpretAstS: unknown variable " ++ show varId
   AstLetS var u v ->
     -- We assume there are no nested lets with the same variable.
     let t = interpretAstSRuntimeSpecialized env u
