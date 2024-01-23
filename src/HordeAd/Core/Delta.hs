@@ -1469,6 +1469,28 @@ buildFinMaps s0 deltaDt =
                                    (unravelHVector as))
               s2 = evalS sShared cx0 x0'
           in evalHVector s2 (ravelHVector cas) as'
+        ScanS @rm @shm @_ @sh1 pt {-f x0-} as _df rf x0' as' ->
+          let cxs :: [shaped r sh1]
+              cxs = sunravelToList cShared
+              -- p :: [ranked r n1]
+              -- p = scanl' f x0 las
+              p = sunravelToList pt
+              domsF = V.fromList [voidFromShS @r @sh1, voidFromShS @rm @shm]
+              domsToPair :: ADReadyS f
+                         => HVector (RankedOf f) -> (f r sh1, f rm shm)
+              domsToPair doms = (sfromD $ doms V.! 0, sfromD $ doms V.! 1)
+              las :: [shaped rm shm]
+              las = sunravelToList as
+              rg :: shaped r sh1
+                 -> [(shaped r sh1, shaped r sh1, shaped rm shm)]
+                 -> (shaped r sh1, [shaped rm shm])
+              rg = mapAccumR $ \cr (cx, x, a) ->
+                     domsToPair $ dunHVector domsF $ rf (cr + cx) x a
+              (cx0, cas) = assert (length cxs == length p) $
+                           rg 0 (zip3 (drop 1 cxs) (init p) las)
+              s2 = evalS sShared cx0 x0'
+          in evalS s2 (sfromList cas) as'
+{-
         ScanS @rm @shm @k3 @sh1 p as _df rf x0' as' ->
           let domsF :: VoidHVector
               domsF = V.fromList [voidFromShS @r @sh1, voidFromShS @rm @shm]
@@ -1541,6 +1563,7 @@ buildFinMaps s0 deltaDt =
               g2sum = ssum $ sfromList @_ @_ @k3 g2s
               s2 = evalS sShared2 g1sum x0'
           in evalS s2 g2sum as'
+-}
         ScanZipS @sh1 @k3 domsOD p as _df rf x0' as' ->
           let odShn = voidFromShS @r @sh1
               domsF = V.cons odShn domsOD
