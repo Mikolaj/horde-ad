@@ -504,7 +504,7 @@ mapRanked10 f (DynamicShaped @r @sh t) = case ShapedList.shapeSh @sh of
   ZSH -> error "mapRanked10: rank 0"
   (:$:) @_ @sh0 _ _ ->
     withListShape (Sh.shapeT @sh0) $ \(_ :: ShapeInt n) ->
-      gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: 1 + n) $
+      gcastWith (unsafeCoerce Refl :: Sh.Rank sh0 :~: n) $
       let res = f $ rfromS @_ @_ @sh t
       in Sh.withShapeP (shapeToList $ rshape res) $ \(Proxy @shr) ->
         gcastWith (unsafeCoerce Refl :: Sh.Rank shr :~: n) $
@@ -544,7 +544,7 @@ mapRanked11 f (DynamicShaped @r @sh t) = case ShapedList.shapeSh @sh of
   ZSH -> error "mapRanked11: rank 0"
   (:$:) @_ @sh0 _ _ ->
     withListShape (Sh.shapeT @sh0) $ \(_ :: ShapeInt n) ->
-      gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: 1 + n) $
+      gcastWith (unsafeCoerce Refl :: Sh.Rank sh0 :~: n) $
       let res = f $ rfromS @_ @_ @sh t
       in Sh.withShapeP (shapeToList $ rshape res) $ \(Proxy @shr) ->
         case someNatVal $ 1 + valueOf @n of
