@@ -809,8 +809,11 @@ gradientFromDelta !parameters0 !deltaDt =
             nMap = EM.empty
             astBindings = []
         in EvalState {..}
+      s1 = case deltaDt of
+        DeltaDtR dt deltaTopLevel -> evalR s0 dt deltaTopLevel
+        DeltaDtS dt deltaTopLevel -> evalS s0 dt deltaTopLevel
   in let -- Eval.
-         EvalState{..} = buildFinMaps s0 deltaDt
+         EvalState{..} = evalFromnMap s1
          -- Extract results.
          !gradient = V.fromList $ EM.elems iMap
      in (astBindings, gradient)
@@ -823,17 +826,6 @@ gradientFromDelta !parameters0 !deltaDt =
   :: VoidHVector -> DeltaDt (AstRanked PrimalSpan) (AstShaped PrimalSpan) Double
   -> (AstBindingsD (AstRanked PrimalSpan), HVector (AstDynamic PrimalSpan)) #-}
 -}
-
-buildFinMaps
-  :: forall ranked shaped r0.
-     (GoodScalar r0, ADReady ranked, shaped ~ ShapedOf ranked)
-  => EvalState ranked shaped -> DeltaDt ranked shaped r0
-  -> EvalState ranked shaped
-buildFinMaps s0 deltaDt =
-  let s1 = case deltaDt of
-        DeltaDtR dt deltaTopLevel -> evalR s0 dt deltaTopLevel
-        DeltaDtS dt deltaTopLevel -> evalS s0 dt deltaTopLevel
-  in evalFromnMap s1
 
 -- The first argument is the evaluation state being modified,
 -- the second is the cotangent accumulator that will become an actual
