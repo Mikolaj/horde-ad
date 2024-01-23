@@ -610,8 +610,11 @@ gradientDtR
   -> (AstBindingsD ranked, HVector ranked)
 gradientDtR !parameters0 value !mdt !deltaTopLevel =
   let dt = fromMaybe (rreplicate0N (rshape value) 1) mdt
-      deltaDt = DeltaDtR dt deltaTopLevel
-  in gradientFromDelta parameters0 deltaDt
+      s0 = initEvalState parameters0
+      s1 = evalR s0 dt deltaTopLevel
+      EvalState{..} = evalFromnMap s1
+      !gradient = V.fromList $ EM.elems iMap
+  in (astBindings, gradient)
 {- TODO: this causes a cyclic dependency:
 {-# SPECIALIZE gradientDtR
   :: KnownNat y
@@ -654,8 +657,11 @@ gradientDtS
   -> (AstBindingsD (RankedOf shaped), HVector (RankedOf shaped))
 gradientDtS !parameters0 !mdt !deltaTopLevel =
   let dt = fromMaybe 1 mdt
-      deltaDt = DeltaDtS dt deltaTopLevel
-  in gradientFromDelta parameters0 deltaDt
+      s0 = initEvalState parameters0
+      s1 = evalS s0 dt deltaTopLevel
+      EvalState{..} = evalFromnMap s1
+      !gradient = V.fromList $ EM.elems iMap
+  in (astBindings, gradient)
 {- TODO: this causes a cyclic dependency:
 {-# SPECIALIZE gradientDtS
   :: Sh.Shape y
@@ -787,12 +793,9 @@ data DeltaBinding :: RankedTensorType -> ShapedTensorType -> Type where
 -- Requested lengths of the vectors are given in the first few arguments.
 -- The delta expression to be evaluated, together with the @dt@ perturbation
 -- value (usually set to @1@) is given in the @DeltaDt ranked r@ parameter.
-gradientFromDelta
-  :: forall ranked shaped r.
-     ( GoodScalar r, ADReady ranked, shaped ~ ShapedOf ranked)
-  => VoidHVector -> DeltaDt ranked shaped r
-  -> (AstBindingsD ranked, HVector ranked)
-gradientFromDelta !parameters0 !deltaDt =
+initEvalState
+  :: VoidHVector -> EvalState ranked shaped
+initEvalState !parameters0 =
   -- Create finite maps that hold values associated with inputs
   -- and with (possibly shared) term tree nodes.
   -- The former are usually initialized with dummy values so that it's cheap
@@ -802,21 +805,12 @@ gradientFromDelta !parameters0 !deltaDt =
   -- and especially using them as cotangent accumulators is wasteful.
   -- We take care to keep the scalar type of the dummy correct,
   -- but a shape is not preserved in a dummy, so it's not shape-correct.
-  let s0 =
-        let iMap = EM.fromDistinctAscList $ zip [toInputId 0 ..]
-                   $ map dynamicFromVoid $ V.toList parameters0
-            dMap = EM.empty
-            nMap = EM.empty
-            astBindings = []
-        in EvalState {..}
-      s1 = case deltaDt of
-        DeltaDtR dt deltaTopLevel -> evalR s0 dt deltaTopLevel
-        DeltaDtS dt deltaTopLevel -> evalS s0 dt deltaTopLevel
-  in let -- Eval.
-         EvalState{..} = evalFromnMap s1
-         -- Extract results.
-         !gradient = V.fromList $ EM.elems iMap
-     in (astBindings, gradient)
+  let iMap = EM.fromDistinctAscList $ zip [toInputId 0 ..]
+             $ map dynamicFromVoid $ V.toList parameters0
+      dMap = EM.empty
+      nMap = EM.empty
+      astBindings = []
+  in EvalState {..}
 -- The warnings in the following seems spurious. A GHC issue to be opened.
 {- TODO: this causes a cyclic dependency:
 {-# SPECIALIZE gradientFromDelta
