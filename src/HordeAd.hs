@@ -10,6 +10,7 @@ module HordeAd
   , module HordeAd.Core.DualNumber
   , module HordeAd.Core.Engine
   , module HordeAd.Core.HVector
+  , module HordeAd.Core.HVectorOps
   , module HordeAd.Core.TensorClass
   , module HordeAd.Core.Types
   , module HordeAd.External.CommonRankedOps
@@ -28,6 +29,7 @@ import HordeAd.Core.AstPrettyPrint
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.HVector
+import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.External.CommonRankedOps

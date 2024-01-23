@@ -26,6 +26,7 @@ import HordeAd.Core.AstInline
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.HVector
+import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 

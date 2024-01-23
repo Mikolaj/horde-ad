@@ -14,6 +14,7 @@ module HordeAd.Core.TensorADVal
 import Prelude hiding (foldl')
 
 import           Control.Exception.Assert.Sugar
+import           Data.Array.Convert
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as Sh
@@ -31,6 +32,9 @@ import           Data.Type.Ord (Compare)
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits
   (KnownNat, SomeNat (..), sameNat, someNatVal, type (+), type (-))
+import           Numeric.LinearAlgebra (Numeric, Vector)
+import qualified Numeric.LinearAlgebra as LA
+import           System.Random
 import           Type.Reflection (typeRep)
 import           Unsafe.Coerce (unsafeCoerce)
 
@@ -40,6 +44,7 @@ import           HordeAd.Core.Delta
 import           HordeAd.Core.DualClass
 import           HordeAd.Core.DualNumber
 import           HordeAd.Core.HVector
+import           HordeAd.Core.HVectorOps
 import           HordeAd.Core.TensorClass
 import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances (sameShape)
@@ -377,6 +382,11 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
   drecordSharingPrimal _ d l = (l, d)
   dregister _ d l = (l, d)
   dbuild1 k f = ravelHVector $ map (f . fromIntegral) [0 .. k - 1]
+  dzipWith1 f u = case V.unsnoc u of
+    Nothing -> error "dzipWith1: can't determine argument width"
+    Just (_, d) -> case shapeDynamic d of
+      [] -> error "dzipWith1: wrong rank of argument"
+      width : _ -> dbuild1 @(ADVal ranked) width (\i -> f (index1HVector u i))
   rrev :: (GoodScalar r, KnownNat n)
        => (forall f. ADReady f => HVector f -> f r n)
        -> VoidHVector
@@ -1030,6 +1040,11 @@ instance HVectorTensor (Flip OR.Array) (Flip OS.Array) where
   drecordSharingPrimal _ d l = (l, d)
   dregister _ d l = (l, d)
   dbuild1 k f = ravelHVector $ map (f . fromIntegral) [0 .. k - 1]
+  dzipWith1 f u = case V.unsnoc u of
+    Nothing -> error "dzipWith1: can't determine argument width"
+    Just (_, d) -> case shapeDynamic d of
+      [] -> error "dzipWith1: wrong rank of argument"
+      width : _ -> dbuild1 @(Flip OR.Array) width (\i -> f (index1HVector u i))
   rrev :: (GoodScalar r, KnownNat n)
        => (forall f. ADReady f => HVector f -> f r n)
        -> VoidHVector
@@ -1104,3 +1119,55 @@ instance HVectorTensor (Flip OR.Array) (Flip OS.Array) where
   sscanDer f _df _rf x0 as = sscan f x0 as
   sscanZip f _od x0 as = sfromList $ scanl' f x0 (unravelHVector as)
   sscanZipDer f _df _rf od x0 as = sscanZip f od x0 as
+
+instance (GoodScalar r, KnownNat n)
+         => AdaptableHVector (Flip OR.Array) (Flip OR.Array r n) where
+  {-# SPECIALIZE instance
+      KnownNat n
+      => AdaptableHVector (Flip OR.Array) (Flip OR.Array Double n) #-}
+  type Value (Flip OR.Array r n) = Flip OR.Array r n
+  toHVector = V.singleton . DynamicRanked
+  fromHVector _aInit params = fromHVectorR @r @n params
+
+instance ForgetShape (Flip OR.Array r n) where
+  type NoShape (Flip OR.Array r n) = Flip OR.Array r n
+  forgetShape = id
+
+instance (GoodScalar r, Sh.Shape sh)
+         => AdaptableHVector (Flip OR.Array) (Flip OS.Array r sh) where
+  type Value (Flip OS.Array r sh) = Flip OS.Array r sh
+  toHVector = V.singleton . DynamicShaped
+  fromHVector _aInit params = fromHVectorS @r @sh @(Flip OS.Array) params
+
+instance Sh.Shape sh
+         => ForgetShape (Flip OS.Array r sh) where
+  type NoShape (Flip OS.Array r sh) = Flip OR.Array r (Sh.Rank sh)  -- key case
+  forgetShape = Flip . Data.Array.Convert.convert . runFlip
+
+instance (Sh.Shape sh, Numeric r, Fractional r, Random r, Num (Vector r))
+         => RandomHVector (Flip OS.Array r sh) where
+  randomVals range g =
+    let createRandomVector n seed =
+          LA.scale (2 * realToFrac range)
+          $ V.fromListN n (randoms seed) - LA.scalar 0.5
+        (g1, g2) = split g
+        arr = OS.fromVector $ createRandomVector (OS.sizeP (Proxy @sh)) g1
+    in (Flip arr, g2)
+
+{- TODO: requires IncoherentInstances no matter what pragma I stick in
+-- TODO2: benchmark this used for any scalar via @V.map realToFrac@
+-- A special case, because for @Double@ we have faster @randomVals@,
+-- though the quality of randomness is worse (going through a single @Int@).
+instance {-# OVERLAPS #-} {-# OVERLAPPING #-}
+         KnownNat n
+         => AdaptableHVector (OR.Array n Double) where
+  randomVals range g =
+    let -- Note that hmatrix produces numbers from the range open at the top,
+        -- unlike package random.
+        createRandomVector n seedInt =
+          LA.scale (2 * range)
+          $ LA.randomVector seedInt LA.Uniform n - LA.scalar 0.5
+        (i, g2) = random g
+        arr = OR.fromVector $ createRandomVector (OR.sizeP (Proxy @n)) i
+    in (arr, g2)
+-}

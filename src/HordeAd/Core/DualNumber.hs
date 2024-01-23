@@ -41,6 +41,7 @@ import HordeAd.Core.AstEnv
 import HordeAd.Core.Delta
 import HordeAd.Core.DualClass
 import HordeAd.Core.HVector
+import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.Internal.OrthotopeOrphanInstances (sameShape)
