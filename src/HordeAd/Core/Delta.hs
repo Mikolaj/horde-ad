@@ -50,8 +50,6 @@ module HordeAd.Core.Delta
 import Prelude
 
 import           Control.Exception.Assert.Sugar
-import           Control.Monad (liftM2)
-import           Control.Monad.ST.Strict (ST, runST)
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.Shape as Sh
 import qualified Data.Array.ShapedS as OS
@@ -62,7 +60,6 @@ import           Data.List (foldl', mapAccumR, sort, transpose)
 import           Data.List.Index (ifoldl')
 import           Data.Maybe (fromMaybe)
 import           Data.Proxy (Proxy (Proxy))
-import           Data.STRef (newSTRef, readSTRef, writeSTRef)
 import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
@@ -83,6 +80,8 @@ import           GHC.TypeLits
 import           Text.Show.Functions ()
 import           Type.Reflection (typeRep)
 import           Unsafe.Coerce (unsafeCoerce)
+import Data.Traversable (mapAccumL)
+import           Control.Arrow (second)
 
 import           HordeAd.Core.HVector
 import           HordeAd.Core.HVectorOps
@@ -245,6 +244,7 @@ data DeltaR :: RankedTensorType -> RankedTensorType where
     -- The semantics of the operation permits index out of bounds
     -- and the result of such indexing is zero.
     -- TODO: this is a haddock for Gather1; fix.
+
   FoldR :: (GoodScalar rm, KnownNat m)
         => ranked rn (1 + n) -> ranked rm (1 + m)
         -> (forall f. ADReady f => f rn n -> f rm m -> f rn n -> f rm m
@@ -420,6 +420,7 @@ data DeltaS :: ShapedTensorType -> ShapedTensorType where
     -- The semantics of the operation permits index out of bounds
     -- and the result of such indexing is zero.
     -- TODO: this is a haddock for Gather1; fix.
+
   FoldS :: (GoodScalar rm, Sh.Shape shm, KnownNat k)
         => shaped rn (1 + k ': sh) -> shaped rm (k ': shm)
         -> (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh -> f rm shm
@@ -637,7 +638,7 @@ derivativeFromDeltaR
   -> (AstBindingsD ranked, ranked r n)
 derivativeFromDeltaR dim deltaTopLevel ds =
   let dummyZero = rzero $ listShapeToShape $ replicate (valueOf @n) 1
-  in case runST $ buildDerivative dim (DeltaDtR dummyZero deltaTopLevel) ds of
+  in case buildDerivative dim (DeltaDtR dummyZero deltaTopLevel) ds of
     (l, DeltaDtR @_ @n2 res _) -> case sameNat (Proxy @n) (Proxy @n2) of
       Just Refl -> (l, res)
       _ -> error "derivativeFromDeltaR"
@@ -682,7 +683,7 @@ derivativeFromDeltaS
   => Int -> DeltaS shaped r sh -> HVector (RankedOf shaped)
   -> (AstBindingsD (RankedOf shaped), shaped r sh)
 derivativeFromDeltaS !dim !deltaTopLevel !ds =
-  case runST $ buildDerivative dim (DeltaDtS 0 deltaTopLevel) ds of
+  case buildDerivative dim (DeltaDtS 0 deltaTopLevel) ds of
     (l, DeltaDtS @_ @sh2 res _) -> case sameShape @sh @sh2 of
       Just Refl -> (l, res)
       _ -> error "derivativeFromDeltaS"
@@ -1838,50 +1839,54 @@ mapDynamicDeltaS11
 -- simplified, but the obvious simplest formulation does not honour sharing
 -- and evaluates shared subexpressions repeatedly.
 buildDerivative
-  :: forall ranked shaped r0 s.
+  :: forall ranked shaped r0.
      (GoodScalar r0, ADReady ranked, shaped ~ ShapedOf ranked)
   => Int -> DeltaDt ranked shaped r0 -> HVector ranked
-  -> ST s (AstBindingsD ranked, DeltaDt ranked shaped r0)
-buildDerivative dimR deltaDt params = do
-  dMap <- newSTRef EM.empty
-  nMap <- newSTRef EM.empty
-  astBindings <- newSTRef []
+  -> (AstBindingsD ranked, DeltaDt ranked shaped r0)
+buildDerivative dimR deltaDt params =
   let fwdDynamic
-        :: DynamicTensor (DeltaR ranked) -> ST s (DynamicTensor ranked)
-      fwdDynamic (DynamicRanked d) = DynamicRanked <$> fwdR d
-      fwdDynamic (DynamicShaped d) = DynamicShaped <$> fwdS d
-      fwdDynamic _ = error "fwdDynamic: dummy delta"
-      fwdHVector :: HVector (DeltaR ranked) -> ST s (HVector ranked)
-      fwdHVector = V.mapM fwdDynamic
+        :: EvalState ranked shaped
+        -> DynamicTensor (DeltaR ranked)
+        -> (EvalState ranked shaped, DynamicTensor ranked)
+      fwdDynamic s (DynamicRanked d) = second DynamicRanked $ fwdR s d
+      fwdDynamic s (DynamicShaped d) = second DynamicShaped $ fwdS s d
+      fwdDynamic _ _ = error "fwdDynamic: dummy delta"
+      fwdHVector
+        :: EvalState ranked shaped
+        -> HVector (DeltaR ranked)
+        -> (EvalState ranked shaped, HVector ranked)
+      fwdHVector = mapAccumL fwdDynamic
       fwdR
         :: forall n r. (KnownNat n, GoodScalar r)
-        => DeltaR ranked r n -> ST s (ranked r n)
-      fwdR = \case
-        ZeroR sh -> return $ rzero sh
+        => EvalState ranked shaped
+        -> DeltaR ranked r n
+        -> (EvalState ranked shaped, ranked r n)
+      fwdR s = \case
+        ZeroR sh -> (s, rzero sh)
         InputR _ (InputId i) ->
           if i < dimR
           then case params V.! i of
             DynamicRanked @r2 @n2 e -> case sameNat (Proxy @n2) (Proxy @n) of
               Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
-                Just Refl -> return e
+                Just Refl -> (s, e)
                 _ -> error "buildDerivative: scalar mismatch"
               _ -> error "buildDerivative: rank mismatch"
             DynamicShaped{} -> error "buildDerivative: DynamicShaped"
             DynamicRankedDummy{} -> error "buildDerivative: DynamicRankedDummy"
             DynamicShapedDummy{} -> error "buildDerivative: DynamicShapedDummy"
           else error "buildDerivative': wrong index for an input"
-        ScaleR k d -> (* k) <$> fwdR d
-        AddR d e -> liftM2 (+) (fwdR d) (fwdR e)
-        LetR n d -> do
-          nm <- readSTRef nMap
-          case EM.lookup n nm of
-            Just (DeltaBindingR _) -> do
-              dm <- readSTRef dMap
-              case dm EM.! n of
+        ScaleR k d -> second (* k) $ fwdR s d
+        AddR d e -> let (s2, t) = fwdR s d
+                        (s3, u) = fwdR s2 e
+                    in (s3, t + u)
+        LetR n d ->
+          case EM.lookup n $ nMap s of
+            Just (DeltaBindingR _) ->
+              case dMap s EM.! n of
                 DynamicRanked @r2 @n2 e -> case sameNat (Proxy @n2)
                                                         (Proxy @n) of
                   Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
-                    Just Refl -> return e
+                    Just Refl -> (s, e)
                     _ -> error "buildDerivative: scalar mismatch"
                   _ -> error "buildDerivative: rank mismatch"
                 DynamicShaped{} -> error "buildDerivative: DynamicShaped"
@@ -1889,59 +1894,61 @@ buildDerivative dimR deltaDt params = do
                   error "buildDerivative: DynamicRankedDummy"
                 DynamicShapedDummy{} ->
                   error "buildDerivative: DynamicShapedDummy"
-            Nothing -> do
-              cRaw <- fwdR d
-              ab <- readSTRef astBindings
-              let (abShared, cShared) = rregister cRaw ab
-              writeSTRef astBindings abShared
-              nmNew <- readSTRef nMap
-              writeSTRef nMap $! EM.insert n (DeltaBindingR d) nmNew
-              dm <- readSTRef dMap
-              writeSTRef dMap $! EM.insert n (DynamicRanked cShared) dm
-              return cShared
+            Nothing ->
+              let (s2, cRaw) = fwdR s d
+                  (abShared, cShared) = rregister cRaw (astBindings s2)
+                  s3 = s2 {astBindings = abShared}
+                  s4 = s3 { nMap = EM.insert n (DeltaBindingR d) (nMap s3)
+                          , dMap = EM.insert n (DynamicRanked cShared)
+                                               (dMap s3) }
+              in (s4, cShared)
             _ -> error "buildDerivative: corrupted nMap"
 
-        IndexR d ix -> (`rindex` ix) <$> fwdR d
-        SumR d -> rsum <$> fwdR d
-        Sum0R ZeroR{} -> return 0
-        Sum0R d -> rsum0 <$> fwdR d
-        Dot0R _ ZeroR{} -> return 0
-        Dot0R v d -> rdot0 v <$> fwdR d
-        ScatterR sh d f -> do
-          t <- fwdR d
-          return $! rscatter sh t f
+        IndexR d ix -> second (`rindex` ix) $ fwdR s d
+        SumR d -> second rsum $ fwdR s d
+        Sum0R ZeroR{} -> (s, 0)
+        Sum0R d -> second rsum0 $ fwdR s d
+        Dot0R _ ZeroR{} -> (s, 0)
+        Dot0R v d -> second (rdot0 v) $ fwdR s d
+        ScatterR sh d f ->
+          let (s2, t) = fwdR s d
+          in (s2, rscatter sh t f)
 
-        FromListR lsd -> do
-          l <- mapM fwdR lsd
-          return $! rfromList l
-        FromVectorR lsd -> do
-          l <- V.mapM fwdR lsd
-          return $! rfromVector l
-        ReplicateR n d -> do
-          t <- fwdR d
-          return $! rreplicate n t
-        AppendR d e -> liftM2 rappend (fwdR d) (fwdR e)
-        SliceR i n d -> rslice i n <$> fwdR d
-        ReverseR d -> rreverse <$> fwdR d
-        TransposeR perm d -> rtranspose perm <$> fwdR d
-        ReshapeR sh d -> rreshape sh <$> fwdR d
-        GatherR sh d f -> do
-          t <- fwdR d
-          return $! rgather sh t f
+        FromListR lsd ->
+          let (s2, l) = mapAccumL fwdR s lsd
+          in (s2, rfromList l)
+        FromVectorR lsd ->
+          let (s2, l) = mapAccumL fwdR s lsd
+          in (s2, rfromVector l)
+        ReplicateR n d ->
+          let (s2, t) = fwdR s d
+          in (s2, rreplicate n t)
+        AppendR d e ->
+          let (s2, t) = fwdR s d
+              (s3, u) = fwdR s2 e
+          in (s3, rappend t u)
+        SliceR i n d -> second (rslice i n) $ fwdR s d
+        ReverseR d -> second rreverse $ fwdR s d
+        TransposeR perm d -> second (rtranspose perm) $ fwdR s d
+        ReshapeR sh d -> second (rreshape sh) $ fwdR s d
+        GatherR sh d f ->
+          let (s2, t) = fwdR s d
+          in (s2, rgather sh t f)
+
         FoldR @rm @m p as df _rf x0' as' -> case rshape as of
-          width :$ shm -> do
+          width :$ shm ->
             let !_A1 = assert (rlength p == width + 1) ()
                 shn = shapeDelta x0'
-            cx0 <- fwdR x0'
-            cas <- fwdR as'
-            let domsF =
+                (s2, cx0) = fwdR s x0'
+                (s3, cas) = fwdR s2 as'
+                domsF =
                   V.fromList
                     [voidFromSh @rm shm, voidFromSh @r shn, voidFromSh @rm shm]
                 domsTo3 :: ADReady f => HVector f -> (f rm m, f r n, f rm m)
                 domsTo3 doms = ( rfromD $ doms V.! 0
                                , rfromD $ doms V.! 1
                                , rfromD $ doms V.! 2 )
-            return $! rfoldZip (\cx doms ->
+            in (s3, rfoldZip (\cx doms ->
                                   let (ca, x, a) = domsTo3 doms
                                   in df cx ca x a)
                              domsF
@@ -1949,292 +1956,295 @@ buildDerivative dimR deltaDt params = do
                              (V.fromList
                                 [ DynamicRanked cas
                                 , DynamicRanked $ rslice 0 width p
-                                , DynamicRanked as ])
+                                , DynamicRanked as ]))
           ZS -> error "fwdR: impossible pattern needlessly required"
-        FoldRC p as df _rf x0' as' -> do
-          cx0 <- fwdR x0'
-          cas <- fwdR as'
-          let lcas = runravelToList cas
+        FoldRC p as df _rf x0' as' ->
+          let (s2, cx0) = fwdR s x0'
+              (s3, cas) = fwdR s2 as'
+              lcas = runravelToList cas
               las = runravelToList as
               lp = runravelToList p
-          return $! foldl' (\cx (ca, x, a) -> df cx ca x a)
-                           cx0 (zip3 lcas (init lp) las)
-        FoldZipR domsOD p as df _rf x0' as' -> do
+          in (s3, foldl' (\cx (ca, x, a) -> df cx ca x a)
+                         cx0 (zip3 lcas (init lp) las))
+        FoldZipR domsOD p as df _rf x0' as' ->
           let width = rlength p - 1
               domsLen = V.length domsOD
               shn = shapeDelta x0'
-          cx0 <- fwdR x0'
-          cas <- fwdHVector as'
-          let domsF = V.concat [domsOD, V.singleton (voidFromSh @r shn), domsOD]
+              (s2, cx0) = fwdR s x0'
+              (s3, cas) = fwdHVector s2 as'
+              domsF = V.concat [domsOD, V.singleton (voidFromSh @r shn), domsOD]
               domsTo3 :: ADReady f
                       => HVector f -> (HVector f, f r n, HVector f)
               domsTo3 doms = ( V.take domsLen doms
                              , rfromD $ doms V.! domsLen
                              , V.drop (domsLen + 1) doms )
-          return $! rfoldZip (\cx doms ->
-                                let (ca, x, a) = domsTo3 doms
-                                in df cx ca x a)
+          in (s3, rfoldZip (\cx doms ->
+                              let (ca, x, a) = domsTo3 doms
+                              in df cx ca x a)
                            domsF
                            cx0
                            (V.concat [ cas
                                      , V.singleton
                                          (DynamicRanked $ rslice 0 width p)
-                                     , as ])
-        FoldZipRC _domsOD p as df _rf x0' as' -> do
-          cx0 <- fwdR x0'
-          cas <- fwdHVector as'
-          let lcas = unravelHVector cas
+                                     , as ]))
+        FoldZipRC _domsOD p as df _rf x0' as' ->
+          let (s2, cx0) = fwdR s x0'
+              (s3, cas) = fwdHVector s2 as'
+              lcas = unravelHVector cas
               las = unravelHVector as
               lp = runravelToList p
-          return $! foldl' (\cx (ca, x, a) -> df cx ca x a)
-                           cx0 (zip3 lcas (init lp) las)
+          in (s3, foldl' (\cx (ca, x, a) -> df cx ca x a)
+                            cx0 (zip3 lcas (init lp) las))
         ScanR @rm @m @_ @_ @n1 p as df _rf x0' as' -> case rshape as of
-          width :$ shm -> do
+          width :$ shm ->
             let !_A1 = assert (rlength p == width + 1) ()
                 shn = shapeDelta x0'
-            cx0 <- fwdR x0'
-            cas <- fwdR as'
-            let domsF =
+                (s2, cx0) = fwdR s x0'
+                (s3, cas) = fwdR s2 as'
+                domsF =
                   V.fromList
                     [voidFromSh @rm shm, voidFromSh @r shn, voidFromSh @rm shm]
                 domsTo3 :: ADReady f => HVector f -> (f rm m, f r n1, f rm m)
                 domsTo3 doms = ( rfromD $ doms V.! 0
                                , rfromD $ doms V.! 1
                                , rfromD $ doms V.! 2 )
-            return $! rscanZip (\cx doms ->
-                                  let (ca, x, a) = domsTo3 doms
-                                  in df cx ca x a)
+            in (s3, rscanZip (\cx doms ->
+                                let (ca, x, a) = domsTo3 doms
+                                in df cx ca x a)
                              domsF
                              cx0
                              (V.fromList
                                 [ DynamicRanked cas
                                 , DynamicRanked $ rslice 0 width p
-                                , DynamicRanked as ])
+                                , DynamicRanked as ]))
           ZS -> error "fwdR: impossible pattern needlessly required"
-        ScanZipR @_ @_ @n1 domsOD p as df _rf x0' as' -> do
+        ScanZipR @_ @_ @n1 domsOD p as df _rf x0' as' ->
           let width = rlength p - 1
               domsLen = V.length domsOD
               shn = shapeDelta x0'
-          cx0 <- fwdR x0'
-          cas <- fwdHVector as'
-          let domsF = V.concat [domsOD, V.singleton (voidFromSh @r shn), domsOD]
+              (s2, cx0) = fwdR s x0'
+              (s3, cas) = fwdHVector s2 as'
+              domsF = V.concat [domsOD, V.singleton (voidFromSh @r shn), domsOD]
               domsTo3 :: ADReady f
                       => HVector f -> (HVector f, f r n1, HVector f)
               domsTo3 doms = ( V.take domsLen doms
                              , rfromD $ doms V.! domsLen
                              , V.drop (domsLen + 1) doms )
-          return $! rscanZip (\cx doms ->
-                                let (ca, x, a) = domsTo3 doms
-                                in df cx ca x a)
+          in (s3, rscanZip (\cx doms ->
+                              let (ca, x, a) = domsTo3 doms
+                              in df cx ca x a)
                            domsF
                            cx0
                            (V.concat [ cas
                                      , V.singleton
                                          (DynamicRanked $ rslice 0 width p)
-                                     , as ])
-        CastR d -> do
-          t <- fwdR d
-          return $! rcast t
+                                     , as ]))
+        CastR d ->
+          second rcast $ fwdR s d
 
-        SToR (RToS d) -> fwdR d  -- no information lost, so no checks
-        SToR d -> rfromS <$> fwdS d
+        SToR (RToS d) -> fwdR s d  -- no information lost, so no checks
+        SToR d -> second rfromS $ fwdS s d
 
       fwdS
         :: forall sh r. (Sh.Shape sh, GoodScalar r)
-        => DeltaS shaped r sh -> ST s (shaped r sh)
-      fwdS = \case
-        ZeroS -> return 0
+        => EvalState ranked shaped
+        -> DeltaS shaped r sh -> (EvalState ranked shaped, shaped r sh)
+      fwdS s = \case
+        ZeroS -> (s, 0)
         InputS (InputId i) ->
           if i < dimR
           then case params V.! i of
             DynamicRanked{} -> error "buildDerivative: DynamicRanked"
             DynamicShaped @r2 @sh2 e -> case sameShape @sh2 @sh of
               Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
-                Just Refl -> return e
+                Just Refl -> (s, e)
                 _ -> error "buildDerivative: scalar mismatch"
               _ -> error "buildDerivative: shape mismatch"
             DynamicRankedDummy{} -> error "buildDerivative: DynamicRankedDummy"
             DynamicShapedDummy{} -> error "buildDerivative: DynamicShapedDummy"
           else error "buildDerivative: wrong index for an input"
-        ScaleS k d -> (* k) <$> fwdS d
-        AddS d e -> liftM2 (+) (fwdS d) (fwdS e)
-        LetS n d -> do
-          nm <- readSTRef nMap
-          case EM.lookup n nm of
-            Just (DeltaBindingS _) -> do
-              dm <- readSTRef dMap
-              case dm EM.! n of
+        ScaleS k d -> second (* k) $ fwdS s d
+        AddS d e -> let (s2, t) = fwdS s d
+                        (s3, u) = fwdS s2 e
+                    in (s3, t + u)
+        LetS n d ->
+          case EM.lookup n $ nMap s of
+            Just (DeltaBindingS _) ->
+              case dMap s EM.! n of
                 DynamicRanked{} -> error "buildDerivative: DynamicRanked"
                 DynamicShaped @r2 @sh2 e -> case sameShape @sh2 @sh of
                   Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
-                    Just Refl -> return e
+                    Just Refl -> (s, e)
                     _ -> error "buildDerivative: scalar mismatch"
                   _ -> error "buildDerivative: shape mismatch"
                 DynamicRankedDummy{} ->
                   error "buildDerivative: DynamicRankedDummy"
                 DynamicShapedDummy{} ->
                   error "buildDerivative: DynamicShapedDummy"
-            Nothing -> do
-              cRaw <- fwdS d
-              ab <- readSTRef astBindings
-              let (abShared, cShared) = sregister cRaw ab
-              writeSTRef astBindings abShared
-              nmNew <- readSTRef nMap
-              writeSTRef nMap $! EM.insert n (DeltaBindingS d) nmNew
-              dm <- readSTRef dMap
-              writeSTRef dMap $! EM.insert n (DynamicShaped cShared) dm
-              return cShared
+            Nothing ->
+              let (s2, cRaw) = fwdS s d
+                  (abShared, cShared) = sregister cRaw (astBindings s2)
+                  s3 = s2 {astBindings = abShared}
+                  s4 = s3 { nMap = EM.insert n (DeltaBindingS d) (nMap s3)
+                          , dMap = EM.insert n (DynamicShaped cShared)
+                                               (dMap s3) }
+              in (s4, cShared)
             _ -> error "buildDerivative: corrupted nMap"
 
-        IndexS d ix -> (`sindex` ix) <$> fwdS d
-        SumS d -> ssum <$> fwdS d
-        Sum0S ZeroS -> return 0
-        Sum0S d -> ssum0 <$> fwdS d
-        Dot0S _ ZeroS -> return 0
-        Dot0S v d -> sdot0 v <$> fwdS d
-        ScatterS d f -> do
-          t <- fwdS d
-          return $! sscatter t f
+        IndexS d ix -> second (`sindex` ix) $ fwdS s d
+        SumS d -> second ssum $ fwdS s d
+        Sum0S ZeroS -> (s, 0)
+        Sum0S d -> second ssum0 $ fwdS s d
+        Dot0S _ ZeroS -> (s, 0)
+        Dot0S v d -> second (sdot0 v) $ fwdS s d
+        ScatterS d f ->
+          let (s2, t) = fwdS s d
+          in (s2, sscatter t f)
 
-        FromListS lsd -> do
-          l <- mapM fwdS lsd
-          return $! sfromList l
-        FromVectorS lsd -> do
-          l <- V.mapM fwdS lsd
-          return $! sfromVector l
-        ReplicateS d -> do
-          t <- fwdS d
-          return $! sreplicate t
-        AppendS d e -> liftM2 sappend (fwdS d) (fwdS e)
-        SliceS @_ @i d -> sslice (Proxy @i) Proxy <$> fwdS d
-        ReverseS d -> sreverse <$> fwdS d
-        TransposeS @_ @perm d -> stranspose (Proxy @perm) <$> fwdS d
-        ReshapeS d -> sreshape <$> fwdS d
-        GatherS d f -> do
-          t <- fwdS d
-          return $! sgather t f
-        FoldS @rm @shm @k p as df _rf x0' as' -> do
-          cx0 <- fwdS x0'
-          cas <- fwdS as'
-          let domsF =
-                V.fromList
-                  [voidFromShS @rm @shm, voidFromShS @r @sh, voidFromShS @rm @shm]
+        FromListS lsd ->
+          let (s2, l) = mapAccumL fwdS s lsd
+          in (s2, sfromList l)
+        FromVectorS lsd ->
+          let (s2, l) = mapAccumL fwdS s lsd
+          in (s2, sfromVector l)
+        ReplicateS d ->
+          let (s2, t) = fwdS s d
+          in (s2, sreplicate t)
+        AppendS d e ->
+          let (s2, t) = fwdS s d
+              (s3, u) = fwdS s2 e
+          in (s3, sappend t u)
+        SliceS @_ @i d -> second (sslice (Proxy @i) Proxy) $ fwdS s d
+        ReverseS d -> second sreverse $ fwdS s d
+        TransposeS @_ @perm d -> second (stranspose (Proxy @perm)) $ fwdS s d
+        ReshapeS d -> second sreshape $ fwdS s d
+        GatherS d f ->
+          let (s2, t) = fwdS s d
+          in (s2, sgather t f)
+
+        FoldS @rm @shm @k p as df _rf x0' as' ->
+          let (s2, cx0) = fwdS s x0'
+              (s3, cas) = fwdS s2 as'
+              domsF = V.fromList [ voidFromShS @rm @shm
+                                 , voidFromShS @r @sh
+                                 , voidFromShS @rm @shm ]
               domsTo3 :: ADReadyS f
                       => HVector (RankedOf f) -> (f rm shm, f r sh, f rm shm)
               domsTo3 doms = ( sfromD $ doms V.! 0
                              , sfromD $ doms V.! 1
                              , sfromD $ doms V.! 2 )
-          return $! sfoldZip (\cx doms ->
-                                let (ca, x, a) = domsTo3 doms
-                                in df cx ca x a)
+          in (s3, sfoldZip (\cx doms ->
+                              let (ca, x, a) = domsTo3 doms
+                              in df cx ca x a)
                            domsF
                            cx0
                            (V.fromList
                               [ DynamicShaped cas
                               , DynamicShaped $ sslice (Proxy @0) (Proxy @k) p
-                              , DynamicShaped as ])
-        FoldSC p as df _rf x0' as' -> do
-          cx0 <- fwdS x0'
-          cas <- fwdS as'
-          let lcas = sunravelToList cas
+                              , DynamicShaped as ]))
+        FoldSC p as df _rf x0' as' ->
+          let (s2, cx0) = fwdS s x0'
+              (s3, cas) = fwdS s2 as'
+              lcas = sunravelToList cas
               las = sunravelToList as
               lp = sunravelToList p
-          return $! foldl' (\cx (ca, x, a) -> df cx ca x a)
-                           cx0 (zip3 lcas (init lp) las)
-        FoldZipS @k3 domsOD p as df _rf x0' as' -> do
+          in (s3, foldl' (\cx (ca, x, a) -> df cx ca x a)
+                         cx0 (zip3 lcas (init lp) las))
+        FoldZipS @k3 domsOD p as df _rf x0' as' ->
           let domsLen = V.length domsOD
-          cx0 <- fwdS x0'
-          cas <- fwdHVector as'
-          let domsF = V.concat [domsOD, V.singleton (voidFromShS @r @sh), domsOD]
+              (s2, cx0) = fwdS s x0'
+              (s3, cas) = fwdHVector s2 as'
+              domsF = V.concat
+                        [domsOD, V.singleton (voidFromShS @r @sh), domsOD]
               domsTo3 :: ADReadyS f
                       => HVector (RankedOf f)
                       -> (HVector (RankedOf f), f r sh, HVector (RankedOf f))
               domsTo3 doms = ( V.take domsLen doms
                              , sfromD $ doms V.! domsLen
                              , V.drop (domsLen + 1) doms )
-          return $! sfoldZip (\cx doms ->
-                                let (ca, x, a) = domsTo3 doms
-                                in df cx ca x a)
+          in (s3, sfoldZip (\cx doms ->
+                              let (ca, x, a) = domsTo3 doms
+                              in df cx ca x a)
                            domsF
                            cx0
                            (V.concat [ cas
                                      , V.singleton
                                          (DynamicShaped
                                           $ sslice (Proxy @0) (Proxy @k3) p)
-                                     , as ])
-        FoldZipSC _domsOD p as df _rf x0' as' -> do
-          cx0 <- fwdS x0'
-          cas <- fwdHVector as'
-          let lcas = unravelHVector cas
+                                     , as ]))
+        FoldZipSC _domsOD p as df _rf x0' as' ->
+          let (s2, cx0) = fwdS s x0'
+              (s3, cas) = fwdHVector s2 as'
+              lcas = unravelHVector cas
               las = unravelHVector as
               lp = sunravelToList p
-          return $! foldl' (\cx (ca, x, a) -> df cx ca x a)
-                           cx0 (zip3 lcas (init lp) las)
-        ScanS @rm @shm @k @sh1 p as df _rf x0' as' -> do
-          cx0 <- fwdS x0'
-          cas <- fwdS as'
-          let domsF =
-                V.fromList
-                  [voidFromShS @rm @shm, voidFromShS @r @sh1, voidFromShS @rm @shm]
+          in (s3, foldl' (\cx (ca, x, a) -> df cx ca x a)
+                         cx0 (zip3 lcas (init lp) las))
+        ScanS @rm @shm @k @sh1 p as df _rf x0' as' ->
+          let (s2, cx0) = fwdS s x0'
+              (s3, cas) = fwdS s2 as'
+              domsF = V.fromList [ voidFromShS @rm @shm
+                                 , voidFromShS @r @sh1
+                                 , voidFromShS @rm @shm ]
               domsTo3 :: ADReadyS f
                       => HVector (RankedOf f) -> (f rm shm, f r sh1, f rm shm)
               domsTo3 doms = ( sfromD $ doms V.! 0
                              , sfromD $ doms V.! 1
                              , sfromD $ doms V.! 2 )
-          return $! sscanZip (\cx doms ->
-                                let (ca, x, a) = domsTo3 doms
-                                in df cx ca x a)
+          in (s3, sscanZip (\cx doms ->
+                              let (ca, x, a) = domsTo3 doms
+                              in df cx ca x a)
                            domsF
                            cx0
                            (V.fromList
                               [ DynamicShaped cas
                               , DynamicShaped $ sslice (Proxy @0) (Proxy @k) p
-                              , DynamicShaped as ])
-        ScanZipS @sh1 @k3 domsOD p as df _rf x0' as' -> do
+                              , DynamicShaped as ]))
+        ScanZipS @sh1 @k3 domsOD p as df _rf x0' as' ->
           let domsLen = V.length domsOD
-          cx0 <- fwdS x0'
-          cas <- fwdHVector as'
-          let domsF = V.concat [domsOD, V.singleton (voidFromShS @r @sh1), domsOD]
+              (s2, cx0) = fwdS s x0'
+              (s3, cas) = fwdHVector s2 as'
+              domsF = V.concat
+                        [domsOD, V.singleton (voidFromShS @r @sh1), domsOD]
               domsTo3 :: ADReadyS f
                       => HVector (RankedOf f)
                       -> (HVector (RankedOf f), f r sh1, HVector (RankedOf f))
               domsTo3 doms = ( V.take domsLen doms
                              , sfromD $ doms V.! domsLen
                              , V.drop (domsLen + 1) doms )
-          return $! sscanZip (\cx doms ->
-                                let (ca, x, a) = domsTo3 doms
-                                in df cx ca x a)
+          in (s3, sscanZip (\cx doms ->
+                              let (ca, x, a) = domsTo3 doms
+                              in df cx ca x a)
                            domsF
                            cx0
                            (V.concat [ cas
                                      , V.singleton
                                          (DynamicShaped
                                           $ sslice (Proxy @0) (Proxy @k3) p)
-                                     , as ])
-        CastS d -> do
-          t <- fwdS d
-          return $! scast t
+                                     , as ]))
+        CastS d ->
+          second scast $ fwdS s d
 
         RToS (SToR @sh2 d) ->
           case sameShape @sh @sh2 of
-            Just Refl -> fwdS d
+            Just Refl -> fwdS s d
             _ -> error "buildDerivative: different shapes in RToS(SToR)"
-        RToS d -> sfromR <$> fwdR d
+        RToS d -> second sfromR $ fwdR s d
 
   -- A hack to fit both argument delta and, afterwards, the result in a type
   -- that does not reflect either.
-  case deltaDt of
-    DeltaDtR @_ @n _dt deltaTopLevel -> do
-      c <- fwdR deltaTopLevel
-      let !cDelta = DeltaDtR c (ZeroR $ listShapeToShape
+  in case deltaDt of
+    DeltaDtR @_ @n _dt deltaTopLevel ->
+      let s0 = EvalState EM.empty EM.empty EM.empty []
+          !(!s2, c) = fwdR s0 deltaTopLevel
+          !cDelta = DeltaDtR c (ZeroR $ listShapeToShape
                                 $ replicate (valueOf @n) 0)
-      ab <- readSTRef astBindings
-      return (ab, cDelta)
-    DeltaDtS _dt deltaTopLevel -> do
-      c <- fwdS deltaTopLevel
-      let !cDelta = DeltaDtS c ZeroS
-      ab <- readSTRef astBindings
-      return (ab, cDelta)
+      in (astBindings s2, cDelta)
+    DeltaDtS _dt deltaTopLevel ->
+      let s0 = EvalState EM.empty EM.empty EM.empty []
+          !(!s2, c) = fwdS s0 deltaTopLevel
+          !cDelta = DeltaDtS c ZeroS
+      in (astBindings s2, cDelta)
 
 
 -- * Manually fixed Show instances
