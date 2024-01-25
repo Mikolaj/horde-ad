@@ -56,7 +56,7 @@ import qualified Data.Array.Shape as Sh
 import qualified Data.Array.ShapedS as OS
 import qualified Data.EnumMap.Strict as EM
 import           Data.Int (Int64)
-import           Data.Kind (Constraint, Type)
+import           Data.Kind (Constraint)
 import           Data.List (foldl', mapAccumR, sort, transpose)
 import           Data.List.Index (ifoldl')
 import           Data.Maybe (fromMaybe)
@@ -695,9 +695,9 @@ derivativeFromDeltaS !dim !deltaTopLevel !ds =
 --
 -- Data invariant:
 -- 1. keys nMap == keys dMap
--- 2. key `member` dMap == nMap!key is DeltaBindingR
-type role EvalState nominal nominal
-data EvalState ranked shaped = EvalState
+-- 2. key `member` dMap == nMap!key is DynamicRanked
+type role EvalState nominal
+data EvalState ranked = EvalState
   { iMap        :: EM.EnumMap (InputId ranked) (DynamicTensor ranked)
       -- ^ eventually, cotangents of objective function inputs
       -- (eventually copied to the vector representing the gradient
@@ -706,21 +706,14 @@ data EvalState ranked shaped = EvalState
   , dMap        :: EM.EnumMap (NodeId ranked) (DynamicTensor ranked)
       -- ^ eventually, cotangents of non-input subterms indexed
       -- by their node identifiers
-  , nMap        :: EM.EnumMap (NodeId ranked) (DeltaBinding ranked shaped)
-      -- ^ nodes left to be evaluated
+  , nMap        :: EM.EnumMap (NodeId ranked) (DynamicTensor (DeltaR ranked))
+      -- ^ nodes left to be evaluated;
+      -- we can't evaluate them at once, because their other shared copies
+      -- may still not be processed, so we'd not take advantage of the sharing
+      -- and not take into account the whole summed context when finally
+      -- evaluating
   , astBindings :: AstBindingsD ranked
   }
-
--- | Nodes left to be evaluated.
--- We can't evaluate them at once, because their other shared copies
--- may still not be processed, so we'd not take advantage of the sharing
--- and not take into account the whole summed context when finally evaluating.
-type role DeltaBinding nominal nominal
-data DeltaBinding :: RankedTensorType -> ShapedTensorType -> Type where
-  DeltaBindingR :: forall n r ranked shaped. (KnownNat n, GoodScalar r)
-                => DeltaR ranked r n -> DeltaBinding ranked shaped
-  DeltaBindingS :: forall sh r ranked shaped. (Sh.Shape sh, GoodScalar r)
-                => DeltaS shaped r sh -> DeltaBinding ranked shaped
 
 -- | Delta expressions naturally denote forward derivatives, as encoded
 -- in function 'derivativeFromDelta'. However, we are usually more
@@ -777,7 +770,7 @@ data DeltaBinding :: RankedTensorType -> ShapedTensorType -> Type where
 -- The delta expression to be evaluated, together with the @dt@ perturbation
 -- value (usually set to @1@) are given as arguments.
 initEvalState
-  :: VoidHVector -> EvalState ranked shaped
+  :: VoidHVector -> EvalState ranked
 initEvalState !parameters0 =
   -- Create finite maps that hold values associated with inputs
   -- and with (possibly shared) term tree nodes.
@@ -811,9 +804,9 @@ initEvalState !parameters0 =
 evalRRuntimeSpecialized
   :: forall n r ranked shaped.
      (KnownNat n, GoodScalar r, ADReady ranked, shaped ~ ShapedOf ranked)
-  => EvalState ranked shaped
+  => EvalState ranked
   -> ranked r n -> DeltaR ranked r n
-  -> EvalState ranked shaped
+  -> EvalState ranked
 evalRRuntimeSpecialized !s !c =
   -- We dispatch on all expected underyling scalar types, which is
   -- necessary to run the correct specialization when unpacking
@@ -829,30 +822,30 @@ evalRRuntimeSpecialized !s !c =
         Just Refl -> evalR @n @Int64 s c
         _ -> case testEquality (typeRep @r) (typeRep @CInt) of
           Just Refl -> evalR @n @CInt s c
-          _ -> error "an unexpected underlying scalar type"
+          _ -> error "evalRRuntimeSpecialized: unexpected scalar"
 
 evalDynamic
   :: (ADReady ranked, shaped ~ ShapedOf ranked)
-  => EvalState ranked shaped
+  => EvalState ranked
   -> (DynamicTensor ranked, DynamicTensor (DeltaR ranked))
-  -> EvalState ranked shaped
+  -> EvalState ranked
 evalDynamic s3 (t, DynamicRanked d2) = evalR s3 (rfromD t) d2
 evalDynamic s3 (t, DynamicShaped d2) = evalS s3 (sfromD t) d2
 evalDynamic _ _ = error $ "evalDynamic: dummy delta"
 
 evalHVector
   :: (ADReady ranked, shaped ~ ShapedOf ranked)
-  => EvalState ranked shaped
+  => EvalState ranked
   -> HVector ranked -> HVector (DeltaR ranked)
-  -> EvalState ranked shaped
+  -> EvalState ranked
 evalHVector s as as' = V.foldl' evalDynamic s $ V.zip as as'
 
 evalR
   :: forall n r ranked shaped.
      (KnownNat n, GoodScalar r, ADReady ranked, shaped ~ ShapedOf ranked)
-  => EvalState ranked shaped
+  => EvalState ranked
   -> ranked r n -> DeltaR ranked r n
-  -> EvalState ranked shaped
+  -> EvalState ranked
 evalR !s !c = let (abShared, cShared) = rregister c (astBindings s)
                   sShared = s {astBindings = abShared}
               in \case
@@ -902,14 +895,14 @@ evalR !s !c = let (abShared, cShared) = rregister c (astBindings s)
               LetR{} -> False  -- wasteful and nonsensical
               _ -> True)
     $ case EM.lookup n $ nMap s of
-        Just (DeltaBindingR _) ->
+        Just (DynamicRanked _) ->
           s {dMap = EM.adjust (DynamicRanked
                                . raddDynamic c) n $ dMap s}
         Nothing ->
           let cs = DynamicRanked c
-          in s { nMap = EM.insert n (DeltaBindingR d) $ nMap s
+          in s { nMap = EM.insert n (DynamicRanked d) $ nMap s
                , dMap = EM.insert n cs $ dMap s }
-        _ -> error "buildFinMaps: corrupted nMap"
+        _ -> error "evalR: corrupted nMap"
 
   IndexR d ix -> evalR s (rscatter @ranked @r @0
                                        (shapeDelta d) c (const ix)) d
@@ -1188,9 +1181,9 @@ evalR !s !c = let (abShared, cShared) = rregister c (astBindings s)
             (abShared2, g1t) = rregister g1tUnshared (astBindings sShared)
             s2 = sShared {astBindings = abShared2}
             g1sum = cShared ! (0 :. ZI) + rsum (rtr g1t ! (0 :. ZI))
-            g2 :: EvalState ranked shaped
+            g2 :: EvalState ranked
                -> Int
-               -> (EvalState ranked shaped, HVector ranked)  -- 1 + m
+               -> (EvalState ranked, HVector ranked)  -- 1 + m
             g2 sg2 k =
               let rf11 =
                     rslice 1 k $ g1t ! (fromIntegral k - 1 :. ZI)
@@ -1237,9 +1230,9 @@ evalR !s !c = let (abShared, cShared) = rregister c (astBindings s)
 evalSRuntimeSpecialized
   :: forall sh r ranked shaped.
      (Sh.Shape sh, GoodScalar r, ADReady ranked, shaped ~ ShapedOf ranked)
-  => EvalState ranked shaped
+  => EvalState ranked
   -> shaped r sh -> DeltaS shaped r sh
-  -> EvalState ranked shaped
+  -> EvalState ranked
 evalSRuntimeSpecialized !s !c =
   case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> evalS @sh @Double s c
@@ -1249,14 +1242,14 @@ evalSRuntimeSpecialized !s !c =
         Just Refl -> evalS @sh @Int64 s c
         _ -> case testEquality (typeRep @r) (typeRep @CInt) of
           Just Refl -> evalS @sh @CInt s c
-          _ -> error "an unexpected underlying scalar type"
+          _ -> error "evalSRuntimeSpecialized: unexpected scalar"
 
 evalS
   :: forall sh r ranked shaped.
      (Sh.Shape sh, GoodScalar r, ADReady ranked, shaped ~ ShapedOf ranked)
-  => EvalState ranked shaped
+  => EvalState ranked
   -> shaped r sh -> DeltaS shaped r sh
-  -> EvalState ranked shaped
+  -> EvalState ranked
 evalS !s !c = let (abShared, cShared) = sregister c (astBindings s)
                   sShared = s {astBindings = abShared}
               in \case
@@ -1271,13 +1264,13 @@ evalS !s !c = let (abShared, cShared) = sregister c (astBindings s)
               LetS{} -> False  -- wasteful and nonsensical
               _ -> True)
     $ case EM.lookup n $ nMap s of
-        Just (DeltaBindingS _) ->
+        Just (DynamicShaped _) ->
           s {dMap = EM.adjust (DynamicShaped . saddDynamic c) n $ dMap s}
         Nothing ->
           let cs = DynamicShaped c
-          in s { nMap = EM.insert n (DeltaBindingS d) $ nMap s
+          in s { nMap = EM.insert n (DynamicShaped d) $ nMap s
                , dMap = EM.insert n cs $ dMap s }
-        _ -> error "buildFinMaps: corrupted nMap"
+        _ -> error "evalS: corrupted nMap"
 
   IndexS @sh1 d ix ->
     gcastWith (unsafeCoerce Refl
@@ -1574,9 +1567,9 @@ evalS !s !c = let (abShared, cShared) = sregister c (astBindings s)
                   gcastWith (unsafeCoerce Refl :: Sh.Rank sh1 :~: n1) $
                   cShared !$ (0 :$: ZSH)
                   + ssum (str g1t !$ (0 :$: ZSH))
-        g2 :: EvalState ranked shaped
+        g2 :: EvalState ranked
            -> Int
-           -> (EvalState ranked shaped, HVector ranked)  -- k3 ': shm
+           -> (EvalState ranked, HVector ranked)  -- k3 ': shm
         g2 sg2 k = case someNatVal $ toInteger k of
           Just (SomeNat @k _) -> case cmpNat (Proxy @k) (Proxy @k3) of
             LTI -> gCmp2 @k sg2
@@ -1584,8 +1577,8 @@ evalS !s !c = let (abShared, cShared) = sregister c (astBindings s)
             GTI -> error "evalS: impossible GTI"
           _ -> error "evalS: impossible someNatVal"
         gCmp2 :: forall k. (KnownNat k, k <= k3)
-              => EvalState ranked shaped
-              -> (EvalState ranked shaped, HVector ranked)  -- k3 ': shm
+              => EvalState ranked
+              -> (EvalState ranked, HVector ranked)  -- k3 ': shm
         gCmp2 sg2 =
           let rf11 =
                 sslice @_ @_ @_ @_ @(k3 - k)
@@ -1627,43 +1620,44 @@ evalS !s !c = let (abShared, cShared) = sregister c (astBindings s)
   RToS (SToR @sh2 d) ->
     case sameShape @sh @sh2 of
       Just Refl -> evalS s c d
-      _ -> error "buildFinMaps: different shapes in RToS(SToR)"
+      _ -> error "evalS: different shapes in RToS(SToR)"
   RToS d -> evalR s (rfromS c) d
 
 evalFromnMap :: (ADReady ranked, shaped ~ ShapedOf ranked)
-             => EvalState ranked shaped -> EvalState ranked shaped
+             => EvalState ranked -> EvalState ranked
 evalFromnMap s@EvalState{nMap, dMap} =
   case EM.maxViewWithKey nMap of
     Just ((n, b), nMap2) ->
       let s2 = s {nMap = nMap2}
           s3 = case b of
-            DeltaBindingR @n1 @r1 d -> case dMap EM.! n of
+            DynamicRanked @r1 @n1 d -> case dMap EM.! n of
               DynamicRanked @r2 @n2 c -> case sameNat (Proxy @n2)
                                                       (Proxy @n1) of
                 Just Refl -> case testEquality (typeRep @r1)
                                                (typeRep @r2) of
                   Just Refl -> evalRRuntimeSpecialized s2 c d
-                  _ -> error "buildFinMaps: scalar mismatch"
-                _ -> error "buildFinMaps: rank mismatch"
+                  _ -> error "evalFromnMap: scalar mismatch"
+                _ -> error "evalFromnMap: rank mismatch"
               DynamicShaped{} ->
                 error "evalFromnMap: DynamicShaped"
               DynamicRankedDummy{} ->
                 error "evalFromnMap: DynamicRankedDummy"
               DynamicShapedDummy{} ->
                 error "evalFromnMap: DynamicShapedDummy"
-            DeltaBindingS @sh1 @r1 d -> case dMap EM.! n of
+            DynamicShaped @r1 @sh1 d -> case dMap EM.! n of
               DynamicRanked{} ->
                 error "evalFromnMap: DynamicRanked"
               DynamicShaped @r2 @sh2 c -> case sameShape @sh2 @sh1 of
                 Just Refl -> case testEquality (typeRep @r1)
                                                (typeRep @r2) of
                   Just Refl -> evalSRuntimeSpecialized s2 c d
-                  _ -> error "buildFinMaps: scalar mismatch"
-                _ -> error "buildFinMaps: shape mismatch"
+                  _ -> error "evalFromnMap: scalar mismatch"
+                _ -> error "evalFromnMap: shape mismatch"
               DynamicRankedDummy{} ->
                 error "evalFromnMap: DynamicRankedDummy"
               DynamicShapedDummy{} ->
                 error "evalFromnMap: DynamicShapedDummy"
+            _ -> error "evalFromnMap: corrupted nMap"
       in evalFromnMap s3
     Nothing -> s  -- loop ends
 
@@ -1682,7 +1676,7 @@ evalFromnMap s@EvalState{nMap, dMap} =
         Index0 (LetR n d) ixs' sh ->
           let ixs = indexToList ixs'
           in case EM.lookup n $ nMap s of
-            Just (DeltaBindingR _) ->
+            Just (DynamicRanked _) ->
               let f v = v `OD.update` [(ixs, v `rindex0D` ixs + c)]
               in s {dMap = EM.adjust f n $ dMap s}
                 -- This would be an asymptotic optimization compared to
@@ -1692,14 +1686,14 @@ evalFromnMap s@EvalState{nMap, dMap} =
                 -- but not adding to each cell of @v@).
             Nothing ->
               let v = treplicate0ND sh 0 `OD.update` [(ixs, c)]
-              in s { nMap = EM.insert n (DeltaBindingR d) $ nMap s
+              in s { nMap = EM.insert n (DynamicRanked d) $ nMap s
                    , dMap = EM.insert n v $ dMap s }
-            _ -> error "buildFinMaps: corrupted nMap"
+            _ -> error "evalFromnMap: corrupted nMap"
 -}
 {- TODO: this causes a cyclic dependency:
-{-# SPECIALIZE buildFinMaps
+{-# SPECIALIZE evalFromnMap
   :: EvalState (Flip OR.Array) (Flip OS.Array) -> DeltaDt (Flip OR.Array) (Flip OS.Array) Double -> EvalState (Flip OR.Array) (Flip OS.Array) #-}
-{-# SPECIALIZE buildFinMaps
+{-# SPECIALIZE evalFromnMap
   :: EvalState (AstRanked PrimalSpan) (AstShaped PrimalSpan) -> DeltaDt (AstRanked PrimalSpan) (AstShaped PrimalSpan) Double -> EvalState (AstRanked PrimalSpan) (AstShaped PrimalSpan) #-}
 -}
 
@@ -1819,9 +1813,9 @@ mapDynamicDeltaS11
 fwdDynamic
   :: forall ranked shaped. (ADReady ranked, shaped ~ ShapedOf ranked)
   => Int -> HVector ranked
-  -> EvalState ranked shaped
+  -> EvalState ranked
   -> DynamicTensor (DeltaR ranked)
-  -> (EvalState ranked shaped, DynamicTensor ranked)
+  -> (EvalState ranked, DynamicTensor ranked)
 fwdDynamic dimR params s (DynamicRanked d) =
   second DynamicRanked $ fwdR dimR params s d
 fwdDynamic dimR params s (DynamicShaped d) =
@@ -1831,18 +1825,18 @@ fwdDynamic _ _ _ _ = error "fwdDynamic: dummy delta"
 fwdHVector
   :: forall ranked shaped. (ADReady ranked, shaped ~ ShapedOf ranked)
   => Int -> HVector ranked
-  -> EvalState ranked shaped
+  -> EvalState ranked
   -> HVector (DeltaR ranked)
-  -> (EvalState ranked shaped, HVector ranked)
+  -> (EvalState ranked, HVector ranked)
 fwdHVector dimR params = mapAccumL (fwdDynamic dimR params)
 
 fwdR
   :: forall n r ranked shaped.
      (KnownNat n, GoodScalar r, ADReady ranked, shaped ~ ShapedOf ranked)
   => Int -> HVector ranked
-  -> EvalState ranked shaped
+  -> EvalState ranked
   -> DeltaR ranked r n
-  -> (EvalState ranked shaped, ranked r n)
+  -> (EvalState ranked, ranked r n)
 fwdR dimR params s = \case
   ZeroR sh -> (s, rzero sh)
   InputR _ (InputId i) ->
@@ -1851,40 +1845,40 @@ fwdR dimR params s = \case
       DynamicRanked @r2 @n2 e -> case sameNat (Proxy @n2) (Proxy @n) of
         Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
           Just Refl -> (s, e)
-          _ -> error "buildDerivative: scalar mismatch"
-        _ -> error "buildDerivative: rank mismatch"
-      DynamicShaped{} -> error "buildDerivative: DynamicShaped"
-      DynamicRankedDummy{} -> error "buildDerivative: DynamicRankedDummy"
-      DynamicShapedDummy{} -> error "buildDerivative: DynamicShapedDummy"
-    else error "buildDerivative': wrong index for an input"
+          _ -> error "fwdR: scalar mismatch"
+        _ -> error "fwdR: rank mismatch"
+      DynamicShaped{} -> error "fwdR: DynamicShaped"
+      DynamicRankedDummy{} -> error "fwdR: DynamicRankedDummy"
+      DynamicShapedDummy{} -> error "fwdR: DynamicShapedDummy"
+    else error "fwdR': wrong index for an input"
   ScaleR k d -> second (* k) $ fwdR dimR params s d
   AddR d e -> let (s2, t) = fwdR dimR params s d
                   (s3, u) = fwdR dimR params s2 e
               in (s3, t + u)
   LetR n d ->
     case EM.lookup n $ nMap s of
-      Just (DeltaBindingR _) ->
+      Just (DynamicRanked _) ->
         case dMap s EM.! n of
           DynamicRanked @r2 @n2 e -> case sameNat (Proxy @n2)
                                                   (Proxy @n) of
             Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
               Just Refl -> (s, e)
-              _ -> error "buildDerivative: scalar mismatch"
-            _ -> error "buildDerivative: rank mismatch"
-          DynamicShaped{} -> error "buildDerivative: DynamicShaped"
+              _ -> error "fwdR: scalar mismatch"
+            _ -> error "fwdR: rank mismatch"
+          DynamicShaped{} -> error "fwdR: DynamicShaped"
           DynamicRankedDummy{} ->
-            error "buildDerivative: DynamicRankedDummy"
+            error "fwdR: DynamicRankedDummy"
           DynamicShapedDummy{} ->
-            error "buildDerivative: DynamicShapedDummy"
+            error "fwdR: DynamicShapedDummy"
       Nothing ->
         let (s2, cRaw) = fwdR dimR params s d
             (abShared, cShared) = rregister cRaw (astBindings s2)
             s3 = s2 {astBindings = abShared}
-            s4 = s3 { nMap = EM.insert n (DeltaBindingR d) (nMap s3)
+            s4 = s3 { nMap = EM.insert n (DynamicRanked d) (nMap s3)
                     , dMap = EM.insert n (DynamicRanked cShared)
                                          (dMap s3) }
         in (s4, cShared)
-      _ -> error "buildDerivative: corrupted nMap"
+      _ -> error "fwdR: corrupted nMap"
 
   IndexR d ix -> second (`rindex` ix) $ fwdR dimR params s d
   SumR d -> second rsum $ fwdR dimR params s d
@@ -2031,49 +2025,49 @@ fwdS
   :: forall sh r ranked shaped.
      (Sh.Shape sh, GoodScalar r, ADReady ranked, shaped ~ ShapedOf ranked)
   => Int -> HVector ranked
-  -> EvalState ranked shaped
-  -> DeltaS shaped r sh -> (EvalState ranked shaped, shaped r sh)
+  -> EvalState ranked
+  -> DeltaS shaped r sh -> (EvalState ranked, shaped r sh)
 fwdS dimR params s = \case
   ZeroS -> (s, 0)
   InputS (InputId i) ->
     if i < dimR
     then case params V.! i of
-      DynamicRanked{} -> error "buildDerivative: DynamicRanked"
+      DynamicRanked{} -> error "fwdS: DynamicRanked"
       DynamicShaped @r2 @sh2 e -> case sameShape @sh2 @sh of
         Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
           Just Refl -> (s, e)
-          _ -> error "buildDerivative: scalar mismatch"
-        _ -> error "buildDerivative: shape mismatch"
-      DynamicRankedDummy{} -> error "buildDerivative: DynamicRankedDummy"
-      DynamicShapedDummy{} -> error "buildDerivative: DynamicShapedDummy"
-    else error "buildDerivative: wrong index for an input"
+          _ -> error "fwdS: scalar mismatch"
+        _ -> error "fwdS: shape mismatch"
+      DynamicRankedDummy{} -> error "fwdS: DynamicRankedDummy"
+      DynamicShapedDummy{} -> error "fwdS: DynamicShapedDummy"
+    else error "fwdS: wrong index for an input"
   ScaleS k d -> second (* k) $ fwdS dimR params s d
   AddS d e -> let (s2, t) = fwdS dimR params s d
                   (s3, u) = fwdS dimR params s2 e
               in (s3, t + u)
   LetS n d ->
     case EM.lookup n $ nMap s of
-      Just (DeltaBindingS _) ->
+      Just (DynamicShaped _) ->
         case dMap s EM.! n of
-          DynamicRanked{} -> error "buildDerivative: DynamicRanked"
+          DynamicRanked{} -> error "fwdS: DynamicRanked"
           DynamicShaped @r2 @sh2 e -> case sameShape @sh2 @sh of
             Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
               Just Refl -> (s, e)
-              _ -> error "buildDerivative: scalar mismatch"
-            _ -> error "buildDerivative: shape mismatch"
+              _ -> error "fwdS: scalar mismatch"
+            _ -> error "fwdS: shape mismatch"
           DynamicRankedDummy{} ->
-            error "buildDerivative: DynamicRankedDummy"
+            error "fwdS: DynamicRankedDummy"
           DynamicShapedDummy{} ->
-            error "buildDerivative: DynamicShapedDummy"
+            error "fwdS: DynamicShapedDummy"
       Nothing ->
         let (s2, cRaw) = fwdS dimR params s d
             (abShared, cShared) = sregister cRaw (astBindings s2)
             s3 = s2 {astBindings = abShared}
-            s4 = s3 { nMap = EM.insert n (DeltaBindingS d) (nMap s3)
+            s4 = s3 { nMap = EM.insert n (DynamicShaped d) (nMap s3)
                     , dMap = EM.insert n (DynamicShaped cShared)
                                          (dMap s3) }
         in (s4, cShared)
-      _ -> error "buildDerivative: corrupted nMap"
+      _ -> error "fwdS: corrupted nMap"
 
   IndexS d ix -> second (`sindex` ix) $ fwdS dimR params s d
   SumS d -> second ssum $ fwdS dimR params s d
@@ -2213,7 +2207,7 @@ fwdS dimR params s = \case
   RToS (SToR @sh2 d) ->
     case sameShape @sh @sh2 of
       Just Refl -> fwdS dimR params s d
-      _ -> error "buildDerivative: different shapes in RToS(SToR)"
+      _ -> error "fwdS: different shapes in RToS(SToR)"
   RToS d -> second sfromR $ fwdR dimR params s d
 
 
