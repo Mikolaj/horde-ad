@@ -7,8 +7,9 @@
 -- and also to hangle multiple arguments and results of fold-like operations.
 module HordeAd.Core.HVector
   ( -- * Fynamic tensors and heterogeneous tensor collections
-    DynamicTensor(..), CRanked, CShaped, HVector, VoidTensor, VoidHVector
-  , DynamicScalar(..)
+    DynamicTensor(..), CRanked, CShaped
+  , HVector, HVectorPseudoTensor
+  , VoidTensor, VoidHVector, DynamicScalar(..)
   , scalarDynamic, shapeDynamicVoid, rankDynamic
   , isDynamicRanked, isDynamicDummy
   , voidFromVar, voidFromVars, voidFromSh, voidFromShS
@@ -25,6 +26,8 @@ import Prelude
 import           Control.DeepSeq (NFData (..))
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.Shape as Sh
+import           Data.Bifunctor.Clown
+import           Data.Functor.Const
 import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
 import           Data.Kind (Constraint, Type)
 import           Data.List (foldl')
@@ -101,6 +104,13 @@ instance
 -- is to prevent mixing up the two (and complicating the definition
 -- below with errors in the AstHVectorLet case).
 type HVector ranked = Data.Vector.Vector (DynamicTensor ranked)
+
+type HVectorPseudoTensor :: RankedTensorType -> TensorType ()
+type HVectorPseudoTensor ranked = Clown (Const (HVector ranked))
+
+type instance RankedOf (HVectorPseudoTensor ranked) = ranked
+
+type instance ShapedOf (HVectorPseudoTensor ranked) = ShapedOf ranked
 
 type role VoidTensor nominal nominal
 data VoidTensor :: TensorType ty

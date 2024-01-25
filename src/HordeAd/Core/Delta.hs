@@ -54,7 +54,9 @@ import           Control.Exception.Assert.Sugar
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.Shape as Sh
 import qualified Data.Array.ShapedS as OS
+import           Data.Bifunctor.Clown
 import qualified Data.EnumMap.Strict as EM
+import           Data.Functor.Const
 import           Data.Int (Int64)
 import           Data.Kind (Constraint)
 import           Data.List (foldl', mapAccumR, sort, transpose)
@@ -683,6 +685,46 @@ derivativeFromDeltaS !dim !deltaTopLevel !ds =
   let s0 = EvalState EM.empty EM.empty EM.empty []
       !(!s2, !c) = fwdS dim ds s0 deltaTopLevel
   in (astBindings s2, c)
+
+instance (ADReady ranked, RankedOf ranked ~ ranked)
+         => DualPart @() (HVectorPseudoTensor ranked) where
+  type Dual (HVectorPseudoTensor ranked) = HVectorPseudoTensor (DeltaR ranked)
+  reverseDervative = gradientFromDeltaH
+  forwardDerivative = derivativeFromDeltaH
+
+-- @r@ is a placeholder here, it's reduced away. @y@ is '(), but GHC doesn't
+-- know it has to be that.
+gradientFromDeltaH
+  :: forall ranked r (y :: ()). ADReady ranked
+  => VoidHVector
+  -> HVectorPseudoTensor ranked r y
+  -> Maybe (HVectorPseudoTensor ranked r y)
+  -> HVectorPseudoTensor (DeltaR ranked) r y
+  -> (AstBindingsD ranked, HVector ranked)
+gradientFromDeltaH !parameters0 value !mdt !deltaTopLevel =
+  let dt :: HVector ranked
+      dt = maybe (mapHVectorShaped (const 1)
+                  $ getConst $ runClown value)
+                 (getConst . runClown)
+                 mdt
+      s0 = initEvalState parameters0
+      s1 = evalHVector s0 dt $ getConst $ runClown deltaTopLevel
+      EvalState{..} = evalFromnMap s1
+      !gradient = V.fromList $ EM.elems iMap
+  in (astBindings, gradient)
+
+-- @r@ is a placeholder here, it's reduced away. @y@ is '(), but GHC doesn't
+-- know it has to be that.
+derivativeFromDeltaH
+  :: forall ranked r (y :: ()). ADReady ranked
+  => Int
+  -> HVectorPseudoTensor (DeltaR ranked) r y
+  -> HVector ranked
+  -> (AstBindingsD ranked, HVectorPseudoTensor ranked r y)
+derivativeFromDeltaH dim deltaTopLevel ds =
+  let s0 = EvalState EM.empty EM.empty EM.empty []
+      !(!s2, !c) = fwdHVector dim ds s0 $ getConst $ runClown deltaTopLevel
+  in (astBindings s2, Clown $ Const c)
 
 
 -- * Reverse pass, transpose/evaluation of the delta expressions

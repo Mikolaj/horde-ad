@@ -11,7 +11,7 @@ module HordeAd.Core.HVectorOps
   , fromHVectorR, fromHVectorS
   , unravelHVector, ravelHVector
   , mapHVectorRanked, mapHVectorRanked01, mapHVectorRanked10, mapHVectorRanked11
-  , mapHVectorShaped11
+  , mapHVectorShaped11, mapHVectorShaped
   , mapRanked, mapRanked01, mapRanked10, mapRanked11
   , index1HVector, replicate1HVector
   ) where
@@ -570,6 +570,35 @@ mapRanked11 f (DynamicShapedDummy @r @sh _ _) = case ShapedList.shapeSh @sh of
             gcastWith (unsafeCoerce Refl :: Sh.Rank shr :~: n1) $
             DynamicShaped $ sfromR @_ @_ @shr res
           _ -> error "mapRanked01: impossible someNatVal"
+
+mapHVectorShaped
+  :: forall shaped.
+     ( ShapedTensor shaped, RankedTensor (RankedOf shaped)
+     , ShapedOf (RankedOf shaped) ~ shaped )
+  => (forall rq shq. (GoodScalar rq, Sh.Shape shq)
+      => shaped rq shq -> shaped rq shq)
+  -> HVector (RankedOf shaped) -> HVector (RankedOf shaped)
+mapHVectorShaped f = V.map (mapShaped f)
+
+mapShaped
+  :: forall shaped.
+     ( ShapedTensor shaped, RankedTensor (RankedOf shaped)
+     , ShapedOf (RankedOf shaped) ~ shaped )
+  => (forall rq shq. (GoodScalar rq, Sh.Shape shq)
+      => shaped rq shq -> shaped rq shq)
+  -> DynamicTensor (RankedOf shaped) -> DynamicTensor (RankedOf shaped)
+mapShaped f (DynamicRanked @r @n t) =
+  Sh.withShapeP (shapeToList $ rshape t) $ \(Proxy @sh) ->
+    withListShape (Sh.shapeT @sh) $ \(_ :: ShapeInt m) ->
+      gcastWith (unsafeCoerce Refl :: n :~: m) $
+      gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: m) $
+      DynamicRanked $ rfromS $ f @r @sh $ sfromR t
+mapShaped f (DynamicShaped t) = DynamicShaped $ f t
+mapShaped f (DynamicRankedDummy @r @sh _ _) =
+  withListShape (Sh.shapeT @sh) $ \(_ :: ShapeInt m) ->
+    gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: m) $
+    DynamicRanked $ rfromS $ f @r @sh 0
+mapShaped f (DynamicShapedDummy @r @sh _ _) = DynamicShaped $ f @r @sh 0
 
 mapHVectorShaped11
   :: forall k k1 shaped.
