@@ -107,27 +107,32 @@ foreign import ccall unsafe "column_sum_float"
 class RowSum r where
   rowSum :: Int -> Int -> Ptr r -> Ptr r -> IO ()
   columnSum :: Int -> Int -> Ptr r -> Ptr r -> IO ()
+  toDouble :: r -> Double  -- TODO: find a better place for this
 
 instance RowSum Double where
   rowSum n k ptr ptr2 =
     c_row_sum_double (fromIntegral n) (fromIntegral k) ptr ptr2
   columnSum n k ptr ptr2 =
     c_column_sum_double (fromIntegral n) (fromIntegral k) ptr ptr2
+  toDouble = id
 
 instance RowSum Float where
   rowSum n k ptr ptr2 =
     c_row_sum_float (fromIntegral n) (fromIntegral k) ptr ptr2
   columnSum n k ptr ptr2 =
     c_column_sum_float (fromIntegral n) (fromIntegral k) ptr ptr2
+  toDouble = realToFrac
 
 instance RowSum Int64 where
   rowSum n k ptr ptr2 =
     c_row_sum_int64 (fromIntegral n) (fromIntegral k) ptr ptr2
   columnSum n k ptr ptr2 =
     c_column_sum_int64 (fromIntegral n) (fromIntegral k) ptr ptr2
+  toDouble = fromIntegral
 
 instance RowSum CInt where
   rowSum n k ptr ptr2 =
     c_row_sum_cInt (fromIntegral n) (fromIntegral k) ptr ptr2
   columnSum n k ptr ptr2 =
     c_column_sum_cInt (fromIntegral n) (fromIntegral k) ptr ptr2
+  toDouble = fromIntegral

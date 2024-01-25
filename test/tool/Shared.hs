@@ -1,3 +1,4 @@
+{-# LANGUAGE QuantifiedConstraints, UndecidableInstances #-}
 -- | Additional classes that help in comparing values in tests.
 module Shared
   ( lowercase, HasShape (shapeL), Linearizable (linearize)
@@ -12,7 +13,14 @@ import           Data.Bifunctor.Flip
 import qualified Data.Char
 import qualified Data.Foldable
 import qualified Data.Vector.Storable as VS
+import           GHC.TypeLits (KnownNat)
 import qualified Numeric.LinearAlgebra as LA
+
+import HordeAd.Core.HVector
+import HordeAd.Core.TensorClass
+import HordeAd.Core.Types
+import HordeAd.Internal.TensorFFI
+import HordeAd.Util.SizedIndex
 
 lowercase :: String -> String
 lowercase = map Data.Char.toLower
@@ -35,6 +43,12 @@ instance Sh.Shape sh => HasShape (Flip OS.Array a sh) where
 
 instance HasShape (LA.Matrix a) where
   shapeL matrix = [LA.rows matrix, LA.cols matrix]
+
+instance RankedTensor ranked => HasShape (DynamicTensor ranked) where
+  shapeL (DynamicRanked t) = shapeToList $ rshape t
+  shapeL (DynamicShaped @_ @sh _) = Sh.shapeT @sh
+  shapeL (DynamicRankedDummy @_ @sh _ _) = Sh.shapeT @sh
+  shapeL (DynamicShapedDummy @_ @sh _ _) = Sh.shapeT @sh
 
 instance {-# OVERLAPPABLE #-} (Foldable t) => HasShape (t a) where
   shapeL = (: []) . length
@@ -65,6 +79,19 @@ instance (VS.Storable a) => Linearizable (Flip OR.Array a n) a where
 
 instance (LA.Element a) => Linearizable (LA.Matrix a) a where
   linearize = LA.toList . LA.flatten
+
+instance ( forall r n. (GoodScalar r, KnownNat n)
+           => Linearizable (ranked r n) r
+         , forall r sh. (GoodScalar r, Sh.Shape sh)
+           => Linearizable (shaped r sh) r
+         , shaped ~ ShapedOf ranked )
+         => Linearizable (DynamicTensor ranked) Double where
+  linearize (DynamicRanked @r2 @n2 t) =
+    map toDouble $ linearize @(ranked r2 n2) @r2 t
+  linearize (DynamicShaped @r2 @sh2 t) =
+    map toDouble $ linearize @(ShapedOf ranked r2 sh2) @r2 t
+  linearize (DynamicRankedDummy{}) = [0]
+  linearize (DynamicShapedDummy{}) = [0]
 
 instance {-# OVERLAPPABLE #-} (Foldable t) => Linearizable (t a) a where
   linearize = Data.Foldable.toList

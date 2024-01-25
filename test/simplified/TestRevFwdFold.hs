@@ -9,7 +9,9 @@ import Prelude
 
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
+import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
+import           Data.Functor.Const
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.IntMap as IM
 import qualified Data.Vector.Generic as V
@@ -167,6 +169,8 @@ testTrees =
   , testCase "4Sin0FoldNestedR22" testSin0FoldNestedR22
   , testCase "4Sin0FoldNestedR21" testSin0FoldNestedR21
   , testCase "4Sin0FoldNestedR21PP" testSin0FoldNestedR21PP
+  , testCase "4Sin0RrevhV" testSin0RrevhV
+  , testCase "4Sin0RrevhVPP" testSin0RrevhVPP
   ]
 
 foo :: RealFloat a => (a, a, a) -> a
@@ -1834,3 +1838,24 @@ testSin0FoldNestedR21PP = do
            in f) 1.1
   length (printAstSimple IM.empty (simplifyAst6 a1))
     @?= 63657
+
+testSin0RrevhV :: Assertion
+testSin0RrevhV = do
+  let f x =
+        rrev @(Flip OR.Array) @_ @Double @0 (\v -> sin (rfromD $ v V.! 0))
+             (V.singleton (voidFromSh @Double ZS))
+             x
+  assertEqualUpToEpsilon 1e-10
+    (V.singleton $ DynamicRanked @Double @0 0.4535961214255773)
+    (f (V.singleton $ DynamicRanked @Double @0 1.1))
+
+testSin0RrevhVPP :: Assertion
+testSin0RrevhVPP = do
+  resetVarCounter
+  let f x =
+        rrev @(AstRanked FullSpan) @_ @Double @0 (\v -> sin (rfromD $ v V.! 0))
+             (V.singleton (voidFromSh @Double ZS))
+             x
+  printAstHVectorSimple IM.empty (f (V.singleton
+                                     $ DynamicRanked @Double @0 1.1))
+    @?= "dmkHVector (fromList [DynamicRanked (cos (rconst 1.1) * rreshape [] (rreplicate 1 (rconst 1.0)))])"
