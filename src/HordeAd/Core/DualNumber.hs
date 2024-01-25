@@ -448,13 +448,6 @@ class UnletGradient g where
     => ADShare -> AstBindingsD (RankedOf g) -> g r y
     -> g r y
 
-instance RankedOf (RankedOf f) ~ RankedOf f
-         => UnletGradient (ADVal f) where
-  unletGradient l astBindings gradient =
-    assert (nullADShare l && null astBindings) gradient
-  unletValue l astBindings primalBody =
-    assert (nullADShare l && null astBindings) primalBody
-
 instance UnletGradient (Flip OR.Array) where
   unletGradient l astBindings gradient =
     assert (nullADShare l && null astBindings) gradient
@@ -462,6 +455,19 @@ instance UnletGradient (Flip OR.Array) where
     assert (nullADShare l && null astBindings) primalBody
 
 instance UnletGradient (Flip OS.Array) where
+  unletGradient l astBindings gradient =
+    assert (nullADShare l && null astBindings) gradient
+  unletValue l astBindings primalBody =
+    assert (nullADShare l && null astBindings) primalBody
+
+instance UnletGradient (HVectorPseudoTensor (Flip OR.Array)) where
+  unletGradient l astBindings gradient =
+    assert (nullADShare l && null astBindings) gradient
+  unletValue l astBindings primalBody =
+    assert (nullADShare l && null astBindings) primalBody
+
+instance RankedOf (RankedOf f) ~ RankedOf f
+         => UnletGradient (ADVal f) where
   unletGradient l astBindings gradient =
     assert (nullADShare l && null astBindings) gradient
   unletValue l astBindings primalBody =

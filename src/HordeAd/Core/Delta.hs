@@ -693,7 +693,9 @@ instance (ADReady ranked, RankedOf ranked ~ ranked)
   forwardDerivative = derivativeFromDeltaH
 
 -- @r@ is a placeholder here, it's reduced away. @y@ is '(), but GHC doesn't
--- know it has to be that.
+-- know it has to be that. We could instead provide a type-level list of nats
+-- and lists of nats or at least the length of the list, and a list
+-- of the scalar types, but the shaped typing is too complex already.
 gradientFromDeltaH
   :: forall ranked r (y :: ()). ADReady ranked
   => VoidHVector
