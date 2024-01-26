@@ -36,9 +36,11 @@ import           Data.Kind (Type)
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality (testEquality, (:~:) (Refl))
+import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, sameNat, type (+), type (<=))
 import           Type.Reflection (Typeable, eqTypeRep, typeRep, (:~~:) (HRefl))
 
+import HordeAd.Core.Adaptor
 import HordeAd.Core.HVector
 import HordeAd.Core.Types
 import HordeAd.Util.ShapedList (ShapedList (..))
@@ -98,6 +100,11 @@ type instance ShapedOf (AstShaped s) = AstShaped s
 type instance HVectorOf (AstShaped s) = AstHVector s
 type instance PrimalOf (AstShaped s) = AstShaped PrimalSpan
 type instance DualOf (AstShaped s) = AstShaped DualSpan
+
+instance AdaptableHVector (AstRanked s) (DynamicTensor (AstRanked s)) where
+  type Value (DynamicTensor (AstRanked s)) = DynamicTensor (Flip OR.Array)
+  toHVector = V.singleton
+  fromHVector _aInit params = V.uncons params
 
 
 -- * Assorted small definitions

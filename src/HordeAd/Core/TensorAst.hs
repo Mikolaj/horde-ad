@@ -133,7 +133,7 @@ instance DerivativeStages (AstRanked FullSpan) where
         !(!astBindings, !gradient) =
           reverseDervative parameters0 primalBody mdt delta
         unGradient = unletGradient @Nat @(AstRanked PrimalSpan)
-                                 l astBindings gradient
+                                   l astBindings gradient
         unPrimal = unletValue l [] primalBody
     in ( ((varDt, varsPrimal), unGradient, unPrimal, shapeToList sh)
        , delta )
@@ -235,7 +235,7 @@ instance DerivativeStages (AstShaped FullSpan) where
         !(!astBindings, !gradient) =
           reverseDervative parameters0 primalBody mdt delta
         unGradient = unletGradient @[Nat] @(AstShaped PrimalSpan)
-                                 l astBindings gradient
+                                   l astBindings gradient
         unPrimal = unletValue l [] primalBody
     in ( ((varDt, varsPrimal), unGradient, unPrimal, Sh.shapeT @sh)
        , delta )

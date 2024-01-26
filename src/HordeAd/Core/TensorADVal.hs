@@ -10,7 +10,7 @@
 module HordeAd.Core.TensorADVal
   ( CRankedIP, CRankedIPSh
   , dDHVector, aDValHVector, aDValDynamicTensor
-  , unADValHVector, unADValDynamicTensor
+  , hVectorADValToADVal, unADValHVector, unADValDynamicTensor
   ) where
 
 import Prelude hiding (foldl')
@@ -520,7 +520,8 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
             w : _shm -> w
     in case someNatVal $ toInteger width of
       Just (SomeNat @k _) ->
-        assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD) asD) $
+        assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD)
+                                   asD) $
         let (l3, as) =
               drecordSharingPrimal @ranked
                                    (replicate1VoidHVector (Proxy @k) domsOD)
@@ -556,7 +557,8 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
             w : _shm -> w
     in case someNatVal $ toInteger width of
       Just (SomeNat @k _) ->
-        assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD) asD) $
+        assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD)
+                                   asD) $
         let (l3, as) =
               drecordSharingPrimal @ranked
                                    (replicate1VoidHVector (Proxy @k) domsOD)
@@ -662,7 +664,8 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
             w : _shm -> w
     in case someNatVal $ toInteger width of
       Just (SomeNat @k _) ->
-        assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD) asD) $
+        assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD)
+                                   asD) $
         let (l3, as) =
               drecordSharingPrimal @ranked
                                    (replicate1VoidHVector (Proxy @k) domsOD)
@@ -707,7 +710,8 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
             w : _shm -> w
     in case someNatVal $ toInteger width of
       Just (SomeNat @k _) ->
-        assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD) asD) $
+        assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD)
+                                   asD) $
         let (l3, as) =
               drecordSharingPrimal @ranked
                                    (replicate1VoidHVector (Proxy @k) domsOD)
@@ -803,7 +807,8 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
             w : _shm -> w
     in case someNatVal $ toInteger width of
       Just (SomeNat @k _) ->
-        assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD) asD) $
+        assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD)
+                                   asD) $
         let (l3, as) =
               drecordSharingPrimal @ranked
                 (replicate1VoidHVector (Proxy @k) domsOD)
@@ -837,7 +842,8 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
             w : _shm -> w
     in case someNatVal $ toInteger width of
       Just (SomeNat @k _) ->
-        assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD) asD) $
+        assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD)
+                                   asD) $
         let (l3, as) =
               drecordSharingPrimal @ranked
                 (replicate1VoidHVector (Proxy @k) domsOD)
@@ -1029,6 +1035,15 @@ aDValDynamicTensor l _ (DynamicShapedDummy p1 p2) = assert (nullADShare l) $
     DynamicShapedDummy p1 p2
 aDValDynamicTensor _ _ _ = error "aDValDynamicTensor: wrong arguments"
 
+-- Float and '() are placeholders here; they are reduced away.
+hVectorADValToADVal
+  :: HVector (ADVal ranked) -> ADVal (HVectorPseudoTensor ranked) Float '()
+hVectorADValToADVal hv =
+  let (ll, as, as') = unADValHVector hv
+  in dDnotShared (flattenADShare $ V.toList ll)
+                 (Clown (Const as))
+                 (Clown (Const as'))
+
 unADValHVector
   :: HVector (ADVal f)
   -> (Data.Vector.Vector ADShare, HVector f, HVector (Dual f))
@@ -1171,6 +1186,11 @@ instance (Sh.Shape sh, Numeric r, Fractional r, Random r, Num (Vector r))
         (g1, g2) = split g
         arr = OS.fromVector $ createRandomVector (OS.sizeP (Proxy @sh)) g1
     in (Flip arr, g2)
+
+instance AdaptableHVector (Flip OR.Array) (DynamicTensor (Flip OR.Array)) where
+  type Value (DynamicTensor (Flip OR.Array)) = DynamicTensor (Flip OR.Array)
+  toHVector = V.singleton
+  fromHVector _aInit params = V.uncons params
 
 {- TODO: requires IncoherentInstances no matter what pragma I stick in
 -- TODO2: benchmark this used for any scalar via @V.map realToFrac@
