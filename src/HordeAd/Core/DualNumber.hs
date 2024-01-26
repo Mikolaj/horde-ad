@@ -65,7 +65,11 @@ import HordeAd.Util.SizedIndex
 -- is determined by a definition of type family @Dual@ provided elsewhere.
 type role ADVal nominal nominal nominal
 data ADVal (f :: TensorType ty) (r :: Type) (z :: ty) =
-  D ADShare (f r z) (Dual f r z)
+  ADVal ADShare (f r z) (Dual f r z)
+
+pattern D :: ADShare -> f r z -> Dual f r z -> ADVal f r z
+pattern D l t u <- ADVal l t u  -- enforces only pattern matching
+{-# COMPLETE D #-}
 
 deriving instance (Show (f r z), Show (Dual f r z))
                   => Show (ADVal f r z)
@@ -77,7 +81,7 @@ deriving instance (Show (f r z), Show (Dual f r z))
 -- by the types yet), except when deconstructing via pattern-matching.
 dD :: IsPrimal f r z
    => ADShare -> f r z -> Dual f r z -> ADVal f r z
-dD !l !a !dual = D l a (recordSharing dual)
+dD !l !a !dual = dDnotShared l a (recordSharing dual)
 
 -- | This a not so smart a constructor for 'D' of 'ADVal' that does not record
 -- sharing information. If used in contexts where sharing may occur,
@@ -86,7 +90,7 @@ dD !l !a !dual = D l a (recordSharing dual)
 -- some evaluation time and memory (in term structure, but even more
 -- in the per-node data stored while evaluating).
 dDnotShared :: ADShare -> f r z -> Dual f r z -> ADVal f r z
-dDnotShared = D
+dDnotShared = ADVal
 
 constantADVal :: IsPrimal f r z => f r z -> ADVal f r z
 constantADVal a = dDnotShared emptyADShare a (dZeroOfShape a)
@@ -138,7 +142,7 @@ instance ( RankedTensor ranked, CRankedIP ranked IsPrimal
   ifF (l1, b) v w =
     let D l2 u u' = indexPrimal (fromList [v, w])
                                 (singletonIndex $ ifF (emptyADShare, b) 0 1)
-    in D (l1 `mergeADShare` l2) u u'
+    in dDnotShared (l1 `mergeADShare` l2) u u'
 
 type CRankedIPSh :: ShapedTensorType
                  -> (ShapedTensorType -> Type -> [Nat] -> Constraint)
@@ -173,7 +177,7 @@ instance ( ShapedTensor shaped, CRankedIPSh shaped IsPrimal
   ifF (l1, b) v w =
     let D l2 u u' = indexPrimalS (fromListS @2 [v, w])
                                  (singletonShaped $ ifF (emptyADShare, b) 0 1)
-    in D (l1 `mergeADShare` l2) u u'
+    in dDnotShared (l1 `mergeADShare` l2) u u'
 
 {- TODO: use for speed-up, e.g,. by checking the type at runtime
 instance IfF (ADVal (Flip OR.Array)) where

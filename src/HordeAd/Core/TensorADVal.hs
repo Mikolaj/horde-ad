@@ -123,7 +123,7 @@ instance ( Dual ranked ~ DeltaR ranked
          => RankedTensor (ADVal ranked) where
   rlet (D l u u') f =
     let !(!l2, var2) = recordSharingPrimal u l
-    in f (D l2 var2 u')
+    in f (dDnotShared l2 var2 u')
       -- u' doesn't need to be shared, because deltas are shared separately
 
   rshape (D _ u _) = rshape u
@@ -254,7 +254,7 @@ instance ( Dual shaped ~ DeltaS shaped
          => ShapedTensor (ADVal shaped) where
   slet (D l u u') f =
     let !(!l2, var2) = recordSharingPrimal u l
-    in f (D l2 var2 u')
+    in f (dDnotShared l2 var2 u')
       -- u' doesn't need to be shared, because deltas are shared separately
 
   -- This is very slow, but is fortunately not needed:
@@ -379,10 +379,10 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
     in f doms
   rletInHVector (D l u u') f =
     let !(!l2, var2) = recordSharingPrimal u l
-    in f (D l2 var2 u')
+    in f (dDnotShared l2 var2 u')
   sletInHVector (D l u u') f =
     let !(!l2, var2) = recordSharingPrimal u l
-    in f (D l2 var2 u')
+    in f (dDnotShared l2 var2 u')
   drecordSharingPrimal _ d l = (l, d)
   dregister _ d l = (l, d)
   dbuild1 k f = ravelHVector $ map (f . fromIntegral) [0 .. k - 1]
@@ -471,8 +471,8 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         p :: ranked rn (1 + n)
         p = rscan f x0 as
         (l4, pShared) = recordSharingPrimal p l3
-    in D l4 (pShared ! (fromIntegral width :. ZI))
-            (FoldRC pShared as df rf x0' as')
+    in dDnotShared l4 (pShared ! (fromIntegral width :. ZI))
+                      (FoldRC pShared as df rf x0' as')
   rfoldDer :: forall rn rm n m.
               (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)
            => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
@@ -488,8 +488,8 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         p = rscanDer f df rf x0 as
         width = rlength p - 1
         (l4, pShared) = recordSharingPrimal p l3
-    in D l4 (pShared ! (fromIntegral width :. ZI))
-            (FoldR pShared as df rf x0' as')
+    in dDnotShared l4 (pShared ! (fromIntegral width :. ZI))
+                      (FoldR pShared as df rf x0' as')
   rfoldZip :: forall rn n. (GoodScalar rn, KnownNat n)
          => (forall f. ADReady f => f rn n -> HVector f -> f rn n)
          -> VoidHVector
@@ -533,8 +533,8 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
             p :: ranked rn (1 + n)
             p = rscanZip f domsOD x0 as
             (l4, pShared) = recordSharingPrimal p l3
-        in D l4 (pShared ! (fromIntegral width :. ZI))
-           (FoldZipRC domsOD pShared as df rf x0' as')
+        in dDnotShared l4 (pShared ! (fromIntegral width :. ZI))
+                          (FoldZipRC domsOD pShared as df rf x0' as')
       _ -> error "rfoldZip: impossible someNatVal"
   rfoldZipDer :: forall rn n. (GoodScalar rn, KnownNat n)
             => (forall f. ADReady f => f rn n -> HVector f -> f rn n)
@@ -567,8 +567,8 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
             p :: ranked rn (1 + n)
             p = rscanZipDer f df rf domsOD x0 as
             (l4, pShared) = recordSharingPrimal p l3
-        in D l4 (pShared ! (fromIntegral width :. ZI))
-           (FoldZipR domsOD pShared as df rf x0' as')
+        in dDnotShared l4 (pShared ! (fromIntegral width :. ZI))
+                          (FoldZipR domsOD pShared as df rf x0' as')
       _ -> error "rfoldZipDer: impossible someNatVal"
   rscan :: forall rn rm n m.
            (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)
@@ -617,7 +617,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
               initsViaSliceD = map (\k -> SliceR 0 k as') [1 .. width]
           in FromListR
              $ x0' : map h (zip3 initsViaSliceP initsViaSlice initsViaSliceD)
-    in D l4 pShared scanAsFold
+    in dDnotShared l4 pShared scanAsFold
   rscanDer :: forall rn rm n m.
               (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)
            => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
@@ -632,8 +632,8 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         p :: ranked rn (1 + n)
         p = rscanDer f df rf x0 as
         (l4, pShared) = recordSharingPrimal p l3
-    in D l4 pShared
-            (ScanR pShared as df rf x0' as')
+    in dDnotShared l4 pShared
+                      (ScanR pShared as df rf x0' as')
   rscanZip :: forall rn n. (GoodScalar rn, KnownNat n)
          => (forall f. ADReady f => f rn n -> HVector f -> f rn n)
          -> VoidHVector
@@ -687,7 +687,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
                         [1 .. width]
               in FromListR
               $ x0' : map h (zip3 initsViaSliceP initsViaSlice initsViaSliceD)
-        in D l4 pShared scanAsFold
+        in dDnotShared l4 pShared scanAsFold
       _ -> error "rscanZip: impossible someNatVal"
   rscanZipDer :: forall rn n. (GoodScalar rn, KnownNat n)
             => (forall f. ADReady f => f rn n -> HVector f -> f rn n)
@@ -720,8 +720,8 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
             p :: ranked rn (1 + n)
             p = rscanZipDer f df rf domsOD x0 as
             (l4, pShared) = recordSharingPrimal p l3
-        in D l4 pShared
-           (ScanZipR domsOD pShared as df rf x0' as')
+        in dDnotShared l4 pShared
+                          (ScanZipR domsOD pShared as df rf x0' as')
       _ -> error "rscanZipDer: impossible someNatVal"
   sfold :: forall rn rm sh shm k.
            (GoodScalar rn, GoodScalar rm, Sh.Shape sh, Sh.Shape shm, KnownNat k)
@@ -752,8 +752,8 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         p = sscan f x0 as
         width = slength p - 1
         (l4, pShared) = recordSharingPrimal p l3
-    in D l4 (pShared !$ (fromIntegral width :$: ZSH))
-            (FoldSC pShared as df rf x0' as')
+    in dDnotShared l4 (pShared !$ (fromIntegral width :$: ZSH))
+                      (FoldSC pShared as df rf x0' as')
   sfoldDer :: forall rn rm sh shm k.
               ( GoodScalar rn, GoodScalar rm, Sh.Shape sh, Sh.Shape shm
               , KnownNat k )
@@ -772,8 +772,8 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         p = sscanDer f df rf x0 as
         width = slength p - 1
         (l4, pShared) = recordSharingPrimal p l3
-    in D l4 (pShared !$ (fromIntegral width :$: ZSH))
-            (FoldS pShared as df rf x0' as')
+    in dDnotShared l4 (pShared !$ (fromIntegral width :$: ZSH))
+                      (FoldS pShared as df rf x0' as')
   sfoldZip :: forall rn sh. (GoodScalar rn, Sh.Shape sh)
          => (forall f. ADReadyS f
              => f rn sh -> HVector (RankedOf f) -> f rn sh)
@@ -816,8 +816,8 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
             p :: shaped rn (1 + k ': sh)
             p = sscanZip f domsOD x0 as
             (l4, pShared) = recordSharingPrimal p l3
-        in D l4 (pShared !$ (fromIntegral width :$: ZSH))
-                (FoldZipSC domsOD pShared as df rf x0' as')
+        in dDnotShared l4 (pShared !$ (fromIntegral width :$: ZSH))
+                          (FoldZipSC domsOD pShared as df rf x0' as')
       _ -> error "sfoldD: impossible someNatVal"
   sfoldZipDer :: forall rn sh. (GoodScalar rn, Sh.Shape sh)
             => (forall f. ADReadyS f
@@ -851,8 +851,8 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
             p :: shaped rn (1 + k ': sh)
             p = sscanZip f domsOD x0 as
             (l4, pShared) = recordSharingPrimal p l3
-        in D l4 (pShared !$ (fromIntegral width :$: ZSH))
-                (FoldZipS domsOD pShared as df rf x0' as')
+        in dDnotShared l4 (pShared !$ (fromIntegral width :$: ZSH))
+                          (FoldZipS domsOD pShared as df rf x0' as')
       _ -> error "sfoldZipDer: impossible someNatVal"
   sscan :: forall rn rm sh shm k.
            (GoodScalar rn, GoodScalar rm, Sh.Shape sh, Sh.Shape shm, KnownNat k)
@@ -902,7 +902,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
                 Nothing -> error "sscan: impossible someNatVal error"
           in FromListS
              $ x0' : map initsViaSlice [1 .. width]
-    in D l4 pShared scanAsFold
+    in dDnotShared l4 pShared scanAsFold
   sscanDer :: forall rn rm sh shm k.
               ( GoodScalar rn, GoodScalar rm, Sh.Shape sh, Sh.Shape shm
               , KnownNat k )
@@ -920,8 +920,8 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         p :: shaped rn (1 + k ': sh)
         p = sscanDer f df rf x0 as
         (l4, pShared) = recordSharingPrimal p l3
-    in D l4 pShared
-            (ScanS pShared as df rf x0' as')
+    in dDnotShared l4 pShared
+                      (ScanS pShared as df rf x0' as')
   sscanZip :: forall rn sh k. (GoodScalar rn, Sh.Shape sh, KnownNat k)
          => (forall f. ADReadyS f
              => f rn sh -> HVector (RankedOf f) -> f rn sh)
@@ -979,7 +979,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
                 Nothing -> error "sscanD: impossible someNatVal error"
           in FromListS
              $ x0' : map initsViaSlice [1 .. width]
-    in D l4 pShared scanAsFold
+    in dDnotShared l4 pShared scanAsFold
   sscanZipDer :: forall rn sh k. (GoodScalar rn, Sh.Shape sh, KnownNat k)
             => (forall f. ADReadyS f
                 => f rn sh -> HVector (RankedOf f) -> f rn sh)
@@ -1004,8 +1004,8 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         p :: shaped rn (1 + k ': sh)
         p = sscanZipDer f df rf domsOD x0 as
         (l4, pShared) = recordSharingPrimal p l3
-    in D l4 pShared
-            (ScanZipS domsOD pShared as df rf x0' as')
+    in dDnotShared l4 pShared
+                      (ScanZipS domsOD pShared as df rf x0' as')
 
 dDHVector :: ADShare -> HVector f -> HVector (Dual f)
           -> HVector (ADVal f)
@@ -1020,11 +1020,11 @@ aDValDynamicTensor :: ADShare -> DynamicTensor f -> DynamicTensor (Dual f)
 aDValDynamicTensor l (DynamicRanked @r1 @n1 t) (DynamicRanked @r2 @n2 t')
   | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
   , Just Refl <- sameNat (Proxy @n1) (Proxy @n2) =
-    DynamicRanked (D l t t')
+    DynamicRanked (dDnotShared l t t')
 aDValDynamicTensor l (DynamicShaped @r1 @sh1 t) (DynamicShaped @r2 @sh2 t')
   | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
   , Just Refl <- sameShape @sh1 @sh2 =
-    DynamicShaped (D l t t')
+    DynamicShaped (dDnotShared l t t')
 aDValDynamicTensor l (DynamicRankedDummy p1 p2) _ = assert (nullADShare l) $
     DynamicRankedDummy p1 p2
 aDValDynamicTensor l _ (DynamicRankedDummy p1 p2) = assert (nullADShare l) $
