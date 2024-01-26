@@ -670,8 +670,8 @@ class HVectorTensor (ranked :: RankedTensorType)
   dregister :: VoidHVector -> HVectorOf ranked -> AstBindingsD ranked
             -> (AstBindingsD ranked, HVector ranked)
   dbuild1 :: Int  -- k
-          -> (IntOf ranked -> HVectorOf ranked)  -- sh
-          -> HVectorOf ranked  -- k ': sh
+          -> (IntOf ranked -> HVectorOf ranked)  -- sh_i
+          -> HVectorOf ranked  -- k ': sh_i
   dzipWith1 :: ( RankedTensor ranked, ShapedTensor (ShapedOf ranked)
                , RankedOf (PrimalOf (ShapedOf ranked))
                  ~ RankedOf (PrimalOf ranked) )

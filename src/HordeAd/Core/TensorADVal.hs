@@ -9,6 +9,8 @@
 -- for ranked tensors and shaped tensors.
 module HordeAd.Core.TensorADVal
   ( CRankedIP, CRankedIPSh
+  , dDHVector, aDValHVector, aDValDynamicTensor
+  , unADValHVector, unADValDynamicTensor
   ) where
 
 import Prelude hiding (foldl')
@@ -27,6 +29,7 @@ import           Data.Functor.Const
 import           Data.List (foldl', scanl')
 import           Data.List.Index (imap)
 import           Data.Proxy (Proxy (Proxy))
+import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import           Data.Type.Ord (Compare)
 import qualified Data.Vector.Generic as V
@@ -191,13 +194,13 @@ instance ( Dual ranked ~ DeltaR ranked
     in dDnotShared l v (dZeroOfShape v)
   rconst t = constantADVal (rconst t)
   rletHVectorIn od asD f =
-    let !(!ll2, asUnshared, as') = V.unzip3 $ V.map unADValHVector asD
+    let !(!ll2, asUnshared, as') = unADValHVector asD
         !(!l3, as) =
           drecordSharingPrimal od (dmkHVector asUnshared) emptyADShare
             -- This could be done with recordSharingPrimal, but the code
             -- would be more complex and more ADShare nodes generated.
             -- OTOH, f would be free to assume there are no dangling variables.
-        !(D l u u') = f $ V.zipWith3 aDValHVector ll2 as as'
+        !(D l u u') = f $ aDValHVector ll2 as as'
     in dDnotShared (mergeADShare l3 l) u u'
   rfromS = sToR
    where
@@ -324,14 +327,14 @@ instance ( Dual shaped ~ DeltaS shaped
     in dDnotShared l v (dZeroOfShape v)
   sconst t = constantADVal (sconst t)
   sletHVectorIn od asD f =
-    let !(!ll2, asUnshared, as') = V.unzip3 $ V.map unADValHVector asD
+    let !(!ll2, asUnshared, as') = unADValHVector asD
         !(!l3, as) =
           drecordSharingPrimal @(RankedOf shaped) @shaped
                                od (dmkHVector asUnshared) emptyADShare
             -- This could be done with recordSharingPrimal, but the code
             -- would be more complex and more ADShare nodes generated.
             -- OTOH, f would be free to assume there are no dangling variables.
-        !(D l u u') = f $ V.zipWith3 aDValHVector ll2 as as'
+        !(D l u u') = f $ aDValHVector ll2 as as'
     in dDnotShared (mergeADShare l3 l) u u'
   sfromR = rToS
    where
@@ -365,11 +368,12 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
   dmkHVector = id
   dunHVector _ = id
   dletHVectorInHVector od asD f =
-    let !(!ll2, asUnshared, as') = V.unzip3 $ V.map unADValHVector asD
+    let !(!ll2, asUnshared, as') = unADValHVector asD
         !(!l3, as) =
           drecordSharingPrimal od (dmkHVector asUnshared) emptyADShare
-        aDValHVector3 l a a' = aDValHVector (mergeADShare l3 l) a a'
-        doms = V.zipWith3 aDValHVector3 ll2 as as'
+        aDValDynamicTensor3 l a a' =
+          aDValDynamicTensor (mergeADShare l3 l) a a'
+        doms = V.zipWith3 aDValDynamicTensor3 ll2 as as'
             -- This could be done with recordSharingPrimal,
             -- but more ADShare nodes would generated.
     in f doms
@@ -407,7 +411,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
        => (forall f. ADReady f => HVector f -> f r n)
        -> VoidHVector
        -> HVector (ADVal ranked)
-       -> HVectorOf (ADVal ranked)
+       -> HVector (ADVal ranked)
        -> ADVal ranked r n
   rfwd f _parameters0 parameters ds =
     fst $ cfwdOnHVector parameters (f @(ADVal (ADVal ranked))) ds
@@ -493,7 +497,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
          -> HVector (ADVal ranked)
          -> ADVal ranked rn n
   rfoldZip f domsOD (D l1 x0 x0') asD =
-    let (ll2, asUnshared, as') = V.unzip3 $ V.map unADValHVector asD
+    let (ll2, asUnshared, as') = unADValHVector asD
         domsToPair :: forall f. ADReady f => HVector f -> (f rn n, HVector f)
         domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
         g :: HVector (ADVal ranked) -> ADVal ranked rn n
@@ -544,7 +548,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
             -> HVector (ADVal ranked)
             -> ADVal ranked rn n
   rfoldZipDer f df rf domsOD (D l1 x0 x0') asD =
-    let (ll2, asUnshared, as') = V.unzip3 $ V.map unADValHVector asD
+    let (ll2, asUnshared, as') = unADValHVector asD
         width = case V.unsnoc asUnshared of
           Nothing -> error "sfoldD: can't determine argument width"
           Just (_, d) -> case shapeDynamic d of
@@ -635,7 +639,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
          -> HVector (ADVal ranked)
          -> ADVal ranked rn (1 + n)
   rscanZip f domsOD (D l1 x0 x0') asD =
-    let (ll2, asUnshared, as') = V.unzip3 $ V.map unADValHVector asD
+    let (ll2, asUnshared, as') = unADValHVector asD
         domsToPair :: forall f. ADReady f => HVector f -> (f rn n, HVector f)
         domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
         g :: HVector (ADVal ranked) -> ADVal ranked rn n
@@ -695,7 +699,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
             -> HVector (ADVal ranked)
             -> ADVal ranked rn (1 + n)
   rscanZipDer f df rf domsOD (D l1 x0 x0') asD =
-    let (ll2, asUnshared, as') = V.unzip3 $ V.map unADValHVector asD
+    let (ll2, asUnshared, as') = unADValHVector asD
         width = case V.unsnoc asUnshared of
           Nothing -> error "sfoldD: can't determine argument width"
           Just (_, d) -> case shapeDynamic d of
@@ -774,7 +778,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
          -> HVector (ADVal (RankedOf shaped))
          -> ADVal shaped rn sh
   sfoldZip f domsOD (D l1 x0 x0') asD =
-    let (ll2, asUnshared, as') = V.unzip3 $ V.map unADValHVector asD
+    let (ll2, asUnshared, as') = unADValHVector asD
         domsToPair :: forall f. ADReadyS f
                       => HVector (RankedOf f) -> (f rn sh, HVector (RankedOf f))
         domsToPair doms = (sfromD $ doms V.! 0, V.tail doms)
@@ -825,7 +829,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
             -> HVector (ADVal (RankedOf shaped))
             -> ADVal shaped rn sh
   sfoldZipDer f df rf domsOD (D l1 x0 x0') asD =
-    let (ll2, asUnshared, as') = V.unzip3 $ V.map unADValHVector asD
+    let (ll2, asUnshared, as') = unADValHVector asD
         width = case V.unsnoc asUnshared of
           Nothing -> error "sfoldZipDer: can't determine argument width"
           Just (_, d) -> case shapeDynamic d of
@@ -921,7 +925,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
          -> ADVal shaped rn (1 + k ': sh)
   sscanZip f domsOD (D l1 x0 x0') asD =
     assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD) asD) $
-    let (ll2, asUnshared, as') = V.unzip3 $ V.map unADValHVector asD
+    let (ll2, asUnshared, as') = unADValHVector asD
         domsToPair :: forall f. ADReadyS f
                       => HVector (RankedOf f)
                       -> (f rn sh, HVector (RankedOf f))
@@ -986,7 +990,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
             -> ADVal shaped rn (1 + k ': sh)
   sscanZipDer f df rf domsOD (D l1 x0 x0') asD =
     assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD) asD) $
-    let (ll2, asUnshared, as') = V.unzip3 $ V.map unADValHVector asD
+    let (ll2, asUnshared, as') = unADValHVector asD
         (l3, as) =
           drecordSharingPrimal @ranked (replicate1VoidHVector (Proxy @k) domsOD)
                                (dmkHVector asUnshared)
@@ -997,35 +1001,49 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
     in D l4 pShared
             (ScanZipS domsOD pShared as df rf x0' as')
 
-aDValHVector :: ADShare -> DynamicTensor f -> DynamicTensor (Dual f)
-             -> DynamicTensor (ADVal f)
-aDValHVector l (DynamicRanked @r1 @n1 t) (DynamicRanked @r2 @n2 t')
+dDHVector :: ADShare -> HVector f -> HVector (Dual f)
+          -> HVector (ADVal f)
+dDHVector l = V.zipWith (aDValDynamicTensor l)
+
+aDValHVector :: Data.Vector.Vector ADShare -> HVector f -> HVector (Dual f)
+             -> HVector (ADVal f)
+aDValHVector = V.zipWith3 aDValDynamicTensor
+
+aDValDynamicTensor :: ADShare -> DynamicTensor f -> DynamicTensor (Dual f)
+                    -> DynamicTensor (ADVal f)
+aDValDynamicTensor l (DynamicRanked @r1 @n1 t) (DynamicRanked @r2 @n2 t')
   | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
   , Just Refl <- sameNat (Proxy @n1) (Proxy @n2) =
     DynamicRanked (D l t t')
-aDValHVector l (DynamicShaped @r1 @sh1 t) (DynamicShaped @r2 @sh2 t')
+aDValDynamicTensor l (DynamicShaped @r1 @sh1 t) (DynamicShaped @r2 @sh2 t')
   | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
   , Just Refl <- sameShape @sh1 @sh2 =
     DynamicShaped (D l t t')
-aDValHVector l (DynamicRankedDummy p1 p2) _ = assert (nullADShare l) $
+aDValDynamicTensor l (DynamicRankedDummy p1 p2) _ = assert (nullADShare l) $
     DynamicRankedDummy p1 p2
-aDValHVector l _ (DynamicRankedDummy p1 p2) = assert (nullADShare l) $
+aDValDynamicTensor l _ (DynamicRankedDummy p1 p2) = assert (nullADShare l) $
     DynamicRankedDummy p1 p2
-aDValHVector l (DynamicShapedDummy p1 p2) _ = assert (nullADShare l) $
+aDValDynamicTensor l (DynamicShapedDummy p1 p2) _ = assert (nullADShare l) $
     DynamicShapedDummy p1 p2
-aDValHVector l _ (DynamicShapedDummy p1 p2) = assert (nullADShare l) $
+aDValDynamicTensor l _ (DynamicShapedDummy p1 p2) = assert (nullADShare l) $
     DynamicShapedDummy p1 p2
-aDValHVector _ _ _ = error "aDValHVector: wrong arguments"
+aDValDynamicTensor _ _ _ = error "aDValDynamicTensor: wrong arguments"
 
-unADValHVector :: DynamicTensor (ADVal f)
-               -> (ADShare, DynamicTensor f, DynamicTensor (Dual f))
-unADValHVector (DynamicRanked (D l t t')) =
+unADValHVector
+  :: HVector (ADVal f)
+  -> (Data.Vector.Vector ADShare, HVector f, HVector (Dual f))
+unADValHVector = V.unzip3 . V.map unADValDynamicTensor
+
+unADValDynamicTensor
+  :: DynamicTensor (ADVal f)
+  -> (ADShare, DynamicTensor f, DynamicTensor (Dual f))
+unADValDynamicTensor (DynamicRanked (D l t t')) =
   (l, DynamicRanked t, DynamicRanked t')
-unADValHVector (DynamicShaped (D l t t')) =
+unADValDynamicTensor (DynamicShaped (D l t t')) =
   (l, DynamicShaped t, DynamicShaped t')
-unADValHVector (DynamicRankedDummy p1 p2) =
+unADValDynamicTensor (DynamicRankedDummy p1 p2) =
   (emptyADShare, DynamicRankedDummy p1 p2, DynamicRankedDummy p1 p2)
-unADValHVector (DynamicShapedDummy p1 p2) =
+unADValDynamicTensor (DynamicShapedDummy p1 p2) =
   (emptyADShare, DynamicShapedDummy p1 p2, DynamicShapedDummy p1 p2)
 
 
