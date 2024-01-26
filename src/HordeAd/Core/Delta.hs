@@ -1488,7 +1488,7 @@ buildFinMaps s0 deltaDt =
                      domsToPair $ dunHVector domsF $ rf (cr + cx) x a
               (cx0, cas) = assert (length cxs == length p) $
                            rg 0 (zip3 (drop 1 cxs) (init p) las)
-              s2 = evalS sShared cx0 x0'
+              s2 = evalS sShared (cx0 + cxs !! 0) x0'
           in evalS s2 (sfromList cas) as'
 {-
         ScanS @rm @shm @k3 @sh1 p as _df rf x0' as' ->
