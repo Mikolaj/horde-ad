@@ -790,8 +790,8 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
                                    (nvar1, mdyns1, nvar2, mdyns2, derivative)
                                    (varDt, nvar, mdyns, gradient)
                                    x0 asD
-                _ -> error "rfoldD: wrong variables"
-            _ -> error "rfoldD: wrong variables"
+                _ -> error "rfoldZip: wrong variables"
+            _ -> error "rfoldZip: wrong variables"
         _ -> error "rfoldZip: impossible someNatVal"
   rfoldZipDer :: forall rn n. (GoodScalar rn, KnownNat n)
             => (forall f. ADReady f => f rn n -> HVector f -> f rn n)
@@ -900,8 +900,8 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
                                    (nvar1, mdyns1, nvar2, mdyns2, derivative)
                                    (varDt, nvar, mdyns, gradient)
                                    x0 asD
-                _ -> error "rscanD: wrong variables"
-            _ -> error "rscanD: wrong variables"
+                _ -> error "rscanZip: wrong variables"
+            _ -> error "rscanZip: wrong variables"
         _ -> error "rscanZip: impossible someNatVal"
   rscanZipDer :: forall rn n. (GoodScalar rn, KnownNat n)
             => (forall f. ADReady f => f rn n -> HVector f -> f rn n)
@@ -1003,8 +1003,8 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
                                     (nvar1, mdyns1, nvar2, mdyns2, derivative)
                                     (varDt, nvar, mdyns, gradient)
                                     x0 asD
-                _ -> error "sfoldD: wrong variables"
-            _ -> error "sfoldD: wrong variables"
+                _ -> error "sfoldZip: wrong variables"
+            _ -> error "sfoldZip: wrong variables"
         _ -> error "sfoldZip: impossible someNatVal"
   sfoldZipDer :: forall rn sh. Sh.Shape sh
             => (forall f. ADReadyS f
@@ -1105,8 +1105,8 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
                               (nvar1, mdyns1, nvar2, mdyns2, derivative)
                               (varDt, nvar, mdyns, gradient)
                               x0 asD
-          _ -> error "sscanD: wrong variables"
-      _ -> error "sscanD: wrong variables"
+          _ -> error "sscanZip: wrong variables"
+      _ -> error "sscanZip: wrong variables"
   sscanZipDer :: forall k rn sh. (Sh.Shape sh, KnownNat k)
             => (forall f. ADReadyS f
                 => f rn sh -> HVector (RankedOf f) -> f rn sh)

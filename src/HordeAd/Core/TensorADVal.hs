@@ -345,7 +345,7 @@ instance ( Dual shaped ~ DeltaS shaped
       dRToS (SToR @sh1 d) =
         case sameShape @sh1 @sh of
           Just Refl -> d
-          _ -> error "rToS: different shapes in RToS(SToR)"
+          _ -> error "sfromR: different shapes in RToS(SToR)"
       dRToS d = RToS d
 
   sconstant t = let (l, r) = sletUnwrap t in dDnotShared l r (dZeroOfShape t)
@@ -514,9 +514,9 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
                               g
                               (V.cons (DynamicRanked x) a)
         width = case V.unsnoc asUnshared of
-          Nothing -> error "sfoldD: can't determine argument width"
+          Nothing -> error "rfoldZip: can't determine argument width"
           Just (_, d) -> case shapeDynamic d of
-            [] -> error "sfoldD: wrong rank of argument"
+            [] -> error "rfoldZip: wrong rank of argument"
             w : _shm -> w
     in case someNatVal $ toInteger width of
       Just (SomeNat @k _) ->
@@ -551,9 +551,9 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
   rfoldZipDer f df rf domsOD (D l1 x0 x0') asD =
     let (ll2, asUnshared, as') = unADValHVector asD
         width = case V.unsnoc asUnshared of
-          Nothing -> error "sfoldD: can't determine argument width"
+          Nothing -> error "rfoldZipDer: can't determine argument width"
           Just (_, d) -> case shapeDynamic d of
-            [] -> error "sfoldD: wrong rank of argument"
+            [] -> error "rfoldZipDer: wrong rank of argument"
             w : _shm -> w
     in case someNatVal $ toInteger width of
       Just (SomeNat @k _) ->
@@ -580,7 +580,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
     let _ws :: (Int, ShapeInt m)
         _ws@(width, _shm) = case rshape asUnshared of
           hd :$ tl -> (hd, tl)
-          _ -> error "rfoldDer: impossible pattern needlessly required"
+          _ -> error "rscan: impossible pattern needlessly required"
         domsToPair :: forall f. ADReady f => HVector f -> (f rn n, f rm m)
         domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
         g :: HVector (ADVal ranked) -> ADVal ranked rn n
@@ -658,9 +658,9 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
                               g
                               (V.cons (DynamicRanked x) a)
         width = case V.unsnoc asUnshared of
-          Nothing -> error "sfoldD: can't determine argument width"
+          Nothing -> error "rscanZip: can't determine argument width"
           Just (_, d) -> case shapeDynamic d of
-            [] -> error "sfoldD: wrong rank of argument"
+            [] -> error "rscanZip: wrong rank of argument"
             w : _shm -> w
     in case someNatVal $ toInteger width of
       Just (SomeNat @k _) ->
@@ -704,9 +704,9 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
   rscanZipDer f df rf domsOD (D l1 x0 x0') asD =
     let (ll2, asUnshared, as') = unADValHVector asD
         width = case V.unsnoc asUnshared of
-          Nothing -> error "sfoldD: can't determine argument width"
+          Nothing -> error "rscanZipDer: can't determine argument width"
           Just (_, d) -> case shapeDynamic d of
-            [] -> error "sfoldD: wrong rank of argument"
+            [] -> error "rscanZipDer: wrong rank of argument"
             w : _shm -> w
     in case someNatVal $ toInteger width of
       Just (SomeNat @k _) ->
@@ -801,9 +801,9 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
                               g
                               (V.cons (DynamicShaped x) a)
         width = case V.unsnoc asUnshared of
-          Nothing -> error "sfoldD: can't determine argument width"
+          Nothing -> error "sfoldZip: can't determine argument width"
           Just (_, d) -> case shapeDynamic d of
-            [] -> error "sfoldD: wrong rank of argument"
+            [] -> error "sfoldZip: wrong rank of argument"
             w : _shm -> w
     in case someNatVal $ toInteger width of
       Just (SomeNat @k _) ->
@@ -818,7 +818,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
             (l4, pShared) = recordSharingPrimal p l3
         in dDnotShared l4 (pShared !$ (fromIntegral width :$: ZSH))
                           (FoldZipSC domsOD pShared as df rf x0' as')
-      _ -> error "sfoldD: impossible someNatVal"
+      _ -> error "sfoldZip: impossible someNatVal"
   sfoldZipDer :: forall rn sh. (GoodScalar rn, Sh.Shape sh)
             => (forall f. ADReadyS f
                 => f rn sh -> HVector (RankedOf f) -> f rn sh)
@@ -976,7 +976,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
                                    (Proxy @0) (Proxy @k1)) as)
                         (mapHVectorDeltaS11 @k @k1
                            (SliceS @_ @0 @k1 @(k - k1)) as')
-                Nothing -> error "sscanD: impossible someNatVal error"
+                Nothing -> error "sscanZip: impossible someNatVal error"
           in FromListS
              $ x0' : map initsViaSlice [1 .. width]
     in dDnotShared l4 pShared scanAsFold
