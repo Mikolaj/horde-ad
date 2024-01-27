@@ -733,7 +733,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
     let domsToPair :: forall f. ADReadyS f
                    => HVector (RankedOf f) -> (f rn sh, f rm shm)
         domsToPair doms = (sfromD $ doms V.! 0, sfromD $ doms V.! 1)
-        g :: HVector (ADVal (RankedOf shaped)) -> ADVal shaped rn sh
+        g :: HVector (ADVal ranked) -> ADVal shaped rn sh
         g doms = uncurry f (domsToPair doms)
         df :: shaped rn sh -> shaped rm shm -> shaped rn sh -> shaped rm shm
            -> shaped rn sh
@@ -779,14 +779,14 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
              => f rn sh -> HVector (RankedOf f) -> f rn sh)
          -> VoidHVector
          -> ADVal shaped rn sh
-         -> HVector (ADVal (RankedOf shaped))
+         -> HVector (ADVal ranked)
          -> ADVal shaped rn sh
   sfoldZip f domsOD (D l1 x0 x0') asD =
     let (ll2, asUnshared, as') = unADValHVector asD
         domsToPair :: forall f. ADReadyS f
                       => HVector (RankedOf f) -> (f rn sh, HVector (RankedOf f))
         domsToPair doms = (sfromD $ doms V.! 0, V.tail doms)
-        g :: HVector (ADVal (RankedOf shaped)) -> ADVal shaped rn sh
+        g :: HVector (ADVal ranked) -> ADVal shaped rn sh
         g doms = uncurry f (domsToPair doms)
         df :: shaped rn sh -> HVector ranked -> shaped rn sh -> HVector ranked
            -> shaped rn sh
@@ -831,7 +831,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
                 -> HVectorOf (RankedOf f))
             -> VoidHVector
             -> ADVal shaped rn sh
-            -> HVector (ADVal (RankedOf shaped))
+            -> HVector (ADVal ranked)
             -> ADVal shaped rn sh
   sfoldZipDer f df rf domsOD (D l1 x0 x0') asD =
     let (ll2, asUnshared, as') = unADValHVector asD
@@ -864,7 +864,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
     let domsToPair :: forall f. ADReadyS f
                    => HVector (RankedOf f) -> (f rn sh, f rm shm)
         domsToPair doms = (sfromD $ doms V.! 0, sfromD $ doms V.! 1)
-        g :: HVector (ADVal (RankedOf shaped)) -> ADVal shaped rn sh
+        g :: HVector (ADVal ranked) -> ADVal shaped rn sh
         g doms = uncurry f (domsToPair doms)
         df :: shaped rn sh -> shaped rm shm -> shaped rn sh -> shaped rm shm
            -> shaped rn sh
@@ -927,7 +927,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
              => f rn sh -> HVector (RankedOf f) -> f rn sh)
          -> VoidHVector
          -> ADVal shaped rn sh
-         -> HVector (ADVal (RankedOf shaped))
+         -> HVector (ADVal ranked)
          -> ADVal shaped rn (1 + k ': sh)
   sscanZip f domsOD (D l1 x0 x0') asD =
     assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD) asD) $
@@ -936,7 +936,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
                       => HVector (RankedOf f)
                       -> (f rn sh, HVector (RankedOf f))
         domsToPair doms = (sfromD $ doms V.! 0, V.tail doms)
-        g :: HVector (ADVal (RankedOf shaped)) -> ADVal shaped rn sh
+        g :: HVector (ADVal ranked) -> ADVal shaped rn sh
         g doms = uncurry f (domsToPair doms)
         df :: shaped rn sh -> HVector ranked -> shaped rn sh -> HVector ranked
            -> shaped rn sh
@@ -960,8 +960,8 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         width = slength p - 1
         scanAsFold =
           let h :: KnownNat k2
-                => shaped rn (1 + k2 ': sh) -> HVector (RankedOf shaped)
-                -> HVector (DeltaR (RankedOf shaped))
+                => shaped rn (1 + k2 ': sh) -> HVector ranked
+                -> HVector (DeltaR ranked)
                 -> DeltaS shaped rn sh
               h pPrefix asPrefix as'Prefix =
                 FoldZipSC domsOD pPrefix asPrefix df rf x0' as'Prefix
@@ -992,7 +992,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
                 -> HVectorOf (RankedOf f))
             -> VoidHVector
             -> ADVal shaped rn sh
-            -> HVector (ADVal (RankedOf shaped))
+            -> HVector (ADVal ranked)
             -> ADVal shaped rn (1 + k ': sh)
   sscanZipDer f df rf domsOD (D l1 x0 x0') asD =
     assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD) asD) $

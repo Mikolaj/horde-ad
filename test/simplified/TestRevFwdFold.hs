@@ -1844,7 +1844,7 @@ testSin0RrevhV = do
   let f :: forall g. HVectorTensor g (ShapedOf g)
         => HVector g -> HVectorOf g
       f x =
-        rrev @g @(ShapedOf g) @Double @0 (\v -> sin (rfromD $ v V.! 0))
+        rrev @g @_ @Double @0 (\v -> sin (rfromD $ v V.! 0))
              (V.singleton (voidFromSh @Double ZS))
              x
   assertEqualUpToEpsilon 1e-10
@@ -1857,7 +1857,7 @@ testSin0RrevhVPP = do
   let f :: forall g. HVectorTensor g (ShapedOf g)
         => HVector g -> HVectorOf g
       f x =
-        rrev @g @(ShapedOf g) @Double @0 (\v -> sin (rfromD $ v V.! 0))
+        rrev @g @_ @Double @0 (\v -> sin (rfromD $ v V.! 0))
              (V.singleton (voidFromSh @Double ZS))
              x
   printAstHVectorSimple IM.empty (f @(AstRanked FullSpan)
@@ -1870,7 +1870,7 @@ testSin0RrevhV2 = do
   let f :: forall g. HVectorTensor g (ShapedOf g)
         => HVector g -> HVectorOf g
       f x =
-        rrev @g @(ShapedOf g) @Double @0 (\v -> sin (rfromD $ v V.! 0))
+        rrev @g @_ @Double @0 (\v -> sin (rfromD $ v V.! 0))
              (V.singleton (voidFromSh @Double ZS))
              x
       h :: forall g. HVectorTensor (ADVal g) (ShapedOf (ADVal g))
@@ -1886,7 +1886,7 @@ testSin0RrevhV3 = do
   let f :: forall g. HVectorTensor g (ShapedOf g)
         => HVector g -> HVectorOf g
       f x =
-        srev @g @(ShapedOf g) @Double @'[] (\v -> sin (sfromD $ v V.! 0))
+        srev @g @_ @Double @'[] (\v -> sin (sfromD $ v V.! 0))
              (V.singleton (voidFromShS @Double @'[]))
              x
       h :: forall g. HVectorTensor (ADVal g) (ShapedOf (ADVal g))

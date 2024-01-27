@@ -646,6 +646,8 @@ class ( Integral (IntOf shaped), CShaped shaped Num
 
 -- * HVectorTensor class definition
 
+-- This particular fundep really helps with type reconstruction in user code,
+-- e.g., in the shaped nested folds tests.
 class HVectorTensor (ranked :: RankedTensorType)
                     (shaped :: ShapedTensorType)
                     | ranked -> shaped, shaped -> ranked where
@@ -807,7 +809,7 @@ class HVectorTensor (ranked :: RankedTensorType)
              => f rn sh -> HVector (RankedOf f) -> f rn sh)
          -> VoidHVector
          -> shaped rn sh
-         -> HVector (RankedOf shaped)
+         -> HVector ranked
          -> shaped rn sh
   sfoldZipDer :: (GoodScalar rn, Sh.Shape sh)
             => (forall f. ADReadyS f
@@ -821,7 +823,7 @@ class HVectorTensor (ranked :: RankedTensorType)
                 -> HVectorOf (RankedOf f))
             -> VoidHVector
             -> shaped rn sh
-            -> HVector (RankedOf shaped)
+            -> HVector ranked
             -> shaped rn sh
   sscan :: (GoodScalar rn, GoodScalar rm, Sh.Shape sh, Sh.Shape shm, KnownNat k)
         => (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh)
@@ -844,7 +846,7 @@ class HVectorTensor (ranked :: RankedTensorType)
              => f rn sh -> HVector (RankedOf f) -> f rn sh)
          -> VoidHVector
          -> shaped rn sh
-         -> HVector (RankedOf shaped)
+         -> HVector ranked
          -> shaped rn (1 + k ': sh)
   sscanZipDer :: (GoodScalar rn, Sh.Shape sh, KnownNat k)
             => (forall f. ADReadyS f
@@ -858,7 +860,7 @@ class HVectorTensor (ranked :: RankedTensorType)
                 -> HVectorOf (RankedOf f))
             -> VoidHVector
             -> shaped rn sh
-            -> HVector (RankedOf shaped)
+            -> HVector ranked
             -> shaped rn (1 + k ': sh)
 
 
