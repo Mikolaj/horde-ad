@@ -84,14 +84,14 @@ instance ( forall r n. (GoodScalar r, KnownNat n)
            => Linearizable (ranked r n) r
          , forall r sh. (GoodScalar r, Sh.Shape sh)
            => Linearizable (shaped r sh) r
-         , shaped ~ ShapedOf ranked )
+         , shaped ~ ShapedOf ranked )  -- a hack for quantified constraints
          => Linearizable (DynamicTensor ranked) Double where
   linearize (DynamicRanked @r2 @n2 t) =
     map toDouble $ linearize @(ranked r2 n2) @r2 t
   linearize (DynamicShaped @r2 @sh2 t) =
     map toDouble $ linearize @(ShapedOf ranked r2 sh2) @r2 t
-  linearize (DynamicRankedDummy{}) = [0]
-  linearize (DynamicShapedDummy{}) = [0]
+  linearize (DynamicRankedDummy @_ @sh _ _) = replicate (Sh.sizeT @sh) 0
+  linearize (DynamicShapedDummy @_ @sh _ _) = replicate (Sh.sizeT @sh) 0
 
 instance {-# OVERLAPPABLE #-} (Foldable t) => Linearizable (t a) a where
   linearize = Data.Foldable.toList
