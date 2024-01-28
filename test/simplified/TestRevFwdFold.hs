@@ -7,7 +7,9 @@ module TestRevFwdFold
 
 import Prelude
 
+import           Control.Exception.Assert.Sugar
 import qualified Data.Array.RankedS as OR
+import qualified Data.Array.Shape as Sh
 import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
 import           Data.Proxy (Proxy (Proxy))
@@ -19,6 +21,7 @@ import           Test.Tasty.HUnit hiding (assert)
 
 import HordeAd
 import HordeAd.Core.AstFreshId (resetVarCounter)
+import HordeAd.Core.DualClass
 
 import CrossTesting
 import EqEpsilon
@@ -167,10 +170,17 @@ testTrees =
   , testCase "4Sin0FoldNestedR22" testSin0FoldNestedR22
   , testCase "4Sin0FoldNestedR21" testSin0FoldNestedR21
   , testCase "4Sin0FoldNestedR21PP" testSin0FoldNestedR21PP
-  , testCase "4Sin0RrevhV" testSin0RrevhV
-  , testCase "4Sin0RrevhVPP" testSin0RrevhVPP
-  , testCase "4Sin0RrevhV2" testSin0RrevhV2
-  , testCase "4Sin0RrevhV3" testSin0RrevhV3
+  , testCase "4Sin0revhV" testSin0revhV
+  , testCase "4Sin0revhVPP" testSin0revhVPP
+  , testCase "4Sin0revhV2" testSin0revhV2
+  , testCase "4Sin0revhV3" testSin0revhV3
+  , testCase "4Sin0revhV4" testSin0revhV4
+  , testCase "4Sin0revhV5" testSin0revhV5
+  , testCase "4Sin0revhV6" testSin0revhV6
+  , testCase "4Sin0revhV7" testSin0revhV7
+  , testCase "4Sin0revhV8" testSin0revhV8
+  , testCase "4Sin0revhFoldZipR" testSin0revhFoldZipR
+  , testCase "4Sin0revhFoldS" testSin0revhFoldS
   ]
 
 foo :: RealFloat a => (a, a, a) -> a
@@ -1839,8 +1849,8 @@ testSin0FoldNestedR21PP = do
   length (printAstSimple IM.empty (simplifyAst6 a1))
     @?= 63657
 
-testSin0RrevhV :: Assertion
-testSin0RrevhV = do
+testSin0revhV :: Assertion
+testSin0revhV = do
   let f :: forall g. HVectorTensor g (ShapedOf g)
         => HVector g -> HVectorOf g
       f x =
@@ -1851,8 +1861,8 @@ testSin0RrevhV = do
     (V.singleton $ DynamicRanked @Double @0 0.4535961214255773)
     (f @(Flip OR.Array) (V.singleton $ DynamicRanked @Double @0 1.1))
 
-testSin0RrevhVPP :: Assertion
-testSin0RrevhVPP = do
+testSin0revhVPP :: Assertion
+testSin0revhVPP = do
   resetVarCounter
   let f :: forall g. HVectorTensor g (ShapedOf g)
         => HVector g -> HVectorOf g
@@ -1865,8 +1875,8 @@ testSin0RrevhVPP = do
                                      $ DynamicRanked @Double @0 1.1))
     @?= "dmkHVector (fromList [DynamicRanked (cos (rconst 1.1) * rreshape [] (rreplicate 1 (rconst 1.0)))])"
 
-testSin0RrevhV2 :: Assertion
-testSin0RrevhV2 = do
+testSin0revhV2 :: Assertion
+testSin0revhV2 = do
   let f :: forall g. HVectorTensor g (ShapedOf g)
         => HVector g -> HVectorOf g
       f x =
@@ -1881,8 +1891,8 @@ testSin0RrevhV2 = do
     (V.singleton $ DynamicRanked @Double @0 (-0.8912073600614354))
     (crev (h @(Flip OR.Array)) (V.singleton $ DynamicRanked @Double @0 1.1))
 
-testSin0RrevhV3 :: Assertion
-testSin0RrevhV3 = do
+testSin0revhV3 :: Assertion
+testSin0revhV3 = do
   let f :: forall g. HVectorTensor g (ShapedOf g)
         => HVector g -> HVectorOf g
       f x =
@@ -1896,3 +1906,258 @@ testSin0RrevhV3 = do
   assertEqualUpToEpsilon 1e-10
     (V.singleton $ DynamicShaped @Double @'[] (-0.8912073600614354))
     (crev (h @(Flip OR.Array)) (V.singleton $ DynamicShaped @Double @'[] 1.1))
+
+testSin0revhV4 :: Assertion
+testSin0revhV4 = do
+  let f :: forall g. (HVectorTensor g (ShapedOf g), Fractional (g Double 0))
+        => HVector g -> HVectorOf g
+      doms = V.singleton (voidFromSh @Double ZS)
+      doms3 = V.singleton (voidFromSh @Double (3 :$ ZS))
+      f x =
+        rrevDt @g @_ @Double @0 (\v -> rfoldZip const doms 5 v)
+               doms3 x 22.5
+      h :: forall g. ( HVectorTensor (ADVal g) (ShapedOf (ADVal g))
+                     , Fractional (g Double 0), IsPrimal g Double 0 )
+        => HVector (ADVal g)
+        -> ADVal (HVectorPseudoTensor g) Float '()
+      h = hVectorADValToADVal . f
+  assertEqualUpToEpsilon 1e-10
+    (V.singleton $ DynamicRanked @Double @1 $ rfromList [0, 0, 0])
+    (crev (h @(Flip OR.Array))
+          (V.singleton $ DynamicRanked @Double @1 $ rreplicate 3 1.1))
+
+testSin0revhV5 :: Assertion
+testSin0revhV5 = do
+  let f :: forall g. ( HVectorTensor g (ShapedOf g)
+                     , Fractional (ShapedOf g Double '[]) )
+        => HVector g -> HVectorOf g
+      doms = V.singleton (voidFromShS @Double @'[])
+      doms3 = V.singleton (voidFromShS @Double @'[3])
+      f x =
+        srevDt @g @_ @Double @'[] (\v -> sfoldZip const doms 5 v)
+               doms3 x 22.5
+      h :: forall g. ( HVectorTensor (ADVal g) (ShapedOf (ADVal g))
+                     , Fractional (ShapedOf  g Double '[])
+                     , IsPrimal (ShapedOf g) Double '[] )
+        => HVector (ADVal g)
+        -> ADVal (HVectorPseudoTensor g) Float '()
+      h = hVectorADValToADVal . f
+  assertEqualUpToEpsilon 1e-10
+    (V.singleton $ DynamicShaped @Double @'[3] $ sfromList [0, 0, 0])
+    (crev (h @(Flip OR.Array))
+          (V.singleton $ DynamicShaped @Double @'[3] $ sreplicate @_ @3 1.1))
+
+testSin0revhV6 :: Assertion
+testSin0revhV6 = do
+  let f :: forall g. (HVectorTensor g (ShapedOf g), Fractional (g Double 0))
+        => HVector g -> HVectorOf g
+      doms = V.singleton (voidFromSh @Double ZS)
+      doms3 = V.singleton (voidFromSh @Double (3 :$ ZS))
+      f x =
+        rrevDt @g @_ @Double @0
+               (\v -> rfoldZip (\_ w -> let z = rfromD $ w V.! 0
+                                        in z * z) doms 5 v)
+                doms3 x 22
+      h :: forall g. ( HVectorTensor (ADVal g) (ShapedOf (ADVal g))
+                     , Fractional (g Double 0), IsPrimal g Double 0 )
+        => HVector (ADVal g)
+        -> ADVal (HVectorPseudoTensor g) Float '()
+      h = hVectorADValToADVal . f
+  assertEqualUpToEpsilon 1e-10
+    (V.singleton $ DynamicRanked @Double @1 $ rfromList [0, 0, 44])
+    (crev (h @(Flip OR.Array))
+          (V.singleton $ DynamicRanked @Double @1 $ rreplicate 3 1.1))
+
+testSin0revhV7 :: Assertion
+testSin0revhV7 = do
+  let f :: forall g. ( HVectorTensor g (ShapedOf g)
+                     , Fractional (ShapedOf g Double '[]) )
+        => HVector g -> HVectorOf g
+      doms = V.singleton (voidFromShS @Double @'[])
+      doms3 = V.singleton (voidFromShS @Double @'[3])
+      f x =
+        srevDt @g @_ @Double @'[]
+               (\v -> sfoldZip (\_ w -> let z = sfromD $ w V.! 0
+                                        in z * z) doms 5 v)
+               doms3 x 22
+      h :: forall g. ( HVectorTensor (ADVal g) (ShapedOf (ADVal g))
+                     , Fractional (ShapedOf  g Double '[])
+                     , IsPrimal (ShapedOf g) Double '[] )
+        => HVector (ADVal g)
+        -> ADVal (HVectorPseudoTensor g) Float '()
+      h = hVectorADValToADVal . f
+  assertEqualUpToEpsilon 1e-10
+    (V.singleton $ DynamicShaped @Double @'[3] $ sfromList [0, 0, 44])
+    (crev (h @(Flip OR.Array))
+          (V.singleton $ DynamicShaped @Double @'[3] $ sreplicate @_ @3 1.1))
+
+testSin0revhV8 :: Assertion
+testSin0revhV8 = do
+  let f :: forall g. HVectorTensor g (ShapedOf g)
+        => HVector g -> HVectorOf g
+      f = dmkHVector
+      h :: forall g. HVectorTensor (ADVal g) (ShapedOf (ADVal g))
+        => HVector (ADVal g)
+        -> ADVal (HVectorPseudoTensor g) Float '()
+      h = hVectorADValToADVal . f
+  assertEqualUpToEpsilon 1e-10
+    (V.singleton $ DynamicShaped @Double @'[3] $ sfromList [1, 1, 1])
+    (crev (h @(Flip OR.Array))
+          (V.singleton $ DynamicShaped @Double @'[3] $ sreplicate @_ @3 1.1))
+
+testSin0revhFoldZipR :: Assertion
+testSin0revhFoldZipR = do
+  let fFoldZipR
+        :: forall n r ranked.
+           (KnownNat n, GoodScalar r, ADReady ranked)
+        => VoidHVector
+        -> ranked r (1 + n)
+        -> HVector ranked
+        -> (forall f. ADReady f
+            => f r n -> f r n -> HVector f
+            -> HVectorOf f)
+        -> ShapeInt n
+        -> ranked r n
+        -> HVectorOf ranked
+      fFoldZipR domsOD p as rf shn cShared =
+        let width = case V.unsnoc as of
+              Nothing ->
+                error "testSin0FoldZipR: can't determine argument width"
+              Just (_, d) -> case shapeDynamic d of
+                [] -> error "testSin0FoldZipR: wrong rank of argument"
+                w : _shm -> w
+            !_A1 = assert (rlength p == width + 1) ()
+            odShn = voidFromSh @r shn
+            domsF = V.cons odShn domsOD
+            domsToPair :: forall f. ADReady f
+                       => HVector f -> (f r n, HVector f)
+            domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
+            domsTo3 :: ADReady f
+                    => HVector f -> (f r n, f r n, HVector f)
+            domsTo3 doms = ( rfromD $ doms V.! 0
+                           , rfromD $ doms V.! 1
+                           , V.drop 2 doms )
+            lp = rreverse $ rslice 0 width p
+            las :: HVector ranked
+            las = mapHVectorRanked11 rreverse as
+            crsr :: ranked r (1 + n)
+            crsr =
+              rscanZip
+                (\cr doms ->
+                    let (x, a) = domsToPair doms
+                    in rletHVectorIn domsF (rf cr x a) $ \rfRes ->
+                         fst (domsToPair rfRes))
+                domsF
+                cShared
+                (V.cons (DynamicRanked lp) las)
+            crs = rreverse crsr
+            rg :: ranked r (1 + n) -> ranked r (1 + n)
+               -> HVector ranked
+               -> HVectorOf ranked
+            rg cr2 x2 a2 =
+              dzipWith1 (\doms ->
+                           let (cr, x, a) = domsTo3 doms
+                           in dletHVectorInHVector @ranked
+                                domsF (rf cr x a) $ \rfRes ->
+                                  dmkHVector $ snd $ domsToPair rfRes)
+                        (V.cons (DynamicRanked cr2)
+                         $ V.cons (DynamicRanked x2) a2)
+            cas = rg (rslice 1 width crs)
+                     (rslice 0 width p)
+                     as
+        in cas
+      h :: forall ranked.
+           (ADReady ranked, ADReady (ADVal ranked), RankedOf ranked ~ ranked)
+        => HVector (ADVal ranked)
+        -> ADVal (HVectorPseudoTensor ranked) Float '()
+      h as =
+        let f :: forall f. ADReady f => f Double 0 -> HVector f -> f Double 0
+            f _t v = sin (rfromD (v V.! 1)) * rfromD (v V.! 1)
+            doms = V.fromList [ voidFromSh @Double ZS
+                              , voidFromSh @Double ZS ]
+            p :: ADVal ranked Double 1
+            p = rscanZipDer f (\a _ _ _ -> a) rf doms 7 as
+            rf :: forall f. ADReady f
+               => f Double 0 -> f Double 0 -> HVector f -> HVectorOf f
+            rf _x _y = rrev @f (f 42) doms  -- not exactly the rev of f
+        in hVectorADValToADVal $ fFoldZipR doms p as rf ZS 26
+  assertEqualUpToEpsilon 1e-10
+    (V.fromList [ DynamicRanked @Double @1 $ rfromList [0, 0, 0]
+                , DynamicRanked @Double @1
+                  $ rreplicate 3 (-7.313585321642452e-2) ])
+    (crev (h @(Flip OR.Array))
+          (V.fromList [ DynamicRanked @Double @1 $ rreplicate 3 1.1
+                      , DynamicRanked @Double @1 $ rreplicate 3 1.1 ]))
+
+testSin0revhFoldS :: Assertion
+testSin0revhFoldS = do
+  let fFoldS
+        :: forall k rm shm r sh shaped.
+           ( KnownNat k, GoodScalar rm, Sh.Shape shm, GoodScalar r, Sh.Shape sh
+           , ADReadyS shaped )
+        => shaped r (1 + k ': sh)
+        -> shaped rm (k ': shm)
+        -> (forall f. ADReadyS f
+            => f r sh -> f r sh -> f rm shm -> HVectorOf (RankedOf f))
+        -> shaped r sh
+        -> shaped rm (k ': shm)
+      fFoldS p as rf cShared =
+        let domsF = V.fromList [voidFromShS @r @sh, voidFromShS @rm @shm]
+            domsToPair :: ADReadyS f
+                       => HVector (RankedOf f) -> (f r sh, f rm shm)
+            domsToPair doms = (sfromD $ doms V.! 0, sfromD $ doms V.! 1)
+            crsr :: shaped r (1 + k ': sh)
+            crsr =
+              sscanZip (\cr doms ->
+                          let (x, a) = domsToPair doms
+                          in sletHVectorIn
+                               domsF (rf cr x a) $ \rfRes ->
+                                 fst (domsToPair rfRes))
+                     domsF
+                     cShared
+                     (V.fromList
+                        [ DynamicShaped $ sreverse
+                          $ sslice @_ @_ @_ @_ @1
+                                   (Proxy @0) (Proxy @k) p
+                        , DynamicShaped $ sreverse as ])
+            crs = sreverse crsr
+            rg :: shaped r (k ': sh) -> shaped r (k ': sh)
+               -> shaped rm (k ': shm)
+               -> shaped rm (k ': shm)
+            rg = szipWith31 (\cr x a ->
+                               sletHVectorIn domsF (rf cr x a) $ \rfRes ->
+                                 snd $ domsToPair rfRes)
+            cas = rg (sslice @_ @_ @_ @_ @0
+                             (Proxy @1) (Proxy @k) crs)
+                     (sslice @_ @_ @_ @_ @1
+                             (Proxy @0) (Proxy @k) p)
+                     as
+        in cas
+      h :: forall shaped.
+           (ADReadyS shaped, ADReadyS (ADVal shaped))
+        => HVector (ADVal (RankedOf shaped))
+        -> ADVal shaped Double '[3]
+      h asD =
+        let as = sfromD (asD V.! 1)
+            f :: forall f. ADReadyS f
+              => f Double '[] -> f Double '[] -> f Double '[]
+            f _t v = sin v * v
+            doms = V.fromList [ voidFromShS @Double @'[]
+                              , voidFromShS @Double @'[] ]
+            p :: ADVal shaped Double '[4]
+            p = sscanDer f (\a _ _ _ -> a) rf 7 as
+            rf :: forall f. ADReadyS f
+               => f Double '[] -> f Double '[] -> f Double '[]
+               -> HVectorOf (RankedOf f)
+            rf _x _y z = srev @_ @f (\v -> f 42 (sfromD (v V.! 1)))
+                              doms (V.fromList [ DynamicShaped @Double @'[] z
+                                               , DynamicShaped @Double @'[] z ])
+                           -- not exactly the rev of f
+        in fFoldS p as rf 26
+  assertEqualUpToEpsilon 1e-10
+    (V.fromList [ DynamicShaped @Double @'[3] $ sfromList [0, 0, 0]
+                , DynamicShaped @Double @'[3]
+                  $ sreplicate @_ @3 (-7.313585321642452e-2) ])
+    (crev (h @(Flip OS.Array))
+          (V.fromList [ DynamicShaped @Double @'[3] $ sreplicate @_ @3 1.1
+                      , DynamicShaped @Double @'[3] $ sreplicate @_ @3 1.1 ]))

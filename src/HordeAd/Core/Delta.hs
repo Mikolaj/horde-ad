@@ -1056,7 +1056,7 @@ evalR !s !c = let (abShared, cShared) = rregister c (astBindings s)
           s2 = evalR sShared cx0 x0'
       in evalR s2 (rfromList cas) as'
     ZS -> error "evalR: impossible pattern needlessly required"
-  FoldZipR @rm @m domsOD p as _df rf x0' as' -> case V.unsnoc as of
+  FoldZipR domsOD p as _df rf x0' as' -> case V.unsnoc as of
     Nothing -> error "evalR: can't determine argument width"
     Just (_, d) -> case shapeDynamic d of
       [] -> error "evalR: wrong rank of argument"
@@ -1110,7 +1110,7 @@ evalR !s !c = let (abShared, cShared) = rregister c (astBindings s)
               dregister domsG casUnshared (astBindings s3)
             s4 = s3 {astBindings = abShared4}
         in evalHVector s4 cas as'
-  FoldZipRC @rm @m domsOD p as _df rf x0' as' ->
+  FoldZipRC domsOD p as _df rf x0' as' ->
     -- No sharing attempted, because this constructor is usually used
     -- for non-symbolic derivatives.
     let shn = shapeDelta x0'
@@ -1472,7 +1472,7 @@ evalS !s !c = let (abShared, cShared) = sregister c (astBindings s)
               dregister domsG casUnshared (astBindings s3)
             s4 = s3 {astBindings = abShared4}
         in evalHVector s4 cas as'
-  FoldZipSC @rm @shm domsOD p as _df rf x0' as' ->
+  FoldZipSC domsOD p as _df rf x0' as' ->
     -- No sharing attempted, because this constructor is usually used
     -- for non-symbolic derivatives.
     let domsF = V.cons (voidFromShS @r @sh) domsOD
