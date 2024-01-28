@@ -184,6 +184,7 @@ testTrees =
   , testCase "4Sin0revhFold2S" testSin0revhFold2S
   , testCase "4Sin0revhFold3S" testSin0revhFold3S
   , testCase "4Sin0revhFold4S" testSin0revhFold4S
+  , testCase "4Sin0revhFold5S" testSin0revhFold5S
   ]
 
 foo :: RealFloat a => (a, a, a) -> a
@@ -2188,5 +2189,19 @@ testSin0revhFold4S = do
                   $ sreplicate @_ @3 (-7.313585321642452e-2) ])
     (rev (\(asD :: HVector (AstRanked FullSpan)) ->
              fFoldSX (sfromD (asD V.! 1)))
+         (V.fromList [ DynamicShaped @Double @'[3] $ sreplicate @_ @3 1.1
+                     , DynamicShaped @Double @'[3] $ sreplicate @_ @3 1.1 ]))
+
+testSin0revhFold5S :: Assertion
+testSin0revhFold5S = do
+  assertEqualUpToEpsilon 1e-10
+    (V.fromList [ DynamicShaped @Double @'[3] $ sfromList [0, 0, 0]
+                , DynamicShaped @Double @'[3]
+                  $ sreplicate @_ @3 (-7.313585321642452e-2) ])
+    (rev @_ @_ @(AstShaped FullSpan) @(HVector (Flip OR.Array))
+         (\(asD :: AstHVector FullSpan) ->
+            sletHVectorIn (V.fromList [ voidFromShS @Double @'[3]
+                                      , voidFromShS @Double @'[3] ])
+                          asD (\asV -> fFoldSX (sfromD (asV V.! 1))))
          (V.fromList [ DynamicShaped @Double @'[3] $ sreplicate @_ @3 1.1
                      , DynamicShaped @Double @'[3] $ sreplicate @_ @3 1.1 ]))

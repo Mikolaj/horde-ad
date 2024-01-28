@@ -366,6 +366,13 @@ instance IfF (AstShaped s) where
 
 -- * Ranked tensor AST instances
 
+instance AdaptableHVector (AstRanked s) (AstHVector s) where
+  type Value (AstHVector s) = HVector (Flip OR.Array)
+  toHVector = undefined
+  fromHVector aInit params =
+    let (portion, rest) = V.splitAt (V.length aInit) params
+    in Just (AstHVector portion, rest)
+
 instance AstSpan s
          => RankedTensor (AstRanked s) where
   rlet = astLetFun
@@ -768,7 +775,8 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
       [] -> error "rfoldZip: wrong rank of argument"
       width : _shm -> case someNatVal $ toInteger width of
         Just (SomeNat @k _) ->
-          assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD) asD) $
+          assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD)
+                                     asD) $
           let shn = rshape x0
               domsF = V.cons (voidFromSh @rn shn) domsOD
               domsToPair :: forall f. ADReady f
@@ -811,7 +819,8 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
       [] -> error "rfoldZipDer: wrong rank of argument"
       width : _shm -> case someNatVal $ toInteger width of
         Just (SomeNat @k _) ->
-          assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD) asD) $
+          assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD)
+                                     asD) $
           let shn = rshape x0
           in AstFoldZipDer (fun2DToAstR shn f domsOD)
                            (fun4DToAstR shn df domsOD)
@@ -878,7 +887,8 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
       [] -> error "rscanZip: wrong rank of argument"
       width : _shm -> case someNatVal $ toInteger width of
         Just (SomeNat @k _) ->
-          assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD) asD) $
+          assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD)
+                                     asD) $
           let shn = rshape x0
               domsF = V.cons (voidFromSh @rn shn) domsOD
               domsToPair :: forall f. ADReady f
@@ -921,7 +931,8 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
       [] -> error "rscanZipDer: wrong rank of argument"
       width : _shm -> case someNatVal $ toInteger width of
         Just (SomeNat @k _) ->
-          assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD) asD) $
+          assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD)
+                                     asD) $
           let shn = rshape x0
           in AstScanZipDer (fun2DToAstR shn f domsOD)
                            (fun4DToAstR shn df domsOD)
@@ -981,7 +992,8 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
       [] -> error "sfoldZip: wrong rank of argument"
       width : _shm -> case someNatVal $ toInteger width of
         Just (SomeNat @k _) ->
-          assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD) asD) $
+          assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD)
+                                     asD) $
           let domsF = V.cons (voidFromShS @rn @sh) domsOD
               domsToPair :: forall f. ADReadyS f
                             => HVector (RankedOf f)
@@ -1026,7 +1038,8 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
       [] -> error "sfoldZipDer: wrong rank of argument"
       width : _shm -> case someNatVal $ toInteger width of
         Just (SomeNat @k _) ->
-          assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD) asD) $
+          assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD)
+                                     asD) $
           AstFoldZipDerS (fun2DToAstS @_ @_ @sh f domsOD)
                          (fun4DToAstS @_ @_ @sh df domsOD)
                          (fun3DToAstS @_ @_ @sh rf domsOD) x0 asD
