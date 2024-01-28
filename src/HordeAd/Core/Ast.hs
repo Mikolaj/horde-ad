@@ -637,6 +637,31 @@ data AstHVector s where
             -> HVector (AstRanked s)
             -> AstShaped s r sh
             -> AstHVector s
+  AstMapAccumRS
+    :: forall k rn sh s. (GoodScalar rn, Sh.Shape sh, KnownNat k)
+    => ( AstVarName (AstShaped PrimalSpan) rn sh
+       , [AstDynamicVarName]
+       , AstHVector s )
+    -> AstShaped s rn sh
+    -> HVector (AstRanked s)  -- one rank higher than above
+    -> AstHVector s
+  AstMapAccumRDerS
+    :: forall k rn sh s. (GoodScalar rn, Sh.Shape sh, KnownNat k)
+    => ( AstVarName (AstShaped PrimalSpan) rn sh
+       , [AstDynamicVarName]
+       , AstHVector s )
+    -> ( AstVarName (AstShaped PrimalSpan) rn sh
+       , [AstDynamicVarName]
+       , AstVarName (AstShaped PrimalSpan) rn sh
+       , [AstDynamicVarName]
+       , AstHVector s )
+    -> ( [AstDynamicVarName]
+       , AstVarName (AstShaped PrimalSpan) rn sh
+       , [AstDynamicVarName]
+       , AstHVector PrimalSpan )
+    -> AstShaped s rn sh
+    -> HVector (AstRanked s)  -- one rank higher than above
+    -> AstHVector s
 
 deriving instance Show (AstHVector s)
 

@@ -862,6 +862,31 @@ class HVectorTensor (ranked :: RankedTensorType)
             -> shaped rn sh
             -> HVector ranked
             -> shaped rn (1 + k ': sh)
+  smapAccumR
+    :: forall k rn sh. (GoodScalar rn, Sh.Shape sh, KnownNat k)
+    => Proxy k
+    -> (forall f. ADReadyS f
+        => f rn sh -> HVector (RankedOf f) -> HVectorOf (RankedOf f))
+    -> VoidHVector
+    -> shaped rn sh
+    -> HVector ranked
+    -> HVectorOf ranked
+  smapAccumRDer
+    :: forall k rn sh. (GoodScalar rn, Sh.Shape sh, KnownNat k)
+    => Proxy k
+    -> (forall f. ADReadyS f
+        => f rn sh -> HVector (RankedOf f) -> HVectorOf (RankedOf f))
+    -> (forall f. ADReadyS f
+        => f rn sh -> HVector (RankedOf f) -> f rn sh
+        -> HVector (RankedOf f)
+        -> HVectorOf (RankedOf f))
+    -> (forall f. ADReadyS f
+        => HVector (RankedOf f) -> f rn sh -> HVector (RankedOf f)
+        -> HVectorOf (RankedOf f))
+    -> VoidHVector
+    -> shaped rn sh
+    -> HVector ranked
+    -> HVectorOf ranked
 
 
 -- * The giga-constraint
