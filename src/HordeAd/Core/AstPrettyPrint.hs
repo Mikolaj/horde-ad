@@ -643,7 +643,7 @@ printHVectorAst :: forall s. AstSpan s
 printHVectorAst cfg l =
   if prettifyLosingSharing cfg
   then
-    showCollectionWith "(" ")" (\e -> printAstUnDynamic cfg 0 e) (V.toList l)
+    showCollectionWith "[" "]" (\e -> printAstUnDynamic cfg 0 e) (V.toList l)
   else
     showParen True
       $ showString "fromList "
