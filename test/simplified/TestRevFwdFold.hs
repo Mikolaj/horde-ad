@@ -2070,7 +2070,7 @@ fFoldZipR domsOD p as rf shn cShared =
                as
   in cas
 
-fFoldZipRX :: forall ranked. (ADReady ranked, RankedOf ranked ~ ranked)
+fFoldZipRX :: forall ranked. ADReady ranked
   => HVector ranked
   -> HVectorOf ranked
 fFoldZipRX as =

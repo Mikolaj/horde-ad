@@ -59,7 +59,7 @@ import qualified Data.EnumMap.Strict as EM
 import           Data.Functor.Const
 import           Data.Int (Int64)
 import           Data.Kind (Constraint)
-import           Data.List (foldl', mapAccumR, sort, transpose)
+import           Data.List (foldl', mapAccumR, sort)
 import           Data.List.Index (ifoldl')
 import           Data.Maybe (fromMaybe)
 import           Data.Proxy (Proxy (Proxy))
@@ -70,17 +70,7 @@ import qualified Data.Vector.Generic as V
 import           Foreign.C (CInt)
 import           GHC.Show (showSpace)
 import           GHC.TypeLits
-  ( KnownNat
-  , Nat
-  , OrderingI (..)
-  , SomeNat (..)
-  , cmpNat
-  , sameNat
-  , someNatVal
-  , type (+)
-  , type (-)
-  , type (<=)
-  )
+  (KnownNat, Nat, SomeNat (..), sameNat, someNatVal, type (+), type (<=))
 import           Text.Show.Functions ()
 import           Type.Reflection (typeRep)
 import           Unsafe.Coerce (unsafeCoerce)
@@ -1349,10 +1339,8 @@ evalS !s !c = let (abShared, cShared) = sregister c (astBindings s)
         rg = szipWith31 (\cr x a ->
                            sletHVectorIn domsF (rf cr x a) $ \rfRes ->
                              snd $ domsToPair rfRes)
-        cas = rg (sslice @_ @_ @_ @_ @0
-                         (Proxy @1) (Proxy @k) crs)
-                 (sslice @_ @_ @_ @_ @1
-                         (Proxy @0) (Proxy @k) p)
+        cas = rg (sslice @_ @_ @_ @_ @0 (Proxy @1) (Proxy @k) crs)
+                 (sslice @_ @_ @_ @_ @1 (Proxy @0) (Proxy @k) p)
                  as
         s3 = evalS s2 (crs !$ (0 :$: ZSH)) x0'
     in evalS s3 cas as'
@@ -1371,13 +1359,13 @@ evalS !s !c = let (abShared, cShared) = sregister c (astBindings s)
                                      (sunravelToList as))
         s2 = evalS sShared cx0 x0'
     in evalS s2 (sfromList cas) as'
-  FoldZipS @k3 domsOD p as _df rf x0' as' -> case V.unsnoc as of
+  FoldZipS @k domsOD p as _df rf x0' as' -> case V.unsnoc as of
     Nothing -> error "evalS: can't determine argument width"
     Just (_, d) -> case shapeDynamic d of
       [] -> error "evalS: wrong rank of argument"
       0 : _ -> evalS s c x0'  -- TODO: needed?
       width : _shm ->
-        let !_A1 = assert (valueOf @k3 == width) ()
+        let !_A1 = assert (valueOf @k == width) ()
             odShn = voidFromShS @r @sh
             domsF = V.cons odShn domsOD
             domsToPair :: ADReadyS f
@@ -1388,11 +1376,10 @@ evalS !s !c = let (abShared, cShared) = sregister c (astBindings s)
                     -> (f r sh, f r sh, HVector (RankedOf f))
             domsTo3 doms =
               (sfromD $ doms V.! 0, sfromD $ doms V.! 1, V.drop 2 doms)
-            lp = sreverse $ sslice @_ @_ @_ @_ @1
-                                   (Proxy @0) (Proxy @k3) p
+            lp = sreverse $ sslice @_ @_ @_ @_ @1 (Proxy @0) (Proxy @k) p
             las :: HVector ranked
-            las = mapHVectorShaped11 @k3 sreverse as
-            crsr :: shaped r (1 + k3 ': sh)
+            las = mapHVectorShaped11 @k sreverse as
+            crsr :: shaped r (1 + k ': sh)
             crsr =
               sscanZip
                 (\cr doms ->
@@ -1405,7 +1392,7 @@ evalS !s !c = let (abShared, cShared) = sregister c (astBindings s)
             crsUnshared = sreverse crsr
             (abShared2, crs) = sregister crsUnshared (astBindings sShared)
             s2 = sShared {astBindings = abShared2}
-            rg :: shaped r (k3 ': sh) -> shaped r (k3 ': sh)
+            rg :: shaped r (k ': sh) -> shaped r (k ': sh)
                -> HVector ranked
                -> HVectorOf ranked
             rg cr2 x2 a2 =
@@ -1416,11 +1403,10 @@ evalS !s !c = let (abShared, cShared) = sregister c (astBindings s)
                                   dmkHVector $ snd $ domsToPair rfRes)
                         (V.cons (DynamicShaped cr2)
                          $ V.cons (DynamicShaped x2) a2)
-            casUnshared = rg (sslice @_ @_ @_ @_ @0
-                                     (Proxy @1) (Proxy @k3) crs)
-                             (sslice @_ @_ @_ @_ @1
-                                     (Proxy @0) (Proxy @k3) p)
-                             as
+            casUnshared =
+              rg (sslice @_ @_ @_ @_ @0 (Proxy @1) (Proxy @k) crs)
+                 (sslice @_ @_ @_ @_ @1 (Proxy @0) (Proxy @k) p)
+                 as
             domsG = voidFromHVector as
             (abShared3, cas) =
               dregister domsG casUnshared (astBindings s2)
@@ -1486,103 +1472,66 @@ evalS !s !c = let (abShared, cShared) = sregister c (astBindings s)
                  as
         s3 = evalS s2 (crs !$ (0 :$: ZSH) + cShared !$ (0 :$: ZSH)) x0'
     in evalS s3 cas as'
-  ScanZipS @sh1 @k3 domsOD p as _df rf x0' as' ->
+  ScanZipS @sh1 @k domsOD p as _df rf x0' as' ->
     let odShn = voidFromShS @r @sh1
         domsF = V.cons odShn domsOD
         domsToPair :: ADReadyS f
                    => HVector (RankedOf f) -> (f r sh1, HVector (RankedOf f))
         domsToPair doms = (sfromD $ doms V.! 0, V.tail doms)
+        domsF3 = V.cons (voidFromShS @r @sh1)
+                 $ V.cons (voidFromShS @r @sh1) domsOD
         domsTo3 :: ADReadyS f
                 => HVector (RankedOf f)
                 -> (f r sh1, f r sh1, HVector (RankedOf f))
-        domsTo3 doms = ( sfromD $ doms V.! 0
-                       , sfromD $ doms V.! 1
-                       , V.drop 2 doms )
-        g1 :: Int -> shaped r (1 + k3 ': sh1)
-        g1 k = case someNatVal $ toInteger k of
-          Just (SomeNat @k _) -> case cmpNat (Proxy @k) (Proxy @k3) of
-            LTI -> gCmp1 @k
-            EQI -> gCmp1 @k
-            GTI -> error "evalS: impossible GTI"
-          _ -> error "evalS: impossible someNatVal"
-        gCmp1 :: forall k. (KnownNat k, k <= k3)
-              => shaped r (1 + k3 ': sh1)
-        gCmp1 =
-          let cx = cShared !$ (valueOf @k :$: ZSH)
-              lp = sreverse $ sslice @_ @_ @_ @_ @(1 + k3 - k)
-                                     (Proxy @0) (Proxy @k) p
-              las :: HVector ranked
-              las = mapHVectorShaped11 @k3
-                      (sreverse . sslice @_ @_ @_ @_ @(k3 - k)
-                                         (Proxy @0) (Proxy @k)) as
-              rf1 :: shaped r (1 + k ': sh1)
-              rf1 =
-                sscanZip
-                  (\cr doms ->
-                      let (x, a) = domsToPair doms
-                      in sletHVectorIn domsF (rf cr x a) $ \rfRes ->
-                           fst $ domsToPair rfRes)
-                  domsF
-                  cx
-                  (V.cons (DynamicShaped lp) las)
-          in sappend @_ @_ @(1 + k) @(k3 - k) (sreverse rf1) 0
-        g1s = map g1 [1 .. valueOf @k3]
-        g1tUnshared = sfromList @_ @_ @k3 g1s
-        (abShared2, g1t) = sregister g1tUnshared (astBindings sShared)
+        domsTo3 doms =
+          (sfromD $ doms V.! 0, sfromD $ doms V.! 1, V.drop 2 doms)
+        domsTo4 :: ADReadyS f
+                => HVector (RankedOf f)
+                -> (f r sh1, f r sh1, f r sh1, HVector (RankedOf f))
+        domsTo4 doms =
+          ( sfromD $ doms V.! 0, sfromD $ doms V.! 1, sfromD $ doms V.! 2
+          , V.drop 3 doms )
+        lc = sreverse $ sslice @_ @_ @_ @_ @0 (Proxy @1) (Proxy @k) cShared
+        lp = sreverse $ sslice @_ @_ @_ @_ @1 (Proxy @0) (Proxy @k) p
+        las :: HVector ranked
+        las = mapHVectorShaped11 @k sreverse as
+        crsr :: shaped r (1 + k ': sh1)
+        crsr =
+          sscanZip (\cr doms ->
+                      let (cx, x, a) = domsTo3 doms
+                      in sletHVectorIn
+                           domsF (rf (cr + cx) x a) $ \rfRes ->
+                             fst $ domsToPair rfRes)
+                   domsF3
+                   0
+                   (V.cons (DynamicShaped lc)
+                    $ V.cons (DynamicShaped lp) las)
+        crsUnshared = sreverse crsr
+        (abShared2, crs) = sregister crsUnshared (astBindings sShared)
         s2 = sShared {astBindings = abShared2}
-        g1sum = withListShape (Sh.shapeT @sh1) $ \(_ :: ShapeInt n1) ->
-                  gcastWith (unsafeCoerce Refl :: Sh.Rank sh1 :~: n1) $
-                  cShared !$ (0 :$: ZSH)
-                  + ssum (str g1t !$ (0 :$: ZSH))
-        g2 :: EvalState ranked
-           -> Int
-           -> (EvalState ranked, HVector ranked)  -- k3 ': shm
-        g2 sg2 k = case someNatVal $ toInteger k of
-          Just (SomeNat @k _) -> case cmpNat (Proxy @k) (Proxy @k3) of
-            LTI -> gCmp2 @k sg2
-            EQI -> gCmp2 @k sg2
-            GTI -> error "evalS: impossible GTI"
-          _ -> error "evalS: impossible someNatVal"
-        gCmp2 :: forall k. (KnownNat k, k <= k3)
-              => EvalState ranked
-              -> (EvalState ranked, HVector ranked)  -- k3 ': shm
-        gCmp2 sg2 =
-          let rf11 =
-                sslice @_ @_ @_ @_ @(k3 - k)
-                       (Proxy @1) (Proxy @k)
-                  $ g1t !$ (fromIntegral (valueOf @k - 1 :: Int) :$: ZSH)
-              lp = sslice @_ @_ @_ @_ @(1 + k3 - k)
-                          (Proxy @0) (Proxy @k) p
-              las = mapHVectorShaped11 @k3
-                      (sslice @_ @_ @_ @_ @(k3 - k)
-                              (Proxy @0) (Proxy @k)) as
-              rg :: shaped r (k ': sh1) -> shaped r (k ': sh1)
-                 -> HVector ranked
-                 -> HVectorOf ranked
-              rg cr2 x2 a2 =
-                dzipWith1 (\doms ->
-                             let (cr, x, a) = domsTo3 doms
-                             in dletHVectorInHVector @ranked
-                                  domsF (rf cr x a) $ \rfRes ->
-                                    dmkHVector $ snd $ domsToPair rfRes)
-                          (V.cons (DynamicShaped cr2)
-                           $ V.cons (DynamicShaped x2) a2)
-              casUnshared = rg rf11 lp las
-              domsG = voidFromHVector las
-              (abShared4, cas) =
-                dregister domsG casUnshared (astBindings sg2)
-              sg3 = sg2 {astBindings = abShared4}
-              padShaped :: forall shq rq.
-                           (Sh.Shape shq, GoodScalar rq)
-                        => shaped rq (k ': shq)
-                        -> shaped rq (k3 ': shq)
-              padShaped t = sappend @_ @_ @k @(k3 - k) t 0
-          in (sg3, mapHVectorShaped11 @k padShaped cas)
-        (s3, g2s) = mapAccumR g2 s2 [1 .. valueOf @k3]
-        g2sum = V.fromList $ map sumDynamicShaped
-                $ transpose $ map V.toList g2s
-        s4 = evalS s3 g1sum x0'
-    in evalHVector s4 g2sum as'
+        rg :: shaped r (k ': sh1) -> shaped r (k ': sh1) -> shaped r (k ': sh1)
+           -> HVector ranked
+           -> HVectorOf ranked
+        rg cr2 cx2 x2 a2 =
+          dzipWith1 (\doms ->
+                       let (cr, cx, x, a) = domsTo4 doms
+                       in dletHVectorInHVector @ranked
+                            domsF (rf (cr + cx) x a) $ \rfRes ->
+                              dmkHVector $ snd $ domsToPair rfRes)
+                    (V.cons (DynamicShaped cr2)
+                     $ V.cons (DynamicShaped cx2)
+                     $ V.cons (DynamicShaped x2) a2)
+        casUnshared =
+          rg (sslice @_ @_ @_ @_ @0 (Proxy @1) (Proxy @k) crs)
+             (sslice @_ @_ @_ @_ @0 (Proxy @1) (Proxy @k) cShared)
+             (sslice @_ @_ @_ @_ @1 (Proxy @0) (Proxy @k) p)
+             as
+        domsG = voidFromHVector as
+        (abShared3, cas) =
+          dregister domsG casUnshared (astBindings s2)
+        s3 = s2 {astBindings = abShared3}
+        s4 = evalS s3 (crs !$ (0 :$: ZSH) + cShared !$ (0 :$: ZSH)) x0'
+    in evalHVector s4 cas as'
   CastS d -> evalSRuntimeSpecialized s (scast c) d
   RToS (SToR @sh2 d) ->
     case sameShape @sh @sh2 of
@@ -2096,7 +2045,7 @@ fwdS dimR params s = \case
         lp = sunravelToList p
     in (s3, foldl' (\cx (ca, x, a) -> df cx ca x a)
                    cx0 (zip3 lcas (init lp) las))
-  FoldZipS @k3 domsOD p as df _rf x0' as' ->
+  FoldZipS @k domsOD p as df _rf x0' as' ->
     let domsLen = V.length domsOD
         (s2, cx0) = fwdS dimR params s x0'
         (s3, cas) = fwdHVector dimR params s2 as'
@@ -2116,7 +2065,7 @@ fwdS dimR params s = \case
                      (V.concat [ cas
                                , V.singleton
                                    (DynamicShaped
-                                    $ sslice (Proxy @0) (Proxy @k3) p)
+                                    $ sslice (Proxy @0) (Proxy @k) p)
                                , as ]))
   FoldZipSC _domsOD p as df _rf x0' as' ->
     let (s2, cx0) = fwdS dimR params s x0'
@@ -2146,7 +2095,7 @@ fwdS dimR params s = \case
                         [ DynamicShaped cas
                         , DynamicShaped $ sslice (Proxy @0) (Proxy @k) p
                         , DynamicShaped as ]))
-  ScanZipS @sh1 @k3 domsOD p as df _rf x0' as' ->
+  ScanZipS @sh1 @k domsOD p as df _rf x0' as' ->
     let domsLen = V.length domsOD
         (s2, cx0) = fwdS dimR params s x0'
         (s3, cas) = fwdHVector dimR params s2 as'
@@ -2166,7 +2115,7 @@ fwdS dimR params s = \case
                      (V.concat [ cas
                                , V.singleton
                                    (DynamicShaped
-                                    $ sslice (Proxy @0) (Proxy @k3) p)
+                                    $ sslice (Proxy @0) (Proxy @k) p)
                                , as ]))
   CastS d ->
     second scast $ fwdS dimR params s d
