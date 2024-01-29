@@ -1050,7 +1050,6 @@ evalR !s !c = let (abShared, cShared) = rregister c (astBindings s)
     Nothing -> error "evalR: can't determine argument width"
     Just (_, d) -> case shapeDynamic d of
       [] -> error "evalR: wrong rank of argument"
-      0 : _ -> evalR s c x0'  -- TODO: needed?
       width : _shm ->
         let !_A1 = assert (rlength p == width + 1) ()
             shn = shapeDelta x0'
@@ -1115,7 +1114,6 @@ evalR !s !c = let (abShared, cShared) = rregister c (astBindings s)
         s2 = evalR sShared cx0 x0'
     in evalHVector s2 (ravelHVector cas) as'
   ScanR @rm @m @_ @_ @n1 p as _df rf x0' as' -> case rshape as of
-    0 :$ _ -> evalR s (c ! (0 :. ZI)) x0'
     width :$ shm ->
       let !_A1 = assert (rlength p == width + 1) ()
           !_A2 = assert (rlength cShared == width + 1) ()
@@ -1159,7 +1157,6 @@ evalR !s !c = let (abShared, cShared) = rregister c (astBindings s)
     Nothing -> error "evalR: can't determine argument width"
     Just (_, d) -> case shapeDynamic d of
       [] -> error "evalR: wrong rank of argument"
-      0 : _ -> evalR s (c ! (0 :. ZI)) x0'
       width : _ ->
         let !_A1 = assert (rlength p == width + 1) ()
             !_A2 = assert (rlength cShared == width + 1) ()
