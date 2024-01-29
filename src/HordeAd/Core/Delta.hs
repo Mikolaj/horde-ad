@@ -1187,75 +1187,60 @@ evalR !s !c = let (abShared, cShared) = rregister c (astBindings s)
             domsToPair :: forall f. ADReady f
                        => HVector f -> (f r n1, HVector f)
             domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
-            domsTo3 :: ADReady f
-                    => HVector f -> (f r n1, f r n1, HVector f)
-            domsTo3 doms = ( rfromD $ doms V.! 0
-                           , rfromD $ doms V.! 1
-                           , V.drop 2 doms )
-            g1 :: Int -> ranked r (1 + n1)
-            g1 k =
-              let cx = cShared ! (fromIntegral k :. ZI)
-                  lp = rreverse $ rslice 0 k p
-                  las :: HVector ranked
-                  las = mapHVectorRanked11 (rreverse . rslice 0 k) as
-                  rf1 :: ranked r (1 + n1)
-                  rf1 =
-                    rscanZip
-                      (\cr doms ->
-                          let (x, a) = domsToPair doms
-                          in rletHVectorIn domsF (rf cr x a) $ \rfRes ->
-                               fst $ domsToPair rfRes)
-                      domsF
-                      cx
-                      (V.cons (DynamicRanked lp) las)
-                  padding = rzero (width - k :$ shn)
-              in rappend (rreverse rf1) padding
-            g1s = map g1 [1 .. width]  -- can't be rmap, rbuild nor rscan
-            g1tUnshared = rfromList g1s
-            (abShared2, g1t) = rregister g1tUnshared (astBindings sShared)
-            s2 = sShared {astBindings = abShared2}
-            g1sum = cShared ! (0 :. ZI) + rsum (rtr g1t ! (0 :. ZI))
-            g2 :: EvalState ranked
-               -> Int
-               -> (EvalState ranked, HVector ranked)  -- 1 + m
-            g2 sg2 k =
-              let rf11 =
-                    rslice 1 k $ g1t ! (fromIntegral k - 1 :. ZI)
-                  lp = rslice 0 k p
-                  las :: HVector ranked  -- 1 + m
-                  las = mapHVectorRanked11 (rslice 0 k) as
-                  rg :: ranked r (1 + n1) -> ranked r (1 + n1)
-                     -> HVector ranked
-                     -> HVectorOf ranked
-                  rg cr2 x2 a2 =
-                    dzipWith1
-                      (\doms ->
-                         let (cr, x, a) = domsTo3 doms
-                         in dletHVectorInHVector @ranked
-                              domsF (rf cr x a) $ \rfRes ->
-                                dmkHVector $ snd $ domsToPair rfRes)
-                      (V.cons (DynamicRanked cr2)
-                       $ V.cons (DynamicRanked x2) a2)
-                  casUnshared = rg rf11 lp las
-                  domsG = voidFromHVector las
-                  (abShared4, cas) =
-                    dregister domsG casUnshared (astBindings sg2)
-                  sg3 = sg2 {astBindings = abShared4}
-                  padRanked :: forall nq rq.
-                               (KnownNat nq, GoodScalar rq)
-                            => ranked rq (1 + nq)
-                            -> ranked rq (1 + nq)
-                  padRanked t = case rshape t of
-                    ZS -> error "padRanked: wrong shape"
-                    kk :$ shm -> assert (kk == k) $
-                      let padding = rzero (width - k :$ shm)
-                      in rappend t padding
-              in (sg3, mapHVectorRanked11 padRanked cas)
-            (s3, g2s) = mapAccumR g2 s2 [1 .. width]
-            g2sum = V.fromList $ map sumDynamicRanked
-                    $ transpose $ map V.toList g2s
-            s4 = evalR s3 g1sum x0'
-        in evalHVector s4 g2sum as'
+            domsF3 = V.cons (voidFromSh @r shn)
+                     $ V.cons (voidFromSh @r shn) domsOD
+            domsTo3 :: ADReady f => HVector f -> (f r n1, f r n1, HVector f)
+            domsTo3 doms =
+              (rfromD $ doms V.! 0, rfromD $ doms V.! 1, V.drop 2 doms)
+            domsTo4 :: ADReady f
+                    => HVector f -> (f r n1, f r n1, f r n1, HVector f)
+            domsTo4 doms =
+              ( rfromD $ doms V.! 0, rfromD $ doms V.! 1, rfromD $ doms V.! 2
+              , V.drop 3 doms )
+            crsr :: ranked r (1 + n1)
+            crsr =
+              rscanZip (\cr doms ->
+                          let (cx, x, a) = domsTo3 doms
+                          in rletHVectorIn
+                               domsF (rf (cr + cx) x a) $ \rfRes ->
+                                 fst $ domsToPair rfRes)
+                       domsF3
+                       (rzero shn)
+                       (V.cons
+                          (DynamicRanked $ rreverse $ rslice 1 width cShared)
+                        $ V.cons
+                            (DynamicRanked $ rreverse $ rslice 0 width p)
+                            (mapHVectorRanked11 rreverse as))
+            crs = rreverse crsr
+            -- We can't share crs via rlet, etc., because it's involved
+            -- in two different calls to evalR.
+            (abShared2, crsShared) = rregister crs (astBindings sShared)
+            sShared2 = sShared {astBindings = abShared2}
+            rg :: ranked r (1 + n1) -> ranked r (1 + n1) -> ranked r (1 + n1)
+               -> HVector ranked
+               -> HVectorOf ranked
+            rg cr2 cx2 x2 a2 =
+              dzipWith1 (\doms ->
+                           let (cr, cx, x, a) = domsTo4 doms
+                           in dletHVectorInHVector @ranked
+                                domsF (rf (cr + cx) x a) $ \rfRes ->
+                                  dmkHVector $ snd $ domsToPair rfRes)
+                        (V.cons (DynamicRanked cr2)
+                         $ V.cons (DynamicRanked cx2)
+                         $ V.cons (DynamicRanked x2) a2)
+            casUnshared = rg (rslice 1 width crsShared) (rslice 1 width cShared)
+                             (rslice 0 width p) as
+              -- @rslice 0 width p@ is very cheap and @p@ (and @as@)
+              -- is shared in TensorADVal, so not need to share them
+            -- Until we have evalHVectorOf, we need to share cas in order
+            -- to get access to it's HVector form.
+            domsG = voidFromHVector as
+            (abShared3, cas) =
+              dregister domsG casUnshared (astBindings sShared2)
+            sShared3 = sShared2 {astBindings = abShared3}
+            s2 =
+              evalR sShared3 (crsShared ! (0 :. ZI) + cShared ! (0 :. ZI)) x0'
+        in evalHVector s2 cas as'
   CastR d -> evalRRuntimeSpecialized s (rcast c) d
 
   SToR (RToS d) -> evalR s c d  -- no information lost, so no checks

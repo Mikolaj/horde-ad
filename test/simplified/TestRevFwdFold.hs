@@ -1349,7 +1349,7 @@ testSin0ScanD1RevPP = do
                            x0 (V.singleton $ DynamicRanked
                                $ rconst (OR.constant @Double @1 [2] 42))) 1.1
   printAstPretty IM.empty (simplifyAst6 a1)
-    @?= "let v60 = rconst (fromList [2] [42.0,42.0]) ; v70 = rscanZipDer f df rf (rconst 1.1) (v60) in rconst 1.0 + rsum (rgather [2] (rfromList [rreplicate 2 (rscanZipDer f df rf (rconst 1.0) (rreverse (rslice 0 1 v70), rreverse (rslice 0 1 v60)) ! [1]), rreplicate 2 (rscanZipDer f df rf (rconst 1.0) (rreverse (rslice 0 2 v70), rreverse v60) ! [2])]) (\\[i135] -> [i135, i135]))"
+    @?= "let v63 = rconst (fromList [2] [42.0,42.0]) in rscanZipDer f df rf (rconst 0.0) (rconstant (rreplicate 2 (rconst 1.0)), rreverse (rslice 0 2 (rscanZipDer f df rf (rconst 1.1) (v63))), rreverse v63) ! [2] + rconst 1.0"
 
 testSin0ScanDFwdPP :: Assertion
 testSin0ScanDFwdPP = do
@@ -1371,7 +1371,7 @@ testSin0ScanD1Rev2PP = do
                          x0 (V.singleton $ DynamicRanked
                              $ rconst (OR.fromList @Double @1 [2] [5, 7]))) 1.1
   printAstPretty IM.empty (simplifyAst6 a1)
-    @?= "let v64 = rconst (fromList [2] [5.0,7.0]) ; v75 = rscanZipDer f df rf (rconst 1.1) (v64) in rconst 1.0 + rsum (rgather [2] (rfromList [rreplicate 2 (rscanZipDer f df rf (rconst 1.0) (rreverse (rslice 0 1 v75), rreverse (rslice 0 1 v64)) ! [1]), rreplicate 2 (rscanZipDer f df rf (rconst 1.0) (rreverse (rslice 0 2 v75), rreverse v64) ! [2])]) (\\[i144] -> [i144, i144]))"
+    @?= "let v66 = rconst (fromList [2] [5.0,7.0]) in rscanZipDer f df rf (rconst 0.0) (rconstant (rreplicate 2 (rconst 1.0)), rreverse (rslice 0 2 (rscanZipDer f df rf (rconst 1.1) (v66))), rreverse v66) ! [2] + rconst 1.0"
 
 testSin0ScanDFwd2PP :: Assertion
 testSin0ScanDFwd2PP = do
@@ -1415,7 +1415,7 @@ testSin0ScanD1Rev3PP = do
                             $ rscan (\x a -> a * x) x0
                                     (rfromList [x0 * 5, x0]))) 1.1
   length (printAstSimple IM.empty (simplifyAst6 a1))
-    @?= 3622
+    @?= 2394
 
 testSin0ScanDFwd3PP :: Assertion
 testSin0ScanDFwd3PP = do
@@ -1852,7 +1852,7 @@ testSin0FoldNestedR21PP = do
                             a0 (rreplicate 2 a0)
            in f) 1.1
   length (printAstSimple IM.empty (simplifyAst6 a1))
-    @?= 49702
+    @?= 45638
 
 testSin0revhV :: Assertion
 testSin0revhV = do
