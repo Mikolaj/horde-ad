@@ -897,7 +897,7 @@ testSin0Scan1RevPP = do
                  (\x0 -> rscan (\x _a -> sin x) x0
                            (rconst (OR.constant @Double @1 [2] 42))) 1.1
   printAstPretty IM.empty (simplifyAst6 a1)
-    @?= "let v50 = rconst (fromList [2] [42.0,42.0]) ; v60 = rscanDer f df rf (rconst 1.1) v50 in rconst 1.0 + rsum (rgather [2] (rfromList [rreplicate 2 (rscanZipDer f df rf (rconst 1.0) (rreverse (rslice 0 1 v60), rreverse (rslice 0 1 v50)) ! [1]), rreplicate 2 (rscanZipDer f df rf (rconst 1.0) (rreverse (rslice 0 2 v60), rreverse v50) ! [2])]) (\\[i121] -> [i121, i121]))"
+    @?= "let v62 = rconst (fromList [2] [42.0,42.0]) in rscanZipDer f df rf (rconst 0.0) (rconstant (rreplicate 2 (rconst 1.0)), rreverse (rslice 0 2 (rscanDer f df rf (rconst 1.1) v62)), rreverse v62) ! [2] + rconst 1.0"
 
 testSin0Scan1RevPPForComparison :: Assertion
 testSin0Scan1RevPPForComparison = do
@@ -923,7 +923,7 @@ testSin0Scan1Rev2PP = do
                  (\x0 -> rscan (\x a -> sin x - a) x0
                            (rconst (OR.fromList @Double @1 [2] [5, 7]))) 1.1
   printAstPretty IM.empty (simplifyAst6 a1)
-    @?= "let v52 = rconst (fromList [2] [5.0,7.0]) ; v63 = rscanDer f df rf (rconst 1.1) v52 in rconst 1.0 + rsum (rgather [2] (rfromList [rreplicate 2 (rscanZipDer f df rf (rconst 1.0) (rreverse (rslice 0 1 v63), rreverse (rslice 0 1 v52)) ! [1]), rreplicate 2 (rscanZipDer f df rf (rconst 1.0) (rreverse (rslice 0 2 v63), rreverse v52) ! [2])]) (\\[i124] -> [i124, i124]))"
+    @?= "let v64 = rconst (fromList [2] [5.0,7.0]) in rscanZipDer f df rf (rconst 0.0) (rconstant (rreplicate 2 (rconst 1.0)), rreverse (rslice 0 2 (rscanDer f df rf (rconst 1.1) v64)), rreverse v64) ! [2] + rconst 1.0"
 
 testSin0Scan1Rev2PPForComparison :: Assertion
 testSin0Scan1Rev2PPForComparison = do
@@ -962,7 +962,7 @@ testSin0Scan1Rev3PP = do
                  (\x0 -> rscan (\x a -> sin x - a) x0
                            (rfromList [x0 * 5, x0 * 7])) 1.1
   printAstPretty IM.empty (simplifyAst6 a1)
-    @?= "let v57 = rfromList [rconst 1.1 * rconst 5.0, rconst 1.1 * rconst 7.0] ; v68 = rscanDer f df rf (rconst 1.1) v57 ; m69 = rfromList [rappend (rreverse (rscanZipDer f df rf (rconst 1.0) (rreverse (rslice 0 1 v68), rreverse (rslice 0 1 v57)))) (rconstant (rreplicate 1 (rconst 0.0))), rappend (rreverse (rscanZipDer f df rf (rconst 1.0) (rreverse (rslice 0 2 v68), rreverse v57))) (rconstant (rreplicate 0 (rconst 0.0)))] ; v87 = rsum (rfromList [rappend (rconstant (rreplicate 1 (rconst -1.0)) * rgather [1] (m69 ! [0]) (\\[i89] -> [1 + i89])) (rconstant (rreplicate 1 (rconst 0.0))), rappend (rconstant (rreplicate 2 (rconst -1.0)) * rgather [2] (m69 ! [1]) (\\[i97] -> [1 + i97])) (rconstant (rreplicate 0 (rconst 0.0)))]) in rconst 5.0 * v87 ! [0] + rconst 7.0 * v87 ! [1] + rconst 1.0 + rsum (rgather [2] m69 (\\[i91] -> [i91, 0]))"
+    @?= "let v65 = rfromList [rconst 1.1 * rconst 5.0, rconst 1.1 * rconst 7.0] ; v102 = rreverse (rscanZipDer f df rf (rconst 0.0) (rconstant (rreplicate 2 (rconst 1.0)), rreverse (rslice 0 2 (rscanDer f df rf (rconst 1.1) v65)), rreverse v65)) ; v105 = rconstant (rreplicate 2 (rconst -1.0)) * (rconstant (rreplicate 2 (rconst 1.0)) + rgather [2] v102 (\\[i104] -> [1 + i104])) in rconst 5.0 * v105 ! [0] + rconst 7.0 * v105 ! [1] + v102 ! [0] + rconst 1.0"
 
 testSin0Scan1Rev3PPForComparison :: Assertion
 testSin0Scan1Rev3PPForComparison = do
@@ -1415,7 +1415,7 @@ testSin0ScanD1Rev3PP = do
                             $ rscan (\x a -> a * x) x0
                                     (rfromList [x0 * 5, x0]))) 1.1
   length (printAstSimple IM.empty (simplifyAst6 a1))
-    @?= 4242
+    @?= 3622
 
 testSin0ScanDFwd3PP :: Assertion
 testSin0ScanDFwd3PP = do
@@ -1852,7 +1852,7 @@ testSin0FoldNestedR21PP = do
                             a0 (rreplicate 2 a0)
            in f) 1.1
   length (printAstSimple IM.empty (simplifyAst6 a1))
-    @?= 63657
+    @?= 49702
 
 testSin0revhV :: Assertion
 testSin0revhV = do

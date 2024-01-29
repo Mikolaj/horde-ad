@@ -1137,51 +1137,41 @@ evalR !s !c = let (abShared, cShared) = rregister c (astBindings s)
           domsF = V.fromList [voidFromSh @r shn, voidFromSh @rm shm]
           domsToPair :: ADReady f => HVector f -> (f r n1, f rm m)
           domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
-          -- The domain must be @Int@ due to rslice and so can't be
-          -- @IndexOf ranked 0@ for rbuild nor @ranked Int 0@ for rmap.
-          -- We can't fold nor scan over g1/g2, because it's not closed.
-          -- We can't multiply by a unitriangular matrix instead of
-          -- using slice, because rf can have a constant component
-          -- and then it gets summed over the zero area of the matrix.
-          g1 :: Int -> ranked r (1 + n1)
-          g1 k =
-            let cx = cShared ! (fromIntegral k :. ZI)
-                rf1 =
-                  rscanZip (\cr doms ->
-                              let (x, a) = domsToPair doms
-                              in rletHVectorIn
-                                   domsF (rf cr x a) $ \rfRes ->
-                                     fst $ domsToPair rfRes)
-                         domsF
-                         cx
-                         (V.fromList
-                            [ DynamicRanked $ rreverse $ rslice 0 k p
-                            , DynamicRanked $ rreverse $ rslice 0 k as ])
-                padding = rzero (width - k :$ shn)
-            in rappend (rreverse rf1) padding
-          g1s = map g1 [1 .. width]  -- can't be rmap nor rbuild nor rscan
-          g1t = rfromList g1s
-          (abShared2, g1tShared) = rregister g1t (astBindings sShared)
+          domsF3 = V.fromList
+                     [voidFromSh @r shn, voidFromSh @r shn, voidFromSh @rm shm]
+          domsTo3 :: ADReady f => HVector f -> (f r n1, f r n1, f rm m)
+          domsTo3 doms =
+            (rfromD $ doms V.! 0, rfromD $ doms V.! 1, rfromD $ doms V.! 2)
+          crsr :: ranked r (1 + n1)
+          crsr =
+            rscanZip (\cr doms ->
+                        let (cx, x, a) = domsTo3 doms
+                        in rletHVectorIn
+                             domsF (rf (cr + cx) x a) $ \rfRes ->
+                               fst $ domsToPair rfRes)
+                     domsF3
+                     (rzero shn)
+                     (V.fromList
+                        [ DynamicRanked $ rreverse $ rslice 1 width cShared
+                        , DynamicRanked $ rreverse $ rslice 0 width p
+                        , DynamicRanked $ rreverse as ])
+          crs = rreverse crsr
+          -- We can't share crs via rlet, etc., because it's involved
+          -- in two different calls to evalR.
+          (abShared2, crsShared) = rregister crs (astBindings sShared)
           sShared2 = sShared {astBindings = abShared2}
-          g1sum = cShared ! (0 :. ZI) + rsum (rtr g1tShared ! (0 :. ZI))
-          g2 :: Int -> ranked rm (1 + m)
-          g2 k =
-            let rf11 = rslice 1 k $ g1tShared ! (fromIntegral k - 1 :. ZI)
-                lp = rslice 0 k p
-                las = rslice 0 k as
-                rg :: ranked r (1 + n1) -> ranked r (1 + n1)
-                   -> ranked rm (1 + m)
-                   -> ranked rm (1 + m)
-                rg = rzipWith31 (\cr x a ->
-                       rletHVectorIn domsF (rf cr x a) $ \rfRes ->
-                          snd $ domsToPair rfRes)
-                cas = rg rf11 lp las
-                padding = rzero (width - k :$ shm)
-            in rappend cas padding
-          g2s = map g2 [1 .. width]  -- can't be rmap nor rbuild nor rscan
-          g2sum = rsum $ rfromList g2s
-          s2 = evalR sShared2 g1sum x0'
-      in evalR s2 g2sum as'
+          rg :: ranked r (1 + n1) -> ranked r (1 + n1) -> ranked r (1 + n1)
+             -> ranked rm (1 + m)
+             -> ranked rm (1 + m)
+          rg = rzipWith41 (\cr cx x a ->
+                             rletHVectorIn domsF (rf (cr + cx) x a) $ \rfRes ->
+                               snd $ domsToPair rfRes)
+          cas = rg (rslice 1 width crsShared) (rslice 1 width cShared)
+                   (rslice 0 width p) as
+            -- @rslice 0 width p@ is very cheap and @p@ (and @as@)
+            -- is shared in TensorADVal, so not need to share them
+          s2 = evalR sShared2 (crsShared ! (0 :. ZI) + cShared ! (0 :. ZI)) x0'
+      in evalR s2 cas as'
     ZS -> error "evalR: impossible pattern needlessly required"
   ScanZipR @_ @_ @n1 domsOD p as _df rf x0' as' -> case V.unsnoc as of
     Nothing -> error "evalR: can't determine argument width"
