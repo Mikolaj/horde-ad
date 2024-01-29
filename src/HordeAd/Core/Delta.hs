@@ -977,125 +977,130 @@ evalR !s !c = let (abShared, cShared) = rregister c (astBindings s)
     in evalR s (rtranspose perm_reversed c) d
   ReshapeR _sh d -> evalR s (rreshape (shapeDelta d) c) d
   GatherR _sh d f -> evalR s (rscatter (shapeDelta d) c f) d
-  FoldR @rm @m p as _df rf x0' as' -> case rshape as of
-    width :$ shm ->
-      -- The call @rf cr x a@ is not shared here, but it's repeated
-      -- just two times, so it's fine unless folds are nested.
-      -- TODO: remove the double call by implementing rmapAccumR,
-      -- which however requires DeltaHVector, which is yet another
-      -- can of worms. Unless we can express Delta for rmapAccumR
-      -- as a composition of that for rscan and rzipwith, but then
-      -- we probably reintroduce the double call, just one level lower.
-      -- BTW, DeltaHVector may enable taking derivatives of objective
-      -- functions with codomains other than a single tensor.
-      let !_A1 = assert (rlength p == width + 1) ()
-          shn = shapeDelta x0'
-          domsF = V.fromList [voidFromSh @r shn, voidFromSh @rm shm]
-          domsToPair :: ADReady f => HVector f -> (f r n, f rm m)
-          domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
-          crsr :: ranked r (1 + n)
-          crsr =
-            rscanZip (\cr doms ->
-                        let (x, a) = domsToPair doms
-                        in rletHVectorIn
-                             domsF (rf cr x a) $ \rfRes ->
-                               fst $ domsToPair rfRes)
-                     domsF
-                     cShared  -- not duplicated directly, but just in case
-                     (V.fromList
-                        [ DynamicRanked $ rreverse $ rslice 0 width p
-                        , DynamicRanked $ rreverse as ])
-          crsUnshared = rreverse crsr
-          -- We can't share crs via rlet, etc., because it appears
-          -- in two different calls to evalR.
-          (abShared2, crs) = rregister crsUnshared (astBindings sShared)
-          s2 = sShared {astBindings = abShared2}
-          rg :: ranked r (1 + n) -> ranked r (1 + n)
-             -> ranked rm (1 + m)
-             -> ranked rm (1 + m)
-          rg = rzipWith31 (\cr x a ->
-                             rletHVectorIn domsF (rf cr x a) $ \rfRes ->
-                               snd $ domsToPair rfRes)
-          cas = rg (rslice 1 width crs) (rslice 0 width p) as
-            -- @rslice 0 width p@ is very cheap and @p@ (and @as@)
-            -- is shared in TensorADVal, so not need to share them
-          s3 = evalR s2 (crs ! (0 :. ZI)) x0'
-      in evalR s3 cas as'
-    ZS -> error "evalR: impossible pattern needlessly required"
-  FoldRC @rm @m p as _df rf x0' as' -> case rshape as of
-    _width :$ shm ->
-      -- No sharing attempted, because this constructor is usually used
-      -- for non-symbolic derivatives.
-      let shn = shapeDelta x0'
-          domsF = V.fromList [voidFromSh @r shn, voidFromSh @rm shm]
-          domsToPair :: ADReady f => HVector f -> (f r n, f rm m)
-          domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
-          rg :: ranked r n
-             -> [(ranked r n, ranked rm m)]
-             -> (ranked r n, [ranked rm m])
-          rg = mapAccumR (\cx (x, a) ->
-                            domsToPair $ dunHVector domsF $ rf cx x a)
-            -- We can't replace dunHVector with
-            --              dletHVectorInHVector @ranked
-            --                domsF (rf cx x a) $ \rfRes ->
-            --                  domsToPair rfRes)
-            -- because dletHVectorInHVector can't handle a pair result.
-            -- Maybe we could add variants that can, but it's ad-hoc.
-          (cx0, cas) = rg cShared (zip (init $ runravelToList p)
-                                       (runravelToList as))
-          s2 = evalR sShared cx0 x0'
-      in evalR s2 (rfromList cas) as'
-    ZS -> error "evalR: impossible pattern needlessly required"
-  FoldZipR domsOD p as _df rf x0' as' -> case V.unsnoc as of
-    Nothing -> error "evalR: can't determine argument width"
-    Just (_, d) -> case shapeDynamic d of
-      [] -> error "evalR: wrong rank of argument"
-      width : _shm ->
-        let !_A1 = assert (rlength p == width + 1) ()
-            shn = shapeDelta x0'
-            odShn = voidFromSh @r shn
-            domsF = V.cons odShn domsOD
-            domsToPair :: ADReady f => HVector f -> (f r n, HVector f)
-            domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
-            domsTo3 :: ADReady f => HVector f -> (f r n, f r n, HVector f)
-            domsTo3 doms =
-              (rfromD $ doms V.! 0, rfromD $ doms V.! 1, V.drop 2 doms)
-            lp = rreverse $ rslice 0 width p
-            las :: HVector ranked
-            las = mapHVectorRanked11 rreverse as
-            crsr :: ranked r (1 + n)
-            crsr =
-              rscanZip
-                (\cr doms ->
-                    let (x, a) = domsToPair doms
-                    in rletHVectorIn domsF (rf cr x a) $ \rfRes ->
-                         fst $ domsToPair rfRes)
-                domsF
-                cShared
-                (V.cons (DynamicRanked lp) las)
-            crsUnshared = rreverse crsr
-            (abShared2, crs) = rregister crsUnshared (astBindings sShared)
-            s2 = sShared {astBindings = abShared2}
-            rg :: ranked r (1 + n) -> ranked r (1 + n)
-               -> HVector ranked
-               -> HVectorOf ranked
-            rg cr2 x2 a2 =
-              dzipWith1 (\doms ->
-                           let (cr, x, a) = domsTo3 doms
-                           in dletHVectorInHVector @ranked
-                                domsF (rf cr x a) $ \rfRes ->
-                                  dmkHVector $ snd $ domsToPair rfRes)
-                        (V.cons (DynamicRanked cr2)
-                         $ V.cons (DynamicRanked x2) a2)
-            casUnshared = rg (rslice 1 width crs) (rslice 0 width p) as
-            -- Until we have evalHVectorOf, we need to share cas in order
-            -- to get access to it's HVector form.
-            domsG = voidFromHVector as
-            (abShared3, cas) =
-              dregister domsG casUnshared (astBindings s2)
-            s3 = s2 {astBindings = abShared3}
-            s4 = evalR s3 (crs ! (0 :. ZI)) x0'
-        in evalHVector s4 cas as'
+  FoldR @rm @m p as _df rf x0' as' ->
+    -- The call @rf cr x a@ is not shared here, but it's repeated
+    -- just two times, so it's fine unless folds are nested.
+    -- TODO: remove the double call by implementing rmapAccumR,
+    -- which however requires DeltaHVector, which is yet another
+    -- can of worms. Unless we can express Delta for rmapAccumR
+    -- as a composition of that for rscan and rzipwith, but then
+    -- we probably reintroduce the double call, just one level lower.
+    -- BTW, DeltaHVector may enable taking derivatives of objective
+    -- functions with codomains other than a single tensor.
+    let shm :: ShapeInt m
+        (width, shm) = case rshape as of
+          width2 :$ shm2 -> (width2, shm2)
+          ZS -> error "evalR: impossible pattern needlessly required"
+        !_A1 = assert (rlength p == width + 1) ()
+        shn = shapeDelta x0'
+        domsF = V.fromList [voidFromSh @r shn, voidFromSh @rm shm]
+        domsToPair :: ADReady f => HVector f -> (f r n, f rm m)
+        domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
+        crsr :: ranked r (1 + n)
+        crsr =
+          rscanZip (\cr doms ->
+                      let (x, a) = domsToPair doms
+                      in rletHVectorIn
+                           domsF (rf cr x a) $ \rfRes ->
+                             fst $ domsToPair rfRes)
+                   domsF
+                   cShared  -- not duplicated directly, but just in case
+                   (V.fromList
+                      [ DynamicRanked $ rreverse $ rslice 0 width p
+                      , DynamicRanked $ rreverse as ])
+        crsUnshared = rreverse crsr
+        -- We can't share crs via rlet, etc., because it appears
+        -- in two different calls to evalR.
+        (abShared2, crs) = rregister crsUnshared (astBindings sShared)
+        s2 = sShared {astBindings = abShared2}
+        rg :: ranked r (1 + n) -> ranked r (1 + n)
+           -> ranked rm (1 + m)
+           -> ranked rm (1 + m)
+        rg = rzipWith31 (\cr x a ->
+                           rletHVectorIn domsF (rf cr x a) $ \rfRes ->
+                             snd $ domsToPair rfRes)
+        cas = rg (rslice 1 width crs) (rslice 0 width p) as
+          -- @rslice 0 width p@ is very cheap and @p@ (and @as@)
+          -- is shared in TensorADVal, so not need to share them
+        s3 = evalR s2 (crs ! (0 :. ZI)) x0'
+    in evalR s3 cas as'
+  FoldRC @rm @m p as _df rf x0' as' ->
+    -- No sharing attempted, because this constructor is usually used
+    -- for non-symbolic derivatives.
+    let shm :: ShapeInt m
+        shm = case rshape as of
+          _width2 :$ shm2 -> shm2
+          ZS -> error "evalR: impossible pattern needlessly required"
+        shn = shapeDelta x0'
+        domsF = V.fromList [voidFromSh @r shn, voidFromSh @rm shm]
+        domsToPair :: ADReady f => HVector f -> (f r n, f rm m)
+        domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
+        rg :: ranked r n
+           -> [(ranked r n, ranked rm m)]
+           -> (ranked r n, [ranked rm m])
+        rg = mapAccumR (\cx (x, a) ->
+                          domsToPair $ dunHVector domsF $ rf cx x a)
+          -- We can't replace dunHVector with
+          --              dletHVectorInHVector @ranked
+          --                domsF (rf cx x a) $ \rfRes ->
+          --                  domsToPair rfRes)
+          -- because dletHVectorInHVector can't handle a pair result.
+          -- Maybe we could add variants that can, but it's ad-hoc.
+        (cx0, cas) = rg cShared (zip (init $ runravelToList p)
+                                     (runravelToList as))
+        s2 = evalR sShared cx0 x0'
+    in evalR s2 (rfromList cas) as'
+  FoldZipR domsOD p as _df rf x0' as' ->
+    let width = case V.unsnoc as of
+          Nothing -> error "evalR: can't determine argument width"
+          Just (_, d) -> case shapeDynamic d of
+            [] -> error "evalR: wrong rank of argument"
+            width2 : _shm -> width2
+        !_A1 = assert (rlength p == width + 1) ()
+        shn = shapeDelta x0'
+        odShn = voidFromSh @r shn
+        domsF = V.cons odShn domsOD
+        domsToPair :: ADReady f => HVector f -> (f r n, HVector f)
+        domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
+        domsTo3 :: ADReady f => HVector f -> (f r n, f r n, HVector f)
+        domsTo3 doms =
+          (rfromD $ doms V.! 0, rfromD $ doms V.! 1, V.drop 2 doms)
+        lp = rreverse $ rslice 0 width p
+        las :: HVector ranked
+        las = mapHVectorRanked11 rreverse as
+        crsr :: ranked r (1 + n)
+        crsr =
+          rscanZip
+            (\cr doms ->
+                let (x, a) = domsToPair doms
+                in rletHVectorIn domsF (rf cr x a) $ \rfRes ->
+                     fst $ domsToPair rfRes)
+            domsF
+            cShared
+            (V.cons (DynamicRanked lp) las)
+        crsUnshared = rreverse crsr
+        (abShared2, crs) = rregister crsUnshared (astBindings sShared)
+        s2 = sShared {astBindings = abShared2}
+        rg :: ranked r (1 + n) -> ranked r (1 + n)
+           -> HVector ranked
+           -> HVectorOf ranked
+        rg cr2 x2 a2 =
+          dzipWith1 (\doms ->
+                       let (cr, x, a) = domsTo3 doms
+                       in dletHVectorInHVector @ranked
+                            domsF (rf cr x a) $ \rfRes ->
+                              dmkHVector $ snd $ domsToPair rfRes)
+                    (V.cons (DynamicRanked cr2)
+                     $ V.cons (DynamicRanked x2) a2)
+        casUnshared = rg (rslice 1 width crs) (rslice 0 width p) as
+        -- Until we have evalHVectorOf, we need to share cas in order
+        -- to get access to it's HVector form.
+        domsG = voidFromHVector as
+        (abShared3, cas) =
+          dregister domsG casUnshared (astBindings s2)
+        s3 = s2 {astBindings = abShared3}
+        s4 = evalR s3 (crs ! (0 :. ZI)) x0'
+    in evalHVector s4 cas as'
   FoldZipRC domsOD p as _df rf x0' as' ->
     -- No sharing attempted, because this constructor is usually used
     -- for non-symbolic derivatives.
@@ -1113,106 +1118,109 @@ evalR !s !c = let (abShared, cShared) = rregister c (astBindings s)
                              (unravelHVector as))
         s2 = evalR sShared cx0 x0'
     in evalHVector s2 (ravelHVector cas) as'
-  ScanR @rm @m @_ @_ @n1 p as _df rf x0' as' -> case rshape as of
-    width :$ shm ->
-      let !_A1 = assert (rlength p == width + 1) ()
-          !_A2 = assert (rlength cShared == width + 1) ()
-          shn = shapeDelta x0'
-          domsF = V.fromList [voidFromSh @r shn, voidFromSh @rm shm]
-          domsToPair :: ADReady f => HVector f -> (f r n1, f rm m)
-          domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
-          domsF3 = V.fromList
-                     [voidFromSh @r shn, voidFromSh @r shn, voidFromSh @rm shm]
-          domsTo3 :: ADReady f => HVector f -> (f r n1, f r n1, f rm m)
-          domsTo3 doms =
-            (rfromD $ doms V.! 0, rfromD $ doms V.! 1, rfromD $ doms V.! 2)
-          crsr :: ranked r (1 + n1)
-          crsr =
-            rscanZip (\cr doms ->
-                        let (cx, x, a) = domsTo3 doms
-                        in rletHVectorIn
-                             domsF (rf (cr + cx) x a) $ \rfRes ->
-                               fst $ domsToPair rfRes)
-                     domsF3
-                     (rzero shn)
-                     (V.fromList
-                        [ DynamicRanked $ rreverse $ rslice 1 width cShared
-                        , DynamicRanked $ rreverse $ rslice 0 width p
-                        , DynamicRanked $ rreverse as ])
-          crsUnshared = rreverse crsr
-          (abShared2, crs) = rregister crsUnshared (astBindings sShared)
-          s2 = sShared {astBindings = abShared2}
-          rg :: ranked r (1 + n1) -> ranked r (1 + n1) -> ranked r (1 + n1)
-             -> ranked rm (1 + m)
-             -> ranked rm (1 + m)
-          rg = rzipWith41 (\cr cx x a ->
-                             rletHVectorIn domsF (rf (cr + cx) x a) $ \rfRes ->
-                               snd $ domsToPair rfRes)
-          cas = rg (rslice 1 width crs) (rslice 1 width cShared)
-                   (rslice 0 width p) as
-          s3 = evalR s2 (crs ! (0 :. ZI) + cShared ! (0 :. ZI)) x0'
-      in evalR s3 cas as'
-    ZS -> error "evalR: impossible pattern needlessly required"
-  ScanZipR @_ @_ @n1 domsOD p as _df rf x0' as' -> case V.unsnoc as of
-    Nothing -> error "evalR: can't determine argument width"
-    Just (_, d) -> case shapeDynamic d of
-      [] -> error "evalR: wrong rank of argument"
-      width : _ ->
-        let !_A1 = assert (rlength p == width + 1) ()
-            !_A2 = assert (rlength cShared == width + 1) ()
-            shn = shapeDelta x0'
-            odShn = voidFromSh @r shn
-            domsF = V.cons odShn domsOD
-            domsToPair :: ADReady f => HVector f -> (f r n1, HVector f)
-            domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
-            domsF3 = V.cons (voidFromSh @r shn)
-                     $ V.cons (voidFromSh @r shn) domsOD
-            domsTo3 :: ADReady f => HVector f -> (f r n1, f r n1, HVector f)
-            domsTo3 doms =
-              (rfromD $ doms V.! 0, rfromD $ doms V.! 1, V.drop 2 doms)
-            domsTo4 :: ADReady f
-                    => HVector f -> (f r n1, f r n1, f r n1, HVector f)
-            domsTo4 doms =
-              ( rfromD $ doms V.! 0, rfromD $ doms V.! 1, rfromD $ doms V.! 2
-              , V.drop 3 doms )
-            lc = rreverse $ rslice 1 width cShared
-            lp = rreverse $ rslice 0 width p
-            las :: HVector ranked
-            las = mapHVectorRanked11 rreverse as
-            crsr :: ranked r (1 + n1)
-            crsr =
-              rscanZip (\cr doms ->
-                          let (cx, x, a) = domsTo3 doms
-                          in rletHVectorIn
-                               domsF (rf (cr + cx) x a) $ \rfRes ->
-                                 fst $ domsToPair rfRes)
-                       domsF3
-                       (rzero shn)
-                       (V.cons (DynamicRanked lc)
-                        $ V.cons (DynamicRanked lp) las)
-            crsUnshared = rreverse crsr
-            (abShared2, crs) = rregister crsUnshared (astBindings sShared)
-            s2 = sShared {astBindings = abShared2}
-            rg :: ranked r (1 + n1) -> ranked r (1 + n1) -> ranked r (1 + n1)
-               -> HVector ranked
-               -> HVectorOf ranked
-            rg cr2 cx2 x2 a2 =
-              dzipWith1 (\doms ->
-                           let (cr, cx, x, a) = domsTo4 doms
-                           in dletHVectorInHVector @ranked
-                                domsF (rf (cr + cx) x a) $ \rfRes ->
-                                  dmkHVector $ snd $ domsToPair rfRes)
-                        (V.cons (DynamicRanked cr2)
-                         $ V.cons (DynamicRanked cx2)
-                         $ V.cons (DynamicRanked x2) a2)
-            casUnshared = rg (rslice 1 width crs) (rslice 1 width cShared)
-                             (rslice 0 width p) as
-            domsG = voidFromHVector as
-            (abShared3, cas) =
-              dregister domsG casUnshared (astBindings s2)
-            s3 = s2 {astBindings = abShared3}
-            s4 = evalR s3 (crs ! (0 :. ZI) + cShared ! (0 :. ZI)) x0'
-        in evalHVector s4 cas as'
+  ScanR @rm @m @_ @_ @n1 p as _df rf x0' as' ->
+    let shm :: ShapeInt m
+        (width, shm) = case rshape as of
+          width2 :$ shm2 -> (width2, shm2)
+          ZS -> error "evalR: impossible pattern needlessly required"
+        !_A1 = assert (rlength p == width + 1) ()
+        !_A2 = assert (rlength cShared == width + 1) ()
+        shn = shapeDelta x0'
+        domsF = V.fromList [voidFromSh @r shn, voidFromSh @rm shm]
+        domsToPair :: ADReady f => HVector f -> (f r n1, f rm m)
+        domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
+        domsF3 = V.fromList
+                   [voidFromSh @r shn, voidFromSh @r shn, voidFromSh @rm shm]
+        domsTo3 :: ADReady f => HVector f -> (f r n1, f r n1, f rm m)
+        domsTo3 doms =
+          (rfromD $ doms V.! 0, rfromD $ doms V.! 1, rfromD $ doms V.! 2)
+        crsr :: ranked r (1 + n1)
+        crsr =
+          rscanZip (\cr doms ->
+                      let (cx, x, a) = domsTo3 doms
+                      in rletHVectorIn
+                           domsF (rf (cr + cx) x a) $ \rfRes ->
+                             fst $ domsToPair rfRes)
+                   domsF3
+                   (rzero shn)
+                   (V.fromList
+                      [ DynamicRanked $ rreverse $ rslice 1 width cShared
+                      , DynamicRanked $ rreverse $ rslice 0 width p
+                      , DynamicRanked $ rreverse as ])
+        crsUnshared = rreverse crsr
+        (abShared2, crs) = rregister crsUnshared (astBindings sShared)
+        s2 = sShared {astBindings = abShared2}
+        rg :: ranked r (1 + n1) -> ranked r (1 + n1) -> ranked r (1 + n1)
+           -> ranked rm (1 + m)
+           -> ranked rm (1 + m)
+        rg = rzipWith41 (\cr cx x a ->
+                           rletHVectorIn domsF (rf (cr + cx) x a) $ \rfRes ->
+                             snd $ domsToPair rfRes)
+        cas = rg (rslice 1 width crs) (rslice 1 width cShared)
+                 (rslice 0 width p) as
+        s3 = evalR s2 (crs ! (0 :. ZI) + cShared ! (0 :. ZI)) x0'
+    in evalR s3 cas as'
+  ScanZipR @_ @_ @n1 domsOD p as _df rf x0' as' ->
+    let width = case V.unsnoc as of
+          Nothing -> error "evalR: can't determine argument width"
+          Just (_, d) -> case shapeDynamic d of
+            [] -> error "evalR: wrong rank of argument"
+            width2 : _shm -> width2
+        !_A1 = assert (rlength p == width + 1) ()
+        !_A2 = assert (rlength cShared == width + 1) ()
+        shn = shapeDelta x0'
+        odShn = voidFromSh @r shn
+        domsF = V.cons odShn domsOD
+        domsToPair :: ADReady f => HVector f -> (f r n1, HVector f)
+        domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
+        domsF3 = V.cons (voidFromSh @r shn)
+                 $ V.cons (voidFromSh @r shn) domsOD
+        domsTo3 :: ADReady f => HVector f -> (f r n1, f r n1, HVector f)
+        domsTo3 doms =
+          (rfromD $ doms V.! 0, rfromD $ doms V.! 1, V.drop 2 doms)
+        domsTo4 :: ADReady f
+                => HVector f -> (f r n1, f r n1, f r n1, HVector f)
+        domsTo4 doms =
+          ( rfromD $ doms V.! 0, rfromD $ doms V.! 1, rfromD $ doms V.! 2
+          , V.drop 3 doms )
+        lc = rreverse $ rslice 1 width cShared
+        lp = rreverse $ rslice 0 width p
+        las :: HVector ranked
+        las = mapHVectorRanked11 rreverse as
+        crsr :: ranked r (1 + n1)
+        crsr =
+          rscanZip (\cr doms ->
+                      let (cx, x, a) = domsTo3 doms
+                      in rletHVectorIn
+                           domsF (rf (cr + cx) x a) $ \rfRes ->
+                             fst $ domsToPair rfRes)
+                   domsF3
+                   (rzero shn)
+                   (V.cons (DynamicRanked lc)
+                    $ V.cons (DynamicRanked lp) las)
+        crsUnshared = rreverse crsr
+        (abShared2, crs) = rregister crsUnshared (astBindings sShared)
+        s2 = sShared {astBindings = abShared2}
+        rg :: ranked r (1 + n1) -> ranked r (1 + n1) -> ranked r (1 + n1)
+           -> HVector ranked
+           -> HVectorOf ranked
+        rg cr2 cx2 x2 a2 =
+          dzipWith1 (\doms ->
+                       let (cr, cx, x, a) = domsTo4 doms
+                       in dletHVectorInHVector @ranked
+                            domsF (rf (cr + cx) x a) $ \rfRes ->
+                              dmkHVector $ snd $ domsToPair rfRes)
+                    (V.cons (DynamicRanked cr2)
+                     $ V.cons (DynamicRanked cx2)
+                     $ V.cons (DynamicRanked x2) a2)
+        casUnshared = rg (rslice 1 width crs) (rslice 1 width cShared)
+                         (rslice 0 width p) as
+        domsG = voidFromHVector as
+        (abShared3, cas) =
+          dregister domsG casUnshared (astBindings s2)
+        s3 = s2 {astBindings = abShared3}
+        s4 = evalR s3 (crs ! (0 :. ZI) + cShared ! (0 :. ZI)) x0'
+    in evalHVector s4 cas as'
   CastR d -> evalRRuntimeSpecialized s (rcast c) d
 
   SToR (RToS d) -> evalR s c d  -- no information lost, so no checks
@@ -1356,60 +1364,54 @@ evalS !s !c = let (abShared, cShared) = sregister c (astBindings s)
                                      (sunravelToList as))
         s2 = evalS sShared cx0 x0'
     in evalS s2 (sfromList cas) as'
-  FoldZipS @k domsOD p as _df rf x0' as' -> case V.unsnoc as of
-    Nothing -> error "evalS: can't determine argument width"
-    Just (_, d) -> case shapeDynamic d of
-      [] -> error "evalS: wrong rank of argument"
-      0 : _ -> evalS s c x0'  -- TODO: needed?
-      width : _shm ->
-        let !_A1 = assert (valueOf @k == width) ()
-            odShn = voidFromShS @r @sh
-            domsF = V.cons odShn domsOD
-            domsToPair :: ADReadyS f
-                       => HVector (RankedOf f) -> (f r sh, HVector (RankedOf f))
-            domsToPair doms = (sfromD $ doms V.! 0, V.tail doms)
-            domsTo3 :: ADReadyS f
-                    => HVector (RankedOf f)
-                    -> (f r sh, f r sh, HVector (RankedOf f))
-            domsTo3 doms =
-              (sfromD $ doms V.! 0, sfromD $ doms V.! 1, V.drop 2 doms)
-            lp = sreverse $ sslice @_ @_ @_ @_ @1 (Proxy @0) (Proxy @k) p
-            las :: HVector ranked
-            las = mapHVectorShaped11 @k sreverse as
-            crsr :: shaped r (1 + k ': sh)
-            crsr =
-              sscanZip
-                (\cr doms ->
-                    let (x, a) = domsToPair doms
-                    in sletHVectorIn domsF (rf cr x a) $ \rfRes ->
-                         fst $ domsToPair rfRes)
-                domsF
-                cShared
-                (V.cons (DynamicShaped lp) las)
-            crsUnshared = sreverse crsr
-            (abShared2, crs) = sregister crsUnshared (astBindings sShared)
-            s2 = sShared {astBindings = abShared2}
-            rg :: shaped r (k ': sh) -> shaped r (k ': sh)
-               -> HVector ranked
-               -> HVectorOf ranked
-            rg cr2 x2 a2 =
-              dzipWith1 (\doms ->
-                           let (cr, x, a) = domsTo3 doms
-                           in dletHVectorInHVector @ranked
-                                domsF (rf cr x a) $ \rfRes ->
-                                  dmkHVector $ snd $ domsToPair rfRes)
-                        (V.cons (DynamicShaped cr2)
-                         $ V.cons (DynamicShaped x2) a2)
-            casUnshared =
-              rg (sslice @_ @_ @_ @_ @0 (Proxy @1) (Proxy @k) crs)
-                 (sslice @_ @_ @_ @_ @1 (Proxy @0) (Proxy @k) p)
-                 as
-            domsG = voidFromHVector as
-            (abShared3, cas) =
-              dregister domsG casUnshared (astBindings s2)
-            s3 = s2 {astBindings = abShared3}
-            s4 = evalS s3 (crs !$ (0 :$: ZSH)) x0'
-        in evalHVector s4 cas as'
+  FoldZipS @k domsOD p as _df rf x0' as' ->
+    let odShn = voidFromShS @r @sh
+        domsF = V.cons odShn domsOD
+        domsToPair :: ADReadyS f
+                   => HVector (RankedOf f) -> (f r sh, HVector (RankedOf f))
+        domsToPair doms = (sfromD $ doms V.! 0, V.tail doms)
+        domsTo3 :: ADReadyS f
+                => HVector (RankedOf f)
+                -> (f r sh, f r sh, HVector (RankedOf f))
+        domsTo3 doms =
+          (sfromD $ doms V.! 0, sfromD $ doms V.! 1, V.drop 2 doms)
+        lp = sreverse $ sslice @_ @_ @_ @_ @1 (Proxy @0) (Proxy @k) p
+        las :: HVector ranked
+        las = mapHVectorShaped11 @k sreverse as
+        crsr :: shaped r (1 + k ': sh)
+        crsr =
+          sscanZip
+            (\cr doms ->
+                let (x, a) = domsToPair doms
+                in sletHVectorIn domsF (rf cr x a) $ \rfRes ->
+                     fst $ domsToPair rfRes)
+            domsF
+            cShared
+            (V.cons (DynamicShaped lp) las)
+        crsUnshared = sreverse crsr
+        (abShared2, crs) = sregister crsUnshared (astBindings sShared)
+        s2 = sShared {astBindings = abShared2}
+        rg :: shaped r (k ': sh) -> shaped r (k ': sh)
+           -> HVector ranked
+           -> HVectorOf ranked
+        rg cr2 x2 a2 =
+          dzipWith1 (\doms ->
+                       let (cr, x, a) = domsTo3 doms
+                       in dletHVectorInHVector @ranked
+                            domsF (rf cr x a) $ \rfRes ->
+                              dmkHVector $ snd $ domsToPair rfRes)
+                    (V.cons (DynamicShaped cr2)
+                     $ V.cons (DynamicShaped x2) a2)
+        casUnshared =
+          rg (sslice @_ @_ @_ @_ @0 (Proxy @1) (Proxy @k) crs)
+             (sslice @_ @_ @_ @_ @1 (Proxy @0) (Proxy @k) p)
+             as
+        domsG = voidFromHVector as
+        (abShared3, cas) =
+          dregister domsG casUnshared (astBindings s2)
+        s3 = s2 {astBindings = abShared3}
+        s4 = evalS s3 (crs !$ (0 :$: ZSH)) x0'
+    in evalHVector s4 cas as'
   FoldZipSC domsOD p as _df rf x0' as' ->
     -- No sharing attempted, because this constructor is usually used
     -- for non-symbolic derivatives.
@@ -1824,29 +1826,31 @@ fwdR dimR params s = \case
     let (s2, t) = fwdR dimR params s d
     in (s2, rgather sh t f)
 
-  FoldR @rm @m p as df _rf x0' as' -> case rshape as of
-    width :$ shm ->
-      let !_A1 = assert (rlength p == width + 1) ()
-          shn = shapeDelta x0'
-          (s2, cx0) = fwdR dimR params s x0'
-          (s3, cas) = fwdR dimR params s2 as'
-          domsF =
-            V.fromList
-              [voidFromSh @rm shm, voidFromSh @r shn, voidFromSh @rm shm]
-          domsTo3 :: ADReady f => HVector f -> (f rm m, f r n, f rm m)
-          domsTo3 doms = ( rfromD $ doms V.! 0
-                         , rfromD $ doms V.! 1
-                         , rfromD $ doms V.! 2 )
-      in (s3, rfoldZip (\cx doms ->
-                            let (ca, x, a) = domsTo3 doms
-                            in df cx ca x a)
-                       domsF
-                       cx0
-                       (V.fromList
-                          [ DynamicRanked cas
-                          , DynamicRanked $ rslice 0 width p
-                          , DynamicRanked as ]))
-    ZS -> error "fwdR dimR params: impossible pattern needlessly required"
+  FoldR @rm @m p as df _rf x0' as' ->
+    let shm :: ShapeInt m
+        (width, shm) = case rshape as of
+          width2 :$ shm2 -> (width2, shm2)
+          ZS -> error "fwdR: impossible pattern needlessly required"
+        !_A1 = assert (rlength p == width + 1) ()
+        shn = shapeDelta x0'
+        (s2, cx0) = fwdR dimR params s x0'
+        (s3, cas) = fwdR dimR params s2 as'
+        domsF =
+          V.fromList
+            [voidFromSh @rm shm, voidFromSh @r shn, voidFromSh @rm shm]
+        domsTo3 :: ADReady f => HVector f -> (f rm m, f r n, f rm m)
+        domsTo3 doms = ( rfromD $ doms V.! 0
+                       , rfromD $ doms V.! 1
+                       , rfromD $ doms V.! 2 )
+    in (s3, rfoldZip (\cx doms ->
+                          let (ca, x, a) = domsTo3 doms
+                          in df cx ca x a)
+                     domsF
+                     cx0
+                     (V.fromList
+                        [ DynamicRanked cas
+                        , DynamicRanked $ rslice 0 width p
+                        , DynamicRanked as ]))
   FoldRC p as df _rf x0' as' ->
     let (s2, cx0) = fwdR dimR params s x0'
         (s3, cas) = fwdR dimR params s2 as'
@@ -1884,29 +1888,31 @@ fwdR dimR params s = \case
         lp = runravelToList p
     in (s3, foldl' (\cx (ca, x, a) -> df cx ca x a)
                       cx0 (zip3 lcas (init lp) las))
-  ScanR @rm @m @_ @_ @n1 p as df _rf x0' as' -> case rshape as of
-    width :$ shm ->
-      let !_A1 = assert (rlength p == width + 1) ()
-          shn = shapeDelta x0'
-          (s2, cx0) = fwdR dimR params s x0'
-          (s3, cas) = fwdR dimR params s2 as'
-          domsF =
-            V.fromList
-              [voidFromSh @rm shm, voidFromSh @r shn, voidFromSh @rm shm]
-          domsTo3 :: ADReady f => HVector f -> (f rm m, f r n1, f rm m)
-          domsTo3 doms = ( rfromD $ doms V.! 0
-                         , rfromD $ doms V.! 1
-                         , rfromD $ doms V.! 2 )
-      in (s3, rscanZip (\cx doms ->
-                          let (ca, x, a) = domsTo3 doms
-                          in df cx ca x a)
-                       domsF
-                       cx0
-                       (V.fromList
-                          [ DynamicRanked cas
-                          , DynamicRanked $ rslice 0 width p
-                          , DynamicRanked as ]))
-    ZS -> error "fwdR dimR params: impossible pattern needlessly required"
+  ScanR @rm @m @_ @_ @n1 p as df _rf x0' as' ->
+    let shm :: ShapeInt m
+        (width, shm) = case rshape as of
+          width2 :$ shm2 -> (width2, shm2)
+          ZS -> error "evalR: impossible pattern needlessly required"
+        !_A1 = assert (rlength p == width + 1) ()
+        shn = shapeDelta x0'
+        (s2, cx0) = fwdR dimR params s x0'
+        (s3, cas) = fwdR dimR params s2 as'
+        domsF =
+          V.fromList
+            [voidFromSh @rm shm, voidFromSh @r shn, voidFromSh @rm shm]
+        domsTo3 :: ADReady f => HVector f -> (f rm m, f r n1, f rm m)
+        domsTo3 doms = ( rfromD $ doms V.! 0
+                       , rfromD $ doms V.! 1
+                       , rfromD $ doms V.! 2 )
+    in (s3, rscanZip (\cx doms ->
+                        let (ca, x, a) = domsTo3 doms
+                        in df cx ca x a)
+                     domsF
+                     cx0
+                     (V.fromList
+                        [ DynamicRanked cas
+                        , DynamicRanked $ rslice 0 width p
+                        , DynamicRanked as ]))
   ScanZipR @_ @_ @n1 domsOD p as df _rf x0' as' ->
     let width = rlength p - 1
         domsLen = V.length domsOD
