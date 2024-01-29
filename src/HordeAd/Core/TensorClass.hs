@@ -578,6 +578,55 @@ class ( Integral (IntOf shaped), CShaped shaped Num
     $ sbuild @shaped @_ @(Sh.Rank sh) (\ix -> f (sindex0 u ix)
                                                 (sindex0 v ix)
                                                 (sindex0 w ix))
+  szipWith4 :: forall r1 r2 r3 r4 r m sh1 sh2 sh3 sh4 sh.
+               ( GoodScalar r1, GoodScalar r2, GoodScalar r3, GoodScalar r4
+               , GoodScalar r, KnownNat m
+               , Sh.Shape sh1, Sh.Shape sh2, Sh.Shape sh3, Sh.Shape sh4
+               , Sh.Shape sh
+               , Sh.Shape (Sh.Take m sh), Sh.Shape (Sh.Drop m sh1)
+               , Sh.Shape (Sh.Drop m sh2), Sh.Shape (Sh.Drop m sh3)
+               , Sh.Shape (Sh.Drop m sh4), Sh.Shape (Sh.Drop m sh)
+               , sh1 ~ Sh.Take m sh Sh.++ Sh.Drop m sh1
+               , sh2 ~ Sh.Take m sh Sh.++ Sh.Drop m sh2
+               , sh3 ~ Sh.Take m sh Sh.++ Sh.Drop m sh3
+               , sh4 ~ Sh.Take m sh Sh.++ Sh.Drop m sh4 )
+            => (shaped r1 (Sh.Drop m sh1)
+                -> shaped r2 (Sh.Drop m sh2)
+                -> shaped r3 (Sh.Drop m sh3)
+                -> shaped r4 (Sh.Drop m sh4)
+                -> shaped r (Sh.Drop m sh))
+            -> shaped r1 sh1 -> shaped r2 sh2 -> shaped r3 sh3 -> shaped r4 sh4
+            -> shaped r sh
+  szipWith4 f u v w x =
+    sbuild (\ix -> f (u !$ ix) (v !$ ix) (w !$ ix) (x !$ ix))
+  szipWith41 :: forall r1 r2 r3 r4 r n sh1 sh2 sh3 sh4 sh.
+                ( GoodScalar r1, GoodScalar r2, GoodScalar r3, GoodScalar r4
+                , GoodScalar r, KnownNat n
+                , Sh.Shape sh1, Sh.Shape sh2, Sh.Shape sh3, Sh.Shape sh4
+                , Sh.Shape sh )
+             => (shaped r1 sh1 -> shaped r2 sh2 -> shaped r3 sh3
+                 -> shaped r4 sh4 -> shaped r sh)
+             -> shaped r1 (n ': sh1) -> shaped r2 (n ': sh2)
+             -> shaped r3 (n ': sh3) -> shaped r4 (n ': sh4)
+             -> shaped r (n ': sh)
+  szipWith41 f u v w x = sbuild1 (\i -> f (u !$ consShaped i ZSH)
+                                          (v !$ consShaped i ZSH)
+                                          (w !$ consShaped i ZSH)
+                                          (x !$ consShaped i ZSH))
+  szipWith40N :: forall r1 r2 r3 r4 r sh.
+                 ( GoodScalar r1, GoodScalar r2, GoodScalar r3, GoodScalar r4
+                 , GoodScalar r, Sh.Shape sh, KnownNat (Sh.Rank sh) )
+              => (shaped r1 '[] -> shaped r2 '[] -> shaped r3 '[]
+                  -> shaped r4 '[] -> shaped r '[])
+              -> shaped r1 sh -> shaped r2 sh -> shaped r3 sh -> shaped r4 sh
+              -> shaped r sh
+  szipWith40N f u v w x =
+    gcastWith (unsafeCoerce Refl :: Sh.Drop (Sh.Rank sh) sh :~: '[])
+    $ gcastWith (unsafeCoerce Refl :: Sh.Take (Sh.Rank sh) sh :~: sh)
+    $ sbuild @shaped @_ @(Sh.Rank sh) (\ix -> f (sindex0 u ix)
+                                                (sindex0 v ix)
+                                                (sindex0 w ix)
+                                                (sindex0 x ix))
   sgather
     :: forall r sh2 p sh.
        ( GoodScalar r, Sh.Shape sh2, Sh.Shape sh, Sh.Shape (Sh.Take p sh)
