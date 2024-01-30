@@ -7,9 +7,9 @@ module HordeAd.Core.AstPrettyPrint
     printAstVarName, printAstVarNameS, printAstDynamicVarName
   , printAstIntVarName
     -- * User-friendly API for pretty-printing AST terms
-  , printAstSimple, printAstPretty
-  , printAstSimpleS, printAstPrettyS
-  , printAstHVectorSimple, printAstHVectorPretty
+  , printAstSimple, printAstPretty, printAstPrettyButNested
+  , printAstSimpleS, printAstPrettyS, printAstPrettyButNestedS
+  , printAstHVectorSimple, printAstHVectorPretty, printAstHVectorPrettyButNested
   , printGradient6Simple, printGradient6Pretty
   , printPrimal6Simple, printPrimal6Pretty
   , printGradient6SimpleS, printGradient6PrettyS
@@ -46,12 +46,20 @@ import           HordeAd.Util.SizedList
 
 data PrintConfig = PrintConfig
   { prettifyLosingSharing :: Bool
+  , ignoreNestedLambdas   :: Bool
   , varRenames            :: IntMap String
   , representsIntIndex    :: Bool
   }
 
 defaulPrintConfig :: Bool -> IntMap String -> PrintConfig
 defaulPrintConfig prettifyLosingSharing renames =
+  let varRenames = renames `IM.union` IM.fromList [(1, "dret")]
+      ignoreNestedLambdas = prettifyLosingSharing
+      representsIntIndex = False
+  in PrintConfig {..}
+
+defaulPrintConfig2 :: Bool -> Bool -> IntMap String -> PrintConfig
+defaulPrintConfig2 prettifyLosingSharing ignoreNestedLambdas renames =
   let varRenames = renames `IM.union` IM.fromList [(1, "dret")]
       representsIntIndex = False
   in PrintConfig {..}
@@ -378,7 +386,7 @@ printAstAux cfg d = \case
       . printAst cfg 11 as
   AstFoldDer (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
                              (varDt2, nvar2, mvar2, doms) x0 as ->
-   if prettifyLosingSharing cfg
+   if ignoreNestedLambdas cfg
    then
     showParen (d > 10)
     $ showString "rfoldDer f df rf "
@@ -438,7 +446,7 @@ printAstAux cfg d = \case
       . printHVectorAst cfg as
   AstFoldZipDer (nvar, mvars, v) (varDx, varsDa, varn1, varsm1, ast1)
                                (varDt2, nvar2, mvars2, doms) x0 as ->
-   if prettifyLosingSharing cfg
+   if ignoreNestedLambdas cfg
    then
     showParen (d > 10)
     $ showString "rfoldZipDer f df rf "
@@ -501,7 +509,7 @@ printAstAux cfg d = \case
       . printAst cfg 11 as
   AstScanDer (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
                              (varDt2, nvar2, mvar2, doms) x0 as ->
-   if prettifyLosingSharing cfg
+   if ignoreNestedLambdas cfg
    then
     showParen (d > 10)
     $ showString "rscanDer f df rf "
@@ -561,7 +569,7 @@ printAstAux cfg d = \case
       . printHVectorAst cfg as
   AstScanZipDer (nvar, mvars, v) (varDx, varsDa, varn1, varsm1, ast1)
                                (varDt2, nvar2, mvars2, doms) x0 as ->
-   if prettifyLosingSharing cfg
+   if ignoreNestedLambdas cfg
    then
     showParen (d > 10)
     $ showString "rscanZipDer f df rf "
@@ -1056,7 +1064,7 @@ printAstS cfg d = \case
       . printAstS cfg 11 as
   AstFoldDerS (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
                               (varDt2, nvar2, mvar2, doms) x0 as ->
-   if prettifyLosingSharing cfg
+   if ignoreNestedLambdas cfg
    then
     showParen (d > 10)
     $ showString "sfoldDer f df rf "
@@ -1116,7 +1124,7 @@ printAstS cfg d = \case
       . printHVectorAst cfg as
   AstFoldZipDerS (nvar, mvars, v) (varDx, varsDa, varn1, varsm1, ast1)
                                 (varDt2, nvar2, mvars2, doms) x0 as ->
-   if prettifyLosingSharing cfg
+   if ignoreNestedLambdas cfg
    then
     showParen (d > 10)
     $ showString "sfoldZipDer f df rf "
@@ -1179,7 +1187,7 @@ printAstS cfg d = \case
       . printAstS cfg 11 as
   AstScanDerS (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
                               (varDt2, nvar2, mvar2, doms) x0 as ->
-   if prettifyLosingSharing cfg
+   if ignoreNestedLambdas cfg
    then
     showParen (d > 10)
     $ showString "sscanDer f df rf "
@@ -1239,7 +1247,7 @@ printAstS cfg d = \case
       . printHVectorAst cfg as
   AstScanZipDerS (nvar, mvars, v) (varDx, varsDa, varn1, varsm1, ast1)
                                 (varDt2, nvar2, mvars2, doms) x0 as ->
-   if prettifyLosingSharing cfg
+   if ignoreNestedLambdas cfg
    then
     showParen (d > 10)
     $ showString "sscanZipDer f df rf "
@@ -1298,6 +1306,11 @@ printAstPretty :: (GoodScalar r, KnownNat n, AstSpan s)
                => IntMap String -> AstRanked s r n -> String
 printAstPretty renames t = printAst (defaulPrintConfig True renames) 0 t ""
 
+printAstPrettyButNested :: (GoodScalar r, KnownNat n, AstSpan s)
+                        => IntMap String -> AstRanked s r n -> String
+printAstPrettyButNested renames t =
+  printAst (defaulPrintConfig2 True False renames) 0 t ""
+
 printAstSimpleS :: (GoodScalar r, Sh.Shape sh, AstSpan s)
                 => IntMap String -> AstShaped s r sh -> String
 printAstSimpleS renames t = printAstS (defaulPrintConfig False renames) 0 t ""
@@ -1306,6 +1319,11 @@ printAstPrettyS :: (GoodScalar r, Sh.Shape sh, AstSpan s)
                 => IntMap String -> AstShaped s r sh -> String
 printAstPrettyS renames t = printAstS (defaulPrintConfig True renames) 0 t ""
 
+printAstPrettyButNestedS :: (GoodScalar r, Sh.Shape sh, AstSpan s)
+                         => IntMap String -> AstShaped s r sh -> String
+printAstPrettyButNestedS renames t =
+  printAstS (defaulPrintConfig2 True False renames) 0 t ""
+
 printAstHVectorSimple :: AstSpan s => IntMap String -> AstHVector s -> String
 printAstHVectorSimple renames t =
   printAstHVector (defaulPrintConfig False renames) 0 t ""
@@ -1313,6 +1331,11 @@ printAstHVectorSimple renames t =
 printAstHVectorPretty :: AstSpan s => IntMap String -> AstHVector s -> String
 printAstHVectorPretty renames t =
   printAstHVector (defaulPrintConfig True renames) 0 t ""
+
+printAstHVectorPrettyButNested
+  :: AstSpan s => IntMap String -> AstHVector s -> String
+printAstHVectorPrettyButNested renames t =
+  printAstHVector (defaulPrintConfig2 True False renames) 0 t ""
 
 printGradient6Simple :: KnownNat n
                      => IntMap String
