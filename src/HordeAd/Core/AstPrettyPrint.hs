@@ -188,6 +188,12 @@ printAstDynamicVarName renames var@(AstDynamicVarName @ty @r @sh _varId) =
   ++ " @" ++ show (typeRep @r)
   ++ " @" ++ show (Sh.shapeT @sh)
 
+printAstDynamicVarNameCfg :: PrintConfig -> AstDynamicVarName -> String
+printAstDynamicVarNameCfg cfg =
+  if prettifyLosingSharing cfg
+  then printAstDynamicVarNameBrief (varRenames cfg)
+  else printAstDynamicVarName (varRenames cfg)
+
 
 -- * General pretty-printing of AST terms
 
@@ -363,7 +369,7 @@ printAstAux cfg d = \case
       . (showParen True
          $ showString "\\"
            . showListWith (showString
-                           . printAstDynamicVarName (varRenames cfg)) vars
+                           . printAstDynamicVarNameCfg cfg) vars
            . showString " -> "
            . printAst cfg 0 v)
       . showString " "
@@ -437,7 +443,7 @@ printAstAux cfg d = \case
            . showString (printAstVarName (varRenames cfg) nvar)
            . showString " "
            . showListWith (showString
-                           . printAstDynamicVarName (varRenames cfg)) mvars
+                           . printAstDynamicVarNameCfg cfg) mvars
            . showString " -> "
            . printAst cfg 0 v)
       . showString " "
@@ -461,7 +467,7 @@ printAstAux cfg d = \case
            . showString (printAstVarName (varRenames cfg) nvar)
            . showString " "
            . showListWith (showString
-                           . printAstDynamicVarName (varRenames cfg)) mvars
+                           . printAstDynamicVarNameCfg cfg) mvars
            . showString " -> "
            . printAst cfg 0 v)
       . showString " "
@@ -470,12 +476,12 @@ printAstAux cfg d = \case
            . showString (printAstVarName (varRenames cfg) varDx)
            . showString " "
            . showListWith (showString
-                           . printAstDynamicVarName (varRenames cfg)) varsDa
+                           . printAstDynamicVarNameCfg cfg) varsDa
            . showString " "
            . showString (printAstVarName (varRenames cfg) varn1)
            . showString " "
            . showListWith (showString
-                           . printAstDynamicVarName (varRenames cfg)) varsm1
+                           . printAstDynamicVarNameCfg cfg) varsm1
            . showString " -> "
            . printAst cfg 0 ast1)
       . showString " "
@@ -486,7 +492,7 @@ printAstAux cfg d = \case
            . showString (printAstVarName (varRenames cfg) nvar2)
            . showString " "
            . showListWith (showString
-                           . printAstDynamicVarName (varRenames cfg)) mvars2
+                           . printAstDynamicVarNameCfg cfg) mvars2
            . showString " -> "
            . printAstHVector cfg 0 doms)
       . showString " "
@@ -560,7 +566,7 @@ printAstAux cfg d = \case
            . showString (printAstVarName (varRenames cfg) nvar)
            . showString " "
            . showListWith (showString
-                           . printAstDynamicVarName (varRenames cfg)) mvars
+                           . printAstDynamicVarNameCfg cfg) mvars
            . showString " -> "
            . printAst cfg 0 v)
       . showString " "
@@ -584,7 +590,7 @@ printAstAux cfg d = \case
            . showString (printAstVarName (varRenames cfg) nvar)
            . showString " "
            . showListWith (showString
-                           . printAstDynamicVarName (varRenames cfg)) mvars
+                           . printAstDynamicVarNameCfg cfg) mvars
            . showString " -> "
            . printAst cfg 0 v)
       . showString " "
@@ -593,12 +599,12 @@ printAstAux cfg d = \case
            . showString (printAstVarName (varRenames cfg) varDx)
            . showString " "
            . showListWith (showString
-                           . printAstDynamicVarName (varRenames cfg)) varsDa
+                           . printAstDynamicVarNameCfg cfg) varsDa
            . showString " "
            . showString (printAstVarName (varRenames cfg) varn1)
            . showString " "
            . showListWith (showString
-                           . printAstDynamicVarName (varRenames cfg)) varsm1
+                           . printAstDynamicVarNameCfg cfg) varsm1
            . showString " -> "
            . printAst cfg 0 ast1)
       . showString " "
@@ -609,7 +615,7 @@ printAstAux cfg d = \case
            . showString (printAstVarName (varRenames cfg) nvar2)
            . showString " "
            . showListWith (showString
-                           . printAstDynamicVarName (varRenames cfg)) mvars2
+                           . printAstDynamicVarNameCfg cfg) mvars2
            . showString " -> "
            . printAstHVector cfg 0 doms)
       . showString " "
@@ -744,7 +750,7 @@ printAstHVector cfg d = \case
       . (showParen True
          $ showString "\\"
            . showListWith (showString
-                           . printAstDynamicVarName (varRenames cfg)) vars
+                           . printAstDynamicVarNameCfg cfg) vars
            . showString " -> "
            . printAst cfg 0 v)
       . showString " "
@@ -755,7 +761,7 @@ printAstHVector cfg d = \case
       . (showParen True
          $ showString "\\"
            . showListWith (showString
-                           . printAstDynamicVarName (varRenames cfg)) vars
+                           . printAstDynamicVarNameCfg cfg) vars
            . showString " -> "
            . printAst cfg 0 v)
       . showString " "
@@ -768,7 +774,7 @@ printAstHVector cfg d = \case
       . (showParen True
          $ showString "\\"
            . showListWith (showString
-                           . printAstDynamicVarName (varRenames cfg)) vars
+                           . printAstDynamicVarNameCfg cfg) vars
            . showString " -> "
            . printAstS cfg 0 v)
       . showString " "
@@ -779,7 +785,7 @@ printAstHVector cfg d = \case
       . (showParen True
          $ showString "\\"
            . showListWith (showString
-                           . printAstDynamicVarName (varRenames cfg)) vars
+                           . printAstDynamicVarNameCfg cfg) vars
            . showString " -> "
            . printAstS cfg 0 v)
       . showString " "
@@ -1041,7 +1047,7 @@ printAstS cfg d = \case
       . (showParen True
          $ showString "\\"
            . showListWith (showString
-                           . printAstDynamicVarName (varRenames cfg)) vars
+                           . printAstDynamicVarNameCfg cfg) vars
            . showString " -> "
            . printAstS cfg 0 v)
       . showString " "
@@ -1115,7 +1121,7 @@ printAstS cfg d = \case
            . showString (printAstVarNameS (varRenames cfg) nvar)
            . showString " "
            . showListWith (showString
-                           . printAstDynamicVarName (varRenames cfg)) mvars
+                           . printAstDynamicVarNameCfg cfg) mvars
            . showString " -> "
            . printAstS cfg 0 v)
       . showString " "
@@ -1139,7 +1145,7 @@ printAstS cfg d = \case
            . showString (printAstVarNameS (varRenames cfg) nvar)
            . showString " "
            . showListWith (showString
-                           . printAstDynamicVarName (varRenames cfg)) mvars
+                           . printAstDynamicVarNameCfg cfg) mvars
            . showString " -> "
            . printAstS cfg 0 v)
       . showString " "
@@ -1148,12 +1154,12 @@ printAstS cfg d = \case
            . showString (printAstVarNameS (varRenames cfg) varDx)
            . showString " "
            . showListWith (showString
-                           . printAstDynamicVarName (varRenames cfg)) varsDa
+                           . printAstDynamicVarNameCfg cfg) varsDa
            . showString " "
            . showString (printAstVarNameS (varRenames cfg) varn1)
            . showString " "
            . showListWith (showString
-                           . printAstDynamicVarName (varRenames cfg)) varsm1
+                           . printAstDynamicVarNameCfg cfg) varsm1
            . showString " -> "
            . printAstS cfg 0 ast1)
       . showString " "
@@ -1164,7 +1170,7 @@ printAstS cfg d = \case
            . showString (printAstVarNameS (varRenames cfg) nvar2)
            . showString " "
            . showListWith (showString
-                           . printAstDynamicVarName (varRenames cfg)) mvars2
+                           . printAstDynamicVarNameCfg cfg) mvars2
            . showString " -> "
            . printAstHVector cfg 0 doms)
       . showString " "
@@ -1238,7 +1244,7 @@ printAstS cfg d = \case
            . showString (printAstVarNameS (varRenames cfg) nvar)
            . showString " "
            . showListWith (showString
-                           . printAstDynamicVarName (varRenames cfg)) mvars
+                           . printAstDynamicVarNameCfg cfg) mvars
            . showString " -> "
            . printAstS cfg 0 v)
       . showString " "
@@ -1262,7 +1268,7 @@ printAstS cfg d = \case
            . showString (printAstVarNameS (varRenames cfg) nvar)
            . showString " "
            . showListWith (showString
-                           . printAstDynamicVarName (varRenames cfg)) mvars
+                           . printAstDynamicVarNameCfg cfg) mvars
            . showString " -> "
            . printAstS cfg 0 v)
       . showString " "
@@ -1271,12 +1277,12 @@ printAstS cfg d = \case
            . showString (printAstVarNameS (varRenames cfg) varDx)
            . showString " "
            . showListWith (showString
-                           . printAstDynamicVarName (varRenames cfg)) varsDa
+                           . printAstDynamicVarNameCfg cfg) varsDa
            . showString " "
            . showString (printAstVarNameS (varRenames cfg) varn1)
            . showString " "
            . showListWith (showString
-                           . printAstDynamicVarName (varRenames cfg)) varsm1
+                           . printAstDynamicVarNameCfg cfg) varsm1
            . showString " -> "
            . printAstS cfg 0 ast1)
       . showString " "
@@ -1287,7 +1293,7 @@ printAstS cfg d = \case
            . showString (printAstVarNameS (varRenames cfg) nvar2)
            . showString " "
            . showListWith (showString
-                           . printAstDynamicVarName (varRenames cfg)) mvars2
+                           . printAstDynamicVarNameCfg cfg) mvars2
            . showString " -> "
            . printAstHVector cfg 0 doms)
       . showString " "
