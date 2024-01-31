@@ -254,7 +254,7 @@ data DeltaR :: RankedTensorType -> RankedTensorType where
          -> DeltaR ranked rn n
   FoldZipR :: VoidHVector
          -> ranked rn (1 + n)
-         -> HVector ranked  -- one rank higher than the HVector above
+         -> HVector ranked
          -> (forall f. ADReady f
              => f rn n -> HVector f -> f rn n -> HVector f
              -> f rn n)
@@ -262,7 +262,7 @@ data DeltaR :: RankedTensorType -> RankedTensorType where
              => f rn n -> f rn n -> HVector f
              -> HVectorOf f)
          -> DeltaR ranked rn n
-         -> HVector (DeltaR ranked)  -- one rank higher
+         -> HVector (DeltaR ranked)
          -> DeltaR ranked rn n
   FoldZipRC :: VoidHVector
           -> ranked rn (1 + n)
@@ -284,7 +284,7 @@ data DeltaR :: RankedTensorType -> RankedTensorType where
         -> DeltaR ranked rn (1 + n)
   ScanZipR :: VoidHVector
          -> ranked rn (1 + n)
-         -> HVector ranked  -- one rank higher than the HVector above
+         -> HVector ranked
          -> (forall f. ADReady f
              => f rn n -> HVector f -> f rn n -> HVector f
              -> f rn n)
@@ -292,7 +292,7 @@ data DeltaR :: RankedTensorType -> RankedTensorType where
              => f rn n -> f rn n -> HVector f
              -> HVectorOf f)
          -> DeltaR ranked rn n
-         -> HVector (DeltaR ranked)  -- one rank higher
+         -> HVector (DeltaR ranked)
          -> DeltaR ranked rn (1 + n)
   CastR :: (GoodScalar r1, RealFrac r1, RealFrac r2)
         => DeltaR ranked r1 n -> DeltaR ranked r2 n
@@ -431,7 +431,7 @@ data DeltaS :: ShapedTensorType -> ShapedTensorType where
   FoldZipS :: KnownNat k
          => VoidHVector
          -> shaped rn (1 + k ': sh)
-         -> HVector (RankedOf shaped)  -- one rank higher than the HVector above
+         -> HVector (RankedOf shaped)
          -> (forall f. ADReadyS f
              => f rn sh -> HVector (RankedOf f) -> f rn sh
              -> HVector (RankedOf f)
@@ -466,7 +466,7 @@ data DeltaS :: ShapedTensorType -> ShapedTensorType where
   ScanZipS :: (Sh.Shape sh, KnownNat k)
          => VoidHVector
          -> shaped rn (1 + k ': sh)
-         -> HVector (RankedOf shaped)  -- one rank higher than the HVector above
+         -> HVector (RankedOf shaped)
          -> (forall f. ADReadyS f
              => f rn sh -> HVector (RankedOf f) -> f rn sh
              -> HVector (RankedOf f)
@@ -498,6 +498,27 @@ deriving instance ( Sh.Shape sh0, GoodScalar r0
 type role DeltaH nominal
 data DeltaH :: RankedTensorType -> Type where
   LetH :: NodeId ranked -> DeltaH ranked -> DeltaH ranked
+  MapAccumRS
+    :: forall k rn sh ranked. (KnownNat k, GoodScalar rn, Sh.Shape sh)
+    => VoidHVector
+    -> ShapedOf ranked rn (1 + k ': sh)
+    -> HVector ranked
+    -> VoidHVector
+    -> (forall f. ADReadyS f
+        => f rn sh
+        -> HVector (RankedOf f)
+        -> f rn sh
+        -> HVector (RankedOf f)
+        -> HVectorOf (RankedOf f))
+    -> (forall f. ADReadyS f
+        => f rn sh
+        -> HVector (RankedOf f)
+        -> f rn sh
+        -> HVector (RankedOf f)
+        -> HVectorOf (RankedOf f))
+    -> DeltaS (ShapedOf ranked) rn sh
+    -> HVector (DeltaR ranked)
+    -> DeltaH ranked
 
 -- This is needed for the Show instances due to HVector (Delta...)
 -- referring to ShapedOf (Delta..).
@@ -563,7 +584,8 @@ shapeDeltaH :: forall ranked.
                DeltaH ranked -> VoidHVector
 shapeDeltaH = \case
   LetH _ d -> shapeDeltaH d
-
+  MapAccumRS @k @rn @sh _domsOD _p _as domB _df _rf _x0' _as' ->
+    V.cons (voidFromShS @rn @sh) (replicate1VoidHVector (Proxy @k) domB)
 
 -- * Delta expression identifiers
 
