@@ -38,7 +38,7 @@
 -- to understand.
 module HordeAd.Core.Delta
   ( -- * Abstract syntax trees of the delta expressions
-    DeltaR (..), DeltaS (..)
+    DeltaR (..), DeltaS (..), DeltaH (..)
   , -- * Delta expression identifiers
     NodeId (..), InputId, toInputId
   , -- * Evaluation of the delta expressions
@@ -501,7 +501,7 @@ data DeltaH :: RankedTensorType -> Type where
   MapAccumRS
     :: forall k rn sh ranked. (KnownNat k, GoodScalar rn, Sh.Shape sh)
     => VoidHVector
-    -> ShapedOf ranked rn (1 + k ': sh)
+    -> ShapedOf ranked rn (k ': sh)
     -> HVector ranked
     -> VoidHVector
     -> (forall f. ADReadyS f
@@ -584,7 +584,7 @@ shapeDeltaH :: forall ranked.
                DeltaH ranked -> VoidHVector
 shapeDeltaH = \case
   LetH _ d -> shapeDeltaH d
-  MapAccumRS @k @rn @sh _domsOD _p _as domB _df _rf _x0' _as' ->
+  MapAccumRS @k @rn @sh _domsOD _q _as domB _df _rf _x0' _as' ->
     V.cons (voidFromShS @rn @sh) (replicate1VoidHVector (Proxy @k) domB)
 
 -- * Delta expression identifiers
@@ -1575,10 +1575,13 @@ evalS !s !c = let (abShared, cShared) = sregister c (astBindings s)
                        V.// [(i, DynamicShaped c)]) d
 
 evalH
-  :: (ADReady ranked, shaped ~ ShapedOf ranked)
+  :: forall ranked shaped. (ADReady ranked, shaped ~ ShapedOf ranked)
   => EvalState ranked -> HVector ranked -> DeltaH ranked
   -> EvalState ranked
-evalH s c = \case
+evalH !s !c = let (abShared, cShared) =
+                    dregister (voidFromHVector c) (dmkHVector c) (astBindings s)
+                  sShared = s {astBindings = abShared}
+              in \case
   LetH n d ->
     assert (case d of
               LetH{} -> False  -- wasteful and nonsensical
@@ -1589,6 +1592,67 @@ evalH s c = \case
         Nothing ->
           s { hnMap = EM.insert n d $ hnMap s
             , hdMap = EM.insert n c $ hdMap s }
+  MapAccumRS @k @r @sh1 domsOD q as _domB _df rf x0' as' ->
+    let domsLen = V.length domsOD
+        odShn = voidFromShS @r @sh1
+        domsF = V.cons odShn domsOD
+        domsToPair :: ADReadyS f
+                   => HVector (RankedOf f) -> (f r sh1, HVector (RankedOf f))
+        domsToPair doms = (sfromD $ doms V.! 0, V.tail doms)
+        domsF3 = V.cons (voidFromShS @r @sh1)
+                 $ V.cons (voidFromShS @r @sh1) domsOD
+        domsTo3 :: ADReadyS f
+                => HVector (RankedOf f)
+                -> (HVector (RankedOf f), f r sh1, HVector (RankedOf f))
+        domsTo3 doms = ( V.take domsLen doms
+                       , sfromD $ doms V.! domsLen
+                       , V.drop (domsLen + 1) doms)
+        domsTo4
+          :: ADReadyS f
+          => HVector (RankedOf f)
+          -> (f r sh1, HVector (RankedOf f), f r sh1, HVector (RankedOf f))
+        domsTo4 doms =
+          ( sfromD $ doms V.! 0, V.slice 1 domsLen doms
+          , sfromD $ doms V.! (domsLen + 1), V.drop (domsLen + 2) doms )
+        lc = mapHVectorShaped11 @k sreverse cShared
+        lq = sreverse q
+        las :: HVector ranked
+        las = mapHVectorShaped11 @k sreverse as
+        crsr :: shaped r (1 + k ': sh1)
+        crsr =
+          sscanZip (\cr doms ->
+                      let (cx, x, a) = domsTo3 doms
+                      in sletHVectorIn
+                           domsF (rf cr cx x a) $ \rfRes ->
+                             fst $ domsToPair rfRes)
+                   domsF3
+                   0
+                   (lc V.++ V.cons (DynamicShaped lq) las)
+        crsUnshared = sreverse crsr
+        (abShared2, crs) = sregister crsUnshared (astBindings sShared)
+        s2 = sShared {astBindings = abShared2}
+        rg :: shaped r (k ': sh1) -> HVector ranked
+           -> shaped r (k ': sh1) -> HVector ranked
+           -> HVectorOf ranked
+        rg cr2 cx2 x2 a2 =
+          dzipWith1 (\doms ->
+                       let (cr, cx, x, a) = domsTo4 doms
+                       in dletHVectorInHVector @ranked
+                            domsF (rf cr cx x a) $ \rfRes ->
+                              dmkHVector $ snd $ domsToPair rfRes)
+                    (V.cons (DynamicShaped cr2) cx2
+                     V.++ V.cons (DynamicShaped x2) a2)
+        casUnshared =
+          rg (sslice @_ @_ @_ @_ @0 (Proxy @1) (Proxy @k) crs)
+             cShared
+             q
+             as
+        domsG = voidFromHVector as
+        (abShared3, cas) =
+          dregister domsG casUnshared (astBindings s2)
+        s3 = s2 {astBindings = abShared3}
+        s4 = evalS s3 (crs !$ (0 :$: ZSH)) x0'
+    in evalHVector s4 cas as'
 
 evalFromnMap :: (ADReady ranked, shaped ~ ShapedOf ranked)
              => EvalState ranked -> EvalState ranked
@@ -2197,6 +2261,8 @@ fwdH dimR params s = \case
             s4 = s3 { hnMap = EM.insert n d (hnMap s3)
                     , hdMap = EM.insert n cShared (hdMap s3) }
         in (s4, cShared)
+  MapAccumRS @k @rn @sh _domsOD _q _as _domB _df _rf _x0' _as' ->
+    undefined  -- TODO
 
 
 -- * Manually fixed Show instances
