@@ -16,10 +16,8 @@ import           Control.Exception.Assert.Sugar
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as Sh
 import qualified Data.Array.ShapedS as OS
-import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
-import           Data.Functor.Const
 import           Data.Maybe (fromMaybe)
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality ((:~:) (Refl))
@@ -304,11 +302,10 @@ instance UnletGradient (HVectorPseudoTensor (AstRanked PrimalSpan)) where
     :: forall r (y :: ()).
        ADShare -> AstBindings -> HVectorPseudoTensor (AstRanked PrimalSpan) r y
     -> HVectorPseudoTensor (AstRanked PrimalSpan) r y
-  unletValue l astBindings primalBodyPseudo =
-    let primalBody = getConst $ runClown primalBodyPseudo
-        hOf = unletGradient @Nat @(AstRanked PrimalSpan)
+  unletValue l astBindings (HVectorPseudoTensor primalBody) =
+    let hOf = unletGradient @Nat @(AstRanked PrimalSpan)
                             l astBindings primalBody
-    in Clown $ Const $ dunHVector (voidFromHVector primalBody) hOf
+    in HVectorPseudoTensor $ dunHVector (voidFromHVector primalBody) hOf
          -- TODO: sharing gets broken here
 
 

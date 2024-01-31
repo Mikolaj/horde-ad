@@ -54,9 +54,7 @@ import           Control.Exception.Assert.Sugar
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.Shape as Sh
 import qualified Data.Array.ShapedS as OS
-import           Data.Bifunctor.Clown
 import qualified Data.EnumMap.Strict as EM
-import           Data.Functor.Const
 import           Data.Int (Int64)
 import           Data.Kind (Constraint)
 import           Data.List (foldl', mapAccumR, sort)
@@ -693,14 +691,14 @@ gradientFromDeltaH
   -> Maybe (HVectorPseudoTensor ranked r y)
   -> HVectorPseudoTensor (DeltaR ranked) r y
   -> (AstBindingsD ranked, HVector ranked)
-gradientFromDeltaH !parameters0 value !mdt !deltaTopLevel =
+gradientFromDeltaH !parameters0 (HVectorPseudoTensor value)
+                   !mdt !(HVectorPseudoTensor deltaTopLevel) =
   let dt :: HVector ranked
-      dt = maybe (mapHVectorShaped (const 1)
-                  $ getConst $ runClown value)
-                 (getConst . runClown)
+      dt = maybe (mapHVectorShaped (const 1) value)
+                 unHVectorPseudoTensor
                  mdt
       s0 = initEvalState parameters0
-      s1 = evalHVector s0 dt $ getConst $ runClown deltaTopLevel
+      s1 = evalHVector s0 dt deltaTopLevel
       EvalState{..} = evalFromnMap s1
       !gradient = V.fromList $ EM.elems iMap
   in (astBindings, gradient)
@@ -713,10 +711,10 @@ derivativeFromDeltaH
   -> HVectorPseudoTensor (DeltaR ranked) r y
   -> HVector ranked
   -> (AstBindingsD ranked, HVectorPseudoTensor ranked r y)
-derivativeFromDeltaH dim deltaTopLevel ds =
+derivativeFromDeltaH dim (HVectorPseudoTensor deltaTopLevel) ds =
   let s0 = EvalState EM.empty EM.empty EM.empty []
-      !(!s2, !c) = fwdHVector dim ds s0 $ getConst $ runClown deltaTopLevel
-  in (astBindings s2, Clown $ Const c)
+      !(!s2, !c) = fwdHVector dim ds s0 deltaTopLevel
+  in (astBindings s2, HVectorPseudoTensor c)
 
 
 -- * Reverse pass, transpose/evaluation of the delta expressions

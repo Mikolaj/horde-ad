@@ -8,7 +8,7 @@
 module HordeAd.Core.HVector
   ( -- * Fynamic tensors and heterogeneous tensor collections
     DynamicTensor(..), CRanked, CShaped
-  , HVector, HVectorPseudoTensor
+  , HVector, HVectorPseudoTensor(..)
   , VoidTensor, VoidHVector, DynamicScalar(..)
   , scalarDynamic, shapeDynamicVoid, rankDynamic
   , isDynamicRanked, isDynamicDummy
@@ -26,8 +26,6 @@ import Prelude
 import           Control.DeepSeq (NFData (..))
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.Shape as Sh
-import           Data.Bifunctor.Clown
-import           Data.Functor.Const
 import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
 import           Data.Kind (Constraint, Type)
 import           Data.List (foldl')
@@ -105,8 +103,10 @@ instance
 -- below with errors in the AstHVectorLet case).
 type HVector ranked = Data.Vector.Vector (DynamicTensor ranked)
 
+type role HVectorPseudoTensor nominal phantom phantom
 type HVectorPseudoTensor :: RankedTensorType -> TensorType ()
-type HVectorPseudoTensor ranked = Clown (Const (HVector ranked))
+newtype HVectorPseudoTensor ranked r y =
+  HVectorPseudoTensor {unHVectorPseudoTensor :: HVector ranked}
 
 type instance RankedOf (HVectorPseudoTensor ranked) = ranked
 

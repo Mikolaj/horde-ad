@@ -1041,8 +1041,8 @@ hVectorADValToADVal
 hVectorADValToADVal hv =
   let (ll, as, as') = unADValHVector hv
   in dDnotShared (flattenADShare $ V.toList ll)
-                 (Clown (Const as))
-                 (Clown (Const as'))
+                 (HVectorPseudoTensor as)
+                 (HVectorPseudoTensor as')
 
 unADValHVector
   :: HVector (ADVal f)
