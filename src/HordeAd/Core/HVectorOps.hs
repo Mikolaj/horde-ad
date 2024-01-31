@@ -4,8 +4,8 @@
 -- API of the horde-ad library and it's relatively orthogonal to the
 -- differentiation interface in "HordeAd.Core.Engine".
 module HordeAd.Core.HVectorOps
-  ( raddDynamic, saddDynamic, sumDynamicRanked, sumDynamicShaped, rfromD, sfromD
-  , sizeHVector, shapeDynamic
+  ( raddDynamic, saddDynamic, sumDynamicRanked, sumDynamicShaped, addDynamic
+  , rfromD, sfromD, sizeHVector, shapeDynamic
   , hVectorsMatch, voidHVectorMatches
   , voidFromDynamic, voidFromHVector, dynamicFromVoid
   , fromHVectorR, fromHVectorS
@@ -130,6 +130,24 @@ sumDynamicShaped dsOrig@(d : _) =
     ([], DynamicShapedDummy @r @sh _ _) ->
       DynamicShaped @r @sh 0
     ([], _) -> error "sumDynamicShaped: wrong filtering"
+
+addDynamic :: forall ranked.
+              (RankedTensor ranked, ShapedTensor (ShapedOf ranked))
+           => DynamicTensor ranked -> DynamicTensor ranked
+           -> DynamicTensor ranked
+addDynamic (DynamicRanked @r1 @n1 t) (DynamicRanked @r2 @n2 t')
+  | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
+  , Just Refl <- sameNat (Proxy @n1) (Proxy @n2) =
+    DynamicRanked $ t + t'
+addDynamic (DynamicShaped @r1 @sh1 t) (DynamicShaped @r2 @sh2 t')
+  | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
+  , Just Refl <- sameShape @sh1 @sh2 =
+    DynamicShaped $ t + t'
+addDynamic DynamicRankedDummy{} u@DynamicRanked{} = u
+addDynamic u@DynamicRanked{} DynamicRankedDummy{} = u
+addDynamic DynamicShapedDummy{} u@DynamicShaped{} = u
+addDynamic u@DynamicShaped{} DynamicShapedDummy{} = u
+addDynamic _ _ = error "addDynamic: wrong arguments"
 
 rfromD :: forall r n ranked.
           (RankedTensor ranked, GoodScalar r, KnownNat n)

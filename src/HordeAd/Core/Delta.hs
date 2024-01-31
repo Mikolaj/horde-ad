@@ -56,7 +56,7 @@ import qualified Data.Array.Shape as Sh
 import qualified Data.Array.ShapedS as OS
 import qualified Data.EnumMap.Strict as EM
 import           Data.Int (Int64)
-import           Data.Kind (Constraint)
+import           Data.Kind (Constraint, Type)
 import           Data.List (foldl', mapAccumR, sort)
 import           Data.List.Index (ifoldl')
 import           Data.Maybe (fromMaybe)
@@ -161,8 +161,7 @@ data DeltaR :: RankedTensorType -> RankedTensorType where
   ScaleR :: ranked r n -> DeltaR ranked r n -> DeltaR ranked r n
   AddR :: DeltaR ranked r n -> DeltaR ranked r n
        -> DeltaR ranked r n
-  LetR :: NodeId ranked -> DeltaR ranked r n
-       -> DeltaR ranked r n
+  LetR :: NodeId ranked -> DeltaR ranked r n -> DeltaR ranked r n
 
   IndexR :: (KnownNat n, KnownNat m)
          => DeltaR ranked r (m + n) -> IndexOf ranked m
@@ -300,6 +299,7 @@ data DeltaR :: RankedTensorType -> RankedTensorType where
   SToR :: forall sh r ranked. Sh.Shape sh
        => DeltaS (ShapedOf ranked) r sh
        -> DeltaR ranked r (Sh.Rank sh)
+  HToR :: DeltaH ranked -> Int -> DeltaR ranked r n
 
 {- Fails due to @forall f@. Replaced by a manually fixed version at the end
    of this file.
@@ -322,8 +322,7 @@ data DeltaS :: ShapedTensorType -> ShapedTensorType where
          -> DeltaS shaped r sh
   AddS :: DeltaS shaped r sh -> DeltaS shaped r sh
        -> DeltaS shaped r sh
-  LetS :: NodeId (RankedOf shaped) -> DeltaS shaped r sh
-       -> DeltaS shaped r sh
+  LetS :: NodeId (RankedOf shaped) -> DeltaS shaped r sh -> DeltaS shaped r sh
 
   IndexS :: (Sh.Shape sh1, Sh.Shape (sh1 Sh.++ sh2))
          => DeltaS shaped r (sh1 Sh.++ sh2)
@@ -483,6 +482,7 @@ data DeltaS :: ShapedTensorType -> ShapedTensorType where
   RToS :: forall sh r shaped. KnownNat (Sh.Rank sh)
        => DeltaR (RankedOf shaped) r (Sh.Rank sh)
        -> DeltaS shaped r sh
+  HToS :: DeltaH (RankedOf shaped) -> Int -> DeltaS shaped r sh
 
 {- Fails due to @forall f@. Replaced by a manually fixed version at the end
    of this file.
@@ -494,6 +494,10 @@ deriving instance ( Sh.Shape sh0, GoodScalar r0
                   , CRanked (DeltaR (RankedOf shaped)) Show )
                   => Show (DeltaS shaped r0 sh0)
 -}
+
+type role DeltaH nominal
+data DeltaH :: RankedTensorType -> Type where
+  LetH :: NodeId ranked -> DeltaH ranked -> DeltaH ranked
 
 -- This is needed for the Show instances due to HVector (Delta...)
 -- referring to ShapedOf (Delta..).
@@ -545,6 +549,7 @@ shapeDeltaR = \case
   ScanZipR _domsOD p _as _df _rf _x0' _as' -> rshape p
   CastR d -> shapeDeltaR d
   SToR @sh _ -> listShapeToShape $ Sh.shapeT @sh
+  HToR d i -> listShapeToShape $ shapeDynamicVoid (shapeDeltaH d V.! i)
 
 lengthDeltaR :: forall ranked r n.
                 ( GoodScalar r, KnownNat n
@@ -553,6 +558,11 @@ lengthDeltaR :: forall ranked r n.
 lengthDeltaR d = case shapeDeltaR d of
   ZS -> error "lengthDeltaR: impossible pattern needlessly required"
   k :$ _ -> k
+
+shapeDeltaH :: forall ranked.
+               DeltaH ranked -> VoidHVector
+shapeDeltaH = \case
+  LetH _ d -> shapeDeltaH d
 
 
 -- * Delta expression identifiers
@@ -627,7 +637,7 @@ derivativeFromDeltaR
   => Int -> DeltaR ranked r n -> HVector ranked
   -> (AstBindingsD ranked, ranked r n)
 derivativeFromDeltaR dim deltaTopLevel ds =
-  let s0 = EvalState EM.empty EM.empty EM.empty []
+  let s0 = EvalState EM.empty EM.empty EM.empty EM.empty EM.empty []
       !(!s2, !c) = fwdR dim ds s0 deltaTopLevel
   in (astBindings s2, c)
 
@@ -670,7 +680,7 @@ derivativeFromDeltaS
   => Int -> DeltaS shaped r sh -> HVector (RankedOf shaped)
   -> (AstBindingsD (RankedOf shaped), shaped r sh)
 derivativeFromDeltaS !dim !deltaTopLevel !ds =
-  let s0 = EvalState EM.empty EM.empty EM.empty []
+  let s0 = EvalState EM.empty EM.empty EM.empty EM.empty EM.empty []
       !(!s2, !c) = fwdS dim ds s0 deltaTopLevel
   in (astBindings s2, c)
 
@@ -712,7 +722,7 @@ derivativeFromDeltaH
   -> HVector ranked
   -> (AstBindingsD ranked, HVectorPseudoTensor ranked r y)
 derivativeFromDeltaH dim (HVectorPseudoTensor deltaTopLevel) ds =
-  let s0 = EvalState EM.empty EM.empty EM.empty []
+  let s0 = EvalState EM.empty EM.empty EM.empty EM.empty EM.empty []
       !(!s2, !c) = fwdHVector dim ds s0 deltaTopLevel
   in (astBindings s2, HVectorPseudoTensor c)
 
@@ -744,6 +754,8 @@ data EvalState ranked = EvalState
       -- may still not be processed, so we'd not take advantage of the sharing
       -- and not take into account the whole summed context when finally
       -- evaluating
+  , hdMap       :: EM.EnumMap (NodeId ranked) (HVector ranked)
+  , hnMap       :: EM.EnumMap (NodeId ranked) (DeltaH ranked)
   , astBindings :: AstBindingsD ranked
   }
 
@@ -817,6 +829,8 @@ initEvalState !parameters0 =
              $ map dynamicFromVoid $ V.toList parameters0
       dMap = EM.empty
       nMap = EM.empty
+      hdMap = EM.empty
+      hnMap = EM.empty
       astBindings = []
   in EvalState {..}
 -- The warnings in the following seems spurious. A GHC issue to be opened.
@@ -867,16 +881,14 @@ evalDynamic _ _ = error $ "evalDynamic: dummy delta"
 
 evalHVector
   :: (ADReady ranked, shaped ~ ShapedOf ranked)
-  => EvalState ranked
-  -> HVector ranked -> HVector (DeltaR ranked)
+  => EvalState ranked -> HVector ranked -> HVector (DeltaR ranked)
   -> EvalState ranked
 evalHVector s as as' = V.foldl' evalDynamic s $ V.zip as as'
 
 evalR
   :: forall n r ranked shaped.
      (KnownNat n, GoodScalar r, ADReady ranked, shaped ~ ShapedOf ranked)
-  => EvalState ranked
-  -> ranked r n -> DeltaR ranked r n
+  => EvalState ranked -> ranked r n -> DeltaR ranked r n
   -> EvalState ranked
 evalR !s !c = let (abShared, cShared) = rregister c (astBindings s)
                   sShared = s {astBindings = abShared}
@@ -1223,12 +1235,15 @@ evalR !s !c = let (abShared, cShared) = rregister c (astBindings s)
 
   SToR (RToS d) -> evalR s c d  -- no information lost, so no checks
   SToR d -> evalS s (sfromR c) d
+  HToR d i -> evalH s (V.map dynamicFromVoid (shapeDeltaH d)
+                       V.// [(i, DynamicRanked c)]) d
+    -- should be used only with small vectors or we end up with the same
+    -- problem of summing a lot of one-hots as in indexing
 
 evalSRuntimeSpecialized
   :: forall sh r ranked shaped.
      (Sh.Shape sh, GoodScalar r, ADReady ranked, shaped ~ ShapedOf ranked)
-  => EvalState ranked
-  -> shaped r sh -> DeltaS shaped r sh
+  => EvalState ranked -> shaped r sh -> DeltaS shaped r sh
   -> EvalState ranked
 evalSRuntimeSpecialized !s !c =
   case testEquality (typeRep @r) (typeRep @Double) of
@@ -1244,8 +1259,7 @@ evalSRuntimeSpecialized !s !c =
 evalS
   :: forall sh r ranked shaped.
      (Sh.Shape sh, GoodScalar r, ADReady ranked, shaped ~ ShapedOf ranked)
-  => EvalState ranked
-  -> shaped r sh -> DeltaS shaped r sh
+  => EvalState ranked -> shaped r sh -> DeltaS shaped r sh
   -> EvalState ranked
 evalS !s !c = let (abShared, cShared) = sregister c (astBindings s)
                   sShared = s {astBindings = abShared}
@@ -1535,6 +1549,24 @@ evalS !s !c = let (abShared, cShared) = sregister c (astBindings s)
       Just Refl -> evalS s c d
       _ -> error "evalS: different shapes in RToS(SToR)"
   RToS d -> evalR s (rfromS c) d
+  HToS d i -> evalH s (V.map dynamicFromVoid (shapeDeltaH d)
+                       V.// [(i, DynamicShaped c)]) d
+
+evalH
+  :: (ADReady ranked, shaped ~ ShapedOf ranked)
+  => EvalState ranked -> HVector ranked -> DeltaH ranked
+  -> EvalState ranked
+evalH s c = \case
+  LetH n d ->
+    assert (case d of
+              LetH{} -> False  -- wasteful and nonsensical
+              _ -> True)
+    $ case EM.lookup n $ hnMap s of
+        Just{} ->
+          s {hdMap = EM.adjust (V.zipWith addDynamic c) n $ hdMap s}
+        Nothing ->
+          s { hnMap = EM.insert n d $ hnMap s
+            , hdMap = EM.insert n c $ hdMap s }
 
 evalFromnMap :: (ADReady ranked, shaped ~ ShapedOf ranked)
              => EvalState ranked -> EvalState ranked
@@ -1746,9 +1778,7 @@ fwdHVector dimR params = mapAccumL (fwdDynamic dimR params)
 fwdR
   :: forall n r ranked shaped.
      (KnownNat n, GoodScalar r, ADReady ranked, shaped ~ ShapedOf ranked)
-  => Int -> HVector ranked
-  -> EvalState ranked
-  -> DeltaR ranked r n
+  => Int -> HVector ranked -> EvalState ranked -> DeltaR ranked r n
   -> (EvalState ranked, ranked r n)
 fwdR dimR params s = \case
   ZeroR sh -> (s, rzero sh)
@@ -1937,13 +1967,13 @@ fwdR dimR params s = \case
 
   SToR (RToS d) -> fwdR dimR params s d  -- no information lost, so no checks
   SToR d -> second rfromS $ fwdS dimR params s d
+  HToR d i -> second (rfromD . (V.! i)) $ fwdH dimR params s d
 
 fwdS
   :: forall sh r ranked shaped.
      (Sh.Shape sh, GoodScalar r, ADReady ranked, shaped ~ ShapedOf ranked)
-  => Int -> HVector ranked
-  -> EvalState ranked
-  -> DeltaS shaped r sh -> (EvalState ranked, shaped r sh)
+  => Int -> HVector ranked -> EvalState ranked -> DeltaS shaped r sh
+  -> (EvalState ranked, shaped r sh)
 fwdS dimR params s = \case
   ZeroS -> (s, 0)
   InputS (InputId i) ->
@@ -2126,6 +2156,25 @@ fwdS dimR params s = \case
       Just Refl -> fwdS dimR params s d
       _ -> error "fwdS: different shapes in RToS(SToR)"
   RToS d -> second sfromR $ fwdR dimR params s d
+  HToS d i -> second (sfromD . (V.! i)) $ fwdH dimR params s d
+
+fwdH
+  :: forall ranked shaped. (ADReady ranked, shaped ~ ShapedOf ranked)
+  => Int -> HVector ranked -> EvalState ranked -> DeltaH ranked
+  -> (EvalState ranked, HVector ranked)
+fwdH dimR params s = \case
+  LetH n d ->
+    case EM.lookup n $ hnMap s of
+      Just{} -> (s, hdMap s EM.! n)
+      Nothing ->
+        let (s2, cRaw) = fwdH dimR params s d
+            (abShared, cShared) = dregister (voidFromHVector cRaw)
+                                            (dmkHVector cRaw)
+                                            (astBindings s2)
+            s3 = s2 {astBindings = abShared}
+            s4 = s3 { hnMap = EM.insert n d (hnMap s3)
+                    , hdMap = EM.insert n cShared (hdMap s3) }
+        in (s4, cShared)
 
 
 -- * Manually fixed Show instances
