@@ -155,7 +155,7 @@ import           HordeAd.Util.SizedIndex
 type role DeltaR nominal nominal nominal
 data DeltaR :: RankedTensorType -> RankedTensorType where
   ZeroR :: ShapeInt n -> DeltaR ranked r n
-    -- ^ the shape is required for @shapeDelta@ and forward derivative
+    -- ^ the shape is required for @shapeDeltaR@ and forward derivative
   InputR :: forall ranked r n.
             ShapeInt n -> InputId ranked -> DeltaR ranked r n
   ScaleR :: ranked r n -> DeltaR ranked r n -> DeltaR ranked r n
@@ -501,57 +501,57 @@ type instance RankedOf (DeltaS shaped) = DeltaR (RankedOf shaped)
 
 type instance ShapedOf (DeltaR ranked) = DeltaS (ShapedOf ranked)
 
-shapeDelta :: forall ranked r n.
-              ( GoodScalar r, KnownNat n
-              , RankedTensor ranked, ShapedTensor (ShapedOf ranked) )
-           => DeltaR ranked r n -> ShapeInt n
-shapeDelta = \case
+shapeDeltaR :: forall ranked r n.
+               ( GoodScalar r, KnownNat n
+               , RankedTensor ranked, ShapedTensor (ShapedOf ranked) )
+            => DeltaR ranked r n -> ShapeInt n
+shapeDeltaR = \case
   ZeroR sh -> sh
   InputR sh _ -> sh
-  ScaleR _ d -> shapeDelta d
-  AddR d _ -> shapeDelta d
-  LetR _ d -> shapeDelta d
-  IndexR d _ -> dropShape (shapeDelta d)
-  SumR d -> tailShape (shapeDelta d)
+  ScaleR _ d -> shapeDeltaR d
+  AddR d _ -> shapeDeltaR d
+  LetR _ d -> shapeDeltaR d
+  IndexR d _ -> dropShape (shapeDeltaR d)
+  SumR d -> tailShape (shapeDeltaR d)
   Sum0R{} -> ZS
   Dot0R{} -> ZS
   ScatterR sh _ _ -> sh
   FromListR l -> case l of
     [] -> case sameNat (Proxy @n) (Proxy @1) of
       Just Refl -> singletonShape 0  -- the only case where we can guess sh
-      _ -> error "shapeDelta: FromListR with no arguments"
-    d : _ -> length l :$ shapeDelta d
+      _ -> error "shapeDeltaR: FromListR with no arguments"
+    d : _ -> length l :$ shapeDeltaR d
   FromVectorR l -> case V.toList l of
     [] -> case sameNat (Proxy @n) (Proxy @1) of
       Just Refl -> singletonShape 0  -- the only case where we can guess sh
-      _ -> error "shapeDelta: FromListR with no arguments"
-    d : _ -> length l :$ shapeDelta d
-  ReplicateR n d -> n :$ shapeDelta d
-  AppendR x y -> case shapeDelta x of
-    ZS -> error "shapeDelta: impossible pattern needlessly required"
-    xi :$ xsh -> case shapeDelta y of
-      ZS -> error "shapeDelta: impossible pattern needlessly required"
+      _ -> error "shapeDeltaR: FromListR with no arguments"
+    d : _ -> length l :$ shapeDeltaR d
+  ReplicateR n d -> n :$ shapeDeltaR d
+  AppendR x y -> case shapeDeltaR x of
+    ZS -> error "shapeDeltaR: impossible pattern needlessly required"
+    xi :$ xsh -> case shapeDeltaR y of
+      ZS -> error "shapeDeltaR: impossible pattern needlessly required"
       yi :$ _ -> xi + yi :$ xsh
-  SliceR _ n d -> n :$ tailShape (shapeDelta d)
-  ReverseR d -> shapeDelta d
-  TransposeR perm d -> backpermutePrefixShape perm (shapeDelta d)
+  SliceR _ n d -> n :$ tailShape (shapeDeltaR d)
+  ReverseR d -> shapeDeltaR d
+  TransposeR perm d -> backpermutePrefixShape perm (shapeDeltaR d)
   ReshapeR sh _ -> sh
   GatherR sh _ _ -> sh
-  FoldR _p _as _df _rf x0' _as' -> shapeDelta x0'
-  FoldRC _p _as _df _rf x0' _as' -> shapeDelta x0'
-  FoldZipR _domsOD _p _as _df _rf x0' _as' -> shapeDelta x0'
-  FoldZipRC _domsOD _p _as _df _rf x0' _as' -> shapeDelta x0'
+  FoldR _p _as _df _rf x0' _as' -> shapeDeltaR x0'
+  FoldRC _p _as _df _rf x0' _as' -> shapeDeltaR x0'
+  FoldZipR _domsOD _p _as _df _rf x0' _as' -> shapeDeltaR x0'
+  FoldZipRC _domsOD _p _as _df _rf x0' _as' -> shapeDeltaR x0'
   ScanR p _as _df _rf _x0' _as' -> rshape p
   ScanZipR _domsOD p _as _df _rf _x0' _as' -> rshape p
-  CastR d -> shapeDelta d
+  CastR d -> shapeDeltaR d
   SToR @sh _ -> listShapeToShape $ Sh.shapeT @sh
 
-lengthDelta :: forall ranked r n.
-               ( GoodScalar r, KnownNat n
-               , RankedTensor ranked, ShapedTensor (ShapedOf ranked) )
-            => DeltaR ranked r (1 + n) -> Int
-lengthDelta d = case shapeDelta d of
-  ZS -> error "lengthDelta: impossible pattern needlessly required"
+lengthDeltaR :: forall ranked r n.
+                ( GoodScalar r, KnownNat n
+                , RankedTensor ranked, ShapedTensor (ShapedOf ranked) )
+             => DeltaR ranked r (1 + n) -> Int
+lengthDeltaR d = case shapeDeltaR d of
+  ZS -> error "lengthDeltaR: impossible pattern needlessly required"
   k :$ _ -> k
 
 
@@ -937,13 +937,13 @@ evalR !s !c = let (abShared, cShared) = rregister c (astBindings s)
         _ -> error "evalR: corrupted nMap"
 
   IndexR d ix -> evalR s (rscatter @ranked @r @0
-                                       (shapeDelta d) c (const ix)) d
+                                       (shapeDeltaR d) c (const ix)) d
     -- equivalent: evalR s (updateNR (treplicate0NR sh 0) [(ix, c)]) d
-  SumR d -> evalR s (rreplicate (lengthDelta d) c) d
-  Sum0R d -> evalR s (rreplicate0N (shapeDelta d) c) d
+  SumR d -> evalR s (rreplicate (lengthDeltaR d) c) d
+  Sum0R d -> evalR s (rreplicate0N (shapeDeltaR d) c) d
   Dot0R v vd -> evalR s (v * rreplicate0N (rshape v) c) vd
                -- too slow: evalR s (rmap0N (* (tscalar c)) v) vd
-  ScatterR _sh d f -> evalR s (rgather (shapeDelta d) c f) d
+  ScatterR _sh d f -> evalR s (rgather (shapeDeltaR d) c f) d
 
   FromListR @n1 ld ->
     let cxs :: [ranked r n1]
@@ -957,7 +957,7 @@ evalR !s !c = let (abShared, cShared) = rregister c (astBindings s)
        $ zip cxs (V.toList ld)
   ReplicateR _n d -> evalR s (rsum c) d
   AppendR d e -> case rshape c of
-    n :$ _ -> let k = lengthDelta d
+    n :$ _ -> let k = lengthDeltaR d
                   s2 = evalR sShared (rslice 0 k cShared) d
               in evalR s2 (rslice k (n - k) cShared) e
     ZS -> error "evalR: impossible pattern needlessly required"
@@ -966,15 +966,15 @@ evalR !s !c = let (abShared, cShared) = rregister c (astBindings s)
       assert (n' == n `blame` (n', n)) $
       evalR s (rconcat [ rzero (i :$ rest)
                        , c
-                       , rzero (lengthDelta d - i - n :$ rest) ])
+                       , rzero (lengthDeltaR d - i - n :$ rest) ])
               d
     ZS -> error "evalR: impossible pattern needlessly required"
   ReverseR d -> evalR s (rreverse c) d
   TransposeR perm d ->
     let perm_reversed = map snd $ sort $ zip perm [0 .. length perm - 1]
     in evalR s (rtranspose perm_reversed c) d
-  ReshapeR _sh d -> evalR s (rreshape (shapeDelta d) c) d
-  GatherR _sh d f -> evalR s (rscatter (shapeDelta d) c f) d
+  ReshapeR _sh d -> evalR s (rreshape (shapeDeltaR d) c) d
+  GatherR _sh d f -> evalR s (rscatter (shapeDeltaR d) c f) d
   FoldR @rm @m p as _df rf x0' as' ->
     -- The call @rf cr x a@ is not shared here, but it's repeated
     -- just two times, so it's fine unless folds are nested.
@@ -990,7 +990,7 @@ evalR !s !c = let (abShared, cShared) = rregister c (astBindings s)
           width2 :$ shm2 -> (width2, shm2)
           ZS -> error "evalR: impossible pattern needlessly required"
         !_A1 = assert (rlength p == width + 1) ()
-        shn = shapeDelta x0'
+        shn = shapeDeltaR x0'
         domsF = V.fromList [voidFromSh @r shn, voidFromSh @rm shm]
         domsToPair :: ADReady f => HVector f -> (f r n, f rm m)
         domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
@@ -1029,7 +1029,7 @@ evalR !s !c = let (abShared, cShared) = rregister c (astBindings s)
         shm = case rshape as of
           _width2 :$ shm2 -> shm2
           ZS -> error "evalR: impossible pattern needlessly required"
-        shn = shapeDelta x0'
+        shn = shapeDeltaR x0'
         domsF = V.fromList [voidFromSh @r shn, voidFromSh @rm shm]
         domsToPair :: ADReady f => HVector f -> (f r n, f rm m)
         domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
@@ -1055,7 +1055,7 @@ evalR !s !c = let (abShared, cShared) = rregister c (astBindings s)
             [] -> error "evalR: wrong rank of argument"
             width2 : _shm -> width2
         !_A1 = assert (rlength p == width + 1) ()
-        shn = shapeDelta x0'
+        shn = shapeDeltaR x0'
         odShn = voidFromSh @r shn
         domsF = V.cons odShn domsOD
         domsToPair :: ADReady f => HVector f -> (f r n, HVector f)
@@ -1102,7 +1102,7 @@ evalR !s !c = let (abShared, cShared) = rregister c (astBindings s)
   FoldZipRC domsOD p as _df rf x0' as' ->
     -- No sharing attempted, because this constructor is usually used
     -- for non-symbolic derivatives.
-    let shn = shapeDelta x0'
+    let shn = shapeDeltaR x0'
         domsF = V.cons (voidFromSh @r shn) domsOD
         domsToPair :: ADReady f => HVector f -> (f r n, HVector f)
         domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
@@ -1123,7 +1123,7 @@ evalR !s !c = let (abShared, cShared) = rregister c (astBindings s)
           ZS -> error "evalR: impossible pattern needlessly required"
         !_A1 = assert (rlength p == width + 1) ()
         !_A2 = assert (rlength cShared == width + 1) ()
-        shn = shapeDelta x0'
+        shn = shapeDeltaR x0'
         domsF = V.fromList [voidFromSh @r shn, voidFromSh @rm shm]
         domsToPair :: ADReady f => HVector f -> (f r n1, f rm m)
         domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
@@ -1166,7 +1166,7 @@ evalR !s !c = let (abShared, cShared) = rregister c (astBindings s)
             width2 : _shm -> width2
         !_A1 = assert (rlength p == width + 1) ()
         !_A2 = assert (rlength cShared == width + 1) ()
-        shn = shapeDelta x0'
+        shn = shapeDeltaR x0'
         odShn = voidFromSh @r shn
         domsF = V.cons odShn domsOD
         domsToPair :: ADReady f => HVector f -> (f r n1, HVector f)
@@ -1624,7 +1624,7 @@ mapDynamicDeltaR11
   => (forall rq q. (GoodScalar rq, KnownNat q)
       => DeltaR ranked rq (1 + q) -> DeltaR ranked rq (1 + q))
   -> DynamicTensor (DeltaR ranked) -> DynamicTensor (DeltaR ranked)
-mapDynamicDeltaR11 f (DynamicRanked t) = case shapeDelta t of
+mapDynamicDeltaR11 f (DynamicRanked t) = case shapeDeltaR t of
   ZS -> error "mapDynamicDeltaR11: rank 0"
   _ :$ _ -> DynamicRanked $ f t
 mapDynamicDeltaR11 f (DynamicShaped @r @sh t) = case ShapedList.shapeSh @sh of
@@ -1633,7 +1633,7 @@ mapDynamicDeltaR11 f (DynamicShaped @r @sh t) = case ShapedList.shapeSh @sh of
     withListShape (Sh.shapeT @sh0) $ \(_ :: ShapeInt n) ->
       gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: 1 + n) $
       let res = f $ SToR @sh t
-      in Sh.withShapeP (shapeToList $ shapeDelta res) $ \(Proxy @shr) ->
+      in Sh.withShapeP (shapeToList $ shapeDeltaR res) $ \(Proxy @shr) ->
         case someNatVal $ 1 + valueOf @n of
           Just (SomeNat @n1 _) ->
             gcastWith (unsafeCoerce Refl :: n1 :~: 1 + n) $
@@ -1652,7 +1652,7 @@ mapDynamicDeltaR11
   (:$:) @_ @sh0 k _ ->
     withListShape (Sh.shapeT @sh0) $ \(sh1 :: ShapeInt n) ->
       let res = f @r (ZeroR $ k :$ sh1)
-      in Sh.withShapeP (shapeToList $ shapeDelta res) $ \(Proxy @shr) ->
+      in Sh.withShapeP (shapeToList $ shapeDeltaR res) $ \(Proxy @shr) ->
         case someNatVal $ 1 + valueOf @n of
           Just (SomeNat @n1 _) ->
             gcastWith (unsafeCoerce Refl :: n1 :~: 1 + n) $
@@ -1678,7 +1678,7 @@ mapDynamicDeltaS11
   -> DynamicTensor (DeltaR (RankedOf shaped))
   -> DynamicTensor (DeltaR (RankedOf shaped))
 mapDynamicDeltaS11 f (DynamicRanked @r @n2 t) =
-  Sh.withShapeP (shapeToList $ shapeDelta t) $ \(Proxy @sh) ->
+  Sh.withShapeP (shapeToList $ shapeDeltaR t) $ \(Proxy @sh) ->
     case ShapedList.shapeSh @sh of
       ZSH -> error "mapDynamicDeltaS11: rank 0"
       (:$:) @n @shr _ _ -> case sameNat (Proxy @n) (Proxy @k) of
@@ -1830,7 +1830,7 @@ fwdR dimR params s = \case
           width2 :$ shm2 -> (width2, shm2)
           ZS -> error "fwdR: impossible pattern needlessly required"
         !_A1 = assert (rlength p == width + 1) ()
-        shn = shapeDelta x0'
+        shn = shapeDeltaR x0'
         (s2, cx0) = fwdR dimR params s x0'
         (s3, cas) = fwdR dimR params s2 as'
         domsF =
@@ -1860,7 +1860,7 @@ fwdR dimR params s = \case
   FoldZipR domsOD p as df _rf x0' as' ->
     let width = rlength p - 1
         domsLen = V.length domsOD
-        shn = shapeDelta x0'
+        shn = shapeDeltaR x0'
         (s2, cx0) = fwdR dimR params s x0'
         (s3, cas) = fwdHVector dimR params s2 as'
         domsF = V.concat [domsOD, V.singleton (voidFromSh @r shn), domsOD]
@@ -1892,7 +1892,7 @@ fwdR dimR params s = \case
           width2 :$ shm2 -> (width2, shm2)
           ZS -> error "evalR: impossible pattern needlessly required"
         !_A1 = assert (rlength p == width + 1) ()
-        shn = shapeDelta x0'
+        shn = shapeDeltaR x0'
         (s2, cx0) = fwdR dimR params s x0'
         (s3, cas) = fwdR dimR params s2 as'
         domsF =
@@ -1914,7 +1914,7 @@ fwdR dimR params s = \case
   ScanZipR @_ @_ @n1 domsOD p as df _rf x0' as' ->
     let width = rlength p - 1
         domsLen = V.length domsOD
-        shn = shapeDelta x0'
+        shn = shapeDeltaR x0'
         (s2, cx0) = fwdR dimR params s x0'
         (s3, cas) = fwdHVector dimR params s2 as'
         domsF = V.concat [domsOD, V.singleton (voidFromSh @r shn), domsOD]
