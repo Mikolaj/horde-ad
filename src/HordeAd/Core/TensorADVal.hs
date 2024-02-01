@@ -1006,6 +1006,61 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         (l4, pShared) = recordSharingPrimal p l3
     in dDnotShared l4 pShared
                       (ScanZipS domsOD pShared as df rf x0' as')
+  smapAccumR
+    :: forall k rn sh.
+       Proxy k
+    -> VoidHVector
+    -> (forall f. ADReadyS f
+        => f rn sh -> HVector (RankedOf f) -> HVectorOf (RankedOf f))
+    -> VoidHVector
+    -> ADVal shaped rn sh
+    -> HVector (ADVal ranked)
+    -> HVectorOf (ADVal ranked)
+  smapAccumR _proxy_k _domB _f _domsOD (D _l1 _x0 _x0') _asD = undefined  -- TODO
+  smapAccumRDer
+    :: forall k rn sh. (GoodScalar rn, Sh.Shape sh, KnownNat k)
+    => Proxy k
+    -> VoidHVector
+    -> (forall f. ADReadyS f
+        => f rn sh
+        -> HVector (RankedOf f)
+        -> HVectorOf (RankedOf f))
+    -> (forall f. ADReadyS f
+        => f rn sh
+        -> HVector (RankedOf f)
+        -> f rn sh
+        -> HVector (RankedOf f)
+        -> HVectorOf (RankedOf f))
+    -> (forall f. ADReadyS f
+        => f rn sh
+        -> HVector (RankedOf f)
+        -> f rn sh
+        -> HVector (RankedOf f)
+        -> HVectorOf (RankedOf f))
+    -> VoidHVector
+    -> ADVal shaped rn sh
+    -> HVector (ADVal ranked)
+    -> HVectorOf (ADVal ranked)
+  smapAccumRDer proxy_k domB f df rf domsOD (D l1 x0 x0') asD =
+    assert (voidHVectorMatches (replicate1VoidHVector proxy_k domsOD) asD) $
+    let (ll2, asUnshared, as') = unADValHVector asD
+        (l3, as) =
+          drecordSharingPrimal @ranked (replicate1VoidHVector proxy_k domsOD)
+                               (dmkHVector asUnshared)
+                               (flattenADShare $ l1 : V.toList ll2)
+        odShn = voidFromShS @rn @sh
+        domsF = V.cons odShn (replicate1VoidHVector proxy_k domB)
+        p :: HVectorOf ranked
+        p = smapAccumRDer proxy_k domB f df rf domsOD x0 as
+        (l4, pShared) = drecordSharingPrimal @ranked domsF p l3
+        q = sfromD $ pShared V.! 0
+        dual = wrapDeltaH $ MapAccumRS @k domsOD q as domB df rf x0' as'
+        selectDual i d = case d of
+          DynamicRanked t -> DynamicRanked $ dDnotShared l4 t (HToR dual i)
+          DynamicShaped t -> DynamicShaped $ dDnotShared l4 t (HToS dual i)
+          DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
+          DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
+    in V.imap selectDual pShared
 
 dDHVector :: ADShare -> HVector f -> HVector (Dual f)
           -> HVector (ADVal f)

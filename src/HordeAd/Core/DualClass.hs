@@ -24,7 +24,7 @@
 -- of the same shared terms is prohibitively expensive.
 module HordeAd.Core.DualClass
   ( IsPrimal(..)
-  , unsafeGetFreshId, resetIdCounter, wrapDeltaR, wrapDeltaS
+  , unsafeGetFreshId, resetIdCounter, wrapDeltaR, wrapDeltaS, wrapDeltaH
   ) where
 
 import Prelude
@@ -172,3 +172,9 @@ wrapDeltaS :: DeltaS shaped r sh -> DeltaS shaped r sh
 wrapDeltaS !d = unsafePerformIO $ do
   n <- unsafeGetFreshId
   return $! LetS (NodeId n) d
+
+wrapDeltaH :: DeltaH ranked -> DeltaH ranked
+{-# NOINLINE wrapDeltaH #-}
+wrapDeltaH !d = unsafePerformIO $ do
+  n <- unsafeGetFreshId
+  return $! LetH (NodeId n) d
