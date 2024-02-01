@@ -12,10 +12,12 @@ module HordeAd.Core.AstEnv
   , interpretLambdaHVector, interpretLambdaHVectorS
   , interpretLambda2, interpretLambda2S
   , interpretLambdaRHR, interpretLambdaSHS
+  , interpretLambdaRHH, interpretLambdaSHH
   , interpretLambda3, interpretLambda3S
   , interpretLambdaRRRH, interpretLambdaSSSH
   , interpretLambda4, interpretLambda4S
   , interpretLambdaRHRHR, interpretLambdaSHSHS
+  , interpretLambdaRHRHH, interpretLambdaSHSHH
     -- * Interpretation of arithmetic, boolean and relation operations
   , interpretAstN1, interpretAstN2, interpretAstR1, interpretAstR2
   , interpretAstI2, interpretAstB2, interpretAstRelOp
@@ -298,6 +300,36 @@ interpretLambdaSHS f !env (!varn, !varm, !ast) =
   \x0 as -> let envE = extendEnvS varn x0 env
             in f (extendEnvPars varm as envE) ast
 
+interpretLambdaRHH
+  :: forall s ranked rn n.
+     (GoodScalar rn, KnownNat n, ADReady ranked)
+  => (AstEnv ranked -> AstHVector s -> HVectorOf ranked)
+  -> AstEnv ranked
+  -> ( AstVarName (AstRanked s) rn n
+     , [AstDynamicVarName]
+     , AstHVector s )
+  -> ranked rn n -> HVector ranked
+  -> HVectorOf ranked
+{-# INLINE interpretLambdaRHH #-}
+interpretLambdaRHH f !env (!varn, !varm, !ast) =
+  \x0 as -> let envE = extendEnvR varn x0 env
+            in f (extendEnvPars varm as envE) ast
+
+interpretLambdaSHH
+  :: forall s ranked rn sh.
+     (GoodScalar rn, Sh.Shape sh, ADReady ranked)
+  => (AstEnv ranked -> AstHVector s -> HVectorOf ranked)
+  -> AstEnv ranked
+  -> ( AstVarName (AstShaped s) rn sh
+     , [AstDynamicVarName]
+     , AstHVector s )
+  -> ShapedOf ranked rn sh -> HVector ranked
+  -> HVectorOf ranked
+{-# INLINE interpretLambdaSHH #-}
+interpretLambdaSHH f !env (!varn, !varm, !ast) =
+  \x0 as -> let envE = extendEnvS varn x0 env
+            in f (extendEnvPars varm as envE) ast
+
 interpretLambda3
   :: forall s ranked rn rm n m.
      (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)
@@ -378,7 +410,8 @@ interpretLambda4
      , AstVarName (AstRanked s) rn n
      , AstVarName (AstRanked s) rm m
      , AstRanked s rn n )
-  -> ranked rn n -> ranked rm m -> ranked rn n -> ranked rm m
+  -> ranked rn n -> ranked rm m
+  -> ranked rn n -> ranked rm m
   -> ranked rn n
 {-# INLINE interpretLambda4 #-}
 interpretLambda4 f !env (!varDx, !varDa, !varn, !varm, !ast) =
@@ -398,8 +431,8 @@ interpretLambda4S
      , AstVarName (AstShaped s) rn sh
      , AstVarName (AstShaped s) rm shm
      , AstShaped s rn sh )
-  -> ShapedOf ranked rn sh -> ShapedOf ranked rm shm -> ShapedOf ranked rn sh
-  -> ShapedOf ranked rm shm
+  -> ShapedOf ranked rn sh -> ShapedOf ranked rm shm
+  -> ShapedOf ranked rn sh -> ShapedOf ranked rm shm
   -> ShapedOf ranked rn sh
 {-# INLINE interpretLambda4S #-}
 interpretLambda4S f !env (!varDx, !varDa, !varn, !varm, !ast) =
@@ -419,7 +452,8 @@ interpretLambdaRHRHR
      , AstVarName (AstRanked s) rn n
      , [AstDynamicVarName]
      , AstRanked s rn n )
-  -> ranked rn n -> HVector ranked -> ranked rn n -> HVector ranked
+  -> ranked rn n -> HVector ranked
+  -> ranked rn n -> HVector ranked
   -> ranked rn n
 {-# INLINE interpretLambdaRHRHR #-}
 interpretLambdaRHRHR f !env (!varDx, !varDa, !varn, !varm, !ast) =
@@ -438,11 +472,51 @@ interpretLambdaSHSHS
      , AstVarName (AstShaped s) rn sh
      , [AstDynamicVarName]
      , AstShaped s rn sh )
-  -> ShapedOf ranked rn sh -> HVector ranked -> ShapedOf ranked rn sh
-  -> HVector ranked
+  -> ShapedOf ranked rn sh -> HVector ranked
+  -> ShapedOf ranked rn sh -> HVector ranked
   -> ShapedOf ranked rn sh
 {-# INLINE interpretLambdaSHSHS #-}
 interpretLambdaSHSHS f !env (!varDx, !varDa, !varn, !varm, !ast) =
+  \cx ca x0 as -> let envE = extendEnvS varDx cx
+                             $ extendEnvS varn x0 env
+                  in f (extendEnvPars varDa ca
+                        $ extendEnvPars varm as envE) ast
+
+interpretLambdaRHRHH
+  :: forall s ranked rn n.
+     (GoodScalar rn, KnownNat n, ADReady ranked)
+  => (AstEnv ranked -> AstHVector s -> HVectorOf ranked)
+  -> AstEnv ranked
+  -> ( AstVarName (AstRanked s) rn n
+     , [AstDynamicVarName]
+     , AstVarName (AstRanked s) rn n
+     , [AstDynamicVarName]
+     , AstHVector s )
+  -> ranked rn n -> HVector ranked
+  -> ranked rn n -> HVector ranked
+  -> HVectorOf ranked
+{-# INLINE interpretLambdaRHRHH #-}
+interpretLambdaRHRHH f !env (!varDx, !varDa, !varn, !varm, !ast) =
+  \cx ca x0 as -> let envE = extendEnvR varDx cx
+                             $ extendEnvR varn x0 env
+                  in f (extendEnvPars varDa ca
+                        $ extendEnvPars varm as envE) ast
+
+interpretLambdaSHSHH
+  :: forall s ranked rn sh.
+     (GoodScalar rn, Sh.Shape sh, ADReady ranked)
+  => (AstEnv ranked -> AstHVector s -> HVectorOf ranked)
+  -> AstEnv ranked
+  -> ( AstVarName (AstShaped s) rn sh
+     , [AstDynamicVarName]
+     , AstVarName (AstShaped s) rn sh
+     , [AstDynamicVarName]
+     , AstHVector s )
+  -> ShapedOf ranked rn sh -> HVector ranked
+  -> ShapedOf ranked rn sh -> HVector ranked
+  -> HVectorOf ranked
+{-# INLINE interpretLambdaSHSHH #-}
+interpretLambdaSHSHH f !env (!varDx, !varDa, !varn, !varm, !ast) =
   \cx ca x0 as -> let envE = extendEnvS varDx cx
                              $ extendEnvS varn x0 env
                   in f (extendEnvPars varDa ca
