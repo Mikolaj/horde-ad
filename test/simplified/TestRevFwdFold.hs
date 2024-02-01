@@ -22,6 +22,7 @@ import           Test.Tasty.HUnit hiding (assert)
 import HordeAd
 import HordeAd.Core.AstFreshId (resetVarCounter)
 import HordeAd.Core.DualClass
+import HordeAd.Util.ShapedList (ShapedList (..))
 
 import CrossTesting
 import EqEpsilon
@@ -1398,11 +1399,14 @@ testSin0ScanDFwd2PP = do
 testSin0ScanD1Rev2 :: Assertion
 testSin0ScanD1Rev2 = do
   assertEqualUpToEpsilon' 1e-10
-    (OR.fromList [] [1.1961317861865948] :: OR.Array 0 Double)
-    (rev' (\x0 -> rscanZip (\x a -> sin x - rfromD (a V.! 0))
-                         (V.fromList [voidFromSh @Double ZS])
-                         x0 (V.singleton $ DynamicRanked
-                         $ rconst (OR.fromList @Double @1 [2] [5, 7]))) 1.1)
+    (OR.fromList [] [2.417297824578748] :: OR.Array 0 Double)
+    (rev' (\x0 -> rbuild1 2 $ \k ->
+       rscanZip (\x a -> sin x - rfromD (a V.! 0))
+                (V.fromList [voidFromShS @Double @'[]])
+                x0 (V.singleton $ DynamicShaped
+                    $ sconst (OS.fromList @'[2, 2] @Double [5, 7, 3, 4])
+                      !$ (k :$: ZSH) ))
+          1.1)
 
 testSin0ScanD1Rev3 :: Assertion
 testSin0ScanD1Rev3 = do
@@ -2345,9 +2349,9 @@ testSin0revhFoldZip4R = do
 -}
 
 fFoldS
-  :: forall k rm shm r sh shaped.
+  :: forall m k rm shm r sh shaped.
      ( KnownNat k, GoodScalar rm, Sh.Shape shm, GoodScalar r, Sh.Shape sh
-     , ADReadyS shaped )
+     , ADReadyS shaped, KnownNat m, OS.Rank shm ~ m)
   => shaped r (1 + k ': sh)
   -> shaped rm (k ': shm)
   -> (forall f. ADReadyS f
@@ -2372,7 +2376,7 @@ fFoldS p as rf cShared =
                   [ DynamicShaped $ sreverse
                     $ sslice @_ @_ @_ @_ @1
                              (Proxy @0) (Proxy @k) p
-                  , DynamicShaped $ sreverse as ])
+                  , DynamicRanked $ rfromS $ sreverse as ])
       crs = sreverse crsr
       rg :: shaped r (k ': sh) -> shaped r (k ': sh)
          -> shaped rm (k ': shm)
@@ -2405,7 +2409,7 @@ fFoldSX as =
                         doms (V.fromList [ DynamicShaped @Double @'[] z
                                          , DynamicShaped @Double @'[] z ])
                      -- not exactly the rev of f
-  in fFoldS p as rf 26
+  in fFoldS @0 p as rf 26
 
 testSin0revhFoldS :: Assertion
 testSin0revhFoldS = do

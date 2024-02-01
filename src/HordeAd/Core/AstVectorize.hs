@@ -336,7 +336,7 @@ build1V k (var, v00) =
                 k (var, substProjHVector k var shn varDt2
                         $ substProjHVector k var shn nvar2 domsOut) )
             (build1VOccurenceUnknown k (var, x0))
-            (V.map (\u -> astTrDynamicRanked
+            (V.map (\u -> astTrDynamic
                           $ build1VOccurenceUnknownDynamic k (var, u)) as)
       _ -> error "build1V: impossible someNatVal"
     Ast.AstScan{} ->
@@ -405,7 +405,7 @@ build1V k (var, v00) =
                 k (var, substProjHVector k var shn varDt2
                         $ substProjHVector k var shn nvar2 domsOut) )
             (build1VOccurenceUnknown k (var, x0))
-            (V.map (\u -> astTrDynamicRanked
+            (V.map (\u -> astTrDynamic
                           $ build1VOccurenceUnknownDynamic k (var, u)) as)
       _ -> error "build1V: impossible someNatVal"
 
@@ -736,7 +736,7 @@ build1VS (var, v00) =
                 (var, substProjHVectorS @k var varDt2
                       $ substProjHVectorS @k @shn var nvar2 domsOut) )
             (build1VOccurenceUnknownS @k (var, x0))
-            (V.map (\u -> astTrDynamicShaped
+            (V.map (\u -> astTrDynamic
                           $ build1VOccurenceUnknownDynamic (valueOf @k)
                                                            (var, u)) as)
     Ast.AstScanS{} ->
@@ -801,7 +801,7 @@ build1VS (var, v00) =
                 (var, substProjHVectorS @k @shn var varDt2
                       $ substProjHVectorS @k @shn var nvar2 domsOut) )
             (build1VOccurenceUnknownS @k (var, x0))
-            (V.map (\u -> astTrDynamicShaped
+            (V.map (\u -> astTrDynamic
                           $ build1VOccurenceUnknownDynamic (valueOf @k)
                                                            (var, u)) as)
 
@@ -1122,30 +1122,14 @@ substProjVarsHVector :: forall k s. (KnownNat k, AstSpan s)
 substProjVarsHVector var vars v3 =
   mapAccumR (substProjDynamicHVector @k var) v3 vars
 
-astTrDynamicRanked :: AstSpan s
-                   => DynamicTensor (AstRanked s)
-                   -> DynamicTensor (AstRanked s)
-astTrDynamicRanked t@(DynamicRanked @_ @n1 u) =
+astTrDynamic :: AstSpan s
+             => DynamicTensor (AstRanked s) -> DynamicTensor (AstRanked s)
+astTrDynamic t@(DynamicRanked @_ @n1 u) =
   case cmpNat (Proxy @2) (Proxy @n1) of
     EQI -> DynamicRanked $ astTr @(n1 - 2) u
     LTI -> DynamicRanked $ astTr @(n1 - 2) u
     _ -> t
-astTrDynamicRanked DynamicShaped{} =
-  error "astTrDynamicRanked: DynamicShaped"
-astTrDynamicRanked (DynamicRankedDummy p1 (Proxy @sh1)) =
-  let permute10 (m0 : m1 : ms) = m1 : m0 : ms
-      permute10 ms = ms
-      sh1Permuted = permute10 $ Sh.shapeT @sh1
-  in Sh.withShapeP sh1Permuted $ \proxy ->
-       DynamicRankedDummy p1 proxy
-astTrDynamicRanked DynamicShapedDummy{} =
-  error "astTrDynamicRanked: DynamicShapedDummy"
-
-astTrDynamicShaped :: DynamicTensor (AstRanked s)
-                   -> DynamicTensor (AstRanked s)
-astTrDynamicShaped DynamicRanked{} =
-  error "astTrDynamicShaped: DynamicRanked"
-astTrDynamicShaped t@(DynamicShaped @_ @sh u) =
+astTrDynamic t@(DynamicShaped @_ @sh u) =
   let sh1 = Sh.shapeT @sh
       permute10 (m0 : m1 : ms) = m1 : m0 : ms
       permute10 ms = ms
@@ -1163,9 +1147,13 @@ astTrDynamicShaped t@(DynamicShaped @_ @sh u) =
                gcastWith (unsafeCoerce Refl :: sh4 :~: shPermuted) $
                DynamicShaped w
            _ -> t
-astTrDynamicShaped DynamicRankedDummy{} =
-  error "astTrDynamicShaped: DynamicRankedDummy"
-astTrDynamicShaped (DynamicShapedDummy p1 (Proxy @sh1)) =
+astTrDynamic (DynamicRankedDummy p1 (Proxy @sh1)) =
+  let permute10 (m0 : m1 : ms) = m1 : m0 : ms
+      permute10 ms = ms
+      sh1Permuted = permute10 $ Sh.shapeT @sh1
+  in Sh.withShapeP sh1Permuted $ \proxy ->
+       DynamicRankedDummy p1 proxy
+astTrDynamic (DynamicShapedDummy p1 (Proxy @sh1)) =
   let permute10 (m0 : m1 : ms) = m1 : m0 : ms
       permute10 ms = ms
       sh1Permuted = permute10 $ Sh.shapeT @sh1
