@@ -26,7 +26,7 @@ import           Data.Bifunctor.Flip
 import           Data.Bifunctor.Product
 import           Data.Function ((&))
 import           Data.Functor.Const
-import           Data.List (foldl', scanl')
+import           Data.List (foldl', mapAccumR, scanl')
 import           Data.List.Index (imap)
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
@@ -1271,6 +1271,49 @@ instance HVectorTensor (Flip OR.Array) (Flip OS.Array) where
   sscanDer f _df _rf x0 as = sscan f x0 as
   sscanZip f _od x0 as = sfromList $ scanl' f x0 (unravelHVector as)
   sscanZipDer f _df _rf od x0 as = sscanZip f od x0 as
+  rmapAccumR
+    :: forall rn n. (GoodScalar rn, KnownNat n)
+    => VoidHVector
+    -> (forall f. ADReady f
+        => f rn n -> HVector f -> HVectorOf f)
+    -> VoidHVector
+    -> Flip OR.Array rn n
+    -> HVector (Flip OR.Array)
+    -> HVector (Flip OR.Array)
+  rmapAccumR _domB f _domsOD x0 as =
+    let domsToPair :: forall f. ADReady f
+                      => HVector f
+                      -> (f rn n, HVector f)
+        g :: Flip OR.Array rn n -> HVector (Flip OR.Array)
+          -> (Flip OR.Array rn n, HVector (Flip OR.Array))
+        domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
+        g x a = domsToPair $ f x a
+        (xout, lout) = mapAccumR g x0 (unravelHVector as)
+    in V.cons (DynamicRanked xout) $ ravelHVector lout
+  rmapAccumRDer domB f _df _rf domsOD x0 as =
+    rmapAccumR domB f domsOD x0 as
+  smapAccumR
+    :: forall k rn sh. (GoodScalar rn, Sh.Shape sh)
+    => Proxy k
+    -> VoidHVector
+    -> (forall f. ADReadyS f
+        => f rn sh -> HVector (RankedOf f) -> HVectorOf (RankedOf f))
+    -> VoidHVector
+    -> Flip OS.Array rn sh
+    -> HVector (Flip OR.Array)
+    -> HVector (Flip OR.Array)
+  smapAccumR _proxy_k _domB f _domsOD x0 as =
+    let domsToPair :: forall f. ADReadyS f
+                      => HVector (RankedOf f)
+                      -> (f rn sh, HVector (RankedOf f))
+        g :: Flip OS.Array rn sh -> HVector (Flip OR.Array)
+          -> (Flip OS.Array rn sh, HVector (Flip OR.Array))
+        domsToPair doms = (sfromD $ doms V.! 0, V.tail doms)
+        g x a = domsToPair $ f x a
+        (xout, lout) = mapAccumR g x0 (unravelHVector as)
+    in V.cons (DynamicShaped xout) $ ravelHVector lout
+  smapAccumRDer proxy_k domB f _df _rf domsOD x0 as =
+    smapAccumR proxy_k domB f domsOD x0 as
 
 instance (GoodScalar r, KnownNat n)
          => AdaptableHVector (Flip OR.Array) (Flip OR.Array r n) where
