@@ -1161,6 +1161,14 @@ astTrDynamic (DynamicShapedDummy p1 (Proxy @sh1)) =
        DynamicShapedDummy p1 proxy
 
 
+astTrAstHVector :: forall s. AstSpan s
+                => VoidHVector -> AstHVector s -> AstHVector s
+astTrAstHVector od = fun1DToAst od $ \vars asts ->
+  Ast.AstLetHVectorInHVector
+    vars
+    (Ast.AstHVector @s $ V.map astTrDynamic asts)
+
+
 -- * Rule tracing machinery
 
 -- TODO: set from the testing commandline, just as eqEpsilonRef in EqEpsilon.hs
