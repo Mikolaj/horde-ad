@@ -792,6 +792,142 @@ printAstHVector cfg d = \case
       . printHVectorAst cfg parameters
       . showString " "
       . printAstS cfg 11 dt
+  AstMapAccumRR _ (nvar, mvars, v) x0 as ->
+    showParen (d > 10)
+    $ showString "rmapAccumR "
+      . (showParen True
+         $ showString "\\"
+           . showString (printAstVarName (varRenames cfg) nvar)
+           . showString " "
+           . showListWith (showString
+                           . printAstDynamicVarNameCfg cfg) mvars
+           . showString " -> "
+           . printAstHVector cfg 0 v)
+      . showString " "
+      . printAst cfg 11 x0
+      . showString " "
+      . printHVectorAst cfg as
+  AstMapAccumRDerR _ (nvar, mvars, v) (varDx, varsDa, varn1, varsm1, ast1)
+                                      (varDy, varDt2, nvar2, mvars2, doms)
+                                      x0 as ->
+   if ignoreNestedLambdas cfg
+   then
+    showParen (d > 10)
+    $ showString "rmapAccumRDer f df rf "
+      . printAst cfg 11 x0
+      . showString " "
+      . printHVectorAst cfg as
+   else
+    showParen (d > 10)
+    $ showString "rmapAccumRDer "
+      . (showParen True
+         $ showString "\\"
+           . showString (printAstVarName (varRenames cfg) nvar)
+           . showString " "
+           . showListWith (showString
+                           . printAstDynamicVarNameCfg cfg) mvars
+           . showString " -> "
+           . printAstHVector cfg 0 v)
+      . showString " "
+      . (showParen True
+         $ showString "\\"
+           . showString (printAstVarName (varRenames cfg) varDx)
+           . showString " "
+           . showListWith (showString
+                           . printAstDynamicVarNameCfg cfg) varsDa
+           . showString " "
+           . showString (printAstVarName (varRenames cfg) varn1)
+           . showString " "
+           . showListWith (showString
+                           . printAstDynamicVarNameCfg cfg) varsm1
+           . showString " -> "
+           . printAstHVector cfg 0 ast1)
+      . showString " "
+      . (showParen True
+         $ showString "\\"
+           . showString (printAstVarName (varRenames cfg) varDy)
+           . showString " "
+           . showListWith (showString
+                           . printAstDynamicVarNameCfg cfg) varDt2
+           . showString " "
+           . showString (printAstVarName (varRenames cfg) nvar2)
+           . showString " "
+           . showListWith (showString
+                           . printAstDynamicVarNameCfg cfg) mvars2
+           . showString " -> "
+           . printAstHVector cfg 0 doms)
+      . showString " "
+      . printAst cfg 11 x0
+      . showString " "
+      . printHVectorAst cfg as
+  AstMapAccumRS _ (nvar, mvars, v) x0 as ->
+    showParen (d > 10)
+    $ showString "smapAccumR "
+      . (showParen True
+         $ showString "\\"
+           . showString (printAstVarNameS (varRenames cfg) nvar)
+           . showString " "
+           . showListWith (showString
+                           . printAstDynamicVarNameCfg cfg) mvars
+           . showString " -> "
+           . printAstHVector cfg 0 v)
+      . showString " "
+      . printAstS cfg 11 x0
+      . showString " "
+      . printHVectorAst cfg as
+  AstMapAccumRDerS _ (nvar, mvars, v) (varDx, varsDa, varn1, varsm1, ast1)
+                                      (varDy, varDt2, nvar2, mvars2, doms)
+                                      x0 as ->
+   if ignoreNestedLambdas cfg
+   then
+    showParen (d > 10)
+    $ showString "smapAccumRDer f df rf "
+      . printAstS cfg 11 x0
+      . showString " "
+      . printHVectorAst cfg as
+   else
+    showParen (d > 10)
+    $ showString "smapAccumRDer "
+      . (showParen True
+         $ showString "\\"
+           . showString (printAstVarNameS (varRenames cfg) nvar)
+           . showString " "
+           . showListWith (showString
+                           . printAstDynamicVarNameCfg cfg) mvars
+           . showString " -> "
+           . printAstHVector cfg 0 v)
+      . showString " "
+      . (showParen True
+         $ showString "\\"
+           . showString (printAstVarNameS (varRenames cfg) varDx)
+           . showString " "
+           . showListWith (showString
+                           . printAstDynamicVarNameCfg cfg) varsDa
+           . showString " "
+           . showString (printAstVarNameS (varRenames cfg) varn1)
+           . showString " "
+           . showListWith (showString
+                           . printAstDynamicVarNameCfg cfg) varsm1
+           . showString " -> "
+           . printAstHVector cfg 0 ast1)
+      . showString " "
+      . (showParen True
+         $ showString "\\"
+           . showString (printAstVarNameS (varRenames cfg) varDy)
+           . showString " "
+           . showListWith (showString
+                           . printAstDynamicVarNameCfg cfg) varDt2
+           . showString " "
+           . showString (printAstVarNameS (varRenames cfg) nvar2)
+           . showString " "
+           . showListWith (showString
+                           . printAstDynamicVarNameCfg cfg) mvars2
+           . showString " -> "
+           . printAstHVector cfg 0 doms)
+      . showString " "
+      . printAstS cfg 11 x0
+      . showString " "
+      . printHVectorAst cfg as
 
 printAstBool :: PrintConfig -> Int -> AstBool -> ShowS
 printAstBool cfg d = \case

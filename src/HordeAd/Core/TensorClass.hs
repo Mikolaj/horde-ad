@@ -911,6 +911,38 @@ class HVectorTensor (ranked :: RankedTensorType)
             -> shaped rn sh
             -> HVector ranked
             -> shaped rn (1 + k ': sh)
+  rmapAccumR
+    :: forall rn n. (GoodScalar rn, KnownNat n)
+    => VoidHVector
+    -> (forall f. ADReady f
+        => f rn n -> HVector f -> HVectorOf f)
+    -> VoidHVector
+    -> ranked rn n
+    -> HVector ranked
+    -> HVectorOf ranked
+  rmapAccumRDer
+    :: forall rn n. (GoodScalar rn, KnownNat n)
+    => VoidHVector  -- ^ shapes of [b]
+    -> (forall f. ADReady f
+        => f rn n  -- ^ x (accumulator)
+        -> HVector f  -- ^ a (a tuple from the zip of lists [a])
+        -> HVectorOf f)  -- ^ (y :: f rn n) : b
+    -> (forall f. ADReady f
+        => f rn n  -- ^ dx
+        -> HVector f  -- ^ da
+        -> f rn n  -- ^ x
+        -> HVector f  -- ^ a
+        -> HVectorOf f)  -- ^ (dy :: f rn n) : db
+    -> (forall f. ADReady f
+        => f rn n  -- ^ dy
+        -> HVector f  -- ^ db
+        -> f rn n  -- ^ x
+        -> HVector f  -- ^ a
+        -> HVectorOf f)  -- ^ (dx :: f rn n) : da
+    -> VoidHVector  -- ^ shapes of [a]
+    -> ranked rn n  -- ^ x0
+    -> HVector ranked  -- ^ k ': [a]
+    -> HVectorOf ranked  -- ^ (y :: f rn n) : (k ': [b])
   smapAccumR
     :: forall k rn sh. (GoodScalar rn, Sh.Shape sh, KnownNat k)
     => Proxy k

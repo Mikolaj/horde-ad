@@ -209,6 +209,14 @@ varInAstHVector var = \case
   AstRevDtS _f l dt ->  -- _f has no non-bound variables
     let f = varInAstDynamic var
     in any f l || varInAstS var dt
+  AstMapAccumRR _domB _f x0 as ->
+    varInAst var x0 || any (varInAstDynamic var) as
+  AstMapAccumRDerR _domB _f _df _rf x0 as ->
+    varInAst var x0 || any (varInAstDynamic var) as
+  AstMapAccumRS _domB _f x0 as ->
+    varInAstS var x0 || any (varInAstDynamic var) as
+  AstMapAccumRDerS _domB _f _df _rf x0 as ->
+    varInAstS var x0 || any (varInAstDynamic var) as
 
 varInAstDynamic :: AstSpan s
                 => AstVarId -> AstDynamic s -> Bool

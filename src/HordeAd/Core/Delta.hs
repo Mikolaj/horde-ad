@@ -498,6 +498,27 @@ deriving instance ( Sh.Shape sh0, GoodScalar r0
 type role DeltaH nominal
 data DeltaH :: RankedTensorType -> Type where
   LetH :: NodeId ranked -> DeltaH ranked -> DeltaH ranked
+  MapAccumRR
+    :: forall rn n ranked. (KnownNat n, GoodScalar rn)
+    => VoidHVector
+    -> ranked rn (1 + n)
+    -> HVector ranked
+    -> VoidHVector
+    -> (forall f. ADReady f
+        => f rn n
+        -> HVector f
+        -> f rn n
+        -> HVector f
+        -> HVectorOf f)
+    -> (forall f. ADReady f
+        => f rn n
+        -> HVector f
+        -> f rn n
+        -> HVector f
+        -> HVectorOf f)
+    -> DeltaR ranked rn n
+    -> HVector (DeltaR ranked)
+    -> DeltaH ranked
   MapAccumRS
     :: forall k rn sh ranked. (KnownNat k, GoodScalar rn, Sh.Shape sh)
     => VoidHVector
@@ -581,9 +602,21 @@ lengthDeltaR d = case shapeDeltaR d of
   k :$ _ -> k
 
 shapeDeltaH :: forall ranked.
-               DeltaH ranked -> VoidHVector
+               (RankedTensor ranked, ShapedTensor (ShapedOf ranked))
+            => DeltaH ranked -> VoidHVector
 shapeDeltaH = \case
   LetH _ d -> shapeDeltaH d
+  MapAccumRR @rn _domsOD _q as domB _df _rf x0' _as' ->
+    let width = case V.unsnoc as of
+          Nothing -> error "evalR: can't determine argument width"
+          Just (_, d) -> case shapeDynamic d of
+            [] -> error "evalR: wrong rank of argument"
+            width2 : _shm -> width2
+        shn = shapeDeltaR x0'
+    in case someNatVal $ toInteger width of
+      Just (SomeNat @k _) ->
+        V.cons (voidFromSh @rn shn) (replicate1VoidHVector (Proxy @k) domB)
+      _ -> error "shapeDeltaH: impossible someNatVal"
   MapAccumRS @k @rn @sh _domsOD _q _as domB _df _rf _x0' _as' ->
     V.cons (voidFromShS @rn @sh) (replicate1VoidHVector (Proxy @k) domB)
 
@@ -1592,7 +1625,11 @@ evalH !s !c = let (abShared, cShared) =
         Nothing ->
           s { hnMap = EM.insert n d $ hnMap s
             , hdMap = EM.insert n c $ hdMap s }
+  MapAccumRR{} -> undefined  -- TODO
   MapAccumRS @k @r @sh1 domsOD q as _domB _df rf x0' as' ->
+    -- TODO: this is probably close to mapAccumL. Test that it works fine
+    -- on symmetric functions and that it gives different results
+    -- than an unrolling on assymetric and then fix accordingly.
     let domsLen = V.length domsOD
         odShn = voidFromShS @r @sh1
         domsF = V.cons odShn domsOD
@@ -2261,6 +2298,7 @@ fwdH dimR params s = \case
             s4 = s3 { hnMap = EM.insert n d (hnMap s3)
                     , hdMap = EM.insert n cShared (hdMap s3) }
         in (s4, cShared)
+  MapAccumRR{} -> undefined  -- TODO
   MapAccumRS @k @rn @sh _domsOD _q _as _domB _df _rf _x0' _as' ->
     undefined  -- TODO
 

@@ -1136,6 +1136,128 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     AstScanZipDerS (funToAstSH @_ @_ @sh f domsOD)
                    (funToAstSHSH @_ @_ @sh df domsOD)
                    (funToAstSSH @_ @_ @sh rf domsOD) x0 asD
+  rmapAccumR
+    :: forall rn n.
+       VoidHVector
+    -> (forall f. ADReady f
+        => f rn n -> HVector f -> HVectorOf f)
+    -> VoidHVector
+    -> AstRanked s rn n
+    -> HVector (AstRanked s)
+    -> AstHVector s
+  rmapAccumR _domB _f _domsOD _x0 _asD = undefined  -- TODO
+  rmapAccumRDer
+    :: forall rn n. (GoodScalar rn, KnownNat n)
+    => VoidHVector
+    -> (forall f. ADReady f
+        => f rn n
+        -> HVector f
+        -> HVectorOf f)
+    -> (forall f. ADReady f
+        => f rn n
+        -> HVector f
+        -> f rn n
+        -> HVector f
+        -> HVectorOf f)
+    -> (forall f. ADReady f
+        => f rn n
+        -> HVector f
+        -> f rn n
+        -> HVector f
+        -> HVectorOf f)
+    -> VoidHVector
+    -> AstRanked s rn n
+    -> HVector (AstRanked s)
+    -> AstHVector s
+  rmapAccumRDer domB f df rf domsOD x0 asD =
+    let width = case V.unsnoc asD of
+          Nothing -> error "rmapAccumRDer: can't determine argument width"
+          Just (_, d) -> case shapeDynamic d of
+            [] -> error "rmapAccumRDer: wrong rank of argument"
+            width2 : _shm -> width2
+    in case someNatVal $ toInteger width of
+      Just (SomeNat @k _) ->
+        assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD)
+                                   asD) $
+        let shn = rshape x0
+        in AstMapAccumRDerR domB
+                            (funToAstRH shn f domsOD)
+                            (funToAstRHRH shn df domsOD)
+                            (funToAstRHRH shn rf domsOD) x0 asD
+      _ -> error "rmapAccumRDer: impossible someNatVal"
+  smapAccumR
+    :: forall k rn sh.
+       Proxy k
+    -> VoidHVector
+    -> (forall f. ADReadyS f
+        => f rn sh -> HVector (RankedOf f) -> HVectorOf (RankedOf f))
+    -> VoidHVector
+    -> AstShaped s rn sh
+    -> HVector (AstRanked s)
+    -> AstHVector s
+  smapAccumR _proxy_k _domB _f _domsOD _x0 _asD = undefined  -- TODO
+{- TDOO: `derivative` has a wrong type, because in AstArtifactFwd
+          we can't use HVectorOf, because we don't have
+          a DerivativeStages instance for it;
+          similarly, revProduceArtifact is wrong for AST where
+          HVectorOf and HVector differs
+
+    assert (voidHVectorMatches (replicate1VoidHVector proxy_k domsOD) asD) $
+    let domsF = V.cons (voidFromShS @rn @sh) domsOD
+        domsToPair :: forall f. ADReadyS f
+                      => HVector (RankedOf f)
+                      -> (f rn sh, HVector (RankedOf f))
+        domsToPair doms = (sfromD $ doms V.! 0, V.tail doms)
+        g :: HVector (AstRanked FullSpan) -> AstHVector s
+        g doms = uncurry f (domsToPair doms)
+    in case revProduceArtifact TensorToken True g EM.empty domsF of
+      ( ( (AstDynamicVarName nid3 : mdyns3, AstDynamicVarName nid : mdyns)
+        , gradient, _primal, _sh), _delta ) ->
+        case fwdProduceArtifact TensorToken g EM.empty domsF of
+          ( ( ( AstDynamicVarName nid1 : mdyns1
+              , AstDynamicVarName nid2 : mdyns2 )
+            , derivative, _primal), _delta ) ->
+            let nvar1 = AstVarName nid1
+                nvar2 = AstVarName nid2
+                varDt3 = AstVarName nid3
+                nvar = AstVarName nid
+            in AstMapAccumRDerS @k domB
+                                (funToAstSH @_ @_ @sh f domsOD)
+                                (nvar1, mdyns1, nvar2, mdyns2, derivative)
+                                (varDt3, mdyns3, nvar, mdyns, gradient)
+                                x0 asD
+          _ -> error "smapAccumR: wrong variables"
+      _ -> error "smapAccumR: wrong variables" -}
+  smapAccumRDer
+    :: forall k rn sh. (GoodScalar rn, Sh.Shape sh, KnownNat k)
+    => Proxy k
+    -> VoidHVector
+    -> (forall f. ADReadyS f
+        => f rn sh
+        -> HVector (RankedOf f)
+        -> HVectorOf (RankedOf f))
+    -> (forall f. ADReadyS f
+        => f rn sh
+        -> HVector (RankedOf f)
+        -> f rn sh
+        -> HVector (RankedOf f)
+        -> HVectorOf (RankedOf f))
+    -> (forall f. ADReadyS f
+        => f rn sh
+        -> HVector (RankedOf f)
+        -> f rn sh
+        -> HVector (RankedOf f)
+        -> HVectorOf (RankedOf f))
+    -> VoidHVector
+    -> AstShaped s rn sh
+    -> HVector (AstRanked s)
+    -> AstHVector s
+  smapAccumRDer proxy_k domB f df rf domsOD x0 asD =
+    assert (voidHVectorMatches (replicate1VoidHVector proxy_k domsOD) asD) $
+    AstMapAccumRDerS @k domB
+                     (funToAstSH @_ @_ @sh f domsOD)
+                     (funToAstSHSH @_ @_ @sh df domsOD)
+                     (funToAstSHSH @_ @_ @sh rf domsOD) x0 asD
 
 astLetHVectorInHVectorFun
   :: AstSpan s
@@ -1414,11 +1536,11 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
   rfoldZip f domsOD x0 as =
     AstNoVectorize
     $ rfoldZip @(AstRanked s) f domsOD (unAstNoVectorize x0)
-                                     (unNoVectorizeHVector as)
+                                       (unNoVectorizeHVector as)
   rfoldZipDer f df rf domsOD x0 as =
     AstNoVectorize
     $ rfoldZipDer @(AstRanked s)
-                f df rf domsOD (unAstNoVectorize x0) (unNoVectorizeHVector as)
+                  f df rf domsOD (unAstNoVectorize x0) (unNoVectorizeHVector as)
   rscan f x0 as =
     AstNoVectorize
     $ rscan @(AstRanked s) f (unAstNoVectorize x0) (unAstNoVectorize as)
@@ -1429,11 +1551,11 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
   rscanZip f domsOD x0 as =
     AstNoVectorize
     $ rscanZip @(AstRanked s) f domsOD (unAstNoVectorize x0)
-                                     (unNoVectorizeHVector as)
+                                       (unNoVectorizeHVector as)
   rscanZipDer f df rf domsOD x0 as =
     AstNoVectorize
     $ rscanZipDer @(AstRanked s)
-                f df rf domsOD (unAstNoVectorize x0) (unNoVectorizeHVector as)
+                  f df rf domsOD (unAstNoVectorize x0) (unNoVectorizeHVector as)
   sfold f x0 as =
     AstNoVectorizeS
     $ sfold @(AstRanked s) f (unAstNoVectorizeS x0) (unAstNoVectorizeS as)
@@ -1444,11 +1566,12 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
   sfoldZip f domsOD x0 as =
     AstNoVectorizeS
     $ sfoldZip @(AstRanked s) f domsOD (unAstNoVectorizeS x0)
-                                     (unNoVectorizeHVector as)
+                                       (unNoVectorizeHVector as)
   sfoldZipDer f df rf domsOD x0 as =
     AstNoVectorizeS
     $ sfoldZipDer @(AstRanked s)
-                f df rf domsOD (unAstNoVectorizeS x0) (unNoVectorizeHVector as)
+                  f df rf domsOD (unAstNoVectorizeS x0)
+                                 (unNoVectorizeHVector as)
   sscan f x0 as =
     AstNoVectorizeS
     $ sscan @(AstRanked s) f (unAstNoVectorizeS x0) (unAstNoVectorizeS as)
@@ -1459,11 +1582,26 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
   sscanZip f domsOD x0 as =
     AstNoVectorizeS
     $ sscanZip @(AstRanked s) f domsOD (unAstNoVectorizeS x0)
-                                     (unNoVectorizeHVector as)
+                                       (unNoVectorizeHVector as)
   sscanZipDer f df rf domsOD x0 as =
     AstNoVectorizeS
     $ sscanZipDer @(AstRanked s)
-                f df rf domsOD (unAstNoVectorizeS x0) (unNoVectorizeHVector as)
+                  f df rf domsOD (unAstNoVectorizeS x0)
+                                 (unNoVectorizeHVector as)
+  rmapAccumR domB f domsOD x0 as =
+    rmapAccumR @(AstRanked s) domB f domsOD (unAstNoVectorize x0)
+                                              (unNoVectorizeHVector as)
+  rmapAccumRDer domB f df rf domsOD x0 as =
+    rmapAccumRDer @(AstRanked s)
+                  domB f df rf domsOD (unAstNoVectorize x0)
+                                      (unNoVectorizeHVector as)
+  smapAccumR proxy_k domB f domsOD x0 as =
+    smapAccumR @(AstRanked s) proxy_k domB f domsOD (unAstNoVectorizeS x0)
+                                                    (unNoVectorizeHVector as)
+  smapAccumRDer proxy_k domB f df rf domsOD x0 as =
+    smapAccumRDer @(AstRanked s)
+                  proxy_k domB f df rf domsOD (unAstNoVectorizeS x0)
+                                              (unNoVectorizeHVector as)
 
 unNoVectorizeHVector :: HVector (AstNoVectorize s) -> HVector (AstRanked s)
 unNoVectorizeHVector =
@@ -1642,11 +1780,11 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
   rfoldZip f domsOD x0 as =
     AstNoSimplify
     $ rfoldZip @(AstRanked s) f domsOD (unAstNoSimplify x0)
-                                     (unNoSimplifyHVector as)
+                                       (unNoSimplifyHVector as)
   rfoldZipDer f df rf domsOD x0 as =
     AstNoSimplify
     $ rfoldZipDer @(AstRanked s)
-                f df rf domsOD (unAstNoSimplify x0) (unNoSimplifyHVector as)
+                  f df rf domsOD (unAstNoSimplify x0) (unNoSimplifyHVector as)
   rscan f x0 as =
     AstNoSimplify
     $ rscan @(AstRanked s) f (unAstNoSimplify x0) (unAstNoSimplify as)
@@ -1656,11 +1794,11 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
   rscanZip f domsOD x0 as =
     AstNoSimplify
     $ rscanZip @(AstRanked s) f domsOD (unAstNoSimplify x0)
-                                     (unNoSimplifyHVector as)
+                                       (unNoSimplifyHVector as)
   rscanZipDer f df rf domsOD x0 as =
     AstNoSimplify
     $ rscanZipDer @(AstRanked s)
-                f df rf domsOD (unAstNoSimplify x0) (unNoSimplifyHVector as)
+                  f df rf domsOD (unAstNoSimplify x0) (unNoSimplifyHVector as)
   sfold f x0 as =
     AstNoSimplifyS
     $ sfold @(AstRanked s) f (unAstNoSimplifyS x0) (unAstNoSimplifyS as)
@@ -1671,11 +1809,11 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
   sfoldZip f domsOD x0 as =
     AstNoSimplifyS
     $ sfoldZip @(AstRanked s) f domsOD (unAstNoSimplifyS x0)
-                                     (unNoSimplifyHVector as)
+                                       (unNoSimplifyHVector as)
   sfoldZipDer f df rf domsOD x0 as =
     AstNoSimplifyS
     $ sfoldZipDer @(AstRanked s)
-                f df rf domsOD (unAstNoSimplifyS x0) (unNoSimplifyHVector as)
+                  f df rf domsOD (unAstNoSimplifyS x0) (unNoSimplifyHVector as)
   sscan f x0 as =
     AstNoSimplifyS
     $ sscan @(AstRanked s) f (unAstNoSimplifyS x0) (unAstNoSimplifyS as)
@@ -1686,11 +1824,25 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
   sscanZip f domsOD x0 as =
     AstNoSimplifyS
     $ sscanZip @(AstRanked s) f domsOD (unAstNoSimplifyS x0)
-                                     (unNoSimplifyHVector as)
+                                       (unNoSimplifyHVector as)
   sscanZipDer f df rf domsOD x0 as =
     AstNoSimplifyS
     $ sscanZipDer @(AstRanked s)
-                f df rf domsOD (unAstNoSimplifyS x0) (unNoSimplifyHVector as)
+                  f df rf domsOD (unAstNoSimplifyS x0) (unNoSimplifyHVector as)
+  rmapAccumR domB f domsOD x0 as =
+    rmapAccumR @(AstRanked s) domB f domsOD (unAstNoSimplify x0)
+                                              (unNoSimplifyHVector as)
+  rmapAccumRDer domB f df rf domsOD x0 as =
+    rmapAccumRDer @(AstRanked s)
+                  domB f df rf domsOD (unAstNoSimplify x0)
+                                      (unNoSimplifyHVector as)
+  smapAccumR proxy_k domB f domsOD x0 as =
+    smapAccumR @(AstRanked s) proxy_k domB f domsOD (unAstNoSimplifyS x0)
+                                                    (unNoSimplifyHVector as)
+  smapAccumRDer proxy_k domB f df rf domsOD x0 as =
+    smapAccumRDer @(AstRanked s)
+                  proxy_k domB f df rf domsOD (unAstNoSimplifyS x0)
+                                              (unNoSimplifyHVector as)
 
 unNoSimplifyHVector :: HVector (AstNoSimplify s) -> HVector (AstRanked s)
 unNoSimplifyHVector =

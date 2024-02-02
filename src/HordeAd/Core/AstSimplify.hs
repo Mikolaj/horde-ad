@@ -2200,6 +2200,27 @@ simplifyAstHVector = \case
   Ast.AstRevDtS (vars, v) l dt -> Ast.AstRevDtS (vars, simplifyAstS v)
                                                 (V.map simplifyAstDynamic l)
                                                 (simplifyAstS dt)
+  Ast.AstMapAccumRR domB (nvar, mvar, v) x0 as ->
+    Ast.AstMapAccumRR domB (nvar, mvar, simplifyAstHVector v) (simplifyAst x0)
+                           (V.map simplifyAstDynamic as)
+  Ast.AstMapAccumRDerR domB (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
+                                            (varDy, varDt2, nvar2, mvar2, doms)
+                                            x0 as ->
+    Ast.AstMapAccumRDerR domB (nvar, mvar, simplifyAstHVector v)
+                         (varDx, varDa, varn1, varm1, simplifyAstHVector ast1)
+                         (varDy, varDt2, nvar2, mvar2, simplifyAstHVector doms)
+                         (simplifyAst x0) (V.map simplifyAstDynamic as)
+  Ast.AstMapAccumRS @k domB (nvar, mvar, v) x0 as ->
+    Ast.AstMapAccumRS @k domB (nvar, mvar, simplifyAstHVector v)
+                      (simplifyAstS x0) (V.map simplifyAstDynamic as)
+  Ast.AstMapAccumRDerS @k domB (nvar, mvar, v)
+                       (varDx, varDa, varn1, varm1, ast1)
+                       (varDy, varDt2, nvar2, mvar2, doms)
+                       x0 as ->
+    Ast.AstMapAccumRDerS @k domB (nvar, mvar, simplifyAstHVector v)
+                         (varDx, varDa, varn1, varm1, simplifyAstHVector ast1)
+                         (varDy, varDt2, nvar2, mvar2, simplifyAstHVector doms)
+                         (simplifyAstS x0) (V.map simplifyAstDynamic as)
 
 simplifyAstBool :: AstBool -> AstBool
 simplifyAstBool t = case t of
@@ -2787,7 +2808,8 @@ substitute1Ast i var v1 = case v1 of
   Ast.AstFoldZip f x0 as ->
     case (substitute1Ast i var x0, substitute1HVector i var as) of
       (Nothing, Nothing) -> Nothing
-      (mx0, mas) -> Just $ Ast.AstFoldZip f (fromMaybe x0 mx0) (fromMaybe as mas)
+      (mx0, mas) ->
+        Just $ Ast.AstFoldZip f (fromMaybe x0 mx0) (fromMaybe as mas)
   Ast.AstFoldZipDer f df dr x0 as ->
     case (substitute1Ast i var x0, substitute1HVector i var as) of
       (Nothing, Nothing) -> Nothing
@@ -2805,7 +2827,8 @@ substitute1Ast i var v1 = case v1 of
   Ast.AstScanZip f x0 as ->
     case (substitute1Ast i var x0, substitute1HVector i var as) of
       (Nothing, Nothing) -> Nothing
-      (mx0, mas) -> Just $ Ast.AstScanZip f (fromMaybe x0 mx0) (fromMaybe as mas)
+      (mx0, mas) ->
+        Just $ Ast.AstScanZip f (fromMaybe x0 mx0) (fromMaybe as mas)
   Ast.AstScanZipDer f df dr x0 as ->
     case (substitute1Ast i var x0, substitute1HVector i var as) of
       (Nothing, Nothing) -> Nothing
@@ -2903,6 +2926,28 @@ substitute1AstHVector i var = \case
       (Nothing, Nothing) -> Nothing
       _ ->
         Just $ Ast.AstRevDtS (vars, v) (fromMaybe args marg) (fromMaybe dt md)
+  Ast.AstMapAccumRR domB f x0 as ->
+    case (substitute1Ast i var x0, substitute1HVector i var as) of
+      (Nothing, Nothing) -> Nothing
+      (mx0, mas) ->
+        Just $ Ast.AstMapAccumRR domB f (fromMaybe x0 mx0) (fromMaybe as mas)
+  Ast.AstMapAccumRDerR domB f df dr x0 as ->
+    case (substitute1Ast i var x0, substitute1HVector i var as) of
+      (Nothing, Nothing) -> Nothing
+      (mx0, mas) ->
+        Just $ Ast.AstMapAccumRDerR domB f df dr (fromMaybe x0 mx0)
+                                                 (fromMaybe as mas)
+  Ast.AstMapAccumRS @k domB f x0 as ->
+    case (substitute1AstS i var x0, substitute1HVector i var as) of
+      (Nothing, Nothing) -> Nothing
+      (mx0, mas) ->
+        Just $ Ast.AstMapAccumRS @k domB f (fromMaybe x0 mx0) (fromMaybe as mas)
+  Ast.AstMapAccumRDerS @k domB f df dr x0 as ->
+    case (substitute1AstS i var x0, substitute1HVector i var as) of
+      (Nothing, Nothing) -> Nothing
+      (mx0, mas) ->
+        Just $ Ast.AstMapAccumRDerS @k domB f df dr (fromMaybe x0 mx0)
+                                                    (fromMaybe as mas)
 
 substitute1AstBool :: (GoodScalar r2, AstSpan s2)
                    => SubstitutionPayload s2 r2 -> AstVarId -> AstBool

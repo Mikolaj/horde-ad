@@ -1006,6 +1006,70 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         (l4, pShared) = recordSharingPrimal p l3
     in dDnotShared l4 pShared
                       (ScanZipS domsOD pShared as df rf x0' as')
+  rmapAccumR
+    :: forall rn n.
+       VoidHVector
+    -> (forall f. ADReady f
+        => f rn n -> HVector f -> HVectorOf f)
+    -> VoidHVector
+    -> ADVal ranked rn n
+    -> HVector (ADVal ranked)
+    -> HVectorOf (ADVal ranked)
+  rmapAccumR _domB _f _domsOD (D _l1 _x0 _x0') _asD = undefined  -- TODO
+  rmapAccumRDer
+    :: forall rn n. (GoodScalar rn, KnownNat n)
+    => VoidHVector
+    -> (forall f. ADReady f
+        => f rn n
+        -> HVector f
+        -> HVectorOf f)
+    -> (forall f. ADReady f
+        => f rn n
+        -> HVector f
+        -> f rn n
+        -> HVector f
+        -> HVectorOf f)
+    -> (forall f. ADReady f
+        => f rn n
+        -> HVector f
+        -> f rn n
+        -> HVector f
+        -> HVectorOf f)
+    -> VoidHVector
+    -> ADVal ranked rn n
+    -> HVector (ADVal ranked)
+    -> HVectorOf (ADVal ranked)
+  rmapAccumRDer domB f df rf domsOD (D l1 x0 x0') asD =
+    let (ll2, asUnshared, as') = unADValHVector asD
+        width = case V.unsnoc asUnshared of
+          Nothing -> error "rscanZipDer: can't determine argument width"
+          Just (_, d) -> case shapeDynamic d of
+            [] -> error "rscanZipDer: wrong rank of argument"
+            w : _shm -> w
+    in case someNatVal $ toInteger width of
+      Just (SomeNat @k _) ->
+        assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD)
+                                   asD) $
+        let (l3, as) =
+              drecordSharingPrimal @ranked
+                                   (replicate1VoidHVector (Proxy @k) domsOD)
+                                   (dmkHVector asUnshared)
+                                   (flattenADShare $ l1 : V.toList ll2)
+            shn = rshape x0
+            odShn = voidFromSh @rn shn
+            domsF = V.cons odShn (replicate1VoidHVector (Proxy @k) domB)
+            p :: HVectorOf ranked
+            p = rmapAccumRDer domB f df rf domsOD x0 as
+            (l4, pShared) = drecordSharingPrimal @ranked domsF p l3
+            q = rfromD $ pShared V.! 0
+            dual = wrapDeltaH $ MapAccumRR domsOD q as domB df rf x0' as'
+            selectDual i d = case d of
+              DynamicRanked t -> DynamicRanked $ dDnotShared l4 t (HToR dual i)
+              DynamicShaped t -> DynamicShaped $ dDnotShared l4 t (HToS dual i)
+              DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
+              DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
+        in V.imap selectDual pShared
+      _ -> error "rmapAccumRDer: impossible someNatVal"
   smapAccumR
     :: forall k rn sh.
        Proxy k

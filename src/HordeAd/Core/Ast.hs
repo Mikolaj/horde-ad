@@ -637,6 +637,62 @@ data AstHVector s where
             -> HVector (AstRanked s)
             -> AstShaped s r sh
             -> AstHVector s
+  AstMapAccumRR
+    :: forall rn n s. (GoodScalar rn, KnownNat n)
+    => VoidHVector  -- ^ shapes of [b]
+    -> ( AstVarName (AstRanked PrimalSpan) rn n
+       , [AstDynamicVarName]
+       , AstHVector PrimalSpan )
+    -> AstRanked s rn n
+    -> HVector (AstRanked s)  -- one rank higher than above
+    -> AstHVector s
+  AstMapAccumRDerR
+    :: forall rn n s. (GoodScalar rn, KnownNat n)
+    => VoidHVector  -- ^ shapes of [b]
+    -> ( AstVarName (AstRanked PrimalSpan) rn n
+       , [AstDynamicVarName]
+       , AstHVector PrimalSpan )
+    -> ( AstVarName (AstRanked PrimalSpan) rn n
+       , [AstDynamicVarName]
+       , AstVarName (AstRanked PrimalSpan) rn n
+       , [AstDynamicVarName]
+       , AstHVector PrimalSpan )
+    -> ( AstVarName (AstRanked PrimalSpan) rn n
+       , [AstDynamicVarName]
+       , AstVarName (AstRanked PrimalSpan) rn n
+       , [AstDynamicVarName]
+       , AstHVector PrimalSpan )
+    -> AstRanked s rn n
+    -> HVector (AstRanked s)  -- one rank higher than above
+    -> AstHVector s
+  AstMapAccumRS
+    :: forall k rn sh s. (GoodScalar rn, Sh.Shape sh, KnownNat k)
+    => VoidHVector  -- ^ shapes of [b]
+    -> ( AstVarName (AstShaped PrimalSpan) rn sh
+       , [AstDynamicVarName]
+       , AstHVector PrimalSpan )
+    -> AstShaped s rn sh
+    -> HVector (AstRanked s)  -- one rank higher than above
+    -> AstHVector s
+  AstMapAccumRDerS
+    :: forall k rn sh s. (GoodScalar rn, Sh.Shape sh, KnownNat k)
+    => VoidHVector  -- ^ shapes of [b]
+    -> ( AstVarName (AstShaped PrimalSpan) rn sh
+       , [AstDynamicVarName]
+       , AstHVector PrimalSpan )
+    -> ( AstVarName (AstShaped PrimalSpan) rn sh
+       , [AstDynamicVarName]
+       , AstVarName (AstShaped PrimalSpan) rn sh
+       , [AstDynamicVarName]
+       , AstHVector PrimalSpan )
+    -> ( AstVarName (AstShaped PrimalSpan) rn sh
+       , [AstDynamicVarName]
+       , AstVarName (AstShaped PrimalSpan) rn sh
+       , [AstDynamicVarName]
+       , AstHVector PrimalSpan )
+    -> AstShaped s rn sh
+    -> HVector (AstRanked s)  -- one rank higher than above
+    -> AstHVector s
 
 deriving instance Show (AstHVector s)
 
