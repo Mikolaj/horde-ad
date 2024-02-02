@@ -991,6 +991,7 @@ type ADReadyS shaped = ADReadyBoth (RankedOf shaped) shaped
 -- manually (and not for all equalities) due to #23333.
 type ADReadySmall ranked shaped =
   ( shaped ~ ShapedOf ranked, ranked ~ RankedOf shaped
+  , ShapedOf shaped ~ shaped, RankedOf ranked ~ ranked
   , RankedOf (PrimalOf ranked) ~ PrimalOf ranked
   , PrimalOf ranked ~ RankedOf (PrimalOf ranked)
   , RankedOf (PrimalOf shaped) ~ PrimalOf ranked

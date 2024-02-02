@@ -131,7 +131,7 @@ instance DerivativeStages (AstRanked FullSpan) where
         !(!astBindings, !gradient) =
           reverseDervative parameters0 primalBody mdt delta
         unGradient = unletGradient @Nat @(AstRanked PrimalSpan)
-                                   l astBindings gradient
+                                   l astBindings (AstHVector gradient)
         unPrimal = unletValue l [] primalBody
     in ( ((varDt, varsPrimal), unGradient, unPrimal, shapeToList sh)
        , delta )
@@ -183,11 +183,8 @@ instance DerivativeStages (AstRanked FullSpan) where
 
 instance UnletGradient (AstRanked PrimalSpan) where
   unletGradient
-    :: ADShare -> AstBindings -> HVector (AstRanked PrimalSpan)
-    -> AstHVector PrimalSpan
-  unletGradient l astBindings gradient =
-    unletAstHVector6 astBindings l
-                     (dmkHVector @(AstRanked PrimalSpan) gradient)
+    :: ADShare -> AstBindings -> AstHVector PrimalSpan -> AstHVector PrimalSpan
+  unletGradient l astBindings gradient = unletAstHVector6 astBindings l gradient
   unletValue
     :: (GoodScalar r, KnownNat n)
     => ADShare -> AstBindings -> AstRanked PrimalSpan r n
@@ -233,7 +230,7 @@ instance DerivativeStages (AstShaped FullSpan) where
         !(!astBindings, !gradient) =
           reverseDervative parameters0 primalBody mdt delta
         unGradient = unletGradient @[Nat] @(AstShaped PrimalSpan)
-                                   l astBindings gradient
+                                   l astBindings (AstHVector gradient)
         unPrimal = unletValue l [] primalBody
     in ( ((varDt, varsPrimal), unGradient, unPrimal, Sh.shapeT @sh)
        , delta )
@@ -281,11 +278,8 @@ instance DerivativeStages (AstShaped FullSpan) where
 
 instance UnletGradient (AstShaped PrimalSpan) where
   unletGradient
-    :: ADShare -> AstBindings -> HVector (AstRanked PrimalSpan)
-    -> AstHVector PrimalSpan
-  unletGradient l astBindings gradient =
-    unletAstHVector6 astBindings l
-                     (dmkHVector @(AstRanked PrimalSpan) gradient)
+    :: ADShare -> AstBindings -> AstHVector PrimalSpan -> AstHVector PrimalSpan
+  unletGradient l astBindings gradient = unletAstHVector6 astBindings l gradient
   unletValue
     :: (GoodScalar r,  Sh.Shape sh)
     => ADShare -> AstBindings -> AstShaped PrimalSpan r sh
@@ -295,8 +289,7 @@ instance UnletGradient (AstShaped PrimalSpan) where
 
 instance UnletGradient (HVectorPseudoTensor (AstRanked PrimalSpan)) where
   unletGradient
-    :: ADShare -> AstBindings -> HVector (AstRanked PrimalSpan)
-    -> AstHVector PrimalSpan
+    :: ADShare -> AstBindings -> AstHVector PrimalSpan -> AstHVector PrimalSpan
   unletGradient = unletGradient @Nat @(AstRanked PrimalSpan)
   unletValue
     :: forall r (y :: ()).
@@ -304,7 +297,7 @@ instance UnletGradient (HVectorPseudoTensor (AstRanked PrimalSpan)) where
     -> HVectorPseudoTensor (AstRanked PrimalSpan) r y
   unletValue l astBindings (HVectorPseudoTensor primalBody) =
     let hOf = unletGradient @Nat @(AstRanked PrimalSpan)
-                            l astBindings primalBody
+                            l astBindings (AstHVector primalBody)
     in HVectorPseudoTensor $ dunHVector (voidFromHVector primalBody) hOf
          -- TODO: sharing gets broken here
 

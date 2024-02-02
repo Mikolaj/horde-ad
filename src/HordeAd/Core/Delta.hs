@@ -653,8 +653,7 @@ class DualPart (f :: TensorType ty) where
     => Int -> Dual f r y -> HVector (RankedOf f)
     -> (AstBindingsD (RankedOf f), f r y)
 
-instance (ADReady ranked, RankedOf ranked ~ ranked)
-         => DualPart @Nat ranked where
+instance ADReady ranked => DualPart @Nat ranked where
   type Dual ranked = DeltaR ranked
   reverseDervative = gradientFromDeltaR
   forwardDerivative = derivativeFromDeltaR
@@ -739,8 +738,7 @@ derivativeFromDeltaS !dim !deltaTopLevel !ds =
       !(!s2, !c) = fwdS dim ds s0 deltaTopLevel
   in (astBindings s2, c)
 
-instance (ADReady ranked, RankedOf ranked ~ ranked)
-         => DualPart @() (HVectorPseudoTensor ranked) where
+instance ADReady ranked => DualPart @() (HVectorPseudoTensor ranked) where
   type Dual (HVectorPseudoTensor ranked) = HVectorPseudoTensor (DeltaR ranked)
   reverseDervative = gradientFromDeltaH
   forwardDerivative = derivativeFromDeltaH

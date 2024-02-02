@@ -282,6 +282,7 @@ dotParameters (HVector a0 a1) (HVector b0 b1) =
 crevOnADInputs
   :: forall ty (f :: TensorType ty) r y.
      ( RankedTensor (ADVal (RankedOf f))
+     , HVectorTensor (RankedOf f) (ShapedOf f)
      , DualPart f, UnletGradient f, GoodScalar r, HasSingletonDict y)
   => Maybe (f r y)
   -> (HVector (ADVal (RankedOf f)) -> ADVal f r y)
@@ -297,11 +298,13 @@ crevOnADInputs mdt f inputs =
   let parameters0 = voidFromHVector inputs
       (!astBindings, !gradient) =
         reverseDervative parameters0 v mdt deltaTopLevel
-  in (unletGradient @ty @f l astBindings gradient, unletValue l [] v)
+  in ( unletGradient @ty @f l astBindings (dmkHVector gradient)
+     , unletValue l [] v )
 
 crevOnHVector
   :: forall r y f.
      ( RankedTensor (RankedOf f), RankedTensor (ADVal (RankedOf f))
+     , HVectorTensor (RankedOf f) (ShapedOf f)
      , DualPart f, UnletGradient f, GoodScalar r, HasSingletonDict y )
   => Maybe (f r y)
   -> (HVector (ADVal (RankedOf f)) -> ADVal f r y)
@@ -451,7 +454,7 @@ class DerivativeStages g where
 type UnletGradient :: TensorType ty -> Constraint
 class UnletGradient g where
   unletGradient
-    :: ADShare -> AstBindingsD (RankedOf g) -> HVector (RankedOf g)
+    :: ADShare -> AstBindingsD (RankedOf g) -> HVectorOf (RankedOf g)
     -> HVectorOf (RankedOf g)
   unletValue
     :: (GoodScalar r, HasSingletonDict y)

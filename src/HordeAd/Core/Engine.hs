@@ -215,7 +215,7 @@ fwdArtifactAdapt f vals =
 crev
   :: forall r y f vals advals.
      ( DualPart f, UnletGradient f, GoodScalar r, HasSingletonDict y
-     , RankedOf f ~ Flip OR.Array
+     , RankedOf f ~ Flip OR.Array, ShapedOf f ~ Flip OS.Array
      , AdaptableHVector (ADVal (RankedOf f)) advals
      , AdaptableHVector (Flip OR.Array) vals
      , vals ~ Value advals, Value vals ~ vals )
@@ -227,6 +227,7 @@ crev f vals = crevDtMaybe f vals Nothing
 crevDt
   :: forall r y f vals advals.
      ( RankedTensor (RankedOf f), RankedTensor (ADVal (RankedOf f))
+     , HVectorTensor (RankedOf f) (ShapedOf f)
      , DualPart f, UnletGradient f, GoodScalar r, HasSingletonDict y
      , HVectorOf (RankedOf f) ~ HVector (RankedOf f)
      , AdaptableHVector (ADVal (RankedOf f)) advals
@@ -239,6 +240,7 @@ crevDt f vals dt = crevDtMaybe f vals (Just dt)
 crevDtMaybe
   :: forall r y f vals advals.
      ( RankedTensor (RankedOf f), RankedTensor (ADVal (RankedOf f))
+     , HVectorTensor (RankedOf f) (ShapedOf f)
      , DualPart f, UnletGradient f, GoodScalar r, HasSingletonDict y
      , HVectorOf (RankedOf f) ~ HVector (RankedOf f)
      , AdaptableHVector (ADVal (RankedOf f)) advals
