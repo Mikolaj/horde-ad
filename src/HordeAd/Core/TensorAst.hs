@@ -740,7 +740,7 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
             let (nvar1, mvar1) = (AstVarName nid1, AstVarName mid1)
                 (nvar2, mvar2) = (AstVarName nid2, AstVarName mid2)
                 (nvar, mvar) = (AstVarName nid, AstVarName mid)
-            in AstFoldDer (fun2ToAstR shn shm f)
+            in AstFoldDer (funToAst3R shn shm f)
                           (nvar1, mvar1, nvar2, mvar2, derivative)
                           (varDt, nvar, mvar, gradient)
                           x0 as
@@ -758,8 +758,8 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   rfoldDer f df rf x0 as =
     let shn = rshape x0
         shm = tailShape $ rshape as
-    in AstFoldDer (fun2ToAstR shn shm f) (fun4ToAstR shn shm df)
-                  (fun3ToAstR shn shm rf) x0 as
+    in AstFoldDer (funToAst3R shn shm f) (funToAst5R shn shm df)
+                  (funToAst4R shn shm rf) x0 as
   rfoldZip :: forall rn n. (GoodScalar rn, KnownNat n)
          => (forall f. ADReady f => f rn n -> HVector f -> f rn n)
          -> VoidHVector
@@ -791,7 +791,7 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
                   let nvar1 = AstVarName nid1
                       nvar2 = AstVarName nid2
                       nvar = AstVarName nid
-                  in AstFoldZipDer (fun2DToAstR shn f domsOD)
+                  in AstFoldZipDer (funToAstRHR shn f domsOD)
                                    (nvar1, mdyns1, nvar2, mdyns2, derivative)
                                    (varDt, nvar, mdyns, gradient)
                                    x0 asD
@@ -819,9 +819,9 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
           assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD)
                                      asD) $
           let shn = rshape x0
-          in AstFoldZipDer (fun2DToAstR shn f domsOD)
-                           (fun4DToAstR shn df domsOD)
-                           (fun3DToAstR shn rf domsOD) x0 asD
+          in AstFoldZipDer (funToAstRHR shn f domsOD)
+                           (funToAstRHRHR shn df domsOD)
+                           (funToAstRRHH shn rf domsOD) x0 asD
         _ -> error "rfoldZipDer: impossible someNatVal"
   rscan :: forall rn rm n m.
            (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)
@@ -851,7 +851,7 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
             let (nvar1, mvar1) = (AstVarName nid1, AstVarName mid1)
                 (nvar2, mvar2) = (AstVarName nid2, AstVarName mid2)
                 (nvar, mvar) = (AstVarName nid, AstVarName mid)
-            in AstScanDer (fun2ToAstR shn shm f)
+            in AstScanDer (funToAst3R shn shm f)
                           (nvar1, mvar1, nvar2, mvar2, derivative)
                           (varDt, nvar, mvar, gradient)
                           x0 as
@@ -869,9 +869,9 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   rscanDer f df rf x0 as =
     let shn = rshape x0
         shm = tailShape $ rshape as
-    in AstScanDer (fun2ToAstR shn shm f)
-                  (fun4ToAstR shn shm df)
-                  (fun3ToAstR shn shm rf) x0 as
+    in AstScanDer (funToAst3R shn shm f)
+                  (funToAst5R shn shm df)
+                  (funToAst4R shn shm rf) x0 as
   rscanZip :: forall rn n. (GoodScalar rn, KnownNat n)
          => (forall f. ADReady f => f rn n -> HVector f -> f rn n)
          -> VoidHVector
@@ -903,7 +903,7 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
                   let nvar1 = AstVarName nid1
                       nvar2 = AstVarName nid2
                       nvar = AstVarName nid
-                  in AstScanZipDer (fun2DToAstR shn f domsOD)
+                  in AstScanZipDer (funToAstRHR shn f domsOD)
                                    (nvar1, mdyns1, nvar2, mdyns2, derivative)
                                    (varDt, nvar, mdyns, gradient)
                                    x0 asD
@@ -931,9 +931,9 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
           assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD)
                                      asD) $
           let shn = rshape x0
-          in AstScanZipDer (fun2DToAstR shn f domsOD)
-                           (fun4DToAstR shn df domsOD)
-                           (fun3DToAstR shn rf domsOD) x0 asD
+          in AstScanZipDer (funToAstRHR shn f domsOD)
+                           (funToAstRHRHR shn df domsOD)
+                           (funToAstRRHH shn rf domsOD) x0 asD
         _ -> error "rscanZipDer: impossible someNatVal"
   sfold :: forall rn rm sh shm k.
            (GoodScalar rn, GoodScalar rm, Sh.Shape sh, Sh.Shape shm, KnownNat k)
@@ -958,7 +958,7 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
             let (nvar1, mvar1) = (AstVarName nid1, AstVarName mid1)
                 (nvar2, mvar2) = (AstVarName nid2, AstVarName mid2)
                 (nvar, mvar) = (AstVarName nid, AstVarName mid)
-            in AstFoldDerS (fun2ToAstS f)
+            in AstFoldDerS (funToAst3S f)
                            (nvar1, mvar1, nvar2, mvar2, derivative)
                            (varDt, nvar, mvar, gradient)
                            x0 as
@@ -975,7 +975,7 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
            -> AstShaped s rm (k ': shm)
            -> AstShaped s rn sh
   sfoldDer f df rf x0 as =
-    AstFoldDerS (fun2ToAstS f) (fun4ToAstS df) (fun3ToAstS rf) x0 as
+    AstFoldDerS (funToAst3S f) (funToAst5S df) (funToAst4S rf) x0 as
   sfoldZip :: forall rn sh. (GoodScalar rn, Sh.Shape sh)
          => (forall f. ADReadyS f
              => f rn sh -> HVector (RankedOf f) -> f rn sh)
@@ -1008,7 +1008,7 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
                   let nvar1 = AstVarName nid1
                       nvar2 = AstVarName nid2
                       nvar = AstVarName nid
-                  in AstFoldZipDerS (fun2DToAstS @_ @_ @sh f domsOD)
+                  in AstFoldZipDerS (funToAstSHS @_ @_ @sh f domsOD)
                                     (nvar1, mdyns1, nvar2, mdyns2, derivative)
                                     (varDt, nvar, mdyns, gradient)
                                     x0 asD
@@ -1037,9 +1037,9 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
         Just (SomeNat @k _) ->
           assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD)
                                      asD) $
-          AstFoldZipDerS (fun2DToAstS @_ @_ @sh f domsOD)
-                         (fun4DToAstS @_ @_ @sh df domsOD)
-                         (fun3DToAstS @_ @_ @sh rf domsOD) x0 asD
+          AstFoldZipDerS (funToAstSHS @_ @_ @sh f domsOD)
+                         (funToAstSHSHS @_ @_ @sh df domsOD)
+                         (funToAstSSHH @_ @_ @sh rf domsOD) x0 asD
         _ -> error "sfoldZipDer: impossible someNatVal"
   sscan :: forall rn rm sh shm k.
            (GoodScalar rn, GoodScalar rm, Sh.Shape sh, Sh.Shape shm, KnownNat k)
@@ -1064,7 +1064,7 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
             let (nvar1, mvar1) = (AstVarName nid1, AstVarName mid1)
                 (nvar2, mvar2) = (AstVarName nid2, AstVarName mid2)
                 (nvar, mvar) = (AstVarName nid, AstVarName mid)
-            in AstScanDerS (fun2ToAstS @_ @_ @sh f)
+            in AstScanDerS (funToAst3S @_ @_ @sh f)
                            (nvar1, mvar1, nvar2, mvar2, derivative)
                            (varDt, nvar, mvar, gradient)
                            x0 as
@@ -1082,9 +1082,9 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
            -> AstShaped s rm (k ': shm)
            -> AstShaped s rn (1 + k ': sh)
   sscanDer f df rf x0 as =
-    AstScanDerS (fun2ToAstS @_ @_ @sh f)
-                (fun4ToAstS @_ @_ @sh df)
-                (fun3ToAstS @_ @_ @sh rf) x0 as
+    AstScanDerS (funToAst3S @_ @_ @sh f)
+                (funToAst5S @_ @_ @sh df)
+                (funToAst4S @_ @_ @sh rf) x0 as
   sscanZip :: forall k rn sh. (GoodScalar rn, Sh.Shape sh, KnownNat k)
          => (forall f. ADReadyS f
              => f rn sh -> HVector (RankedOf f) -> f rn sh)
@@ -1111,7 +1111,7 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
             let nvar1 = AstVarName nid1
                 nvar2 = AstVarName nid2
                 nvar = AstVarName nid
-            in AstScanZipDerS (fun2DToAstS @_ @_ @sh f domsOD)
+            in AstScanZipDerS (funToAstSHS @_ @_ @sh f domsOD)
                               (nvar1, mdyns1, nvar2, mdyns2, derivative)
                               (varDt, nvar, mdyns, gradient)
                               x0 asD
@@ -1133,9 +1133,9 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
             -> AstShaped s rn (1 + k ': sh)
   sscanZipDer f df rf domsOD x0 asD =
     assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD) asD) $
-    AstScanZipDerS (fun2DToAstS @_ @_ @sh f domsOD)
-                   (fun4DToAstS @_ @_ @sh df domsOD)
-                   (fun3DToAstS @_ @_ @sh rf domsOD) x0 asD
+    AstScanZipDerS (funToAstSHS @_ @_ @sh f domsOD)
+                   (funToAstSHSHS @_ @_ @sh df domsOD)
+                   (funToAstSSHH @_ @_ @sh rf domsOD) x0 asD
 
 astLetHVectorInHVectorFun
   :: AstSpan s
