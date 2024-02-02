@@ -97,7 +97,6 @@ type instance DualOf (AstRanked s) = AstRanked DualSpan
 
 type instance RankedOf (AstShaped s) = AstRanked s
 type instance ShapedOf (AstShaped s) = AstShaped s
-type instance HVectorOf (AstShaped s) = AstHVector s
 type instance PrimalOf (AstShaped s) = AstShaped PrimalSpan
 type instance DualOf (AstShaped s) = AstShaped DualSpan
 
@@ -158,7 +157,7 @@ varNameToAstVarId (AstVarName varId) = varId
 -- The reverse derivative artifact from step 6) of our full pipeline.
 type AstArtifactRev (f :: TensorType ty) r y =
   ( (AstVarName f r y, [AstDynamicVarName])
-  , HVectorOf f, f r y, OR.ShapeL )
+  , HVectorOf (RankedOf f), f r y, OR.ShapeL )
 
 type AstArtifactFwd (f :: TensorType ty) r y =
   ( ([AstDynamicVarName], [AstDynamicVarName])
@@ -1059,7 +1058,6 @@ type instance PrimalOf (AstNoVectorize s) = AstRanked PrimalSpan
 type instance DualOf (AstNoVectorize s) = AstRanked DualSpan
 type instance RankedOf (AstNoVectorizeS s) = AstNoVectorize s
 type instance ShapedOf (AstNoVectorizeS s) = AstNoVectorizeS s
-type instance HVectorOf (AstNoVectorizeS s) = AstHVector s
 type instance PrimalOf (AstNoVectorizeS s) = AstShaped PrimalSpan
 type instance DualOf (AstNoVectorizeS s) = AstShaped DualSpan
 type instance RankedOf (AstNoSimplify s) = AstNoSimplify s
@@ -1069,7 +1067,6 @@ type instance PrimalOf (AstNoSimplify s) = AstRanked PrimalSpan
 type instance DualOf (AstNoSimplify s) = AstRanked DualSpan
 type instance RankedOf (AstNoSimplifyS s) = AstNoSimplify s
 type instance ShapedOf (AstNoSimplifyS s) = AstNoSimplifyS s
-type instance HVectorOf (AstNoSimplifyS s) = AstHVector s
 type instance PrimalOf (AstNoSimplifyS s) = AstShaped PrimalSpan
 type instance DualOf (AstNoSimplifyS s) = AstShaped DualSpan
 

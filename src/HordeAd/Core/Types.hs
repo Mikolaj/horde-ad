@@ -89,7 +89,7 @@ type family RankedOf (f :: TensorType ty) :: RankedTensorType
 
 type family ShapedOf (f :: TensorType ty) :: ShapedTensorType
 
-type family HVectorOf (f :: TensorType ty) :: Type
+type family HVectorOf (f :: RankedTensorType) :: Type
 
 type family PrimalOf (f :: TensorType ty) :: TensorType ty
 

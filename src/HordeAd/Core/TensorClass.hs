@@ -1120,8 +1120,6 @@ type instance RankedOf (Flip OS.Array) = Flip OR.Array
 
 type instance ShapedOf (Flip OS.Array) = Flip OS.Array
 
-type instance HVectorOf (Flip OS.Array) = HVector (Flip OR.Array)
-
 type instance PrimalOf (Flip OS.Array) = Flip OS.Array
 
 type instance DualOf (Flip OS.Array) = DummyDual

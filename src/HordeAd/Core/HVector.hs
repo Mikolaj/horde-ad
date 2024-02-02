@@ -101,7 +101,8 @@ instance
 -- HVectorOf is used for that and the only reasons HVectorOf exists
 -- is to prevent mixing up the two (and complicating the definition
 -- below with errors in the AstHVectorLet case).
-type HVector ranked = Data.Vector.Vector (DynamicTensor ranked)
+type HVector (ranked :: RankedTensorType) =
+  Data.Vector.Vector (DynamicTensor ranked)
 
 type role HVectorPseudoTensor nominal phantom phantom
 type HVectorPseudoTensor :: RankedTensorType -> TensorType ()
