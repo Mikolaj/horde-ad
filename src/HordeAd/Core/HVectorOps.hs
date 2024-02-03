@@ -233,7 +233,7 @@ hVectorsMatch v1 v2 =
      && and (V.zipWith dynamicMatch v1 v2)
 
 voidHVectorMatches :: forall g. RankedTensor g
-                  => HVector VoidTensor -> HVector g -> Bool
+                   => HVector VoidTensor -> HVector g -> Bool
 voidHVectorMatches v1 v2 =
   let dynamicMatch :: DynamicTensor VoidTensor -> DynamicTensor g -> Bool
       dynamicMatch t u = case (scalarDynamic t, scalarDynamic @g u) of

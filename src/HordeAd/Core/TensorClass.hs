@@ -700,6 +700,7 @@ class ( Integral (IntOf shaped), CShaped shaped Num
 class HVectorTensor (ranked :: RankedTensorType)
                     (shaped :: ShapedTensorType)
                     | ranked -> shaped, shaped -> ranked where
+  dshape :: HVectorOf ranked -> VoidHVector
   dmkHVector :: HVector ranked -> HVectorOf ranked
   dunHVector :: VoidHVector -> HVectorOf ranked -> HVector ranked
     -- ^ Warning: this operation easily breaks sharing.

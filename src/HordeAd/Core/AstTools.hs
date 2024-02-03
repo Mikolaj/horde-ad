@@ -5,7 +5,7 @@
 -- or resulting from the differentiation.
 module HordeAd.Core.AstTools
   ( -- * Shape calculation
-    shapeAst, lengthAst
+    shapeAst, lengthAst, shapeAstHVector
     -- * Variable occurrence detection
   , varInAst, varInAstBool, varInIndex
   , varInAstS, varInIndexS, varNameInAst, varNameInAstS
@@ -24,7 +24,8 @@ import           Data.List (foldl')
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality (gcastWith, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, sameNat, type (+))
+import           GHC.TypeLits
+  (KnownNat, SomeNat (..), sameNat, someNatVal, type (+))
 import           Unsafe.Coerce (unsafeCoerce)
 
 import HordeAd.Core.Ast
@@ -123,10 +124,52 @@ lengthAst v1 = case shapeAst v1 of
   k :$ _ -> k
 
 shapeDynamicAst :: DynamicTensor (AstRanked s) -> [Int]
-shapeDynamicAst (DynamicRanked t) = shapeToList $ shapeAst t
-shapeDynamicAst (DynamicShaped @_ @sh _) = Sh.shapeT @sh
-shapeDynamicAst (DynamicRankedDummy _ proxy_sh) = Sh.shapeP proxy_sh
-shapeDynamicAst (DynamicShapedDummy _ proxy_sh) = Sh.shapeP proxy_sh
+shapeDynamicAst = shapeDynamicF (shapeToList . shapeAst)
+
+shapeAstHVector :: AstHVector s -> VoidHVector
+shapeAstHVector = \case
+  AstHVector v -> V.map (voidFromDynamicF (shapeToList . shapeAst)) v
+  AstLetHVectorInHVector _ _ v -> shapeAstHVector v
+  AstLetInHVector _ _ v -> shapeAstHVector v
+  AstLetInHVectorS _ _ v -> shapeAstHVector v
+  AstBuildHVector1 k (_, v) -> case someNatVal $ toInteger k of
+    Just (SomeNat @k _) ->
+      replicate1VoidHVector (Proxy @k) $ shapeAstHVector v
+    _ -> error "dshape: impossible someNatVal"
+  AstRev (vars, _) _ -> voidFromVars vars
+  AstRevDt (vars, _) _ _ -> voidFromVars vars
+  AstRevS (vars, _) _ -> voidFromVars vars
+  AstRevDtS (vars, _) _ _ -> voidFromVars vars
+  AstMapAccumRR @rn domB _f x0 asD ->
+    let width = case V.unsnoc asD of
+          Nothing -> error "dshape: can't determine argument width"
+          Just (_, d) -> case shapeDynamicAst d of
+            [] -> error "dshape: wrong rank of argument"
+            w : _shm -> w
+    in case someNatVal $ toInteger width of
+      Just (SomeNat @k _) ->
+        let shn = shapeAst x0
+            odShn = voidFromSh @rn shn
+        in V.cons odShn (replicate1VoidHVector (Proxy @k) domB)
+      _ -> error "dshape: impossible someNatVal"
+  AstMapAccumRDerR @rn domB _f _df _rf x0 asD ->
+    let width = case V.unsnoc asD of
+          Nothing -> error "dshape: can't determine argument width"
+          Just (_, d) -> case shapeDynamicAst d of
+            [] -> error "dshape: wrong rank of argument"
+            w : _shm -> w
+    in case someNatVal $ toInteger width of
+      Just (SomeNat @k _) ->
+        let shn = shapeAst x0
+            odShn = voidFromSh @rn shn
+        in V.cons odShn (replicate1VoidHVector (Proxy @k) domB)
+      _ -> error "dshape: impossible someNatVal"
+  AstMapAccumRS @k @rn @sh domB _f _x0 _asD ->
+    let odShn = voidFromShS @rn @sh
+    in V.cons odShn (replicate1VoidHVector (Proxy @k) domB)
+  AstMapAccumRDerS @k @rn @sh domB _f _df _rf _x0 _asD ->
+    let odShn = voidFromShS @rn @sh
+    in V.cons odShn (replicate1VoidHVector (Proxy @k) domB)
 
 
 -- * Variable occurrence detection

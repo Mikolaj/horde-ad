@@ -601,6 +601,7 @@ astBuild1VectorizeS f =
 -- * HVectorTensor instance
 
 instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
+  dshape = shapeAstHVector
   dmkHVector = AstHVector
   dunHVector domsOD hVectorOf =
     let f :: Int -> DynamicTensor VoidTensor -> AstDynamic s
@@ -1483,6 +1484,7 @@ instance AstSpan s => ShapedTensor (AstNoVectorizeS s) where
   sScale s t = astDualPartS $ AstConstantS s * AstDS 0 t
 
 instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
+  dshape = dshape @(AstRanked s)
   dmkHVector hVector = dmkHVector @(AstRanked s) (unNoVectorizeHVector hVector)
   dunHVector parameters0 doms =
     noVectorizeHVector $ dunHVector @(AstRanked s) parameters0 doms
@@ -1730,6 +1732,7 @@ instance AstSpan s => ShapedTensor (AstNoSimplifyS s) where
   sScale s t = astDualPartS $ AstConstantS s * AstDS 0 t
 
 instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
+  dshape = dshape @(AstRanked s)
   dmkHVector hVector = dmkHVector @(AstRanked s) (unNoSimplifyHVector hVector)
   dunHVector parameters0 doms =
     noSimplifyHVector $ dunHVector @(AstRanked s) parameters0 doms

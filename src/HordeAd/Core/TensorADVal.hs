@@ -365,6 +365,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
          , CRankedIP ranked IsPrimal, CRankedIPSh shaped IsPrimal
          , UnletGradient ranked, UnletGradient shaped )
          => HVectorTensor (ADVal ranked) (ADVal shaped) where
+  dshape = voidFromHVector
   dmkHVector = id
   dunHVector _ = id
   dletHVectorInHVector od asD f =
@@ -1184,6 +1185,7 @@ unADValDynamicTensor (DynamicShapedDummy p1 p2) =
 -- * HVectorTensor instance for concrete arrays
 
 instance HVectorTensor (Flip OR.Array) (Flip OS.Array) where
+  dshape = voidFromHVector
   dmkHVector = id
   dunHVector _ = id
   dletHVectorInHVector _ = (&)
