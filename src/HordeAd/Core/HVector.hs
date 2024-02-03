@@ -107,7 +107,7 @@ type HVector (ranked :: RankedTensorType) =
 type role HVectorPseudoTensor nominal phantom phantom
 type HVectorPseudoTensor :: RankedTensorType -> TensorType ()
 newtype HVectorPseudoTensor ranked r y =
-  HVectorPseudoTensor {unHVectorPseudoTensor :: HVector ranked}
+  HVectorPseudoTensor {unHVectorPseudoTensor :: HVectorOf ranked}
 
 type instance RankedOf (HVectorPseudoTensor ranked) = ranked
 

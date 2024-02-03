@@ -1157,12 +1157,15 @@ aDValDynamicTensor _ _ _ = error "aDValDynamicTensor: wrong arguments"
 
 -- Float and '() are placeholders here; they are reduced away.
 hVectorADValToADVal
-  :: HVector (ADVal ranked) -> ADVal (HVectorPseudoTensor ranked) Float '()
+  :: forall ranked. HVectorTensor ranked (ShapedOf ranked)
+  => HVector (ADVal ranked) -> ADVal (HVectorPseudoTensor ranked) Float '()
 hVectorADValToADVal hv =
   let (ll, as, as') = unADValHVector hv
   in dDnotShared (flattenADShare $ V.toList ll)
-                 (HVectorPseudoTensor as)
-                 (HVectorPseudoTensor as')
+                 (HVectorPseudoTensor
+                  $ dmkHVector @ranked @(ShapedOf ranked) as)
+                 (HVectorPseudoTensor
+                  $ HToH as')
 
 unADValHVector
   :: HVector (ADVal f)

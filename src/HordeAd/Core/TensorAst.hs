@@ -297,9 +297,8 @@ instance UnletGradient (HVectorPseudoTensor (AstRanked PrimalSpan)) where
     -> HVectorPseudoTensor (AstRanked PrimalSpan) r y
   unletValue l astBindings (HVectorPseudoTensor primalBody) =
     let hOf = unletGradient @Nat @(AstRanked PrimalSpan)
-                            l astBindings (AstHVector primalBody)
-    in HVectorPseudoTensor $ dunHVector (voidFromHVector primalBody) hOf
-         -- TODO: sharing gets broken here
+                            l astBindings primalBody
+    in HVectorPseudoTensor hOf
 
 
 -- * Unlawful boolean instances of ranked AST; they are lawful modulo evaluation

@@ -498,6 +498,7 @@ deriving instance ( Sh.Shape sh0, GoodScalar r0
 type role DeltaH nominal
 data DeltaH :: RankedTensorType -> Type where
   LetH :: NodeId ranked -> DeltaH ranked -> DeltaH ranked
+  HToH :: HVector (DeltaR ranked) -> DeltaH ranked
   MapAccumRR
     :: forall rn n ranked. (KnownNat n, GoodScalar rn)
     => VoidHVector
@@ -546,6 +547,8 @@ data DeltaH :: RankedTensorType -> Type where
 type instance RankedOf (DeltaS shaped) = DeltaR (RankedOf shaped)
 
 type instance ShapedOf (DeltaR ranked) = DeltaS (ShapedOf ranked)
+
+type instance HVectorOf (DeltaR ranked) = DeltaH ranked
 
 shapeDeltaR :: forall ranked r n.
                ( GoodScalar r, KnownNat n
@@ -606,6 +609,8 @@ shapeDeltaH :: forall ranked.
             => DeltaH ranked -> VoidHVector
 shapeDeltaH = \case
   LetH _ d -> shapeDeltaH d
+  HToH v ->
+    V.map (\d -> voidFromDynamicF (shapeToList . shapeDeltaR) d) v
   MapAccumRR @rn _domsOD _q as domB _df _rf x0' _as' ->
     let width = case V.unsnoc as of
           Nothing -> error "evalR: can't determine argument width"
@@ -756,15 +761,20 @@ gradientFromDeltaH
   -> (AstBindingsD ranked, HVector ranked)
 gradientFromDeltaH !parameters0 (HVectorPseudoTensor value)
                    !mdt !(HVectorPseudoTensor deltaTopLevel) =
-  let dt :: HVector ranked
-      dt = maybe (mapHVectorShaped (const 1) value)
+  let shDt = dshape @ranked value
+      dt :: HVectorOf ranked
+      dt = maybe (dmkHVector $ mapHVectorShaped @(ShapedOf ranked) (const 1)
+                  $ V.map dynamicFromVoid shDt)
                  unHVectorPseudoTensor
                  mdt
       s0 = initEvalState parameters0
-      s1 = evalHVector s0 dt deltaTopLevel
-      EvalState{..} = evalFromnMap s1
+      (abShared, dtShared) =  -- really not to share, but to convert to HVector
+        dregister shDt dt (astBindings s0)
+      sShared = s0 {astBindings = abShared}
+      s1 = evalH sShared dtShared deltaTopLevel
+      EvalState{astBindings=astB, ..} = evalFromnMap s1
       !gradient = V.fromList $ EM.elems iMap
-  in (astBindings, gradient)
+  in (astB, gradient)
 
 -- @r@ is a placeholder here, it's reduced away. @y@ is '(), but GHC doesn't
 -- know it has to be that.
@@ -776,8 +786,8 @@ derivativeFromDeltaH
   -> (AstBindingsD ranked, HVectorPseudoTensor ranked r y)
 derivativeFromDeltaH dim (HVectorPseudoTensor deltaTopLevel) ds =
   let s0 = EvalState EM.empty EM.empty EM.empty EM.empty EM.empty []
-      !(!s2, !c) = fwdHVector dim ds s0 deltaTopLevel
-  in (astBindings s2, HVectorPseudoTensor c)
+      !(!s2, !c) = fwdH dim ds s0 deltaTopLevel
+  in (astBindings s2, HVectorPseudoTensor $ dmkHVector c)
 
 
 -- * Reverse pass, transpose/evaluation of the delta expressions
@@ -1623,6 +1633,7 @@ evalH !s !c = let (abShared, cShared) =
         Nothing ->
           s { hnMap = EM.insert n d $ hnMap s
             , hdMap = EM.insert n c $ hdMap s }
+  HToH v -> evalHVector s c v
   MapAccumRR{} -> undefined  -- TODO
   MapAccumRS @k @r @sh1 domsOD q as _domB _df rf x0' as' ->
     -- TODO: this is probably close to mapAccumL. Test that it works fine
@@ -2296,6 +2307,7 @@ fwdH dimR params s = \case
             s4 = s3 { hnMap = EM.insert n d (hnMap s3)
                     , hdMap = EM.insert n cShared (hdMap s3) }
         in (s4, cShared)
+  HToH v -> fwdHVector dimR params s v
   MapAccumRR{} -> undefined  -- TODO
   MapAccumRS @k @rn @sh _domsOD _q _as _domB _df _rf _x0' _as' ->
     undefined  -- TODO
