@@ -40,7 +40,7 @@ import           HordeAd.Core.DualClass
 import           HordeAd.Core.DualNumber
 import           HordeAd.Core.HVector
 import           HordeAd.Core.HVectorOps
-import           HordeAd.Core.TensorADVal ()
+import           HordeAd.Core.TensorADVal (unADValHVector)
 import           HordeAd.Core.TensorClass
 import           HordeAd.Core.Types
 import           HordeAd.Util.ShapedList (singletonShaped)
@@ -288,6 +288,100 @@ instance UnletGradient (AstShaped PrimalSpan) where
     -> AstShaped PrimalSpan r sh
   unletValue l astBindings primalBody =
    unletAst6S astBindings l primalBody
+
+instance DerivativeStages (HVectorPseudoTensor (AstRanked FullSpan)) where
+  forwardPassByInterpretation
+    :: (HVector (AstRanked FullSpan)
+        -> HVectorPseudoTensor (AstRanked FullSpan) r y)
+    -> AstEnv (ADVal (AstRanked PrimalSpan))
+    -> HVector (AstRanked PrimalSpan)
+    -> [AstDynamicVarName]
+    -> HVector (AstRanked FullSpan)
+    -> ADVal (HVectorPseudoTensor (AstRanked PrimalSpan)) r y
+  {-# INLINE forwardPassByInterpretation #-}
+  forwardPassByInterpretation g envInit hVectorPrimal vars hVector =
+    let deltaInputs = generateDeltaInputs hVectorPrimal
+        varInputs = makeADInputs hVectorPrimal deltaInputs
+        HVectorPseudoTensor ast = g hVector
+        env = foldr extendEnvD envInit $ zip vars $ V.toList varInputs
+        (ll, as, as') = unADValHVector $ interpretAstHVector env ast
+    in dDnotShared (flattenADShare $ V.toList ll)
+                   (HVectorPseudoTensor $ dmkHVector as)
+                   (HVectorPseudoTensor $ HToH as')
+
+  revArtifactFromForwardPass
+    :: (GoodScalar r, HasSingletonDict y)
+    => TensorToken (HVectorPseudoTensor (AstRanked FullSpan)) -> Bool
+    -> (HVector (AstRanked PrimalSpan)
+        -> [AstDynamicVarName]
+        -> HVector (AstRanked FullSpan)
+        -> ADVal (HVectorPseudoTensor (AstRanked PrimalSpan)) r y)
+    -> VoidHVector
+    -> ( AstArtifactRev (HVectorPseudoTensor (AstRanked PrimalSpan)) r y
+       , Dual (HVectorPseudoTensor (AstRanked PrimalSpan)) r y )
+  {-# INLINE revArtifactFromForwardPass #-}
+  revArtifactFromForwardPass _ hasDt forwardPass parameters0 =
+    let !(!varsPrimal, hVectorPrimal, vars, hVector) =
+          funToAstRev parameters0 in  -- varDtId replace by many variables
+    let !(D l primalBody delta) = forwardPass hVectorPrimal vars hVector
+        domsB = shapeAstHVector $ unHVectorPseudoTensor primalBody
+    in fun1DToAst domsB $ \varsDt astsDt ->
+      let mdt = if hasDt
+                then Just $ HVectorPseudoTensor $ AstHVector astsDt
+                else Nothing
+          !(!astBindings, !gradient) =
+            reverseDervative parameters0 primalBody mdt delta
+          unGradient =
+            unletGradient @() @(HVectorPseudoTensor (AstRanked PrimalSpan))
+                          l astBindings (AstHVector gradient)
+          unPrimal = unletValue l [] primalBody
+      in ( ((varsDt, varsPrimal), unGradient, unPrimal, undefined)
+         , delta )
+
+  {-# INLINE revEvalArtifact #-}
+  revEvalArtifact ((varsDt, vars), gradient, primal, _sh) parameters mdt =
+    let env = foldr extendEnvD EM.empty $ zip vars $ V.toList parameters
+        domsB = voidFromVars varsDt
+        dt1 = mapHVectorShaped (const 1) $ V.map dynamicFromVoid domsB
+        dts = maybe dt1 unHVectorPseudoTensor mdt
+        envDt = extendEnvPars varsDt dts env
+        gradientHVector = interpretAstHVector envDt gradient
+        primalTensor = interpretAstHVector env $ unHVectorPseudoTensor primal
+    in (gradientHVector, HVectorPseudoTensor primalTensor)
+
+  fwdArtifactFromForwardPass
+    :: (GoodScalar r, HasSingletonDict y)
+    => TensorToken (HVectorPseudoTensor (AstRanked FullSpan))
+    -> (HVector (AstRanked PrimalSpan)
+        -> [AstDynamicVarName]
+        -> HVector (AstRanked FullSpan)
+        -> ADVal (HVectorPseudoTensor (AstRanked PrimalSpan)) r y)
+    -> VoidHVector
+    -> ( AstArtifactFwd (HVectorPseudoTensor (AstRanked PrimalSpan)) r y
+       , Dual (HVectorPseudoTensor (AstRanked PrimalSpan)) r y )
+  {-# INLINE fwdArtifactFromForwardPass #-}
+  fwdArtifactFromForwardPass _ forwardPass parameters0 =
+    let !(!varsPrimalDs, hVectorDs, varsPrimal, hVectorPrimal, vars, hVector) =
+          funToAstFwd parameters0 in
+    let !(D l primalBody delta) = forwardPass hVectorPrimal vars hVector in
+    let !(!astBindings, !derivative) =
+          forwardDerivative (V.length parameters0) delta hVectorDs
+        unDerivative = unletValue l astBindings derivative
+        unPrimal = unletValue l [] primalBody
+    in ( ((varsPrimalDs, varsPrimal), unDerivative, unPrimal)
+       , delta )
+
+  {-# INLINE fwdEvalArtifact #-}
+  fwdEvalArtifact ((varDs, vars), derivative, primal) parameters ds =
+    if hVectorsMatch parameters ds then
+      let env = foldr extendEnvD EM.empty $ zip vars $ V.toList parameters
+          envDs = foldr extendEnvD env $ zip varDs $ V.toList ds
+          derivativeTensor =
+            interpretAstHVector envDs $ unHVectorPseudoTensor derivative
+          primalTensor = interpretAstHVector env $ unHVectorPseudoTensor primal
+      in ( HVectorPseudoTensor derivativeTensor
+         , HVectorPseudoTensor primalTensor )
+   else error "fwdEvalArtifact: forward derivative input and sensitivity arguments should have same shapes"
 
 instance UnletGradient (HVectorPseudoTensor (AstRanked PrimalSpan)) where
   unletGradient

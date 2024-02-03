@@ -100,6 +100,9 @@ type instance ShapedOf (AstShaped s) = AstShaped s
 type instance PrimalOf (AstShaped s) = AstShaped PrimalSpan
 type instance DualOf (AstShaped s) = AstShaped DualSpan
 
+type instance PrimalOf (HVectorPseudoTensor (AstRanked s)) =
+  HVectorPseudoTensor (AstRanked PrimalSpan)
+
 instance AdaptableHVector (AstRanked s) (DynamicTensor (AstRanked s)) where
   type Value (DynamicTensor (AstRanked s)) = DynamicTensor (Flip OR.Array)
   toHVector = V.singleton
@@ -135,6 +138,8 @@ type ConcreteOf :: TensorType ty -> TensorType ty
 type family ConcreteOf f = result | result -> f where
   ConcreteOf (AstRanked FullSpan) = Flip OR.Array
   ConcreteOf (AstShaped FullSpan) = Flip OS.Array
+  ConcreteOf (HVectorPseudoTensor (AstRanked FullSpan)) =
+    HVectorPseudoTensor (Flip OR.Array)
 
 type AstBindings = AstBindingsD (AstRanked PrimalSpan)
 type ADShare = ADShareD (AstRanked PrimalSpan)

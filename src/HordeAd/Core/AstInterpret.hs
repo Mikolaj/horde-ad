@@ -7,11 +7,12 @@
 module HordeAd.Core.AstInterpret
   ( interpretAstPrimal, interpretAst
   , interpretAstPrimalS, interpretAstS
+  , interpretAstHVector
   -- * Exported only to specialize elsewhere (because transitive specialization may not work, possibly)
   , interpretAstPrimalRuntimeSpecialized, interpretAstPrimalSRuntimeSpecialized
   , interpretAstDual, interpretAstDualS
   , interpretAstRuntimeSpecialized, interpretAstSRuntimeSpecialized
-  , interpretAstHVector, interpretAstBool
+  , interpretAstBool
   ) where
 
 import Prelude
