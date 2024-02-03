@@ -520,6 +520,19 @@ data DeltaH :: RankedTensorType -> Type where
     -> DeltaR ranked rn n
     -> HVector (DeltaR ranked)
     -> DeltaH ranked
+  MapAccumRRC
+    :: forall rn n ranked. (KnownNat n, GoodScalar rn)
+    => VoidHVector
+    -> ranked rn (1 + n)
+    -> HVector ranked
+    -> VoidHVector
+    -> (ranked rn n -> HVector ranked -> ranked rn n -> HVector ranked
+        -> HVectorOf ranked)
+    -> (ranked rn n -> HVector ranked -> ranked rn n -> HVector ranked
+        -> HVectorOf ranked)
+    -> DeltaR ranked rn n
+    -> HVector (DeltaR ranked)
+    -> DeltaH ranked
   MapAccumRS
     :: forall k rn sh ranked. (KnownNat k, GoodScalar rn, Sh.Shape sh)
     => VoidHVector
@@ -538,6 +551,21 @@ data DeltaH :: RankedTensorType -> Type where
         -> f rn sh
         -> HVector (RankedOf f)
         -> HVectorOf (RankedOf f))
+    -> DeltaS (ShapedOf ranked) rn sh
+    -> HVector (DeltaR ranked)
+    -> DeltaH ranked
+  MapAccumRSC
+    :: forall k rn sh ranked. (KnownNat k, GoodScalar rn, Sh.Shape sh)
+    => VoidHVector
+    -> (ShapedOf ranked) rn (k ': sh)
+    -> HVector ranked
+    -> VoidHVector
+    -> (ShapedOf ranked rn sh -> HVector ranked
+        -> ShapedOf ranked rn sh -> HVector ranked
+        -> HVectorOf ranked)
+    -> (ShapedOf ranked rn sh -> HVector ranked
+        -> ShapedOf ranked rn sh -> HVector ranked
+        -> HVectorOf ranked)
     -> DeltaS (ShapedOf ranked) rn sh
     -> HVector (DeltaR ranked)
     -> DeltaH ranked
@@ -613,9 +641,20 @@ shapeDeltaH = \case
     V.map (\d -> voidFromDynamicF (shapeToList . shapeDeltaR) d) v
   MapAccumRR @rn _domsOD _q as domB _df _rf x0' _as' ->
     let width = case V.unsnoc as of
-          Nothing -> error "evalR: can't determine argument width"
+          Nothing -> error "shapeDeltaH: can't determine argument width"
           Just (_, d) -> case shapeDynamic d of
-            [] -> error "evalR: wrong rank of argument"
+            [] -> error "shapeDeltaH: wrong rank of argument"
+            width2 : _shm -> width2
+        shn = shapeDeltaR x0'
+    in case someNatVal $ toInteger width of
+      Just (SomeNat @k _) ->
+        V.cons (voidFromSh @rn shn) (replicate1VoidHVector (Proxy @k) domB)
+      _ -> error "shapeDeltaH: impossible someNatVal"
+  MapAccumRRC @rn _domsOD _q as domB _df _rf x0' _as' ->
+    let width = case V.unsnoc as of
+          Nothing -> error "shapeDeltaH: can't determine argument width"
+          Just (_, d) -> case shapeDynamic d of
+            [] -> error "shapeDeltaH: wrong rank of argument"
             width2 : _shm -> width2
         shn = shapeDeltaR x0'
     in case someNatVal $ toInteger width of
@@ -623,6 +662,8 @@ shapeDeltaH = \case
         V.cons (voidFromSh @rn shn) (replicate1VoidHVector (Proxy @k) domB)
       _ -> error "shapeDeltaH: impossible someNatVal"
   MapAccumRS @k @rn @sh _domsOD _q _as domB _df _rf _x0' _as' ->
+    V.cons (voidFromShS @rn @sh) (replicate1VoidHVector (Proxy @k) domB)
+  MapAccumRSC @k @rn @sh _domsOD _q _as domB _df _rf _x0' _as' ->
     V.cons (voidFromShS @rn @sh) (replicate1VoidHVector (Proxy @k) domB)
 
 -- * Delta expression identifiers

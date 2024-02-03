@@ -479,13 +479,17 @@ instance UnletGradient (HVectorPseudoTensor (Flip OR.Array)) where
   unletValue l astBindings primalBody =
     assert (nullADShare l && null astBindings) primalBody
 
-instance RankedOf (RankedOf f) ~ RankedOf f
-         => UnletGradient (ADVal f) where
+instance UnletGradient (ADVal f) where
   unletGradient l astBindings gradient =
     assert (nullADShare l && null astBindings) gradient
   unletValue l astBindings primalBody =
     assert (nullADShare l && null astBindings) primalBody
 
+instance UnletGradient (HVectorPseudoTensor (ADVal f)) where
+  unletGradient l astBindings gradient =
+    assert (nullADShare l && null astBindings) gradient
+  unletValue l astBindings primalBody =
+    assert (nullADShare l && null astBindings) primalBody
 
 -- * Numeric instances for ADVal
 

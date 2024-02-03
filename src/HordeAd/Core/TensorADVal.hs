@@ -363,7 +363,8 @@ instance ( Dual shaped ~ DeltaS shaped
 
 instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
          , CRankedIP ranked IsPrimal, CRankedIPSh shaped IsPrimal
-         , UnletGradient ranked, UnletGradient shaped )
+         , UnletGradient ranked, UnletGradient shaped
+         , UnletGradient (HVectorPseudoTensor ranked) )
          => HVectorTensor (ADVal ranked) (ADVal shaped) where
   dshape = voidFromHVector
   dmkHVector = id
@@ -785,7 +786,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
   sfoldZip f domsOD (D l1 x0 x0') asD =
     let (ll2, asUnshared, as') = unADValHVector asD
         domsToPair :: forall f. ADReadyS f
-                      => HVector (RankedOf f) -> (f rn sh, HVector (RankedOf f))
+                   => HVector (RankedOf f) -> (f rn sh, HVector (RankedOf f))
         domsToPair doms = (sfromD $ doms V.! 0, V.tail doms)
         g :: HVector (ADVal ranked) -> ADVal shaped rn sh
         g doms = uncurry f (domsToPair doms)
@@ -934,8 +935,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
     assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD) asD) $
     let (ll2, asUnshared, as') = unADValHVector asD
         domsToPair :: forall f. ADReadyS f
-                      => HVector (RankedOf f)
-                      -> (f rn sh, HVector (RankedOf f))
+                   => HVector (RankedOf f) -> (f rn sh, HVector (RankedOf f))
         domsToPair doms = (sfromD $ doms V.! 0, V.tail doms)
         g :: HVector (ADVal ranked) -> ADVal shaped rn sh
         g doms = uncurry f (domsToPair doms)
@@ -1008,15 +1008,71 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
     in dDnotShared l4 pShared
                       (ScanZipS domsOD pShared as df rf x0' as')
   rmapAccumR
-    :: forall rn n.
-       VoidHVector
+    :: forall rn n. (GoodScalar rn, KnownNat n)
+    => VoidHVector
     -> (forall f. ADReady f
         => f rn n -> HVector f -> HVectorOf f)
     -> VoidHVector
     -> ADVal ranked rn n
     -> HVector (ADVal ranked)
     -> HVectorOf (ADVal ranked)
-  rmapAccumR _domB _f _domsOD (D _l1 _x0 _x0') _asD = undefined  -- TODO
+  rmapAccumR domB f domsOD (D l1 x0 x0') asD =
+    let (ll2, asUnshared, as') = unADValHVector asD
+        width = case V.unsnoc asUnshared of
+          Nothing -> error "rmapAccumR: can't determine argument width"
+          Just (_, d) -> case shapeDynamic d of
+            [] -> error "rmapAccumR: wrong rank of argument"
+            w : _shm -> w
+    in case someNatVal $ toInteger width of
+      Just (SomeNat @k _) ->
+        assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD)
+                                   asD) $
+        let shn = rshape x0
+            odShn = voidFromSh @rn shn
+            domsF = V.cons odShn (replicate1VoidHVector (Proxy @k) domB)
+            domsToPair :: forall f. ADReady f
+                       => HVector f -> (f rn n, HVector f)
+            domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
+            g :: HVector (ADVal ranked)
+              -> ADVal (HVectorPseudoTensor ranked) Float '()
+            g doms = let (ll, as2, as2') =
+                           unADValHVector $ uncurry f (domsToPair doms)
+                     in dDnotShared (flattenADShare $ V.toList ll)
+                                    (HVectorPseudoTensor $ dmkHVector as2)
+                                    (HVectorPseudoTensor $ HToH as2')
+            df :: ranked rn n -> HVector ranked
+               -> ranked rn n -> HVector ranked
+               -> HVectorOf ranked
+            df cx ca x a =
+              unHVectorPseudoTensor
+              $ fst $ cfwdOnHVector (V.cons (DynamicRanked x) a)
+                                    g
+                                    (V.cons (DynamicRanked cx) ca)
+            rf :: ranked rn n -> HVector ranked
+               -> ranked rn n -> HVector ranked
+               -> HVectorOf ranked
+            rf dx dt x a =
+              fst $ crevOnHVector (Just $ HVectorPseudoTensor
+                                   $ dmkHVector $ V.cons (DynamicRanked dx) dt)
+                                  g
+                                  (V.cons (DynamicRanked x) a)
+            (l3, as) =
+              drecordSharingPrimal @ranked
+                                   (replicate1VoidHVector (Proxy @k) domsOD)
+                                   (dmkHVector asUnshared)
+                                   (flattenADShare $ l1 : V.toList ll2)
+            p :: HVectorOf ranked
+            p = rmapAccumR domB f domsOD x0 as
+            (l4, pShared) = drecordSharingPrimal @ranked domsF p l3
+            q = rfromD $ pShared V.! 0
+            dual = wrapDeltaH $ MapAccumRRC domsOD q as domB df rf x0' as'
+            selectDual i d = case d of
+              DynamicRanked t -> DynamicRanked $ dDnotShared l4 t (HToR dual i)
+              DynamicShaped t -> DynamicShaped $ dDnotShared l4 t (HToS dual i)
+              DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
+              DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
+        in V.imap selectDual pShared
+      _ -> error "rmapAccumR: impossible someNatVal"
   rmapAccumRDer
     :: forall rn n. (GoodScalar rn, KnownNat n)
     => VoidHVector
@@ -1043,9 +1099,9 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
   rmapAccumRDer domB f df rf domsOD (D l1 x0 x0') asD =
     let (ll2, asUnshared, as') = unADValHVector asD
         width = case V.unsnoc asUnshared of
-          Nothing -> error "rscanZipDer: can't determine argument width"
+          Nothing -> error "rmapAccumRDer: can't determine argument width"
           Just (_, d) -> case shapeDynamic d of
-            [] -> error "rscanZipDer: wrong rank of argument"
+            [] -> error "rmapAccumRDer: wrong rank of argument"
             w : _shm -> w
     in case someNatVal $ toInteger width of
       Just (SomeNat @k _) ->
@@ -1072,8 +1128,8 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         in V.imap selectDual pShared
       _ -> error "rmapAccumRDer: impossible someNatVal"
   smapAccumR
-    :: forall k rn sh.
-       Proxy k
+    :: forall k rn sh. (GoodScalar rn, Sh.Shape sh, KnownNat k)
+    => Proxy k
     -> VoidHVector
     -> (forall f. ADReadyS f
         => f rn sh -> HVector (RankedOf f) -> HVectorOf (RankedOf f))
@@ -1081,7 +1137,50 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
     -> ADVal shaped rn sh
     -> HVector (ADVal ranked)
     -> HVectorOf (ADVal ranked)
-  smapAccumR _proxy_k _domB _f _domsOD (D _l1 _x0 _x0') _asD = undefined  -- TODO
+  smapAccumR proxy_k domB f domsOD (D l1 x0 x0') asD =
+    assert (voidHVectorMatches (replicate1VoidHVector proxy_k domsOD) asD) $
+    let (ll2, asUnshared, as') = unADValHVector asD
+        odShn = voidFromShS @rn @sh
+        domsF = V.cons odShn (replicate1VoidHVector proxy_k domB)
+        domsToPair :: forall f. ADReadyS f
+                   => HVector (RankedOf f) -> (f rn sh, HVector (RankedOf f))
+        domsToPair doms = (sfromD $ doms V.! 0, V.tail doms)
+        g :: HVector (ADVal ranked)
+          -> ADVal (HVectorPseudoTensor ranked) Float '()
+        g doms = let (ll, as2, as2') =
+                       unADValHVector $ uncurry f (domsToPair doms)
+                 in dDnotShared (flattenADShare $ V.toList ll)
+                                (HVectorPseudoTensor $ dmkHVector as2)
+                                (HVectorPseudoTensor $ HToH as2')
+        df :: shaped rn sh -> HVector ranked -> shaped rn sh -> HVector ranked
+           -> HVectorOf ranked
+        df cx ca x a =
+          unHVectorPseudoTensor
+          $ fst $ cfwdOnHVector (V.cons (DynamicShaped x) a)
+                                g
+                                (V.cons (DynamicShaped cx) ca)
+        rf :: shaped rn sh -> HVector ranked -> shaped rn sh -> HVector ranked
+           -> HVectorOf ranked
+        rf dx dt x a =
+          fst $ crevOnHVector (Just $ HVectorPseudoTensor
+                               $ dmkHVector $ V.cons (DynamicShaped dx) dt)
+                              g
+                              (V.cons (DynamicShaped x) a)
+        (l3, as) =
+          drecordSharingPrimal @ranked (replicate1VoidHVector proxy_k domsOD)
+                               (dmkHVector asUnshared)
+                               (flattenADShare $ l1 : V.toList ll2)
+        p :: HVectorOf ranked
+        p = smapAccumR proxy_k domB f domsOD x0 as
+        (l4, pShared) = drecordSharingPrimal @ranked domsF p l3
+        q = sfromD $ pShared V.! 0
+        dual = wrapDeltaH $ MapAccumRSC @k domsOD q as domB df rf x0' as'
+        selectDual i d = case d of
+          DynamicRanked t -> DynamicRanked $ dDnotShared l4 t (HToR dual i)
+          DynamicShaped t -> DynamicShaped $ dDnotShared l4 t (HToS dual i)
+          DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
+          DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
+    in V.imap selectDual pShared
   smapAccumRDer
     :: forall k rn sh. (GoodScalar rn, Sh.Shape sh, KnownNat k)
     => Proxy k
@@ -1287,8 +1386,7 @@ instance HVectorTensor (Flip OR.Array) (Flip OS.Array) where
     -> HVector (Flip OR.Array)
   rmapAccumR _domB f _domsOD x0 as =
     let domsToPair :: forall f. ADReady f
-                      => HVector f
-                      -> (f rn n, HVector f)
+                   => HVector f -> (f rn n, HVector f)
         g :: Flip OR.Array rn n -> HVector (Flip OR.Array)
           -> (Flip OR.Array rn n, HVector (Flip OR.Array))
         domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
@@ -1309,8 +1407,7 @@ instance HVectorTensor (Flip OR.Array) (Flip OS.Array) where
     -> HVector (Flip OR.Array)
   smapAccumR _proxy_k _domB f _domsOD x0 as =
     let domsToPair :: forall f. ADReadyS f
-                      => HVector (RankedOf f)
-                      -> (f rn sh, HVector (RankedOf f))
+                   => HVector (RankedOf f) -> (f rn sh, HVector (RankedOf f))
         g :: Flip OS.Array rn sh -> HVector (Flip OR.Array)
           -> (Flip OS.Array rn sh, HVector (Flip OR.Array))
         domsToPair doms = (sfromD $ doms V.! 0, V.tail doms)

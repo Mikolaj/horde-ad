@@ -1095,8 +1095,8 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
                                      asD) $
           let domsF = V.cons (voidFromShS @rn @sh) domsOD
               domsToPair :: forall f. ADReadyS f
-                            => HVector (RankedOf f)
-                            -> (f rn sh, HVector (RankedOf f))
+                         => HVector (RankedOf f)
+                         -> (f rn sh, HVector (RankedOf f))
               domsToPair doms = (sfromD $ doms V.! 0, V.tail doms)
               g :: HVector (AstRanked FullSpan) -> AstShaped FullSpan rn sh
               g doms = uncurry f (domsToPair doms)
@@ -1202,8 +1202,8 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD) asD) $
     let domsF = V.cons (voidFromShS @rn @sh) domsOD
         domsToPair :: forall f. ADReadyS f
-                      => HVector (RankedOf f)
-                      -> (f rn sh, HVector (RankedOf f))
+                   => HVector (RankedOf f)
+                   -> (f rn sh, HVector (RankedOf f))
         domsToPair doms = (sfromD $ doms V.! 0, V.tail doms)
         g :: HVector (AstRanked FullSpan) -> AstShaped FullSpan rn sh
         g doms = uncurry f (domsToPair doms)
@@ -1245,15 +1245,52 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
                    (funToAstSHSH @_ @_ @sh df domsOD)
                    (funToAstSSH @_ @_ @sh rf domsOD) x0 asD
   rmapAccumR
-    :: forall rn n.
-       VoidHVector
+    :: forall rn n. (GoodScalar rn, KnownNat n)
+    => VoidHVector
     -> (forall f. ADReady f
         => f rn n -> HVector f -> HVectorOf f)
     -> VoidHVector
     -> AstRanked s rn n
     -> HVector (AstRanked s)
     -> AstHVector s
-  rmapAccumR _domB _f _domsOD _x0 _asD = undefined  -- TODO
+  rmapAccumR domB f domsOD x0 asD =
+    let width = case V.unsnoc asD of
+          Nothing -> error "rmapAccumRDer: can't determine argument width"
+          Just (_, d) -> case shapeDynamic d of
+            [] -> error "rmapAccumRDer: wrong rank of argument"
+            width2 : _shm -> width2
+    in case someNatVal $ toInteger width of
+      Just (SomeNat @k _) ->
+        assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD)
+                                   asD) $
+        let shn = rshape x0
+            domsF = V.cons (voidFromSh @rn shn) domsOD
+            domsToPair :: forall f. ADReady f
+                       => HVector f -> (f rn n, HVector f)
+            domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
+            g :: HVector (AstRanked FullSpan)
+              -> HVectorPseudoTensor (AstRanked FullSpan) Float '()
+            g doms = HVectorPseudoTensor $ uncurry f (domsToPair doms)
+        in case revProduceArtifact TensorToken True g EM.empty domsF of
+          ( ( (AstDynamicVarName nid3 : mdyns3, AstDynamicVarName nid : mdyns)
+            , gradient, _primal, _sh), _delta ) ->
+            case fwdProduceArtifact TensorToken g EM.empty domsF of
+              ( ( ( AstDynamicVarName nid1 : mdyns1
+                  , AstDynamicVarName nid2 : mdyns2 )
+                , derivative, _primal), _delta ) ->
+                let nvar1 = AstVarName nid1
+                    nvar2 = AstVarName nid2
+                    varDt3 = AstVarName nid3
+                    nvar = AstVarName nid
+                in AstMapAccumRDerR domB
+                                    (funToAstRH shn f domsOD)
+                                    ( nvar1, mdyns1, nvar2, mdyns2
+                                    , unHVectorPseudoTensor derivative )
+                                    (varDt3, mdyns3, nvar, mdyns, gradient)
+                                    x0 asD
+              _ -> error "rmapAccumR: wrong variables"
+          _ -> error "rmapAccumR: wrong variables"
+      _ -> error "rmapAccumR: impossible someNatVal"
   rmapAccumRDer
     :: forall rn n. (GoodScalar rn, KnownNat n)
     => VoidHVector
@@ -1294,8 +1331,8 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
                             (funToAstRHRH shn rf domsOD) x0 asD
       _ -> error "rmapAccumRDer: impossible someNatVal"
   smapAccumR
-    :: forall k rn sh.
-       Proxy k
+    :: forall k rn sh. (GoodScalar rn, Sh.Shape sh, KnownNat k)
+    => Proxy k
     -> VoidHVector
     -> (forall f. ADReadyS f
         => f rn sh -> HVector (RankedOf f) -> HVectorOf (RankedOf f))
@@ -1303,21 +1340,16 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     -> AstShaped s rn sh
     -> HVector (AstRanked s)
     -> AstHVector s
-  smapAccumR _proxy_k _domB _f _domsOD _x0 _asD = undefined  -- TODO
-{- TDOO: `derivative` has a wrong type, because in AstArtifactFwd
-          we can't use HVectorOf, because we don't have
-          a DerivativeStages instance for it;
-          similarly, revProduceArtifact is wrong for AST where
-          HVectorOf and HVector differs
-
+  smapAccumR proxy_k domB f domsOD x0 asD =
     assert (voidHVectorMatches (replicate1VoidHVector proxy_k domsOD) asD) $
     let domsF = V.cons (voidFromShS @rn @sh) domsOD
         domsToPair :: forall f. ADReadyS f
-                      => HVector (RankedOf f)
-                      -> (f rn sh, HVector (RankedOf f))
+                   => HVector (RankedOf f)
+                   -> (f rn sh, HVector (RankedOf f))
         domsToPair doms = (sfromD $ doms V.! 0, V.tail doms)
-        g :: HVector (AstRanked FullSpan) -> AstHVector s
-        g doms = uncurry f (domsToPair doms)
+        g :: HVector (AstRanked FullSpan)
+          -> HVectorPseudoTensor (AstRanked FullSpan) Float '()
+        g doms = HVectorPseudoTensor $ uncurry f (domsToPair doms)
     in case revProduceArtifact TensorToken True g EM.empty domsF of
       ( ( (AstDynamicVarName nid3 : mdyns3, AstDynamicVarName nid : mdyns)
         , gradient, _primal, _sh), _delta ) ->
@@ -1331,11 +1363,12 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
                 nvar = AstVarName nid
             in AstMapAccumRDerS @k domB
                                 (funToAstSH @_ @_ @sh f domsOD)
-                                (nvar1, mdyns1, nvar2, mdyns2, derivative)
+                                ( nvar1, mdyns1, nvar2, mdyns2
+                                , unHVectorPseudoTensor derivative )
                                 (varDt3, mdyns3, nvar, mdyns, gradient)
                                 x0 asD
           _ -> error "smapAccumR: wrong variables"
-      _ -> error "smapAccumR: wrong variables" -}
+      _ -> error "smapAccumR: wrong variables"
   smapAccumRDer
     :: forall k rn sh. (GoodScalar rn, Sh.Shape sh, KnownNat k)
     => Proxy k
