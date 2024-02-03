@@ -1675,7 +1675,102 @@ evalH !s !c = let (abShared, cShared) =
           s { hnMap = EM.insert n d $ hnMap s
             , hdMap = EM.insert n c $ hdMap s }
   HToH v -> evalHVector s c v
-  MapAccumRR{} -> undefined  -- TODO
+  MapAccumRR @r @n domsOD q as _domB _df rf x0' as' ->
+    -- TODO: this is probably close to mapAccumL. Test that it works fine
+    -- on symmetric functions and that it gives different results
+    -- than an unrolling on assymetric and then fix accordingly.
+    let width = case V.unsnoc as of
+          Nothing -> error "evalH: can't determine argument width"
+          Just (_, d) -> case shapeDynamic d of
+            [] -> error "evalH: wrong rank of argument"
+            width2 : _shm -> width2
+        !_A1 = assert (rlength q == width) ()
+        domsLen = V.length domsOD
+        shn = shapeDeltaR x0'
+        odShn = voidFromSh @r shn
+        domsF = V.cons odShn domsOD
+        domsToPair :: ADReady f => HVector f -> (f r n, HVector f)
+        domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
+        domsF3 = V.cons (voidFromSh @r shn)
+                 $ V.cons (voidFromSh @r shn) domsOD
+        domsTo3 :: ADReady f => HVector f -> (HVector f, f r n, HVector f)
+        domsTo3 doms = ( V.take domsLen doms
+                       , rfromD $ doms V.! domsLen
+                       , V.drop (domsLen + 1) doms)
+        domsTo4
+          :: ADReady f => HVector f -> (f r n, HVector f, f r n, HVector f)
+        domsTo4 doms =
+          ( rfromD $ doms V.! 0, V.slice 1 domsLen doms
+          , rfromD $ doms V.! (domsLen + 1), V.drop (domsLen + 2) doms )
+        (c0, crest) = domsToPair cShared
+        lc = mapHVectorRanked11 rreverse crest
+        lq = rreverse q
+        las :: HVector ranked
+        las = mapHVectorRanked11 rreverse as
+        crsr :: ranked r (1 + n)
+        crsr =
+          rscanZip (\cr doms ->
+                      let (cx, x, a) = domsTo3 doms
+                      in rletHVectorIn
+                           domsF (rf cr cx x a) $ \rfRes ->
+                             fst $ domsToPair rfRes)
+                   domsF3
+                   c0
+                   (lc V.++ V.cons (DynamicRanked lq) las)
+        crsUnshared = rreverse crsr
+        (abShared2, crs) = rregister crsUnshared (astBindings sShared)
+        s2 = sShared {astBindings = abShared2}
+        rg :: ranked r (1 + n) -> HVector ranked
+           -> ranked r (1 + n) -> HVector ranked
+           -> HVectorOf ranked
+        rg cr2 cx2 x2 a2 =
+          dzipWith1 (\doms ->
+                       let (cr, cx, x, a) = domsTo4 doms
+                       in dletHVectorInHVector @ranked
+                            domsF (rf cr cx x a) $ \rfRes ->
+                              dmkHVector $ snd $ domsToPair rfRes)
+                    (V.cons (DynamicRanked cr2) cx2
+                     V.++ V.cons (DynamicRanked x2) a2)
+        casUnshared =
+          rg (rslice 1 width crs)
+             crest
+             q
+             as
+        domsG = voidFromHVector as
+        (abShared3, cas) =
+          dregister domsG casUnshared (astBindings s2)
+        s3 = s2 {astBindings = abShared3}
+        s4 = evalR s3 (crs ! (0 :. ZI)) x0'
+    in evalHVector s4 cas as'
+  MapAccumRRC @r @n domsOD q as _domB _df rf x0' as' ->
+    -- No sharing attempted, because this constructor is usually used
+    -- for non-symbolic derivatives.
+    -- TODO: this is probably close to mapAccumL. Test that it works fine
+    -- on symmetric functions and that it gives different results
+    -- than an unrolling on assymetric and then fix accordingly.
+    let width = case V.unsnoc as of
+          Nothing -> error "evalH: can't determine argument width"
+          Just (_, d) -> case shapeDynamic d of
+            [] -> error "evalH: wrong rank of argument"
+            width2 : _shm -> width2
+        !_A1 = assert (rlength q == width) ()
+        shn = shapeDeltaR x0'
+        odShn = voidFromSh @r shn
+        domsF = V.cons odShn domsOD
+        domsToPair :: ADReady f => HVector f -> (f r n, HVector f)
+        domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
+        (c0, crest) = domsToPair cShared
+        rg :: ranked r n
+           -> [(HVector ranked, ranked r n, HVector ranked)]
+           -> (ranked r n, [HVector ranked])
+        rg = mapAccumR (\cr (cx, x, a) ->
+                          domsToPair $ dunHVector domsF $ rf cr cx x a)
+        (cx0, cas) = rg c0
+                        (zip3 (unravelHVector crest)
+                              (runravelToList q)
+                              (unravelHVector as))
+        s2 = evalR sShared cx0 x0'
+    in evalHVector s2 (ravelHVector cas) as'
   MapAccumRS @k @r @sh1 domsOD q as _domB _df rf x0' as' ->
     -- TODO: this is probably close to mapAccumL. Test that it works fine
     -- on symmetric functions and that it gives different results
@@ -1701,7 +1796,8 @@ evalH !s !c = let (abShared, cShared) =
         domsTo4 doms =
           ( sfromD $ doms V.! 0, V.slice 1 domsLen doms
           , sfromD $ doms V.! (domsLen + 1), V.drop (domsLen + 2) doms )
-        lc = mapHVectorShaped11 @k sreverse cShared
+        (c0, crest) = domsToPair cShared
+        lc = mapHVectorShaped11 @k sreverse crest
         lq = sreverse q
         las :: HVector ranked
         las = mapHVectorShaped11 @k sreverse as
@@ -1713,7 +1809,7 @@ evalH !s !c = let (abShared, cShared) =
                            domsF (rf cr cx x a) $ \rfRes ->
                              fst $ domsToPair rfRes)
                    domsF3
-                   0
+                   c0
                    (lc V.++ V.cons (DynamicShaped lq) las)
         crsUnshared = sreverse crsr
         (abShared2, crs) = sregister crsUnshared (astBindings sShared)
@@ -1731,7 +1827,7 @@ evalH !s !c = let (abShared, cShared) =
                      V.++ V.cons (DynamicShaped x2) a2)
         casUnshared =
           rg (sslice @_ @_ @_ @_ @0 (Proxy @1) (Proxy @k) crs)
-             cShared
+             crest
              q
              as
         domsG = voidFromHVector as
@@ -1740,6 +1836,29 @@ evalH !s !c = let (abShared, cShared) =
         s3 = s2 {astBindings = abShared3}
         s4 = evalS s3 (crs !$ (0 :$: ZSH)) x0'
     in evalHVector s4 cas as'
+  MapAccumRSC @k @r @sh1 domsOD q as _domB _df rf x0' as' ->
+    -- No sharing attempted, because this constructor is usually used
+    -- for non-symbolic derivatives.
+    -- TODO: this is probably close to mapAccumL. Test that it works fine
+    -- on symmetric functions and that it gives different results
+    -- than an unrolling on assymetric and then fix accordingly.
+    let odShn = voidFromShS @r @sh1
+        domsF = V.cons odShn domsOD
+        domsToPair :: ADReadyS f
+                   => HVector (RankedOf f) -> (f r sh1, HVector (RankedOf f))
+        domsToPair doms = (sfromD $ doms V.! 0, V.tail doms)
+        (c0, crest) = domsToPair cShared
+        rg :: shaped r sh1
+           -> [(HVector ranked, shaped r sh1, HVector ranked)]
+           -> (shaped r sh1, [HVector ranked])
+        rg = mapAccumR (\cr (cx, x, a) ->
+                          domsToPair $ dunHVector domsF $ rf cr cx x a)
+        (cx0, cas) = rg c0
+                        (zip3 (unravelHVector crest)
+                              (sunravelToList q)
+                              (unravelHVector as))
+        s2 = evalS sShared cx0 x0'
+    in evalHVector s2 (ravelHVector cas) as'
 
 evalFromnMap :: (ADReady ranked, shaped ~ ShapedOf ranked)
              => EvalState ranked -> EvalState ranked
@@ -2354,9 +2473,76 @@ fwdH dimR params s = \case
                     , hdMap = EM.insert n cShared (hdMap s3) }
         in (s4, dmkHVector cShared)
   HToH v -> second dmkHVector $ fwdHVector dimR params s v
-  MapAccumRR{} -> undefined  -- TODO
-  MapAccumRS @k @rn @sh _domsOD _q _as _domB _df _rf _x0' _as' ->
-    undefined  -- TODO
+  MapAccumRR @r @n domsOD q as domB df _rf x0' as' ->
+    let domsLen = V.length domsOD
+        (s2, cx0) = fwdR dimR params s x0'
+        (s3, cas) = fwdHVector dimR params s2 as'
+        domsTo3 :: ADReady f
+                => HVector f -> (HVector f, f r n, HVector f)
+        domsTo3 doms = ( V.take domsLen doms
+                       , rfromD $ doms V.! domsLen
+                       , V.drop (domsLen + 1) doms )
+    in (s3, rmapAccumR
+              domsOD
+              (\cx doms ->
+                 let (ca, x, a) = domsTo3 doms
+                 in df cx ca x a)
+              domB
+              cx0
+              (V.concat [ cas
+                        , V.singleton (DynamicRanked q)
+                        , as ]))
+  MapAccumRRC @r @n domsOD q as _domB df _rf x0' as' ->
+    let shn = shapeDeltaR x0'
+        odShn = voidFromSh @r shn
+        domsF = V.cons odShn domsOD
+        domsToPair :: ADReady f => HVector f -> (f r n, HVector f)
+        domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
+        (s2, cx0) = fwdR dimR params s x0'
+        (s3, cas) = fwdHVector dimR params s2 as'
+        lcas = unravelHVector cas
+        las = unravelHVector as
+        lq = runravelToList q
+        (r0, rl) = mapAccumR (\cx (ca, x, a) ->
+                                domsToPair $ dunHVector domsF $ df cx ca x a)
+                             cx0 (zip3 lcas lq las)
+    in (s3, dmkHVector $ ravelHVector $ V.singleton (DynamicRanked r0) : rl)
+  MapAccumRS @k @r @sh1 domsOD q as domB df _rf x0' as' ->
+    let domsLen = V.length domsOD
+        (s2, cx0) = fwdS dimR params s x0'
+        (s3, cas) = fwdHVector dimR params s2 as'
+        domsTo3 :: ADReadyS f
+                => HVector (RankedOf f)
+                -> (HVector (RankedOf f), f r sh1, HVector (RankedOf f))
+        domsTo3 doms = ( V.take domsLen doms
+                       , sfromD $ doms V.! domsLen
+                       , V.drop (domsLen + 1) doms )
+    in (s3, smapAccumR
+              (Proxy @k)
+              domsOD
+              (\cx doms ->
+                 let (ca, x, a) = domsTo3 doms
+                 in df cx ca x a)
+              domB
+              cx0
+              (V.concat [ cas
+                        , V.singleton (DynamicShaped q)
+                        , as ]))
+  MapAccumRSC @k @r @sh1 domsOD q as _domB df _rf x0' as' ->
+    let odShn = voidFromShS @r @sh1
+        domsF = V.cons odShn domsOD
+        domsToPair :: ADReadyS f
+                   => HVector (RankedOf f) -> (f r sh1, HVector (RankedOf f))
+        domsToPair doms = (sfromD $ doms V.! 0, V.tail doms)
+        (s2, cx0) = fwdS dimR params s x0'
+        (s3, cas) = fwdHVector dimR params s2 as'
+        lcas = unravelHVector cas
+        las = unravelHVector as
+        lq = sunravelToList q
+        (r0, rl) = mapAccumR (\cx (ca, x, a) ->
+                                domsToPair $ dunHVector domsF $ df cx ca x a)
+                             cx0 (zip3 lcas lq las)
+    in (s3, dmkHVector $ ravelHVector $ V.singleton (DynamicShaped r0) : rl)
 
 
 -- * Manually fixed Show instances
