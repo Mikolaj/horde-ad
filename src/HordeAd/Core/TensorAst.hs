@@ -119,32 +119,33 @@ instance DerivativeStages (AstRanked FullSpan) where
     let -- Bangs and the compound function to fix the numbering of variables
         -- for pretty-printing and prevent sharing the impure values/effects
         -- in tests that reset the impure counters.
-        !(!varDtId, varsPrimal, hVectorPrimal, vars, hVector) =
+        !(!varsPrimal, hVectorPrimal, vars, hVector) =
           funToAstRev parameters0 in
     let -- Evaluate completely after terms constructed, to free memory
         -- before gradientFromDelta allocates new memory and new FFI is started.
-        !(D l primalBody delta) = forwardPass hVectorPrimal vars hVector in
-    let varDt = AstVarName varDtId
+        !(D l primalBody delta) = forwardPass hVectorPrimal vars hVector
         sh = shapeAst primalBody
-        astDt = AstVar sh varDt
-        mdt = if hasDt then Just astDt else Nothing
-        !(!astBindings, !gradient) =
-          reverseDervative parameters0 primalBody mdt delta
-        unGradient = unletGradient @Nat @(AstRanked PrimalSpan)
-                                   l astBindings (AstHVector gradient)
-        unPrimal = unletValue l [] primalBody
-    in ( ((varDt, varsPrimal), unGradient, unPrimal, shapeToList sh)
-       , delta )
-         -- storing sh computed from primalBody often saves the unletAst6
-         -- execution; we could store the whole primalBody, as we do in calls
-         -- to reverseDervative, but we can potentially free it earlier this way
-         -- (as soon as sh is forced or determined to be unneeded)
+        domsB = V.singleton $ voidFromSh @r sh
+    in fun1DToAst domsB $ \varsDt astsDt -> assert (V.length astsDt == 1) $
+      let mdt = if hasDt then Just $ rfromD $ astsDt V.! 0 else Nothing
+          !(!astBindings, !gradient) =
+            reverseDervative parameters0 primalBody mdt delta
+          unGradient = unletGradient @Nat @(AstRanked PrimalSpan)
+                                     l astBindings (AstHVector gradient)
+          unPrimal = unletValue l [] primalBody
+      in ( ((varsDt, varsPrimal), unGradient, unPrimal, shapeToList sh)
+         , delta )
+           -- storing sh computed from primalBody often saves the unletAst6
+           -- execution; we could store the whole primalBody, as we do in calls
+           -- to reverseDervative, but we can potentially free it earlier this
+           -- way (as soon as sh is forced or determined to be unneeded)
 
   {-# INLINE revEvalArtifact #-}
-  revEvalArtifact ((varDt, vars), gradient, primal, sh) parameters mdt =
+  revEvalArtifact ((varsDt, vars), gradient, primal, sh) parameters mdt =
     let env = foldr extendEnvD EM.empty $ zip vars $ V.toList parameters
         dt = fromMaybe (rreplicate0N (listShapeToShape sh) 1) mdt
-        envDt = extendEnvR varDt dt env
+        dts = V.singleton $ DynamicRanked dt
+        envDt = extendEnvPars varsDt dts env
         gradientHVector = interpretAstHVector envDt gradient
         primalTensor = interpretAstPrimal env primal
     in (gradientHVector, primalTensor)
@@ -221,25 +222,26 @@ instance DerivativeStages (AstShaped FullSpan) where
        , Dual (AstShaped PrimalSpan) r sh )
   {-# INLINE revArtifactFromForwardPass #-}
   revArtifactFromForwardPass _ hasDt forwardPass parameters0 =
-    let !(!varDtId, varsPrimal, hVectorPrimal, vars, hVector) =
+    let !(!varsPrimal, hVectorPrimal, vars, hVector) =
           funToAstRev parameters0 in
-    let !(D l primalBody delta) = forwardPass hVectorPrimal vars hVector in
-    let varDt = AstVarName varDtId
-        astDt = AstVarS varDt
-        mdt = if hasDt then Just astDt else Nothing
-        !(!astBindings, !gradient) =
-          reverseDervative parameters0 primalBody mdt delta
-        unGradient = unletGradient @[Nat] @(AstShaped PrimalSpan)
-                                   l astBindings (AstHVector gradient)
-        unPrimal = unletValue l [] primalBody
-    in ( ((varDt, varsPrimal), unGradient, unPrimal, Sh.shapeT @sh)
-       , delta )
+    let !(D l primalBody delta) = forwardPass hVectorPrimal vars hVector
+        domsB = V.singleton $ voidFromShS @r @sh
+    in fun1DToAst domsB $ \varsDt astsDt -> assert (V.length astsDt == 1) $
+      let mdt = if hasDt then Just $ sfromD $ astsDt V.! 0 else Nothing
+          !(!astBindings, !gradient) =
+            reverseDervative parameters0 primalBody mdt delta
+          unGradient = unletGradient @[Nat] @(AstShaped PrimalSpan)
+                                     l astBindings (AstHVector gradient)
+          unPrimal = unletValue l [] primalBody
+      in ( ((varsDt, varsPrimal), unGradient, unPrimal, Sh.shapeT @sh)
+         , delta )
 
   {-# INLINE revEvalArtifact #-}
-  revEvalArtifact ((varDt, vars), gradient, primal, _) parameters mdt =
+  revEvalArtifact ((varsDt, vars), gradient, primal, _) parameters mdt =
     let env = foldr extendEnvD EM.empty $ zip vars $ V.toList parameters
         dt = fromMaybe 1 mdt
-        envDt = extendEnvS varDt dt env
+        dts = V.singleton $ DynamicShaped dt
+        envDt = extendEnvPars varsDt dts env
         gradientHVector = interpretAstHVector envDt gradient
         primalTensor = interpretAstPrimalS env primal
     in (gradientHVector, primalTensor)
@@ -644,7 +646,7 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   rrev f parameters0 =
     -- This computes the (AST of) derivative of f once and interprets it again
     -- for each new @parmeters@, which is much better than computing anew.
-    let (((_varDt, vars), gradient, _primal, _sh), _delta) =
+    let (((_varsDt, vars), gradient, _primal, _sh), _delta) =
           revProduceArtifact TensorToken False (f @(AstRanked FullSpan))
                              EM.empty parameters0
     in \parameters -> assert (voidHVectorMatches parameters0 parameters) $
@@ -661,12 +663,14 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
          -> AstRanked s r n
          -> AstHVector s
   rrevDt f parameters0 =
-    let (((varDt, vars), gradient, _primal, _sh), _delta) =
+    let (((varsDt, vars), gradient, _primal, _sh), _delta) =
           revProduceArtifact TensorToken True (f @(AstRanked FullSpan))
                              EM.empty parameters0
-    in \parameters dt -> assert (voidHVectorMatches parameters0 parameters) $
+    in \parameters dt -> assert (voidHVectorMatches parameters0 parameters
+                                 && length varsDt == 1) $
       let env = extendEnvPars @(AstRanked s) vars parameters EM.empty
-          envDt = extendEnvR varDt dt env
+          dts = V.singleton $ DynamicRanked dt
+          envDt = extendEnvPars varsDt dts env
       in interpretAstHVector envDt gradient
   rfwd :: (GoodScalar r, KnownNat n)
        => (forall f. ADReady f => HVector f -> f r n)
@@ -683,19 +687,21 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
           envDt = extendEnvPars @(AstRanked s) varsDt ds env
       in interpretAst envDt derivative
   srev f parameters0 =
-    let (((_varDt, vars), gradient, _primal, _sh), _delta) =
+    let (((_varsDt, vars), gradient, _primal, _sh), _delta) =
           revProduceArtifact TensorToken False (f @(AstShaped FullSpan))
                              EM.empty parameters0
     in \parameters -> assert (voidHVectorMatches parameters0 parameters) $
       let env = extendEnvPars @(AstRanked s) vars parameters EM.empty
       in interpretAstHVector env gradient
   srevDt f parameters0 =
-    let (((varDt, vars), gradient, _primal, _sh), _delta) =
+    let (((varsDt, vars), gradient, _primal, _sh), _delta) =
           revProduceArtifact TensorToken True (f @(AstShaped FullSpan))
                              EM.empty parameters0
-    in \parameters dt -> assert (voidHVectorMatches parameters0 parameters) $
+    in \parameters dt -> assert (voidHVectorMatches parameters0 parameters
+                                 && length varsDt == 1) $
       let env = extendEnvPars @(AstRanked s) vars parameters EM.empty
-          envDt = extendEnvS varDt dt env
+          dts = V.singleton $ DynamicShaped dt
+          envDt = extendEnvPars varsDt dts env
       in interpretAstHVector envDt gradient
   sfwd f parameters0 =
     let (((varsDt, vars), derivative, _primal), _delta) =
@@ -724,8 +730,8 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
        -- it once per @f@ if we took shapes as arguments. The @sfold@ operation
        -- can do that thanks to shapes being available from types.
        case revProduceArtifact TensorToken True g EM.empty domsF of
-      ( ( (varDt, [AstDynamicVarName nid, AstDynamicVarName mid])
-        , gradient, _primal, _sh), _delta ) ->
+      ( ( (varsDt, [AstDynamicVarName nid, AstDynamicVarName mid])
+        , gradient, _primal, _sh), _delta ) -> assert (length varsDt == 1) $
         case fwdProduceArtifact TensorToken g EM.empty domsF of
           ( ( ( [AstDynamicVarName nid1, AstDynamicVarName mid1]
               , [AstDynamicVarName nid2, AstDynamicVarName mid2] )
@@ -735,7 +741,8 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
                 (nvar, mvar) = (AstVarName nid, AstVarName mid)
             in AstFoldDer (funToAst2R shn shm f)
                           (nvar1, mvar1, nvar2, mvar2, derivative)
-                          (varDt, nvar, mvar, gradient)
+                          ( AstVarName $ dynamicVarNameToAstVarId (varsDt !! 0)
+                          , nvar, mvar, gradient )
                           x0 as
           _ -> error "rfold: wrong variables"
       _ -> error "rfold: wrong variables"
@@ -775,8 +782,9 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
               g :: HVector (AstRanked FullSpan) -> AstRanked FullSpan rn n
               g doms = uncurry f (domsToPair doms)
           in case revProduceArtifact TensorToken True g EM.empty domsF of
-            ( ( (varDt, AstDynamicVarName nid : mdyns)
+            ( ( (varsDt, AstDynamicVarName nid : mdyns)
               , gradient, _primal, _sh), _delta ) ->
+              assert (length varsDt == 1) $
               case fwdProduceArtifact TensorToken g EM.empty domsF of
                 ( ( ( AstDynamicVarName nid1 : mdyns1
                     , AstDynamicVarName nid2 : mdyns2 )
@@ -786,7 +794,9 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
                       nvar = AstVarName nid
                   in AstFoldZipDer (funToAstRH shn f domsOD)
                                    (nvar1, mdyns1, nvar2, mdyns2, derivative)
-                                   (varDt, nvar, mdyns, gradient)
+                                   ( AstVarName
+                                     $ dynamicVarNameToAstVarId (varsDt !! 0)
+                                   , nvar, mdyns, gradient )
                                    x0 asD
                 _ -> error "rfoldZip: wrong variables"
             _ -> error "rfoldZip: wrong variables"
@@ -835,8 +845,8 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
        -- it once per @f@ if we took shapes as arguments. The @sfold@ operation
        -- can do that thanks to shapes being available from types.
        case revProduceArtifact TensorToken True g EM.empty domsF of
-      ( ( (varDt, [AstDynamicVarName nid, AstDynamicVarName mid])
-        , gradient, _primal, _sh), _delta ) ->
+      ( ( (varsDt, [AstDynamicVarName nid, AstDynamicVarName mid])
+        , gradient, _primal, _sh), _delta ) -> assert (length varsDt == 1) $
         case fwdProduceArtifact TensorToken g EM.empty domsF of
           ( ( ( [AstDynamicVarName nid1, AstDynamicVarName mid1]
               , [AstDynamicVarName nid2, AstDynamicVarName mid2] )
@@ -846,7 +856,8 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
                 (nvar, mvar) = (AstVarName nid, AstVarName mid)
             in AstScanDer (funToAst2R shn shm f)
                           (nvar1, mvar1, nvar2, mvar2, derivative)
-                          (varDt, nvar, mvar, gradient)
+                          ( AstVarName $ dynamicVarNameToAstVarId (varsDt !! 0)
+                          , nvar, mvar, gradient )
                           x0 as
           _ -> error "rscan: wrong variables"
       _ -> error "rscan: wrong variables"
@@ -887,8 +898,9 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
               g :: HVector (AstRanked FullSpan) -> AstRanked FullSpan rn n
               g doms = uncurry f (domsToPair doms)
           in case revProduceArtifact TensorToken True g EM.empty domsF of
-            ( ( (varDt, AstDynamicVarName nid : mdyns)
+            ( ( (varsDt, AstDynamicVarName nid : mdyns)
               , gradient, _primal, _sh), _delta ) ->
+              assert (length varsDt == 1) $
               case fwdProduceArtifact TensorToken g EM.empty domsF of
                 ( ( ( AstDynamicVarName nid1 : mdyns1
                     , AstDynamicVarName nid2 : mdyns2 )
@@ -898,7 +910,9 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
                       nvar = AstVarName nid
                   in AstScanZipDer (funToAstRH shn f domsOD)
                                    (nvar1, mdyns1, nvar2, mdyns2, derivative)
-                                   (varDt, nvar, mdyns, gradient)
+                                   ( AstVarName
+                                     $ dynamicVarNameToAstVarId (varsDt !! 0)
+                                   , nvar, mdyns, gradient )
                                    x0 asD
                 _ -> error "rscanZip: wrong variables"
             _ -> error "rscanZip: wrong variables"
@@ -942,8 +956,8 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
         g :: HVector (AstRanked FullSpan) -> AstShaped FullSpan rn sh
         g doms = uncurry f (domsToPair doms)
     in case revProduceArtifact TensorToken True g EM.empty domsF of
-      ( ( (varDt, [AstDynamicVarName nid, AstDynamicVarName mid])
-        , gradient, _primal, _sh), _delta ) ->
+      ( ( (varsDt, [AstDynamicVarName nid, AstDynamicVarName mid])
+        , gradient, _primal, _sh), _delta ) -> assert (length varsDt == 1) $
         case fwdProduceArtifact TensorToken g EM.empty domsF of
           ( ( ( [AstDynamicVarName nid1, AstDynamicVarName mid1]
               , [AstDynamicVarName nid2, AstDynamicVarName mid2] )
@@ -953,7 +967,8 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
                 (nvar, mvar) = (AstVarName nid, AstVarName mid)
             in AstFoldDerS (funToAst2S f)
                            (nvar1, mvar1, nvar2, mvar2, derivative)
-                           (varDt, nvar, mvar, gradient)
+                           ( AstVarName $ dynamicVarNameToAstVarId (varsDt !! 0)
+                           , nvar, mvar, gradient )
                            x0 as
           _ -> error "sfold: wrong variables"
       _ -> error "sfold: wrong variables"
@@ -992,8 +1007,9 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
               g :: HVector (AstRanked FullSpan) -> AstShaped FullSpan rn sh
               g doms = uncurry f (domsToPair doms)
           in case revProduceArtifact TensorToken True g EM.empty domsF of
-            ( ( (varDt, AstDynamicVarName nid : mdyns)
+            ( ( (varsDt, AstDynamicVarName nid : mdyns)
               , gradient, _primal, _sh), _delta ) ->
+              assert (length varsDt == 1) $
               case fwdProduceArtifact TensorToken g EM.empty domsF of
                 ( ( ( AstDynamicVarName nid1 : mdyns1
                     , AstDynamicVarName nid2 : mdyns2 )
@@ -1003,7 +1019,9 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
                       nvar = AstVarName nid
                   in AstFoldZipDerS (funToAstSH @_ @_ @sh f domsOD)
                                     (nvar1, mdyns1, nvar2, mdyns2, derivative)
-                                    (varDt, nvar, mdyns, gradient)
+                                    ( AstVarName
+                                      $ dynamicVarNameToAstVarId (varsDt !! 0)
+                                    , nvar, mdyns, gradient )
                                     x0 asD
                 _ -> error "sfoldZip: wrong variables"
             _ -> error "sfoldZip: wrong variables"
@@ -1048,8 +1066,8 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
         g :: HVector (AstRanked FullSpan) -> AstShaped FullSpan rn sh
         g doms = uncurry f (domsToPair doms)
     in case revProduceArtifact TensorToken True g EM.empty domsF of
-      ( ( (varDt, [AstDynamicVarName nid, AstDynamicVarName mid])
-        , gradient, _primal, _sh), _delta ) ->
+      ( ( (varsDt, [AstDynamicVarName nid, AstDynamicVarName mid])
+        , gradient, _primal, _sh), _delta ) -> assert (length varsDt == 1) $
         case fwdProduceArtifact TensorToken g EM.empty domsF of
           ( ( ( [AstDynamicVarName nid1, AstDynamicVarName mid1]
               , [AstDynamicVarName nid2, AstDynamicVarName mid2] )
@@ -1059,7 +1077,8 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
                 (nvar, mvar) = (AstVarName nid, AstVarName mid)
             in AstScanDerS (funToAst2S @_ @_ @sh f)
                            (nvar1, mvar1, nvar2, mvar2, derivative)
-                           (varDt, nvar, mvar, gradient)
+                           ( AstVarName $ dynamicVarNameToAstVarId (varsDt !! 0)
+                           , nvar, mvar, gradient )
                            x0 as
           _ -> error "sscan: wrong variables"
       _ -> error "sscan: wrong variables"
@@ -1095,8 +1114,8 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
         g :: HVector (AstRanked FullSpan) -> AstShaped FullSpan rn sh
         g doms = uncurry f (domsToPair doms)
     in case revProduceArtifact TensorToken True g EM.empty domsF of
-      ( ( (varDt, AstDynamicVarName nid : mdyns)
-        , gradient, _primal, _sh), _delta ) ->
+      ( ( (varsDt, AstDynamicVarName nid : mdyns)
+        , gradient, _primal, _sh), _delta ) -> assert (length varsDt == 1) $
         case fwdProduceArtifact TensorToken g EM.empty domsF of
           ( ( ( AstDynamicVarName nid1 : mdyns1
               , AstDynamicVarName nid2 : mdyns2 )
@@ -1106,7 +1125,9 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
                 nvar = AstVarName nid
             in AstScanZipDerS (funToAstSH @_ @_ @sh f domsOD)
                               (nvar1, mdyns1, nvar2, mdyns2, derivative)
-                              (varDt, nvar, mdyns, gradient)
+                              ( AstVarName
+                                $ dynamicVarNameToAstVarId (varsDt !! 0)
+                              , nvar, mdyns, gradient )
                               x0 asD
           _ -> error "sscanZip: wrong variables"
       _ -> error "sscanZip: wrong variables"

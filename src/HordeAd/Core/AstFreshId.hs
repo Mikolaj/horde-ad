@@ -538,16 +538,14 @@ funToAstRevIO parameters0 = do
 -- The AstVarName type with its parameter somehow prevents cse and crashes
 -- compared with a bare AstVarId, so let's keep it.
 funToAstRev :: VoidHVector
-            -> ( AstVarId
-               , [AstDynamicVarName]
+            -> ( [AstDynamicVarName]
                , HVector (AstRanked PrimalSpan)
                , [AstDynamicVarName]
                , HVector (AstRanked FullSpan) )
 {-# NOINLINE funToAstRev #-}
 funToAstRev parameters0 = unsafePerformIO $ do
-  freshId <- unsafeGetFreshAstVarId
   (!varsPrimal, !astsPrimal, !vars, !asts) <- funToAstRevIO parameters0
-  return (freshId, varsPrimal, astsPrimal, vars, asts)
+  return (varsPrimal, astsPrimal, vars, asts)
 
 funToAstFwdIO :: VoidHVector
               -> IO ( [AstDynamicVarName]

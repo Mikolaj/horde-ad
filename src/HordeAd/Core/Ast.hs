@@ -156,7 +156,7 @@ varNameToAstVarId (AstVarName varId) = varId
 
 -- The reverse derivative artifact from step 6) of our full pipeline.
 type AstArtifactRev (f :: TensorType ty) r y =
-  ( (AstVarName f r y, [AstDynamicVarName])
+  ( ([AstDynamicVarName], [AstDynamicVarName])
   , HVectorOf (RankedOf f), f r y, OR.ShapeL )
 
 type AstArtifactFwd (f :: TensorType ty) r y =
