@@ -10,10 +10,10 @@ module HordeAd.Core.HVector
     DynamicTensor(..), CRanked, CShaped
   , HVector, HVectorPseudoTensor(..)
   , VoidTensor, VoidHVector, DynamicScalar(..)
-  , scalarDynamic, shapeDynamicVoid, rankDynamic
+  , scalarDynamic, shapeDynamicVoid, shapeDynamicF, rankDynamic
   , isDynamicRanked, isDynamicDummy
-  , voidFromVar, voidFromVars, voidFromSh, voidFromShS
-  , replicate1VoidHVector
+  , voidFromVar, voidFromVars, voidFromShL, voidFromSh, voidFromShS
+  , voidFromDynamicF, replicate1VoidHVector
     -- * ADShare definition
   , AstVarId, intToAstVarId, AstDynamicVarName(..), dynamicVarNameToAstVarId
   , AstBindingsCase(..), AstBindingsD, ADShareD
@@ -141,8 +141,14 @@ scalarDynamic (DynamicRankedDummy @r2 _ _) = DynamicScalar @r2 Proxy
 scalarDynamic (DynamicShapedDummy @r2 _ _) = DynamicScalar @r2 Proxy
 
 shapeDynamicVoid :: DynamicTensor VoidTensor -> [Int]
-shapeDynamicVoid (DynamicRankedDummy _ proxy_sh) = Sh.shapeP proxy_sh
-shapeDynamicVoid (DynamicShapedDummy _ proxy_sh) = Sh.shapeP proxy_sh
+shapeDynamicVoid  = shapeDynamicF undefined
+
+shapeDynamicF :: (forall r n. (GoodScalar r, KnownNat n) => ranked r n -> [Int])
+              -> DynamicTensor ranked -> [Int]
+shapeDynamicF f (DynamicRanked t) = f t
+shapeDynamicF _ (DynamicShaped @_ @sh _) = Sh.shapeT @sh
+shapeDynamicF _ (DynamicRankedDummy _ proxy_sh) = Sh.shapeP proxy_sh
+shapeDynamicF _ (DynamicShapedDummy _ proxy_sh) = Sh.shapeP proxy_sh
 
 rankDynamic :: DynamicTensor ranked -> Int
 rankDynamic (DynamicRanked @_ @n _) = valueOf @n
@@ -171,14 +177,31 @@ voidFromVar (AstDynamicVarName @ty @rD @shD _) =
 voidFromVars :: [AstDynamicVarName] -> VoidHVector
 voidFromVars = V.fromList . map voidFromVar
 
+voidFromShL :: forall r. GoodScalar r
+            => [Int] -> DynamicTensor VoidTensor
+voidFromShL sh = Sh.withShapeP sh $ \proxySh ->
+                   DynamicRankedDummy (Proxy @r) proxySh
+
 voidFromSh :: forall r n. GoodScalar r
            => ShapeInt n -> DynamicTensor VoidTensor
-voidFromSh sh = Sh.withShapeP (shapeToList sh) $ \proxySh ->
-              DynamicRankedDummy (Proxy @r) proxySh
+voidFromSh sh = voidFromShL @r (shapeToList sh)
 
 voidFromShS :: forall r sh. (GoodScalar r, Sh.Shape sh)
             => DynamicTensor VoidTensor
 voidFromShS = DynamicShapedDummy @r @sh Proxy Proxy
+
+voidFromDynamicF
+  :: forall ranked.
+     (forall r n. (GoodScalar r, KnownNat n) => ranked r n -> [Int])
+  -> DynamicTensor ranked -> DynamicTensor VoidTensor
+voidFromDynamicF f (DynamicRanked @r2 @n2 t) =
+  let sh = f t
+  in Sh.withShapeP sh $ \(Proxy @sh2) ->
+    DynamicRankedDummy @r2 @sh2 Proxy Proxy
+voidFromDynamicF _ (DynamicShaped @r2 @sh2 _) =
+  DynamicShapedDummy @r2 @sh2 Proxy Proxy
+voidFromDynamicF _ (DynamicRankedDummy p1 p2) = DynamicRankedDummy p1 p2
+voidFromDynamicF _ (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
 
 replicate1VoidHVector :: forall k. KnownNat k
                       => Proxy k -> VoidHVector -> VoidHVector

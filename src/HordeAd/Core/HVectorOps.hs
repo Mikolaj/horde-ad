@@ -218,10 +218,7 @@ sizeHVector = let f (DynamicRanked @r t) = rsize @ranked @r t
 
 shapeDynamic :: RankedTensor ranked
              => DynamicTensor ranked -> [Int]
-shapeDynamic (DynamicRanked t) = shapeToList $ rshape t
-shapeDynamic (DynamicShaped @_ @sh _) = Sh.shapeT @sh
-shapeDynamic (DynamicRankedDummy _ proxy_sh) = Sh.shapeP proxy_sh
-shapeDynamic (DynamicShapedDummy _ proxy_sh) = Sh.shapeP proxy_sh
+shapeDynamic = shapeDynamicF (shapeToList . rshape)
 
 hVectorsMatch :: forall f g. (RankedTensor f, RankedTensor g)
               => HVector f -> HVector g -> Bool
@@ -252,14 +249,7 @@ voidHVectorMatches v1 v2 =
 -- as well as when generating dummy zero parameters based on a template.
 voidFromDynamic :: forall ranked. RankedTensor ranked
                 => DynamicTensor ranked -> DynamicTensor VoidTensor
-voidFromDynamic (DynamicRanked @r2 @n2 t) =
-  let sh = rshape @ranked t
-  in Sh.withShapeP (shapeToList sh) $ \(Proxy @sh2) ->
-    DynamicRankedDummy @r2 @sh2 Proxy Proxy
-voidFromDynamic (DynamicShaped @r2 @sh2 _) =
-  DynamicShapedDummy @r2 @sh2 Proxy Proxy
-voidFromDynamic (DynamicRankedDummy p1 p2) = DynamicRankedDummy p1 p2
-voidFromDynamic (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
+voidFromDynamic = voidFromDynamicF (shapeToList . rshape)
 
 voidFromHVector :: forall ranked. RankedTensor ranked
                 => HVector ranked -> VoidHVector
