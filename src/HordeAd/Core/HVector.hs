@@ -9,7 +9,7 @@ module HordeAd.Core.HVector
   ( -- * Fynamic tensors and heterogeneous tensor collections
     DynamicTensor(..), CRanked, CShaped
   , HVector, HVectorPseudoTensor(..)
-  , VoidTensor, VoidHVector, DynamicScalar(..)
+  , VoidTensor, absurdTensor, VoidHVector, DynamicScalar(..)
   , scalarDynamic, shapeDynamicVoid, shapeDynamicF, rankDynamic
   , isDynamicRanked, isDynamicDummy
   , voidFromVar, voidFromVars, voidFromShL, voidFromSh, voidFromShS
@@ -116,8 +116,11 @@ type instance ShapedOf (HVectorPseudoTensor ranked) = ShapedOf ranked
 type role VoidTensor nominal nominal
 data VoidTensor :: TensorType ty
 
+absurdTensor :: VoidTensor r y -> a
+absurdTensor = \case
+
 instance Show (VoidTensor t u) where
-  showsPrec _d _ = undefined
+  showsPrec _d = absurdTensor
 
 type instance RankedOf VoidTensor = VoidTensor
 
@@ -141,7 +144,7 @@ scalarDynamic (DynamicRankedDummy @r2 _ _) = DynamicScalar @r2 Proxy
 scalarDynamic (DynamicShapedDummy @r2 _ _) = DynamicScalar @r2 Proxy
 
 shapeDynamicVoid :: DynamicTensor VoidTensor -> [Int]
-shapeDynamicVoid  = shapeDynamicF undefined
+shapeDynamicVoid  = shapeDynamicF absurdTensor
 
 shapeDynamicF :: (forall r n. (GoodScalar r, KnownNat n) => ranked r n -> [Int])
               -> DynamicTensor ranked -> [Int]
