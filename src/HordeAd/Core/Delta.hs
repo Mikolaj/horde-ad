@@ -828,7 +828,7 @@ derivativeFromDeltaH
 derivativeFromDeltaH dim (HVectorPseudoTensor deltaTopLevel) ds =
   let s0 = EvalState EM.empty EM.empty EM.empty EM.empty EM.empty []
       !(!s2, !c) = fwdH dim ds s0 deltaTopLevel
-  in (astBindings s2, HVectorPseudoTensor $ dmkHVector c)
+  in (astBindings s2, HVectorPseudoTensor c)
 
 
 -- * Reverse pass, transpose/evaluation of the delta expressions
@@ -2140,7 +2140,10 @@ fwdR dimR params s = \case
 
   SToR (RToS d) -> fwdR dimR params s d  -- no information lost, so no checks
   SToR d -> second rfromS $ fwdS dimR params s d
-  HToR d i -> second (rfromD . (V.! i)) $ fwdH dimR params s d
+  HToR d i -> let (s2, v) = fwdH dimR params s d
+                  doms = shapeDeltaH d
+              in (s2, rletHVectorIn doms v $ \res ->
+                        rfromD $ res V.! i)
 
 fwdS
   :: forall sh r ranked shaped.
@@ -2329,26 +2332,28 @@ fwdS dimR params s = \case
       Just Refl -> fwdS dimR params s d
       _ -> error "fwdS: different shapes in RToS(SToR)"
   RToS d -> second sfromR $ fwdR dimR params s d
-  HToS d i -> second (sfromD . (V.! i)) $ fwdH dimR params s d
+  HToS d i -> let (s2, v) = fwdH dimR params s d
+                  doms = shapeDeltaH d
+              in (s2, sletHVectorIn doms v $ \res ->
+                        sfromD $ res V.! i)
 
 fwdH
   :: forall ranked shaped. (ADReady ranked, shaped ~ ShapedOf ranked)
   => Int -> HVector ranked -> EvalState ranked -> DeltaH ranked
-  -> (EvalState ranked, HVector ranked)
+  -> (EvalState ranked, HVectorOf ranked)
 fwdH dimR params s = \case
   LetH n d ->
     case EM.lookup n $ hnMap s of
-      Just{} -> (s, hdMap s EM.! n)
+      Just{} -> (s, dmkHVector $ hdMap s EM.! n)
       Nothing ->
         let (s2, cRaw) = fwdH dimR params s d
-            (abShared, cShared) = dregister (voidFromHVector cRaw)
-                                            (dmkHVector cRaw)
-                                            (astBindings s2)
+            (abShared, cShared) =
+              dregister (shapeDeltaH d) cRaw (astBindings s2)
             s3 = s2 {astBindings = abShared}
             s4 = s3 { hnMap = EM.insert n d (hnMap s3)
                     , hdMap = EM.insert n cShared (hdMap s3) }
-        in (s4, cShared)
-  HToH v -> fwdHVector dimR params s v
+        in (s4, dmkHVector cShared)
+  HToH v -> second dmkHVector $ fwdHVector dimR params s v
   MapAccumRR{} -> undefined  -- TODO
   MapAccumRS @k @rn @sh _domsOD _q _as _domB _df _rf _x0' _as' ->
     undefined  -- TODO
