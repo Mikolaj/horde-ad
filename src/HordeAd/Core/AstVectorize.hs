@@ -1246,7 +1246,7 @@ astTrDynamic (DynamicShapedDummy p1 (Proxy @sh1)) =
 
 astTrAstHVector :: forall s. AstSpan s
                 => VoidHVector -> AstHVector s -> AstHVector s
-astTrAstHVector od = fun1DToAst od $ \vars asts ->
+astTrAstHVector od = fun1DToAst od $ \ !vars !asts ->
   Ast.AstLetHVectorInHVector
     vars
     (Ast.AstHVector @s $ V.map astTrDynamic asts)

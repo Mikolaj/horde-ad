@@ -126,7 +126,7 @@ instance DerivativeStages (AstRanked FullSpan) where
         !(D l primalBody delta) = forwardPass hVectorPrimal vars hVector
         sh = shapeAst primalBody
         domsB = V.singleton $ voidFromSh @r sh
-    in fun1DToAst domsB $ \varsDt astsDt -> assert (V.length astsDt == 1) $
+    in fun1DToAst domsB $ \ !varsDt !astsDt -> assert (V.length astsDt == 1) $
       let mdt = if hasDt then Just $ rfromD $ astsDt V.! 0 else Nothing
           !(!astBindings, !gradient) =
             reverseDervative parameters0 primalBody mdt delta
@@ -226,7 +226,7 @@ instance DerivativeStages (AstShaped FullSpan) where
           funToAstRev parameters0 in
     let !(D l primalBody delta) = forwardPass hVectorPrimal vars hVector
         domsB = V.singleton $ voidFromShS @r @sh
-    in fun1DToAst domsB $ \varsDt astsDt -> assert (V.length astsDt == 1) $
+    in fun1DToAst domsB $ \ !varsDt !astsDt -> assert (V.length astsDt == 1) $
       let mdt = if hasDt then Just $ sfromD $ astsDt V.! 0 else Nothing
           !(!astBindings, !gradient) =
             reverseDervative parameters0 primalBody mdt delta
@@ -325,7 +325,7 @@ instance DerivativeStages (HVectorPseudoTensor (AstRanked FullSpan)) where
           funToAstRev parameters0 in  -- varDtId replace by many variables
     let !(D l primalBody delta) = forwardPass hVectorPrimal vars hVector
         domsB = shapeAstHVector $ unHVectorPseudoTensor primalBody
-    in fun1DToAst domsB $ \varsDt astsDt ->
+    in fun1DToAst domsB $ \ !varsDt !astsDt ->
       let mdt = if hasDt
                 then Just $ HVectorPseudoTensor $ AstHVector astsDt
                 else Nothing
@@ -530,7 +530,7 @@ astLetHVectorInFun
   -> AstRanked s r n
 {-# INLINE astLetHVectorInFun #-}
 astLetHVectorInFun a0 a f =
-  fun1DToAst a0 $ \vars asts -> astLetHVectorIn vars a (f asts)
+  fun1DToAst a0 $ \ !vars !asts -> astLetHVectorIn vars a (f asts)
 
 astSpanPrimal :: forall s r n. (KnownNat n, GoodScalar r, AstSpan s)
               => AstRanked s r n -> AstRanked PrimalSpan r n
@@ -649,7 +649,7 @@ astLetHVectorInFunS
   -> AstShaped s r sh
 {-# INLINE astLetHVectorInFunS #-}
 astLetHVectorInFunS a0 a f =
-  fun1DToAst a0 $ \vars asts -> astLetHVectorInS vars a (f asts)
+  fun1DToAst a0 $ \ !vars !asts -> astLetHVectorInS vars a (f asts)
 
 astSpanPrimalS :: forall s r sh. (Sh.Shape sh, GoodScalar r, AstSpan s)
                => AstShaped s r sh -> AstShaped PrimalSpan r sh
@@ -713,7 +713,7 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   rletInHVector = astLetInHVectorFun
   sletInHVector = astLetInHVectorFunS
   drecordSharingPrimal domsOD r l | Just Refl <- sameAstSpan @s @PrimalSpan =
-    fun1DToAst domsOD $ \vars asts -> case vars of
+    fun1DToAst domsOD $ \ !vars !asts -> case vars of
       [] -> error "drecordSharingPrimal: empty hVector"
       var : _ ->  -- vars are fresh, so var uniquely represent vars
         ( insertADShare (dynamicVarNameToAstVarId var)
@@ -722,7 +722,7 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
         , asts )
   drecordSharingPrimal _ _ _ = error "drecordSharingPrimal: wrong span"
   dregister domsOD r l =
-    fun1DToAst domsOD $ \vars asts -> case vars of
+    fun1DToAst domsOD $ \ !vars !asts -> case vars of
       [] -> error "dregister: empty hVector"
       var : _ ->  -- vars are fresh, so var uniquely represent vars
         ((dynamicVarNameToAstVarId var, AstBindingsHVector vars r) : l, asts)
@@ -1406,7 +1406,7 @@ astLetHVectorInHVectorFun
   -> AstHVector s
 {-# INLINE astLetHVectorInHVectorFun #-}
 astLetHVectorInHVectorFun a0 a f =
-  fun1DToAst a0 $ \vars asts -> astLetHVectorInHVector vars a (f asts)
+  fun1DToAst a0 $ \ !vars !asts -> astLetHVectorInHVector vars a (f asts)
 
 astLetInHVectorFun :: (KnownNat n, GoodScalar r, AstSpan s)
                    => AstRanked s r n -> (AstRanked s r n -> AstHVector s)

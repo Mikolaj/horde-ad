@@ -53,14 +53,14 @@ data PrintConfig = PrintConfig
 
 defaulPrintConfig :: Bool -> IntMap String -> PrintConfig
 defaulPrintConfig prettifyLosingSharing renames =
-  let varRenames = renames `IM.union` IM.fromList [(1, "dret")]
+  let varRenames = renames  -- TODO: `IM.union` IM.fromList [(1, "dret")]
       ignoreNestedLambdas = prettifyLosingSharing
       representsIntIndex = False
   in PrintConfig {..}
 
 defaulPrintConfig2 :: Bool -> Bool -> IntMap String -> PrintConfig
 defaulPrintConfig2 prettifyLosingSharing ignoreNestedLambdas renames =
-  let varRenames = renames `IM.union` IM.fromList [(1, "dret")]
+  let varRenames = renames  -- TODO: `IM.union` IM.fromList [(1, "dret")]
       representsIntIndex = False
   in PrintConfig {..}
 
