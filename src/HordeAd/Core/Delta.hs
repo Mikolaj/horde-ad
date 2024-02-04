@@ -570,6 +570,17 @@ data DeltaH :: RankedTensorType -> Type where
     -> HVector (DeltaR ranked)
     -> DeltaH ranked
 
+{- Fails due to @forall f@. Replaced by a manually fixed version at the end
+   of this file.
+deriving instance ( Show (IntOf ranked)
+                  , Show (IntOf (ShapedOf ranked))
+                  , CRanked ranked Show
+                  , CShaped (ShapedOf ranked) Show
+                  , CRanked (DeltaR ranked) Show
+                  , CShaped (DeltaS (ShapedOf ranked)) Show )
+                  => Show (DeltaH ranked)
+-}
+
 -- This is needed for the Show instances due to HVector (Delta...)
 -- referring to ShapedOf (Delta..).
 type instance RankedOf (DeltaS shaped) = DeltaR (RankedOf shaped)
@@ -2549,18 +2560,17 @@ fwdH dimR params s = \case
 
 instance (KnownNat n0,
           GoodScalar r0,
-          Show (IntOf @Nat ranked),
+          Show (IntOf ranked),
           Show
             (IntOf
-               @[Nat]
-               (ShapedOf @Nat ranked)),
+               (ShapedOf ranked)),
           CRanked ranked Show,
           CShaped
-            (ShapedOf @Nat ranked)
+            (ShapedOf ranked)
             Show,
           CShaped
             (DeltaS
-               (ShapedOf @Nat ranked))
+               (ShapedOf ranked))
             Show) =>
          Show (DeltaR ranked r0 n0) where
   showsPrec a_adiH (ZeroR b1_adiI)
@@ -2931,23 +2941,33 @@ instance (KnownNat n0,
         (a_adkk >= 11)
         ((.)
            (showString "SToR ") (showsPrec 11 b1_adkl))
+  showsPrec
+    a_a2Gg0
+    (HordeAd.Core.Delta.HToR b1_a2Gg1 b2_a2Gg2)
+    = showParen
+        (a_a2Gg0 >= 11)
+        ((.)
+           (showString "HToR ")
+           ((.)
+              (showsPrec 11 b1_a2Gg1)
+              ((.)
+                 showSpace (showsPrec 11 b2_a2Gg2))))
 
 instance (ShapedOf (RankedOf shaped) ~ shaped,
           Sh.Shape sh0,
           GoodScalar r0,
           Show
             (IntOf
-               @Nat
-               (RankedOf @[Nat] shaped)),
+               (RankedOf shaped)),
           Show
-            (IntOf @[Nat] shaped),
+            (IntOf shaped),
           CRanked
-            (RankedOf @[Nat] shaped)
+            (RankedOf shaped)
             Show,
           CShaped shaped Show,
           CRanked
             (DeltaR
-               (RankedOf @[Nat] shaped))
+               (RankedOf shaped))
             Show) =>
          Show (DeltaS shaped r0 sh0) where
   showsPrec _ ZeroS
@@ -3277,3 +3297,199 @@ instance (ShapedOf (RankedOf shaped) ~ shaped,
         (a_adv8 >= 11)
         ((.)
            (showString "RToS ") (showsPrec 11 b1_adv9))
+  showsPrec
+    a_a2Gei
+    (HordeAd.Core.Delta.HToS b1_a2Gej b2_a2Gek)
+    = showParen
+        (a_a2Gei >= 11)
+        ((.)
+           (showString "HToS ")
+           ((.)
+              (showsPrec 11 b1_a2Gej)
+              ((.)
+                 showSpace (showsPrec 11 b2_a2Gek))))
+
+instance (Show
+            (HordeAd.Core.Types.IntOf ranked),
+          Show
+            (HordeAd.Core.Types.IntOf
+               (HordeAd.Core.Types.ShapedOf ranked)),
+          HordeAd.Core.HVector.CRanked ranked Show,
+          HordeAd.Core.HVector.CShaped
+            (HordeAd.Core.Types.ShapedOf ranked)
+            Show,
+          HordeAd.Core.HVector.CRanked
+            (HordeAd.Core.Delta.DeltaR ranked) Show,
+          HordeAd.Core.HVector.CShaped
+            (HordeAd.Core.Delta.DeltaS
+               (HordeAd.Core.Types.ShapedOf ranked))
+            Show) =>
+         Show (HordeAd.Core.Delta.DeltaH ranked) where
+  showsPrec
+    a_a2Gc8
+    (HordeAd.Core.Delta.LetH b1_a2Gc9 b2_a2Gca)
+    = showParen
+        (a_a2Gc8 >= 11)
+        ((.)
+           (showString "LetH ")
+           ((.)
+              (showsPrec 11 b1_a2Gc9)
+              ((.)
+                 showSpace (showsPrec 11 b2_a2Gca))))
+  showsPrec a_a2Gcb (HordeAd.Core.Delta.HToH b1_a2Gcc)
+    = showParen
+        (a_a2Gcb >= 11)
+        ((.)
+           (showString "HToH ") (showsPrec 11 b1_a2Gcc))
+  showsPrec
+    a_a2Gcd
+    (HordeAd.Core.Delta.MapAccumRR b1_a2Gce b2_a2Gcf b3_a2Gcg b4_a2Gch
+                                   _b5_a2Gci _b6_a2Gcj b7_a2Gck b8_a2Gcl)
+    = showParen
+        (a_a2Gcd >= 11)
+        ((.)
+           (showString "MapAccumRR ")
+           ((.)
+              (showsPrec 11 b1_a2Gce)
+              ((.)
+                 showSpace
+                 ((.)
+                    (showsPrec 11 b2_a2Gcf)
+                    ((.)
+                       showSpace
+                       ((.)
+                          (showsPrec 11 b3_a2Gcg)
+                          ((.)
+                             showSpace
+                             ((.)
+                                (showsPrec 11 b4_a2Gch)
+                                ((.)
+                                   showSpace
+                                   ((.)
+                                      (showString "<forall function>")
+                                      ((.)
+                                         showSpace
+                                         ((.)
+                                            (showString "<forall function>")
+                                            ((.)
+                                               showSpace
+                                               ((.)
+                                                  (showsPrec 11 b7_a2Gck)
+                                                  ((.)
+                                                     showSpace
+                                                     (showsPrec
+                                                        11 b8_a2Gcl))))))))))))))))
+  showsPrec
+    a_a2Gcm
+    (HordeAd.Core.Delta.MapAccumRRC b1_a2Gcn b2_a2Gco b3_a2Gcp b4_a2Gcq
+                                    b5_a2Gcr b6_a2Gcs b7_a2Gct b8_a2Gcu)
+    = showParen
+        (a_a2Gcm >= 11)
+        ((.)
+           (showString "MapAccumRRC ")
+           ((.)
+              (showsPrec 11 b1_a2Gcn)
+              ((.)
+                 showSpace
+                 ((.)
+                    (showsPrec 11 b2_a2Gco)
+                    ((.)
+                       showSpace
+                       ((.)
+                          (showsPrec 11 b3_a2Gcp)
+                          ((.)
+                             showSpace
+                             ((.)
+                                (showsPrec 11 b4_a2Gcq)
+                                ((.)
+                                   showSpace
+                                   ((.)
+                                      (showsPrec 11 b5_a2Gcr)
+                                      ((.)
+                                         showSpace
+                                         ((.)
+                                            (showsPrec 11 b6_a2Gcs)
+                                            ((.)
+                                               showSpace
+                                               ((.)
+                                                  (showsPrec 11 b7_a2Gct)
+                                                  ((.)
+                                                     showSpace
+                                                     (showsPrec
+                                                        11 b8_a2Gcu))))))))))))))))
+  showsPrec
+    a_a2Gcv
+    (HordeAd.Core.Delta.MapAccumRS b1_a2Gcw b2_a2Gcx b3_a2Gcy b4_a2Gcz
+                                   _b5_a2GcA _b6_a2GcB b7_a2GcC b8_a2GcD)
+    = showParen
+        (a_a2Gcv >= 11)
+        ((.)
+           (showString "MapAccumRS ")
+           ((.)
+              (showsPrec 11 b1_a2Gcw)
+              ((.)
+                 showSpace
+                 ((.)
+                    (showsPrec 11 b2_a2Gcx)
+                    ((.)
+                       showSpace
+                       ((.)
+                          (showsPrec 11 b3_a2Gcy)
+                          ((.)
+                             showSpace
+                             ((.)
+                                (showsPrec 11 b4_a2Gcz)
+                                ((.)
+                                   showSpace
+                                   ((.)
+                                      (showString "<forall function>")
+                                      ((.)
+                                         showSpace
+                                         ((.)
+                                            (showString "<forall function>")
+                                            ((.)
+                                               showSpace
+                                               ((.)
+                                                  (showsPrec 11 b7_a2GcC)
+                                                  ((.)
+                                                     showSpace
+                                                     (showsPrec
+                                                        11 b8_a2GcD))))))))))))))))
+  showsPrec
+    a_a2GcE
+    (HordeAd.Core.Delta.MapAccumRSC b1_a2GcF b2_a2GcG b3_a2GcH b4_a2GcI
+                                    b5_a2GcJ b6_a2GcK b7_a2GcL b8_a2GcM)
+    = showParen
+        (a_a2GcE >= 11)
+        ((.)
+           (showString "MapAccumRSC ")
+           ((.)
+              (showsPrec 11 b1_a2GcF)
+              ((.)
+                 showSpace
+                 ((.)
+                    (showsPrec 11 b2_a2GcG)
+                    ((.)
+                       showSpace
+                       ((.)
+                          (showsPrec 11 b3_a2GcH)
+                          ((.)
+                             showSpace
+                             ((.)
+                                (showsPrec 11 b4_a2GcI)
+                                ((.)
+                                   showSpace
+                                   ((.)
+                                      (showsPrec 11 b5_a2GcJ)
+                                      ((.)
+                                         showSpace
+                                         ((.)
+                                            (showsPrec 11 b6_a2GcK)
+                                            ((.)
+                                               showSpace
+                                               ((.)
+                                                  (showsPrec 11 b7_a2GcL)
+                                                  ((.)
+                                                     showSpace
+                                                     (showsPrec
+                                                        11 b8_a2GcM))))))))))))))))
