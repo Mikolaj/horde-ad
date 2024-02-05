@@ -1042,7 +1042,6 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
                                    asD) $
         let shn = rshape x0
             odShn = voidFromSh @rn shn
-            domsF = V.cons odShn (replicate1VoidHVector (Proxy @k) domB)
             domsToPair :: forall f. ADReady f
                        => HVector f -> (f rn n, HVector f)
             domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
@@ -1074,17 +1073,36 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
                                    (replicate1VoidHVector (Proxy @k) domsOD)
                                    (dmkHVector asUnshared)
                                    (flattenADShare $ l1 : V.toList ll2)
+            domsG = V.cons odShn domB
+            f3 :: forall f. ADReady f => f rn n -> HVector f -> HVectorOf f
+            f3 x a = dletHVectorInHVector @f domsG (f x a) $ \res ->
+                       let x2 = res V.! 0
+                           a2 = V.tail res
+                       in dmkHVector $ V.cons x2 $ V.cons (DynamicRanked x) a2
             p :: HVectorOf ranked
-            p = rmapAccumR domB f domsOD x0 as
-            (l4, pShared) = drecordSharingPrimal @ranked domsF p l3
-            q = rfromD $ pShared V.! 0
+            p = rmapAccumR domsG f3 domsOD x0 as
+            odShnK = voidFromSh @rn (width :$ shn)
+        -- These conditionals are needed, because empty tensors are lost
+        -- due to their ambiguity (shape [0, 1] has the same elements as [2, 0])
+        -- and due to conversions to/from a list representation.
+        -- More conditionals would be needed to handle symbolic differentiation.
+            domsF3 = if V.length (dshape @ranked p) == 1
+                     then V.singleton odShn
+                     else V.cons odShn $ V.cons odShnK
+                          $ replicate1VoidHVector (Proxy @k) domB
+            (l4, pShared) = drecordSharingPrimal @ranked domsF3 p l3
+            xFin = pShared V.! 0
+            q = case pShared V.!? 1 of
+              Just q2 -> rfromD q2
+              Nothing -> rfromList []
+            primal = V.cons xFin $ V.drop 2 pShared
             dual = wrapDeltaH $ MapAccumRRC domB q as df rf domsOD x0' as'
             selectDual i d = case d of
               DynamicRanked t -> DynamicRanked $ dDnotShared l4 t (HToR dual i)
               DynamicShaped t -> DynamicShaped $ dDnotShared l4 t (HToS dual i)
               DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
               DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
-        in V.imap selectDual pShared
+        in V.imap selectDual primal
       _ -> error "rmapAccumR: impossible someNatVal"
   rmapAccumRDer
     :: forall rn n. (GoodScalar rn, KnownNat n)
@@ -1127,18 +1145,32 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
                                    (flattenADShare $ l1 : V.toList ll2)
             shn = rshape x0
             odShn = voidFromSh @rn shn
-            domsF = V.cons odShn (replicate1VoidHVector (Proxy @k) domB)
+            domsG = V.cons odShn domB
+            f3 :: forall f. ADReady f => f rn n -> HVector f -> HVectorOf f
+            f3 x a = dletHVectorInHVector @f domsG (f x a) $ \res ->
+                       let x2 = res V.! 0
+                           a2 = V.tail res
+                       in dmkHVector $ V.cons x2 $ V.cons (DynamicRanked x) a2
             p :: HVectorOf ranked
-            p = rmapAccumRDer domB f df rf domsOD x0 as
-            (l4, pShared) = drecordSharingPrimal @ranked domsF p l3
-            q = rfromD $ pShared V.! 0
+            p = rmapAccumR domsG f3 domsOD x0 as
+            odShnK = voidFromSh @rn (width :$ shn)
+            !_A = if width == (0 :: Int)
+                  then error "rmapAccumRDer: can't handle empty tensors yet"
+                         -- TODO: see above
+                  else () in
+        let domsF3 = V.cons odShn $ V.cons odShnK
+                     $ replicate1VoidHVector (Proxy @k) domB
+            (l4, pShared) = drecordSharingPrimal @ranked domsF3 p l3
+            xFin = pShared V.! 0
+            q = rfromD $ pShared V.! 1
+            primal = V.cons xFin $ V.drop 2 pShared
             dual = wrapDeltaH $ MapAccumRR domB q as df rf domsOD x0' as'
             selectDual i d = case d of
               DynamicRanked t -> DynamicRanked $ dDnotShared l4 t (HToR dual i)
               DynamicShaped t -> DynamicShaped $ dDnotShared l4 t (HToS dual i)
               DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
               DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
-        in V.imap selectDual pShared
+        in V.imap selectDual primal
       _ -> error "rmapAccumRDer: impossible someNatVal"
   smapAccumR
     :: forall k rn sh. (GoodScalar rn, Sh.Shape sh, KnownNat k)
@@ -1154,7 +1186,6 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
     assert (voidHVectorMatches (replicate1VoidHVector proxy_k domsOD) asD) $
     let (ll2, asUnshared, as') = unADValHVector asD
         odShn = voidFromShS @rn @sh
-        domsF = V.cons odShn (replicate1VoidHVector proxy_k domB)
         domsToPair :: forall f. ADReadyS f
                    => HVector (RankedOf f) -> (f rn sh, HVector (RankedOf f))
         domsToPair doms = (sfromD $ doms V.! 0, V.tail doms)
@@ -1183,17 +1214,37 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
           drecordSharingPrimal @ranked (replicate1VoidHVector proxy_k domsOD)
                                (dmkHVector asUnshared)
                                (flattenADShare $ l1 : V.toList ll2)
+        domsG = V.cons odShn domB
+        f3 :: forall f. ADReadyS f
+           => f rn sh -> HVector (RankedOf f) -> HVectorOf (RankedOf f)
+        f3 x a = dletHVectorInHVector @_ @f domsG (f x a) $ \res ->
+                   let x2 = res V.! 0
+                       a2 = V.tail res
+                   in dmkHVector $ V.cons x2 $ V.cons (DynamicShaped x) a2
         p :: HVectorOf ranked
-        p = smapAccumR proxy_k domB f domsOD x0 as
-        (l4, pShared) = drecordSharingPrimal @ranked domsF p l3
-        q = sfromD $ pShared V.! 0
+        p = smapAccumR proxy_k domsG f3 domsOD x0 as
+        odShnK = voidFromShS @rn @(k ': sh)
+        -- These conditionals are needed, because empty tensors are lost
+        -- due to their ambiguity (shape [0, 1] has the same elements as [2, 0])
+        -- and due to conversions to/from a list representation.
+        -- More conditionals would be needed to handle symbolic differentiation.
+        domsF3 = if V.length (dshape @ranked p) == 1
+                 then V.singleton odShn
+                 else V.cons odShn $ V.cons odShnK
+                      $ replicate1VoidHVector proxy_k domB
+        (l4, pShared) = drecordSharingPrimal @ranked domsF3 p l3
+        xFin = pShared V.! 0
+        q = case pShared V.!? 1 of
+          Just q2 -> sfromD q2
+          Nothing -> sfromList []
+        primal = V.cons xFin $ V.drop 2 pShared
         dual = wrapDeltaH $ MapAccumRSC @k domB q as df rf domsOD x0' as'
         selectDual i d = case d of
           DynamicRanked t -> DynamicRanked $ dDnotShared l4 t (HToR dual i)
           DynamicShaped t -> DynamicShaped $ dDnotShared l4 t (HToS dual i)
           DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
           DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
-    in V.imap selectDual pShared
+    in V.imap selectDual primal
   smapAccumRDer
     :: forall k rn sh. (GoodScalar rn, Sh.Shape sh, KnownNat k)
     => Proxy k
@@ -1226,18 +1277,33 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
                                (dmkHVector asUnshared)
                                (flattenADShare $ l1 : V.toList ll2)
         odShn = voidFromShS @rn @sh
-        domsF = V.cons odShn (replicate1VoidHVector proxy_k domB)
+        domsG = V.cons odShn domB
+        f3 :: forall f. ADReadyS f
+           => f rn sh -> HVector (RankedOf f) -> HVectorOf (RankedOf f)
+        f3 x a = dletHVectorInHVector @_ @f domsG (f x a) $ \res ->
+                   let x2 = res V.! 0
+                       a2 = V.tail res
+                   in dmkHVector $ V.cons x2 $ V.cons (DynamicShaped x) a2
         p :: HVectorOf ranked
-        p = smapAccumRDer proxy_k domB f df rf domsOD x0 as
-        (l4, pShared) = drecordSharingPrimal @ranked domsF p l3
-        q = sfromD $ pShared V.! 0
+        p = smapAccumR proxy_k domsG f3 domsOD x0 as
+        odShnK = voidFromShS @rn @(k ': sh)
+        !_A = if valueOf @k == (0 :: Int)
+              then error "smapAccumRDer: can't handle empty tensors yet"
+                     -- TODO: see above
+              else () in
+    let domsF3 = V.cons odShn $ V.cons odShnK
+                 $ replicate1VoidHVector proxy_k domB
+        (l4, pShared) = drecordSharingPrimal @ranked domsF3 p l3
+        xFin = pShared V.! 0
+        q = sfromD $ pShared V.! 1
+        primal = V.cons xFin $ V.drop 2 pShared
         dual = wrapDeltaH $ MapAccumRS @k domB q as df rf domsOD x0' as'
         selectDual i d = case d of
           DynamicRanked t -> DynamicRanked $ dDnotShared l4 t (HToR dual i)
           DynamicShaped t -> DynamicShaped $ dDnotShared l4 t (HToS dual i)
           DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
           DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
-    in V.imap selectDual pShared
+    in V.imap selectDual primal
 
 dDHVector :: (RankedTensor f, ShapedTensor (ShapedOf f))
           => ADShare -> HVector f -> HVector (Dual f)
