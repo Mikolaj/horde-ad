@@ -50,7 +50,8 @@ import           HordeAd.Core.HVector
 import           HordeAd.Core.HVectorOps
 import           HordeAd.Core.TensorClass
 import           HordeAd.Core.Types
-import           HordeAd.Internal.OrthotopeOrphanInstances (sameShape)
+import           HordeAd.Internal.OrthotopeOrphanInstances
+  (matchingRank, sameShape)
 import           HordeAd.Util.ShapedList (ShapedList (..), singletonShaped)
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedIndex
@@ -193,15 +194,23 @@ instance ( Dual ranked ~ DeltaR ranked
     let v = rfromIntegral u
     in dDnotShared l v (dZeroOfShape v)
   rconst t = constantADVal (rconst t)
-  rletHVectorIn od asD f =
+  rletHVectorIn _od asD f = f asD
+{- TODO: Verify if this really helps sharing.
+         BTW, it's broken when simplification in astLetHVectorIn is disabled,
+         probably because asUnshared has variables bound in ll2
+         and so l3 has such variables, but an individual l doesn't provied
+         them all, so some variables are dangling when interpreting terms.
+         We'd need to flatten ll2 and put instead of l.
     let !(!ll2, asUnshared, as') = unADValHVector asD
         !(!l3, as) =
           drecordSharingPrimal od (dmkHVector asUnshared) emptyADShare
-            -- This could be done with recordSharingPrimal, but the code
-            -- would be more complex and more ADShare nodes generated.
-            -- OTOH, f would be free to assume there are no dangling variables.
-        !(D l u u') = f $ aDValHVector ll2 as as'
-    in dDnotShared (mergeADShare l3 l) u u'
+        aDValDynamicTensor3 l a a' =
+          aDValDynamicTensor (mergeADShare l3 l) a a'
+        doms = V.zipWith3 aDValDynamicTensor3 ll2 as as'
+          -- This could be done with recordSharingPrimal,
+          -- but more ADShare nodes would generated.
+    in f doms
+-}
   rfromS = sToR
    where
     sToR :: forall r sh. (GoodScalar r, Sh.Shape sh)
@@ -326,7 +335,8 @@ instance ( Dual shaped ~ DeltaS shaped
     let v = sfromIntegral u
     in dDnotShared l v (dZeroOfShape v)
   sconst t = constantADVal (sconst t)
-  sletHVectorIn od asD f =
+  sletHVectorIn _od asD f = f asD
+{- TODO: See similar code above.
     let !(!ll2, asUnshared, as') = unADValHVector asD
         !(!l3, as) =
           drecordSharingPrimal @(RankedOf shaped) @shaped
@@ -336,6 +346,7 @@ instance ( Dual shaped ~ DeltaS shaped
             -- OTOH, f would be free to assume there are no dangling variables.
         !(D l u u') = f $ aDValHVector ll2 as as'
     in dDnotShared (mergeADShare l3 l) u u'
+-}
   sfromR = rToS
    where
     rToS :: forall r sh. (GoodScalar r, Sh.Shape sh, KnownNat (Sh.Rank sh))
@@ -369,16 +380,18 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
   dshape = voidFromHVector
   dmkHVector = id
   dunHVector _ = id
-  dletHVectorInHVector od asD f =
+  dletHVectorInHVector _od asD f = f asD
+{- TODO: See similar code above.
     let !(!ll2, asUnshared, as') = unADValHVector asD
         !(!l3, as) =
           drecordSharingPrimal od (dmkHVector asUnshared) emptyADShare
         aDValDynamicTensor3 l a a' =
           aDValDynamicTensor (mergeADShare l3 l) a a'
         doms = V.zipWith3 aDValDynamicTensor3 ll2 as as'
-            -- This could be done with recordSharingPrimal,
-            -- but more ADShare nodes would generated.
+          -- This could be done with recordSharingPrimal,
+          -- but more ADShare nodes would generated.
     in f doms
+-}
   rletInHVector (D l u u') f =
     let !(!l2, var2) = recordSharingPrimal u l
     in f (dDnotShared l2 var2 u')
@@ -1226,16 +1239,19 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
           DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
     in V.imap selectDual pShared
 
-dDHVector :: ADShare -> HVector f -> HVector (Dual f)
+dDHVector :: (RankedTensor f, ShapedTensor (ShapedOf f))
+          => ADShare -> HVector f -> HVector (Dual f)
           -> HVector (ADVal f)
 dDHVector l = V.zipWith (aDValDynamicTensor l)
 
-aDValHVector :: Data.Vector.Vector ADShare -> HVector f -> HVector (Dual f)
+aDValHVector :: (RankedTensor f, ShapedTensor (ShapedOf f))
+             => Data.Vector.Vector ADShare -> HVector f -> HVector (Dual f)
              -> HVector (ADVal f)
 aDValHVector = V.zipWith3 aDValDynamicTensor
 
-aDValDynamicTensor :: ADShare -> DynamicTensor f -> DynamicTensor (Dual f)
-                    -> DynamicTensor (ADVal f)
+aDValDynamicTensor :: (RankedTensor f, ShapedTensor (ShapedOf f))
+                   => ADShare -> DynamicTensor f -> DynamicTensor (Dual f)
+                   -> DynamicTensor (ADVal f)
 aDValDynamicTensor l (DynamicRanked @r1 @n1 t) (DynamicRanked @r2 @n2 t')
   | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
   , Just Refl <- sameNat (Proxy @n1) (Proxy @n2) =
@@ -1244,14 +1260,18 @@ aDValDynamicTensor l (DynamicShaped @r1 @sh1 t) (DynamicShaped @r2 @sh2 t')
   | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
   , Just Refl <- sameShape @sh1 @sh2 =
     DynamicShaped (dDnotShared l t t')
-aDValDynamicTensor l (DynamicRankedDummy p1 p2) _ = assert (nullADShare l) $
-    DynamicRankedDummy p1 p2
-aDValDynamicTensor l _ (DynamicRankedDummy p1 p2) = assert (nullADShare l) $
-    DynamicRankedDummy p1 p2
-aDValDynamicTensor l (DynamicShapedDummy p1 p2) _ = assert (nullADShare l) $
-    DynamicShapedDummy p1 p2
-aDValDynamicTensor l _ (DynamicShapedDummy p1 p2) = assert (nullADShare l) $
-    DynamicShapedDummy p1 p2
+aDValDynamicTensor l (DynamicRankedDummy @r1 @sh1 _ _)
+                     (DynamicRanked @r2 @n2 t')
+  | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
+  , Just Refl <- matchingRank @sh1 @n2 =
+    withListShape (Sh.shapeT @sh1) $ \(sh4 :: ShapeInt n4) ->
+      gcastWith (unsafeCoerce Refl :: n4 :~: Sh.Rank sh1) $
+      DynamicRanked (dDnotShared l (rzero sh4) t')
+aDValDynamicTensor l (DynamicShapedDummy @r1 @sh1 _ _)
+                     (DynamicShaped @r2 @sh2 t')
+  | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
+  , Just Refl <- sameShape @sh1 @sh2 =
+    DynamicShaped (dDnotShared l 0 t')
 aDValDynamicTensor _ _ _ = error "aDValDynamicTensor: wrong arguments"
 
 -- Float and '() are placeholders here; they are reduced away.
