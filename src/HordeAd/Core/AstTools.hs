@@ -7,8 +7,8 @@ module HordeAd.Core.AstTools
   ( -- * Shape calculation
     shapeAst, lengthAst, shapeAstHVector
     -- * Variable occurrence detection
-  , varInAst, varInAstBool, varInIndex
-  , varInAstS, varInIndexS, varNameInAst, varNameInAstS
+  , varInAst, varInADShare, varInAstBool, varInIndex
+  , varInAstS, varInIndexS, varNameInAst, varNameInADShare, varNameInAstS
     -- * Determining if a term is too small to require sharing
   , astIsSmall, astIsSmallS
     -- * Odds and ends
@@ -183,10 +183,8 @@ varInAst :: forall s r n. AstSpan s
 varInAst var = \case
   AstVar _ var2 -> fromEnum var == fromEnum var2
   AstLet _var2 u v -> varInAst var u || varInAst var v
-  AstLetADShare l v ->
-    varInADShare varInAstDynamic varInAstHVector var l || varInAst var v
-  AstCond b v w ->
-    varInAstBool var b || varInAst var v || varInAst var w
+  AstLetADShare l v -> varInADShare var l || varInAst var v
+  AstCond b v w -> varInAstBool var b || varInAst var v || varInAst var w
   AstMinIndex a -> varInAst var a
   AstMaxIndex a -> varInAst var a
   AstFloor a -> varInAst var a
@@ -232,6 +230,9 @@ varInAst var = \case
   AstScanZip _f x0 as -> varInAst var x0 || any (varInAstDynamic var) as
   AstScanZipDer _f _df _rf x0 as ->
     varInAst var x0 || any (varInAstDynamic var) as
+
+varInADShare :: AstVarId -> ADShare -> Bool
+varInADShare = varInADShareF varInAstDynamic varInAstHVector
 
 varInAstHVector :: AstSpan s
                 => AstVarId -> AstHVector s -> Bool
@@ -285,10 +286,8 @@ varInAstS :: forall s r sh. AstSpan s
 varInAstS var = \case
   AstVarS var2 -> fromEnum var == fromEnum var2
   AstLetS _var2 u v -> varInAstS var u || varInAstS var v
-  AstLetADShareS l v ->
-    varInADShare varInAstDynamic varInAstHVector var l || varInAstS var v
-  AstCondS b v w ->
-    varInAstBool var b || varInAstS var v || varInAstS var w
+  AstLetADShareS l v -> varInADShare var l || varInAstS var v
+  AstCondS b v w -> varInAstBool var b || varInAstS var v || varInAstS var w
   AstMinIndexS a -> varInAstS var a
   AstMaxIndexS a -> varInAstS var a
   AstFloorS a -> varInAstS var a
@@ -341,6 +340,9 @@ varInIndexS var = any (varInAst var)
 varNameInAst :: AstSpan s2
              => AstVarName f r n -> AstRanked s2 r2 n2 -> Bool
 varNameInAst (AstVarName varId) = varInAst varId
+
+varNameInADShare :: AstVarName f r n -> ADShare -> Bool
+varNameInADShare (AstVarName varId) = varInADShare varId
 
 varNameInAstS :: AstSpan s2
               => AstVarName f r sh -> AstShaped s2 r2 sh2 -> Bool

@@ -18,7 +18,7 @@ module HordeAd.Core.HVector
   , AstVarId, intToAstVarId, AstDynamicVarName(..), dynamicVarNameToAstVarId
   , AstBindingsCase(..), AstBindingsD, ADShareD
   , emptyADShare, insertADShare, mergeADShare, subtractADShare
-  , flattenADShare, assocsADShare, varInADShare, nullADShare
+  , flattenADShare, assocsADShare, varInADShareF, nullADShare
   ) where
 
 import Prelude
@@ -376,15 +376,15 @@ _lengthADShare :: Int -> ADShareD d -> Int
 _lengthADShare acc ADShareNil = acc
 _lengthADShare acc (ADShareCons _ _ _ rest) = _lengthADShare (acc + 1) rest
 
-varInADShare :: (AstVarId -> DynamicTensor d -> Bool)
+varInADShareF :: (AstVarId -> DynamicTensor d -> Bool)
                 -> (AstVarId -> HVectorOf d -> Bool)
                 -> AstVarId -> ADShareD d
                 -> Bool
-{-# INLINE varInADShare #-}
-varInADShare _ _ _ ADShareNil = False
-varInADShare varInAstDynamic varInAstHVector var (ADShareCons _ _ d rest) =
+{-# INLINE varInADShareF #-}
+varInADShareF _ _ _ ADShareNil = False
+varInADShareF varInAstDynamic varInAstHVector var (ADShareCons _ _ d rest) =
   varInAstBindingsCase varInAstDynamic varInAstHVector var d
-  || varInADShare varInAstDynamic varInAstHVector var rest
+  || varInADShareF varInAstDynamic varInAstHVector var rest
     -- TODO: for good Core, probably a local recursive 'go' is needed
 
 varInAstBindingsCase :: (AstVarId -> DynamicTensor d -> Bool)

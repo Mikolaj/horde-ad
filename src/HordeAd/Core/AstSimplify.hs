@@ -1160,7 +1160,10 @@ astLet var u v@(Ast.AstDualPart (Ast.AstVar _ var2)) =  -- a noop
       _ -> error "astLet: rank mismatch"
     _ -> error "astLet: span mismatch"
   else v
-astLet var u (Ast.AstLetADShare l v) =
+astLet var (Ast.AstLetADShare l u) v
+  | Just Refl <- sameAstSpan @s2 @PrimalSpan =
+    Ast.AstLetADShare l $ Ast.AstLet var u v
+astLet var u (Ast.AstLetADShare l v) | not (varNameInADShare var l) =
   Ast.AstLetADShare l $ Ast.AstLet var u v
 astLet var u v = Ast.AstLet var u v
 
@@ -1224,7 +1227,10 @@ astLetS var u v@(Ast.AstDualPartS (Ast.AstVarS var2)) =  -- a noop
       _ -> error "astLetS: shape mismatch"
     _ -> error "astLetS: span mismatch"
   else v
-astLetS var u (Ast.AstLetADShareS l v) =
+astLetS var (Ast.AstLetADShareS l u) v
+  | Just Refl <- sameAstSpan @s2 @PrimalSpan =
+    Ast.AstLetADShareS l $ Ast.AstLetS var u v
+astLetS var u (Ast.AstLetADShareS l v) | not (varNameInADShare var l) =
   Ast.AstLetADShareS l $ Ast.AstLetS var u v
 astLetS var u v = Ast.AstLetS var u v
 
