@@ -127,8 +127,10 @@ testTrees =
   , testCase "4Sin0rmapAccumRD0SC" testSin0rmapAccumRD0SC
 --  , testCase "4Sin0rmapAccumRD0S" testSin0rmapAccumRD0S
   , testCase "4Sin0rmapAccumRD0RC" testSin0rmapAccumRD0RC
---  , testCase "4Sin0rmapAccumRD0R'" testSin0rmapAccumRD0R'
+--  , testCase "4Sin0rmapAccumRD0R'" testSin0rmapAccumRD0R
+  , testCase "4Sin0ScanD01" testSin0ScanD01
   , testCase "4Sin0rmapAccumRD01SC" testSin0rmapAccumRD01SC
+--  , testCase "4Sin0rmapAccumRD01S" testSin0rmapAccumRD01S
   , testCase "4Sin0ScanD1" testSin0ScanD1
   , testCase "4Sin0ScanD2" testSin0ScanD2
   , testCase "4Sin0ScanD3" testSin0ScanD3
@@ -1185,8 +1187,8 @@ testSin0rmapAccumRD0RC = do
                               $ rzero @f @Double (0 :$ ZS))
            in f) 1.1)
 
-_testSin0rmapAccumRD0R' :: Assertion
-_testSin0rmapAccumRD0R' = do
+_testSin0rmapAccumRD0R :: Assertion
+_testSin0rmapAccumRD0R = do
   assertEqualUpToEpsilon' 1e-10
     0
     (rev' (let f :: forall f. ADReady f => f Double 0 -> f Double 0
@@ -1205,12 +1207,24 @@ _testSin0rmapAccumRD0R' = do
                               $ rzero @f @Double (0 :$ ZS))
            in f) 1.1)
 
+testSin0ScanD01 :: Assertion
+testSin0ScanD01 = do
+  assertEqualUpToEpsilon' 1e-10
+    0.4535961214255773
+    (rev' (let f :: forall f. ADReady f => f Double 0 -> f Double 0
+               f x0 = flip rindex0 [1]
+                      $ rscanZip (\x _a -> sin x)
+                             (V.fromList [voidFromSh @Double ZS])
+                             x0 (V.singleton $ DynamicRanked
+                                 $ rzero @f @Double (1 :$ ZS))
+           in f) 1.1)
+
 testSin0rmapAccumRD01SC :: Assertion
 testSin0rmapAccumRD01SC = do
   assertEqualUpToEpsilon 1e-10
     0
     (crev (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
-               f x0 = (sfromD . (V.! 0))
+               f x0 = flip (sindex0 @_ @_ @'[1]) [0] $ (sfromD . (V.! 1))
                       $ dunHVector (V.fromList
                                       [ voidFromShS @Double @'[]
                                       , voidFromShS @Double @'[1] ])
@@ -1228,6 +1242,31 @@ testSin0rmapAccumRD01SC = do
                           (V.fromList [voidFromShS @Double @'[]])
                           x0 (V.singleton $ DynamicShaped @Double @'[1] 0)
            in f) 1.1)
+
+-- TODO: wrong both rev and derivative and they don't agree, too
+_testSin0rmapAccumRD01S :: Assertion
+_testSin0rmapAccumRD01S = do
+  assertEqualUpToEpsilon' 1e-10
+    0
+    (rev' (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
+               f x0 = (sfromD . (V.! 0))
+                      $ dunHVector (V.fromList
+                                      [ voidFromShS @Double @'[]
+                                      , voidFromShS @Double @'[1] ])
+                      $ smapAccumR (Proxy @1)
+                          (V.fromList [voidFromShS @Double @'[]])
+                          (let g :: forall g. ADReadyS g
+                                 => g Double '[] -> HVector (RankedOf g)
+                                 -> HVectorOf (RankedOf g)
+                               g x _a =
+                                 dmkHVector @_ @g
+                                   $ V.fromList
+                                       [ DynamicShaped $ sin x
+                                       , DynamicShaped $ sin x ]
+                           in g)
+                          (V.fromList [voidFromShS @Double @'[]])
+                          x0 (V.singleton $ DynamicShaped @Double @'[1] 0)
+           in rfromS . f . sfromR) 1.1)
 
 testSin0ScanD1 :: Assertion
 testSin0ScanD1 = do

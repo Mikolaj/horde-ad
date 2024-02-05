@@ -6,7 +6,7 @@
 module HordeAd.Core.HVectorOps
   ( raddDynamic, saddDynamic, sumDynamicRanked, sumDynamicShaped, addDynamic
   , rfromD, sfromD, sizeHVector, shapeDynamic
-  , hVectorsMatch, voidHVectorMatches
+  , dynamicsMatch, hVectorsMatch, voidHVectorMatches
   , voidFromDynamic, voidFromHVector, dynamicFromVoid
   , fromHVectorR, fromHVectorS
   , unravelHVector, ravelHVector
@@ -221,29 +221,31 @@ shapeDynamic :: RankedTensor ranked
              => DynamicTensor ranked -> [Int]
 shapeDynamic = shapeDynamicF (shapeToList . rshape)
 
+dynamicsMatch :: forall f g. (RankedTensor f, RankedTensor g)
+              => DynamicTensor f -> DynamicTensor g -> Bool
+dynamicsMatch t u = case (scalarDynamic t, scalarDynamic @g u) of
+  (DynamicScalar @ru _, DynamicScalar @rt _) ->
+    isJust (testEquality (typeRep @rt) (typeRep @ru))
+    && shapeDynamic t == shapeDynamic @g u
+    && isDynamicRanked t == isDynamicRanked @g u
+
 hVectorsMatch :: forall f g. (RankedTensor f, RankedTensor g)
               => HVector f -> HVector g -> Bool
 hVectorsMatch v1 v2 =
-  let dynamicMatch :: DynamicTensor f -> DynamicTensor g -> Bool
-      dynamicMatch t u = case (scalarDynamic t, scalarDynamic @g u) of
-        (DynamicScalar @ru _, DynamicScalar @rt _) ->
-          isJust (testEquality (typeRep @rt) (typeRep @ru))
-          && shapeDynamic t == shapeDynamic @g u
-          && isDynamicRanked t == isDynamicRanked @g u
-  in V.length v1 == V.length v2
-     && and (V.zipWith dynamicMatch v1 v2)
+  V.length v1 == V.length v2
+  && and (V.zipWith dynamicsMatch v1 v2)
 
 voidHVectorMatches :: forall g. RankedTensor g
                    => HVector VoidTensor -> HVector g -> Bool
 voidHVectorMatches v1 v2 =
-  let dynamicMatch :: DynamicTensor VoidTensor -> DynamicTensor g -> Bool
-      dynamicMatch t u = case (scalarDynamic t, scalarDynamic @g u) of
+  let voidDynamicsMatch :: DynamicTensor VoidTensor -> DynamicTensor g -> Bool
+      voidDynamicsMatch t u = case (scalarDynamic t, scalarDynamic @g u) of
         (DynamicScalar @ru _, DynamicScalar @rt _) ->
           isJust (testEquality (typeRep @rt) (typeRep @ru))
           && shapeDynamicVoid t == shapeDynamic @g u
           && isDynamicRanked t == isDynamicRanked @g u
   in V.length v1 == V.length v2
-     && and (V.zipWith dynamicMatch v1 v2)
+     && and (V.zipWith voidDynamicsMatch v1 v2)
 
 -- This is useful for when the normal main parameters to an objective
 -- function are used to generate the parameter template

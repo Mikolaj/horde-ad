@@ -47,6 +47,8 @@ module HordeAd.Core.Delta
     mapHVectorDeltaR11, mapHVectorDeltaS11
   ) where
 
+import Debug.Trace
+
 import Prelude
 
 import           Control.Arrow (second)
@@ -1350,10 +1352,13 @@ evalR !s !c = let (abShared, cShared) = rregister c (astBindings s)
 
   SToR (RToS d) -> evalR s c d  -- no information lost, so no checks
   SToR d -> evalS s (sfromR c) d
-  HToR d i -> evalH s (V.map dynamicFromVoid (shapeDeltaH d)
-                       V.// [(i, DynamicRanked c)]) d
-    -- should be used only with small vectors or we end up with the same
-    -- problem of summing a lot of one-hots as in indexing
+  HToR d i ->
+    let cs = V.map dynamicFromVoid $ shapeDeltaH d
+        ci = DynamicRanked c
+    in assert (dynamicsMatch (cs V.! i) ci) $
+       evalH s (cs V.// [(i, ci)]) d
+      -- should be used only with small vectors or we end up with the same
+      -- problem of summing a lot of one-hots as in indexing
 
 evalSRuntimeSpecialized
   :: forall sh r ranked shaped.
@@ -1664,8 +1669,11 @@ evalS !s !c = let (abShared, cShared) = sregister c (astBindings s)
       Just Refl -> evalS s c d
       _ -> error "evalS: different shapes in RToS(SToR)"
   RToS d -> evalR s (rfromS c) d
-  HToS d i -> evalH s (V.map dynamicFromVoid (shapeDeltaH d)
-                       V.// [(i, DynamicShaped c)]) d
+  HToS d i ->
+    let cs = V.map dynamicFromVoid $ shapeDeltaH d
+        ci = DynamicShaped c
+    in assert (dynamicsMatch (cs V.! i) ci) $
+       evalH s (cs V.// [(i, ci)]) d
 
 evalH
   :: forall ranked shaped. (ADReady ranked, shaped ~ ShapedOf ranked)
@@ -2486,6 +2494,8 @@ fwdH dimR params s = \case
   HToH v -> second dmkHVector $ fwdHVector dimR params s v
   MapAccumRR @r @n domB q as df _rf domsOD x0' as' ->
     let domsLen = V.length domsOD
+        shn = shapeDeltaR x0'
+        domsF = V.concat [domsOD, V.singleton (voidFromSh @r shn), domsOD]
         (s2, cx0) = fwdR dimR params s x0'
         (s3, cas) = fwdHVector dimR params s2 as'
         domsTo3 :: ADReady f
@@ -2498,15 +2508,15 @@ fwdH dimR params s = \case
               (\cx doms ->
                  let (ca, x, a) = domsTo3 doms
                  in df cx ca x a)
-              domsOD
+              domsF
               cx0
               (V.concat [ cas
                         , V.singleton (DynamicRanked q)
                         , as ]))
-  MapAccumRRC @r @n _domB q as df _rf domsOD x0' as' ->
+  MapAccumRRC @r @n domB q as df _rf _domsOD x0' as' ->
     let shn = shapeDeltaR x0'
         odShn = voidFromSh @r shn
-        domsF = V.cons odShn domsOD
+        domsG = V.cons odShn domB
         domsToPair :: ADReady f => HVector f -> (f r n, HVector f)
         domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
         (s2, cx0) = fwdR dimR params s x0'
@@ -2515,11 +2525,12 @@ fwdH dimR params s = \case
         las = unravelHVector as
         lq = runravelToList q
         (r0, rl) = mapAccumR (\cx (ca, x, a) ->
-                                domsToPair $ dunHVector domsF $ df cx ca x a)
+                                domsToPair $ dunHVector domsG $ df cx ca x a)
                              cx0 (zip3 lcas lq las)
-    in (s3, dmkHVector $ ravelHVector $ V.singleton (DynamicRanked r0) : rl)
+    in (s3, dmkHVector $ V.cons (DynamicRanked r0) $ ravelHVector rl)
   MapAccumRS @k @r @sh1 domB q as df _rf domsOD x0' as' ->
     let domsLen = V.length domsOD
+        domsF = V.concat [domsOD, V.singleton (voidFromShS @r @sh1), domsOD]
         (s2, cx0) = fwdS dimR params s x0'
         (s3, cas) = fwdHVector dimR params s2 as'
         domsTo3 :: ADReadyS f
@@ -2534,14 +2545,14 @@ fwdH dimR params s = \case
               (\cx doms ->
                  let (ca, x, a) = domsTo3 doms
                  in df cx ca x a)
-              domsOD
+              domsF
               cx0
               (V.concat [ cas
                         , V.singleton (DynamicShaped q)
                         , as ]))
-  MapAccumRSC @k @r @sh1 _domB q as df _rf domsOD x0' as' ->
+  MapAccumRSC @k @r @sh1 domB q as df _rf _domsOD x0' as' ->
     let odShn = voidFromShS @r @sh1
-        domsF = V.cons odShn domsOD
+        domsG = V.cons odShn domB
         domsToPair :: ADReadyS f
                    => HVector (RankedOf f) -> (f r sh1, HVector (RankedOf f))
         domsToPair doms = (sfromD $ doms V.! 0, V.tail doms)
@@ -2551,9 +2562,9 @@ fwdH dimR params s = \case
         las = unravelHVector as
         lq = sunravelToList q
         (r0, rl) = mapAccumR (\cx (ca, x, a) ->
-                                domsToPair $ dunHVector domsF $ df cx ca x a)
+                                domsToPair $ dunHVector domsG $ df cx ca x a)
                              cx0 (zip3 lcas lq las)
-    in (s3, dmkHVector $ ravelHVector $ V.singleton (DynamicShaped r0) : rl)
+    in (s3, dmkHVector $ V.cons (DynamicShaped r0) $ ravelHVector rl)
 
 
 -- * Manually fixed Show instances
