@@ -1078,7 +1078,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
             p = rmapAccumR domB f domsOD x0 as
             (l4, pShared) = drecordSharingPrimal @ranked domsF p l3
             q = rfromD $ pShared V.! 0
-            dual = wrapDeltaH $ MapAccumRRC domsOD q as domB df rf x0' as'
+            dual = wrapDeltaH $ MapAccumRRC domB q as df rf domsOD x0' as'
             selectDual i d = case d of
               DynamicRanked t -> DynamicRanked $ dDnotShared l4 t (HToR dual i)
               DynamicShaped t -> DynamicShaped $ dDnotShared l4 t (HToS dual i)
@@ -1132,7 +1132,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
             p = rmapAccumRDer domB f df rf domsOD x0 as
             (l4, pShared) = drecordSharingPrimal @ranked domsF p l3
             q = rfromD $ pShared V.! 0
-            dual = wrapDeltaH $ MapAccumRR domsOD q as domB df rf x0' as'
+            dual = wrapDeltaH $ MapAccumRR domB q as df rf domsOD x0' as'
             selectDual i d = case d of
               DynamicRanked t -> DynamicRanked $ dDnotShared l4 t (HToR dual i)
               DynamicShaped t -> DynamicShaped $ dDnotShared l4 t (HToS dual i)
@@ -1187,7 +1187,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         p = smapAccumR proxy_k domB f domsOD x0 as
         (l4, pShared) = drecordSharingPrimal @ranked domsF p l3
         q = sfromD $ pShared V.! 0
-        dual = wrapDeltaH $ MapAccumRSC @k domsOD q as domB df rf x0' as'
+        dual = wrapDeltaH $ MapAccumRSC @k domB q as df rf domsOD x0' as'
         selectDual i d = case d of
           DynamicRanked t -> DynamicRanked $ dDnotShared l4 t (HToR dual i)
           DynamicShaped t -> DynamicShaped $ dDnotShared l4 t (HToS dual i)
@@ -1231,7 +1231,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         p = smapAccumRDer proxy_k domB f df rf domsOD x0 as
         (l4, pShared) = drecordSharingPrimal @ranked domsF p l3
         q = sfromD $ pShared V.! 0
-        dual = wrapDeltaH $ MapAccumRS @k domsOD q as domB df rf x0' as'
+        dual = wrapDeltaH $ MapAccumRS @k domB q as df rf domsOD x0' as'
         selectDual i d = case d of
           DynamicRanked t -> DynamicRanked $ dDnotShared l4 t (HToR dual i)
           DynamicShaped t -> DynamicShaped $ dDnotShared l4 t (HToS dual i)

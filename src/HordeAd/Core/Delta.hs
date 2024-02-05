@@ -504,19 +504,19 @@ data DeltaH :: RankedTensorType -> Type where
     => VoidHVector
     -> ranked rn (1 + n)
     -> HVector ranked
+    -> (forall f. ADReady f
+        => f rn n
+        -> HVector f
+        -> f rn n
+        -> HVector f
+        -> HVectorOf f)
+    -> (forall f. ADReady f
+        => f rn n
+        -> HVector f
+        -> f rn n
+        -> HVector f
+        -> HVectorOf f)
     -> VoidHVector
-    -> (forall f. ADReady f
-        => f rn n
-        -> HVector f
-        -> f rn n
-        -> HVector f
-        -> HVectorOf f)
-    -> (forall f. ADReady f
-        => f rn n
-        -> HVector f
-        -> f rn n
-        -> HVector f
-        -> HVectorOf f)
     -> DeltaR ranked rn n
     -> HVector (DeltaR ranked)
     -> DeltaH ranked
@@ -525,11 +525,11 @@ data DeltaH :: RankedTensorType -> Type where
     => VoidHVector
     -> ranked rn (1 + n)
     -> HVector ranked
+    -> (ranked rn n -> HVector ranked -> ranked rn n -> HVector ranked
+        -> HVectorOf ranked)
+    -> (ranked rn n -> HVector ranked -> ranked rn n -> HVector ranked
+        -> HVectorOf ranked)
     -> VoidHVector
-    -> (ranked rn n -> HVector ranked -> ranked rn n -> HVector ranked
-        -> HVectorOf ranked)
-    -> (ranked rn n -> HVector ranked -> ranked rn n -> HVector ranked
-        -> HVectorOf ranked)
     -> DeltaR ranked rn n
     -> HVector (DeltaR ranked)
     -> DeltaH ranked
@@ -538,19 +538,19 @@ data DeltaH :: RankedTensorType -> Type where
     => VoidHVector
     -> ShapedOf ranked rn (k ': sh)
     -> HVector ranked
+    -> (forall f. ADReadyS f
+        => f rn sh
+        -> HVector (RankedOf f)
+        -> f rn sh
+        -> HVector (RankedOf f)
+        -> HVectorOf (RankedOf f))
+    -> (forall f. ADReadyS f
+        => f rn sh
+        -> HVector (RankedOf f)
+        -> f rn sh
+        -> HVector (RankedOf f)
+        -> HVectorOf (RankedOf f))
     -> VoidHVector
-    -> (forall f. ADReadyS f
-        => f rn sh
-        -> HVector (RankedOf f)
-        -> f rn sh
-        -> HVector (RankedOf f)
-        -> HVectorOf (RankedOf f))
-    -> (forall f. ADReadyS f
-        => f rn sh
-        -> HVector (RankedOf f)
-        -> f rn sh
-        -> HVector (RankedOf f)
-        -> HVectorOf (RankedOf f))
     -> DeltaS (ShapedOf ranked) rn sh
     -> HVector (DeltaR ranked)
     -> DeltaH ranked
@@ -559,13 +559,13 @@ data DeltaH :: RankedTensorType -> Type where
     => VoidHVector
     -> (ShapedOf ranked) rn (k ': sh)
     -> HVector ranked
+    -> (ShapedOf ranked rn sh -> HVector ranked
+        -> ShapedOf ranked rn sh -> HVector ranked
+        -> HVectorOf ranked)
+    -> (ShapedOf ranked rn sh -> HVector ranked
+        -> ShapedOf ranked rn sh -> HVector ranked
+        -> HVectorOf ranked)
     -> VoidHVector
-    -> (ShapedOf ranked rn sh -> HVector ranked
-        -> ShapedOf ranked rn sh -> HVector ranked
-        -> HVectorOf ranked)
-    -> (ShapedOf ranked rn sh -> HVector ranked
-        -> ShapedOf ranked rn sh -> HVector ranked
-        -> HVectorOf ranked)
     -> DeltaS (ShapedOf ranked) rn sh
     -> HVector (DeltaR ranked)
     -> DeltaH ranked
@@ -650,7 +650,7 @@ shapeDeltaH = \case
   LetH _ d -> shapeDeltaH d
   HToH v ->
     V.map (\d -> voidFromDynamicF (shapeToList . shapeDeltaR) d) v
-  MapAccumRR @rn _domsOD _q as domB _df _rf x0' _as' ->
+  MapAccumRR @rn domB _q as _df _rf _domsOD x0' _as' ->
     let width = case V.unsnoc as of
           Nothing -> error "shapeDeltaH: can't determine argument width"
           Just (_, d) -> case shapeDynamic d of
@@ -661,7 +661,7 @@ shapeDeltaH = \case
       Just (SomeNat @k _) ->
         V.cons (voidFromSh @rn shn) (replicate1VoidHVector (Proxy @k) domB)
       _ -> error "shapeDeltaH: impossible someNatVal"
-  MapAccumRRC @rn _domsOD _q as domB _df _rf x0' _as' ->
+  MapAccumRRC @rn domB _q as _df _rf _domsOD x0' _as' ->
     let width = case V.unsnoc as of
           Nothing -> error "shapeDeltaH: can't determine argument width"
           Just (_, d) -> case shapeDynamic d of
@@ -672,9 +672,9 @@ shapeDeltaH = \case
       Just (SomeNat @k _) ->
         V.cons (voidFromSh @rn shn) (replicate1VoidHVector (Proxy @k) domB)
       _ -> error "shapeDeltaH: impossible someNatVal"
-  MapAccumRS @k @rn @sh _domsOD _q _as domB _df _rf _x0' _as' ->
+  MapAccumRS @k @rn @sh domB _q _as _df _rf _domsOD _x0' _as' ->
     V.cons (voidFromShS @rn @sh) (replicate1VoidHVector (Proxy @k) domB)
-  MapAccumRSC @k @rn @sh _domsOD _q _as domB _df _rf _x0' _as' ->
+  MapAccumRSC @k @rn @sh domB _q _as _df _rf _domsOD _x0' _as' ->
     V.cons (voidFromShS @rn @sh) (replicate1VoidHVector (Proxy @k) domB)
 
 -- * Delta expression identifiers
@@ -1686,7 +1686,7 @@ evalH !s !c = let (abShared, cShared) =
           s { hnMap = EM.insert n d $ hnMap s
             , hdMap = EM.insert n c $ hdMap s }
   HToH v -> evalHVector s c v
-  MapAccumRR @r @n domsOD q as _domB _df rf x0' as' ->
+  MapAccumRR @r @n _domB q as _df rf domsOD x0' as' ->
     -- TODO: this is probably close to mapAccumL. Test that it works fine
     -- on symmetric functions and that it gives different results
     -- than an unrolling on assymetric and then fix accordingly.
@@ -1753,7 +1753,7 @@ evalH !s !c = let (abShared, cShared) =
         s3 = s2 {astBindings = abShared3}
         s4 = evalR s3 (crs ! (0 :. ZI)) x0'
     in evalHVector s4 cas as'
-  MapAccumRRC @r @n domsOD q as _domB _df rf x0' as' ->
+  MapAccumRRC @r @n _domB q as _df rf domsOD x0' as' ->
     -- No sharing attempted, because this constructor is usually used
     -- for non-symbolic derivatives.
     -- TODO: this is probably close to mapAccumL. Test that it works fine
@@ -1782,7 +1782,7 @@ evalH !s !c = let (abShared, cShared) =
                               (unravelHVector as))
         s2 = evalR sShared cx0 x0'
     in evalHVector s2 (ravelHVector cas) as'
-  MapAccumRS @k @r @sh1 domsOD q as _domB _df rf x0' as' ->
+  MapAccumRS @k @r @sh1 _domB q as _df rf domsOD x0' as' ->
     -- TODO: this is probably close to mapAccumL. Test that it works fine
     -- on symmetric functions and that it gives different results
     -- than an unrolling on assymetric and then fix accordingly.
@@ -1847,7 +1847,7 @@ evalH !s !c = let (abShared, cShared) =
         s3 = s2 {astBindings = abShared3}
         s4 = evalS s3 (crs !$ (0 :$: ZSH)) x0'
     in evalHVector s4 cas as'
-  MapAccumRSC @k @r @sh1 domsOD q as _domB _df rf x0' as' ->
+  MapAccumRSC @k @r @sh1 _domB q as _df rf domsOD x0' as' ->
     -- No sharing attempted, because this constructor is usually used
     -- for non-symbolic derivatives.
     -- TODO: this is probably close to mapAccumL. Test that it works fine
@@ -2484,7 +2484,7 @@ fwdH dimR params s = \case
                     , hdMap = EM.insert n cShared (hdMap s3) }
         in (s4, dmkHVector cShared)
   HToH v -> second dmkHVector $ fwdHVector dimR params s v
-  MapAccumRR @r @n domsOD q as domB df _rf x0' as' ->
+  MapAccumRR @r @n domB q as df _rf domsOD x0' as' ->
     let domsLen = V.length domsOD
         (s2, cx0) = fwdR dimR params s x0'
         (s3, cas) = fwdHVector dimR params s2 as'
@@ -2494,16 +2494,16 @@ fwdH dimR params s = \case
                        , rfromD $ doms V.! domsLen
                        , V.drop (domsLen + 1) doms )
     in (s3, rmapAccumR
-              domsOD
+              domB
               (\cx doms ->
                  let (ca, x, a) = domsTo3 doms
                  in df cx ca x a)
-              domB
+              domsOD
               cx0
               (V.concat [ cas
                         , V.singleton (DynamicRanked q)
                         , as ]))
-  MapAccumRRC @r @n domsOD q as _domB df _rf x0' as' ->
+  MapAccumRRC @r @n _domB q as df _rf domsOD x0' as' ->
     let shn = shapeDeltaR x0'
         odShn = voidFromSh @r shn
         domsF = V.cons odShn domsOD
@@ -2518,7 +2518,7 @@ fwdH dimR params s = \case
                                 domsToPair $ dunHVector domsF $ df cx ca x a)
                              cx0 (zip3 lcas lq las)
     in (s3, dmkHVector $ ravelHVector $ V.singleton (DynamicRanked r0) : rl)
-  MapAccumRS @k @r @sh1 domsOD q as domB df _rf x0' as' ->
+  MapAccumRS @k @r @sh1 domB q as df _rf domsOD x0' as' ->
     let domsLen = V.length domsOD
         (s2, cx0) = fwdS dimR params s x0'
         (s3, cas) = fwdHVector dimR params s2 as'
@@ -2530,16 +2530,16 @@ fwdH dimR params s = \case
                        , V.drop (domsLen + 1) doms )
     in (s3, smapAccumR
               (Proxy @k)
-              domsOD
+              domB
               (\cx doms ->
                  let (ca, x, a) = domsTo3 doms
                  in df cx ca x a)
-              domB
+              domsOD
               cx0
               (V.concat [ cas
                         , V.singleton (DynamicShaped q)
                         , as ]))
-  MapAccumRSC @k @r @sh1 domsOD q as _domB df _rf x0' as' ->
+  MapAccumRSC @k @r @sh1 _domB q as df _rf domsOD x0' as' ->
     let odShn = voidFromShS @r @sh1
         domsF = V.cons odShn domsOD
         domsToPair :: ADReadyS f
@@ -3343,8 +3343,8 @@ instance (Show
            (showString "HToH ") (showsPrec 11 b1_a2Gcc))
   showsPrec
     a_a2Gcd
-    (HordeAd.Core.Delta.MapAccumRR b1_a2Gce b2_a2Gcf b3_a2Gcg b4_a2Gch
-                                   _b5_a2Gci _b6_a2Gcj b7_a2Gck b8_a2Gcl)
+    (HordeAd.Core.Delta.MapAccumRR b1_a2Gce b2_a2Gcf b3_a2Gcg _b4_a2Gch
+                                   _b5_a2Gci b6_a2Gcj b7_a2Gck b8_a2Gcl)
     = showParen
         (a_a2Gcd >= 11)
         ((.)
@@ -3362,7 +3362,7 @@ instance (Show
                           ((.)
                              showSpace
                              ((.)
-                                (showsPrec 11 b4_a2Gch)
+                                (showString "<forall function>")
                                 ((.)
                                    showSpace
                                    ((.)
@@ -3370,7 +3370,7 @@ instance (Show
                                       ((.)
                                          showSpace
                                          ((.)
-                                            (showString "<forall function>")
+                                            (showsPrec 11 b6_a2Gcj)
                                             ((.)
                                                showSpace
                                                ((.)
@@ -3419,8 +3419,8 @@ instance (Show
                                                         11 b8_a2Gcu))))))))))))))))
   showsPrec
     a_a2Gcv
-    (HordeAd.Core.Delta.MapAccumRS b1_a2Gcw b2_a2Gcx b3_a2Gcy b4_a2Gcz
-                                   _b5_a2GcA _b6_a2GcB b7_a2GcC b8_a2GcD)
+    (HordeAd.Core.Delta.MapAccumRS b1_a2Gcw b2_a2Gcx b3_a2Gcy _b4_a2Gcz
+                                   _b5_a2GcA b6_a2GcB b7_a2GcC b8_a2GcD)
     = showParen
         (a_a2Gcv >= 11)
         ((.)
@@ -3438,7 +3438,7 @@ instance (Show
                           ((.)
                              showSpace
                              ((.)
-                                (showsPrec 11 b4_a2Gcz)
+                                (showString "<forall function>")
                                 ((.)
                                    showSpace
                                    ((.)
@@ -3446,7 +3446,7 @@ instance (Show
                                       ((.)
                                          showSpace
                                          ((.)
-                                            (showString "<forall function>")
+                                            (showsPrec 11 b6_a2GcB)
                                             ((.)
                                                showSpace
                                                ((.)
