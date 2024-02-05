@@ -132,7 +132,7 @@ extendEnvPars :: forall ranked. ADReady ranked
               => [AstDynamicVarName] -> HVector ranked
               -> AstEnv ranked
               -> AstEnv ranked
-extendEnvPars vars !pars !env =
+extendEnvPars vars !pars !env = assert (length vars == V.length pars) $
   let assocs = zip vars (V.toList pars)
   in foldr extendEnvD env assocs
 

@@ -156,7 +156,8 @@ rfromD (DynamicRanked @r2 @n2 t) = case sameNat (Proxy @n2) (Proxy @n) of
   Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
     Just Refl -> t
     _ -> error "rfromD: scalar mismatch"
-  _ -> error "rfromD: rank mismatch"
+  _ -> error $ "rfromD: rank mismatch "
+               ++ show (valueOf @n2 :: Int, valueOf @n :: Int)
 rfromD (DynamicShaped @r2 @sh2 t) =
   withListShape (Sh.shapeT @sh2) $ \(_ :: ShapeInt n2) ->
     case sameNat (Proxy @n2) (Proxy @n) of

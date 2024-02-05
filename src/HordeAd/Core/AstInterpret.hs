@@ -591,8 +591,9 @@ interpretAstHVector !env = \case
     let t0 = voidFromVars vars
         t = interpretAstHVector env u
         env2 w = extendEnvPars vars w env
-    in dletHVectorInHVector t0 t (\w -> assert (voidHVectorMatches t0 w) $
-                                        interpretAstHVector (env2 w) v)
+    in dletHVectorInHVector
+         t0 t (\w -> assert (voidHVectorMatches t0 w `blame` (t0, w)) $
+                     interpretAstHVector (env2 w) v)
   AstLetInHVector var u v ->
     -- We assume there are no nested lets with the same variable.
     let t = interpretAstRuntimeSpecialized env u

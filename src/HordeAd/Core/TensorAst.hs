@@ -712,19 +712,22 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   dletHVectorInHVector = astLetHVectorInHVectorFun
   rletInHVector = astLetInHVectorFun
   sletInHVector = astLetInHVectorFunS
-  drecordSharingPrimal domsOD r l | Just Refl <- sameAstSpan @s @PrimalSpan =
+  -- These and many similar bangs are necessary to ensure variable IDs
+  -- are generated in the expected order, resulting in nesting of lets
+  -- occuring in the correct order and so no scoping errors.
+  drecordSharingPrimal !domsOD !r !l | Just Refl <- sameAstSpan @s @PrimalSpan =
     fun1DToAst domsOD $ \ !vars !asts -> case vars of
       [] -> error "drecordSharingPrimal: empty hVector"
-      var : _ ->  -- vars are fresh, so var uniquely represent vars
+      !var : _ ->  -- vars are fresh, so var uniquely represent vars
         ( insertADShare (dynamicVarNameToAstVarId var)
                         (AstBindingsHVector vars r)
                         l
         , asts )
   drecordSharingPrimal _ _ _ = error "drecordSharingPrimal: wrong span"
-  dregister domsOD r l =
+  dregister !domsOD !r !l =
     fun1DToAst domsOD $ \ !vars !asts -> case vars of
       [] -> error "dregister: empty hVector"
-      var : _ ->  -- vars are fresh, so var uniquely represent vars
+      !var : _ ->  -- vars are fresh, so var uniquely represent vars
         ((dynamicVarNameToAstVarId var, AstBindingsHVector vars r) : l, asts)
   dbuild1 = astBuildHVector1Vectorize
   dzipWith1 f u = case V.unsnoc u of

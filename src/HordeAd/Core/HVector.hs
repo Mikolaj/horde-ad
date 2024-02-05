@@ -273,10 +273,6 @@ unsafeGetFreshId = atomicAddCounter_ unsafeGlobalCounter 1
 -- in the presence of impurity for generating fresh variables.
 -- The first integer field permits something akin to pointer equality
 -- but with less false negatives, because it's stable.
---
--- The r variable is existential, but operations that depends on it instance
--- are rarely called and relatively cheap, so no picking specializations
--- at runtime is needed.
 type role ADShareD nominal
 type ADShareD :: RankedTensorType -> Type
 data ADShareD ranked =
