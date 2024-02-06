@@ -1692,7 +1692,7 @@ evalH !s !c = let (abShared, cShared) =
           s { hnMap = EM.insert n d $ hnMap s
             , hdMap = EM.insert n c $ hdMap s }
   HToH v -> evalHVector s c v
-  MapAccumRR @r @n _domB q as _df rf domsOD x0' as' ->
+  MapAccumRR @r @n domB q as _df rf domsOD x0' as' ->
     -- TODO: this is probably close to mapAccumL. Test that it works fine
     -- on symmetric functions and that it gives different results
     -- than an unrolling on assymetric and then fix accordingly.
@@ -1702,23 +1702,22 @@ evalH !s !c = let (abShared, cShared) =
             [] -> error "evalH: wrong rank of argument"
             width2 : _shm -> width2
         !_A1 = assert (rlength q == width) ()
-        domsLen = V.length domsOD
         shn = shapeDeltaR x0'
         odShn = voidFromSh @r shn
         domsF = V.cons odShn domsOD
         domsToPair :: ADReady f => HVector f -> (f r n, HVector f)
         domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
-        domsF3 = V.cons (voidFromSh @r shn)
-                 $ V.cons (voidFromSh @r shn) domsOD
+        bLen = V.length domB
+        domsF3 = domB V.++ V.cons (voidFromSh @r shn) domsOD
         domsTo3 :: ADReady f => HVector f -> (HVector f, f r n, HVector f)
-        domsTo3 doms = ( V.take domsLen doms
-                       , rfromD $ doms V.! domsLen
-                       , V.drop (domsLen + 1) doms)
+        domsTo3 doms = ( V.take bLen doms
+                       , rfromD $ doms V.! bLen
+                       , V.drop (bLen + 1) doms)
         domsTo4
           :: ADReady f => HVector f -> (f r n, HVector f, f r n, HVector f)
         domsTo4 doms =
-          ( rfromD $ doms V.! 0, V.slice 1 domsLen doms
-          , rfromD $ doms V.! (domsLen + 1), V.drop (domsLen + 2) doms )
+          ( rfromD $ doms V.! 0, V.slice 1 bLen doms
+          , rfromD $ doms V.! (bLen + 1), V.drop (bLen + 2) doms )
         (c0, crest) = domsToPair cShared
         lc = mapHVectorRanked11 rreverse crest
         lq = rreverse q
@@ -1788,31 +1787,30 @@ evalH !s !c = let (abShared, cShared) =
                               (unravelHVector as))
         s2 = evalR sShared cx0 x0'
     in evalHVector s2 (ravelHVector cas) as'
-  MapAccumRS @k @r @sh1 _domB q as _df rf domsOD x0' as' ->
+  MapAccumRS @k @r @sh1 domB q as _df rf domsOD x0' as' ->
     -- TODO: this is probably close to mapAccumL. Test that it works fine
     -- on symmetric functions and that it gives different results
     -- than an unrolling on assymetric and then fix accordingly.
-    let domsLen = V.length domsOD
-        odShn = voidFromShS @r @sh1
+    let odShn = voidFromShS @r @sh1
         domsF = V.cons odShn domsOD
         domsToPair :: ADReadyS f
                    => HVector (RankedOf f) -> (f r sh1, HVector (RankedOf f))
         domsToPair doms = (sfromD $ doms V.! 0, V.tail doms)
-        domsF3 = V.cons (voidFromShS @r @sh1)
-                 $ V.cons (voidFromShS @r @sh1) domsOD
+        bLen = V.length domB
+        domsF3 = domB V.++ V.cons (voidFromShS @r @sh1) domsOD
         domsTo3 :: ADReadyS f
                 => HVector (RankedOf f)
                 -> (HVector (RankedOf f), f r sh1, HVector (RankedOf f))
-        domsTo3 doms = ( V.take domsLen doms
-                       , sfromD $ doms V.! domsLen
-                       , V.drop (domsLen + 1) doms)
+        domsTo3 doms = ( V.take bLen doms
+                       , sfromD $ doms V.! bLen
+                       , V.drop (bLen + 1) doms)
         domsTo4
           :: ADReadyS f
           => HVector (RankedOf f)
           -> (f r sh1, HVector (RankedOf f), f r sh1, HVector (RankedOf f))
         domsTo4 doms =
-          ( sfromD $ doms V.! 0, V.slice 1 domsLen doms
-          , sfromD $ doms V.! (domsLen + 1), V.drop (domsLen + 2) doms )
+          ( sfromD $ doms V.! 0, V.slice 1 bLen doms
+          , sfromD $ doms V.! (bLen + 1), V.drop (bLen + 2) doms )
         (c0, crest) = domsToPair cShared
         lc = mapHVectorShaped11 @k sreverse crest
         lq = sreverse q

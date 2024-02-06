@@ -131,6 +131,8 @@ testTrees =
   , testCase "4Sin0ScanD01" testSin0ScanD01
   , testCase "4Sin0rmapAccumRD01SC" testSin0rmapAccumRD01SC
   , testCase "4Sin0rmapAccumRD01SN" testSin0rmapAccumRD01SN
+  , testCase "4Sin0rmapAccumRD01SN2" testSin0rmapAccumRD01SN2
+  , testCase "4Sin0rmapAccumRD01SN3" testSin0rmapAccumRD01SN3
   , testCase "4Sin0ScanD1" testSin0ScanD1
   , testCase "4Sin0ScanD2" testSin0ScanD2
   , testCase "4Sin0ScanD3" testSin0ScanD3
@@ -1265,6 +1267,55 @@ testSin0rmapAccumRD01SN = do
                            in g)
                           (V.fromList [voidFromShS @Double @'[]])
                           x0 (V.singleton $ DynamicShaped @Double @'[1] 0)
+           in rfromS . f . sfromR) 1.1)
+
+testSin0rmapAccumRD01SN2 :: Assertion
+testSin0rmapAccumRD01SN2 = do
+  assertEqualUpToEpsilon' 1e-10
+    0.4535961214255773
+    (rev' (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[1]
+               f x0 = (sfromD . (V.! 1))
+                      $ dunHVector (V.fromList
+                                      [ voidFromShS @Double @'[]
+                                      , voidFromShS @Double @'[1] ])
+                      $ smapAccumR (Proxy @1)
+                          (V.fromList [voidFromShS @Double @'[]])
+                          (let g :: forall g. ADReadyS g
+                                 => g Double '[] -> HVector (RankedOf g)
+                                 -> HVectorOf (RankedOf g)
+                               g x _a =
+                                 dmkHVector @_ @g
+                                   $ V.fromList
+                                       [ DynamicShaped $ sin x
+                                       , DynamicShaped $ sin x ]
+                           in g)
+                          (V.fromList [voidFromShS @Double @'[]])
+                          x0 (V.singleton $ DynamicShaped @Double @'[1] 0)
+           in rfromS . f . sfromR) 1.1)
+
+testSin0rmapAccumRD01SN3 :: Assertion
+testSin0rmapAccumRD01SN3 = do
+  assertEqualUpToEpsilon' 1e-10
+    0.4535961214255773
+    (rev' (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[1, 3]
+               f x0 = (sfromD . (V.! 1))
+                      $ dunHVector (V.fromList
+                                      [ voidFromShS @Double @'[]
+                                      , voidFromShS @Double @'[1, 3] ])
+                      $ smapAccumR (Proxy @1)
+                          (V.fromList [voidFromShS @Double @'[3]])
+                          (let g :: forall g. ADReadyS g
+                                 => g Double '[] -> HVector (RankedOf g)
+                                 -> HVectorOf (RankedOf g)
+                               g x _a =
+                                 dmkHVector @_ @g
+                                   $ V.fromList
+                                       [ DynamicShaped $ sin x
+                                       , DynamicShaped
+                                         $ sreplicate @_ @3 (sin x / 3) ]
+                           in g)
+                          (V.fromList [voidFromShS @Double @'[2]])
+                          x0 (V.singleton $ DynamicShaped @Double @'[1, 2] 0)
            in rfromS . f . sfromR) 1.1)
 
 testSin0ScanD1 :: Assertion
