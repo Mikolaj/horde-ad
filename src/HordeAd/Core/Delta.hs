@@ -1693,9 +1693,6 @@ evalH !s !c = let (abShared, cShared) =
             , hdMap = EM.insert n c $ hdMap s }
   HToH v -> evalHVector s c v
   MapAccumRR @r @n domB q as _df rf domsOD x0' as' ->
-    -- TODO: this is probably close to mapAccumL. Test that it works fine
-    -- on symmetric functions and that it gives different results
-    -- than an unrolling on assymetric and then fix accordingly.
     let width = case V.unsnoc as of
           Nothing -> error "evalH: can't determine argument width"
           Just (_, d) -> case shapeDynamic d of
@@ -1719,10 +1716,10 @@ evalH !s !c = let (abShared, cShared) =
           ( rfromD $ doms V.! 0, V.slice 1 bLen doms
           , rfromD $ doms V.! (bLen + 1), V.drop (bLen + 2) doms )
         (c0, crest) = domsToPair cShared
-        lc = mapHVectorRanked11 rreverse crest
-        lq = rreverse q
+        lc = crest
+        lq = q
         las :: HVector ranked
-        las = mapHVectorRanked11 rreverse as
+        las = as
         crsr :: ranked r (1 + n)
         crsr =
           rscanZip (\cr doms ->
@@ -1733,7 +1730,7 @@ evalH !s !c = let (abShared, cShared) =
                    domsF3
                    c0
                    (lc V.++ V.cons (DynamicRanked lq) las)
-        crsUnshared = rreverse crsr
+        crsUnshared = crsr
         (abShared2, crs) = rregister crsUnshared (astBindings sShared)
         s2 = sShared {astBindings = abShared2}
         rg :: ranked r (1 + n) -> HVector ranked
@@ -1748,7 +1745,7 @@ evalH !s !c = let (abShared, cShared) =
                     (V.cons (DynamicRanked cr2) cx2
                      V.++ V.cons (DynamicRanked x2) a2)
         casUnshared =
-          rg (rslice 1 width crs)
+          rg (rslice 0 width crs)
              crest
              q
              as
@@ -1756,14 +1753,11 @@ evalH !s !c = let (abShared, cShared) =
         (abShared3, cas) =
           dregister domsG casUnshared (astBindings s2)
         s3 = s2 {astBindings = abShared3}
-        s4 = evalR s3 (crs ! (0 :. ZI)) x0'
+        s4 = evalR s3 (crs ! (fromIntegral width :. ZI)) x0'
     in evalHVector s4 cas as'
   MapAccumRRC @r @n _domB q as _df rf domsOD x0' as' ->
     -- No sharing attempted, because this constructor is usually used
     -- for non-symbolic derivatives.
-    -- TODO: this is probably close to mapAccumL. Test that it works fine
-    -- on symmetric functions and that it gives different results
-    -- than an unrolling on assymetric and then fix accordingly.
     let width = case V.unsnoc as of
           Nothing -> error "evalH: can't determine argument width"
           Just (_, d) -> case shapeDynamic d of
@@ -1779,7 +1773,7 @@ evalH !s !c = let (abShared, cShared) =
         rg :: ranked r n
            -> [(HVector ranked, ranked r n, HVector ranked)]
            -> (ranked r n, [HVector ranked])
-        rg = mapAccumR (\cr (cx, x, a) ->
+        rg = mapAccumL (\cr (cx, x, a) ->
                           domsToPair $ dunHVector domsF $ rf cr cx x a)
         (cx0, cas) = rg c0
                         (zip3 (unravelHVector crest)
@@ -1788,9 +1782,6 @@ evalH !s !c = let (abShared, cShared) =
         s2 = evalR sShared cx0 x0'
     in evalHVector s2 (ravelHVector cas) as'
   MapAccumRS @k @r @sh1 domB q as _df rf domsOD x0' as' ->
-    -- TODO: this is probably close to mapAccumL. Test that it works fine
-    -- on symmetric functions and that it gives different results
-    -- than an unrolling on assymetric and then fix accordingly.
     let odShn = voidFromShS @r @sh1
         domsF = V.cons odShn domsOD
         domsToPair :: ADReadyS f
@@ -1812,10 +1803,10 @@ evalH !s !c = let (abShared, cShared) =
           ( sfromD $ doms V.! 0, V.slice 1 bLen doms
           , sfromD $ doms V.! (bLen + 1), V.drop (bLen + 2) doms )
         (c0, crest) = domsToPair cShared
-        lc = mapHVectorShaped11 @k sreverse crest
-        lq = sreverse q
+        lc = crest
+        lq = q
         las :: HVector ranked
-        las = mapHVectorShaped11 @k sreverse as
+        las = as
         crsr :: shaped r (1 + k ': sh1)
         crsr =
           sscanZip (\cr doms ->
@@ -1826,7 +1817,7 @@ evalH !s !c = let (abShared, cShared) =
                    domsF3
                    c0
                    (lc V.++ V.cons (DynamicShaped lq) las)
-        crsUnshared = sreverse crsr
+        crsUnshared = crsr
         (abShared2, crs) = sregister crsUnshared (astBindings sShared)
         s2 = sShared {astBindings = abShared2}
         rg :: shaped r (k ': sh1) -> HVector ranked
@@ -1841,7 +1832,7 @@ evalH !s !c = let (abShared, cShared) =
                     (V.cons (DynamicShaped cr2) cx2
                      V.++ V.cons (DynamicShaped x2) a2)
         casUnshared =
-          rg (sslice @_ @_ @_ @_ @0 (Proxy @1) (Proxy @k) crs)
+          rg (sslice @_ @_ @_ @_ @1 (Proxy @0) (Proxy @k) crs)
              crest
              q
              as
@@ -1849,14 +1840,11 @@ evalH !s !c = let (abShared, cShared) =
         (abShared3, cas) =
           dregister domsG casUnshared (astBindings s2)
         s3 = s2 {astBindings = abShared3}
-        s4 = evalS s3 (crs !$ (0 :$: ZSH)) x0'
+        s4 = evalS s3 (crs !$ (valueOf @k :$: ZSH)) x0'
     in evalHVector s4 cas as'
   MapAccumRSC @k @r @sh1 _domB q as _df rf domsOD x0' as' ->
     -- No sharing attempted, because this constructor is usually used
     -- for non-symbolic derivatives.
-    -- TODO: this is probably close to mapAccumL. Test that it works fine
-    -- on symmetric functions and that it gives different results
-    -- than an unrolling on assymetric and then fix accordingly.
     let odShn = voidFromShS @r @sh1
         domsF = V.cons odShn domsOD
         domsToPair :: ADReadyS f
@@ -1866,7 +1854,7 @@ evalH !s !c = let (abShared, cShared) =
         rg :: shaped r sh1
            -> [(HVector ranked, shaped r sh1, HVector ranked)]
            -> (shaped r sh1, [HVector ranked])
-        rg = mapAccumR (\cr (cx, x, a) ->
+        rg = mapAccumL (\cr (cx, x, a) ->
                           domsToPair $ dunHVector domsF $ rf cr cx x a)
         (cx0, cas) = rg c0
                         (zip3 (unravelHVector crest)
