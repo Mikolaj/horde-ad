@@ -47,8 +47,6 @@ module HordeAd.Core.Delta
     mapHVectorDeltaR11, mapHVectorDeltaS11
   ) where
 
-import Debug.Trace
-
 import Prelude
 
 import           Control.Arrow (second)
@@ -1881,7 +1879,10 @@ evalH !s !c = let (abShared, cShared) =
 
 evalFromnMap :: (ADReady ranked, shaped ~ ShapedOf ranked)
              => EvalState ranked -> EvalState ranked
-evalFromnMap s@EvalState{nMap, dMap} =
+evalFromnMap s@EvalState{nMap, dMap, hnMap, hdMap} =
+  -- We discharge the non-vector cases before the vector ones, because
+  -- the latter tend to create and store more cases and so enlarge
+  -- the working set of cases.
   case EM.maxViewWithKey nMap of
     Just ((n, b), nMap2) ->
       let s2 = s {nMap = nMap2}
@@ -1915,7 +1916,12 @@ evalFromnMap s@EvalState{nMap, dMap} =
                 error "evalFromnMap: DynamicShapedDummy"
             _ -> error "evalFromnMap: corrupted nMap"
       in evalFromnMap s3
-    Nothing -> s  -- loop ends
+    Nothing -> case EM.maxViewWithKey hnMap of
+      Just ((n, d), hnMap2) ->
+        let s2 = s {hnMap = hnMap2}
+            s3 = evalH s2 (hdMap EM.! n) d
+        in evalFromnMap s3
+      Nothing -> s  -- loop ends
 
 {-
         -- The general case is given as the last one below,

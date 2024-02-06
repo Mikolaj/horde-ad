@@ -1121,7 +1121,7 @@ testSin0ScanD0 = do
 testSin0rmapAccumRD0SC :: Assertion
 testSin0rmapAccumRD0SC = do
   assertEqualUpToEpsilon 1e-10
-    0
+    1
     (crev (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
                f x0 = (sfromD . (V.! 0))
                       $ dunHVector (V.fromList
@@ -1145,7 +1145,7 @@ testSin0rmapAccumRD0SC = do
 _testSin0rmapAccumRD0S :: Assertion
 _testSin0rmapAccumRD0S = do
   assertEqualUpToEpsilon 1e-10
-    0
+    1
     (rev @_ @_ @(AstShaped FullSpan)
          (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
               f x0 = (sfromD . (V.! 0))
@@ -1170,7 +1170,7 @@ _testSin0rmapAccumRD0S = do
 testSin0rmapAccumRD0RC :: Assertion
 testSin0rmapAccumRD0RC = do
   assertEqualUpToEpsilon 1e-10
-    0
+    1
     (crev (let f :: forall f. ADReady f => f Double 0 -> f Double 0
                f x0 = (rfromD . (V.! 0))
                       $ dunHVector (V.fromList
@@ -1190,7 +1190,7 @@ testSin0rmapAccumRD0RC = do
 _testSin0rmapAccumRD0R :: Assertion
 _testSin0rmapAccumRD0R = do
   assertEqualUpToEpsilon' 1e-10
-    0
+    1
     (rev' (let f :: forall f. ADReady f => f Double 0 -> f Double 0
                f x0 = (rfromD . (V.! 0))
                       $ dunHVector (V.fromList
@@ -1222,7 +1222,7 @@ testSin0ScanD01 = do
 testSin0rmapAccumRD01SC :: Assertion
 testSin0rmapAccumRD01SC = do
   assertEqualUpToEpsilon 1e-10
-    0
+    0.4535961214255773
     (crev (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
                f x0 = flip (sindex0 @_ @_ @'[1]) [0] $ (sfromD . (V.! 1))
                       $ dunHVector (V.fromList
@@ -1247,7 +1247,7 @@ testSin0rmapAccumRD01SC = do
 _testSin0rmapAccumRD01S :: Assertion
 _testSin0rmapAccumRD01S = do
   assertEqualUpToEpsilon' 1e-10
-    0
+    0.4535961214255773
     (rev' (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
                f x0 = (sfromD . (V.! 0))
                       $ dunHVector (V.fromList
