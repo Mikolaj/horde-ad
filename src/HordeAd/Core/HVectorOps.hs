@@ -132,7 +132,8 @@ sumDynamicShaped dsOrig@(d : _) =
     ([], _) -> error "sumDynamicShaped: wrong filtering"
 
 addDynamic :: forall ranked.
-              (RankedTensor ranked, ShapedTensor (ShapedOf ranked))
+              ( RankedTensor ranked, ShapedTensor (ShapedOf ranked)
+              , CRanked ranked Show, CShaped (ShapedOf ranked) Show )
            => DynamicTensor ranked -> DynamicTensor ranked
            -> DynamicTensor ranked
 addDynamic (DynamicRanked @r1 @n1 t) (DynamicRanked @r2 @n2 t')
@@ -144,10 +145,12 @@ addDynamic (DynamicShaped @r1 @sh1 t) (DynamicShaped @r2 @sh2 t')
   , Just Refl <- sameShape @sh1 @sh2 =
     DynamicShaped $ t + t'
 addDynamic DynamicRankedDummy{} u@DynamicRanked{} = u
-addDynamic u@DynamicRanked{} DynamicRankedDummy{} = u
+addDynamic DynamicRankedDummy{} u@DynamicRankedDummy{} = u
+addDynamic t@DynamicRanked{} DynamicRankedDummy{} = t
 addDynamic DynamicShapedDummy{} u@DynamicShaped{} = u
-addDynamic u@DynamicShaped{} DynamicShapedDummy{} = u
-addDynamic _ _ = error "addDynamic: wrong arguments"
+addDynamic DynamicShapedDummy{} u@DynamicShapedDummy{} = u
+addDynamic t@DynamicShaped{} DynamicShapedDummy{} = t
+addDynamic t u = error $ "addDynamic: wrong arguments: " ++ show (t, u)
 
 rfromD :: forall r n ranked.
           (RankedTensor ranked, GoodScalar r, KnownNat n)
