@@ -130,7 +130,7 @@ testTrees =
 --  , testCase "4Sin0rmapAccumRD0R'" testSin0rmapAccumRD0R
   , testCase "4Sin0ScanD01" testSin0ScanD01
   , testCase "4Sin0rmapAccumRD01SC" testSin0rmapAccumRD01SC
---  , testCase "4Sin0rmapAccumRD01S" testSin0rmapAccumRD01S
+  , testCase "4Sin0rmapAccumRD01SN" testSin0rmapAccumRD01SN
   , testCase "4Sin0ScanD1" testSin0ScanD1
   , testCase "4Sin0ScanD2" testSin0ScanD2
   , testCase "4Sin0ScanD3" testSin0ScanD3
@@ -1243,9 +1243,8 @@ testSin0rmapAccumRD01SC = do
                           x0 (V.singleton $ DynamicShaped @Double @'[1] 0)
            in f) 1.1)
 
--- TODO: wrong both rev and derivative and they don't agree, too
-_testSin0rmapAccumRD01S :: Assertion
-_testSin0rmapAccumRD01S = do
+testSin0rmapAccumRD01SN :: Assertion
+testSin0rmapAccumRD01SN = do
   assertEqualUpToEpsilon' 1e-10
     0.4535961214255773
     (rev' (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]

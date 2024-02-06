@@ -679,7 +679,7 @@ index1Dynamic u i = case u of
     (:$:) @_ @sh2 _ _ -> DynamicRankedDummy @r @sh2 p1 Proxy
   DynamicShapedDummy @r @sh p1 _ -> case ShapedList.shapeSh @sh of
     ZSH -> error "index1Dynamic: rank 0"
-    (:$:) @_ @sh2 _ _ -> DynamicRankedDummy @r @sh2 p1 Proxy
+    (:$:) @_ @sh2 _ _ -> DynamicShapedDummy @r @sh2 p1 Proxy
 
 replicate1HVector :: forall k ranked.
                      ( KnownNat k

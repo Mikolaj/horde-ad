@@ -440,9 +440,8 @@ interpretAst !env = \case
   AstLetHVectorIn vars l v ->
     let lt0 = voidFromVars vars
         lt = interpretAstHVector env l
-        env2 lw = extendEnvPars vars lw env
-    in rletHVectorIn lt0 lt (\lw -> assert (voidHVectorMatches lt0 lw) $
-                                    interpretAst (env2 lw) v)
+        env2 lw = assert (voidHVectorMatches lt0 lw) $ extendEnvPars vars lw env
+    in rletHVectorIn lt0 lt (\lw -> interpretAst (env2 lw) v)
   AstSToR v -> rfromS $ interpretAstS env v
   AstConstant a -> rconstant $ interpretAstPrimal env a
   AstPrimalPart a -> interpretAst env a
@@ -590,10 +589,10 @@ interpretAstHVector !env = \case
   AstLetHVectorInHVector vars u v ->
     let t0 = voidFromVars vars
         t = interpretAstHVector env u
-        env2 w = extendEnvPars vars w env
+        env2 w = assert (voidHVectorMatches t0 w `blame` (t0, w)) $
+                 extendEnvPars vars w env
     in dletHVectorInHVector
-         t0 t (\w -> assert (voidHVectorMatches t0 w `blame` (t0, w)) $
-                     interpretAstHVector (env2 w) v)
+         t0 t (\w -> interpretAstHVector (env2 w) v)
   AstLetInHVector var u v ->
     -- We assume there are no nested lets with the same variable.
     let t = interpretAstRuntimeSpecialized env u
@@ -1065,9 +1064,8 @@ interpretAstS !env = \case
   AstLetHVectorInS vars l v ->
     let lt0 = voidFromVars vars
         lt = interpretAstHVector env l
-        env2 lw = extendEnvPars vars lw env
-    in sletHVectorIn lt0 lt (\lw -> assert (voidHVectorMatches lt0 lw) $
-                                    interpretAstS (env2 lw) v)
+        env2 lw = assert (voidHVectorMatches lt0 lw) $ extendEnvPars vars lw env
+    in sletHVectorIn lt0 lt (\lw -> interpretAstS (env2 lw) v)
   AstRToS v -> sfromR $ interpretAst env v
   AstConstantS a -> sconstant $ interpretAstPrimalS env a
   AstPrimalPartS a -> interpretAstS env a
