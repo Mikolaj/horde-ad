@@ -45,6 +45,8 @@ module HordeAd.Core.Delta
     DualPart(..)
   , -- * Miscellaneous
     mapHVectorDeltaR11, mapHVectorDeltaS11
+    -- * Exported to be specialized elsewhere
+  , gradientFromDeltaR, gradientFromDeltaS, evalFromnMap, EvalState
   ) where
 
 import Prelude
@@ -727,20 +729,6 @@ gradientFromDeltaR !parameters0 value !mdt !deltaTopLevel =
       EvalState{..} = evalFromnMap s1
       !gradient = V.fromList $ EM.elems iMap
   in (astBindings, gradient)
-{- TODO: this causes a cyclic dependency:
-{-# SPECIALIZE gradientDtR
-  :: KnownNat y
-  => VoidHVector -> Flip OR.Array Double y -> Maybe (Flip OR.Array Double y)
-  -> DeltaR (Flip OR.Array) Double y
-  -> (AstBindingsD (Flip OR.Array), HVector (Flip OR.Array) ) #-}
-{-# SPECIALIZE gradientDtR
-  :: KnownNat y
-  => VoidHVector -> AstRanked PrimalSpan Double y
-  -> Maybe (AstRanked PrimalSpan Double y)
-  -> DeltaR (AstRanked PrimalSpan) Double y
-  -> ( AstBindingsD (AstRanked PrimalSpan)
-     , HVector (AstRanked PrimalSpan) ) #-}
--}
 
 derivativeFromDeltaR
   :: forall ranked r n.
@@ -771,19 +759,6 @@ gradientFromDeltaS !parameters0 !mdt !deltaTopLevel =
       EvalState{..} = evalFromnMap s1
       !gradient = V.fromList $ EM.elems iMap
   in (astBindings, gradient)
-{- TODO: this causes a cyclic dependency:
-{-# SPECIALIZE gradientDtS
-  :: Sh.Shape y
-  => VoidHVector -> Maybe (Flip OS.Array Double y)
-  -> DeltaS (Flip OS.Array) Double y
-  -> (AstBindingsD (Flip OR.Array), HVector (Flip OR.Array)) #-}
-{-# SPECIALIZE gradientDtS
-  :: Sh.Shape y
-  => VoidHVector -> Maybe (AstShaped PrimalSpan Double y)
-  -> DeltaS (AstShaped PrimalSpan) Double y
-  -> ( AstBindingsD (DynamicTensor (AstShaped PrimalSpan))
-     , HVector (DynamicTensor (AstShaped PrimalSpan)) ) #-}
--}
 
 derivativeFromDeltaS
   :: forall shaped r sh.
@@ -948,15 +923,6 @@ initEvalState !parameters0 =
       hnMap = EM.empty
       astBindings = []
   in EvalState {..}
--- The warnings in the following seems spurious. A GHC issue to be opened.
-{- TODO: this causes a cyclic dependency:
-{-# SPECIALIZE gradientFromDelta
-  :: VoidHVector -> DeltaDt (Flip OR.Array) (Flip OS.Array) Double
-  -> (AstBindingsD (Flip OR.Array), VoidHVector) #-}
-{-# SPECIALIZE gradientFromDelta
-  :: VoidHVector -> DeltaDt (AstRanked PrimalSpan) (AstShaped PrimalSpan) Double
-  -> (AstBindingsD (AstRanked PrimalSpan), HVector (AstDynamic PrimalSpan)) #-}
--}
 
 -- The first argument is the evaluation state being modified,
 -- the second is the cotangent accumulator that will become an actual
@@ -1937,12 +1903,6 @@ evalFromnMap s@EvalState{nMap, dMap, hnMap, hdMap} =
               in s { nMap = EM.insert n (DynamicRanked d) $ nMap s
                    , dMap = EM.insert n v $ dMap s }
             _ -> error "evalFromnMap: corrupted nMap"
--}
-{- TODO: this causes a cyclic dependency:
-{-# SPECIALIZE evalFromnMap
-  :: EvalState (Flip OR.Array) (Flip OS.Array) -> DeltaDt (Flip OR.Array) (Flip OS.Array) Double -> EvalState (Flip OR.Array) (Flip OS.Array) #-}
-{-# SPECIALIZE evalFromnMap
-  :: EvalState (AstRanked PrimalSpan) (AstShaped PrimalSpan) -> DeltaDt (AstRanked PrimalSpan) (AstShaped PrimalSpan) Double -> EvalState (AstRanked PrimalSpan) (AstShaped PrimalSpan) #-}
 -}
 
 mapHVectorDeltaR11

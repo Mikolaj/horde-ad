@@ -1558,3 +1558,18 @@ instance {-# OVERLAPS #-} {-# OVERLAPPING #-}
         arr = OR.fromVector $ createRandomVector (OR.sizeP (Proxy @n)) i
     in (arr, g2)
 -}
+
+-- This specialization is not possible where gradientFromDeltaR is defined,
+-- but is possible here:
+{-# SPECIALIZE gradientFromDeltaR
+  :: KnownNat y
+  => VoidHVector -> Flip OR.Array Double y -> Maybe (Flip OR.Array Double y)
+  -> DeltaR (Flip OR.Array) Double y
+  -> (AstBindingsD (Flip OR.Array), HVector (Flip OR.Array) ) #-}
+{-# SPECIALIZE gradientFromDeltaS
+  :: Sh.Shape y
+  => VoidHVector -> Maybe (Flip OS.Array Double y)
+  -> DeltaS (Flip OS.Array) Double y
+  -> (AstBindingsD (Flip OR.Array), HVector (Flip OR.Array)) #-}
+{-# SPECIALIZE evalFromnMap
+  :: EvalState (Flip OR.Array) -> EvalState (Flip OR.Array) #-}

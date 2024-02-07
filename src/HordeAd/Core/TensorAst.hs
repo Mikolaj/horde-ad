@@ -1437,6 +1437,24 @@ astBuildHVector1Vectorize
   => Int -> (AstInt -> AstHVector s) -> AstHVector s
 astBuildHVector1Vectorize k f = build1VectorizeHVector k $ funToAstI f
 
+-- This specialization is not possible where gradientFromDeltaR is defined,
+-- but is possible here:
+{-# SPECIALIZE gradientFromDeltaR
+  :: KnownNat y
+  => VoidHVector -> AstRanked PrimalSpan Double y
+  -> Maybe (AstRanked PrimalSpan Double y)
+  -> DeltaR (AstRanked PrimalSpan) Double y
+  -> ( AstBindingsD (AstRanked PrimalSpan)
+     , HVector (AstRanked PrimalSpan) ) #-}
+{-# SPECIALIZE gradientFromDeltaS
+  :: Sh.Shape y
+  => VoidHVector -> Maybe (AstShaped PrimalSpan Double y)
+  -> DeltaS (AstShaped PrimalSpan) Double y
+  -> ( AstBindingsD (AstRanked PrimalSpan)
+     , HVector (AstRanked PrimalSpan) ) #-}
+{-# SPECIALIZE evalFromnMap
+  :: EvalState (AstRanked PrimalSpan) -> EvalState (AstRanked PrimalSpan) #-}
+
 
 -- * The auxiliary AstNoVectorize and AstNoSimplify instances, for tests
 
