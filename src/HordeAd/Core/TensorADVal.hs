@@ -80,13 +80,12 @@ instance ( KnownNat n, GoodScalar r
 instance AdaptableHVector ranked a
          => AdaptableHVector ranked [a] where
   {-# SPECIALIZE instance
-      (KnownNat n, AdaptableHVector (Flip OR.Array) (OR.Array n Double))
+      AdaptableHVector (Flip OR.Array) (OR.Array n Double)
       => AdaptableHVector (Flip OR.Array)
                           [OR.Array n Double] #-}
   {-# SPECIALIZE instance
-      ( KnownNat n, AstSpan s
-      , AdaptableHVector (AstRanked s)
-                         (AstRanked s Double n) )
+      AdaptableHVector (AstRanked s)
+                       (AstRanked s Double n)
       => AdaptableHVector (AstRanked s)
                           [AstRanked s Double n] #-}
   type Value [a] = [Value a]
