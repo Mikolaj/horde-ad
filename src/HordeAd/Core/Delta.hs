@@ -958,7 +958,12 @@ evalDynamic
   -> EvalState ranked
 evalDynamic s3 (t, DynamicRanked d2) = evalR s3 (rfromD t) d2
 evalDynamic s3 (t, DynamicShaped d2) = evalS s3 (sfromD t) d2
-evalDynamic _ _ = error $ "evalDynamic: dummy delta"
+evalDynamic s3 (t, DynamicRankedDummy @r @sh _ _) =
+  withListShape (Sh.shapeT @sh) $ \(sh2 :: ShapeInt n) ->
+    gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: n) $
+    evalR @_ @r s3 (rfromD t) (ZeroR sh2)
+evalDynamic s3 (t, DynamicShapedDummy @r @sh _ _) =
+  evalS @sh @r s3 (sfromD t) ZeroS
 
 evalHVector
   :: (ADReady ranked, shaped ~ ShapedOf ranked)
@@ -2028,7 +2033,12 @@ fwdDynamic dimR params s (DynamicRanked d) =
   second DynamicRanked $ fwdR dimR params s d
 fwdDynamic dimR params s (DynamicShaped d) =
   second DynamicShaped $ fwdS dimR params s d
-fwdDynamic _ _ _ _ = error "fwdDynamic: dummy delta"
+fwdDynamic dimR params s (DynamicRankedDummy @r @sh _ _) =
+  withListShape (Sh.shapeT @sh) $ \(sh2 :: ShapeInt n) ->
+    gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: n) $
+    second (DynamicRanked @r @n) $ fwdR dimR params s (ZeroR sh2)
+fwdDynamic dimR params s (DynamicShapedDummy @r @sh _ _) =
+  second (DynamicShaped @r @sh) $ fwdS dimR params s ZeroS
 
 fwdHVector
   :: forall ranked shaped. (ADReady ranked, shaped ~ ShapedOf ranked)
