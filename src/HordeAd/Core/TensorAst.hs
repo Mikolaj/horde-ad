@@ -1331,7 +1331,7 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
         in AstMapAccumRDerR domB
                             (funToAstRH shn f domsOD)
                             (funToAstRHRH shn df domsOD)
-                            (funToAstRHRH shn rf domsOD) x0 asD
+                            (funToAstRHRG shn rf domB domsOD) x0 asD
       _ -> error "rmapAccumRDer: impossible someNatVal"
   smapAccumR
     :: forall k rn sh. (GoodScalar rn, Sh.Shape sh, KnownNat k)
@@ -1401,7 +1401,7 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     AstMapAccumRDerS @k domB
                      (funToAstSH @_ @_ @sh f domsOD)
                      (funToAstSHSH @_ @_ @sh df domsOD)
-                     (funToAstSHSH @_ @_ @sh rf domsOD) x0 asD
+                     (funToAstSHSG @_ @_ @sh rf domB domsOD) x0 asD
 
 astLetHVectorInHVectorFun
   :: AstSpan s
