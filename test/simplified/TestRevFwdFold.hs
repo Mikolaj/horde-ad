@@ -2415,8 +2415,9 @@ testSin0FoldNestedR0LengthPP = do
   length
     (printAstHVectorPrettyButNested
       IM.empty
-      (g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 1.1)))
-    @?= 668
+      (simplifyAstHVector6
+       $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 1.1)))
+    @?= 586
 
 testSin0FoldNestedR1LengthPP :: Assertion
 testSin0FoldNestedR1LengthPP = do
@@ -2433,8 +2434,9 @@ testSin0FoldNestedR1LengthPP = do
   length
     (printAstHVectorPrettyButNested
       IM.empty
-      (g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 1.1)))
-    @?= 7_904
+      (simplifyAstHVector6
+       $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 1.1)))
+    @?= 6_470
 
 testSin0FoldNestedR2LengthPP :: Assertion
 testSin0FoldNestedR2LengthPP = do
