@@ -346,17 +346,28 @@ printAstAux cfg d = \case
           _ -> showParen True
                $ shows a
   AstLetHVectorIn vars l v ->
-    showParen (d > 10)
-    $ showString "rletHVectorIn "
-      . printAstHVector cfg 11 l
-      . showString " "
-      . (showParen True
-         $ showString "\\"
-           . showListWith (showString
-                           . printAstDynamicVarName (varRenames cfg)) vars
-           . showString " -> "
-           . printAst cfg 0 v)
-      -- TODO: this does not roundtrip yet
+    if prettifyLosingSharing cfg
+    then
+      showParen (d > 10)
+      $ showString "let "
+        . showListWith (showString
+                        . printAstDynamicVarName (varRenames cfg)) vars
+        . showString " = "
+        . printAstHVector cfg 0 l
+        . showString " in "
+        . printAst cfg 0 v
+    else
+      showParen (d > 10)
+      $ showString "rletHVectorIn "
+        . printAstHVector cfg 11 l
+        . showString " "
+        . (showParen True
+           $ showString "\\"
+             . showListWith (showString
+                             . printAstDynamicVarName (varRenames cfg)) vars
+             . showString " -> "
+             . printAst cfg 0 v)
+        -- TODO: this does not roundtrip yet
   AstSToR v -> printAstS cfg d v
   AstConstant a@AstConst{} -> printAst cfg d a
   AstConstant a -> printPrefixOp printAst cfg d "rconstant" [a]
@@ -671,17 +682,28 @@ printAstHVector cfg d = \case
     then printHVectorAst cfg l
     else showParen (d > 10)
          $ showString "dmkHVector " . printHVectorAst cfg l
-  AstLetHVectorInHVector vars0 u0 v0 ->
-    showParen (d > 10)
-    $ showString "dletHVectorInHVector "
-      . printAstHVector cfg 11 u0
-      . showString " "
-      . (showParen True
-         $ showString "\\"
-           . showListWith (showString
-                           . printAstDynamicVarName (varRenames cfg)) vars0
-           . showString " -> "
-           . printAstHVector cfg 0 v0)
+  AstLetHVectorInHVector vars l v ->
+    if prettifyLosingSharing cfg
+    then
+      showParen (d > 10)
+      $ showString "let "
+        . showListWith (showString
+                        . printAstDynamicVarName (varRenames cfg)) vars
+        . showString " = "
+        . printAstHVector cfg 0 l
+        . showString " in "
+        . printAstHVector cfg 0 v
+    else
+      showParen (d > 10)
+      $ showString "dletHVectorInHVector "
+        . printAstHVector cfg 11 l
+        . showString " "
+        . (showParen True
+           $ showString "\\"
+             . showListWith (showString
+                             . printAstDynamicVarName (varRenames cfg)) vars
+             . showString " -> "
+             . printAstHVector cfg 0 v)
   t@(AstLetInHVector var0 u0 v0) ->
     if prettifyLosingSharing cfg
     then let collect :: AstHVector s -> ([(ShowS, ShowS)], ShowS)
@@ -1159,17 +1181,28 @@ printAstS cfg d = \case
           _ -> showParen True
                $ shows a
   AstLetHVectorInS vars l v ->
-    showParen (d > 10)
-    $ showString "sletHVectorIn "
-      . printAstHVector cfg 11 l
-      . showString " "
-      . (showParen True
-         $ showString "\\"
-           . showListWith (showString
-                           . printAstDynamicVarName (varRenames cfg)) vars
-           . showString " -> "
-           . printAstS cfg 0 v)
-      -- TODO: this does not roundtrip yet
+    if prettifyLosingSharing cfg
+    then
+      showParen (d > 10)
+      $ showString "let "
+        . showListWith (showString
+                        . printAstDynamicVarName (varRenames cfg)) vars
+        . showString " = "
+        . printAstHVector cfg 0 l
+        . showString " in "
+        . printAstS cfg 0 v
+    else
+      showParen (d > 10)
+      $ showString "sletHVectorIn "
+        . printAstHVector cfg 11 l
+        . showString " "
+        . (showParen True
+           $ showString "\\"
+             . showListWith (showString
+                             . printAstDynamicVarName (varRenames cfg)) vars
+             . showString " -> "
+             . printAstS cfg 0 v)
+        -- TODO: this does not roundtrip yet
   AstRToS v -> printAst cfg d v
   AstConstantS a@AstConstS{} -> printAstS cfg d a
   AstConstantS a ->
