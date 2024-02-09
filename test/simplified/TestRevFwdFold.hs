@@ -705,7 +705,7 @@ testSin0Fold182SrevPP = do
                         (sreplicate @_ @1 a0)
             in rfromS . f . sfromR) 1.1
   printAstPretty IM.empty a1
-    @?= "let m105 = sscanDer f df rf (sreplicate (sconstant (rconst 1.1))) (sreplicate (sconstant (rconst 1.1))) ; m122 = sreverse (sscanZipDer f df rf (rreplicate 5 (rconst 1.0)) [sreverse (sslice m105), sreverse (sreplicate (sconstant (rconst 1.1)))]) in ssum (m122 !$ [0]) + ssum (let v124 = ssum (stranspose (stranspose (sreplicate (sgather (sreplicate (sconstant (rconst 1.1))) (\\[i123] -> [i123]))))) ; m126 = stranspose (sreplicate (sin (sgather v124 (\\[i125] -> [i125])))) ; m129 = recip (sreplicate (sconst @[5] (fromList @[5] [0.0,0.0,0.0,0.0,0.0])) + sreplicate (sreplicate (sconstant (rconst 1.1)) * sreplicate (sconstant (rconst 1.1))) + sgather m126 (\\[i127] -> [i127]) * sgather m126 (\\[i128] -> [i128]) + sconst @[1,5] (fromList @[1,5] [0.0,0.0,0.0,0.0,0.0]) + sconst @[1,5] (fromList @[1,5] [0.0,0.0,0.0,0.0,0.0])) ; m130 = sreplicate (sconst @[5] (fromList @[5] [0.0,0.0,0.0,0.0,0.0])) in sreplicate (sconst @[] 0.0) + ssum (stranspose ((sgather m126 (\\[i134] -> [i134]) * sgather m129 (\\[i135] -> [i135])) * sgather m122 (\\[i136] -> [1 + i136]))) + ssum (stranspose (stranspose (sreplicate (cos (sgather v124 (\\[i131] -> [i131])) * ssum (stranspose (negate (sreplicate (sreplicate (sconstant (rconst 1.1))) * sgather m129 (\\[i132] -> [i132])) * sgather m122 (\\[i133] -> [1 + i133]))))))) + sconst @[1] (fromList @[1] [0.0]) + sconst @[1] (fromList @[1] [0.0]))"
+    @?= "let m123 = sscanDer f df rf (sreplicate (sconstant (rconst 1.1))) (sreplicate (sconstant (rconst 1.1))) in let [v124 @[Natural] @Double @[5], v125 @[Natural] @Double @[1]] = smapAccumRDer f df rf (rreplicate 5 (rconst 1.0)) [sslice m123, sreplicate (sconstant (rconst 1.1))] in ssum v124 + ssum v125"
 
 testSin0Fold18Srev :: Assertion
 testSin0Fold18Srev = do
@@ -936,7 +936,7 @@ testSin0Scan1RevPP = do
                  (\x0 -> rscan (\x _a -> sin x) x0
                            (rconst (OR.constant @Double @1 [2] 42))) 1.1
   printAstPretty IM.empty (simplifyAst6 a1)
-    @?= "let v62 = rconst (fromList [2] [42.0,42.0]) in rscanZipDer f df rf (rconst 0.0) [rconstant (rreplicate 2 (rconst 1.0)), rreverse (rslice 0 2 (rscanDer f df rf (rconst 1.1) v62)), rreverse v62] ! [2] + rconst 1.0"
+    @?= "let v56 = rconst (fromList [2] [42.0,42.0]) in let [x67 @Natural @Double @[], v68 @Natural @Double @[2]] = rmapAccumRDer f df rf (rconst 0.0) [rconstant (rreplicate 2 (rconst 1.0)), rslice 0 2 (rscanDer f df rf (rconst 1.1) v56), v56] in x67 + rconst 1.0"
 
 testSin0Scan1RevPPForComparison :: Assertion
 testSin0Scan1RevPPForComparison = do
@@ -962,7 +962,7 @@ testSin0Scan1Rev2PP = do
                  (\x0 -> rscan (\x a -> sin x - a) x0
                            (rconst (OR.fromList @Double @1 [2] [5, 7]))) 1.1
   printAstPretty IM.empty (simplifyAst6 a1)
-    @?= "let v64 = rconst (fromList [2] [5.0,7.0]) in rscanZipDer f df rf (rconst 0.0) [rconstant (rreplicate 2 (rconst 1.0)), rreverse (rslice 0 2 (rscanDer f df rf (rconst 1.1) v64)), rreverse v64] ! [2] + rconst 1.0"
+    @?= "let v63 = rconst (fromList [2] [5.0,7.0]) in let [x75 @Natural @Double @[], v76 @Natural @Double @[2]] = rmapAccumRDer f df rf (rconst 0.0) [rconstant (rreplicate 2 (rconst 1.0)), rslice 0 2 (rscanDer f df rf (rconst 1.1) v63), v63] in x75 + rconst 1.0"
 
 testSin0Scan1Rev2PPForComparison :: Assertion
 testSin0Scan1Rev2PPForComparison = do
@@ -1001,7 +1001,7 @@ testSin0Scan1Rev3PP = do
                  (\x0 -> rscan (\x a -> sin x - a) x0
                            (rfromList [x0 * 5, x0 * 7])) 1.1
   printAstPretty IM.empty (simplifyAst6 a1)
-    @?= "let v65 = rfromList [rconst 1.1 * rconst 5.0, rconst 1.1 * rconst 7.0] ; v102 = rreverse (rscanZipDer f df rf (rconst 0.0) [rconstant (rreplicate 2 (rconst 1.0)), rreverse (rslice 0 2 (rscanDer f df rf (rconst 1.1) v65)), rreverse v65]) ; v105 = rconstant (rreplicate 2 (rconst -1.0)) * (rconstant (rreplicate 2 (rconst 1.0)) + rgather [2] v102 (\\[i104] -> [1 + i104])) in rconst 5.0 * v105 ! [0] + rconst 7.0 * v105 ! [1] + v102 ! [0] + rconst 1.0"
+    @?= "let v63 = rfromList [rconst 1.1 * rconst 5.0, rconst 1.1 * rconst 7.0] in let [x75 @Natural @Double @[], v76 @Natural @Double @[2]] = rmapAccumRDer f df rf (rconst 0.0) [rconstant (rreplicate 2 (rconst 1.0)), rslice 0 2 (rscanDer f df rf (rconst 1.1) v63), v63] in rconst 5.0 * v76 ! [0] + rconst 7.0 * v76 ! [1] + x75 + rconst 1.0"
 
 testSin0Scan1Rev3PPForComparison :: Assertion
 testSin0Scan1Rev3PPForComparison = do
@@ -2134,7 +2134,7 @@ testSin0ScanD1RevPP = do
                            x0 (V.singleton $ DynamicRanked
                                $ rconst (OR.constant @Double @1 [2] 42))) 1.1
   printAstPretty IM.empty (simplifyAst6 a1)
-    @?= "let v63 = rconst (fromList [2] [42.0,42.0]) in rscanZipDer f df rf (rconst 0.0) [rconstant (rreplicate 2 (rconst 1.0)), rreverse (rslice 0 2 (rscanZipDer f df rf (rconst 1.1) [v63])), rreverse v63] ! [2] + rconst 1.0"
+    @?= "let v56 = rconst (fromList [2] [42.0,42.0]) in let [x67 @Natural @Double @[], v68 @Natural @Double @[2]] = rmapAccumRDer f df rf (rconst 0.0) [rconstant (rreplicate 2 (rconst 1.0)), rslice 0 2 (rscanZipDer f df rf (rconst 1.1) [v56]), v56] in x67 + rconst 1.0"
 
 testSin0ScanDFwdPP :: Assertion
 testSin0ScanDFwdPP = do
@@ -2156,7 +2156,7 @@ testSin0ScanD1Rev2PP = do
                          x0 (V.singleton $ DynamicRanked
                              $ rconst (OR.fromList @Double @1 [2] [5, 7]))) 1.1
   printAstPretty IM.empty (simplifyAst6 a1)
-    @?= "let v66 = rconst (fromList [2] [5.0,7.0]) in rscanZipDer f df rf (rconst 0.0) [rconstant (rreplicate 2 (rconst 1.0)), rreverse (rslice 0 2 (rscanZipDer f df rf (rconst 1.1) [v66])), rreverse v66] ! [2] + rconst 1.0"
+    @?= "let v63 = rconst (fromList [2] [5.0,7.0]) in let [x75 @Natural @Double @[], v76 @Natural @Double @[2]] = rmapAccumRDer f df rf (rconst 0.0) [rconstant (rreplicate 2 (rconst 1.0)), rslice 0 2 (rscanZipDer f df rf (rconst 1.1) [v63]), v63] in x75 + rconst 1.0"
 
 testSin0ScanDFwd2PP :: Assertion
 testSin0ScanDFwd2PP = do
@@ -2203,7 +2203,7 @@ testSin0ScanD1Rev3PP = do
                             $ rscan (\x a -> a * x) x0
                                     (rfromList [x0 * 5, x0]))) 1.1
   length (printAstSimple IM.empty (simplifyAst6 a1))
-    @?= 2394
+    @?= 2653
 
 testSin0ScanDFwd3PP :: Assertion
 testSin0ScanDFwd3PP = do
@@ -2331,7 +2331,7 @@ testSin0FoldNestedS1PP = do
     (printAstHVectorPretty
        IM.empty
        (g @(AstRanked FullSpan) (V.singleton $ DynamicShaped @Double @'[] 1.1)))
-    @?= 1308
+    @?= 265
 
 testSin0FoldNestedR1PP :: Assertion
 testSin0FoldNestedR1PP = do
@@ -2348,7 +2348,7 @@ testSin0FoldNestedR1PP = do
   printAstHVectorPretty
     IM.empty
     (g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 1.1))
-    @?= "let v725 = rscanDer f df rf (rconst 1.1) (rreplicate 11 (rconst 1.1)) ; x726 = rreshape [] (rreplicate 1 (rconst 1.0)) ; v965 = rreverse (rscanZipDer f df rf x726 [rreverse (rslice 0 11 v725), rreverse (rreplicate 11 (rconst 1.1))]) in [(let m984 = rtranspose [1,0] (rscanDer f df rf (rreplicate 11 (rconst 1.1)) (rreplicate 22 (rslice 0 11 v725))) ; m1003 = rtranspose [1,0] (rreverse (rscanZipDer f df rf (rgather [11] v965 (\\[i990] -> [1 + i990])) [rreverse (rslice 0 22 (rtranspose [1,0] m984)), rreplicate 22 (rgather [11] v725 (\\[i985] -> [i985]))])) ; v1011 = let m1005 = cos (rtranspose [1,0] (rreplicate 22 (rgather [11] v725 (\\[i1004] -> [i1004])))) ; m1008 = rgather [11,22] m1003 (\\[i1006, i1007] -> [i1006, 1 + i1007]) in rsum (rtranspose [1,0] (recip (m1005 * m1005) * rgather [11,22] m1003 (\\[i1009, i1010] -> [i1009, 1 + i1010]))) in rsum (rgather [11] m1003 (\\[i1012] -> [i1012, 0]))) + v965 ! [0]]"
+    @?= "let v893 = rscanDer f df rf (rconst 1.1) (rreplicate 11 (rconst 1.1)) ; x894 = rreshape [] (rreplicate 1 (rconst 1.0)) in let [x895 @Natural @Double @[], v896 @Natural @Double @[11]] = rmapAccumRDer f df rf x894 [rslice 0 11 v893, rreplicate 11 (rconst 1.1)] in [rsum v896 + x895]"
 
 testSin0FoldNestedR1SimpPP :: Assertion
 testSin0FoldNestedR1SimpPP = do
@@ -2366,7 +2366,7 @@ testSin0FoldNestedR1SimpPP = do
     IM.empty
     (simplifyAstHVector6
      $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 1.1))
-    @?= "let v725 = rscanDer f df rf (rconst 1.1) (rconstant (rreplicate 11 (rconst 1.1))) ; v965 = rreverse (rscanZipDer f df rf (rconst 1.0) [rreverse (rslice 0 11 v725), rconstant (rreplicate 11 (rconst 1.1))]) in [rsum (rscanZipDer f df rf (rgather [11] v965 (\\[i990] -> [1 + i990])) [rreverse (rslice 0 22 (rscanDer f df rf (rconstant (rreplicate 11 (rconst 1.1))) (rreplicate 22 (rslice 0 11 v725)))), rreplicate 22 (rgather [11] v725 (\\[i985] -> [i985]))] ! [22]) + v965 ! [0]]"
+    @?= "let [x895 @Natural @Double @[], v896 @Natural @Double @[11]] = rmapAccumRDer f df rf (rconst 1.0) [rslice 0 11 (rscanDer f df rf (rconst 1.1) (rconstant (rreplicate 11 (rconst 1.1)))), rconstant (rreplicate 11 (rconst 1.1))] in [rsum v896 + x895]"
 
 testSin0FoldNestedR1SimpNestedPP :: Assertion
 testSin0FoldNestedR1SimpNestedPP = do
@@ -2384,7 +2384,7 @@ testSin0FoldNestedR1SimpNestedPP = do
     IM.empty
     (simplifyAstHVector6
      $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 1.1))
-    @?= "let v725 = rscanDer (\\x628 x629 -> rfoldDer (\\x630 x631 -> x630 + tan x631) (\\x632 x633 x634 x635 -> let x636 = cos x635 in x632 + x633 * recip (x636 * x636)) (\\x638 x639 x640 -> let x641 = cos x640 in [x638, recip (x641 * x641) * x638]) x629 (rreplicate 22 x628)) (\\x642 x643 x644 x645 -> rfoldZipDer (\\x659 [x660, x661, x662] -> let x663 = cos x662 in x659 + x660 * recip (x663 * x663)) (\\x665 [x666, x667, x668] x669 [x670, x671, x672] -> let x673 = cos x672 ; x674 = x673 * x673 ; x677 = x668 * negate (sin x672) in x665 + x666 * recip x674 + ((x677 * x673 + x677 * x673) * negate (recip (x674 * x674))) * x670) (\\x681 x682 [x683, x684, x685] -> let x686 = cos x685 ; x687 = x686 * x686 ; x690 = negate (recip (x687 * x687)) * (x683 * x681) in [x681, recip x687 * x681, 0, negate (sin x685) * (x686 * x690 + x686 * x690)]) x643 [rreplicate 22 x642, rslice 0 22 (rscanDer (\\x646 x647 -> x646 + tan x647) (\\x648 x649 x650 x651 -> let x652 = cos x651 in x648 + x649 * recip (x652 * x652)) (\\x654 x655 x656 -> let x657 = cos x656 in [x654, recip (x657 * x657) * x654]) x645 (rreplicate 22 x644)), rreplicate 22 x644]) (\\x691 x692 x693 -> let v720 = rreverse (rscanZipDer (\\x707 [x708, x709] -> x707) (\\x710 [x711, x712] x713 [x714, x715] -> x710) (\\x716 x717 [x718, x719] -> [x716, 0, 0]) x691 [rreverse (rslice 0 22 (rscanDer (\\x694 x695 -> x694 + tan x695) (\\x696 x697 x698 x699 -> let x700 = cos x699 in x696 + x697 * recip (x700 * x700)) (\\x702 x703 x704 -> let x705 = cos x704 in [x702, recip (x705 * x705) * x702]) x693 (rreplicate 22 x692))), rreplicate 22 x692]) in [let v721 = cos (rreplicate 22 x692) in rsum (recip (v721 * v721) * rgather [22] v720 (\\[i724] -> [1 + i724])), v720 ! [0]]) (rconst 1.1) (rconstant (rreplicate 11 (rconst 1.1))) ; v965 = rreverse (rscanZipDer (\\x727 [x728, x729] -> let v757 = cos (rreplicate 22 x728) in rsum (recip (v757 * v757) * rgather [22] (rscanZipDer (\\x743 [x744, x745] -> x743) (\\x746 [x747, x748] x749 [x750, x751] -> x746) (\\x752 x753 [x754, x755] -> [x752, 0, 0]) x727 [rreverse (rslice 0 22 (rscanDer (\\x730 x731 -> x730 + tan x731) (\\x732 x733 x734 x735 -> let x736 = cos x735 in x732 + x733 * recip (x736 * x736)) (\\x738 x739 x740 -> let x741 = cos x740 in [x738, recip (x741 * x741) * x738]) x729 (rreplicate 22 x728))), rreplicate 22 x728]) (\\[i760] -> [21 + negate i760]))) (\\x761 [x762, x763] x764 [x765, x766] -> let v779 = rscanDer (\\x767 x768 -> x767 + tan x768) (\\x769 x770 x771 x772 -> let x773 = cos x772 in x769 + x770 * recip (x773 * x773)) (\\x775 x776 x777 -> let x778 = cos x777 in [x775, recip (x778 * x778) * x775]) x766 (rreplicate 22 x765) ; v780 = rreverse (rslice 0 22 v779) ; v795 = rscanZipDer (\\x782 [x783, x784] -> x782) (\\x785 [x786, x787] x788 [x789, x790] -> x785) (\\x791 x792 [x793, x794] -> [x791, 0, 0]) x764 [v780, rreplicate 22 x765] ; v797 = cos (rreplicate 22 x765) ; v798 = v797 * v797 ; v802 = rreplicate 22 x762 * negate (sin (rreplicate 22 x765)) in rsum (rgather [22] v795 (\\[i800] -> [21 + negate i800]) * ((v802 * v797 + v802 * v797) * negate (recip (v798 * v798)))) + rsum (recip v798 * rgather [22] (rscanZipDer (\\x841 [x842, x843, x844, x845, x846] -> x841) (\\x847 [x848, x849, x850, x851, x852] x853 [x854, x855, x856, x857, x858] -> x847) (\\x859 x860 [x861, x862, x863, x864, x865] -> [x859, 0, 0, 0, 0, 0]) x761 [rreverse (rslice 0 22 (rscanZipDer (\\x805 [x806, x807, x808] -> let x809 = cos x808 in x805 + x806 * recip (x809 * x809)) (\\x811 [x812, x813, x814] x815 [x816, x817, x818] -> let x819 = cos x818 ; x820 = x819 * x819 ; x823 = x814 * negate (sin x818) in x811 + x812 * recip x820 + ((x823 * x819 + x823 * x819) * negate (recip (x820 * x820))) * x816) (\\x828 x829 [x830, x831, x832] -> let x833 = cos x832 ; x834 = x833 * x833 ; x837 = negate (recip (x834 * x834)) * (x830 * x828) in [x828, recip x834 * x828, 0, negate (sin x832) * (x833 * x837 + x833 * x837)]) x763 [rreplicate 22 x762, rslice 0 22 v779, rreplicate 22 x765])), rreplicate 22 x762, rslice 0 22 v795, v780, rreplicate 22 x765]) (\\[i867] -> [21 + negate i867]))) (\\x870 x871 [x872, x873] -> let v886 = rscanDer (\\x874 x875 -> x874 + tan x875) (\\x876 x877 x878 x879 -> let x880 = cos x879 in x876 + x877 * recip (x880 * x880)) (\\x882 x883 x884 -> let x885 = cos x884 in [x882, recip (x885 * x885) * x882]) x873 (rreplicate 22 x872) ; v887 = rreverse (rslice 0 22 v886) ; v902 = rscanZipDer (\\x889 [x890, x891] -> x889) (\\x892 [x893, x894] x895 [x896, x897] -> x892) (\\x898 x899 [x900, x901] -> [x898, 0, 0]) x871 [v887, rreplicate 22 x872] ; v904 = cos (rreplicate 22 x872) ; v905 = v904 * v904 ; v909 = negate (recip (v905 * v905)) * (rgather [22] v902 (\\[i907] -> [21 + negate i907]) * rreplicate 22 x870) ; v911 = rreverse (rscatter [23] (recip v905 * rreplicate 22 x870) (\\[i910] -> [1 + i910])) ; v938 = rappend (rreplicate 0 (rconst 0.0)) (rappend (rreplicate 22 (sconst @[] 0.0)) (rreplicate 1 (rconst 0.0))) ; v958 = rreverse (rscanZipDer (\\x939 [x940, x941, x942] -> x939 + x940) (\\x944 [x945, x946, x947] x948 [x949, x950, x951] -> x944 + x945) (\\x953 x954 [x955, x956, x957] -> [x953, x953, 0, 0]) (rconst 0.0) [rreverse (rslice 1 22 v938), rreverse (rslice 0 22 v886), rreplicate 22 x872]) in [rscanZipDer (\\x912 [x913, x914, x915, x916] -> x912 + x913) (\\x917 [x918, x919, x920, x921] x922 [x923, x924, x925, x926] -> x917 + x918) (\\x928 x929 [x930, x931, x932, x933] -> [x928, x928, 0, 0, 0]) (rconst 0.0) [rreverse (rslice 1 22 v911), rreverse (rslice 0 22 v902), rreverse v887, rreplicate 22 x872] ! [22] + v911 ! [0], (let v959 = cos (rreplicate 22 x872) in rsum (recip (v959 * v959) * (rgather [22] v958 (\\[i963] -> [1 + i963]) + rgather [22] v938 (\\[i964] -> [1 + i964])))) + rsum (rreplicate 22 (sconst @[] 0.0)) + rsum (negate (sin (rreplicate 22 x872)) * (v904 * v909 + v904 * v909)), v958 ! [0] + v938 ! [0]]) (rconst 1.0) [rreverse (rslice 0 11 v725), rconstant (rreplicate 11 (rconst 1.1))]) in [rsum (rscanZipDer (\\v986 [v987, v988] -> v986) (\\v991 [v992, v993] v994 [v995, v996] -> v991) (\\v998 v999 [v1000, v1001] -> [v998, sconst @[11] (fromList @[11] [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]), sconst @[11] (fromList @[11] [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])]) (rgather [11] v965 (\\[i990] -> [1 + i990])) [rreverse (rslice 0 22 (rscanDer (\\v966 v967 -> v966 + tan v967) (\\v969 v970 v971 v972 -> let v976 = cos v972 in v969 + v970 * recip (v976 * v976)) (\\v978 v979 v980 -> let v983 = cos v980 in [v978, recip (v983 * v983) * v978]) (rconstant (rreplicate 11 (rconst 1.1))) (rreplicate 22 (rslice 0 11 v725)))), rreplicate 22 (rgather [11] v725 (\\[i985] -> [i985]))] ! [22]) + v965 ! [0]]"
+    @?= "let [x895 @Natural @Double @[], v896 @Natural @Double @[11]] = rmapAccumRDer (\\x897 [x898, x899] -> let [x913 @Natural @Double @[], v914 @Natural @Double @[22]] = rmapAccumRDer (\\x915 [x916, x917] -> let x918 = cos x917 in [x915, recip (x918 * x918) * x915]) (\\x919 [x920, x921] x922 [x923, x924] -> let x925 = cos x924 ; x926 = x925 * x925 ; x928 = x921 * negate (sin x924) in [x919, ((x928 * x925 + x928 * x925) * negate (recip (x926 * x926))) * x922 + x919 * recip x926]) (\\x932 [x933] x934 [x935, x936] -> let x937 = cos x936 ; x938 = x937 * x937 ; x940 = negate (recip (x938 * x938)) * (x934 * x933) in [recip x938 * x933 + x932, 0, negate (sin x936) * (x937 * x940 + x937 * x940)]) x897 [rslice 0 22 (rscanDer (\\x900 x901 -> x900 + tan x901) (\\x902 x903 x904 x905 -> let x906 = cos x905 in x902 + x903 * recip (x906 * x906)) (\\x908 x909 x910 -> let x911 = cos x910 in [x908, recip (x911 * x911) * x908]) x899 (rreplicate 22 x898)), rreplicate 22 x898] in [rsum v914, x913]) (\\x941 [x942, x943] x944 [x945, x946] -> let v959 = rscanDer (\\x947 x948 -> x947 + tan x948) (\\x949 x950 x951 x952 -> let x953 = cos x952 in x949 + x950 * recip (x953 * x953)) (\\x955 x956 x957 -> let x958 = cos x957 in [x955, recip (x958 * x958) * x955]) x946 (rreplicate 22 x945) in let [x962 @Natural @Double @[], v963 @Natural @Double @[22], v964 @Natural @Double @[22]] = rmapAccumRDer (\\x965 [x966, x967] -> let x968 = cos x967 in [x965, x965, recip (x968 * x968) * x965]) (\\x970 [x971, x972] x973 [x974, x975] -> let x976 = cos x975 ; x977 = x976 * x976 ; x980 = x972 * negate (sin x975) in [x970, x970, ((x980 * x976 + x980 * x976) * negate (recip (x977 * x977))) * x973 + x970 * recip x977]) (\\x984 [x985, x986] x987 [x988, x989] -> let x990 = cos x989 ; x991 = x990 * x990 ; x997 = negate (recip (x991 * x991)) * (x987 * x986) in [recip x991 * x986 + x985 + x984, 0, negate (sin x989) * (x990 * x997 + x990 * x997)]) x944 [rslice 0 22 v959, rreplicate 22 x945] in let [x1032 @Natural @Double @[], v1033 @Natural @Double @[22]] = rmapAccumRDer (\\x1034 [x1035, x1036, x1037, x1038, x1039] -> let x1040 = cos x1039 ; x1041 = x1040 * x1040 ; x1043 = x1036 * negate (sin x1039) in [x1034, ((x1043 * x1040 + x1043 * x1040) * negate (recip (x1041 * x1041))) * x1037 + x1034 * recip x1041]) (\\x1047 [x1048, x1049, x1050, x1051, x1052] x1053 [x1054, x1055, x1056, x1057, x1058] -> let x1059 = cos x1058 ; x1060 = x1059 * x1059 ; x1062 = negate (sin x1058) ; x1063 = x1055 * x1062 ; x1064 = x1063 * x1059 + x1063 * x1059 ; x1065 = x1060 * x1060 ; x1066 = negate (recip x1065) ; x1071 = x1049 * x1062 + ((x1052 * cos x1058) * rconst -1.0) * x1055 ; x1072 = x1052 * negate (sin x1058) ; x1076 = x1072 * x1059 + x1072 * x1059 in [x1047, ((x1071 * x1059 + x1072 * x1063 + x1071 * x1059 + x1072 * x1063) * x1066 + (((x1076 * x1060 + x1076 * x1060) * negate (recip (x1065 * x1065))) * rconst -1.0) * x1064) * x1056 + x1050 * (x1064 * x1066) + x1047 * recip x1060 + (x1076 * negate (recip (x1060 * x1060))) * x1053]) (\\x1085 [x1086] x1087 [x1088, x1089, x1090, x1091, x1092] -> let x1093 = cos x1092 ; x1094 = x1093 * x1093 ; x1096 = negate (sin x1092) ; x1097 = x1089 * x1096 ; x1098 = x1097 * x1093 + x1097 * x1093 ; x1099 = x1094 * x1094 ; x1100 = negate (recip x1099) ; x1105 = x1090 * x1086 ; x1106 = negate (recip (x1099 * x1099)) * (rconst -1.0 * (x1098 * x1105)) ; x1107 = x1100 * x1105 ; x1108 = x1093 * x1107 + x1093 * x1107 ; x1109 = negate (recip (x1094 * x1094)) * (x1087 * x1086) + x1094 * x1106 + x1094 * x1106 in [recip x1094 * x1086 + x1085, 0, x1096 * x1108, (x1098 * x1100) * x1086, 0, negate (sin x1092) * (x1093 * x1109 + x1093 * x1109 + x1097 * x1107 + x1097 * x1107) + cos x1092 * (rconst -1.0 * (x1089 * x1108))]) x941 [rslice 0 22 (rscanZipDer (\\x998 [x999, x1000, x1001] -> let x1002 = cos x1001 in x998 + x999 * recip (x1002 * x1002)) (\\x1004 [x1005, x1006, x1007] x1008 [x1009, x1010, x1011] -> let x1012 = cos x1011 ; x1013 = x1012 * x1012 ; x1016 = x1007 * negate (sin x1011) in x1004 + x1005 * recip x1013 + ((x1016 * x1012 + x1016 * x1012) * negate (recip (x1013 * x1013))) * x1009) (\\x1021 x1022 [x1023, x1024, x1025] -> let x1026 = cos x1025 ; x1027 = x1026 * x1026 ; x1030 = negate (recip (x1027 * x1027)) * (x1023 * x1021) in [x1021, recip x1027 * x1021, 0, negate (sin x1025) * (x1026 * x1030 + x1026 * x1030)]) x943 [rreplicate 22 x942, rslice 0 22 v959, rreplicate 22 x945]), rreplicate 22 x942, v963, rslice 0 22 v959, rreplicate 22 x945] in [rsum v1033, x1032]) (\\x1111 [x1112] x1113 [x1114, x1115] -> let v1128 = rscanDer (\\x1116 x1117 -> x1116 + tan x1117) (\\x1118 x1119 x1120 x1121 -> let x1122 = cos x1121 in x1118 + x1119 * recip (x1122 * x1122)) (\\x1124 x1125 x1126 -> let x1127 = cos x1126 in [x1124, recip (x1127 * x1127) * x1124]) x1115 (rreplicate 22 x1114) in let [x1131 @Natural @Double @[], v1132 @Natural @Double @[22], v1133 @Natural @Double @[22]] = rmapAccumRDer (\\x1134 [x1135, x1136] -> let x1137 = cos x1136 in [x1134, x1134, recip (x1137 * x1137) * x1134]) (\\x1139 [x1140, x1141] x1142 [x1143, x1144] -> let x1145 = cos x1144 ; x1146 = x1145 * x1145 ; x1149 = x1141 * negate (sin x1144) in [x1139, x1139, ((x1149 * x1145 + x1149 * x1145) * negate (recip (x1146 * x1146))) * x1142 + x1139 * recip x1146]) (\\x1153 [x1154, x1155] x1156 [x1157, x1158] -> let x1159 = cos x1158 ; x1160 = x1159 * x1159 ; x1166 = negate (recip (x1160 * x1160)) * (x1156 * x1155) in [recip x1160 * x1155 + x1154 + x1153, 0, negate (sin x1158) * (x1159 * x1166 + x1159 * x1166)]) x1113 [rslice 0 22 v1128, rreplicate 22 x1114] in let [x1171 @Natural @Double @[], v1172 @Natural @Double @[22], v1173 @Natural @Double @[22]] = rmapAccumRDer (\\x1174 [x1175, x1176, x1177, x1178] -> let x1179 = cos x1178 ; x1180 = x1179 * x1179 ; x1182 = negate (recip (x1180 * x1180)) * (x1176 * x1175) in [recip x1180 * x1175 + x1174, 0, negate (sin x1178) * (x1179 * x1182 + x1179 * x1182)]) (\\x1183 [x1184, x1185, x1186, x1187] x1188 [x1189, x1190, x1191, x1192] -> let x1193 = cos x1192 ; x1194 = x1193 * x1193 ; x1196 = x1194 * x1194 ; x1197 = negate (recip x1196) ; x1198 = x1190 * x1189 ; x1199 = x1197 * x1198 ; x1202 = x1187 * negate (sin x1192) ; x1203 = x1202 * x1193 + x1202 * x1193 ; x1213 = (((x1203 * x1194 + x1203 * x1194) * negate (recip (x1196 * x1196))) * rconst -1.0) * x1198 + (x1185 * x1189 + x1184 * x1190) * x1197 in [x1183 + (x1203 * negate (recip (x1194 * x1194))) * x1189 + x1184 * recip x1194, rconst 0.0, ((x1187 * cos x1192) * rconst -1.0) * (x1193 * x1199 + x1193 * x1199) + (x1202 * x1199 + x1213 * x1193 + x1202 * x1199 + x1213 * x1193) * negate (sin x1192)]) (\\x1218 [x1219, x1220] x1221 [x1222, x1223, x1224, x1225] -> let x1226 = cos x1225 ; x1227 = x1226 * x1226 ; x1229 = x1227 * x1227 ; x1230 = negate (recip x1229) ; x1231 = x1223 * x1222 ; x1232 = x1230 * x1231 ; x1238 = negate (sin x1225) * x1220 ; x1239 = x1226 * x1238 + x1226 * x1238 ; x1240 = x1230 * x1239 ; x1241 = negate (recip (x1229 * x1229)) * (rconst -1.0 * (x1231 * x1239)) ; x1242 = negate (recip (x1227 * x1227)) * (x1222 * x1218) + x1227 * x1241 + x1227 * x1241 in [x1218, x1223 * x1240 + recip x1227 * x1218, x1222 * x1240, 0, negate (sin x1225) * (x1226 * x1242 + x1226 * x1242 + x1232 * x1238 + x1232 * x1238) + cos x1225 * (rconst -1.0 * ((x1226 * x1232 + x1226 * x1232) * x1220))]) x1112 [rreplicate 22 x1111, rreverse v1132, rreverse (rslice 0 22 v1128), rreplicate 22 x1114] in let v1243 = rappend (rreplicate 0 (rconst 0.0)) (rappend (rreverse v1172) (rreplicate 1 (rconst 0.0))) in let [x1244 @Natural @Double @[], v1245 @Natural @Double @[22]] = rmapAccumRDer (\\x1246 [x1247, x1248, x1249] -> let x1250 = cos x1249 in [x1246 + x1247, recip (x1250 * x1250) * (x1246 + x1247)]) (\\x1251 [x1252, x1253, x1254] x1255 [x1256, x1257, x1258] -> let x1259 = cos x1258 ; x1260 = x1259 * x1259 ; x1264 = x1254 * negate (sin x1258) in [x1251 + x1252, ((x1264 * x1259 + x1264 * x1259) * negate (recip (x1260 * x1260))) * (x1255 + x1256) + (x1251 + x1252) * recip x1260]) (\\x1269 [x1270] x1271 [x1272, x1273, x1274] -> let x1275 = cos x1274 ; x1276 = x1275 * x1275 ; x1281 = recip x1276 * x1270 ; x1282 = negate (recip (x1276 * x1276)) * ((x1271 + x1272) * x1270) in [x1269 + x1281, x1269 + x1281, 0, negate (sin x1274) * (x1275 * x1282 + x1275 * x1282)]) (rconst 0.0) [rslice 1 22 v1243, rslice 0 22 v1128, rreplicate 22 x1114] in [x1171, rsum v1245 + rsum v1173, x1244 + v1243 ! [0]]) (rconst 1.0) [rslice 0 11 (rscanDer (\\x786 x787 -> rfoldDer (\\x788 x789 -> x788 + tan x789) (\\x790 x791 x792 x793 -> let x794 = cos x793 in x790 + x791 * recip (x794 * x794)) (\\x796 x797 x798 -> let x799 = cos x798 in [x796, recip (x799 * x799) * x796]) x787 (rreplicate 22 x786)) (\\x800 x801 x802 x803 -> rfoldZipDer (\\x817 [x818, x819, x820] -> let x821 = cos x820 in x817 + x818 * recip (x821 * x821)) (\\x823 [x824, x825, x826] x827 [x828, x829, x830] -> let x831 = cos x830 ; x832 = x831 * x831 ; x835 = x826 * negate (sin x830) in x823 + x824 * recip x832 + ((x835 * x831 + x835 * x831) * negate (recip (x832 * x832))) * x828) (\\x839 x840 [x841, x842, x843] -> let x844 = cos x843 ; x845 = x844 * x844 ; x848 = negate (recip (x845 * x845)) * (x841 * x839) in [x839, recip x845 * x839, 0, negate (sin x843) * (x844 * x848 + x844 * x848)]) x801 [rreplicate 22 x800, rslice 0 22 (rscanDer (\\x804 x805 -> x804 + tan x805) (\\x806 x807 x808 x809 -> let x810 = cos x809 in x806 + x807 * recip (x810 * x810)) (\\x812 x813 x814 -> let x815 = cos x814 in [x812, recip (x815 * x815) * x812]) x803 (rreplicate 22 x802)), rreplicate 22 x802]) (\\x849 x850 x851 -> let [x865 @Natural @Double @[], v866 @Natural @Double @[22]] = rmapAccumRDer (\\x867 [x868, x869] -> let x870 = cos x869 in [x867, recip (x870 * x870) * x867]) (\\x871 [x872, x873] x874 [x875, x876] -> let x877 = cos x876 ; x878 = x877 * x877 ; x880 = x873 * negate (sin x876) in [x871, ((x880 * x877 + x880 * x877) * negate (recip (x878 * x878))) * x874 + x871 * recip x878]) (\\x884 [x885] x886 [x887, x888] -> let x889 = cos x888 ; x890 = x889 * x889 ; x892 = negate (recip (x890 * x890)) * (x886 * x885) in [recip x890 * x885 + x884, 0, negate (sin x888) * (x889 * x892 + x889 * x892)]) x849 [rslice 0 22 (rscanDer (\\x852 x853 -> x852 + tan x853) (\\x854 x855 x856 x857 -> let x858 = cos x857 in x854 + x855 * recip (x858 * x858)) (\\x860 x861 x862 -> let x863 = cos x862 in [x860, recip (x863 * x863) * x860]) x851 (rreplicate 22 x850)), rreplicate 22 x850] in [rsum v866, x865]) (rconst 1.1) (rconstant (rreplicate 11 (rconst 1.1)))), rconstant (rreplicate 11 (rconst 1.1))] in [rsum v896 + x895]"
 
 testSin0FoldNestedR1SimpSimpPP :: Assertion
 testSin0FoldNestedR1SimpSimpPP = do
@@ -2419,7 +2419,7 @@ testSin0FoldNestedR0LengthPP = do
       IM.empty
       (simplifyAstHVector6
        $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 1.1)))
-    @?= 586
+    @?= 863
 
 testSin0FoldNestedR1LengthPP :: Assertion
 testSin0FoldNestedR1LengthPP = do
@@ -2438,7 +2438,7 @@ testSin0FoldNestedR1LengthPP = do
       IM.empty
       (simplifyAstHVector6
        $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 1.1)))
-    @?= 6_470
+    @?= 10_488
 
 testSin0FoldNestedR2LengthPP :: Assertion
 testSin0FoldNestedR2LengthPP = do
@@ -2459,7 +2459,7 @@ testSin0FoldNestedR2LengthPP = do
        IM.empty
        (simplifyAstHVector6
         $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 1.1)))
-    @?= 119_898
+    @?= 158_401
 
 testSin0FoldNestedR3LengthPP :: Assertion
 testSin0FoldNestedR3LengthPP = do
@@ -2482,7 +2482,7 @@ testSin0FoldNestedR3LengthPP = do
        IM.empty
        (simplifyAstHVector6
         $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 1.1)))
-    @?= 2_312_298
+    @?= 2_754_800
 
 testSin0FoldNestedR4LengthPP :: Assertion
 testSin0FoldNestedR4LengthPP = do
@@ -2507,7 +2507,7 @@ testSin0FoldNestedR4LengthPP = do
        IM.empty
        (simplifyAstHVector6
         $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 1.1)))
-    @?= 48_861_457
+    @?= 55_824_498
 
 -- Uses 30G in GHC 9.8.1 with -O1 and patchy specialization.
 _testSin0FoldNestedR5LengthPP :: Assertion
@@ -2535,7 +2535,7 @@ _testSin0FoldNestedR5LengthPP = do
        IM.empty
        (simplifyAstHVector6
         $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 1.1)))
-    @?= 1_156_198_859
+    @?= 1_310_589_318
 
 testSin0FoldNestedS1FwdFwd0 :: Assertion
 testSin0FoldNestedS1FwdFwd0 = do
@@ -2901,7 +2901,7 @@ testSin0FoldNestedR21PP = do
                             a0 (rreplicate 2 a0)
            in f) 1.1
   length (printAstSimple IM.empty (simplifyAst6 a1))
-    @?= 45638
+    @?= 41258
 
 testSin0revhV :: Assertion
 testSin0revhV = do
