@@ -272,133 +272,6 @@ inlineAst memo v0 = case v0 of
                                  (varDx, varDa, varn1, varm1, ast2)
                                  (varDt2, nvar2, mvar2, doms2) x02 as2)
 
-inlineAstDynamic
-  :: AstSpan s
-  => AstMemo -> AstDynamic s
-  -> (AstMemo, AstDynamic s)
-inlineAstDynamic memo = \case
-  DynamicRanked w -> second DynamicRanked $ inlineAst memo w
-  DynamicShaped w -> second DynamicShaped $ inlineAstS memo w
-  u@DynamicRankedDummy{} -> (memo, u)
-  u@DynamicShapedDummy{} -> (memo, u)
-
-inlineAstHVector
-  :: AstSpan s
-  => AstMemo -> AstHVector s -> (AstMemo, AstHVector s)
-inlineAstHVector memo v0 = case v0 of
-  Ast.AstHVector l ->
-    second Ast.AstHVector $ mapAccumR inlineAstDynamic memo l
-  Ast.AstLetHVectorInHVector vars u v ->
-    -- We don't inline, but elsewhere try to reduce to constructors that we do.
-    let (memo1, u2) = inlineAstHVector memo u
-        (memo2, v2) = inlineAstHVector memo1 v
-    in (memo2, Ast.AstLetHVectorInHVector vars u2 v2)
-  Ast.AstLetInHVector var u v ->
-    -- We assume there are no nested lets with the same variable.
-    let vv = varNameToAstVarId var
-        (memo1, v2) = inlineAstHVector memo v
-        memo1NoVar = EM.delete vv memo1
-        (memo2, u2) = inlineAst memo1NoVar u
-    in case EM.findWithDefault 0 vv memo1 of
-      0 -> (memo1, v2)
-      1 -> (memo2, substituteAstHVector (SubstitutionPayloadRanked u2) var v2)
-      count | astIsSmall (count < 10) u ->
-        let (memoU0, u0) = inlineAst EM.empty u
-        in ( EM.unionWith (\c1 c0 -> c1 + count * c0) memo1NoVar memoU0
-               -- u is small, so the union is fast
-           , substituteAstHVector (SubstitutionPayloadRanked u0) var v2 )
-      _ -> (memo2, Ast.AstLetInHVector var u2 v2)
-  Ast.AstLetInHVectorS var u v ->
-    -- We assume there are no nested lets with the same variable.
-    let vv = varNameToAstVarId var
-        (memo1, v2) = inlineAstHVector memo v
-        memo1NoVar = EM.delete vv memo1
-        (memo2, u2) = inlineAstS memo1NoVar u
-    in case EM.findWithDefault 0 vv memo1 of
-      0 -> (memo1, v2)
-      1 -> (memo2, substituteAstHVector (SubstitutionPayloadShaped u2) var v2)
-      count | astIsSmallS (count < 10) u ->
-        let (memoU0, u0) = inlineAstS EM.empty u
-        in ( EM.unionWith (\c1 c0 -> c1 + count * c0) memo1NoVar memoU0
-               -- u is small, so the union is fast
-           , substituteAstHVector (SubstitutionPayloadShaped u0) var v2 )
-      _ -> (memo2, Ast.AstLetInHVectorS var u2 v2)
-  Ast.AstBuildHVector1 k (var, v) ->
-    let (memoV0, v2) = inlineAstHVector EM.empty v
-        memo1 = EM.unionWith (\c1 c0 -> c1 + k * c0) memo memoV0
-    in (memo1, Ast.AstBuildHVector1 k (var, v2))
-  Ast.AstRev (vars, v) l ->
-    -- No other free variables in v, so no outside lets can reach there,
-    -- so we don't need to pass the information from v upwards. Same below.
-    let (_, v2) = inlineAst EM.empty v
-    in second (Ast.AstRev (vars, v2)) (mapAccumR inlineAstDynamic memo l)
-  Ast.AstRevDt (vars, v) l dt ->
-    let (_, v2) = inlineAst EM.empty v
-        (memo1, l1) = mapAccumR inlineAstDynamic memo l
-        (memo2, dt2) = inlineAst memo1 dt
-    in (memo2, Ast.AstRevDt (vars, v2) l1 dt2)
-  Ast.AstRevS (vars, v) l ->
-    let (_, v2) = inlineAstS EM.empty v
-    in second (Ast.AstRevS (vars, v2)) (mapAccumR inlineAstDynamic memo l)
-  Ast.AstRevDtS (vars, v) l dt ->
-    let (_, v2) = inlineAstS EM.empty v
-        (memo1, l1) = mapAccumR inlineAstDynamic memo l
-        (memo2, dt2) = inlineAstS memo1 dt
-    in (memo2, Ast.AstRevDtS (vars, v2) l1 dt2)
-  Ast.AstMapAccumRR domB (nvar, mvar, v) x0 as ->
-    let (_, v2) = inlineAstHVector EM.empty v
-        (memo1, x02) = inlineAst memo x0
-        (memo2, as2) = mapAccumR inlineAstDynamic memo1 as
-    in (memo2, Ast.AstMapAccumRR domB (nvar, mvar, v2) x02 as2)
-  Ast.AstMapAccumRDerR domB (nvar, mvar, v)
-                       (varDx, varDa, varn1, varm1, ast1)
-                       (varDy, varDt2, nvar2, mvar2, doms) x0 as ->
-    let (_, v2) = inlineAstHVector EM.empty v
-        (_, doms2) = inlineAstHVector EM.empty doms
-        (_, ast2) = inlineAstHVector EM.empty ast1
-        (memo1, x02) = inlineAst memo x0
-        (memo2, as2) = mapAccumR inlineAstDynamic memo1 as
-    in (memo2, Ast.AstMapAccumRDerR domB (nvar, mvar, v2)
-                                    (varDx, varDa, varn1, varm1, ast2)
-                                    (varDy, varDt2, nvar2, mvar2, doms2)
-                                    x02 as2)
-  Ast.AstMapAccumRS @k domB (nvar, mvar, v) x0 as ->
-    let (_, v2) = inlineAstHVector EM.empty v
-        (memo1, x02) = inlineAstS memo x0
-        (memo2, as2) = mapAccumR inlineAstDynamic memo1 as
-    in (memo2, Ast.AstMapAccumRS @k domB (nvar, mvar, v2) x02 as2)
-  Ast.AstMapAccumRDerS @k domB (nvar, mvar, v)
-                       (varDx, varDa, varn1, varm1, ast1)
-                       (varDy, varDt2, nvar2, mvar2, doms) x0 as ->
-    let (_, v2) = inlineAstHVector EM.empty v
-        (_, doms2) = inlineAstHVector EM.empty doms
-        (_, ast2) = inlineAstHVector EM.empty ast1
-        (memo1, x02) = inlineAstS memo x0
-        (memo2, as2) = mapAccumR inlineAstDynamic memo1 as
-    in (memo2, Ast.AstMapAccumRDerS @k domB (nvar, mvar, v2)
-                                    (varDx, varDa, varn1, varm1, ast2)
-                                    (varDy, varDt2, nvar2, mvar2, doms2)
-                                    x02 as2)
-
-inlineAstBool :: AstMemo -> AstBool -> (AstMemo, AstBool)
-inlineAstBool memo v0 = case v0 of
-  Ast.AstBoolNot arg ->
-    let (memo2, arg2) = inlineAstBool memo arg
-    in (memo2, Ast.AstBoolNot arg2)
-  Ast.AstB2 opCodeBool arg1 arg2 ->
-    let (memo1, b1) = inlineAstBool memo arg1
-        (memo2, b2) = inlineAstBool memo1 arg2
-    in (memo2, Ast.AstB2 opCodeBool b1 b2)
-  Ast.AstBoolConst{} -> (memo, v0)
-  Ast.AstRel opCodeRel arg1 arg2 ->
-    let (memo1, r1) = inlineAst memo arg1
-        (memo2, r2) = inlineAst memo1 arg2
-    in (memo2, Ast.AstRel opCodeRel r1 r2)
-  Ast.AstRelS opCodeRel arg1 arg2 ->
-    let (memo1, r1) = inlineAstS memo arg1
-        (memo2, r2) = inlineAstS memo1 arg2
-    in (memo2, Ast.AstRelS opCodeRel r1 r2)
-
 inlineAstS
   :: forall sh s r. (GoodScalar r, Sh.Shape sh, AstSpan s)
   => AstMemo
@@ -586,6 +459,133 @@ inlineAstS memo v0 = case v0 of
                                   (varDx, varDa, varn1, varm1, ast2)
                                   (varDt2, nvar2, mvar2, doms2) x02 as2)
 
+inlineAstDynamic
+  :: AstSpan s
+  => AstMemo -> AstDynamic s
+  -> (AstMemo, AstDynamic s)
+inlineAstDynamic memo = \case
+  DynamicRanked w -> second DynamicRanked $ inlineAst memo w
+  DynamicShaped w -> second DynamicShaped $ inlineAstS memo w
+  u@DynamicRankedDummy{} -> (memo, u)
+  u@DynamicShapedDummy{} -> (memo, u)
+
+inlineAstHVector
+  :: AstSpan s
+  => AstMemo -> AstHVector s -> (AstMemo, AstHVector s)
+inlineAstHVector memo v0 = case v0 of
+  Ast.AstHVector l ->
+    second Ast.AstHVector $ mapAccumR inlineAstDynamic memo l
+  Ast.AstLetHVectorInHVector vars u v ->
+    -- We don't inline, but elsewhere try to reduce to constructors that we do.
+    let (memo1, u2) = inlineAstHVector memo u
+        (memo2, v2) = inlineAstHVector memo1 v
+    in (memo2, Ast.AstLetHVectorInHVector vars u2 v2)
+  Ast.AstLetInHVector var u v ->
+    -- We assume there are no nested lets with the same variable.
+    let vv = varNameToAstVarId var
+        (memo1, v2) = inlineAstHVector memo v
+        memo1NoVar = EM.delete vv memo1
+        (memo2, u2) = inlineAst memo1NoVar u
+    in case EM.findWithDefault 0 vv memo1 of
+      0 -> (memo1, v2)
+      1 -> (memo2, substituteAstHVector (SubstitutionPayloadRanked u2) var v2)
+      count | astIsSmall (count < 10) u ->
+        let (memoU0, u0) = inlineAst EM.empty u
+        in ( EM.unionWith (\c1 c0 -> c1 + count * c0) memo1NoVar memoU0
+               -- u is small, so the union is fast
+           , substituteAstHVector (SubstitutionPayloadRanked u0) var v2 )
+      _ -> (memo2, Ast.AstLetInHVector var u2 v2)
+  Ast.AstLetInHVectorS var u v ->
+    -- We assume there are no nested lets with the same variable.
+    let vv = varNameToAstVarId var
+        (memo1, v2) = inlineAstHVector memo v
+        memo1NoVar = EM.delete vv memo1
+        (memo2, u2) = inlineAstS memo1NoVar u
+    in case EM.findWithDefault 0 vv memo1 of
+      0 -> (memo1, v2)
+      1 -> (memo2, substituteAstHVector (SubstitutionPayloadShaped u2) var v2)
+      count | astIsSmallS (count < 10) u ->
+        let (memoU0, u0) = inlineAstS EM.empty u
+        in ( EM.unionWith (\c1 c0 -> c1 + count * c0) memo1NoVar memoU0
+               -- u is small, so the union is fast
+           , substituteAstHVector (SubstitutionPayloadShaped u0) var v2 )
+      _ -> (memo2, Ast.AstLetInHVectorS var u2 v2)
+  Ast.AstBuildHVector1 k (var, v) ->
+    let (memoV0, v2) = inlineAstHVector EM.empty v
+        memo1 = EM.unionWith (\c1 c0 -> c1 + k * c0) memo memoV0
+    in (memo1, Ast.AstBuildHVector1 k (var, v2))
+  Ast.AstRev (vars, v) l ->
+    -- No other free variables in v, so no outside lets can reach there,
+    -- so we don't need to pass the information from v upwards. Same below.
+    let (_, v2) = inlineAst EM.empty v
+    in second (Ast.AstRev (vars, v2)) (mapAccumR inlineAstDynamic memo l)
+  Ast.AstRevDt (vars, v) l dt ->
+    let (_, v2) = inlineAst EM.empty v
+        (memo1, l1) = mapAccumR inlineAstDynamic memo l
+        (memo2, dt2) = inlineAst memo1 dt
+    in (memo2, Ast.AstRevDt (vars, v2) l1 dt2)
+  Ast.AstRevS (vars, v) l ->
+    let (_, v2) = inlineAstS EM.empty v
+    in second (Ast.AstRevS (vars, v2)) (mapAccumR inlineAstDynamic memo l)
+  Ast.AstRevDtS (vars, v) l dt ->
+    let (_, v2) = inlineAstS EM.empty v
+        (memo1, l1) = mapAccumR inlineAstDynamic memo l
+        (memo2, dt2) = inlineAstS memo1 dt
+    in (memo2, Ast.AstRevDtS (vars, v2) l1 dt2)
+  Ast.AstMapAccumRR domB (nvar, mvar, v) x0 as ->
+    let (_, v2) = inlineAstHVector EM.empty v
+        (memo1, x02) = inlineAst memo x0
+        (memo2, as2) = mapAccumR inlineAstDynamic memo1 as
+    in (memo2, Ast.AstMapAccumRR domB (nvar, mvar, v2) x02 as2)
+  Ast.AstMapAccumRDerR domB (nvar, mvar, v)
+                       (varDx, varDa, varn1, varm1, ast1)
+                       (varDy, varDt2, nvar2, mvar2, doms) x0 as ->
+    let (_, v2) = inlineAstHVector EM.empty v
+        (_, doms2) = inlineAstHVector EM.empty doms
+        (_, ast2) = inlineAstHVector EM.empty ast1
+        (memo1, x02) = inlineAst memo x0
+        (memo2, as2) = mapAccumR inlineAstDynamic memo1 as
+    in (memo2, Ast.AstMapAccumRDerR domB (nvar, mvar, v2)
+                                    (varDx, varDa, varn1, varm1, ast2)
+                                    (varDy, varDt2, nvar2, mvar2, doms2)
+                                    x02 as2)
+  Ast.AstMapAccumRS @k domB (nvar, mvar, v) x0 as ->
+    let (_, v2) = inlineAstHVector EM.empty v
+        (memo1, x02) = inlineAstS memo x0
+        (memo2, as2) = mapAccumR inlineAstDynamic memo1 as
+    in (memo2, Ast.AstMapAccumRS @k domB (nvar, mvar, v2) x02 as2)
+  Ast.AstMapAccumRDerS @k domB (nvar, mvar, v)
+                       (varDx, varDa, varn1, varm1, ast1)
+                       (varDy, varDt2, nvar2, mvar2, doms) x0 as ->
+    let (_, v2) = inlineAstHVector EM.empty v
+        (_, doms2) = inlineAstHVector EM.empty doms
+        (_, ast2) = inlineAstHVector EM.empty ast1
+        (memo1, x02) = inlineAstS memo x0
+        (memo2, as2) = mapAccumR inlineAstDynamic memo1 as
+    in (memo2, Ast.AstMapAccumRDerS @k domB (nvar, mvar, v2)
+                                    (varDx, varDa, varn1, varm1, ast2)
+                                    (varDy, varDt2, nvar2, mvar2, doms2)
+                                    x02 as2)
+
+inlineAstBool :: AstMemo -> AstBool -> (AstMemo, AstBool)
+inlineAstBool memo v0 = case v0 of
+  Ast.AstBoolNot arg ->
+    let (memo2, arg2) = inlineAstBool memo arg
+    in (memo2, Ast.AstBoolNot arg2)
+  Ast.AstB2 opCodeBool arg1 arg2 ->
+    let (memo1, b1) = inlineAstBool memo arg1
+        (memo2, b2) = inlineAstBool memo1 arg2
+    in (memo2, Ast.AstB2 opCodeBool b1 b2)
+  Ast.AstBoolConst{} -> (memo, v0)
+  Ast.AstRel opCodeRel arg1 arg2 ->
+    let (memo1, r1) = inlineAst memo arg1
+        (memo2, r2) = inlineAst memo1 arg2
+    in (memo2, Ast.AstRel opCodeRel r1 r2)
+  Ast.AstRelS opCodeRel arg1 arg2 ->
+    let (memo1, r1) = inlineAstS memo arg1
+        (memo2, r2) = inlineAstS memo1 arg2
+    in (memo2, Ast.AstRelS opCodeRel r1 r2)
+
 
 -- * The unlet pass eliminating nested duplicated lets bottom-up
 
@@ -750,109 +750,6 @@ unletAst env t = case t of
                     (unletAst env x0)
                     (V.map (unletAstDynamic env) as)
 
-unletAstDynamic
-  :: AstSpan s
-  => UnletEnv -> AstDynamic s -> AstDynamic s
-unletAstDynamic env = \case
-  DynamicRanked u -> DynamicRanked $ unletAst env u
-  DynamicShaped u -> DynamicShaped $ unletAstS env u
-  u@DynamicRankedDummy{} -> u
-  u@DynamicShapedDummy{} -> u
-
-unletAstHVector
-  :: AstSpan s => UnletEnv -> AstHVector s -> AstHVector s
-unletAstHVector env = \case
-  Ast.AstHVector l -> Ast.AstHVector $ V.map (unletAstDynamic env) l
-  Ast.AstLetHVectorInHVector vars u v -> case vars of
-    [] -> error "unletAstHVector: empty hVector"
-    var : _ ->  -- vars are fresh, so var uniquely represent vars
-      let vv = dynamicVarNameToAstVarId var
-      in if vv `ES.member` unletSet env
-         then unletAstHVector env v
-         else let env2 = env {unletSet = ES.insert vv (unletSet env)}
-              in Ast.AstLetHVectorInHVector
-                   vars (unletAstHVector env u) (unletAstHVector env2 v)
-  Ast.AstLetInHVector var u v ->
-    let vv = varNameToAstVarId var
-    in if vv `ES.member` unletSet env
-      then unletAstHVector env v
-      else let env2 = env {unletSet = ES.insert vv (unletSet env)}
-           in Ast.AstLetInHVector var (unletAst env u)
-                                      (unletAstHVector env2 v)
-  Ast.AstLetInHVectorS var u v ->
-    let vv = varNameToAstVarId var
-    in if vv `ES.member` unletSet env
-       then unletAstHVector env v
-       else let env2 = env {unletSet = ES.insert vv (unletSet env)}
-            in Ast.AstLetInHVectorS var (unletAstS env u)
-                                        (unletAstHVector env2 v)
-  Ast.AstBuildHVector1 k (var, v) ->
-    Ast.AstBuildHVector1 k (var, unletAstHVector env v)
-  Ast.AstRev (vars, v) l ->
-    -- No other free variables in v, so no outside lets can reach there.
-    -- The same below.
-    Ast.AstRev (vars, unletAst (emptyUnletEnv emptyADShare) v)
-               (V.map (unletAstDynamic env) l)
-  Ast.AstRevDt (vars, v) l dt ->
-    Ast.AstRevDt (vars, unletAst (emptyUnletEnv emptyADShare) v)
-                 (V.map (unletAstDynamic env) l)
-                 (unletAst env dt)
-  Ast.AstRevS (vars, v) l ->
-    Ast.AstRevS (vars, unletAstS (emptyUnletEnv emptyADShare) v)
-                (V.map (unletAstDynamic env) l)
-  Ast.AstRevDtS (vars, v) l dt ->
-    Ast.AstRevDtS (vars, unletAstS (emptyUnletEnv emptyADShare) v)
-                  (V.map (unletAstDynamic env) l)
-                  (unletAstS env dt)
-  Ast.AstMapAccumRR domB (nvar, mvar, v) x0 as ->
-    Ast.AstMapAccumRR domB
-                      ( nvar, mvar
-                      , unletAstHVector (emptyUnletEnv emptyADShare) v )
-                      (unletAst env x0)
-                      (V.map (unletAstDynamic env) as)
-  Ast.AstMapAccumRDerR domB (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
-                                            (varDy, varDt2, nvar2, mvar2, doms)
-                                            x0 as ->
-    Ast.AstMapAccumRDerR domB
-                         ( nvar, mvar
-                         , unletAstHVector (emptyUnletEnv emptyADShare) v )
-                         ( varDx, varDa, varn1, varm1
-                         , unletAstHVector (emptyUnletEnv emptyADShare) ast1 )
-                         ( varDy, varDt2, nvar2, mvar2
-                         , unletAstHVector (emptyUnletEnv emptyADShare) doms )
-                         (unletAst env x0)
-                         (V.map (unletAstDynamic env) as)
-  Ast.AstMapAccumRS @k domB (nvar, mvar, v) x0 as ->
-    Ast.AstMapAccumRS @k domB
-                      ( nvar, mvar
-                      , unletAstHVector (emptyUnletEnv emptyADShare) v )
-                      (unletAstS env x0)
-                      (V.map (unletAstDynamic env) as)
-  Ast.AstMapAccumRDerS @k domB
-                       (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
-                                       (varDy, varDt2, nvar2, mvar2, doms)
-                                       x0 as ->
-    Ast.AstMapAccumRDerS @k domB
-                         ( nvar, mvar
-                         , unletAstHVector (emptyUnletEnv emptyADShare) v )
-                         ( varDx, varDa, varn1, varm1
-                         , unletAstHVector (emptyUnletEnv emptyADShare) ast1 )
-                         ( varDy, varDt2, nvar2, mvar2
-                         , unletAstHVector (emptyUnletEnv emptyADShare) doms )
-                         (unletAstS env x0)
-                         (V.map (unletAstDynamic env) as)
-
-unletAstBool :: UnletEnv -> AstBool -> AstBool
-unletAstBool env t = case t of
-  Ast.AstBoolNot arg -> Ast.AstBoolNot $ unletAstBool env arg
-  Ast.AstB2 opCodeBool arg1 arg2 ->
-    Ast.AstB2 opCodeBool (unletAstBool env arg1) (unletAstBool env arg2)
-  Ast.AstBoolConst{} -> t
-  Ast.AstRel opCodeRel arg1 arg2 ->
-    Ast.AstRel opCodeRel (unletAst env arg1) (unletAst env arg2)
-  Ast.AstRelS opCodeRel arg1 arg2 ->
-    Ast.AstRelS opCodeRel (unletAstS env arg1) (unletAstS env arg2)
-
 unletAstS
   :: (GoodScalar r, Sh.Shape sh, AstSpan s)
   => UnletEnv -> AstShaped s r sh -> AstShaped s r sh
@@ -981,3 +878,106 @@ unletAstS env t = case t of
                        , unletAstHVector (emptyUnletEnv emptyADShare) doms )
                        (unletAstS env x0)
                        (V.map (unletAstDynamic env) as)
+
+unletAstDynamic
+  :: AstSpan s
+  => UnletEnv -> AstDynamic s -> AstDynamic s
+unletAstDynamic env = \case
+  DynamicRanked u -> DynamicRanked $ unletAst env u
+  DynamicShaped u -> DynamicShaped $ unletAstS env u
+  u@DynamicRankedDummy{} -> u
+  u@DynamicShapedDummy{} -> u
+
+unletAstHVector
+  :: AstSpan s => UnletEnv -> AstHVector s -> AstHVector s
+unletAstHVector env = \case
+  Ast.AstHVector l -> Ast.AstHVector $ V.map (unletAstDynamic env) l
+  Ast.AstLetHVectorInHVector vars u v -> case vars of
+    [] -> error "unletAstHVector: empty hVector"
+    var : _ ->  -- vars are fresh, so var uniquely represent vars
+      let vv = dynamicVarNameToAstVarId var
+      in if vv `ES.member` unletSet env
+         then unletAstHVector env v
+         else let env2 = env {unletSet = ES.insert vv (unletSet env)}
+              in Ast.AstLetHVectorInHVector
+                   vars (unletAstHVector env u) (unletAstHVector env2 v)
+  Ast.AstLetInHVector var u v ->
+    let vv = varNameToAstVarId var
+    in if vv `ES.member` unletSet env
+      then unletAstHVector env v
+      else let env2 = env {unletSet = ES.insert vv (unletSet env)}
+           in Ast.AstLetInHVector var (unletAst env u)
+                                      (unletAstHVector env2 v)
+  Ast.AstLetInHVectorS var u v ->
+    let vv = varNameToAstVarId var
+    in if vv `ES.member` unletSet env
+       then unletAstHVector env v
+       else let env2 = env {unletSet = ES.insert vv (unletSet env)}
+            in Ast.AstLetInHVectorS var (unletAstS env u)
+                                        (unletAstHVector env2 v)
+  Ast.AstBuildHVector1 k (var, v) ->
+    Ast.AstBuildHVector1 k (var, unletAstHVector env v)
+  Ast.AstRev (vars, v) l ->
+    -- No other free variables in v, so no outside lets can reach there.
+    -- The same below.
+    Ast.AstRev (vars, unletAst (emptyUnletEnv emptyADShare) v)
+               (V.map (unletAstDynamic env) l)
+  Ast.AstRevDt (vars, v) l dt ->
+    Ast.AstRevDt (vars, unletAst (emptyUnletEnv emptyADShare) v)
+                 (V.map (unletAstDynamic env) l)
+                 (unletAst env dt)
+  Ast.AstRevS (vars, v) l ->
+    Ast.AstRevS (vars, unletAstS (emptyUnletEnv emptyADShare) v)
+                (V.map (unletAstDynamic env) l)
+  Ast.AstRevDtS (vars, v) l dt ->
+    Ast.AstRevDtS (vars, unletAstS (emptyUnletEnv emptyADShare) v)
+                  (V.map (unletAstDynamic env) l)
+                  (unletAstS env dt)
+  Ast.AstMapAccumRR domB (nvar, mvar, v) x0 as ->
+    Ast.AstMapAccumRR domB
+                      ( nvar, mvar
+                      , unletAstHVector (emptyUnletEnv emptyADShare) v )
+                      (unletAst env x0)
+                      (V.map (unletAstDynamic env) as)
+  Ast.AstMapAccumRDerR domB (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
+                                            (varDy, varDt2, nvar2, mvar2, doms)
+                                            x0 as ->
+    Ast.AstMapAccumRDerR domB
+                         ( nvar, mvar
+                         , unletAstHVector (emptyUnletEnv emptyADShare) v )
+                         ( varDx, varDa, varn1, varm1
+                         , unletAstHVector (emptyUnletEnv emptyADShare) ast1 )
+                         ( varDy, varDt2, nvar2, mvar2
+                         , unletAstHVector (emptyUnletEnv emptyADShare) doms )
+                         (unletAst env x0)
+                         (V.map (unletAstDynamic env) as)
+  Ast.AstMapAccumRS @k domB (nvar, mvar, v) x0 as ->
+    Ast.AstMapAccumRS @k domB
+                      ( nvar, mvar
+                      , unletAstHVector (emptyUnletEnv emptyADShare) v )
+                      (unletAstS env x0)
+                      (V.map (unletAstDynamic env) as)
+  Ast.AstMapAccumRDerS @k domB
+                       (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
+                                       (varDy, varDt2, nvar2, mvar2, doms)
+                                       x0 as ->
+    Ast.AstMapAccumRDerS @k domB
+                         ( nvar, mvar
+                         , unletAstHVector (emptyUnletEnv emptyADShare) v )
+                         ( varDx, varDa, varn1, varm1
+                         , unletAstHVector (emptyUnletEnv emptyADShare) ast1 )
+                         ( varDy, varDt2, nvar2, mvar2
+                         , unletAstHVector (emptyUnletEnv emptyADShare) doms )
+                         (unletAstS env x0)
+                         (V.map (unletAstDynamic env) as)
+
+unletAstBool :: UnletEnv -> AstBool -> AstBool
+unletAstBool env t = case t of
+  Ast.AstBoolNot arg -> Ast.AstBoolNot $ unletAstBool env arg
+  Ast.AstB2 opCodeBool arg1 arg2 ->
+    Ast.AstB2 opCodeBool (unletAstBool env arg1) (unletAstBool env arg2)
+  Ast.AstBoolConst{} -> t
+  Ast.AstRel opCodeRel arg1 arg2 ->
+    Ast.AstRel opCodeRel (unletAst env arg1) (unletAst env arg2)
+  Ast.AstRelS opCodeRel arg1 arg2 ->
+    Ast.AstRelS opCodeRel (unletAstS env arg1) (unletAstS env arg2)

@@ -231,53 +231,6 @@ varInAst var = \case
   AstScanZipDer _f _df _rf x0 as ->
     varInAst var x0 || any (varInAstDynamic var) as
 
-varInADShare :: AstVarId -> ADShare -> Bool
-varInADShare = varInADShareF varInAstDynamic varInAstHVector
-
-varInAstHVector :: AstSpan s
-                => AstVarId -> AstHVector s -> Bool
-varInAstHVector var = \case
-  AstHVector l -> any (varInAstDynamic var) l
-  AstLetHVectorInHVector _vars2 u v ->
-    varInAstHVector var u || varInAstHVector var v
-  AstLetInHVector _var2 u v -> varInAst var u || varInAstHVector var v
-  AstLetInHVectorS _var2 u v -> varInAstS var u || varInAstHVector var v
-  AstBuildHVector1 _ (_var2, v) -> varInAstHVector var v
-  AstRev _f l ->  -- _f has no non-bound variables
-    any (varInAstDynamic var) l
-  AstRevDt _f l dt ->  -- _f has no non-bound variables
-    let f = varInAstDynamic var
-    in any f l || varInAst var dt
-  AstRevS _f l ->  -- _f has no non-bound variables
-    any (varInAstDynamic var) l
-  AstRevDtS _f l dt ->  -- _f has no non-bound variables
-    let f = varInAstDynamic var
-    in any f l || varInAstS var dt
-  AstMapAccumRR _domB _f x0 as ->
-    varInAst var x0 || any (varInAstDynamic var) as
-  AstMapAccumRDerR _domB _f _df _rf x0 as ->
-    varInAst var x0 || any (varInAstDynamic var) as
-  AstMapAccumRS _domB _f x0 as ->
-    varInAstS var x0 || any (varInAstDynamic var) as
-  AstMapAccumRDerS _domB _f _df _rf x0 as ->
-    varInAstS var x0 || any (varInAstDynamic var) as
-
-varInAstDynamic :: AstSpan s
-                => AstVarId -> AstDynamic s -> Bool
-varInAstDynamic var = \case
-  DynamicRanked t -> varInAst var t
-  DynamicShaped t -> varInAstS var t
-  DynamicRankedDummy{} -> False
-  DynamicShapedDummy{} -> False
-
-varInAstBool :: AstVarId -> AstBool -> Bool
-varInAstBool var = \case
-  AstBoolNot b -> varInAstBool var b
-  AstB2 _ arg1 arg2 -> varInAstBool var arg1 || varInAstBool var arg2
-  AstBoolConst{} -> False
-  AstRel _ arg1 arg2 -> varInAst var arg1 || varInAst var arg2
-  AstRelS _ arg1 arg2 -> varInAstS var arg1 || varInAstS var arg2
-
 varInIndex :: AstVarId -> AstIndex n -> Bool
 varInIndex var = any (varInAst var)
 
@@ -336,6 +289,53 @@ varInAstS var = \case
 
 varInIndexS :: AstVarId -> AstIndexS sh -> Bool
 varInIndexS var = any (varInAst var)
+
+varInADShare :: AstVarId -> ADShare -> Bool
+varInADShare = varInADShareF varInAstDynamic varInAstHVector
+
+varInAstHVector :: AstSpan s
+                => AstVarId -> AstHVector s -> Bool
+varInAstHVector var = \case
+  AstHVector l -> any (varInAstDynamic var) l
+  AstLetHVectorInHVector _vars2 u v ->
+    varInAstHVector var u || varInAstHVector var v
+  AstLetInHVector _var2 u v -> varInAst var u || varInAstHVector var v
+  AstLetInHVectorS _var2 u v -> varInAstS var u || varInAstHVector var v
+  AstBuildHVector1 _ (_var2, v) -> varInAstHVector var v
+  AstRev _f l ->  -- _f has no non-bound variables
+    any (varInAstDynamic var) l
+  AstRevDt _f l dt ->  -- _f has no non-bound variables
+    let f = varInAstDynamic var
+    in any f l || varInAst var dt
+  AstRevS _f l ->  -- _f has no non-bound variables
+    any (varInAstDynamic var) l
+  AstRevDtS _f l dt ->  -- _f has no non-bound variables
+    let f = varInAstDynamic var
+    in any f l || varInAstS var dt
+  AstMapAccumRR _domB _f x0 as ->
+    varInAst var x0 || any (varInAstDynamic var) as
+  AstMapAccumRDerR _domB _f _df _rf x0 as ->
+    varInAst var x0 || any (varInAstDynamic var) as
+  AstMapAccumRS _domB _f x0 as ->
+    varInAstS var x0 || any (varInAstDynamic var) as
+  AstMapAccumRDerS _domB _f _df _rf x0 as ->
+    varInAstS var x0 || any (varInAstDynamic var) as
+
+varInAstDynamic :: AstSpan s
+                => AstVarId -> AstDynamic s -> Bool
+varInAstDynamic var = \case
+  DynamicRanked t -> varInAst var t
+  DynamicShaped t -> varInAstS var t
+  DynamicRankedDummy{} -> False
+  DynamicShapedDummy{} -> False
+
+varInAstBool :: AstVarId -> AstBool -> Bool
+varInAstBool var = \case
+  AstBoolNot b -> varInAstBool var b
+  AstB2 _ arg1 arg2 -> varInAstBool var arg1 || varInAstBool var arg2
+  AstBoolConst{} -> False
+  AstRel _ arg1 arg2 -> varInAst var arg1 || varInAst var arg2
+  AstRelS _ arg1 arg2 -> varInAstS var arg1 || varInAstS var arg2
 
 varNameInAst :: AstSpan s2
              => AstVarName f r n -> AstRanked s2 r2 n2 -> Bool

@@ -634,6 +634,421 @@ printAstAux cfg d = \case
       . showString " "
       . printHVectorAst cfg as
 
+printAstS :: forall sh s r. (GoodScalar r, Sh.Shape sh, AstSpan s)
+          => PrintConfig -> Int -> AstShaped s r sh -> ShowS
+printAstS cfg d = \case
+  AstVarS var -> printAstVarS cfg var
+  t@(AstLetS var0 u0 v0) ->
+    if prettifyLosingSharing cfg
+    then let collect :: AstShaped s r sh -> ([(ShowS, ShowS)], ShowS)
+             collect (AstLetS var u v) =
+               let name = printAstVarS cfg var
+                   uPP = printAstS cfg 0 u
+                   (rest, corePP) = collect v
+               in ((name, uPP) : rest, corePP)
+             collect v = ([], printAstS cfg 0 v)
+             (pairs, core) = collect t
+         in showParen (d > 0)
+            $ showString "let "
+              . foldr (.) id (intersperse (showString " ; ")
+                  [name . showString " = " . uPP | (name, uPP) <- pairs])
+              . showString " in "
+              . core
+    else
+      showParen (d > 10)
+      $ showString "slet "
+        . printAstS cfg 11 u0
+        . showString " "
+        . (showParen True
+           $ showString "\\"
+             . printAstVarS cfg var0
+             . showString " -> "
+             . printAstS cfg 0 v0)
+  AstLetADShareS l v -> printAstS cfg d $ bindsToLetS v (assocsADShare l)
+  AstCondS b a1 a2 ->
+    showParen (d > 10)
+    $ showString "ifF "
+      . printAstBool cfg 11 b
+      . showString " "
+      . printAstS cfg 11 a1
+      . showString " "
+      . printAstS cfg 11 a2
+  AstMinIndexS a -> printPrefixOp printAstS cfg d "sminIndex" [a]
+  AstMaxIndexS a -> printPrefixOp printAstS cfg d "smaxIndex" [a]
+  AstFloorS a ->  printPrefixOp printAstS cfg d "sfloor" [a]
+  AstIotaS -> showString "siota"
+  AstN1S opCode u -> printAstN1 printAstS cfg d opCode u
+  AstN2S opCode u v -> printAstN2 printAstS cfg d opCode u v
+  AstR1S opCode u -> printAstR1 printAstS cfg d opCode u
+  AstR2S opCode u v -> printAstR2 printAstS cfg d opCode u v
+  AstI2S opCode u v -> printAstI2 printAstS cfg d opCode u v
+  AstSumOfListS [] -> error "printAst: empty AstSumOfList"
+  AstSumOfListS (left : args) ->
+    let rs = map (\arg -> showString " + " . printAstS cfg 7 arg) args
+    in showParen (d > 6)
+       $ printAstS cfg 7 left
+         . foldr (.) id rs
+  AstIndexS v ix ->
+    showParen (d > 9)
+    $ printAstS cfg 10 v
+      . showString " !$ "
+      . showListWith (printAstInt cfg 0) (ShapedList.sizedListToList ix)
+  AstSumS v -> printPrefixOp printAstS cfg d "ssum" [v]
+  AstScatterS v (vars, ix) ->
+    showParen (d > 10)
+    $ showString "sscatter "
+      . printAstS cfg 11 v
+      . showString " "
+      . (showParen True
+         $ showString "\\"
+           . showListWith (printAstIntVar cfg)
+                          (ShapedList.sizedListToList vars)
+           . showString " -> "
+           . showListWith (printAstInt cfg 0) (ShapedList.sizedListToList ix))
+  AstFromListS l ->
+    showParen (d > 10)
+    $ showString "sfromList "
+      . showListWith (printAstS cfg 0) l
+  AstFromVectorS l ->
+    showParen (d > 10)
+    $ showString "sfromVector "
+      . (showParen True
+         $ showString "fromList "
+           . showListWith (printAstS cfg 0) (V.toList l))
+  AstReplicateS v -> printPrefixOp printAstS cfg d "sreplicate" [v]
+  AstAppendS x y ->
+    -- x and y have different types, unlike in AstAppend, so we
+    -- have to inline printPrefixOp:
+    let rs = [ showString " " . printAstS cfg 11 x
+             , showString " " . printAstS cfg 11 y ]
+    in showParen (d > 10)
+       $ showString "sappend"
+         . foldr (.) id rs
+  AstSliceS v -> printPrefixOp printAstS cfg d "sslice" [v]
+  AstReverseS v -> printPrefixOp printAstS cfg d "sreverse" [v]
+  AstTransposeS v ->
+    printPrefixOp printAstS cfg d "stranspose" [v]
+  AstReshapeS v ->
+    printPrefixOp printAstS cfg d "sreshape" [v]
+  AstBuild1S (var, v) ->
+    showParen (d > 10)
+    $ showString "sbuild1 "
+      . (showParen True
+         $ showString "\\"
+           . printAstIntVar cfg var
+           . showString " -> "
+           . printAstS cfg 0 v)
+  AstGatherS v (vars, ix) ->
+    showParen (d > 10)
+    $ showString "sgather "
+      . printAstS cfg 11 v
+      . showString " "
+      . (showParen True
+         $ showString "\\"
+           . showListWith (printAstIntVar cfg)
+                          (ShapedList.sizedListToList vars)
+           . showString " -> "
+           . showListWith (printAstInt cfg 0) (ShapedList.sizedListToList ix))
+  AstCastS v -> printPrefixOp printAstS cfg d "scast" [v]
+  AstFromIntegralS a ->
+    printPrefixOp printAstS cfg d "sfromIntegral" [a]
+  AstConstS @sh2 a ->
+    showParen (d > 10)
+    $ showString ("sconst @" ++ show (Sh.shapeT @sh2) ++ " ")
+      . case sameShape @sh @'[] of
+          Just Refl -> shows $ OS.unScalar a
+          _ -> showParen True
+               $ shows a
+  AstLetHVectorInS vars l v ->
+    if prettifyLosingSharing cfg
+    then
+      showParen (d > 10)
+      $ showString "let "
+        . showListWith (showString
+                        . printAstDynamicVarName (varRenames cfg)) vars
+        . showString " = "
+        . printAstHVector cfg 0 l
+        . showString " in "
+        . printAstS cfg 0 v
+    else
+      showParen (d > 10)
+      $ showString "sletHVectorIn "
+        . printAstHVector cfg 11 l
+        . showString " "
+        . (showParen True
+           $ showString "\\"
+             . showListWith (showString
+                             . printAstDynamicVarName (varRenames cfg)) vars
+             . showString " -> "
+             . printAstS cfg 0 v)
+        -- TODO: this does not roundtrip yet
+  AstRToS v -> printAst cfg d v
+  AstConstantS a@AstConstS{} -> printAstS cfg d a
+  AstConstantS a ->
+    printPrefixOp printAstS cfg d "sconstant" [a]
+  AstPrimalPartS a -> printPrefixOp printAstS cfg d "sprimalPart" [a]
+  AstDualPartS a -> printPrefixOp printAstS cfg d "sdualPart" [a]
+  AstDS u u' -> printPrefixBinaryOp printAstS printAstS cfg d "sD" u u'
+  AstFwdS (vars, v) parameters ds ->
+    showParen (d > 10)
+    $ showString "sfwd "
+      . (showParen True
+         $ showString "\\"
+           . showListWith (showString
+                           . printAstDynamicVarNameCfg cfg) vars
+           . showString " -> "
+           . printAstS cfg 0 v)
+      . showString " "
+      . printHVectorAst cfg parameters
+      . showString " "
+      . printHVectorAst cfg ds
+  AstFoldS (nvar, mvar, v) x0 as ->
+    showParen (d > 10)
+    $ showString "sfold "
+      . (showParen True
+         $ showString "\\"
+           . showString (printAstVarNameS (varRenames cfg) nvar)
+           . showString " "
+           . showString (printAstVarNameS (varRenames cfg) mvar)
+           . showString " -> "
+           . printAstS cfg 0 v)
+      . showString " "
+      . printAstS cfg 11 x0
+      . showString " "
+      . printAstS cfg 11 as
+  AstFoldDerS (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
+                              (varDt2, nvar2, mvar2, doms) x0 as ->
+   if ignoreNestedLambdas cfg
+   then
+    showParen (d > 10)
+    $ showString "sfoldDer f df rf "
+      . printAstS cfg 11 x0
+      . showString " "
+      . printAstS cfg 11 as
+   else
+    showParen (d > 10)
+    $ showString "sfoldDer "
+      . (showParen True
+         $ showString "\\"
+           . showString (printAstVarNameS (varRenames cfg) nvar)
+           . showString " "
+           . showString (printAstVarNameS (varRenames cfg) mvar)
+           . showString " -> "
+           . printAstS cfg 0 v)
+      . showString " "
+      . (showParen True
+         $ showString "\\"
+           . showString (printAstVarNameS (varRenames cfg) varDx)
+           . showString " "
+           . showString (printAstVarNameS (varRenames cfg) varDa)
+           . showString " "
+           . showString (printAstVarNameS (varRenames cfg) varn1)
+           . showString " "
+           . showString (printAstVarNameS (varRenames cfg) varm1)
+           . showString " -> "
+           . printAstS cfg 0 ast1)
+      . showString " "
+      . (showParen True
+         $ showString "\\"
+           . showString (printAstVarNameS (varRenames cfg) varDt2)
+           . showString " "
+           . showString (printAstVarNameS (varRenames cfg) nvar2)
+           . showString " "
+           . showString (printAstVarNameS (varRenames cfg) mvar2)
+           . showString " -> "
+           . printAstHVector cfg 0 doms)
+      . showString " "
+      . printAstS cfg 11 x0
+      . showString " "
+      . printAstS cfg 11 as
+  AstFoldZipS (nvar, mvars, v) x0 as ->
+    showParen (d > 10)
+    $ showString "sfoldZip "
+      . (showParen True
+         $ showString "\\"
+           . showString (printAstVarNameS (varRenames cfg) nvar)
+           . showString " "
+           . showListWith (showString
+                           . printAstDynamicVarNameCfg cfg) mvars
+           . showString " -> "
+           . printAstS cfg 0 v)
+      . showString " "
+      . printAstS cfg 11 x0
+      . showString " "
+      . printHVectorAst cfg as
+  AstFoldZipDerS (nvar, mvars, v) (varDx, varsDa, varn1, varsm1, ast1)
+                                (varDt2, nvar2, mvars2, doms) x0 as ->
+   if ignoreNestedLambdas cfg
+   then
+    showParen (d > 10)
+    $ showString "sfoldZipDer f df rf "
+      . printAstS cfg 11 x0
+      . showString " "
+      . printHVectorAst cfg as
+   else
+    showParen (d > 10)
+    $ showString "sfoldZipDer "
+      . (showParen True
+         $ showString "\\"
+           . showString (printAstVarNameS (varRenames cfg) nvar)
+           . showString " "
+           . showListWith (showString
+                           . printAstDynamicVarNameCfg cfg) mvars
+           . showString " -> "
+           . printAstS cfg 0 v)
+      . showString " "
+      . (showParen True
+         $ showString "\\"
+           . showString (printAstVarNameS (varRenames cfg) varDx)
+           . showString " "
+           . showListWith (showString
+                           . printAstDynamicVarNameCfg cfg) varsDa
+           . showString " "
+           . showString (printAstVarNameS (varRenames cfg) varn1)
+           . showString " "
+           . showListWith (showString
+                           . printAstDynamicVarNameCfg cfg) varsm1
+           . showString " -> "
+           . printAstS cfg 0 ast1)
+      . showString " "
+      . (showParen True
+         $ showString "\\"
+           . showString (printAstVarNameS (varRenames cfg) varDt2)
+           . showString " "
+           . showString (printAstVarNameS (varRenames cfg) nvar2)
+           . showString " "
+           . showListWith (showString
+                           . printAstDynamicVarNameCfg cfg) mvars2
+           . showString " -> "
+           . printAstHVector cfg 0 doms)
+      . showString " "
+      . printAstS cfg 11 x0
+      . showString " "
+      . printHVectorAst cfg as
+  AstScanS (nvar, mvar, v) x0 as ->
+    showParen (d > 10)
+    $ showString "sscan "
+      . (showParen True
+         $ showString "\\"
+           . showString (printAstVarNameS (varRenames cfg) nvar)
+           . showString " "
+           . showString (printAstVarNameS (varRenames cfg) mvar)
+           . showString " -> "
+           . printAstS cfg 0 v)
+      . showString " "
+      . printAstS cfg 11 x0
+      . showString " "
+      . printAstS cfg 11 as
+  AstScanDerS (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
+                              (varDt2, nvar2, mvar2, doms) x0 as ->
+   if ignoreNestedLambdas cfg
+   then
+    showParen (d > 10)
+    $ showString "sscanDer f df rf "
+      . printAstS cfg 11 x0
+      . showString " "
+      . printAstS cfg 11 as
+   else
+    showParen (d > 10)
+    $ showString "sscanDer "
+      . (showParen True
+         $ showString "\\"
+           . showString (printAstVarNameS (varRenames cfg) nvar)
+           . showString " "
+           . showString (printAstVarNameS (varRenames cfg) mvar)
+           . showString " -> "
+           . printAstS cfg 0 v)
+      . showString " "
+      . (showParen True
+         $ showString "\\"
+           . showString (printAstVarNameS (varRenames cfg) varDx)
+           . showString " "
+           . showString (printAstVarNameS (varRenames cfg) varDa)
+           . showString " "
+           . showString (printAstVarNameS (varRenames cfg) varn1)
+           . showString " "
+           . showString (printAstVarNameS (varRenames cfg) varm1)
+           . showString " -> "
+           . printAstS cfg 0 ast1)
+      . showString " "
+      . (showParen True
+         $ showString "\\"
+           . showString (printAstVarNameS (varRenames cfg) varDt2)
+           . showString " "
+           . showString (printAstVarNameS (varRenames cfg) nvar2)
+           . showString " "
+           . showString (printAstVarNameS (varRenames cfg) mvar2)
+           . showString " -> "
+           . printAstHVector cfg 0 doms)
+      . showString " "
+      . printAstS cfg 11 x0
+      . showString " "
+      . printAstS cfg 11 as
+  AstScanZipS (nvar, mvars, v) x0 as ->
+    showParen (d > 10)
+    $ showString "sscanZip "
+      . (showParen True
+         $ showString "\\"
+           . showString (printAstVarNameS (varRenames cfg) nvar)
+           . showString " "
+           . showListWith (showString
+                           . printAstDynamicVarNameCfg cfg) mvars
+           . showString " -> "
+           . printAstS cfg 0 v)
+      . showString " "
+      . printAstS cfg 11 x0
+      . showString " "
+      . printHVectorAst cfg as
+  AstScanZipDerS (nvar, mvars, v) (varDx, varsDa, varn1, varsm1, ast1)
+                                (varDt2, nvar2, mvars2, doms) x0 as ->
+   if ignoreNestedLambdas cfg
+   then
+    showParen (d > 10)
+    $ showString "sscanZipDer f df rf "
+      . printAstS cfg 11 x0
+      . showString " "
+      . printHVectorAst cfg as
+   else
+    showParen (d > 10)
+    $ showString "sscanZipDer "
+      . (showParen True
+         $ showString "\\"
+           . showString (printAstVarNameS (varRenames cfg) nvar)
+           . showString " "
+           . showListWith (showString
+                           . printAstDynamicVarNameCfg cfg) mvars
+           . showString " -> "
+           . printAstS cfg 0 v)
+      . showString " "
+      . (showParen True
+         $ showString "\\"
+           . showString (printAstVarNameS (varRenames cfg) varDx)
+           . showString " "
+           . showListWith (showString
+                           . printAstDynamicVarNameCfg cfg) varsDa
+           . showString " "
+           . showString (printAstVarNameS (varRenames cfg) varn1)
+           . showString " "
+           . showListWith (showString
+                           . printAstDynamicVarNameCfg cfg) varsm1
+           . showString " -> "
+           . printAstS cfg 0 ast1)
+      . showString " "
+      . (showParen True
+         $ showString "\\"
+           . showString (printAstVarNameS (varRenames cfg) varDt2)
+           . showString " "
+           . showString (printAstVarNameS (varRenames cfg) nvar2)
+           . showString " "
+           . showListWith (showString
+                           . printAstDynamicVarNameCfg cfg) mvars2
+           . showString " -> "
+           . printAstHVector cfg 0 doms)
+      . showString " "
+      . printAstS cfg 11 x0
+      . showString " "
+      . printHVectorAst cfg as
+
 -- Differs from standard only in the space after comma.
 showListWith :: (a -> ShowS) -> [a] -> ShowS
 {-# INLINE showListWith #-}
@@ -1054,421 +1469,6 @@ printAstRelOp pr cfg d opCode u v = case opCode of
   GeqOp -> printBinaryOp pr cfg d u (4, " >=. ") v
   LsOp -> printBinaryOp pr cfg d u (4, " <. ") v
   GtOp -> printBinaryOp pr cfg d u (4, " >. ") v
-
-printAstS :: forall sh s r. (GoodScalar r, Sh.Shape sh, AstSpan s)
-          => PrintConfig -> Int -> AstShaped s r sh -> ShowS
-printAstS cfg d = \case
-  AstVarS var -> printAstVarS cfg var
-  t@(AstLetS var0 u0 v0) ->
-    if prettifyLosingSharing cfg
-    then let collect :: AstShaped s r sh -> ([(ShowS, ShowS)], ShowS)
-             collect (AstLetS var u v) =
-               let name = printAstVarS cfg var
-                   uPP = printAstS cfg 0 u
-                   (rest, corePP) = collect v
-               in ((name, uPP) : rest, corePP)
-             collect v = ([], printAstS cfg 0 v)
-             (pairs, core) = collect t
-         in showParen (d > 0)
-            $ showString "let "
-              . foldr (.) id (intersperse (showString " ; ")
-                  [name . showString " = " . uPP | (name, uPP) <- pairs])
-              . showString " in "
-              . core
-    else
-      showParen (d > 10)
-      $ showString "slet "
-        . printAstS cfg 11 u0
-        . showString " "
-        . (showParen True
-           $ showString "\\"
-             . printAstVarS cfg var0
-             . showString " -> "
-             . printAstS cfg 0 v0)
-  AstLetADShareS l v -> printAstS cfg d $ bindsToLetS v (assocsADShare l)
-  AstCondS b a1 a2 ->
-    showParen (d > 10)
-    $ showString "ifF "
-      . printAstBool cfg 11 b
-      . showString " "
-      . printAstS cfg 11 a1
-      . showString " "
-      . printAstS cfg 11 a2
-  AstMinIndexS a -> printPrefixOp printAstS cfg d "sminIndex" [a]
-  AstMaxIndexS a -> printPrefixOp printAstS cfg d "smaxIndex" [a]
-  AstFloorS a ->  printPrefixOp printAstS cfg d "sfloor" [a]
-  AstIotaS -> showString "siota"
-  AstN1S opCode u -> printAstN1 printAstS cfg d opCode u
-  AstN2S opCode u v -> printAstN2 printAstS cfg d opCode u v
-  AstR1S opCode u -> printAstR1 printAstS cfg d opCode u
-  AstR2S opCode u v -> printAstR2 printAstS cfg d opCode u v
-  AstI2S opCode u v -> printAstI2 printAstS cfg d opCode u v
-  AstSumOfListS [] -> error "printAst: empty AstSumOfList"
-  AstSumOfListS (left : args) ->
-    let rs = map (\arg -> showString " + " . printAstS cfg 7 arg) args
-    in showParen (d > 6)
-       $ printAstS cfg 7 left
-         . foldr (.) id rs
-  AstIndexS v ix ->
-    showParen (d > 9)
-    $ printAstS cfg 10 v
-      . showString " !$ "
-      . showListWith (printAstInt cfg 0) (ShapedList.sizedListToList ix)
-  AstSumS v -> printPrefixOp printAstS cfg d "ssum" [v]
-  AstScatterS v (vars, ix) ->
-    showParen (d > 10)
-    $ showString "sscatter "
-      . printAstS cfg 11 v
-      . showString " "
-      . (showParen True
-         $ showString "\\"
-           . showListWith (printAstIntVar cfg)
-                          (ShapedList.sizedListToList vars)
-           . showString " -> "
-           . showListWith (printAstInt cfg 0) (ShapedList.sizedListToList ix))
-  AstFromListS l ->
-    showParen (d > 10)
-    $ showString "sfromList "
-      . showListWith (printAstS cfg 0) l
-  AstFromVectorS l ->
-    showParen (d > 10)
-    $ showString "sfromVector "
-      . (showParen True
-         $ showString "fromList "
-           . showListWith (printAstS cfg 0) (V.toList l))
-  AstReplicateS v -> printPrefixOp printAstS cfg d "sreplicate" [v]
-  AstAppendS x y ->
-    -- x and y have different types, unlike in AstAppend, so we
-    -- have to inline printPrefixOp:
-    let rs = [ showString " " . printAstS cfg 11 x
-             , showString " " . printAstS cfg 11 y ]
-    in showParen (d > 10)
-       $ showString "sappend"
-         . foldr (.) id rs
-  AstSliceS v -> printPrefixOp printAstS cfg d "sslice" [v]
-  AstReverseS v -> printPrefixOp printAstS cfg d "sreverse" [v]
-  AstTransposeS v ->
-    printPrefixOp printAstS cfg d "stranspose" [v]
-  AstReshapeS v ->
-    printPrefixOp printAstS cfg d "sreshape" [v]
-  AstBuild1S (var, v) ->
-    showParen (d > 10)
-    $ showString "sbuild1 "
-      . (showParen True
-         $ showString "\\"
-           . printAstIntVar cfg var
-           . showString " -> "
-           . printAstS cfg 0 v)
-  AstGatherS v (vars, ix) ->
-    showParen (d > 10)
-    $ showString "sgather "
-      . printAstS cfg 11 v
-      . showString " "
-      . (showParen True
-         $ showString "\\"
-           . showListWith (printAstIntVar cfg)
-                          (ShapedList.sizedListToList vars)
-           . showString " -> "
-           . showListWith (printAstInt cfg 0) (ShapedList.sizedListToList ix))
-  AstCastS v -> printPrefixOp printAstS cfg d "scast" [v]
-  AstFromIntegralS a ->
-    printPrefixOp printAstS cfg d "sfromIntegral" [a]
-  AstConstS @sh2 a ->
-    showParen (d > 10)
-    $ showString ("sconst @" ++ show (Sh.shapeT @sh2) ++ " ")
-      . case sameShape @sh @'[] of
-          Just Refl -> shows $ OS.unScalar a
-          _ -> showParen True
-               $ shows a
-  AstLetHVectorInS vars l v ->
-    if prettifyLosingSharing cfg
-    then
-      showParen (d > 10)
-      $ showString "let "
-        . showListWith (showString
-                        . printAstDynamicVarName (varRenames cfg)) vars
-        . showString " = "
-        . printAstHVector cfg 0 l
-        . showString " in "
-        . printAstS cfg 0 v
-    else
-      showParen (d > 10)
-      $ showString "sletHVectorIn "
-        . printAstHVector cfg 11 l
-        . showString " "
-        . (showParen True
-           $ showString "\\"
-             . showListWith (showString
-                             . printAstDynamicVarName (varRenames cfg)) vars
-             . showString " -> "
-             . printAstS cfg 0 v)
-        -- TODO: this does not roundtrip yet
-  AstRToS v -> printAst cfg d v
-  AstConstantS a@AstConstS{} -> printAstS cfg d a
-  AstConstantS a ->
-    printPrefixOp printAstS cfg d "sconstant" [a]
-  AstPrimalPartS a -> printPrefixOp printAstS cfg d "sprimalPart" [a]
-  AstDualPartS a -> printPrefixOp printAstS cfg d "sdualPart" [a]
-  AstDS u u' -> printPrefixBinaryOp printAstS printAstS cfg d "sD" u u'
-  AstFwdS (vars, v) parameters ds ->
-    showParen (d > 10)
-    $ showString "sfwd "
-      . (showParen True
-         $ showString "\\"
-           . showListWith (showString
-                           . printAstDynamicVarNameCfg cfg) vars
-           . showString " -> "
-           . printAstS cfg 0 v)
-      . showString " "
-      . printHVectorAst cfg parameters
-      . showString " "
-      . printHVectorAst cfg ds
-  AstFoldS (nvar, mvar, v) x0 as ->
-    showParen (d > 10)
-    $ showString "sfold "
-      . (showParen True
-         $ showString "\\"
-           . showString (printAstVarNameS (varRenames cfg) nvar)
-           . showString " "
-           . showString (printAstVarNameS (varRenames cfg) mvar)
-           . showString " -> "
-           . printAstS cfg 0 v)
-      . showString " "
-      . printAstS cfg 11 x0
-      . showString " "
-      . printAstS cfg 11 as
-  AstFoldDerS (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
-                              (varDt2, nvar2, mvar2, doms) x0 as ->
-   if ignoreNestedLambdas cfg
-   then
-    showParen (d > 10)
-    $ showString "sfoldDer f df rf "
-      . printAstS cfg 11 x0
-      . showString " "
-      . printAstS cfg 11 as
-   else
-    showParen (d > 10)
-    $ showString "sfoldDer "
-      . (showParen True
-         $ showString "\\"
-           . showString (printAstVarNameS (varRenames cfg) nvar)
-           . showString " "
-           . showString (printAstVarNameS (varRenames cfg) mvar)
-           . showString " -> "
-           . printAstS cfg 0 v)
-      . showString " "
-      . (showParen True
-         $ showString "\\"
-           . showString (printAstVarNameS (varRenames cfg) varDx)
-           . showString " "
-           . showString (printAstVarNameS (varRenames cfg) varDa)
-           . showString " "
-           . showString (printAstVarNameS (varRenames cfg) varn1)
-           . showString " "
-           . showString (printAstVarNameS (varRenames cfg) varm1)
-           . showString " -> "
-           . printAstS cfg 0 ast1)
-      . showString " "
-      . (showParen True
-         $ showString "\\"
-           . showString (printAstVarNameS (varRenames cfg) varDt2)
-           . showString " "
-           . showString (printAstVarNameS (varRenames cfg) nvar2)
-           . showString " "
-           . showString (printAstVarNameS (varRenames cfg) mvar2)
-           . showString " -> "
-           . printAstHVector cfg 0 doms)
-      . showString " "
-      . printAstS cfg 11 x0
-      . showString " "
-      . printAstS cfg 11 as
-  AstFoldZipS (nvar, mvars, v) x0 as ->
-    showParen (d > 10)
-    $ showString "sfoldZip "
-      . (showParen True
-         $ showString "\\"
-           . showString (printAstVarNameS (varRenames cfg) nvar)
-           . showString " "
-           . showListWith (showString
-                           . printAstDynamicVarNameCfg cfg) mvars
-           . showString " -> "
-           . printAstS cfg 0 v)
-      . showString " "
-      . printAstS cfg 11 x0
-      . showString " "
-      . printHVectorAst cfg as
-  AstFoldZipDerS (nvar, mvars, v) (varDx, varsDa, varn1, varsm1, ast1)
-                                (varDt2, nvar2, mvars2, doms) x0 as ->
-   if ignoreNestedLambdas cfg
-   then
-    showParen (d > 10)
-    $ showString "sfoldZipDer f df rf "
-      . printAstS cfg 11 x0
-      . showString " "
-      . printHVectorAst cfg as
-   else
-    showParen (d > 10)
-    $ showString "sfoldZipDer "
-      . (showParen True
-         $ showString "\\"
-           . showString (printAstVarNameS (varRenames cfg) nvar)
-           . showString " "
-           . showListWith (showString
-                           . printAstDynamicVarNameCfg cfg) mvars
-           . showString " -> "
-           . printAstS cfg 0 v)
-      . showString " "
-      . (showParen True
-         $ showString "\\"
-           . showString (printAstVarNameS (varRenames cfg) varDx)
-           . showString " "
-           . showListWith (showString
-                           . printAstDynamicVarNameCfg cfg) varsDa
-           . showString " "
-           . showString (printAstVarNameS (varRenames cfg) varn1)
-           . showString " "
-           . showListWith (showString
-                           . printAstDynamicVarNameCfg cfg) varsm1
-           . showString " -> "
-           . printAstS cfg 0 ast1)
-      . showString " "
-      . (showParen True
-         $ showString "\\"
-           . showString (printAstVarNameS (varRenames cfg) varDt2)
-           . showString " "
-           . showString (printAstVarNameS (varRenames cfg) nvar2)
-           . showString " "
-           . showListWith (showString
-                           . printAstDynamicVarNameCfg cfg) mvars2
-           . showString " -> "
-           . printAstHVector cfg 0 doms)
-      . showString " "
-      . printAstS cfg 11 x0
-      . showString " "
-      . printHVectorAst cfg as
-  AstScanS (nvar, mvar, v) x0 as ->
-    showParen (d > 10)
-    $ showString "sscan "
-      . (showParen True
-         $ showString "\\"
-           . showString (printAstVarNameS (varRenames cfg) nvar)
-           . showString " "
-           . showString (printAstVarNameS (varRenames cfg) mvar)
-           . showString " -> "
-           . printAstS cfg 0 v)
-      . showString " "
-      . printAstS cfg 11 x0
-      . showString " "
-      . printAstS cfg 11 as
-  AstScanDerS (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
-                              (varDt2, nvar2, mvar2, doms) x0 as ->
-   if ignoreNestedLambdas cfg
-   then
-    showParen (d > 10)
-    $ showString "sscanDer f df rf "
-      . printAstS cfg 11 x0
-      . showString " "
-      . printAstS cfg 11 as
-   else
-    showParen (d > 10)
-    $ showString "sscanDer "
-      . (showParen True
-         $ showString "\\"
-           . showString (printAstVarNameS (varRenames cfg) nvar)
-           . showString " "
-           . showString (printAstVarNameS (varRenames cfg) mvar)
-           . showString " -> "
-           . printAstS cfg 0 v)
-      . showString " "
-      . (showParen True
-         $ showString "\\"
-           . showString (printAstVarNameS (varRenames cfg) varDx)
-           . showString " "
-           . showString (printAstVarNameS (varRenames cfg) varDa)
-           . showString " "
-           . showString (printAstVarNameS (varRenames cfg) varn1)
-           . showString " "
-           . showString (printAstVarNameS (varRenames cfg) varm1)
-           . showString " -> "
-           . printAstS cfg 0 ast1)
-      . showString " "
-      . (showParen True
-         $ showString "\\"
-           . showString (printAstVarNameS (varRenames cfg) varDt2)
-           . showString " "
-           . showString (printAstVarNameS (varRenames cfg) nvar2)
-           . showString " "
-           . showString (printAstVarNameS (varRenames cfg) mvar2)
-           . showString " -> "
-           . printAstHVector cfg 0 doms)
-      . showString " "
-      . printAstS cfg 11 x0
-      . showString " "
-      . printAstS cfg 11 as
-  AstScanZipS (nvar, mvars, v) x0 as ->
-    showParen (d > 10)
-    $ showString "sscanZip "
-      . (showParen True
-         $ showString "\\"
-           . showString (printAstVarNameS (varRenames cfg) nvar)
-           . showString " "
-           . showListWith (showString
-                           . printAstDynamicVarNameCfg cfg) mvars
-           . showString " -> "
-           . printAstS cfg 0 v)
-      . showString " "
-      . printAstS cfg 11 x0
-      . showString " "
-      . printHVectorAst cfg as
-  AstScanZipDerS (nvar, mvars, v) (varDx, varsDa, varn1, varsm1, ast1)
-                                (varDt2, nvar2, mvars2, doms) x0 as ->
-   if ignoreNestedLambdas cfg
-   then
-    showParen (d > 10)
-    $ showString "sscanZipDer f df rf "
-      . printAstS cfg 11 x0
-      . showString " "
-      . printHVectorAst cfg as
-   else
-    showParen (d > 10)
-    $ showString "sscanZipDer "
-      . (showParen True
-         $ showString "\\"
-           . showString (printAstVarNameS (varRenames cfg) nvar)
-           . showString " "
-           . showListWith (showString
-                           . printAstDynamicVarNameCfg cfg) mvars
-           . showString " -> "
-           . printAstS cfg 0 v)
-      . showString " "
-      . (showParen True
-         $ showString "\\"
-           . showString (printAstVarNameS (varRenames cfg) varDx)
-           . showString " "
-           . showListWith (showString
-                           . printAstDynamicVarNameCfg cfg) varsDa
-           . showString " "
-           . showString (printAstVarNameS (varRenames cfg) varn1)
-           . showString " "
-           . showListWith (showString
-                           . printAstDynamicVarNameCfg cfg) varsm1
-           . showString " -> "
-           . printAstS cfg 0 ast1)
-      . showString " "
-      . (showParen True
-         $ showString "\\"
-           . showString (printAstVarNameS (varRenames cfg) varDt2)
-           . showString " "
-           . showString (printAstVarNameS (varRenames cfg) nvar2)
-           . showString " "
-           . showListWith (showString
-                           . printAstDynamicVarNameCfg cfg) mvars2
-           . showString " -> "
-           . printAstHVector cfg 0 doms)
-      . showString " "
-      . printAstS cfg 11 x0
-      . showString " "
-      . printHVectorAst cfg as
 
 
 -- * User-friendly API for pretty-printing AST terms

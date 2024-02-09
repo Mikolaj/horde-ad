@@ -2174,6 +2174,91 @@ simplifyAst t = case t of
                     (varDt2, nvar2, mvar2, simplifyAstHVector doms)
                     (simplifyAst x0) (V.map simplifyAstDynamic as)
 
+simplifyAstS
+  :: (Sh.Shape sh, GoodScalar r, AstSpan s)
+  => AstShaped s r sh -> AstShaped s r sh
+simplifyAstS t = case t of
+  Ast.AstVarS{} -> t
+  Ast.AstLetS var u v -> astLetS var (simplifyAstS u) (simplifyAstS v)
+  Ast.AstLetADShareS{} -> error "simplifyAstS: AstLetADShareS"
+  Ast.AstCondS b a2 a3 ->
+    astCondS (simplifyAstBool b) (simplifyAstS a2) (simplifyAstS a3)
+  Ast.AstMinIndexS a -> Ast.AstMinIndexS (simplifyAstS a)
+  Ast.AstMaxIndexS a -> Ast.AstMaxIndexS (simplifyAstS a)
+  Ast.AstFloorS a -> Ast.AstFloorS (simplifyAstS a)
+  Ast.AstIotaS -> t
+  AstN1S opCode u -> AstN1S opCode (simplifyAstS u)
+  AstN2S opCode u v -> AstN2S opCode (simplifyAstS u) (simplifyAstS v)
+  Ast.AstR1S opCode u -> Ast.AstR1S opCode (simplifyAstS u)
+  Ast.AstR2S opCode u v -> Ast.AstR2S opCode (simplifyAstS u) (simplifyAstS v)
+  Ast.AstI2S opCode u v -> Ast.AstI2S opCode (simplifyAstS u) (simplifyAstS v)
+  AstSumOfListS args -> astSumOfListS (map simplifyAstS args)
+  Ast.AstIndexS v ix ->
+    Ast.AstIndexS (simplifyAstS v) (fmap simplifyAst ix)  -- TODO
+  Ast.AstSumS v -> astSumS (simplifyAstS v)
+  Ast.AstScatterS v (var, ix) ->
+    astScatterS (simplifyAstS v) (var, fmap simplifyAst ix)
+  Ast.AstFromListS l -> astFromListS (map simplifyAstS l)
+  Ast.AstFromVectorS l -> astFromVectorS (V.map simplifyAstS l)
+  Ast.AstReplicateS v -> astReplicateS (simplifyAstS v)
+  Ast.AstAppendS x y -> astAppendS (simplifyAstS x) (simplifyAstS y)
+  Ast.AstSliceS @i v -> astSliceS @i (simplifyAstS v)
+  Ast.AstReverseS v -> astReverseS (simplifyAstS v)
+  Ast.AstTransposeS @perm v -> astTransposeS @perm $ simplifyAstS v
+  Ast.AstReshapeS v -> astReshapeS $ simplifyAstS v
+  Ast.AstBuild1S (var, v) -> Ast.AstBuild1S (var, simplifyAstS v)
+  Ast.AstGatherS v (vars, ix) ->
+    astGatherS (simplifyAstS v) (vars, fmap simplifyAst ix)
+  Ast.AstCastS v -> astCastS $ simplifyAstS v
+  Ast.AstFromIntegralS v -> astFromIntegralS $ simplifyAstS v
+  AstConstS{} -> t
+  Ast.AstLetHVectorInS vars l v ->
+    astLetHVectorInS vars (simplifyAstHVector l) (simplifyAstS v)
+  Ast.AstRToS v -> astRToS $ simplifyAst v
+  Ast.AstConstantS v -> Ast.AstConstantS (simplifyAstS v)
+  Ast.AstPrimalPartS v -> astPrimalPartS (simplifyAstS v)
+  Ast.AstDualPartS v -> astDualPartS (simplifyAstS v)
+  Ast.AstDS u u' -> Ast.AstDS (simplifyAstS u) (simplifyAstS u')
+  Ast.AstFwdS (var, v) l ds -> Ast.AstFwdS (var, simplifyAstS v)
+                                           (V.map simplifyAstDynamic l)
+                                           (V.map simplifyAstDynamic ds)
+  Ast.AstFoldS (nvar, mvar, v) x0 as ->
+    Ast.AstFoldS (nvar, mvar, simplifyAstS v)
+                 (simplifyAstS x0) (simplifyAstS as)
+  Ast.AstFoldDerS (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
+                                  (varDt2, nvar2, mvar2, doms) x0 as ->
+    Ast.AstFoldDerS (nvar, mvar, simplifyAstS v)
+                    (varDx, varDa, varn1, varm1, simplifyAstS ast1)
+                    (varDt2, nvar2, mvar2, simplifyAstHVector doms)
+                    (simplifyAstS x0) (simplifyAstS as)
+  Ast.AstFoldZipS (nvar, mvar, v) x0 as ->
+    Ast.AstFoldZipS (nvar, mvar, simplifyAstS v) (simplifyAstS x0)
+                  (V.map simplifyAstDynamic as)
+  Ast.AstFoldZipDerS (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
+                                   (varDt2, nvar2, mvar2, doms) x0 as ->
+    Ast.AstFoldZipDerS (nvar, mvar, simplifyAstS v)
+                     (varDx, varDa, varn1, varm1, simplifyAstS ast1)
+                     (varDt2, nvar2, mvar2, simplifyAstHVector doms)
+                     (simplifyAstS x0) (V.map simplifyAstDynamic as)
+  Ast.AstScanS (nvar, mvar, v) x0 as ->
+    Ast.AstScanS (nvar, mvar, simplifyAstS v) (simplifyAstS x0)
+                 (simplifyAstS as)
+  Ast.AstScanDerS (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
+                                  (varDt2, nvar2, mvar2, doms) x0 as ->
+    Ast.AstScanDerS (nvar, mvar, simplifyAstS v)
+                    (varDx, varDa, varn1, varm1, simplifyAstS ast1)
+                    (varDt2, nvar2, mvar2, simplifyAstHVector doms)
+                    (simplifyAstS x0) (simplifyAstS as)
+  Ast.AstScanZipS (nvar, mvar, v) x0 as ->
+    Ast.AstScanZipS (nvar, mvar, simplifyAstS v) (simplifyAstS x0)
+                  (V.map simplifyAstDynamic as)
+  Ast.AstScanZipDerS (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
+                                   (varDt2, nvar2, mvar2, doms) x0 as ->
+    Ast.AstScanZipDerS (nvar, mvar, simplifyAstS v)
+                     (varDx, varDa, varn1, varm1, simplifyAstS ast1)
+                     (varDt2, nvar2, mvar2, simplifyAstHVector doms)
+                     (simplifyAstS x0) (V.map simplifyAstDynamic as)
+
 simplifyAstDynamic
   :: AstSpan s
   => AstDynamic s -> AstDynamic s
@@ -2489,91 +2574,6 @@ simplifyAstB2 OrOp _b (AstBoolConst True) = AstBoolConst True
 simplifyAstB2 OrOp b (AstBoolConst False) = b
 simplifyAstB2 opCodeBool arg1 arg2 = Ast.AstB2 opCodeBool arg1 arg2
 
-simplifyAstS
-  :: (Sh.Shape sh, GoodScalar r, AstSpan s)
-  => AstShaped s r sh -> AstShaped s r sh
-simplifyAstS t = case t of
-  Ast.AstVarS{} -> t
-  Ast.AstLetS var u v -> astLetS var (simplifyAstS u) (simplifyAstS v)
-  Ast.AstLetADShareS{} -> error "simplifyAstS: AstLetADShareS"
-  Ast.AstCondS b a2 a3 ->
-    astCondS (simplifyAstBool b) (simplifyAstS a2) (simplifyAstS a3)
-  Ast.AstMinIndexS a -> Ast.AstMinIndexS (simplifyAstS a)
-  Ast.AstMaxIndexS a -> Ast.AstMaxIndexS (simplifyAstS a)
-  Ast.AstFloorS a -> Ast.AstFloorS (simplifyAstS a)
-  Ast.AstIotaS -> t
-  AstN1S opCode u -> AstN1S opCode (simplifyAstS u)
-  AstN2S opCode u v -> AstN2S opCode (simplifyAstS u) (simplifyAstS v)
-  Ast.AstR1S opCode u -> Ast.AstR1S opCode (simplifyAstS u)
-  Ast.AstR2S opCode u v -> Ast.AstR2S opCode (simplifyAstS u) (simplifyAstS v)
-  Ast.AstI2S opCode u v -> Ast.AstI2S opCode (simplifyAstS u) (simplifyAstS v)
-  AstSumOfListS args -> astSumOfListS (map simplifyAstS args)
-  Ast.AstIndexS v ix ->
-    Ast.AstIndexS (simplifyAstS v) (fmap simplifyAst ix)  -- TODO
-  Ast.AstSumS v -> astSumS (simplifyAstS v)
-  Ast.AstScatterS v (var, ix) ->
-    astScatterS (simplifyAstS v) (var, fmap simplifyAst ix)
-  Ast.AstFromListS l -> astFromListS (map simplifyAstS l)
-  Ast.AstFromVectorS l -> astFromVectorS (V.map simplifyAstS l)
-  Ast.AstReplicateS v -> astReplicateS (simplifyAstS v)
-  Ast.AstAppendS x y -> astAppendS (simplifyAstS x) (simplifyAstS y)
-  Ast.AstSliceS @i v -> astSliceS @i (simplifyAstS v)
-  Ast.AstReverseS v -> astReverseS (simplifyAstS v)
-  Ast.AstTransposeS @perm v -> astTransposeS @perm $ simplifyAstS v
-  Ast.AstReshapeS v -> astReshapeS $ simplifyAstS v
-  Ast.AstBuild1S (var, v) -> Ast.AstBuild1S (var, simplifyAstS v)
-  Ast.AstGatherS v (vars, ix) ->
-    astGatherS (simplifyAstS v) (vars, fmap simplifyAst ix)
-  Ast.AstCastS v -> astCastS $ simplifyAstS v
-  Ast.AstFromIntegralS v -> astFromIntegralS $ simplifyAstS v
-  AstConstS{} -> t
-  Ast.AstLetHVectorInS vars l v ->
-    astLetHVectorInS vars (simplifyAstHVector l) (simplifyAstS v)
-  Ast.AstRToS v -> astRToS $ simplifyAst v
-  Ast.AstConstantS v -> Ast.AstConstantS (simplifyAstS v)
-  Ast.AstPrimalPartS v -> astPrimalPartS (simplifyAstS v)
-  Ast.AstDualPartS v -> astDualPartS (simplifyAstS v)
-  Ast.AstDS u u' -> Ast.AstDS (simplifyAstS u) (simplifyAstS u')
-  Ast.AstFwdS (var, v) l ds -> Ast.AstFwdS (var, simplifyAstS v)
-                                           (V.map simplifyAstDynamic l)
-                                           (V.map simplifyAstDynamic ds)
-  Ast.AstFoldS (nvar, mvar, v) x0 as ->
-    Ast.AstFoldS (nvar, mvar, simplifyAstS v)
-                 (simplifyAstS x0) (simplifyAstS as)
-  Ast.AstFoldDerS (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
-                                  (varDt2, nvar2, mvar2, doms) x0 as ->
-    Ast.AstFoldDerS (nvar, mvar, simplifyAstS v)
-                    (varDx, varDa, varn1, varm1, simplifyAstS ast1)
-                    (varDt2, nvar2, mvar2, simplifyAstHVector doms)
-                    (simplifyAstS x0) (simplifyAstS as)
-  Ast.AstFoldZipS (nvar, mvar, v) x0 as ->
-    Ast.AstFoldZipS (nvar, mvar, simplifyAstS v) (simplifyAstS x0)
-                  (V.map simplifyAstDynamic as)
-  Ast.AstFoldZipDerS (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
-                                   (varDt2, nvar2, mvar2, doms) x0 as ->
-    Ast.AstFoldZipDerS (nvar, mvar, simplifyAstS v)
-                     (varDx, varDa, varn1, varm1, simplifyAstS ast1)
-                     (varDt2, nvar2, mvar2, simplifyAstHVector doms)
-                     (simplifyAstS x0) (V.map simplifyAstDynamic as)
-  Ast.AstScanS (nvar, mvar, v) x0 as ->
-    Ast.AstScanS (nvar, mvar, simplifyAstS v) (simplifyAstS x0)
-                 (simplifyAstS as)
-  Ast.AstScanDerS (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
-                                  (varDt2, nvar2, mvar2, doms) x0 as ->
-    Ast.AstScanDerS (nvar, mvar, simplifyAstS v)
-                    (varDx, varDa, varn1, varm1, simplifyAstS ast1)
-                    (varDt2, nvar2, mvar2, simplifyAstHVector doms)
-                    (simplifyAstS x0) (simplifyAstS as)
-  Ast.AstScanZipS (nvar, mvar, v) x0 as ->
-    Ast.AstScanZipS (nvar, mvar, simplifyAstS v) (simplifyAstS x0)
-                  (V.map simplifyAstDynamic as)
-  Ast.AstScanZipDerS (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
-                                   (varDt2, nvar2, mvar2, doms) x0 as ->
-    Ast.AstScanZipDerS (nvar, mvar, simplifyAstS v)
-                     (varDx, varDa, varn1, varm1, simplifyAstS ast1)
-                     (varDt2, nvar2, mvar2, simplifyAstHVector doms)
-                     (simplifyAstS x0) (V.map simplifyAstDynamic as)
-
 
 -- * Substitution payload and adaptors for AstVarName
 
@@ -2608,6 +2608,23 @@ substituteAstIndex
 substituteAstIndex i (AstVarName varId) ix =
   fromMaybe ix $ substitute1AstIndex i varId ix
 
+substituteAstS :: forall sh sh2 s2 s r r2 f.
+                  ( GoodScalar r, GoodScalar r2, Sh.Shape sh
+                  , AstSpan s, AstSpan s2 )
+               => SubstitutionPayload s2 r2 -> AstVarName (f s2) r2 sh2
+               -> AstShaped s r sh
+               -> AstShaped s r sh
+substituteAstS i (AstVarName varId) v1 =
+  fromMaybe v1 $ substitute1AstS i varId v1
+
+substituteAstIndexS
+  :: (GoodScalar r2, AstSpan s2)
+  => SubstitutionPayload s2 r2 -> AstVarName (AstRanked s2) r2 n2
+  -> AstIndexS sh
+  -> AstIndexS sh
+substituteAstIndexS i (AstVarName varId) ix =
+  fromMaybe ix $ substitute1AstIndexS i varId ix
+
 substituteAstDynamic
   :: (GoodScalar r2, AstSpan s, AstSpan s2)
   => SubstitutionPayload s2 r2 -> AstVarName (f s2) r2 y -> AstDynamic s
@@ -2628,23 +2645,6 @@ substituteAstBool :: (GoodScalar r2, AstSpan s2)
                   -> AstBool
 substituteAstBool i (AstVarName varId) b1 =
   fromMaybe b1 $ substitute1AstBool i varId b1
-
-substituteAstS :: forall sh sh2 s2 s r r2 f.
-                  ( GoodScalar r, GoodScalar r2, Sh.Shape sh
-                  , AstSpan s, AstSpan s2 )
-               => SubstitutionPayload s2 r2 -> AstVarName (f s2) r2 sh2
-               -> AstShaped s r sh
-               -> AstShaped s r sh
-substituteAstS i (AstVarName varId) v1 =
-  fromMaybe v1 $ substitute1AstS i varId v1
-
-substituteAstIndexS
-  :: (GoodScalar r2, AstSpan s2)
-  => SubstitutionPayload s2 r2 -> AstVarName (AstRanked s2) r2 n2
-  -> AstIndexS sh
-  -> AstIndexS sh
-substituteAstIndexS i (AstVarName varId) ix =
-  fromMaybe ix $ substitute1AstIndexS i varId ix
 
 
 -- * Substitution workers
@@ -2851,139 +2851,6 @@ substitute1AstIndex i var ix =
      then Just $ zipWith_Index fromMaybe ix mix
      else Nothing
 
-substitute1AstDynamic
-  :: (GoodScalar r2, AstSpan s, AstSpan s2)
-  => SubstitutionPayload s2 r2 -> AstVarId -> AstDynamic s
-  -> Maybe (AstDynamic s)
-substitute1AstDynamic i var = \case
-  DynamicRanked t -> DynamicRanked <$> substitute1Ast i var t
-  DynamicShaped t -> DynamicShaped <$> substitute1AstS i var t
-  DynamicRankedDummy{} -> Nothing
-  DynamicShapedDummy{} -> Nothing
-
-substitute1HVector
-  :: (GoodScalar r2, AstSpan s, AstSpan s2)
-  => SubstitutionPayload s2 r2 -> AstVarId -> HVector (AstRanked s)
-  -> Maybe (HVector (AstRanked s))
-substitute1HVector i var args =
-  let margs = V.map (substitute1AstDynamic i var) args
-  in if V.any isJust margs
-     then Just $ V.zipWith fromMaybe args margs
-     else Nothing
-
-substitute1AstHVector
-  :: (GoodScalar r2, AstSpan s, AstSpan s2)
-  => SubstitutionPayload s2 r2 -> AstVarId -> AstHVector s
-  -> Maybe (AstHVector s)
-substitute1AstHVector i var = \case
-  Ast.AstHVector args ->
-    let margs = V.map (substitute1AstDynamic i var) args
-    in if V.any isJust margs
-       then Just $ Ast.AstHVector $ V.zipWith fromMaybe args margs
-       else Nothing
-  Ast.AstLetHVectorInHVector vars2 u v ->
-    case ( substitute1AstHVector i var u
-         , substitute1AstHVector i var v ) of
-      (Nothing, Nothing) -> Nothing
-      (mu, mv) ->
-        Just $ astLetHVectorInHVector vars2 (fromMaybe u mu) (fromMaybe v mv)
-  Ast.AstLetInHVector var2 u v ->
-    case (substitute1Ast i var u, substitute1AstHVector i var v) of
-      (Nothing, Nothing) -> Nothing
-      (mu, mv) -> Just $ astLetInHVector var2 (fromMaybe u mu) (fromMaybe v mv)
-  Ast.AstLetInHVectorS var2 u v ->
-    case (substitute1AstS i var u, substitute1AstHVector i var v) of
-      (Nothing, Nothing) -> Nothing
-      (mu, mv) -> Just $ astLetInHVectorS var2 (fromMaybe u mu) (fromMaybe v mv)
-  Ast.AstBuildHVector1 k (var2, v) ->
-    Ast.AstBuildHVector1 k . (var2,) <$> substitute1AstHVector i var v
-  Ast.AstRev (vars, v) args ->
-    -- No other free variables in v and var is not among vars.
-    Ast.AstRev (vars, v) <$>
-      let margs = V.map (substitute1AstDynamic i var) args
-      in if V.any isJust margs
-         then Just $ V.zipWith fromMaybe args margs
-         else Nothing
-  Ast.AstRevDt (vars, v) args dt ->
-    -- No other free variables in v and var is not among vars.
-    let margs = V.map (substitute1AstDynamic i var) args
-        marg = if V.any isJust margs
-               then Just $ V.zipWith fromMaybe args margs
-               else Nothing
-        md = substitute1Ast i var dt
-    in case (marg, md) of
-      (Nothing, Nothing) -> Nothing
-      _ -> Just $ Ast.AstRevDt (vars, v) (fromMaybe args marg) (fromMaybe dt md)
-  Ast.AstRevS (vars, v) args ->
-    -- No other free variables in v and var is not among vars.
-    Ast.AstRevS (vars, v) <$>
-      let margs = V.map (substitute1AstDynamic i var) args
-      in if V.any isJust margs
-         then Just $ V.zipWith fromMaybe args margs
-         else Nothing
-  Ast.AstRevDtS (vars, v) args dt ->
-    -- No other free variables in v and var is not among vars.
-    let margs = V.map (substitute1AstDynamic i var) args
-        marg = if V.any isJust margs
-               then Just $ V.zipWith fromMaybe args margs
-               else Nothing
-        md = substitute1AstS i var dt
-    in case (marg, md) of
-      (Nothing, Nothing) -> Nothing
-      _ ->
-        Just $ Ast.AstRevDtS (vars, v) (fromMaybe args marg) (fromMaybe dt md)
-  Ast.AstMapAccumRR domB f x0 as ->
-    case (substitute1Ast i var x0, substitute1HVector i var as) of
-      (Nothing, Nothing) -> Nothing
-      (mx0, mas) ->
-        Just $ Ast.AstMapAccumRR domB f (fromMaybe x0 mx0) (fromMaybe as mas)
-  Ast.AstMapAccumRDerR domB f df dr x0 as ->
-    case (substitute1Ast i var x0, substitute1HVector i var as) of
-      (Nothing, Nothing) -> Nothing
-      (mx0, mas) ->
-        Just $ Ast.AstMapAccumRDerR domB f df dr (fromMaybe x0 mx0)
-                                                 (fromMaybe as mas)
-  Ast.AstMapAccumRS @k domB f x0 as ->
-    case (substitute1AstS i var x0, substitute1HVector i var as) of
-      (Nothing, Nothing) -> Nothing
-      (mx0, mas) ->
-        Just $ Ast.AstMapAccumRS @k domB f (fromMaybe x0 mx0) (fromMaybe as mas)
-  Ast.AstMapAccumRDerS @k domB f df dr x0 as ->
-    case (substitute1AstS i var x0, substitute1HVector i var as) of
-      (Nothing, Nothing) -> Nothing
-      (mx0, mas) ->
-        Just $ Ast.AstMapAccumRDerS @k domB f df dr (fromMaybe x0 mx0)
-                                                    (fromMaybe as mas)
-
-substitute1AstBool :: (GoodScalar r2, AstSpan s2)
-                   => SubstitutionPayload s2 r2 -> AstVarId -> AstBool
-                   -> Maybe AstBool
-substitute1AstBool i var = \case
-  Ast.AstBoolNot arg -> Ast.AstBoolNot <$> substitute1AstBool i var arg
-    -- this can't be simplified, because constant boolean can't have variables
-  Ast.AstB2 opCodeBool arg1 arg2 ->
-    let mb1 = substitute1AstBool i var arg1
-        mb2 = substitute1AstBool i var arg2
-    in if isJust mb1 || isJust mb2
-       then Just $ simplifyAstB2 opCodeBool (fromMaybe arg1 mb1)
-                                            (fromMaybe arg2 mb2)
-       else Nothing
-  Ast.AstBoolConst{} -> Nothing
-  Ast.AstRel opCodeRel arg1 arg2 ->
-    let mr1 = substitute1Ast i var arg1
-        mr2 = substitute1Ast i var arg2
-    in if isJust mr1 || isJust mr2
-       then Just $ simplifyRelOp opCodeRel (fromMaybe arg1 mr1)
-                                           (fromMaybe arg2 mr2)
-       else Nothing
-  Ast.AstRelS opCodeRel arg1 arg2 ->
-    let mr1 = substitute1AstS i var arg1
-        mr2 = substitute1AstS i var arg2
-    in if isJust mr1 || isJust mr2
-       then Just $ Ast.AstRelS opCodeRel (fromMaybe arg1 mr1)
-                                         (fromMaybe arg2 mr2)
-       else Nothing
-
 substitute1AstS :: forall sh s s2 r r2.
                    ( GoodScalar r, GoodScalar r2, Sh.Shape sh
                    , AstSpan s, AstSpan s2 )
@@ -3166,3 +3033,136 @@ substitute1AstIndexS i var ix =
   in if any isJust mix
      then Just $ ShapedList.zipWith_Sized fromMaybe ix mix
      else Nothing
+
+substitute1AstDynamic
+  :: (GoodScalar r2, AstSpan s, AstSpan s2)
+  => SubstitutionPayload s2 r2 -> AstVarId -> AstDynamic s
+  -> Maybe (AstDynamic s)
+substitute1AstDynamic i var = \case
+  DynamicRanked t -> DynamicRanked <$> substitute1Ast i var t
+  DynamicShaped t -> DynamicShaped <$> substitute1AstS i var t
+  DynamicRankedDummy{} -> Nothing
+  DynamicShapedDummy{} -> Nothing
+
+substitute1HVector
+  :: (GoodScalar r2, AstSpan s, AstSpan s2)
+  => SubstitutionPayload s2 r2 -> AstVarId -> HVector (AstRanked s)
+  -> Maybe (HVector (AstRanked s))
+substitute1HVector i var args =
+  let margs = V.map (substitute1AstDynamic i var) args
+  in if V.any isJust margs
+     then Just $ V.zipWith fromMaybe args margs
+     else Nothing
+
+substitute1AstHVector
+  :: (GoodScalar r2, AstSpan s, AstSpan s2)
+  => SubstitutionPayload s2 r2 -> AstVarId -> AstHVector s
+  -> Maybe (AstHVector s)
+substitute1AstHVector i var = \case
+  Ast.AstHVector args ->
+    let margs = V.map (substitute1AstDynamic i var) args
+    in if V.any isJust margs
+       then Just $ Ast.AstHVector $ V.zipWith fromMaybe args margs
+       else Nothing
+  Ast.AstLetHVectorInHVector vars2 u v ->
+    case ( substitute1AstHVector i var u
+         , substitute1AstHVector i var v ) of
+      (Nothing, Nothing) -> Nothing
+      (mu, mv) ->
+        Just $ astLetHVectorInHVector vars2 (fromMaybe u mu) (fromMaybe v mv)
+  Ast.AstLetInHVector var2 u v ->
+    case (substitute1Ast i var u, substitute1AstHVector i var v) of
+      (Nothing, Nothing) -> Nothing
+      (mu, mv) -> Just $ astLetInHVector var2 (fromMaybe u mu) (fromMaybe v mv)
+  Ast.AstLetInHVectorS var2 u v ->
+    case (substitute1AstS i var u, substitute1AstHVector i var v) of
+      (Nothing, Nothing) -> Nothing
+      (mu, mv) -> Just $ astLetInHVectorS var2 (fromMaybe u mu) (fromMaybe v mv)
+  Ast.AstBuildHVector1 k (var2, v) ->
+    Ast.AstBuildHVector1 k . (var2,) <$> substitute1AstHVector i var v
+  Ast.AstRev (vars, v) args ->
+    -- No other free variables in v and var is not among vars.
+    Ast.AstRev (vars, v) <$>
+      let margs = V.map (substitute1AstDynamic i var) args
+      in if V.any isJust margs
+         then Just $ V.zipWith fromMaybe args margs
+         else Nothing
+  Ast.AstRevDt (vars, v) args dt ->
+    -- No other free variables in v and var is not among vars.
+    let margs = V.map (substitute1AstDynamic i var) args
+        marg = if V.any isJust margs
+               then Just $ V.zipWith fromMaybe args margs
+               else Nothing
+        md = substitute1Ast i var dt
+    in case (marg, md) of
+      (Nothing, Nothing) -> Nothing
+      _ -> Just $ Ast.AstRevDt (vars, v) (fromMaybe args marg) (fromMaybe dt md)
+  Ast.AstRevS (vars, v) args ->
+    -- No other free variables in v and var is not among vars.
+    Ast.AstRevS (vars, v) <$>
+      let margs = V.map (substitute1AstDynamic i var) args
+      in if V.any isJust margs
+         then Just $ V.zipWith fromMaybe args margs
+         else Nothing
+  Ast.AstRevDtS (vars, v) args dt ->
+    -- No other free variables in v and var is not among vars.
+    let margs = V.map (substitute1AstDynamic i var) args
+        marg = if V.any isJust margs
+               then Just $ V.zipWith fromMaybe args margs
+               else Nothing
+        md = substitute1AstS i var dt
+    in case (marg, md) of
+      (Nothing, Nothing) -> Nothing
+      _ ->
+        Just $ Ast.AstRevDtS (vars, v) (fromMaybe args marg) (fromMaybe dt md)
+  Ast.AstMapAccumRR domB f x0 as ->
+    case (substitute1Ast i var x0, substitute1HVector i var as) of
+      (Nothing, Nothing) -> Nothing
+      (mx0, mas) ->
+        Just $ Ast.AstMapAccumRR domB f (fromMaybe x0 mx0) (fromMaybe as mas)
+  Ast.AstMapAccumRDerR domB f df dr x0 as ->
+    case (substitute1Ast i var x0, substitute1HVector i var as) of
+      (Nothing, Nothing) -> Nothing
+      (mx0, mas) ->
+        Just $ Ast.AstMapAccumRDerR domB f df dr (fromMaybe x0 mx0)
+                                                 (fromMaybe as mas)
+  Ast.AstMapAccumRS @k domB f x0 as ->
+    case (substitute1AstS i var x0, substitute1HVector i var as) of
+      (Nothing, Nothing) -> Nothing
+      (mx0, mas) ->
+        Just $ Ast.AstMapAccumRS @k domB f (fromMaybe x0 mx0) (fromMaybe as mas)
+  Ast.AstMapAccumRDerS @k domB f df dr x0 as ->
+    case (substitute1AstS i var x0, substitute1HVector i var as) of
+      (Nothing, Nothing) -> Nothing
+      (mx0, mas) ->
+        Just $ Ast.AstMapAccumRDerS @k domB f df dr (fromMaybe x0 mx0)
+                                                    (fromMaybe as mas)
+
+substitute1AstBool :: (GoodScalar r2, AstSpan s2)
+                   => SubstitutionPayload s2 r2 -> AstVarId -> AstBool
+                   -> Maybe AstBool
+substitute1AstBool i var = \case
+  Ast.AstBoolNot arg -> Ast.AstBoolNot <$> substitute1AstBool i var arg
+    -- this can't be simplified, because constant boolean can't have variables
+  Ast.AstB2 opCodeBool arg1 arg2 ->
+    let mb1 = substitute1AstBool i var arg1
+        mb2 = substitute1AstBool i var arg2
+    in if isJust mb1 || isJust mb2
+       then Just $ simplifyAstB2 opCodeBool (fromMaybe arg1 mb1)
+                                            (fromMaybe arg2 mb2)
+       else Nothing
+  Ast.AstBoolConst{} -> Nothing
+  Ast.AstRel opCodeRel arg1 arg2 ->
+    let mr1 = substitute1Ast i var arg1
+        mr2 = substitute1Ast i var arg2
+    in if isJust mr1 || isJust mr2
+       then Just $ simplifyRelOp opCodeRel (fromMaybe arg1 mr1)
+                                           (fromMaybe arg2 mr2)
+       else Nothing
+  Ast.AstRelS opCodeRel arg1 arg2 ->
+    let mr1 = substitute1AstS i var arg1
+        mr2 = substitute1AstS i var arg2
+    in if isJust mr1 || isJust mr2
+       then Just $ Ast.AstRelS opCodeRel (fromMaybe arg1 mr1)
+                                         (fromMaybe arg2 mr2)
+       else Nothing
