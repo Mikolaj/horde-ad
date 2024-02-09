@@ -51,6 +51,7 @@ import           HordeAd.Internal.OrthotopeOrphanInstances
 import           HordeAd.Util.ShapedList (ShapedList (..))
 import           HordeAd.Util.SizedIndex
 import           HordeAd.Util.SizedList
+import           HordeAd.Core.HVectorOps
 
 -- * Vectorization of AstRanked
 
@@ -886,6 +887,12 @@ build1VectorizeHVector k (var, v0) = unsafePerformIO $ do
       ++ "END of vectorization yields "
       ++ ellipsisString width (printAstHVectorSimple renames endTerm)
       ++ "\n"
+  let !_A =
+        assert (voidHVectorsMatch (shapeAstHVector startTerm)
+                                  (shapeAstHVector endTerm)
+                `blame` "build1VectorizeHVector: term shape changed"
+                `swith` ( shapeVoidHVector (shapeAstHVector startTerm)
+                        , shapeVoidHVector (shapeAstHVector endTerm) )) ()
   return endTerm
 
 build1VOccurenceUnknownHVector
@@ -950,8 +957,8 @@ build1VOccurenceUnknownHVector k (var, v0) =
             (ast1Out2, varsm1Out) = substProjVarsHVector @k var varsm1 ast1Out
             (domsOut, varDt22Out) = substProjVarsHVector @k var varDt2 doms
             (domsOut2, mvars2Out) = substProjVarsHVector @k var mvars2 domsOut
-        in astTrAstHVector domB
-           $ Ast.AstMapAccumRDerR domB
+        in astTrAstHVectorTail
+           $ Ast.AstMapAccumRDerR (replicate1VoidHVector (Proxy @k) domB)
              ( AstVarName $ varNameToAstVarId nvar
              , mvarsOut
              , build1VOccurenceUnknownAstHVectorRefresh
@@ -991,8 +998,8 @@ build1VOccurenceUnknownHVector k (var, v0) =
             (ast1Out2, varsm1Out) = substProjVarsHVector @k var varsm1 ast1Out
             (domsOut, varDt22Out) = substProjVarsHVector @k var varDt2 doms
             (domsOut2, mvars2Out) = substProjVarsHVector @k var mvars2 domsOut
-        in astTrAstHVector domB
-           $ Ast.AstMapAccumRDerS @k5 domB
+        in astTrAstHVectorTail
+           $ Ast.AstMapAccumRDerS @k5 (replicate1VoidHVector (Proxy @k) domB)
              ( AstVarName $ varNameToAstVarId nvar
              , mvarsOut
              , build1VOccurenceUnknownAstHVectorRefresh
@@ -1244,12 +1251,13 @@ astTrDynamic (DynamicShapedDummy p1 (Proxy @sh1)) =
        DynamicShapedDummy p1 proxy
 
 
-astTrAstHVector :: forall s. AstSpan s
-                => VoidHVector -> AstHVector s -> AstHVector s
-astTrAstHVector od = fun1DToAst od $ \ !vars !asts ->
+astTrAstHVectorTail :: forall s. AstSpan s
+                    => AstHVector s -> AstHVector s
+astTrAstHVectorTail t = fun1DToAst (shapeAstHVector t) $ \ !vars !asts ->
   Ast.AstLetHVectorInHVector
     vars
-    (Ast.AstHVector @s $ V.map astTrDynamic asts)
+    t
+    (Ast.AstHVector @s $ V.cons (asts V.! 0) (V.map astTrDynamic $ V.tail asts))
 
 
 -- * Rule tracing machinery
@@ -1302,10 +1310,10 @@ mkTraceRule prefix from caseAnalysed nwords to = unsafePerformIO $ do
     hPutStrLnFlush stderr $ paddedNesting ++ "rule " ++ ruleNamePadded
                             ++ " sends " ++ padString width stringFrom
                             ++ " to " ++ padString width stringTo
-    let !_A = assert (shapeAst from == shapeAst to
-                     `blame` "mkTraceRule: term shape changed"
-                     `swith`(shapeAst from, shapeAst to, from, to)) ()
     modifyIORef' traceNestingLevel pred
+  let !_A = assert (shapeAst from == shapeAst to
+                    `blame` "mkTraceRule: term shape changed"
+                    `swith`(shapeAst from, shapeAst to, from, to)) ()
   return $! to
 
 mkTraceRuleS :: forall sh sh2 s r.

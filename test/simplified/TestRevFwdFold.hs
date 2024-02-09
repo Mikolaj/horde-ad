@@ -187,6 +187,7 @@ testTrees =
   , testCase "4Sin0FoldNestedR3LengthPP" testSin0FoldNestedR3LengthPP
   , testCase "4Sin0FoldNestedR4LengthPP" testSin0FoldNestedR4LengthPP
 --  , testCase "4Sin0FoldNestedR5LengthPP" testSin0FoldNestedR5LengthPP
+  , testCase "4Sin0FoldNestedS1FwdFwd0" testSin0FoldNestedS1FwdFwd0
   , testCase "4Sin0FoldNestedS1FwdFwd" testSin0FoldNestedS1FwdFwd
   , testCase "4Sin0FoldNestedS1RevRev" testSin0FoldNestedS1RevRev
   , testCase "4Sin0FoldNestedS2" testSin0FoldNestedS2
@@ -2534,6 +2535,17 @@ _testSin0FoldNestedR5LengthPP = do
        (simplifyAstHVector6
         $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 1.1)))
     @?= 1_156_198_859
+
+testSin0FoldNestedS1FwdFwd0 :: Assertion
+testSin0FoldNestedS1FwdFwd0 = do
+  assertEqualUpToEpsilon' 1e-10
+    (2.0504979297616553e-43 :: OR.Array 0 Double)
+    (rev' (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
+               f a0 = sfold (\x a ->
+                        sfold (\x2 a2 -> 0.7 * x2 * a2)
+                              a (sreplicate @_ @7 x))
+                            a0 (sreplicate @_ @3 a0)
+           in rfromS . sfwd1 f . sfromR) 1.1)
 
 testSin0FoldNestedS1FwdFwd :: Assertion
 testSin0FoldNestedS1FwdFwd = do

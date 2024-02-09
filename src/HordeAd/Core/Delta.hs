@@ -635,7 +635,7 @@ shapeDeltaR = \case
   ScanZipR _domsOD p _as _df _rf _x0' _as' -> rshape p
   CastR d -> shapeDeltaR d
   SToR @sh _ -> listShapeToShape $ Sh.shapeT @sh
-  HToR d i -> listShapeToShape $ shapeDynamicVoid (shapeDeltaH d V.! i)
+  HToR d i -> listShapeToShape $ shapeVoidDynamic (shapeDeltaH d V.! i)
 
 lengthDeltaR :: forall ranked r n.
                 ( GoodScalar r, KnownNat n

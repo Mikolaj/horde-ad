@@ -6,7 +6,7 @@
 module HordeAd.Core.HVectorOps
   ( raddDynamic, saddDynamic, sumDynamicRanked, sumDynamicShaped, addDynamic
   , rfromD, sfromD, sizeHVector, shapeDynamic
-  , dynamicsMatch, hVectorsMatch, voidHVectorMatches
+  , dynamicsMatch, hVectorsMatch, voidHVectorMatches, voidHVectorsMatch
   , voidFromDynamic, voidFromHVector, dynamicFromVoid
   , fromHVectorR, fromHVectorS
   , unravelHVector, ravelHVector
@@ -245,8 +245,20 @@ voidHVectorMatches v1 v2 =
       voidDynamicsMatch t u = case (scalarDynamic t, scalarDynamic @g u) of
         (DynamicScalar @ru _, DynamicScalar @rt _) ->
           isJust (testEquality (typeRep @rt) (typeRep @ru))
-          && shapeDynamicVoid t == shapeDynamic @g u
+          && shapeVoidDynamic t == shapeDynamic @g u
           && isDynamicRanked t == isDynamicRanked @g u
+  in V.length v1 == V.length v2
+     && and (V.zipWith voidDynamicsMatch v1 v2)
+
+voidHVectorsMatch :: HVector VoidTensor -> HVector VoidTensor -> Bool
+voidHVectorsMatch v1 v2 =
+  let voidDynamicsMatch :: DynamicTensor VoidTensor -> DynamicTensor VoidTensor
+                        -> Bool
+      voidDynamicsMatch t u = case (scalarDynamic t, scalarDynamic u) of
+        (DynamicScalar @ru _, DynamicScalar @rt _) ->
+          isJust (testEquality (typeRep @rt) (typeRep @ru))
+          && shapeVoidDynamic t == shapeVoidDynamic u
+          && isDynamicRanked t == isDynamicRanked u
   in V.length v1 == V.length v2
      && and (V.zipWith voidDynamicsMatch v1 v2)
 

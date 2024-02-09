@@ -1472,9 +1472,9 @@ instance HVectorTensor (Flip OR.Array) (Flip OS.Array) where
   rmapAccumR _domB f _domsOD x0 as =
     let domsToPair :: forall f. ADReady f
                    => HVector f -> (f rn n, HVector f)
+        domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
         g :: Flip OR.Array rn n -> HVector (Flip OR.Array)
           -> (Flip OR.Array rn n, HVector (Flip OR.Array))
-        domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
         g x a = domsToPair $ f x a
         (xout, lout) = mapAccumR g x0 (unravelHVector as)
     in V.cons (DynamicRanked xout) $ ravelHVector lout
@@ -1493,9 +1493,9 @@ instance HVectorTensor (Flip OR.Array) (Flip OS.Array) where
   smapAccumR _proxy_k _domB f _domsOD x0 as =
     let domsToPair :: forall f. ADReadyS f
                    => HVector (RankedOf f) -> (f rn sh, HVector (RankedOf f))
+        domsToPair doms = (sfromD $ doms V.! 0, V.tail doms)
         g :: Flip OS.Array rn sh -> HVector (Flip OR.Array)
           -> (Flip OS.Array rn sh, HVector (Flip OR.Array))
-        domsToPair doms = (sfromD $ doms V.! 0, V.tail doms)
         g x a = domsToPair $ f x a
         (xout, lout) = mapAccumR g x0 (unravelHVector as)
     in V.cons (DynamicShaped xout) $ ravelHVector lout

@@ -10,8 +10,8 @@ module HordeAd.Core.HVector
     DynamicTensor(..), CRanked, CShaped
   , HVector, HVectorPseudoTensor(..)
   , VoidTensor, absurdTensor, VoidHVector, DynamicScalar(..)
-  , scalarDynamic, shapeDynamicVoid, shapeDynamicF, rankDynamic
-  , isDynamicRanked, isDynamicDummy
+  , scalarDynamic, shapeVoidDynamic, shapeVoidHVector, shapeDynamicF
+  , rankDynamic, isDynamicRanked, isDynamicDummy
   , voidFromVar, voidFromVars, voidFromShL, voidFromSh, voidFromShS
   , voidFromDynamicF, replicate1VoidHVector
     -- * ADShare definition
@@ -143,8 +143,11 @@ scalarDynamic (DynamicShaped @r2 _) = DynamicScalar @r2 Proxy
 scalarDynamic (DynamicRankedDummy @r2 _ _) = DynamicScalar @r2 Proxy
 scalarDynamic (DynamicShapedDummy @r2 _ _) = DynamicScalar @r2 Proxy
 
-shapeDynamicVoid :: DynamicTensor VoidTensor -> [Int]
-shapeDynamicVoid  = shapeDynamicF absurdTensor
+shapeVoidDynamic :: DynamicTensor VoidTensor -> [Int]
+shapeVoidDynamic  = shapeDynamicF absurdTensor
+
+shapeVoidHVector :: VoidHVector -> [[Int]]
+shapeVoidHVector = V.toList . V.map shapeVoidDynamic
 
 shapeDynamicF :: (forall r n. (GoodScalar r, KnownNat n) => ranked r n -> [Int])
               -> DynamicTensor ranked -> [Int]

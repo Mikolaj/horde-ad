@@ -440,7 +440,12 @@ interpretAst !env = \case
   AstLetHVectorIn vars l v ->
     let lt0 = voidFromVars vars
         lt = interpretAstHVector env l
-        env2 lw = assert (voidHVectorMatches lt0 lw) $ extendEnvPars vars lw env
+        env2 lw = assert (voidHVectorMatches lt0 lw
+                          `blame` ( shapeVoidHVector lt0
+                                  , V.toList $ V.map shapeDynamic lw
+                                  , shapeVoidHVector (shapeAstHVector l)
+                                  , shapeVoidHVector (dshape @ranked lt) )) $
+                 extendEnvPars vars lw env
     in rletHVectorIn lt0 lt (\lw -> interpretAst (env2 lw) v)
   AstSToR v -> rfromS $ interpretAstS env v
   AstConstant a -> rconstant $ interpretAstPrimal env a
@@ -586,13 +591,17 @@ interpretAstHVector
 interpretAstHVector !env = \case
   AstHVector l ->
     dmkHVector @ranked $ interpretAstDynamic @ranked env <$> l
-  AstLetHVectorInHVector vars u v ->
-    let t0 = voidFromVars vars
-        t = interpretAstHVector env u
-        env2 w = assert (voidHVectorMatches t0 w `blame` (t0, w)) $
-                 extendEnvPars vars w env
+  AstLetHVectorInHVector vars l v ->
+    let lt0 = voidFromVars vars
+        lt = interpretAstHVector env l
+        env2 lw = assert (voidHVectorMatches lt0 lw
+                          `blame` ( shapeVoidHVector lt0
+                                  , V.toList $ V.map shapeDynamic lw
+                                  , shapeVoidHVector (shapeAstHVector l)
+                                  , shapeVoidHVector (dshape @ranked lt) )) $
+                 extendEnvPars vars lw env
     in dletHVectorInHVector
-         t0 t (\w -> interpretAstHVector (env2 w) v)
+         lt0 lt (\lw -> interpretAstHVector (env2 lw) v)
   AstLetInHVector var u v ->
     -- We assume there are no nested lets with the same variable.
     let t = interpretAstRuntimeSpecialized env u
@@ -1064,7 +1073,12 @@ interpretAstS !env = \case
   AstLetHVectorInS vars l v ->
     let lt0 = voidFromVars vars
         lt = interpretAstHVector env l
-        env2 lw = assert (voidHVectorMatches lt0 lw) $ extendEnvPars vars lw env
+        env2 lw = assert (voidHVectorMatches lt0 lw
+                          `blame` ( shapeVoidHVector lt0
+                                  , V.toList $ V.map shapeDynamic lw
+                                  , shapeVoidHVector (shapeAstHVector l)
+                                  , shapeVoidHVector (dshape @ranked lt) )) $
+                  extendEnvPars vars lw env
     in sletHVectorIn lt0 lt (\lw -> interpretAstS (env2 lw) v)
   AstRToS v -> sfromR $ interpretAst env v
   AstConstantS a -> sconstant $ interpretAstPrimalS env a
