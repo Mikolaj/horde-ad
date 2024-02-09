@@ -125,9 +125,9 @@ testTrees =
   , testCase "4SinUnitriangular2PP" testUnitriangular2PP
   , testCase "4Sin0ScanD0" testSin0ScanD0
   , testCase "4Sin0rmapAccumRD0SC" testSin0rmapAccumRD0SC
---  , testCase "4Sin0rmapAccumRD0S" testSin0rmapAccumRD0S
+  , testCase "4Sin0rmapAccumRD0S" testSin0rmapAccumRD0S
   , testCase "4Sin0rmapAccumRD0RC" testSin0rmapAccumRD0RC
---  , testCase "4Sin0rmapAccumRD0R'" testSin0rmapAccumRD0R
+  , testCase "4Sin0rmapAccumRD0R'" testSin0rmapAccumRD0R
   , testCase "4Sin0ScanD01" testSin0ScanD01
   , testCase "4Sin0rmapAccumRD01SC" testSin0rmapAccumRD01SC
   , testCase "4Sin0rmapAccumRD01SN" testSin0rmapAccumRD01SN
@@ -1161,8 +1161,8 @@ testSin0rmapAccumRD0SC = do
                           x0 (V.singleton $ DynamicShaped @Double @'[0] 0)
            in f) 1.1)
 
-_testSin0rmapAccumRD0S :: Assertion
-_testSin0rmapAccumRD0S = do
+testSin0rmapAccumRD0S :: Assertion
+testSin0rmapAccumRD0S = do
   assertEqualUpToEpsilon 1e-10
     1
     (rev @_ @_ @(AstShaped FullSpan)
@@ -1206,8 +1206,8 @@ testSin0rmapAccumRD0RC = do
                               $ rzero @f @Double (0 :$ ZS))
            in f) 1.1)
 
-_testSin0rmapAccumRD0R :: Assertion
-_testSin0rmapAccumRD0R = do
+testSin0rmapAccumRD0R :: Assertion
+testSin0rmapAccumRD0R = do
   assertEqualUpToEpsilon' 1e-10
     1
     (rev' (let f :: forall f. ADReady f => f Double 0 -> f Double 0

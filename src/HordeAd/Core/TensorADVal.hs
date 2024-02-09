@@ -1081,14 +1081,8 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
             p :: HVectorOf ranked
             p = rmapAccumR domsG f3 domsOD x0 as
             odShnK = voidFromSh @rn (width :$ shn)
-        -- These conditionals are needed, because empty tensors are lost
-        -- due to their ambiguity (shape [0, 1] has the same elements as [2, 0])
-        -- and due to conversions to/from a list representation.
-        -- More conditionals would be needed to handle symbolic differentiation.
-            domsF3 = if V.length (dshape @ranked p) == 1
-                     then V.singleton odShn
-                     else V.cons odShn $ V.cons odShnK
-                          $ replicate1VoidHVector (Proxy @k) domB
+            domsF3 = V.cons odShn $ V.cons odShnK
+                     $ replicate1VoidHVector (Proxy @k) domB
             (l4, pShared) = drecordSharingPrimal @ranked domsF3 p l3
             xFin = pShared V.! 0
             q = case pShared V.!? 1 of
@@ -1153,11 +1147,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
             p :: HVectorOf ranked
             p = rmapAccumR domsG f3 domsOD x0 as
             odShnK = voidFromSh @rn (width :$ shn)
-            !_A = if width == (0 :: Int)
-                  then error "rmapAccumRDer: can't handle empty tensors yet"
-                         -- TODO: see above
-                  else () in
-        let domsF3 = V.cons odShn $ V.cons odShnK
+            domsF3 = V.cons odShn $ V.cons odShnK
                      $ replicate1VoidHVector (Proxy @k) domB
             (l4, pShared) = drecordSharingPrimal @ranked domsF3 p l3
             xFin = pShared V.! 0
@@ -1223,14 +1213,8 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         p :: HVectorOf ranked
         p = smapAccumR proxy_k domsG f3 domsOD x0 as
         odShnK = voidFromShS @rn @(k ': sh)
-        -- These conditionals are needed, because empty tensors are lost
-        -- due to their ambiguity (shape [0, 1] has the same elements as [2, 0])
-        -- and due to conversions to/from a list representation.
-        -- More conditionals would be needed to handle symbolic differentiation.
-        domsF3 = if V.length (dshape @ranked p) == 1
-                 then V.singleton odShn
-                 else V.cons odShn $ V.cons odShnK
-                      $ replicate1VoidHVector proxy_k domB
+        domsF3 = V.cons odShn $ V.cons odShnK
+                 $ replicate1VoidHVector proxy_k domB
         (l4, pShared) = drecordSharingPrimal @ranked domsF3 p l3
         xFin = pShared V.! 0
         q = case pShared V.!? 1 of
@@ -1286,11 +1270,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         p :: HVectorOf ranked
         p = smapAccumR proxy_k domsG f3 domsOD x0 as
         odShnK = voidFromShS @rn @(k ': sh)
-        !_A = if valueOf @k == (0 :: Int)
-              then error "smapAccumRDer: can't handle empty tensors yet"
-                     -- TODO: see above
-              else () in
-    let domsF3 = V.cons odShn $ V.cons odShnK
+        domsF3 = V.cons odShn $ V.cons odShnK
                  $ replicate1VoidHVector proxy_k domB
         (l4, pShared) = drecordSharingPrimal @ranked domsF3 p l3
         xFin = pShared V.! 0
@@ -1469,19 +1449,31 @@ instance HVectorTensor (Flip OR.Array) (Flip OS.Array) where
     -> Flip OR.Array rn n
     -> HVector (Flip OR.Array)
     -> HVector (Flip OR.Array)
-  rmapAccumR _domB f _domsOD x0 as =
-    let domsToPair :: forall f. ADReady f
-                   => HVector f -> (f rn n, HVector f)
-        domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
-        g :: Flip OR.Array rn n -> HVector (Flip OR.Array)
-          -> (Flip OR.Array rn n, HVector (Flip OR.Array))
-        g x a = domsToPair $ f x a
-        (xout, lout) = mapAccumR g x0 (unravelHVector as)
-    in V.cons (DynamicRanked xout) $ ravelHVector lout
+  rmapAccumR domB f _domsOD x0 as =
+    let width = case V.unsnoc as of
+          Nothing -> error "rmapAccumR: can't determine argument width"
+          Just (_, d) -> case shapeDynamic d of
+            [] -> error "rmapAccumRDer: wrong rank of argument"
+            w : _shm -> w
+    in case someNatVal $ toInteger width of
+      Just (SomeNat @k _) -> case width of
+        0 ->
+          V.cons (DynamicRanked x0)
+                 (replicate1HVector (Proxy @k) (V.map dynamicFromVoid domB))
+        _ ->
+          let domsToPair :: forall f. ADReady f
+                         => HVector f -> (f rn n, HVector f)
+              domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
+              g :: Flip OR.Array rn n -> HVector (Flip OR.Array)
+                -> (Flip OR.Array rn n, HVector (Flip OR.Array))
+              g x a = domsToPair $ f x a
+              (xout, lout) = mapAccumR g x0 (unravelHVector as)
+          in V.cons (DynamicRanked xout) $ ravelHVector lout
+      _ -> error "rmapAccumR: impossible someNatVal"
   rmapAccumRDer domB f _df _rf domsOD x0 as =
     rmapAccumR domB f domsOD x0 as
   smapAccumR
-    :: forall k rn sh. (GoodScalar rn, Sh.Shape sh)
+    :: forall k rn sh. (GoodScalar rn, Sh.Shape sh, KnownNat k)
     => Proxy k
     -> VoidHVector
     -> (forall f. ADReadyS f
@@ -1490,15 +1482,21 @@ instance HVectorTensor (Flip OR.Array) (Flip OS.Array) where
     -> Flip OS.Array rn sh
     -> HVector (Flip OR.Array)
     -> HVector (Flip OR.Array)
-  smapAccumR _proxy_k _domB f _domsOD x0 as =
-    let domsToPair :: forall f. ADReadyS f
-                   => HVector (RankedOf f) -> (f rn sh, HVector (RankedOf f))
-        domsToPair doms = (sfromD $ doms V.! 0, V.tail doms)
-        g :: Flip OS.Array rn sh -> HVector (Flip OR.Array)
-          -> (Flip OS.Array rn sh, HVector (Flip OR.Array))
-        g x a = domsToPair $ f x a
-        (xout, lout) = mapAccumR g x0 (unravelHVector as)
-    in V.cons (DynamicShaped xout) $ ravelHVector lout
+  smapAccumR proxy_k domB f _domsOD x0 as =
+    case sameNat proxy_k (Proxy @0) of
+      Just Refl ->
+        V.cons (DynamicShaped x0)
+               (replicate1HVector proxy_k (V.map dynamicFromVoid domB))
+      _ ->
+        let domsToPair :: forall f. ADReadyS f
+                       => HVector (RankedOf f)
+                       -> (f rn sh, HVector (RankedOf f))
+            domsToPair doms = (sfromD $ doms V.! 0, V.tail doms)
+            g :: Flip OS.Array rn sh -> HVector (Flip OR.Array)
+              -> (Flip OS.Array rn sh, HVector (Flip OR.Array))
+            g x a = domsToPair $ f x a
+            (xout, lout) = mapAccumR g x0 (unravelHVector as)
+        in V.cons (DynamicShaped xout) $ ravelHVector lout
   smapAccumRDer proxy_k domB f _df _rf domsOD x0 as =
     smapAccumR proxy_k domB f domsOD x0 as
 
