@@ -32,7 +32,7 @@ testTrees =
   [ testCase "4fooRrev" testFooRrev
   , testCase "4fooRrev2" testFooRrev2
   , testCase "4fooRrevPP1" testFooRrevPP1
---  , testCase "4fooRrevPP2" testFooRrevPP2
+  , testCase "4fooRrevPP2" testFooRrevPP2
   , testCase "4fooRrev3" testFooRrev3
   , testCase "4Sin0Rrev" testSin0Rrev
   , testCase "4Sin0RrevPP1" testSin0RrevPP1
@@ -199,11 +199,12 @@ testTrees =
   , testCase "4Sin0FoldNestedR1" testSin0FoldNestedR1
   , testCase "4Sin0FoldNestedR1RevFwd" testSin0FoldNestedR1RevFwd
   , testCase "4Sin0FoldNestedR2" testSin0FoldNestedR2
+--  , testCase "4Sin0FoldNestedR2RevFwd" testSin0FoldNestedR2RevFwd
   , testCase "4Sin0FoldNestedR3" testSin0FoldNestedR3
 --  , testCase "4Sin0FoldNestedR4" testSin0FoldNestedR4
 --  , testCase "4Sin0FoldNestedR41" testSin0FoldNestedR41
 --  , testCase "4Sin0FoldNestedR40" testSin0FoldNestedR40
---  , testCase "4Sin0FoldNestedR400" testSin0FoldNestedR400
+  , testCase "4Sin0FoldNestedR400" testSin0FoldNestedR400
   , testCase "4Sin0FoldNestedRi" testSin0FoldNestedRi
   , testCase "4Sin0FoldNestedR22" testSin0FoldNestedR22
   , testCase "4Sin0FoldNestedR21" testSin0FoldNestedR21
@@ -267,11 +268,11 @@ testFooRrevPP1 = do
   printAstPretty IM.empty a1
     @?= "let x16 = sin (rconst 2.2) ; x17 = rconst 1.1 * x16 ; x18 = recip (rconst 3.3 * rconst 3.3 + x17 * x17) ; x19 = sin (rconst 2.2) ; x20 = rconst 1.1 * x19 ; x21 = rreshape [] (rreplicate 1 (rconst 1.0)) ; x22 = rconst 3.3 * x21 ; x23 = negate (rconst 3.3 * x18) * x21 in x16 * x23 + x19 * x22"
 
-_testFooRrevPP2 :: Assertion
-_testFooRrevPP2 = do
+testFooRrevPP2 :: Assertion
+testFooRrevPP2 = do
   let (a1, _, _) = fooRrev @(AstRanked FullSpan) @Double (1.1, 2.2, 3.3)
   printAstSimple IM.empty a1
-    @?= "rlet (sin (rconst 2.2)) (\\x27 -> rlet (rconst 1.1 * x27) (\\x28 -> rlet (recip (rconst 3.3 * rconst 3.3 + x28 * x28)) (\\x29 -> rlet (sin (rconst 2.2)) (\\x30 -> rlet (rconst 1.1 * x30) (\\x31 -> rlet (rreshape [] (rreplicate 1 (rconst 1.0))) (\\x32 -> rlet (rconst 3.3 * x32) (\\x33 -> rlet (negate (rconst 3.3 * x29) * x32) (\\x34 -> x27 * x34 + x30 * x33))))))))"
+    @?= "rlet (sin (rconst 2.2)) (\\x39 -> rlet (rconst 1.1 * x39) (\\x40 -> rlet (recip (rconst 3.3 * rconst 3.3 + x40 * x40)) (\\x41 -> rlet (sin (rconst 2.2)) (\\x42 -> rlet (rconst 1.1 * x42) (\\x43 -> rlet (rreshape [] (rreplicate 1 (rconst 1.0))) (\\x44 -> rlet (rconst 3.3 * x44) (\\x45 -> rlet (negate (rconst 3.3 * x41) * x44) (\\x46 -> x39 * x46 + x42 * x45))))))))"
 
 testFooRrev3 :: Assertion
 testFooRrev3 = do
@@ -2819,9 +2820,8 @@ _testSin0FoldNestedR40 = do
                             a0 (rreplicate 0 a0)
            in f) 1.1)
 
--- TODO: re-enable when anything is slightly improved (200s optimized ATM)
-_testSin0FoldNestedR400 :: Assertion
-_testSin0FoldNestedR400 = do
+testSin0FoldNestedR400 :: Assertion
+testSin0FoldNestedR400 = do
   assertEqualUpToEpsilon' 1e-10
     (1.0 :: OR.Array 0 Double)
     (rev' (let f :: forall f. ADReady f => f Double 0 -> f Double 0
