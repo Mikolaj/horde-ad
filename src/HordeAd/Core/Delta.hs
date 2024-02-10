@@ -612,7 +612,7 @@ toInputId :: Int -> InputId f
 toInputId i = assert (i >= 0) $ InputId i
 
 
--- * Evaluation of the delta expressions
+-- * Instances
 
 instance ADReady ranked => DualPart @Nat ranked where
   type Dual ranked = DeltaR ranked
@@ -642,8 +642,7 @@ derivativeFromDeltaR dim deltaTopLevel ds =
       !(!s2, !c) = fwdR dim ds s0 deltaTopLevel
   in (astBindings s2, c)
 
-instance ADReadyS shaped
-         => DualPart @[Nat] shaped where
+instance ADReadyS shaped => DualPart @[Nat] shaped where
   type Dual shaped = DeltaS shaped
   reverseDervative parameters0 _ = gradientFromDeltaS parameters0
   forwardDerivative = derivativeFromDeltaS

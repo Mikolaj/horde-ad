@@ -39,7 +39,7 @@ import HordeAd.Core.Adaptor
 import HordeAd.Core.Ast
 import HordeAd.Core.AstEnv
 import HordeAd.Core.Delta
-import HordeAd.Core.DualClass
+import HordeAd.Core.DualClass ()
 import HordeAd.Core.HVector
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
@@ -79,7 +79,7 @@ deriving instance (Show (f r z), Show (Dual f r z))
 -- by the types yet), except when deconstructing via pattern-matching.
 dD :: IsPrimal f r z
    => ADShare -> f r z -> Dual f r z -> ADVal f r z
-dD !l !a !dual = dDnotShared l a (recordSharing dual)
+dD !l !a !dual = dDnotShared l a (shareDual dual)
 
 -- | This a not so smart a constructor for 'D' of 'ADVal' that does not record
 -- sharing information. If used in contexts where sharing may occur,
@@ -178,42 +178,6 @@ type instance HVectorOf (ADVal f) = HVector (ADVal f)
 type instance PrimalOf (ADVal f) = f
 
 type instance DualOf (ADVal f) = Product (Clown (Const ADShare)) (Dual f)
-
-instance (GoodScalar r, KnownNat n, RankedTensor (ADVal ranked))
-         => IsPrimal (ADVal ranked) r n where
-  dZeroOfShape tsh = ZeroR (rshape tsh)
-  dScale _ (ZeroR sh) = ZeroR sh
-  dScale v u' = ScaleR v u'
-  dAdd ZeroR{} w = w
-  dAdd v ZeroR{} = v
-  dAdd v w = AddR v w
-  intOfShape tsh c =
-    rconst $ OR.constant (shapeToList $ rshape tsh) (fromIntegral c)
-  recordSharingPrimal r l = (l, r)
-  recordSharing d = case d of
-    ZeroR{} -> d
-    InputR{} -> d
-    SToR{} -> d
-    LetR{} -> d  -- should not happen, but older/lower id is safer anyway
-    _ -> wrapDeltaR d
-
-instance (GoodScalar r, Sh.Shape sh, ShapedTensor (ADVal shaped))
-         => IsPrimal (ADVal shaped) r sh where
-  dZeroOfShape _tsh = ZeroS
-  dScale _ ZeroS = ZeroS
-  dScale v u' = ScaleS v u'
-  dAdd ZeroS w = w
-  dAdd v ZeroS = v
-  dAdd v w = AddS v w
-  intOfShape _tsh c =  -- this is not needed for OS, but OR needs it
-    sconst $ fromIntegral c
-  recordSharingPrimal r l = (l, r)
-  recordSharing d = case d of
-    ZeroS -> d
-    InputS{} -> d
-    RToS{} -> d
-    LetS{} -> d  -- should not happen, but older/lower id is safer anyway
-    _ -> wrapDeltaS d
 
 instance AdaptableHVector (ADVal ranked) (DynamicTensor (ADVal ranked)) where
   type Value (DynamicTensor (ADVal ranked)) = DynamicTensor ranked
@@ -451,7 +415,8 @@ instance Eq (ADVal f r z) where
 instance Ord (ADVal f r z) where
   (<=) = error "AST requires that OrdB be used instead"
 
-instance (Num (f r z), IsPrimal f r z) => Num (ADVal f r z) where
+instance (Num (f r z), IsPrimal f r z)
+         => Num (ADVal f r z) where
   -- The 0 cases are needed to get GHC 9.6 to use the specialization
   -- (only at rank 0, though; we'd need many more for common ranks and shapes).
   {-# SPECIALIZE instance Num (ADVal (Flip OR.Array) Double 0) #-}
@@ -469,16 +434,17 @@ instance (Num (f r z), IsPrimal f r z) => Num (ADVal f r z) where
     dD (l1 `mergeADShare` l2) (u - v) (dAdd u' (dScale (intOfShape v (-1)) v'))
   D l1 ue u' * D l2 ve v' =
     -- The bangs are neccessary for GHC 9.2.7 test results to match 9.4.
-    let !(!l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2 in
-    let !(!l4, v) = recordSharingPrimal ve l3
+    let !(!l3, u) = sharePrimal ue $ l1 `mergeADShare` l2 in
+    let !(!l4, v) = sharePrimal ve l3
     in dD l4 (u * v) (dAdd (dScale v u') (dScale u v'))
   negate (D l v v') = dD l (negate v) (dScale (intOfShape v (-1)) v')
-  abs (D l ve v') = let !(!l2, v) = recordSharingPrimal ve l
+  abs (D l ve v') = let !(!l2, v) = sharePrimal ve l
                     in dD l2 (abs v) (dScale (signum v) v')
   signum (D l v _) = dD l (signum v) (dZeroOfShape v)
   fromInteger = constantADVal . fromInteger
 
-instance (Real (f r z), IsPrimal f r z) => Real (ADVal f r z) where
+instance (Real (f r z), IsPrimal f r z)
+         => Real (ADVal f r z) where
   toRational = undefined
     -- very low priority, since these are all extremely not continuous
 
@@ -496,7 +462,8 @@ instance (Integral (f r z), IsPrimal f r z)
   divMod _ _ = error "divMod: disabled; much less efficient than quot and rem"
   toInteger = undefined  -- we can't evaluate uninstantiated variables, etc.
 
-instance (Fractional (f r z), IsPrimal f r z) => Fractional (ADVal f r z) where
+instance (Fractional (f r z), IsPrimal f r z)
+         => Fractional (ADVal f r z) where
   {-# SPECIALIZE instance
       Fractional (ADVal (Flip OR.Array) Double 0) #-}
 {- TODO: this causes a cyclic dependency:
@@ -512,17 +479,18 @@ instance (Fractional (f r z), IsPrimal f r z) => Fractional (ADVal f r z) where
       => Fractional (ADVal (AstRanked PrimalSpan) Double n) #-}
 -}
   D l1 ue u' / D l2 ve v' =
-    let !(!l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2 in
-    let !(!l4, v) = recordSharingPrimal ve l3
+    let !(!l3, u) = sharePrimal ue $ l1 `mergeADShare` l2 in
+    let !(!l4, v) = sharePrimal ve l3
     in dD l4 (u / v)
              (dAdd (dScale (recip v) u') (dScale (- u / (v * v)) v'))
   recip (D l ve v') =
-    let !(!l2, v) = recordSharingPrimal ve l
+    let !(!l2, v) = sharePrimal ve l
         minusRecipSq = - recip (v * v)
     in dD l2 (recip v) (dScale minusRecipSq v')
   fromRational = constantADVal . fromRational
 
-instance (Floating (f r z), IsPrimal f r z) => Floating (ADVal f r z) where
+instance (Floating (f r z), IsPrimal f r z)
+         => Floating (ADVal f r z) where
   {-# SPECIALIZE instance
       Floating (ADVal (Flip OR.Array) Double 0) #-}
 {- TODO: this causes a cyclic dependency:
@@ -538,56 +506,58 @@ instance (Floating (f r z), IsPrimal f r z) => Floating (ADVal f r z) where
       => Floating (ADVal (AstRanked PrimalSpan) Double n) #-}
 -}
   pi = constantADVal pi
-  exp (D l ue u') = let !(!l2, expU) = recordSharingPrimal (exp ue) l
+  exp (D l ue u') = let !(!l2, expU) = sharePrimal (exp ue) l
                     in dD l2 expU (dScale expU u')
-  log (D l ue u') = let !(!l2, u) = recordSharingPrimal ue l
+  log (D l ue u') = let !(!l2, u) = sharePrimal ue l
                     in dD l2 (log u) (dScale (recip u) u')
-  sqrt (D l ue u') = let !(!l2, sqrtU) = recordSharingPrimal (sqrt ue) l
+  sqrt (D l ue u') = let !(!l2, sqrtU) = sharePrimal (sqrt ue) l
                      in dD l2 sqrtU (dScale (recip (sqrtU + sqrtU)) u')
   D l1 ue u' ** D l2 ve v' =
-    let !(!l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2 in
-    let !(!l4, v) = recordSharingPrimal ve l3
+    let !(!l3, u) = sharePrimal ue $ l1 `mergeADShare` l2 in
+    let !(!l4, v) = sharePrimal ve l3
     in dD l4 (u ** v) (dAdd (dScale (v * (u ** (v - intOfShape v 1))) u')
                             (dScale ((u ** v) * log u) v'))
   logBase x y = log y / log x
-  sin (D l ue u') = let (l2, u) = recordSharingPrimal ue l
+  sin (D l ue u') = let (l2, u) = sharePrimal ue l
                     in dD l2 (sin u) (dScale (cos u) u')
-  cos (D l ue u') = let (l2, u) = recordSharingPrimal ue l
+  cos (D l ue u') = let (l2, u) = sharePrimal ue l
                     in dD l2 (cos u) (dScale (- (sin u)) u')
-  tan (D l ue u') = let (l2, u) = recordSharingPrimal ue l
-                        (l3, cosU) = recordSharingPrimal (cos u) l2
+  tan (D l ue u') = let (l2, u) = sharePrimal ue l
+                        (l3, cosU) = sharePrimal (cos u) l2
                     in dD l3 (tan u) (dScale (recip (cosU * cosU)) u')
-  asin (D l ue u') = let (l2, u) = recordSharingPrimal ue l
+  asin (D l ue u') = let (l2, u) = sharePrimal ue l
                      in dD l2 (asin u)
                            (dScale (recip (sqrt (intOfShape u 1 - u * u))) u')
-  acos (D l ue u') = let (l2, u) = recordSharingPrimal ue l
+  acos (D l ue u') = let (l2, u) = sharePrimal ue l
                      in dD l2 (acos u)
                            (dScale (- recip (sqrt (intOfShape u 1 - u * u))) u')
-  atan (D l ue u') = let (l2, u) = recordSharingPrimal ue l
+  atan (D l ue u') = let (l2, u) = sharePrimal ue l
                      in dD l2 (atan u)
                            (dScale (recip (intOfShape u 1 + u * u)) u')
-  sinh (D l ue u') = let (l2, u) = recordSharingPrimal ue l
+  sinh (D l ue u') = let (l2, u) = sharePrimal ue l
                      in dD l2 (sinh u) (dScale (cosh u) u')
-  cosh (D l ue u') = let (l2, u) = recordSharingPrimal ue l
+  cosh (D l ue u') = let (l2, u) = sharePrimal ue l
                      in dD l2 (cosh u) (dScale (sinh u) u')
-  tanh (D l ue u') = let (l2, y) = recordSharingPrimal (tanh ue) l
+  tanh (D l ue u') = let (l2, y) = sharePrimal (tanh ue) l
                      in dD l2 y (dScale (intOfShape y 1 - y * y) u')
-  asinh (D l ue u') = let (l2, u) = recordSharingPrimal ue l
+  asinh (D l ue u') = let (l2, u) = sharePrimal ue l
                       in dD l2 (asinh u)
                             (dScale (recip (sqrt (intOfShape u 1 + u * u))) u')
-  acosh (D l ue u') = let (l2, u) = recordSharingPrimal ue l
+  acosh (D l ue u') = let (l2, u) = sharePrimal ue l
                       in dD l2 (acosh u)
                             (dScale (recip (sqrt (u * u - intOfShape u 1))) u')
-  atanh (D l ue u') = let (l2, u) = recordSharingPrimal ue l
+  atanh (D l ue u') = let (l2, u) = sharePrimal ue l
                       in dD l2 (atanh u)
                             (dScale (recip (intOfShape u 1 - u * u)) u')
 
-instance (RealFrac (f r z), IsPrimal f r z) => RealFrac (ADVal f r z) where
+instance (RealFrac (f r z), IsPrimal f r z)
+         => RealFrac (ADVal f r z) where
   properFraction = undefined
     -- The integral type doesn't have a Storable constraint,
     -- so we can't implement this (nor RealFracB from Boolean package).
 
-instance (RealFloat (f r z), IsPrimal f r z) => RealFloat (ADVal f r z) where
+instance (RealFloat (f r z), IsPrimal f r z)
+         => RealFloat (ADVal f r z) where
   {-# SPECIALIZE instance
       RealFloat (ADVal (Flip OR.Array) Double 0) #-}
 {- TODO: this causes a cyclic dependency:
@@ -603,9 +573,9 @@ instance (RealFloat (f r z), IsPrimal f r z) => RealFloat (ADVal f r z) where
       => RealFloat (ADVal (AstRanked PrimalSpan) Double n) #-}
 -}
   atan2 (D l1 ue u') (D l2 ve v') =
-    let !(!l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2 in
-    let !(!l4, v) = recordSharingPrimal ve l3 in
-    let !(!l5, t) = recordSharingPrimal (recip (u * u + v * v)) l4
+    let !(!l3, u) = sharePrimal ue $ l1 `mergeADShare` l2 in
+    let !(!l4, v) = sharePrimal ve l3 in
+    let !(!l5, t) = sharePrimal (recip (u * u + v * v)) l4
     in dD l5 (atan2 u v) (dAdd (dScale (- u * t) v') (dScale (v * t) u'))
   -- Note that for term types @a@ this is invalid without an extra let
   -- containing the first field of @D@. However, for terms this is

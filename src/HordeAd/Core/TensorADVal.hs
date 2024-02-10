@@ -110,7 +110,7 @@ instance AdaptableHVector ranked a
 -- in tests. None others are used anywhere.
 instance ADReady ranked => RankedTensor (ADVal ranked) where
   rlet (D l u u') f =
-    let !(!l2, var2) = recordSharingPrimal u l
+    let !(!l2, var2) = rsharePrimal u l
     in f (dDnotShared l2 var2 u')
       -- u' doesn't need to be shared, because deltas are shared separately
 
@@ -141,8 +141,8 @@ instance ADReady ranked => RankedTensor (ADVal ranked) where
   rsum0 (D l u u') = dD l (rsum0 u) (Sum0R u')
   rdot0 (D l1 ue u') (D l2 ve v') =
     -- The bangs below are neccessary for GHC 9.2.7 test results to match 9.4.
-    let !(!l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2 in
-    let !(!l4, v) = recordSharingPrimal ve l3
+    let !(!l3, u) = rsharePrimal ue $ l1 `mergeADShare` l2 in
+    let !(!l4, v) = rsharePrimal ve l3
     in dD l4 (rdot0 u v) (dAdd (Dot0R v u') (Dot0R u v'))
   rscatter sh (D l u u') f =
     let g x = rprimalPart <$> f (rconstant <$> x)
@@ -190,11 +190,11 @@ instance ADReady ranked => RankedTensor (ADVal ranked) where
          We'd need to flatten ll2 and put instead of l.
     let !(!ll2, asUnshared, as') = unADValHVector asD
         !(!l3, as) =
-          drecordSharingPrimal od (dmkHVector asUnshared) emptyADShare
+          dsharePrimal od (dmkHVector asUnshared) emptyADShare
         aDValDynamicTensor3 l a a' =
           aDValDynamicTensor (mergeADShare l3 l) a a'
         doms = V.zipWith3 aDValDynamicTensor3 ll2 as as'
-          -- This could be done with recordSharingPrimal,
+          -- This could be done with rsharePrimal,
           -- but more ADShare nodes would generated.
     in f doms
 -}
@@ -237,7 +237,7 @@ instance ( ADReadyS shaped, Sh.Shape sh, GoodScalar r
 -- in tests. None others are used anywhere.
 instance ADReadyS shaped => ShapedTensor (ADVal shaped) where
   slet (D l u u') f =
-    let !(!l2, var2) = recordSharingPrimal u l
+    let !(!l2, var2) = ssharePrimal u l
     in f (dDnotShared l2 var2 u')
       -- u' doesn't need to be shared, because deltas are shared separately
 
@@ -265,8 +265,8 @@ instance ADReadyS shaped => ShapedTensor (ADVal shaped) where
   ssum0 (D l u u') = dD l (ssum0 u) (Sum0S u')
   sdot0 (D l1 ue u') (D l2 ve v') =
     -- The bangs below are neccessary for GHC 9.2.7 test results to match 9.4.
-    let !(!l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2 in
-    let !(!l4, v) = recordSharingPrimal ve l3
+    let !(!l3, u) = ssharePrimal ue $ l1 `mergeADShare` l2 in
+    let !(!l4, v) = ssharePrimal ve l3
     in dD l4 (sdot0 u v) (dAdd (Dot0S v u') (Dot0S u v'))
   sscatter (D l u u') f =
     let g x = rprimalPart <$> f (rconstant <$> x)
@@ -314,9 +314,9 @@ instance ADReadyS shaped => ShapedTensor (ADVal shaped) where
 {- TODO: See similar code above.
     let !(!ll2, asUnshared, as') = unADValHVector asD
         !(!l3, as) =
-          drecordSharingPrimal @(RankedOf shaped) @shaped
+          dsharePrimal @(RankedOf shaped) @shaped
                                od (dmkHVector asUnshared) emptyADShare
-            -- This could be done with recordSharingPrimal, but the code
+            -- This could be done with ssharePrimal, but the code
             -- would be more complex and more ADShare nodes generated.
             -- OTOH, f would be free to assume there are no dangling variables.
         !(D l u u') = f $ aDValHVector ll2 as as'
@@ -356,21 +356,21 @@ instance ADReadyBoth ranked shaped
 {- TODO: See similar code above.
     let !(!ll2, asUnshared, as') = unADValHVector asD
         !(!l3, as) =
-          drecordSharingPrimal od (dmkHVector asUnshared) emptyADShare
+          dsharePrimal od (dmkHVector asUnshared) emptyADShare
         aDValDynamicTensor3 l a a' =
           aDValDynamicTensor (mergeADShare l3 l) a a'
         doms = V.zipWith3 aDValDynamicTensor3 ll2 as as'
-          -- This could be done with recordSharingPrimal,
+          -- This could be done with rsharePrimal,
           -- but more ADShare nodes would generated.
     in f doms
 -}
   rletInHVector (D l u u') f =
-    let !(!l2, var2) = recordSharingPrimal u l
+    let !(!l2, var2) = rsharePrimal u l
     in f (dDnotShared l2 var2 u')
   sletInHVector (D l u u') f =
-    let !(!l2, var2) = recordSharingPrimal u l
+    let !(!l2, var2) = ssharePrimal u l
     in f (dDnotShared l2 var2 u')
-  drecordSharingPrimal _ d l = (l, d)
+  dsharePrimal _ d l = (l, d)
   dregister _ d l = (l, d)
   dbuild1 k f = ravelHVector $ map (f . fromIntegral) [0 .. k - 1]
   dzipWith1 f u = case V.unsnoc u of
@@ -450,11 +450,11 @@ instance ADReadyBoth ranked shaped
            -> ADVal ranked rm (1 + m)
            -> ADVal ranked rn n
   rfoldDer f df rf (D l1 x0 x0') (D l2 asUnshared as') =
-    let (l3, as) = recordSharingPrimal asUnshared (l1 `mergeADShare` l2)
+    let (l3, as) = rsharePrimal asUnshared (l1 `mergeADShare` l2)
         p :: ranked rn (1 + n)
         p = rscanDer f df rf x0 as
         width = rlength p - 1
-        (l4, pShared) = recordSharingPrimal p l3
+        (l4, pShared) = rsharePrimal p l3
     in dDnotShared l4 (pShared ! (fromIntegral width :. ZI))
                       (FoldR pShared as df rf x0' as')
   rfoldZip :: forall rn n. (GoodScalar rn, KnownNat n)
@@ -505,13 +505,13 @@ instance ADReadyBoth ranked shaped
         assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD)
                                    asD) $
         let (l3, as) =
-              drecordSharingPrimal @ranked
-                                   (replicate1VoidHVector (Proxy @k) domsOD)
-                                   (dmkHVector asUnshared)
-                                   (flattenADShare $ l1 : V.toList ll2)
+              dsharePrimal @ranked
+                           (replicate1VoidHVector (Proxy @k) domsOD)
+                           (dmkHVector asUnshared)
+                           (flattenADShare $ l1 : V.toList ll2)
             p :: ranked rn (1 + n)
             p = rscanZipDer f df rf domsOD x0 as
-            (l4, pShared) = recordSharingPrimal p l3
+            (l4, pShared) = rsharePrimal p l3
         in dDnotShared l4 (pShared ! (fromIntegral width :. ZI))
                           (FoldZipR domsOD pShared as df rf x0' as')
       _ -> error "rfoldZipDer: impossible someNatVal"
@@ -557,10 +557,10 @@ instance ADReadyBoth ranked shaped
            -> ADVal ranked rm (1 + m)
            -> ADVal ranked rn (1 + n)
   rscanDer f df rf (D l1 x0 x0') (D l2 asUnshared as') =
-    let (l3, as) = recordSharingPrimal asUnshared (l1 `mergeADShare` l2)
+    let (l3, as) = rsharePrimal asUnshared (l1 `mergeADShare` l2)
         p :: ranked rn (1 + n)
         p = rscanDer f df rf x0 as
-        (l4, pShared) = recordSharingPrimal p l3
+        (l4, pShared) = rsharePrimal p l3
     in dDnotShared l4 pShared
                       (ScanR pShared as df rf x0' as')
   rscanZip :: forall rn n. (GoodScalar rn, KnownNat n)
@@ -611,13 +611,13 @@ instance ADReadyBoth ranked shaped
         assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD)
                                    asD) $
         let (l3, as) =
-              drecordSharingPrimal @ranked
-                                   (replicate1VoidHVector (Proxy @k) domsOD)
-                                   (dmkHVector asUnshared)
-                                   (flattenADShare $ l1 : V.toList ll2)
+              dsharePrimal @ranked
+                           (replicate1VoidHVector (Proxy @k) domsOD)
+                           (dmkHVector asUnshared)
+                           (flattenADShare $ l1 : V.toList ll2)
             p :: ranked rn (1 + n)
             p = rscanZipDer f df rf domsOD x0 as
-            (l4, pShared) = recordSharingPrimal p l3
+            (l4, pShared) = rsharePrimal p l3
         in dDnotShared l4 pShared
                           (ScanZipR domsOD pShared as df rf x0' as')
       _ -> error "rscanZipDer: impossible someNatVal"
@@ -660,11 +660,11 @@ instance ADReadyBoth ranked shaped
            -> ADVal shaped rm (k ': shm)
            -> ADVal shaped rn sh
   sfoldDer f df rf (D l1 x0 x0') (D l2 asUnshared as') =
-    let (l3, as) = recordSharingPrimal asUnshared (l1 `mergeADShare` l2)
+    let (l3, as) = ssharePrimal asUnshared (l1 `mergeADShare` l2)
         p :: shaped rn (1 + k ': sh)
         p = sscanDer f df rf x0 as
         width = slength p - 1
-        (l4, pShared) = recordSharingPrimal p l3
+        (l4, pShared) = ssharePrimal p l3
     in dDnotShared l4 (pShared !$ (fromIntegral width :$: ZSH))
                       (FoldS pShared as df rf x0' as')
   sfoldZip :: forall rn sh. (GoodScalar rn, Sh.Shape sh)
@@ -722,12 +722,13 @@ instance ADReadyBoth ranked shaped
         assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD)
                                    asD) $
         let (l3, as) =
-              drecordSharingPrimal @ranked
-                (replicate1VoidHVector (Proxy @k) domsOD)
-                (dmkHVector asUnshared) (flattenADShare $ l1 : V.toList ll2)
+              dsharePrimal @ranked
+                           (replicate1VoidHVector (Proxy @k) domsOD)
+                           (dmkHVector asUnshared)
+                           (flattenADShare $ l1 : V.toList ll2)
             p :: shaped rn (1 + k ': sh)
             p = sscanZip f domsOD x0 as
-            (l4, pShared) = recordSharingPrimal p l3
+            (l4, pShared) = ssharePrimal p l3
         in dDnotShared l4 (pShared !$ (fromIntegral width :$: ZSH))
                           (FoldZipS domsOD pShared as df rf x0' as')
       _ -> error "sfoldZipDer: impossible someNatVal"
@@ -770,10 +771,10 @@ instance ADReadyBoth ranked shaped
            -> ADVal shaped rm (k ': shm)
            -> ADVal shaped rn (1 + k ': sh)
   sscanDer f df rf (D l1 x0 x0') (D l2 asUnshared as') =
-    let (l3, as) = recordSharingPrimal asUnshared (l1 `mergeADShare` l2)
+    let (l3, as) = ssharePrimal asUnshared (l1 `mergeADShare` l2)
         p :: shaped rn (1 + k ': sh)
         p = sscanDer f df rf x0 as
-        (l4, pShared) = recordSharingPrimal p l3
+        (l4, pShared) = ssharePrimal p l3
     in dDnotShared l4 pShared
                       (ScanS pShared as df rf x0' as')
   sscanZip :: forall rn sh k. (GoodScalar rn, Sh.Shape sh, KnownNat k)
@@ -823,12 +824,13 @@ instance ADReadyBoth ranked shaped
     assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD) asD) $
     let (ll2, asUnshared, as') = unADValHVector asD
         (l3, as) =
-          drecordSharingPrimal @ranked (replicate1VoidHVector (Proxy @k) domsOD)
-                               (dmkHVector asUnshared)
-                               (flattenADShare $ l1 : V.toList ll2)
+          dsharePrimal @ranked
+                       (replicate1VoidHVector (Proxy @k) domsOD)
+                       (dmkHVector asUnshared)
+                       (flattenADShare $ l1 : V.toList ll2)
         p :: shaped rn (1 + k ': sh)
         p = sscanZipDer f df rf domsOD x0 as
-        (l4, pShared) = recordSharingPrimal p l3
+        (l4, pShared) = ssharePrimal p l3
     in dDnotShared l4 pShared
                       (ScanZipS domsOD pShared as df rf x0' as')
   rmapAccumR
@@ -906,10 +908,10 @@ instance ADReadyBoth ranked shaped
         assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD)
                                    asD) $
         let (l3, as) =
-              drecordSharingPrimal @ranked
-                                   (replicate1VoidHVector (Proxy @k) domsOD)
-                                   (dmkHVector asUnshared)
-                                   (flattenADShare $ l1 : V.toList ll2)
+              dsharePrimal @ranked
+                           (replicate1VoidHVector (Proxy @k) domsOD)
+                           (dmkHVector asUnshared)
+                           (flattenADShare $ l1 : V.toList ll2)
             shn = rshape x0
             odShn = voidFromSh @rn shn
             domsG = V.cons odShn domB
@@ -923,7 +925,7 @@ instance ADReadyBoth ranked shaped
             odShnK = voidFromSh @rn (width :$ shn)
             domsF3 = V.cons odShn $ V.cons odShnK
                      $ replicate1VoidHVector (Proxy @k) domB
-            (l4, pShared) = drecordSharingPrimal @ranked domsF3 p l3
+            (l4, pShared) = dsharePrimal @ranked domsF3 p l3
             xFin = pShared V.! 0
             q = rfromD $ pShared V.! 1
             primal = V.cons xFin $ V.drop 2 pShared
@@ -1004,9 +1006,10 @@ instance ADReadyBoth ranked shaped
     assert (voidHVectorMatches (replicate1VoidHVector proxy_k domsOD) asD) $
     let (ll2, asUnshared, as') = unADValHVector asD
         (l3, as) =
-          drecordSharingPrimal @ranked (replicate1VoidHVector proxy_k domsOD)
-                               (dmkHVector asUnshared)
-                               (flattenADShare $ l1 : V.toList ll2)
+          dsharePrimal @ranked
+                       (replicate1VoidHVector proxy_k domsOD)
+                       (dmkHVector asUnshared)
+                       (flattenADShare $ l1 : V.toList ll2)
         odShn = voidFromShS @rn @sh
         domsG = V.cons odShn domB
         f3 :: forall f. ADReadyS f
@@ -1020,7 +1023,7 @@ instance ADReadyBoth ranked shaped
         odShnK = voidFromShS @rn @(k ': sh)
         domsF3 = V.cons odShn $ V.cons odShnK
                  $ replicate1VoidHVector proxy_k domB
-        (l4, pShared) = drecordSharingPrimal @ranked domsF3 p l3
+        (l4, pShared) = dsharePrimal @ranked domsF3 p l3
         xFin = pShared V.! 0
         q = sfromD $ pShared V.! 1
         primal = V.cons xFin $ V.drop 2 pShared
@@ -1106,7 +1109,7 @@ instance HVectorTensor (Flip OR.Array) (Flip OS.Array) where
   dletHVectorInHVector _ = (&)
   rletInHVector = (&)
   sletInHVector = (&)
-  drecordSharingPrimal _ d l = (l, d)
+  dsharePrimal _ d l = (l, d)
   dregister _ d l = (l, d)
   dbuild1 k f = ravelHVector $ map (f . fromIntegral) [0 .. k - 1]
   dzipWith1 f u = case V.unsnoc u of

@@ -312,6 +312,9 @@ class ( Integral (IntOf ranked), CRanked ranked Num
             => ranked r n -> AstBindingsD ranked
             -> (AstBindingsD ranked, ranked r n)
   rregister r l = (l, r)
+  rsharePrimal :: (GoodScalar r, KnownNat n)
+               => ranked r n -> ADShare -> (ADShare, ranked r n)
+  rsharePrimal r l = (l, r)
 
   -- Primal/dual things.
   rconstant :: (GoodScalar r, KnownNat n) => PrimalOf ranked r n -> ranked r n
@@ -682,6 +685,9 @@ class ( Integral (IntOf shaped), CShaped shaped Num
             => shaped r sh -> AstBindingsD (RankedOf shaped)
             -> (AstBindingsD (RankedOf shaped), shaped r sh)
   sregister r l = (l, r)
+  ssharePrimal :: (GoodScalar r, Sh.Shape sh)
+               => shaped r sh -> ADShare -> (ADShare, shaped r sh)
+  ssharePrimal r l = (l, r)
 
   -- Primal/dual things.
   sconstant :: (GoodScalar r, Sh.Shape sh)
@@ -720,8 +726,8 @@ class HVectorTensor (ranked :: RankedTensorType)
                 => shaped r sh
                 -> (shaped r sh -> HVectorOf ranked)
                 -> HVectorOf ranked
-  drecordSharingPrimal :: VoidHVector -> HVectorOf ranked -> ADShare
-                       -> (ADShare, HVector ranked)
+  dsharePrimal :: VoidHVector -> HVectorOf ranked -> ADShare
+               -> (ADShare, HVector ranked)
   dregister :: VoidHVector -> HVectorOf ranked -> AstBindingsD ranked
             -> (AstBindingsD ranked, HVector ranked)
   dbuild1 :: Int  -- k
@@ -1011,8 +1017,8 @@ class IsPrimal f r z where
   dScale :: f r z -> Dual f r z -> Dual f r z
   dAdd :: Dual f r z -> Dual f r z -> Dual f r z
   intOfShape :: f r z -> Int -> f r z
-  recordSharingPrimal :: f r z -> ADShare -> (ADShare, f r z)
-  recordSharing :: Dual f r z -> Dual f r z
+  sharePrimal :: f r z -> ADShare -> (ADShare, f r z)
+  shareDual :: Dual f r z -> Dual f r z
 
 -- TODO: this is an ad-hoc class with an ad-hoc name
 type UnletGradient :: TensorType ty -> Constraint

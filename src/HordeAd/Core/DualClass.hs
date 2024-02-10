@@ -31,20 +31,19 @@ import Prelude
 
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as Sh
-import qualified Data.Array.ShapedS as OS
-import           Data.Bifunctor.Flip
 import           Data.IORef.Unboxed
   (Counter, atomicAddCounter_, newCounter, writeIORefU)
-import           GHC.TypeLits (KnownNat)
+import           GHC.TypeLits (KnownNat, Nat)
 import           System.IO.Unsafe (unsafePerformIO)
 
 import HordeAd.Core.Delta
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
+import HordeAd.Util.SizedIndex
 
--- * Concrete instances
+-- * Instances
 
--- | This and some others are impure instances, because 'recordSharing'
+-- | The instances are impure, because 'shareDual'
 -- adorns terms with an @Int@ identifier from a counter that is afterwards
 -- incremented (and never changed in any other way).
 --
@@ -71,11 +70,12 @@ import HordeAd.Core.Types
 -- Of course, if the compiler, e.g., stops honouring @NOINLINE@,
 -- all this breaks down.
 --
--- The pattern-matching in 'recordSharing' is a crucial optimization
+-- The pattern-matching in 'shareDual' is a crucial optimization
 -- and it could, presumably, be extended to further limit which
 -- terms get an identifier. Alternatively, 'HordeAd.Core.DualNumber.dD'
 -- or library definitions that use it could be made smarter.
-instance (GoodScalar r, KnownNat n) => IsPrimal (Flip OR.Array) r n where
+instance (GoodScalar r, KnownNat n, RankedTensor ranked)
+         => IsPrimal @Nat ranked r n where
   dZeroOfShape tsh = ZeroR (rshape tsh)
   dScale _ (ZeroR sh) = ZeroR sh
   dScale v u' = ScaleR v u'
@@ -83,16 +83,17 @@ instance (GoodScalar r, KnownNat n) => IsPrimal (Flip OR.Array) r n where
   dAdd v ZeroR{} = v
   dAdd v w = AddR v w
   intOfShape tsh c =
-    rconst $ OR.constant (OR.shapeL $ runFlip tsh) (fromIntegral c)
-  recordSharingPrimal r l = (l, r)
-  recordSharing d = case d of
+    rconst $ OR.constant (shapeToList $ rshape tsh) (fromIntegral c)
+  sharePrimal = rsharePrimal
+  shareDual d = case d of
     ZeroR{} -> d
     InputR{} -> d
     SToR{} -> d
     LetR{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDeltaR d
 
-instance (GoodScalar r, Sh.Shape sh) => IsPrimal (Flip OS.Array) r sh where
+instance (GoodScalar r, Sh.Shape sh, ShapedTensor shaped)
+         => IsPrimal @[Nat] shaped r sh where
   dZeroOfShape _tsh = ZeroS
   dScale _ ZeroS = ZeroS
   dScale v u' = ScaleS v u'
@@ -101,8 +102,8 @@ instance (GoodScalar r, Sh.Shape sh) => IsPrimal (Flip OS.Array) r sh where
   dAdd v w = AddS v w
   intOfShape _tsh c =  -- this is not needed for OS, but OR needs it
     sconst $ fromIntegral c
-  recordSharingPrimal r l = (l, r)
-  recordSharing d = case d of
+  sharePrimal = ssharePrimal
+  shareDual d = case d of
     ZeroS -> d
     InputS{} -> d
     RToS{} -> d

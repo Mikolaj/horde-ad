@@ -36,7 +36,6 @@ import           HordeAd.Core.AstSimplify
 import           HordeAd.Core.AstTools
 import           HordeAd.Core.AstVectorize
 import           HordeAd.Core.Delta
-import           HordeAd.Core.DualClass
 import           HordeAd.Core.DualNumber
 import           HordeAd.Core.HVector
 import           HordeAd.Core.HVectorOps
@@ -46,53 +45,6 @@ import           HordeAd.Core.Types
 import           HordeAd.Util.ShapedList (singletonShaped)
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedIndex
-
--- * IsPrimal instances
-
--- For convenience and simplicity we define the instance for all spans,
--- but they can ever be used only for PrimalSpan.
-instance (GoodScalar r, KnownNat n, AstSpan s)
-         => IsPrimal (AstRanked s) r n where
-  dZeroOfShape tsh = ZeroR (rshape tsh)
-  dScale _ (ZeroR sh) = ZeroR sh
-  dScale v u' = ScaleR v u'
-  dAdd ZeroR{} w = w
-  dAdd v ZeroR{} = v
-  dAdd v w = AddR v w
-  intOfShape tsh c =
-    rconst $ OR.constant (shapeToList $ rshape tsh) (fromIntegral c)
-  recordSharingPrimal =
-    case sameAstSpan @s @PrimalSpan of
-      Just Refl -> astRegisterADShare
-      _ -> error "recordSharingPrimal: used not at PrimalSpan"
-  recordSharing d = case d of
-    ZeroR{} -> d
-    InputR{} -> d
-    SToR{} -> d
-    LetR{} -> d  -- should not happen, but older/lower id is safer anyway
-    _ -> wrapDeltaR d
-
-instance (GoodScalar r, Sh.Shape sh, AstSpan s)
-         => IsPrimal (AstShaped s) r sh where
-  dZeroOfShape _tsh = ZeroS
-  dScale _ ZeroS = ZeroS
-  dScale v u' = ScaleS v u'
-  dAdd ZeroS w = w
-  dAdd v ZeroS = v
-  dAdd v w = AddS v w
-  intOfShape _tsh c =  -- this is not needed for OS, but OR needs it
-    sconst $ fromIntegral c
-  recordSharingPrimal =
-    case sameAstSpan @s @PrimalSpan of
-      Just Refl -> astRegisterADShareS
-      _ -> error "recordSharingPrimal: used not at PrimalSpan"
-  recordSharing d = case d of
-    ZeroS -> d
-    InputS{} -> d
-    RToS{} -> d
-    LetS{} -> d  -- should not happen, but older/lower id is safer anyway
-    _ -> wrapDeltaS d
-
 
 -- * Reverse and forward derivative stages instances
 
@@ -533,6 +485,10 @@ instance AstSpan s
     AstConstant (AstLetADShare l t) -> (l, AstConstant t)
     _ -> (emptyADShare, u)
   rregister = astRegisterFun
+  rsharePrimal =
+    case sameAstSpan @s @PrimalSpan of
+      Just Refl -> astRegisterADShare
+      _ -> error "rsharePrimal: used not at PrimalSpan"
 
   rconstant = fromPrimal
   rprimalPart = astSpanPrimal
@@ -655,6 +611,10 @@ instance AstSpan s
     AstConstantS (AstLetADShareS l t) -> (l, AstConstantS t)
     _ -> (emptyADShare, u)
   sregister = astRegisterFunS
+  ssharePrimal =
+    case sameAstSpan @s @PrimalSpan of
+      Just Refl -> astRegisterADShareS
+      _ -> error "ssharePrimal: used not at PrimalSpan"
 
   sconstant = fromPrimalS
   sprimalPart = astSpanPrimalS
@@ -741,15 +701,15 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   -- These and many similar bangs are necessary to ensure variable IDs
   -- are generated in the expected order, resulting in nesting of lets
   -- occuring in the correct order and so no scoping errors.
-  drecordSharingPrimal !domsOD !r !l | Just Refl <- sameAstSpan @s @PrimalSpan =
+  dsharePrimal !domsOD !r !l | Just Refl <- sameAstSpan @s @PrimalSpan =
     fun1DToAst domsOD $ \ !vars !asts -> case vars of
-      [] -> error "drecordSharingPrimal: empty hVector"
+      [] -> error "dsharePrimal: empty hVector"
       !var : _ ->  -- vars are fresh, so var uniquely represent vars
         ( insertADShare (dynamicVarNameToAstVarId var)
                         (AstBindingsHVector vars r)
                         l
         , asts )
-  drecordSharingPrimal _ _ _ = error "drecordSharingPrimal: wrong span"
+  dsharePrimal _ _ _ = error "dsharePrimal: wrong span"
   dregister !domsOD !r !l =
     fun1DToAst domsOD $ \ !vars !asts -> case vars of
       [] -> error "dregister: empty hVector"
@@ -1484,14 +1444,6 @@ astBuildHVector1Vectorize k f = build1VectorizeHVector k $ funToAstI f
 
 -- * The auxiliary AstNoVectorize and AstNoSimplify instances, for tests
 
-instance IsPrimal (AstNoVectorize s) r n where
-  dZeroOfShape = undefined
-  dScale = undefined
-  dAdd = undefined
-  intOfShape = undefined
-  recordSharingPrimal = undefined
-  recordSharing = undefined
-
 instance UnletGradient (HVectorPseudoTensor (AstNoVectorize s))
 
 instance UnletGradient (AstNoVectorize s)
@@ -1518,14 +1470,6 @@ deriving instance (RealFrac (AstRanked s r n))
 deriving instance (RealFloat (AstRanked s r n))
                   => RealFloat (AstNoVectorize s r n)
 
-instance IsPrimal (AstNoVectorizeS s) r n where
-  dZeroOfShape = undefined
-  dScale = undefined
-  dAdd = undefined
-  intOfShape = undefined
-  recordSharingPrimal = undefined
-  recordSharing = undefined
-
 instance UnletGradient (AstNoVectorizeS s)
 
 type instance SimpleBoolOf (AstNoVectorizeS s) = AstBool
@@ -1549,14 +1493,6 @@ deriving instance (RealFrac (AstShaped s r sh))
                   => RealFrac (AstNoVectorizeS s r sh)
 deriving instance (RealFloat (AstShaped s r sh))
                   => RealFloat (AstNoVectorizeS s r sh)
-
-instance IsPrimal (AstNoSimplify s) r n where
-  dZeroOfShape = undefined
-  dScale = undefined
-  dAdd = undefined
-  intOfShape = undefined
-  recordSharingPrimal = undefined
-  recordSharing = undefined
 
 instance UnletGradient (HVectorPseudoTensor (AstNoSimplify s))
 
@@ -1583,14 +1519,6 @@ deriving instance (RealFrac (AstRanked s r n))
                   => RealFrac (AstNoSimplify s r n)
 deriving instance (RealFloat (AstRanked s r n))
                   => RealFloat (AstNoSimplify s r n)
-
-instance IsPrimal (AstNoSimplifyS s) r n where
-  dZeroOfShape = undefined
-  dScale = undefined
-  dAdd = undefined
-  intOfShape = undefined
-  recordSharingPrimal = undefined
-  recordSharing = undefined
 
 instance UnletGradient (AstNoSimplifyS s)
 
@@ -1732,7 +1660,7 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
     rletInHVector @(AstRanked s) (unAstNoVectorize u) (f . AstNoVectorize)
   sletInHVector u f =
     sletInHVector @(AstRanked s) (unAstNoVectorizeS u) (f . AstNoVectorizeS)
-  drecordSharingPrimal = error "drecordSharingPrimal for AstNoVectorize"
+  dsharePrimal = error "dsharePrimal for AstNoVectorize"
   dregister = error "dregister for AstNoVectorize"
   dbuild1 k f = AstBuildHVector1 k $ funToAstI f
   dzipWith1 f u = case V.unsnoc u of
@@ -1980,7 +1908,7 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
     rletInHVector @(AstRanked s) (unAstNoSimplify u) (f . AstNoSimplify)
   sletInHVector u f =
     sletInHVector @(AstRanked s) (unAstNoSimplifyS u) (f . AstNoSimplifyS)
-  drecordSharingPrimal = error "drecordSharingPrimal for AstNoVectorize"
+  dsharePrimal = error "dsharePrimal for AstNoVectorize"
   dregister = error "dregister for AstNoSimplify"
   dbuild1 = astBuildHVector1Vectorize
   dzipWith1 f u = case V.unsnoc u of
