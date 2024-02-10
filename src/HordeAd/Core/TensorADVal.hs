@@ -30,10 +30,9 @@ import           Data.List.Index (imap)
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
-import           Data.Type.Ord (Compare)
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits
-  (KnownNat, SomeNat (..), sameNat, someNatVal, type (+), type (-))
+  (KnownNat, SomeNat (..), sameNat, someNatVal, type (+))
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           System.Random
@@ -415,52 +414,32 @@ instance ADReadyBoth ranked shaped
         -> ADVal ranked rn n
         -> ADVal ranked rm (1 + m)
         -> ADVal ranked rn n
-  rfold f (D l1 x0 x0') (D l2 asUnshared as') =
-    -- This can't call rfoldDer, because UnletGradient constraint is needed
-    -- in the computed derivatives, while rfoldDer gets derivatives with
-    -- looser constraints thanks to interpreting terms in arbitrary algebras.
-    -- If the refactoring is really needed, e.g., to avoid computing derivatives
-    -- for each nested level of ADVal, we can add UnletGradient to ADReady.
-    -- Given this, we don't try to share subterms at all in this code.
-    -- This only matters in the case of instantiating this method directly
-    -- to dual numbers over terms, which however side-steps vectorization,
-    -- and so it's not supposed to produce small terms anyway.
-    let _ws :: (Int, ShapeInt m)
-        _ws@(width, _shm) = case rshape asUnshared of
-          hd :$ tl -> (hd, tl)
-          _ -> error "rfold: impossible pattern needlessly required"
-        domsToPair :: forall f. ADReady f
+  rfold f x0 as =
+    let domsToPair :: forall f. ADReady f
                    => HVector f -> (f rn n, f rm m)
         domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
-        g :: HVector (ADVal ranked) -> ADVal ranked rn n
+        g :: forall f. ADReady f => HVector (ADVal f) -> ADVal f rn n
         g doms = uncurry f (domsToPair doms)
         -- This computes the derivative of f again for each new @x@ and @a@
         -- (not even once for @as@, but for each @a@ separately).
-        -- Note that this function, and similarly @rf and @f@ instantiated
-        -- and passed to FoldRC, is not a function on dual numbers.
+        -- Note that this function is not a function on dual numbers.
         -- Consequently, any dual number operations inserted there by the user
         -- are flattened away (which is represented in AST by @PrimalSpan@).
         -- TODO: what if the dual numbers are nested?
         -- TODO: do the dual number ops in f affect what df is computed? add
         -- a comment explaining that and tests that exemplify that
-        df :: ranked rn n -> ranked rm m -> ranked rn n -> ranked rm m
-           -> ranked rn n
+        df :: forall f. ADReady f
+           => f rn n -> f rm m -> f rn n -> f rm m -> f rn n
         df cx ca x a =
           fst $ cfwdOnHVector (V.fromList [DynamicRanked x, DynamicRanked a])
                               g
                               (V.fromList [DynamicRanked cx, DynamicRanked ca])
-        rf :: ranked rn n -> ranked rn n -> ranked rm m
-           -> HVectorOf ranked
+        rf :: forall f. ADReady f => f rn n -> f rn n -> f rm m -> HVectorOf f
         rf dt x a =
           fst $ crevOnHVector (Just dt)
                               g
                               (V.fromList [DynamicRanked x, DynamicRanked a])
-        (l3, as) = recordSharingPrimal asUnshared (l1 `mergeADShare` l2)
-        p :: ranked rn (1 + n)
-        p = rscan f x0 as
-        (l4, pShared) = recordSharingPrimal p l3
-    in dDnotShared l4 (pShared ! (fromIntegral width :. ZI))
-                      (FoldRC pShared as df rf x0' as')
+    in rfoldDer f df rf x0 as
   rfoldDer :: forall rn rm n m.
               (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)
            => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
@@ -484,46 +463,24 @@ instance ADReadyBoth ranked shaped
          -> ADVal ranked rn n
          -> HVector (ADVal ranked)
          -> ADVal ranked rn n
-  rfoldZip f domsOD (D l1 x0 x0') asD =
-    let (ll2, asUnshared, as') = unADValHVector asD
-        domsToPair :: forall f. ADReady f => HVector f -> (f rn n, HVector f)
+  rfoldZip f domsOD x0 asD =
+    let domsToPair :: forall f. ADReady f => HVector f -> (f rn n, HVector f)
         domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
-        g :: HVector (ADVal ranked) -> ADVal ranked rn n
+        g :: forall f. ADReady f => HVector (ADVal f) -> ADVal f rn n
         g doms = uncurry f (domsToPair doms)
-        df :: ranked rn n -> HVector ranked -> ranked rn n -> HVector ranked
-           -> ranked rn n
+        df :: forall f. ADReady f
+           => f rn n -> HVector f -> f rn n -> HVector f -> f rn n
         df cx ca x a =
           fst $ cfwdOnHVector (V.cons (DynamicRanked x) a)
                               g
                               (V.cons (DynamicRanked cx) ca)
-        rf :: ranked rn n -> ranked rn n -> HVector ranked -> HVectorOf ranked
+        rf :: forall f. ADReady f
+           => f rn n -> f rn n -> HVector f -> HVectorOf f
         rf dt x a =
           fst $ crevOnHVector (Just dt)
                               g
                               (V.cons (DynamicRanked x) a)
-        width = case V.unsnoc asUnshared of
-          Nothing -> error "rfoldZip: can't determine argument width"
-          Just (_, d) -> case shapeDynamic d of
-            [] -> error "rfoldZip: wrong rank of argument"
-            w : _shm -> w
-    in case someNatVal $ toInteger width of
-      Just (SomeNat @k _) ->
-        assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD)
-                                   asD) $
-        let (l3, as) =
-              drecordSharingPrimal @ranked
-                                   (replicate1VoidHVector (Proxy @k) domsOD)
-                                   (dmkHVector asUnshared)
-                                   (flattenADShare $ l1 : V.toList ll2)
-              -- This could be done with many calls to recordSharingPrimal,
-              -- but more ADShare nodes would generated. This reduces
-              -- to normal lets as soon as rewriting is started, anyway.
-            p :: ranked rn (1 + n)
-            p = rscanZip f domsOD x0 as
-            (l4, pShared) = recordSharingPrimal p l3
-        in dDnotShared l4 (pShared ! (fromIntegral width :. ZI))
-                          (FoldZipRC domsOD pShared as df rf x0' as')
-      _ -> error "rfoldZip: impossible someNatVal"
+    in rfoldZipDer f df rf domsOD x0 asD
   rfoldZipDer :: forall rn n. (GoodScalar rn, KnownNat n)
             => (forall f. ADReady f => f rn n -> HVector f -> f rn n)
             -> (forall f. ADReady f
@@ -564,48 +521,32 @@ instance ADReadyBoth ranked shaped
         -> ADVal ranked rn n
         -> ADVal ranked rm (1 + m)
         -> ADVal ranked rn (1 + n)
-  rscan f (D l1 x0 x0') (D l2 asUnshared as') =
-    let _ws :: (Int, ShapeInt m)
-        _ws@(width, _shm) = case rshape asUnshared of
-          hd :$ tl -> (hd, tl)
-          _ -> error "rscan: impossible pattern needlessly required"
-        domsToPair :: forall f. ADReady f => HVector f -> (f rn n, f rm m)
+  rscan f x0 as =
+    let domsToPair :: forall f. ADReady f
+                   => HVector f -> (f rn n, f rm m)
         domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
-        g :: HVector (ADVal ranked) -> ADVal ranked rn n
+        g :: forall f. ADReady f => HVector (ADVal f) -> ADVal f rn n
         g doms = uncurry f (domsToPair doms)
-        df :: ranked rn n -> ranked rm m -> ranked rn n -> ranked rm m
-           -> ranked rn n
+        -- This computes the derivative of f again for each new @x@ and @a@
+        -- (not even once for @as@, but for each @a@ separately).
+        -- Note that this function is not a function on dual numbers.
+        -- Consequently, any dual number operations inserted there by the user
+        -- are flattened away (which is represented in AST by @PrimalSpan@).
+        -- TODO: what if the dual numbers are nested?
+        -- TODO: do the dual number ops in f affect what df is computed? add
+        -- a comment explaining that and tests that exemplify that
+        df :: forall f. ADReady f
+           => f rn n -> f rm m -> f rn n -> f rm m -> f rn n
         df cx ca x a =
           fst $ cfwdOnHVector (V.fromList [DynamicRanked x, DynamicRanked a])
                               g
                               (V.fromList [DynamicRanked cx, DynamicRanked ca])
-        rf :: ranked rn n -> ranked rn n -> ranked rm m
-           -> HVectorOf ranked
+        rf :: forall f. ADReady f => f rn n -> f rn n -> f rm m -> HVectorOf f
         rf dt x a =
           fst $ crevOnHVector (Just dt)
                               g
                               (V.fromList [DynamicRanked x, DynamicRanked a])
-        (l3, as) = recordSharingPrimal asUnshared (l1 `mergeADShare` l2)
-        p :: ranked rn (1 + n)
-        p = rscan f x0 as
-        (l4, pShared) = recordSharingPrimal p l3
-        -- The following sugar won't work, because i in slice needs
-        -- to be statically known. Indeed, vectorization would break down
-        -- due to this i, even if baked into the semantics of rfold, etc.
-        -- rscan f x0 as = rbuild1 (rlength as + 1)
-        --                 $ \i -> rfold f x0 (rslice 0 i as)
-        scanAsFold =
-          let h (pPrefix, asPrefix, as'Prefix) =
-                FoldRC pPrefix asPrefix df rf x0' as'Prefix
-              -- starting from 0 would be better, but I'm
-              -- getting "tfromListR: shape ambiguity, no arguments"
-              initsViaSliceP = map (\k -> rslice @ranked 0 (1 + k) pShared)
-                                   [1 .. width]
-              initsViaSlice = map (\k -> rslice @ranked 0 k as) [1 .. width]
-              initsViaSliceD = map (\k -> SliceR 0 k as') [1 .. width]
-          in FromListR
-             $ x0' : map h (zip3 initsViaSliceP initsViaSlice initsViaSliceD)
-    in dDnotShared l4 pShared scanAsFold
+    in rscanDer f df rf x0 as
   rscanDer :: forall rn rm n m.
               (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)
            => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
@@ -628,55 +569,24 @@ instance ADReadyBoth ranked shaped
          -> ADVal ranked rn n
          -> HVector (ADVal ranked)
          -> ADVal ranked rn (1 + n)
-  rscanZip f domsOD (D l1 x0 x0') asD =
-    let (ll2, asUnshared, as') = unADValHVector asD
-        domsToPair :: forall f. ADReady f => HVector f -> (f rn n, HVector f)
+  rscanZip f domsOD x0 asD =
+    let domsToPair :: forall f. ADReady f => HVector f -> (f rn n, HVector f)
         domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
-        g :: HVector (ADVal ranked) -> ADVal ranked rn n
+        g :: forall f. ADReady f => HVector (ADVal f) -> ADVal f rn n
         g doms = uncurry f (domsToPair doms)
-        df :: ranked rn n -> HVector ranked -> ranked rn n -> HVector ranked
-           -> ranked rn n
+        df :: forall f. ADReady f
+           => f rn n -> HVector f -> f rn n -> HVector f -> f rn n
         df cx ca x a =
           fst $ cfwdOnHVector (V.cons (DynamicRanked x) a)
                               g
                               (V.cons (DynamicRanked cx) ca)
-        rf :: ranked rn n -> ranked rn n -> HVector ranked -> HVectorOf ranked
+        rf :: forall f. ADReady f
+           => f rn n -> f rn n -> HVector f -> HVectorOf f
         rf dt x a =
           fst $ crevOnHVector (Just dt)
                               g
                               (V.cons (DynamicRanked x) a)
-        width = case V.unsnoc asUnshared of
-          Nothing -> error "rscanZip: can't determine argument width"
-          Just (_, d) -> case shapeDynamic d of
-            [] -> error "rscanZip: wrong rank of argument"
-            w : _shm -> w
-    in case someNatVal $ toInteger width of
-      Just (SomeNat @k _) ->
-        assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD)
-                                   asD) $
-        let (l3, as) =
-              drecordSharingPrimal @ranked
-                                   (replicate1VoidHVector (Proxy @k) domsOD)
-                                   (dmkHVector asUnshared)
-                                   (flattenADShare $ l1 : V.toList ll2)
-            p :: ranked rn (1 + n)
-            p = rscanZip f domsOD x0 as
-            (l4, pShared) = recordSharingPrimal p l3
-            scanAsFold =
-              let h (pPrefix, asPrefix, as'Prefix) =
-                    FoldZipRC domsOD pPrefix asPrefix df rf x0' as'Prefix
-                  initsViaSliceP = map (\k -> rslice @ranked 0 (1 + k) pShared)
-                                       [1 .. width]
-                  initsViaSlice =
-                    map (\k -> mapHVectorRanked11 (rslice @ranked 0 k) as)
-                        [1 .. width]
-                  initsViaSliceD =
-                    map (\k -> mapHVectorDeltaR11 (SliceR 0 k) as')
-                        [1 .. width]
-              in FromListR
-              $ x0' : map h (zip3 initsViaSliceP initsViaSlice initsViaSliceD)
-        in dDnotShared l4 pShared scanAsFold
-      _ -> error "rscanZip: impossible someNatVal"
+    in rscanZipDer f df rf domsOD x0 asD
   rscanZipDer :: forall rn n. (GoodScalar rn, KnownNat n)
             => (forall f. ADReady f => f rn n -> HVector f -> f rn n)
             -> (forall f. ADReady f
@@ -717,31 +627,26 @@ instance ADReadyBoth ranked shaped
         -> ADVal shaped rn sh
         -> ADVal shaped rm (k ': shm)
         -> ADVal shaped rn sh
-  sfold f (D l1 x0 x0') (D l2 asUnshared as') =
+  sfold f x0 as =
     let domsToPair :: forall f. ADReadyS f
                    => HVector (RankedOf f) -> (f rn sh, f rm shm)
         domsToPair doms = (sfromD $ doms V.! 0, sfromD $ doms V.! 1)
-        g :: HVector (ADVal ranked) -> ADVal shaped rn sh
+        g :: forall f. ADReadyS f
+          => HVector (ADVal (RankedOf f)) -> ADVal f rn sh
         g doms = uncurry f (domsToPair doms)
-        df :: shaped rn sh -> shaped rm shm -> shaped rn sh -> shaped rm shm
-           -> shaped rn sh
+        df :: forall f. ADReadyS f
+           => f rn sh -> f rm shm -> f rn sh -> f rm shm -> f rn sh
         df cx ca x a =
           fst $ cfwdOnHVector (V.fromList [DynamicShaped x, DynamicShaped a])
                               g
                               (V.fromList [DynamicShaped cx, DynamicShaped ca])
-        rf :: shaped rn sh -> shaped rn sh -> shaped rm shm
-           -> HVectorOf ranked
+        rf :: forall f. ADReadyS f
+           => f rn sh -> f rn sh -> f rm shm -> HVectorOf (RankedOf f)
         rf dt x a =
           fst $ crevOnHVector (Just dt)
                               g
                               (V.fromList [DynamicShaped x, DynamicShaped a])
-        (l3, as) = recordSharingPrimal asUnshared (l1 `mergeADShare` l2)
-        p :: shaped rn (1 + k ': sh)
-        p = sscan f x0 as
-        width = slength p - 1
-        (l4, pShared) = recordSharingPrimal p l3
-    in dDnotShared l4 (pShared !$ (fromIntegral width :$: ZSH))
-                      (FoldSC pShared as df rf x0' as')
+    in sfoldDer f df rf x0 as
   sfoldDer :: forall rn rm sh shm k.
               ( GoodScalar rn, GoodScalar rm, Sh.Shape sh, Sh.Shape shm
               , KnownNat k )
@@ -769,44 +674,28 @@ instance ADReadyBoth ranked shaped
          -> ADVal shaped rn sh
          -> HVector (ADVal ranked)
          -> ADVal shaped rn sh
-  sfoldZip f domsOD (D l1 x0 x0') asD =
-    let (ll2, asUnshared, as') = unADValHVector asD
-        domsToPair :: forall f. ADReadyS f
+  sfoldZip f domsOD x0 asD =
+    let domsToPair :: forall f. ADReadyS f
                    => HVector (RankedOf f) -> (f rn sh, HVector (RankedOf f))
         domsToPair doms = (sfromD $ doms V.! 0, V.tail doms)
-        g :: HVector (ADVal ranked) -> ADVal shaped rn sh
+        g :: forall f. ADReadyS f
+          => HVector (ADVal (RankedOf f)) -> ADVal f rn sh
         g doms = uncurry f (domsToPair doms)
-        df :: shaped rn sh -> HVector ranked -> shaped rn sh -> HVector ranked
-           -> shaped rn sh
+        df :: forall f. ADReadyS f
+           => f rn sh -> HVector (RankedOf f) -> f rn sh -> HVector (RankedOf f)
+           -> f rn sh
         df cx ca x a =
           fst $ cfwdOnHVector (V.cons (DynamicShaped x) a)
                               g
                               (V.cons (DynamicShaped cx) ca)
-        rf :: shaped rn sh -> shaped rn sh -> HVector ranked
-           -> HVectorOf ranked
+        rf :: forall f. ADReadyS f
+           => f rn sh -> f rn sh -> HVector (RankedOf f)
+           -> HVectorOf (RankedOf f)
         rf dt x a =
           fst $ crevOnHVector (Just dt)
                               g
                               (V.cons (DynamicShaped x) a)
-        width = case V.unsnoc asUnshared of
-          Nothing -> error "sfoldZip: can't determine argument width"
-          Just (_, d) -> case shapeDynamic d of
-            [] -> error "sfoldZip: wrong rank of argument"
-            w : _shm -> w
-    in case someNatVal $ toInteger width of
-      Just (SomeNat @k _) ->
-        assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD)
-                                   asD) $
-        let (l3, as) =
-              drecordSharingPrimal @ranked
-                (replicate1VoidHVector (Proxy @k) domsOD)
-                (dmkHVector asUnshared) (flattenADShare $ l1 : V.toList ll2)
-            p :: shaped rn (1 + k ': sh)
-            p = sscanZip f domsOD x0 as
-            (l4, pShared) = recordSharingPrimal p l3
-        in dDnotShared l4 (pShared !$ (fromIntegral width :$: ZSH))
-                          (FoldZipSC domsOD pShared as df rf x0' as')
-      _ -> error "sfoldZip: impossible someNatVal"
+    in sfoldZipDer f df rf domsOD x0 asD
   sfoldZipDer :: forall rn sh. (GoodScalar rn, Sh.Shape sh)
             => (forall f. ADReadyS f
                 => f rn sh -> HVector (RankedOf f) -> f rn sh)
@@ -848,49 +737,26 @@ instance ADReadyBoth ranked shaped
         -> ADVal shaped rn sh
         -> ADVal shaped rm (k ': shm)
         -> ADVal shaped rn (1 + k ': sh)
-  sscan f (D l1 x0 x0') (D l2 asUnshared as') =
+  sscan f x0 as =
     let domsToPair :: forall f. ADReadyS f
                    => HVector (RankedOf f) -> (f rn sh, f rm shm)
         domsToPair doms = (sfromD $ doms V.! 0, sfromD $ doms V.! 1)
-        g :: HVector (ADVal ranked) -> ADVal shaped rn sh
+        g :: forall f. ADReadyS f
+          => HVector (ADVal (RankedOf f)) -> ADVal f rn sh
         g doms = uncurry f (domsToPair doms)
-        df :: shaped rn sh -> shaped rm shm -> shaped rn sh -> shaped rm shm
-           -> shaped rn sh
+        df :: forall f. ADReadyS f
+           => f rn sh -> f rm shm -> f rn sh -> f rm shm -> f rn sh
         df cx ca x a =
           fst $ cfwdOnHVector (V.fromList [DynamicShaped x, DynamicShaped a])
                               g
                               (V.fromList [DynamicShaped cx, DynamicShaped ca])
-        rf :: shaped rn sh -> shaped rn sh -> shaped rm shm
-           -> HVectorOf ranked
+        rf :: forall f. ADReadyS f
+           => f rn sh -> f rn sh -> f rm shm -> HVectorOf (RankedOf f)
         rf dt x a =
           fst $ crevOnHVector (Just dt)
                               g
                               (V.fromList [DynamicShaped x, DynamicShaped a])
-        (l3, as) = recordSharingPrimal asUnshared (l1 `mergeADShare` l2)
-        p :: shaped rn (1 + k ': sh)
-        p = sscan f x0 as
-        width = slength p - 1
-        (l4, pShared) = recordSharingPrimal p l3
-        scanAsFold =
-          let h :: KnownNat k2
-                => shaped rn (1 + k2 ': sh) -> shaped rm (k2 ': shm)
-                -> DeltaS shaped rm (k2 ': shm)
-                -> DeltaS shaped rn sh
-              h pPrefix asPrefix as'Prefix =
-                FoldSC pPrefix asPrefix df rf x0' as'Prefix
-              initsViaSlice :: Int -> DeltaS shaped rn sh
-              initsViaSlice k2 = case someNatVal $ toInteger k2 of
-                Just (SomeNat @k1 _) ->
-                  gcastWith (unsafeCoerce Refl :: Compare k1 k :~: LT) $
-                  h @k1 (sslice @_ @_ @_ @_ @(k - k1)
-                                (Proxy @0) (Proxy @(1 + k1)) pShared)
-                        (sslice @_ @_ @_ @_ @(k - k1)
-                                (Proxy @0) (Proxy @k1) as)
-                        (SliceS @_ @0 @k1 as')
-                Nothing -> error "sscan: impossible someNatVal error"
-          in FromListS
-             $ x0' : map initsViaSlice [1 .. width]
-    in dDnotShared l4 pShared scanAsFold
+    in sscanDer f df rf x0 as
   sscanDer :: forall rn rm sh shm k.
               ( GoodScalar rn, GoodScalar rm, Sh.Shape sh, Sh.Shape shm
               , KnownNat k )
@@ -917,56 +783,28 @@ instance ADReadyBoth ranked shaped
          -> ADVal shaped rn sh
          -> HVector (ADVal ranked)
          -> ADVal shaped rn (1 + k ': sh)
-  sscanZip f domsOD (D l1 x0 x0') asD =
-    assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD) asD) $
-    let (ll2, asUnshared, as') = unADValHVector asD
-        domsToPair :: forall f. ADReadyS f
+  sscanZip f domsOD x0 asD =
+    let domsToPair :: forall f. ADReadyS f
                    => HVector (RankedOf f) -> (f rn sh, HVector (RankedOf f))
         domsToPair doms = (sfromD $ doms V.! 0, V.tail doms)
-        g :: HVector (ADVal ranked) -> ADVal shaped rn sh
+        g :: forall f. ADReadyS f
+          => HVector (ADVal (RankedOf f)) -> ADVal f rn sh
         g doms = uncurry f (domsToPair doms)
-        df :: shaped rn sh -> HVector ranked -> shaped rn sh -> HVector ranked
-           -> shaped rn sh
+        df :: forall f. ADReadyS f
+           => f rn sh -> HVector (RankedOf f) -> f rn sh -> HVector (RankedOf f)
+           -> f rn sh
         df cx ca x a =
           fst $ cfwdOnHVector (V.cons (DynamicShaped x) a)
                               g
                               (V.cons (DynamicShaped cx) ca)
-        rf :: shaped rn sh -> shaped rn sh -> HVector ranked
-           -> HVectorOf ranked
+        rf :: forall f. ADReadyS f
+           => f rn sh -> f rn sh -> HVector (RankedOf f)
+           -> HVectorOf (RankedOf f)
         rf dt x a =
           fst $ crevOnHVector (Just dt)
                               g
                               (V.cons (DynamicShaped x) a)
-        (l3, as) =
-          drecordSharingPrimal @ranked (replicate1VoidHVector (Proxy @k) domsOD)
-                               (dmkHVector asUnshared)
-                               (flattenADShare $ l1 : V.toList ll2)
-        p :: shaped rn (1 + k ': sh)
-        p = sscanZip f domsOD x0 as
-        (l4, pShared) = recordSharingPrimal p l3
-        width = slength p - 1
-        scanAsFold =
-          let h :: KnownNat k2
-                => shaped rn (1 + k2 ': sh) -> HVector ranked
-                -> HVector (DeltaR ranked)
-                -> DeltaS shaped rn sh
-              h pPrefix asPrefix as'Prefix =
-                FoldZipSC domsOD pPrefix asPrefix df rf x0' as'Prefix
-              initsViaSlice :: Int -> DeltaS shaped rn sh
-              initsViaSlice k = case someNatVal $ toInteger k of
-                Just (SomeNat @k1 _) ->
-                  gcastWith (unsafeCoerce Refl :: Compare k1 k :~: LT) $
-                  h @k1 (sslice @_ @_ @_ @_ @(k - k1)
-                                (Proxy @0) (Proxy @(1 + k1)) pShared)
-                        (mapHVectorShaped11 @k @k1
-                           (sslice @_ @_ @_ @_ @(k - k1)
-                                   (Proxy @0) (Proxy @k1)) as)
-                        (mapHVectorDeltaS11 @k @k1
-                           (SliceS @_ @0 @k1 @(k - k1)) as')
-                Nothing -> error "sscanZip: impossible someNatVal error"
-          in FromListS
-             $ x0' : map initsViaSlice [1 .. width]
-    in dDnotShared l4 pShared scanAsFold
+    in sscanZipDer f df rf domsOD x0 asD
   sscanZipDer :: forall rn sh k. (GoodScalar rn, Sh.Shape sh, KnownNat k)
             => (forall f. ADReadyS f
                 => f rn sh -> HVector (RankedOf f) -> f rn sh)
@@ -1002,75 +840,37 @@ instance ADReadyBoth ranked shaped
     -> ADVal ranked rn n
     -> HVector (ADVal ranked)
     -> HVectorOf (ADVal ranked)
-  rmapAccumR domB f domsOD (D l1 x0 x0') asD =
-    let (ll2, asUnshared, as') = unADValHVector asD
-        width = case V.unsnoc asUnshared of
-          Nothing -> error "rmapAccumR: can't determine argument width"
-          Just (_, d) -> case shapeDynamic d of
-            [] -> error "rmapAccumR: wrong rank of argument"
-            w : _shm -> w
-    in case someNatVal $ toInteger width of
-      Just (SomeNat @k _) ->
-        assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD)
-                                   asD) $
-        let shn = rshape x0
-            odShn = voidFromSh @rn shn
-            domsToPair :: forall f. ADReady f
-                       => HVector f -> (f rn n, HVector f)
-            domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
-            g :: HVector (ADVal ranked)
-              -> ADVal (HVectorPseudoTensor ranked) Float '()
-            g doms = let (ll, as2, as2') =
-                           unADValHVector $ uncurry f (domsToPair doms)
-                     in dDnotShared (flattenADShare $ V.toList ll)
-                                    (HVectorPseudoTensor $ dmkHVector as2)
-                                    (HVectorPseudoTensor $ HToH as2')
-            df :: ranked rn n -> HVector ranked
-               -> ranked rn n -> HVector ranked
-               -> HVectorOf ranked
-            df cx ca x a =
-              unHVectorPseudoTensor
-              $ fst $ cfwdOnHVector (V.cons (DynamicRanked x) a)
-                                    g
-                                    (V.cons (DynamicRanked cx) ca)
-            rf :: ranked rn n -> HVector ranked
-               -> ranked rn n -> HVector ranked
-               -> HVectorOf ranked
-            rf dx dt x a =
-              fst $ crevOnHVector (Just $ HVectorPseudoTensor
-                                   $ dmkHVector $ V.cons (DynamicRanked dx) dt)
-                                  g
-                                  (V.cons (DynamicRanked x) a)
-            (l3, as) =
-              drecordSharingPrimal @ranked
-                                   (replicate1VoidHVector (Proxy @k) domsOD)
-                                   (dmkHVector asUnshared)
-                                   (flattenADShare $ l1 : V.toList ll2)
-            domsG = V.cons odShn domB
-            f3 :: forall f. ADReady f => f rn n -> HVector f -> HVectorOf f
-            f3 x a = dletHVectorInHVector @f domsG (f x a) $ \res ->
-                       let x2 = res V.! 0
-                           a2 = V.tail res
-                       in dmkHVector $ V.cons x2 $ V.cons (DynamicRanked x) a2
-            p :: HVectorOf ranked
-            p = rmapAccumR domsG f3 domsOD x0 as
-            odShnK = voidFromSh @rn (width :$ shn)
-            domsF3 = V.cons odShn $ V.cons odShnK
-                     $ replicate1VoidHVector (Proxy @k) domB
-            (l4, pShared) = drecordSharingPrimal @ranked domsF3 p l3
-            xFin = pShared V.! 0
-            q = case pShared V.!? 1 of
-              Just q2 -> rfromD q2
-              Nothing -> rfromList []
-            primal = V.cons xFin $ V.drop 2 pShared
-            dual = wrapDeltaH $ MapAccumRRC domB q as df rf domsOD x0' as'
-            selectDual i d = case d of
-              DynamicRanked t -> DynamicRanked $ dDnotShared l4 t (HToR dual i)
-              DynamicShaped t -> DynamicShaped $ dDnotShared l4 t (HToS dual i)
-              DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
-              DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
-        in V.imap selectDual primal
-      _ -> error "rmapAccumR: impossible someNatVal"
+  rmapAccumR domB f domsOD x0 asD =
+    let domsToPair :: forall f. ADReady f
+                   => HVector f -> (f rn n, HVector f)
+        domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
+        g :: forall f. ADReady f
+          => HVector (ADVal f)
+          -> ADVal (HVectorPseudoTensor f) Float '()
+        g doms = let (ll, as2, as2') =
+                       unADValHVector $ uncurry f (domsToPair doms)
+                 in dDnotShared (flattenADShare $ V.toList ll)
+                                (HVectorPseudoTensor $ dmkHVector as2)
+                                (HVectorPseudoTensor $ HToH as2')
+        df :: forall f. ADReady f
+           => f rn n -> HVector f
+           -> f rn n -> HVector f
+           -> HVectorOf f
+        df cx ca x a =
+          unHVectorPseudoTensor
+          $ fst $ cfwdOnHVector (V.cons (DynamicRanked x) a)
+                                g
+                                (V.cons (DynamicRanked cx) ca)
+        rf :: forall f. ADReady f
+           => f rn n -> HVector f
+           -> f rn n -> HVector f
+           -> HVectorOf f
+        rf dx dt x a =
+          fst $ crevOnHVector (Just $ HVectorPseudoTensor
+                               $ dmkHVector $ V.cons (DynamicRanked dx) dt)
+                              g
+                              (V.cons (DynamicRanked x) a)
+    in rmapAccumRDer domB f df rf domsOD x0 asD
   rmapAccumRDer
     :: forall rn n. (GoodScalar rn, KnownNat n)
     => VoidHVector
@@ -1145,63 +945,37 @@ instance ADReadyBoth ranked shaped
     -> ADVal shaped rn sh
     -> HVector (ADVal ranked)
     -> HVectorOf (ADVal ranked)
-  smapAccumR proxy_k domB f domsOD (D l1 x0 x0') asD =
-    assert (voidHVectorMatches (replicate1VoidHVector proxy_k domsOD) asD) $
-    let (ll2, asUnshared, as') = unADValHVector asD
-        odShn = voidFromShS @rn @sh
-        domsToPair :: forall f. ADReadyS f
+  smapAccumR proxy_k domB f domsOD x0 asD =
+    let domsToPair :: forall f. ADReadyS f
                    => HVector (RankedOf f) -> (f rn sh, HVector (RankedOf f))
         domsToPair doms = (sfromD $ doms V.! 0, V.tail doms)
-        g :: HVector (ADVal ranked)
-          -> ADVal (HVectorPseudoTensor ranked) Float '()
+        g :: forall f. ADReadyS f
+          => HVector (ADVal (RankedOf f))
+          -> ADVal (HVectorPseudoTensor (RankedOf f)) Float '()
         g doms = let (ll, as2, as2') =
                        unADValHVector $ uncurry f (domsToPair doms)
                  in dDnotShared (flattenADShare $ V.toList ll)
                                 (HVectorPseudoTensor $ dmkHVector as2)
                                 (HVectorPseudoTensor $ HToH as2')
-        df :: shaped rn sh -> HVector ranked -> shaped rn sh -> HVector ranked
-           -> HVectorOf ranked
+        df :: forall f. ADReadyS f
+           => f rn sh -> HVector (RankedOf f)
+           -> f rn sh -> HVector (RankedOf f)
+           -> HVectorOf (RankedOf f)
         df cx ca x a =
           unHVectorPseudoTensor
           $ fst $ cfwdOnHVector (V.cons (DynamicShaped x) a)
                                 g
                                 (V.cons (DynamicShaped cx) ca)
-        rf :: shaped rn sh -> HVector ranked -> shaped rn sh -> HVector ranked
-           -> HVectorOf ranked
+        rf ::  forall f. ADReadyS f
+           => f rn sh -> HVector (RankedOf f)
+           -> f rn sh -> HVector (RankedOf f)
+           -> HVectorOf (RankedOf f)
         rf dx dt x a =
           fst $ crevOnHVector (Just $ HVectorPseudoTensor
                                $ dmkHVector $ V.cons (DynamicShaped dx) dt)
                               g
                               (V.cons (DynamicShaped x) a)
-        (l3, as) =
-          drecordSharingPrimal @ranked (replicate1VoidHVector proxy_k domsOD)
-                               (dmkHVector asUnshared)
-                               (flattenADShare $ l1 : V.toList ll2)
-        domsG = V.cons odShn domB
-        f3 :: forall f. ADReadyS f
-           => f rn sh -> HVector (RankedOf f) -> HVectorOf (RankedOf f)
-        f3 x a = dletHVectorInHVector @_ @f domsG (f x a) $ \res ->
-                   let x2 = res V.! 0
-                       a2 = V.tail res
-                   in dmkHVector $ V.cons x2 $ V.cons (DynamicShaped x) a2
-        p :: HVectorOf ranked
-        p = smapAccumR proxy_k domsG f3 domsOD x0 as
-        odShnK = voidFromShS @rn @(k ': sh)
-        domsF3 = V.cons odShn $ V.cons odShnK
-                 $ replicate1VoidHVector proxy_k domB
-        (l4, pShared) = drecordSharingPrimal @ranked domsF3 p l3
-        xFin = pShared V.! 0
-        q = case pShared V.!? 1 of
-          Just q2 -> sfromD q2
-          Nothing -> sfromList []
-        primal = V.cons xFin $ V.drop 2 pShared
-        dual = wrapDeltaH $ MapAccumRSC @k domB q as df rf domsOD x0' as'
-        selectDual i d = case d of
-          DynamicRanked t -> DynamicRanked $ dDnotShared l4 t (HToR dual i)
-          DynamicShaped t -> DynamicShaped $ dDnotShared l4 t (HToS dual i)
-          DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
-          DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
-    in V.imap selectDual primal
+    in smapAccumRDer proxy_k domB f df rf domsOD x0 asD
   smapAccumRDer
     :: forall k rn sh. (GoodScalar rn, Sh.Shape sh, KnownNat k)
     => Proxy k

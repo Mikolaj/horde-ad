@@ -58,7 +58,7 @@ import qualified Data.Array.ShapedS as OS
 import qualified Data.EnumMap.Strict as EM
 import           Data.Int (Int64)
 import           Data.Kind (Type)
-import           Data.List (foldl', mapAccumR, sort)
+import           Data.List (foldl', sort)
 import           Data.List.Index (ifoldl')
 import           Data.Maybe (fromMaybe)
 import           Data.Proxy (Proxy (Proxy))
@@ -244,15 +244,6 @@ data DeltaR :: RankedTensorType -> RankedTensorType where
         -> DeltaR ranked rm (1 + m)
         -> DeltaR ranked rn n
     -- ^ Fold over the outermost dimension of a tensor.
-  FoldRC :: (GoodScalar rm, KnownNat m)
-         => ranked rn (1 + n) -> ranked rm (1 + m)
-         -> (ranked rn n -> ranked rm m -> ranked rn n -> ranked rm m
-             -> ranked rn n)
-         -> (ranked rn n -> ranked rn n -> ranked rm m
-             -> HVectorOf ranked)
-         -> DeltaR ranked rn n
-         -> DeltaR ranked rm (1 + m)
-         -> DeltaR ranked rn n
   FoldZipR :: VoidHVector
          -> ranked rn (1 + n)
          -> HVector ranked
@@ -265,16 +256,6 @@ data DeltaR :: RankedTensorType -> RankedTensorType where
          -> DeltaR ranked rn n
          -> HVector (DeltaR ranked)
          -> DeltaR ranked rn n
-  FoldZipRC :: VoidHVector
-          -> ranked rn (1 + n)
-          -> HVector ranked
-          -> (ranked rn n -> HVector ranked -> ranked rn n -> HVector ranked
-              -> ranked rn n)
-          -> (ranked rn n -> ranked rn n -> HVector ranked
-              -> HVectorOf ranked)
-          -> DeltaR ranked rn n
-          -> HVector (DeltaR ranked)
-          -> DeltaR ranked rn n
   ScanR :: (GoodScalar rm, KnownNat m)
         => ranked rn (1 + n) -> ranked rm (1 + m)
         -> (forall f. ADReady f => f rn n -> f rm m -> f rn n -> f rm m
@@ -420,15 +401,6 @@ data DeltaS :: ShapedTensorType -> ShapedTensorType where
         -> DeltaS shaped rn sh
         -> DeltaS shaped rm (k ': shm)
         -> DeltaS shaped rn sh
-  FoldSC :: (GoodScalar rm, Sh.Shape shm, KnownNat k)
-        => shaped rn (1 + k ': sh) -> shaped rm (k ': shm)
-        -> (shaped rn sh -> shaped rm shm -> shaped rn sh -> shaped rm shm
-            -> shaped rn sh)
-        -> (shaped rn sh -> shaped rn sh -> shaped rm shm
-            -> HVectorOf (RankedOf shaped))
-        -> DeltaS shaped rn sh
-        -> DeltaS shaped rm (k ': shm)
-        -> DeltaS shaped rn sh
   FoldZipS :: KnownNat k
          => VoidHVector
          -> shaped rn (1 + k ': sh)
@@ -443,18 +415,6 @@ data DeltaS :: ShapedTensorType -> ShapedTensorType where
          -> DeltaS shaped rn sh
          -> HVector (DeltaR (RankedOf shaped))
          -> DeltaS shaped rn sh
-  FoldZipSC :: KnownNat k
-          => VoidHVector
-          -> shaped rn (1 + k ': sh)
-          -> HVector (RankedOf shaped)
-          -> (shaped rn sh -> HVector (RankedOf shaped) -> shaped rn sh
-              -> HVector (RankedOf shaped)
-              -> shaped rn sh)
-          -> (shaped rn sh -> shaped rn sh -> HVector (RankedOf shaped)
-              -> HVectorOf (RankedOf shaped))
-          -> DeltaS shaped rn sh
-          -> HVector (DeltaR (RankedOf shaped))
-          -> DeltaS shaped rn sh
   ScanS :: (GoodScalar rm, Sh.Shape shm, KnownNat k, Sh.Shape sh)
         => shaped rn (1 + k ': sh) -> shaped rm (k ': shm)
         -> (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh -> f rm shm
@@ -521,19 +481,6 @@ data DeltaH :: RankedTensorType -> Type where
     -> DeltaR ranked rn n
     -> HVector (DeltaR ranked)
     -> DeltaH ranked
-  MapAccumRRC
-    :: forall rn n ranked. (KnownNat n, GoodScalar rn)
-    => VoidHVector
-    -> ranked rn (1 + n)
-    -> HVector ranked
-    -> (ranked rn n -> HVector ranked -> ranked rn n -> HVector ranked
-        -> HVectorOf ranked)
-    -> (ranked rn n -> HVector ranked -> ranked rn n -> HVector ranked
-        -> HVectorOf ranked)
-    -> VoidHVector
-    -> DeltaR ranked rn n
-    -> HVector (DeltaR ranked)
-    -> DeltaH ranked
   MapAccumRS
     :: forall k rn sh ranked. (KnownNat k, GoodScalar rn, Sh.Shape sh)
     => VoidHVector
@@ -551,21 +498,6 @@ data DeltaH :: RankedTensorType -> Type where
         -> f rn sh
         -> HVector (RankedOf f)
         -> HVectorOf (RankedOf f))
-    -> VoidHVector
-    -> DeltaS (ShapedOf ranked) rn sh
-    -> HVector (DeltaR ranked)
-    -> DeltaH ranked
-  MapAccumRSC
-    :: forall k rn sh ranked. (KnownNat k, GoodScalar rn, Sh.Shape sh)
-    => VoidHVector
-    -> (ShapedOf ranked) rn (k ': sh)
-    -> HVector ranked
-    -> (ShapedOf ranked rn sh -> HVector ranked
-        -> ShapedOf ranked rn sh -> HVector ranked
-        -> HVectorOf ranked)
-    -> (ShapedOf ranked rn sh -> HVector ranked
-        -> ShapedOf ranked rn sh -> HVector ranked
-        -> HVectorOf ranked)
     -> VoidHVector
     -> DeltaS (ShapedOf ranked) rn sh
     -> HVector (DeltaR ranked)
@@ -627,9 +559,7 @@ shapeDeltaR = \case
   ReshapeR sh _ -> sh
   GatherR sh _ _ -> sh
   FoldR _p _as _df _rf x0' _as' -> shapeDeltaR x0'
-  FoldRC _p _as _df _rf x0' _as' -> shapeDeltaR x0'
   FoldZipR _domsOD _p _as _df _rf x0' _as' -> shapeDeltaR x0'
-  FoldZipRC _domsOD _p _as _df _rf x0' _as' -> shapeDeltaR x0'
   ScanR p _as _df _rf _x0' _as' -> rshape p
   ScanZipR _domsOD p _as _df _rf _x0' _as' -> rshape p
   CastR d -> shapeDeltaR d
@@ -662,20 +592,7 @@ shapeDeltaH = \case
       Just (SomeNat @k _) ->
         V.cons (voidFromSh @rn shn) (replicate1VoidHVector (Proxy @k) domB)
       _ -> error "shapeDeltaH: impossible someNatVal"
-  MapAccumRRC @rn domB _q as _df _rf _domsOD x0' _as' ->
-    let width = case V.unsnoc as of
-          Nothing -> error "shapeDeltaH: can't determine argument width"
-          Just (_, d) -> case shapeDynamic d of
-            [] -> error "shapeDeltaH: wrong rank of argument"
-            width2 : _shm -> width2
-        shn = shapeDeltaR x0'
-    in case someNatVal $ toInteger width of
-      Just (SomeNat @k _) ->
-        V.cons (voidFromSh @rn shn) (replicate1VoidHVector (Proxy @k) domB)
-      _ -> error "shapeDeltaH: impossible someNatVal"
   MapAccumRS @k @rn @sh domB _q _as _df _rf _domsOD _x0' _as' ->
-    V.cons (voidFromShS @rn @sh) (replicate1VoidHVector (Proxy @k) domB)
-  MapAccumRSC @k @rn @sh domB _q _as _df _rf _domsOD _x0' _as' ->
     V.cons (voidFromShS @rn @sh) (replicate1VoidHVector (Proxy @k) domB)
 
 -- * Delta expression identifiers
@@ -1087,32 +1004,6 @@ evalR !s !c = let (abShared, cShared) = rregister c (astBindings s)
         (cx0, cas) = domsToPair crs
         s3 = evalR s2 cx0 x0'
     in evalR s3 cas as'
-  FoldRC @rm @m p as _df rf x0' as' ->
-    -- No sharing attempted, because this constructor is usually used
-    -- for non-symbolic derivatives.
-    let shm :: ShapeInt m
-        shm = case rshape as of
-          _width2 :$ shm2 -> shm2
-          ZS -> error "evalR: impossible pattern needlessly required"
-        shn = shapeDeltaR x0'
-        domsF = V.fromList [voidFromSh @r shn, voidFromSh @rm shm]
-        domsToPair :: ADReady f => HVector f -> (f r n, f rm m)
-        domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
-        rg :: ranked r n
-           -> [(ranked r n, ranked rm m)]
-           -> (ranked r n, [ranked rm m])
-        rg = mapAccumR (\cx (x, a) ->
-                          domsToPair $ dunHVector domsF $ rf cx x a)
-          -- We can't replace dunHVector with
-          --              dletHVectorInHVector @ranked
-          --                domsF (rf cx x a) $ \rfRes ->
-          --                  domsToPair rfRes)
-          -- because dletHVectorInHVector can't handle a pair result.
-          -- Maybe we could add variants that can, but it's ad-hoc.
-        (cx0, cas) = rg cShared (zip (init $ runravelToList p)
-                                     (runravelToList as))
-        s2 = evalR sShared cx0 x0'
-    in evalR s2 (rfromList cas) as'
   FoldZipR domsOD p as _df rf x0' as' ->
     let width = case V.unsnoc as of
           Nothing -> error "evalR: can't determine argument width"
@@ -1141,23 +1032,6 @@ evalR !s !c = let (abShared, cShared) = rregister c (astBindings s)
         (cx0, cas) = domsToPair crs
         s3 = evalR s2 cx0 x0'
     in evalHVector s3 cas as'
-  FoldZipRC domsOD p as _df rf x0' as' ->
-    -- No sharing attempted, because this constructor is usually used
-    -- for non-symbolic derivatives.
-    let shn = shapeDeltaR x0'
-        domsF = V.cons (voidFromSh @r shn) domsOD
-        domsToPair :: ADReady f => HVector f -> (f r n, HVector f)
-        domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
-        rg :: ranked r n
-           -> [(ranked r n, HVector ranked)]
-           -> (ranked r n, [HVector ranked])
-        rg = mapAccumR (\cx (x, a) ->
-                          domsToPair $ dunHVector domsF $ rf cx x a)
-        (cx0, cas) = rg cShared
-                        (zip (init $ runravelToList p)
-                             (unravelHVector as))
-        s2 = evalR sShared cx0 x0'
-    in evalHVector s2 (ravelHVector cas) as'
   ScanR @rm @m @_ @_ @n1 p as _df rf x0' as' ->
     let shm :: ShapeInt m
         (width, shm) = case rshape as of
@@ -1350,21 +1224,6 @@ evalS !s !c = let (abShared, cShared) = sregister c (astBindings s)
         (cx0, cas) = domsToPair crs
         s3 = evalS s2 cx0 x0'
     in evalS s3 cas as'
-  FoldSC @rm @shm p as _df rf x0' as' ->
-    -- No sharing attempted, because this constructor is usually used
-    -- for non-symbolic derivatives.
-    let domsF = V.fromList [voidFromShS @r @sh, voidFromShS @rm @shm]
-        domsToPair :: ADReadyS f => HVector (RankedOf f) -> (f r sh, f rm shm)
-        domsToPair doms = (sfromD $ doms V.! 0, sfromD $ doms V.! 1)
-        rg :: shaped r sh
-           -> [(shaped r sh, shaped rm shm)]
-           -> (shaped r sh, [shaped rm shm])
-        rg = mapAccumR (\cx (x, a) ->
-                          domsToPair $ dunHVector domsF $ rf cx x a)
-        (cx0, cas) = rg cShared (zip (init $ sunravelToList p)
-                                     (sunravelToList as))
-        s2 = evalS sShared cx0 x0'
-    in evalS s2 (sfromList cas) as'
   FoldZipS @k domsOD p as _df rf x0' as' ->
     let odShn = voidFromShS @r @sh
         domsF = V.cons odShn domsOD
@@ -1389,23 +1248,6 @@ evalS !s !c = let (abShared, cShared) = sregister c (astBindings s)
         (cx0, cas) = domsToPair crs
         s3 = evalS s2 cx0 x0'
     in evalHVector s3 cas as'
-  FoldZipSC domsOD p as _df rf x0' as' ->
-    -- No sharing attempted, because this constructor is usually used
-    -- for non-symbolic derivatives.
-    let domsF = V.cons (voidFromShS @r @sh) domsOD
-        domsToPair :: ADReadyS f
-                   => HVector (RankedOf f) -> (f r sh, HVector (RankedOf f))
-        domsToPair doms = (sfromD $ doms V.! 0, V.tail doms)
-        rg :: shaped r sh
-           -> [(shaped r sh, HVector ranked)]
-           -> (shaped r sh, [HVector ranked])
-        rg = mapAccumR (\cx (x, a) ->
-                          domsToPair $ dunHVector domsF $ rf cx x a)
-        (cx0, cas) = rg cShared
-                        (zip (init $ sunravelToList p)
-                             (unravelHVector as))
-        s2 = evalS sShared cx0 x0'
-    in evalHVector s2 (ravelHVector cas) as'
   ScanS @rm @shm @k @sh1 p as _df rf x0' as' ->
     let odShn = voidFromShS @r @sh1
         domsToPair :: ADReadyS f
@@ -1533,32 +1375,6 @@ evalH !s !c = let (abShared, cShared) =
         (cx0, rcas) = domsToPair rcrs
         s3 = evalR s2 cx0 x0'
     in evalHVector s3 (mapHVectorRanked11 rreverse rcas) as'
-  MapAccumRRC @r @n _domB q as _df rf domsOD x0' as' ->
-    -- No sharing attempted, because this constructor is usually used
-    -- for non-symbolic derivatives.
-    let width = case V.unsnoc as of
-          Nothing -> error "evalH: can't determine argument width"
-          Just (_, d) -> case shapeDynamic d of
-            [] -> error "evalH: wrong rank of argument"
-            width2 : _shm -> width2
-        !_A1 = assert (rlength q == width) ()
-        shn = shapeDeltaR x0'
-        odShn = voidFromSh @r shn
-        domsF = V.cons odShn domsOD
-        domsToPair :: ADReady f => HVector f -> (f r n, HVector f)
-        domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
-        (c0, crest) = domsToPair cShared
-        rg :: ranked r n
-           -> [(HVector ranked, ranked r n, HVector ranked)]
-           -> (ranked r n, [HVector ranked])
-        rg = mapAccumL (\cr (cx, x, a) ->
-                          domsToPair $ dunHVector domsF $ rf cr cx x a)
-        (cx0, cas) = rg c0
-                        (zip3 (unravelHVector crest)
-                              (runravelToList q)
-                              (unravelHVector as))
-        s2 = evalR sShared cx0 x0'
-    in evalHVector s2 (ravelHVector cas) as'
   MapAccumRS @k @r @sh1 domB q as _df rf domsOD x0' as' ->
     let odShn = voidFromShS @r @sh1
         domsToPair :: ADReadyS f
@@ -1591,26 +1407,6 @@ evalH !s !c = let (abShared, cShared) =
         (cx0, rcas) = domsToPair rcrs
         s3 = evalS s2 cx0 x0'
     in evalHVector s3 (mapHVectorShaped11 @k sreverse rcas) as'
-  MapAccumRSC @k @r @sh _domB q as _df rf domsOD x0' as' ->
-    -- No sharing attempted, because this constructor is usually used
-    -- for non-symbolic derivatives.
-    let odShn = voidFromShS @r @sh
-        domsF = V.cons odShn domsOD
-        domsToPair :: ADReadyS f
-                   => HVector (RankedOf f) -> (f r sh, HVector (RankedOf f))
-        domsToPair doms = (sfromD $ doms V.! 0, V.tail doms)
-        (c0, crest) = domsToPair cShared
-        rg :: shaped r sh
-           -> [(HVector ranked, shaped r sh, HVector ranked)]
-           -> (shaped r sh, [HVector ranked])
-        rg = mapAccumL (\cr (cx, x, a) ->
-                          domsToPair $ dunHVector domsF $ rf cr cx x a)
-        (cx0, cas) = rg c0
-                        (zip3 (unravelHVector crest)
-                              (sunravelToList q)
-                              (unravelHVector as))
-        s2 = evalS sShared cx0 x0'
-    in evalHVector s2 (ravelHVector cas) as'
 
 evalFromnMap :: (ADReady ranked, shaped ~ ShapedOf ranked)
              => EvalState ranked -> EvalState ranked
@@ -1930,14 +1726,6 @@ fwdR dimR params s = \case
                         [ DynamicRanked cas
                         , DynamicRanked $ rslice 0 width p
                         , DynamicRanked as ]))
-  FoldRC p as df _rf x0' as' ->
-    let (s2, cx0) = fwdR dimR params s x0'
-        (s3, cas) = fwdR dimR params s2 as'
-        lcas = runravelToList cas
-        las = runravelToList as
-        lp = runravelToList p
-    in (s3, foldl' (\cx (ca, x, a) -> df cx ca x a)
-                   cx0 (zip3 lcas (init lp) las))
   FoldZipR domsOD p as df _rf x0' as' ->
     let width = rlength p - 1
         domsLen = V.length domsOD
@@ -1959,14 +1747,6 @@ fwdR dimR params s = \case
                                , V.singleton
                                    (DynamicRanked $ rslice 0 width p)
                                , as ]))
-  FoldZipRC _domsOD p as df _rf x0' as' ->
-    let (s2, cx0) = fwdR dimR params s x0'
-        (s3, cas) = fwdHVector dimR params s2 as'
-        lcas = unravelHVector cas
-        las = unravelHVector as
-        lp = runravelToList p
-    in (s3, foldl' (\cx (ca, x, a) -> df cx ca x a)
-                      cx0 (zip3 lcas (init lp) las))
   ScanR @rm @m @_ @_ @n1 p as df _rf x0' as' ->
     let shm :: ShapeInt m
         (width, shm) = case rshape as of
@@ -2122,14 +1902,6 @@ fwdS dimR params s = \case
                         [ DynamicShaped cas
                         , DynamicShaped $ sslice (Proxy @0) (Proxy @k) p
                         , DynamicShaped as ]))
-  FoldSC p as df _rf x0' as' ->
-    let (s2, cx0) = fwdS dimR params s x0'
-        (s3, cas) = fwdS dimR params s2 as'
-        lcas = sunravelToList cas
-        las = sunravelToList as
-        lp = sunravelToList p
-    in (s3, foldl' (\cx (ca, x, a) -> df cx ca x a)
-                   cx0 (zip3 lcas (init lp) las))
   FoldZipS @k domsOD p as df _rf x0' as' ->
     let domsLen = V.length domsOD
         (s2, cx0) = fwdS dimR params s x0'
@@ -2152,14 +1924,6 @@ fwdS dimR params s = \case
                                    (DynamicShaped
                                     $ sslice (Proxy @0) (Proxy @k) p)
                                , as ]))
-  FoldZipSC _domsOD p as df _rf x0' as' ->
-    let (s2, cx0) = fwdS dimR params s x0'
-        (s3, cas) = fwdHVector dimR params s2 as'
-        lcas = unravelHVector cas
-        las = unravelHVector as
-        lp = sunravelToList p
-    in (s3, foldl' (\cx (ca, x, a) -> df cx ca x a)
-                   cx0 (zip3 lcas (init lp) las))
   ScanS @rm @shm @k @sh1 p as df _rf x0' as' ->
     let (s2, cx0) = fwdS dimR params s x0'
         (s3, cas) = fwdS dimR params s2 as'
@@ -2253,21 +2017,6 @@ fwdH dimR params s = \case
               (V.concat [ cas
                         , V.singleton (DynamicRanked q)
                         , as ]))
-  MapAccumRRC @r @n domB q as df _rf _domsOD x0' as' ->
-    let shn = shapeDeltaR x0'
-        odShn = voidFromSh @r shn
-        domsG = V.cons odShn domB
-        domsToPair :: ADReady f => HVector f -> (f r n, HVector f)
-        domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
-        (s2, cx0) = fwdR dimR params s x0'
-        (s3, cas) = fwdHVector dimR params s2 as'
-        lcas = unravelHVector cas
-        las = unravelHVector as
-        lq = runravelToList q
-        (r0, rl) = mapAccumR (\cx (ca, x, a) ->
-                                domsToPair $ dunHVector domsG $ df cx ca x a)
-                             cx0 (zip3 lcas lq las)
-    in (s3, dmkHVector $ V.cons (DynamicRanked r0) $ ravelHVector rl)
   MapAccumRS @k @r @sh1 domB q as df _rf domsOD x0' as' ->
     let domsLen = V.length domsOD
         domsF = V.concat [domsOD, V.singleton (voidFromShS @r @sh1), domsOD]
@@ -2290,21 +2039,6 @@ fwdH dimR params s = \case
               (V.concat [ cas
                         , V.singleton (DynamicShaped q)
                         , as ]))
-  MapAccumRSC @k @r @sh1 domB q as df _rf _domsOD x0' as' ->
-    let odShn = voidFromShS @r @sh1
-        domsG = V.cons odShn domB
-        domsToPair :: ADReadyS f
-                   => HVector (RankedOf f) -> (f r sh1, HVector (RankedOf f))
-        domsToPair doms = (sfromD $ doms V.! 0, V.tail doms)
-        (s2, cx0) = fwdS dimR params s x0'
-        (s3, cas) = fwdHVector dimR params s2 as'
-        lcas = unravelHVector cas
-        las = unravelHVector as
-        lq = sunravelToList q
-        (r0, rl) = mapAccumR (\cx (ca, x, a) ->
-                                domsToPair $ dunHVector domsG $ df cx ca x a)
-                             cx0 (zip3 lcas lq las)
-    in (s3, dmkHVector $ V.cons (DynamicShaped r0) $ ravelHVector rl)
 
 
 -- * Manually fixed Show instances
@@ -2526,35 +2260,6 @@ instance (KnownNat n0,
                                          showSpace
                                          (showsPrec 11 b6_adjF))))))))))))
   showsPrec
-    a_adjG
-    (FoldRC b1_adjH b2_adjI b3_adjJ b4_adjK b5_adjL
-                               b6_adjM)
-    = showParen
-        (a_adjG >= 11)
-        ((.)
-           (showString "FoldRC ")
-           ((.)
-              (showsPrec 11 b1_adjH)
-              ((.)
-                 showSpace
-                 ((.)
-                    (showsPrec 11 b2_adjI)
-                    ((.)
-                       showSpace
-                       ((.)
-                          (showsPrec 11 b3_adjJ)
-                          ((.)
-                             showSpace
-                             ((.)
-                                (showsPrec 11 b4_adjK)
-                                ((.)
-                                   showSpace
-                                   ((.)
-                                      (showsPrec 11 b5_adjL)
-                                      ((.)
-                                         showSpace
-                                         (showsPrec 11 b6_adjM))))))))))))
-  showsPrec
     a_adjN
     (FoldZipR b1_adjO b2_adjP b3_adjQ _b4_adjR _b5_adjS
                                b6_adjT b7_adjU)
@@ -2587,39 +2292,6 @@ instance (KnownNat n0,
                                             ((.)
                                                showSpace
                                                (showsPrec 11 b7_adjU))))))))))))))
-  showsPrec
-    a_adjV
-    (FoldZipRC b1_adjW b2_adjX b3_adjY b4_adjZ b5_adk0
-                                b6_adk1 b7_adk2)
-    = showParen
-        (a_adjV >= 11)
-        ((.)
-           (showString "FoldZipRC ")
-           ((.)
-              (showsPrec 11 b1_adjW)
-              ((.)
-                 showSpace
-                 ((.)
-                    (showsPrec 11 b2_adjX)
-                    ((.)
-                       showSpace
-                       ((.)
-                          (showsPrec 11 b3_adjY)
-                          ((.)
-                             showSpace
-                             ((.)
-                                (showsPrec 11 b4_adjZ)
-                                ((.)
-                                   showSpace
-                                   ((.)
-                                      (showsPrec 11 b5_adk0)
-                                      ((.)
-                                         showSpace
-                                         ((.)
-                                            (showsPrec 11 b6_adk1)
-                                            ((.)
-                                               showSpace
-                                               (showsPrec 11 b7_adk2))))))))))))))
   showsPrec
     a_adk3
     (ScanR b1_adk4 b2_adk5 _b3_adk6 _b4_adk7 b5_adk8
@@ -2882,35 +2554,6 @@ instance (ShapedOf (RankedOf shaped) ~ shaped,
                                          showSpace
                                          (showsPrec 11 b6_adut))))))))))))
   showsPrec
-    a_aduu
-    (FoldSC b1_aduv b2_aduw b3_adux b4_aduy b5_aduz
-                               b6_aduA)
-    = showParen
-        (a_aduu >= 11)
-        ((.)
-           (showString "FoldSC ")
-           ((.)
-              (showsPrec 11 b1_aduv)
-              ((.)
-                 showSpace
-                 ((.)
-                    (showsPrec 11 b2_aduw)
-                    ((.)
-                       showSpace
-                       ((.)
-                          (showsPrec 11 b3_adux)
-                          ((.)
-                             showSpace
-                             ((.)
-                                (showsPrec 11 b4_aduy)
-                                ((.)
-                                   showSpace
-                                   ((.)
-                                      (showsPrec 11 b5_aduz)
-                                      ((.)
-                                         showSpace
-                                         (showsPrec 11 b6_aduA))))))))))))
-  showsPrec
     a_aduB
     (FoldZipS b1_aduC b2_aduD b3_aduE _b4_aduF _b5_aduG
                                b6_aduH b7_aduI)
@@ -2943,39 +2586,6 @@ instance (ShapedOf (RankedOf shaped) ~ shaped,
                                             ((.)
                                                showSpace
                                                (showsPrec 11 b7_aduI))))))))))))))
-  showsPrec
-    a_aduJ
-    (FoldZipSC b1_aduK b2_aduL b3_aduM b4_aduN b5_aduO
-                                b6_aduP b7_aduQ)
-    = showParen
-        (a_aduJ >= 11)
-        ((.)
-           (showString "FoldZipSC ")
-           ((.)
-              (showsPrec 11 b1_aduK)
-              ((.)
-                 showSpace
-                 ((.)
-                    (showsPrec 11 b2_aduL)
-                    ((.)
-                       showSpace
-                       ((.)
-                          (showsPrec 11 b3_aduM)
-                          ((.)
-                             showSpace
-                             ((.)
-                                (showsPrec 11 b4_aduN)
-                                ((.)
-                                   showSpace
-                                   ((.)
-                                      (showsPrec 11 b5_aduO)
-                                      ((.)
-                                         showSpace
-                                         ((.)
-                                            (showsPrec 11 b6_aduP)
-                                            ((.)
-                                               showSpace
-                                               (showsPrec 11 b7_aduQ))))))))))))))
   showsPrec
     a_aduR
     (ScanS b1_aduS b2_aduT _b3_aduU _b4_aduV b5_aduW
@@ -3131,44 +2741,6 @@ instance (Show
                                                      (showsPrec
                                                         11 b8_a2Gcl))))))))))))))))
   showsPrec
-    a_a2Gcm
-    (HordeAd.Core.Delta.MapAccumRRC b1_a2Gcn b2_a2Gco b3_a2Gcp b4_a2Gcq
-                                    b5_a2Gcr b6_a2Gcs b7_a2Gct b8_a2Gcu)
-    = showParen
-        (a_a2Gcm >= 11)
-        ((.)
-           (showString "MapAccumRRC ")
-           ((.)
-              (showsPrec 11 b1_a2Gcn)
-              ((.)
-                 showSpace
-                 ((.)
-                    (showsPrec 11 b2_a2Gco)
-                    ((.)
-                       showSpace
-                       ((.)
-                          (showsPrec 11 b3_a2Gcp)
-                          ((.)
-                             showSpace
-                             ((.)
-                                (showsPrec 11 b4_a2Gcq)
-                                ((.)
-                                   showSpace
-                                   ((.)
-                                      (showsPrec 11 b5_a2Gcr)
-                                      ((.)
-                                         showSpace
-                                         ((.)
-                                            (showsPrec 11 b6_a2Gcs)
-                                            ((.)
-                                               showSpace
-                                               ((.)
-                                                  (showsPrec 11 b7_a2Gct)
-                                                  ((.)
-                                                     showSpace
-                                                     (showsPrec
-                                                        11 b8_a2Gcu))))))))))))))))
-  showsPrec
     a_a2Gcv
     (HordeAd.Core.Delta.MapAccumRS b1_a2Gcw b2_a2Gcx b3_a2Gcy _b4_a2Gcz
                                    _b5_a2GcA b6_a2GcB b7_a2GcC b8_a2GcD)
@@ -3206,41 +2778,3 @@ instance (Show
                                                      showSpace
                                                      (showsPrec
                                                         11 b8_a2GcD))))))))))))))))
-  showsPrec
-    a_a2GcE
-    (HordeAd.Core.Delta.MapAccumRSC b1_a2GcF b2_a2GcG b3_a2GcH b4_a2GcI
-                                    b5_a2GcJ b6_a2GcK b7_a2GcL b8_a2GcM)
-    = showParen
-        (a_a2GcE >= 11)
-        ((.)
-           (showString "MapAccumRSC ")
-           ((.)
-              (showsPrec 11 b1_a2GcF)
-              ((.)
-                 showSpace
-                 ((.)
-                    (showsPrec 11 b2_a2GcG)
-                    ((.)
-                       showSpace
-                       ((.)
-                          (showsPrec 11 b3_a2GcH)
-                          ((.)
-                             showSpace
-                             ((.)
-                                (showsPrec 11 b4_a2GcI)
-                                ((.)
-                                   showSpace
-                                   ((.)
-                                      (showsPrec 11 b5_a2GcJ)
-                                      ((.)
-                                         showSpace
-                                         ((.)
-                                            (showsPrec 11 b6_a2GcK)
-                                            ((.)
-                                               showSpace
-                                               ((.)
-                                                  (showsPrec 11 b7_a2GcL)
-                                                  ((.)
-                                                     showSpace
-                                                     (showsPrec
-                                                        11 b8_a2GcM))))))))))))))))
