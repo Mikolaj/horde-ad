@@ -41,7 +41,6 @@ import HordeAd.Core.AstEnv
 import HordeAd.Core.Delta
 import HordeAd.Core.DualClass
 import HordeAd.Core.HVector
-import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.Internal.OrthotopeOrphanInstances (sameShape)
@@ -280,8 +279,7 @@ dotParameters (HVector a0 a1) (HVector b0 b1) =
 
 crevOnADInputs
   :: forall ty (f :: TensorType ty) r y.
-     ( RankedTensor (ADVal (RankedOf f))
-     , HVectorTensor (RankedOf f) (ShapedOf f)
+     ( RankedTensor (RankedOf f), HVectorTensor (RankedOf f) (ShapedOf f)
      , DualPart f, UnletGradient f, GoodScalar r, HasSingletonDict y)
   => Maybe (f r y)
   -> (HVector (ADVal (RankedOf f)) -> ADVal f r y)
@@ -294,7 +292,10 @@ crevOnADInputs mdt f inputs =
   let -- Evaluate completely after terms constructed, to free memory
       -- before evaluation allocates new memory and new FFI is started.
       !(D l v deltaTopLevel) = f inputs in
-  let parameters0 = voidFromHVector inputs
+  let rshapePrimal :: (GoodScalar r2, KnownNat n)
+                   => ADVal (RankedOf f) r2 n -> ShapeInt n
+      rshapePrimal (D _ p _) = rshape p
+      parameters0 = V.map (voidFromDynamicF (shapeToList . rshapePrimal)) inputs
       (!astBindings, !gradient) =
         reverseDervative parameters0 v mdt deltaTopLevel
   in ( unletGradient @ty @f l astBindings (dmkHVector gradient)
@@ -302,8 +303,7 @@ crevOnADInputs mdt f inputs =
 
 crevOnHVector
   :: forall r y f.
-     ( RankedTensor (RankedOf f), RankedTensor (ADVal (RankedOf f))
-     , HVectorTensor (RankedOf f) (ShapedOf f)
+     ( RankedTensor (RankedOf f), HVectorTensor (RankedOf f) (ShapedOf f)
      , DualPart f, UnletGradient f, GoodScalar r, HasSingletonDict y )
   => Maybe (f r y)
   -> (HVector (ADVal (RankedOf f)) -> ADVal f r y)

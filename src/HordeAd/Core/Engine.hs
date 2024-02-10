@@ -226,8 +226,7 @@ crev f vals = crevDtMaybe f vals Nothing
 -- | This version additionally takes the sensitivity parameter.
 crevDt
   :: forall r y f vals advals.
-     ( RankedTensor (RankedOf f), RankedTensor (ADVal (RankedOf f))
-     , HVectorTensor (RankedOf f) (ShapedOf f)
+     ( RankedTensor (RankedOf f), HVectorTensor (RankedOf f) (ShapedOf f)
      , DualPart f, UnletGradient f, GoodScalar r, HasSingletonDict y
      , HVectorOf (RankedOf f) ~ HVector (RankedOf f)
      , AdaptableHVector (ADVal (RankedOf f)) advals
@@ -239,8 +238,7 @@ crevDt f vals dt = crevDtMaybe f vals (Just dt)
 
 crevDtMaybe
   :: forall r y f vals advals.
-     ( RankedTensor (RankedOf f), RankedTensor (ADVal (RankedOf f))
-     , HVectorTensor (RankedOf f) (ShapedOf f)
+     ( RankedTensor (RankedOf f), HVectorTensor (RankedOf f) (ShapedOf f)
      , DualPart f, UnletGradient f, GoodScalar r, HasSingletonDict y
      , HVectorOf (RankedOf f) ~ HVector (RankedOf f)
      , AdaptableHVector (ADVal (RankedOf f)) advals
