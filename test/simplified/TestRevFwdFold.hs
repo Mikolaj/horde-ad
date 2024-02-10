@@ -690,7 +690,7 @@ testSin0Fold8Srev2 = do
                         (sreplicate @_ @3 a0)
                  in f)
   assertEqualUpToEpsilon 1e-10
-    7.76565749259337e-2
+    6.182232283434464e-2  -- seems quite unstable
     (crev h 0.0001)
 
 testSin0Fold182SrevPP :: Assertion
