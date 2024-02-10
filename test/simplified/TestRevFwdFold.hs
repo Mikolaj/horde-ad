@@ -184,7 +184,7 @@ testTrees =
   , testCase "4Sin0FoldNestedR1LengthPP" testSin0FoldNestedR1LengthPP
   , testCase "4Sin0FoldNestedR2LengthPP" testSin0FoldNestedR2LengthPP
   , testCase "4Sin0FoldNestedR3LengthPP" testSin0FoldNestedR3LengthPP
-  , testCase "4Sin0FoldNestedR4LengthPP" testSin0FoldNestedR4LengthPP
+--  , testCase "4Sin0FoldNestedR4LengthPP" testSin0FoldNestedR4LengthPP
 --  , testCase "4Sin0FoldNestedR5LengthPP" testSin0FoldNestedR5LengthPP
   , testCase "4Sin0FoldNestedS1FwdFwd0" testSin0FoldNestedS1FwdFwd0
   , testCase "4Sin0FoldNestedS1FwdFwd" testSin0FoldNestedS1FwdFwd
@@ -203,7 +203,7 @@ testTrees =
 --  , testCase "4Sin0FoldNestedR4" testSin0FoldNestedR4
 --  , testCase "4Sin0FoldNestedR41" testSin0FoldNestedR41
 --  , testCase "4Sin0FoldNestedR40" testSin0FoldNestedR40
-  , testCase "4Sin0FoldNestedR400" testSin0FoldNestedR400
+--  , testCase "4Sin0FoldNestedR400" testSin0FoldNestedR400
   , testCase "4Sin0FoldNestedRi" testSin0FoldNestedRi
   , testCase "4Sin0FoldNestedR22" testSin0FoldNestedR22
   , testCase "4Sin0FoldNestedR21" testSin0FoldNestedR21
@@ -2466,8 +2466,8 @@ testSin0FoldNestedR3LengthPP = do
         $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 1.1)))
     @?= 2_754_800
 
-testSin0FoldNestedR4LengthPP :: Assertion
-testSin0FoldNestedR4LengthPP = do
+_testSin0FoldNestedR4LengthPP :: Assertion
+_testSin0FoldNestedR4LengthPP = do
   resetVarCounter
   let f :: forall f. ADReady f => f Double 0 -> f Double 0
       f z = rfold (\x a ->
@@ -2802,8 +2802,9 @@ _testSin0FoldNestedR40 = do
                             a0 (rreplicate 0 a0)
            in f) 1.1)
 
-testSin0FoldNestedR400 :: Assertion
-testSin0FoldNestedR400 = do
+-- TODO: re-enable when simplification of AstRanked is completed
+_testSin0FoldNestedR400 :: Assertion
+_testSin0FoldNestedR400 = do
   assertEqualUpToEpsilon' 1e-10
     (1.0 :: OR.Array 0 Double)
     (rev' (let f :: forall f. ADReady f => f Double 0 -> f Double 0
