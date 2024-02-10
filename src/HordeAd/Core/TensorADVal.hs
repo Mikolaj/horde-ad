@@ -372,9 +372,7 @@ instance ( Dual shaped ~ DeltaS shaped
 -- * HVectorTensor instance
 
 instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
-         , CRankedIP ranked IsPrimal, CRankedIPSh shaped IsPrimal
-         , UnletGradient ranked, UnletGradient shaped
-         , UnletGradient (HVectorPseudoTensor ranked) )
+         , CRankedIP ranked IsPrimal, CRankedIPSh shaped IsPrimal )
          => HVectorTensor (ADVal ranked) (ADVal shaped) where
   dshape = voidFromHVector
   dmkHVector = id

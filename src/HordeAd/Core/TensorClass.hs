@@ -14,11 +14,12 @@ module HordeAd.Core.TensorClass
     -- * The tensor classes
   , RankedTensor(..), ShapedTensor(..), HVectorTensor(..)
     -- * The related constraints
-  , ADReady, ADReadyR, ADReadyS, ADReadySmall
+  , UnletGradient (..), ADReady, ADReadyR, ADReadyS, ADReadySmall
   ) where
 
 import Prelude
 
+import           Control.Exception.Assert.Sugar
 import qualified Data.Array.Convert
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
@@ -982,6 +983,21 @@ class HVectorTensor (ranked :: RankedTensorType)
 
 -- * The giga-constraint
 
+-- TODO: this is an ad-hoc class with an ad-hoc name
+type UnletGradient :: TensorType ty -> Constraint
+class UnletGradient g where
+  unletGradient
+    :: ADShare -> AstBindingsD (RankedOf g) -> HVectorOf (RankedOf g)
+    -> HVectorOf (RankedOf g)
+  unletGradient l astBindings gradient =
+    assert (nullADShare l && null astBindings) gradient
+  unletValue
+    :: (GoodScalar r, HasSingletonDict y)
+    => ADShare -> AstBindingsD (RankedOf g) -> g r y
+    -> g r y
+  unletValue l astBindings primalBody =
+    assert (nullADShare l && null astBindings) primalBody
+
 type ADReady ranked = ADReadyR ranked  -- backward compatibility
 
 type ADReadyR ranked = ADReadyBoth ranked (ShapedOf ranked)
@@ -1013,6 +1029,8 @@ type ADReadySmall ranked shaped =
   , ShapedTensor shaped, ShapedTensor (PrimalOf shaped)
   , CRanked ranked Show, CRanked (PrimalOf ranked) Show
   , CShaped shaped Show, CShaped (PrimalOf shaped) Show
+  , UnletGradient ranked, UnletGradient shaped
+  , UnletGradient (HVectorPseudoTensor ranked)
   )
 
 type ADReadyBoth ranked shaped =
@@ -1024,6 +1042,12 @@ type ADReadyBoth ranked shaped =
 -- * Instances for concrete arrays
 
 -- The HVectorTensor instance requires ADVal instance, so it's given elsewhere.
+
+instance UnletGradient (Flip OR.Array)
+
+instance UnletGradient (Flip OS.Array)
+
+instance UnletGradient (HVectorPseudoTensor (Flip OR.Array))
 
 type instance SimpleBoolOf (Flip OR.Array) = Bool
 

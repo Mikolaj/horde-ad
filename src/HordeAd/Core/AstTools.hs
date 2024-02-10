@@ -391,16 +391,16 @@ astIsSmallS relaxed = \case
 -- * Odds and ends
 
 bindsToLet :: forall n s r. (AstSpan s, KnownNat n, GoodScalar r)
-           => AstRanked s r n -> AstBindings -> AstRanked s r n
+           => AstRanked s r n -> AstBindingsD (AstRanked s) -> AstRanked s r n
 {-# INLINE bindsToLet #-}  -- help list fusion
 bindsToLet = foldl' bindToLet
  where
   bindToLet :: AstRanked s r n
-            -> (AstVarId, AstBindingsCase (AstRanked PrimalSpan))
+            -> (AstVarId, AstBindingsCase (AstRanked s))
             -> AstRanked s r n
   bindToLet !u (varId, AstBindingsSimple d) =
     let convertShaped :: (GoodScalar r2, Sh.Shape sh2)
-                      => AstShaped PrimalSpan r2 sh2 -> AstRanked s r n
+                      => AstShaped s r2 sh2 -> AstRanked s r n
         convertShaped t =
           Sh.withShapeP (shapeToList $ shapeAst u) $ \proxy -> case proxy of
             Proxy @sh | Just Refl <- matchingRank @sh @n ->
@@ -418,12 +418,12 @@ bindsToLet = foldl' bindToLet
     AstLetHVectorIn lids d u
 
 bindsToLetS :: forall sh s r. (AstSpan s, Sh.Shape sh)
-            => AstShaped s r sh -> AstBindings -> AstShaped s r sh
+            => AstShaped s r sh -> AstBindingsD (AstRanked s) -> AstShaped s r sh
 {-# INLINE bindsToLetS #-}  -- help list fusion
 bindsToLetS = foldl' bindToLetS
  where
   bindToLetS :: AstShaped s r sh
-             -> (AstVarId, AstBindingsCase (AstRanked PrimalSpan))
+             -> (AstVarId, AstBindingsCase (AstRanked s))
              -> AstShaped s r sh
   bindToLetS !u (varId, AstBindingsSimple d) = case d of
     DynamicRanked w ->
@@ -446,7 +446,7 @@ bindsToLetS = foldl' bindToLetS
 
 bindsToHVectorLet
    :: forall s. AstSpan s
-   => AstHVector s -> AstBindings -> AstHVector s
+   => AstHVector s -> AstBindingsD (AstRanked s) -> AstHVector s
 {-# INLINE bindsToHVectorLet #-}   -- help list fusion
 bindsToHVectorLet = foldl' bindToHVectorLet
  where

@@ -13,7 +13,7 @@ module HordeAd.Core.DualNumber
   , ensureToplevelSharing, scaleNotShared, addNotShared, multNotShared
 --  , addParameters, dotParameters
     -- * Reverse and forward derivative stages class and instances
-  , DerivativeStages (..), UnletGradient (..)
+  , DerivativeStages (..)
   , crevOnADInputs, crevOnHVector, cfwdOnADInputs, cfwdOnHVector
   , generateDeltaInputs, makeADInputs
   ) where
@@ -24,7 +24,6 @@ import           Control.Exception.Assert.Sugar
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as Sh
-import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
 import           Data.Bifunctor.Product
@@ -449,27 +448,6 @@ class DerivativeStages g where
   {-# INLINE fwdProduceArtifact #-}
   fwdProduceArtifact tf g envInit =
     fwdArtifactFromForwardPass tf (forwardPassByInterpretation g envInit)
-
--- TODO: this is an ad-hoc class with an ad-hoc name
-type UnletGradient :: TensorType ty -> Constraint
-class UnletGradient g where
-  unletGradient
-    :: ADShare -> AstBindingsD (RankedOf g) -> HVectorOf (RankedOf g)
-    -> HVectorOf (RankedOf g)
-  unletGradient l astBindings gradient =
-    assert (nullADShare l && null astBindings) gradient
-  unletValue
-    :: (GoodScalar r, HasSingletonDict y)
-    => ADShare -> AstBindingsD (RankedOf g) -> g r y
-    -> g r y
-  unletValue l astBindings primalBody =
-    assert (nullADShare l && null astBindings) primalBody
-
-instance UnletGradient (Flip OR.Array)
-
-instance UnletGradient (Flip OS.Array)
-
-instance UnletGradient (HVectorPseudoTensor (Flip OR.Array))
 
 instance UnletGradient (ADVal f)
 
