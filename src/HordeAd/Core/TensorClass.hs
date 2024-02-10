@@ -15,7 +15,7 @@ module HordeAd.Core.TensorClass
   , RankedTensor(..), ShapedTensor(..), HVectorTensor(..)
     -- * The related classes and constraints
   , DualPart(..), IsPrimal(..), UnletGradient (..)
-  , ADReady, ADReadyBoth, ADReadyR, ADReadyS, ADReadySmall
+  , ADReady, ADReadyBoth, ADReadyR, ADReadyS
   , CRankedIP, CRankedIPSh
   ) where
 
@@ -35,7 +35,7 @@ import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality (gcastWith, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits
-  (KnownNat, OrderingI (..), Nat, cmpNat, type (+), type (-), type (<=))
+  (KnownNat, Nat, OrderingI (..), cmpNat, type (+), type (-), type (<=))
 import           Numeric.LinearAlgebra (Vector)
 import           Unsafe.Coerce (unsafeCoerce)
 
