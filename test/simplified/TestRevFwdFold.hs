@@ -21,7 +21,6 @@ import           Test.Tasty.HUnit hiding (assert)
 
 import HordeAd
 import HordeAd.Core.AstFreshId (resetVarCounter)
-import HordeAd.Core.DualClass
 import HordeAd.Util.ShapedList (ShapedList (..))
 
 import CrossTesting
@@ -2920,9 +2919,7 @@ testSin0revhV2 = do
         rrev @g @_ @Double @0 (\v -> sin (rfromD $ v V.! 0))
              (V.singleton (voidFromSh @Double ZS))
              x
-      h :: forall g.
-           ( HVectorTensor g (ShapedOf g)
-           , HVectorTensor (ADVal g) (ShapedOf (ADVal g)) )
+      h :: forall g. ADReady g
         => HVector (ADVal g)
         -> ADVal (HVectorPseudoTensor g) Float '()
       h = hVectorADValToADVal . f
@@ -2938,9 +2935,7 @@ testSin0revhV3 = do
         srev @g @_ @Double @'[] (\v -> sin (sfromD $ v V.! 0))
              (V.singleton (voidFromShS @Double @'[]))
              x
-      h :: forall g.
-           ( HVectorTensor g (ShapedOf g)
-           , HVectorTensor (ADVal g) (ShapedOf (ADVal g)) )
+      h :: forall g. ADReady g
         => HVector (ADVal g)
         -> ADVal (HVectorPseudoTensor g) Float '()
       h = hVectorADValToADVal . f
@@ -2957,9 +2952,7 @@ testSin0revhV4 = do
       f x =
         rrevDt @g @_ @Double @0 (\v -> rfoldZip const doms 5 v)
                doms3 x 22.5
-      h :: forall g. ( HVectorTensor g (ShapedOf g)
-                     , HVectorTensor (ADVal g) (ShapedOf (ADVal g))
-                     , Fractional (g Double 0), IsPrimal g Double 0 )
+      h :: forall g. ADReady g
         => HVector (ADVal g)
         -> ADVal (HVectorPseudoTensor g) Float '()
       h = hVectorADValToADVal . f
@@ -2978,10 +2971,7 @@ testSin0revhV5 = do
       f x =
         srevDt @g @_ @Double @'[] (\v -> sfoldZip const doms 5 v)
                doms3 x 22.5
-      h :: forall g. ( HVectorTensor g (ShapedOf g)
-                     , HVectorTensor (ADVal g) (ShapedOf (ADVal g))
-                     , Fractional (ShapedOf  g Double '[])
-                     , IsPrimal (ShapedOf g) Double '[] )
+      h :: forall g. ADReady g
         => HVector (ADVal g)
         -> ADVal (HVectorPseudoTensor g) Float '()
       h = hVectorADValToADVal . f
@@ -3001,9 +2991,7 @@ testSin0revhV6 = do
                (\v -> rfoldZip (\_ w -> let z = rfromD $ w V.! 0
                                         in z * z) doms 5 v)
                 doms3 x 22
-      h :: forall g. ( HVectorTensor g (ShapedOf g)
-                     , HVectorTensor (ADVal g) (ShapedOf (ADVal g))
-                     , Fractional (g Double 0), IsPrimal g Double 0 )
+      h :: forall g. ADReady g
         => HVector (ADVal g)
         -> ADVal (HVectorPseudoTensor g) Float '()
       h = hVectorADValToADVal . f
@@ -3024,10 +3012,7 @@ testSin0revhV7 = do
                (\v -> sfoldZip (\_ w -> let z = sfromD $ w V.! 0
                                         in z * z) doms 5 v)
                doms3 x 22
-      h :: forall g. ( HVectorTensor g (ShapedOf g)
-                     , HVectorTensor (ADVal g) (ShapedOf (ADVal g))
-                     , Fractional (ShapedOf  g Double '[])
-                     , IsPrimal (ShapedOf g) Double '[] )
+      h :: forall g. ADReady g
         => HVector (ADVal g)
         -> ADVal (HVectorPseudoTensor g) Float '()
       h = hVectorADValToADVal . f
@@ -3041,9 +3026,7 @@ testSin0revhV8 = do
   let f :: forall g. HVectorTensor g (ShapedOf g)
         => HVector g -> HVectorOf g
       f = dmkHVector
-      h :: forall g.
-           ( HVectorTensor g (ShapedOf g)
-           , HVectorTensor (ADVal g) (ShapedOf (ADVal g)) )
+      h :: forall g. ADReady g
         => HVector (ADVal g)
         -> ADVal (HVectorPseudoTensor g) Float '()
       h = hVectorADValToADVal . f
