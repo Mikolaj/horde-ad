@@ -8,8 +8,7 @@
 -- a middle layer such as "DualClass", separate instances are given
 -- for ranked tensors and shaped tensors.
 module HordeAd.Core.TensorADVal
-  ( CRankedIP, CRankedIPSh
-  , dDHVector, aDValHVector, aDValDynamicTensor
+  ( dDHVector, aDValHVector, aDValDynamicTensor
   , hVectorADValToADVal, unADValHVector, unADValDynamicTensor
   ) where
 
@@ -58,15 +57,15 @@ import           HordeAd.Util.SizedIndex
 
 -- * Ranked tensor instances
 
-instance ( KnownNat n, GoodScalar r
-         , RankedTensor (ADVal ranked) )
+instance (KnownNat n, GoodScalar r, ADReady ranked)
          => AdaptableHVector (ADVal ranked)
                              (ADVal ranked r n) where
+{- TODO: RULE left-hand side too complicated to desugar
   {-# SPECIALIZE instance
       KnownNat n
       => AdaptableHVector (ADVal (Flip OR.Array))
                           (ADVal (Flip OR.Array) Double n) #-}
-{- TODO: this causes a cyclic dependency:
+TODO: this causes a cyclic dependency:
   {-# SPECIALIZE instance
       KnownNat n
       => AdaptableHVector (ADVal (AstRanked PrimalSpan))
@@ -110,17 +109,7 @@ instance AdaptableHVector ranked a
 -- needed for the interpretation of Ast in ADVal.
 -- The ADVal Double and ADVal Float instantiations are only used
 -- in tests. None others are used anywhere.
-instance ( Dual ranked ~ DeltaR ranked
-         , DeltaR ranked ~ Dual ranked
-         , RankedOf (ShapedOf ranked) ~ ranked
-         , RankedOf ranked ~ ranked
-         , ranked ~ RankedOf ranked
-         , RankedOf (PrimalOf ranked) ~ PrimalOf ranked
-         , PrimalOf ranked ~ RankedOf (PrimalOf ranked)
-         , CRankedIP ranked IsPrimal
-         , RankedTensor ranked
-         , HVectorTensor ranked (ShapedOf ranked) )
-         => RankedTensor (ADVal ranked) where
+instance ADReady ranked => RankedTensor (ADVal ranked) where
   rlet (D l u u') f =
     let !(!l2, var2) = recordSharingPrimal u l
     in f (dDnotShared l2 var2 u')
@@ -232,10 +221,8 @@ instance ( Dual ranked ~ DeltaR ranked
 
 -- * Shaped tensor instances
 
-instance ( Sh.Shape sh, GoodScalar r
-         , ranked ~ RankedOf shaped, ShapedOf ranked ~ shaped
-         , Dual shaped ~ DeltaS shaped
-         , ShapedTensor (ADVal shaped) )
+instance ( ADReadyS shaped, Sh.Shape sh, GoodScalar r
+         , ranked ~ RankedOf shaped )
          => AdaptableHVector (ADVal ranked)
                              (ADVal shaped r sh) where
   type Value (ADVal shaped r sh) = Flip OS.Array r sh   -- ! not Value(shaped)
@@ -249,17 +236,7 @@ instance ( Sh.Shape sh, GoodScalar r
 -- needed for the interpretation of Ast in ADVal.
 -- The ADVal Double and ADVal Float instantiations are only used
 -- in tests. None others are used anywhere.
-instance ( Dual shaped ~ DeltaS shaped
-         , DeltaS shaped ~ Dual shaped
-         , RankedOf (PrimalOf shaped) ~ PrimalOf (RankedOf shaped)
-         , PrimalOf (RankedOf shaped) ~ RankedOf (PrimalOf shaped)
-         , ShapedOf (RankedOf shaped) ~ shaped
-         , shaped ~ ShapedOf (RankedOf shaped)
-         , RankedOf (RankedOf shaped) ~ (RankedOf shaped)
-         , CRankedIPSh shaped IsPrimal
-         , RankedTensor (RankedOf shaped), ShapedTensor shaped
-         , HVectorTensor (RankedOf shaped) shaped )
-         => ShapedTensor (ADVal shaped) where
+instance ADReadyS shaped => ShapedTensor (ADVal shaped) where
   slet (D l u u') f =
     let !(!l2, var2) = recordSharingPrimal u l
     in f (dDnotShared l2 var2 u')
@@ -371,8 +348,7 @@ instance ( Dual shaped ~ DeltaS shaped
 
 -- * HVectorTensor instance
 
-instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
-         , CRankedIP ranked IsPrimal, CRankedIPSh shaped IsPrimal )
+instance ADReadyBoth ranked shaped
          => HVectorTensor (ADVal ranked) (ADVal shaped) where
   dshape = voidFromHVector
   dmkHVector = id

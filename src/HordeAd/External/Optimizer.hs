@@ -11,7 +11,6 @@ import qualified Data.Array.RankedS as OR
 import           Data.Bifunctor.Flip
 import           GHC.TypeLits (KnownNat)
 
-import HordeAd.Core.Delta (DualPart (..))
 import HordeAd.Core.DualNumber
 import HordeAd.Core.HVector
 import HordeAd.Core.TensorADVal ()

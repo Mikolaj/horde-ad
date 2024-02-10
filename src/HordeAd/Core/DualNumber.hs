@@ -9,7 +9,7 @@ module HordeAd.Core.DualNumber
   ( -- * The main dual number type
     ADVal, dD, pattern D, dDnotShared, constantADVal
     -- * Auxiliary definitions
-  , CRankedIP, indexPrimal, fromList, CRankedIPSh, indexPrimalS, fromListS
+  , indexPrimal, fromList, indexPrimalS, fromListS
   , ensureToplevelSharing, scaleNotShared, addNotShared, multNotShared
 --  , addParameters, dotParameters
     -- * Reverse and forward derivative stages class and instances
@@ -32,7 +32,7 @@ import           Data.Kind (Constraint, Type)
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality (testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, Nat, sameNat, type (+))
+import           GHC.TypeLits (KnownNat, sameNat, type (+))
 import           Type.Reflection (typeRep)
 
 import HordeAd.Core.Adaptor
@@ -108,14 +108,6 @@ instance OrdF f => OrdF (ADVal f) where
   D l1 u _ >. D l2 v _ = (l1 `mergeADShare` l2, snd $ u >. v)
   D l1 u _ >=. D l2 v _ = (l1 `mergeADShare` l2, snd $ u >=. v)
 
-type CRankedIP :: RankedTensorType
-               -> (RankedTensorType -> Type -> Nat -> Constraint)
-               -> Constraint
-class (forall r15 y. (KnownNat y, GoodScalar r15) => c ranked r15 y)
-      => CRankedIP ranked c where
-instance (forall r15 y. (KnownNat y, GoodScalar r15) => c ranked r15 y)
-         => CRankedIP ranked c where
-
 indexPrimal :: ( RankedTensor ranked, IsPrimal ranked r n
                , KnownNat m, KnownNat n, GoodScalar r )
             => ADVal ranked r (m + n) -> IndexOf ranked m
@@ -141,14 +133,6 @@ instance ( RankedTensor ranked, CRankedIP ranked IsPrimal
     let D l2 u u' = indexPrimal (fromList [v, w])
                                 (singletonIndex $ ifF (emptyADShare, b) 0 1)
     in dDnotShared (l1 `mergeADShare` l2) u u'
-
-type CRankedIPSh :: ShapedTensorType
-                 -> (ShapedTensorType -> Type -> [Nat] -> Constraint)
-                 -> Constraint
-class (forall r55 y. (GoodScalar r55, Sh.Shape y) => c shaped r55 y)
-      => CRankedIPSh shaped c where
-instance (forall r55 y. (GoodScalar r55, Sh.Shape y) => c shaped r55 y)
-         => CRankedIPSh shaped c where
 
 indexPrimalS :: ( ShapedTensor shaped, IsPrimal shaped r sh2
                 , Sh.Shape sh1, Sh.Shape sh2, Sh.Shape (sh1 Sh.++ sh2)

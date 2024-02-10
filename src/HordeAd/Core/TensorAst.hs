@@ -1484,7 +1484,15 @@ astBuildHVector1Vectorize k f = build1VectorizeHVector k $ funToAstI f
 
 -- * The auxiliary AstNoVectorize and AstNoSimplify instances, for tests
 
-instance UnletGradient (HVectorPseudoTensor (AstNoVectorize s)) where
+instance IsPrimal (AstNoVectorize s) r n where
+  dZeroOfShape = undefined
+  dScale = undefined
+  dAdd = undefined
+  intOfShape = undefined
+  recordSharingPrimal = undefined
+  recordSharing = undefined
+
+instance UnletGradient (HVectorPseudoTensor (AstNoVectorize s))
 
 instance UnletGradient (AstNoVectorize s)
 
@@ -1510,6 +1518,14 @@ deriving instance (RealFrac (AstRanked s r n))
 deriving instance (RealFloat (AstRanked s r n))
                   => RealFloat (AstNoVectorize s r n)
 
+instance IsPrimal (AstNoVectorizeS s) r n where
+  dZeroOfShape = undefined
+  dScale = undefined
+  dAdd = undefined
+  intOfShape = undefined
+  recordSharingPrimal = undefined
+  recordSharing = undefined
+
 instance UnletGradient (AstNoVectorizeS s)
 
 type instance SimpleBoolOf (AstNoVectorizeS s) = AstBool
@@ -1534,7 +1550,15 @@ deriving instance (RealFrac (AstShaped s r sh))
 deriving instance (RealFloat (AstShaped s r sh))
                   => RealFloat (AstNoVectorizeS s r sh)
 
-instance UnletGradient (HVectorPseudoTensor (AstNoSimplify s)) where
+instance IsPrimal (AstNoSimplify s) r n where
+  dZeroOfShape = undefined
+  dScale = undefined
+  dAdd = undefined
+  intOfShape = undefined
+  recordSharingPrimal = undefined
+  recordSharing = undefined
+
+instance UnletGradient (HVectorPseudoTensor (AstNoSimplify s))
 
 instance UnletGradient (AstNoSimplify s)
 
@@ -1559,6 +1583,14 @@ deriving instance (RealFrac (AstRanked s r n))
                   => RealFrac (AstNoSimplify s r n)
 deriving instance (RealFloat (AstRanked s r n))
                   => RealFloat (AstNoSimplify s r n)
+
+instance IsPrimal (AstNoSimplifyS s) r n where
+  dZeroOfShape = undefined
+  dScale = undefined
+  dAdd = undefined
+  intOfShape = undefined
+  recordSharingPrimal = undefined
+  recordSharing = undefined
 
 instance UnletGradient (AstNoSimplifyS s)
 

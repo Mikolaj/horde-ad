@@ -2,6 +2,7 @@
              UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 {-# OPTIONS_GHC -fconstraint-solver-iterations=10000 #-}
 -- | TODO: This and most of other haddocks in this module are out of date.
 --
@@ -41,8 +42,6 @@ module HordeAd.Core.Delta
     DeltaR (..), DeltaS (..), DeltaH (..)
   , -- * Delta expression identifiers
     NodeId (..), InputId, toInputId
-  , -- * Evaluation of the delta expressions
-    DualPart(..)
   , -- * Miscellaneous
     mapHVectorDeltaR11, mapHVectorDeltaS11
     -- * Exported to be specialized elsewhere
@@ -58,7 +57,7 @@ import qualified Data.Array.Shape as Sh
 import qualified Data.Array.ShapedS as OS
 import qualified Data.EnumMap.Strict as EM
 import           Data.Int (Int64)
-import           Data.Kind (Constraint, Type)
+import           Data.Kind (Type)
 import           Data.List (foldl', mapAccumR, sort)
 import           Data.List.Index (ifoldl')
 import           Data.Maybe (fromMaybe)
@@ -697,20 +696,6 @@ toInputId i = assert (i >= 0) $ InputId i
 
 
 -- * Evaluation of the delta expressions
-
-type DualPart :: TensorType ty -> Constraint
-class DualPart (f :: TensorType ty) where
-  -- | The type family that to each basic differentiable type
-  -- assigns its delta expression type.
-  type Dual f = (result :: TensorType ty) | result -> f
-  reverseDervative
-    :: (HasSingletonDict y, GoodScalar r)
-    => VoidHVector -> f r y -> Maybe (f r y) -> Dual f r y
-    -> (AstBindingsD (RankedOf f), HVector (RankedOf f))
-  forwardDerivative
-    :: (HasSingletonDict y, GoodScalar r)
-    => Int -> Dual f r y -> HVector (RankedOf f)
-    -> (AstBindingsD (RankedOf f), f r y)
 
 instance ADReady ranked => DualPart @Nat ranked where
   type Dual ranked = DeltaR ranked

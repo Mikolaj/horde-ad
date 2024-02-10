@@ -13,8 +13,10 @@ module HordeAd.Core.TensorClass
     ShapeInt, ShapeSh
     -- * The tensor classes
   , RankedTensor(..), ShapedTensor(..), HVectorTensor(..)
-    -- * The related constraints
-  , UnletGradient (..), ADReady, ADReadyR, ADReadyS, ADReadySmall
+    -- * The related classes and constraints
+  , DualPart(..), IsPrimal(..), UnletGradient (..)
+  , ADReady, ADReadyBoth, ADReadyR, ADReadyS, ADReadySmall
+  , CRankedIP, CRankedIPSh
   ) where
 
 import Prelude
@@ -33,7 +35,7 @@ import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality (gcastWith, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits
-  (KnownNat, OrderingI (..), cmpNat, type (+), type (-), type (<=))
+  (KnownNat, OrderingI (..), Nat, cmpNat, type (+), type (-), type (<=))
 import           Numeric.LinearAlgebra (Vector)
 import           Unsafe.Coerce (unsafeCoerce)
 
@@ -983,6 +985,35 @@ class HVectorTensor (ranked :: RankedTensorType)
 
 -- * The giga-constraint
 
+type DualPart :: TensorType ty -> Constraint
+class DualPart (f :: TensorType ty) where
+  -- | The type family that to each basic differentiable type
+  -- assigns its delta expression type.
+  type Dual f = (result :: TensorType ty) | result -> f
+  reverseDervative
+    :: (HasSingletonDict y, GoodScalar r)
+    => VoidHVector -> f r y -> Maybe (f r y) -> Dual f r y
+    -> (AstBindingsD (RankedOf f), HVector (RankedOf f))
+  forwardDerivative
+    :: (HasSingletonDict y, GoodScalar r)
+    => Int -> Dual f r y -> HVector (RankedOf f)
+    -> (AstBindingsD (RankedOf f), f r y)
+
+-- | The class states that @f r z@ type is the primal component
+-- of a dual number as exeplified by the operations.
+--
+-- The OfShape hacks are needed to recover shape from ranked tensors,
+-- in particular in case of numeric literals and also for forward derivative.
+
+type IsPrimal :: TensorType ty -> Type -> ty -> Constraint
+class IsPrimal f r z where
+  dZeroOfShape :: f r z -> Dual f r z
+  dScale :: f r z -> Dual f r z -> Dual f r z
+  dAdd :: Dual f r z -> Dual f r z -> Dual f r z
+  intOfShape :: f r z -> Int -> f r z
+  recordSharingPrimal :: f r z -> ADShare -> (ADShare, f r z)
+  recordSharing :: Dual f r z -> Dual f r z
+
 -- TODO: this is an ad-hoc class with an ad-hoc name
 type UnletGradient :: TensorType ty -> Constraint
 class UnletGradient g where
@@ -1031,12 +1062,29 @@ type ADReadySmall ranked shaped =
   , CShaped shaped Show, CShaped (PrimalOf shaped) Show
   , UnletGradient ranked, UnletGradient shaped
   , UnletGradient (HVectorPseudoTensor ranked)
+  , CRankedIP ranked IsPrimal, CRankedIPSh shaped IsPrimal
   )
 
 type ADReadyBoth ranked shaped =
   ( ADReadySmall ranked shaped
   , HVectorTensor ranked shaped
   , HVectorTensor (PrimalOf ranked) (PrimalOf shaped) )
+
+type CRankedIP :: RankedTensorType
+               -> (RankedTensorType -> Type -> Nat -> Constraint)
+               -> Constraint
+class (forall r15 y. (KnownNat y, GoodScalar r15) => c ranked r15 y)
+      => CRankedIP ranked c where
+instance (forall r15 y. (KnownNat y, GoodScalar r15) => c ranked r15 y)
+         => CRankedIP ranked c where
+
+type CRankedIPSh :: ShapedTensorType
+                 -> (ShapedTensorType -> Type -> [Nat] -> Constraint)
+                 -> Constraint
+class (forall r55 y. (GoodScalar r55, Sh.Shape y) => c shaped r55 y)
+      => CRankedIPSh shaped c where
+instance (forall r55 y. (GoodScalar r55, Sh.Shape y) => c shaped r55 y)
+         => CRankedIPSh shaped c where
 
 
 -- * Instances for concrete arrays
