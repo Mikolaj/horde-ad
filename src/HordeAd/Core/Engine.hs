@@ -32,7 +32,7 @@ import           Data.Functor.Const
 import           Data.Int (Int64)
 import           Data.Maybe (isJust)
 import           Data.Type.Equality (gcastWith, (:~:) (Refl))
-import           GHC.TypeLits (KnownNat, Nat)
+import           GHC.TypeLits (KnownNat)
 import           Type.Reflection (Typeable)
 import           Unsafe.Coerce (unsafeCoerce)
 
@@ -136,7 +136,7 @@ revArtifactAdapt hasDt f vals =
 
 revProduceArtifactWithoutInterpretation
   :: forall g r y.
-     ( g ~ AstRanked FullSpan  -- needed, because PrimalOf not injective
+     ( RankedTensor (RankedOf (PrimalOf g))
      , DerivativeStages g, GoodScalar r, HasSingletonDict y )
   => TensorToken g -> Bool
   -> (HVector (ADVal (RankedOf (PrimalOf g)))
@@ -146,7 +146,7 @@ revProduceArtifactWithoutInterpretation
 {-# INLINE revProduceArtifactWithoutInterpretation #-}
 revProduceArtifactWithoutInterpretation tf hasDt g =
   revArtifactFromForwardPass
-    @Nat @g TensorToken hasDt (forwardPassByApplication tf g)
+    @_ @g TensorToken hasDt (forwardPassByApplication tf g)
 
 forwardPassByApplication
   :: forall g r y. RankedTensor (RankedOf (PrimalOf g))
