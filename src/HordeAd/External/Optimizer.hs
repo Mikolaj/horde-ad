@@ -49,7 +49,7 @@ sgd gamma f trainingData parameters0 = go trainingData parameters0 where
 sgdAdam
   :: forall f r a y.
      ( HVectorTensor (RankedOf f) (ShapedOf f)
-     , DualPart f, UnletGradient f, HasSingletonDict y, GoodScalar r
+     , DualPart f, HasSingletonDict y, GoodScalar r
      , Num (f r y), RankedOf f ~ Flip OR.Array)
   => (a -> HVector (ADVal (Flip OR.Array)) -> ADVal f r y)
   -> [a]
@@ -62,7 +62,7 @@ sgdAdam = sgdAdamArgs updateWithGradientAdam defaultArgsAdam
 sgdAdamArgs
   :: forall f r a y.
      ( HVectorTensor (RankedOf f) (ShapedOf f)
-     , DualPart f, UnletGradient f, GoodScalar r, HasSingletonDict y
+     , DualPart f, GoodScalar r, HasSingletonDict y
      , Num (f r y), RankedTensor (RankedOf f) )
   => (ArgsAdam -> StateAdam -> HVector (RankedOf f) -> HVectorOf (RankedOf f)
       -> (HVector (RankedOf f), StateAdam))

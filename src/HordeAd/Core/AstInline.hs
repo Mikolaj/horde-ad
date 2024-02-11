@@ -597,25 +597,25 @@ emptyUnletEnv :: ADShare -> UnletEnv
 emptyUnletEnv = UnletEnv ES.empty
 
 unletAstHVector6
-  :: AstBindings -> ADShare -> AstHVector PrimalSpan
+  :: ADShare -> AstBindings -> AstHVector PrimalSpan
   -> AstHVector PrimalSpan
-unletAstHVector6 astBindings l t =
+unletAstHVector6 l astBindings t =
   unletAstHVector (emptyUnletEnv l)
   $ bindsToHVectorLet (bindsToHVectorLet t astBindings) (assocsADShare l)
 
 unletAst6
   :: (GoodScalar r, KnownNat n)
-  => AstBindings -> ADShare -> AstRanked PrimalSpan r n
+  => ADShare -> AstBindings -> AstRanked PrimalSpan r n
   -> AstRanked PrimalSpan r n
-unletAst6 astBindings l t =
+unletAst6 l astBindings t =
   unletAst (emptyUnletEnv l)
   $ bindsToLet (bindsToLet t astBindings) (assocsADShare l)
 
 unletAst6S
   :: (GoodScalar r, Sh.Shape sh)
-  => AstBindings -> ADShare -> AstShaped PrimalSpan r sh
+  => ADShare -> AstBindings -> AstShaped PrimalSpan r sh
   -> AstShaped PrimalSpan r sh
-unletAst6S astBindings l t =
+unletAst6S l astBindings t =
   unletAstS (emptyUnletEnv l)
   $ bindsToLetS (bindsToLetS t astBindings) (assocsADShare l)
 

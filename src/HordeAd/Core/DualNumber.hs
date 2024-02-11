@@ -138,7 +138,7 @@ indexPrimalS :: ( ShapedTensor shaped, GoodScalar r
 indexPrimalS (D l u u') ix = dD l (sindex u ix) (IndexS u' ix)
 
 fromListS :: forall n sh shaped r.
-             ( ShapedTensor shaped, KnownNat n, Sh.Shape sh, GoodScalar r )
+             (ShapedTensor shaped, KnownNat n, Sh.Shape sh, GoodScalar r)
            => [ADVal shaped r sh]
            -> ADVal shaped r (n ': sh)
 fromListS lu = assert (length lu == valueOf @n) $
@@ -220,9 +220,9 @@ dotParameters (HVector a0 a1) (HVector b0 b1) =
 -}
 
 crevOnADInputs
-  :: forall ty (f :: TensorType ty) r y.
+  :: forall f r y.
      ( RankedTensor (RankedOf f), HVectorTensor (RankedOf f) (ShapedOf f)
-     , DualPart f, UnletGradient f, GoodScalar r, HasSingletonDict y)
+     , DualPart f, GoodScalar r, HasSingletonDict y)
   => Maybe (f r y)
   -> (HVector (ADVal (RankedOf f)) -> ADVal f r y)
   -> HVector (ADVal (RankedOf f))
@@ -240,13 +240,12 @@ crevOnADInputs mdt f inputs =
       parameters0 = V.map (voidFromDynamicF (shapeToList . rshapePrimal)) inputs
       (!astBindings, !gradient) =
         reverseDervative parameters0 v mdt deltaTopLevel
-  in ( unletGradient @ty @f l astBindings (dmkHVector gradient)
-     , unletValue l [] v )
+  in (dunlet l astBindings (dmkHVector gradient), unlet l [] v)
 
 crevOnHVector
   :: forall r y f.
      ( RankedTensor (RankedOf f), HVectorTensor (RankedOf f) (ShapedOf f)
-     , DualPart f, UnletGradient f, GoodScalar r, HasSingletonDict y )
+     , DualPart f, GoodScalar r, HasSingletonDict y )
   => Maybe (f r y)
   -> (HVector (ADVal (RankedOf f)) -> ADVal f r y)
   -> HVector (RankedOf f)
@@ -257,7 +256,7 @@ crevOnHVector mdt f parameters =
   in crevOnADInputs mdt f inputs
 
 cfwdOnADInputs
-  :: (DualPart f, UnletGradient f, GoodScalar r, HasSingletonDict y)
+  :: (DualPart f, GoodScalar r, HasSingletonDict y)
   => HVector (ADVal (RankedOf f))
   -> (HVector (ADVal (RankedOf f)) -> ADVal f r y)
   -> HVector (RankedOf f)
@@ -267,12 +266,11 @@ cfwdOnADInputs inputs f ds =
   let !(D l v deltaTopLevel) = f inputs in
   let (astBindings, derivative) =
         forwardDerivative (V.length inputs) deltaTopLevel ds
-  in (unletValue l astBindings derivative, unletValue l [] v)
+  in (unlet l astBindings derivative, unlet l [] v)
 
 cfwdOnHVector
   :: forall r y f.
-     ( RankedTensor (RankedOf f)
-     , DualPart f, UnletGradient f, GoodScalar r, HasSingletonDict y )
+     (RankedTensor (RankedOf f), DualPart f, GoodScalar r, HasSingletonDict y)
   => HVector (RankedOf f)
   -> (HVector (ADVal (RankedOf f)) -> ADVal f r y)
   -> HVector (RankedOf f)
@@ -390,10 +388,6 @@ class DerivativeStages g where
   {-# INLINE fwdProduceArtifact #-}
   fwdProduceArtifact tf g envInit =
     fwdArtifactFromForwardPass tf (forwardPassByInterpretation g envInit)
-
-instance UnletGradient (ADVal f)
-
-instance UnletGradient (HVectorPseudoTensor (ADVal f))
 
 
 -- * Numeric instances for ADVal

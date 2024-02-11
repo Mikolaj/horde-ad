@@ -14,7 +14,6 @@ module HordeAd.Core.TensorClass
     -- * The tensor classes
   , RankedTensor(..), ShapedTensor(..), HVectorTensor(..)
     -- * The related classes and constraints
-  , UnletGradient (..)
   , ADReady, ADReadyBoth, ADReadyR, ADReadyS
   ) where
 
@@ -307,6 +306,10 @@ class ( Integral (IntOf ranked), CRanked ranked Num
   rletWrap _l u = u
   rletUnwrap :: ranked r n -> (ADShare, ranked r n)
   rletUnwrap u = (emptyADShare, u)
+  runlet :: (GoodScalar r, KnownNat n)
+         => ADShare -> AstBindingsD ranked -> ranked r n
+         -> ranked r n
+  runlet l astBindings = assert (nullADShare l && null astBindings)
   rregister :: (GoodScalar r, KnownNat n)
             => ranked r n -> AstBindingsD ranked
             -> (AstBindingsD ranked, ranked r n)
@@ -325,8 +328,9 @@ class ( Integral (IntOf ranked), CRanked ranked Num
      => PrimalOf ranked r n -> DualOf ranked r n -> ranked r n
   rScale :: (GoodScalar r, KnownNat n)
          => PrimalOf ranked r n -> DualOf ranked r n -> DualOf ranked r n
-  -- TODO: we'd probably also need dZero, dIndex0 and all the others;
-  -- basically DualOf a needs to have IsPrimal instances (does it already?)
+  -- TODO: we'd probably also need dZero, dIndex0 and others from IsPrimal,
+  -- because IsPrimal has subtly different types, operating on Deltas (Dual)
+  -- instead of on terms (DualOf) that denote Deltas
   -- TODO: if DualOf is supposed to be user-visible, we needed
   -- a better name for it; TangentOf? CotangentOf? SecondaryOf?
 
@@ -679,6 +683,10 @@ class ( Integral (IntOf shaped), CShaped shaped Num
   sletWrap _l u = u
   sletUnwrap :: shaped r sh -> (ADShare, shaped r sh)
   sletUnwrap u = (emptyADShare, u)
+  sunlet :: (GoodScalar r, Sh.Shape sh)
+         => ADShare -> AstBindingsD (RankedOf shaped) -> shaped r sh
+         -> shaped r sh
+  sunlet l astBindings = assert (nullADShare l && null astBindings)
   sregister :: (GoodScalar r, Sh.Shape sh)
             => shaped r sh -> AstBindingsD (RankedOf shaped)
             -> (AstBindingsD (RankedOf shaped), shaped r sh)
@@ -724,6 +732,9 @@ class HVectorTensor (ranked :: RankedTensorType)
                 => shaped r sh
                 -> (shaped r sh -> HVectorOf ranked)
                 -> HVectorOf ranked
+  dunlet :: ADShare -> AstBindingsD ranked -> HVectorOf ranked
+         -> HVectorOf ranked
+  dunlet l astBindings = assert (nullADShare l && null astBindings)
   dsharePrimal :: VoidHVector -> HVectorOf ranked -> ADShare
                -> (ADShare, HVector ranked)
   dregister :: VoidHVector -> HVectorOf ranked -> AstBindingsD ranked
@@ -989,21 +1000,6 @@ class HVectorTensor (ranked :: RankedTensorType)
 
 -- * The giga-constraint
 
--- TODO: this is an ad-hoc class with an ad-hoc name
-type UnletGradient :: TensorType ty -> Constraint
-class UnletGradient g where
-  unletGradient
-    :: ADShare -> AstBindingsD (RankedOf g) -> HVectorOf (RankedOf g)
-    -> HVectorOf (RankedOf g)
-  unletGradient l astBindings gradient =
-    assert (nullADShare l && null astBindings) gradient
-  unletValue
-    :: (GoodScalar r, HasSingletonDict y)
-    => ADShare -> AstBindingsD (RankedOf g) -> g r y
-    -> g r y
-  unletValue l astBindings primalBody =
-    assert (nullADShare l && null astBindings) primalBody
-
 type ADReady ranked = ADReadyR ranked  -- backward compatibility
 
 type ADReadyR ranked = ADReadyBoth ranked (ShapedOf ranked)
@@ -1035,8 +1031,6 @@ type ADReadySmall ranked shaped =
   , ShapedTensor shaped, ShapedTensor (PrimalOf shaped)
   , CRanked ranked Show, CRanked (PrimalOf ranked) Show
   , CShaped shaped Show, CShaped (PrimalOf shaped) Show
-  , UnletGradient ranked, UnletGradient shaped
-  , UnletGradient (HVectorPseudoTensor ranked)
   )
 
 type ADReadyBoth ranked shaped =
@@ -1048,12 +1042,6 @@ type ADReadyBoth ranked shaped =
 -- * Instances for concrete arrays
 
 -- The HVectorTensor instance requires ADVal instance, so it's given elsewhere.
-
-instance UnletGradient (Flip OR.Array)
-
-instance UnletGradient (Flip OS.Array)
-
-instance UnletGradient (HVectorPseudoTensor (Flip OR.Array))
 
 type instance SimpleBoolOf (Flip OR.Array) = Bool
 

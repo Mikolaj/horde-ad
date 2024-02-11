@@ -75,6 +75,7 @@ import           Text.Show.Functions ()
 import           Type.Reflection (typeRep)
 import           Unsafe.Coerce (unsafeCoerce)
 
+import           HordeAd.Core.Ast (ADShare)
 import           HordeAd.Core.HVector
 import           HordeAd.Core.HVectorOps
 import           HordeAd.Core.TensorClass
@@ -628,11 +629,15 @@ class DualPart (f :: TensorType ty) where
     :: (HasSingletonDict y, GoodScalar r)
     => Int -> Dual f r y -> HVector (RankedOf f)
     -> (AstBindingsD (RankedOf f), f r y)
+  unlet
+    :: (HasSingletonDict y, GoodScalar r)
+    => ADShare -> AstBindingsD (RankedOf f) -> f r y -> f r y
 
 instance ADReady ranked => DualPart @Nat ranked where
   type Dual ranked = DeltaR ranked
   reverseDervative = gradientFromDeltaR
   forwardDerivative = derivativeFromDeltaR
+  unlet = runlet
 
 gradientFromDeltaR
   :: (KnownNat y, GoodScalar r, ADReady ranked)
@@ -661,6 +666,7 @@ instance ADReadyS shaped => DualPart @[Nat] shaped where
   type Dual shaped = DeltaS shaped
   reverseDervative parameters0 _ = gradientFromDeltaS parameters0
   forwardDerivative = derivativeFromDeltaS
+  unlet = sunlet
 
 gradientFromDeltaS
   :: forall shaped r y.
@@ -690,6 +696,8 @@ instance ADReady ranked => DualPart @() (HVectorPseudoTensor ranked) where
   type Dual (HVectorPseudoTensor ranked) = HVectorPseudoTensor (DeltaR ranked)
   reverseDervative = gradientFromDeltaH
   forwardDerivative = derivativeFromDeltaH
+  unlet l astBindings =
+    HVectorPseudoTensor . dunlet l astBindings . unHVectorPseudoTensor
 
 -- @r@ is a placeholder here, it's reduced away. @y@ is '(), but GHC doesn't
 -- know it has to be that. We could instead provide a type-level list of nats

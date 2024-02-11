@@ -213,7 +213,7 @@ fwdArtifactAdapt f vals =
 -- These work for @f@ both ranked and shaped.
 crev
   :: forall r y f vals advals.
-     ( DualPart f, UnletGradient f, GoodScalar r, HasSingletonDict y
+     ( DualPart f, GoodScalar r, HasSingletonDict y
      , RankedOf f ~ Flip OR.Array, ShapedOf f ~ Flip OS.Array
      , AdaptableHVector (ADVal (RankedOf f)) advals
      , AdaptableHVector (Flip OR.Array) vals
@@ -226,7 +226,7 @@ crev f vals = crevDtMaybe f vals Nothing
 crevDt
   :: forall r y f vals advals.
      ( RankedTensor (RankedOf f), HVectorTensor (RankedOf f) (ShapedOf f)
-     , DualPart f, UnletGradient f, GoodScalar r, HasSingletonDict y
+     , DualPart f, GoodScalar r, HasSingletonDict y
      , HVectorOf (RankedOf f) ~ HVector (RankedOf f)
      , AdaptableHVector (ADVal (RankedOf f)) advals
      , AdaptableHVector (RankedOf f) vals
@@ -238,7 +238,7 @@ crevDt f vals dt = crevDtMaybe f vals (Just dt)
 crevDtMaybe
   :: forall r y f vals advals.
      ( RankedTensor (RankedOf f), HVectorTensor (RankedOf f) (ShapedOf f)
-     , DualPart f, UnletGradient f, GoodScalar r, HasSingletonDict y
+     , DualPart f, GoodScalar r, HasSingletonDict y
      , HVectorOf (RankedOf f) ~ HVector (RankedOf f)
      , AdaptableHVector (ADVal (RankedOf f)) advals
      , AdaptableHVector (RankedOf f) vals
@@ -263,7 +263,7 @@ crevDtMaybe f vals mdt =
 -- | This takes the sensitivity parameter, by convention.
 cfwd
   :: forall r y f vals advals.
-     ( DualPart f, UnletGradient f, GoodScalar r, HasSingletonDict y
+     ( DualPart f, GoodScalar r, HasSingletonDict y
      , RankedOf f ~ Flip OR.Array
      , AdaptableHVector (ADVal (RankedOf f)) advals
      , AdaptableHVector (Flip OR.Array) vals

@@ -22,8 +22,7 @@ import           Data.Maybe (fromMaybe)
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits
-  (KnownNat, Nat, SomeNat (..), someNatVal, type (+))
+import           GHC.TypeLits (KnownNat, SomeNat (..), someNatVal, type (+))
 import           System.IO.Unsafe (unsafePerformIO)
 
 import           HordeAd.Core.Adaptor
@@ -91,9 +90,8 @@ instance DerivativeStages (AstRanked FullSpan) where
       let mdt = if hasDt then Just $ rfromD $ astsDt V.! 0 else Nothing
           !(!astBindings, !gradient) =
             reverseDervative parameters0 primalBody mdt delta
-          unGradient = unletGradient @Nat @(AstRanked PrimalSpan)
-                                     l astBindings (AstHVector gradient)
-          unPrimal = unletValue l [] primalBody
+          unGradient = dunlet l astBindings (AstHVector gradient)
+          unPrimal = runlet l [] primalBody
       in ( ((varsDt, varsPrimal), unGradient, unPrimal, shapeToList sh)
          , delta )
            -- storing sh computed from primalBody often saves the unletAst6
@@ -128,8 +126,8 @@ instance DerivativeStages (AstRanked FullSpan) where
     let !(D l primalBody delta) = forwardPass hVectorPrimal vars hVector in
     let !(!astBindings, !derivative) =
           forwardDerivative (V.length parameters0) delta hVectorDs
-        unDerivative = unletValue l astBindings derivative
-        unPrimal = unletValue l [] primalBody
+        unDerivative = runlet l astBindings derivative
+        unPrimal = runlet l [] primalBody
     in ( ((varsPrimalDs, varsPrimal), unDerivative, unPrimal)
        , delta )
 
@@ -142,24 +140,6 @@ instance DerivativeStages (AstRanked FullSpan) where
           primalTensor = interpretAstPrimal @(Flip OR.Array) env primal
       in (derivativeTensor, primalTensor)
    else error "fwdEvalArtifact: forward derivative input and sensitivity arguments should have same shapes"
-
--- For convenience and simplicity we define the instance for all spans,
--- but they can ever be used only for PrimalSpan.
-instance AstSpan s => UnletGradient (AstRanked s) where
-  unletGradient
-    :: ADShare -> AstBindingsD (AstRanked s) -> AstHVector s -> AstHVector s
-  unletGradient l astBindings gradient =
-    case sameAstSpan @s @PrimalSpan of
-      Just Refl -> unletAstHVector6 astBindings l gradient
-      _ -> error "unletGradient: used not at PrimalSpan"
-  unletValue
-    :: (GoodScalar r, KnownNat n)
-    => ADShare -> AstBindingsD (AstRanked s) -> AstRanked s r n
-    -> AstRanked s r n
-  unletValue l astBindings primalBody =
-    case sameAstSpan @s @PrimalSpan of
-      Just Refl -> unletAst6 astBindings l primalBody
-      _ -> error "unletValue: used not at PrimalSpan"
 
 instance DerivativeStages (AstShaped FullSpan) where
   forwardPassByInterpretation
@@ -198,9 +178,8 @@ instance DerivativeStages (AstShaped FullSpan) where
       let mdt = if hasDt then Just $ sfromD $ astsDt V.! 0 else Nothing
           !(!astBindings, !gradient) =
             reverseDervative parameters0 primalBody mdt delta
-          unGradient = unletGradient @[Nat] @(AstShaped PrimalSpan)
-                                     l astBindings (AstHVector gradient)
-          unPrimal = unletValue l [] primalBody
+          unGradient = dunlet l astBindings (AstHVector gradient)
+          unPrimal = sunlet l [] primalBody
       in ( ((varsDt, varsPrimal), unGradient, unPrimal, Sh.shapeT @sh)
          , delta )
 
@@ -231,8 +210,8 @@ instance DerivativeStages (AstShaped FullSpan) where
     let !(D l primalBody delta) = forwardPass hVectorPrimal vars hVector  in
     let !(!astBindings, !derivative) =
           forwardDerivative (V.length parameters0) delta hVectorDs
-        unDerivative = unletValue l astBindings derivative
-        unPrimal = unletValue l [] primalBody
+        unDerivative = sunlet l astBindings derivative
+        unPrimal = sunlet l [] primalBody
     in ( ((varsPrimalDs, varsPrimal), unDerivative, unPrimal)
        , delta )
 
@@ -245,22 +224,6 @@ instance DerivativeStages (AstShaped FullSpan) where
           primalTensor = interpretAstPrimalS @(Flip OR.Array) env primal
       in (derivativeTensor, primalTensor)
    else error "fwdEvalArtifact: forward derivative input and sensitivity arguments should have same shapes"
-
-instance AstSpan s => UnletGradient (AstShaped s) where
-  unletGradient
-    :: ADShare -> AstBindingsD (AstRanked s) -> AstHVector s -> AstHVector s
-  unletGradient l astBindings gradient =
-    case sameAstSpan @s @PrimalSpan of
-      Just Refl -> unletAstHVector6 astBindings l gradient
-      _ -> error "unletGradient: used not at PrimalSpan"
-  unletValue
-    :: (GoodScalar r, Sh.Shape sh)
-    => ADShare -> AstBindingsD (AstRanked s) -> AstShaped s r sh
-    -> AstShaped s r sh
-  unletValue l astBindings primalBody =
-    case sameAstSpan @s @PrimalSpan of
-      Just Refl -> unletAst6S astBindings l primalBody
-      _ -> error "unletValue: used not at PrimalSpan"
 
 instance DerivativeStages (HVectorPseudoTensor (AstRanked FullSpan)) where
   forwardPassByInterpretation
@@ -296,19 +259,20 @@ instance DerivativeStages (HVectorPseudoTensor (AstRanked FullSpan)) where
   revArtifactFromForwardPass _ hasDt forwardPass parameters0 =
     let !(!varsPrimal, hVectorPrimal, vars, hVector) =
           funToAstRev parameters0 in  -- varDtId replace by many variables
-    let !(D l primalBody delta) = forwardPass hVectorPrimal vars hVector
-        domsB = shapeAstHVector $ unHVectorPseudoTensor primalBody
+    let !(D l (HVectorPseudoTensor primalBody) delta) =
+          forwardPass hVectorPrimal vars hVector
+        domsB = shapeAstHVector primalBody
     in fun1DToAst domsB $ \ !varsDt !astsDt ->
       let mdt = if hasDt
                 then Just $ HVectorPseudoTensor $ AstHVector astsDt
                 else Nothing
           !(!astBindings, !gradient) =
-            reverseDervative parameters0 primalBody mdt delta
-          unGradient =
-            unletGradient @() @(HVectorPseudoTensor (AstRanked PrimalSpan))
-                          l astBindings (AstHVector gradient)
-          unPrimal = unletValue l [] primalBody
-      in ( ((varsDt, varsPrimal), unGradient, unPrimal, undefined)
+            reverseDervative
+              parameters0 (HVectorPseudoTensor primalBody) mdt delta
+          unGradient = dunlet l astBindings (AstHVector gradient)
+          unPrimal = dunlet @(AstRanked PrimalSpan) l [] primalBody
+      in ( ( (varsDt, varsPrimal), unGradient, HVectorPseudoTensor unPrimal
+           , undefined )
          , delta )
 
   {-# INLINE revEvalArtifact #-}
@@ -336,11 +300,13 @@ instance DerivativeStages (HVectorPseudoTensor (AstRanked FullSpan)) where
   fwdArtifactFromForwardPass _ forwardPass parameters0 =
     let !(!varsPrimalDs, hVectorDs, varsPrimal, hVectorPrimal, vars, hVector) =
           funToAstFwd parameters0 in
-    let !(D l primalBody delta) = forwardPass hVectorPrimal vars hVector in
-    let !(!astBindings, !derivative) =
+    let !(D l (HVectorPseudoTensor primalBody) delta) =
+          forwardPass hVectorPrimal vars hVector in
+    let !(!astBindings, !(HVectorPseudoTensor derivative)) =
           forwardDerivative (V.length parameters0) delta hVectorDs
-        unDerivative = unletValue l astBindings derivative
-        unPrimal = unletValue l [] primalBody
+        unDerivative = HVectorPseudoTensor $ dunlet l astBindings derivative
+        unPrimal = HVectorPseudoTensor
+                   $ dunlet @(AstRanked PrimalSpan) l [] primalBody
     in ( ((varsPrimalDs, varsPrimal), unDerivative, unPrimal)
        , delta )
 
@@ -355,25 +321,6 @@ instance DerivativeStages (HVectorPseudoTensor (AstRanked FullSpan)) where
       in ( HVectorPseudoTensor derivativeTensor
          , HVectorPseudoTensor primalTensor )
    else error "fwdEvalArtifact: forward derivative input and sensitivity arguments should have same shapes"
-
-instance AstSpan s => UnletGradient (HVectorPseudoTensor (AstRanked s)) where
-  unletGradient
-    :: ADShare -> AstBindingsD (AstRanked s) -> AstHVector s -> AstHVector s
-  unletGradient =
-    case sameAstSpan @s @PrimalSpan of
-      Just Refl -> unletGradient @Nat @(AstRanked s)
-      _ -> error "unletGradient: used not at PrimalSpan"
-  unletValue
-    :: forall r (y :: ()).
-       ADShare -> AstBindingsD(AstRanked s)
-    -> HVectorPseudoTensor (AstRanked s) r y
-    -> HVectorPseudoTensor (AstRanked s) r y
-  unletValue l astBindings (HVectorPseudoTensor primalBody) =
-    case sameAstSpan @s @PrimalSpan of
-      Just Refl -> let hOf = unletGradient @Nat @(AstRanked s)
-                                           l astBindings primalBody
-                   in HVectorPseudoTensor hOf
-      _ -> error "unletValue: used not at PrimalSpan"
 
 -- * Unlawful boolean instances of ranked AST; they are lawful modulo evaluation
 
@@ -436,8 +383,7 @@ instance AdaptableHVector (AstRanked s) (AstHVector s) where
     let (portion, rest) = V.splitAt (V.length aInit) params
     in Just (AstHVector portion, rest)
 
-instance AstSpan s
-         => RankedTensor (AstRanked s) where
+instance AstSpan s => RankedTensor (AstRanked s) where
   rlet = astLetFun
 
   rshape = shapeAst
@@ -484,6 +430,12 @@ instance AstSpan s
     AstLetADShare l t -> (l, t)
     AstConstant (AstLetADShare l t) -> (l, AstConstant t)
     _ -> (emptyADShare, u)
+  -- For convenience and simplicity we define this for all spans,
+  -- but it can only ever be used for PrimalSpan.
+  runlet =
+    case sameAstSpan @s @PrimalSpan of
+      Just Refl -> unletAst6
+      _ -> error "runlet: used not at PrimalSpan"
   rregister = astRegisterFun
   rsharePrimal =
     case sameAstSpan @s @PrimalSpan of
@@ -563,8 +515,7 @@ astBuild1Vectorize k f = build1Vectorize k $ funToAstI f
 
 -- * Shaped tensor AST instances
 
-instance AstSpan s
-         => ShapedTensor (AstShaped s) where
+instance AstSpan s => ShapedTensor (AstShaped s) where
   slet = astLetFunS
 
   sminIndex = fromPrimalS . AstMinIndexS . astSpanPrimalS
@@ -610,6 +561,12 @@ instance AstSpan s
     AstLetADShareS l t -> (l, t)
     AstConstantS (AstLetADShareS l t) -> (l, AstConstantS t)
     _ -> (emptyADShare, u)
+  -- For convenience and simplicity we define this for all spans,
+  -- but it can only ever be used for PrimalSpan.
+  sunlet =
+    case sameAstSpan @s @PrimalSpan of
+      Just Refl -> unletAst6S
+      _ -> error "sunlet: used not at PrimalSpan"
   sregister = astRegisterFunS
   ssharePrimal =
     case sameAstSpan @s @PrimalSpan of
@@ -698,6 +655,12 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   dletHVectorInHVector = astLetHVectorInHVectorFun
   rletInHVector = astLetInHVectorFun
   sletInHVector = astLetInHVectorFunS
+  -- For convenience and simplicity we define this for all spans,
+  -- but it can only ever be used for PrimalSpan.
+  dunlet =
+    case sameAstSpan @s @PrimalSpan of
+      Just Refl -> unletAstHVector6
+      _ -> error "dunlet: used not at PrimalSpan"
   -- These and many similar bangs are necessary to ensure variable IDs
   -- are generated in the expected order, resulting in nesting of lets
   -- occuring in the correct order and so no scoping errors.
@@ -1444,10 +1407,6 @@ astBuildHVector1Vectorize k f = build1VectorizeHVector k $ funToAstI f
 
 -- * The auxiliary AstNoVectorize and AstNoSimplify instances, for tests
 
-instance UnletGradient (HVectorPseudoTensor (AstNoVectorize s))
-
-instance UnletGradient (AstNoVectorize s)
-
 type instance SimpleBoolOf (AstNoVectorize s) = AstBool
 
 deriving instance IfF (AstNoVectorize s)
@@ -1469,8 +1428,6 @@ deriving instance (RealFrac (AstRanked s r n))
                   => RealFrac (AstNoVectorize s r n)
 deriving instance (RealFloat (AstRanked s r n))
                   => RealFloat (AstNoVectorize s r n)
-
-instance UnletGradient (AstNoVectorizeS s)
 
 type instance SimpleBoolOf (AstNoVectorizeS s) = AstBool
 
@@ -1494,10 +1451,6 @@ deriving instance (RealFrac (AstShaped s r sh))
 deriving instance (RealFloat (AstShaped s r sh))
                   => RealFloat (AstNoVectorizeS s r sh)
 
-instance UnletGradient (HVectorPseudoTensor (AstNoSimplify s))
-
-instance UnletGradient (AstNoSimplify s)
-
 type instance SimpleBoolOf (AstNoSimplify s) = AstBool
 
 deriving instance IfF (AstNoSimplify s)
@@ -1519,8 +1472,6 @@ deriving instance (RealFrac (AstRanked s r n))
                   => RealFrac (AstNoSimplify s r n)
 deriving instance (RealFloat (AstRanked s r n))
                   => RealFloat (AstNoSimplify s r n)
-
-instance UnletGradient (AstNoSimplifyS s)
 
 type instance SimpleBoolOf (AstNoSimplifyS s) = AstBool
 
@@ -1544,8 +1495,7 @@ deriving instance (RealFrac (AstShaped s r sh))
 deriving instance (RealFloat (AstShaped s r sh))
                   => RealFloat (AstNoSimplifyS s r sh)
 
-instance AstSpan s
-         => RankedTensor (AstNoVectorize s) where
+instance AstSpan s => RankedTensor (AstNoVectorize s) where
   rlet a f =
     AstNoVectorize
     $ astLetFun (unAstNoVectorize a) (unAstNoVectorize . f . AstNoVectorize)
