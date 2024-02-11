@@ -930,6 +930,40 @@ class HVectorTensor (ranked :: RankedTensorType)
             -> shaped rn sh
             -> HVector ranked
             -> shaped rn (1 + k ': sh)
+  dmapAccumR
+    :: SNat k
+    -> VoidHVector
+    -> VoidHVector
+    -> VoidHVector
+    -> (forall f. ADReady f
+        => HVector f -> HVector f -> HVectorOf f)
+    -> HVector ranked
+    -> HVector ranked
+    -> HVectorOf ranked
+  dmapAccumRDer
+    :: SNat k
+    -> VoidHVector  -- ^ accShs, shapes of acc
+    -> VoidHVector  -- ^ bShs, shapes of b
+    -> VoidHVector  -- ^ eShs, shapes of e
+    -> (forall f. ADReady f
+        => HVector f  -- ^ acc, accumulator :: accShs
+        -> HVector f  -- ^ e, element of es :: eShs
+        -> HVectorOf f)  -- ^ (x, y) :: (accShs, bShs)
+    -> (forall f. ADReady f
+        => HVector f  -- ^ dacc :: accShs
+        -> HVector f  -- ^ de :: eShs
+        -> HVector f  -- ^ acc :: accShs
+        -> HVector f  -- ^ e :: eShs
+        -> HVectorOf f)  -- ^ (dx, dy) :: (accShs, bShs)
+    -> (forall f. ADReady f
+        => HVector f  -- ^ dx :: accShs
+        -> HVector f  -- ^ dy :: bShs
+        -> HVector f  -- ^ acc :: accShs
+        -> HVector f  -- ^ e :: eShs
+        -> HVectorOf f)  -- ^ (dx, de) :: (accShs, eShs)
+    -> HVector ranked  -- ^ acc0 :: accShs
+    -> HVector ranked  -- ^es :: k ': eShs
+    -> HVectorOf ranked  -- ^ (x, ys) :: (accShs, k ': bShs)
   rmapAccumR
     :: forall rn n. (GoodScalar rn, KnownNat n)
     => VoidHVector

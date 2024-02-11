@@ -462,6 +462,20 @@ type role DeltaH nominal
 data DeltaH :: RankedTensorType -> Type where
   LetH :: NodeId ranked -> DeltaH ranked -> DeltaH ranked
   HToH :: HVector (DeltaR ranked) -> DeltaH ranked
+  MapAccumR
+    :: SNat k
+    -> VoidHVector
+    -> VoidHVector
+    -> VoidHVector
+    -> HVector ranked
+    -> HVector ranked
+    -> (forall f. ADReady f
+        => HVector f -> HVector f -> HVector f -> HVector f -> HVectorOf f)
+    -> (forall f. ADReady f
+        => HVector f -> HVector f -> HVector f -> HVector f -> HVectorOf f)
+    -> HVector (DeltaR ranked)
+    -> HVector (DeltaR ranked)
+    -> DeltaH ranked
   MapAccumRR
     :: forall rn n ranked. (KnownNat n, GoodScalar rn)
     => VoidHVector
@@ -583,6 +597,8 @@ shapeDeltaH = \case
   LetH _ d -> shapeDeltaH d
   HToH v ->
     V.map (\d -> voidFromDynamicF (shapeToList . shapeDeltaR) d) v
+  MapAccumR (SNat @k) accShs bShs _eShs _q _es _df _rf _acc0' _es' ->
+    accShs V.++ replicate1VoidHVector (Proxy @k) bShs
   MapAccumRR @rn domB _q as _df _rf _domsOD x0' _as' ->
     let width = case V.unsnoc as of
           Nothing -> error "shapeDeltaH: can't determine argument width"
@@ -1362,6 +1378,33 @@ evalH !s !c = let (abShared, cShared) =
           s { hnMap = EM.insert n d $ hnMap s
             , hdMap = EM.insert n c $ hdMap s }
   HToH v -> evalHVector s c v
+  MapAccumR k accShs bShs eShs q es _df rf acc0' es' ->
+    let accLen = V.length accShs
+        hvToPair :: HVector f -> (HVector f, HVector f)
+        hvToPair hv = (V.take accLen hv, V.drop accLen hv)
+        bLen = V.length bShs
+        hvTo3 :: HVector f -> (HVector f, HVector f, HVector f)
+        hvTo3 hv = ( V.take bLen hv
+                   , V.slice bLen accLen hv
+                   , V.drop (bLen + accLen) hv )
+        (c0, crest) = hvToPair cShared
+        rdxdesUnshared =
+          dmapAccumR k accShs eShs (accShs V.++ bShs)
+                     (\dx dy_acc_e ->
+                        let (dy, acc, e) = hvTo3 dy_acc_e
+                        in rf dx dy acc e)
+                     c0
+                     (V.concat
+                        [ mapHVectorRanked11 rreverse crest
+                        , mapHVectorRanked11 rreverse q
+                        , mapHVectorRanked11 rreverse es ])
+        (abShared2, rdxdes) =
+          dregister (accShs V.++ voidFromHVector es)
+                    rdxdesUnshared (astBindings sShared)
+        s2 = sShared {astBindings = abShared2}
+        (cacc0, rces) = hvToPair rdxdes
+        s3 = evalHVector s2 cacc0 acc0'
+    in evalHVector s3 (mapHVectorRanked11 rreverse rces) es'
   MapAccumRR @r @n domB q as _df rf domsOD x0' as' ->
     let width = case V.unsnoc as of
           Nothing -> error "evalH: can't determine argument width"
@@ -1378,7 +1421,7 @@ evalH !s !c = let (abShared, cShared) =
         domsTo3 :: ADReady f => HVector f -> (HVector f, f r n, HVector f)
         domsTo3 doms = ( V.take bLen doms
                        , rfromD $ doms V.! bLen
-                       , V.drop (bLen + 1) doms)
+                       , V.drop (bLen + 1) doms )
         (c0, crest) = domsToPair cShared
         rg :: ranked r n -> HVector ranked -> HVectorOf ranked
         rg = rmapAccumR domsOD
@@ -1409,7 +1452,7 @@ evalH !s !c = let (abShared, cShared) =
                 -> (HVector (RankedOf f), f r sh1, HVector (RankedOf f))
         domsTo3 doms = ( V.take bLen doms
                        , sfromD $ doms V.! bLen
-                       , V.drop (bLen + 1) doms)
+                       , V.drop (bLen + 1) doms )
         (c0, crest) = domsToPair cShared
         rg :: shaped r sh1 -> HVector ranked -> HVectorOf ranked
         rg = smapAccumR (Proxy @k)
@@ -2018,6 +2061,21 @@ fwdH dimR params s = \case
                     , hdMap = EM.insert n cShared (hdMap s3) }
         in (s4, dmkHVector cShared)
   HToH v -> second dmkHVector $ fwdHVector dimR params s v
+  MapAccumR k accShs bShs eShs q es df _rf acc0' es' ->
+    let (s2, cacc0) = fwdHVector dimR params s acc0'
+        (s3, ces) = fwdHVector dimR params s2 es'
+        eLen = V.length eShs
+        accLen = V.length accShs
+        hvTo3 :: HVector f -> (HVector f, HVector f, HVector f)
+        hvTo3 hv = ( V.take eLen hv
+                   , V.slice eLen accLen hv
+                   , V.drop (eLen + accLen) hv )
+    in (s3, dmapAccumR k accShs bShs (eShs V.++ accShs V.++ eShs)
+                       (\dacc de_acc_e ->
+                          let (de, acc, e) = hvTo3 de_acc_e
+                          in df dacc de acc e)
+                       cacc0
+                       (V.concat [ces, q, es]))
   MapAccumRR @r @n domB q as df _rf domsOD x0' as' ->
     let domsLen = V.length domsOD
         shn = shapeDeltaR x0'
