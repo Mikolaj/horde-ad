@@ -209,14 +209,12 @@ voidFromDynamicF _ (DynamicShaped @r2 @sh2 _) =
 voidFromDynamicF _ (DynamicRankedDummy p1 p2) = DynamicRankedDummy p1 p2
 voidFromDynamicF _ (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
 
-replicate1VoidHVector :: forall k. KnownNat k
-                      => Proxy k -> VoidHVector -> VoidHVector
-replicate1VoidHVector i u = V.map (replicate1VoidTensor i) u
+replicate1VoidHVector :: SNat k -> VoidHVector -> VoidHVector
+replicate1VoidHVector k u = V.map (replicate1VoidTensor k) u
 
-replicate1VoidTensor :: forall k. KnownNat k
-                     => Proxy k -> DynamicTensor VoidTensor
+replicate1VoidTensor :: SNat k -> DynamicTensor VoidTensor
                      -> DynamicTensor VoidTensor
-replicate1VoidTensor _i u = case u of
+replicate1VoidTensor (SNat @k) u = case u of
   DynamicRankedDummy @r @sh p1 _ -> DynamicRankedDummy @r @(k ': sh) p1 Proxy
   DynamicShapedDummy @r @sh p1 _ -> DynamicShapedDummy @r @(k ': sh) p1 Proxy
 

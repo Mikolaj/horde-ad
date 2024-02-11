@@ -45,13 +45,13 @@ import           HordeAd.Core.AstPrettyPrint
 import           HordeAd.Core.AstSimplify
 import           HordeAd.Core.AstTools
 import           HordeAd.Core.HVector
+import           HordeAd.Core.HVectorOps
 import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances
   (MapSucc, trustMeThisIsAPermutation)
 import           HordeAd.Util.ShapedList (ShapedList (..))
 import           HordeAd.Util.SizedIndex
 import           HordeAd.Util.SizedList
-import           HordeAd.Core.HVectorOps
 
 -- * Vectorization of AstRanked
 
@@ -958,7 +958,7 @@ build1VOccurenceUnknownHVector k (var, v0) =
             (domsOut, varDt22Out) = substProjVarsHVector @k var varDt2 doms
             (domsOut2, mvars2Out) = substProjVarsHVector @k var mvars2 domsOut
         in astTrAstHVectorTail
-           $ Ast.AstMapAccumRDerR (replicate1VoidHVector (Proxy @k) domB)
+           $ Ast.AstMapAccumRDerR (replicate1VoidHVector (SNat @k) domB)
              ( AstVarName $ varNameToAstVarId nvar
              , mvarsOut
              , build1VOccurenceUnknownAstHVectorRefresh
@@ -999,7 +999,7 @@ build1VOccurenceUnknownHVector k (var, v0) =
             (domsOut, varDt22Out) = substProjVarsHVector @k var varDt2 doms
             (domsOut2, mvars2Out) = substProjVarsHVector @k var mvars2 domsOut
         in astTrAstHVectorTail
-           $ Ast.AstMapAccumRDerS @k5 (replicate1VoidHVector (Proxy @k) domB)
+           $ Ast.AstMapAccumRDerS @k5 (replicate1VoidHVector (SNat @k) domB)
              ( AstVarName $ varNameToAstVarId nvar
              , mvarsOut
              , build1VOccurenceUnknownAstHVectorRefresh

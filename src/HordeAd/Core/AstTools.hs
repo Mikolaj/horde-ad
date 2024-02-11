@@ -132,10 +132,8 @@ shapeAstHVector = \case
   AstLetHVectorInHVector _ _ v -> shapeAstHVector v
   AstLetInHVector _ _ v -> shapeAstHVector v
   AstLetInHVectorS _ _ v -> shapeAstHVector v
-  AstBuildHVector1 k (_, v) -> case someNatVal $ toInteger k of
-    Just (SomeNat @k _) ->
-      replicate1VoidHVector (Proxy @k) $ shapeAstHVector v
-    _ -> error "dshape: impossible someNatVal"
+  AstBuildHVector1 k (_, v) -> withSNat k $ \ snatK ->
+    replicate1VoidHVector snatK $ shapeAstHVector v
   AstRev (vars, _) _ -> voidFromVars vars
   AstRevDt (vars, _) _ _ -> voidFromVars vars
   AstRevS (vars, _) _ -> voidFromVars vars
@@ -150,7 +148,7 @@ shapeAstHVector = \case
       Just (SomeNat @k _) ->
         let shn = shapeAst x0
             odShn = voidFromSh @rn shn
-        in V.cons odShn (replicate1VoidHVector (Proxy @k) domB)
+        in V.cons odShn (replicate1VoidHVector (SNat @k) domB)
       _ -> error "dshape: impossible someNatVal"
   AstMapAccumRDerR @rn domB _f _df _rf x0 asD ->
     let width = case V.unsnoc asD of
@@ -162,14 +160,14 @@ shapeAstHVector = \case
       Just (SomeNat @k _) ->
         let shn = shapeAst x0
             odShn = voidFromSh @rn shn
-        in V.cons odShn (replicate1VoidHVector (Proxy @k) domB)
+        in V.cons odShn (replicate1VoidHVector (SNat @k) domB)
       _ -> error "dshape: impossible someNatVal"
   AstMapAccumRS @k @rn @sh domB _f _x0 _asD ->
     let odShn = voidFromShS @rn @sh
-    in V.cons odShn (replicate1VoidHVector (Proxy @k) domB)
+    in V.cons odShn (replicate1VoidHVector (SNat @k) domB)
   AstMapAccumRDerS @k @rn @sh domB _f _df _rf _x0 _asD ->
     let odShn = voidFromShS @rn @sh
-    in V.cons odShn (replicate1VoidHVector (Proxy @k) domB)
+    in V.cons odShn (replicate1VoidHVector (SNat @k) domB)
 
 
 -- * Variable occurrence detection

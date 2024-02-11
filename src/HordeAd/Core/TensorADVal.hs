@@ -502,11 +502,11 @@ instance ADReadyBoth ranked shaped
             w : _shm -> w
     in case someNatVal $ toInteger width of
       Just (SomeNat @k _) ->
-        assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD)
+        assert (voidHVectorMatches (replicate1VoidHVector (SNat @k) domsOD)
                                    asD) $
         let (l3, as) =
               dsharePrimal @ranked
-                           (replicate1VoidHVector (Proxy @k) domsOD)
+                           (replicate1VoidHVector (SNat @k) domsOD)
                            (dmkHVector asUnshared)
                            (flattenADShare $ l1 : V.toList ll2)
             p :: ranked rn (1 + n)
@@ -608,11 +608,11 @@ instance ADReadyBoth ranked shaped
             w : _shm -> w
     in case someNatVal $ toInteger width of
       Just (SomeNat @k _) ->
-        assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD)
+        assert (voidHVectorMatches (replicate1VoidHVector (SNat @k) domsOD)
                                    asD) $
         let (l3, as) =
               dsharePrimal @ranked
-                           (replicate1VoidHVector (Proxy @k) domsOD)
+                           (replicate1VoidHVector (SNat @k) domsOD)
                            (dmkHVector asUnshared)
                            (flattenADShare $ l1 : V.toList ll2)
             p :: ranked rn (1 + n)
@@ -719,11 +719,11 @@ instance ADReadyBoth ranked shaped
             w : _shm -> w
     in case someNatVal $ toInteger width of
       Just (SomeNat @k _) ->
-        assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD)
+        assert (voidHVectorMatches (replicate1VoidHVector (SNat @k) domsOD)
                                    asD) $
         let (l3, as) =
               dsharePrimal @ranked
-                           (replicate1VoidHVector (Proxy @k) domsOD)
+                           (replicate1VoidHVector (SNat @k) domsOD)
                            (dmkHVector asUnshared)
                            (flattenADShare $ l1 : V.toList ll2)
             p :: shaped rn (1 + k ': sh)
@@ -821,11 +821,11 @@ instance ADReadyBoth ranked shaped
             -> HVector (ADVal ranked)
             -> ADVal shaped rn (1 + k ': sh)
   sscanZipDer f df rf domsOD (D l1 x0 x0') asD =
-    assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD) asD) $
+    assert (voidHVectorMatches (replicate1VoidHVector (SNat @k) domsOD) asD) $
     let (ll2, asUnshared, as') = unADValHVector asD
         (l3, as) =
           dsharePrimal @ranked
-                       (replicate1VoidHVector (Proxy @k) domsOD)
+                       (replicate1VoidHVector (SNat @k) domsOD)
                        (dmkHVector asUnshared)
                        (flattenADShare $ l1 : V.toList ll2)
         p :: shaped rn (1 + k ': sh)
@@ -881,14 +881,14 @@ instance ADReadyBoth ranked shaped
     -> HVector (ADVal ranked)
     -> HVector (ADVal ranked)
     -> HVectorOf (ADVal ranked)
-  dmapAccumRDer k@SNat accShs bShs eShs f df rf acc0D esD =
-    assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) eShs) esD
+  dmapAccumRDer k accShs bShs eShs f df rf acc0D esD =
+    assert (voidHVectorMatches (replicate1VoidHVector k eShs) esD
             && voidHVectorMatches accShs acc0D) $
     let (ll2, acc0, acc0') = unADValHVector acc0D
         (ll3, esUnshared, es') = unADValHVector esD
         (l4, es) =
           dsharePrimal @ranked
-                       (replicate1VoidHVector (Proxy @k) eShs)
+                       (replicate1VoidHVector k eShs)
                        (dmkHVector esUnshared)
                        (flattenADShare $ V.toList ll2 ++ V.toList ll3)
         codomainShs = accShs V.++ bShs
@@ -901,7 +901,7 @@ instance ADReadyBoth ranked shaped
           in dmkHVector $ V.concat [accRes, accRes, esRes]
         pUnshared :: HVectorOf ranked
         pUnshared = dmapAccumR k accShs codomainShs eShs g acc0 es
-        pShs = accShs V.++ replicate1VoidHVector (Proxy @k) codomainShs
+        pShs = accShs V.++ replicate1VoidHVector k codomainShs
         (l5, pShared) = dsharePrimal @ranked pShs pUnshared l4
         accFin = V.take accLen pShared
         q = V.slice accLen accLen pShared
@@ -985,11 +985,11 @@ instance ADReadyBoth ranked shaped
             w : _shm -> w
     in case someNatVal $ toInteger width of
       Just (SomeNat @k _) ->
-        assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD)
+        assert (voidHVectorMatches (replicate1VoidHVector (SNat @k) domsOD)
                                    asD) $
         let (l3, as) =
               dsharePrimal @ranked
-                           (replicate1VoidHVector (Proxy @k) domsOD)
+                           (replicate1VoidHVector (SNat @k) domsOD)
                            (dmkHVector asUnshared)
                            (flattenADShare $ l1 : V.toList ll2)
             shn = rshape x0
@@ -1004,7 +1004,7 @@ instance ADReadyBoth ranked shaped
             p = rmapAccumR domsG f3 domsOD x0 as
             odShnK = voidFromSh @rn (width :$ shn)
             domsF3 = V.cons odShn $ V.cons odShnK
-                     $ replicate1VoidHVector (Proxy @k) domB
+                     $ replicate1VoidHVector (SNat @k) domB
             (l4, pShared) = dsharePrimal @ranked domsF3 p l3
             xFin = pShared V.! 0
             q = rfromD $ pShared V.! 1
@@ -1083,11 +1083,11 @@ instance ADReadyBoth ranked shaped
     -> HVector (ADVal ranked)
     -> HVectorOf (ADVal ranked)
   smapAccumRDer proxy_k domB f df rf domsOD (D l1 x0 x0') asD =
-    assert (voidHVectorMatches (replicate1VoidHVector proxy_k domsOD) asD) $
+    assert (voidHVectorMatches (replicate1VoidHVector (SNat @k) domsOD) asD) $
     let (ll2, asUnshared, as') = unADValHVector asD
         (l3, as) =
           dsharePrimal @ranked
-                       (replicate1VoidHVector proxy_k domsOD)
+                       (replicate1VoidHVector (SNat @k) domsOD)
                        (dmkHVector asUnshared)
                        (flattenADShare $ l1 : V.toList ll2)
         odShn = voidFromShS @rn @sh
@@ -1102,7 +1102,7 @@ instance ADReadyBoth ranked shaped
         p = smapAccumR proxy_k domsG f3 domsOD x0 as
         odShnK = voidFromShS @rn @(k ': sh)
         domsF3 = V.cons odShn $ V.cons odShnK
-                 $ replicate1VoidHVector proxy_k domB
+                 $ replicate1VoidHVector (SNat @k) domB
         (l4, pShared) = dsharePrimal @ranked domsF3 p l3
         xFin = pShared V.! 0
         q = sfromD $ pShared V.! 1
@@ -1282,7 +1282,7 @@ instance HVectorTensor (Flip OR.Array) (Flip OS.Array) where
     -> HVector (Flip OR.Array)
     -> HVector (Flip OR.Array)
   dmapAccumR k@SNat accShs bShs _eShs f x0 as = case sNatValue k :: Int of
-    0 -> x0 V.++ replicate1HVector (Proxy @k) (V.map dynamicFromVoid bShs)
+    0 -> x0 V.++ replicate1HVector k (V.map dynamicFromVoid bShs)
     _ -> let accLen = V.length accShs
              hvToPair :: forall f. HVector f -> (HVector f, HVector f)
              hvToPair hv = (V.take accLen hv, V.drop accLen hv)
@@ -1312,7 +1312,7 @@ instance HVectorTensor (Flip OR.Array) (Flip OS.Array) where
       Just (SomeNat @k _) -> case width of
         0 ->
           V.cons (DynamicRanked x0)
-                 (replicate1HVector (Proxy @k) (V.map dynamicFromVoid domB))
+                 (replicate1HVector (SNat @k) (V.map dynamicFromVoid domB))
         _ ->
           let domsToPair :: forall f. ADReady f
                          => HVector f -> (f rn n, HVector f)
@@ -1339,7 +1339,7 @@ instance HVectorTensor (Flip OR.Array) (Flip OS.Array) where
     case sameNat proxy_k (Proxy @0) of
       Just Refl ->
         V.cons (DynamicShaped x0)
-               (replicate1HVector proxy_k (V.map dynamicFromVoid domB))
+               (replicate1HVector (SNat @k) (V.map dynamicFromVoid domB))
       _ ->
         let domsToPair :: forall f. ADReadyS f
                        => HVector (RankedOf f)

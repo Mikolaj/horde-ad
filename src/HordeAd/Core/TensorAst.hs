@@ -818,7 +818,7 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
       [] -> error "rfoldZip: wrong rank of argument"
       width : _shm -> case someNatVal $ toInteger width of
         Just (SomeNat @k _) ->
-          assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD)
+          assert (voidHVectorMatches (replicate1VoidHVector (SNat @k) domsOD)
                                      asD) $
           let shn = rshape x0
               domsF = V.cons (voidFromSh @rn shn) domsOD
@@ -865,7 +865,7 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
       [] -> error "rfoldZipDer: wrong rank of argument"
       width : _shm -> case someNatVal $ toInteger width of
         Just (SomeNat @k _) ->
-          assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD)
+          assert (voidHVectorMatches (replicate1VoidHVector (SNat @k) domsOD)
                                      asD) $
           let shn = rshape x0
           in AstFoldZipDer (funToAstRH shn f domsOD)
@@ -934,7 +934,7 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
       [] -> error "rscanZip: wrong rank of argument"
       width : _shm -> case someNatVal $ toInteger width of
         Just (SomeNat @k _) ->
-          assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD)
+          assert (voidHVectorMatches (replicate1VoidHVector (SNat @k) domsOD)
                                      asD) $
           let shn = rshape x0
               domsF = V.cons (voidFromSh @rn shn) domsOD
@@ -981,7 +981,7 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
       [] -> error "rscanZipDer: wrong rank of argument"
       width : _shm -> case someNatVal $ toInteger width of
         Just (SomeNat @k _) ->
-          assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD)
+          assert (voidHVectorMatches (replicate1VoidHVector (SNat @k) domsOD)
                                      asD) $
           let shn = rshape x0
           in AstScanZipDer (funToAstRH shn f domsOD)
@@ -1043,7 +1043,7 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
       [] -> error "sfoldZip: wrong rank of argument"
       width : _shm -> case someNatVal $ toInteger width of
         Just (SomeNat @k _) ->
-          assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD)
+          assert (voidHVectorMatches (replicate1VoidHVector (SNat @k) domsOD)
                                      asD) $
           let domsF = V.cons (voidFromShS @rn @sh) domsOD
               domsToPair :: forall f. ADReadyS f
@@ -1092,7 +1092,7 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
       [] -> error "sfoldZipDer: wrong rank of argument"
       width : _shm -> case someNatVal $ toInteger width of
         Just (SomeNat @k _) ->
-          assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD)
+          assert (voidHVectorMatches (replicate1VoidHVector (SNat @k) domsOD)
                                      asD) $
           AstFoldZipDerS (funToAstSH @_ @_ @sh f domsOD)
                          (funToAstSHSH @_ @_ @sh df domsOD)
@@ -1151,7 +1151,7 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
          -> HVector (AstRanked s)
          -> AstShaped s rn (1 + k ': sh)
   sscanZip f domsOD x0 asD =
-    assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD) asD) $
+    assert (voidHVectorMatches (replicate1VoidHVector (SNat @k) domsOD) asD) $
     let domsF = V.cons (voidFromShS @rn @sh) domsOD
         domsToPair :: forall f. ADReadyS f
                    => HVector (RankedOf f)
@@ -1192,7 +1192,7 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
             -> HVector (AstRanked s)
             -> AstShaped s rn (1 + k ': sh)
   sscanZipDer f df rf domsOD x0 asD =
-    assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD) asD) $
+    assert (voidHVectorMatches (replicate1VoidHVector (SNat @k) domsOD) asD) $
     AstScanZipDerS (funToAstSH @_ @_ @sh f domsOD)
                    (funToAstSHSH @_ @_ @sh df domsOD)
                    (funToAstSSH @_ @_ @sh rf domsOD) x0 asD
@@ -1213,7 +1213,7 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
             width2 : _shm -> width2
     in case someNatVal $ toInteger width of
       Just (SomeNat @k _) ->
-        assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD)
+        assert (voidHVectorMatches (replicate1VoidHVector (SNat @k) domsOD)
                                    asD) $
         let shn = rshape x0
             domsF = V.cons (voidFromSh @rn shn) domsOD
@@ -1274,7 +1274,7 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
             width2 : _shm -> width2
     in case someNatVal $ toInteger width of
       Just (SomeNat @k _) ->
-        assert (voidHVectorMatches (replicate1VoidHVector (Proxy @k) domsOD)
+        assert (voidHVectorMatches (replicate1VoidHVector (SNat @k) domsOD)
                                    asD) $
         let shn = rshape x0
         in AstMapAccumRDerR domB
@@ -1292,8 +1292,8 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     -> AstShaped s rn sh
     -> HVector (AstRanked s)
     -> AstHVector s
-  smapAccumR proxy_k domB f domsOD x0 asD =
-    assert (voidHVectorMatches (replicate1VoidHVector proxy_k domsOD) asD) $
+  smapAccumR _proxy_k domB f domsOD x0 asD =
+    assert (voidHVectorMatches (replicate1VoidHVector (SNat @k) domsOD) asD) $
     let domsF = V.cons (voidFromShS @rn @sh) domsOD
         domsToPair :: forall f. ADReadyS f
                    => HVector (RankedOf f)
@@ -1345,8 +1345,8 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     -> AstShaped s rn sh
     -> HVector (AstRanked s)
     -> AstHVector s
-  smapAccumRDer proxy_k domB f df rf domsOD x0 asD =
-    assert (voidHVectorMatches (replicate1VoidHVector proxy_k domsOD) asD) $
+  smapAccumRDer _proxy_k domB f df rf domsOD x0 asD =
+    assert (voidHVectorMatches (replicate1VoidHVector (SNat @k) domsOD) asD) $
     AstMapAccumRDerS @k domB
                      (funToAstSH @_ @_ @sh f domsOD)
                      (funToAstSHSH @_ @_ @sh df domsOD)

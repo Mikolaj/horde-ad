@@ -696,18 +696,14 @@ index1Dynamic u i = case u of
     ZSH -> error "index1Dynamic: rank 0"
     (:$:) @_ @sh2 _ _ -> DynamicShapedDummy @r @sh2 p1 Proxy
 
-replicate1HVector :: forall k ranked.
-                     ( KnownNat k
-                     , RankedTensor ranked, ShapedTensor (ShapedOf ranked) )
-                  => Proxy k -> HVector ranked -> HVector ranked
-replicate1HVector i u = V.map (replicate1Dynamic i) u
+replicate1HVector :: (RankedTensor ranked, ShapedTensor (ShapedOf ranked))
+                  => SNat k -> HVector ranked -> HVector ranked
+replicate1HVector k u = V.map (replicate1Dynamic k) u
 
-replicate1Dynamic :: forall k ranked.
-                     ( KnownNat k
-                     , RankedTensor ranked, ShapedTensor (ShapedOf ranked) )
-                  => Proxy k -> DynamicTensor ranked -> DynamicTensor ranked
-replicate1Dynamic _i u = case u of
-  DynamicRanked t -> DynamicRanked $ rreplicate (valueOf @k) t
+replicate1Dynamic :: (RankedTensor ranked, ShapedTensor (ShapedOf ranked))
+                  => SNat k -> DynamicTensor ranked -> DynamicTensor ranked
+replicate1Dynamic k@(SNat @k) u = case u of
+  DynamicRanked t -> DynamicRanked $ rreplicate (sNatValue k) t
   DynamicShaped t -> DynamicShaped $ sreplicate @_ @k t
   DynamicRankedDummy @r @sh p1 _ -> DynamicRankedDummy @r @(k ': sh) p1 Proxy
   DynamicShapedDummy @r @sh p1 _ -> DynamicShapedDummy @r @(k ': sh) p1 Proxy

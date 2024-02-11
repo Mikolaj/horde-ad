@@ -597,8 +597,8 @@ shapeDeltaH = \case
   LetH _ d -> shapeDeltaH d
   HToH v ->
     V.map (\d -> voidFromDynamicF (shapeToList . shapeDeltaR) d) v
-  MapAccumR (SNat @k) accShs bShs _eShs _q _es _df _rf _acc0' _es' ->
-    accShs V.++ replicate1VoidHVector (Proxy @k) bShs
+  MapAccumR k accShs bShs _eShs _q _es _df _rf _acc0' _es' ->
+    accShs V.++ replicate1VoidHVector k bShs
   MapAccumRR @rn domB _q as _df _rf _domsOD x0' _as' ->
     let width = case V.unsnoc as of
           Nothing -> error "shapeDeltaH: can't determine argument width"
@@ -608,10 +608,10 @@ shapeDeltaH = \case
         shn = shapeDeltaR x0'
     in case someNatVal $ toInteger width of
       Just (SomeNat @k _) ->
-        V.cons (voidFromSh @rn shn) (replicate1VoidHVector (Proxy @k) domB)
+        V.cons (voidFromSh @rn shn) (replicate1VoidHVector (SNat @k) domB)
       _ -> error "shapeDeltaH: impossible someNatVal"
   MapAccumRS @k @rn @sh domB _q _as _df _rf _domsOD _x0' _as' ->
-    V.cons (voidFromShS @rn @sh) (replicate1VoidHVector (Proxy @k) domB)
+    V.cons (voidFromShS @rn @sh) (replicate1VoidHVector (SNat @k) domB)
 
 -- * Delta expression identifiers
 
