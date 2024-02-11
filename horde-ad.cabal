@@ -143,11 +143,11 @@ library horde-ad-simplified
                       HordeAd.Core.AstTools
                       HordeAd.Core.AstVectorize
                       HordeAd.Core.Delta
-                      HordeAd.Core.DualClass
                       HordeAd.Core.DualNumber
                       HordeAd.Core.Engine
                       HordeAd.Core.HVector
                       HordeAd.Core.HVectorOps
+                      HordeAd.Core.IsPrimal
                       HordeAd.Core.TensorADVal
                       HordeAd.Core.TensorAst
                       HordeAd.Core.TensorClass

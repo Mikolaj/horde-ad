@@ -2,9 +2,7 @@
              UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
--- | Dual numbers and arithmetic operations on them. This is a part of
--- the mid-level API of the horde-ad library, together with
--- the safely impure "HordeAd.Core.DualClass".
+-- | Dual numbers and arithmetic operations on them.
 module HordeAd.Core.DualNumber
   ( -- * The main dual number type
     ADVal, dD, pattern D, dDnotShared, constantADVal
@@ -39,8 +37,8 @@ import HordeAd.Core.Adaptor
 import HordeAd.Core.Ast
 import HordeAd.Core.AstEnv
 import HordeAd.Core.Delta
-import HordeAd.Core.DualClass
 import HordeAd.Core.HVector
+import HordeAd.Core.IsPrimal
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.Internal.OrthotopeOrphanInstances (sameShape)

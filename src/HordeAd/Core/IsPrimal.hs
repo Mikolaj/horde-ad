@@ -1,13 +1,11 @@
--- | The classe generalizing the most basic delta expression
--- of the ranked and shaped kind.
--- This is a mid-level API ("HordeAd.Core.Delta" is low level)
--- used to define types and operations in "HordeAd.Core.DualNumber"
--- that is the foundation of the high-level API.
--- WIthout this module, all dual number definitions for arithmetic
--- operations would need to be duplicated, one copy with ranked types
--- and another with shaped types.
+-- | The class relating the primal datatype to its dual counterpart
+-- and the instances of the class for all kinds it's going to be use at
+-- (@Nat@ and @[Nat]@). This class abstract over some of the operations
+-- involving primal and dual components of dual numbers, most importantly
+-- the @Let@ operations for sharing delta expressions, regardless
+-- of the typing of the tensors being used (ranked vs shaped).
 --
--- This module also contains and rather safely encapsulates impure side-effects.
+-- This module uses and rather safely encapsulates impure side-effects.
 -- The impurity produces pure data with a particular property.
 -- The property is an order of per-node integer identifiers that represents
 -- data dependencies and sharing between delta expressions. The low-level API
@@ -16,15 +14,9 @@
 -- any impure behaviour. Neither can any other module in the package,
 -- except for the testing modules that import testing-exclusive class instances
 -- and operations for reading or reseting the impure counter.
---
--- @Show@ is such a testing-only class instance and so should be used
--- only in debugging or testing. Similarly, instances such as @Eq@
--- or @Read@ should not be auto-derived, but carefully crafted to respect
--- sharing. This applies regardless of impurity, because repeated processing
--- of the same shared terms is prohibitively expensive.
-module HordeAd.Core.DualClass
+module HordeAd.Core.IsPrimal
   ( IsPrimal(..)
-  , unsafeGetFreshId, resetIdCounter, wrapDeltaR, wrapDeltaS, wrapDeltaH
+  , unsafeGetFreshId, resetIdCounter, wrapDeltaH
   ) where
 
 import Prelude
@@ -133,8 +125,7 @@ unsafeGlobalCounter :: Counter
 {-# NOINLINE unsafeGlobalCounter #-}
 unsafeGlobalCounter = unsafePerformIO (newCounter 100000001)
 
--- | Do not use; this is exposed only for special low level tests,
--- similarly as the @Show@ instance.
+-- | Do not use; this is exposed only for special low level tests.
 --
 -- This is the only operation directly touching the single impure counter
 -- that holds fresh and continuously incremented integer identifiers,

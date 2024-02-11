@@ -4,8 +4,8 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 -- | Tensor class instances for dual numbers. Most of the definitions
 -- are generic over whether the dual numbers are built from concrete arrays
--- of floats or from AST terms. However, since we are not using
--- a middle layer such as "DualClass", separate instances are given
+-- of floats or from AST terms. However, here we do not abstract over
+-- the typing of tensors and so we give separate instances
 -- for ranked tensors and shaped tensors.
 module HordeAd.Core.TensorADVal
   ( dDHVector, aDValHVector, aDValDynamicTensor
@@ -42,10 +42,10 @@ import           Unsafe.Coerce (unsafeCoerce)
 import           HordeAd.Core.Adaptor
 import           HordeAd.Core.Ast
 import           HordeAd.Core.Delta
-import           HordeAd.Core.DualClass
 import           HordeAd.Core.DualNumber
 import           HordeAd.Core.HVector
 import           HordeAd.Core.HVectorOps
+import           HordeAd.Core.IsPrimal
 import           HordeAd.Core.TensorClass
 import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances

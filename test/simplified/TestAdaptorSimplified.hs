@@ -23,7 +23,7 @@ import           Test.Tasty.HUnit hiding (assert)
 import HordeAd
 import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId (funToAstR, funToAstS, resetVarCounter)
-import HordeAd.Core.DualClass (resetIdCounter)
+import HordeAd.Core.IsPrimal (resetIdCounter)
 
 import CrossTesting
 import EqEpsilon
@@ -1115,7 +1115,7 @@ testReluMax3 = do
 
 testDot1PP :: Assertion
 testDot1PP = do
-  resetVarCounter >> resetIdCounter
+  resetVarCounter
   let renames = IM.empty
       (artifactRev, _) =
         revArtifactAdapt True (uncurry (rdot0 @(AstRanked FullSpan) @Double @1))
@@ -1128,7 +1128,7 @@ testDot1PP = do
 
 testDot2PP :: Assertion
 testDot2PP = do
-  resetVarCounter
+  resetVarCounter >> resetIdCounter
   let renames = IM.empty
       (artifactRev, deltas) =
         revArtifactAdapt True (uncurry (rdot0 @(AstRanked FullSpan) @Double @2))
@@ -1143,7 +1143,7 @@ testDot2PP = do
   printPrimal6Pretty renames (simplifyArtifactRev artifactRev)
     @?= "\\m1 m2 -> rsum (rreshape [6] (m1 * m2))"
   show deltas
-    @?= "LetR 100000002 (AddR (Dot0R (AstVar [2,3] (AstVarId 100000002)) (InputR [2,3] (InputId 0))) (Dot0R (AstVar [2,3] (AstVarId 100000001)) (InputR [2,3] (InputId 1))))"
+    @?= "LetR 100000001 (AddR (Dot0R (AstVar [2,3] (AstVarId 100000002)) (InputR [2,3] (InputId 0))) (Dot0R (AstVar [2,3] (AstVarId 100000001)) (InputR [2,3] (InputId 1))))"
 
 testMatvecmulPP :: Assertion
 testMatvecmulPP = do
