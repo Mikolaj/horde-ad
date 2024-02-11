@@ -1,5 +1,4 @@
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
-{-# OPTIONS_GHC -Wno-orphans #-}
 -- | Parsing and pre-processing MNIST data.
 module MnistData where
 

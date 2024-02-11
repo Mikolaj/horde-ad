@@ -1,6 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
-{-# OPTIONS_GHC -Wno-orphans #-}
 -- {-# OPTIONS_GHC -ddump-stranal #-}
 -- | A contrived benchmark: a product of a list of scalars.
 module BenchProdTools where

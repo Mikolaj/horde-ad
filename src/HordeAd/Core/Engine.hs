@@ -1,4 +1,3 @@
-{-# OPTIONS_GHC -Wno-orphans #-}
 -- | The implementation of reverse derivative and (forward) derivative
 -- calculation for an objective function on values of complicated
 -- types (e.g., with tuple domains) expressed using the tensor classes.

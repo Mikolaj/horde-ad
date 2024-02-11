@@ -39,7 +39,7 @@ import HordeAd.Core.Adaptor
 import HordeAd.Core.Ast
 import HordeAd.Core.AstEnv
 import HordeAd.Core.Delta
-import HordeAd.Core.DualClass ()
+import HordeAd.Core.DualClass
 import HordeAd.Core.HVector
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types

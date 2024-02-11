@@ -14,7 +14,7 @@ module HordeAd.Core.TensorClass
     -- * The tensor classes
   , RankedTensor(..), ShapedTensor(..), HVectorTensor(..)
     -- * The related classes and constraints
-  , DualPart(..), IsPrimal(..), UnletGradient (..)
+  , UnletGradient (..)
   , ADReady, ADReadyBoth, ADReadyR, ADReadyS
   , CRankedIP, CRankedIPSh
   ) where
@@ -991,35 +991,6 @@ class HVectorTensor (ranked :: RankedTensorType)
 
 -- * The giga-constraint
 
-type DualPart :: TensorType ty -> Constraint
-class DualPart (f :: TensorType ty) where
-  -- | The type family that to each basic differentiable type
-  -- assigns its delta expression type.
-  type Dual f = (result :: TensorType ty) | result -> f
-  reverseDervative
-    :: (HasSingletonDict y, GoodScalar r)
-    => VoidHVector -> f r y -> Maybe (f r y) -> Dual f r y
-    -> (AstBindingsD (RankedOf f), HVector (RankedOf f))
-  forwardDerivative
-    :: (HasSingletonDict y, GoodScalar r)
-    => Int -> Dual f r y -> HVector (RankedOf f)
-    -> (AstBindingsD (RankedOf f), f r y)
-
--- | The class states that @f r z@ type is the primal component
--- of a dual number as exeplified by the operations.
---
--- The OfShape hacks are needed to recover shape from ranked tensors,
--- in particular in case of numeric literals and also for forward derivative.
-
-type IsPrimal :: TensorType ty -> Type -> ty -> Constraint
-class IsPrimal f r z where
-  dZeroOfShape :: f r z -> Dual f r z
-  dScale :: f r z -> Dual f r z -> Dual f r z
-  dAdd :: Dual f r z -> Dual f r z -> Dual f r z
-  intOfShape :: f r z -> Int -> f r z
-  sharePrimal :: f r z -> ADShare -> (ADShare, f r z)
-  shareDual :: Dual f r z -> Dual f r z
-
 -- TODO: this is an ad-hoc class with an ad-hoc name
 type UnletGradient :: TensorType ty -> Constraint
 class UnletGradient g where
@@ -1068,7 +1039,6 @@ type ADReadySmall ranked shaped =
   , CShaped shaped Show, CShaped (PrimalOf shaped) Show
   , UnletGradient ranked, UnletGradient shaped
   , UnletGradient (HVectorPseudoTensor ranked)
-  , CRankedIP ranked IsPrimal, CRankedIPSh shaped IsPrimal
   )
 
 type ADReadyBoth ranked shaped =

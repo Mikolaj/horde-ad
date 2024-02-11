@@ -1,4 +1,3 @@
-{-# OPTIONS_GHC -Wno-orphans #-}
 -- | The classe generalizing the most basic delta expression
 -- of the ranked and shaped kind.
 -- This is a mid-level API ("HordeAd.Core.Delta" is low level)
@@ -24,7 +23,8 @@
 -- sharing. This applies regardless of impurity, because repeated processing
 -- of the same shared terms is prohibitively expensive.
 module HordeAd.Core.DualClass
-  ( unsafeGetFreshId, resetIdCounter, wrapDeltaR, wrapDeltaS, wrapDeltaH
+  ( IsPrimal(..)
+  , unsafeGetFreshId, resetIdCounter, wrapDeltaR, wrapDeltaS, wrapDeltaH
   ) where
 
 import Prelude
@@ -33,15 +33,31 @@ import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as Sh
 import           Data.IORef.Unboxed
   (Counter, atomicAddCounter_, newCounter, writeIORefU)
+import           Data.Kind (Constraint, Type)
 import           GHC.TypeLits (KnownNat, Nat)
 import           System.IO.Unsafe (unsafePerformIO)
 
+import HordeAd.Core.Ast
 import HordeAd.Core.Delta
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.Util.SizedIndex
 
--- * Instances
+-- * The class and its instances
+
+-- | The class states that @f r z@ type is the primal component
+-- of a dual number as exeplified by the operations.
+--
+-- The OfShape hacks are needed to recover shape from ranked tensors,
+-- in particular in case of numeric literals and also for forward derivative.
+type IsPrimal :: TensorType ty -> Type -> ty -> Constraint
+class IsPrimal f r z where
+  dZeroOfShape :: f r z -> Dual f r z
+  dScale :: f r z -> Dual f r z -> Dual f r z
+  dAdd :: Dual f r z -> Dual f r z -> Dual f r z
+  intOfShape :: f r z -> Int -> f r z
+  sharePrimal :: f r z -> ADShare -> (ADShare, f r z)
+  shareDual :: Dual f r z -> Dual f r z
 
 -- | The instances are impure, because 'shareDual'
 -- adorns terms with an @Int@ identifier from a counter that is afterwards
