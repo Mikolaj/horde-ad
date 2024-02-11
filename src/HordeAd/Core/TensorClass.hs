@@ -16,7 +16,6 @@ module HordeAd.Core.TensorClass
     -- * The related classes and constraints
   , UnletGradient (..)
   , ADReady, ADReadyBoth, ADReadyR, ADReadyS
-  , CRankedIP, CRankedIPSh
   ) where
 
 import Prelude
@@ -35,7 +34,7 @@ import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality (gcastWith, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits
-  (KnownNat, Nat, OrderingI (..), cmpNat, type (+), type (-), type (<=))
+  (KnownNat, OrderingI (..), cmpNat, type (+), type (-), type (<=))
 import           Numeric.LinearAlgebra (Vector)
 import           Unsafe.Coerce (unsafeCoerce)
 
@@ -327,8 +326,7 @@ class ( Integral (IntOf ranked), CRanked ranked Num
   rScale :: (GoodScalar r, KnownNat n)
          => PrimalOf ranked r n -> DualOf ranked r n -> DualOf ranked r n
   -- TODO: we'd probably also need dZero, dIndex0 and all the others;
-  -- basically DualOf a needs to have IsPrimal and HasRanks instances
-  -- (and HasInputs?)
+  -- basically DualOf a needs to have IsPrimal instances (does it already?)
   -- TODO: if DualOf is supposed to be user-visible, we needed
   -- a better name for it; TangentOf? CotangentOf? SecondaryOf?
 
@@ -1045,22 +1043,6 @@ type ADReadyBoth ranked shaped =
   ( ADReadySmall ranked shaped
   , HVectorTensor ranked shaped
   , HVectorTensor (PrimalOf ranked) (PrimalOf shaped) )
-
-type CRankedIP :: RankedTensorType
-               -> (RankedTensorType -> Type -> Nat -> Constraint)
-               -> Constraint
-class (forall r15 y. (KnownNat y, GoodScalar r15) => c ranked r15 y)
-      => CRankedIP ranked c where
-instance (forall r15 y. (KnownNat y, GoodScalar r15) => c ranked r15 y)
-         => CRankedIP ranked c where
-
-type CRankedIPSh :: ShapedTensorType
-                 -> (ShapedTensorType -> Type -> [Nat] -> Constraint)
-                 -> Constraint
-class (forall r55 y. (GoodScalar r55, Sh.Shape y) => c shaped r55 y)
-      => CRankedIPSh shaped c where
-instance (forall r55 y. (GoodScalar r55, Sh.Shape y) => c shaped r55 y)
-         => CRankedIPSh shaped c where
 
 
 -- * Instances for concrete arrays

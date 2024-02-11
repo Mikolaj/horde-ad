@@ -108,14 +108,12 @@ instance OrdF f => OrdF (ADVal f) where
   D l1 u _ >. D l2 v _ = (l1 `mergeADShare` l2, snd $ u >. v)
   D l1 u _ >=. D l2 v _ = (l1 `mergeADShare` l2, snd $ u >=. v)
 
-indexPrimal :: ( RankedTensor ranked, IsPrimal ranked r n
-               , KnownNat m, KnownNat n, GoodScalar r )
+indexPrimal :: (RankedTensor ranked, KnownNat m, KnownNat n, GoodScalar r)
             => ADVal ranked r (m + n) -> IndexOf ranked m
             -> ADVal ranked r n
 indexPrimal (D l u u') ix = dD l (rindex u ix) (IndexR u' ix)
 
-fromList :: ( RankedTensor ranked, IsPrimal ranked r (1 + n)
-            , KnownNat n, GoodScalar r )
+fromList :: (RankedTensor ranked, KnownNat n, GoodScalar r)
          => [ADVal ranked r n]
          -> ADVal ranked r (1 + n)
 fromList lu =
@@ -124,8 +122,7 @@ fromList lu =
      (rfromList $ map (\(D _ u _) -> u) lu)
      (FromListR $ map (\(D _ _ u') -> u') lu)
 
-instance ( RankedTensor ranked, CRankedIP ranked IsPrimal
-         , IfF (RankedOf (PrimalOf ranked))
+instance ( RankedTensor ranked, IfF (RankedOf (PrimalOf ranked))
          , Boolean (SimpleBoolOf ranked)
          , SimpleBoolOf (RankedOf (PrimalOf ranked)) ~ SimpleBoolOf ranked )
          => IfF (ADVal ranked) where
@@ -134,16 +131,14 @@ instance ( RankedTensor ranked, CRankedIP ranked IsPrimal
                                 (singletonIndex $ ifF (emptyADShare, b) 0 1)
     in dDnotShared (l1 `mergeADShare` l2) u u'
 
-indexPrimalS :: ( ShapedTensor shaped, IsPrimal shaped r sh2
-                , Sh.Shape sh1, Sh.Shape sh2, Sh.Shape (sh1 Sh.++ sh2)
-                , GoodScalar r )
+indexPrimalS :: ( ShapedTensor shaped, GoodScalar r
+                , Sh.Shape sh1, Sh.Shape sh2, Sh.Shape (sh1 Sh.++ sh2) )
              => ADVal shaped r (sh1 Sh.++ sh2) -> IndexSh shaped sh1
              -> ADVal shaped r sh2
 indexPrimalS (D l u u') ix = dD l (sindex u ix) (IndexS u' ix)
 
 fromListS :: forall n sh shaped r.
-             ( ShapedTensor shaped, IsPrimal shaped r (n ': sh)
-             , KnownNat n, Sh.Shape sh, GoodScalar r )
+             ( ShapedTensor shaped, KnownNat n, Sh.Shape sh, GoodScalar r )
            => [ADVal shaped r sh]
            -> ADVal shaped r (n ': sh)
 fromListS lu = assert (length lu == valueOf @n) $
@@ -151,8 +146,7 @@ fromListS lu = assert (length lu == valueOf @n) $
      (sfromList $ map (\(D _ u _) -> u) lu)
      (FromListS $ map (\(D _ _ u') -> u') lu)
 
-instance ( ShapedTensor shaped, CRankedIPSh shaped IsPrimal
-         , IfF (RankedOf (PrimalOf shaped))
+instance ( ShapedTensor shaped, IfF (RankedOf (PrimalOf shaped))
          , Boolean (SimpleBoolOf shaped)
          , SimpleBoolOf (RankedOf (PrimalOf shaped)) ~ SimpleBoolOf shaped )
          => IfF (ADVal shaped) where
