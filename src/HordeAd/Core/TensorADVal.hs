@@ -898,7 +898,7 @@ instance ADReadyBoth ranked shaped
         g :: forall f. ADReady f => HVector f -> HVector f -> HVectorOf f
         g acc e = dletHVectorInHVector @f codomainShs (f acc e) $ \res ->
           let (accRes, esRes) = hvToPair res
-          in dmkHVector $ V.concat [accRes, accRes, esRes]
+          in dmkHVector $ V.concat [accRes, acc, esRes]
         pUnshared :: HVectorOf ranked
         pUnshared = dmapAccumR k accShs codomainShs eShs g acc0 es
         pShs = accShs V.++ replicate1VoidHVector k codomainShs

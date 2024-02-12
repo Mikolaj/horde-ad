@@ -1389,7 +1389,7 @@ evalH !s !c = let (abShared, cShared) =
                    , V.drop (bLen + accLen) hv )
         (c0, crest) = hvToPair cShared
         rdxdesUnshared =
-          dmapAccumR k accShs eShs (accShs V.++ bShs)
+          dmapAccumR k accShs eShs (bShs V.++ accShs V.++ eShs)
                      (\dx dy_acc_e ->
                         let (dy, acc, e) = hvTo3 dy_acc_e
                         in rf dx dy acc e)

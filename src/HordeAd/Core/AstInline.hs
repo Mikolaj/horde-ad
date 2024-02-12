@@ -534,7 +534,7 @@ inlineAstHVector memo v0 = case v0 of
     in (memo2, Ast.AstRevDtS (vars, v2) l1 dt2)
   Ast.AstMapAccumR k accShs bShs eShs (accvars, evars, v) acc0 es ->
     let (_, v2) = inlineAstHVector EM.empty v
-        (memo1, acc02) = mapAccumR inlineAstDynamic memo1 acc0
+        (memo1, acc02) = mapAccumR inlineAstDynamic memo acc0
         (memo2, es2) = mapAccumR inlineAstDynamic memo1 es
     in (memo2, Ast.AstMapAccumR k accShs bShs eShs
                                 (accvars, evars, v2) acc02 es2)
@@ -546,7 +546,7 @@ inlineAstHVector memo v0 = case v0 of
     let (_, v2) = inlineAstHVector EM.empty v
         (_, ast2) = inlineAstHVector EM.empty ast
         (_, bst2) = inlineAstHVector EM.empty bst
-        (memo1, acc02) = mapAccumR inlineAstDynamic memo1 acc0
+        (memo1, acc02) = mapAccumR inlineAstDynamic memo acc0
         (memo2, es2) = mapAccumR inlineAstDynamic memo1 es
     in (memo2, Ast.AstMapAccumRDer k accShs bShs eShs
                                    (accvars, evars, v2)

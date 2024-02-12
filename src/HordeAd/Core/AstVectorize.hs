@@ -944,7 +944,7 @@ build1VOccurenceUnknownHVector k (var, v0) =
   Ast.AstRevDtS{} ->
     error "build1VOccurenceUnknownHVector: impossible case of AstRevDtS"
   Ast.AstMapAccumR{} ->
-    error "build1VS: impossible case of AstMapAccumR"
+    error "build1VOccurenceUnknownHVector: impossible case of AstMapAccumR"
   Ast.AstMapAccumRDer k5 accShs bShs eShs
                       (accvars, evars, v)
                       (vs1, vs2, vs3, vs4, ast)
@@ -988,7 +988,7 @@ build1VOccurenceUnknownHVector k (var, v0) =
                                                               (var, u)) es)
       _ -> error "build1VOccurenceUnknownHVector: impossible someNatVal"
   Ast.AstMapAccumRR{} ->
-    error "build1VS: impossible case of AstMapAccumRR"
+    error "build1VOccurenceUnknownHVector: impossible case of AstMapAccumRR"
   Ast.AstMapAccumRDerR @r @n
                        domB (nvar, mvars, v)
                        (varDx, varsDa, varn1, varsm1, ast1)
@@ -1030,7 +1030,7 @@ build1VOccurenceUnknownHVector k (var, v0) =
                                                             (var, u)) as)
       _ -> error "build1VOccurenceUnknownHVector: impossible someNatVal"
   Ast.AstMapAccumRS{} ->
-    error "build1VS: impossible case of AstMapAccumRS"
+    error "build1VOccurenceUnknownHVector: impossible case of AstMapAccumRS"
   Ast.AstMapAccumRDerS @k5 @r @shn
                        domB (nvar, mvars, v)
                        (varDx, varsDa, varn1, varsm1, ast1)
