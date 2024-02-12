@@ -53,7 +53,7 @@ extra-doc-files:    README.md,
 -- Extra source files to be distributed with the package, such as examples, or a tutorial module.
 extra-source-files: src/cbits/matrix_reduce.h
 
-tested-with:        GHC ==9.2.8 || ==9.4.5
+tested-with:        GHC ==9.6.4 || ==9.8.1
 
 bug-reports:        https://github.com/Mikolaj/horde-ad/issues
 
@@ -167,7 +167,7 @@ library horde-ad-simplified
 
     build-depends:
         assert-failure
-      , base >= 4.14 && < 99
+      , base >= 4.18 && < 99
       , bifunctors
       , Boolean
       , deepseq

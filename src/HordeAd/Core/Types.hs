@@ -12,7 +12,7 @@ module HordeAd.Core.Types
     -- * Generic types of booleans used in tensor operations
   , SimpleBoolOf, Boolean(..)
     -- * Definitions to help express and manipulate type-level natural numbers
-  , SNat(..), withSNat, sNatValue, proxyFromSNat
+  , SNat, pattern SNat, withSNat, sNatValue, proxyFromSNat
   ) where
 
 import Prelude
@@ -23,7 +23,8 @@ import           Data.Boolean (Boolean (..))
 import           Data.Int (Int64)
 import           Data.Kind (Constraint, Type)
 import           Data.Proxy (Proxy (Proxy))
-import           GHC.TypeLits (KnownNat, Nat, SomeNat (..), natVal, someNatVal)
+import           GHC.TypeLits
+  (KnownNat, Nat, SNat, fromSNat, pattern SNat, withSomeSNat)
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import           Type.Reflection (Typeable)
 
@@ -136,23 +137,14 @@ type family SimpleBoolOf (t :: ty) :: Type
 
 -- * Definitions to help express and manipulate type-level natural numbers
 
--- TODO: Use SNat from base once we use GHC >= 9.6 exclusively.
--- | Sizes of tensor dimensions, of batches, etc., packed for passing
--- between functions as witnesses of type variable values.
-type role SNat nominal
-data SNat (n :: Nat) where
-  SNat :: KnownNat n => SNat n
-
-deriving instance Show (SNat n)
-
 withSNat :: Int -> (forall n. KnownNat n => (SNat n -> r)) -> r
-withSNat i f = case someNatVal $ toInteger $ abs i of
-  Just (SomeNat @n _) -> f (SNat @n)
-  Nothing -> error "withSNat: impossible"
+withSNat i f = withSomeSNat (fromIntegral i) $ \msnat -> case msnat of
+  Just snat@SNat -> f snat
+  Nothing -> error "withSNat: negative argument"
 
-sNatValue :: forall n i. (KnownNat n, Num i) => SNat n -> i
+sNatValue :: forall n i. Num i => SNat n -> i
 {-# INLINE sNatValue #-}
-sNatValue = fromInteger . natVal
+sNatValue = fromInteger . fromSNat
 
 proxyFromSNat :: SNat n -> Proxy n
 proxyFromSNat SNat = Proxy

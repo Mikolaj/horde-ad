@@ -1232,7 +1232,7 @@ printAstHVector cfg d = \case
   AstMapAccumR k _accShs _bShs _eShs (accvars, evars, v) acc0 es ->
     showParen (d > 10)
     $ showString "dmapAccumR "
---      . shows k  -- TODO: enable later on
+      . shows k
       . (showParen True
          $ showString "\\"
            . showListWith (showString
@@ -1261,7 +1261,7 @@ printAstHVector cfg d = \case
    else
     showParen (d > 10)
     $ showString "dmapAccumRDer "
---      . shows k  -- TODO: enable later on
+      . shows k
       . (showParen True
          $ showString "\\"
            . showListWith (showString

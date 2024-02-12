@@ -1281,7 +1281,7 @@ instance HVectorTensor (Flip OR.Array) (Flip OS.Array) where
     -> HVector (Flip OR.Array)
     -> HVector (Flip OR.Array)
     -> HVector (Flip OR.Array)
-  dmapAccumR k@SNat accShs bShs _eShs f acc0 es = case sNatValue k :: Int of
+  dmapAccumR k accShs bShs _eShs f acc0 es = case sNatValue k :: Int of
     0 -> acc0 V.++ replicate1HVector k (V.map dynamicFromVoid bShs)
     _ -> let accLen = V.length accShs
              hvToPair :: forall f. HVector f -> (HVector f, HVector f)
