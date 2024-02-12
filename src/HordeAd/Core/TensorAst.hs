@@ -1196,6 +1196,61 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     AstScanZipDerS (funToAstSH @_ @_ @sh f domsOD)
                    (funToAstSHSH @_ @_ @sh df domsOD)
                    (funToAstSSH @_ @_ @sh rf domsOD) x0 asD
+  dmapAccumR
+    :: SNat k
+    -> VoidHVector
+    -> VoidHVector
+    -> VoidHVector
+    -> (forall f. ADReady f
+        => HVector f -> HVector f -> HVectorOf f)
+    -> HVector (AstRanked s)
+    -> HVector (AstRanked s)
+    -> AstHVector s
+  dmapAccumR k accShs bShs eShs f acc0 es =
+    assert (voidHVectorMatches (replicate1VoidHVector k eShs) es
+            && voidHVectorMatches accShs acc0) $
+    let accLen = V.length accShs
+        hvToPair :: forall f. HVector f -> (HVector f, HVector f)
+        hvToPair hv = (V.take accLen hv, V.drop accLen hv)
+        accEShs = accShs V.++ eShs
+        g :: HVector (AstRanked FullSpan)
+          -> HVectorPseudoTensor (AstRanked FullSpan) Float '()
+        g hv = HVectorPseudoTensor $ uncurry f (hvToPair hv)
+        (((varsDt, vars), gradient, _primal, _sh), _delta) =
+          revProduceArtifact TensorToken True g EM.empty accEShs
+        (((varsDt2, vars2), derivative, _primal2), _delta2) =
+          fwdProduceArtifact TensorToken g EM.empty accEShs
+     in AstMapAccumRDer k accShs bShs eShs
+                        (funToAstHH f accShs eShs)
+                        ( take accLen varsDt2, drop accLen varsDt2
+                        , take accLen vars2, drop accLen vars2
+                        , unHVectorPseudoTensor derivative )
+                        ( take accLen varsDt, drop accLen varsDt
+                        , take accLen vars, drop accLen vars
+                        , gradient )
+                        acc0 es
+  dmapAccumRDer
+    :: SNat k
+    -> VoidHVector
+    -> VoidHVector
+    -> VoidHVector
+    -> (forall f. ADReady f
+        => HVector f -> HVector f -> HVectorOf f)
+    -> (forall f. ADReady f
+        => HVector f -> HVector f -> HVector f -> HVector f -> HVectorOf f)
+    -> (forall f. ADReady f
+        => HVector f -> HVector f -> HVector f -> HVector f -> HVectorOf f)
+    -> HVector (AstRanked s)
+    -> HVector (AstRanked s)
+    -> AstHVector s
+  dmapAccumRDer k accShs bShs eShs f df rf acc0 es =
+    assert (voidHVectorMatches (replicate1VoidHVector k eShs) es
+            && voidHVectorMatches accShs acc0) $
+    AstMapAccumRDer k accShs bShs eShs
+                    (funToAstHH f accShs eShs)
+                    (funToAstHHHH df accShs eShs)
+                    (funToAstHHHG rf accShs bShs eShs)
+                    acc0 es
   rmapAccumR
     :: forall rn n. (GoodScalar rn, KnownNat n)
     => VoidHVector
@@ -1699,9 +1754,17 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
     $ sscanZipDer @(AstRanked s)
                   f df rf domsOD (unAstNoVectorizeS x0)
                                  (unNoVectorizeHVector as)
+  dmapAccumR k accShs bShs eShs f acc0 es =
+    dmapAccumR @(AstRanked s)
+               k accShs bShs eShs f (unNoVectorizeHVector acc0)
+                                    (unNoVectorizeHVector es)
+  dmapAccumRDer k accShs bShs eShs f df rf acc0 es =
+    dmapAccumRDer @(AstRanked s)
+                  k accShs bShs eShs f df rf (unNoVectorizeHVector acc0)
+                                             (unNoVectorizeHVector es)
   rmapAccumR domB f domsOD x0 as =
     rmapAccumR @(AstRanked s) domB f domsOD (unAstNoVectorize x0)
-                                              (unNoVectorizeHVector as)
+                                            (unNoVectorizeHVector as)
   rmapAccumRDer domB f df rf domsOD x0 as =
     rmapAccumRDer @(AstRanked s)
                   domB f df rf domsOD (unAstNoVectorize x0)
@@ -1941,9 +2004,17 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
     AstNoSimplifyS
     $ sscanZipDer @(AstRanked s)
                   f df rf domsOD (unAstNoSimplifyS x0) (unNoSimplifyHVector as)
+  dmapAccumR k accShs bShs eShs f acc0 es =
+    dmapAccumR @(AstRanked s)
+               k accShs bShs eShs f (unNoSimplifyHVector acc0)
+                                    (unNoSimplifyHVector es)
+  dmapAccumRDer k accShs bShs eShs f df rf acc0 es =
+    dmapAccumRDer @(AstRanked s)
+                  k accShs bShs eShs f df rf (unNoSimplifyHVector acc0)
+                                             (unNoSimplifyHVector es)
   rmapAccumR domB f domsOD x0 as =
     rmapAccumR @(AstRanked s) domB f domsOD (unAstNoSimplify x0)
-                                              (unNoSimplifyHVector as)
+                                            (unNoSimplifyHVector as)
   rmapAccumRDer domB f df rf domsOD x0 as =
     rmapAccumRDer @(AstRanked s)
                   domB f df rf domsOD (unAstNoSimplify x0)

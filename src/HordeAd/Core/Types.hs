@@ -143,6 +143,8 @@ type role SNat nominal
 data SNat (n :: Nat) where
   SNat :: KnownNat n => SNat n
 
+deriving instance Show (SNat n)
+
 withSNat :: Int -> (forall n. KnownNat n => (SNat n -> r)) -> r
 withSNat i f = case someNatVal $ toInteger $ abs i of
   Just (SomeNat @n _) -> f (SNat @n)

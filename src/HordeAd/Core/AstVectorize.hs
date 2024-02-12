@@ -943,6 +943,50 @@ build1VOccurenceUnknownHVector k (var, v0) =
     error "build1VOccurenceUnknownHVector: impossible case of AstRevS"
   Ast.AstRevDtS{} ->
     error "build1VOccurenceUnknownHVector: impossible case of AstRevDtS"
+  Ast.AstMapAccumR{} ->
+    error "build1VS: impossible case of AstMapAccumR"
+  Ast.AstMapAccumRDer k5 accShs bShs eShs
+                      (accvars, evars, v)
+                      (vs1, vs2, vs3, vs4, ast)
+                      (ws1, ws2, ws3, ws4, bst)
+                      acc0 es -> traceRule $
+    case someNatVal $ toInteger k of
+      Just (SomeNat @k _) ->
+        let (vOut, accvarsOut) = substProjVarsHVector @k var accvars v
+            (vOut2, evarsOut) = substProjVarsHVector @k var evars vOut
+            (astOut, vs1Out) = substProjVarsHVector @k var vs1 ast
+            (astOut2, vs2Out) = substProjVarsHVector @k var vs2 astOut
+            (astOut3, vs3Out) = substProjVarsHVector @k var vs3 astOut2
+            (astOut4, vs4Out) = substProjVarsHVector @k var vs4 astOut3
+            (bstOut, ws1Out) = substProjVarsHVector @k var ws1 bst
+            (bstOut2, ws2Out) = substProjVarsHVector @k var ws2 bstOut
+            (bstOut3, ws3Out) = substProjVarsHVector @k var ws3 bstOut2
+            (bstOut4, ws4Out) = substProjVarsHVector @k var ws4 bstOut3
+        in astTrAstHVectorTail
+           $ Ast.AstMapAccumRDer
+               k5 accShs (replicate1VoidHVector (SNat @k) bShs) eShs
+               ( accvarsOut
+               , evarsOut
+               , build1VOccurenceUnknownAstHVectorRefresh
+                   (valueOf @k) (var, vOut2) )
+               ( vs1Out
+               , vs2Out
+               , vs3Out
+               , vs4Out
+               , build1VOccurenceUnknownAstHVectorRefresh
+                   (valueOf @k) (var, astOut4) )
+               ( ws1Out
+               , ws2Out
+               , ws3Out
+               , ws4Out
+               , build1VOccurenceUnknownAstHVectorRefresh
+                   (valueOf @k) (var, bstOut4) )
+               (V.map (\u -> build1VOccurenceUnknownDynamic (valueOf @k)
+                                                            (var, u)) acc0)
+               (V.map (\u -> astTrDynamic
+                             $ build1VOccurenceUnknownDynamic (valueOf @k)
+                                                              (var, u)) es)
+      _ -> error "build1VOccurenceUnknownHVector: impossible someNatVal"
   Ast.AstMapAccumRR{} ->
     error "build1VS: impossible case of AstMapAccumRR"
   Ast.AstMapAccumRDerR @r @n

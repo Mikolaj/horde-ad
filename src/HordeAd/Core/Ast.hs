@@ -641,6 +641,38 @@ data AstHVector s where
             -> HVector (AstRanked s)
             -> AstShaped s r sh
             -> AstHVector s
+  AstMapAccumR
+    :: SNat k
+    -> VoidHVector
+    -> VoidHVector
+    -> VoidHVector
+    -> ( [AstDynamicVarName]
+       , [AstDynamicVarName]
+       , AstHVector PrimalSpan )
+    -> HVector (AstRanked s)
+    -> HVector (AstRanked s)
+    -> AstHVector s
+  AstMapAccumRDer
+    :: SNat k
+    -> VoidHVector
+    -> VoidHVector
+    -> VoidHVector
+    -> ( [AstDynamicVarName]
+       , [AstDynamicVarName]
+       , AstHVector PrimalSpan )
+    -> ( [AstDynamicVarName]
+       , [AstDynamicVarName]
+       , [AstDynamicVarName]
+       , [AstDynamicVarName]
+       , AstHVector PrimalSpan )
+    -> ( [AstDynamicVarName]
+       , [AstDynamicVarName]
+       , [AstDynamicVarName]
+       , [AstDynamicVarName]
+       , AstHVector PrimalSpan )
+    -> HVector (AstRanked s)
+    -> HVector (AstRanked s)
+    -> AstHVector s
   AstMapAccumRR
     :: forall rn n s. (GoodScalar rn, KnownNat n)
     => VoidHVector  -- ^ shapes of [b]

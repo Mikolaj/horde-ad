@@ -138,6 +138,10 @@ shapeAstHVector = \case
   AstRevDt (vars, _) _ _ -> voidFromVars vars
   AstRevS (vars, _) _ -> voidFromVars vars
   AstRevDtS (vars, _) _ _ -> voidFromVars vars
+  AstMapAccumR k accShs bShs _eShs _f _acc0 _es ->
+    accShs V.++ replicate1VoidHVector k bShs
+  AstMapAccumRDer k accShs bShs _eShs _f _df _rf _acc0 _es ->
+    accShs V.++ replicate1VoidHVector k bShs
   AstMapAccumRR @rn domB _f x0 asD ->
     let width = case V.unsnoc asD of
           Nothing -> error "dshape: can't determine argument width"
@@ -310,6 +314,10 @@ varInAstHVector var = \case
   AstRevDtS _f l dt ->  -- _f has no non-bound variables
     let f = varInAstDynamic var
     in any f l || varInAstS var dt
+  AstMapAccumR _k _accShs _bShs _eShs _f acc0 es ->
+    any (varInAstDynamic var) acc0 || any (varInAstDynamic var) es
+  AstMapAccumRDer _k _accShs _bShs _eShs _f _df _rf acc0 es ->
+    any (varInAstDynamic var) acc0 || any (varInAstDynamic var) es
   AstMapAccumRR _domB _f x0 as ->
     varInAst var x0 || any (varInAstDynamic var) as
   AstMapAccumRDerR _domB _f _df _rf x0 as ->

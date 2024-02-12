@@ -834,7 +834,7 @@ instance ADReadyBoth ranked shaped
     in dDnotShared l4 pShared
                       (ScanZipS domsOD pShared as df rf x0' as')
   dmapAccumR
-    :: forall k. SNat k
+    :: SNat k
     -> VoidHVector
     -> VoidHVector
     -> VoidHVector
@@ -868,7 +868,7 @@ instance ADReadyBoth ranked shaped
                   (acc V.++ e)
     in dmapAccumRDer k accShs bShs eShs f df rf acc0 es
   dmapAccumRDer
-    :: forall k. SNat k
+    :: SNat k
     -> VoidHVector
     -> VoidHVector
     -> VoidHVector
@@ -1281,18 +1281,18 @@ instance HVectorTensor (Flip OR.Array) (Flip OS.Array) where
     -> HVector (Flip OR.Array)
     -> HVector (Flip OR.Array)
     -> HVector (Flip OR.Array)
-  dmapAccumR k@SNat accShs bShs _eShs f x0 as = case sNatValue k :: Int of
-    0 -> x0 V.++ replicate1HVector k (V.map dynamicFromVoid bShs)
+  dmapAccumR k@SNat accShs bShs _eShs f acc0 es = case sNatValue k :: Int of
+    0 -> acc0 V.++ replicate1HVector k (V.map dynamicFromVoid bShs)
     _ -> let accLen = V.length accShs
              hvToPair :: forall f. HVector f -> (HVector f, HVector f)
              hvToPair hv = (V.take accLen hv, V.drop accLen hv)
              g :: HVector (Flip OR.Array) -> HVector (Flip OR.Array)
                -> (HVector (Flip OR.Array), HVector (Flip OR.Array))
              g x a = hvToPair $ f x a
-             (xout, lout) = mapAccumR g x0 (unravelHVector as)
+             (xout, lout) = mapAccumR g acc0 (unravelHVector es)
          in xout V.++ ravelHVector lout
-  dmapAccumRDer k accShs bShs eShs f _df _rf x0 as =
-    dmapAccumR k accShs bShs eShs f x0 as
+  dmapAccumRDer k accShs bShs eShs f _df _rf acc0 es =
+    dmapAccumR k accShs bShs eShs f acc0 es
   rmapAccumR
     :: forall rn n. (GoodScalar rn, KnownNat n)
     => VoidHVector

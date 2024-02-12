@@ -1117,6 +1117,24 @@ interpretAstHVector !env = \case
         pars = interpretAstDynamic @ranked env <$> parameters
         d = interpretAstS env dt
     in srevDt @ranked f parameters0 pars d
+  AstMapAccumR k accShs bShs eShs f0 acc0 es ->
+    let f :: forall f. ADReady f => HVector f -> HVector f -> HVectorOf f
+        f = interpretLambdaHHH interpretAstHVector EM.empty f0
+        acc02 = interpretAstDynamic env <$> acc0
+        es2 = interpretAstDynamic env <$> es
+    in dmapAccumR k accShs bShs eShs f acc02 es2
+  AstMapAccumRDer k accShs bShs eShs f0 df0 rf0 acc0 es ->
+    let f :: forall f. ADReady f => HVector f -> HVector f -> HVectorOf f
+        f = interpretLambdaHHH interpretAstHVector EM.empty f0
+        df :: forall f. ADReady f
+           => HVector f -> HVector f -> HVector f -> HVector f -> HVectorOf f
+        df = interpretLambdaHHHHH interpretAstHVector EM.empty df0
+        rf :: forall f. ADReady f
+           => HVector f -> HVector f -> HVector f -> HVector f -> HVectorOf f
+        rf = interpretLambdaHHHHH interpretAstHVector EM.empty rf0
+        acc02 = interpretAstDynamic env <$> acc0
+        es2 = interpretAstDynamic env <$> es
+    in dmapAccumRDer k accShs bShs eShs f df rf acc02 es2
   AstMapAccumRR @r @n1 domB f0@(_, vars, _) x0 as ->
     let f :: forall f. ADReady f => f r n1 -> HVector f -> HVectorOf f
         f = interpretLambdaRHH interpretAstHVector EM.empty f0
