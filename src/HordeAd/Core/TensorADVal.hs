@@ -351,7 +351,10 @@ instance ADReadyBoth ranked shaped
          => HVectorTensor (ADVal ranked) (ADVal shaped) where
   dshape = voidFromHVector
   dmkHVector = id
-  dunHVector _ = id
+  dunHVector shs hv = assert (voidHVectorMatches shs hv
+                              `blame` ( shapeVoidHVector shs
+                                      , shapeVoidHVector (voidFromHVector hv)))
+                             hv
   dletHVectorInHVector _od asD f = f asD
 {- TODO: See similar code above.
     let !(!ll2, asUnshared, as') = unADValHVector asD
@@ -1185,7 +1188,10 @@ unADValDynamicTensor (DynamicShapedDummy p1 p2) =
 instance HVectorTensor (Flip OR.Array) (Flip OS.Array) where
   dshape = voidFromHVector
   dmkHVector = id
-  dunHVector _ = id
+  dunHVector shs hv = assert (voidHVectorMatches shs hv
+                              `blame` ( shapeVoidHVector shs
+                                      , shapeVoidHVector (voidFromHVector hv)))
+                             hv
   dletHVectorInHVector _ = (&)
   rletInHVector = (&)
   sletInHVector = (&)

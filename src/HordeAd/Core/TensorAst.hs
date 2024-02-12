@@ -641,17 +641,18 @@ astBuild1VectorizeS f =
 instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   dshape = shapeAstHVector
   dmkHVector = AstHVector
-  dunHVector domsOD hVectorOf =
+  dunHVector shs hVectorOf =
     let f :: Int -> DynamicTensor VoidTensor -> AstDynamic s
         f i = \case
           DynamicRankedDummy @r @sh _ _ ->
             withListShape (Sh.shapeT @sh) $ \(_ :: ShapeInt n) ->
               DynamicRanked @r @n
-              $ rletHVectorIn @(AstRanked s) domsOD hVectorOf (rfromD . (V.! i))
+              $ rletHVectorIn @(AstRanked s) shs hVectorOf (rfromD . (V.! i))
           DynamicShapedDummy @r @sh _ _ ->
             DynamicShaped @r @sh
-            $ sletHVectorIn @(AstShaped s) domsOD hVectorOf (sfromD . (V.! i))
-    in V.imap f domsOD
+            $ sletHVectorIn @(AstShaped s) shs hVectorOf (sfromD . (V.! i))
+        hv = V.imap f shs
+    in assert (voidHVectorMatches shs hv) hv
   dletHVectorInHVector = astLetHVectorInHVectorFun
   rletInHVector = astLetInHVectorFun
   sletInHVector = astLetInHVectorFunS
