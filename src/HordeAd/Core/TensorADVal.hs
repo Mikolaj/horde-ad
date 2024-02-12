@@ -900,15 +900,17 @@ instance ADReadyBoth ranked shaped
         hvToPair hv = (V.take accLen hv, V.drop accLen hv)
         g :: forall f. ADReady f => HVector f -> HVector f -> HVectorOf f
         g acc e = dletHVectorInHVector @f codomainShs (f acc e) $ \res ->
-          let (accRes, esRes) = hvToPair res
-          in dmkHVector $ V.concat [accRes, acc, esRes]
+          let (accRes, bRes) = hvToPair res
+          in dmkHVector $ V.concat [accRes, acc, bRes]
         pUnshared :: HVectorOf ranked
         pUnshared = dmapAccumR k accShs codomainShs eShs g acc0 es
         pShs = accShs V.++ replicate1VoidHVector k codomainShs
         (l5, pShared) = dsharePrimal @ranked pShs pUnshared l4
         accFin = V.take accLen pShared
         q = V.slice accLen accLen pShared
-        primal = accFin V.++ V.drop (2 * accLen) pShared
+        bs = V.drop (2 * accLen) pShared
+        !_A = assert (voidHVectorMatches (replicate1VoidHVector k bShs) bs) ()
+        primal = accFin V.++ bs
         dual = wrapDeltaH $ MapAccumR k accShs bShs eShs q es df rf acc0' es'
         selectDual i d = case d of
           DynamicRanked t -> DynamicRanked $ dDnotShared l5 t (HToR dual i)
@@ -1278,7 +1280,7 @@ instance HVectorTensor (Flip OR.Array) (Flip OS.Array) where
   sscanZip f _od x0 as = sfromList $ scanl' f x0 (unravelHVector as)
   sscanZipDer f _df _rf od x0 as = sscanZip f od x0 as
   dmapAccumR
-    :: forall k. SNat k
+    :: SNat k
     -> VoidHVector
     -> VoidHVector
     -> VoidHVector

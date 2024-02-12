@@ -665,9 +665,9 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   -- These and many similar bangs are necessary to ensure variable IDs
   -- are generated in the expected order, resulting in nesting of lets
   -- occuring in the correct order and so no scoping errors.
-  dsharePrimal !domsOD !r !l | Just Refl <- sameAstSpan @s @PrimalSpan =
-    fun1DToAst domsOD $ \ !vars !asts -> case vars of
-      [] -> error "dsharePrimal: empty hVector"
+  dsharePrimal !shs !r !l | Just Refl <- sameAstSpan @s @PrimalSpan =
+    fun1DToAst shs $ \ !vars !asts -> case vars of
+      [] -> (l, V.empty)
       !var : _ ->  -- vars are fresh, so var uniquely represent vars
         ( insertADShare (dynamicVarNameToAstVarId var)
                         (AstBindingsHVector vars r)
