@@ -1618,7 +1618,7 @@ astTranspose perm = \case
         perm3 = simplifyPermutation $ backpermutePrefixList perm perm2Matched
     in astTranspose perm3 t
       -- this rule can be disabled to test fusion of gathers
-  -- Note that the following would be wrong, becuase transpose really
+  -- Note that the following would be wrong, because transpose really
   -- changes the linearisation order, while reshape only modifies indexing:
   -- (perm, AstReshape sh v) -> astReshape (backpermutePrefixShape perm sh) v
   Ast.AstGather @m sh v (vars, ix) | length perm <= valueOf @m ->
@@ -1633,10 +1633,27 @@ astTransposeS :: forall perm sh s r.
                  ( OS.Permutation perm, Sh.Shape perm, Sh.Shape sh
                  , KnownNat (Sh.Rank sh), Sh.Rank perm <= Sh.Rank sh )
               => AstShaped s r sh -> AstShaped s r (Sh.Permute perm sh)
-astTransposeS (Ast.AstConstantS v) = Ast.AstConstantS $ astTransposeS @perm v
-astTransposeS (Ast.AstLetADShareS l v) =
-  Ast.AstLetADShareS l $ astTransposeS @perm v
-astTransposeS t = Ast.AstTransposeS @perm t  -- TODO
+astTransposeS = \case
+  t | Just Refl <- sameShape @perm @'[] -> t
+--  Ast.AstLetS var u v -> astLetS var u (astTransposeS @perm v)
+  Ast.AstTransposeS @perm2 @sh2 t ->  -- TODO: try to perform at type level
+    let permV = Sh.shapeT @perm
+        perm2V = Sh.shapeT @perm2
+        perm2Matched =
+          perm2V
+          ++ take (length permV - length perm2V) (drop (length perm2V) [0 ..])
+        perm3V = simplifyPermutation $ backpermutePrefixList permV perm2Matched
+    in Sh.withShapeP perm3V $ \(Proxy @perm3) ->
+      trustMeThisIsAPermutation @perm3 $
+      gcastWith (unsafeCoerce Refl
+                 :: Compare (OS.Rank perm3) (OS.Rank sh2) :~: LT) $
+      gcastWith (unsafeCoerce Refl
+                 :: Sh.Permute perm3 sh2 :~: Sh.Permute perm sh) $
+      astTransposeS @perm3 t
+  AstConstS t -> AstConstS $ ttransposeS @perm t
+  Ast.AstConstantS v -> Ast.AstConstantS $ astTransposeS @perm v
+  Ast.AstLetADShareS l v -> Ast.AstLetADShareS l $ astTransposeS @perm v
+  u -> Ast.AstTransposeS @perm u  -- TODO
 
 -- Beware, this does not do full simplification, which often requires
 -- the gather form, so astReshapeAsGather needs to be called in addition
