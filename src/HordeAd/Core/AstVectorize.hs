@@ -962,9 +962,12 @@ build1VOccurenceUnknownHVector k (var, v0) =
             (bstOut2, ws2Out) = substProjVarsHVector @k var ws2 bstOut
             (bstOut3, ws3Out) = substProjVarsHVector @k var ws3 bstOut2
             (bstOut4, ws4Out) = substProjVarsHVector @k var ws4 bstOut3
-        in astTrAstHVectorTail
+        in astTrAstHVectorTail (V.length accShs)
            $ Ast.AstMapAccumRDer
-               k5 accShs (replicate1VoidHVector (SNat @k) bShs) eShs
+               k5
+               (replicate1VoidHVector (SNat @k) accShs)
+               (replicate1VoidHVector (SNat @k) bShs)
+               (replicate1VoidHVector (SNat @k) eShs)
                ( accvarsOut
                , evarsOut
                , build1VOccurenceUnknownAstHVectorRefresh
@@ -1001,7 +1004,7 @@ build1VOccurenceUnknownHVector k (var, v0) =
             (ast1Out2, varsm1Out) = substProjVarsHVector @k var varsm1 ast1Out
             (domsOut, varDt22Out) = substProjVarsHVector @k var varDt2 doms
             (domsOut2, mvars2Out) = substProjVarsHVector @k var mvars2 domsOut
-        in astTrAstHVectorTail
+        in astTrAstHVectorTail 1
            $ Ast.AstMapAccumRDerR (replicate1VoidHVector (SNat @k) domB)
              ( AstVarName $ varNameToAstVarId nvar
              , mvarsOut
@@ -1042,7 +1045,7 @@ build1VOccurenceUnknownHVector k (var, v0) =
             (ast1Out2, varsm1Out) = substProjVarsHVector @k var varsm1 ast1Out
             (domsOut, varDt22Out) = substProjVarsHVector @k var varDt2 doms
             (domsOut2, mvars2Out) = substProjVarsHVector @k var mvars2 domsOut
-        in astTrAstHVectorTail
+        in astTrAstHVectorTail 1
            $ Ast.AstMapAccumRDerS @k5 (replicate1VoidHVector (SNat @k) domB)
              ( AstVarName $ varNameToAstVarId nvar
              , mvarsOut
@@ -1294,14 +1297,14 @@ astTrDynamic (DynamicShapedDummy p1 (Proxy @sh1)) =
   in Sh.withShapeP sh1Permuted $ \proxy ->
        DynamicShapedDummy p1 proxy
 
-
 astTrAstHVectorTail :: forall s. AstSpan s
-                    => AstHVector s -> AstHVector s
-astTrAstHVectorTail t = fun1DToAst (shapeAstHVector t) $ \ !vars !asts ->
+                    => Int -> AstHVector s -> AstHVector s
+astTrAstHVectorTail i t = fun1DToAst (shapeAstHVector t) $ \ !vars !asts ->
   Ast.AstLetHVectorInHVector
     vars
     t
-    (Ast.AstHVector @s $ V.cons (asts V.! 0) (V.map astTrDynamic $ V.tail asts))
+    (Ast.AstHVector @s $ V.take i asts
+                         V.++ V.map astTrDynamic (V.drop i asts))
 
 
 -- * Rule tracing machinery

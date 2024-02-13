@@ -60,18 +60,18 @@ type IndexInt n = Index n Int64
 -- TODO: try to weave a similar magic as in tindex0R
 -- TODO: for the non-singleton case see
 -- https://github.com/Mikolaj/horde-ad/pull/81#discussion_r1096532164
-updateNR :: forall m n a. (Numeric a, KnownNat m, KnownNat n)
-         => OR.Array (m + n) a -> [(IndexInt m, OR.Array n a)]
-         -> OR.Array (m + n) a
+updateNR :: forall n m a. (Numeric a, KnownNat n, KnownNat m)
+         => OR.Array (n + m) a -> [(IndexInt n, OR.Array m a)]
+         -> OR.Array (n + m) a
 updateNR arr upd =
-  let RS.A (RG.A shRaw OI.T{offset, values}) = OR.normalize arr
-      !_A = assert (offset == 0) ()
-  in let sh = listShapeToShape shRaw
-         f !t (ix, u) =
-           let v = OR.toVector u
-               i = fromIntegral $ toLinearIdx @m @n sh ix
-           in LA.vjoin [V.take i t, v, V.drop (i + V.length v) t]
-     in OR.fromVector shRaw (foldl' f values upd)
+  let values = OR.toVector arr
+      shRaw = OR.shapeL arr
+      sh = listShapeToShape shRaw
+      f !t (ix, u) =
+        let v = OR.toVector u
+            i = fromIntegral $ toLinearIdx @n @m sh ix
+        in LA.vjoin [V.take i t, v, V.drop (i + V.length v) t]
+  in OR.fromVector shRaw (foldl' f values upd)
 
 tshapeR
   :: KnownNat n
@@ -234,15 +234,14 @@ tmaximum0R = LA.maxElement . OR.toVector
 -- Note how ix being in bounds is checked. The semantics of the operation
 -- permits index out of bounds and then no tensors is added at such an index.
 tscatterZR :: forall m p n r.
-              ( KnownNat m, KnownNat p, KnownNat n, NumAndShow r
-               )
+              (KnownNat m, KnownNat p, KnownNat n, NumAndShow r)
            => ShapeInt (p + n) -> OR.Array (m + n) r
            -> (IndexInt m -> IndexInt p)
            -> OR.Array (p + n) r
 tscatterZR sh t f =
-  let (shm', shn) = splitAt (valueOf @m) $ OR.shapeL t
-      s = product shm'
-      shm = listShapeToShape shm'
+  let (sh2, shDropP) = splitAt (valueOf @m) $ OR.shapeL t
+      s = product sh2
+      shm = listShapeToShape sh2
       g ix =
         let ix2 = f ix
         in if ixInBounds (indexToList ix2) (shapeToList sh)
@@ -250,8 +249,8 @@ tscatterZR sh t f =
            else id
       ivs = foldr g M.empty [ fromLinearIdx shm i
                             | i <- [0 .. fromIntegral s - 1] ]
-  in updateNR (treplicate0NR sh 0) $ map (second $ OR.fromVector shn . sum)
-                               $ M.assocs ivs
+  in updateNR (treplicate0NR sh 0) $ map (second $ OR.fromVector shDropP . sum)
+                                   $ M.assocs ivs
 
 -- TODO: update in place in ST or with a vector builder, but that requires
 -- building the underlying value vector with crafty index computations
@@ -463,25 +462,23 @@ type IndexIntSh sh = ShapedList sh Int64
 -- TODO: for the non-singleton case see
 -- https://github.com/Mikolaj/horde-ad/pull/81#discussion_r1096532164
 updateNS :: forall n sh r.
-            ( Numeric r, Sh.Shape sh
-            , Sh.Shape (Sh.Take n sh), Sh.Shape (Sh.Drop n sh) )
+            ( NumAndShow r, Sh.Shape sh, Sh.Shape (Sh.Drop n sh) )
          => OS.Array sh r
          -> [(IndexIntSh (Sh.Take n sh), OS.Array (Sh.Drop n sh) r)]
          -> OS.Array sh r
 updateNS arr upd =
-  let SS.A (SG.A OI.T{offset, values}) = OS.normalize arr
-      !_A = assert (offset == 0) ()
-  in let sh = ShapedList.shapeSh @sh
-         f !t (ix, u) =
-           let v = OS.toVector u
-               i = gcastWith (unsafeCoerce Refl
-                              :: sh :~: Sh.Take n sh Sh.++ Sh.Drop n sh)
-                   $ fromIntegral
-                   $ ShapedList.unShapedNat
-                   $ ShapedList.toLinearIdx @(Sh.Take n sh) @(Sh.Drop n sh)
-                                            sh ix
-           in LA.vjoin [V.take i t, v, V.drop (i + V.length v) t]
-     in OS.fromVector (foldl' f values upd)
+  let values = OS.toVector arr
+      sh = ShapedList.shapeSh @sh
+      f !t (ix, u) =
+        let v = OS.toVector u
+            i = gcastWith (unsafeCoerce Refl
+                           :: sh :~: Sh.Take n sh Sh.++ Sh.Drop n sh)
+                $ fromIntegral
+                $ ShapedList.unShapedNat
+                $ ShapedList.toLinearIdx @(Sh.Take n sh) @(Sh.Drop n sh)
+                                         sh ix
+        in LA.vjoin [V.take i t, v, V.drop (i + V.length v) t]
+  in OS.fromVector (foldl' f values upd)
 
 tminIndexS
   :: forall n sh r r2. ( NumAndShow r, NumAndShow r2, Sh.Shape sh, KnownNat n
@@ -695,7 +692,7 @@ tmaximum0S = LA.maxElement . OS.toVector
 -- permits index out of bounds and then no tensors is added at such an index.
 tscatterZS :: forall r sh2 p sh.
               ( NumAndShow r, Sh.Shape sh, Sh.Shape sh2
-              , Sh.Shape (Sh.Take p sh), Sh.Shape (Sh.Drop p sh) )
+              , Sh.Shape (Sh.Drop p sh) )
            => OS.Array (sh2 Sh.++ Sh.Drop p sh) r
            -> (IndexIntSh sh2 -> IndexIntSh (Sh.Take p sh))
            -> OS.Array sh r
@@ -717,8 +714,7 @@ tscatterZS t f =
 -- and then freezing it and calling OS.fromVector
 -- or optimize tscatterNS and instantiate it instead
 tscatterZ1S :: forall r n2 p sh.
-               ( NumAndShow r, KnownNat n2
-               , Sh.Shape sh, Sh.Shape (Sh.Take p sh), Sh.Shape (Sh.Drop p sh) )
+               (NumAndShow r, KnownNat n2, Sh.Shape sh, Sh.Shape (Sh.Drop p sh))
             => OS.Array (n2 ': Sh.Drop p sh) r
             -> (Int64Sh n2 -> IndexIntSh (Sh.Take p sh))
             -> OS.Array sh r

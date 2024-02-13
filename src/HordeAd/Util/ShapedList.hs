@@ -229,7 +229,7 @@ shapedListToIndex = SizedIndex.listToIndex . sizedListToList
 -- If any of the dimensions is 0 or if rank is 0, the result will be 0,
 -- which is fine, that's pointing at the start of the empty buffer.
 -- Note that the resulting 0 may be a complex term.
-toLinearIdx :: forall sh1 sh2 i j. (Sh.Shape sh1, Integral i, Num j)
+toLinearIdx :: forall sh1 sh2 i j. (Sh.Shape sh2, Integral i, Num j)
             => ShapedList (sh1 Sh.++ sh2) i -> ShapedList sh1 j
             -> ShapedNat (Sh.Size sh2) j
 toLinearIdx = \sh idx -> shapedNat $ go sh idx 0
@@ -237,9 +237,9 @@ toLinearIdx = \sh idx -> shapedNat $ go sh idx 0
     -- Additional argument: index, in the @m - m1@ dimensional array so far,
     -- of the @m - m1 + n@ dimensional tensor pointed to by the current
     -- @m - m1@ dimensional index prefix.
-    go :: forall sh3. Sh.Shape sh3
-       => ShapedList (sh3 Sh.++ sh2) i -> ShapedList sh3 j -> j -> j
-    go _sh ZSH tensidx = fromIntegral (Sh.sizeT @sh3) * tensidx
+    go :: forall sh3.
+          ShapedList (sh3 Sh.++ sh2) i -> ShapedList sh3 j -> j -> j
+    go _sh ZSH tensidx = fromIntegral (Sh.sizeT @(sh3 Sh.++ sh2)) * tensidx
     go (n :$: sh) (i :$: idx) tensidx = go sh idx (fromIntegral n * tensidx + i)
     go _ _ _ = error "toLinearIdx: impossible pattern needlessly required"
 

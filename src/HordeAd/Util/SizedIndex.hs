@@ -286,8 +286,8 @@ toLinearIdx = \sh idx -> go sh idx 0
     -- Additional argument: index, in the @m - m1@ dimensional array so far,
     -- of the @m - m1 + n@ dimensional tensor pointed to by the current
     -- @m - m1@ dimensional index prefix.
-    go :: (KnownNat m1, KnownNat n1)
-       => Shape (m1 + n1) i -> Index m1 j -> j -> j
+    go :: KnownNat m1
+       => Shape (m1 + n) i -> Index m1 j -> j -> j
     go sh ZI tensidx = fromIntegral (sizeShape sh) * tensidx
     go (n :$ sh) (i :. idx) tensidx = go sh idx (fromIntegral n * tensidx + i)
     go _ _ _ = error "toLinearIdx: impossible pattern needlessly required"

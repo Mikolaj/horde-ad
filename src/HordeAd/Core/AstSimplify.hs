@@ -701,6 +701,9 @@ astGatherStepS
   => AstShaped s r sh
   -> (AstVarListS sh2, AstIndexS (Sh.Take p sh))
   -> AstShaped s r (sh2 Sh.++ Sh.Drop p sh)
+-- TODO: this probably needs an extra condition similar to kN == vkN below
+--astGatherStepS v (AstVarName varId :$: ZSH, AstIntVarS varId2 :$: ZSH)
+--  | varId == varId2 = ...
 astGatherStepS v (vars, ix) = Ast.AstGatherS v (vars, ix)  -- TODO
 
 -- Assumption: vars0 don't not occur in v0. The assumption only holds

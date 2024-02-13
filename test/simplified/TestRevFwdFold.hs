@@ -149,6 +149,15 @@ testTrees =
   , testCase "4Sin0rmapAccumRD01SN52" testSin0rmapAccumRD01SN52
   , testCase "4Sin0rmapAccumRD01SN53" testSin0rmapAccumRD01SN53
   , testCase "4Sin0rmapAccumRD01SN531" testSin0rmapAccumRD01SN531
+  , testCase "4Sin0rmapAccumRD01SN531a" testSin0rmapAccumRD01SN531a
+  , testCase "4Sin0rmapAccumRD01SN531b0" testSin0rmapAccumRD01SN531b0
+  , testCase "4Sin0rmapAccumRD01SN531bS" testSin0rmapAccumRD01SN531bS
+  , testCase "4Sin0rmapAccumRD01SN531bR" testSin0rmapAccumRD01SN531bR
+  , testCase "4Sin0rmapAccumRD01SN531b0PP" testSin0rmapAccumRD01SN531b0PP
+  , testCase "4Sin0rmapAccumRD01SN531bSPP" testSin0rmapAccumRD01SN531bSPP
+  , testCase "4Sin0rmapAccumRD01SN531bRPP" testSin0rmapAccumRD01SN531bRPP
+  , testCase "4Sin0rmapAccumRD01SN531c" testSin0rmapAccumRD01SN531c
+--  , testCase "4Sin0rmapAccumRD01SN531Slice" testSin0rmapAccumRD01SN531Slice
   , testCase "4Sin0rmapAccumRD01SN54" testSin0rmapAccumRD01SN54
 --  , testCase "4Sin0rmapAccumRD01SN55" testSin0rmapAccumRD01SN55
   , testCase "4Sin0rmapAccumRD01SN55acc" testSin0rmapAccumRD01SN55acc
@@ -1546,12 +1555,14 @@ testSin0rmapAccumRD01SC = do
   assertEqualUpToEpsilon 1e-10
     0.4535961214255773
     (crev (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
-               f x0 = flip (sindex0 @_ @_ @'[1]) [0] $ (sfromD . (V.! 1))
+               f x0 = flip (sindex0 @_ @_ @'[1]) [0] $ (sfromD . (V.! 2))
                       $ dunHVector (V.fromList
                                       [ voidFromShS @Double @'[]
+                                      , voidFromShS @Double @'[]
                                       , voidFromShS @Double @'[1] ])
                       $ dmapAccumR @(RankedOf f) (SNat @1)
-                          (V.fromList [voidFromShS @Double @'[]])
+                          (V.fromList [ voidFromShS @Double @'[]
+                                      , voidFromShS @Double @'[] ])
                           (V.fromList [voidFromShS @Double @'[]])
                           (V.fromList [voidFromShS @Double @'[]])
                           (let g :: forall g. ADReadyS g
@@ -1562,9 +1573,10 @@ testSin0rmapAccumRD01SC = do
                                  in dmkHVector @_ @g
                                     $ V.fromList
                                         [ DynamicShaped $ sin x
+                                        , DynamicShaped $ sin x
                                         , DynamicShaped $ sin x ]
                            in g)
-                          (V.singleton $ DynamicShaped x0)
+                          (V.fromList [DynamicShaped x0, DynamicShaped x0])
                           (V.singleton $ DynamicShaped @Double @'[1] 0)
            in f) 1.1)
 
@@ -1573,25 +1585,29 @@ testSin0rmapAccumRD01SN = do
   assertEqualUpToEpsilon' 1e-10
     0.4535961214255773
     (rev' (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
-               f x0 = (sfromD . (V.! 0))
+               f x0 = (sfromD . (V.! 1))
                       $ dunHVector (V.fromList
                                       [ voidFromShS @Double @'[]
+                                      , voidFromShS @Double @'[]
                                       , voidFromShS @Double @'[1] ])
                       $ dmapAccumR @(RankedOf f) (SNat @1)
-                          (V.fromList [voidFromShS @Double @'[]])
+                          (V.fromList [ voidFromShS @Double @'[]
+                                      , voidFromShS @Double @'[] ])
                           (V.fromList [voidFromShS @Double @'[]])
                           (V.fromList [voidFromShS @Double @'[]])
                           (let g :: forall g. ADReadyS g
                                  => HVector (RankedOf g) -> HVector (RankedOf g)
                                  -> HVectorOf (RankedOf g)
                                g xh _a =
-                                 let x = sfromD @Double @'[] $ xh V.! 0
+                                 let x = sfromD @Double @'[] $ xh V.! 1
                                  in dmkHVector @_ @g
                                     $ V.fromList
                                         [ DynamicShaped $ sin x
+                                        , DynamicShaped $ sin x
                                         , DynamicShaped $ sin x ]
                            in g)
-                          (V.singleton $ DynamicShaped x0)
+                          (V.fromList [ DynamicShaped @Double @'[] 3
+                                      , DynamicShaped x0 ])
                           (V.singleton $ DynamicShaped @Double @'[1] 0)
            in rfromS . f . sfromR) 1.1)
 
@@ -1738,19 +1754,22 @@ testSin0rmapAccumRD01SN5 = do
 testSin0rmapAccumRD01SN51 :: Assertion
 testSin0rmapAccumRD01SN51 = do
   assertEqualUpToEpsilon' 1e-10
-    0.12389721944941383
+    (-69.90586521651421)
     (rev' (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
-               f x0 = (sfromD . (V.! 0))
+               f x0 = (\res -> ssum @_ @_ @6 (sfromD (res V.! 0))
+                               + ssum0 @_ @_ @'[6, 5, 4, 3]
+                                   (sfromD (res V.! 2)))
                       $ dunHVector (V.fromList
-                                      [ voidFromShS @Double @'[]
-                                      , voidFromShS @Double @'[5, 3]
-                                      , voidFromShS @Double @'[5, 3] ])
-                      $ dmapAccumR @(RankedOf f) (SNat @5)
-                          (V.fromList [voidFromShS @Double @'[]])
-                          (V.fromList [ voidFromShS @Double @'[3]
+                                      [ voidFromShS @Double @'[6]
+                                      , voidFromShS @Double @'[6, 3]
+                                      , voidFromShS @Double @'[6, 5, 4, 3] ])
+                      $ dbuild1 @(RankedOf f) @f 6 $ \j ->
+                       (dmapAccumR @(RankedOf f) (SNat @5)
+                          (V.fromList [ voidFromShS @Double @'[]
                                       , voidFromShS @Double @'[3] ])
+                          (V.fromList [ voidFromShS @Double @'[4, 3] ])
                           (V.fromList [ voidFromShS @Double @'[2]
-                                      , voidFromShS @Double @'[2]
+                                      , voidFromShS @Double @'[3]
                                       , voidFromShS @Double @'[2]
                                       , voidFromShS @Double @'[2] ])
                           (let g :: forall g. ADReadyS g
@@ -1758,28 +1777,33 @@ testSin0rmapAccumRD01SN51 = do
                                  -> HVectorOf (RankedOf g)
                                g xh a =
                                 let x = sfromD @Double @'[] $ xh V.! 0
+                                    x1 = sfromD @Double @'[3] $ xh V.! 1
                                 in dmkHVector @_ @g
                                    $ V.fromList
                                        [ DynamicShaped
                                          $ sin x
                                            - smaxIndex
                                                @_ @Double @Double @'[] @2
-                                               (sfromD (a V.! 1))
+                                               (sfromD (a V.! 3))
                                        , DynamicShaped
                                          $ sreplicate @_ @3
                                              ((sindex0 @_ @_ @'[2]
                                                        (sfromD (a V.! 2)) [1])
                                                / sin x / 3)
                                        , DynamicShaped
-                                         $ sreplicate @_ @3
-                                             (ssum @_ @_ @2 (sfromD (a V.! 1))
-                                              + sin x / 3) ]
+                                         $ sbuild1 @_ @_ @4 $ \i ->
+                                             sfromD (a V.! 1)
+                                             - sin x1 / sreplicate @_ @3
+                                                          (1 + sfromIndex0 i) ]
                            in g)
-                          (V.singleton $ DynamicShaped x0)
+                          (V.fromList [ DynamicShaped $ x0 / (1 + sfromIntegral (sconstant (sfromR j)))
+                                      , DynamicShaped $ sreplicate @_ @3 x0 ])
                           (V.fromList [ DynamicShaped @Double @'[5, 2] 1
-                                         , DynamicShaped @Double @'[5, 2] 2
+                                         , DynamicShaped @Double @'[5, 3]
+                                           $ sreplicate0N @_ @_ @'[5, 3]
+                                               (sfromIntegral (sconstant (sfromR j)))
                                          , DynamicShaped @Double @'[5, 2] 3
-                                         , DynamicShaped @Double @'[5, 2] 4 ])
+                                         , DynamicShaped @Double @'[5, 2] 4 ]))
            in rfromS . f . sfromR) 1.1)
 
 testSin0rmapAccumRD01SN52 :: Assertion
@@ -1928,6 +1952,292 @@ testSin0rmapAccumRD01SN531 = do
                                          (sfromList0N
                                            [0.4, -0.01, -0.3, 0.2, 0.5, 1.3]) ])
            in rfromS . f . sfromR) (Flip $ OR.fromList [3] [1.1, 2, 3.14]))
+
+testSin0rmapAccumRD01SN531a :: Assertion
+testSin0rmapAccumRD01SN531a = do
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [3]
+       [1.8478609886246988,-22.194216099801963,-40.72162125038692])
+    (rev' (let f :: forall f. ADReadyS f
+                 => f Double '[3] -> f Double '[2, 2, 2, 3]
+               f x0 = (\res -> 2 - sreplicate @_ @2 (sfromD (res V.! 0))
+                               - sfromD (res V.! 2))
+                      $ dunHVector (V.fromList
+                                      [ voidFromShS @Double @'[2, 2, 3]
+                                      , voidFromShS @Double @'[2, 2, 6]
+                                      , voidFromShS @Double @'[2, 2, 2, 3] ])
+                      $ dbuild1 @(RankedOf f) @f 2 $ \i ->
+                       (dbuild1 @(RankedOf f) @f 2 $ \j ->
+                       (dmapAccumR @(RankedOf f) (SNat @2)
+                          (V.fromList [ voidFromShS @Double @'[3]
+                                      , voidFromShS @Double @'[6] ])
+                          (V.fromList [ voidFromShS @Double @'[3] ])
+                          (V.fromList [ voidFromShS @Double @'[1]
+                                      , voidFromShS @Double @'[3] ])
+                          (let g :: forall g. ADReadyS g
+                                 => HVector (RankedOf g) -> HVector (RankedOf g)
+                                 -> HVectorOf (RankedOf g)
+                               g xh a =
+                                let x = sfromD @Double @'[3] $ xh V.! 0
+                                    x2 = sfromD @Double @'[6] $ xh V.! 1
+                                in dmkHVector @_ @g
+                                   $ V.fromList
+                                       [ DynamicShaped
+                                         $ sfromList
+                                             [0.01, ssum @_ @_ @6 x2, 0.3]
+                                           - sin x - sfromD (a V.! 1)
+                                       , DynamicShaped
+                                         $ 1 - x2
+                                           - sreplicate @_ @6
+                                                 (ssum (sin x - sfromD (a V.! 1)))
+                                       , DynamicShaped
+                                         $ 1 - sreplicate @_ @3
+                                             (ssum @_ @_ @1 (sfromD (a V.! 0)))
+                                           - sin x / 3
+                                           - sreplicate @_ @3
+                                             (sindex0 @_ @_ @'[3]
+                                                       (sfromD (a V.! 1)) [1]
+                                             - (smaxIndex
+                                                  @_ @Double @Double @'[] @3
+                                                  (sin x / 3))) ]
+                           in g)
+                          (V.fromList [ DynamicShaped
+                                        $ x0 / (1 + sreplicate @_ @3 (sfromIntegral (sconstant (sfromR j))))
+                                      , DynamicShaped
+                                        $ sreplicate @_ @6 (sfromIntegral (sconstant (sfromR i)))
+                                          - sflatten (sappend x0 x0) ] )
+                          (V.fromList [ DynamicShaped @Double @'[2, 1]
+                                          (sfromList [-0.1, sreshape @_ @_ @'[] @'[1] $ sfromIntegral (sconstant (sfromR j))])
+                                      , DynamicShaped @Double @'[2, 3]
+                                         (sfromList0N
+                                           [0.4, -0.01, -0.3, sfromIntegral (sconstant (sfromR i)), 0.5, 1.3]) ])))
+           in rfromS . f . sfromR) (Flip $ OR.fromList [3] [1.1, 2, 3.14]))
+
+testSin0rmapAccumRD01SN531b0 :: Assertion
+testSin0rmapAccumRD01SN531b0 = do
+  assertEqualUpToEpsilon' 1e-10
+    4
+    (rev' (let f :: forall f. ADReady f
+                 => f Double 0 -> f Double 2
+               f x0 = rletHVectorIn (V.fromList
+                                       [ voidFromShS @Double @'[2, 2] ])
+                       (dbuild1 @f 2 $ \_i ->
+                       (dbuild1 @f 2 $ \_j ->
+                       (dmapAccumR @f (SNat @0)
+                          (V.fromList [ voidFromShS @Double @'[] ])
+                          (V.fromList [])
+                          (V.fromList [ voidFromSh @Double ZS ])
+                          (let h :: forall g. ADReady g
+                                 => HVector g -> HVector g
+                                 -> HVectorOf g
+                               h xh _a = dmkHVector @g xh
+                           in h)
+                          (V.fromList [ DynamicShaped @Double @'[]
+                                        $ sfromR x0 ])
+                          (V.fromList [ DynamicRanked @Double @1
+                                        $ rconst $ OR.fromList [0] [] ]))))
+                        $ \d -> rfromD $ d V.! 0
+           in f) 1.1)
+
+testSin0rmapAccumRD01SN531bS :: Assertion
+testSin0rmapAccumRD01SN531bS = do
+  assertEqualUpToEpsilon' 1e-10
+    4
+    (rev' (let f :: forall f. ADReadyS f
+                 => f Double '[] -> f Double '[2, 2]
+               f x0 = sletHVectorIn (V.fromList
+                                       [ voidFromShS @Double @'[2, 2] ])
+                       (dbuild1 @(RankedOf f) @f 2 $ \_i ->
+                       (dbuild1 @(RankedOf f) @f 2 $ \_j ->
+                       (dmapAccumR @(RankedOf f) (SNat @1)
+                          (V.fromList [ voidFromShS @Double @'[] ])
+                          (V.fromList [])
+                          (V.fromList [ voidFromShS @Double @'[] ])
+                          (let g :: forall g. ADReadyS g
+                                 => HVector (RankedOf g) -> HVector (RankedOf g)
+                                 -> HVectorOf (RankedOf g)
+                               g xh _a = dmkHVector @_ @g xh
+                           in g)
+                          (V.fromList [ DynamicShaped x0 ])
+                          (V.fromList [ DynamicShaped @Double @'[1] 0 ]))))
+                        $ \d -> sfromD $ d V.! 0
+           in rfromS . f . sfromR) 1.1)
+
+testSin0rmapAccumRD01SN531bR :: Assertion
+testSin0rmapAccumRD01SN531bR = do
+  assertEqualUpToEpsilon' 1e-10
+    4
+    (rev' (let f :: forall f. ADReady f
+                 => f Double 0 -> f Double 2
+               f x0 = rletHVectorIn (V.fromList
+                                       [ voidFromSh @Double (2 :$ 2 :$ ZS) ])
+                       (dbuild1 @f 2 $ \_i ->
+                       (dbuild1 @f 2 $ \_j ->
+                       (dmapAccumR @f (SNat @1)
+                          (V.fromList [ voidFromSh @Double ZS ])
+                          (V.fromList [])
+                          (V.fromList [ voidFromSh @Double ZS ])
+                          (let h :: forall g. ADReady g
+                                 => HVector g -> HVector g
+                                 -> HVectorOf g
+                               h xh _a = dmkHVector @g xh
+                           in h)
+                          (V.fromList [ DynamicRanked x0 ])
+                          (V.fromList [ DynamicRanked @Double @1
+                                        $ rconst $ OR.fromList [1] [0] ]))))
+                        $ \d -> rfromD $ d V.! 0
+           in f) 1.1)
+
+testSin0rmapAccumRD01SN531b0PP :: Assertion
+testSin0rmapAccumRD01SN531b0PP = do
+  resetVarCounter
+  let f :: forall f. ADReady f
+        => HVector f -> f Double 2
+      f x0 = rletHVectorIn (V.fromList [ voidFromShS @Double @'[2, 2] ])
+                       (dbuild1 @f 2 $ \_i ->
+                       (dbuild1 @f 2 $ \_j ->
+                       (dmapAccumR @f (SNat @0)
+                          (V.fromList [ voidFromShS @Double @'[] ])
+                          (V.fromList [])
+                          (V.fromList [ voidFromSh @Double ZS ])
+                          (let h :: forall g. ADReady g
+                                 => HVector g -> HVector g
+                                 -> HVectorOf g
+                               h xh _a = dmkHVector @g xh
+                           in h)
+                          (V.fromList [ DynamicShaped @Double @'[]
+                                        $ sfromD (x0 V.! 0) ])
+                          (V.fromList [ DynamicRanked @Double @1
+                                        $ rconst $ OR.fromList [0] [] ]))))
+                        $ \d -> rfromD $ d V.! 0
+      g :: forall g. HVectorTensor g (ShapedOf g) => HVector g -> HVectorOf g
+      g = rrev f (V.singleton (voidFromSh @Double ZS))
+  printAstHVectorPrettyButNested
+    IM.empty
+    (simplifyAstHVector6
+     $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 1.1))
+    @?= "let t48 = rconstant (rtranspose [2,0,1] (rreplicate 2 (rreplicate 2 (rconst (fromList [0] []))))) in let [m49 @[Natural] @Double @[2,2], t50 @[Natural] @Double @[0,2,2]] = dmapAccumRDer (SNat @0) (\\[m51] [m52] -> [sgather (sgather m51 (\\[i53] -> [i53])) (\\[i54, i55] -> [i54, i55]), m51]) (\\[m57] [m58] [m59] [m60] -> [sgather (sgather m57 (\\[i82] -> [i82])) (\\[i84, i85] -> [i84, i85]), m57]) (\\[m87] [m88] [m89] [m90] -> [sconst @[2,2] (fromList @[2,2] [0.0,0.0,0.0,0.0]) + m88 + sscatter (sscatter m87 (\\[i115, i116] -> [i115, i116])) (\\[i114] -> [i114]), 0]) [sconstant (sreplicate (sreplicate (rconst 1.1)))] [t48] in let [m119 @[Natural] @Double @[2,2], t120 @Natural @Double @[0,2,2]] = dmapAccumRDer (SNat @0) (\\[m121] [m122, m123] -> [sgather (sgather (sgather (sgather m121 (\\[i124] -> [i124])) (\\[i125, i126] -> [i125, i126])) (\\[i128] -> [i128])) (\\[i129, i130] -> [i129, i130]), rreplicate 2 (sconst @[2] (fromList @[2] [0.0,0.0]))]) (\\[m131] [m132, m133] [m134] [m135, m136] -> [sgather (sgather (sgather (sgather m131 (\\[i171] -> [i171])) (\\[i173, i174] -> [i173, i174])) (\\[i176] -> [i176])) (\\[i178, i179] -> [i178, i179]), rreplicate 2 (rreplicate 2 (rconst 0.0))]) (\\[m181] [m182] [m183] [m184, m185] -> [sscatter (sscatter (sscatter (sscatter m181 (\\[i223, i224] -> [i223, i224])) (\\[i222] -> [i222])) (\\[i220, i221] -> [i220, i221])) (\\[i219] -> [i219]), 0, 0]) [sconstant (sscatter (rreplicate 2 (rreplicate 2 (rconst 1.0))) (\\[i118] -> [i118]))] [rreverse t50, rreverse t48] in [ssum (ssum m119)]"
+
+testSin0rmapAccumRD01SN531bSPP :: Assertion
+testSin0rmapAccumRD01SN531bSPP = do
+  resetVarCounter
+  let f :: forall f. ADReadyS f
+        => HVector (RankedOf f) -> f Double '[2, 2]
+      f x0 = sletHVectorIn (V.fromList [ voidFromShS @Double @'[2, 2] ])
+                       (dbuild1 @(RankedOf f) @f 2 $ \_i ->
+                       (dbuild1 @(RankedOf f) @f 2 $ \_j ->
+                       (dmapAccumR @(RankedOf f) (SNat @1)
+                          (V.fromList [ voidFromShS @Double @'[] ])
+                          (V.fromList [])
+                          (V.fromList [ voidFromShS @Double @'[] ])
+                          (let h :: forall g. ADReadyS g
+                                 => HVector (RankedOf g) -> HVector (RankedOf g)
+                                 -> HVectorOf (RankedOf g)
+                               h xh _a = dmkHVector @_ @g xh
+                           in h)
+                          x0
+                          (V.fromList [ DynamicShaped @Double @'[1] 0 ]))))
+                        $ \d -> sfromD $ d V.! 0
+      g :: forall g. HVectorTensor g (ShapedOf g) => HVector g -> HVectorOf g
+      g = srev f (V.singleton (voidFromShS @Double @'[]))
+  printAstHVectorPretty
+    IM.empty
+    (simplifyAstHVector6
+     $ g @(AstRanked FullSpan) (V.singleton $ DynamicShaped @Double @'[] 1.1))
+    @?= "let t48 = sconstant (stranspose (sreplicate (sreplicate (sconst @[1] (fromList @[1] [0.0]))))) in let [m49 @[Natural] @Double @[2,2], t50 @[Natural] @Double @[1,2,2]] = dmapAccumRDer f df rf [sconstant (sreplicate (sreplicate (sconst @[] 1.1)))] [t48] in let [m119 @[Natural] @Double @[2,2], t120 @[Natural] @Double @[1,2,2]] = dmapAccumRDer f df rf [sconstant (sscatter (sconst @[2,2] (fromList @[2,2] [1.0,1.0,1.0,1.0])) (\\[i118] -> [i118]))] [rreverse t50, rreverse t48] in [ssum (ssum m119)]"
+
+testSin0rmapAccumRD01SN531bRPP :: Assertion
+testSin0rmapAccumRD01SN531bRPP = do
+  resetVarCounter
+  let f :: forall f. ADReady f
+        => HVector f -> f Double 2
+      f x0 = rletHVectorIn (V.fromList [ voidFromSh @Double (2 :$ 2 :$ ZS) ])
+                       (dbuild1 @f 2 $ \_i ->
+                       (dbuild1 @f 2 $ \_j ->
+                       (dmapAccumR @f (SNat @1)
+                          (V.fromList [ voidFromSh @Double ZS ])
+                          (V.fromList [])
+                          (V.fromList [ voidFromSh @Double ZS ])
+                          (let h :: forall g. ADReady g
+                                 => HVector g -> HVector g
+                                 -> HVectorOf g
+                               h xh _a = dmkHVector @g xh
+                           in h)
+                          x0
+                          (V.fromList [ DynamicRanked @Double @1
+                                        $ rconst $ OR.fromList [1] [0] ]))))
+                        $ \d -> rfromD $ d V.! 0
+      g :: forall g. HVectorTensor g (ShapedOf g) => HVector g -> HVectorOf g
+      g = rrev f (V.singleton (voidFromSh @Double ZS))
+  printAstHVectorPretty
+    IM.empty
+    (simplifyAstHVector6
+     $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 1.1))
+    @?= "let t32 = rconstant (rtranspose [2,0,1] (rreplicate 2 (rreplicate 2 (rconst (fromList [1] [0.0]))))) in let [m33 @Natural @Double @[2,2], t34 @Natural @Double @[1,2,2]] = dmapAccumRDer f df rf [rconstant (rreplicate 2 (rreplicate 2 (rconst 1.1)))] [t32] in let [m60 @Natural @Double @[2,2], t61 @Natural @Double @[1,2,2]] = dmapAccumRDer f df rf [rconstant (rreplicate 2 (rreplicate 2 (rconst 1.0)))] [rreverse t34, rreverse t32] in [rsum (rreshape [4] m60)]"
+
+testSin0rmapAccumRD01SN531c :: Assertion
+testSin0rmapAccumRD01SN531c = do
+  assertEqualUpToEpsilon' 1e-10
+    (-1.8866871148429984)
+    (rev' (let f :: forall f. ADReadyS f
+                 => f Double '[] -> f Double '[2, 2, 2]
+               f x0 = (\res -> 2 - sreplicate @_ @2 (sfromD (res V.! 0))
+                               - sfromD (res V.! 1))
+                      $ dunHVector (V.fromList
+                                      [ voidFromShS @Double @'[2, 2]
+                                      , voidFromShS @Double @'[2, 2, 2] ])
+                      $ dbuild1 @(RankedOf f) @f 2 $ \i ->
+                       (dbuild1 @(RankedOf f) @f 2 $ \j ->
+                       (dmapAccumR @(RankedOf f) (SNat @2)
+                          (V.fromList [ voidFromShS @Double @'[] ])
+                          (V.fromList [ voidFromShS @Double @'[] ])
+                          (V.fromList [ voidFromShS @Double @'[] ])
+                          (let g :: forall g. ADReadyS g
+                                 => HVector (RankedOf g) -> HVector (RankedOf g)
+                                 -> HVectorOf (RankedOf g)
+                               g xh a =
+                                let x = sfromD @Double @'[] $ xh V.! 0
+                                in dmkHVector @_ @g
+                                   $ V.fromList
+                                       [ DynamicShaped
+                                         $ sin x - sfromD (a V.! 0)
+                                       , DynamicShaped
+                                         $ 1 - sin x / 3 - sfromD (a V.! 0) ]
+                           in g)
+                          (V.fromList [ DynamicShaped
+                                        $ x0 / (1 + sfromIntegral (sconstant (sfromR j))) ])
+                          (V.fromList [ DynamicShaped @Double @'[2]
+                                         (sfromList0N
+                                           [0.4, sfromIntegral (sconstant (sfromR i))]) ])))
+           in rfromS . f . sfromR) 1.1)
+
+-- TODO: empty tensor/heterogeneous vector of tensors ambiguity breaks things
+_testSin0rmapAccumRD01SN531Slice :: Assertion
+_testSin0rmapAccumRD01SN531Slice = do
+  assertEqualUpToEpsilon' 1e-10
+    4
+    (rev' (let f :: forall f. ADReadyS f
+                 => f Double '[] -> f Double '[2, 2]
+               f x0 = (sfromD . (V.! 0))
+                      $ dunHVector (V.fromList
+                                      [ voidFromShS @Double @'[2, 2] ])
+                      $ dbuild1 @(RankedOf f) @f 2 $ \_i ->
+                       (dbuild1 @(RankedOf f) @f 2 $ \_j ->
+                       (dmapAccumR @(RankedOf f) (SNat @1)
+                          (V.fromList [ voidFromShS @Double @'[] ])
+                          (V.fromList [])
+                          (V.fromList [])
+                          (let g :: forall g. ADReadyS g
+                                 => HVector (RankedOf g) -> HVector (RankedOf g)
+                                 -> HVectorOf (RankedOf g)
+                               g xh _a =
+                                let x = sfromD @Double @'[] $ xh V.! 0
+                                in dmkHVector @_ @g
+                                   $ V.fromList [ DynamicShaped x ]
+                           in g)
+                          (V.fromList [ DynamicShaped x0 ])
+                          (V.fromList [])))
+           in rfromS . f . sfromR) 1.1)
 
 testSin0rmapAccumRD01SN54 :: Assertion
 testSin0rmapAccumRD01SN54 = do
