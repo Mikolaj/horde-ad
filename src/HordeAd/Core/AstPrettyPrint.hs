@@ -102,7 +102,7 @@ areAllArgsInts = \case
   AstFromIntegral{} -> True
   AstConst{} -> True
   AstLetHVectorIn{} -> True  -- too early to tell
-  AstSToR{} -> False
+  AstRFromS{} -> False
   AstConstant{} -> True  -- the argument is emphatically a primal number; fine
   AstPrimalPart{} -> False
   AstDualPart{} -> False
@@ -368,7 +368,7 @@ printAstAux cfg d = \case
              . showString " -> "
              . printAst cfg 0 v)
         -- TODO: this does not roundtrip yet
-  AstSToR v -> printAstS cfg d v
+  AstRFromS v -> printAstS cfg d v
   AstConstant a@AstConst{} -> printAst cfg d a
   AstConstant a -> printPrefixOp printAst cfg d "rconstant" [a]
   AstPrimalPart a -> printPrefixOp printAst cfg d "rprimalPart" [a]
@@ -782,7 +782,7 @@ printAstS cfg d = \case
              . showString " -> "
              . printAstS cfg 0 v)
         -- TODO: this does not roundtrip yet
-  AstRToS v -> printAst cfg d v
+  AstSFromR v -> printAst cfg d v
   AstConstantS a@AstConstS{} -> printAstS cfg d a
   AstConstantS a ->
     printPrefixOp printAstS cfg d "sconstant" [a]

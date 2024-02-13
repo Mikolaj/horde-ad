@@ -280,7 +280,7 @@ data DeltaR :: RankedTensorType -> RankedTensorType where
          -> DeltaR ranked rn (1 + n)
   CastR :: (GoodScalar r1, RealFrac r1, RealFrac r2)
         => DeltaR ranked r1 n -> DeltaR ranked r2 n
-  SToR :: forall sh r ranked. Sh.Shape sh
+  RFromS :: forall sh r ranked. Sh.Shape sh
        => DeltaS (ShapedOf ranked) r sh
        -> DeltaR ranked r (Sh.Rank sh)
   HToR :: DeltaH ranked -> Int -> DeltaR ranked r n
@@ -442,7 +442,7 @@ data DeltaS :: ShapedTensorType -> ShapedTensorType where
          -> DeltaS shaped rn (1 + k ': sh)
   CastS :: (GoodScalar r1, RealFrac r1, RealFrac r2)
         => DeltaS shaped r1 sh -> DeltaS shaped r2 sh
-  RToS :: forall sh r shaped. KnownNat (Sh.Rank sh)
+  SFromR :: forall sh r shaped. KnownNat (Sh.Rank sh)
        => DeltaR (RankedOf shaped) r (Sh.Rank sh)
        -> DeltaS shaped r sh
   HToS :: DeltaH (RankedOf shaped) -> Int -> DeltaS shaped r sh
@@ -579,7 +579,7 @@ shapeDeltaR = \case
   ScanR p _as _df _rf _x0' _as' -> rshape p
   ScanZipR _domsOD p _as _df _rf _x0' _as' -> rshape p
   CastR d -> shapeDeltaR d
-  SToR @sh _ -> listShapeToShape $ Sh.shapeT @sh
+  RFromS @sh _ -> listShapeToShape $ Sh.shapeT @sh
   HToR d i -> listShapeToShape $ shapeVoidDynamic (shapeDeltaH d V.! i)
 
 lengthDeltaR :: forall ranked r n.
@@ -1138,8 +1138,8 @@ evalR !s !c = let (abShared, cShared) = rregister c (astBindings s)
     in evalHVector s3 cas as'
   CastR d -> evalRRuntimeSpecialized s (rcast c) d
 
-  SToR (RToS d) -> evalR s c d  -- no information lost, so no checks
-  SToR d -> evalS s (sfromR c) d
+  RFromS (SFromR d) -> evalR s c d  -- no information lost, so no checks
+  RFromS d -> evalS s (sfromR c) d
   HToR d i ->
     let cs = V.map dynamicFromVoid $ shapeDeltaH d
         ci = DynamicRanked c
@@ -1348,11 +1348,11 @@ evalS !s !c = let (abShared, cShared) = sregister c (astBindings s)
         s3 = evalS s2 (cx0 + cShared !$ (0 :$: ZSH)) x0'
     in evalHVector s3 cas as'
   CastS d -> evalSRuntimeSpecialized s (scast c) d
-  RToS (SToR @sh2 d) ->
+  SFromR (RFromS @sh2 d) ->
     case sameShape @sh @sh2 of
       Just Refl -> evalS s c d
-      _ -> error "evalS: different shapes in RToS(SToR)"
-  RToS d -> evalR s (rfromS c) d
+      _ -> error "evalS: different shapes in SFromR(RFromS)"
+  SFromR d -> evalR s (rfromS c) d
   HToS d i ->
     let cs = V.map dynamicFromVoid $ shapeDeltaH d
         ci = DynamicShaped c
@@ -1571,13 +1571,13 @@ mapDynamicDeltaR11 f (DynamicShaped @r @sh t) = case ShapedList.shapeSh @sh of
   (:$:) @_ @sh0 _ _ ->
     withListShape (Sh.shapeT @sh0) $ \(_ :: ShapeInt n) ->
       gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: 1 + n) $
-      let res = f $ SToR @sh t
+      let res = f $ RFromS @sh t
       in Sh.withShapeP (shapeToList $ shapeDeltaR res) $ \(Proxy @shr) ->
         case someNatVal $ 1 + valueOf @n of
           Just (SomeNat @n1 _) ->
             gcastWith (unsafeCoerce Refl :: n1 :~: 1 + n) $
             gcastWith (unsafeCoerce Refl :: Sh.Rank shr :~: n1) $
-            DynamicShaped @r @shr $ RToS res
+            DynamicShaped @r @shr $ SFromR res
           _ -> error "mapDynamicDeltaR11: impossible someNatVal"
 mapDynamicDeltaR11
   f (DynamicRankedDummy @r @sh _ _) = case ShapedList.shapeSh @sh of
@@ -1596,7 +1596,7 @@ mapDynamicDeltaR11
           Just (SomeNat @n1 _) ->
             gcastWith (unsafeCoerce Refl :: n1 :~: 1 + n) $
             gcastWith (unsafeCoerce Refl :: Sh.Rank shr :~: n1) $
-            DynamicShaped @_ @shr $ RToS res
+            DynamicShaped @_ @shr $ SFromR res
           _ -> error "mapDynamicDeltaR11: impossible someNatVal"
 
 mapHVectorDeltaS11
@@ -1624,7 +1624,7 @@ mapDynamicDeltaS11 f (DynamicRanked @r @n2 t) =
         Just Refl -> withListShape (Sh.shapeT @shr) $ \(_ :: ShapeInt m) ->
           gcastWith (unsafeCoerce Refl :: n2 :~: 1 + m) $
           gcastWith (unsafeCoerce Refl :: Sh.Rank shr :~: m) $
-          DynamicRanked $ SToR $ f @r @shr $ RToS t
+          DynamicRanked $ RFromS $ f @r @shr $ SFromR t
         Nothing -> error "mapDynamicDeltaS11: wrong width"
 mapDynamicDeltaS11 f (DynamicShaped @_ @sh t) = case ShapedList.shapeSh @sh of
   ZSH -> error "mapDynamicDeltaS11: rank 0"
@@ -1637,7 +1637,7 @@ mapDynamicDeltaS11
   (:$:) @n @shr _ _ -> case sameNat (Proxy @n) (Proxy @k) of
     Just Refl -> withListShape (Sh.shapeT @shr) $ \(_ :: ShapeInt m) ->
       gcastWith (unsafeCoerce Refl :: Sh.Rank shr :~: m) $
-      DynamicRanked $ SToR $ f @r @shr ZeroS
+      DynamicRanked $ RFromS $ f @r @shr ZeroS
     Nothing -> error "mapDynamicDeltaS11: wrong width"
 mapDynamicDeltaS11
   f (DynamicShapedDummy @r @sh _ _) = case ShapedList.shapeSh @sh of
@@ -1861,8 +1861,8 @@ fwdR dimR params s = \case
   CastR d ->
     second rcast $ fwdR dimR params s d
 
-  SToR (RToS d) -> fwdR dimR params s d  -- no information lost, so no checks
-  SToR d -> second rfromS $ fwdS dimR params s d
+  RFromS (SFromR d) -> fwdR dimR params s d  -- no information lost, so no checks
+  RFromS d -> second rfromS $ fwdS dimR params s d
   HToR d i -> let (s2, v) = fwdH dimR params s d
                   doms = shapeDeltaH d
               in (s2, rletHVectorIn doms v $ \res ->
@@ -2034,11 +2034,11 @@ fwdS dimR params s = \case
   CastS d ->
     second scast $ fwdS dimR params s d
 
-  RToS (SToR @sh2 d) ->
+  SFromR (RFromS @sh2 d) ->
     case sameShape @sh @sh2 of
       Just Refl -> fwdS dimR params s d
-      _ -> error "fwdS: different shapes in RToS(SToR)"
-  RToS d -> second sfromR $ fwdR dimR params s d
+      _ -> error "fwdS: different shapes in SFromR(RFromS)"
+  SFromR d -> second sfromR $ fwdR dimR params s d
   HToS d i -> let (s2, v) = fwdH dimR params s d
                   doms = shapeDeltaH d
               in (s2, sletHVectorIn doms v $ \res ->
@@ -2439,11 +2439,11 @@ instance (KnownNat n0,
         (a_adki >= 11)
         ((.)
            (showString "CastR ") (showsPrec 11 b1_adkj))
-  showsPrec a_adkk (SToR b1_adkl)
+  showsPrec a_adkk (RFromS b1_adkl)
     = showParen
         (a_adkk >= 11)
         ((.)
-           (showString "SToR ") (showsPrec 11 b1_adkl))
+           (showString "RFromS ") (showsPrec 11 b1_adkl))
   showsPrec
     a_a2Gg0
     (HordeAd.Core.Delta.HToR b1_a2Gg1 b2_a2Gg2)
@@ -2733,11 +2733,11 @@ instance (ShapedOf (RankedOf shaped) ~ shaped,
         (a_adv6 >= 11)
         ((.)
            (showString "CastS ") (showsPrec 11 b1_adv7))
-  showsPrec a_adv8 (RToS b1_adv9)
+  showsPrec a_adv8 (SFromR b1_adv9)
     = showParen
         (a_adv8 >= 11)
         ((.)
-           (showString "RToS ") (showsPrec 11 b1_adv9))
+           (showString "SFromR ") (showsPrec 11 b1_adv9))
   showsPrec
     a_a2Gei
     (HordeAd.Core.Delta.HToS b1_a2Gej b2_a2Gek)

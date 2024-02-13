@@ -96,7 +96,7 @@ instance (GoodScalar r, KnownNat n, RankedTensor ranked)
   shareDual d = case d of
     ZeroR{} -> d
     InputR{} -> d
-    SToR{} -> d
+    RFromS{} -> d
     LetR{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDeltaR d
 
@@ -114,7 +114,7 @@ instance (GoodScalar r, Sh.Shape sh, ShapedTensor shaped)
   shareDual d = case d of
     ZeroS -> d
     InputS{} -> d
-    RToS{} -> d
+    SFromR{} -> d
     LetS{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDeltaS d
 

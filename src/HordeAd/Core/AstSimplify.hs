@@ -27,7 +27,7 @@ module HordeAd.Core.AstSimplify
   , astReplicate, astReplicateS, astAppend, astAppendS, astSlice, astSliceS
   , astReverse, astReverseS
   , astTranspose, astTransposeS, astReshape, astReshapeS
-  , astCast, astCastS, astFromIntegral, astFromIntegralS, astSToR, astRToS
+  , astCast, astCastS, astFromIntegral, astFromIntegralS, astRFromS, astSFromR
   , astPrimalPart, astPrimalPartS, astDualPart, astDualPartS
   , astLetHVectorIn, astLetHVectorInS
   , astLetHVectorInHVector, astLetInHVector, astLetInHVectorS
@@ -223,7 +223,7 @@ simplifyStepNonIndex t = case t of
   Ast.AstFromIntegral v -> astFromIntegral v
   AstConst{} -> t
   Ast.AstLetHVectorIn{} -> t
-  Ast.AstSToR v -> astSToR v
+  Ast.AstRFromS v -> astRFromS v
   Ast.AstConstant{} -> t
   Ast.AstPrimalPart v -> astPrimalPart v  -- has to be done sooner or later
   Ast.AstDualPart v -> astDualPart v
@@ -434,13 +434,13 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
       Nothing -> Ast.AstIndex v0 ix
   Ast.AstLetHVectorIn vars l v ->
     astLetHVectorIn vars l (astIndexRec v ix)
-  Ast.AstSToR @sh t ->
+  Ast.AstRFromS @sh t ->
     let (takeSh, dropSh) = splitAt (valueOf @m) (Sh.shapeT @sh)
     in Sh.withShapeP takeSh $ \(Proxy :: Proxy p_take) ->
        Sh.withShapeP dropSh $ \(Proxy :: Proxy p_drop) ->
        gcastWith (unsafeCoerce Refl :: sh :~: p_take Sh.++ p_drop) $
        gcastWith (unsafeCoerce Refl :: Sh.Rank p_drop :~: n) $
-       astSToR $ astIndexStepS @p_take @p_drop
+       astRFromS $ astIndexStepS @p_take @p_drop
                                t (ShapedList.listToSized $ indexToList ix)
   Ast.AstConstant v -> Ast.AstConstant $ astIndex v ix
   Ast.AstPrimalPart{} -> Ast.AstIndex v0 ix  -- must be a NF
@@ -601,7 +601,7 @@ astIndexSOrStepOnly stepOnly v0 ix@((:$:) @in1 i1 (rest1 :: AstIndexS shm1)) =
   Ast.AstBuild1S (var2, v) ->
     withListShape (Sh.shapeT @shm1 ++ Sh.shapeT @shn) $ \(_ :: ShapeInt n) ->
       gcastWith (unsafeCoerce Refl :: Sh.Rank (shm1 Sh.++ shn) :~: n) $
-      astIndex (astRToS @(shm1 Sh.++ shn) $ astLet var2 i1 $ astSToR v) rest1
+      astIndex (astSFromR @(shm1 Sh.++ shn) $ astLet var2 i1 $ astRFromS v) rest1
   Ast.AstGatherS @_ @p @sh v (ZSH, ix2) ->
     Sh.withShapeP (Sh.shapeT @(Sh.Take p sh) ++ Sh.shapeT @shm)
     $ \(Proxy @sh1n) ->
@@ -616,7 +616,7 @@ astIndexSOrStepOnly stepOnly v0 ix@((:$:) @in1 i1 (rest1 :: AstIndexS shm1)) =
         gcastWith (unsafeCoerce Refl :: shm1 Sh.++ shn :~: sh1n) $
         let w :: AstShaped s r (shm1 Sh.++ shn)
             w = astGather v (vars, ix2)
-        in astRToS $ astLet var2 i1 $ astSToR $ astIndexS @shm1 @shn w rest1
+        in astSFromR $ astLet var2 i1 $ astRFromS $ astIndexS @shm1 @shn w rest1
   Ast.AstCastS t -> astCastS $ astIndexSOrStepOnly stepOnly t ix
   Ast.AstFromIntegralS v -> astFromIntegralS $ astIndexSOrStepOnly stepOnly v ix
   AstConstS t ->
@@ -631,14 +631,14 @@ astIndexSOrStepOnly stepOnly v0 ix@((:$:) @in1 i1 (rest1 :: AstIndexS shm1)) =
       Nothing -> Ast.AstIndexS v0 ix
   Ast.AstLetHVectorInS vars l v ->
     astLetHVectorInS vars l (astIndexRec v ix)
-  Ast.AstRToS @sh t ->
+  Ast.AstSFromR @sh t ->
     withListShape (Sh.shapeT @shm1) $ \(_ :: ShapeInt m1) ->
       gcastWith (unsafeCoerce Refl :: Sh.Rank shm1 :~: m1) $
       withListShape (Sh.shapeT @shn) $ \(_ :: ShapeInt n) ->
         gcastWith (unsafeCoerce Refl :: Sh.Rank shn :~: n) $
         gcastWith (unsafeCoerce Refl
                    :: Sh.Rank shn + Sh.Rank shm1 :~: Sh.Rank (shm1 Sh.++ shn)) $
-        astRToS $ astIndexStep t (ShapedList.shapedListToIndex ix)
+        astSFromR $ astIndexStep t (ShapedList.shapedListToIndex ix)
   Ast.AstConstantS v -> Ast.AstConstantS $ astIndex v ix
   Ast.AstPrimalPartS{} -> Ast.AstIndexS v0 ix  -- must be a NF
   Ast.AstDualPartS{} -> Ast.AstIndexS v0 ix
@@ -960,7 +960,7 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
       Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstLetHVectorIn vars l v ->
       astLetHVectorIn vars l (astGatherCase sh4 v (vars4, ix4))
-    Ast.AstSToR{} {- @sh v -} -> Ast.AstGather sh4 v4 (vars4, ix4)
+    Ast.AstRFromS{} {- @sh v -} -> Ast.AstGather sh4 v4 (vars4, ix4)
       -- TODO: this is broken
       {-
       let (takeSh, dropSh) = splitAt (valueOf @p') (Sh.shapeT @sh)
@@ -970,7 +970,7 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
          gcastWith (unsafeCoerce Refl :: p_take :~: Sh.Take p' sh) $
          gcastWith (unsafeCoerce Refl :: p_drop :~: Sh.Drop p' sh) $
          gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: p' + n') $
-         astSToR $ astGatherStepS @_ @p' @sh v
+         astRFromS $ astGatherStepS @_ @p' @sh v
                      ( ShapedList.listToSized $ sizedListToList vars4
                      , ShapedList.listToSized $ indexToList ix4 ) -}
     Ast.AstConstant v ->
@@ -1733,22 +1733,22 @@ astFromIntegralS (Ast.AstLetADShareS l v) =
 astFromIntegralS (Ast.AstFromIntegralS v) = astFromIntegralS v
 astFromIntegralS v = Ast.AstFromIntegralS v
 
-astSToR :: Sh.Shape sh
+astRFromS :: Sh.Shape sh
         => AstShaped s r sh -> AstRanked s r (Sh.Rank sh)
-astSToR (Ast.AstConstantS v) = Ast.AstConstant $ astSToR v
-astSToR (Ast.AstLetADShareS l v) = Ast.AstLetADShare l $ astSToR v
-astSToR (Ast.AstRToS v) = v  -- no information lost, so no checks
-astSToR v = Ast.AstSToR v
+astRFromS (Ast.AstConstantS v) = Ast.AstConstant $ astRFromS v
+astRFromS (Ast.AstLetADShareS l v) = Ast.AstLetADShare l $ astRFromS v
+astRFromS (Ast.AstSFromR v) = v  -- no information lost, so no checks
+astRFromS v = Ast.AstRFromS v
 
-astRToS :: forall sh s r. (Sh.Shape sh, KnownNat (Sh.Rank sh))
+astSFromR :: forall sh s r. (Sh.Shape sh, KnownNat (Sh.Rank sh))
         => AstRanked s r (Sh.Rank sh) -> AstShaped s r sh
-astRToS (Ast.AstConstant v) = Ast.AstConstantS $ astRToS v
-astRToS (Ast.AstLetADShare l v) = Ast.AstLetADShareS l $ astRToS v
-astRToS (Ast.AstSToR @sh1 v) =
+astSFromR (Ast.AstConstant v) = Ast.AstConstantS $ astSFromR v
+astSFromR (Ast.AstLetADShare l v) = Ast.AstLetADShareS l $ astSFromR v
+astSFromR (Ast.AstRFromS @sh1 v) =
   case sameShape @sh1 @sh of
     Just Refl -> v
-    _ -> error "astRToS: different ranks in RToS(SToR)"
-astRToS v = Ast.AstRToS v
+    _ -> error "astSFromR: different ranks in SFromR(RFromS)"
+astSFromR v = Ast.AstSFromR v
 
 astPrimalPart :: (GoodScalar r, KnownNat n)
               => AstRanked FullSpan r n -> AstRanked PrimalSpan r n
@@ -1776,7 +1776,7 @@ astPrimalPart t = case t of
   Ast.AstGather sh v (vars, ix) -> astGatherR sh (astPrimalPart v) (vars, ix)
   Ast.AstCast v -> astCast $ astPrimalPart v
   Ast.AstLetHVectorIn vars l v -> astLetHVectorIn vars l (astPrimalPart v)
-  Ast.AstSToR v -> astSToR $ astPrimalPartS v
+  Ast.AstRFromS v -> astRFromS $ astPrimalPartS v
   Ast.AstConstant v -> v
   Ast.AstD u _ -> u
   Ast.AstCond b a2 a3 -> astCond b (astPrimalPart a2) (astPrimalPart a3)
@@ -1819,7 +1819,7 @@ astPrimalPartS t = case t of
   Ast.AstCastS v -> astCastS $ astPrimalPartS v
   Ast.AstLetHVectorInS vars l v ->
     astLetHVectorInS vars l (astPrimalPartS v)
-  Ast.AstRToS v -> astRToS $ astPrimalPart v
+  Ast.AstSFromR v -> astSFromR $ astPrimalPart v
   Ast.AstConstantS v -> v
   Ast.AstDS u _ -> u
   Ast.AstCondS b a2 a3 -> astCondS b (astPrimalPartS a2) (astPrimalPartS a3)
@@ -1861,7 +1861,7 @@ astDualPart t = case t of
   Ast.AstGather sh v (vars, ix) -> astGatherR sh (astDualPart v) (vars, ix)
   Ast.AstCast v -> astCast $ astDualPart v
   Ast.AstLetHVectorIn vars l v -> astLetHVectorIn vars l (astDualPart v)
-  Ast.AstSToR v -> astSToR $ astDualPartS v
+  Ast.AstRFromS v -> astRFromS $ astDualPartS v
   Ast.AstConstant{}  -> Ast.AstDualPart t  -- this equals nil (not primal 0)
   Ast.AstD _ u' -> u'
   Ast.AstCond b a2 a3 -> astCond b (astDualPart a2) (astDualPart a3)
@@ -1901,7 +1901,7 @@ astDualPartS t = case t of
   Ast.AstGatherS v (vars, ix) -> astGatherS (astDualPartS v) (vars, ix)
   Ast.AstCastS v -> astCastS $ astDualPartS v
   Ast.AstLetHVectorInS vars l v -> astLetHVectorInS vars l (astDualPartS v)
-  Ast.AstRToS v -> astRToS $ astDualPart v
+  Ast.AstSFromR v -> astSFromR $ astDualPart v
   Ast.AstConstantS{}  -> Ast.AstDualPartS t  -- this equals nil (not primal 0)
   Ast.AstDS _ u' -> u'
   Ast.AstCondS b a2 a3 -> astCondS b (astDualPartS a2) (astDualPartS a3)
@@ -1966,7 +1966,7 @@ mapRankedShaped fRanked fShaped
     , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) ->
         withListShape (Sh.shapeT @sh3) $ \(_ :: ShapeInt m) ->
           gcastWith (unsafeCoerce Refl :: m :~: Sh.Rank sh3) $
-          fRanked @m (AstVarName varId) (astSToR @sh3 @_ @r3 0) acc
+          fRanked @m (AstVarName varId) (astRFromS @sh3 @_ @r3 0) acc
   DynamicShapedDummy @r4 @sh4 _ _
     | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat])
     , Just Refl <- sameShape @sh3 @sh4
@@ -2013,7 +2013,7 @@ astLetHVectorIn vars l v =
               => AstVarName (AstShaped s) r1 sh1 -> AstShaped s r1 sh1
               -> AstRanked s2 r n
               -> AstRanked s2 r n
-            f var t acc = astSToR @sh $ astLetS var t $ astRToS acc
+            f var t acc = astRFromS @sh $ astLetS var t $ astSFromR acc
         in foldr (mapRankedShaped astLet f) v (zip vars (V.toList l3))
       Ast.AstLetHVectorInHVector vars2 d1 d2 ->
         astLetHVectorIn vars2 d1
@@ -2022,7 +2022,7 @@ astLetHVectorIn vars l v =
         astLet var2 u2
         $ astLetHVectorIn vars d2 v
       Ast.AstLetInHVectorS @sh3 var2 u2 d2 ->
-        astSToR $ astLetS var2 u2 $ astRToS @sh
+        astRFromS $ astLetS var2 u2 $ astSFromR @sh
         $ astLetHVectorIn vars d2 v
       _ -> Ast.AstLetHVectorIn vars l v
     _ -> error "astLetHVectorIn: wrong rank of the argument"
@@ -2043,13 +2043,13 @@ astLetHVectorInS vars l v =
               => AstVarName (AstRanked s) r1 n1 -> AstRanked s r1 n1
               -> AstShaped s2 r sh
               -> AstShaped s2 r sh
-            f var t acc = astRToS $ astLet var t $ astSToR acc
+            f var t acc = astSFromR $ astLet var t $ astRFromS acc
         in foldr (mapRankedShaped f astLetS) v (zip vars (V.toList l3))
       Ast.AstLetHVectorInHVector vars2 d1 d2 ->
         astLetHVectorInS vars2 d1
         $ astLetHVectorInS vars d2 v
       Ast.AstLetInHVector var2 u2 d2 ->
-        astRToS $ astLet var2 u2 $ astSToR
+        astSFromR $ astLet var2 u2 $ astRFromS
         $ astLetHVectorInS vars d2 v
       Ast.AstLetInHVectorS @sh3 var2 u2 d2 ->
         astLetS var2 u2
@@ -2153,7 +2153,7 @@ simplifyAst t = case t of
   AstConst{} -> t
   Ast.AstLetHVectorIn vars l v ->
     astLetHVectorIn vars (simplifyAstHVector l) (simplifyAst v)
-  Ast.AstSToR v -> astSToR $ simplifyAstS v
+  Ast.AstRFromS v -> astRFromS $ simplifyAstS v
   Ast.AstConstant v -> Ast.AstConstant (simplifyAst v)
   Ast.AstPrimalPart v -> astPrimalPart (simplifyAst v)
   Ast.AstDualPart v -> astDualPart (simplifyAst v)
@@ -2236,7 +2236,7 @@ simplifyAstS t = case t of
   AstConstS{} -> t
   Ast.AstLetHVectorInS vars l v ->
     astLetHVectorInS vars (simplifyAstHVector l) (simplifyAstS v)
-  Ast.AstRToS v -> astRToS $ simplifyAst v
+  Ast.AstSFromR v -> astSFromR $ simplifyAst v
   Ast.AstConstantS v -> Ast.AstConstantS (simplifyAstS v)
   Ast.AstPrimalPartS v -> astPrimalPartS (simplifyAstS v)
   Ast.AstDualPartS v -> astDualPartS (simplifyAstS v)
@@ -2688,7 +2688,7 @@ substituteAstBool i (AstVarName varId) b1 =
 -- * Substitution workers
 
 -- We can't use AstVarName in place of AstVarId, because of the recursive calls,
--- e.g. AstSToR and AstCast, due to which, the extra type parameters would
+-- e.g. AstRFromS and AstCast, due to which, the extra type parameters would
 -- need to be kept unrelated to anything else (except the existentially bound
 -- parameters in SubstitutionPayload, which would need to be checked
 -- at runtime).
@@ -2717,7 +2717,7 @@ substitute1Ast i var v1 = case v1 of
         Just Refl -> case shapeToList sh == Sh.shapeT @sh2 of
           True -> case matchingRank @sh2 @n of
             Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
-              Just Refl -> Just $ astSToR t
+              Just Refl -> Just $ astRFromS t
               _ -> error "substitute1Ast: scalar"
             _ -> error "substitute1Ast: rank"
           False -> error "substitute1Ast: shape"
@@ -2819,7 +2819,7 @@ substitute1Ast i var v1 = case v1 of
       (Nothing, Nothing) -> Nothing
       (ml, mv) ->
         Just $ astLetHVectorIn vars (fromMaybe l ml) (fromMaybe v mv)
-  Ast.AstSToR v -> astSToR <$> substitute1AstS i var v
+  Ast.AstRFromS v -> astRFromS <$> substitute1AstS i var v
   Ast.AstConstant a -> Ast.AstConstant <$> substitute1Ast i var a
   Ast.AstPrimalPart a -> astPrimalPart <$> substitute1Ast i var a
   Ast.AstDualPart a -> astDualPart <$> substitute1Ast i var a
@@ -2913,7 +2913,7 @@ substitute1AstS i var = \case
         Just Refl -> case matchingRank @sh @m of
           Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
             Just Refl -> assert (Sh.shapeT @sh == shapeToList (shapeAst t))
-                         $ Just $ astRToS t
+                         $ Just $ astSFromR t
             _ -> error "substitute1Ast: scalar"
           _ -> error "substitute1Ast: rank"
         _ -> error "substitute1Ast: span"
@@ -3003,7 +3003,7 @@ substitute1AstS i var = \case
       (Nothing, Nothing) -> Nothing
       (ml, mv) ->
         Just $ astLetHVectorInS vars (fromMaybe l ml) (fromMaybe v mv)
-  Ast.AstRToS v -> astRToS <$> substitute1Ast i var v
+  Ast.AstSFromR v -> astSFromR <$> substitute1Ast i var v
   Ast.AstConstantS a -> Ast.AstConstantS <$> substitute1AstS i var a
   Ast.AstPrimalPartS a -> astPrimalPartS <$> substitute1AstS i var a
   Ast.AstDualPartS a -> astDualPartS <$> substitute1AstS i var a

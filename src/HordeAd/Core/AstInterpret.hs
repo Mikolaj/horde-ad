@@ -447,7 +447,7 @@ interpretAst !env = \case
                                   , shapeVoidHVector (dshape @ranked lt) )) $
                  extendEnvPars vars lw env
     in rletHVectorIn lt0 lt (\lw -> interpretAst (env2 lw) v)
-  AstSToR v -> rfromS $ interpretAstS env v
+  AstRFromS v -> rfromS $ interpretAstS env v
   AstConstant a -> rconstant $ interpretAstPrimal env a
   AstPrimalPart a -> interpretAst env a
     -- This is correct, because @s@ must be @PrimalSpan@ and so @ranked@ must
@@ -915,7 +915,7 @@ interpretAstS !env = \case
     $ sbuild @shaped @r @(Sh.Rank sh)
              (interpretLambdaIndexS
                 interpretAstS env
-                (vars, fromPrimalS @s $ AstFromIntegralS $ AstRToS i))
+                (vars, fromPrimalS @s $ AstFromIntegralS $ AstSFromR i))
   AstGatherS v (vars, ix) ->
     let t1 = interpretAstS env v
         f2 = interpretLambdaIndexToIndexS interpretAstPrimal env (vars, ix)
@@ -944,7 +944,7 @@ interpretAstS !env = \case
                                   , shapeVoidHVector (dshape @ranked lt) )) $
                   extendEnvPars vars lw env
     in sletHVectorIn lt0 lt (\lw -> interpretAstS (env2 lw) v)
-  AstRToS v -> sfromR $ interpretAst env v
+  AstSFromR v -> sfromR $ interpretAst env v
   AstConstantS a -> sconstant $ interpretAstPrimalS env a
   AstPrimalPartS a -> interpretAstS env a
   AstDualPartS a -> interpretAstS env a

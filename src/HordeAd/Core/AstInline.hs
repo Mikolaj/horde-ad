@@ -198,7 +198,7 @@ inlineAst memo v0 = case v0 of
     let (memo1, l2) = inlineAstHVector memo l
         (memo2, v2) = inlineAst memo1 v
     in (memo2, Ast.AstLetHVectorIn vars l2 v2)
-  Ast.AstSToR v -> second Ast.AstSToR $ inlineAstS memo v
+  Ast.AstRFromS v -> second Ast.AstRFromS $ inlineAstS memo v
   Ast.AstConstant a -> second Ast.AstConstant $ inlineAst memo a
   Ast.AstPrimalPart a -> second Ast.AstPrimalPart $ inlineAst memo a
   Ast.AstDualPart a -> second Ast.AstDualPart $ inlineAst memo a
@@ -385,7 +385,7 @@ inlineAstS memo v0 = case v0 of
     let (memo1, l2) = inlineAstHVector memo l
         (memo2, v2) = inlineAstS memo1 v
     in (memo2, Ast.AstLetHVectorInS vars l2 v2)
-  Ast.AstRToS v -> second Ast.AstRToS $ inlineAst memo v
+  Ast.AstSFromR v -> second Ast.AstSFromR $ inlineAst memo v
   Ast.AstConstantS a -> second Ast.AstConstantS $ inlineAstS memo a
   Ast.AstPrimalPartS a -> second Ast.AstPrimalPartS $ inlineAstS memo a
   Ast.AstDualPartS a -> second Ast.AstDualPartS $ inlineAstS memo a
@@ -708,7 +708,7 @@ unletAst env t = case t of
          else let env2 = env {unletSet = ES.insert vv (unletSet env)}
               in Ast.AstLetHVectorIn
                    vars (unletAstHVector env l) (unletAst env2 v)
-  Ast.AstSToR v -> Ast.AstSToR (unletAstS env v)
+  Ast.AstRFromS v -> Ast.AstRFromS (unletAstS env v)
   Ast.AstConstant v -> Ast.AstConstant (unletAst env v)
   Ast.AstPrimalPart v -> Ast.AstPrimalPart (unletAst env v)
   Ast.AstDualPart v -> Ast.AstDualPart (unletAst env v)
@@ -837,7 +837,7 @@ unletAstS env t = case t of
          else let env2 = env {unletSet = ES.insert vv (unletSet env)}
               in Ast.AstLetHVectorInS
                    vars (unletAstHVector env l) (unletAstS env2 v)
-  Ast.AstRToS v -> Ast.AstRToS (unletAst env v)
+  Ast.AstSFromR v -> Ast.AstSFromR (unletAst env v)
   Ast.AstConstantS v -> Ast.AstConstantS (unletAstS env v)
   Ast.AstPrimalPartS v -> Ast.AstPrimalPartS (unletAstS env v)
   Ast.AstDualPartS v -> Ast.AstDualPartS (unletAstS env v)

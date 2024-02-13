@@ -416,7 +416,7 @@ instance AstSpan s => RankedTensor (AstRanked s) where
   rfromIntegral = fromPrimal . AstFromIntegral . astSpanPrimal
   rconst = fromPrimal . AstConst
   rletHVectorIn = astLetHVectorInFun
-  rfromS = astSToR
+  rfromS = astRFromS
 
   rletWrap l u | Just Refl <- sameAstSpan @s @PrimalSpan =
     if nullADShare l then u else AstLetADShare l u
@@ -547,7 +547,7 @@ instance AstSpan s => ShapedTensor (AstShaped s) where
   sfromIntegral = fromPrimalS . AstFromIntegralS . astSpanPrimalS
   sconst = fromPrimalS . AstConstS
   sletHVectorIn = astLetHVectorInFunS
-  sfromR = astRToS
+  sfromR = astSFromR
 
   sletWrap l u | Just Refl <- sameAstSpan @s @PrimalSpan =
     if nullADShare l then u else AstLetADShareS l u

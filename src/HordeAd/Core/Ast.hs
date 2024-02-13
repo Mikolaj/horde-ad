@@ -272,7 +272,7 @@ data AstRanked :: AstSpanType -> RankedTensorType where
                   => [AstDynamicVarName] -> AstHVector s
                   -> AstRanked s2 r n
                   -> AstRanked s2 r n
-  AstSToR :: Sh.Shape sh
+  AstRFromS :: Sh.Shape sh
           => AstShaped s r sh -> AstRanked s r (Sh.Rank sh)
 
   -- For the forbidden half of the RankedTensor class:
@@ -482,7 +482,7 @@ data AstShaped :: AstSpanType -> ShapedTensorType where
                    => [AstDynamicVarName] -> AstHVector s
                    -> AstShaped s2 r sh
                    -> AstShaped s2 r sh
-  AstRToS :: (Sh.Shape sh, KnownNat (Sh.Rank sh))
+  AstSFromR :: (Sh.Shape sh, KnownNat (Sh.Rank sh))
           => AstRanked s r (Sh.Rank sh) -> AstShaped s r sh
 
   -- For the forbidden half of the ShapedTensor class:

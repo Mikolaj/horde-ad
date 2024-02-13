@@ -91,10 +91,10 @@ mnistTestCaseRNNSA prefix epochs maxBatches width@SNat batch_size@SNat
                           $ filter (\ch -> length ch == miniBatchSize)
                           $ chunksOf miniBatchSize chunk
                  res@(parameters2, _) = sgdAdam f chunkS parameters stateAdam
-                 smnistSToR (glyphs, labels) =
+                 smnistRFromS (glyphs, labels) =
                    ( Data.Array.Convert.convert glyphs
                    , Data.Array.Convert.convert labels )
-                 chunkDataR = packBatchR $ map smnistSToR chunk
+                 chunkDataR = packBatchR $ map smnistRFromS chunk
                  !trainScore =
                    ftest (length chunk) chunkDataR parameters2
                  !testScore =
@@ -202,10 +202,10 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
                           $ filter (\ch -> length ch == miniBatchSize)
                           $ chunksOf miniBatchSize chunk
                  res@(parameters2, _) = sgdAdam f chunkS parameters stateAdam
-                 smnistSToR (glyphs, labels) =
+                 smnistRFromS (glyphs, labels) =
                    ( Data.Array.Convert.convert glyphs
                    , Data.Array.Convert.convert labels )
-                 chunkDataR = packBatchR $ map smnistSToR chunk
+                 chunkDataR = packBatchR $ map smnistRFromS chunk
                  !trainScore =
                    ftest (length chunk) chunkDataR parameters2
                  !testScore =
@@ -328,10 +328,10 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
                           $ filter (\ch -> length ch == miniBatchSize)
                           $ chunksOf miniBatchSize chunk
                  res@(parameters2, _) = go chunkS (parameters, stateAdam)
-                 smnistSToR (glyphs, labels) =
+                 smnistRFromS (glyphs, labels) =
                    ( Data.Array.Convert.convert glyphs
                    , Data.Array.Convert.convert labels )
-                 chunkDataR = packBatchR $ map smnistSToR chunk
+                 chunkDataR = packBatchR $ map smnistRFromS chunk
                  !trainScore =
                    ftest (length chunk) chunkDataR parameters2
                  !testScore =

@@ -198,14 +198,12 @@ instance ADReady ranked => RankedTensor (ADVal ranked) where
           -- but more ADShare nodes would generated.
     in f doms
 -}
-  rfromS = sToR
-   where
-    sToR :: forall r sh. (GoodScalar r, Sh.Shape sh)
+  rfromS :: forall r sh. (GoodScalar r, Sh.Shape sh)
          => ADVal (ShapedOf ranked) r sh -> ADVal ranked r (Sh.Rank sh)
-    sToR (D l u u') = dDnotShared l (rfromS u) (dSToR u')
-     where
-      dSToR (RToS d) = d  -- no information lost, so no checks
-      dSToR d = SToR d
+  rfromS (D l u u') = dDnotShared l (rfromS u) (dRFromS u')
+   where
+    dRFromS (SFromR d) = d  -- no information lost, so no checks
+    dRFromS d = RFromS d
 
   rconstant t = let (l, r) = rletUnwrap t in dDnotShared l r (dZeroOfShape r)
   rprimalPart (D l u _) = rletWrap l u
@@ -322,17 +320,15 @@ instance ADReadyS shaped => ShapedTensor (ADVal shaped) where
         !(D l u u') = f $ aDValHVector ll2 as as'
     in dDnotShared (mergeADShare l3 l) u u'
 -}
-  sfromR = rToS
-   where
-    rToS :: forall r sh. (GoodScalar r, Sh.Shape sh, KnownNat (Sh.Rank sh))
+  sfromR :: forall r sh. (GoodScalar r, Sh.Shape sh, KnownNat (Sh.Rank sh))
          => ADVal (RankedOf shaped) r (Sh.Rank sh) -> ADVal shaped r sh
-    rToS (D l u u') = dDnotShared l (sfromR u) (dRToS u')
-     where
-      dRToS (SToR @sh1 d) =
-        case sameShape @sh1 @sh of
-          Just Refl -> d
-          _ -> error "sfromR: different shapes in RToS(SToR)"
-      dRToS d = RToS d
+  sfromR (D l u u') = dDnotShared l (sfromR u) (dSFromR u')
+   where
+    dSFromR (RFromS @sh1 d) =
+      case sameShape @sh1 @sh of
+        Just Refl -> d
+        _ -> error "sfromR: different shapes in SFromR(RFromS)"
+    dSFromR d = SFromR d
 
   sconstant t = let (l, r) = sletUnwrap t in dDnotShared l r (dZeroOfShape t)
   sprimalPart (D l u _) = sletWrap l u

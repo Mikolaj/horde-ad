@@ -257,9 +257,9 @@ build1V k (var, v00) =
              varsOut (build1VOccurenceUnknownHVector k (var, l))
                      (build1VOccurenceUnknownRefresh k (var, vOut))
       _ -> error "build1V: impossible someNatVal"
-    Ast.AstSToR @sh1 v -> case someNatVal $ toInteger k of
+    Ast.AstRFromS @sh1 v -> case someNatVal $ toInteger k of
       Just (SomeNat @k _proxy) ->
-        Ast.AstSToR @(k ': sh1) $ build1VS (var, v)
+        Ast.AstRFromS @(k ': sh1) $ build1VS (var, v)
       Nothing ->
         error "build1V: impossible someNatVal error"
 
@@ -664,7 +664,7 @@ build1VS (var, v00) =
       in astLetHVectorInS
            varsOut (build1VOccurenceUnknownHVector (valueOf @k) (var, l))
                    (build1VOccurenceUnknownRefreshS (var, vOut))
-    Ast.AstRToS v -> Ast.AstRToS $ build1V (valueOf @k) (var, v)
+    Ast.AstSFromR v -> Ast.AstSFromR $ build1V (valueOf @k) (var, v)
 
     Ast.AstConstantS v -> traceRule $
       Ast.AstConstantS $ build1VS (var, v)
@@ -917,13 +917,13 @@ astMapRanked01 f (DynamicShaped @r @sh t) =
   case someNatVal $ toInteger $ length $ Sh.shapeT @sh of
     Just (SomeNat @n _) ->
       gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: n) $
-      let res = f $ Ast.AstSToR @sh t
+      let res = f $ Ast.AstRFromS @sh t
       in Sh.withShapeP (shapeToList $ shapeAst res) $ \(Proxy @shr) ->
         case someNatVal $ 1 + valueOf @n of
           Just (SomeNat @n1 _) ->
             gcastWith (unsafeCoerce Refl :: n1 :~: 1 + n) $
             gcastWith (unsafeCoerce Refl :: Sh.Rank shr :~: n1) $
-            DynamicShaped $ Ast.AstRToS @shr res
+            DynamicShaped $ Ast.AstSFromR @shr res
           _ -> error "astMapRanked01: impossible someNatVal"
     _ -> error "astMapRanked01: impossible someNatVal"
 astMapRanked01 f (DynamicRankedDummy @r @sh _ _) =
@@ -937,7 +937,7 @@ astMapRanked01 f (DynamicShapedDummy @r @sh _ _) =
         Just (SomeNat @n1 _) ->
           gcastWith (unsafeCoerce Refl :: n1 :~: 1 + n) $
           gcastWith (unsafeCoerce Refl :: Sh.Rank shr :~: n1) $
-          DynamicShaped $ Ast.AstRToS @shr res
+          DynamicShaped $ Ast.AstSFromR @shr res
         _ -> error "astMapRanked01: impossible someNatVal"
 
 astMapHVectorRanked01
@@ -1140,7 +1140,7 @@ build1VOccurenceUnknownDynamic k (var, d) = case d of
     withListShape (Sh.shapeT @sh) $ \(_ :: ShapeInt n3) ->
       gcastWith (unsafeCoerce Refl :: n3 :~: Sh.Rank sh) $
       case someNatVal $ toInteger k of
-        Just (SomeNat @k _) -> DynamicRanked @r (Ast.AstSToR @(k ': sh) @s @r 0)
+        Just (SomeNat @k _) -> DynamicRanked @r (Ast.AstRFromS @(k ': sh) @s @r 0)
         Nothing ->
           error "build1VOccurenceUnknownDynamic: impossible someNatVal error"
   DynamicShapedDummy @r @sh _ _ -> case someNatVal $ toInteger k of
