@@ -37,6 +37,8 @@ module HordeAd.Core.AstSimplify
   , SubstitutionPayload(..)
   , substituteAst, substituteAstIndex, substituteAstDynamic
   , substituteAstHVector, substituteAstBool, substituteAstS, substituteAstIndexS
+    -- * Misc
+  , astReplicate0N
   ) where
 
 import Prelude

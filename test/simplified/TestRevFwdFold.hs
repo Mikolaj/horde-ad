@@ -156,6 +156,9 @@ testTrees =
   , testCase "4Sin0rmapAccumRD01SN531b0PP" testSin0rmapAccumRD01SN531b0PP
   , testCase "4Sin0rmapAccumRD01SN531bSPP" testSin0rmapAccumRD01SN531bSPP
   , testCase "4Sin0rmapAccumRD01SN531bRPP" testSin0rmapAccumRD01SN531bRPP
+  , testCase "4Sin0rmapAccumRD01SN531b0PPj" testSin0rmapAccumRD01SN531b0PPj
+  , testCase "4Sin0rmapAccumRD01SN531bSPPj" testSin0rmapAccumRD01SN531bSPPj
+  , testCase "4Sin0rmapAccumRD01SN531bRPPj" testSin0rmapAccumRD01SN531bRPPj
   , testCase "4Sin0rmapAccumRD01SN531c" testSin0rmapAccumRD01SN531c
 --  , testCase "4Sin0rmapAccumRD01SN531Slice" testSin0rmapAccumRD01SN531Slice
   , testCase "4Sin0rmapAccumRD01SN54" testSin0rmapAccumRD01SN54
@@ -2116,7 +2119,7 @@ testSin0rmapAccumRD01SN531b0PP = do
     IM.empty
     (simplifyAstHVector6
      $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 1.1))
-    @?= "let t48 = rconstant (rtranspose [2,0,1] (rreplicate 2 (rreplicate 2 (rconst (fromList [0] []))))) in let [m49 @[Natural] @Double @[2,2], t50 @[Natural] @Double @[0,2,2]] = dmapAccumRDer (SNat @0) (\\[m51] [m52] -> [sgather (sgather m51 (\\[i53] -> [i53])) (\\[i54, i55] -> [i54, i55]), m51]) (\\[m57] [m58] [m59] [m60] -> [sgather (sgather m57 (\\[i82] -> [i82])) (\\[i84, i85] -> [i84, i85]), m57]) (\\[m87] [m88] [m89] [m90] -> [sconst @[2,2] (fromList @[2,2] [0.0,0.0,0.0,0.0]) + m88 + sscatter (sscatter m87 (\\[i115, i116] -> [i115, i116])) (\\[i114] -> [i114]), 0]) [sconstant (sreplicate (sreplicate (rconst 1.1)))] [t48] in let [m119 @[Natural] @Double @[2,2], t120 @Natural @Double @[0,2,2]] = dmapAccumRDer (SNat @0) (\\[m121] [m122, m123] -> [sgather (sgather (sgather (sgather m121 (\\[i124] -> [i124])) (\\[i125, i126] -> [i125, i126])) (\\[i128] -> [i128])) (\\[i129, i130] -> [i129, i130]), rreplicate 2 (sconst @[2] (fromList @[2] [0.0,0.0]))]) (\\[m131] [m132, m133] [m134] [m135, m136] -> [sgather (sgather (sgather (sgather m131 (\\[i171] -> [i171])) (\\[i173, i174] -> [i173, i174])) (\\[i176] -> [i176])) (\\[i178, i179] -> [i178, i179]), rreplicate 2 (rreplicate 2 (rconst 0.0))]) (\\[m181] [m182] [m183] [m184, m185] -> [sscatter (sscatter (sscatter (sscatter m181 (\\[i223, i224] -> [i223, i224])) (\\[i222] -> [i222])) (\\[i220, i221] -> [i220, i221])) (\\[i219] -> [i219]), 0, 0]) [sconstant (sscatter (rreplicate 2 (rreplicate 2 (rconst 1.0))) (\\[i118] -> [i118]))] [rreverse t50, rreverse t48] in [ssum (ssum m119)]"
+    @?= "let v27 = rconst (fromList [0] []) in let [x28 @[Natural] @Double @[], v29 @[Natural] @Double @[0]] = dmapAccumRDer (SNat @0) (\\[x30] [x31] -> [x30, x30]) (\\[x32] [x33] [x34] [x35] -> [x32, x32]) (\\[x41] [x42] [x43] [x44] -> [sconst @[] 0.0 + x41 + x42, 0]) [sconstant (rconst 1.1)] [v27] in let [x55 @[Natural] @Double @[], v56 @Natural @Double @[0]] = dmapAccumRDer (SNat @0) (\\[x57] [x58, x59] -> [x57, 0]) (\\[x60] [x61, x62] [x63] [x64, x65] -> [x60, rconst 0.0]) (\\[x73] [x74] [x75] [x76, x77] -> [x73, 0, 0]) [sconstant (rsum (rreplicate 4 (rconst 1.0)))] [rreverse v29, rreverse v27] in [x55]"
 
 testSin0rmapAccumRD01SN531bSPP :: Assertion
 testSin0rmapAccumRD01SN531bSPP = do
@@ -2144,7 +2147,7 @@ testSin0rmapAccumRD01SN531bSPP = do
     IM.empty
     (simplifyAstHVector6
      $ g @(AstRanked FullSpan) (V.singleton $ DynamicShaped @Double @'[] 1.1))
-    @?= "let t48 = sconstant (stranspose (sreplicate (sreplicate (sconst @[1] (fromList @[1] [0.0]))))) in let [m49 @[Natural] @Double @[2,2], t50 @[Natural] @Double @[1,2,2]] = dmapAccumRDer f df rf [sconstant (sreplicate (sreplicate (sconst @[] 1.1)))] [t48] in let [m119 @[Natural] @Double @[2,2], t120 @[Natural] @Double @[1,2,2]] = dmapAccumRDer f df rf [sconstant (sscatter (sconst @[2,2] (fromList @[2,2] [1.0,1.0,1.0,1.0])) (\\[i118] -> [i118]))] [rreverse t50, rreverse t48] in [ssum (ssum m119)]"
+    @?= "let v27 = sconst @[1] (fromList @[1] [0.0]) in let [x28 @[Natural] @Double @[], v29 @[Natural] @Double @[1]] = dmapAccumRDer f df rf [sconst @[] 1.1] [v27] in let [x55 @[Natural] @Double @[], v56 @[Natural] @Double @[1]] = dmapAccumRDer f df rf [sconstant (rsum (rgather [4] (sconst @[2,2] (fromList @[2,2] [1.0,1.0,1.0,1.0])) (\\[i88] -> [rem (quot i88 2) 2, rem i88 2])))] [rreverse v29, rreverse v27] in [x55]"
 
 testSin0rmapAccumRD01SN531bRPP :: Assertion
 testSin0rmapAccumRD01SN531bRPP = do
@@ -2173,7 +2176,102 @@ testSin0rmapAccumRD01SN531bRPP = do
     IM.empty
     (simplifyAstHVector6
      $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 1.1))
-    @?= "let t32 = rconstant (rtranspose [2,0,1] (rreplicate 2 (rreplicate 2 (rconst (fromList [1] [0.0]))))) in let [m33 @Natural @Double @[2,2], t34 @Natural @Double @[1,2,2]] = dmapAccumRDer f df rf [rconstant (rreplicate 2 (rreplicate 2 (rconst 1.1)))] [t32] in let [m60 @Natural @Double @[2,2], t61 @Natural @Double @[1,2,2]] = dmapAccumRDer f df rf [rconstant (rreplicate 2 (rreplicate 2 (rconst 1.0)))] [rreverse t34, rreverse t32] in [rsum (rreshape [4] m60)]"
+    @?= "let v27 = rconst (fromList [1] [0.0]) in let [x28 @Natural @Double @[], v29 @Natural @Double @[1]] = dmapAccumRDer f df rf [rconst 1.1] [v27] in let [x55 @Natural @Double @[], v56 @Natural @Double @[1]] = dmapAccumRDer f df rf [rconstant (rsum (rreplicate 4 (rconst 1.0)))] [rreverse v29, rreverse v27] in [x55]"
+
+testSin0rmapAccumRD01SN531b0PPj :: Assertion
+testSin0rmapAccumRD01SN531b0PPj = do
+  resetVarCounter
+  let f :: forall f. ADReady f
+        => HVector f -> f Double 2
+      f x0 = rletHVectorIn (V.fromList [ voidFromShS @Double @'[2, 2] ])
+                       (dbuild1 @f 2 $ \i ->
+                       (dbuild1 @f 2 $ \j ->
+                       (dmapAccumR @f (SNat @0)
+                          (V.fromList [ voidFromShS @Double @'[] ])
+                          (V.fromList [])
+                          (V.fromList [ voidFromSh @Double ZS ])
+                          (let h :: forall g. ADReady g
+                                 => HVector g -> HVector g
+                                 -> HVectorOf g
+                               h xh _a = dmkHVector @g xh
+                           in h)
+                          (V.fromList
+                             [ DynamicShaped @Double @'[]
+                               $ sfromIntegral (sconstant (sfromR (i + j)))
+                                 + sfromD (x0 V.! 0) ])
+                          (V.fromList [ DynamicRanked @Double @1
+                                        $ rconst $ OR.fromList [0] [] ]))))
+                        $ \d -> rfromD $ d V.! 0
+      g :: forall g. HVectorTensor g (ShapedOf g) => HVector g -> HVectorOf g
+      g = rrev f (V.singleton (voidFromSh @Double ZS))
+  printAstHVectorPretty
+    IM.empty
+    (simplifyAstHVector6
+     $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 1.1))
+    @?= "let t48 = rconstant (rtranspose [2,0,1] (rreplicate 2 (rreplicate 2 (rconst (fromList [0] []))))) in let [m49 @[Natural] @Double @[2,2], t50 @[Natural] @Double @[0,2,2]] = dmapAccumRDer f df rf [sconstant (sfromIntegral (rtranspose [1,0] (rreplicate 2 (rconst (fromList [2] [0,1]))) + rreplicate 2 (rconst (fromList [2] [0,1])))) + sconst @[2,2] (fromList @[2,2] [0.0,0.0,0.0,0.0]) + sconstant (sreplicate (sconst @[2] (fromList @[2] [0.0,0.0]))) + sconstant (sreplicate (sreplicate (rconst 1.1))) + sconst @[2,2] (fromList @[2,2] [0.0,0.0,0.0,0.0]) + sconst @[2,2] (fromList @[2,2] [0.0,0.0,0.0,0.0]) + sconst @[2,2] (fromList @[2,2] [0.0,0.0,0.0,0.0])] [t48] in let [m119 @[Natural] @Double @[2,2], t120 @Natural @Double @[0,2,2]] = dmapAccumRDer f df rf [sconstant (sscatter (rreplicate 2 (rreplicate 2 (rconst 1.0))) (\\[i118] -> [i118]))] [rreverse t50, rreverse t48] in [ssum (ssum m119)]"
+
+testSin0rmapAccumRD01SN531bSPPj :: Assertion
+testSin0rmapAccumRD01SN531bSPPj = do
+  resetVarCounter
+  let f :: forall f. ADReadyS f
+        => HVector (RankedOf f) -> f Double '[2, 2]
+      f x0 = sletHVectorIn (V.fromList [ voidFromShS @Double @'[2, 2] ])
+                       (dbuild1 @(RankedOf f) @f 2 $ \i ->
+                       (dbuild1 @(RankedOf f) @f 2 $ \j ->
+                       (dmapAccumR @(RankedOf f) (SNat @1)
+                          (V.fromList [ voidFromShS @Double @'[] ])
+                          (V.fromList [])
+                          (V.fromList [ voidFromShS @Double @'[] ])
+                          (let h :: forall g. ADReadyS g
+                                 => HVector (RankedOf g) -> HVector (RankedOf g)
+                                 -> HVectorOf (RankedOf g)
+                               h xh _a = dmkHVector @_ @g xh
+                           in h)
+                          (V.fromList
+                             [ DynamicShaped @Double @'[]
+                               $ sfromIntegral (sconstant (sfromR (i + j)))
+                                 + sfromD (x0 V.! 0) ])
+                          (V.fromList [ DynamicShaped @Double @'[1] 0 ]))))
+                        $ \d -> sfromD $ d V.! 0
+      g :: forall g. HVectorTensor g (ShapedOf g) => HVector g -> HVectorOf g
+      g = srev f (V.singleton (voidFromShS @Double @'[]))
+  printAstHVectorPretty
+    IM.empty
+    (simplifyAstHVector6
+     $ g @(AstRanked FullSpan) (V.singleton $ DynamicShaped @Double @'[] 1.1))
+    @?= "let t48 = sconstant (stranspose (sreplicate (sreplicate (sconst @[1] (fromList @[1] [0.0]))))) in let [m49 @[Natural] @Double @[2,2], t50 @[Natural] @Double @[1,2,2]] = dmapAccumRDer f df rf [sconstant (sfromIntegral (rtranspose [1,0] (rreplicate 2 (rconst (fromList [2] [0,1]))) + rreplicate 2 (rconst (fromList [2] [0,1])))) + sconst @[2,2] (fromList @[2,2] [0.0,0.0,0.0,0.0]) + sconstant (sreplicate (sconst @[2] (fromList @[2] [0.0,0.0]))) + sconstant (sreplicate (sreplicate (sconst @[] 1.1))) + sconst @[2,2] (fromList @[2,2] [0.0,0.0,0.0,0.0]) + sconst @[2,2] (fromList @[2,2] [0.0,0.0,0.0,0.0]) + sconst @[2,2] (fromList @[2,2] [0.0,0.0,0.0,0.0])] [t48] in let [m119 @[Natural] @Double @[2,2], t120 @[Natural] @Double @[1,2,2]] = dmapAccumRDer f df rf [sconstant (sscatter (sconst @[2,2] (fromList @[2,2] [1.0,1.0,1.0,1.0])) (\\[i118] -> [i118]))] [rreverse t50, rreverse t48] in [ssum (ssum m119)]"
+
+testSin0rmapAccumRD01SN531bRPPj :: Assertion
+testSin0rmapAccumRD01SN531bRPPj = do
+  resetVarCounter
+  let f :: forall f. ADReady f
+        => HVector f -> f Double 2
+      f x0 = rletHVectorIn (V.fromList [ voidFromSh @Double (2 :$ 2 :$ ZS) ])
+                       (dbuild1 @f 2 $ \i ->
+                       (dbuild1 @f 2 $ \j ->
+                       (dmapAccumR @f (SNat @1)
+                          (V.fromList [ voidFromSh @Double ZS ])
+                          (V.fromList [])
+                          (V.fromList [ voidFromSh @Double ZS ])
+                          (let h :: forall g. ADReady g
+                                 => HVector g -> HVector g
+                                 -> HVectorOf g
+                               h xh _a = dmkHVector @g xh
+                           in h)
+                          (V.fromList
+                             [ DynamicRanked @Double @0
+                               $ rfromIntegral (rconstant (i + j))
+                                 + rfromD (x0 V.! 0) ])
+                          (V.fromList [ DynamicRanked @Double @1
+                                        $ rconst $ OR.fromList [1] [0] ]))))
+                        $ \d -> rfromD $ d V.! 0
+      g :: forall g. HVectorTensor g (ShapedOf g) => HVector g -> HVectorOf g
+      g = rrev f (V.singleton (voidFromSh @Double ZS))
+  printAstHVectorPretty
+    IM.empty
+    (simplifyAstHVector6
+     $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 1.1))
+    @?= "let t32 = rconstant (rtranspose [2,0,1] (rreplicate 2 (rreplicate 2 (rconst (fromList [1] [0.0]))))) in let [m33 @Natural @Double @[2,2], t34 @Natural @Double @[1,2,2]] = dmapAccumRDer f df rf [rconstant (rfromIntegral (rtranspose [1,0] (rreplicate 2 (rconst (fromList [2] [0,1]))) + rreplicate 2 (rconst (fromList [2] [0,1])))) + rconstant (rreplicate 2 (rreplicate 2 (rconst 1.1)))] [t32] in let [m60 @Natural @Double @[2,2], t61 @Natural @Double @[1,2,2]] = dmapAccumRDer f df rf [rconstant (rreplicate 2 (rreplicate 2 (rconst 1.0)))] [rreverse t34, rreverse t32] in [rsum (rreshape [4] m60)]"
 
 testSin0rmapAccumRD01SN531c :: Assertion
 testSin0rmapAccumRD01SN531c = do

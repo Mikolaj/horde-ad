@@ -8,7 +8,8 @@ module HordeAd.Core.AstTools
     shapeAst, lengthAst, shapeAstHVector
     -- * Variable occurrence detection
   , varInAst, varInADShare, varInAstBool, varInIndex
-  , varInAstS, varInIndexS, varNameInAst, varNameInADShare, varNameInAstS
+  , varInAstS, varInIndexS
+  , varNameInAst, varNameInADShare, varNameInAstS, varNameInAstHVector
     -- * Determining if a term is too small to require sharing
   , astIsSmall, astIsSmallS
     -- * Odds and ends
@@ -353,6 +354,10 @@ varNameInADShare (AstVarName varId) = varInADShare varId
 varNameInAstS :: AstSpan s2
               => AstVarName f r sh -> AstShaped s2 r2 sh2 -> Bool
 varNameInAstS (AstVarName varId) = varInAstS varId
+
+varNameInAstHVector :: AstSpan s
+                    => AstVarName f r n -> AstHVector s -> Bool
+varNameInAstHVector (AstVarName varId) = varInAstHVector varId
 
 
 -- * Determining if a term is too small to require sharing

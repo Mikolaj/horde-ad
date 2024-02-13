@@ -299,7 +299,7 @@ build1V k (var, v00) =
            ( AstVarName $ varNameToAstVarId varDt2
            , AstVarName $ varNameToAstVarId nvar2
            , AstVarName $ varNameToAstVarId mvar2
-           , build1VOccurenceUnknownAstHVectorRefresh
+           , build1VOccurenceUnknownHVectorRefresh
                k (var, substProjHVector k var shn varDt2
                        $ substProjHVector k var shn nvar2
                        $ substProjHVector k var shm mvar2 doms) )
@@ -333,7 +333,7 @@ build1V k (var, v00) =
             ( AstVarName $ varNameToAstVarId varDt2
             , AstVarName $ varNameToAstVarId nvar2
             , mvars2Out
-            , build1VOccurenceUnknownAstHVectorRefresh
+            , build1VOccurenceUnknownHVectorRefresh
                 k (var, substProjHVector k var shn varDt2
                         $ substProjHVector k var shn nvar2 domsOut) )
             (build1VOccurenceUnknown k (var, x0))
@@ -367,7 +367,7 @@ build1V k (var, v00) =
            ( AstVarName $ varNameToAstVarId varDt2
            , AstVarName $ varNameToAstVarId nvar2
            , AstVarName $ varNameToAstVarId mvar2
-           , build1VOccurenceUnknownAstHVectorRefresh
+           , build1VOccurenceUnknownHVectorRefresh
                k (var, substProjHVector k var shn varDt2
                        $ substProjHVector k var shn nvar2
                        $ substProjHVector k var shm mvar2 doms) )
@@ -402,7 +402,7 @@ build1V k (var, v00) =
             ( AstVarName $ varNameToAstVarId varDt2
             , AstVarName $ varNameToAstVarId nvar2
             , mvars2Out
-            , build1VOccurenceUnknownAstHVectorRefresh
+            , build1VOccurenceUnknownHVectorRefresh
                 k (var, substProjHVector k var shn varDt2
                         $ substProjHVector k var shn nvar2 domsOut) )
             (build1VOccurenceUnknown k (var, x0))
@@ -700,7 +700,7 @@ build1VS (var, v00) =
         ( AstVarName $ varNameToAstVarId varDt2
         , AstVarName $ varNameToAstVarId nvar2
         , AstVarName $ varNameToAstVarId mvar2
-        , build1VOccurenceUnknownAstHVectorRefresh
+        , build1VOccurenceUnknownHVectorRefresh
             (valueOf @k)
             (var, substProjHVectorS @k var varDt2
                   $ substProjHVectorS @k var nvar2
@@ -732,7 +732,7 @@ build1VS (var, v00) =
             ( AstVarName $ varNameToAstVarId varDt2
             , AstVarName $ varNameToAstVarId nvar2
             , mvars2Out
-            , build1VOccurenceUnknownAstHVectorRefresh
+            , build1VOccurenceUnknownHVectorRefresh
                 (valueOf @k)
                 (var, substProjHVectorS @k var varDt2
                       $ substProjHVectorS @k @shn var nvar2 domsOut) )
@@ -765,7 +765,7 @@ build1VS (var, v00) =
            ( AstVarName $ varNameToAstVarId varDt2
            , AstVarName $ varNameToAstVarId nvar2
            , AstVarName $ varNameToAstVarId mvar2
-           , build1VOccurenceUnknownAstHVectorRefresh
+           , build1VOccurenceUnknownHVectorRefresh
                (valueOf @k) (var, substProjHVectorS @k @shn var varDt2
                                   $ substProjHVectorS @k @shn var nvar2
                                   $ substProjHVectorS @k @shm var mvar2 doms) )
@@ -797,7 +797,7 @@ build1VS (var, v00) =
             ( AstVarName $ varNameToAstVarId varDt2
             , AstVarName $ varNameToAstVarId nvar2
             , mvars2Out
-            , build1VOccurenceUnknownAstHVectorRefresh
+            , build1VOccurenceUnknownHVectorRefresh
                 (valueOf @k)
                 (var, substProjHVectorS @k @shn var varDt2
                       $ substProjHVectorS @k @shn var nvar2 domsOut) )
@@ -900,6 +900,58 @@ build1VOccurenceUnknownHVector
   => Int -> (IntVarName, AstHVector s) -> AstHVector s
 build1VOccurenceUnknownHVector k (var, v0) =
  let traceRule = mkTraceRuleHVector v0 k var
+ in if varNameInAstHVector var v0
+    then build1VHVector k (var, v0)
+    else traceRule $
+      fun1DToAst (shapeAstHVector v0) $ \ !vars !asts ->
+        astLetHVectorInHVector
+          vars v0 (Ast.AstHVector $ astMapHVectorRanked01 (astReplicate k) asts)
+
+astMapRanked01
+  :: (ranked ~ AstRanked s, AstSpan s)
+  => (forall rq q. (GoodScalar rq, KnownNat q)
+      => ranked rq q -> ranked rq (1 + q))
+  -> DynamicTensor ranked -> DynamicTensor ranked
+astMapRanked01 f (DynamicRanked t) = DynamicRanked $ f t
+astMapRanked01 f (DynamicShaped @r @sh t) =
+  case someNatVal $ toInteger $ length $ Sh.shapeT @sh of
+    Just (SomeNat @n _) ->
+      gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: n) $
+      let res = f $ Ast.AstSToR @sh t
+      in Sh.withShapeP (shapeToList $ shapeAst res) $ \(Proxy @shr) ->
+        case someNatVal $ 1 + valueOf @n of
+          Just (SomeNat @n1 _) ->
+            gcastWith (unsafeCoerce Refl :: n1 :~: 1 + n) $
+            gcastWith (unsafeCoerce Refl :: Sh.Rank shr :~: n1) $
+            DynamicShaped $ Ast.AstRToS @shr res
+          _ -> error "astMapRanked01: impossible someNatVal"
+    _ -> error "astMapRanked01: impossible someNatVal"
+astMapRanked01 f (DynamicRankedDummy @r @sh _ _) =
+  withListShape (Sh.shapeT @sh) $ \sh1 ->
+    DynamicRanked @r $ f (astReplicate0N sh1 0)
+astMapRanked01 f (DynamicShapedDummy @r @sh _ _) =
+  withListShape (Sh.shapeT @sh) $ \(sh1 :: ShapeInt n) ->
+    let res = f @r (astReplicate0N sh1 0)
+    in Sh.withShapeP (shapeToList $ shapeAst res) $ \(Proxy @shr) ->
+      case someNatVal $ 1 + valueOf @n of
+        Just (SomeNat @n1 _) ->
+          gcastWith (unsafeCoerce Refl :: n1 :~: 1 + n) $
+          gcastWith (unsafeCoerce Refl :: Sh.Rank shr :~: n1) $
+          DynamicShaped $ Ast.AstRToS @shr res
+        _ -> error "astMapRanked01: impossible someNatVal"
+
+astMapHVectorRanked01
+  :: (ranked ~ AstRanked s, AstSpan s)
+  => (forall rq q. (GoodScalar rq, KnownNat q)
+      => ranked rq q -> ranked rq (1 + q))
+  -> HVector ranked -> HVector ranked
+astMapHVectorRanked01 f = V.map (astMapRanked01 f)
+
+build1VHVector
+  :: forall s. AstSpan s
+  => Int -> (IntVarName, AstHVector s) -> AstHVector s
+build1VHVector k (var, v0) =
+ let traceRule = mkTraceRuleHVector v0 k var
  in traceRule $ case v0 of
   Ast.AstHVector l ->
     Ast.AstHVector $ V.map (\u -> build1VOccurenceUnknownDynamic k (var, u)) l
@@ -908,8 +960,8 @@ build1VOccurenceUnknownHVector k (var, v0) =
         let (vOut, varsOut) = substProjVarsHVector @k3 var vars1 v
         in astLetHVectorInHVector
              varsOut (build1VOccurenceUnknownHVector k (var, u))
-                     (build1VOccurenceUnknownAstHVectorRefresh k (var, vOut))
-      _ -> error "build1VOccurenceUnknownHVector: impossible someNatVal"
+                     (build1VOccurenceUnknownHVectorRefresh k (var, vOut))
+      _ -> error "build1VHVector: impossible someNatVal"
   Ast.AstLetInHVector @_ @r1 @s1 var1@(AstVarName oldVarId) u v ->
     let var2 = AstVarName oldVarId  -- changed shape; TODO: shall we rename?
         sh = shapeAst u
@@ -918,7 +970,7 @@ build1VOccurenceUnknownHVector k (var, v0) =
         v2 = substituteAstHVector
                (SubstitutionPayloadRanked @s1 @r1 projection) var1 v
     in astLetInHVector var2 (build1VOccurenceUnknown k (var, u))
-                            (build1VOccurenceUnknownAstHVectorRefresh
+                            (build1VOccurenceUnknownHVectorRefresh
                                k (var, v2))
   Ast.AstLetInHVectorS @sh2 @r1 @s1
    var1@(AstVarName oldVarId) u v -> case someNatVal $ toInteger k of
@@ -929,27 +981,27 @@ build1VOccurenceUnknownHVector k (var, v0) =
           v2 = substituteAstHVector
                  (SubstitutionPayloadShaped @s1 @r1 projection) var1 v
       in astLetInHVectorS var2 (build1VOccurenceUnknownS @k (var, u))
-                               (build1VOccurenceUnknownAstHVectorRefresh
+                               (build1VOccurenceUnknownHVectorRefresh
                                   k (var, v2))
     Nothing ->
-      error "build1VOccurenceUnknownHVector: impossible someNatVal error"
+      error "build1VHVector: impossible someNatVal error"
   Ast.AstBuildHVector1{} ->
-    error "build1VOccurenceUnknownHVector: impossible case of AstBuildHVector1"
+    error "build1VHVector: impossible case of AstBuildHVector1"
   Ast.AstRev{} ->
-    error "build1VOccurenceUnknownHVector: impossible case of AstRev"
+    error "build1VHVector: impossible case of AstRev"
   Ast.AstRevDt{} ->
-    error "build1VOccurenceUnknownHVector: impossible case of AstRevDt"
+    error "build1VHVector: impossible case of AstRevDt"
   Ast.AstRevS{} ->
-    error "build1VOccurenceUnknownHVector: impossible case of AstRevS"
+    error "build1VHVector: impossible case of AstRevS"
   Ast.AstRevDtS{} ->
-    error "build1VOccurenceUnknownHVector: impossible case of AstRevDtS"
+    error "build1VHVector: impossible case of AstRevDtS"
   Ast.AstMapAccumR{} ->
-    error "build1VOccurenceUnknownHVector: impossible case of AstMapAccumR"
+    error "build1VHVector: impossible case of AstMapAccumR"
   Ast.AstMapAccumRDer k5 accShs bShs eShs
                       (accvars, evars, v)
                       (vs1, vs2, vs3, vs4, ast)
                       (ws1, ws2, ws3, ws4, bst)
-                      acc0 es -> traceRule $
+                      acc0 es ->
     case someNatVal $ toInteger k of
       Just (SomeNat @k _) ->
         let (vOut, accvarsOut) = substProjVarsHVector @k var accvars v
@@ -970,32 +1022,32 @@ build1VOccurenceUnknownHVector k (var, v0) =
                (replicate1VoidHVector (SNat @k) eShs)
                ( accvarsOut
                , evarsOut
-               , build1VOccurenceUnknownAstHVectorRefresh
+               , build1VOccurenceUnknownHVectorRefresh
                    (valueOf @k) (var, vOut2) )
                ( vs1Out
                , vs2Out
                , vs3Out
                , vs4Out
-               , build1VOccurenceUnknownAstHVectorRefresh
+               , build1VOccurenceUnknownHVectorRefresh
                    (valueOf @k) (var, astOut4) )
                ( ws1Out
                , ws2Out
                , ws3Out
                , ws4Out
-               , build1VOccurenceUnknownAstHVectorRefresh
+               , build1VOccurenceUnknownHVectorRefresh
                    (valueOf @k) (var, bstOut4) )
                (V.map (\u -> build1VOccurenceUnknownDynamic (valueOf @k)
                                                             (var, u)) acc0)
                (V.map (\u -> astTrDynamic
                              $ build1VOccurenceUnknownDynamic (valueOf @k)
                                                               (var, u)) es)
-      _ -> error "build1VOccurenceUnknownHVector: impossible someNatVal"
+      _ -> error "build1VHVector: impossible someNatVal"
   Ast.AstMapAccumRR{} ->
-    error "build1VOccurenceUnknownHVector: impossible case of AstMapAccumRR"
+    error "build1VHVector: impossible case of AstMapAccumRR"
   Ast.AstMapAccumRDerR @r @n
                        domB (nvar, mvars, v)
                        (varDx, varsDa, varn1, varsm1, ast1)
-                       (varDy, varDt2, nvar2, mvars2, doms) x0 as -> traceRule $
+                       (varDy, varDt2, nvar2, mvars2, doms) x0 as ->
     case someNatVal $ toInteger k of
       Just (SomeNat @k _) ->
         let shn = shapeAst x0
@@ -1008,14 +1060,14 @@ build1VOccurenceUnknownHVector k (var, v0) =
            $ Ast.AstMapAccumRDerR (replicate1VoidHVector (SNat @k) domB)
              ( AstVarName $ varNameToAstVarId nvar
              , mvarsOut
-             , build1VOccurenceUnknownAstHVectorRefresh
+             , build1VOccurenceUnknownHVectorRefresh
                  (valueOf @k)
                  (var, substProjHVector k var shn nvar vOut) )
              ( AstVarName $ varNameToAstVarId varDx
              , varsDaOut
              , AstVarName $ varNameToAstVarId varn1
              , varsm1Out
-             , build1VOccurenceUnknownAstHVectorRefresh
+             , build1VOccurenceUnknownHVectorRefresh
                  (valueOf @k)
                  (var, substProjHVector k var shn varDx
                        $ substProjHVector k var shn varn1 ast1Out2) )
@@ -1023,7 +1075,7 @@ build1VOccurenceUnknownHVector k (var, v0) =
              , varDt22Out
              , AstVarName $ varNameToAstVarId nvar2
              , mvars2Out
-             , build1VOccurenceUnknownAstHVectorRefresh
+             , build1VOccurenceUnknownHVectorRefresh
                  (valueOf @k)
                  (var, substProjHVector k var shn varDy
                        $ substProjHVector k var shn nvar2 domsOut2) )
@@ -1031,13 +1083,13 @@ build1VOccurenceUnknownHVector k (var, v0) =
              (V.map (\u -> astTrDynamic
                            $ build1VOccurenceUnknownDynamic (valueOf @k)
                                                             (var, u)) as)
-      _ -> error "build1VOccurenceUnknownHVector: impossible someNatVal"
+      _ -> error "build1VHVector: impossible someNatVal"
   Ast.AstMapAccumRS{} ->
-    error "build1VOccurenceUnknownHVector: impossible case of AstMapAccumRS"
+    error "build1VHVector: impossible case of AstMapAccumRS"
   Ast.AstMapAccumRDerS @k5 @r @shn
                        domB (nvar, mvars, v)
                        (varDx, varsDa, varn1, varsm1, ast1)
-                       (varDy, varDt2, nvar2, mvars2, doms) x0 as -> traceRule $
+                       (varDy, varDt2, nvar2, mvars2, doms) x0 as ->
     case someNatVal $ toInteger k of
       Just (SomeNat @k _) ->
         let (vOut, mvarsOut) = substProjVarsHVector @k var mvars v
@@ -1049,14 +1101,14 @@ build1VOccurenceUnknownHVector k (var, v0) =
            $ Ast.AstMapAccumRDerS @k5 (replicate1VoidHVector (SNat @k) domB)
              ( AstVarName $ varNameToAstVarId nvar
              , mvarsOut
-             , build1VOccurenceUnknownAstHVectorRefresh
+             , build1VOccurenceUnknownHVectorRefresh
                  (valueOf @k)
                  (var, substProjHVectorS @k @shn var nvar vOut) )
              ( AstVarName $ varNameToAstVarId varDx
              , varsDaOut
              , AstVarName $ varNameToAstVarId varn1
              , varsm1Out
-             , build1VOccurenceUnknownAstHVectorRefresh
+             , build1VOccurenceUnknownHVectorRefresh
                  (valueOf @k)
                  (var, substProjHVectorS @k @shn var varDx
                        $ substProjHVectorS @k @shn var varn1 ast1Out2) )
@@ -1064,7 +1116,7 @@ build1VOccurenceUnknownHVector k (var, v0) =
              , varDt22Out
              , AstVarName $ varNameToAstVarId nvar2
              , mvars2Out
-             , build1VOccurenceUnknownAstHVectorRefresh
+             , build1VOccurenceUnknownHVectorRefresh
                  (valueOf @k)
                  (var, substProjHVectorS @k @shn var varDy
                        $ substProjHVectorS @k @shn var nvar2 domsOut2) )
@@ -1072,7 +1124,7 @@ build1VOccurenceUnknownHVector k (var, v0) =
              (V.map (\u -> astTrDynamic
                            $ build1VOccurenceUnknownDynamic (valueOf @k)
                                                             (var, u)) as)
-      _ -> error "build1VOccurenceUnknownHVector: impossible someNatVal"
+      _ -> error "build1VHVector: impossible someNatVal"
 
 build1VOccurenceUnknownDynamic
   :: forall s. AstSpan s
@@ -1096,11 +1148,11 @@ build1VOccurenceUnknownDynamic k (var, d) = case d of
     Nothing ->
       error "build1VOccurenceUnknownDynamic: impossible someNatVal error"
 
-build1VOccurenceUnknownAstHVectorRefresh
+build1VOccurenceUnknownHVectorRefresh
   :: forall s. AstSpan s
   => Int -> (IntVarName, AstHVector s) -> AstHVector s
-{-# NOINLINE build1VOccurenceUnknownAstHVectorRefresh #-}
-build1VOccurenceUnknownAstHVectorRefresh k (var, v0) = unsafePerformIO $ do
+{-# NOINLINE build1VOccurenceUnknownHVectorRefresh #-}
+build1VOccurenceUnknownHVectorRefresh k (var, v0) = unsafePerformIO $ do
   (varFresh, astVarFresh) <- funToAstIOI id
   let v2 = substituteAstHVector  -- cheap subst, because only a renaming
              (SubstitutionPayloadRanked @PrimalSpan @Int64 astVarFresh) var v0
