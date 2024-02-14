@@ -970,7 +970,7 @@ class HVectorTensor (ranked :: RankedTensorType)
         -> HVector f  -- ^ e :: eShs
         -> HVectorOf f)  -- ^ (dx, de) :: (accShs, eShs)
     -> HVector ranked  -- ^ acc0 :: accShs
-    -> HVector ranked  -- ^es :: k ': eShs
+    -> HVector ranked  -- ^ es :: k ': eShs
     -> HVectorOf ranked  -- ^ (x, ys) :: (accShs, k ': bShs)
   -- | A strict left macAccum.
   dmapAccumL
