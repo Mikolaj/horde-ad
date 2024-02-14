@@ -673,6 +673,38 @@ data AstHVector s where
     -> HVector (AstRanked s)
     -> HVector (AstRanked s)
     -> AstHVector s
+  AstMapAccumL
+    :: SNat k
+    -> VoidHVector
+    -> VoidHVector
+    -> VoidHVector
+    -> ( [AstDynamicVarName]
+       , [AstDynamicVarName]
+       , AstHVector PrimalSpan )
+    -> HVector (AstRanked s)
+    -> HVector (AstRanked s)
+    -> AstHVector s
+  AstMapAccumLDer
+    :: SNat k
+    -> VoidHVector
+    -> VoidHVector
+    -> VoidHVector
+    -> ( [AstDynamicVarName]
+       , [AstDynamicVarName]
+       , AstHVector PrimalSpan )
+    -> ( [AstDynamicVarName]
+       , [AstDynamicVarName]
+       , [AstDynamicVarName]
+       , [AstDynamicVarName]
+       , AstHVector PrimalSpan )
+    -> ( [AstDynamicVarName]
+       , [AstDynamicVarName]
+       , [AstDynamicVarName]
+       , [AstDynamicVarName]
+       , AstHVector PrimalSpan )
+    -> HVector (AstRanked s)
+    -> HVector (AstRanked s)
+    -> AstHVector s
 
 deriving instance Show (AstHVector s)
 

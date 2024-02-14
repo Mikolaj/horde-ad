@@ -2329,6 +2329,22 @@ simplifyAstHVector = \case
                         (ws1, ws2, ws3, ws4, simplifyAstHVector bst)
                         (V.map simplifyAstDynamic acc0)
                         (V.map simplifyAstDynamic es)
+  Ast.AstMapAccumL k accShs bShs eShs (accvars, evars, v) acc0 es ->
+    Ast.AstMapAccumL k accShs bShs eShs
+                     (accvars, evars, simplifyAstHVector v)
+                     (V.map simplifyAstDynamic acc0)
+                     (V.map simplifyAstDynamic es)
+  Ast.AstMapAccumLDer k accShs bShs eShs
+                      (accvars, evars, v)
+                      (vs1, vs2, vs3, vs4, ast)
+                      (ws1, ws2, ws3, ws4, bst)
+                      acc0 es ->
+    Ast.AstMapAccumLDer k accShs bShs eShs
+                        (accvars, evars, simplifyAstHVector v)
+                        (vs1, vs2, vs3, vs4, simplifyAstHVector ast)
+                        (ws1, ws2, ws3, ws4, simplifyAstHVector bst)
+                        (V.map simplifyAstDynamic acc0)
+                        (V.map simplifyAstDynamic es)
 
 simplifyAstBool :: AstBool -> AstBool
 simplifyAstBool t = case t of
@@ -3144,6 +3160,20 @@ substitute1AstHVector i var = \case
       (Nothing, Nothing) -> Nothing
       (macc0, mes) ->
         Just $ Ast.AstMapAccumRDer k accShs bShs eShs f df dr
+                                   (fromMaybe acc0 macc0)
+                                   (fromMaybe es mes)
+  Ast.AstMapAccumL k accShs bShs eShs f acc0 es ->
+    case (substitute1HVector i var acc0, substitute1HVector i var es) of
+      (Nothing, Nothing) -> Nothing
+      (macc0, mes) ->
+        Just $ Ast.AstMapAccumL k accShs bShs eShs f
+                                (fromMaybe acc0 macc0)
+                                (fromMaybe es mes)
+  Ast.AstMapAccumLDer k accShs bShs eShs f df dr acc0 es ->
+    case (substitute1HVector i var acc0, substitute1HVector i var es) of
+      (Nothing, Nothing) -> Nothing
+      (macc0, mes) ->
+        Just $ Ast.AstMapAccumLDer k accShs bShs eShs f df dr
                                    (fromMaybe acc0 macc0)
                                    (fromMaybe es mes)
 

@@ -476,6 +476,20 @@ data DeltaH :: RankedTensorType -> Type where
     -> HVector (DeltaR ranked)
     -> HVector (DeltaR ranked)
     -> DeltaH ranked
+  MapAccumL
+    :: SNat k
+    -> VoidHVector
+    -> VoidHVector
+    -> VoidHVector
+    -> HVector ranked
+    -> HVector ranked
+    -> (forall f. ADReady f
+        => HVector f -> HVector f -> HVector f -> HVector f -> HVectorOf f)
+    -> (forall f. ADReady f
+        => HVector f -> HVector f -> HVector f -> HVector f -> HVectorOf f)
+    -> HVector (DeltaR ranked)
+    -> HVector (DeltaR ranked)
+    -> DeltaH ranked
 
 {- Fails due to @forall f@. Replaced by a manually fixed version at the end
    of this file.
@@ -557,6 +571,9 @@ shapeDeltaH = \case
     V.map (\d -> voidFromDynamicF (shapeToList . shapeDeltaR) d) v
   MapAccumR k accShs bShs _eShs _q _es _df _rf _acc0' _es' ->
     accShs V.++ replicate1VoidHVector k bShs
+  MapAccumL k accShs bShs _eShs _q _es _df _rf _acc0' _es' ->
+    accShs V.++ replicate1VoidHVector k bShs
+
 
 -- * Delta expression identifiers
 
@@ -1380,6 +1397,33 @@ evalH !s !c = let (abShared, cShared) =
         (cacc0, rces) = hvToPair rdxdes
         s3 = evalHVector s2 cacc0 acc0'
     in evalHVector s3 (mapHVectorRanked11 rreverse rces) es'
+  MapAccumL k accShs bShs eShs q es _df rf acc0' es' ->
+    let accLen = V.length accShs
+        hvToPair :: HVector f -> (HVector f, HVector f)
+        hvToPair hv = (V.take accLen hv, V.drop accLen hv)
+        bLen = V.length bShs
+        hvTo3 :: HVector f -> (HVector f, HVector f, HVector f)
+        hvTo3 hv = ( V.take bLen hv
+                   , V.slice bLen accLen hv
+                   , V.drop (bLen + accLen) hv )
+        (c0, crest) = hvToPair cShared
+        rdxdesUnshared =
+          dmapAccumL k accShs eShs (bShs V.++ accShs V.++ eShs)
+                     (\dx dy_acc_e ->
+                        let (dy, acc, e) = hvTo3 dy_acc_e
+                        in rf dx dy acc e)
+                     c0
+                     (V.concat
+                        [ mapHVectorRanked11 rreverse crest
+                        , mapHVectorRanked11 rreverse q
+                        , mapHVectorRanked11 rreverse es ])
+        (abShared2, rdxdes) =
+          dregister (accShs V.++ voidFromHVector es)
+                    rdxdesUnshared (astBindings sShared)
+        s2 = sShared {astBindings = abShared2}
+        (cacc0, rces) = hvToPair rdxdes
+        s3 = evalHVector s2 cacc0 acc0'
+    in evalHVector s3 (mapHVectorRanked11 rreverse rces) es'
 
 evalFromnMap :: (ADReady ranked, shaped ~ ShapedOf ranked)
              => EvalState ranked -> EvalState ranked
@@ -1979,6 +2023,21 @@ fwdH dimR params s = \case
                    , V.slice eLen accLen hv
                    , V.drop (eLen + accLen) hv )
     in (s3, dmapAccumR k accShs bShs (eShs V.++ accShs V.++ eShs)
+                       (\dacc de_acc_e ->
+                          let (de, acc, e) = hvTo3 de_acc_e
+                          in df dacc de acc e)
+                       cacc0
+                       (V.concat [ces, q, es]))
+  MapAccumL k accShs bShs eShs q es df _rf acc0' es' ->
+    let (s2, cacc0) = fwdHVector dimR params s acc0'
+        (s3, ces) = fwdHVector dimR params s2 es'
+        eLen = V.length eShs
+        accLen = V.length accShs
+        hvTo3 :: HVector f -> (HVector f, HVector f, HVector f)
+        hvTo3 hv = ( V.take eLen hv
+                   , V.slice eLen accLen hv
+                   , V.drop (eLen + accLen) hv )
+    in (s3, dmapAccumL k accShs bShs (eShs V.++ accShs V.++ eShs)
                        (\dacc de_acc_e ->
                           let (de, acc, e) = hvTo3 de_acc_e
                           in df dacc de acc e)

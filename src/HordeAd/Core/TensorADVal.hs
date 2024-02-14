@@ -25,7 +25,7 @@ import           Data.Bifunctor.Flip
 import           Data.Bifunctor.Product
 import           Data.Function ((&))
 import           Data.Functor.Const
-import           Data.List (foldl', mapAccumR, scanl')
+import           Data.List (foldl', mapAccumL, mapAccumR, scanl')
 import           Data.List.Index (imap)
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
@@ -914,6 +914,88 @@ instance ADReadyBoth ranked shaped
           DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
           DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
     in V.imap selectDual primal
+  dmapAccumL
+    :: SNat k
+    -> VoidHVector
+    -> VoidHVector
+    -> VoidHVector
+    -> (forall f. ADReady f
+        => HVector f -> HVector f -> HVectorOf f)
+    -> HVector (ADVal ranked)
+    -> HVector (ADVal ranked)
+    -> HVectorOf (ADVal ranked)
+  dmapAccumL k accShs bShs eShs f acc0 es =
+    let accLen = V.length accShs
+        hvToPair :: forall f. HVector f -> (HVector f, HVector f)
+        hvToPair hv = (V.take accLen hv, V.drop accLen hv)
+        g :: forall f. ADReady f
+          => HVector (ADVal f)
+          -> ADVal (HVectorPseudoTensor f) Float '()
+        g hv = let (ll, as, as') = unADValHVector $ uncurry f (hvToPair hv)
+               in dDnotShared (flattenADShare $ V.toList ll)
+                              (HVectorPseudoTensor $ dmkHVector as)
+                              (HVectorPseudoTensor $ HToH as')
+        df :: forall f. ADReady f
+           => HVector f -> HVector f -> HVector f -> HVector f -> HVectorOf f
+        df dacc de acc e =
+          unHVectorPseudoTensor
+          $ fst $ cfwdOnHVector (acc V.++ e) g (dacc V.++ de)
+        rf :: forall f. ADReady f
+           => HVector f -> HVector f -> HVector f -> HVector f -> HVectorOf f
+        rf dx dy acc e =
+          fst $ crevOnHVector
+                  (Just $ HVectorPseudoTensor $ dmkHVector $ dx V.++ dy)
+                  g
+                  (acc V.++ e)
+    in dmapAccumLDer k accShs bShs eShs f df rf acc0 es
+  dmapAccumLDer
+    :: SNat k
+    -> VoidHVector
+    -> VoidHVector
+    -> VoidHVector
+    -> (forall f. ADReady f
+        => HVector f -> HVector f -> HVectorOf f)
+    -> (forall f. ADReady f
+        => HVector f -> HVector f -> HVector f -> HVector f -> HVectorOf f)
+    -> (forall f. ADReady f
+        => HVector f -> HVector f -> HVector f -> HVector f -> HVectorOf f)
+    -> HVector (ADVal ranked)
+    -> HVector (ADVal ranked)
+    -> HVectorOf (ADVal ranked)
+  dmapAccumLDer k accShs bShs eShs f df rf acc0D esD =
+    assert (voidHVectorMatches (replicate1VoidHVector k eShs) esD
+            && voidHVectorMatches accShs acc0D) $
+    let (ll2, acc0, acc0') = unADValHVector acc0D
+        (ll3, esUnshared, es') = unADValHVector esD
+        (l4, es) =
+          dsharePrimal @ranked
+                       (replicate1VoidHVector k eShs)
+                       (dmkHVector esUnshared)
+                       (flattenADShare $ V.toList ll2 ++ V.toList ll3)
+        codomainShs = accShs V.++ bShs
+        accLen = V.length accShs
+        hvToPair :: forall f. HVector f -> (HVector f, HVector f)
+        hvToPair hv = (V.take accLen hv, V.drop accLen hv)
+        g :: forall f. ADReady f => HVector f -> HVector f -> HVectorOf f
+        g acc e = dletHVectorInHVector @f codomainShs (f acc e) $ \res ->
+          let (accRes, bRes) = hvToPair res
+          in dmkHVector $ V.concat [accRes, acc, bRes]
+        pUnshared :: HVectorOf ranked
+        pUnshared = dmapAccumL k accShs codomainShs eShs g acc0 es
+        pShs = accShs V.++ replicate1VoidHVector k codomainShs
+        (l5, pShared) = dsharePrimal @ranked pShs pUnshared l4
+        accFin = V.take accLen pShared
+        q = V.slice accLen accLen pShared
+        bs = V.drop (2 * accLen) pShared
+        !_A = assert (voidHVectorMatches (replicate1VoidHVector k bShs) bs) ()
+        primal = accFin V.++ bs
+        dual = wrapDeltaH $ MapAccumL k accShs bShs eShs q es df rf acc0' es'
+        selectDual i d = case d of
+          DynamicRanked t -> DynamicRanked $ dDnotShared l5 t (HToR dual i)
+          DynamicShaped t -> DynamicShaped $ dDnotShared l5 t (HToS dual i)
+          DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
+          DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
+    in V.imap selectDual primal
 
 dDHVector :: (RankedTensor f, ShapedTensor (ShapedOf f))
           => ADShare -> HVector f -> HVector (Dual f)
@@ -1096,6 +1178,28 @@ instance HVectorTensor (Flip OR.Array) (Flip OS.Array) where
          in xout V.++ ravelHVector lout
   dmapAccumRDer k accShs bShs eShs f _df _rf acc0 es =
     dmapAccumR k accShs bShs eShs f acc0 es
+  dmapAccumL
+    :: SNat k
+    -> VoidHVector
+    -> VoidHVector
+    -> VoidHVector
+    -> (forall f. ADReady f
+        => HVector f -> HVector f -> HVectorOf f)
+    -> HVector (Flip OR.Array)
+    -> HVector (Flip OR.Array)
+    -> HVector (Flip OR.Array)
+  dmapAccumL k accShs bShs _eShs f acc0 es = case sNatValue k :: Int of
+    0 -> acc0 V.++ replicate1HVector k (V.map dynamicFromVoid bShs)
+    _ -> let accLen = V.length accShs
+             hvToPair :: forall f. HVector f -> (HVector f, HVector f)
+             hvToPair hv = (V.take accLen hv, V.drop accLen hv)
+             g :: HVector (Flip OR.Array) -> HVector (Flip OR.Array)
+               -> (HVector (Flip OR.Array), HVector (Flip OR.Array))
+             g x a = hvToPair $ f x a
+             (xout, lout) = mapAccumL g acc0 (unravelHVector es)
+         in xout V.++ ravelHVector lout
+  dmapAccumLDer k accShs bShs eShs f _df _rf acc0 es =
+    dmapAccumL k accShs bShs eShs f acc0 es
 
 instance (GoodScalar r, KnownNat n)
          => AdaptableHVector (Flip OR.Array) (Flip OR.Array r n) where

@@ -143,6 +143,10 @@ shapeAstHVector = \case
     accShs V.++ replicate1VoidHVector k bShs
   AstMapAccumRDer k accShs bShs _eShs _f _df _rf _acc0 _es ->
     accShs V.++ replicate1VoidHVector k bShs
+  AstMapAccumL k accShs bShs _eShs _f _acc0 _es ->
+    accShs V.++ replicate1VoidHVector k bShs
+  AstMapAccumLDer k accShs bShs _eShs _f _df _rf _acc0 _es ->
+    accShs V.++ replicate1VoidHVector k bShs
 
 -- * Variable occurrence detection
 
@@ -287,6 +291,10 @@ varInAstHVector var = \case
   AstMapAccumR _k _accShs _bShs _eShs _f acc0 es ->
     any (varInAstDynamic var) acc0 || any (varInAstDynamic var) es
   AstMapAccumRDer _k _accShs _bShs _eShs _f _df _rf acc0 es ->
+    any (varInAstDynamic var) acc0 || any (varInAstDynamic var) es
+  AstMapAccumL _k _accShs _bShs _eShs _f acc0 es ->
+    any (varInAstDynamic var) acc0 || any (varInAstDynamic var) es
+  AstMapAccumLDer _k _accShs _bShs _eShs _f _df _rf acc0 es ->
     any (varInAstDynamic var) acc0 || any (varInAstDynamic var) es
 
 varInAstDynamic :: AstSpan s

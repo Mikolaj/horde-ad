@@ -964,6 +964,40 @@ class HVectorTensor (ranked :: RankedTensorType)
     -> HVector ranked  -- ^ acc0 :: accShs
     -> HVector ranked  -- ^es :: k ': eShs
     -> HVectorOf ranked  -- ^ (x, ys) :: (accShs, k ': bShs)
+  dmapAccumL
+    :: SNat k
+    -> VoidHVector
+    -> VoidHVector
+    -> VoidHVector
+    -> (forall f. ADReady f
+        => HVector f -> HVector f -> HVectorOf f)
+    -> HVector ranked
+    -> HVector ranked
+    -> HVectorOf ranked
+  dmapAccumLDer
+    :: SNat k
+    -> VoidHVector
+    -> VoidHVector
+    -> VoidHVector
+    -> (forall f. ADReady f
+        => HVector f
+        -> HVector f
+        -> HVectorOf f)
+    -> (forall f. ADReady f
+        => HVector f
+        -> HVector f
+        -> HVector f
+        -> HVector f
+        -> HVectorOf f)
+    -> (forall f. ADReady f
+        => HVector f
+        -> HVector f
+        -> HVector f
+        -> HVector f
+        -> HVectorOf f)
+    -> HVector ranked
+    -> HVector ranked
+    -> HVectorOf ranked
 
 
 -- * The giga-constraint
