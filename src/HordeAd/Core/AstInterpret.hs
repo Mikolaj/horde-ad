@@ -1135,52 +1135,6 @@ interpretAstHVector !env = \case
         acc02 = interpretAstDynamic env <$> acc0
         es2 = interpretAstDynamic env <$> es
     in dmapAccumRDer k accShs bShs eShs f df rf acc02 es2
-  AstMapAccumRR @r @n1 domB f0@(_, vars, _) x0 as ->
-    let f :: forall f. ADReady f => f r n1 -> HVector f -> HVectorOf f
-        f = interpretLambdaRHH interpretAstHVector EM.empty f0
-        od = voidFromVars vars
-        x0i = interpretAst env x0
-        asi = interpretAstDynamic env <$> as
-    in rmapAccumR domB f od x0i asi
-  AstMapAccumRDerR @r @n1 domB f0@(_, vars, _) df0 rf0 x0 as ->
-    let f :: forall f. ADReady f => f r n1 -> HVector f -> HVectorOf f
-        f = interpretLambdaRHH interpretAstHVector EM.empty f0
-        df :: forall f. ADReady f
-           => f r n1 -> HVector f -> f r n1 -> HVector f -> HVectorOf f
-        df = interpretLambdaRHRHH interpretAstHVector EM.empty df0
-        rf :: forall f. ADReady f
-           => f r n1 -> HVector f -> f r n1 -> HVector f -> HVectorOf f
-        rf = interpretLambdaRHRHH interpretAstHVector EM.empty rf0
-        od = voidFromVars vars
-        x0i = interpretAst env x0
-        asi = interpretAstDynamic env <$> as
-    in rmapAccumRDer domB f df rf od x0i asi
-  AstMapAccumRS @k @r @sh1 domB f0@(_, vars, _) x0 as ->
-    let f :: forall f. ADReadyS f
-          => f r sh1 -> HVector (RankedOf f) -> HVectorOf (RankedOf f)
-        f = interpretLambdaSHH interpretAstHVector EM.empty f0
-        od = voidFromVars vars
-        x0i = interpretAstS env x0
-        asi = interpretAstDynamic env <$> as
-    in smapAccumR (Proxy @k) domB f od x0i asi
-  AstMapAccumRDerS @k @r @sh1 domB f0@(_, vars, _) df0 rf0 x0 as ->
-    let f :: forall f. ADReadyS f
-          => f r sh1 -> HVector (RankedOf f) -> HVectorOf (RankedOf f)
-        f = interpretLambdaSHH interpretAstHVector EM.empty f0
-        df :: forall f. ADReadyS f
-           => f r sh1 -> HVector (RankedOf f)
-           -> f r sh1 -> HVector (RankedOf f)
-           -> HVectorOf (RankedOf f)
-        df = interpretLambdaSHSHH interpretAstHVector EM.empty df0
-        rf :: forall f. ADReadyS f
-           => f r sh1 -> HVector (RankedOf f)
-           -> f r sh1 -> HVector (RankedOf f)
-           -> HVectorOf (RankedOf f)
-        rf = interpretLambdaSHSHH interpretAstHVector EM.empty rf0
-        od = voidFromVars vars
-        x0i = interpretAstS env x0
-        asi = interpretAstDynamic env <$> as
-    in smapAccumRDer (Proxy @k) domB f df rf od x0i asi
 
 interpretAstBool :: ADReady ranked
                  => AstEnv ranked -> AstBool -> BoolOf ranked

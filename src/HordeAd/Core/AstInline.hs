@@ -553,40 +553,6 @@ inlineAstHVector memo v0 = case v0 of
                                    (vs1, vs2, vs3, vs4, ast2)
                                    (ws1, ws2, ws3, ws4, bst2)
                                    acc02 es2)
-  Ast.AstMapAccumRR domB (nvar, mvar, v) x0 as ->
-    let (_, v2) = inlineAstHVector EM.empty v
-        (memo1, x02) = inlineAst memo x0
-        (memo2, as2) = mapAccumR inlineAstDynamic memo1 as
-    in (memo2, Ast.AstMapAccumRR domB (nvar, mvar, v2) x02 as2)
-  Ast.AstMapAccumRDerR domB (nvar, mvar, v)
-                       (varDx, varDa, varn1, varm1, ast1)
-                       (varDy, varDt2, nvar2, mvar2, doms) x0 as ->
-    let (_, v2) = inlineAstHVector EM.empty v
-        (_, doms2) = inlineAstHVector EM.empty doms
-        (_, ast2) = inlineAstHVector EM.empty ast1
-        (memo1, x02) = inlineAst memo x0
-        (memo2, as2) = mapAccumR inlineAstDynamic memo1 as
-    in (memo2, Ast.AstMapAccumRDerR domB (nvar, mvar, v2)
-                                    (varDx, varDa, varn1, varm1, ast2)
-                                    (varDy, varDt2, nvar2, mvar2, doms2)
-                                    x02 as2)
-  Ast.AstMapAccumRS @k domB (nvar, mvar, v) x0 as ->
-    let (_, v2) = inlineAstHVector EM.empty v
-        (memo1, x02) = inlineAstS memo x0
-        (memo2, as2) = mapAccumR inlineAstDynamic memo1 as
-    in (memo2, Ast.AstMapAccumRS @k domB (nvar, mvar, v2) x02 as2)
-  Ast.AstMapAccumRDerS @k domB (nvar, mvar, v)
-                       (varDx, varDa, varn1, varm1, ast1)
-                       (varDy, varDt2, nvar2, mvar2, doms) x0 as ->
-    let (_, v2) = inlineAstHVector EM.empty v
-        (_, doms2) = inlineAstHVector EM.empty doms
-        (_, ast2) = inlineAstHVector EM.empty ast1
-        (memo1, x02) = inlineAstS memo x0
-        (memo2, as2) = mapAccumR inlineAstDynamic memo1 as
-    in (memo2, Ast.AstMapAccumRDerS @k domB (nvar, mvar, v2)
-                                    (varDx, varDa, varn1, varm1, ast2)
-                                    (varDy, varDt2, nvar2, mvar2, doms2)
-                                    x02 as2)
 
 inlineAstBool :: AstMemo -> AstBool -> (AstMemo, AstBool)
 inlineAstBool memo v0 = case v0 of
@@ -974,43 +940,6 @@ unletAstHVector env = \case
                         , unletAstHVector (emptyUnletEnv emptyADShare) bst )
                         (V.map (unletAstDynamic env) acc0)
                         (V.map (unletAstDynamic env) es)
-  Ast.AstMapAccumRR domB (nvar, mvar, v) x0 as ->
-    Ast.AstMapAccumRR domB
-                      ( nvar, mvar
-                      , unletAstHVector (emptyUnletEnv emptyADShare) v )
-                      (unletAst env x0)
-                      (V.map (unletAstDynamic env) as)
-  Ast.AstMapAccumRDerR domB (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
-                                            (varDy, varDt2, nvar2, mvar2, doms)
-                                            x0 as ->
-    Ast.AstMapAccumRDerR domB
-                         ( nvar, mvar
-                         , unletAstHVector (emptyUnletEnv emptyADShare) v )
-                         ( varDx, varDa, varn1, varm1
-                         , unletAstHVector (emptyUnletEnv emptyADShare) ast1 )
-                         ( varDy, varDt2, nvar2, mvar2
-                         , unletAstHVector (emptyUnletEnv emptyADShare) doms )
-                         (unletAst env x0)
-                         (V.map (unletAstDynamic env) as)
-  Ast.AstMapAccumRS @k domB (nvar, mvar, v) x0 as ->
-    Ast.AstMapAccumRS @k domB
-                      ( nvar, mvar
-                      , unletAstHVector (emptyUnletEnv emptyADShare) v )
-                      (unletAstS env x0)
-                      (V.map (unletAstDynamic env) as)
-  Ast.AstMapAccumRDerS @k domB
-                       (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
-                                       (varDy, varDt2, nvar2, mvar2, doms)
-                                       x0 as ->
-    Ast.AstMapAccumRDerS @k domB
-                         ( nvar, mvar
-                         , unletAstHVector (emptyUnletEnv emptyADShare) v )
-                         ( varDx, varDa, varn1, varm1
-                         , unletAstHVector (emptyUnletEnv emptyADShare) ast1 )
-                         ( varDy, varDt2, nvar2, mvar2
-                         , unletAstHVector (emptyUnletEnv emptyADShare) doms )
-                         (unletAstS env x0)
-                         (V.map (unletAstDynamic env) as)
 
 unletAstBool :: UnletEnv -> AstBool -> AstBool
 unletAstBool env t = case t of

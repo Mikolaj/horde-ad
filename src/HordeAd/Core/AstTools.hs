@@ -143,37 +143,6 @@ shapeAstHVector = \case
     accShs V.++ replicate1VoidHVector k bShs
   AstMapAccumRDer k accShs bShs _eShs _f _df _rf _acc0 _es ->
     accShs V.++ replicate1VoidHVector k bShs
-  AstMapAccumRR @rn domB _f x0 asD ->
-    let width = case V.unsnoc asD of
-          Nothing -> error "dshape: can't determine argument width"
-          Just (_, d) -> case shapeDynamicAst d of
-            [] -> error "dshape: wrong rank of argument"
-            w : _shm -> w
-    in case someNatVal $ toInteger width of
-      Just (SomeNat @k _) ->
-        let shn = shapeAst x0
-            odShn = voidFromSh @rn shn
-        in V.cons odShn (replicate1VoidHVector (SNat @k) domB)
-      _ -> error "dshape: impossible someNatVal"
-  AstMapAccumRDerR @rn domB _f _df _rf x0 asD ->
-    let width = case V.unsnoc asD of
-          Nothing -> error "dshape: can't determine argument width"
-          Just (_, d) -> case shapeDynamicAst d of
-            [] -> error "dshape: wrong rank of argument"
-            w : _shm -> w
-    in case someNatVal $ toInteger width of
-      Just (SomeNat @k _) ->
-        let shn = shapeAst x0
-            odShn = voidFromSh @rn shn
-        in V.cons odShn (replicate1VoidHVector (SNat @k) domB)
-      _ -> error "dshape: impossible someNatVal"
-  AstMapAccumRS @k @rn @sh domB _f _x0 _asD ->
-    let odShn = voidFromShS @rn @sh
-    in V.cons odShn (replicate1VoidHVector (SNat @k) domB)
-  AstMapAccumRDerS @k @rn @sh domB _f _df _rf _x0 _asD ->
-    let odShn = voidFromShS @rn @sh
-    in V.cons odShn (replicate1VoidHVector (SNat @k) domB)
-
 
 -- * Variable occurrence detection
 
@@ -319,14 +288,6 @@ varInAstHVector var = \case
     any (varInAstDynamic var) acc0 || any (varInAstDynamic var) es
   AstMapAccumRDer _k _accShs _bShs _eShs _f _df _rf acc0 es ->
     any (varInAstDynamic var) acc0 || any (varInAstDynamic var) es
-  AstMapAccumRR _domB _f x0 as ->
-    varInAst var x0 || any (varInAstDynamic var) as
-  AstMapAccumRDerR _domB _f _df _rf x0 as ->
-    varInAst var x0 || any (varInAstDynamic var) as
-  AstMapAccumRS _domB _f x0 as ->
-    varInAstS var x0 || any (varInAstDynamic var) as
-  AstMapAccumRDerS _domB _f _df _rf x0 as ->
-    varInAstS var x0 || any (varInAstDynamic var) as
 
 varInAstDynamic :: AstSpan s
                 => AstVarId -> AstDynamic s -> Bool
