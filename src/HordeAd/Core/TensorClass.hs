@@ -797,6 +797,7 @@ class HVectorTensor (ranked :: RankedTensorType)
        -> shaped r sh
   -- The type mentions ADReady, so it's awkward to put this into RankedTensor,
   -- which doesn't know about HVectorTensor.
+  -- | A strict left fold.
   rfold :: (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)
         => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
         -> ranked rn n  -- ^ initial value
@@ -810,24 +811,7 @@ class HVectorTensor (ranked :: RankedTensorType)
            -> ranked rn n  -- ^ initial value
            -> ranked rm (1 + m)  -- ^ iteration is over the outermost dimension
            -> ranked rn n
-  rfoldZip :: (GoodScalar rn, KnownNat n)
-         => (forall f. ADReady f => f rn n -> HVector f -> f rn n)
-         -> VoidHVector  -- shapes of the HVector above, not below
-         -> ranked rn n
-         -> HVector ranked  -- one rank higher than above
-         -> ranked rn n
-  rfoldZipDer :: (GoodScalar rn, KnownNat n)
-            => (forall f. ADReady f => f rn n -> HVector f -> f rn n)
-            -> (forall f. ADReady f
-                => f rn n -> HVector f -> f rn n -> HVector f
-                -> f rn n)
-            -> (forall f. ADReady f
-                => f rn n -> f rn n -> HVector f
-                -> HVectorOf f)
-            -> VoidHVector
-            -> ranked rn n
-            -> HVector ranked
-            -> ranked rn n
+  -- | A strict left scan.
   rscan :: (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)
         => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
         -> ranked rn n
@@ -841,6 +825,10 @@ class HVectorTensor (ranked :: RankedTensorType)
            -> ranked rn n
            -> ranked rm (1 + m)
            -> ranked rn (1 + n)
+  -- Library users are encouraged to use dmapAccumL directly, but we keep it,
+  -- because we have a lot of good tests for this (including an alternative
+  -- delta eval code that uses this).
+  -- {-# DEPRECATED rscanZip "Use dmapAccumL instead" #-}
   rscanZip :: forall rn n. (GoodScalar rn, KnownNat n, RankedTensor ranked)
          => (forall f. ADReady f => f rn n -> HVector f -> f rn n)
          -> VoidHVector  -- shapes of the HVector above, not below
@@ -875,6 +863,7 @@ class HVectorTensor (ranked :: RankedTensorType)
            (V.singleton $ DynamicRanked acc0)
            es)
         (\res -> rappend (rfromList [acc0]) (rfromD $ res V.! 1))
+  -- | A strict left fold.
   sfold :: (GoodScalar rn, GoodScalar rm, Sh.Shape sh, Sh.Shape shm, KnownNat k)
         => (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh)
         -> shaped rn sh
@@ -891,27 +880,7 @@ class HVectorTensor (ranked :: RankedTensorType)
            -> shaped rn sh
            -> shaped rm (k ': shm)
            -> shaped rn sh
-  sfoldZip :: (GoodScalar rn, Sh.Shape sh)
-         => (forall f. ADReadyS f
-             => f rn sh -> HVector (RankedOf f) -> f rn sh)
-         -> VoidHVector
-         -> shaped rn sh
-         -> HVector ranked
-         -> shaped rn sh
-  sfoldZipDer :: (GoodScalar rn, Sh.Shape sh)
-            => (forall f. ADReadyS f
-                => f rn sh -> HVector (RankedOf f) -> f rn sh)
-            -> (forall f. ADReadyS f
-                => f rn sh -> HVector (RankedOf f) -> f rn sh
-                -> HVector (RankedOf f)
-                -> f rn sh)
-            -> (forall f. ADReadyS f
-                => f rn sh -> f rn sh -> HVector (RankedOf f)
-                -> HVectorOf (RankedOf f))
-            -> VoidHVector
-            -> shaped rn sh
-            -> HVector ranked
-            -> shaped rn sh
+  -- | A strict left scan.
   sscan :: (GoodScalar rn, GoodScalar rm, Sh.Shape sh, Sh.Shape shm, KnownNat k)
         => (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh)
         -> shaped rn sh
@@ -928,6 +897,10 @@ class HVectorTensor (ranked :: RankedTensorType)
            -> shaped rn sh
            -> shaped rm (k ': shm)
            -> shaped rn (1 + k ': sh)
+  -- Library users are encouraged to use dmapAccumL directly, but we keep it,
+  -- because we have a lot of good tests for this (including an alternative
+  -- delta eval code that uses this).
+  -- {-# DEPRECATED sscanZip "Use dmapAccumL instead" #-}
   sscanZip :: forall rn sh k.
               ( GoodScalar rn, Sh.Shape sh, KnownNat k, ShapedTensor shaped
               , shaped ~ ShapedOf ranked, ranked ~ RankedOf shaped )
@@ -958,6 +931,7 @@ class HVectorTensor (ranked :: RankedTensorType)
          (V.singleton $ DynamicShaped acc0)
          es)
       (\res -> sappend @_ @_ @1 (sfromList [acc0]) (sfromD $ res V.! 1))
+  -- | A strict right macAccum.
   dmapAccumR
     :: SNat k
     -> VoidHVector
@@ -992,6 +966,7 @@ class HVectorTensor (ranked :: RankedTensorType)
     -> HVector ranked  -- ^ acc0 :: accShs
     -> HVector ranked  -- ^es :: k ': eShs
     -> HVectorOf ranked  -- ^ (x, ys) :: (accShs, k ': bShs)
+  -- | A strict left macAccum.
   dmapAccumL
     :: SNat k
     -> VoidHVector
@@ -1026,6 +1001,10 @@ class HVectorTensor (ranked :: RankedTensorType)
     -> HVector ranked
     -> HVector ranked
     -> HVectorOf ranked
+
+-- TODO: find a way to deprecate only in the external API, not in our code.
+-- {-# DEPRECATED rscanZip "Use dmapAccumL instead" #-}
+-- {-# DEPRECATED sscanZip "Use dmapAccumL instead" #-}
 
 rfromD :: forall r n ranked.
           (RankedTensor ranked, GoodScalar r, KnownNat n)

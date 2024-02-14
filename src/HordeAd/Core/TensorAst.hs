@@ -807,72 +807,6 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
         shm = tailShape $ rshape as
     in AstFoldDer (funToAst2R shn shm f) (funToAst4R shn shm df)
                   (funToAst3R shn shm rf) x0 as
-  rfoldZip :: forall rn n. (GoodScalar rn, KnownNat n)
-         => (forall f. ADReady f => f rn n -> HVector f -> f rn n)
-         -> VoidHVector
-         -> AstRanked s rn n
-         -> HVector (AstRanked s)
-         -> AstRanked s rn n
-  rfoldZip f domsOD x0 asD = case V.unsnoc asD of
-    Nothing -> error "rfoldZip: can't determine argument width"
-    Just (_, d) -> case shapeDynamic d of
-      [] -> error "rfoldZip: wrong rank of argument"
-      width : _shm -> case someNatVal $ toInteger width of
-        Just (SomeNat @k _) ->
-          assert (voidHVectorMatches (replicate1VoidHVector (SNat @k) domsOD)
-                                     asD) $
-          let shn = rshape x0
-              domsF = V.cons (voidFromSh @rn shn) domsOD
-              domsToPair :: forall f. ADReady f
-                         => HVector f -> (f rn n, HVector f)
-              domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
-              g :: HVector (AstRanked FullSpan) -> AstRanked FullSpan rn n
-              g doms = uncurry f (domsToPair doms)
-          in case revProduceArtifact TensorToken True g EM.empty domsF of
-            ( ( (varsDt, AstDynamicVarName nid : mdyns)
-              , gradient, _primal, _sh), _delta ) ->
-              assert (length varsDt == 1) $
-              case fwdProduceArtifact TensorToken g EM.empty domsF of
-                ( ( ( AstDynamicVarName nid1 : mdyns1
-                    , AstDynamicVarName nid2 : mdyns2 )
-                  , derivative, _primal), _delta ) ->
-                  let nvar1 = AstVarName nid1
-                      nvar2 = AstVarName nid2
-                      nvar = AstVarName nid
-                  in AstFoldZipDer (funToAstRH shn f domsOD)
-                                   (nvar1, mdyns1, nvar2, mdyns2, derivative)
-                                   ( AstVarName
-                                     $ dynamicVarNameToAstVarId (varsDt !! 0)
-                                   , nvar, mdyns, gradient )
-                                   x0 asD
-                _ -> error "rfoldZip: wrong variables"
-            _ -> error "rfoldZip: wrong variables"
-        _ -> error "rfoldZip: impossible someNatVal"
-  rfoldZipDer :: forall rn n. (GoodScalar rn, KnownNat n)
-            => (forall f. ADReady f => f rn n -> HVector f -> f rn n)
-            -> (forall f. ADReady f
-                => f rn n -> HVector f -> f rn n -> HVector f
-                -> f rn n)
-            -> (forall f. ADReady f
-                => f rn n -> f rn n -> HVector f
-                -> HVectorOf f)
-            -> VoidHVector
-            -> AstRanked s rn n
-            -> HVector (AstRanked s)
-            -> AstRanked s rn n
-  rfoldZipDer f df rf domsOD x0 asD = case V.unsnoc asD of
-    Nothing -> error "rfoldZipDer: can't determine argument width"
-    Just (_, d) -> case shapeDynamic d of
-      [] -> error "rfoldZipDer: wrong rank of argument"
-      width : _shm -> case someNatVal $ toInteger width of
-        Just (SomeNat @k _) ->
-          assert (voidHVectorMatches (replicate1VoidHVector (SNat @k) domsOD)
-                                     asD) $
-          let shn = rshape x0
-          in AstFoldZipDer (funToAstRH shn f domsOD)
-                           (funToAstRHRH shn df domsOD)
-                           (funToAstRRH shn rf domsOD) x0 asD
-        _ -> error "rfoldZipDer: impossible someNatVal"
   rscan :: forall rn rm n m.
            (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)
         => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
@@ -965,74 +899,6 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
            -> AstShaped s rn sh
   sfoldDer f df rf x0 as =
     AstFoldDerS (funToAst2S f) (funToAst4S df) (funToAst3S rf) x0 as
-  sfoldZip :: forall rn sh. (GoodScalar rn, Sh.Shape sh)
-         => (forall f. ADReadyS f
-             => f rn sh -> HVector (RankedOf f) -> f rn sh)
-         -> VoidHVector
-         -> AstShaped s rn sh
-         -> HVector (AstRanked s)
-         -> AstShaped s rn sh
-  sfoldZip f domsOD x0 asD = case V.unsnoc asD of
-    Nothing -> error "sfoldZip: can't determine argument width"
-    Just (_, d) -> case shapeDynamic d of
-      [] -> error "sfoldZip: wrong rank of argument"
-      width : _shm -> case someNatVal $ toInteger width of
-        Just (SomeNat @k _) ->
-          assert (voidHVectorMatches (replicate1VoidHVector (SNat @k) domsOD)
-                                     asD) $
-          let domsF = V.cons (voidFromShS @rn @sh) domsOD
-              domsToPair :: forall f. ADReadyS f
-                         => HVector (RankedOf f)
-                         -> (f rn sh, HVector (RankedOf f))
-              domsToPair doms = (sfromD $ doms V.! 0, V.tail doms)
-              g :: HVector (AstRanked FullSpan) -> AstShaped FullSpan rn sh
-              g doms = uncurry f (domsToPair doms)
-          in case revProduceArtifact TensorToken True g EM.empty domsF of
-            ( ( (varsDt, AstDynamicVarName nid : mdyns)
-              , gradient, _primal, _sh), _delta ) ->
-              assert (length varsDt == 1) $
-              case fwdProduceArtifact TensorToken g EM.empty domsF of
-                ( ( ( AstDynamicVarName nid1 : mdyns1
-                    , AstDynamicVarName nid2 : mdyns2 )
-                  , derivative, _primal), _delta ) ->
-                  let nvar1 = AstVarName nid1
-                      nvar2 = AstVarName nid2
-                      nvar = AstVarName nid
-                  in AstFoldZipDerS (funToAstSH @_ @_ @sh f domsOD)
-                                    (nvar1, mdyns1, nvar2, mdyns2, derivative)
-                                    ( AstVarName
-                                      $ dynamicVarNameToAstVarId (varsDt !! 0)
-                                    , nvar, mdyns, gradient )
-                                    x0 asD
-                _ -> error "sfoldZip: wrong variables"
-            _ -> error "sfoldZip: wrong variables"
-        _ -> error "sfoldZip: impossible someNatVal"
-  sfoldZipDer :: forall rn sh. Sh.Shape sh
-            => (forall f. ADReadyS f
-                => f rn sh -> HVector (RankedOf f) -> f rn sh)
-            -> (forall f. ADReadyS f
-                => f rn sh -> HVector (RankedOf f) -> f rn sh
-                -> HVector (RankedOf f)
-                -> f rn sh)
-            -> (forall f. ADReadyS f
-                => f rn sh -> f rn sh -> HVector (RankedOf f)
-                -> HVectorOf (RankedOf f))
-            -> VoidHVector
-            -> AstShaped s rn sh
-            -> HVector (AstRanked s)
-            -> AstShaped s rn sh
-  sfoldZipDer f df rf domsOD x0 asD = case V.unsnoc asD of
-    Nothing -> error "sfoldZipDer: can't determine argument width"
-    Just (_, d) -> case shapeDynamic d of
-      [] -> error "sfoldZipDer: wrong rank of argument"
-      width : _shm -> case someNatVal $ toInteger width of
-        Just (SomeNat @k _) ->
-          assert (voidHVectorMatches (replicate1VoidHVector (SNat @k) domsOD)
-                                     asD) $
-          AstFoldZipDerS (funToAstSH @_ @_ @sh f domsOD)
-                         (funToAstSHSH @_ @_ @sh df domsOD)
-                         (funToAstSSH @_ @_ @sh rf domsOD) x0 asD
-        _ -> error "sfoldZipDer: impossible someNatVal"
   sscan :: forall rn rm sh shm k.
            (GoodScalar rn, GoodScalar rm, Sh.Shape sh, Sh.Shape shm, KnownNat k)
         => (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh)
@@ -1481,14 +1347,6 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
     AstNoVectorize
     $ rfoldDer @(AstRanked s)
                f df rf (unAstNoVectorize x0) (unAstNoVectorize as)
-  rfoldZip f domsOD x0 as =
-    AstNoVectorize
-    $ rfoldZip @(AstRanked s) f domsOD (unAstNoVectorize x0)
-                                       (unNoVectorizeHVector as)
-  rfoldZipDer f df rf domsOD x0 as =
-    AstNoVectorize
-    $ rfoldZipDer @(AstRanked s)
-                  f df rf domsOD (unAstNoVectorize x0) (unNoVectorizeHVector as)
   rscan f x0 as =
     AstNoVectorize
     $ rscan @(AstRanked s) f (unAstNoVectorize x0) (unAstNoVectorize as)
@@ -1503,15 +1361,6 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
     AstNoVectorizeS
     $ sfoldDer @(AstRanked s)
                f df rf (unAstNoVectorizeS x0) (unAstNoVectorizeS as)
-  sfoldZip f domsOD x0 as =
-    AstNoVectorizeS
-    $ sfoldZip @(AstRanked s) f domsOD (unAstNoVectorizeS x0)
-                                       (unNoVectorizeHVector as)
-  sfoldZipDer f df rf domsOD x0 as =
-    AstNoVectorizeS
-    $ sfoldZipDer @(AstRanked s)
-                  f df rf domsOD (unAstNoVectorizeS x0)
-                                 (unNoVectorizeHVector as)
   sscan f x0 as =
     AstNoVectorizeS
     $ sscan @(AstRanked s) f (unAstNoVectorizeS x0) (unAstNoVectorizeS as)
@@ -1711,14 +1560,6 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
   rfoldDer f df rf x0 as =
     AstNoSimplify
     $ rfoldDer @(AstRanked s) f df rf (unAstNoSimplify x0) (unAstNoSimplify as)
-  rfoldZip f domsOD x0 as =
-    AstNoSimplify
-    $ rfoldZip @(AstRanked s) f domsOD (unAstNoSimplify x0)
-                                       (unNoSimplifyHVector as)
-  rfoldZipDer f df rf domsOD x0 as =
-    AstNoSimplify
-    $ rfoldZipDer @(AstRanked s)
-                  f df rf domsOD (unAstNoSimplify x0) (unNoSimplifyHVector as)
   rscan f x0 as =
     AstNoSimplify
     $ rscan @(AstRanked s) f (unAstNoSimplify x0) (unAstNoSimplify as)
@@ -1732,14 +1573,6 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
     AstNoSimplifyS
     $ sfoldDer @(AstRanked s)
                f df rf (unAstNoSimplifyS x0) (unAstNoSimplifyS as)
-  sfoldZip f domsOD x0 as =
-    AstNoSimplifyS
-    $ sfoldZip @(AstRanked s) f domsOD (unAstNoSimplifyS x0)
-                                       (unNoSimplifyHVector as)
-  sfoldZipDer f df rf domsOD x0 as =
-    AstNoSimplifyS
-    $ sfoldZipDer @(AstRanked s)
-                  f df rf domsOD (unAstNoSimplifyS x0) (unNoSimplifyHVector as)
   sscan f x0 as =
     AstNoSimplifyS
     $ sscan @(AstRanked s) f (unAstNoSimplifyS x0) (unAstNoSimplifyS as)

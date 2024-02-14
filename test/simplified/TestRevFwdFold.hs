@@ -2904,8 +2904,8 @@ testSin0ScanD8rev2 = do
 testSin0ScanD8rev3 :: Assertion
 testSin0ScanD8rev3 = do
   let h :: forall f. ADReady f => f Double 0 -> f Double 0
-      h = rrev1 @f @Double @0 @2
-        (\a0 -> rfoldZip (\x a -> rtr $ rreplicate 5
+      h = rrev1 @f @Double @0 @3
+        (\a0 -> rscanZip (\x a -> rtr $ rreplicate 5
                                  $ atan2 (rsum (rtr $ sin x))
                                          (rreplicate 2
                                           $ sin (rfromD $ (V.! 0)
@@ -2916,14 +2916,14 @@ testSin0ScanD8rev3 = do
                        (rreplicate 2 (rreplicate 5 (2 * a0)))
                        (V.singleton $ DynamicRanked $ rreplicate 3 a0))
   assertEqualUpToEpsilon' 1e-10
-    (OR.fromList [] [98.72666469795736])
+    (OR.fromList [] [285.95794829475744])
     (rev' h 1.1)
 
 testSin0ScanD8rev4 :: Assertion
 testSin0ScanD8rev4 = do
   let h :: forall f. ADReady f => f Double 0 -> f Double 0
-      h = rrev1 @f @Double @0 @2
-        (\a0 -> rfoldZip (\x a -> rtr $ rreplicate 5
+      h = rrev1 @f @Double @0 @3
+        (\a0 -> rscanZip (\x a -> rtr $ rreplicate 5
                                  $ atan2 (rsum (rtr $ sin x))
                                          (rreplicate 2
                                           $ sin (rfromD $ (V.! 0)
@@ -2938,7 +2938,7 @@ testSin0ScanD8rev4 = do
                                      $ sreplicate @_ @3
                                          (sfromR @_ @_ @'[] a0) ]))
   assertEqualUpToEpsilon' 1e-10
-    (OR.fromList [] [98.72666469795736])
+    (OR.fromList [] [285.95794829475744])
     (rev' h 1.1)
 
 testSin0ScanD1RevPP :: Assertion
@@ -3764,13 +3764,13 @@ testSin0revhV3 = do
 
 testSin0revhV4 :: Assertion
 testSin0revhV4 = do
-  let f :: forall g. (HVectorTensor g (ShapedOf g), Fractional (g Double 0))
-        => HVector g -> HVectorOf g
-      doms = V.singleton (voidFromSh @Double ZS)
+  let doms = V.singleton (voidFromSh @Double ZS)
       doms3 = V.singleton (voidFromSh @Double (3 :$ ZS))
+      f :: forall g. (HVectorTensor g (ShapedOf g), RankedTensor g)
+        => HVector g -> HVectorOf g
       f x =
-        rrevDt @g @_ @Double @0 (\v -> rfoldZip const doms 5 v)
-               doms3 x 22.5
+        rrevDt @g @_ @Double @1 (\v -> rscanZip const doms 5 v)
+               doms3 x (rfromList [1, 2, 3, 4])
       h :: forall g. ADReady g
         => HVector (ADVal g)
         -> ADVal (HVectorPseudoTensor g) Float '()
@@ -3782,14 +3782,13 @@ testSin0revhV4 = do
 
 testSin0revhV5 :: Assertion
 testSin0revhV5 = do
-  let f :: forall g. ( HVectorTensor g (ShapedOf g)
-                     , Fractional (ShapedOf g Double '[]) )
-        => HVector g -> HVectorOf g
-      doms = V.singleton (voidFromShS @Double @'[])
+  let doms = V.singleton (voidFromShS @Double @'[])
       doms3 = V.singleton (voidFromShS @Double @'[3])
+      f :: forall g. (HVectorTensor g (ShapedOf g), ShapedTensor (ShapedOf g))
+        => HVector g -> HVectorOf g
       f x =
-        srevDt @g @_ @Double @'[] (\v -> sfoldZip const doms 5 v)
-               doms3 x 22.5
+        srevDt @g @_ @Double @'[4] (\v -> sscanZip const doms 5 v)
+               doms3 x (sfromList [1, 2, 3, 4])
       h :: forall g. ADReady g
         => HVector (ADVal g)
         -> ADVal (HVectorPseudoTensor g) Float '()
@@ -3801,42 +3800,41 @@ testSin0revhV5 = do
 
 testSin0revhV6 :: Assertion
 testSin0revhV6 = do
-  let f :: forall g. (HVectorTensor g (ShapedOf g), Fractional (g Double 0))
-        => HVector g -> HVectorOf g
-      doms = V.singleton (voidFromSh @Double ZS)
+  let doms = V.singleton (voidFromSh @Double ZS)
       doms3 = V.singleton (voidFromSh @Double (3 :$ ZS))
+      f :: forall g. (HVectorTensor g (ShapedOf g), RankedTensor g)
+        => HVector g -> HVectorOf g
       f x =
-        rrevDt @g @_ @Double @0
-               (\v -> rfoldZip (\_ w -> let z = rfromD $ w V.! 0
+        rrevDt @g @_ @Double @1
+               (\v -> rscanZip (\_ w -> let z = rfromD $ w V.! 0
                                         in z * z) doms 5 v)
-                doms3 x 22
+                doms3 x (rfromList [1, 2, 3, 4])
       h :: forall g. ADReady g
         => HVector (ADVal g)
         -> ADVal (HVectorPseudoTensor g) Float '()
       h = hVectorADValToADVal . f
   assertEqualUpToEpsilon 1e-10
-    (V.singleton $ DynamicRanked @Double @1 $ rfromList [0, 0, 44])
+    (V.singleton $ DynamicRanked @Double @1 $ rfromList [4.0,6.0,8.0])
     (crev (h @(Flip OR.Array))
           (V.singleton $ DynamicRanked @Double @1 $ rreplicate 3 1.1))
 
 testSin0revhV7 :: Assertion
 testSin0revhV7 = do
-  let f :: forall g. ( HVectorTensor g (ShapedOf g)
-                     , Fractional (ShapedOf g Double '[]) )
-        => HVector g -> HVectorOf g
-      doms = V.singleton (voidFromShS @Double @'[])
+  let doms = V.singleton (voidFromShS @Double @'[])
       doms3 = V.singleton (voidFromShS @Double @'[3])
+      f :: forall g. (HVectorTensor g (ShapedOf g), ShapedTensor (ShapedOf g))
+        => HVector g -> HVectorOf g
       f x =
-        srevDt @g @_ @Double @'[]
-               (\v -> sfoldZip (\_ w -> let z = sfromD $ w V.! 0
+        srevDt @g @_ @Double @'[4]
+               (\v -> sscanZip (\_ w -> let z = sfromD $ w V.! 0
                                         in z * z) doms 5 v)
-               doms3 x 22
+               doms3 x (sfromList [1, 2, 3, 4])
       h :: forall g. ADReady g
         => HVector (ADVal g)
         -> ADVal (HVectorPseudoTensor g) Float '()
       h = hVectorADValToADVal . f
   assertEqualUpToEpsilon 1e-10
-    (V.singleton $ DynamicShaped @Double @'[3] $ sfromList [0, 0, 44])
+    (V.singleton $ DynamicShaped @Double @'[3] $ sfromList [4.0,6.0,8.0])
     (crev (h @(Flip OR.Array))
           (V.singleton $ DynamicShaped @Double @'[3] $ sreplicate @_ @3 1.1))
 

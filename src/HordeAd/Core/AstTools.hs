@@ -98,8 +98,6 @@ shapeAst = \case
   AstFwd (_var, v) _l _ds -> shapeAst v
   AstFold _f x0 _as -> shapeAst x0
   AstFoldDer _f _df _rf x0 _as -> shapeAst x0
-  AstFoldZip _f x0 _as -> shapeAst x0
-  AstFoldZipDer _f _df _rf x0 _as -> shapeAst x0
   AstScan _f x0 as -> lengthAst as + 1 :$ shapeAst x0
   AstScanDer _f _df _rf x0 as -> lengthAst as + 1 :$ shapeAst x0
 
@@ -180,9 +178,6 @@ varInAst var = \case
     in any f l || any f ds
   AstFold _f x0 as -> varInAst var x0 || varInAst var as
   AstFoldDer _f _df _rf x0 as -> varInAst var x0 || varInAst var as
-  AstFoldZip _f x0 as -> varInAst var x0 || any (varInAstDynamic var) as
-  AstFoldZipDer _f _df _rf x0 as ->
-    varInAst var x0 || any (varInAstDynamic var) as
   AstScan _f x0 as -> varInAst var x0 || varInAst var as
   AstScanDer _f _df _rf x0 as -> varInAst var x0 || varInAst var as
 
@@ -233,9 +228,6 @@ varInAstS var = \case
     in any f l || any f ds
   AstFoldS _f x0 as -> varInAstS var x0 || varInAstS var as
   AstFoldDerS _f _df _rf x0 as -> varInAstS var x0 || varInAstS var as
-  AstFoldZipS _f x0 as -> varInAstS var x0 || any (varInAstDynamic var) as
-  AstFoldZipDerS _f _df _rf x0 as ->
-    varInAstS var x0 || any (varInAstDynamic var) as
   AstScanS _f x0 as -> varInAstS var x0 || varInAstS var as
   AstScanDerS _f _df _rf x0 as -> varInAstS var x0 || varInAstS var as
 

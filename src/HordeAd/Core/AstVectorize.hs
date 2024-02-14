@@ -305,41 +305,6 @@ build1V k (var, v00) =
                        $ substProjHVector k var shm mvar2 doms) )
            (build1VOccurenceUnknown k (var, x0))
            (astTr $ build1VOccurenceUnknown k (var, as))
-    Ast.AstFoldZip{} ->
-      error "build1V: impossible case of AstFoldD"
-    Ast.AstFoldZipDer @_ @n2
-                    (nvar, mvars, v)
-                    (varDx, varsDa, varn1, varsm1, ast1)
-                    (varDt2, nvar2, mvars2, doms) x0 as -> traceRule $
-     case someNatVal $ toInteger k of
-      Just (SomeNat @k3 _) ->
-       let shn = shapeAst x0
-           (vOut, mvarsOut) = substProjVars @k3 var mvars v
-           (ast1Out, varsDaOut) = substProjVars @k3 var varsDa ast1
-           (ast1Out2, varsm1Out) = substProjVars @k3 var varsm1 ast1Out
-           (domsOut, mvars2Out) = substProjVarsHVector @k3 var mvars2 doms
-       in Ast.AstFoldZipDer
-            ( AstVarName $ varNameToAstVarId nvar
-            , mvarsOut
-            , build1VOccurenceUnknownRefresh
-                k (var, substProjRanked k var shn nvar vOut) )
-            ( AstVarName $ varNameToAstVarId varDx
-            , varsDaOut
-            , AstVarName $ varNameToAstVarId varn1
-            , varsm1Out
-            , build1VOccurenceUnknownRefresh
-                k (var, substProjRanked k var shn varDx
-                        $ substProjRanked k var shn varn1 ast1Out2) )
-            ( AstVarName $ varNameToAstVarId varDt2
-            , AstVarName $ varNameToAstVarId nvar2
-            , mvars2Out
-            , build1VOccurenceUnknownHVectorRefresh
-                k (var, substProjHVector k var shn varDt2
-                        $ substProjHVector k var shn nvar2 domsOut) )
-            (build1VOccurenceUnknown k (var, x0))
-            (V.map (\u -> astTrDynamic
-                          $ build1VOccurenceUnknownDynamic k (var, u)) as)
-      _ -> error "build1V: impossible someNatVal"
     Ast.AstScan{} ->
       error "build1V: impossible case of AstScan"
     Ast.AstScanDer @_ @_ @n2
@@ -421,7 +386,6 @@ build1VIndex k (var, v0, ix@(_ :. _)) =
               Ast.AstScatter{} -> ruleD
               Ast.AstAppend{} -> ruleD
               Ast.AstFoldDer{} -> ruleD
-              Ast.AstFoldZipDer{} -> ruleD
               Ast.AstScanDer{} -> ruleD
               _ -> build1VOccurenceUnknown k (var, v)  -- not a normal form
             else build1VOccurenceUnknown k (var, v)  -- shortcut
@@ -670,39 +634,6 @@ build1VS (var, v00) =
                   $ substProjHVectorS @k var mvar2 doms) )
         (build1VOccurenceUnknownS (var, x0))
         (astTrS $ build1VOccurenceUnknownS @k (var, as))
-    Ast.AstFoldZipS{} ->
-      error "build1VS: impossible case of AstFoldZipS"
-    Ast.AstFoldZipDerS @_ @shn
-                     (nvar, mvars, v)
-                     (varDx, varsDa, varn1, varsm1, ast1)
-                     (varDt2, nvar2, mvars2, doms) x0 as -> traceRule $
-       let (vOut, mvarsOut) = substProjVarsS @k var mvars v
-           (ast1Out, varsDaOut) = substProjVarsS @k var varsDa ast1
-           (ast1Out2, varsm1Out) = substProjVarsS @k var varsm1 ast1Out
-           (domsOut, mvars2Out) = substProjVarsHVector @k var mvars2 doms
-       in Ast.AstFoldZipDerS
-            ( AstVarName $ varNameToAstVarId nvar
-            , mvarsOut
-            , build1VOccurenceUnknownRefreshS
-                @k (var, substProjShapedS @k @shn var nvar vOut) )
-            ( AstVarName $ varNameToAstVarId varDx
-            , varsDaOut
-            , AstVarName $ varNameToAstVarId varn1
-            , varsm1Out
-            , build1VOccurenceUnknownRefreshS
-                @k (var, substProjShapedS @k @shn var varDx
-                         $ substProjShapedS @k @shn var varn1 ast1Out2) )
-            ( AstVarName $ varNameToAstVarId varDt2
-            , AstVarName $ varNameToAstVarId nvar2
-            , mvars2Out
-            , build1VOccurenceUnknownHVectorRefresh
-                (valueOf @k)
-                (var, substProjHVectorS @k var varDt2
-                      $ substProjHVectorS @k @shn var nvar2 domsOut) )
-            (build1VOccurenceUnknownS @k (var, x0))
-            (V.map (\u -> astTrDynamic
-                          $ build1VOccurenceUnknownDynamic (valueOf @k)
-                                                           (var, u)) as)
     Ast.AstScanS{} ->
       error "build1VS: impossible case of AstScanS"
     Ast.AstScanDerS @_ @_ @shn @shm @k5
@@ -774,7 +705,6 @@ build1VIndexS (var, v0, ix@(_ :$: _)) =
               Ast.AstScatterS{} -> ruleD
               Ast.AstAppendS{} -> ruleD
               Ast.AstFoldDerS{} -> ruleD
-              Ast.AstFoldZipDerS{} -> ruleD
               Ast.AstScanDerS{} -> ruleD
               -- TODO: these are not implemented and so need ruleD:
               Ast.AstMinIndexS{} -> ruleD

@@ -309,29 +309,6 @@ data AstRanked :: AstSpanType -> RankedTensorType where
              -> AstRanked s rn n
              -> AstRanked s rm (1 + m)
              -> AstRanked s rn n
-  AstFoldZip :: forall rn n s. KnownNat n
-           => ( AstVarName (AstRanked PrimalSpan) rn n
-              , [AstDynamicVarName]
-              , AstRanked PrimalSpan rn n )
-           -> AstRanked s rn n
-           -> HVector (AstRanked s)  -- one rank higher than above
-           -> AstRanked s rn n
-  AstFoldZipDer :: forall rn n s. KnownNat n
-              => ( AstVarName (AstRanked PrimalSpan) rn n
-                 , [AstDynamicVarName]
-                 , AstRanked PrimalSpan rn n )
-              -> ( AstVarName (AstRanked PrimalSpan) rn n
-                 , [AstDynamicVarName]
-                 , AstVarName (AstRanked PrimalSpan) rn n
-                 , [AstDynamicVarName]
-                 , AstRanked PrimalSpan rn n )
-              -> ( AstVarName (AstRanked PrimalSpan) rn n
-                 , AstVarName (AstRanked PrimalSpan) rn n
-                 , [AstDynamicVarName]
-                 , AstHVector PrimalSpan )
-              -> AstRanked s rn n
-              -> HVector (AstRanked s)  -- one rank higher than above
-              -> AstRanked s rn n
   AstScan :: forall rn rm n m s. (GoodScalar rm, KnownNat m, KnownNat n)
           => ( AstVarName (AstRanked PrimalSpan) rn n
              , AstVarName (AstRanked PrimalSpan) rm m
@@ -497,29 +474,6 @@ data AstShaped :: AstSpanType -> ShapedTensorType where
               -> AstShaped s rn sh
               -> AstShaped s rm (k ': shm)
               -> AstShaped s rn sh
-  AstFoldZipS :: forall rn sh s. Sh.Shape sh
-            => ( AstVarName (AstShaped PrimalSpan) rn sh
-               , [AstDynamicVarName]
-               , AstShaped PrimalSpan rn sh )
-            -> AstShaped s rn sh
-            -> HVector (AstRanked s)  -- one rank higher than above
-            -> AstShaped s rn sh
-  AstFoldZipDerS :: forall rn sh s. Sh.Shape sh
-               => ( AstVarName (AstShaped PrimalSpan) rn sh
-                  , [AstDynamicVarName]
-                  , AstShaped PrimalSpan rn sh )
-               -> ( AstVarName (AstShaped PrimalSpan) rn sh
-                  , [AstDynamicVarName]
-                  , AstVarName (AstShaped PrimalSpan) rn sh
-                  , [AstDynamicVarName]
-                  , AstShaped PrimalSpan rn sh )
-               -> ( AstVarName (AstShaped PrimalSpan) rn sh
-                  , AstVarName (AstShaped PrimalSpan) rn sh
-                  , [AstDynamicVarName]
-                  , AstHVector PrimalSpan )
-               -> AstShaped s rn sh
-               -> HVector (AstRanked s)  -- one rank higher than above
-               -> AstShaped s rn sh
   AstScanS :: forall rn rm sh shm k s.
               (GoodScalar rm, Sh.Shape shm, Sh.Shape sh, KnownNat k)
            => ( AstVarName (AstShaped PrimalSpan) rn sh

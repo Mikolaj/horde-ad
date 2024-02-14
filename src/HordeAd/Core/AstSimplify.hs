@@ -231,8 +231,6 @@ simplifyStepNonIndex t = case t of
   Ast.AstFwd{} -> t
   Ast.AstFold{} -> t
   Ast.AstFoldDer{} -> t
-  Ast.AstFoldZip{} -> t
-  Ast.AstFoldZipDer{} -> t
   Ast.AstScan{} -> t
   Ast.AstScanDer{} -> t
 
@@ -448,8 +446,6 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
   Ast.AstFwd{} -> Ast.AstIndex v0 ix
   Ast.AstFold{} -> Ast.AstIndex v0 ix  -- normal form
   Ast.AstFoldDer{} -> Ast.AstIndex v0 ix  -- normal form
-  Ast.AstFoldZip{} -> Ast.AstIndex v0 ix  -- normal form
-  Ast.AstFoldZipDer{} -> Ast.AstIndex v0 ix  -- normal form
   Ast.AstScan{} -> Ast.AstIndex v0 ix  -- normal form
   Ast.AstScanDer{} -> Ast.AstIndex v0 ix  -- normal form
     -- TODO: when index is constant, rewrite to fold of slice
@@ -643,8 +639,6 @@ astIndexSOrStepOnly stepOnly v0 ix@((:$:) @in1 i1 (rest1 :: AstIndexS shm1)) =
   Ast.AstFwdS{} -> Ast.AstIndexS v0 ix
   Ast.AstFoldS{} -> Ast.AstIndexS v0 ix  -- normal form
   Ast.AstFoldDerS{} -> Ast.AstIndexS v0 ix  -- normal form
-  Ast.AstFoldZipS{} -> Ast.AstIndexS v0 ix  -- normal form
-  Ast.AstFoldZipDerS{} -> Ast.AstIndexS v0 ix  -- normal form
   Ast.AstScanS{} -> Ast.AstIndexS v0 ix  -- normal form
   Ast.AstScanDerS{} -> Ast.AstIndexS v0 ix  -- normal form
 
@@ -990,8 +984,6 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
     Ast.AstFwd{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstFold{} -> Ast.AstGather sh4 v4 (vars4, ix4)  -- normal form
     Ast.AstFoldDer{} -> Ast.AstGather sh4 v4 (vars4, ix4)  -- normal form
-    Ast.AstFoldZip{} -> Ast.AstGather sh4 v4 (vars4, ix4)  -- normal form
-    Ast.AstFoldZipDer{} -> Ast.AstGather sh4 v4 (vars4, ix4)  -- normal form
     Ast.AstScan{} -> Ast.AstGather sh4 v4 (vars4, ix4)  -- normal form
     Ast.AstScanDer{} -> Ast.AstGather sh4 v4 (vars4, ix4)  -- normal form
 
@@ -1775,8 +1767,6 @@ astPrimalPart t = case t of
   Ast.AstFwd{} -> Ast.AstPrimalPart t  -- the other only normal form
   Ast.AstFold{} -> Ast.AstPrimalPart t
   Ast.AstFoldDer{} -> Ast.AstPrimalPart t
-  Ast.AstFoldZip{} -> Ast.AstPrimalPart t
-  Ast.AstFoldZipDer{} -> Ast.AstPrimalPart t
   Ast.AstScan{} -> Ast.AstPrimalPart t
   Ast.AstScanDer{} -> Ast.AstPrimalPart t
 
@@ -1816,8 +1806,6 @@ astPrimalPartS t = case t of
   Ast.AstFwdS{} -> Ast.AstPrimalPartS t  -- the other only normal form
   Ast.AstFoldS{} -> Ast.AstPrimalPartS t
   Ast.AstFoldDerS{} -> Ast.AstPrimalPartS t
-  Ast.AstFoldZipS{} -> Ast.AstPrimalPartS t
-  Ast.AstFoldZipDerS{} -> Ast.AstPrimalPartS t
   Ast.AstScanS{} -> Ast.AstPrimalPartS t
   Ast.AstScanDerS{} -> Ast.AstPrimalPartS t
 
@@ -1856,8 +1844,6 @@ astDualPart t = case t of
   Ast.AstFwd{} -> Ast.AstDualPart t
   Ast.AstFold{} -> Ast.AstDualPart t
   Ast.AstFoldDer{} -> Ast.AstDualPart t
-  Ast.AstFoldZip{} -> Ast.AstDualPart t
-  Ast.AstFoldZipDer{} -> Ast.AstDualPart t
   Ast.AstScan{} -> Ast.AstDualPart t
   Ast.AstScanDer{} -> Ast.AstDualPart t
 
@@ -1894,8 +1880,6 @@ astDualPartS t = case t of
   Ast.AstFwdS{} -> Ast.AstDualPartS t
   Ast.AstFoldS{} -> Ast.AstDualPartS t
   Ast.AstFoldDerS{} -> Ast.AstDualPartS t
-  Ast.AstFoldZipS{} -> Ast.AstDualPartS t
-  Ast.AstFoldZipDerS{} -> Ast.AstDualPartS t
   Ast.AstScanS{} -> Ast.AstDualPartS t
   Ast.AstScanDerS{} -> Ast.AstDualPartS t
 
@@ -2153,15 +2137,6 @@ simplifyAst t = case t of
                    (varDx, varDa, varn1, varm1, simplifyAst ast1)
                    (varDt2, nvar2, mvar2, simplifyAstHVector doms)
                    (simplifyAst x0) (simplifyAst as)
-  Ast.AstFoldZip (nvar, mvar, v) x0 as ->
-    Ast.AstFoldZip (nvar, mvar, simplifyAst v) (simplifyAst x0)
-                 (V.map simplifyAstDynamic as)
-  Ast.AstFoldZipDer (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
-                                  (varDt2, nvar2, mvar2, doms) x0 as ->
-    Ast.AstFoldZipDer (nvar, mvar, simplifyAst v)
-                    (varDx, varDa, varn1, varm1, simplifyAst ast1)
-                    (varDt2, nvar2, mvar2, simplifyAstHVector doms)
-                    (simplifyAst x0) (V.map simplifyAstDynamic as)
   Ast.AstScan (nvar, mvar, v) x0 as ->
     Ast.AstScan (nvar, mvar, simplifyAst v) (simplifyAst x0) (simplifyAst as)
   Ast.AstScanDer (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
@@ -2228,15 +2203,6 @@ simplifyAstS t = case t of
                     (varDx, varDa, varn1, varm1, simplifyAstS ast1)
                     (varDt2, nvar2, mvar2, simplifyAstHVector doms)
                     (simplifyAstS x0) (simplifyAstS as)
-  Ast.AstFoldZipS (nvar, mvar, v) x0 as ->
-    Ast.AstFoldZipS (nvar, mvar, simplifyAstS v) (simplifyAstS x0)
-                  (V.map simplifyAstDynamic as)
-  Ast.AstFoldZipDerS (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
-                                   (varDt2, nvar2, mvar2, doms) x0 as ->
-    Ast.AstFoldZipDerS (nvar, mvar, simplifyAstS v)
-                     (varDx, varDa, varn1, varm1, simplifyAstS ast1)
-                     (varDt2, nvar2, mvar2, simplifyAstHVector doms)
-                     (simplifyAstS x0) (V.map simplifyAstDynamic as)
   Ast.AstScanS (nvar, mvar, v) x0 as ->
     Ast.AstScanS (nvar, mvar, simplifyAstS v) (simplifyAstS x0)
                  (simplifyAstS as)
@@ -2810,16 +2776,6 @@ substitute1Ast i var v1 = case v1 of
       (Nothing, Nothing) -> Nothing
       (mx0, mas) ->
         Just $ Ast.AstFoldDer f df dr (fromMaybe x0 mx0) (fromMaybe as mas)
-  Ast.AstFoldZip f x0 as ->
-    case (substitute1Ast i var x0, substitute1HVector i var as) of
-      (Nothing, Nothing) -> Nothing
-      (mx0, mas) ->
-        Just $ Ast.AstFoldZip f (fromMaybe x0 mx0) (fromMaybe as mas)
-  Ast.AstFoldZipDer f df dr x0 as ->
-    case (substitute1Ast i var x0, substitute1HVector i var as) of
-      (Nothing, Nothing) -> Nothing
-      (mx0, mas) ->
-        Just $ Ast.AstFoldZipDer f df dr (fromMaybe x0 mx0) (fromMaybe as mas)
   Ast.AstScan f x0 as ->
     case (substitute1Ast i var x0, substitute1Ast i var as) of
       (Nothing, Nothing) -> Nothing
@@ -2985,15 +2941,6 @@ substitute1AstS i var = \case
       (Nothing, Nothing) -> Nothing
       (mx0, mas) ->
         Just $ Ast.AstFoldDerS f df dr (fromMaybe x0 mx0) (fromMaybe as mas)
-  Ast.AstFoldZipS f x0 as ->
-    case (substitute1AstS i var x0, substitute1HVector i var as) of
-      (Nothing, Nothing) -> Nothing
-      (mx0, mas) -> Just $ Ast.AstFoldZipS f (fromMaybe x0 mx0) (fromMaybe as mas)
-  Ast.AstFoldZipDerS f df dr x0 as ->
-    case (substitute1AstS i var x0, substitute1HVector i var as) of
-      (Nothing, Nothing) -> Nothing
-      (mx0, mas) ->
-        Just $ Ast.AstFoldZipDerS f df dr (fromMaybe x0 mx0) (fromMaybe as mas)
   Ast.AstScanS f x0 as ->
     case (substitute1AstS i var x0, substitute1AstS i var as) of
       (Nothing, Nothing) -> Nothing

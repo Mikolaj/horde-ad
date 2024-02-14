@@ -513,26 +513,6 @@ interpretAst !env = \case
         x0i = interpretAst @ranked env x0
         asi = interpretAst @ranked env as
     in rfoldDer @ranked f df rf x0i asi
-  AstFoldZip @_ @n1 f@(_, vars, _) x0 as ->
-    let g :: forall f. ADReady f => f r n1 -> HVector f -> f r n1
-        g = interpretLambdaRHR interpretAst EM.empty f
-        od = voidFromVars vars
-        x0i = interpretAst env x0
-        asi = interpretAstDynamic env <$> as
-    in rfoldZip g od x0i asi
-  AstFoldZipDer @_ @n1 f0@(_, vars, _) df0 rf0 x0 as ->
-    let f :: forall f. ADReady f => f r n1 -> HVector f -> f r n1
-        f = interpretLambdaRHR interpretAst EM.empty f0
-        df :: forall f. ADReady f
-           => f r n1 -> HVector f -> f r n1 -> HVector f -> f r n1
-        df = interpretLambdaRHRHR interpretAst EM.empty df0
-        rf :: forall f. ADReady f
-           => f r n1 -> f r n1 -> HVector f -> HVectorOf f
-        rf = interpretLambdaRRRH interpretAstHVector EM.empty rf0
-        od = voidFromVars vars
-        x0i = interpretAst env x0
-        asi = interpretAstDynamic env <$> as
-    in rfoldZipDer f df rf od x0i asi
   AstScan @_ @rm @n1 @m f x0 as ->
     let g :: forall f. ADReady f => f r n1 -> f rm m -> f r n1
         g = interpretLambda2 interpretAst EM.empty f
@@ -963,28 +943,6 @@ interpretAstS !env = \case
         x0i = interpretAstS @ranked env x0
         asi = interpretAstS @ranked env as
     in sfoldDer @ranked f df rf x0i asi
-  AstFoldZipS @_ @n1 f@(_, vars, _) x0 as ->
-    let g :: forall f. ADReadyS f => f r n1 -> HVector (RankedOf f) -> f r n1
-        g = interpretLambdaSHS interpretAstS EM.empty f
-        od = voidFromVars vars
-        x0i = interpretAstS env x0
-        asi = interpretAstDynamic env <$> as
-    in sfoldZip g od x0i asi
-  AstFoldZipDerS @_ @n1 f0@(_, vars, _) df0 rf0 x0 as ->
-    let f :: forall f. ADReadyS f => f r n1 -> HVector (RankedOf f) -> f r n1
-        f = interpretLambdaSHS interpretAstS EM.empty f0
-        df :: forall f. ADReadyS f
-           => f r n1 -> HVector (RankedOf f) -> f r n1 -> HVector (RankedOf f)
-           -> f r n1
-        df = interpretLambdaSHSHS interpretAstS EM.empty df0
-        rf :: forall f. ADReadyS f
-           => f r n1 -> f r n1 -> HVector (RankedOf f)
-           -> HVectorOf (RankedOf f)
-        rf = interpretLambdaSSSH interpretAstHVector EM.empty rf0
-        od = voidFromVars vars
-        x0i = interpretAstS env x0
-        asi = interpretAstDynamic env <$> as
-    in sfoldZipDer f df rf od x0i asi
   AstScanS @_ @rm @n1 @m f x0 as ->
     let g :: forall f. ADReadyS f => f r n1 -> f rm m -> f r n1
         g = interpretLambda2S interpretAstS EM.empty f
