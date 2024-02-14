@@ -509,7 +509,8 @@ instance ADReadyBoth ranked shaped
                            (dmkHVector asUnshared)
                            (flattenADShare $ l1 : V.toList ll2)
             p :: ranked rn (1 + n)
-            p = rscanZipDer f df rf domsOD x0 as
+            p = rscanZip f domsOD x0 as
+              -- TODO: rscanZipDer would be faster, so perhaps use dmapAccumRDer
             (l4, pShared) = rsharePrimal p l3
         in dDnotShared l4 (pShared ! (fromIntegral width :. ZI))
                           (FoldZipR domsOD pShared as df rf x0' as')
@@ -562,64 +563,6 @@ instance ADReadyBoth ranked shaped
         (l4, pShared) = rsharePrimal p l3
     in dDnotShared l4 pShared
                       (ScanR pShared as df rf x0' as')
-  rscanZip :: forall rn n. (GoodScalar rn, KnownNat n)
-         => (forall f. ADReady f => f rn n -> HVector f -> f rn n)
-         -> VoidHVector
-         -> ADVal ranked rn n
-         -> HVector (ADVal ranked)
-         -> ADVal ranked rn (1 + n)
-  rscanZip f domsOD x0 asD =
-    let domsToPair :: forall f. ADReady f => HVector f -> (f rn n, HVector f)
-        domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
-        g :: forall f. ADReady f => HVector (ADVal f) -> ADVal f rn n
-        g doms = uncurry f (domsToPair doms)
-        df :: forall f. ADReady f
-           => f rn n -> HVector f -> f rn n -> HVector f -> f rn n
-        df cx ca x a =
-          fst $ cfwdOnHVector (V.cons (DynamicRanked x) a)
-                              g
-                              (V.cons (DynamicRanked cx) ca)
-        rf :: forall f. ADReady f
-           => f rn n -> f rn n -> HVector f -> HVectorOf f
-        rf dt x a =
-          fst $ crevOnHVector (Just dt)
-                              g
-                              (V.cons (DynamicRanked x) a)
-    in rscanZipDer f df rf domsOD x0 asD
-  rscanZipDer :: forall rn n. (GoodScalar rn, KnownNat n)
-            => (forall f. ADReady f => f rn n -> HVector f -> f rn n)
-            -> (forall f. ADReady f
-                => f rn n -> HVector f -> f rn n -> HVector f
-                -> f rn n)
-            -> (forall f. ADReady f
-                => f rn n -> f rn n -> HVector f
-                -> HVectorOf f)
-            -> VoidHVector
-            -> ADVal ranked rn n
-            -> HVector (ADVal ranked)
-            -> ADVal ranked rn (1 + n)
-  rscanZipDer f df rf domsOD (D l1 x0 x0') asD =
-    let (ll2, asUnshared, as') = unADValHVector asD
-        width = case V.unsnoc asUnshared of
-          Nothing -> error "rscanZipDer: can't determine argument width"
-          Just (_, d) -> case shapeDynamic d of
-            [] -> error "rscanZipDer: wrong rank of argument"
-            w : _shm -> w
-    in case someNatVal $ toInteger width of
-      Just (SomeNat @k _) ->
-        assert (voidHVectorMatches (replicate1VoidHVector (SNat @k) domsOD)
-                                   asD) $
-        let (l3, as) =
-              dsharePrimal @ranked
-                           (replicate1VoidHVector (SNat @k) domsOD)
-                           (dmkHVector asUnshared)
-                           (flattenADShare $ l1 : V.toList ll2)
-            p :: ranked rn (1 + n)
-            p = rscanZipDer f df rf domsOD x0 as
-            (l4, pShared) = rsharePrimal p l3
-        in dDnotShared l4 pShared
-                          (ScanZipR domsOD pShared as df rf x0' as')
-      _ -> error "rscanZipDer: impossible someNatVal"
   sfold :: forall rn rm sh shm k.
            (GoodScalar rn, GoodScalar rm, Sh.Shape sh, Sh.Shape shm, KnownNat k)
         => (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh)
@@ -727,6 +670,7 @@ instance ADReadyBoth ranked shaped
                            (flattenADShare $ l1 : V.toList ll2)
             p :: shaped rn (1 + k ': sh)
             p = sscanZip f domsOD x0 as
+              -- TODO: sscanZipDer would be faster, so perhaps use dmapAccumRDer
             (l4, pShared) = ssharePrimal p l3
         in dDnotShared l4 (pShared !$ (fromIntegral width :$: ZSH))
                           (FoldZipS domsOD pShared as df rf x0' as')
@@ -776,62 +720,6 @@ instance ADReadyBoth ranked shaped
         (l4, pShared) = ssharePrimal p l3
     in dDnotShared l4 pShared
                       (ScanS pShared as df rf x0' as')
-  sscanZip :: forall rn sh k. (GoodScalar rn, Sh.Shape sh, KnownNat k)
-         => (forall f. ADReadyS f
-             => f rn sh -> HVector (RankedOf f) -> f rn sh)
-         -> VoidHVector
-         -> ADVal shaped rn sh
-         -> HVector (ADVal ranked)
-         -> ADVal shaped rn (1 + k ': sh)
-  sscanZip f domsOD x0 asD =
-    let domsToPair :: forall f. ADReadyS f
-                   => HVector (RankedOf f) -> (f rn sh, HVector (RankedOf f))
-        domsToPair doms = (sfromD $ doms V.! 0, V.tail doms)
-        g :: forall f. ADReadyS f
-          => HVector (ADVal (RankedOf f)) -> ADVal f rn sh
-        g doms = uncurry f (domsToPair doms)
-        df :: forall f. ADReadyS f
-           => f rn sh -> HVector (RankedOf f) -> f rn sh -> HVector (RankedOf f)
-           -> f rn sh
-        df cx ca x a =
-          fst $ cfwdOnHVector (V.cons (DynamicShaped x) a)
-                              g
-                              (V.cons (DynamicShaped cx) ca)
-        rf :: forall f. ADReadyS f
-           => f rn sh -> f rn sh -> HVector (RankedOf f)
-           -> HVectorOf (RankedOf f)
-        rf dt x a =
-          fst $ crevOnHVector (Just dt)
-                              g
-                              (V.cons (DynamicShaped x) a)
-    in sscanZipDer f df rf domsOD x0 asD
-  sscanZipDer :: forall rn sh k. (GoodScalar rn, Sh.Shape sh, KnownNat k)
-            => (forall f. ADReadyS f
-                => f rn sh -> HVector (RankedOf f) -> f rn sh)
-            -> (forall f. ADReadyS f
-                => f rn sh -> HVector (RankedOf f) -> f rn sh
-                -> HVector (RankedOf f)
-                -> f rn sh)
-            -> (forall f. ADReadyS f
-                => f rn sh -> f rn sh -> HVector (RankedOf f)
-                -> HVectorOf (RankedOf f))
-            -> VoidHVector
-            -> ADVal shaped rn sh
-            -> HVector (ADVal ranked)
-            -> ADVal shaped rn (1 + k ': sh)
-  sscanZipDer f df rf domsOD (D l1 x0 x0') asD =
-    assert (voidHVectorMatches (replicate1VoidHVector (SNat @k) domsOD) asD) $
-    let (ll2, asUnshared, as') = unADValHVector asD
-        (l3, as) =
-          dsharePrimal @ranked
-                       (replicate1VoidHVector (SNat @k) domsOD)
-                       (dmkHVector asUnshared)
-                       (flattenADShare $ l1 : V.toList ll2)
-        p :: shaped rn (1 + k ': sh)
-        p = sscanZipDer f df rf domsOD x0 as
-        (l4, pShared) = ssharePrimal p l3
-    in dDnotShared l4 pShared
-                      (ScanZipS domsOD pShared as df rf x0' as')
   dmapAccumR
     :: SNat k
     -> VoidHVector
@@ -1130,8 +1018,6 @@ instance HVectorTensor (Flip OR.Array) (Flip OS.Array) where
   rfoldZipDer f _df _rf od x0 as = rfoldZip f od x0 as
   rscan f x0 as = rfromList $ scanl' f x0 (runravelToList as)
   rscanDer f _df _rf x0 as = rscan f x0 as
-  rscanZip f _od x0 as = rfromList $ scanl' f x0 (unravelHVector as)
-  rscanZipDer f _df _rf od x0 as = rscanZip f od x0 as
   sfold :: (GoodScalar rm, Sh.Shape shm, KnownNat k)
         => (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh)
         -> Flip OS.Array rn sh
@@ -1154,8 +1040,6 @@ instance HVectorTensor (Flip OR.Array) (Flip OS.Array) where
   sfoldZipDer f _df _rf od x0 as = sfoldZip f od x0 as
   sscan f x0 as = sfromList $ scanl' f x0 (sunravelToList as)
   sscanDer f _df _rf x0 as = sscan f x0 as
-  sscanZip f _od x0 as = sfromList $ scanl' f x0 (unravelHVector as)
-  sscanZipDer f _df _rf od x0 as = sscanZip f od x0 as
   dmapAccumR
     :: SNat k
     -> VoidHVector

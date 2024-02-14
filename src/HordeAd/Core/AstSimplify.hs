@@ -235,8 +235,6 @@ simplifyStepNonIndex t = case t of
   Ast.AstFoldZipDer{} -> t
   Ast.AstScan{} -> t
   Ast.AstScanDer{} -> t
-  Ast.AstScanZip{} -> t
-  Ast.AstScanZipDer{} -> t
 
 simplifyStepNonIndexS
   :: ()
@@ -454,8 +452,6 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
   Ast.AstFoldZipDer{} -> Ast.AstIndex v0 ix  -- normal form
   Ast.AstScan{} -> Ast.AstIndex v0 ix  -- normal form
   Ast.AstScanDer{} -> Ast.AstIndex v0 ix  -- normal form
-  Ast.AstScanZip{} -> Ast.AstIndex v0 ix  -- normal form
-  Ast.AstScanZipDer{} -> Ast.AstIndex v0 ix  -- normal form
     -- TODO: when index is constant, rewrite to fold of slice
 
 astIndexSOrStepOnly
@@ -651,8 +647,6 @@ astIndexSOrStepOnly stepOnly v0 ix@((:$:) @in1 i1 (rest1 :: AstIndexS shm1)) =
   Ast.AstFoldZipDerS{} -> Ast.AstIndexS v0 ix  -- normal form
   Ast.AstScanS{} -> Ast.AstIndexS v0 ix  -- normal form
   Ast.AstScanDerS{} -> Ast.AstIndexS v0 ix  -- normal form
-  Ast.AstScanZipS{} -> Ast.AstIndexS v0 ix  -- normal form
-  Ast.AstScanZipDerS{} -> Ast.AstIndexS v0 ix  -- normal form
 
 -- TODO: compared to rletIx, it adds many lets, not one, but does not
 -- create other (and non-simplified!) big terms and also uses astIsSmall,
@@ -1000,8 +994,6 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
     Ast.AstFoldZipDer{} -> Ast.AstGather sh4 v4 (vars4, ix4)  -- normal form
     Ast.AstScan{} -> Ast.AstGather sh4 v4 (vars4, ix4)  -- normal form
     Ast.AstScanDer{} -> Ast.AstGather sh4 v4 (vars4, ix4)  -- normal form
-    Ast.AstScanZip{} -> Ast.AstGather sh4 v4 (vars4, ix4)  -- normal form
-    Ast.AstScanZipDer{} -> Ast.AstGather sh4 v4 (vars4, ix4)  -- normal form
 
 gatherFromNF :: forall m p. (KnownNat m, KnownNat p)
              => AstVarList m -> AstIndex (1 + p) -> Bool
@@ -1787,8 +1779,6 @@ astPrimalPart t = case t of
   Ast.AstFoldZipDer{} -> Ast.AstPrimalPart t
   Ast.AstScan{} -> Ast.AstPrimalPart t
   Ast.AstScanDer{} -> Ast.AstPrimalPart t
-  Ast.AstScanZip{} -> Ast.AstPrimalPart t
-  Ast.AstScanZipDer{} -> Ast.AstPrimalPart t
 
 astPrimalPartS :: (GoodScalar r, Sh.Shape sh)
                => AstShaped FullSpan r sh -> AstShaped PrimalSpan r sh
@@ -1830,8 +1820,6 @@ astPrimalPartS t = case t of
   Ast.AstFoldZipDerS{} -> Ast.AstPrimalPartS t
   Ast.AstScanS{} -> Ast.AstPrimalPartS t
   Ast.AstScanDerS{} -> Ast.AstPrimalPartS t
-  Ast.AstScanZipS{} -> Ast.AstPrimalPartS t
-  Ast.AstScanZipDerS{} -> Ast.AstPrimalPartS t
 
 -- Note how this can't be pushed down, say, multiplication, because it
 -- multiplies the dual part by the primal part. Addition is fine, though.
@@ -1872,8 +1860,6 @@ astDualPart t = case t of
   Ast.AstFoldZipDer{} -> Ast.AstDualPart t
   Ast.AstScan{} -> Ast.AstDualPart t
   Ast.AstScanDer{} -> Ast.AstDualPart t
-  Ast.AstScanZip{} -> Ast.AstDualPart t
-  Ast.AstScanZipDer{} -> Ast.AstDualPart t
 
 astDualPartS :: (GoodScalar r, Sh.Shape sh)
              => AstShaped FullSpan r sh -> AstShaped DualSpan r sh
@@ -1912,8 +1898,6 @@ astDualPartS t = case t of
   Ast.AstFoldZipDerS{} -> Ast.AstDualPartS t
   Ast.AstScanS{} -> Ast.AstDualPartS t
   Ast.AstScanDerS{} -> Ast.AstDualPartS t
-  Ast.AstScanZipS{} -> Ast.AstDualPartS t
-  Ast.AstScanZipDerS{} -> Ast.AstDualPartS t
 
 -- Inlining doesn't work for this constructor, so we try to reduce it
 -- to one for which it does.
@@ -2186,15 +2170,6 @@ simplifyAst t = case t of
                    (varDx, varDa, varn1, varm1, simplifyAst ast1)
                    (varDt2, nvar2, mvar2, simplifyAstHVector doms)
                    (simplifyAst x0) (simplifyAst as)
-  Ast.AstScanZip (nvar, mvar, v) x0 as ->
-    Ast.AstScanZip (nvar, mvar, simplifyAst v) (simplifyAst x0)
-                 (V.map simplifyAstDynamic as)
-  Ast.AstScanZipDer (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
-                                  (varDt2, nvar2, mvar2, doms) x0 as ->
-    Ast.AstScanZipDer (nvar, mvar, simplifyAst v)
-                    (varDx, varDa, varn1, varm1, simplifyAst ast1)
-                    (varDt2, nvar2, mvar2, simplifyAstHVector doms)
-                    (simplifyAst x0) (V.map simplifyAstDynamic as)
 
 simplifyAstS
   :: (Sh.Shape sh, GoodScalar r, AstSpan s)
@@ -2271,15 +2246,6 @@ simplifyAstS t = case t of
                     (varDx, varDa, varn1, varm1, simplifyAstS ast1)
                     (varDt2, nvar2, mvar2, simplifyAstHVector doms)
                     (simplifyAstS x0) (simplifyAstS as)
-  Ast.AstScanZipS (nvar, mvar, v) x0 as ->
-    Ast.AstScanZipS (nvar, mvar, simplifyAstS v) (simplifyAstS x0)
-                  (V.map simplifyAstDynamic as)
-  Ast.AstScanZipDerS (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
-                                   (varDt2, nvar2, mvar2, doms) x0 as ->
-    Ast.AstScanZipDerS (nvar, mvar, simplifyAstS v)
-                     (varDx, varDa, varn1, varm1, simplifyAstS ast1)
-                     (varDt2, nvar2, mvar2, simplifyAstHVector doms)
-                     (simplifyAstS x0) (V.map simplifyAstDynamic as)
 
 simplifyAstDynamic
   :: AstSpan s
@@ -2863,16 +2829,6 @@ substitute1Ast i var v1 = case v1 of
       (Nothing, Nothing) -> Nothing
       (mx0, mas) ->
         Just $ Ast.AstScanDer f df dr (fromMaybe x0 mx0) (fromMaybe as mas)
-  Ast.AstScanZip f x0 as ->
-    case (substitute1Ast i var x0, substitute1HVector i var as) of
-      (Nothing, Nothing) -> Nothing
-      (mx0, mas) ->
-        Just $ Ast.AstScanZip f (fromMaybe x0 mx0) (fromMaybe as mas)
-  Ast.AstScanZipDer f df dr x0 as ->
-    case (substitute1Ast i var x0, substitute1HVector i var as) of
-      (Nothing, Nothing) -> Nothing
-      (mx0, mas) ->
-        Just $ Ast.AstScanZipDer f df dr (fromMaybe x0 mx0) (fromMaybe as mas)
 
 substitute1AstIndex
   :: (GoodScalar r2, AstSpan s2)
@@ -3047,15 +3003,6 @@ substitute1AstS i var = \case
       (Nothing, Nothing) -> Nothing
       (mx0, mas) ->
         Just $ Ast.AstScanDerS f df dr (fromMaybe x0 mx0) (fromMaybe as mas)
-  Ast.AstScanZipS f x0 as ->
-    case (substitute1AstS i var x0, substitute1HVector i var as) of
-      (Nothing, Nothing) -> Nothing
-      (mx0, mas) -> Just $ Ast.AstScanZipS f (fromMaybe x0 mx0) (fromMaybe as mas)
-  Ast.AstScanZipDerS f df dr x0 as ->
-    case (substitute1AstS i var x0, substitute1HVector i var as) of
-      (Nothing, Nothing) -> Nothing
-      (mx0, mas) ->
-        Just $ Ast.AstScanZipDerS f df dr (fromMaybe x0 mx0) (fromMaybe as mas)
 
 substitute1AstIndexS
   :: (GoodScalar r2, AstSpan s2)

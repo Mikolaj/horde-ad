@@ -266,18 +266,6 @@ data DeltaR :: RankedTensorType -> RankedTensorType where
         -> DeltaR ranked rn n
         -> DeltaR ranked rm (1 + m)
         -> DeltaR ranked rn (1 + n)
-  ScanZipR :: VoidHVector
-         -> ranked rn (1 + n)
-         -> HVector ranked
-         -> (forall f. ADReady f
-             => f rn n -> HVector f -> f rn n -> HVector f
-             -> f rn n)
-         -> (forall f. ADReady f
-             => f rn n -> f rn n -> HVector f
-             -> HVectorOf f)
-         -> DeltaR ranked rn n
-         -> HVector (DeltaR ranked)
-         -> DeltaR ranked rn (1 + n)
   CastR :: (GoodScalar r1, RealFrac r1, RealFrac r2)
         => DeltaR ranked r1 n -> DeltaR ranked r2 n
   RFromS :: forall sh r ranked. Sh.Shape sh
@@ -426,20 +414,6 @@ data DeltaS :: ShapedTensorType -> ShapedTensorType where
         -> DeltaS shaped rn sh
         -> DeltaS shaped rm (k ': shm)
         -> DeltaS shaped rn (1 + k ': sh)
-  ScanZipS :: (Sh.Shape sh, KnownNat k)
-         => VoidHVector
-         -> shaped rn (1 + k ': sh)
-         -> HVector (RankedOf shaped)
-         -> (forall f. ADReadyS f
-             => f rn sh -> HVector (RankedOf f) -> f rn sh
-             -> HVector (RankedOf f)
-             -> f rn sh)
-         -> (forall f. ADReadyS f
-             => f rn sh -> f rn sh -> HVector (RankedOf f)
-             -> HVectorOf (RankedOf f))
-         -> DeltaS shaped rn sh
-         -> HVector (DeltaR (RankedOf shaped))
-         -> DeltaS shaped rn (1 + k ': sh)
   CastS :: (GoodScalar r1, RealFrac r1, RealFrac r2)
         => DeltaS shaped r1 sh -> DeltaS shaped r2 sh
   SFromR :: forall sh r shaped. KnownNat (Sh.Rank sh)
@@ -549,7 +523,6 @@ shapeDeltaR = \case
   FoldR _p _as _df _rf x0' _as' -> shapeDeltaR x0'
   FoldZipR _domsOD _p _as _df _rf x0' _as' -> shapeDeltaR x0'
   ScanR p _as _df _rf _x0' _as' -> rshape p
-  ScanZipR _domsOD p _as _df _rf _x0' _as' -> rshape p
   CastR d -> shapeDeltaR d
   RFromS @sh _ -> listShapeToShape $ Sh.shapeT @sh
   HToR d i -> listShapeToShape $ shapeVoidDynamic (shapeDeltaH d V.! i)
@@ -1078,45 +1051,6 @@ evalR !s !c = let (abShared, cShared) = rregister c (astBindings s)
           (cx0, cas) = domsToPair crs
           s3 = evalR s2 (cx0 + cShared ! (0 :. ZI)) x0'
       in evalR s3 cas as'
-  ScanZipR @_ @_ @n1 domsOD p as _df rf x0' as' ->
-    let width = case V.unsnoc as of
-          Nothing -> error "evalR: can't determine argument width"
-          Just (_, d) -> case shapeDynamic d of
-            [] -> error "evalR: wrong rank of argument"
-            width2 : _shm -> width2
-        !_A1 = assert (rlength p == width + 1) ()
-        !_A2 = assert (rlength cShared == width + 1) ()
-    in withSNat width $ \snat ->
-      let shn = shapeDeltaR x0'
-          odShn = voidFromSh @r shn
-          domsToPair :: ADReady f => HVector f -> (f r n1, HVector f)
-          domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
-          domsF3 = V.cons odShn $ V.cons odShn domsOD
-          domsTo3 :: ADReady f => HVector f -> (f r n1, f r n1, HVector f)
-          domsTo3 doms =
-            (rfromD $ doms V.! 0, rfromD $ doms V.! 1, V.drop 2 doms)
-          rg :: HVector ranked -> HVector ranked -> HVectorOf ranked
-          rg = dmapAccumR snat
-                          (V.singleton odShn)
-                          domsOD
-                          domsF3
-                          (\cxh cr_x_a ->
-                             let cx = rfromD $ cxh V.! 0
-                                 (cr, x, a) = domsTo3 cr_x_a
-                             in rf (cx + cr) x a)
-          crsUnshared =
-            rg (V.singleton $ DynamicRanked @r $ rzero shn)
-               (V.cons
-                  (DynamicRanked $ rslice 1 width cShared)
-                  (V.cons
-                     (DynamicRanked $ rslice 0 width p)
-                     as))
-          domsG = V.cons odShn (voidFromHVector as)
-          (abShared2, crs) = dregister domsG crsUnshared (astBindings sShared)
-          s2 = sShared {astBindings = abShared2}
-          (cx0, cas) = domsToPair crs
-          s3 = evalR s2 (cx0 + cShared ! (0 :. ZI)) x0'
-      in evalHVector s3 cas as'
   CastR d -> evalRRuntimeSpecialized s (rcast c) d
 
   RFromS (SFromR d) -> evalR s c d  -- no information lost, so no checks
@@ -1305,40 +1239,6 @@ evalS !s !c = let (abShared, cShared) = sregister c (astBindings s)
         (cx0, cas) = domsToPair crs
         s3 = evalS s2 (cx0 + cShared !$ (0 :$: ZSH)) x0'
     in evalS s3 cas as'
-  ScanZipS @sh1 @k domsOD p as _df rf x0' as' ->
-    let odShn = voidFromShS @r @sh1
-        domsToPair :: ADReadyS f
-                   => HVector (RankedOf f) -> (f r sh1, HVector (RankedOf f))
-        domsToPair doms = (sfromD $ doms V.! 0, V.tail doms)
-        domsF3 = V.cons odShn $ V.cons odShn domsOD
-        domsTo3 :: ADReadyS f
-                => HVector (RankedOf f)
-                -> (f r sh1, f r sh1, HVector (RankedOf f))
-        domsTo3 doms = (sfromD $ doms V.! 0, sfromD $ doms V.! 1, V.drop 2 doms)
-        rg :: HVector ranked -> HVector ranked -> HVectorOf ranked
-        rg = dmapAccumR (SNat @k)
-                        (V.singleton odShn)
-                        domsOD
-                        domsF3
-                        (\cxh cr_x_a ->
-                           let cx = sfromD $ cxh V.! 0
-                               (cr, x, a) = domsTo3 cr_x_a
-                           in rf (cx + cr) x a)
-        crsUnshared =
-          rg (V.singleton $ DynamicShaped @r @sh1 0)
-             (V.cons
-                  (DynamicShaped
-                   $ sslice @_ @_ @_ @_ @0 (Proxy @1) (Proxy @k) cShared)
-                  (V.cons
-                     (DynamicShaped
-                      $ sslice @_ @_ @_ @_ @1 (Proxy @0) (Proxy @k) p)
-                     as))
-        domsG = V.cons odShn (voidFromHVector as)
-        (abShared2, crs) = dregister domsG crsUnshared (astBindings sShared)
-        s2 = sShared {astBindings = abShared2}
-        (cx0, cas) = domsToPair crs
-        s3 = evalS s2 (cx0 + cShared !$ (0 :$: ZSH)) x0'
-    in evalHVector s3 cas as'
   CastS d -> evalSRuntimeSpecialized s (scast c) d
   SFromR (RFromS @sh2 d) ->
     case sameShape @sh @sh2 of
@@ -1789,27 +1689,6 @@ fwdR dimR params s = \case
                         [ DynamicRanked cas
                         , DynamicRanked $ rslice 0 width p
                         , DynamicRanked as ]))
-  ScanZipR @_ @_ @n1 domsOD p as df _rf x0' as' ->
-    let width = rlength p - 1
-        domsLen = V.length domsOD
-        shn = shapeDeltaR x0'
-        (s2, cx0) = fwdR dimR params s x0'
-        (s3, cas) = fwdHVector dimR params s2 as'
-        domsF = V.concat [domsOD, V.singleton (voidFromSh @r shn), domsOD]
-        domsTo3 :: ADReady f
-                => HVector f -> (HVector f, f r n1, HVector f)
-        domsTo3 doms = ( V.take domsLen doms
-                       , rfromD $ doms V.! domsLen
-                       , V.drop (domsLen + 1) doms )
-    in (s3, rscanZip (\cx doms ->
-                        let (ca, x, a) = domsTo3 doms
-                        in df cx ca x a)
-                     domsF
-                     cx0
-                     (V.concat [ cas
-                               , V.singleton
-                                   (DynamicRanked $ rslice 0 width p)
-                               , as ]))
   CastR d ->
     second rcast $ fwdR dimR params s d
 
@@ -1961,28 +1840,6 @@ fwdS dimR params s = \case
                         [ DynamicShaped cas
                         , DynamicShaped $ sslice (Proxy @0) (Proxy @k) p
                         , DynamicShaped as ]))
-  ScanZipS @sh1 @k domsOD p as df _rf x0' as' ->
-    let domsLen = V.length domsOD
-        (s2, cx0) = fwdS dimR params s x0'
-        (s3, cas) = fwdHVector dimR params s2 as'
-        domsF = V.concat
-                  [domsOD, V.singleton (voidFromShS @r @sh1), domsOD]
-        domsTo3 :: ADReadyS f
-                => HVector (RankedOf f)
-                -> (HVector (RankedOf f), f r sh1, HVector (RankedOf f))
-        domsTo3 doms = ( V.take domsLen doms
-                       , sfromD $ doms V.! domsLen
-                       , V.drop (domsLen + 1) doms )
-    in (s3, sscanZip (\cx doms ->
-                        let (ca, x, a) = domsTo3 doms
-                        in df cx ca x a)
-                     domsF
-                     cx0
-                     (V.concat [ cas
-                               , V.singleton
-                                   (DynamicShaped
-                                    $ sslice (Proxy @0) (Proxy @k) p)
-                               , as ]))
   CastS d ->
     second scast $ fwdS dimR params s d
 
@@ -2325,39 +2182,6 @@ instance (KnownNat n0,
                                       ((.)
                                          showSpace
                                          (showsPrec 11 b6_adk9))))))))))))
-  showsPrec
-    a_adka
-    (ScanZipR b1_adkb b2_adkc b3_adkd _b4_adke _b5_adkf
-                               b6_adkg b7_adkh)
-    = showParen
-        (a_adka >= 11)
-        ((.)
-           (showString "ScanZipR ")
-           ((.)
-              (showsPrec 11 b1_adkb)
-              ((.)
-                 showSpace
-                 ((.)
-                    (showsPrec 11 b2_adkc)
-                    ((.)
-                       showSpace
-                       ((.)
-                          (showsPrec 11 b3_adkd)
-                          ((.)
-                             showSpace
-                             ((.)
-                                (showString "<forall function>")
-                                ((.)
-                                   showSpace
-                                   ((.)
-                                      (showString "<forall function>")
-                                      ((.)
-                                         showSpace
-                                         ((.)
-                                            (showsPrec 11 b6_adkg)
-                                            ((.)
-                                               showSpace
-                                               (showsPrec 11 b7_adkh))))))))))))))
   showsPrec a_adki (CastR b1_adkj)
     = showParen
         (a_adki >= 11)
@@ -2619,39 +2443,6 @@ instance (ShapedOf (RankedOf shaped) ~ shaped,
                                       ((.)
                                          showSpace
                                          (showsPrec 11 b6_aduX))))))))))))
-  showsPrec
-    a_aduY
-    (ScanZipS b1_aduZ b2_adv0 b3_adv1 _b4_adv2 _b5_adv3
-                               b6_adv4 b7_adv5)
-    = showParen
-        (a_aduY >= 11)
-        ((.)
-           (showString "ScanZipS ")
-           ((.)
-              (showsPrec 11 b1_aduZ)
-              ((.)
-                 showSpace
-                 ((.)
-                    (showsPrec 11 b2_adv0)
-                    ((.)
-                       showSpace
-                       ((.)
-                          (showsPrec 11 b3_adv1)
-                          ((.)
-                             showSpace
-                             ((.)
-                                (showString "<forall function>")
-                                ((.)
-                                   showSpace
-                                   ((.)
-                                      (showString "<forall function>")
-                                      ((.)
-                                         showSpace
-                                         ((.)
-                                            (showsPrec 11 b6_adv4)
-                                            ((.)
-                                               showSpace
-                                               (showsPrec 11 b7_adv5))))))))))))))
   showsPrec a_adv6 (CastS b1_adv7)
     = showParen
         (a_adv6 >= 11)

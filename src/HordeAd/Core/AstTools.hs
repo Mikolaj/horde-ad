@@ -25,8 +25,7 @@ import           Data.List (foldl')
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality (gcastWith, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits
-  (KnownNat, SomeNat (..), sameNat, someNatVal, type (+))
+import           GHC.TypeLits (KnownNat, sameNat, type (+))
 import           Unsafe.Coerce (unsafeCoerce)
 
 import HordeAd.Core.Ast
@@ -103,29 +102,12 @@ shapeAst = \case
   AstFoldZipDer _f _df _rf x0 _as -> shapeAst x0
   AstScan _f x0 as -> lengthAst as + 1 :$ shapeAst x0
   AstScanDer _f _df _rf x0 as -> lengthAst as + 1 :$ shapeAst x0
-  AstScanZip _f x0 as ->
-    let len = case V.uncons as of
-          Nothing -> 0
-          Just (a, _) -> case shapeDynamicAst a of
-            [] -> error "shapeAst: no scan arguments"
-            k : _ -> k
-    in len + 1 :$ shapeAst x0
-  AstScanZipDer _f _df _rf x0 as ->
-    let len = case V.uncons as of
-          Nothing -> 0
-          Just (a, _) -> case shapeDynamicAst a of
-            [] -> error "shapeAst: no scan arguments"
-            k : _ -> k
-    in len + 1 :$ shapeAst x0
 
 -- Length of the outermost dimension.
 lengthAst :: (KnownNat n, GoodScalar r) => AstRanked s r (1 + n) -> Int
 lengthAst v1 = case shapeAst v1 of
   ZS -> error "lengthAst: impossible pattern needlessly required"
   k :$ _ -> k
-
-shapeDynamicAst :: DynamicTensor (AstRanked s) -> [Int]
-shapeDynamicAst = shapeDynamicF (shapeToList . shapeAst)
 
 shapeAstHVector :: AstHVector s -> VoidHVector
 shapeAstHVector = \case
@@ -203,9 +185,6 @@ varInAst var = \case
     varInAst var x0 || any (varInAstDynamic var) as
   AstScan _f x0 as -> varInAst var x0 || varInAst var as
   AstScanDer _f _df _rf x0 as -> varInAst var x0 || varInAst var as
-  AstScanZip _f x0 as -> varInAst var x0 || any (varInAstDynamic var) as
-  AstScanZipDer _f _df _rf x0 as ->
-    varInAst var x0 || any (varInAstDynamic var) as
 
 varInIndex :: AstVarId -> AstIndex n -> Bool
 varInIndex var = any (varInAst var)
@@ -259,9 +238,6 @@ varInAstS var = \case
     varInAstS var x0 || any (varInAstDynamic var) as
   AstScanS _f x0 as -> varInAstS var x0 || varInAstS var as
   AstScanDerS _f _df _rf x0 as -> varInAstS var x0 || varInAstS var as
-  AstScanZipS _f x0 as -> varInAstS var x0 || any (varInAstDynamic var) as
-  AstScanZipDerS _f _df _rf x0 as ->
-    varInAstS var x0 || any (varInAstDynamic var) as
 
 varInIndexS :: AstVarId -> AstIndexS sh -> Bool
 varInIndexS var = any (varInAst var)

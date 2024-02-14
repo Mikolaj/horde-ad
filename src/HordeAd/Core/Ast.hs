@@ -355,29 +355,6 @@ data AstRanked :: AstSpanType -> RankedTensorType where
              -> AstRanked s rn n
              -> AstRanked s rm (1 + m)
              -> AstRanked s rn (1 + n)
-  AstScanZip :: forall rn n s. KnownNat n
-           => ( AstVarName (AstRanked PrimalSpan) rn n
-              , [AstDynamicVarName]
-              , AstRanked PrimalSpan rn n )
-           -> AstRanked s rn n
-           -> HVector (AstRanked s)  -- one rank higher than above
-           -> AstRanked s rn (1 + n)
-  AstScanZipDer :: forall rn n s. KnownNat n
-              => ( AstVarName (AstRanked PrimalSpan) rn n
-                 , [AstDynamicVarName]
-                 , AstRanked PrimalSpan rn n )
-              -> ( AstVarName (AstRanked PrimalSpan) rn n
-                 , [AstDynamicVarName]
-                 , AstVarName (AstRanked PrimalSpan) rn n
-                 , [AstDynamicVarName]
-                 , AstRanked PrimalSpan rn n )
-              -> ( AstVarName (AstRanked PrimalSpan) rn n
-                 , AstVarName (AstRanked PrimalSpan) rn n
-                 , [AstDynamicVarName]
-                 , AstHVector PrimalSpan )
-              -> AstRanked s rn n
-              -> HVector (AstRanked s)  -- one rank higher than above
-              -> AstRanked s rn (1 + n)
 
 deriving instance GoodScalar r => Show (AstRanked s r n)
 
@@ -568,29 +545,6 @@ data AstShaped :: AstSpanType -> ShapedTensorType where
               -> AstShaped s rn sh
               -> AstShaped s rm (k ': shm)
               -> AstShaped s rn (1 + k ': sh)
-  AstScanZipS :: forall rn sh k s. (Sh.Shape sh, KnownNat k)
-            => ( AstVarName (AstShaped PrimalSpan) rn sh
-               , [AstDynamicVarName]
-               , AstShaped PrimalSpan rn sh )
-            -> AstShaped s rn sh
-            -> HVector (AstRanked s)  -- one rank higher than above
-            -> AstShaped s rn (1 + k ': sh)
-  AstScanZipDerS :: forall rn sh k s. (Sh.Shape sh, KnownNat k)
-               => ( AstVarName (AstShaped PrimalSpan) rn sh
-                  , [AstDynamicVarName]
-                  , AstShaped PrimalSpan rn sh )
-               -> ( AstVarName (AstShaped PrimalSpan) rn sh
-                  , [AstDynamicVarName]
-                  , AstVarName (AstShaped PrimalSpan) rn sh
-                  , [AstDynamicVarName]
-                  , AstShaped PrimalSpan rn sh )
-               -> ( AstVarName (AstShaped PrimalSpan) rn sh
-                  , AstVarName (AstShaped PrimalSpan) rn sh
-                  , [AstDynamicVarName]
-                  , AstHVector PrimalSpan )
-               -> AstShaped s rn sh
-               -> HVector (AstRanked s)  -- one rank higher than above
-               -> AstShaped s rn (1 + k ': sh)
 
 deriving instance (GoodScalar r, Sh.Shape sh) => Show (AstShaped s r sh)
 

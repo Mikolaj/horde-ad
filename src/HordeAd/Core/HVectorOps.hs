@@ -5,7 +5,7 @@
 -- differentiation interface in "HordeAd.Core.Engine".
 module HordeAd.Core.HVectorOps
   ( raddDynamic, saddDynamic, sumDynamicRanked, sumDynamicShaped, addDynamic
-  , rfromD, sfromD, sizeHVector, shapeDynamic
+  , sizeHVector, shapeDynamic
   , dynamicsMatch, hVectorsMatch, voidHVectorMatches, voidHVectorsMatch
   , voidFromDynamic, voidFromHVector, dynamicFromVoid
   , fromHVectorR, fromHVectorS
@@ -151,67 +151,6 @@ addDynamic DynamicShapedDummy{} u@DynamicShaped{} = u
 addDynamic DynamicShapedDummy{} u@DynamicShapedDummy{} = u
 addDynamic t@DynamicShaped{} DynamicShapedDummy{} = t
 addDynamic t u = error $ "addDynamic: wrong arguments: " ++ show (t, u)
-
-rfromD :: forall r n ranked.
-          (RankedTensor ranked, GoodScalar r, KnownNat n)
-       => DynamicTensor ranked -> ranked r n
-rfromD (DynamicRanked @r2 @n2 t) = case sameNat (Proxy @n2) (Proxy @n) of
-  Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
-    Just Refl -> t
-    _ -> error "rfromD: scalar mismatch"
-  _ -> error $ "rfromD: rank mismatch "
-               ++ show (valueOf @n2 :: Int, valueOf @n :: Int)
-rfromD (DynamicShaped @r2 @sh2 t) =
-  withListShape (Sh.shapeT @sh2) $ \(_ :: ShapeInt n2) ->
-    case sameNat (Proxy @n2) (Proxy @n) of
-      Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
-        Just Refl -> gcastWith (unsafeCoerce Refl :: Sh.Rank sh2 :~: n2) $
-                     rfromS t
-        _ -> error "rfromD: scalar mismatch"
-      _ -> error "rfromD: rank mismatch"
-rfromD (DynamicRankedDummy @r2 @sh2 _ _) =
-  withListShape (Sh.shapeT @sh2) $ \(sh1 :: ShapeInt n2) ->
-    case sameNat (Proxy @n2) (Proxy @n) of
-      Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
-        Just Refl -> rzero sh1
-        _ -> error "rfromD: scalar mismatch"
-      _ -> error "rfromD: rank mismatch"
-rfromD (DynamicShapedDummy @r2 @sh2 _ _) =
-  withListShape (Sh.shapeT @sh2) $ \(sh1 :: ShapeInt n2) ->
-    case sameNat (Proxy @n2) (Proxy @n) of
-      Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
-        Just Refl -> rzero sh1
-        _ -> error "rfromD: scalar mismatch"
-      _ -> error "rfromD: rank mismatch"
-
-sfromD :: forall r sh shaped.
-          ( ShapedTensor shaped
-          , GoodScalar r, Sh.Shape sh
-          , ShapedOf (RankedOf shaped) ~ shaped )
-       => DynamicTensor (RankedOf shaped) -> shaped r sh
-sfromD (DynamicRanked @r2 @n2 t) =
-  withListShape (Sh.shapeT @sh) $ \(_ :: ShapeInt n) ->
-    case sameNat (Proxy @n2) (Proxy @n) of
-      Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
-        Just Refl -> gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: n) $
-                     sfromR t
-        _ -> error "sfromD: scalar mismatch"
-      _ -> error "sfromD: rank mismatch"
-sfromD (DynamicShaped @r2 @sh2 t) = case sameShape @sh2 @sh of
-  Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
-    Just Refl -> t
-    _ -> error "sfromD: scalar mismatch"
-  _ -> error $ "sfromD: shape mismatch " ++ show (Sh.shapeT @sh2, Sh.shapeT @sh)
-sfromD (DynamicRankedDummy @r2 @sh2 _ _) = case sameShape @sh2 @sh of
-  Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
-    Just Refl -> 0
-    _ -> error "sfromD: scalar mismatch"
-  _ -> error $ "sfromD: shape mismatch " ++ show (Sh.shapeT @sh2, Sh.shapeT @sh)
-sfromD (DynamicShapedDummy @r2 @sh2 _ _) = case sameShape @sh2 @sh of
-  Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
-    Just Refl -> 0
-    _ -> error "sfromD: scalar mismatch"
-  _ -> error $ "sfromD: shape mismatch " ++ show (Sh.shapeT @sh2, Sh.shapeT @sh)
 
 sizeHVector :: forall ranked. RankedTensor ranked => HVector ranked -> Int
 sizeHVector = let f (DynamicRanked @r t) = rsize @ranked @r t

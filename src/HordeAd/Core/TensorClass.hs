@@ -13,6 +13,7 @@ module HordeAd.Core.TensorClass
     ShapeInt, ShapeSh
     -- * The tensor classes
   , RankedTensor(..), ShapedTensor(..), HVectorTensor(..)
+  , rfromD, sfromD
     -- * The related classes and constraints
   , ADReady, ADReadyBoth, ADReadyR, ADReadyS
   ) where
@@ -30,16 +31,18 @@ import           Data.Function ((&))
 import           Data.Kind (Constraint, Type)
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
-import           Data.Type.Equality (gcastWith, (:~:) (Refl))
+import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits
-  (KnownNat, OrderingI (..), cmpNat, type (+), type (-), type (<=))
+  (KnownNat, OrderingI (..), cmpNat, sameNat, type (+), type (-), type (<=))
 import           Numeric.LinearAlgebra (Vector)
+import           Type.Reflection (typeRep)
 import           Unsafe.Coerce (unsafeCoerce)
 
 import           HordeAd.Core.Ast
 import           HordeAd.Core.HVector
 import           HordeAd.Core.Types
+import           HordeAd.Internal.OrthotopeOrphanInstances (sameShape)
 import           HordeAd.Internal.TensorOps
 import           HordeAd.Util.ShapedList
   (ShapeSh, ShapedList (..), consShaped, shapedNat, unShapedNat)
@@ -838,24 +841,40 @@ class HVectorTensor (ranked :: RankedTensorType)
            -> ranked rn n
            -> ranked rm (1 + m)
            -> ranked rn (1 + n)
-  rscanZip :: (GoodScalar rn, KnownNat n)
+  rscanZip :: forall rn n. (GoodScalar rn, KnownNat n, RankedTensor ranked)
          => (forall f. ADReady f => f rn n -> HVector f -> f rn n)
          -> VoidHVector  -- shapes of the HVector above, not below
          -> ranked rn n
          -> HVector ranked  -- one rank higher than above
          -> ranked rn (1 + n)
-  rscanZipDer :: (GoodScalar rn, KnownNat n)
-            => (forall f. ADReady f => f rn n -> HVector f -> f rn n)
-            -> (forall f. ADReady f
-                => f rn n -> HVector f -> f rn n -> HVector f
-                -> f rn n)
-            -> (forall f. ADReady f
-                => f rn n -> f rn n -> HVector f
-                -> HVectorOf f)
-            -> VoidHVector
-            -> ranked rn n
-            -> HVector ranked
-            -> ranked rn (1 + n)
+  rscanZip f eShs acc0 es =
+    let width = case V.unsnoc es of
+          Nothing -> error "rscanZip: can't determine argument width"
+          Just (_, d) -> case shapeDynamicF (shapeToList . rshape) d of
+            [] -> error "rscanZip: wrong rank of argument"
+            w : _shm -> w
+        sh = rshape acc0
+    in withSNat width $ \snat ->
+      rletHVectorIn (V.fromList
+                       [voidFromSh @rn sh, voidFromSh @rn (width :$ sh)])
+        (dmapAccumL
+           snat
+           (V.singleton $ voidFromSh @rn sh)
+           (V.singleton $ voidFromSh @rn sh)
+           eShs
+           (let g :: forall f. ADReady f
+                  => HVector f -> HVector f -> HVectorOf f
+                g acc e =
+                  rletInHVector
+                    (f (rfromD $ acc V.! 0) e)
+                    (\res -> dmkHVector
+                             $ V.fromList
+                                 [ DynamicRanked @rn @n @f res
+                                 , DynamicRanked @rn @n @f res ])
+            in g)
+           (V.singleton $ DynamicRanked acc0)
+           es)
+        (\res -> rappend (rfromList [acc0]) (rfromD $ res V.! 1))
   sfold :: (GoodScalar rn, GoodScalar rm, Sh.Shape sh, Sh.Shape shm, KnownNat k)
         => (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh)
         -> shaped rn sh
@@ -909,27 +928,35 @@ class HVectorTensor (ranked :: RankedTensorType)
            -> shaped rn sh
            -> shaped rm (k ': shm)
            -> shaped rn (1 + k ': sh)
-  sscanZip :: (GoodScalar rn, Sh.Shape sh, KnownNat k)
+  sscanZip :: forall rn sh k.
+              ( GoodScalar rn, Sh.Shape sh, KnownNat k, ShapedTensor shaped
+              , shaped ~ ShapedOf ranked, ranked ~ RankedOf shaped )
          => (forall f. ADReadyS f
              => f rn sh -> HVector (RankedOf f) -> f rn sh)
          -> VoidHVector
          -> shaped rn sh
          -> HVector ranked
          -> shaped rn (1 + k ': sh)
-  sscanZipDer :: (GoodScalar rn, Sh.Shape sh, KnownNat k)
-            => (forall f. ADReadyS f
-                => f rn sh -> HVector (RankedOf f) -> f rn sh)
-            -> (forall f. ADReadyS f
-                => f rn sh -> HVector (RankedOf f) -> f rn sh
-                -> HVector (RankedOf f)
-                -> f rn sh)
-            -> (forall f. ADReadyS f
-                => f rn sh -> f rn sh -> HVector (RankedOf f)
-                -> HVectorOf (RankedOf f))
-            -> VoidHVector
-            -> shaped rn sh
-            -> HVector ranked
-            -> shaped rn (1 + k ': sh)
+  sscanZip f eShs acc0 es =
+    sletHVectorIn (V.fromList [voidFromShS @rn @sh, voidFromShS @rn @(k ': sh)])
+      (dmapAccumL
+         (SNat @k)
+         (V.singleton $ voidFromShS @rn @sh)
+         (V.singleton $ voidFromShS @rn @sh)
+         eShs
+         (let g :: forall f. ADReady f
+                => HVector f -> HVector f -> HVectorOf f
+              g acc e =
+                sletInHVector
+                  (f (sfromD $ acc V.! 0) e)
+                  (\res -> dmkHVector
+                           $ V.fromList
+                               [ DynamicShaped @rn @sh @f res
+                               , DynamicShaped @rn @sh @f res ])
+          in g)
+         (V.singleton $ DynamicShaped acc0)
+         es)
+      (\res -> sappend @_ @_ @1 (sfromList [acc0]) (sfromD $ res V.! 1))
   dmapAccumR
     :: SNat k
     -> VoidHVector
@@ -998,6 +1025,67 @@ class HVectorTensor (ranked :: RankedTensorType)
     -> HVector ranked
     -> HVector ranked
     -> HVectorOf ranked
+
+rfromD :: forall r n ranked.
+          (RankedTensor ranked, GoodScalar r, KnownNat n)
+       => DynamicTensor ranked -> ranked r n
+rfromD (DynamicRanked @r2 @n2 t) = case sameNat (Proxy @n2) (Proxy @n) of
+  Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
+    Just Refl -> t
+    _ -> error "rfromD: scalar mismatch"
+  _ -> error $ "rfromD: rank mismatch "
+               ++ show (valueOf @n2 :: Int, valueOf @n :: Int)
+rfromD (DynamicShaped @r2 @sh2 t) =
+  withListShape (Sh.shapeT @sh2) $ \(_ :: ShapeInt n2) ->
+    case sameNat (Proxy @n2) (Proxy @n) of
+      Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
+        Just Refl -> gcastWith (unsafeCoerce Refl :: Sh.Rank sh2 :~: n2) $
+                     rfromS t
+        _ -> error "rfromD: scalar mismatch"
+      _ -> error "rfromD: rank mismatch"
+rfromD (DynamicRankedDummy @r2 @sh2 _ _) =
+  withListShape (Sh.shapeT @sh2) $ \(sh1 :: ShapeInt n2) ->
+    case sameNat (Proxy @n2) (Proxy @n) of
+      Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
+        Just Refl -> rzero sh1
+        _ -> error "rfromD: scalar mismatch"
+      _ -> error "rfromD: rank mismatch"
+rfromD (DynamicShapedDummy @r2 @sh2 _ _) =
+  withListShape (Sh.shapeT @sh2) $ \(sh1 :: ShapeInt n2) ->
+    case sameNat (Proxy @n2) (Proxy @n) of
+      Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
+        Just Refl -> rzero sh1
+        _ -> error "rfromD: scalar mismatch"
+      _ -> error "rfromD: rank mismatch"
+
+sfromD :: forall r sh shaped.
+          ( ShapedTensor shaped
+          , GoodScalar r, Sh.Shape sh
+          , ShapedOf (RankedOf shaped) ~ shaped )
+       => DynamicTensor (RankedOf shaped) -> shaped r sh
+sfromD (DynamicRanked @r2 @n2 t) =
+  withListShape (Sh.shapeT @sh) $ \(_ :: ShapeInt n) ->
+    case sameNat (Proxy @n2) (Proxy @n) of
+      Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
+        Just Refl -> gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: n) $
+                     sfromR t
+        _ -> error "sfromD: scalar mismatch"
+      _ -> error "sfromD: rank mismatch"
+sfromD (DynamicShaped @r2 @sh2 t) = case sameShape @sh2 @sh of
+  Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
+    Just Refl -> t
+    _ -> error "sfromD: scalar mismatch"
+  _ -> error $ "sfromD: shape mismatch " ++ show (Sh.shapeT @sh2, Sh.shapeT @sh)
+sfromD (DynamicRankedDummy @r2 @sh2 _ _) = case sameShape @sh2 @sh of
+  Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
+    Just Refl -> 0
+    _ -> error "sfromD: scalar mismatch"
+  _ -> error $ "sfromD: shape mismatch " ++ show (Sh.shapeT @sh2, Sh.shapeT @sh)
+sfromD (DynamicShapedDummy @r2 @sh2 _ _) = case sameShape @sh2 @sh of
+  Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
+    Just Refl -> 0
+    _ -> error "sfromD: scalar mismatch"
+  _ -> error $ "sfromD: shape mismatch " ++ show (Sh.shapeT @sh2, Sh.shapeT @sh)
 
 
 -- * The giga-constraint
