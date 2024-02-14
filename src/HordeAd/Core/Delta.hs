@@ -1244,14 +1244,17 @@ evalS !s !c = let (abShared, cShared) = sregister c (astBindings s)
         domsToPair :: (ADReadyS f, Sh.Shape shmz)
                    => HVector (RankedOf f) -> (f r sh, f rm shmz)
         domsToPair doms = (sfromD $ doms V.! 0, sfromD $ doms V.! 1)
-        rg :: shaped r sh -> HVector ranked -> HVectorOf ranked
-        rg = smapAccumR (Proxy @k)
+        rg :: HVector ranked -> HVector ranked -> HVectorOf ranked
+        rg = dmapAccumR (SNat @k)
+                        (V.singleton odShn)
                         (V.singleton $ voidFromShS @rm @shm)
-                        (\cx x_a ->
-                           let (x, a) = domsToPair x_a
-                           in rf cx x a)
                         domsF
-        crsUnshared = rg cShared  -- not duplicated directly, but just in case
+                        (\cxh x_a ->
+                           let cx = sfromD $ cxh V.! 0
+                               (x, a) = domsToPair x_a
+                           in rf cx x a)
+        crsUnshared = rg (V.singleton $ DynamicShaped @r @sh cShared)
+                            -- not duplicated directly, but just in case
                          (V.fromList
                             [ DynamicShaped
                               $ sslice @_ @_ @_ @_ @1 (Proxy @0) (Proxy @k) p
@@ -1268,14 +1271,16 @@ evalS !s !c = let (abShared, cShared) = sregister c (astBindings s)
         domsToPair :: ADReadyS f
                    => HVector (RankedOf f) -> (f r sh, HVector (RankedOf f))
         domsToPair doms = (sfromD $ doms V.! 0, V.tail doms)
-        rg :: shaped r sh -> HVector ranked -> HVectorOf ranked
-        rg = smapAccumR (Proxy @k)
+        rg :: HVector ranked -> HVector ranked -> HVectorOf ranked
+        rg = dmapAccumR (SNat @k)
+                        (V.singleton odShn)
                         domsOD
-                        (\cx x_a ->
-                           let (x, a) = domsToPair x_a
-                           in rf cx x a)
                         domsF
-        crsUnshared = rg cShared
+                        (\cxh x_a ->
+                           let cx = sfromD $ cxh V.! 0
+                               (x, a) = domsToPair x_a
+                           in rf cx x a)
+        crsUnshared = rg (V.singleton $ DynamicShaped @r @sh cShared)
                          (V.cons
                             (DynamicShaped
                              $ sslice @_ @_ @_ @_ @1 (Proxy @0) (Proxy @k) p)
@@ -1296,15 +1301,18 @@ evalS !s !c = let (abShared, cShared) = sregister c (astBindings s)
                 => HVector (RankedOf f) -> (f r sh1, f r sh1, f rm shm)
         domsTo3 doms =
           (sfromD $ doms V.! 0, sfromD $ doms V.! 1, sfromD $ doms V.! 2)
-        rg :: shaped r sh1 -> HVector ranked -> HVectorOf ranked
-        rg = smapAccumR (Proxy @k)
+        rg :: HVector ranked -> HVector ranked -> HVectorOf ranked
+        rg = dmapAccumR (SNat @k)
+                        (V.singleton odShn)
                         (V.singleton $ voidFromShS @rm @shm)
-                        (\cx cr_x_a ->
-                           let (cr, x, a) = domsTo3 cr_x_a
-                           in rf (cx + cr) x a)
                         domsF3
+                        (\cxh cr_x_a ->
+                           let cx = sfromD $ cxh V.! 0
+                               (cr, x, a) = domsTo3 cr_x_a
+                           in rf (cx + cr) x a)
         crsUnshared =
-          rg 0 (V.fromList
+          rg (V.singleton $ DynamicShaped @r @sh1 0)
+             (V.fromList
                  [ DynamicShaped
                    $ sslice @_ @_ @_ @_ @0 (Proxy @1) (Proxy @k) cShared
                  , DynamicShaped
@@ -1326,15 +1334,18 @@ evalS !s !c = let (abShared, cShared) = sregister c (astBindings s)
                 => HVector (RankedOf f)
                 -> (f r sh1, f r sh1, HVector (RankedOf f))
         domsTo3 doms = (sfromD $ doms V.! 0, sfromD $ doms V.! 1, V.drop 2 doms)
-        rg :: shaped r sh1 -> HVector ranked -> HVectorOf ranked
-        rg = smapAccumR (Proxy @k)
+        rg :: HVector ranked -> HVector ranked -> HVectorOf ranked
+        rg = dmapAccumR (SNat @k)
+                        (V.singleton odShn)
                         domsOD
-                        (\cx cr_x_a ->
-                           let (cr, x, a) = domsTo3 cr_x_a
-                           in rf (cx + cr) x a)
                         domsF3
+                        (\cxh cr_x_a ->
+                           let cx = sfromD $ cxh V.! 0
+                               (cr, x, a) = domsTo3 cr_x_a
+                           in rf (cx + cr) x a)
         crsUnshared =
-          rg 0 (V.cons
+          rg (V.singleton $ DynamicShaped @r @sh1 0)
+             (V.cons
                   (DynamicShaped
                    $ sslice @_ @_ @_ @_ @0 (Proxy @1) (Proxy @k) cShared)
                   (V.cons

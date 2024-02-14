@@ -730,7 +730,7 @@ testSin0Fold182SrevPP = do
                         (sreplicate @_ @1 a0)
             in rfromS . f . sfromR) 1.1
   printAstPretty IM.empty a1
-    @?= "let m123 = sscanDer f df rf (sreplicate (sconstant (rconst 1.1))) (sreplicate (sconstant (rconst 1.1))) in let [v124 @[Natural] @Double @[5], v125 @[Natural] @Double @[1]] = smapAccumRDer f df rf (rreplicate 5 (rconst 1.0)) [sslice m123, sreplicate (sconstant (rconst 1.1))] in ssum v124 + ssum v125"
+    @?= "let m66 = sscanDer f df rf (sreplicate (sconstant (rconst 1.1))) (sreplicate (sconstant (rconst 1.1))) in let [v67 @[Natural] @Double @[5], v68 @[Natural] @Double @[1]] = dmapAccumRDer f df rf [rreplicate 5 (rconst 1.0)] [sslice m66, sreplicate (sconstant (rconst 1.1))] in ssum v67 + ssum v68"
 
 testSin0Fold18Srev :: Assertion
 testSin0Fold18Srev = do
@@ -3149,7 +3149,7 @@ testSin0FoldNestedS1PP = do
   printAstHVectorPretty
     IM.empty
     (g @(AstRanked FullSpan) (V.singleton $ DynamicShaped @Double @'[] 1.1))
-    @?= "let v892 = sscanDer f df rf (sconst @[] 1.1) (sreplicate (sconst @[] 1.1)) in let [x893 @[Natural] @Double @[], v894 @[Natural] @Double @[11]] = smapAccumRDer f df rf (sconst @[] 1.0) [sslice v892, sreplicate (sconst @[] 1.1)] in [x893 + sconst @[] 0.0 + ssum v894]"
+    @?= "let v418 = sscanDer f df rf (sconst @[] 1.1) (sreplicate (sconst @[] 1.1)) in let [x419 @[Natural] @Double @[], v420 @[Natural] @Double @[11]] = dmapAccumRDer f df rf [sconst @[] 1.0] [sslice v418, sreplicate (sconst @[] 1.1)] in [x419 + sconst @[] 0.0 + ssum v420]"
 
 testSin0FoldNestedR1PP :: Assertion
 testSin0FoldNestedR1PP = do
