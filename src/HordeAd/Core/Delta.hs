@@ -1804,15 +1804,29 @@ fwdR dimR params s = \case
         domsTo3 doms = ( rfromD $ doms V.! 0
                        , rfromD $ doms V.! 1
                        , rfromD $ doms V.! 2 )
-    in (s3, rfoldZip (\cx doms ->
-                          let (ca, x, a) = domsTo3 doms
-                          in df cx ca x a)
-                     domsF
-                     cx0
-                     (V.fromList
-                        [ DynamicRanked cas
-                        , DynamicRanked $ rslice 0 width p
-                        , DynamicRanked as ]))
+    in withSNat width $ \snat ->
+      (s3, rletHVectorIn
+              (V.singleton $ voidFromSh @r shn)
+              (dmapAccumL
+                 snat
+                 (V.singleton $ voidFromSh @r shn)
+                 (V.fromList [])
+                 domsF
+                 (let dg :: forall f. ADReady f
+                         => HVector f -> HVector f -> HVectorOf f
+                      dg dacc de_acc_e =
+                        rletInHVector
+                          (let (de, acc, e) = domsTo3 de_acc_e
+                           in df (rfromD $ dacc V.! 0) de acc e)
+                          (\res -> dmkHVector
+                                   $ V.fromList [DynamicRanked @r @n @f res])
+                  in dg)
+                 (V.singleton $ DynamicRanked @_ @_ @ranked cx0)
+                 (V.fromList
+                    [ DynamicRanked cas
+                    , DynamicRanked $ rslice 0 width p
+                    , DynamicRanked as ]))
+              (rfromD @_ @_ @ranked . (V.! 0)))
   FoldZipR domsOD p as df _rf x0' as' ->
     let width = rlength p - 1
         domsLen = V.length domsOD
@@ -1862,7 +1876,8 @@ fwdR dimR params s = \case
   CastR d ->
     second rcast $ fwdR dimR params s d
 
-  RFromS (SFromR d) -> fwdR dimR params s d  -- no information lost, so no checks
+  RFromS (SFromR d) ->
+    fwdR dimR params s d  -- no information lost, so no checks
   RFromS d -> second rfromS $ fwdS dimR params s d
   HToR d i -> let (s2, v) = fwdH dimR params s d
                   doms = shapeDeltaH d
@@ -1959,15 +1974,28 @@ fwdS dimR params s = \case
         domsTo3 doms = ( sfromD $ doms V.! 0
                        , sfromD $ doms V.! 1
                        , sfromD $ doms V.! 2 )
-    in (s3, sfoldZip (\cx doms ->
-                        let (ca, x, a) = domsTo3 doms
-                        in df cx ca x a)
-                     domsF
-                     cx0
-                     (V.fromList
-                        [ DynamicShaped cas
-                        , DynamicShaped $ sslice (Proxy @0) (Proxy @k) p
-                        , DynamicShaped as ]))
+    in (s3, sletHVectorIn
+              (V.singleton $ voidFromShS @r @sh)
+              (dmapAccumL
+                 (SNat @k)
+                 (V.singleton $ voidFromShS @r @sh)
+                 (V.fromList [])
+                 domsF
+                 (let dg :: forall f. ADReady f
+                         => HVector f -> HVector f -> HVectorOf f
+                      dg dacc de_acc_e =
+                        sletInHVector
+                          (let (de, acc, e) = domsTo3 de_acc_e
+                           in df (sfromD $ dacc V.! 0) de acc e)
+                          (\res -> dmkHVector
+                                   $ V.fromList [DynamicShaped @r @sh @f res])
+                  in dg)
+                 (V.singleton $ DynamicShaped @_ @_ @ranked cx0)
+                 (V.fromList
+                    [ DynamicShaped cas
+                    , DynamicShaped $ sslice (Proxy @0) (Proxy @k) p
+                    , DynamicShaped as ]))
+              (sfromD @_ @_ @shaped . (V.! 0)))
   FoldZipS @k domsOD p as df _rf x0' as' ->
     let domsLen = V.length domsOD
         (s2, cx0) = fwdS dimR params s x0'

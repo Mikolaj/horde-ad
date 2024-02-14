@@ -855,8 +855,8 @@ class HVectorTensor (ranked :: RankedTensorType)
             w : _shm -> w
         sh = rshape acc0
     in withSNat width $ \snat ->
-      rletHVectorIn (V.fromList
-                       [voidFromSh @rn sh, voidFromSh @rn (width :$ sh)])
+      rletHVectorIn
+        (V.fromList [voidFromSh @rn sh, voidFromSh @rn (width :$ sh)])
         (dmapAccumL
            snat
            (V.singleton $ voidFromSh @rn sh)
@@ -938,7 +938,8 @@ class HVectorTensor (ranked :: RankedTensorType)
          -> HVector ranked
          -> shaped rn (1 + k ': sh)
   sscanZip f eShs acc0 es =
-    sletHVectorIn (V.fromList [voidFromShS @rn @sh, voidFromShS @rn @(k ': sh)])
+    sletHVectorIn
+      (V.fromList [voidFromShS @rn @sh, voidFromShS @rn @(k ': sh)])
       (dmapAccumL
          (SNat @k)
          (V.singleton $ voidFromShS @rn @sh)
