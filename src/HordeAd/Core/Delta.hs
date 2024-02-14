@@ -982,6 +982,55 @@ evalR !s !c = let (abShared, cShared) = rregister c (astBindings s)
           (cx0, cas) = domsToPair crs
           s3 = evalR s2 cx0 x0'
       in evalR s3 cas as'
+  -- This old version exercies vectorization of mapAccum, so it's worth
+  -- enabling once in a while and running tests.
+{-  FoldR @rm @m p as _df rf x0' as' ->
+    -- The call @rf cr x a@ is not shared here, but it's repeated
+    -- just two times, so it's fine unless folds are nested.
+    -- TODO: remove the double call by implementing rmapAccumR,
+    -- which however requires DeltaHVector, which is yet another
+    -- can of worms. Unless we can express Delta for rmapAccumR
+    -- as a composition of that for rscan and rzipwith, but then
+    -- we probably reintroduce the double call, just one level lower.
+    -- BTW, DeltaHVector may enable taking derivatives of objective
+    -- functions with codomains other than a single tensor.
+    let shm :: ShapeInt m
+        (width, shm) = case rshape as of
+          width2 :$ shm2 -> (width2, shm2)
+          ZS -> error "evalR: impossible pattern needlessly required"
+        !_A1 = assert (rlength p == width + 1) ()
+        shn = shapeDeltaR x0'
+        domsF = V.fromList [voidFromSh @r shn, voidFromSh @rm shm]
+        domsToPair :: ADReady f => HVector f -> (f r n, f rm m)
+        domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
+        crsr :: ranked r (1 + n)
+        crsr =
+          rscanZip (\cr doms ->
+                      let (x, a) = domsToPair doms
+                      in rletHVectorIn
+                           domsF (rf cr x a) $ \rfRes ->
+                             fst $ domsToPair rfRes)
+                   domsF
+                   cShared  -- not duplicated directly, but just in case
+                   (V.fromList
+                      [ DynamicRanked $ rreverse $ rslice 0 width p
+                      , DynamicRanked $ rreverse as ])
+        crsUnshared = rreverse crsr
+        -- We can't share crs via rlet, etc., because it appears
+        -- in two different calls to evalR.
+        (abShared2, crs) = rregister crsUnshared (astBindings sShared)
+        s2 = sShared {astBindings = abShared2}
+        rg :: ranked r (1 + n) -> ranked r (1 + n)
+           -> ranked rm (1 + m)
+           -> ranked rm (1 + m)
+        rg = rzipWith31 (\cr x a ->
+                           rletHVectorIn domsF (rf cr x a) $ \rfRes ->
+                             snd $ domsToPair rfRes)
+        cas = rg (rslice 1 width crs) (rslice 0 width p) as
+          -- @rslice 0 width p@ is very cheap and @p@ (and @as@)
+          -- is shared in TensorADVal, so not need to share them
+        s3 = evalR s2 (crs ! (0 :. ZI)) x0'
+    in evalR s3 cas as' -}
   FoldZipR domsOD p as _df rf x0' as' ->
     let width = case V.unsnoc as of
           Nothing -> error "evalR: can't determine argument width"
@@ -1051,6 +1100,50 @@ evalR !s !c = let (abShared, cShared) = rregister c (astBindings s)
           (cx0, cas) = domsToPair crs
           s3 = evalR s2 (cx0 + cShared ! (0 :. ZI)) x0'
       in evalR s3 cas as'
+  -- This old version exercies vectorization of mapAccum, so it's worth
+  -- enabling once in a while and running tests.
+{-  ScanR @rm @m @_ @_ @n1 p as _df rf x0' as' ->
+    let shm :: ShapeInt m
+        (width, shm) = case rshape as of
+          width2 :$ shm2 -> (width2, shm2)
+          ZS -> error "evalR: impossible pattern needlessly required"
+        !_A1 = assert (rlength p == width + 1) ()
+        !_A2 = assert (rlength cShared == width + 1) ()
+        shn = shapeDeltaR x0'
+        domsF = V.fromList [voidFromSh @r shn, voidFromSh @rm shm]
+        domsToPair :: ADReady f => HVector f -> (f r n1, f rm m)
+        domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
+        domsF3 = V.fromList
+                   [voidFromSh @r shn, voidFromSh @r shn, voidFromSh @rm shm]
+        domsTo3 :: ADReady f => HVector f -> (f r n1, f r n1, f rm m)
+        domsTo3 doms =
+          (rfromD $ doms V.! 0, rfromD $ doms V.! 1, rfromD $ doms V.! 2)
+        crsr :: ranked r (1 + n1)
+        crsr =
+          rscanZip (\cr doms ->
+                      let (cx, x, a) = domsTo3 doms
+                      in rletHVectorIn
+                           domsF (rf (cr + cx) x a) $ \rfRes ->
+                             fst $ domsToPair rfRes)
+                   domsF3
+                   (rzero shn)
+                   (V.fromList
+                      [ DynamicRanked $ rreverse $ rslice 1 width cShared
+                      , DynamicRanked $ rreverse $ rslice 0 width p
+                      , DynamicRanked $ rreverse as ])
+        crsUnshared = rreverse crsr
+        (abShared2, crs) = rregister crsUnshared (astBindings sShared)
+        s2 = sShared {astBindings = abShared2}
+        rg :: ranked r (1 + n1) -> ranked r (1 + n1) -> ranked r (1 + n1)
+           -> ranked rm (1 + m)
+           -> ranked rm (1 + m)
+        rg = rzipWith41 (\cr cx x a ->
+                           rletHVectorIn domsF (rf (cr + cx) x a) $ \rfRes ->
+                             snd $ domsToPair rfRes)
+        cas = rg (rslice 1 width crs) (rslice 1 width cShared)
+                 (rslice 0 width p) as
+        s3 = evalR s2 (crs ! (0 :. ZI) + cShared ! (0 :. ZI)) x0'
+    in evalR s3 cas as' -}
   CastR d -> evalRRuntimeSpecialized s (rcast c) d
 
   RFromS (SFromR d) -> evalR s c d  -- no information lost, so no checks
@@ -1180,6 +1273,39 @@ evalS !s !c = let (abShared, cShared) = sregister c (astBindings s)
         (cx0, cas) = domsToPair crs
         s3 = evalS s2 cx0 x0'
     in evalS s3 cas as'
+  -- This old version exercies vectorization of mapAccum, so it's worth
+  -- enabling once in a while and running tests.
+{-  FoldS @rm @shm @k p as _df rf x0' as' ->
+    let domsF = V.fromList [voidFromShS @r @sh, voidFromShS @rm @shm]
+        domsToPair :: ADReadyS f => HVector (RankedOf f) -> (f r sh, f rm shm)
+        domsToPair doms = (sfromD $ doms V.! 0, sfromD $ doms V.! 1)
+        crsr :: shaped r (1 + k ': sh)
+        crsr =
+          sscanZip (\cr doms ->
+                      let (x, a) = domsToPair doms
+                      in sletHVectorIn
+                           domsF (rf cr x a) $ \rfRes ->
+                             fst $ domsToPair rfRes)
+                   domsF
+                   cShared
+                   (V.fromList
+                      [ DynamicShaped $ sreverse
+                        $ sslice @_ @_ @_ @_ @1  (Proxy @0) (Proxy @k) p
+                      , DynamicShaped $ sreverse as ])
+        crsUnshared = sreverse crsr
+        (abShared2, crs) = sregister crsUnshared (astBindings sShared)
+        s2 = sShared {astBindings = abShared2}
+        rg :: shaped r (k ': sh) -> shaped r (k ': sh)
+           -> shaped rm (k ': shm)
+           -> shaped rm (k ': shm)
+        rg = szipWith31 (\cr x a ->
+                           sletHVectorIn domsF (rf cr x a) $ \rfRes ->
+                             snd $ domsToPair rfRes)
+        cas = rg (sslice @_ @_ @_ @_ @0 (Proxy @1) (Proxy @k) crs)
+                 (sslice @_ @_ @_ @_ @1 (Proxy @0) (Proxy @k) p)
+                 as
+        s3 = evalS s2 (crs !$ (0 :$: ZSH)) x0'
+    in evalS s3 cas as' -}
   FoldZipS @k domsOD p as _df rf x0' as' ->
     let odShn = voidFromShS @r @sh
         domsF = V.cons odShn domsOD
@@ -1239,6 +1365,50 @@ evalS !s !c = let (abShared, cShared) = sregister c (astBindings s)
         (cx0, cas) = domsToPair crs
         s3 = evalS s2 (cx0 + cShared !$ (0 :$: ZSH)) x0'
     in evalS s3 cas as'
+  -- This old version exercies vectorization of mapAccum, so it's worth
+  -- enabling once in a while and running tests.
+{-  ScanS @rm @shm @k @sh1 p as _df rf x0' as' ->
+    let domsF :: VoidHVector
+        domsF = V.fromList [voidFromShS @r @sh1, voidFromShS @rm @shm]
+        domsToPair :: ADReadyS f => HVector (RankedOf f) -> (f r sh1, f rm shm)
+        domsToPair doms = (sfromD $ doms V.! 0, sfromD $ doms V.! 1)
+        domsF3 =
+          V.fromList
+            [voidFromShS @r @sh1, voidFromShS @r @sh1, voidFromShS @rm @shm]
+        domsTo3 :: ADReadyS f
+                => HVector (RankedOf f) -> (f r sh1, f r sh1, f rm shm)
+        domsTo3 doms =
+          (sfromD $ doms V.! 0, sfromD $ doms V.! 1, sfromD $ doms V.! 2)
+        crsr :: shaped r (1 + k ': sh1)
+        crsr =
+          sscanZip (\cr doms ->
+                      let (cx, x, a) = domsTo3 doms
+                      in sletHVectorIn
+                           domsF (rf (cr + cx) x a) $ \rfRes ->
+                             fst $ domsToPair rfRes)
+                   domsF3
+                   0
+                   (V.fromList
+                      [ DynamicShaped $ sreverse
+                        $ sslice @_ @_ @_ @_ @0 (Proxy @1) (Proxy @k) cShared
+                      , DynamicShaped $ sreverse
+                        $ sslice @_ @_ @_ @_ @1 (Proxy @0) (Proxy @k) p
+                      , DynamicShaped $ sreverse as ])
+        crsUnshared = sreverse crsr
+        (abShared2, crs) = sregister crsUnshared (astBindings sShared)
+        s2 = sShared {astBindings = abShared2}
+        rg :: shaped r (k ': sh1) -> shaped r (k ': sh1) -> shaped r (k ': sh1)
+           -> shaped rm (k ': shm)
+           -> shaped rm (k ': shm)
+        rg = szipWith41 (\cr cx x a ->
+                           sletHVectorIn domsF (rf (cr + cx) x a) $ \rfRes ->
+                             snd $ domsToPair rfRes)
+        cas = rg (sslice @_ @_ @_ @_ @0 (Proxy @1) (Proxy @k) crs)
+                 (sslice @_ @_ @_ @_ @0 (Proxy @1) (Proxy @k) cShared)
+                 (sslice @_ @_ @_ @_ @1 (Proxy @0) (Proxy @k) p)
+                 as
+        s3 = evalS s2 (crs !$ (0 :$: ZSH) + cShared !$ (0 :$: ZSH)) x0'
+    in evalS s3 cas as' -}
   CastS d -> evalSRuntimeSpecialized s (scast c) d
   SFromR (RFromS @sh2 d) ->
     case sameShape @sh @sh2 of
