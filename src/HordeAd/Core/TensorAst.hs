@@ -22,7 +22,7 @@ import           Data.Maybe (fromMaybe)
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, SomeNat (..), someNatVal, type (+))
+import           GHC.TypeLits (KnownNat, type (+))
 import           System.IO.Unsafe (unsafePerformIO)
 
 import           HordeAd.Core.Adaptor

@@ -144,6 +144,9 @@ class ( Integral (IntOf ranked), CRanked ranked Num
   rfromVector0N :: (GoodScalar r, KnownNat n)
                 => ShapeInt n -> Data.Vector.Vector (ranked r 0) -> ranked r n
   rfromVector0N sh = rreshape sh . rfromVector
+  -- | Warning: during computation, sharing between the elements
+  -- of the resulting list is likely to be lost, so it needs to be ensured
+  -- by explicit sharing, e.g., 'rlet'.
   runravelToList :: (GoodScalar r, KnownNat n)
                  => ranked r (1 + n) -> [ranked r n]
   rreplicate :: (GoodScalar r, KnownNat n)
@@ -438,6 +441,9 @@ class ( Integral (IntOf shaped), CShaped shaped Num
                 => Data.Vector.Vector (shaped r '[])
                 -> shaped r sh
   sfromVector0N = sreshape @shaped @r @'[Sh.Size sh] @sh . sfromVector
+  -- | Warning: during computation, sharing between the elements
+  -- of the resulting list is likely to be lost, so it needs to be ensured
+  -- by explicit sharing, e.g., 'slet'.
   sunravelToList :: (GoodScalar r, KnownNat n, Sh.Shape sh)
                  => shaped r (n ': sh) -> [shaped r sh]
   sreplicate :: (KnownNat n, Sh.Shape sh, GoodScalar r)
