@@ -44,22 +44,27 @@ import           HordeAd.Util.SizedList
 
 -- Modeled after https://github.com/VMatthijs/CHAD/blob/755fc47e1f8d1c3d91455f123338f44a353fc265/src/TargetLanguage.hs#L335.
 
+-- TODO: ensure that terms roundtrip if loseRoudtrip is not set.
+-- Ideally, it would also preserve sharing.
+-- Note that other options may cause the roundtrip to cost more than
+-- a single pass over the term, e.g., ignoreNestedLambdas causes derivatives
+-- to be recomputed.
 data PrintConfig = PrintConfig
-  { prettifyLosingSharing :: Bool
-  , ignoreNestedLambdas   :: Bool
-  , varRenames            :: IntMap String
-  , representsIntIndex    :: Bool
+  { loseRoudtrip        :: Bool
+  , ignoreNestedLambdas :: Bool
+  , varRenames          :: IntMap String
+  , representsIntIndex  :: Bool
   }
 
 defaulPrintConfig :: Bool -> IntMap String -> PrintConfig
-defaulPrintConfig prettifyLosingSharing renames =
+defaulPrintConfig loseRoudtrip renames =
   let varRenames = renames  -- TODO: `IM.union` IM.fromList [(1, "dret")]
-      ignoreNestedLambdas = prettifyLosingSharing
+      ignoreNestedLambdas = loseRoudtrip
       representsIntIndex = False
   in PrintConfig {..}
 
 defaulPrintConfig2 :: Bool -> Bool -> IntMap String -> PrintConfig
-defaulPrintConfig2 prettifyLosingSharing ignoreNestedLambdas renames =
+defaulPrintConfig2 loseRoudtrip ignoreNestedLambdas renames =
   let varRenames = renames  -- TODO: `IM.union` IM.fromList [(1, "dret")]
       representsIntIndex = False
   in PrintConfig {..}
@@ -186,7 +191,7 @@ printAstDynamicVarName renames var@(AstDynamicVarName @ty @r @sh _varId) =
 
 printAstDynamicVarNameCfg :: PrintConfig -> AstDynamicVarName -> String
 printAstDynamicVarNameCfg cfg =
-  if prettifyLosingSharing cfg
+  if loseRoudtrip cfg
   then printAstDynamicVarNameBrief (varRenames cfg)
   else printAstDynamicVarName (varRenames cfg)
 
@@ -222,7 +227,7 @@ printAstAux :: forall n s r. (GoodScalar r, KnownNat n, AstSpan s)
 printAstAux cfg d = \case
   AstVar _sh var -> printAstVar cfg var
   t@(AstLet var0 u0 v0) ->
-    if prettifyLosingSharing cfg
+    if loseRoudtrip cfg
     then let collect :: AstRanked s r n -> ([(ShowS, ShowS)], ShowS)
              collect (AstLet var u v) =
                let name = printAstVarFromLet u cfg var
@@ -342,7 +347,7 @@ printAstAux cfg d = \case
           _ -> showParen True
                $ shows a
   AstLetHVectorIn vars l v ->
-    if prettifyLosingSharing cfg
+    if loseRoudtrip cfg
     then
       showParen (d > 10)
       $ showString "let "
@@ -399,7 +404,7 @@ printAstAux cfg d = \case
       . printAst cfg 11 as
   AstFoldDer (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
                              (varDt2, nvar2, mvar2, doms) x0 as ->
-   if prettifyLosingSharing cfg && ignoreNestedLambdas cfg
+   if loseRoudtrip cfg && ignoreNestedLambdas cfg
    then
     showParen (d > 10)
     $ showString "rfoldDer f "
@@ -408,7 +413,7 @@ printAstAux cfg d = \case
       . printAst cfg 11 as
    else
     showParen (d > 10)
-    $ showString (if prettifyLosingSharing cfg then "rfoldDer " else "rfold ")
+    $ showString (if loseRoudtrip cfg then "rfoldDer " else "rfold ")
         -- lie to ensure round trip
       . (showParen True
          $ showString "\\"
@@ -417,7 +422,7 @@ printAstAux cfg d = \case
            . showString (printAstVarName (varRenames cfg) mvar)
            . showString " -> "
            . printAst cfg 0 v)
-      . (if prettifyLosingSharing cfg
+      . (if loseRoudtrip cfg
          then id
          else
            showString " "
@@ -462,7 +467,7 @@ printAstAux cfg d = \case
       . printAst cfg 11 as
   AstScanDer (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
                              (varDt2, nvar2, mvar2, doms) x0 as ->
-   if prettifyLosingSharing cfg && ignoreNestedLambdas cfg
+   if loseRoudtrip cfg && ignoreNestedLambdas cfg
    then
     showParen (d > 10)
     $ showString "rscanDer f "
@@ -471,7 +476,7 @@ printAstAux cfg d = \case
       . printAst cfg 11 as
    else
     showParen (d > 10)
-    $ showString (if prettifyLosingSharing cfg then "rscanDer " else  "rscan ")
+    $ showString (if loseRoudtrip cfg then "rscanDer " else  "rscan ")
       . (showParen True
          $ showString "\\"
            . showString (printAstVarName (varRenames cfg) nvar)
@@ -479,7 +484,7 @@ printAstAux cfg d = \case
            . showString (printAstVarName (varRenames cfg) mvar)
            . showString " -> "
            . printAst cfg 0 v)
-      . (if prettifyLosingSharing cfg
+      . (if loseRoudtrip cfg
          then id
          else
            showString " "
@@ -514,7 +519,7 @@ printAstS :: forall sh s r. (GoodScalar r, Sh.Shape sh, AstSpan s)
 printAstS cfg d = \case
   AstVarS var -> printAstVarS cfg var
   t@(AstLetS var0 u0 v0) ->
-    if prettifyLosingSharing cfg
+    if loseRoudtrip cfg
     then let collect :: AstShaped s r sh -> ([(ShowS, ShowS)], ShowS)
              collect (AstLetS var u v) =
                let name = printAstVarS cfg var
@@ -635,7 +640,7 @@ printAstS cfg d = \case
           _ -> showParen True
                $ shows a
   AstLetHVectorInS vars l v ->
-    if prettifyLosingSharing cfg
+    if loseRoudtrip cfg
     then
       showParen (d > 10)
       $ showString "let "
@@ -693,7 +698,7 @@ printAstS cfg d = \case
       . printAstS cfg 11 as
   AstFoldDerS (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
                               (varDt2, nvar2, mvar2, doms) x0 as ->
-   if prettifyLosingSharing cfg && ignoreNestedLambdas cfg
+   if loseRoudtrip cfg && ignoreNestedLambdas cfg
    then
     showParen (d > 10)
     $ showString "sfoldDer f "
@@ -702,7 +707,7 @@ printAstS cfg d = \case
       . printAstS cfg 11 as
    else
     showParen (d > 10)
-    $ showString (if prettifyLosingSharing cfg then "sfoldDer " else  "sfold ")
+    $ showString (if loseRoudtrip cfg then "sfoldDer " else  "sfold ")
       . (showParen True
          $ showString "\\"
            . showString (printAstVarNameS (varRenames cfg) nvar)
@@ -710,7 +715,7 @@ printAstS cfg d = \case
            . showString (printAstVarNameS (varRenames cfg) mvar)
            . showString " -> "
            . printAstS cfg 0 v)
-      . (if prettifyLosingSharing cfg
+      . (if loseRoudtrip cfg
          then id
          else
            showString " "
@@ -755,7 +760,7 @@ printAstS cfg d = \case
       . printAstS cfg 11 as
   AstScanDerS (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
                               (varDt2, nvar2, mvar2, doms) x0 as ->
-   if prettifyLosingSharing cfg && ignoreNestedLambdas cfg
+   if loseRoudtrip cfg && ignoreNestedLambdas cfg
    then
     showParen (d > 10)
     $ showString "sscanDer f "
@@ -764,7 +769,7 @@ printAstS cfg d = \case
       . printAstS cfg 11 as
    else
     showParen (d > 10)
-    $ showString (if prettifyLosingSharing cfg then "sscanDer " else "sscan ")
+    $ showString (if loseRoudtrip cfg then "sscanDer " else "sscan ")
       . (showParen True
          $ showString "\\"
            . showString (printAstVarNameS (varRenames cfg) nvar)
@@ -772,7 +777,7 @@ printAstS cfg d = \case
            . showString (printAstVarNameS (varRenames cfg) mvar)
            . showString " -> "
            . printAstS cfg 0 v)
-      . (if prettifyLosingSharing cfg
+      . (if loseRoudtrip cfg
          then id
          else
            showString " "
@@ -834,7 +839,7 @@ printAstUnDynamic cfg d = \case
 printHVectorAst :: forall s. AstSpan s
                 => PrintConfig -> HVector (AstRanked s) -> ShowS
 printHVectorAst cfg l =
-  if prettifyLosingSharing cfg
+  if loseRoudtrip cfg
   then
     showCollectionWith "[" "]" (\e -> printAstUnDynamic cfg 0 e) (V.toList l)
   else
@@ -846,12 +851,12 @@ printAstHVector :: forall s. AstSpan s
                 => PrintConfig -> Int -> AstHVector s -> ShowS
 printAstHVector cfg d = \case
   AstHVector l ->
-    if prettifyLosingSharing cfg
+    if loseRoudtrip cfg
     then printHVectorAst cfg l
     else showParen (d > 10)
          $ showString "dmkHVector " . printHVectorAst cfg l
   AstLetHVectorInHVector vars l v ->
-    if prettifyLosingSharing cfg
+    if loseRoudtrip cfg
     then
       showParen (d > 10)
       $ showString "let "
@@ -873,7 +878,7 @@ printAstHVector cfg d = \case
              . showString " -> "
              . printAstHVector cfg 0 v)
   t@(AstLetInHVector var0 u0 v0) ->
-    if prettifyLosingSharing cfg
+    if loseRoudtrip cfg
     then let collect :: AstHVector s -> ([(ShowS, ShowS)], ShowS)
              collect (AstLetInHVector var u v) =
                let name = printAstVarFromLet u cfg var
@@ -899,7 +904,7 @@ printAstHVector cfg d = \case
              . showString " -> "
              . printAstHVector cfg 0 v0)
   t@(AstLetInHVectorS var0 u0 v0) ->
-    if prettifyLosingSharing cfg
+    if loseRoudtrip cfg
     then let collect :: AstHVector s -> ([(ShowS, ShowS)], ShowS)
              collect (AstLetInHVectorS var u v) =
                let name = printAstVarS cfg var
@@ -1005,7 +1010,7 @@ printAstHVector cfg d = \case
                   (vs1, vs2, vs3, vs4, ast)
                   (ws1, ws2, ws3, ws4, bst)
                   acc0 es ->
-   if prettifyLosingSharing cfg && ignoreNestedLambdas cfg
+   if loseRoudtrip cfg && ignoreNestedLambdas cfg
    then
     showParen (d > 10)
     $ showString "dmapAccumRDer f "
@@ -1014,8 +1019,7 @@ printAstHVector cfg d = \case
       . printHVectorAst cfg es
    else
     showParen (d > 10)
-    $ showString (if prettifyLosingSharing cfg then "dmapAccumRDer "
-                                               else "dmapAccumR ")
+    $ showString (if loseRoudtrip cfg then "dmapAccumRDer " else "dmapAccumR ")
       . showParen True (shows k)
       . showString " "
       . (showParen True
@@ -1027,7 +1031,7 @@ printAstHVector cfg d = \case
                            . printAstDynamicVarNameCfg cfg) evars
            . showString " -> "
            . printAstHVector cfg 0 v)
-      . (if prettifyLosingSharing cfg
+      . (if loseRoudtrip cfg
          then id
          else
            showString " "
@@ -1089,7 +1093,7 @@ printAstHVector cfg d = \case
                   (vs1, vs2, vs3, vs4, ast)
                   (ws1, ws2, ws3, ws4, bst)
                   acc0 es ->
-   if prettifyLosingSharing cfg && ignoreNestedLambdas cfg
+   if loseRoudtrip cfg && ignoreNestedLambdas cfg
    then
     showParen (d > 10)
     $ showString "dmapAccumLDer f "
@@ -1098,8 +1102,7 @@ printAstHVector cfg d = \case
       . printHVectorAst cfg es
    else
     showParen (d > 10)
-    $ showString (if prettifyLosingSharing cfg then "dmapAccumLDer "
-                                               else "dmapAccumL ")
+    $ showString (if loseRoudtrip cfg then "dmapAccumLDer " else "dmapAccumL ")
       . showParen True (shows k)
       . showString " "
       . (showParen True
@@ -1111,7 +1114,7 @@ printAstHVector cfg d = \case
                            . printAstDynamicVarNameCfg cfg) evars
            . showString " -> "
            . printAstHVector cfg 0 v)
-      . (if prettifyLosingSharing cfg
+      . (if loseRoudtrip cfg
          then id
          else
            showString " "
