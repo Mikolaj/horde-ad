@@ -204,6 +204,12 @@ testTrees =
   , testCase "4Sin0FoldNestedR1PP" testSin0FoldNestedR1PP
   , testCase "4Sin0FoldNestedR1SimpPP" testSin0FoldNestedR1SimpPP
   , testCase "4Sin0FoldNestedR1SimpNestedPP" testSin0FoldNestedR1SimpNestedPP
+  , testCase "4Sin0FoldNestedR0LengthPPs" testSin0FoldNestedR0LengthPPs
+  , testCase "4Sin0FoldNestedR1LengthPPs" testSin0FoldNestedR1LengthPPs
+  , testCase "4Sin0FoldNestedR2LengthPPs" testSin0FoldNestedR2LengthPPs
+  , testCase "4Sin0FoldNestedR3LengthPPs" testSin0FoldNestedR3LengthPPs
+--  , testCase "4Sin0FoldNestedR4LengthPPs" testSin0FoldNestedR4LengthPPs
+--  , testCase "4Sin0FoldNestedR5LengthPPs" testSin0FoldNestedR5LengthPPs
   , testCase "4Sin0FoldNestedR0LengthPP" testSin0FoldNestedR0LengthPP
   , testCase "4Sin0FoldNestedR1LengthPP" testSin0FoldNestedR1LengthPP
   , testCase "4Sin0FoldNestedR2LengthPP" testSin0FoldNestedR2LengthPP
@@ -960,8 +966,8 @@ testSin0Scan1RevPP = do
   let a1 = rrev1 @(AstRanked FullSpan) @Double @0 @1
                  (\x0 -> rscan (\x _a -> sin x) x0
                            (rconst (OR.constant @Double @1 [2] 42))) 1.1
-  printAstPretty IM.empty (simplifyAst6 a1)
-    @?= "let v32 = rconst (fromList [2] [42.0,42.0]) in let [x43 @Natural @Double @[], v44 @Natural @Double @[2]] = dmapAccumRDer f [rconst 0.0] [rconstant (rreplicate 2 (rconst 1.0)), rslice 0 2 (rscanDer f (rconst 1.1) v32), v32] in x43 + rconst 1.0"
+  printAstPrettyButNested IM.empty (simplifyAst6 a1)
+    @?= "let v32 = rconst (fromList [2] [42.0,42.0]) in let [x43 @Natural @Double @[], v44 @Natural @Double @[2]] = dmapAccumRDer (SNat @2) (\\[x45] [x46, x47, x48] -> [cos x47 * (x45 + x46), 0]) [rconst 0.0] [rconstant (rreplicate 2 (rconst 1.0)), rslice 0 2 (rscanDer (\\x33 x34 -> sin x33) (rconst 1.1) v32), v32] in x43 + rconst 1.0"
 
 testSin0Scan1RevPPForComparison :: Assertion
 testSin0Scan1RevPPForComparison = do
@@ -977,8 +983,8 @@ testSin0ScanFwdPP = do
   let a1 = rfwd1 @(AstRanked FullSpan) @Double @0 @1
                  (\x0 -> rscan (\x _a -> sin x) x0
                            (rconst (OR.constant @Double @1 [2] 42))) 1.1
-  printAstPretty IM.empty (simplifyAst6 a1)
-    @?= "let v33 = rconst (fromList [2] [42.0,42.0]) in let [x44 @Natural @Double @[], v45 @Natural @Double @[2]] = dmapAccumLDer f [rconst 1.1] [rconstant (rreplicate 2 (rconst 0.0)), rslice 0 2 (rscanDer f (rconst 1.1) v33), v33] in rappend (rconstant (rreplicate 1 (rconst 1.1))) v45"
+  printAstPrettyButNested IM.empty (simplifyAst6 a1)
+    @?= "let v33 = rconst (fromList [2] [42.0,42.0]) in let [x44 @Natural @Double @[], v45 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) (\\[x46] [x47, x48, x49] -> let x50 = x46 * cos x48 in [x50, x50]) [rconst 1.1] [rconstant (rreplicate 2 (rconst 0.0)), rslice 0 2 (rscanDer (\\x34 x35 -> sin x34) (rconst 1.1) v33), v33] in rappend (rconstant (rreplicate 1 (rconst 1.1))) v45"
 
 testSin0Scan1Rev2PP :: Assertion
 testSin0Scan1Rev2PP = do
@@ -1003,8 +1009,8 @@ testSin0ScanFwd2PP = do
   let a1 = rfwd1 @(AstRanked FullSpan) @Double @0 @1
                  (\x0 -> rscan (\x a -> sin x - a) x0
                            (rconst (OR.fromList @Double @1 [2] [5, 7]))) 1.1
-  printAstSimple IM.empty (simplifyAst6 a1)
-    @?= "rlet (rconst (fromList [2] [5.0,7.0])) (\\v36 -> rletHVectorIn (dmapAccumL (SNat @2) (\\[x50 @Natural @Double @[]] [x51 @Natural @Double @[], x52 @Natural @Double @[], x53 @Natural @Double @[]] -> rletInHVector (x50 * cos x52 + x51 * rconst -1.0) (\\x55 -> dmkHVector (fromList [DynamicRanked x55, DynamicRanked x55]))) (\\[x56 @Natural @Double @[]] [x57 @Natural @Double @[], x58 @Natural @Double @[], x59 @Natural @Double @[]] [x60 @Natural @Double @[]] [x61 @Natural @Double @[], x62 @Natural @Double @[], x63 @Natural @Double @[]] -> rletInHVector (x57 * rconst -1.0 + x56 * cos x62 + (x58 * negate (sin x62)) * x60) (\\x88 -> dmkHVector (fromList [DynamicRanked x88, DynamicRanked x88]))) (\\[x89 @Natural @Double @[]] [x90 @Natural @Double @[]] [x91 @Natural @Double @[]] [x92 @Natural @Double @[], x93 @Natural @Double @[], x94 @Natural @Double @[]] -> rletInHVector (x90 + x89) (\\x115 -> dmkHVector (fromList [DynamicRanked (cos x93 * x115), DynamicRanked (rconst -1.0 * x115), DynamicRanked (negate (sin x93) * (x91 * x115)), DynamicRankedDummy]))) (fromList [DynamicRanked (rconst 1.1)]) (fromList [DynamicRanked (rconstant (rreplicate 2 (rconst 0.0))), DynamicRanked (rslice 0 2 (rscan (\\x37 x38 -> sin x37 - x38) (\\x39 x40 x41 x42 -> x39 * cos x41 + x40 * rconst -1.0) (\\x44 x45 x46 -> dmkHVector (fromList [DynamicRanked (cos x45 * x44), DynamicRanked (rconst -1.0 * x44)])) (rconst 1.1) v36)), DynamicRanked v36])) (\\[x48 @Natural @Double @[], v49 @Natural @Double @[2]] -> rappend (rconstant (rreplicate 1 (rconst 1.1))) v49))"
+  printAstPretty IM.empty (simplifyAst6 a1)
+    @?= "let v36 = rconst (fromList [2] [5.0,7.0]) in let [x48 @Natural @Double @[], v49 @Natural @Double @[2]] = dmapAccumLDer f [rconst 1.1] [rconstant (rreplicate 2 (rconst 0.0)), rslice 0 2 (rscanDer f (rconst 1.1) v36), v36] in rappend (rconstant (rreplicate 1 (rconst 1.1))) v49"
 
 testSin0Scan1Rev2 :: Assertion
 testSin0Scan1Rev2 = do
@@ -2172,11 +2178,11 @@ testSin0rmapAccumRD01SN531bRPP = do
                         $ \d -> rfromD $ d V.! 0
       g :: forall g. HVectorTensor g (ShapedOf g) => HVector g -> HVectorOf g
       g = rrev f (V.singleton (voidFromSh @Double ZS))
-  printAstHVectorPretty
+  printAstHVectorSimple
     IM.empty
     (simplifyAstHVector6
      $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 1.1))
-    @?= "let v27 = rconst (fromList [1] [0.0]) in let [x28 @Natural @Double @[], v29 @Natural @Double @[1]] = dmapAccumRDer f [rconst 1.1] [v27] in let [x55 @Natural @Double @[], v56 @Natural @Double @[1]] = dmapAccumLDer f [rconstant (rsum (rreplicate 4 (rconst 1.0)))] [v29, v27] in [x55]"
+    @?= "rletInHVector (rconst (fromList [1] [0.0])) (\\v27 -> dletHVectorInHVector (dmapAccumR (SNat @1) (\\[x30 @Natural @Double @[]] [x31 @Natural @Double @[]] -> dmkHVector (fromList [DynamicRanked x30, DynamicRanked x30])) (\\[x32 @Natural @Double @[]] [x33 @Natural @Double @[]] [x34 @Natural @Double @[]] [x35 @Natural @Double @[]] -> dmkHVector (fromList [DynamicRanked x32, DynamicRanked x32])) (\\[x41 @Natural @Double @[]] [x42 @Natural @Double @[]] [x43 @Natural @Double @[]] [x44 @Natural @Double @[]] -> dmkHVector (fromList [DynamicRanked (x42 + x41), DynamicRankedDummy])) (fromList [DynamicRanked (rconst 1.1)]) (fromList [DynamicRanked v27])) (\\[x28 @Natural @Double @[], v29 @Natural @Double @[1]] -> dletHVectorInHVector (dmapAccumL (SNat @1) (\\[x57 @Natural @Double @[]] [x58 @Natural @Double @[], x59 @Natural @Double @[]] -> dmkHVector (fromList [DynamicRanked x57, DynamicRankedDummy])) (\\[x60 @Natural @Double @[]] [x61 @Natural @Double @[], x62 @Natural @Double @[]] [x63 @Natural @Double @[]] [x64 @Natural @Double @[], x65 @Natural @Double @[]] -> dmkHVector (fromList [DynamicRanked x60, DynamicRanked (rconst 0.0)])) (\\[x73 @Natural @Double @[]] [x74 @Natural @Double @[]] [x75 @Natural @Double @[]] [x76 @Natural @Double @[], x77 @Natural @Double @[]] -> dmkHVector (fromList [DynamicRanked x73, DynamicRankedDummy, DynamicRankedDummy])) (fromList [DynamicRanked (rconstant (rsum (rreplicate 4 (rconst 1.0))))]) (fromList [DynamicRanked v29, DynamicRanked v27])) (\\[x55 @Natural @Double @[], v56 @Natural @Double @[1]] -> dmkHVector (fromList [DynamicRanked x55]))))"
 
 testSin0rmapAccumRD01SN531b0PPj :: Assertion
 testSin0rmapAccumRD01SN531b0PPj = do
@@ -3207,6 +3213,139 @@ testSin0FoldNestedR1SimpNestedPP = do
      $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 1.1))
     @?= "let [x438 @Natural @Double @[], v439 @Natural @Double @[11]] = dmapAccumRDer (SNat @11) (\\[x440] [x441, x442] -> let [x456 @Natural @Double @[], v457 @Natural @Double @[22]] = dmapAccumRDer (SNat @22) (\\[x458] [x459, x460] -> let x461 = cos x460 in [x458, recip (x461 * x461) * x458]) [x440] [rslice 0 22 (rscanDer (\\x443 x444 -> x443 + tan x444) x442 (rreplicate 22 x441)), rreplicate 22 x441] in [rsum v457, x456]) [rconst 1.0] [rslice 0 11 (rscanDer (\\x324 x325 -> rfoldDer (\\x326 x327 -> x326 + tan x327) x325 (rreplicate 22 x324)) (rconst 1.1) (rconstant (rreplicate 11 (rconst 1.1)))), rconstant (rreplicate 11 (rconst 1.1))] in [rsum v439 + x438]"
 
+testSin0FoldNestedR0LengthPPs :: Assertion
+testSin0FoldNestedR0LengthPPs = do
+  resetVarCounter
+  let f :: forall f. ADReady f => f Double 0 -> f Double 0
+      f z = rfold (\x a -> x + tan a)
+                  z (rreplicate 2 z)
+      g :: forall g. HVectorTensor g (ShapedOf g) => HVector g -> HVectorOf g
+      g x = rrev (\v -> f (rfromD $ v V.! 0))
+                 (V.singleton (voidFromSh @Double ZS))
+                 x
+  length
+    (printAstHVectorSimple
+      IM.empty
+      (simplifyAstHVector6
+       $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 1.1)))
+    @?= 1_651
+
+testSin0FoldNestedR1LengthPPs :: Assertion
+testSin0FoldNestedR1LengthPPs = do
+  resetVarCounter
+  let f :: forall f. ADReady f => f Double 0 -> f Double 0
+      f z = rfold (\x a ->
+               rfold (\x2 a2 -> x2 + tan a2)
+                     a (rreplicate 2 x))
+                  z (rreplicate 2 z)
+      g :: forall g. HVectorTensor g (ShapedOf g) => HVector g -> HVectorOf g
+      g x = rrev (\v -> f (rfromD $ v V.! 0))
+                 (V.singleton (voidFromSh @Double ZS))
+                 x
+  length
+    (printAstHVectorSimple
+      IM.empty
+      (simplifyAstHVector6
+       $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 1.1)))
+    @?= 19_394
+
+testSin0FoldNestedR2LengthPPs :: Assertion
+testSin0FoldNestedR2LengthPPs = do
+  resetVarCounter
+  let f :: forall f. ADReady f => f Double 0 -> f Double 0
+      f z = rfold (\x a ->
+               rfold (\x2 a2 ->
+                 rfold (\x3 a3 -> x3 + tan a3)
+                       a2 (rreplicate 2 x2))
+                     a (rreplicate 2 x))
+                  z (rreplicate 2 z)
+      g :: forall g. HVectorTensor g (ShapedOf g) => HVector g -> HVectorOf g
+      g x = rrev (\v -> f (rfromD $ v V.! 0))
+                 (V.singleton (voidFromSh @Double ZS))
+                 x
+  length
+    (printAstHVectorSimple
+       IM.empty
+       (simplifyAstHVector6
+        $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 1.1)))
+    @?= 271_365
+
+testSin0FoldNestedR3LengthPPs :: Assertion
+testSin0FoldNestedR3LengthPPs = do
+  resetVarCounter
+  let f :: forall f. ADReady f => f Double 0 -> f Double 0
+      f z = rfold (\x a ->
+               rfold (\x2 a2 ->
+                 rfold (\x3 a3 ->
+                   rfold (\x4 a4 -> x4 + tan a4)
+                         a3 (rreplicate 2 x3))
+                       a2 (rreplicate 2 x2))
+                     a (rreplicate 2 x))
+                  z (rreplicate 2 z)
+      g :: forall g. HVectorTensor g (ShapedOf g) => HVector g -> HVectorOf g
+      g x = rrev (\v -> f (rfromD $ v V.! 0))
+                 (V.singleton (voidFromSh @Double ZS))
+                 x
+  length
+    (printAstHVectorSimple
+       IM.empty
+       (simplifyAstHVector6
+        $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 1.1)))
+    @?= 4_497_101
+
+_testSin0FoldNestedR4LengthPPs :: Assertion
+_testSin0FoldNestedR4LengthPPs = do
+  resetVarCounter
+  let f :: forall f. ADReady f => f Double 0 -> f Double 0
+      f z = rfold (\x a ->
+               rfold (\x2 a2 ->
+                 rfold (\x3 a3 ->
+                   rfold (\x4 a4 ->
+                     rfold (\x5 a5 -> x5 + tan a5)
+                           a4 (rreplicate 2 x4))
+                         a3 (rreplicate 2 x3))
+                       a2 (rreplicate 2 x2))
+                     a (rreplicate 2 x))
+                  z (rreplicate 2 z)
+      g :: forall g. HVectorTensor g (ShapedOf g) => HVector g -> HVectorOf g
+      g x = rrev (\v -> f (rfromD $ v V.! 0))
+                 (V.singleton (voidFromSh @Double ZS))
+                 x
+  length
+    (printAstHVectorSimple
+       IM.empty
+       (simplifyAstHVector6
+        $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 1.1)))
+    @?= 0
+
+-- Uses 30G in GHC 9.8.1 with -O1 and patchy specialization.
+_testSin0FoldNestedR5LengthPPs :: Assertion
+_testSin0FoldNestedR5LengthPPs = do
+  resetVarCounter
+  let f :: forall f. ADReady f => f Double 0 -> f Double 0
+      f z = rfold (\x a ->
+               rfold (\x2 a2 ->
+                 rfold (\x3 a3 ->
+                   rfold (\x4 a4 ->
+                     rfold (\x5 a5 ->
+                       rfold (\x6 a6 -> x6 + tan a6)
+                             a5 (rreplicate 2 x5))
+                           a4 (rreplicate 2 x4))
+                         a3 (rreplicate 2 x3))
+                       a2 (rreplicate 2 x2))
+                     a (rreplicate 2 x))
+                  z (rreplicate 2 z)
+      g :: forall g. HVectorTensor g (ShapedOf g) => HVector g -> HVectorOf g
+      g x = rrev (\v -> f (rfromD $ v V.! 0))
+                 (V.singleton (voidFromSh @Double ZS))
+                 x
+  length
+    (printAstHVectorSimple
+       IM.empty
+       (simplifyAstHVector6
+        $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 1.1)))
+    @?= 0
+
 testSin0FoldNestedR0LengthPP :: Assertion
 testSin0FoldNestedR0LengthPP = do
   resetVarCounter
@@ -3310,7 +3449,7 @@ _testSin0FoldNestedR4LengthPP = do
        IM.empty
        (simplifyAstHVector6
         $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 1.1)))
-    @?= 55_824_498
+    @?= 2163
 
 -- Uses 30G in GHC 9.8.1 with -O1 and patchy specialization.
 _testSin0FoldNestedR5LengthPP :: Assertion
@@ -3338,7 +3477,7 @@ _testSin0FoldNestedR5LengthPP = do
        IM.empty
        (simplifyAstHVector6
         $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 1.1)))
-    @?= 1_310_589_318
+    @?= 0
 
 testSin0FoldNestedS1FwdFwd0 :: Assertion
 testSin0FoldNestedS1FwdFwd0 = do
