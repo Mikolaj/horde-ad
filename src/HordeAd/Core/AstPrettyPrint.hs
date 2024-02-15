@@ -399,16 +399,17 @@ printAstAux cfg d = \case
       . printAst cfg 11 as
   AstFoldDer (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
                              (varDt2, nvar2, mvar2, doms) x0 as ->
-   if ignoreNestedLambdas cfg
+   if prettifyLosingSharing cfg && ignoreNestedLambdas cfg
    then
     showParen (d > 10)
-    $ showString "rfoldDer f df rf "
+    $ showString "rfoldDer f "
       . printAst cfg 11 x0
       . showString " "
       . printAst cfg 11 as
    else
     showParen (d > 10)
-    $ showString "rfoldDer "
+    $ showString (if prettifyLosingSharing cfg then "rfoldDer " else "rfold ")
+        -- lie to ensure round trip
       . (showParen True
          $ showString "\\"
            . showString (printAstVarName (varRenames cfg) nvar)
@@ -416,28 +417,31 @@ printAstAux cfg d = \case
            . showString (printAstVarName (varRenames cfg) mvar)
            . showString " -> "
            . printAst cfg 0 v)
-      . showString " "
-      . (showParen True
-         $ showString "\\"
-           . showString (printAstVarName (varRenames cfg) varDx)
+      . (if prettifyLosingSharing cfg
+         then id
+         else
+           showString " "
+           . (showParen True
+              $ showString "\\"
+                . showString (printAstVarName (varRenames cfg) varDx)
+                . showString " "
+                . showString (printAstVarName (varRenames cfg) varDa)
+                . showString " "
+                . showString (printAstVarName (varRenames cfg) varn1)
+                . showString " "
+                . showString (printAstVarName (varRenames cfg) varm1)
+                . showString " -> "
+                . printAst cfg 0 ast1)
            . showString " "
-           . showString (printAstVarName (varRenames cfg) varDa)
-           . showString " "
-           . showString (printAstVarName (varRenames cfg) varn1)
-           . showString " "
-           . showString (printAstVarName (varRenames cfg) varm1)
-           . showString " -> "
-           . printAst cfg 0 ast1)
-      . showString " "
-      . (showParen True
-         $ showString "\\"
-           . showString (printAstVarName (varRenames cfg) varDt2)
-           . showString " "
-           . showString (printAstVarName (varRenames cfg) nvar2)
-           . showString " "
-           . showString (printAstVarName (varRenames cfg) mvar2)
-           . showString " -> "
-           . printAstHVector cfg 0 doms)
+           . (showParen True
+              $ showString "\\"
+                . showString (printAstVarName (varRenames cfg) varDt2)
+                . showString " "
+                . showString (printAstVarName (varRenames cfg) nvar2)
+                . showString " "
+                . showString (printAstVarName (varRenames cfg) mvar2)
+                . showString " -> "
+                . printAstHVector cfg 0 doms))
       . showString " "
       . printAst cfg 11 x0
       . showString " "
@@ -458,16 +462,16 @@ printAstAux cfg d = \case
       . printAst cfg 11 as
   AstScanDer (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
                              (varDt2, nvar2, mvar2, doms) x0 as ->
-   if ignoreNestedLambdas cfg
+   if prettifyLosingSharing cfg && ignoreNestedLambdas cfg
    then
     showParen (d > 10)
-    $ showString "rscanDer f df rf "
+    $ showString "rscanDer f "
       . printAst cfg 11 x0
       . showString " "
       . printAst cfg 11 as
    else
     showParen (d > 10)
-    $ showString "rscanDer "
+    $ showString (if prettifyLosingSharing cfg then "rscanDer " else  "rscan ")
       . (showParen True
          $ showString "\\"
            . showString (printAstVarName (varRenames cfg) nvar)
@@ -475,28 +479,31 @@ printAstAux cfg d = \case
            . showString (printAstVarName (varRenames cfg) mvar)
            . showString " -> "
            . printAst cfg 0 v)
-      . showString " "
-      . (showParen True
-         $ showString "\\"
-           . showString (printAstVarName (varRenames cfg) varDx)
+      . (if prettifyLosingSharing cfg
+         then id
+         else
+           showString " "
+           . (showParen True
+              $ showString "\\"
+                . showString (printAstVarName (varRenames cfg) varDx)
+                . showString " "
+                . showString (printAstVarName (varRenames cfg) varDa)
+                . showString " "
+                . showString (printAstVarName (varRenames cfg) varn1)
+                . showString " "
+                . showString (printAstVarName (varRenames cfg) varm1)
+                . showString " -> "
+                . printAst cfg 0 ast1)
            . showString " "
-           . showString (printAstVarName (varRenames cfg) varDa)
-           . showString " "
-           . showString (printAstVarName (varRenames cfg) varn1)
-           . showString " "
-           . showString (printAstVarName (varRenames cfg) varm1)
-           . showString " -> "
-           . printAst cfg 0 ast1)
-      . showString " "
-      . (showParen True
-         $ showString "\\"
-           . showString (printAstVarName (varRenames cfg) varDt2)
-           . showString " "
-           . showString (printAstVarName (varRenames cfg) nvar2)
-           . showString " "
-           . showString (printAstVarName (varRenames cfg) mvar2)
-           . showString " -> "
-           . printAstHVector cfg 0 doms)
+           . (showParen True
+              $ showString "\\"
+                . showString (printAstVarName (varRenames cfg) varDt2)
+                . showString " "
+                . showString (printAstVarName (varRenames cfg) nvar2)
+                . showString " "
+                . showString (printAstVarName (varRenames cfg) mvar2)
+                . showString " -> "
+                . printAstHVector cfg 0 doms))
       . showString " "
       . printAst cfg 11 x0
       . showString " "
@@ -686,16 +693,16 @@ printAstS cfg d = \case
       . printAstS cfg 11 as
   AstFoldDerS (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
                               (varDt2, nvar2, mvar2, doms) x0 as ->
-   if ignoreNestedLambdas cfg
+   if prettifyLosingSharing cfg && ignoreNestedLambdas cfg
    then
     showParen (d > 10)
-    $ showString "sfoldDer f df rf "
+    $ showString "sfoldDer f "
       . printAstS cfg 11 x0
       . showString " "
       . printAstS cfg 11 as
    else
     showParen (d > 10)
-    $ showString "sfoldDer "
+    $ showString (if prettifyLosingSharing cfg then "sfoldDer " else  "sfold ")
       . (showParen True
          $ showString "\\"
            . showString (printAstVarNameS (varRenames cfg) nvar)
@@ -703,28 +710,31 @@ printAstS cfg d = \case
            . showString (printAstVarNameS (varRenames cfg) mvar)
            . showString " -> "
            . printAstS cfg 0 v)
-      . showString " "
-      . (showParen True
-         $ showString "\\"
-           . showString (printAstVarNameS (varRenames cfg) varDx)
+      . (if prettifyLosingSharing cfg
+         then id
+         else
+           showString " "
+           . (showParen True
+              $ showString "\\"
+                . showString (printAstVarNameS (varRenames cfg) varDx)
+                . showString " "
+                . showString (printAstVarNameS (varRenames cfg) varDa)
+                . showString " "
+                . showString (printAstVarNameS (varRenames cfg) varn1)
+                . showString " "
+                . showString (printAstVarNameS (varRenames cfg) varm1)
+                . showString " -> "
+                . printAstS cfg 0 ast1)
            . showString " "
-           . showString (printAstVarNameS (varRenames cfg) varDa)
-           . showString " "
-           . showString (printAstVarNameS (varRenames cfg) varn1)
-           . showString " "
-           . showString (printAstVarNameS (varRenames cfg) varm1)
-           . showString " -> "
-           . printAstS cfg 0 ast1)
-      . showString " "
-      . (showParen True
-         $ showString "\\"
-           . showString (printAstVarNameS (varRenames cfg) varDt2)
-           . showString " "
-           . showString (printAstVarNameS (varRenames cfg) nvar2)
-           . showString " "
-           . showString (printAstVarNameS (varRenames cfg) mvar2)
-           . showString " -> "
-           . printAstHVector cfg 0 doms)
+           . (showParen True
+              $ showString "\\"
+                . showString (printAstVarNameS (varRenames cfg) varDt2)
+                . showString " "
+                . showString (printAstVarNameS (varRenames cfg) nvar2)
+                . showString " "
+                . showString (printAstVarNameS (varRenames cfg) mvar2)
+                . showString " -> "
+                . printAstHVector cfg 0 doms))
       . showString " "
       . printAstS cfg 11 x0
       . showString " "
@@ -745,16 +755,16 @@ printAstS cfg d = \case
       . printAstS cfg 11 as
   AstScanDerS (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
                               (varDt2, nvar2, mvar2, doms) x0 as ->
-   if ignoreNestedLambdas cfg
+   if prettifyLosingSharing cfg && ignoreNestedLambdas cfg
    then
     showParen (d > 10)
-    $ showString "sscanDer f df rf "
+    $ showString "sscanDer f "
       . printAstS cfg 11 x0
       . showString " "
       . printAstS cfg 11 as
    else
     showParen (d > 10)
-    $ showString "sscanDer "
+    $ showString (if prettifyLosingSharing cfg then "sscanDer " else "sscan ")
       . (showParen True
          $ showString "\\"
            . showString (printAstVarNameS (varRenames cfg) nvar)
@@ -762,28 +772,31 @@ printAstS cfg d = \case
            . showString (printAstVarNameS (varRenames cfg) mvar)
            . showString " -> "
            . printAstS cfg 0 v)
-      . showString " "
-      . (showParen True
-         $ showString "\\"
-           . showString (printAstVarNameS (varRenames cfg) varDx)
+      . (if prettifyLosingSharing cfg
+         then id
+         else
+           showString " "
+           . (showParen True
+              $ showString "\\"
+                . showString (printAstVarNameS (varRenames cfg) varDx)
+                . showString " "
+                . showString (printAstVarNameS (varRenames cfg) varDa)
+                . showString " "
+                . showString (printAstVarNameS (varRenames cfg) varn1)
+                . showString " "
+                . showString (printAstVarNameS (varRenames cfg) varm1)
+                . showString " -> "
+                . printAstS cfg 0 ast1)
            . showString " "
-           . showString (printAstVarNameS (varRenames cfg) varDa)
-           . showString " "
-           . showString (printAstVarNameS (varRenames cfg) varn1)
-           . showString " "
-           . showString (printAstVarNameS (varRenames cfg) varm1)
-           . showString " -> "
-           . printAstS cfg 0 ast1)
-      . showString " "
-      . (showParen True
-         $ showString "\\"
-           . showString (printAstVarNameS (varRenames cfg) varDt2)
-           . showString " "
-           . showString (printAstVarNameS (varRenames cfg) nvar2)
-           . showString " "
-           . showString (printAstVarNameS (varRenames cfg) mvar2)
-           . showString " -> "
-           . printAstHVector cfg 0 doms)
+           . (showParen True
+              $ showString "\\"
+                . showString (printAstVarNameS (varRenames cfg) varDt2)
+                . showString " "
+                . showString (printAstVarNameS (varRenames cfg) nvar2)
+                . showString " "
+                . showString (printAstVarNameS (varRenames cfg) mvar2)
+                . showString " -> "
+                . printAstHVector cfg 0 doms))
       . showString " "
       . printAstS cfg 11 x0
       . showString " "
@@ -992,16 +1005,17 @@ printAstHVector cfg d = \case
                   (vs1, vs2, vs3, vs4, ast)
                   (ws1, ws2, ws3, ws4, bst)
                   acc0 es ->
-   if ignoreNestedLambdas cfg
+   if prettifyLosingSharing cfg && ignoreNestedLambdas cfg
    then
     showParen (d > 10)
-    $ showString "dmapAccumRDer f df rf "
+    $ showString "dmapAccumRDer f "
       . printHVectorAst cfg acc0
       . showString " "
       . printHVectorAst cfg es
    else
     showParen (d > 10)
-    $ showString "dmapAccumRDer "
+    $ showString (if prettifyLosingSharing cfg then "dmapAccumRDer "
+                                               else "dmapAccumR ")
       . showParen True (shows k)
       . showString " "
       . (showParen True
@@ -1013,38 +1027,41 @@ printAstHVector cfg d = \case
                            . printAstDynamicVarNameCfg cfg) evars
            . showString " -> "
            . printAstHVector cfg 0 v)
-      . showString " "
-      . (showParen True
-         $ showString "\\"
-           . showListWith (showString
-                           . printAstDynamicVarNameCfg cfg) vs1
+      . (if prettifyLosingSharing cfg
+         then id
+         else
+           showString " "
+           . (showParen True
+              $ showString "\\"
+                . showListWith (showString
+                                . printAstDynamicVarNameCfg cfg) vs1
+                . showString " "
+                . showListWith (showString
+                                . printAstDynamicVarNameCfg cfg) vs2
+                . showString " "
+                . showListWith (showString
+                                . printAstDynamicVarNameCfg cfg) vs3
+                . showString " "
+                . showListWith (showString
+                                . printAstDynamicVarNameCfg cfg) vs4
+                . showString " -> "
+                . printAstHVector cfg 0 ast)
            . showString " "
-           . showListWith (showString
-                           . printAstDynamicVarNameCfg cfg) vs2
-           . showString " "
-           . showListWith (showString
-                           . printAstDynamicVarNameCfg cfg) vs3
-           . showString " "
-           . showListWith (showString
-                           . printAstDynamicVarNameCfg cfg) vs4
-           . showString " -> "
-           . printAstHVector cfg 0 ast)
-      . showString " "
-      . (showParen True
-         $ showString "\\"
-           . showListWith (showString
-                           . printAstDynamicVarNameCfg cfg) ws1
-           . showString " "
-           . showListWith (showString
-                           . printAstDynamicVarNameCfg cfg) ws2
-           . showString " "
-           . showListWith (showString
-                           . printAstDynamicVarNameCfg cfg) ws3
-           . showString " "
-           . showListWith (showString
-                           . printAstDynamicVarNameCfg cfg) ws4
-           . showString " -> "
-           . printAstHVector cfg 0 bst)
+           . (showParen True
+             $ showString "\\"
+                . showListWith (showString
+                                . printAstDynamicVarNameCfg cfg) ws1
+                . showString " "
+                . showListWith (showString
+                                . printAstDynamicVarNameCfg cfg) ws2
+                . showString " "
+                . showListWith (showString
+                                . printAstDynamicVarNameCfg cfg) ws3
+                . showString " "
+                . showListWith (showString
+                                . printAstDynamicVarNameCfg cfg) ws4
+                . showString " -> "
+                . printAstHVector cfg 0 bst))
       . showString " "
       . printHVectorAst cfg acc0
       . showString " "
@@ -1072,16 +1089,17 @@ printAstHVector cfg d = \case
                   (vs1, vs2, vs3, vs4, ast)
                   (ws1, ws2, ws3, ws4, bst)
                   acc0 es ->
-   if ignoreNestedLambdas cfg
+   if prettifyLosingSharing cfg && ignoreNestedLambdas cfg
    then
     showParen (d > 10)
-    $ showString "dmapAccumLDer f df rf "
+    $ showString "dmapAccumLDer f "
       . printHVectorAst cfg acc0
       . showString " "
       . printHVectorAst cfg es
    else
     showParen (d > 10)
-    $ showString "dmapAccumLDer "
+    $ showString (if prettifyLosingSharing cfg then "dmapAccumLDer "
+                                               else "dmapAccumL ")
       . showParen True (shows k)
       . showString " "
       . (showParen True
@@ -1093,38 +1111,41 @@ printAstHVector cfg d = \case
                            . printAstDynamicVarNameCfg cfg) evars
            . showString " -> "
            . printAstHVector cfg 0 v)
-      . showString " "
-      . (showParen True
-         $ showString "\\"
-           . showListWith (showString
-                           . printAstDynamicVarNameCfg cfg) vs1
+      . (if prettifyLosingSharing cfg
+         then id
+         else
+           showString " "
+           . (showParen True
+              $ showString "\\"
+                . showListWith (showString
+                                . printAstDynamicVarNameCfg cfg) vs1
+                . showString " "
+                . showListWith (showString
+                                . printAstDynamicVarNameCfg cfg) vs2
+                . showString " "
+                . showListWith (showString
+                                . printAstDynamicVarNameCfg cfg) vs3
+                . showString " "
+                . showListWith (showString
+                                . printAstDynamicVarNameCfg cfg) vs4
+                . showString " -> "
+                . printAstHVector cfg 0 ast)
            . showString " "
-           . showListWith (showString
-                           . printAstDynamicVarNameCfg cfg) vs2
-           . showString " "
-           . showListWith (showString
-                           . printAstDynamicVarNameCfg cfg) vs3
-           . showString " "
-           . showListWith (showString
-                           . printAstDynamicVarNameCfg cfg) vs4
-           . showString " -> "
-           . printAstHVector cfg 0 ast)
-      . showString " "
-      . (showParen True
-         $ showString "\\"
-           . showListWith (showString
-                           . printAstDynamicVarNameCfg cfg) ws1
-           . showString " "
-           . showListWith (showString
-                           . printAstDynamicVarNameCfg cfg) ws2
-           . showString " "
-           . showListWith (showString
-                           . printAstDynamicVarNameCfg cfg) ws3
-           . showString " "
-           . showListWith (showString
-                           . printAstDynamicVarNameCfg cfg) ws4
-           . showString " -> "
-           . printAstHVector cfg 0 bst)
+           . (showParen True
+              $ showString "\\"
+                . showListWith (showString
+                                . printAstDynamicVarNameCfg cfg) ws1
+                . showString " "
+                . showListWith (showString
+                                . printAstDynamicVarNameCfg cfg) ws2
+                . showString " "
+                . showListWith (showString
+                                . printAstDynamicVarNameCfg cfg) ws3
+                . showString " "
+                . showListWith (showString
+                                . printAstDynamicVarNameCfg cfg) ws4
+                . showString " -> "
+                . printAstHVector cfg 0 bst))
       . showString " "
       . printHVectorAst cfg acc0
       . showString " "
