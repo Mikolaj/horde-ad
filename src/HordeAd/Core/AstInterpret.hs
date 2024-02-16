@@ -123,7 +123,7 @@ interpretAst
   -> AstRanked s r n -> ranked r n
 interpretAst !env = \case
   AstVar sh (AstVarName varId) -> case EM.lookup varId env of
-    Just (DynamicRanked @r2 @n2 t) -> case sameNat (Proxy @n2) (Proxy @n) of
+    Just (AstEnvElemRanked @r2 @n2 t) -> case sameNat (Proxy @n2) (Proxy @n) of
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
         Just Refl -> assert (rshape t == sh
                              `blame` (sh, rshape t, varId, t, env)) t
@@ -135,7 +135,8 @@ interpretAst !env = \case
     -- to existential OR/OS tensors so that we can inspect
     -- which it is and then seed Delta evaluation maps with that.
     -- Just{} -> error "interpretAst: wrong tensor type in environment"
-    Just (DynamicShaped @r2 @sh2 t) -> case shapeToList sh == Sh.shapeT @sh2 of
+    Just (AstEnvElemShaped @r2 @sh2 t) -> case shapeToList sh
+                                               == Sh.shapeT @sh2 of
       True -> case matchingRank @sh2 @n of
         Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
           Just Refl -> rfromS @_ @r2 @sh2 t
@@ -445,7 +446,7 @@ interpretAst !env = \case
                                   , V.toList $ V.map shapeDynamic lw
                                   , shapeVoidHVector (shapeAstHVector l)
                                   , shapeVoidHVector (dshape @ranked lt) )) $
-                 extendEnvPars vars lw env
+                 extendEnvHVector vars lw env
     in rletHVectorIn lt0 lt (\lw -> interpretAst (env2 lw) v)
   AstLetHFunIn var f v -> undefined {-
     let g = interpretAstHFun env f
@@ -602,7 +603,7 @@ interpretAstS
   -> AstShaped s r sh -> shaped r sh
 interpretAstS !env = \case
   AstVarS (AstVarName varId) -> case EM.lookup varId env of
-    Just (DynamicShaped @r2 @sh2 t) -> case sameShape @sh2 @sh of
+    Just (AstEnvElemShaped @r2 @sh2 t) -> case sameShape @sh2 @sh of
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
         Just Refl -> t
         _ -> error "interpretAstS: scalar mismatch"
@@ -613,7 +614,7 @@ interpretAstS !env = \case
     -- to existential OR/OS tensors so that we can inspect
     -- which it is and then seed Delta evaluation maps with that.
     -- Just{} -> error "interpretAstS: wrong tensor type in environment"
-    Just (DynamicRanked @r2 @n2 t) -> case matchingRank @sh @n2 of
+    Just (AstEnvElemRanked @r2 @n2 t) -> case matchingRank @sh @n2 of
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
         Just Refl -> assert (Sh.shapeT @sh == shapeToList (rshape t)
                              `blame` (Sh.shapeT @sh, rshape t, varId, t, env))
@@ -906,7 +907,7 @@ interpretAstS !env = \case
                                   , V.toList $ V.map shapeDynamic lw
                                   , shapeVoidHVector (shapeAstHVector l)
                                   , shapeVoidHVector (dshape @ranked lt) )) $
-                  extendEnvPars vars lw env
+                  extendEnvHVector vars lw env
     in sletHVectorIn lt0 lt (\lw -> interpretAstS (env2 lw) v)
   AstSFromR v -> sfromR $ interpretAst env v
   AstConstantS a -> sconstant $ interpretAstPrimalS env a
@@ -993,7 +994,7 @@ interpretAstHVector !env = \case
                                   , V.toList $ V.map shapeDynamic lw
                                   , shapeVoidHVector (shapeAstHVector l)
                                   , shapeVoidHVector (dshape @ranked lt) )) $
-                 extendEnvPars vars lw env
+                 extendEnvHVector vars lw env
     in dletHVectorInHVector
          lt0 lt (\lw -> interpretAstHVector (env2 lw) v)
   AstLetInHVector var u v ->

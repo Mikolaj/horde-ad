@@ -12,7 +12,7 @@ module HordeAd.Core.TensorClass
   ( -- * Re-exports
     ShapeInt, ShapeSh
     -- * The tensor classes
-  , RankedTensor(..), ShapedTensor(..), HVectorTensor(..)
+  , RankedTensor(..), ShapedTensor(..), HVectorTensor(..), HFun(..)
   , rfromD, sfromD
     -- * The related classes and constraints
   , ADReady, ADReadyBoth, ADReadyR, ADReadyS
@@ -1073,6 +1073,12 @@ sfromD (DynamicShapedDummy @r2 @sh2 _ _) = case sameShape @sh2 @sh of
     _ -> error "sfromD: scalar mismatch"
   _ -> error $ "sfromD: shape mismatch " ++ show (Sh.shapeT @sh2, Sh.shapeT @sh)
 
+newtype HFun =
+  HFun {unHFun :: (forall f. ADReady f => [HVector f] -> HVectorOf f)}
+
+instance Show HFun where
+  show _ = "<closed function>"
+
 
 -- * The giga-constraint
 
@@ -1107,6 +1113,7 @@ type ADReadySmall ranked shaped =
   , ShapedTensor shaped, ShapedTensor (PrimalOf shaped)
   , CRanked ranked Show, CRanked (PrimalOf ranked) Show
   , CShaped shaped Show, CShaped (PrimalOf shaped) Show
+  , Show (HFunOf ranked)
   )
 
 type ADReadyBoth ranked shaped =
@@ -1139,6 +1146,8 @@ type instance RankedOf (Flip OR.Array) = Flip OR.Array
 type instance ShapedOf (Flip OR.Array) = Flip OS.Array
 
 type instance HVectorOf (Flip OR.Array) = HVector (Flip OR.Array)
+
+type instance HFunOf (Flip OR.Array) = HFun
 
 type instance PrimalOf (Flip OR.Array) = Flip OR.Array
 

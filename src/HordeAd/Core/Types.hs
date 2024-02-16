@@ -6,7 +6,7 @@ module HordeAd.Core.Types
     -- * Some fundamental constraints
   , GoodScalar, HasSingletonDict, Differentiable, IfDifferentiable(..)
     -- * Type families that tensors will belong to
-  , RankedOf, ShapedOf, HVectorOf, PrimalOf, DualOf, DummyDual(..)
+  , RankedOf, ShapedOf, HVectorOf, HFunOf, PrimalOf, DualOf, DummyDual(..)
     -- * Generic types of indexes used in tensor operations
   , IntOf, IndexOf, IntSh, IndexSh
     -- * Generic types of booleans used in tensor operations
@@ -91,6 +91,8 @@ type family RankedOf (f :: TensorType ty) :: RankedTensorType
 type family ShapedOf (f :: TensorType ty) :: ShapedTensorType
 
 type family HVectorOf (f :: RankedTensorType) :: Type
+
+type family HFunOf (f :: RankedTensorType) :: Type
 
 type family PrimalOf (f :: TensorType ty) :: TensorType ty
 

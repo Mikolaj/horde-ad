@@ -104,7 +104,7 @@ instance DerivativeStages (AstRanked FullSpan) where
     let env = foldr extendEnvD EM.empty $ zip vars $ V.toList parameters
         dt = fromMaybe (rreplicate0N (listShapeToShape sh) 1) mdt
         dts = V.singleton $ DynamicRanked dt
-        envDt = extendEnvPars varsDt dts env
+        envDt = extendEnvHVector varsDt dts env
         gradientHVector = interpretAstHVector envDt gradient
         primalTensor = interpretAstPrimal env primal
     in (gradientHVector, primalTensor)
@@ -188,7 +188,7 @@ instance DerivativeStages (AstShaped FullSpan) where
     let env = foldr extendEnvD EM.empty $ zip vars $ V.toList parameters
         dt = fromMaybe 1 mdt
         dts = V.singleton $ DynamicShaped dt
-        envDt = extendEnvPars varsDt dts env
+        envDt = extendEnvHVector varsDt dts env
         gradientHVector = interpretAstHVector envDt gradient
         primalTensor = interpretAstPrimalS env primal
     in (gradientHVector, primalTensor)
@@ -281,7 +281,7 @@ instance DerivativeStages (HVectorPseudoTensor (AstRanked FullSpan)) where
         domsB = voidFromVars varsDt
         dt1 = mapHVectorShaped (const 1) $ V.map dynamicFromVoid domsB
         dts = maybe dt1 unHVectorPseudoTensor mdt
-        envDt = extendEnvPars varsDt dts env
+        envDt = extendEnvHVector varsDt dts env
         gradientHVector = interpretAstHVector envDt gradient
         primalTensor = interpretAstHVector env $ unHVectorPseudoTensor primal
     in (gradientHVector, HVectorPseudoTensor primalTensor)
@@ -697,7 +697,7 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
           revProduceArtifact TensorToken False (f @(AstRanked FullSpan))
                              EM.empty parameters0
     in \parameters -> assert (voidHVectorMatches parameters0 parameters) $
-      let env = extendEnvPars @(AstRanked s) vars parameters EM.empty
+      let env = extendEnvHVector @(AstRanked s) vars parameters EM.empty
       in interpretAstHVector env gradient
         -- this interpretation both substitutes parameters for the variables and
         -- reinterprets @PrimalSpan@ terms in @s@ terms;
@@ -715,9 +715,9 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
                              EM.empty parameters0
     in \parameters dt -> assert (voidHVectorMatches parameters0 parameters
                                  && length varsDt == 1) $
-      let env = extendEnvPars @(AstRanked s) vars parameters EM.empty
+      let env = extendEnvHVector @(AstRanked s) vars parameters EM.empty
           dts = V.singleton $ DynamicRanked dt
-          envDt = extendEnvPars varsDt dts env
+          envDt = extendEnvHVector varsDt dts env
       in interpretAstHVector envDt gradient
   rfwd :: (GoodScalar r, KnownNat n)
        => (forall f. ADReady f => HVector f -> f r n)
@@ -730,15 +730,15 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
           fwdProduceArtifact TensorToken (f @(AstRanked FullSpan))
                              EM.empty parameters0
     in \parameters ds -> assert (voidHVectorMatches parameters0 parameters) $
-      let env = extendEnvPars @(AstRanked s) vars parameters EM.empty
-          envDt = extendEnvPars @(AstRanked s) varsDt ds env
+      let env = extendEnvHVector @(AstRanked s) vars parameters EM.empty
+          envDt = extendEnvHVector @(AstRanked s) varsDt ds env
       in interpretAst envDt derivative
   srev f parameters0 =
     let (((_varsDt, vars), gradient, _primal, _sh), _delta) =
           revProduceArtifact TensorToken False (f @(AstShaped FullSpan))
                              EM.empty parameters0
     in \parameters -> assert (voidHVectorMatches parameters0 parameters) $
-      let env = extendEnvPars @(AstRanked s) vars parameters EM.empty
+      let env = extendEnvHVector @(AstRanked s) vars parameters EM.empty
       in interpretAstHVector env gradient
   srevDt f parameters0 =
     let (((varsDt, vars), gradient, _primal, _sh), _delta) =
@@ -746,17 +746,17 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
                              EM.empty parameters0
     in \parameters dt -> assert (voidHVectorMatches parameters0 parameters
                                  && length varsDt == 1) $
-      let env = extendEnvPars @(AstRanked s) vars parameters EM.empty
+      let env = extendEnvHVector @(AstRanked s) vars parameters EM.empty
           dts = V.singleton $ DynamicShaped dt
-          envDt = extendEnvPars varsDt dts env
+          envDt = extendEnvHVector varsDt dts env
       in interpretAstHVector envDt gradient
   sfwd f parameters0 =
     let (((varsDt, vars), derivative, _primal), _delta) =
           fwdProduceArtifact TensorToken (f @(AstShaped FullSpan))
                              EM.empty parameters0
     in \parameters ds -> assert (voidHVectorMatches parameters0 parameters) $
-      let env = extendEnvPars @(AstRanked s) vars parameters EM.empty
-          envDt = extendEnvPars @(AstRanked s) varsDt ds env
+      let env = extendEnvHVector @(AstRanked s) vars parameters EM.empty
+          envDt = extendEnvHVector @(AstRanked s) varsDt ds env
       in interpretAstS envDt derivative
   rfold :: forall rn rm n m.
            (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)

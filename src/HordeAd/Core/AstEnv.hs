@@ -1,10 +1,11 @@
+{-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | The environment and some helper operations for AST interpretation.
 module HordeAd.Core.AstEnv
   ( -- * The environment and operations for extending it
-    AstEnv
-  , extendEnvS, extendEnvR, extendEnvD, extendEnvPars
+    AstEnv, AstEnvElem(..)
+  , extendEnvR, extendEnvS, extendEnvHVector, extendEnvHFun, extendEnvD
     -- * The operations for interpreting binding (visible lambdas)
   , interpretLambdaI, interpretLambdaIS, interpretLambdaIHVector
   , interpretLambdaIndex, interpretLambdaIndexS
@@ -48,7 +49,19 @@ import           HordeAd.Util.SizedList
 -- * The environment and operations for extending it
 
 -- | The environment that keeps variables values during interpretation
-type AstEnv ranked = EM.EnumMap AstVarId (DynamicTensor ranked)
+type AstEnv ranked = EM.EnumMap AstVarId (AstEnvElem ranked)
+
+type role AstEnvElem nominal
+data AstEnvElem (ranked :: RankedTensorType) where
+  AstEnvElemRanked :: (GoodScalar r, KnownNat n)
+                   => ranked r n -> AstEnvElem ranked
+  AstEnvElemShaped :: (GoodScalar r, Sh.Shape sh)
+                   => ShapedOf ranked r sh -> AstEnvElem ranked
+  AstEnvElemHFun :: HFunOf ranked -> AstEnvElem ranked
+
+deriving instance ( CRanked ranked Show, CShaped (ShapedOf ranked) Show
+                  , Show (HFunOf ranked) )
+                  => Show (AstEnvElem ranked)
 
 -- An informal invariant: if s is FullSpan, ranked is dual numbers,
 -- and if s is PrimalSpan, ranked is their primal part.
@@ -57,17 +70,29 @@ extendEnvR :: forall ranked r n s.
               (KnownNat n, GoodScalar r)
            => AstVarName (AstRanked s) r n -> ranked r n
            -> AstEnv ranked -> AstEnv ranked
-extendEnvR (AstVarName varId) !t !env =
+extendEnvR !(AstVarName varId) !t !env =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvR: duplicate " ++ show varId)
-                   varId (DynamicRanked t) env
+                   varId (AstEnvElemRanked t) env
 
 extendEnvS :: forall ranked r sh s.
               (Sh.Shape sh, GoodScalar r)
            => AstVarName (AstShaped s) r sh -> ShapedOf ranked r sh
            -> AstEnv ranked -> AstEnv ranked
-extendEnvS (AstVarName varId) !t !env =
+extendEnvS !(AstVarName varId) !t !env =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvS: duplicate " ++ show varId)
-                   varId (DynamicShaped t) env
+                   varId (AstEnvElemShaped t) env
+
+extendEnvHVector :: forall ranked. ADReady ranked
+                 => [AstDynamicVarName] -> HVector ranked
+                 -> AstEnv ranked -> AstEnv ranked
+extendEnvHVector vars !pars !env = assert (length vars == V.length pars) $
+  foldr extendEnvD env $ zip vars (V.toList pars)
+
+extendEnvHFun :: AstVarId -> HFunOf ranked
+              -> AstEnv ranked -> AstEnv ranked
+extendEnvHFun !varId !t !env =
+  EM.insertWithKey (\_ _ _ -> error $ "extendEnvHFun: duplicate " ++ show varId)
+                   varId (AstEnvElemHFun t) env
 
 -- We don't need to manually pick a specialization for the existential
 -- variable r2, because the operations do not depend on r2.
@@ -128,14 +153,6 @@ extendEnvVarsS vars !ix !env =
   let assocs = zip (ShapedList.sizedListToList vars)
                    (ShapedList.sizedListToList ix)
   in foldr (uncurry extendEnvI) env assocs
-
-extendEnvPars :: forall ranked. ADReady ranked
-              => [AstDynamicVarName] -> HVector ranked
-              -> AstEnv ranked
-              -> AstEnv ranked
-extendEnvPars vars !pars !env = assert (length vars == V.length pars) $
-  let assocs = zip vars (V.toList pars)
-  in foldr extendEnvD env assocs
 
 
 -- * The operations for interpreting binding (visible lambdas)
@@ -226,7 +243,7 @@ interpretLambdaHVector
   -> ranked r n
 {-# INLINE interpretLambdaHVector #-}
 interpretLambdaHVector f !env (!vars, !ast) =
-  \pars -> f (extendEnvPars vars pars env) ast
+  \pars -> f (extendEnvHVector vars pars env) ast
 
 interpretLambdaHVectorS
   :: forall s ranked r sh. ADReady ranked
@@ -237,7 +254,7 @@ interpretLambdaHVectorS
   -> ShapedOf ranked r sh
 {-# INLINE interpretLambdaHVectorS #-}
 interpretLambdaHVectorS f !env (!vars, !ast) =
-  \pars -> f (extendEnvPars vars pars env) ast
+  \pars -> f (extendEnvHVector vars pars env) ast
 
 interpretLambda2
   :: forall s ranked rn rm n m.
@@ -284,7 +301,7 @@ interpretLambdaRHR
 {-# INLINE interpretLambdaRHR #-}
 interpretLambdaRHR f !env (!varn, !varm, !ast) =
   \x0 as -> let envE = extendEnvR varn x0 env
-            in f (extendEnvPars varm as envE) ast
+            in f (extendEnvHVector varm as envE) ast
 
 interpretLambdaSHS
   :: forall s ranked rn sh.
@@ -299,7 +316,7 @@ interpretLambdaSHS
 {-# INLINE interpretLambdaSHS #-}
 interpretLambdaSHS f !env (!varn, !varm, !ast) =
   \x0 as -> let envE = extendEnvS varn x0 env
-            in f (extendEnvPars varm as envE) ast
+            in f (extendEnvHVector varm as envE) ast
 
 interpretLambdaRHH
   :: forall s ranked rn n.
@@ -314,7 +331,7 @@ interpretLambdaRHH
 {-# INLINE interpretLambdaRHH #-}
 interpretLambdaRHH f !env (!varn, !varm, !ast) =
   \x0 as -> let envE = extendEnvR varn x0 env
-            in f (extendEnvPars varm as envE) ast
+            in f (extendEnvHVector varm as envE) ast
 
 interpretLambdaSHH
   :: forall s ranked rn sh.
@@ -329,7 +346,7 @@ interpretLambdaSHH
 {-# INLINE interpretLambdaSHH #-}
 interpretLambdaSHH f !env (!varn, !varm, !ast) =
   \x0 as -> let envE = extendEnvS varn x0 env
-            in f (extendEnvPars varm as envE) ast
+            in f (extendEnvHVector varm as envE) ast
 
 interpretLambdaHHH
   :: forall s ranked. ADReady ranked
@@ -342,8 +359,8 @@ interpretLambdaHHH
   -> HVectorOf ranked
 {-# INLINE interpretLambdaHHH #-}
 interpretLambdaHHH f !env (!vs1, !vs2, !ast) =
-  \w1 w2 -> let env1 = extendEnvPars vs1 w1 env
-            in f (extendEnvPars vs2 w2 env1) ast
+  \w1 w2 -> let env1 = extendEnvHVector vs1 w1 env
+            in f (extendEnvHVector vs2 w2 env1) ast
 
 interpretLambdaHHHHH
   :: forall s ranked. ADReady ranked
@@ -358,10 +375,10 @@ interpretLambdaHHHHH
   -> HVectorOf ranked
 {-# INLINE interpretLambdaHHHHH #-}
 interpretLambdaHHHHH f !env (!vs1, !vs2, !vs3, !vs4, !ast) =
-  \w1 w2 w3 w4 -> let env1 = extendEnvPars vs1 w1 env
-                      env2 = extendEnvPars vs2 w2 env1
-                      env3 = extendEnvPars vs3 w3 env2
-                  in f (extendEnvPars vs4 w4 env3) ast
+  \w1 w2 w3 w4 -> let env1 = extendEnvHVector vs1 w1 env
+                      env2 = extendEnvHVector vs2 w2 env1
+                      env3 = extendEnvHVector vs3 w3 env2
+                  in f (extendEnvHVector vs4 w4 env3) ast
 
 interpretLambda3
   :: forall s ranked rn rm n m.
@@ -414,7 +431,7 @@ interpretLambdaRRRH
 interpretLambdaRRRH f !env (!varDt, !varn, !varm, !ast) =
   \cx x0 as -> let envE = extendEnvR varDt cx
                           $ extendEnvR varn x0 env
-               in f (extendEnvPars varm as envE) ast
+               in f (extendEnvHVector varm as envE) ast
 
 interpretLambdaSSSH
   :: forall s ranked rn sh.
@@ -431,7 +448,7 @@ interpretLambdaSSSH
 interpretLambdaSSSH f !env (!varDt, !varn, !varm, !ast) =
   \cx x0 as -> let envE = extendEnvS varDt cx
                           $ extendEnvS varn x0 env
-               in f (extendEnvPars varm as envE) ast
+               in f (extendEnvHVector varm as envE) ast
 
 interpretLambda4
   :: forall s ranked rn rm n m.
@@ -492,8 +509,8 @@ interpretLambdaRHRHR
 interpretLambdaRHRHR f !env (!varDx, !varDa, !varn, !varm, !ast) =
   \cx ca x0 as -> let envE = extendEnvR varDx cx
                              $ extendEnvR varn x0 env
-                  in f (extendEnvPars varDa ca
-                        $ extendEnvPars varm as envE) ast
+                  in f (extendEnvHVector varDa ca
+                        $ extendEnvHVector varm as envE) ast
 
 interpretLambdaSHSHS
   :: forall s ranked rn sh.
@@ -512,8 +529,8 @@ interpretLambdaSHSHS
 interpretLambdaSHSHS f !env (!varDx, !varDa, !varn, !varm, !ast) =
   \cx ca x0 as -> let envE = extendEnvS varDx cx
                              $ extendEnvS varn x0 env
-                  in f (extendEnvPars varDa ca
-                        $ extendEnvPars varm as envE) ast
+                  in f (extendEnvHVector varDa ca
+                        $ extendEnvHVector varm as envE) ast
 
 interpretLambdaRHRHH
   :: forall s ranked rn n.
@@ -532,8 +549,8 @@ interpretLambdaRHRHH
 interpretLambdaRHRHH f !env (!varDx, !varDa, !varn, !varm, !ast) =
   \cx ca x0 as -> let envE = extendEnvR varDx cx
                              $ extendEnvR varn x0 env
-                  in f (extendEnvPars varDa ca
-                        $ extendEnvPars varm as envE) ast
+                  in f (extendEnvHVector varDa ca
+                        $ extendEnvHVector varm as envE) ast
 
 interpretLambdaSHSHH
   :: forall s ranked rn sh.
@@ -552,8 +569,8 @@ interpretLambdaSHSHH
 interpretLambdaSHSHH f !env (!varDx, !varDa, !varn, !varm, !ast) =
   \cx ca x0 as -> let envE = extendEnvS varDx cx
                              $ extendEnvS varn x0 env
-                  in f (extendEnvPars varDa ca
-                        $ extendEnvPars varm as envE) ast
+                  in f (extendEnvHVector varDa ca
+                        $ extendEnvHVector varm as envE) ast
 
 
 -- * Interpretation of arithmetic, boolean and relation operations
