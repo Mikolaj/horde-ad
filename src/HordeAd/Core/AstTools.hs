@@ -111,6 +111,7 @@ lengthAst v1 = case shapeAst v1 of
 shapeAstHVector :: AstHVector s -> VoidHVector
 shapeAstHVector = \case
   AstHVector v -> V.map (voidFromDynamicF (shapeToList . shapeAst)) v
+  AstHApply t _ll -> shapeAstHFun t
   AstLetHVectorInHVector _ _ v -> shapeAstHVector v
   AstLetHFunInHVector _ _ v -> shapeAstHVector v
   AstLetInHVector _ _ v -> shapeAstHVector v
@@ -129,6 +130,12 @@ shapeAstHVector = \case
     accShs V.++ replicate1VoidHVector k bShs
   AstMapAccumLDer k accShs bShs _eShs _f _df _rf _acc0 _es ->
     accShs V.++ replicate1VoidHVector k bShs
+
+shapeAstHFun :: AstHFun s -> VoidHVector
+shapeAstHFun = \case
+  AstHFun _vvars l -> V.map (voidFromDynamicF (shapeToList . shapeAst)) l
+  AstVarHFun shs _var -> shs
+
 
 -- * Variable occurrence detection
 
@@ -245,6 +252,7 @@ varInAstHVector :: AstSpan s
                 => AstVarId -> AstHVector s -> Bool
 varInAstHVector var = \case
   AstHVector l -> any (varInAstDynamic var) l
+  AstHApply t ll -> varInAstHFun var t || any (any (varInAstDynamic var)) ll
   AstLetHVectorInHVector _vars2 u v ->
     varInAstHVector var u || varInAstHVector var v
   AstLetHFunInHVector _var2 f v ->
@@ -282,7 +290,7 @@ varInAstDynamic var = \case
 varInAstHFun :: AstVarId -> AstHFun s -> Bool
 varInAstHFun var = \case
   AstHFun _vvars _l -> False  -- we take advantage of the term being closed
-  AstVarHFun var2 -> fromEnum var == fromEnum var2
+  AstVarHFun _shs var2 -> fromEnum var == fromEnum var2
 
 varInAstBool :: AstVarId -> AstBool -> Bool
 varInAstBool var = \case

@@ -824,6 +824,10 @@ build1VHVector k (var, v0) =
  in traceRule $ case v0 of
   Ast.AstHVector l ->
     Ast.AstHVector $ V.map (\u -> build1VOccurenceUnknownDynamic k (var, u)) l
+  Ast.AstHApply t ll ->
+    Ast.AstHApply
+      (build1VHFun k (var, t))
+      (map (V.map (\u -> build1VOccurenceUnknownDynamic k (var, u))) ll)
   Ast.AstLetHVectorInHVector vars1 u v -> case someNatVal $ toInteger k of
       Just (SomeNat @k3 _) ->
         let (vOut, varsOut) = substProjVarsHVector @k3 var vars1 v
@@ -961,6 +965,15 @@ build1VHVector k (var, v0) =
                              $ build1VOccurenceUnknownDynamic (valueOf @k)
                                                               (var, u)) es)
       _ -> error "build1VHVector: impossible someNatVal"
+
+build1VHFun
+  :: forall s. AstSpan s
+  => Int -> (IntVarName, AstHFun s) -> AstHFun s
+build1VHFun k (_var, v0) = case v0 of
+  Ast.AstHFun vvars l ->
+    -- We take advantage of the fact that l contains no free index vars.
+    Ast.AstHFun vvars (astMapHVectorRanked01 (astReplicate k) l)
+  Ast.AstVarHFun{} -> v0
 
 build1VOccurenceUnknownDynamic
   :: forall s. AstSpan s
