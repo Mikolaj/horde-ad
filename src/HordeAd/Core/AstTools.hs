@@ -90,6 +90,7 @@ shapeAst = \case
   AstFromIntegral a -> shapeAst a
   AstConst a -> listShapeToShape $ OR.shapeL a
   AstLetHVectorIn _ _ v -> shapeAst v
+  AstLetHFunIn _ _ v -> shapeAst v
   AstRFromS @sh _ -> listShapeToShape $ Sh.shapeT @sh
   AstConstant a -> shapeAst a
   AstPrimalPart a -> shapeAst a
@@ -111,6 +112,7 @@ shapeAstHVector :: AstHVector s -> VoidHVector
 shapeAstHVector = \case
   AstHVector v -> V.map (voidFromDynamicF (shapeToList . shapeAst)) v
   AstLetHVectorInHVector _ _ v -> shapeAstHVector v
+  AstLetHFunInHVector _ _ v -> shapeAstHVector v
   AstLetInHVector _ _ v -> shapeAstHVector v
   AstLetInHVectorS _ _ v -> shapeAstHVector v
   AstBuildHVector1 k (_, v) -> withSNat k $ \ snatK ->
@@ -168,6 +170,7 @@ varInAst var = \case
   AstFromIntegral t -> varInAst var t
   AstConst{} -> False
   AstLetHVectorIn _vars l v -> varInAstHVector var l || varInAst var v
+  AstLetHFunIn _var2 f v -> varInAstHFun var f || varInAst var v
   AstRFromS v -> varInAstS var v
   AstConstant v -> varInAst var v
   AstPrimalPart a -> varInAst var a
@@ -218,6 +221,7 @@ varInAstS var = \case
   AstFromIntegralS a -> varInAstS var a
   AstConstS{} -> False
   AstLetHVectorInS _vars l v -> varInAstHVector var l || varInAstS var v
+  AstLetHFunInS _var2 f v -> varInAstHFun var f || varInAstS var v
   AstSFromR v -> varInAst var v
   AstConstantS v -> varInAstS var v
   AstPrimalPartS a -> varInAstS var a
@@ -243,6 +247,8 @@ varInAstHVector var = \case
   AstHVector l -> any (varInAstDynamic var) l
   AstLetHVectorInHVector _vars2 u v ->
     varInAstHVector var u || varInAstHVector var v
+  AstLetHFunInHVector _var2 f v ->
+    varInAstHFun var f || varInAstHVector var v
   AstLetInHVector _var2 u v -> varInAst var u || varInAstHVector var v
   AstLetInHVectorS _var2 u v -> varInAstS var u || varInAstHVector var v
   AstBuildHVector1 _ (_var2, v) -> varInAstHVector var v
@@ -272,6 +278,11 @@ varInAstDynamic var = \case
   DynamicShaped t -> varInAstS var t
   DynamicRankedDummy{} -> False
   DynamicShapedDummy{} -> False
+
+varInAstHFun :: AstVarId -> AstHFun s -> Bool
+varInAstHFun var = \case
+  AstHFun _vvars _l -> False  -- we take advantage of the term being closed
+  AstVarHFun var2 -> fromEnum var == fromEnum var2
 
 varInAstBool :: AstVarId -> AstBool -> Bool
 varInAstBool var = \case

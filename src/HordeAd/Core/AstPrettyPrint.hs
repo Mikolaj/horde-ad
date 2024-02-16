@@ -107,6 +107,7 @@ areAllArgsInts = \case
   AstFromIntegral{} -> True
   AstConst{} -> True
   AstLetHVectorIn{} -> True  -- too early to tell
+  AstLetHFunIn{} -> True  -- too early to tell
   AstRFromS{} -> False
   AstConstant{} -> True  -- the argument is emphatically a primal number; fine
   AstPrimalPart{} -> False
@@ -149,6 +150,9 @@ printAstVarS = printAstVarN (length (Sh.shapeT @sh))
 
 printAstIntVar :: PrintConfig -> IntVarName -> ShowS
 printAstIntVar cfg (AstVarName varId) = printAstVarId "i" cfg varId
+
+printAstFunVar :: PrintConfig -> AstVarId -> ShowS
+printAstFunVar = printAstVarId "f"
 
 printAstVarFromLet
   :: forall n s r. (GoodScalar r, KnownNat n, AstSpan s)
@@ -366,6 +370,27 @@ printAstAux cfg d = \case
            $ showString "\\"
              . showListWith (showString
                              . printAstDynamicVarName (varRenames cfg)) vars
+             . showString " -> "
+             . printAst cfg 0 v)
+        -- TODO: this does not roundtrip yet
+  AstLetHFunIn var f v ->
+    if loseRoudtrip cfg
+    then
+      showParen (d > 10)
+      $ showString "let "
+        . printAstFunVar cfg var
+        . showString " = "
+        . printAstHFun cfg 0 f
+        . showString " in "
+        . printAst cfg 0 v
+    else
+      showParen (d > 10)
+      $ showString "rletHFunIn "
+        . printAstHFun cfg 11 f
+        . showString " "
+        . (showParen True
+           $ showString "\\"
+             . printAstFunVar cfg var
              . showString " -> "
              . printAst cfg 0 v)
         -- TODO: this does not roundtrip yet
@@ -662,6 +687,27 @@ printAstS cfg d = \case
              . showString " -> "
              . printAstS cfg 0 v)
         -- TODO: this does not roundtrip yet
+  AstLetHFunInS var f v ->
+    if loseRoudtrip cfg
+    then
+      showParen (d > 10)
+      $ showString "let "
+        . printAstFunVar cfg var
+        . showString " = "
+        . printAstHFun cfg 0 f
+        . showString " in "
+        . printAstS cfg 0 v
+    else
+      showParen (d > 10)
+      $ showString "sletHFunIn "
+        . printAstHFun cfg 11 f
+        . showString " "
+        . (showParen True
+           $ showString "\\"
+             . printAstFunVar cfg var
+             . showString " -> "
+             . printAstS cfg 0 v)
+        -- TODO: this does not roundtrip yet
   AstSFromR v -> printAst cfg d v
   AstConstantS a@AstConstS{} -> printAstS cfg d a
   AstConstantS a ->
@@ -877,6 +923,27 @@ printAstHVector cfg d = \case
                              . printAstDynamicVarName (varRenames cfg)) vars
              . showString " -> "
              . printAstHVector cfg 0 v)
+  AstLetHFunInHVector var f v ->
+    if loseRoudtrip cfg
+    then
+      showParen (d > 10)
+      $ showString "let "
+        . printAstFunVar cfg var
+        . showString " = "
+        . printAstHFun cfg 0 f
+        . showString " in "
+        . printAstHVector cfg 0 v
+    else
+      showParen (d > 10)
+      $ showString "dletHFunInHVector "
+        . printAstHFun cfg 11 f
+        . showString " "
+        . (showParen True
+           $ showString "\\"
+             . printAstFunVar cfg var
+             . showString " -> "
+             . printAstHVector cfg 0 v)
+        -- TODO: this does not roundtrip yet
   t@(AstLetInHVector var0 u0 v0) ->
     if loseRoudtrip cfg
     then let collect :: AstHVector s -> ([(ShowS, ShowS)], ShowS)
@@ -1153,6 +1220,29 @@ printAstHVector cfg d = \case
       . printHVectorAst cfg acc0
       . showString " "
       . printHVectorAst cfg es
+
+printAstHFun :: forall s. AstSpan s
+             => PrintConfig -> Int -> AstHFun s -> ShowS
+printAstHFun cfg d = \case
+  AstHFun vvars l ->
+    if loseRoudtrip cfg
+    then showParen True
+         $ showString "\\"
+           . showListWith
+               (showListWith (showString
+                              . printAstDynamicVarNameCfg cfg)) vvars
+           . showString " -> "
+           . printHVectorAst cfg l
+    else showParen (d > 10)
+         $ showString "dmkHFun "
+           . (showParen True
+              $ showString "\\"
+                . showListWith
+                    (showListWith (showString
+                                   . printAstDynamicVarNameCfg cfg)) vvars
+                . showString " -> "
+                . printHVectorAst cfg l)
+  AstVarHFun var -> printAstFunVar cfg var
 
 printAstBool :: PrintConfig -> Int -> AstBool -> ShowS
 printAstBool cfg d = \case

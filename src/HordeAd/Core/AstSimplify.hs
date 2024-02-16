@@ -29,8 +29,9 @@ module HordeAd.Core.AstSimplify
   , astTranspose, astTransposeS, astReshape, astReshapeS
   , astCast, astCastS, astFromIntegral, astFromIntegralS, astRFromS, astSFromR
   , astPrimalPart, astPrimalPartS, astDualPart, astDualPartS
-  , astLetHVectorIn, astLetHVectorInS
-  , astLetHVectorInHVector, astLetInHVector, astLetInHVectorS
+  , astLetHVectorIn, astLetHVectorInS, astLetHFunIn, astLetHFunInS
+  , astLetHVectorInHVector, astLetHFunInHVector
+  , astLetInHVector, astLetInHVectorS
     -- * The simplifying bottom-up pass
   , simplifyAst, simplifyAstHVector, simplifyAstS
     -- * Substitution payload and adaptors for AstVarName
@@ -223,6 +224,7 @@ simplifyStepNonIndex t = case t of
   Ast.AstFromIntegral v -> astFromIntegral v
   AstConst{} -> t
   Ast.AstLetHVectorIn{} -> t
+  Ast.AstLetHFunIn{} -> t
   Ast.AstRFromS v -> astRFromS v
   Ast.AstConstant{} -> t
   Ast.AstPrimalPart v -> astPrimalPart v  -- has to be done sooner or later
@@ -430,6 +432,8 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
       Nothing -> Ast.AstIndex v0 ix
   Ast.AstLetHVectorIn vars l v ->
     astLetHVectorIn vars l (astIndexRec v ix)
+  Ast.AstLetHFunIn var f v ->
+    astLetHFunIn var f (astIndexRec v ix)
   Ast.AstRFromS @sh t ->
     let (takeSh, dropSh) = splitAt (valueOf @m) (Sh.shapeT @sh)
     in Sh.withShapeP takeSh $ \(Proxy :: Proxy p_take) ->
@@ -623,6 +627,8 @@ astIndexSOrStepOnly stepOnly v0 ix@((:$:) @in1 i1 (rest1 :: AstIndexS shm1)) =
       Nothing -> Ast.AstIndexS v0 ix
   Ast.AstLetHVectorInS vars l v ->
     astLetHVectorInS vars l (astIndexRec v ix)
+  Ast.AstLetHFunInS var f v ->
+    astLetHFunInS var f (astIndexRec v ix)
   Ast.AstSFromR @sh t ->
     withListShape (Sh.shapeT @shm1) $ \(_ :: ShapeInt m1) ->
       gcastWith (unsafeCoerce Refl :: Sh.Rank shm1 :~: m1) $
@@ -948,6 +954,8 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
       Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstLetHVectorIn vars l v ->
       astLetHVectorIn vars l (astGatherCase sh4 v (vars4, ix4))
+    Ast.AstLetHFunIn var f v ->
+      astLetHFunIn var f (astGatherCase sh4 v (vars4, ix4))
     Ast.AstRFromS{} {- @sh v -} -> Ast.AstGather sh4 v4 (vars4, ix4)
       -- TODO: this is broken
       {-
@@ -1100,7 +1108,8 @@ astSliceLax i k v =
 
 -- * The simplifying combinators, one for each AST constructor
 
--- Inlining works for this constructor, so we don't try to eliminate it.
+-- Inlining works for this let constructor, because it has just one variable,
+-- unlike astLetHVectorIn, etc., so we don't try to eliminate it.
 astLet :: forall n m r r2 s s2.
           ( KnownNat m, KnownNat n, GoodScalar r, GoodScalar r2
           , AstSpan s, AstSpan s2 )
@@ -1167,7 +1176,8 @@ astLetInt :: AstVarName (AstRanked PrimalSpan) Int64 0
 astLetInt var u v | var `varNameInAst` v = astLet var u v
 astLetInt _ _ v = v
 
--- Inlining works for this constructor, so we don't try to eliminate it.
+-- Inlining works for this let constructor, because it has just one variable,
+-- unlike astLetHVectorIn, etc., so we don't try to eliminate it.
 astLetS :: forall sh1 sh2 r r2 s s2.
            ( Sh.Shape sh1, Sh.Shape sh2, GoodScalar r, GoodScalar r2
            , AstSpan s, AstSpan s2 )
@@ -1760,6 +1770,7 @@ astPrimalPart t = case t of
   Ast.AstGather sh v (vars, ix) -> astGatherR sh (astPrimalPart v) (vars, ix)
   Ast.AstCast v -> astCast $ astPrimalPart v
   Ast.AstLetHVectorIn vars l v -> astLetHVectorIn vars l (astPrimalPart v)
+  Ast.AstLetHFunIn var f v -> astLetHFunIn var f (astPrimalPart v)
   Ast.AstRFromS v -> astRFromS $ astPrimalPartS v
   Ast.AstConstant v -> v
   Ast.AstD u _ -> u
@@ -1799,6 +1810,7 @@ astPrimalPartS t = case t of
   Ast.AstCastS v -> astCastS $ astPrimalPartS v
   Ast.AstLetHVectorInS vars l v ->
     astLetHVectorInS vars l (astPrimalPartS v)
+  Ast.AstLetHFunInS var f v -> astLetHFunInS var f (astPrimalPartS v)
   Ast.AstSFromR v -> astSFromR $ astPrimalPart v
   Ast.AstConstantS v -> v
   Ast.AstDS u _ -> u
@@ -1837,6 +1849,7 @@ astDualPart t = case t of
   Ast.AstGather sh v (vars, ix) -> astGatherR sh (astDualPart v) (vars, ix)
   Ast.AstCast v -> astCast $ astDualPart v
   Ast.AstLetHVectorIn vars l v -> astLetHVectorIn vars l (astDualPart v)
+  Ast.AstLetHFunIn var f v -> astLetHFunIn var f (astDualPart v)
   Ast.AstRFromS v -> astRFromS $ astDualPartS v
   Ast.AstConstant{}  -> Ast.AstDualPart t  -- this equals nil (not primal 0)
   Ast.AstD _ u' -> u'
@@ -1872,7 +1885,8 @@ astDualPartS t = case t of
   Ast.AstBuild1S (var, v) -> Ast.AstBuild1S (var, astDualPartS v)
   Ast.AstGatherS v (vars, ix) -> astGatherS (astDualPartS v) (vars, ix)
   Ast.AstCastS v -> astCastS $ astDualPartS v
-  Ast.AstLetHVectorInS vars l v -> astLetHVectorInS vars l (astDualPartS v)
+  Ast.AstLetHVectorInS var f v -> astLetHVectorInS var f (astDualPartS v)
+  Ast.AstLetHFunInS var f v -> astLetHFunInS var f (astDualPartS v)
   Ast.AstSFromR v -> astSFromR $ astDualPart v
   Ast.AstConstantS{}  -> Ast.AstDualPartS t  -- this equals nil (not primal 0)
   Ast.AstDS _ u' -> u'
@@ -1883,8 +1897,8 @@ astDualPartS t = case t of
   Ast.AstScanS{} -> Ast.AstDualPartS t
   Ast.AstScanDerS{} -> Ast.AstDualPartS t
 
--- Inlining doesn't work for this constructor, so we try to reduce it
--- to one for which it does.
+-- Inlining doesn't work for this let constructor, because it has many
+-- variables, so we try to reduce it to another for which it works.
 astLetHVectorInHVector
   :: forall s s2. (AstSpan s, AstSpan s2)
   => [AstDynamicVarName] -> AstHVector s
@@ -1945,7 +1959,8 @@ mapRankedShaped fRanked fShaped
                ( vd, typeRep @ty, typeRep @r3, Sh.shapeT @sh3
                , scalarDynamic d, rankDynamic d )
 
--- Inlining works for this constructor, so we don't try to eliminate it.
+-- Inlining works for this let constructor, because it has just one variable,
+-- unlike astLetHVectorIn, etc., so we don't try to eliminate it.
 astLetInHVector :: forall n r s s2.
                    (KnownNat n, GoodScalar r, AstSpan s, AstSpan s2)
                 => AstVarName (AstRanked s) r n -> AstRanked s r n
@@ -1955,7 +1970,8 @@ astLetInHVector var u v | astIsSmall True u =
   substituteAstHVector (SubstitutionPayloadRanked u) var v
 astLetInHVector var u v = Ast.AstLetInHVector var u v
 
--- Inlining works for this constructor, so we don't try to eliminate it.
+-- Inlining works for this let constructor, because it has just one variable,
+-- unlike astLetHVectorIn, etc., so we don't try to eliminate it.
 astLetInHVectorS :: forall sh r s s2.
                     (GoodScalar r, Sh.Shape sh, AstSpan s, AstSpan s2)
                  => AstVarName (AstShaped s) r sh -> AstShaped s r sh
@@ -1965,8 +1981,8 @@ astLetInHVectorS var u v | astIsSmallS True u =
   substituteAstHVector (SubstitutionPayloadShaped u) var v
 astLetInHVectorS var u v = Ast.AstLetInHVectorS var u v
 
--- Inlining doesn't work for this constructor, so we try to reduce it
--- to one for which it does.
+-- Inlining doesn't work for this let constructor, because it has many
+-- variables, so we try to reduce it to another for which it works.
 astLetHVectorIn
   :: forall n r s s2. (KnownNat n, GoodScalar r, AstSpan s, AstSpan s2)
   => [AstDynamicVarName] -> AstHVector s
@@ -1995,8 +2011,8 @@ astLetHVectorIn vars l v =
       _ -> Ast.AstLetHVectorIn vars l v
     _ -> error "astLetHVectorIn: wrong rank of the argument"
 
--- Inlining doesn't work for this constructor, so we try to reduce it
--- to one for which it does.
+-- Inlining doesn't work for this let constructor, because it has many
+-- variables, so we try to reduce it to another for which it works.
 astLetHVectorInS
   :: forall sh r s s2. (Sh.Shape sh, GoodScalar r, AstSpan s, AstSpan s2)
   => [AstDynamicVarName] -> AstHVector s
@@ -2024,6 +2040,30 @@ astLetHVectorInS vars l v =
         $ astLetHVectorInS vars d2 v
       _ -> Ast.AstLetHVectorInS vars l v
     _ -> error "astLetHVectorInS: impossible someNatVal"
+
+-- Inlining works for this let constructor, because it has just one variable,
+-- unlike astLetHVectorIn, etc., so we don't try to eliminate it.
+-- We assume functions are never small enough to justify inlining on the spot.
+astLetHFunIn
+  :: forall n r s s2. AstSpan s
+  => AstVarId -> AstHFun s
+  -> AstRanked s2 r n
+  -> AstRanked s2 r n
+astLetHFunIn = Ast.AstLetHFunIn
+
+astLetHFunInS
+  :: forall sh r s s2. AstSpan s
+  => AstVarId -> AstHFun s
+  -> AstShaped s2 r sh
+  -> AstShaped s2 r sh
+astLetHFunInS = Ast.AstLetHFunInS
+
+astLetHFunInHVector
+  :: forall s s2. AstSpan s
+  => AstVarId -> AstHFun s
+  -> AstHVector s2
+  -> AstHVector s2
+astLetHFunInHVector = Ast.AstLetHFunInHVector
 
 
 -- * The simplifying bottom-up pass
@@ -2121,6 +2161,8 @@ simplifyAst t = case t of
   AstConst{} -> t
   Ast.AstLetHVectorIn vars l v ->
     astLetHVectorIn vars (simplifyAstHVector l) (simplifyAst v)
+  Ast.AstLetHFunIn var f v ->
+    astLetHFunIn var (simplifyAstHFun f) (simplifyAst v)
   Ast.AstRFromS v -> astRFromS $ simplifyAstS v
   Ast.AstConstant v -> Ast.AstConstant (simplifyAst v)
   Ast.AstPrimalPart v -> astPrimalPart (simplifyAst v)
@@ -2186,6 +2228,8 @@ simplifyAstS t = case t of
   AstConstS{} -> t
   Ast.AstLetHVectorInS vars l v ->
     astLetHVectorInS vars (simplifyAstHVector l) (simplifyAstS v)
+  Ast.AstLetHFunInS var f v ->
+    astLetHFunInS var (simplifyAstHFun f) (simplifyAstS v)
   Ast.AstSFromR v -> astSFromR $ simplifyAst v
   Ast.AstConstantS v -> Ast.AstConstantS (simplifyAstS v)
   Ast.AstPrimalPartS v -> astPrimalPartS (simplifyAstS v)
@@ -2229,6 +2273,8 @@ simplifyAstHVector = \case
   Ast.AstHVector l -> Ast.AstHVector $ V.map simplifyAstDynamic l
   Ast.AstLetHVectorInHVector vars u v ->
     astLetHVectorInHVector vars (simplifyAstHVector u) (simplifyAstHVector v)
+  Ast.AstLetHFunInHVector var f v ->
+    astLetHFunInHVector var (simplifyAstHFun f) (simplifyAstHVector v)
   Ast.AstLetInHVector var u v ->
     astLetInHVector var (simplifyAst u) (simplifyAstHVector v)
   Ast.AstLetInHVectorS var u v ->
@@ -2277,6 +2323,12 @@ simplifyAstHVector = \case
                         (ws1, ws2, ws3, ws4, simplifyAstHVector bst)
                         (V.map simplifyAstDynamic acc0)
                         (V.map simplifyAstDynamic es)
+
+simplifyAstHFun
+  :: AstSpan s => AstHFun s -> AstHFun s
+simplifyAstHFun = \case
+  Ast.AstHFun vvars l -> Ast.AstHFun vvars $ V.map simplifyAstDynamic l
+  t@(Ast.AstVarHFun{}) -> t
 
 simplifyAstBool :: AstBool -> AstBool
 simplifyAstBool t = case t of
@@ -2746,6 +2798,11 @@ substitute1Ast i var v1 = case v1 of
       (Nothing, Nothing) -> Nothing
       (ml, mv) ->
         Just $ astLetHVectorIn vars (fromMaybe l ml) (fromMaybe v mv)
+  Ast.AstLetHFunIn var2 f v ->
+    case (substitute1AstHFun i var f, substitute1Ast i var v) of
+      (Nothing, Nothing) -> Nothing
+      (mf, mv) ->
+        Just $ astLetHFunIn var2 (fromMaybe f mf) (fromMaybe v mv)
   Ast.AstRFromS v -> astRFromS <$> substitute1AstS i var v
   Ast.AstConstant a -> Ast.AstConstant <$> substitute1Ast i var a
   Ast.AstPrimalPart a -> astPrimalPart <$> substitute1Ast i var a
@@ -2910,6 +2967,11 @@ substitute1AstS i var = \case
       (Nothing, Nothing) -> Nothing
       (ml, mv) ->
         Just $ astLetHVectorInS vars (fromMaybe l ml) (fromMaybe v mv)
+  Ast.AstLetHFunInS var2 f v ->
+    case (substitute1AstHFun i var f, substitute1AstS i var v) of
+      (Nothing, Nothing) -> Nothing
+      (mf, mv) ->
+        Just $ astLetHFunInS var2 (fromMaybe f mf) (fromMaybe v mv)
   Ast.AstSFromR v -> astSFromR <$> substitute1Ast i var v
   Ast.AstConstantS a -> Ast.AstConstantS <$> substitute1AstS i var a
   Ast.AstPrimalPartS a -> astPrimalPartS <$> substitute1AstS i var a
@@ -2997,6 +3059,12 @@ substitute1AstHVector i var = \case
       (Nothing, Nothing) -> Nothing
       (mu, mv) ->
         Just $ astLetHVectorInHVector vars2 (fromMaybe u mu) (fromMaybe v mv)
+  Ast.AstLetHFunInHVector var2 f v ->
+    case ( substitute1AstHFun i var f
+         , substitute1AstHVector i var v ) of
+      (Nothing, Nothing) -> Nothing
+      (mf, mv) ->
+        Just $ astLetHFunInHVector var2 (fromMaybe f mf) (fromMaybe v mv)
   Ast.AstLetInHVector var2 u v ->
     case (substitute1Ast i var u, substitute1AstHVector i var v) of
       (Nothing, Nothing) -> Nothing
@@ -3070,6 +3138,18 @@ substitute1AstHVector i var = \case
         Just $ Ast.AstMapAccumLDer k accShs bShs eShs f df dr
                                    (fromMaybe acc0 macc0)
                                    (fromMaybe es mes)
+
+substitute1AstHFun
+  :: (GoodScalar r2, AstSpan s, AstSpan s2)
+  => SubstitutionPayload s2 r2 -> AstVarId -> AstHFun s
+  -> Maybe (AstHFun s)
+substitute1AstHFun i var = \case
+  Ast.AstHFun vvars args ->
+    let margs = V.map (substitute1AstDynamic i var) args
+    in if V.any isJust margs
+       then Just $ Ast.AstHFun vvars $ V.zipWith fromMaybe args margs
+       else Nothing
+  Ast.AstVarHFun _var2 -> Nothing  -- TODO: function payloads
 
 substitute1AstBool :: (GoodScalar r2, AstSpan s2)
                    => SubstitutionPayload s2 r2 -> AstVarId -> AstBool

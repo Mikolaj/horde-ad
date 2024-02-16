@@ -257,6 +257,14 @@ build1V k (var, v00) =
              varsOut (build1VOccurenceUnknownHVector k (var, l))
                      (build1VOccurenceUnknownRefresh k (var, vOut))
       _ -> error "build1V: impossible someNatVal"
+    Ast.AstLetHFunIn var1 f v ->
+      -- We take advantage of the fact that f contains no free index
+      -- variables (it may contain function variables, though).
+      -- If it could contain index variables, e.g., in a conditional
+      -- expression, we'd need to define operations that
+      -- increase the rank of a function (is this the same
+      -- as increasing the rank of the function body?), etc.
+      astLetHFunIn var1 f $ build1V k (var, v)
     Ast.AstRFromS @sh1 v -> case someNatVal $ toInteger k of
       Just (SomeNat @k _proxy) ->
         Ast.AstRFromS @(k ': sh1) $ build1VS (var, v)
@@ -591,6 +599,9 @@ build1VS (var, v00) =
       in astLetHVectorInS
            varsOut (build1VOccurenceUnknownHVector (valueOf @k) (var, l))
                    (build1VOccurenceUnknownRefreshS (var, vOut))
+    Ast.AstLetHFunInS var1 f v ->
+      -- We take advantage of the fact that f contains no free index vars.
+      astLetHFunInS var1 f $ build1VS (var, v)
     Ast.AstSFromR v -> Ast.AstSFromR $ build1V (valueOf @k) (var, v)
 
     Ast.AstConstantS v -> traceRule $
@@ -820,6 +831,9 @@ build1VHVector k (var, v0) =
              varsOut (build1VOccurenceUnknownHVector k (var, u))
                      (build1VOccurenceUnknownHVectorRefresh k (var, vOut))
       _ -> error "build1VHVector: impossible someNatVal"
+  Ast.AstLetHFunInHVector var1 f v ->
+    -- We take advantage of the fact that f contains no free index vars.
+    astLetHFunInHVector var1 f $ build1VHVector k (var, v)
   Ast.AstLetInHVector @_ @r1 @s1 var1@(AstVarName oldVarId) u v ->
     let var2 = AstVarName oldVarId  -- changed shape; TODO: shall we rename?
         sh = shapeAst u

@@ -447,6 +447,10 @@ interpretAst !env = \case
                                   , shapeVoidHVector (dshape @ranked lt) )) $
                  extendEnvPars vars lw env
     in rletHVectorIn lt0 lt (\lw -> interpretAst (env2 lw) v)
+  AstLetHFunIn var f v -> undefined {-
+    let g = interpretAstHFun env f
+        env2 h = extendEnvFun var h env
+    in rletHFunIn g (\h -> interpretAst (env2 h) v) -}
   AstRFromS v -> rfromS $ interpretAstS env v
   AstConstant a -> rconstant $ interpretAstPrimal env a
   AstPrimalPart a -> interpretAst env a

@@ -198,6 +198,16 @@ inlineAst memo v0 = case v0 of
     let (memo1, l2) = inlineAstHVector memo l
         (memo2, v2) = inlineAst memo1 v
     in (memo2, Ast.AstLetHVectorIn vars l2 v2)
+  Ast.AstLetHFunIn var f v ->
+    -- We assume there are no nested lets with the same variable.
+    -- We assume functions are never small enough to justify inlining
+    -- into more than one place.
+    let (memo1, v2) = inlineAst memo v
+        (memo2, f2) = inlineAstHFun memo f
+    in case EM.findWithDefault 0 var memo1 of
+      0 -> (memo1, v2)
+-- TODO:      1 -> (memo2, substituteAst (SubstitutionPayloadFun f2) var v2)
+      _ -> (memo2, Ast.AstLetHFunIn var f2 v2)
   Ast.AstRFromS v -> second Ast.AstRFromS $ inlineAstS memo v
   Ast.AstConstant a -> second Ast.AstConstant $ inlineAst memo a
   Ast.AstPrimalPart a -> second Ast.AstPrimalPart $ inlineAst memo a
@@ -355,6 +365,16 @@ inlineAstS memo v0 = case v0 of
     let (memo1, l2) = inlineAstHVector memo l
         (memo2, v2) = inlineAstS memo1 v
     in (memo2, Ast.AstLetHVectorInS vars l2 v2)
+  Ast.AstLetHFunInS var f v ->
+    -- We assume there are no nested lets with the same variable.
+    -- We assume functions are never small enough to justify inlining
+    -- into more than one place.
+    let (memo1, v2) = inlineAstS memo v
+        (memo2, f2) = inlineAstHFun memo f
+    in case EM.findWithDefault 0 var memo1 of
+      0 -> (memo1, v2)
+-- TODO:      1 -> (memo2, substituteAstS (SubstitutionPayloadFun f2) var v2)
+      _ -> (memo2, Ast.AstLetHFunInS var f2 v2)
   Ast.AstSFromR v -> second Ast.AstSFromR $ inlineAst memo v
   Ast.AstConstantS a -> second Ast.AstConstantS $ inlineAstS memo a
   Ast.AstPrimalPartS a -> second Ast.AstPrimalPartS $ inlineAstS memo a
@@ -420,6 +440,16 @@ inlineAstHVector memo v0 = case v0 of
     let (memo1, u2) = inlineAstHVector memo u
         (memo2, v2) = inlineAstHVector memo1 v
     in (memo2, Ast.AstLetHVectorInHVector vars u2 v2)
+  Ast.AstLetHFunInHVector var f v ->
+    -- We assume there are no nested lets with the same variable.
+    -- We assume functions are never small enough to justify inlining
+    -- into more than one place.
+    let (memo1, v2) = inlineAstHVector memo v
+        (memo2, f2) = inlineAstHFun memo f
+    in case EM.findWithDefault 0 var memo1 of
+      0 -> (memo1, v2)
+-- TODO:      1 -> (memo2, substituteAstHVector (SubstitutionPayloadFun f2) var v2)
+      _ -> (memo2, Ast.AstLetHFunInHVector var f2 v2)
   Ast.AstLetInHVector var u v ->
     -- We assume there are no nested lets with the same variable.
     let vv = varNameToAstVarId var
@@ -514,6 +544,19 @@ inlineAstHVector memo v0 = case v0 of
                                    (vs1, vs2, vs3, vs4, ast2)
                                    (ws1, ws2, ws3, ws4, bst2)
                                    acc02 es2)
+
+-- This is implemented in full generality, without taking advantage
+-- of no outside free variables in function representations.
+inlineAstHFun
+  :: AstSpan s
+  => AstMemo -> AstHFun s -> (AstMemo, AstHFun s)
+inlineAstHFun memo v0 = case v0 of
+  Ast.AstHFun vvars l ->
+    second (Ast.AstHFun vvars) $ mapAccumR inlineAstDynamic memo l
+  Ast.AstVarHFun var ->
+    let f Nothing = Just 1
+        f (Just count) = Just $ succ count
+    in (EM.alter f var memo, v0)
 
 inlineAstBool :: AstMemo -> AstBool -> (AstMemo, AstBool)
 inlineAstBool memo v0 = case v0 of
@@ -635,6 +678,11 @@ unletAst env t = case t of
          else let env2 = env {unletSet = ES.insert vv (unletSet env)}
               in Ast.AstLetHVectorIn
                    vars (unletAstHVector env l) (unletAst env2 v)
+  Ast.AstLetHFunIn var f v ->
+    if var `ES.member` unletSet env
+    then unletAst env v
+    else let env2 = env {unletSet = ES.insert var (unletSet env)}
+         in Ast.AstLetHFunIn var (unletAstHFun env f) (unletAst env2 v)
   Ast.AstRFromS v -> Ast.AstRFromS (unletAstS env v)
   Ast.AstConstant v -> Ast.AstConstant (unletAst env v)
   Ast.AstPrimalPart v -> Ast.AstPrimalPart (unletAst env v)
@@ -720,6 +768,11 @@ unletAstS env t = case t of
          else let env2 = env {unletSet = ES.insert vv (unletSet env)}
               in Ast.AstLetHVectorInS
                    vars (unletAstHVector env l) (unletAstS env2 v)
+  Ast.AstLetHFunInS var f v ->
+    if var `ES.member` unletSet env
+    then unletAstS env v
+    else let env2 = env {unletSet = ES.insert var (unletSet env)}
+         in Ast.AstLetHFunInS var (unletAstHFun env f) (unletAstS env2 v)
   Ast.AstSFromR v -> Ast.AstSFromR (unletAst env v)
   Ast.AstConstantS v -> Ast.AstConstantS (unletAstS env v)
   Ast.AstPrimalPartS v -> Ast.AstPrimalPartS (unletAstS env v)
@@ -761,6 +814,12 @@ unletAstHVector env = \case
          else let env2 = env {unletSet = ES.insert vv (unletSet env)}
               in Ast.AstLetHVectorInHVector
                    vars (unletAstHVector env u) (unletAstHVector env2 v)
+  Ast.AstLetHFunInHVector var f v ->
+    if var `ES.member` unletSet env
+    then unletAstHVector env v
+    else let env2 = env {unletSet = ES.insert var (unletSet env)}
+         in Ast.AstLetHFunInHVector var (unletAstHFun env f)
+                                        (unletAstHVector env2 v)
   Ast.AstLetInHVector var u v ->
     let vv = varNameToAstVarId var
     in if vv `ES.member` unletSet env
@@ -809,6 +868,12 @@ unletAstHVector env = \case
     Ast.AstMapAccumLDer k accShs bShs eShs f df rf
                         (V.map (unletAstDynamic env) acc0)
                         (V.map (unletAstDynamic env) es)
+
+unletAstHFun
+  :: AstSpan s => UnletEnv -> AstHFun s -> AstHFun s
+unletAstHFun env = \case
+  Ast.AstHFun vvars l -> Ast.AstHFun vvars $ V.map (unletAstDynamic env) l
+  t@(Ast.AstVarHFun{}) -> t
 
 unletAstBool :: UnletEnv -> AstBool -> AstBool
 unletAstBool env t = case t of

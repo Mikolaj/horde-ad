@@ -15,7 +15,7 @@ module HordeAd.Core.Ast
   , AstArtifactRev, AstArtifactFwd
   , AstIndex, AstVarList, AstIndexS, AstVarListS
     -- * ASTs
-  , AstRanked(..), AstShaped(..), AstDynamic, AstHVector(..)
+  , AstRanked(..), AstShaped(..), AstDynamic, AstHVector(..), AstHFun(..)
   , AstBool(..), OpCodeNum1(..), OpCodeNum2(..), OpCode1(..), OpCode2(..)
   , OpCodeIntegral2(..), OpCodeBool(..), OpCodeRel(..)
     -- * Boolean definitions and instances
@@ -272,8 +272,12 @@ data AstRanked :: AstSpanType -> RankedTensorType where
                   => [AstDynamicVarName] -> AstHVector s
                   -> AstRanked s2 r n
                   -> AstRanked s2 r n
+  AstLetHFunIn :: AstSpan s
+               => AstVarId -> AstHFun s
+               -> AstRanked s2 r n
+               -> AstRanked s2 r n
   AstRFromS :: Sh.Shape sh
-          => AstShaped s r sh -> AstRanked s r (Sh.Rank sh)
+            => AstShaped s r sh -> AstRanked s r (Sh.Rank sh)
 
   -- For the forbidden half of the RankedTensor class:
   AstConstant :: AstRanked PrimalSpan r n -> AstRanked FullSpan r n
@@ -436,8 +440,12 @@ data AstShaped :: AstSpanType -> ShapedTensorType where
                    => [AstDynamicVarName] -> AstHVector s
                    -> AstShaped s2 r sh
                    -> AstShaped s2 r sh
+  AstLetHFunInS :: AstSpan s
+                => AstVarId -> AstHFun s
+                -> AstShaped s2 r sh
+                -> AstShaped s2 r sh
   AstSFromR :: (Sh.Shape sh, KnownNat (Sh.Rank sh))
-          => AstRanked s r (Sh.Rank sh) -> AstShaped s r sh
+            => AstRanked s r (Sh.Rank sh) -> AstShaped s r sh
 
   -- For the forbidden half of the ShapedTensor class:
   AstConstantS :: AstShaped PrimalSpan r sh -> AstShaped FullSpan r sh
@@ -505,7 +513,7 @@ deriving instance (GoodScalar r, Sh.Shape sh) => Show (AstShaped s r sh)
 type AstDynamic (s :: AstSpanType) = DynamicTensor (AstRanked s)
 
 type role AstHVector nominal
-data AstHVector s where
+data AstHVector :: AstSpanType -> Type where
   -- There are existential variables inside DynamicTensor here.
   AstHVector :: HVector (AstRanked s) -> AstHVector s
   -- The operations below is why we need AstHVector and so HVectorOf.
@@ -516,6 +524,10 @@ data AstHVector s where
     => [AstDynamicVarName] -> AstHVector s
     -> AstHVector s2
     -> AstHVector s2
+  AstLetHFunInHVector :: AstSpan s
+                      => AstVarId -> AstHFun s
+                      -> AstHVector s2
+                      -> AstHVector s2
   -- The r variable is existential here, so a proper specialization needs
   -- to be picked explicitly at runtime.
   AstLetInHVector :: (KnownNat n, GoodScalar r, AstSpan s)
@@ -615,6 +627,13 @@ data AstHVector s where
     -> AstHVector s
 
 deriving instance Show (AstHVector s)
+
+type role AstHFun nominal
+data AstHFun :: AstSpanType -> Type where
+  AstHFun :: [[AstDynamicVarName]] -> HVector (AstRanked s) -> AstHFun s
+  AstVarHFun :: AstVarId -> AstHFun s
+
+deriving instance Show (AstHFun s)
 
 data AstBool where
   AstBoolNot :: AstBool -> AstBool
