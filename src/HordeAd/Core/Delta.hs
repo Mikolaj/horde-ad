@@ -257,9 +257,9 @@ data DeltaR :: RankedTensorType -> RankedTensorType where
   CastR :: (GoodScalar r1, RealFrac r1, RealFrac r2)
         => DeltaR ranked r1 n -> DeltaR ranked r2 n
   RFromS :: forall sh r ranked. Sh.Shape sh
-       => DeltaS (ShapedOf ranked) r sh
-       -> DeltaR ranked r (Sh.Rank sh)
-  HToR :: DeltaH ranked -> Int -> DeltaR ranked r n
+         => DeltaS (ShapedOf ranked) r sh
+         -> DeltaR ranked r (Sh.Rank sh)
+  RFromH :: DeltaH ranked -> Int -> DeltaR ranked r n
 
 {- Fails due to @forall f@. Replaced by a manually fixed version at the end
    of this file.
@@ -391,9 +391,9 @@ data DeltaS :: ShapedTensorType -> ShapedTensorType where
   CastS :: (GoodScalar r1, RealFrac r1, RealFrac r2)
         => DeltaS shaped r1 sh -> DeltaS shaped r2 sh
   SFromR :: forall sh r shaped. KnownNat (Sh.Rank sh)
-       => DeltaR (RankedOf shaped) r (Sh.Rank sh)
-       -> DeltaS shaped r sh
-  HToS :: DeltaH (RankedOf shaped) -> Int -> DeltaS shaped r sh
+         => DeltaR (RankedOf shaped) r (Sh.Rank sh)
+         -> DeltaS shaped r sh
+  SFromH :: DeltaH (RankedOf shaped) -> Int -> DeltaS shaped r sh
 
 {- Fails due to @forall f@. Replaced by a manually fixed version at the end
    of this file.
@@ -498,7 +498,7 @@ shapeDeltaR = \case
   ScanR p _as _df _rf _x0' _as' -> rshape p
   CastR d -> shapeDeltaR d
   RFromS @sh _ -> listShapeToShape $ Sh.shapeT @sh
-  HToR d i -> listShapeToShape $ shapeVoidDynamic (shapeDeltaH d V.! i)
+  RFromH d i -> listShapeToShape $ shapeVoidDynamic (shapeDeltaH d V.! i)
 
 lengthDeltaR :: forall ranked r n.
                 ( GoodScalar r, KnownNat n
@@ -1089,7 +1089,7 @@ evalR !s !c = let (abShared, cShared) = rregister c (astBindings s)
 
   RFromS (SFromR d) -> evalR s c d  -- no information lost, so no checks
   RFromS d -> evalS s (sfromR c) d
-  HToR d i ->
+  RFromH d i ->
     let cs = V.map dynamicFromVoid $ shapeDeltaH d
         ci = DynamicRanked c
     in assert (dynamicsMatch (cs V.! i) ci) $
@@ -1330,7 +1330,7 @@ evalS !s !c = let (abShared, cShared) = sregister c (astBindings s)
       Just Refl -> evalS s c d
       _ -> error "evalS: different shapes in SFromR(RFromS)"
   SFromR d -> evalR s (rfromS c) d
-  HToS d i ->
+  SFromH d i ->
     let cs = V.map dynamicFromVoid $ shapeDeltaH d
         ci = DynamicShaped c
     in assert (dynamicsMatch (cs V.! i) ci) $
@@ -1767,10 +1767,10 @@ fwdR dimR params s = \case
   RFromS (SFromR d) ->
     fwdR dimR params s d  -- no information lost, so no checks
   RFromS d -> second rfromS $ fwdS dimR params s d
-  HToR d i -> let (s2, v) = fwdH dimR params s d
-                  doms = shapeDeltaH d
-              in (s2, rletHVectorIn doms v $ \res ->
-                        rfromD $ res V.! i)
+  RFromH d i -> let (s2, v) = fwdH dimR params s d
+                    doms = shapeDeltaH d
+                in (s2, rletHVectorIn doms v $ \res ->
+                          rfromD $ res V.! i)
 
 fwdS
   :: forall sh r ranked shaped.
@@ -1912,10 +1912,10 @@ fwdS dimR params s = \case
       Just Refl -> fwdS dimR params s d
       _ -> error "fwdS: different shapes in SFromR(RFromS)"
   SFromR d -> second sfromR $ fwdR dimR params s d
-  HToS d i -> let (s2, v) = fwdH dimR params s d
-                  doms = shapeDeltaH d
-              in (s2, sletHVectorIn doms v $ \res ->
-                        sfromD $ res V.! i)
+  SFromH d i -> let (s2, v) = fwdH dimR params s d
+                    doms = shapeDeltaH d
+                in (s2, sletHVectorIn doms v $ \res ->
+                          sfromD $ res V.! i)
 
 fwdH
   :: forall ranked shaped. (ADReady ranked, shaped ~ ShapedOf ranked)
@@ -2225,11 +2225,11 @@ instance (KnownNat n0,
            (showString "RFromS ") (showsPrec 11 b1_adkl))
   showsPrec
     a_a2Gg0
-    (HordeAd.Core.Delta.HToR b1_a2Gg1 b2_a2Gg2)
+    (HordeAd.Core.Delta.RFromH b1_a2Gg1 b2_a2Gg2)
     = showParen
         (a_a2Gg0 >= 11)
         ((.)
-           (showString "HToR ")
+           (showString "RFromH ")
            ((.)
               (showsPrec 11 b1_a2Gg1)
               ((.)
@@ -2453,11 +2453,11 @@ instance (ShapedOf (RankedOf shaped) ~ shaped,
            (showString "SFromR ") (showsPrec 11 b1_adv9))
   showsPrec
     a_a2Gei
-    (HordeAd.Core.Delta.HToS b1_a2Gej b2_a2Gek)
+    (HordeAd.Core.Delta.SFromH b1_a2Gej b2_a2Gek)
     = showParen
         (a_a2Gei >= 11)
         ((.)
-           (showString "HToS ")
+           (showString "SFromH ")
            ((.)
               (showsPrec 11 b1_a2Gej)
               ((.)

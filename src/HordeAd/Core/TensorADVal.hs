@@ -676,8 +676,8 @@ instance ADReadyBoth ranked shaped
         primal = accFin V.++ bs
         dual = wrapDeltaH $ MapAccumR k accShs bShs eShs q es df rf acc0' es'
         selectDual i d = case d of
-          DynamicRanked t -> DynamicRanked $ dDnotShared l5 t (HToR dual i)
-          DynamicShaped t -> DynamicShaped $ dDnotShared l5 t (HToS dual i)
+          DynamicRanked t -> DynamicRanked $ dDnotShared l5 t (RFromH dual i)
+          DynamicShaped t -> DynamicShaped $ dDnotShared l5 t (SFromH dual i)
           DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
           DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
     in V.imap selectDual primal
@@ -762,8 +762,8 @@ instance ADReadyBoth ranked shaped
         primal = accFin V.++ bs
         dual = wrapDeltaH $ MapAccumL k accShs bShs eShs q es df rf acc0' es'
         selectDual i d = case d of
-          DynamicRanked t -> DynamicRanked $ dDnotShared l5 t (HToR dual i)
-          DynamicShaped t -> DynamicShaped $ dDnotShared l5 t (HToS dual i)
+          DynamicRanked t -> DynamicRanked $ dDnotShared l5 t (RFromH dual i)
+          DynamicShaped t -> DynamicShaped $ dDnotShared l5 t (SFromH dual i)
           DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
           DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
     in V.imap selectDual primal
