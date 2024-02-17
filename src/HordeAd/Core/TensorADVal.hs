@@ -627,9 +627,9 @@ instance ADReadyBoth ranked shaped
           $ fst $ cfwdOnHVector (acc V.++ e) g (dacc V.++ de)
         rf :: forall f. ADReady f
            => HVector f -> HVector f -> HVector f -> HVector f -> HVectorOf f
-        rf dx dy acc e =
+        rf dx db acc e =
           fst $ crevOnHVector
-                  (Just $ HVectorPseudoTensor $ dmkHVector $ dx V.++ dy)
+                  (Just $ HVectorPseudoTensor $ dmkHVector $ dx V.++ db)
                   g
                   (acc V.++ e)
     in dmapAccumRDer k accShs bShs eShs f df rf acc0 es
@@ -709,9 +709,9 @@ instance ADReadyBoth ranked shaped
           $ fst $ cfwdOnHVector (acc V.++ e) g (dacc V.++ de)
         rf :: forall f. ADReady f
            => HVector f -> HVector f -> HVector f -> HVector f -> HVectorOf f
-        rf dx dy acc e =
+        rf dx db acc e =
           fst $ crevOnHVector
-                  (Just $ HVectorPseudoTensor $ dmkHVector $ dx V.++ dy)
+                  (Just $ HVectorPseudoTensor $ dmkHVector $ dx V.++ db)
                   g
                   (acc V.++ e)
     in dmapAccumLDer k accShs bShs eShs f df rf acc0 es

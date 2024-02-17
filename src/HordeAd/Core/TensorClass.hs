@@ -970,22 +970,22 @@ class HVectorTensor (ranked :: RankedTensorType)
     -> (forall f. ADReady f
         => HVector f  -- ^ acc, accumulator :: accShs
         -> HVector f  -- ^ e, element of es :: eShs
-        -> HVectorOf f)  -- ^ (x, y) :: (accShs, bShs)
+        -> HVectorOf f)  -- ^ (x, b) :: (accShs, bShs)
     -> (forall f. ADReady f
         => HVector f  -- ^ dacc :: accShs
         -> HVector f  -- ^ de :: eShs
         -> HVector f  -- ^ acc :: accShs
         -> HVector f  -- ^ e :: eShs
-        -> HVectorOf f)  -- ^ (dx, dy) :: (accShs, bShs)
+        -> HVectorOf f)  -- ^ (dx, db) :: (accShs, bShs)
     -> (forall f. ADReady f
         => HVector f  -- ^ dx :: accShs
-        -> HVector f  -- ^ dy :: bShs
+        -> HVector f  -- ^ db :: bShs
         -> HVector f  -- ^ acc :: accShs
         -> HVector f  -- ^ e :: eShs
-        -> HVectorOf f)  -- ^ (dx, de) :: (accShs, eShs)
+        -> HVectorOf f)  -- ^ (dacc, de) :: (accShs, eShs)
     -> HVector ranked  -- ^ acc0 :: accShs
     -> HVector ranked  -- ^ es :: k ': eShs
-    -> HVectorOf ranked  -- ^ (x, ys) :: (accShs, k ': bShs)
+    -> HVectorOf ranked  -- ^ (x, bs) :: (accShs, k ': bShs)
   -- | A strict left macAccum.
   dmapAccumL
     :: SNat k

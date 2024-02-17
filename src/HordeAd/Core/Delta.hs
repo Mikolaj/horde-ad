@@ -1365,20 +1365,20 @@ evalH !s !c = let (abShared, cShared) =
                    , V.slice bLen accLen hv
                    , V.drop (bLen + accLen) hv )
         (c0, crest) = hvToPair cShared
-        rdxdesUnshared =
+        dacc_desUnshared =
           dmapAccumL k accShs eShs (bShs V.++ accShs V.++ eShs)
-                     (\dx dy_acc_e ->
-                        let (dy, acc, e) = hvTo3 dy_acc_e
-                        in rf dx dy acc e)
+                     (\dx db_acc_e ->
+                        let (db, acc, e) = hvTo3 db_acc_e
+                        in rf dx db acc e)
                      c0
                      (V.concat [crest, q, es])
-        (abShared2, rdxdes) =
+        (abShared2, dacc_des) =
           dregister (accShs V.++ voidFromHVector es)
-                    rdxdesUnshared (astBindings sShared)
+                    dacc_desUnshared (astBindings sShared)
         s2 = sShared {astBindings = abShared2}
-        (cacc0, rces) = hvToPair rdxdes
-        s3 = evalHVector s2 cacc0 acc0'
-    in evalHVector s3 rces es'
+        (dacc, des) = hvToPair dacc_des
+        s3 = evalHVector s2 dacc acc0'
+    in evalHVector s3 des es'
   MapAccumL k accShs bShs eShs q es _df rf acc0' es' ->
     let accLen = V.length accShs
         hvToPair :: HVector f -> (HVector f, HVector f)
@@ -1389,20 +1389,20 @@ evalH !s !c = let (abShared, cShared) =
                    , V.slice bLen accLen hv
                    , V.drop (bLen + accLen) hv )
         (c0, crest) = hvToPair cShared
-        rdxdesUnshared =
+        dacc_desUnshared =
           dmapAccumR k accShs eShs (bShs V.++ accShs V.++ eShs)
-                     (\dx dy_acc_e ->
-                        let (dy, acc, e) = hvTo3 dy_acc_e
-                        in rf dx dy acc e)
+                     (\dx db_acc_e ->
+                        let (db, acc, e) = hvTo3 db_acc_e
+                        in rf dx db acc e)
                      c0
                      (V.concat [crest, q, es])
-        (abShared2, rdxdes) =
+        (abShared2, dacc_des) =
           dregister (accShs V.++ voidFromHVector es)
-                    rdxdesUnshared (astBindings sShared)
+                    dacc_desUnshared (astBindings sShared)
         s2 = sShared {astBindings = abShared2}
-        (cacc0, rces) = hvToPair rdxdes
-        s3 = evalHVector s2 cacc0 acc0'
-    in evalHVector s3 rces es'
+        (dacc, des) = hvToPair dacc_des
+        s3 = evalHVector s2 dacc acc0'
+    in evalHVector s3 des es'
 
 evalFromnMap :: (ADReady ranked, shaped ~ ShapedOf ranked)
              => EvalState ranked -> EvalState ranked
