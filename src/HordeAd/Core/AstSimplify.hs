@@ -1901,7 +1901,7 @@ astHApply :: AstSpan s => AstHFun s -> [HVector (AstRanked s)] -> AstHVector s
 astHApply t ll = case t of
   Ast.AstHFun vvars l ->
     foldr (\(vars, l2) -> astLetHVectorInHVector vars (Ast.AstHVector l2))
-          (Ast.AstHVector l) (zip vvars ll)
+          l (zip vvars ll)
   Ast.AstVarHFun{} -> Ast.AstHApply t ll
 
 -- Inlining doesn't work for this let constructor, because it has many
@@ -2336,7 +2336,7 @@ simplifyAstHVector = \case
 simplifyAstHFun
   :: AstSpan s => AstHFun s -> AstHFun s
 simplifyAstHFun = \case
-  Ast.AstHFun vvars l -> Ast.AstHFun vvars $ V.map simplifyAstDynamic l
+  Ast.AstHFun vvars l -> Ast.AstHFun vvars $ simplifyAstHVector l
   t@(Ast.AstVarHFun{}) -> t
 
 simplifyAstBool :: AstBool -> AstBool
@@ -3159,12 +3159,12 @@ substitute1AstHFun
   => SubstitutionPayload s2 r2 -> AstVarId -> AstHFun s
   -> Maybe (AstHFun s)
 substitute1AstHFun i var = \case
-  Ast.AstHFun vvars args ->
-    let margs = V.map (substitute1AstDynamic i var) args
-    in if V.any isJust margs
-       then Just $ Ast.AstHFun vvars $ V.zipWith fromMaybe args margs
+  Ast.AstHFun vvars l ->
+    let ml = substitute1AstHVector i var l
+    in if isJust ml
+       then Just $ Ast.AstHFun vvars $ fromMaybe l ml
        else Nothing
-  Ast.AstVarHFun _shs _var2 -> Nothing  -- TODO: function payloads
+  Ast.AstVarHFun _shss _shs _var2 -> Nothing  -- TODO: function payloads
 
 substitute1AstBool :: (GoodScalar r2, AstSpan s2)
                    => SubstitutionPayload s2 r2 -> AstVarId -> AstBool

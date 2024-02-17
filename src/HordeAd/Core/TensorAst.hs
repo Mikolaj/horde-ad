@@ -416,6 +416,7 @@ instance AstSpan s => RankedTensor (AstRanked s) where
   rfromIntegral = fromPrimal . AstFromIntegral . astSpanPrimal
   rconst = fromPrimal . AstConst
   rletHVectorIn = astLetHVectorInFun
+  rletHFunIn = astLetHFunInFun
   rfromS = astRFromS
 
   rletWrap l u | Just Refl <- sameAstSpan @s @PrimalSpan =
@@ -465,6 +466,16 @@ astLetHVectorInFun
 {-# INLINE astLetHVectorInFun #-}
 astLetHVectorInFun a0 a f =
   fun1DToAst a0 $ \ !vars !asts -> astLetHVectorIn vars a (f asts)
+
+astLetHFunInFun
+  :: forall n s r. AstSpan s
+  => AstHFun s -> (AstHFun s -> AstRanked s r n)
+  -> AstRanked s r n
+{-# INLINE astLetHFunInFun #-}
+astLetHFunInFun a f =
+  let shss = domainShapesAstHFun a
+      shs = shapeAstHFun a
+  in fun1ToAst $ \ !var -> astLetHFunIn var a (f (AstVarHFun shss shs var))
 
 astSpanPrimal :: forall s r n. (KnownNat n, GoodScalar r, AstSpan s)
               => AstRanked s r n -> AstRanked PrimalSpan r n
@@ -547,6 +558,7 @@ instance AstSpan s => ShapedTensor (AstShaped s) where
   sfromIntegral = fromPrimalS . AstFromIntegralS . astSpanPrimalS
   sconst = fromPrimalS . AstConstS
   sletHVectorIn = astLetHVectorInFunS
+  sletHFunIn = astLetHFunInFunS
   sfromR = astSFromR
 
   sletWrap l u | Just Refl <- sameAstSpan @s @PrimalSpan =
@@ -593,6 +605,16 @@ astLetHVectorInFunS
 {-# INLINE astLetHVectorInFunS #-}
 astLetHVectorInFunS a0 a f =
   fun1DToAst a0 $ \ !vars !asts -> astLetHVectorInS vars a (f asts)
+
+astLetHFunInFunS
+  :: forall sh s r. AstSpan s
+  => AstHFun s -> (AstHFun s -> AstShaped s r sh)
+  -> AstShaped s r sh
+{-# INLINE astLetHFunInFunS #-}
+astLetHFunInFunS a f =
+  let shss = domainShapesAstHFun a
+      shs = shapeAstHFun a
+  in fun1ToAst $ \ !var -> astLetHFunInS var a (f (AstVarHFun shss shs var))
 
 astSpanPrimalS :: forall s r sh. (Sh.Shape sh, GoodScalar r, AstSpan s)
                => AstShaped s r sh -> AstShaped PrimalSpan r sh
@@ -641,6 +663,8 @@ astBuild1VectorizeS f =
 instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   dshape = shapeAstHVector
   dmkHVector = AstHVector
+  dlambda shss f = fun1LToAst shss $ \ !vvars !ll -> AstHFun vvars (unHFun f ll)
+  dHApply = AstHApply
   dunHVector shs hVectorOf =
     let f :: Int -> DynamicTensor VoidTensor -> AstDynamic s
         f i = \case
@@ -654,6 +678,7 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
         hv = V.imap f shs
     in assert (voidHVectorMatches shs hv) hv
   dletHVectorInHVector = astLetHVectorInHVectorFun
+  dletHFunInHVector = astLetHFunInHVectorFun
   rletInHVector = astLetInHVectorFun
   sletInHVector = astLetInHVectorFunS
   -- For convenience and simplicity we define this for all spans,
@@ -1063,6 +1088,17 @@ astLetHVectorInHVectorFun
 astLetHVectorInHVectorFun a0 a f =
   fun1DToAst a0 $ \ !vars !asts -> astLetHVectorInHVector vars a (f asts)
 
+astLetHFunInHVectorFun
+  :: forall s. AstSpan s
+  => AstHFun s -> (AstHFun s -> AstHVector s)
+  -> AstHVector s
+{-# INLINE astLetHFunInHVectorFun #-}
+astLetHFunInHVectorFun a f =
+  let shss = domainShapesAstHFun a
+      shs = shapeAstHFun a
+  in fun1ToAst $ \ !var ->
+       astLetHFunInHVector var a (f (AstVarHFun shss shs var))
+
 astLetInHVectorFun :: (KnownNat n, GoodScalar r, AstSpan s)
                    => AstRanked s r n -> (AstRanked s r n -> AstHVector s)
                    -> AstHVector s
@@ -1241,6 +1277,7 @@ instance AstSpan s => RankedTensor (AstNoVectorize s) where
   rletHVectorIn a0 a f =
     AstNoVectorize $ astLetHVectorInFun
                        a0 a (unAstNoVectorize . f . noVectorizeHVector)
+  rletHFunIn a f = AstNoVectorize $ astLetHFunInFun a (unAstNoVectorize . f)
   rfromS = AstNoVectorize . rfromS @(AstRanked s) . unAstNoVectorizeS
 
   rconstant = AstNoVectorize . fromPrimal
@@ -1293,6 +1330,7 @@ instance AstSpan s => ShapedTensor (AstNoVectorizeS s) where
   sletHVectorIn a0 a f =
     AstNoVectorizeS $ astLetHVectorInFunS
                         a0 a (unAstNoVectorizeS . f . noVectorizeHVector)
+  sletHFunIn a f = AstNoVectorizeS $ astLetHFunInFunS a (unAstNoVectorizeS . f)
   sfromR = AstNoVectorizeS . sfromR @(AstShaped s) . unAstNoVectorize
 
   sconstant = AstNoVectorizeS . fromPrimalS
@@ -1305,10 +1343,13 @@ instance AstSpan s => ShapedTensor (AstNoVectorizeS s) where
 instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
   dshape = dshape @(AstRanked s)
   dmkHVector hVector = dmkHVector @(AstRanked s) (unNoVectorizeHVector hVector)
+  dlambda = dlambda @(AstRanked s)
+  dHApply f ll = dHApply @(AstRanked s) f (map unNoVectorizeHVector ll)
   dunHVector parameters0 doms =
     noVectorizeHVector $ dunHVector @(AstRanked s) parameters0 doms
   dletHVectorInHVector a0 a f =
     astLetHVectorInHVectorFun a0 a (f . noVectorizeHVector)
+  dletHFunInHVector = dletHFunInHVector @(AstRanked s)
   rletInHVector u f =
     rletInHVector @(AstRanked s) (unAstNoVectorize u) (f . AstNoVectorize)
   sletInHVector u f =
@@ -1442,6 +1483,7 @@ instance AstSpan s => RankedTensor (AstNoSimplify s) where
   rletHVectorIn a0 a f =
     AstNoSimplify $ astLetHVectorInFun
                       a0 a (unAstNoSimplify . f . noSimplifyHVector)
+  rletHFunIn a f = AstNoSimplify $ astLetHFunInFun a (unAstNoSimplify . f)
   rfromS = AstNoSimplify . rfromS @(AstRanked s) . unAstNoSimplifyS
 
   rconstant = AstNoSimplify . fromPrimal
@@ -1509,6 +1551,7 @@ instance AstSpan s => ShapedTensor (AstNoSimplifyS s) where
   sletHVectorIn a0 a f =
     AstNoSimplifyS $ astLetHVectorInFunS
                        a0 a (unAstNoSimplifyS . f . noSimplifyHVector)
+  sletHFunIn a f = AstNoSimplifyS $ astLetHFunInFunS a (unAstNoSimplifyS . f)
   sfromR = AstNoSimplifyS . sfromR @(AstShaped s) . unAstNoSimplify
 
   sconstant = AstNoSimplifyS . fromPrimalS
@@ -1521,10 +1564,13 @@ instance AstSpan s => ShapedTensor (AstNoSimplifyS s) where
 instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
   dshape = dshape @(AstRanked s)
   dmkHVector hVector = dmkHVector @(AstRanked s) (unNoSimplifyHVector hVector)
+  dlambda = dlambda @(AstRanked s)
+  dHApply f ll = dHApply @(AstRanked s) f (map unNoSimplifyHVector ll)
   dunHVector parameters0 doms =
     noSimplifyHVector $ dunHVector @(AstRanked s) parameters0 doms
   dletHVectorInHVector a0 a f =
     astLetHVectorInHVectorFun a0 a (f . noSimplifyHVector)
+  dletHFunInHVector = dletHFunInHVector @(AstRanked s)
   rletInHVector u f =
     rletInHVector @(AstRanked s) (unAstNoSimplify u) (f . AstNoSimplify)
   sletInHVector u f =

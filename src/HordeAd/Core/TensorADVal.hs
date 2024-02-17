@@ -197,6 +197,7 @@ instance ADReady ranked => RankedTensor (ADVal ranked) where
           -- but more ADShare nodes would generated.
     in f doms
 -}
+  rletHFunIn = (&)
   rfromS :: forall r sh. (GoodScalar r, Sh.Shape sh)
          => ADVal (ShapedOf ranked) r sh -> ADVal ranked r (Sh.Rank sh)
   rfromS (D l u u') = dDnotShared l (rfromS u) (dRFromS u')
@@ -319,6 +320,7 @@ instance ADReadyS shaped => ShapedTensor (ADVal shaped) where
         !(D l u u') = f $ aDValHVector ll2 as as'
     in dDnotShared (mergeADShare l3 l) u u'
 -}
+  sletHFunIn = (&)
   sfromR :: forall r sh. (GoodScalar r, Sh.Shape sh, KnownNat (Sh.Rank sh))
          => ADVal (RankedOf shaped) r (Sh.Rank sh) -> ADVal shaped r sh
   sfromR (D l u u') = dDnotShared l (sfromR u) (dSFromR u')
@@ -346,6 +348,8 @@ instance ADReadyBoth ranked shaped
          => HVectorTensor (ADVal ranked) (ADVal shaped) where
   dshape = voidFromHVector
   dmkHVector = id
+  dlambda _ = id
+  dHApply (HFun f) ll = f ll
   dunHVector shs hv = assert (voidHVectorMatches shs hv
                               `blame` ( shapeVoidHVector shs
                                       , shapeVoidHVector (voidFromHVector hv)))
@@ -362,6 +366,7 @@ instance ADReadyBoth ranked shaped
           -- but more ADShare nodes would generated.
     in f doms
 -}
+  dletHFunInHVector = (&)
   rletInHVector (D l u u') f =
     let !(!l2, var2) = rsharePrimal u l
     in f (dDnotShared l2 var2 u')
@@ -833,11 +838,14 @@ unADValDynamicTensor (DynamicShapedDummy p1 p2) =
 instance HVectorTensor (Flip OR.Array) (Flip OS.Array) where
   dshape = voidFromHVector
   dmkHVector = id
+  dlambda _ = id
+  dHApply (HFun f) ll = f ll
   dunHVector shs hv = assert (voidHVectorMatches shs hv
                               `blame` ( shapeVoidHVector shs
                                       , shapeVoidHVector (voidFromHVector hv)))
                              hv
   dletHVectorInHVector _ = (&)
+  dletHFunInHVector = (&)
   rletInHVector = (&)
   sletInHVector = (&)
   dsharePrimal _ d l = (l, d)

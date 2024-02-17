@@ -5,7 +5,7 @@
 -- with @unsafePerformIO@ outside, so some of it escapes.
 module HordeAd.Core.AstFreshId
   ( astRegisterFun, astRegisterFunS, astRegisterADShare, astRegisterADShareS
-  , funToAstIOR, funToAstR, fun1DToAst
+  , funToAstIOR, funToAstR, fun1DToAst, fun1ToAst, fun1LToAst
   , funToAst2R, funToAst2S, funToAstRH, funToAstSH, funToAstHH
   , funToAst3R, funToAst3S, funToAstRRH, funToAstSSH
   , funToAst4R, funToAst4S
@@ -146,6 +146,20 @@ funToAstS f = unsafePerformIO $ do
   (!var, _, !ast) <- funToAstIOS f
   return (var, ast)
 
+fun1LToAstIO :: [VoidHVector]
+             -> ([[AstDynamicVarName]] -> [HVector (AstRanked s)] -> a)
+             -> IO a
+{-# INLINE fun1LToAstIO #-}
+fun1LToAstIO shss f = do
+  (!vars, !asts) <- unzip <$> (map V.unzip) <$> mapM (V.mapM dynamicToVar) shss
+  return $! f (map V.toList vars) asts
+
+fun1LToAst :: [VoidHVector]
+           -> ([[AstDynamicVarName]] -> [HVector (AstRanked s)] -> a)
+           -> a
+{-# NOINLINE fun1LToAst #-}
+fun1LToAst shss f = unsafePerformIO $ fun1LToAstIO shss f
+
 fun1DToAstIO :: VoidHVector
              -> ([AstDynamicVarName] -> HVector (AstRanked s) -> a)
              -> IO a
@@ -159,6 +173,16 @@ fun1DToAst :: VoidHVector
            -> a
 {-# NOINLINE fun1DToAst #-}
 fun1DToAst od f = unsafePerformIO $ fun1DToAstIO od f
+
+fun1ToAstIO :: (AstVarId -> a) -> IO a
+{-# INLINE fun1ToAstIO #-}
+fun1ToAstIO f = do
+  !freshId <- unsafeGetFreshAstVarId
+  return $! f freshId
+
+fun1ToAst :: (AstVarId -> a) -> a
+{-# NOINLINE fun1ToAst #-}
+fun1ToAst f = unsafePerformIO $ fun1ToAstIO f
 
 funToAst2RIO :: ShapeInt n
              -> ShapeInt m

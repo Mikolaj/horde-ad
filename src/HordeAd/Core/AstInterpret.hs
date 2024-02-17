@@ -131,10 +131,8 @@ interpretAst !env = \case
       _ -> error $ "interpretAst: wrong rank in environment"
                    `showFailure`
                    (valueOf @n :: Int, valueOf @n2 :: Int, varId, t, env)
-    -- To impose such checks, we'd need to switch from OD tensors
-    -- to existential OR/OS tensors so that we can inspect
-    -- which it is and then seed Delta evaluation maps with that.
-    -- Just{} -> error "interpretAst: wrong tensor type in environment"
+    -- TODO: sometimes check if in the current state of the codebase
+    -- we can insist on only AstEnvElemRanked here.
     Just (AstEnvElemShaped @r2 @sh2 t) -> case shapeToList sh
                                                == Sh.shapeT @sh2 of
       True -> case matchingRank @sh2 @n of
@@ -448,10 +446,10 @@ interpretAst !env = \case
                                   , shapeVoidHVector (dshape @ranked lt) )) $
                  extendEnvHVector vars lw env
     in rletHVectorIn lt0 lt (\lw -> interpretAst (env2 lw) v)
-  AstLetHFunIn var f v -> undefined {-
+  AstLetHFunIn var f v ->
     let g = interpretAstHFun env f
-        env2 h = extendEnvFun var h env
-    in rletHFunIn g (\h -> interpretAst (env2 h) v) -}
+        env2 h = extendEnvHFun var h env
+    in rletHFunIn g (\h -> interpretAst (env2 h) v)
   AstRFromS v -> rfromS $ interpretAstS env v
   AstConstant a -> rconstant $ interpretAstPrimal env a
   AstPrimalPart a -> interpretAst env a
@@ -610,10 +608,6 @@ interpretAstS !env = \case
       Nothing -> error $ "interpretAstS: wrong shape in environment"
                          `showFailure`
                          (Sh.shapeT @sh, Sh.shapeT @sh2, varId, t, env)
-    -- To impose such checks, we'd need to switch from OD tensors
-    -- to existential OR/OS tensors so that we can inspect
-    -- which it is and then seed Delta evaluation maps with that.
-    -- Just{} -> error "interpretAstS: wrong tensor type in environment"
     Just (AstEnvElemRanked @r2 @n2 t) -> case matchingRank @sh @n2 of
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
         Just Refl -> assert (Sh.shapeT @sh == shapeToList (rshape t)
@@ -909,6 +903,10 @@ interpretAstS !env = \case
                                   , shapeVoidHVector (dshape @ranked lt) )) $
                   extendEnvHVector vars lw env
     in sletHVectorIn lt0 lt (\lw -> interpretAstS (env2 lw) v)
+  AstLetHFunInS var f v ->
+    let g = interpretAstHFun env f
+        env2 h = extendEnvHFun var h env
+    in sletHFunIn g (\h -> interpretAstS (env2 h) v)
   AstSFromR v -> sfromR $ interpretAst env v
   AstConstantS a -> sconstant $ interpretAstPrimalS env a
   AstPrimalPartS a -> interpretAstS env a
@@ -986,6 +984,10 @@ interpretAstHVector
 interpretAstHVector !env = \case
   AstHVector l ->
     dmkHVector @ranked $ interpretAstDynamic @ranked env <$> l
+  AstHApply t ll ->
+    let t2 = interpretAstHFun env t
+        ll2 = (interpretAstDynamic @ranked env <$>) <$> ll
+    in dHApply t2 ll2
   AstLetHVectorInHVector vars l v ->
     let lt0 = voidFromVars vars
         lt = interpretAstHVector env l
@@ -997,6 +999,10 @@ interpretAstHVector !env = \case
                  extendEnvHVector vars lw env
     in dletHVectorInHVector
          lt0 lt (\lw -> interpretAstHVector (env2 lw) v)
+  AstLetHFunInHVector var f v ->
+    let g = interpretAstHFun env f
+        env2 h = extendEnvHFun var h env
+    in dletHFunInHVector @ranked g (\h -> interpretAstHVector (env2 h) v)
   AstLetInHVector var u v ->
     -- We assume there are no nested lets with the same variable.
     let t = interpretAstRuntimeSpecialized env u
@@ -1074,6 +1080,18 @@ interpretAstHVector !env = \case
         acc02 = interpretAstDynamic env <$> acc0
         es2 = interpretAstDynamic env <$> es
     in dmapAccumLDer k accShs bShs eShs f df rf acc02 es2
+
+interpretAstHFun
+  :: forall ranked s. (ADReady ranked, AstSpan s)
+  => AstEnv ranked -> AstHFun s -> HFunOf ranked
+interpretAstHFun !env = \case
+  AstHFun vvars l ->
+    -- No free variables, hence empty environment.
+    dlambda @ranked (map voidFromVars vvars)
+    $ interpretLambdaHsH interpretAstHVector (vvars, l)
+  AstVarHFun _shss _shs var -> case EM.lookup var env of
+    Just (AstEnvElemHFun f) -> f
+    _ -> error $ "interpretAstHFun: unknown variable " ++ show var
 
 interpretAstBool :: ADReady ranked
                  => AstEnv ranked -> AstBool -> BoolOf ranked

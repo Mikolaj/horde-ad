@@ -288,6 +288,10 @@ class ( Integral (IntOf ranked), CRanked ranked Num
                 -> HVectorOf ranked
                 -> (HVector ranked -> ranked r n)
                 -> ranked r n
+  rletHFunIn :: (KnownNat n, GoodScalar r)
+             => HFunOf ranked
+             -> (HFunOf ranked -> ranked r n)
+             -> ranked r n
   rfromS :: (GoodScalar r, Sh.Shape sh)
          => ShapedOf ranked r sh -> ranked r (Sh.Rank sh)
   -- Prevents wrong shape in @0@ with ranked (but not shaped) tensors
@@ -669,6 +673,10 @@ class ( Integral (IntOf shaped), CShaped shaped Num
                 -> HVectorOf (RankedOf shaped)
                 -> (HVector (RankedOf shaped) -> shaped r sh)
                 -> shaped r sh
+  sletHFunIn :: (Sh.Shape sh, GoodScalar r)
+             => HFunOf (RankedOf shaped)
+             -> (HFunOf (RankedOf shaped) -> shaped r sh)
+             -> shaped r sh
   sfromR :: (GoodScalar r, Sh.Shape sh, KnownNat (Sh.Rank sh))
          => RankedOf shaped r (Sh.Rank sh) -> shaped r sh
 
@@ -726,12 +734,18 @@ class HVectorTensor (ranked :: RankedTensorType)
                     | ranked -> shaped, shaped -> ranked where
   dshape :: HVectorOf ranked -> VoidHVector
   dmkHVector :: HVector ranked -> HVectorOf ranked
+  dlambda :: [VoidHVector] -> HFun -> HFunOf ranked
+  dHApply :: HFunOf ranked -> [HVector ranked] -> HVectorOf ranked
   dunHVector :: VoidHVector -> HVectorOf ranked -> HVector ranked
     -- ^ Warning: this operation easily breaks sharing.
   dletHVectorInHVector
     :: VoidHVector
     -> HVectorOf ranked
     -> (HVector ranked -> HVectorOf ranked)
+    -> HVectorOf ranked
+  dletHFunInHVector
+    :: HFunOf ranked
+    -> (HFunOf ranked -> HVectorOf ranked)
     -> HVectorOf ranked
   rletInHVector :: (GoodScalar r, KnownNat n)
                 => ranked r n
@@ -1193,6 +1207,7 @@ instance RankedTensor (Flip OR.Array) where
   rfromIntegral = Flip . tfromIntegralR . runFlip
   rconst = Flip
   rletHVectorIn _ = (&)
+  rletHFunIn = (&)
   rfromS = Flip . Data.Array.Convert.convert . runFlip
 
   rscaleByScalar s v =
@@ -1275,6 +1290,7 @@ instance ShapedTensor (Flip OS.Array) where
   sfromIntegral = Flip . tfromIntegralS . runFlip
   sconst = Flip
   sletHVectorIn _ = (&)
+  sletHFunIn = (&)
   sfromR = Flip . Data.Array.Convert.convert . runFlip
 
   sscaleByScalar s v =

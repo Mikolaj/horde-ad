@@ -5,7 +5,7 @@
 -- or resulting from the differentiation.
 module HordeAd.Core.AstTools
   ( -- * Shape calculation
-    shapeAst, lengthAst, shapeAstHVector
+    shapeAst, lengthAst, shapeAstHVector, shapeAstHFun, domainShapesAstHFun
     -- * Variable occurrence detection
   , varInAst, varInADShare, varInAstBool, varInIndex
   , varInAstS, varInIndexS
@@ -133,8 +133,13 @@ shapeAstHVector = \case
 
 shapeAstHFun :: AstHFun s -> VoidHVector
 shapeAstHFun = \case
-  AstHFun _vvars l -> V.map (voidFromDynamicF (shapeToList . shapeAst)) l
-  AstVarHFun shs _var -> shs
+  AstHFun _vvars l -> shapeAstHVector l
+  AstVarHFun _shss shs _var -> shs
+
+domainShapesAstHFun :: AstHFun s -> [VoidHVector]
+domainShapesAstHFun = \case
+  AstHFun vvars _l -> map voidFromVars vvars
+  AstVarHFun shss _shs _var -> shss
 
 
 -- * Variable occurrence detection
@@ -290,7 +295,7 @@ varInAstDynamic var = \case
 varInAstHFun :: AstVarId -> AstHFun s -> Bool
 varInAstHFun var = \case
   AstHFun _vvars _l -> False  -- we take advantage of the term being closed
-  AstVarHFun _shs var2 -> fromEnum var == fromEnum var2
+  AstVarHFun _shss _shs var2 -> fromEnum var == fromEnum var2
 
 varInAstBool :: AstVarId -> AstBool -> Bool
 varInAstBool var = \case

@@ -14,7 +14,7 @@ module HordeAd.Core.AstEnv
   , interpretLambda2, interpretLambda2S
   , interpretLambdaRHR, interpretLambdaSHS
   , interpretLambdaRHH, interpretLambdaSHH
-  , interpretLambdaHHH, interpretLambdaHHHHH
+  , interpretLambdaHHH, interpretLambdaHHHHH, interpretLambdaHsH
   , interpretLambda3, interpretLambda3S
   , interpretLambdaRRRH, interpretLambdaSSSH
   , interpretLambda4, interpretLambda4S
@@ -379,6 +379,17 @@ interpretLambdaHHHHH f !env (!vs1, !vs2, !vs3, !vs4, !ast) =
                       env2 = extendEnvHVector vs2 w2 env1
                       env3 = extendEnvHVector vs3 w3 env2
                   in f (extendEnvHVector vs4 w4 env3) ast
+
+interpretLambdaHsH
+  :: (forall ranked. ADReady ranked
+      => AstEnv ranked -> AstHVector s -> HVectorOf ranked)
+  -> ( [[AstDynamicVarName]]
+     , AstHVector s )
+  -> HFun
+{-# INLINE interpretLambdaHsH #-}
+interpretLambdaHsH interpret (!vvars, !ast) =
+  HFun $ \ws ->
+    interpret (foldr (uncurry extendEnvHVector) EM.empty $ zip vvars ws) ast
 
 interpretLambda3
   :: forall s ranked rn rm n m.

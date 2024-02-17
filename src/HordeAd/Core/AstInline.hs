@@ -555,9 +555,8 @@ inlineAstHFun
   :: AstSpan s
   => AstMemo -> AstHFun s -> (AstMemo, AstHFun s)
 inlineAstHFun memo v0 = case v0 of
-  Ast.AstHFun vvars l ->
-    second (Ast.AstHFun vvars) $ mapAccumR inlineAstDynamic memo l
-  Ast.AstVarHFun _shs var ->
+  Ast.AstHFun vvars l -> second (Ast.AstHFun vvars) $ inlineAstHVector memo l
+  Ast.AstVarHFun _shss _shs var ->
     let f Nothing = Just 1
         f (Just count) = Just $ succ count
     in (EM.alter f var memo, v0)
@@ -878,7 +877,7 @@ unletAstHVector env = \case
 unletAstHFun
   :: AstSpan s => UnletEnv -> AstHFun s -> AstHFun s
 unletAstHFun env = \case
-  Ast.AstHFun vvars l -> Ast.AstHFun vvars $ V.map (unletAstDynamic env) l
+  Ast.AstHFun vvars l -> Ast.AstHFun vvars $ unletAstHVector env l
   t@(Ast.AstVarHFun{}) -> t
 
 unletAstBool :: UnletEnv -> AstBool -> AstBool

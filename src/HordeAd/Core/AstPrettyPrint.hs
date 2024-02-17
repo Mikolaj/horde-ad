@@ -1243,17 +1243,17 @@ printAstHFun cfg d = \case
                (showListWith (showString
                               . printAstDynamicVarNameCfg cfg)) vvars
            . showString " -> "
-           . printHVectorAst cfg l
+           . printAstHVector cfg 0 l
     else showParen (d > 10)
-         $ showString "dmkHFun "
+         $ showString "dlambda "
            . (showParen True
               $ showString "\\"
                 . showListWith
                     (showListWith (showString
                                    . printAstDynamicVarNameCfg cfg)) vvars
                 . showString " -> "
-                . printHVectorAst cfg l)
-  AstVarHFun _shs var -> printAstFunVar cfg var
+                . printAstHVector cfg 0 l)
+  AstVarHFun _shss _shs var -> printAstFunVar cfg var
 
 printAstBool :: PrintConfig -> Int -> AstBool -> ShowS
 printAstBool cfg d = \case

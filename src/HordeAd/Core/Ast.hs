@@ -632,8 +632,8 @@ deriving instance Show (AstHVector s)
 
 type role AstHFun nominal
 data AstHFun :: AstSpanType -> Type where
-  AstHFun :: [[AstDynamicVarName]] -> HVector (AstRanked s) -> AstHFun s
-  AstVarHFun :: VoidHVector -> AstVarId -> AstHFun s
+  AstHFun :: [[AstDynamicVarName]] -> AstHVector s -> AstHFun s
+  AstVarHFun :: [VoidHVector] -> VoidHVector -> AstVarId -> AstHFun s
 
 deriving instance Show (AstHFun s)
 

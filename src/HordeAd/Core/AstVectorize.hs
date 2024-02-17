@@ -969,10 +969,11 @@ build1VHVector k (var, v0) =
 build1VHFun
   :: forall s. AstSpan s
   => Int -> (IntVarName, AstHFun s) -> AstHFun s
-build1VHFun k (_var, v0) = case v0 of
-  Ast.AstHFun vvars l ->
-    -- We take advantage of the fact that l contains no free index vars.
-    Ast.AstHFun vvars (astMapHVectorRanked01 (astReplicate k) l)
+build1VHFun k (var, v0) = case v0 of
+  Ast.AstHFun vvars l -> withSNat k $ \(SNat @k) ->
+    let f acc vars = substProjVarsHVector @k var vars acc
+        (l2, vvars2) = mapAccumR f l vvars
+    in Ast.AstHFun vvars2 (build1VOccurenceUnknownHVectorRefresh k (var, l2))
   Ast.AstVarHFun{} -> v0
 
 build1VOccurenceUnknownDynamic
@@ -989,7 +990,8 @@ build1VOccurenceUnknownDynamic k (var, d) = case d of
     withListShape (Sh.shapeT @sh) $ \(_ :: ShapeInt n3) ->
       gcastWith (unsafeCoerce Refl :: n3 :~: Sh.Rank sh) $
       case someNatVal $ toInteger k of
-        Just (SomeNat @k _) -> DynamicRanked @r (Ast.AstRFromS @(k ': sh) @s @r 0)
+        Just (SomeNat @k _) ->
+          DynamicRanked @r (Ast.AstRFromS @(k ': sh) @s @r 0)
         Nothing ->
           error "build1VOccurenceUnknownDynamic: impossible someNatVal error"
   DynamicShapedDummy @r @sh _ _ -> case someNatVal $ toInteger k of
