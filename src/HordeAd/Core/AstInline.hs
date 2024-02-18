@@ -203,9 +203,9 @@ inlineAst memo v0 = case v0 of
     -- We assume functions are never small enough to justify inlining
     -- into more than one place.
     let (memo1, v2) = inlineAst memo v
-        (memo2, f2) = inlineAstHFun memo f
-    in case EM.findWithDefault 0 var memo1 of
-      0 -> (memo1, v2)
+        (memo2, f2) = inlineAstHFun memo1 f
+    in case EM.findWithDefault 0 var memo2 of
+      0 -> (memo2, v2)
 -- TODO:      1 -> (memo2, substituteAst (SubstitutionPayloadFun f2) var v2)
       _ -> (memo2, Ast.AstLetHFunIn var f2 v2)
   Ast.AstRFromS v -> second Ast.AstRFromS $ inlineAstS memo v
@@ -370,8 +370,8 @@ inlineAstS memo v0 = case v0 of
     -- We assume functions are never small enough to justify inlining
     -- into more than one place.
     let (memo1, v2) = inlineAstS memo v
-        (memo2, f2) = inlineAstHFun memo f
-    in case EM.findWithDefault 0 var memo1 of
+        (memo2, f2) = inlineAstHFun memo1 f
+    in case EM.findWithDefault 0 var memo2 of
       0 -> (memo1, v2)
 -- TODO:      1 -> (memo2, substituteAstS (SubstitutionPayloadFun f2) var v2)
       _ -> (memo2, Ast.AstLetHFunInS var f2 v2)
@@ -449,8 +449,8 @@ inlineAstHVector memo v0 = case v0 of
     -- We assume functions are never small enough to justify inlining
     -- into more than one place.
     let (memo1, v2) = inlineAstHVector memo v
-        (memo2, f2) = inlineAstHFun memo f
-    in case EM.findWithDefault 0 var memo1 of
+        (memo2, f2) = inlineAstHFun memo1 f
+    in case EM.findWithDefault 0 var memo2 of
       0 -> (memo1, v2)
 -- TODO:      1 -> (memo2, substituteAstHVector (SubstitutionPayloadFun f2) var v2)
       _ -> (memo2, Ast.AstLetHFunInHVector var f2 v2)
