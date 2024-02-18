@@ -1091,7 +1091,7 @@ newtype HFun =
   HFun {unHFun :: (forall f. ADReady f => [HVector f] -> HVectorOf f)}
 
 instance Show HFun where
-  show _ = "<closed function>"
+  show _ = "<lambda>"
 
 
 -- * The giga-constraint
