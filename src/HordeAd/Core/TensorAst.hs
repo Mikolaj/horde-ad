@@ -468,8 +468,7 @@ astLetHVectorInFun a0 a f =
   fun1DToAst a0 $ \ !vars !asts -> astLetHVectorIn vars a (f asts)
 
 astLetHFunInFun
-  :: forall n s r. AstSpan s
-  => AstHFun s -> (AstHFun s -> AstRanked s r n)
+  :: AstHFun PrimalSpan -> (AstHFun PrimalSpan -> AstRanked s r n)
   -> AstRanked s r n
 {-# INLINE astLetHFunInFun #-}
 astLetHFunInFun a f =
@@ -607,8 +606,7 @@ astLetHVectorInFunS a0 a f =
   fun1DToAst a0 $ \ !vars !asts -> astLetHVectorInS vars a (f asts)
 
 astLetHFunInFunS
-  :: forall sh s r. AstSpan s
-  => AstHFun s -> (AstHFun s -> AstShaped s r sh)
+  :: AstHFun PrimalSpan -> (AstHFun PrimalSpan -> AstShaped s r sh)
   -> AstShaped s r sh
 {-# INLINE astLetHFunInFunS #-}
 astLetHFunInFunS a f =
@@ -660,11 +658,12 @@ astBuild1VectorizeS f =
 
 -- * HVectorTensor instance
 
-instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
+instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   dshape = shapeAstHVector
   dmkHVector = AstHVector
   dlambda shss f = fun1LToAst shss $ \ !vvars !ll -> AstHFun vvars (unHFun f ll)
-  dHApply = AstHApply
+  dHApply f ll | Just Refl <- sameAstSpan @s @PrimalSpan = AstHApply f ll
+  dHApply _ _ = error "dHApply: wrong span"
   dunHVector shs hVectorOf =
     let f :: Int -> DynamicTensor VoidTensor -> AstDynamic s
         f i = \case
@@ -701,7 +700,7 @@ instance AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   dsharePrimal _ _ _ = error "dsharePrimal: wrong span"
   dregister !domsOD !r !l =
     fun1DToAst domsOD $ \ !vars !asts -> case vars of
-      [] -> error "dregister: empty hVector"
+      [] -> (l, V.empty)
       !var : _ ->  -- vars are fresh, so var uniquely represent vars
         ((dynamicVarNameToAstVarId var, AstBindingsHVector vars r) : l, asts)
   dbuild1 = astBuildHVector1Vectorize
@@ -1089,8 +1088,7 @@ astLetHVectorInHVectorFun a0 a f =
   fun1DToAst a0 $ \ !vars !asts -> astLetHVectorInHVector vars a (f asts)
 
 astLetHFunInHVectorFun
-  :: forall s. AstSpan s
-  => AstHFun s -> (AstHFun s -> AstHVector s)
+  :: AstHFun PrimalSpan -> (AstHFun PrimalSpan -> AstHVector s)
   -> AstHVector s
 {-# INLINE astLetHFunInHVectorFun #-}
 astLetHFunInHVectorFun a f =

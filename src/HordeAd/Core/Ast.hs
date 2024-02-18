@@ -92,7 +92,7 @@ sameAstSpan = case eqTypeRep (typeRep @s1) (typeRep @s2) of
 type instance RankedOf (AstRanked s) = AstRanked s
 type instance ShapedOf (AstRanked s) = AstShaped s
 type instance HVectorOf (AstRanked s) = AstHVector s
-type instance HFunOf (AstRanked s) = AstHFun s
+type instance HFunOf (AstRanked s) = AstHFun PrimalSpan
 type instance PrimalOf (AstRanked s) = AstRanked PrimalSpan
 type instance DualOf (AstRanked s) = AstRanked DualSpan
 
@@ -996,7 +996,7 @@ maxF u v = ifF (u >=. v) u v
 type instance RankedOf (AstNoVectorize s) = AstNoVectorize s
 type instance ShapedOf (AstNoVectorize s) = AstNoVectorizeS s
 type instance HVectorOf (AstNoVectorize s) = AstHVector s
-type instance HFunOf (AstNoVectorize s) = AstHFun s
+type instance HFunOf (AstNoVectorize s) = AstHFun PrimalSpan
 type instance PrimalOf (AstNoVectorize s) = AstRanked PrimalSpan
 type instance DualOf (AstNoVectorize s) = AstRanked DualSpan
 type instance RankedOf (AstNoVectorizeS s) = AstNoVectorize s
@@ -1006,7 +1006,7 @@ type instance DualOf (AstNoVectorizeS s) = AstShaped DualSpan
 type instance RankedOf (AstNoSimplify s) = AstNoSimplify s
 type instance ShapedOf (AstNoSimplify s) = AstNoSimplifyS s
 type instance HVectorOf (AstNoSimplify s) = AstHVector s
-type instance HFunOf (AstNoSimplify s) = AstHFun s
+type instance HFunOf (AstNoSimplify s) = AstHFun PrimalSpan
 type instance PrimalOf (AstNoSimplify s) = AstRanked PrimalSpan
 type instance DualOf (AstNoSimplify s) = AstRanked DualSpan
 type instance RankedOf (AstNoSimplifyS s) = AstNoSimplify s

@@ -3065,18 +3065,16 @@ substitute1AstHVector i var = \case
   Ast.AstHApply t ll ->
     case ( substitute1AstHFun i var t
          , map (V.map (substitute1AstDynamic i var)) ll ) of
-      (Nothing, llm) | all (V.all isNothing) llm -> Nothing
+      (Nothing, mll) | all (V.all isNothing) mll -> Nothing
       (mt, mll) ->
         Just $ astHApply (fromMaybe t mt) (zipWith (V.zipWith fromMaybe) ll mll)
   Ast.AstLetHVectorInHVector vars2 u v ->
-    case ( substitute1AstHVector i var u
-         , substitute1AstHVector i var v ) of
+    case (substitute1AstHVector i var u, substitute1AstHVector i var v) of
       (Nothing, Nothing) -> Nothing
       (mu, mv) ->
         Just $ astLetHVectorInHVector vars2 (fromMaybe u mu) (fromMaybe v mv)
   Ast.AstLetHFunInHVector var2 f v ->
-    case ( substitute1AstHFun i var f
-         , substitute1AstHVector i var v ) of
+    case (substitute1AstHFun i var f, substitute1AstHVector i var v) of
       (Nothing, Nothing) -> Nothing
       (mf, mv) ->
         Just $ astLetHFunInHVector var2 (fromMaybe f mf) (fromMaybe v mv)
