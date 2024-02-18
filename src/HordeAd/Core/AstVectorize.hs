@@ -261,10 +261,8 @@ build1V k (var, v00) =
       -- We take advantage of the fact that f contains no free index
       -- variables (it may contain function variables, though).
       -- If it could contain index variables, e.g., in a conditional
-      -- expression, we'd need to define operations that
-      -- increase the rank of a function (is this the same
-      -- as increasing the rank of the function body?), etc.
-      astLetHFunIn var1 f $ build1V k (var, v)
+      -- expression, we might need to add projections as above.
+      astLetHFunIn var1 (build1VHFun k (var, f)) (build1V k (var, v))
     Ast.AstRFromS @sh1 v -> case someNatVal $ toInteger k of
       Just (SomeNat @k _proxy) ->
         Ast.AstRFromS @(k ': sh1) $ build1VS (var, v)
@@ -601,7 +599,7 @@ build1VS (var, v00) =
                    (build1VOccurenceUnknownRefreshS (var, vOut))
     Ast.AstLetHFunInS var1 f v ->
       -- We take advantage of the fact that f contains no free index vars.
-      astLetHFunInS var1 f $ build1VS (var, v)
+      astLetHFunInS var1 (build1VHFun (valueOf @k) (var, f)) (build1VS (var, v))
     Ast.AstSFromR v -> Ast.AstSFromR $ build1V (valueOf @k) (var, v)
 
     Ast.AstConstantS v -> traceRule $
@@ -837,7 +835,8 @@ build1VHVector k (var, v0) =
       _ -> error "build1VHVector: impossible someNatVal"
   Ast.AstLetHFunInHVector var1 f v ->
     -- We take advantage of the fact that f contains no free index vars.
-    astLetHFunInHVector var1 f $ build1VHVector k (var, v)
+    astLetHFunInHVector var1 (build1VHFun k (var, f))
+                             (build1VHVector k (var, v))
   Ast.AstLetInHVector @_ @r1 @s1 var1@(AstVarName oldVarId) u v ->
     let var2 = AstVarName oldVarId  -- changed shape; TODO: shall we rename?
         sh = shapeAst u
@@ -971,10 +970,15 @@ build1VHFun
   => Int -> (IntVarName, AstHFun s) -> AstHFun s
 build1VHFun k (var, v0) = case v0 of
   Ast.AstHFun vvars l -> withSNat k $ \(SNat @k) ->
+    -- This handles the case of l having free variable beyond vvars,
+    -- which is not possible for lambdas used in folds, etc.
     let f acc vars = substProjVarsHVector @k var vars acc
         (l2, vvars2) = mapAccumR f l vvars
     in Ast.AstHFun vvars2 (build1VOccurenceUnknownHVectorRefresh k (var, l2))
-  Ast.AstVarHFun{} -> v0
+  Ast.AstVarHFun shss shs var2 -> withSNat k $ \snat ->
+    Ast.AstVarHFun (map (replicate1VoidHVector snat) shss)
+                   (replicate1VoidHVector snat shs)
+                   var2
 
 build1VOccurenceUnknownDynamic
   :: forall s. AstSpan s
