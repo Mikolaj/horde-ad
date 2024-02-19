@@ -151,7 +151,7 @@ fun1LToAstIO :: [VoidHVector]
              -> IO a
 {-# INLINE fun1LToAstIO #-}
 fun1LToAstIO shss f = do
-  (!vars, !asts) <- unzip <$> (map V.unzip) <$> mapM (V.mapM dynamicToVar) shss
+  (!vars, !asts) <- unzip <$> mapM (fmap V.unzip . V.mapM dynamicToVar) shss
   return $! f (map V.toList vars) asts
 
 fun1LToAst :: [VoidHVector]
@@ -266,27 +266,16 @@ funToAstSH :: (AstShaped s rn shn -> HVector (AstRanked s) -> a)
 {-# NOINLINE funToAstSH #-}
 funToAstSH f od = unsafePerformIO $ funToAstSHIO f od
 
-funToAstHHIO :: (HVector (AstRanked s) -> HVector (AstRanked s) -> a)
-             -> VoidHVector
-             -> VoidHVector
-             -> IO ( [AstDynamicVarName]
-                   , [AstDynamicVarName]
-                   , a )
-{-# INLINE funToAstHHIO #-}
-funToAstHHIO f accShs eShs = do
-  (!accvars, !acc) <- V.unzip <$> V.mapM dynamicToVar accShs
-  (!evars, !e) <- V.unzip <$> V.mapM dynamicToVar eShs
-  let !x = f acc e
-  return (V.toList accvars, V.toList evars, x)
-
 funToAstHH :: (HVector (AstRanked s) -> HVector (AstRanked s) -> a)
            -> VoidHVector
            -> VoidHVector
            -> ( [AstDynamicVarName]
               , [AstDynamicVarName]
               , a )
-{-# NOINLINE funToAstHH #-}
-funToAstHH f accShs eShs = unsafePerformIO $ funToAstHHIO f accShs eShs
+funToAstHH f accShs eShs =
+  fun1LToAst [accShs, eShs] $ \ !vvars !ll ->
+    let !x = f (ll !! 0) (ll !! 1)
+    in (vvars !! 0, vvars !! 1, x)
 
 funToAst3RIO :: ShapeInt n
              -> ShapeInt m
