@@ -101,12 +101,13 @@ testTrees =
   , testCase "4Sin0Scan8" testSin0Scan8
   , testCase "4Sin0Scan8rev" testSin0Scan8rev
   , testCase "4Sin0Scan8rev2" testSin0Scan8rev2
-  , testCase "4Sin0Scan1RevPP" testSin0Scan1RevPP
+  , testCase "4Sin0Scan1RevPP1" testSin0Scan1RevPP1
   , testCase "4Sin0Scan1RevPPForComparison" testSin0Scan1RevPPForComparison
   , testCase "4Sin0ScanFwdPP" testSin0ScanFwdPP
-  , testCase "4Sin0Scan1Rev2PP" testSin0Scan1Rev2PP
+  , testCase "4Sin0Scan1Rev2PP1" testSin0Scan1Rev2PP1
+  , testCase "4Sin0Scan1Rev2PPA" testSin0Scan1Rev2PPA
   , testCase "4Sin0Scan1Rev2PPForComparison" testSin0Scan1Rev2PPForComparison
-  , testCase "4Sin0ScanFwd2PP" testSin0ScanFwd2PP
+  , testCase "4Sin0Scan1Fwd2PP" testSin0Scan1Fwd2PP
   , testCase "4Sin0Scan1Rev2" testSin0Scan1Rev2
   , testCase "4Sin0Scan1Rev2ForComparison" testSin0Scan1Rev2ForComparison
   , testCase "4Sin0Scan1Rev3PP" testSin0Scan1Rev3PP
@@ -954,8 +955,8 @@ testSin0Scan8rev2 = do
     (Flip $ OR.fromList [] [285.9579482947575])
     (crev h 1.1)
 
-testSin0Scan1RevPP :: Assertion
-testSin0Scan1RevPP = do
+testSin0Scan1RevPP1 :: Assertion
+testSin0Scan1RevPP1 = do
   resetVarCounter
   let a1 = rrev1 @(AstRanked FullSpan) @Double @0 @1
                  (\x0 -> rscan (\x _a -> sin x) x0
@@ -980,8 +981,8 @@ testSin0ScanFwdPP = do
   printAstPrettyButNested IM.empty (simplifyAst6 a1)
     @?= "let v33 = rconst (fromList [2] [42.0,42.0]) in let [x44 @Natural @Double @[], v45 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) (\\[x46] [x47, x48, x49] -> let x50 = x46 * cos x48 in [x50, x50]) (\\[x51] [x52, x53, x54] [x55] [x56, x57, x58] -> let x76 = x51 * cos x57 + (x53 * negate (sin x57)) * x55 in [x76, x76]) (\\[x77] [x78] [x79] [x80, x81, x82] -> let x100 = x78 + x77 in [cos x81 * x100, 0, negate (sin x81) * (x79 * x100), 0]) [rconst 1.1] [rconstant (rreplicate 2 (rconst 0.0)), rslice 0 2 (rscanDer (\\x34 x35 -> sin x34) (\\x36 x37 x38 x39 -> x36 * cos x38) (\\x40 x41 x42 -> [cos x41 * x40, 0]) (rconst 1.1) v33), v33] in rappend (rconstant (rreplicate 1 (rconst 1.1))) v45"
 
-testSin0Scan1Rev2PP :: Assertion
-testSin0Scan1Rev2PP = do
+testSin0Scan1Rev2PP1 :: Assertion
+testSin0Scan1Rev2PP1 = do
   resetVarCounter
   let a1 = rrev1 @(AstRanked FullSpan) @Double @0 @1
                  (\x0 -> rscan (\x a -> sin x - a) x0
@@ -989,22 +990,38 @@ testSin0Scan1Rev2PP = do
   printAstPretty IM.empty (simplifyAst6 a1)
     @?= "let v34 = rconst (fromList [2] [5.0,7.0]) in let [x46 @Natural @Double @[], v47 @Natural @Double @[2]] = dmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> [rconst 0.0] [rconstant (rreplicate 2 (rconst 1.0)), rslice 0 2 (rscanDer <lambda> <lambda> <lambda> (rconst 1.1) v34), v34] in x46 + rconst 1.0"
 
+-- revArtifactAdapt produces much lower variables names (no interpretation
+-- of PrimalSpan AST in FullSpan AST needed), but similar terms overall
+testSin0Scan1Rev2PPA :: Assertion
+testSin0Scan1Rev2PPA = do
+  resetVarCounter
+  let ((_, a1, _, _), _) =
+        revArtifactAdapt @Double @1 @(AstRanked FullSpan)
+                 True
+                 (\x0 -> rscan (\x a -> sin x - a) x0
+                           (rconst (OR.fromList @Double @1 [2] [5, 7]))) 1.1
+  printAstHVectorPretty IM.empty (simplifyAstHVector6 a1)
+    @?= "let v15 = rconst (fromList [2] [5.0,7.0]) in let [x31 @Natural @Double @[], v32 @Natural @Double @[2]] = dmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> [rconst 0.0] [rslice 1 2 v26, rslice 0 2 (rscanDer <lambda> <lambda> <lambda> x1 v15), v15] in [x31 + v26 ! [0]]"
+
 testSin0Scan1Rev2PPForComparison :: Assertion
 testSin0Scan1Rev2PPForComparison = do
   resetVarCounter
-  let a1 = rrev1 @(AstRanked FullSpan) @Double @0 @1
+  let ((_, a1, _, _), _) =
+        revArtifactAdapt @Double @1 @(AstRanked FullSpan)
+                 True
                  (\x0 -> rfromList [sin (sin x0 - 5) - 7, sin x0 - 5, x0]) 1.1
-  printAstPretty IM.empty (simplifyAst6 a1)
-    @?= "cos (rconst 1.1) * (cos (sin (rconst 1.1) - rconst 5.0) * rconst 1.0) + cos (rconst 1.1) * rconst 1.0 + rconst 1.0"
+  printAstHVectorPretty IM.empty (simplifyAstHVector6 a1)
+    @?= "[cos x1 * (cos (sin x1 - rconst 5.0) * v3 ! [0]) + cos x1 * v3 ! [1] + v3 ! [2]]"
 
-testSin0ScanFwd2PP :: Assertion
-testSin0ScanFwd2PP = do
+testSin0Scan1Fwd2PP :: Assertion
+testSin0Scan1Fwd2PP = do
   resetVarCounter
-  let a1 = rfwd1 @(AstRanked FullSpan) @Double @0 @1
+  let ((_, a1, _), _) =
+        fwdArtifactAdapt @Double @1 @(AstRanked FullSpan)
                  (\x0 -> rscan (\x a -> sin x - a) x0
                            (rconst (OR.fromList @Double @1 [2] [5, 7]))) 1.1
   printAstPretty IM.empty (simplifyAst6 a1)
-    @?= "let v36 = rconst (fromList [2] [5.0,7.0]) in let [x48 @Natural @Double @[], v49 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [rconst 1.1] [rconstant (rreplicate 2 (rconst 0.0)), rslice 0 2 (rscanDer <lambda> <lambda> <lambda> (rconst 1.1) v36), v36] in rappend (rconstant (rreplicate 1 (rconst 1.1))) v49"
+    @?= "let v16 = rconst (fromList [2] [5.0,7.0]) in let [x27 @Natural @Double @[], v28 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [x1] [rreplicate 2 (rconst 0.0), rslice 0 2 (rscanDer <lambda> <lambda> <lambda> x2 v16), v16] in rappend (rreplicate 1 x1) v28"
 
 testSin0Scan1Rev2 :: Assertion
 testSin0Scan1Rev2 = do
