@@ -717,7 +717,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   rrev f parameters0 =
     -- This computes the (AST of) derivative of f once and interprets it again
     -- for each new @parmeters@, which is much better than computing anew.
-    let (((_varsDt, vars), gradient, _primal, _sh), _delta) =
+    let !(!((!_varsDt, !vars), !gradient, !_primal, _sh), _delta) =
           revProduceArtifact TensorToken False (f @(AstRanked FullSpan))
                              EM.empty parameters0
     in \parameters -> assert (voidHVectorMatches parameters0 parameters) $
@@ -734,7 +734,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
          -> AstRanked s r n
          -> AstHVector s
   rrevDt f parameters0 =
-    let (((varsDt, vars), gradient, _primal, _sh), _delta) =
+    let !(!(!(!varsDt, !vars), !gradient, !_primal, _sh), _delta) =
           revProduceArtifact TensorToken True (f @(AstRanked FullSpan))
                              EM.empty parameters0
     in \parameters dt -> assert (voidHVectorMatches parameters0 parameters
@@ -750,7 +750,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
        -> HVector (AstRanked s)
        -> AstRanked s r n
   rfwd f parameters0 =
-    let (((varsDt, vars), derivative, _primal), _delta) =
+    let !(!(!(!varsDt, !vars), !derivative, !_primal), _delta) =
           fwdProduceArtifact TensorToken (f @(AstRanked FullSpan))
                              EM.empty parameters0
     in \parameters ds -> assert (voidHVectorMatches parameters0 parameters) $
@@ -758,14 +758,14 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
           envDt = extendEnvHVector @(AstRanked s) varsDt ds env
       in interpretAst envDt derivative
   srev f parameters0 =
-    let (((_varsDt, vars), gradient, _primal, _sh), _delta) =
+    let !(!(!(!_varsDt, !vars), !gradient, !_primal, _sh), _delta) =
           revProduceArtifact TensorToken False (f @(AstShaped FullSpan))
                              EM.empty parameters0
     in \parameters -> assert (voidHVectorMatches parameters0 parameters) $
       let env = extendEnvHVector @(AstRanked s) vars parameters EM.empty
       in interpretAstHVector env gradient
   srevDt f parameters0 =
-    let (((varsDt, vars), gradient, _primal, _sh), _delta) =
+    let !(!(!(!varsDt, !vars), !gradient, !_primal, _sh), _delta) =
           revProduceArtifact TensorToken True (f @(AstShaped FullSpan))
                              EM.empty parameters0
     in \parameters dt -> assert (voidHVectorMatches parameters0 parameters
@@ -775,7 +775,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
           envDt = extendEnvHVector varsDt dts env
       in interpretAstHVector envDt gradient
   sfwd f parameters0 =
-    let (((varsDt, vars), derivative, _primal), _delta) =
+    let !(!(!(!varsDt, !vars), !derivative, !_primal), _delta) =
           fwdProduceArtifact TensorToken (f @(AstShaped FullSpan))
                              EM.empty parameters0
     in \parameters ds -> assert (voidHVectorMatches parameters0 parameters) $
@@ -801,15 +801,15 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
        -- it once per @f@ if we took shapes as arguments. The @sfold@ operation
        -- can do that thanks to shapes being available from types.
        case revProduceArtifact TensorToken True g EM.empty domsF of
-      ( ( (varsDt, [AstDynamicVarName nid, AstDynamicVarName mid])
-        , gradient, _primal, _sh), _delta ) -> assert (length varsDt == 1) $
+      !( !( !(!varsDt, [AstDynamicVarName nid, AstDynamicVarName mid])
+          , !gradient, !_primal, _sh), _delta ) -> assert (length varsDt == 1) $
         case fwdProduceArtifact TensorToken g EM.empty domsF of
-          ( ( ( [AstDynamicVarName nid1, AstDynamicVarName mid1]
+          !( !( !( [AstDynamicVarName nid1, AstDynamicVarName mid1]
               , [AstDynamicVarName nid2, AstDynamicVarName mid2] )
             , derivative, _primal), _delta ) ->
-            let (nvar1, mvar1) = (AstVarName nid1, AstVarName mid1)
-                (nvar2, mvar2) = (AstVarName nid2, AstVarName mid2)
-                (nvar, mvar) = (AstVarName nid, AstVarName mid)
+            let !(!nvar1, !mvar1) = (AstVarName nid1, AstVarName mid1)
+                !(!nvar2, !mvar2) = (AstVarName nid2, AstVarName mid2)
+                !(!nvar, !mvar) = (AstVarName nid, AstVarName mid)
             in AstFoldDer (funToAst2R shn shm f)
                           (nvar1, mvar1, nvar2, mvar2, derivative)
                           ( AstVarName $ dynamicVarNameToAstVarId (varsDt !! 0)
@@ -850,15 +850,15 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
        -- it once per @f@ if we took shapes as arguments. The @sfold@ operation
        -- can do that thanks to shapes being available from types.
        case revProduceArtifact TensorToken True g EM.empty domsF of
-      ( ( (varsDt, [AstDynamicVarName nid, AstDynamicVarName mid])
-        , gradient, _primal, _sh), _delta ) -> assert (length varsDt == 1) $
+      !( !( !(!varsDt, [AstDynamicVarName nid, AstDynamicVarName mid])
+          , !gradient, !_primal, _sh), _delta ) -> assert (length varsDt == 1) $
         case fwdProduceArtifact TensorToken g EM.empty domsF of
           ( ( ( [AstDynamicVarName nid1, AstDynamicVarName mid1]
               , [AstDynamicVarName nid2, AstDynamicVarName mid2] )
-            , derivative, _primal), _delta ) ->
-            let (nvar1, mvar1) = (AstVarName nid1, AstVarName mid1)
-                (nvar2, mvar2) = (AstVarName nid2, AstVarName mid2)
-                (nvar, mvar) = (AstVarName nid, AstVarName mid)
+            , !derivative, !_primal), _delta ) ->
+            let !(!nvar1, !mvar1) = (AstVarName nid1, AstVarName mid1)
+                !(!nvar2, !mvar2) = (AstVarName nid2, AstVarName mid2)
+                !(!nvar, !mvar) = (AstVarName nid, AstVarName mid)
             in AstScanDer (funToAst2R shn shm f)
                           (nvar1, mvar1, nvar2, mvar2, derivative)
                           ( AstVarName $ dynamicVarNameToAstVarId (varsDt !! 0)
@@ -895,15 +895,15 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
         g :: HVector (AstRanked FullSpan) -> AstShaped FullSpan rn sh
         g doms = uncurry f (domsToPair doms)
     in case revProduceArtifact TensorToken True g EM.empty domsF of
-      ( ( (varsDt, [AstDynamicVarName nid, AstDynamicVarName mid])
-        , gradient, _primal, _sh), _delta ) -> assert (length varsDt == 1) $
+      !( !( !(!varsDt, [AstDynamicVarName nid, AstDynamicVarName mid])
+          , !gradient, !_primal, _sh), _delta ) -> assert (length varsDt == 1) $
         case fwdProduceArtifact TensorToken g EM.empty domsF of
           ( ( ( [AstDynamicVarName nid1, AstDynamicVarName mid1]
               , [AstDynamicVarName nid2, AstDynamicVarName mid2] )
-            , derivative, _primal), _delta ) ->
-            let (nvar1, mvar1) = (AstVarName nid1, AstVarName mid1)
-                (nvar2, mvar2) = (AstVarName nid2, AstVarName mid2)
-                (nvar, mvar) = (AstVarName nid, AstVarName mid)
+            , !derivative, !_primal), _delta ) ->
+            let !(!nvar1, !mvar1) = (AstVarName nid1, AstVarName mid1)
+                !(!nvar2, !mvar2) = (AstVarName nid2, AstVarName mid2)
+                !(!nvar, !mvar) = (AstVarName nid, AstVarName mid)
             in AstFoldDerS (funToAst2S f)
                            (nvar1, mvar1, nvar2, mvar2, derivative)
                            ( AstVarName $ dynamicVarNameToAstVarId (varsDt !! 0)
@@ -937,15 +937,15 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
         g :: HVector (AstRanked FullSpan) -> AstShaped FullSpan rn sh
         g doms = uncurry f (domsToPair doms)
     in case revProduceArtifact TensorToken True g EM.empty domsF of
-      ( ( (varsDt, [AstDynamicVarName nid, AstDynamicVarName mid])
-        , gradient, _primal, _sh), _delta ) -> assert (length varsDt == 1) $
+      !( !( !(!varsDt, [AstDynamicVarName nid, AstDynamicVarName mid])
+          , !gradient, !_primal, _sh), _delta ) -> assert (length varsDt == 1) $
         case fwdProduceArtifact TensorToken g EM.empty domsF of
           ( ( ( [AstDynamicVarName nid1, AstDynamicVarName mid1]
               , [AstDynamicVarName nid2, AstDynamicVarName mid2] )
-            , derivative, _primal), _delta ) ->
-            let (nvar1, mvar1) = (AstVarName nid1, AstVarName mid1)
-                (nvar2, mvar2) = (AstVarName nid2, AstVarName mid2)
-                (nvar, mvar) = (AstVarName nid, AstVarName mid)
+            , !derivative, !_primal), _delta ) ->
+            let !(!nvar1, !mvar1) = (AstVarName nid1, AstVarName mid1)
+                !(!nvar2, !mvar2) = (AstVarName nid2, AstVarName mid2)
+                !(!nvar, !mvar) = (AstVarName nid, AstVarName mid)
             in AstScanDerS (funToAst2S @_ @_ @sh f)
                            (nvar1, mvar1, nvar2, mvar2, derivative)
                            ( AstVarName $ dynamicVarNameToAstVarId (varsDt !! 0)
@@ -988,9 +988,9 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
         g :: HVector (AstRanked FullSpan)
           -> HVectorPseudoTensor (AstRanked FullSpan) Float '()
         g hv = HVectorPseudoTensor $ uncurry f (hvToPair hv)
-        (((varsDt, vars), gradient, _primal, _sh), _delta) =
+        !(!(!(!varsDt, !vars), !gradient, !_primal, _sh), _delta) =
           revProduceArtifact TensorToken True g EM.empty accEShs
-        (((varsDt2, vars2), derivative, _primal2), _delta2) =
+        !(!(!(!varsDt2, !vars2), !derivative, !_primal2), _delta2) =
           fwdProduceArtifact TensorToken g EM.empty accEShs
      in AstMapAccumRDer k accShs bShs eShs
                         (funToAstHH f accShs eShs)
@@ -1043,9 +1043,9 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
         g :: HVector (AstRanked FullSpan)
           -> HVectorPseudoTensor (AstRanked FullSpan) Float '()
         g hv = HVectorPseudoTensor $ uncurry f (hvToPair hv)
-        (((varsDt, vars), gradient, _primal, _sh), _delta) =
+        !(!(!(!varsDt, !vars), !gradient, !_primal, _sh), _delta) =
           revProduceArtifact TensorToken True g EM.empty accEShs
-        (((varsDt2, vars2), derivative, _primal2), _delta2) =
+        !(!(!(!varsDt2, !vars2), !derivative, !_primal2), _delta2) =
           fwdProduceArtifact TensorToken g EM.empty accEShs
      in AstMapAccumLDer k accShs bShs eShs
                         (funToAstHH f accShs eShs)
