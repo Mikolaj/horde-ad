@@ -17,6 +17,7 @@ import qualified Data.Array.Shape as Sh
 import qualified Data.EnumMap.Strict as EM
 import qualified Data.EnumSet as ES
 import           Data.List (mapAccumR)
+import           Data.Maybe (fromMaybe)
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat)
 
@@ -205,8 +206,10 @@ inlineAst memo v0 = case v0 of
     let (memo1, v2) = inlineAst memo v
         (memo2, f2) = inlineAstHFun memo1 f
     in case EM.findWithDefault 0 var memo2 of
-      0 -> (memo2, v2)
--- TODO:      1 -> (memo2, substituteAst (SubstitutionPayloadFun f2) var v2)
+      0 -> (memo1, v2)
+      1 -> (memo2, fromMaybe v2
+                   $ substitute1Ast @_ @_ @_ @_ @Float
+                       (SubstitutionPayloadHFun f2) var v2)
       _ -> (memo2, Ast.AstLetHFunIn var f2 v2)
   Ast.AstRFromS v -> second Ast.AstRFromS $ inlineAstS memo v
   Ast.AstConstant a -> second Ast.AstConstant $ inlineAst memo a
@@ -373,7 +376,9 @@ inlineAstS memo v0 = case v0 of
         (memo2, f2) = inlineAstHFun memo1 f
     in case EM.findWithDefault 0 var memo2 of
       0 -> (memo1, v2)
--- TODO:      1 -> (memo2, substituteAstS (SubstitutionPayloadFun f2) var v2)
+      1 -> (memo2, fromMaybe v2
+                   $ substitute1AstS @_ @_ @_ @_ @Float
+                       (SubstitutionPayloadHFun f2) var v2)
       _ -> (memo2, Ast.AstLetHFunInS var f2 v2)
   Ast.AstSFromR v -> second Ast.AstSFromR $ inlineAst memo v
   Ast.AstConstantS a -> second Ast.AstConstantS $ inlineAstS memo a
@@ -452,7 +457,9 @@ inlineAstHVector memo v0 = case v0 of
         (memo2, f2) = inlineAstHFun memo1 f
     in case EM.findWithDefault 0 var memo2 of
       0 -> (memo1, v2)
--- TODO:      1 -> (memo2, substituteAstHVector (SubstitutionPayloadFun f2) var v2)
+      1 -> (memo2, fromMaybe v2
+                   $ substitute1AstHVector @Float
+                       (SubstitutionPayloadHFun f2) var v2)
       _ -> (memo2, Ast.AstLetHFunInHVector var f2 v2)
   Ast.AstLetInHVector var u v ->
     -- We assume there are no nested lets with the same variable.

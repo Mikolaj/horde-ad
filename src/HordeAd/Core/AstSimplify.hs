@@ -36,8 +36,11 @@ module HordeAd.Core.AstSimplify
   , simplifyAst, simplifyAstHVector, simplifyAstS
     -- * Substitution payload and adaptors for AstVarName
   , SubstitutionPayload(..)
-  , substituteAst, substituteAstIndex, substituteAstDynamic
-  , substituteAstHVector, substituteAstBool, substituteAstS, substituteAstIndexS
+  , substituteAst, substitute1Ast, substituteAstIndex
+  , substituteAstS, substitute1AstS, substituteAstIndexS
+  , substituteAstDynamic, substituteAstHVector, substitute1AstHVector
+  , substituteAstBool
+
     -- * Misc
   , astReplicate0N
   ) where
@@ -2613,6 +2616,7 @@ data SubstitutionPayload s r =
     => SubstitutionPayloadRanked (AstRanked s r n)
   | forall sh. Sh.Shape sh
     => SubstitutionPayloadShaped (AstShaped s r sh)
+  | SubstitutionPayloadHFun (AstHFun s)
 
 -- | We assume no variable is shared between a binding and its nested binding
 -- and nobody substitutes into variables that are bound.
@@ -2710,6 +2714,7 @@ substitute1Ast i var v1 = case v1 of
             _ -> error "substitute1Ast: rank"
           False -> error "substitute1Ast: shape"
         _ -> error "substitute1Ast: span"
+      SubstitutionPayloadHFun{} -> error "substitute1Ast: unexpected lambda"
     else Nothing
   Ast.AstLet var2 u v ->
     case (substitute1Ast i var u, substitute1Ast i var v) of
@@ -2877,7 +2882,7 @@ substitute1AstS i var = \case
             Just Refl -> Just t
             _ -> error "substitute1AstS: scalar"
           _ -> error "substitute1AstS: shape"
-        _ -> error "substitute1Ast: span"
+        _ -> error "substitute1AstS: span"
       -- To impose such checks, we'd need to switch from OD tensors
       -- to existential OR/OS tensors so that we can inspect
       -- which it is and then seed Delta evaluation maps with that.
@@ -2887,9 +2892,10 @@ substitute1AstS i var = \case
           Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
             Just Refl -> assert (Sh.shapeT @sh == shapeToList (shapeAst t))
                          $ Just $ astSFromR t
-            _ -> error "substitute1Ast: scalar"
-          _ -> error "substitute1Ast: rank"
-        _ -> error "substitute1Ast: span"
+            _ -> error "substitute1AstS: scalar"
+          _ -> error "substitute1AstS: rank"
+        _ -> error "substitute1AstS: span"
+      SubstitutionPayloadHFun{} -> error "substitute1AstS: unexpected lambda"
     else Nothing
   Ast.AstLetS var2 u v ->
     case (substitute1AstS i var u, substitute1AstS i var v) of
@@ -3153,7 +3159,7 @@ substitute1AstHVector i var = \case
                                    (fromMaybe es mes)
 
 substitute1AstHFun
-  :: (GoodScalar r2, AstSpan s, AstSpan s2)
+  :: forall r2 s s2. (GoodScalar r2, AstSpan s, AstSpan s2)
   => SubstitutionPayload s2 r2 -> AstVarId -> AstHFun s
   -> Maybe (AstHFun s)
 substitute1AstHFun i var = \case
@@ -3162,7 +3168,17 @@ substitute1AstHFun i var = \case
     in if isJust ml
        then Just $ Ast.AstHFun vvars $ fromMaybe l ml
        else Nothing
-  Ast.AstVarHFun _shss _shs _var2 -> Nothing  -- TODO: function payloads
+  Ast.AstVarHFun _shss _shs var2 ->
+    if fromEnum var == fromEnum var2
+    then case i of
+      SubstitutionPayloadShaped{} ->
+        error "substitute1AstHFun: unexpected tensor"
+      SubstitutionPayloadRanked{} ->
+        error "substitute1AstHFun: unexpected tensor"
+      SubstitutionPayloadHFun h -> case sameAstSpan @s @s2 of
+        Just Refl -> Just h
+        _ -> error "substitute1AstHFun: span"
+    else Nothing
 
 substitute1AstBool :: (GoodScalar r2, AstSpan s2)
                    => SubstitutionPayload s2 r2 -> AstVarId -> AstBool
