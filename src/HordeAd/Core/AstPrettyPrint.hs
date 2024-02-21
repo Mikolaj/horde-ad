@@ -345,12 +345,12 @@ printAstAux cfg d = \case
   AstFromIntegral a ->
     printPrefixOp printAst cfg d "rfromIntegral" [a]
   AstConst a ->
-    showParen (d > 10)
-    $ showString "rconst "
-      . case sameNat (Proxy @n) (Proxy @0) of
-          Just Refl -> shows $ OR.unScalar a
-          _ -> showParen True
-               $ shows a
+    case sameNat (Proxy @n) (Proxy @0) of
+      Just Refl -> shows $ OR.unScalar a
+      _ -> showParen (d > 10)
+           $ showString "rconst "
+             . (showParen True
+                $ shows a)
   AstLetHVectorIn vars l v ->
     if loseRoudtrip cfg
     then
@@ -395,9 +395,10 @@ printAstAux cfg d = \case
              . showString " -> "
              . printAst cfg 0 v)
         -- TODO: this does not roundtrip yet
-  AstRFromS v -> printAstS cfg d v
-  AstConstant a@AstConst{} -> printAst cfg d a
-  AstConstant a -> printPrefixOp printAst cfg d "rconstant" [a]
+  AstRFromS v -> printPrefixOp printAstS cfg d "rfromS" [v]
+  AstConstant a -> if loseRoudtrip cfg
+                   then printAst cfg d a
+                   else printPrefixOp printAst cfg d "rconstant" [a]
   AstPrimalPart a -> printPrefixOp printAst cfg d "rprimalPart" [a]
   AstDualPart a -> printPrefixOp printAst cfg d "rdualPart" [a]
   AstD u u' -> printPrefixBinaryOp printAst printAst cfg d "rD" u u'
@@ -669,12 +670,12 @@ printAstS cfg d = \case
   AstFromIntegralS a ->
     printPrefixOp printAstS cfg d "sfromIntegral" [a]
   AstConstS @sh2 a ->
-    showParen (d > 10)
-    $ showString ("sconst @" ++ show (Sh.shapeT @sh2) ++ " ")
-      . case sameShape @sh @'[] of
-          Just Refl -> shows $ OS.unScalar a
-          _ -> showParen True
-               $ shows a
+    case sameShape @sh @'[] of
+      Just Refl -> shows $ OS.unScalar a
+      _ -> showParen (d > 10)
+           $ showString ("sconst @" ++ show (Sh.shapeT @sh2) ++ " ")
+             . (showParen True
+                $ shows a)
   AstLetHVectorInS vars l v ->
     if loseRoudtrip cfg
     then
@@ -719,10 +720,10 @@ printAstS cfg d = \case
              . showString " -> "
              . printAstS cfg 0 v)
         -- TODO: this does not roundtrip yet
-  AstSFromR v -> printAst cfg d v
-  AstConstantS a@AstConstS{} -> printAstS cfg d a
-  AstConstantS a ->
-    printPrefixOp printAstS cfg d "sconstant" [a]
+  AstSFromR v -> printPrefixOp printAst cfg d "sfromR" [v]
+  AstConstantS a -> if loseRoudtrip cfg
+                    then printAstS cfg d a
+                    else printPrefixOp printAstS cfg d "sconstant" [a]
   AstPrimalPartS a -> printPrefixOp printAstS cfg d "sprimalPart" [a]
   AstDualPartS a -> printPrefixOp printAstS cfg d "sdualPart" [a]
   AstDS u u' -> printPrefixBinaryOp printAstS printAstS cfg d "sD" u u'

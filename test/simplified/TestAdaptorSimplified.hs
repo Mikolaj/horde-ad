@@ -147,7 +147,6 @@ testTrees =
   , testCase "2F21" testF21
   , testCase "2F2CFwd" testF2CFwd
   , testCase "2F2Fwd" testF2Fwd
---  , testCase "2F3" testF3
   , testCase "2braidedBuilds1" testBraidedBuilds1
   , testCase "2recycled1" testRecycled1
   , testCase "2concatBuild1" testConcatBuild1
@@ -385,9 +384,9 @@ testPiecewiseLinearPP = do
       fT x = ifF (x >. 0) (2 * x) (5 * x)
       (artifactRev, deltas) = revArtifactAdapt True fT 42
   printGradient6Pretty renames (simplifyArtifactRev artifactRev)
-    @?= "\\x2 x1 -> let v3 = rscatter [2] x2 (\\[] -> [ifF (x1 >. rconst 0.0) 0 1]) in [rconst 2.0 * v3 ! [0] + rconst 5.0 * v3 ! [1]]"
+    @?= "\\x2 x1 -> let v3 = rscatter [2] x2 (\\[] -> [ifF (x1 >. 0.0) 0 1]) in [2.0 * v3 ! [0] + 5.0 * v3 ! [1]]"
   printPrimal6Pretty renames (simplifyArtifactRev artifactRev)
-    @?= "\\x1 -> rfromList [rconst 2.0 * x1, rconst 5.0 * x1] ! [ifF (x1 >. rconst 0.0) 0 1]"
+    @?= "\\x1 -> rfromList [2.0 * x1, 5.0 * x1] ! [ifF (x1 >. 0.0) 0 1]"
   show deltas
     @?= "LetR 100000004 (IndexR (LetR 100000003 (FromListR [LetR 100000001 (ScaleR (AstConst (fromList [] [2.0])) (InputR [] (InputId 0))),LetR 100000002 (ScaleR (AstConst (fromList [] [5.0])) (InputR [] (InputId 0)))])) [AstCond (AstRel GtOp (AstVar [] (AstVarId 100000001)) (AstConst (fromList [] [0.0]))) (AstConst (fromList [] [0])) (AstConst (fromList [] [1]))])"
 
@@ -400,13 +399,13 @@ testPiecewiseLinear2PP = do
       fT x = ifF (x >. 0) 2 5 * x
       (artifactRev, deltas) = revArtifactAdapt True fT 42
   printGradient6Pretty renames artifactRev
-    @?= "\\x3 x1 -> let x2 = ifF (x1 >. rconst 0.0) (rconst 2.0) (rconst 5.0) in [x2 * x3]"
+    @?= "\\x3 x1 -> let x2 = ifF (x1 >. 0.0) 2.0 5.0 in [x2 * x3]"
   printPrimal6Pretty renames artifactRev
-    @?= "\\x1 -> let x2 = ifF (x1 >. rconst 0.0) (rconst 2.0) (rconst 5.0) in x2 * x1"
+    @?= "\\x1 -> let x2 = ifF (x1 >. 0.0) 2.0 5.0 in x2 * x1"
   printGradient6Pretty renames (simplifyArtifactRev artifactRev)
-    @?= "\\x3 x1 -> [ifF (x1 >. rconst 0.0) (rconst 2.0) (rconst 5.0) * x3]"
+    @?= "\\x3 x1 -> [ifF (x1 >. 0.0) 2.0 5.0 * x3]"
   printPrimal6Pretty renames (simplifyArtifactRev artifactRev)
-    @?= "\\x1 -> ifF (x1 >. rconst 0.0) (rconst 2.0) (rconst 5.0) * x1"
+    @?= "\\x1 -> ifF (x1 >. 0.0) 2.0 5.0 * x1"
   show deltas
     @?= "LetR 100000005 (ScaleR (AstVar [] (AstVarId 100000002)) (InputR [] (InputId 0)))"
 
@@ -686,9 +685,9 @@ testListSum2rPP = do
       fT = rankedListSum2r
   let (artifactRev, deltas)= revArtifactAdapt True fT [1, 2, 3, 4]
   printGradient6Pretty renames (simplifyArtifactRev artifactRev)
-    @?= "\\x7 x1 x2 x3 x4 -> let x8 = rconst 2.0 * x7 ; x9 = rconst 2.0 * x8 in [x7, x8, x9, rconst 2.0 * x9]"
+    @?= "\\x7 x1 x2 x3 x4 -> let x8 = 2.0 * x7 ; x9 = 2.0 * x8 in [x7, x8, x9, 2.0 * x9]"
   printPrimal6Pretty renames (simplifyArtifactRev artifactRev)
-    @?= "\\x1 x2 x3 x4 -> x1 + rconst 2.0 * (x2 + rconst 2.0 * (x3 + rconst 2.0 * x4))"
+    @?= "\\x1 x2 x3 x4 -> x1 + 2.0 * (x2 + 2.0 * (x3 + 2.0 * x4))"
   show deltas
     @?= "LetR 100000006 (AddR (InputR [] (InputId 0)) (LetR 100000005 (ScaleR (AstConst (fromList [] [2.0])) (LetR 100000004 (AddR (InputR [] (InputId 1)) (LetR 100000003 (ScaleR (AstConst (fromList [] [2.0])) (LetR 100000002 (AddR (InputR [] (InputId 2)) (LetR 100000001 (ScaleR (AstConst (fromList [] [2.0])) (InputR [] (InputId 3)))))))))))))"
 
@@ -704,9 +703,9 @@ testListSum22rPP = do
       fT = rankedListSum22r
   let (artifactRev, deltas)= revArtifactAdapt True fT [1, 2, 3, 4]
   printGradient6Pretty renames (simplifyArtifactRev artifactRev)
-    @?= "\\x7 x1 x2 x3 x4 -> let x8 = rconst 2.0 * x7 ; x9 = rconst 2.0 * x8 in [rconst 2.0 * x7, rconst 2.0 * x8, rconst 2.0 * x9, rconst 2.0 * x9]"
+    @?= "\\x7 x1 x2 x3 x4 -> let x8 = 2.0 * x7 ; x9 = 2.0 * x8 in [2.0 * x7, 2.0 * x8, 2.0 * x9, 2.0 * x9]"
   printPrimal6Pretty renames (simplifyArtifactRev artifactRev)
-    @?= "\\x1 x2 x3 x4 -> rconst 2.0 * x1 + rconst 2.0 * (rconst 2.0 * x2 + rconst 2.0 * (rconst 2.0 * x3 + rconst 2.0 * x4))"
+    @?= "\\x1 x2 x3 x4 -> 2.0 * x1 + 2.0 * (2.0 * x2 + 2.0 * (2.0 * x3 + 2.0 * x4))"
   show deltas
     @?= "LetR 100000009 (AddR (LetR 100000001 (ScaleR (AstConst (fromList [] [2.0])) (InputR [] (InputId 0)))) (LetR 100000008 (ScaleR (AstConst (fromList [] [2.0])) (LetR 100000007 (AddR (LetR 100000002 (ScaleR (AstConst (fromList [] [2.0])) (InputR [] (InputId 1)))) (LetR 100000006 (ScaleR (AstConst (fromList [] [2.0])) (LetR 100000005 (AddR (LetR 100000003 (ScaleR (AstConst (fromList [] [2.0])) (InputR [] (InputId 2)))) (LetR 100000004 (ScaleR (AstConst (fromList [] [2.0])) (InputR [] (InputId 3)))))))))))))"
 
@@ -723,9 +722,9 @@ testListSumk22rPP = do
       fT = rankedListSumk22r
   let (artifactRev, deltas)= revArtifactAdapt True fT [1, 2, 3, 4]
   printGradient6Pretty renames (simplifyArtifactRev artifactRev)
-    @?= "\\x7 x1 x2 x3 x4 -> let x8 = rconst 2.0 * x7 ; x9 = rconst 2.0 * x8 in [rconst 2.0 * x7, rconst 2.0 * x8, rconst 2.0 * x9, rconst 2.0 * x9]"
+    @?= "\\x7 x1 x2 x3 x4 -> let x8 = 2.0 * x7 ; x9 = 2.0 * x8 in [2.0 * x7, 2.0 * x8, 2.0 * x9, 2.0 * x9]"
   printPrimal6Pretty renames (simplifyArtifactRev artifactRev)
-    @?= "\\x1 x2 x3 x4 -> rconst 2.0 * x1 + rconst 2.0 * (rconst 2.0 * x2 + rconst 2.0 * (rconst 2.0 * x3 + rconst 2.0 * x4))"
+    @?= "\\x1 x2 x3 x4 -> 2.0 * x1 + 2.0 * (2.0 * x2 + 2.0 * (2.0 * x3 + 2.0 * x4))"
   show deltas
     @?= "LetR 100000009 (AddR (LetR 100000001 (ScaleR (AstConst (fromList [] [2.0])) (InputR [] (InputId 0)))) (LetR 100000008 (ScaleR (AstConst (fromList [] [2.0])) (LetR 100000007 (AddR (LetR 100000002 (ScaleR (AstConst (fromList [] [2.0])) (InputR [] (InputId 1)))) (LetR 100000006 (ScaleR (AstConst (fromList [] [2.0])) (LetR 100000005 (AddR (LetR 100000003 (ScaleR (AstConst (fromList [] [2.0])) (InputR [] (InputId 2)))) (LetR 100000004 (ScaleR (AstConst (fromList [] [2.0])) (InputR [] (InputId 3)))))))))))))"
 
@@ -741,9 +740,9 @@ testListSum2xpyrPP = do
       fT = rankedListSum2xpyr
   let (artifactRev, deltas)= revArtifactAdapt True fT [1, 2, 3, 4]
   printGradient6Pretty renames (simplifyArtifactRev artifactRev)
-    @?= "\\x8 x1 x2 x3 x4 -> let x9 = rconst 2.0 * x8 ; x10 = rconst 2.0 * x9 ; x11 = rconst 2.0 * x10 in [x9, x10, x11, x11]"
+    @?= "\\x8 x1 x2 x3 x4 -> let x9 = 2.0 * x8 ; x10 = 2.0 * x9 ; x11 = 2.0 * x10 in [x9, x10, x11, x11]"
   printPrimal6Pretty renames (simplifyArtifactRev artifactRev)
-    @?= "\\x1 x2 x3 x4 -> rconst 2.0 * (x1 + rconst 2.0 * (x2 + rconst 2.0 * (x3 + x4)))"
+    @?= "\\x1 x2 x3 x4 -> 2.0 * (x1 + 2.0 * (x2 + 2.0 * (x3 + x4)))"
   show deltas
     @?= "LetR 100000006 (ScaleR (AstConst (fromList [] [2.0])) (LetR 100000005 (AddR (InputR [] (InputId 0)) (LetR 100000004 (ScaleR (AstConst (fromList [] [2.0])) (LetR 100000003 (AddR (InputR [] (InputId 1)) (LetR 100000002 (ScaleR (AstConst (fromList [] [2.0])) (LetR 100000001 (AddR (InputR [] (InputId 2)) (InputR [] (InputId 3)))))))))))))"
 
@@ -759,9 +758,9 @@ testListSum2xyrPP = do
       fT = rankedListSum2xyr
   let (artifactRev, deltas)= revArtifactAdapt True fT [1, 2, 3, 4]
   printGradient6Pretty renames (simplifyArtifactRev artifactRev)
-    @?= "\\x10 x1 x2 x3 x4 -> let x6 = rconst 2.0 * (x3 * x4) ; x11 = rconst 2.0 * x10 ; x12 = rconst 2.0 * (x1 * x11) ; x13 = rconst 2.0 * (x2 * x12) in [(rconst 2.0 * (x2 * x6)) * x11, x6 * x12, x4 * x13, x3 * x13]"
+    @?= "\\x10 x1 x2 x3 x4 -> let x6 = 2.0 * (x3 * x4) ; x11 = 2.0 * x10 ; x12 = 2.0 * (x1 * x11) ; x13 = 2.0 * (x2 * x12) in [(2.0 * (x2 * x6)) * x11, x6 * x12, x4 * x13, x3 * x13]"
   printPrimal6Pretty renames (simplifyArtifactRev artifactRev)
-    @?= "\\x1 x2 x3 x4 -> rconst 2.0 * (x1 * (rconst 2.0 * (x2 * (rconst 2.0 * (x3 * x4)))))"
+    @?= "\\x1 x2 x3 x4 -> 2.0 * (x1 * (2.0 * (x2 * (2.0 * (x3 * x4)))))"
   show deltas
     @?= "LetR 100000006 (ScaleR (AstConst (fromList [] [2.0])) (LetR 100000005 (AddR (ScaleR (AstVar [] (AstVarId 100000008)) (InputR [] (InputId 0))) (ScaleR (AstVar [] (AstVarId 100000001)) (LetR 100000004 (ScaleR (AstConst (fromList [] [2.0])) (LetR 100000003 (AddR (ScaleR (AstVar [] (AstVarId 100000006)) (InputR [] (InputId 1))) (ScaleR (AstVar [] (AstVarId 100000002)) (LetR 100000002 (ScaleR (AstConst (fromList [] [2.0])) (LetR 100000001 (AddR (ScaleR (AstVar [] (AstVarId 100000004)) (InputR [] (InputId 2))) (ScaleR (AstVar [] (AstVarId 100000003)) (InputR [] (InputId 3))))))))))))))))"
 
@@ -778,9 +777,9 @@ test2xyPP = do
       fT = ranked2xy
   let (artifactRev, deltas)= revArtifactAdapt True fT (4, 5)
   printGradient6Pretty renames (simplifyArtifactRev artifactRev)
-    @?= "\\x4 x1 x2 -> [rconst 2.0 * (x2 * x4), (rconst 2.0 * x1) * x4]"
+    @?= "\\x4 x1 x2 -> [2.0 * (x2 * x4), (2.0 * x1) * x4]"
   printPrimal6Pretty renames (simplifyArtifactRev artifactRev)
-    @?= "\\x1 x2 -> (rconst 2.0 * x1) * x2"
+    @?= "\\x1 x2 -> (2.0 * x1) * x2"
   show deltas
     @?= "LetR 100000002 (AddR (ScaleR (AstVar [] (AstVarId 100000002)) (LetR 100000001 (ScaleR (AstConst (fromList [] [2.0])) (InputR [] (InputId 0))))) (ScaleR (AstVar [] (AstVarId 100000003)) (InputR [] (InputId 1))))"
 
@@ -797,9 +796,9 @@ testListSum23rPP = do
       fT = rankedListSum23r
   let (artifactRev, deltas)= revArtifactAdapt True fT [1, 2, 3, 4]
   printGradient6Pretty renames (simplifyArtifactRev artifactRev)
-    @?= "\\x7 x1 x2 x3 x4 -> let x8 = rconst 3.0 * x7 ; x9 = rconst 3.0 * x8 in [rconst 2.0 * x7, rconst 2.0 * x8, rconst 2.0 * x9, rconst 3.0 * x9]"
+    @?= "\\x7 x1 x2 x3 x4 -> let x8 = 3.0 * x7 ; x9 = 3.0 * x8 in [2.0 * x7, 2.0 * x8, 2.0 * x9, 3.0 * x9]"
   printPrimal6Pretty renames (simplifyArtifactRev artifactRev)
-    @?= "\\x1 x2 x3 x4 -> rconst 2.0 * x1 + rconst 3.0 * (rconst 2.0 * x2 + rconst 3.0 * (rconst 2.0 * x3 + rconst 3.0 * x4))"
+    @?= "\\x1 x2 x3 x4 -> 2.0 * x1 + 3.0 * (2.0 * x2 + 3.0 * (2.0 * x3 + 3.0 * x4))"
   show deltas
     @?= "LetR 100000009 (AddR (LetR 100000001 (ScaleR (AstConst (fromList [] [2.0])) (InputR [] (InputId 0)))) (LetR 100000008 (ScaleR (AstConst (fromList [] [3.0])) (LetR 100000007 (AddR (LetR 100000002 (ScaleR (AstConst (fromList [] [2.0])) (InputR [] (InputId 1)))) (LetR 100000006 (ScaleR (AstConst (fromList [] [3.0])) (LetR 100000005 (AddR (LetR 100000003 (ScaleR (AstConst (fromList [] [2.0])) (InputR [] (InputId 2)))) (LetR 100000004 (ScaleR (AstConst (fromList [] [3.0])) (InputR [] (InputId 3)))))))))))))"
 
@@ -816,9 +815,9 @@ test23PP = do
       fT = ranked23
   let (artifactRev, deltas)= revArtifactAdapt True fT (4, 5)
   printGradient6Pretty renames (simplifyArtifactRev artifactRev)
-    @?= "\\x3 x1 x2 -> [rconst 2.0 * x3, rconst 3.0 * x3]"
+    @?= "\\x3 x1 x2 -> [2.0 * x3, 3.0 * x3]"
   printPrimal6Pretty renames (simplifyArtifactRev artifactRev)
-    @?= "\\x1 x2 -> rconst 2.0 * x1 + rconst 3.0 * x2"
+    @?= "\\x1 x2 -> 2.0 * x1 + 3.0 * x2"
   show deltas
     @?= "LetR 100000003 (AddR (LetR 100000001 (ScaleR (AstConst (fromList [] [2.0])) (InputR [] (InputId 0)))) (LetR 100000002 (ScaleR (AstConst (fromList [] [3.0])) (InputR [] (InputId 1)))))"
 
@@ -841,13 +840,13 @@ testReluPP = do
       (var3, ast3) = funToAstR [3, 4] reluT
   "\\" ++ printAstVarName renamesNull var3
        ++ " -> " ++ printAstSimple renamesNull ast3
-    @?= "\\m1 -> rconstant (rgather [3,4] (rconst (fromList [2] [0.0,1.0])) (\\[i4, i3] -> [ifF (rprimalPart m1 ! [i4, i3] <=. rconst 0.0) 0 1])) * m1"
+    @?= "\\m1 -> rconstant (rgather [3,4] (rconst (fromList [2] [0.0,1.0])) (\\[i4, i3] -> [ifF (rprimalPart m1 ! [i4, i3] <=. 0.0) 0 1])) * m1"
   resetVarCounter
   let (artifactRev, deltas) = revArtifactAdapt True reluT (Flip $ OR.constant [3, 4] 4)
   printGradient6Pretty renames artifactRev
-    @?= "\\m8 m1 -> let m7 = rgather [3,4] (rconst (fromList [2] [0.0,1.0])) (\\[i5, i6] -> [ifF (m1 ! [i5, i6] <=. rconst 0.0) 0 1]) in [m7 * m8]"
+    @?= "\\m8 m1 -> let m7 = rgather [3,4] (rconst (fromList [2] [0.0,1.0])) (\\[i5, i6] -> [ifF (m1 ! [i5, i6] <=. 0.0) 0 1]) in [m7 * m8]"
   printPrimal6Pretty renames artifactRev
-    @?= "\\m1 -> let m7 = rgather [3,4] (rconst (fromList [2] [0.0,1.0])) (\\[i5, i6] -> [ifF (m1 ! [i5, i6] <=. rconst 0.0) 0 1]) in m7 * m1"
+    @?= "\\m1 -> let m7 = rgather [3,4] (rconst (fromList [2] [0.0,1.0])) (\\[i5, i6] -> [ifF (m1 ! [i5, i6] <=. 0.0) 0 1]) in m7 * m1"
   show deltas
     @?= "LetR 100000003 (ScaleR (AstVar [3,4] (AstVarId 100000007)) (InputR [3,4] (InputId 0)))"
 
@@ -862,17 +861,17 @@ testReluPP2 = do
       (var3, ast3) = funToAstR [5] (\t -> reluT2 (t, 7))
   "\\" ++ printAstVarName renamesNull var3
        ++ " -> " ++ printAstSimple renamesNull ast3
-    @?= "\\v1 -> rconstant (rgather [5] (rconst (fromList [2] [0.0,1.0])) (\\[i2] -> [ifF (rprimalPart v1 ! [i2] * rconst 7.0 <=. rconst 0.0) 0 1])) * (v1 * rreplicate 5 (rconst 7.0))"
+    @?= "\\v1 -> rconstant (rgather [5] (rconst (fromList [2] [0.0,1.0])) (\\[i2] -> [ifF (rprimalPart v1 ! [i2] * 7.0 <=. 0.0) 0 1])) * (v1 * rreplicate 5 (rconstant 7.0))"
   resetVarCounter
   let (artifactRev, deltas) = revArtifactAdapt True reluT2 (Flip $ OR.constant [5] 128, 42)
   printGradient6Pretty renames artifactRev
-    @?= "\\v8 v1 x2 -> let v6 = rgather [5] (rconst (fromList [2] [0.0,1.0])) (\\[i4] -> [ifF ((let x5 = v1 ! [i4] in x5 * x2) <=. rconst 0.0) 0 1]) ; v7 = v1 * rreplicate 5 x2 ; v9 = v6 * v8 in [rreplicate 5 x2 * v9, rsum (v1 * v9)]"
+    @?= "\\v8 v1 x2 -> let v6 = rgather [5] (rconst (fromList [2] [0.0,1.0])) (\\[i4] -> [ifF ((let x5 = v1 ! [i4] in x5 * x2) <=. 0.0) 0 1]) ; v7 = v1 * rreplicate 5 x2 ; v9 = v6 * v8 in [rreplicate 5 x2 * v9, rsum (v1 * v9)]"
   printPrimal6Pretty renames artifactRev
-    @?= "\\v1 x2 -> let v6 = rgather [5] (rconst (fromList [2] [0.0,1.0])) (\\[i4] -> [ifF ((let x5 = v1 ! [i4] in x5 * x2) <=. rconst 0.0) 0 1]) ; v7 = v1 * rreplicate 5 x2 in v6 * v7"
+    @?= "\\v1 x2 -> let v6 = rgather [5] (rconst (fromList [2] [0.0,1.0])) (\\[i4] -> [ifF ((let x5 = v1 ! [i4] in x5 * x2) <=. 0.0) 0 1]) ; v7 = v1 * rreplicate 5 x2 in v6 * v7"
   printGradient6Pretty renames (simplifyArtifactRev artifactRev)
-    @?= "\\v8 v1 x2 -> let v9 = rgather [5] (rconst (fromList [2] [0.0,1.0])) (\\[i4] -> [ifF (v1 ! [i4] * x2 <=. rconst 0.0) 0 1]) * v8 in [rreplicate 5 x2 * v9, rsum (v1 * v9)]"
+    @?= "\\v8 v1 x2 -> let v9 = rgather [5] (rconst (fromList [2] [0.0,1.0])) (\\[i4] -> [ifF (v1 ! [i4] * x2 <=. 0.0) 0 1]) * v8 in [rreplicate 5 x2 * v9, rsum (v1 * v9)]"
   printPrimal6Pretty renames (simplifyArtifactRev artifactRev)
-    @?= "\\v1 x2 -> rgather [5] (rconst (fromList [2] [0.0,1.0])) (\\[i4] -> [ifF (v1 ! [i4] * x2 <=. rconst 0.0) 0 1]) * (v1 * rreplicate 5 x2)"
+    @?= "\\v1 x2 -> rgather [5] (rconst (fromList [2] [0.0,1.0])) (\\[i4] -> [ifF (v1 ! [i4] * x2 <=. 0.0) 0 1]) * (v1 * rreplicate 5 x2)"
   show deltas
     @?= "LetR 100000009 (ScaleR (AstVar [5] (AstVarId 100000006)) (LetR 100000008 (AddR (ScaleR (AstReplicate 5 (AstVar [] (AstVarId 100000002))) (InputR [5] (InputId 0))) (ScaleR (AstVar [5] (AstVarId 100000001)) (LetR 100000007 (ReplicateR 5 (InputR [] (InputId 1))))))))"
 
@@ -892,13 +891,13 @@ testReluSimplerPP = do
       (var3, ast3) = funToAstR [3, 4] reluT
   "\\" ++ printAstVarName renamesNull var3
        ++ " -> " ++ printAstSimple renamesNull ast3
-    @?= "\\m1 -> rconstant (rgather [3,4] (rconst (fromList [2] [0.0,1.0])) (\\[i4, i3] -> [ifF (rprimalPart m1 ! [i4, i3] <=. rconst 0.0) 0 1])) * m1"
+    @?= "\\m1 -> rconstant (rgather [3,4] (rconst (fromList [2] [0.0,1.0])) (\\[i4, i3] -> [ifF (rprimalPart m1 ! [i4, i3] <=. 0.0) 0 1])) * m1"
   resetVarCounter
   let (artifactRev, deltas) = revArtifactAdapt True reluT (Flip $ OR.constant [3, 4] 4)
   printGradient6Pretty renames artifactRev
-    @?= "\\m8 m1 -> let m7 = rgather [3,4] (rconst (fromList [2] [0.0,1.0])) (\\[i5, i6] -> [ifF (m1 ! [i5, i6] <=. rconst 0.0) 0 1]) in [m7 * m8]"
+    @?= "\\m8 m1 -> let m7 = rgather [3,4] (rconst (fromList [2] [0.0,1.0])) (\\[i5, i6] -> [ifF (m1 ! [i5, i6] <=. 0.0) 0 1]) in [m7 * m8]"
   printPrimal6Pretty renames artifactRev
-    @?= "\\m1 -> let m7 = rgather [3,4] (rconst (fromList [2] [0.0,1.0])) (\\[i5, i6] -> [ifF (m1 ! [i5, i6] <=. rconst 0.0) 0 1]) in m7 * m1"
+    @?= "\\m1 -> let m7 = rgather [3,4] (rconst (fromList [2] [0.0,1.0])) (\\[i5, i6] -> [ifF (m1 ! [i5, i6] <=. 0.0) 0 1]) in m7 * m1"
   show deltas
     @?= "LetR 100000003 (ScaleR (AstVar [3,4] (AstVarId 100000007)) (InputR [3,4] (InputId 0)))"
 
@@ -913,17 +912,17 @@ testReluSimplerPP2 = do
       (var3, ast3) = funToAstR [5] (\t -> reluT2 (t, 7))
   "\\" ++ printAstVarName renamesNull var3
        ++ " -> " ++ printAstSimple renamesNull ast3
-    @?= "\\v1 -> rlet (v1 * rreplicate 5 (rconst 7.0)) (\\i2 -> rconstant (rgather [5] (rconst (fromList [2] [0.0,1.0])) (\\[i3] -> [ifF (rprimalPart i2 ! [i3] <=. rconst 0.0) 0 1])) * i2)"
+    @?= "\\v1 -> rlet (v1 * rreplicate 5 (rconstant 7.0)) (\\i2 -> rconstant (rgather [5] (rconst (fromList [2] [0.0,1.0])) (\\[i3] -> [ifF (rprimalPart i2 ! [i3] <=. 0.0) 0 1])) * i2)"
   resetVarCounter
   let (artifactRev, deltas) = revArtifactAdapt True reluT2 (Flip $ OR.constant [5] 128, 42)
   printGradient6Pretty renames artifactRev
-    @?= "\\v8 v1 x2 -> let v5 = v1 * rreplicate 5 x2 ; v7 = rgather [5] (rconst (fromList [2] [0.0,1.0])) (\\[i6] -> [ifF (v5 ! [i6] <=. rconst 0.0) 0 1]) ; v9 = v7 * v8 in [rreplicate 5 x2 * v9, rsum (v1 * v9)]"
+    @?= "\\v8 v1 x2 -> let v5 = v1 * rreplicate 5 x2 ; v7 = rgather [5] (rconst (fromList [2] [0.0,1.0])) (\\[i6] -> [ifF (v5 ! [i6] <=. 0.0) 0 1]) ; v9 = v7 * v8 in [rreplicate 5 x2 * v9, rsum (v1 * v9)]"
   printPrimal6Pretty renames artifactRev
-    @?= "\\v1 x2 -> let v5 = v1 * rreplicate 5 x2 ; v7 = rgather [5] (rconst (fromList [2] [0.0,1.0])) (\\[i6] -> [ifF (v5 ! [i6] <=. rconst 0.0) 0 1]) in v7 * v5"
+    @?= "\\v1 x2 -> let v5 = v1 * rreplicate 5 x2 ; v7 = rgather [5] (rconst (fromList [2] [0.0,1.0])) (\\[i6] -> [ifF (v5 ! [i6] <=. 0.0) 0 1]) in v7 * v5"
   printGradient6Pretty renames (simplifyArtifactRev artifactRev)
-    @?= "\\v8 v1 x2 -> let v9 = rgather [5] (rconst (fromList [2] [0.0,1.0])) (\\[i6] -> [ifF (v1 ! [i6] * x2 <=. rconst 0.0) 0 1]) * v8 in [rreplicate 5 x2 * v9, rsum (v1 * v9)]"
+    @?= "\\v8 v1 x2 -> let v9 = rgather [5] (rconst (fromList [2] [0.0,1.0])) (\\[i6] -> [ifF (v1 ! [i6] * x2 <=. 0.0) 0 1]) * v8 in [rreplicate 5 x2 * v9, rsum (v1 * v9)]"
   printPrimal6Pretty renames (simplifyArtifactRev artifactRev)
-    @?= "\\v1 x2 -> let v5 = v1 * rreplicate 5 x2 in rgather [5] (rconst (fromList [2] [0.0,1.0])) (\\[i6] -> [ifF (v5 ! [i6] <=. rconst 0.0) 0 1]) * v5"
+    @?= "\\v1 x2 -> let v5 = v1 * rreplicate 5 x2 in rgather [5] (rconst (fromList [2] [0.0,1.0])) (\\[i6] -> [ifF (v5 ! [i6] <=. 0.0) 0 1]) * v5"
   show deltas
     @?= "LetR 100000008 (ScaleR (AstVar [5] (AstVarId 100000007)) (LetR 100000005 (AddR (ScaleR (AstReplicate 5 (AstVar [] (AstVarId 100000002))) (InputR [5] (InputId 0))) (ScaleR (AstVar [5] (AstVarId 100000001)) (LetR 100000004 (ReplicateR 5 (InputR [] (InputId 1))))))))"
 
@@ -938,17 +937,17 @@ testReluSimplerPP3 = do
       (var3, ast3) = funToAstR [3, 4] (\t -> reluT2 (t, 7))
   "\\" ++ printAstVarName renamesNull var3
        ++ " -> " ++ printAstSimple renamesNull ast3
-    @?= "\\v1 -> rlet (v1 * rreplicate 3 (rreplicate 4 (rconst 7.0))) (\\i2 -> rconstant (rgather [3,4] (rconst (fromList [2] [0.0,1.0])) (\\[i5, i4] -> [ifF (rprimalPart i2 ! [i5, i4] <=. rconst 0.0) 0 1])) * i2)"
+    @?= "\\v1 -> rlet (v1 * rreplicate 3 (rreplicate 4 (rconstant 7.0))) (\\i2 -> rconstant (rgather [3,4] (rconst (fromList [2] [0.0,1.0])) (\\[i5, i4] -> [ifF (rprimalPart i2 ! [i5, i4] <=. 0.0) 0 1])) * i2)"
   resetVarCounter
   let (artifactRev, deltas) = revArtifactAdapt True reluT2 (Flip $ OR.constant [3, 4] 128, 42)
   printGradient6Pretty renames artifactRev
-    @?= "\\m11 m1 x2 -> let m7 = m1 * rreplicate 3 (rreplicate 4 x2) ; m10 = rgather [3,4] (rconst (fromList [2] [0.0,1.0])) (\\[i8, i9] -> [ifF (m7 ! [i8, i9] <=. rconst 0.0) 0 1]) ; m12 = m10 * m11 in [rreplicate 3 (rreplicate 4 x2) * m12, rsum (rsum (m1 * m12))]"
+    @?= "\\m11 m1 x2 -> let m7 = m1 * rreplicate 3 (rreplicate 4 x2) ; m10 = rgather [3,4] (rconst (fromList [2] [0.0,1.0])) (\\[i8, i9] -> [ifF (m7 ! [i8, i9] <=. 0.0) 0 1]) ; m12 = m10 * m11 in [rreplicate 3 (rreplicate 4 x2) * m12, rsum (rsum (m1 * m12))]"
   printPrimal6Pretty renames artifactRev
-    @?= "\\m1 x2 -> let m7 = m1 * rreplicate 3 (rreplicate 4 x2) ; m10 = rgather [3,4] (rconst (fromList [2] [0.0,1.0])) (\\[i8, i9] -> [ifF (m7 ! [i8, i9] <=. rconst 0.0) 0 1]) in m10 * m7"
+    @?= "\\m1 x2 -> let m7 = m1 * rreplicate 3 (rreplicate 4 x2) ; m10 = rgather [3,4] (rconst (fromList [2] [0.0,1.0])) (\\[i8, i9] -> [ifF (m7 ! [i8, i9] <=. 0.0) 0 1]) in m10 * m7"
   printGradient6Pretty renames (simplifyArtifactRev artifactRev)
-    @?= "\\m11 m1 x2 -> let m12 = rgather [3,4] (rconst (fromList [2] [0.0,1.0])) (\\[i8, i9] -> [ifF (m1 ! [i8, i9] * x2 <=. rconst 0.0) 0 1]) * m11 in [rreplicate 3 (rreplicate 4 x2) * m12, rsum (rsum (m1 * m12))]"
+    @?= "\\m11 m1 x2 -> let m12 = rgather [3,4] (rconst (fromList [2] [0.0,1.0])) (\\[i8, i9] -> [ifF (m1 ! [i8, i9] * x2 <=. 0.0) 0 1]) * m11 in [rreplicate 3 (rreplicate 4 x2) * m12, rsum (rsum (m1 * m12))]"
   printPrimal6Pretty renames (simplifyArtifactRev artifactRev)
-    @?= "\\m1 x2 -> let m7 = m1 * rreplicate 3 (rreplicate 4 x2) in rgather [3,4] (rconst (fromList [2] [0.0,1.0])) (\\[i8, i9] -> [ifF (m7 ! [i8, i9] <=. rconst 0.0) 0 1]) * m7"
+    @?= "\\m1 x2 -> let m7 = m1 * rreplicate 3 (rreplicate 4 x2) in rgather [3,4] (rconst (fromList [2] [0.0,1.0])) (\\[i8, i9] -> [ifF (m7 ! [i8, i9] <=. 0.0) 0 1]) * m7"
   show deltas
     @?= "LetR 100000014 (ScaleR (AstVar [3,4] (AstVarId 100000010)) (LetR 100000011 (AddR (ScaleR (AstReplicate 3 (AstReplicate 4 (AstVar [] (AstVarId 100000002)))) (InputR [3,4] (InputId 0))) (ScaleR (AstVar [3,4] (AstVarId 100000001)) (LetR 100000010 (ReplicateR 3 (LetR 100000009 (ReplicateR 4 (InputR [] (InputId 1))))))))))"
 
@@ -974,17 +973,17 @@ testReluSimplerPP4 = do
       (var3, ast3) = funToAstR [3, 4] (\t -> reluT2 (t, 7))
   "\\" ++ printAstVarName renamesNull var3
        ++ " -> " ++ printAstSimple renamesNull ast3
-    @?= "\\v1 -> rlet (v1 * rreshape [3,4] (rreplicate 12 (rconst 7.0))) (\\i2 -> rconstant (rgather [3,4] (rconst (fromList [2] [0.0,1.0])) (\\[i5, i4] -> [ifF (rprimalPart i2 ! [i5, i4] <=. rconst 0.0) 0 1])) * i2)"
+    @?= "\\v1 -> rlet (v1 * rreshape [3,4] (rreplicate 12 (rconstant 7.0))) (\\i2 -> rconstant (rgather [3,4] (rconst (fromList [2] [0.0,1.0])) (\\[i5, i4] -> [ifF (rprimalPart i2 ! [i5, i4] <=. 0.0) 0 1])) * i2)"
   resetVarCounter
   let (artifactRev, deltas) = revArtifactAdapt True reluT2 (Flip $ OR.constant [3, 4] 128, 42)
   printGradient6Pretty renames artifactRev
-    @?= "\\m12 m1 x2 -> let m7 = rreshape [3,4] (rreplicate 12 x2) ; m8 = m1 * m7 ; m11 = rgather [3,4] (rconst (fromList [2] [0.0,1.0])) (\\[i9, i10] -> [ifF (m8 ! [i9, i10] <=. rconst 0.0) 0 1]) ; m13 = m11 * m12 in [m7 * m13, rsum (rreshape [12] (m1 * m13))]"
+    @?= "\\m12 m1 x2 -> let m7 = rreshape [3,4] (rreplicate 12 x2) ; m8 = m1 * m7 ; m11 = rgather [3,4] (rconst (fromList [2] [0.0,1.0])) (\\[i9, i10] -> [ifF (m8 ! [i9, i10] <=. 0.0) 0 1]) ; m13 = m11 * m12 in [m7 * m13, rsum (rreshape [12] (m1 * m13))]"
   printPrimal6Pretty renames artifactRev
-    @?= "\\m1 x2 -> let m7 = rreshape [3,4] (rreplicate 12 x2) ; m8 = m1 * m7 ; m11 = rgather [3,4] (rconst (fromList [2] [0.0,1.0])) (\\[i9, i10] -> [ifF (m8 ! [i9, i10] <=. rconst 0.0) 0 1]) in m11 * m8"
+    @?= "\\m1 x2 -> let m7 = rreshape [3,4] (rreplicate 12 x2) ; m8 = m1 * m7 ; m11 = rgather [3,4] (rconst (fromList [2] [0.0,1.0])) (\\[i9, i10] -> [ifF (m8 ! [i9, i10] <=. 0.0) 0 1]) in m11 * m8"
   printGradient6Pretty renames (simplifyArtifactRev artifactRev)
-    @?= "\\m12 m1 x2 -> let m13 = rgather [3,4] (rconst (fromList [2] [0.0,1.0])) (\\[i9, i10] -> [ifF (m1 ! [i9, i10] * x2 <=. rconst 0.0) 0 1]) * m12 in [rreplicate 3 (rreplicate 4 x2) * m13, rsum (rreshape [12] (m1 * m13))]"
+    @?= "\\m12 m1 x2 -> let m13 = rgather [3,4] (rconst (fromList [2] [0.0,1.0])) (\\[i9, i10] -> [ifF (m1 ! [i9, i10] * x2 <=. 0.0) 0 1]) * m12 in [rreplicate 3 (rreplicate 4 x2) * m13, rsum (rreshape [12] (m1 * m13))]"
   printPrimal6Pretty renames (simplifyArtifactRev artifactRev)
-    @?= "\\m1 x2 -> let m8 = m1 * rreplicate 3 (rreplicate 4 x2) in rgather [3,4] (rconst (fromList [2] [0.0,1.0])) (\\[i9, i10] -> [ifF (m8 ! [i9, i10] <=. rconst 0.0) 0 1]) * m8"
+    @?= "\\m1 x2 -> let m8 = m1 * rreplicate 3 (rreplicate 4 x2) in rgather [3,4] (rconst (fromList [2] [0.0,1.0])) (\\[i9, i10] -> [ifF (m8 ! [i9, i10] <=. 0.0) 0 1]) * m8"
   show deltas
     @?= "LetR 100000006 (ScaleR (AstVar [3,4] (AstVarId 100000011)) (LetR 100000003 (AddR (ScaleR (AstVar [3,4] (AstVarId 100000007)) (InputR [3,4] (InputId 0))) (ScaleR (AstVar [3,4] (AstVarId 100000001)) (LetR 100000002 (ReshapeR [3,4] (LetR 100000001 (ReplicateR 12 (InputR [] (InputId 1))))))))))"
 
@@ -1009,7 +1008,7 @@ testReluSimplerPP4S = do
       (var3, ast3) = funToAstS (\t -> reluT2 (t, 7))
   "\\" ++ printAstVarNameS renamesNull var3
        ++ " -> " ++ printAstSimpleS renamesNull ast3
-    @?= "\\v1 -> slet (v1 * sreshape (sreplicate (sconst @[] 7.0))) (\\i2 -> sconstant (sgather (sreplicate (sconst @[2] (fromList @[2] [0.0,1.0]))) (\\[i5, i4] -> [i5, ifF (sprimalPart i2 !$ [i5, i4] <=. sconst @[] 0.0) 0 1])) * i2)"
+    @?= "\\v1 -> slet (v1 * sreshape (sreplicate (sconstant 7.0))) (\\i2 -> sconstant (sgather (sreplicate (sconst @[2] (fromList @[2] [0.0,1.0]))) (\\[i5, i4] -> [i5, ifF (sprimalPart i2 !$ [i5, i4] <=. 0.0) 0 1])) * i2)"
 
 testReluSimplerPP4S2 :: Assertion
 testReluSimplerPP4S2 = do
@@ -1022,13 +1021,13 @@ testReluSimplerPP4S2 = do
       reluT2 (t, r) = reluS (t * sreplicate0N r)
   let (artifactRev, deltas) = revArtifactAdapt True reluT2 (Flip $ OS.constant 128, 42)
   printGradient6PrettyS renames artifactRev
-    @?= "\\m12 m1 x2 -> let m6 = sreshape (sreplicate x2) ; m7 = m1 * m6 ; m11 = sgather (sreplicate (sconst @[2] (fromList @[2] [0.0,1.0]))) (\\[i8, i9] -> [i8, ifF (m7 !$ [i8, i9] <=. sconst @[] 0.0) 0 1]) ; m13 = m11 * m12 in [m6 * m13, ssum (sreshape (m1 * m13))]"
+    @?= "\\m12 m1 x2 -> let m6 = sreshape (sreplicate x2) ; m7 = m1 * m6 ; m11 = sgather (sreplicate (sconst @[2] (fromList @[2] [0.0,1.0]))) (\\[i8, i9] -> [i8, ifF (m7 !$ [i8, i9] <=. 0.0) 0 1]) ; m13 = m11 * m12 in [m6 * m13, ssum (sreshape (m1 * m13))]"
   printPrimal6PrettyS renames artifactRev
-    @?= "\\m1 x2 -> let m6 = sreshape (sreplicate x2) ; m7 = m1 * m6 ; m11 = sgather (sreplicate (sconst @[2] (fromList @[2] [0.0,1.0]))) (\\[i8, i9] -> [i8, ifF (m7 !$ [i8, i9] <=. sconst @[] 0.0) 0 1]) in m11 * m7"
+    @?= "\\m1 x2 -> let m6 = sreshape (sreplicate x2) ; m7 = m1 * m6 ; m11 = sgather (sreplicate (sconst @[2] (fromList @[2] [0.0,1.0]))) (\\[i8, i9] -> [i8, ifF (m7 !$ [i8, i9] <=. 0.0) 0 1]) in m11 * m7"
   printGradient6PrettyS renames (simplifyArtifactRevS artifactRev)
-    @?= "\\m12 m1 x2 -> let m6 = sreshape (sreplicate x2) ; m13 = sgather (sreplicate (sconst @[2] (fromList @[2] [0.0,1.0]))) (\\[i8, i9] -> [i8, ifF (m1 !$ [i8, i9] * m6 !$ [i8, i9] <=. sconst @[] 0.0) 0 1]) * m12 in [m6 * m13, ssum (sreshape (m1 * m13))]"
+    @?= "\\m12 m1 x2 -> let m6 = sreshape (sreplicate x2) ; m13 = sgather (sreplicate (sconst @[2] (fromList @[2] [0.0,1.0]))) (\\[i8, i9] -> [i8, ifF (m1 !$ [i8, i9] * m6 !$ [i8, i9] <=. 0.0) 0 1]) * m12 in [m6 * m13, ssum (sreshape (m1 * m13))]"
   printPrimal6PrettyS renames (simplifyArtifactRevS artifactRev)
-    @?= "\\m1 x2 -> let m7 = m1 * sreshape (sreplicate x2) in sgather (sreplicate (sconst @[2] (fromList @[2] [0.0,1.0]))) (\\[i8, i9] -> [i8, ifF (m7 !$ [i8, i9] <=. sconst @[] 0.0) 0 1]) * m7"
+    @?= "\\m1 x2 -> let m7 = m1 * sreshape (sreplicate x2) in sgather (sreplicate (sconst @[2] (fromList @[2] [0.0,1.0]))) (\\[i8, i9] -> [i8, ifF (m7 !$ [i8, i9] <=. 0.0) 0 1]) * m7"
   show deltas
     @?= "LetS 100000007 (ScaleS (AstVarS (AstVarId 100000011)) (LetS 100000003 (AddS (ScaleS (AstVarS (AstVarId 100000006)) (InputS (InputId 0))) (ScaleS (AstVarS (AstVarId 100000001)) (LetS 100000002 (ReshapeS (LetS 100000001 (ReplicateS (InputS (InputId 1))))))))))"
 
@@ -1063,17 +1062,17 @@ testReluMaxPP = do
       (var3, ast3) = funToAstR [3, 4] reluT
   "\\" ++ printAstVarName renamesNull var3
        ++ " -> " ++ printAstSimple renamesNull ast3
-    @?= "\\m1 -> rgather [3,4] (rfromList [rconstant (rreplicate 3 (rreplicate 4 (rconst 0.0))), m1]) (\\[i5, i4] -> [ifF (rconst 0.0 >=. rprimalPart m1 ! [i5, i4]) 0 1, i5, i4])"
+    @?= "\\m1 -> rgather [3,4] (rfromList [rconstant (rreplicate 3 (rreplicate 4 0.0)), m1]) (\\[i5, i4] -> [ifF (0.0 >=. rprimalPart m1 ! [i5, i4]) 0 1, i5, i4])"
   resetVarCounter
   let (artifactRev, deltas) = revArtifactAdapt True reluT (Flip $ OR.constant [3, 4] 4)
   printGradient6Pretty renames artifactRev
-    @?= "\\m8 m1 -> let t11 = rscatter [2,3,4] m8 (\\[i9, i10] -> [ifF (rconst 0.0 >=. m1 ! [i9, i10]) 0 1, i9, i10]) in [t11 ! [1]]"
+    @?= "\\m8 m1 -> let t11 = rscatter [2,3,4] m8 (\\[i9, i10] -> [ifF (0.0 >=. m1 ! [i9, i10]) 0 1, i9, i10]) in [t11 ! [1]]"
   printPrimal6Pretty renames artifactRev
-    @?= "\\m1 -> rgather [3,4] (rfromList [rreplicate 3 (rreplicate 4 (rconst 0.0)), m1]) (\\[i6, i7] -> [ifF (rconst 0.0 >=. m1 ! [i6, i7]) 0 1, i6, i7])"
+    @?= "\\m1 -> rgather [3,4] (rfromList [rreplicate 3 (rreplicate 4 0.0), m1]) (\\[i6, i7] -> [ifF (0.0 >=. m1 ! [i6, i7]) 0 1, i6, i7])"
   printGradient6Pretty renames (simplifyArtifactRev artifactRev)
-    @?= "\\m8 m1 -> [rscatter [2,3,4] m8 (\\[i9, i10] -> [ifF (rconst 0.0 >=. m1 ! [i9, i10]) 0 1, i9, i10]) ! [1]]"
+    @?= "\\m8 m1 -> [rscatter [2,3,4] m8 (\\[i9, i10] -> [ifF (0.0 >=. m1 ! [i9, i10]) 0 1, i9, i10]) ! [1]]"
   printPrimal6Pretty renames (simplifyArtifactRev artifactRev)
-    @?= "\\m1 -> rgather [3,4] (rfromList [rreplicate 3 (rreplicate 4 (rconst 0.0)), m1]) (\\[i6, i7] -> [ifF (rconst 0.0 >=. m1 ! [i6, i7]) 0 1, i6, i7])"
+    @?= "\\m1 -> rgather [3,4] (rfromList [rreplicate 3 (rreplicate 4 0.0), m1]) (\\[i6, i7] -> [ifF (0.0 >=. m1 ! [i6, i7]) 0 1, i6, i7])"
   show deltas
     @?= "LetR 100000005 (GatherR [3,4] (LetR 100000003 (FromListR [ZeroR [3,4],InputR [3,4] (InputId 0)])) <function>)"
 
@@ -1088,17 +1087,17 @@ testReluMaxPP2 = do
       (var3, ast3) = funToAstR [5] (\t -> reluT2 (t, 7))
   "\\" ++ printAstVarName renamesNull var3
        ++ " -> " ++ printAstSimple renamesNull ast3
-    @?= "\\v1 -> rgather [5] (rfromList [rconstant (rreplicate 5 (rconst 0.0)), v1 * rreplicate 5 (rconst 7.0)]) (\\[i3] -> [ifF (rconst 0.0 >=. rprimalPart v1 ! [i3] * rconst 7.0) 0 1, i3])"
+    @?= "\\v1 -> rgather [5] (rfromList [rconstant (rreplicate 5 0.0), v1 * rreplicate 5 (rconstant 7.0)]) (\\[i3] -> [ifF (0.0 >=. rprimalPart v1 ! [i3] * 7.0) 0 1, i3])"
   resetVarCounter
   let (artifactRev, deltas) = revArtifactAdapt True reluT2 (Flip $ OR.constant [5] 128, 42)
   printGradient6Pretty renames artifactRev
-    @?= "\\v7 v1 x2 -> let m10 = rscatter [2,5] v7 (\\[i8] -> [ifF (rconst 0.0 >=. (let x9 = v1 ! [i8] in x9 * x2)) 0 1, i8]) ; v11 = m10 ! [1] in [rreplicate 5 x2 * v11, rsum (v1 * v11)]"
+    @?= "\\v7 v1 x2 -> let m10 = rscatter [2,5] v7 (\\[i8] -> [ifF (0.0 >=. (let x9 = v1 ! [i8] in x9 * x2)) 0 1, i8]) ; v11 = m10 ! [1] in [rreplicate 5 x2 * v11, rsum (v1 * v11)]"
   printPrimal6Pretty renames artifactRev
-    @?= "\\v1 x2 -> rgather [5] (rfromList [rreplicate 5 (rconst 0.0), v1 * rreplicate 5 x2]) (\\[i5] -> [ifF (rconst 0.0 >=. (let x6 = v1 ! [i5] in x6 * x2)) 0 1, i5])"
+    @?= "\\v1 x2 -> rgather [5] (rfromList [rreplicate 5 0.0, v1 * rreplicate 5 x2]) (\\[i5] -> [ifF (0.0 >=. (let x6 = v1 ! [i5] in x6 * x2)) 0 1, i5])"
   printGradient6Pretty renames (simplifyArtifactRev artifactRev)
-    @?= "\\v7 v1 x2 -> let v11 = rscatter [2,5] v7 (\\[i8] -> [ifF (rconst 0.0 >=. v1 ! [i8] * x2) 0 1, i8]) ! [1] in [rreplicate 5 x2 * v11, rsum (v1 * v11)]"
+    @?= "\\v7 v1 x2 -> let v11 = rscatter [2,5] v7 (\\[i8] -> [ifF (0.0 >=. v1 ! [i8] * x2) 0 1, i8]) ! [1] in [rreplicate 5 x2 * v11, rsum (v1 * v11)]"
   printPrimal6Pretty renames (simplifyArtifactRev artifactRev)
-    @?= "\\v1 x2 -> rgather [5] (rfromList [rreplicate 5 (rconst 0.0), v1 * rreplicate 5 x2]) (\\[i5] -> [ifF (rconst 0.0 >=. v1 ! [i5] * x2) 0 1, i5])"
+    @?= "\\v1 x2 -> rgather [5] (rfromList [rreplicate 5 0.0, v1 * rreplicate 5 x2]) (\\[i5] -> [ifF (0.0 >=. v1 ! [i5] * x2) 0 1, i5])"
   show deltas
     @?= "LetR 100000013 (GatherR [5] (LetR 100000010 (FromListR [ZeroR [5],LetR 100000009 (AddR (ScaleR (AstReplicate 5 (AstVar [] (AstVarId 100000002))) (InputR [5] (InputId 0))) (ScaleR (AstVar [5] (AstVarId 100000001)) (LetR 100000008 (ReplicateR 5 (InputR [] (InputId 1))))))])) <function>)"
 
@@ -1839,9 +1838,9 @@ fblowupPP = do
       fblowupT = fblowup @(AstRanked FullSpan) @Double 1
   let (artifactRev, _) = revArtifactAdapt True fblowupT (Flip $ OR.constant [4] 4)
   printGradient6Simple renames artifactRev
-    @?= "\\x7 v1 -> rletInHVector (v1 ! [0]) (\\x2 -> rletInHVector (v1 ! [1]) (\\x3 -> rletInHVector (v1 ! [0]) (\\x4 -> rletInHVector (v1 ! [1]) (\\x5 -> rletInHVector ((x2 / x3 + x4 / x5) - rfromIntegral (rconst 0)) (\\x6 -> rletInHVector (rconst 0.499999985 * x7) (\\x8 -> dmkHVector (fromList [DynamicRanked (rscatter [4] (recip x3 * x8) (\\[] -> [0]) + rscatter [4] (negate (x2 / (x3 * x3)) * x8) (\\[] -> [1]) + rscatter [4] (recip x5 * x8) (\\[] -> [0]) + rscatter [4] (negate (x4 / (x5 * x5)) * x8) (\\[] -> [1]))])))))))"
+    @?= "\\x7 v1 -> rletInHVector (v1 ! [0]) (\\x2 -> rletInHVector (v1 ! [1]) (\\x3 -> rletInHVector (v1 ! [0]) (\\x4 -> rletInHVector (v1 ! [1]) (\\x5 -> rletInHVector ((x2 / x3 + x4 / x5) - rfromIntegral 0) (\\x6 -> rletInHVector (0.499999985 * x7) (\\x8 -> dmkHVector (fromList [DynamicRanked (rscatter [4] (recip x3 * x8) (\\[] -> [0]) + rscatter [4] (negate (x2 / (x3 * x3)) * x8) (\\[] -> [1]) + rscatter [4] (recip x5 * x8) (\\[] -> [0]) + rscatter [4] (negate (x4 / (x5 * x5)) * x8) (\\[] -> [1]))])))))))"
   printPrimal6Simple renames artifactRev
-    @?= "\\v1 -> rlet (v1 ! [0]) (\\x2 -> rlet (v1 ! [1]) (\\x3 -> rlet (v1 ! [0]) (\\x4 -> rlet (v1 ! [1]) (\\x5 -> rlet ((x2 / x3 + x4 / x5) - rfromIntegral (rconst 0)) (\\x6 -> rconst 0.499999985 * x6 - rfromIntegral (rconst 0))))))"
+    @?= "\\v1 -> rlet (v1 ! [0]) (\\x2 -> rlet (v1 ! [1]) (\\x3 -> rlet (v1 ! [0]) (\\x4 -> rlet (v1 ! [1]) (\\x5 -> rlet ((x2 / x3 + x4 / x5) - rfromIntegral 0) (\\x6 -> 0.499999985 * x6 - rfromIntegral 0)))))"
 
 fblowupLetPP :: Assertion
 fblowupLetPP = do
@@ -1850,9 +1849,9 @@ fblowupLetPP = do
       fblowupLetT = fblowupLet @(AstRanked FullSpan) @Double 0 1
   let (artifactRev, _) = revArtifactAdapt True fblowupLetT (Flip $ OR.constant [4] 4)
   printGradient6Simple renames artifactRev
-    @?= "\\x7 v1 -> rletInHVector (v1 ! [0]) (\\x3 -> rletInHVector (v1 ! [1]) (\\x4 -> rletInHVector (x3 / x4) (\\x5 -> rletInHVector ((x5 + x5) - rfromIntegral (rconst 0)) (\\x6 -> rletInHVector (rconst 0.499999985 * x7) (\\x8 -> rletInHVector (x8 + x8) (\\x9 -> dmkHVector (fromList [DynamicRanked (rscatter [4] (recip x4 * x9) (\\[] -> [0]) + rscatter [4] (negate (x3 / (x4 * x4)) * x9) (\\[] -> [1]))])))))))"
+    @?= "\\x7 v1 -> rletInHVector (v1 ! [0]) (\\x3 -> rletInHVector (v1 ! [1]) (\\x4 -> rletInHVector (x3 / x4) (\\x5 -> rletInHVector ((x5 + x5) - rfromIntegral 0) (\\x6 -> rletInHVector (0.499999985 * x7) (\\x8 -> rletInHVector (x8 + x8) (\\x9 -> dmkHVector (fromList [DynamicRanked (rscatter [4] (recip x4 * x9) (\\[] -> [0]) + rscatter [4] (negate (x3 / (x4 * x4)) * x9) (\\[] -> [1]))])))))))"
   printPrimal6Simple renames artifactRev
-    @?= "\\v1 -> rlet (v1 ! [0]) (\\x3 -> rlet (v1 ! [1]) (\\x4 -> rlet (x3 / x4) (\\x5 -> rlet ((x5 + x5) - rfromIntegral (rconst 0)) (\\x6 -> rconst 0.499999985 * x6 - rfromIntegral (rconst 0)))))"
+    @?= "\\v1 -> rlet (v1 ! [0]) (\\x3 -> rlet (v1 ! [1]) (\\x4 -> rlet (x3 / x4) (\\x5 -> rlet ((x5 + x5) - rfromIntegral 0) (\\x6 -> 0.499999985 * x6 - rfromIntegral 0))))"
 
 -- TODO: should do 1000000 in a few seconds
 blowupTests :: TestTree
