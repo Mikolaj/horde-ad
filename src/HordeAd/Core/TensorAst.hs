@@ -18,6 +18,7 @@ import qualified Data.Array.Shape as Sh
 import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
+import           Data.Function ((&))
 import           Data.Maybe (fromMaybe)
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality ((:~:) (Refl))
@@ -376,6 +377,11 @@ instance IfF (AstShaped s) where
 
 -- * Ranked tensor AST instances
 
+type instance HFunOf (AstRanked s) = HFun
+  -- more general and expensive: AstHFun PrimalSpan
+type instance HFunOf (AstNoVectorize s) = HFun  -- AstHFun PrimalSpan
+type instance HFunOf (AstNoSimplify s) = HFun  -- AstHFun PrimalSpan
+
 instance AdaptableHVector (AstRanked s) (AstHVector s) where
   type Value (AstHVector s) = HVector (Flip OR.Array)
   toHVector = undefined
@@ -416,7 +422,7 @@ instance AstSpan s => RankedTensor (AstRanked s) where
   rfromIntegral = fromPrimal . AstFromIntegral . astSpanPrimal
   rconst = fromPrimal . AstConst
   rletHVectorIn = astLetHVectorInFun
-  rletHFunIn = astLetHFunInFun
+  rletHFunIn = (&)  -- astLetHFunInFun
   rfromS = astRFromS
 
   rletWrap l u | Just Refl <- sameAstSpan @s @PrimalSpan =
@@ -467,11 +473,11 @@ astLetHVectorInFun
 astLetHVectorInFun a0 a f =
   fun1DToAst a0 $ \ !vars !asts -> astLetHVectorIn vars a (f asts)
 
-astLetHFunInFun
+_astLetHFunInFun
   :: AstHFun PrimalSpan -> (AstHFun PrimalSpan -> AstRanked s r n)
   -> AstRanked s r n
-{-# INLINE astLetHFunInFun #-}
-astLetHFunInFun a f =
+{-# INLINE _astLetHFunInFun #-}
+_astLetHFunInFun a f =
   let shss = domainShapesAstHFun a
       shs = shapeAstHFun a
   in fun1ToAst $ \ !var -> astLetHFunIn var a (f (AstVarHFun shss shs var))
@@ -557,7 +563,7 @@ instance AstSpan s => ShapedTensor (AstShaped s) where
   sfromIntegral = fromPrimalS . AstFromIntegralS . astSpanPrimalS
   sconst = fromPrimalS . AstConstS
   sletHVectorIn = astLetHVectorInFunS
-  sletHFunIn = astLetHFunInFunS
+  sletHFunIn = (&)  -- astLetHFunInFunS
   sfromR = astSFromR
 
   sletWrap l u | Just Refl <- sameAstSpan @s @PrimalSpan =
@@ -605,11 +611,11 @@ astLetHVectorInFunS
 astLetHVectorInFunS a0 a f =
   fun1DToAst a0 $ \ !vars !asts -> astLetHVectorInS vars a (f asts)
 
-astLetHFunInFunS
+_astLetHFunInFunS
   :: AstHFun PrimalSpan -> (AstHFun PrimalSpan -> AstShaped s r sh)
   -> AstShaped s r sh
-{-# INLINE astLetHFunInFunS #-}
-astLetHFunInFunS a f =
+{-# INLINE _astLetHFunInFunS #-}
+_astLetHFunInFunS a f =
   let shss = domainShapesAstHFun a
       shs = shapeAstHFun a
   in fun1ToAst $ \ !var -> astLetHFunInS var a (f (AstVarHFun shss shs var))
@@ -661,7 +667,9 @@ astBuild1VectorizeS f =
 instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   dshape = shapeAstHVector
   dmkHVector = AstHVector
-  dlambda shss f = fun1LToAst shss $ \ !vvars !ll -> AstHFun vvars (unHFun f ll)
+  dlambda _ = id
+    -- more general and expensive:
+    -- shss f = fun1LToAst shss $ \ !vvars !ll -> AstHFun vvars (unHFun f ll)
   dunHVector shs hVectorOf =
     let f :: Int -> DynamicTensor VoidTensor -> AstDynamic s
         f i = \case
@@ -675,7 +683,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
         hv = V.imap f shs
     in assert (voidHVectorMatches shs hv) hv
   dletHVectorInHVector = astLetHVectorInHVectorFun
-  dletHFunInHVector = astLetHFunInHVectorFun
+  dletHFunInHVector = (&)  -- astLetHFunInHVectorFun
   rletInHVector = astLetInHVectorFun
   sletInHVector = astLetInHVectorFunS
   -- For convenience and simplicity we define this for all spans,
@@ -1085,11 +1093,11 @@ astLetHVectorInHVectorFun
 astLetHVectorInHVectorFun a0 a f =
   fun1DToAst a0 $ \ !vars !asts -> astLetHVectorInHVector vars a (f asts)
 
-astLetHFunInHVectorFun
+_astLetHFunInHVectorFun
   :: AstHFun PrimalSpan -> (AstHFun PrimalSpan -> AstHVector s)
   -> AstHVector s
-{-# INLINE astLetHFunInHVectorFun #-}
-astLetHFunInHVectorFun a f =
+{-# INLINE _astLetHFunInHVectorFun #-}
+_astLetHFunInHVectorFun a f =
   let shss = domainShapesAstHFun a
       shs = shapeAstHFun a
   in fun1ToAst $ \ !var ->
@@ -1273,7 +1281,7 @@ instance AstSpan s => RankedTensor (AstNoVectorize s) where
   rletHVectorIn a0 a f =
     AstNoVectorize $ astLetHVectorInFun
                        a0 a (unAstNoVectorize . f . noVectorizeHVector)
-  rletHFunIn a f = AstNoVectorize $ astLetHFunInFun a (unAstNoVectorize . f)
+  rletHFunIn a f = AstNoVectorize $ rletHFunIn a (unAstNoVectorize . f)
   rfromS = AstNoVectorize . rfromS @(AstRanked s) . unAstNoVectorizeS
 
   rconstant = AstNoVectorize . fromPrimal
@@ -1326,7 +1334,7 @@ instance AstSpan s => ShapedTensor (AstNoVectorizeS s) where
   sletHVectorIn a0 a f =
     AstNoVectorizeS $ astLetHVectorInFunS
                         a0 a (unAstNoVectorizeS . f . noVectorizeHVector)
-  sletHFunIn a f = AstNoVectorizeS $ astLetHFunInFunS a (unAstNoVectorizeS . f)
+  sletHFunIn a f = AstNoVectorizeS $ sletHFunIn a (unAstNoVectorizeS . f)
   sfromR = AstNoVectorizeS . sfromR @(AstShaped s) . unAstNoVectorize
 
   sconstant = AstNoVectorizeS . fromPrimalS
@@ -1478,7 +1486,7 @@ instance AstSpan s => RankedTensor (AstNoSimplify s) where
   rletHVectorIn a0 a f =
     AstNoSimplify $ astLetHVectorInFun
                       a0 a (unAstNoSimplify . f . noSimplifyHVector)
-  rletHFunIn a f = AstNoSimplify $ astLetHFunInFun a (unAstNoSimplify . f)
+  rletHFunIn a f = AstNoSimplify $ rletHFunIn a (unAstNoSimplify . f)
   rfromS = AstNoSimplify . rfromS @(AstRanked s) . unAstNoSimplifyS
 
   rconstant = AstNoSimplify . fromPrimal
@@ -1546,7 +1554,7 @@ instance AstSpan s => ShapedTensor (AstNoSimplifyS s) where
   sletHVectorIn a0 a f =
     AstNoSimplifyS $ astLetHVectorInFunS
                        a0 a (unAstNoSimplifyS . f . noSimplifyHVector)
-  sletHFunIn a f = AstNoSimplifyS $ astLetHFunInFunS a (unAstNoSimplifyS . f)
+  sletHFunIn a f = AstNoSimplifyS $ sletHFunIn a (unAstNoSimplifyS . f)
   sfromR = AstNoSimplifyS . sfromR @(AstShaped s) . unAstNoSimplify
 
   sconstant = AstNoSimplifyS . fromPrimalS
