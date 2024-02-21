@@ -807,9 +807,9 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
           !( !( !( [AstDynamicVarName nid1, AstDynamicVarName mid1]
               , [AstDynamicVarName nid2, AstDynamicVarName mid2] )
             , derivative, _primal), _delta ) ->
-            let !(!nvar1, !mvar1) = (AstVarName nid1, AstVarName mid1)
-                !(!nvar2, !mvar2) = (AstVarName nid2, AstVarName mid2)
-                !(!nvar, !mvar) = (AstVarName nid, AstVarName mid)
+            let (nvar1, mvar1) = (AstVarName nid1, AstVarName mid1)
+                (nvar2, mvar2) = (AstVarName nid2, AstVarName mid2)
+                (nvar, mvar) = (AstVarName nid, AstVarName mid)
             in AstFoldDer (funToAst2R shn shm f)
                           (nvar1, mvar1, nvar2, mvar2, derivative)
                           ( AstVarName $ dynamicVarNameToAstVarId (varsDt !! 0)
@@ -856,9 +856,9 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
           ( ( ( [AstDynamicVarName nid1, AstDynamicVarName mid1]
               , [AstDynamicVarName nid2, AstDynamicVarName mid2] )
             , !derivative, !_primal), _delta ) ->
-            let !(!nvar1, !mvar1) = (AstVarName nid1, AstVarName mid1)
-                !(!nvar2, !mvar2) = (AstVarName nid2, AstVarName mid2)
-                !(!nvar, !mvar) = (AstVarName nid, AstVarName mid)
+            let (nvar1, mvar1) = (AstVarName nid1, AstVarName mid1)
+                (nvar2, mvar2) = (AstVarName nid2, AstVarName mid2)
+                (nvar, mvar) = (AstVarName nid, AstVarName mid)
             in AstScanDer (funToAst2R shn shm f)
                           (nvar1, mvar1, nvar2, mvar2, derivative)
                           ( AstVarName $ dynamicVarNameToAstVarId (varsDt !! 0)
@@ -901,9 +901,9 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
           ( ( ( [AstDynamicVarName nid1, AstDynamicVarName mid1]
               , [AstDynamicVarName nid2, AstDynamicVarName mid2] )
             , !derivative, !_primal), _delta ) ->
-            let !(!nvar1, !mvar1) = (AstVarName nid1, AstVarName mid1)
-                !(!nvar2, !mvar2) = (AstVarName nid2, AstVarName mid2)
-                !(!nvar, !mvar) = (AstVarName nid, AstVarName mid)
+            let (nvar1, mvar1) = (AstVarName nid1, AstVarName mid1)
+                (nvar2, mvar2) = (AstVarName nid2, AstVarName mid2)
+                (nvar, mvar) = (AstVarName nid, AstVarName mid)
             in AstFoldDerS (funToAst2S f)
                            (nvar1, mvar1, nvar2, mvar2, derivative)
                            ( AstVarName $ dynamicVarNameToAstVarId (varsDt !! 0)
@@ -943,9 +943,9 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
           ( ( ( [AstDynamicVarName nid1, AstDynamicVarName mid1]
               , [AstDynamicVarName nid2, AstDynamicVarName mid2] )
             , !derivative, !_primal), _delta ) ->
-            let !(!nvar1, !mvar1) = (AstVarName nid1, AstVarName mid1)
-                !(!nvar2, !mvar2) = (AstVarName nid2, AstVarName mid2)
-                !(!nvar, !mvar) = (AstVarName nid, AstVarName mid)
+            let (nvar1, mvar1) = (AstVarName nid1, AstVarName mid1)
+                (nvar2, mvar2) = (AstVarName nid2, AstVarName mid2)
+                (nvar, mvar) = (AstVarName nid, AstVarName mid)
             in AstScanDerS (funToAst2S @_ @_ @sh f)
                            (nvar1, mvar1, nvar2, mvar2, derivative)
                            ( AstVarName $ dynamicVarNameToAstVarId (varsDt !! 0)

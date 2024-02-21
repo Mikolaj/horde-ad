@@ -8,7 +8,7 @@
 -- the typing of tensors and so we give separate instances
 -- for ranked tensors and shaped tensors.
 module HordeAd.Core.TensorADVal
-  ( dDHVector, aDValHVector, aDValDynamicTensor
+  ( mapHVectorADShare, dDHVector, aDValHVector, aDValDynamicTensor
   , hVectorADValToADVal, unADValHVector, unADValDynamicTensor
   ) where
 
@@ -795,6 +795,20 @@ instance ADReadyBoth ranked shaped
           DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
           DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
     in V.imap selectDual primal
+
+mapHVectorADShare
+  :: (ADShare -> ADShare) -> HVector (ADVal ranked) -> HVector (ADVal ranked)
+mapHVectorADShare f = V.map (mapDynamicADShare f)
+
+mapDynamicADShare
+  :: (ADShare -> ADShare)
+  -> DynamicTensor (ADVal ranked) -> DynamicTensor (ADVal ranked)
+mapDynamicADShare f (DynamicRanked (D l u u')) =
+  DynamicRanked (dDnotShared (f l) u u')
+mapDynamicADShare f (DynamicShaped (D l u u')) =
+  DynamicShaped (dDnotShared (f l) u u')
+mapDynamicADShare _f (DynamicRankedDummy p1 p2) = DynamicRankedDummy p1 p2
+mapDynamicADShare _f (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
 
 dDHVector :: (RankedTensor f, ShapedTensor (ShapedOf f))
           => ADShare -> HVector f -> HVector (Dual f)
