@@ -49,6 +49,7 @@ import Prelude
 
 import           Control.Exception.Assert.Sugar
 import           Control.Monad (mapAndUnzipM)
+import qualified Data.Array.Convert
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as Sh
@@ -1694,51 +1695,64 @@ astReshape shOut = \case
                       else Ast.AstReshape shOut v
          _ -> Ast.AstReshape shOut v
 
-astReshapeS :: (Sh.Shape sh, Sh.Size sh ~ Sh.Size sh2)
+astReshapeS :: forall sh sh2 r s.
+               ( Sh.Shape sh, Sh.Shape sh2, Sh.Size sh ~ Sh.Size sh2
+               , GoodScalar r )
             => AstShaped s r sh -> AstShaped s r sh2
-astReshapeS (Ast.AstConstantS v) = Ast.AstConstantS $ astReshapeS v
-astReshapeS (Ast.AstLetADShareS l v) = Ast.AstLetADShareS l $ astReshapeS v
-astReshapeS t = Ast.AstReshapeS t  -- TODO
+astReshapeS = \case
+  AstConstS t -> AstConstS $ OS.reshape t
+  Ast.AstConstantS v -> Ast.AstConstantS $ astReshapeS v
+  Ast.AstLetADShareS l v -> Ast.AstLetADShareS l $ astReshapeS v
+  v -> case sameShape @sh @sh2 of
+         Just Refl -> v
+         _ -> Ast.AstReshapeS v
 
-astCast :: (GoodScalar r1, RealFrac r1, RealFrac r2)
+astCast :: (KnownNat n, GoodScalar r1, GoodScalar r2, RealFrac r1, RealFrac r2)
         => AstRanked s r1 n -> AstRanked s r2 n
+astCast (AstConst t) = AstConst $ tcastR t
 astCast (Ast.AstConstant v) = Ast.AstConstant $ astCast v
 astCast (Ast.AstLetADShare l v) = Ast.AstLetADShare l $ astCast v
 astCast (Ast.AstCast v) = astCast v
 astCast (Ast.AstFromIntegral v) = astFromIntegral v
 astCast v = Ast.AstCast v
 
-astCastS :: (GoodScalar r1, RealFrac r1, RealFrac r2)
+astCastS :: ( Sh.Shape sh, GoodScalar r1, GoodScalar r2, RealFrac r1
+            , RealFrac r2 )
          => AstShaped s r1 sh -> AstShaped s r2 sh
+astCastS (AstConstS t) = AstConstS $ tcastS t
 astCastS (Ast.AstConstantS v) = Ast.AstConstantS $ astCastS v
 astCastS (Ast.AstLetADShareS l v) = Ast.AstLetADShareS l $ astCastS v
 astCastS (Ast.AstCastS v) = astCastS v
 astCastS (Ast.AstFromIntegralS v) = astFromIntegralS v
 astCastS v = Ast.AstCastS v
 
-astFromIntegral :: (GoodScalar r1, Integral r1)
+astFromIntegral :: (KnownNat n, GoodScalar r1, GoodScalar r2, Integral r1)
                 => AstRanked PrimalSpan r1 n -> AstRanked PrimalSpan r2 n
+astFromIntegral (AstConst t) = AstConst $ tfromIntegralR t
 astFromIntegral (Ast.AstLetADShare l v) =
   Ast.AstLetADShare l $ astFromIntegral v
 astFromIntegral (Ast.AstFromIntegral v) = astFromIntegral v
 astFromIntegral v = Ast.AstFromIntegral v
 
-astFromIntegralS :: (GoodScalar r1, Integral r1)
+astFromIntegralS :: (Sh.Shape sh, GoodScalar r1, GoodScalar r2, Integral r1)
                  => AstShaped PrimalSpan r1 sh -> AstShaped PrimalSpan r2 sh
+astFromIntegralS (AstConstS t) = AstConstS $ tfromIntegralS t
 astFromIntegralS (Ast.AstLetADShareS l v) =
   Ast.AstLetADShareS l $ astFromIntegralS v
 astFromIntegralS (Ast.AstFromIntegralS v) = astFromIntegralS v
 astFromIntegralS v = Ast.AstFromIntegralS v
 
 astRFromS :: Sh.Shape sh
-        => AstShaped s r sh -> AstRanked s r (Sh.Rank sh)
+          => AstShaped s r sh -> AstRanked s r (Sh.Rank sh)
+astRFromS (AstConstS t) = AstConst $ Data.Array.Convert.convert t
 astRFromS (Ast.AstConstantS v) = Ast.AstConstant $ astRFromS v
 astRFromS (Ast.AstLetADShareS l v) = Ast.AstLetADShare l $ astRFromS v
 astRFromS (Ast.AstSFromR v) = v  -- no information lost, so no checks
 astRFromS v = Ast.AstRFromS v
 
 astSFromR :: forall sh s r. (Sh.Shape sh, KnownNat (Sh.Rank sh))
-        => AstRanked s r (Sh.Rank sh) -> AstShaped s r sh
+          => AstRanked s r (Sh.Rank sh) -> AstShaped s r sh
+astSFromR (AstConst t) = AstConstS $ Data.Array.Convert.convert t
 astSFromR (Ast.AstConstant v) = Ast.AstConstantS $ astSFromR v
 astSFromR (Ast.AstLetADShare l v) = Ast.AstLetADShareS l $ astSFromR v
 astSFromR (Ast.AstRFromS @sh1 v) =
