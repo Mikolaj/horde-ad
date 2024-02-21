@@ -658,6 +658,7 @@ instance ADReadyBoth ranked shaped
                        (dmkHVector esUnshared)
                        (flattenADShare $ V.toList ll2 ++ V.toList ll3)
         codomainShs = accShs V.++ bShs
+        codomainShs2 = accShs V.++ eShs
         accLen = V.length accShs
         hvToPair :: forall f. HVector f -> (HVector f, HVector f)
         hvToPair hv = (V.take accLen hv, V.drop accLen hv)
@@ -665,8 +666,21 @@ instance ADReadyBoth ranked shaped
         g acc e = dletHVectorInHVector @f codomainShs (f acc e) $ \res ->
           let (accRes, bRes) = hvToPair res
           in dmkHVector $ V.concat [accRes, acc, bRes]
+        dg :: forall f. ADReady f
+           => HVector f -> HVector f -> HVector f -> HVector f -> HVectorOf f
+        dg dacc de acc e =
+          dletHVectorInHVector @f codomainShs (df dacc de acc e) $ \res ->
+            let (accRes, bRes) = hvToPair res
+            in dmkHVector $ V.concat [accRes, dacc, bRes]
+        rg :: forall f. ADReady f
+           => HVector f -> HVector f -> HVector f -> HVector f -> HVectorOf f
+        rg dx db acc e =
+          let (dbacc, dbRes) = hvToPair db
+          in dletHVectorInHVector @f codomainShs2 (rf dx dbRes acc e) $ \res ->
+            let (dacc, de) = hvToPair res
+            in dmkHVector $ V.concat [V.zipWith addDynamic dacc dbacc, de]
         pUnshared :: HVectorOf ranked
-        pUnshared = dmapAccumR k accShs codomainShs eShs g acc0 es
+        pUnshared = dmapAccumRDer k accShs codomainShs eShs g dg rg acc0 es
         pShs = accShs V.++ replicate1VoidHVector k codomainShs
         (l5, pShared) = dsharePrimal @ranked pShs pUnshared l4
         accFin = V.take accLen pShared
@@ -744,6 +758,7 @@ instance ADReadyBoth ranked shaped
                        (dmkHVector esUnshared)
                        (flattenADShare $ V.toList ll2 ++ V.toList ll3)
         codomainShs = accShs V.++ bShs
+        codomainShs2 = accShs V.++ eShs
         accLen = V.length accShs
         hvToPair :: forall f. HVector f -> (HVector f, HVector f)
         hvToPair hv = (V.take accLen hv, V.drop accLen hv)
@@ -751,8 +766,21 @@ instance ADReadyBoth ranked shaped
         g acc e = dletHVectorInHVector @f codomainShs (f acc e) $ \res ->
           let (accRes, bRes) = hvToPair res
           in dmkHVector $ V.concat [accRes, acc, bRes]
+        dg :: forall f. ADReady f
+           => HVector f -> HVector f -> HVector f -> HVector f -> HVectorOf f
+        dg dacc de acc e =
+          dletHVectorInHVector @f codomainShs (df dacc de acc e) $ \res ->
+            let (accRes, bRes) = hvToPair res
+            in dmkHVector $ V.concat [accRes, dacc, bRes]
+        rg :: forall f. ADReady f
+           => HVector f -> HVector f -> HVector f -> HVector f -> HVectorOf f
+        rg dx db acc e =
+          let (dbacc, dbRes) = hvToPair db
+          in dletHVectorInHVector @f codomainShs2 (rf dx dbRes acc e) $ \res ->
+            let (dacc, de) = hvToPair res
+            in dmkHVector $ V.concat [V.zipWith addDynamic dacc dbacc, de]
         pUnshared :: HVectorOf ranked
-        pUnshared = dmapAccumL k accShs codomainShs eShs g acc0 es
+        pUnshared = dmapAccumLDer k accShs codomainShs eShs g dg rg acc0 es
         pShs = accShs V.++ replicate1VoidHVector k codomainShs
         (l5, pShared) = dsharePrimal @ranked pShs pUnshared l4
         accFin = V.take accLen pShared
