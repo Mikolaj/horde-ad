@@ -662,8 +662,6 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   dshape = shapeAstHVector
   dmkHVector = AstHVector
   dlambda shss f = fun1LToAst shss $ \ !vvars !ll -> AstHFun vvars (unHFun f ll)
-  dHApply f ll | Just Refl <- sameAstSpan @s @PrimalSpan = AstHApply f ll
-  dHApply _ _ = error "dHApply: wrong span"
   dunHVector shs hVectorOf =
     let f :: Int -> DynamicTensor VoidTensor -> AstDynamic s
         f i = \case
@@ -1342,7 +1340,6 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
   dshape = dshape @(AstRanked s)
   dmkHVector hVector = dmkHVector @(AstRanked s) (unNoVectorizeHVector hVector)
   dlambda = dlambda @(AstRanked s)
-  dHApply f ll = dHApply @(AstRanked s) f (map unNoVectorizeHVector ll)
   dunHVector parameters0 doms =
     noVectorizeHVector $ dunHVector @(AstRanked s) parameters0 doms
   dletHVectorInHVector a0 a f =
@@ -1563,7 +1560,6 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
   dshape = dshape @(AstRanked s)
   dmkHVector hVector = dmkHVector @(AstRanked s) (unNoSimplifyHVector hVector)
   dlambda = dlambda @(AstRanked s)
-  dHApply f ll = dHApply @(AstRanked s) f (map unNoSimplifyHVector ll)
   dunHVector parameters0 doms =
     noSimplifyHVector $ dunHVector @(AstRanked s) parameters0 doms
   dletHVectorInHVector a0 a f =

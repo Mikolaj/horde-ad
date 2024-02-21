@@ -984,10 +984,6 @@ interpretAstHVector
 interpretAstHVector !env = \case
   AstHVector l ->
     dmkHVector @ranked $ interpretAstDynamic @ranked env <$> l
-  AstHApply t ll ->
-    let t2 = interpretAstHFun env t
-        ll2 = (interpretAstDynamic @ranked env <$>) <$> ll
-    in dHApply t2 ll2
   AstLetHVectorInHVector vars l v ->
     let lt0 = voidFromVars vars
         lt = interpretAstHVector env l
@@ -1086,7 +1082,6 @@ interpretAstHFun
   => AstEnv ranked -> AstHFun s -> HFunOf ranked
 interpretAstHFun !env = \case
   AstHFun vvars l ->
-    -- No free variables, hence empty environment.
     dlambda @ranked (map voidFromVars vvars)
     $ interpretLambdaHsH interpretAstHVector (vvars, l)
   AstVarHFun _shss _shs var -> case EM.lookup var env of

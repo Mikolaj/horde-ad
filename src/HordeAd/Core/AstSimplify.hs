@@ -56,7 +56,7 @@ import qualified Data.Array.Shape as Sh
 import qualified Data.Array.ShapedS as OS
 import           Data.Int (Int64)
 import           Data.List (dropWhileEnd)
-import           Data.Maybe (catMaybes, fromMaybe, isJust, isNothing)
+import           Data.Maybe (catMaybes, fromMaybe, isJust)
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
@@ -1914,13 +1914,6 @@ astDualPartS t = case t of
   Ast.AstScanS{} -> Ast.AstDualPartS t
   Ast.AstScanDerS{} -> Ast.AstDualPartS t
 
-astHApply :: AstSpan s => AstHFun s -> [HVector (AstRanked s)] -> AstHVector s
-astHApply t ll = case t of
-  Ast.AstHFun vvars l ->
-    foldr (\(vars, l2) -> astLetHVectorInHVector vars (Ast.AstHVector l2))
-          l (zip vvars ll)
-  Ast.AstVarHFun{} -> Ast.AstHApply t ll
-
 -- Inlining doesn't work for this let constructor, because it has many
 -- variables, so we try to reduce it to another for which it works.
 astLetHVectorInHVector
@@ -2295,8 +2288,6 @@ simplifyAstHVector
   :: AstSpan s => AstHVector s -> AstHVector s
 simplifyAstHVector = \case
   Ast.AstHVector l -> Ast.AstHVector $ V.map simplifyAstDynamic l
-  Ast.AstHApply t ll -> astHApply (simplifyAstHFun t)
-                                  (map (V.map simplifyAstDynamic) ll)
   Ast.AstLetHVectorInHVector vars u v ->
     astLetHVectorInHVector vars (simplifyAstHVector u) (simplifyAstHVector v)
   Ast.AstLetHFunInHVector var f v ->
@@ -3082,12 +3073,6 @@ substitute1AstHVector i var = \case
     in if V.any isJust margs
        then Just $ Ast.AstHVector $ V.zipWith fromMaybe args margs
        else Nothing
-  Ast.AstHApply t ll ->
-    case ( substitute1AstHFun i var t
-         , map (V.map (substitute1AstDynamic i var)) ll ) of
-      (Nothing, mll) | all (V.all isNothing) mll -> Nothing
-      (mt, mll) ->
-        Just $ astHApply (fromMaybe t mt) (zipWith (V.zipWith fromMaybe) ll mll)
   Ast.AstLetHVectorInHVector vars2 u v ->
     case (substitute1AstHVector i var u, substitute1AstHVector i var v) of
       (Nothing, Nothing) -> Nothing

@@ -923,17 +923,6 @@ printAstHVector cfg d = \case
     then printHVectorAst cfg l
     else showParen (d > 10)
          $ showString "dmkHVector " . printHVectorAst cfg l
-  AstHApply t ll ->
-    if loseRoudtrip cfg
-    then showParen (d > 9)
-         $ printAstHFun cfg 10 t
-           . showString " "
-           . showListWith (printHVectorAst cfg) ll
-    else showParen (d > 10)
-         $ showString "dHApply "
-           . printAstHFun cfg 10 t
-           . showString " "
-           . showListWith (printHVectorAst cfg) ll
   AstLetHVectorInHVector vars l v ->
     if loseRoudtrip cfg
     then

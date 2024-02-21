@@ -111,7 +111,6 @@ lengthAst v1 = case shapeAst v1 of
 shapeAstHVector :: AstHVector s -> VoidHVector
 shapeAstHVector = \case
   AstHVector v -> V.map (voidFromDynamicF (shapeToList . shapeAst)) v
-  AstHApply t _ll -> shapeAstHFun t
   AstLetHVectorInHVector _ _ v -> shapeAstHVector v
   AstLetHFunInHVector _ _ v -> shapeAstHVector v
   AstLetInHVector _ _ v -> shapeAstHVector v
@@ -257,7 +256,6 @@ varInAstHVector :: AstSpan s
                 => AstVarId -> AstHVector s -> Bool
 varInAstHVector var = \case
   AstHVector l -> any (varInAstDynamic var) l
-  AstHApply t ll -> varInAstHFun var t || any (any (varInAstDynamic var)) ll
   AstLetHVectorInHVector _vars2 u v ->
     varInAstHVector var u || varInAstHVector var v
   AstLetHFunInHVector _var2 f v ->

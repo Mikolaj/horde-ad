@@ -735,8 +735,6 @@ class HVectorTensor (ranked :: RankedTensorType)
   dshape :: HVectorOf ranked -> VoidHVector
   dmkHVector :: HVector ranked -> HVectorOf ranked
   dlambda :: [VoidHVector] -> HFun -> HFunOf ranked
-  dHApply :: HFunOf ranked -> [HVector ranked] -> HVectorOf ranked
-    -- TODO: remove if still unused after a longer time
   dunHVector :: VoidHVector -> HVectorOf ranked -> HVector ranked
     -- ^ Warning: this operation easily breaks sharing.
   dletHVectorInHVector
