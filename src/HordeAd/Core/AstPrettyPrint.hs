@@ -803,34 +803,6 @@ printAstHVector cfg d = \case
       . printHVectorAst cfg parameters
       . showString " "
       . printAstS cfg 11 dt
-  AstMapAccumR k _accShs _bShs _eShs (accvars, evars, v) acc0 es ->
-   if loseRoudtrip cfg && ignoreNestedLambdas cfg
-   then
-    showParen (d > 10)
-    $ showString "dmapAccumR "
-      . showParen True (shows k)
-      . showString " <lambda> "
-      . printHVectorAst cfg acc0
-      . showString " "
-      . printHVectorAst cfg es
-   else
-    showParen (d > 10)
-    $ showString "dmapAccumR "
-      . showParen True (shows k)
-      . showString " "
-      . (showParen True
-         $ showString "\\"
-           . showListWith (showString
-                           . printAstDynamicVarNameCfg cfg) accvars
-           . showString " "
-           . showListWith (showString
-                           . printAstDynamicVarNameCfg cfg) evars
-           . showString " -> "
-           . printAstHVector cfg 0 v)
-      . showString " "
-      . printHVectorAst cfg acc0
-      . showString " "
-      . printHVectorAst cfg es
   AstMapAccumRDer k _accShs _bShs _eShs f df rf acc0 es ->
     showParen (d > 10)
     $ showString "dmapAccumRDer "
@@ -841,34 +813,6 @@ printAstHVector cfg d = \case
       . printAstHFun cfg 10 df
       . showString " "
       . printAstHFun cfg 01 rf
-      . showString " "
-      . printHVectorAst cfg acc0
-      . showString " "
-      . printHVectorAst cfg es
-  AstMapAccumL k _accShs _bShs _eShs (accvars, evars, v) acc0 es ->
-   if loseRoudtrip cfg && ignoreNestedLambdas cfg
-   then
-    showParen (d > 10)
-    $ showString "dmapAccumL "
-      . showParen True (shows k)
-      . showString " <lambda> "
-      . printHVectorAst cfg acc0
-      . showString " "
-      . printHVectorAst cfg es
-   else
-    showParen (d > 10)
-    $ showString "dmapAccumL "
-      . showParen True (shows k)
-      . showString " "
-      . (showParen True
-         $ showString "\\"
-           . showListWith (showString
-                           . printAstDynamicVarNameCfg cfg) accvars
-           . showString " "
-           . showListWith (showString
-                           . printAstDynamicVarNameCfg cfg) evars
-           . showString " -> "
-           . printAstHVector cfg 0 v)
       . showString " "
       . printHVectorAst cfg acc0
       . showString " "

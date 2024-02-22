@@ -737,8 +737,6 @@ build1VHVector k (var, v0) =
     error "build1VHVector: impossible case of AstRevS"
   Ast.AstRevDtS{} ->
     error "build1VHVector: impossible case of AstRevDtS"
-  Ast.AstMapAccumR{} ->
-    error "build1VHVector: impossible case of AstMapAccumR"
   Ast.AstMapAccumRDer k5 accShs bShs eShs f df rf acc0 es ->
     withSNat k $ \snat ->
       astTrAstHVectorTail (V.length accShs)
@@ -753,8 +751,6 @@ build1VHVector k (var, v0) =
           (V.map (\u -> build1VOccurenceUnknownDynamic k (var, u)) acc0)
           (V.map (\u -> astTrDynamic
                         $ build1VOccurenceUnknownDynamic k (var, u)) es)
-  Ast.AstMapAccumL{} ->
-    error "build1VHVector: impossible case of AstMapAccumL"
   Ast.AstMapAccumLDer k5 accShs bShs eShs f df rf acc0 es ->
     withSNat k $ \snat ->
       astTrAstHVectorTail (V.length accShs)

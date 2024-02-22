@@ -466,17 +466,6 @@ data AstHVector :: AstSpanType -> Type where
             -> HVector (AstRanked s)
             -> AstShaped s r sh
             -> AstHVector s
-  AstMapAccumR
-    :: SNat k
-    -> VoidHVector
-    -> VoidHVector
-    -> VoidHVector
-    -> ( [AstDynamicVarName]
-       , [AstDynamicVarName]
-       , AstHVector PrimalSpan )
-    -> HVector (AstRanked s)
-    -> HVector (AstRanked s)
-    -> AstHVector s
   AstMapAccumRDer
     :: SNat k
     -> VoidHVector
@@ -485,17 +474,6 @@ data AstHVector :: AstSpanType -> Type where
     -> AstHFun PrimalSpan
     -> AstHFun PrimalSpan
     -> AstHFun PrimalSpan
-    -> HVector (AstRanked s)
-    -> HVector (AstRanked s)
-    -> AstHVector s
-  AstMapAccumL
-    :: SNat k
-    -> VoidHVector
-    -> VoidHVector
-    -> VoidHVector
-    -> ( [AstDynamicVarName]
-       , [AstDynamicVarName]
-       , AstHVector PrimalSpan )
     -> HVector (AstRanked s)
     -> HVector (AstRanked s)
     -> AstHVector s

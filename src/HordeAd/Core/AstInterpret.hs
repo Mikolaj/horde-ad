@@ -960,12 +960,6 @@ interpretAstHVector !env = \case
         pars = interpretAstDynamic @ranked env <$> parameters
         d = interpretAstS env dt
     in srevDt @ranked f parameters0 pars d
-  AstMapAccumR k accShs bShs eShs f0 acc0 es ->
-    let f :: forall f. ADReady f => HVector f -> HVector f -> HVectorOf f
-        f = interpretLambdaHHH interpretAstHVector EM.empty f0
-        acc02 = interpretAstDynamic env <$> acc0
-        es2 = interpretAstDynamic env <$> es
-    in dmapAccumR k accShs bShs eShs f acc02 es2
   AstMapAccumRDer k accShs bShs eShs f0 df0 rf0 acc0 es ->
     let f = interpretAstHFun env f0
         df = interpretAstHFun env df0
@@ -973,12 +967,6 @@ interpretAstHVector !env = \case
         acc02 = interpretAstDynamic env <$> acc0
         es2 = interpretAstDynamic env <$> es
     in dmapAccumRDer k accShs bShs eShs f df rf acc02 es2
-  AstMapAccumL k accShs bShs eShs f0 acc0 es ->
-    let f :: forall f. ADReady f => HVector f -> HVector f -> HVectorOf f
-        f = interpretLambdaHHH interpretAstHVector EM.empty f0
-        acc02 = interpretAstDynamic env <$> acc0
-        es2 = interpretAstDynamic env <$> es
-    in dmapAccumL k accShs bShs eShs f acc02 es2
   AstMapAccumLDer k accShs bShs eShs f0 df0 rf0 acc0 es ->
     let f = interpretAstHFun env f0
         df = interpretAstHFun env df0

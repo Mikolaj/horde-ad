@@ -2241,11 +2241,6 @@ simplifyAstHVector = \case
   Ast.AstRevDtS (vars, v) l dt -> Ast.AstRevDtS (vars, simplifyAstS v)
                                                 (V.map simplifyAstDynamic l)
                                                 (simplifyAstS dt)
-  Ast.AstMapAccumR k accShs bShs eShs (accvars, evars, v) acc0 es ->
-    Ast.AstMapAccumR k accShs bShs eShs
-                     (accvars, evars, simplifyAstHVector v)
-                     (V.map simplifyAstDynamic acc0)
-                     (V.map simplifyAstDynamic es)
   Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc0 es ->
     Ast.AstMapAccumRDer k accShs bShs eShs
                         (simplifyAstHFun f)
@@ -2253,11 +2248,6 @@ simplifyAstHVector = \case
                         (simplifyAstHFun rf)
                         (V.map simplifyAstDynamic acc0)
                         (V.map simplifyAstDynamic es)
-  Ast.AstMapAccumL k accShs bShs eShs (accvars, evars, v) acc0 es ->
-    Ast.AstMapAccumL k accShs bShs eShs
-                     (accvars, evars, simplifyAstHVector v)
-                     (V.map simplifyAstDynamic acc0)
-                     (V.map simplifyAstDynamic es)
   Ast.AstMapAccumLDer k accShs bShs eShs f df rf acc0 es ->
     Ast.AstMapAccumLDer k accShs bShs eShs
                         (simplifyAstHFun f)
@@ -3017,13 +3007,6 @@ substitute1AstHVector i var = \case
       (Nothing, Nothing) -> Nothing
       _ ->
         Just $ Ast.AstRevDtS (vars, v) (fromMaybe args marg) (fromMaybe dt md)
-  Ast.AstMapAccumR k accShs bShs eShs f acc0 es ->
-    case (substitute1HVector i var acc0, substitute1HVector i var es) of
-      (Nothing, Nothing) -> Nothing
-      (macc0, mes) ->
-        Just $ Ast.AstMapAccumR k accShs bShs eShs f
-                                (fromMaybe acc0 macc0)
-                                (fromMaybe es mes)
   Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc0 es ->
     case ( substitute1AstHFun i var f, substitute1AstHFun i var df
          , substitute1AstHFun i var rf, substitute1HVector i var acc0
@@ -3036,13 +3019,6 @@ substitute1AstHVector i var = \case
                                    (fromMaybe rf mrf)
                                    (fromMaybe acc0 macc0)
                                    (fromMaybe es mes)
-  Ast.AstMapAccumL k accShs bShs eShs f acc0 es ->
-    case (substitute1HVector i var acc0, substitute1HVector i var es) of
-      (Nothing, Nothing) -> Nothing
-      (macc0, mes) ->
-        Just $ Ast.AstMapAccumL k accShs bShs eShs f
-                                (fromMaybe acc0 macc0)
-                                (fromMaybe es mes)
   Ast.AstMapAccumLDer k accShs bShs eShs f df rf acc0 es ->
     case ( substitute1AstHFun i var f, substitute1AstHFun i var df
          , substitute1AstHFun i var rf, substitute1HVector i var acc0

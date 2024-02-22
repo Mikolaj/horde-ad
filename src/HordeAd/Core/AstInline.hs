@@ -449,12 +449,6 @@ inlineAstHVector memo v0 = case v0 of
         (memo1, l1) = mapAccumR inlineAstDynamic memo l
         (memo2, dt2) = inlineAstS memo1 dt
     in (memo2, Ast.AstRevDtS (vars, v2) l1 dt2)
-  Ast.AstMapAccumR k accShs bShs eShs (accvars, evars, v) acc0 es ->
-    let (_, v2) = inlineAstHVector EM.empty v
-        (memo1, acc02) = mapAccumR inlineAstDynamic memo acc0
-        (memo2, es2) = mapAccumR inlineAstDynamic memo1 es
-    in (memo2, Ast.AstMapAccumR k accShs bShs eShs
-                                (accvars, evars, v2) acc02 es2)
   Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc0 es ->
     let (memo1, f2) = inlineAstHFun memo f
         (memo2, df2) = inlineAstHFun memo1 df
@@ -462,12 +456,6 @@ inlineAstHVector memo v0 = case v0 of
         (memo4, acc02) = mapAccumR inlineAstDynamic memo3 acc0
         (memo5, es2) = mapAccumR inlineAstDynamic memo4 es
     in (memo5, Ast.AstMapAccumRDer k accShs bShs eShs f2 df2 rf2 acc02 es2)
-  Ast.AstMapAccumL k accShs bShs eShs (accvars, evars, v) acc0 es ->
-    let (_, v2) = inlineAstHVector EM.empty v
-        (memo1, acc02) = mapAccumR inlineAstDynamic memo acc0
-        (memo2, es2) = mapAccumR inlineAstDynamic memo1 es
-    in (memo2, Ast.AstMapAccumL k accShs bShs eShs
-                                (accvars, evars, v2) acc02 es2)
   Ast.AstMapAccumLDer k accShs bShs eShs f df rf acc0 es ->
     let (memo1, f2) = inlineAstHFun memo f
         (memo2, df2) = inlineAstHFun memo1 df
@@ -766,18 +754,10 @@ unletAstHVector env = \case
     Ast.AstRevDtS (vars, unletAstS (emptyUnletEnv emptyADShare) v)
                   (V.map (unletAstDynamic env) l)
                   (unletAstS env dt)
-  Ast.AstMapAccumR k accShs bShs eShs f acc0 es ->
-    Ast.AstMapAccumR k accShs bShs eShs f
-                     (V.map (unletAstDynamic env) acc0)
-                     (V.map (unletAstDynamic env) es)
   Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc0 es ->
     Ast.AstMapAccumRDer k accShs bShs eShs f df rf
                         (V.map (unletAstDynamic env) acc0)
                         (V.map (unletAstDynamic env) es)
-  Ast.AstMapAccumL k accShs bShs eShs f acc0 es ->
-    Ast.AstMapAccumL k accShs bShs eShs f
-                     (V.map (unletAstDynamic env) acc0)
-                     (V.map (unletAstDynamic env) es)
   Ast.AstMapAccumLDer k accShs bShs eShs f df rf acc0 es ->
     Ast.AstMapAccumLDer k accShs bShs eShs f df rf
                         (V.map (unletAstDynamic env) acc0)
