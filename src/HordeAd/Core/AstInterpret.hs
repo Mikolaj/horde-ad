@@ -1071,9 +1071,7 @@ interpretAstHFun
   :: forall ranked s. (ADReady ranked, AstSpan s)
   => AstEnv ranked -> AstHFun s -> HFunOf ranked
 interpretAstHFun !env = \case
-  AstHFun vvars l ->
-    dlambda @ranked (map voidFromVars vvars)
-    $ interpretLambdaHsH interpretAstHVector (vvars, l)
+  AstHFun vvars l -> interpretLambdaHsH interpretAstHVector (vvars, l)
   AstVarHFun _shss _shs var -> case EM.lookup var env of
     Just (AstEnvElemHFun f) -> f
     _ -> error $ "interpretAstHFun: unknown variable " ++ show var

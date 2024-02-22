@@ -12,7 +12,7 @@ module HordeAd.Core.TensorClass
   ( -- * Re-exports
     ShapeInt, ShapeSh
     -- * The tensor classes
-  , RankedTensor(..), ShapedTensor(..), HVectorTensor(..), HFun(..)
+  , RankedTensor(..), ShapedTensor(..), HVectorTensor(..), HFun(..), HFunOf
   , rfromD, sfromD
     -- * The related classes and constraints
   , ADReady, ADReadyBoth, ADReadyR, ADReadyS
@@ -734,7 +734,10 @@ class HVectorTensor (ranked :: RankedTensorType)
                     | ranked -> shaped, shaped -> ranked where
   dshape :: HVectorOf ranked -> VoidHVector
   dmkHVector :: HVector ranked -> HVectorOf ranked
-  dlambda :: [VoidHVector] -> HFun -> HFunOf ranked
+  dlambda
+    :: (forall f. ADReady f => [HVector f] -> HVectorOf f)
+    -> HFun
+  dlambda = HFun
   dunHVector :: VoidHVector -> HVectorOf ranked -> HVector ranked
     -- ^ Warning: this operation easily breaks sharing.
   dletHVectorInHVector
@@ -1076,6 +1079,8 @@ sfromD (DynamicShapedDummy @r2 @sh2 _ _) = case sameShape @sh2 @sh of
 newtype HFun =
   HFun {unHFun :: (forall f. ADReady f => [HVector f] -> HVectorOf f)}
 
+type HFunOf (f :: RankedTensorType) = HFun
+
 instance Show HFun where
   show _ = "<lambda>"
 
@@ -1146,8 +1151,6 @@ type instance RankedOf (Flip OR.Array) = Flip OR.Array
 type instance ShapedOf (Flip OR.Array) = Flip OS.Array
 
 type instance HVectorOf (Flip OR.Array) = HVector (Flip OR.Array)
-
-type instance HFunOf (Flip OR.Array) = HFun
 
 type instance PrimalOf (Flip OR.Array) = Flip OR.Array
 

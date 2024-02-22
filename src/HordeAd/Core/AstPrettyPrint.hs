@@ -1176,9 +1176,7 @@ printAstHFun cfg d = \case
                 . showString " -> "
                 . printAstHVector cfg 0 l
     else showParen (d > 0)
-         $ {-showString "dlambda $ "  -- TODO enable when fun IDs used
-           . -}
-           showString "\\"
+         $ showString "\\"
            . showCollectionWith "" " " ""
                (showListWith (showString
                               . printAstDynamicVarNameCfg cfg)) vvars
