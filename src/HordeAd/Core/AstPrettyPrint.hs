@@ -1164,7 +1164,7 @@ printAstHVector cfg d = \case
 printAstHFun :: forall s. AstSpan s
              => PrintConfig -> Int -> AstHFun s -> ShowS
 printAstHFun cfg d = \case
-  AstHFun vvars l ->
+  AstLambda (vvars, l) ->
     if loseRoudtrip cfg
     then if ignoreNestedLambdas cfg
          then showString "<lambda>"

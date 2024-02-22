@@ -536,13 +536,13 @@ inlineAstHVector memo v0 = case v0 of
         (memo5, es2) = mapAccumR inlineAstDynamic memo4 es
     in (memo5, Ast.AstMapAccumLDer k accShs bShs eShs f2 df2 rf2 acc02 es2)
 
--- This is implemented in full generality, without taking advantage
--- of no outside free variables in function representations.
 inlineAstHFun
   :: AstSpan s
   => AstMemo -> AstHFun s -> (AstMemo, AstHFun s)
 inlineAstHFun memo v0 = case v0 of
-  Ast.AstHFun vvars l -> second (Ast.AstHFun vvars) $ inlineAstHVector memo l
+  Ast.AstLambda ~(vvars, l) ->
+    (memo, Ast.AstLambda (vvars, snd $ inlineAstHVector EM.empty l))
+      -- no outside free variables
   Ast.AstVarHFun _shss _shs var ->
     let f Nothing = Just 1
         f (Just count) = Just $ succ count
@@ -862,7 +862,9 @@ unletAstHVector env = \case
 unletAstHFun
   :: AstSpan s => UnletEnv -> AstHFun s -> AstHFun s
 unletAstHFun env = \case
-  Ast.AstHFun vvars l -> Ast.AstHFun vvars $ unletAstHVector env l
+  Ast.AstLambda ~(vvars, l) ->
+    Ast.AstLambda (vvars, unletAstHVector (emptyUnletEnv emptyADShare) l)
+      -- no outside free variables
   t@(Ast.AstVarHFun{}) -> t
 
 unletAstBool :: UnletEnv -> AstBool -> AstBool

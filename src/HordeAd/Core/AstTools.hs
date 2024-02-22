@@ -132,12 +132,12 @@ shapeAstHVector = \case
 
 shapeAstHFun :: AstHFun s -> VoidHVector
 shapeAstHFun = \case
-  AstHFun _vvars l -> shapeAstHVector l
+  AstLambda ~(_vvars, l) -> shapeAstHVector l
   AstVarHFun _shss shs _var -> shs
 
 domainShapesAstHFun :: AstHFun s -> [VoidHVector]
 domainShapesAstHFun = \case
-  AstHFun vvars _l -> map voidFromVars vvars
+  AstLambda ~(vvars, _l) -> map voidFromVars vvars
   AstVarHFun shss _shs _var -> shss
 
 
@@ -292,7 +292,7 @@ varInAstDynamic var = \case
 
 varInAstHFun :: AstVarId -> AstHFun s -> Bool
 varInAstHFun var = \case
-  AstHFun _vvars _l -> False  -- we take advantage of the term being closed
+  AstLambda{} -> False  -- we take advantage of the term being closed
   AstVarHFun _shss _shs var2 -> fromEnum var == fromEnum var2
 
 varInAstBool :: AstVarId -> AstBool -> Bool

@@ -903,7 +903,7 @@ build1VHFun
   :: forall s. AstSpan s
   => Int -> (IntVarName, AstHFun s) -> AstHFun s
 build1VHFun k (var, v0) = case v0 of
-  Ast.AstHFun vvars l -> withSNat k $ \(SNat @k) ->
+  Ast.AstLambda ~(vvars, l) -> withSNat k $ \(SNat @k) ->
     -- This handles the case of l having free variable beyond vvars,
     -- which is not possible for lambdas used in folds, etc.
     -- But note that due to substProjVarsHVector l2 has var occurences,
@@ -911,7 +911,8 @@ build1VHFun k (var, v0) = case v0 of
     -- them and to eliminate them so that the function is closed again.
     let f acc vars = substProjVarsHVector @k var vars acc
         (l2, vvars2) = mapAccumR f l vvars
-    in Ast.AstHFun vvars2 (build1VOccurenceUnknownHVectorRefresh k (var, l2))
+    in Ast.AstLambda
+         (vvars2, build1VOccurenceUnknownHVectorRefresh k (var, l2))
   Ast.AstVarHFun shss shs var2 -> withSNat k $ \snat ->
     Ast.AstVarHFun (map (replicate1VoidHVector snat) shss)
                    (replicate1VoidHVector snat shs)

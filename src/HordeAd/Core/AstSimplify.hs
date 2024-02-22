@@ -2336,7 +2336,7 @@ simplifyAstHVector = \case
 simplifyAstHFun
   :: AstSpan s => AstHFun s -> AstHFun s
 simplifyAstHFun = \case
-  Ast.AstHFun vvars l -> Ast.AstHFun vvars $ simplifyAstHVector l
+  Ast.AstLambda ~(vvars, l) -> Ast.AstLambda (vvars, simplifyAstHVector l)
   t@(Ast.AstVarHFun{}) -> t
 
 simplifyAstBool :: AstBool -> AstBool
@@ -3164,12 +3164,7 @@ substitute1AstHFun
   => SubstitutionPayload s2 r2 -> AstVarId -> AstHFun s
   -> Maybe (AstHFun s)
 substitute1AstHFun i var = \case
-  Ast.AstHFun{} -> Nothing
-{- if the functions were not closed, we'd do this instead:
-    let ml = substitute1AstHVector i var l
-    in if isJust ml
-       then Just $ Ast.AstHFun vvars $ fromMaybe l ml
-       else Nothing -}
+  Ast.AstLambda{} -> Nothing
   Ast.AstVarHFun _shss _shs var2 ->
     if fromEnum var == fromEnum var2
     then case i of

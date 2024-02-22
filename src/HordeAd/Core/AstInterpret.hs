@@ -1068,10 +1068,10 @@ interpretAstHVector !env = \case
     in dmapAccumLDer k accShs bShs eShs f df rf acc02 es2
 
 interpretAstHFun
-  :: forall ranked s. (ADReady ranked, AstSpan s)
+  :: forall ranked s. AstSpan s
   => AstEnv ranked -> AstHFun s -> HFunOf ranked
 interpretAstHFun !env = \case
-  AstHFun vvars l -> interpretLambdaHsH interpretAstHVector (vvars, l)
+  AstLambda vvarsl -> interpretLambdaHsH interpretAstHVector vvarsl
   AstVarHFun _shss _shs var -> case EM.lookup var env of
     Just (AstEnvElemHFun f) -> f
     _ -> error $ "interpretAstHFun: unknown variable " ++ show var
