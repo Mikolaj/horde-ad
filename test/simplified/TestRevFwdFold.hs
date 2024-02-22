@@ -218,19 +218,20 @@ testTrees =
   , testCase "4Sin0FoldNestedS1RevRev" testSin0FoldNestedS1RevRev
   , testCase "4Sin0FoldNestedS2" testSin0FoldNestedS2
   , testCase "4Sin0FoldNestedS3" testSin0FoldNestedS3
---  , testCase "4Sin0FoldNestedS4" testSin0FoldNestedS4
+  , testCase "4Sin0FoldNestedS4" testSin0FoldNestedS4
+--  , testCase "4Sin0FoldNestedS5" testSin0FoldNestedS5
   , testCase "4Sin0FoldNestedS5rev" testSin0FoldNestedS5rev
   , testCase "4Sin0FoldNestedS5fwd" testSin0FoldNestedS5fwd
   , testCase "4Sin0FoldNestedSi" testSin0FoldNestedSi
   , testCase "4Sin0FoldNestedR1" testSin0FoldNestedR1
   , testCase "4Sin0FoldNestedR1RevFwd" testSin0FoldNestedR1RevFwd
   , testCase "4Sin0FoldNestedR2" testSin0FoldNestedR2
---  , testCase "4Sin0FoldNestedR2RevFwd" testSin0FoldNestedR2RevFwd
+  , testCase "4Sin0FoldNestedR2RevFwd" testSin0FoldNestedR2RevFwd
   , testCase "4Sin0FoldNestedR3" testSin0FoldNestedR3
---  , testCase "4Sin0FoldNestedR4" testSin0FoldNestedR4
---  , testCase "4Sin0FoldNestedR41" testSin0FoldNestedR41
---  , testCase "4Sin0FoldNestedR40" testSin0FoldNestedR40
---  , testCase "4Sin0FoldNestedR400" testSin0FoldNestedR400
+  , testCase "4Sin0FoldNestedR4" testSin0FoldNestedR4
+  , testCase "4Sin0FoldNestedR41" testSin0FoldNestedR41
+  , testCase "4Sin0FoldNestedR40" testSin0FoldNestedR40
+  , testCase "4Sin0FoldNestedR400" testSin0FoldNestedR400
   , testCase "4Sin0FoldNestedRi" testSin0FoldNestedRi
   , testCase "4Sin0FoldNestedR22" testSin0FoldNestedR22
   , testCase "4Sin0FoldNestedR21" testSin0FoldNestedR21
@@ -3301,6 +3302,7 @@ testSin0FoldNestedR3LengthPPs = do
         $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 1.1)))
     @?= 4_455_964
 
+-- Takes 45s.
 _testSin0FoldNestedR4LengthPPs :: Assertion
 _testSin0FoldNestedR4LengthPPs = do
   resetVarCounter
@@ -3324,9 +3326,9 @@ _testSin0FoldNestedR4LengthPPs = do
        IM.empty
        (simplifyAstHVector6
         $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 1.1)))
-    @?= 0
+    @?= 84_802_526
 
--- Uses 30G in GHC 9.8.1 with -O1 and patchy specialization.
+--- Uses 30G in GHC 9.8.1 with -O1 and patchy specialization.
 _testSin0FoldNestedR5LengthPPs :: Assertion
 _testSin0FoldNestedR5LengthPPs = do
   resetVarCounter
@@ -3478,9 +3480,8 @@ testSin0FoldNestedS3 = do
                             a0 (sreplicate @_ @2 a0)
            in rfromS . f . sfromR) 1.1)
 
--- TODO: re-enable when simplification of AstShaped is completed
-_testSin0FoldNestedS4 :: Assertion
-_testSin0FoldNestedS4 = do
+testSin0FoldNestedS4 :: Assertion
+testSin0FoldNestedS4 = do
   assertEqualUpToEpsilon' 1e-10
     (1.2400927000000009e-5 :: OR.Array 0 Double)
     (rev' (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
@@ -3496,7 +3497,7 @@ _testSin0FoldNestedS4 = do
                             a0 (sreplicate @_ @1 a0)
            in rfromS . f . sfromR) 1.1)
 
--- TODO: re-enable when simplification of AstShaped is completed
+-- Takes at least 60G of RAM.
 _testSin0FoldNestedS5 :: Assertion
 _testSin0FoldNestedS5 = do
   assertEqualUpToEpsilon' 1e-10
@@ -3613,9 +3614,8 @@ testSin0FoldNestedR2 = do
                             a0 (rreplicate 2 a0)
            in f) 1.1)
 
--- TODO: re-enable when simplification of AstRanked is completed
-_testSin0FoldNestedR2RevFwd :: Assertion
-_testSin0FoldNestedR2RevFwd = do
+testSin0FoldNestedR2RevFwd :: Assertion
+testSin0FoldNestedR2RevFwd = do
   assertEqualUpToEpsilon' 1e-10
     (3.175389686661287e-207 :: OR.Array 0 Double)
     (rev' (let f :: forall f. ADReady f => f Double 0 -> f Double 0
@@ -3644,9 +3644,8 @@ testSin0FoldNestedR3 = do
                             a0 (rreplicate 2 a0)
            in f) 1.1)
 
--- TODO: re-enable when simplification of AstRanked is completed
-_testSin0FoldNestedR4 :: Assertion
-_testSin0FoldNestedR4 = do
+testSin0FoldNestedR4 :: Assertion
+testSin0FoldNestedR4 = do
   assertEqualUpToEpsilon' 1e-10
     (1.2400927000000009e-5 :: OR.Array 0 Double)
     (rev' (let f :: forall f. ADReady f => f Double 0 -> f Double 0
@@ -3662,9 +3661,8 @@ _testSin0FoldNestedR4 = do
                             a0 (rreplicate 1 a0)
            in f) 1.1)
 
--- TODO: re-enable when simplification of AstRanked is completed
-_testSin0FoldNestedR41 :: Assertion
-_testSin0FoldNestedR41 = do
+testSin0FoldNestedR41 :: Assertion
+testSin0FoldNestedR41 = do
   assertEqualUpToEpsilon' 1e-10
     (0.22000000000000003 :: OR.Array 0 Double)
     (rev' (let f :: forall f. ADReady f => f Double 0 -> f Double 0
@@ -3680,9 +3678,8 @@ _testSin0FoldNestedR41 = do
                             a0 (rreplicate 1 a0)
            in f) 1.1)
 
--- TODO: re-enable when simplification of AstRanked is completed
-_testSin0FoldNestedR40 :: Assertion
-_testSin0FoldNestedR40 = do
+testSin0FoldNestedR40 :: Assertion
+testSin0FoldNestedR40 = do
   assertEqualUpToEpsilon' 1e-10
     (1.0 :: OR.Array 0 Double)
     (rev' (let f :: forall f. ADReady f => f Double 0 -> f Double 0
@@ -3698,9 +3695,8 @@ _testSin0FoldNestedR40 = do
                             a0 (rreplicate 0 a0)
            in f) 1.1)
 
--- TODO: re-enable when simplification of AstRanked is completed
-_testSin0FoldNestedR400 :: Assertion
-_testSin0FoldNestedR400 = do
+testSin0FoldNestedR400 :: Assertion
+testSin0FoldNestedR400 = do
   assertEqualUpToEpsilon' 1e-10
     (1.0 :: OR.Array 0 Double)
     (rev' (let f :: forall f. ADReady f => f Double 0 -> f Double 0
