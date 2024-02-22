@@ -607,7 +607,7 @@ instance ADReadyBoth ranked shaped
     -> HVector (ADVal ranked)
     -> HVector (ADVal ranked)
     -> HVectorOf (ADVal ranked)
-  dmapAccumR k accShs bShs eShs f acc0 es =
+  dmapAccumR !k !accShs !bShs !eShs f acc0 es =
     let accLen = V.length accShs
         hvToPair :: forall f. HVector f -> (HVector f, HVector f)
         hvToPair hv = (V.take accLen hv, V.drop accLen hv)
@@ -643,7 +643,8 @@ instance ADReadyBoth ranked shaped
     -> HVector (ADVal ranked)
     -> HVector (ADVal ranked)
     -> HVectorOf (ADVal ranked)
-  dmapAccumRDer k accShs bShs eShs (HFun fl) (HFun dfl) (HFun rfl) acc0D esD =
+  dmapAccumRDer !k !accShs !bShs !eShs
+                (HFun fl) (HFun dfl) (HFun rfl) acc0D esD =
     assert (voidHVectorMatches (replicate1VoidHVector k eShs) esD
             && voidHVectorMatches accShs acc0D) $
     let (ll2, acc0, acc0') = unADValHVector acc0D
@@ -712,7 +713,7 @@ instance ADReadyBoth ranked shaped
     -> HVector (ADVal ranked)
     -> HVector (ADVal ranked)
     -> HVectorOf (ADVal ranked)
-  dmapAccumL k accShs bShs eShs f acc0 es =
+  dmapAccumL !k !accShs !bShs !eShs f acc0 es =
     let accLen = V.length accShs
         hvToPair :: forall f. HVector f -> (HVector f, HVector f)
         hvToPair hv = (V.take accLen hv, V.drop accLen hv)
@@ -748,7 +749,8 @@ instance ADReadyBoth ranked shaped
     -> HVector (ADVal ranked)
     -> HVector (ADVal ranked)
     -> HVectorOf (ADVal ranked)
-  dmapAccumLDer k accShs bShs eShs (HFun fl) (HFun dfl) (HFun rfl) acc0D esD =
+  dmapAccumLDer !k !accShs !bShs !eShs
+                (HFun fl) (HFun dfl) (HFun rfl) acc0D esD =
     assert (voidHVectorMatches (replicate1VoidHVector k eShs) esD
             && voidHVectorMatches accShs acc0D
             `blame` ( shapeVoidHVector (replicate1VoidHVector k eShs)

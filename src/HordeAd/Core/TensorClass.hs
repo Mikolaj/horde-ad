@@ -1079,10 +1079,10 @@ sfromD (DynamicShapedDummy @r2 @sh2 _ _) = case sameShape @sh2 @sh of
 newtype HFun =
   HFun {unHFun :: (forall f. ADReady f => [HVector f] -> HVectorOf f)}
 
-type HFunOf (f :: RankedTensorType) = HFun
-
 instance Show HFun where
   show _ = "<lambda>"
+
+type HFunOf (f :: RankedTensorType) = HFun
 
 
 -- * The giga-constraint
@@ -1118,7 +1118,6 @@ type ADReadySmall ranked shaped =
   , ShapedTensor shaped, ShapedTensor (PrimalOf shaped)
   , CRanked ranked Show, CRanked (PrimalOf ranked) Show
   , CShaped shaped Show, CShaped (PrimalOf shaped) Show
-  , Show (HFunOf ranked)
   )
 
 type ADReadyBoth ranked shaped =

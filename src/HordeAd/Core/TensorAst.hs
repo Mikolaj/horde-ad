@@ -976,7 +976,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     -> HVector (AstRanked s)
     -> HVector (AstRanked s)
     -> AstHVector s
-  dmapAccumR k accShs bShs eShs f acc0 es =
+  dmapAccumR !k !accShs !bShs !eShs f acc0 es =
     assert (voidHVectorMatches (replicate1VoidHVector k eShs) es
             && voidHVectorMatches accShs acc0) $
     let accLen = V.length accShs
@@ -986,13 +986,14 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
         g :: HVector (AstRanked FullSpan)
           -> HVectorPseudoTensor (AstRanked FullSpan) Float '()
         g hv = HVectorPseudoTensor $ uncurry f (hvToPair hv)
-        !(!(!(!varsDt, !vars), !gradient, !_primal, _sh), _delta) =
+        (((varsDt, vars), gradient, _primal, _sh), _delta) =
           revProduceArtifact TensorToken True g EM.empty accEShs
-        !(!(!(!varsDt2, !vars2), !derivative, !_primal2), _delta2) =
+        (((varsDt2, vars2), derivative, _primal2), _delta2) =
           fwdProduceArtifact TensorToken g EM.empty accEShs
         fl, dfl, rfl :: AstHFun PrimalSpan
-        fl = fun1LToAst [accShs, eShs] $ \ !vvars !ll ->
-               AstLambda (vvars, f (ll !! 0) (ll !! 1))
+        fl = AstLambda
+             $ fun1LToAst [accShs, eShs] $ \ !vvars !ll ->
+                 (vvars, f (ll !! 0) (ll !! 1))
         dfl = AstLambda ( [ take accLen varsDt2, drop accLen varsDt2
                           , take accLen vars2, drop accLen vars2 ]
                         , unHVectorPseudoTensor derivative )
@@ -1011,16 +1012,19 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     -> HVector (AstRanked s)
     -> HVector (AstRanked s)
     -> AstHVector s
-  dmapAccumRDer k accShs bShs eShs f df rf acc0 es =
+  dmapAccumRDer !k !accShs !bShs !eShs f df rf acc0 es =
     assert (voidHVectorMatches (replicate1VoidHVector k eShs) es
             && voidHVectorMatches accShs acc0) $
     AstMapAccumRDer k accShs bShs eShs
-                    (fun1LToAst [accShs, eShs] $ \ !vvars !ll ->
-                       AstLambda (vvars, unHFun f ll))
-                    (fun1LToAst [accShs, eShs, accShs, eShs] $ \ !vvars !ll ->
-                       AstLambda (vvars, unHFun df ll))
-                    (fun1LToAst [accShs, bShs, accShs, eShs] $ \ !vvars !ll ->
-                       AstLambda (vvars, unHFun rf ll))
+                    (AstLambda
+                     $ fun1LToAst [accShs, eShs] $ \ !vvars !ll ->
+                         (vvars, unHFun f ll))
+                    (AstLambda
+                     $ fun1LToAst [accShs, eShs, accShs, eShs] $ \ !vvars !ll ->
+                         (vvars, unHFun df ll))
+                    (AstLambda
+                     $ fun1LToAst [accShs, bShs, accShs, eShs] $ \ !vvars !ll ->
+                         (vvars, unHFun rf ll))
                     acc0 es
   dmapAccumL
     :: SNat k
@@ -1032,7 +1036,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     -> HVector (AstRanked s)
     -> HVector (AstRanked s)
     -> AstHVector s
-  dmapAccumL k accShs bShs eShs f acc0 es =
+  dmapAccumL !k !accShs !bShs !eShs f acc0 es =
     assert (voidHVectorMatches (replicate1VoidHVector k eShs) es
             && voidHVectorMatches accShs acc0) $
     let accLen = V.length accShs
@@ -1042,13 +1046,14 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
         g :: HVector (AstRanked FullSpan)
           -> HVectorPseudoTensor (AstRanked FullSpan) Float '()
         g hv = HVectorPseudoTensor $ uncurry f (hvToPair hv)
-        !(!(!(!varsDt, !vars), !gradient, !_primal, _sh), _delta) =
+        (((varsDt, vars), gradient, _primal, _sh), _delta) =
           revProduceArtifact TensorToken True g EM.empty accEShs
-        !(!(!(!varsDt2, !vars2), !derivative, !_primal2), _delta2) =
+        (((varsDt2, vars2), derivative, _primal2), _delta2) =
           fwdProduceArtifact TensorToken g EM.empty accEShs
         fl, dfl, rfl :: AstHFun PrimalSpan
-        fl = fun1LToAst [accShs, eShs] $ \ !vvars !ll ->
-               AstLambda (vvars, f (ll !! 0) (ll !! 1))
+        fl = AstLambda
+             $ fun1LToAst [accShs, eShs] $ \ !vvars !ll ->
+                 (vvars, f (ll !! 0) (ll !! 1))
         dfl = AstLambda ( [ take accLen varsDt2, drop accLen varsDt2
                           , take accLen vars2, drop accLen vars2 ]
                         , unHVectorPseudoTensor derivative )
@@ -1056,11 +1061,6 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
                           , take accLen vars, drop accLen vars ]
                         , gradient )
      in AstMapAccumLDer k accShs bShs eShs fl dfl rfl acc0 es
-{- TODO: vacuus for now:
-     in dletHFunInHVector @(AstRanked s) fl $ \fl2 ->
-          dletHFunInHVector @(AstRanked s) dfl $ \dfl2 ->
-            dletHFunInHVector @(AstRanked s) rfl $ \rfl2 ->
-              AstMapAccumLDer k accShs bShs eShs fl2 dfl2 rfl2 acc0 es -}
   dmapAccumLDer
     :: SNat k
     -> VoidHVector
@@ -1072,16 +1072,19 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     -> HVector (AstRanked s)
     -> HVector (AstRanked s)
     -> AstHVector s
-  dmapAccumLDer k accShs bShs eShs f df rf acc0 es =
+  dmapAccumLDer !k !accShs !bShs !eShs f df rf acc0 es =
     assert (voidHVectorMatches (replicate1VoidHVector k eShs) es
             && voidHVectorMatches accShs acc0) $
     AstMapAccumLDer k accShs bShs eShs
-                    (fun1LToAst [accShs, eShs] $ \ !vvars !ll ->
-                       AstLambda (vvars, unHFun f ll))
-                    (fun1LToAst [accShs, eShs, accShs, eShs] $ \ !vvars !ll ->
-                       AstLambda (vvars, unHFun df ll))
-                    (fun1LToAst [accShs, bShs, accShs, eShs] $ \ !vvars !ll ->
-                       AstLambda (vvars, unHFun rf ll))
+                    (AstLambda
+                     $ fun1LToAst [accShs, eShs] $ \ !vvars !ll ->
+                         (vvars, unHFun f ll))
+                    (AstLambda
+                     $ fun1LToAst [accShs, eShs, accShs, eShs] $ \ !vvars !ll ->
+                         (vvars, unHFun df ll))
+                    (AstLambda
+                     $ fun1LToAst [accShs, bShs, accShs, eShs] $ \ !vvars !ll ->
+                         (vvars, unHFun rf ll))
                     acc0 es
 
 astLetHVectorInHVectorFun

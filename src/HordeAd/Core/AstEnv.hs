@@ -369,7 +369,7 @@ interpretLambdaHsH
      , AstHVector s )
   -> HFun
 {-# INLINE interpretLambdaHsH #-}
-interpretLambdaHsH interpret (!vvars, !ast) =
+interpretLambdaHsH interpret ~(vvars, ast) =
   HFun $ \ws ->
     interpret (foldr (uncurry extendEnvHVector) EM.empty $ zip vvars ws) ast
 
