@@ -734,10 +734,7 @@ class HVectorTensor (ranked :: RankedTensorType)
                     | ranked -> shaped, shaped -> ranked where
   dshape :: HVectorOf ranked -> VoidHVector
   dmkHVector :: HVector ranked -> HVectorOf ranked
-  dlambda
-    :: (forall f. ADReady f => [HVector f] -> HVectorOf f)
-    -> HFun
-  dlambda = HFun
+  dlambda :: [VoidHVector] -> HFun -> HFunOf ranked
   dunHVector :: VoidHVector -> HVectorOf ranked -> HVector ranked
     -- ^ Warning: this operation easily breaks sharing.
   dletHVectorInHVector
@@ -961,19 +958,19 @@ class HVectorTensor (ranked :: RankedTensorType)
     -> VoidHVector  -- ^ accShs, shapes of acc
     -> VoidHVector  -- ^ bShs, shapes of b
     -> VoidHVector  -- ^ eShs, shapes of e
-    -> HFun
+    -> HFunOf ranked
     -- (forall f. ADReady f =>
     --  [ HVector f      -- ^ acc, accumulator :: accShs
     --  , HVector f ]    -- ^ e, element of es :: eShs
     --  -> HVectorOf f)  -- ^ (x, b) :: (accShs, bShs)
-    -> HFun
+    -> HFunOf ranked
     -- (forall f. ADReady f =>
     --  [ HVector f      -- ^ dacc :: accShs
     --  , HVector f      -- ^ de :: eShs
     --  , HVector f      -- ^ acc :: accShs
     --  , HVector f ]    -- ^ e :: eShs
     --  -> HVectorOf f)  -- ^ (dx, db) :: (accShs, bShs)
-    -> HFun
+    -> HFunOf ranked
     -- (forall f. ADReady f =>
     --  [ HVector f      -- ^ dx :: accShs
     --  , HVector f      -- ^ db :: bShs
@@ -999,9 +996,9 @@ class HVectorTensor (ranked :: RankedTensorType)
     -> VoidHVector
     -> VoidHVector
     -> VoidHVector
-    -> HFun
-    -> HFun
-    -> HFun
+    -> HFunOf ranked
+    -> HFunOf ranked
+    -> HFunOf ranked
     -> HVector ranked
     -> HVector ranked
     -> HVectorOf ranked
@@ -1073,8 +1070,6 @@ newtype HFun =
 instance Show HFun where
   show _ = "<lambda>"
 
-type HFunOf (f :: RankedTensorType) = HFun
-
 
 -- * The giga-constraint
 
@@ -1109,6 +1104,7 @@ type ADReadySmall ranked shaped =
   , ShapedTensor shaped, ShapedTensor (PrimalOf shaped)
   , CRanked ranked Show, CRanked (PrimalOf ranked) Show
   , CShaped shaped Show, CShaped (PrimalOf shaped) Show
+  , Show (HFunOf ranked)
   )
 
 type ADReadyBoth ranked shaped =
@@ -1141,6 +1137,8 @@ type instance RankedOf (Flip OR.Array) = Flip OR.Array
 type instance ShapedOf (Flip OR.Array) = Flip OS.Array
 
 type instance HVectorOf (Flip OR.Array) = HVector (Flip OR.Array)
+
+type instance HFunOf (Flip OR.Array) = HFun
 
 type instance PrimalOf (Flip OR.Array) = Flip OR.Array
 

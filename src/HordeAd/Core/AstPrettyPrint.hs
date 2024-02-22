@@ -847,7 +847,9 @@ printAstHFun cfg d = \case
                 . showString " -> "
                 . printAstHVector cfg 0 l
     else showParen (d > 0)
-         $ showString "\\"
+         $ {- showString "dlambda $ "  -- TODO: enable for full roundtrip
+           . -}
+           showString "\\"
            . showCollectionWith "" " " ""
                (showListWith (showString
                               . printAstDynamicVarNameCfg cfg)) vvars

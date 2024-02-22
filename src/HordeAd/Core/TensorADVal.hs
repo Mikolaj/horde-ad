@@ -344,6 +344,7 @@ instance ADReadyBoth ranked shaped
          => HVectorTensor (ADVal ranked) (ADVal shaped) where
   dshape = voidFromHVector
   dmkHVector = id
+  dlambda _ = id
   dunHVector shs hv = assert (voidHVectorMatches shs hv
                               `blame` ( shapeVoidHVector shs
                                       , shapeVoidHVector (voidFromHVector hv)))
@@ -489,7 +490,12 @@ instance ADReadyBoth ranked shaped
         rg _ = error "rg: wrong number of arguments"
         pUnshared :: HVectorOf ranked
         pUnshared = dmapAccumRDer k accShs codomainShs eShs
-                                  (HFun g) (HFun dg) (HFun rg)
+                                  (dlambda @ranked [accShs, eShs] $ HFun g)
+                                  (dlambda @ranked [accShs, eShs, accShs, eShs]
+                                   $ HFun dg)
+                                  (dlambda @ranked
+                                           [accShs, codomainShs, accShs, eShs]
+                                   $ HFun rg)
                                   acc0 es
         pShs = accShs V.++ replicate1VoidHVector k codomainShs
         (l5, pShared) = dsharePrimal @ranked pShs pUnshared l4
@@ -593,7 +599,12 @@ instance ADReadyBoth ranked shaped
         rg _ = error "rg: wrong number of arguments"
         pUnshared :: HVectorOf ranked
         pUnshared = dmapAccumLDer k accShs codomainShs eShs
-                                  (HFun g) (HFun dg) (HFun rg)
+                                  (dlambda @ranked [accShs, eShs] $ HFun g)
+                                  (dlambda @ranked [accShs, eShs, accShs, eShs]
+                                   $ HFun dg)
+                                  (dlambda @ranked
+                                           [accShs, codomainShs, accShs, eShs]
+                                   $ HFun rg)
                                   acc0 es
         pShs = accShs V.++ replicate1VoidHVector k codomainShs
         (l5, pShared) = dsharePrimal @ranked pShs pUnshared l4
@@ -645,6 +656,7 @@ unADValDynamicTensor (DynamicShapedDummy p1 p2) =
 instance HVectorTensor (Flip OR.Array) (Flip OS.Array) where
   dshape = voidFromHVector
   dmkHVector = id
+  dlambda _ = id
   dunHVector shs hv = assert (voidHVectorMatches shs hv
                               `blame` ( shapeVoidHVector shs
                                       , shapeVoidHVector (voidFromHVector hv)))

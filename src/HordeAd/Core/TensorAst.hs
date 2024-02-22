@@ -377,6 +377,11 @@ instance IfF (AstShaped s) where
 
 -- * Ranked tensor AST instances
 
+type instance HFunOf (AstRanked s) = HFun
+  -- more general and expensive: AstHFun PrimalSpan
+type instance HFunOf (AstNoVectorize s) = HFun  -- AstHFun PrimalSpan
+type instance HFunOf (AstNoSimplify s) = HFun  -- AstHFun PrimalSpan
+
 instance AdaptableHVector (AstRanked s) (AstHVector s) where
   type Value (AstHVector s) = HVector (Flip OR.Array)
   toHVector = undefined
@@ -662,6 +667,9 @@ astBuild1VectorizeS f =
 instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   dshape = shapeAstHVector
   dmkHVector = AstHVector
+  dlambda _ = id
+    -- more general and expensive:
+    -- shss f = fun1LToAst shss $ \ !vvars !ll -> AstHFun vvars (unHFun f ll)
   dunHVector shs hVectorOf =
     let f :: Int -> DynamicTensor VoidTensor -> AstDynamic s
         f i = \case
@@ -1163,6 +1171,7 @@ instance AstSpan s => ShapedTensor (AstNoVectorizeS s) where
 instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
   dshape = dshape @(AstRanked s)
   dmkHVector hVector = dmkHVector @(AstRanked s) (unNoVectorizeHVector hVector)
+  dlambda = dlambda @(AstRanked s)
   dunHVector parameters0 doms =
     noVectorizeHVector $ dunHVector @(AstRanked s) parameters0 doms
   dletHVectorInHVector a0 a f =
@@ -1354,6 +1363,7 @@ instance AstSpan s => ShapedTensor (AstNoSimplifyS s) where
 instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
   dshape = dshape @(AstRanked s)
   dmkHVector hVector = dmkHVector @(AstRanked s) (unNoSimplifyHVector hVector)
+  dlambda = dlambda @(AstRanked s)
   dunHVector parameters0 doms =
     noSimplifyHVector $ dunHVector @(AstRanked s) parameters0 doms
   dletHVectorInHVector a0 a f =
