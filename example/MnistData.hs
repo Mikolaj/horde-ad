@@ -6,7 +6,6 @@ module MnistData where
 import Prelude
 
 import           Codec.Compression.GZip (decompress)
-import           Control.Arrow (first)
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.Ranked as ORB
 import qualified Data.Array.RankedS as OR
@@ -20,8 +19,7 @@ import           Data.Maybe (fromMaybe)
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Unboxed
 import           GHC.TypeLits (KnownNat, Nat, type (*))
-import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
-import qualified Numeric.LinearAlgebra as LA
+import           Numeric.LinearAlgebra (Numeric, Vector)
 import           System.IO (IOMode (ReadMode), withBinaryFile)
 import           System.Random
 
@@ -72,8 +70,6 @@ type LengthTestData = 10000 :: Nat
 -- with softMax. This also seems to be the standard or at least
 -- a simple default in tutorial.
 type MnistData r = (Vector r, Vector r)
-
-type MnistData2 r = (Matrix r, Vector r)
 
 type MnistDataS r =
   ( OS.Array '[SizeMnistHeight, SizeMnistWidth] r
@@ -152,14 +148,6 @@ loadMnistData glyphsPath labelsPath =
                               (decompress labelsContents)
 {-# SPECIALIZE loadMnistData :: FilePath -> FilePath -> IO [MnistData Double] #-}
 {-# SPECIALIZE loadMnistData :: FilePath -> FilePath -> IO [MnistData Float] #-}
-
-loadMnistData2 :: (Numeric r, Fractional r)
-               => FilePath -> FilePath -> IO [MnistData2 r]
-loadMnistData2 glyphsPath labelsPath = do
-  ds <- loadMnistData glyphsPath labelsPath
-  return $! map (first $ LA.reshape sizeMnistWidthInt) ds
-{-# SPECIALIZE loadMnistData2 :: FilePath -> FilePath -> IO [MnistData2 Double] #-}
-{-# SPECIALIZE loadMnistData2 :: FilePath -> FilePath -> IO [MnistData2 Float] #-}
 
 -- Good enough for QuickCheck, so good enough for me.
 shuffle :: RandomGen g => g -> [a] -> [a]

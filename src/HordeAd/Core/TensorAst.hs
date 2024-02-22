@@ -472,10 +472,10 @@ _astLetHFunInFun
   :: AstHFun PrimalSpan -> (AstHFun PrimalSpan -> AstRanked s r n)
   -> AstRanked s r n
 {-# INLINE _astLetHFunInFun #-}
-_astLetHFunInFun a f =
+_astLetHFunInFun = undefined {-
   let shss = domainShapesAstHFun a
       shs = shapeAstHFun a
-  in fun1ToAst $ \ !var -> astLetHFunIn var a (f (AstVarHFun shss shs var))
+  in fun1ToAst $ \ !var -> astLetHFunIn var a (f (AstVarHFun shss shs var)) -}
 
 astSpanPrimal :: forall s r n. (KnownNat n, GoodScalar r, AstSpan s)
               => AstRanked s r n -> AstRanked PrimalSpan r n
@@ -610,10 +610,10 @@ _astLetHFunInFunS
   :: AstHFun PrimalSpan -> (AstHFun PrimalSpan -> AstShaped s r sh)
   -> AstShaped s r sh
 {-# INLINE _astLetHFunInFunS #-}
-_astLetHFunInFunS a f =
+_astLetHFunInFunS = undefined {-
   let shss = domainShapesAstHFun a
       shs = shapeAstHFun a
-  in fun1ToAst $ \ !var -> astLetHFunInS var a (f (AstVarHFun shss shs var))
+  in fun1ToAst $ \ !var -> astLetHFunInS var a (f (AstVarHFun shss shs var)) -}
 
 astSpanPrimalS :: forall s r sh. (Sh.Shape sh, GoodScalar r, AstSpan s)
                => AstShaped s r sh -> AstShaped PrimalSpan r sh
@@ -913,11 +913,11 @@ _astLetHFunInHVectorFun
   :: AstHFun PrimalSpan -> (AstHFun PrimalSpan -> AstHVector s)
   -> AstHVector s
 {-# INLINE _astLetHFunInHVectorFun #-}
-_astLetHFunInHVectorFun a f =
+_astLetHFunInHVectorFun = undefined {-
   let shss = domainShapesAstHFun a
       shs = shapeAstHFun a
   in fun1ToAst $ \ !var ->
-       astLetHFunInHVector var a (f (AstVarHFun shss shs var))
+       astLetHFunInHVector var a (f (AstVarHFun shss shs var)) -}
 
 astLetInHVectorFun :: (KnownNat n, GoodScalar r, AstSpan s)
                    => AstRanked s r n -> (AstRanked s r n -> AstHVector s)

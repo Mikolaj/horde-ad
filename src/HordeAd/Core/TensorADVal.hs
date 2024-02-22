@@ -8,8 +8,7 @@
 -- the typing of tensors and so we give separate instances
 -- for ranked tensors and shaped tensors.
 module HordeAd.Core.TensorADVal
-  ( mapHVectorADShare, dDHVector, aDValHVector, aDValDynamicTensor
-  , hVectorADValToADVal, unADValHVector, unADValDynamicTensor
+  ( hVectorADValToADVal, unADValHVector, unADValDynamicTensor
   ) where
 
 import Prelude hiding (foldl')
@@ -29,14 +28,12 @@ import           Data.List (foldl', mapAccumL, mapAccumR, scanl')
 import           Data.List.Index (imap)
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
-import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
+import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, sameNat)
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           System.Random
-import           Type.Reflection (typeRep)
-import           Unsafe.Coerce (unsafeCoerce)
 
 import           HordeAd.Core.Adaptor
 import           HordeAd.Core.Ast
@@ -47,8 +44,7 @@ import           HordeAd.Core.HVectorOps
 import           HordeAd.Core.IsPrimal
 import           HordeAd.Core.TensorClass
 import           HordeAd.Core.Types
-import           HordeAd.Internal.OrthotopeOrphanInstances
-  (matchingRank, sameShape)
+import           HordeAd.Internal.OrthotopeOrphanInstances (sameShape)
 import           HordeAd.Util.ShapedList (singletonShaped)
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedIndex
@@ -625,55 +621,6 @@ instance ADReadyBoth ranked shaped
           DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
           DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
     in V.imap selectDual primal
-
-mapHVectorADShare
-  :: (ADShare -> ADShare) -> HVector (ADVal ranked) -> HVector (ADVal ranked)
-mapHVectorADShare f = V.map (mapDynamicADShare f)
-
-mapDynamicADShare
-  :: (ADShare -> ADShare)
-  -> DynamicTensor (ADVal ranked) -> DynamicTensor (ADVal ranked)
-mapDynamicADShare f (DynamicRanked (D l u u')) =
-  DynamicRanked (dDnotShared (f l) u u')
-mapDynamicADShare f (DynamicShaped (D l u u')) =
-  DynamicShaped (dDnotShared (f l) u u')
-mapDynamicADShare _f (DynamicRankedDummy p1 p2) = DynamicRankedDummy p1 p2
-mapDynamicADShare _f (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
-
-dDHVector :: (RankedTensor f, ShapedTensor (ShapedOf f))
-          => ADShare -> HVector f -> HVector (Dual f)
-          -> HVector (ADVal f)
-dDHVector l = V.zipWith (aDValDynamicTensor l)
-
-aDValHVector :: (RankedTensor f, ShapedTensor (ShapedOf f))
-             => Data.Vector.Vector ADShare -> HVector f -> HVector (Dual f)
-             -> HVector (ADVal f)
-aDValHVector = V.zipWith3 aDValDynamicTensor
-
-aDValDynamicTensor :: (RankedTensor f, ShapedTensor (ShapedOf f))
-                   => ADShare -> DynamicTensor f -> DynamicTensor (Dual f)
-                   -> DynamicTensor (ADVal f)
-aDValDynamicTensor l (DynamicRanked @r1 @n1 t) (DynamicRanked @r2 @n2 t')
-  | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
-  , Just Refl <- sameNat (Proxy @n1) (Proxy @n2) =
-    DynamicRanked (dDnotShared l t t')
-aDValDynamicTensor l (DynamicShaped @r1 @sh1 t) (DynamicShaped @r2 @sh2 t')
-  | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
-  , Just Refl <- sameShape @sh1 @sh2 =
-    DynamicShaped (dDnotShared l t t')
-aDValDynamicTensor l (DynamicRankedDummy @r1 @sh1 _ _)
-                     (DynamicRanked @r2 @n2 t')
-  | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
-  , Just Refl <- matchingRank @sh1 @n2 =
-    withListShape (Sh.shapeT @sh1) $ \(sh4 :: ShapeInt n4) ->
-      gcastWith (unsafeCoerce Refl :: n4 :~: Sh.Rank sh1) $
-      DynamicRanked (dDnotShared l (rzero sh4) t')
-aDValDynamicTensor l (DynamicShapedDummy @r1 @sh1 _ _)
-                     (DynamicShaped @r2 @sh2 t')
-  | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
-  , Just Refl <- sameShape @sh1 @sh2 =
-    DynamicShaped (dDnotShared l 0 t')
-aDValDynamicTensor _ _ _ = error "aDValDynamicTensor: wrong arguments"
 
 -- Float and '() are placeholders here; they are reduced away.
 hVectorADValToADVal

@@ -43,8 +43,6 @@ module HordeAd.Core.Delta
     NodeId (..), InputId, toInputId
   , -- * Evaluation of the delta expressions
     DualPart(..)
-  , -- * Miscellaneous
-    mapHVectorDeltaR11, mapHVectorDeltaS11
     -- * Exported to be specialized elsewhere
   , gradientFromDeltaR, gradientFromDeltaS, evalFromnMap, EvalState
   ) where
@@ -53,7 +51,6 @@ import Prelude
 
 import           Control.Arrow (second)
 import           Control.Exception.Assert.Sugar
-import           Data.Array.Internal (valueOf)
 import qualified Data.Array.Shape as Sh
 import qualified Data.Array.ShapedS as OS
 import qualified Data.EnumMap.Strict as EM
@@ -69,22 +66,20 @@ import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           Foreign.C (CInt)
 import           GHC.Show (showSpace)
-import           GHC.TypeLits
-  (KnownNat, Nat, SomeNat (..), sameNat, someNatVal, type (+), type (<=))
+import           GHC.TypeLits (KnownNat, Nat, sameNat, type (+), type (<=))
 import           Text.Show.Functions ()
 import           Type.Reflection (typeRep)
 import           Unsafe.Coerce (unsafeCoerce)
 
-import           HordeAd.Core.Ast (ADShare)
-import           HordeAd.Core.HVector
-import           HordeAd.Core.HVectorOps
-import           HordeAd.Core.TensorClass
-import           HordeAd.Core.Types
-import           HordeAd.Internal.OrthotopeOrphanInstances
+import HordeAd.Core.Ast (ADShare)
+import HordeAd.Core.HVector
+import HordeAd.Core.HVectorOps
+import HordeAd.Core.TensorClass
+import HordeAd.Core.Types
+import HordeAd.Internal.OrthotopeOrphanInstances
   (sameShape, trustMeThisIsAPermutation)
-import           HordeAd.Util.ShapedList (ShapedList (..))
-import qualified HordeAd.Util.ShapedList as ShapedList
-import           HordeAd.Util.SizedIndex
+import HordeAd.Util.ShapedList (ShapedList (..))
+import HordeAd.Util.SizedIndex
 
 -- * Abstract syntax trees of the delta expressions
 
@@ -1140,103 +1135,6 @@ evalFromnMap s@EvalState{nMap, dMap, hnMap, hdMap} =
                    , dMap = EM.insert n v $ dMap s }
             _ -> error "evalFromnMap: corrupted nMap"
 -}
-
-mapHVectorDeltaR11
-  :: ( RankedTensor ranked, ShapedTensor (ShapedOf ranked)
-     , RankedOf (ShapedOf ranked) ~ ranked )
-  => (forall rq q. (GoodScalar rq, KnownNat q)
-      => DeltaR ranked rq (1 + q) -> DeltaR ranked rq (1 + q))
-  -> HVector (DeltaR ranked) -> HVector (DeltaR ranked)
-mapHVectorDeltaR11 f = V.map (mapDynamicDeltaR11 f)
-
-mapDynamicDeltaR11
-  :: ( RankedTensor ranked, ShapedTensor (ShapedOf ranked)
-     , RankedOf (ShapedOf ranked) ~ ranked )
-  => (forall rq q. (GoodScalar rq, KnownNat q)
-      => DeltaR ranked rq (1 + q) -> DeltaR ranked rq (1 + q))
-  -> DynamicTensor (DeltaR ranked) -> DynamicTensor (DeltaR ranked)
-mapDynamicDeltaR11 f (DynamicRanked t) = case shapeDeltaR t of
-  ZS -> error "mapDynamicDeltaR11: rank 0"
-  _ :$ _ -> DynamicRanked $ f t
-mapDynamicDeltaR11 f (DynamicShaped @r @sh t) = case ShapedList.shapeSh @sh of
-  ZSH -> error "mapDynamicDeltaR11: rank 0"
-  (:$:) @_ @sh0 _ _ ->
-    withListShape (Sh.shapeT @sh0) $ \(_ :: ShapeInt n) ->
-      gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: 1 + n) $
-      let res = f $ RFromS @sh t
-      in Sh.withShapeP (shapeToList $ shapeDeltaR res) $ \(Proxy @shr) ->
-        case someNatVal $ 1 + valueOf @n of
-          Just (SomeNat @n1 _) ->
-            gcastWith (unsafeCoerce Refl :: n1 :~: 1 + n) $
-            gcastWith (unsafeCoerce Refl :: Sh.Rank shr :~: n1) $
-            DynamicShaped @r @shr $ SFromR res
-          _ -> error "mapDynamicDeltaR11: impossible someNatVal"
-mapDynamicDeltaR11
-  f (DynamicRankedDummy @r @sh _ _) = case ShapedList.shapeSh @sh of
-  ZSH -> error "mapDynamicDeltaR11: rank 0"
-  (:$:) @_ @sh0 k _ ->
-    withListShape (Sh.shapeT @sh0) $ \sh1 ->
-      DynamicRanked @r $ f (ZeroR $ k :$ sh1)
-mapDynamicDeltaR11
-  f (DynamicShapedDummy @r @sh _ _) = case ShapedList.shapeSh @sh of
-  ZSH -> error "mapDynamicDeltaR11: rank 0"
-  (:$:) @_ @sh0 k _ ->
-    withListShape (Sh.shapeT @sh0) $ \(sh1 :: ShapeInt n) ->
-      let res = f @r (ZeroR $ k :$ sh1)
-      in Sh.withShapeP (shapeToList $ shapeDeltaR res) $ \(Proxy @shr) ->
-        case someNatVal $ 1 + valueOf @n of
-          Just (SomeNat @n1 _) ->
-            gcastWith (unsafeCoerce Refl :: n1 :~: 1 + n) $
-            gcastWith (unsafeCoerce Refl :: Sh.Rank shr :~: n1) $
-            DynamicShaped @_ @shr $ SFromR res
-          _ -> error "mapDynamicDeltaR11: impossible someNatVal"
-
-mapHVectorDeltaS11
-  :: forall k k1 shaped.
-     ( ShapedOf (RankedOf shaped) ~ shaped, KnownNat k, KnownNat k1
-     , RankedTensor (RankedOf shaped), ShapedTensor shaped )
-  => (forall rq shq. (GoodScalar rq, Sh.Shape shq)
-      => DeltaS shaped rq (k ': shq) -> DeltaS shaped rq (k1 ': shq))
-  -> HVector (DeltaR (RankedOf shaped)) -> HVector (DeltaR (RankedOf shaped))
-mapHVectorDeltaS11 f = V.map (mapDynamicDeltaS11 f)
-
-mapDynamicDeltaS11
-  :: forall k k1 shaped.
-     ( ShapedOf (RankedOf shaped) ~ shaped, KnownNat k, KnownNat k1
-     , RankedTensor (RankedOf shaped), ShapedTensor shaped )
-  => (forall rq shq. (GoodScalar rq, Sh.Shape shq)
-      => DeltaS shaped rq (k ': shq) -> DeltaS shaped rq (k1 ': shq))
-  -> DynamicTensor (DeltaR (RankedOf shaped))
-  -> DynamicTensor (DeltaR (RankedOf shaped))
-mapDynamicDeltaS11 f (DynamicRanked @r @n2 t) =
-  Sh.withShapeP (shapeToList $ shapeDeltaR t) $ \(Proxy @sh) ->
-    case ShapedList.shapeSh @sh of
-      ZSH -> error "mapDynamicDeltaS11: rank 0"
-      (:$:) @n @shr _ _ -> case sameNat (Proxy @n) (Proxy @k) of
-        Just Refl -> withListShape (Sh.shapeT @shr) $ \(_ :: ShapeInt m) ->
-          gcastWith (unsafeCoerce Refl :: n2 :~: 1 + m) $
-          gcastWith (unsafeCoerce Refl :: Sh.Rank shr :~: m) $
-          DynamicRanked $ RFromS $ f @r @shr $ SFromR t
-        Nothing -> error "mapDynamicDeltaS11: wrong width"
-mapDynamicDeltaS11 f (DynamicShaped @_ @sh t) = case ShapedList.shapeSh @sh of
-  ZSH -> error "mapDynamicDeltaS11: rank 0"
-  (:$:) @n _ _ -> case sameNat (Proxy @n) (Proxy @k) of
-    Just Refl -> DynamicShaped $ f t
-    Nothing -> error "mapDynamicDeltaS11: wrong width"
-mapDynamicDeltaS11
-  f (DynamicRankedDummy @r @sh _ _) = case ShapedList.shapeSh @sh of
-  ZSH -> error "mapDynamicDeltaS11: rank 0"
-  (:$:) @n @shr _ _ -> case sameNat (Proxy @n) (Proxy @k) of
-    Just Refl -> withListShape (Sh.shapeT @shr) $ \(_ :: ShapeInt m) ->
-      gcastWith (unsafeCoerce Refl :: Sh.Rank shr :~: m) $
-      DynamicRanked $ RFromS $ f @r @shr ZeroS
-    Nothing -> error "mapDynamicDeltaS11: wrong width"
-mapDynamicDeltaS11
-  f (DynamicShapedDummy @r @sh _ _) = case ShapedList.shapeSh @sh of
-  ZSH -> error "mapDynamicDeltaS11: rank 0"
-  (:$:) @n @shr _ _ -> case sameNat (Proxy @n) (Proxy @k) of
-    Just Refl -> DynamicShaped $ f @r @shr ZeroS
-    Nothing -> error "mapDynamicDeltaS11: wrong width"
 
 
 -- * Forward derivative computation from the delta expressions
