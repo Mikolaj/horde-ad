@@ -377,10 +377,9 @@ instance IfF (AstShaped s) where
 
 -- * Ranked tensor AST instances
 
-type instance HFunOf (AstRanked s) = HFun
-  -- more general and expensive: AstHFun PrimalSpan
-type instance HFunOf (AstNoVectorize s) = HFun  -- AstHFun PrimalSpan
-type instance HFunOf (AstNoSimplify s) = HFun  -- AstHFun PrimalSpan
+type instance HFunOf (AstRanked s) = AstHFun PrimalSpan
+type instance HFunOf (AstNoVectorize s) = AstHFun PrimalSpan
+type instance HFunOf (AstNoSimplify s) = AstHFun PrimalSpan
 
 instance AdaptableHVector (AstRanked s) (AstHVector s) where
   type Value (AstHVector s) = HVector (Flip OR.Array)
@@ -667,9 +666,8 @@ astBuild1VectorizeS f =
 instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   dshape = shapeAstHVector
   dmkHVector = AstHVector
-  dlambda _ = id
-    -- more general and expensive:
-    -- shss f = fun1LToAst shss $ \ !vvars !ll -> AstHFun vvars (unHFun f ll)
+  dlambda shss f = AstLambda
+                   $ fun1LToAst shss $ \ !vvars !ll -> (vvars, unHFun f ll)
   dunHVector shs hVectorOf =
     let f :: Int -> DynamicTensor VoidTensor -> AstDynamic s
         f i = \case
@@ -828,26 +826,16 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     -> VoidHVector
     -> VoidHVector
     -> VoidHVector
-    -> HFun
-    -> HFun
-    -> HFun
+    -> AstHFun PrimalSpan
+    -> AstHFun PrimalSpan
+    -> AstHFun PrimalSpan
     -> HVector (AstRanked s)
     -> HVector (AstRanked s)
     -> AstHVector s
   dmapAccumRDer !k !accShs !bShs !eShs f df rf acc0 es =
     assert (voidHVectorMatches (replicate1VoidHVector k eShs) es
             && voidHVectorMatches accShs acc0) $
-    AstMapAccumRDer k accShs bShs eShs
-                    (AstLambda
-                     $ fun1LToAst [accShs, eShs] $ \ !vvars !ll ->
-                         (vvars, unHFun f ll))
-                    (AstLambda
-                     $ fun1LToAst [accShs, eShs, accShs, eShs] $ \ !vvars !ll ->
-                         (vvars, unHFun df ll))
-                    (AstLambda
-                     $ fun1LToAst [accShs, bShs, accShs, eShs] $ \ !vvars !ll ->
-                         (vvars, unHFun rf ll))
-                    acc0 es
+    AstMapAccumRDer k accShs bShs eShs f df rf acc0 es
   dmapAccumL
     :: SNat k
     -> VoidHVector
@@ -888,26 +876,16 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     -> VoidHVector
     -> VoidHVector
     -> VoidHVector
-    -> HFun
-    -> HFun
-    -> HFun
+    -> AstHFun PrimalSpan
+    -> AstHFun PrimalSpan
+    -> AstHFun PrimalSpan
     -> HVector (AstRanked s)
     -> HVector (AstRanked s)
     -> AstHVector s
   dmapAccumLDer !k !accShs !bShs !eShs f df rf acc0 es =
     assert (voidHVectorMatches (replicate1VoidHVector k eShs) es
             && voidHVectorMatches accShs acc0) $
-    AstMapAccumLDer k accShs bShs eShs
-                    (AstLambda
-                     $ fun1LToAst [accShs, eShs] $ \ !vvars !ll ->
-                         (vvars, unHFun f ll))
-                    (AstLambda
-                     $ fun1LToAst [accShs, eShs, accShs, eShs] $ \ !vvars !ll ->
-                         (vvars, unHFun df ll))
-                    (AstLambda
-                     $ fun1LToAst [accShs, bShs, accShs, eShs] $ \ !vvars !ll ->
-                         (vvars, unHFun rf ll))
-                    acc0 es
+    AstMapAccumLDer k accShs bShs eShs f df rf acc0 es
 
 astLetHVectorInHVectorFun
   :: AstSpan s

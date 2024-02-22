@@ -979,7 +979,7 @@ interpretAstHFun
   :: forall ranked s. (AstSpan s, HVectorTensor ranked (ShapedOf ranked))
   => AstEnv ranked -> AstHFun s -> HFunOf ranked
 interpretAstHFun !env = \case
-  AstLambda (vvars, l) ->
+  AstLambda ~(vvars, l) ->
     dlambda @ranked (map voidFromVars vvars)
     $ interpretLambdaHsH interpretAstHVector (vvars, l)
   AstVarHFun _shss _shs var -> case EM.lookup var env of
