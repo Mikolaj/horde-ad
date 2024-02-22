@@ -19,7 +19,7 @@ import           GHC.TypeLits (KnownNat, type (+))
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
-import HordeAd
+import HordeAd hiding (rscanZip, sscanZip)
 import HordeAd.Core.AstFreshId (resetVarCounter)
 import HordeAd.Util.ShapedList (ShapedList (..))
 
@@ -1178,6 +1178,75 @@ testUnitriangular2PP = do
       a1 = unitriangular2 @3 @Double @(AstRanked FullSpan) k sh
   printAstPretty IM.empty (simplifyAst6 a1)
     @?= "rgather [1000000,1000000,200,300,600] (rfromList [rreplicate 1000000 (rreplicate 1000000 (rreplicate 200 (rreplicate 300 (rreplicate 600 0.0)))), rreplicate 1000000 (rreplicate 1000000 (rreplicate 200 (rreplicate 300 (rreplicate 600 1.0))))]) (\\[i9, i10] -> [ifF (i9 <. i10) 0 1, i9, i10])"
+
+rscanZip :: forall rn n ranked.
+            ( GoodScalar rn, KnownNat n, RankedTensor ranked
+            , HVectorTensor ranked (ShapedOf ranked) )
+         => (forall f. ADReady f => f rn n -> HVector f -> f rn n)
+         -> VoidHVector  -- shapes of the HVector above, not below
+         -> ranked rn n
+         -> HVector ranked  -- one rank higher than above
+         -> ranked rn (1 + n)
+rscanZip f eShs acc0 es =
+  let width = case V.unsnoc es of
+        Nothing -> error "rscanZip: can't determine argument width"
+        Just (_, d) -> case shapeDynamicF (shapeToList . rshape) d of
+          [] -> error "rscanZip: wrong rank of argument"
+          w : _shm -> w
+      sh = rshape acc0
+  in withSNat width $ \snat ->
+    rletHVectorIn
+      (V.fromList [voidFromSh @rn sh, voidFromSh @rn (width :$ sh)])
+      (dmapAccumL
+         snat
+         (V.singleton $ voidFromSh @rn sh)
+         (V.singleton $ voidFromSh @rn sh)
+         eShs
+         (let g :: forall f. ADReady f
+                => HVector f -> HVector f -> HVectorOf f
+              g acc e =
+                rletInHVector
+                  (f (rfromD $ acc V.! 0) e)
+                  (\res -> dmkHVector
+                           $ V.fromList
+                               [ DynamicRanked @rn @n @f res
+                               , DynamicRanked @rn @n @f res ])
+          in g)
+         (V.singleton $ DynamicRanked acc0)
+         es)
+      (\res -> rappend (rfromList [acc0]) (rfromD $ res V.! 1))
+
+sscanZip :: forall rn sh k ranked shaped.
+            ( GoodScalar rn, Sh.Shape sh, KnownNat k, ShapedTensor shaped
+            , HVectorTensor ranked shaped
+            , shaped ~ ShapedOf ranked, ranked ~ RankedOf shaped )
+       => (forall f. ADReadyS f
+           => f rn sh -> HVector (RankedOf f) -> f rn sh)
+       -> VoidHVector
+       -> shaped rn sh
+       -> HVector ranked
+       -> shaped rn (1 + k ': sh)
+sscanZip f eShs acc0 es =
+  sletHVectorIn
+    (V.fromList [voidFromShS @rn @sh, voidFromShS @rn @(k ': sh)])
+    (dmapAccumL
+       (SNat @k)
+       (V.singleton $ voidFromShS @rn @sh)
+       (V.singleton $ voidFromShS @rn @sh)
+       eShs
+       (let g :: forall f. ADReady f
+              => HVector f -> HVector f -> HVectorOf f
+            g acc e =
+              sletInHVector
+                (f (sfromD $ acc V.! 0) e)
+                (\res -> dmkHVector
+                         $ V.fromList
+                             [ DynamicShaped @rn @sh @f res
+                             , DynamicShaped @rn @sh @f res ])
+        in g)
+       (V.singleton $ DynamicShaped acc0)
+       es)
+    (\res -> sappend @_ @_ @1 (sfromList [acc0]) (sfromD $ res V.! 1))
 
 testSin0ScanD0 :: Assertion
 testSin0ScanD0 = do
@@ -4395,7 +4464,7 @@ fFoldSX as =
       doms = V.fromList [ voidFromShS @Double @'[]
                         , voidFromShS @Double @'[] ]
       p :: shaped Double '[4]
-      p = sscanDer f (\a _ _ _ -> a) rf 7 as
+      p = sscan f 7 as
       rf :: forall f. ADReadyS f
          => f Double '[] -> f Double '[] -> f Double '[]
          -> HVectorOf (RankedOf f)
