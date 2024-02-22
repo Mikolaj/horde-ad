@@ -780,192 +780,6 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
       let env = extendEnvHVector @(AstRanked s) vars parameters EM.empty
           envDt = extendEnvHVector @(AstRanked s) varsDt ds env
       in interpretAstS envDt derivative
-  rfold :: forall rn rm n m.
-           (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)
-        => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
-        -> AstRanked s rn n
-        -> AstRanked s rm (1 + m)
-        -> AstRanked s rn n
-  rfold f x0 as =
-    let shn = rshape x0
-        shm = tailShape $ rshape as
-        domsF = V.fromList [voidFromSh @rn shn, voidFromSh @rm shm]
-        domsToPair :: forall f. ADReady f => HVector f -> (f rn n, f rm m)
-        domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
-        g :: HVector (AstRanked FullSpan) -> AstRanked FullSpan rn n
-        g doms = uncurry f (domsToPair doms)
-    in -- This computes the (AST of) derivative of f once for each @x0@
-       -- and @as@, which is better than once for each @a@. We could compute
-       -- it once per @f@ if we took shapes as arguments. The @sfold@ operation
-       -- can do that thanks to shapes being available from types.
-       case revProduceArtifact TensorToken True g EM.empty domsF of
-      !( !( !(!varsDt, [AstDynamicVarName nid, AstDynamicVarName mid])
-          , !gradient, !_primal, _sh), _delta ) -> assert (length varsDt == 1) $
-        case fwdProduceArtifact TensorToken g EM.empty domsF of
-          !( !( !( [AstDynamicVarName nid1, AstDynamicVarName mid1]
-              , [AstDynamicVarName nid2, AstDynamicVarName mid2] )
-            , derivative, _primal), _delta ) ->
-            let (nvar1, mvar1) = (AstVarName nid1, AstVarName mid1)
-                (nvar2, mvar2) = (AstVarName nid2, AstVarName mid2)
-                (nvar, mvar) = (AstVarName nid, AstVarName mid)
-            in AstFoldDer (funToAst2R shn shm f)
-                          (nvar1, mvar1, nvar2, mvar2, derivative)
-                          ( AstVarName $ dynamicVarNameToAstVarId (varsDt !! 0)
-                          , nvar, mvar, gradient )
-                          x0 as
-          _ -> error "rfold: wrong variables"
-      _ -> error "rfold: wrong variables"
-  rfoldDer :: forall rn rm n m.
-              (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)
-           => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
-           -> (forall f. ADReady f => f rn n -> f rm m -> f rn n -> f rm m
-                                   -> f rn n)
-           -> (forall f. ADReady f => f rn n -> f rn n -> f rm m -> HVectorOf f)
-           -> AstRanked s rn n
-           -> AstRanked s rm (1 + m)
-           -> AstRanked s rn n
-  rfoldDer f df rf x0 as =
-    let shn = rshape x0
-        shm = tailShape $ rshape as
-    in AstFoldDer (funToAst2R shn shm f) (funToAst4R shn shm df)
-                  (funToAst3R shn shm rf) x0 as
-  rscan :: forall rn rm n m.
-           (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)
-        => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
-        -> AstRanked s rn n
-        -> AstRanked s rm (1 + m)
-        -> AstRanked s rn (1 + n)
-  rscan f x0 as =
-    let shn = rshape x0
-        shm = tailShape $ rshape as
-        domsF = V.fromList [voidFromSh @rn shn, voidFromSh @rm shm]
-        domsToPair :: forall f. ADReady f => HVector f -> (f rn n, f rm m)
-        domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
-        g :: HVector (AstRanked FullSpan) -> AstRanked FullSpan rn n
-        g doms = uncurry f (domsToPair doms)
-    in -- This computes the (AST of) derivative of f once for each @x0@
-       -- and @as@, which is better than once for each @a@. We could compute
-       -- it once per @f@ if we took shapes as arguments. The @sfold@ operation
-       -- can do that thanks to shapes being available from types.
-       case revProduceArtifact TensorToken True g EM.empty domsF of
-      !( !( !(!varsDt, [AstDynamicVarName nid, AstDynamicVarName mid])
-          , !gradient, !_primal, _sh), _delta ) -> assert (length varsDt == 1) $
-        case fwdProduceArtifact TensorToken g EM.empty domsF of
-          ( ( ( [AstDynamicVarName nid1, AstDynamicVarName mid1]
-              , [AstDynamicVarName nid2, AstDynamicVarName mid2] )
-            , !derivative, !_primal), _delta ) ->
-            let (nvar1, mvar1) = (AstVarName nid1, AstVarName mid1)
-                (nvar2, mvar2) = (AstVarName nid2, AstVarName mid2)
-                (nvar, mvar) = (AstVarName nid, AstVarName mid)
-            in AstScanDer (funToAst2R shn shm f)
-                          (nvar1, mvar1, nvar2, mvar2, derivative)
-                          ( AstVarName $ dynamicVarNameToAstVarId (varsDt !! 0)
-                          , nvar, mvar, gradient )
-                          x0 as
-          _ -> error "rscan: wrong variables"
-      _ -> error "rscan: wrong variables"
-  rscanDer :: forall rn rm n m.
-              (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)
-           => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
-           -> (forall f. ADReady f => f rn n -> f rm m -> f rn n -> f rm m
-                                   -> f rn n)
-           -> (forall f. ADReady f => f rn n -> f rn n -> f rm m -> HVectorOf f)
-           -> AstRanked s rn n
-           -> AstRanked s rm (1 + m)
-           -> AstRanked s rn (1 + n)
-  rscanDer f df rf x0 as =
-    let shn = rshape x0
-        shm = tailShape $ rshape as
-    in AstScanDer (funToAst2R shn shm f)
-                  (funToAst4R shn shm df)
-                  (funToAst3R shn shm rf) x0 as
-  sfold :: forall rn rm sh shm k.
-           (GoodScalar rn, GoodScalar rm, Sh.Shape sh, Sh.Shape shm, KnownNat k)
-        => (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh)
-        -> AstShaped s rn sh
-        -> AstShaped s rm (k ': shm)
-        -> AstShaped s rn sh
-  sfold f x0 as =
-    let domsF = V.fromList [voidFromShS @rn @sh, voidFromShS @rm @shm]
-        domsToPair :: forall f. ADReadyS f
-                   => HVector (RankedOf f) -> (f rn sh, f rm shm)
-        domsToPair doms = (sfromD $ doms V.! 0, sfromD $ doms V.! 1)
-        g :: HVector (AstRanked FullSpan) -> AstShaped FullSpan rn sh
-        g doms = uncurry f (domsToPair doms)
-    in case revProduceArtifact TensorToken True g EM.empty domsF of
-      !( !( !(!varsDt, [AstDynamicVarName nid, AstDynamicVarName mid])
-          , !gradient, !_primal, _sh), _delta ) -> assert (length varsDt == 1) $
-        case fwdProduceArtifact TensorToken g EM.empty domsF of
-          ( ( ( [AstDynamicVarName nid1, AstDynamicVarName mid1]
-              , [AstDynamicVarName nid2, AstDynamicVarName mid2] )
-            , !derivative, !_primal), _delta ) ->
-            let (nvar1, mvar1) = (AstVarName nid1, AstVarName mid1)
-                (nvar2, mvar2) = (AstVarName nid2, AstVarName mid2)
-                (nvar, mvar) = (AstVarName nid, AstVarName mid)
-            in AstFoldDerS (funToAst2S f)
-                           (nvar1, mvar1, nvar2, mvar2, derivative)
-                           ( AstVarName $ dynamicVarNameToAstVarId (varsDt !! 0)
-                           , nvar, mvar, gradient )
-                           x0 as
-          _ -> error "sfold: wrong variables"
-      _ -> error "sfold: wrong variables"
-  sfoldDer :: forall rn rm sh shm k. (GoodScalar rm, Sh.Shape shm, KnownNat k)
-           => (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh)
-           -> (forall f. ADReadyS f
-               => f rn sh -> f rm shm -> f rn sh -> f rm shm
-               -> f rn sh)
-           -> (forall f. ADReadyS f
-               => f rn sh -> f rn sh -> f rm shm -> HVectorOf (RankedOf f))
-           -> AstShaped s rn sh
-           -> AstShaped s rm (k ': shm)
-           -> AstShaped s rn sh
-  sfoldDer f df rf x0 as =
-    AstFoldDerS (funToAst2S f) (funToAst4S df) (funToAst3S rf) x0 as
-  sscan :: forall rn rm sh shm k.
-           (GoodScalar rn, GoodScalar rm, Sh.Shape sh, Sh.Shape shm, KnownNat k)
-        => (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh)
-        -> AstShaped s rn sh
-        -> AstShaped s rm (k ': shm)
-        -> AstShaped s rn (1 + k ': sh)
-  sscan f x0 as =
-    let domsF = V.fromList [voidFromShS @rn @sh, voidFromShS @rm @shm]
-        domsToPair :: forall f. ADReadyS f
-                   => HVector (RankedOf f) -> (f rn sh, f rm shm)
-        domsToPair doms = (sfromD $ doms V.! 0, sfromD $ doms V.! 1)
-        g :: HVector (AstRanked FullSpan) -> AstShaped FullSpan rn sh
-        g doms = uncurry f (domsToPair doms)
-    in case revProduceArtifact TensorToken True g EM.empty domsF of
-      !( !( !(!varsDt, [AstDynamicVarName nid, AstDynamicVarName mid])
-          , !gradient, !_primal, _sh), _delta ) -> assert (length varsDt == 1) $
-        case fwdProduceArtifact TensorToken g EM.empty domsF of
-          ( ( ( [AstDynamicVarName nid1, AstDynamicVarName mid1]
-              , [AstDynamicVarName nid2, AstDynamicVarName mid2] )
-            , !derivative, !_primal), _delta ) ->
-            let (nvar1, mvar1) = (AstVarName nid1, AstVarName mid1)
-                (nvar2, mvar2) = (AstVarName nid2, AstVarName mid2)
-                (nvar, mvar) = (AstVarName nid, AstVarName mid)
-            in AstScanDerS (funToAst2S @_ @_ @sh f)
-                           (nvar1, mvar1, nvar2, mvar2, derivative)
-                           ( AstVarName $ dynamicVarNameToAstVarId (varsDt !! 0)
-                           , nvar, mvar, gradient )
-                           x0 as
-          _ -> error "sscan: wrong variables"
-      _ -> error "sscan: wrong variables"
-  sscanDer :: forall rn rm sh shm k.
-              (GoodScalar rm, Sh.Shape sh, Sh.Shape shm, KnownNat k)
-           => (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh)
-           -> (forall f. ADReadyS f
-               => f rn sh -> f rm shm -> f rn sh -> f rm shm
-               -> f rn sh)
-           -> (forall f. ADReadyS f
-               => f rn sh -> f rn sh -> f rm shm -> HVectorOf (RankedOf f))
-           -> AstShaped s rn sh
-           -> AstShaped s rm (k ': shm)
-           -> AstShaped s rn (1 + k ': sh)
-  sscanDer f df rf x0 as =
-    AstScanDerS (funToAst2S @_ @_ @sh f)
-                (funToAst4S @_ @_ @sh df)
-                (funToAst3S @_ @_ @sh rf) x0 as
   dmapAccumR
     :: SNat k
     -> VoidHVector
@@ -985,7 +799,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
         accEShs = accShs V.++ eShs
         g :: HVector (AstRanked FullSpan)
           -> HVectorPseudoTensor (AstRanked FullSpan) Float '()
-        g hv = HVectorPseudoTensor $ uncurry f (hvToPair hv)
+        g !hv = HVectorPseudoTensor $ uncurry f (hvToPair hv)
         (((varsDt, vars), gradient, _primal, _sh), _delta) =
           revProduceArtifact TensorToken True g EM.empty accEShs
         (((varsDt2, vars2), derivative, _primal2), _delta2) =
@@ -1045,7 +859,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
         accEShs = accShs V.++ eShs
         g :: HVector (AstRanked FullSpan)
           -> HVectorPseudoTensor (AstRanked FullSpan) Float '()
-        g hv = HVectorPseudoTensor $ uncurry f (hvToPair hv)
+        g !hv = HVectorPseudoTensor $ uncurry f (hvToPair hv)
         (((varsDt, vars), gradient, _primal, _sh), _delta) =
           revProduceArtifact TensorToken True g EM.empty accEShs
         (((varsDt2, vars2), derivative, _primal2), _delta2) =
@@ -1385,34 +1199,6 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
     AstNoVectorizeS
     $ sfwd @(AstRanked s) f parameters0
            (unNoVectorizeHVector hVector) (unNoVectorizeHVector ds)
-  rfold f x0 as =
-    AstNoVectorize
-    $ rfold @(AstRanked s) f (unAstNoVectorize x0) (unAstNoVectorize as)
-  rfoldDer f df rf x0 as =
-    AstNoVectorize
-    $ rfoldDer @(AstRanked s)
-               f df rf (unAstNoVectorize x0) (unAstNoVectorize as)
-  rscan f x0 as =
-    AstNoVectorize
-    $ rscan @(AstRanked s) f (unAstNoVectorize x0) (unAstNoVectorize as)
-  rscanDer f df rf x0 as =
-    AstNoVectorize
-    $ rscanDer @(AstRanked s)
-               f df rf (unAstNoVectorize x0) (unAstNoVectorize as)
-  sfold f x0 as =
-    AstNoVectorizeS
-    $ sfold @(AstRanked s) f (unAstNoVectorizeS x0) (unAstNoVectorizeS as)
-  sfoldDer f df rf x0 as =
-    AstNoVectorizeS
-    $ sfoldDer @(AstRanked s)
-               f df rf (unAstNoVectorizeS x0) (unAstNoVectorizeS as)
-  sscan f x0 as =
-    AstNoVectorizeS
-    $ sscan @(AstRanked s) f (unAstNoVectorizeS x0) (unAstNoVectorizeS as)
-  sscanDer f df rf x0 as =
-    AstNoVectorizeS
-    $ sscanDer @(AstRanked s)
-               f df rf (unAstNoVectorizeS x0) (unAstNoVectorizeS as)
   dmapAccumR k accShs bShs eShs f acc0 es =
     dmapAccumR @(AstRanked s)
                k accShs bShs eShs f (unNoVectorizeHVector acc0)
@@ -1602,32 +1388,6 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
   sfwd f parameters0 hVector ds =
     AstNoSimplifyS $ sfwd @(AstRanked s) f parameters0
                           (unNoSimplifyHVector hVector) (unNoSimplifyHVector ds)
-  rfold f x0 as =
-    AstNoSimplify
-    $ rfold @(AstRanked s) f (unAstNoSimplify x0) (unAstNoSimplify as)
-  rfoldDer f df rf x0 as =
-    AstNoSimplify
-    $ rfoldDer @(AstRanked s) f df rf (unAstNoSimplify x0) (unAstNoSimplify as)
-  rscan f x0 as =
-    AstNoSimplify
-    $ rscan @(AstRanked s) f (unAstNoSimplify x0) (unAstNoSimplify as)
-  rscanDer f df rf x0 as =
-    AstNoSimplify
-    $ rscanDer @(AstRanked s) f df rf (unAstNoSimplify x0) (unAstNoSimplify as)
-  sfold f x0 as =
-    AstNoSimplifyS
-    $ sfold @(AstRanked s) f (unAstNoSimplifyS x0) (unAstNoSimplifyS as)
-  sfoldDer f df rf x0 as =
-    AstNoSimplifyS
-    $ sfoldDer @(AstRanked s)
-               f df rf (unAstNoSimplifyS x0) (unAstNoSimplifyS as)
-  sscan f x0 as =
-    AstNoSimplifyS
-    $ sscan @(AstRanked s) f (unAstNoSimplifyS x0) (unAstNoSimplifyS as)
-  sscanDer f df rf x0 as =
-    AstNoSimplifyS
-    $ sscanDer @(AstRanked s)
-               f df rf (unAstNoSimplifyS x0) (unAstNoSimplifyS as)
   dmapAccumR k accShs bShs eShs f acc0 es =
     dmapAccumR @(AstRanked s)
                k accShs bShs eShs f (unNoSimplifyHVector acc0)

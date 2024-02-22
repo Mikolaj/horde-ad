@@ -672,7 +672,7 @@ unletAst env t = case t of
     if var `ES.member` unletSet env
     then unletAst env v
     else let env2 = env {unletSet = ES.insert var (unletSet env)}
-         in Ast.AstLetHFunIn var (unletAstHFun env f) (unletAst env2 v)
+         in Ast.AstLetHFunIn var (unletAstHFun f) (unletAst env2 v)
   Ast.AstRFromS v -> Ast.AstRFromS (unletAstS env v)
   Ast.AstConstant v -> Ast.AstConstant (unletAst env v)
   Ast.AstPrimalPart v -> Ast.AstPrimalPart (unletAst env v)
@@ -762,7 +762,7 @@ unletAstS env t = case t of
     if var `ES.member` unletSet env
     then unletAstS env v
     else let env2 = env {unletSet = ES.insert var (unletSet env)}
-         in Ast.AstLetHFunInS var (unletAstHFun env f) (unletAstS env2 v)
+         in Ast.AstLetHFunInS var (unletAstHFun f) (unletAstS env2 v)
   Ast.AstSFromR v -> Ast.AstSFromR (unletAst env v)
   Ast.AstConstantS v -> Ast.AstConstantS (unletAstS env v)
   Ast.AstPrimalPartS v -> Ast.AstPrimalPartS (unletAstS env v)
@@ -808,7 +808,7 @@ unletAstHVector env = \case
     if var `ES.member` unletSet env
     then unletAstHVector env v
     else let env2 = env {unletSet = ES.insert var (unletSet env)}
-         in Ast.AstLetHFunInHVector var (unletAstHFun env f)
+         in Ast.AstLetHFunInHVector var (unletAstHFun f)
                                         (unletAstHVector env2 v)
   Ast.AstLetInHVector var u v ->
     let vv = varNameToAstVarId var
@@ -860,8 +860,8 @@ unletAstHVector env = \case
                         (V.map (unletAstDynamic env) es)
 
 unletAstHFun
-  :: AstSpan s => UnletEnv -> AstHFun s -> AstHFun s
-unletAstHFun env = \case
+  :: AstSpan s => AstHFun s -> AstHFun s
+unletAstHFun = \case
   Ast.AstLambda ~(vvars, l) ->
     Ast.AstLambda (vvars, unletAstHVector (emptyUnletEnv emptyADShare) l)
       -- no outside free variables

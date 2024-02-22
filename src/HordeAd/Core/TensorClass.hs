@@ -817,52 +817,56 @@ class HVectorTensor (ranked :: RankedTensorType)
        -> HVector ranked
        -> HVector ranked
        -> shaped r sh
-  -- The type mentions ADReady, so it's awkward to put this into RankedTensor,
-  -- which doesn't know about HVectorTensor.
+  -- The method is in this class, because its type mentions ADReady,
+  -- so it's awkward to put this into RankedTensor, which doesn't know
+  -- about HVectorTensor.
   -- | A strict left fold.
-  rfold :: (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)
-        => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
-        -> ranked rn n  -- ^ initial value
-        -> ranked rm (1 + m)  -- ^ iteration is over the outermost dimension
-        -> ranked rn n
-  rfoldDer :: (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)
-           => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
-           -> (forall f. ADReady f => f rn n -> f rm m -> f rn n -> f rm m
-                                   -> f rn n)
-           -> (forall f. ADReady f => f rn n -> f rn n -> f rm m -> HVectorOf f)
-           -> ranked rn n  -- ^ initial value
-           -> ranked rm (1 + m)  -- ^ iteration is over the outermost dimension
-           -> ranked rn n
+  rfold
+    :: forall rn rm n m.
+       ( GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m
+       , RankedTensor ranked )
+    => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
+    -> ranked rn n  -- ^ initial value
+    -> ranked rm (1 + m)  -- ^ iteration is over the outermost dimension
+    -> ranked rn n
+  rfold f acc0 es =
+    let shm :: ShapeInt m
+        (width, shm) = case rshape es of
+          width2 :$ shm2 -> (width2, shm2)
+          ZS -> error "rscan: impossible pattern needlessly required"
+        sh = rshape acc0
+    in withSNat width $ \snat ->
+      rletHVectorIn
+        (V.singleton $ voidFromSh @rn sh)
+        (dmapAccumL
+           snat
+           (V.singleton $ voidFromSh @rn sh)
+           V.empty
+           (V.singleton $ voidFromSh @rm shm)
+           (let g :: forall f. ADReady f
+                  => HVector f -> HVector f -> HVectorOf f
+                g !acc !e =
+                  rletInHVector
+                    (f (rfromD $ acc V.! 0) (rfromD $ e V.! 0))
+                    (\res -> dmkHVector $ V.singleton $ DynamicRanked res)
+            in g)
+           (V.singleton $ DynamicRanked acc0)
+           (V.singleton $ DynamicRanked es))
+        (\res -> rfromD $ res V.! 0)
   -- | A strict left scan.
-  rscan :: (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)
-        => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
-        -> ranked rn n
-        -> ranked rm (1 + m)
-        -> ranked rn (1 + n)
-  rscanDer :: (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)
-           => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
-           -> (forall f. ADReady f => f rn n -> f rm m -> f rn n -> f rm m
-                                   -> f rn n)
-           -> (forall f. ADReady f => f rn n -> f rn n -> f rm m -> HVectorOf f)
-           -> ranked rn n
-           -> ranked rm (1 + m)
-           -> ranked rn (1 + n)
-  -- Library users are encouraged to use dmapAccumL directly, but we keep it,
-  -- because we have a lot of good tests for this (including an alternative
-  -- delta eval code that uses this).
-  -- {-# DEPRECATED rscanZip "Use dmapAccumL instead" #-}
-  rscanZip :: forall rn n. (GoodScalar rn, KnownNat n, RankedTensor ranked)
-         => (forall f. ADReady f => f rn n -> HVector f -> f rn n)
-         -> VoidHVector  -- shapes of the HVector above, not below
-         -> ranked rn n
-         -> HVector ranked  -- one rank higher than above
-         -> ranked rn (1 + n)
-  rscanZip f eShs acc0 es =
-    let width = case V.unsnoc es of
-          Nothing -> error "rscanZip: can't determine argument width"
-          Just (_, d) -> case shapeDynamicF (shapeToList . rshape) d of
-            [] -> error "rscanZip: wrong rank of argument"
-            w : _shm -> w
+  rscan
+    :: forall rn rm n m.
+       ( GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m
+       , RankedTensor ranked )
+    => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
+    -> ranked rn n
+    -> ranked rm (1 + m)
+    -> ranked rn (1 + n)
+  rscan f acc0 es =
+    let shm :: ShapeInt m
+        (width, shm) = case rshape es of
+          width2 :$ shm2 -> (width2, shm2)
+          ZS -> error "rscan: impossible pattern needlessly required"
         sh = rshape acc0
     in withSNat width $ \snat ->
       rletHVectorIn
@@ -871,87 +875,75 @@ class HVectorTensor (ranked :: RankedTensorType)
            snat
            (V.singleton $ voidFromSh @rn sh)
            (V.singleton $ voidFromSh @rn sh)
-           eShs
+           (V.singleton $ voidFromSh @rm shm)
            (let g :: forall f. ADReady f
                   => HVector f -> HVector f -> HVectorOf f
-                g acc e =
+                g !acc !e =
                   rletInHVector
-                    (f (rfromD $ acc V.! 0) e)
+                    (f (rfromD $ acc V.! 0) (rfromD $ e V.! 0))
                     (\res -> dmkHVector
-                             $ V.fromList
-                                 [ DynamicRanked @rn @n @f res
-                                 , DynamicRanked @rn @n @f res ])
+                             $ V.fromList [ DynamicRanked res
+                                          , DynamicRanked res ])
             in g)
            (V.singleton $ DynamicRanked acc0)
-           es)
+           (V.singleton $ DynamicRanked es))
         (\res -> rappend (rfromList [acc0]) (rfromD $ res V.! 1))
   -- | A strict left fold.
-  sfold :: (GoodScalar rn, GoodScalar rm, Sh.Shape sh, Sh.Shape shm, KnownNat k)
-        => (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh)
-        -> shaped rn sh
-        -> shaped rm (k ': shm)
-        -> shaped rn sh
-  sfoldDer :: ( GoodScalar rn, GoodScalar rm, Sh.Shape sh, Sh.Shape shm
-              , KnownNat k )
-           => (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh)
-           -> (forall f. ADReadyS f
-               => f rn sh -> f rm shm -> f rn sh -> f rm shm
-               -> f rn sh)
-           -> (forall f. ADReadyS f
-               => f rn sh -> f rn sh -> f rm shm -> HVectorOf (RankedOf f))
-           -> shaped rn sh
-           -> shaped rm (k ': shm)
-           -> shaped rn sh
-  -- | A strict left scan.
-  sscan :: (GoodScalar rn, GoodScalar rm, Sh.Shape sh, Sh.Shape shm, KnownNat k)
-        => (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh)
-        -> shaped rn sh
-        -> shaped rm (k ': shm)
-        -> shaped rn (1 + k ': sh)
-  sscanDer :: ( GoodScalar rn, GoodScalar rm, Sh.Shape sh, Sh.Shape shm
-              , KnownNat k )
-           => (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh)
-           -> (forall f. ADReadyS f
-               => f rn sh -> f rm shm -> f rn sh -> f rm shm
-               -> f rn sh)
-           -> (forall f. ADReadyS f
-               => f rn sh -> f rn sh -> f rm shm -> HVectorOf (RankedOf f))
-           -> shaped rn sh
-           -> shaped rm (k ': shm)
-           -> shaped rn (1 + k ': sh)
-  -- Library users are encouraged to use dmapAccumL directly, but we keep it,
-  -- because we have a lot of good tests for this (including an alternative
-  -- delta eval code that uses this).
-  -- {-# DEPRECATED sscanZip "Use dmapAccumL instead" #-}
-  sscanZip :: forall rn sh k.
-              ( GoodScalar rn, Sh.Shape sh, KnownNat k, ShapedTensor shaped
-              , shaped ~ ShapedOf ranked, ranked ~ RankedOf shaped )
-         => (forall f. ADReadyS f
-             => f rn sh -> HVector (RankedOf f) -> f rn sh)
-         -> VoidHVector
-         -> shaped rn sh
-         -> HVector ranked
-         -> shaped rn (1 + k ': sh)
-  sscanZip f eShs acc0 es =
+  sfold
+    :: forall rn rm sh shm k.
+       ( GoodScalar rn, GoodScalar rm, Sh.Shape sh, Sh.Shape shm, KnownNat k
+       , ShapedTensor shaped
+       , shaped ~ ShapedOf ranked, ranked ~ RankedOf shaped )
+    => (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh)
+    -> shaped rn sh
+    -> shaped rm (k ': shm)
+    -> shaped rn sh
+  sfold f acc0 es =
+    sletHVectorIn
+      (V.singleton $ voidFromShS @rn @sh)
+      (dmapAccumL @ranked
+         (SNat @k)
+         (V.singleton $ voidFromShS @rn @sh)
+         V.empty
+         (V.singleton $ voidFromShS @rm @shm)
+         (let g :: forall f. ADReady f
+                => HVector f -> HVector f -> HVectorOf f
+              g !acc !e =
+                sletInHVector
+                  (f (sfromD $ acc V.! 0) (sfromD $ e V.! 0))
+                  (\res -> dmkHVector @f $ V.singleton $ DynamicShaped res)
+          in g)
+         (V.singleton $ DynamicShaped acc0)
+         (V.singleton $ DynamicShaped es))
+      (\res -> sfromD $ res V.! 0)
+  sscan
+    :: forall rn rm sh shm k.
+       ( GoodScalar rn, GoodScalar rm, Sh.Shape sh, Sh.Shape shm, KnownNat k
+       , ShapedTensor shaped
+       , shaped ~ ShapedOf ranked, ranked ~ RankedOf shaped )
+    => (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh)
+    -> shaped rn sh
+    -> shaped rm (k ': shm)
+    -> shaped rn (1 + k ': sh)
+  sscan f acc0 es =
     sletHVectorIn
       (V.fromList [voidFromShS @rn @sh, voidFromShS @rn @(k ': sh)])
-      (dmapAccumL
+      (dmapAccumL @ranked
          (SNat @k)
          (V.singleton $ voidFromShS @rn @sh)
          (V.singleton $ voidFromShS @rn @sh)
-         eShs
+         (V.singleton $ voidFromShS @rm @shm)
          (let g :: forall f. ADReady f
                 => HVector f -> HVector f -> HVectorOf f
-              g acc e =
+              g !acc !e =
                 sletInHVector
-                  (f (sfromD $ acc V.! 0) e)
-                  (\res -> dmkHVector
-                           $ V.fromList
-                               [ DynamicShaped @rn @sh @f res
-                               , DynamicShaped @rn @sh @f res ])
+                  (f (sfromD $ acc V.! 0) (sfromD $ e V.! 0))
+                  (\res -> dmkHVector @f
+                           $ V.fromList [ DynamicShaped res
+                                        , DynamicShaped res ])
           in g)
          (V.singleton $ DynamicShaped acc0)
-         es)
+         (V.singleton $ DynamicShaped es))
       (\res -> sappend @_ @_ @1 (sfromList [acc0]) (sfromD $ res V.! 1))
   -- | A strict right macAccum.
   dmapAccumR
@@ -1013,10 +1005,6 @@ class HVectorTensor (ranked :: RankedTensorType)
     -> HVector ranked
     -> HVector ranked
     -> HVectorOf ranked
-
--- TODO: find a way to deprecate only in the external API, not in our code.
--- {-# DEPRECATED rscanZip "Use dmapAccumL instead" #-}
--- {-# DEPRECATED sscanZip "Use dmapAccumL instead" #-}
 
 rfromD :: forall r n ranked.
           (RankedTensor ranked, GoodScalar r, KnownNat n)

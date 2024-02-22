@@ -31,7 +31,7 @@ import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, sameNat, type (+))
+import           GHC.TypeLits (KnownNat, sameNat)
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           System.Random
@@ -49,7 +49,7 @@ import           HordeAd.Core.TensorClass
 import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances
   (matchingRank, sameShape)
-import           HordeAd.Util.ShapedList (ShapedList (..), singletonShaped)
+import           HordeAd.Util.ShapedList (singletonShaped)
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedIndex
 
@@ -409,194 +409,6 @@ instance ADReadyBoth ranked shaped
     fst $ crevOnHVector (Just dt) (f @(ADVal (ADVal shaped))) parameters
   sfwd f _parameters0 parameters ds =
     fst $ cfwdOnHVector parameters (f @(ADVal (ADVal shaped))) ds
-  rfold :: forall rn rm n m.
-           (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)
-        => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
-        -> ADVal ranked rn n
-        -> ADVal ranked rm (1 + m)
-        -> ADVal ranked rn n
-  rfold f x0 as =
-    let domsToPair :: forall f. ADReady f
-                   => HVector f -> (f rn n, f rm m)
-        domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
-        g :: forall f. ADReady f => HVector (ADVal f) -> ADVal f rn n
-        g doms = uncurry f (domsToPair doms)
-        -- This computes the derivative of f again for each new @x@ and @a@
-        -- (not even once for @as@, but for each @a@ separately).
-        -- Note that this function is not a function on dual numbers.
-        -- Consequently, any dual number operations inserted there by the user
-        -- are flattened away (which is represented in AST by @PrimalSpan@).
-        -- TODO: what if the dual numbers are nested?
-        -- TODO: do the dual number ops in f affect what df is computed? add
-        -- a comment explaining that and tests that exemplify that
-        df :: forall f. ADReady f
-           => f rn n -> f rm m -> f rn n -> f rm m -> f rn n
-        df cx ca x a =
-          fst $ cfwdOnHVector (V.fromList [DynamicRanked x, DynamicRanked a])
-                              g
-                              (V.fromList [DynamicRanked cx, DynamicRanked ca])
-        rf :: forall f. ADReady f => f rn n -> f rn n -> f rm m -> HVectorOf f
-        rf dt x a =
-          fst $ crevOnHVector (Just dt)
-                              g
-                              (V.fromList [DynamicRanked x, DynamicRanked a])
-    in rfoldDer f df rf x0 as
-  rfoldDer :: forall rn rm n m.
-              (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)
-           => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
-           -> (forall f. ADReady f => f rn n -> f rm m -> f rn n -> f rm m
-                                   -> f rn n)
-           -> (forall f. ADReady f => f rn n -> f rn n -> f rm m -> HVectorOf f)
-           -> ADVal ranked rn n
-           -> ADVal ranked rm (1 + m)
-           -> ADVal ranked rn n
-  rfoldDer f df rf (D l1 x0 x0') (D l2 asUnshared as') =
-    let (l3, as) = rsharePrimal asUnshared (l1 `mergeADShare` l2)
-        p :: ranked rn (1 + n)
-        p = rscanDer f df rf x0 as
-        width = rlength p - 1
-        (l4, pShared) = rsharePrimal p l3
-    in dDnotShared l4 (pShared ! (fromIntegral width :. ZI))
-                      (FoldR pShared as df rf x0' as')
-  rscan :: forall rn rm n m.
-           (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)
-        => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
-        -> ADVal ranked rn n
-        -> ADVal ranked rm (1 + m)
-        -> ADVal ranked rn (1 + n)
-  rscan f x0 as =
-    let domsToPair :: forall f. ADReady f
-                   => HVector f -> (f rn n, f rm m)
-        domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
-        g :: forall f. ADReady f => HVector (ADVal f) -> ADVal f rn n
-        g doms = uncurry f (domsToPair doms)
-        -- This computes the derivative of f again for each new @x@ and @a@
-        -- (not even once for @as@, but for each @a@ separately).
-        -- Note that this function is not a function on dual numbers.
-        -- Consequently, any dual number operations inserted there by the user
-        -- are flattened away (which is represented in AST by @PrimalSpan@).
-        -- TODO: what if the dual numbers are nested?
-        -- TODO: do the dual number ops in f affect what df is computed? add
-        -- a comment explaining that and tests that exemplify that
-        df :: forall f. ADReady f
-           => f rn n -> f rm m -> f rn n -> f rm m -> f rn n
-        df cx ca x a =
-          fst $ cfwdOnHVector (V.fromList [DynamicRanked x, DynamicRanked a])
-                              g
-                              (V.fromList [DynamicRanked cx, DynamicRanked ca])
-        rf :: forall f. ADReady f => f rn n -> f rn n -> f rm m -> HVectorOf f
-        rf dt x a =
-          fst $ crevOnHVector (Just dt)
-                              g
-                              (V.fromList [DynamicRanked x, DynamicRanked a])
-    in rscanDer f df rf x0 as
-  rscanDer :: forall rn rm n m.
-              (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)
-           => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
-           -> (forall f. ADReady f => f rn n -> f rm m -> f rn n -> f rm m
-                                   -> f rn n)
-           -> (forall f. ADReady f => f rn n -> f rn n -> f rm m -> HVectorOf f)
-           -> ADVal ranked rn n
-           -> ADVal ranked rm (1 + m)
-           -> ADVal ranked rn (1 + n)
-  rscanDer f df rf (D l1 x0 x0') (D l2 asUnshared as') =
-    let (l3, as) = rsharePrimal asUnshared (l1 `mergeADShare` l2)
-        p :: ranked rn (1 + n)
-        p = rscanDer f df rf x0 as
-        (l4, pShared) = rsharePrimal p l3
-    in dDnotShared l4 pShared
-                      (ScanR pShared as df rf x0' as')
-  sfold :: forall rn rm sh shm k.
-           (GoodScalar rn, GoodScalar rm, Sh.Shape sh, Sh.Shape shm, KnownNat k)
-        => (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh)
-        -> ADVal shaped rn sh
-        -> ADVal shaped rm (k ': shm)
-        -> ADVal shaped rn sh
-  sfold f x0 as =
-    let domsToPair :: forall f. ADReadyS f
-                   => HVector (RankedOf f) -> (f rn sh, f rm shm)
-        domsToPair doms = (sfromD $ doms V.! 0, sfromD $ doms V.! 1)
-        g :: forall f. ADReadyS f
-          => HVector (ADVal (RankedOf f)) -> ADVal f rn sh
-        g doms = uncurry f (domsToPair doms)
-        df :: forall f. ADReadyS f
-           => f rn sh -> f rm shm -> f rn sh -> f rm shm -> f rn sh
-        df cx ca x a =
-          fst $ cfwdOnHVector (V.fromList [DynamicShaped x, DynamicShaped a])
-                              g
-                              (V.fromList [DynamicShaped cx, DynamicShaped ca])
-        rf :: forall f. ADReadyS f
-           => f rn sh -> f rn sh -> f rm shm -> HVectorOf (RankedOf f)
-        rf dt x a =
-          fst $ crevOnHVector (Just dt)
-                              g
-                              (V.fromList [DynamicShaped x, DynamicShaped a])
-    in sfoldDer f df rf x0 as
-  sfoldDer :: forall rn rm sh shm k.
-              ( GoodScalar rn, GoodScalar rm, Sh.Shape sh, Sh.Shape shm
-              , KnownNat k )
-           => (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh)
-           -> (forall f. ADReadyS f
-               => f rn sh -> f rm shm -> f rn sh -> f rm shm
-               -> f rn sh)
-           -> (forall f. ADReadyS f
-               => f rn sh -> f rn sh -> f rm shm -> HVectorOf (RankedOf f))
-           -> ADVal shaped rn sh
-           -> ADVal shaped rm (k ': shm)
-           -> ADVal shaped rn sh
-  sfoldDer f df rf (D l1 x0 x0') (D l2 asUnshared as') =
-    let (l3, as) = ssharePrimal asUnshared (l1 `mergeADShare` l2)
-        p :: shaped rn (1 + k ': sh)
-        p = sscanDer f df rf x0 as
-        width = slength p - 1
-        (l4, pShared) = ssharePrimal p l3
-    in dDnotShared l4 (pShared !$ (fromIntegral width :$: ZSH))
-                      (FoldS pShared as df rf x0' as')
-  sscan :: forall rn rm sh shm k.
-           (GoodScalar rn, GoodScalar rm, Sh.Shape sh, Sh.Shape shm, KnownNat k)
-        => (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh)
-        -> ADVal shaped rn sh
-        -> ADVal shaped rm (k ': shm)
-        -> ADVal shaped rn (1 + k ': sh)
-  sscan f x0 as =
-    let domsToPair :: forall f. ADReadyS f
-                   => HVector (RankedOf f) -> (f rn sh, f rm shm)
-        domsToPair doms = (sfromD $ doms V.! 0, sfromD $ doms V.! 1)
-        g :: forall f. ADReadyS f
-          => HVector (ADVal (RankedOf f)) -> ADVal f rn sh
-        g doms = uncurry f (domsToPair doms)
-        df :: forall f. ADReadyS f
-           => f rn sh -> f rm shm -> f rn sh -> f rm shm -> f rn sh
-        df cx ca x a =
-          fst $ cfwdOnHVector (V.fromList [DynamicShaped x, DynamicShaped a])
-                              g
-                              (V.fromList [DynamicShaped cx, DynamicShaped ca])
-        rf :: forall f. ADReadyS f
-           => f rn sh -> f rn sh -> f rm shm -> HVectorOf (RankedOf f)
-        rf dt x a =
-          fst $ crevOnHVector (Just dt)
-                              g
-                              (V.fromList [DynamicShaped x, DynamicShaped a])
-    in sscanDer f df rf x0 as
-  sscanDer :: forall rn rm sh shm k.
-              ( GoodScalar rn, GoodScalar rm, Sh.Shape sh, Sh.Shape shm
-              , KnownNat k )
-           => (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh)
-           -> (forall f. ADReadyS f
-               => f rn sh -> f rm shm -> f rn sh -> f rm shm
-               -> f rn sh)
-           -> (forall f. ADReadyS f
-               => f rn sh -> f rn sh -> f rm shm -> HVectorOf (RankedOf f))
-           -> ADVal shaped rn sh
-           -> ADVal shaped rm (k ': shm)
-           -> ADVal shaped rn (1 + k ': sh)
-  sscanDer f df rf (D l1 x0 x0') (D l2 asUnshared as') =
-    let (l3, as) = ssharePrimal asUnshared (l1 `mergeADShare` l2)
-        p :: shaped rn (1 + k ': sh)
-        p = sscanDer f df rf x0 as
-        (l4, pShared) = ssharePrimal p l3
-    in dDnotShared l4 pShared
-                      (ScanS pShared as df rf x0' as')
   dmapAccumR
     :: SNat k
     -> VoidHVector
@@ -943,43 +755,10 @@ instance HVectorTensor (Flip OR.Array) (Flip OS.Array) where
     fst $ crevOnHVector (Just dt) (f @(ADVal (Flip OS.Array))) parameters
   sfwd f _parameters0 parameters ds =
     fst $ cfwdOnHVector parameters (f @(ADVal (Flip OS.Array))) ds
-  rfold :: (GoodScalar rm, KnownNat m)
-        => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
-        -> Flip OR.Array rn n
-        -> Flip OR.Array rm (1 + m)
-        -> Flip OR.Array rn n
   rfold f x0 as = foldl' f x0 (runravelToList as)
-  rfoldDer :: (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)
-           => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
-           -> (forall f. ADReady f => f rn n -> f rm m -> f rn n -> f rm m
-                                   -> f rn n)
-           -> (forall f. ADReady f => f rn n -> f rn n -> f rm m -> HVectorOf f)
-           -> Flip OR.Array rn n
-           -> Flip OR.Array rm (1 + m)
-           -> Flip OR.Array rn n
-  rfoldDer f _df _rf x0 as = rfold f x0 as
   rscan f x0 as = rfromList $ scanl' f x0 (runravelToList as)
-  rscanDer f _df _rf x0 as = rscan f x0 as
-  sfold :: (GoodScalar rm, Sh.Shape shm, KnownNat k)
-        => (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh)
-        -> Flip OS.Array rn sh
-        -> Flip OS.Array rm (k ': shm)
-        -> Flip OS.Array rn sh
   sfold f x0 as = foldl' f x0 (sunravelToList as)
-  sfoldDer :: ( GoodScalar rn, GoodScalar rm, Sh.Shape sh, Sh.Shape shm
-              , KnownNat k )
-           => (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh)
-           -> (forall f. ADReadyS f
-               => f rn sh -> f rm shm -> f rn sh -> f rm shm
-               -> f rn sh)
-           -> (forall f. ADReadyS f
-               => f rn sh -> f rn sh -> f rm shm -> HVectorOf (RankedOf f))
-           -> Flip OS.Array rn sh
-           -> Flip OS.Array rm (k ': shm)
-           -> Flip OS.Array rn sh
-  sfoldDer f _df _dr x0 as = sfold f x0 as
   sscan f x0 as = sfromList $ scanl' f x0 (sunravelToList as)
-  sscanDer f _df _rf x0 as = sscan f x0 as
   dmapAccumR
     :: SNat k
     -> VoidHVector
@@ -997,7 +776,7 @@ instance HVectorTensor (Flip OR.Array) (Flip OS.Array) where
              hvToPair hv = (V.take accLen hv, V.drop accLen hv)
              g :: HVector (Flip OR.Array) -> HVector (Flip OR.Array)
                -> (HVector (Flip OR.Array), HVector (Flip OR.Array))
-             g x a = hvToPair $ f x a
+             g !x !a = hvToPair $ f x a
              (xout, lout) = mapAccumR g acc0 (unravelHVector es)
          in xout V.++ ravelHVector lout
   dmapAccumRDer k accShs bShs eShs (HFun fl) _df _rf acc0 es =
@@ -1019,7 +798,7 @@ instance HVectorTensor (Flip OR.Array) (Flip OS.Array) where
              hvToPair hv = (V.take accLen hv, V.drop accLen hv)
              g :: HVector (Flip OR.Array) -> HVector (Flip OR.Array)
                -> (HVector (Flip OR.Array), HVector (Flip OR.Array))
-             g x a = hvToPair $ f x a
+             g !x !a = hvToPair $ f x a
              (xout, lout) = mapAccumL g acc0 (unravelHVector es)
          in xout V.++ ravelHVector lout
   dmapAccumLDer k accShs bShs eShs (HFun fl) _df _rf acc0 es =
