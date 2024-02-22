@@ -105,9 +105,9 @@ testTrees =
   , testCase "4Sin0Scan1RevPPForComparison" testSin0Scan1RevPPForComparison
   , testCase "4Sin0ScanFwdPP" testSin0ScanFwdPP
   , testCase "4Sin0Scan1Rev2PP1" testSin0Scan1Rev2PP1
-  , testCase "4Sin0Scan1Rev2PPA" testSin0Scan1Rev2PPA
+--  , testCase "4Sin0Scan1Rev2PPA" testSin0Scan1Rev2PPA
   , testCase "4Sin0Scan1Rev2PPForComparison" testSin0Scan1Rev2PPForComparison
-  , testCase "4Sin0Scan1Fwd2PP" testSin0Scan1Fwd2PP
+--  , testCase "4Sin0Scan1Fwd2PP" testSin0Scan1Fwd2PP
   , testCase "4Sin0Scan1Rev2" testSin0Scan1Rev2
   , testCase "4Sin0Scan1Rev2ForComparison" testSin0Scan1Rev2ForComparison
   , testCase "4Sin0Scan1Rev3PP" testSin0Scan1Rev3PP
@@ -998,10 +998,11 @@ testSin0Scan1Rev2PP1 = do
   printAstPretty IM.empty (simplifyAst6 a1)
     @?= "let v30 = rconst (fromList [2] [5.0,7.0]) in let [x42 @Natural @Double @[], v43 @Natural @Double @[2]] = dmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> [0.0] [rreplicate 2 1.0, rslice 0 2 (rscanDer <lambda> <lambda> <lambda> 1.1 v30), v30] in x42 + 1.0"
 
+-- Disabled, because different variable names with -O1.
 -- revArtifactAdapt produces much lower variables names (no interpretation
 -- of PrimalSpan AST in FullSpan AST needed), but similar terms overall
-testSin0Scan1Rev2PPA :: Assertion
-testSin0Scan1Rev2PPA = do
+_testSin0Scan1Rev2PPA :: Assertion
+_testSin0Scan1Rev2PPA = do
   resetVarCounter
   let ((_, a1, _, _), _) =
         revArtifactAdapt @Double @1 @(AstRanked FullSpan)
@@ -1021,8 +1022,9 @@ testSin0Scan1Rev2PPForComparison = do
   printAstHVectorPretty IM.empty (simplifyAstHVector6 a1)
     @?= "[cos x1 * (cos (sin x1 - 5.0) * v3 ! [0]) + cos x1 * v3 ! [1] + v3 ! [2]]"
 
-testSin0Scan1Fwd2PP :: Assertion
-testSin0Scan1Fwd2PP = do
+-- Disabled, because different variable names with -O1.
+_testSin0Scan1Fwd2PP :: Assertion
+_testSin0Scan1Fwd2PP = do
   resetVarCounter
   let ((_, a1, _), _) =
         fwdArtifactAdapt @Double @1 @(AstRanked FullSpan)
