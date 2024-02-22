@@ -1047,14 +1047,9 @@ interpretAstHVector !env = \case
         es2 = interpretAstDynamic env <$> es
     in dmapAccumR k accShs bShs eShs f acc02 es2
   AstMapAccumRDer k accShs bShs eShs f0 df0 rf0 acc0 es ->
-    let f :: forall f. ADReady f => HVector f -> HVector f -> HVectorOf f
-        f = interpretLambdaHHH interpretAstHVector EM.empty f0
-        df :: forall f. ADReady f
-           => HVector f -> HVector f -> HVector f -> HVector f -> HVectorOf f
-        df = interpretLambdaHHHHH interpretAstHVector EM.empty df0
-        rf :: forall f. ADReady f
-           => HVector f -> HVector f -> HVector f -> HVector f -> HVectorOf f
-        rf = interpretLambdaHHHHH interpretAstHVector EM.empty rf0
+    let f = interpretAstHFun env f0
+        df = interpretAstHFun env df0
+        rf = interpretAstHFun env rf0
         acc02 = interpretAstDynamic env <$> acc0
         es2 = interpretAstDynamic env <$> es
     in dmapAccumRDer k accShs bShs eShs f df rf acc02 es2
@@ -1065,14 +1060,9 @@ interpretAstHVector !env = \case
         es2 = interpretAstDynamic env <$> es
     in dmapAccumL k accShs bShs eShs f acc02 es2
   AstMapAccumLDer k accShs bShs eShs f0 df0 rf0 acc0 es ->
-    let f :: forall f. ADReady f => HVector f -> HVector f -> HVectorOf f
-        f = interpretLambdaHHH interpretAstHVector EM.empty f0
-        df :: forall f. ADReady f
-           => HVector f -> HVector f -> HVector f -> HVector f -> HVectorOf f
-        df = interpretLambdaHHHHH interpretAstHVector EM.empty df0
-        rf :: forall f. ADReady f
-           => HVector f -> HVector f -> HVector f -> HVector f -> HVectorOf f
-        rf = interpretLambdaHHHHH interpretAstHVector EM.empty rf0
+    let f = interpretAstHFun env f0
+        df = interpretAstHFun env df0
+        rf = interpretAstHFun env rf0
         acc02 = interpretAstDynamic env <$> acc0
         es2 = interpretAstDynamic env <$> es
     in dmapAccumLDer k accShs bShs eShs f df rf acc02 es2

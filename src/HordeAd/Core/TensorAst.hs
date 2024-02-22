@@ -998,26 +998,24 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
           revProduceArtifact TensorToken True g EM.empty accEShs
         !(!(!(!varsDt2, !vars2), !derivative, !_primal2), _delta2) =
           fwdProduceArtifact TensorToken g EM.empty accEShs
-     in AstMapAccumRDer k accShs bShs eShs
-                        (funToAstHH f accShs eShs)
-                        ( take accLen varsDt2, drop accLen varsDt2
-                        , take accLen vars2, drop accLen vars2
-                        , unHVectorPseudoTensor derivative )
-                        ( take accLen varsDt, drop accLen varsDt
-                        , take accLen vars, drop accLen vars
-                        , gradient )
-                        acc0 es
+        fl, dfl, rfl :: AstHFun PrimalSpan
+        fl = fun1LToAst [accShs, eShs] $ \ !vvars !ll ->
+               AstHFun vvars (f (ll !! 0) (ll !! 1))
+        dfl = AstHFun [ take accLen varsDt2, drop accLen varsDt2
+                      , take accLen vars2, drop accLen vars2 ]
+                      (unHVectorPseudoTensor derivative)
+        rfl = AstHFun [ take accLen varsDt, drop accLen varsDt
+                      , take accLen vars, drop accLen vars ]
+                      gradient
+     in AstMapAccumRDer k accShs bShs eShs fl dfl rfl acc0 es
   dmapAccumRDer
     :: SNat k
     -> VoidHVector
     -> VoidHVector
     -> VoidHVector
-    -> (forall f. ADReady f
-        => HVector f -> HVector f -> HVectorOf f)
-    -> (forall f. ADReady f
-        => HVector f -> HVector f -> HVector f -> HVector f -> HVectorOf f)
-    -> (forall f. ADReady f
-        => HVector f -> HVector f -> HVector f -> HVector f -> HVectorOf f)
+    -> HFun
+    -> HFun
+    -> HFun
     -> HVector (AstRanked s)
     -> HVector (AstRanked s)
     -> AstHVector s
@@ -1025,9 +1023,12 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     assert (voidHVectorMatches (replicate1VoidHVector k eShs) es
             && voidHVectorMatches accShs acc0) $
     AstMapAccumRDer k accShs bShs eShs
-                    (funToAstHH f accShs eShs)
-                    (funToAstHHHH df accShs eShs)
-                    (funToAstHHHG rf accShs bShs eShs)
+                    (fun1LToAst [accShs, eShs] $ \ !vvars !ll ->
+                       AstHFun vvars (unHFun f ll))
+                    (fun1LToAst [accShs, eShs, accShs, eShs] $ \ !vvars !ll ->
+                       AstHFun vvars (unHFun df ll))
+                    (fun1LToAst [accShs, bShs, accShs, eShs] $ \ !vvars !ll ->
+                       AstHFun vvars (unHFun rf ll))
                     acc0 es
   dmapAccumL
     :: SNat k
@@ -1053,26 +1054,29 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
           revProduceArtifact TensorToken True g EM.empty accEShs
         !(!(!(!varsDt2, !vars2), !derivative, !_primal2), _delta2) =
           fwdProduceArtifact TensorToken g EM.empty accEShs
-     in AstMapAccumLDer k accShs bShs eShs
-                        (funToAstHH f accShs eShs)
-                        ( take accLen varsDt2, drop accLen varsDt2
-                        , take accLen vars2, drop accLen vars2
-                        , unHVectorPseudoTensor derivative )
-                        ( take accLen varsDt, drop accLen varsDt
-                        , take accLen vars, drop accLen vars
-                        , gradient )
-                        acc0 es
+        fl, dfl, rfl :: AstHFun PrimalSpan
+        fl = fun1LToAst [accShs, eShs] $ \ !vvars !ll ->
+               AstHFun vvars (f (ll !! 0) (ll !! 1))
+        dfl = AstHFun [ take accLen varsDt2, drop accLen varsDt2
+                      , take accLen vars2, drop accLen vars2 ]
+                      (unHVectorPseudoTensor derivative)
+        rfl = AstHFun [ take accLen varsDt, drop accLen varsDt
+                      , take accLen vars, drop accLen vars ]
+                      gradient
+     in AstMapAccumLDer k accShs bShs eShs fl dfl rfl acc0 es
+{- TODO: vacuus for now:
+     in dletHFunInHVector @(AstRanked s) fl $ \fl2 ->
+          dletHFunInHVector @(AstRanked s) dfl $ \dfl2 ->
+            dletHFunInHVector @(AstRanked s) rfl $ \rfl2 ->
+              AstMapAccumLDer k accShs bShs eShs fl2 dfl2 rfl2 acc0 es -}
   dmapAccumLDer
     :: SNat k
     -> VoidHVector
     -> VoidHVector
     -> VoidHVector
-    -> (forall f. ADReady f
-        => HVector f -> HVector f -> HVectorOf f)
-    -> (forall f. ADReady f
-        => HVector f -> HVector f -> HVector f -> HVector f -> HVectorOf f)
-    -> (forall f. ADReady f
-        => HVector f -> HVector f -> HVector f -> HVector f -> HVectorOf f)
+    -> HFun
+    -> HFun
+    -> HFun
     -> HVector (AstRanked s)
     -> HVector (AstRanked s)
     -> AstHVector s
@@ -1080,9 +1084,12 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     assert (voidHVectorMatches (replicate1VoidHVector k eShs) es
             && voidHVectorMatches accShs acc0) $
     AstMapAccumLDer k accShs bShs eShs
-                    (funToAstHH f accShs eShs)
-                    (funToAstHHHH df accShs eShs)
-                    (funToAstHHHG rf accShs bShs eShs)
+                    (fun1LToAst [accShs, eShs] $ \ !vvars !ll ->
+                       AstHFun vvars (unHFun f ll))
+                    (fun1LToAst [accShs, eShs, accShs, eShs] $ \ !vvars !ll ->
+                       AstHFun vvars (unHFun df ll))
+                    (fun1LToAst [accShs, bShs, accShs, eShs] $ \ !vvars !ll ->
+                       AstHFun vvars (unHFun rf ll))
                     acc0 es
 
 astLetHVectorInHVectorFun

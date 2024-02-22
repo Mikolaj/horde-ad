@@ -515,42 +515,26 @@ inlineAstHVector memo v0 = case v0 of
         (memo2, es2) = mapAccumR inlineAstDynamic memo1 es
     in (memo2, Ast.AstMapAccumR k accShs bShs eShs
                                 (accvars, evars, v2) acc02 es2)
-  Ast.AstMapAccumRDer k accShs bShs eShs
-                      (accvars, evars, v)
-                      (vs1, vs2, vs3, vs4, ast)
-                      (ws1, ws2, ws3, ws4, bst)
-                      acc0 es ->
-    let (_, v2) = inlineAstHVector EM.empty v
-        (_, ast2) = inlineAstHVector EM.empty ast
-        (_, bst2) = inlineAstHVector EM.empty bst
-        (memo1, acc02) = mapAccumR inlineAstDynamic memo acc0
-        (memo2, es2) = mapAccumR inlineAstDynamic memo1 es
-    in (memo2, Ast.AstMapAccumRDer k accShs bShs eShs
-                                   (accvars, evars, v2)
-                                   (vs1, vs2, vs3, vs4, ast2)
-                                   (ws1, ws2, ws3, ws4, bst2)
-                                   acc02 es2)
+  Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc0 es ->
+    let (memo1, f2) = inlineAstHFun memo f
+        (memo2, df2) = inlineAstHFun memo1 df
+        (memo3, rf2) = inlineAstHFun memo2 rf
+        (memo4, acc02) = mapAccumR inlineAstDynamic memo3 acc0
+        (memo5, es2) = mapAccumR inlineAstDynamic memo4 es
+    in (memo5, Ast.AstMapAccumRDer k accShs bShs eShs f2 df2 rf2 acc02 es2)
   Ast.AstMapAccumL k accShs bShs eShs (accvars, evars, v) acc0 es ->
     let (_, v2) = inlineAstHVector EM.empty v
         (memo1, acc02) = mapAccumR inlineAstDynamic memo acc0
         (memo2, es2) = mapAccumR inlineAstDynamic memo1 es
     in (memo2, Ast.AstMapAccumL k accShs bShs eShs
                                 (accvars, evars, v2) acc02 es2)
-  Ast.AstMapAccumLDer k accShs bShs eShs
-                      (accvars, evars, v)
-                      (vs1, vs2, vs3, vs4, ast)
-                      (ws1, ws2, ws3, ws4, bst)
-                      acc0 es ->
-    let (_, v2) = inlineAstHVector EM.empty v
-        (_, ast2) = inlineAstHVector EM.empty ast
-        (_, bst2) = inlineAstHVector EM.empty bst
-        (memo1, acc02) = mapAccumR inlineAstDynamic memo acc0
-        (memo2, es2) = mapAccumR inlineAstDynamic memo1 es
-    in (memo2, Ast.AstMapAccumLDer k accShs bShs eShs
-                                   (accvars, evars, v2)
-                                   (vs1, vs2, vs3, vs4, ast2)
-                                   (ws1, ws2, ws3, ws4, bst2)
-                                   acc02 es2)
+  Ast.AstMapAccumLDer k accShs bShs eShs f df rf acc0 es ->
+    let (memo1, f2) = inlineAstHFun memo f
+        (memo2, df2) = inlineAstHFun memo1 df
+        (memo3, rf2) = inlineAstHFun memo2 rf
+        (memo4, acc02) = mapAccumR inlineAstDynamic memo3 acc0
+        (memo5, es2) = mapAccumR inlineAstDynamic memo4 es
+    in (memo5, Ast.AstMapAccumLDer k accShs bShs eShs f2 df2 rf2 acc02 es2)
 
 -- This is implemented in full generality, without taking advantage
 -- of no outside free variables in function representations.

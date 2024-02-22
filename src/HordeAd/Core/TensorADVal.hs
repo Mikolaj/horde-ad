@@ -615,38 +615,36 @@ instance ADReadyBoth ranked shaped
         g :: forall f. ADReady f
           => HVector (ADVal f)
           -> ADVal (HVectorPseudoTensor f) Float '()
-        g hv = let (ll, as, as') = unADValHVector $ uncurry f (hvToPair hv)
-               in dDnotShared (flattenADShare $ V.toList ll)
-                              (HVectorPseudoTensor $ dmkHVector as)
-                              (HVectorPseudoTensor $ HToH as')
-        df :: forall f. ADReady f
-           => HVector f -> HVector f -> HVector f -> HVector f -> HVectorOf f
-        df dacc de acc e =
+        g !hv = let (ll, as, as') = unADValHVector $ uncurry f (hvToPair hv)
+                in dDnotShared (flattenADShare $ V.toList ll)
+                               (HVectorPseudoTensor $ dmkHVector as)
+                               (HVectorPseudoTensor $ HToH as')
+        fl, dfl, rfl :: forall f. ADReady f => [HVector f] -> HVectorOf f
+        fl ![!acc, !e] = f acc e
+        fl _ = error "fl: wrong number of arguments"
+        dfl ![!dacc, !de, !acc, !e] =
           unHVectorPseudoTensor
           $ fst $ cfwdOnHVector (acc V.++ e) g (dacc V.++ de)
-        rf :: forall f. ADReady f
-           => HVector f -> HVector f -> HVector f -> HVector f -> HVectorOf f
-        rf dx db acc e =
+        dfl _ = error "dfl: wrong number of arguments"
+        rfl ![!dx, !db, !acc, !e] =
           fst $ crevOnHVector
                   (Just $ HVectorPseudoTensor $ dmkHVector $ dx V.++ db)
                   g
                   (acc V.++ e)
-    in dmapAccumRDer k accShs bShs eShs f df rf acc0 es
+        rfl _ = error "rfl: wrong number of arguments"
+    in dmapAccumRDer k accShs bShs eShs (HFun fl) (HFun dfl) (HFun rfl) acc0 es
   dmapAccumRDer
     :: SNat k
     -> VoidHVector
     -> VoidHVector
     -> VoidHVector
-    -> (forall f. ADReady f
-        => HVector f -> HVector f -> HVectorOf f)
-    -> (forall f. ADReady f
-        => HVector f -> HVector f -> HVector f -> HVector f -> HVectorOf f)
-    -> (forall f. ADReady f
-        => HVector f -> HVector f -> HVector f -> HVector f -> HVectorOf f)
+    -> HFun
+    -> HFun
+    -> HFun
     -> HVector (ADVal ranked)
     -> HVector (ADVal ranked)
     -> HVectorOf (ADVal ranked)
-  dmapAccumRDer k accShs bShs eShs f df rf acc0D esD =
+  dmapAccumRDer k accShs bShs eShs (HFun fl) (HFun dfl) (HFun rfl) acc0D esD =
     assert (voidHVectorMatches (replicate1VoidHVector k eShs) esD
             && voidHVectorMatches accShs acc0D) $
     let (ll2, acc0, acc0') = unADValHVector acc0D
@@ -661,25 +659,35 @@ instance ADReadyBoth ranked shaped
         accLen = V.length accShs
         hvToPair :: forall f. HVector f -> (HVector f, HVector f)
         hvToPair hv = (V.take accLen hv, V.drop accLen hv)
-        g :: forall f. ADReady f => HVector f -> HVector f -> HVectorOf f
-        g acc e = dletHVectorInHVector @f codomainShs (f acc e) $ \res ->
-          let (accRes, bRes) = hvToPair res
-          in dmkHVector $ V.concat [accRes, acc, bRes]
-        dg :: forall f. ADReady f
-           => HVector f -> HVector f -> HVector f -> HVector f -> HVectorOf f
-        dg dacc de acc e =
-          dletHVectorInHVector @f codomainShs (df dacc de acc e) $ \res ->
+        g :: forall f. ADReady f => [HVector f] -> HVectorOf f
+        g ![!acc, !e] =
+          dletHVectorInHVector @f codomainShs (fl [acc, e]) $ \res ->
+            let (accRes, bRes) = hvToPair res
+            in dmkHVector $ V.concat [accRes, acc, bRes]
+        g _ = error "g: wrong number of arguments"
+        dg :: forall f. ADReady f => [HVector f] -> HVectorOf f
+        dg ![!dacc, !de, !acc, !e] =
+          dletHVectorInHVector @f codomainShs (dfl [dacc, de, acc, e]) $ \res ->
             let (accRes, bRes) = hvToPair res
             in dmkHVector $ V.concat [accRes, dacc, bRes]
-        rg :: forall f. ADReady f
-           => HVector f -> HVector f -> HVector f -> HVector f -> HVectorOf f
-        rg dx db acc e =
+        dg _ = error "dg: wrong number of arguments"
+        rg :: forall f. ADReady f => [HVector f] -> HVectorOf f
+        rg ![!dx, !db, !acc, !e] =
           let (dbacc, dbRes) = hvToPair db
-          in dletHVectorInHVector @f codomainShs2 (rf dx dbRes acc e) $ \res ->
+          in dletHVectorInHVector @f codomainShs2
+                                  (rfl [dx, dbRes, acc, e]) $ \res ->
             let (dacc, de) = hvToPair res
             in dmkHVector $ V.concat [V.zipWith addDynamic dacc dbacc, de]
+        rg _ = error "rg: wrong number of arguments"
         pUnshared :: HVectorOf ranked
-        pUnshared = dmapAccumRDer k accShs codomainShs eShs g dg rg acc0 es
+        pUnshared = dmapAccumRDer k accShs codomainShs eShs
+                                  (dlambda @ranked [accShs, eShs] $ HFun g)
+                                  (dlambda @ranked [accShs, eShs, accShs, eShs]
+                                   $ HFun dg)
+                                  (dlambda @ranked
+                                           [accShs, codomainShs, accShs, eShs]
+                                   $ HFun rg)
+                                  acc0 es
         pShs = accShs V.++ replicate1VoidHVector k codomainShs
         (l5, pShared) = dsharePrimal @ranked pShs pUnshared l4
         accFin = V.take accLen pShared
@@ -687,6 +695,12 @@ instance ADReadyBoth ranked shaped
         bs = V.drop (2 * accLen) pShared
         !_A = assert (voidHVectorMatches (replicate1VoidHVector k bShs) bs) ()
         primal = accFin V.++ bs
+        df :: forall f. ADReady f
+           => HVector f -> HVector f -> HVector f -> HVector f -> HVectorOf f
+        df !dacc !de !acc !e = dfl [dacc, de, acc, e]
+        rf :: forall f. ADReady f
+           => HVector f -> HVector f -> HVector f -> HVector f -> HVectorOf f
+        rf !dx !db !acc !e = rfl [dx, db, acc, e]
         dual = wrapDeltaH $ MapAccumR k accShs bShs eShs q es df rf acc0' es'
         selectDual i d = case d of
           DynamicRanked t -> DynamicRanked $ dDnotShared l5 t (RFromH dual i)
@@ -711,38 +725,36 @@ instance ADReadyBoth ranked shaped
         g :: forall f. ADReady f
           => HVector (ADVal f)
           -> ADVal (HVectorPseudoTensor f) Float '()
-        g hv = let (ll, as, as') = unADValHVector $ uncurry f (hvToPair hv)
-               in dDnotShared (flattenADShare $ V.toList ll)
-                              (HVectorPseudoTensor $ dmkHVector as)
-                              (HVectorPseudoTensor $ HToH as')
-        df :: forall f. ADReady f
-           => HVector f -> HVector f -> HVector f -> HVector f -> HVectorOf f
-        df dacc de acc e =
+        g !hv = let (ll, as, as') = unADValHVector $ uncurry f (hvToPair hv)
+                in dDnotShared (flattenADShare $ V.toList ll)
+                               (HVectorPseudoTensor $ dmkHVector as)
+                               (HVectorPseudoTensor $ HToH as')
+        fl, dfl, rfl :: forall f. ADReady f => [HVector f] -> HVectorOf f
+        fl ![!acc, !e] = f acc e
+        fl _ = error "fl: wrong number of arguments"
+        dfl ![!dacc, !de, !acc, !e] =
           unHVectorPseudoTensor
           $ fst $ cfwdOnHVector (acc V.++ e) g (dacc V.++ de)
-        rf :: forall f. ADReady f
-           => HVector f -> HVector f -> HVector f -> HVector f -> HVectorOf f
-        rf dx db acc e =
+        dfl _ = error "dfl: wrong number of arguments"
+        rfl ![!dx, !db, !acc, !e] =
           fst $ crevOnHVector
                   (Just $ HVectorPseudoTensor $ dmkHVector $ dx V.++ db)
                   g
                   (acc V.++ e)
-    in dmapAccumLDer k accShs bShs eShs f df rf acc0 es
+        rfl _ = error "rfl: wrong number of arguments"
+    in dmapAccumLDer k accShs bShs eShs (HFun fl) (HFun dfl) (HFun rfl) acc0 es
   dmapAccumLDer
     :: SNat k
     -> VoidHVector
     -> VoidHVector
     -> VoidHVector
-    -> (forall f. ADReady f
-        => HVector f -> HVector f -> HVectorOf f)
-    -> (forall f. ADReady f
-        => HVector f -> HVector f -> HVector f -> HVector f -> HVectorOf f)
-    -> (forall f. ADReady f
-        => HVector f -> HVector f -> HVector f -> HVector f -> HVectorOf f)
+    -> HFun
+    -> HFun
+    -> HFun
     -> HVector (ADVal ranked)
     -> HVector (ADVal ranked)
     -> HVectorOf (ADVal ranked)
-  dmapAccumLDer k accShs bShs eShs f df rf acc0D esD =
+  dmapAccumLDer k accShs bShs eShs (HFun fl) (HFun dfl) (HFun rfl) acc0D esD =
     assert (voidHVectorMatches (replicate1VoidHVector k eShs) esD
             && voidHVectorMatches accShs acc0D
             `blame` ( shapeVoidHVector (replicate1VoidHVector k eShs)
@@ -761,25 +773,35 @@ instance ADReadyBoth ranked shaped
         accLen = V.length accShs
         hvToPair :: forall f. HVector f -> (HVector f, HVector f)
         hvToPair hv = (V.take accLen hv, V.drop accLen hv)
-        g :: forall f. ADReady f => HVector f -> HVector f -> HVectorOf f
-        g acc e = dletHVectorInHVector @f codomainShs (f acc e) $ \res ->
-          let (accRes, bRes) = hvToPair res
-          in dmkHVector $ V.concat [accRes, acc, bRes]
-        dg :: forall f. ADReady f
-           => HVector f -> HVector f -> HVector f -> HVector f -> HVectorOf f
-        dg dacc de acc e =
-          dletHVectorInHVector @f codomainShs (df dacc de acc e) $ \res ->
+        g :: forall f. ADReady f => [HVector f] -> HVectorOf f
+        g ![!acc, !e] =
+          dletHVectorInHVector @f codomainShs (fl [acc, e]) $ \res ->
+            let (accRes, bRes) = hvToPair res
+            in dmkHVector $ V.concat [accRes, acc, bRes]
+        g _ = error "g: wrong number of arguments"
+        dg :: forall f. ADReady f => [HVector f] -> HVectorOf f
+        dg ![!dacc, !de, !acc, !e] =
+          dletHVectorInHVector @f codomainShs (dfl [dacc, de, acc, e]) $ \res ->
             let (accRes, bRes) = hvToPair res
             in dmkHVector $ V.concat [accRes, dacc, bRes]
-        rg :: forall f. ADReady f
-           => HVector f -> HVector f -> HVector f -> HVector f -> HVectorOf f
-        rg dx db acc e =
+        dg _ = error "dg: wrong number of arguments"
+        rg :: forall f. ADReady f => [HVector f] -> HVectorOf f
+        rg ![!dx, !db, !acc, !e] =
           let (dbacc, dbRes) = hvToPair db
-          in dletHVectorInHVector @f codomainShs2 (rf dx dbRes acc e) $ \res ->
+          in dletHVectorInHVector @f codomainShs2
+                                  (rfl [dx, dbRes, acc, e]) $ \res ->
             let (dacc, de) = hvToPair res
             in dmkHVector $ V.concat [V.zipWith addDynamic dacc dbacc, de]
+        rg _ = error "rg: wrong number of arguments"
         pUnshared :: HVectorOf ranked
-        pUnshared = dmapAccumLDer k accShs codomainShs eShs g dg rg acc0 es
+        pUnshared = dmapAccumLDer k accShs codomainShs eShs
+                                  (dlambda @ranked [accShs, eShs] $ HFun g)
+                                  (dlambda @ranked [accShs, eShs, accShs, eShs]
+                                   $ HFun dg)
+                                  (dlambda @ranked
+                                           [accShs, codomainShs, accShs, eShs]
+                                   $ HFun rg)
+                                  acc0 es
         pShs = accShs V.++ replicate1VoidHVector k codomainShs
         (l5, pShared) = dsharePrimal @ranked pShs pUnshared l4
         accFin = V.take accLen pShared
@@ -787,6 +809,12 @@ instance ADReadyBoth ranked shaped
         bs = V.drop (2 * accLen) pShared
         !_A = assert (voidHVectorMatches (replicate1VoidHVector k bShs) bs) ()
         primal = accFin V.++ bs
+        df :: forall f. ADReady f
+           => HVector f -> HVector f -> HVector f -> HVector f -> HVectorOf f
+        df !dacc !de !acc !e = dfl [dacc, de, acc, e]
+        rf :: forall f. ADReady f
+           => HVector f -> HVector f -> HVector f -> HVector f -> HVectorOf f
+        rf !dx !db !acc !e = rfl [dx, db, acc, e]
         dual = wrapDeltaH $ MapAccumL k accShs bShs eShs q es df rf acc0' es'
         selectDual i d = case d of
           DynamicRanked t -> DynamicRanked $ dDnotShared l5 t (RFromH dual i)
@@ -982,8 +1010,8 @@ instance HVectorTensor (Flip OR.Array) (Flip OS.Array) where
              g x a = hvToPair $ f x a
              (xout, lout) = mapAccumR g acc0 (unravelHVector es)
          in xout V.++ ravelHVector lout
-  dmapAccumRDer k accShs bShs eShs f _df _rf acc0 es =
-    dmapAccumR k accShs bShs eShs f acc0 es
+  dmapAccumRDer k accShs bShs eShs (HFun fl) _df _rf acc0 es =
+    dmapAccumR k accShs bShs eShs (\ !a !b -> fl [a, b]) acc0 es
   dmapAccumL
     :: SNat k
     -> VoidHVector
@@ -1004,8 +1032,8 @@ instance HVectorTensor (Flip OR.Array) (Flip OS.Array) where
              g x a = hvToPair $ f x a
              (xout, lout) = mapAccumL g acc0 (unravelHVector es)
          in xout V.++ ravelHVector lout
-  dmapAccumLDer k accShs bShs eShs f _df _rf acc0 es =
-    dmapAccumL k accShs bShs eShs f acc0 es
+  dmapAccumLDer k accShs bShs eShs (HFun fl) _df _rf acc0 es =
+    dmapAccumL k accShs bShs eShs (\ !a !b -> fl [a, b]) acc0 es
 
 instance (GoodScalar r, KnownNat n)
          => AdaptableHVector (Flip OR.Array) (Flip OR.Array r n) where

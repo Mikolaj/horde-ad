@@ -577,19 +577,9 @@ data AstHVector :: AstSpanType -> Type where
     -> VoidHVector
     -> VoidHVector
     -> VoidHVector
-    -> ( [AstDynamicVarName]
-       , [AstDynamicVarName]
-       , AstHVector PrimalSpan )
-    -> ( [AstDynamicVarName]
-       , [AstDynamicVarName]
-       , [AstDynamicVarName]
-       , [AstDynamicVarName]
-       , AstHVector PrimalSpan )
-    -> ( [AstDynamicVarName]
-       , [AstDynamicVarName]
-       , [AstDynamicVarName]
-       , [AstDynamicVarName]
-       , AstHVector PrimalSpan )
+    -> AstHFun PrimalSpan
+    -> AstHFun PrimalSpan
+    -> AstHFun PrimalSpan
     -> HVector (AstRanked s)
     -> HVector (AstRanked s)
     -> AstHVector s
@@ -609,19 +599,9 @@ data AstHVector :: AstSpanType -> Type where
     -> VoidHVector
     -> VoidHVector
     -> VoidHVector
-    -> ( [AstDynamicVarName]
-       , [AstDynamicVarName]
-       , AstHVector PrimalSpan )
-    -> ( [AstDynamicVarName]
-       , [AstDynamicVarName]
-       , [AstDynamicVarName]
-       , [AstDynamicVarName]
-       , AstHVector PrimalSpan )
-    -> ( [AstDynamicVarName]
-       , [AstDynamicVarName]
-       , [AstDynamicVarName]
-       , [AstDynamicVarName]
-       , AstHVector PrimalSpan )
+    -> AstHFun PrimalSpan
+    -> AstHFun PrimalSpan
+    -> AstHFun PrimalSpan
     -> HVector (AstRanked s)
     -> HVector (AstRanked s)
     -> AstHVector s

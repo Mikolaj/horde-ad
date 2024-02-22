@@ -1104,66 +1104,16 @@ printAstHVector cfg d = \case
       . printHVectorAst cfg acc0
       . showString " "
       . printHVectorAst cfg es
-  AstMapAccumRDer k _accShs _bShs _eShs
-                  (accvars, evars, v)
-                  (vs1, vs2, vs3, vs4, ast)
-                  (ws1, ws2, ws3, ws4, bst)
-                  acc0 es ->
-   if loseRoudtrip cfg && ignoreNestedLambdas cfg
-   then
-    showParen (d > 10)
-    $ showString "dmapAccumRDer "
-      . showParen True (shows k)
-      . showString " <lambda> <lambda> <lambda> "
-      . printHVectorAst cfg acc0
-      . showString " "
-      . printHVectorAst cfg es
-   else
+  AstMapAccumRDer k _accShs _bShs _eShs f df rf acc0 es ->
     showParen (d > 10)
     $ showString "dmapAccumRDer "
       . showParen True (shows k)
       . showString " "
-      . (showParen True
-         $ showString "\\"
-           . showListWith (showString
-                           . printAstDynamicVarNameCfg cfg) accvars
-           . showString " "
-           . showListWith (showString
-                           . printAstDynamicVarNameCfg cfg) evars
-           . showString " -> "
-           . printAstHVector cfg 0 v)
+      . printAstHFun cfg 10 f
       . showString " "
-      . (showParen True
-         $ showString "\\"
-           . showListWith (showString
-                           . printAstDynamicVarNameCfg cfg) vs1
-           . showString " "
-           . showListWith (showString
-                           . printAstDynamicVarNameCfg cfg) vs2
-           . showString " "
-           . showListWith (showString
-                           . printAstDynamicVarNameCfg cfg) vs3
-           . showString " "
-           . showListWith (showString
-                           . printAstDynamicVarNameCfg cfg) vs4
-           . showString " -> "
-           . printAstHVector cfg 0 ast)
+      . printAstHFun cfg 10 df
       . showString " "
-      . (showParen True
-        $ showString "\\"
-           . showListWith (showString
-                           . printAstDynamicVarNameCfg cfg) ws1
-           . showString " "
-           . showListWith (showString
-                           . printAstDynamicVarNameCfg cfg) ws2
-           . showString " "
-           . showListWith (showString
-                           . printAstDynamicVarNameCfg cfg) ws3
-           . showString " "
-           . showListWith (showString
-                           . printAstDynamicVarNameCfg cfg) ws4
-           . showString " -> "
-           . printAstHVector cfg 0 bst)
+      . printAstHFun cfg 01 rf
       . showString " "
       . printHVectorAst cfg acc0
       . showString " "
@@ -1196,66 +1146,16 @@ printAstHVector cfg d = \case
       . printHVectorAst cfg acc0
       . showString " "
       . printHVectorAst cfg es
-  AstMapAccumLDer k _accShs _bShs _eShs
-                  (accvars, evars, v)
-                  (vs1, vs2, vs3, vs4, ast)
-                  (ws1, ws2, ws3, ws4, bst)
-                  acc0 es ->
-   if loseRoudtrip cfg && ignoreNestedLambdas cfg
-   then
-    showParen (d > 10)
-    $ showString "dmapAccumLDer "
-      . showParen True (shows k)
-      . showString " <lambda> <lambda> <lambda> "
-      . printHVectorAst cfg acc0
-      . showString " "
-      . printHVectorAst cfg es
-   else
+  AstMapAccumLDer k _accShs _bShs _eShs f df rf acc0 es ->
     showParen (d > 10)
     $ showString "dmapAccumLDer "
       . showParen True (shows k)
       . showString " "
-      . (showParen True
-         $ showString "\\"
-           . showListWith (showString
-                           . printAstDynamicVarNameCfg cfg) accvars
-           . showString " "
-           . showListWith (showString
-                           . printAstDynamicVarNameCfg cfg) evars
-           . showString " -> "
-           . printAstHVector cfg 0 v)
+      . printAstHFun cfg 10 f
       . showString " "
-      . (showParen True
-         $ showString "\\"
-           . showListWith (showString
-                           . printAstDynamicVarNameCfg cfg) vs1
-           . showString " "
-           . showListWith (showString
-                           . printAstDynamicVarNameCfg cfg) vs2
-           . showString " "
-           . showListWith (showString
-                           . printAstDynamicVarNameCfg cfg) vs3
-           . showString " "
-           . showListWith (showString
-                           . printAstDynamicVarNameCfg cfg) vs4
-           . showString " -> "
-           . printAstHVector cfg 0 ast)
+      . printAstHFun cfg 10 df
       . showString " "
-      . (showParen True
-        $ showString "\\"
-           . showListWith (showString
-                           . printAstDynamicVarNameCfg cfg) ws1
-           . showString " "
-           . showListWith (showString
-                           . printAstDynamicVarNameCfg cfg) ws2
-           . showString " "
-           . showListWith (showString
-                           . printAstDynamicVarNameCfg cfg) ws3
-           . showString " "
-           . showListWith (showString
-                           . printAstDynamicVarNameCfg cfg) ws4
-           . showString " -> "
-           . printAstHVector cfg 0 bst)
+      . printAstHFun cfg 01 rf
       . showString " "
       . printHVectorAst cfg acc0
       . showString " "

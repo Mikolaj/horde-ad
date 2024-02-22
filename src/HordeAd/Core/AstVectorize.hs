@@ -868,98 +868,36 @@ build1VHVector k (var, v0) =
     error "build1VHVector: impossible case of AstRevDtS"
   Ast.AstMapAccumR{} ->
     error "build1VHVector: impossible case of AstMapAccumR"
-  Ast.AstMapAccumRDer k5 accShs bShs eShs
-                      (accvars, evars, v)
-                      (vs1, vs2, vs3, vs4, ast)
-                      (ws1, ws2, ws3, ws4, bst)
-                      acc0 es ->
-    case someNatVal $ toInteger k of
-      Just (SomeNat @k _) ->
-        let (vOut, accvarsOut) = substProjVarsHVector @k var accvars v
-            (vOut2, evarsOut) = substProjVarsHVector @k var evars vOut
-            (astOut, vs1Out) = substProjVarsHVector @k var vs1 ast
-            (astOut2, vs2Out) = substProjVarsHVector @k var vs2 astOut
-            (astOut3, vs3Out) = substProjVarsHVector @k var vs3 astOut2
-            (astOut4, vs4Out) = substProjVarsHVector @k var vs4 astOut3
-            (bstOut, ws1Out) = substProjVarsHVector @k var ws1 bst
-            (bstOut2, ws2Out) = substProjVarsHVector @k var ws2 bstOut
-            (bstOut3, ws3Out) = substProjVarsHVector @k var ws3 bstOut2
-            (bstOut4, ws4Out) = substProjVarsHVector @k var ws4 bstOut3
-        in astTrAstHVectorTail (V.length accShs)
-           $ Ast.AstMapAccumRDer
-               k5
-               (replicate1VoidHVector (SNat @k) accShs)
-               (replicate1VoidHVector (SNat @k) bShs)
-               (replicate1VoidHVector (SNat @k) eShs)
-               ( accvarsOut
-               , evarsOut
-               , build1VOccurenceUnknownHVectorRefresh
-                   (valueOf @k) (var, vOut2) )
-               ( vs1Out
-               , vs2Out
-               , vs3Out
-               , vs4Out
-               , build1VOccurenceUnknownHVectorRefresh
-                   (valueOf @k) (var, astOut4) )
-               ( ws1Out
-               , ws2Out
-               , ws3Out
-               , ws4Out
-               , build1VOccurenceUnknownHVectorRefresh
-                   (valueOf @k) (var, bstOut4) )
-               (V.map (\u -> build1VOccurenceUnknownDynamic (valueOf @k)
-                                                            (var, u)) acc0)
-               (V.map (\u -> astTrDynamic
-                             $ build1VOccurenceUnknownDynamic (valueOf @k)
-                                                              (var, u)) es)
-      _ -> error "build1VHVector: impossible someNatVal"
+  Ast.AstMapAccumRDer k5 accShs bShs eShs f df rf acc0 es ->
+    withSNat k $ \snat ->
+      astTrAstHVectorTail (V.length accShs)
+      $ Ast.AstMapAccumRDer
+          k5
+          (replicate1VoidHVector snat accShs)
+          (replicate1VoidHVector snat bShs)
+          (replicate1VoidHVector snat eShs)
+          (build1VHFun k (var, f))
+          (build1VHFun k (var, df))
+          (build1VHFun k (var, rf))
+          (V.map (\u -> build1VOccurenceUnknownDynamic k (var, u)) acc0)
+          (V.map (\u -> astTrDynamic
+                        $ build1VOccurenceUnknownDynamic k (var, u)) es)
   Ast.AstMapAccumL{} ->
     error "build1VHVector: impossible case of AstMapAccumL"
-  Ast.AstMapAccumLDer k5 accShs bShs eShs
-                      (accvars, evars, v)
-                      (vs1, vs2, vs3, vs4, ast)
-                      (ws1, ws2, ws3, ws4, bst)
-                      acc0 es ->
-    case someNatVal $ toInteger k of
-      Just (SomeNat @k _) ->
-        let (vOut, accvarsOut) = substProjVarsHVector @k var accvars v
-            (vOut2, evarsOut) = substProjVarsHVector @k var evars vOut
-            (astOut, vs1Out) = substProjVarsHVector @k var vs1 ast
-            (astOut2, vs2Out) = substProjVarsHVector @k var vs2 astOut
-            (astOut3, vs3Out) = substProjVarsHVector @k var vs3 astOut2
-            (astOut4, vs4Out) = substProjVarsHVector @k var vs4 astOut3
-            (bstOut, ws1Out) = substProjVarsHVector @k var ws1 bst
-            (bstOut2, ws2Out) = substProjVarsHVector @k var ws2 bstOut
-            (bstOut3, ws3Out) = substProjVarsHVector @k var ws3 bstOut2
-            (bstOut4, ws4Out) = substProjVarsHVector @k var ws4 bstOut3
-        in astTrAstHVectorTail (V.length accShs)
-           $ Ast.AstMapAccumLDer
-               k5
-               (replicate1VoidHVector (SNat @k) accShs)
-               (replicate1VoidHVector (SNat @k) bShs)
-               (replicate1VoidHVector (SNat @k) eShs)
-               ( accvarsOut
-               , evarsOut
-               , build1VOccurenceUnknownHVectorRefresh
-                   (valueOf @k) (var, vOut2) )
-               ( vs1Out
-               , vs2Out
-               , vs3Out
-               , vs4Out
-               , build1VOccurenceUnknownHVectorRefresh
-                   (valueOf @k) (var, astOut4) )
-               ( ws1Out
-               , ws2Out
-               , ws3Out
-               , ws4Out
-               , build1VOccurenceUnknownHVectorRefresh
-                   (valueOf @k) (var, bstOut4) )
-               (V.map (\u -> build1VOccurenceUnknownDynamic (valueOf @k)
-                                                            (var, u)) acc0)
-               (V.map (\u -> astTrDynamic
-                             $ build1VOccurenceUnknownDynamic (valueOf @k)
-                                                              (var, u)) es)
-      _ -> error "build1VHVector: impossible someNatVal"
+  Ast.AstMapAccumLDer k5 accShs bShs eShs f df rf acc0 es ->
+    withSNat k $ \snat ->
+      astTrAstHVectorTail (V.length accShs)
+      $ Ast.AstMapAccumLDer
+          k5
+          (replicate1VoidHVector snat accShs)
+          (replicate1VoidHVector snat bShs)
+          (replicate1VoidHVector snat eShs)
+          (build1VHFun k (var, f))
+          (build1VHFun k (var, df))
+          (build1VHFun k (var, rf))
+          (V.map (\u -> build1VOccurenceUnknownDynamic k (var, u)) acc0)
+          (V.map (\u -> astTrDynamic
+                        $ build1VOccurenceUnknownDynamic k (var, u)) es)
 
 build1VHFun
   :: forall s. AstSpan s

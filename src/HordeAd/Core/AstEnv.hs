@@ -14,7 +14,7 @@ module HordeAd.Core.AstEnv
   , interpretLambda2, interpretLambda2S
   , interpretLambdaRHR, interpretLambdaSHS
   , interpretLambdaRHH, interpretLambdaSHH
-  , interpretLambdaHHH, interpretLambdaHHHHH, interpretLambdaHsH
+  , interpretLambdaHHH, interpretLambdaHsH
   , interpretLambda3, interpretLambda3S
   , interpretLambdaRRRH, interpretLambdaSSSH
   , interpretLambda4, interpretLambda4S
@@ -361,24 +361,6 @@ interpretLambdaHHH
 interpretLambdaHHH f !env (!vs1, !vs2, !ast) =
   \w1 w2 -> let env1 = extendEnvHVector vs1 w1 env
             in f (extendEnvHVector vs2 w2 env1) ast
-
-interpretLambdaHHHHH
-  :: forall s ranked. ADReady ranked
-  => (AstEnv ranked -> AstHVector s -> HVectorOf ranked)
-  -> AstEnv ranked
-  -> ( [AstDynamicVarName]
-     , [AstDynamicVarName]
-     , [AstDynamicVarName]
-     , [AstDynamicVarName]
-     , AstHVector s )
-  -> HVector ranked -> HVector ranked -> HVector ranked -> HVector ranked
-  -> HVectorOf ranked
-{-# INLINE interpretLambdaHHHHH #-}
-interpretLambdaHHHHH f !env (!vs1, !vs2, !vs3, !vs4, !ast) =
-  \w1 w2 w3 w4 -> let env1 = extendEnvHVector vs1 w1 env
-                      env2 = extendEnvHVector vs2 w2 env1
-                      env3 = extendEnvHVector vs3 w3 env2
-                  in f (extendEnvHVector vs4 w4 env3) ast
 
 interpretLambdaHsH
   :: (forall ranked. ADReady ranked
