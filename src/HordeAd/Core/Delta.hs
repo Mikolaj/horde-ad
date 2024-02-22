@@ -375,10 +375,8 @@ data DeltaH :: RankedTensorType -> Type where
     -> VoidHVector
     -> HVector ranked
     -> HVector ranked
-    -> (forall f. ADReady f
-        => HVector f -> HVector f -> HVector f -> HVector f -> HVectorOf f)
-    -> (forall f. ADReady f
-        => HVector f -> HVector f -> HVector f -> HVector f -> HVectorOf f)
+    -> HFun
+    -> HFun
     -> HVector (DeltaR ranked)
     -> HVector (DeltaR ranked)
     -> DeltaH ranked
@@ -389,10 +387,8 @@ data DeltaH :: RankedTensorType -> Type where
     -> VoidHVector
     -> HVector ranked
     -> HVector ranked
-    -> (forall f. ADReady f
-        => HVector f -> HVector f -> HVector f -> HVector f -> HVectorOf f)
-    -> (forall f. ADReady f
-        => HVector f -> HVector f -> HVector f -> HVector f -> HVectorOf f)
+    -> HFun
+    -> HFun
     -> HVector (DeltaR ranked)
     -> HVector (DeltaR ranked)
     -> DeltaH ranked
@@ -1011,7 +1007,7 @@ evalH !s !c = let (abShared, cShared) =
           s { hnMap = EM.insert n d $ hnMap s
             , hdMap = EM.insert n c $ hdMap s }
   HToH v -> evalHVector s c v
-  MapAccumR k accShs bShs eShs q es _df rf acc0' es' ->
+  MapAccumR k accShs bShs eShs q es _df (HFun rf) acc0' es' ->
     let accLen = V.length accShs
         hvToPair :: HVector f -> (HVector f, HVector f)
         hvToPair hv = (V.take accLen hv, V.drop accLen hv)
@@ -1025,7 +1021,7 @@ evalH !s !c = let (abShared, cShared) =
           dmapAccumL k accShs eShs (bShs V.++ accShs V.++ eShs)
                      (\dx db_acc_e ->
                         let (db, acc, e) = hvTo3 db_acc_e
-                        in rf dx db acc e)
+                        in rf [dx, db, acc, e])
                      c0
                      (V.concat [crest, q, es])
         (abShared2, dacc_des) =
@@ -1035,7 +1031,7 @@ evalH !s !c = let (abShared, cShared) =
         (dacc, des) = hvToPair dacc_des
         s3 = evalHVector s2 dacc acc0'
     in evalHVector s3 des es'
-  MapAccumL k accShs bShs eShs q es _df rf acc0' es' ->
+  MapAccumL k accShs bShs eShs q es _df (HFun rf) acc0' es' ->
     let accLen = V.length accShs
         hvToPair :: HVector f -> (HVector f, HVector f)
         hvToPair hv = (V.take accLen hv, V.drop accLen hv)
@@ -1049,7 +1045,7 @@ evalH !s !c = let (abShared, cShared) =
           dmapAccumR k accShs eShs (bShs V.++ accShs V.++ eShs)
                      (\dx db_acc_e ->
                         let (db, acc, e) = hvTo3 db_acc_e
-                        in rf dx db acc e)
+                        in rf [dx, db, acc, e])
                      c0
                      (V.concat [crest, q, es])
         (abShared2, dacc_des) =
@@ -1374,7 +1370,7 @@ fwdH dimR params s = \case
                     , hdMap = EM.insert n cShared (hdMap s3) }
         in (s4, dmkHVector cShared)
   HToH v -> second dmkHVector $ fwdHVector dimR params s v
-  MapAccumR k accShs bShs eShs q es df _rf acc0' es' ->
+  MapAccumR k accShs bShs eShs q es (HFun df) _rf acc0' es' ->
     let (s2, cacc0) = fwdHVector dimR params s acc0'
         (s3, ces) = fwdHVector dimR params s2 es'
         eLen = V.length eShs
@@ -1386,10 +1382,10 @@ fwdH dimR params s = \case
     in (s3, dmapAccumR k accShs bShs (eShs V.++ accShs V.++ eShs)
                        (\dacc de_acc_e ->
                           let (de, acc, e) = hvTo3 de_acc_e
-                          in df dacc de acc e)
+                          in df [dacc, de, acc, e])
                        cacc0
                        (V.concat [ces, q, es]))
-  MapAccumL k accShs bShs eShs q es df _rf acc0' es' ->
+  MapAccumL k accShs bShs eShs q es (HFun df) _rf acc0' es' ->
     let (s2, cacc0) = fwdHVector dimR params s acc0'
         (s3, ces) = fwdHVector dimR params s2 es'
         eLen = V.length eShs
@@ -1401,7 +1397,7 @@ fwdH dimR params s = \case
     in (s3, dmapAccumL k accShs bShs (eShs V.++ accShs V.++ eShs)
                        (\dacc de_acc_e ->
                           let (de, acc, e) = hvTo3 de_acc_e
-                          in df dacc de acc e)
+                          in df [dacc, de, acc, e])
                        cacc0
                        (V.concat [ces, q, es]))
 
