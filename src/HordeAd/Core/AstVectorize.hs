@@ -280,70 +280,6 @@ build1V k (var, v00) =
                (build1VOccurenceUnknown k (var, u'))
     Ast.AstFwd{} ->
       error "build1V: impossible case of AstFwd"
-    Ast.AstFold{} ->
-      error "build1V: impossible case of AstFold"
-    Ast.AstFoldDer (nvar, mvar, v)
-                   (varDx, varDa, varn1, varm1, ast1)
-                   (varDt2, nvar2, mvar2, doms) x0 as -> traceRule $
-      let shn = shapeAst x0
-          shm = tailShape $ shapeAst as
-      in Ast.AstFoldDer
-           ( AstVarName $ varNameToAstVarId nvar
-           , AstVarName $ varNameToAstVarId mvar
-           , build1VOccurenceUnknownRefresh
-               k (var, substProjRanked k var shn nvar
-                       $ substProjRanked k var shm mvar v) )
-           ( AstVarName $ varNameToAstVarId varDx
-           , AstVarName $ varNameToAstVarId varDa
-           , AstVarName $ varNameToAstVarId varn1
-           , AstVarName $ varNameToAstVarId varm1
-           , build1VOccurenceUnknownRefresh
-               k (var, substProjRanked k var shn varDx
-                       $ substProjRanked k var shm varDa
-                       $ substProjRanked k var shn varn1
-                       $ substProjRanked k var shm varm1 ast1) )
-           ( AstVarName $ varNameToAstVarId varDt2
-           , AstVarName $ varNameToAstVarId nvar2
-           , AstVarName $ varNameToAstVarId mvar2
-           , build1VOccurenceUnknownHVectorRefresh
-               k (var, substProjHVector k var shn varDt2
-                       $ substProjHVector k var shn nvar2
-                       $ substProjHVector k var shm mvar2 doms) )
-           (build1VOccurenceUnknown k (var, x0))
-           (astTr $ build1VOccurenceUnknown k (var, as))
-    Ast.AstScan{} ->
-      error "build1V: impossible case of AstScan"
-    Ast.AstScanDer @_ @_ @n2
-                   (nvar, mvar, v)
-                   (varDx, varDa, varn1, varm1, ast1)
-                   (varDt2, nvar2, mvar2, doms) x0 as -> traceRule $
-      let shn = shapeAst x0
-          shm = tailShape $ shapeAst as
-      in astTr
-         $ Ast.AstScanDer
-           ( AstVarName $ varNameToAstVarId nvar
-           , AstVarName $ varNameToAstVarId mvar
-           , build1VOccurenceUnknownRefresh
-               k (var, substProjRanked k var shn nvar
-                       $ substProjRanked k var shm mvar v) )
-           ( AstVarName $ varNameToAstVarId varDx
-           , AstVarName $ varNameToAstVarId varDa
-           , AstVarName $ varNameToAstVarId varn1
-           , AstVarName $ varNameToAstVarId varm1
-           , build1VOccurenceUnknownRefresh
-               k (var, substProjRanked k var shn varDx
-                       $ substProjRanked k var shm varDa
-                       $ substProjRanked k var shn varn1
-                       $ substProjRanked k var shm varm1 ast1) )
-           ( AstVarName $ varNameToAstVarId varDt2
-           , AstVarName $ varNameToAstVarId nvar2
-           , AstVarName $ varNameToAstVarId mvar2
-           , build1VOccurenceUnknownHVectorRefresh
-               k (var, substProjHVector k var shn varDt2
-                       $ substProjHVector k var shn nvar2
-                       $ substProjHVector k var shm mvar2 doms) )
-           (build1VOccurenceUnknown k (var, x0))
-           (astTr $ build1VOccurenceUnknown k (var, as))
 
 -- | The application @build1VIndex k (var, v, ix)@ vectorizes
 -- the term @AstBuild1 k (var, AstIndex v ix)@, where it's unknown whether
@@ -391,8 +327,6 @@ build1VIndex k (var, v0, ix@(_ :. _)) =
               Ast.AstFromVector{} | valueOf @p == (1 :: Int) -> ruleD
               Ast.AstScatter{} -> ruleD
               Ast.AstAppend{} -> ruleD
-              Ast.AstFoldDer{} -> ruleD
-              Ast.AstScanDer{} -> ruleD
               _ -> build1VOccurenceUnknown k (var, v)  -- not a normal form
             else build1VOccurenceUnknown k (var, v)  -- shortcut
        v -> traceRule $
@@ -613,67 +547,6 @@ build1VS (var, v00) =
                 (build1VOccurenceUnknownS (var, u'))
     Ast.AstFwdS{} ->
       error "build1VS: impossible case of AstFwdS"
-    Ast.AstFoldS{} ->
-      error "build1VS: impossible case of AstFoldS"
-    Ast.AstFoldDerS (nvar, mvar, v)
-                    (varDx, varDa, varn1, varm1, ast1)
-                    (varDt2, nvar2, mvar2, doms) x0 as -> traceRule $
-      Ast.AstFoldDerS
-        ( AstVarName $ varNameToAstVarId nvar
-        , AstVarName $ varNameToAstVarId mvar
-        , build1VOccurenceUnknownRefreshS
-            (var, substProjShapedS @k var nvar
-                  $ substProjShapedS @k var mvar v) )
-        ( AstVarName $ varNameToAstVarId varDx
-        , AstVarName $ varNameToAstVarId varDa
-        , AstVarName $ varNameToAstVarId varn1
-        , AstVarName $ varNameToAstVarId varm1
-        , build1VOccurenceUnknownRefreshS
-            (var, substProjShapedS @k var varDx
-                  $ substProjShapedS @k var varDa
-                  $ substProjShapedS @k var varn1
-                  $ substProjShapedS @k var varm1 ast1) )
-        ( AstVarName $ varNameToAstVarId varDt2
-        , AstVarName $ varNameToAstVarId nvar2
-        , AstVarName $ varNameToAstVarId mvar2
-        , build1VOccurenceUnknownHVectorRefresh
-            (valueOf @k)
-            (var, substProjHVectorS @k var varDt2
-                  $ substProjHVectorS @k var nvar2
-                  $ substProjHVectorS @k var mvar2 doms) )
-        (build1VOccurenceUnknownS (var, x0))
-        (astTrS $ build1VOccurenceUnknownS @k (var, as))
-    Ast.AstScanS{} ->
-      error "build1VS: impossible case of AstScanS"
-    Ast.AstScanDerS @_ @_ @shn @shm @k5
-                    (nvar, mvar, v)
-                    (varDx, varDa, varn1, varm1, ast1)
-                    (varDt2, nvar2, mvar2, doms) x0 as -> traceRule $
-      astTrS
-      $ Ast.AstScanDerS
-           ( AstVarName $ varNameToAstVarId nvar
-           , AstVarName $ varNameToAstVarId mvar
-           , build1VOccurenceUnknownRefreshS
-               @k (var, substProjShapedS @k @shn var nvar
-                        $ substProjShapedS @k @shm var mvar v) )
-           ( AstVarName $ varNameToAstVarId varDx
-           , AstVarName $ varNameToAstVarId varDa
-           , AstVarName $ varNameToAstVarId varn1
-           , AstVarName $ varNameToAstVarId varm1
-           , build1VOccurenceUnknownRefreshS
-               @k (var, substProjShapedS @k @shn var varDx
-                        $ substProjShapedS @k @shm var varDa
-                        $ substProjShapedS @k @shn var varn1
-                        $ substProjShapedS @k @shm var varm1 ast1) )
-           ( AstVarName $ varNameToAstVarId varDt2
-           , AstVarName $ varNameToAstVarId nvar2
-           , AstVarName $ varNameToAstVarId mvar2
-           , build1VOccurenceUnknownHVectorRefresh
-               (valueOf @k) (var, substProjHVectorS @k @shn var varDt2
-                                  $ substProjHVectorS @k @shn var nvar2
-                                  $ substProjHVectorS @k @shm var mvar2 doms) )
-           (build1VOccurenceUnknownS @k (var, x0))
-           (astTrS $ build1VOccurenceUnknownS @k (var, as))
 
 build1VIndexS
   :: forall k p sh s r.
@@ -713,8 +586,6 @@ build1VIndexS (var, v0, ix@(_ :$: _)) =
               Ast.AstFromVectorS{} | len == 1 -> ruleD
               Ast.AstScatterS{} -> ruleD
               Ast.AstAppendS{} -> ruleD
-              Ast.AstFoldDerS{} -> ruleD
-              Ast.AstScanDerS{} -> ruleD
               -- TODO: these are not implemented and so need ruleD:
               Ast.AstMinIndexS{} -> ruleD
               Ast.AstMaxIndexS{} -> ruleD

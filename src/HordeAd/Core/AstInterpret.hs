@@ -494,22 +494,6 @@ interpretAst !env = \case
         pars = interpretAstDynamic @ranked env <$> parameters
         d = interpretAstDynamic @ranked env <$> ds
     in rfwd @ranked g parameters0 pars d
-  AstFold @_ @rm @_ @m f x0 as ->
-    let g :: forall f. ADReady f => f r n -> f rm m -> f r n
-        g = interpretLambda2 interpretAst EM.empty f
-          -- Interpretation in empty environment --- makes sense only
-          -- if there are no free variables outside of those listed.
-          -- Note that @f@ is in @PrimalSpan@, but this does not affect
-          -- the interpretation, only what term can be built.
-        x0i = interpretAst @ranked env x0
-        asi = interpretAst @ranked env as
-    in rfold @ranked g x0i asi
-  AstScan @_ @rm @n1 @m f x0 as ->
-    let g :: forall f. ADReady f => f r n1 -> f rm m -> f r n1
-        g = interpretLambda2 interpretAst EM.empty f
-        x0i = interpretAst env x0
-        asi = interpretAst env as
-    in rscan g x0i asi
 
 interpretAstPrimalSRuntimeSpecialized
   :: forall ranked sh r.
@@ -900,22 +884,6 @@ interpretAstS !env = \case
         pars = interpretAstDynamic @ranked env <$> parameters
         d = interpretAstDynamic @ranked env <$> ds
     in sfwd @ranked g parameters0 pars d
-  AstFoldS @_ @rm @_ @shm f x0 as ->
-    let g :: forall f. ADReadyS f => f r sh -> f rm shm -> f r sh
-        g = interpretLambda2S interpretAstS EM.empty f
-          -- Interpretation in empty environment --- makes sense only
-          -- if there are no free variables outside of those listed.
-          -- Note that @f@ is in @PrimalSpan@, but this does not affect
-          -- the interpretation, only what term can be built.
-        x0i = interpretAstS @ranked env x0
-        asi = interpretAstS @ranked env as
-    in sfold @ranked g x0i asi
-  AstScanS @_ @rm @n1 @m f x0 as ->
-    let g :: forall f. ADReadyS f => f r n1 -> f rm m -> f r n1
-        g = interpretLambda2S interpretAstS EM.empty f
-        x0i = interpretAstS env x0
-        asi = interpretAstS env as
-    in sscan g x0i asi
 
 interpretAstDynamic
   :: forall ranked s. (ADReady ranked, AstSpan s)

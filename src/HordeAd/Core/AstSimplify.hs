@@ -235,10 +235,6 @@ simplifyStepNonIndex t = case t of
   Ast.AstDualPart v -> astDualPart v
   Ast.AstD{} -> t
   Ast.AstFwd{} -> t
-  Ast.AstFold{} -> t
-  Ast.AstFoldDer{} -> t
-  Ast.AstScan{} -> t
-  Ast.AstScanDer{} -> t
 
 simplifyStepNonIndexS
   :: ()
@@ -452,11 +448,6 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
   Ast.AstD u u' ->
     shareIx ix $ \ix2 -> Ast.AstD (astIndexRec u ix2) (astIndexRec u' ix2)
   Ast.AstFwd{} -> Ast.AstIndex v0 ix
-  Ast.AstFold{} -> Ast.AstIndex v0 ix  -- normal form
-  Ast.AstFoldDer{} -> Ast.AstIndex v0 ix  -- normal form
-  Ast.AstScan{} -> Ast.AstIndex v0 ix  -- normal form
-  Ast.AstScanDer{} -> Ast.AstIndex v0 ix  -- normal form
-    -- TODO: when index is constant, rewrite to fold of slice
 
 astIndexSOrStepOnly
   :: forall shm shn s r.
@@ -647,10 +638,6 @@ astIndexSOrStepOnly stepOnly v0 ix@((:$:) @in1 i1 (rest1 :: AstIndexS shm1)) =
   Ast.AstDS u u' ->
     shareIxS ix $ \ix2 -> Ast.AstDS (astIndexRec u ix2) (astIndexRec u' ix2)
   Ast.AstFwdS{} -> Ast.AstIndexS v0 ix
-  Ast.AstFoldS{} -> Ast.AstIndexS v0 ix  -- normal form
-  Ast.AstFoldDerS{} -> Ast.AstIndexS v0 ix  -- normal form
-  Ast.AstScanS{} -> Ast.AstIndexS v0 ix  -- normal form
-  Ast.AstScanDerS{} -> Ast.AstIndexS v0 ix  -- normal form
 
 -- TODO: compared to rletIx, it adds many lets, not one, but does not
 -- create other (and non-simplified!) big terms and also uses astIsSmall,
@@ -994,10 +981,6 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
       in Ast.AstD (astGatherRec sh4 u (vars4, ix4))
                   (astGatherRec sh4 u' (varsFresh, ix5))
     Ast.AstFwd{} -> Ast.AstGather sh4 v4 (vars4, ix4)
-    Ast.AstFold{} -> Ast.AstGather sh4 v4 (vars4, ix4)  -- normal form
-    Ast.AstFoldDer{} -> Ast.AstGather sh4 v4 (vars4, ix4)  -- normal form
-    Ast.AstScan{} -> Ast.AstGather sh4 v4 (vars4, ix4)  -- normal form
-    Ast.AstScanDer{} -> Ast.AstGather sh4 v4 (vars4, ix4)  -- normal form
 
 gatherFromNF :: forall m p. (KnownNat m, KnownNat p)
              => AstVarList m -> AstIndex (1 + p) -> Bool
@@ -1793,10 +1776,6 @@ astPrimalPart t = case t of
   Ast.AstD u _ -> u
   Ast.AstCond b a2 a3 -> astCond b (astPrimalPart a2) (astPrimalPart a3)
   Ast.AstFwd{} -> Ast.AstPrimalPart t  -- the other only normal form
-  Ast.AstFold{} -> Ast.AstPrimalPart t
-  Ast.AstFoldDer{} -> Ast.AstPrimalPart t
-  Ast.AstScan{} -> Ast.AstPrimalPart t
-  Ast.AstScanDer{} -> Ast.AstPrimalPart t
 
 astPrimalPartS :: (GoodScalar r, Sh.Shape sh)
                => AstShaped FullSpan r sh -> AstShaped PrimalSpan r sh
@@ -1833,10 +1812,6 @@ astPrimalPartS t = case t of
   Ast.AstDS u _ -> u
   Ast.AstCondS b a2 a3 -> astCondS b (astPrimalPartS a2) (astPrimalPartS a3)
   Ast.AstFwdS{} -> Ast.AstPrimalPartS t  -- the other only normal form
-  Ast.AstFoldS{} -> Ast.AstPrimalPartS t
-  Ast.AstFoldDerS{} -> Ast.AstPrimalPartS t
-  Ast.AstScanS{} -> Ast.AstPrimalPartS t
-  Ast.AstScanDerS{} -> Ast.AstPrimalPartS t
 
 -- Note how this can't be pushed down, say, multiplication, because it
 -- multiplies the dual part by the primal part. Addition is fine, though.
@@ -1872,10 +1847,6 @@ astDualPart t = case t of
   Ast.AstD _ u' -> u'
   Ast.AstCond b a2 a3 -> astCond b (astDualPart a2) (astDualPart a3)
   Ast.AstFwd{} -> Ast.AstDualPart t
-  Ast.AstFold{} -> Ast.AstDualPart t
-  Ast.AstFoldDer{} -> Ast.AstDualPart t
-  Ast.AstScan{} -> Ast.AstDualPart t
-  Ast.AstScanDer{} -> Ast.AstDualPart t
 
 astDualPartS :: (GoodScalar r, Sh.Shape sh)
              => AstShaped FullSpan r sh -> AstShaped DualSpan r sh
@@ -1909,10 +1880,6 @@ astDualPartS t = case t of
   Ast.AstDS _ u' -> u'
   Ast.AstCondS b a2 a3 -> astCondS b (astDualPartS a2) (astDualPartS a3)
   Ast.AstFwdS{} -> Ast.AstDualPartS t
-  Ast.AstFoldS{} -> Ast.AstDualPartS t
-  Ast.AstFoldDerS{} -> Ast.AstDualPartS t
-  Ast.AstScanS{} -> Ast.AstDualPartS t
-  Ast.AstScanDerS{} -> Ast.AstDualPartS t
 
 -- Inlining doesn't work for this let constructor, because it has many
 -- variables, so we try to reduce it to another for which it works.
@@ -2188,22 +2155,6 @@ simplifyAst t = case t of
   Ast.AstFwd (var, v) l ds -> Ast.AstFwd (var, simplifyAst v)
                                          (V.map simplifyAstDynamic l)
                                          (V.map simplifyAstDynamic ds)
-  Ast.AstFold (nvar, mvar, v) x0 as ->
-    Ast.AstFold (nvar, mvar, simplifyAst v) (simplifyAst x0) (simplifyAst as)
-  Ast.AstFoldDer (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
-                                 (varDt2, nvar2, mvar2, doms) x0 as ->
-    Ast.AstFoldDer (nvar, mvar, simplifyAst v)
-                   (varDx, varDa, varn1, varm1, simplifyAst ast1)
-                   (varDt2, nvar2, mvar2, simplifyAstHVector doms)
-                   (simplifyAst x0) (simplifyAst as)
-  Ast.AstScan (nvar, mvar, v) x0 as ->
-    Ast.AstScan (nvar, mvar, simplifyAst v) (simplifyAst x0) (simplifyAst as)
-  Ast.AstScanDer (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
-                                 (varDt2, nvar2, mvar2, doms) x0 as ->
-    Ast.AstScanDer (nvar, mvar, simplifyAst v)
-                   (varDx, varDa, varn1, varm1, simplifyAst ast1)
-                   (varDt2, nvar2, mvar2, simplifyAstHVector doms)
-                   (simplifyAst x0) (simplifyAst as)
 
 simplifyAstS
   :: (Sh.Shape sh, GoodScalar r, AstSpan s)
@@ -2255,24 +2206,6 @@ simplifyAstS t = case t of
   Ast.AstFwdS (var, v) l ds -> Ast.AstFwdS (var, simplifyAstS v)
                                            (V.map simplifyAstDynamic l)
                                            (V.map simplifyAstDynamic ds)
-  Ast.AstFoldS (nvar, mvar, v) x0 as ->
-    Ast.AstFoldS (nvar, mvar, simplifyAstS v)
-                 (simplifyAstS x0) (simplifyAstS as)
-  Ast.AstFoldDerS (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
-                                  (varDt2, nvar2, mvar2, doms) x0 as ->
-    Ast.AstFoldDerS (nvar, mvar, simplifyAstS v)
-                    (varDx, varDa, varn1, varm1, simplifyAstS ast1)
-                    (varDt2, nvar2, mvar2, simplifyAstHVector doms)
-                    (simplifyAstS x0) (simplifyAstS as)
-  Ast.AstScanS (nvar, mvar, v) x0 as ->
-    Ast.AstScanS (nvar, mvar, simplifyAstS v) (simplifyAstS x0)
-                 (simplifyAstS as)
-  Ast.AstScanDerS (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
-                                  (varDt2, nvar2, mvar2, doms) x0 as ->
-    Ast.AstScanDerS (nvar, mvar, simplifyAstS v)
-                    (varDx, varDa, varn1, varm1, simplifyAstS ast1)
-                    (varDt2, nvar2, mvar2, simplifyAstHVector doms)
-                    (simplifyAstS x0) (simplifyAstS as)
 
 simplifyAstDynamic
   :: AstSpan s
@@ -2835,24 +2768,6 @@ substitute1Ast i var v1 = case v1 of
     in case (marg, md) of
       (Nothing, Nothing) -> Nothing
       _ -> Just $ Ast.AstFwd f (fromMaybe args marg) (fromMaybe ds md)
-  Ast.AstFold f x0 as ->
-    case (substitute1Ast i var x0, substitute1Ast i var as) of
-      (Nothing, Nothing) -> Nothing
-      (mx0, mas) -> Just $ Ast.AstFold f (fromMaybe x0 mx0) (fromMaybe as mas)
-  Ast.AstFoldDer f df dr x0 as ->
-    case (substitute1Ast i var x0, substitute1Ast i var as) of
-      (Nothing, Nothing) -> Nothing
-      (mx0, mas) ->
-        Just $ Ast.AstFoldDer f df dr (fromMaybe x0 mx0) (fromMaybe as mas)
-  Ast.AstScan f x0 as ->
-    case (substitute1Ast i var x0, substitute1Ast i var as) of
-      (Nothing, Nothing) -> Nothing
-      (mx0, mas) -> Just $ Ast.AstScan f (fromMaybe x0 mx0) (fromMaybe as mas)
-  Ast.AstScanDer f df dr x0 as ->
-    case (substitute1Ast i var x0, substitute1Ast i var as) of
-      (Nothing, Nothing) -> Nothing
-      (mx0, mas) ->
-        Just $ Ast.AstScanDer f df dr (fromMaybe x0 mx0) (fromMaybe as mas)
 
 substitute1AstIndex
   :: (GoodScalar r2, AstSpan s2)
@@ -3006,24 +2921,6 @@ substitute1AstS i var = \case
       (Nothing, Nothing) -> Nothing
       _ ->
         Just $ Ast.AstFwdS (vars, v) (fromMaybe args marg) (fromMaybe ds md)
-  Ast.AstFoldS f x0 as ->
-    case (substitute1AstS i var x0, substitute1AstS i var as) of
-      (Nothing, Nothing) -> Nothing
-      (mx0, mas) -> Just $ Ast.AstFoldS f (fromMaybe x0 mx0) (fromMaybe as mas)
-  Ast.AstFoldDerS f df dr x0 as ->
-    case (substitute1AstS i var x0, substitute1AstS i var as) of
-      (Nothing, Nothing) -> Nothing
-      (mx0, mas) ->
-        Just $ Ast.AstFoldDerS f df dr (fromMaybe x0 mx0) (fromMaybe as mas)
-  Ast.AstScanS f x0 as ->
-    case (substitute1AstS i var x0, substitute1AstS i var as) of
-      (Nothing, Nothing) -> Nothing
-      (mx0, mas) -> Just $ Ast.AstScanS f (fromMaybe x0 mx0) (fromMaybe as mas)
-  Ast.AstScanDerS f df dr x0 as ->
-    case (substitute1AstS i var x0, substitute1AstS i var as) of
-      (Nothing, Nothing) -> Nothing
-      (mx0, mas) ->
-        Just $ Ast.AstScanDerS f df dr (fromMaybe x0 mx0) (fromMaybe as mas)
 
 substitute1AstIndexS
   :: (GoodScalar r2, AstSpan s2)

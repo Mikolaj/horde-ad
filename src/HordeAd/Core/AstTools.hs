@@ -97,10 +97,6 @@ shapeAst = \case
   AstDualPart a -> shapeAst a
   AstD u _ -> shapeAst u
   AstFwd (_var, v) _l _ds -> shapeAst v
-  AstFold _f x0 _as -> shapeAst x0
-  AstFoldDer _f _df _rf x0 _as -> shapeAst x0
-  AstScan _f x0 as -> lengthAst as + 1 :$ shapeAst x0
-  AstScanDer _f _df _rf x0 as -> lengthAst as + 1 :$ shapeAst x0
 
 -- Length of the outermost dimension.
 lengthAst :: (KnownNat n, GoodScalar r) => AstRanked s r (1 + n) -> Int
@@ -190,10 +186,6 @@ varInAst var = \case
   AstFwd _f l ds ->  -- _f has no non-bound variables
     let f = varInAstDynamic var
     in any f l || any f ds
-  AstFold _f x0 as -> varInAst var x0 || varInAst var as
-  AstFoldDer _f _df _rf x0 as -> varInAst var x0 || varInAst var as
-  AstScan _f x0 as -> varInAst var x0 || varInAst var as
-  AstScanDer _f _df _rf x0 as -> varInAst var x0 || varInAst var as
 
 varInIndex :: AstVarId -> AstIndex n -> Bool
 varInIndex var = any (varInAst var)
@@ -241,10 +233,6 @@ varInAstS var = \case
   AstFwdS _f l ds ->  -- _f has no non-bound variables
     let f = varInAstDynamic var
     in any f l || any f ds
-  AstFoldS _f x0 as -> varInAstS var x0 || varInAstS var as
-  AstFoldDerS _f _df _rf x0 as -> varInAstS var x0 || varInAstS var as
-  AstScanS _f x0 as -> varInAstS var x0 || varInAstS var as
-  AstScanDerS _f _df _rf x0 as -> varInAstS var x0 || varInAstS var as
 
 varInIndexS :: AstVarId -> AstIndexS sh -> Bool
 varInIndexS var = any (varInAst var)
