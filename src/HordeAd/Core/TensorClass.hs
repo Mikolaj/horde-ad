@@ -12,7 +12,7 @@ module HordeAd.Core.TensorClass
   ( -- * Re-exports
     ShapeInt, ShapeSh
     -- * The tensor classes
-  , RankedTensor(..), ShapedTensor(..), HVectorTensor(..), HFun(..), HFunOf
+  , RankedTensor(..), ShapedTensor(..), HVectorTensor(..), HFun(..)
   , rfromD, sfromD
     -- * The related classes and constraints
   , ADReady, ADReadyBoth, ADReadyR, ADReadyS
@@ -969,22 +969,25 @@ class HVectorTensor (ranked :: RankedTensorType)
     -> VoidHVector  -- ^ accShs, shapes of acc
     -> VoidHVector  -- ^ bShs, shapes of b
     -> VoidHVector  -- ^ eShs, shapes of e
-    -> HFunOf ranked
-    --    HVector f  -- ^ acc, accumulator :: accShs
-    --    HVector f  -- ^ e, element of es :: eShs
-    -- -> HVectorOf f)  -- ^ (x, b) :: (accShs, bShs)
-    -> HFunOf ranked
-    --    HVector f  -- ^ dacc :: accShs
-    --    HVector f  -- ^ de :: eShs
-    --    HVector f  -- ^ acc :: accShs
-    --    HVector f  -- ^ e :: eShs
-    -- -> HVectorOf f)  -- ^ (dx, db) :: (accShs, bShs)
-    -> HFunOf ranked
-    --    HVector f  -- ^ dx :: accShs
-    --    HVector f  -- ^ db :: bShs
-    --    HVector f  -- ^ acc :: accShs
-    --    HVector f  -- ^ e :: eShs
-    -- -> HVectorOf f)  -- ^ (dacc, de) :: (accShs, eShs)
+    -> HFun
+    -- (forall f. ADReady f =>
+    --  [ HVector f      -- ^ acc, accumulator :: accShs
+    --  , HVector f ]    -- ^ e, element of es :: eShs
+    --  -> HVectorOf f)  -- ^ (x, b) :: (accShs, bShs)
+    -> HFun
+    -- (forall f. ADReady f =>
+    --  [ HVector f      -- ^ dacc :: accShs
+    --  , HVector f      -- ^ de :: eShs
+    --  , HVector f      -- ^ acc :: accShs
+    --  , HVector f ]    -- ^ e :: eShs
+    --  -> HVectorOf f)  -- ^ (dx, db) :: (accShs, bShs)
+    -> HFun
+    -- (forall f. ADReady f =>
+    --  [ HVector f      -- ^ dx :: accShs
+    --  , HVector f      -- ^ db :: bShs
+    --  , HVector f      -- ^ acc :: accShs
+    --  , HVector f ]    -- ^ e :: eShs
+    --  -> HVectorOf f)  -- ^ (dacc, de) :: (accShs, eShs)
     -> HVector ranked  -- ^ acc0 :: accShs
     -> HVector ranked  -- ^ es :: k ': eShs
     -> HVectorOf ranked  -- ^ (x, bs) :: (accShs, k ': bShs)
@@ -1004,9 +1007,9 @@ class HVectorTensor (ranked :: RankedTensorType)
     -> VoidHVector
     -> VoidHVector
     -> VoidHVector
-    -> HFunOf ranked
-    -> HFunOf ranked
-    -> HFunOf ranked
+    -> HFun
+    -> HFun
+    -> HFun
     -> HVector ranked
     -> HVector ranked
     -> HVectorOf ranked

@@ -57,10 +57,9 @@ data AstEnvElem (ranked :: RankedTensorType) where
                    => ranked r n -> AstEnvElem ranked
   AstEnvElemShaped :: (GoodScalar r, Sh.Shape sh)
                    => ShapedOf ranked r sh -> AstEnvElem ranked
-  AstEnvElemHFun :: HFunOf ranked -> AstEnvElem ranked
+  AstEnvElemHFun :: HFun -> AstEnvElem ranked
 
-deriving instance ( CRanked ranked Show, CShaped (ShapedOf ranked) Show
-                  , Show (HFunOf ranked) )
+deriving instance (CRanked ranked Show, CShaped (ShapedOf ranked) Show)
                   => Show (AstEnvElem ranked)
 
 -- An informal invariant: if s is FullSpan, ranked is dual numbers,
@@ -88,7 +87,7 @@ extendEnvHVector :: forall ranked. ADReady ranked
 extendEnvHVector vars !pars !env = assert (length vars == V.length pars) $
   foldr extendEnvD env $ zip vars (V.toList pars)
 
-extendEnvHFun :: AstVarId -> HFunOf ranked
+extendEnvHFun :: AstVarId -> HFun
               -> AstEnv ranked -> AstEnv ranked
 extendEnvHFun !varId !t !env =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvHFun: duplicate " ++ show varId)

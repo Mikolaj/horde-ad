@@ -1069,7 +1069,7 @@ interpretAstHVector !env = \case
 
 interpretAstHFun
   :: forall ranked s. AstSpan s
-  => AstEnv ranked -> AstHFun s -> HFunOf ranked
+  => AstEnv ranked -> AstHFun s -> HFun
 interpretAstHFun !env = \case
   AstLambda vvarsl -> interpretLambdaHsH interpretAstHVector vvarsl
   AstVarHFun _shss _shs var -> case EM.lookup var env of
