@@ -234,7 +234,6 @@ simplifyStepNonIndex t = case t of
   Ast.AstPrimalPart v -> astPrimalPart v  -- has to be done sooner or later
   Ast.AstDualPart v -> astDualPart v
   Ast.AstD{} -> t
-  Ast.AstFwd{} -> t
 
 simplifyStepNonIndexS
   :: ()
@@ -447,7 +446,6 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
   Ast.AstDualPart{} -> Ast.AstIndex v0 ix
   Ast.AstD u u' ->
     shareIx ix $ \ix2 -> Ast.AstD (astIndexRec u ix2) (astIndexRec u' ix2)
-  Ast.AstFwd{} -> Ast.AstIndex v0 ix
 
 astIndexSOrStepOnly
   :: forall shm shn s r.
@@ -637,7 +635,6 @@ astIndexSOrStepOnly stepOnly v0 ix@((:$:) @in1 i1 (rest1 :: AstIndexS shm1)) =
   Ast.AstDualPartS{} -> Ast.AstIndexS v0 ix
   Ast.AstDS u u' ->
     shareIxS ix $ \ix2 -> Ast.AstDS (astIndexRec u ix2) (astIndexRec u' ix2)
-  Ast.AstFwdS{} -> Ast.AstIndexS v0 ix
 
 -- TODO: compared to rletIx, it adds many lets, not one, but does not
 -- create other (and non-simplified!) big terms and also uses astIsSmall,
@@ -980,7 +977,6 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
           ix5 = fmap subst ix4
       in Ast.AstD (astGatherRec sh4 u (vars4, ix4))
                   (astGatherRec sh4 u' (varsFresh, ix5))
-    Ast.AstFwd{} -> Ast.AstGather sh4 v4 (vars4, ix4)
 
 gatherFromNF :: forall m p. (KnownNat m, KnownNat p)
              => AstVarList m -> AstIndex (1 + p) -> Bool
@@ -1775,7 +1771,6 @@ astPrimalPart t = case t of
   Ast.AstConstant v -> v
   Ast.AstD u _ -> u
   Ast.AstCond b a2 a3 -> astCond b (astPrimalPart a2) (astPrimalPart a3)
-  Ast.AstFwd{} -> Ast.AstPrimalPart t  -- the other only normal form
 
 astPrimalPartS :: (GoodScalar r, Sh.Shape sh)
                => AstShaped FullSpan r sh -> AstShaped PrimalSpan r sh
@@ -1811,7 +1806,6 @@ astPrimalPartS t = case t of
   Ast.AstConstantS v -> v
   Ast.AstDS u _ -> u
   Ast.AstCondS b a2 a3 -> astCondS b (astPrimalPartS a2) (astPrimalPartS a3)
-  Ast.AstFwdS{} -> Ast.AstPrimalPartS t  -- the other only normal form
 
 -- Note how this can't be pushed down, say, multiplication, because it
 -- multiplies the dual part by the primal part. Addition is fine, though.
@@ -1846,7 +1840,6 @@ astDualPart t = case t of
   Ast.AstConstant{}  -> Ast.AstDualPart t  -- this equals nil (not primal 0)
   Ast.AstD _ u' -> u'
   Ast.AstCond b a2 a3 -> astCond b (astDualPart a2) (astDualPart a3)
-  Ast.AstFwd{} -> Ast.AstDualPart t
 
 astDualPartS :: (GoodScalar r, Sh.Shape sh)
              => AstShaped FullSpan r sh -> AstShaped DualSpan r sh
@@ -1879,7 +1872,6 @@ astDualPartS t = case t of
   Ast.AstConstantS{}  -> Ast.AstDualPartS t  -- this equals nil (not primal 0)
   Ast.AstDS _ u' -> u'
   Ast.AstCondS b a2 a3 -> astCondS b (astDualPartS a2) (astDualPartS a3)
-  Ast.AstFwdS{} -> Ast.AstDualPartS t
 
 -- Inlining doesn't work for this let constructor, because it has many
 -- variables, so we try to reduce it to another for which it works.
@@ -2152,9 +2144,6 @@ simplifyAst t = case t of
   Ast.AstPrimalPart v -> astPrimalPart (simplifyAst v)
   Ast.AstDualPart v -> astDualPart (simplifyAst v)
   Ast.AstD u u' -> Ast.AstD (simplifyAst u) (simplifyAst u')
-  Ast.AstFwd (var, v) l ds -> Ast.AstFwd (var, simplifyAst v)
-                                         (V.map simplifyAstDynamic l)
-                                         (V.map simplifyAstDynamic ds)
 
 simplifyAstS
   :: (Sh.Shape sh, GoodScalar r, AstSpan s)
@@ -2203,9 +2192,6 @@ simplifyAstS t = case t of
   Ast.AstPrimalPartS v -> astPrimalPartS (simplifyAstS v)
   Ast.AstDualPartS v -> astDualPartS (simplifyAstS v)
   Ast.AstDS u u' -> Ast.AstDS (simplifyAstS u) (simplifyAstS u')
-  Ast.AstFwdS (var, v) l ds -> Ast.AstFwdS (var, simplifyAstS v)
-                                           (V.map simplifyAstDynamic l)
-                                           (V.map simplifyAstDynamic ds)
 
 simplifyAstDynamic
   :: AstSpan s
@@ -2231,16 +2217,6 @@ simplifyAstHVector = \case
     astLetInHVectorS var (simplifyAstS u) (simplifyAstHVector v)
   Ast.AstBuildHVector1 k (var, v) ->
     Ast.AstBuildHVector1 k (var, simplifyAstHVector v)
-  Ast.AstRev (vars, v) l -> Ast.AstRev (vars, simplifyAst v)
-                                       (V.map simplifyAstDynamic l)
-  Ast.AstRevDt (vars, v) l dt -> Ast.AstRevDt (vars, simplifyAst v)
-                                              (V.map simplifyAstDynamic l)
-                                              (simplifyAst dt)
-  Ast.AstRevS (vars, v) l -> Ast.AstRevS (vars, simplifyAstS v)
-                                         (V.map simplifyAstDynamic l)
-  Ast.AstRevDtS (vars, v) l dt -> Ast.AstRevDtS (vars, simplifyAstS v)
-                                                (V.map simplifyAstDynamic l)
-                                                (simplifyAstS dt)
   Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc0 es ->
     Ast.AstMapAccumRDer k accShs bShs eShs
                         (simplifyAstHFun f)
@@ -2745,19 +2721,6 @@ substitute1Ast i var v1 = case v1 of
     case (substitute1Ast i var x, substitute1Ast i var y) of
       (Nothing, Nothing) -> Nothing
       (mx, my) -> Just $ Ast.AstD (fromMaybe x mx) (fromMaybe y my)
-  Ast.AstFwd f args ds ->
-    -- No other free variables in v and var is not among vars.
-    let margs = V.map (substitute1AstDynamic i var) args
-        marg = if V.any isJust margs
-               then Just $ V.zipWith fromMaybe args margs
-               else Nothing
-        mds = V.map (substitute1AstDynamic i var) ds
-        md = if V.any isJust mds
-             then Just $ V.zipWith fromMaybe ds mds
-             else Nothing
-    in case (marg, md) of
-      (Nothing, Nothing) -> Nothing
-      _ -> Just $ Ast.AstFwd f (fromMaybe args marg) (fromMaybe ds md)
 
 substitute1AstIndex
   :: (GoodScalar r2, AstSpan s2)
@@ -2897,20 +2860,6 @@ substitute1AstS i var = \case
     case (substitute1AstS i var x, substitute1AstS i var y) of
       (Nothing, Nothing) -> Nothing
       (mx, my) -> Just $ Ast.AstDS (fromMaybe x mx) (fromMaybe y my)
-  Ast.AstFwdS (vars, v) args ds ->
-    -- No other free variables in v and var is not among vars.
-    let margs = V.map (substitute1AstDynamic i var) args
-        marg = if V.any isJust margs
-               then Just $ V.zipWith fromMaybe args margs
-               else Nothing
-        mds = V.map (substitute1AstDynamic i var) ds
-        md = if V.any isJust mds
-             then Just $ V.zipWith fromMaybe ds mds
-             else Nothing
-    in case (marg, md) of
-      (Nothing, Nothing) -> Nothing
-      _ ->
-        Just $ Ast.AstFwdS (vars, v) (fromMaybe args marg) (fromMaybe ds md)
 
 substitute1AstIndexS
   :: (GoodScalar r2, AstSpan s2)
@@ -2972,41 +2921,6 @@ substitute1AstHVector i var = \case
       (mu, mv) -> Just $ astLetInHVectorS var2 (fromMaybe u mu) (fromMaybe v mv)
   Ast.AstBuildHVector1 k (var2, v) ->
     Ast.AstBuildHVector1 k . (var2,) <$> substitute1AstHVector i var v
-  Ast.AstRev (vars, v) args ->
-    -- No other free variables in v and var is not among vars.
-    Ast.AstRev (vars, v) <$>
-      let margs = V.map (substitute1AstDynamic i var) args
-      in if V.any isJust margs
-         then Just $ V.zipWith fromMaybe args margs
-         else Nothing
-  Ast.AstRevDt (vars, v) args dt ->
-    -- No other free variables in v and var is not among vars.
-    let margs = V.map (substitute1AstDynamic i var) args
-        marg = if V.any isJust margs
-               then Just $ V.zipWith fromMaybe args margs
-               else Nothing
-        md = substitute1Ast i var dt
-    in case (marg, md) of
-      (Nothing, Nothing) -> Nothing
-      _ -> Just $ Ast.AstRevDt (vars, v) (fromMaybe args marg) (fromMaybe dt md)
-  Ast.AstRevS (vars, v) args ->
-    -- No other free variables in v and var is not among vars.
-    Ast.AstRevS (vars, v) <$>
-      let margs = V.map (substitute1AstDynamic i var) args
-      in if V.any isJust margs
-         then Just $ V.zipWith fromMaybe args margs
-         else Nothing
-  Ast.AstRevDtS (vars, v) args dt ->
-    -- No other free variables in v and var is not among vars.
-    let margs = V.map (substitute1AstDynamic i var) args
-        marg = if V.any isJust margs
-               then Just $ V.zipWith fromMaybe args margs
-               else Nothing
-        md = substitute1AstS i var dt
-    in case (marg, md) of
-      (Nothing, Nothing) -> Nothing
-      _ ->
-        Just $ Ast.AstRevDtS (vars, v) (fromMaybe args marg) (fromMaybe dt md)
   Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc0 es ->
     case ( substitute1AstHFun i var f, substitute1AstHFun i var df
          , substitute1AstHFun i var rf, substitute1HVector i var acc0
@@ -3037,7 +2951,7 @@ substitute1AstHFun
   => SubstitutionPayload s2 r2 -> AstVarId -> AstHFun s
   -> Maybe (AstHFun s)
 substitute1AstHFun i var = \case
-  Ast.AstLambda{} -> Nothing
+  Ast.AstLambda{} -> Nothing  -- no outside free variables
   Ast.AstVarHFun _shss _shs var2 ->
     if fromEnum var == fromEnum var2
     then case i of

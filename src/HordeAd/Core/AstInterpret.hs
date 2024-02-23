@@ -485,15 +485,6 @@ interpretAst !env = \case
     let t1 = interpretAstPrimal env u
         t2 = interpretAstDual env u'
     in rD t1 t2
-  AstFwd (vars, ast) parameters ds ->
-    let g :: forall f. ADReady f => HVector f -> f r n
-        g = interpretLambdaHVector interpretAst EM.empty (vars, ast)
-          -- interpretation in empty environment makes sense only
-          -- if there are no free variables outside of those listed
-        parameters0 = voidFromVars vars
-        pars = interpretAstDynamic @ranked env <$> parameters
-        d = interpretAstDynamic @ranked env <$> ds
-    in rfwd @ranked g parameters0 pars d
 
 interpretAstPrimalSRuntimeSpecialized
   :: forall ranked sh r.
@@ -875,15 +866,6 @@ interpretAstS !env = \case
     let t1 = interpretAstPrimalS env u
         t2 = interpretAstDualS env u'
     in sD t1 t2
-  AstFwdS (vars, ast) parameters ds ->
-    let g :: forall f. ADReadyS f => HVector (RankedOf f) -> f r sh
-        g = interpretLambdaHVectorS interpretAstS EM.empty (vars, ast)
-          -- interpretation in empty environment makes sense only
-          -- if there are no free variables outside of those listed
-        parameters0 = voidFromVars vars
-        pars = interpretAstDynamic @ranked env <$> parameters
-        d = interpretAstDynamic @ranked env <$> ds
-    in sfwd @ranked g parameters0 pars d
 
 interpretAstDynamic
   :: forall ranked s. (ADReady ranked, AstSpan s)
@@ -931,35 +913,6 @@ interpretAstHVector !env = \case
     in sletInHVector t (\w -> interpretAstHVector (env2 w) v)
   AstBuildHVector1 k (var, v) ->
     dbuild1 @ranked k (interpretLambdaIHVector interpretAstHVector env (var, v))
-  AstRev @r @n (vars, ast) parameters ->
-    let g :: forall f. ADReady f => HVector f -> f r n
-        g = interpretLambdaHVector interpretAst EM.empty (vars, ast)
-          -- interpretation in empty environment; makes sense only
-          -- if there are no free variables outside of those listed;
-          -- the same below
-        parameters0 = voidFromVars vars
-        pars = interpretAstDynamic @ranked env <$> parameters
-    in rrev @ranked g parameters0 pars
-  AstRevDt @r @n (vars, ast) parameters dt ->
-    let g :: forall f. ADReady f => HVector f -> f r n
-        g = interpretLambdaHVector interpretAst EM.empty (vars, ast)
-        parameters0 = voidFromVars vars
-        pars = interpretAstDynamic @ranked env <$> parameters
-        d = interpretAst env dt
-    in rrevDt @ranked g parameters0 pars d
-  AstRevS @r @sh (vars, ast) parameters ->
-    let g :: forall f. ADReadyS f => HVector (RankedOf f) -> f r sh
-        g = interpretLambdaHVectorS interpretAstS EM.empty (vars, ast)
-        parameters0 = voidFromVars vars
-        pars = interpretAstDynamic @ranked env <$> parameters
-    in srev @ranked g parameters0 pars
-  AstRevDtS @r @sh (vars, ast) parameters dt ->
-    let f :: forall f. ADReadyS f => HVector (RankedOf f) -> f r sh
-        f = interpretLambdaHVectorS interpretAstS EM.empty (vars, ast)
-        parameters0 = voidFromVars vars
-        pars = interpretAstDynamic @ranked env <$> parameters
-        d = interpretAstS env dt
-    in srevDt @ranked f parameters0 pars d
   AstMapAccumRDer k accShs bShs eShs f0 df0 rf0 acc0 es ->
     let f = interpretAstHFun env f0
         df = interpretAstHFun env df0
@@ -982,6 +935,8 @@ interpretAstHFun !env = \case
   AstLambda ~(vvars, l) ->
     dlambda @ranked (map voidFromVars vvars)
     $ interpretLambdaHsH interpretAstHVector (vvars, l)
+      -- interpretation in empty environment; makes sense here, because
+      -- there are no free variables outside of those listed
   AstVarHFun _shss _shs var -> case EM.lookup var env of
     Just (AstEnvElemHFun f) -> f
     _ -> error $ "interpretAstHFun: unknown variable " ++ show var

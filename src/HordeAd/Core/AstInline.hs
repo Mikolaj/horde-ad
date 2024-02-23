@@ -219,11 +219,6 @@ inlineAst memo v0 = case v0 of
     let (memo1, t1) = inlineAst memo u
         (memo2, t2) = inlineAst memo1 u'
     in (memo2, Ast.AstD t1 t2)
-  Ast.AstFwd (vars, v) l ds ->
-    let (_, v2) = inlineAst EM.empty v
-        (memo1, l1) = mapAccumR inlineAstDynamic memo l
-        (memo2, ds2) = mapAccumR inlineAstDynamic memo1 ds
-    in (memo2, Ast.AstFwd (vars, v2) l1 ds2)
 
 inlineAstS
   :: forall sh s r. (GoodScalar r, Sh.Shape sh, AstSpan s)
@@ -358,11 +353,6 @@ inlineAstS memo v0 = case v0 of
     let (memo1, t1) = inlineAstS memo u
         (memo2, t2) = inlineAstS memo1 u'
     in (memo2, Ast.AstDS t1 t2)
-  Ast.AstFwdS (vars, v) l ds ->
-    let (_, v2) = inlineAstS EM.empty v
-        (memo1, l1) = mapAccumR inlineAstDynamic memo l
-        (memo2, ds2) = mapAccumR inlineAstDynamic memo1 ds
-    in (memo2, Ast.AstFwdS (vars, v2) l1 ds2)
 
 inlineAstDynamic
   :: AstSpan s
@@ -431,24 +421,6 @@ inlineAstHVector memo v0 = case v0 of
     let (memoV0, v2) = inlineAstHVector EM.empty v
         memo1 = EM.unionWith (\c1 c0 -> c1 + k * c0) memo memoV0
     in (memo1, Ast.AstBuildHVector1 k (var, v2))
-  Ast.AstRev (vars, v) l ->
-    -- No other free variables in v, so no outside lets can reach there,
-    -- so we don't need to pass the information from v upwards. Same below.
-    let (_, v2) = inlineAst EM.empty v
-    in second (Ast.AstRev (vars, v2)) (mapAccumR inlineAstDynamic memo l)
-  Ast.AstRevDt (vars, v) l dt ->
-    let (_, v2) = inlineAst EM.empty v
-        (memo1, l1) = mapAccumR inlineAstDynamic memo l
-        (memo2, dt2) = inlineAst memo1 dt
-    in (memo2, Ast.AstRevDt (vars, v2) l1 dt2)
-  Ast.AstRevS (vars, v) l ->
-    let (_, v2) = inlineAstS EM.empty v
-    in second (Ast.AstRevS (vars, v2)) (mapAccumR inlineAstDynamic memo l)
-  Ast.AstRevDtS (vars, v) l dt ->
-    let (_, v2) = inlineAstS EM.empty v
-        (memo1, l1) = mapAccumR inlineAstDynamic memo l
-        (memo2, dt2) = inlineAstS memo1 dt
-    in (memo2, Ast.AstRevDtS (vars, v2) l1 dt2)
   Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc0 es ->
     let (memo1, f2) = inlineAstHFun memo f
         (memo2, df2) = inlineAstHFun memo1 df
@@ -469,8 +441,9 @@ inlineAstHFun
   => AstMemo -> AstHFun s -> (AstMemo, AstHFun s)
 inlineAstHFun memo v0 = case v0 of
   Ast.AstLambda ~(vvars, l) ->
+    -- No other free variables in l, so no outside lets can reach there,
+    -- so we don't need to pass the information from v upwards.
     (memo, Ast.AstLambda (vvars, snd $ inlineAstHVector EM.empty l))
-      -- no outside free variables
   Ast.AstVarHFun _shss _shs var ->
     let f Nothing = Just 1
         f (Just count) = Just $ succ count
@@ -606,11 +579,6 @@ unletAst env t = case t of
   Ast.AstPrimalPart v -> Ast.AstPrimalPart (unletAst env v)
   Ast.AstDualPart v -> Ast.AstDualPart (unletAst env v)
   Ast.AstD u u' -> Ast.AstD (unletAst env u) (unletAst env u')
-  Ast.AstFwd (vars, v) l ds ->
-    -- No other free variables in v, so no outside lets can reach there.
-    Ast.AstFwd (vars, unletAst (emptyUnletEnv emptyADShare) v)
-               (V.map (unletAstDynamic env) l)
-               (V.map (unletAstDynamic env) ds)
 
 unletAstS
   :: (GoodScalar r, Sh.Shape sh, AstSpan s)
@@ -688,11 +656,6 @@ unletAstS env t = case t of
   Ast.AstPrimalPartS v -> Ast.AstPrimalPartS (unletAstS env v)
   Ast.AstDualPartS v -> Ast.AstDualPartS (unletAstS env v)
   Ast.AstDS u u' -> Ast.AstDS (unletAstS env u) (unletAstS env u')
-  Ast.AstFwdS (vars, v) l ds ->
-    -- No other free variables in v, so no outside lets can reach there.
-    Ast.AstFwdS (vars, unletAstS (emptyUnletEnv emptyADShare) v)
-                (V.map (unletAstDynamic env) l)
-                (V.map (unletAstDynamic env) ds)
 
 unletAstDynamic
   :: AstSpan s
@@ -738,22 +701,6 @@ unletAstHVector env = \case
                                         (unletAstHVector env2 v)
   Ast.AstBuildHVector1 k (var, v) ->
     Ast.AstBuildHVector1 k (var, unletAstHVector env v)
-  Ast.AstRev (vars, v) l ->
-    -- No other free variables in v, so no outside lets can reach there.
-    -- The same below.
-    Ast.AstRev (vars, unletAst (emptyUnletEnv emptyADShare) v)
-               (V.map (unletAstDynamic env) l)
-  Ast.AstRevDt (vars, v) l dt ->
-    Ast.AstRevDt (vars, unletAst (emptyUnletEnv emptyADShare) v)
-                 (V.map (unletAstDynamic env) l)
-                 (unletAst env dt)
-  Ast.AstRevS (vars, v) l ->
-    Ast.AstRevS (vars, unletAstS (emptyUnletEnv emptyADShare) v)
-                (V.map (unletAstDynamic env) l)
-  Ast.AstRevDtS (vars, v) l dt ->
-    Ast.AstRevDtS (vars, unletAstS (emptyUnletEnv emptyADShare) v)
-                  (V.map (unletAstDynamic env) l)
-                  (unletAstS env dt)
   Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc0 es ->
     Ast.AstMapAccumRDer k accShs bShs eShs f df rf
                         (V.map (unletAstDynamic env) acc0)
@@ -768,7 +715,7 @@ unletAstHFun
 unletAstHFun = \case
   Ast.AstLambda ~(vvars, l) ->
     Ast.AstLambda (vvars, unletAstHVector (emptyUnletEnv emptyADShare) l)
-      -- no outside free variables
+      -- No other free variables in l, so no outside lets can reach there.
   t@(Ast.AstVarHFun{}) -> t
 
 unletAstBool :: UnletEnv -> AstBool -> AstBool

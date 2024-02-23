@@ -96,7 +96,6 @@ shapeAst = \case
   AstPrimalPart a -> shapeAst a
   AstDualPart a -> shapeAst a
   AstD u _ -> shapeAst u
-  AstFwd (_var, v) _l _ds -> shapeAst v
 
 -- Length of the outermost dimension.
 lengthAst :: (KnownNat n, GoodScalar r) => AstRanked s r (1 + n) -> Int
@@ -113,10 +112,6 @@ shapeAstHVector = \case
   AstLetInHVectorS _ _ v -> shapeAstHVector v
   AstBuildHVector1 k (_, v) -> withSNat k $ \ snatK ->
     replicate1VoidHVector snatK $ shapeAstHVector v
-  AstRev (vars, _) _ -> voidFromVars vars
-  AstRevDt (vars, _) _ _ -> voidFromVars vars
-  AstRevS (vars, _) _ -> voidFromVars vars
-  AstRevDtS (vars, _) _ _ -> voidFromVars vars
   AstMapAccumRDer k accShs bShs _eShs _f _df _rf _acc0 _es ->
     accShs V.++ replicate1VoidHVector k bShs
   AstMapAccumLDer k accShs bShs _eShs _f _df _rf _acc0 _es ->
@@ -179,9 +174,6 @@ varInAst var = \case
   AstPrimalPart a -> varInAst var a
   AstDualPart a -> varInAst var a
   AstD u u' -> varInAst var u || varInAst var u'
-  AstFwd _f l ds ->  -- _f has no non-bound variables
-    let f = varInAstDynamic var
-    in any f l || any f ds
 
 varInIndex :: AstVarId -> AstIndex n -> Bool
 varInIndex var = any (varInAst var)
@@ -226,9 +218,6 @@ varInAstS var = \case
   AstPrimalPartS a -> varInAstS var a
   AstDualPartS a -> varInAstS var a
   AstDS u u' -> varInAstS var u || varInAstS var u'
-  AstFwdS _f l ds ->  -- _f has no non-bound variables
-    let f = varInAstDynamic var
-    in any f l || any f ds
 
 varInIndexS :: AstVarId -> AstIndexS sh -> Bool
 varInIndexS var = any (varInAst var)
@@ -247,16 +236,6 @@ varInAstHVector var = \case
   AstLetInHVector _var2 u v -> varInAst var u || varInAstHVector var v
   AstLetInHVectorS _var2 u v -> varInAstS var u || varInAstHVector var v
   AstBuildHVector1 _ (_var2, v) -> varInAstHVector var v
-  AstRev _f l ->  -- _f has no non-bound variables
-    any (varInAstDynamic var) l
-  AstRevDt _f l dt ->  -- _f has no non-bound variables
-    let f = varInAstDynamic var
-    in any f l || varInAst var dt
-  AstRevS _f l ->  -- _f has no non-bound variables
-    any (varInAstDynamic var) l
-  AstRevDtS _f l dt ->  -- _f has no non-bound variables
-    let f = varInAstDynamic var
-    in any f l || varInAstS var dt
   AstMapAccumRDer _k _accShs _bShs _eShs _f _df _rf acc0 es ->
     any (varInAstDynamic var) acc0 || any (varInAstDynamic var) es
   AstMapAccumLDer _k _accShs _bShs _eShs _f _df _rf acc0 es ->

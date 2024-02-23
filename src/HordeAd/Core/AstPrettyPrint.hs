@@ -114,7 +114,6 @@ areAllArgsInts = \case
   AstPrimalPart{} -> False
   AstDualPart{} -> False
   AstD{} -> False  -- dual number
-  AstFwd{} -> False
 
 
 -- * Pretty-print variables
@@ -398,19 +397,6 @@ printAstAux cfg d = \case
   AstPrimalPart a -> printPrefixOp printAst cfg d "rprimalPart" [a]
   AstDualPart a -> printPrefixOp printAst cfg d "rdualPart" [a]
   AstD u u' -> printPrefixBinaryOp printAst printAst cfg d "rD" u u'
-  AstFwd (vars, v) parameters ds ->
-    showParen (d > 10)
-    $ showString "rfwd "
-      . (showParen True
-         $ showString "\\"
-           . showListWith (showString
-                           . printAstDynamicVarNameCfg cfg) vars
-           . showString " -> "
-           . printAst cfg 0 v)
-      . showString " "
-      . printHVectorAst cfg parameters
-      . showString " "
-      . printHVectorAst cfg ds
 
 printAstS :: forall sh s r. (GoodScalar r, Sh.Shape sh, AstSpan s)
           => PrintConfig -> Int -> AstShaped s r sh -> ShowS
@@ -588,19 +574,6 @@ printAstS cfg d = \case
   AstPrimalPartS a -> printPrefixOp printAstS cfg d "sprimalPart" [a]
   AstDualPartS a -> printPrefixOp printAstS cfg d "sdualPart" [a]
   AstDS u u' -> printPrefixBinaryOp printAstS printAstS cfg d "sD" u u'
-  AstFwdS (vars, v) parameters ds ->
-    showParen (d > 10)
-    $ showString "sfwd "
-      . (showParen True
-         $ showString "\\"
-           . showListWith (showString
-                           . printAstDynamicVarNameCfg cfg) vars
-           . showString " -> "
-           . printAstS cfg 0 v)
-      . showString " "
-      . printHVectorAst cfg parameters
-      . showString " "
-      . printHVectorAst cfg ds
 
 -- Differs from standard only in the space after comma.
 showListWith :: (a -> ShowS) -> [a] -> ShowS
@@ -755,54 +728,6 @@ printAstHVector cfg d = \case
            . printAstIntVar cfg var
            . showString " -> "
            . printAstHVector cfg 0 v)
-  AstRev (vars, v) parameters ->
-    showParen (d > 10)
-    $ showString "rrev "
-      . (showParen True
-         $ showString "\\"
-           . showListWith (showString
-                           . printAstDynamicVarNameCfg cfg) vars
-           . showString " -> "
-           . printAst cfg 0 v)
-      . showString " "
-      . printHVectorAst cfg parameters
-  AstRevDt (vars, v) parameters dt ->
-    showParen (d > 10)
-    $ showString "rrevDt "
-      . (showParen True
-         $ showString "\\"
-           . showListWith (showString
-                           . printAstDynamicVarNameCfg cfg) vars
-           . showString " -> "
-           . printAst cfg 0 v)
-      . showString " "
-      . printHVectorAst cfg parameters
-      . showString " "
-      . printAst cfg 11 dt
-  AstRevS (vars, v) parameters ->
-    showParen (d > 10)
-    $ showString "srev "
-      . (showParen True
-         $ showString "\\"
-           . showListWith (showString
-                           . printAstDynamicVarNameCfg cfg) vars
-           . showString " -> "
-           . printAstS cfg 0 v)
-      . showString " "
-      . printHVectorAst cfg parameters
-  AstRevDtS (vars, v) parameters dt ->
-    showParen (d > 10)
-    $ showString "srevDt "
-      . (showParen True
-         $ showString "\\"
-           . showListWith (showString
-                           . printAstDynamicVarNameCfg cfg) vars
-           . showString " -> "
-           . printAstS cfg 0 v)
-      . showString " "
-      . printHVectorAst cfg parameters
-      . showString " "
-      . printAstS cfg 11 dt
   AstMapAccumRDer k _accShs _bShs _eShs f df rf acc0 es ->
     showParen (d > 10)
     $ showString "dmapAccumRDer "

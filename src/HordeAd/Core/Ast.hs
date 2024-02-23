@@ -285,11 +285,6 @@ data AstRanked :: AstSpanType -> RankedTensorType where
   AstDualPart :: AstRanked FullSpan r n -> AstRanked DualSpan r n
   AstD :: AstRanked PrimalSpan r n -> AstRanked DualSpan r n
        -> AstRanked FullSpan r n
-  AstFwd :: (GoodScalar r, KnownNat n)
-         => ([AstDynamicVarName], AstRanked s r n)
-         -> HVector (AstRanked s)
-         -> HVector (AstRanked s)
-         -> AstRanked s r n
 
 deriving instance GoodScalar r => Show (AstRanked s r n)
 
@@ -407,11 +402,6 @@ data AstShaped :: AstSpanType -> ShapedTensorType where
   AstDualPartS :: AstShaped FullSpan r sh -> AstShaped DualSpan r sh
   AstDS :: AstShaped PrimalSpan r sh -> AstShaped DualSpan r sh
         -> AstShaped FullSpan r sh
-  AstFwdS :: (GoodScalar r, Sh.Shape sh)
-          => ([AstDynamicVarName], AstShaped s r sh)
-          -> HVector (AstRanked s)
-          -> HVector (AstRanked s)
-          -> AstShaped s r sh
 
 deriving instance (GoodScalar r, Sh.Shape sh) => Show (AstShaped s r sh)
 
@@ -444,28 +434,6 @@ data AstHVector :: AstSpanType -> Type where
                    -> AstHVector s2
                    -> AstHVector s2
   AstBuildHVector1 :: Int -> (IntVarName, AstHVector s) -> AstHVector s
-  AstRev :: (GoodScalar r, KnownNat n)
-         => ([AstDynamicVarName], AstRanked s r n)
-         -> HVector (AstRanked s)
-         -> AstHVector s
-    -- ^ the function body can't have any free variables outside those
-    -- listed in the first component of the pair; this reflects
-    -- the quantification in 'rrev' and prevents cotangent confusion;
-    -- the same holds for the similar operations below
-  AstRevDt :: (GoodScalar r, KnownNat n)
-           => ([AstDynamicVarName], AstRanked s r n)
-           -> HVector (AstRanked s)
-           -> AstRanked s r n
-           -> AstHVector s
-  AstRevS :: (GoodScalar r, Sh.Shape sh)
-          => ([AstDynamicVarName], AstShaped s r sh)
-          -> HVector (AstRanked s)
-          -> AstHVector s
-  AstRevDtS :: (GoodScalar r, Sh.Shape sh)
-            => ([AstDynamicVarName], AstShaped s r sh)
-            -> HVector (AstRanked s)
-            -> AstShaped s r sh
-            -> AstHVector s
   AstMapAccumRDer
     :: SNat k
     -> VoidHVector
@@ -494,6 +462,10 @@ deriving instance Show (AstHVector s)
 type role AstHFun nominal
 data AstHFun :: AstSpanType -> Type where
   AstLambda :: ~([[AstDynamicVarName]], AstHVector s) -> AstHFun s
+    -- ^ the function body can't have any free variables outside those
+    -- listed in the first component of the pair; this reflects
+    -- the quantification in 'rrev' and prevents cotangent confusion;
+    -- the same holds for the similar operations below
   AstVarHFun :: [VoidHVector] -> VoidHVector -> AstVarId -> AstHFun s
 
 deriving instance Show (AstHFun s)

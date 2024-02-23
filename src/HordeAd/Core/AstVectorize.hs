@@ -278,8 +278,6 @@ build1V k (var, v00) =
     Ast.AstD u u' -> traceRule $
       Ast.AstD (build1VOccurenceUnknown k (var, u))
                (build1VOccurenceUnknown k (var, u'))
-    Ast.AstFwd{} ->
-      error "build1V: impossible case of AstFwd"
 
 -- | The application @build1VIndex k (var, v, ix)@ vectorizes
 -- the term @AstBuild1 k (var, AstIndex v ix)@, where it's unknown whether
@@ -545,8 +543,6 @@ build1VS (var, v00) =
     Ast.AstDS u u' -> traceRule $
       Ast.AstDS (build1VOccurenceUnknownS (var, u))
                 (build1VOccurenceUnknownS (var, u'))
-    Ast.AstFwdS{} ->
-      error "build1VS: impossible case of AstFwdS"
 
 build1VIndexS
   :: forall k p sh s r.
@@ -729,14 +725,6 @@ build1VHVector k (var, v0) =
       error "build1VHVector: impossible someNatVal error"
   Ast.AstBuildHVector1{} ->
     error "build1VHVector: impossible case of AstBuildHVector1"
-  Ast.AstRev{} ->
-    error "build1VHVector: impossible case of AstRev"
-  Ast.AstRevDt{} ->
-    error "build1VHVector: impossible case of AstRevDt"
-  Ast.AstRevS{} ->
-    error "build1VHVector: impossible case of AstRevS"
-  Ast.AstRevDtS{} ->
-    error "build1VHVector: impossible case of AstRevDtS"
   Ast.AstMapAccumRDer k5 accShs bShs eShs f df rf acc0 es ->
     withSNat k $ \snat ->
       astTrAstHVectorTail (V.length accShs)
