@@ -888,7 +888,13 @@ interpretAstHVector !env = \case
     dmkHVector @ranked $ interpretAstDynamic @ranked env <$> l
   AstHApply t ll ->
     let t2 = interpretAstHFun env t
+          -- this is a bunch of PrimalSpan terms interpreted in, perhaps,
+          -- FullSpan terms
         ll2 = (interpretAstDynamic @ranked env <$>) <$> ll
+          -- these are, perhaps, FullSpan terms, interpreted in the same
+          -- as above so that the mixture becomes compatible; if the spans
+          -- agreed, the AstHApply would likely be simplified before
+          -- getting interpreted
     in dHApply t2 ll2
   AstLetHVectorInHVector vars l v ->
     let lt0 = voidFromVars vars

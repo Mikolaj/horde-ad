@@ -820,6 +820,9 @@ class HVectorTensor (ranked :: RankedTensorType)
        -> HVector ranked
        -> HVector ranked
        -> shaped r sh
+  -- These methods (and dlambda) producing HFunOf is analogous to dmkHVector
+  -- producing HVectorOf and it's exactly what is needed as arguments
+  -- of dmapAccumRDer
   drevDt
     :: VoidHVector  -- shapes of a and da
     -> HFun  -- [HVector f] -> HVectorOf f

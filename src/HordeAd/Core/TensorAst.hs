@@ -377,6 +377,14 @@ instance IfF (AstShaped s) where
 
 -- * Ranked tensor AST instances
 
+-- These instances can't be just HFun, because they need to be vectorized
+-- and vectorization applies such functions to the variable from build1
+-- and the variable has to be eliminated via vectorization to preserve
+-- the closed form of the function. Just applying a Haskell closure
+-- to the build1 variable and then duplicating the result of the function
+-- would not eliminate the variable and also would likely results
+-- in more costly computations. Also, that would prevent simplification
+-- of the instances, especially after applied to arguments that are terms.
 type instance HFunOf (AstRanked s) = AstHFun
 type instance HFunOf (AstNoVectorize s) = AstHFun
 type instance HFunOf (AstNoSimplify s) = AstHFun
@@ -666,9 +674,6 @@ astBuild1VectorizeS f =
 instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   dshape = shapeAstHVector
   dmkHVector = AstHVector
-  dlambda shss f = AstLambda
-                   $ fun1LToAst shss $ \ !vvars !ll -> (vvars, unHFun f ll)
-  dHApply = astHApply
   dunHVector shs hVectorOf =
     let f :: Int -> DynamicTensor VoidTensor -> AstDynamic s
         f i = \case
@@ -681,6 +686,9 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
             $ sletHVectorIn @(AstShaped s) shs hVectorOf (sfromD . (V.! i))
         hv = V.imap f shs
     in assert (voidHVectorMatches shs hv) hv
+  dlambda shss f = AstLambda
+                   $ fun1LToAst shss $ \ !vvars !ll -> (vvars, unHFun f ll)
+  dHApply = astHApply
   dletHVectorInHVector = astLetHVectorInHVectorFun
   dletHFunInHVector = (&)  -- astLetHFunInHVectorFun
   rletInHVector = astLetInHVectorFun
