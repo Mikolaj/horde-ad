@@ -239,8 +239,8 @@ build1V k (var, v00) =
       in astGatherStep (k :$ sh)
                        (build1VOccurenceUnknown k (var, v))
                        (varFresh ::: vars, astVarFresh :. ix2)
-    Ast.AstCast v -> Ast.AstCast $ build1V k (var, v)
-    Ast.AstFromIntegral v -> Ast.AstFromIntegral $ build1V k (var, v)
+    Ast.AstCast v -> astCast $ build1V k (var, v)
+    Ast.AstFromIntegral v -> astFromIntegral $ build1V k (var, v)
     Ast.AstConst{} ->
       error "build1V: AstConst can't have free index variables"
 
@@ -265,16 +265,16 @@ build1V k (var, v00) =
       astLetHFunIn var1 (build1VHFun k (var, f)) (build1V k (var, v))
     Ast.AstRFromS @sh1 v -> case someNatVal $ toInteger k of
       Just (SomeNat @k _proxy) ->
-        Ast.AstRFromS @(k ': sh1) $ build1VS (var, v)
+        astRFromS @(k ': sh1) $ build1VS (var, v)
       Nothing ->
         error "build1V: impossible someNatVal error"
 
     Ast.AstConstant v -> traceRule $
       Ast.AstConstant $ build1V k (var, v)
     Ast.AstPrimalPart v -> traceRule $
-      Ast.AstPrimalPart $ build1V k (var, v)
+      astPrimalPart $ build1V k (var, v)
     Ast.AstDualPart v -> traceRule $
-      Ast.AstDualPart $ build1V k (var, v)
+      astDualPart $ build1V k (var, v)
     Ast.AstD u u' -> traceRule $
       Ast.AstD (build1VOccurenceUnknown k (var, u))
                (build1VOccurenceUnknown k (var, u'))
@@ -518,8 +518,8 @@ build1VS (var, v00) =
       in astGatherStepS @(k ': sh2) @(1 + p)
                         (build1VOccurenceUnknownS @k (var, v))
                         (varFresh :$: vars, astVarFresh :$: ix2)
-    Ast.AstCastS v -> Ast.AstCastS $ build1VS (var, v)
-    Ast.AstFromIntegralS v -> Ast.AstFromIntegralS $ build1VS (var, v)
+    Ast.AstCastS v -> astCastS $ build1VS (var, v)
+    Ast.AstFromIntegralS v -> astFromIntegralS $ build1VS (var, v)
     Ast.AstConstS{} ->
       error "build1VS: AstConstS can't have free index variables"
 
@@ -532,14 +532,14 @@ build1VS (var, v00) =
     Ast.AstLetHFunInS var1 f v ->
       -- We take advantage of the fact that f contains no free index vars.
       astLetHFunInS var1 (build1VHFun (valueOf @k) (var, f)) (build1VS (var, v))
-    Ast.AstSFromR v -> Ast.AstSFromR $ build1V (valueOf @k) (var, v)
+    Ast.AstSFromR v -> astSFromR $ build1V (valueOf @k) (var, v)
 
     Ast.AstConstantS v -> traceRule $
       Ast.AstConstantS $ build1VS (var, v)
     Ast.AstPrimalPartS v -> traceRule $
-      Ast.AstPrimalPartS $ build1VS (var, v)
+      astPrimalPartS $ build1VS (var, v)
     Ast.AstDualPartS v -> traceRule $
-      Ast.AstDualPartS $ build1VS (var, v)
+      astDualPartS $ build1VS (var, v)
     Ast.AstDS u u' -> traceRule $
       Ast.AstDS (build1VOccurenceUnknownS (var, u))
                 (build1VOccurenceUnknownS (var, u'))
@@ -651,13 +651,13 @@ astMapRanked01 f (DynamicShaped @r @sh t) =
   case someNatVal $ toInteger $ length $ Sh.shapeT @sh of
     Just (SomeNat @n _) ->
       gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: n) $
-      let res = f $ Ast.AstRFromS @sh t
+      let res = f $ astRFromS @sh t
       in Sh.withShapeP (shapeToList $ shapeAst res) $ \(Proxy @shr) ->
         case someNatVal $ 1 + valueOf @n of
           Just (SomeNat @n1 _) ->
             gcastWith (unsafeCoerce Refl :: n1 :~: 1 + n) $
             gcastWith (unsafeCoerce Refl :: Sh.Rank shr :~: n1) $
-            DynamicShaped $ Ast.AstSFromR @shr res
+            DynamicShaped $ astSFromR @shr res
           _ -> error "astMapRanked01: impossible someNatVal"
     _ -> error "astMapRanked01: impossible someNatVal"
 astMapRanked01 f (DynamicRankedDummy @r @sh _ _) =
@@ -671,7 +671,7 @@ astMapRanked01 f (DynamicShapedDummy @r @sh _ _) =
         Just (SomeNat @n1 _) ->
           gcastWith (unsafeCoerce Refl :: n1 :~: 1 + n) $
           gcastWith (unsafeCoerce Refl :: Sh.Rank shr :~: n1) $
-          DynamicShaped $ Ast.AstSFromR @shr res
+          DynamicShaped $ astSFromR @shr res
         _ -> error "astMapRanked01: impossible someNatVal"
 
 astMapHVectorRanked01
@@ -690,7 +690,7 @@ build1VHVector k (var, v0) =
   Ast.AstHVector l ->
     Ast.AstHVector $ V.map (\u -> build1VOccurenceUnknownDynamic k (var, u)) l
   Ast.AstHApply t ll ->
-    Ast.AstHApply
+    astHApply
       (build1VHFun k (var, t))
       (map (V.map (\u -> build1VOccurenceUnknownDynamic k (var, u))) ll)
   Ast.AstLetHVectorInHVector vars1 u v -> case someNatVal $ toInteger k of
