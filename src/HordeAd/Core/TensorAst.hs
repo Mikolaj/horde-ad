@@ -740,61 +740,6 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
         -- reinterprets @PrimalSpan@ terms in @s@ terms;
         -- we could shortcut when @s@ is @PrimalSpan@ and @parameters@
         -- are the same variables, but it's a very special case
-  rrevDt :: (GoodScalar r, KnownNat n)
-         => (forall f. ADReady f => HVector f -> f r n)
-         -> VoidHVector
-         -> HVector (AstRanked s)
-         -> AstRanked s r n
-         -> AstHVector s
-  rrevDt f parameters0 =
-    let !(!(!(!varsDt, !vars), !gradient, !_primal, _sh), _delta) =
-          revProduceArtifact TensorToken True (f @(AstRanked FullSpan))
-                             EM.empty parameters0
-    in \parameters dt -> assert (voidHVectorMatches parameters0 parameters
-                                 && length varsDt == 1) $
-      let env = extendEnvHVector @(AstRanked s) vars parameters EM.empty
-          dts = V.singleton $ DynamicRanked dt
-          envDt = extendEnvHVector varsDt dts env
-      in interpretAstHVector envDt gradient
-  rfwd :: (GoodScalar r, KnownNat n)
-       => (forall f. ADReady f => HVector f -> f r n)
-       -> VoidHVector
-       -> HVector (AstRanked s)
-       -> HVector (AstRanked s)
-       -> AstRanked s r n
-  rfwd f parameters0 =
-    let !(!(!(!varsDt, !vars), !derivative, !_primal), _delta) =
-          fwdProduceArtifact TensorToken (f @(AstRanked FullSpan))
-                             EM.empty parameters0
-    in \parameters ds -> assert (voidHVectorMatches parameters0 parameters) $
-      let env = extendEnvHVector @(AstRanked s) vars parameters EM.empty
-          envDt = extendEnvHVector @(AstRanked s) varsDt ds env
-      in interpretAst envDt derivative
-  srev f parameters0 =
-    let !(!(!(!_varsDt, !vars), !gradient, !_primal, _sh), _delta) =
-          revProduceArtifact TensorToken False (f @(AstShaped FullSpan))
-                             EM.empty parameters0
-    in \parameters -> assert (voidHVectorMatches parameters0 parameters) $
-      let env = extendEnvHVector @(AstRanked s) vars parameters EM.empty
-      in interpretAstHVector env gradient
-  srevDt f parameters0 =
-    let !(!(!(!varsDt, !vars), !gradient, !_primal, _sh), _delta) =
-          revProduceArtifact TensorToken True (f @(AstShaped FullSpan))
-                             EM.empty parameters0
-    in \parameters dt -> assert (voidHVectorMatches parameters0 parameters
-                                 && length varsDt == 1) $
-      let env = extendEnvHVector @(AstRanked s) vars parameters EM.empty
-          dts = V.singleton $ DynamicShaped dt
-          envDt = extendEnvHVector varsDt dts env
-      in interpretAstHVector envDt gradient
-  sfwd f parameters0 =
-    let !(!(!(!varsDt, !vars), !derivative, !_primal), _delta) =
-          fwdProduceArtifact TensorToken (f @(AstShaped FullSpan))
-                             EM.empty parameters0
-    in \parameters ds -> assert (voidHVectorMatches parameters0 parameters) $
-      let env = extendEnvHVector @(AstRanked s) vars parameters EM.empty
-          envDt = extendEnvHVector @(AstRanked s) varsDt ds env
-      in interpretAstS envDt derivative
   drevDt :: VoidHVector
          -> HFun
          -> AstHFun
@@ -1130,22 +1075,6 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
         dbuild1 @(AstNoVectorize s) width (\i -> f (index1HVector u i))
   rrev f parameters0 hVector =
     rrev @(AstRanked s) f parameters0 (unNoVectorizeHVector hVector)
-  rrevDt f parameters0 hVector dt =
-    rrevDt @(AstRanked s) f parameters0
-           (unNoVectorizeHVector hVector) (unAstNoVectorize dt)
-  rfwd f parameters0 hVector ds =
-    AstNoVectorize
-    $ rfwd @(AstRanked s) f parameters0
-           (unNoVectorizeHVector hVector) (unNoVectorizeHVector ds)
-  srev f parameters0 hVector =
-    srev @(AstRanked s) f parameters0 (unNoVectorizeHVector hVector)
-  srevDt f parameters0 hVector dt =
-    srevDt @(AstRanked s) f parameters0
-           (unNoVectorizeHVector hVector) (unAstNoVectorizeS dt)
-  sfwd f parameters0 hVector ds =
-    AstNoVectorizeS
-    $ sfwd @(AstRanked s) f parameters0
-           (unNoVectorizeHVector hVector) (unNoVectorizeHVector ds)
   drevDt = drevDt @(AstRanked s)
   dfwd = dfwd @(AstRanked s)
   dmapAccumR k accShs bShs eShs f acc0 es =
@@ -1325,20 +1254,6 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
         dbuild1 @(AstNoSimplify s) width (\i -> f (index1HVector u i))
   rrev f parameters0 hVector =
     rrev @(AstRanked s) f parameters0 (unNoSimplifyHVector hVector)
-  rrevDt f parameters0 hVector dt =
-    rrevDt @(AstRanked s) f parameters0
-           (unNoSimplifyHVector hVector) (unAstNoSimplify dt)
-  rfwd f parameters0 hVector ds =
-    AstNoSimplify $ rfwd @(AstRanked s) f parameters0
-                         (unNoSimplifyHVector hVector) (unNoSimplifyHVector ds)
-  srev f parameters0 hVector =
-    srev @(AstRanked s) f parameters0 (unNoSimplifyHVector hVector)
-  srevDt f parameters0 hVector dt =
-    srevDt @(AstRanked s) f parameters0
-           (unNoSimplifyHVector hVector) (unAstNoSimplifyS dt)
-  sfwd f parameters0 hVector ds =
-    AstNoSimplifyS $ sfwd @(AstRanked s) f parameters0
-                          (unNoSimplifyHVector hVector) (unNoSimplifyHVector ds)
   drevDt = drevDt @(AstRanked s)
   dfwd = dfwd @(AstRanked s)
   dmapAccumR k accShs bShs eShs f acc0 es =

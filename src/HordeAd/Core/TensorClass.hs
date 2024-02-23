@@ -791,35 +791,66 @@ class HVectorTensor (ranked :: RankedTensorType)
        -> VoidHVector
        -> HVector ranked
        -> HVectorOf ranked
+  -- We can't get sh from anywhere, so this is not possible:
+  -- srev f shs es = rrevDt f shs es (rreplicate0N sh 1)
   rrevDt :: (GoodScalar r, KnownNat n)
          => (forall f. ADReady f => HVector f -> f r n)
          -> VoidHVector
          -> HVector ranked
          -> ranked r n  -- ^ incoming cotangent (dt)
          -> HVectorOf ranked
-  rfwd :: (GoodScalar r, KnownNat n)
+  rrevDt f shs =
+    let g :: forall f. ADReady f => [HVector f] -> HVectorOf f
+        g ![!x] = dmkHVector $ V.singleton $ DynamicRanked $ f x
+        g _ = error "g: wrong number of arguments"
+        h = drevDt @ranked shs (HFun g)
+    in \es dt -> dHApply h [V.singleton $ DynamicRanked dt, es]
+  rfwd :: (GoodScalar r, KnownNat n, RankedTensor ranked)
        => (forall f. ADReady f => HVector f -> f r n)
        -> VoidHVector
        -> HVector ranked
        -> HVector ranked  -- ^ incoming tangent (ds)
        -> ranked r n
-  srev :: (GoodScalar r, Sh.Shape sh)
+  rfwd f shs =
+    let g :: forall f. ADReady f => [HVector f] -> HVectorOf f
+        g ![!x] = dmkHVector $ V.singleton $ DynamicRanked $ f x
+        g _ = error "g: wrong number of arguments"
+        h = dfwd @ranked shs (HFun g)
+    in \es ds -> let hv = dHApply h [ds, es]
+                 in rfromD $ dunHVector (dshape @ranked hv) hv V.! 0
+  srev :: ( GoodScalar r, Sh.Shape sh, shaped ~ ShapedOf ranked
+          , ShapedTensor shaped )
        => (forall f. ADReadyS f => HVector (RankedOf f) -> f r sh)
        -> VoidHVector
        -> HVector ranked
        -> HVectorOf ranked
-  srevDt :: (GoodScalar r, Sh.Shape sh)
+  srev f shs es = srevDt f shs es 1
+  srevDt :: (GoodScalar r, Sh.Shape sh, shaped ~ ShapedOf ranked)
          => (forall f. ADReadyS f => HVector (RankedOf f) -> f r sh)
          -> VoidHVector
          -> HVector ranked
          -> shaped r sh
          -> HVectorOf ranked
-  sfwd :: (GoodScalar r, Sh.Shape sh)
+  srevDt f shs =
+    let g :: forall f. ADReady f => [HVector f] -> HVectorOf f
+        g ![!x] = dmkHVector @f $ V.singleton $ DynamicShaped $ f x
+        g _ = error "g: wrong number of arguments"
+        h = drevDt @ranked shs (HFun g)
+    in \es dt -> dHApply h [V.singleton $ DynamicShaped dt, es]
+  sfwd :: ( GoodScalar r, Sh.Shape sh, RankedTensor ranked, ShapedTensor shaped
+          , shaped ~ ShapedOf ranked, ranked ~ RankedOf shaped )
        => (forall f. ADReadyS f => HVector (RankedOf f) -> f r sh)
        -> VoidHVector
        -> HVector ranked
        -> HVector ranked
        -> shaped r sh
+  sfwd f shs =
+    let g :: forall f. ADReady f => [HVector f] -> HVectorOf f
+        g ![!x] = dmkHVector @f $ V.singleton $ DynamicShaped $ f x
+        g _ = error "g: wrong number of arguments"
+        h = dfwd @ranked shs (HFun g)
+    in \es ds -> let hv = dHApply h [ds, es]
+                 in sfromD $ dunHVector (dshape @ranked hv) hv V.! 0
   -- These methods (and dlambda) producing HFunOf is analogous to dmkHVector
   -- producing HVectorOf and it's exactly what is needed as arguments
   -- of dmapAccumRDer
@@ -1119,7 +1150,7 @@ instance Show HFun where
 
 -- * The giga-constraint
 
-type ADReady ranked = ADReadyR ranked  -- backward compatibility
+type ADReady ranked = ADReadyR ranked  -- implies both
 
 type ADReadyR ranked = ADReadyBoth ranked (ShapedOf ranked)
 

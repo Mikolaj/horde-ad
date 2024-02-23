@@ -385,28 +385,6 @@ instance ADReadyBoth ranked shaped
   rrev f _parameters0 parameters =
     -- This computes the derivative of f again for each new @parmeters@.
     fst $ crevOnHVector Nothing (f @(ADVal (ADVal ranked))) parameters
-  rrevDt :: (GoodScalar r, KnownNat n)
-         => (forall f. ADReady f => HVector f -> f r n)
-         -> VoidHVector
-         -> HVector (ADVal ranked)
-         -> ADVal ranked r n
-         -> HVectorOf (ADVal ranked)
-  rrevDt f _parameters0 parameters dt =
-    fst $ crevOnHVector (Just dt) (f @(ADVal (ADVal ranked))) parameters
-  rfwd :: (GoodScalar r, KnownNat n)
-       => (forall f. ADReady f => HVector f -> f r n)
-       -> VoidHVector
-       -> HVector (ADVal ranked)
-       -> HVector (ADVal ranked)
-       -> ADVal ranked r n
-  rfwd f _parameters0 parameters ds =
-    fst $ cfwdOnHVector parameters (f @(ADVal (ADVal ranked))) ds
-  srev f _parameters0 parameters =
-    fst $ crevOnHVector Nothing (f @(ADVal (ADVal shaped))) parameters
-  srevDt f _parameters0 parameters dt =
-    fst $ crevOnHVector (Just dt) (f @(ADVal (ADVal shaped))) parameters
-  sfwd f _parameters0 parameters ds =
-    fst $ cfwdOnHVector parameters (f @(ADVal (ADVal shaped))) ds
   drevDt :: VoidHVector
          -> HFun
          -> HFun
@@ -649,32 +627,6 @@ instance HVectorTensor (Flip OR.Array) (Flip OS.Array) where
        -> HVector (Flip OR.Array)
   rrev f _parameters0 parameters =
     fst $ crevOnHVector Nothing (f @(ADVal (Flip OR.Array))) parameters
-  rrevDt :: (GoodScalar r, KnownNat n)
-         => (forall f. ADReady f => HVector f -> f r n)
-         -> VoidHVector
-         -> HVector (Flip OR.Array)
-         -> Flip OR.Array r n
-         -> HVector (Flip OR.Array)
-  rrevDt f _parameters0 parameters dt =
-    fst $ crevOnHVector (Just dt) (f @(ADVal (Flip OR.Array))) parameters
-  rfwd :: (GoodScalar r, KnownNat n)
-       => (forall f. ADReady f => HVector f -> f r n)
-       -> VoidHVector
-       -> HVector (Flip OR.Array)
-       -> HVector (Flip OR.Array)
-       -> Flip OR.Array r n
-  rfwd f _parameters0 parameters ds =
-    fst $ cfwdOnHVector parameters (f @(ADVal (Flip OR.Array))) ds
-  srev f _parameters0 parameters =
-    fst $ crevOnHVector Nothing (f @(ADVal (Flip OS.Array))) parameters
-  srevDt f _parameters0 parameters dt =
-    fst $ crevOnHVector (Just dt) (f @(ADVal (Flip OS.Array))) parameters
-  sfwd f _parameters0 parameters ds =
-    fst $ cfwdOnHVector parameters (f @(ADVal (Flip OS.Array))) ds
-  rfold f x0 as = foldl' f x0 (runravelToList as)
-  rscan f x0 as = rfromList $ scanl' f x0 (runravelToList as)
-  sfold f x0 as = foldl' f x0 (sunravelToList as)
-  sscan f x0 as = sfromList $ scanl' f x0 (sunravelToList as)
   -- The code for drevDt and dfwd in this instance is the same as for the
   -- ADVal ranked instance, because the type family instance is the same.
   drevDt :: VoidHVector
@@ -708,6 +660,10 @@ instance HVectorTensor (Flip OR.Array) (Flip OS.Array) where
         df ![!da, !a] = unHVectorPseudoTensor $ fst $ cfwdOnHVector a g da
         df _ = error "df: wrong number of arguments"
     in HFun df
+  rfold f x0 as = foldl' f x0 (runravelToList as)
+  rscan f x0 as = rfromList $ scanl' f x0 (runravelToList as)
+  sfold f x0 as = foldl' f x0 (sunravelToList as)
+  sscan f x0 as = sfromList $ scanl' f x0 (sunravelToList as)
   dmapAccumR
     :: SNat k
     -> VoidHVector
