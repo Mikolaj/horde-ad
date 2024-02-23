@@ -626,12 +626,12 @@ printAstHVector cfg d = \case
   AstHApply t ll ->
     if loseRoudtrip cfg
     then showParen (d > 9)
-         $ printAstHFun cfg 10 t
+         $ printAstHFunOneUnignore cfg 10 t
            . showString " "
            . showListWith (printHVectorAst cfg) ll
     else showParen (d > 10)
          $ showString "dHApply "
-           . printAstHFun cfg 10 t
+           . printAstHFunOneUnignore cfg 10 t
            . showString " "
            . showListWith (printHVectorAst cfg) ll
   AstLetHVectorInHVector vars l v ->
@@ -781,6 +781,28 @@ printAstHFun cfg d = \case
                                    . printAstDynamicVarNameCfg cfg)) vvars
                 . showString " -> "
                 . printAstHVector cfg 0 l
+    else showParen (d > 0)
+         $ {- showString "dlambda $ "  -- TODO: enable for full roundtrip
+           . -}
+           showString "\\"
+           . showCollectionWith "" " " ""
+               (showListWith (showString
+                              . printAstDynamicVarNameCfg cfg)) vvars
+           . showString " -> "
+           . printAstHVector cfg 0 l
+  AstVarHFun _shss _shs var -> printAstFunVar cfg var
+
+printAstHFunOneUnignore :: PrintConfig -> Int -> AstHFun -> ShowS
+printAstHFunOneUnignore cfg d = \case
+  AstLambda (vvars, l) ->
+    if loseRoudtrip cfg
+    then showParen (d > 0)
+         $ showString "\\"
+           . showCollectionWith "" " " ""
+               (showListWith (showString
+                              . printAstDynamicVarNameCfg cfg)) vvars
+           . showString " -> "
+           . printAstHVector cfg 0 l
     else showParen (d > 0)
          $ {- showString "dlambda $ "  -- TODO: enable for full roundtrip
            . -}
