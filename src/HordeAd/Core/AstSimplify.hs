@@ -55,6 +55,7 @@ import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as Sh
 import qualified Data.Array.ShapedS as OS
 import           Data.Int (Int64)
+import           Data.Kind (Type)
 import           Data.List (dropWhileEnd)
 import           Data.Maybe (catMaybes, fromMaybe, isJust, isNothing)
 import           Data.Proxy (Proxy (Proxy))
@@ -1873,11 +1874,14 @@ astDualPartS t = case t of
   Ast.AstDS _ u' -> u'
   Ast.AstCondS b a2 a3 -> astCondS b (astDualPartS a2) (astDualPartS a3)
 
-astHApply :: AstSpan s => AstHFun s -> [HVector (AstRanked s)] -> AstHVector s
+astHApply :: forall s. AstSpan s
+          => AstHFun -> [HVector (AstRanked s)] -> AstHVector s
 astHApply t ll = case t of
-  Ast.AstLambda ~(vvars, l) ->
-    foldr (\(vars, l2) -> astLetHVectorInHVector vars (Ast.AstHVector l2))
-          l (zip vvars ll)
+  Ast.AstLambda ~(vvars, l) -> case sameAstSpan @s @PrimalSpan of
+    Just Refl ->
+      foldr (\(vars, l2) -> astLetHVectorInHVector vars (Ast.AstHVector l2))
+            l (zip vvars ll)
+    _ -> Ast.AstHApply t ll
   Ast.AstVarHFun{} -> Ast.AstHApply t ll
 
 -- Inlining doesn't work for this let constructor, because it has many
@@ -2028,24 +2032,17 @@ astLetHVectorInS vars l v =
 -- unlike astLetHVectorIn, etc., so we don't try to eliminate it.
 -- We assume functions are never small enough to justify inlining on the spot.
 astLetHFunIn
-  :: forall n r s s2. AstSpan s
-  => AstVarId -> AstHFun s
-  -> AstRanked s2 r n
-  -> AstRanked s2 r n
+  :: forall n r s.
+     AstVarId -> AstHFun -> AstRanked s r n -> AstRanked s r n
 astLetHFunIn = Ast.AstLetHFunIn
 
 astLetHFunInS
-  :: forall sh r s s2. AstSpan s
-  => AstVarId -> AstHFun s
-  -> AstShaped s2 r sh
-  -> AstShaped s2 r sh
+  :: forall sh r s.
+     AstVarId -> AstHFun -> AstShaped s r sh -> AstShaped s r sh
 astLetHFunInS = Ast.AstLetHFunInS
 
 astLetHFunInHVector
-  :: forall s s2. AstSpan s
-  => AstVarId -> AstHFun s
-  -> AstHVector s2
-  -> AstHVector s2
+  :: AstVarId -> AstHFun -> AstHVector s -> AstHVector s
 astLetHFunInHVector = Ast.AstLetHFunInHVector
 
 
@@ -2241,8 +2238,7 @@ simplifyAstHVector = \case
                         (V.map simplifyAstDynamic acc0)
                         (V.map simplifyAstDynamic es)
 
-simplifyAstHFun
-  :: AstSpan s => AstHFun s -> AstHFun s
+simplifyAstHFun :: AstHFun -> AstHFun
 simplifyAstHFun = \case
   Ast.AstLambda ~(vvars, l) -> Ast.AstLambda (vvars, simplifyAstHVector l)
   t@(Ast.AstVarHFun{}) -> t
@@ -2516,12 +2512,12 @@ simplifyAstB2 opCodeBool arg1 arg2 = Ast.AstB2 opCodeBool arg1 arg2
 -- for each of the cases.
 type role SubstitutionPayload nominal nominal
   -- r can't be representational due to AstRanked having it as nominal
-data SubstitutionPayload s r =
-    forall n. KnownNat n
-    => SubstitutionPayloadRanked (AstRanked s r n)
-  | forall sh. Sh.Shape sh
-    => SubstitutionPayloadShaped (AstShaped s r sh)
-  | SubstitutionPayloadHFun (AstHFun s)
+data SubstitutionPayload :: AstSpanType -> Type -> Type where
+  SubstitutionPayloadRanked :: forall s r n. KnownNat n
+                            => AstRanked s r n -> SubstitutionPayload s r
+  SubstitutionPayloadShaped :: forall s r sh. Sh.Shape sh
+                            => AstShaped s r sh -> SubstitutionPayload s r
+  SubstitutionPayloadHFun :: AstHFun -> SubstitutionPayload PrimalSpan Float
 
 -- | We assume no variable is shared between a binding and its nested binding
 -- and nobody substitutes into variables that are bound.
@@ -2962,9 +2958,9 @@ substitute1AstHVector i var = \case
                                    (fromMaybe es mes)
 
 substitute1AstHFun
-  :: forall r2 s s2. (AstSpan s, AstSpan s2)
-  => SubstitutionPayload s2 r2 -> AstVarId -> AstHFun s
-  -> Maybe (AstHFun s)
+  :: forall r2 s2. AstSpan s2
+  => SubstitutionPayload s2 r2 -> AstVarId -> AstHFun
+  -> Maybe AstHFun
 substitute1AstHFun i var = \case
   Ast.AstLambda{} -> Nothing  -- no outside free variables
   Ast.AstVarHFun _shss _shs var2 ->
@@ -2974,7 +2970,7 @@ substitute1AstHFun i var = \case
         error "substitute1AstHFun: unexpected tensor"
       SubstitutionPayloadRanked{} ->
         error "substitute1AstHFun: unexpected tensor"
-      SubstitutionPayloadHFun h -> case sameAstSpan @s @s2 of
+      SubstitutionPayloadHFun h -> case sameAstSpan @PrimalSpan @s2 of
         Just Refl -> Just h
         _ -> error "substitute1AstHFun: span"
     else Nothing

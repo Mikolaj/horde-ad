@@ -768,8 +768,7 @@ printAstHVector cfg d = \case
       . showString " "
       . printHVectorAst cfg es
 
-printAstHFun :: forall s. AstSpan s
-             => PrintConfig -> Int -> AstHFun s -> ShowS
+printAstHFun :: PrintConfig -> Int -> AstHFun -> ShowS
 printAstHFun cfg d = \case
   AstLambda (vvars, l) ->
     if loseRoudtrip cfg

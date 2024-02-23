@@ -272,8 +272,7 @@ data AstRanked :: AstSpanType -> RankedTensorType where
                   => [AstDynamicVarName] -> AstHVector s
                   -> AstRanked s2 r n
                   -> AstRanked s2 r n
-  AstLetHFunIn :: AstSpan s
-               => AstVarId -> AstHFun s
+  AstLetHFunIn :: AstVarId -> AstHFun
                -> AstRanked s2 r n
                -> AstRanked s2 r n
   AstRFromS :: Sh.Shape sh
@@ -389,8 +388,7 @@ data AstShaped :: AstSpanType -> ShapedTensorType where
                    => [AstDynamicVarName] -> AstHVector s
                    -> AstShaped s2 r sh
                    -> AstShaped s2 r sh
-  AstLetHFunInS :: AstSpan s
-                => AstVarId -> AstHFun s
+  AstLetHFunInS :: AstVarId -> AstHFun
                 -> AstShaped s2 r sh
                 -> AstShaped s2 r sh
   AstSFromR :: (Sh.Shape sh, KnownNat (Sh.Rank sh))
@@ -411,7 +409,7 @@ type role AstHVector nominal
 data AstHVector :: AstSpanType -> Type where
   -- There are existential variables inside DynamicTensor here.
   AstHVector :: HVector (AstRanked s) -> AstHVector s
-  AstHApply :: AstHFun s -> [HVector (AstRanked s)] -> AstHVector s
+  AstHApply :: AstHFun -> [HVector (AstRanked s)] -> AstHVector s
   -- The operations below is why we need AstHVector and so HVectorOf.
   -- If we kept a vector of terms instead, we'd need to let-bind in each
   -- of the terms separately, duplicating the let-bound term.
@@ -420,8 +418,7 @@ data AstHVector :: AstSpanType -> Type where
     => [AstDynamicVarName] -> AstHVector s
     -> AstHVector s2
     -> AstHVector s2
-  AstLetHFunInHVector :: AstSpan s
-                      => AstVarId -> AstHFun s
+  AstLetHFunInHVector :: AstVarId -> AstHFun
                       -> AstHVector s2
                       -> AstHVector s2
   -- The r variable is existential here, so a proper specialization needs
@@ -440,9 +437,9 @@ data AstHVector :: AstSpanType -> Type where
     -> VoidHVector
     -> VoidHVector
     -> VoidHVector
-    -> AstHFun PrimalSpan
-    -> AstHFun PrimalSpan
-    -> AstHFun PrimalSpan
+    -> AstHFun
+    -> AstHFun
+    -> AstHFun
     -> HVector (AstRanked s)
     -> HVector (AstRanked s)
     -> AstHVector s
@@ -451,25 +448,24 @@ data AstHVector :: AstSpanType -> Type where
     -> VoidHVector
     -> VoidHVector
     -> VoidHVector
-    -> AstHFun PrimalSpan
-    -> AstHFun PrimalSpan
-    -> AstHFun PrimalSpan
+    -> AstHFun
+    -> AstHFun
+    -> AstHFun
     -> HVector (AstRanked s)
     -> HVector (AstRanked s)
     -> AstHVector s
 
 deriving instance Show (AstHVector s)
 
-type role AstHFun nominal
-data AstHFun :: AstSpanType -> Type where
-  AstLambda :: ~([[AstDynamicVarName]], AstHVector s) -> AstHFun s
+data AstHFun where
+  AstLambda :: ~([[AstDynamicVarName]], AstHVector PrimalSpan) -> AstHFun
     -- ^ the function body can't have any free variables outside those
     -- listed in the first component of the pair; this reflects
     -- the quantification in 'rrev' and prevents cotangent confusion;
     -- the same holds for the similar operations below
-  AstVarHFun :: [VoidHVector] -> VoidHVector -> AstVarId -> AstHFun s
+  AstVarHFun :: [VoidHVector] -> VoidHVector -> AstVarId -> AstHFun
 
-deriving instance Show (AstHFun s)
+deriving instance Show AstHFun
 
 data AstBool where
   AstBoolNot :: AstBool -> AstBool

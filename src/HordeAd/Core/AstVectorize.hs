@@ -759,8 +759,7 @@ build1VHVector k (var, v0) =
                         $ build1VOccurenceUnknownDynamic k (var, u)) es)
 
 build1VHFun
-  :: forall s. AstSpan s
-  => Int -> (IntVarName, AstHFun s) -> AstHFun s
+  :: Int -> (IntVarName, AstHFun) -> AstHFun
 build1VHFun k (var, v0) = case v0 of
   Ast.AstLambda ~(vvars, l) -> withSNat k $ \(SNat @k) ->
     -- This handles the case of l having free variable beyond vvars,

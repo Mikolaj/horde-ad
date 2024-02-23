@@ -377,9 +377,9 @@ instance IfF (AstShaped s) where
 
 -- * Ranked tensor AST instances
 
-type instance HFunOf (AstRanked s) = AstHFun PrimalSpan
-type instance HFunOf (AstNoVectorize s) = AstHFun PrimalSpan
-type instance HFunOf (AstNoSimplify s) = AstHFun PrimalSpan
+type instance HFunOf (AstRanked s) = AstHFun
+type instance HFunOf (AstNoVectorize s) = AstHFun
+type instance HFunOf (AstNoSimplify s) = AstHFun
 
 instance AdaptableHVector (AstRanked s) (AstHVector s) where
   type Value (AstHVector s) = HVector (Flip OR.Array)
@@ -473,7 +473,7 @@ astLetHVectorInFun a0 a f =
   fun1DToAst a0 $ \ !vars !asts -> astLetHVectorIn vars a (f asts)
 
 _astLetHFunInFun
-  :: AstHFun PrimalSpan -> (AstHFun PrimalSpan -> AstRanked s r n)
+  :: AstHFun -> (AstHFun -> AstRanked s r n)
   -> AstRanked s r n
 {-# INLINE _astLetHFunInFun #-}
 _astLetHFunInFun = undefined {-
@@ -611,7 +611,7 @@ astLetHVectorInFunS a0 a f =
   fun1DToAst a0 $ \ !vars !asts -> astLetHVectorInS vars a (f asts)
 
 _astLetHFunInFunS
-  :: AstHFun PrimalSpan -> (AstHFun PrimalSpan -> AstShaped s r sh)
+  :: AstHFun -> (AstHFun -> AstShaped s r sh)
   -> AstShaped s r sh
 {-# INLINE _astLetHFunInFunS #-}
 _astLetHFunInFunS = undefined {-
@@ -668,8 +668,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   dmkHVector = AstHVector
   dlambda shss f = AstLambda
                    $ fun1LToAst shss $ \ !vvars !ll -> (vvars, unHFun f ll)
-  dHApply t ll | Just Refl <- sameAstSpan @s @PrimalSpan = astHApply t ll
-  dHApply _ _ = error "dHApply: wrong span"
+  dHApply = astHApply
   dunHVector shs hVectorOf =
     let f :: Int -> DynamicTensor VoidTensor -> AstDynamic s
         f i = \case
@@ -790,7 +789,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
       in interpretAstS envDt derivative
   drevDt :: VoidHVector
          -> HFun
-         -> AstHFun PrimalSpan
+         -> AstHFun
   drevDt shs f =
     let g :: HVector (AstRanked FullSpan)
           -> HVectorPseudoTensor (AstRanked FullSpan) Float '()
@@ -800,7 +799,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
      in AstLambda ([varsDt, vars], gradient)
   dfwd :: VoidHVector
        -> HFun
-       -> AstHFun PrimalSpan
+       -> AstHFun
   dfwd shs f =
     let g :: HVector (AstRanked FullSpan)
           -> HVectorPseudoTensor (AstRanked FullSpan) Float '()
@@ -813,9 +812,9 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     -> VoidHVector
     -> VoidHVector
     -> VoidHVector
-    -> AstHFun PrimalSpan
-    -> AstHFun PrimalSpan
-    -> AstHFun PrimalSpan
+    -> AstHFun
+    -> AstHFun
+    -> AstHFun
     -> HVector (AstRanked s)
     -> HVector (AstRanked s)
     -> AstHVector s
@@ -828,9 +827,9 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     -> VoidHVector
     -> VoidHVector
     -> VoidHVector
-    -> AstHFun PrimalSpan
-    -> AstHFun PrimalSpan
-    -> AstHFun PrimalSpan
+    -> AstHFun
+    -> AstHFun
+    -> AstHFun
     -> HVector (AstRanked s)
     -> HVector (AstRanked s)
     -> AstHVector s
@@ -848,7 +847,7 @@ astLetHVectorInHVectorFun a0 a f =
   fun1DToAst a0 $ \ !vars !asts -> astLetHVectorInHVector vars a (f asts)
 
 _astLetHFunInHVectorFun
-  :: AstHFun PrimalSpan -> (AstHFun PrimalSpan -> AstHVector s)
+  :: AstHFun -> (AstHFun -> AstHVector s)
   -> AstHVector s
 {-# INLINE _astLetHFunInHVectorFun #-}
 _astLetHFunInHVectorFun = undefined {-

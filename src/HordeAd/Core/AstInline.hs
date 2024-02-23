@@ -207,9 +207,8 @@ inlineAst memo v0 = case v0 of
         (memo2, f2) = inlineAstHFun memo1 f
     in case EM.findWithDefault 0 var memo2 of
       0 -> (memo1, v2)
-      1 -> (memo2, fromMaybe v2
-                   $ substitute1Ast @_ @_ @_ @_ @Float
-                       (SubstitutionPayloadHFun f2) var v2)
+      1 -> (memo2, fromMaybe v2 $ substitute1Ast
+                                    (SubstitutionPayloadHFun f2) var v2)
       _ -> (memo2, Ast.AstLetHFunIn var f2 v2)
   Ast.AstRFromS v -> second Ast.AstRFromS $ inlineAstS memo v
   Ast.AstConstant a -> second Ast.AstConstant $ inlineAst memo a
@@ -341,9 +340,8 @@ inlineAstS memo v0 = case v0 of
         (memo2, f2) = inlineAstHFun memo1 f
     in case EM.findWithDefault 0 var memo2 of
       0 -> (memo1, v2)
-      1 -> (memo2, fromMaybe v2
-                   $ substitute1AstS @_ @_ @_ @_ @Float
-                       (SubstitutionPayloadHFun f2) var v2)
+      1 -> (memo2, fromMaybe v2 $ substitute1AstS
+                                    (SubstitutionPayloadHFun f2) var v2)
       _ -> (memo2, Ast.AstLetHFunInS var f2 v2)
   Ast.AstSFromR v -> second Ast.AstSFromR $ inlineAst memo v
   Ast.AstConstantS a -> second Ast.AstConstantS $ inlineAstS memo a
@@ -365,7 +363,7 @@ inlineAstDynamic memo = \case
   u@DynamicShapedDummy{} -> (memo, u)
 
 inlineAstHVector
-  :: AstSpan s
+  :: forall s. AstSpan s
   => AstMemo -> AstHVector s -> (AstMemo, AstHVector s)
 inlineAstHVector memo v0 = case v0 of
   Ast.AstHVector l ->
@@ -387,9 +385,8 @@ inlineAstHVector memo v0 = case v0 of
         (memo2, f2) = inlineAstHFun memo1 f
     in case EM.findWithDefault 0 var memo2 of
       0 -> (memo1, v2)
-      1 -> (memo2, fromMaybe v2
-                   $ substitute1AstHVector @Float
-                       (SubstitutionPayloadHFun f2) var v2)
+      1 -> (memo2, fromMaybe v2 $ substitute1AstHVector
+                                    (SubstitutionPayloadHFun f2) var v2)
       _ -> (memo2, Ast.AstLetHFunInHVector var f2 v2)
   Ast.AstLetInHVector var u v ->
     -- We assume there are no nested lets with the same variable.
@@ -441,8 +438,7 @@ inlineAstHVector memo v0 = case v0 of
     in (memo5, Ast.AstMapAccumLDer k accShs bShs eShs f2 df2 rf2 acc02 es2)
 
 inlineAstHFun
-  :: AstSpan s
-  => AstMemo -> AstHFun s -> (AstMemo, AstHFun s)
+  :: AstMemo -> AstHFun -> (AstMemo, AstHFun)
 inlineAstHFun memo v0 = case v0 of
   Ast.AstLambda ~(vvars, l) ->
     -- No other free variables in l, so no outside lets can reach there,
@@ -716,8 +712,7 @@ unletAstHVector env = \case
                         (V.map (unletAstDynamic env) acc0)
                         (V.map (unletAstDynamic env) es)
 
-unletAstHFun
-  :: AstSpan s => AstHFun s -> AstHFun s
+unletAstHFun :: AstHFun -> AstHFun
 unletAstHFun = \case
   Ast.AstLambda ~(vvars, l) ->
     Ast.AstLambda (vvars, unletAstHVector (emptyUnletEnv emptyADShare) l)

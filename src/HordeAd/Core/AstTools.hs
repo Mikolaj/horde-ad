@@ -118,12 +118,12 @@ shapeAstHVector = \case
   AstMapAccumLDer k accShs bShs _eShs _f _df _rf _acc0 _es ->
     accShs V.++ replicate1VoidHVector k bShs
 
-shapeAstHFun :: AstHFun s -> VoidHVector
+shapeAstHFun :: AstHFun -> VoidHVector
 shapeAstHFun = \case
   AstLambda ~(_vvars, l) -> shapeAstHVector l
   AstVarHFun _shss shs _var -> shs
 
-domainShapesAstHFun :: AstHFun s -> [VoidHVector]
+domainShapesAstHFun :: AstHFun -> [VoidHVector]
 domainShapesAstHFun = \case
   AstLambda ~(vvars, _l) -> map voidFromVars vvars
   AstVarHFun shss _shs _var -> shss
@@ -251,7 +251,7 @@ varInAstDynamic var = \case
   DynamicRankedDummy{} -> False
   DynamicShapedDummy{} -> False
 
-varInAstHFun :: AstVarId -> AstHFun s -> Bool
+varInAstHFun :: AstVarId -> AstHFun -> Bool
 varInAstHFun var = \case
   AstLambda{} -> False  -- we take advantage of the term being closed
   AstVarHFun _shss _shs var2 -> fromEnum var == fromEnum var2
