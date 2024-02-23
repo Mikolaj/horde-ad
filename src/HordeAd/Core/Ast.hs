@@ -411,6 +411,7 @@ type role AstHVector nominal
 data AstHVector :: AstSpanType -> Type where
   -- There are existential variables inside DynamicTensor here.
   AstHVector :: HVector (AstRanked s) -> AstHVector s
+  AstHApply :: AstHFun s -> [HVector (AstRanked s)] -> AstHVector s
   -- The operations below is why we need AstHVector and so HVectorOf.
   -- If we kept a vector of terms instead, we'd need to let-bind in each
   -- of the terms separately, duplicating the let-bound term.

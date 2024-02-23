@@ -689,6 +689,10 @@ build1VHVector k (var, v0) =
  in traceRule $ case v0 of
   Ast.AstHVector l ->
     Ast.AstHVector $ V.map (\u -> build1VOccurenceUnknownDynamic k (var, u)) l
+  Ast.AstHApply t ll ->
+    Ast.AstHApply
+      (build1VHFun k (var, t))
+      (map (V.map (\u -> build1VOccurenceUnknownDynamic k (var, u))) ll)
   Ast.AstLetHVectorInHVector vars1 u v -> case someNatVal $ toInteger k of
       Just (SomeNat @k3 _) ->
         let (vOut, varsOut) = substProjVarsHVector @k3 var vars1 v

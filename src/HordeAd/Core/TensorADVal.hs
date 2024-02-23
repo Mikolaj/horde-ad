@@ -345,6 +345,7 @@ instance ADReadyBoth ranked shaped
   dshape = voidFromHVector
   dmkHVector = id
   dlambda _ = id
+  dHApply (HFun f) ll = f ll
   dunHVector shs hv = assert (voidHVectorMatches shs hv
                               `blame` ( shapeVoidHVector shs
                                       , shapeVoidHVector (voidFromHVector hv)))
@@ -624,6 +625,7 @@ instance HVectorTensor (Flip OR.Array) (Flip OS.Array) where
   dshape = voidFromHVector
   dmkHVector = id
   dlambda _ = id
+  dHApply (HFun f) ll = f ll
   dunHVector shs hv = assert (voidHVectorMatches shs hv
                               `blame` ( shapeVoidHVector shs
                                       , shapeVoidHVector (voidFromHVector hv)))
