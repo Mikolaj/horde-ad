@@ -777,9 +777,14 @@ class HVectorTensor (ranked :: RankedTensorType)
   -- The second argument is only used to determine tensor shapes
   -- and the third has to have the same shapes as the second.
   --
-  -- The function argument needs to be quantified (or an AST term),
+  -- The function argument needs to be quantified,
   -- because otherwise in the ADVal instance one could put an illegal
-  -- InputR there, confusing two levels of contangents.
+  -- InputR there, confusing the two levels of contangents.
+  --
+  -- These methods are in this class, because the types mention @ADReady@,
+  -- which contains a @HVectorTensor@ constraint, so it's awkward to put
+  -- the methods into @RankedTensor@, which shouldn't know
+  -- about @HVectorTensor@.
   rrev :: (GoodScalar r, KnownNat n)
        => (forall f. ADReady f => HVector f -> f r n)
        -> VoidHVector
@@ -814,9 +819,18 @@ class HVectorTensor (ranked :: RankedTensorType)
        -> HVector ranked
        -> HVector ranked
        -> shaped r sh
-  -- The method is in this class, because its type mentions ADReady,
-  -- so it's awkward to put this into RankedTensor, which doesn't know
-  -- about HVectorTensor.
+  drevDt
+    :: VoidHVector  -- shapes of a and da
+    -> HFun  -- [HVector f] -> HVectorOf f
+             -- a |-> b
+    -> HFunOf ranked  -- [HVector f, HVector f] -> HVectorOf f
+                      -- [db, a] |-> da
+  dfwd
+    :: VoidHVector  -- shapes of a and da
+    -> HFun  -- [HVector f] -> HVectorOf f
+             -- a |-> b
+    -> HFunOf ranked  -- [HVector f, HVector f] -> HVectorOf f
+                      -- [da, a] |-> db
   -- | A strict left fold.
   rfold
     :: forall rn rm n m.
@@ -953,6 +967,20 @@ class HVectorTensor (ranked :: RankedTensorType)
     -> HVector ranked
     -> HVector ranked
     -> HVectorOf ranked
+  dmapAccumR !k !accShs !bShs !eShs f acc0 es =
+    let shs = accShs V.++ eShs
+        fl :: forall f. ADReady f => [HVector f] -> HVectorOf f
+        fl ![!acc, !e] = f acc e
+        fl _ = error "fl: wrong number of arguments"
+        accLen = V.length accShs
+        fs :: forall f. ADReady f => [HVector f] -> HVectorOf f
+        fs ![!acc_e] = uncurry f (V.splitAt accLen acc_e)
+        fs _ = error "fs: wrong number of arguments"
+    in dmapAccumRDer k accShs bShs eShs
+                     (dlambda @ranked [accShs, eShs] $ HFun fl)
+                     (dfwd @ranked shs $ HFun fs)
+                     (drevDt @ranked shs $ HFun fs)
+                     acc0 es
   dmapAccumRDer
     :: SNat k
     -> VoidHVector  -- ^ accShs, shapes of acc
@@ -966,16 +994,16 @@ class HVectorTensor (ranked :: RankedTensorType)
     -> HFunOf ranked
     -- (forall f. ADReady f =>
     --  [ HVector f      -- ^ dacc :: accShs
-    --  , HVector f      -- ^ de :: eShs
+    --    ++ HVector f   -- ^ de :: eShs
     --  , HVector f      -- ^ acc :: accShs
-    --  , HVector f ]    -- ^ e :: eShs
+    --    ++ HVector f ] -- ^ e :: eShs
     --  -> HVectorOf f)  -- ^ (dx, db) :: (accShs, bShs)
     -> HFunOf ranked
     -- (forall f. ADReady f =>
     --  [ HVector f      -- ^ dx :: accShs
-    --  , HVector f      -- ^ db :: bShs
+    --    ++ HVector f   -- ^ db :: bShs
     --  , HVector f      -- ^ acc :: accShs
-    --  , HVector f ]    -- ^ e :: eShs
+    --    ++ HVector f ] -- ^ e :: eShs
     --  -> HVectorOf f)  -- ^ (dacc, de) :: (accShs, eShs)
     -> HVector ranked  -- ^ acc0 :: accShs
     -> HVector ranked  -- ^ es :: k ': eShs
@@ -991,6 +1019,20 @@ class HVectorTensor (ranked :: RankedTensorType)
     -> HVector ranked
     -> HVector ranked
     -> HVectorOf ranked
+  dmapAccumL !k !accShs !bShs !eShs f acc0 es =
+    let shs = accShs V.++ eShs
+        fl :: forall f. ADReady f => [HVector f] -> HVectorOf f
+        fl ![!acc, !e] = f acc e
+        fl _ = error "fl: wrong number of arguments"
+        accLen = V.length accShs
+        fs :: forall f. ADReady f => [HVector f] -> HVectorOf f
+        fs ![!acc_e] = uncurry f (V.splitAt accLen acc_e)
+        fs _ = error "fs: wrong number of arguments"
+    in dmapAccumLDer k accShs bShs eShs
+                     (dlambda @ranked [accShs, eShs] $ HFun fl)
+                     (dfwd @ranked shs $ HFun fs)
+                     (drevDt @ranked shs $ HFun fs)
+                     acc0 es
   dmapAccumLDer
     :: SNat k
     -> VoidHVector

@@ -1007,52 +1007,40 @@ evalH !s !c = let (abShared, cShared) =
           s { hnMap = EM.insert n d $ hnMap s
             , hdMap = EM.insert n c $ hdMap s }
   HToH v -> evalHVector s c v
-  MapAccumR k accShs bShs eShs q es _df (HFun rf) acc0' es' ->
+  MapAccumR k accShs bShs eShs q es _df rf acc0' es' ->
     let accLen = V.length accShs
-        hvToPair :: HVector f -> (HVector f, HVector f)
-        hvToPair hv = (V.take accLen hv, V.drop accLen hv)
         bLen = V.length bShs
-        hvTo3 :: HVector f -> (HVector f, HVector f, HVector f)
-        hvTo3 hv = ( V.take bLen hv
-                   , V.slice bLen accLen hv
-                   , V.drop (bLen + accLen) hv )
-        (c0, crest) = hvToPair cShared
+        (c0, crest) = V.splitAt accLen cShared
         dacc_desUnshared =
           dmapAccumL k accShs eShs (bShs V.++ accShs V.++ eShs)
                      (\dx db_acc_e ->
-                        let (db, acc, e) = hvTo3 db_acc_e
-                        in rf [dx, db, acc, e])
+                        let (db, acc_e) = V.splitAt bLen db_acc_e
+                        in unHFun rf [dx V.++ db, acc_e])
                      c0
                      (V.concat [crest, q, es])
         (abShared2, dacc_des) =
           dregister (accShs V.++ voidFromHVector es)
                     dacc_desUnshared (astBindings sShared)
         s2 = sShared {astBindings = abShared2}
-        (dacc, des) = hvToPair dacc_des
+        (dacc, des) = V.splitAt accLen dacc_des
         s3 = evalHVector s2 dacc acc0'
     in evalHVector s3 des es'
-  MapAccumL k accShs bShs eShs q es _df (HFun rf) acc0' es' ->
+  MapAccumL k accShs bShs eShs q es _df rf acc0' es' ->
     let accLen = V.length accShs
-        hvToPair :: HVector f -> (HVector f, HVector f)
-        hvToPair hv = (V.take accLen hv, V.drop accLen hv)
         bLen = V.length bShs
-        hvTo3 :: HVector f -> (HVector f, HVector f, HVector f)
-        hvTo3 hv = ( V.take bLen hv
-                   , V.slice bLen accLen hv
-                   , V.drop (bLen + accLen) hv )
-        (c0, crest) = hvToPair cShared
+        (c0, crest) = V.splitAt accLen cShared
         dacc_desUnshared =
           dmapAccumR k accShs eShs (bShs V.++ accShs V.++ eShs)
                      (\dx db_acc_e ->
-                        let (db, acc, e) = hvTo3 db_acc_e
-                        in rf [dx, db, acc, e])
+                        let (db, acc_e) = V.splitAt bLen db_acc_e
+                        in unHFun rf [dx V.++ db, acc_e])
                      c0
                      (V.concat [crest, q, es])
         (abShared2, dacc_des) =
           dregister (accShs V.++ voidFromHVector es)
                     dacc_desUnshared (astBindings sShared)
         s2 = sShared {astBindings = abShared2}
-        (dacc, des) = hvToPair dacc_des
+        (dacc, des) = V.splitAt accLen dacc_des
         s3 = evalHVector s2 dacc acc0'
     in evalHVector s3 des es'
 
@@ -1370,34 +1358,24 @@ fwdH dimR params s = \case
                     , hdMap = EM.insert n cShared (hdMap s3) }
         in (s4, dmkHVector cShared)
   HToH v -> second dmkHVector $ fwdHVector dimR params s v
-  MapAccumR k accShs bShs eShs q es (HFun df) _rf acc0' es' ->
+  MapAccumR k accShs bShs eShs q es df _rf acc0' es' ->
     let (s2, cacc0) = fwdHVector dimR params s acc0'
         (s3, ces) = fwdHVector dimR params s2 es'
         eLen = V.length eShs
-        accLen = V.length accShs
-        hvTo3 :: HVector f -> (HVector f, HVector f, HVector f)
-        hvTo3 hv = ( V.take eLen hv
-                   , V.slice eLen accLen hv
-                   , V.drop (eLen + accLen) hv )
     in (s3, dmapAccumR k accShs bShs (eShs V.++ accShs V.++ eShs)
                        (\dacc de_acc_e ->
-                          let (de, acc, e) = hvTo3 de_acc_e
-                          in df [dacc, de, acc, e])
+                          let (de, acc_e) = V.splitAt eLen de_acc_e
+                          in unHFun df [dacc V.++ de, acc_e])
                        cacc0
                        (V.concat [ces, q, es]))
-  MapAccumL k accShs bShs eShs q es (HFun df) _rf acc0' es' ->
+  MapAccumL k accShs bShs eShs q es df _rf acc0' es' ->
     let (s2, cacc0) = fwdHVector dimR params s acc0'
         (s3, ces) = fwdHVector dimR params s2 es'
         eLen = V.length eShs
-        accLen = V.length accShs
-        hvTo3 :: HVector f -> (HVector f, HVector f, HVector f)
-        hvTo3 hv = ( V.take eLen hv
-                   , V.slice eLen accLen hv
-                   , V.drop (eLen + accLen) hv )
     in (s3, dmapAccumL k accShs bShs (eShs V.++ accShs V.++ eShs)
                        (\dacc de_acc_e ->
-                          let (de, acc, e) = hvTo3 de_acc_e
-                          in df [dacc, de, acc, e])
+                          let (de, acc_e) = V.splitAt eLen de_acc_e
+                          in unHFun df [dacc V.++ de, acc_e])
                        cacc0
                        (V.concat [ces, q, es]))
 

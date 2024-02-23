@@ -786,41 +786,26 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
       let env = extendEnvHVector @(AstRanked s) vars parameters EM.empty
           envDt = extendEnvHVector @(AstRanked s) varsDt ds env
       in interpretAstS envDt derivative
-  dmapAccumR
-    :: SNat k
-    -> VoidHVector
-    -> VoidHVector
-    -> VoidHVector
-    -> (forall f. ADReady f
-        => HVector f -> HVector f -> HVectorOf f)
-    -> HVector (AstRanked s)
-    -> HVector (AstRanked s)
-    -> AstHVector s
-  dmapAccumR !k !accShs !bShs !eShs f acc0 es =
-    assert (voidHVectorMatches (replicate1VoidHVector k eShs) es
-            && voidHVectorMatches accShs acc0) $
-    let accLen = V.length accShs
-        hvToPair :: forall f. HVector f -> (HVector f, HVector f)
-        hvToPair hv = (V.take accLen hv, V.drop accLen hv)
-        accEShs = accShs V.++ eShs
-        g :: HVector (AstRanked FullSpan)
+  drevDt :: VoidHVector
+         -> HFun
+         -> AstHFun PrimalSpan
+  drevDt shs f =
+    let g :: HVector (AstRanked FullSpan)
           -> HVectorPseudoTensor (AstRanked FullSpan) Float '()
-        g !hv = HVectorPseudoTensor $ uncurry f (hvToPair hv)
+        g !hv = HVectorPseudoTensor $ unHFun f [hv]
         (((varsDt, vars), gradient, _primal, _sh), _delta) =
-          revProduceArtifact TensorToken True g EM.empty accEShs
-        (((varsDt2, vars2), derivative, _primal2), _delta2) =
-          fwdProduceArtifact TensorToken g EM.empty accEShs
-        fl, dfl, rfl :: AstHFun PrimalSpan
-        fl = AstLambda
-             $ fun1LToAst [accShs, eShs] $ \ !vvars !ll ->
-                 (vvars, f (ll !! 0) (ll !! 1))
-        dfl = AstLambda ( [ take accLen varsDt2, drop accLen varsDt2
-                          , take accLen vars2, drop accLen vars2 ]
-                        , unHVectorPseudoTensor derivative )
-        rfl = AstLambda ( [ take accLen varsDt, drop accLen varsDt
-                          , take accLen vars, drop accLen vars ]
-                        , gradient )
-     in AstMapAccumRDer k accShs bShs eShs fl dfl rfl acc0 es
+          revProduceArtifact TensorToken True g EM.empty shs
+     in AstLambda ([varsDt, vars], gradient)
+  dfwd :: VoidHVector
+       -> HFun
+       -> AstHFun PrimalSpan
+  dfwd shs f =
+    let g :: HVector (AstRanked FullSpan)
+          -> HVectorPseudoTensor (AstRanked FullSpan) Float '()
+        g !hv = HVectorPseudoTensor $ unHFun f [hv]
+        (((varsDt, vars), derivative, _primal), _delta) =
+          fwdProduceArtifact TensorToken g EM.empty shs
+     in AstLambda ([varsDt, vars], unHVectorPseudoTensor derivative)
   dmapAccumRDer
     :: SNat k
     -> VoidHVector
@@ -836,41 +821,6 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     assert (voidHVectorMatches (replicate1VoidHVector k eShs) es
             && voidHVectorMatches accShs acc0) $
     AstMapAccumRDer k accShs bShs eShs f df rf acc0 es
-  dmapAccumL
-    :: SNat k
-    -> VoidHVector
-    -> VoidHVector
-    -> VoidHVector
-    -> (forall f. ADReady f
-        => HVector f -> HVector f -> HVectorOf f)
-    -> HVector (AstRanked s)
-    -> HVector (AstRanked s)
-    -> AstHVector s
-  dmapAccumL !k !accShs !bShs !eShs f acc0 es =
-    assert (voidHVectorMatches (replicate1VoidHVector k eShs) es
-            && voidHVectorMatches accShs acc0) $
-    let accLen = V.length accShs
-        hvToPair :: forall f. HVector f -> (HVector f, HVector f)
-        hvToPair hv = (V.take accLen hv, V.drop accLen hv)
-        accEShs = accShs V.++ eShs
-        g :: HVector (AstRanked FullSpan)
-          -> HVectorPseudoTensor (AstRanked FullSpan) Float '()
-        g !hv = HVectorPseudoTensor $ uncurry f (hvToPair hv)
-        (((varsDt, vars), gradient, _primal, _sh), _delta) =
-          revProduceArtifact TensorToken True g EM.empty accEShs
-        (((varsDt2, vars2), derivative, _primal2), _delta2) =
-          fwdProduceArtifact TensorToken g EM.empty accEShs
-        fl, dfl, rfl :: AstHFun PrimalSpan
-        fl = AstLambda
-             $ fun1LToAst [accShs, eShs] $ \ !vvars !ll ->
-                 (vvars, f (ll !! 0) (ll !! 1))
-        dfl = AstLambda ( [ take accLen varsDt2, drop accLen varsDt2
-                          , take accLen vars2, drop accLen vars2 ]
-                        , unHVectorPseudoTensor derivative )
-        rfl = AstLambda ( [ take accLen varsDt, drop accLen varsDt
-                          , take accLen vars, drop accLen vars ]
-                        , gradient )
-     in AstMapAccumLDer k accShs bShs eShs fl dfl rfl acc0 es
   dmapAccumLDer
     :: SNat k
     -> VoidHVector
@@ -1186,6 +1136,8 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
     AstNoVectorizeS
     $ sfwd @(AstRanked s) f parameters0
            (unNoVectorizeHVector hVector) (unNoVectorizeHVector ds)
+  drevDt = drevDt @(AstRanked s)
+  dfwd = dfwd @(AstRanked s)
   dmapAccumR k accShs bShs eShs f acc0 es =
     dmapAccumR @(AstRanked s)
                k accShs bShs eShs f (unNoVectorizeHVector acc0)
@@ -1376,6 +1328,8 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
   sfwd f parameters0 hVector ds =
     AstNoSimplifyS $ sfwd @(AstRanked s) f parameters0
                           (unNoSimplifyHVector hVector) (unNoSimplifyHVector ds)
+  drevDt = drevDt @(AstRanked s)
+  dfwd = dfwd @(AstRanked s)
   dmapAccumR k accShs bShs eShs f acc0 es =
     dmapAccumR @(AstRanked s)
                k accShs bShs eShs f (unNoSimplifyHVector acc0)
