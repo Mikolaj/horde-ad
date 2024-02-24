@@ -1176,29 +1176,19 @@ fwdR dimR params s = \case
                   (s3, u) = fwdR dimR params s2 e
               in (s3, t + u)
   LetR n d ->
-    case EM.lookup n $ nMap s of
-      Just (DynamicRanked _) ->
-        case dMap s EM.! n of
-          DynamicRanked @r2 @n2 e -> case sameNat (Proxy @n2)
-                                                  (Proxy @n) of
-            Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
-              Just Refl -> (s, e)
-              _ -> error "fwdR: scalar mismatch"
-            _ -> error "fwdR: rank mismatch"
-          DynamicShaped{} -> error "fwdR: DynamicShaped"
-          DynamicRankedDummy{} ->
-            error "fwdR: DynamicRankedDummy"
-          DynamicShapedDummy{} ->
-            error "fwdR: DynamicShapedDummy"
+    case EM.lookup n $ dMap s of
+      Just (DynamicRanked @r2 @n2 e) -> case sameNat (Proxy @n2) (Proxy @n) of
+        Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
+          Just Refl -> (s, e)
+          _ -> error "fwdR: scalar mismatch"
+        _ -> error "fwdR: rank mismatch"
+      Just{} ->error "fwdR: corrupted dMap"
       Nothing ->
         let (s2, cRaw) = fwdR dimR params s d
             (abShared, cShared) = rregister cRaw (astBindings s2)
             s3 = s2 {astBindings = abShared}
-            s4 = s3 { nMap = EM.insert n (DynamicRanked d) (nMap s3)
-                    , dMap = EM.insert n (DynamicRanked cShared)
-                                         (dMap s3) }
+            s4 = s3 {dMap = EM.insert n (DynamicRanked cShared) (dMap s3)}
         in (s4, cShared)
-      _ -> error "fwdR: corrupted nMap"
 
   IndexR d ix -> second (`rindex` ix) $ fwdR dimR params s d
   SumR d -> second rsum $ fwdR dimR params s d
@@ -1265,28 +1255,19 @@ fwdS dimR params s = \case
                   (s3, u) = fwdS dimR params s2 e
               in (s3, t + u)
   LetS n d ->
-    case EM.lookup n $ nMap s of
-      Just (DynamicShaped _) ->
-        case dMap s EM.! n of
-          DynamicRanked{} -> error "fwdS: DynamicRanked"
-          DynamicShaped @r2 @sh2 e -> case sameShape @sh2 @sh of
-            Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
-              Just Refl -> (s, e)
-              _ -> error "fwdS: scalar mismatch"
-            _ -> error "fwdS: shape mismatch"
-          DynamicRankedDummy{} ->
-            error "fwdS: DynamicRankedDummy"
-          DynamicShapedDummy{} ->
-            error "fwdS: DynamicShapedDummy"
+    case EM.lookup n $ dMap s of
+      Just (DynamicShaped @r2 @sh2 e) -> case sameShape @sh2 @sh of
+        Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
+          Just Refl -> (s, e)
+          _ -> error "fwdS: scalar mismatch"
+        _ -> error "fwdS: shape mismatch"
+      Just{} -> error "fwdS: corrupted dMap"
       Nothing ->
         let (s2, cRaw) = fwdS dimR params s d
             (abShared, cShared) = sregister cRaw (astBindings s2)
             s3 = s2 {astBindings = abShared}
-            s4 = s3 { nMap = EM.insert n (DynamicShaped d) (nMap s3)
-                    , dMap = EM.insert n (DynamicShaped cShared)
-                                         (dMap s3) }
+            s4 = s3 {dMap = EM.insert n (DynamicShaped cShared) (dMap s3)}
         in (s4, cShared)
-      _ -> error "fwdS: corrupted nMap"
 
   IndexS d ix -> second (`sindex` ix) $ fwdS dimR params s d
   SumS d -> second ssum $ fwdS dimR params s d
@@ -1338,15 +1319,14 @@ fwdH
   -> (EvalState ranked, HVectorOf ranked)
 fwdH dimR params s = \case
   LetH n d ->
-    case EM.lookup n $ hnMap s of
-      Just{} -> (s, dmkHVector $ hdMap s EM.! n)
+    case EM.lookup n $ hdMap s of
+      Just hv -> (s, dmkHVector hv)
       Nothing ->
         let (s2, cRaw) = fwdH dimR params s d
             (abShared, cShared) =
               dregister (shapeDeltaH d) cRaw (astBindings s2)
             s3 = s2 {astBindings = abShared}
-            s4 = s3 { hnMap = EM.insert n d (hnMap s3)
-                    , hdMap = EM.insert n cShared (hdMap s3) }
+            s4 = s3 {hdMap = EM.insert n cShared (hdMap s3)}
         in (s4, dmkHVector cShared)
   HToH v -> second dmkHVector $ fwdHVector dimR params s v
   MapAccumR k accShs bShs eShs q es df _rf acc0' es' ->
