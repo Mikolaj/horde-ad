@@ -619,12 +619,4 @@ index1HVector = index1HVectorF rshape sshape rindex sindex
 
 replicate1HVector :: (RankedTensor ranked, ShapedTensor (ShapedOf ranked))
                   => SNat k -> HVector ranked -> HVector ranked
-replicate1HVector k u = V.map (replicate1Dynamic k) u
-
-replicate1Dynamic :: (RankedTensor ranked, ShapedTensor (ShapedOf ranked))
-                  => SNat k -> DynamicTensor ranked -> DynamicTensor ranked
-replicate1Dynamic k@(SNat @k) u = case u of
-  DynamicRanked t -> DynamicRanked $ rreplicate (sNatValue k) t
-  DynamicShaped t -> DynamicShaped $ sreplicate @_ @k t
-  DynamicRankedDummy @r @sh p1 _ -> DynamicRankedDummy @r @(k ': sh) p1 Proxy
-  DynamicShapedDummy @r @sh p1 _ -> DynamicShapedDummy @r @(k ': sh) p1 Proxy
+replicate1HVector = replicate1HVectorF rreplicate sreplicate

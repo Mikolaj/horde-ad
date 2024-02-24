@@ -2247,7 +2247,7 @@ testSin0rmapAccumRD01SN531b0PP = do
     IM.empty
     (simplifyAstHVector6
      $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 1.1))
-    @?= "let v14 = rconst (fromList [0] []) in let [x15 @[Natural] @Double @[], v16 @[Natural] @Double @[0]] = dmapAccumRDer (SNat @0) (\\[x22] [x23] -> [x22, x22]) (\\[x31, x32] [x33, x34] -> [x31, x31]) (\\[x44, x45] [x46, x47] -> [0.0 + x44 + x45, 0.0]) [1.1] [v14] in let [x18 @[Natural] @Double @[], v19 @Natural @Double @[0]] = dmapAccumLDer (SNat @0) (\\[x58] [x59, x60] -> [x58, 0]) (\\[x69, x70, x71] [x72, x73, x74] -> [x69, 0.0]) (\\[x83, x84] [x85, x86, x87] -> [x83, 0, 0]) [sfromR (rsum (rreplicate 4 1.0))] [v16, v14] in [rfromS x18]"
+    @?= "let v14 = rconst (fromList [0] []) in let [x15 @[Natural] @Double @[], v16 @[Natural] @Double @[0]] = dmapAccumRDer (SNat @0) (\\[x24] [x25] -> [x24, x24]) (\\[x33, x34] [x35, x36] -> [x33, x33]) (\\[x46, x47] [x48, x49] -> [0.0 + x46 + x47, 0.0]) [1.1] [v14] in let [x18 @[Natural] @Double @[], v19 @Natural @Double @[0]] = dmapAccumLDer (SNat @0) (\\[x60] [x61, x62] -> [x60, 0]) (\\[x71, x72, x73] [x74, x75, x76] -> [x71, 0.0]) (\\[x85, x86] [x87, x88, x89] -> [x85, 0, 0]) [ssum (ssum (sfromR (rreplicate 2 (rreplicate 2 1.0))))] [v16, v14] in [rfromS x18]"
 
 testSin0rmapAccumRD01SN531bSPP :: Assertion
 testSin0rmapAccumRD01SN531bSPP = do
@@ -2303,7 +2303,7 @@ testSin0rmapAccumRD01SN531bSPPFull = do
     IM.empty
     (simplifyAstHVector6
      $ g @(AstRanked FullSpan) (V.singleton $ DynamicShaped @Double @'[] 1.1))
-    @?= "(\\[m10] [x1] -> let v7 = sconst @[1] (fromList @[1] [0.0]) in let [x8 @[Natural] @Double @[], v9 @[Natural] @Double @[1]] = dmapAccumRDer (SNat @1) <lambda> <lambda> <lambda> [x1] [v7] in let [x13 @[Natural] @Double @[], v14 @[Natural] @Double @[1]] = dmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> [sfromR (rsum (rsum (rfromS m10)))] [v9, v7] in [x13]) [[sconst @[2,2] (fromList @[2,2] [1.0,1.0,1.0,1.0])], [1.1]]"
+    @?= "(\\[m10] [x1] -> let v7 = sconst @[1] (fromList @[1] [0.0]) in let [x8 @[Natural] @Double @[], v9 @[Natural] @Double @[1]] = dmapAccumRDer (SNat @1) <lambda> <lambda> <lambda> [x1] [v7] in let [x13 @[Natural] @Double @[], v14 @[Natural] @Double @[1]] = dmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> [ssum (ssum m10)] [v9, v7] in [x13]) [[sconst @[2,2] (fromList @[2,2] [1.0,1.0,1.0,1.0])], [1.1]]"
 
 testSin0rmapAccumRD01SN531bRPP :: Assertion
 testSin0rmapAccumRD01SN531bRPP = do

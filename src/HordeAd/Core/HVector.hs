@@ -1,5 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes, QuantifiedConstraints,
              UndecidableInstances #-}
+{-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 -- | The product (heterogeneous list) object for tensors.
 --
 -- This is used as a representation of the domains of objective functions
@@ -13,7 +14,7 @@ module HordeAd.Core.HVector
   , scalarDynamic, shapeVoidDynamic, shapeVoidHVector, shapeDynamicF
   , rankDynamic, isDynamicRanked, isDynamicDummy
   , voidFromVar, voidFromVars, voidFromShL, voidFromSh, voidFromShS
-  , voidFromDynamicF, replicate1VoidHVector, index1HVectorF
+  , voidFromDynamicF, replicate1VoidHVector, index1HVectorF, replicate1HVectorF
     -- * ADShare definition
   , AstVarId, intToAstVarId, AstDynamicVarName(..), dynamicVarNameToAstVarId
   , AstBindingsCase(..), AstBindingsD, ADShareD
@@ -236,6 +237,7 @@ index1HVectorF :: ( shaped ~ ShapedOf ranked
                    => shaped r (sh1 Sh.++ sh2) -> IndexSh shaped sh1
                    -> shaped r sh2)
                -> HVector ranked -> IntOf ranked -> HVector ranked
+{-# INLINE index1HVectorF #-}
 index1HVectorF rshape sshape rindex sindex u i =
   V.map (flip (index1DynamicF rshape sshape rindex sindex) i) u
 
@@ -253,6 +255,7 @@ index1DynamicF :: ( shaped ~ ShapedOf ranked
                    => shaped r (sh1 Sh.++ sh2) -> IndexSh shaped sh1
                    -> shaped r sh2)
                -> DynamicTensor ranked -> IntOf ranked -> DynamicTensor ranked
+{-# INLINE index1DynamicF #-}
 index1DynamicF rshape sshape rindex sindex u i = case u of
   DynamicRanked t -> case rshape t of
     ZS -> error "index1Dynamic: rank 0"
@@ -266,6 +269,29 @@ index1DynamicF rshape sshape rindex sindex u i = case u of
   DynamicShapedDummy @r @sh p1 _ -> case ShapedList.shapeSh @sh of
     ZSH -> error "index1Dynamic: rank 0"
     (:$:) @_ @sh2 _ _ -> DynamicShapedDummy @r @sh2 p1 Proxy
+
+replicate1HVectorF :: shaped ~ ShapedOf ranked
+                   => (forall r n. (GoodScalar r, KnownNat n)
+                       => Int -> ranked r n -> ranked r (1 + n))
+                   -> (forall n sh r. (KnownNat n, Sh.Shape sh, GoodScalar r)
+                       => shaped r sh -> shaped r (n ': sh))
+                   -> SNat k -> HVector ranked -> HVector ranked
+{-# INLINE replicate1HVectorF #-}
+replicate1HVectorF rreplicate sreplicate k u =
+  V.map (replicate1DynamicF rreplicate sreplicate k) u
+
+replicate1DynamicF :: shaped ~ ShapedOf ranked
+                   => (forall r n. (GoodScalar r, KnownNat n)
+                       => Int -> ranked r n -> ranked r (1 + n))
+                   -> (forall n sh r. (KnownNat n, Sh.Shape sh, GoodScalar r)
+                       => shaped r sh -> shaped r (n ': sh))
+                   -> SNat k -> DynamicTensor ranked -> DynamicTensor ranked
+{-# INLINE replicate1DynamicF #-}
+replicate1DynamicF rreplicate sreplicate k@(SNat @k) u = case u of
+  DynamicRanked t -> DynamicRanked $ rreplicate (sNatValue k) t
+  DynamicShaped t -> DynamicShaped $ sreplicate @k t
+  DynamicRankedDummy @r @sh p1 _ -> DynamicRankedDummy @r @(k ': sh) p1 Proxy
+  DynamicShapedDummy @r @sh p1 _ -> DynamicShapedDummy @r @(k ': sh) p1 Proxy
 
 
 -- * ADShare definition

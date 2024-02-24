@@ -641,47 +641,7 @@ build1VOccurenceUnknownHVector k (var, v0) =
       fun1DToAst (shapeAstHVector v0) $ \ !vars !asts ->
         astLetHVectorInHVector
           vars v0 (Ast.AstHVector
-                   $ astMapHVectorRanked01 (astReplicate $ sNatValue k) asts)
-
-astMapRanked01
-  :: (ranked ~ AstRanked s, AstSpan s)
-  => (forall rq q. (GoodScalar rq, KnownNat q)
-      => ranked rq q -> ranked rq (1 + q))
-  -> DynamicTensor ranked -> DynamicTensor ranked
-astMapRanked01 f (DynamicRanked t) = DynamicRanked $ f t
-astMapRanked01 f (DynamicShaped @r @sh t) =
-  case someNatVal $ toInteger $ length $ Sh.shapeT @sh of
-    Just (SomeNat @n _) ->
-      gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: n) $
-      let res = f $ astRFromS @sh t
-      in Sh.withShapeP (shapeToList $ shapeAst res) $ \(Proxy @shr) ->
-        case someNatVal $ 1 + valueOf @n of
-          Just (SomeNat @n1 _) ->
-            gcastWith (unsafeCoerce Refl :: n1 :~: 1 + n) $
-            gcastWith (unsafeCoerce Refl :: Sh.Rank shr :~: n1) $
-            DynamicShaped $ astSFromR @shr res
-          _ -> error "astMapRanked01: impossible someNatVal"
-    _ -> error "astMapRanked01: impossible someNatVal"
-astMapRanked01 f (DynamicRankedDummy @r @sh _ _) =
-  withListShape (Sh.shapeT @sh) $ \sh1 ->
-    DynamicRanked @r $ f (astReplicate0N sh1 0)
-astMapRanked01 f (DynamicShapedDummy @r @sh _ _) =
-  withListShape (Sh.shapeT @sh) $ \(sh1 :: ShapeInt n) ->
-    let res = f @r (astReplicate0N sh1 0)
-    in Sh.withShapeP (shapeToList $ shapeAst res) $ \(Proxy @shr) ->
-      case someNatVal $ 1 + valueOf @n of
-        Just (SomeNat @n1 _) ->
-          gcastWith (unsafeCoerce Refl :: n1 :~: 1 + n) $
-          gcastWith (unsafeCoerce Refl :: Sh.Rank shr :~: n1) $
-          DynamicShaped $ astSFromR @shr res
-        _ -> error "astMapRanked01: impossible someNatVal"
-
-astMapHVectorRanked01
-  :: (ranked ~ AstRanked s, AstSpan s)
-  => (forall rq q. (GoodScalar rq, KnownNat q)
-      => ranked rq q -> ranked rq (1 + q))
-  -> HVector ranked -> HVector ranked
-astMapHVectorRanked01 f = V.map (astMapRanked01 f)
+                   $ replicate1HVectorF astReplicate astReplicateS k asts)
 
 build1VHVector
   :: forall k s. AstSpan s
