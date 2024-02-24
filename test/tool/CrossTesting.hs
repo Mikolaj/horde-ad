@@ -459,7 +459,7 @@ rrev1 f u =
       zero = voidFromSh @r @n sh
       shapes = V.fromList [zero]
       domsOf = rrev @g fHVector shapes (V.singleton $ DynamicRanked u)
-  in rletHVectorIn shapes domsOf (\v -> rfromD $ v V.! 0)
+  in rletHVectorIn domsOf (\v -> rfromD $ v V.! 0)
 
 rfwd1 :: forall g r n m r3.
          (ADReady g, GoodScalar r, GoodScalar r3, KnownNat n, KnownNat m)
@@ -484,7 +484,7 @@ srev1 f u =
       shapes = V.fromList [zero]
       domsOf = srev @(RankedOf g)
                     fHVector shapes (V.singleton $ DynamicShaped u)
-  in sletHVectorIn shapes domsOf (\v -> sfromD $ v V.! 0)
+  in sletHVectorIn domsOf (\v -> sfromD $ v V.! 0)
 
 sfwd1 :: forall g r sh sh2 r3.
          (ADReadyS g, GoodScalar r, GoodScalar r3, Sh.Shape sh, Sh.Shape sh2)

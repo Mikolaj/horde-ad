@@ -587,7 +587,7 @@ gradientFromDeltaH !parameters0 (HVectorPseudoTensor value)
                  mdt
       s0 = initEvalState parameters0
       (abShared, dtShared) =  -- really not to share, but to convert to HVector
-        dregister shDt dt (astBindings s0)
+        dregister dt (astBindings s0)
       sShared = s0 {astBindings = abShared}
       s1 = evalH sShared dtShared deltaTopLevel
       EvalState{astBindings=astB, ..} = evalFromnMap s1
@@ -983,8 +983,7 @@ evalH
   :: forall ranked shaped. (ADReady ranked, shaped ~ ShapedOf ranked)
   => EvalState ranked -> HVector ranked -> DeltaH ranked
   -> EvalState ranked
-evalH !s !c = let (abShared, cShared) =
-                    dregister (voidFromHVector c) (dmkHVector c) (astBindings s)
+evalH !s !c = let (abShared, cShared) = dregister (dmkHVector c) (astBindings s)
                   sShared = s {astBindings = abShared}
               in \case
   LetH n d ->
@@ -1009,9 +1008,7 @@ evalH !s !c = let (abShared, cShared) =
                         in unHFun rf [dx V.++ db, acc_e])
                      c0
                      (V.concat [crest, q, es])
-        (abShared2, dacc_des) =
-          dregister (accShs V.++ voidFromHVector es)
-                    dacc_desUnshared (astBindings sShared)
+        (abShared2, dacc_des) = dregister dacc_desUnshared (astBindings sShared)
         s2 = sShared {astBindings = abShared2}
         (dacc, des) = V.splitAt accLen dacc_des
         s3 = evalHVector s2 dacc acc0'
@@ -1027,9 +1024,7 @@ evalH !s !c = let (abShared, cShared) =
                         in unHFun rf [dx V.++ db, acc_e])
                      c0
                      (V.concat [crest, q, es])
-        (abShared2, dacc_des) =
-          dregister (accShs V.++ voidFromHVector es)
-                    dacc_desUnshared (astBindings sShared)
+        (abShared2, dacc_des) = dregister dacc_desUnshared (astBindings sShared)
         s2 = sShared {astBindings = abShared2}
         (dacc, des) = V.splitAt accLen dacc_des
         s3 = evalHVector s2 dacc acc0'
@@ -1227,9 +1222,7 @@ fwdR dimR params s = \case
     fwdR dimR params s d  -- no information lost, so no checks
   RFromS d -> second rfromS $ fwdS dimR params s d
   RFromH d i -> let (s2, v) = fwdH dimR params s d
-                    doms = shapeDeltaH d
-                in (s2, rletHVectorIn doms v $ \res ->
-                          rfromD $ res V.! i)
+                in (s2, rletHVectorIn v $ \res -> rfromD $ res V.! i)
 
 fwdS
   :: forall sh r ranked shaped.
@@ -1309,9 +1302,7 @@ fwdS dimR params s = \case
       _ -> error "fwdS: different shapes in SFromR(RFromS)"
   SFromR d -> second sfromR $ fwdR dimR params s d
   SFromH d i -> let (s2, v) = fwdH dimR params s d
-                    doms = shapeDeltaH d
-                in (s2, sletHVectorIn doms v $ \res ->
-                          sfromD $ res V.! i)
+                in (s2, sletHVectorIn v $ \res -> sfromD $ res V.! i)
 
 fwdH
   :: forall ranked shaped. (ADReady ranked, shaped ~ ShapedOf ranked)
@@ -1323,8 +1314,7 @@ fwdH dimR params s = \case
       Just hv -> (s, dmkHVector hv)
       Nothing ->
         let (s2, cRaw) = fwdH dimR params s d
-            (abShared, cShared) =
-              dregister (shapeDeltaH d) cRaw (astBindings s2)
+            (abShared, cShared) = dregister cRaw (astBindings s2)
             s3 = s2 {astBindings = abShared}
             s4 = s3 {hdMap = EM.insert n cShared (hdMap s3)}
         in (s4, dmkHVector cShared)

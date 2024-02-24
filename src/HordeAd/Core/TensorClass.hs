@@ -284,8 +284,7 @@ class ( Integral (IntOf ranked), CRanked ranked Num
                 => ranked r1 n -> ranked r2 n
   rconst :: (GoodScalar r, KnownNat n) => OR.Array n r -> ranked r n
   rletHVectorIn :: (KnownNat n, GoodScalar r)
-                => VoidHVector
-                -> HVectorOf ranked
+                => HVectorOf ranked
                 -> (HVector ranked -> ranked r n)
                 -> ranked r n
   rletHFunIn :: (KnownNat n, GoodScalar r)
@@ -669,8 +668,7 @@ class ( Integral (IntOf shaped), CShaped shaped Num
                 => shaped r1 sh -> shaped r2 sh
   sconst :: (GoodScalar r, Sh.Shape sh) => OS.Array sh r -> shaped r sh
   sletHVectorIn :: (Sh.Shape sh, GoodScalar r)
-                => VoidHVector
-                -> HVectorOf (RankedOf shaped)
+                => HVectorOf (RankedOf shaped)
                 -> (HVector (RankedOf shaped) -> shaped r sh)
                 -> shaped r sh
   sletHFunIn :: (Sh.Shape sh, GoodScalar r)
@@ -736,11 +734,10 @@ class HVectorTensor (ranked :: RankedTensorType)
   dmkHVector :: HVector ranked -> HVectorOf ranked
   dlambda :: [VoidHVector] -> HFun -> HFunOf ranked
   dHApply :: HFunOf ranked -> [HVector ranked] -> HVectorOf ranked
-  dunHVector :: VoidHVector -> HVectorOf ranked -> HVector ranked
+  dunHVector :: HVectorOf ranked -> HVector ranked
     -- ^ Warning: this operation easily breaks sharing.
   dletHVectorInHVector
-    :: VoidHVector
-    -> HVectorOf ranked
+    :: HVectorOf ranked
     -> (HVector ranked -> HVectorOf ranked)
     -> HVectorOf ranked
   -- When the programmer uses the same closed function many times, the HFun lets
@@ -763,9 +760,8 @@ class HVectorTensor (ranked :: RankedTensorType)
   dunlet :: ADShare -> AstBindingsD ranked -> HVectorOf ranked
          -> HVectorOf ranked
   dunlet l astBindings = assert (nullADShare l && null astBindings)
-  dsharePrimal :: VoidHVector -> HVectorOf ranked -> ADShare
-               -> (ADShare, HVector ranked)
-  dregister :: VoidHVector -> HVectorOf ranked -> AstBindingsD ranked
+  dsharePrimal :: HVectorOf ranked -> ADShare -> (ADShare, HVector ranked)
+  dregister :: HVectorOf ranked -> AstBindingsD ranked
             -> (AstBindingsD ranked, HVector ranked)
   dbuild1 :: SNat k
           -> (IntOf ranked -> HVectorOf ranked)  -- sh_i
@@ -824,7 +820,7 @@ class HVectorTensor (ranked :: RankedTensorType)
         g _ = error "g: wrong number of arguments"
         h = dfwd @ranked shs (HFun g)
     in \es ds -> let hv = dHApply h [ds, es]
-                 in rfromD $ dunHVector (dshape @ranked hv) hv V.! 0
+                 in rfromD $ dunHVector hv V.! 0
   srev :: ( GoodScalar r, Sh.Shape sh, shaped ~ ShapedOf ranked
           , ShapedTensor shaped )
        => (forall f. ADReadyS f => HVector (RankedOf f) -> f r sh)
@@ -857,7 +853,7 @@ class HVectorTensor (ranked :: RankedTensorType)
         g _ = error "g: wrong number of arguments"
         h = dfwd @ranked shs (HFun g)
     in \es ds -> let hv = dHApply h [ds, es]
-                 in sfromD $ dunHVector (dshape @ranked hv) hv V.! 0
+                 in sfromD $ dunHVector hv V.! 0
   -- These methods (and dlambda) producing HFunOf is analogous to dmkHVector
   -- producing HVectorOf and it's exactly what is needed as arguments
   -- of dmapAccumRDer
@@ -890,7 +886,6 @@ class HVectorTensor (ranked :: RankedTensorType)
         sh = rshape acc0
     in withSNat width $ \snat ->
       rletHVectorIn
-        (V.singleton $ voidFromSh @rn sh)
         (dmapAccumL
            snat
            (V.singleton $ voidFromSh @rn sh)
@@ -923,7 +918,6 @@ class HVectorTensor (ranked :: RankedTensorType)
         sh = rshape acc0
     in withSNat width $ \snat ->
       rletHVectorIn
-        (V.fromList [voidFromSh @rn sh, voidFromSh @rn (width :$ sh)])
         (dmapAccumL
            snat
            (V.singleton $ voidFromSh @rn sh)
@@ -953,7 +947,6 @@ class HVectorTensor (ranked :: RankedTensorType)
     -> shaped rn sh
   sfold f acc0 es =
     sletHVectorIn
-      (V.singleton $ voidFromShS @rn @sh)
       (dmapAccumL @ranked
          (SNat @k)
          (V.singleton $ voidFromShS @rn @sh)
@@ -980,7 +973,6 @@ class HVectorTensor (ranked :: RankedTensorType)
     -> shaped rn (1 + k ': sh)
   sscan f acc0 es =
     sletHVectorIn
-      (V.fromList [voidFromShS @rn @sh, voidFromShS @rn @(k ': sh)])
       (dmapAccumL @ranked
          (SNat @k)
          (V.singleton $ voidFromShS @rn @sh)
@@ -1267,7 +1259,7 @@ instance RankedTensor (Flip OR.Array) where
   rcast = Flip . tcastR . runFlip
   rfromIntegral = Flip . tfromIntegralR . runFlip
   rconst = Flip
-  rletHVectorIn _ = (&)
+  rletHVectorIn = (&)
   rletHFunIn = (&)
   rfromS = Flip . Data.Array.Convert.convert . runFlip
 
@@ -1350,7 +1342,7 @@ instance ShapedTensor (Flip OS.Array) where
   scast = Flip . tcastS . runFlip
   sfromIntegral = Flip . tfromIntegralS . runFlip
   sconst = Flip
-  sletHVectorIn _ = (&)
+  sletHVectorIn = (&)
   sletHFunIn = (&)
   sfromR = Flip . Data.Array.Convert.convert . runFlip
 

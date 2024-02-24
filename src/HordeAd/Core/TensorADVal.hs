@@ -176,7 +176,7 @@ instance ADReady ranked => RankedTensor (ADVal ranked) where
     let v = rfromIntegral u
     in dDnotShared l v (dZeroOfShape v)
   rconst t = constantADVal (rconst t)
-  rletHVectorIn _od asD f = f asD
+  rletHVectorIn asD f = f asD
 {- TODO: Verify if this really helps sharing.
          BTW, it's broken when simplification in astLetHVectorIn is disabled,
          probably because asUnshared has variables bound in ll2
@@ -185,7 +185,7 @@ instance ADReady ranked => RankedTensor (ADVal ranked) where
          We'd need to flatten ll2 and put instead of l.
     let !(!ll2, asUnshared, as') = unADValHVector asD
         !(!l3, as) =
-          dsharePrimal od (dmkHVector asUnshared) emptyADShare
+          dsharePrimal (dmkHVector asUnshared) emptyADShare
         aDValDynamicTensor3 l a a' =
           aDValDynamicTensor (mergeADShare l3 l) a a'
         doms = V.zipWith3 aDValDynamicTensor3 ll2 as as'
@@ -304,12 +304,12 @@ instance ADReadyS shaped => ShapedTensor (ADVal shaped) where
     let v = sfromIntegral u
     in dDnotShared l v (dZeroOfShape v)
   sconst t = constantADVal (sconst t)
-  sletHVectorIn _od asD f = f asD
+  sletHVectorIn asD f = f asD
 {- TODO: See similar code above.
     let !(!ll2, asUnshared, as') = unADValHVector asD
         !(!l3, as) =
           dsharePrimal @(RankedOf shaped) @shaped
-                               od (dmkHVector asUnshared) emptyADShare
+                       (dmkHVector asUnshared) emptyADShare
             -- This could be done with ssharePrimal, but the code
             -- would be more complex and more ADShare nodes generated.
             -- OTOH, f would be free to assume there are no dangling variables.
@@ -346,15 +346,12 @@ instance ADReadyBoth ranked shaped
   dmkHVector = id
   dlambda _ = id
   dHApply (HFun f) ll = f ll
-  dunHVector shs hv = assert (voidHVectorMatches shs hv
-                              `blame` ( shapeVoidHVector shs
-                                      , shapeVoidHVector (voidFromHVector hv)))
-                             hv
-  dletHVectorInHVector _od asD f = f asD
+  dunHVector = id
+  dletHVectorInHVector asD f = f asD
 {- TODO: See similar code above.
     let !(!ll2, asUnshared, as') = unADValHVector asD
         !(!l3, as) =
-          dsharePrimal od (dmkHVector asUnshared) emptyADShare
+          dsharePrimal (dmkHVector asUnshared) emptyADShare
         aDValDynamicTensor3 l a a' =
           aDValDynamicTensor (mergeADShare l3 l) a a'
         doms = V.zipWith3 aDValDynamicTensor3 ll2 as as'
@@ -369,8 +366,8 @@ instance ADReadyBoth ranked shaped
   sletInHVector (D l u u') f =
     let !(!l2, var2) = ssharePrimal u l
     in f (dDnotShared l2 var2 u')
-  dsharePrimal _ d l = (l, d)
-  dregister _ d l = (l, d)
+  dsharePrimal d l = (l, d)
+  dregister d l = (l, d)
   dbuild1 k f =
     ravelHVector $ map (f . fromIntegral) [0 .. (sNatValue k :: Int) - 1]
   rrev :: (GoodScalar r, KnownNat n)
@@ -430,24 +427,21 @@ instance ADReadyBoth ranked shaped
         (ll3, esUnshared, es') = unADValHVector esD
         (l4, es) =
           dsharePrimal @ranked
-                       (replicate1VoidHVector k eShs)
                        (dmkHVector esUnshared)
                        (flattenADShare $ V.toList ll2 ++ V.toList ll3)
         codomainShs = accShs V.++ bShs
-        codomainShs2 = accShs V.++ eShs
         accLen = V.length accShs
         hvToPair :: forall f. HVector f -> (HVector f, HVector f)
         hvToPair = V.splitAt accLen
         g :: forall f. ADReady f => [HVector f] -> HVectorOf f
         g ![!acc, !e] =
-          dletHVectorInHVector @f codomainShs (unHFun f [acc, e]) $ \res ->
+          dletHVectorInHVector @f (unHFun f [acc, e]) $ \res ->
             let (accRes, bRes) = hvToPair res
             in dmkHVector $ V.concat [accRes, acc, bRes]
         g _ = error "g: wrong number of arguments"
         dg :: forall f. ADReady f => [HVector f] -> HVectorOf f
         dg ![!dacc_de, !acc_e] =
-          dletHVectorInHVector @f codomainShs
-                               (unHFun df [dacc_de, acc_e]) $ \res ->
+          dletHVectorInHVector @f (unHFun df [dacc_de, acc_e]) $ \res ->
             let (accRes, bRes) = hvToPair res
             in dmkHVector $ V.concat [accRes, V.take accLen dacc_de, bRes]
         dg _ = error "dg: wrong number of arguments"
@@ -455,7 +449,7 @@ instance ADReadyBoth ranked shaped
         rg ![!dx_db, !acc_e] =
           let (dx, db) = hvToPair dx_db
               (dbacc, dbRes) = hvToPair db
-          in dletHVectorInHVector @f codomainShs2
+          in dletHVectorInHVector @f
                                   (unHFun rf [dx V.++ dbRes, acc_e]) $ \res ->
             let (dacc, de) = hvToPair res
             in dmkHVector $ V.concat [V.zipWith addDynamic dacc dbacc, de]
@@ -471,8 +465,7 @@ instance ADReadyBoth ranked shaped
                                            , accShs V.++ eShs ]
                                    $ HFun rg)
                                   acc0 es
-        pShs = accShs V.++ replicate1VoidHVector k codomainShs
-        (l5, pShared) = dsharePrimal @ranked pShs pUnshared l4
+        (l5, pShared) = dsharePrimal @ranked pUnshared l4
         accFin = V.take accLen pShared
         q = V.slice accLen accLen pShared
         bs = V.drop (2 * accLen) pShared
@@ -507,24 +500,21 @@ instance ADReadyBoth ranked shaped
         (ll3, esUnshared, es') = unADValHVector esD
         (l4, es) =
           dsharePrimal @ranked
-                       (replicate1VoidHVector k eShs)
                        (dmkHVector esUnshared)
                        (flattenADShare $ V.toList ll2 ++ V.toList ll3)
         codomainShs = accShs V.++ bShs
-        codomainShs2 = accShs V.++ eShs
         accLen = V.length accShs
         hvToPair :: forall f. HVector f -> (HVector f, HVector f)
         hvToPair = V.splitAt accLen
         g :: forall f. ADReady f => [HVector f] -> HVectorOf f
         g ![!acc, !e] =
-          dletHVectorInHVector @f codomainShs (unHFun f [acc, e]) $ \res ->
+          dletHVectorInHVector @f (unHFun f [acc, e]) $ \res ->
             let (accRes, bRes) = hvToPair res
             in dmkHVector $ V.concat [accRes, acc, bRes]
         g _ = error "g: wrong number of arguments"
         dg :: forall f. ADReady f => [HVector f] -> HVectorOf f
         dg ![!dacc_de, !acc_e] =
-          dletHVectorInHVector @f codomainShs
-                               (unHFun df [dacc_de, acc_e]) $ \res ->
+          dletHVectorInHVector @f (unHFun df [dacc_de, acc_e]) $ \res ->
             let (accRes, bRes) = hvToPair res
             in dmkHVector $ V.concat [accRes, V.take accLen dacc_de, bRes]
         dg _ = error "dg: wrong number of arguments"
@@ -532,7 +522,7 @@ instance ADReadyBoth ranked shaped
         rg ![!dx_db, !acc_e] =
           let (dx, db) = hvToPair dx_db
               (dbacc, dbRes) = hvToPair db
-          in dletHVectorInHVector @f codomainShs2
+          in dletHVectorInHVector @f
                                   (unHFun rf [dx V.++ dbRes, acc_e]) $ \res ->
             let (dacc, de) = hvToPair res
             in dmkHVector $ V.concat [V.zipWith addDynamic dacc dbacc, de]
@@ -548,8 +538,7 @@ instance ADReadyBoth ranked shaped
                                            , accShs V.++ eShs ]
                                    $ HFun rg)
                                   acc0 es
-        pShs = accShs V.++ replicate1VoidHVector k codomainShs
-        (l5, pShared) = dsharePrimal @ranked pShs pUnshared l4
+        (l5, pShared) = dsharePrimal @ranked pUnshared l4
         accFin = V.take accLen pShared
         q = V.slice accLen accLen pShared
         bs = V.drop (2 * accLen) pShared
@@ -600,16 +589,13 @@ instance HVectorTensor (Flip OR.Array) (Flip OS.Array) where
   dmkHVector = id
   dlambda _ = id
   dHApply (HFun f) ll = f ll
-  dunHVector shs hv = assert (voidHVectorMatches shs hv
-                              `blame` ( shapeVoidHVector shs
-                                      , shapeVoidHVector (voidFromHVector hv)))
-                             hv
-  dletHVectorInHVector _ = (&)
+  dunHVector = id
+  dletHVectorInHVector = (&)
   dletHFunInHVector = (&)
   rletInHVector = (&)
   sletInHVector = (&)
-  dsharePrimal _ d l = (l, d)
-  dregister _ d l = (l, d)
+  dsharePrimal d l = (l, d)
+  dregister d l = (l, d)
   dbuild1 k f =
     ravelHVector $ map (f . fromIntegral) [0 .. (sNatValue k :: Int) - 1]
   rrev :: (GoodScalar r, KnownNat n)

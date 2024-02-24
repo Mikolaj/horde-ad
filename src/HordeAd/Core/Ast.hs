@@ -461,8 +461,7 @@ data AstHFun where
   AstLambda :: ~([[AstDynamicVarName]], AstHVector PrimalSpan) -> AstHFun
     -- ^ the function body can't have any free variables outside those
     -- listed in the first component of the pair; this reflects
-    -- the quantification in 'rrev' and prevents cotangent confusion;
-    -- the same holds for the similar operations below
+    -- the quantification in 'rrev' and prevents cotangent confusion
   AstVarHFun :: [VoidHVector] -> VoidHVector -> AstVarId -> AstHFun
 
 deriving instance Show AstHFun

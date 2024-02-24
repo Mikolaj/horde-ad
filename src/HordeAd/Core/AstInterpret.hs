@@ -437,15 +437,14 @@ interpretAst !env = \case
     rfromIntegral $ rconstant $ interpretAstPrimalRuntimeSpecialized env v
   AstConst a -> rconst a
   AstLetHVectorIn vars l v ->
-    let lt0 = voidFromVars vars
-        lt = interpretAstHVector env l
-        env2 lw = assert (voidHVectorMatches lt0 lw
-                          `blame` ( shapeVoidHVector lt0
+    let lt = interpretAstHVector env l
+        env2 lw = assert (voidHVectorMatches (voidFromVars vars) lw
+                          `blame` ( shapeVoidHVector (voidFromVars vars)
                                   , V.toList $ V.map shapeDynamic lw
                                   , shapeVoidHVector (shapeAstHVector l)
                                   , shapeVoidHVector (dshape @ranked lt) )) $
                  extendEnvHVector vars lw env
-    in rletHVectorIn lt0 lt (\lw -> interpretAst (env2 lw) v)
+    in rletHVectorIn lt (\lw -> interpretAst (env2 lw) v)
   AstLetHFunIn var f v ->
     let g = interpretAstHFun env f
         env2 h = extendEnvHFun var h env
@@ -845,15 +844,14 @@ interpretAstS !env = \case
     sfromIntegral $ sconstant $ interpretAstPrimalSRuntimeSpecialized env v
   AstConstS a -> sconst a
   AstLetHVectorInS vars l v ->
-    let lt0 = voidFromVars vars
-        lt = interpretAstHVector env l
-        env2 lw = assert (voidHVectorMatches lt0 lw
-                          `blame` ( shapeVoidHVector lt0
+    let lt = interpretAstHVector env l
+        env2 lw = assert (voidHVectorMatches (voidFromVars vars) lw
+                          `blame` ( shapeVoidHVector (voidFromVars vars)
                                   , V.toList $ V.map shapeDynamic lw
                                   , shapeVoidHVector (shapeAstHVector l)
                                   , shapeVoidHVector (dshape @ranked lt) )) $
                   extendEnvHVector vars lw env
-    in sletHVectorIn lt0 lt (\lw -> interpretAstS (env2 lw) v)
+    in sletHVectorIn lt (\lw -> interpretAstS (env2 lw) v)
   AstLetHFunInS var f v ->
     let g = interpretAstHFun env f
         env2 h = extendEnvHFun var h env
@@ -897,16 +895,14 @@ interpretAstHVector !env = \case
           -- getting interpreted
     in dHApply t2 ll2
   AstLetHVectorInHVector vars l v ->
-    let lt0 = voidFromVars vars
-        lt = interpretAstHVector env l
-        env2 lw = assert (voidHVectorMatches lt0 lw
-                          `blame` ( shapeVoidHVector lt0
+    let lt = interpretAstHVector env l
+        env2 lw = assert (voidHVectorMatches (voidFromVars vars) lw
+                          `blame` ( shapeVoidHVector (voidFromVars vars)
                                   , V.toList $ V.map shapeDynamic lw
                                   , shapeVoidHVector (shapeAstHVector l)
                                   , shapeVoidHVector (dshape @ranked lt) )) $
-                 extendEnvHVector vars lw env
-    in dletHVectorInHVector
-         lt0 lt (\lw -> interpretAstHVector (env2 lw) v)
+                  extendEnvHVector vars lw env
+    in dletHVectorInHVector lt (\lw -> interpretAstHVector (env2 lw) v)
   AstLetHFunInHVector var f v ->
     let g = interpretAstHFun env f
         env2 h = extendEnvHFun var h env
