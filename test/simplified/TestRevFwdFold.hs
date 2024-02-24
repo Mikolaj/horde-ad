@@ -258,7 +258,7 @@ testTrees =
   , testCase "4Sin0revhV7" testSin0revhV7
   , testCase "4Sin0revhV8" testSin0revhV8
   , testCase "4Sin0revhFoldZipR" testSin0revhFoldZipR
---  , testCase "4Sin0revhFoldZip4R" testSin0revhFoldZip4R
+  , testCase "4Sin0revhFoldZip4R" testSin0revhFoldZip4R
   , testCase "4Sin0revhFoldS" testSin0revhFoldS
   , testCase "4Sin0revhFold2S" testSin0revhFold2S
   , testCase "4Sin0revhFold3S" testSin0revhFold3S
@@ -4380,20 +4380,18 @@ testSin0revhFoldZipR = do
     (crev h (V.fromList [ DynamicRanked @Double @1 $ rreplicate 3 1.1
                         , DynamicRanked @Double @1 $ rreplicate 3 1.1 ]))
 
-{- TODO: define DerivativeStages AstHVector to make this possible:
 testSin0revhFoldZip4R :: Assertion
 testSin0revhFoldZip4R = do
   let h :: ranked ~ Flip OR.Array
         => HVector (AstRanked FullSpan)
-        -> AstHVector FullSpan
-      h = fFoldZipRX @(AstRanked FullSpan)
+        -> HVectorPseudoTensor (AstRanked FullSpan)  Float '()
+      h = HVectorPseudoTensor . fFoldZipRX @(AstRanked FullSpan)
   assertEqualUpToEpsilon 1e-10
     (V.fromList [ DynamicRanked @Double @1 $ rfromList [0, 0, 0]
                 , DynamicRanked @Double @1
                   $ rreplicate 3 (-7.313585321642452e-2) ])
     (rev h (V.fromList [ DynamicRanked @Double @1 $ rreplicate 3 1.1
                        , DynamicRanked @Double @1 $ rreplicate 3 1.1 ]))
--}
 
 fFoldS
   :: forall m k rm shm r sh shaped.
