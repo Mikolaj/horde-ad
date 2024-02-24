@@ -31,7 +31,7 @@ testTrees =
   [ testCase "4fooRrev" testFooRrev
   , testCase "4fooRrev2" testFooRrev2
   , testCase "4fooRrevPP1" testFooRrevPP1
-  , testCase "4fooRrevPP2" testFooRrevPP2
+--  , testCase "4fooRrevPP2" testFooRrevPP2
   , testCase "4fooRrev3" testFooRrev3
   , testCase "4Sin0Rrev" testSin0Rrev
   , testCase "4Sin0RrevPP1" testSin0RrevPP1
@@ -51,7 +51,7 @@ testTrees =
   , testCase "4Sin0Rfwd3" testSin0Rfwd3
   , testCase "4Sin0Rfwd4" testSin0Rfwd4
   , testCase "4Sin0RfwdPP4" testSin0RfwdPP4
-  , testCase "4Sin0RfwdPP4Dual" testSin0RfwdPP4Dual
+--  , testCase "4Sin0RfwdPP4Dual" testSin0RfwdPP4Dual
   , testCase "4Sin0Rfwd5" testSin0Rfwd5
   , testCase "4Sin0RfwdPP5" testSin0RfwdPP5
   , testCase "4Sin0Rfwd3'" testSin0Rfwd3'
@@ -307,8 +307,9 @@ testFooRrevPP1 = do
   printAstPretty IM.empty a1
     @?= "let x16 = sin 2.2 ; x17 = 1.1 * x16 ; x18 = recip (3.3 * 3.3 + x17 * x17) ; x19 = sin 2.2 ; x20 = 1.1 * x19 ; x21 = rreshape [] (rreplicate 1 1.0) ; x22 = 3.3 * x21 ; x23 = negate (3.3 * x18) * x21 in x16 * x23 + x19 * x22"
 
-testFooRrevPP2 :: Assertion
-testFooRrevPP2 = do
+-- Disabled, because different variable names with -O1.
+_testFooRrevPP2 :: Assertion
+_testFooRrevPP2 = do
   let (a1, _, _) = fooRrev @(AstRanked FullSpan) @Double (1.1, 2.2, 3.3)
   printAstSimple IM.empty a1
     @?= "rlet (sin (rconstant 2.2)) (\\x39 -> rlet (rconstant 1.1 * x39) (\\x40 -> rlet (recip (rconstant 3.3 * rconstant 3.3 + x40 * x40)) (\\x41 -> rlet (sin (rconstant 2.2)) (\\x42 -> rlet (rconstant 1.1 * x42) (\\x43 -> rlet (rreshape [] (rreplicate 1 (rconstant 1.0))) (\\x44 -> rlet (rconstant 3.3 * x44) (\\x45 -> rlet (negate (rconstant 3.3 * x41) * x44) (\\x46 -> x39 * x46 + x42 * x45))))))))"
@@ -439,8 +440,9 @@ testSin0RfwdPP4 = do
   printAstPretty IM.empty (simplifyAst6 a1)
     @?= "(1.1 * cos 1.1) * cos (1.1 * cos 1.1)"
 
-testSin0RfwdPP4Dual :: Assertion
-testSin0RfwdPP4Dual = do
+-- Disabled, because different variable names with -O1.
+_testSin0RfwdPP4Dual :: Assertion
+_testSin0RfwdPP4Dual = do
   let a1 = (rfwd1 sin . rfwd1 @(AstRanked DualSpan) @Double @0 @0 sin) 1.1
   printAstPretty IM.empty (simplifyAst6 a1)
     @?= "let [x20 @Natural @Double @[]] = (\\[x17] [x18] -> [x17 * cos x18]) [[let [x16 @Natural @Double @[]] = (\\[x13] [x14] -> [x13 * cos x14]) [[rdualPart 1.1], [rdualPart 1.1]] in x16], [let [x16 @Natural @Double @[]] = (\\[x13] [x14] -> [x13 * cos x14]) [[rdualPart 1.1], [rdualPart 1.1]] in x16]] in x20"
