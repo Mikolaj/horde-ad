@@ -371,12 +371,8 @@ instance ADReadyBoth ranked shaped
     in f (dDnotShared l2 var2 u')
   dsharePrimal _ d l = (l, d)
   dregister _ d l = (l, d)
-  dbuild1 k f = ravelHVector $ map (f . fromIntegral) [0 .. k - 1]
-  dzipWith1 f u = case V.unsnoc u of
-    Nothing -> error "dzipWith1: can't determine argument width"
-    Just (_, d) -> case shapeDynamic d of
-      [] -> error "dzipWith1: wrong rank of argument"
-      width : _ -> dbuild1 @(ADVal ranked) width (\i -> f (index1HVector u i))
+  dbuild1 k f =
+    ravelHVector $ map (f . fromIntegral) [0 .. (sNatValue k :: Int) - 1]
   rrev :: (GoodScalar r, KnownNat n)
        => (forall f. ADReady f => HVector f -> f r n)
        -> VoidHVector
@@ -614,12 +610,8 @@ instance HVectorTensor (Flip OR.Array) (Flip OS.Array) where
   sletInHVector = (&)
   dsharePrimal _ d l = (l, d)
   dregister _ d l = (l, d)
-  dbuild1 k f = ravelHVector $ map (f . fromIntegral) [0 .. k - 1]
-  dzipWith1 f u = case V.unsnoc u of
-    Nothing -> error "dzipWith1: can't determine argument width"
-    Just (_, d) -> case shapeDynamic d of
-      [] -> error "dzipWith1: wrong rank of argument"
-      width : _ -> dbuild1 @(Flip OR.Array) width (\i -> f (index1HVector u i))
+  dbuild1 k f =
+    ravelHVector $ map (f . fromIntegral) [0 .. (sNatValue k :: Int) - 1]
   rrev :: (GoodScalar r, KnownNat n)
        => (forall f. ADReady f => HVector f -> f r n)
        -> VoidHVector

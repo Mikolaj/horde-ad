@@ -767,10 +767,11 @@ class HVectorTensor (ranked :: RankedTensorType)
                -> (ADShare, HVector ranked)
   dregister :: VoidHVector -> HVectorOf ranked -> AstBindingsD ranked
             -> (AstBindingsD ranked, HVector ranked)
-  dbuild1 :: Int  -- k
+  dbuild1 :: SNat k
           -> (IntOf ranked -> HVectorOf ranked)  -- sh_i
           -> HVectorOf ranked  -- k ': sh_i
-  dzipWith1 :: ( RankedTensor ranked, ShapedTensor (ShapedOf ranked)
+  dzipWith1 :: SNat k
+            -> ( RankedTensor ranked, ShapedTensor (ShapedOf ranked)
                , RankedOf (PrimalOf (ShapedOf ranked))
                  ~ RankedOf (PrimalOf ranked) )
             => (HVector ranked -> HVectorOf ranked)
@@ -778,8 +779,9 @@ class HVectorTensor (ranked :: RankedTensorType)
             -> HVector ranked -> HVectorOf ranked
                  -- ^ each hVector has the same tensor shapes and scalar types
                  -- as its corresponding hVector above, except for the extra
-                 -- outermost dimension, which needs to be same in each tensor
-                 -- from either of the hVectors; the hVectors can't be empty
+                 -- outermost dimension k
+  dzipWith1 k f u =
+    dbuild1 @ranked k (\i -> f (index1HVectorF rshape sshape rindex sindex u i))
   -- The second argument is only used to determine tensor shapes
   -- and the third has to have the same shapes as the second.
   --

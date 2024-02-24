@@ -716,11 +716,6 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
       !var : _ ->  -- vars are fresh, so var uniquely represent vars
         ((dynamicVarNameToAstVarId var, AstBindingsHVector vars r) : l, asts)
   dbuild1 = astBuildHVector1Vectorize
-  dzipWith1 f u = case V.unsnoc u of
-    Nothing -> error "dzipWith1: can't determine argument width"
-    Just (_, d) -> case shapeDynamic d of
-      [] -> error "dzipWith1: wrong rank of argument"
-      width : _ -> dbuild1 @(AstRanked s) width (\i -> f (index1HVector u i))
   rrev :: (GoodScalar r, KnownNat n)
        => (forall f. ADReady f => HVector f -> f r n)
        -> VoidHVector
@@ -830,7 +825,7 @@ astLetInHVectorFunS a f = unsafePerformIO $ do  -- the id causes trouble
 
 astBuildHVector1Vectorize
   :: AstSpan s
-  => Int -> (AstInt -> AstHVector s) -> AstHVector s
+  => SNat k -> (AstInt -> AstHVector s) -> AstHVector s
 astBuildHVector1Vectorize k f = build1VectorizeHVector k $ funToAstI f
 
 -- This specialization is not possible where gradientFromDeltaR is defined,
@@ -1065,12 +1060,6 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
   dsharePrimal = error "dsharePrimal for AstNoVectorize"
   dregister = error "dregister for AstNoVectorize"
   dbuild1 k f = AstBuildHVector1 k $ funToAstI f
-  dzipWith1 f u = case V.unsnoc u of
-    Nothing -> error "dzipWith1: can't determine argument width"
-    Just (_, d) -> case shapeDynamic d of
-      [] -> error "dzipWith1: wrong rank of argument"
-      width : _ ->
-        dbuild1 @(AstNoVectorize s) width (\i -> f (index1HVector u i))
   rrev f parameters0 hVector =
     rrev @(AstRanked s) f parameters0 (unNoVectorizeHVector hVector)
   drevDt = drevDt @(AstRanked s)
@@ -1244,12 +1233,6 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
   dsharePrimal = error "dsharePrimal for AstNoVectorize"
   dregister = error "dregister for AstNoSimplify"
   dbuild1 = astBuildHVector1Vectorize
-  dzipWith1 f u = case V.unsnoc u of
-    Nothing -> error "dzipWith1: can't determine argument width"
-    Just (_, d) -> case shapeDynamic d of
-      [] -> error "dzipWith1: wrong rank of argument"
-      width : _ ->
-        dbuild1 @(AstNoSimplify s) width (\i -> f (index1HVector u i))
   rrev f parameters0 hVector =
     rrev @(AstRanked s) f parameters0 (unNoSimplifyHVector hVector)
   drevDt = drevDt @(AstRanked s)

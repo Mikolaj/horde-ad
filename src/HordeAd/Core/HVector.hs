@@ -13,7 +13,7 @@ module HordeAd.Core.HVector
   , scalarDynamic, shapeVoidDynamic, shapeVoidHVector, shapeDynamicF
   , rankDynamic, isDynamicRanked, isDynamicDummy
   , voidFromVar, voidFromVars, voidFromShL, voidFromSh, voidFromShS
-  , voidFromDynamicF, replicate1VoidHVector
+  , voidFromDynamicF, replicate1VoidHVector, index1HVectorF
     -- * ADShare definition
   , AstVarId, intToAstVarId, AstDynamicVarName(..), dynamicVarNameToAstVarId
   , AstBindingsCase(..), AstBindingsD, ADShareD
@@ -34,13 +34,15 @@ import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality (testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, Nat)
+import           GHC.TypeLits (KnownNat, Nat, type (+))
 import           System.IO.Unsafe (unsafePerformIO)
 import           Type.Reflection (Typeable, typeRep)
 
-import HordeAd.Core.Types
-import HordeAd.Internal.OrthotopeOrphanInstances ()
-import HordeAd.Util.SizedIndex
+import           HordeAd.Core.Types
+import           HordeAd.Internal.OrthotopeOrphanInstances ()
+import           HordeAd.Util.ShapedList (ShapeSh, ShapedList (..))
+import qualified HordeAd.Util.ShapedList as ShapedList
+import           HordeAd.Util.SizedIndex
 
 -- * Type definitions for dynamic tensors and tensor collections
 
@@ -151,6 +153,7 @@ shapeVoidHVector = V.toList . V.map shapeVoidDynamic
 
 shapeDynamicF :: (forall r n. (GoodScalar r, KnownNat n) => ranked r n -> [Int])
               -> DynamicTensor ranked -> [Int]
+{-# INLINE shapeDynamicF #-}
 shapeDynamicF f (DynamicRanked t) = f t
 shapeDynamicF _ (DynamicShaped @_ @sh _) = Sh.shapeT @sh
 shapeDynamicF _ (DynamicRankedDummy _ proxy_sh) = Sh.shapeP proxy_sh
@@ -200,6 +203,7 @@ voidFromDynamicF
   :: forall ranked.
      (forall r n. (GoodScalar r, KnownNat n) => ranked r n -> [Int])
   -> DynamicTensor ranked -> DynamicTensor VoidTensor
+{-# INLINE voidFromDynamicF #-}
 voidFromDynamicF f (DynamicRanked @r2 @n2 t) =
   let sh = f t
   in Sh.withShapeP sh $ \(Proxy @sh2) ->
@@ -217,6 +221,51 @@ replicate1VoidTensor :: SNat k -> DynamicTensor VoidTensor
 replicate1VoidTensor (SNat @k) u = case u of
   DynamicRankedDummy @r @sh p1 _ -> DynamicRankedDummy @r @(k ': sh) p1 Proxy
   DynamicShapedDummy @r @sh p1 _ -> DynamicShapedDummy @r @(k ': sh) p1 Proxy
+
+index1HVectorF :: ( shaped ~ ShapedOf ranked
+                  , RankedOf (PrimalOf shaped) ~ RankedOf (PrimalOf ranked) )
+               => (forall r n. (GoodScalar r, KnownNat n)
+                   => ranked r n -> ShapeInt n)
+               -> (forall sh r. (GoodScalar r, Sh.Shape sh)
+                   => shaped r sh -> ShapeSh sh)
+               -> (forall r m n. (GoodScalar r, KnownNat m, KnownNat n)
+                   => ranked r (m + n) -> IndexOf ranked m -> ranked r n)
+               -> (forall r sh1 sh2.
+                   ( GoodScalar r, Sh.Shape sh1, Sh.Shape sh2
+                   , Sh.Shape (sh1 Sh.++ sh2) )
+                   => shaped r (sh1 Sh.++ sh2) -> IndexSh shaped sh1
+                   -> shaped r sh2)
+               -> HVector ranked -> IntOf ranked -> HVector ranked
+index1HVectorF rshape sshape rindex sindex u i =
+  V.map (flip (index1DynamicF rshape sshape rindex sindex) i) u
+
+index1DynamicF :: ( shaped ~ ShapedOf ranked
+                  , RankedOf (PrimalOf shaped) ~ RankedOf (PrimalOf ranked) )
+               => (forall r n. (GoodScalar r, KnownNat n)
+                   => ranked r n -> ShapeInt n)
+               -> (forall sh r. (GoodScalar r, Sh.Shape sh)
+                   => shaped r sh -> ShapeSh sh)
+               -> (forall r m n. (GoodScalar r, KnownNat m, KnownNat n)
+                   => ranked r (m + n) -> IndexOf ranked m -> ranked r n)
+               -> (forall r sh1 sh2.
+                   ( GoodScalar r, Sh.Shape sh1, Sh.Shape sh2
+                   , Sh.Shape (sh1 Sh.++ sh2) )
+                   => shaped r (sh1 Sh.++ sh2) -> IndexSh shaped sh1
+                   -> shaped r sh2)
+               -> DynamicTensor ranked -> IntOf ranked -> DynamicTensor ranked
+index1DynamicF rshape sshape rindex sindex u i = case u of
+  DynamicRanked t -> case rshape t of
+    ZS -> error "index1Dynamic: rank 0"
+    _ :$ _ -> DynamicRanked $ rindex t (singletonIndex i)
+  DynamicShaped t -> case sshape t of
+    ZSH -> error "index1Dynamic: rank 0"
+    _ :$: _ -> DynamicShaped $ sindex t (ShapedList.singletonShaped i)
+  DynamicRankedDummy @r @sh p1 _ -> case ShapedList.shapeSh @sh of
+    ZSH -> error "index1Dynamic: rank 0"
+    (:$:) @_ @sh2 _ _ -> DynamicRankedDummy @r @sh2 p1 Proxy
+  DynamicShapedDummy @r @sh p1 _ -> case ShapedList.shapeSh @sh of
+    ZSH -> error "index1Dynamic: rank 0"
+    (:$:) @_ @sh2 _ _ -> DynamicShapedDummy @r @sh2 p1 Proxy
 
 
 -- * ADShare definition

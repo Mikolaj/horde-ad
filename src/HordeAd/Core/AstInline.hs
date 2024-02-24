@@ -420,7 +420,7 @@ inlineAstHVector memo v0 = case v0 of
       _ -> (memo2, Ast.AstLetInHVectorS var u2 v2)
   Ast.AstBuildHVector1 k (var, v) ->
     let (memoV0, v2) = inlineAstHVector EM.empty v
-        memo1 = EM.unionWith (\c1 c0 -> c1 + k * c0) memo memoV0
+        memo1 = EM.unionWith (\c1 c0 -> c1 + sNatValue k * c0) memo memoV0
     in (memo1, Ast.AstBuildHVector1 k (var, v2))
   Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc0 es ->
     let (memo1, f2) = inlineAstHFun memo f

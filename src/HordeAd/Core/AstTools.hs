@@ -111,8 +111,7 @@ shapeAstHVector = \case
   AstLetHFunInHVector _ _ v -> shapeAstHVector v
   AstLetInHVector _ _ v -> shapeAstHVector v
   AstLetInHVectorS _ _ v -> shapeAstHVector v
-  AstBuildHVector1 k (_, v) -> withSNat k $ \ snatK ->
-    replicate1VoidHVector snatK $ shapeAstHVector v
+  AstBuildHVector1 k (_, v) -> replicate1VoidHVector k $ shapeAstHVector v
   AstMapAccumRDer k accShs bShs _eShs _f _df _rf _acc0 _es ->
     accShs V.++ replicate1VoidHVector k bShs
   AstMapAccumLDer k accShs bShs _eShs _f _df _rf _acc0 _es ->

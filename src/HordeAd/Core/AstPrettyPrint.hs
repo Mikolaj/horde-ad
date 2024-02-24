@@ -732,7 +732,7 @@ printAstHVector cfg d = \case
   AstBuildHVector1 k (var, v) ->
     showParen (d > 10)
     $ showString "dbuild1 "
-      . shows k
+      . showParen True (shows k)
       . showString " "
       . (showParen True
          $ showString "\\"

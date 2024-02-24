@@ -1894,7 +1894,7 @@ testSin0rmapAccumRD01SN51 = do
                                       [ voidFromShS @Double @'[6]
                                       , voidFromShS @Double @'[6, 3]
                                       , voidFromShS @Double @'[6, 5, 4, 3] ])
-                      $ dbuild1 @(RankedOf f) @f 6 $ \j ->
+                      $ dbuild1 @(RankedOf f) @f (SNat @6) $ \j ->
                        (dmapAccumR @(RankedOf f) (SNat @5)
                           (V.fromList [ voidFromShS @Double @'[]
                                       , voidFromShS @Double @'[3] ])
@@ -2097,8 +2097,8 @@ testSin0rmapAccumRD01SN531a = do
                                       [ voidFromShS @Double @'[2, 2, 3]
                                       , voidFromShS @Double @'[2, 2, 6]
                                       , voidFromShS @Double @'[2, 2, 2, 3] ])
-                      $ dbuild1 @(RankedOf f) @f 2 $ \i ->
-                       (dbuild1 @(RankedOf f) @f 2 $ \j ->
+                      $ dbuild1 @(RankedOf f) @f (SNat @2) $ \i ->
+                       (dbuild1 @(RankedOf f) @f (SNat @2) $ \j ->
                        (dmapAccumR @(RankedOf f) (SNat @2)
                           (V.fromList [ voidFromShS @Double @'[3]
                                       , voidFromShS @Double @'[6] ])
@@ -2152,8 +2152,8 @@ testSin0rmapAccumRD01SN531b0 = do
                  => f Double 0 -> f Double 2
                f x0 = rletHVectorIn (V.fromList
                                        [ voidFromShS @Double @'[2, 2] ])
-                       (dbuild1 @f 2 $ \_i ->
-                       (dbuild1 @f 2 $ \_j ->
+                       (dbuild1 @f (SNat @2) $ \_i ->
+                       (dbuild1 @f (SNat @2) $ \_j ->
                        (dmapAccumR @f (SNat @0)
                           (V.fromList [ voidFromShS @Double @'[] ])
                           (V.fromList [])
@@ -2178,8 +2178,8 @@ testSin0rmapAccumRD01SN531bS = do
                  => f Double '[] -> f Double '[2, 2]
                f x0 = sletHVectorIn (V.fromList
                                        [ voidFromShS @Double @'[2, 2] ])
-                       (dbuild1 @(RankedOf f) @f 2 $ \_i ->
-                       (dbuild1 @(RankedOf f) @f 2 $ \_j ->
+                       (dbuild1 @(RankedOf f) @f (SNat @2) $ \_i ->
+                       (dbuild1 @(RankedOf f) @f (SNat @2) $ \_j ->
                        (dmapAccumR @(RankedOf f) (SNat @1)
                           (V.fromList [ voidFromShS @Double @'[] ])
                           (V.fromList [])
@@ -2202,8 +2202,8 @@ testSin0rmapAccumRD01SN531bR = do
                  => f Double 0 -> f Double 2
                f x0 = rletHVectorIn (V.fromList
                                        [ voidFromSh @Double (2 :$ 2 :$ ZS) ])
-                       (dbuild1 @f 2 $ \_i ->
-                       (dbuild1 @f 2 $ \_j ->
+                       (dbuild1 @f (SNat @2) $ \_i ->
+                       (dbuild1 @f (SNat @2) $ \_j ->
                        (dmapAccumR @f (SNat @1)
                           (V.fromList [ voidFromSh @Double ZS ])
                           (V.fromList [])
@@ -2225,8 +2225,8 @@ testSin0rmapAccumRD01SN531b0PP = do
   let f :: forall f. ADReady f
         => HVector f -> f Double 2
       f x0 = rletHVectorIn (V.fromList [ voidFromShS @Double @'[2, 2] ])
-                       (dbuild1 @f 2 $ \_i ->
-                       (dbuild1 @f 2 $ \_j ->
+                       (dbuild1 @f (SNat @2) $ \_i ->
+                       (dbuild1 @f (SNat @2) $ \_j ->
                        (dmapAccumR @f (SNat @0)
                           (V.fromList [ voidFromShS @Double @'[] ])
                           (V.fromList [])
@@ -2255,8 +2255,8 @@ testSin0rmapAccumRD01SN531bSPP = do
   let f :: forall f. ADReadyS f
         => HVector (RankedOf f) -> f Double '[2, 2]
       f x0 = sletHVectorIn (V.fromList [ voidFromShS @Double @'[2, 2] ])
-                       (dbuild1 @(RankedOf f) @f 2 $ \_i ->
-                       (dbuild1 @(RankedOf f) @f 2 $ \_j ->
+                       (dbuild1 @(RankedOf f) @f (SNat @2) $ \_i ->
+                       (dbuild1 @(RankedOf f) @f (SNat @2) $ \_j ->
                        (dmapAccumR @(RankedOf f) (SNat @1)
                           (V.fromList [ voidFromShS @Double @'[] ])
                           (V.fromList [])
@@ -2283,8 +2283,8 @@ testSin0rmapAccumRD01SN531bSPPFull = do
   let f :: forall f. ADReadyS f
         => HVector (RankedOf f) -> f Double '[2, 2]
       f x0 = sletHVectorIn (V.fromList [ voidFromShS @Double @'[2, 2] ])
-                       (dbuild1 @(RankedOf f) @f 2 $ \_i ->
-                       (dbuild1 @(RankedOf f) @f 2 $ \_j ->
+                       (dbuild1 @(RankedOf f) @f (SNat @2) $ \_i ->
+                       (dbuild1 @(RankedOf f) @f (SNat @2) $ \_j ->
                        (dmapAccumR @(RankedOf f) (SNat @1)
                           (V.fromList [ voidFromShS @Double @'[] ])
                           (V.fromList [])
@@ -2311,8 +2311,8 @@ testSin0rmapAccumRD01SN531bRPP = do
   let f :: forall f. ADReady f
         => HVector f -> f Double 2
       f x0 = rletHVectorIn (V.fromList [ voidFromSh @Double (2 :$ 2 :$ ZS) ])
-                       (dbuild1 @f 2 $ \_i ->
-                       (dbuild1 @f 2 $ \_j ->
+                       (dbuild1 @f (SNat @2) $ \_i ->
+                       (dbuild1 @f (SNat @2) $ \_j ->
                        (dmapAccumR @f (SNat @1)
                           (V.fromList [ voidFromSh @Double ZS ])
                           (V.fromList [])
@@ -2340,8 +2340,8 @@ testSin0rmapAccumRD01SN531b0PPj = do
   let f :: forall f. ADReady f
         => HVector f -> f Double 2
       f x0 = rletHVectorIn (V.fromList [ voidFromShS @Double @'[2, 2] ])
-                       (dbuild1 @f 2 $ \i ->
-                       (dbuild1 @f 2 $ \j ->
+                       (dbuild1 @f (SNat @2) $ \i ->
+                       (dbuild1 @f (SNat @2) $ \j ->
                        (dmapAccumR @f (SNat @0)
                           (V.fromList [ voidFromShS @Double @'[] ])
                           (V.fromList [])
@@ -2372,8 +2372,8 @@ testSin0rmapAccumRD01SN531bSPPj = do
   let f :: forall f. ADReadyS f
         => HVector (RankedOf f) -> f Double '[2, 2]
       f x0 = sletHVectorIn (V.fromList [ voidFromShS @Double @'[2, 2] ])
-                       (dbuild1 @(RankedOf f) @f 2 $ \i ->
-                       (dbuild1 @(RankedOf f) @f 2 $ \j ->
+                       (dbuild1 @(RankedOf f) @f (SNat @2) $ \i ->
+                       (dbuild1 @(RankedOf f) @f (SNat @2) $ \j ->
                        (dmapAccumR @(RankedOf f) (SNat @1)
                           (V.fromList [ voidFromShS @Double @'[] ])
                           (V.fromList [])
@@ -2403,8 +2403,8 @@ testSin0rmapAccumRD01SN531bRPPj = do
   let f :: forall f. ADReady f
         => HVector f -> f Double 2
       f x0 = rletHVectorIn (V.fromList [ voidFromSh @Double (2 :$ 2 :$ ZS) ])
-                       (dbuild1 @f 2 $ \i ->
-                       (dbuild1 @f 2 $ \j ->
+                       (dbuild1 @f (SNat @2) $ \i ->
+                       (dbuild1 @f (SNat @2) $ \j ->
                        (dmapAccumR @f (SNat @1)
                           (V.fromList [ voidFromSh @Double ZS ])
                           (V.fromList [])
@@ -2440,8 +2440,8 @@ testSin0rmapAccumRD01SN531c = do
                       $ dunHVector (V.fromList
                                       [ voidFromShS @Double @'[2, 2]
                                       , voidFromShS @Double @'[2, 2, 2] ])
-                      $ dbuild1 @(RankedOf f) @f 2 $ \i ->
-                       (dbuild1 @(RankedOf f) @f 2 $ \j ->
+                      $ dbuild1 @(RankedOf f) @f (SNat @2) $ \i ->
+                       (dbuild1 @(RankedOf f) @f (SNat @2) $ \j ->
                        (dmapAccumR @(RankedOf f) (SNat @2)
                           (V.fromList [ voidFromShS @Double @'[] ])
                           (V.fromList [ voidFromShS @Double @'[] ])
@@ -2475,8 +2475,8 @@ _testSin0rmapAccumRD01SN531Slice = do
                f x0 = (sfromD . (V.! 0))
                       $ dunHVector (V.fromList
                                       [ voidFromShS @Double @'[2, 2] ])
-                      $ dbuild1 @(RankedOf f) @f 2 $ \_i ->
-                       (dbuild1 @(RankedOf f) @f 2 $ \_j ->
+                      $ dbuild1 @(RankedOf f) @f (SNat @2) $ \_i ->
+                       (dbuild1 @(RankedOf f) @f (SNat @2) $ \_j ->
                        (dmapAccumR @(RankedOf f) (SNat @1)
                           (V.fromList [ voidFromShS @Double @'[] ])
                           (V.fromList [])
@@ -4415,8 +4415,9 @@ fFoldZipR domsOD p as rf shn cShared =
       rg :: ranked r (1 + n) -> ranked r (1 + n)
          -> HVector ranked
          -> HVectorOf ranked
-      rg cr2 x2 a2 =
-        dzipWith1 (\doms ->
+      rg cr2 x2 a2 = withSNat width $ \k ->
+        dzipWith1 k
+                  (\doms ->
                      let (cr, x, a) = domsTo3 doms
                      in dletHVectorInHVector @ranked
                           domsF (rf cr x a) $ \rfRes ->

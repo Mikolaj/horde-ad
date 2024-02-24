@@ -431,7 +431,7 @@ data AstHVector :: AstSpanType -> Type where
                    => AstVarName (AstShaped s) r sh -> AstShaped s r sh
                    -> AstHVector s2
                    -> AstHVector s2
-  AstBuildHVector1 :: Int -> (IntVarName, AstHVector s) -> AstHVector s
+  AstBuildHVector1 :: SNat k -> (IntVarName, AstHVector s) -> AstHVector s
   AstMapAccumRDer
     :: SNat k
     -> VoidHVector

@@ -615,25 +615,7 @@ index1HVector :: ( RankedTensor ranked, ShapedTensor (ShapedOf ranked)
                  , RankedOf (PrimalOf (ShapedOf ranked))
                    ~ RankedOf (PrimalOf ranked) )
               => HVector ranked -> IntOf ranked -> HVector ranked
-index1HVector u i = V.map (`index1Dynamic` i) u
-
-index1Dynamic :: ( RankedTensor ranked, ShapedTensor (ShapedOf ranked)
-                 , RankedOf (PrimalOf (ShapedOf ranked))
-                   ~ RankedOf (PrimalOf ranked) )
-              => DynamicTensor ranked -> IntOf ranked -> DynamicTensor ranked
-index1Dynamic u i = case u of
-  DynamicRanked t -> case rshape t of
-    ZS -> error "index1Dynamic: rank 0"
-    _ :$ _ -> DynamicRanked $ t ! singletonIndex i
-  DynamicShaped t -> case sshape t of
-    ZSH -> error "index1Dynamic: rank 0"
-    _ :$: _ -> DynamicShaped $ t !$ ShapedList.singletonShaped i
-  DynamicRankedDummy @r @sh p1 _ -> case ShapedList.shapeSh @sh of
-    ZSH -> error "index1Dynamic: rank 0"
-    (:$:) @_ @sh2 _ _ -> DynamicRankedDummy @r @sh2 p1 Proxy
-  DynamicShapedDummy @r @sh p1 _ -> case ShapedList.shapeSh @sh of
-    ZSH -> error "index1Dynamic: rank 0"
-    (:$:) @_ @sh2 _ _ -> DynamicShapedDummy @r @sh2 p1 Proxy
+index1HVector = index1HVectorF rshape sshape rindex sindex
 
 replicate1HVector :: (RankedTensor ranked, ShapedTensor (ShapedOf ranked))
                   => SNat k -> HVector ranked -> HVector ranked

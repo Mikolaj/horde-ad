@@ -254,7 +254,7 @@ build1V k (var, v00) =
         -- with AstShaped and here we require AstRanked.
         let (vOut, varsOut) = substProjVars @k3 var vars1 v
         in astLetHVectorIn
-             varsOut (build1VOccurenceUnknownHVector k (var, l))
+             varsOut (build1VOccurenceUnknownHVector (SNat @k3) (var, l))
                      (build1VOccurenceUnknownRefresh k (var, vOut))
       _ -> error "build1V: impossible someNatVal"
     Ast.AstLetHFunIn var1 f v ->
@@ -262,7 +262,8 @@ build1V k (var, v00) =
       -- variables (it may contain function variables, though).
       -- If it could contain index variables, e.g., in a conditional
       -- expression, we might need to add projections as above.
-      astLetHFunIn var1 (build1VHFun k (var, f)) (build1V k (var, v))
+      withSNat k $ \snat ->
+        astLetHFunIn var1 (build1VHFun snat (var, f)) (build1V k (var, v))
     Ast.AstRFromS @sh1 v -> case someNatVal $ toInteger k of
       Just (SomeNat @k _proxy) ->
         astRFromS @(k ': sh1) $ build1VS (var, v)
@@ -527,11 +528,11 @@ build1VS (var, v00) =
       -- See the AstLetHVectorIn case for comments.
       let (vOut, varsOut) = substProjVarsS @k var vars1 v
       in astLetHVectorInS
-           varsOut (build1VOccurenceUnknownHVector (valueOf @k) (var, l))
+           varsOut (build1VOccurenceUnknownHVector (SNat @k) (var, l))
                    (build1VOccurenceUnknownRefreshS (var, vOut))
     Ast.AstLetHFunInS var1 f v ->
       -- We take advantage of the fact that f contains no free index vars.
-      astLetHFunInS var1 (build1VHFun (valueOf @k) (var, f)) (build1VS (var, v))
+      astLetHFunInS var1 (build1VHFun (SNat @k) (var, f)) (build1VS (var, v))
     Ast.AstSFromR v -> astSFromR $ build1V (valueOf @k) (var, v)
 
     Ast.AstConstantS v -> traceRule $
@@ -599,8 +600,8 @@ build1VIndexS (var, v0, ix@(_ :$: _)) =
 -- * Vectorization of AstHVector
 
 build1VectorizeHVector
-  :: forall s. AstSpan s
-  => Int -> (IntVarName, AstHVector s) -> AstHVector s
+  :: forall k s. AstSpan s
+  => SNat k -> (IntVarName, AstHVector s) -> AstHVector s
 {-# NOINLINE build1VectorizeHVector #-}
 build1VectorizeHVector k (var, v0) = unsafePerformIO $ do
   enabled <- readIORef traceRuleEnabledRef
@@ -630,8 +631,8 @@ build1VectorizeHVector k (var, v0) = unsafePerformIO $ do
   return endTerm
 
 build1VOccurenceUnknownHVector
-  :: forall s. AstSpan s
-  => Int -> (IntVarName, AstHVector s) -> AstHVector s
+  :: forall k s. AstSpan s
+  => SNat k -> (IntVarName, AstHVector s) -> AstHVector s
 build1VOccurenceUnknownHVector k (var, v0) =
  let traceRule = mkTraceRuleHVector v0 k var
  in if varNameInAstHVector var v0
@@ -639,7 +640,8 @@ build1VOccurenceUnknownHVector k (var, v0) =
     else traceRule $
       fun1DToAst (shapeAstHVector v0) $ \ !vars !asts ->
         astLetHVectorInHVector
-          vars v0 (Ast.AstHVector $ astMapHVectorRanked01 (astReplicate k) asts)
+          vars v0 (Ast.AstHVector
+                   $ astMapHVectorRanked01 (astReplicate $ sNatValue k) asts)
 
 astMapRanked01
   :: (ranked ~ AstRanked s, AstSpan s)
@@ -682,9 +684,9 @@ astMapHVectorRanked01
 astMapHVectorRanked01 f = V.map (astMapRanked01 f)
 
 build1VHVector
-  :: forall s. AstSpan s
-  => Int -> (IntVarName, AstHVector s) -> AstHVector s
-build1VHVector k (var, v0) =
+  :: forall k s. AstSpan s
+  => SNat k -> (IntVarName, AstHVector s) -> AstHVector s
+build1VHVector k@SNat (var, v0) =
  let traceRule = mkTraceRuleHVector v0 k var
  in traceRule $ case v0 of
   Ast.AstHVector l ->
@@ -693,13 +695,11 @@ build1VHVector k (var, v0) =
     astHApply
       (build1VHFun k (var, t))
       (map (V.map (\u -> build1VOccurenceUnknownDynamic k (var, u))) ll)
-  Ast.AstLetHVectorInHVector vars1 u v -> case someNatVal $ toInteger k of
-      Just (SomeNat @k3 _) ->
-        let (vOut, varsOut) = substProjVarsHVector @k3 var vars1 v
-        in astLetHVectorInHVector
-             varsOut (build1VOccurenceUnknownHVector k (var, u))
-                     (build1VOccurenceUnknownHVectorRefresh k (var, vOut))
-      _ -> error "build1VHVector: impossible someNatVal"
+  Ast.AstLetHVectorInHVector vars1 u v ->
+    let (vOut, varsOut) = substProjVarsHVector @k var vars1 v
+    in astLetHVectorInHVector
+         varsOut (build1VOccurenceUnknownHVector k (var, u))
+                 (build1VOccurenceUnknownHVectorRefresh k (var, vOut))
   Ast.AstLetHFunInHVector var1 f v ->
     -- We take advantage of the fact that f contains no free index vars.
     astLetHFunInHVector var1 (build1VHFun k (var, f))
@@ -707,16 +707,15 @@ build1VHVector k (var, v0) =
   Ast.AstLetInHVector @_ @r1 @s1 var1@(AstVarName oldVarId) u v ->
     let var2 = AstVarName oldVarId  -- changed shape; TODO: shall we rename?
         sh = shapeAst u
-        projection = Ast.AstIndex (Ast.AstVar (k :$ sh) var2)
+        projection = Ast.AstIndex (Ast.AstVar (sNatValue k :$ sh) var2)
                                   (Ast.AstIntVar var :. ZI)
         v2 = substituteAstHVector
                (SubstitutionPayloadRanked @s1 @r1 projection) var1 v
-    in astLetInHVector var2 (build1VOccurenceUnknown k (var, u))
+    in astLetInHVector var2 (build1VOccurenceUnknown (sNatValue k) (var, u))
                             (build1VOccurenceUnknownHVectorRefresh
                                k (var, v2))
   Ast.AstLetInHVectorS @sh2 @r1 @s1
-   var1@(AstVarName oldVarId) u v -> case someNatVal $ toInteger k of
-    Just (SomeNat @k _proxy) ->
+    var1@(AstVarName oldVarId) u v ->
       let var2 = AstVarName oldVarId  -- changed shape; TODO: shall we rename?
           projection = Ast.AstIndexS (Ast.AstVarS @(k ': sh2) var2)
                                      (Ast.AstIntVar var :$: ZSH)
@@ -725,18 +724,15 @@ build1VHVector k (var, v0) =
       in astLetInHVectorS var2 (build1VOccurenceUnknownS @k (var, u))
                                (build1VOccurenceUnknownHVectorRefresh
                                   k (var, v2))
-    Nothing ->
-      error "build1VHVector: impossible someNatVal error"
   Ast.AstBuildHVector1{} ->
     error "build1VHVector: impossible case of AstBuildHVector1"
   Ast.AstMapAccumRDer k5 accShs bShs eShs f df rf acc0 es ->
-    withSNat k $ \snat ->
       astTrAstHVectorTail (V.length accShs)
       $ Ast.AstMapAccumRDer
           k5
-          (replicate1VoidHVector snat accShs)
-          (replicate1VoidHVector snat bShs)
-          (replicate1VoidHVector snat eShs)
+          (replicate1VoidHVector k accShs)
+          (replicate1VoidHVector k bShs)
+          (replicate1VoidHVector k eShs)
           (build1VHFun k (var, f))
           (build1VHFun k (var, df))
           (build1VHFun k (var, rf))
@@ -744,13 +740,12 @@ build1VHVector k (var, v0) =
           (V.map (\u -> astTrDynamic
                         $ build1VOccurenceUnknownDynamic k (var, u)) es)
   Ast.AstMapAccumLDer k5 accShs bShs eShs f df rf acc0 es ->
-    withSNat k $ \snat ->
       astTrAstHVectorTail (V.length accShs)
       $ Ast.AstMapAccumLDer
           k5
-          (replicate1VoidHVector snat accShs)
-          (replicate1VoidHVector snat bShs)
-          (replicate1VoidHVector snat eShs)
+          (replicate1VoidHVector k accShs)
+          (replicate1VoidHVector k bShs)
+          (replicate1VoidHVector k eShs)
           (build1VHFun k (var, f))
           (build1VHFun k (var, df))
           (build1VHFun k (var, rf))
@@ -759,49 +754,40 @@ build1VHVector k (var, v0) =
                         $ build1VOccurenceUnknownDynamic k (var, u)) es)
 
 build1VHFun
-  :: Int -> (IntVarName, AstHFun) -> AstHFun
-build1VHFun k (var, v0) = case v0 of
-  Ast.AstLambda ~(vvars, l) -> withSNat k $ \(SNat @k) ->
+  :: forall k. SNat k -> (IntVarName, AstHFun) -> AstHFun
+build1VHFun k@SNat (var, v0) = case v0 of
+  Ast.AstLambda ~(vvars, l) ->
     -- This handles the case of l having free variable beyond vvars,
     -- which is not possible for lambdas used in folds, etc.
-    -- But note that due to substProjVarsHVector l2 has var occurences,
+    -- But note that, due to substProjVarsHVector, l2 has var occurences,
     -- so build1VOccurenceUnknownHVectorRefresh is neccessary to handle
     -- them and to eliminate them so that the function is closed again.
     let f acc vars = substProjVarsHVector @k var vars acc
         (l2, vvars2) = mapAccumR f l vvars
     in Ast.AstLambda
          (vvars2, build1VOccurenceUnknownHVectorRefresh k (var, l2))
-  Ast.AstVarHFun shss shs var2 -> withSNat k $ \snat ->
-    Ast.AstVarHFun (map (replicate1VoidHVector snat) shss)
-                   (replicate1VoidHVector snat shs)
+  Ast.AstVarHFun shss shs var2 ->
+    Ast.AstVarHFun (map (replicate1VoidHVector k) shss)
+                   (replicate1VoidHVector k shs)
                    var2
 
 build1VOccurenceUnknownDynamic
-  :: forall s. AstSpan s
-  => Int -> (IntVarName, AstDynamic s) -> AstDynamic s
-build1VOccurenceUnknownDynamic k (var, d) = case d of
-  DynamicRanked u -> DynamicRanked $ build1VOccurenceUnknown k (var, u)
-  DynamicShaped u -> case someNatVal $ toInteger k of
-    Just (SomeNat @k _) ->
-      DynamicShaped $ build1VOccurenceUnknownS @k (var, u)
-    Nothing ->
-      error "build1VOccurenceUnknownDynamic: impossible someNatVal error"
+  :: forall k s. AstSpan s
+  => SNat k -> (IntVarName, AstDynamic s) -> AstDynamic s
+build1VOccurenceUnknownDynamic k@SNat (var, d) = case d of
+  DynamicRanked u ->
+    DynamicRanked $ build1VOccurenceUnknown (sNatValue k) (var, u)
+  DynamicShaped u ->
+    DynamicShaped $ build1VOccurenceUnknownS @k (var, u)
   DynamicRankedDummy @r @sh _ _ ->
     withListShape (Sh.shapeT @sh) $ \(_ :: ShapeInt n3) ->
       gcastWith (unsafeCoerce Refl :: n3 :~: Sh.Rank sh) $
-      case someNatVal $ toInteger k of
-        Just (SomeNat @k _) ->
-          DynamicRanked @r (Ast.AstRFromS @(k ': sh) @s @r 0)
-        Nothing ->
-          error "build1VOccurenceUnknownDynamic: impossible someNatVal error"
-  DynamicShapedDummy @r @sh _ _ -> case someNatVal $ toInteger k of
-    Just (SomeNat @k _) -> DynamicShaped @r @(k ': sh) 0
-    Nothing ->
-      error "build1VOccurenceUnknownDynamic: impossible someNatVal error"
+        DynamicRanked @r (Ast.AstRFromS @(k ': sh) @s @r 0)
+  DynamicShapedDummy @r @sh _ _ -> DynamicShaped @r @(k ': sh) 0
 
 build1VOccurenceUnknownHVectorRefresh
-  :: forall s. AstSpan s
-  => Int -> (IntVarName, AstHVector s) -> AstHVector s
+  :: forall k s. AstSpan s
+  => SNat k -> (IntVarName, AstHVector s) -> AstHVector s
 {-# NOINLINE build1VOccurenceUnknownHVectorRefresh #-}
 build1VOccurenceUnknownHVectorRefresh k (var, v0) = unsafePerformIO $ do
   (varFresh, astVarFresh) <- funToAstIOI id
@@ -1094,7 +1080,7 @@ mkTraceRuleS prefix from caseAnalysed nwords to = unsafePerformIO $ do
   return $! to
 
 mkTraceRuleHVector :: AstSpan s
-                   => AstHVector s -> Int -> IntVarName -> AstHVector s
+                   => AstHVector s -> SNat k -> IntVarName -> AstHVector s
                    -> AstHVector s
 {-# NOINLINE mkTraceRuleHVector #-}
 mkTraceRuleHVector from k var to = unsafePerformIO $ do
@@ -1112,7 +1098,7 @@ mkTraceRuleHVector from k var to = unsafePerformIO $ do
     hPutStrLnFlush stderr $ paddedNesting ++ "rule " ++ ruleNamePadded
                             ++ " sends "
                             ++ padString width
-                                 ("build " ++ show k ++ " ("
+                                 ("build " ++ show (sNatValue k :: Int) ++ " ("
                                   ++ printAstIntVarName renames var ++ ") "
                                   ++  stringFrom)
                             ++ " to " ++ padString width stringTo
