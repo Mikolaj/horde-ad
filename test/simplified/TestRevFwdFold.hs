@@ -109,9 +109,9 @@ testTrees =
   , testCase "4Sin0ScanFwdPP" testSin0ScanFwdPP
   , testCase "4Sin0ScanFwdPPFull" testSin0ScanFwdPPFull
   , testCase "4Sin0Scan1Rev2PP1" testSin0Scan1Rev2PP1
---  , testCase "4Sin0Scan1Rev2PPA" testSin0Scan1Rev2PPA
+  , testCase "4Sin0Scan1Rev2PPA" testSin0Scan1Rev2PPA
   , testCase "4Sin0Scan1Rev2PPForComparison" testSin0Scan1Rev2PPForComparison
---  , testCase "4Sin0Scan1Fwd2PP" testSin0Scan1Fwd2PP
+  , testCase "4Sin0Scan1Fwd2PP" testSin0Scan1Fwd2PP
   , testCase "4Sin0Scan1Rev2" testSin0Scan1Rev2
   , testCase "4Sin0Scan1Rev2ForComparison" testSin0Scan1Rev2ForComparison
   , testCase "4Sin0Scan1Rev3PP" testSin0Scan1Rev3PP
@@ -1032,11 +1032,8 @@ testSin0Scan1Rev2PP1 = do
   printAstPretty IM.empty (simplifyAst6 a1)
     @?= "let v14 = rconst (fromList [2] [5.0,7.0]) in let [x15 @Natural @Double @[], v16 @Natural @Double @[2], v17 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.1] [v14] in let [x20 @Natural @Double @[], v21 @Natural @Double @[2]] = dmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> [0.0] [rreplicate 2 1.0, v16, v14] in x20 + 1.0"
 
--- Disabled, because different variable names with -O1.
--- revArtifactAdapt produces much lower variables names (no interpretation
--- of PrimalSpan AST in FullSpan AST needed), but similar terms overall
-_testSin0Scan1Rev2PPA :: Assertion
-_testSin0Scan1Rev2PPA = do
+testSin0Scan1Rev2PPA :: Assertion
+testSin0Scan1Rev2PPA = do
   resetVarCounter
   let ((_, a1, _, _), _) =
         revArtifactAdapt @Double @1 @(AstRanked FullSpan)
@@ -1044,7 +1041,7 @@ _testSin0Scan1Rev2PPA = do
                  (\x0 -> rscan (\x a -> sin x - a) x0
                            (rconst (OR.fromList @Double @1 [2] [5, 7]))) 1.1
   printAstHVectorPretty IM.empty (simplifyAstHVector6 a1)
-    @?= "let v15 = rconst (fromList [2] [5.0,7.0]) in let [x27 @Natural @Double @[], v28 @Natural @Double @[2]] = dmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> [0.0] [rslice 1 2 v26, rslice 0 2 (rscanDer <lambda> <lambda> <lambda> x1 v15), v15] in [x27 + v26 ! [0]]"
+    @?= "let v4 = rconst (fromList [2] [5.0,7.0]) in let [x5 @Natural @Double @[], v6 @Natural @Double @[2], v7 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [x1] [v4] in let [x11 @Natural @Double @[], v12 @Natural @Double @[2]] = dmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> [0.0] [rslice 1 2 v8, v6, v4] in [x11 + v8 ! [0]]"
 
 testSin0Scan1Rev2PPForComparison :: Assertion
 testSin0Scan1Rev2PPForComparison = do
@@ -1056,16 +1053,15 @@ testSin0Scan1Rev2PPForComparison = do
   printAstHVectorPretty IM.empty (simplifyAstHVector6 a1)
     @?= "[cos x1 * (cos (sin x1 - 5.0) * v3 ! [0]) + cos x1 * v3 ! [1] + v3 ! [2]]"
 
--- Disabled, because different variable names with -O1.
-_testSin0Scan1Fwd2PP :: Assertion
-_testSin0Scan1Fwd2PP = do
+testSin0Scan1Fwd2PP :: Assertion
+testSin0Scan1Fwd2PP = do
   resetVarCounter
   let ((_, a1, _), _) =
         fwdArtifactAdapt @Double @1 @(AstRanked FullSpan)
                  (\x0 -> rscan (\x a -> sin x - a) x0
                            (rconst (OR.fromList @Double @1 [2] [5, 7]))) 1.1
   printAstPretty IM.empty (simplifyAst6 a1)
-    @?= "let v16 = rconst (fromList [2] [5.0,7.0]) in let [x27 @Natural @Double @[], v28 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [x1] [rreplicate 2 0.0, rslice 0 2 (rscanDer <lambda> <lambda> <lambda> x2 v16), v16] in rappend (rreplicate 1 x1) v28"
+    @?= "let v5 = rconst (fromList [2] [5.0,7.0]) in let [x6 @Natural @Double @[], v7 @Natural @Double @[2], v8 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [x2] [v5] in let [x10 @Natural @Double @[], v11 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [x1] [rreplicate 2 0.0, v7, v5] in rappend (rreplicate 1 x1) v11"
 
 testSin0Scan1Rev2 :: Assertion
 testSin0Scan1Rev2 = do
