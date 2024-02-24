@@ -743,6 +743,11 @@ class HVectorTensor (ranked :: RankedTensorType)
     -> HVectorOf ranked
     -> (HVector ranked -> HVectorOf ranked)
     -> HVectorOf ranked
+  -- When the programmer uses the same closed function many times, the HFun lets
+  -- make it possible to prevent multiple simplification, inlining, etc.,
+  -- once for each copy (shared on the Haskell heap) of the function
+  -- representation. However, the engine code itself never uses closed
+  -- functions in a way that would benefit from the HFun lets.
   dletHFunInHVector
     :: HFunOf ranked
     -> (HFunOf ranked -> HVectorOf ranked)

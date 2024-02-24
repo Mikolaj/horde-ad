@@ -2958,8 +2958,7 @@ substitute1AstHVector i var = \case
                                    (fromMaybe es mes)
 
 substitute1AstHFun
-  :: forall r2 s2. AstSpan s2
-  => SubstitutionPayload s2 r2 -> AstVarId -> AstHFun
+  :: SubstitutionPayload s2 r2 -> AstVarId -> AstHFun
   -> Maybe AstHFun
 substitute1AstHFun i var = \case
   Ast.AstLambda{} -> Nothing  -- no outside free variables
@@ -2970,9 +2969,7 @@ substitute1AstHFun i var = \case
         error "substitute1AstHFun: unexpected tensor"
       SubstitutionPayloadRanked{} ->
         error "substitute1AstHFun: unexpected tensor"
-      SubstitutionPayloadHFun h -> case sameAstSpan @PrimalSpan @s2 of
-        Just Refl -> Just h
-        _ -> error "substitute1AstHFun: span"
+      SubstitutionPayloadHFun h -> Just h
     else Nothing
 
 substitute1AstBool :: (GoodScalar r2, AstSpan s2)

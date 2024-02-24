@@ -5,7 +5,7 @@
 -- with @unsafePerformIO@ outside, so some of it escapes.
 module HordeAd.Core.AstFreshId
   ( astRegisterFun, astRegisterFunS, astRegisterADShare, astRegisterADShareS
-  , funToAstIOR, funToAstR, fun1DToAst, fun1LToAst
+  , funToAstIOR, funToAstR, fun1DToAst, fun1HToAst, fun1LToAst
   , funToAstRevIO, funToAstRev, funToAstFwdIO, funToAstFwd
   , funToAstIOI, funToAstI, funToAstIndexIO, funToAstIndex
   , funToAstIOS, funToAstS, funToAstIndexIOS, funToAstIndexS
@@ -167,6 +167,20 @@ fun1DToAst :: VoidHVector
            -> a
 {-# NOINLINE fun1DToAst #-}
 fun1DToAst od f = unsafePerformIO $ fun1DToAstIO od f
+
+fun1HToAstIO :: [VoidHVector] -> VoidHVector
+             -> (AstVarId -> AstHFun -> a)
+             -> IO a
+{-# INLINE fun1HToAstIO #-}
+fun1HToAstIO shss shs f = do
+  !freshId <- unsafeGetFreshAstVarId
+  return $! f freshId (AstVarHFun shss shs freshId)
+
+fun1HToAst :: [VoidHVector] -> VoidHVector
+           -> (AstVarId -> AstHFun -> a)
+           -> a
+{-# NOINLINE fun1HToAst #-}
+fun1HToAst shss shs f = unsafePerformIO $ fun1HToAstIO shss shs f
 
 dynamicToVar :: DynamicTensor VoidTensor
              -> IO (AstDynamicVarName, DynamicTensor (AstRanked s))
