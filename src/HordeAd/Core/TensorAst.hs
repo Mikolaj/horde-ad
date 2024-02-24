@@ -734,7 +734,9 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
         -- this interpretation both substitutes parameters for the variables and
         -- reinterprets @PrimalSpan@ terms in @s@ terms;
         -- we could shortcut when @s@ is @PrimalSpan@ and @parameters@
-        -- are the same variables, but it's a very special case
+        -- are the same variables, but it's a very special case;
+        -- a faster implementation would be via AstHApply, but this tests
+        -- a slightly different code path, so let's keep it
   drevDt :: VoidHVector
          -> HFun
          -> AstHFun

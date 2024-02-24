@@ -58,6 +58,10 @@ import HordeAd.Core.Types
 -- permitted for functions with type equalities,
 -- see https://gitlab.haskell.org/ghc/ghc/-/issues/23798.
 -- | These work for any @g@ of DerivativeStages class.
+-- We don't enforce by quantifcation that the objective function is closed,
+-- because we evaluate the result of the differentiation down to concrete
+-- arrays and so there's no risk of confusion of cotangent from different
+-- levels of differentiation if it's done multiple times.
 rev
   :: forall r y g vals astvals.
      ( DerivativeStages g, GoodScalar r, HasSingletonDict y

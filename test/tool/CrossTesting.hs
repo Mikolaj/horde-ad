@@ -50,7 +50,7 @@ rev' :: forall r m n v a.
         , AstRanked PrimalSpan r m, AstRanked PrimalSpan r m
         , v, v, v, v, v, v, v, v, v, v, v, v, v, v
         , a, a, a, a, a, a, a, a, a, a, a, a, a, a
-        , a, v, v )
+        , a, v, v, v )
 rev' f vals =
   let value0 = f vals
       parameters = toHVector vals
@@ -208,6 +208,7 @@ rev' f vals =
       gradient5AstS = parseHVector vals astPSimpleAstS
       cderivative = cfwd f vals vals
       derivative = fwd @r @m @(AstRanked FullSpan) f vals vals
+      derivativeRfwd1 = rfwd1 @(Flip OR.Array) @r @n @m f vals
   in ( value0, value1, value2, value3, value2UnSimp, value3UnSimp
      , value4, value5
      , gradient1, gradientRrev1, gradient2, gradient3
@@ -223,7 +224,7 @@ rev' f vals =
      , gradient2AstUnSimp, gradient2AstSUnSimp
      , gradient3AstUnSimp, gradient3AstSUnSimp
      , gradient4Ast, gradient4AstS, gradient5Ast, gradient5AstS
-     , vals, cderivative, derivative )
+     , vals, cderivative, derivative, derivativeRfwd1)
 
 assertEqualUpToEpsilon'
     :: ( v ~ Flip OR.Array r m, a ~ Flip OR.Array r n
@@ -236,7 +237,7 @@ assertEqualUpToEpsilon'
        , AstRanked PrimalSpan r m, AstRanked PrimalSpan r m
        , v, v, v, v, v, v, v, v, v, v, v, v, v, v
        , a, a, a, a, a, a, a, a, a, a, a, a, a, a
-       , a, v, v )
+       , a, v, v, v )
          -- ^ actual values
     -> Assertion
 assertEqualUpToEpsilon'
@@ -256,7 +257,7 @@ assertEqualUpToEpsilon'
     , gradient2AstUnSimp, gradient2AstSUnSimp
     , gradient3AstUnSimp, gradient3AstSUnSimp
     , gradient4Ast, gradient4AstS, gradient5Ast, gradient5AstS
-    , vals, cderivative, derivative ) = do
+    , vals, cderivative, derivative, derivativeRfwd1 ) = do
   let expected = Flip expected'
   assertEqualUpToEpsilonWithMark "Val ADVal" errMargin value0 value1
   assertEqualUpToEpsilonWithMark "Val Vectorized" errMargin value0 value2
@@ -330,6 +331,8 @@ assertEqualUpToEpsilon'
 --  assertEqualUpToEpsilonWithMark "Val ADVal Ast" errMargin value0 value9
 --  assertEqualUpToEpsilonWithMark "Grad ADVal Ast" errMargin expected gradient9
   assertEqualUpToEpsilonWithMark "Derivatives" errMargin cderivative derivative
+  assertEqualUpToEpsilonWithMark "Derivatives rfwd"
+                                 errMargin cderivative derivativeRfwd1
   -- The formula for comparing derivative and gradient is due to @awf
   -- at https://github.com/Mikolaj/horde-ad/issues/15#issuecomment-1063251319
   assertEqualUpToEpsilonWithMark "Reverse vs forward"
@@ -350,7 +353,7 @@ assertEqualUpToEpsilonShort
        , AstRanked PrimalSpan r m, AstRanked PrimalSpan r m
        , v, v, v, v, v, v, v, v, v, v, v, v, v, v
        , a, a, a, a, a, a, a, a, a, a, a, a, a, a
-       , a, v, v )
+       , a, v, v, v )
          -- ^ actual values
     -> Assertion
 assertEqualUpToEpsilonShort
@@ -370,7 +373,7 @@ assertEqualUpToEpsilonShort
     , gradient2AstUnSimp, gradient2AstSUnSimp
     , gradient3AstUnSimp, gradient3AstSUnSimp
     , _gradient4Ast, _gradient4AstS, _gradient5Ast, _gradient5AstS
-    , vals, cderivative, derivative ) = do
+    , vals, cderivative, derivative, derivativeRfwd1) = do
   let expected = Flip expected'
   assertEqualUpToEpsilonWithMark "Val ADVal" errMargin value0 value1
   assertEqualUpToEpsilonWithMark "Val Vectorized" errMargin value0 value2
@@ -425,6 +428,8 @@ assertEqualUpToEpsilonShort
   assertEqualUpToEpsilonWithMark "Grad Ast Vect+Simp S UnS"
                                  errMargin expected gradient3AstSUnSimp
   assertEqualUpToEpsilonWithMark "Derivatives" errMargin cderivative derivative
+  assertEqualUpToEpsilonWithMark "Derivatives rfwd"
+                                 errMargin cderivative derivativeRfwd1
   assertEqualUpToEpsilonWithMark "Forward vs reverse"
                                  1e-5 (rsum0 derivative) (rdot0 expected vals)
   -- No Eq instance, so let's compare the text.
