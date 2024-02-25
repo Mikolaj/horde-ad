@@ -86,7 +86,7 @@ mnistTestCaseRNNSA prefix epochs maxBatches width@SNat batch_size@SNat
                  f (glyphS, labelS) adinputs =
                    MnistRnnShaped2.rnnMnistLossFusedS
                      width batch_size (sconst glyphS, sconst labelS)
-                     (parseHVector (fromValue valsInit) adinputs)
+                     (parseHVector (fromDValue valsInit) adinputs)
                  chunkS = map packBatch
                           $ filter (\ch -> length ch == miniBatchSize)
                           $ chunksOf miniBatchSize chunk
@@ -185,7 +185,7 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
        let ast :: AstShaped PrimalSpan r '[]
            ast = MnistRnnShaped2.rnnMnistLossFusedS
                    width batch_size (astGlyph, astLabel)
-                   (parseHVector (fromValue valsInit) hVectorPrimal)
+                   (parseHVector (fromDValue valsInit) hVectorPrimal)
            runBatch :: (HVector (Flip OR.Array), StateAdam) -> (Int, [MnistDataS r])
                     -> IO (HVector (Flip OR.Array), StateAdam)
            runBatch (!parameters, !stateAdam) (k, chunk) = do
@@ -298,7 +298,7 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
        let envInit = extendEnvS varGlyph (sconstant astGlyph)
                      $ extendEnvS varLabel (sconstant astLabel)
                        EM.empty
-           f = MnistRnnShaped2.rnnMnistLossFusedS @_ @_ @_ @_ @_ @r
+           f = MnistRnnShaped2.rnnMnistLossFusedS
                  width batch_size (astGlyph, astLabel)
            g hVector = f $ parseHVector (fromValue valsInit) hVector
            (((varDtAgain, vars1Again), gradientRaw, primal, sh), _) =

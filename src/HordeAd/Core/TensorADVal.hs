@@ -69,14 +69,14 @@ TODO: this causes a cyclic dependency:
   fromHVector _aInit params = fromHVectorR @r @n params
 
 instance (KnownNat n, GoodScalar r, ADReady ranked)
-         => TermValue (ADVal ranked r n) where
-  type Value (ADVal ranked r n) = Flip OR.Array r n  -- ! not Value(ranked)
-  fromValue t = constantADVal $ rconst $ runFlip t
+         => DualNumberValue (ADVal ranked r n) where
+  type DValue (ADVal ranked r n) = Flip OR.Array r n  -- ! not Value(ranked)
+  fromDValue t = constantADVal $ rconst $ runFlip t
 
 instance (RankedTensor ranked, ShapedTensor (ShapedOf ranked))
-         => TermValue (DynamicTensor (ADVal ranked)) where
-  type Value (DynamicTensor (ADVal ranked)) = DynamicTensor (Flip OR.Array)
-  fromValue = \case
+         => DualNumberValue (DynamicTensor (ADVal ranked)) where
+  type DValue (DynamicTensor (ADVal ranked)) = DynamicTensor (Flip OR.Array)
+  fromDValue = \case
     DynamicRanked t -> DynamicRanked $ constantADVal $ rconst $ runFlip t
     DynamicShaped t -> DynamicShaped $ constantADVal $ sconst $ runFlip t
     DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
@@ -111,6 +111,10 @@ instance AdaptableHVector ranked a
 instance TermValue a => TermValue [a] where
   type Value [a] = [Value a]
   fromValue = map fromValue
+
+instance DualNumberValue a => DualNumberValue [a] where
+  type DValue [a] = [DValue a]
+  fromDValue = map fromDValue
 
 -- Note that these instances don't do vectorization. To enable it,
 -- use the Ast instance and only then interpret in ADVal.
@@ -238,9 +242,9 @@ instance ( ADReadyS shaped, Sh.Shape sh, GoodScalar r
   fromHVector _aInit params = fromHVectorS @r @sh params
 
 instance (ADReadyS shaped, Sh.Shape sh, GoodScalar r)
-         => TermValue (ADVal shaped r sh) where
-  type Value (ADVal shaped r sh) = Flip OS.Array r sh   -- ! not Value(shaped)
-  fromValue t = constantADVal $ sconst $ runFlip t
+         => DualNumberValue (ADVal shaped r sh) where
+  type DValue (ADVal shaped r sh) = Flip OS.Array r sh   -- ! not Value(shaped)
+  fromDValue t = constantADVal $ sconst $ runFlip t
 
 -- Note that these instances don't do vectorization. To enable it,
 -- use the Ast instance and only then interpret in ADVal.

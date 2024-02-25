@@ -56,7 +56,7 @@ rev' f vals =
       parameters = toHVector vals
       parameters0 = voidFromHVector parameters
       dt = Nothing
-      valsFrom = fromValue vals
+      valsFrom = fromDValue vals
       g :: HVector (ADVal (Flip OR.Array))
         -> ADVal (Flip OR.Array) r m
       g inputs = f $ parseHVector valsFrom  inputs
@@ -66,7 +66,7 @@ rev' f vals =
       g9 :: HVector (ADVal (AstRanked PrimalSpan))
          -> ADVal (AstRanked PrimalSpan) r m
       g9 inputs = f @(ADVal (AstRanked PrimalSpan))
-                  $ parseHVector (fromValue vals) inputs
+                  $ parseHVector (fromDValue vals) inputs
       artifactsGradAst9 =
         fst $ revProduceArtifactWithoutInterpretation @(AstRanked FullSpan)
                 TensorToken False g9 parameters0
@@ -140,7 +140,7 @@ rev' f vals =
            -> ADVal (AstRanked PrimalSpan) r m
       hAst fx1 fx2 gx inputs
         = hGeneral @(ADVal (AstRanked PrimalSpan))
-                   fx1 fx2 gx (parseHVector (fromValue vals) inputs)
+                   fx1 fx2 gx (parseHVector (fromDValue vals) inputs)
       artifactsGradAst =
         fst $ revProduceArtifactWithoutInterpretation @(AstRanked FullSpan)
                 TensorToken False (hAst id id id) parameters0

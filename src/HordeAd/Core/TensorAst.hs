@@ -21,6 +21,7 @@ import qualified Data.EnumMap.Strict as EM
 import           Data.Maybe (fromMaybe)
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality ((:~:) (Refl))
+import qualified Data.Vector as Data.NonStrict.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, type (+))
 import           System.IO.Unsafe (unsafePerformIO)
@@ -450,12 +451,12 @@ instance (GoodScalar r, KnownNat n, RankedTensor (AstRanked s))
   toHVector = undefined
   fromHVector _aInit params = fromHVectorR @r @n params
 
+instance DualNumberValue (AstRanked PrimalSpan r n) where
+  type DValue (AstRanked PrimalSpan r n) = Flip OR.Array r n
+  fromDValue t = fromPrimal $ AstConst $ runFlip t
+
 instance TermValue (AstRanked FullSpan r n) where
   type Value (AstRanked FullSpan r n) = Flip OR.Array r n
-  fromValue t = fromPrimal $ AstConst $ runFlip t
-
-instance TermValue (AstRanked PrimalSpan r n) where
-  type Value (AstRanked PrimalSpan r n) = Flip OR.Array r n
   fromValue t = fromPrimal $ AstConst $ runFlip t
 
 astLetHVectorInFun
@@ -595,12 +596,12 @@ instance (GoodScalar r, Sh.Shape sh, ShapedTensor (AstShaped s))
   toHVector = undefined
   fromHVector _aInit params = fromHVectorS @r @sh params
 
+instance DualNumberValue (AstShaped PrimalSpan r sh) where
+  type DValue (AstShaped PrimalSpan r sh) = Flip OS.Array r sh
+  fromDValue t = fromPrimalS $ AstConstS $ runFlip t
+
 instance TermValue (AstShaped FullSpan r sh) where
   type Value (AstShaped FullSpan r sh) = Flip OS.Array r sh
-  fromValue t = fromPrimalS $ AstConstS $ runFlip t
-
-instance TermValue (AstShaped PrimalSpan r sh) where
-  type Value (AstShaped PrimalSpan r sh) = Flip OS.Array r sh
   fromValue t = fromPrimalS $ AstConstS $ runFlip t
 
 astLetHVectorInFunS
@@ -787,13 +788,17 @@ instance AdaptableHVector (AstRanked s) (AstHVector s) where
     let (portion, rest) = V.splitAt (V.length $ shapeAstHVector aInit) params
     in Just (AstMkHVector portion, rest)
 
-instance TermValue (AstHVector FullSpan) where
-  type Value (AstHVector FullSpan) = HVector (Flip OR.Array)
-  fromValue t = AstMkHVector $ V.map fromValue t
+instance DualNumberValue (AstHVector PrimalSpan) where
+  type DValue (AstHVector PrimalSpan) = HVector (Flip OR.Array)
+  fromDValue t = AstMkHVector $ V.map fromDValue t
 
-instance TermValue (AstHVector PrimalSpan) where
-  type Value (AstHVector PrimalSpan) = HVector (Flip OR.Array)
-  fromValue t = AstMkHVector $ V.map fromValue t
+-- HVector causes overlap and violation of injectivity,
+-- hence Data.NonStrict.Vector. Injectivity is crucial to limit the number
+-- of type applications the library user has to supply.
+instance TermValue (AstHVector FullSpan) where
+  type Value (AstHVector FullSpan) =
+    Data.NonStrict.Vector.Vector (DynamicTensor (Flip OR.Array))
+  fromValue t = AstMkHVector $ V.convert $ V.map fromValue t
 
 astLetHVectorInHVectorFun
   :: AstSpan s

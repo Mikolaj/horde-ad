@@ -4287,9 +4287,10 @@ testSin0revhV8 = do
         -> ADVal (HVectorPseudoTensor g) Float '()
       h = hVectorADValToADVal . f
   assertEqualUpToEpsilon 1e-10
-    (V.singleton $ DynamicShaped @Double @'[3] $ sfromList [1, 1, 1])
+    (V.singleton $ DynamicShaped @Double @'[3] $ sfromList @(Flip OS.Array) [1, 1, 1])
     (crev (h @(Flip OR.Array))
-          (V.singleton $ DynamicShaped @Double @'[3] $ sreplicate @_ @3 1.1))
+          (V.singleton $ DynamicShaped @Double @'[3]
+           $ sreplicate @(Flip OS.Array) @3 1.1))
 
 fFoldZipR
   :: forall n r ranked.
@@ -4497,7 +4498,7 @@ testSin0revhFold5S = do
     (V.fromList [ DynamicShaped @Double @'[3] $ sfromList [0, 0, 0]
                 , DynamicShaped @Double @'[3]
                   $ sreplicate @_ @3 (-7.313585321642452e-2) ])
-    (rev @_ @_ @(AstShaped FullSpan) @(HVector (Flip OR.Array))
+    (rev @_ @_ @(AstShaped FullSpan)
          (\(asD :: AstHVector FullSpan) ->
             sletHVectorIn asD (\asV -> fFoldSX (sfromD (asV V.! 1))))
          (V.fromList [ DynamicShaped @Double @'[3] $ sreplicate @_ @3 1.1

@@ -7,7 +7,8 @@
 -- that become the codomains of the reverse derivative functions
 -- and also to hangle multiple arguments and results of fold-like operations.
 module HordeAd.Core.Adaptor
-  ( AdaptableHVector(..), TermValue(..), ForgetShape(..), RandomHVector(..)
+  ( AdaptableHVector(..), TermValue(..), DualNumberValue(..), ForgetShape(..)
+  , RandomHVector(..)
   , parseHVector
   ) where
 
@@ -15,6 +16,7 @@ import Prelude
 
 import           Control.Exception (assert)
 import qualified Data.Strict.Vector as Data.Vector
+import qualified Data.Vector as Data.NonStrict.Vector
 import qualified Data.Vector.Generic as V
 import           System.Random
 
@@ -40,9 +42,20 @@ class AdaptableHVector (ranked :: RankedTensorType) vals where
     -- may be used in a different recursive call working on the same data
 
 class TermValue vals where
-  type Value vals  -- ^ a helper type, with the same general shape,
-                   -- but possibly more concrete, e.g., arrays instead of terms
+  type Value vals = result | result -> vals
+                    -- ^ a helper type, with the same general shape,
+                    -- but possibly more concrete, e.g., arrays instead of terms
+                    -- where the injectivity is crucial to limit the number
+                    -- of type applications the library user has to supply
   fromValue :: Value vals -> vals  -- ^ an embedding
+
+class DualNumberValue vals where
+  type DValue vals  -- ^ a helper type, with the same general shape,
+                    -- but possibly more concrete, e.g., arrays instead of terms
+                    -- where the injectivity is hard to obtain, but is not
+                    -- so important, because the type is used more internally
+                    -- and for tests than by the library users
+  fromDValue :: DValue vals -> vals  -- ^ an embedding
 
 -- | A helper class for for converting all tensors inside a type
 -- from shaped to ranked.
@@ -121,10 +134,27 @@ instance TermValue a => TermValue (Data.Vector.Vector a) where
   type Value (Data.Vector.Vector a) = Data.Vector.Vector (Value a)
   fromValue = V.map fromValue
 
+instance DualNumberValue a => DualNumberValue (Data.Vector.Vector a) where
+  type DValue (Data.Vector.Vector a) = Data.Vector.Vector (DValue a)
+  fromDValue = V.map fromDValue
+
 instance ForgetShape a
          => ForgetShape (Data.Vector.Vector a) where
   type NoShape (Data.Vector.Vector a) = Data.Vector.Vector (NoShape a)
   forgetShape = V.map forgetShape
+
+instance AdaptableHVector ranked a
+         => AdaptableHVector ranked (Data.NonStrict.Vector.Vector a) where
+  toHVector = V.concat . map toHVector . V.toList
+  fromHVector lInit source =
+    let f (!lAcc, !restAcc) !aInit =
+          case fromHVector aInit restAcc of
+            Just (a, rest) -> (V.snoc lAcc a, rest)
+              -- this snoc, if the vector is long, is very costly;
+              -- a solution might be to define Value to be a list
+            Nothing -> error "fromHVector [a]"
+        (!l, !restAll) = V.foldl' f (V.empty, source) lInit
+    in Just (l, restAll)
 
 instance AdaptableHVector ranked (DynamicTensor ranked) where
   toHVector = V.singleton
@@ -144,6 +174,10 @@ instance ( AdaptableHVector ranked a
 instance (TermValue a, TermValue b) => TermValue (a, b) where
   type Value (a, b) = (Value a, Value b)
   fromValue (va, vb) = (fromValue va, fromValue vb)
+
+instance (DualNumberValue a, DualNumberValue b) => DualNumberValue (a, b) where
+  type DValue (a, b) = (DValue a, DValue b)
+  fromDValue (va, vb) = (fromDValue va, fromDValue vb)
 
 instance ( ForgetShape a
          , ForgetShape b ) => ForgetShape (a, b) where
@@ -176,6 +210,11 @@ instance (TermValue a, TermValue b, TermValue c)
          => TermValue (a, b, c) where
   type Value (a, b, c) = (Value a, Value b, Value c)
   fromValue (va, vb, vc) = (fromValue va, fromValue vb, fromValue vc)
+
+instance (DualNumberValue a, DualNumberValue b, DualNumberValue c)
+         => DualNumberValue (a, b, c) where
+  type DValue (a, b, c) = (DValue a, DValue b, DValue c)
+  fromDValue (va, vb, vc) = (fromDValue va, fromDValue vb, fromDValue vc)
 
 instance ( ForgetShape a
          , ForgetShape b
@@ -215,6 +254,13 @@ instance (TermValue a, TermValue b, TermValue c, TermValue d)
   type Value (a, b, c, d) = (Value a, Value b, Value c, Value d)
   fromValue (va, vb, vc, vd) =
     (fromValue va, fromValue vb, fromValue vc, fromValue vd)
+
+instance ( DualNumberValue a, DualNumberValue b, DualNumberValue c
+         , DualNumberValue d )
+         => DualNumberValue (a, b, c, d) where
+  type DValue (a, b, c, d) = (DValue a, DValue b, DValue c, DValue d)
+  fromDValue (va, vb, vc, vd) =
+    (fromDValue va, fromDValue vb, fromDValue vc, fromDValue vd)
 
 instance ( ForgetShape a
          , ForgetShape b
@@ -263,6 +309,14 @@ instance (TermValue a, TermValue b, TermValue c, TermValue d, TermValue e)
   fromValue (va, vb, vc, vd, ve) =
     (fromValue va, fromValue vb, fromValue vc, fromValue vd, fromValue ve)
 
+instance ( DualNumberValue a, DualNumberValue b, DualNumberValue c
+         , DualNumberValue d, DualNumberValue e )
+         => DualNumberValue (a, b, c, d, e) where
+  type DValue (a, b, c, d, e) =
+    (DValue a, DValue b, DValue c, DValue d, DValue e)
+  fromDValue (va, vb, vc, vd, ve) =
+    (fromDValue va, fromDValue vb, fromDValue vc, fromDValue vd, fromDValue ve)
+
 instance ( ForgetShape a
          , ForgetShape b
          , ForgetShape c
@@ -305,6 +359,13 @@ instance (TermValue a, TermValue b) => TermValue (Either a b) where
     Left a -> Left $ fromValue a
     Right b -> Right $ fromValue b
 
+instance (DualNumberValue a, DualNumberValue b)
+         => DualNumberValue (Either a b) where
+  type DValue (Either a b) = Either (DValue a) (DValue b)
+  fromDValue = \case
+    Left a -> Left $ fromDValue a
+    Right b -> Right $ fromDValue b
+
 instance ( ForgetShape a
          , ForgetShape b ) => ForgetShape (Either a b) where
   type NoShape (Either a b) = Either (NoShape a) (NoShape b)
@@ -328,6 +389,12 @@ instance TermValue a => TermValue (Maybe a) where
   fromValue = \case
     Nothing -> Nothing
     Just a -> Just $ fromValue a
+
+instance DualNumberValue a => DualNumberValue (Maybe a) where
+  type DValue (Maybe a) = Maybe (DValue a)
+  fromDValue = \case
+    Nothing -> Nothing
+    Just a -> Just $ fromDValue a
 
 instance ForgetShape a
          => ForgetShape (Maybe a) where

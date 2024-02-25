@@ -204,9 +204,9 @@ crev
   :: forall r y f vals advals.
      ( DualPart f, GoodScalar r, HasSingletonDict y
      , RankedOf f ~ Flip OR.Array, ShapedOf f ~ Flip OS.Array
-     , AdaptableHVector (ADVal (RankedOf f)) advals, TermValue advals
+     , AdaptableHVector (ADVal (RankedOf f)) advals, DualNumberValue advals
      , AdaptableHVector (Flip OR.Array) vals
-     , vals ~ Value advals )
+     , vals ~ DValue advals )
   => (advals -> ADVal f r y) -> vals -> vals
 {-# INLINE crev #-}
 crev f vals = crevDtMaybe f vals Nothing
@@ -217,9 +217,9 @@ crevDt
      ( RankedTensor (RankedOf f), HVectorTensor (RankedOf f) (ShapedOf f)
      , DualPart f, GoodScalar r, HasSingletonDict y
      , HVectorOf (RankedOf f) ~ HVector (RankedOf f)
-     , AdaptableHVector (ADVal (RankedOf f)) advals, TermValue advals
+     , AdaptableHVector (ADVal (RankedOf f)) advals, DualNumberValue advals
      , AdaptableHVector (RankedOf f) vals
-     , vals ~ Value advals )
+     , vals ~ DValue advals )
   => (advals -> ADVal f r y) -> vals -> f r y -> vals
 {-# INLINE crevDt #-}
 crevDt f vals dt = crevDtMaybe f vals (Just dt)
@@ -229,13 +229,13 @@ crevDtMaybe
      ( RankedTensor (RankedOf f), HVectorTensor (RankedOf f) (ShapedOf f)
      , DualPart f, GoodScalar r, HasSingletonDict y
      , HVectorOf (RankedOf f) ~ HVector (RankedOf f)
-     , AdaptableHVector (ADVal (RankedOf f)) advals, TermValue advals
+     , AdaptableHVector (ADVal (RankedOf f)) advals, DualNumberValue advals
      , AdaptableHVector (RankedOf f) vals
-     , vals ~ Value advals )
+     , vals ~ DValue advals )
   => (advals -> ADVal f r y) -> vals -> Maybe (f r y) -> vals
 {-# INLINE crevDtMaybe #-}
 crevDtMaybe f vals mdt =
-  let g inputs = f $ parseHVector (fromValue vals) inputs
+  let g inputs = f $ parseHVector (fromDValue vals) inputs
   in parseHVector vals
      $ fst $ crevOnHVector mdt g (toHVector vals)
 
@@ -254,13 +254,13 @@ cfwd
   :: forall r y f vals advals.
      ( DualPart f, GoodScalar r, HasSingletonDict y
      , RankedOf f ~ Flip OR.Array
-     , AdaptableHVector (ADVal (RankedOf f)) advals, TermValue advals
+     , AdaptableHVector (ADVal (RankedOf f)) advals, DualNumberValue advals
      , AdaptableHVector (Flip OR.Array) vals
-     , vals ~ Value advals )
+     , vals ~ DValue advals )
   => (advals -> ADVal f r y) -> vals -> vals
   -> f r y
 cfwd f x ds =
-  let g inputs = f $ parseHVector (fromValue ds) inputs
+  let g inputs = f $ parseHVector (fromDValue ds) inputs
   in fst $ cfwdOnHVector (toHVector x) g (toHVector ds)
 
 
