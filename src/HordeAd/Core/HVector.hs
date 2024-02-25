@@ -207,8 +207,8 @@ voidFromDynamicF
 {-# INLINE voidFromDynamicF #-}
 voidFromDynamicF f (DynamicRanked @r2 @n2 t) =
   let sh = f t
-  in Sh.withShapeP sh $ \(Proxy @sh2) ->
-    DynamicRankedDummy @r2 @sh2 Proxy Proxy
+  in Sh.withShapeP sh $ \proxySh ->
+       DynamicRankedDummy (Proxy @r2) proxySh
 voidFromDynamicF _ (DynamicShaped @r2 @sh2 _) =
   DynamicShapedDummy @r2 @sh2 Proxy Proxy
 voidFromDynamicF _ (DynamicRankedDummy p1 p2) = DynamicRankedDummy p1 p2

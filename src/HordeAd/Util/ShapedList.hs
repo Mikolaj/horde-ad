@@ -25,7 +25,7 @@ import Prelude
 
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.Shape as Sh
-import           Data.Proxy (Proxy)
+import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality (gcastWith, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
@@ -199,9 +199,9 @@ listToSized [] = case Sh.shapeT @sh of
 listToSized (i : is) = case Sh.shapeT @sh of
   [] -> error $ "listToSized: input list too long; spurious "
                 ++ show (length (i : is))
-  nInt : restList -> Sh.withShapeP restList $ \(_proxy :: Proxy rest) ->
+  nInt : restList -> Sh.withShapeP restList $ \(Proxy @rest) ->
     case someNatVal $ toInteger nInt of
-      Just (SomeNat (_proxyN :: Proxy n)) ->
+      Just (SomeNat (Proxy @n)) ->
         -- rest ~ Sh.Drop 1 sh
         let sh = listToSized @rest is
         in gcastWith (unsafeCoerce Refl :: sh :~: n ': rest)

@@ -277,14 +277,14 @@ withListShape shList f =
 withListShapeSh
   :: [Int]
   -> (forall sh n. (Sh.Shape sh, KnownNat n, Sh.Rank sh ~ n)
-      => ShapeInt n -> a)
+      => Proxy sh -> ShapeInt n -> a)
   -> a
 withListShapeSh shList f =
-  Sh.withShapeP shList $ \(Proxy @sh) ->
+  Sh.withShapeP shList $ \proxy@(Proxy @sh) ->
     case someNatVal $ toInteger (length shList) of
       Just (SomeNat @n _) ->
         gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: n) $
-        f @sh @n $ listShapeToShape @n shList
+        f @sh @n proxy $ listShapeToShape @n shList
       _ -> error "withListShapeSh: impossible someNatVal error"
 
 -- All three shape representations denote the same shape.

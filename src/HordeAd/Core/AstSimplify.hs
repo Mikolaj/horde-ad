@@ -436,8 +436,8 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
     astLetHFunIn var f (astIndexRec v ix)
   Ast.AstRFromS @sh t ->
     let (takeSh, dropSh) = splitAt (valueOf @m) (Sh.shapeT @sh)
-    in Sh.withShapeP takeSh $ \(Proxy :: Proxy p_take) ->
-       Sh.withShapeP dropSh $ \(Proxy :: Proxy p_drop) ->
+    in Sh.withShapeP takeSh $ \(Proxy @p_take) ->
+       Sh.withShapeP dropSh $ \(Proxy @p_drop) ->
        gcastWith (unsafeCoerce Refl :: sh :~: p_take Sh.++ p_drop) $
        gcastWith (unsafeCoerce Refl :: Sh.Rank p_drop :~: n) $
        astRFromS $ astIndexStepS @p_take @p_drop
@@ -946,8 +946,8 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
       -- TODO: this is broken
       {-
       let (takeSh, dropSh) = splitAt (valueOf @p') (Sh.shapeT @sh)
-      in Sh.withShapeP takeSh $ \(Proxy :: Proxy p_take) ->
-         Sh.withShapeP dropSh $ \(Proxy :: Proxy p_drop) ->
+      in Sh.withShapeP takeSh $ \(Proxy @p_take) ->
+         Sh.withShapeP dropSh $ \(Proxy @p_drop) ->
          gcastWith (unsafeCoerce Refl :: sh :~: p_take Sh.++ p_drop) $
          gcastWith (unsafeCoerce Refl :: p_take :~: Sh.Take p' sh) $
          gcastWith (unsafeCoerce Refl :: p_drop :~: Sh.Drop p' sh) $
@@ -1445,7 +1445,7 @@ astReplicateS = \case
   Ast.AstLetADShareS l v -> Ast.AstLetADShareS l $ astReplicateS v
   Ast.AstTransposeS @perm @sh1 v ->
     let zsuccPerm = 0 : map succ (Sh.shapeT @perm)
-    in Sh.withShapeP zsuccPerm $ \(_proxy :: Proxy zsuccP) ->
+    in Sh.withShapeP zsuccPerm $ \(Proxy @zsuccP) ->
       gcastWith (unsafeCoerce Refl :: 0 ': MapSucc perm :~: zsuccP) $
         -- this one is needed for GHC >= 9.8 due to #23763
       gcastWith (unsafeCoerce Refl
@@ -2002,27 +2002,24 @@ astLetHVectorInS
   -> AstShaped s2 r sh
   -> AstShaped s2 r sh
 astLetHVectorInS vars l v =
-  case someNatVal $ toInteger (length (Sh.shapeT @sh)) of
-    Just (SomeNat @n _) -> gcastWith (unsafeCoerce Refl :: n :~: Sh.Rank sh)
-                           $ case l of
-      Ast.AstHVector l3 ->
-        let f :: forall n1 r1. (KnownNat n1, GoodScalar r1)
-              => AstVarName (AstRanked s) r1 n1 -> AstRanked s r1 n1
-              -> AstShaped s2 r sh
-              -> AstShaped s2 r sh
-            f var t acc = astSFromR $ astLet var t $ astRFromS acc
-        in foldr (mapRankedShaped f astLetS) v (zip vars (V.toList l3))
-      Ast.AstLetHVectorInHVector vars2 d1 d2 ->
-        astLetHVectorInS vars2 d1
-        $ astLetHVectorInS vars d2 v
-      Ast.AstLetInHVector var2 u2 d2 ->
-        astSFromR $ astLet var2 u2 $ astRFromS
-        $ astLetHVectorInS vars d2 v
-      Ast.AstLetInHVectorS @sh3 var2 u2 d2 ->
-        astLetS var2 u2
-        $ astLetHVectorInS vars d2 v
-      _ -> Ast.AstLetHVectorInS vars l v
-    _ -> error "astLetHVectorInS: impossible someNatVal"
+  withListSh (Proxy @sh) $ \(_ :: ShapeInt n) -> case l of
+    Ast.AstHVector l3 ->
+      let f :: forall n1 r1. (KnownNat n1, GoodScalar r1)
+            => AstVarName (AstRanked s) r1 n1 -> AstRanked s r1 n1
+            -> AstShaped s2 r sh
+            -> AstShaped s2 r sh
+          f var t acc = astSFromR $ astLet var t $ astRFromS acc
+      in foldr (mapRankedShaped f astLetS) v (zip vars (V.toList l3))
+    Ast.AstLetHVectorInHVector vars2 d1 d2 ->
+      astLetHVectorInS vars2 d1
+      $ astLetHVectorInS vars d2 v
+    Ast.AstLetInHVector var2 u2 d2 ->
+      astSFromR $ astLet var2 u2 $ astRFromS
+      $ astLetHVectorInS vars d2 v
+    Ast.AstLetInHVectorS @sh3 var2 u2 d2 ->
+      astLetS var2 u2
+      $ astLetHVectorInS vars d2 v
+    _ -> Ast.AstLetHVectorInS vars l v
 
 -- Inlining works for this let constructor, because it has just one variable,
 -- unlike astLetHVectorIn, etc., so we don't try to eliminate it.

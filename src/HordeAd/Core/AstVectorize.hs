@@ -493,7 +493,7 @@ build1VS (var, v00) =
       astTrS $ astReverseS $ astTrS $ build1VS (var, v)
     Ast.AstTransposeS @perm @sh1 v -> traceRule $
       let zsuccPerm = 0 : map succ (Sh.shapeT @perm)
-      in Sh.withShapeP zsuccPerm $ \(_proxy :: Proxy zsuccP) ->
+      in Sh.withShapeP zsuccPerm $ \(Proxy @zsuccP) ->
         gcastWith (unsafeCoerce Refl :: 0 ': MapSucc perm :~: zsuccP) $
           -- this one is needed for GHC >= 9.8 due to #23763
         gcastWith (unsafeCoerce Refl
