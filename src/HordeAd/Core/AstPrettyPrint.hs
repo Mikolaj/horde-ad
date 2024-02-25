@@ -618,7 +618,7 @@ printHVectorAst cfg l =
 printAstHVector :: forall s. AstSpan s
                 => PrintConfig -> Int -> AstHVector s -> ShowS
 printAstHVector cfg d = \case
-  AstHVector l ->
+  AstMkHVector l ->
     if loseRoudtrip cfg
     then printHVectorAst cfg l
     else showParen (d > 10)

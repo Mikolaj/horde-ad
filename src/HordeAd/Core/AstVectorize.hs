@@ -637,7 +637,7 @@ build1VOccurenceUnknownHVector k (var, v0) =
     else traceRule $
       fun1DToAst (shapeAstHVector v0) $ \ !vars !asts ->
         astLetHVectorInHVector
-          vars v0 (Ast.AstHVector
+          vars v0 (Ast.AstMkHVector
                    $ replicate1HVectorF astReplicate astReplicateS k asts)
 
 build1VHVector
@@ -646,8 +646,8 @@ build1VHVector
 build1VHVector k@SNat (var, v0) =
  let traceRule = mkTraceRuleHVector v0 k var
  in traceRule $ case v0 of
-  Ast.AstHVector l ->
-    Ast.AstHVector $ V.map (\u -> build1VOccurenceUnknownDynamic k (var, u)) l
+  Ast.AstMkHVector l ->
+    Ast.AstMkHVector $ V.map (\u -> build1VOccurenceUnknownDynamic k (var, u)) l
   Ast.AstHApply t ll ->
     astHApply
       (build1VHFun k (var, t))
@@ -947,7 +947,7 @@ astTrAstHVectorTail i t = fun1DToAst (shapeAstHVector t) $ \ !vars !asts ->
   Ast.AstLetHVectorInHVector
     vars
     t
-    (Ast.AstHVector @s $ V.take i asts
+    (Ast.AstMkHVector @s $ V.take i asts
                          V.++ V.map astTrDynamic (V.drop i asts))
 
 

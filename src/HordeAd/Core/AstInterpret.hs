@@ -882,7 +882,7 @@ interpretAstHVector
   :: forall ranked s. (ADReady ranked, AstSpan s)
   => AstEnv ranked -> AstHVector s -> HVectorOf ranked
 interpretAstHVector !env = \case
-  AstHVector l ->
+  AstMkHVector l ->
     dmkHVector @ranked $ interpretAstDynamic @ranked env <$> l
   AstHApply t ll ->
     let t2 = interpretAstHFun env t

@@ -1876,7 +1876,7 @@ astHApply :: forall s. AstSpan s
 astHApply t ll = case t of
   Ast.AstLambda ~(vvars, l) -> case sameAstSpan @s @PrimalSpan of
     Just Refl ->
-      foldr (\(vars, l2) -> astLetHVectorInHVector vars (Ast.AstHVector l2))
+      foldr (\(vars, l2) -> astLetHVectorInHVector vars (Ast.AstMkHVector l2))
             l (zip vvars ll)
     _ -> Ast.AstHApply t ll
   Ast.AstVarHFun{} -> Ast.AstHApply t ll
@@ -1890,7 +1890,7 @@ astLetHVectorInHVector
   -> AstHVector s2
 astLetHVectorInHVector vars u v =
   case u of
-      Ast.AstHVector l3 -> assert (length vars == V.length l3) $
+      Ast.AstMkHVector l3 -> assert (length vars == V.length l3) $
         foldr (mapRankedShaped astLetInHVector astLetInHVectorS)
               v (zip vars (V.toList l3))
       Ast.AstLetHVectorInHVector{} -> Ast.AstLetHVectorInHVector vars u v
@@ -1975,7 +1975,7 @@ astLetHVectorIn vars l v =
   let sh = shapeAst v
   in Sh.withShapeP (shapeToList sh) $ \proxy -> case proxy of
     Proxy @sh | Just Refl <- matchingRank @sh @n -> case l of
-      Ast.AstHVector l3 ->
+      Ast.AstMkHVector l3 ->
         let f :: forall sh1 r1. (Sh.Shape sh1, GoodScalar r1)
               => AstVarName (AstShaped s) r1 sh1 -> AstShaped s r1 sh1
               -> AstRanked s2 r n
@@ -2003,7 +2003,7 @@ astLetHVectorInS
   -> AstShaped s2 r sh
 astLetHVectorInS vars l v =
   withListSh (Proxy @sh) $ \(_ :: ShapeInt n) -> case l of
-    Ast.AstHVector l3 ->
+    Ast.AstMkHVector l3 ->
       let f :: forall n1 r1. (KnownNat n1, GoodScalar r1)
             => AstVarName (AstRanked s) r1 n1 -> AstRanked s r1 n1
             -> AstShaped s2 r sh
@@ -2203,7 +2203,7 @@ simplifyAstDynamic u@DynamicShapedDummy{} = u
 simplifyAstHVector
   :: AstSpan s => AstHVector s -> AstHVector s
 simplifyAstHVector = \case
-  Ast.AstHVector l -> Ast.AstHVector $ V.map simplifyAstDynamic l
+  Ast.AstMkHVector l -> Ast.AstMkHVector $ V.map simplifyAstDynamic l
   Ast.AstHApply t ll -> astHApply (simplifyAstHFun t)
                                   (map (V.map simplifyAstDynamic) ll)
   Ast.AstLetHVectorInHVector vars u v ->
@@ -2894,10 +2894,10 @@ substitute1AstHVector
   => SubstitutionPayload s2 r2 -> AstVarId -> AstHVector s
   -> Maybe (AstHVector s)
 substitute1AstHVector i var = \case
-  Ast.AstHVector args ->
+  Ast.AstMkHVector args ->
     let margs = V.map (substitute1AstDynamic i var) args
     in if V.any isJust margs
-       then Just $ Ast.AstHVector $ V.zipWith fromMaybe args margs
+       then Just $ Ast.AstMkHVector $ V.zipWith fromMaybe args margs
        else Nothing
   Ast.AstHApply t ll ->
     case ( substitute1AstHFun i var t

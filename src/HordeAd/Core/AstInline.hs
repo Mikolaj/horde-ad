@@ -366,8 +366,8 @@ inlineAstHVector
   :: forall s. AstSpan s
   => AstMemo -> AstHVector s -> (AstMemo, AstHVector s)
 inlineAstHVector memo v0 = case v0 of
-  Ast.AstHVector l ->
-    second Ast.AstHVector $ mapAccumR inlineAstDynamic memo l
+  Ast.AstMkHVector l ->
+    second Ast.AstMkHVector $ mapAccumR inlineAstDynamic memo l
   Ast.AstHApply t ll ->
     let (memo1, t2) = inlineAstHFun memo t
         (memo2, ll2) = mapAccumR (mapAccumR inlineAstDynamic) memo1 ll
@@ -669,7 +669,7 @@ unletAstDynamic env = \case
 unletAstHVector
   :: AstSpan s => UnletEnv -> AstHVector s -> AstHVector s
 unletAstHVector env = \case
-  Ast.AstHVector l -> Ast.AstHVector $ V.map (unletAstDynamic env) l
+  Ast.AstMkHVector l -> Ast.AstMkHVector $ V.map (unletAstDynamic env) l
   Ast.AstHApply t ll -> Ast.AstHApply (unletAstHFun t)
                                       (map (V.map (unletAstDynamic env)) ll)
   Ast.AstLetHVectorInHVector vars u v -> case vars of

@@ -90,7 +90,7 @@ instance DerivativeStages (AstRanked FullSpan) where
       let mdt = if hasDt then Just $ rfromD $ astsDt V.! 0 else Nothing
           !(!astBindings, !gradient) =
             reverseDervative parameters0 primalBody mdt delta
-          unGradient = dunlet l astBindings (AstHVector gradient)
+          unGradient = dunlet l astBindings (AstMkHVector gradient)
           unPrimal = runlet l [] primalBody
       in ( ((varsDt, varsPrimal), unGradient, unPrimal, shapeToList sh)
          , delta )
@@ -178,7 +178,7 @@ instance DerivativeStages (AstShaped FullSpan) where
       let mdt = if hasDt then Just $ sfromD $ astsDt V.! 0 else Nothing
           !(!astBindings, !gradient) =
             reverseDervative parameters0 primalBody mdt delta
-          unGradient = dunlet l astBindings (AstHVector gradient)
+          unGradient = dunlet l astBindings (AstMkHVector gradient)
           unPrimal = sunlet l [] primalBody
       in ( ((varsDt, varsPrimal), unGradient, unPrimal, Sh.shapeT @sh)
          , delta )
@@ -264,12 +264,12 @@ instance DerivativeStages (HVectorPseudoTensor (AstRanked FullSpan)) where
         domsB = shapeAstHVector primalBody
     in fun1DToAst domsB $ \ !varsDt !astsDt ->
       let mdt = if hasDt
-                then Just $ HVectorPseudoTensor $ AstHVector astsDt
+                then Just $ HVectorPseudoTensor $ AstMkHVector astsDt
                 else Nothing
           !(!astBindings, !gradient) =
             reverseDervative
               parameters0 (HVectorPseudoTensor primalBody) mdt delta
-          unGradient = dunlet l astBindings (AstHVector gradient)
+          unGradient = dunlet l astBindings (AstMkHVector gradient)
           unPrimal = dunlet @(AstRanked PrimalSpan) l [] primalBody
       in ( ( (varsDt, varsPrimal), unGradient, HVectorPseudoTensor unPrimal
            , undefined )
@@ -393,7 +393,7 @@ instance AdaptableHVector (AstRanked s) (AstHVector s) where
   toHVector = undefined
   fromHVector aInit params =
     let (portion, rest) = V.splitAt (V.length aInit) params
-    in Just (AstHVector portion, rest)
+    in Just (AstMkHVector portion, rest)
 
 instance AstSpan s => RankedTensor (AstRanked s) where
   rlet = astLetFun
@@ -674,7 +674,7 @@ astBuild1VectorizeS f =
 
 instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   dshape = shapeAstHVector
-  dmkHVector = AstHVector
+  dmkHVector = AstMkHVector
   dunHVector hVectorOf =
     let f :: Int -> DynamicTensor VoidTensor -> AstDynamic s
         f i = \case
