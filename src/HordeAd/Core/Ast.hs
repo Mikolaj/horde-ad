@@ -36,7 +36,6 @@ import           Data.Kind (Type)
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality (testEquality, (:~:) (Refl))
-import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, sameNat, type (+), type (<=))
 import           Type.Reflection (Typeable, eqTypeRep, typeRep, (:~~:) (HRefl))
 
@@ -93,10 +92,39 @@ type instance DualOf (AstShaped s) = AstShaped DualSpan
 type instance PrimalOf (HVectorPseudoTensor (AstRanked s)) =
   HVectorPseudoTensor (AstRanked PrimalSpan)
 
-instance AdaptableHVector (AstRanked s) (DynamicTensor (AstRanked s)) where
-  type Value (DynamicTensor (AstRanked s)) = DynamicTensor (Flip OR.Array)
-  toHVector = V.singleton
-  fromHVector _aInit params = V.uncons params
+type instance RankedOf (Flip OR.Array) = Flip OR.Array
+
+type instance ShapedOf (Flip OR.Array) = Flip OS.Array
+
+instance TermValue (DynamicTensor (AstRanked FullSpan)) where
+  type Value (DynamicTensor (AstRanked FullSpan)) =
+    DynamicTensor (Flip OR.Array)
+  fromValue = \case
+    DynamicRanked t -> DynamicRanked $ fromPrimal $ AstConst $ runFlip t
+    DynamicShaped t -> DynamicShaped $ fromPrimalS $ AstConstS $ runFlip t
+    DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
+    DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
+
+instance TermValue (DynamicTensor (AstRanked PrimalSpan)) where
+  type Value (DynamicTensor (AstRanked PrimalSpan)) =
+    DynamicTensor (Flip OR.Array)
+  fromValue = \case
+    DynamicRanked t -> DynamicRanked $ fromPrimal $ AstConst $ runFlip t
+    DynamicShaped t -> DynamicShaped $ fromPrimalS $ AstConstS $ runFlip t
+    DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
+    DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
+
+-- These instances can't be just HFun, because they need to be vectorized
+-- and vectorization applies such functions to the variable from build1
+-- and the variable has to be eliminated via vectorization to preserve
+-- the closed form of the function. Just applying a Haskell closure
+-- to the build1 variable and then duplicating the result of the function
+-- would not eliminate the variable and also would likely results
+-- in more costly computations. Also, that would prevent simplification
+-- of the instances, especially after applied to arguments that are terms.
+type instance HFunOf (AstRanked s) = AstHFun
+type instance HFunOf (AstNoVectorize s) = AstHFun
+type instance HFunOf (AstNoSimplify s) = AstHFun
 
 
 -- * Assorted small definitions

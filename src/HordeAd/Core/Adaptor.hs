@@ -1,3 +1,4 @@
+{-# LANGUAGE UndecidableInstances #-}
 -- | Operations on the product (heterogeneous list) object for tensors.
 -- In particular, adaptors for working with such types of collections of tensors
 -- that are isormorphic to products.
@@ -6,7 +7,8 @@
 -- that become the codomains of the reverse derivative functions
 -- and also to hangle multiple arguments and results of fold-like operations.
 module HordeAd.Core.Adaptor
-  ( AdaptableHVector(..), parseHVector, ForgetShape(..), RandomHVector(..)
+  ( AdaptableHVector(..), TermValue(..), ForgetShape(..), RandomHVector(..)
+  , parseHVector
   ) where
 
 import Prelude
@@ -28,28 +30,19 @@ import HordeAd.Core.Types
 
 -- Inspired by adaptors from @tomjaguarpaw's branch.
 class AdaptableHVector (ranked :: RankedTensorType) vals where
-  type Value vals  -- ^ a helper type, with the same general shape,
-                   -- but possibly more concrete, e.g., arrays instead of terms
   toHVector :: vals -> HVector ranked
     -- ^ represent a value of the domain of objective function
     -- in a canonical, much less typed way common to all possible types
-  fromHVector :: Value vals -> HVector ranked
-              -> Maybe (vals, HVector ranked)
+  fromHVector :: vals -> HVector ranked -> Maybe (vals, HVector ranked)
     -- ^ recovers a value of the domain of objective function
     -- from its canonical representation, using the general shape
     -- recorded in a value of a more concrete type; the remainder
     -- may be used in a different recursive call working on the same data
 
--- | Recovers a value of the domain of objective function and asserts
--- there is no remainder. This is the main call of the recursive
--- procedure where @fromHVector@ calls itself for sub-values.
-parseHVector
-  :: AdaptableHVector ranked vals
-  => Value vals -> HVector ranked -> vals
-parseHVector aInit hVector =
-  case fromHVector aInit hVector of
-    Just (vals, rest) -> assert (V.null rest) vals
-    Nothing -> error "parseHVector: Nothing"
+class TermValue vals where
+  type Value vals  -- ^ a helper type, with the same general shape,
+                   -- but possibly more concrete, e.g., arrays instead of terms
+  fromValue :: Value vals -> vals  -- ^ an embedding
 
 -- | A helper class for for converting all tensors inside a type
 -- from shaped to ranked.
@@ -61,6 +54,17 @@ class ForgetShape vals where
 class RandomHVector vals where
   randomVals :: forall g. RandomGen g
              => Double -> g -> (vals, g)
+
+-- | Recovers a value of the domain of objective function and asserts
+-- there is no remainder. This is the main call of the recursive
+-- procedure where @fromHVector@ calls itself for sub-values.
+parseHVector
+  :: AdaptableHVector ranked vals
+  => vals -> HVector ranked -> vals
+parseHVector aInit hVector =
+  case fromHVector aInit hVector of
+    Just (vals, rest) -> assert (V.null rest) vals
+    Nothing -> error "parseHVector: Nothing"
 
 
 -- * Basic Adaptor class instances
@@ -102,7 +106,6 @@ instance ForgetShape a
 
 instance AdaptableHVector ranked a
          => AdaptableHVector ranked (Data.Vector.Vector a) where
-  type Value (Data.Vector.Vector a) = Data.Vector.Vector (Value a)
   toHVector = V.concatMap toHVector
   fromHVector lInit source =
     let f (!lAcc, !restAcc) !aInit =
@@ -114,14 +117,21 @@ instance AdaptableHVector ranked a
         (!l, !restAll) = V.foldl' f (V.empty, source) lInit
     in Just (l, restAll)
 
+instance TermValue a => TermValue (Data.Vector.Vector a) where
+  type Value (Data.Vector.Vector a) = Data.Vector.Vector (Value a)
+  fromValue = V.map fromValue
+
 instance ForgetShape a
          => ForgetShape (Data.Vector.Vector a) where
   type NoShape (Data.Vector.Vector a) = Data.Vector.Vector (NoShape a)
   forgetShape = V.map forgetShape
 
+instance AdaptableHVector ranked (DynamicTensor ranked) where
+  toHVector = V.singleton
+  fromHVector _aInit params = V.uncons params
+
 instance ( AdaptableHVector ranked a
          , AdaptableHVector ranked b ) => AdaptableHVector ranked (a, b) where
-  type Value (a, b) = (Value a, Value b)
   toHVector (a, b) =
     let a1 = toHVector a
         b1 = toHVector b
@@ -130,6 +140,10 @@ instance ( AdaptableHVector ranked a
     (a, aRest) <- fromHVector aInit source
     (b, bRest) <- fromHVector bInit aRest
     return ((a, b), bRest)
+
+instance (TermValue a, TermValue b) => TermValue (a, b) where
+  type Value (a, b) = (Value a, Value b)
+  fromValue (va, vb) = (fromValue va, fromValue vb)
 
 instance ( ForgetShape a
          , ForgetShape b ) => ForgetShape (a, b) where
@@ -147,7 +161,6 @@ instance ( AdaptableHVector ranked a
          , AdaptableHVector ranked b
          , AdaptableHVector ranked c )
          => AdaptableHVector ranked (a, b, c) where
-  type Value (a, b, c) = (Value a, Value b, Value c)
   toHVector (a, b, c) =
     let a1 = toHVector a
         b1 = toHVector b
@@ -158,6 +171,11 @@ instance ( AdaptableHVector ranked a
     (b, bRest) <- fromHVector bInit aRest
     (c, cRest) <- fromHVector cInit bRest
     return ((a, b, c), cRest)
+
+instance (TermValue a, TermValue b, TermValue c)
+         => TermValue (a, b, c) where
+  type Value (a, b, c) = (Value a, Value b, Value c)
+  fromValue (va, vb, vc) = (fromValue va, fromValue vb, fromValue vc)
 
 instance ( ForgetShape a
          , ForgetShape b
@@ -179,7 +197,6 @@ instance ( AdaptableHVector ranked a
          , AdaptableHVector ranked c
          , AdaptableHVector ranked d )
          => AdaptableHVector ranked (a, b, c, d) where
-  type Value (a, b, c, d) = (Value a, Value b, Value c, Value d)
   toHVector (a, b, c, d) =
     let a1 = toHVector a
         b1 = toHVector b
@@ -192,6 +209,12 @@ instance ( AdaptableHVector ranked a
     (c, cRest) <- fromHVector cInit bRest
     (d, dRest) <- fromHVector dInit cRest
     return ((a, b, c, d), dRest)
+
+instance (TermValue a, TermValue b, TermValue c, TermValue d)
+         => TermValue (a, b, c, d) where
+  type Value (a, b, c, d) = (Value a, Value b, Value c, Value d)
+  fromValue (va, vb, vc, vd) =
+    (fromValue va, fromValue vb, fromValue vc, fromValue vd)
 
 instance ( ForgetShape a
          , ForgetShape b
@@ -219,7 +242,6 @@ instance ( AdaptableHVector ranked a
          , AdaptableHVector ranked d
          , AdaptableHVector ranked e )
          => AdaptableHVector ranked (a, b, c, d, e) where
-  type Value (a, b, c, d, e) = (Value a, Value b, Value c, Value d, Value e)
   toHVector (a, b, c, d, e) =
     let a1 = toHVector a
         b1 = toHVector b
@@ -234,6 +256,12 @@ instance ( AdaptableHVector ranked a
     (d, dRest) <- fromHVector dInit cRest
     (e, eRest) <- fromHVector eInit dRest
     return ((a, b, c, d, e), eRest)
+
+instance (TermValue a, TermValue b, TermValue c, TermValue d, TermValue e)
+         => TermValue (a, b, c, d, e) where
+  type Value (a, b, c, d, e) = (Value a, Value b, Value c, Value d, Value e)
+  fromValue (va, vb, vc, vd, ve) =
+    (fromValue va, fromValue vb, fromValue vc, fromValue vd, fromValue ve)
 
 instance ( ForgetShape a
          , ForgetShape b
@@ -260,7 +288,6 @@ instance ( RandomHVector a
 
 instance ( AdaptableHVector ranked a, AdaptableHVector ranked b )
          => AdaptableHVector ranked (Either a b) where
-  type Value (Either a b) = Either (Value a) (Value b)
   toHVector e = case e of
     Left a -> toHVector a
     Right b -> toHVector b
@@ -272,6 +299,12 @@ instance ( AdaptableHVector ranked a, AdaptableHVector ranked b )
                  Just (b2, rest) -> Just (Right b2, rest)
                  Nothing -> Nothing
 
+instance (TermValue a, TermValue b) => TermValue (Either a b) where
+  type Value (Either a b) = Either (Value a) (Value b)
+  fromValue = \case
+    Left a -> Left $ fromValue a
+    Right b -> Right $ fromValue b
+
 instance ( ForgetShape a
          , ForgetShape b ) => ForgetShape (Either a b) where
   type NoShape (Either a b) = Either (NoShape a) (NoShape b)
@@ -281,7 +314,6 @@ instance ( ForgetShape a
 
 instance AdaptableHVector ranked a
          => AdaptableHVector ranked (Maybe a) where
-  type Value (Maybe a) = Maybe (Value a)
   toHVector e = case e of
     Nothing -> V.concat []
     Just a -> toHVector a
@@ -290,6 +322,12 @@ instance AdaptableHVector ranked a
     Just a -> case fromHVector a source of
                 Just (a2, rest) -> Just (Just a2, rest)
                 Nothing -> Nothing
+
+instance TermValue a => TermValue (Maybe a) where
+  type Value (Maybe a) = Maybe (Value a)
+  fromValue = \case
+    Nothing -> Nothing
+    Just a -> Just $ fromValue a
 
 instance ForgetShape a
          => ForgetShape (Maybe a) where

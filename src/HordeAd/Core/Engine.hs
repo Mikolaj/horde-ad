@@ -31,10 +31,8 @@ import qualified Data.EnumMap.Strict as EM
 import           Data.Functor.Const
 import           Data.Int (Int64)
 import           Data.Maybe (isJust)
-import           Data.Type.Equality (gcastWith, (:~:) (Refl))
 import           GHC.TypeLits (KnownNat)
 import           Type.Reflection (Typeable)
-import           Unsafe.Coerce (unsafeCoerce)
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.Ast
@@ -54,9 +52,6 @@ import HordeAd.Core.Types
 -- VJP (vector-jacobian product) or Lop (left operations) are alternative
 -- names to @rev@, but newcomers may have trouble understanding them.
 
--- These inlines, casts and wrappers are a workaround for no SPECIALIZE pragmas
--- permitted for functions with type equalities,
--- see https://gitlab.haskell.org/ghc/ghc/-/issues/23798.
 -- | These work for any @g@ of DerivativeStages class.
 -- We don't enforce by quantifcation that the objective function is closed,
 -- because we evaluate the result of the differentiation down to concrete
@@ -65,9 +60,9 @@ import HordeAd.Core.Types
 rev
   :: forall r y g vals astvals.
      ( DerivativeStages g, GoodScalar r, HasSingletonDict y
-     , AdaptableHVector (RankedOf g) astvals
+     , AdaptableHVector (RankedOf g) astvals, TermValue astvals
      , AdaptableHVector (Flip OR.Array) vals
-     , vals ~ Value astvals, Value vals ~ vals )
+     , vals ~ Value astvals )
   => (astvals -> g r y) -> vals -> vals
 {-# INLINE rev #-}
 rev f vals = revDtMaybe f vals Nothing
@@ -76,43 +71,32 @@ rev f vals = revDtMaybe f vals Nothing
 revDt
   :: forall r y g vals astvals.
      ( DerivativeStages g, GoodScalar r, HasSingletonDict y
-     , AdaptableHVector (RankedOf g) astvals
+     , AdaptableHVector (RankedOf g) astvals, TermValue astvals
      , AdaptableHVector (Flip OR.Array) vals
-     , vals ~ Value astvals, Value vals ~ vals )
+     , vals ~ Value astvals )
   => (astvals -> g r y) -> vals -> ConcreteOf g r y -> vals
 {-# INLINE revDt #-}
 revDt f vals dt = revDtMaybe f vals (Just dt)
 
--- The redundant constraint warning is due to the SPECIALIZE workaround.
 revDtMaybe
   :: forall r y g vals astvals.
      ( DerivativeStages g, GoodScalar r, HasSingletonDict y
-     , AdaptableHVector (RankedOf g) astvals
-     , AdaptableHVector (Flip OR.Array) vals
-     , vals ~ Value astvals, Value vals ~ vals )
-  => (astvals -> g r y) -> vals -> Maybe (ConcreteOf g r y) -> vals
-{-# INLINE revDtMaybe #-}
-revDtMaybe = revDtMaybeSpecializeWrapper
-
-revDtMaybeSpecializeWrapper
-  :: forall r y g vals astvals.
-     ( DerivativeStages g, GoodScalar r, HasSingletonDict y
-     , AdaptableHVector (RankedOf g) astvals
+     , AdaptableHVector (RankedOf g) astvals, TermValue astvals
      , AdaptableHVector (Flip OR.Array) vals
      , vals ~ Value astvals )
   => (astvals -> g r y) -> vals -> Maybe (ConcreteOf g r y) -> vals
-revDtMaybeSpecializeWrapper f vals mdt =
-  let g hVector = f $ parseHVector vals hVector
+{-# INLINE revDtMaybe #-}
+revDtMaybe f vals mdt =
+  let g hVector = f $ parseHVector (fromValue vals) hVector
       xV = toHVector @(Flip OR.Array) vals
       voidV = voidFromHVector xV
       artifact = fst $ revProduceArtifact TensorToken
                                           (isJust mdt) g EM.empty voidV
-  in gcastWith (unsafeCoerce Refl :: Value vals :~: vals) $
-     parseHVector vals
+  in parseHVector vals
      $ fst $ revEvalArtifact artifact xV mdt
-{-# SPECIALIZE revDtMaybeSpecializeWrapper
+{-# SPECIALIZE revDtMaybe
   :: ( HasSingletonDict y
-     , AdaptableHVector (AstRanked FullSpan) astvals
+     , AdaptableHVector (AstRanked FullSpan) astvals, TermValue astvals
      , AdaptableHVector (Flip OR.Array) (Value astvals) )
   => (astvals -> AstRanked FullSpan Double y) -> Value astvals
   -> Maybe (Flip OR.Array Double y)
@@ -121,18 +105,18 @@ revDtMaybeSpecializeWrapper f vals mdt =
 revArtifactAdapt
   :: forall r y g vals astvals.
      ( DerivativeStages g, GoodScalar r, HasSingletonDict y
-     , AdaptableHVector (RankedOf g) astvals
+     , AdaptableHVector (RankedOf g) astvals, TermValue astvals
      , AdaptableHVector (Flip OR.Array) vals
      , vals ~ Value astvals )
   => Bool -> (astvals -> g r y) -> vals
   -> (AstArtifactRev (PrimalOf g) r y, Dual (PrimalOf g) r y)
 revArtifactAdapt hasDt f vals =
-  let g hVector = f $ parseHVector vals hVector
+  let g hVector = f $ parseHVector (fromValue vals) hVector
       voidV = voidFromHVector $ toHVector @(Flip OR.Array) vals
   in revProduceArtifact TensorToken hasDt g EM.empty voidV
 {-# SPECIALIZE revArtifactAdapt
   :: ( HasSingletonDict y
-     , AdaptableHVector (AstRanked FullSpan) astvals
+     , AdaptableHVector (AstRanked FullSpan) astvals, TermValue astvals
      , AdaptableHVector (Flip OR.Array) (Value astvals) )
   => Bool -> (astvals -> AstRanked FullSpan Double y) -> Value astvals
   -> ( AstArtifactRev (AstRanked PrimalSpan) Double y
@@ -179,12 +163,12 @@ forwardPassByApplication _ g hVectorPrimal _ _ =
 fwd
   :: forall r y g vals astvals.
      ( DerivativeStages g, GoodScalar r, HasSingletonDict y
-     , AdaptableHVector (RankedOf g) astvals
+     , AdaptableHVector (RankedOf g) astvals, TermValue astvals
      , AdaptableHVector (Flip OR.Array) vals
      , vals ~ Value astvals )
   => (astvals -> g r y) -> vals -> vals -> ConcreteOf g r y
 fwd f x ds =
-  let g hVector = f $ parseHVector x hVector
+  let g hVector = f $ parseHVector (fromValue x) hVector
       xV = toHVector x
       voidV = voidFromHVector xV
       artifact = fst $ fwdProduceArtifact TensorToken g EM.empty voidV
@@ -193,13 +177,13 @@ fwd f x ds =
 fwdArtifactAdapt
   :: forall r y g vals astvals.
      ( DerivativeStages g, GoodScalar r, HasSingletonDict y
-     , AdaptableHVector (RankedOf g) astvals
+     , AdaptableHVector (RankedOf g) astvals, TermValue astvals
      , AdaptableHVector (Flip OR.Array) vals
      , vals ~ Value astvals )
   => (astvals -> g r y) -> vals
   -> (AstArtifactFwd (PrimalOf g) r y, Dual (PrimalOf g) r y)
 fwdArtifactAdapt f vals =
-  let g hVector = f $ parseHVector vals hVector
+  let g hVector = f $ parseHVector (fromValue vals) hVector
       voidV = voidFromHVector $ toHVector @(Flip OR.Array) vals
   in fwdProduceArtifact TensorToken g EM.empty voidV
 
@@ -220,9 +204,9 @@ crev
   :: forall r y f vals advals.
      ( DualPart f, GoodScalar r, HasSingletonDict y
      , RankedOf f ~ Flip OR.Array, ShapedOf f ~ Flip OS.Array
-     , AdaptableHVector (ADVal (RankedOf f)) advals
+     , AdaptableHVector (ADVal (RankedOf f)) advals, TermValue advals
      , AdaptableHVector (Flip OR.Array) vals
-     , vals ~ Value advals, Value vals ~ vals )
+     , vals ~ Value advals )
   => (advals -> ADVal f r y) -> vals -> vals
 {-# INLINE crev #-}
 crev f vals = crevDtMaybe f vals Nothing
@@ -233,9 +217,9 @@ crevDt
      ( RankedTensor (RankedOf f), HVectorTensor (RankedOf f) (ShapedOf f)
      , DualPart f, GoodScalar r, HasSingletonDict y
      , HVectorOf (RankedOf f) ~ HVector (RankedOf f)
-     , AdaptableHVector (ADVal (RankedOf f)) advals
+     , AdaptableHVector (ADVal (RankedOf f)) advals, TermValue advals
      , AdaptableHVector (RankedOf f) vals
-     , vals ~ Value advals, Value vals ~ vals )
+     , vals ~ Value advals )
   => (advals -> ADVal f r y) -> vals -> f r y -> vals
 {-# INLINE crevDt #-}
 crevDt f vals dt = crevDtMaybe f vals (Just dt)
@@ -245,13 +229,13 @@ crevDtMaybe
      ( RankedTensor (RankedOf f), HVectorTensor (RankedOf f) (ShapedOf f)
      , DualPart f, GoodScalar r, HasSingletonDict y
      , HVectorOf (RankedOf f) ~ HVector (RankedOf f)
-     , AdaptableHVector (ADVal (RankedOf f)) advals
+     , AdaptableHVector (ADVal (RankedOf f)) advals, TermValue advals
      , AdaptableHVector (RankedOf f) vals
-     , vals ~ Value advals, Value vals ~ vals )
+     , vals ~ Value advals )
   => (advals -> ADVal f r y) -> vals -> Maybe (f r y) -> vals
 {-# INLINE crevDtMaybe #-}
 crevDtMaybe f vals mdt =
-  let g inputs = f $ parseHVector vals inputs
+  let g inputs = f $ parseHVector (fromValue vals) inputs
   in parseHVector vals
      $ fst $ crevOnHVector mdt g (toHVector vals)
 
@@ -270,13 +254,13 @@ cfwd
   :: forall r y f vals advals.
      ( DualPart f, GoodScalar r, HasSingletonDict y
      , RankedOf f ~ Flip OR.Array
-     , AdaptableHVector (ADVal (RankedOf f)) advals
+     , AdaptableHVector (ADVal (RankedOf f)) advals, TermValue advals
      , AdaptableHVector (Flip OR.Array) vals
      , vals ~ Value advals )
   => (advals -> ADVal f r y) -> vals -> vals
   -> f r y
 cfwd f x ds =
-  let g inputs = f $ parseHVector ds inputs
+  let g inputs = f $ parseHVector (fromValue ds) inputs
   in fst $ cfwdOnHVector (toHVector x) g (toHVector ds)
 
 
@@ -284,8 +268,8 @@ cfwd f x ds =
 
 
 -- These and all other SPECIALIZE pragmas are needed due to the already
--- mostly fixed issues #21286 and others, because we want to have
--- reasonable performance on GHC 9.2 and 9.4 as well.
+-- mostly fixed issues #21286 and others, even just to compare
+-- the output with the and without.
 -- We need pragmas on shaped operations even for ranked benchmarks,
 -- because threading the dictionaries through mutual recursive functions
 -- would cause trouble.

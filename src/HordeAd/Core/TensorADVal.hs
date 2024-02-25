@@ -65,9 +65,22 @@ TODO: this causes a cyclic dependency:
       => AdaptableHVector (ADVal (AstRanked PrimalSpan))
                           (ADVal (AstRanked PrimalSpan) Double n) #-}
 -}
-  type Value (ADVal ranked r n) = Flip OR.Array r n  -- ! not Value(ranked)
   toHVector = undefined
   fromHVector _aInit params = fromHVectorR @r @n params
+
+instance (KnownNat n, GoodScalar r, ADReady ranked)
+         => TermValue (ADVal ranked r n) where
+  type Value (ADVal ranked r n) = Flip OR.Array r n  -- ! not Value(ranked)
+  fromValue t = constantADVal $ rconst $ runFlip t
+
+instance (RankedTensor ranked, ShapedTensor (ShapedOf ranked))
+         => TermValue (DynamicTensor (ADVal ranked)) where
+  type Value (DynamicTensor (ADVal ranked)) = DynamicTensor (Flip OR.Array)
+  fromValue = \case
+    DynamicRanked t -> DynamicRanked $ constantADVal $ rconst $ runFlip t
+    DynamicShaped t -> DynamicShaped $ constantADVal $ sconst $ runFlip t
+    DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
+    DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
 
 -- This is temporarily moved from Adaptor in order to specialize manually
 instance AdaptableHVector ranked a
@@ -81,7 +94,6 @@ instance AdaptableHVector ranked a
                        (AstRanked s Double n)
       => AdaptableHVector (AstRanked s)
                           [AstRanked s Double n] #-}
-  type Value [a] = [Value a]
   toHVector = V.concat . map toHVector
   fromHVector lInit source =
     let f (!lAcc, !restAcc) !aInit =
@@ -95,6 +107,10 @@ instance AdaptableHVector ranked a
     -- > fromHVector lInit source =
     -- >   let f = swap . flip fromHVector
     -- >   in swap $ mapAccumL f source lInit
+
+instance TermValue a => TermValue [a] where
+  type Value [a] = [Value a]
+  fromValue = map fromValue
 
 -- Note that these instances don't do vectorization. To enable it,
 -- use the Ast instance and only then interpret in ADVal.
@@ -218,9 +234,13 @@ instance ( ADReadyS shaped, Sh.Shape sh, GoodScalar r
          , ranked ~ RankedOf shaped )
          => AdaptableHVector (ADVal ranked)
                              (ADVal shaped r sh) where
-  type Value (ADVal shaped r sh) = Flip OS.Array r sh   -- ! not Value(shaped)
   toHVector = undefined
   fromHVector _aInit params = fromHVectorS @r @sh params
+
+instance (ADReadyS shaped, Sh.Shape sh, GoodScalar r)
+         => TermValue (ADVal shaped r sh) where
+  type Value (ADVal shaped r sh) = Flip OS.Array r sh   -- ! not Value(shaped)
+  fromValue t = constantADVal $ sconst $ runFlip t
 
 -- Note that these instances don't do vectorization. To enable it,
 -- use the Ast instance and only then interpret in ADVal.
@@ -688,7 +708,6 @@ instance (GoodScalar r, KnownNat n)
   {-# SPECIALIZE instance
       KnownNat n
       => AdaptableHVector (Flip OR.Array) (Flip OR.Array Double n) #-}
-  type Value (Flip OR.Array r n) = Flip OR.Array r n
   toHVector = V.singleton . DynamicRanked
   fromHVector _aInit params = fromHVectorR @r @n params
 
@@ -698,7 +717,6 @@ instance ForgetShape (Flip OR.Array r n) where
 
 instance (GoodScalar r, Sh.Shape sh)
          => AdaptableHVector (Flip OR.Array) (Flip OS.Array r sh) where
-  type Value (Flip OS.Array r sh) = Flip OS.Array r sh
   toHVector = V.singleton . DynamicShaped
   fromHVector _aInit params = fromHVectorS @r @sh @(Flip OS.Array) params
 
@@ -716,29 +734,6 @@ instance (Sh.Shape sh, Numeric r, Fractional r, Random r, Num (Vector r))
         (g1, g2) = split g
         arr = OS.fromVector $ createRandomVector (OS.sizeP (Proxy @sh)) g1
     in (Flip arr, g2)
-
-instance AdaptableHVector (Flip OR.Array) (DynamicTensor (Flip OR.Array)) where
-  type Value (DynamicTensor (Flip OR.Array)) = DynamicTensor (Flip OR.Array)
-  toHVector = V.singleton
-  fromHVector _aInit params = V.uncons params
-
-{- TODO: requires IncoherentInstances no matter what pragma I stick in
--- TODO2: benchmark this used for any scalar via @V.map realToFrac@
--- A special case, because for @Double@ we have faster @randomVals@,
--- though the quality of randomness is worse (going through a single @Int@).
-instance {-# OVERLAPS #-} {-# OVERLAPPING #-}
-         KnownNat n
-         => AdaptableHVector (OR.Array n Double) where
-  randomVals range g =
-    let -- Note that hmatrix produces numbers from the range open at the top,
-        -- unlike package random.
-        createRandomVector n seedInt =
-          LA.scale (2 * range)
-          $ LA.randomVector seedInt LA.Uniform n - LA.scalar 0.5
-        (i, g2) = random g
-        arr = OR.fromVector $ createRandomVector (OR.sizeP (Proxy @n)) i
-    in (arr, g2)
--}
 
 -- This specialization is not possible where gradientFromDeltaR is defined,
 -- but is possible here:

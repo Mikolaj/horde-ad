@@ -376,25 +376,6 @@ instance IfF (AstShaped s) where
 
 -- * Ranked tensor AST instances
 
--- These instances can't be just HFun, because they need to be vectorized
--- and vectorization applies such functions to the variable from build1
--- and the variable has to be eliminated via vectorization to preserve
--- the closed form of the function. Just applying a Haskell closure
--- to the build1 variable and then duplicating the result of the function
--- would not eliminate the variable and also would likely results
--- in more costly computations. Also, that would prevent simplification
--- of the instances, especially after applied to arguments that are terms.
-type instance HFunOf (AstRanked s) = AstHFun
-type instance HFunOf (AstNoVectorize s) = AstHFun
-type instance HFunOf (AstNoSimplify s) = AstHFun
-
-instance AdaptableHVector (AstRanked s) (AstHVector s) where
-  type Value (AstHVector s) = HVector (Flip OR.Array)
-  toHVector = undefined
-  fromHVector aInit params =
-    let (portion, rest) = V.splitAt (V.length aInit) params
-    in Just (AstMkHVector portion, rest)
-
 instance AstSpan s => RankedTensor (AstRanked s) where
   rlet = astLetFun
 
@@ -461,15 +442,21 @@ instance AstSpan s => RankedTensor (AstRanked s) where
   rD = astSpanD
   rScale s t = astDualPart $ AstConstant s * AstD (rzero (rshape s)) t
 
-instance ( GoodScalar r, KnownNat n
-         , RankedTensor (AstRanked s) )
+instance (GoodScalar r, KnownNat n, RankedTensor (AstRanked s))
          => AdaptableHVector (AstRanked s) (AstRanked s r n) where
   {-# SPECIALIZE instance
       (KnownNat n, AstSpan s)
       => AdaptableHVector (AstRanked s) (AstRanked s Double n) #-}
-  type Value (AstRanked s r n) = Flip OR.Array r n
   toHVector = undefined
   fromHVector _aInit params = fromHVectorR @r @n params
+
+instance TermValue (AstRanked FullSpan r n) where
+  type Value (AstRanked FullSpan r n) = Flip OR.Array r n
+  fromValue t = fromPrimal $ AstConst $ runFlip t
+
+instance TermValue (AstRanked PrimalSpan r n) where
+  type Value (AstRanked PrimalSpan r n) = Flip OR.Array r n
+  fromValue t = fromPrimal $ AstConst $ runFlip t
 
 astLetHVectorInFun
   :: forall n s r. (KnownNat n, GoodScalar r, AstSpan s)
@@ -603,12 +590,18 @@ instance AstSpan s => ShapedTensor (AstShaped s) where
   sD = astSpanDS
   sScale s t = astDualPartS $ AstConstantS s * AstDS 0 t
 
-instance ( GoodScalar r, Sh.Shape sh
-         , ShapedTensor (AstShaped s) )
+instance (GoodScalar r, Sh.Shape sh, ShapedTensor (AstShaped s))
          => AdaptableHVector (AstRanked s) (AstShaped s r sh) where
-  type Value (AstShaped s r sh) = Flip OS.Array r sh
   toHVector = undefined
   fromHVector _aInit params = fromHVectorS @r @sh params
+
+instance TermValue (AstShaped FullSpan r sh) where
+  type Value (AstShaped FullSpan r sh) = Flip OS.Array r sh
+  fromValue t = fromPrimalS $ AstConstS $ runFlip t
+
+instance TermValue (AstShaped PrimalSpan r sh) where
+  type Value (AstShaped PrimalSpan r sh) = Flip OS.Array r sh
+  fromValue t = fromPrimalS $ AstConstS $ runFlip t
 
 astLetHVectorInFunS
   :: forall sh s r. (Sh.Shape sh, GoodScalar r, AstSpan s)
@@ -787,6 +780,20 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     assert (voidHVectorMatches (replicate1VoidHVector k eShs) es
             && voidHVectorMatches accShs acc0) $
     AstMapAccumLDer k accShs bShs eShs f df rf acc0 es
+
+instance AdaptableHVector (AstRanked s) (AstHVector s) where
+  toHVector = undefined
+  fromHVector aInit params =
+    let (portion, rest) = V.splitAt (V.length $ shapeAstHVector aInit) params
+    in Just (AstMkHVector portion, rest)
+
+instance TermValue (AstHVector FullSpan) where
+  type Value (AstHVector FullSpan) = HVector (Flip OR.Array)
+  fromValue t = AstMkHVector $ V.map fromValue t
+
+instance TermValue (AstHVector PrimalSpan) where
+  type Value (AstHVector PrimalSpan) = HVector (Flip OR.Array)
+  fromValue t = AstMkHVector $ V.map fromValue t
 
 astLetHVectorInHVectorFun
   :: AstSpan s

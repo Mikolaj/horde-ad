@@ -4382,8 +4382,7 @@ testSin0revhFoldZipR = do
 
 testSin0revhFoldZip4R :: Assertion
 testSin0revhFoldZip4R = do
-  let h :: ranked ~ Flip OR.Array
-        => HVector (AstRanked FullSpan)
+  let h :: HVector (AstRanked FullSpan)
         -> HVectorPseudoTensor (AstRanked FullSpan)  Float '()
       h = HVectorPseudoTensor . fFoldZipRX @(AstRanked FullSpan)
   assertEqualUpToEpsilon 1e-10

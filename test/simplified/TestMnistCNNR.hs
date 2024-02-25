@@ -91,7 +91,7 @@ mnistTestCaseCNNA prefix epochs maxBatches kh kw c_out n_hidden
                  f (glyphR, labelR) adinputs =
                    MnistCnnRanked2.convMnistLossFusedR
                      miniBatchSize (rconst glyphR, rconst labelR)
-                     (parseHVector valsInit adinputs)
+                     (parseHVector (fromValue valsInit) adinputs)
                  chunkR = map packBatchR
                           $ filter (\ch -> length ch == miniBatchSize)
                           $ chunksOf miniBatchSize chunk
@@ -192,7 +192,7 @@ mnistTestCaseCNNI prefix epochs maxBatches kh kw c_out n_hidden
        let ast :: AstRanked PrimalSpan r 0
            ast = MnistCnnRanked2.convMnistLossFusedR
                    miniBatchSize (astGlyph, astLabel)
-                   (parseHVector valsInit hVectorPrimal)
+                   (parseHVector (fromValue valsInit) hVectorPrimal)
            runBatch :: (HVector (Flip OR.Array), StateAdam) -> (Int, [MnistDataR r])
                     -> IO (HVector (Flip OR.Array), StateAdam)
            runBatch (!parameters, !stateAdam) (k, chunk) = do
@@ -306,7 +306,7 @@ mnistTestCaseCNNO prefix epochs maxBatches kh kw c_out n_hidden
                        EM.empty
            f = MnistCnnRanked2.convMnistLossFusedR
                  miniBatchSize (astGlyph, astLabel)
-           g hVector = f $ parseHVector valsInit hVector
+           g hVector = f $ parseHVector (fromValue valsInit) hVector
            (((varDtAgain, vars1Again), gradientRaw, primal, sh), _) =
              revProduceArtifact @Nat @(AstRanked FullSpan)
                                 TensorToken False g envInit (voidFromHVector hVectorInit)

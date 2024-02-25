@@ -33,7 +33,6 @@ import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, sameNat, type (+))
 import           Type.Reflection (typeRep)
 
-import HordeAd.Core.Adaptor
 import HordeAd.Core.Ast
 import HordeAd.Core.AstEnv
 import HordeAd.Core.Delta
@@ -172,11 +171,6 @@ type instance HFunOf (ADVal f) = HFun
 type instance PrimalOf (ADVal f) = f
 
 type instance DualOf (ADVal f) = Product (Clown (Const ADShare)) (Dual f)
-
-instance AdaptableHVector (ADVal ranked) (DynamicTensor (ADVal ranked)) where
-  type Value (DynamicTensor (ADVal ranked)) = DynamicTensor ranked
-  toHVector = V.singleton
-  fromHVector _aInit params = V.uncons params
 
 
 -- * Auxiliary definitions

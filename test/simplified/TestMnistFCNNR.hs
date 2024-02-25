@@ -103,7 +103,7 @@ mnistTestCase1VTA prefix epochs maxBatches widthHidden widthHidden2
                  f mnist adinputs =
                    MnistFcnnRanked1.afcnnMnistLoss1
                      widthHidden widthHidden2
-                     mnist (parseHVector valsInit adinputs)
+                     mnist (parseHVector (fromValue valsInit) adinputs)
                  res = fst $ sgd gamma f chunk hVector
                  trainScore = ftest chunk res
                  testScore = ftest testData res
@@ -198,7 +198,7 @@ mnistTestCase1VTI prefix epochs maxBatches widthHidden widthHidden2
        let ast :: AstRanked PrimalSpan r 0
            ast = MnistFcnnRanked1.afcnnMnistLoss1TensorData
                    widthHidden widthHidden2 (astGlyph, astLabel)
-                   (parseHVector valsInit hVectorPrimal)
+                   (parseHVector (fromValue valsInit) hVectorPrimal)
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
        let runBatch :: HVector (Flip OR.Array) -> (Int, [MnistData r]) -> IO (HVector (Flip OR.Array))
@@ -312,7 +312,7 @@ mnistTestCase1VTO prefix epochs maxBatches widthHidden widthHidden2
            f = MnistFcnnRanked1.afcnnMnistLoss1TensorData @(AstRanked FullSpan)
                  widthHidden widthHidden2
                  (rconstant astGlyph, rconstant astLabel)
-           g hVector = f $ parseHVector valsInit hVector
+           g hVector = f $ parseHVector (fromValue valsInit) hVector
            (((varDtAgain, vars1Again), gradientRaw, primal, sh), _) =
              revProduceArtifact TensorToken False g envInit (voidFromHVector hVectorInit)
            gradient = simplifyAstHVector6 gradientRaw
@@ -427,7 +427,7 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
                    -> ADVal ranked r 0
                  f mnist adinputs =
                    MnistFcnnRanked2.afcnnMnistLoss2
-                     mnist (parseHVector valsInit adinputs)
+                     mnist (parseHVector (fromValue valsInit) adinputs)
                  res = fst $ sgd gamma f chunk hVector
                  trainScore = ftest chunk res
                  testScore = ftest testData res
@@ -515,7 +515,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
          funToAstIOR (singletonShape sizeMnistLabelInt) id
        let ast :: AstRanked PrimalSpan r 0
            ast = MnistFcnnRanked2.afcnnMnistLoss2TensorData
-                   (astGlyph, astLabel) (parseHVector valsInit hVectorPrimal)
+                   (astGlyph, astLabel) (parseHVector (fromValue valsInit) hVectorPrimal)
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
        let runBatch :: HVector (Flip OR.Array) -> (Int, [MnistData r]) -> IO (HVector (Flip OR.Array))
@@ -625,7 +625,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                        EM.empty
            f = MnistFcnnRanked2.afcnnMnistLoss2TensorData @(AstRanked FullSpan)
                  (rconstant astGlyph, rconstant astLabel)
-           g hVector = f $ parseHVector valsInit hVector
+           g hVector = f $ parseHVector (fromValue valsInit) hVector
            (((varDtAgain, vars1Again), gradientRaw, primal, sh), _) =
              revProduceArtifact TensorToken False g envInit (voidFromHVector hVectorInit)
            gradient = simplifyAstHVector6 gradientRaw

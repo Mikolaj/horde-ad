@@ -56,15 +56,17 @@ rev' f vals =
       parameters = toHVector vals
       parameters0 = voidFromHVector parameters
       dt = Nothing
+      valsFrom = fromValue vals
       g :: HVector (ADVal (Flip OR.Array))
         -> ADVal (Flip OR.Array) r m
-      g inputs = f $ parseHVector vals inputs
+      g inputs = f $ parseHVector valsFrom  inputs
       (advalGrad, value1) = crevOnHVector dt g parameters
       gradient1 = parseHVector vals advalGrad
       gradientRrev1 = rrev1 @(Flip OR.Array) @r @n @m f vals
       g9 :: HVector (ADVal (AstRanked PrimalSpan))
          -> ADVal (AstRanked PrimalSpan) r m
-      g9 inputs = f @(ADVal (AstRanked PrimalSpan)) $ parseHVector vals inputs
+      g9 inputs = f @(ADVal (AstRanked PrimalSpan))
+                  $ parseHVector (fromValue vals) inputs
       artifactsGradAst9 =
         fst $ revProduceArtifactWithoutInterpretation @(AstRanked FullSpan)
                 TensorToken False g9 parameters0
@@ -89,7 +91,8 @@ rev' f vals =
         -> HVector (ADVal (Flip OR.Array))
         -> ADVal (Flip OR.Array) r m
       h fx1 fx2 gx inputs =
-        hGeneral @(ADVal (Flip OR.Array)) fx1 fx2 gx (parseHVector vals inputs)
+        hGeneral @(ADVal (Flip OR.Array)) fx1 fx2 gx
+                 (parseHVector valsFrom  inputs)
       (astGrad, value2) =
         crevOnHVector dt (h id id id) parameters
       gradient2 = parseHVector vals astGrad
@@ -137,7 +140,7 @@ rev' f vals =
            -> ADVal (AstRanked PrimalSpan) r m
       hAst fx1 fx2 gx inputs
         = hGeneral @(ADVal (AstRanked PrimalSpan))
-                   fx1 fx2 gx (parseHVector vals inputs)
+                   fx1 fx2 gx (parseHVector (fromValue vals) inputs)
       artifactsGradAst =
         fst $ revProduceArtifactWithoutInterpretation @(AstRanked FullSpan)
                 TensorToken False (hAst id id id) parameters0
