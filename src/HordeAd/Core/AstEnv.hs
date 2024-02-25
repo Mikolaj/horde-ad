@@ -22,6 +22,7 @@ import Prelude
 import           Control.Exception.Assert.Sugar
 import qualified Data.Array.Shape as Sh
 import qualified Data.EnumMap.Strict as EM
+import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality (testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, Nat)
@@ -107,7 +108,7 @@ extendEnvD vd@(AstDynamicVarName @ty @r @sh varId, d) !env = case d of
     | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat)
     , Just Refl <- sameShape @sh3 @sh
     , Just Refl <- testEquality (typeRep @r) (typeRep @r3) ->
-      withListShape (Sh.shapeT @sh) $ \sh4 ->
+      withListSh (Proxy @sh) $ \sh4 ->
         extendEnvR @ranked @r (AstVarName varId) (rzero sh4) env
   DynamicShapedDummy @r3 @sh3 _ _
     | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat])

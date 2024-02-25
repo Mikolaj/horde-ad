@@ -42,7 +42,8 @@ import           Unsafe.Coerce (unsafeCoerce)
 import           HordeAd.Core.Ast
 import           HordeAd.Core.HVector
 import           HordeAd.Core.Types
-import           HordeAd.Internal.OrthotopeOrphanInstances (sameShape)
+import           HordeAd.Internal.OrthotopeOrphanInstances
+  (matchingRank, sameShape)
 import           HordeAd.Internal.TensorOps
 import           HordeAd.Util.ShapedList
   (ShapeSh, ShapedList (..), consShaped, shapedNat, unShapedNat)
@@ -1088,23 +1089,20 @@ rfromD (DynamicRanked @r2 @n2 t) = case sameNat (Proxy @n2) (Proxy @n) of
     _ -> error "rfromD: scalar mismatch"
   _ -> error $ "rfromD: rank mismatch "
                ++ show (valueOf @n2 :: Int, valueOf @n :: Int)
-rfromD (DynamicShaped @r2 @sh2 t) =
-  withListShape (Sh.shapeT @sh2) $ \(_ :: ShapeInt n2) ->
-    case sameNat (Proxy @n2) (Proxy @n) of
-      Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
-        Just Refl -> gcastWith (unsafeCoerce Refl :: Sh.Rank sh2 :~: n2) $
-                     rfromS t
-        _ -> error "rfromD: scalar mismatch"
-      _ -> error "rfromD: rank mismatch"
+rfromD (DynamicShaped @r2 @sh2 t) = case matchingRank @sh2 @n of
+  Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
+    Just Refl -> rfromS t
+    _ -> error "rfromD: scalar mismatch"
+  _ -> error "rfromD: rank mismatch"
 rfromD (DynamicRankedDummy @r2 @sh2 _ _) =
-  withListShape (Sh.shapeT @sh2) $ \(sh1 :: ShapeInt n2) ->
+  withListSh (Proxy @sh2) $ \(sh1 :: ShapeInt n2) ->
     case sameNat (Proxy @n2) (Proxy @n) of
       Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
         Just Refl -> rzero sh1
         _ -> error "rfromD: scalar mismatch"
       _ -> error "rfromD: rank mismatch"
 rfromD (DynamicShapedDummy @r2 @sh2 _ _) =
-  withListShape (Sh.shapeT @sh2) $ \(sh1 :: ShapeInt n2) ->
+  withListSh (Proxy @sh2) $ \(sh1 :: ShapeInt n2) ->
     case sameNat (Proxy @n2) (Proxy @n) of
       Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
         Just Refl -> rzero sh1
@@ -1116,14 +1114,11 @@ sfromD :: forall r sh shaped.
           , GoodScalar r, Sh.Shape sh
           , ShapedOf (RankedOf shaped) ~ shaped )
        => DynamicTensor (RankedOf shaped) -> shaped r sh
-sfromD (DynamicRanked @r2 @n2 t) =
-  withListShape (Sh.shapeT @sh) $ \(_ :: ShapeInt n) ->
-    case sameNat (Proxy @n2) (Proxy @n) of
-      Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
-        Just Refl -> gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: n) $
-                     sfromR t
-        _ -> error "sfromD: scalar mismatch"
-      _ -> error "sfromD: rank mismatch"
+sfromD (DynamicRanked @r2 @n2 t) = case matchingRank @sh @n2 of
+  Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
+    Just Refl -> sfromR t
+    _ -> error "sfromD: scalar mismatch"
+  _ -> error "sfromD: rank mismatch"
 sfromD (DynamicShaped @r2 @sh2 t) = case sameShape @sh2 @sh of
   Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
     Just Refl -> t

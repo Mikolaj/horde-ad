@@ -295,8 +295,8 @@ generateDeltaInputs =
       f i (DynamicShaped @r @sh _) =
         DynamicShaped $ InputS @shaped2 @r @sh (toInputId i)
       f i (DynamicRankedDummy @r @sh _ _) =
-        withListShape (Sh.shapeT @sh) $ \(sh :: ShapeInt n) ->
-          DynamicRanked $ InputR @ranked2 @r @n sh (toInputId i)
+        withListSh (Proxy @sh) $ \sh ->
+          DynamicRanked $ InputR @ranked2 @r sh (toInputId i)
       f i (DynamicShapedDummy @r @sh _ _) =
         DynamicShaped $ InputS @shaped2 @r @sh (toInputId i)
   in V.imap f

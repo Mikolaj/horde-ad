@@ -17,19 +17,22 @@ module HordeAd.Util.SizedIndex
   , singletonShape, appendShape, tailShape, takeShape, dropShape
   , splitAt_Shape, lastShape, initShape, lengthShape, sizeShape, flattenShape
   , backpermutePrefixShape
-  , listShapeToShape, withListShape, shapeToList
+  , listShapeToShape, withListShape, withListShapeSh, withListSh, shapeToList
     -- * Operations involving both indexes and shapes
   , toLinearIdx, fromLinearIdx, zeroOf
   ) where
 
 import Prelude
 
-import Control.Arrow (first)
-import Data.Array.Internal (valueOf)
-import Data.Proxy (Proxy (Proxy))
-import Data.Type.Equality ((:~:) (Refl))
-import GHC.Exts (IsList (..))
-import GHC.TypeLits (KnownNat, SomeNat (..), sameNat, someNatVal, type (+))
+import           Control.Arrow (first)
+import           Data.Array.Internal (valueOf)
+import qualified Data.Array.Shape as Sh
+import           Data.Proxy (Proxy (Proxy))
+import           Data.Type.Equality (gcastWith, (:~:) (Refl))
+import           GHC.Exts (IsList (..))
+import           GHC.TypeLits
+  (KnownNat, SomeNat (..), sameNat, someNatVal, type (+))
+import           Unsafe.Coerce (unsafeCoerce)
 
 import HordeAd.Util.SizedList
 
@@ -260,11 +263,44 @@ backpermutePrefixShape p (Shape is) = Shape $ backpermutePrefixSized p is
 listShapeToShape :: KnownNat n => [i] -> Shape n i
 listShapeToShape = Shape . listToSized
 
-withListShape :: [i] -> (forall n. KnownNat n => Shape n i -> a) -> a
+-- Both shape representations denote the same shape.
+withListShape
+  :: [i]
+  -> (forall n. KnownNat n => Shape n i -> a)
+  -> a
 withListShape shList f =
   case someNatVal $ toInteger (length shList) of
     Just (SomeNat @n _) -> f $ listShapeToShape @n shList
-    _ -> error "listToShape: impossible someNatVal error"
+    _ -> error "withListShape: impossible someNatVal error"
+
+-- All three shape representations denote the same shape.
+withListShapeSh
+  :: [Int]
+  -> (forall sh n. (Sh.Shape sh, KnownNat n, Sh.Rank sh ~ n)
+      => ShapeInt n -> a)
+  -> a
+withListShapeSh shList f =
+  Sh.withShapeP shList $ \(Proxy @sh) ->
+    case someNatVal $ toInteger (length shList) of
+      Just (SomeNat @n _) ->
+        gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: n) $
+        f @sh @n $ listShapeToShape @n shList
+      _ -> error "withListShapeSh: impossible someNatVal error"
+
+-- All three shape representations denote the same shape.
+withListSh
+  :: Sh.Shape sh
+  => Proxy sh
+  -> (forall n. (KnownNat n, Sh.Rank sh ~ n)
+      => ShapeInt n -> a)
+  -> a
+withListSh (Proxy @sh) f =
+  let shList = Sh.shapeT @sh
+  in case someNatVal $ toInteger (length shList) of
+    Just (SomeNat @n _) ->
+      gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: n) $
+      f $ listShapeToShape @n shList
+    _ -> error "withListSh: impossible someNatVal error"
 
 shapeToList :: Shape n i -> [i]
 shapeToList (Shape l) = sizedListToList l

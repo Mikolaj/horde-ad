@@ -23,10 +23,9 @@ import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as Sh
 import           Data.List (foldl')
 import           Data.Proxy (Proxy (Proxy))
-import           Data.Type.Equality (gcastWith, (:~:) (Refl))
+import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, sameNat, type (+))
-import           Unsafe.Coerce (unsafeCoerce)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.HVector
@@ -340,9 +339,8 @@ bindsToLet = foldl' bindToLet
       DynamicRanked w -> AstLet (AstVarName varId) w u
       DynamicShaped w -> convertShaped w
       DynamicRankedDummy @r2 @sh2 _ _ ->
-        withListShape (Sh.shapeT @sh2) $ \(_ :: ShapeInt n3) ->
-          gcastWith (unsafeCoerce Refl :: n3 :~: Sh.Rank sh2) $
-          AstLet @n3 @n @r2 @_ @s (AstVarName varId) (AstRFromS @sh2 @s @r2 0) u
+        withListSh (Proxy @sh2) $ \_ ->
+          AstLet @_ @n @r2 @_ @s (AstVarName varId) (AstRFromS @sh2 @s @r2 0) u
       DynamicShapedDummy @r2 @sh2 _ _ -> convertShaped @r2 @sh2 0
   bindToLet u (_, AstBindingsHVector lids d) =
     AstLetHVectorIn lids d u
@@ -357,18 +355,14 @@ bindsToLetS = foldl' bindToLetS
              -> AstShaped s r sh
   bindToLetS !u (varId, AstBindingsSimple d) = case d of
     DynamicRanked w ->
-      withListShape (Sh.shapeT @sh) $ \sh -> case sh of
-        (_ :: ShapeInt n) | Just Refl <- matchingRank @sh @n ->
-          AstSFromR $ AstLet (AstVarName varId) w (AstRFromS u)
-        _ -> error "bindToLetS: wrong rank"
+      withListSh (Proxy @sh) $ \_ ->
+        AstSFromR $ AstLet (AstVarName varId) w (AstRFromS u)
     DynamicShaped w -> AstLetS (AstVarName varId) w u
     DynamicRankedDummy @r2 @sh2 _ _ ->
-      withListShape (Sh.shapeT @sh2) $ \(_ :: ShapeInt n3) ->
-        gcastWith (unsafeCoerce Refl :: n3 :~: Sh.Rank sh2) $
-        withListShape (Sh.shapeT @sh) $ \(_ :: ShapeInt m) ->
-          gcastWith (unsafeCoerce Refl :: m :~: Sh.Rank sh) $
-          AstSFromR $ AstLet @n3 @m @r2 @_ @s
-                      (AstVarName varId) (AstRFromS @sh2 @s @r2 0) (AstRFromS u)
+      withListSh (Proxy @sh2) $ \_ ->
+        withListSh (Proxy @sh) $ \_ ->
+          AstSFromR
+          $ AstLet (AstVarName varId) (AstRFromS @sh2 @s @r2 0) (AstRFromS u)
     DynamicShapedDummy @r2 @sh2 _ _ ->
       AstLetS @sh2 @sh @r2 @_ @s (AstVarName varId) 0 u
   bindToLetS u (_, AstBindingsHVector lids d) =
@@ -384,9 +378,8 @@ bindsToHVectorLet = foldl' bindToHVectorLet
     DynamicRanked w -> AstLetInHVector (AstVarName varId) w u
     DynamicShaped w -> AstLetInHVectorS (AstVarName varId) w u
     DynamicRankedDummy @r2 @sh2 _ _ ->
-      withListShape (Sh.shapeT @sh2) $ \(_ :: ShapeInt n) ->
-        gcastWith (unsafeCoerce Refl :: n :~: Sh.Rank sh2) $
-        AstLetInHVector @n @r2 @s (AstVarName varId) (AstRFromS @sh2 @s @r2 0) u
+      withListSh (Proxy @sh2) $ \_ ->
+        AstLetInHVector (AstVarName varId) (AstRFromS @sh2 @s @r2 0) u
     DynamicShapedDummy @r2 @sh2 _ _ ->
       AstLetInHVectorS @sh2 @r2 @s (AstVarName varId) 0 u
   bindToHVectorLet u (_, AstBindingsHVector lids d) =

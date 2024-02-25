@@ -343,10 +343,7 @@ build1VIndex k (var, v0, ix@(_ :. _)) =
 -- This abbreviation is used a lot below.
 astTrS :: forall n m sh s r. (KnownNat n, KnownNat m, Sh.Shape sh)
        => AstShaped s r (n ': m ': sh) -> AstShaped s r (m ': n ': sh)
-astTrS =
-  withListShape (Sh.shapeT @sh) $ \ (_ :: ShapeInt p) ->
-    gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: p) $
-    astTransposeS @'[1, 0]
+astTrS = withListSh (Proxy @sh) $ \_ -> astTransposeS @'[1, 0]
 
 -- | This works analogously to @build1Vectorize@m.
 build1VectorizeS
@@ -740,9 +737,8 @@ build1VOccurenceUnknownDynamic k@SNat (var, d) = case d of
   DynamicShaped u ->
     DynamicShaped $ build1VOccurenceUnknownS @k (var, u)
   DynamicRankedDummy @r @sh _ _ ->
-    withListShape (Sh.shapeT @sh) $ \(_ :: ShapeInt n3) ->
-      gcastWith (unsafeCoerce Refl :: n3 :~: Sh.Rank sh) $
-        DynamicRanked @r (Ast.AstRFromS @(k ': sh) @s @r 0)
+    withListSh (Proxy @sh) $ \_ ->
+      DynamicRanked @r (Ast.AstRFromS @(k ': sh) @s @r 0)
   DynamicShapedDummy @r @sh _ _ -> DynamicShaped @r @(k ': sh) 0
 
 build1VOccurenceUnknownHVectorRefresh
@@ -845,7 +841,7 @@ substProjDynamic :: forall k n r s.
                  -> (AstRanked s r n, AstDynamicVarName)
 substProjDynamic var v3 (AstDynamicVarName @ty @r3 @sh3 varId)
   | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat) =
-    ( withListShape (Sh.shapeT @sh3) $ \sh1 ->
+    ( withListSh (Proxy @sh3) $ \sh1 ->
         substProjRanked @_ @r3  @_ @_ @s
                         (valueOf @k) var sh1 (AstVarName varId) v3
     , AstDynamicVarName @ty @r3 @(k ': sh3) varId )
@@ -862,7 +858,7 @@ substProjDynamicS :: forall k sh r s.
                   -> (AstShaped s r sh, AstDynamicVarName)
 substProjDynamicS var v3 (AstDynamicVarName @ty @r3 @sh3 varId)
   | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat) =
-    ( withListShape (Sh.shapeT @sh3) $ \sh1 ->
+    ( withListSh (Proxy @sh3) $ \sh1 ->
         substProjShaped @_ @r3 @_ @_ @s
                         (valueOf @k) var sh1 (AstVarName varId) v3
     , AstDynamicVarName @ty @r3 @(k ': sh3) varId )
@@ -891,7 +887,7 @@ substProjDynamicHVector :: forall k s. (KnownNat k, AstSpan s)
                         -> (AstHVector s, AstDynamicVarName)
 substProjDynamicHVector var v3 (AstDynamicVarName @ty @r3 @sh3 varId)
   | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat) =
-    ( withListShape (Sh.shapeT @sh3) $ \sh1 ->
+    ( withListSh (Proxy @sh3) $ \sh1 ->
         substProjHVector @_ @r3 @s (valueOf @k) var sh1 (AstVarName varId) v3
     , AstDynamicVarName @ty @r3 @(k ': sh3) varId )
 substProjDynamicHVector var v3 (AstDynamicVarName @ty @r3 @sh3 varId)
@@ -921,8 +917,7 @@ astTrDynamic t@(DynamicShaped @_ @sh u) =
       permute10 ms = ms
       sh1Permuted = permute10 sh1
   in Sh.withShapeP sh1Permuted $ \(Proxy @shPermuted) ->
-       withListShape sh1 $ \ (_ :: ShapeInt p) ->
-         gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: p) $
+       withListSh (Proxy @sh) $ \_ ->
          case cmpNat (Proxy @2) (Proxy @(Sh.Rank sh)) of
            EQI -> case astTransposeS @'[1, 0] u of
              (w :: AstShaped s4 r4 sh4) ->

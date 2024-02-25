@@ -589,9 +589,9 @@ astIndexSOrStepOnly stepOnly v0 ix@((:$:) @in1 i1 (rest1 :: AstIndexS shm1)) =
   Ast.AstReshapeS @sh _v -> Ast.AstIndexS v0 ix  -- "TODO"
 --    astIndex (astReshapeAsGather sh v) ix
   Ast.AstBuild1S (var2, v) ->
-    withListShape (Sh.shapeT @shm1 ++ Sh.shapeT @shn) $ \(_ :: ShapeInt n) ->
-      gcastWith (unsafeCoerce Refl :: Sh.Rank (shm1 Sh.++ shn) :~: n) $
-      astIndex (astSFromR @(shm1 Sh.++ shn) $ astLet var2 i1 $ astRFromS v) rest1
+    withListSh (Proxy @(shm1 Sh.++ shn)) $ \_ ->
+      astIndex (astSFromR @(shm1 Sh.++ shn) $ astLet var2 i1 $ astRFromS v)
+               rest1
   Ast.AstGatherS @_ @p @sh v (ZSH, ix2) ->
     Sh.withShapeP (Sh.shapeT @(Sh.Take p sh) ++ Sh.shapeT @shm)
     $ \(Proxy @sh1n) ->
@@ -600,8 +600,7 @@ astIndexSOrStepOnly stepOnly v0 ix@((:$:) @in1 i1 (rest1 :: AstIndexS shm1)) =
         -- TODO: why is this needed? if it's true (it is), GHC should know it
       astIndex v (ShapedList.appendSized ix2 ix)
   Ast.AstGatherS v (var2 :$: (vars :: AstVarListS shm71), ix2) ->
-    withListShape (Sh.shapeT @shn) $ \(_ :: ShapeInt n) ->
-      gcastWith (unsafeCoerce Refl :: Sh.Rank shn :~: n) $
+    withListSh (Proxy @shn) $ \_ ->
       Sh.withShapeP (Sh.shapeT @shm1 ++ Sh.shapeT @shn) $ \(Proxy @sh1n) ->
         gcastWith (unsafeCoerce Refl :: shm1 Sh.++ shn :~: sh1n) $
         let w :: AstShaped s r (shm1 Sh.++ shn)
@@ -624,13 +623,11 @@ astIndexSOrStepOnly stepOnly v0 ix@((:$:) @in1 i1 (rest1 :: AstIndexS shm1)) =
   Ast.AstLetHFunInS var f v ->
     astLetHFunInS var f (astIndexRec v ix)
   Ast.AstSFromR @sh t ->
-    withListShape (Sh.shapeT @shm1) $ \(_ :: ShapeInt m1) ->
-      gcastWith (unsafeCoerce Refl :: Sh.Rank shm1 :~: m1) $
-      withListShape (Sh.shapeT @shn) $ \(_ :: ShapeInt n) ->
-        gcastWith (unsafeCoerce Refl :: Sh.Rank shn :~: n) $
-        gcastWith (unsafeCoerce Refl
-                   :: Sh.Rank shn + Sh.Rank shm1 :~: Sh.Rank (shm1 Sh.++ shn)) $
-        astSFromR $ astIndexStep t (ShapedList.shapedListToIndex ix)
+    withListSh (Proxy @shn) $ \_ ->
+      gcastWith (unsafeCoerce Refl
+                 :: Sh.Rank shm + Sh.Rank shn :~: Sh.Rank (shm Sh.++ shn)) $
+                      -- reversing this equality causes a type error
+      astSFromR $ astIndexStep t (ShapedList.shapedListToIndex ix)
   Ast.AstConstantS v -> Ast.AstConstantS $ astIndex v ix
   Ast.AstPrimalPartS{} -> Ast.AstIndexS v0 ix  -- must be a NF
   Ast.AstDualPartS{} -> Ast.AstIndexS v0 ix
@@ -1933,9 +1930,8 @@ mapRankedShaped fRanked fShaped
     | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat)
     , Just Refl <- sameShape @sh3 @sh4
     , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) ->
-        withListShape (Sh.shapeT @sh3) $ \(_ :: ShapeInt m) ->
-          gcastWith (unsafeCoerce Refl :: m :~: Sh.Rank sh3) $
-          fRanked @m (AstVarName varId) (astRFromS @sh3 @_ @r3 0) acc
+        withListSh (Proxy @sh3) $ \_ ->
+          fRanked (AstVarName varId) (astRFromS @sh3 @_ @r3 0) acc
   DynamicShapedDummy @r4 @sh4 _ _
     | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat])
     , Just Refl <- sameShape @sh3 @sh4

@@ -679,7 +679,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     let f :: Int -> DynamicTensor VoidTensor -> AstDynamic s
         f i = \case
           DynamicRankedDummy @r @sh _ _ ->
-            withListShape (Sh.shapeT @sh) $ \(_ :: ShapeInt n) ->
+            withListSh (Proxy @sh) $ \(_ :: ShapeInt n) ->
               DynamicRanked @r @n
               $ rletHVectorIn @(AstRanked s) hVectorOf (rfromD . (V.! i))
           DynamicShapedDummy @r @sh _ _ ->

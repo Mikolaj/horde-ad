@@ -185,12 +185,11 @@ fun1HToAst shss shs f = unsafePerformIO $ fun1HToAstIO shss shs f
 dynamicToVar :: DynamicTensor VoidTensor
              -> IO (AstDynamicVarName, DynamicTensor (AstRanked s))
 dynamicToVar (DynamicRankedDummy @r2 @sh2 _ _) = do
-  let sh3 = Sh.shapeT @sh2
   freshId <- unsafeGetFreshAstVarId
-  return $! withListShape sh3 $ \ (sh4 :: ShapeInt n2) ->
+  return $! withListSh (Proxy @sh2) $ \sh4 ->
     let !varE = AstDynamicVarName @Nat @r2 @sh2 freshId
         dynE :: AstDynamic s
-        !dynE = DynamicRanked @r2 @n2 (AstVar sh4 (AstVarName freshId))
+        !dynE = DynamicRanked @r2 (AstVar sh4 (AstVarName freshId))
     in (varE, dynE)
 dynamicToVar (DynamicShapedDummy @r2 @sh2 _ _) = do
   freshId <- unsafeGetFreshAstVarId
@@ -211,12 +210,11 @@ funToAstRevIO parameters0 = do
         -> IO ( AstDynamicVarName, AstDynamic PrimalSpan
               , AstDynamicVarName, AstDynamic FullSpan )
       f (DynamicRankedDummy @r @sh _ _) = do
-        let sh2 = Sh.shapeT @sh
         freshId <- unsafeGetFreshAstVarId
-        return $! withListShape sh2 $ \ (sh :: ShapeInt n) ->
+        return $! withListSh (Proxy @sh) $ \sh ->
           let !varE = AstDynamicVarName @Nat @r @sh freshId
               dynE :: AstDynamic s
-              !dynE = DynamicRanked @r @n (AstVar sh (AstVarName freshId))
+              !dynE = DynamicRanked @r (AstVar sh (AstVarName freshId))
           in (varE, dynE, varE, dynE)
       f (DynamicShapedDummy @r @sh _ _) = do
         freshId <- unsafeGetFreshAstVarId
@@ -257,10 +255,9 @@ funToAstFwdIO parameters0 = do
               , AstDynamicVarName, AstDynamic PrimalSpan
               , AstDynamicVarName, AstDynamic FullSpan )
       f (DynamicRankedDummy @r @sh _ _) = do
-        let sh2 = Sh.shapeT @sh
         freshIdDs <- unsafeGetFreshAstVarId
         freshId <- unsafeGetFreshAstVarId
-        return $! withListShape sh2 $ \ (sh :: ShapeInt n) ->
+        return $! withListSh (Proxy @sh) $ \sh ->
           let varE :: AstVarId -> AstDynamicVarName
               varE varId = AstDynamicVarName @Nat @r @sh varId
               dynE :: AstVarId -> AstDynamic s
