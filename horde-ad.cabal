@@ -82,7 +82,7 @@ common options
                       TypeFamilyDependencies, FunctionalDependencies,
                       RecordWildCards, MultiWayIf, LambdaCase,
                       DefaultSignatures, PatternSynonyms, NoStarIsType,
-                      DataKinds, RoleAnnotations
+                      DataKinds, RoleAnnotations, TypeData
   if impl(ghc >= 9.8)
     default-extensions: TypeAbstractions
   other-extensions:   UnboxedTuples, CPP, ViewPatterns, OverloadedLists,

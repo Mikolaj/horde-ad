@@ -6,7 +6,7 @@
 -- it can also be used for other code transformations, e.g., simplification.
 module HordeAd.Core.Ast
   ( -- * The AstSpan kind
-    AstSpanType(..), AstSpan(..), astSpanT, sameAstSpan
+    AstSpanType(..), AstSpan(..), sameAstSpan
     -- * Assorted small definitions
   , AstInt, IntVarName, pattern AstIntVar, isRankedInt, ConcreteOf
   , AstBindings, ADShare
@@ -53,33 +53,23 @@ import HordeAd.Util.SizedList
 -- is supposed to denote the primal part of a dual number, the dual part
 -- or the whole dual number. It's mainly used to index the terms
 -- of the AstRanked and realated GADTs.
-data AstSpanType = PrimalSpan | DualSpan | FullSpan
-  deriving Typeable
+type data AstSpanType = PrimalSpan | DualSpan | FullSpan
 
--- A poor man's singleton type, modelled after orthotope's @Shape@.
 class Typeable s => AstSpan (s :: AstSpanType) where
-  astSpanP :: Proxy s -> AstSpanType
   fromPrimal :: AstRanked PrimalSpan r y -> AstRanked s r y
   fromPrimalS :: AstShaped PrimalSpan r y -> AstShaped s r y
 
 instance AstSpan PrimalSpan where
-  astSpanP _ = PrimalSpan
   fromPrimal = id
   fromPrimalS = id
 
 instance AstSpan DualSpan where
-  astSpanP _ = DualSpan
   fromPrimal t = AstDualPart $ AstConstant t  -- this is nil (not primal 0)
   fromPrimalS t = AstDualPartS $ AstConstantS t
 
 instance AstSpan FullSpan where
-  astSpanP _ = FullSpan
   fromPrimal = AstConstant
   fromPrimalS = AstConstantS
-
-astSpanT :: forall s. AstSpan s => AstSpanType
-{-# INLINE astSpanT #-}
-astSpanT = astSpanP (Proxy :: Proxy s)
 
 sameAstSpan :: forall s1 s2. (AstSpan s1, AstSpan s2) => Maybe (s1 :~: s2)
 sameAstSpan = case eqTypeRep (typeRep @s1) (typeRep @s2) of
