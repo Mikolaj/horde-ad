@@ -33,6 +33,7 @@ import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, sameNat, type (+))
 import           Type.Reflection (typeRep)
 
+import HordeAd.Core.Adaptor
 import HordeAd.Core.Ast
 import HordeAd.Core.AstEnv
 import HordeAd.Core.Delta
@@ -371,7 +372,7 @@ class DerivativeStages g where
     :: (GoodScalar r, HasSingletonDict y)
     => AstArtifactFwd (PrimalOf g) r y -> HVector (Flip OR.Array)
     -> HVector (Flip OR.Array)
-    -> (ConcreteOf g r y, ConcreteOf g r y)
+    -> (Value (g r y), Value (g r y))
 
   fwdProduceArtifact
     :: (DerivativeStages g, GoodScalar r, HasSingletonDict y)

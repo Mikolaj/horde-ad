@@ -800,6 +800,12 @@ instance TermValue (AstHVector FullSpan) where
     Data.NonStrict.Vector.Vector (DynamicTensor (Flip OR.Array))
   fromValue t = AstMkHVector $ V.convert $ V.map fromValue t
 
+instance TermValue (HVectorPseudoTensor (AstRanked FullSpan) r y) where
+  type Value (HVectorPseudoTensor (AstRanked FullSpan) r y) =
+    HVectorPseudoTensor (Flip OR.Array) r y
+  fromValue (HVectorPseudoTensor t) =
+    HVectorPseudoTensor $ AstMkHVector $ V.convert $ V.map fromValue t
+
 astLetHVectorInHVectorFun
   :: AstSpan s
   => AstHVector s -> (HVector (AstRanked s) -> AstHVector s)

@@ -166,7 +166,7 @@ fwd
      , AdaptableHVector (RankedOf g) astvals, TermValue astvals
      , AdaptableHVector (Flip OR.Array) vals
      , vals ~ Value astvals )
-  => (astvals -> g r y) -> vals -> vals -> ConcreteOf g r y
+  => (astvals -> g r y) -> vals -> vals -> Value (g r y)
 fwd f x ds =
   let g hVector = f $ parseHVector (fromValue x) hVector
       xV = toHVector x
