@@ -377,6 +377,22 @@ instance IfF (AstShaped s) where
 
 -- * Ranked tensor AST instances
 
+instance (GoodScalar r, KnownNat n, RankedTensor (AstRanked s))
+         => AdaptableHVector (AstRanked s) (AstRanked s r n) where
+  {-# SPECIALIZE instance
+      (KnownNat n, AstSpan s)
+      => AdaptableHVector (AstRanked s) (AstRanked s Double n) #-}
+  toHVector = V.singleton . DynamicRanked
+  fromHVector _aInit params = fromHVectorR @r @n params
+
+instance DualNumberValue (AstRanked PrimalSpan r n) where
+  type DValue (AstRanked PrimalSpan r n) = Flip OR.Array r n
+  fromDValue t = fromPrimal $ AstConst $ runFlip t
+
+instance TermValue (AstRanked FullSpan r n) where
+  type Value (AstRanked FullSpan r n) = Flip OR.Array r n
+  fromValue t = fromPrimal $ AstConst $ runFlip t
+
 instance AstSpan s => RankedTensor (AstRanked s) where
   rlet = astLetFun
 
@@ -442,22 +458,6 @@ instance AstSpan s => RankedTensor (AstRanked s) where
   rdualPart = astSpanDual
   rD = astSpanD
   rScale s t = astDualPart $ AstConstant s * AstD (rzero (rshape s)) t
-
-instance (GoodScalar r, KnownNat n, RankedTensor (AstRanked s))
-         => AdaptableHVector (AstRanked s) (AstRanked s r n) where
-  {-# SPECIALIZE instance
-      (KnownNat n, AstSpan s)
-      => AdaptableHVector (AstRanked s) (AstRanked s Double n) #-}
-  toHVector = undefined
-  fromHVector _aInit params = fromHVectorR @r @n params
-
-instance DualNumberValue (AstRanked PrimalSpan r n) where
-  type DValue (AstRanked PrimalSpan r n) = Flip OR.Array r n
-  fromDValue t = fromPrimal $ AstConst $ runFlip t
-
-instance TermValue (AstRanked FullSpan r n) where
-  type Value (AstRanked FullSpan r n) = Flip OR.Array r n
-  fromValue t = fromPrimal $ AstConst $ runFlip t
 
 astLetHVectorInFun
   :: forall n s r. (KnownNat n, GoodScalar r, AstSpan s)
@@ -526,6 +526,19 @@ astBuild1Vectorize k f = build1Vectorize k $ funToAstI f
 
 -- * Shaped tensor AST instances
 
+instance (GoodScalar r, Sh.Shape sh, ShapedTensor (AstShaped s))
+         => AdaptableHVector (AstRanked s) (AstShaped s r sh) where
+  toHVector = V.singleton . DynamicShaped
+  fromHVector _aInit params = fromHVectorS @r @sh params
+
+instance DualNumberValue (AstShaped PrimalSpan r sh) where
+  type DValue (AstShaped PrimalSpan r sh) = Flip OS.Array r sh
+  fromDValue t = fromPrimalS $ AstConstS $ runFlip t
+
+instance TermValue (AstShaped FullSpan r sh) where
+  type Value (AstShaped FullSpan r sh) = Flip OS.Array r sh
+  fromValue t = fromPrimalS $ AstConstS $ runFlip t
+
 instance AstSpan s => ShapedTensor (AstShaped s) where
   slet = astLetFunS
 
@@ -591,19 +604,6 @@ instance AstSpan s => ShapedTensor (AstShaped s) where
   sD = astSpanDS
   sScale s t = astDualPartS $ AstConstantS s * AstDS 0 t
 
-instance (GoodScalar r, Sh.Shape sh, ShapedTensor (AstShaped s))
-         => AdaptableHVector (AstRanked s) (AstShaped s r sh) where
-  toHVector = undefined
-  fromHVector _aInit params = fromHVectorS @r @sh params
-
-instance DualNumberValue (AstShaped PrimalSpan r sh) where
-  type DValue (AstShaped PrimalSpan r sh) = Flip OS.Array r sh
-  fromDValue t = fromPrimalS $ AstConstS $ runFlip t
-
-instance TermValue (AstShaped FullSpan r sh) where
-  type Value (AstShaped FullSpan r sh) = Flip OS.Array r sh
-  fromValue t = fromPrimalS $ AstConstS $ runFlip t
-
 astLetHVectorInFunS
   :: forall sh s r. (Sh.Shape sh, GoodScalar r, AstSpan s)
   => AstHVector s -> (HVector (AstRanked s) -> AstShaped s r sh)
@@ -665,6 +665,39 @@ astBuild1VectorizeS f =
 
 
 -- * HVectorTensor instance
+
+instance AdaptableHVector (AstRanked s) (AstHVector s) where
+  toHVector = undefined  -- impossible without losing sharing
+  toHVectorOf _ = id  -- but this is possible
+  fromHVector aInit params =
+    let (portion, rest) = V.splitAt (V.length $ shapeAstHVector aInit) params
+    in Just (AstMkHVector portion, rest)
+
+instance DualNumberValue (AstHVector PrimalSpan) where
+  type DValue (AstHVector PrimalSpan) = HVector (Flip OR.Array)
+  fromDValue t = AstMkHVector $ V.map fromDValue t
+
+-- HVector causes overlap and violation of injectivity,
+-- hence Data.NonStrict.Vector. Injectivity is crucial to limit the number
+-- of type applications the library user has to supply.
+instance TermValue (AstHVector FullSpan) where
+  type Value (AstHVector FullSpan) =
+    Data.NonStrict.Vector.Vector (DynamicTensor (Flip OR.Array))
+  fromValue t = AstMkHVector $ V.convert $ V.map fromValue t
+
+instance AdaptableHVector (AstRanked FullSpan)
+                          (HVectorPseudoTensor (AstRanked FullSpan) r y) where
+  toHVector = undefined  -- impossible without losing sharing
+  toHVectorOf _ = unHVectorPseudoTensor  -- but this is possible
+  fromHVector (HVectorPseudoTensor aInit) params =
+    let (portion, rest) = V.splitAt (V.length $ shapeAstHVector aInit) params
+    in Just (HVectorPseudoTensor $ AstMkHVector portion, rest)
+
+instance TermValue (HVectorPseudoTensor (AstRanked FullSpan) r y) where
+  type Value (HVectorPseudoTensor (AstRanked FullSpan) r y) =
+    HVectorPseudoTensor (Flip OR.Array) r y
+  fromValue (HVectorPseudoTensor t) =
+    HVectorPseudoTensor $ AstMkHVector $ V.map fromValue t
 
 instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   dshape = shapeAstHVector
@@ -781,30 +814,6 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     assert (voidHVectorMatches (replicate1VoidHVector k eShs) es
             && voidHVectorMatches accShs acc0) $
     AstMapAccumLDer k accShs bShs eShs f df rf acc0 es
-
-instance AdaptableHVector (AstRanked s) (AstHVector s) where
-  toHVector = undefined
-  fromHVector aInit params =
-    let (portion, rest) = V.splitAt (V.length $ shapeAstHVector aInit) params
-    in Just (AstMkHVector portion, rest)
-
-instance DualNumberValue (AstHVector PrimalSpan) where
-  type DValue (AstHVector PrimalSpan) = HVector (Flip OR.Array)
-  fromDValue t = AstMkHVector $ V.map fromDValue t
-
--- HVector causes overlap and violation of injectivity,
--- hence Data.NonStrict.Vector. Injectivity is crucial to limit the number
--- of type applications the library user has to supply.
-instance TermValue (AstHVector FullSpan) where
-  type Value (AstHVector FullSpan) =
-    Data.NonStrict.Vector.Vector (DynamicTensor (Flip OR.Array))
-  fromValue t = AstMkHVector $ V.convert $ V.map fromValue t
-
-instance TermValue (HVectorPseudoTensor (AstRanked FullSpan) r y) where
-  type Value (HVectorPseudoTensor (AstRanked FullSpan) r y) =
-    HVectorPseudoTensor (Flip OR.Array) r y
-  fromValue (HVectorPseudoTensor t) =
-    HVectorPseudoTensor $ AstMkHVector $ V.convert $ V.map fromValue t
 
 astLetHVectorInHVectorFun
   :: AstSpan s

@@ -35,6 +35,9 @@ class AdaptableHVector (ranked :: RankedTensorType) vals where
   toHVector :: vals -> HVector ranked
     -- ^ represent a value of the domain of objective function
     -- in a canonical, much less typed way common to all possible types
+  toHVectorOf :: (HVector ranked -> HVectorOf ranked) -> vals
+              -> HVectorOf ranked
+  toHVectorOf dmkHVector = dmkHVector . toHVector
   fromHVector :: vals -> HVector ranked -> Maybe (vals, HVector ranked)
     -- ^ recovers a value of the domain of objective function
     -- from its canonical representation, using the general shape
