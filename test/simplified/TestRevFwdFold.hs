@@ -305,7 +305,7 @@ testFooRrevPP1 = do
   resetVarCounter
   let (a1, _, _) = fooRrev @(AstRanked FullSpan) @Double (1.1, 2.2, 3.3)
   printAstPretty IM.empty a1
-    @?= "let x13 = sin 2.2 ; x14 = 1.1 * x13 ; x15 = recip (3.3 * 3.3 + x14 * x14) ; x16 = sin 2.2 ; x17 = 1.1 * x16 ; x18 = rreshape [] (rreplicate 1 1.0) ; x19 = 3.3 * x18 ; x20 = negate (3.3 * x15) * x18 in x13 * x20 + x16 * x19"
+    @?= "let x12 = sin 2.2 ; x13 = 1.1 * x12 ; x14 = recip (3.3 * 3.3 + x13 * x13) ; x15 = sin 2.2 ; x16 = 1.1 * x15 ; x17 = 3.3 * 1.0 ; x18 = negate (3.3 * x14) * 1.0 in x12 * x18 + x15 * x17"
 
 -- Disabled, because different variable names with -O1.
 _testFooRrevPP2 :: Assertion
@@ -335,14 +335,14 @@ testSin0RrevPP1 = do
   resetVarCounter
   let a1 = rrev1 @(AstRanked FullSpan) @Double @0 @0 sin 1.1
   printAstPretty IM.empty a1
-    @?= "cos 1.1 * rreshape [] (rreplicate 1 1.0)"
+    @?= "cos 1.1 * 1.0"
 
 testSin0RrevPP2 :: Assertion
 testSin0RrevPP2 = do
   resetVarCounter
   let a1 = rrev1 @(AstRanked FullSpan) @Double @0 @0 sin 1.1
   printAstSimple IM.empty a1
-    @?= "cos (rconstant 1.1) * rreshape [] (rreplicate 1 (rconstant 1.0))"
+    @?= "cos (rconstant 1.1) * rconstant 1.0"
 
 testSin0Rrev3 :: Assertion
 testSin0Rrev3 = do
@@ -374,7 +374,7 @@ testSin0RrevPP5 = do
   resetVarCounter
   let a1 = rrev1 @(AstRanked FullSpan) @Double @0 @0 (rrev1 sin) 1.1
   printAstPretty IM.empty (simplifyAst6 a1)
-    @?= "negate (sin 1.1) * (1.0 * 1.0)"
+    @?= "negate (sin 1.1) * 1.0"
 
 testSin0Rrev3' :: Assertion
 testSin0Rrev3' = do
@@ -3245,7 +3245,7 @@ testSin0FoldNestedR1PP = do
   printAstHVectorPretty
     IM.empty
     (g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 1.1))
-    @?= "let [x11 @Natural @Double @[], v12 @Natural @Double @[11]] = dmapAccumLDer (SNat @11) <lambda> <lambda> <lambda> [1.1] [rreplicate 11 1.1] in let x13 = rreshape [] (rreplicate 1 1.0) in let [x14 @Natural @Double @[], v15 @Natural @Double @[11]] = dmapAccumRDer (SNat @11) <lambda> <lambda> <lambda> [x13] [v12, rreplicate 11 1.1] in [rsum v15 + x14]"
+    @?= "let [x11 @Natural @Double @[], v12 @Natural @Double @[11]] = dmapAccumLDer (SNat @11) <lambda> <lambda> <lambda> [1.1] [rreplicate 11 1.1] in let [x14 @Natural @Double @[], v15 @Natural @Double @[11]] = dmapAccumRDer (SNat @11) <lambda> <lambda> <lambda> [1.0] [v12, rreplicate 11 1.1] in [rsum v15 + x14]"
 
 testSin0FoldNestedR1SimpPP :: Assertion
 testSin0FoldNestedR1SimpPP = do
@@ -3361,7 +3361,7 @@ testSin0FoldNestedR3LengthPPs = do
        IM.empty
        (simplifyAstHVector6
         $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 1.1)))
-    @?= 4_090_542
+    @?= 4090460
 
 -- Takes 45s.
 _testSin0FoldNestedR4LengthPPs :: Assertion
@@ -3476,7 +3476,7 @@ testSin0MapAccumNestedR3LengthPP = do
        IM.empty
        (simplifyAstHVector6
         $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 1.1)))
-    @?= 4_091_247
+    @?= 4091165
 
 testSin0MapAccumNestedR4 :: Assertion
 testSin0MapAccumNestedR4 = do
@@ -4141,7 +4141,7 @@ testSin0FoldNestedR21PP = do
                             a0 (rreplicate 2 a0)
            in f) 1.1
   length (printAstSimple IM.empty (simplifyAst6 a1))
-    @?= 51_783
+    @?= 51794
 
 testSin0revhV :: Assertion
 testSin0revhV = do
@@ -4167,7 +4167,7 @@ testSin0revhVPP = do
   printAstHVectorSimple IM.empty (f @(AstRanked FullSpan)
                                     (V.singleton
                                      $ DynamicRanked @Double @0 1.1))
-    @?= "dmkHVector (fromList [DynamicRanked (cos (rconstant 1.1) * rreshape [] (rreplicate 1 (rconstant 1.0)))])"
+    @?= "dmkHVector (fromList [DynamicRanked (cos (rconstant 1.1) * rconstant 1.0)])"
 
 testSin0revhV2 :: Assertion
 testSin0revhV2 = do

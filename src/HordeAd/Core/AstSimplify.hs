@@ -1660,6 +1660,9 @@ astReshape shOut = \case
     Ast.AstR2 opCode (astReshape shOut u) (astReshape shOut v)
   Ast.AstR2 opCode u (Ast.AstConstant (Ast.AstReshape _ v)) ->
     Ast.AstR2 opCode (astReshape shOut u) (astReshape shOut (Ast.AstConstant v))
+  Ast.AstFromList [x] -> astReshape shOut x
+  Ast.AstFromVector l | [x] <- V.toList l -> astReshape shOut x
+  Ast.AstReplicate 1 x -> astReshape shOut x
   Ast.AstReshape _ v -> astReshape shOut v
     -- this rule can be disabled to test fusion of gathers
   AstConst t -> AstConst $ OR.reshape (shapeToList shOut) t
@@ -1677,6 +1680,12 @@ astReshapeS :: forall sh sh2 r s.
                , GoodScalar r )
             => AstShaped s r sh -> AstShaped s r sh2
 astReshapeS = \case
+  Ast.AstFromListS @n l | Just Refl <- sameNat (Proxy @n) (Proxy @1) ->
+    astReshapeS $ l !! 0
+  Ast.AstFromVectorS @n l | Just Refl <- sameNat (Proxy @n) (Proxy @1) ->
+    astReshapeS $ l V.! 0
+  Ast.AstReplicateS @n x | Just Refl <- sameNat (Proxy @n) (Proxy @1) ->
+    astReshapeS x
   AstConstS t -> AstConstS $ OS.reshape t
   Ast.AstConstantS v -> Ast.AstConstantS $ astReshapeS v
   Ast.AstLetADShareS l v -> Ast.AstLetADShareS l $ astReshapeS v
