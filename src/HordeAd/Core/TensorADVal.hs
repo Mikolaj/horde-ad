@@ -400,8 +400,16 @@ instance ADReadyBoth ranked shaped
        -> HVector (ADVal ranked)
        -> HVectorOf (ADVal ranked)
   rrev f _parameters0 parameters =
-    -- This computes the derivative of f again for each new @parmeters@.
-    fst $ crevOnHVector Nothing (f @(ADVal (ADVal ranked))) parameters
+    -- This computes the derivative of g again for each new @parmeters@.
+    let g :: HVector (ADVal (ADVal ranked))
+          -> ADVal (HVectorPseudoTensor (ADVal ranked)) Float '()
+        g !hv = let D l a a' = f hv
+                in dDnotShared l
+                               (HVectorPseudoTensor $ dmkHVector
+                                $ V.singleton $ DynamicRanked a)
+                               (HVectorPseudoTensor $ HToH
+                                $ V.singleton $ DynamicRanked a')
+    in fst $ crevOnHVector Nothing g parameters
   drevDt :: VoidHVector
          -> HFun
          -> HFun
