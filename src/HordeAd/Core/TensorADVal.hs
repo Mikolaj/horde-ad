@@ -8,7 +8,7 @@
 -- the typing of tensors and so we give separate instances
 -- for ranked tensors and shaped tensors.
 module HordeAd.Core.TensorADVal
-  ( hVectorADValToADVal, unADValHVector, unADValDynamicTensor
+  ( aDValToHVector, hVectorADValToADVal, unADValHVector, unADValDynamicTensor
   ) where
 
 import Prelude hiding (foldl')
@@ -500,12 +500,7 @@ instance ADReadyBoth ranked shaped
         !_A = assert (voidHVectorMatches (replicate1VoidHVector k bShs) bs) ()
         primal = accFin V.++ bs
         dual = wrapDeltaH $ MapAccumR k accShs bShs eShs q es df rf acc0' es'
-        selectDual i d = case d of
-          DynamicRanked t -> DynamicRanked $ dDnotShared l5 t (RFromH dual i)
-          DynamicShaped t -> DynamicShaped $ dDnotShared l5 t (SFromH dual i)
-          DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
-          DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
-    in V.imap selectDual primal
+    in ahhToHVector l5 primal dual
   dmapAccumLDer
     :: SNat k
     -> VoidHVector
@@ -573,14 +568,29 @@ instance ADReadyBoth ranked shaped
         !_A = assert (voidHVectorMatches (replicate1VoidHVector k bShs) bs) ()
         primal = accFin V.++ bs
         dual = wrapDeltaH $ MapAccumL k accShs bShs eShs q es df rf acc0' es'
-        selectDual i d = case d of
-          DynamicRanked t -> DynamicRanked $ dDnotShared l5 t (RFromH dual i)
-          DynamicShaped t -> DynamicShaped $ dDnotShared l5 t (SFromH dual i)
-          DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
-          DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
-    in V.imap selectDual primal
+    in ahhToHVector l5 primal dual
 
 -- Float and '() are placeholders here; they are reduced away.
+ahhToHVector
+  :: forall ranked. RankedOf (ShapedOf ranked) ~ ranked
+  => ADShare -> HVector ranked -> DeltaH ranked -> HVector (ADVal ranked)
+ahhToHVector l h h' =
+  let selectDual :: Int -> DynamicTensor ranked -> DynamicTensor (ADVal ranked)
+      selectDual i d = case d of
+        DynamicRanked t -> DynamicRanked $ dDnotShared l t (RFromH h' i)
+        DynamicShaped t -> DynamicShaped $ dDnotShared l t (SFromH h' i)
+        DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
+        DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
+  in V.imap selectDual h
+       -- TODO: write why these projections don't break any sharing
+
+aDValToHVector
+  :: forall ranked.
+     (HVectorOf ranked ~ HVector ranked, RankedOf (ShapedOf ranked) ~ ranked)
+  => ADVal (HVectorPseudoTensor ranked) Float '() -> HVector (ADVal ranked)
+aDValToHVector (D l (HVectorPseudoTensor h) (HVectorPseudoTensor h')) =
+  ahhToHVector l h h'
+
 hVectorADValToADVal
   :: forall ranked. HVectorTensor ranked (ShapedOf ranked)
   => HVector (ADVal ranked) -> ADVal (HVectorPseudoTensor ranked) Float '()
