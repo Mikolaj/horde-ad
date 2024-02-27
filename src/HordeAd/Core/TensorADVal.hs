@@ -415,6 +415,7 @@ instance ADReadyBoth ranked shaped
                                (HVectorPseudoTensor $ HToH as')
         rf :: forall f. ADReady f => [HVector f] -> HVectorOf f
         rf ![!db, !a] =
+          -- This computes the derivative of g again for each new db and a.
           fst $ crevOnHVector (Just $ HVectorPseudoTensor $ dmkHVector db) g a
         rf _ = error "rf: wrong number of arguments"
     in HFun rf
@@ -431,6 +432,7 @@ instance ADReadyBoth ranked shaped
                                (HVectorPseudoTensor $ HToH as')
         df :: forall f. ADReady f => [HVector f] -> HVectorOf f
         df ![!da, !a] = unHVectorPseudoTensor $ fst $ cfwdOnHVector a g da
+          -- This computes the derivative of g again for each new da and a.
         df _ = error "df: wrong number of arguments"
     in HFun df
   dmapAccumRDer
@@ -490,6 +492,8 @@ instance ADReadyBoth ranked shaped
                                    $ HFun rg)
                                   acc0 es
         (l5, pShared) = dsharePrimal @ranked pUnshared l4
+        -- This code makes sense only thanks to HVector being a representation
+        -- of tuples in the struct of arrays format.
         accFin = V.take accLen pShared
         q = V.slice accLen accLen pShared
         bs = V.drop (2 * accLen) pShared
@@ -684,6 +688,7 @@ instance HVectorTensor (Flip OR.Array) (Flip OS.Array) where
              g !x !a = V.splitAt accLen $ f x a
              (xout, lout) = mapAccumR g acc0 (unravelHVector es)
          in xout V.++ ravelHVector lout
+      -- TODO: reimplement not with Haskell's mapAccumR to avoid the ravels
   dmapAccumRDer k accShs bShs eShs f _df _rf acc0 es =
     dmapAccumR k accShs bShs eShs (\ !a !b -> unHFun f [a, b]) acc0 es
   dmapAccumL

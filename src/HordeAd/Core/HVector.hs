@@ -90,22 +90,28 @@ instance
       (forall r30 y30. (Sh.Shape y30, GoodScalar r30) => c (shaped r30 y30))
       => CShaped shaped c where
 
--- This is a heterogeneous vector, used for our tuples that need to have
--- the same type regardless of their arity and component types,
--- to be represented by terms with sane typing, to be taken as arguments
--- of functions that operate on all such tuples, etc.
---
--- Data invariant: the vector is non-empty.
---
--- When r is Ast, this is used for hVector composed of variables only,
--- to adapt them into more complex types and back again. This is not used
--- for vectors of large terms, since they'd share values, so we'd need
--- AstHVectorLet, but these would make adapting the vector costly.
--- HVectorOf is used for that and the only reasons HVectorOf exists
--- is to prevent mixing up the two (and complicating the definition
--- below with errors in the AstHVectorLet case).
+-- | This is a heterogeneous vector, used as represenation of tuples
+-- of tensors that need to have the same Haskell type regardless
+-- of their arity and component types/shapes. This is a struct of arrays
+-- representation, both as seen through its operations API and internally
+-- and we convert to this representation ASAP whenever computations
+-- result in another representation. Such tuples are also expressed via
+-- an AST type `AstHVector` with a similar API. Both are used for arguments
+-- and the result in the internal representation of lambdas (closed functions)
+-- as used in fold-like and rev-like operations in the main library API.
+-- The type family `HVectorOf` assigns this or the AST implementation
+-- based on the nature (symbolic or not) of the tensor type given to it.
 type HVector (ranked :: RankedTensorType) =
   Data.Vector.Vector (DynamicTensor ranked)
+    -- When @ranked@ is terms, `HVector AstHVector` is a mixed half-symbolic
+    -- representation, usually used for vectors composed of variables only,
+    -- to adapt them into more complex types and back again.
+    -- This representation is not used for vectors of large terms,
+    -- since they'd share values, so AstHVector is used there instead.
+    -- Operations such as AstHVectorLet serve to convert between
+    -- the two, preserving sharing whenever possible. The only reason
+    -- HVectorOf exists is to express and preserve sharing, which is
+    -- not possible with `HVector AstHVector` alone.
 
 type role HVectorPseudoTensor nominal phantom phantom
 type HVectorPseudoTensor :: RankedTensorType -> TensorType ()
@@ -129,6 +135,9 @@ type instance RankedOf VoidTensor = VoidTensor
 
 type instance ShapedOf VoidTensor = VoidTensor
 
+-- This is a tuple of void tensor, which incidentally makes this more like
+-- a unit type (the only values beeing the dummy DynamicTensor constructors),
+-- where the only values carry only the shapes/ranks and the scalar type.
 type VoidHVector = HVector VoidTensor
 
 type role DynamicScalar representational

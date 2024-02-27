@@ -992,6 +992,12 @@ class HVectorTensor (ranked :: RankedTensorType)
          (V.singleton $ DynamicShaped es))
       (\res -> sappend @_ @_ @1 (sfromList [acc0]) (sfromD $ res V.! 1))
   -- | A strict right macAccum.
+  --
+  -- The applications of 'dfwd' and 'drevDt' performed already at this point
+  -- ensure that the computation of a derivative is not repeated
+  -- and that its result is shared. However, most of the time
+  -- the computation is unnneeded, so the AST instance uses a non-strict
+  -- constructor 'AstLambda' for it's instance of 'HFunOf'.
   dmapAccumR
     :: SNat k
     -> VoidHVector
@@ -1136,7 +1142,7 @@ sfromD (DynamicShapedDummy @r2 @sh2 _ _) = case sameShape @sh2 @sh of
   _ -> error $ "sfromD: shape mismatch " ++ show (Sh.shapeT @sh2, Sh.shapeT @sh)
 
 newtype HFun =
-  HFun {unHFun :: (forall f. ADReady f => [HVector f] -> HVectorOf f)}
+  HFun {unHFun :: forall f. ADReady f => [HVector f] -> HVectorOf f}
 
 instance Show HFun where
   show _ = "<lambda>"

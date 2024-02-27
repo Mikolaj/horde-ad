@@ -92,6 +92,10 @@ type family ShapedOf (f :: TensorType ty) :: ShapedTensorType
 
 type family HVectorOf (f :: RankedTensorType) :: Type
 
+-- | The type family is defined in order to give a special instance
+-- for AST that preservs sharing and, even more importantly, keeps
+-- the computation of dervative functions lazy. See the definition
+-- of 'AstLambda' and the code that processes it, maintaining laziness.
 type family HFunOf (f :: RankedTensorType) :: Type
 
 type family PrimalOf (f :: TensorType ty) :: TensorType ty

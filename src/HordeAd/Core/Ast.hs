@@ -477,9 +477,21 @@ deriving instance Show (AstHVector s)
 
 data AstHFun where
   AstLambda :: ~([[AstDynamicVarName]], AstHVector PrimalSpan) -> AstHFun
-    -- ^ the function body can't have any free variables outside those
+    -- ^ The function body can't have any free variables outside those
     -- listed in the first component of the pair; this reflects
-    -- the quantification in 'rrev' and prevents cotangent confusion
+    -- the quantification in 'rrev' and prevents cotangent confusion.
+    --
+    -- The constructor is non-strict in order not to pre-compute
+    -- higher derivatives (e.g., inside folds) that are never going to be used.
+    -- As a side effect, all lambdas (closed functions) are processed
+    -- lazily, which makes no harm, since they have no outside free variables
+    -- and so can't easiliy induce leaks by retaining outside values (e.g.,
+    -- big environments from which values for the variables would be drawn).
+    -- The cost of computing a reverse derivative of a fold nested inside
+    -- the function argument n times is reduced by the laziness from 20^n
+    -- to under 2^n (TODO: determine the exact cost). Note, however,
+    -- that if the n-th forward and reverse derivative is taken,
+    -- the laziness is defeated.
   AstVarHFun :: [VoidHVector] -> VoidHVector -> AstVarId -> AstHFun
 
 deriving instance Show AstHFun
