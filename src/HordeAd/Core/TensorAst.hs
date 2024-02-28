@@ -46,7 +46,25 @@ import           HordeAd.Util.ShapedList (singletonShaped)
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedIndex
 
--- * Reverse and forward derivative stages instances
+-- * Reverse and forward derivative stages
+
+revProduceArtifactH
+  :: forall r y g vals astvals.
+     ( AdaptableHVector (AstRanked FullSpan) (g r y)
+     , AdaptableHVector (AstRanked FullSpan) astvals
+     , TermValue astvals, vals ~ Value astvals )
+  => Bool -> (astvals -> g r y) -> AstEnv (ADVal (AstRanked PrimalSpan))
+  -> vals -> VoidHVector
+  -> ( AstArtifactRev (HVectorPseudoTensor (AstRanked PrimalSpan)) Float '()
+     , Dual (HVectorPseudoTensor (AstRanked PrimalSpan)) Float '() )
+{-# INLINE revProduceArtifactH #-}
+revProduceArtifactH hasDt f envInit vals0 =
+  let g :: HVector (AstRanked FullSpan)
+        -> HVectorPseudoTensor (AstRanked FullSpan) Float '()
+      g !hv = HVectorPseudoTensor
+              $ toHVectorOf @(AstRanked FullSpan) dmkHVector
+              $ f $ parseHVector (fromValue vals0) hv
+  in revArtifactFromForwardPass (TensorToken @() @(HVectorPseudoTensor (AstRanked FullSpan))) hasDt (forwardPassByInterpretation g envInit)
 
 instance DerivativeStages (AstRanked FullSpan) where
   forwardPassByInterpretation
@@ -753,8 +771,10 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     -- This computes the (AST of) derivative of f once and interprets it again
     -- for each new @parmeters@, which is much better than computing anew.
     let !(!((!_varsDt, !vars), !gradient, !_primal, _sh), _delta) =
-          revProduceArtifact TensorToken False (f @(AstRanked FullSpan))
-                             EM.empty parameters0
+          revProduceArtifactH @_ @_ @(AstRanked FullSpan)
+                              False f EM.empty
+                              (V.map dynamicFromVoid parameters0)
+                              parameters0
     in \parameters -> assert (voidHVectorMatches parameters0 parameters) $
       let env = extendEnvHVector @(AstRanked s) vars parameters EM.empty
       in interpretAstHVector env gradient
@@ -768,6 +788,8 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
          -> HFun
          -> AstHFun
   drevDt shs f =
+    -- This computes the (AST of) derivative of f once and interprets it again
+    -- for each new tensor of arguments, which is better than computing it anew.
     let g :: HVector (AstRanked FullSpan)
           -> HVectorPseudoTensor (AstRanked FullSpan) Float '()
         g !hv = HVectorPseudoTensor $ unHFun f [hv]
@@ -778,6 +800,8 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
        -> HFun
        -> AstHFun
   dfwd shs f =
+    -- This computes the (AST of) derivative of f once and interprets it again
+    -- for each new tensor of arguments, which is better than computing it anew.
     let g :: HVector (AstRanked FullSpan)
           -> HVectorPseudoTensor (AstRanked FullSpan) Float '()
         g !hv = HVectorPseudoTensor $ unHFun f [hv]
