@@ -1,5 +1,4 @@
-{-# LANGUAGE AllowAmbiguousTypes, DerivingStrategies, QuantifiedConstraints,
-             UndecidableInstances #-}
+{-# LANGUAGE AllowAmbiguousTypes, DerivingStrategies, UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -fconstraint-solver-iterations=10000 #-}
@@ -37,12 +36,12 @@
 -- so the rewritten comments would be very similar and slightly harder
 -- to understand.
 module HordeAd.Core.Delta
-  ( -- * Abstract syntax trees of the delta expressions
-    DeltaR (..), DeltaS (..), DeltaH (..)
+  ( -- * Delta expression evaluation
+    gradientFromDeltaH, derivativeFromDeltaH
+    -- * Abstract syntax trees of the delta expressions
+  , DeltaR (..), DeltaS (..), DeltaH (..)
   , -- * Delta expression identifiers
     NodeId (..), InputId, toInputId
-    -- * Delta expression evaluation
-  , gradientFromDeltaH, derivativeFromDeltaH
     -- * Exported to be specialized elsewhere
   , evalFromnMap, EvalState
   ) where
@@ -77,6 +76,52 @@ import HordeAd.Internal.OrthotopeOrphanInstances
   (sameShape, trustMeThisIsAPermutation)
 import HordeAd.Util.ShapedList (ShapedList (..))
 import HordeAd.Util.SizedIndex
+
+-- * Reverse and forward derivative computation for HVectorPseudoTensor
+
+-- @r@ is a placeholder here, it's reduced away. @y@ is '(), but GHC doesn't
+-- know it has to be that. We could instead provide a type-level list of nats
+-- and lists of nats or at least the length of the list, and a list
+-- of the scalar types, but the shaped typing is too complex already.
+gradientFromDeltaH
+  :: forall ranked r (y :: ()). ADReady ranked
+  => VoidHVector
+  -> HVectorPseudoTensor ranked r y
+  -> Maybe (HVectorPseudoTensor ranked r y)
+  -> HVectorPseudoTensor (DeltaR ranked) r y
+  -> (AstBindingsD ranked, HVector ranked)
+gradientFromDeltaH !parameters0 (HVectorPseudoTensor value)
+                   !mdt !(HVectorPseudoTensor deltaTopLevel) =
+  let shDt = dshape @ranked value
+      dt :: HVectorOf ranked
+      dt = maybe (dmkHVector $ mapHVectorShaped @(ShapedOf ranked) (const 1)
+                  $ V.map dynamicFromVoid shDt)
+                 unHVectorPseudoTensor
+                 mdt
+      s0 = initEvalState parameters0
+      (abShared, dtShared) =  -- really not to share, but to convert to HVector
+        dregister dt (astBindings s0)
+      sShared = s0 {astBindings = abShared}
+      s1 = evalH sShared dtShared deltaTopLevel
+      !s2 = evalFromnMap s1
+      !gradient = V.fromList $ EM.elems $ iMap s2
+  in (astBindings s2, gradient)
+
+-- @r@ is a placeholder here, it's reduced away. @y@ is '(), but GHC doesn't
+-- know it has to be that.
+derivativeFromDeltaH
+  :: forall ranked r (y :: ()). ADReady ranked
+  => Int
+  -> HVectorPseudoTensor (DeltaR ranked) r y
+  -> HVector ranked
+  -> (AstBindingsD ranked, HVectorPseudoTensor ranked r y)
+derivativeFromDeltaH dim (HVectorPseudoTensor deltaTopLevel) ds =
+  -- EvalState is too complex for the forward derivative, but since
+  -- it's already defined, let's use it.
+  let s0 = EvalState EM.empty EM.empty EM.empty EM.empty EM.empty []
+      !(!s2, !c) = fwdH dim ds s0 deltaTopLevel
+  in (astBindings s2, HVectorPseudoTensor c)
+
 
 -- * Abstract syntax trees of the delta expressions
 
@@ -462,7 +507,7 @@ shapeDeltaH = \case
     accShs V.++ replicate1VoidHVector k bShs
 
 
--- * Delta expression identifiers
+-- * Delta expression identifiers and evaluation state
 
 type role NodeId phantom
 newtype NodeId (f :: TensorType ty) = NodeId Int
@@ -477,53 +522,6 @@ newtype InputId (f :: TensorType ty) = InputId Int
 -- | Wrap non-negative (only!) integers in the `InputId` newtype.
 toInputId :: Int -> InputId f
 toInputId i = assert (i >= 0) $ InputId i
-
-
--- * Reverse and forward derivative for HVectorPseudoTensor
-
--- @r@ is a placeholder here, it's reduced away. @y@ is '(), but GHC doesn't
--- know it has to be that. We could instead provide a type-level list of nats
--- and lists of nats or at least the length of the list, and a list
--- of the scalar types, but the shaped typing is too complex already.
-gradientFromDeltaH
-  :: forall ranked r (y :: ()). ADReady ranked
-  => VoidHVector
-  -> HVectorPseudoTensor ranked r y
-  -> Maybe (HVectorPseudoTensor ranked r y)
-  -> HVectorPseudoTensor (DeltaR ranked) r y
-  -> (AstBindingsD ranked, HVector ranked)
-gradientFromDeltaH !parameters0 (HVectorPseudoTensor value)
-                   !mdt !(HVectorPseudoTensor deltaTopLevel) =
-  let shDt = dshape @ranked value
-      dt :: HVectorOf ranked
-      dt = maybe (dmkHVector $ mapHVectorShaped @(ShapedOf ranked) (const 1)
-                  $ V.map dynamicFromVoid shDt)
-                 unHVectorPseudoTensor
-                 mdt
-      s0 = initEvalState parameters0
-      (abShared, dtShared) =  -- really not to share, but to convert to HVector
-        dregister dt (astBindings s0)
-      sShared = s0 {astBindings = abShared}
-      s1 = evalH sShared dtShared deltaTopLevel
-      EvalState{astBindings=astB, ..} = evalFromnMap s1
-      !gradient = V.fromList $ EM.elems iMap
-  in (astB, gradient)
-
--- @r@ is a placeholder here, it's reduced away. @y@ is '(), but GHC doesn't
--- know it has to be that.
-derivativeFromDeltaH
-  :: forall ranked r (y :: ()). ADReady ranked
-  => Int
-  -> HVectorPseudoTensor (DeltaR ranked) r y
-  -> HVector ranked
-  -> (AstBindingsD ranked, HVectorPseudoTensor ranked r y)
-derivativeFromDeltaH dim (HVectorPseudoTensor deltaTopLevel) ds =
-  let s0 = EvalState EM.empty EM.empty EM.empty EM.empty EM.empty []
-      !(!s2, !c) = fwdH dim ds s0 deltaTopLevel
-  in (astBindings s2, HVectorPseudoTensor c)
-
-
--- * Reverse pass, transpose/evaluation of the delta expressions
 
 -- | The state of evaluation. It consists of several maps.
 -- The maps indexed by input identifiers and node identifiers
@@ -629,6 +627,9 @@ initEvalState !parameters0 =
       hnMap = EM.empty
       astBindings = []
   in EvalState {..}
+
+
+-- * Reverse pass, transpose/evaluation of the delta expressions
 
 -- The first argument is the evaluation state being modified,
 -- the second is the cotangent accumulator that will become an actual
