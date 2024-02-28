@@ -57,36 +57,41 @@ import HordeAd.Core.Types
 -- arrays and so there's no risk of confusion of cotangent from different
 -- levels of differentiation if it's done multiple times.
 rev
-  :: forall r y g vals astvals.
-     ( AdaptableHVector (AstRanked FullSpan) astvals
-     , AdaptableHVector (AstRanked FullSpan) (g r y)
-     , AdaptableHVector (Flip OR.Array) vals
-     , AdaptableHVector (Flip OR.Array) (Value (g r y))
-     , TermValue astvals, vals ~ Value astvals )
-  => (astvals -> g r y) -> vals -> vals
+  :: forall r y g tgtAstVals astvals.
+     ( tgtAstVals ~ g r y
+     , AdaptableHVector (AstRanked FullSpan) astvals
+     , AdaptableHVector (AstRanked FullSpan) tgtAstVals
+     , AdaptableHVector (Flip OR.Array) (Value astvals)
+     , AdaptableHVector (Flip OR.Array) (Value tgtAstVals)
+     , TermValue astvals )
+  => (astvals -> tgtAstVals) -> Value astvals -> Value astvals
 {-# INLINE rev #-}
 rev f vals = revDtMaybe f vals Nothing
 
 -- | This version additionally takes the sensitivity parameter.
 revDt
-  :: forall r y g vals astvals.
-     ( AdaptableHVector (AstRanked FullSpan) astvals
-     , AdaptableHVector (AstRanked FullSpan) (g r y)
-     , AdaptableHVector (Flip OR.Array) vals
-     , AdaptableHVector (Flip OR.Array) (Value (g r y))
-     , TermValue astvals, vals ~ Value astvals )
-  => (astvals -> g r y) -> vals -> Value (g r y) -> vals
+  :: forall tgtAstVals astvals r y g.
+     ( tgtAstVals ~ g r y
+     , AdaptableHVector (AstRanked FullSpan) astvals
+     , AdaptableHVector (AstRanked FullSpan) tgtAstVals
+     , AdaptableHVector (Flip OR.Array) (Value astvals)
+     , AdaptableHVector (Flip OR.Array) (Value tgtAstVals)
+     , TermValue astvals )
+  => (astvals -> tgtAstVals) -> Value astvals -> Value tgtAstVals
+  -> Value astvals
 {-# INLINE revDt #-}
 revDt f vals dt = revDtMaybe f vals (Just dt)
 
 revDtMaybe
-  :: forall r y g vals astvals.
-     ( AdaptableHVector (AstRanked FullSpan) astvals
-     , AdaptableHVector (AstRanked FullSpan) (g r y)
-     , AdaptableHVector (Flip OR.Array) vals
-     , AdaptableHVector (Flip OR.Array) (Value (g r y))
-     , TermValue astvals, vals ~ Value astvals )
-  => (astvals -> g r y) -> vals -> Maybe (Value (g r y)) -> vals
+  :: forall tgtAstVals astvals r y g.
+     ( tgtAstVals ~ g r y
+     , AdaptableHVector (AstRanked FullSpan) astvals
+     , AdaptableHVector (AstRanked FullSpan) tgtAstVals
+     , AdaptableHVector (Flip OR.Array) (Value astvals)
+     , AdaptableHVector (Flip OR.Array) (Value tgtAstVals)
+     , TermValue astvals )
+  => (astvals -> tgtAstVals) -> Value astvals -> Maybe (Value tgtAstVals)
+  -> Value astvals
 {-# INLINE revDtMaybe #-}
 revDtMaybe f vals mdt =
   let g hVector = HVectorPseudoTensor
@@ -103,12 +108,12 @@ revDtMaybe f vals mdt =
 {-# SPECIALIZE revDtMaybe
   :: KnownNat n
   => ( AdaptableHVector (AstRanked FullSpan) astvals
-     , AdaptableHVector (Flip OR.Array) vals
-     , TermValue astvals, vals ~ Value astvals )
+     , AdaptableHVector (Flip OR.Array) (Value astvals)
+     , TermValue astvals )
   => (astvals -> AstRanked FullSpan Double n)
-  -> vals
+  -> Value astvals
   -> Maybe (Flip OR.Array Double n)
-  -> vals #-}
+  -> Value astvals #-}
 
 revArtifactAdapt
   :: forall r y g vals astvals.

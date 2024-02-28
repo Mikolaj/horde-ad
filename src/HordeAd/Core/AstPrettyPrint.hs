@@ -961,7 +961,7 @@ printAstHVectorPrettyButNested renames t =
 
 printGradient6Simple
   :: IntMap String
-  -> AstArtifactRev (HVectorPseudoTensor (AstRanked PrimalSpan)) Float '()
+  -> AstArtifactRev (HVectorPseudoTensor (AstRanked PrimalSpan)) r y
   -> String
 printGradient6Simple renames ((varsDt, vars1), gradient, _, _) =
   let varsPP = map (printAstDynamicVarNameBrief renames) $ varsDt ++ vars1
@@ -970,7 +970,7 @@ printGradient6Simple renames ((varsDt, vars1), gradient, _, _) =
 
 printGradient6Pretty
   :: IntMap String
-  -> AstArtifactRev (HVectorPseudoTensor (AstRanked PrimalSpan)) Float '()
+  -> AstArtifactRev (HVectorPseudoTensor (AstRanked PrimalSpan)) r y
   -> String
 printGradient6Pretty renames ((varsDt, vars1), gradient, _, _) =
   let varsPP = map (printAstDynamicVarNameBrief renames) $ varsDt ++ vars1
@@ -979,7 +979,7 @@ printGradient6Pretty renames ((varsDt, vars1), gradient, _, _) =
 
 printPrimal6Simple
   :: IntMap String
-  -> AstArtifactRev (HVectorPseudoTensor (AstRanked PrimalSpan)) Float '()
+  -> AstArtifactRev (HVectorPseudoTensor (AstRanked PrimalSpan)) r y
   -> String
 printPrimal6Simple renames ((_, vars1), _, HVectorPseudoTensor primal, _) =
   let varsPP = map (printAstDynamicVarNameBrief renames) vars1
@@ -988,7 +988,7 @@ printPrimal6Simple renames ((_, vars1), _, HVectorPseudoTensor primal, _) =
 
 printPrimal6Pretty
   :: IntMap String
-  -> AstArtifactRev (HVectorPseudoTensor (AstRanked PrimalSpan)) Float '()
+  -> AstArtifactRev (HVectorPseudoTensor (AstRanked PrimalSpan)) r y
   -> String
 printPrimal6Pretty renames ((_, vars1), _, HVectorPseudoTensor primal, _) =
   let varsPP = map (printAstDynamicVarNameBrief renames) vars1

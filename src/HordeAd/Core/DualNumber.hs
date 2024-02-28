@@ -220,11 +220,11 @@ unletPseudo l astBindings =
 
 crevOnADInputs
   :: ADReady ranked
-  => Maybe (HVectorPseudoTensor ranked Float '())
+  => Maybe (HVectorPseudoTensor ranked r y)
   -> (HVector (ADVal ranked)
-      -> ADVal (HVectorPseudoTensor ranked) Float '())
+      -> ADVal (HVectorPseudoTensor ranked) r y)
   -> HVector (ADVal ranked)
-  -> (HVectorOf ranked, HVectorPseudoTensor ranked Float '())
+  -> (HVectorOf ranked, HVectorPseudoTensor ranked r y)
 -- The functions in which @revOnADInputs@ inlines are not inlined themselves
 -- in client code, so the bloat is limited.
 {-# INLINE crevOnADInputs #-}
@@ -242,11 +242,11 @@ crevOnADInputs mdt f inputs =
 
 crevOnHVector
   :: ADReady ranked
-  => Maybe (HVectorPseudoTensor ranked Float '())
+  => Maybe (HVectorPseudoTensor ranked r y)
   -> (HVector (ADVal ranked)
-      -> ADVal (HVectorPseudoTensor ranked) Float '())
+      -> ADVal (HVectorPseudoTensor ranked) r y)
   -> HVector ranked
-  -> (HVectorOf ranked, HVectorPseudoTensor ranked Float '())
+  -> (HVectorOf ranked, HVectorPseudoTensor ranked r y)
 crevOnHVector mdt f parameters =
   let deltaInputs = generateDeltaInputs parameters
       inputs = makeADInputs parameters deltaInputs
@@ -256,10 +256,10 @@ cfwdOnADInputs
   :: ADReady ranked
   => HVector (ADVal ranked)
   -> (HVector (ADVal ranked)
-      -> ADVal (HVectorPseudoTensor ranked) Float '())
+      -> ADVal (HVectorPseudoTensor ranked) r y)
   -> HVector ranked
-  -> ( HVectorPseudoTensor ranked Float '()
-     , HVectorPseudoTensor ranked Float '() )
+  -> ( HVectorPseudoTensor ranked r y
+     , HVectorPseudoTensor ranked r y )
 {-# INLINE cfwdOnADInputs #-}
 cfwdOnADInputs inputs f ds =
   let !(D l v deltaTopLevel) = f inputs in
@@ -271,10 +271,10 @@ cfwdOnHVector
   :: ADReady ranked
   => HVector ranked
   -> (HVector (ADVal ranked)
-      -> ADVal (HVectorPseudoTensor ranked) Float '())
+      -> ADVal (HVectorPseudoTensor ranked) r y)
   -> HVector ranked
-  -> ( HVectorPseudoTensor ranked Float '()
-     , HVectorPseudoTensor ranked Float '() )
+  -> ( HVectorPseudoTensor ranked r y
+     , HVectorPseudoTensor ranked r y )
 cfwdOnHVector parameters f ds =
   let deltaInputs = generateDeltaInputs parameters
       inputs = makeADInputs parameters deltaInputs

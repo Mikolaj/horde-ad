@@ -1299,7 +1299,7 @@ testFooBuildDt :: Assertion
 testFooBuildDt =
   assertEqualUpToEpsilon1 1e-5
     (OR.fromList [4] [-189890.46351219364,-233886.08744601303,-222532.22669716467,-206108.68889329425])
-    (revDt @Double @1 fooBuild1 (Flip $ OR.fromList [4] [1.1, 2.2, 3.3, 4]) (Flip $ OR.constant [3] 42))
+    (revDt @(AstRanked FullSpan Double 1) fooBuild1 (Flip $ OR.fromList [4] [1.1, 2.2, 3.3, 4]) (Flip $ OR.constant [3] 42))
 
 testFooBuildCFwd :: Assertion
 testFooBuildCFwd =
@@ -1450,7 +1450,7 @@ testBarReluDt :: Assertion
 testBarReluDt =
   assertEqualUpToEpsilon1 1e-10
     (OR.fromList [] [191.20462646925841])
-    (revDt @Double @0 @(AstRanked FullSpan) barRelu (Flip $ OR.fromList [] [1.1]) 42.2)
+    (revDt @(AstRanked FullSpan Double 0) barRelu (Flip $ OR.fromList [] [1.1]) 42.2)
 
 testBarRelu :: Assertion
 testBarRelu =
@@ -1473,7 +1473,7 @@ testBarReluMaxDt :: Assertion
 testBarReluMaxDt =
   assertEqualUpToEpsilon1 1e-10
     (OR.fromList [] [191.20462646925841])
-    (revDt @Double @0 @(AstRanked FullSpan) barReluMax (Flip $ OR.fromList [] [1.1]) 42.2)
+    (revDt @(AstRanked FullSpan Double 0) barReluMax (Flip $ OR.fromList [] [1.1]) 42.2)
 
 testBarReluMax :: Assertion
 testBarReluMax =

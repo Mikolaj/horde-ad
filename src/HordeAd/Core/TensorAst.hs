@@ -52,12 +52,12 @@ import           HordeAd.Util.SizedIndex
 -- * Reverse and forward derivative stages
 
 revProduceArtifactH
-  :: forall r y g vals astvals.
+  :: forall r y g astvals.
      ( AdaptableHVector (AstRanked FullSpan) (g r y)
      , AdaptableHVector (AstRanked FullSpan) astvals
-     , TermValue astvals, vals ~ Value astvals )
+     , TermValue astvals )
   => Bool -> (astvals -> g r y) -> AstEnv (ADVal (AstRanked PrimalSpan))
-  -> vals -> VoidHVector
+  -> Value astvals -> VoidHVector
   -> ( AstArtifactRev (HVectorPseudoTensor (AstRanked PrimalSpan)) Float '()
      , Dual (HVectorPseudoTensor (AstRanked PrimalSpan)) Float '() )
 {-# INLINE revProduceArtifactH #-}
@@ -89,8 +89,7 @@ forwardPassByInterpretation g envInit hVectorPrimal vars hVector =
                  (HVectorPseudoTensor $ HToH as')
 
 revArtifactFromForwardPass
-  :: (r ~ Float, y ~ '())
-  => Bool
+  :: Bool
   -> (HVector (AstRanked PrimalSpan)
       -> [AstDynamicVarName]
       -> HVector (AstRanked FullSpan)
@@ -124,10 +123,10 @@ revArtifactFromForwardPass hasDt forwardPass parameters0 =
        , delta )
 
 revEvalArtifact
-  :: g ~ HVectorPseudoTensor (AstRanked FullSpan)
-  => AstArtifactRev (PrimalOf g) r y -> HVector (Flip OR.Array)
-  -> Maybe (Value (g r y))
-  -> (HVector (Flip OR.Array), Value (g r y))
+  :: AstArtifactRev (HVectorPseudoTensor (AstRanked PrimalSpan)) r y
+  -> HVector (Flip OR.Array)
+  -> Maybe (HVectorPseudoTensor (Flip OR.Array) r y)
+  -> (HVector (Flip OR.Array), HVectorPseudoTensor (Flip OR.Array) r y)
 {-# INLINE revEvalArtifact #-}
 revEvalArtifact ((varsDt, vars), gradient, primal, _sh) parameters mdt =
   let env = foldr extendEnvD EM.empty $ zip vars $ V.toList parameters
@@ -140,20 +139,19 @@ revEvalArtifact ((varsDt, vars), gradient, primal, _sh) parameters mdt =
   in (gradientHVector, HVectorPseudoTensor primalTensor)
 
 revProduceArtifact
-  :: ( r ~ Float, y ~ '()
-     , g ~ HVectorPseudoTensor (AstRanked FullSpan) )
-  => Bool
-  -> (HVector (RankedOf g) -> g r y)
-  -> AstEnv (ADVal (RankedOf (PrimalOf g)))
+  :: Bool
+  -> (HVector (AstRanked FullSpan)
+      -> HVectorPseudoTensor (AstRanked FullSpan) r y)
+  -> AstEnv (ADVal (AstRanked PrimalSpan))
   -> VoidHVector
-  -> (AstArtifactRev (PrimalOf g) r y, Dual (PrimalOf g) r y)
+  -> ( AstArtifactRev (HVectorPseudoTensor (AstRanked PrimalSpan)) r y
+     , Dual (HVectorPseudoTensor (AstRanked PrimalSpan)) r y )
 {-# INLINE revProduceArtifact #-}
 revProduceArtifact hasDt g envInit =
   revArtifactFromForwardPass hasDt (forwardPassByInterpretation g envInit)
 
 fwdArtifactFromForwardPass
-  :: (r ~ Float, y ~ '())
-  => (HVector (AstRanked PrimalSpan)
+  :: (HVector (AstRanked PrimalSpan)
       -> [AstDynamicVarName]
       -> HVector (AstRanked FullSpan)
       -> ADVal (HVectorPseudoTensor (AstRanked PrimalSpan)) r y)
@@ -175,10 +173,11 @@ fwdArtifactFromForwardPass forwardPass parameters0 =
      , delta )
 
 fwdEvalArtifact
-  :: g ~ HVectorPseudoTensor (AstRanked FullSpan)
-  => AstArtifactFwd (PrimalOf g) r y -> HVector (Flip OR.Array)
+  :: AstArtifactFwd (HVectorPseudoTensor (AstRanked PrimalSpan)) r y
   -> HVector (Flip OR.Array)
-  -> (Value (g r y), Value (g r y))
+  -> HVector (Flip OR.Array)
+  -> ( HVectorPseudoTensor (Flip OR.Array) r y
+     , HVectorPseudoTensor (Flip OR.Array) r y )
 {-# INLINE fwdEvalArtifact #-}
 fwdEvalArtifact ((varDs, vars), derivative, primal) parameters ds =
   if hVectorsMatch parameters ds then
@@ -192,12 +191,12 @@ fwdEvalArtifact ((varDs, vars), derivative, primal) parameters ds =
  else error "fwdEvalArtifact: forward derivative input and sensitivity arguments should have same shapes"
 
 fwdProduceArtifact
-  :: ( r ~ Float, y ~ '()
-     , g ~ HVectorPseudoTensor (AstRanked FullSpan) )
-  => (HVector (RankedOf g) -> g r y)
-  -> AstEnv (ADVal (RankedOf (PrimalOf g)))
+  :: (HVector (AstRanked FullSpan)
+      -> HVectorPseudoTensor (AstRanked FullSpan) r y)
+  -> AstEnv (ADVal (AstRanked PrimalSpan))
   -> VoidHVector
-  -> (AstArtifactFwd (PrimalOf g) r y, Dual (PrimalOf g) r y)
+  -> ( AstArtifactFwd (HVectorPseudoTensor (AstRanked PrimalSpan)) r y
+     , Dual (HVectorPseudoTensor (AstRanked PrimalSpan)) r y )
 {-# INLINE fwdProduceArtifact #-}
 fwdProduceArtifact g envInit =
   fwdArtifactFromForwardPass (forwardPassByInterpretation g envInit)
@@ -643,7 +642,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     -- This computes the (AST of) derivative of f once and interprets it again
     -- for each new tensor of arguments, which is better than computing it anew.
     let g :: HVector (AstRanked FullSpan)
-          -> HVectorPseudoTensor (AstRanked FullSpan) Float '()
+          -> HVectorPseudoTensor (AstRanked FullSpan) r y
         g !hv = HVectorPseudoTensor $ unHFun f [hv]
         (((varsDt, vars), gradient, _primal, _sh), _delta) =
           revProduceArtifact True g EM.empty shs
@@ -655,7 +654,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     -- This computes the (AST of) derivative of f once and interprets it again
     -- for each new tensor of arguments, which is better than computing it anew.
     let g :: HVector (AstRanked FullSpan)
-          -> HVectorPseudoTensor (AstRanked FullSpan) Float '()
+          -> HVectorPseudoTensor (AstRanked FullSpan) r y
         g !hv = HVectorPseudoTensor $ unHFun f [hv]
         (((varsDt, vars), derivative, _primal), _delta) =
           fwdProduceArtifact g EM.empty shs

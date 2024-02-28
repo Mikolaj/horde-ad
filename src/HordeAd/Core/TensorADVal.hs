@@ -417,7 +417,7 @@ instance ADReadyBoth ranked shaped
   rrev f _parameters0 parameters =
     -- This computes the derivative of g again for each new @parmeters@.
     let g :: HVector (ADVal (ADVal ranked))
-          -> ADVal (HVectorPseudoTensor (ADVal ranked)) Float '()
+          -> ADVal (HVectorPseudoTensor (ADVal ranked)) r y
         g !hv = let D l a a' = f hv
                 in dDnotShared l
                                (HVectorPseudoTensor $ dmkHVector
@@ -429,9 +429,9 @@ instance ADReadyBoth ranked shaped
          -> HFun
          -> HFun
   drevDt _shs f =
-    let g :: forall f. ADReady f
+    let g :: ADReady f
           => HVector (ADVal f)
-          -> ADVal (HVectorPseudoTensor f) Float '()
+          -> ADVal (HVectorPseudoTensor f) r y
         g !hv = let (ll, as, as') = unADValHVector $ unHFun f [hv]
                 in dDnotShared (flattenADShare $ V.toList ll)
                                (HVectorPseudoTensor $ dmkHVector as)
@@ -446,9 +446,9 @@ instance ADReadyBoth ranked shaped
        -> HFun
        -> HFun
   dfwd _shs f =
-    let g :: forall f. ADReady f
+    let g :: ADReady f
           => HVector (ADVal f)
-          -> ADVal (HVectorPseudoTensor f) Float '()
+          -> ADVal (HVectorPseudoTensor f) r y
         g !hv = let (ll, as, as') = unADValHVector $ unHFun f [hv]
                 in dDnotShared (flattenADShare $ V.toList ll)
                                (HVectorPseudoTensor $ dmkHVector as)
@@ -608,12 +608,14 @@ ahhToHVector l h h' =
        -- TODO: write why these projections don't break any sharing
 
 aDValToHVector
-  :: forall ranked.
-     (HVectorOf ranked ~ HVector ranked, RankedOf (ShapedOf ranked) ~ ranked)
-  => ADVal (HVectorPseudoTensor ranked) Float '() -> HVector (ADVal ranked)
+  :: (HVectorOf ranked ~ HVector ranked, RankedOf (ShapedOf ranked) ~ ranked)
+  => ADVal (HVectorPseudoTensor ranked) r y -> HVector (ADVal ranked)
 aDValToHVector (D l (HVectorPseudoTensor h) (HVectorPseudoTensor h')) =
   ahhToHVector l h h'
 
+-- `Float '()` instead of `r y` is needed to avoid
+-- `Ambiguous type variables ‘r1’, ‘y1’ arising from a use of ‘crev’`
+-- in contexts like `crev (hVectorADValToADVal . f)`.
 hVectorADValToADVal
   :: forall ranked. HVectorTensor ranked (ShapedOf ranked)
   => HVector (ADVal ranked) -> ADVal (HVectorPseudoTensor ranked) Float '()
@@ -667,7 +669,7 @@ instance HVectorTensor (Flip OR.Array) (Flip OS.Array) where
   rrev f _parameters0 parameters =
     -- This computes the derivative of g again for each new @parmeters@.
     let g :: HVector (ADVal (Flip OR.Array))
-          -> ADVal (HVectorPseudoTensor (Flip OR.Array)) Float '()
+          -> ADVal (HVectorPseudoTensor (Flip OR.Array)) r y
         g !hv = let D l a a' = f hv
                 in dDnotShared l
                                (HVectorPseudoTensor $ dmkHVector
@@ -681,9 +683,9 @@ instance HVectorTensor (Flip OR.Array) (Flip OS.Array) where
          -> HFun
          -> HFun
   drevDt _shs f =
-    let g :: forall f. ADReady f
+    let g :: ADReady f
           => HVector (ADVal f)
-          -> ADVal (HVectorPseudoTensor f) Float '()
+          -> ADVal (HVectorPseudoTensor f) r y
         g !hv = let (ll, as, as') = unADValHVector $ unHFun f [hv]
                 in dDnotShared (flattenADShare $ V.toList ll)
                                (HVectorPseudoTensor $ dmkHVector as)
@@ -697,9 +699,9 @@ instance HVectorTensor (Flip OR.Array) (Flip OS.Array) where
        -> HFun
        -> HFun
   dfwd _shs f =
-    let g :: forall f. ADReady f
+    let g :: ADReady f
           => HVector (ADVal f)
-          -> ADVal (HVectorPseudoTensor f) Float '()
+          -> ADVal (HVectorPseudoTensor f) r y
         g !hv = let (ll, as, as') = unADValHVector $ unHFun f [hv]
                 in dDnotShared (flattenADShare $ V.toList ll)
                                (HVectorPseudoTensor $ dmkHVector as)

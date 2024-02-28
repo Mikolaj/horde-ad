@@ -242,7 +242,7 @@ testFooBuildDt :: Assertion
 testFooBuildDt =
   assertEqualUpToEpsilon1 1e-5
     (OR.fromList [2,2,1,2,2] [1.1033568028244503e7,74274.22833989389,-5323238.2765011545,253074.03394016018,4.14744804041263e7,242643.98750578283,-1.922371592087736e7,2.730274503834733e7,1.135709425204681e7,6924.195066252549,-5345004.080027547,255679.51406100337,3.8870981856703006e7,241810.92121468345,-1.9380955730171032e7,2.877024321777493e7])
-    (revDt @Double @5 fooBuild5 t16 (Flip $ OR.constant [2, 2, 1, 2, 2] 42))
+    (revDt @(AstRanked FullSpan Double 5) fooBuild5 t16 (Flip $ OR.constant [2, 2, 1, 2, 2] 42))
 
 testFooBuild5 :: Assertion
 testFooBuild5 =
@@ -435,7 +435,7 @@ testBarReluADValDt :: Assertion
 testBarReluADValDt =
   assertEqualUpToEpsilon1 1e-6
     (OR.fromList [2,2,1,2,2] [1.2916050471365906e-2,1.2469757606504572e-2,1.3064120086501589e-2,1.2320300700062944e-2,0.0,1.217049789428711e-2,1.2185494267265312e-2,0.0,1.4105363649830907e-2,1.3506236503127638e-2,1.3359213691150671e-2,0.0,1.7066665416485535e-2,1.2618022646204737e-2,0.0,1.595161947206668e-2])
-    (revDt @Double @5 barRelu t16 (Flip $ OR.constant [ 2 , 2 , 1 , 2 , 2 ] 42.2))
+    (revDt @(AstRanked FullSpan Double 5) barRelu t16 (Flip $ OR.constant [ 2 , 2 , 1 , 2 , 2 ] 42.2))
 
 testBarReluADVal :: Assertion
 testBarReluADVal =
