@@ -236,7 +236,7 @@ rev' f vals =
         revEvalArtifact9 (simplifyArtifactRev artifactsPSimpleAst) parameters
       gradient5AstS = parseHVector vals astPSimpleAstS
       cderivative = cfwd f vals vals
-      derivative = fwd @r @m @(AstRanked FullSpan) f vals vals
+      derivative = fwd @(AstRanked FullSpan r m) f vals vals
       derivativeRfwd1 = rfwd1 @(Flip OR.Array) @r @n @m f vals
   in ( value0, value1, value2, value3, value2UnSimp, value3UnSimp
      , value4, value5

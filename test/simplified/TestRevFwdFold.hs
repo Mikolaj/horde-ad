@@ -223,6 +223,7 @@ testTrees =
   , testCase "4Sin0MapAccumNestedR5r" testSin0MapAccumNestedR5r
   , testCase "4Sin0MapAccumNestedR10r" testSin0MapAccumNestedR10r
   , testCase "4Sin0MapAccumNestedR10f" testSin0MapAccumNestedR10f
+  , testCase "4Sin0MapAccumNestedR10fN" testSin0MapAccumNestedR10fN
   , testCase "4Sin0MapAccumNestedR10rf" testSin0MapAccumNestedR10rf
   , testCase "4Sin0MapAccumNestedR10rr" testSin0MapAccumNestedR10rr
   , testCase "4Sin0FoldNestedS1FwdFwd0" testSin0FoldNestedS1FwdFwd0
@@ -3633,7 +3634,7 @@ testSin0MapAccumNestedR10f :: Assertion
 testSin0MapAccumNestedR10f = do
  assertEqualUpToEpsilon 1e-10
   (1.379370673816781e-4 :: Flip OR.Array Double 0)
-  (fwd @_ @_ @(AstRanked FullSpan)
+  (fwd @(AstRanked FullSpan Double 0)
    (let
       sh1 = voidFromSh @Double ZS
       shs1 = V.singleton sh1
@@ -3678,6 +3679,61 @@ testSin0MapAccumNestedR10f = do
                      a (replicate1HVector (SNat @2) x))
                    (V.singleton $ DynamicRanked z)
                    (V.singleton $ DynamicRanked $ rreplicate 2 z)
+    in f) 0.0001 0.0001)
+
+testSin0MapAccumNestedR10fN :: Assertion
+testSin0MapAccumNestedR10fN = do
+ assertEqualUpToEpsilon 1e-10
+  ( 1.379370673816781e-4 :: Flip OS.Array Float '[1]
+  , 1.379370673816781e-4 :: Flip OR.Array Double 0)
+  (fwd @(AstShaped FullSpan Float '[1], AstRanked FullSpan Double 0)
+   (let
+      sh1 = voidFromSh @Double ZS
+      shs1 = V.singleton sh1
+      g :: forall f. ADReady f => f Double 0 -> f Double 0
+      g z = rfromD $ (V.! 0) $ dunHVector
+            $ dmapAccumL @f (SNat @2) shs1 V.empty shs1
+                   (\x a ->
+               dmapAccumL (SNat @2) shs1 V.empty shs1
+                     (\x2 a2 ->
+                 dmapAccumL (SNat @2) shs1 V.empty shs1
+                       (\x3 a3 ->
+                   dmapAccumL (SNat @2) shs1 V.empty shs1
+                         (\x4 a4 ->
+                     dmapAccumL (SNat @2) shs1 V.empty shs1
+                           (\x5 a5 ->
+                       dmapAccumL (SNat @2) shs1 V.empty shs1
+                             (\x6 a6 ->
+                         dmapAccumL (SNat @2) shs1 V.empty shs1
+                               (\x7 a7 ->
+                           dmapAccumL (SNat @2) shs1 V.empty shs1
+                                 (\x8 a8 ->
+                             dmapAccumL (SNat @2) shs1 V.empty shs1
+                                   (\x9 a9 ->
+                               dmapAccumL (SNat @2) shs1 V.empty shs1
+                                     (\x10 a10 ->
+                                 dmapAccumL (SNat @2) shs1 V.empty shs1
+                                       (\x11 a11 ->
+                                          let y = rfromD @Double @0 $ x11 V.! 0
+                                              w = rfromD @Double @0 $ a11 V.! 0
+                                          in dmkHVector $ V.singleton
+                                             $ DynamicRanked
+                                             $ 0.01 * y + tan w)
+                                       a10 (replicate1HVector (SNat @2) x10))
+                                     a9 (replicate1HVector (SNat @2) x9))
+                                   a8 (replicate1HVector (SNat @2) x8))
+                                 a7 (replicate1HVector (SNat @2) x7))
+                               a6 (replicate1HVector (SNat @2) x6))
+                             a5 (replicate1HVector (SNat @2) x5))
+                           a4 (replicate1HVector (SNat @2) x4))
+                         a3 (replicate1HVector (SNat @2) x3))
+                       a2 (replicate1HVector (SNat @2) x2))
+                     a (replicate1HVector (SNat @2) x))
+                   (V.singleton $ DynamicRanked z)
+                   (V.singleton $ DynamicRanked $ rreplicate 2 z)
+      f :: forall f. ADReady f => f Double 0
+        -> (ShapedOf f Float '[1], f Double 0)
+      f x = (sfromList [scast $ sfromR $ g x], g x + 0.2)
     in f) 0.0001 0.0001)
 
 testSin0MapAccumNestedR10rf :: Assertion

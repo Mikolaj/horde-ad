@@ -169,7 +169,7 @@ instance ( AdaptableHVector ranked a
     let a1 = toHVector a
         b1 = toHVector b
     in V.concat [a1, b1]
-  fromHVector (aInit, bInit) source = do
+  fromHVector ~(aInit, bInit) source = do
     (a, aRest) <- fromHVector aInit source
     (b, bRest) <- fromHVector bInit aRest
     return ((a, b), bRest)
@@ -203,7 +203,7 @@ instance ( AdaptableHVector ranked a
         b1 = toHVector b
         c1 = toHVector c
     in V.concat [a1, b1, c1]
-  fromHVector (aInit, bInit, cInit) source = do
+  fromHVector ~(aInit, bInit, cInit) source = do
     (a, aRest) <- fromHVector aInit source
     (b, bRest) <- fromHVector bInit aRest
     (c, cRest) <- fromHVector cInit bRest
@@ -245,7 +245,7 @@ instance ( AdaptableHVector ranked a
         c1 = toHVector c
         d1 = toHVector d
     in V.concat [a1, b1, c1, d1]
-  fromHVector (aInit, bInit, cInit, dInit) source = do
+  fromHVector ~(aInit, bInit, cInit, dInit) source = do
     (a, aRest) <- fromHVector aInit source
     (b, bRest) <- fromHVector bInit aRest
     (c, cRest) <- fromHVector cInit bRest
@@ -298,7 +298,7 @@ instance ( AdaptableHVector ranked a
         d1 = toHVector d
         e1 = toHVector e
     in V.concat [a1, b1, c1, d1, e1]
-  fromHVector (aInit, bInit, cInit, dInit, eInit) source = do
+  fromHVector ~(aInit, bInit, cInit, dInit, eInit) source = do
     (a, aRest) <- fromHVector aInit source
     (b, bRest) <- fromHVector bInit aRest
     (c, cRest) <- fromHVector cInit bRest

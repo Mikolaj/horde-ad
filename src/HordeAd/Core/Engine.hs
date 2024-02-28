@@ -76,8 +76,8 @@ rev f vals = revDtMaybe f vals Nothing
 
 -- | This version of the reverse derivative operation
 -- explicitly takes the sensitivity parameter (the incoming cotangent).
--- It also permits an aribtrary type of not only the domain but also
--- the codomain of the function to be differentiated. The downside
+-- It also permits an aribtrary (nested tuple+) type of not only the domain
+-- but also the codomain of the function to be differentiated. The downside
 -- is that if the function doesn't have a type signature,
 -- the type often has to be spelled in full, instead of giving
 -- only the rank or shape and/or the base scalar type of a single
@@ -127,12 +127,13 @@ revDtMaybe f vals mdt =
   -> Value astvals #-}
 
 revArtifactAdapt
-  :: forall r y g vals astvals.
-     ( AdaptableHVector (AstRanked FullSpan) astvals
-     , AdaptableHVector (AstRanked FullSpan) (g r y)
-     , AdaptableHVector (Flip OR.Array) vals
-     , TermValue astvals, vals ~ Value astvals )
-  => Bool -> (astvals -> g r y) -> vals
+  :: forall r y g tgtAstVals astvals.
+     ( tgtAstVals ~ g r y
+     , AdaptableHVector (AstRanked FullSpan) astvals
+     , AdaptableHVector (AstRanked FullSpan) tgtAstVals
+     , AdaptableHVector (Flip OR.Array) (Value astvals)
+     , TermValue astvals )
+  => Bool -> (astvals -> tgtAstVals) -> Value astvals
   -> ( AstArtifactRev (HVectorPseudoTensor (AstRanked PrimalSpan)) Float '()
      , Dual (HVectorPseudoTensor (AstRanked PrimalSpan)) Float '() )
 revArtifactAdapt hasDt f vals =
@@ -142,6 +143,7 @@ revArtifactAdapt hasDt f vals =
       valsH = toHVector @(Flip OR.Array) vals
       voidH = voidFromHVector valsH
   in revProduceArtifact hasDt g EM.empty voidH
+{- TODO: "too complicated to desugar"
 {-# SPECIALIZE revArtifactAdapt
   :: KnownNat n
   => ( AdaptableHVector (AstRanked FullSpan) astvals
@@ -149,7 +151,7 @@ revArtifactAdapt hasDt f vals =
      , TermValue astvals, vals ~ Value astvals )
   => Bool -> (astvals -> AstRanked FullSpan Double n) -> vals
   -> ( AstArtifactRev (HVectorPseudoTensor (AstRanked PrimalSpan)) Float '()
-     , Dual (HVectorPseudoTensor (AstRanked PrimalSpan)) Float '() ) #-}
+     , Dual (HVectorPseudoTensor (AstRanked PrimalSpan)) Float '() ) #-} -}
 
 revProduceArtifactWithoutInterpretation
   :: (AdaptableHVector (ADVal (AstRanked PrimalSpan))
@@ -182,20 +184,24 @@ forwardPassByApplication g hVectorPrimal _vars _hVector =
 
 -- * Forward derivative adaptors
 
--- | This takes the sensitivity parameter, by convention.
--- It uses the same delta expressions as for gradients.
+-- | The forward derivative operation takes the sensitivity parameter
+-- (the incoming tangent). It also permits an aribtrary (nested tuple+)
+-- type of not only the domain but also the codomain of the function
+-- to be differentiated.
 --
 -- Warning: this fails often with ranked tensor due to inability
--- to determine tensor shapes, see test testBarReluMax3Fwd.
--- Shaped tensors work fine.
+-- to determine the tensor shapes, see test testBarReluMax3Fwd.
+-- Shaped tensors work fine. Similarly, the complex codomain resolution
+-- may fail at runtime if it contains lists or vectors of tensors, etc.
 fwd
-  :: forall r y g vals astvals.
+  :: forall tgtAstVals astvals.
      ( AdaptableHVector (AstRanked FullSpan) astvals
-     , AdaptableHVector (AstRanked FullSpan) (g r y)
-     , AdaptableHVector (Flip OR.Array) vals
-     , AdaptableHVector (Flip OR.Array) (Value (g r y))
-     , TermValue astvals, vals ~ Value astvals )
-  => (astvals -> g r y) -> vals -> vals -> Value (g r y)
+     , AdaptableHVector (AstRanked FullSpan) tgtAstVals
+     , AdaptableHVector (Flip OR.Array) (Value astvals)
+     , AdaptableHVector (Flip OR.Array) (Value tgtAstVals)
+     , TermValue astvals )
+  => (astvals -> tgtAstVals) -> Value astvals -> Value astvals
+  -> Value tgtAstVals
 fwd f vals ds =
   let g hVector = HVectorPseudoTensor
                   $ toHVectorOf @(AstRanked FullSpan) dmkHVector
@@ -204,16 +210,18 @@ fwd f vals ds =
       voidH = voidFromHVector valsH
       artifact = fst $ fwdProduceArtifact g EM.empty voidH
       dsH = toHVector ds
-  in parseHVector undefined $ unHVectorPseudoTensor
+      err = error "fwd: codomain of unknown length"
+  in parseHVector err $ unHVectorPseudoTensor
      $ fst $ fwdEvalArtifact artifact valsH dsH
 
 fwdArtifactAdapt
-  :: forall r y g vals astvals.
-     ( AdaptableHVector (AstRanked FullSpan) astvals
-     , AdaptableHVector (AstRanked FullSpan) (g r y)
-     , AdaptableHVector (Flip OR.Array) vals
-     , TermValue astvals, vals ~ Value astvals )
-  => (astvals -> g r y) -> vals
+  :: forall r y g tgtAstVals astvals.
+     ( tgtAstVals ~ g r y
+     , AdaptableHVector (AstRanked FullSpan) astvals
+     , AdaptableHVector (AstRanked FullSpan) tgtAstVals
+     , AdaptableHVector (Flip OR.Array) (Value astvals)
+     , TermValue astvals )
+  => (astvals -> tgtAstVals) -> Value astvals
   -> ( AstArtifactFwd (HVectorPseudoTensor (AstRanked PrimalSpan))
                       Float '()
      , Dual (HVectorPseudoTensor (AstRanked PrimalSpan)) Float '() )
@@ -311,7 +319,8 @@ cfwd f vals ds =
                   $ f $ parseHVector (fromDValue vals) hVector
       valsH = toHVector vals
       dsH = toHVector ds
-  in parseHVector undefined $ unHVectorPseudoTensor
+      err = error "fwd: codomain of unknown length"
+  in parseHVector err $ unHVectorPseudoTensor
      $ fst $ cfwdOnHVector valsH g dsH
 
 
