@@ -650,7 +650,16 @@ instance HVectorTensor (Flip OR.Array) (Flip OS.Array) where
        -> HVector (Flip OR.Array)
        -> HVector (Flip OR.Array)
   rrev f _parameters0 parameters =
-    fst $ crevOnHVector Nothing (f @(ADVal (Flip OR.Array))) parameters
+    -- This computes the derivative of g again for each new @parmeters@.
+    let g :: HVector (ADVal (Flip OR.Array))
+          -> ADVal (HVectorPseudoTensor (Flip OR.Array)) Float '()
+        g !hv = let D l a a' = f hv
+                in dDnotShared l
+                               (HVectorPseudoTensor $ dmkHVector
+                                $ V.singleton $ DynamicRanked a)
+                               (HVectorPseudoTensor $ HToH
+                                $ V.singleton $ DynamicRanked a')
+    in fst $ crevOnHVector Nothing g parameters
   -- The code for drevDt and dfwd in this instance is the same as for the
   -- ADVal ranked instance, because the type family instance is the same.
   drevDt :: VoidHVector
