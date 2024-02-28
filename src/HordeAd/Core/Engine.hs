@@ -51,11 +51,17 @@ import HordeAd.Core.Types
 -- VJP (vector-jacobian product) or Lop (left operations) are alternative
 -- names to @rev@, but newcomers may have trouble understanding them.
 
--- | These work for any @g@ of DerivativeStages class.
--- We don't enforce by quantifcation that the objective function is closed,
--- because we evaluate the result of the differentiation down to concrete
--- arrays and so there's no risk of confusion of cotangent from different
--- levels of differentiation if it's done multiple times.
+-- | This simplified version of the reverse derivative operation
+-- sets the incoming cotangent @dt@ to be 1 and assumes the codomain
+-- of the function to be differentiated is a single ranked or shaped tensor
+-- (or another datatype known to the libray but determined by only three
+-- parameters @r@, @y@ and @g@, which is already not true for a pair
+-- of different tensors).
+--
+-- We don't enforce (e.g., by quantifcation) that the objective function
+-- is closed, because we evaluate the result of the differentiation
+-- down to concrete arrays and so there's no risk of confusion of cotangents
+-- from different levels of differentiation if it's done multiple times.
 rev
   :: forall r y g tgtAstVals astvals.
      ( tgtAstVals ~ g r y
@@ -68,11 +74,17 @@ rev
 {-# INLINE rev #-}
 rev f vals = revDtMaybe f vals Nothing
 
--- | This version additionally takes the sensitivity parameter.
+-- | This version of the reverse derivative operation
+-- explicitly takes the sensitivity parameter (the incoming cotangent).
+-- It also permits an aribtrary type of not only the domain but also
+-- the codomain of the function to be differentiated. The downside
+-- is that if the function doesn't have a type signature,
+-- the type often has to be spelled in full, instead of giving
+-- only the rank or shape and/or the base scalar type of a single
+-- tensor codomain.
 revDt
-  :: forall tgtAstVals astvals r y g.
-     ( tgtAstVals ~ g r y
-     , AdaptableHVector (AstRanked FullSpan) astvals
+  :: forall tgtAstVals astvals.
+     ( AdaptableHVector (AstRanked FullSpan) astvals
      , AdaptableHVector (AstRanked FullSpan) tgtAstVals
      , AdaptableHVector (Flip OR.Array) (Value astvals)
      , AdaptableHVector (Flip OR.Array) (Value tgtAstVals)
@@ -83,9 +95,8 @@ revDt
 revDt f vals dt = revDtMaybe f vals (Just dt)
 
 revDtMaybe
-  :: forall tgtAstVals astvals r y g.
-     ( tgtAstVals ~ g r y
-     , AdaptableHVector (AstRanked FullSpan) astvals
+  :: forall tgtAstVals astvals.
+     ( AdaptableHVector (AstRanked FullSpan) astvals
      , AdaptableHVector (AstRanked FullSpan) tgtAstVals
      , AdaptableHVector (Flip OR.Array) (Value astvals)
      , AdaptableHVector (Flip OR.Array) (Value tgtAstVals)
