@@ -126,8 +126,8 @@ revArtifactFromForwardPass hasDt forwardPass parameters0 =
 revEvalArtifact
   :: g ~ HVectorPseudoTensor (AstRanked FullSpan)
   => AstArtifactRev (PrimalOf g) r y -> HVector (Flip OR.Array)
-  -> Maybe (ConcreteOf g r y)
-  -> (HVector (Flip OR.Array), ConcreteOf g r y)
+  -> Maybe (Value (g r y))
+  -> (HVector (Flip OR.Array), Value (g r y))
 {-# INLINE revEvalArtifact #-}
 revEvalArtifact ((varsDt, vars), gradient, primal, _sh) parameters mdt =
   let env = foldr extendEnvD EM.empty $ zip vars $ V.toList parameters

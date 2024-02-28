@@ -8,7 +8,7 @@ module HordeAd.Core.Ast
   ( -- * The AstSpan kind
     AstSpanType(..), AstSpan(..), sameAstSpan
     -- * Assorted small definitions
-  , AstInt, IntVarName, pattern AstIntVar, isRankedInt, ConcreteOf
+  , AstInt, IntVarName, pattern AstIntVar, isRankedInt
   , AstBindings, ADShare
     -- * More and less typed variables and type synonyms containing them
   , AstVarName(..), varNameToAstVarId
@@ -146,18 +146,6 @@ isRankedInt _ = case ( sameAstSpan @s @PrimalSpan
                      , sameNat (Proxy @n) (Proxy @0) ) of
                   (Just Refl, Just Refl, Just Refl) -> Just Refl
                   _ -> Nothing
-
--- | The closed type family that assigns a concrete tensor type
--- to its corresponding AST type. It could be replaced by @Value@,
--- but it would prevent using a type signature for @DerivativeStages@
--- (unless we accept mandatory kinds in type applications of @rev@, etc.)
--- and some uses of @fwd@, etc., would require extra type applications.
-type ConcreteOf :: TensorType ty -> TensorType ty
-type family ConcreteOf f = result | result -> f where
-  ConcreteOf (AstRanked FullSpan) = Flip OR.Array
-  ConcreteOf (AstShaped FullSpan) = Flip OS.Array
-  ConcreteOf (HVectorPseudoTensor (AstRanked FullSpan)) =
-    HVectorPseudoTensor (Flip OR.Array)
 
 type AstBindings = AstBindingsD (AstRanked PrimalSpan)
 type ADShare = ADShareD (AstRanked PrimalSpan)

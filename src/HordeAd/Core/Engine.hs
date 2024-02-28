@@ -61,7 +61,7 @@ rev
      ( AdaptableHVector (AstRanked FullSpan) astvals
      , AdaptableHVector (AstRanked FullSpan) (g r y)
      , AdaptableHVector (Flip OR.Array) vals
-     , AdaptableHVector (Flip OR.Array) (ConcreteOf g r y)
+     , AdaptableHVector (Flip OR.Array) (Value (g r y))
      , TermValue astvals, vals ~ Value astvals )
   => (astvals -> g r y) -> vals -> vals
 {-# INLINE rev #-}
@@ -73,9 +73,9 @@ revDt
      ( AdaptableHVector (AstRanked FullSpan) astvals
      , AdaptableHVector (AstRanked FullSpan) (g r y)
      , AdaptableHVector (Flip OR.Array) vals
-     , AdaptableHVector (Flip OR.Array) (ConcreteOf g r y)
+     , AdaptableHVector (Flip OR.Array) (Value (g r y))
      , TermValue astvals, vals ~ Value astvals )
-  => (astvals -> g r y) -> vals -> ConcreteOf g r y -> vals
+  => (astvals -> g r y) -> vals -> Value (g r y) -> vals
 {-# INLINE revDt #-}
 revDt f vals dt = revDtMaybe f vals (Just dt)
 
@@ -84,9 +84,9 @@ revDtMaybe
      ( AdaptableHVector (AstRanked FullSpan) astvals
      , AdaptableHVector (AstRanked FullSpan) (g r y)
      , AdaptableHVector (Flip OR.Array) vals
-     , AdaptableHVector (Flip OR.Array) (ConcreteOf g r y)
+     , AdaptableHVector (Flip OR.Array) (Value (g r y))
      , TermValue astvals, vals ~ Value astvals )
-  => (astvals -> g r y) -> vals -> Maybe (ConcreteOf g r y) -> vals
+  => (astvals -> g r y) -> vals -> Maybe (Value (g r y)) -> vals
 {-# INLINE revDtMaybe #-}
 revDtMaybe f vals mdt =
   let g hVector = HVectorPseudoTensor
