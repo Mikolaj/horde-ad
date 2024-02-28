@@ -65,7 +65,7 @@ TODO: this causes a cyclic dependency:
       => AdaptableHVector (ADVal (AstRanked PrimalSpan))
                           (ADVal (AstRanked PrimalSpan) Double n) #-}
 -}
-  toHVector = undefined
+  toHVector = V.singleton . DynamicRanked
   fromHVector _aInit params = fromHVectorR @r @n params
 
 instance (KnownNat n, GoodScalar r, ADReady ranked)
@@ -238,7 +238,7 @@ instance ( ADReadyS shaped, Sh.Shape sh, GoodScalar r
          , ranked ~ RankedOf shaped )
          => AdaptableHVector (ADVal ranked)
                              (ADVal shaped r sh) where
-  toHVector = undefined
+  toHVector = V.singleton . DynamicShaped
   fromHVector _aInit params = fromHVectorS @r @sh params
 
 instance (ADReadyS shaped, Sh.Shape sh, GoodScalar r)
@@ -363,6 +363,21 @@ instance ADReadyS shaped => ShapedTensor (ADVal shaped) where
 
 
 -- * HVectorTensor instance
+
+instance (ADReady ranked, HVectorOf ranked ~ HVector ranked)
+         => AdaptableHVector (ADVal ranked)
+                             (ADVal (HVectorPseudoTensor ranked)
+                                    Float '()) where
+  toHVector = aDValToHVector
+  fromHVector (D _ (HVectorPseudoTensor h) _) params =
+    let (portion, rest) = V.splitAt (V.length h) params
+    in Just (hVectorADValToADVal portion, rest)
+
+instance ADReady ranked
+         => DualNumberValue (ADVal (HVectorPseudoTensor ranked) Float '()) where
+  type DValue (ADVal (HVectorPseudoTensor ranked) Float '()) =
+    HVectorPseudoTensor (Flip OR.Array) Float '()
+  fromDValue = hVectorADValToADVal . fromDValue . unHVectorPseudoTensor
 
 instance ADReadyBoth ranked shaped
          => HVectorTensor (ADVal ranked) (ADVal shaped) where
@@ -771,7 +786,14 @@ instance (Sh.Shape sh, Numeric r, Fractional r, Random r, Num (Vector r))
         arr = OS.fromVector $ createRandomVector (OS.sizeP (Proxy @sh)) g1
     in (Flip arr, g2)
 
--- This specialization is not possible where gradientFromDeltaR is defined,
+instance AdaptableHVector (Flip OR.Array)
+                          (HVectorPseudoTensor (Flip OR.Array) r y) where
+  toHVector = unHVectorPseudoTensor
+  fromHVector (HVectorPseudoTensor aInit) params =
+    let (portion, rest) = V.splitAt (V.length aInit) params
+    in Just (HVectorPseudoTensor portion, rest)
+
+-- This specialization is not possible where the functions are defined,
 -- but is possible here:
 {-# SPECIALIZE gradientFromDeltaR
   :: KnownNat y
