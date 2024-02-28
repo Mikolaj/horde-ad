@@ -27,6 +27,8 @@ import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.HVector
 import HordeAd.Core.HVectorOps
+import HordeAd.Core.TensorADVal
+import HordeAd.Core.TensorAst
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 
@@ -40,6 +42,28 @@ assertEqualUpToEpsilon1
   -> Assertion
 assertEqualUpToEpsilon1 eps expected result =
   assertEqualUpToEpsilon eps expected (runFlip result)
+
+crevDtMaybeBoth
+  :: forall r y f vals advals.
+     ( GoodScalar r, KnownNat y
+     , RankedOf f ~ Flip OR.Array  -- this helps with type reconstruction later
+     , AdaptableHVector (ADVal (Flip OR.Array)) advals
+     , AdaptableHVector (ADVal (Flip OR.Array)) (ADVal f r y)
+     , AdaptableHVector (Flip OR.Array) vals
+     , AdaptableHVector (Flip OR.Array) (f r y)
+     , DualNumberValue advals, vals ~ DValue advals )
+  => Maybe (f r y) -> (advals -> ADVal f r y) -> vals -> (vals, RankedOf f r y)
+{-# INLINE crevDtMaybeBoth #-}
+crevDtMaybeBoth mdt f vals =
+  let g hVector = hVectorADValToADVal
+                  $ toHVector @(ADVal (Flip OR.Array))
+                  $ f $ parseHVector (fromDValue vals) hVector
+      valsH = toHVector vals
+      mdth = HVectorPseudoTensor
+             . toHVector @(Flip OR.Array)
+             <$> mdt
+      (grad, HVectorPseudoTensor res) = crevOnHVector mdth g valsH
+  in (parseHVector vals grad, rfromD $ res V.! 0)
 
 rev' :: forall r m n v a.
         ( KnownNat n, KnownNat m, GoodScalar r
@@ -60,18 +84,24 @@ rev' f vals =
       g :: HVector (ADVal (Flip OR.Array))
         -> ADVal (Flip OR.Array) r m
       g inputs = f $ parseHVector valsFrom  inputs
-      (advalGrad, value1) = crevOnHVector dt g parameters
+      (advalGrad, value1) = crevDtMaybeBoth dt g parameters
       gradient1 = parseHVector vals advalGrad
       gradientRrev1 = rrev1 @(Flip OR.Array) @r @n @m f vals
       g9 :: HVector (ADVal (AstRanked PrimalSpan))
          -> ADVal (AstRanked PrimalSpan) r m
       g9 inputs = f @(ADVal (AstRanked PrimalSpan))
                   $ parseHVector (fromDValue vals) inputs
+      revEvalArtifact9
+        :: AstArtifactRev (HVectorPseudoTensor (AstRanked PrimalSpan)) Float '()
+        -> HVector (Flip OR.Array)
+        -> (HVector (Flip OR.Array), Flip OR.Array r m)
+      revEvalArtifact9 a1 a2 =
+        let (grad, v) = revEvalArtifact a1 a2 Nothing
+        in (grad, rfromD (unHVectorPseudoTensor v V.! 0))
       artifactsGradAst9 =
-        fst $ revProduceArtifactWithoutInterpretation @(AstRanked FullSpan)
-                TensorToken False g9 parameters0
+        fst $ revProduceArtifactWithoutInterpretation False g9 parameters0
       (advalGrad9, value9) =
-        revEvalArtifact artifactsGradAst9 parameters dt
+        revEvalArtifact9 artifactsGradAst9 parameters
       gradient9 = parseHVector vals advalGrad9
       hGeneral
         :: (ADReady fgen, ADReady f1)
@@ -94,26 +124,26 @@ rev' f vals =
         hGeneral @(ADVal (Flip OR.Array)) fx1 fx2 gx
                  (parseHVector valsFrom  inputs)
       (astGrad, value2) =
-        crevOnHVector dt (h id id id) parameters
+        crevDtMaybeBoth dt (h id id id) parameters
       gradient2 = parseHVector vals astGrad
       (astSimple, value3) =
-        crevOnHVector dt (h id id simplifyAst6) parameters
+        crevDtMaybeBoth dt (h id id simplifyAst6) parameters
       gradient3 = parseHVector vals astSimple
       (astGradUnSimp, value2UnSimp) =
-        crevOnHVector dt (h unAstNoSimplify AstNoSimplify id) parameters
+        crevDtMaybeBoth dt (h unAstNoSimplify AstNoSimplify id) parameters
       gradient2UnSimp = parseHVector vals astGradUnSimp
       gradientRrev2UnSimp =
         rrev1 @(Flip OR.Array) @r @n @m
               (hGeneral unAstNoSimplify AstNoSimplify id) vals
       (astSimpleUnSimp, value3UnSimp) =
-        crevOnHVector dt (h unAstNoSimplify AstNoSimplify simplifyAst6)
+        crevDtMaybeBoth dt (h unAstNoSimplify AstNoSimplify simplifyAst6)
                       parameters
       gradient3UnSimp = parseHVector vals astSimpleUnSimp
       gradientRrev3UnSimp =
         rrev1 @(Flip OR.Array) @r @n @m
               (hGeneral unAstNoSimplify AstNoSimplify simplifyAst6) vals
       (astPrimal, value4) =
-        crevOnHVector dt (h unAstNoVectorize AstNoVectorize id)
+        crevDtMaybeBoth dt (h unAstNoVectorize AstNoVectorize id)
                       parameters
           -- use the AstNoVectorize instance that does no vectorization
           -- and then interpret the results as the Ast instance
@@ -121,7 +151,7 @@ rev' f vals =
       gradientRrev4 = rrev1 @(Flip OR.Array) @r @n @m
                             (hGeneral unAstNoVectorize AstNoVectorize id) vals
       (astPSimple, value5) =
-        crevOnHVector dt (h unAstNoVectorize AstNoVectorize simplifyAst6)
+        crevDtMaybeBoth dt (h unAstNoVectorize AstNoVectorize simplifyAst6)
                       parameters
       gradient5 = parseHVector vals astPSimple
       gradientRrev5 =
@@ -142,72 +172,68 @@ rev' f vals =
         = hGeneral @(ADVal (AstRanked PrimalSpan))
                    fx1 fx2 gx (parseHVector (fromDValue vals) inputs)
       artifactsGradAst =
-        fst $ revProduceArtifactWithoutInterpretation @(AstRanked FullSpan)
-                TensorToken False (hAst id id id) parameters0
+        fst $ revProduceArtifactWithoutInterpretation
+                False (hAst id id id) parameters0
       (astGradAst, value2Ast) =
-        revEvalArtifact artifactsGradAst parameters dt
+        revEvalArtifact9 artifactsGradAst parameters
       gradient2Ast = parseHVector vals astGradAst
       (astGradAstS, value2AstS) =
-        revEvalArtifact (simplifyArtifactRev artifactsGradAst) parameters dt
+        revEvalArtifact9 (simplifyArtifactRev artifactsGradAst) parameters
       gradient2AstS = parseHVector vals astGradAstS
       artifactsGradAstT =
-        fst $ revProduceArtifactWithoutInterpretation @(AstRanked FullSpan)
-                TensorToken True (hAst id id id) parameters0
+        fst $ revProduceArtifactWithoutInterpretation
+                True (hAst id id id) parameters0
       (astGradAstST, value2AstST) =
-        revEvalArtifact (simplifyArtifactRev artifactsGradAstT) parameters dt
+        revEvalArtifact9 (simplifyArtifactRev artifactsGradAstT) parameters
       gradient2AstST = parseHVector vals astGradAstST
       artifactsSimpleAst =
-        fst $ revProduceArtifactWithoutInterpretation @(AstRanked FullSpan)
-                TensorToken False (hAst id id simplifyAst6) parameters0
+        fst $ revProduceArtifactWithoutInterpretation
+                False (hAst id id simplifyAst6) parameters0
       (astSimpleAst, value3Ast) =
-        revEvalArtifact artifactsSimpleAst parameters dt
+        revEvalArtifact9 artifactsSimpleAst parameters
       gradient3Ast = parseHVector vals astSimpleAst
       (astSimpleAstS, value3AstS) =
-        revEvalArtifact (simplifyArtifactRev artifactsSimpleAst) parameters dt
+        revEvalArtifact9 (simplifyArtifactRev artifactsSimpleAst) parameters
       gradient3AstS = parseHVector vals astSimpleAstS
       artifactsGradAstUnSimp =
-        fst $ revProduceArtifactWithoutInterpretation @(AstRanked FullSpan)
-                TensorToken False
-                (hAst unAstNoSimplify AstNoSimplify id) parameters0
+        fst $ revProduceArtifactWithoutInterpretation
+                False (hAst unAstNoSimplify AstNoSimplify id) parameters0
       (astGradAstUnSimp, value2AstUnSimp) =
-        revEvalArtifact artifactsGradAstUnSimp parameters dt
+        revEvalArtifact9 artifactsGradAstUnSimp parameters
       gradient2AstUnSimp = parseHVector vals astGradAstUnSimp
       (astGradAstSUnSimp, value2AstSUnSimp) =
-        revEvalArtifact (simplifyArtifactRev artifactsGradAstUnSimp)
-                        parameters dt
+        revEvalArtifact9 (simplifyArtifactRev artifactsGradAstUnSimp)
+                        parameters
       gradient2AstSUnSimp = parseHVector vals astGradAstSUnSimp
       artifactsSimpleAstUnSimp =
-        fst $ revProduceArtifactWithoutInterpretation @(AstRanked FullSpan)
-                TensorToken False
-                (hAst unAstNoSimplify AstNoSimplify simplifyAst6)
+        fst $ revProduceArtifactWithoutInterpretation
+                False (hAst unAstNoSimplify AstNoSimplify simplifyAst6)
                 parameters0
       (astSimpleAstUnSimp, value3AstUnSimp) =
-        revEvalArtifact artifactsSimpleAstUnSimp parameters dt
+        revEvalArtifact9 artifactsSimpleAstUnSimp parameters
       gradient3AstUnSimp = parseHVector vals astSimpleAstUnSimp
       (astSimpleAstSUnSimp, value3AstSUnSimp) =
-        revEvalArtifact (simplifyArtifactRev artifactsSimpleAstUnSimp)
-                        parameters dt
+        revEvalArtifact9 (simplifyArtifactRev artifactsSimpleAstUnSimp)
+                        parameters
       gradient3AstSUnSimp = parseHVector vals astSimpleAstSUnSimp
       artifactsPrimalAst =
-        fst $ revProduceArtifactWithoutInterpretation @(AstRanked FullSpan)
-                TensorToken False
-                (hAst unAstNoVectorize AstNoVectorize id) parameters0
+        fst $ revProduceArtifactWithoutInterpretation
+                False (hAst unAstNoVectorize AstNoVectorize id) parameters0
       (astPrimalAst, value4Ast) =
-        revEvalArtifact artifactsPrimalAst parameters dt
+        revEvalArtifact9 artifactsPrimalAst parameters
       gradient4Ast = parseHVector vals astPrimalAst
       (astPrimalAstS, value4AstS) =
-        revEvalArtifact (simplifyArtifactRev artifactsPrimalAst) parameters dt
+        revEvalArtifact9 (simplifyArtifactRev artifactsPrimalAst) parameters
       gradient4AstS = parseHVector vals astPrimalAstS
       artifactsPSimpleAst =
-        fst $ revProduceArtifactWithoutInterpretation @(AstRanked FullSpan)
-                TensorToken False
-                (hAst unAstNoVectorize AstNoVectorize simplifyAst6)
+        fst $ revProduceArtifactWithoutInterpretation
+                False (hAst unAstNoVectorize AstNoVectorize simplifyAst6)
                 parameters0
       (astPSimpleAst, value5Ast) =
-        revEvalArtifact artifactsPSimpleAst parameters dt
+        revEvalArtifact9 artifactsPSimpleAst parameters
       gradient5Ast = parseHVector vals astPSimpleAst
       (astPSimpleAstS, value5AstS) =
-        revEvalArtifact (simplifyArtifactRev artifactsPSimpleAst) parameters dt
+        revEvalArtifact9 (simplifyArtifactRev artifactsPSimpleAst) parameters
       gradient5AstS = parseHVector vals astPSimpleAstS
       cderivative = cfwd f vals vals
       derivative = fwd @r @m @(AstRanked FullSpan) f vals vals

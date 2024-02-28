@@ -795,15 +795,11 @@ instance AdaptableHVector (Flip OR.Array)
 
 -- This specialization is not possible where the functions are defined,
 -- but is possible here:
-{-# SPECIALIZE gradientFromDeltaR
-  :: KnownNat y
-  => VoidHVector -> Flip OR.Array Double y -> Maybe (Flip OR.Array Double y)
-  -> DeltaR (Flip OR.Array) Double y
-  -> (AstBindingsD (Flip OR.Array), HVector (Flip OR.Array) ) #-}
-{-# SPECIALIZE gradientFromDeltaS
-  :: Sh.Shape y
-  => VoidHVector -> Maybe (Flip OS.Array Double y)
-  -> DeltaS (Flip OS.Array) Double y
+{-# SPECIALIZE gradientFromDeltaH
+  :: VoidHVector
+  -> HVectorPseudoTensor (Flip OR.Array) Double y
+  -> Maybe (HVectorPseudoTensor (Flip OR.Array) Double y)
+  -> HVectorPseudoTensor (DeltaR (Flip OR.Array)) Double y
   -> (AstBindingsD (Flip OR.Array), HVector (Flip OR.Array)) #-}
 {-# SPECIALIZE evalFromnMap
   :: EvalState (Flip OR.Array) -> EvalState (Flip OR.Array) #-}

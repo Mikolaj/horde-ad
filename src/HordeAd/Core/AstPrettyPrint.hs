@@ -4,7 +4,8 @@
 -- from the differentiation.
 module HordeAd.Core.AstPrettyPrint
   ( -- * Pretty-print variables
-    printAstVarName, printAstVarNameS, printAstDynamicVarName
+    printAstVarName, printAstVarNameS, printAstDynamicVarNameBrief
+  , printAstDynamicVarName
   , printAstIntVarName
     -- * User-friendly API for pretty-printing AST terms
   , printAstSimple, printAstPretty, printAstPrettyButNested
@@ -12,8 +13,6 @@ module HordeAd.Core.AstPrettyPrint
   , printAstHVectorSimple, printAstHVectorPretty, printAstHVectorPrettyButNested
   , printGradient6Simple, printGradient6Pretty
   , printPrimal6Simple, printPrimal6Pretty
-  , printGradient6SimpleS, printGradient6PrettyS
-  , printPrimal6SimpleS, printPrimal6PrettyS
   ) where
 
 import Prelude
@@ -960,70 +959,38 @@ printAstHVectorPrettyButNested
 printAstHVectorPrettyButNested renames t =
   printAstHVector (defaulPrintConfig2 True False renames) 0 t ""
 
-printGradient6Simple :: IntMap String
-                     -> AstArtifactRev (AstRanked PrimalSpan) r n
-                     -> String
+printGradient6Simple
+  :: IntMap String
+  -> AstArtifactRev (HVectorPseudoTensor (AstRanked PrimalSpan)) Float '()
+  -> String
 printGradient6Simple renames ((varsDt, vars1), gradient, _, _) =
   let varsPP = map (printAstDynamicVarNameBrief renames) $ varsDt ++ vars1
   in "\\" ++ unwords varsPP
           ++ " -> " ++ printAstHVectorSimple renames gradient
 
-printGradient6Pretty :: IntMap String
-                     -> AstArtifactRev (AstRanked PrimalSpan) r n
-                     -> String
+printGradient6Pretty
+  :: IntMap String
+  -> AstArtifactRev (HVectorPseudoTensor (AstRanked PrimalSpan)) Float '()
+  -> String
 printGradient6Pretty renames ((varsDt, vars1), gradient, _, _) =
   let varsPP = map (printAstDynamicVarNameBrief renames) $ varsDt ++ vars1
   in "\\" ++ unwords varsPP
           ++ " -> " ++ printAstHVectorPretty renames gradient
 
-printPrimal6Simple :: (GoodScalar r, KnownNat n)
-                   => IntMap String
-                   -> AstArtifactRev (AstRanked PrimalSpan) r n
-                   -> String
-printPrimal6Simple renames ((_, vars1), _, primal, _) =
+printPrimal6Simple
+  :: IntMap String
+  -> AstArtifactRev (HVectorPseudoTensor (AstRanked PrimalSpan)) Float '()
+  -> String
+printPrimal6Simple renames ((_, vars1), _, HVectorPseudoTensor primal, _) =
   let varsPP = map (printAstDynamicVarNameBrief renames) vars1
   in "\\" ++ unwords varsPP
-          ++ " -> " ++ printAstSimple renames primal
+          ++ " -> " ++ printAstHVectorSimple renames primal
 
-printPrimal6Pretty :: (GoodScalar r, KnownNat n)
-                   => IntMap String
-                   -> AstArtifactRev (AstRanked PrimalSpan) r n
-                   -> String
-printPrimal6Pretty renames ((_, vars1), _, primal, _) =
+printPrimal6Pretty
+  :: IntMap String
+  -> AstArtifactRev (HVectorPseudoTensor (AstRanked PrimalSpan)) Float '()
+  -> String
+printPrimal6Pretty renames ((_, vars1), _, HVectorPseudoTensor primal, _) =
   let varsPP = map (printAstDynamicVarNameBrief renames) vars1
   in "\\" ++ unwords varsPP
-          ++ " -> " ++ printAstPretty renames primal
-
-printGradient6SimpleS :: IntMap String
-                      -> AstArtifactRev (AstShaped PrimalSpan) r sh
-                      -> String
-printGradient6SimpleS renames ((varsDt, vars1), gradient, _, _) =
-  let varsPP = map (printAstDynamicVarNameBrief renames) $ varsDt ++ vars1
-  in "\\" ++ unwords varsPP
-          ++ " -> " ++ printAstHVectorSimple renames gradient
-
-printGradient6PrettyS :: IntMap String
-                      -> AstArtifactRev (AstShaped PrimalSpan) r sh
-                      -> String
-printGradient6PrettyS renames ((varsDt, vars1), gradient, _, _) =
-  let varsPP = map (printAstDynamicVarNameBrief renames) $ varsDt ++ vars1
-  in "\\" ++ unwords varsPP
-          ++ " -> " ++ printAstHVectorPretty renames gradient
-
-printPrimal6SimpleS :: (GoodScalar r, Sh.Shape sh)
-                    => IntMap String
-                    -> AstArtifactRev (AstShaped PrimalSpan) r sh
-                    -> String
-printPrimal6SimpleS renames ((_, vars1), _, primal, _) =
-  let varsPP = map (printAstDynamicVarNameBrief renames) vars1
-  in "\\" ++ unwords varsPP
-          ++ " -> " ++ printAstSimpleS renames primal
-
-printPrimal6PrettyS :: (GoodScalar r, Sh.Shape sh)
-                    => IntMap String
-                    -> AstArtifactRev (AstShaped PrimalSpan) r sh
-                    -> String
-printPrimal6PrettyS renames ((_, vars1), _, primal, _) =
-  let varsPP = map (printAstDynamicVarNameBrief renames) vars1
-  in "\\" ++ unwords varsPP
-          ++ " -> " ++ printAstPrettyS renames primal
+          ++ " -> " ++ printAstHVectorPretty renames primal

@@ -61,7 +61,7 @@ envProd k f allxs =
 benchProd :: r ~ Double
           => ([r], [Flip OR.Array r 0], Data.Vector.Vector (Flip OR.Array r 0))
           -> [Benchmark]
-benchProd ~(_l, list, vec) =
+benchProd ~(_l, list, _vec) =
     [ bench "crev List" $ nf crevRankedListProd list
     , bench "rev List" $ nf revRankedListProd list
     , bench "r crev List" $ nf crevRankedListProdr list
@@ -77,6 +77,7 @@ benchProd ~(_l, list, vec) =
 --                vec2 :: Data.Vector.Vector (Flip OR.Array Double 0)
 --                vec2 = V.fromList list2
 --            in vec2)
+{- bit-rotten
     , bench "VecD crev" $
         let f :: DynamicTensor (Flip OR.Array) -> Flip OR.Array Double 0
             f (DynamicRanked @r2 @n2 d) =
@@ -87,6 +88,7 @@ benchProd ~(_l, list, vec) =
         in nf (V.map f . fst
                . crevOnHVector @Double Nothing rankedVecDProd)
               (V.map DynamicRanked vec)
+-}
     , bench "NoShare List crev" $ nf (crev rankedNoShareListProd) list
     ]
 

@@ -11,7 +11,7 @@ import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
 import           Data.List.Index (imap)
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (Nat, SomeNat (..), someNatVal)
+import           GHC.TypeLits (SomeNat (..), someNatVal)
 import qualified Numeric.LinearAlgebra as LA
 import           System.Random
 
@@ -19,6 +19,7 @@ import HordeAd
 import HordeAd.Core.Adaptor
 import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId (funToAstIOR)
+import HordeAd.Core.TensorAst
 import HordeAd.External.OptimizerTools
 
 import           MnistData
@@ -143,9 +144,9 @@ mnistTrainBench1VTO extraPrefix chunkLength xs widthHidden widthHidden2
         f = MnistFcnnRanked1.afcnnMnistLoss1TensorData @(AstRanked FullSpan)
               widthHidden widthHidden2
               (rconstant astGlyph, rconstant astLabel)
-        g hVector = f $ parseHVector (fromValue valsInit) hVector
         (((varDtAgain, vars1Again), gradientRaw, primal, sh), _) =
-          revProduceArtifact TensorToken False g envInit (voidFromHVector hVectorInit)
+           revProduceArtifactH False f envInit valsInit
+                               (voidFromHVector hVectorInit)
         gradient = simplifyAstHVector6 gradientRaw
         vars1AndInputAgain = vars1Again ++ [varGlyphD, varLabelD]
         vars = (varDtAgain, vars1AndInputAgain)
@@ -159,8 +160,7 @@ mnistTrainBench1VTO extraPrefix chunkLength xs widthHidden widthHidden2
               parametersAndInput =
                 V.concat [parameters, V.fromList [glyphD, labelD]]
               gradientHVector =
-                fst $ revEvalArtifact @Nat @(AstRanked FullSpan)
-                                      (vars, gradient, primal, sh)
+                fst $ revEvalArtifact (vars, gradient, primal, sh)
                                       parametersAndInput Nothing
           in go rest (updateWithGradient gamma parameters gradientHVector)
         chunk = take chunkLength xs
@@ -316,9 +316,9 @@ mnistTrainBench2VTO extraPrefix chunkLength xs widthHidden widthHidden2
                   EM.empty
         f = MnistFcnnRanked2.afcnnMnistLoss2TensorData @(AstRanked FullSpan)
               (rconstant astGlyph, rconstant astLabel)
-        g hVector = f $ parseHVector (fromValue valsInit) hVector
         (((varDtAgain, vars1Again), gradientRaw, primal, sh), _) =
-          revProduceArtifact TensorToken False g envInit (voidFromHVector hVectorInit)
+           revProduceArtifactH False f envInit valsInit
+                               (voidFromHVector hVectorInit)
         gradient = simplifyAstHVector6 gradientRaw
         vars1AndInputAgain = vars1Again ++ [varGlyphD, varLabelD]
         vars = (varDtAgain, vars1AndInputAgain)
@@ -332,8 +332,7 @@ mnistTrainBench2VTO extraPrefix chunkLength xs widthHidden widthHidden2
               parametersAndInput =
                 V.concat [parameters, V.fromList [glyphD, labelD]]
               gradientHVector =
-                fst $ revEvalArtifact @Nat @(AstRanked FullSpan)
-                                      (vars, gradient, primal, sh)
+                fst $ revEvalArtifact (vars, gradient, primal, sh)
                                       parametersAndInput Nothing
           in go rest (updateWithGradient gamma parameters gradientHVector)
         chunk = take chunkLength xs

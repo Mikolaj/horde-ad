@@ -10,8 +10,7 @@ module HordeAd.Core.DualNumber
   , indexPrimal, fromList, indexPrimalS, fromListS
   , ensureToplevelSharing, scaleNotShared, addNotShared, multNotShared
 --  , addParameters, dotParameters
-    -- * Reverse and forward derivative stages class and instances
-  , DerivativeStages (..)
+    -- * Non-symbolic teverse and forward derivative operations
   , crevOnADInputs, crevOnHVector, cfwdOnADInputs, cfwdOnHVector
   , generateDeltaInputs, makeADInputs
   ) where
@@ -26,16 +25,14 @@ import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
 import           Data.Bifunctor.Product
 import           Data.Functor.Const
-import           Data.Kind (Constraint, Type)
+import           Data.Kind (Type)
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality (testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, sameNat, type (+))
 import           Type.Reflection (typeRep)
 
-import HordeAd.Core.Adaptor
 import HordeAd.Core.Ast
-import HordeAd.Core.AstEnv
 import HordeAd.Core.Delta
 import HordeAd.Core.HVector
 import HordeAd.Core.IsPrimal
@@ -215,13 +212,12 @@ dotParameters (HVector a0 a1) (HVector b0 b1) =
 -}
 
 crevOnADInputs
-  :: forall f r y.
-     ( RankedTensor (RankedOf f), HVectorTensor (RankedOf f) (ShapedOf f)
-     , DualPart f, GoodScalar r, HasSingletonDict y)
-  => Maybe (f r y)
-  -> (HVector (ADVal (RankedOf f)) -> ADVal f r y)
-  -> HVector (ADVal (RankedOf f))
-  -> (HVectorOf (RankedOf f), f r y)
+  :: ADReady ranked
+  => Maybe (HVectorPseudoTensor ranked Float '())
+  -> (HVector (ADVal ranked)
+      -> ADVal (HVectorPseudoTensor ranked) Float '())
+  -> HVector (ADVal ranked)
+  -> (HVectorOf ranked, HVectorPseudoTensor ranked Float '())
 -- The functions in which @revOnADInputs@ inlines are not inlined themselves
 -- in client code, so the bloat is limited.
 {-# INLINE crevOnADInputs #-}
@@ -229,8 +225,8 @@ crevOnADInputs mdt f inputs =
   let -- Evaluate completely after terms constructed, to free memory
       -- before evaluation allocates new memory and new FFI is started.
       !(D l v deltaTopLevel) = f inputs in
-  let rshapePrimal :: (GoodScalar r2, KnownNat n)
-                   => ADVal (RankedOf f) r2 n -> ShapeInt n
+  let rshapePrimal :: (GoodScalar r2, KnownNat n, ADReady f)
+                   => ADVal f r2 n -> ShapeInt n
       rshapePrimal (D _ p _) = rshape p
       parameters0 = V.map (voidFromDynamicF (shapeToList . rshapePrimal)) inputs
       (!astBindings, !gradient) =
@@ -238,24 +234,25 @@ crevOnADInputs mdt f inputs =
   in (dunlet l astBindings (dmkHVector gradient), unlet l [] v)
 
 crevOnHVector
-  :: forall r y f.
-     ( RankedTensor (RankedOf f), HVectorTensor (RankedOf f) (ShapedOf f)
-     , DualPart f, GoodScalar r, HasSingletonDict y )
-  => Maybe (f r y)
-  -> (HVector (ADVal (RankedOf f)) -> ADVal f r y)
-  -> HVector (RankedOf f)
-  -> (HVectorOf (RankedOf f), f r y)
+  :: ADReady ranked
+  => Maybe (HVectorPseudoTensor ranked Float '())
+  -> (HVector (ADVal ranked)
+      -> ADVal (HVectorPseudoTensor ranked) Float '())
+  -> HVector ranked
+  -> (HVectorOf ranked, HVectorPseudoTensor ranked Float '())
 crevOnHVector mdt f parameters =
   let deltaInputs = generateDeltaInputs parameters
       inputs = makeADInputs parameters deltaInputs
   in crevOnADInputs mdt f inputs
 
 cfwdOnADInputs
-  :: (DualPart f, GoodScalar r, HasSingletonDict y)
-  => HVector (ADVal (RankedOf f))
-  -> (HVector (ADVal (RankedOf f)) -> ADVal f r y)
-  -> HVector (RankedOf f)
-  -> (f r y, f r y)
+  :: ADReady ranked
+  => HVector (ADVal ranked)
+  -> (HVector (ADVal ranked)
+      -> ADVal (HVectorPseudoTensor ranked) Float '())
+  -> HVector ranked
+  -> ( HVectorPseudoTensor ranked Float '()
+     , HVectorPseudoTensor ranked Float '() )
 {-# INLINE cfwdOnADInputs #-}
 cfwdOnADInputs inputs f ds =
   let !(D l v deltaTopLevel) = f inputs in
@@ -264,12 +261,13 @@ cfwdOnADInputs inputs f ds =
   in (unlet l astBindings derivative, unlet l [] v)
 
 cfwdOnHVector
-  :: forall r y f.
-     (RankedTensor (RankedOf f), DualPart f, GoodScalar r, HasSingletonDict y)
-  => HVector (RankedOf f)
-  -> (HVector (ADVal (RankedOf f)) -> ADVal f r y)
-  -> HVector (RankedOf f)
-  -> (f r y, f r y)
+  :: ADReady ranked
+  => HVector ranked
+  -> (HVector (ADVal ranked)
+      -> ADVal (HVectorPseudoTensor ranked) Float '())
+  -> HVector ranked
+  -> ( HVectorPseudoTensor ranked Float '()
+     , HVectorPseudoTensor ranked Float '() )
 cfwdOnHVector parameters f ds =
   let deltaInputs = generateDeltaInputs parameters
       inputs = makeADInputs parameters deltaInputs
@@ -315,74 +313,6 @@ makeADInputs =
           DynamicShaped $ dDnotShared emptyADShare t d
       f _ _ = error "makeADInputs: non-matching arguments"
   in V.zipWith f
-
-
--- * Reverse and forward derivative stages class and instances
-
-type DerivativeStages :: TensorType ty -> Constraint
-class DerivativeStages g where
-  forwardPassByInterpretation
-    :: (GoodScalar r, HasSingletonDict y)
-    => (HVector (RankedOf g) -> g r y)
-    -> AstEnv (ADVal (RankedOf (PrimalOf g)))
-    -> HVector (RankedOf (PrimalOf g))
-    -> [AstDynamicVarName]
-    -> HVector (RankedOf g)
-    -> ADVal (PrimalOf g) r y
-
-  revArtifactFromForwardPass
-    :: (GoodScalar r, HasSingletonDict y)
-    => TensorToken g
-    -> Bool
-    -> (HVector (RankedOf (PrimalOf g))
-        -> [AstDynamicVarName]
-        -> HVector (RankedOf g)
-        -> ADVal (PrimalOf g) r y)
-    -> VoidHVector
-    -> (AstArtifactRev (PrimalOf g) r y, Dual (PrimalOf g) r y)
-
-  revProduceArtifact
-    :: (GoodScalar r, HasSingletonDict y)
-    => TensorToken g -> Bool
-    -> (HVector (RankedOf g) -> g r y)
-    -> AstEnv (ADVal (RankedOf (PrimalOf g)))
-    -> VoidHVector
-    -> (AstArtifactRev (PrimalOf g) r y, Dual (PrimalOf g) r y)
-  {-# INLINE revProduceArtifact #-}
-  revProduceArtifact tf hasDt g envInit =
-    revArtifactFromForwardPass tf hasDt (forwardPassByInterpretation g envInit)
-
-  revEvalArtifact
-    :: (GoodScalar r, HasSingletonDict y)
-    => AstArtifactRev (PrimalOf g) r y -> HVector (Flip OR.Array)
-    -> Maybe (ConcreteOf g r y)
-    -> (HVector (Flip OR.Array), ConcreteOf g r y)
-
-  fwdArtifactFromForwardPass
-    :: forall r y. (GoodScalar r, HasSingletonDict y)
-    => TensorToken g
-    -> (HVector (RankedOf (PrimalOf g))
-        -> [AstDynamicVarName]
-        -> HVector (RankedOf g)
-        -> ADVal (PrimalOf g) r y)
-    -> VoidHVector
-    -> (AstArtifactFwd (PrimalOf g) r y, Dual (PrimalOf g) r y)
-
-  fwdEvalArtifact
-    :: (GoodScalar r, HasSingletonDict y)
-    => AstArtifactFwd (PrimalOf g) r y -> HVector (Flip OR.Array)
-    -> HVector (Flip OR.Array)
-    -> (Value (g r y), Value (g r y))
-
-  fwdProduceArtifact
-    :: (DerivativeStages g, GoodScalar r, HasSingletonDict y)
-    => TensorToken g -> (HVector (RankedOf g) -> g r y)
-    -> AstEnv (ADVal (RankedOf (PrimalOf g)))
-    -> VoidHVector
-    -> (AstArtifactFwd (PrimalOf g) r y, Dual (PrimalOf g) r y)
-  {-# INLINE fwdProduceArtifact #-}
-  fwdProduceArtifact tf g envInit =
-    fwdArtifactFromForwardPass tf (forwardPassByInterpretation g envInit)
 
 
 -- * Numeric instances for ADVal

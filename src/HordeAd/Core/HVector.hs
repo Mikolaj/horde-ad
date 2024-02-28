@@ -118,6 +118,9 @@ type HVectorPseudoTensor :: RankedTensorType -> TensorType ()
 newtype HVectorPseudoTensor ranked r y =
   HVectorPseudoTensor {unHVectorPseudoTensor :: HVectorOf ranked}
 
+deriving instance Show (HVectorOf ranked)
+                  => Show (HVectorPseudoTensor ranked r y)
+
 type instance RankedOf (HVectorPseudoTensor ranked) = ranked
 
 type instance ShapedOf (HVectorPseudoTensor ranked) = ShapedOf ranked

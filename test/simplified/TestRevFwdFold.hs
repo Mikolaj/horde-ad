@@ -1043,7 +1043,7 @@ testSin0Scan1Rev2PPA = do
                  (\x0 -> rscan (\x a -> sin x - a) x0
                            (rconst (OR.fromList @Double @1 [2] [5, 7]))) 1.1
   printAstHVectorPretty IM.empty (simplifyAstHVector6 a1)
-    @?= "let v4 = rconst (fromList [2] [5.0,7.0]) in let [x5 @Natural @Double @[], v6 @Natural @Double @[2], v7 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [x1] [v4] in let [x11 @Natural @Double @[], v12 @Natural @Double @[2]] = dmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> [0.0] [rslice 1 2 v8, v6, v4] in [x11 + v8 ! [0]]"
+    @?= "let v4 = rconst (fromList [2] [5.0,7.0]) in let [x5 @Natural @Double @[], v6 @Natural @Double @[2], v7 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [x1] [v4] in let [x12 @Natural @Double @[], v13 @Natural @Double @[2]] = dmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> [0.0] [rslice 1 2 v8, v6, v4] in [x12 + v8 ! [0]]"
 
 testSin0Scan1Rev2PPForComparison :: Assertion
 testSin0Scan1Rev2PPForComparison = do
@@ -1058,12 +1058,12 @@ testSin0Scan1Rev2PPForComparison = do
 testSin0Scan1Fwd2PP :: Assertion
 testSin0Scan1Fwd2PP = do
   resetVarCounter
-  let ((_, a1, _), _) =
+  let ((_, HVectorPseudoTensor a1, _), _) =
         fwdArtifactAdapt @Double @1 @(AstRanked FullSpan)
                  (\x0 -> rscan (\x a -> sin x - a) x0
                            (rconst (OR.fromList @Double @1 [2] [5, 7]))) 1.1
-  printAstPretty IM.empty (simplifyAst6 a1)
-    @?= "let v5 = rconst (fromList [2] [5.0,7.0]) in let [x6 @Natural @Double @[], v7 @Natural @Double @[2], v8 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [x2] [v5] in let [x10 @Natural @Double @[], v11 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [x1] [rreplicate 2 0.0, v7, v5] in rappend (rreplicate 1 x1) v11"
+  printAstHVectorPretty IM.empty (simplifyAstHVector6 a1)
+    @?= "let v5 = rconst (fromList [2] [5.0,7.0]) in let [x6 @Natural @Double @[], v7 @Natural @Double @[2], v8 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [x2] [v5] in let [x10 @Natural @Double @[], v11 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [x1] [rreplicate 2 0.0, v7, v5] in [rappend (rreplicate 1 x1) v11]"
 
 testSin0Scan1Rev2 :: Assertion
 testSin0Scan1Rev2 = do
@@ -4383,9 +4383,13 @@ testSin0revhFoldZipR = do
 
 testSin0revhFoldZip4R :: Assertion
 testSin0revhFoldZip4R = do
-  let h :: HVector (AstRanked FullSpan)
-        -> HVectorPseudoTensor (AstRanked FullSpan)  Float '()
-      h = HVectorPseudoTensor . fFoldZipRX @(AstRanked FullSpan)
+  let g :: ADReady ranked
+        => HVector ranked
+        -> HVectorPseudoTensor ranked Float '()
+      g = HVectorPseudoTensor . fFoldZipRX
+      h :: HVector (AstRanked FullSpan)
+        -> HVectorPseudoTensor (AstRanked FullSpan) Float '()
+      h = g @(AstRanked FullSpan)
   assertEqualUpToEpsilon 1e-10
     (V.fromList [ DynamicRanked @Double @1 $ rfromList [0, 0, 0]
                 , DynamicRanked @Double @1

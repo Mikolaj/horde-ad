@@ -9,8 +9,6 @@ module HordeAd.Core.Engine
     rev, revDt, revArtifactAdapt, revProduceArtifactWithoutInterpretation
     -- * Forward derivative adaptors
   , fwd, fwdArtifactAdapt
-    -- * Reverse and forward derivative stages class
-  , forwardPassByApplication
     -- * Old gradient adaptors
   , crev, crevDt
     -- * Old derivative adaptors
@@ -42,8 +40,8 @@ import HordeAd.Core.Delta
 import HordeAd.Core.DualNumber
 import HordeAd.Core.HVector
 import HordeAd.Core.HVectorOps
-import HordeAd.Core.TensorADVal ()
-import HordeAd.Core.TensorAst ()
+import HordeAd.Core.TensorADVal
+import HordeAd.Core.TensorAst
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 
@@ -59,10 +57,11 @@ import HordeAd.Core.Types
 -- levels of differentiation if it's done multiple times.
 rev
   :: forall r y g vals astvals.
-     ( DerivativeStages g, GoodScalar r, HasSingletonDict y
-     , AdaptableHVector (RankedOf g) astvals, TermValue astvals
+     ( AdaptableHVector (AstRanked FullSpan) astvals
+     , AdaptableHVector (AstRanked FullSpan) (g r y)
      , AdaptableHVector (Flip OR.Array) vals
-     , vals ~ Value astvals )
+     , AdaptableHVector (Flip OR.Array) (ConcreteOf g r y)
+     , TermValue astvals, vals ~ Value astvals )
   => (astvals -> g r y) -> vals -> vals
 {-# INLINE rev #-}
 rev f vals = revDtMaybe f vals Nothing
@@ -70,83 +69,95 @@ rev f vals = revDtMaybe f vals Nothing
 -- | This version additionally takes the sensitivity parameter.
 revDt
   :: forall r y g vals astvals.
-     ( DerivativeStages g, GoodScalar r, HasSingletonDict y
-     , AdaptableHVector (RankedOf g) astvals, TermValue astvals
+     ( AdaptableHVector (AstRanked FullSpan) astvals
+     , AdaptableHVector (AstRanked FullSpan) (g r y)
      , AdaptableHVector (Flip OR.Array) vals
-     , vals ~ Value astvals )
+     , AdaptableHVector (Flip OR.Array) (ConcreteOf g r y)
+     , TermValue astvals, vals ~ Value astvals )
   => (astvals -> g r y) -> vals -> ConcreteOf g r y -> vals
 {-# INLINE revDt #-}
 revDt f vals dt = revDtMaybe f vals (Just dt)
 
 revDtMaybe
   :: forall r y g vals astvals.
-     ( DerivativeStages g, GoodScalar r, HasSingletonDict y
-     , AdaptableHVector (RankedOf g) astvals, TermValue astvals
+     ( AdaptableHVector (AstRanked FullSpan) astvals
+     , AdaptableHVector (AstRanked FullSpan) (g r y)
      , AdaptableHVector (Flip OR.Array) vals
-     , vals ~ Value astvals )
+     , AdaptableHVector (Flip OR.Array) (ConcreteOf g r y)
+     , TermValue astvals, vals ~ Value astvals )
   => (astvals -> g r y) -> vals -> Maybe (ConcreteOf g r y) -> vals
 {-# INLINE revDtMaybe #-}
 revDtMaybe f vals mdt =
-  let g hVector = f $ parseHVector (fromValue vals) hVector
-      xV = toHVector @(Flip OR.Array) vals
-      voidV = voidFromHVector xV
-      artifact = fst $ revProduceArtifact TensorToken
-                                          (isJust mdt) g EM.empty voidV
+  let g hVector = HVectorPseudoTensor
+                  $ toHVectorOf @(AstRanked FullSpan) dmkHVector
+                  $ f $ parseHVector (fromValue vals) hVector
+      valsH = toHVector vals
+      voidH = voidFromHVector valsH
+      artifact = fst $ revProduceArtifact (isJust mdt) g EM.empty voidH
+      mdth = HVectorPseudoTensor
+             . toHVectorOf @(Flip OR.Array) dmkHVector
+             <$> mdt
   in parseHVector vals
-     $ fst $ revEvalArtifact artifact xV mdt
+     $ fst $ revEvalArtifact artifact valsH mdth
 {-# SPECIALIZE revDtMaybe
-  :: ( HasSingletonDict y
-     , AdaptableHVector (AstRanked FullSpan) astvals, TermValue astvals
-     , AdaptableHVector (Flip OR.Array) (Value astvals) )
-  => (astvals -> AstRanked FullSpan Double y) -> Value astvals
-  -> Maybe (Flip OR.Array Double y)
-  -> Value astvals #-}
+  :: KnownNat n
+  => ( AdaptableHVector (AstRanked FullSpan) astvals
+     , AdaptableHVector (Flip OR.Array) vals
+     , TermValue astvals, vals ~ Value astvals )
+  => (astvals -> AstRanked FullSpan Double n)
+  -> vals
+  -> Maybe (Flip OR.Array Double n)
+  -> vals #-}
 
 revArtifactAdapt
   :: forall r y g vals astvals.
-     ( DerivativeStages g, GoodScalar r, HasSingletonDict y
-     , AdaptableHVector (RankedOf g) astvals, TermValue astvals
+     ( AdaptableHVector (AstRanked FullSpan) astvals
+     , AdaptableHVector (AstRanked FullSpan) (g r y)
      , AdaptableHVector (Flip OR.Array) vals
-     , vals ~ Value astvals )
+     , TermValue astvals, vals ~ Value astvals )
   => Bool -> (astvals -> g r y) -> vals
-  -> (AstArtifactRev (PrimalOf g) r y, Dual (PrimalOf g) r y)
+  -> ( AstArtifactRev (HVectorPseudoTensor (AstRanked PrimalSpan)) Float '()
+     , Dual (HVectorPseudoTensor (AstRanked PrimalSpan)) Float '() )
 revArtifactAdapt hasDt f vals =
-  let g hVector = f $ parseHVector (fromValue vals) hVector
-      voidV = voidFromHVector $ toHVector @(Flip OR.Array) vals
-  in revProduceArtifact TensorToken hasDt g EM.empty voidV
+  let g hVector = HVectorPseudoTensor
+                  $ toHVectorOf @(AstRanked FullSpan) dmkHVector
+                  $ f $ parseHVector (fromValue vals) hVector
+      valsH = toHVector @(Flip OR.Array) vals
+      voidH = voidFromHVector valsH
+  in revProduceArtifact hasDt g EM.empty voidH
 {-# SPECIALIZE revArtifactAdapt
-  :: ( HasSingletonDict y
-     , AdaptableHVector (AstRanked FullSpan) astvals, TermValue astvals
-     , AdaptableHVector (Flip OR.Array) (Value astvals) )
-  => Bool -> (astvals -> AstRanked FullSpan Double y) -> Value astvals
-  -> ( AstArtifactRev (AstRanked PrimalSpan) Double y
-     , Dual (AstRanked PrimalSpan) Double y ) #-}
+  :: KnownNat n
+  => ( AdaptableHVector (AstRanked FullSpan) astvals
+     , AdaptableHVector (Flip OR.Array) vals
+     , TermValue astvals, vals ~ Value astvals )
+  => Bool -> (astvals -> AstRanked FullSpan Double n) -> vals
+  -> ( AstArtifactRev (HVectorPseudoTensor (AstRanked PrimalSpan)) Float '()
+     , Dual (HVectorPseudoTensor (AstRanked PrimalSpan)) Float '() ) #-}
 
 revProduceArtifactWithoutInterpretation
-  :: forall g r y.
-     ( RankedTensor (RankedOf (PrimalOf g))
-     , DerivativeStages g, GoodScalar r, HasSingletonDict y )
-  => TensorToken g -> Bool
-  -> (HVector (ADVal (RankedOf (PrimalOf g)))
-      -> ADVal (PrimalOf g) r y)
+  :: (AdaptableHVector (ADVal (AstRanked PrimalSpan))
+                       (ADVal primal_g r y))
+  => Bool
+  -> (HVector (ADVal (AstRanked PrimalSpan)) -> ADVal primal_g r y)
   -> VoidHVector
-  -> (AstArtifactRev (PrimalOf g) r y, Dual (PrimalOf g) r y)
+  -> ( AstArtifactRev (HVectorPseudoTensor (AstRanked PrimalSpan)) Float '()
+     , Dual (HVectorPseudoTensor (AstRanked PrimalSpan)) Float '() )
 {-# INLINE revProduceArtifactWithoutInterpretation #-}
-revProduceArtifactWithoutInterpretation tf hasDt g =
-  revArtifactFromForwardPass
-    @_ @g TensorToken hasDt (forwardPassByApplication tf g)
+revProduceArtifactWithoutInterpretation hasDt f =
+  let g hVectorPrimal vars hVector =
+        hVectorADValToADVal
+        $ toHVector
+        $ forwardPassByApplication f hVectorPrimal vars hVector
+  in revArtifactFromForwardPass hasDt g
 
 forwardPassByApplication
-  :: forall g r y. RankedTensor (RankedOf (PrimalOf g))
-  => TensorToken g
-  -> (HVector (ADVal (RankedOf (PrimalOf g)))
-      -> ADVal (PrimalOf g) r y)
-  -> HVector (RankedOf (PrimalOf g))
+  :: (HVector (ADVal (AstRanked PrimalSpan)) -> ADVal primal_g r y)
+  -> HVector (AstRanked PrimalSpan)
   -> [AstDynamicVarName]
-  -> HVector (RankedOf g)
-  -> ADVal (PrimalOf g) r y
+  -> HVector (AstRanked FullSpan)
+  -> ADVal primal_g r y
 {-# INLINE forwardPassByApplication #-}
-forwardPassByApplication _ g hVectorPrimal _ _ =
+forwardPassByApplication g hVectorPrimal _vars _hVector =
   let deltaInputs = generateDeltaInputs hVectorPrimal
       varInputs = makeADInputs hVectorPrimal deltaInputs
   in g varInputs
@@ -162,30 +173,40 @@ forwardPassByApplication _ g hVectorPrimal _ _ =
 -- Shaped tensors work fine.
 fwd
   :: forall r y g vals astvals.
-     ( DerivativeStages g, GoodScalar r, HasSingletonDict y
-     , AdaptableHVector (RankedOf g) astvals, TermValue astvals
+     ( AdaptableHVector (AstRanked FullSpan) astvals
+     , AdaptableHVector (AstRanked FullSpan) (g r y)
      , AdaptableHVector (Flip OR.Array) vals
-     , vals ~ Value astvals )
+     , AdaptableHVector (Flip OR.Array) (Value (g r y))
+     , TermValue astvals, vals ~ Value astvals )
   => (astvals -> g r y) -> vals -> vals -> Value (g r y)
-fwd f x ds =
-  let g hVector = f $ parseHVector (fromValue x) hVector
-      xV = toHVector x
-      voidV = voidFromHVector xV
-      artifact = fst $ fwdProduceArtifact TensorToken g EM.empty voidV
-  in fst $ fwdEvalArtifact artifact xV (toHVector ds)
+fwd f vals ds =
+  let g hVector = HVectorPseudoTensor
+                  $ toHVectorOf @(AstRanked FullSpan) dmkHVector
+                  $ f $ parseHVector (fromValue vals) hVector
+      valsH = toHVector vals
+      voidH = voidFromHVector valsH
+      artifact = fst $ fwdProduceArtifact g EM.empty voidH
+      dsH = toHVector ds
+  in parseHVector undefined $ unHVectorPseudoTensor
+     $ fst $ fwdEvalArtifact artifact valsH dsH
 
 fwdArtifactAdapt
   :: forall r y g vals astvals.
-     ( DerivativeStages g, GoodScalar r, HasSingletonDict y
-     , AdaptableHVector (RankedOf g) astvals, TermValue astvals
+     ( AdaptableHVector (AstRanked FullSpan) astvals
+     , AdaptableHVector (AstRanked FullSpan) (g r y)
      , AdaptableHVector (Flip OR.Array) vals
-     , vals ~ Value astvals )
+     , TermValue astvals, vals ~ Value astvals )
   => (astvals -> g r y) -> vals
-  -> (AstArtifactFwd (PrimalOf g) r y, Dual (PrimalOf g) r y)
+  -> ( AstArtifactFwd (HVectorPseudoTensor (AstRanked PrimalSpan))
+                      Float '()
+     , Dual (HVectorPseudoTensor (AstRanked PrimalSpan)) Float '() )
 fwdArtifactAdapt f vals =
-  let g hVector = f $ parseHVector (fromValue vals) hVector
-      voidV = voidFromHVector $ toHVector @(Flip OR.Array) vals
-  in fwdProduceArtifact TensorToken g EM.empty voidV
+  let g hVector = HVectorPseudoTensor
+                  $ toHVectorOf @(AstRanked FullSpan) dmkHVector
+                  $ f $ parseHVector (fromValue vals) hVector
+      valsH = toHVector @(Flip OR.Array) vals
+      voidH = voidFromHVector valsH
+  in fwdProduceArtifact g EM.empty voidH
 
 
 -- * Old gradient adaptors, with constant and fixed inputs and dt
@@ -202,11 +223,12 @@ fwdArtifactAdapt f vals =
 -- These work for @f@ both ranked and shaped.
 crev
   :: forall r y f vals advals.
-     ( DualPart f, GoodScalar r, HasSingletonDict y
-     , RankedOf f ~ Flip OR.Array, ShapedOf f ~ Flip OS.Array
-     , AdaptableHVector (ADVal (RankedOf f)) advals, DualNumberValue advals
+     ( RankedOf f ~ Flip OR.Array
+     , AdaptableHVector (ADVal (Flip OR.Array)) advals
+     , AdaptableHVector (ADVal (Flip OR.Array)) (ADVal f r y)
      , AdaptableHVector (Flip OR.Array) vals
-     , vals ~ DValue advals )
+     , AdaptableHVector (Flip OR.Array) (f r y)
+     , DualNumberValue advals, vals ~ DValue advals )
   => (advals -> ADVal f r y) -> vals -> vals
 {-# INLINE crev #-}
 crev f vals = crevDtMaybe f vals Nothing
@@ -214,37 +236,44 @@ crev f vals = crevDtMaybe f vals Nothing
 -- | This version additionally takes the sensitivity parameter.
 crevDt
   :: forall r y f vals advals.
-     ( RankedTensor (RankedOf f), HVectorTensor (RankedOf f) (ShapedOf f)
-     , DualPart f, GoodScalar r, HasSingletonDict y
-     , HVectorOf (RankedOf f) ~ HVector (RankedOf f)
-     , AdaptableHVector (ADVal (RankedOf f)) advals, DualNumberValue advals
-     , AdaptableHVector (RankedOf f) vals
-     , vals ~ DValue advals )
+     ( RankedOf f ~ Flip OR.Array
+     , AdaptableHVector (ADVal (Flip OR.Array)) advals
+     , AdaptableHVector (ADVal (Flip OR.Array)) (ADVal f r y)
+     , AdaptableHVector (Flip OR.Array) vals
+     , AdaptableHVector (Flip OR.Array) (f r y)
+     , DualNumberValue advals, vals ~ DValue advals )
   => (advals -> ADVal f r y) -> vals -> f r y -> vals
 {-# INLINE crevDt #-}
 crevDt f vals dt = crevDtMaybe f vals (Just dt)
 
 crevDtMaybe
   :: forall r y f vals advals.
-     ( RankedTensor (RankedOf f), HVectorTensor (RankedOf f) (ShapedOf f)
-     , DualPart f, GoodScalar r, HasSingletonDict y
-     , HVectorOf (RankedOf f) ~ HVector (RankedOf f)
-     , AdaptableHVector (ADVal (RankedOf f)) advals, DualNumberValue advals
-     , AdaptableHVector (RankedOf f) vals
-     , vals ~ DValue advals )
+     ( RankedOf f ~ Flip OR.Array  -- this helps with type reconstruction later
+     , AdaptableHVector (ADVal (Flip OR.Array)) advals
+     , AdaptableHVector (ADVal (Flip OR.Array)) (ADVal f r y)
+     , AdaptableHVector (Flip OR.Array) vals
+     , AdaptableHVector (Flip OR.Array) (f r y)
+     , DualNumberValue advals, vals ~ DValue advals )
   => (advals -> ADVal f r y) -> vals -> Maybe (f r y) -> vals
 {-# INLINE crevDtMaybe #-}
 crevDtMaybe f vals mdt =
-  let g inputs = f $ parseHVector (fromDValue vals) inputs
+  let g hVector = hVectorADValToADVal
+                  $ toHVector @(ADVal (Flip OR.Array))
+                  $ f $ parseHVector (fromDValue vals) hVector
+      valsH = toHVector vals
+      mdth = HVectorPseudoTensor
+             . toHVector @(Flip OR.Array)
+             <$> mdt
   in parseHVector vals
-     $ fst $ crevOnHVector mdt g (toHVector vals)
+     $ fst $ crevOnHVector mdth g valsH
 
 {-# SPECIALIZE crevOnHVector
-  :: HasSingletonDict y
-  => Maybe (Flip OR.Array Double y)
-  -> (HVector (ADVal (Flip OR.Array)) -> ADVal (Flip OR.Array) Double y)
+  :: Maybe (HVectorPseudoTensor (Flip OR.Array) Float '())
+  -> (HVector (ADVal (Flip OR.Array))
+  -> ADVal (HVectorPseudoTensor (Flip OR.Array)) Float '())
   -> HVector (Flip OR.Array)
-  -> (HVector (Flip OR.Array), Flip OR.Array Double y) #-}
+  -> ( HVectorOf (Flip OR.Array)
+     , HVectorPseudoTensor (Flip OR.Array) Float '() ) #-}
 
 
 -- * Old derivative adaptors, with constant and fixed inputs
@@ -252,16 +281,21 @@ crevDtMaybe f vals mdt =
 -- | This takes the sensitivity parameter, by convention.
 cfwd
   :: forall r y f vals advals.
-     ( DualPart f, GoodScalar r, HasSingletonDict y
-     , RankedOf f ~ Flip OR.Array
-     , AdaptableHVector (ADVal (RankedOf f)) advals, DualNumberValue advals
+     ( RankedOf f ~ Flip OR.Array
+     , AdaptableHVector (ADVal (Flip OR.Array)) advals
+     , AdaptableHVector (ADVal (Flip OR.Array)) (ADVal f r y)
      , AdaptableHVector (Flip OR.Array) vals
-     , vals ~ DValue advals )
-  => (advals -> ADVal f r y) -> vals -> vals
-  -> f r y
-cfwd f x ds =
-  let g inputs = f $ parseHVector (fromDValue ds) inputs
-  in fst $ cfwdOnHVector (toHVector x) g (toHVector ds)
+     , AdaptableHVector (Flip OR.Array) (f r y)
+     , DualNumberValue advals, vals ~ DValue advals )
+  => (advals -> ADVal f r y) -> vals -> vals -> f r y
+cfwd f vals ds =
+  let g hVector = hVectorADValToADVal
+                  $ toHVector @(ADVal (Flip OR.Array))
+                  $ f $ parseHVector (fromDValue vals) hVector
+      valsH = toHVector vals
+      dsH = toHVector ds
+  in parseHVector undefined $ unHVectorPseudoTensor
+     $ fst $ cfwdOnHVector valsH g dsH
 
 
 

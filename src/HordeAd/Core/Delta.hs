@@ -44,7 +44,7 @@ module HordeAd.Core.Delta
   , -- * Evaluation of the delta expressions
     DualPart(..)
     -- * Exported to be specialized elsewhere
-  , gradientFromDeltaR, gradientFromDeltaS, evalFromnMap, EvalState
+  , gradientFromDeltaH, derivativeFromDeltaH, evalFromnMap, EvalState
   ) where
 
 import Prelude

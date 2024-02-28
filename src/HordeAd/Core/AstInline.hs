@@ -3,7 +3,7 @@
 -- | Inlining and other manipulations of the let-like constructors.
 module HordeAd.Core.AstInline
   ( -- * Inlining and simplification pass operations to be applied after unlet
-    simplifyArtifactRev, simplifyArtifactRevS
+    simplifyArtifactRev
   , simplifyAst6, simplifyAst6S, simplifyAstHVector6
     -- * The unlet pass eliminating nested lets bottom-up
   , unletAst6, unletAst6S, unletAstHVector6
@@ -34,25 +34,12 @@ import           HordeAd.Util.SizedIndex
 
 -- * Inlining and simplification pass operations to be applied after unlet
 
-simplifyArtifactRev :: (GoodScalar r, KnownNat n)
-                    => AstArtifactRev (AstRanked PrimalSpan) r n
-                    -> AstArtifactRev (AstRanked PrimalSpan) r n
-simplifyArtifactRev (vars, gradient, primal, sh) =
-  (vars, simplifyAstHVector6 gradient, simplifyAst6 primal, sh)
-{-# SPECIALIZE simplifyArtifactRev
-  :: KnownNat n
-  => AstArtifactRev (AstRanked PrimalSpan) Double n
-  -> AstArtifactRev (AstRanked PrimalSpan) Double n #-}
-
-simplifyArtifactRevS :: (GoodScalar r, Sh.Shape sh)
-                     => AstArtifactRev (AstShaped PrimalSpan) r sh
-                     -> AstArtifactRev (AstShaped PrimalSpan) r sh
-simplifyArtifactRevS (vars, gradient, primal, sh) =
-  (vars, simplifyAstHVector6 gradient, simplifyAst6S primal, sh)
-{-# SPECIALIZE simplifyArtifactRevS
-  :: Sh.Shape sh
-  => AstArtifactRev (AstShaped PrimalSpan) Double sh
-  -> AstArtifactRev (AstShaped PrimalSpan) Double sh #-}
+simplifyArtifactRev
+  :: AstArtifactRev (HVectorPseudoTensor (AstRanked PrimalSpan)) r y
+  -> AstArtifactRev (HVectorPseudoTensor (AstRanked PrimalSpan)) r y
+simplifyArtifactRev (vars, gradient, HVectorPseudoTensor primal, sh) =
+  ( vars, simplifyAstHVector6 gradient
+  , HVectorPseudoTensor $ simplifyAstHVector6 primal, sh )
 
 -- Potentially, some more inlining could be triggered after the second
 -- simplification, but it's probably rare, so we don't insisit on a fixpoint.

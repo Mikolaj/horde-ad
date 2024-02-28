@@ -2,7 +2,7 @@
 -- | Some fundamental type families and types.
 module HordeAd.Core.Types
   ( -- * Kinds of the functors that determine the structure of a tensor type
-    TensorType, RankedTensorType, ShapedTensorType, TensorToken(..)
+    TensorType, RankedTensorType, ShapedTensorType
     -- * Some fundamental constraints
   , GoodScalar, HasSingletonDict, Differentiable, IfDifferentiable(..)
     -- * Type families that tensors will belong to
@@ -40,9 +40,6 @@ type TensorType ty = Type -> ty -> Type
 type RankedTensorType = TensorType Nat
 
 type ShapedTensorType = TensorType [Nat]
-
-type role TensorToken nominal
-data TensorToken (g :: TensorType ty) = TensorToken
 
 type GoodScalarConstraint r =
   ( Show r, Ord r, Numeric r, Num r, Num (Vector r), RowSum r, Typeable r

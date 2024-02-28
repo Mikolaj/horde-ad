@@ -14,7 +14,6 @@ import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (Nat)
 import           System.IO (hPutStrLn, stderr)
 import           System.Random
 import           Test.Tasty
@@ -25,6 +24,7 @@ import HordeAd
 import HordeAd.Core.Adaptor
 import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId (funToAstIOS, funToAstRevIO)
+import HordeAd.Core.TensorAst
 import HordeAd.External.OptimizerTools
 
 import EqEpsilon
@@ -300,10 +300,9 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
                        EM.empty
            f = MnistRnnShaped2.rnnMnistLossFusedS
                  width batch_size (astGlyph, astLabel)
-           g hVector = f $ parseHVector (fromValue valsInit) hVector
            (((varDtAgain, vars1Again), gradientRaw, primal, sh), _) =
-             revProduceArtifact @[Nat] @(AstShaped FullSpan)
-                                TensorToken False g envInit (voidFromHVector hVectorInit)
+             revProduceArtifactH False f envInit valsInit
+                                 (voidFromHVector hVectorInit)
            gradient = simplifyAstHVector6 gradientRaw
            vars1AndInputAgain = vars1Again ++ [varGlyphD, varLabelD]
            vars = (varDtAgain, vars1AndInputAgain)
@@ -316,8 +315,7 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
                  parametersAndInput =
                    V.concat [parameters, V.fromList [glyphD, labelD]]
                  gradientHVector =
-                   fst $ revEvalArtifact @[Nat] @(AstShaped FullSpan)
-                                         (vars, gradient, primal, sh)
+                   fst $ revEvalArtifact (vars, gradient, primal, sh)
                                          parametersAndInput Nothing
              in go rest (updateWithGradientAdam defaultArgsAdam stateAdam
                                                 parameters gradientHVector)
