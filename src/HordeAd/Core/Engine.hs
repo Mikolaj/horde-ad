@@ -143,15 +143,14 @@ revArtifactAdapt hasDt f vals =
       valsH = toHVector @(Flip OR.Array) vals
       voidH = voidFromHVector valsH
   in revProduceArtifact hasDt g EM.empty voidH
-{- TODO: "too complicated to desugar"
 {-# SPECIALIZE revArtifactAdapt
   :: KnownNat n
   => ( AdaptableHVector (AstRanked FullSpan) astvals
-     , AdaptableHVector (Flip OR.Array) vals
-     , TermValue astvals, vals ~ Value astvals )
-  => Bool -> (astvals -> AstRanked FullSpan Double n) -> vals
+     , AdaptableHVector (Flip OR.Array) (Value astvals)
+     , TermValue astvals )
+  => Bool -> (astvals -> AstRanked FullSpan Double n) -> Value astvals
   -> ( AstArtifactRev (HVectorPseudoTensor (AstRanked PrimalSpan)) Float '()
-     , Dual (HVectorPseudoTensor (AstRanked PrimalSpan)) Float '() ) #-} -}
+     , Dual (HVectorPseudoTensor (AstRanked PrimalSpan)) Float '() ) #-}
 
 revProduceArtifactWithoutInterpretation
   :: (AdaptableHVector (ADVal (AstRanked PrimalSpan))
@@ -248,8 +247,7 @@ fwdArtifactAdapt f vals =
 -- These work for @f@ both ranked and shaped.
 crev
   :: forall r y f vals advals.
-     ( RankedOf f ~ Flip OR.Array
-     , AdaptableHVector (ADVal (Flip OR.Array)) advals
+     ( AdaptableHVector (ADVal (Flip OR.Array)) advals
      , AdaptableHVector (ADVal (Flip OR.Array)) (ADVal f r y)
      , AdaptableHVector (Flip OR.Array) vals
      , AdaptableHVector (Flip OR.Array) (f r y)
@@ -261,8 +259,7 @@ crev f vals = crevDtMaybe f vals Nothing
 -- | This version additionally takes the sensitivity parameter.
 crevDt
   :: forall r y f vals advals.
-     ( RankedOf f ~ Flip OR.Array
-     , AdaptableHVector (ADVal (Flip OR.Array)) advals
+     ( AdaptableHVector (ADVal (Flip OR.Array)) advals
      , AdaptableHVector (ADVal (Flip OR.Array)) (ADVal f r y)
      , AdaptableHVector (Flip OR.Array) vals
      , AdaptableHVector (Flip OR.Array) (f r y)
@@ -273,8 +270,7 @@ crevDt f vals dt = crevDtMaybe f vals (Just dt)
 
 crevDtMaybe
   :: forall r y f vals advals.
-     ( RankedOf f ~ Flip OR.Array  -- this helps with type reconstruction later
-     , AdaptableHVector (ADVal (Flip OR.Array)) advals
+     ( AdaptableHVector (ADVal (Flip OR.Array)) advals
      , AdaptableHVector (ADVal (Flip OR.Array)) (ADVal f r y)
      , AdaptableHVector (Flip OR.Array) vals
      , AdaptableHVector (Flip OR.Array) (f r y)
@@ -306,8 +302,7 @@ crevDtMaybe f vals mdt =
 -- | This takes the sensitivity parameter, by convention.
 cfwd
   :: forall r y f vals advals.
-     ( RankedOf f ~ Flip OR.Array
-     , AdaptableHVector (ADVal (Flip OR.Array)) advals
+     ( AdaptableHVector (ADVal (Flip OR.Array)) advals
      , AdaptableHVector (ADVal (Flip OR.Array)) (ADVal f r y)
      , AdaptableHVector (Flip OR.Array) vals
      , AdaptableHVector (Flip OR.Array) (f r y)

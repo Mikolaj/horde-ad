@@ -54,12 +54,11 @@ import           HordeAd.Util.SizedIndex
 instance (KnownNat n, GoodScalar r, ADReady ranked)
          => AdaptableHVector (ADVal ranked)
                              (ADVal ranked r n) where
-{- TODO: RULE left-hand side too complicated to desugar
   {-# SPECIALIZE instance
       KnownNat n
       => AdaptableHVector (ADVal (Flip OR.Array))
                           (ADVal (Flip OR.Array) Double n) #-}
-TODO: this causes a cyclic dependency:
+{- TODO: this causes a cyclic dependency:
   {-# SPECIALIZE instance
       KnownNat n
       => AdaptableHVector (ADVal (AstRanked PrimalSpan))
