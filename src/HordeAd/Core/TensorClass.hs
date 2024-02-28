@@ -316,10 +316,6 @@ class ( Integral (IntOf ranked), CRanked ranked Num
   rletWrap _l u = u
   rletUnwrap :: ranked r n -> (ADShare, ranked r n)
   rletUnwrap u = (emptyADShare, u)
-  runlet :: (GoodScalar r, KnownNat n)
-         => ADShare -> AstBindingsD ranked -> ranked r n
-         -> ranked r n
-  runlet l astBindings = assert (nullADShare l && null astBindings)
   rregister :: (GoodScalar r, KnownNat n)
             => ranked r n -> AstBindingsD ranked
             -> (AstBindingsD ranked, ranked r n)
@@ -699,10 +695,6 @@ class ( Integral (IntOf shaped), CShaped shaped Num
   sletWrap _l u = u
   sletUnwrap :: shaped r sh -> (ADShare, shaped r sh)
   sletUnwrap u = (emptyADShare, u)
-  sunlet :: (GoodScalar r, Sh.Shape sh)
-         => ADShare -> AstBindingsD (RankedOf shaped) -> shaped r sh
-         -> shaped r sh
-  sunlet l astBindings = assert (nullADShare l && null astBindings)
   sregister :: (GoodScalar r, Sh.Shape sh)
             => shaped r sh -> AstBindingsD (RankedOf shaped)
             -> (AstBindingsD (RankedOf shaped), shaped r sh)

@@ -15,7 +15,7 @@
 -- except for the testing modules that import testing-exclusive class instances
 -- and operations for reading or reseting the impure counter.
 module HordeAd.Core.IsPrimal
-  ( IsPrimal(..)
+  ( Dual, IsPrimal(..)
   , unsafeGetFreshId, resetIdCounter, wrapDeltaH
   ) where
 
@@ -31,11 +31,20 @@ import           System.IO.Unsafe (unsafePerformIO)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.Delta
+import HordeAd.Core.HVector
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.Util.SizedIndex
 
--- * The class and its instances
+-- | The type family that to each differentiable type
+-- assigns its delta expression type.
+type Dual :: TensorType ty -> TensorType ty
+type family Dual f = result | result -> f where
+  Dual ranked = DeltaR ranked
+  Dual shaped = DeltaS shaped
+  Dual (HVectorPseudoTensor ranked) = HVectorPseudoTensor (DeltaR ranked)
+
+-- * The IsPrimal class and its instances
 
 -- | The class states that @f r z@ type is the primal component
 -- of a dual number as exeplified by the operations.

@@ -211,6 +211,13 @@ dotParameters (HVector a0 a1) (HVector b0 b1) =
       else OD.toVector v1 LA.<.> OD.toVector u1) a1 b1)
 -}
 
+unletPseudo
+  :: ADReady ranked
+  => ADShare -> AstBindingsD ranked -> HVectorPseudoTensor ranked r y
+  -> HVectorPseudoTensor ranked r y
+unletPseudo l astBindings =
+  HVectorPseudoTensor . dunlet l astBindings . unHVectorPseudoTensor
+
 crevOnADInputs
   :: ADReady ranked
   => Maybe (HVectorPseudoTensor ranked Float '())
@@ -230,8 +237,8 @@ crevOnADInputs mdt f inputs =
       rshapePrimal (D _ p _) = rshape p
       parameters0 = V.map (voidFromDynamicF (shapeToList . rshapePrimal)) inputs
       (!astBindings, !gradient) =
-        reverseDervative parameters0 v mdt deltaTopLevel
-  in (dunlet l astBindings (dmkHVector gradient), unlet l [] v)
+        gradientFromDeltaH parameters0 v mdt deltaTopLevel
+  in (dunlet l astBindings (dmkHVector gradient), unletPseudo l [] v)
 
 crevOnHVector
   :: ADReady ranked
@@ -257,8 +264,8 @@ cfwdOnADInputs
 cfwdOnADInputs inputs f ds =
   let !(D l v deltaTopLevel) = f inputs in
   let (astBindings, derivative) =
-        forwardDerivative (V.length inputs) deltaTopLevel ds
-  in (unlet l astBindings derivative, unlet l [] v)
+        derivativeFromDeltaH (V.length inputs) deltaTopLevel ds
+  in (unletPseudo l astBindings derivative, unletPseudo l [] v)
 
 cfwdOnHVector
   :: ADReady ranked

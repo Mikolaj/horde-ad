@@ -40,6 +40,7 @@ import HordeAd.Core.Delta
 import HordeAd.Core.DualNumber
 import HordeAd.Core.HVector
 import HordeAd.Core.HVectorOps
+import HordeAd.Core.IsPrimal
 import HordeAd.Core.TensorADVal
 import HordeAd.Core.TensorAst
 import HordeAd.Core.TensorClass

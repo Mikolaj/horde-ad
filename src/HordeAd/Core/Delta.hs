@@ -41,10 +41,10 @@ module HordeAd.Core.Delta
     DeltaR (..), DeltaS (..), DeltaH (..)
   , -- * Delta expression identifiers
     NodeId (..), InputId, toInputId
-  , -- * Evaluation of the delta expressions
-    DualPart(..)
+    -- * Delta expression evaluation
+  , gradientFromDeltaH, derivativeFromDeltaH
     -- * Exported to be specialized elsewhere
-  , gradientFromDeltaH, derivativeFromDeltaH, evalFromnMap, EvalState
+  , evalFromnMap, EvalState
   ) where
 
 import Prelude
@@ -55,22 +55,20 @@ import qualified Data.Array.Shape as Sh
 import qualified Data.Array.ShapedS as OS
 import qualified Data.EnumMap.Strict as EM
 import           Data.Int (Int64)
-import           Data.Kind (Constraint, Type)
+import           Data.Kind (Type)
 import           Data.List (foldl', sort)
 import           Data.List.Index (ifoldl')
-import           Data.Maybe (fromMaybe)
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import           Data.Traversable (mapAccumL)
 import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           Foreign.C (CInt)
-import           GHC.TypeLits (KnownNat, Nat, sameNat, type (+), type (<=))
+import           GHC.TypeLits (KnownNat, sameNat, type (+), type (<=))
 import           Text.Show.Functions ()
 import           Type.Reflection (typeRep)
 import           Unsafe.Coerce (unsafeCoerce)
 
-import HordeAd.Core.Ast (ADShare)
 import HordeAd.Core.HVector
 import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorClass
@@ -481,90 +479,7 @@ toInputId :: Int -> InputId f
 toInputId i = assert (i >= 0) $ InputId i
 
 
--- * Instances
-
-type DualPart :: TensorType ty -> Constraint
-class DualPart (f :: TensorType ty) where
-  -- | The type family that to each basic differentiable type
-  -- assigns its delta expression type.
-  type Dual f = (result :: TensorType ty) | result -> f
-  reverseDervative
-    :: (HasSingletonDict y, GoodScalar r)
-    => VoidHVector -> f r y -> Maybe (f r y) -> Dual f r y
-    -> (AstBindingsD (RankedOf f), HVector (RankedOf f))
-  forwardDerivative
-    :: (HasSingletonDict y, GoodScalar r)
-    => Int -> Dual f r y -> HVector (RankedOf f)
-    -> (AstBindingsD (RankedOf f), f r y)
-  unlet
-    :: (HasSingletonDict y, GoodScalar r)
-    => ADShare -> AstBindingsD (RankedOf f) -> f r y -> f r y
-
-instance ADReady ranked => DualPart @Nat ranked where
-  type Dual ranked = DeltaR ranked
-  reverseDervative = gradientFromDeltaR
-  forwardDerivative = derivativeFromDeltaR
-  unlet = runlet
-
-gradientFromDeltaR
-  :: (KnownNat y, GoodScalar r, ADReady ranked)
-  => VoidHVector
-  -> ranked r y -> Maybe (ranked r y) -> DeltaR ranked r y
-  -> (AstBindingsD ranked, HVector ranked)
-gradientFromDeltaR !parameters0 value !mdt !deltaTopLevel =
-  let dt = fromMaybe (rreplicate0N (rshape value) 1) mdt
-      s0 = initEvalState parameters0
-      s1 = evalR s0 dt deltaTopLevel
-      EvalState{..} = evalFromnMap s1
-      !gradient = V.fromList $ EM.elems iMap
-  in (astBindings, gradient)
-
-derivativeFromDeltaR
-  :: forall ranked r n.
-     (KnownNat n, GoodScalar r, ADReady ranked)
-  => Int -> DeltaR ranked r n -> HVector ranked
-  -> (AstBindingsD ranked, ranked r n)
-derivativeFromDeltaR dim deltaTopLevel ds =
-  let s0 = EvalState EM.empty EM.empty EM.empty EM.empty EM.empty []
-      !(!s2, !c) = fwdR dim ds s0 deltaTopLevel
-  in (astBindings s2, c)
-
-instance ADReadyS shaped => DualPart @[Nat] shaped where
-  type Dual shaped = DeltaS shaped
-  reverseDervative parameters0 _ = gradientFromDeltaS parameters0
-  forwardDerivative = derivativeFromDeltaS
-  unlet = sunlet
-
-gradientFromDeltaS
-  :: forall shaped r y.
-     (Sh.Shape y, GoodScalar r, ADReadyS shaped)
-  => VoidHVector
-  -> Maybe (shaped r y) -> DeltaS shaped r y
-  -> (AstBindingsD (RankedOf shaped), HVector (RankedOf shaped))
-gradientFromDeltaS !parameters0 !mdt !deltaTopLevel =
-  let dt = fromMaybe 1 mdt
-      s0 = initEvalState parameters0
-      s1 = evalS s0 dt deltaTopLevel
-      EvalState{..} = evalFromnMap s1
-      !gradient = V.fromList $ EM.elems iMap
-  in (astBindings, gradient)
-
-derivativeFromDeltaS
-  :: forall shaped r sh.
-     (Sh.Shape sh, GoodScalar r, ADReadyS shaped)
-  => Int -> DeltaS shaped r sh -> HVector (RankedOf shaped)
-  -> (AstBindingsD (RankedOf shaped), shaped r sh)
-derivativeFromDeltaS !dim !deltaTopLevel !ds =
-  let s0 = EvalState EM.empty EM.empty EM.empty EM.empty EM.empty []
-      !(!s2, !c) = fwdS dim ds s0 deltaTopLevel
-  in (astBindings s2, c)
-
-instance ADReady ranked => DualPart @() (HVectorPseudoTensor ranked) where
-  type Dual (HVectorPseudoTensor ranked) = HVectorPseudoTensor (DeltaR ranked)
-  reverseDervative = gradientFromDeltaH
-  forwardDerivative = derivativeFromDeltaH
-  unlet l astBindings =
-    HVectorPseudoTensor . dunlet l astBindings . unHVectorPseudoTensor
+-- * Reverse and forward derivative for HVectorPseudoTensor
 
 -- @r@ is a placeholder here, it's reduced away. @y@ is '(), but GHC doesn't
 -- know it has to be that. We could instead provide a type-level list of nats

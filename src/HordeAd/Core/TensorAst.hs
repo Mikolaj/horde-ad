@@ -41,6 +41,7 @@ import           HordeAd.Core.Delta
 import           HordeAd.Core.DualNumber
 import           HordeAd.Core.HVector
 import           HordeAd.Core.HVectorOps
+import           HordeAd.Core.IsPrimal
 import           HordeAd.Core.TensorADVal (unADValHVector)
 import           HordeAd.Core.TensorClass
 import           HordeAd.Core.Types
@@ -114,7 +115,7 @@ revArtifactFromForwardPass hasDt forwardPass parameters0 =
               then Just $ HVectorPseudoTensor $ AstMkHVector astsDt
               else Nothing
         !(!astBindings, !gradient) =
-          reverseDervative
+          gradientFromDeltaH
             parameters0 (HVectorPseudoTensor primalBody) mdt delta
         unGradient = dunlet l astBindings (AstMkHVector gradient)
         unPrimal = dunlet @(AstRanked PrimalSpan) l [] primalBody
@@ -166,7 +167,7 @@ fwdArtifactFromForwardPass forwardPass parameters0 =
   let !(D l (HVectorPseudoTensor primalBody) delta) =
         forwardPass hVectorPrimal vars hVector in
   let !(!astBindings, !(HVectorPseudoTensor derivative)) =
-        forwardDerivative (V.length parameters0) delta hVectorDs
+        derivativeFromDeltaH (V.length parameters0) delta hVectorDs
       unDerivative = HVectorPseudoTensor $ dunlet l astBindings derivative
       unPrimal = HVectorPseudoTensor
                  $ dunlet @(AstRanked PrimalSpan) l [] primalBody
@@ -322,10 +323,6 @@ instance AstSpan s => RankedTensor (AstRanked s) where
     _ -> (emptyADShare, u)
   -- For convenience and simplicity we define this for all spans,
   -- but it can only ever be used for PrimalSpan.
-  runlet =
-    case sameAstSpan @s @PrimalSpan of
-      Just Refl -> unletAst6
-      _ -> error "runlet: used not at PrimalSpan"
   rregister = astRegisterFun
   rsharePrimal =
     case sameAstSpan @s @PrimalSpan of
@@ -465,12 +462,6 @@ instance AstSpan s => ShapedTensor (AstShaped s) where
     AstLetADShareS l t -> (l, t)
     AstConstantS (AstLetADShareS l t) -> (l, AstConstantS t)
     _ -> (emptyADShare, u)
-  -- For convenience and simplicity we define this for all spans,
-  -- but it can only ever be used for PrimalSpan.
-  sunlet =
-    case sameAstSpan @s @PrimalSpan of
-      Just Refl -> unletAst6S
-      _ -> error "sunlet: used not at PrimalSpan"
   sregister = astRegisterFunS
   ssharePrimal =
     case sameAstSpan @s @PrimalSpan of
