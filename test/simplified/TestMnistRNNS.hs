@@ -300,7 +300,7 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
                        EM.empty
            f = MnistRnnShaped2.rnnMnistLossFusedS
                  width batch_size (astGlyph, astLabel)
-           (((varDtAgain, vars1Again), gradientRaw, primal, sh), _) =
+           (((varDtAgain, vars1Again), gradientRaw, primal), _) =
              revProduceArtifactH False f envInit valsInit
                                  (voidFromHVector hVectorInit)
            gradient = simplifyAstHVector6 gradientRaw
@@ -315,7 +315,7 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
                  parametersAndInput =
                    V.concat [parameters, V.fromList [glyphD, labelD]]
                  gradientHVector =
-                   fst $ revEvalArtifact (vars, gradient, primal, sh)
+                   fst $ revEvalArtifact (vars, gradient, primal)
                                          parametersAndInput Nothing
              in go rest (updateWithGradientAdam defaultArgsAdam stateAdam
                                                 parameters gradientHVector)

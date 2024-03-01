@@ -37,9 +37,9 @@ import           HordeAd.Util.SizedIndex
 simplifyArtifactRev
   :: AstArtifactRev (HVectorPseudoTensor (AstRanked PrimalSpan)) r y
   -> AstArtifactRev (HVectorPseudoTensor (AstRanked PrimalSpan)) r y
-simplifyArtifactRev (vars, gradient, HVectorPseudoTensor primal, sh) =
+simplifyArtifactRev (vars, gradient, HVectorPseudoTensor primal) =
   ( vars, simplifyAstHVector6 gradient
-  , HVectorPseudoTensor $ simplifyAstHVector6 primal, sh )
+  , HVectorPseudoTensor $ simplifyAstHVector6 primal)
 
 -- Potentially, some more inlining could be triggered after the second
 -- simplification, but it's probably rare, so we don't insisit on a fixpoint.

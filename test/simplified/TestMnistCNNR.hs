@@ -307,7 +307,7 @@ mnistTestCaseCNNO prefix epochs maxBatches kh kw c_out n_hidden
                        EM.empty
            f = MnistCnnRanked2.convMnistLossFusedR
                  miniBatchSize (astGlyph, astLabel)
-           (((varDtAgain, vars1Again), gradientRaw, primal, sh), _) =
+           (((varDtAgain, vars1Again), gradientRaw, primal), _) =
              revProduceArtifactH False f envInit valsInit
                                  (voidFromHVector hVectorInit)
            gradient = simplifyAstHVector6 gradientRaw
@@ -322,7 +322,7 @@ mnistTestCaseCNNO prefix epochs maxBatches kh kw c_out n_hidden
                  parametersAndInput =
                    V.concat [parameters, V.fromList [glyphD, labelD]]
                  gradientHVector =
-                   fst $ revEvalArtifact (vars, gradient, primal, sh)
+                   fst $ revEvalArtifact (vars, gradient, primal)
                                          parametersAndInput Nothing
              in go rest (updateWithGradientAdam defaultArgsAdam stateAdam
                                                 parameters gradientHVector)

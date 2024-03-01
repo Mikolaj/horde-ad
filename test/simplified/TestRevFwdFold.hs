@@ -1038,7 +1038,7 @@ testSin0Scan1Rev2PP1 = do
 testSin0Scan1Rev2PPA :: Assertion
 testSin0Scan1Rev2PPA = do
   resetVarCounter
-  let ((_, a1, _, _), _) =
+  let ((_, a1, _), _) =
         revArtifactAdapt @Double @1 @(AstRanked FullSpan)
                  True
                  (\x0 -> rscan (\x a -> sin x - a) x0
@@ -1049,7 +1049,7 @@ testSin0Scan1Rev2PPA = do
 testSin0Scan1Rev2PPForComparison :: Assertion
 testSin0Scan1Rev2PPForComparison = do
   resetVarCounter
-  let ((_, a1, _, _), _) =
+  let ((_, a1, _), _) =
         revArtifactAdapt @Double @1 @(AstRanked FullSpan)
                  True
                  (\x0 -> rfromList [sin (sin x0 - 5) - 7, sin x0 - 5, x0]) 1.1

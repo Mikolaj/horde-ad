@@ -118,8 +118,7 @@ revArtifactFromForwardPass hasDt forwardPass parameters0 =
             parameters0 (HVectorPseudoTensor primalBody) mdt delta
         unGradient = dunlet l astBindings (AstMkHVector gradient)
         unPrimal = dunlet l [] primalBody
-    in ( ( (varsDt, varsPrimal), unGradient, HVectorPseudoTensor unPrimal
-         , undefined )
+    in ( ((varsDt, varsPrimal), unGradient, HVectorPseudoTensor unPrimal)
        , delta )
 
 revEvalArtifact
@@ -128,7 +127,7 @@ revEvalArtifact
   -> Maybe (HVectorPseudoTensor (Flip OR.Array) r y)
   -> (HVector (Flip OR.Array), HVectorPseudoTensor (Flip OR.Array) r y)
 {-# INLINE revEvalArtifact #-}
-revEvalArtifact ((varsDt, vars), gradient, primal, _sh) parameters mdt =
+revEvalArtifact ((varsDt, vars), gradient, primal) parameters mdt =
   let env = foldr extendEnvD EM.empty $ zip vars $ V.toList parameters
       domsB = voidFromVars varsDt
       dt1 = mapHVectorShaped (const 1) $ V.map dynamicFromVoid domsB
@@ -621,7 +620,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   rrev f parameters0 =
     -- This computes the (AST of) derivative of f once and interprets it again
     -- for each new @parmeters@, which is much better than computing anew.
-    let !(!((!_varsDt, !vars), !gradient, !_primal, _sh), _delta) =
+    let !(!((!_varsDt, !vars), !gradient, !_primal), _delta) =
           revProduceArtifactH @_ @_ @(AstRanked FullSpan)
                               False f EM.empty
                               (V.map dynamicFromVoid parameters0)
@@ -644,7 +643,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     let g :: HVector (AstRanked FullSpan)
           -> HVectorPseudoTensor (AstRanked FullSpan) r y
         g !hv = HVectorPseudoTensor $ unHFun f [hv]
-        (((varsDt, vars), gradient, _primal, _sh), _delta) =
+        (((varsDt, vars), gradient, _primal), _delta) =
           revProduceArtifact True g EM.empty shs
      in AstLambda ([varsDt, vars], gradient)
   dfwd :: VoidHVector

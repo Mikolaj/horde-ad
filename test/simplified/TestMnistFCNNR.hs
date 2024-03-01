@@ -313,7 +313,7 @@ mnistTestCase1VTO prefix epochs maxBatches widthHidden widthHidden2
            f = MnistFcnnRanked1.afcnnMnistLoss1TensorData @(AstRanked FullSpan)
                  widthHidden widthHidden2
                  (rconstant astGlyph, rconstant astLabel)
-           (((varDtAgain, vars1Again), gradientRaw, primal, sh), _) =
+           (((varDtAgain, vars1Again), gradientRaw, primal), _) =
              revProduceArtifactH False f envInit valsInit
                                  (voidFromHVector hVectorInit)
            gradient = simplifyAstHVector6 gradientRaw
@@ -329,7 +329,7 @@ mnistTestCase1VTO prefix epochs maxBatches widthHidden widthHidden2
                  parametersAndInput =
                    V.concat [parameters, V.fromList [glyphD, labelD]]
                  gradientHVector =
-                   fst $ revEvalArtifact (vars, gradient, primal, sh)
+                   fst $ revEvalArtifact (vars, gradient, primal)
                                          parametersAndInput Nothing
              in go rest (updateWithGradient gamma parameters gradientHVector)
        -- Mimic how backprop tests and display it, even though tests
@@ -625,7 +625,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                        EM.empty
            f = MnistFcnnRanked2.afcnnMnistLoss2TensorData @(AstRanked FullSpan)
                  (rconstant astGlyph, rconstant astLabel)
-           (((varDtAgain, vars1Again), gradientRaw, primal, sh), _) =
+           (((varDtAgain, vars1Again), gradientRaw, primal), _) =
              revProduceArtifactH False f envInit valsInit
                                  (voidFromHVector hVectorInit)
            gradient = simplifyAstHVector6 gradientRaw
@@ -641,7 +641,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                  parametersAndInput =
                    V.concat [parameters, V.fromList [glyphD, labelD]]
                  gradientHVector =
-                   fst $ revEvalArtifact (vars, gradient, primal, sh)
+                   fst $ revEvalArtifact (vars, gradient, primal)
                                          parametersAndInput Nothing
              in go rest (updateWithGradient gamma parameters gradientHVector)
        -- Mimic how backprop tests and display it, even though tests
