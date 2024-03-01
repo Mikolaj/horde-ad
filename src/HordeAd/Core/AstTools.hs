@@ -18,9 +18,9 @@ module HordeAd.Core.AstTools
 
 import Prelude hiding (foldl')
 
-import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as Sh
+import qualified Data.Array.ShapedS as OS
 import           Data.List (foldl')
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality ((:~:) (Refl))
@@ -291,7 +291,7 @@ astIsSmall relaxed = \case
     relaxed && astIsSmall relaxed v  -- materialized via vector slice; cheap
   AstTranspose _ v ->
     relaxed && astIsSmall relaxed v  -- often cheap and often fuses
-  AstConst{} -> valueOf @n == (0 :: Int)
+  AstConst c -> OR.size c <= 1
   AstRFromS v -> astIsSmallS relaxed v
   AstConstant v -> astIsSmall relaxed v
   AstPrimalPart v -> astIsSmall relaxed v
@@ -309,7 +309,7 @@ astIsSmallS relaxed = \case
     relaxed && astIsSmallS relaxed v  -- materialized via vector slice; cheap
   AstTransposeS v ->
     relaxed && astIsSmallS relaxed v  -- often cheap and often fuses
-  AstConstS{} -> null (Sh.shapeT @sh)
+  AstConstS c -> OS.size c <= 1
   AstSFromR v -> astIsSmall relaxed v
   AstConstantS v -> astIsSmallS relaxed v
   AstPrimalPartS v -> astIsSmallS relaxed v
