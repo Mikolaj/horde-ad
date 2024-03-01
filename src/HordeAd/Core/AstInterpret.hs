@@ -442,7 +442,7 @@ interpretAst !env = \case
                           `blame` ( shapeVoidHVector (voidFromVars vars)
                                   , V.toList $ V.map shapeDynamic lw
                                   , shapeVoidHVector (shapeAstHVector l)
-                                  , shapeVoidHVector (dshape @ranked lt) )) $
+                                  , shapeVoidHVector (dshape lt) )) $
                  extendEnvHVector vars lw env
     in rletHVectorIn lt (\lw -> interpretAst (env2 lw) v)
   AstLetHFunIn var f v ->
@@ -849,7 +849,7 @@ interpretAstS !env = \case
                           `blame` ( shapeVoidHVector (voidFromVars vars)
                                   , V.toList $ V.map shapeDynamic lw
                                   , shapeVoidHVector (shapeAstHVector l)
-                                  , shapeVoidHVector (dshape @ranked lt) )) $
+                                  , shapeVoidHVector (dshape lt) )) $
                   extendEnvHVector vars lw env
     in sletHVectorIn lt (\lw -> interpretAstS (env2 lw) v)
   AstLetHFunInS var f v ->
@@ -882,13 +882,12 @@ interpretAstHVector
   :: forall ranked s. (ADReady ranked, AstSpan s)
   => AstEnv ranked -> AstHVector s -> HVectorOf ranked
 interpretAstHVector !env = \case
-  AstMkHVector l ->
-    dmkHVector @ranked $ interpretAstDynamic @ranked env <$> l
+  AstMkHVector l -> dmkHVector $ interpretAstDynamic env <$> l
   AstHApply t ll ->
     let t2 = interpretAstHFun env t
           -- this is a bunch of PrimalSpan terms interpreted in, perhaps,
           -- FullSpan terms
-        ll2 = (interpretAstDynamic @ranked env <$>) <$> ll
+        ll2 = (interpretAstDynamic env <$>) <$> ll
           -- these are, perhaps, FullSpan terms, interpreted in the same
           -- as above so that the mixture becomes compatible; if the spans
           -- agreed, the AstHApply would likely be simplified before
@@ -900,13 +899,13 @@ interpretAstHVector !env = \case
                           `blame` ( shapeVoidHVector (voidFromVars vars)
                                   , V.toList $ V.map shapeDynamic lw
                                   , shapeVoidHVector (shapeAstHVector l)
-                                  , shapeVoidHVector (dshape @ranked lt) )) $
+                                  , shapeVoidHVector (dshape lt) )) $
                   extendEnvHVector vars lw env
     in dletHVectorInHVector lt (\lw -> interpretAstHVector (env2 lw) v)
   AstLetHFunInHVector var f v ->
     let g = interpretAstHFun env f
         env2 h = extendEnvHFun var h env
-    in dletHFunInHVector @ranked g (\h -> interpretAstHVector (env2 h) v)
+    in dletHFunInHVector g (\h -> interpretAstHVector (env2 h) v)
   AstLetInHVector var u v ->
     -- We assume there are no nested lets with the same variable.
     let t = interpretAstRuntimeSpecialized env u
@@ -918,7 +917,7 @@ interpretAstHVector !env = \case
         env2 w = extendEnvS var w env
     in sletInHVector t (\w -> interpretAstHVector (env2 w) v)
   AstBuildHVector1 k (var, v) ->
-    dbuild1 @ranked k (interpretLambdaIHVector interpretAstHVector env (var, v))
+    dbuild1 k (interpretLambdaIHVector interpretAstHVector env (var, v))
   AstMapAccumRDer k accShs bShs eShs f0 df0 rf0 acc0 es ->
     let f = interpretAstHFun env f0
         df = interpretAstHFun env df0

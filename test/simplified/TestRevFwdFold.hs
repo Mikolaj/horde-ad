@@ -1306,7 +1306,7 @@ testSin0rmapAccumRD0SC = do
                                  -> HVectorOf (RankedOf g)
                                g xh _a =
                                  let x = sfromD @Double @'[] $ xh V.! 0
-                                 in dmkHVector @_ @g
+                                 in dmkHVector
                                       $ V.fromList
                                           [ DynamicShaped $ sin x
                                           , DynamicShaped $ sin x ]
@@ -1332,7 +1332,7 @@ testSin0rmapAccumRD0S = do
                                  -> HVectorOf (RankedOf g)
                                g xh _a =
                                  let x = sfromD @Double @'[] $ xh V.! 0
-                                 in dmkHVector @_ @g
+                                 in dmkHVector
                                       $ V.fromList
                                           [ DynamicShaped $ sin x
                                           , DynamicShaped $ sin x ]
@@ -1357,7 +1357,7 @@ testSin0rmapAccumRD00SC = do
                                  -> HVectorOf (RankedOf g)
                                g xh _a =
                                  let x = sfromD @Double @'[] $ xh V.! 0
-                                 in dmkHVector @_ @g
+                                 in dmkHVector
                                       $ V.fromList
                                           [ DynamicShaped $ sin x
                                           , DynamicShaped $ sin x ]
@@ -1383,7 +1383,7 @@ testSin0rmapAccumRD00S0 = do
                                  -> HVectorOf (RankedOf g)
                                g xh _a =
                                  let x = sfromD @Double @'[] $ xh V.! 0
-                                 in dmkHVector @_ @g
+                                 in dmkHVector
                                       $ V.fromList
                                           [ DynamicShaped $ sin x
                                           , DynamicShaped $ sin x ]
@@ -1410,7 +1410,7 @@ _testSin0rmapAccumRD00S = do
                                  -> HVectorOf (RankedOf g)
                                g xh _a =
                                  let x = sfromD @Double @'[] $ xh V.! 0
-                                 in dmkHVector @_ @g
+                                 in dmkHVector
                                       $ V.fromList
                                           [ DynamicShaped $ sin x
                                           , DynamicShaped $ sin x ]
@@ -1437,7 +1437,7 @@ _testSin0rmapAccumRD00S7 = do
                                  -> HVectorOf (RankedOf g)
                                g xh _a =
                                  let x = sfromD @Double @'[] $ xh V.! 0
-                                 in dmkHVector @_ @g
+                                 in dmkHVector
                                       $ V.fromList
                                           [ DynamicShaped $ sin x
                                           , DynamicShaped $ sin x ]
@@ -1681,7 +1681,7 @@ testSin0rmapAccumRD01SC = do
                                  -> HVectorOf (RankedOf g)
                                g xh _a =
                                  let x = sfromD @Double @'[] $ xh V.! 0
-                                 in dmkHVector @_ @g
+                                 in dmkHVector
                                     $ V.fromList
                                         [ DynamicShaped $ sin x
                                         , DynamicShaped $ sin x
@@ -1708,7 +1708,7 @@ testSin0rmapAccumRD01SN = do
                                  -> HVectorOf (RankedOf g)
                                g xh _a =
                                  let x = sfromD @Double @'[] $ xh V.! 1
-                                 in dmkHVector @_ @g
+                                 in dmkHVector
                                     $ V.fromList
                                         [ DynamicShaped $ sin x
                                         , DynamicShaped $ sin x
@@ -1735,7 +1735,7 @@ testSin0rmapAccumRD01SN2 = do
                                  -> HVectorOf (RankedOf g)
                                g xh _a =
                                  let x = sfromD @Double @'[] $ xh V.! 0
-                                 in dmkHVector @_ @g
+                                 in dmkHVector
                                     $ V.fromList
                                         [ DynamicShaped $ sin x
                                         , DynamicShaped $ sin x ]
@@ -1760,7 +1760,7 @@ testSin0rmapAccumRD01SN3 = do
                                  -> HVectorOf (RankedOf g)
                                g xh _a =
                                  let x = sfromD @Double @'[] $ xh V.! 0
-                                 in dmkHVector @_ @g
+                                 in dmkHVector
                                     $ V.fromList
                                         [ DynamicShaped $ sin x
                                         , DynamicShaped
@@ -1790,7 +1790,7 @@ testSin0rmapAccumRD01SN4 = do
                                  -> HVectorOf (RankedOf g)
                                g xh _a =
                                  let x = sfromD @Double @'[] $ xh V.! 0
-                                 in dmkHVector @_ @g
+                                 in dmkHVector
                                     $ V.fromList
                                         [ DynamicShaped $ sin x
                                         , DynamicShaped
@@ -1825,7 +1825,7 @@ testSin0rmapAccumRD01SN5 = do
                                  -> HVectorOf (RankedOf g)
                                g xh a =
                                 let x = sfromD @Double @'[] $ xh V.! 0
-                                in dmkHVector @_ @g
+                                in dmkHVector
                                    $ V.fromList
                                        [ DynamicShaped
                                          $ sin x
@@ -1873,7 +1873,7 @@ testSin0rmapAccumRD01SN51 = do
                                g xh a =
                                 let x = sfromD @Double @'[] $ xh V.! 0
                                     x1 = sfromD @Double @'[3] $ xh V.! 1
-                                in dmkHVector @_ @g
+                                in dmkHVector
                                    $ V.fromList
                                        [ DynamicShaped
                                          $ sin x
@@ -1921,7 +1921,7 @@ testSin0rmapAccumRD01SN52 = do
                                  -> HVectorOf (RankedOf g)
                                g xh a =
                                 let x = sfromD @Double @'[] $ xh V.! 0
-                                in dmkHVector @_ @g
+                                in dmkHVector
                                    $ V.fromList
                                        [ DynamicShaped
                                          $ sin x
@@ -1967,7 +1967,7 @@ testSin0rmapAccumRD01SN53 = do
                                  -> HVectorOf (RankedOf g)
                                g xh a =
                                 let x = sfromD @Double @'[3] $ xh V.! 0
-                                in dmkHVector @_ @g
+                                in dmkHVector
                                    $ V.fromList
                                        [ DynamicShaped
                                          $ sin x - sfromD (a V.! 2)
@@ -2011,7 +2011,7 @@ testSin0rmapAccumRD01SN531 = do
                                  -> HVectorOf (RankedOf g)
                                g xh a =
                                 let x = sfromD @Double @'[3] $ xh V.! 0
-                                in dmkHVector @_ @g
+                                in dmkHVector
                                    $ V.fromList
                                        [ DynamicShaped
                                          $ sfromList [0.1, 0.2, 0.3]
@@ -2063,7 +2063,7 @@ testSin0rmapAccumRD01SN531a = do
                                g xh a =
                                 let x = sfromD @Double @'[3] $ xh V.! 0
                                     x2 = sfromD @Double @'[6] $ xh V.! 1
-                                in dmkHVector @_ @g
+                                in dmkHVector
                                    $ V.fromList
                                        [ DynamicShaped
                                          $ sfromList
@@ -2112,7 +2112,7 @@ testSin0rmapAccumRD01SN531b0 = do
                           (let h :: forall g. ADReady g
                                  => HVector g -> HVector g
                                  -> HVectorOf g
-                               h xh _a = dmkHVector @g xh
+                               h xh _a = dmkHVector xh
                            in h)
                           (dmkHVector $ V.fromList [ DynamicShaped @Double @'[]
                                         $ sfromR x0 ])
@@ -2137,7 +2137,7 @@ testSin0rmapAccumRD01SN531bS = do
                           (let g :: forall g. ADReadyS g
                                  => HVector (RankedOf g) -> HVector (RankedOf g)
                                  -> HVectorOf (RankedOf g)
-                               g xh _a = dmkHVector @_ @g xh
+                               g xh _a = dmkHVector xh
                            in g)
                           (dmkHVector $ V.fromList [ DynamicShaped x0 ])
                           (dmkHVector $ V.fromList [ DynamicShaped @Double @'[1] 0 ]))))
@@ -2160,7 +2160,7 @@ testSin0rmapAccumRD01SN531bR = do
                           (let h :: forall g. ADReady g
                                  => HVector g -> HVector g
                                  -> HVectorOf g
-                               h xh _a = dmkHVector @g xh
+                               h xh _a = dmkHVector xh
                            in h)
                           (dmkHVector $ V.fromList [ DynamicRanked x0 ])
                           (dmkHVector $ V.fromList [ DynamicRanked @Double @1
@@ -2183,7 +2183,7 @@ testSin0rmapAccumRD01SN531b0PP = do
                           (let h :: forall g. ADReady g
                                  => HVector g -> HVector g
                                  -> HVectorOf g
-                               h xh _a = dmkHVector @g xh
+                               h xh _a = dmkHVector xh
                            in h)
                           (dmkHVector $ V.fromList [ DynamicShaped @Double @'[]
                                         $ sfromD (x0 V.! 0) ])
@@ -2213,7 +2213,7 @@ testSin0rmapAccumRD01SN531bSPP = do
                           (let h :: forall g. ADReadyS g
                                  => HVector (RankedOf g) -> HVector (RankedOf g)
                                  -> HVectorOf (RankedOf g)
-                               h xh _a = dmkHVector @_ @g xh
+                               h xh _a = dmkHVector xh
                            in h)
                           (dmkHVector x0)
                           (dmkHVector $ V.fromList [ DynamicShaped @Double @'[1] 0 ]))))
@@ -2241,7 +2241,7 @@ testSin0rmapAccumRD01SN531bSPPFull = do
                           (let h :: forall g. ADReadyS g
                                  => HVector (RankedOf g) -> HVector (RankedOf g)
                                  -> HVectorOf (RankedOf g)
-                               h xh _a = dmkHVector @_ @g xh
+                               h xh _a = dmkHVector xh
                            in h)
                           (dmkHVector x0)
                           (dmkHVector $ V.fromList [ DynamicShaped @Double @'[1] 0 ]))))
@@ -2269,7 +2269,7 @@ testSin0rmapAccumRD01SN531bRPP = do
                           (let h :: forall g. ADReady g
                                  => HVector g -> HVector g
                                  -> HVectorOf g
-                               h xh _a = dmkHVector @g xh
+                               h xh _a = dmkHVector xh
                            in h)
                           (dmkHVector x0)
                           (dmkHVector $ V.fromList [ DynamicRanked @Double @1
@@ -2298,7 +2298,7 @@ testSin0rmapAccumRD01SN531b0PPj = do
                           (let h :: forall g. ADReady g
                                  => HVector g -> HVector g
                                  -> HVectorOf g
-                               h xh _a = dmkHVector @g xh
+                               h xh _a = dmkHVector xh
                            in h)
                           (dmkHVector $ V.fromList
                              [ DynamicShaped @Double @'[]
@@ -2330,7 +2330,7 @@ testSin0rmapAccumRD01SN531bSPPj = do
                           (let h :: forall g. ADReadyS g
                                  => HVector (RankedOf g) -> HVector (RankedOf g)
                                  -> HVectorOf (RankedOf g)
-                               h xh _a = dmkHVector @_ @g xh
+                               h xh _a = dmkHVector xh
                            in h)
                           (dmkHVector $ V.fromList
                              [ DynamicShaped @Double @'[]
@@ -2361,7 +2361,7 @@ testSin0rmapAccumRD01SN531bRPPj = do
                           (let h :: forall g. ADReady g
                                  => HVector g -> HVector g
                                  -> HVectorOf g
-                               h xh _a = dmkHVector @g xh
+                               h xh _a = dmkHVector xh
                            in h)
                           (dmkHVector $ V.fromList
                              [ DynamicRanked @Double @0
@@ -2398,7 +2398,7 @@ testSin0rmapAccumRD01SN531c = do
                                  -> HVectorOf (RankedOf g)
                                g xh a =
                                 let x = sfromD @Double @'[] $ xh V.! 0
-                                in dmkHVector @_ @g
+                                in dmkHVector
                                    $ V.fromList
                                        [ DynamicShaped
                                          $ sin x - sfromD (a V.! 0)
@@ -2432,7 +2432,7 @@ _testSin0rmapAccumRD01SN531Slice = do
                                  -> HVectorOf (RankedOf g)
                                g xh _a =
                                 let x = sfromD @Double @'[] $ xh V.! 0
-                                in dmkHVector @_ @g
+                                in dmkHVector
                                    $ V.fromList [ DynamicShaped x ]
                            in g)
                           (dmkHVector $ V.fromList [ DynamicShaped x0 ])
@@ -2458,7 +2458,7 @@ testSin0rmapAccumRD01SN54 = do
                                  -> HVectorOf (RankedOf g)
                                g xh a =
                                  let x = sfromD @Double @'[3] $ xh V.! 0
-                                 in dmkHVector @_ @g
+                                 in dmkHVector
                                     $ V.fromList
                                         [ DynamicShaped
                                           $ sin x - sfromD (a V.! 2) ]
@@ -2491,7 +2491,7 @@ _testSin0rmapAccumRD01SN55 = do
                                g xh _a =
                                 let x = sfromD @Double @'[3] $ xh V.! 0
                                     a = xh
-                                in dmkHVector @_ @g
+                                in dmkHVector
                                    $ V.fromList
                                        [ DynamicShaped
                                          $ sin x - sfromD (a V.! 0)
@@ -2534,7 +2534,7 @@ testSin0rmapAccumRD01SN55acc = do
                                  -> HVectorOf (RankedOf g)
                                g _xh a =
                                 let x = sreplicate @g @3 2
-                                in dmkHVector @_ @g
+                                in dmkHVector
                                    $ V.fromList
                                        [ DynamicShaped
                                          $ sfromList [0.1, 0.2, 0.3]
@@ -2578,7 +2578,7 @@ testSin0rmapAccumRD01SN56 = do
                                  -> HVectorOf (RankedOf g)
                                g xh _a =
                                  let x = sfromD @Double @'[] $ xh V.! 0
-                                 in dmkHVector @_ @g
+                                 in dmkHVector
                                     $ V.fromList
                                         [ DynamicShaped @Double @'[] 1
                                         , DynamicShaped $ sin x ]
@@ -2603,7 +2603,7 @@ testSin0rmapAccumRD01SN57 = do
                                  -> HVectorOf (RankedOf g)
                                g xh _a =
                                  let x = sfromD @Double @'[] $ xh V.! 0
-                                 in dmkHVector @_ @g
+                                 in dmkHVector
                                     $ V.fromList
                                         [ DynamicShaped $ sin x
                                         , DynamicShaped x ]
@@ -2628,7 +2628,7 @@ testSin0rmapAccumRD01SN58 = do
                                  -> HVectorOf (RankedOf g)
                                g xh _a =
                                  let x = sfromD @Double @'[] $ xh V.! 0
-                                 in dmkHVector @_ @g
+                                 in dmkHVector
                                     $ V.fromList
                                         [ DynamicShaped @Double @'[] 1
                                         , DynamicShaped x ]
@@ -2653,7 +2653,7 @@ testSin0rmapAccumRD01SN59 = do
                                  -> HVectorOf (RankedOf g)
                                g xh _a =
                                  let x = sfromD @Double @'[] $ xh V.! 0
-                                 in dmkHVector @_ @g
+                                 in dmkHVector
                                     $ V.fromList
                                         [ DynamicShaped @Double @'[] 1
                                         , DynamicShaped x ]
@@ -2681,7 +2681,7 @@ testSin0rmapAccumRD01SN6 = do
                                  -> HVectorOf (RankedOf g)
                                g xh a =
                                 let x = sfromD @Double @'[] $ xh V.! 0
-                                in dmkHVector @_ @g
+                                in dmkHVector
                                    $ V.fromList
                                        [ DynamicShaped
                                          $ sin x
@@ -2724,7 +2724,7 @@ testSin0rmapAccumRD01SN7 = do
                                  -> HVectorOf (RankedOf g)
                                g xh a =
                                 let x = sfromD @Double @'[] $ xh V.! 0
-                                in dmkHVector @_ @g
+                                in dmkHVector
                                    $ V.fromList
                                        [ DynamicShaped
                                          $ sin x
@@ -2934,7 +2934,7 @@ testSin0ScanD8MapAccum = do
                           => HVector g -> HVector g -> HVectorOf g
                         g xh a =
                          let x = rfromD @Double @5 $ xh V.! 0
-                         in dmkHVector @g
+                         in dmkHVector
                           $ V.fromList
                             [ DynamicRanked
                                $ rtr $ rreplicate 5
@@ -3171,7 +3171,7 @@ testSin0ScanD8fwdMapAccum = do
                           => HVector g -> HVector g -> HVectorOf g
                         g xh a =
                          let x = rfromD @Double @2 $ xh V.! 0
-                         in dmkHVector @g
+                         in dmkHVector
                           $ V.fromList
                             [ DynamicRanked
                                $ rtr $ rreplicate 5
@@ -4399,7 +4399,7 @@ fFoldZipR domsOD p as rf shn cShared =
         dzipWith1 k
                   (\doms ->
                      let (cr, x, a) = domsTo3 doms
-                     in dletHVectorInHVector @ranked
+                     in dletHVectorInHVector
                           (rf cr x a) $ \rfRes ->
                             dmkHVector $ snd $ domsToPair rfRes)
                   (V.cons (DynamicRanked cr2)

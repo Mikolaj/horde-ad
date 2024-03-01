@@ -92,9 +92,9 @@ gradientFromDeltaH
   -> (AstBindingsD ranked, HVector ranked)
 gradientFromDeltaH !parameters0 (HVectorPseudoTensor value)
                    !mdt !(HVectorPseudoTensor deltaTopLevel) =
-  let shDt = dshape @ranked value
+  let shDt = dshape value
       dt :: HVectorOf ranked
-      dt = maybe (dmkHVector $ mapHVectorShaped @(ShapedOf ranked) (const 1)
+      dt = maybe (dmkHVector $ mapHVectorShaped (const 1)
                   $ V.map dynamicFromVoid shDt)
                  unHVectorPseudoTensor
                  mdt

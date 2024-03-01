@@ -67,7 +67,7 @@ instance (KnownNat n, GoodScalar r, ADReady ranked)
                           (ADVal (AstRanked PrimalSpan) Double n) #-}
 -}
   toHVector = V.singleton . DynamicRanked
-  fromHVector _aInit params = fromHVectorR @r @n params
+  fromHVector _aInit params = fromHVectorR params
 
 instance (KnownNat n, GoodScalar r, ADReady ranked)
          => DualNumberValue (ADVal ranked r n) where
@@ -240,7 +240,7 @@ instance ( ADReadyS shaped, Sh.Shape sh, GoodScalar r
          => AdaptableHVector (ADVal ranked)
                              (ADVal shaped r sh) where
   toHVector = V.singleton . DynamicShaped
-  fromHVector _aInit params = fromHVectorS @r @sh params
+  fromHVector _aInit params = fromHVectorS params
 
 instance (ADReadyS shaped, Sh.Shape sh, GoodScalar r)
          => DualNumberValue (ADVal shaped r sh) where
@@ -477,8 +477,7 @@ instance ADReadyBoth ranked shaped
     let (ll2, acc0, acc0') = unADValHVector acc0D
         (ll3, esUnshared, es') = unADValHVector esD
         (l4, es) =
-          dsharePrimal @ranked
-                       (dmkHVector esUnshared)
+          dsharePrimal (dmkHVector esUnshared)
                        (flattenADShare $ V.toList ll2 ++ V.toList ll3)
         codomainShs = accShs V.++ bShs
         accLen = V.length accShs
@@ -486,13 +485,13 @@ instance ADReadyBoth ranked shaped
         hvToPair = V.splitAt accLen
         g :: forall f. ADReady f => [HVector f] -> HVectorOf f
         g ![!acc, !e] =
-          dletHVectorInHVector @f (unHFun f [acc, e]) $ \res ->
+          dletHVectorInHVector (unHFun f [acc, e]) $ \res ->
             let (accRes, bRes) = hvToPair res
             in dmkHVector $ V.concat [accRes, acc, bRes]
         g _ = error "g: wrong number of arguments"
         dg :: forall f. ADReady f => [HVector f] -> HVectorOf f
         dg ![!dacc_de, !acc_e] =
-          dletHVectorInHVector @f (unHFun df [dacc_de, acc_e]) $ \res ->
+          dletHVectorInHVector (unHFun df [dacc_de, acc_e]) $ \res ->
             let (accRes, bRes) = hvToPair res
             in dmkHVector $ V.concat [accRes, V.take accLen dacc_de, bRes]
         dg _ = error "dg: wrong number of arguments"
@@ -500,8 +499,7 @@ instance ADReadyBoth ranked shaped
         rg ![!dx_db, !acc_e] =
           let (dx, db) = hvToPair dx_db
               (dbacc, dbRes) = hvToPair db
-          in dletHVectorInHVector @f
-                                  (unHFun rf [dx V.++ dbRes, acc_e]) $ \res ->
+          in dletHVectorInHVector (unHFun rf [dx V.++ dbRes, acc_e]) $ \res ->
             let (dacc, de) = hvToPair res
             in dmkHVector $ V.concat [V.zipWith addDynamic dacc dbacc, de]
         rg _ = error "rg: wrong number of arguments"
@@ -517,7 +515,7 @@ instance ADReadyBoth ranked shaped
                                            , accShs V.++ eShs ]
                                    $ HFun rg)
                                   (dmkHVector acc0) (dmkHVector es)
-        (l5, pShared) = dsharePrimal @ranked pUnshared l4
+        (l5, pShared) = dsharePrimal pUnshared l4
         -- This code makes sense only thanks to HVector being a representation
         -- of tuples in the struct of arrays format.
         accFin = V.take accLen pShared
@@ -549,8 +547,7 @@ instance ADReadyBoth ranked shaped
     let (ll2, acc0, acc0') = unADValHVector acc0D
         (ll3, esUnshared, es') = unADValHVector esD
         (l4, es) =
-          dsharePrimal @ranked
-                       (dmkHVector esUnshared)
+          dsharePrimal (dmkHVector esUnshared)
                        (flattenADShare $ V.toList ll2 ++ V.toList ll3)
         codomainShs = accShs V.++ bShs
         accLen = V.length accShs
@@ -558,13 +555,13 @@ instance ADReadyBoth ranked shaped
         hvToPair = V.splitAt accLen
         g :: forall f. ADReady f => [HVector f] -> HVectorOf f
         g ![!acc, !e] =
-          dletHVectorInHVector @f (unHFun f [acc, e]) $ \res ->
+          dletHVectorInHVector (unHFun f [acc, e]) $ \res ->
             let (accRes, bRes) = hvToPair res
             in dmkHVector $ V.concat [accRes, acc, bRes]
         g _ = error "g: wrong number of arguments"
         dg :: forall f. ADReady f => [HVector f] -> HVectorOf f
         dg ![!dacc_de, !acc_e] =
-          dletHVectorInHVector @f (unHFun df [dacc_de, acc_e]) $ \res ->
+          dletHVectorInHVector (unHFun df [dacc_de, acc_e]) $ \res ->
             let (accRes, bRes) = hvToPair res
             in dmkHVector $ V.concat [accRes, V.take accLen dacc_de, bRes]
         dg _ = error "dg: wrong number of arguments"
@@ -572,8 +569,7 @@ instance ADReadyBoth ranked shaped
         rg ![!dx_db, !acc_e] =
           let (dx, db) = hvToPair dx_db
               (dbacc, dbRes) = hvToPair db
-          in dletHVectorInHVector @f
-                                  (unHFun rf [dx V.++ dbRes, acc_e]) $ \res ->
+          in dletHVectorInHVector (unHFun rf [dx V.++ dbRes, acc_e]) $ \res ->
             let (dacc, de) = hvToPair res
             in dmkHVector $ V.concat [V.zipWith addDynamic dacc dbacc, de]
         rg _ = error "rg: wrong number of arguments"
@@ -589,7 +585,7 @@ instance ADReadyBoth ranked shaped
                                            , accShs V.++ eShs ]
                                    $ HFun rg)
                                   (dmkHVector acc0) (dmkHVector es)
-        (l5, pShared) = dsharePrimal @ranked pUnshared l4
+        (l5, pShared) = dsharePrimal pUnshared l4
         accFin = V.take accLen pShared
         q = V.slice accLen accLen pShared
         bs = V.drop (2 * accLen) pShared
@@ -627,10 +623,8 @@ hVectorADValToADVal
 hVectorADValToADVal hv =
   let (ll, as, as') = unADValHVector hv
   in dDnotShared (flattenADShare $ V.toList ll)
-                 (HVectorPseudoTensor
-                  $ dmkHVector @ranked @(ShapedOf ranked) as)
-                 (HVectorPseudoTensor
-                  $ HToH as')
+                 (HVectorPseudoTensor $ dmkHVector as)
+                 (HVectorPseudoTensor $ HToH as')
 
 unADValHVector
   :: HVector (ADVal f)
@@ -773,7 +767,7 @@ instance (GoodScalar r, KnownNat n)
       KnownNat n
       => AdaptableHVector (Flip OR.Array) (Flip OR.Array Double n) #-}
   toHVector = V.singleton . DynamicRanked
-  fromHVector _aInit params = fromHVectorR @r @n params
+  fromHVector _aInit params = fromHVectorR params
 
 instance ForgetShape (Flip OR.Array r n) where
   type NoShape (Flip OR.Array r n) = Flip OR.Array r n
@@ -782,7 +776,7 @@ instance ForgetShape (Flip OR.Array r n) where
 instance (GoodScalar r, Sh.Shape sh)
          => AdaptableHVector (Flip OR.Array) (Flip OS.Array r sh) where
   toHVector = V.singleton . DynamicShaped
-  fromHVector _aInit params = fromHVectorS @r @sh @(Flip OS.Array) params
+  fromHVector _aInit params = fromHVectorS params
 
 instance Sh.Shape sh
          => ForgetShape (Flip OS.Array r sh) where

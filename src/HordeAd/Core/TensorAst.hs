@@ -65,7 +65,7 @@ revProduceArtifactH hasDt f envInit vals0 =
   let g :: HVector (AstRanked FullSpan)
         -> HVectorPseudoTensor (AstRanked FullSpan) Float '()
       g !hv = HVectorPseudoTensor
-              $ toHVectorOf @(AstRanked FullSpan) dmkHVector
+              $ toHVectorOf dmkHVector
               $ f $ parseHVector (fromValue vals0) hv
   in revArtifactFromForwardPass hasDt (forwardPassByInterpretation g envInit)
 
@@ -117,7 +117,7 @@ revArtifactFromForwardPass hasDt forwardPass parameters0 =
           gradientFromDeltaH
             parameters0 (HVectorPseudoTensor primalBody) mdt delta
         unGradient = dunlet l astBindings (AstMkHVector gradient)
-        unPrimal = dunlet @(AstRanked PrimalSpan) l [] primalBody
+        unPrimal = dunlet l [] primalBody
     in ( ( (varsDt, varsPrimal), unGradient, HVectorPseudoTensor unPrimal
          , undefined )
        , delta )
@@ -168,7 +168,7 @@ fwdArtifactFromForwardPass forwardPass parameters0 =
         derivativeFromDeltaH (V.length parameters0) delta hVectorDs
       unDerivative = HVectorPseudoTensor $ dunlet l astBindings derivative
       unPrimal = HVectorPseudoTensor
-                 $ dunlet @(AstRanked PrimalSpan) l [] primalBody
+                 $ dunlet l [] primalBody
   in ( ((varsPrimalDs, varsPrimal), unDerivative, unPrimal)
      , delta )
 
@@ -262,7 +262,7 @@ instance (GoodScalar r, KnownNat n, RankedTensor (AstRanked s))
       (KnownNat n, AstSpan s)
       => AdaptableHVector (AstRanked s) (AstRanked s Double n) #-}
   toHVector = V.singleton . DynamicRanked
-  fromHVector _aInit params = fromHVectorR @r @n params
+  fromHVector _aInit params = fromHVectorR params
 
 instance DualNumberValue (AstRanked PrimalSpan r n) where
   type DValue (AstRanked PrimalSpan r n) = Flip OR.Array r n
@@ -404,7 +404,7 @@ astBuild1Vectorize k f = build1Vectorize k $ funToAstI f
 instance (GoodScalar r, Sh.Shape sh, ShapedTensor (AstShaped s))
          => AdaptableHVector (AstRanked s) (AstShaped s r sh) where
   toHVector = V.singleton . DynamicShaped
-  fromHVector _aInit params = fromHVectorS @r @sh params
+  fromHVector _aInit params = fromHVectorS params
 
 instance DualNumberValue (AstShaped PrimalSpan r sh) where
   type DValue (AstShaped PrimalSpan r sh) = Flip OS.Array r sh
@@ -943,28 +943,28 @@ instance AstSpan s => ShapedTensor (AstNoVectorizeS s) where
   sScale s t = astDualPartS $ AstConstantS s * AstDS 0 t
 
 instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
-  dshape = dshape @(AstRanked s) . unAstNoVectorizeWrap
+  dshape = dshape . unAstNoVectorizeWrap
   dmkHVector =
-    AstNoVectorizeWrap . dmkHVector @(AstRanked s) . unNoVectorizeHVector
+    AstNoVectorizeWrap . dmkHVector . unNoVectorizeHVector
   dlambda = dlambda @(AstRanked s)
   dHApply t ll =
-    AstNoVectorizeWrap $ dHApply @(AstRanked s) t (map unNoVectorizeHVector ll)
+    AstNoVectorizeWrap $ dHApply t (map unNoVectorizeHVector ll)
   dunHVector =
-    noVectorizeHVector . dunHVector @(AstRanked s) . unAstNoVectorizeWrap
+    noVectorizeHVector . dunHVector . unAstNoVectorizeWrap
   dletHVectorInHVector a f =
     AstNoVectorizeWrap
     $ astLetHVectorInHVectorFun (unAstNoVectorizeWrap a)
                                 (unAstNoVectorizeWrap . f . noVectorizeHVector)
   dletHFunInHVector t f =
     AstNoVectorizeWrap
-    $ dletHFunInHVector @(AstRanked s) t (unAstNoVectorizeWrap . f)
+    $ dletHFunInHVector t (unAstNoVectorizeWrap . f)
   rletInHVector u f =
     AstNoVectorizeWrap
-    $ rletInHVector @(AstRanked s) (unAstNoVectorize u)
+    $ rletInHVector (unAstNoVectorize u)
                     (unAstNoVectorizeWrap . f . AstNoVectorize)
   sletInHVector u f =
     AstNoVectorizeWrap
-    $ sletInHVector @(AstRanked s) (unAstNoVectorizeS u)
+    $ sletInHVector (unAstNoVectorizeS u)
                     (unAstNoVectorizeWrap . f . AstNoVectorizeS)
   dsharePrimal = error "dsharePrimal for AstNoVectorize"
   dregister = error "dregister for AstNoVectorize"
@@ -972,7 +972,7 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
                 $ AstBuildHVector1 k $ funToAstI (unAstNoVectorizeWrap . f)
   rrev f parameters0 hVector =
     AstNoVectorizeWrap
-    $ rrev @(AstRanked s) f parameters0 (unNoVectorizeHVector hVector)
+    $ rrev f parameters0 (unNoVectorizeHVector hVector)
   drevDt = drevDt @(AstRanked s)
   dfwd = dfwd @(AstRanked s)
   dmapAccumRDer _ k accShs bShs eShs f df rf acc0 es =
@@ -1124,28 +1124,28 @@ instance AstSpan s => ShapedTensor (AstNoSimplifyS s) where
   sScale s t = astDualPartS $ AstConstantS s * AstDS 0 t
 
 instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
-  dshape = dshape @(AstRanked s) . unAstNoSimplifyWrap
+  dshape = dshape . unAstNoSimplifyWrap
   dmkHVector =
-    AstNoSimplifyWrap . dmkHVector @(AstRanked s) . unNoSimplifyHVector
+    AstNoSimplifyWrap . dmkHVector . unNoSimplifyHVector
   dlambda = dlambda @(AstRanked s)
   dHApply t ll =
-    AstNoSimplifyWrap $ dHApply @(AstRanked s) t (map unNoSimplifyHVector ll)
+    AstNoSimplifyWrap $ dHApply t (map unNoSimplifyHVector ll)
   dunHVector =
-    noSimplifyHVector . dunHVector @(AstRanked s) . unAstNoSimplifyWrap
+    noSimplifyHVector . dunHVector . unAstNoSimplifyWrap
   dletHVectorInHVector a f =
     AstNoSimplifyWrap
     $ astLetHVectorInHVectorFun (unAstNoSimplifyWrap a)
                                 (unAstNoSimplifyWrap . f . noSimplifyHVector)
   dletHFunInHVector t f =
     AstNoSimplifyWrap
-    $ dletHFunInHVector @(AstRanked s) t (unAstNoSimplifyWrap . f)
+    $ dletHFunInHVector t (unAstNoSimplifyWrap . f)
   rletInHVector u f =
     AstNoSimplifyWrap
-    $ rletInHVector @(AstRanked s) (unAstNoSimplify u)
+    $ rletInHVector (unAstNoSimplify u)
                     (unAstNoSimplifyWrap . f . AstNoSimplify)
   sletInHVector u f =
     AstNoSimplifyWrap
-    $ sletInHVector @(AstRanked s) (unAstNoSimplifyS u)
+    $ sletInHVector (unAstNoSimplifyS u)
                     (unAstNoSimplifyWrap . f . AstNoSimplifyS)
   dsharePrimal = error "dsharePrimal for AstNoVectorize"
   dregister = error "dregister for AstNoSimplify"
@@ -1153,7 +1153,7 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
                 $ astBuildHVector1Vectorize k (unAstNoSimplifyWrap . f)
   rrev f parameters0 hVector =
     AstNoSimplifyWrap
-    $ rrev @(AstRanked s) f parameters0 (unNoSimplifyHVector hVector)
+    $ rrev f parameters0 (unNoSimplifyHVector hVector)
   drevDt = drevDt @(AstRanked s)
   dfwd = dfwd @(AstRanked s)
   dmapAccumRDer _ k accShs bShs eShs f df rf acc0 es =

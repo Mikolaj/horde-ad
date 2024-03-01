@@ -106,13 +106,13 @@ revDtMaybe
 {-# INLINE revDtMaybe #-}
 revDtMaybe f vals mdt =
   let g hVector = HVectorPseudoTensor
-                  $ toHVectorOf @(AstRanked FullSpan) dmkHVector
+                  $ toHVectorOf dmkHVector
                   $ f $ parseHVector (fromValue vals) hVector
       valsH = toHVector vals
       voidH = voidFromHVector valsH
       artifact = fst $ revProduceArtifact (isJust mdt) g EM.empty voidH
       mdth = HVectorPseudoTensor
-             . toHVectorOf @(Flip OR.Array) dmkHVector
+             . toHVectorOf dmkHVector
              <$> mdt
   in parseHVector vals
      $ fst $ revEvalArtifact artifact valsH mdth
@@ -138,7 +138,7 @@ revArtifactAdapt
      , Dual (HVectorPseudoTensor (AstRanked PrimalSpan)) Float '() )
 revArtifactAdapt hasDt f vals =
   let g hVector = HVectorPseudoTensor
-                  $ toHVectorOf @(AstRanked FullSpan) dmkHVector
+                  $ toHVectorOf dmkHVector
                   $ f $ parseHVector (fromValue vals) hVector
       valsH = toHVector @(Flip OR.Array) vals
       voidH = voidFromHVector valsH
@@ -203,7 +203,7 @@ fwd
   -> Value tgtAstVals
 fwd f vals ds =
   let g hVector = HVectorPseudoTensor
-                  $ toHVectorOf @(AstRanked FullSpan) dmkHVector
+                  $ toHVectorOf dmkHVector
                   $ f $ parseHVector (fromValue vals) hVector
       valsH = toHVector vals
       voidH = voidFromHVector valsH
@@ -226,7 +226,7 @@ fwdArtifactAdapt
      , Dual (HVectorPseudoTensor (AstRanked PrimalSpan)) Float '() )
 fwdArtifactAdapt f vals =
   let g hVector = HVectorPseudoTensor
-                  $ toHVectorOf @(AstRanked FullSpan) dmkHVector
+                  $ toHVectorOf dmkHVector
                   $ f $ parseHVector (fromValue vals) hVector
       valsH = toHVector @(Flip OR.Array) vals
       voidH = voidFromHVector valsH
@@ -282,7 +282,7 @@ crevDtMaybe
 {-# INLINE crevDtMaybe #-}
 crevDtMaybe f vals mdt =
   let g hVector = hVectorADValToADVal
-                  $ toHVector @(ADVal (Flip OR.Array))
+                  $ toHVector
                   $ f $ parseHVector (fromDValue vals) hVector
       valsH = toHVector vals
       mdth = HVectorPseudoTensor

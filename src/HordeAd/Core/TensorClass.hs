@@ -829,7 +829,7 @@ class HVectorTensor (ranked :: RankedTensorType)
          -> HVectorOf ranked
   srevDt f shs =
     let g :: forall f. ADReady f => [HVector f] -> HVectorOf f
-        g ![!x] = dmkHVector @f $ V.singleton $ DynamicShaped $ f x
+        g ![!x] = dmkHVector $ V.singleton $ DynamicShaped $ f x
         g _ = error "g: wrong number of arguments"
         h = drevDt @ranked shs (HFun g)
     in \es dt -> dHApply h [V.singleton $ DynamicShaped dt, es]
@@ -842,7 +842,7 @@ class HVectorTensor (ranked :: RankedTensorType)
        -> shaped r sh
   sfwd f shs =
     let g :: forall f. ADReady f => [HVector f] -> HVectorOf f
-        g ![!x] = dmkHVector @f $ V.singleton $ DynamicShaped $ f x
+        g ![!x] = dmkHVector $ V.singleton $ DynamicShaped $ f x
         g _ = error "g: wrong number of arguments"
         h = dfwd @ranked shs (HFun g)
     in \es ds -> let hv = dHApply h [ds, es]
@@ -950,7 +950,7 @@ class HVectorTensor (ranked :: RankedTensorType)
               g !acc !e =
                 sletInHVector
                   (f (sfromD $ acc V.! 0) (sfromD $ e V.! 0))
-                  (\res -> dmkHVector @f $ V.singleton $ DynamicShaped res)
+                  (\res -> dmkHVector $ V.singleton $ DynamicShaped res)
           in g)
          (dmkHVector $ V.singleton $ DynamicShaped acc0)
          (dmkHVector $ V.singleton $ DynamicShaped es))
@@ -976,7 +976,7 @@ class HVectorTensor (ranked :: RankedTensorType)
               g !acc !e =
                 sletInHVector
                   (f (sfromD $ acc V.! 0) (sfromD $ e V.! 0))
-                  (\res -> dmkHVector @f
+                  (\res -> dmkHVector
                            $ V.fromList [ DynamicShaped res
                                         , DynamicShaped res ])
           in g)

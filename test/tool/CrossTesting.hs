@@ -56,11 +56,11 @@ crevDtMaybeBoth
 {-# INLINE crevDtMaybeBoth #-}
 crevDtMaybeBoth mdt f vals =
   let g hVector = hVectorADValToADVal
-                  $ toHVector @(ADVal (Flip OR.Array))
+                  $ toHVector
                   $ f $ parseHVector (fromDValue vals) hVector
       valsH = toHVector vals
       mdth = HVectorPseudoTensor
-             . toHVector @(Flip OR.Array)
+             . toHVector
              <$> mdt
       (grad, HVectorPseudoTensor res) = crevOnHVector mdth g valsH
   in (parseHVector vals grad, rfromD $ res V.! 0)
