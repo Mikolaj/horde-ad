@@ -42,8 +42,8 @@ import           HordeAd.Util.SizedIndex
 raddDynamic :: forall ranked r n.
                (RankedTensor ranked, GoodScalar r, KnownNat n)
             => ranked r n -> DynamicTensor ranked -> ranked r n
-raddDynamic r (DynamicRanked @r2 @n2 t) = case sameNat (Proxy @n2)
-                                                       (Proxy @n) of
+raddDynamic !r (DynamicRanked @r2 @n2 t) = case sameNat (Proxy @n2)
+                                                        (Proxy @n) of
   Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
     Just Refl -> r + t
     _ -> error "raddDynamic: scalar mismatch"
@@ -68,7 +68,7 @@ saddDynamic :: forall shaped sh r.
                ( ShapedTensor shaped, GoodScalar r, Sh.Shape sh
                , ShapedOf (RankedOf shaped) ~ shaped )
             => shaped r sh -> DynamicTensor (RankedOf shaped) -> shaped r sh
-saddDynamic r (DynamicRanked @r2 @n2 t) = case matchingRank @sh @n2 of
+saddDynamic !r (DynamicRanked @r2 @n2 t) = case matchingRank @sh @n2 of
   Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
     Just Refl -> r + sfromR t
     _ -> error "saddDynamic: scalar mismatch"

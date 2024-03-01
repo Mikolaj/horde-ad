@@ -663,7 +663,7 @@ evalDynamic
   => EvalState ranked
   -> (DynamicTensor ranked, DynamicTensor (DeltaR ranked))
   -> EvalState ranked
-evalDynamic s3 (t, DynamicRanked d2) = evalR s3 (rfromD t) d2
+evalDynamic !s3 (t, DynamicRanked d2) = evalR s3 (rfromD t) d2
 evalDynamic s3 (t, DynamicShaped d2) = evalS s3 (sfromD t) d2
 evalDynamic s3 (t, DynamicRankedDummy @r @sh _ _) =
   withListSh (Proxy @sh) $ \sh2 ->
