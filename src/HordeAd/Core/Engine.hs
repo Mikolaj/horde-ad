@@ -106,7 +106,7 @@ revDtMaybe
 revDtMaybe f vals mdt =
   let g hVector = HVectorPseudoTensor
                   $ toHVectorOf $ f $ parseHVector (fromValue vals) hVector
-      valsH = toHVector vals
+      valsH = toHVectorOf vals
       voidH = voidFromHVector valsH
       artifact = fst $ revProduceArtifact (isJust mdt) g EM.empty voidH
       mdth = HVectorPseudoTensor . toHVectorOf <$> mdt
@@ -135,7 +135,7 @@ revArtifactAdapt
 revArtifactAdapt hasDt f vals =
   let g hVector = HVectorPseudoTensor
                   $ toHVectorOf $ f $ parseHVector (fromValue vals) hVector
-      valsH = toHVector @(Flip OR.Array) vals
+      valsH = toHVectorOf @(Flip OR.Array) vals
       voidH = voidFromHVector valsH
   in revProduceArtifact hasDt g EM.empty voidH
 {-# SPECIALIZE revArtifactAdapt
@@ -199,10 +199,10 @@ fwd
 fwd f vals ds =
   let g hVector = HVectorPseudoTensor
                   $ toHVectorOf $ f $ parseHVector (fromValue vals) hVector
-      valsH = toHVector vals
+      valsH = toHVectorOf vals
       voidH = voidFromHVector valsH
       artifact = fst $ fwdProduceArtifact g EM.empty voidH
-      dsH = toHVector ds
+      dsH = toHVectorOf ds
       err = error "fwd: codomain of unknown length"
   in parseHVector err $ unHVectorPseudoTensor
      $ fst $ fwdEvalArtifact artifact valsH dsH
@@ -221,7 +221,7 @@ fwdArtifactAdapt
 fwdArtifactAdapt f vals =
   let g hVector = HVectorPseudoTensor
                   $ toHVectorOf $ f $ parseHVector (fromValue vals) hVector
-      valsH = toHVector @(Flip OR.Array) vals
+      valsH = toHVectorOf @(Flip OR.Array) vals
       voidH = voidFromHVector valsH
   in fwdProduceArtifact g EM.empty voidH
 
@@ -275,10 +275,10 @@ crevDtMaybe
 {-# INLINE crevDtMaybe #-}
 crevDtMaybe f vals mdt =
   let g hVector = hVectorADValToADVal
-                  $ toHVector $ f $ parseHVector (fromDValue vals) hVector
-      valsH = toHVector vals
+                  $ toHVectorOf $ f $ parseHVector (fromDValue vals) hVector
+      valsH = toHVectorOf vals
       mdth = HVectorPseudoTensor
-             . toHVector @(Flip OR.Array)
+             . toHVectorOf @(Flip OR.Array)
              <$> mdt
   in parseHVector vals
      $ fst $ crevOnHVector mdth g valsH
@@ -306,10 +306,10 @@ cfwd
   => (advals -> ADVal f r y) -> vals -> vals -> f r y
 cfwd f vals ds =
   let g hVector = hVectorADValToADVal
-                  $ toHVector @(ADVal (Flip OR.Array))
+                  $ toHVectorOf @(ADVal (Flip OR.Array))
                   $ f $ parseHVector (fromDValue vals) hVector
-      valsH = toHVector vals
-      dsH = toHVector ds
+      valsH = toHVectorOf vals
+      dsH = toHVectorOf ds
       err = error "fwd: codomain of unknown length"
   in parseHVector err $ unHVectorPseudoTensor
      $ fst $ cfwdOnHVector valsH g dsH

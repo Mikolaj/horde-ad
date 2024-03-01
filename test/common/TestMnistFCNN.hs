@@ -521,7 +521,7 @@ mnistTestCase2S widthHidden@SNat widthHidden2@SNat
         :: Value (ADFcnnMnistParameters widthHidden widthHidden2
                                        'ADModeGradient Double)
       valsInit = fst $ randomVals range seed
-      parametersInit = toHVector valsInit
+      parametersInit = toHVectorOf valsInit
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show (sNatValue widthHidden :: Int)

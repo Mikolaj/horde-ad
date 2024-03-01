@@ -58,7 +58,7 @@ crevDtMaybeBoth mdt f vals =
   let g hVector = hVectorADValToADVal
                   $ toHVector
                   $ f $ parseHVector (fromDValue vals) hVector
-      valsH = toHVector vals
+      valsH = toHVectorOf vals
       mdth = HVectorPseudoTensor
              . toHVector
              <$> mdt
@@ -77,7 +77,7 @@ rev' :: forall r m n v a.
         , a, v, v, v )
 rev' f vals =
   let value0 = f vals
-      parameters = toHVector vals
+      parameters = toHVectorOf vals
       parameters0 = voidFromHVector parameters
       dt = Nothing
       valsFrom = fromDValue vals

@@ -400,7 +400,7 @@ convMnistTestCaseCNNT kheight_minus_1@SNat kwidth_minus_1@SNat
         :: Value (ADConvMnistParameters kheight_minus_1 kwidth_minus_1
                                         out_channels n_hidden 'ADModeGradient r)
       valsInit = fst $ randomVals range seed
-      parametersInit = toHVector valsInit
+      parametersInit = toHVectorOf valsInit
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show (sNatValue n_hidden :: Int)

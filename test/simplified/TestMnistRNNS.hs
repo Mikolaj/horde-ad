@@ -53,7 +53,7 @@ mnistTestCaseRNNSA prefix epochs maxBatches width@SNat batch_size@SNat
   let valsInit :: MnistRnnShaped2.ADRnnMnistParametersShaped
                     shaped SizeMnistHeight width r
       valsInit = fst $ randomVals 0.4 (mkStdGen 44)
-      hVectorInit = toHVector valsInit
+      hVectorInit = toHVectorOf valsInit
       miniBatchSize = sNatValue batch_size
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
@@ -152,7 +152,7 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
   let valsInit :: MnistRnnShaped2.ADRnnMnistParametersShaped
                     shaped SizeMnistHeight width r
       valsInit = fst $ randomVals 0.4 (mkStdGen 44)
-      hVectorInit = toHVector valsInit
+      hVectorInit = toHVectorOf valsInit
       miniBatchSize = sNatValue batch_size
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
@@ -267,7 +267,7 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
     let valsInit :: MnistRnnShaped2.ADRnnMnistParametersShaped
                       shaped SizeMnistHeight width r
         valsInit = fst $ randomVals 0.4 (mkStdGen 44)
-        hVectorInit = toHVector valsInit
+        hVectorInit = toHVectorOf valsInit
         miniBatchSize = sNatValue batch_size
         name = prefix ++ ": "
                ++ unwords [ show epochs, show maxBatches

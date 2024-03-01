@@ -216,7 +216,7 @@ mnistTrainBench2VTA extraPrefix chunkLength xs widthHidden widthHidden2
                     1 (mkStdGen 44)
               Nothing -> error "valsInit: impossible someNatVal error"
           Nothing -> error "valsInit: impossible someNatVal error"
-      hVectorInit = toHVector valsInit
+      hVectorInit = toHVectorOf valsInit
       f :: MnistData r -> HVector (ADVal ranked)
         -> ADVal ranked r 0
       f mnist adinputs =
@@ -246,7 +246,7 @@ mnistTestBench2VTA extraPrefix chunkLength xs widthHidden widthHidden2 = do
                     1 (mkStdGen 44)
               Nothing -> error "valsInit: impossible someNatVal error"
           Nothing -> error "valsInit: impossible someNatVal error"
-      hVectorInit = toHVector valsInit
+      hVectorInit = toHVectorOf valsInit
       ftest :: [MnistData r] -> HVector (Flip OR.Array) -> r
       ftest = MnistFcnnRanked2.afcnnMnistTest2 valsInit
       chunk = take chunkLength xs
@@ -302,7 +302,7 @@ mnistTrainBench2VTO extraPrefix chunkLength xs widthHidden widthHidden2
                     1 (mkStdGen 44)
               Nothing -> error "valsInit: impossible someNatVal error"
           Nothing -> error "valsInit: impossible someNatVal error"
-      hVectorInit = toHVector valsInit
+      hVectorInit = toHVectorOf valsInit
       name = extraPrefix
              ++ unwords [ "v0 m" ++ show (V.length hVectorInit)
                         , " =" ++ show (sizeHVector hVectorInit) ]

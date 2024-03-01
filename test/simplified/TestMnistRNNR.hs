@@ -67,7 +67,7 @@ mnistTestCaseRNNA prefix epochs maxBatches width miniBatchSize totalBatchSize
             $ randomVals @(MnistRnnRanked2.ADRnnMnistParametersShaped
                              (Flip OS.Array) width r)
                 0.4 (mkStdGen 44)
-      hVectorInit = toHVector valsInit
+      hVectorInit = toHVectorOf valsInit
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show width, show miniBatchSize
@@ -160,7 +160,7 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
             $ randomVals @(MnistRnnRanked2.ADRnnMnistParametersShaped
                              (Flip OS.Array) width r)
                 0.4 (mkStdGen 44)
-      hVectorInit = toHVector valsInit
+      hVectorInit = toHVectorOf valsInit
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show width, show miniBatchSize
@@ -267,7 +267,7 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
         valsInitShaped = fst $ randomVals 0.4 (mkStdGen 44)
         valsInit :: MnistRnnRanked2.ADRnnMnistParameters ranked r
         valsInit = forgetShape valsInitShaped
-        hVectorInit = toHVector valsInit
+        hVectorInit = toHVectorOf valsInit
         name = prefix ++ ": "
                ++ unwords [ show epochs, show maxBatches
                           , show width, show miniBatchSize

@@ -66,7 +66,7 @@ mnistTestCaseCNNA prefix epochs maxBatches kh kw c_out n_hidden
                              kh kw c_out n_hidden r)
                 0.4 (mkStdGen 44)
           _ -> error "impossible someNatVal error"
-      hVectorInit = toHVector valsInit
+      hVectorInit = toHVectorOf valsInit
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show kh, show kw, show c_out, show n_hidden
@@ -165,7 +165,7 @@ mnistTestCaseCNNI prefix epochs maxBatches kh kw c_out n_hidden
                              kh kw c_out n_hidden r)
                 0.4 (mkStdGen 44)
           _ -> error "impossible someNatVal error"
-      hVectorInit = toHVector valsInit
+      hVectorInit = toHVectorOf valsInit
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show kh, show kw, show c_out, show n_hidden
@@ -278,7 +278,7 @@ mnistTestCaseCNNO prefix epochs maxBatches kh kw c_out n_hidden
         valsInitShaped = fst $ randomVals 0.4 (mkStdGen 44)
         valsInit :: MnistCnnRanked2.ADCnnMnistParameters ranked r
         valsInit = forgetShape valsInitShaped
-        hVectorInit = toHVector valsInit
+        hVectorInit = toHVectorOf valsInit
         name = prefix ++ ": "
                ++ unwords [ show epochs, show maxBatches
                           , show kh, show kw, show c_out, show n_hidden
