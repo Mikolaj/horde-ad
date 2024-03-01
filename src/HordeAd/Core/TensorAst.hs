@@ -878,7 +878,8 @@ instance AstSpan s => RankedTensor (AstNoVectorize s) where
   rconst = AstNoVectorize . fromPrimal . AstConst
   rletHVectorIn a f =
     AstNoVectorize
-    $ astLetHVectorInFun a (unAstNoVectorize . f . noVectorizeHVector)
+    $ astLetHVectorInFun (unAstNoVectorizeWrap a)
+                         (unAstNoVectorize . f . noVectorizeHVector)
   rletHFunIn a f = AstNoVectorize $ rletHFunIn a (unAstNoVectorize . f)
   rfromS = AstNoVectorize . rfromS @(AstRanked s) . unAstNoVectorizeS
 
@@ -931,7 +932,8 @@ instance AstSpan s => ShapedTensor (AstNoVectorizeS s) where
   sconst = AstNoVectorizeS . fromPrimalS . AstConstS
   sletHVectorIn a f =
     AstNoVectorizeS
-    $ astLetHVectorInFunS a (unAstNoVectorizeS . f . noVectorizeHVector)
+    $ astLetHVectorInFunS (unAstNoVectorizeWrap a)
+                          (unAstNoVectorizeS . f . noVectorizeHVector)
   sletHFunIn a f = AstNoVectorizeS $ sletHFunIn a (unAstNoVectorizeS . f)
   sfromR = AstNoVectorizeS . sfromR @(AstShaped s) . unAstNoVectorize
 
@@ -943,41 +945,48 @@ instance AstSpan s => ShapedTensor (AstNoVectorizeS s) where
   sScale s t = astDualPartS $ AstConstantS s * AstDS 0 t
 
 instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
-  dshape = dshape @(AstRanked s)
-  dmkHVector hVector = dmkHVector @(AstRanked s) (unNoVectorizeHVector hVector)
+  dshape = dshape @(AstRanked s) . unAstNoVectorizeWrap
+  dmkHVector =
+    AstNoVectorizeWrap . dmkHVector @(AstRanked s) . unNoVectorizeHVector
   dlambda = dlambda @(AstRanked s)
-  dHApply t ll = dHApply @(AstRanked s) t (map unNoVectorizeHVector ll)
-  dunHVector doms = noVectorizeHVector $ dunHVector @(AstRanked s) doms
+  dHApply t ll =
+    AstNoVectorizeWrap $ dHApply @(AstRanked s) t (map unNoVectorizeHVector ll)
+  dunHVector =
+    noVectorizeHVector . dunHVector @(AstRanked s) . unAstNoVectorizeWrap
   dletHVectorInHVector a f =
-    astLetHVectorInHVectorFun a (f . noVectorizeHVector)
-  dletHFunInHVector = dletHFunInHVector @(AstRanked s)
+    AstNoVectorizeWrap
+    $ astLetHVectorInHVectorFun (unAstNoVectorizeWrap a)
+                                (unAstNoVectorizeWrap . f . noVectorizeHVector)
+  dletHFunInHVector t f =
+    AstNoVectorizeWrap
+    $ dletHFunInHVector @(AstRanked s) t (unAstNoVectorizeWrap . f)
   rletInHVector u f =
-    rletInHVector @(AstRanked s) (unAstNoVectorize u) (f . AstNoVectorize)
+    AstNoVectorizeWrap
+    $ rletInHVector @(AstRanked s) (unAstNoVectorize u)
+                    (unAstNoVectorizeWrap . f . AstNoVectorize)
   sletInHVector u f =
-    sletInHVector @(AstRanked s) (unAstNoVectorizeS u) (f . AstNoVectorizeS)
+    AstNoVectorizeWrap
+    $ sletInHVector @(AstRanked s) (unAstNoVectorizeS u)
+                    (unAstNoVectorizeWrap . f . AstNoVectorizeS)
   dsharePrimal = error "dsharePrimal for AstNoVectorize"
   dregister = error "dregister for AstNoVectorize"
-  dbuild1 k f = AstBuildHVector1 k $ funToAstI f
+  dbuild1 k f = AstNoVectorizeWrap
+                $ AstBuildHVector1 k $ funToAstI (unAstNoVectorizeWrap . f)
   rrev f parameters0 hVector =
-    rrev @(AstRanked s) f parameters0 (unNoVectorizeHVector hVector)
+    AstNoVectorizeWrap
+    $ rrev @(AstRanked s) f parameters0 (unNoVectorizeHVector hVector)
   drevDt = drevDt @(AstRanked s)
   dfwd = dfwd @(AstRanked s)
-  dmapAccumR k accShs bShs eShs f acc0 es =
-    dmapAccumR @(AstRanked s)
-               k accShs bShs eShs f (unNoVectorizeHVector acc0)
-                                    (unNoVectorizeHVector es)
   dmapAccumRDer k accShs bShs eShs f df rf acc0 es =
-    dmapAccumRDer @(AstRanked s)
-                  k accShs bShs eShs f df rf (unNoVectorizeHVector acc0)
-                                             (unNoVectorizeHVector es)
-  dmapAccumL k accShs bShs eShs f acc0 es =
-    dmapAccumL @(AstRanked s)
-               k accShs bShs eShs f (unNoVectorizeHVector acc0)
-                                    (unNoVectorizeHVector es)
+    AstNoVectorizeWrap
+    $ dmapAccumRDer @(AstRanked s)
+                    k accShs bShs eShs f df rf (unNoVectorizeHVector acc0)
+                                               (unNoVectorizeHVector es)
   dmapAccumLDer k accShs bShs eShs f df rf acc0 es =
-    dmapAccumLDer @(AstRanked s)
-                  k accShs bShs eShs f df rf (unNoVectorizeHVector acc0)
-                                             (unNoVectorizeHVector es)
+    AstNoVectorizeWrap
+    $ dmapAccumLDer @(AstRanked s)
+                    k accShs bShs eShs f df rf (unNoVectorizeHVector acc0)
+                                               (unNoVectorizeHVector es)
 
 unNoVectorizeHVector :: HVector (AstNoVectorize s) -> HVector (AstRanked s)
 unNoVectorizeHVector =
@@ -1035,7 +1044,8 @@ instance AstSpan s => RankedTensor (AstNoSimplify s) where
   rconst = AstNoSimplify . fromPrimal . AstConst
   rletHVectorIn a f =
     AstNoSimplify
-    $ astLetHVectorInFun a (unAstNoSimplify . f . noSimplifyHVector)
+    $ astLetHVectorInFun (unAstNoSimplifyWrap a)
+                         (unAstNoSimplify . f . noSimplifyHVector)
   rletHFunIn a f = AstNoSimplify $ rletHFunIn a (unAstNoSimplify . f)
   rfromS = AstNoSimplify . rfromS @(AstRanked s) . unAstNoSimplifyS
 
@@ -1103,7 +1113,8 @@ instance AstSpan s => ShapedTensor (AstNoSimplifyS s) where
   sconst = AstNoSimplifyS . fromPrimalS . AstConstS
   sletHVectorIn a f =
     AstNoSimplifyS
-    $ astLetHVectorInFunS a (unAstNoSimplifyS . f . noSimplifyHVector)
+    $ astLetHVectorInFunS (unAstNoSimplifyWrap a)
+                          (unAstNoSimplifyS . f . noSimplifyHVector)
   sletHFunIn a f = AstNoSimplifyS $ sletHFunIn a (unAstNoSimplifyS . f)
   sfromR = AstNoSimplifyS . sfromR @(AstShaped s) . unAstNoSimplify
 
@@ -1115,40 +1126,48 @@ instance AstSpan s => ShapedTensor (AstNoSimplifyS s) where
   sScale s t = astDualPartS $ AstConstantS s * AstDS 0 t
 
 instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
-  dshape = dshape @(AstRanked s)
-  dmkHVector hVector = dmkHVector @(AstRanked s) (unNoSimplifyHVector hVector)
+  dshape = dshape @(AstRanked s) . unAstNoSimplifyWrap
+  dmkHVector =
+    AstNoSimplifyWrap . dmkHVector @(AstRanked s) . unNoSimplifyHVector
   dlambda = dlambda @(AstRanked s)
-  dHApply t ll = dHApply @(AstRanked s) t (map unNoSimplifyHVector ll)
-  dunHVector doms = noSimplifyHVector $ dunHVector @(AstRanked s) doms
-  dletHVectorInHVector a f = astLetHVectorInHVectorFun a (f . noSimplifyHVector)
-  dletHFunInHVector = dletHFunInHVector @(AstRanked s)
+  dHApply t ll =
+    AstNoSimplifyWrap $ dHApply @(AstRanked s) t (map unNoSimplifyHVector ll)
+  dunHVector =
+    noSimplifyHVector . dunHVector @(AstRanked s) . unAstNoSimplifyWrap
+  dletHVectorInHVector a f =
+    AstNoSimplifyWrap
+    $ astLetHVectorInHVectorFun (unAstNoSimplifyWrap a)
+                                (unAstNoSimplifyWrap . f . noSimplifyHVector)
+  dletHFunInHVector t f =
+    AstNoSimplifyWrap
+    $ dletHFunInHVector @(AstRanked s) t (unAstNoSimplifyWrap . f)
   rletInHVector u f =
-    rletInHVector @(AstRanked s) (unAstNoSimplify u) (f . AstNoSimplify)
+    AstNoSimplifyWrap
+    $ rletInHVector @(AstRanked s) (unAstNoSimplify u)
+                    (unAstNoSimplifyWrap . f . AstNoSimplify)
   sletInHVector u f =
-    sletInHVector @(AstRanked s) (unAstNoSimplifyS u) (f . AstNoSimplifyS)
+    AstNoSimplifyWrap
+    $ sletInHVector @(AstRanked s) (unAstNoSimplifyS u)
+                    (unAstNoSimplifyWrap . f . AstNoSimplifyS)
   dsharePrimal = error "dsharePrimal for AstNoVectorize"
   dregister = error "dregister for AstNoSimplify"
-  dbuild1 = astBuildHVector1Vectorize
+  dbuild1 k f = AstNoSimplifyWrap
+                $ astBuildHVector1Vectorize k (unAstNoSimplifyWrap . f)
   rrev f parameters0 hVector =
-    rrev @(AstRanked s) f parameters0 (unNoSimplifyHVector hVector)
+    AstNoSimplifyWrap
+    $ rrev @(AstRanked s) f parameters0 (unNoSimplifyHVector hVector)
   drevDt = drevDt @(AstRanked s)
   dfwd = dfwd @(AstRanked s)
-  dmapAccumR k accShs bShs eShs f acc0 es =
-    dmapAccumR @(AstRanked s)
-               k accShs bShs eShs f (unNoSimplifyHVector acc0)
-                                    (unNoSimplifyHVector es)
   dmapAccumRDer k accShs bShs eShs f df rf acc0 es =
-    dmapAccumRDer @(AstRanked s)
-                  k accShs bShs eShs f df rf (unNoSimplifyHVector acc0)
-                                             (unNoSimplifyHVector es)
-  dmapAccumL k accShs bShs eShs f acc0 es =
-    dmapAccumL @(AstRanked s)
-               k accShs bShs eShs f (unNoSimplifyHVector acc0)
-                                    (unNoSimplifyHVector es)
+    AstNoSimplifyWrap
+    $ dmapAccumRDer @(AstRanked s)
+                    k accShs bShs eShs f df rf (unNoSimplifyHVector acc0)
+                                               (unNoSimplifyHVector es)
   dmapAccumLDer k accShs bShs eShs f df rf acc0 es =
-    dmapAccumLDer @(AstRanked s)
-                  k accShs bShs eShs f df rf (unNoSimplifyHVector acc0)
-                                             (unNoSimplifyHVector es)
+    AstNoSimplifyWrap
+    $ dmapAccumLDer @(AstRanked s)
+                    k accShs bShs eShs f df rf (unNoSimplifyHVector acc0)
+                                               (unNoSimplifyHVector es)
 
 unNoSimplifyHVector :: HVector (AstNoSimplify s) -> HVector (AstRanked s)
 unNoSimplifyHVector =

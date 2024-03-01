@@ -87,7 +87,7 @@ type family RankedOf (f :: TensorType ty) :: RankedTensorType
 
 type family ShapedOf (f :: TensorType ty) :: ShapedTensorType
 
-type family HVectorOf (f :: RankedTensorType) :: Type
+type family HVectorOf (f :: RankedTensorType) = result | result -> f
 
 -- | The type family is defined in order to give a special instance
 -- for AST that preservs sharing and, even more importantly, keeps

@@ -21,8 +21,8 @@ module HordeAd.Core.Ast
     -- * Boolean definitions and instances
   , BoolOf, IfF(..), EqF(..), OrdF(..), minF, maxF
     -- * The auxiliary AstNoVectorize and AstNoSimplify definitions, for tests
-  , AstNoVectorize(..), AstNoVectorizeS(..)
-  , AstNoSimplify(..), AstNoSimplifyS(..)
+  , AstNoVectorize(..), AstNoVectorizeS(..), AstNoVectorizeWrap(..)
+  , AstNoSimplify(..), AstNoSimplifyS(..), AstNoSimplifyWrap(..)
   ) where
 
 import Prelude hiding (foldl')
@@ -842,7 +842,7 @@ maxF u v = ifF (u >=. v) u v
 
 type instance RankedOf (AstNoVectorize s) = AstNoVectorize s
 type instance ShapedOf (AstNoVectorize s) = AstNoVectorizeS s
-type instance HVectorOf (AstNoVectorize s) = AstHVector s
+type instance HVectorOf (AstNoVectorize s) = AstNoVectorizeWrap (AstHVector s)
 type instance PrimalOf (AstNoVectorize s) = AstRanked PrimalSpan
 type instance DualOf (AstNoVectorize s) = AstRanked DualSpan
 type instance RankedOf (AstNoVectorizeS s) = AstNoVectorize s
@@ -851,7 +851,7 @@ type instance PrimalOf (AstNoVectorizeS s) = AstShaped PrimalSpan
 type instance DualOf (AstNoVectorizeS s) = AstShaped DualSpan
 type instance RankedOf (AstNoSimplify s) = AstNoSimplify s
 type instance ShapedOf (AstNoSimplify s) = AstNoSimplifyS s
-type instance HVectorOf (AstNoSimplify s) = AstHVector s
+type instance HVectorOf (AstNoSimplify s) = AstNoSimplifyWrap (AstHVector s)
 type instance PrimalOf (AstNoSimplify s) = AstRanked PrimalSpan
 type instance DualOf (AstNoSimplify s) = AstRanked DualSpan
 type instance RankedOf (AstNoSimplifyS s) = AstNoSimplify s
@@ -869,6 +869,9 @@ newtype AstNoVectorizeS s r sh =
   AstNoVectorizeS {unAstNoVectorizeS :: AstShaped s r sh}
 deriving instance (GoodScalar r, Sh.Shape sh) => Show (AstNoVectorizeS s r sh)
 
+newtype AstNoVectorizeWrap t = AstNoVectorizeWrap {unAstNoVectorizeWrap :: t}
+ deriving Show
+
 type role AstNoSimplify nominal nominal nominal
 newtype AstNoSimplify s r n =
   AstNoSimplify {unAstNoSimplify :: AstRanked s r n}
@@ -878,3 +881,6 @@ type role AstNoSimplifyS nominal nominal nominal
 newtype AstNoSimplifyS s r sh =
   AstNoSimplifyS {unAstNoSimplifyS :: AstShaped s r sh}
 deriving instance (GoodScalar r, Sh.Shape sh) => Show (AstNoSimplifyS s r sh)
+
+newtype AstNoSimplifyWrap t = AstNoSimplifyWrap {unAstNoSimplifyWrap :: t}
+ deriving Show
