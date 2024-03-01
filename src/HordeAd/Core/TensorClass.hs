@@ -733,11 +733,17 @@ class HVectorTensor (ranked :: RankedTensorType)
     :: HVectorOf ranked
     -> (HVector ranked -> HVectorOf ranked)
     -> HVectorOf ranked
-  -- When the programmer uses the same closed function many times, the HFun lets
-  -- make it possible to prevent multiple simplification, inlining, etc.,
+  -- When the programmer uses the same closed function many times, the HFun
+  -- makes it possible to prevent multiple simplification, inlining, etc.,
   -- once for each copy (shared on the Haskell heap) of the function
   -- representation. However, the engine code itself never uses closed
   -- functions in a way that would benefit from the HFun lets.
+  --
+  -- To prevent double derivative computation in
+  -- > let f = ... in ... (dmapAccumR ... f ...) ... (dmapAccumR ... f ...)
+  -- one needs to use dmapAccumRDer manually as in (simplified)
+  -- > let f = ...; df = dfwd f; rf = drev f
+  -- > in ... (dmapAccumRDer f df rf ...) ... (dmapAccumRDer f df rf ...)
   dletHFunInHVector
     :: HFunOf ranked
     -> (HFunOf ranked -> HVectorOf ranked)
