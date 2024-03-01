@@ -10,8 +10,7 @@ module HordeAd.Core.AstEnv
   , interpretLambdaI, interpretLambdaIS, interpretLambdaIHVector
   , interpretLambdaIndex, interpretLambdaIndexS
   , interpretLambdaIndexToIndex, interpretLambdaIndexToIndexS
-  , interpretLambdaHVector, interpretLambdaHVectorS
-  , interpretLambdaHHH, interpretLambdaHsH
+  , interpretLambdaHsH
     -- * Interpretation of arithmetic, boolean and relation operations
   , interpretAstN1, interpretAstN2, interpretAstR1, interpretAstR2
   , interpretAstI2, interpretAstB2, interpretAstRelOp
@@ -226,42 +225,6 @@ interpretLambdaIndexToIndexS
 {-# INLINE interpretLambdaIndexToIndexS #-}
 interpretLambdaIndexToIndexS f !env (!vars, !asts) =
   \ix -> f (extendEnvVarsS vars ix env) <$> asts
-
-interpretLambdaHVector
-  :: forall s ranked r n. ADReady ranked
-  => (AstEnv ranked -> AstRanked s r n -> ranked r n)
-  -> AstEnv ranked
-  -> ([AstDynamicVarName], AstRanked s r n)
-  -> HVector ranked
-  -> ranked r n
-{-# INLINE interpretLambdaHVector #-}
-interpretLambdaHVector f !env (!vars, !ast) =
-  \pars -> f (extendEnvHVector vars pars env) ast
-
-interpretLambdaHVectorS
-  :: forall s ranked r sh. ADReady ranked
-  => (AstEnv ranked -> AstShaped s r sh -> ShapedOf ranked r sh)
-  -> AstEnv ranked
-  -> ([AstDynamicVarName], AstShaped s r sh)
-  -> HVector ranked
-  -> ShapedOf ranked r sh
-{-# INLINE interpretLambdaHVectorS #-}
-interpretLambdaHVectorS f !env (!vars, !ast) =
-  \pars -> f (extendEnvHVector vars pars env) ast
-
-interpretLambdaHHH
-  :: forall s ranked. ADReady ranked
-  => (AstEnv ranked -> AstHVector s -> HVectorOf ranked)
-  -> AstEnv ranked
-  -> ( [AstDynamicVarName]
-     , [AstDynamicVarName]
-     , AstHVector s )
-  -> HVector ranked -> HVector ranked
-  -> HVectorOf ranked
-{-# INLINE interpretLambdaHHH #-}
-interpretLambdaHHH f !env (!vs1, !vs2, !ast) =
-  \w1 w2 -> let env1 = extendEnvHVector vs1 w1 env
-            in f (extendEnvHVector vs2 w2 env1) ast
 
 interpretLambdaHsH
   :: (forall ranked. ADReady ranked

@@ -38,8 +38,7 @@ module HordeAd.Core.AstSimplify
   , SubstitutionPayload(..)
   , substituteAst, substitute1Ast, substituteAstIndex
   , substituteAstS, substitute1AstS, substituteAstIndexS
-  , substituteAstDynamic, substituteAstHVector, substitute1AstHVector
-  , substituteAstBool
+  , substituteAstHVector, substitute1AstHVector
 
     -- * Misc
   , astReplicate0N
@@ -2558,26 +2557,12 @@ substituteAstIndexS
 substituteAstIndexS i (AstVarName varId) ix =
   fromMaybe ix $ substitute1AstIndexS i varId ix
 
-substituteAstDynamic
-  :: (GoodScalar r2, AstSpan s, AstSpan s2)
-  => SubstitutionPayload s2 r2 -> AstVarName (f s2) r2 y -> AstDynamic s
-  -> AstDynamic s
-substituteAstDynamic i (AstVarName varId) v1 =
-  fromMaybe v1 $ substitute1AstDynamic i varId v1
-
 substituteAstHVector
   :: (GoodScalar r2, AstSpan s, AstSpan s2)
   => SubstitutionPayload s2 r2 -> AstVarName (f s2) r2 y -> AstHVector s
   -> AstHVector s
 substituteAstHVector i (AstVarName varId) v1 =
   fromMaybe v1 $ substitute1AstHVector i varId v1
-
-substituteAstBool :: (GoodScalar r2, AstSpan s2)
-                  => SubstitutionPayload s2 r2 -> AstVarName (f s2) r2 y
-                  -> AstBool
-                  -> AstBool
-substituteAstBool i (AstVarName varId) b1 =
-  fromMaybe b1 $ substitute1AstBool i varId b1
 
 
 -- * Substitution workers

@@ -6,7 +6,7 @@ module HordeAd.Core.AstInline
     simplifyArtifactRev
   , simplifyAst6, simplifyAst6S, simplifyAstHVector6
     -- * The unlet pass eliminating nested lets bottom-up
-  , unletAst6, unletAst6S, unletAstHVector6
+  , unletAstHVector6
   ) where
 
 import Prelude
@@ -471,22 +471,6 @@ unletAstHVector6
 unletAstHVector6 l astBindings t =
   unletAstHVector (emptyUnletEnv l)
   $ bindsToHVectorLet (bindsToHVectorLet t astBindings) (assocsADShare l)
-
-unletAst6
-  :: (GoodScalar r, KnownNat n)
-  => ADShare -> AstBindings -> AstRanked PrimalSpan r n
-  -> AstRanked PrimalSpan r n
-unletAst6 l astBindings t =
-  unletAst (emptyUnletEnv l)
-  $ bindsToLet (bindsToLet t astBindings) (assocsADShare l)
-
-unletAst6S
-  :: (GoodScalar r, Sh.Shape sh)
-  => ADShare -> AstBindings -> AstShaped PrimalSpan r sh
-  -> AstShaped PrimalSpan r sh
-unletAst6S l astBindings t =
-  unletAstS (emptyUnletEnv l)
-  $ bindsToLetS (bindsToLetS t astBindings) (assocsADShare l)
 
 -- TODO: if a nested let is alone, eliminate the nesting let instead;
 -- this probably requires many passes though
