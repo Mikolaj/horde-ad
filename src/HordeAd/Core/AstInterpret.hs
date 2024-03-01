@@ -55,7 +55,7 @@ interpretAstPrimalRuntimeSpecialized !env t =
   -- an existential type. All IfDifferentiable and RowSum instances should
   -- be included in the list of expected underlying scalar types.
   -- If the scalar type is not on the list, performance suffers greatly.
-  -- TODO: once we drop GHC <= 9.4, use TypeRepOf to pattern match
+  -- TODO: revisit using TypeRepOf to pattern match
   -- instead of nesting conditionals
   case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> interpretAstPrimal @ranked @n @Double env t
@@ -131,18 +131,9 @@ interpretAst !env = \case
       _ -> error $ "interpretAst: wrong rank in environment"
                    `showFailure`
                    (valueOf @n :: Int, valueOf @n2 :: Int, varId, t, env)
-    -- TODO: sometimes check if in the current state of the codebase
-    -- we can insist on only AstEnvElemRanked here.
-    Just (AstEnvElemShaped @r2 @sh2 t) -> case shapeToList sh
-                                               == Sh.shapeT @sh2 of
-      True -> case matchingRank @sh2 @n of
-        Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
-          Just Refl -> rfromS @_ @r2 @sh2 t
-          _ -> error "interpretAst: scalar mismatch"
-        _ -> error "interpretAst: wrong rank"
-      False -> error $ "interpretAst: wrong shape in environment"
-                         `showFailure`
-                         (sh, Sh.shapeT @sh2, varId, t, env)
+    Just (AstEnvElemShaped @_ @sh2 t) ->
+      error $ "interpretAst: wrong tensor kind in environment"
+              `showFailure` (sh, Sh.shapeT @sh2, varId, t, env)
     _ -> error $ "interpretAst: unknown variable " ++ show varId
                  ++ " in environment " ++ show env
   AstLet var u v ->
@@ -558,13 +549,8 @@ interpretAstS !env = \case
       Nothing -> error $ "interpretAstS: wrong shape in environment"
                          `showFailure`
                          (Sh.shapeT @sh, Sh.shapeT @sh2, varId, t, env)
-    Just (AstEnvElemRanked @r2 @n2 t) -> case matchingRank @sh @n2 of
-      Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
-        Just Refl -> assert (Sh.shapeT @sh == shapeToList (rshape t)
-                             `blame` (Sh.shapeT @sh, rshape t, varId, t, env))
-                     $ sfromR @_ @r2 @sh t
-        _ -> error "interpretAstS: scalar mismatch"
-      _ -> error "interpretAstS: wrong shape in environment"
+    Just (AstEnvElemRanked _t) ->
+      error "interpretAstS: wrong tensor kind in environment"
     _ -> error $ "interpretAstS: unknown variable " ++ show varId
   AstLetS var u v ->
     -- We assume there are no nested lets with the same variable.
