@@ -446,8 +446,8 @@ data AstHVector :: AstSpanType -> Type where
     -> AstHFun
     -> AstHFun
     -> AstHFun
-    -> HVector (AstRanked s)
-    -> HVector (AstRanked s)
+    -> AstHVector s
+    -> AstHVector s
     -> AstHVector s
   AstMapAccumLDer
     :: SNat k
@@ -457,8 +457,8 @@ data AstHVector :: AstSpanType -> Type where
     -> AstHFun
     -> AstHFun
     -> AstHFun
-    -> HVector (AstRanked s)
-    -> HVector (AstRanked s)
+    -> AstHVector s
+    -> AstHVector s
     -> AstHVector s
 
 deriving instance Show (AstHVector s)

@@ -660,34 +660,32 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
           fwdProduceArtifact g EM.empty shs
      in AstLambda ([varsDt, vars], unHVectorPseudoTensor derivative)
   dmapAccumRDer
-    :: SNat k
+    :: Proxy (AstRanked s)
+    -> SNat k
     -> VoidHVector
     -> VoidHVector
     -> VoidHVector
     -> AstHFun
     -> AstHFun
     -> AstHFun
-    -> HVector (AstRanked s)
-    -> HVector (AstRanked s)
     -> AstHVector s
-  dmapAccumRDer !k !accShs !bShs !eShs f df rf acc0 es =
-    assert (voidHVectorMatches (replicate1VoidHVector k eShs) es
-            && voidHVectorMatches accShs acc0) $
+    -> AstHVector s
+    -> AstHVector s
+  dmapAccumRDer _ !k !accShs !bShs !eShs f df rf acc0 es =
     AstMapAccumRDer k accShs bShs eShs f df rf acc0 es
   dmapAccumLDer
-    :: SNat k
+    :: Proxy (AstRanked s)
+    -> SNat k
     -> VoidHVector
     -> VoidHVector
     -> VoidHVector
     -> AstHFun
     -> AstHFun
     -> AstHFun
-    -> HVector (AstRanked s)
-    -> HVector (AstRanked s)
     -> AstHVector s
-  dmapAccumLDer !k !accShs !bShs !eShs f df rf acc0 es =
-    assert (voidHVectorMatches (replicate1VoidHVector k eShs) es
-            && voidHVectorMatches accShs acc0) $
+    -> AstHVector s
+    -> AstHVector s
+  dmapAccumLDer _ !k !accShs !bShs !eShs f df rf acc0 es =
     AstMapAccumLDer k accShs bShs eShs f df rf acc0 es
 
 astLetHVectorInHVectorFun
@@ -977,16 +975,16 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
     $ rrev @(AstRanked s) f parameters0 (unNoVectorizeHVector hVector)
   drevDt = drevDt @(AstRanked s)
   dfwd = dfwd @(AstRanked s)
-  dmapAccumRDer k accShs bShs eShs f df rf acc0 es =
+  dmapAccumRDer _ k accShs bShs eShs f df rf acc0 es =
     AstNoVectorizeWrap
-    $ dmapAccumRDer @(AstRanked s)
-                    k accShs bShs eShs f df rf (unNoVectorizeHVector acc0)
-                                               (unNoVectorizeHVector es)
-  dmapAccumLDer k accShs bShs eShs f df rf acc0 es =
+    $ dmapAccumRDer (Proxy @(AstRanked s))
+                    k accShs bShs eShs f df rf (unAstNoVectorizeWrap acc0)
+                                               (unAstNoVectorizeWrap es)
+  dmapAccumLDer _ k accShs bShs eShs f df rf acc0 es =
     AstNoVectorizeWrap
-    $ dmapAccumLDer @(AstRanked s)
-                    k accShs bShs eShs f df rf (unNoVectorizeHVector acc0)
-                                               (unNoVectorizeHVector es)
+    $ dmapAccumLDer (Proxy @(AstRanked s))
+                    k accShs bShs eShs f df rf (unAstNoVectorizeWrap acc0)
+                                               (unAstNoVectorizeWrap es)
 
 unNoVectorizeHVector :: HVector (AstNoVectorize s) -> HVector (AstRanked s)
 unNoVectorizeHVector =
@@ -1158,16 +1156,16 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
     $ rrev @(AstRanked s) f parameters0 (unNoSimplifyHVector hVector)
   drevDt = drevDt @(AstRanked s)
   dfwd = dfwd @(AstRanked s)
-  dmapAccumRDer k accShs bShs eShs f df rf acc0 es =
+  dmapAccumRDer _ k accShs bShs eShs f df rf acc0 es =
     AstNoSimplifyWrap
-    $ dmapAccumRDer @(AstRanked s)
-                    k accShs bShs eShs f df rf (unNoSimplifyHVector acc0)
-                                               (unNoSimplifyHVector es)
-  dmapAccumLDer k accShs bShs eShs f df rf acc0 es =
+    $ dmapAccumRDer (Proxy @(AstRanked s))
+                    k accShs bShs eShs f df rf (unAstNoSimplifyWrap acc0)
+                                               (unAstNoSimplifyWrap es)
+  dmapAccumLDer _ k accShs bShs eShs f df rf acc0 es =
     AstNoSimplifyWrap
-    $ dmapAccumLDer @(AstRanked s)
-                    k accShs bShs eShs f df rf (unNoSimplifyHVector acc0)
-                                               (unNoSimplifyHVector es)
+    $ dmapAccumLDer (Proxy @(AstRanked s))
+                    k accShs bShs eShs f df rf (unAstNoSimplifyWrap acc0)
+                                               (unAstNoSimplifyWrap es)
 
 unNoSimplifyHVector :: HVector (AstNoSimplify s) -> HVector (AstRanked s)
 unNoSimplifyHVector =

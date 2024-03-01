@@ -693,9 +693,8 @@ build1VHVector k@SNat (var, v0) =
           (build1VHFun k (var, f))
           (build1VHFun k (var, df))
           (build1VHFun k (var, rf))
-          (V.map (\u -> build1VOccurenceUnknownDynamic k (var, u)) acc0)
-          (V.map (\u -> astTrDynamic
-                        $ build1VOccurenceUnknownDynamic k (var, u)) es)
+          (build1VOccurenceUnknownHVector k (var, acc0))
+          (astTrAstHVector $ build1VOccurenceUnknownHVector k (var, es))
   Ast.AstMapAccumLDer k5 accShs bShs eShs f df rf acc0 es ->
       astTrAstHVectorTail (V.length accShs)
       $ Ast.AstMapAccumLDer
@@ -706,9 +705,8 @@ build1VHVector k@SNat (var, v0) =
           (build1VHFun k (var, f))
           (build1VHFun k (var, df))
           (build1VHFun k (var, rf))
-          (V.map (\u -> build1VOccurenceUnknownDynamic k (var, u)) acc0)
-          (V.map (\u -> astTrDynamic
-                        $ build1VOccurenceUnknownDynamic k (var, u)) es)
+          (build1VOccurenceUnknownHVector k (var, acc0))
+          (astTrAstHVector $ build1VOccurenceUnknownHVector k (var, es))
 
 build1VHFun
   :: forall k. SNat k -> (IntVarName, AstHFun) -> AstHFun
@@ -941,6 +939,14 @@ astTrDynamic (DynamicShapedDummy p1 (Proxy @sh1)) =
   in Sh.withShapeP sh1Permuted $ \proxy ->
        DynamicShapedDummy p1 proxy
 
+astTrAstHVector :: forall s. AstSpan s
+                => AstHVector s -> AstHVector s
+astTrAstHVector t = fun1DToAst (shapeAstHVector t) $ \ !vars !asts ->
+  Ast.AstLetHVectorInHVector
+    vars
+    t
+    (Ast.AstMkHVector @s $ V.map astTrDynamic asts)
+
 astTrAstHVectorTail :: forall s. AstSpan s
                     => Int -> AstHVector s -> AstHVector s
 astTrAstHVectorTail i t = fun1DToAst (shapeAstHVector t) $ \ !vars !asts ->
@@ -948,7 +954,7 @@ astTrAstHVectorTail i t = fun1DToAst (shapeAstHVector t) $ \ !vars !asts ->
     vars
     t
     (Ast.AstMkHVector @s $ V.take i asts
-                         V.++ V.map astTrDynamic (V.drop i asts))
+                           V.++ V.map astTrDynamic (V.drop i asts))
 
 
 -- * Rule tracing machinery

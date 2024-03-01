@@ -879,7 +879,7 @@ class HVectorTensor (ranked :: RankedTensorType)
         sh = rshape acc0
     in withSNat width $ \snat ->
       rletHVectorIn
-        (dmapAccumL
+        (dmapAccumL (Proxy @ranked)
            snat
            (V.singleton $ voidFromSh @rn sh)
            V.empty
@@ -891,8 +891,8 @@ class HVectorTensor (ranked :: RankedTensorType)
                     (f (rfromD $ acc V.! 0) (rfromD $ e V.! 0))
                     (\res -> dmkHVector $ V.singleton $ DynamicRanked res)
             in g)
-           (V.singleton $ DynamicRanked acc0)
-           (V.singleton $ DynamicRanked es))
+           (dmkHVector $ V.singleton $ DynamicRanked acc0)
+           (dmkHVector $ V.singleton $ DynamicRanked es))
         (\res -> rfromD $ res V.! 0)
   -- | A strict left scan.
   rscan
@@ -911,7 +911,7 @@ class HVectorTensor (ranked :: RankedTensorType)
         sh = rshape acc0
     in withSNat width $ \snat ->
       rletHVectorIn
-        (dmapAccumL
+        (dmapAccumL (Proxy @ranked)
            snat
            (V.singleton $ voidFromSh @rn sh)
            (V.singleton $ voidFromSh @rn sh)
@@ -925,8 +925,8 @@ class HVectorTensor (ranked :: RankedTensorType)
                              $ V.fromList [ DynamicRanked res
                                           , DynamicRanked res ])
             in g)
-           (V.singleton $ DynamicRanked acc0)
-           (V.singleton $ DynamicRanked es))
+           (dmkHVector $ V.singleton $ DynamicRanked acc0)
+           (dmkHVector $ V.singleton $ DynamicRanked es))
         (\res -> rappend (rfromList [acc0]) (rfromD $ res V.! 1))
   -- | A strict left fold.
   sfold
@@ -940,7 +940,7 @@ class HVectorTensor (ranked :: RankedTensorType)
     -> shaped rn sh
   sfold f acc0 es =
     sletHVectorIn
-      (dmapAccumL @ranked
+      (dmapAccumL (Proxy @ranked)
          (SNat @k)
          (V.singleton $ voidFromShS @rn @sh)
          V.empty
@@ -952,8 +952,8 @@ class HVectorTensor (ranked :: RankedTensorType)
                   (f (sfromD $ acc V.! 0) (sfromD $ e V.! 0))
                   (\res -> dmkHVector @f $ V.singleton $ DynamicShaped res)
           in g)
-         (V.singleton $ DynamicShaped acc0)
-         (V.singleton $ DynamicShaped es))
+         (dmkHVector $ V.singleton $ DynamicShaped acc0)
+         (dmkHVector $ V.singleton $ DynamicShaped es))
       (\res -> sfromD $ res V.! 0)
   sscan
     :: forall rn rm sh shm k.
@@ -966,7 +966,7 @@ class HVectorTensor (ranked :: RankedTensorType)
     -> shaped rn (1 + k ': sh)
   sscan f acc0 es =
     sletHVectorIn
-      (dmapAccumL @ranked
+      (dmapAccumL (Proxy @ranked)
          (SNat @k)
          (V.singleton $ voidFromShS @rn @sh)
          (V.singleton $ voidFromShS @rn @sh)
@@ -980,8 +980,8 @@ class HVectorTensor (ranked :: RankedTensorType)
                            $ V.fromList [ DynamicShaped res
                                         , DynamicShaped res ])
           in g)
-         (V.singleton $ DynamicShaped acc0)
-         (V.singleton $ DynamicShaped es))
+         (dmkHVector $ V.singleton $ DynamicShaped acc0)
+         (dmkHVector $ V.singleton $ DynamicShaped es))
       (\res -> sappend @_ @_ @1 (sfromList [acc0]) (sfromD $ res V.! 1))
   -- | A strict right macAccum.
   --
@@ -991,16 +991,17 @@ class HVectorTensor (ranked :: RankedTensorType)
   -- the computation is unnneeded, so the AST instance uses a non-strict
   -- constructor 'AstLambda' for it's instance of 'HFunOf'.
   dmapAccumR
-    :: SNat k
+    :: Proxy ranked
+    -> SNat k
     -> VoidHVector
     -> VoidHVector
     -> VoidHVector
     -> (forall f. ADReady f
         => HVector f -> HVector f -> HVectorOf f)
-    -> HVector ranked
-    -> HVector ranked
     -> HVectorOf ranked
-  dmapAccumR !k !accShs !bShs !eShs f acc0 es =
+    -> HVectorOf ranked
+    -> HVectorOf ranked
+  dmapAccumR proxy !k !accShs !bShs !eShs f acc0 es =
     let shs = accShs V.++ eShs
         fl :: forall f. ADReady f => [HVector f] -> HVectorOf f
         fl ![!acc, !e] = f acc e
@@ -1009,13 +1010,14 @@ class HVectorTensor (ranked :: RankedTensorType)
         fs :: forall f. ADReady f => [HVector f] -> HVectorOf f
         fs ![!acc_e] = uncurry f (V.splitAt accLen acc_e)
         fs _ = error "fs: wrong number of arguments"
-    in dmapAccumRDer k accShs bShs eShs
+    in dmapAccumRDer proxy k accShs bShs eShs
                      (dlambda @ranked [accShs, eShs] $ HFun fl)
                      (dfwd @ranked shs $ HFun fs)
                      (drevDt @ranked shs $ HFun fs)
                      acc0 es
   dmapAccumRDer
-    :: SNat k
+    :: Proxy ranked
+    -> SNat k
     -> VoidHVector  -- ^ accShs, shapes of acc
     -> VoidHVector  -- ^ bShs, shapes of b
     -> VoidHVector  -- ^ eShs, shapes of e
@@ -1038,21 +1040,22 @@ class HVectorTensor (ranked :: RankedTensorType)
     --  , HVector f      -- ^ acc :: accShs
     --    ++ HVector f ] -- ^ e :: eShs
     --  -> HVectorOf f)  -- ^ (dacc, de) :: (accShs, eShs)
-    -> HVector ranked  -- ^ acc0 :: accShs
-    -> HVector ranked  -- ^ es :: k ': eShs
+    -> HVectorOf ranked  -- ^ acc0 :: accShs
+    -> HVectorOf ranked  -- ^ es :: k ': eShs
     -> HVectorOf ranked  -- ^ (x, bs) :: (accShs, k ': bShs)
   -- | A strict left macAccum.
   dmapAccumL
-    :: SNat k
+    :: Proxy ranked
+    -> SNat k
     -> VoidHVector
     -> VoidHVector
     -> VoidHVector
     -> (forall f. ADReady f
         => HVector f -> HVector f -> HVectorOf f)
-    -> HVector ranked
-    -> HVector ranked
     -> HVectorOf ranked
-  dmapAccumL !k !accShs !bShs !eShs f acc0 es =
+    -> HVectorOf ranked
+    -> HVectorOf ranked
+  dmapAccumL proxy !k !accShs !bShs !eShs f acc0 es =
     let shs = accShs V.++ eShs
         fl :: forall f. ADReady f => [HVector f] -> HVectorOf f
         fl ![!acc, !e] = f acc e
@@ -1061,21 +1064,22 @@ class HVectorTensor (ranked :: RankedTensorType)
         fs :: forall f. ADReady f => [HVector f] -> HVectorOf f
         fs ![!acc_e] = uncurry f (V.splitAt accLen acc_e)
         fs _ = error "fs: wrong number of arguments"
-    in dmapAccumLDer k accShs bShs eShs
+    in dmapAccumLDer proxy k accShs bShs eShs
                      (dlambda @ranked [accShs, eShs] $ HFun fl)
                      (dfwd @ranked shs $ HFun fs)
                      (drevDt @ranked shs $ HFun fs)
                      acc0 es
   dmapAccumLDer
-    :: SNat k
+    :: Proxy ranked
+    -> SNat k
     -> VoidHVector
     -> VoidHVector
     -> VoidHVector
     -> HFunOf ranked
     -> HFunOf ranked
     -> HFunOf ranked
-    -> HVector ranked
-    -> HVector ranked
+    -> HVectorOf ranked
+    -> HVectorOf ranked
     -> HVectorOf ranked
 
 rfromD :: forall r n ranked.

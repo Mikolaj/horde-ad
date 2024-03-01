@@ -237,9 +237,9 @@ varInAstHVector var = \case
   AstLetInHVectorS _var2 u v -> varInAstS var u || varInAstHVector var v
   AstBuildHVector1 _ (_var2, v) -> varInAstHVector var v
   AstMapAccumRDer _k _accShs _bShs _eShs _f _df _rf acc0 es ->
-    any (varInAstDynamic var) acc0 || any (varInAstDynamic var) es
+    varInAstHVector var acc0 || varInAstHVector var es
   AstMapAccumLDer _k _accShs _bShs _eShs _f _df _rf acc0 es ->
-    any (varInAstDynamic var) acc0 || any (varInAstDynamic var) es
+    varInAstHVector var acc0 || varInAstHVector var es
 
 varInAstDynamic :: AstSpan s
                 => AstVarId -> AstDynamic s -> Bool

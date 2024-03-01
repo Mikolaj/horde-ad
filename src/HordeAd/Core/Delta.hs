@@ -917,12 +917,13 @@ evalH !s !c = let (abShared, cShared) = dregister (dmkHVector c) (astBindings s)
         bLen = V.length bShs
         (c0, crest) = V.splitAt accLen cShared
         dacc_desUnshared =
-          dmapAccumL k accShs eShs (bShs V.++ accShs V.++ eShs)
+          dmapAccumL (Proxy @ranked)
+                     k accShs eShs (bShs V.++ accShs V.++ eShs)
                      (\dx db_acc_e ->
                         let (db, acc_e) = V.splitAt bLen db_acc_e
                         in unHFun rf [dx V.++ db, acc_e])
-                     c0
-                     (V.concat [crest, q, es])
+                     (dmkHVector c0)
+                     (dmkHVector $ V.concat [crest, q, es])
         (abShared2, dacc_des) = dregister dacc_desUnshared (astBindings sShared)
         s2 = sShared {astBindings = abShared2}
         (dacc, des) = V.splitAt accLen dacc_des
@@ -933,12 +934,13 @@ evalH !s !c = let (abShared, cShared) = dregister (dmkHVector c) (astBindings s)
         bLen = V.length bShs
         (c0, crest) = V.splitAt accLen cShared
         dacc_desUnshared =
-          dmapAccumR k accShs eShs (bShs V.++ accShs V.++ eShs)
+          dmapAccumR (Proxy @ranked)
+                     k accShs eShs (bShs V.++ accShs V.++ eShs)
                      (\dx db_acc_e ->
                         let (db, acc_e) = V.splitAt bLen db_acc_e
                         in unHFun rf [dx V.++ db, acc_e])
-                     c0
-                     (V.concat [crest, q, es])
+                     (dmkHVector c0)
+                     (dmkHVector $ V.concat [crest, q, es])
         (abShared2, dacc_des) = dregister dacc_desUnshared (astBindings sShared)
         s2 = sShared {astBindings = abShared2}
         (dacc, des) = V.splitAt accLen dacc_des
@@ -1237,19 +1239,21 @@ fwdH dimR params s = \case
     let (s2, cacc0) = fwdHVector dimR params s acc0'
         (s3, ces) = fwdHVector dimR params s2 es'
         eLen = V.length eShs
-    in (s3, dmapAccumR k accShs bShs (eShs V.++ accShs V.++ eShs)
+    in (s3, dmapAccumR (Proxy @ranked)
+                       k accShs bShs (eShs V.++ accShs V.++ eShs)
                        (\dacc de_acc_e ->
                           let (de, acc_e) = V.splitAt eLen de_acc_e
                           in unHFun df [dacc V.++ de, acc_e])
-                       cacc0
-                       (V.concat [ces, q, es]))
+                       (dmkHVector cacc0)
+                       (dmkHVector $ V.concat [ces, q, es]))
   MapAccumL k accShs bShs eShs q es df _rf acc0' es' ->
     let (s2, cacc0) = fwdHVector dimR params s acc0'
         (s3, ces) = fwdHVector dimR params s2 es'
         eLen = V.length eShs
-    in (s3, dmapAccumL k accShs bShs (eShs V.++ accShs V.++ eShs)
+    in (s3, dmapAccumL (Proxy @ranked)
+                       k accShs bShs (eShs V.++ accShs V.++ eShs)
                        (\dacc de_acc_e ->
                           let (de, acc_e) = V.splitAt eLen de_acc_e
                           in unHFun df [dacc V.++ de, acc_e])
-                       cacc0
-                       (V.concat [ces, q, es]))
+                       (dmkHVector cacc0)
+                       (dmkHVector $ V.concat [ces, q, es]))

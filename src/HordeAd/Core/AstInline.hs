@@ -413,15 +413,15 @@ inlineAstHVector memo v0 = case v0 of
     let (memo1, f2) = inlineAstHFun memo f
         (memo2, df2) = inlineAstHFun memo1 df
         (memo3, rf2) = inlineAstHFun memo2 rf
-        (memo4, acc02) = mapAccumR inlineAstDynamic memo3 acc0
-        (memo5, es2) = mapAccumR inlineAstDynamic memo4 es
+        (memo4, acc02) = inlineAstHVector memo3 acc0
+        (memo5, es2) = inlineAstHVector memo4 es
     in (memo5, Ast.AstMapAccumRDer k accShs bShs eShs f2 df2 rf2 acc02 es2)
   Ast.AstMapAccumLDer k accShs bShs eShs f df rf acc0 es ->
     let (memo1, f2) = inlineAstHFun memo f
         (memo2, df2) = inlineAstHFun memo1 df
         (memo3, rf2) = inlineAstHFun memo2 rf
-        (memo4, acc02) = mapAccumR inlineAstDynamic memo3 acc0
-        (memo5, es2) = mapAccumR inlineAstDynamic memo4 es
+        (memo4, acc02) = inlineAstHVector memo3 acc0
+        (memo5, es2) = inlineAstHVector memo4 es
     in (memo5, Ast.AstMapAccumLDer k accShs bShs eShs f2 df2 rf2 acc02 es2)
 
 inlineAstHFun
@@ -692,12 +692,12 @@ unletAstHVector env = \case
     Ast.AstBuildHVector1 k (var, unletAstHVector env v)
   Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc0 es ->
     Ast.AstMapAccumRDer k accShs bShs eShs f df rf
-                        (V.map (unletAstDynamic env) acc0)
-                        (V.map (unletAstDynamic env) es)
+                        (unletAstHVector env acc0)
+                        (unletAstHVector env es)
   Ast.AstMapAccumLDer k accShs bShs eShs f df rf acc0 es ->
     Ast.AstMapAccumLDer k accShs bShs eShs f df rf
-                        (V.map (unletAstDynamic env) acc0)
-                        (V.map (unletAstDynamic env) es)
+                        (unletAstHVector env acc0)
+                        (unletAstHVector env es)
 
 unletAstHFun :: AstHFun -> AstHFun
 unletAstHFun = \case

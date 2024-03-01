@@ -749,9 +749,9 @@ printAstHVector cfg d = \case
       . showString " "
       . printAstHFun cfg 01 rf
       . showString " "
-      . printHVectorAst cfg acc0
+      . printAstHVector cfg 0 acc0
       . showString " "
-      . printHVectorAst cfg es
+      . printAstHVector cfg 0 es
   AstMapAccumLDer k _accShs _bShs _eShs f df rf acc0 es ->
     showParen (d > 10)
     $ showString "dmapAccumLDer "
@@ -763,9 +763,9 @@ printAstHVector cfg d = \case
       . showString " "
       . printAstHFun cfg 01 rf
       . showString " "
-      . printHVectorAst cfg acc0
+      . printAstHVector cfg 0 acc0
       . showString " "
-      . printHVectorAst cfg es
+      . printAstHVector cfg 0 es
 
 printAstHFun :: PrintConfig -> Int -> AstHFun -> ShowS
 printAstHFun cfg d = \case

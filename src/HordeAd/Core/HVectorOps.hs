@@ -13,7 +13,7 @@ module HordeAd.Core.HVectorOps
   , mapHVectorRanked, mapHVectorRanked01, mapHVectorRanked10, mapHVectorRanked11
   , mapHVectorShaped11, mapHVectorShaped
   , mapRanked, mapRanked01, mapRanked10, mapRanked11
-  , index1HVector, replicate1HVector
+  , index1HVector, replicate1HVector, mkreplicate1HVector
   ) where
 
 import Prelude
@@ -598,3 +598,7 @@ index1HVector = index1HVectorF rshape sshape rindex sindex
 replicate1HVector :: (RankedTensor ranked, ShapedTensor (ShapedOf ranked))
                   => SNat k -> HVector ranked -> HVector ranked
 replicate1HVector = replicate1HVectorF rreplicate sreplicate
+
+mkreplicate1HVector :: ADReady ranked
+                    => SNat k -> HVector ranked -> HVectorOf ranked
+mkreplicate1HVector k = dmkHVector . replicate1HVector k

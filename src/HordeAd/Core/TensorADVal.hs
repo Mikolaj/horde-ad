@@ -460,17 +460,18 @@ instance ADReadyBoth ranked shaped
         df _ = error "df: wrong number of arguments"
     in HFun df
   dmapAccumRDer
-    :: SNat k
+    :: Proxy (ADVal ranked)
+    -> SNat k
     -> VoidHVector
     -> VoidHVector
     -> VoidHVector
     -> HFun
     -> HFun
     -> HFun
-    -> HVector (ADVal ranked)
-    -> HVector (ADVal ranked)
     -> HVectorOf (ADVal ranked)
-  dmapAccumRDer !k !accShs !bShs !eShs f df rf acc0D esD =
+    -> HVectorOf (ADVal ranked)
+    -> HVectorOf (ADVal ranked)
+  dmapAccumRDer _ !k !accShs !bShs !eShs f df rf acc0D esD =
     assert (voidHVectorMatches (replicate1VoidHVector k eShs) esD
             && voidHVectorMatches accShs acc0D) $
     let (ll2, acc0, acc0') = unADValHVector acc0D
@@ -505,7 +506,8 @@ instance ADReadyBoth ranked shaped
             in dmkHVector $ V.concat [V.zipWith addDynamic dacc dbacc, de]
         rg _ = error "rg: wrong number of arguments"
         pUnshared :: HVectorOf ranked
-        pUnshared = dmapAccumRDer k accShs codomainShs eShs
+        pUnshared = dmapAccumRDer (Proxy @ranked)
+                                  k accShs codomainShs eShs
                                   (dlambda @ranked [accShs, eShs] $ HFun g)
                                   (dlambda @ranked
                                            [accShs V.++ eShs, accShs V.++ eShs]
@@ -514,7 +516,7 @@ instance ADReadyBoth ranked shaped
                                            [ accShs V.++ codomainShs
                                            , accShs V.++ eShs ]
                                    $ HFun rg)
-                                  acc0 es
+                                  (dmkHVector acc0) (dmkHVector es)
         (l5, pShared) = dsharePrimal @ranked pUnshared l4
         -- This code makes sense only thanks to HVector being a representation
         -- of tuples in the struct of arrays format.
@@ -526,17 +528,18 @@ instance ADReadyBoth ranked shaped
         dual = wrapDeltaH $ MapAccumR k accShs bShs eShs q es df rf acc0' es'
     in ahhToHVector l5 primal dual
   dmapAccumLDer
-    :: SNat k
+    :: Proxy (ADVal ranked)
+    -> SNat k
     -> VoidHVector
     -> VoidHVector
     -> VoidHVector
     -> HFun
     -> HFun
     -> HFun
-    -> HVector (ADVal ranked)
-    -> HVector (ADVal ranked)
     -> HVectorOf (ADVal ranked)
-  dmapAccumLDer !k !accShs !bShs !eShs f df rf acc0D esD =
+    -> HVectorOf (ADVal ranked)
+    -> HVectorOf (ADVal ranked)
+  dmapAccumLDer _ !k !accShs !bShs !eShs f df rf acc0D esD =
     assert (voidHVectorMatches (replicate1VoidHVector k eShs) esD
             && voidHVectorMatches accShs acc0D
             `blame` ( shapeVoidHVector (replicate1VoidHVector k eShs)
@@ -575,7 +578,8 @@ instance ADReadyBoth ranked shaped
             in dmkHVector $ V.concat [V.zipWith addDynamic dacc dbacc, de]
         rg _ = error "rg: wrong number of arguments"
         pUnshared :: HVectorOf ranked
-        pUnshared = dmapAccumLDer k accShs codomainShs eShs
+        pUnshared = dmapAccumLDer (Proxy @ranked)
+                                  k accShs codomainShs eShs
                                   (dlambda @ranked [accShs, eShs] $ HFun g)
                                   (dlambda @ranked
                                            [accShs V.++ eShs, accShs V.++ eShs]
@@ -584,7 +588,7 @@ instance ADReadyBoth ranked shaped
                                            [ accShs V.++ codomainShs
                                            , accShs V.++ eShs ]
                                    $ HFun rg)
-                                  acc0 es
+                                  (dmkHVector acc0) (dmkHVector es)
         (l5, pShared) = dsharePrimal @ranked pUnshared l4
         accFin = V.take accLen pShared
         q = V.slice accLen accLen pShared
@@ -715,13 +719,13 @@ instance HVectorTensor (Flip OR.Array) (Flip OS.Array) where
   rscan f x0 as = rfromList $ scanl' f x0 (runravelToList as)
   sfold f x0 as = foldl' f x0 (sunravelToList as)
   sscan f x0 as = sfromList $ scanl' f x0 (sunravelToList as)
-  dmapAccumR k accShs bShs _eShs f acc0 es =
+  dmapAccumR _ k accShs bShs _eShs f acc0 es =
     oRdmapAccumR k accShs bShs _eShs f acc0 es
-  dmapAccumRDer k accShs bShs eShs f _df _rf acc0 es =
+  dmapAccumRDer _ k accShs bShs eShs f _df _rf acc0 es =
     oRdmapAccumR k accShs bShs eShs (\ !a !b -> f [a, b]) acc0 es
-  dmapAccumL k accShs bShs _eShs f acc0 es =
+  dmapAccumL _ k accShs bShs _eShs f acc0 es =
     oRdmapAccumL k accShs bShs _eShs f acc0 es
-  dmapAccumLDer k accShs bShs eShs f _df _rf acc0 es =
+  dmapAccumLDer _ k accShs bShs eShs f _df _rf acc0 es =
     oRdmapAccumL k accShs bShs eShs (\ !a !b -> f [a, b]) acc0 es
 
 oRdmapAccumR
