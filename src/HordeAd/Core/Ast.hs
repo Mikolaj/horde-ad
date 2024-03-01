@@ -39,7 +39,6 @@ import           Data.Type.Equality (testEquality, (:~:) (Refl))
 import           GHC.TypeLits (KnownNat, sameNat, type (+), type (<=))
 import           Type.Reflection (Typeable, eqTypeRep, typeRep, (:~~:) (HRefl))
 
-import HordeAd.Core.Adaptor
 import HordeAd.Core.HVector
 import HordeAd.Core.Types
 import HordeAd.Util.ShapedList (ShapedList (..))
@@ -95,24 +94,6 @@ type instance PrimalOf (HVectorPseudoTensor (AstRanked s)) =
 type instance RankedOf (Flip OR.Array) = Flip OR.Array
 
 type instance ShapedOf (Flip OR.Array) = Flip OS.Array
-
-instance DualNumberValue (DynamicTensor (AstRanked PrimalSpan)) where
-  type DValue (DynamicTensor (AstRanked PrimalSpan)) =
-    DynamicTensor (Flip OR.Array)
-  fromDValue = \case
-    DynamicRanked t -> DynamicRanked $ fromPrimal $ AstConst $ runFlip t
-    DynamicShaped t -> DynamicShaped $ fromPrimalS $ AstConstS $ runFlip t
-    DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
-    DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
-
-instance TermValue (DynamicTensor (AstRanked FullSpan)) where
-  type Value (DynamicTensor (AstRanked FullSpan)) =
-    DynamicTensor (Flip OR.Array)
-  fromValue = \case
-    DynamicRanked t -> DynamicRanked $ fromPrimal $ AstConst $ runFlip t
-    DynamicShaped t -> DynamicShaped $ fromPrimalS $ AstConstS $ runFlip t
-    DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
-    DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
 
 -- These instances can't be just HFun, because they need to be vectorized
 -- and vectorization applies such functions to the variable from build1

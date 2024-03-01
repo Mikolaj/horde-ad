@@ -26,18 +26,19 @@ import           System.Random
 -- import           GHC.TypeLits (KnownNat)
 
 import HordeAd.Core.HVector
+import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 
 -- * Adaptor classes
 
 -- Inspired by adaptors from @tomjaguarpaw's branch.
-class AdaptableHVector (ranked :: RankedTensorType) vals where
+class HVectorTensor ranked (ShapedOf ranked)
+      => AdaptableHVector (ranked :: RankedTensorType) vals where
   toHVector :: vals -> HVector ranked
     -- ^ represent a value of the domain of objective function
     -- in a canonical, much less typed way common to all possible types
-  toHVectorOf :: (HVector ranked -> HVectorOf ranked) -> vals
-              -> HVectorOf ranked
-  toHVectorOf dmkHVector = dmkHVector . toHVector
+  toHVectorOf :: vals -> HVectorOf ranked
+  toHVectorOf = dmkHVector . toHVector
   fromHVector :: vals -> HVector ranked -> Maybe (vals, HVector ranked)
     -- ^ recovers a value of the domain of objective function
     -- from its canonical representation, using the general shape
@@ -159,7 +160,8 @@ instance AdaptableHVector ranked a
         (!l, !restAll) = V.foldl' f (V.empty, source) lInit
     in Just (l, restAll)
 
-instance AdaptableHVector ranked (DynamicTensor ranked) where
+instance HVectorTensor ranked (ShapedOf ranked)
+         => AdaptableHVector ranked (DynamicTensor ranked) where
   toHVector = V.singleton
   fromHVector _aInit params = V.uncons params
 

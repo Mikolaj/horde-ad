@@ -65,8 +65,7 @@ revProduceArtifactH hasDt f envInit vals0 =
   let g :: HVector (AstRanked FullSpan)
         -> HVectorPseudoTensor (AstRanked FullSpan) Float '()
       g !hv = HVectorPseudoTensor
-              $ toHVectorOf dmkHVector
-              $ f $ parseHVector (fromValue vals0) hv
+              $ toHVectorOf $ f $ parseHVector (fromValue vals0) hv
   in revArtifactFromForwardPass hasDt (forwardPassByInterpretation g envInit)
 
 forwardPassByInterpretation
@@ -255,7 +254,7 @@ instance IfF (AstShaped s) where
 
 -- * Ranked tensor AST instances
 
-instance (GoodScalar r, KnownNat n, RankedTensor (AstRanked s))
+instance (GoodScalar r, KnownNat n, RankedTensor (AstRanked s), AstSpan s)
          => AdaptableHVector (AstRanked s) (AstRanked s r n) where
   {-# SPECIALIZE instance
       (KnownNat n, AstSpan s)
@@ -400,7 +399,7 @@ astBuild1Vectorize k f = build1Vectorize k $ funToAstI f
 
 -- * Shaped tensor AST instances
 
-instance (GoodScalar r, Sh.Shape sh, ShapedTensor (AstShaped s))
+instance (GoodScalar r, Sh.Shape sh, ShapedTensor (AstShaped s), AstSpan s)
          => AdaptableHVector (AstRanked s) (AstShaped s r sh) where
   toHVector = V.singleton . DynamicShaped
   fromHVector _aInit params = fromHVectorS params
@@ -534,9 +533,27 @@ astBuild1VectorizeS f =
 
 -- * HVectorTensor instance
 
-instance AdaptableHVector (AstRanked s) (AstHVector s) where
+instance DualNumberValue (DynamicTensor (AstRanked PrimalSpan)) where
+  type DValue (DynamicTensor (AstRanked PrimalSpan)) =
+    DynamicTensor (Flip OR.Array)
+  fromDValue = \case
+    DynamicRanked t -> DynamicRanked $ fromPrimal $ AstConst $ runFlip t
+    DynamicShaped t -> DynamicShaped $ fromPrimalS $ AstConstS $ runFlip t
+    DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
+    DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
+
+instance TermValue (DynamicTensor (AstRanked FullSpan)) where
+  type Value (DynamicTensor (AstRanked FullSpan)) =
+    DynamicTensor (Flip OR.Array)
+  fromValue = \case
+    DynamicRanked t -> DynamicRanked $ fromPrimal $ AstConst $ runFlip t
+    DynamicShaped t -> DynamicShaped $ fromPrimalS $ AstConstS $ runFlip t
+    DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
+    DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
+
+instance AstSpan s => AdaptableHVector (AstRanked s) (AstHVector s) where
   toHVector = undefined  -- impossible without losing sharing
-  toHVectorOf _ = id  -- but this is possible
+  toHVectorOf = id  -- but this is possible
   fromHVector aInit params =
     let (portion, rest) = V.splitAt (V.length $ shapeAstHVector aInit) params
     in Just (AstMkHVector portion, rest)
@@ -556,7 +573,7 @@ instance TermValue (AstHVector FullSpan) where
 instance AdaptableHVector (AstRanked FullSpan)
                           (HVectorPseudoTensor (AstRanked FullSpan) r y) where
   toHVector = undefined  -- impossible without losing sharing
-  toHVectorOf _ = unHVectorPseudoTensor  -- but this is possible
+  toHVectorOf = unHVectorPseudoTensor  -- but this is possible
   fromHVector (HVectorPseudoTensor aInit) params =
     let (portion, rest) = V.splitAt (V.length $ shapeAstHVector aInit) params
     in Just (HVectorPseudoTensor $ AstMkHVector portion, rest)

@@ -43,7 +43,6 @@ import HordeAd.Core.HVectorOps
 import HordeAd.Core.IsPrimal
 import HordeAd.Core.TensorADVal
 import HordeAd.Core.TensorAst
-import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 
 -- * Reverse derivative adaptors
@@ -106,14 +105,11 @@ revDtMaybe
 {-# INLINE revDtMaybe #-}
 revDtMaybe f vals mdt =
   let g hVector = HVectorPseudoTensor
-                  $ toHVectorOf dmkHVector
-                  $ f $ parseHVector (fromValue vals) hVector
+                  $ toHVectorOf $ f $ parseHVector (fromValue vals) hVector
       valsH = toHVector vals
       voidH = voidFromHVector valsH
       artifact = fst $ revProduceArtifact (isJust mdt) g EM.empty voidH
-      mdth = HVectorPseudoTensor
-             . toHVectorOf dmkHVector
-             <$> mdt
+      mdth = HVectorPseudoTensor . toHVectorOf <$> mdt
   in parseHVector vals
      $ fst $ revEvalArtifact artifact valsH mdth
 {-# SPECIALIZE revDtMaybe
@@ -138,8 +134,7 @@ revArtifactAdapt
      , Dual (HVectorPseudoTensor (AstRanked PrimalSpan)) Float '() )
 revArtifactAdapt hasDt f vals =
   let g hVector = HVectorPseudoTensor
-                  $ toHVectorOf dmkHVector
-                  $ f $ parseHVector (fromValue vals) hVector
+                  $ toHVectorOf $ f $ parseHVector (fromValue vals) hVector
       valsH = toHVector @(Flip OR.Array) vals
       voidH = voidFromHVector valsH
   in revProduceArtifact hasDt g EM.empty voidH
@@ -203,8 +198,7 @@ fwd
   -> Value tgtAstVals
 fwd f vals ds =
   let g hVector = HVectorPseudoTensor
-                  $ toHVectorOf dmkHVector
-                  $ f $ parseHVector (fromValue vals) hVector
+                  $ toHVectorOf $ f $ parseHVector (fromValue vals) hVector
       valsH = toHVector vals
       voidH = voidFromHVector valsH
       artifact = fst $ fwdProduceArtifact g EM.empty voidH
@@ -226,8 +220,7 @@ fwdArtifactAdapt
      , Dual (HVectorPseudoTensor (AstRanked PrimalSpan)) Float '() )
 fwdArtifactAdapt f vals =
   let g hVector = HVectorPseudoTensor
-                  $ toHVectorOf dmkHVector
-                  $ f $ parseHVector (fromValue vals) hVector
+                  $ toHVectorOf $ f $ parseHVector (fromValue vals) hVector
       valsH = toHVector @(Flip OR.Array) vals
       voidH = voidFromHVector valsH
   in fwdProduceArtifact g EM.empty voidH
@@ -282,8 +275,7 @@ crevDtMaybe
 {-# INLINE crevDtMaybe #-}
 crevDtMaybe f vals mdt =
   let g hVector = hVectorADValToADVal
-                  $ toHVector
-                  $ f $ parseHVector (fromDValue vals) hVector
+                  $ toHVector $ f $ parseHVector (fromDValue vals) hVector
       valsH = toHVector vals
       mdth = HVectorPseudoTensor
              . toHVector @(Flip OR.Array)
