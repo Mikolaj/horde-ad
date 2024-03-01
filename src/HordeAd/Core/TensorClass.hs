@@ -1207,7 +1207,8 @@ type instance ShapedOf (Flip OR.Array) = Flip OS.Array
 
 type instance HVectorOf (Flip OR.Array) = HVector (Flip OR.Array)
 
-type instance HFunOf (Flip OR.Array) = HFun
+type instance HFunOf (Flip OR.Array) =
+  [HVector (Flip OR.Array)] -> HVectorOf (Flip OR.Array)
 
 type instance PrimalOf (Flip OR.Array) = Flip OR.Array
 

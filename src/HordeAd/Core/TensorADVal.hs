@@ -651,8 +651,8 @@ unADValDynamicTensor (DynamicShapedDummy p1 p2) =
 instance HVectorTensor (Flip OR.Array) (Flip OS.Array) where
   dshape = voidFromHVector
   dmkHVector = id
-  dlambda _ = id
-  dHApply (HFun f) ll = f ll
+  dlambda _ f = unHFun f
+  dHApply f ll = f ll
   dunHVector = id
   dletHVectorInHVector = (&)
   dletHFunInHVector = (&)
@@ -682,7 +682,7 @@ instance HVectorTensor (Flip OR.Array) (Flip OS.Array) where
   -- ADVal ranked instance, because the type family instance is the same.
   drevDt :: VoidHVector
          -> HFun
-         -> HFun
+         -> HFunOf (Flip OR.Array)
   drevDt _shs f =
     let g :: ADReady f
           => HVector (ADVal f)
@@ -691,14 +691,14 @@ instance HVectorTensor (Flip OR.Array) (Flip OS.Array) where
                 in dDnotShared (flattenADShare $ V.toList ll)
                                (HVectorPseudoTensor $ dmkHVector as)
                                (HVectorPseudoTensor $ HToH as')
-        rf :: forall f. ADReady f => [HVector f] -> HVectorOf f
+        rf :: [HVector (Flip OR.Array)] -> HVectorOf (Flip OR.Array)
         rf ![!db, !a] =
           fst $ crevOnHVector (Just $ HVectorPseudoTensor $ dmkHVector db) g a
         rf _ = error "rf: wrong number of arguments"
-    in HFun rf
+    in rf
   dfwd :: VoidHVector
        -> HFun
-       -> HFun
+       -> HFunOf (Flip OR.Array)
   dfwd _shs f =
     let g :: ADReady f
           => HVector (ADVal f)
@@ -707,55 +707,61 @@ instance HVectorTensor (Flip OR.Array) (Flip OS.Array) where
                 in dDnotShared (flattenADShare $ V.toList ll)
                                (HVectorPseudoTensor $ dmkHVector as)
                                (HVectorPseudoTensor $ HToH as')
-        df :: forall f. ADReady f => [HVector f] -> HVectorOf f
+        df :: [HVector (Flip OR.Array)] -> HVectorOf (Flip OR.Array)
         df ![!da, !a] = unHVectorPseudoTensor $ fst $ cfwdOnHVector a g da
         df _ = error "df: wrong number of arguments"
-    in HFun df
+    in df
   rfold f x0 as = foldl' f x0 (runravelToList as)
   rscan f x0 as = rfromList $ scanl' f x0 (runravelToList as)
   sfold f x0 as = foldl' f x0 (sunravelToList as)
   sscan f x0 as = sfromList $ scanl' f x0 (sunravelToList as)
-  dmapAccumR
-    :: SNat k
-    -> VoidHVector
-    -> VoidHVector
-    -> VoidHVector
-    -> (forall f. ADReady f
-        => HVector f -> HVector f -> HVectorOf f)
-    -> HVector (Flip OR.Array)
-    -> HVector (Flip OR.Array)
-    -> HVector (Flip OR.Array)
-  dmapAccumR k accShs bShs _eShs f acc0 es = case sNatValue k :: Int of
-    0 -> acc0 V.++ replicate1HVector k (V.map dynamicFromVoid bShs)
-    _ -> let accLen = V.length accShs
-             g :: HVector (Flip OR.Array) -> HVector (Flip OR.Array)
-               -> (HVector (Flip OR.Array), HVector (Flip OR.Array))
-             g !x !a = V.splitAt accLen $ f x a
-             (xout, lout) = mapAccumR g acc0 (unravelHVector es)
-         in xout V.++ ravelHVector lout
-      -- TODO: reimplement not with Haskell's mapAccumR to avoid the ravels
+  dmapAccumR k accShs bShs _eShs f acc0 es =
+    oRdmapAccumR k accShs bShs _eShs f acc0 es
   dmapAccumRDer k accShs bShs eShs f _df _rf acc0 es =
-    dmapAccumR k accShs bShs eShs (\ !a !b -> unHFun f [a, b]) acc0 es
-  dmapAccumL
-    :: SNat k
-    -> VoidHVector
-    -> VoidHVector
-    -> VoidHVector
-    -> (forall f. ADReady f
-        => HVector f -> HVector f -> HVectorOf f)
-    -> HVector (Flip OR.Array)
-    -> HVector (Flip OR.Array)
-    -> HVector (Flip OR.Array)
-  dmapAccumL k accShs bShs _eShs f acc0 es = case sNatValue k :: Int of
-    0 -> acc0 V.++ replicate1HVector k (V.map dynamicFromVoid bShs)
-    _ -> let accLen = V.length accShs
-             g :: HVector (Flip OR.Array) -> HVector (Flip OR.Array)
-               -> (HVector (Flip OR.Array), HVector (Flip OR.Array))
-             g !x !a = V.splitAt accLen $ f x a
-             (xout, lout) = mapAccumL g acc0 (unravelHVector es)
-         in xout V.++ ravelHVector lout
+    oRdmapAccumR k accShs bShs eShs (\ !a !b -> f [a, b]) acc0 es
+  dmapAccumL k accShs bShs _eShs f acc0 es =
+    oRdmapAccumL k accShs bShs _eShs f acc0 es
   dmapAccumLDer k accShs bShs eShs f _df _rf acc0 es =
-    dmapAccumL k accShs bShs eShs (\ !a !b -> unHFun f [a, b]) acc0 es
+    oRdmapAccumL k accShs bShs eShs (\ !a !b -> f [a, b]) acc0 es
+
+oRdmapAccumR
+  :: SNat k
+  -> VoidHVector
+  -> VoidHVector
+  -> VoidHVector
+  -> (HVector (Flip OR.Array) -> HVector (Flip OR.Array)
+      -> HVectorOf (Flip OR.Array))
+  -> HVector (Flip OR.Array)
+  -> HVector (Flip OR.Array)
+  -> HVector (Flip OR.Array)
+oRdmapAccumR k accShs bShs _eShs f acc0 es = case sNatValue k :: Int of
+  0 -> acc0 V.++ replicate1HVector k (V.map dynamicFromVoid bShs)
+  _ -> let accLen = V.length accShs
+           g :: HVector (Flip OR.Array) -> HVector (Flip OR.Array)
+             -> (HVector (Flip OR.Array), HVector (Flip OR.Array))
+           g !x !a = V.splitAt accLen $ f x a
+           (xout, lout) = mapAccumR g acc0 (unravelHVector es)
+       in xout V.++ ravelHVector lout
+         -- TODO: reimplement not with Haskell's mapAccumR to avoid the ravels
+
+oRdmapAccumL
+  :: SNat k
+  -> VoidHVector
+  -> VoidHVector
+  -> VoidHVector
+  -> (HVector (Flip OR.Array) -> HVector (Flip OR.Array)
+      -> HVectorOf (Flip OR.Array))
+  -> HVector (Flip OR.Array)
+  -> HVector (Flip OR.Array)
+  -> HVector (Flip OR.Array)
+oRdmapAccumL k accShs bShs _eShs f acc0 es = case sNatValue k :: Int of
+  0 -> acc0 V.++ replicate1HVector k (V.map dynamicFromVoid bShs)
+  _ -> let accLen = V.length accShs
+           g :: HVector (Flip OR.Array) -> HVector (Flip OR.Array)
+             -> (HVector (Flip OR.Array), HVector (Flip OR.Array))
+           g !x !a = V.splitAt accLen $ f x a
+           (xout, lout) = mapAccumL g acc0 (unravelHVector es)
+       in xout V.++ ravelHVector lout
 
 instance (GoodScalar r, KnownNat n)
          => AdaptableHVector (Flip OR.Array) (Flip OR.Array r n) where

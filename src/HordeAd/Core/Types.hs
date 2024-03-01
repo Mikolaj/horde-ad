@@ -87,12 +87,16 @@ type family RankedOf (f :: TensorType ty) :: RankedTensorType
 
 type family ShapedOf (f :: TensorType ty) :: ShapedTensorType
 
-type family HVectorOf (f :: RankedTensorType) = result | result -> f
+type HVectorOf :: RankedTensorType -> Type
+type family HVectorOf f = result | result -> f
 
 -- | The type family is defined in order to give a special instance
 -- for AST that preservs sharing and, even more importantly, keeps
 -- the computation of dervative functions lazy. See the definition
 -- of 'AstLambda' and the code that processes it, maintaining laziness.
+--
+-- The type family can't easily be made injective, because the @ADVal f@
+-- instance is independent of @f@.
 type family HFunOf (f :: RankedTensorType) :: Type
 
 type family PrimalOf (f :: TensorType ty) :: TensorType ty
