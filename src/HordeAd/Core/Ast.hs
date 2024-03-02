@@ -322,7 +322,7 @@ data AstShaped :: AstSpanType -> ShapedTensorType where
     -- first ix is for outermost dimension; empty index means identity,
     -- if index is out of bounds, the result is defined and is 0,
     -- but vectorization is permitted to change the value
-  AstSumS :: KnownNat n
+  AstSumS :: forall n sh r s. KnownNat n
           => AstShaped s r (n ': sh) -> AstShaped s r sh
   AstScatterS :: forall sh2 p sh r s.
                  ( Sh.Shape sh2, Sh.Shape sh

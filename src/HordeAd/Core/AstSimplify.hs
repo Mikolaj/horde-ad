@@ -397,8 +397,6 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
         gcastWith (unsafeCoerce Refl :: m1 + n :~: p71 + n7) $
         if i6 == i5
         then astIndex (astScatter sh v (vars, ix2)) rest1
-          -- see analogous code in astGatherCase for how a million
-          -- type applications is still not enough to make it type-check
         else astIndex (astReplicate0N @(m1 + n) sh 0) rest1
   -- AstScatter sh v (vars2, ZI) ->
   --   AstScatter sh (astIndex (astTranspose perm3 v) ix) (vars2, ZI)
@@ -495,7 +493,7 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
        gcastWith (unsafeCoerce Refl :: sh :~: p_take Sh.++ p_drop) $
        gcastWith (unsafeCoerce Refl :: Sh.Rank p_drop :~: n) $
        astRFromS $ astIndexStepS @p_take @p_drop
-                               t (ShapedList.listToSized $ indexToList ix)
+                                 t (ShapedList.listToSized $ indexToList ix)
   Ast.AstConstant v -> Ast.AstConstant $ astIndex v ix
   Ast.AstPrimalPart{} -> Ast.AstIndex v0 ix  -- must be a NF
   Ast.AstDualPart{} -> Ast.AstIndex v0 ix
@@ -536,8 +534,36 @@ astIndexSOrStepOnly stepOnly v0 ix@((:$:) @in1 i1 (rest1 :: AstIndexS shm1)) =
   Ast.AstLetADShareS{} -> error "astIndexROrStepOnlyS: AstLetADShareS"
   Ast.AstCondS b v w ->
     shareIxS ix $ \ix2 -> astCondS b (astIndexRec v ix2) (astIndexRec w ix2)
-  Ast.AstMinIndexS _v -> Ast.AstIndexS v0 ix  -- "TODO" -- Ast.AstMinIndexS $ astIndexSOrStepOnly stepOnly v ix
-  Ast.AstMaxIndexS _v -> Ast.AstIndexS v0 ix  -- "TODO" -- Ast.AstMaxIndexS $ astIndexSOrStepOnly stepOnly v ix
+  Ast.AstMinIndexS @shz @n1 v ->
+    Sh.withShapeP (drop 1 (Sh.shapeT @shn)
+                   ++ [last (Sh.shapeT @shz)]) $ \(Proxy @shd) ->
+      gcastWith (unsafeCoerce Refl
+                 :: Sh.Drop 1 shn Sh.++ '[Sh.Last shz] :~: shd) $
+      withSNat (Sh.shapeT @shn !! 0) $ \(SNat @i0shn) ->
+        gcastWith (unsafeCoerce Refl :: Sh.Index shn 0 :~: i0shn) $
+        gcastWith (unsafeCoerce Refl
+                   :: Sh.Index shn 0 ': Sh.Drop 1 shn :~: shn) $
+        gcastWith (unsafeCoerce Refl
+                   :: Sh.Init (shn Sh.++ '[Sh.Last shz]) :~: shn) $
+        gcastWith (unsafeCoerce Refl
+                   :: shm Sh.++ (shn Sh.++ '[Sh.Last shz]) :~: n1 ': shz) $
+        Ast.AstMinIndexS @(Sh.Drop 1 shn Sh.++ '[Sh.Last shz]) @(Sh.Index shn 0)
+        $ astIndexSOrStepOnly @shm @(shn Sh.++ '[Sh.Last shz]) stepOnly v ix
+  Ast.AstMaxIndexS @shz @n1 v ->
+    Sh.withShapeP (drop 1 (Sh.shapeT @shn)
+                   ++ [last (Sh.shapeT @shz)]) $ \(Proxy @shd) ->
+      gcastWith (unsafeCoerce Refl
+                 :: Sh.Drop 1 shn Sh.++ '[Sh.Last shz] :~: shd) $
+      withSNat (Sh.shapeT @shn !! 0) $ \(SNat @i0shn) ->
+        gcastWith (unsafeCoerce Refl :: Sh.Index shn 0 :~: i0shn) $
+        gcastWith (unsafeCoerce Refl
+                   :: Sh.Index shn 0 ': Sh.Drop 1 shn :~: shn) $
+        gcastWith (unsafeCoerce Refl
+                   :: Sh.Init (shn Sh.++ '[Sh.Last shz]) :~: shn) $
+        gcastWith (unsafeCoerce Refl
+                   :: shm Sh.++ (shn Sh.++ '[Sh.Last shz]) :~: n1 ': shz) $
+        Ast.AstMaxIndexS @(Sh.Drop 1 shn Sh.++ '[Sh.Last shz]) @(Sh.Index shn 0)
+        $ astIndexSOrStepOnly @shm @(shn Sh.++ '[Sh.Last shz]) stepOnly v ix
   Ast.AstFloorS v -> Ast.AstFloorS $ astIndexSOrStepOnly stepOnly v ix
   Ast.AstIotaS | AstConst i <- i1 -> fromIntegral i
   Ast.AstIotaS -> Ast.AstIndexS v0 ix
@@ -562,9 +588,26 @@ astIndexSOrStepOnly stepOnly v0 ix@((:$:) @in1 i1 (rest1 :: AstIndexS shm1)) =
     Sh.withShapeP (Sh.shapeT @sh4 ++ Sh.shapeT @shm) $ \(Proxy @sh41) ->
       gcastWith (unsafeCoerce Refl :: sh4 Sh.++ shm :~: sh41) $
       astIndexS v (ShapedList.appendSized ix2 ix)
-  Ast.AstSumS _v -> Ast.AstIndexS v0 ix  -- "TODO"
---    let perm3 = backpermCycle $ valueOf @m + 1
---    in astSumS $ astIndex (astTransposeS perm3 v) ix
+  Ast.AstSumS @n1 v ->
+    let perm3 = backpermCycle $ length (Sh.shapeT @shm) + 1
+    in Sh.withShapeP (Sh.shapeT @shm
+                      ++ (valueOf @n1 : Sh.shapeT @shn)) $ \(Proxy @sm1n) ->
+      gcastWith (unsafeCoerce Refl :: shm Sh.++ (n1 : shn) :~: sm1n) $
+      withSNat (1 + length (Sh.shapeT @shn)
+                + length (Sh.shapeT @shm)) $ \(SNat @r1mn) ->
+        gcastWith (unsafeCoerce Refl :: Sh.Rank (n1 : shm Sh.++ shn) :~: r1mn) $
+        Sh.withShapeP perm3 $ \(Proxy @perm3P) ->
+          gcastWith (unsafeCoerce Refl
+                     :: Compare (OS.Rank perm3P) (Sh.Rank (n1 : shm Sh.++ shn))
+                        :~: LT) $
+          gcastWith (unsafeCoerce Refl
+                     :: Sh.Permute perm3P (n1 : (shm Sh.++ shn))
+                        :~: shm Sh.++ (n1 : shn)) $
+          trustMeThisIsAPermutation @perm3P $
+          astSumS $ astIndex @shm @(n1 : shn)
+                             (astTransposeS @perm3P @(n1 : shm Sh.++ shn) v)
+                             ix
+-- TODO:
 --  Ast.AstScatterS @sh2 @p7 @sh7
 --                  v (vars, AstIntVar var5 :$: (ix2 :: AstIndexS p71))
 --    | AstIntVar var6 <- i1, var6 == var5 ->
@@ -577,8 +620,6 @@ astIndexSOrStepOnly stepOnly v0 ix@((:$:) @in1 i1 (rest1 :: AstIndexS shm1)) =
 --        gcastWith (unsafeCoerce Refl :: m1 + n :~: p71 + n7) $
 --        if i6 == i5
 --        then astIndex (astScatter sh v (vars, ix2)) rest1
-          -- see analogous code in astGatherCase for how a million
-          -- type applications is still not enough to make it type-check
 --        else astIndex (astReplicate0N @(m1 + n) sh 0) rest1
   -- AstScatter sh v (vars2, ZI) ->
   --   AstScatter sh (astIndex (astTranspose perm3 v) ix) (vars2, ZI)
@@ -617,18 +658,8 @@ astIndexSOrStepOnly stepOnly v0 ix@((:$:) @in1 i1 (rest1 :: AstIndexS shm1)) =
        else astIndex @(n3 ': shm1)
                      v (simplifyAst (i1 - fromIntegral len) :$: rest1)
   Ast.AstAppendS{} ->  -- normal form
-    {- We can't do the following, because we can get, e.g., division
-       by zero in the index in the counterfactual branch and sometimes
-       all branches are materialized. Similarly for gather of append
-       and see the TODO there.
-    let vlen = AstConst $ lengthAst v
-        ix2 = simplifyAst (AstIntOp MinusIntOp [i1, vlen]) :. rest1
-    in case simplifyAstBool $ AstRelInt LsOp [i1, vlen] of
-      AstBoolConst b -> if b then astIndex v ix else astIndex w ix2
-      bExpr -> astCond bExpr (astIndexRec v ix) (astIndexRec w ix2)
-    -}
     Ast.AstIndexS v0 ix
-  Ast.AstSliceS  @i v ->
+  Ast.AstSliceS @i v ->
     let ii = simplifyAst (i1 + fromIntegral (valueOf @i :: Int))
       -- we generate this index, so we simplify on the spot
     in astIndex v (ii :$: rest1)
@@ -636,8 +667,12 @@ astIndexSOrStepOnly stepOnly v0 ix@((:$:) @in1 i1 (rest1 :: AstIndexS shm1)) =
     let iRev = simplifyAst (fromIntegral (valueOf @in1 - 1 :: Int) - i1)
       -- we generate this index, so we simplify on the spot
     in astIndex v (iRev :$: rest1)
---  Ast.AstTranspose perm v | valueOf @m >= length perm ->
---    astIndex v (permutePrefixIndex perm ix)
+  Ast.AstTransposeS @perm @sh2 v
+    | length (Sh.shapeT @shm) >= length (Sh.shapeT @perm) ->
+      case ShapedList.permutePrefixSized (Sh.shapeT @perm) ix of
+        (ix2 :: AstIndexS shmPerm) ->
+          gcastWith (unsafeCoerce Refl :: sh2 :~: shmPerm Sh.++ shn) $
+          astIndex @shmPerm v ix2
   Ast.AstTransposeS @perm _v -> Ast.AstIndexS v0 ix  -- "TODO"
 --    astIndex (astTransposeAsGather perm v) ix
   Ast.AstReshapeS @sh _v -> Ast.AstIndexS v0 ix  -- "TODO"
@@ -646,6 +681,7 @@ astIndexSOrStepOnly stepOnly v0 ix@((:$:) @in1 i1 (rest1 :: AstIndexS shm1)) =
     withListSh (Proxy @(shm1 Sh.++ shn)) $ \_ ->
       astIndex (astSFromR @(shm1 Sh.++ shn) $ astLet var2 i1 $ astRFromS v)
                rest1
+      -- this uses astLet, because the index integers are ranked
   Ast.AstGatherS @_ @p @sh v (ZSH, ix2) ->
     Sh.withShapeP (Sh.shapeT @(Sh.Take p sh) ++ Sh.shapeT @shm)
     $ \(Proxy @sh1n) ->
@@ -660,6 +696,7 @@ astIndexSOrStepOnly stepOnly v0 ix@((:$:) @in1 i1 (rest1 :: AstIndexS shm1)) =
         let w :: AstShaped s r (shm1 Sh.++ shn)
             w = astGather v (vars, ix2)
         in astSFromR $ astLet var2 i1 $ astRFromS $ astIndexS @shm1 @shn w rest1
+      -- this uses astLet, because the index integers are ranked
   Ast.AstCastS t -> astCastS $ astIndexSOrStepOnly stepOnly t ix
   Ast.AstFromIntegralS v -> astFromIntegralS $ astIndexSOrStepOnly stepOnly v ix
   AstConstS t ->
@@ -1201,10 +1238,10 @@ astLet var u (Ast.AstLetADShare l v) | not (varNameInADShare var l) =
 astLet var u v = Ast.AstLet var u v
 
 -- A special variant to bind integer expressions inside indexes.
--- It check if the boundvariables appears in the body at all.
+-- It check if the bound variables appears in the body at all.
 -- Normally, that's asymptotically worse than doing this
 -- in a global inlining pass, but we assume indexes expressions
--- are short and nwe eed them simple ASAP.
+-- are short and we need them simple ASAP.
 astLetInt :: AstVarName (AstRanked PrimalSpan) Int64 0
           -> AstRanked PrimalSpan Int64 0 -> AstRanked PrimalSpan Int64 0
           -> AstRanked PrimalSpan Int64 0
@@ -1306,11 +1343,12 @@ astSum (Ast.AstConstant v) = Ast.AstConstant $ astSum v
     -- either global or duplicated and rarely local and unique
     -- and we prefer the global to duplicated
 astSum (Ast.AstLetADShare l v) = Ast.AstLetADShare l (astSum v)
-astSum (Ast.AstScatter (_ :$ sh) v (vars, _ :. ix)) = astScatter sh v (vars, ix)
+astSum (Ast.AstScatter (_ :$ sh) v (vars, _ :. ix)) =
+  astScatter sh v (vars, ix)
 astSum (Ast.AstReverse v) = Ast.AstSum v
 astSum v = Ast.AstSum v
 
-astSumS :: (KnownNat n, Sh.Shape sh, GoodScalar r)
+astSumS :: forall n sh r s. (KnownNat n, Sh.Shape sh, GoodScalar r)
         => AstShaped s r (n ': sh) -> AstShaped s r sh
 astSumS (AstConstS t) = AstConstS $ tsumS t
 astSumS (Ast.AstConstantS v) = Ast.AstConstantS $ astSumS v
@@ -1320,6 +1358,11 @@ astSumS (Ast.AstConstantS v) = Ast.AstConstantS $ astSumS v
     -- either global or duplicated and rarely local and unique
     -- and we prefer the global to duplicated
 astSumS (Ast.AstLetADShareS l v) = Ast.AstLetADShareS l (astSumS v)
+astSumS (Ast.AstScatterS @sh2 @p v (vars, _ :$: ix)) =
+  gcastWith (unsafeCoerce Refl :: Sh.Drop p (n : sh) :~: Sh.Drop (p - 1) sh) $
+  gcastWith (unsafeCoerce Refl
+             :: Sh.Drop 1 (Sh.Take p (n : sh)) :~: Sh.Take (p - 1) sh) $
+  astScatterS @sh2 @(p - 1) @sh v (vars, ix)
 astSumS (Ast.AstReverseS v) = Ast.AstSumS v
 astSumS v = Ast.AstSumS v
 
@@ -1339,7 +1382,6 @@ astScatter sh (Ast.AstLetADShare l v) (vars, ix) =
   Ast.AstLetADShare l $ astScatter sh v (vars, ix)
 astScatter sh v (vars, ix) = Ast.AstScatter sh v (vars, ix)
 
--- TODO: fuse scatters, scatter and sum, perhaps more (fromList?)
 astScatterS :: forall sh2 p sh s r.
                ( Sh.Shape sh2, Sh.Shape sh
                , Sh.Shape (Sh.Take p sh), Sh.Shape (Sh.Drop p sh)
@@ -1351,9 +1393,12 @@ astScatterS v (ZSH, ZSH) =
   gcastWith (unsafeCoerce Refl
              :: Sh.Take p sh Sh.++ Sh.Drop p sh :~: sh)
   v
--- astScatterS v (var :$: vars, ix) | not $ var `varInIndexS` ix =
---   astScatterS (astSumS v) (vars, ix)
-  -- TODO: ^^^
+astScatterS v (AstVarName varId :$: (vars :: AstVarListS sh3), ix)
+  | not $ varId `varInIndexS` ix =
+    Sh.withShapeP (Sh.shapeT @sh3
+                   ++ (Sh.shapeT @(Sh.Drop p sh))) $ \(Proxy @sh4) ->
+      gcastWith (unsafeCoerce Refl :: sh3 Sh.++ Sh.Drop p sh :~: sh4) $
+      astScatterS @sh3 @p @sh (astSumS v) (vars, ix)
 -- astScatterS v (Z, ix) = update (rzero sh 0) ix v
 astScatterS (Ast.AstConstantS v) (vars, ix) =
   Ast.AstConstantS $ astScatterS v (vars, ix)
@@ -1479,8 +1524,8 @@ astReplicateS = \case
       gcastWith (unsafeCoerce Refl
                  :: Sh.Permute zsuccP (n : sh1) :~: n : sh) $
       gcastWith (unsafeCoerce Refl :: Sh.Rank zsuccP :~: 1 + Sh.Rank perm) $
-      trustMeThisIsAPermutation @zsuccP
-      $ astTransposeS @zsuccP $ astReplicateS @n v
+      trustMeThisIsAPermutation @zsuccP $
+      astTransposeS @zsuccP $ astReplicateS @n v
   v -> Ast.AstReplicateS v
 
 astReplicateN :: forall n p s r.
