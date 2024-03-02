@@ -166,6 +166,7 @@ testTrees =
   , testCase "4Sin0rmapAccumRD01SN531bSPPj" testSin0rmapAccumRD01SN531bSPPj
   , testCase "4Sin0rmapAccumRD01SN531bRPPj" testSin0rmapAccumRD01SN531bRPPj
   , testCase "4Sin0rmapAccumRD01SN531c" testSin0rmapAccumRD01SN531c
+  , testCase "4Sin0rmapAccumRD01SN531d" testSin0rmapAccumRD01SN531d
 --  , testCase "4Sin0rmapAccumRD01SN531Slice" testSin0rmapAccumRD01SN531Slice
   , testCase "4Sin0rmapAccumRD01SN54" testSin0rmapAccumRD01SN54
 --  , testCase "4Sin0rmapAccumRD01SN55" testSin0rmapAccumRD01SN55
@@ -2411,6 +2412,38 @@ testSin0rmapAccumRD01SN531c = do
                                          (sfromList0N
                                            [0.4, sfromIntegral (sconstant (sfromR i))]) ])))
            in rfromS . f . sfromR) 1.1)
+
+testSin0rmapAccumRD01SN531d :: Assertion
+testSin0rmapAccumRD01SN531d = do
+  assertEqualUpToEpsilon 1e-10
+    V.empty
+    ((let f :: forall f. ADReadyS f
+            => f Double '[] -> HVector (RankedOf f)
+          f x0 = dunHVector
+                      $ dbuild1 @(RankedOf f) @f (SNat @2) $ \i ->
+                       (dbuild1 @(RankedOf f) @f (SNat @0) $ \j ->
+                       (dmapAccumR (Proxy @(RankedOf f)) (SNat @2)
+                          (V.fromList [ voidFromShS @Double @'[] ])
+                          (V.fromList [ voidFromShS @Double @'[] ])
+                          (V.fromList [ voidFromShS @Double @'[] ])
+                          (let g :: forall g. ADReadyS g
+                                 => HVector (RankedOf g) -> HVector (RankedOf g)
+                                 -> HVectorOf (RankedOf g)
+                               g xh a =
+                                let x = sfromD @Double @'[] $ xh V.! 0
+                                in dmkHVector
+                                   $ V.fromList
+                                       [ DynamicShaped
+                                         $ sin x - sfromD (a V.! 0)
+                                       , DynamicShaped
+                                         $ 1 - sin x / 3 - sfromD (a V.! 0) ]
+                           in g)
+                          (dmkHVector $ V.fromList [ DynamicShaped
+                                        $ x0 / (1 + sfromIntegral (sconstant (sfromR j))) ])
+                          (dmkHVector $ V.fromList [ DynamicShaped @Double @'[2]
+                                         (sfromList0N
+                                           [0.4, sfromIntegral (sconstant (sfromR i))]) ])))
+      in f . sfromR) (1.1 :: Flip OR.Array Double 0))
 
 -- TODO: empty tensor/heterogeneous vector of tensors ambiguity breaks things
 _testSin0rmapAccumRD01SN531Slice :: Assertion
