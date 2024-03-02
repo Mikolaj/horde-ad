@@ -221,7 +221,7 @@ simplifyStepNonIndex t = case t of
     case isRankedInt t of
       Just Refl -> foldr1 simplifyAstPlusOp args
       _ -> t
-  Ast.AstIndex{} -> t
+  Ast.AstIndex{} -> t  -- was supposed to be *non*-index
   Ast.AstSum v -> astSum v
   Ast.AstScatter sh v (vars, ix) -> astScatter sh v (vars, ix)
   Ast.AstFromList l -> astFromList l
@@ -235,12 +235,12 @@ simplifyStepNonIndex t = case t of
   Ast.AstBuild1{} -> t
   Ast.AstGather _ v0 (Z, ix) -> Ast.AstIndex v0 ix
   Ast.AstGather sh v0 (_, ZI) -> astReplicateN sh v0
-  Ast.AstGather{} -> t
+  Ast.AstGather{} -> t  -- this is "index" enough
   Ast.AstCast v -> astCast v
   Ast.AstFromIntegral v -> astFromIntegral v
   AstConst{} -> t
-  Ast.AstLetHVectorIn{} -> t
-  Ast.AstLetHFunIn{} -> t
+  Ast.AstLetHVectorIn vars u v -> astLetHVectorIn vars u v
+  Ast.AstLetHFunIn var u v -> astLetHFunIn var u v
   Ast.AstRFromS v -> astRFromS v
   Ast.AstConstant{} -> t
   Ast.AstPrimalPart v -> astPrimalPart v  -- has to be done sooner or later
@@ -248,9 +248,52 @@ simplifyStepNonIndex t = case t of
   Ast.AstD{} -> t
 
 simplifyStepNonIndexS
-  :: ()
+  :: (Sh.Shape sh, GoodScalar r, AstSpan s)
   => AstShaped s r sh -> AstShaped s r sh
-simplifyStepNonIndexS t = t  -- TODO
+simplifyStepNonIndexS t = case t of
+  Ast.AstVarS{} -> t
+  Ast.AstLetS var u v -> astLetS var u v
+  Ast.AstLetADShareS{} -> error "simplifyStepNonIndexS: AstLetADShareS"
+  Ast.AstCondS a b c -> astCondS a b c
+  Ast.AstMinIndexS{} -> t
+  Ast.AstMaxIndexS{} -> t
+  Ast.AstFloorS{} -> t
+  Ast.AstIotaS -> t
+  AstN1S{} -> t
+  AstN2S{} -> t
+  Ast.AstR1S{} -> t
+  Ast.AstR2S{} -> t
+  Ast.AstI2S{} -> t
+  AstSumOfListS l -> astSumOfListS l
+  Ast.AstIndexS{} -> t  -- was supposed to be *non*-index
+  Ast.AstSumS v -> astSumS v
+  Ast.AstScatterS v (vars, ix) -> astScatterS v (vars, ix)
+  Ast.AstFromListS l -> astFromListS l
+  Ast.AstFromVectorS l -> astFromVectorS l
+  Ast.AstReplicateS v -> astReplicateS v
+  Ast.AstAppendS x y -> astAppendS x y
+  Ast.AstSliceS @i @k v -> astSliceS @i @k v
+  Ast.AstReverseS v -> astReverseS v
+  Ast.AstTransposeS @perm v -> astTransposeS @perm v
+  Ast.AstReshapeS v -> astReshapeS v
+  Ast.AstBuild1S{} -> t
+  Ast.AstGatherS @_ @p @sh1 v0 (ZSH, ix) ->
+    gcastWith (unsafeCoerce Refl :: sh1 :~: Sh.Take p sh1 Sh.++ Sh.Drop p sh1)
+    $ Ast.AstIndexS v0 ix
+  Ast.AstGatherS @sh2 @p @sh1 v0 (_ , ZSH) ->
+    gcastWith (unsafeCoerce Refl :: Sh.Drop p sh1 :~: sh1) $
+    astReplicateNS @sh2 @sh1 v0
+  Ast.AstGatherS{} -> t  -- this is "index" enough
+  Ast.AstCastS v -> astCastS v
+  Ast.AstFromIntegralS v -> astFromIntegralS v
+  AstConstS{} -> t
+  Ast.AstLetHVectorInS vars u v -> astLetHVectorInS vars u v
+  Ast.AstLetHFunInS var u v -> astLetHFunInS var u v
+  Ast.AstSFromR v -> astSFromR v
+  Ast.AstConstantS{} -> t
+  Ast.AstPrimalPartS v -> astPrimalPartS v  -- has to be done sooner or later
+  Ast.AstDualPartS v -> astDualPartS v
+  Ast.AstDS{} -> t
 
 astIndexR
   :: forall m n s r.
@@ -1423,32 +1466,6 @@ astReplicate k = \case
 -}
   v -> Ast.AstReplicate k v
 
-astReplicateN :: forall n p s r.
-                 (KnownNat n, KnownNat p, GoodScalar r, AstSpan s)
-              => ShapeInt (n + p) -> AstRanked s r p -> AstRanked s r (n + p)
-astReplicateN sh =
-  let go :: KnownNat n' => ShapeInt n' -> AstRanked s r p
-         -> AstRanked s r (n' + p)
-      go ZS v = v
-      go (k :$ sh') v = astReplicate k $ go sh' v
-  in go (takeShape sh)
-
-astReplicate0N :: forall n s r. (KnownNat n, GoodScalar r, AstSpan s)
-               => ShapeInt n -> AstRanked s r 0 -> AstRanked s r n
-astReplicate0N sh =
-  let go :: KnownNat n' => ShapeInt n' -> AstRanked s r 0 -> AstRanked s r n'
-      go ZS v = v
-      go (k :$ sh') v = astReplicate k $ go sh' v
-  in go sh
-
-astReplicate0NS :: forall shn s r. (Sh.Shape shn, GoodScalar r)
-                => AstShaped s r '[] -> AstShaped s r shn
-astReplicate0NS =
-  let go :: ShapedList sh' Int -> AstShaped s r '[] -> AstShaped s r sh'
-      go ZSH v = v
-      go (_ :$: sh') v = astReplicateS $ go sh' v
-  in go (ShapedList.shapeSh @shn)
-
 astReplicateS :: forall n sh s r. (KnownNat n, Sh.Shape sh, GoodScalar r)
               => AstShaped s r sh -> AstShaped s r (n ': sh)
 astReplicateS = \case
@@ -1465,6 +1482,45 @@ astReplicateS = \case
       trustMeThisIsAPermutation @zsuccP
       $ astTransposeS @zsuccP $ astReplicateS @n v
   v -> Ast.AstReplicateS v
+
+astReplicateN :: forall n p s r.
+                 (KnownNat n, KnownNat p, GoodScalar r, AstSpan s)
+              => ShapeInt (n + p) -> AstRanked s r p -> AstRanked s r (n + p)
+astReplicateN sh v =
+  let go :: KnownNat n'
+         => ShapeInt n' -> AstRanked s r (n' + p)
+      go ZS = v
+      go (k :$ sh2) = astReplicate k $ go sh2
+  in go (takeShape sh)
+
+astReplicateNS :: forall shn shp s r.
+                  (Sh.Shape shn, Sh.Shape shp, GoodScalar r)
+               => AstShaped s r shp -> AstShaped s r (shn Sh.++ shp)
+astReplicateNS v =
+  let go :: ShapeSh shn' -> AstShaped s r (shn' Sh.++ shp)
+      go ZSH = v
+      go ((:$:) @k @shn2 _ shn2) =
+        Sh.withShapeP (Sh.shapeT @shn2 ++ Sh.shapeT @shp) $ \(Proxy @sh) ->
+          gcastWith (unsafeCoerce Refl :: sh :~: shn2 Sh.++ shp) $
+          astReplicateS @k $ go shn2
+  in go (ShapedList.shapeSh @shn)
+
+astReplicate0N :: forall n s r. (KnownNat n, GoodScalar r, AstSpan s)
+               => ShapeInt n -> AstRanked s r 0 -> AstRanked s r n
+astReplicate0N sh =
+  let go :: KnownNat n'
+         => ShapeInt n' -> AstRanked s r 0 -> AstRanked s r n'
+      go ZS v = v
+      go (k :$ sh') v = astReplicate k $ go sh' v
+  in go sh
+
+astReplicate0NS :: forall shn s r. (Sh.Shape shn, GoodScalar r)
+                => AstShaped s r '[] -> AstShaped s r shn
+astReplicate0NS =
+  let go :: ShapedList sh' Int -> AstShaped s r '[] -> AstShaped s r sh'
+      go ZSH v = v
+      go (_ :$: sh') v = astReplicateS $ go sh' v
+  in go (ShapedList.shapeSh @shn)
 
 astAppend :: (KnownNat n, GoodScalar r, AstSpan s)
           => AstRanked s r (1 + n) -> AstRanked s r (1 + n)
