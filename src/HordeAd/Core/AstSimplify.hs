@@ -203,12 +203,24 @@ simplifyStepNonIndex t = case t of
   Ast.AstMaxIndex{} -> t
   Ast.AstFloor{} -> t
   Ast.AstIota -> t
-  AstN1{} -> t
-  AstN2{} -> t
+  AstN1 opCode u ->
+    case isRankedInt u of
+      Just Refl -> simplifyAstNumOp1 opCode u
+      _ -> t
+  AstN2 opCode u v ->
+    case isRankedInt u of
+      Just Refl -> simplifyAstNumOp2 opCode u v
+      _ -> t
   Ast.AstR1{} -> t
   Ast.AstR2{} -> t
-  Ast.AstI2{} -> t
-  AstSumOfList l -> astSumOfList l
+  Ast.AstI2 opCode u v ->
+    case isRankedInt u of
+      Just Refl -> simplifyAstIntegralOp2 opCode u v
+      _ -> t
+  AstSumOfList args ->
+    case isRankedInt t of
+      Just Refl -> foldr1 simplifyAstPlusOp args
+      _ -> t
   Ast.AstIndex{} -> t
   Ast.AstSum v -> astSum v
   Ast.AstScatter sh v (vars, ix) -> astScatter sh v (vars, ix)
