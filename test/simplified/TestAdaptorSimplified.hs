@@ -1175,11 +1175,11 @@ testMatmul2PPS = do
                  ( Flip $ OS.fromList @'[2,3] [1 :: Double .. 6]
                  , Flip $ OS.fromList @'[3,4] [7 .. 18] )
   printGradient6Pretty renames artifactRev
-    @?= "\\m3 m1 m2 -> let [m4 @[Natural] @Double @[2,4]] = [m3] in [ssum (stranspose (stranspose (sreplicate m2) * sreplicate m4)), ssum (stranspose (stranspose (sreplicate m1) * sreplicate m4))]"
+    @?= "\\m3 m1 m2 -> let [m4 @[Natural] @Double @[2,4]] = [m3] in [ssum (stranspose (sreplicate m2) * stranspose (sreplicate m4)), ssum (stranspose (sreplicate m1) * stranspose (sreplicate m4))]"
   printPrimal6Pretty renames artifactRev
     @?= "\\m1 m2 -> [ssum (stranspose (sreplicate m1) * stranspose (sreplicate m2))]"
   printGradient6Pretty renames (simplifyArtifactRev artifactRev)
-    @?= "\\m3 m1 m2 -> [ssum (stranspose (stranspose (sreplicate m2) * sreplicate m3)), ssum (stranspose (stranspose (sreplicate m1) * sreplicate m3))]"
+    @?= "\\m3 m1 m2 -> [ssum (stranspose (sreplicate m2) * stranspose (sreplicate m3)), ssum (stranspose (sreplicate m1) * stranspose (sreplicate m3))]"
   printPrimal6Pretty renames (simplifyArtifactRev artifactRev)
     @?= "\\m1 m2 -> [ssum (stranspose (sreplicate m1) * stranspose (sreplicate m2))]"
 

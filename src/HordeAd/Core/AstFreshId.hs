@@ -5,10 +5,11 @@
 -- with @unsafePerformIO@ outside, so some of it escapes.
 module HordeAd.Core.AstFreshId
   ( astRegisterFun, astRegisterFunS, astRegisterADShare, astRegisterADShareS
-  , funToAstIOR, funToAstR, fun1DToAst, fun1HToAst, fun1LToAst
+  , funToAstIOR, funToAstR, funToAstIOS, funToAstS
+  , fun1DToAst, fun1HToAst, fun1LToAst
   , funToAstRevIO, funToAstRev, funToAstFwdIO, funToAstFwd
-  , funToAstIOI, funToAstI, funToAstIndex, funToVarsIx
-  , funToAstIOS, funToAstS, funToAstIndexS, funToVarsIxS
+  , funToAstIOI, funToAstI, funToAstIntVarIO, funToAstIntVar
+  , funToVarsIx, funToAstIndex, funToVarsIxS, funToAstIndexS
   , resetVarCounter
   ) where
 
@@ -311,6 +312,17 @@ funToAstIOI f = do
 funToAstI :: (AstInt -> t) -> (IntVarName, t)
 {-# NOINLINE funToAstI #-}
 funToAstI = unsafePerformIO . funToAstIOI
+
+funToAstIntVarIO :: ((IntVarName, AstInt) -> a) -> IO a
+{-# INLINE funToAstIntVarIO #-}
+funToAstIntVarIO f = do
+  !varName <- unsafeGetFreshAstVarName
+  let !ast = AstIntVar varName
+  return $! f (varName, ast)
+
+funToAstIntVar :: ((IntVarName, AstInt) -> a) -> a
+{-# NOINLINE funToAstIntVar #-}
+funToAstIntVar = unsafePerformIO . funToAstIntVarIO
 
 funToVarsIxIO
   :: KnownNat m

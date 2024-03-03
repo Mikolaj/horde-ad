@@ -740,9 +740,8 @@ shareIx ix f = unsafePerformIO $ do
              -> IO ( Maybe (IntVarName, AstRanked PrimalSpan Int64 0)
                    , AstRanked PrimalSpan Int64 0 )
       shareI i | astIsSmall True i = return (Nothing, i)
-      shareI i = do
-        (varFresh, astVarFresh) <- funToAstIOI id
-        return (Just (varFresh, i), astVarFresh)
+      shareI i = funToAstIntVarIO $ \ !(!varFresh, !astVarFresh) ->
+                   (Just (varFresh, i), astVarFresh)
   (bindings, ix2) <- mapAndUnzipM shareI (indexToList ix)
   return $! foldr (uncurry Ast.AstLet) (f $ listToIndex ix2)
                                        (catMaybes bindings)

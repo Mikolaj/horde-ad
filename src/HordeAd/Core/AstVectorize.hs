@@ -117,21 +117,22 @@ build1VOccurenceUnknownRefresh
   :: forall n s r. (KnownNat n, GoodScalar r, AstSpan s)
   => Int -> (IntVarName, AstRanked s r n) -> AstRanked s r (1 + n)
 {-# NOINLINE build1VOccurenceUnknownRefresh #-}
-build1VOccurenceUnknownRefresh k (var, v0) = unsafePerformIO $ do
-  (varFresh, astVarFresh) <- funToAstIOI id
-  let v2 = substituteAst  -- cheap subst, because only a renaming
-             (SubstitutionPayloadRanked @PrimalSpan @Int64 astVarFresh) var v0
-  return $! build1VOccurenceUnknown k (varFresh, v2)
+build1VOccurenceUnknownRefresh k (var, v0) =
+  funToAstIntVar $ \ !(!varFresh, !astVarFresh) ->
+    let !v2 = substituteAst  -- cheap subst, because only a renaming
+                (SubstitutionPayloadRanked @PrimalSpan @Int64 astVarFresh)
+                var v0
+    in build1VOccurenceUnknown k (varFresh, v2)
 
 intBindingRefresh
   :: IntVarName -> AstIndex n -> (IntVarName, AstInt, AstIndex n)
 {-# NOINLINE intBindingRefresh #-}
-intBindingRefresh var ix = unsafePerformIO $ do
-  (varFresh, astVarFresh) <- funToAstIOI id
-  let ix2 = substituteAstIndex  -- cheap subst, because only a renaming
-              (SubstitutionPayloadRanked @PrimalSpan @Int64 astVarFresh)
-              var ix
-  return (varFresh, astVarFresh, ix2)
+intBindingRefresh var ix =
+  funToAstIntVar $ \ !(!varFresh, !astVarFresh) ->
+    let !ix2 = substituteAstIndex  -- cheap subst, because only a renaming
+                 (SubstitutionPayloadRanked @PrimalSpan @Int64 astVarFresh)
+                 var ix
+    in (varFresh, astVarFresh, ix2)
 
 -- | The application @build1V k (var, v)@ vectorizes
 -- the term @AstBuild1 k (var, v)@, where it's known that
@@ -386,21 +387,22 @@ build1VOccurenceUnknownRefreshS
   :: forall k sh s r. (GoodScalar r, KnownNat k, Sh.Shape sh, AstSpan s)
   => (IntVarName, AstShaped s r sh) -> AstShaped s r (k ': sh)
 {-# NOINLINE build1VOccurenceUnknownRefreshS #-}
-build1VOccurenceUnknownRefreshS (var, v0) = unsafePerformIO $ do
-  (varFresh, astVarFresh) <- funToAstIOI id
-  let v2 = substituteAstS  -- cheap subst, because only a renaming
-             (SubstitutionPayloadRanked @PrimalSpan @Int64 astVarFresh) var v0
-  return $! build1VOccurenceUnknownS (varFresh, v2)
+build1VOccurenceUnknownRefreshS (var, v0) =
+  funToAstIntVar $ \ !(!varFresh, !astVarFresh) ->
+    let !v2 = substituteAstS  -- cheap subst, because only a renaming
+                (SubstitutionPayloadRanked @PrimalSpan @Int64 astVarFresh)
+                var v0
+    in build1VOccurenceUnknownS (varFresh, v2)
 
 intBindingRefreshS
   :: IntVarName -> AstIndexS sh -> (IntVarName, AstInt, AstIndexS sh)
 {-# NOINLINE intBindingRefreshS #-}
-intBindingRefreshS var ix = unsafePerformIO $ do
-  (varFresh, astVarFresh) <- funToAstIOI id
-  let ix2 = substituteAstIndexS  -- cheap subst, because only a renaming
-              (SubstitutionPayloadRanked @PrimalSpan @Int64 astVarFresh)
-              var ix
-  return (varFresh, astVarFresh, ix2)
+intBindingRefreshS var ix =
+  funToAstIntVar $ \ !(!varFresh, !astVarFresh) ->
+    let !ix2 = substituteAstIndexS  -- cheap subst, because only a renaming
+                 (SubstitutionPayloadRanked @PrimalSpan @Int64 astVarFresh)
+                 var ix
+    in (varFresh, astVarFresh, ix2)
 
 build1VS
   :: forall k sh s r. (GoodScalar r, KnownNat k, Sh.Shape sh, AstSpan s)
@@ -741,11 +743,12 @@ build1VOccurenceUnknownHVectorRefresh
   :: forall k s. AstSpan s
   => SNat k -> (IntVarName, AstHVector s) -> AstHVector s
 {-# NOINLINE build1VOccurenceUnknownHVectorRefresh #-}
-build1VOccurenceUnknownHVectorRefresh k (var, v0) = unsafePerformIO $ do
-  (varFresh, astVarFresh) <- funToAstIOI id
-  let v2 = substituteAstHVector  -- cheap subst, because only a renaming
-             (SubstitutionPayloadRanked @PrimalSpan @Int64 astVarFresh) var v0
-  return $! build1VOccurenceUnknownHVector k (varFresh, v2)
+build1VOccurenceUnknownHVectorRefresh k (var, v0) =
+  funToAstIntVar $ \ !(!varFresh, !astVarFresh) ->
+    let !v2 = substituteAstHVector  -- cheap subst, because only a renaming
+                (SubstitutionPayloadRanked @PrimalSpan @Int64 astVarFresh)
+                var v0
+    in build1VOccurenceUnknownHVector k (varFresh, v2)
 
 
 -- * Auxiliary machinery
