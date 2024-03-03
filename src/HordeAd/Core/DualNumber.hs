@@ -232,8 +232,8 @@ crevOnADInputs mdt f inputs =
   let -- Evaluate completely after terms constructed, to free memory
       -- before evaluation allocates new memory and new FFI is started.
       !(D l v deltaTopLevel) = f inputs in
-  let rshapePrimal :: (GoodScalar r2, KnownNat n, ADReady f)
-                   => ADVal f r2 n -> ShapeInt n
+  let rshapePrimal :: (GoodScalar r2, KnownNat n, ADReady g)
+                   => ADVal g r2 n -> ShapeInt n
       rshapePrimal (D _ p _) = rshape p
       parameters0 = V.map (voidFromDynamicF (shapeToList . rshapePrimal)) inputs
       (!astBindings, !gradient) =

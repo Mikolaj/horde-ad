@@ -30,7 +30,6 @@ import Prelude hiding (foldl')
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as Sh
 import qualified Data.Array.ShapedS as OS
-import           Data.Bifunctor.Flip
 import           Data.Int (Int64)
 import           Data.Kind (Type)
 import           Data.Proxy (Proxy (Proxy))
@@ -90,10 +89,6 @@ type instance DualOf (AstShaped s) = AstShaped DualSpan
 
 type instance PrimalOf (HVectorPseudoTensor (AstRanked s)) =
   HVectorPseudoTensor (AstRanked PrimalSpan)
-
-type instance RankedOf (Flip OR.Array) = Flip OR.Array
-
-type instance ShapedOf (Flip OR.Array) = Flip OS.Array
 
 -- These instances can't be just HFun, because they need to be vectorized
 -- and vectorization applies such functions to the variable from build1
@@ -848,6 +843,7 @@ newtype AstNoVectorizeS s r sh =
   AstNoVectorizeS {unAstNoVectorizeS :: AstShaped s r sh}
 deriving instance (GoodScalar r, Sh.Shape sh) => Show (AstNoVectorizeS s r sh)
 
+type role AstNoVectorizeWrap nominal
 newtype AstNoVectorizeWrap t = AstNoVectorizeWrap {unAstNoVectorizeWrap :: t}
  deriving Show
 
@@ -861,5 +857,6 @@ newtype AstNoSimplifyS s r sh =
   AstNoSimplifyS {unAstNoSimplifyS :: AstShaped s r sh}
 deriving instance (GoodScalar r, Sh.Shape sh) => Show (AstNoSimplifyS s r sh)
 
+type role AstNoSimplifyWrap nominal
 newtype AstNoSimplifyWrap t = AstNoSimplifyWrap {unAstNoSimplifyWrap :: t}
  deriving Show

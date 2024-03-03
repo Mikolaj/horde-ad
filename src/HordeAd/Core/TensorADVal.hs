@@ -429,11 +429,11 @@ instance ADReadyBoth ranked shaped
   drevDt :: VoidHVector
          -> HFun
          -> HFun
-  drevDt _shs f =
+  drevDt _shs h =
     let g :: ADReady f
           => HVector (ADVal f)
           -> ADVal (HVectorPseudoTensor f) r y
-        g !hv = let (ll, as, as') = unADValHVector $ unHFun f [hv]
+        g !hv = let (ll, as, as') = unADValHVector $ unHFun h [hv]
                 in dDnotShared (flattenADShare $ V.toList ll)
                                (HVectorPseudoTensor $ dmkHVector as)
                                (HVectorPseudoTensor $ HToH as')
@@ -446,11 +446,11 @@ instance ADReadyBoth ranked shaped
   dfwd :: VoidHVector
        -> HFun
        -> HFun
-  dfwd _shs f =
+  dfwd _shs h =
     let g :: ADReady f
           => HVector (ADVal f)
           -> ADVal (HVectorPseudoTensor f) r y
-        g !hv = let (ll, as, as') = unADValHVector $ unHFun f [hv]
+        g !hv = let (ll, as, as') = unADValHVector $ unHFun h [hv]
                 in dDnotShared (flattenADShare $ V.toList ll)
                                (HVectorPseudoTensor $ dmkHVector as)
                                (HVectorPseudoTensor $ HToH as')
@@ -681,11 +681,11 @@ instance HVectorTensor (Flip OR.Array) (Flip OS.Array) where
   drevDt :: VoidHVector
          -> HFun
          -> HFunOf (Flip OR.Array)
-  drevDt _shs f =
+  drevDt _shs h =
     let g :: ADReady f
           => HVector (ADVal f)
           -> ADVal (HVectorPseudoTensor f) r y
-        g !hv = let (ll, as, as') = unADValHVector $ unHFun f [hv]
+        g !hv = let (ll, as, as') = unADValHVector $ unHFun h [hv]
                 in dDnotShared (flattenADShare $ V.toList ll)
                                (HVectorPseudoTensor $ dmkHVector as)
                                (HVectorPseudoTensor $ HToH as')
@@ -697,11 +697,11 @@ instance HVectorTensor (Flip OR.Array) (Flip OS.Array) where
   dfwd :: VoidHVector
        -> HFun
        -> HFunOf (Flip OR.Array)
-  dfwd _shs f =
+  dfwd _shs h =
     let g :: ADReady f
           => HVector (ADVal f)
           -> ADVal (HVectorPseudoTensor f) r y
-        g !hv = let (ll, as, as') = unADValHVector $ unHFun f [hv]
+        g !hv = let (ll, as, as') = unADValHVector $ unHFun h [hv]
                 in dDnotShared (flattenADShare $ V.toList ll)
                                (HVectorPseudoTensor $ dmkHVector as)
                                (HVectorPseudoTensor $ HToH as')
