@@ -670,10 +670,14 @@ astIndexSOrStepOnly stepOnly v0 ix@((:$:) @in1 i1 (rest1 :: AstIndexS shm1)) =
     in astIndex v (iRev :$: rest1)
   Ast.AstTransposeS @perm @sh2 v
     | length (Sh.shapeT @shm) >= length (Sh.shapeT @perm) ->
-      case ShapedList.permutePrefixSized (Sh.shapeT @perm) ix of
-        (ix2 :: AstIndexS shmPerm) ->
-          gcastWith (unsafeCoerce Refl :: sh2 :~: shmPerm Sh.++ shn) $
-          astIndex @shmPerm v ix2
+      Sh.withShapeP
+        (permutePrefixList (Sh.shapeT @perm)
+                           (Sh.shapeT @shm)) $ \(Proxy @shmPerm) ->
+          gcastWith (unsafeCoerce Refl :: shm :~: Sh.Permute perm shmPerm) $
+          let ix2 :: AstIndexS shmPerm =
+                ShapedList.permutePrefixShaped @perm ix
+          in gcastWith (unsafeCoerce Refl :: sh2 :~: shmPerm Sh.++ shn) $
+             astIndex @shmPerm v ix2
   Ast.AstTransposeS @perm _v -> Ast.AstIndexS v0 ix  -- "TODO"
 --    astIndex (astTransposeAsGather perm v) ix
   Ast.AstReshapeS @sh _v -> Ast.AstIndexS v0 ix  -- "TODO"
@@ -1742,6 +1746,7 @@ astTranspose perm = \case
     Ast.AstR2 opCode (astTranspose perm u) (astTranspose perm v)
   Ast.AstSum v -> astSum $ astTranspose (0 : map succ perm) v
   Ast.AstScatter @_ @_ @p sh v (vars, ix) | length perm <= valueOf @p ->
+    -- TODO: should the below be backpermute or permute?
     astScatter (backpermutePrefixShape perm sh) v
                (vars, backpermutePrefixIndex perm ix)
   Ast.AstTranspose perm2 t ->
@@ -1755,6 +1760,7 @@ astTranspose perm = \case
   -- changes the linearisation order, while reshape only modifies indexing:
   -- (perm, AstReshape sh v) -> astReshape (backpermutePrefixShape perm sh) v
   Ast.AstGather @m sh v (vars, ix) | length perm <= valueOf @m ->
+    -- TODO: should the below be backpermute or permute?
     astGatherR (backpermutePrefixShape perm sh) v
                (backpermutePrefixSized perm vars, ix)
   AstConst t -> AstConst $ ttransposeR perm t
@@ -1805,15 +1811,23 @@ astTransposeS = \case
                    :: Sh.Permute zsuccP (n : sh) :~: n : Sh.Permute perm sh) $
         trustMeThisIsAPermutation @zsuccP $
         astSumS $ astTransposeS @zsuccP v
-  Ast.AstScatterS @sh2 @p @sh3 v (vars, ix)
+  Ast.AstScatterS @sh2 @p v (vars, ix)
+    -- TODO: should the below be backpermute or permute?
     | length (Sh.shapeT @perm) <= length (Sh.shapeT @(Sh.Take p sh)) ->
-      case ShapedList.permutePrefixSized (Sh.shapeT @perm) ix of
-        (ix2 :: AstIndexS shmPerm) ->
+      Sh.withShapeP
+        (backpermutePrefixList (Sh.shapeT @perm)
+                               (Sh.shapeT @sh)) $ \(Proxy @shPerm) ->
+          gcastWith (unsafeCoerce Refl :: Sh.Permute perm sh :~: shPerm) $
+        Sh.withShapeP (take (length ix)
+                       $ Sh.shapeT @shPerm) $ \(Proxy @shpPerm) ->
+          gcastWith (unsafeCoerce Refl :: Sh.Take p shPerm :~: shpPerm) $
           gcastWith (unsafeCoerce Refl
-                     :: Sh.Permute perm sh3 :~: shmPerm Sh.++ Sh.Drop p sh3) $
-          gcastWith (unsafeCoerce Refl
-                     :: Sh.Take p sh Sh.++ Sh.Drop p sh :~: sh) $
-          astScatterS @sh2 @p @(Sh.Permute perm sh3) v (vars, ix2)
+                     :: Sh.Permute perm (Sh.Take p sh) :~: shpPerm) $
+          let ix2 :: AstIndexS (Sh.Take p shPerm) =
+                ShapedList.backpermutePrefixShaped @perm ix
+          in gcastWith (unsafeCoerce Refl
+                        :: Sh.Drop p shPerm :~: Sh.Drop p sh) $
+             astScatterS @sh2 @p @shPerm v (vars, ix2)
   Ast.AstTransposeS @perm2 @sh2 t ->  -- TODO: try to perform at type level
     let permV = Sh.shapeT @perm
         perm2V = Sh.shapeT @perm2
@@ -1829,15 +1843,19 @@ astTransposeS = \case
                  :: Sh.Permute perm3 sh2 :~: Sh.Permute perm sh) $
       astTransposeS @perm3 t
   Ast.AstGatherS @sh2 @p @sh3 v (vars, ix)
+    -- TODO: should the below be backpermute or permute?
     | length (Sh.shapeT @perm) <= length (Sh.shapeT @(Sh.Take p sh3)) ->
-      case ShapedList.permutePrefixSized (Sh.shapeT @perm) vars of
-        (vars2 :: AstVarListS shmPerm) ->
-          gcastWith (unsafeCoerce Refl
-                     :: Sh.Permute perm sh2 :~: shmPerm) $
-          gcastWith (unsafeCoerce Refl
-                     :: Sh.Permute perm sh2 Sh.++ Sh.Drop p sh3
-                        :~: Sh.Permute perm sh) $
-          astGatherS @(Sh.Permute perm sh2) @p @sh3 v (vars2, ix)
+      Sh.withShapeP (backpermutePrefixList
+                       (Sh.shapeT @perm)
+                       (Sh.shapeT @sh2)) $ \(Proxy @shmPerm) ->
+        gcastWith (unsafeCoerce Refl
+                   :: Sh.Permute perm sh2 :~: shmPerm) $
+        let vars2 :: AstVarListS shmPerm =
+              ShapedList.backpermutePrefixShaped @perm vars
+        in gcastWith (unsafeCoerce Refl
+                      :: Sh.Permute perm sh2 Sh.++ Sh.Drop p sh3
+                         :~: Sh.Permute perm sh) $
+           astGatherS @(Sh.Permute perm sh2) @p @sh3 v (vars2, ix)
   AstConstS t -> AstConstS $ ttransposeS @perm t
   Ast.AstConstantS v -> Ast.AstConstantS $ astTransposeS @perm v
   Ast.AstLetADShareS l v -> Ast.AstLetADShareS l $ astTransposeS @perm v

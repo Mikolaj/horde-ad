@@ -6,7 +6,8 @@ module HordeAd.Util.SizedList
   ( SizedList(..)
   , singletonSized, snocSized, appendSized
   , headSized, tailSized, takeSized, dropSized, splitAt_Sized
-  , backpermutePrefixSized, permutePrefixSized, backpermutePrefixList
+  , backpermutePrefixSized, backpermutePrefixList
+  , permutePrefixSized, permutePrefixList
   , unsnocSized1, lastSized, initSized, zipSized, zipWith_Sized, reverseSized
   , sizedListCompare, listToSized, sizedListToList
   , Permutation

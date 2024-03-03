@@ -13,7 +13,8 @@ module HordeAd.Util.ShapedList
   , ShapedList(..), singletonShaped, consShaped, unconsContShaped
   , snocSized, appendSized
   , headSized, tailSized, takeSized, dropSized, splitAt_Sized
-  , backpermutePrefixSized, permutePrefixSized, backpermutePrefixList
+  , backpermutePrefixShaped, backpermutePrefixSized
+  , permutePrefixShaped, permutePrefixSized
   , unsnocSized1, lastSized, initSized, zipSized, zipWith_Sized, reverseSized
   , sizedListCompare, listToSized, sizedListToList
   , shapedListToSized, shapedListToIndex
@@ -151,29 +152,41 @@ zipWith_Sized f (i :$: irest) (j :$: jrest) =
 reverseSized :: Sh.Shape sh => ShapedList sh i -> ShapedList sh i
 reverseSized = listToSized . reverse . sizedListToList
 
+backpermutePrefixShaped
+  :: forall perm sh i.
+     (Sh.Shape perm, Sh.Shape sh, Sh.Shape (Sh.Permute perm sh))
+  => ShapedList sh i -> ShapedList (Sh.Permute perm sh) i
+backpermutePrefixShaped ix =
+  if length (Sh.shapeT @sh) < length (Sh.shapeT @perm)
+  then error "backpermutePrefixShaped: cannot permute a list shorter than permutation"
+  else listToSized $ SizedList.backpermutePrefixList (Sh.shapeT @perm)
+                   $ sizedListToList ix
+
 -- This permutes a prefix of the sized list of the length of the permutation.
 -- The rest of the sized list is left intact.
-backpermutePrefixSized :: forall sh i. Sh.Shape sh
-                       => Permutation -> ShapedList sh i -> ShapedList sh i
+backpermutePrefixSized :: forall sh sh2 i. (Sh.Shape sh, Sh.Shape sh2)
+                       => Permutation -> ShapedList sh i -> ShapedList sh2 i
 backpermutePrefixSized p ix =
   if length (Sh.shapeT @sh) < length p
   then error "backpermutePrefixSized: cannot permute a list shorter than permutation"
-  else listToSized $ backpermutePrefixList p $ sizedListToList ix
+  else listToSized $ SizedList.backpermutePrefixList p $ sizedListToList ix
 
-backpermutePrefixList :: Permutation -> [i] -> [i]
-backpermutePrefixList p l = map (l !!) p ++ drop (length p) l
+permutePrefixShaped
+  :: forall perm sh i.
+     (Sh.Shape perm, Sh.Shape sh, Sh.Shape (Sh.Permute perm sh))
+  => ShapedList (Sh.Permute perm sh) i -> ShapedList sh i
+permutePrefixShaped ix =
+  if length (Sh.shapeT @sh) < length (Sh.shapeT @perm)
+  then error "permutePrefixShaped: cannot permute a list shorter than permutation"
+  else listToSized $ SizedList.permutePrefixList (Sh.shapeT @perm)
+                   $ sizedListToList ix
 
-permutePrefixSized :: forall sh i. Sh.Shape sh
-                   => Permutation -> ShapedList sh i -> ShapedList sh i
+permutePrefixSized :: forall sh sh2 i. (Sh.Shape sh, Sh.Shape sh2)
+                   => Permutation -> ShapedList sh i -> ShapedList sh2 i
 permutePrefixSized p ix =
   if length (Sh.shapeT @sh) < length p
   then error "permutePrefixSized: cannot permute a list shorter than permutation"
-  else listToSized $ permutePrefixList p $ sizedListToList ix
-
--- Boxed vector is not that bad, because we move pointers around,
--- but don't follow them. Storable vectors wouldn't work for Ast.
-permutePrefixList :: Permutation -> [i] -> [i]
-permutePrefixList p l = V.toList $ Data.Vector.fromList l V.// zip p l
+  else listToSized $ SizedList.permutePrefixList p $ sizedListToList ix
 
 -- | Pairwise comparison of two sized list values.
 -- The comparison function is invoked once for each rank
