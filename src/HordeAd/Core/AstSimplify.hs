@@ -110,21 +110,21 @@ astTransposeAsGather
   :: forall n s r. (KnownNat n, GoodScalar r, AstSpan s)
   => Permutation -> AstRanked s r n -> AstRanked s r n
 {-# NOINLINE astTransposeAsGather #-}
-astTransposeAsGather perm v = unsafePerformIO $ do
+astTransposeAsGather perm v =
   let pInt = length perm
-  case someNatVal $ toInteger pInt of
+  in case someNatVal $ toInteger pInt of
     Just (SomeNat @p _) -> do
-      (vars, ix) <- funToAstIndexIO pInt id
-      let asts :: AstIndex p
-          asts = permutePrefixIndex perm ix
-      return $! case cmpNat (Proxy @p) (Proxy @n) of
-        EQI -> astGatherR @p @(n - p)
-                          (backpermutePrefixShape perm (shapeAst v)) v
-                          (vars, asts)
-        LTI -> astGatherR @p @(n - p)
-                          (backpermutePrefixShape perm (shapeAst v)) v
-                          (vars, asts)
-        _ -> error "astTransposeAsGather: permutation longer than rank"
+      funToVarsIx pInt $ \ !(!vars, !ix) ->
+        let asts :: AstIndex p
+            asts = permutePrefixIndex perm ix
+        in case cmpNat (Proxy @p) (Proxy @n) of
+          EQI -> astGatherR @p @(n - p)
+                            (backpermutePrefixShape perm (shapeAst v)) v
+                            (vars, asts)
+          LTI -> astGatherR @p @(n - p)
+                            (backpermutePrefixShape perm (shapeAst v)) v
+                            (vars, asts)
+          _ -> error "astTransposeAsGather: permutation longer than rank"
     Nothing -> error "astTransposeAsGather: impossible someNatVal error"
 
 -- This generates big terms that don't simplify well,
@@ -156,14 +156,14 @@ astReshapeAsGather
   :: forall p m s r. (KnownNat p, KnownNat m, GoodScalar r, AstSpan s)
   => ShapeInt m -> AstRanked s r p -> AstRanked s r m
 {-# NOINLINE astReshapeAsGather #-}
-astReshapeAsGather shOut v = unsafePerformIO $ do
-  (vars, ix) <- funToAstIndexIO (lengthShape shOut) id
-  let shIn = shapeAst v
-      asts :: AstIndex p
-      asts = let i = toLinearIdx @m @0 shOut ix
-             in simplifyAst <$> fromLinearIdx shIn i
-                  -- we generate these, so we simplify
-  return $! astGatherR @m @0 shOut v (vars, asts)
+astReshapeAsGather shOut v =
+  funToVarsIx (lengthShape shOut) $ \ !(!vars, !ix) ->
+    let shIn = shapeAst v
+        asts :: AstIndex p
+        asts = let i = toLinearIdx @m @0 shOut ix
+               in simplifyAst <$> fromLinearIdx shIn i
+                    -- we generate these, so we simplify
+    in astGatherR @m @0 shOut v (vars, asts)
 
 
 -- * Permutation operations
@@ -933,15 +933,16 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
     Ast.AstFromList l ->
       -- Term rest4 is duplicated without sharing and we can't help it,
       -- because it needs to be in scope of vars4, so we can't use rlet.
-      let f v = astGatherRec sh4 v (vars4, rest4)
-          (varsFresh, ixFresh) = funToAstIndex @m' id
-          -- This subst doesn't currently break sharing, because it's a rename.
-          subst i =
-            foldr (uncurry substituteAst) i
-                  (zipSized (fmap (SubstitutionPayloadRanked @PrimalSpan @Int64)
-                             $ indexToSizedList ixFresh) vars4)
-          i5 = subst i4
-      in astGather sh4 (astFromList $ map f l) (varsFresh, i5 :. ixFresh)
+      funToVarsIx (valueOf @m') $ \ !(!varsFresh, !ixFresh) ->
+        let f v = astGatherRec sh4 v (vars4, rest4)
+            -- This subst doesn't currently break sharing because it's a rename.
+            subst i =
+              foldr (uncurry substituteAst) i
+                    (zipSized (fmap (SubstitutionPayloadRanked
+                                       @PrimalSpan @Int64)
+                               $ indexToSizedList ixFresh) vars4)
+            i5 = subst i4
+        in astGather sh4 (astFromList $ map f l) (varsFresh, i5 :. ixFresh)
     Ast.AstFromVector l | AstConst it <- i4 ->
       let i = fromIntegral $ OR.unScalar it
       in astGather sh4 (if 0 <= i && i < V.length l
@@ -954,15 +955,16 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
     Ast.AstFromVector l ->
       -- Term rest4 is duplicated without sharing and we can't help it,
       -- because it needs to be in scope of vars4, so we can't use rlet.
-      let f v = astGatherRec sh4 v (vars4, rest4)
-          (varsFresh, ixFresh) = funToAstIndex @m' id
-          -- This subst doesn't currently break sharing, because it's a rename.
-          subst i =
-            foldr (uncurry substituteAst) i
-                  (zipSized (fmap (SubstitutionPayloadRanked @PrimalSpan @Int64)
-                             $ indexToSizedList ixFresh) vars4)
-          i5 = subst i4
-     in astGather sh4 (astFromVector $ V.map f l) (varsFresh, i5 :. ixFresh)
+      funToVarsIx (valueOf @m') $ \ !(!varsFresh, !ixFresh) ->
+        let f v = astGatherRec sh4 v (vars4, rest4)
+            -- This subst doesn't currently break sharing because it's a rename.
+            subst i =
+              foldr (uncurry substituteAst) i
+                    (zipSized (fmap (SubstitutionPayloadRanked
+                                       @PrimalSpan @Int64)
+                               $ indexToSizedList ixFresh) vars4)
+            i5 = subst i4
+       in astGather sh4 (astFromVector $ V.map f l) (varsFresh, i5 :. ixFresh)
     Ast.AstReplicate _k v -> astGather sh4 v (vars4, rest4)
     Ast.AstAppend u v | AstConst it <- i4 ->
       let i = fromIntegral $ OR.unScalar it
@@ -1068,16 +1070,17 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
       -- because it needs to be in scope of vars4, so we can't use rlet.
       -- Also, the sharing would be dissolved by the substitution, anyway,
       -- and the same subsitution would be unsound with sharing.
-      let (varsFresh, ixFresh) = funToAstIndex @m' id
-          -- This subst doesn't currently break sharing, because it's a rename.
-          subst i =
-            foldr (uncurry substituteAst) i
-                  (zipSized (fmap (SubstitutionPayloadRanked @PrimalSpan @Int64)
-                             $ indexToSizedList ixFresh)
-                            vars4)
-          ix5 = fmap subst ix4
-      in Ast.AstD (astGatherRec sh4 u (vars4, ix4))
-                  (astGatherRec sh4 u' (varsFresh, ix5))
+      funToVarsIx (valueOf @m') $ \ !(!varsFresh, !ixFresh) ->
+        -- This subst doesn't currently break sharing, because it's a rename.
+        let subst i =
+              foldr (uncurry substituteAst) i
+                    (zipSized (fmap (SubstitutionPayloadRanked
+                                       @PrimalSpan @Int64)
+                               $ indexToSizedList ixFresh)
+                              vars4)
+            ix5 = fmap subst ix4
+        in Ast.AstD (astGatherRec sh4 u (vars4, ix4))
+                    (astGatherRec sh4 u' (varsFresh, ix5))
 
 gatherFromNF :: forall m p. (KnownNat m, KnownNat p)
              => AstVarList m -> AstIndex (1 + p) -> Bool

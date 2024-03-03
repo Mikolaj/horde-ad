@@ -7,8 +7,8 @@ module HordeAd.Core.AstFreshId
   ( astRegisterFun, astRegisterFunS, astRegisterADShare, astRegisterADShareS
   , funToAstIOR, funToAstR, fun1DToAst, fun1HToAst, fun1LToAst
   , funToAstRevIO, funToAstRev, funToAstFwdIO, funToAstFwd
-  , funToAstIOI, funToAstI, funToAstIndexIO, funToAstIndex
-  , funToAstIOS, funToAstS, funToAstIndexIOS, funToAstIndexS
+  , funToAstIOI, funToAstI, funToAstIndex, funToVarsIx
+  , funToAstIOS, funToAstS, funToAstIndexS, funToVarsIxS
   , resetVarCounter
   ) where
 
@@ -312,35 +312,49 @@ funToAstI :: (AstInt -> t) -> (IntVarName, t)
 {-# NOINLINE funToAstI #-}
 funToAstI = unsafePerformIO . funToAstIOI
 
-funToAstIndexIO
-  :: forall m p. KnownNat m
-  => Int -> (AstIndex m -> AstIndex p) -> IO (AstVarList m, AstIndex p)
-{-# INLINE funToAstIndexIO #-}
-funToAstIndexIO m f = do
+funToVarsIxIO
+  :: KnownNat m
+  => Int -> ((AstVarList m, AstIndex m) -> a) -> IO a
+{-# INLINE funToVarsIxIO #-}
+funToVarsIxIO m f = do
   varList <- replicateM m unsafeGetFreshAstVarName
-  let !sz = listToSized varList
-      !x = f (listToIndex $ map AstIntVar varList)
-  return (sz, x)
+  let !vars = listToSized varList
+      !ix = listToIndex $ map AstIntVar varList
+  return $! f (vars, ix)
+
+funToVarsIx
+  :: KnownNat m
+  => Int -> ((AstVarList m, AstIndex m) -> a) -> a
+{-# NOINLINE funToVarsIx #-}
+funToVarsIx m = unsafePerformIO . funToVarsIxIO m
 
 funToAstIndex
   :: forall m p. KnownNat m
   => (AstIndex m -> AstIndex p) -> (AstVarList m, AstIndex p)
 {-# NOINLINE funToAstIndex #-}
-funToAstIndex = unsafePerformIO . funToAstIndexIO (valueOf @m)
+funToAstIndex f = unsafePerformIO . funToVarsIxIO (valueOf @m)
+                  $ \ !(!vars, !ix) -> let !x = f ix in (vars, x)
 
-funToAstIndexIOS
-  :: forall sh1 sh2. Sh.Shape sh1
-  => (AstIndexS sh1 -> AstIndexS sh2) -> IO (AstVarListS sh1, AstIndexS sh2)
-{-# INLINE funToAstIndexIOS #-}
-funToAstIndexIOS f = do
-  let p = length $ Sh.shapeT @sh1
+funToVarsIxIOS
+  :: forall sh a. Sh.Shape sh
+  => ((AstVarListS sh, AstIndexS sh) -> a) -> IO a
+{-# INLINE funToVarsIxIOS #-}
+funToVarsIxIOS f = do
+  let p = length $ Sh.shapeT @sh
   varList <- replicateM p unsafeGetFreshAstVarName
-  let !sz = ShapedList.listToSized varList
-      !x = f (ShapedList.listToSized $ map AstIntVar varList)
-  return (sz, x)
+  let !vars = ShapedList.listToSized varList
+      !ix = ShapedList.listToSized $ map AstIntVar varList
+  return $! f (vars, ix)
+
+funToVarsIxS
+  :: Sh.Shape sh
+  => ((AstVarListS sh, AstIndexS sh) -> a) -> a
+{-# NOINLINE funToVarsIxS #-}
+funToVarsIxS = unsafePerformIO . funToVarsIxIOS
 
 funToAstIndexS
-  :: forall sh1 sh2. Sh.Shape sh1
-  => (AstIndexS sh1 -> AstIndexS sh2) -> (AstVarListS sh1, AstIndexS sh2)
+  :: Sh.Shape sh
+  => (AstIndexS sh -> AstIndexS sh2) -> (AstVarListS sh, AstIndexS sh2)
 {-# NOINLINE funToAstIndexS #-}
-funToAstIndexS = unsafePerformIO . funToAstIndexIOS
+funToAstIndexS f = unsafePerformIO $ funToVarsIxIOS
+                   $ \ !(!vars, !ix) -> let !x = f ix in (vars, x)
