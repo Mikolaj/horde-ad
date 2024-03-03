@@ -438,7 +438,8 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
     {- We can't do the following, because we can get, e.g., division
        by zero in the index in the counterfactual branch and sometimes
        all branches are materialized. Similarly for gather of append
-       and see the TODO there.
+       and see the TODO there. Maybe this is fixable with gather working
+       over a tensor product or something else that indexes in complex ways?
     let vlen = AstConst $ lengthAst v
         ix2 = simplifyAst (AstIntOp MinusIntOp [i1, vlen]) :. rest1
     in case simplifyAstBool $ AstRelInt LsOp [i1, vlen] of
@@ -717,7 +718,9 @@ astIndexSOrStepOnly stepOnly v0 ix@((:$:) @in1 i1 (rest1 :: AstIndexS shm1)) =
     withListSh (Proxy @shn) $ \_ ->
       gcastWith (unsafeCoerce Refl
                  :: Sh.Rank shm + Sh.Rank shn :~: Sh.Rank (shm Sh.++ shn)) $
-                      -- reversing this equality causes a type error
+                      -- reversing this equality causes " Could not deduce
+                      -- ‘KnownNat (OS.Rank sh1)’ error, but this is
+                      -- probably ~fine and maybe caused by KnownNat.Solver
       astSFromR $ astIndexStep t (ShapedList.shapedListToIndex ix)
   Ast.AstConstantS v -> Ast.AstConstantS $ astIndex v ix
   Ast.AstPrimalPartS{} -> Ast.AstIndexS v0 ix  -- must be a NF
@@ -757,6 +760,15 @@ astGatherR
   => ShapeInt (m + n) -> AstRanked s r (p + n) -> (AstVarList m, AstIndex p)
   -> AstRanked s r (m + n)
 astGatherR = astGatherROrStepOnly False
+
+astGatherS
+  :: forall sh2 p sh s r.
+     ( Sh.Shape sh, Sh.Shape sh2
+     , Sh.Shape (Sh.Take p sh), Sh.Shape (Sh.Drop p sh) )
+  => AstShaped s r sh
+  -> (AstVarListS sh2, AstIndexS (Sh.Take p sh))
+  -> AstShaped s r (sh2 Sh.++ Sh.Drop p sh)
+astGatherS v (vars, ix) = Ast.AstGatherS v (vars, ix)  -- TODO
 
 astGatherStep
   :: forall m n p s r.
@@ -1093,14 +1105,12 @@ isVar (Ast.AstPrimalPart (Ast.AstVar{})) = True
 isVar (Ast.AstDualPart (Ast.AstVar{})) = True
 isVar _ = False
 
-astGatherS
-  :: forall sh2 p sh s r.
-     ( Sh.Shape sh, Sh.Shape sh2
-     , Sh.Shape (Sh.Take p sh), Sh.Shape (Sh.Drop p sh) )
-  => AstShaped s r sh
-  -> (AstVarListS sh2, AstIndexS (Sh.Take p sh))
-  -> AstShaped s r (sh2 Sh.++ Sh.Drop p sh)
-astGatherS = Ast.AstGatherS  -- TODO
+isVarS :: AstShaped s r sh -> Bool
+isVarS Ast.AstVarS{} = True
+isVarS (Ast.AstConstantS (Ast.AstVarS{})) = True
+isVarS (Ast.AstPrimalPartS (Ast.AstVarS{})) = True
+isVarS (Ast.AstDualPartS (Ast.AstVarS{})) = True
+isVarS _ = False
 
 {-
 -- TODO: To apply this to astGatherR. we'd need to take the last variable
@@ -1511,7 +1521,8 @@ astReplicate k = \case
 -}
   v -> Ast.AstReplicate k v
 
-astReplicateS :: forall n sh s r. (KnownNat n, Sh.Shape sh, GoodScalar r)
+astReplicateS :: forall n sh s r.
+                 (KnownNat n, Sh.Shape sh, GoodScalar r, AstSpan s)
               => AstShaped s r sh -> AstShaped s r (n ': sh)
 astReplicateS = \case
   Ast.AstConstantS v -> Ast.AstConstantS $ astReplicateS v
@@ -1539,7 +1550,7 @@ astReplicateN sh v =
   in go (takeShape sh)
 
 astReplicateNS :: forall shn shp s r.
-                  (Sh.Shape shn, Sh.Shape shp, GoodScalar r)
+                  (Sh.Shape shn, Sh.Shape shp, GoodScalar r, AstSpan s)
                => AstShaped s r shp -> AstShaped s r (shn Sh.++ shp)
 astReplicateNS v =
   let go :: ShapeSh shn' -> AstShaped s r (shn' Sh.++ shp)
@@ -1559,7 +1570,7 @@ astReplicate0N sh =
       go (k :$ sh') v = astReplicate k $ go sh' v
   in go sh
 
-astReplicate0NS :: forall shn s r. (Sh.Shape shn, GoodScalar r)
+astReplicate0NS :: forall shn s r. (Sh.Shape shn, GoodScalar r, AstSpan s)
                 => AstShaped s r '[] -> AstShaped s r shn
 astReplicate0NS =
   let go :: ShapedList sh' Int -> AstShaped s r '[] -> AstShaped s r sh'
@@ -1635,9 +1646,37 @@ astSlice i n (Ast.AstGather (_ :$ sh') v (var ::: vars, ix)) =
 astSlice i n v = Ast.AstSlice i n v
 
 astSliceS :: forall i n k sh s r.
-             (KnownNat i, KnownNat n, KnownNat k, Sh.Shape sh)
+             ( KnownNat i, KnownNat n, KnownNat k, Sh.Shape sh, GoodScalar r
+             , AstSpan s )
           => AstShaped s r (i + n + k ': sh) -> AstShaped s r (n ': sh)
-astSliceS = Ast.AstSliceS @i  -- TODO
+astSliceS (AstConstS t) = AstConstS $ tsliceS @i @n t
+astSliceS (Ast.AstConstantS v) = Ast.AstConstantS $ astSliceS @i @n v
+astSliceS (Ast.AstLetADShareS l v) = Ast.AstLetADShareS l $ astSliceS @i @n v
+astSliceS v | Just Refl <- sameNat (Proxy @i) (Proxy @0)
+            , Just Refl <- sameNat (Proxy @k) (Proxy @0) = v
+astSliceS (Ast.AstFromListS l) =
+  astFromListS $ take (valueOf @n) (drop (valueOf @i) l)
+astSliceS (Ast.AstFromVectorS l) =
+  astFromVectorS $ V.take (valueOf @n) (V.drop (valueOf @i) l)
+astSliceS (Ast.AstReplicateS v) = astReplicateS @n v
+astSliceS w@(Ast.AstAppendS (u :: AstShaped s r (ulen : sh))
+                            (v :: AstShaped s r (vlen : sh))) =
+  case cmpNat (Proxy @(i + n)) (Proxy @ulen) of
+    LTI -> astSliceS @i @n @(ulen - (i + n)) u
+    EQI -> astSliceS @i @n @0 u
+    GTI ->
+      gcastWith (unsafeCoerce Refl :: vlen :~: i - ulen + n + k) $
+      case cmpNat (Proxy @ulen) (Proxy @i) of
+        LTI -> astSliceS @(i - ulen) @n @k v
+        EQI -> astSliceS @0 @n @k v
+        GTI -> Ast.AstSliceS @i w -- cheap iff fits in one
+astSliceS (Ast.AstGatherS v (var :$: vars, ix)) =
+  let ivar = AstIntVar var + valueOf @i
+      ix2 = substituteAstIndexS  -- cheap subst, because ivar is tiny
+              (SubstitutionPayloadRanked @PrimalSpan @Int64 ivar)
+              var ix
+  in astGatherS v (var :$: vars, ix2)
+astSliceS v = Ast.AstSliceS @i v
 
 astReverse :: forall n s r. (KnownNat n, GoodScalar r, AstSpan s)
            => AstRanked s r (1 + n) -> AstRanked s r (1 + n)
@@ -1723,11 +1762,56 @@ astTranspose perm = \case
 
 astTransposeS :: forall perm sh s r.
                  ( OS.Permutation perm, Sh.Shape perm, Sh.Shape sh
-                 , KnownNat (Sh.Rank sh), Sh.Rank perm <= Sh.Rank sh )
+                 , KnownNat (Sh.Rank sh), Sh.Rank perm <= Sh.Rank sh
+                 , GoodScalar r, AstSpan s )
               => AstShaped s r sh -> AstShaped s r (Sh.Permute perm sh)
 astTransposeS = \case
   t | Just Refl <- sameShape @perm @'[] -> t
---  Ast.AstLetS var u v -> astLetS var u (astTransposeS @perm v)
+  Ast.AstLetS var u v ->
+    Sh.withShapeP (backpermutePrefixList (Sh.shapeT @perm)
+                                         (Sh.shapeT @sh)) $ \(Proxy @shp) ->
+      gcastWith (unsafeCoerce Refl :: Sh.Permute perm sh :~: shp) $
+      astLetS var u (astTransposeS @perm v)
+  AstN1S opCode u | not (isVarS u) -> AstN1S opCode (astTransposeS @perm u)
+  AstN2S opCode u@Ast.AstTransposeS{} v ->
+    AstN2S opCode (astTransposeS @perm u) (astTransposeS @perm v)
+  AstN2S opCode u@(Ast.AstConstantS Ast.AstTransposeS{}) v ->
+    AstN2S opCode (astTransposeS @perm u) (astTransposeS @perm v)
+  AstN2S opCode u v@Ast.AstTransposeS{} ->
+    AstN2S opCode (astTransposeS @perm u) (astTransposeS @perm v)
+  AstN2S opCode u v@(Ast.AstConstantS Ast.AstTransposeS{}) ->
+    AstN2S opCode (astTransposeS @perm u) (astTransposeS @perm v)
+  Ast.AstR1S opCode u | not (isVarS u) ->
+    Ast.AstR1S opCode (astTransposeS @perm u)
+  Ast.AstR2S opCode u@Ast.AstTransposeS{} v ->
+    Ast.AstR2S opCode (astTransposeS @perm u) (astTransposeS @perm v)
+  Ast.AstR2S opCode u@(Ast.AstConstantS Ast.AstTransposeS{}) v ->
+    Ast.AstR2S opCode (astTransposeS @perm u) (astTransposeS @perm v)
+  Ast.AstR2S opCode u v@Ast.AstTransposeS{} ->
+    Ast.AstR2S opCode (astTransposeS @perm u) (astTransposeS @perm v)
+  Ast.AstR2S opCode u v@(Ast.AstConstantS Ast.AstTransposeS{}) ->
+    Ast.AstR2S opCode (astTransposeS @perm u) (astTransposeS @perm v)
+  Ast.AstSumS @n @sh1 v ->
+    let zsuccPerm = 0 : map succ (Sh.shapeT @perm)
+    in Sh.withShapeP zsuccPerm $ \(Proxy @zsuccP) ->
+      gcastWith (unsafeCoerce Refl :: 0 ': MapSucc perm :~: zsuccP) $
+      Sh.withShapeP (backpermutePrefixList (Sh.shapeT @perm)
+                                           (Sh.shapeT @sh)) $ \(Proxy @shp) ->
+        gcastWith (unsafeCoerce Refl :: Sh.Permute perm sh :~: shp) $
+        gcastWith (unsafeCoerce Refl :: Sh.Rank zsuccP :~: 1 + Sh.Rank perm) $
+        gcastWith (unsafeCoerce Refl
+                   :: Sh.Permute zsuccP (n : sh) :~: n : Sh.Permute perm sh) $
+        trustMeThisIsAPermutation @zsuccP $
+        astSumS $ astTransposeS @zsuccP v
+  Ast.AstScatterS @sh2 @p @sh3 v (vars, ix)
+    | length (Sh.shapeT @perm) <= length (Sh.shapeT @(Sh.Take p sh)) ->
+      case ShapedList.permutePrefixSized (Sh.shapeT @perm) ix of
+        (ix2 :: AstIndexS shmPerm) ->
+          gcastWith (unsafeCoerce Refl
+                     :: Sh.Permute perm sh3 :~: shmPerm Sh.++ Sh.Drop p sh3) $
+          gcastWith (unsafeCoerce Refl
+                     :: Sh.Take p sh Sh.++ Sh.Drop p sh :~: sh) $
+          astScatterS @sh2 @p @(Sh.Permute perm sh3) v (vars, ix2)
   Ast.AstTransposeS @perm2 @sh2 t ->  -- TODO: try to perform at type level
     let permV = Sh.shapeT @perm
         perm2V = Sh.shapeT @perm2
@@ -1742,6 +1826,16 @@ astTransposeS = \case
       gcastWith (unsafeCoerce Refl
                  :: Sh.Permute perm3 sh2 :~: Sh.Permute perm sh) $
       astTransposeS @perm3 t
+  Ast.AstGatherS @sh2 @p @sh3 v (vars, ix)
+    | length (Sh.shapeT @perm) <= length (Sh.shapeT @(Sh.Take p sh3)) ->
+      case ShapedList.permutePrefixSized (Sh.shapeT @perm) vars of
+        (vars2 :: AstVarListS shmPerm) ->
+          gcastWith (unsafeCoerce Refl
+                     :: Sh.Permute perm sh2 :~: shmPerm) $
+          gcastWith (unsafeCoerce Refl
+                     :: Sh.Permute perm sh2 Sh.++ Sh.Drop p sh3
+                        :~: Sh.Permute perm sh) $
+          astGatherS @(Sh.Permute perm sh2) @p @sh3 v (vars2, ix)
   AstConstS t -> AstConstS $ ttransposeS @perm t
   Ast.AstConstantS v -> Ast.AstConstantS $ astTransposeS @perm v
   Ast.AstLetADShareS l v -> Ast.AstLetADShareS l $ astTransposeS @perm v
@@ -1776,7 +1870,6 @@ astReshape shOut = \case
   Ast.AstFromVector l | [x] <- V.toList l -> astReshape shOut x
   Ast.AstReplicate 1 x -> astReshape shOut x
   Ast.AstReshape _ v -> astReshape shOut v
-    -- this rule can be disabled to test fusion of gathers
   AstConst t -> AstConst $ OR.reshape (shapeToList shOut) t
   Ast.AstConstant v -> Ast.AstConstant $ astReshape shOut v
   Ast.AstLetADShare l v -> Ast.AstLetADShare l $ astReshape shOut v
@@ -1789,15 +1882,40 @@ astReshape shOut = \case
 
 astReshapeS :: forall sh sh2 r s.
                ( Sh.Shape sh, Sh.Shape sh2, Sh.Size sh ~ Sh.Size sh2
-               , GoodScalar r )
+               , GoodScalar r, AstSpan s )
             => AstShaped s r sh -> AstShaped s r sh2
 astReshapeS = \case
+  Ast.AstLetS var u v -> astLetS var u (astReshapeS @_ @sh2 v)
+  AstN1S opCode u | not (isVarS u) -> AstN1S opCode (astReshapeS @_ @sh2 u)
+  AstN2S opCode (Ast.AstReshapeS u) v ->
+    AstN2S opCode (astReshapeS @_ @sh2 u) (astReshapeS @_ @sh2 v)
+  AstN2S opCode (Ast.AstConstantS (Ast.AstReshapeS u)) v ->
+    AstN2S opCode (astReshapeS @_ @sh2 (Ast.AstConstantS u))
+                  (astReshapeS @_ @sh2 v)
+  AstN2S opCode u (Ast.AstReshapeS v) ->
+    AstN2S opCode (astReshapeS @_ @sh2 u) (astReshapeS @_ @sh2 v)
+  AstN2S opCode u (Ast.AstConstantS (Ast.AstReshapeS v)) ->
+    AstN2S opCode (astReshapeS @_ @sh2 u)
+                  (astReshapeS @_ @sh2 (Ast.AstConstantS v))
+  Ast.AstR1S opCode u | not (isVarS u) ->
+    Ast.AstR1S opCode (astReshapeS @_ @sh2 u)
+  Ast.AstR2S opCode (Ast.AstReshapeS u) v ->
+    Ast.AstR2S opCode (astReshapeS @_ @sh2 u) (astReshapeS @_ @sh2 v)
+  Ast.AstR2S opCode (Ast.AstConstantS (Ast.AstReshapeS u)) v ->
+    Ast.AstR2S opCode (astReshapeS @_ @sh2 (Ast.AstConstantS u))
+                      (astReshapeS @_ @sh2 v)
+  Ast.AstR2S opCode u (Ast.AstReshapeS v) ->
+    Ast.AstR2S opCode (astReshapeS @_ @sh2 u) (astReshapeS @_ @sh2 v)
+  Ast.AstR2S opCode u (Ast.AstConstantS (Ast.AstReshapeS v)) ->
+    Ast.AstR2S opCode (astReshapeS @_ @sh2 u)
+                      (astReshapeS @_ @sh2 (Ast.AstConstantS v))
   Ast.AstFromListS @n l | Just Refl <- sameNat (Proxy @n) (Proxy @1) ->
     astReshapeS $ l !! 0
   Ast.AstFromVectorS @n l | Just Refl <- sameNat (Proxy @n) (Proxy @1) ->
     astReshapeS $ l V.! 0
   Ast.AstReplicateS @n x | Just Refl <- sameNat (Proxy @n) (Proxy @1) ->
     astReshapeS x
+  Ast.AstReshapeS v -> astReshapeS @_ @sh2 v
   AstConstS t -> AstConstS $ OS.reshape t
   Ast.AstConstantS v -> Ast.AstConstantS $ astReshapeS v
   Ast.AstLetADShareS l v -> Ast.AstLetADShareS l $ astReshapeS v

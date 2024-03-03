@@ -341,7 +341,8 @@ build1VIndex k (var, v0, ix@(_ :. _)) =
 -- This should be solved in a cleaner way.
 --
 -- This abbreviation is used a lot below.
-astTrS :: forall n m sh s r. (KnownNat n, KnownNat m, Sh.Shape sh)
+astTrS :: forall n m sh s r.
+          (KnownNat n, KnownNat m, Sh.Shape sh, GoodScalar r, AstSpan s)
        => AstShaped s r (n ': m ': sh) -> AstShaped s r (m ': n ': sh)
 astTrS = withListSh (Proxy @sh) $ \_ -> astTransposeS @'[1, 0]
 
