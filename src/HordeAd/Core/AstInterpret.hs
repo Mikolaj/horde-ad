@@ -335,8 +335,6 @@ interpretAst !env = \case
     | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
         rsum0 $ interpretAst env t
           -- more cases are needed so perhaps we need AstSum0
-  AstSum (AstReplicate k v) ->
-    rscaleByScalar (fromIntegral k) $ interpretAst env v
   AstSum (AstLet var v t) -> interpretAst env (AstLet var v (AstSum t))
   AstSum (AstReshape sh (AstLet var v t)) ->
     interpretAst env (AstLet var v (AstSum (AstReshape sh t)))
@@ -723,8 +721,6 @@ interpretAstS !env = \case
     | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
         rsum0 $ interpretAst env t
           -- more cases are needed so perhaps we need AstSum0
-  AstSum (AstReplicate k v) ->
-    rscaleByScalar (fromIntegral k) $ interpretAst env v
   AstSum (AstLet var v t) -> interpretAst env (AstLet var v (AstSum t))
   AstSum (AstReshape sh (AstLet var v t)) ->
     interpretAst env (AstLet var v (AstSum (AstReshape sh t)))

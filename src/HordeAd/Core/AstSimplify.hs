@@ -1390,42 +1390,40 @@ astSumOfListS :: (Sh.Shape sh, GoodScalar r, AstSpan s)
               => [AstShaped s r sh] -> AstShaped s r sh
 astSumOfListS = sum
 
-astSum :: (KnownNat n, GoodScalar r)
+astSum :: (KnownNat n, GoodScalar r, AstSpan s)
        => AstRanked s r (1 + n) -> AstRanked s r n
-astSum (AstConst t) = AstConst $ tsumR t
-astSum (Ast.AstConstant v) = Ast.AstConstant $ astSum v
-  -- astSum (Ast.AstLet var u v) = astLet var u (astSum v)
-    -- this is problematic, because it keep huge tensor alive for longer;
-    -- but for AstLetADShare it's usually fine, because they are often
-    -- either global or duplicated and rarely local and unique
-    -- and we prefer the global to duplicated
 astSum (Ast.AstLetADShare l v) = Ast.AstLetADShare l (astSum v)
 astSum (Ast.AstScatter (_ :$ sh) v (vars, _ :. ix)) =
   astScatter sh v (vars, ix)
+astSum (Ast.AstReplicate k v) = v * astReplicate0N (shapeAst v) (fromIntegral k)
 astSum (Ast.AstReverse v) = Ast.AstSum v
-astSum v = Ast.AstSum v
-
-astSumS :: forall n sh r s. (KnownNat n, Sh.Shape sh, GoodScalar r)
-        => AstShaped s r (n ': sh) -> AstShaped s r sh
-astSumS (AstConstS t) = AstConstS $ tsumS t
-astSumS (Ast.AstConstantS v) = Ast.AstConstantS $ astSumS v
-  -- astSumS (Ast.AstLetS var u v) = astLetS var u (astSumS v)
-    -- this is problematic, because it keep huge tensor alive for longer;
+astSum (AstConst t) = AstConst $ tsumR t
+astSum (Ast.AstConstant v) = Ast.AstConstant $ astSum v
+  -- astSum (Ast.AstLet var u v) = astLet var u (astSum v)
+    -- this is problematic, because it keeps huge tensors alive for longer;
     -- but for AstLetADShare it's usually fine, because they are often
     -- either global or duplicated and rarely local and unique
     -- and we prefer the global to duplicated
+astSum v = Ast.AstSum v
+
+astSumS :: forall n sh r s. (KnownNat n, Sh.Shape sh, GoodScalar r, AstSpan s)
+        => AstShaped s r (n ': sh) -> AstShaped s r sh
 astSumS (Ast.AstLetADShareS l v) = Ast.AstLetADShareS l (astSumS v)
 astSumS (Ast.AstScatterS @sh2 @p v (vars, _ :$: ix)) =
   gcastWith (unsafeCoerce Refl :: Sh.Drop p (n : sh) :~: Sh.Drop (p - 1) sh) $
   gcastWith (unsafeCoerce Refl
              :: Sh.Drop 1 (Sh.Take p (n : sh)) :~: Sh.Take (p - 1) sh) $
   astScatterS @sh2 @(p - 1) @sh v (vars, ix)
+astSumS (Ast.AstReplicateS @k v) = v * astReplicate0NS (valueOf @k)
 astSumS (Ast.AstReverseS v) = Ast.AstSumS v
+astSumS (AstConstS t) = AstConstS $ tsumS t
+astSumS (Ast.AstConstantS v) = Ast.AstConstantS $ astSumS v
+  -- astSumS (Ast.AstLetS var u v) = astLetS var u (astSumS v)
 astSumS v = Ast.AstSumS v
 
 -- TODO: fuse scatters, scatter and sum, perhaps more (fromList?)
 astScatter :: forall m n p s r.
-              (GoodScalar r, KnownNat m, KnownNat n, KnownNat p)
+              (GoodScalar r, KnownNat m, KnownNat n, KnownNat p, AstSpan s)
            => ShapeInt (p + n) -> AstRanked s r (m + n)
            -> (AstVarList m, AstIndex p)
            -> AstRanked s r (p + n)
@@ -1442,7 +1440,7 @@ astScatter sh v (vars, ix) = Ast.AstScatter sh v (vars, ix)
 astScatterS :: forall sh2 p sh s r.
                ( Sh.Shape sh2, Sh.Shape sh
                , Sh.Shape (Sh.Take p sh), Sh.Shape (Sh.Drop p sh)
-               , Sh.Shape (sh2 Sh.++ Sh.Drop p sh), GoodScalar r )
+               , Sh.Shape (sh2 Sh.++ Sh.Drop p sh), GoodScalar r, AstSpan s )
             => AstShaped s r (sh2 Sh.++ Sh.Drop p sh)
             -> (AstVarListS sh2, AstIndexS (Sh.Take p sh))
             -> AstShaped s r sh
