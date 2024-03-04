@@ -36,13 +36,15 @@ import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.Util.SizedIndex
 
--- | The type family that to each differentiable type
--- assigns its delta expression type.
+-- | The type family that to each differentiable type assigns
+-- its delta expression type. The dispatch is on the type parameter @ty@,
+-- which is 'Nat', @[Nat]@ or @()@, respectively.
 type Dual :: TensorType ty -> TensorType ty
 type family Dual f = result | result -> f where
   Dual ranked = DeltaR ranked
   Dual shaped = DeltaS shaped
   Dual (HVectorPseudoTensor ranked) = HVectorPseudoTensor (DeltaR ranked)
+
 
 -- * The IsPrimal class and its instances
 
