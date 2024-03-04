@@ -583,9 +583,6 @@ build1VIndexS (var, v0, ix@(_ :$: _)) =
               Ast.AstFromVectorS{} | len == 1 -> ruleD
               Ast.AstScatterS{} -> ruleD
               Ast.AstAppendS{} -> ruleD
-              -- TODO: these are not implemented and so need ruleD:
-              Ast.AstTransposeS{} -> ruleD
-              Ast.AstReshapeS{} -> ruleD
               _ -> build1VOccurenceUnknownS (var, v)  -- not a normal form
             else build1VOccurenceUnknownS (var, v)  -- shortcut
        v -> traceRule $

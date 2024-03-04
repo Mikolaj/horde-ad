@@ -127,6 +127,29 @@ astTransposeAsGather perm v =
           _ -> error "astTransposeAsGather: permutation longer than rank"
     Nothing -> error "astTransposeAsGather: impossible someNatVal error"
 
+astTransposeAsGatherS
+  :: forall perm sh s r p.
+     (Sh.Shape perm, Sh.Shape sh, Sh.Rank perm <= Sh.Rank sh, p ~ Sh.Rank perm)
+  => AstShaped s r sh -> AstShaped s r (Sh.Permute perm sh)
+{-# NOINLINE astTransposeAsGatherS #-}
+astTransposeAsGatherS v =
+  Sh.withShapeP (drop (length (Sh.shapeT @perm))
+                 $ Sh.shapeT @sh) $ \(Proxy @shd) ->
+    gcastWith (unsafeCoerce Refl :: Sh.Drop p sh :~: shd) $
+    Sh.withShapeP (take (length (Sh.shapeT @perm))
+                   $ Sh.shapeT @sh) $ \(Proxy @shp) ->
+      gcastWith (unsafeCoerce Refl :: Sh.Take p sh :~: shp) $
+      Sh.withShapeP (backpermutePrefixList (Sh.shapeT @perm)
+                                           (Sh.shapeT @shp)) $ \(Proxy @sh2) ->
+        gcastWith (unsafeCoerce Refl
+                   :: Sh.Permute perm (Sh.Take p sh) :~: sh2) $
+        funToVarsIxS @sh2 $ \ !(!vars, !ix) ->
+          let asts :: AstIndexS (Sh.Take p sh)
+              asts = ShapedList.permutePrefixSized (Sh.shapeT @perm) ix
+          in gcastWith (unsafeCoerce Refl
+                        :: Sh.Permute perm sh :~: sh2 Sh.++ Sh.Drop p sh) $
+             astGatherS @sh2 @p @sh v (vars, asts)
+
 -- This generates big terms that don't simplify well,
 -- so we keep the AstReshape form until simplification gets stuck.
 -- In fact, to simplify the terms we'd need advanced solving of equations
@@ -164,6 +187,24 @@ astReshapeAsGather shOut v =
                in simplifyAst <$> fromLinearIdx shIn i
                     -- we generate these, so we simplify
     in astGatherR @m @0 shOut v (vars, asts)
+
+astReshapeAsGatherS
+  :: forall sh sh2 r s. (Sh.Shape sh, Sh.Shape sh2, Sh.Size sh ~ Sh.Size sh2)
+  => AstShaped s r sh -> AstShaped s r sh2
+{-# NOINLINE astReshapeAsGatherS #-}
+astReshapeAsGatherS v =
+  gcastWith (unsafeCoerce Refl :: sh2 Sh.++ '[] :~: sh2) $
+  funToVarsIxS @sh2 $ \ !(!vars, !ix) ->
+    let shIn = ShapedList.shapeSh @sh
+        shOut = ShapedList.shapeSh @sh2
+        asts :: AstIndexS sh
+        asts = let i :: ShapedList.ShapedNat (Sh.Size sh2) AstInt
+                   i = ShapedList.toLinearIdx @sh2 @'[] shOut ix
+               in simplifyAst <$> ShapedList.fromLinearIdx shIn i
+                    -- we generate these, so we simplify
+    in gcastWith (unsafeCoerce Refl :: Sh.Take (Sh.Rank sh) sh :~: sh) $
+       gcastWith (unsafeCoerce Refl :: Sh.Drop (Sh.Rank sh) sh :~: '[]) $
+       astGatherS @sh2 @(Sh.Rank sh) @sh v (vars, asts)
 
 
 -- * Permutation operations
@@ -678,10 +719,10 @@ astIndexSOrStepOnly stepOnly v0 ix@((:$:) @in1 i1 (rest1 :: AstIndexS shm1)) =
                 ShapedList.permutePrefixShaped @perm ix
           in gcastWith (unsafeCoerce Refl :: sh2 :~: shmPerm Sh.++ shn) $
              astIndex @shmPerm v ix2
-  Ast.AstTransposeS @perm _v -> Ast.AstIndexS v0 ix  -- "TODO"
---    astIndex (astTransposeAsGather perm v) ix
-  Ast.AstReshapeS @sh _v -> Ast.AstIndexS v0 ix  -- "TODO"
---    astIndex (astReshapeAsGather sh v) ix
+  Ast.AstTransposeS @perm v ->
+    astIndex (astTransposeAsGatherS @perm v) ix
+  Ast.AstReshapeS v ->
+    astIndex (astReshapeAsGatherS v) ix
   Ast.AstBuild1S (var2, v) ->
     withListSh (Proxy @(shm1 Sh.++ shn)) $ \_ ->
       astIndex (astSFromR @(shm1 Sh.++ shn) $ astLet var2 i1 $ astRFromS v)

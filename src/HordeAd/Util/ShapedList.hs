@@ -27,11 +27,10 @@ import Prelude
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.Shape as Sh
 import           Data.Proxy (Proxy (Proxy))
-import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality (gcastWith, (:~:) (Refl))
-import qualified Data.Vector.Generic as V
 import           GHC.Exts (IsList (..))
-import           GHC.TypeLits (KnownNat, Nat, SomeNat (..), someNatVal)
+import           GHC.TypeLits
+  (KnownNat, Nat, SomeNat (..), someNatVal, type (*))
 import           Unsafe.Coerce (unsafeCoerce)
 
 import qualified HordeAd.Util.SizedIndex as SizedIndex
@@ -172,8 +171,7 @@ backpermutePrefixSized p ix =
   else listToSized $ SizedList.backpermutePrefixList p $ sizedListToList ix
 
 permutePrefixShaped
-  :: forall perm sh i.
-     (Sh.Shape perm, Sh.Shape sh, Sh.Shape (Sh.Permute perm sh))
+  :: forall perm sh i. (Sh.Shape perm, Sh.Shape sh)
   => ShapedList (Sh.Permute perm sh) i -> ShapedList sh i
 permutePrefixShaped ix =
   if length (Sh.shapeT @sh) < length (Sh.shapeT @perm)
@@ -244,7 +242,7 @@ shapedListToIndex = SizedIndex.listToIndex . sizedListToList
 -- Note that the resulting 0 may be a complex term.
 toLinearIdx :: forall sh1 sh2 i j. (Sh.Shape sh2, Integral i, Num j)
             => ShapedList (sh1 Sh.++ sh2) i -> ShapedList sh1 j
-            -> ShapedNat (Sh.Size sh2) j
+            -> ShapedNat (Sh.Size sh1 * Sh.Size sh2) j
 toLinearIdx = \sh idx -> shapedNat $ go sh idx 0
   where
     -- Additional argument: index, in the @m - m1@ dimensional array so far,
