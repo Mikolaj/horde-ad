@@ -34,11 +34,13 @@ import HordeAd.Core.Types
 -- Inspired by adaptors from @tomjaguarpaw's branch.
 class HVectorTensor ranked (ShapedOf ranked)
       => AdaptableHVector (ranked :: RankedTensorType) vals where
-  toHVector :: vals -> HVector ranked
-    -- ^ represent a value of the domain of objective function
-    -- in a canonical, much less typed way common to all possible types
   toHVectorOf :: vals -> HVectorOf ranked
   toHVectorOf = dmkHVector . toHVector
+    -- ^ represent a value of the domain of objective function
+    -- in a canonical, much less typed way common to all possible types
+  toHVector :: vals -> HVector ranked
+    -- ^ a helper function, not to be used, but to be a building block
+    -- for @toHVectorOf@
   fromHVector :: vals -> HVector ranked -> Maybe (vals, HVector ranked)
     -- ^ recovers a value of the domain of objective function
     -- from its canonical representation, using the general shape
