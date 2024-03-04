@@ -768,7 +768,7 @@ testSin0Fold182SrevPP = do
                         (sreplicate @_ @1 a0)
             in rfromS . f . sfromR) 1.1
   printAstPretty IM.empty a1
-    @?= "let [v12 @[Natural] @Double @[5], m13 @[Natural] @Double @[1,5]] = dmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> [sreplicate 1.1] [sreplicate 1.1] in let v14 = rconst (fromList [5] [1.0,1.0,1.0,1.0,1.0]) in let [v16 @[Natural] @Double @[5], v17 @[Natural] @Double @[1]] = dmapAccumRDer (SNat @1) <lambda> <lambda> <lambda> [sfromR v14] [m13, sreplicate 1.1] in rfromS (ssum v17) + rfromS (ssum v16)"
+    @?= "let [v12 @[Natural] @Double @[5], m13 @[Natural] @Double @[1,5]] = dmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> [sreplicate 1.1] [sreplicate 1.1] in let v14 = rconst (fromList [5] [1.0,1.0,1.0,1.0,1.0]) in let [v16 @[Natural] @Double @[5], v17 @[Natural] @Double @[1]] = dmapAccumRDer (SNat @1) <lambda> <lambda> <lambda> [sfromR v14] [m13, sreplicate 1.1] in rfromS (sreshape v17) + rfromS (ssum v16)"
 
 testSin0Fold18Srev :: Assertion
 testSin0Fold18Srev = do

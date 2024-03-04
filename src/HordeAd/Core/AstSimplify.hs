@@ -1392,34 +1392,47 @@ astSumOfListS = sum
 
 astSum :: (KnownNat n, GoodScalar r, AstSpan s)
        => AstRanked s r (1 + n) -> AstRanked s r n
-astSum (Ast.AstLetADShare l v) = Ast.AstLetADShare l (astSum v)
-astSum (Ast.AstScatter (_ :$ sh) v (vars, _ :. ix)) =
-  astScatter sh v (vars, ix)
-astSum (Ast.AstReplicate k v) = v * astReplicate0N (shapeAst v) (fromIntegral k)
-astSum (Ast.AstReverse v) = Ast.AstSum v
-astSum (AstConst t) = AstConst $ tsumR t
-astSum (Ast.AstConstant v) = Ast.AstConstant $ astSum v
-  -- astSum (Ast.AstLet var u v) = astLet var u (astSum v)
+astSum t0 = case shapeAst t0 of
+  0 :$ rest -> astReplicate0N rest 0
+--  1 :$ rest -> astReshape rest t0  -- TODO: slows down the CNNO test
+  _ -> case t0 of
+    -- Ast.AstLet var u v -> astLet var u (astSum v)
     -- this is problematic, because it keeps huge tensors alive for longer;
     -- but for AstLetADShare it's usually fine, because they are often
     -- either global or duplicated and rarely local and unique
     -- and we prefer the global to duplicated
-astSum v = Ast.AstSum v
+    Ast.AstLetADShare l v -> Ast.AstLetADShare l (astSum v)
+    Ast.AstScatter (_ :$ sh) v (vars, _ :. ix) -> astScatter sh v (vars, ix)
+    Ast.AstFromList l -> astSumOfList l
+    Ast.AstFromVector l -> astSumOfList $ V.toList l
+    Ast.AstReplicate k v -> v * astReplicate0N (shapeAst v) (fromIntegral k)
+    Ast.AstReverse v -> Ast.AstSum v
+    AstConst t -> AstConst $ tsumR t
+    Ast.AstConstant v -> Ast.AstConstant $ astSum v
+    _ -> Ast.AstSum t0
 
 astSumS :: forall n sh r s. (KnownNat n, Sh.Shape sh, GoodScalar r, AstSpan s)
         => AstShaped s r (n ': sh) -> AstShaped s r sh
-astSumS (Ast.AstLetADShareS l v) = Ast.AstLetADShareS l (astSumS v)
-astSumS (Ast.AstScatterS @sh2 @p v (vars, _ :$: ix)) =
-  gcastWith (unsafeCoerce Refl :: Sh.Drop p (n : sh) :~: Sh.Drop (p - 1) sh) $
-  gcastWith (unsafeCoerce Refl
-             :: Sh.Drop 1 (Sh.Take p (n : sh)) :~: Sh.Take (p - 1) sh) $
-  astScatterS @sh2 @(p - 1) @sh v (vars, ix)
-astSumS (Ast.AstReplicateS @k v) = v * astReplicate0NS (valueOf @k)
-astSumS (Ast.AstReverseS v) = Ast.AstSumS v
-astSumS (AstConstS t) = AstConstS $ tsumS t
-astSumS (Ast.AstConstantS v) = Ast.AstConstantS $ astSumS v
-  -- astSumS (Ast.AstLetS var u v) = astLetS var u (astSumS v)
-astSumS v = Ast.AstSumS v
+astSumS t0 = case sameNat (Proxy @n) (Proxy @0) of
+ Just Refl -> 0
+ _ -> case sameNat (Proxy @n) (Proxy @1) of
+  Just Refl -> astReshapeS t0
+  _ -> case t0 of
+    -- Ast.AstLetS var u v -> astLetS var u (astSumS v)
+    Ast.AstLetADShareS l v -> Ast.AstLetADShareS l (astSumS v)
+    Ast.AstScatterS @sh2 @p v (vars, _ :$: ix) ->
+      gcastWith (unsafeCoerce Refl
+                 :: Sh.Drop p (n : sh) :~: Sh.Drop (p - 1) sh) $
+      gcastWith (unsafeCoerce Refl
+                 :: Sh.Drop 1 (Sh.Take p (n : sh)) :~: Sh.Take (p - 1) sh) $
+      astScatterS @sh2 @(p - 1) @sh v (vars, ix)
+    Ast.AstFromListS l -> astSumOfListS l
+    Ast.AstFromVectorS l -> astSumOfListS $ V.toList l
+    Ast.AstReplicateS @k v -> v * astReplicate0NS (valueOf @k)
+    Ast.AstReverseS v -> Ast.AstSumS v
+    AstConstS t -> AstConstS $ tsumS t
+    Ast.AstConstantS v -> Ast.AstConstantS $ astSumS v
+    _ -> Ast.AstSumS t0
 
 -- TODO: fuse scatters, scatter and sum, perhaps more (fromList?)
 astScatter :: forall m n p s r.
