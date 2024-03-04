@@ -1560,30 +1560,28 @@ astFromVectorS l = Ast.AstFromVectorS l
 astReplicate :: (KnownNat n, GoodScalar r, AstSpan s)
              => Int -> AstRanked s r n -> AstRanked s r (1 + n)
 astReplicate k = \case
--- This allocates a big tensor too early, while it's still possible
--- a projection reduces this away. The cost to AD should not be too high.
--- This would also hide AstReplicate from hacks that recover tmatmul2, etc.
---  AstConst t -> AstConst $ treplicateR k t
-  Ast.AstConstant v -> Ast.AstConstant $ astReplicate k v
   Ast.AstLetADShare l v -> Ast.AstLetADShare l $ astReplicate k v
 {- TODO: these may be counterproductive with many gathers and their fusion
          though these let transpose cancel out with each other sometimes
          (instead we should try to cancel out inside replicate and only move
-          if they don't)
--}
+          if they don't) -}
   Ast.AstTranspose perm v ->
     astTranspose (0 : map succ perm) $ astReplicate k v
 {- see the previous comment
   Ast.AstReshape sh v ->
     AstReshape (k :$ sh) $ astReplicate k v
 -}
+-- This allocates a big tensor too early, while it's still possible
+-- a projection reduces this away. The cost to AD should not be too high.
+-- This would also hide AstReplicate from hacks that recover tmatmul2, etc.
+--  AstConst t -> AstConst $ treplicateR k t
+  Ast.AstConstant v -> Ast.AstConstant $ astReplicate k v
   v -> Ast.AstReplicate k v
 
 astReplicateS :: forall n sh s r.
                  (KnownNat n, Sh.Shape sh, GoodScalar r, AstSpan s)
               => AstShaped s r sh -> AstShaped s r (n ': sh)
 astReplicateS = \case
-  Ast.AstConstantS v -> Ast.AstConstantS $ astReplicateS v
   Ast.AstLetADShareS l v -> Ast.AstLetADShareS l $ astReplicateS v
   Ast.AstTransposeS @perm @sh1 v ->
     let zsuccPerm = 0 : map succ (Sh.shapeT @perm)
@@ -1595,6 +1593,7 @@ astReplicateS = \case
       gcastWith (unsafeCoerce Refl :: Sh.Rank zsuccP :~: 1 + Sh.Rank perm) $
       trustMeThisIsAPermutation @zsuccP $
       astTransposeS @zsuccP $ astReplicateS @n v
+  Ast.AstConstantS v -> Ast.AstConstantS $ astReplicateS v
   v -> Ast.AstReplicateS v
 
 astReplicateN :: forall n p s r.
