@@ -159,7 +159,7 @@ library horde-ad-simplified
                       HordeAd.External.OptimizerTools
                       HordeAd.Internal.OrthotopeOrphanInstances
                       HordeAd.Internal.TensorFFI
-                      HordeAd.Internal.TensorOps
+                      HordeAd.Internal.BackendConcrete
                       HordeAd.Util.ShapedList
                       HordeAd.Util.SizedIndex
                       HordeAd.Util.SizedList

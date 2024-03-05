@@ -18,7 +18,6 @@ import HordeAd.Core.HVector
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.External.CommonRankedOps
-import HordeAd.Internal.TensorOps
 import HordeAd.Util.SizedIndex
 import MnistData
 
@@ -146,8 +145,8 @@ rnnMnistTestR valsInit batch_size (glyphR, labelR) testParams =
                -> ranked r 2  -- [SizeMnistLabel, batch_size]
             nn = rnnMnistZeroR batch_size xs
         in runFlip $ nn $ parseHVector valsInit testParams
-      outputs = map OR.toVector $ tunravelToListR $ OR.transpose [1, 0] outputR
-      labels = map OR.toVector $ tunravelToListR labelR
+      outputs = map OR.toVector $ map runFlip $ runravelToList $ Flip $ OR.transpose [1, 0] outputR
+      labels = map OR.toVector $ map runFlip $ runravelToList $ Flip labelR
       matchesLabels :: Vector r -> Vector r -> Int
       matchesLabels output label | V.maxIndex output == V.maxIndex label = 1
                                  | otherwise = 0

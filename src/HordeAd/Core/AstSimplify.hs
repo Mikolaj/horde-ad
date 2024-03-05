@@ -92,9 +92,9 @@ import           HordeAd.Core.AstTools
 import           HordeAd.Core.HVector
 import           HordeAd.Core.TensorClass
 import           HordeAd.Core.Types
+import           HordeAd.Internal.BackendConcrete
 import           HordeAd.Internal.OrthotopeOrphanInstances
   (MapSucc, matchingRank, sameShape, trustMeThisIsAPermutation)
-import           HordeAd.Internal.TensorOps
 import           HordeAd.Util.ShapedList (ShapedList (..))
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedIndex

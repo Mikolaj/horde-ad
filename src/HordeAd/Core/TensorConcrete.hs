@@ -32,7 +32,7 @@ import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorADVal
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
-import HordeAd.Internal.TensorOps
+import HordeAd.Internal.BackendConcrete
 import HordeAd.Util.ShapedList (shapedNat, unShapedNat)
 
 type instance SimpleBoolOf (Flip OR.Array) = Bool

@@ -4,8 +4,8 @@
 -- | Miscellaneous more or less general purpose tensor operations using
 -- the orthotope package tensor representation and hmatrix package
 -- (and also our own) FFI bindings.
-module HordeAd.Internal.TensorOps
-  ( module HordeAd.Internal.TensorOps
+module HordeAd.Internal.BackendConcrete
+  ( module HordeAd.Internal.BackendConcrete
   , tsumR, tsum0R, tsumInR
   ) where
 

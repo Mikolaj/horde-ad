@@ -14,7 +14,7 @@ import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
 import HordeAd
-import HordeAd.Internal.TensorOps
+import HordeAd.Internal.BackendConcrete
 
 import CrossTesting
 

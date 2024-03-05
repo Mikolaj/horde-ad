@@ -24,7 +24,6 @@ import HordeAd.Core.HVector
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.External.CommonShapedOps (lossSoftMaxCrossEntropyS)
-import HordeAd.Internal.TensorOps
 import HordeAd.Util.ShapedList (ShapedList (..))
 import MnistData
 
@@ -165,9 +164,9 @@ rnnMnistTestS out_width@SNat batch_size@SNat
                                (SNat @h) (SNat @w)
                                xs
         in runFlip $ nn $ parseHVector valsInit testParams
-      outputs = map OS.toVector $ tunravelToListS
-                $ OS.transpose @'[1, 0] outputS
-      labels = map OS.toVector $ tunravelToListS labelS
+      outputs = map OS.toVector $ map runFlip $ sunravelToList
+                $ Flip $ OS.transpose @'[1, 0] outputS
+      labels = map OS.toVector $ map runFlip $ sunravelToList $ Flip labelS
       matchesLabels :: Vector r -> Vector r -> Int
       matchesLabels output label | V.maxIndex output == V.maxIndex label = 1
                                  | otherwise = 0
