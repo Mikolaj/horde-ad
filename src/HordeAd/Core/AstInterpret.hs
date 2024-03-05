@@ -238,28 +238,6 @@ interpretAst !env = \case
       (AstLet vart vt (AstLet varu vu
          (AstSum (AstN2 TimesOp (AstTranspose tperm t)
                                 (AstTranspose uperm u)))))
-  AstSum (AstN2 TimesOp (AstTranspose tperm (AstLet vart vt
-                                                    (AstReplicate tk t)))
-                        (AstTranspose uperm (AstReplicate uk u))) ->
-    interpretAst env
-      (AstLet vart vt
-         (AstSum (AstN2 TimesOp (AstTranspose tperm (AstReplicate tk t))
-                                (AstTranspose uperm (AstReplicate uk u)))))
-  AstSum (AstN2 TimesOp (AstTranspose tperm (AstReplicate tk t))
-                        (AstTranspose uperm (AstLet varu vu
-                                                    (AstReplicate uk u)))) ->
-    interpretAst env
-      (AstLet varu vu
-         (AstSum (AstN2 TimesOp (AstTranspose tperm (AstReplicate tk t))
-                                (AstTranspose uperm (AstReplicate uk u)))))
-  AstSum (AstN2 TimesOp (AstTranspose tperm (AstLet vart vt
-                                                    (AstReplicate tk t)))
-                        (AstTranspose uperm (AstLet varu vu
-                                                    (AstReplicate uk u)))) ->
-    interpretAst env
-      (AstLet vart vt (AstLet varu vu
-         (AstSum (AstN2 TimesOp (AstTranspose tperm (AstReplicate tk t))
-                                (AstTranspose uperm (AstReplicate uk u))))))
   AstSum v@(AstN2 TimesOp (AstTranspose tperm (AstReplicate _tk t))
                           (AstTranspose uperm (AstReplicate _uk u)))
     | Just Refl <- sameNat (Proxy @n) (Proxy @2) ->
@@ -638,28 +616,6 @@ interpretAstS !env = \case
       (AstLet vart vt (AstLet varu vu
          (AstSum (AstN2 TimesOp [ AstTranspose tperm t
                                 , AstTranspose uperm u ]))))
-  AstSum (AstN2 TimesOp [ AstTranspose tperm (AstLet vart vt
-                                                (AstReplicate tk t))
-                        , AstTranspose uperm (AstReplicate uk u) ]) ->
-    interpretAst env
-      (AstLet vart vt
-         (AstSum (AstN2 TimesOp [ AstTranspose tperm (AstReplicate tk t)
-                                , AstTranspose uperm (AstReplicate uk u) ])))
-  AstSum (AstN2 TimesOp [ AstTranspose tperm (AstReplicate tk t)
-                        , AstTranspose uperm (AstLet varu vu
-                                               (AstReplicate uk u)) ]) ->
-    interpretAst env
-      (AstLet varu vu
-         (AstSum (AstN2 TimesOp [ AstTranspose tperm (AstReplicate tk t)
-                                , AstTranspose uperm (AstReplicate uk u) ])))
-  AstSum (AstN2 TimesOp [ AstTranspose tperm (AstLet vart vt
-                                                (AstReplicate tk t))
-                        , AstTranspose uperm (AstLet varu vu
-                                               (AstReplicate uk u)) ]) ->
-    interpretAst env
-      (AstLet vart vt (AstLet varu vu
-         (AstSum (AstN2 TimesOp [ AstTranspose tperm (AstReplicate tk t)
-                                , AstTranspose uperm (AstReplicate uk u) ]))))
   AstSum v@(AstN2 TimesOp [ AstTranspose tperm (AstReplicate _tk t)
                           , AstTranspose uperm (AstReplicate _uk u) ])
     | Just Refl <- sameNat (Proxy @n) (Proxy @2) ->
