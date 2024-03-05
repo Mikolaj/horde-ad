@@ -21,6 +21,7 @@ import           Type.Reflection (typeRep)
 
 import HordeAd.Core.HVector
 import HordeAd.Core.HVectorOps
+import HordeAd.Core.TensorConcrete ()
 import HordeAd.Core.Types
 import HordeAd.Internal.OrthotopeOrphanInstances
 

@@ -44,6 +44,7 @@ import           HordeAd.Core.HVectorOps
 import           HordeAd.Core.IsPrimal
 import           HordeAd.Core.TensorADVal (unADValHVector)
 import           HordeAd.Core.TensorClass
+import           HordeAd.Core.TensorConcrete ()
 import           HordeAd.Core.Types
 import           HordeAd.Util.ShapedList (singletonShaped)
 import qualified HordeAd.Util.ShapedList as ShapedList

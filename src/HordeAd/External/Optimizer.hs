@@ -17,6 +17,7 @@ import HordeAd.Core.DualNumber
 import HordeAd.Core.HVector
 import HordeAd.Core.TensorADVal
 import HordeAd.Core.TensorClass
+import HordeAd.Core.TensorConcrete ()
 import HordeAd.Core.Types
 import HordeAd.External.OptimizerTools
 

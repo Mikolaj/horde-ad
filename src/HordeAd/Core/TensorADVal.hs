@@ -15,7 +15,6 @@ module HordeAd.Core.TensorADVal
 import Prelude hiding (foldl')
 
 import           Control.Exception.Assert.Sugar
-import           Data.Array.Convert
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as Sh
@@ -25,16 +24,13 @@ import           Data.Bifunctor.Flip
 import           Data.Bifunctor.Product
 import           Data.Function ((&))
 import           Data.Functor.Const
-import           Data.List (foldl', mapAccumL, mapAccumR, scanl')
+import           Data.List (foldl')
 import           Data.List.Index (imap)
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, sameNat)
-import           Numeric.LinearAlgebra (Numeric, Vector)
-import qualified Numeric.LinearAlgebra as LA
-import           System.Random
 
 import           HordeAd.Core.Adaptor
 import           HordeAd.Core.Ast
@@ -146,15 +142,6 @@ instance (KnownNat n, GoodScalar r, ADReady ranked)
          => DualNumberValue (ADVal ranked r n) where
   type DValue (ADVal ranked r n) = Flip OR.Array r n  -- ! not Value(ranked)
   fromDValue t = constantADVal $ rconst $ runFlip t
-
-instance (RankedTensor ranked, ShapedTensor (ShapedOf ranked))
-         => DualNumberValue (DynamicTensor (ADVal ranked)) where
-  type DValue (DynamicTensor (ADVal ranked)) = DynamicTensor (Flip OR.Array)
-  fromDValue = \case
-    DynamicRanked t -> DynamicRanked $ constantADVal $ rconst $ runFlip t
-    DynamicShaped t -> DynamicShaped $ constantADVal $ sconst $ runFlip t
-    DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
-    DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
 
 -- This is temporarily moved from Adaptor in order to specialize manually
 instance AdaptableHVector ranked a
@@ -447,12 +434,6 @@ instance (ADReady ranked, HVectorOf ranked ~ HVector ranked)
     let (portion, rest) = V.splitAt (V.length h) params
     in Just (hVectorADValToADVal portion, rest)
 
-instance ADReady ranked
-         => DualNumberValue (ADVal (HVectorPseudoTensor ranked) Float '()) where
-  type DValue (ADVal (HVectorPseudoTensor ranked) Float '()) =
-    HVectorPseudoTensor (Flip OR.Array) Float '()
-  fromDValue = hVectorADValToADVal . fromDValue . unHVectorPseudoTensor
-
 instance ADReadyBoth ranked shaped
          => HVectorTensor (ADVal ranked) (ADVal shaped) where
   dshape = voidFromHVector
@@ -715,171 +696,3 @@ unADValDynamicTensor (DynamicRankedDummy p1 p2) =
   (emptyADShare, DynamicRankedDummy p1 p2, DynamicRankedDummy p1 p2)
 unADValDynamicTensor (DynamicShapedDummy p1 p2) =
   (emptyADShare, DynamicShapedDummy p1 p2, DynamicShapedDummy p1 p2)
-
-
--- * HVectorTensor instance for concrete arrays
-
-instance HVectorTensor (Flip OR.Array) (Flip OS.Array) where
-  dshape = voidFromHVector
-  dmkHVector = id
-  dlambda _ f = unHFun f  -- the eta-expansion is needed for typing
-  dHApply f = f
-  dunHVector = id
-  dletHVectorInHVector = (&)
-  dletHFunInHVector = (&)
-  rletInHVector = (&)
-  sletInHVector = (&)
-  dsharePrimal d l = (l, d)
-  dregister d l = (l, d)
-  dbuild1 k f =
-    ravelHVector $ map (f . fromIntegral) [0 .. (sNatValue k :: Int) - 1]
-  rrev :: (GoodScalar r, KnownNat n)
-       => (forall f. ADReady f => HVector f -> f r n)
-       -> VoidHVector
-       -> HVector (Flip OR.Array)
-       -> HVector (Flip OR.Array)
-  rrev f _parameters0 parameters =
-    -- This computes the derivative of g again for each new @parmeters@.
-    let g :: HVector (ADVal (Flip OR.Array))
-          -> ADVal (HVectorPseudoTensor (Flip OR.Array)) r y
-        g !hv = let D l a a' = f hv
-                in dDnotShared l
-                               (HVectorPseudoTensor $ dmkHVector
-                                $ V.singleton $ DynamicRanked a)
-                               (HVectorPseudoTensor $ HToH
-                                $ V.singleton $ DynamicRanked a')
-    in fst $ crevOnHVector Nothing g parameters
-  -- The code for drevDt and dfwd in this instance is the same as for the
-  -- ADVal ranked instance, because the type family instance is the same.
-  drevDt :: VoidHVector
-         -> HFun
-         -> HFunOf (Flip OR.Array)
-  drevDt _shs h =
-    let g :: ADReady f
-          => HVector (ADVal f)
-          -> ADVal (HVectorPseudoTensor f) r y
-        g !hv = let (ll, as, as') = unADValHVector $ unHFun h [hv]
-                in dDnotShared (flattenADShare $ V.toList ll)
-                               (HVectorPseudoTensor $ dmkHVector as)
-                               (HVectorPseudoTensor $ HToH as')
-        rf :: [HVector (Flip OR.Array)] -> HVectorOf (Flip OR.Array)
-        rf [!db, !a] =
-          fst $ crevOnHVector (Just $ HVectorPseudoTensor $ dmkHVector db) g a
-        rf _ = error "rf: wrong number of arguments"
-    in rf
-  dfwd :: VoidHVector
-       -> HFun
-       -> HFunOf (Flip OR.Array)
-  dfwd _shs h =
-    let g :: ADReady f
-          => HVector (ADVal f)
-          -> ADVal (HVectorPseudoTensor f) r y
-        g !hv = let (ll, as, as') = unADValHVector $ unHFun h [hv]
-                in dDnotShared (flattenADShare $ V.toList ll)
-                               (HVectorPseudoTensor $ dmkHVector as)
-                               (HVectorPseudoTensor $ HToH as')
-        df :: [HVector (Flip OR.Array)] -> HVectorOf (Flip OR.Array)
-        df [!da, !a] = unHVectorPseudoTensor $ fst $ cfwdOnHVector a g da
-        df _ = error "df: wrong number of arguments"
-    in df
-  rfold f x0 as = foldl' f x0 (runravelToList as)
-  rscan f x0 as = rfromList $ scanl' f x0 (runravelToList as)
-  sfold f x0 as = foldl' f x0 (sunravelToList as)
-  sscan f x0 as = sfromList $ scanl' f x0 (sunravelToList as)
-  dmapAccumR _ k accShs bShs _eShs f acc0 es =
-    oRdmapAccumR k accShs bShs _eShs f acc0 es
-  dmapAccumRDer _ k accShs bShs eShs f _df _rf acc0 es =
-    oRdmapAccumR k accShs bShs eShs (\ !a !b -> f [a, b]) acc0 es
-  dmapAccumL _ k accShs bShs _eShs f acc0 es =
-    oRdmapAccumL k accShs bShs _eShs f acc0 es
-  dmapAccumLDer _ k accShs bShs eShs f _df _rf acc0 es =
-    oRdmapAccumL k accShs bShs eShs (\ !a !b -> f [a, b]) acc0 es
-
-oRdmapAccumR
-  :: SNat k
-  -> VoidHVector
-  -> VoidHVector
-  -> VoidHVector
-  -> (HVector (Flip OR.Array) -> HVector (Flip OR.Array)
-      -> HVectorOf (Flip OR.Array))
-  -> HVector (Flip OR.Array)
-  -> HVector (Flip OR.Array)
-  -> HVector (Flip OR.Array)
-oRdmapAccumR k accShs bShs _eShs f acc0 es = case sNatValue k :: Int of
-  0 -> acc0 V.++ replicate1HVector k (V.map dynamicFromVoid bShs)
-  _ -> let accLen = V.length accShs
-           g :: HVector (Flip OR.Array) -> HVector (Flip OR.Array)
-             -> (HVector (Flip OR.Array), HVector (Flip OR.Array))
-           g !x !a = V.splitAt accLen $ f x a
-           (xout, lout) = mapAccumR g acc0 (unravelHVector es)
-       in xout V.++ ravelHVector lout
-         -- TODO: reimplement not with Haskell's mapAccumR to avoid the ravels
-
-oRdmapAccumL
-  :: SNat k
-  -> VoidHVector
-  -> VoidHVector
-  -> VoidHVector
-  -> (HVector (Flip OR.Array) -> HVector (Flip OR.Array)
-      -> HVectorOf (Flip OR.Array))
-  -> HVector (Flip OR.Array)
-  -> HVector (Flip OR.Array)
-  -> HVector (Flip OR.Array)
-oRdmapAccumL k accShs bShs _eShs f acc0 es = case sNatValue k :: Int of
-  0 -> acc0 V.++ replicate1HVector k (V.map dynamicFromVoid bShs)
-  _ -> let accLen = V.length accShs
-           g :: HVector (Flip OR.Array) -> HVector (Flip OR.Array)
-             -> (HVector (Flip OR.Array), HVector (Flip OR.Array))
-           g !x !a = V.splitAt accLen $ f x a
-           (xout, lout) = mapAccumL g acc0 (unravelHVector es)
-       in xout V.++ ravelHVector lout
-
-instance (GoodScalar r, KnownNat n)
-         => AdaptableHVector (Flip OR.Array) (Flip OR.Array r n) where
-  {-# SPECIALIZE instance
-      KnownNat n
-      => AdaptableHVector (Flip OR.Array) (Flip OR.Array Double n) #-}
-  toHVector = V.singleton . DynamicRanked
-  fromHVector _aInit = fromHVectorR
-
-instance ForgetShape (Flip OR.Array r n) where
-  type NoShape (Flip OR.Array r n) = Flip OR.Array r n
-  forgetShape = id
-
-instance (GoodScalar r, Sh.Shape sh)
-         => AdaptableHVector (Flip OR.Array) (Flip OS.Array r sh) where
-  toHVector = V.singleton . DynamicShaped
-  fromHVector _aInit = fromHVectorS
-
-instance Sh.Shape sh
-         => ForgetShape (Flip OS.Array r sh) where
-  type NoShape (Flip OS.Array r sh) = Flip OR.Array r (Sh.Rank sh)  -- key case
-  forgetShape = Flip . Data.Array.Convert.convert . runFlip
-
-instance (Sh.Shape sh, Numeric r, Fractional r, Random r, Num (Vector r))
-         => RandomHVector (Flip OS.Array r sh) where
-  randomVals range g =
-    let createRandomVector n seed =
-          LA.scale (2 * realToFrac range)
-          $ V.fromListN n (randoms seed) - LA.scalar 0.5
-        (g1, g2) = split g
-        arr = OS.fromVector $ createRandomVector (OS.sizeP (Proxy @sh)) g1
-    in (Flip arr, g2)
-
-instance AdaptableHVector (Flip OR.Array)
-                          (HVectorPseudoTensor (Flip OR.Array) r y) where
-  toHVector = unHVectorPseudoTensor
-  fromHVector (HVectorPseudoTensor aInit) params =
-    let (portion, rest) = V.splitAt (V.length aInit) params
-    in Just (HVectorPseudoTensor portion, rest)
-
--- This specialization is not possible where the functions are defined,
--- but is possible here:
-{-# SPECIALIZE gradientFromDeltaH
-  :: VoidHVector
-  -> HVectorPseudoTensor (Flip OR.Array) Double y
-  -> Maybe (HVectorPseudoTensor (Flip OR.Array) Double y)
-  -> HVectorPseudoTensor (DeltaR (Flip OR.Array)) Double y
-  -> (AstBindingsD (Flip OR.Array), HVector (Flip OR.Array)) #-}
-{-# SPECIALIZE evalFromnMap
-  :: EvalState (Flip OR.Array) -> EvalState (Flip OR.Array) #-}

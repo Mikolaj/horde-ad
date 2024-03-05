@@ -17,10 +17,8 @@ import Prelude
 
 import           Control.Exception.Assert.Sugar
 import           Data.Array.Internal (valueOf)
-import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as Sh
 import           Data.Bifunctor.Clown
-import           Data.Bifunctor.Flip
 import           Data.Bifunctor.Product
 import           Data.Functor.Const
 import           Data.Kind (Type)
@@ -147,8 +145,10 @@ generateDeltaInputs =
       f i (DynamicShapedDummy @r @sh _ _) =
         DynamicShaped $ InputS @shaped2 @r @sh (toInputId i)
   in V.imap f
+{- TODO: this causes a cyclic dependency:
 {-# SPECIALIZE generateDeltaInputs
   :: HVector (Flip OR.Array) -> HVector (Dual (Flip OR.Array)) #-}
+-}
 
 -- Not specialized, because not overloaded (HVector is a type synonym).
 makeADInputs
@@ -268,13 +268,11 @@ instance (Num (f r z), IsPrimal f r z)
          => Num (ADVal f r z) where
   -- The 0 cases are needed to get GHC 9.6 to use the specialization
   -- (only at rank 0, though; we'd need many more for common ranks and shapes).
-  {-# SPECIALIZE instance Num (ADVal (Flip OR.Array) Double 0) #-}
 {- TODO: this causes a cyclic dependency:
+  {-# SPECIALIZE instance Num (ADVal (Flip OR.Array) Double 0) #-}
   {-# SPECIALIZE instance Num (ADVal (AstRanked PrimalSpan) Double 0) #-}
--}
   {-# SPECIALIZE instance KnownNat n
                           => Num (ADVal (Flip OR.Array) Double n) #-}
-{- TODO: this causes a cyclic dependency:
   {-# SPECIALIZE instance KnownNat n
                           => Num (ADVal (AstRanked PrimalSpan) Double n) #-}
 -}
@@ -313,16 +311,14 @@ instance (Integral (f r z), IsPrimal f r z)
 
 instance (Fractional (f r z), IsPrimal f r z)
          => Fractional (ADVal f r z) where
-  {-# SPECIALIZE instance
-      Fractional (ADVal (Flip OR.Array) Double 0) #-}
 {- TODO: this causes a cyclic dependency:
   {-# SPECIALIZE instance
+      Fractional (ADVal (Flip OR.Array) Double 0) #-}
+  {-# SPECIALIZE instance
       Fractional (ADVal (AstRanked PrimalSpan) Double 0) #-}
--}
   {-# SPECIALIZE instance
       KnownNat n
       => Fractional (ADVal (Flip OR.Array) Double n) #-}
-{- TODO: this causes a cyclic dependency:
   {-# SPECIALIZE instance
       KnownNat n
       => Fractional (ADVal (AstRanked PrimalSpan) Double n) #-}
@@ -340,16 +336,14 @@ instance (Fractional (f r z), IsPrimal f r z)
 
 instance (Floating (f r z), IsPrimal f r z)
          => Floating (ADVal f r z) where
-  {-# SPECIALIZE instance
-      Floating (ADVal (Flip OR.Array) Double 0) #-}
 {- TODO: this causes a cyclic dependency:
   {-# SPECIALIZE instance
+      Floating (ADVal (Flip OR.Array) Double 0) #-}
+  {-# SPECIALIZE instance
       Floating (ADVal (AstRanked PrimalSpan) Double 0) #-}
--}
   {-# SPECIALIZE instance
       KnownNat n
       => Floating (ADVal (Flip OR.Array) Double n) #-}
-{- TODO: this causes a cyclic dependency:
   {-# SPECIALIZE instance
       KnownNat n
       => Floating (ADVal (AstRanked PrimalSpan) Double n) #-}
@@ -407,16 +401,14 @@ instance (RealFrac (f r z), IsPrimal f r z)
 
 instance (RealFloat (f r z), IsPrimal f r z)
          => RealFloat (ADVal f r z) where
-  {-# SPECIALIZE instance
-      RealFloat (ADVal (Flip OR.Array) Double 0) #-}
 {- TODO: this causes a cyclic dependency:
   {-# SPECIALIZE instance
+      RealFloat (ADVal (Flip OR.Array) Double 0) #-}
+  {-# SPECIALIZE instance
       RealFloat (ADVal (AstRanked PrimalSpan) Double 0) #-}
--}
   {-# SPECIALIZE instance
       KnownNat n
       => RealFloat (ADVal (Flip OR.Array) Double n) #-}
-{- TODO: this causes a cyclic dependency:
   {-# SPECIALIZE instance
       KnownNat n
       => RealFloat (ADVal (AstRanked PrimalSpan) Double n) #-}
