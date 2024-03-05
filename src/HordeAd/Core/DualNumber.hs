@@ -10,8 +10,6 @@ module HordeAd.Core.DualNumber
   , indexPrimal, fromList, indexPrimalS, fromListS
   , ensureToplevelSharing, scaleNotShared, addNotShared, multNotShared
 --  , addParameters, dotParameters
-    -- * Non-symbolic teverse and forward derivative operations
-  , crevOnADInputs, crevOnHVector, cfwdOnADInputs, cfwdOnHVector
   , generateDeltaInputs, makeADInputs
   ) where
 
@@ -85,8 +83,90 @@ dD !l !a !dual = dDnotShared l a (shareDual dual)
 dDnotShared :: ADShare -> f r z -> Dual f r z -> ADVal f r z
 dDnotShared = ADVal
 
+
+-- * Auxiliary definitions
+
 constantADVal :: IsPrimal f r z => f r z -> ADVal f r z
 constantADVal a = dDnotShared emptyADShare a (dZeroOfShape a)
+
+-- | Add sharing information to the top level of a term, presumably
+-- constructed using multiple applications of the `dDnotShared` operation.
+-- The resulting term may not have sharing information inside,
+-- but is ready to be shared as a whole.
+ensureToplevelSharing :: IsPrimal f r z => ADVal f r z -> ADVal f r z
+ensureToplevelSharing (D l u u') = dD l u u'
+
+scaleNotShared :: (Num (f r z), IsPrimal f r z)
+               => f r z -> ADVal f r z -> ADVal f r z
+scaleNotShared !a (D l u u') = dDnotShared l (a * u) (dScale a u')
+
+addNotShared :: (Num (f r z), IsPrimal f r z)
+             => ADVal f r z -> ADVal f r z -> ADVal f r z
+addNotShared (D l1 u u') (D l2 v v') =
+  dDnotShared (l1 `mergeADShare` l2) (u + v) (dAdd u' v')
+
+multNotShared :: (Num (f r z), IsPrimal f r z)
+              => ADVal f r z -> ADVal f r z -> ADVal f r z
+multNotShared (D l1 u u') (D l2 v v') =
+  dDnotShared (l1 `mergeADShare` l2) (u * v) (dAdd (dScale v u') (dScale u v'))
+{-
+addParameters :: (Numeric r, Num (Vector r), DTensorOf r ~ OD.Array r)
+              => HVector r -> HVector r -> HVector r
+addParameters (HVector a0 a1) (HVector b0 b1) =
+  HVector (a0 + b0)
+          (V.zipWith (+) a1 b1)
+
+-- Dot product and sum respective ranks and then sum it all.
+dotParameters :: (Numeric r, DTensorOf r ~ OD.Array r)
+              => HVector r -> HVector r -> r
+dotParameters (HVector a0 a1) (HVector b0 b1) =
+  a0 LA.<.> b0
+  + V.sum (V.zipWith (\v1 u1 ->
+      if isTensorDummy v1 || isTensorDummy u1
+      then 0
+      else OD.toVector v1 LA.<.> OD.toVector u1) a1 b1)
+-}
+
+generateDeltaInputs
+  :: forall ranked ranked2 shaped2.
+     (RankedTensor ranked, shaped2 ~ ShapedOf ranked2)
+  => HVector ranked
+  -> HVector (Dual ranked2)
+generateDeltaInputs =
+  let f :: Int -> DynamicTensor ranked -> DynamicTensor (Dual ranked2)
+      f i (DynamicRanked @r @n t) =
+        case rshape t of
+          (sh :: ShapeInt n2) | Just Refl <- sameNat (Proxy @n) (Proxy @n2) ->
+            DynamicRanked $ InputR @ranked2 @r @n sh (toInputId i)
+          _ -> error "generateDeltaInputs: wrong rank"
+      f i (DynamicShaped @r @sh _) =
+        DynamicShaped $ InputS @shaped2 @r @sh (toInputId i)
+      f i (DynamicRankedDummy @r @sh _ _) =
+        withListSh (Proxy @sh) $ \sh ->
+          DynamicRanked $ InputR @ranked2 @r sh (toInputId i)
+      f i (DynamicShapedDummy @r @sh _ _) =
+        DynamicShaped $ InputS @shaped2 @r @sh (toInputId i)
+  in V.imap f
+{-# SPECIALIZE generateDeltaInputs
+  :: HVector (Flip OR.Array) -> HVector (Dual (Flip OR.Array)) #-}
+
+-- Not specialized, because not overloaded (HVector is a type synonym).
+makeADInputs
+  :: HVector ranked -> HVector (Dual ranked)
+  -> HVector (ADVal ranked)
+makeADInputs =
+  let f :: DynamicTensor ranked -> DynamicTensor (Dual ranked)
+        -> DynamicTensor (ADVal ranked)
+      f (DynamicRanked @r @n t) (DynamicRanked @r2 @n2 d)
+        | Just Refl <- sameNat (Proxy @n) (Proxy @n2)
+        , Just Refl <- testEquality (typeRep @r) (typeRep @r2) =
+          DynamicRanked $ dDnotShared emptyADShare t d
+      f (DynamicShaped @r @sh t) (DynamicShaped @r2 @sh2 d)
+        | Just Refl <- sameShape @sh @sh2
+        , Just Refl <- testEquality (typeRep @r) (typeRep @r2) =
+          DynamicShaped $ dDnotShared emptyADShare t d
+      f _ _ = error "makeADInputs: non-matching arguments"
+  in V.zipWith f
 
 
 -- * Assorted instances
@@ -171,158 +251,7 @@ type instance PrimalOf (ADVal f) = f
 type instance DualOf (ADVal f) = Product (Clown (Const ADShare)) (Dual f)
 
 
--- * Auxiliary definitions
-
--- | Add sharing information to the top level of a term, presumably
--- constructed using multiple applications of the `dDnotShared` operation.
--- The resulting term may not have sharing information inside,
--- but is ready to be shared as a whole.
-ensureToplevelSharing :: IsPrimal f r z => ADVal f r z -> ADVal f r z
-ensureToplevelSharing (D l u u') = dD l u u'
-
-scaleNotShared :: (Num (f r z), IsPrimal f r z)
-               => f r z -> ADVal f r z -> ADVal f r z
-scaleNotShared !a (D l u u') = dDnotShared l (a * u) (dScale a u')
-
-addNotShared :: (Num (f r z), IsPrimal f r z)
-             => ADVal f r z -> ADVal f r z -> ADVal f r z
-addNotShared (D l1 u u') (D l2 v v') =
-  dDnotShared (l1 `mergeADShare` l2) (u + v) (dAdd u' v')
-
-multNotShared :: (Num (f r z), IsPrimal f r z)
-              => ADVal f r z -> ADVal f r z -> ADVal f r z
-multNotShared (D l1 u u') (D l2 v v') =
-  dDnotShared (l1 `mergeADShare` l2) (u * v) (dAdd (dScale v u') (dScale u v'))
-{-
-addParameters :: (Numeric r, Num (Vector r), DTensorOf r ~ OD.Array r)
-              => HVector r -> HVector r -> HVector r
-addParameters (HVector a0 a1) (HVector b0 b1) =
-  HVector (a0 + b0)
-          (V.zipWith (+) a1 b1)
-
--- Dot product and sum respective ranks and then sum it all.
-dotParameters :: (Numeric r, DTensorOf r ~ OD.Array r)
-              => HVector r -> HVector r -> r
-dotParameters (HVector a0 a1) (HVector b0 b1) =
-  a0 LA.<.> b0
-  + V.sum (V.zipWith (\v1 u1 ->
-      if isTensorDummy v1 || isTensorDummy u1
-      then 0
-      else OD.toVector v1 LA.<.> OD.toVector u1) a1 b1)
--}
-
-unletPseudo
-  :: ADReady ranked
-  => ADShare -> AstBindingsD ranked -> HVectorPseudoTensor ranked r y
-  -> HVectorPseudoTensor ranked r y
-unletPseudo l astBindings =
-  HVectorPseudoTensor . dunlet l astBindings . unHVectorPseudoTensor
-
-crevOnADInputs
-  :: ADReady ranked
-  => Maybe (HVectorPseudoTensor ranked r y)
-  -> (HVector (ADVal ranked)
-      -> ADVal (HVectorPseudoTensor ranked) r y)
-  -> HVector (ADVal ranked)
-  -> (HVectorOf ranked, HVectorPseudoTensor ranked r y)
--- The functions in which @revOnADInputs@ inlines are not inlined themselves
--- in client code, so the bloat is limited.
-{-# INLINE crevOnADInputs #-}
-crevOnADInputs mdt f inputs =
-  let -- Evaluate completely after terms constructed, to free memory
-      -- before evaluation allocates new memory and new FFI is started.
-      !(D l v deltaTopLevel) = f inputs in
-  let rshapePrimal :: (GoodScalar r2, KnownNat n, ADReady g)
-                   => ADVal g r2 n -> ShapeInt n
-      rshapePrimal (D _ p _) = rshape p
-      parameters0 = V.map (voidFromDynamicF (shapeToList . rshapePrimal)) inputs
-      (!astBindings, !gradient) =
-        gradientFromDeltaH parameters0 v mdt deltaTopLevel
-  in (dunlet l astBindings (dmkHVector gradient), unletPseudo l [] v)
-
-crevOnHVector
-  :: ADReady ranked
-  => Maybe (HVectorPseudoTensor ranked r y)
-  -> (HVector (ADVal ranked)
-      -> ADVal (HVectorPseudoTensor ranked) r y)
-  -> HVector ranked
-  -> (HVectorOf ranked, HVectorPseudoTensor ranked r y)
-crevOnHVector mdt f parameters =
-  let deltaInputs = generateDeltaInputs parameters
-      inputs = makeADInputs parameters deltaInputs
-  in crevOnADInputs mdt f inputs
-
-cfwdOnADInputs
-  :: ADReady ranked
-  => HVector (ADVal ranked)
-  -> (HVector (ADVal ranked)
-      -> ADVal (HVectorPseudoTensor ranked) r y)
-  -> HVector ranked
-  -> ( HVectorPseudoTensor ranked r y
-     , HVectorPseudoTensor ranked r y )
-{-# INLINE cfwdOnADInputs #-}
-cfwdOnADInputs inputs f ds =
-  let !(D l v deltaTopLevel) = f inputs in
-  let (astBindings, derivative) =
-        derivativeFromDeltaH (V.length inputs) deltaTopLevel ds
-  in (unletPseudo l astBindings derivative, unletPseudo l [] v)
-
-cfwdOnHVector
-  :: ADReady ranked
-  => HVector ranked
-  -> (HVector (ADVal ranked)
-      -> ADVal (HVectorPseudoTensor ranked) r y)
-  -> HVector ranked
-  -> ( HVectorPseudoTensor ranked r y
-     , HVectorPseudoTensor ranked r y )
-cfwdOnHVector parameters f ds =
-  let deltaInputs = generateDeltaInputs parameters
-      inputs = makeADInputs parameters deltaInputs
-  in cfwdOnADInputs inputs f ds
-
-generateDeltaInputs
-  :: forall ranked ranked2 shaped2.
-     (RankedTensor ranked, shaped2 ~ ShapedOf ranked2)
-  => HVector ranked
-  -> HVector (Dual ranked2)
-generateDeltaInputs =
-  let f :: Int -> DynamicTensor ranked -> DynamicTensor (Dual ranked2)
-      f i (DynamicRanked @r @n t) =
-        case rshape t of
-          (sh :: ShapeInt n2) | Just Refl <- sameNat (Proxy @n) (Proxy @n2) ->
-            DynamicRanked $ InputR @ranked2 @r @n sh (toInputId i)
-          _ -> error "generateDeltaInputs: wrong rank"
-      f i (DynamicShaped @r @sh _) =
-        DynamicShaped $ InputS @shaped2 @r @sh (toInputId i)
-      f i (DynamicRankedDummy @r @sh _ _) =
-        withListSh (Proxy @sh) $ \sh ->
-          DynamicRanked $ InputR @ranked2 @r sh (toInputId i)
-      f i (DynamicShapedDummy @r @sh _ _) =
-        DynamicShaped $ InputS @shaped2 @r @sh (toInputId i)
-  in V.imap f
-{-# SPECIALIZE generateDeltaInputs
-  :: HVector (Flip OR.Array) -> HVector (Dual (Flip OR.Array)) #-}
-
--- Not specialized, because not overloaded (HVector is a type synonym).
-makeADInputs
-  :: HVector ranked -> HVector (Dual ranked)
-  -> HVector (ADVal ranked)
-makeADInputs =
-  let f :: DynamicTensor ranked -> DynamicTensor (Dual ranked)
-        -> DynamicTensor (ADVal ranked)
-      f (DynamicRanked @r @n t) (DynamicRanked @r2 @n2 d)
-        | Just Refl <- sameNat (Proxy @n) (Proxy @n2)
-        , Just Refl <- testEquality (typeRep @r) (typeRep @r2) =
-          DynamicRanked $ dDnotShared emptyADShare t d
-      f (DynamicShaped @r @sh t) (DynamicShaped @r2 @sh2 d)
-        | Just Refl <- sameShape @sh @sh2
-        , Just Refl <- testEquality (typeRep @r) (typeRep @r2) =
-          DynamicShaped $ dDnotShared emptyADShare t d
-      f _ _ = error "makeADInputs: non-matching arguments"
-  in V.zipWith f
-
-
--- * Numeric instances for ADVal
+-- * Numeric instances
 
 -- These two instances are required for the numeric tensor instances.
 -- They can't be made valid for AST, because they require interpretation before

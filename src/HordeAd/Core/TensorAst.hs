@@ -9,8 +9,8 @@
 module HordeAd.Core.TensorAst
   ( revProduceArtifactH
   , forwardPassByInterpretation
-  , revArtifactFromForwardPass, revEvalArtifact, revProduceArtifact
-  , fwdArtifactFromForwardPass, fwdEvalArtifact, fwdProduceArtifact
+  , revArtifactFromForwardPass, revProduceArtifact
+  , fwdArtifactFromForwardPass, fwdProduceArtifact
   ) where
 
 import Prelude
@@ -49,7 +49,7 @@ import           HordeAd.Util.ShapedList (singletonShaped)
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedIndex
 
--- * Reverse and forward derivative stages
+-- * Symbolic reverse and forward derivative computation
 
 revProduceArtifactH
   :: forall r y g astvals.
@@ -120,22 +120,6 @@ revArtifactFromForwardPass hasDt forwardPass parameters0 =
     in ( ((varsDt, varsPrimal), unGradient, HVectorPseudoTensor unPrimal)
        , delta )
 
-revEvalArtifact
-  :: AstArtifactRev (HVectorPseudoTensor (AstRanked PrimalSpan)) r y
-  -> HVector (Flip OR.Array)
-  -> Maybe (HVectorPseudoTensor (Flip OR.Array) r y)
-  -> (HVector (Flip OR.Array), HVectorPseudoTensor (Flip OR.Array) r y)
-{-# INLINE revEvalArtifact #-}
-revEvalArtifact ((varsDt, vars), gradient, primal) parameters mdt =
-  let env = foldr extendEnvD EM.empty $ zip vars $ V.toList parameters
-      domsB = voidFromVars varsDt
-      dt1 = mapHVectorShaped (const 1) $ V.map dynamicFromVoid domsB
-      dts = maybe dt1 unHVectorPseudoTensor mdt
-      envDt = extendEnvHVector varsDt dts env
-      gradientHVector = interpretAstHVector envDt gradient
-      primalTensor = interpretAstHVector env $ unHVectorPseudoTensor primal
-  in (gradientHVector, HVectorPseudoTensor primalTensor)
-
 revProduceArtifact
   :: Bool
   -> (HVector (AstRanked FullSpan)
@@ -169,24 +153,6 @@ fwdArtifactFromForwardPass forwardPass parameters0 =
                  $ dunlet l [] primalBody
   in ( ((varsPrimalDs, varsPrimal), unDerivative, unPrimal)
      , delta )
-
-fwdEvalArtifact
-  :: AstArtifactFwd (HVectorPseudoTensor (AstRanked PrimalSpan)) r y
-  -> HVector (Flip OR.Array)
-  -> HVector (Flip OR.Array)
-  -> ( HVectorPseudoTensor (Flip OR.Array) r y
-     , HVectorPseudoTensor (Flip OR.Array) r y )
-{-# INLINE fwdEvalArtifact #-}
-fwdEvalArtifact ((varDs, vars), derivative, primal) parameters ds =
-  if hVectorsMatch parameters ds then
-    let env = foldr extendEnvD EM.empty $ zip vars $ V.toList parameters
-        envDs = foldr extendEnvD env $ zip varDs $ V.toList ds
-        derivativeTensor =
-          interpretAstHVector envDs $ unHVectorPseudoTensor derivative
-        primalTensor = interpretAstHVector env $ unHVectorPseudoTensor primal
-    in ( HVectorPseudoTensor derivativeTensor
-       , HVectorPseudoTensor primalTensor )
- else error "fwdEvalArtifact: forward derivative input and sensitivity arguments should have same shapes"
 
 fwdProduceArtifact
   :: (HVector (AstRanked FullSpan)

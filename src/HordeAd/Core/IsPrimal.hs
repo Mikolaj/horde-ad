@@ -119,7 +119,7 @@ instance (GoodScalar r, Sh.Shape sh, ShapedTensor shaped)
   dAdd ZeroS w = w
   dAdd v ZeroS = v
   dAdd v w = AddS v w
-  intOfShape _tsh c =  -- this is not needed for OS, but OR needs it
+  intOfShape _tsh c =  -- not needed for shaped, here, but ranked above need it
     sconst $ fromIntegral c
   sharePrimal = ssharePrimal
   shareDual d = case d of

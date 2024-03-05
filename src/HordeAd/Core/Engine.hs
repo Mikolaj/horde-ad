@@ -7,14 +7,13 @@
 module HordeAd.Core.Engine
   ( -- * Reverse derivative adaptors
     rev, revDt, revArtifactAdapt, revProduceArtifactWithoutInterpretation
+  , revEvalArtifact
     -- * Forward derivative adaptors
-  , fwd, fwdArtifactAdapt
+  , fwd, fwdArtifactAdapt, fwdEvalArtifact
     -- * Old gradient adaptors
   , crev, crevDt
     -- * Old derivative adaptors
   , cfwd
-    -- * Re-exported for tests
-  , interpretAst
   ) where
 
 import Prelude
@@ -29,6 +28,7 @@ import qualified Data.EnumMap.Strict as EM
 import           Data.Functor.Const
 import           Data.Int (Int64)
 import           Data.Maybe (isJust)
+import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat)
 import           Type.Reflection (Typeable)
 
@@ -175,6 +175,22 @@ forwardPassByApplication g hVectorPrimal _vars _hVector =
       varInputs = makeADInputs hVectorPrimal deltaInputs
   in g varInputs
 
+revEvalArtifact
+  :: AstArtifactRev (HVectorPseudoTensor (AstRanked PrimalSpan)) r y
+  -> HVector (Flip OR.Array)
+  -> Maybe (HVectorPseudoTensor (Flip OR.Array) r y)
+  -> (HVector (Flip OR.Array), HVectorPseudoTensor (Flip OR.Array) r y)
+{-# INLINE revEvalArtifact #-}
+revEvalArtifact ((varsDt, vars), gradient, primal) parameters mdt =
+  let env = foldr extendEnvD EM.empty $ zip vars $ V.toList parameters
+      domsB = voidFromVars varsDt
+      dt1 = mapHVectorShaped (const 1) $ V.map dynamicFromVoid domsB
+      dts = maybe dt1 unHVectorPseudoTensor mdt
+      envDt = extendEnvHVector varsDt dts env
+      gradientHVector = interpretAstHVector envDt gradient
+      primalTensor = interpretAstHVector env $ unHVectorPseudoTensor primal
+  in (gradientHVector, HVectorPseudoTensor primalTensor)
+
 
 -- * Forward derivative adaptors
 
@@ -224,6 +240,24 @@ fwdArtifactAdapt f vals =
       valsH = toHVectorOf @(Flip OR.Array) vals
       voidH = voidFromHVector valsH
   in fwdProduceArtifact g EM.empty voidH
+
+fwdEvalArtifact
+  :: AstArtifactFwd (HVectorPseudoTensor (AstRanked PrimalSpan)) r y
+  -> HVector (Flip OR.Array)
+  -> HVector (Flip OR.Array)
+  -> ( HVectorPseudoTensor (Flip OR.Array) r y
+     , HVectorPseudoTensor (Flip OR.Array) r y )
+{-# INLINE fwdEvalArtifact #-}
+fwdEvalArtifact ((varDs, vars), derivative, primal) parameters ds =
+  if hVectorsMatch parameters ds then
+    let env = foldr extendEnvD EM.empty $ zip vars $ V.toList parameters
+        envDs = foldr extendEnvD env $ zip varDs $ V.toList ds
+        derivativeTensor =
+          interpretAstHVector envDs $ unHVectorPseudoTensor derivative
+        primalTensor = interpretAstHVector env $ unHVectorPseudoTensor primal
+    in ( HVectorPseudoTensor derivativeTensor
+       , HVectorPseudoTensor primalTensor )
+ else error "fwdEvalArtifact: forward derivative input and sensitivity arguments should have same shapes"
 
 
 -- * Old gradient adaptors, with constant and fixed inputs and dt

@@ -9,6 +9,7 @@
 -- for ranked tensors and shaped tensors.
 module HordeAd.Core.TensorADVal
   ( aDValToHVector, hVectorADValToADVal, unADValHVector, unADValDynamicTensor
+  , crevOnADInputs, crevOnHVector, cfwdOnADInputs, cfwdOnHVector
   ) where
 
 import Prelude hiding (foldl')
@@ -48,6 +49,78 @@ import           HordeAd.Internal.OrthotopeOrphanInstances (sameShape)
 import           HordeAd.Util.ShapedList (singletonShaped)
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedIndex
+
+-- * Non-symbolic reverse and forward derivative computation
+
+crevOnADInputs
+  :: ADReady ranked
+  => Maybe (HVectorPseudoTensor ranked r y)
+  -> (HVector (ADVal ranked)
+      -> ADVal (HVectorPseudoTensor ranked) r y)
+  -> HVector (ADVal ranked)
+  -> (HVectorOf ranked, HVectorPseudoTensor ranked r y)
+-- The functions in which @revOnADInputs@ inlines are not inlined themselves
+-- in client code, so the bloat is limited.
+{-# INLINE crevOnADInputs #-}
+crevOnADInputs mdt f inputs =
+  let -- Evaluate completely after terms constructed, to free memory
+      -- before evaluation allocates new memory and new FFI is started.
+      !(D l v deltaTopLevel) = f inputs in
+  let rshapePrimal :: (GoodScalar r2, KnownNat n, ADReady g)
+                   => ADVal g r2 n -> ShapeInt n
+      rshapePrimal (D _ p _) = rshape p
+      parameters0 = V.map (voidFromDynamicF (shapeToList . rshapePrimal)) inputs
+      (!astBindings, !gradient) =
+        gradientFromDeltaH parameters0 v mdt deltaTopLevel
+  in (dunlet l astBindings (dmkHVector gradient), unletPseudo l [] v)
+
+crevOnHVector
+  :: ADReady ranked
+  => Maybe (HVectorPseudoTensor ranked r y)
+  -> (HVector (ADVal ranked)
+      -> ADVal (HVectorPseudoTensor ranked) r y)
+  -> HVector ranked
+  -> (HVectorOf ranked, HVectorPseudoTensor ranked r y)
+crevOnHVector mdt f parameters =
+  let deltaInputs = generateDeltaInputs parameters
+      inputs = makeADInputs parameters deltaInputs
+  in crevOnADInputs mdt f inputs
+
+cfwdOnADInputs
+  :: ADReady ranked
+  => HVector (ADVal ranked)
+  -> (HVector (ADVal ranked)
+      -> ADVal (HVectorPseudoTensor ranked) r y)
+  -> HVector ranked
+  -> ( HVectorPseudoTensor ranked r y
+     , HVectorPseudoTensor ranked r y )
+{-# INLINE cfwdOnADInputs #-}
+cfwdOnADInputs inputs f ds =
+  let !(D l v deltaTopLevel) = f inputs in
+  let (astBindings, derivative) =
+        derivativeFromDeltaH (V.length inputs) deltaTopLevel ds
+  in (unletPseudo l astBindings derivative, unletPseudo l [] v)
+
+cfwdOnHVector
+  :: ADReady ranked
+  => HVector ranked
+  -> (HVector (ADVal ranked)
+      -> ADVal (HVectorPseudoTensor ranked) r y)
+  -> HVector ranked
+  -> ( HVectorPseudoTensor ranked r y
+     , HVectorPseudoTensor ranked r y )
+cfwdOnHVector parameters f ds =
+  let deltaInputs = generateDeltaInputs parameters
+      inputs = makeADInputs parameters deltaInputs
+  in cfwdOnADInputs inputs f ds
+
+unletPseudo
+  :: ADReady ranked
+  => ADShare -> AstBindingsD ranked -> HVectorPseudoTensor ranked r y
+  -> HVectorPseudoTensor ranked r y
+unletPseudo l astBindings =
+  HVectorPseudoTensor . dunlet l astBindings . unHVectorPseudoTensor
+
 
 -- * Ranked tensor instances
 
