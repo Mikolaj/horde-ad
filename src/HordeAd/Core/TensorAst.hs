@@ -260,7 +260,7 @@ instance (GoodScalar r, KnownNat n, RankedTensor (AstRanked s), AstSpan s)
       (KnownNat n, AstSpan s)
       => AdaptableHVector (AstRanked s) (AstRanked s Double n) #-}
   toHVector = V.singleton . DynamicRanked
-  fromHVector _aInit params = fromHVectorR params
+  fromHVector _aInit = fromHVectorR
 
 instance DualNumberValue (AstRanked PrimalSpan r n) where
   type DValue (AstRanked PrimalSpan r n) = Flip OR.Array r n
@@ -402,7 +402,7 @@ astBuild1Vectorize k f = build1Vectorize k $ funToAstI f
 instance (GoodScalar r, Sh.Shape sh, ShapedTensor (AstShaped s), AstSpan s)
          => AdaptableHVector (AstRanked s) (AstShaped s r sh) where
   toHVector = V.singleton . DynamicShaped
-  fromHVector _aInit params = fromHVectorS params
+  fromHVector _aInit = fromHVectorS
 
 instance DualNumberValue (AstShaped PrimalSpan r sh) where
   type DValue (AstShaped PrimalSpan r sh) = Flip OS.Array r sh

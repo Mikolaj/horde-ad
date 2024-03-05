@@ -293,7 +293,7 @@ mnistTestCase2D reallyWriteFile miniBatchSize decay
                hFlush stderr
              let f = trainWithLoss
                  gamma = if decay
-                         then gamma0 * exp (- fromIntegral k * 1e-4)
+                         then gamma0 * exp ((- fromIntegral k) * 1e-4)
                          else gamma0
                  (!params0New, !v) =
                    sgdBatchForward (33 + k * 7) miniBatchSize gamma f chunk
@@ -424,7 +424,7 @@ mnistTestCase2F reallyWriteFile miniBatchSize decay
                hFlush stderr
              let f = trainWithLoss
                  gamma = if decay
-                         then gamma0 * exp (- fromIntegral k * 1e-4)
+                         then gamma0 * exp ((- fromIntegral k) * 1e-4)
                          else gamma0
                  (!params0New, !v) =
                    sgdBatchFastForward (33 + k * 7) miniBatchSize gamma f chunk

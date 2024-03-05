@@ -283,7 +283,7 @@ fooRrev (x, y, z) =
       shapes = V.fromList [zero, zero, zero]
       domsOf = rrev @g fHVector shapes
                     (V.fromList
-                     $ [ DynamicRanked $ rconst @g $ OR.scalar x
+                       [ DynamicRanked $ rconst @g $ OR.scalar x
                        , DynamicRanked $ rconst @g $ OR.scalar y
                        , DynamicRanked $ rconst @g $ OR.scalar z ])
   in ( rletHVectorIn domsOf (\v -> rfromD $ v V.! 0)
@@ -307,7 +307,7 @@ testFooRrevPP1 = do
   resetVarCounter
   let (a1, _, _) = fooRrev @(AstRanked FullSpan) @Double (1.1, 2.2, 3.3)
   printAstPretty IM.empty a1
-    @?= "let x13 = sin 2.2 ; x14 = 1.1 * x13 ; x15 = recip (3.3 * 3.3 + x14 * x14) ; x16 = sin 2.2 ; x17 = 1.1 * x16 ; x19 = 3.3 * 1.0 ; x20 = negate (3.3 * x15) * 1.0 in x13 * x20 + x16 * x19"
+    @?= "let x13 = sin 2.2 ; x14 = 1.1 * x13 ; x15 = recip (3.3 * 3.3 + x14 * x14) ; x16 = sin 2.2 ; x17 = 1.1 * x16 ; x19 = 3.3 * 1.0 ; x20 = (negate 3.3 * x15) * 1.0 in x13 * x20 + x16 * x19"
 
 -- Disabled, because different variable names with -O1.
 _testFooRrevPP2 :: Assertion
@@ -567,8 +567,7 @@ testSin0Fold7 :: Assertion
 testSin0Fold7 = do
   assertEqualUpToEpsilon' 1e-10
     (250 :: OR.Array 0 Double)
-    (rev' (\a0 -> rfold (\x _a -> rtr $ rreplicate 5
-                                  $ (rsum (rtr x)))
+    (rev' (\a0 -> rfold (\x _a -> rtr $ rreplicate 5 $ rsum (rtr x))
                         (rreplicate 2 (rreplicate 5 a0))
                         (rreplicate 2 a0)) 1.1)
 
@@ -679,8 +678,7 @@ testSin0Fold7S = do
     (250 :: OR.Array 0 Double)
     (rev' (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[2, 5]
                f a0 = sfold @_ @f @Double @Double @'[2, 5] @'[] @2
-                        (\x _a -> str $ sreplicate @_ @5
-                                  $ (ssum (str x)))
+                        (\x _a -> str $ sreplicate @_ @5 $ ssum (str x))
                         (sreplicate @_ @2 (sreplicate @_ @5 a0))
                         (sreplicate @_ @2 a0)
            in rfromS . f . sfromR) 1.1)
@@ -951,8 +949,7 @@ testSin0Scan7 :: Assertion
 testSin0Scan7 = do
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [1,1] [310] :: OR.Array 2 Double)
-    (rev' (\a0 -> rscan (\x _a -> rtr $ rreplicate 5
-                                  $ (rsum (rtr x)))
+    (rev' (\a0 -> rscan (\x _a -> rtr $ rreplicate 5 $ rsum (rtr x))
                         (rreplicate 2 (rreplicate 5 a0))
                         (rreplicate 2 a0)) (rreplicate0N [1,1] 1.1))
 
@@ -1202,7 +1199,7 @@ unitriangular2 k sh =
   rgather @_ @_ @_ @_ @1 (k :$ k :$ sh)
           (rfromList [ rreplicate0N sh 0
                      , rreplicate0N sh 1 ])
-          (\(i :. j :. ZI) -> (ifF (i <. j) 0 1) :. ZI)
+          (\(i :. j :. ZI) -> ifF (i <. j) 0 1 :. ZI)
 
 testUnitriangular2PP :: Assertion
 testUnitriangular2PP = do
@@ -1464,7 +1461,7 @@ testSin0rmapAccumRD00SCacc0 = do
                            in g)
                           (dmkHVector $ V.fromList [])
                           (dmkHVector $ V.singleton $ DynamicShaped @Double @'[0] 0))
-                       $ \ _ -> 3
+                       $ \_ -> 3
            in f) 1.1)
 
 testSin0rmapAccumRD00SCacc :: Assertion
@@ -1485,7 +1482,7 @@ testSin0rmapAccumRD00SCacc = do
                           (dmkHVector $ V.fromList [])
                           (dmkHVector $ V.singleton $ DynamicShaped @Double @'[7]
                            $ sreplicate @_ @7 x0))
-                       $ \ _ -> 3
+                       $ \_ -> 3
            in f) 1.1)
 
 testSin0rmapAccumRD00Sacc0 :: Assertion
@@ -1506,7 +1503,7 @@ testSin0rmapAccumRD00Sacc0 = do
                            in g)
                           (dmkHVector $ V.fromList [])
                           (dmkHVector $ V.singleton $ DynamicShaped @Double @'[0] 0))
-                       $ \ _ -> 3
+                       $ \_ -> 3
            in f) 1.1)
 
 testSin0rmapAccumRD00Sacc :: Assertion
@@ -1528,7 +1525,7 @@ testSin0rmapAccumRD00Sacc = do
                           (dmkHVector $ V.fromList [])
                           (dmkHVector $ V.singleton $ DynamicShaped @Double @'[7]
                            $ sreplicate @_ @7 x0))
-                       $ \ _ -> 3
+                       $ \_ -> 3
            in f) 1.1)
 
 testSin0rmapAccumRD00SCall0 :: Assertion
@@ -2928,8 +2925,7 @@ testSin0ScanD7 :: Assertion
 testSin0ScanD7 = do
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [1,1] [310] :: OR.Array 2 Double)
-    (rev' (\a0 -> rscanZip (\x _a -> rtr $ rreplicate 5
-                                   $ (rsum (rtr x)))
+    (rev' (\a0 -> rscanZip (\x _a -> rtr $ rreplicate 5 $ rsum (rtr x))
                          (V.fromList [voidFromSh @Double (1 :$ 1 :$ ZS)])
                          (rreplicate 2 (rreplicate 5 a0))
                          (V.singleton $ DynamicRanked
@@ -2979,8 +2975,8 @@ testSin0ScanD8MapAccum = do
                            , DynamicRanked x ]
                     in g)
                       (dmkHVector $ V.singleton $ DynamicRanked
-                       $ (rreplicate 2 (rreplicate 5
-                                       (rreplicate0N [1,1,1] 2 * a0))))
+                       $ rreplicate 2 (rreplicate 5
+                                      (rreplicate0N [1,1,1] 2 * a0)))
                       (dmkHVector $ V.singleton $ DynamicRanked $ rreplicate 4 a0))
        (rreplicate0N [1,1,1] 1.1))
 
@@ -3988,7 +3984,7 @@ testSin0FoldNestedS5rev = do
                               a (sreplicate @_ @1 x))
                             a0 (sreplicate @_ @1 a0)
   assertEqualUpToEpsilon 1e-10
-    (0.22000000000000003)
+    0.22000000000000003
     (srev1 @(Flip OS.Array) @Double @'[] @'[] f 1.1)
 
 testSin0FoldNestedS5fwd :: Assertion
@@ -4007,7 +4003,7 @@ testSin0FoldNestedS5fwd = do
                               a (sreplicate @_ @1 x))
                             a0 (sreplicate @_ @1 a0)
   assertEqualUpToEpsilon 1e-10
-    (0.24200000000000005)
+    0.24200000000000005
     (sfwd1 @(Flip OS.Array) @Double @'[] @'[] f 1.1)
 
 testSin0FoldNestedSi :: Assertion
@@ -4297,7 +4293,7 @@ testSin0revhV4 = do
       f :: forall g. (HVectorTensor g (ShapedOf g), RankedTensor g)
         => HVector g -> HVectorOf g
       f x =
-        rrevDt @g @_ @Double @1 (\v -> rscanZip const doms 5 v)
+        rrevDt @g @_ @Double @1 (rscanZip const doms 5)
                doms3 x (rfromList [1, 2, 3, 4])
       h :: forall g. ADReady g
         => HVector (ADVal g)
@@ -4315,7 +4311,7 @@ testSin0revhV5 = do
       f :: forall g. (HVectorTensor g (ShapedOf g), ShapedTensor (ShapedOf g))
         => HVector g -> HVectorOf g
       f x =
-        srevDt @g @_ @Double @'[4] (\v -> sscanZip const doms 5 v)
+        srevDt @g @_ @Double @'[4] (sscanZip const doms 5)
                doms3 x (sfromList [1, 2, 3, 4])
       h :: forall g. ADReady g
         => HVector (ADVal g)

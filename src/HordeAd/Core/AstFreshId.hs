@@ -15,7 +15,7 @@ module HordeAd.Core.AstFreshId
 
 import Prelude
 
-import           Control.Monad (replicateM)
+import           Control.Monad (mapAndUnzipM, replicateM)
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.Shape as Sh
 import           Data.IORef.Unboxed
@@ -146,7 +146,7 @@ fun1LToAstIO :: [VoidHVector]
              -> IO a
 {-# INLINE fun1LToAstIO #-}
 fun1LToAstIO shss f = do
-  (!vars, !asts) <- unzip <$> mapM (fmap V.unzip . V.mapM dynamicToVar) shss
+  (!vars, !asts) <- mapAndUnzipM (fmap V.unzip . V.mapM dynamicToVar) shss
   return $! f (map V.toList vars) asts
 
 fun1LToAst :: [VoidHVector]
@@ -345,7 +345,7 @@ funToAstIndex
   => (AstIndex m -> AstIndex p) -> (AstVarList m, AstIndex p)
 {-# NOINLINE funToAstIndex #-}
 funToAstIndex f = unsafePerformIO . funToVarsIxIO (valueOf @m)
-                  $ \ !(!vars, !ix) -> let !x = f ix in (vars, x)
+                  $ \ (!vars, !ix) -> let !x = f ix in (vars, x)
 
 funToVarsIxIOS
   :: forall sh a. Sh.Shape sh
@@ -369,4 +369,4 @@ funToAstIndexS
   => (AstIndexS sh -> AstIndexS sh2) -> (AstVarListS sh, AstIndexS sh2)
 {-# NOINLINE funToAstIndexS #-}
 funToAstIndexS f = unsafePerformIO $ funToVarsIxIOS
-                   $ \ !(!vars, !ix) -> let !x = f ix in (vars, x)
+                   $ \ (!vars, !ix) -> let !x = f ix in (vars, x)

@@ -608,11 +608,11 @@ printHVectorAst :: forall s. AstSpan s
 printHVectorAst cfg l =
   if loseRoudtrip cfg
   then
-    showListWith (\e -> printAstUnDynamic cfg 0 e) (V.toList l)
+    showListWith (printAstUnDynamic cfg 0) (V.toList l)
   else
     showParen True
       $ showString "fromList "
-        . showListWith (\e -> printAstDynamic cfg 0 e) (V.toList l)
+        . showListWith (printAstDynamic cfg 0) (V.toList l)
 
 printAstHVector :: forall s. AstSpan s
                 => PrintConfig -> Int -> AstHVector s -> ShowS

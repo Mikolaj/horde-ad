@@ -776,7 +776,7 @@ class HVectorTensor (ranked :: RankedTensorType)
                  -- as its corresponding hVector above, except for the extra
                  -- outermost dimension k
   dzipWith1 k f u =
-    dbuild1 @ranked k (\i -> f (index1HVectorF rshape sshape rindex sindex u i))
+    dbuild1 @ranked k (f . index1HVectorF rshape sshape rindex sindex u)
   -- The second argument is only used to determine tensor shapes
   -- and the third has to have the same shapes as the second.
   --
@@ -803,7 +803,7 @@ class HVectorTensor (ranked :: RankedTensorType)
          -> HVectorOf ranked
   rrevDt f shs =
     let g :: forall f. ADReady f => [HVector f] -> HVectorOf f
-        g ![!x] = dmkHVector $ V.singleton $ DynamicRanked $ f x
+        g [!x] = dmkHVector $ V.singleton $ DynamicRanked $ f x
         g _ = error "g: wrong number of arguments"
         h = drevDt @ranked shs (HFun g)
     in \es dt -> dHApply h [V.singleton $ DynamicRanked dt, es]
@@ -815,7 +815,7 @@ class HVectorTensor (ranked :: RankedTensorType)
        -> ranked r n
   rfwd f shs =
     let g :: forall f. ADReady f => [HVector f] -> HVectorOf f
-        g ![!x] = dmkHVector $ V.singleton $ DynamicRanked $ f x
+        g [!x] = dmkHVector $ V.singleton $ DynamicRanked $ f x
         g _ = error "g: wrong number of arguments"
         h = dfwd @ranked shs (HFun g)
     in \es ds -> let hv = dHApply h [ds, es]
@@ -835,7 +835,7 @@ class HVectorTensor (ranked :: RankedTensorType)
          -> HVectorOf ranked
   srevDt f shs =
     let g :: forall f. ADReady f => [HVector f] -> HVectorOf f
-        g ![!x] = dmkHVector $ V.singleton $ DynamicShaped $ f x
+        g [!x] = dmkHVector $ V.singleton $ DynamicShaped $ f x
         g _ = error "g: wrong number of arguments"
         h = drevDt @ranked shs (HFun g)
     in \es dt -> dHApply h [V.singleton $ DynamicShaped dt, es]
@@ -848,7 +848,7 @@ class HVectorTensor (ranked :: RankedTensorType)
        -> shaped r sh
   sfwd f shs =
     let g :: forall f. ADReady f => [HVector f] -> HVectorOf f
-        g ![!x] = dmkHVector $ V.singleton $ DynamicShaped $ f x
+        g [!x] = dmkHVector $ V.singleton $ DynamicShaped $ f x
         g _ = error "g: wrong number of arguments"
         h = dfwd @ranked shs (HFun g)
     in \es ds -> let hv = dHApply h [ds, es]
@@ -895,7 +895,7 @@ class HVectorTensor (ranked :: RankedTensorType)
                 g !acc !e =
                   rletInHVector
                     (f (rfromD $ acc V.! 0) (rfromD $ e V.! 0))
-                    (\res -> dmkHVector $ V.singleton $ DynamicRanked res)
+                    (dmkHVector . V.singleton . DynamicRanked)
             in g)
            (dmkHVector $ V.singleton $ DynamicRanked acc0)
            (dmkHVector $ V.singleton $ DynamicRanked es))
@@ -956,7 +956,7 @@ class HVectorTensor (ranked :: RankedTensorType)
               g !acc !e =
                 sletInHVector
                   (f (sfromD $ acc V.! 0) (sfromD $ e V.! 0))
-                  (\res -> dmkHVector $ V.singleton $ DynamicShaped res)
+                  (dmkHVector . V.singleton . DynamicShaped)
           in g)
          (dmkHVector $ V.singleton $ DynamicShaped acc0)
          (dmkHVector $ V.singleton $ DynamicShaped es))
@@ -1010,11 +1010,11 @@ class HVectorTensor (ranked :: RankedTensorType)
   dmapAccumR proxy !k !accShs !bShs !eShs f acc0 es =
     let shs = accShs V.++ eShs
         fl :: forall f. ADReady f => [HVector f] -> HVectorOf f
-        fl ![!acc, !e] = f acc e
+        fl [!acc, !e] = f acc e
         fl _ = error "fl: wrong number of arguments"
         accLen = V.length accShs
         fs :: forall f. ADReady f => [HVector f] -> HVectorOf f
-        fs ![!acc_e] = uncurry f (V.splitAt accLen acc_e)
+        fs [!acc_e] = uncurry f (V.splitAt accLen acc_e)
         fs _ = error "fs: wrong number of arguments"
     in dmapAccumRDer proxy k accShs bShs eShs
                      (dlambda @ranked [accShs, eShs] $ HFun fl)
@@ -1064,11 +1064,11 @@ class HVectorTensor (ranked :: RankedTensorType)
   dmapAccumL proxy !k !accShs !bShs !eShs f acc0 es =
     let shs = accShs V.++ eShs
         fl :: forall f. ADReady f => [HVector f] -> HVectorOf f
-        fl ![!acc, !e] = f acc e
+        fl [!acc, !e] = f acc e
         fl _ = error "fl: wrong number of arguments"
         accLen = V.length accShs
         fs :: forall f. ADReady f => [HVector f] -> HVectorOf f
-        fs ![!acc_e] = uncurry f (V.splitAt accLen acc_e)
+        fs [!acc_e] = uncurry f (V.splitAt accLen acc_e)
         fs _ = error "fs: wrong number of arguments"
     in dmapAccumLDer proxy k accShs bShs eShs
                      (dlambda @ranked [accShs, eShs] $ HFun fl)

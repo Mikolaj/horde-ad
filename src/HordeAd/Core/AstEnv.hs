@@ -62,7 +62,7 @@ extendEnvR :: forall ranked r n s.
               (KnownNat n, GoodScalar r)
            => AstVarName (AstRanked s) r n -> ranked r n
            -> AstEnv ranked -> AstEnv ranked
-extendEnvR !(AstVarName varId) !t !env =
+extendEnvR (AstVarName varId) !t !env =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvR: duplicate " ++ show varId)
                    varId (AstEnvElemRanked t) env
 
@@ -70,7 +70,7 @@ extendEnvS :: forall ranked r sh s.
               (Sh.Shape sh, GoodScalar r)
            => AstVarName (AstShaped s) r sh -> ShapedOf ranked r sh
            -> AstEnv ranked -> AstEnv ranked
-extendEnvS !(AstVarName varId) !t !env =
+extendEnvS (AstVarName varId) !t !env =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvS: duplicate " ++ show varId)
                    varId (AstEnvElemShaped t) env
 

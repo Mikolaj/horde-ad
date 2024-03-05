@@ -67,7 +67,7 @@ instance (KnownNat n, GoodScalar r, ADReady ranked)
                           (ADVal (AstRanked PrimalSpan) Double n) #-}
 -}
   toHVector = V.singleton . DynamicRanked
-  fromHVector _aInit params = fromHVectorR params
+  fromHVector _aInit = fromHVectorR
 
 instance (KnownNat n, GoodScalar r, ADReady ranked)
          => DualNumberValue (ADVal ranked r n) where
@@ -240,7 +240,7 @@ instance ( ADReadyS shaped, Sh.Shape sh, GoodScalar r
          => AdaptableHVector (ADVal ranked)
                              (ADVal shaped r sh) where
   toHVector = V.singleton . DynamicShaped
-  fromHVector _aInit params = fromHVectorS params
+  fromHVector _aInit = fromHVectorS
 
 instance (ADReadyS shaped, Sh.Shape sh, GoodScalar r)
          => DualNumberValue (ADVal shaped r sh) where
@@ -385,7 +385,7 @@ instance ADReadyBoth ranked shaped
   dshape = voidFromHVector
   dmkHVector = id
   dlambda _ = id
-  dHApply (HFun f) ll = f ll
+  dHApply (HFun f) = f
   dunHVector = id
   dletHVectorInHVector asD f = f asD
 {- TODO: See similar code above.
@@ -438,7 +438,7 @@ instance ADReadyBoth ranked shaped
                                (HVectorPseudoTensor $ dmkHVector as)
                                (HVectorPseudoTensor $ HToH as')
         rf :: forall f. ADReady f => [HVector f] -> HVectorOf f
-        rf ![!db, !a] =
+        rf [!db, !a] =
           -- This computes the derivative of g again for each new db and a.
           fst $ crevOnHVector (Just $ HVectorPseudoTensor $ dmkHVector db) g a
         rf _ = error "rf: wrong number of arguments"
@@ -455,7 +455,7 @@ instance ADReadyBoth ranked shaped
                                (HVectorPseudoTensor $ dmkHVector as)
                                (HVectorPseudoTensor $ HToH as')
         df :: forall f. ADReady f => [HVector f] -> HVectorOf f
-        df ![!da, !a] = unHVectorPseudoTensor $ fst $ cfwdOnHVector a g da
+        df [!da, !a] = unHVectorPseudoTensor $ fst $ cfwdOnHVector a g da
           -- This computes the derivative of g again for each new da and a.
         df _ = error "df: wrong number of arguments"
     in HFun df
@@ -484,19 +484,19 @@ instance ADReadyBoth ranked shaped
         hvToPair :: forall f. HVector f -> (HVector f, HVector f)
         hvToPair = V.splitAt accLen
         g :: forall f. ADReady f => [HVector f] -> HVectorOf f
-        g ![!acc, !e] =
+        g [!acc, !e] =
           dletHVectorInHVector (unHFun f [acc, e]) $ \res ->
             let (accRes, bRes) = hvToPair res
             in dmkHVector $ V.concat [accRes, acc, bRes]
         g _ = error "g: wrong number of arguments"
         dg :: forall f. ADReady f => [HVector f] -> HVectorOf f
-        dg ![!dacc_de, !acc_e] =
+        dg [!dacc_de, !acc_e] =
           dletHVectorInHVector (unHFun df [dacc_de, acc_e]) $ \res ->
             let (accRes, bRes) = hvToPair res
             in dmkHVector $ V.concat [accRes, V.take accLen dacc_de, bRes]
         dg _ = error "dg: wrong number of arguments"
         rg :: forall f. ADReady f => [HVector f] -> HVectorOf f
-        rg ![!dx_db, !acc_e] =
+        rg [!dx_db, !acc_e] =
           let (dx, db) = hvToPair dx_db
               (dbacc, dbRes) = hvToPair db
           in dletHVectorInHVector (unHFun rf [dx V.++ dbRes, acc_e]) $ \res ->
@@ -554,19 +554,19 @@ instance ADReadyBoth ranked shaped
         hvToPair :: forall f. HVector f -> (HVector f, HVector f)
         hvToPair = V.splitAt accLen
         g :: forall f. ADReady f => [HVector f] -> HVectorOf f
-        g ![!acc, !e] =
+        g [!acc, !e] =
           dletHVectorInHVector (unHFun f [acc, e]) $ \res ->
             let (accRes, bRes) = hvToPair res
             in dmkHVector $ V.concat [accRes, acc, bRes]
         g _ = error "g: wrong number of arguments"
         dg :: forall f. ADReady f => [HVector f] -> HVectorOf f
-        dg ![!dacc_de, !acc_e] =
+        dg [!dacc_de, !acc_e] =
           dletHVectorInHVector (unHFun df [dacc_de, acc_e]) $ \res ->
             let (accRes, bRes) = hvToPair res
             in dmkHVector $ V.concat [accRes, V.take accLen dacc_de, bRes]
         dg _ = error "dg: wrong number of arguments"
         rg :: forall f. ADReady f => [HVector f] -> HVectorOf f
-        rg ![!dx_db, !acc_e] =
+        rg [!dx_db, !acc_e] =
           let (dx, db) = hvToPair dx_db
               (dbacc, dbRes) = hvToPair db
           in dletHVectorInHVector (unHFun rf [dx V.++ dbRes, acc_e]) $ \res ->
@@ -649,8 +649,8 @@ unADValDynamicTensor (DynamicShapedDummy p1 p2) =
 instance HVectorTensor (Flip OR.Array) (Flip OS.Array) where
   dshape = voidFromHVector
   dmkHVector = id
-  dlambda _ f = unHFun f
-  dHApply f ll = f ll
+  dlambda _ f = unHFun f  -- the eta-expansion is needed for typing
+  dHApply f = f
   dunHVector = id
   dletHVectorInHVector = (&)
   dletHFunInHVector = (&)
@@ -690,7 +690,7 @@ instance HVectorTensor (Flip OR.Array) (Flip OS.Array) where
                                (HVectorPseudoTensor $ dmkHVector as)
                                (HVectorPseudoTensor $ HToH as')
         rf :: [HVector (Flip OR.Array)] -> HVectorOf (Flip OR.Array)
-        rf ![!db, !a] =
+        rf [!db, !a] =
           fst $ crevOnHVector (Just $ HVectorPseudoTensor $ dmkHVector db) g a
         rf _ = error "rf: wrong number of arguments"
     in rf
@@ -706,7 +706,7 @@ instance HVectorTensor (Flip OR.Array) (Flip OS.Array) where
                                (HVectorPseudoTensor $ dmkHVector as)
                                (HVectorPseudoTensor $ HToH as')
         df :: [HVector (Flip OR.Array)] -> HVectorOf (Flip OR.Array)
-        df ![!da, !a] = unHVectorPseudoTensor $ fst $ cfwdOnHVector a g da
+        df [!da, !a] = unHVectorPseudoTensor $ fst $ cfwdOnHVector a g da
         df _ = error "df: wrong number of arguments"
     in df
   rfold f x0 as = foldl' f x0 (runravelToList as)
@@ -767,7 +767,7 @@ instance (GoodScalar r, KnownNat n)
       KnownNat n
       => AdaptableHVector (Flip OR.Array) (Flip OR.Array Double n) #-}
   toHVector = V.singleton . DynamicRanked
-  fromHVector _aInit params = fromHVectorR params
+  fromHVector _aInit = fromHVectorR
 
 instance ForgetShape (Flip OR.Array r n) where
   type NoShape (Flip OR.Array r n) = Flip OR.Array r n
@@ -776,7 +776,7 @@ instance ForgetShape (Flip OR.Array r n) where
 instance (GoodScalar r, Sh.Shape sh)
          => AdaptableHVector (Flip OR.Array) (Flip OS.Array r sh) where
   toHVector = V.singleton . DynamicShaped
-  fromHVector _aInit params = fromHVectorS params
+  fromHVector _aInit = fromHVectorS
 
 instance Sh.Shape sh
          => ForgetShape (Flip OS.Array r sh) where

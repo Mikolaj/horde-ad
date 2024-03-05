@@ -118,7 +118,7 @@ build1VOccurenceUnknownRefresh
   => Int -> (IntVarName, AstRanked s r n) -> AstRanked s r (1 + n)
 {-# NOINLINE build1VOccurenceUnknownRefresh #-}
 build1VOccurenceUnknownRefresh k (var, v0) =
-  funToAstIntVar $ \ !(!varFresh, !astVarFresh) ->
+  funToAstIntVar $ \ (!varFresh, !astVarFresh) ->
     let !v2 = substituteAst  -- cheap subst, because only a renaming
                 (SubstitutionPayloadRanked @PrimalSpan @Int64 astVarFresh)
                 var v0
@@ -128,7 +128,7 @@ intBindingRefresh
   :: IntVarName -> AstIndex n -> (IntVarName, AstInt, AstIndex n)
 {-# NOINLINE intBindingRefresh #-}
 intBindingRefresh var ix =
-  funToAstIntVar $ \ !(!varFresh, !astVarFresh) ->
+  funToAstIntVar $ \ (!varFresh, !astVarFresh) ->
     let !ix2 = substituteAstIndex  -- cheap subst, because only a renaming
                  (SubstitutionPayloadRanked @PrimalSpan @Int64 astVarFresh)
                  var ix
@@ -388,7 +388,7 @@ build1VOccurenceUnknownRefreshS
   => (IntVarName, AstShaped s r sh) -> AstShaped s r (k ': sh)
 {-# NOINLINE build1VOccurenceUnknownRefreshS #-}
 build1VOccurenceUnknownRefreshS (var, v0) =
-  funToAstIntVar $ \ !(!varFresh, !astVarFresh) ->
+  funToAstIntVar $ \ (!varFresh, !astVarFresh) ->
     let !v2 = substituteAstS  -- cheap subst, because only a renaming
                 (SubstitutionPayloadRanked @PrimalSpan @Int64 astVarFresh)
                 var v0
@@ -398,7 +398,7 @@ intBindingRefreshS
   :: IntVarName -> AstIndexS sh -> (IntVarName, AstInt, AstIndexS sh)
 {-# NOINLINE intBindingRefreshS #-}
 intBindingRefreshS var ix =
-  funToAstIntVar $ \ !(!varFresh, !astVarFresh) ->
+  funToAstIntVar $ \ (!varFresh, !astVarFresh) ->
     let !ix2 = substituteAstIndexS  -- cheap subst, because only a renaming
                  (SubstitutionPayloadRanked @PrimalSpan @Int64 astVarFresh)
                  var ix
@@ -741,7 +741,7 @@ build1VOccurenceUnknownHVectorRefresh
   => SNat k -> (IntVarName, AstHVector s) -> AstHVector s
 {-# NOINLINE build1VOccurenceUnknownHVectorRefresh #-}
 build1VOccurenceUnknownHVectorRefresh k (var, v0) =
-  funToAstIntVar $ \ !(!varFresh, !astVarFresh) ->
+  funToAstIntVar $ \ (!varFresh, !astVarFresh) ->
     let !v2 = substituteAstHVector  -- cheap subst, because only a renaming
                 (SubstitutionPayloadRanked @PrimalSpan @Int64 astVarFresh)
                 var v0

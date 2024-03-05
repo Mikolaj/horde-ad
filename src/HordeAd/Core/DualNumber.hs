@@ -402,7 +402,7 @@ instance (Fractional (f r z), IsPrimal f r z)
     let !(!l3, u) = sharePrimal ue $ l1 `mergeADShare` l2 in
     let !(!l4, v) = sharePrimal ve l3
     in dD l4 (u / v)
-             (dAdd (dScale (recip v) u') (dScale (- u / (v * v)) v'))
+             (dAdd (dScale (recip v) u') (dScale ((- u) / (v * v)) v'))
   recip (D l ve v') =
     let !(!l2, v) = sharePrimal ve l
         minusRecipSq = - recip (v * v)
@@ -496,7 +496,7 @@ instance (RealFloat (f r z), IsPrimal f r z)
     let !(!l3, u) = sharePrimal ue $ l1 `mergeADShare` l2 in
     let !(!l4, v) = sharePrimal ve l3 in
     let !(!l5, t) = sharePrimal (recip (u * u + v * v)) l4
-    in dD l5 (atan2 u v) (dAdd (dScale (- u * t) v') (dScale (v * t) u'))
+    in dD l5 (atan2 u v) (dAdd (dScale ((- u) * t) v') (dScale (v * t) u'))
   -- Note that for term types @a@ this is invalid without an extra let
   -- containing the first field of @D@. However, for terms this is
   -- unimplemented anyway.

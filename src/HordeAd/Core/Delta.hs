@@ -91,7 +91,7 @@ gradientFromDeltaH
   -> HVectorPseudoTensor (DeltaR ranked) r y
   -> (AstBindingsD ranked, HVector ranked)
 gradientFromDeltaH !parameters0 (HVectorPseudoTensor value)
-                   !mdt !(HVectorPseudoTensor deltaTopLevel) =
+                   !mdt (HVectorPseudoTensor deltaTopLevel) =
   let shDt = dshape value
       dt :: HVectorOf ranked
       dt = maybe (dmkHVector $ mapHVectorShaped (const 1)
@@ -500,7 +500,7 @@ shapeDeltaH :: forall ranked.
 shapeDeltaH = \case
   LetH _ d -> shapeDeltaH d
   HToH v ->
-    V.map (\d -> voidFromDynamicF (shapeToList . shapeDeltaR) d) v
+    V.map (voidFromDynamicF (shapeToList . shapeDeltaR)) v
   MapAccumR k accShs bShs _eShs _q _es _df _rf _acc0' _es' ->
     accShs V.++ replicate1VoidHVector k bShs
   MapAccumL k accShs bShs _eShs _q _es _df _rf _acc0' _es' ->

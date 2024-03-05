@@ -165,7 +165,7 @@ instance AdaptableHVector ranked a
 instance HVectorTensor ranked (ShapedOf ranked)
          => AdaptableHVector ranked (DynamicTensor ranked) where
   toHVector = V.singleton
-  fromHVector _aInit params = V.uncons params
+  fromHVector _aInit = V.uncons
 
 instance ( AdaptableHVector ranked a
          , AdaptableHVector ranked b ) => AdaptableHVector ranked (a, b) where

@@ -227,7 +227,7 @@ voidFromDynamicF _ (DynamicRankedDummy p1 p2) = DynamicRankedDummy p1 p2
 voidFromDynamicF _ (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
 
 replicate1VoidHVector :: SNat k -> VoidHVector -> VoidHVector
-replicate1VoidHVector k u = V.map (replicate1VoidTensor k) u
+replicate1VoidHVector k = V.map (replicate1VoidTensor k)
 
 replicate1VoidTensor :: SNat k -> DynamicTensor VoidTensor
                      -> DynamicTensor VoidTensor

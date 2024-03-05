@@ -114,7 +114,7 @@ astTransposeAsGather perm v =
   let pInt = length perm
   in case someNatVal $ toInteger pInt of
     Just (SomeNat @p _) -> do
-      funToVarsIx pInt $ \ !(!vars, !ix) ->
+      funToVarsIx pInt $ \ (!vars, !ix) ->
         let asts :: AstIndex p
             asts = permutePrefixIndex perm ix
         in case cmpNat (Proxy @p) (Proxy @n) of
@@ -143,7 +143,7 @@ astTransposeAsGatherS v =
                                            (Sh.shapeT @shp)) $ \(Proxy @sh2) ->
         gcastWith (unsafeCoerce Refl
                    :: Sh.Permute perm (Sh.Take p sh) :~: sh2) $
-        funToVarsIxS @sh2 $ \ !(!vars, !ix) ->
+        funToVarsIxS @sh2 $ \ (!vars, !ix) ->
           let asts :: AstIndexS (Sh.Take p sh)
               asts = ShapedList.permutePrefixSized (Sh.shapeT @perm) ix
           in gcastWith (unsafeCoerce Refl
@@ -180,7 +180,7 @@ astReshapeAsGather
   => ShapeInt m -> AstRanked s r p -> AstRanked s r m
 {-# NOINLINE astReshapeAsGather #-}
 astReshapeAsGather shOut v =
-  funToVarsIx (lengthShape shOut) $ \ !(!vars, !ix) ->
+  funToVarsIx (lengthShape shOut) $ \ (!vars, !ix) ->
     let shIn = shapeAst v
         asts :: AstIndex p
         asts = let i = toLinearIdx @m @0 shOut ix
@@ -194,7 +194,7 @@ astReshapeAsGatherS
 {-# NOINLINE astReshapeAsGatherS #-}
 astReshapeAsGatherS v =
   gcastWith (unsafeCoerce Refl :: sh2 Sh.++ '[] :~: sh2) $
-  funToVarsIxS @sh2 $ \ !(!vars, !ix) ->
+  funToVarsIxS @sh2 $ \ (!vars, !ix) ->
     let shIn = ShapedList.shapeSh @sh
         shOut = ShapedList.shapeSh @sh2
         asts :: AstIndexS sh
@@ -785,7 +785,7 @@ shareIx ix f = unsafePerformIO $ do
              -> IO ( Maybe (IntVarName, AstRanked PrimalSpan Int64 0)
                    , AstRanked PrimalSpan Int64 0 )
       shareI i | astIsSmall True i = return (Nothing, i)
-      shareI i = funToAstIntVarIO $ \ !(!varFresh, !astVarFresh) ->
+      shareI i = funToAstIntVarIO $ \ (!varFresh, !astVarFresh) ->
                    (Just (varFresh, i), astVarFresh)
   (bindings, ix2) <- mapAndUnzipM shareI (indexToList ix)
   return $! foldr (uncurry Ast.AstLet) (f $ listToIndex ix2)
@@ -977,7 +977,7 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
     Ast.AstFromList l ->
       -- Term rest4 is duplicated without sharing and we can't help it,
       -- because it needs to be in scope of vars4, so we can't use rlet.
-      funToVarsIx (valueOf @m') $ \ !(!varsFresh, !ixFresh) ->
+      funToVarsIx (valueOf @m') $ \ (!varsFresh, !ixFresh) ->
         let f v = astGatherRec sh4 v (vars4, rest4)
             -- This subst doesn't currently break sharing because it's a rename.
             subst i =
@@ -999,7 +999,7 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
     Ast.AstFromVector l ->
       -- Term rest4 is duplicated without sharing and we can't help it,
       -- because it needs to be in scope of vars4, so we can't use rlet.
-      funToVarsIx (valueOf @m') $ \ !(!varsFresh, !ixFresh) ->
+      funToVarsIx (valueOf @m') $ \ (!varsFresh, !ixFresh) ->
         let f v = astGatherRec sh4 v (vars4, rest4)
             -- This subst doesn't currently break sharing because it's a rename.
             subst i =
@@ -1114,7 +1114,7 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
       -- because it needs to be in scope of vars4, so we can't use rlet.
       -- Also, the sharing would be dissolved by the substitution, anyway,
       -- and the same subsitution would be unsound with sharing.
-      funToVarsIx (valueOf @m') $ \ !(!varsFresh, !ixFresh) ->
+      funToVarsIx (valueOf @m') $ \ (!varsFresh, !ixFresh) ->
         -- This subst doesn't currently break sharing, because it's a rename.
         let subst i =
               foldr (uncurry substituteAst) i
@@ -2746,7 +2746,7 @@ simplifyAstNumOp TimesOp (u, AstN2 PlusOp (v, w)) =
 simplifyAstNumOp2 TimesOp (AstSumOfList l) w@AstConst{} =
   foldr1 simplifyAstPlusOp (map (\u -> simplifyAstNumOp2 TimesOp u w) l)
 simplifyAstNumOp2 TimesOp u@AstConst{} (AstSumOfList l) =
-  foldr1 simplifyAstPlusOp (map (\w -> simplifyAstNumOp2 TimesOp u w) l)
+  foldr1 simplifyAstPlusOp (map (simplifyAstNumOp2 TimesOp u) l)
 -- TODO: perhaps aim for a polynomial normal form? but that requires global
 -- inspection of the whole expression
 simplifyAstNumOp2 TimesOp (AstConst u) (AstN2 TimesOp (AstConst v) w) =
