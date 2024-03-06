@@ -172,9 +172,6 @@ chunksOf n = go where
   -> HVector (Flip OR.Array)
   -> (HVector (Flip OR.Array), Flip OR.Array Double y) #-}
 
-{- TODO: I don't know how to work around
-     https://gitlab.haskell.org/ghc/ghc/-/issues/23798
-   in this case:
 {-# SPECIALIZE sgdAdam
   :: KnownNat y
   => (MnistDataBatchR Double -> HVector (ADVal (Flip OR.Array))
@@ -183,4 +180,3 @@ chunksOf n = go where
   -> HVector (Flip OR.Array)
   -> StateAdam
   -> (HVector (Flip OR.Array), StateAdam) #-}
--}

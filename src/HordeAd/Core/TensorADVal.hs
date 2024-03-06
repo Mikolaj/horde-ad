@@ -126,12 +126,11 @@ instance (KnownNat n, GoodScalar r, ADReady ranked)
 {- TODO: RULE left-hand side too complicated to desugar in GHC 9.6.4
     with -O0, but not -O1
   {-# SPECIALIZE instance
-      KnownNat n
+      (KnownNat n, ADReady (Flip OR.Array))
       => AdaptableHVector (ADVal (Flip OR.Array))
-                          (ADVal (Flip OR.Array) Double n) #-} -}
-{- TODO: this causes a cyclic dependency:
+                          (ADVal (Flip OR.Array) Double n) #-}
   {-# SPECIALIZE instance
-      KnownNat n
+      (KnownNat n, ADReady (AstRanked PrimalSpan))
       => AdaptableHVector (ADVal (AstRanked PrimalSpan))
                           (ADVal (AstRanked PrimalSpan) Double n) #-}
 -}
