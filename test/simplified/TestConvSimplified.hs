@@ -441,7 +441,7 @@ costVolume iStart nCount arrL arrR =
   let [nImgs, nChas, nRows, nCols] = rshape arrL
       shO = [nImgs, nCount, nRows, nCols]
   in rbuild shO $ \[iImg, iDisp, iRow, iCol] ->
-       let arrVecL = rbuild (nChas :$ ZS) $ \[iCha] ->
+       let arrVecL = rbuild (nChas :$: ZS) $ \[iCha] ->
                        indexz0 arrL [iImg, iCha, iRow, iCol]
            iSrc = iCol - fromIntegral iStart - iDisp
            arrVecR = rbuild [nChas] $ \[iCha] ->

@@ -158,7 +158,7 @@ build1V k (var, v00) =
     Ast.AstLet @_ @_ @r1 @_ @s1 var1@(AstVarName oldVarId) u v ->
       let var2 = AstVarName oldVarId  -- changed shape; TODO: shall we rename?
           sh = shapeAst u
-          projection = Ast.AstIndex (Ast.AstVar (k :$ sh) var2)
+          projection = Ast.AstIndex (Ast.AstVar (k :$: sh) var2)
                                     (Ast.AstIntVar var :. ZI)
           -- The subsitutions of projections don't break sharing,
           -- because they don't duplicate variables and the added var
@@ -212,7 +212,7 @@ build1V k (var, v00) =
       -- We use a refreshed var binding in the new scatter expression so as
       -- not to duplicate the var binding from build1VOccurenceUnknown call.
       let (varFresh, astVarFresh, ix2) = intBindingRefresh var ix
-      in astScatter (k :$ sh)
+      in astScatter (k :$: sh)
                     (build1VOccurenceUnknown k (var, v))
                     (varFresh ::: vars, astVarFresh :. ix2)
 
@@ -233,11 +233,11 @@ build1V k (var, v00) =
       astTranspose (simplifyPermutation $ 0 : map succ perm)
                    (build1V k (var, v))
     Ast.AstReshape sh v -> traceRule $
-      astReshape (k :$ sh) $ build1V k (var, v)
+      astReshape (k :$: sh) $ build1V k (var, v)
     Ast.AstBuild1{} -> error "build1V: impossible case of AstBuild1"
     Ast.AstGather sh v (vars, ix) -> traceRule $
       let (varFresh, astVarFresh, ix2) = intBindingRefresh var ix
-      in astGatherStep (k :$ sh)
+      in astGatherStep (k :$: sh)
                        (build1VOccurenceUnknown k (var, v))
                        (varFresh ::: vars, astVarFresh :. ix2)
     Ast.AstCast v -> astCast $ build1V k (var, v)
@@ -318,7 +318,7 @@ build1VIndex k (var, v0, ix@(_ :. _)) =
        v@(Ast.AstIndex @p v1 ix1) -> traceRule $
          let (varFresh, astVarFresh, ix2) = intBindingRefresh var ix1
              ruleD = astGatherStep
-                       (k :$ dropShape (shapeAst v1))
+                       (k :$: dropShape (shapeAst v1))
                        (build1V k (var, v1))
                        (varFresh ::: ZR, astVarFresh :. ix2)
          in if varNameInAst var v1
@@ -332,7 +332,7 @@ build1VIndex k (var, v0, ix@(_ :. _)) =
        v -> traceRule $
          build1VOccurenceUnknown k (var, v)  -- peel off yet another constructor
      else traceRule $
-            astGatherStep (k :$ dropShape (shapeAst v0)) v0 (var ::: ZR, ix)
+            astGatherStep (k :$: dropShape (shapeAst v0)) v0 (var ::: ZR, ix)
 
 
 -- * Vectorization of AstShaped
@@ -661,7 +661,7 @@ build1VHVector k@SNat (var, v0) =
   Ast.AstLetInHVector @_ @r1 @s1 var1@(AstVarName oldVarId) u v ->
     let var2 = AstVarName oldVarId  -- changed shape; TODO: shall we rename?
         sh = shapeAst u
-        projection = Ast.AstIndex (Ast.AstVar (sNatValue k :$ sh) var2)
+        projection = Ast.AstIndex (Ast.AstVar (sNatValue k :$: sh) var2)
                                   (Ast.AstIntVar var :. ZI)
         v2 = substituteAstHVector
                (SubstitutionPayloadRanked @s1 @r1 projection) var1 v
@@ -759,7 +759,7 @@ substProjRanked :: forall n1 r1 n r s1 s.
 substProjRanked k var sh1 var1@(AstVarName varId) =
   let var2 = AstVarName varId
       projection =
-        Ast.AstIndex (Ast.AstVar (k :$ sh1) var2)
+        Ast.AstIndex (Ast.AstVar (k :$: sh1) var2)
                      (Ast.AstIntVar var :. ZI)
   in substituteAst
        (SubstitutionPayloadRanked @s1 @r1 projection) var1
@@ -773,7 +773,7 @@ substProjShaped :: forall n1 r1 sh r s1 s.
 substProjShaped k var sh1 var1@(AstVarName varId) =
   let var2 = AstVarName varId
       projection =
-        Ast.AstIndex (Ast.AstVar (k :$ sh1) var2)
+        Ast.AstIndex (Ast.AstVar (k :$: sh1) var2)
                      (Ast.AstIntVar var :. ZI)
   in substituteAstS
        (SubstitutionPayloadRanked @s1 @r1 projection) var1
@@ -812,7 +812,7 @@ substProjHVector :: forall n1 r1 s1 s.
 substProjHVector k var sh1 var1@(AstVarName varId) =
   let var2 = AstVarName varId
       projection =
-        Ast.AstIndex (Ast.AstVar (k :$ sh1) var2)
+        Ast.AstIndex (Ast.AstVar (k :$: sh1) var2)
                      (Ast.AstIntVar var :. ZI)
   in substituteAstHVector
        (SubstitutionPayloadRanked @s1 @r1 projection) var1

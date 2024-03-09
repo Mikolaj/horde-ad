@@ -72,7 +72,7 @@ class ( Integral (IntOf ranked), CRanked ranked Num
   rlength :: (GoodScalar r, KnownNat n) => ranked r (1 + n) -> Int
   rlength v = case rshape v of
     ZS -> error "tlength: impossible pattern needlessly required"
-    k :$ _ -> k
+    k :$: _ -> k
   rminIndex :: (GoodScalar r, GoodScalar r2, KnownNat n)
             => ranked r (1 + n) -> ranked r2 n  -- partial
   rmaxIndex :: (GoodScalar r, GoodScalar r2, KnownNat n)
@@ -112,7 +112,7 @@ class ( Integral (IntOf ranked), CRanked ranked Num
 -- rmatmul2 m1 m2 = rmap1 (rmatvecmul (rtr m2)) m1
 -- rmatmul2 m1 m2 = rbuild1 (rlength m1) (\i -> rmatvecmul (rtr m2) (m1 ! [i]))
   rmatmul2 m1 m2 = case rshape m2 of
-    _ :$ width2 :$ ZS -> rsum (rtranspose [2,1,0] (rreplicate width2 m1)
+    _ :$: width2 :$: ZS -> rsum (rtranspose [2,1,0] (rreplicate width2 m1)
                                * rtranspose [1,0] (rreplicate (rlength m1) m2))
     _ -> error "impossible pattern needlessly required"
   rscatter :: (GoodScalar r, KnownNat m, KnownNat n, KnownNat p)
@@ -161,7 +161,7 @@ class ( Integral (IntOf ranked), CRanked ranked Num
           => ranked r (1 + n) -> Maybe (ranked r n, ranked r (1 + n))
   runcons v = case rshape v of
                 ZS -> Nothing
-                len :$ _ -> Just (v ! [0], rslice 1 (len - 1) v)
+                len :$: _ -> Just (v ! [0], rslice 1 (len - 1) v)
   rreverse :: (GoodScalar r, KnownNat n) => ranked r (1 + n) -> ranked r (1 + n)
   rtr :: (GoodScalar r, KnownNat n) => ranked r (2 + n) -> ranked r (2 + n)
   rtr = rtranspose [1, 0]
@@ -179,7 +179,7 @@ class ( Integral (IntOf ranked), CRanked ranked Num
                 => ShapeInt m1 -> (IndexOf ranked m1 -> ranked r n)
                 -> ranked r (m1 + n)
         buildSh ZS f = f ZI
-        buildSh (k :$ sh) f =
+        buildSh (k :$: sh) f =
           let g i = buildSh sh (\ix -> f (i :. ix))
           in rbuild1 k g
     in buildSh (takeShape @m @n sh0) f0
@@ -272,7 +272,7 @@ class ( Integral (IntOf ranked), CRanked ranked Num
            => Int -> ranked r (p + n)
            -> (IntOf ranked -> IndexOf ranked p)
            -> ranked r (1 + n)
-  rgather1 k v f = rgather @ranked @r @1 (k :$ dropShape (rshape v)) v
+  rgather1 k v f = rgather @ranked @r @1 (k :$: dropShape (rshape v)) v
                            (\(i :. ZI) -> f i)
   rcast :: (RealFrac r1, RealFrac r2, GoodScalar r1, GoodScalar r2, KnownNat n)
         => ranked r1 n -> ranked r2 n
@@ -875,7 +875,7 @@ class HVectorTensor (ranked :: RankedTensorType)
   rfold f acc0 es =
     let shm :: ShapeInt m
         (width, shm) = case rshape es of
-          width2 :$ shm2 -> (width2, shm2)
+          width2 :$: shm2 -> (width2, shm2)
           ZS -> error "rscan: impossible pattern needlessly required"
         sh = rshape acc0
     in withSNat width $ \snat ->
@@ -907,7 +907,7 @@ class HVectorTensor (ranked :: RankedTensorType)
   rscan f acc0 es =
     let shm :: ShapeInt m
         (width, shm) = case rshape es of
-          width2 :$ shm2 -> (width2, shm2)
+          width2 :$: shm2 -> (width2, shm2)
           ZS -> error "rscan: impossible pattern needlessly required"
         sh = rshape acc0
     in withSNat width $ \snat ->

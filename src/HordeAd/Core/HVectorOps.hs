@@ -449,7 +449,7 @@ mapRanked10
   -> DynamicTensor ranked -> DynamicTensor ranked
 mapRanked10 f (DynamicRanked t) = case rshape t of
   ZS -> error "mapRanked10: rank 0"
-  _ :$ _ -> DynamicRanked $ f t
+  _ :$: _ -> DynamicRanked $ f t
 mapRanked10 f (DynamicShaped @r @sh t) = case ShapedList.shapeSh @sh of
   ZSH -> error "mapRanked10: rank 0"
   (:!!!$) @_ @sh0 _ _ ->
@@ -462,12 +462,12 @@ mapRanked10 f (DynamicRankedDummy @r @sh _ _) = case ShapedList.shapeSh @sh of
   ZSH -> error "mapRanked10: rank 0"
   (:!!!$) @_ @sh0 k _ ->
     withListSh (Proxy @sh0) $ \sh1 ->
-      DynamicRanked @r $ f (rzero $ k :$ sh1)
+      DynamicRanked @r $ f (rzero $ k :$: sh1)
 mapRanked10 f (DynamicShapedDummy @r @sh _ _) = case ShapedList.shapeSh @sh of
   ZSH -> error "mapRanked10: rank 0"
   (:!!!$) @_ @sh0 k _ ->
     withListSh (Proxy @sh0) $ \(sh1 :: ShapeInt n) ->
-      let res = f @r (rzero $ k :$ sh1)
+      let res = f @r (rzero $ k :$: sh1)
       in Sh.withShapeP (shapeToList $ rshape res) $ \(Proxy @shr) ->
         gcastWith (unsafeCoerce Refl :: Sh.Rank shr :~: n) $
         DynamicShaped $ sfromR @_ @_ @shr res
@@ -488,7 +488,7 @@ mapRanked11
   -> DynamicTensor ranked -> DynamicTensor ranked
 mapRanked11 f (DynamicRanked t) = case rshape t of
   ZS -> error "mapRanked11: rank 0"
-  _ :$ _ -> DynamicRanked $ f t
+  _ :$: _ -> DynamicRanked $ f t
 mapRanked11 f (DynamicShaped @r @sh t) = case ShapedList.shapeSh @sh of
   ZSH -> error "mapRanked11: rank 0"
   (:!!!$) @_ @sh0 _ _ ->
@@ -505,12 +505,12 @@ mapRanked11 f (DynamicRankedDummy @r @sh _ _) = case ShapedList.shapeSh @sh of
   ZSH -> error "mapRanked11: rank 0"
   (:!!!$) @_ @sh0 k _ ->
     withListSh (Proxy @sh0) $ \sh1 ->
-      DynamicRanked @r $ f (rzero $ k :$ sh1)
+      DynamicRanked @r $ f (rzero $ k :$: sh1)
 mapRanked11 f (DynamicShapedDummy @r @sh _ _) = case ShapedList.shapeSh @sh of
   ZSH -> error "mapRanked11: rank 0"
   (:!!!$) @_ @sh0 k _ ->
     withListSh (Proxy @sh0) $ \(sh1 :: ShapeInt n) ->
-      let res = f @r (rzero $ k :$ sh1)
+      let res = f @r (rzero $ k :$: sh1)
       in Sh.withShapeP (shapeToList $ rshape res) $ \(Proxy @shr) ->
         case someNatVal $ 1 + valueOf @n of
           Just (SomeNat @n1 _) ->

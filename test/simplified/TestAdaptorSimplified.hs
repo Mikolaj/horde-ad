@@ -1150,8 +1150,8 @@ testMatmul2PaperPP = do
       rmatmul2P :: (RankedTensor ranked, GoodScalar r)
                 => ranked r 2 -> ranked r 2 -> ranked r 2
       rmatmul2P a b =
-        let k :$ m :$ _ = rshape a
-            _ :$ n :$ _ = rshape b
+        let k :$: m :$: _ = rshape a
+            _ :$: n :$: _ = rshape b
         in rbuild1 k (\i ->
              rbuild1 n (\j ->
                rsum (rbuild1 m (\p -> a ! [i, p] * b ! [p, j]))))
@@ -1570,7 +1570,7 @@ konstReluAst
   :: forall r.
      (ADReady (AstRanked PrimalSpan), GoodScalar r, Differentiable r)
   => AstRanked PrimalSpan r 0 -> AstRanked PrimalSpan r 0
-konstReluAst x = rsum0 $ relu $ rreplicate0N (7 :$ ZS) x
+konstReluAst x = rsum0 $ relu $ rreplicate0N (7 :$: ZS) x
 
 testReplicateReluAst :: Assertion
 testReplicateReluAst =
@@ -1681,17 +1681,17 @@ emptyArgs t =
   - rreshape @ranked @r @1 [0] (rfromList [])
   - rgather1 0 (rfromList []) (:. ZI)
   - rsum (rgather1 0 (rfromList []) (const ZI))
-  - rsum (rgather @ranked @r @2 (0 :$ 0 :$ ZS) (rfromList []) (const (0 :. ZI)))
+  - rsum (rgather @ranked @r @2 (0 :$: 0 :$: ZS) (rfromList []) (const (0 :. ZI)))
   - rsum (rgather @ranked @r @2 @0 @1 [0, 0] (rfromList []) (const [0]))
   - rsum (rreshape @ranked @r @1 [0, 0] (rfromList []))
-  - rindex (rfromList0N (0 :$ 0 :$ ZS) []) (42 :. ZI)
-  - rindex (rfromList0N (0 :$ rshape @ranked @r (rfromList [])) []) (42 :. ZI)
-  - rsum (rfromList0N (0 :$ rshape @ranked @r (rfromList [])) [])
-  * rsum (rfromList [rsum (rfromList0N (0 :$ rshape @ranked @r (rfromList [])) [])])
+  - rindex (rfromList0N (0 :$: 0 :$: ZS) []) (42 :. ZI)
+  - rindex (rfromList0N (0 :$: rshape @ranked @r (rfromList [])) []) (42 :. ZI)
+  - rsum (rfromList0N (0 :$: rshape @ranked @r (rfromList [])) [])
+  * rsum (rfromList [rsum (rfromList0N (0 :$: rshape @ranked @r (rfromList [])) [])])
   * rflatten (rtr (rgather1 0 t (const ZI)))
   + rbuild1 0 (\i -> t ! [fromIntegral (rrank t) `quot` i] / rfromIndex0 i)
-  -- - rsum (rbuild @ranked @r @2 (0 :$ 0 :$ ZS) (const 73))
-  -- - rsum (rbuild @ranked @r @1 (0 :$ 0 :$ ZS) (const $ rfromList []))
+  -- - rsum (rbuild @ranked @r @2 (0 :$: 0 :$: ZS) (const 73))
+  -- - rsum (rbuild @ranked @r @1 (0 :$: 0 :$: ZS) (const $ rfromList []))
        -- these fail and rightly so; TODO: make them fail earlier
 
 testEmptyArgs0 :: Assertion

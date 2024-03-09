@@ -271,7 +271,7 @@ index1DynamicF :: ( shaped ~ ShapedOf ranked
 index1DynamicF rshape sshape rindex sindex u i = case u of
   DynamicRanked t -> case rshape t of
     ZS -> error "index1Dynamic: rank 0"
-    _ :$ _ -> DynamicRanked $ rindex t (singletonIndex i)
+    _ :$: _ -> DynamicRanked $ rindex t (singletonIndex i)
   DynamicShaped t -> case sshape t of
     ZSH -> error "index1Dynamic: rank 0"
     _ :!!!$ _ -> DynamicShaped $ sindex t (ShapedList.singletonShaped i)

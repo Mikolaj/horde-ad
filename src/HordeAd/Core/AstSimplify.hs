@@ -427,12 +427,12 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
   Ast.AstSum v ->  -- almost neutral; transposition is likely to fuse away
     let perm3 = backpermCycle $ valueOf @m + 1
     in astSum $ astIndex (astTranspose perm3 v) ix
-  Ast.AstScatter @_ @n7 (_ :$ sh)
+  Ast.AstScatter @_ @n7 (_ :$: sh)
                  v (vars, AstIntVar var5 :. (ix2 :: AstIndex p71))
     | AstIntVar var6 <- i1, var6 == var5 ->
         gcastWith (unsafeCoerce Refl :: m1 + n :~: p71 + n7) $
         astIndex (astScatter sh v (vars, ix2)) rest1
-  Ast.AstScatter @_ @n7 (_ :$ sh)
+  Ast.AstScatter @_ @n7 (_ :$: sh)
                  v (vars, AstConst i5 :. (ix2 :: AstIndex p71))
     | AstConst i6 <- i1 ->
         gcastWith (unsafeCoerce Refl :: m1 + n :~: p71 + n7) $
@@ -505,7 +505,7 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
   Ast.AstBuild1 _n2 (var2, v) ->
     astIndex (astLet var2 i1 v) rest1
   Ast.AstGather _sh v (ZR, ix2) -> astIndex v (appendIndex ix2 ix)
-  Ast.AstGather @_ @n7 (_ :$ sh') v (var2 ::: (vars :: AstVarList m71), ix2) ->
+  Ast.AstGather @_ @n7 (_ :$: sh') v (var2 ::: (vars :: AstVarList m71), ix2) ->
     let w :: AstRanked s r (m1 + n)
         w = gcastWith (unsafeCoerce Refl :: m1 + n :~: m71 + n7) $
             astGather sh' v (vars, ix2)
@@ -656,7 +656,7 @@ astIndexSOrStepOnly stepOnly v0 ix@((:!!!$) @in1 i1 (rest1 :: AstIndexS shm1)) =
 --        gcastWith (unsafeCoerce Refl
 --                   :: shm1 Sh.++ shn :~: p71 Sh.++ Sh.Drop p7 sh7) $
 --        astIndex (astScatterS @_ @_ @sh7 v (vars, ix2)) rest1
---  Ast.AstScatter @_ @n7 (_ :$ sh)
+--  Ast.AstScatter @_ @n7 (_ :$: sh)
 --                 v (vars, AstConst i5 :. (ix2 :: AstIndex p71))
 --    | AstConst i6 <- i1 ->
 --        gcastWith (unsafeCoerce Refl :: m1 + n :~: p71 + n7) $
@@ -855,7 +855,7 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
               ++ show (vars0, v0)
     (_, (ZR, _)) -> astIndex v0 ix0
     (sh, (_, ZI)) -> astReplicateN sh v0
-    (k :$ sh', (AstVarName varId ::: vars, i1 :. rest1)) ->
+    (k :$: sh', (AstVarName varId ::: vars, i1 :. rest1)) ->
       if | not (any (`varNameInAst` i1) vars0) ->
            astGatherROrStepOnly stepOnly sh0 (astIndex v0 (i1 :. ZI))
                                 (vars0, rest1)
@@ -865,7 +865,7 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
                && not (any (varN `varNameInAst`) restN)
                && case ( dropShape @(m - 1) sh0
                        , dropShape @(p - 1) (shapeAst v0) ) of
-                 (kN :$ _, vkN :$ _) -> kN == vkN
+                 (kN :$: _, vkN :$: _) -> kN == vkN
                  _ -> error "impossible pattern needlessly required"
              _ -> False
            -> astGatherROrStepOnly stepOnly sh0 v0 (varsN, restN)
@@ -946,17 +946,17 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
       let perm3 = backpermCycle $ valueOf @p' + 1
           perm4 = permCycle $ valueOf @m' + 1
           (sh41, sh42) = splitAt_Shape @m' sh4
-          sh5 = appendShape sh41 (lengthAst v :$ sh42)
+          sh5 = appendShape sh41 (lengthAst v :$: sh42)
       in astSum $ astTransposeAsGather perm4  -- TODO: inline and simplify less
          $ astGather sh5 (astTransposeAsGather perm3 v) (vars4, ix4)
              -- TODO: why is simplification not idempotent without AsGather?
-    Ast.AstScatter @_ @n7 (_ :$ sh)
+    Ast.AstScatter @_ @n7 (_ :$: sh)
                    v (vars, AstIntVar var5 :. (ix2 :: AstIndex p71))
       | AstIntVar var6 <- i4, var6 == var5 ->
           gcastWith (unsafeCoerce Refl :: p1' + n' :~: p71 + n7) $
           astGather sh4 (astScatter sh v (vars, ix2))
                         (vars4, rest4)
-    Ast.AstScatter @_ @n7 (_ :$ sh)
+    Ast.AstScatter @_ @n7 (_ :$: sh)
                    v (vars, AstConst i5 :. (ix2 :: AstIndex p71))
       | AstConst i6 <- i4 ->
           gcastWith (unsafeCoerce Refl :: p1' + n' :~: p71 + n7) $
@@ -1393,8 +1393,8 @@ astSumOfListS = sum
 astSum :: (KnownNat n, GoodScalar r, AstSpan s)
        => AstRanked s r (1 + n) -> AstRanked s r n
 astSum t0 = case shapeAst t0 of
-  0 :$ rest -> astReplicate0N rest 0
---  1 :$ rest -> astReshape rest t0  -- TODO: slows down the CNNO test
+  0 :$: rest -> astReplicate0N rest 0
+--  1 :$: rest -> astReshape rest t0  -- TODO: slows down the CNNO test
   _ -> case t0 of
     -- Ast.AstLet var u v -> astLet var u (astSum v)
     -- this is problematic, because it keeps huge tensors alive for longer;
@@ -1402,7 +1402,7 @@ astSum t0 = case shapeAst t0 of
     -- either global or duplicated and rarely local and unique
     -- and we prefer the global to duplicated
     Ast.AstLetADShare l v -> Ast.AstLetADShare l (astSum v)
-    Ast.AstScatter (_ :$ sh) v (vars, _ :. ix) -> astScatter sh v (vars, ix)
+    Ast.AstScatter (_ :$: sh) v (vars, _ :. ix) -> astScatter sh v (vars, ix)
     Ast.AstFromList l -> astSumOfList l
     Ast.AstFromVector l -> astSumOfList $ V.toList l
     Ast.AstReplicate k v -> v * astReplicate0N (shapeAst v) (fromIntegral k)
@@ -1569,7 +1569,7 @@ astReplicate k = \case
     astTranspose (0 : map succ perm) $ astReplicate k v
 {- see the previous comment
   Ast.AstReshape sh v ->
-    AstReshape (k :$ sh) $ astReplicate k v
+    AstReshape (k :$: sh) $ astReplicate k v
 -}
 -- This allocates a big tensor too early, while it's still possible
 -- a projection reduces this away. The cost to AD should not be too high.
@@ -1603,7 +1603,7 @@ astReplicateN sh v =
   let go :: KnownNat n'
          => ShapeInt n' -> AstRanked s r (n' + p)
       go ZS = v
-      go (k :$ sh2) = astReplicate k $ go sh2
+      go (k :$: sh2) = astReplicate k $ go sh2
   in go (takeShape sh)
 
 astReplicateNS :: forall shn shp s r.
@@ -1624,7 +1624,7 @@ astReplicate0N sh =
   let go :: KnownNat n'
          => ShapeInt n' -> AstRanked s r 0 -> AstRanked s r n'
       go ZS v = v
-      go (k :$ sh') v = astReplicate k $ go sh' v
+      go (k :$: sh') v = astReplicate k $ go sh' v
   in go sh
 
 astReplicate0NS :: forall shn s r. (Sh.Shape shn, GoodScalar r, AstSpan s)
@@ -1694,12 +1694,12 @@ astSlice i n w@(Ast.AstAppend (u :: AstRanked s r (1 + k))
   in if | i + n <= ulen -> astSlice @k i n u
         | i >= ulen -> astSlice @k (i - ulen) n v
         | otherwise -> Ast.AstSlice @k i n w  -- cheap iff fits in one
-astSlice i n (Ast.AstGather (_ :$ sh') v (var ::: vars, ix)) =
+astSlice i n (Ast.AstGather (_ :$: sh') v (var ::: vars, ix)) =
   let ivar = AstIntVar var + fromIntegral i
       ix2 = substituteAstIndex  -- cheap subst, because ivar is tiny
               (SubstitutionPayloadRanked @PrimalSpan @Int64 ivar)
               var ix
-  in astGatherR (n :$ sh') v (var ::: vars, ix2)
+  in astGatherR (n :$: sh') v (var ::: vars, ix2)
 astSlice i n v = Ast.AstSlice i n v
 
 astSliceS :: forall i n k sh s r.
@@ -1744,7 +1744,7 @@ astReverse (Ast.AstFromList l) = Ast.AstFromList $ reverse l
 astReverse (Ast.AstFromVector l) = Ast.AstFromVector $ V.reverse l
 astReverse (Ast.AstReplicate k v) = Ast.AstReplicate k v
 astReverse (Ast.AstReverse v) = v
-astReverse (Ast.AstGather sh@(k :$ _) v (var ::: vars, ix)) =
+astReverse (Ast.AstGather sh@(k :$: _) v (var ::: vars, ix)) =
   let ivar = fromIntegral k - AstIntVar var
       ix2 = substituteAstIndex  -- cheap subst, because ivar is tiny
               (SubstitutionPayloadRanked @PrimalSpan @Int64 ivar)

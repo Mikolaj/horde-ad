@@ -465,19 +465,19 @@ shapeDeltaR = \case
     [] -> case sameNat (Proxy @n) (Proxy @1) of
       Just Refl -> singletonShape 0  -- the only case where we can guess sh
       _ -> error "shapeDeltaR: FromListR with no arguments"
-    d : _ -> length l :$ shapeDeltaR d
+    d : _ -> length l :$: shapeDeltaR d
   FromVectorR l -> case V.toList l of
     [] -> case sameNat (Proxy @n) (Proxy @1) of
       Just Refl -> singletonShape 0  -- the only case where we can guess sh
       _ -> error "shapeDeltaR: FromListR with no arguments"
-    d : _ -> length l :$ shapeDeltaR d
-  ReplicateR n d -> n :$ shapeDeltaR d
+    d : _ -> length l :$: shapeDeltaR d
+  ReplicateR n d -> n :$: shapeDeltaR d
   AppendR x y -> case shapeDeltaR x of
     ZS -> error "shapeDeltaR: impossible pattern needlessly required"
-    xi :$ xsh -> case shapeDeltaR y of
+    xi :$: xsh -> case shapeDeltaR y of
       ZS -> error "shapeDeltaR: impossible pattern needlessly required"
-      yi :$ _ -> xi + yi :$ xsh
-  SliceR _ n d -> n :$ tailShape (shapeDeltaR d)
+      yi :$: _ -> xi + yi :$: xsh
+  SliceR _ n d -> n :$: tailShape (shapeDeltaR d)
   ReverseR d -> shapeDeltaR d
   TransposeR perm d -> backpermutePrefixShape perm (shapeDeltaR d)
   ReshapeR sh _ -> sh
@@ -492,7 +492,7 @@ lengthDeltaR :: forall ranked r n.
              => DeltaR ranked r (1 + n) -> Int
 lengthDeltaR d = case shapeDeltaR d of
   ZS -> error "lengthDeltaR: impossible pattern needlessly required"
-  k :$ _ -> k
+  k :$: _ -> k
 
 shapeDeltaH :: forall ranked.
                (RankedTensor ranked, ShapedTensor (ShapedOf ranked))
@@ -761,16 +761,16 @@ evalR !s !c = let (abShared, cShared) = rregister c (astBindings s)
        $ zip cxs (V.toList ld)
   ReplicateR _n d -> evalR s (rsum c) d
   AppendR d e -> case rshape c of
-    n :$ _ -> let k = lengthDeltaR d
-                  s2 = evalR sShared (rslice 0 k cShared) d
-              in evalR s2 (rslice k (n - k) cShared) e
+    n :$: _ -> let k = lengthDeltaR d
+                   s2 = evalR sShared (rslice 0 k cShared) d
+               in evalR s2 (rslice k (n - k) cShared) e
     ZS -> error "evalR: impossible pattern needlessly required"
   SliceR i n d -> case rshape c of
-    n' :$ rest ->
+    n' :$: rest ->
       assert (n' == n `blame` (n', n)) $
-      evalR s (rconcat [ rzero (i :$ rest)
+      evalR s (rconcat [ rzero (i :$: rest)
                        , c
-                       , rzero (lengthDeltaR d - i - n :$ rest) ])
+                       , rzero (lengthDeltaR d - i - n :$: rest) ])
               d
     ZS -> error "evalR: impossible pattern needlessly required"
   ReverseR d -> evalR s (rreverse c) d

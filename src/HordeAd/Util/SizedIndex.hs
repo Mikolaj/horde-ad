@@ -13,7 +13,7 @@ module HordeAd.Util.SizedIndex
   , backpermutePrefixIndex, permutePrefixIndex
   , listToIndex, indexToList, indexToSizedList, sizedListToIndex
     -- * Tensor shapes as fully encapsulated sized lists, with operations
-  , Shape, pattern (:$), pattern ZS
+  , Shape, pattern (:$:), pattern ZS
   , singletonShape, appendShape, tailShape, takeShape, dropShape
   , splitAt_Shape, lastShape, initShape, lengthShape, sizeShape, flattenShape
   , backpermutePrefixShape
@@ -46,7 +46,7 @@ import HordeAd.Util.SizedList
 -- explicitly typed, do not inform the compiler about the length
 -- of the list until runtime. That means that some errors are hidden
 -- and also extra type applications may be needed to satisfy the compiler.
--- Therefore, there is a real trade-off between @[4]@ and @(4 :$ ZI).
+-- Therefore, there is a real trade-off between @[4]@ and @(4 :$: ZI).
 type ShapeInt n = Shape n Int
 
 
@@ -192,12 +192,12 @@ instance Show i => Show (Shape n i) where
 pattern ZS :: forall n i. () => n ~ 0 => Shape n i
 pattern ZS = Shape ZR
 
-infixr 3 :$
-pattern (:$) :: forall n1 i. KnownNat n1 => forall n. (KnownNat n, (1 + n) ~ n1)
+infixr 3 :$:
+pattern (:$:) :: forall n1 i. KnownNat n1 => forall n. (KnownNat n, (1 + n) ~ n1)
              => i -> Shape n i -> Shape n1 i
-pattern i :$ sh <- (unconsShape -> Just (MkUnconsShapeRes sh i))
-  where i :$ (Shape sh) = Shape (i ::: sh)
-{-# COMPLETE ZS, (:$) #-}
+pattern i :$: sh <- (unconsShape -> Just (MkUnconsShapeRes sh i))
+  where i :$: (Shape sh) = Shape (i ::: sh)
+{-# COMPLETE ZS, (:$:) #-}
 
 type role UnconsShapeRes representational nominal
 data UnconsShapeRes i n1 =
@@ -250,7 +250,7 @@ lengthShape _ = valueOf @n
 -- | The number of elements in an array of this shape
 sizeShape :: (Num i, KnownNat n) => Shape n i -> i
 sizeShape ZS = 1
-sizeShape (n :$ sh) = n * sizeShape sh
+sizeShape (n :$: sh) = n * sizeShape sh
 
 flattenShape :: (Num i, KnownNat n) => Shape n i -> Shape 1 i
 flattenShape = singletonShape . sizeShape
@@ -325,7 +325,7 @@ toLinearIdx = \sh idx -> go sh idx 0
     go :: KnownNat m1
        => Shape (m1 + n) i -> Index m1 j -> j -> j
     go sh ZI tensidx = fromIntegral (sizeShape sh) * tensidx
-    go (n :$ sh) (i :. idx) tensidx = go sh idx (fromIntegral n * tensidx + i)
+    go (n :$: sh) (i :. idx) tensidx = go sh idx (fromIntegral n * tensidx + i)
     go _ _ _ = error "toLinearIdx: impossible pattern needlessly required"
 
 -- | Given a linear index into the buffer, get the corresponding
@@ -344,9 +344,9 @@ fromLinearIdx = \sh lin -> snd (go sh lin)
     -- multi-index within sub-tensor).
     go :: KnownNat n1 => Shape n1 i -> j -> (j, Index n1 j)
     go ZS n = (n, ZI)
-    go (0 :$ sh) _ =
+    go (0 :$: sh) _ =
       (0, 0 :. zeroOf sh)
-    go (n :$ sh) lin =
+    go (n :$: sh) lin =
       let (tensLin, idxInTens) = go sh lin
           (tensLin', i) = tensLin `quotRem` fromIntegral n
       in (tensLin', i :. idxInTens)
@@ -354,4 +354,4 @@ fromLinearIdx = \sh lin -> snd (go sh lin)
 -- | The zero index in this shape (not dependent on the actual integers).
 zeroOf :: (Num j, KnownNat n) => Shape n i -> Index n j
 zeroOf ZS = ZI
-zeroOf (_ :$ sh) = 0 :. zeroOf sh
+zeroOf (_ :$: sh) = 0 :. zeroOf sh

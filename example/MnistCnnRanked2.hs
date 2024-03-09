@@ -55,7 +55,7 @@ convMnistLayerR
   -> ranked r 1  -- [c_out]
   -> ranked r 4  -- [batch_size, c_out, h `Div` 2, w `Div` 2]
 convMnistLayerR ker input bias =
-  let (batch_size :$ _ :$ h :$ w :$ ZS) = rshape input
+  let (batch_size :$: _ :$: h :$: w :$: ZS) = rshape input
       yConv = conv2dUnpadded ker input
       biasStretched = rtranspose [0, 3, 1, 2]
                       $ rreplicate batch_size $ rreplicate h $ rreplicate w bias
@@ -79,9 +79,9 @@ convMnistTwoR sizeMnistHeightI sizeMnistWidthI batch_size input
              -- , SizeMnistHeight `Div` 4, SizeMnistWidth `Div` 2 ]
       c_out = rlength bias1
       m1 = rreshape (batch_size
-                     :$ c_out * (sizeMnistHeightI `div` 4)
+                     :$: c_out * (sizeMnistHeightI `div` 4)
                               * (sizeMnistWidthI `div` 4)
-                     :$ ZS)
+                     :$: ZS)
                     t2
       m2 = rtr m1
       denseLayer = weightsDense `rmatmul2` m2
@@ -99,10 +99,10 @@ convMnistLossFusedR
   -> ranked r 0
 convMnistLossFusedR batch_size (glyphR, labelR) adparameters =
   let input = rreshape (batch_size
-                        :$ 1
-                        :$ sizeMnistHeightInt
-                        :$ sizeMnistWidthInt
-                        :$ ZS)
+                        :$: 1
+                        :$: sizeMnistHeightInt
+                        :$: sizeMnistWidthInt
+                        :$: ZS)
                        glyphR
       result = convMnistTwoR sizeMnistHeightInt sizeMnistWidthInt
                              batch_size input adparameters

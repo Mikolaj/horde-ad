@@ -63,7 +63,7 @@ unrollLastR f s0 xs w =
       g (_, !s) x = f s x w
       projections :: [ranked r n]
       projections = case rshape xs of
-        len :$ _ -> map (\i -> rindex xs (fromIntegral i :. ZI)) [0 .. len - 1]
+        len :$: _ -> map (\i -> rindex xs (fromIntegral i :. ZI)) [0 .. len - 1]
         ZS -> error "impossible pattern needlessly required"
   in foldl' g (undefined, s0) projections
 
@@ -74,7 +74,7 @@ rnnMnistLayerR
   -> LayerWeigthsRNN ranked r  -- in_width out_width
   -> ranked r 2  -- output state, [out_width, batch_size]
 rnnMnistLayerR s x (wX, wS, b) = case rshape s of
-  _out_width :$ batch_size :$ ZS ->
+  _out_width :$: batch_size :$: ZS ->
     let y = wX `rmatmul2` x + wS `rmatmul2` s
             + rtr (rreplicate batch_size b)
     in tanh y
@@ -89,7 +89,7 @@ rnnMnistTwoR
   -> ( ranked r 2  -- [out_width, batch_size]
      , ranked r 2 )  -- final state, [2 * out_width, batch_size]
 rnnMnistTwoR s' x ((wX, wS, b), (wX2, wS2, b2)) = case rshape s' of
-  out_width_x_2 :$ _batch_size :$ ZS ->
+  out_width_x_2 :$: _batch_size :$: ZS ->
     let out_width = out_width_x_2 `div` 2
         s3 = rlet s' $ \s ->
           let s1 = rslice 0 out_width s
@@ -108,8 +108,8 @@ rnnMnistZeroR
   -> ranked r 2  -- [SizeMnistLabel, batch_size]
 rnnMnistZeroR batch_size xs
               ((wX, wS, b), (wX2, wS2, b2), (w3, b3)) = case rshape b of
-  out_width :$ ZS ->
-    let sh = 2 * out_width :$ batch_size :$ ZS
+  out_width :$: ZS ->
+    let sh = 2 * out_width :$: batch_size :$: ZS
         (out, _s) = zeroStateR sh (unrollLastR rnnMnistTwoR) xs
                                   ((wX, wS, b), (wX2, wS2, b2))
     in w3 `rmatmul2` out + rtr (rreplicate batch_size b3)

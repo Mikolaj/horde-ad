@@ -369,7 +369,7 @@ interpretAst !env = \case
         let t1 = interpretAst env t
             t2 = interpretAst env u
         in rmatvecmul t2 t1
-  AstBuild1 0 (_, v) -> rfromList0N (0 :$ shapeAst v) []
+  AstBuild1 0 (_, v) -> rfromList0N (0 :$: shapeAst v) []
   -- The following can't be, in general, so partially evaluated, because v
   -- may contain variables that the evironment sends to terms,
   -- not to concrete numbers (and so Primal a is not equal to a).
@@ -739,7 +739,7 @@ interpretAstS !env = \case
         let t1 = interpretAst env t
             t2 = interpretAst env u
         in rmatvecmul t2 t1
-  AstBuild1 0 (_, v) -> rfromList0N (0 :$ rshape v) []
+  AstBuild1 0 (_, v) -> rfromList0N (0 :$: rshape v) []
   -- The following can't be, in general, so partially evaluated, because v
   -- may contain variables that the evironment sends to terms,
   -- not to concrete numbers (and so Primal a is not equal to a).

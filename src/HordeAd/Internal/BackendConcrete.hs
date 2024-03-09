@@ -346,9 +346,9 @@ tbuildNR = undefined  -- using rbuild definition instead
               => ShapeInt m1 -> (IndexInt m1 -> OR.Array n r)
               -> OR.Array (m1 + n) r
       buildSh ZS f = f ZI
-      buildSh (0 :$ sh) _ =
+      buildSh (0 :$: sh) _ =
         OR.fromList (0 : shapeToList sh ++ shapeToList (dropShape @m @n sh0)) []
-      buildSh (k :$ sh) f =
+      buildSh (k :$: sh) f =
         let g i = buildSh sh (\ix -> f (i :. ix))
         in OR.ravel $ ORB.fromList [k]
            $ map g [0 .. fromIntegral k - 1]

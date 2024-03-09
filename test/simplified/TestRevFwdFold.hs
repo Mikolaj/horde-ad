@@ -498,7 +498,7 @@ testSin0Fold0 = do
     (1.0 :: OR.Array 0 Double)
     (rev' (let f :: forall f. ADReady f => f Double 0 -> f Double 0
                f x0 = rfold (\x _a -> sin x)
-                            x0 (rzero @f @Double (0 :$ ZS))
+                            x0 (rzero @f @Double (0 :$: ZS))
            in f) 1.1)
 
 testSin0Fold0ForComparison :: Assertion
@@ -882,7 +882,7 @@ testSin0Scan0 = do
     1
     (rev' (let f :: forall f. ADReady f => f Double 0 -> f Double 1
                f x0 = rscan (\x _a -> sin x)
-                            x0 (rzero @f @Double (0 :$ ZS))
+                            x0 (rzero @f @Double (0 :$: ZS))
            in f) 1.1)
 
 testSin0Scan1 :: Assertion
@@ -1123,7 +1123,7 @@ testSin0Scan0fwd = do
     (rfwd1 @(Flip OR.Array) @Double @0 @1
     (let f :: forall f. ADReady f => f Double 0 -> f Double 1
          f x0 = rscan (\x _a -> sin x)
-                      x0 (rzero @f @Double (0 :$ ZS))
+                      x0 (rzero @f @Double (0 :$: ZS))
      in f) 1.1)
 
 testSin0Scan1fwd :: Assertion
@@ -1187,7 +1187,7 @@ unitriangular1 k sh =
 testUnitriangular1PP :: Assertion
 testUnitriangular1PP = do
   resetVarCounter
-  let sh = 200 :$ 300 :$ 600 :$ ZS
+  let sh = 200 :$: 300 :$: 600 :$: ZS
       k = 1000000
       a1 = unitriangular1 @3 @Double @(AstRanked FullSpan) k sh
   printAstPretty IM.empty (simplifyAst6 a1)
@@ -1196,7 +1196,7 @@ testUnitriangular1PP = do
 unitriangular2 :: (KnownNat k, GoodScalar rk, ADReady ranked)
                => Int -> ShapeInt k -> ranked rk (2 + k)
 unitriangular2 k sh =
-  rgather @_ @_ @_ @_ @1 (k :$ k :$ sh)
+  rgather @_ @_ @_ @_ @1 (k :$: k :$: sh)
           (rfromList [ rreplicate0N sh 0
                      , rreplicate0N sh 1 ])
           (\(i :. j :. ZI) -> ifF (i <. j) 0 1 :. ZI)
@@ -1204,7 +1204,7 @@ unitriangular2 k sh =
 testUnitriangular2PP :: Assertion
 testUnitriangular2PP = do
   resetVarCounter
-  let sh = 200 :$ 300 :$ 600 :$ ZS
+  let sh = 200 :$: 300 :$: 600 :$: ZS
       k = 1000000
       a1 = unitriangular2 @3 @Double @(AstRanked FullSpan) k sh
   printAstPretty IM.empty (simplifyAst6 a1)
@@ -1285,7 +1285,7 @@ testSin0ScanD0 = do
                f x0 = rscanZip (\x _a -> sin x)
                              (V.fromList [voidFromSh @Double ZS])
                              x0 (V.singleton $ DynamicRanked
-                                 $ rzero @f @Double (0 :$ ZS))
+                                 $ rzero @f @Double (0 :$: ZS))
            in f) 1.1)
 
 testSin0rmapAccumRD0SC :: Assertion
@@ -1625,7 +1625,7 @@ testSin0rmapAccumRD0RC = do
                                         , DynamicRanked $ sin x ])
                           (dmkHVector $ V.singleton $ DynamicRanked x0)
                           (dmkHVector $ V.singleton $ DynamicRanked
-                              $ rzero @f @Double (0 :$ ZS))
+                              $ rzero @f @Double (0 :$: ZS))
            in f) 1.1)
 
 testSin0rmapAccumRD0R :: Assertion
@@ -1647,7 +1647,7 @@ testSin0rmapAccumRD0R = do
                                         , DynamicRanked $ sin x ])
                           (dmkHVector $ V.singleton $ DynamicRanked x0)
                           (dmkHVector $ V.singleton $ DynamicRanked
-                              $ rzero @f @Double (0 :$ ZS))
+                              $ rzero @f @Double (0 :$: ZS))
            in f) 1.1)
 
 testSin0ScanD01 :: Assertion
@@ -1659,7 +1659,7 @@ testSin0ScanD01 = do
                       $ rscanZip (\x _a -> sin x)
                              (V.fromList [voidFromSh @Double ZS])
                              x0 (V.singleton $ DynamicRanked
-                                 $ rzero @f @Double (1 :$ ZS))
+                                 $ rzero @f @Double (1 :$: ZS))
            in f) 1.1)
 
 testSin0rmapAccumRD01SC :: Assertion
@@ -2806,8 +2806,8 @@ testSin0ScanD3 = do
     (rev' (\a0 -> rscanZip (\_x a ->
                             sin $ rfromD @Double @5
                                     (a V.! 0))
-                         (V.fromList [ voidFromSh @Double (1 :$ 1 :$ 1 :$ 1 :$ 1 :$ ZS)
-                                     , voidFromSh @Double (4 :$ 5 :$ 6 :$ 7 :$ 8 :$ ZS) ])
+                         (V.fromList [ voidFromSh @Double (1 :$: 1 :$: 1 :$: 1 :$: 1 :$: ZS)
+                                     , voidFromSh @Double (4 :$: 5 :$: 6 :$: 7 :$: 8 :$: ZS) ])
                          (rreplicate0N [1,1,1,1,1] 84)
                          (V.fromList
                             [ DynamicRanked
@@ -2824,7 +2824,7 @@ testSin0ScanD4 = do
     (rev' (\a0 -> rscanZip (\x a -> atan2 (sin x)
                                         (sin $ rfromD (a V.! 0)))
                          (V.fromList [voidFromSh @Double
-                                        (1 :$ 1 :$ 1 :$ 1 :$ 1 :$ ZS)])
+                                        (1 :$: 1 :$: 1 :$: 1 :$: 1 :$: ZS)])
                          (rreplicate0N [1,1,1,1,1] 2 * a0)
                          (V.singleton $ DynamicRanked
                           $ rreplicate 3 a0)) (rreplicate0N [1,1,1,1,1] 1.1))
@@ -2839,9 +2839,9 @@ testSin0ScanD5 = do
                                           $ rtr $ rreplicate 7
                                           $ rfromD (a V.! 0)))
                          (V.fromList [ voidFromSh @Double
-                                         (2 :$ 5 :$ 1 :$ 1 :$ 1 :$ 1 :$ ZS)
+                                         (2 :$: 5 :$: 1 :$: 1 :$: 1 :$: 1 :$: ZS)
                                      , voidFromSh @Double
-                                         (8 :$ 3 :$ 1 :$ 1 :$ 1 :$ 1 :$ ZS) ])
+                                         (8 :$: 3 :$: 1 :$: 1 :$: 1 :$: 1 :$: ZS) ])
                          (rreplicate0N [1,1,1,1] 2 * a0)
                          (V.fromList
                             [ DynamicRanked
@@ -2863,9 +2863,9 @@ testSin0ScanD51 = do
                                           $ rsum $ rsum
                                           $ rfromD (a V.! 1)))
                          (V.fromList [ voidFromSh @Double
-                                         (2 :$ 5 :$ 1 :$ 1 :$ 1 :$ 1 :$ ZS)
+                                         (2 :$: 5 :$: 1 :$: 1 :$: 1 :$: 1 :$: ZS)
                                      , voidFromSh @Double
-                                         (8 :$ 3 :$ 1 :$ 1 :$ 1 :$ 1 :$ ZS) ])
+                                         (8 :$: 3 :$: 1 :$: 1 :$: 1 :$: 1 :$: ZS) ])
                          (rreplicate0N [1,1,1,1] 2 * a0)
                          (V.fromList
                             [ DynamicRanked
@@ -2898,7 +2898,7 @@ testSin0ScanD51S = do
                    (V.fromList [ voidFromShS @Double
                                                                              @'[2, 5, 1, 1, 1, 1]
                                                                            , voidFromSh @Double
-                                                                             (8 :$ 3 :$ 1 :$ 1 :$ 1 :$ 1 :$ ZS) ])
+                                                                             (8 :$: 3 :$: 1 :$: 1 :$: 1 :$: 1 :$: ZS) ])
                    (sreplicate0N @_ @_ @[1,1,1,1] 2 * a0)
                    (V.fromList
                       [ DynamicShaped
@@ -2916,7 +2916,7 @@ testSin0ScanD6 = do
                                  $ rtr x + rreplicate 1
                                              (rreplicate 2
                                                 (rfromD (a V.! 0))))
-                         (V.fromList [voidFromSh @Double (1 :$ 1 :$ ZS)])
+                         (V.fromList [voidFromSh @Double (1 :$: 1 :$: ZS)])
                          (rreplicate 2 (rreplicate 1 a0))
                          (V.singleton $ DynamicRanked
                           $ rreplicate 2 a0)) (rreplicate0N [1,1] 1.1))
@@ -2926,7 +2926,7 @@ testSin0ScanD7 = do
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [1,1] [310] :: OR.Array 2 Double)
     (rev' (\a0 -> rscanZip (\x _a -> rtr $ rreplicate 5 $ rsum (rtr x))
-                         (V.fromList [voidFromSh @Double (1 :$ 1 :$ ZS)])
+                         (V.fromList [voidFromSh @Double (1 :$: 1 :$: ZS)])
                          (rreplicate 2 (rreplicate 5 a0))
                          (V.singleton $ DynamicRanked
                           $ rreplicate 2 a0)) (rreplicate0N [1,1] 1.1))
@@ -2941,7 +2941,7 @@ testSin0ScanD8 = do
                                           $ sin (rfromD $ (V.! 0)
                                                  $ mapHVectorRanked
                                                      (rsum . rreplicate 7) a)))
-                       (V.fromList [voidFromSh @Double (1 :$ 1 :$ 1 :$ ZS)])
+                       (V.fromList [voidFromSh @Double (1 :$: 1 :$: 1 :$: ZS)])
                        (rreplicate 2 (rreplicate 5
                                         (rreplicate0N [1,1,1] 2 * a0)))
                        (V.singleton $ DynamicRanked $ rreplicate 3 a0))
@@ -2955,10 +2955,10 @@ testSin0ScanD8MapAccum = do
        (\a0 -> (rfromD @_ @6 . (V.! 1))
                $ dunHVector
                $ dmapAccumR Proxy (SNat @4)
-                   (V.fromList [voidFromSh @Double (2 :$ 5 :$ 1 :$ 1 :$ 1 :$ ZS)])
+                   (V.fromList [voidFromSh @Double (2 :$: 5 :$: 1 :$: 1 :$: 1 :$: ZS)])
                    (V.fromList
-                      [voidFromSh @Double (2 :$ 5 :$ 1 :$ 1 :$ 1 :$ ZS)])
-                   (V.fromList [voidFromSh @Double (1 :$ 1 :$ 1 :$ ZS)])
+                      [voidFromSh @Double (2 :$: 5 :$: 1 :$: 1 :$: 1 :$: ZS)])
+                   (V.fromList [voidFromSh @Double (1 :$: 1 :$: 1 :$: ZS)])
                    (let g :: forall g. ADReady g
                           => HVector g -> HVector g -> HVectorOf g
                         g xh a =
@@ -3152,7 +3152,7 @@ testSin0ScanD0fwd = do
          f x0 = rscanZip (\x _a -> sin x)
                        (V.fromList [voidFromSh @Double ZS])
                        x0 (V.singleton $ DynamicRanked
-                           $ rzero @f @Double (0 :$ ZS))
+                           $ rzero @f @Double (0 :$: ZS))
      in f) 1.1)
 
 testSin0ScanD1fwd :: Assertion
@@ -3162,7 +3162,7 @@ testSin0ScanD1fwd = do
     (rfwd1 @(Flip OR.Array) @Double @0 @1
     (\x0 -> rscanZip (\x _a -> sin x)
                    (V.fromList [ voidFromSh @Double ZS
-                               , voidFromSh @Double (3 :$ 4 :$ ZS)])
+                               , voidFromSh @Double (3 :$: 4 :$: ZS)])
                    x0 (V.fromList
                          [ DynamicRanked
                            $ rconst (OR.constant @Double @1 [1] 42)
@@ -3193,8 +3193,8 @@ testSin0ScanD8fwdMapAccum = do
        (\a0 -> rreverse $ (rfromD . (V.! 1))
                $ dunHVector
                $ dmapAccumR Proxy (SNat @4)
-                   (V.fromList [voidFromSh @Double (2 :$ 5 :$ ZS)])
-                   (V.fromList [voidFromSh @Double (2 :$ 5 :$ ZS)])
+                   (V.fromList [voidFromSh @Double (2 :$: 5 :$: ZS)])
+                   (V.fromList [voidFromSh @Double (2 :$: 5 :$: ZS)])
                    (V.fromList [voidFromSh @Double ZS])
                    (let g :: forall g. ADReady g
                           => HVector g -> HVector g -> HVectorOf g
@@ -4289,7 +4289,7 @@ testSin0revhV3 = do
 testSin0revhV4 :: Assertion
 testSin0revhV4 = do
   let doms = V.singleton (voidFromSh @Double ZS)
-      doms3 = V.singleton (voidFromSh @Double (3 :$ ZS))
+      doms3 = V.singleton (voidFromSh @Double (3 :$: ZS))
       f :: forall g. (HVectorTensor g (ShapedOf g), RankedTensor g)
         => HVector g -> HVectorOf g
       f x =
@@ -4325,7 +4325,7 @@ testSin0revhV5 = do
 testSin0revhV6 :: Assertion
 testSin0revhV6 = do
   let doms = V.singleton (voidFromSh @Double ZS)
-      doms3 = V.singleton (voidFromSh @Double (3 :$ ZS))
+      doms3 = V.singleton (voidFromSh @Double (3 :$: ZS))
       f :: forall g. (HVectorTensor g (ShapedOf g), RankedTensor g)
         => HVector g -> HVectorOf g
       f x =

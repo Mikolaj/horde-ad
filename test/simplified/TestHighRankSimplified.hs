@@ -332,13 +332,13 @@ nestedBuildMap :: forall ranked n r.
                => ranked r 0 -> ranked r (1 + n)
 nestedBuildMap r =
   let w x = rreplicate0N [4] x :: ranked r 1
-      v' = rreplicate0N (177 :$ ZS) r
+      v' = rreplicate0N (177 :$: ZS) r
       nestedMap x = rmap0N (x /) (w x)
       variableLengthBuild iy = rbuild1 7 (\ix ->
         rindex v' (ix + iy :. ZI))
       doublyBuild =
         rbuild1 3 (rreplicate0N (takeShape @n @(6 - n)
-                             $ 2 :$ 4 :$ 2 :$ 1 :$ 3 :$ 2 :$ ZS)
+                             $ 2 :$: 4 :$: 2 :$: 1 :$: 3 :$: 2 :$: ZS)
                    . rminimum . variableLengthBuild)
   in rmap0N (\x -> x * rsum0
                          (rbuild1 3 (\ix -> bar (x, rindex v' [ix]))
@@ -507,7 +507,7 @@ testBraidedBuilds :: Assertion
 testBraidedBuilds =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [4] [0.0,4.0,0.0,0.0])
-    (rev' @Double @2 braidedBuilds (rreplicate0N (4 :$ ZS) 3.4))
+    (rev' @Double @2 braidedBuilds (rreplicate0N (4 :$: ZS) 3.4))
 
 testBraidedBuilds1 :: Assertion
 testBraidedBuilds1 =
@@ -524,13 +524,13 @@ recycled r =
 testRecycled :: Assertion
 testRecycled =
   assertEqualUpToEpsilon' 1e-6
-    (runFlip $ rreplicate0N (2 :$ ZS) 5616)
+    (runFlip $ rreplicate0N (2 :$: ZS) 5616)
     (rev' @Double @7 recycled (rreplicate0N [2] 1.0001))
 
 testRecycled1 :: Assertion
 testRecycled1 =
   assertEqualUpToEpsilon' 1e-6
-    (runFlip $ rfromList0N (5 :$ 4 :$ 2 :$ ZS) [5184.0,5184.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,5424.0,5424.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0])
+    (runFlip $ rfromList0N (5 :$: 4 :$: 2 :$: ZS) [5184.0,5184.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,5424.0,5424.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0])
     (rev' @Double @7 recycled (rreplicate0N [5, 4, 2] 0.0002))
 
 concatBuild :: (ADReady ranked, GoodScalar r, KnownNat n, Differentiable r)

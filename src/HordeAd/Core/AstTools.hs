@@ -67,23 +67,23 @@ shapeAst = \case
     [] -> case sameNat (Proxy @n) (Proxy @1) of
       Just Refl -> singletonShape 0  -- the only case where we can guess sh
       _ -> error "shapeAst: AstFromList with no arguments"
-    t : _ -> length l :$ shapeAst t
+    t : _ -> length l :$: shapeAst t
   AstFromVector l -> case V.toList l of
     [] -> case sameNat (Proxy @n) (Proxy @1) of
       Just Refl -> singletonShape 0
       _ ->  error "shapeAst: AstFromVector with no arguments"
-    t : _ -> V.length l :$ shapeAst t
-  AstReplicate s v -> s :$ shapeAst v
+    t : _ -> V.length l :$: shapeAst t
+  AstReplicate s v -> s :$: shapeAst v
   AstAppend x y -> case shapeAst x of
     ZS -> error "shapeAst: impossible pattern needlessly required"
-    xi :$ xsh -> case shapeAst y of
+    xi :$: xsh -> case shapeAst y of
       ZS -> error "shapeAst: impossible pattern needlessly required"
-      yi :$ _ -> xi + yi :$ xsh
-  AstSlice _i n v -> n :$ tailShape (shapeAst v)
+      yi :$: _ -> xi + yi :$: xsh
+  AstSlice _i n v -> n :$: tailShape (shapeAst v)
   AstReverse v -> shapeAst v
   AstTranspose perm v -> backpermutePrefixShape perm (shapeAst v)
   AstReshape sh _v -> sh
-  AstBuild1 k (_var, v) -> k :$ shapeAst v
+  AstBuild1 k (_var, v) -> k :$: shapeAst v
   AstGather sh _v (_vars, _ix) -> sh
   AstCast t -> shapeAst t
   AstFromIntegral a -> shapeAst a
@@ -101,7 +101,7 @@ lengthAst :: (KnownNat n, GoodScalar r) => AstRanked s r (1 + n) -> Int
 {-# INLINE lengthAst #-}
 lengthAst v1 = case shapeAst v1 of
   ZS -> error "lengthAst: impossible pattern needlessly required"
-  k :$ _ -> k
+  k :$: _ -> k
 
 shapeAstHVector :: AstHVector s -> VoidHVector
 shapeAstHVector = \case
