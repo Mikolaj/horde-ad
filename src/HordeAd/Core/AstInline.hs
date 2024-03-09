@@ -30,7 +30,7 @@ import           HordeAd.Core.AstTools
 import           HordeAd.Core.HVector
 import           HordeAd.Core.Types
 import qualified HordeAd.Util.ShapedList as ShapedList
-import           HordeAd.Util.SizedIndex
+import           HordeAd.Util.SizedList
 
 -- * Inlining and simplification pass operations to be applied after unlet
 

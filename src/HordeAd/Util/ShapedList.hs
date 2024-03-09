@@ -33,7 +33,6 @@ import           GHC.TypeLits
   (KnownNat, Nat, SomeNat (..), someNatVal, type (*))
 import           Unsafe.Coerce (unsafeCoerce)
 
-import qualified HordeAd.Util.SizedIndex as SizedIndex
 import           HordeAd.Util.SizedList (Permutation)
 import qualified HordeAd.Util.SizedList as SizedList
 
@@ -230,8 +229,8 @@ shapedToSized :: KnownNat (Sh.Rank sh)
 shapedToSized = SizedList.listToSized . sizedToList
 
 shapedToIndex :: KnownNat (Sh.Rank sh)
-                  => ShapedList sh i -> SizedIndex.Index (Sh.Rank sh) i
-shapedToIndex = SizedIndex.listToIndex . sizedToList
+                  => ShapedList sh i -> SizedList.Index (Sh.Rank sh) i
+shapedToIndex = SizedList.listToIndex . sizedToList
 
 -- | Given a multidimensional index, get the corresponding linear
 -- index into the buffer. Note that the index doesn't need to be pointing

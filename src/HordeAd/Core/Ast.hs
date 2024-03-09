@@ -41,7 +41,6 @@ import           Type.Reflection (Typeable, eqTypeRep, typeRep, (:~~:) (HRefl))
 import HordeAd.Core.HVector
 import HordeAd.Core.Types
 import HordeAd.Util.ShapedList (ShapedList (..))
-import HordeAd.Util.SizedIndex
 import HordeAd.Util.SizedList
 
 -- * The AstSpan kind

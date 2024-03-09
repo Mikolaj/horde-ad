@@ -43,7 +43,7 @@ import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances ()
 import           HordeAd.Util.ShapedList (ShapeSh, ShapedList (..))
 import qualified HordeAd.Util.ShapedList as ShapedList
-import           HordeAd.Util.SizedIndex
+import           HordeAd.Util.SizedList
 
 -- * Type definitions for dynamic tensors and tensor collections
 

@@ -36,7 +36,6 @@ import           HordeAd.Core.HVector
 import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances (sameShape)
 import qualified HordeAd.Util.ShapedList as ShapedList
-import           HordeAd.Util.SizedIndex
 import           HordeAd.Util.SizedList
 
 -- * Pretty-printing setup and checks

@@ -26,7 +26,7 @@ import           HordeAd.Core.TensorClass
 import           HordeAd.Core.Types
 import           HordeAd.External.CommonRankedOps
 import qualified HordeAd.Util.ShapedList as ShapedList
-import           HordeAd.Util.SizedIndex
+import           HordeAd.Util.SizedList
 
 sminIndexN :: ( ADReadyS shaped, GoodScalar r
               , Sh.Shape sh, KnownNat (Sh.Size sh) )

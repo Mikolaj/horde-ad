@@ -47,7 +47,7 @@ import           HordeAd.Internal.OrthotopeOrphanInstances
 import           HordeAd.Internal.TensorFFI
 import           HordeAd.Util.ShapedList (ShapedList (..), ShapedNat)
 import qualified HordeAd.Util.ShapedList as ShapedList
-import           HordeAd.Util.SizedIndex
+import           HordeAd.Util.SizedList
 
 -- * Ranked tensor operations
 

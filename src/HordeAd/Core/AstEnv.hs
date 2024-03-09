@@ -35,7 +35,6 @@ import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances
   (matchingRank, sameShape)
 import qualified HordeAd.Util.ShapedList as ShapedList
-import           HordeAd.Util.SizedIndex
 import           HordeAd.Util.SizedList
 
 -- * The environment and operations for extending it

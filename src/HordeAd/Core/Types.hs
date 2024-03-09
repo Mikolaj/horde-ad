@@ -31,7 +31,7 @@ import           Type.Reflection (Typeable)
 import HordeAd.Internal.OrthotopeOrphanInstances ()
 import HordeAd.Internal.TensorFFI
 import HordeAd.Util.ShapedList (ShapedList, ShapedNat)
-import HordeAd.Util.SizedIndex
+import HordeAd.Util.SizedList
 
 -- * Types of types of tensors
 

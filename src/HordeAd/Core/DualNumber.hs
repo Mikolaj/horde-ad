@@ -36,7 +36,7 @@ import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.Internal.OrthotopeOrphanInstances (sameShape)
 import HordeAd.Util.ShapedList (singletonShaped)
-import HordeAd.Util.SizedIndex
+import HordeAd.Util.SizedList
 
 -- * The main dual number type
 

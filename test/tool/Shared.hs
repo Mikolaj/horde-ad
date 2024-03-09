@@ -20,7 +20,7 @@ import HordeAd.Core.HVector
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.Internal.TensorFFI
-import HordeAd.Util.SizedIndex
+import HordeAd.Util.SizedList
 
 lowercase :: String -> String
 lowercase = map Data.Char.toLower

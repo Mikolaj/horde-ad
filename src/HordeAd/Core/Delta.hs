@@ -75,7 +75,7 @@ import HordeAd.Core.Types
 import HordeAd.Internal.OrthotopeOrphanInstances
   (sameShape, trustMeThisIsAPermutation)
 import HordeAd.Util.ShapedList (ShapedList (..))
-import HordeAd.Util.SizedIndex
+import HordeAd.Util.SizedList
 
 -- * Reverse and forward derivative computation for HVectorPseudoTensor
 

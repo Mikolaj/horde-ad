@@ -43,7 +43,7 @@ import           HordeAd.Internal.OrthotopeOrphanInstances
   (matchingRank, sameShape)
 import           HordeAd.Util.ShapedList (ShapeSh, ShapedList (..), consShaped)
 import qualified HordeAd.Util.ShapedList as ShapedList
-import           HordeAd.Util.SizedIndex
+import           HordeAd.Util.SizedList
 
 -- * Ranked tensor class definition
 

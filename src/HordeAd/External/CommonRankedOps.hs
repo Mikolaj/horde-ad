@@ -18,7 +18,7 @@ import Data.Int (Int64)
 import HordeAd.Core.Ast
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
-import HordeAd.Util.SizedIndex
+import HordeAd.Util.SizedList
 
 rminIndexN :: ( RankedTensor ranked, KnownNat n, GoodScalar r
               , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )

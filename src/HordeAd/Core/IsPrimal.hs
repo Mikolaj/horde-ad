@@ -34,7 +34,7 @@ import HordeAd.Core.Delta
 import HordeAd.Core.HVector
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
-import HordeAd.Util.SizedIndex
+import HordeAd.Util.SizedList
 
 -- | The type family that to each differentiable type assigns
 -- its delta expression type. The dispatch is on the type parameter @ty@,

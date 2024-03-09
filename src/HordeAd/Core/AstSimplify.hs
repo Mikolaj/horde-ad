@@ -97,7 +97,6 @@ import           HordeAd.Internal.OrthotopeOrphanInstances
   (MapSucc, matchingRank, sameShape, trustMeThisIsAPermutation)
 import           HordeAd.Util.ShapedList (ShapedList (..))
 import qualified HordeAd.Util.ShapedList as ShapedList
-import           HordeAd.Util.SizedIndex
 import           HordeAd.Util.SizedList
 
 -- * Expressing operations as Gather; introduces new variable names

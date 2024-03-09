@@ -31,7 +31,6 @@ import           HordeAd.Core.AstTools
 import           HordeAd.Core.HVector
 import           HordeAd.Core.Types
 import qualified HordeAd.Util.ShapedList as ShapedList
-import           HordeAd.Util.SizedIndex
 import           HordeAd.Util.SizedList
 
 -- Impure but in the most trivial way (only ever incremented counter).

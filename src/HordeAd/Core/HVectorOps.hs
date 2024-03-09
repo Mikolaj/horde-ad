@@ -37,7 +37,7 @@ import           HordeAd.Internal.OrthotopeOrphanInstances
   (matchingRank, sameShape)
 import           HordeAd.Util.ShapedList (ShapedList (..))
 import qualified HordeAd.Util.ShapedList as ShapedList
-import           HordeAd.Util.SizedIndex
+import           HordeAd.Util.SizedList
 
 raddDynamic :: forall ranked r n.
                (RankedTensor ranked, GoodScalar r, KnownNat n)

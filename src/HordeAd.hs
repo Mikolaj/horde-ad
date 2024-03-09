@@ -17,7 +17,6 @@ module HordeAd
   , module HordeAd.External.CommonRankedOps
   , module HordeAd.External.CommonShapedOps
   , module HordeAd.External.Optimizer
-  , module HordeAd.Util.SizedIndex
   , module HordeAd.Util.SizedList
   ) where
 
@@ -37,5 +36,4 @@ import HordeAd.Core.Types
 import HordeAd.External.CommonRankedOps
 import HordeAd.External.CommonShapedOps
 import HordeAd.External.Optimizer
-import HordeAd.Util.SizedIndex
 import HordeAd.Util.SizedList

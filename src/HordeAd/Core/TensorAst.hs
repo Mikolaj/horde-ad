@@ -48,7 +48,7 @@ import           HordeAd.Core.TensorConcrete ()
 import           HordeAd.Core.Types
 import           HordeAd.Util.ShapedList (singletonShaped)
 import qualified HordeAd.Util.ShapedList as ShapedList
-import           HordeAd.Util.SizedIndex
+import           HordeAd.Util.SizedList
 
 -- * Symbolic reverse and forward derivative computation
 

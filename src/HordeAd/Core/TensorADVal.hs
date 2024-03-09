@@ -44,7 +44,7 @@ import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances (sameShape)
 import           HordeAd.Util.ShapedList (singletonShaped)
 import qualified HordeAd.Util.ShapedList as ShapedList
-import           HordeAd.Util.SizedIndex
+import           HordeAd.Util.SizedList
 
 -- * Non-symbolic reverse and forward derivative computation
 

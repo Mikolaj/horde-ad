@@ -42,7 +42,7 @@ import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.Internal.OrthotopeOrphanInstances (sameShape)
 import HordeAd.Util.ShapedList (ShapedList (..))
-import HordeAd.Util.SizedIndex
+import HordeAd.Util.SizedList
 
 interpretAstPrimalRuntimeSpecialized
   :: forall ranked n r.
