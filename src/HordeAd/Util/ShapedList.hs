@@ -2,23 +2,25 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -fconstraint-solver-iterations=10000 #-}
--- TODO: we may or may not split this similarly to SizedList/SizedIndex
--- depending on the user experience. That would be 6 incompatible
--- types of sized lists in total in place of the current 4 types.
 -- | @[Nat]@-indexed lists to be used as is for lists of tensor variables,
 -- tensor shapes and tensor indexes.
 module HordeAd.Util.ShapedList
-  ( ShapedNat, shapedNat, unShapedNat
-  , ShapeSh, shapeSh
-  , ShapedList(..), singletonShaped, consShaped, unconsContShaped
-  , snocSized, appendSized
+  ( -- * Shaped lists and their permutations
+    ShapedList(..)
+  , consShaped, unconsContShaped
+  , singletonShaped, snocSized, appendSized
   , headSized, tailSized, takeSized, dropSized, splitAt_Sized
+  , unsnocSized1, lastSized, initSized, zipSized, zipWith_Sized, reverseSized
+  , Permutation
   , backpermutePrefixShaped, backpermutePrefixSized
   , permutePrefixShaped, permutePrefixSized
-  , unsnocSized1, lastSized, initSized, zipSized, zipWith_Sized, reverseSized
   , sizedCompare, listToSized, sizedToList
   , shapedToSized, shapedToIndex
-  , Permutation
+    -- * Tensor indexes as fully encapsulated sized lists, with operations
+    -- * Tensor shapes as fully encapsulated sized lists, with operations
+  , ShapedNat, shapedNat, unShapedNat
+  , ShapeSh, shapeSh
+    -- * Operations involving both indexes and shapes
   , toLinearIdx, fromLinearIdx
   ) where
 
@@ -36,25 +38,7 @@ import           Unsafe.Coerce (unsafeCoerce)
 import           HordeAd.Util.SizedList (Permutation)
 import qualified HordeAd.Util.SizedList as SizedList
 
--- TODO: ensure this is checked (runtime-checked, if necessary):
--- | The value of this type has to be positive and less than the @n@ bound.
--- If the values are terms, this is relative to environment
--- and up to evaluation.
-type role ShapedNat nominal representational
-newtype ShapedNat (n :: Nat) a = ShapedNat {unShapedNat :: a}
-
--- TODO: actually check or wrap a check for later, based on a mechanism
--- provided by @a@ somehow
-shapedNat :: forall n a. a -> ShapedNat n a
-shapedNat = ShapedNat
-
--- TODO: ensure this can't be subverted:
--- | These are singletons. The integers inside are equal to the type-level
--- dimensions.
-type ShapeSh (sh :: [Nat]) = ShapedList sh Int
-
-shapeSh :: forall sh. Sh.Shape sh => ShapeSh sh
-shapeSh = listToSized $ Sh.shapeT @sh
+-- * Shaped lists and their permutations
 
 -- | Strict lists indexed by shapes, that is, lists of the GHC @Nat@.
 infixr 3 ::$
@@ -83,9 +67,6 @@ instance Sh.Shape sh => IsList (ShapedList sh i) where
   fromList = listToSized
   toList = sizedToList
 
-singletonShaped :: KnownNat n => i -> ShapedList '[n] i
-singletonShaped i = i ::$ ZS
-
 -- TODO: should we actually replace ::$ with that in the external API?
 consShaped :: (KnownNat n, Sh.Shape sh)
            => ShapedNat n i -> ShapedList sh i -> ShapedList (n ': sh) i
@@ -93,6 +74,9 @@ consShaped (ShapedNat i) l = i ::$ l
 
 unconsContShaped :: (ShapedNat n i -> k) -> ShapedList (n ': sh) i -> k
 unconsContShaped f (i ::$ _) = f (ShapedNat i)
+
+singletonShaped :: KnownNat n => i -> ShapedList '[n] i
+singletonShaped i = i ::$ ZS
 
 snocSized :: KnownNat n => ShapedList sh i -> i -> ShapedList (n ': sh) i
 snocSized ZS last1 = last1 ::$ ZS
@@ -231,6 +215,35 @@ shapedToSized = SizedList.listToSized . sizedToList
 shapedToIndex :: KnownNat (Sh.Rank sh)
                   => ShapedList sh i -> SizedList.Index (Sh.Rank sh) i
 shapedToIndex = SizedList.listToIndex . sizedToList
+
+
+-- * Tensor indexes as fully encapsulated sized lists, with operations
+
+
+-- * Tensor shapes as fully encapsulated sized lists, with operations
+
+-- TODO: ensure this is checked (runtime-checked, if necessary):
+-- | The value of this type has to be positive and less than the @n@ bound.
+-- If the values are terms, this is relative to environment
+-- and up to evaluation.
+type role ShapedNat nominal representational
+newtype ShapedNat (n :: Nat) a = ShapedNat {unShapedNat :: a}
+
+-- TODO: actually check or wrap a check for later, based on a mechanism
+-- provided by @a@ somehow
+shapedNat :: forall n a. a -> ShapedNat n a
+shapedNat = ShapedNat
+
+-- TODO: ensure this can't be subverted:
+-- | These are singletons. The integers inside are equal to the type-level
+-- dimensions.
+type ShapeSh (sh :: [Nat]) = ShapedList sh Int
+
+shapeSh :: forall sh. Sh.Shape sh => ShapeSh sh
+shapeSh = listToSized $ Sh.shapeT @sh
+
+
+-- * Operations involving both indexes and shapes
 
 -- | Given a multidimensional index, get the corresponding linear
 -- index into the buffer. Note that the index doesn't need to be pointing
