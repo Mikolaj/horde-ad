@@ -14,10 +14,13 @@ module HordeAd.Util.SizedIndex
   , listToIndex, indexToList, indexToSized, sizedToIndex
     -- * Tensor shapes as fully encapsulated sized lists, with operations
   , Shape, pattern (:$:), pattern ZSR
-  , singletonShape, appendShape, tailShape, takeShape, dropShape
-  , splitAt_Shape, lastShape, initShape, lengthShape, sizeShape, flattenShape
+  , singletonShape, appendShape
+  , tailShape, takeShape, dropShape, splitAt_Shape
+  , lastShape, initShape
+  , lengthShape, sizeShape, flattenShape
   , backpermutePrefixShape
-  , listToShape, withListShape, withListShapeSh, withListSh, shapeToList
+  , listToShape, shapeToList
+  , withListShape, withListShapeSh, withListSh
     -- * Operations involving both indexes and shapes
   , toLinearIdx, fromLinearIdx, zeroOf
   ) where
@@ -263,6 +266,9 @@ backpermutePrefixShape p (Shape is) = Shape $ backpermutePrefixSized p is
 listToShape :: KnownNat n => [i] -> Shape n i
 listToShape = Shape . listToSized
 
+shapeToList :: Shape n i -> [i]
+shapeToList (Shape l) = sizedToList l
+
 -- Both shape representations denote the same shape.
 withListShape
   :: [i]
@@ -301,9 +307,6 @@ withListSh (Proxy @sh) f =
       gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: n) $
       f $ listToShape @n shList
     _ -> error "withListSh: impossible someNatVal error"
-
-shapeToList :: Shape n i -> [i]
-shapeToList (Shape l) = sizedToList l
 
 
 -- * Operations involving both indexes and shapes

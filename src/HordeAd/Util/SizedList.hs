@@ -6,11 +6,11 @@ module HordeAd.Util.SizedList
   ( SizedList(..)
   , singletonSized, snocSized, appendSized
   , headSized, tailSized, takeSized, dropSized, splitAt_Sized
-  , backpermutePrefixSized, backpermutePrefixList
-  , permutePrefixSized, permutePrefixList
   , unsnocSized1, lastSized, initSized, zipSized, zipWith_Sized, reverseSized
-  , sizedCompare, listToSized, sizedToList
   , Permutation
+  , backpermutePrefixList, permutePrefixList
+  , backpermutePrefixSized, permutePrefixSized
+  , sizedCompare, listToSized, sizedToList
   ) where
 
 import Prelude
@@ -139,6 +139,14 @@ reverseSized l = go l ZR
 -- an occasional forward permutation.
 type Permutation = [Int]
 
+backpermutePrefixList :: Permutation -> [i] -> [i]
+backpermutePrefixList p l = map (l !!) p ++ drop (length p) l
+
+-- Boxed vector is not that bad, because we move pointers around,
+-- but don't follow them. Storable vectors wouldn't work for Ast.
+permutePrefixList :: Permutation -> [i] -> [i]
+permutePrefixList p l = V.toList $ Data.Vector.fromList l V.// zip p l
+
 -- This permutes a prefix of the sized list of the length of the permutation.
 -- The rest of the sized list is left intact.
 backpermutePrefixSized :: forall n i. KnownNat n
@@ -148,20 +156,12 @@ backpermutePrefixSized p ix =
   then error "backpermutePrefixSized: cannot permute a list shorter than permutation"
   else listToSized $ backpermutePrefixList p $ sizedToList ix
 
-backpermutePrefixList :: Permutation -> [i] -> [i]
-backpermutePrefixList p l = map (l !!) p ++ drop (length p) l
-
 permutePrefixSized :: forall n i. KnownNat n
                    => Permutation -> SizedList n i -> SizedList n i
 permutePrefixSized p ix =
   if valueOf @n < length p
   then error "permutePrefixSized: cannot permute a list shorter than permutation"
   else listToSized $ permutePrefixList p $ sizedToList ix
-
--- Boxed vector is not that bad, because we move pointers around,
--- but don't follow them. Storable vectors wouldn't work for Ast.
-permutePrefixList :: Permutation -> [i] -> [i]
-permutePrefixList p l = V.toList $ Data.Vector.fromList l V.// zip p l
 
 -- | Pairwise comparison of two sized list values.
 -- The comparison function is invoked once for each rank
