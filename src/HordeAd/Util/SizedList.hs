@@ -27,7 +27,7 @@ module HordeAd.Util.SizedList
   , lengthShape, sizeShape, flattenShape
   , backpermutePrefixShape
   , listToShape, shapeToList
-  , withListShape, withListShapeSh, withListSh
+  , withListShape, withListShapeIntS, withListSh
     -- * Operations involving both indexes and shapes
   , toLinearIdx, fromLinearIdx, zeroOf
   ) where
@@ -469,18 +469,18 @@ withListShape shList f =
     _ -> error "withListShape: impossible someNatVal error"
 
 -- All three shape representations denote the same shape.
-withListShapeSh
+withListShapeIntS
   :: [Int]
   -> (forall sh n. (Sh.Shape sh, KnownNat n, Sh.Rank sh ~ n)
       => Proxy sh -> ShapeInt n -> a)
   -> a
-withListShapeSh shList f =
+withListShapeIntS shList f =
   Sh.withShapeP shList $ \proxy@(Proxy @sh) ->
     case someNatVal $ toInteger (length shList) of
       Just (SomeNat @n _) ->
         gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: n) $
         f @sh @n proxy $ listToShape @n shList
-      _ -> error "withListShapeSh: impossible someNatVal error"
+      _ -> error "withListShapeIntS: impossible someNatVal error"
 
 -- All three shape representations denote the same shape.
 withListSh

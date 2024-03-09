@@ -269,7 +269,7 @@ unravelDynamic (DynamicRanked @rp @p t) =
       gcastWith (unsafeCoerce Refl :: p :~: 1 + p1 ) $
       map (DynamicRanked @rp @p1) $ runravelToList t
     Nothing -> error "unravelDynamic: rank 0"
-unravelDynamic (DynamicShaped @rp @sh t) = case ShapedList.shapeSh @sh of
+unravelDynamic (DynamicShaped @rp @sh t) = case ShapedList.shapeIntSFromT @sh of
   ZS -> error "unravelDynamic: rank 0"
   _ ::$ _ -> map DynamicShaped $ sunravelToList t
 unravelDynamic (DynamicRankedDummy @rp @sh _ _) =
@@ -279,7 +279,7 @@ unravelDynamic (DynamicRankedDummy @rp @sh _ _) =
         gcastWith (unsafeCoerce Refl :: p :~: 1 + p1 ) $
         map (DynamicRanked @rp @p1) $ runravelToList (rzero sh)
       Nothing -> error "unravelDynamic: rank 0"
-unravelDynamic (DynamicShapedDummy @rp @sh _ _) = case ShapedList.shapeSh @sh of
+unravelDynamic (DynamicShapedDummy @rp @sh _ _) = case ShapedList.shapeIntSFromT @sh of
   ZS -> error "unravelDynamic: rank 0"
   _ ::$ _ -> map DynamicShaped $ sunravelToList (0 :: ShapedOf ranked rp sh)
 
@@ -450,7 +450,7 @@ mapRanked10
 mapRanked10 f (DynamicRanked t) = case rshape t of
   ZSR -> error "mapRanked10: rank 0"
   _ :$: _ -> DynamicRanked $ f t
-mapRanked10 f (DynamicShaped @r @sh t) = case ShapedList.shapeSh @sh of
+mapRanked10 f (DynamicShaped @r @sh t) = case ShapedList.shapeIntSFromT @sh of
   ZS -> error "mapRanked10: rank 0"
   (::$) @_ @sh0 _ _ ->
     withListSh (Proxy @sh0) $ \(_ :: ShapeInt n) ->
@@ -458,12 +458,12 @@ mapRanked10 f (DynamicShaped @r @sh t) = case ShapedList.shapeSh @sh of
       in Sh.withShapeP (shapeToList $ rshape res) $ \(Proxy @shr) ->
         gcastWith (unsafeCoerce Refl :: Sh.Rank shr :~: n) $
         DynamicShaped $ sfromR @_ @_ @shr res
-mapRanked10 f (DynamicRankedDummy @r @sh _ _) = case ShapedList.shapeSh @sh of
+mapRanked10 f (DynamicRankedDummy @r @sh _ _) = case ShapedList.shapeIntSFromT @sh of
   ZS -> error "mapRanked10: rank 0"
   (::$) @_ @sh0 k _ ->
     withListSh (Proxy @sh0) $ \sh1 ->
       DynamicRanked @r $ f (rzero $ k :$: sh1)
-mapRanked10 f (DynamicShapedDummy @r @sh _ _) = case ShapedList.shapeSh @sh of
+mapRanked10 f (DynamicShapedDummy @r @sh _ _) = case ShapedList.shapeIntSFromT @sh of
   ZS -> error "mapRanked10: rank 0"
   (::$) @_ @sh0 k _ ->
     withListSh (Proxy @sh0) $ \(sh1 :: ShapeInt n) ->
@@ -489,7 +489,7 @@ mapRanked11
 mapRanked11 f (DynamicRanked t) = case rshape t of
   ZSR -> error "mapRanked11: rank 0"
   _ :$: _ -> DynamicRanked $ f t
-mapRanked11 f (DynamicShaped @r @sh t) = case ShapedList.shapeSh @sh of
+mapRanked11 f (DynamicShaped @r @sh t) = case ShapedList.shapeIntSFromT @sh of
   ZS -> error "mapRanked11: rank 0"
   (::$) @_ @sh0 _ _ ->
     withListSh (Proxy @sh0) $ \(_ :: ShapeInt n) ->
@@ -501,12 +501,12 @@ mapRanked11 f (DynamicShaped @r @sh t) = case ShapedList.shapeSh @sh of
             gcastWith (unsafeCoerce Refl :: Sh.Rank shr :~: n1) $
             DynamicShaped $ sfromR @_ @_ @shr res
           _ -> error "mapRanked01: impossible someNatVal"
-mapRanked11 f (DynamicRankedDummy @r @sh _ _) = case ShapedList.shapeSh @sh of
+mapRanked11 f (DynamicRankedDummy @r @sh _ _) = case ShapedList.shapeIntSFromT @sh of
   ZS -> error "mapRanked11: rank 0"
   (::$) @_ @sh0 k _ ->
     withListSh (Proxy @sh0) $ \sh1 ->
       DynamicRanked @r $ f (rzero $ k :$: sh1)
-mapRanked11 f (DynamicShapedDummy @r @sh _ _) = case ShapedList.shapeSh @sh of
+mapRanked11 f (DynamicShapedDummy @r @sh _ _) = case ShapedList.shapeIntSFromT @sh of
   ZS -> error "mapRanked11: rank 0"
   (::$) @_ @sh0 k _ ->
     withListSh (Proxy @sh0) $ \(sh1 :: ShapeInt n) ->
@@ -536,7 +536,7 @@ mapShaped
       => shaped rq shq -> shaped rq shq)
   -> DynamicTensor (RankedOf shaped) -> DynamicTensor (RankedOf shaped)
 mapShaped f (DynamicRanked @r @n t) =
-    withListShapeSh (shapeToList $ rshape t) $ \(Proxy @sh) (_ :: ShapeInt m) ->
+    withListShapeIntS (shapeToList $ rshape t) $ \(Proxy @sh) (_ :: ShapeInt m) ->
       gcastWith (unsafeCoerce Refl :: n :~: m) $
       DynamicRanked $ rfromS $ f @r @sh $ sfromR t
 mapShaped f (DynamicShaped t) = DynamicShaped $ f t
@@ -565,7 +565,7 @@ mapShaped11
   -> DynamicTensor (RankedOf shaped) -> DynamicTensor (RankedOf shaped)
 mapShaped11 f (DynamicRanked @r @n2 t) =
   Sh.withShapeP (shapeToList $ rshape t) $ \(Proxy @sh) ->
-    case ShapedList.shapeSh @sh of
+    case ShapedList.shapeIntSFromT @sh of
       ZS -> error "mapShaped11: rank 0"
       (::$) @n @shr _ _ -> case sameNat (Proxy @n) (Proxy @k) of
         Just Refl -> withListSh (Proxy @shr) $ \(_ :: ShapeInt m) ->
@@ -577,13 +577,13 @@ mapShaped11 f (DynamicShaped @r t) = case sshape t of
   (::$) @n _ _ -> case sameNat (Proxy @n) (Proxy @k) of
     Just Refl -> DynamicShaped $ f t
     Nothing -> error "mapShaped11: wrong width"
-mapShaped11 f (DynamicRankedDummy @r @sh _ _) = case ShapedList.shapeSh @sh of
+mapShaped11 f (DynamicRankedDummy @r @sh _ _) = case ShapedList.shapeIntSFromT @sh of
   ZS -> error "mapShaped11: rank 0"
   (::$) @n @shr _ _ -> case sameNat (Proxy @n) (Proxy @k) of
     Just Refl -> withListSh (Proxy @shr) $ \_ ->
       DynamicRanked $ rfromS $ f @r @shr 0
     Nothing -> error "mapShaped11: wrong width"
-mapShaped11 f (DynamicShapedDummy @r @sh _ _) = case ShapedList.shapeSh @sh of
+mapShaped11 f (DynamicShapedDummy @r @sh _ _) = case ShapedList.shapeIntSFromT @sh of
   ZS -> error "mapShaped11: rank 0"
   (::$) @n @shr _ _ -> case sameNat (Proxy @n) (Proxy @k) of
     Just Refl -> DynamicShaped $ f @r @shr 0

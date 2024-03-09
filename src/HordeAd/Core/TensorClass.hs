@@ -10,7 +10,7 @@
 -- differentiation interface in "HordeAd.Core.Engine".
 module HordeAd.Core.TensorClass
   ( -- * Re-exports
-    ShapeInt, ShapeSh
+    ShapeInt, ShapeIntS
     -- * The tensor classes
   , RankedTensor(..), ShapedTensor(..), HVectorTensor(..), HFun(..)
   , rfromD, sfromD
@@ -41,7 +41,7 @@ import           HordeAd.Core.HVector
 import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances
   (matchingRank, sameShape)
-import           HordeAd.Util.ShapedList (ShapeSh, SizedListS (..), consShaped)
+import           HordeAd.Util.ShapedList (ShapeIntS, SizedListS (..), consShaped)
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedList
 
@@ -349,8 +349,8 @@ class ( Integral (IntOf shaped), CShaped shaped Num
 
   -- Integer codomain
   sshape :: forall sh r. (GoodScalar r, Sh.Shape sh)
-         => shaped r sh -> ShapeSh sh
-  sshape _ = ShapedList.shapeSh @sh
+         => shaped r sh -> ShapeIntS sh
+  sshape _ = ShapedList.shapeIntSFromT @sh
   srank :: forall sh r. (GoodScalar r, KnownNat (Sh.Rank sh))
         => shaped r sh -> Int
   srank _ = valueOf @(Sh.Rank sh)
@@ -488,7 +488,7 @@ class ( Integral (IntOf shaped), CShaped shaped Num
   sbuild =
     let buildSh
           :: forall sh1.
-             ShapeSh sh1 -> ShapeSh (sh1 Sh.++ Sh.Drop m sh)
+             ShapeIntS sh1 -> ShapeIntS (sh1 Sh.++ Sh.Drop m sh)
           -> (IndexSh shaped sh1 -> shaped r (Sh.Drop m sh))
           -> shaped r (sh1 Sh.++ Sh.Drop m sh)
         buildSh sh1 sh1m f = case (sh1, sh1m) of
@@ -498,7 +498,7 @@ class ( Integral (IntOf shaped), CShaped shaped Num
             in sbuild1 g
     in gcastWith (unsafeCoerce Refl
                   :: sh :~: Sh.Take m sh Sh.++ Sh.Drop m sh)
-       $ buildSh (ShapedList.shapeSh @(Sh.Take m sh)) (ShapedList.shapeSh @sh)
+       $ buildSh (ShapedList.shapeIntSFromT @(Sh.Take m sh)) (ShapedList.shapeIntSFromT @sh)
   sbuild1 :: forall r n sh. (GoodScalar r, KnownNat n, Sh.Shape sh)
           => (IntSh shaped n -> shaped r sh)
           -> shaped r (n ': sh)

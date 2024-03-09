@@ -19,7 +19,7 @@ module HordeAd.Util.ShapedList
     -- * Tensor indexes as fully encapsulated sized lists, with operations
     -- * Tensor shapes as fully encapsulated sized lists, with operations
   , ShapedNat, shapedNat, unShapedNat
-  , ShapeSh, shapeSh
+  , ShapeIntS, shapeIntSFromT
     -- * Operations involving both indexes and shapes
   , toLinearIdx, fromLinearIdx
   ) where
@@ -237,10 +237,10 @@ shapedNat = ShapedNat
 -- TODO: ensure this can't be subverted:
 -- | These are singletons. The integers inside are equal to the type-level
 -- dimensions.
-type ShapeSh (sh :: [Nat]) = SizedListS sh Int
+type ShapeIntS (sh :: [Nat]) = SizedListS sh Int
 
-shapeSh :: forall sh. Sh.Shape sh => ShapeSh sh
-shapeSh = listToSized $ Sh.shapeT @sh
+shapeIntSFromT :: forall sh. Sh.Shape sh => ShapeIntS sh
+shapeIntSFromT = listToSized $ Sh.shapeT @sh
 
 
 -- * Operations involving both indexes and shapes

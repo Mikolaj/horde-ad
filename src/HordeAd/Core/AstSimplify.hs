@@ -194,8 +194,8 @@ astReshapeAsGatherS
 astReshapeAsGatherS v =
   gcastWith (unsafeCoerce Refl :: sh2 Sh.++ '[] :~: sh2) $
   funToVarsIxS @sh2 $ \ (!vars, !ix) ->
-    let shIn = ShapedList.shapeSh @sh
-        shOut = ShapedList.shapeSh @sh2
+    let shIn = ShapedList.shapeIntSFromT @sh
+        shOut = ShapedList.shapeIntSFromT @sh2
         asts :: AstIndexS sh
         asts = let i :: ShapedList.ShapedNat (Sh.Size sh2) AstInt
                    i = ShapedList.toLinearIdx @sh2 @'[] shOut ix
@@ -1609,13 +1609,13 @@ astReplicateNS :: forall shn shp s r.
                   (Sh.Shape shn, Sh.Shape shp, GoodScalar r, AstSpan s)
                => AstShaped s r shp -> AstShaped s r (shn Sh.++ shp)
 astReplicateNS v =
-  let go :: ShapeSh shn' -> AstShaped s r (shn' Sh.++ shp)
+  let go :: ShapeIntS shn' -> AstShaped s r (shn' Sh.++ shp)
       go ZS = v
       go ((::$) @k @shn2 _ shn2) =
         Sh.withShapeP (Sh.shapeT @shn2 ++ Sh.shapeT @shp) $ \(Proxy @sh) ->
           gcastWith (unsafeCoerce Refl :: sh :~: shn2 Sh.++ shp) $
           astReplicateS @k $ go shn2
-  in go (ShapedList.shapeSh @shn)
+  in go (ShapedList.shapeIntSFromT @shn)
 
 astReplicate0N :: forall n s r. (KnownNat n, GoodScalar r, AstSpan s)
                => ShapeInt n -> AstRanked s r 0 -> AstRanked s r n
@@ -1632,7 +1632,7 @@ astReplicate0NS =
   let go :: SizedListS sh' Int -> AstShaped s r '[] -> AstShaped s r sh'
       go ZS v = v
       go (_ ::$ sh') v = astReplicateS $ go sh' v
-  in go (ShapedList.shapeSh @shn)
+  in go (ShapedList.shapeIntSFromT @shn)
 
 astAppend :: (KnownNat n, GoodScalar r, AstSpan s)
           => AstRanked s r (1 + n) -> AstRanked s r (1 + n)

@@ -41,7 +41,7 @@ import           Type.Reflection (Typeable, typeRep)
 
 import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances ()
-import           HordeAd.Util.ShapedList (ShapeSh, SizedListS (..))
+import           HordeAd.Util.ShapedList (ShapeIntS, SizedListS (..))
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedList
 
@@ -240,7 +240,7 @@ index1HVectorF :: ( shaped ~ ShapedOf ranked
                => (forall r n. (GoodScalar r, KnownNat n)
                    => ranked r n -> ShapeInt n)
                -> (forall sh r. (GoodScalar r, Sh.Shape sh)
-                   => shaped r sh -> ShapeSh sh)
+                   => shaped r sh -> ShapeIntS sh)
                -> (forall r m n. (GoodScalar r, KnownNat m, KnownNat n)
                    => ranked r (m + n) -> IndexOf ranked m -> ranked r n)
                -> (forall r sh1 sh2.
@@ -258,7 +258,7 @@ index1DynamicF :: ( shaped ~ ShapedOf ranked
                => (forall r n. (GoodScalar r, KnownNat n)
                    => ranked r n -> ShapeInt n)
                -> (forall sh r. (GoodScalar r, Sh.Shape sh)
-                   => shaped r sh -> ShapeSh sh)
+                   => shaped r sh -> ShapeIntS sh)
                -> (forall r m n. (GoodScalar r, KnownNat m, KnownNat n)
                    => ranked r (m + n) -> IndexOf ranked m -> ranked r n)
                -> (forall r sh1 sh2.
@@ -275,10 +275,10 @@ index1DynamicF rshape sshape rindex sindex u i = case u of
   DynamicShaped t -> case sshape t of
     ZS -> error "index1Dynamic: rank 0"
     _ ::$ _ -> DynamicShaped $ sindex t (ShapedList.singletonSized i)
-  DynamicRankedDummy @r @sh p1 _ -> case ShapedList.shapeSh @sh of
+  DynamicRankedDummy @r @sh p1 _ -> case ShapedList.shapeIntSFromT @sh of
     ZS -> error "index1Dynamic: rank 0"
     (::$) @_ @sh2 _ _ -> DynamicRankedDummy @r @sh2 p1 Proxy
-  DynamicShapedDummy @r @sh p1 _ -> case ShapedList.shapeSh @sh of
+  DynamicShapedDummy @r @sh p1 _ -> case ShapedList.shapeIntSFromT @sh of
     ZS -> error "index1Dynamic: rank 0"
     (::$) @_ @sh2 _ _ -> DynamicShapedDummy @r @sh2 p1 Proxy
 

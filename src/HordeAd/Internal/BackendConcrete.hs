@@ -468,7 +468,7 @@ updateNS :: forall n sh r.
          -> OS.Array sh r
 updateNS arr upd =
   let values = OS.toVector arr
-      sh = ShapedList.shapeSh @sh
+      sh = ShapedList.shapeIntSFromT @sh
       f !t (ix, u) =
         let v = OS.toVector u
             i = gcastWith (unsafeCoerce Refl
@@ -585,7 +585,7 @@ tsumS
   => OS.Array (n ': sh) r -> OS.Array sh r
 tsumS (SS.A (SG.A (OI.T (_ : ss) o vt))) | V.length vt == 1 =
   SS.A (SG.A (OI.T ss o (V.map (* valueOf @n) vt)))
-tsumS t = case ShapedList.shapeSh @(n ': sh) of
+tsumS t = case ShapedList.shapeIntSFromT @(n ': sh) of
   _ ::$ ZS -> OS.scalar $ tsum0S t
   k ::$ sh2 ->
     OS.fromVector $ unsafePerformIO $ do  -- unsafe only due to FFI
@@ -697,7 +697,7 @@ tscatterZSR :: forall r sh2 p sh.
            -> (IndexIntSh sh2 -> IndexIntSh (Sh.Take p sh))
            -> OS.Array sh r
 tscatterZSR t f =
-  let sh2 = ShapedList.shapeSh @sh2
+  let sh2 = ShapedList.shapeIntSFromT @sh2
       g ix =
         let ix2 = f ix
         in if ixInBounds (ShapedList.sizedToList ix2) (Sh.shapeT @sh)
@@ -750,7 +750,7 @@ tfromVector0NS l = OS.fromVector $ V.convert l
 treplicateS
   :: forall n sh r. (Numeric r, KnownNat n, Sh.Shape sh)
   => OS.Array sh r -> OS.Array (n ': sh) r
-treplicateS u = case ShapedList.shapeSh @sh of
+treplicateS u = case ShapedList.shapeIntSFromT @sh of
   ZS -> OS.constant (OS.unScalar u)
   _ -> OS.ravel $ OSB.constant u
 
@@ -824,7 +824,7 @@ tgatherNS :: forall sh2 p sh r.
           -> (IndexIntSh sh2 -> IndexIntSh (Sh.Take p sh))
           -> OS.Array (sh2 Sh.++ Sh.Drop p sh) r
 tgatherNS t f =
-  let sh2 = ShapedList.shapeSh @sh2
+  let sh2 = ShapedList.shapeIntSFromT @sh2
       s = Sh.sizeT @sh2
       l = gcastWith (unsafeCoerce Refl
                      :: sh :~: Sh.Take p sh Sh.++ Sh.Drop p sh)
@@ -847,7 +847,7 @@ tgatherZSR :: forall sh2 p sh r.
           -> (IndexIntSh sh2 -> IndexIntSh (Sh.Take p sh))
           -> OS.Array (sh2 Sh.++ Sh.Drop p sh) r
 tgatherZSR t f =
-  let sh2 = ShapedList.shapeSh @sh2
+  let sh2 = ShapedList.shapeIntSFromT @sh2
       s = Sh.sizeT @sh2
       l = gcastWith (unsafeCoerce Refl
                      :: sh :~: Sh.Take p sh Sh.++ Sh.Drop p sh)
