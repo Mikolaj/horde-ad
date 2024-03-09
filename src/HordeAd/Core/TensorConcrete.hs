@@ -148,14 +148,14 @@ instance ShapedTensor (Flip OS.Array) where
         => Flip OS.Array r '[n]  -- from 0 to n - 1
   siota = let n = valueOf @n :: Int
           in Flip $ OS.fromList $ map fromIntegral [0 .. n - 1]
-  sindex v ix = Flip $ tindexZSR (runFlip v) (fromIndexOfS ix)
+  sindex v ix = Flip $ tindexZS (runFlip v) (fromIndexOfS ix)
   sindex0 v ix = Flip . tscalarS $ tindex0S (runFlip v) (fromIndexOfS ix)
   ssum = Flip . tsumS . runFlip
   ssum0 = Flip . tscalarS . tsum0S . runFlip
   sdot0 u v = Flip $ tscalarS $ tdot0S (runFlip u) (runFlip v)
   smatvecmul m v = Flip $ tmatvecmulS (runFlip m) (runFlip v)
   smatmul2 m1 m2 = Flip $ tmatmul2S (runFlip m1) (runFlip m2)
-  sscatter t f = Flip $ tscatterZSR (runFlip t)
+  sscatter t f = Flip $ tscatterZS (runFlip t)
                                    (fromIndexOfS . f . toIndexOfS)
   sscatter1 t f = Flip $ tscatterZ1S (runFlip t)
                                      (fromIndexOfS . f . shapedNat . Flip
@@ -177,7 +177,7 @@ instance ShapedTensor (Flip OS.Array) where
   smap0N f t = Flip $ tmap0NS (runFlip . f . Flip) (runFlip t)
   szipWith0N f t u = Flip $ tzipWith0NS (\v w -> runFlip $ f (Flip v) (Flip w))
                                         (runFlip t) (runFlip u)
-  sgather t f = Flip $ tgatherZSR (runFlip t)
+  sgather t f = Flip $ tgatherZS (runFlip t)
                                  (fromIndexOfS . f . toIndexOfS)
   sgather1 t f = Flip $ tgatherZ1S (runFlip t)
                                    (fromIndexOfS . f . shapedNat . Flip

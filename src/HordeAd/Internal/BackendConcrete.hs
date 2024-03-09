@@ -552,10 +552,10 @@ tindexNS (SS.A (SG.A OI.T{strides, offset, values})) ix =
 -- Note that after vectorization, the index with type IndexIntSh sh1
 -- may not fit within the type-level shape, which we catch in the @ixInBounds@
 -- and return 0, so it's fine. Similarly in gather and scatter.
-tindexZSR
+tindexZS
   :: forall sh1 sh2 r. (NumAndShow r, Sh.Shape sh2, Sh.Shape (sh1 Sh.++ sh2))
   => OS.Array (sh1 Sh.++ sh2) r -> IndexIntSh sh1 -> OS.Array sh2 r
-tindexZSR v ix =
+tindexZS v ix =
   let sh = OS.shapeL v
   in if ixInBounds (ShapedList.sizedToList ix) sh
      then tindexNS v ix
@@ -690,13 +690,13 @@ tmaximum0S = LA.maxElement . OS.toVector
 --
 -- Note how ix being in bounds is checked. The semantics of the operation
 -- permits index out of bounds and then no tensors is added at such an index.
-tscatterZSR :: forall r sh2 p sh.
+tscatterZS :: forall r sh2 p sh.
               ( NumAndShow r, Sh.Shape sh, Sh.Shape sh2
               , Sh.Shape (Sh.Drop p sh) )
            => OS.Array (sh2 Sh.++ Sh.Drop p sh) r
            -> (IndexIntSh sh2 -> IndexIntSh (Sh.Take p sh))
            -> OS.Array sh r
-tscatterZSR t f =
+tscatterZS t f =
   let sh2 = ShapedList.shapeIntSFromT @sh2
       g ix =
         let ix2 = f ix
@@ -836,23 +836,23 @@ tgatherNS t f =
   in OS.fromVector $ LA.vjoin l
 
 -- TODO: this can be slightly optimized by normalizing t first (?)
--- and then inlining toVector and tindexZSR
+-- and then inlining toVector and tindexZS
 --
--- Note how tindexZSR is used. The semantics of the operation
+-- Note how tindexZS is used. The semantics of the operation
 -- permits index out of bounds and the result of such indexing is zero.
-tgatherZSR :: forall sh2 p sh r.
+tgatherZS :: forall sh2 p sh r.
              ( NumAndShow r, Sh.Shape sh, Sh.Shape sh2, Sh.Shape (Sh.Drop p sh)
              , Sh.Shape (sh2 Sh.++ Sh.Drop p sh) )
           => OS.Array sh r
           -> (IndexIntSh sh2 -> IndexIntSh (Sh.Take p sh))
           -> OS.Array (sh2 Sh.++ Sh.Drop p sh) r
-tgatherZSR t f =
+tgatherZS t f =
   let sh2 = ShapedList.shapeIntSFromT @sh2
       s = Sh.sizeT @sh2
       l = gcastWith (unsafeCoerce Refl
                      :: sh :~: Sh.Take p sh Sh.++ Sh.Drop p sh)
           $ [ OS.toVector
-                (t `tindexZSR` f (ShapedList.fromLinearIdx sh2
+                (t `tindexZS` f (ShapedList.fromLinearIdx sh2
                                  $ ShapedList.shapedNat $ fromIntegral i)
                  :: OS.Array (Sh.Drop p sh) r)
             | i <- [0 .. s - 1] ]
@@ -865,7 +865,7 @@ tgatherZ1S :: forall n2 p sh r.
 tgatherZ1S t f =
   let l = gcastWith (unsafeCoerce Refl
                      :: sh :~: Sh.Take p sh Sh.++ Sh.Drop p sh)
-          $ map (\i -> t `tindexZSR` f (ShapedList.shapedNat i))
+          $ map (\i -> t `tindexZS` f (ShapedList.shapedNat i))
                 [0 .. valueOf @n2 - 1]
   in OS.ravel $ OSB.fromList l
 
