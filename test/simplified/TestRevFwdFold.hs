@@ -3105,7 +3105,7 @@ testSin0ScanD1Rev2 = do
                 (V.fromList [voidFromShS @Double @'[]])
                 x0 (V.singleton $ DynamicShaped
                     $ sconst (OS.fromList @'[2, 2] @Double [5, 7, 3, 4])
-                      !$ (k :$: ZSH) ))
+                      !$ (k :!!!$ ZSH) ))
           1.1)
 
 testSin0ScanD1Rev3 :: Assertion

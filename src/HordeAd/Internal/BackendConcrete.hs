@@ -586,8 +586,8 @@ tsumS
 tsumS (SS.A (SG.A (OI.T (_ : ss) o vt))) | V.length vt == 1 =
   SS.A (SG.A (OI.T ss o (V.map (* valueOf @n) vt)))
 tsumS t = case ShapedList.shapeSh @(n ': sh) of
-  _ :$: ZSH -> OS.scalar $ tsum0S t
-  k :$: sh2 ->
+  _ :!!!$ ZSH -> OS.scalar $ tsum0S t
+  k :!!!$ sh2 ->
     OS.fromVector $ unsafePerformIO $ do  -- unsafe only due to FFI
       v <- V.unsafeThaw $ OS.toVector t
       VM.unsafeWith v $ \ptr -> do
