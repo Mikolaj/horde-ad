@@ -292,7 +292,7 @@ printAstAux cfg d = \case
       . (showParen True
          $ showString "\\"
            . showListWith (printAstIntVar cfg)
-                          (sizedListToList vars)
+                          (sizedToList vars)
            . showString " -> "
            . showListWith (printAstInt cfg 0) (indexToList ix))
   AstFromList l ->
@@ -332,7 +332,7 @@ printAstAux cfg d = \case
       . (showParen True
          $ showString "\\"
            . showListWith (printAstIntVar cfg)
-                          (sizedListToList vars)
+                          (sizedToList vars)
            . showString " -> "
            . showListWith (printAstInt cfg 0) (indexToList ix))
   AstCast v -> printPrefixOp printAst cfg d "rcast" [v]
@@ -455,7 +455,7 @@ printAstS cfg d = \case
     showParen (d > 9)
     $ printAstS cfg 10 v
       . showString " !$ "
-      . showListWith (printAstInt cfg 0) (ShapedList.sizedListToList ix)
+      . showListWith (printAstInt cfg 0) (ShapedList.sizedToList ix)
   AstSumS v -> printPrefixOp printAstS cfg d "ssum" [v]
   AstScatterS v (vars, ix) ->
     showParen (d > 10)
@@ -465,9 +465,9 @@ printAstS cfg d = \case
       . (showParen True
          $ showString "\\"
            . showListWith (printAstIntVar cfg)
-                          (ShapedList.sizedListToList vars)
+                          (ShapedList.sizedToList vars)
            . showString " -> "
-           . showListWith (printAstInt cfg 0) (ShapedList.sizedListToList ix))
+           . showListWith (printAstInt cfg 0) (ShapedList.sizedToList ix))
   AstFromListS l ->
     showParen (d > 10)
     $ showString "sfromList "
@@ -509,9 +509,9 @@ printAstS cfg d = \case
       . (showParen True
          $ showString "\\"
            . showListWith (printAstIntVar cfg)
-                          (ShapedList.sizedListToList vars)
+                          (ShapedList.sizedToList vars)
            . showString " -> "
-           . showListWith (printAstInt cfg 0) (ShapedList.sizedListToList ix))
+           . showListWith (printAstInt cfg 0) (ShapedList.sizedToList ix))
   AstCastS v -> printPrefixOp printAstS cfg d "scast" [v]
   AstFromIntegralS a ->
     printPrefixOp printAstS cfg d "sfromIntegral" [a]

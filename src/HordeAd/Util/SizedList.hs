@@ -9,7 +9,7 @@ module HordeAd.Util.SizedList
   , backpermutePrefixSized, backpermutePrefixList
   , permutePrefixSized, permutePrefixList
   , unsnocSized1, lastSized, initSized, zipSized, zipWith_Sized, reverseSized
-  , sizedListCompare, listToSized, sizedListToList
+  , sizedCompare, listToSized, sizedToList
   , Permutation
   ) where
 
@@ -52,17 +52,17 @@ deriving instance Ord i => Ord (SizedList n i)
 -- This is only lawful when OverloadedLists is enabled.
 -- However, it's much more readable when tracing and debugging.
 instance Show i => Show (SizedList n i) where
-  showsPrec d l = showsPrec d (sizedListToList l)
+  showsPrec d l = showsPrec d (sizedToList l)
 
 deriving stock instance Functor (SizedList n)
 
 instance Foldable (SizedList n) where
-  foldr f z l = foldr f z (sizedListToList l)
+  foldr f z l = foldr f z (sizedToList l)
 
 instance KnownNat n => IsList (SizedList n i) where
   type Item (SizedList n i) = i
   fromList = listToSized
-  toList = sizedListToList
+  toList = sizedToList
 
 singletonSized :: i -> SizedList 1 i
 singletonSized i = i ::: ZR
@@ -86,11 +86,11 @@ tailSized (_i ::: ix) = ix
 
 takeSized :: forall len n i. KnownNat len
           => SizedList (len + n) i -> SizedList len i
-takeSized ix = listToSized $ take (valueOf @len) $ sizedListToList ix
+takeSized ix = listToSized $ take (valueOf @len) $ sizedToList ix
 
 dropSized :: forall len n i. (KnownNat len, KnownNat n)
           => SizedList (len + n) i -> SizedList n i
-dropSized ix = listToSized $ drop (valueOf @len) $ sizedListToList ix
+dropSized ix = listToSized $ drop (valueOf @len) $ sizedToList ix
 
 splitAt_Sized :: (KnownNat m, KnownNat n)
               => SizedList (m + n) i -> (SizedList m i, SizedList n i)
@@ -146,7 +146,7 @@ backpermutePrefixSized :: forall n i. KnownNat n
 backpermutePrefixSized p ix =
   if valueOf @n < length p
   then error "backpermutePrefixSized: cannot permute a list shorter than permutation"
-  else listToSized $ backpermutePrefixList p $ sizedListToList ix
+  else listToSized $ backpermutePrefixList p $ sizedToList ix
 
 backpermutePrefixList :: Permutation -> [i] -> [i]
 backpermutePrefixList p l = map (l !!) p ++ drop (length p) l
@@ -156,7 +156,7 @@ permutePrefixSized :: forall n i. KnownNat n
 permutePrefixSized p ix =
   if valueOf @n < length p
   then error "permutePrefixSized: cannot permute a list shorter than permutation"
-  else listToSized $ permutePrefixList p $ sizedListToList ix
+  else listToSized $ permutePrefixList p $ sizedToList ix
 
 -- Boxed vector is not that bad, because we move pointers around,
 -- but don't follow them. Storable vectors wouldn't work for Ast.
@@ -166,13 +166,13 @@ permutePrefixList p l = V.toList $ Data.Vector.fromList l V.// zip p l
 -- | Pairwise comparison of two sized list values.
 -- The comparison function is invoked once for each rank
 -- on the corresponding pair of indices.
-sizedListCompare :: Monoid m
+sizedCompare :: Monoid m
                  => (i -> i -> m) -> SizedList n i -> SizedList n i -> m
-sizedListCompare _ ZR ZR = mempty
-sizedListCompare f (i ::: idx) (j ::: idx') =
-  f i j <> sizedListCompare f idx idx'
-sizedListCompare _ _ _ =
-  error "sizedListCompare: impossible pattern needlessly required"
+sizedCompare _ ZR ZR = mempty
+sizedCompare f (i ::: idx) (j ::: idx') =
+  f i j <> sizedCompare f idx idx'
+sizedCompare _ _ _ =
+  error "sizedCompare: impossible pattern needlessly required"
 
 -- Look Ma, no unsafeCoerce! This compiles only with GHC >= 9.2,
 -- but the rest of our code caught up and fails with GHC 9.0 as well.
@@ -193,6 +193,6 @@ listToSized (i : is)
       error $ "listToSized: input list too long; spurious "
                             ++ show (length (i : is))
 
-sizedListToList :: SizedList n i -> [i]
-sizedListToList ZR = []
-sizedListToList (i ::: is) = i : sizedListToList is
+sizedToList :: SizedList n i -> [i]
+sizedToList ZR = []
+sizedToList (i ::: is) = i : sizedToList is

@@ -766,7 +766,7 @@ astIndexSOrStepOnly stepOnly v0 ix@((::$) @in1 i1 (rest1 :: AstIndexS shm1)) =
                       -- reversing this equality causes " Could not deduce
                       -- ‘KnownNat (OS.Rank sh1)’ error, but this is
                       -- probably ~fine and maybe caused by KnownNat.Solver
-      astSFromR $ astIndexStep t (ShapedList.shapedListToIndex ix)
+      astSFromR $ astIndexStep t (ShapedList.shapedToIndex ix)
   Ast.AstConstantS v -> Ast.AstConstantS $ astIndex v ix
   Ast.AstPrimalPartS{} -> Ast.AstIndexS v0 ix  -- must be a NF
   Ast.AstDualPartS{} -> Ast.AstIndexS v0 ix
@@ -984,7 +984,7 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
               foldr (uncurry substituteAst) i
                     (zipSized (fmap (SubstitutionPayloadRanked
                                        @PrimalSpan @Int64)
-                               $ indexToSizedList ixFresh) vars4)
+                               $ indexToSized ixFresh) vars4)
             i5 = subst i4
         in astGather sh4 (astFromList $ map f l) (varsFresh, i5 :.: ixFresh)
     Ast.AstFromVector l | AstConst it <- i4 ->
@@ -1006,7 +1006,7 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
               foldr (uncurry substituteAst) i
                     (zipSized (fmap (SubstitutionPayloadRanked
                                        @PrimalSpan @Int64)
-                               $ indexToSizedList ixFresh) vars4)
+                               $ indexToSized ixFresh) vars4)
             i5 = subst i4
        in astGather sh4 (astFromVector $ V.map f l) (varsFresh, i5 :.: ixFresh)
     Ast.AstReplicate _k v -> astGather sh4 v (vars4, rest4)
@@ -1036,7 +1036,7 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
                           else astGather sh4 w (vars4, iw :.: rest4)
         b -> astGather sh4 (astFromList [v2, w2])
                        (vars4, AstIntCond b 0 1
-                               :.: sizedListToIndex (fmap AstIntVar vars4))
+                               :.: sizedToIndex (fmap AstIntVar vars4))
       -}
       Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstSlice i _k v ->
@@ -1066,7 +1066,7 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
           substLet ix vars i =
             simplifyAst  -- we generate this index, so we simplify on the spot
             $ foldr (uncurry astLetInt) i
-                    (zipSized vars (indexToSizedList ix))
+                    (zipSized vars (indexToSized ix))
           composedGather :: p' <= m2 => AstRanked s r' (m' + n')
           composedGather =
             let (vars2p, vars22) = splitAt_Sized @p' @(m2 - p') vars2
@@ -1102,7 +1102,7 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
          gcastWith (unsafeCoerce Refl :: p_drop :~: Sh.Drop p' sh) $
          gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: p' + n') $
          astRFromS $ astGatherStepS @_ @p' @sh v
-                     ( ShapedList.listToSized $ sizedListToList vars4
+                     ( ShapedList.listToSized $ sizedToList vars4
                      , ShapedList.listToSized $ indexToList ix4 ) -}
     Ast.AstConstant v ->
       Ast.AstConstant
@@ -1120,7 +1120,7 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
               foldr (uncurry substituteAst) i
                     (zipSized (fmap (SubstitutionPayloadRanked
                                        @PrimalSpan @Int64)
-                               $ indexToSizedList ixFresh)
+                               $ indexToSized ixFresh)
                               vars4)
             ix5 = fmap subst ix4
         in Ast.AstD (astGatherRec sh4 u (vars4, ix4))
@@ -1134,12 +1134,12 @@ gatherFromNF vars (i :.: rest) = case cmpNat (Proxy @p) (Proxy @m) of
     let cmp (AstIntVar var1, AstIntVar var2) = var1 == var2
         cmp _ = False
         (varsP, varsPM) = splitAt_Sized @p @(m - p) vars
-    in all cmp (zipIndex rest (sizedListToIndex (fmap AstIntVar varsP)))
+    in all cmp (zipIndex rest (sizedToIndex (fmap AstIntVar varsP)))
        && not (any (`varNameInAst` i) varsPM)
   EQI ->
     let cmp (AstIntVar var1, AstIntVar var2) = var1 == var2
         cmp _ = False
-    in all cmp (zipIndex rest (sizedListToIndex (fmap AstIntVar vars)))
+    in all cmp (zipIndex rest (sizedToIndex (fmap AstIntVar vars)))
   GTI -> False
 
 flipCompare :: forall (a :: Nat) b. Compare a b ~ GT => Compare b a :~: LT

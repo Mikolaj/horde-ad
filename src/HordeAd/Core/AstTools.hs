@@ -87,10 +87,10 @@ shapeAst = \case
   AstGather sh _v (_vars, _ix) -> sh
   AstCast t -> shapeAst t
   AstFromIntegral a -> shapeAst a
-  AstConst a -> listShapeToShape $ OR.shapeL a
+  AstConst a -> listToShape $ OR.shapeL a
   AstLetHVectorIn _ _ v -> shapeAst v
   AstLetHFunIn _ _ v -> shapeAst v
-  AstRFromS @sh _ -> listShapeToShape $ Sh.shapeT @sh
+  AstRFromS @sh _ -> listToShape $ Sh.shapeT @sh
   AstConstant a -> shapeAst a
   AstPrimalPart a -> shapeAst a
   AstDualPart a -> shapeAst a

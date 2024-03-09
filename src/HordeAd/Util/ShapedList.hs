@@ -16,8 +16,8 @@ module HordeAd.Util.ShapedList
   , backpermutePrefixShaped, backpermutePrefixSized
   , permutePrefixShaped, permutePrefixSized
   , unsnocSized1, lastSized, initSized, zipSized, zipWith_Sized, reverseSized
-  , sizedListCompare, listToSized, sizedListToList
-  , shapedListToSized, shapedListToIndex
+  , sizedCompare, listToSized, sizedToList
+  , shapedToSized, shapedToIndex
   , Permutation
   , toLinearIdx, fromLinearIdx
   ) where
@@ -72,17 +72,17 @@ deriving instance Ord i => Ord (ShapedList sh i)
 -- This is only lawful when OverloadedLists is enabled.
 -- However, it's much more readable when tracing and debugging.
 instance Show i => Show (ShapedList sh i) where
-  showsPrec d l = showsPrec d (sizedListToList l)
+  showsPrec d l = showsPrec d (sizedToList l)
 
 deriving stock instance Functor (ShapedList sh)
 
 instance Foldable (ShapedList sh) where
-  foldr f z l = foldr f z (sizedListToList l)
+  foldr f z l = foldr f z (sizedToList l)
 
 instance Sh.Shape sh => IsList (ShapedList sh i) where
   type Item (ShapedList sh i) = i
   fromList = listToSized
-  toList = sizedListToList
+  toList = sizedToList
 
 singletonShaped :: KnownNat n => i -> ShapedList '[n] i
 singletonShaped i = i ::$ ZS
@@ -102,7 +102,7 @@ snocSized (i ::$ ix) last1 = i ::$ snocSized ix last1
 appendSized :: Sh.Shape (sh2 Sh.++ sh)
             => ShapedList sh2 i -> ShapedList sh i
             -> ShapedList (sh2 Sh.++ sh) i
-appendSized l1 l2 = listToSized $ sizedListToList l1 ++ sizedListToList l2
+appendSized l1 l2 = listToSized $ sizedToList l1 ++ sizedToList l2
 
 headSized :: ShapedList (n ': sh) i -> i
 headSized (i ::$ _ix) = i
@@ -112,11 +112,11 @@ tailSized (_i ::$ ix) = ix
 
 takeSized :: forall len sh i. (KnownNat len, Sh.Shape (Sh.Take len sh))
           => ShapedList sh i -> ShapedList (Sh.Take len sh) i
-takeSized ix = listToSized $ take (valueOf @len) $ sizedListToList ix
+takeSized ix = listToSized $ take (valueOf @len) $ sizedToList ix
 
 dropSized :: forall len sh i. (KnownNat len, Sh.Shape (Sh.Drop len sh))
           => ShapedList sh i -> ShapedList  (Sh.Drop len sh) i
-dropSized ix = listToSized $ drop (valueOf @len) $ sizedListToList ix
+dropSized ix = listToSized $ drop (valueOf @len) $ sizedToList ix
 
 splitAt_Sized
   :: (KnownNat len, Sh.Shape (Sh.Drop len sh), Sh.Shape (Sh.Take len sh))
@@ -149,7 +149,7 @@ zipWith_Sized f (i ::$ irest) (j ::$ jrest) =
   f i j ::$ zipWith_Sized f irest jrest
 
 reverseSized :: Sh.Shape sh => ShapedList sh i -> ShapedList sh i
-reverseSized = listToSized . reverse . sizedListToList
+reverseSized = listToSized . reverse . sizedToList
 
 backpermutePrefixShaped
   :: forall perm sh i.
@@ -159,7 +159,7 @@ backpermutePrefixShaped ix =
   if length (Sh.shapeT @sh) < length (Sh.shapeT @perm)
   then error "backpermutePrefixShaped: cannot permute a list shorter than permutation"
   else listToSized $ SizedList.backpermutePrefixList (Sh.shapeT @perm)
-                   $ sizedListToList ix
+                   $ sizedToList ix
 
 -- This permutes a prefix of the sized list of the length of the permutation.
 -- The rest of the sized list is left intact.
@@ -168,7 +168,7 @@ backpermutePrefixSized :: forall sh sh2 i. (Sh.Shape sh, Sh.Shape sh2)
 backpermutePrefixSized p ix =
   if length (Sh.shapeT @sh) < length p
   then error "backpermutePrefixSized: cannot permute a list shorter than permutation"
-  else listToSized $ SizedList.backpermutePrefixList p $ sizedListToList ix
+  else listToSized $ SizedList.backpermutePrefixList p $ sizedToList ix
 
 permutePrefixShaped
   :: forall perm sh i. (Sh.Shape perm, Sh.Shape sh)
@@ -177,23 +177,23 @@ permutePrefixShaped ix =
   if length (Sh.shapeT @sh) < length (Sh.shapeT @perm)
   then error "permutePrefixShaped: cannot permute a list shorter than permutation"
   else listToSized $ SizedList.permutePrefixList (Sh.shapeT @perm)
-                   $ sizedListToList ix
+                   $ sizedToList ix
 
 permutePrefixSized :: forall sh sh2 i. (Sh.Shape sh, Sh.Shape sh2)
                    => Permutation -> ShapedList sh i -> ShapedList sh2 i
 permutePrefixSized p ix =
   if length (Sh.shapeT @sh) < length p
   then error "permutePrefixSized: cannot permute a list shorter than permutation"
-  else listToSized $ SizedList.permutePrefixList p $ sizedListToList ix
+  else listToSized $ SizedList.permutePrefixList p $ sizedToList ix
 
 -- | Pairwise comparison of two sized list values.
 -- The comparison function is invoked once for each rank
 -- on the corresponding pair of indices.
-sizedListCompare :: Monoid m
+sizedCompare :: Monoid m
                  => (i -> i -> m) -> ShapedList sh i -> ShapedList sh i -> m
-sizedListCompare _ ZS ZS = mempty
-sizedListCompare f (i ::$ idx) (j ::$ idx') =
-  f i j <> sizedListCompare f idx idx'
+sizedCompare _ ZS ZS = mempty
+sizedCompare f (i ::$ idx) (j ::$ idx') =
+  f i j <> sizedCompare f idx idx'
 
 -- We avoid @KnownNat (Sh.Rank sh)@ constraint (that would propagate
 -- to countless other functions) by performing runtime checks
@@ -221,17 +221,17 @@ listToSized (i : is) = case Sh.shapeT @sh of
                -- based on a mechanism provided by @i@ somehow
       Nothing -> error "listToSized: impossible someNatVal error"
 
-sizedListToList :: ShapedList sh i -> [i]
-sizedListToList ZS = []
-sizedListToList (i ::$ is) = i : sizedListToList is
+sizedToList :: ShapedList sh i -> [i]
+sizedToList ZS = []
+sizedToList (i ::$ is) = i : sizedToList is
 
-shapedListToSized :: KnownNat (Sh.Rank sh)
+shapedToSized :: KnownNat (Sh.Rank sh)
                   => ShapedList sh i -> SizedList.SizedList (Sh.Rank sh) i
-shapedListToSized = SizedList.listToSized . sizedListToList
+shapedToSized = SizedList.listToSized . sizedToList
 
-shapedListToIndex :: KnownNat (Sh.Rank sh)
+shapedToIndex :: KnownNat (Sh.Rank sh)
                   => ShapedList sh i -> SizedIndex.Index (Sh.Rank sh) i
-shapedListToIndex = SizedIndex.listToIndex . sizedListToList
+shapedToIndex = SizedIndex.listToIndex . sizedToList
 
 -- | Given a multidimensional index, get the corresponding linear
 -- index into the buffer. Note that the index doesn't need to be pointing

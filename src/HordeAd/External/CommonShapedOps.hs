@@ -62,7 +62,7 @@ sfromIndex1 :: forall r sh shaped.
                (ADReadyS shaped, GoodScalar r, KnownNat (Sh.Rank sh))
             => IndexSh shaped sh -> shaped r '[Sh.Rank sh]
 sfromIndex1 =
-  sfromIntegral . sconstant . sfromR . rfromList . ShapedList.sizedListToList
+  sfromIntegral . sconstant . sfromR . rfromList . ShapedList.sizedToList
 
 sletIx :: forall r sh n shaped.
           (ADReadyS shaped, GoodScalar r, Sh.Shape sh, KnownNat n)
@@ -225,8 +225,8 @@ slicezS d ixBase =
   sbuild @shaped @r @(Sh.Rank shOut)
   $ \ixResult ->
       indexz0S @shOut d (zipWith_Index (+)
-                                       (ShapedList.shapedListToIndex ixBase)
-                                       (ShapedList.shapedListToIndex ixResult))
+                                       (ShapedList.shapedToIndex ixBase)
+                                       (ShapedList.shapedToIndex ixResult))
 
 -- TODO: this makes tests unbearably slow
 --

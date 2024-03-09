@@ -483,8 +483,8 @@ shapeDeltaR = \case
   ReshapeR sh _ -> sh
   GatherR sh _ _ -> sh
   CastR d -> shapeDeltaR d
-  RFromS @sh _ -> listShapeToShape $ Sh.shapeT @sh
-  RFromH d i -> listShapeToShape $ shapeVoidDynamic (shapeDeltaH d V.! i)
+  RFromS @sh _ -> listToShape $ Sh.shapeT @sh
+  RFromH d i -> listToShape $ shapeVoidDynamic (shapeDeltaH d V.! i)
 
 lengthDeltaR :: forall ranked r n.
                 ( GoodScalar r, KnownNat n

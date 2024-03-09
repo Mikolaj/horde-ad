@@ -66,7 +66,7 @@ updateNR :: forall n m a. (Numeric a, KnownNat n, KnownNat m)
 updateNR arr upd =
   let values = OR.toVector arr
       shRaw = OR.shapeL arr
-      sh = listShapeToShape shRaw
+      sh = listToShape shRaw
       f !t (ix, u) =
         let v = OR.toVector u
             i = fromIntegral $ toLinearIdx @n @m sh ix
@@ -76,7 +76,7 @@ updateNR arr upd =
 tshapeR
   :: KnownNat n
   => OR.Array n r -> ShapeInt n
-tshapeR = listShapeToShape . OR.shapeL
+tshapeR = listToShape . OR.shapeL
 
 tsizeR
   :: OR.Array n r -> Int
@@ -241,7 +241,7 @@ tscatterZR :: forall m p n r.
 tscatterZR sh t f =
   let (sh2, shDropP) = splitAt (valueOf @m) $ OR.shapeL t
       s = product sh2
-      shm = listShapeToShape sh2
+      shm = listToShape sh2
       g ix =
         let ix2 = f ix
         in if ixInBounds (indexToList ix2) (shapeToList sh)
@@ -541,7 +541,7 @@ tindexNS
   :: forall sh1 sh2 r.
      OS.Array (sh1 Sh.++ sh2) r -> IndexIntSh sh1 -> OS.Array sh2 r
 tindexNS (SS.A (SG.A OI.T{strides, offset, values})) ix =
-  let l = ShapedList.sizedListToList ix
+  let l = ShapedList.sizedToList ix
       linear = offset + sum (zipWith (*) (map fromIntegral l) strides)
       plen = length l  -- length of prefix being indexed out of
   in
@@ -557,7 +557,7 @@ tindexZSR
   => OS.Array (sh1 Sh.++ sh2) r -> IndexIntSh sh1 -> OS.Array sh2 r
 tindexZSR v ix =
   let sh = OS.shapeL v
-  in if ixInBounds (ShapedList.sizedListToList ix) sh
+  in if ixInBounds (ShapedList.sizedToList ix) sh
      then tindexNS v ix
      else 0
 
@@ -572,7 +572,7 @@ tindex0S
   => OS.Array sh r -> IndexIntSh sh -> r
 tindex0S (SS.A (SG.A OI.T{..})) ix =
   values V.! (offset + sum (zipWith (*) (map fromIntegral
-                                         $ ShapedList.sizedListToList ix)
+                                         $ ShapedList.sizedToList ix)
                                         strides))
     -- to avoid linearizing @values@, we do everything in unsized way
 
@@ -700,7 +700,7 @@ tscatterZSR t f =
   let sh2 = ShapedList.shapeSh @sh2
       g ix =
         let ix2 = f ix
-        in if ixInBounds (ShapedList.sizedListToList ix2) (Sh.shapeT @sh)
+        in if ixInBounds (ShapedList.sizedToList ix2) (Sh.shapeT @sh)
            then M.insertWith (++) ix2
                   [OS.toVector $ tindexNS @sh2 @(Sh.Drop p sh) t ix]
            else id
@@ -721,7 +721,7 @@ tscatterZ1S :: forall r n2 p sh.
 tscatterZ1S t f =
     sum $ imap (\i ti ->
                    let ix2 = f $ ShapedList.shapedNat $ fromIntegral i
-                   in if ixInBounds (ShapedList.sizedListToList ix2)
+                   in if ixInBounds (ShapedList.sizedToList ix2)
                                     (Sh.shapeT @sh)
                       then updateNS 0 [(ix2, ti)]
                       else 0)

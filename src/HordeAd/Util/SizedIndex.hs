@@ -11,13 +11,13 @@ module HordeAd.Util.SizedIndex
   , headIndex, tailIndex, takeIndex, dropIndex, splitAt_Index, splitAtInt_Index
   , unsnocIndex1, lastIndex, initIndex, zipIndex, zipWith_Index
   , backpermutePrefixIndex, permutePrefixIndex
-  , listToIndex, indexToList, indexToSizedList, sizedListToIndex
+  , listToIndex, indexToList, indexToSized, sizedToIndex
     -- * Tensor shapes as fully encapsulated sized lists, with operations
   , Shape, pattern (:$:), pattern ZSR
   , singletonShape, appendShape, tailShape, takeShape, dropShape
   , splitAt_Shape, lastShape, initShape, lengthShape, sizeShape, flattenShape
   , backpermutePrefixShape
-  , listShapeToShape, withListShape, withListShapeSh, withListSh, shapeToList
+  , listToShape, withListShape, withListShapeSh, withListSh, shapeToList
     -- * Operations involving both indexes and shapes
   , toLinearIdx, fromLinearIdx, zeroOf
   ) where
@@ -167,13 +167,13 @@ listToIndex :: KnownNat n => [i] -> Index n i
 listToIndex = Index . listToSized
 
 indexToList :: Index n i -> [i]
-indexToList (Index l) = sizedListToList l
+indexToList (Index l) = sizedToList l
 
-indexToSizedList :: Index n i -> SizedList n i
-indexToSizedList (Index l) = l
+indexToSized :: Index n i -> SizedList n i
+indexToSized (Index l) = l
 
-sizedListToIndex :: SizedList n i -> Index n i
-sizedListToIndex = Index
+sizedToIndex :: SizedList n i -> Index n i
+sizedToIndex = Index
 
 
 -- * Tensor shapes as fully encapsulated sized lists, with operations
@@ -214,7 +214,7 @@ instance Foldable (Shape n) where
 
 instance KnownNat n => IsList (Shape n i) where
   type Item (Shape n i) = i
-  fromList = listShapeToShape
+  fromList = listToShape
   toList = shapeToList
 
 singletonShape :: i -> Shape 1 i
@@ -260,8 +260,8 @@ backpermutePrefixShape :: forall n i. KnownNat n
 backpermutePrefixShape p (Shape is) = Shape $ backpermutePrefixSized p is
 
 -- Warning: do not pass a list of strides to this function.
-listShapeToShape :: KnownNat n => [i] -> Shape n i
-listShapeToShape = Shape . listToSized
+listToShape :: KnownNat n => [i] -> Shape n i
+listToShape = Shape . listToSized
 
 -- Both shape representations denote the same shape.
 withListShape
@@ -270,7 +270,7 @@ withListShape
   -> a
 withListShape shList f =
   case someNatVal $ toInteger (length shList) of
-    Just (SomeNat @n _) -> f $ listShapeToShape @n shList
+    Just (SomeNat @n _) -> f $ listToShape @n shList
     _ -> error "withListShape: impossible someNatVal error"
 
 -- All three shape representations denote the same shape.
@@ -284,7 +284,7 @@ withListShapeSh shList f =
     case someNatVal $ toInteger (length shList) of
       Just (SomeNat @n _) ->
         gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: n) $
-        f @sh @n proxy $ listShapeToShape @n shList
+        f @sh @n proxy $ listToShape @n shList
       _ -> error "withListShapeSh: impossible someNatVal error"
 
 -- All three shape representations denote the same shape.
@@ -299,11 +299,11 @@ withListSh (Proxy @sh) f =
   in case someNatVal $ toInteger (length shList) of
     Just (SomeNat @n _) ->
       gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: n) $
-      f $ listShapeToShape @n shList
+      f $ listToShape @n shList
     _ -> error "withListSh: impossible someNatVal error"
 
 shapeToList :: Shape n i -> [i]
-shapeToList (Shape l) = sizedListToList l
+shapeToList (Shape l) = sizedToList l
 
 
 -- * Operations involving both indexes and shapes

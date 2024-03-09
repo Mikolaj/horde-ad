@@ -231,7 +231,7 @@ fromHVectorR params = case V.uncons params of
   Just (DynamicRankedDummy @r2 @sh2 _ _, rest) -> case matchingRank @sh2 @n of
     Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
       Just Refl ->
-         let sh2 = listShapeToShape (Sh.shapeT @sh2)
+         let sh2 = listToShape (Sh.shapeT @sh2)
          in Just (rzero sh2 :: ranked r2 (Sh.Rank sh2), rest)
       _ -> error "fromHVectorR: scalar mismatch"
     _ -> error "fromHVectorR: shape mismatch"
