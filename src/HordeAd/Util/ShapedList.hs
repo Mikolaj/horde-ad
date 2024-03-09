@@ -11,15 +11,16 @@ module HordeAd.Util.ShapedList
   , singletonSized, snocSized, appendSized
   , headSized, tailSized, takeSized, dropSized, splitAt_Sized
   , unsnocSized1, lastSized, initSized, zipSized, zipWith_Sized, reverseSized
-  , Permutation
+  , Permutation  -- ^ re-exported from "SizedList"
   , backpermutePrefixShaped, backpermutePrefixSized
   , permutePrefixShaped, permutePrefixSized
   , sizedCompare, listToSized, sizedToList
   , shapedToSized, shapedToIndex
     -- * Tensor indexes as fully encapsulated sized lists, with operations
-    -- * Tensor shapes as fully encapsulated sized lists, with operations
+  , IndexS
+  -- * Tensor shapes as fully encapsulated sized lists, with operations
   , ShapedNat, shapedNat, unShapedNat
-  , ShapeIntS, shapeIntSFromT
+  , ShapeS, ShapeIntS, shapeIntSFromT
     -- * Operations involving both indexes and shapes
   , toLinearIdx, fromLinearIdx
   ) where
@@ -219,8 +220,12 @@ shapedToIndex = SizedList.listToIndex . sizedToList
 
 -- * Tensor indexes as fully encapsulated sized lists, with operations
 
+type IndexS = SizedListS
+
 
 -- * Tensor shapes as fully encapsulated sized lists, with operations
+
+type ShapeS = SizedListS
 
 -- TODO: ensure this is checked (runtime-checked, if necessary):
 -- | The value of this type has to be positive and less than the @n@ bound.
@@ -237,7 +242,7 @@ shapedNat = ShapedNat
 -- TODO: ensure this can't be subverted:
 -- | These are singletons. The integers inside are equal to the type-level
 -- dimensions.
-type ShapeIntS (sh :: [Nat]) = SizedListS sh Int
+type ShapeIntS (sh :: [Nat]) = ShapeS sh Int
 
 shapeIntSFromT :: forall sh. Sh.Shape sh => ShapeIntS sh
 shapeIntSFromT = listToSized $ Sh.shapeT @sh

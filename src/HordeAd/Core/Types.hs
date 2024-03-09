@@ -30,7 +30,7 @@ import           Type.Reflection (Typeable)
 
 import HordeAd.Internal.OrthotopeOrphanInstances ()
 import HordeAd.Internal.TensorFFI
-import HordeAd.Util.ShapedList (SizedListS, ShapedNat)
+import HordeAd.Util.ShapedList (IndexS, ShapedNat)
 import HordeAd.Util.SizedList
 
 -- * Types of types of tensors
@@ -134,7 +134,7 @@ type IntSh (f :: TensorType ty) (n :: Nat) = ShapedNat n (IntOf f)
 -- | The values of this type are bounded by the shape.
 -- If the values are terms, this is relative to environment
 -- and up to evaluation.
-type IndexSh (f :: TensorType ty) (sh :: [Nat]) = SizedListS sh (IntOf f)
+type IndexSh (f :: TensorType ty) (sh :: [Nat]) = IndexS sh (IntOf f)
 
 
 -- * Generic types of booleans used in tensor operations

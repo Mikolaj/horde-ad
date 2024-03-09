@@ -40,7 +40,7 @@ import           Type.Reflection (Typeable, eqTypeRep, typeRep, (:~~:) (HRefl))
 
 import HordeAd.Core.HVector
 import HordeAd.Core.Types
-import HordeAd.Util.ShapedList (SizedListS (..))
+import HordeAd.Util.ShapedList (SizedListS (..), IndexS)
 import HordeAd.Util.SizedList
 
 -- * The AstSpan kind
@@ -151,7 +151,7 @@ type AstIndex n = Index n AstInt
 
 type AstVarList n = SizedList n IntVarName
 
-type AstIndexS sh = SizedListS sh AstInt
+type AstIndexS sh = IndexS sh AstInt
 
 type AstVarListS sh = SizedListS sh IntVarName
 
