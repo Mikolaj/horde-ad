@@ -61,7 +61,7 @@ shapeSh = listToSized $ Sh.shapeT @sh
 infixr 3 ::$
 type role ShapedList nominal representational
 data ShapedList (sh :: [Nat]) i where
-  ZSH :: ShapedList '[] i
+  ZBBSH :: ShapedList '[] i
   (::$) :: (KnownNat n, Sh.Shape sh)
         => i -> ShapedList sh i -> ShapedList (n ': sh) i
 
@@ -85,7 +85,7 @@ instance Sh.Shape sh => IsList (ShapedList sh i) where
   toList = sizedListToList
 
 singletonShaped :: KnownNat n => i -> ShapedList '[n] i
-singletonShaped i = i ::$ ZSH
+singletonShaped i = i ::$ ZBBSH
 
 -- TODO: should we actually replace ::$ with that in the external API?
 consShaped :: (KnownNat n, Sh.Shape sh)
@@ -96,7 +96,7 @@ unconsContShaped :: (ShapedNat n i -> k) -> ShapedList (n ': sh) i -> k
 unconsContShaped f (i ::$ _) = f (ShapedNat i)
 
 snocSized :: KnownNat n => ShapedList sh i -> i -> ShapedList (n ': sh) i
-snocSized ZSH last1 = last1 ::$ ZSH
+snocSized ZBBSH last1 = last1 ::$ ZBBSH
 snocSized (i ::$ ix) last1 = i ::$ snocSized ix last1
 
 appendSized :: Sh.Shape (sh2 Sh.++ sh)
@@ -126,25 +126,25 @@ splitAt_Sized ix = (takeSized ix, dropSized ix)
 
 unsnocSized1 :: ShapedList (n ': sh) i -> (ShapedList sh i, i)
 unsnocSized1 (i ::$ ix) = case ix of
-  ZSH -> (ZSH, i)
+  ZBBSH -> (ZBBSH, i)
   _ ::$ _ -> let (init1, last1) = unsnocSized1 ix
              in (i ::$ init1, last1)
 
 lastSized :: ShapedList (n ': sh) i -> i
-lastSized (i ::$ ZSH) = i
+lastSized (i ::$ ZBBSH) = i
 lastSized (_i ::$ ix@(_ ::$ _)) = lastSized ix
 
 initSized :: ShapedList (n ': sh) i -> ShapedList sh i
-initSized (_i ::$ ZSH) = ZSH
+initSized (_i ::$ ZBBSH) = ZBBSH
 initSized (i ::$ ix@(_ ::$ _)) = i ::$ initSized ix
 
 zipSized :: ShapedList sh i -> ShapedList sh j -> ShapedList sh (i, j)
-zipSized ZSH ZSH = ZSH
+zipSized ZBBSH ZBBSH = ZBBSH
 zipSized (i ::$ irest) (j ::$ jrest) = (i, j) ::$ zipSized irest jrest
 
 zipWith_Sized :: (i -> j -> k) -> ShapedList sh i -> ShapedList sh j
               -> ShapedList sh k
-zipWith_Sized _ ZSH ZSH = ZSH
+zipWith_Sized _ ZBBSH ZBBSH = ZBBSH
 zipWith_Sized f (i ::$ irest) (j ::$ jrest) =
   f i j ::$ zipWith_Sized f irest jrest
 
@@ -191,7 +191,7 @@ permutePrefixSized p ix =
 -- on the corresponding pair of indices.
 sizedListCompare :: Monoid m
                  => (i -> i -> m) -> ShapedList sh i -> ShapedList sh i -> m
-sizedListCompare _ ZSH ZSH = mempty
+sizedListCompare _ ZBBSH ZBBSH = mempty
 sizedListCompare f (i ::$ idx) (j ::$ idx') =
   f i j <> sizedListCompare f idx idx'
 
@@ -204,7 +204,7 @@ listToSized :: forall sh i. Sh.Shape sh
             => [i] -> ShapedList sh i
 listToSized [] = case Sh.shapeT @sh of
   [] -> gcastWith (unsafeCoerce Refl :: sh :~: '[])
-        ZSH
+        ZBBSH
   _ -> error $ "listToSized: input list too short; missing "
                ++ show (Sh.sizeT @sh :: Int)
 listToSized (i : is) = case Sh.shapeT @sh of
@@ -222,7 +222,7 @@ listToSized (i : is) = case Sh.shapeT @sh of
       Nothing -> error "listToSized: impossible someNatVal error"
 
 sizedListToList :: ShapedList sh i -> [i]
-sizedListToList ZSH = []
+sizedListToList ZBBSH = []
 sizedListToList (i ::$ is) = i : sizedListToList is
 
 shapedListToSized :: KnownNat (Sh.Rank sh)
@@ -250,7 +250,7 @@ toLinearIdx = \sh idx -> shapedNat $ go sh idx 0
     -- @m - m1@ dimensional index prefix.
     go :: forall sh3.
           ShapedList (sh3 Sh.++ sh2) i -> ShapedList sh3 j -> j -> j
-    go _sh ZSH tensidx = fromIntegral (Sh.sizeT @(sh3 Sh.++ sh2)) * tensidx
+    go _sh ZBBSH tensidx = fromIntegral (Sh.sizeT @(sh3 Sh.++ sh2)) * tensidx
     go (n ::$ sh) (i ::$ idx) tensidx = go sh idx (fromIntegral n * tensidx + i)
     go _ _ _ = error "toLinearIdx: impossible pattern needlessly required"
 
@@ -269,7 +269,7 @@ fromLinearIdx = \sh (ShapedNat lin) -> snd (go sh lin)
     -- Returns (linear index into array of sub-tensors,
     -- multi-index within sub-tensor).
     go :: ShapedList sh1 i -> j -> (j, ShapedList sh1 j)
-    go ZSH n = (n, ZSH)
+    go ZBBSH n = (n, ZBBSH)
     go (0 ::$ sh) _ =
       (0, 0 ::$ zeroOf sh)
     go (n ::$ sh) lin =
@@ -279,5 +279,5 @@ fromLinearIdx = \sh (ShapedNat lin) -> snd (go sh lin)
 
 -- | The zero index in this shape (not dependent on the actual integers).
 zeroOf :: Num j => ShapedList sh i -> ShapedList sh j
-zeroOf ZSH = ZSH
+zeroOf ZBBSH = ZBBSH
 zeroOf (_ ::$ sh) = 0 ::$ zeroOf sh

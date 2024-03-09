@@ -397,7 +397,7 @@ class ( Integral (IntOf shaped), CShaped shaped Num
   sdot0 t u = ssum (sflatten (t * u))
   smatvecmul :: forall r m n. (GoodScalar r, KnownNat m, KnownNat n)
              => shaped r '[m, n] -> shaped r '[n] -> shaped r '[m]
-  smatvecmul m v = sbuild1 (\i -> sdot0 v (m !$ consShaped i ZSH))
+  smatvecmul m v = sbuild1 (\i -> sdot0 v (m !$ consShaped i ZBBSH))
   smatmul2 :: forall r n m p. (GoodScalar r, KnownNat n, KnownNat m, KnownNat p)
            => shaped r '[m, n] -> shaped r '[n, p] -> shaped r '[m, p]
   smatmul2 m1 m2 =
@@ -457,9 +457,9 @@ class ( Integral (IntOf shaped), CShaped shaped Num
   suncons :: forall r n sh. (GoodScalar r, KnownNat n, Sh.Shape sh)
           => shaped r (n ': sh) -> Maybe (shaped r sh, shaped r (n - 1 ': sh))
   suncons v = case cmpNat (Proxy @1) (Proxy @n) of
-    EQI -> Just ( v !$ (0 ::$ ZSH)
+    EQI -> Just ( v !$ (0 ::$ ZBBSH)
                 , sslice @shaped @r @1 @(n - 1) @0 Proxy Proxy v )
-    LTI -> Just ( v !$ (0 ::$ ZSH)
+    LTI -> Just ( v !$ (0 ::$ ZBBSH)
                 , sslice @shaped @r @1 @(n - 1) @0 Proxy Proxy v )
     _ -> Nothing
   sreverse :: (GoodScalar r, KnownNat n, Sh.Shape sh)
@@ -492,7 +492,7 @@ class ( Integral (IntOf shaped), CShaped shaped Num
           -> (IndexSh shaped sh1 -> shaped r (Sh.Drop m sh))
           -> shaped r (sh1 Sh.++ Sh.Drop m sh)
         buildSh sh1 sh1m f = case (sh1, sh1m) of
-          (ZSH, _) -> f ZSH
+          (ZBBSH, _) -> f ZBBSH
           (_ ::$ sh2, _ ::$ sh2m) ->
             let g i = buildSh sh2 sh2m (f . consShaped i)
             in sbuild1 g
@@ -514,7 +514,7 @@ class ( Integral (IntOf shaped), CShaped shaped Num
            (GoodScalar r, GoodScalar r2, KnownNat n, Sh.Shape sh)
         => (shaped r sh -> shaped r2 sh)
         -> shaped r (n ': sh) -> shaped r2 (n ': sh)
-  smap1 f u = sbuild1 (\i -> f (u !$ consShaped i ZSH))
+  smap1 f u = sbuild1 (\i -> f (u !$ consShaped i ZBBSH))
   smap0N :: forall r r2 sh.
             (GoodScalar r, GoodScalar r2, Sh.Shape sh, KnownNat (Sh.Rank sh))
          => (shaped r '[] -> shaped r2 '[]) -> shaped r sh -> shaped r2 sh
@@ -540,8 +540,8 @@ class ( Integral (IntOf shaped), CShaped shaped Num
             => (shaped r1 sh1 -> shaped r2 sh2 -> shaped r sh)
             -> shaped r1 (n ': sh1) -> shaped r2 (n ': sh2)
             -> shaped r (n ': sh)
-  szipWith1 f u v = sbuild1 (\i -> f (u !$ consShaped i ZSH)
-                                     (v !$ consShaped i ZSH))
+  szipWith1 f u v = sbuild1 (\i -> f (u !$ consShaped i ZBBSH)
+                                     (v !$ consShaped i ZBBSH))
   szipWith0N :: forall r1 r2 r sh.
                 ( GoodScalar r1, GoodScalar r2, GoodScalar r
                 , Sh.Shape sh, KnownNat (Sh.Rank sh) )
@@ -575,9 +575,9 @@ class ( Integral (IntOf shaped), CShaped shaped Num
              -> shaped r1 (n ': sh1) -> shaped r2 (n ': sh2)
              -> shaped r3 (n ': sh3)
              -> shaped r (n ': sh)
-  szipWith31 f u v w = sbuild1 (\i -> f (u !$ consShaped i ZSH)
-                                        (v !$ consShaped i ZSH)
-                                        (w !$ consShaped i ZSH))
+  szipWith31 f u v w = sbuild1 (\i -> f (u !$ consShaped i ZBBSH)
+                                        (v !$ consShaped i ZBBSH)
+                                        (w !$ consShaped i ZBBSH))
   szipWith30N :: forall r1 r2 r3 r sh.
                  ( GoodScalar r1, GoodScalar r2, GoodScalar r3, GoodScalar r
                  , Sh.Shape sh, KnownNat (Sh.Rank sh) )
@@ -621,10 +621,10 @@ class ( Integral (IntOf shaped), CShaped shaped Num
              -> shaped r1 (n ': sh1) -> shaped r2 (n ': sh2)
              -> shaped r3 (n ': sh3) -> shaped r4 (n ': sh4)
              -> shaped r (n ': sh)
-  szipWith41 f u v w x = sbuild1 (\i -> f (u !$ consShaped i ZSH)
-                                          (v !$ consShaped i ZSH)
-                                          (w !$ consShaped i ZSH)
-                                          (x !$ consShaped i ZSH))
+  szipWith41 f u v w x = sbuild1 (\i -> f (u !$ consShaped i ZBBSH)
+                                          (v !$ consShaped i ZBBSH)
+                                          (w !$ consShaped i ZBBSH)
+                                          (x !$ consShaped i ZBBSH))
   szipWith40N :: forall r1 r2 r3 r4 r sh.
                  ( GoodScalar r1, GoodScalar r2, GoodScalar r3, GoodScalar r4
                  , GoodScalar r, Sh.Shape sh, KnownNat (Sh.Rank sh) )

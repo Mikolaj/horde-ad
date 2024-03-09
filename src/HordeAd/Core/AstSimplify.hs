@@ -318,10 +318,10 @@ simplifyStepNonIndexS t = case t of
   Ast.AstTransposeS @perm v -> astTransposeS @perm v
   Ast.AstReshapeS v -> astReshapeS v
   Ast.AstBuild1S{} -> t
-  Ast.AstGatherS @_ @p @sh1 v0 (ZSH, ix) ->
+  Ast.AstGatherS @_ @p @sh1 v0 (ZBBSH, ix) ->
     gcastWith (unsafeCoerce Refl :: sh1 :~: Sh.Take p sh1 Sh.++ Sh.Drop p sh1)
     $ Ast.AstIndexS v0 ix
-  Ast.AstGatherS @sh2 @p @sh1 v0 (_ , ZSH) ->
+  Ast.AstGatherS @sh2 @p @sh1 v0 (_ , ZBBSH) ->
     gcastWith (unsafeCoerce Refl :: Sh.Drop p sh1 :~: sh1) $
     astReplicateNS @sh2 @sh1 v0
   Ast.AstGatherS{} -> t  -- this is "index" enough
@@ -548,9 +548,9 @@ astIndexSOrStepOnly
      , GoodScalar r, AstSpan s )
   => Bool -> AstShaped s r (shm Sh.++ shn) -> AstIndexS shm
   -> AstShaped s r shn
-astIndexSOrStepOnly stepOnly (Ast.AstIndexS v ix) ZSH =
+astIndexSOrStepOnly stepOnly (Ast.AstIndexS v ix) ZBBSH =
   astIndexSOrStepOnly stepOnly v ix
-astIndexSOrStepOnly _ v0 ZSH = v0
+astIndexSOrStepOnly _ v0 ZBBSH = v0
 astIndexSOrStepOnly stepOnly v0 ix@((::$) @in1 i1 (rest1 :: AstIndexS shm1)) =
   let astIndexRec, astIndex
         :: forall shm' shn' s'.
@@ -558,7 +558,7 @@ astIndexSOrStepOnly stepOnly v0 ix@((::$) @in1 i1 (rest1 :: AstIndexS shm1)) =
            , AstSpan s' )
         => AstShaped s' r (shm' Sh.++ shn') -> AstIndexS shm'
         -> AstShaped s' r shn'
-      astIndexRec vRec ZSH = vRec
+      astIndexRec vRec ZBBSH = vRec
       astIndexRec vRec ixRec =
         if stepOnly then Ast.AstIndexS vRec ixRec else astIndexS vRec ixRec
       astIndex = if stepOnly then astIndexStepS else astIndexS
@@ -673,7 +673,7 @@ astIndexSOrStepOnly stepOnly v0 ix@((::$) @in1 i1 (rest1 :: AstIndexS shm1)) =
                  then l !! i
                  else astReplicate0NS @(shm1 Sh.++ shn) 0) rest1
 
-  Ast.AstFromListS{} | ZSH <- rest1 ->  -- normal form
+  Ast.AstFromListS{} | ZBBSH <- rest1 ->  -- normal form
     Ast.AstIndexS v0 ix
   Ast.AstFromListS l ->
     shareIxS rest1 $ \ix2 ->
@@ -684,7 +684,7 @@ astIndexSOrStepOnly stepOnly v0 ix@((::$) @in1 i1 (rest1 :: AstIndexS shm1)) =
     in astIndex (if 0 <= i && i < V.length l
                  then l V.! i
                  else astReplicate0NS @(shm1 Sh.++ shn) 0) rest1
-  Ast.AstFromVectorS{} | ZSH <- rest1 ->  -- normal form
+  Ast.AstFromVectorS{} | ZBBSH <- rest1 ->  -- normal form
     Ast.AstIndexS v0 ix
   Ast.AstFromVectorS l ->
     shareIxS rest1 $ \ix2 ->
@@ -728,7 +728,7 @@ astIndexSOrStepOnly stepOnly v0 ix@((::$) @in1 i1 (rest1 :: AstIndexS shm1)) =
       astIndex (astSFromR @(shm1 Sh.++ shn) $ astLet var2 i1 $ astRFromS v)
                rest1
       -- this uses astLet, because the index integers are ranked
-  Ast.AstGatherS @_ @p @sh v (ZSH, ix2) ->
+  Ast.AstGatherS @_ @p @sh v (ZBBSH, ix2) ->
     Sh.withShapeP (Sh.shapeT @(Sh.Take p sh) ++ Sh.shapeT @shm)
     $ \(Proxy @sh1n) ->
       gcastWith (unsafeCoerce Refl :: (Sh.Take p sh Sh.++ shm :~: sh1n)) $
@@ -831,7 +831,7 @@ astGatherStepS
   -> (AstVarListS sh2, AstIndexS (Sh.Take p sh))
   -> AstShaped s r (sh2 Sh.++ Sh.Drop p sh)
 -- TODO: this probably needs an extra condition similar to kN == vkN below
---astGatherStepS v (AstVarName varId ::$ ZSH, AstIntVarS varId2 ::$ ZSH)
+--astGatherStepS v (AstVarName varId ::$ ZBBSH, AstIntVarS varId2 ::$ ZBBSH)
 --  | varId == varId2 = ...
 astGatherStepS v (vars, ix) = Ast.AstGatherS v (vars, ix)  -- TODO
 
@@ -1457,7 +1457,7 @@ astScatterS :: forall sh2 p sh s r.
             => AstShaped s r (sh2 Sh.++ Sh.Drop p sh)
             -> (AstVarListS sh2, AstIndexS (Sh.Take p sh))
             -> AstShaped s r sh
-astScatterS v (ZSH, ZSH) =
+astScatterS v (ZBBSH, ZBBSH) =
   gcastWith (unsafeCoerce Refl
              :: Sh.Take p sh Sh.++ Sh.Drop p sh :~: sh)
   v
@@ -1611,7 +1611,7 @@ astReplicateNS :: forall shn shp s r.
                => AstShaped s r shp -> AstShaped s r (shn Sh.++ shp)
 astReplicateNS v =
   let go :: ShapeSh shn' -> AstShaped s r (shn' Sh.++ shp)
-      go ZSH = v
+      go ZBBSH = v
       go ((::$) @k @shn2 _ shn2) =
         Sh.withShapeP (Sh.shapeT @shn2 ++ Sh.shapeT @shp) $ \(Proxy @sh) ->
           gcastWith (unsafeCoerce Refl :: sh :~: shn2 Sh.++ shp) $
@@ -1631,7 +1631,7 @@ astReplicate0NS :: forall shn s r. (Sh.Shape shn, GoodScalar r, AstSpan s)
                 => AstShaped s r '[] -> AstShaped s r shn
 astReplicate0NS =
   let go :: ShapedList sh' Int -> AstShaped s r '[] -> AstShaped s r sh'
-      go ZSH v = v
+      go ZBBSH v = v
       go (_ ::$ sh') v = astReplicateS $ go sh' v
   in go (ShapedList.shapeSh @shn)
 

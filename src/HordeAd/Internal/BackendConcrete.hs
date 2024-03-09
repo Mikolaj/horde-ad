@@ -586,7 +586,7 @@ tsumS
 tsumS (SS.A (SG.A (OI.T (_ : ss) o vt))) | V.length vt == 1 =
   SS.A (SG.A (OI.T ss o (V.map (* valueOf @n) vt)))
 tsumS t = case ShapedList.shapeSh @(n ': sh) of
-  _ ::$ ZSH -> OS.scalar $ tsum0S t
+  _ ::$ ZBBSH -> OS.scalar $ tsum0S t
   k ::$ sh2 ->
     OS.fromVector $ unsafePerformIO $ do  -- unsafe only due to FFI
       v <- V.unsafeThaw $ OS.toVector t
@@ -751,7 +751,7 @@ treplicateS
   :: forall n sh r. (Numeric r, KnownNat n, Sh.Shape sh)
   => OS.Array sh r -> OS.Array (n ': sh) r
 treplicateS u = case ShapedList.shapeSh @sh of
-  ZSH -> OS.constant (OS.unScalar u)
+  ZBBSH -> OS.constant (OS.unScalar u)
   _ -> OS.ravel $ OSB.constant u
 
 treplicate0NS

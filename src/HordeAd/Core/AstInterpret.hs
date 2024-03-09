@@ -587,7 +587,7 @@ interpretAstS !env = \case
   AstSumOfListS args ->
     let args2 = interpretAstS env <$> args
     in sum args2
-  AstIndexS AstIotaS (i ::$ ZSH) ->
+  AstIndexS AstIotaS (i ::$ ZBBSH) ->
     sfromIntegral . sconstant . sfromR $ interpretAstPrimal env i
   AstIndexS @sh1 v ix ->
     let v2 = interpretAstS env v
@@ -753,7 +753,7 @@ interpretAstS !env = \case
   AstBuild1S (var, v) ->
     sbuild1 (interpretLambdaIS interpretAstS env (var, v))
       -- to be used only in tests
-  AstGatherS @sh2 AstIotaS (vars, i ::$ ZSH) ->
+  AstGatherS @sh2 AstIotaS (vars, i ::$ ZBBSH) ->
     gcastWith (unsafeCoerce Refl :: Sh.Take (Sh.Rank sh) sh :~: sh)
     $ gcastWith (unsafeCoerce Refl :: Sh.Drop (Sh.Rank sh) sh :~: '[])
     $ gcastWith (unsafeCoerce Refl :: sh2 :~: sh)
