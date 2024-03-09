@@ -275,7 +275,7 @@ simplifyStepNonIndex t = case t of
   Ast.AstReshape sh v -> astReshape sh v
   Ast.AstBuild1{} -> t
   Ast.AstGather _ v0 (ZR, ix) -> Ast.AstIndex v0 ix
-  Ast.AstGather sh v0 (_, ZI) -> astReplicateN sh v0
+  Ast.AstGather sh v0 (_, ZIR) -> astReplicateN sh v0
   Ast.AstGather{} -> t  -- this is "index" enough
   Ast.AstCast v -> astCast v
   Ast.AstFromIntegral v -> astFromIntegral v
@@ -378,14 +378,14 @@ astIndexROrStepOnly
   :: forall m n s r.
      (KnownNat m, KnownNat n, GoodScalar r, AstSpan s)
   => Bool -> AstRanked s r (m + n) -> AstIndex m -> AstRanked s r n
-astIndexROrStepOnly stepOnly (Ast.AstIndex v ix) ZI =
+astIndexROrStepOnly stepOnly (Ast.AstIndex v ix) ZIR =
   astIndexROrStepOnly stepOnly v ix  -- no non-indexing constructor yet revealed
-astIndexROrStepOnly _ v0 ZI = v0
+astIndexROrStepOnly _ v0 ZIR = v0
 astIndexROrStepOnly stepOnly v0 ix@(i1 :.: (rest1 :: AstIndex m1)) =
  let astIndexRec, astIndex
        :: forall m' n' s'. (KnownNat m', KnownNat n', AstSpan s')
        => AstRanked s' r (m' + n') -> AstIndex m' -> AstRanked s' r n'
-     astIndexRec vRec ZI = vRec
+     astIndexRec vRec ZIR = vRec
      astIndexRec vRec ixRec =
        if stepOnly then Ast.AstIndex vRec ixRec else astIndexR vRec ixRec
      astIndex = if stepOnly then astIndexStep else astIndexR
@@ -439,8 +439,8 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :.: (rest1 :: AstIndex m1)) =
         if i6 == i5
         then astIndex (astScatter sh v (vars, ix2)) rest1
         else astIndex (astReplicate0N @(m1 + n) sh 0) rest1
-  -- AstScatter sh v (vars2, ZI) ->
-  --   AstScatter sh (astIndex (astTranspose perm3 v) ix) (vars2, ZI)
+  -- AstScatter sh v (vars2, ZIR) ->
+  --   AstScatter sh (astIndex (astTranspose perm3 v) ix) (vars2, ZIR)
   Ast.AstScatter{} ->  -- normal form
     Ast.AstIndex v0 ix
   Ast.AstFromList l | AstConst it <- i1 ->
@@ -449,7 +449,7 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :.: (rest1 :: AstIndex m1)) =
                  then l !! i
                  else astReplicate0N @(m1 + n)
                                      (dropShape $ shapeAst v0) 0) rest1
-  Ast.AstFromList{} | ZI <- rest1 ->  -- normal form
+  Ast.AstFromList{} | ZIR <- rest1 ->  -- normal form
     Ast.AstIndex v0 ix
   Ast.AstFromList l ->
     shareIx rest1 $ \ix2 ->
@@ -461,7 +461,7 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :.: (rest1 :: AstIndex m1)) =
                  then l V.! i
                  else astReplicate0N @(m1 + n)
                                      (dropShape $ shapeAst v0) 0) rest1
-  Ast.AstFromVector{} | ZI <- rest1 ->  -- normal form
+  Ast.AstFromVector{} | ZIR <- rest1 ->  -- normal form
     Ast.AstIndex v0 ix
   Ast.AstFromVector l ->
     shareIx rest1 $ \ix2 ->
@@ -663,8 +663,8 @@ astIndexSOrStepOnly stepOnly v0 ix@((::$) @in1 i1 (rest1 :: AstIndexS shm1)) =
 --        if i6 == i5
 --        then astIndex (astScatter sh v (vars, ix2)) rest1
 --        else astIndex (astReplicate0N @(m1 + n) sh 0) rest1
-  -- AstScatter sh v (vars2, ZI) ->
-  --   AstScatter sh (astIndex (astTranspose perm3 v) ix) (vars2, ZI)
+  -- AstScatter sh v (vars2, ZIR) ->
+  --   AstScatter sh (astIndex (astTranspose perm3 v) ix) (vars2, ZIR)
   Ast.AstScatterS{} ->  -- normal form
     Ast.AstIndexS v0 ix
   Ast.AstFromListS l | AstConst it <- i1 ->
@@ -854,10 +854,10 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
       error $ "astGather: gather vars in v0: "
               ++ show (vars0, v0)
     (_, (ZR, _)) -> astIndex v0 ix0
-    (sh, (_, ZI)) -> astReplicateN sh v0
+    (sh, (_, ZIR)) -> astReplicateN sh v0
     (k :$: sh', (AstVarName varId ::: vars, i1 :.: rest1)) ->
       if | not (any (`varNameInAst` i1) vars0) ->
-           astGatherROrStepOnly stepOnly sh0 (astIndex v0 (i1 :.: ZI))
+           astGatherROrStepOnly stepOnly sh0 (astIndex v0 (i1 :.: ZIR))
                                 (vars0, rest1)
          | case iN of
              AstIntVar varN' ->
@@ -898,7 +898,7 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
     => ShapeInt (m' + n') -> AstRanked s r' (p' + n')
     -> (AstVarList m', AstIndex p')
     -> AstRanked s r' (m' + n')
-  astGatherCase sh4 v4 (_, ZI) = astReplicateN sh4 v4  -- not really possible
+  astGatherCase sh4 v4 (_, ZIR) = astReplicateN sh4 v4  -- not really possible
   astGatherCase sh4 v4 ( vars4
                        , ix4@(i4 :.: (rest4 :: AstIndex p1')) ) = case v4 of
     Ast.AstVar{} -> Ast.AstGather sh4 v4 (vars4, ix4)
@@ -938,8 +938,8 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
     Ast.AstI2{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     AstSumOfList{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstIndex v2 ix2 -> case (v2, ix2) of
-      (Ast.AstFromList{}, i2 :.: ZI) -> astGather sh4 v2 (vars4, i2 :.: ix4)
-      (Ast.AstFromVector{}, i2 :.: ZI) -> astGather sh4 v2 (vars4, i2 :.: ix4)
+      (Ast.AstFromList{}, i2 :.: ZIR) -> astGather sh4 v2 (vars4, i2 :.: ix4)
+      (Ast.AstFromVector{}, i2 :.: ZIR) -> astGather sh4 v2 (vars4, i2 :.: ix4)
       _ ->  -- AstVar, AstConst
         Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstSum v ->
@@ -1128,7 +1128,7 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
 
 gatherFromNF :: forall m p. (KnownNat m, KnownNat p)
              => AstVarList m -> AstIndex (1 + p) -> Bool
-gatherFromNF _ ZI = error "gatherFromNF: impossible pattern needlessly required"
+gatherFromNF _ ZIR = error "gatherFromNF: impossible pattern needlessly required"
 gatherFromNF vars (i :.: rest) = case cmpNat (Proxy @p) (Proxy @m) of
   LTI ->
     let cmp (AstIntVar var1, AstIntVar var2) = var1 == var2
@@ -1440,7 +1440,7 @@ astScatter :: forall m n p s r.
            => ShapeInt (p + n) -> AstRanked s r (m + n)
            -> (AstVarList m, AstIndex p)
            -> AstRanked s r (p + n)
-astScatter _sh v (ZR, ZI) = v
+astScatter _sh v (ZR, ZIR) = v
 astScatter sh v (AstVarName varId ::: vars, ix) | not $ varId `varInIndex` ix =
   astScatter sh (astSum v) (vars, ix)
 -- astScatter sh v (ZR, ix) = update (rzero sh 0) ix v

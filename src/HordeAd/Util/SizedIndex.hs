@@ -6,7 +6,7 @@ module HordeAd.Util.SizedIndex
   ( -- * Concrete type synonyms to be used in many other modules
     ShapeInt, Permutation
     -- * Tensor indexes as fully encapsulated sized lists, with operations
-  , Index, pattern (:.:), pattern ZI
+  , Index, pattern (:.:), pattern ZIR
   , singletonIndex, snocIndex, appendIndex
   , headIndex, tailIndex, takeIndex, dropIndex, splitAt_Index, splitAtInt_Index
   , unsnocIndex1, lastIndex, initIndex, zipIndex, zipWith_Index
@@ -46,7 +46,7 @@ import HordeAd.Util.SizedList
 -- explicitly typed, do not inform the compiler about the length
 -- of the list until runtime. That means that some errors are hidden
 -- and also extra type applications may be needed to satisfy the compiler.
--- Therefore, there is a real trade-off between @[4]@ and @(4 :$: ZI).
+-- Therefore, there is a real trade-off between @[4]@ and @(4 :$: ZIR).
 type ShapeInt n = Shape n Int
 
 
@@ -71,15 +71,15 @@ newtype Index n i = Index (SizedList n i)
 instance Show i => Show (Index n i) where
   showsPrec d (Index l) = showsPrec d l
 
-pattern ZI :: forall n i. () => n ~ 0 => Index n i
-pattern ZI = Index ZR
+pattern ZIR :: forall n i. () => n ~ 0 => Index n i
+pattern ZIR = Index ZR
 
 infixr 3 :.:
 pattern (:.:) :: forall n1 i. KnownNat n1 => forall n. (KnownNat n, (1 + n) ~ n1)
              => i -> Index n i -> Index n1 i
 pattern i :.: sh <- (unconsIndex -> Just (UnconsIndexRes sh i))
   where i :.: (Index sh) = Index (i ::: sh)
-{-# COMPLETE ZI, (:.:) #-}
+{-# COMPLETE ZIR, (:.:) #-}
 
 type role UnconsIndexRes representational nominal
 data UnconsIndexRes i n1 =
@@ -324,7 +324,7 @@ toLinearIdx = \sh idx -> go sh idx 0
     -- @m - m1@ dimensional index prefix.
     go :: KnownNat m1
        => Shape (m1 + n) i -> Index m1 j -> j -> j
-    go sh ZI tensidx = fromIntegral (sizeShape sh) * tensidx
+    go sh ZIR tensidx = fromIntegral (sizeShape sh) * tensidx
     go (n :$: sh) (i :.: idx) tensidx = go sh idx (fromIntegral n * tensidx + i)
     go _ _ _ = error "toLinearIdx: impossible pattern needlessly required"
 
@@ -343,7 +343,7 @@ fromLinearIdx = \sh lin -> snd (go sh lin)
     -- Returns (linear index into array of sub-tensors,
     -- multi-index within sub-tensor).
     go :: KnownNat n1 => Shape n1 i -> j -> (j, Index n1 j)
-    go ZS n = (n, ZI)
+    go ZS n = (n, ZIR)
     go (0 :$: sh) _ =
       (0, 0 :.: zeroOf sh)
     go (n :$: sh) lin =
@@ -353,5 +353,5 @@ fromLinearIdx = \sh lin -> snd (go sh lin)
 
 -- | The zero index in this shape (not dependent on the actual integers).
 zeroOf :: (Num j, KnownNat n) => Shape n i -> Index n j
-zeroOf ZS = ZI
+zeroOf ZS = ZIR
 zeroOf (_ :$: sh) = 0 :.: zeroOf sh

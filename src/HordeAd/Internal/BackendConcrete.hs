@@ -345,7 +345,7 @@ tbuildNR = undefined  -- using rbuild definition instead
   let buildSh :: forall m1. KnownNat m1
               => ShapeInt m1 -> (IndexInt m1 -> OR.Array n r)
               -> OR.Array (m1 + n) r
-      buildSh ZS f = f ZI
+      buildSh ZS f = f ZIR
       buildSh (0 :$: sh) _ =
         OR.fromList (0 : shapeToList sh ++ shapeToList (dropShape @m @n sh0)) []
       buildSh (k :$: sh) f =

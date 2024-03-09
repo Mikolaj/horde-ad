@@ -124,7 +124,7 @@ class ( Integral (IntOf ranked), CRanked ranked Num
             -> (IntOf ranked -> IndexOf ranked p)
             -> ranked r (p + n)
   rscatter1 sh v f = rscatter @ranked @r @1 sh v
-                              (\(i :.: ZI) -> f i)
+                              (\(i :.: ZIR) -> f i)
 
   -- Tensor codomain, often tensor construction, sometimes transformation
   -- (for these, suffix 1 doesn't mean codomain rank 1, but building up
@@ -178,7 +178,7 @@ class ( Integral (IntOf ranked), CRanked ranked Num
     let buildSh :: KnownNat m1
                 => ShapeInt m1 -> (IndexOf ranked m1 -> ranked r n)
                 -> ranked r (m1 + n)
-        buildSh ZS f = f ZI
+        buildSh ZS f = f ZIR
         buildSh (k :$: sh) f =
           let g i = buildSh sh (\ix -> f (i :.: ix))
           in rbuild1 k g
@@ -273,7 +273,7 @@ class ( Integral (IntOf ranked), CRanked ranked Num
            -> (IntOf ranked -> IndexOf ranked p)
            -> ranked r (1 + n)
   rgather1 k v f = rgather @ranked @r @1 (k :$: dropShape (rshape v)) v
-                           (\(i :.: ZI) -> f i)
+                           (\(i :.: ZIR) -> f i)
   rcast :: (RealFrac r1, RealFrac r2, GoodScalar r1, GoodScalar r2, KnownNat n)
         => ranked r1 n -> ranked r2 n
   rfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2, KnownNat n)

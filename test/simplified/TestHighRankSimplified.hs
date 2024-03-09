@@ -309,7 +309,7 @@ fooNoGo v =
        bar ( rreplicate0N shTail 3.14
            , bar ( rconst (OR.constant (shapeToList shTail) 3.14)
                  , rindex v [ix]) )
-       + ifF (rindex v (ix * 2 :.: ZI) <=. rreplicate0N shTail 0 &&* 6 >. abs ix)
+       + ifF (rindex v (ix * 2 :.: ZIR) <=. rreplicate0N shTail 0 &&* 6 >. abs ix)
                r (rreplicate0N shTail 5 * r))
      / rslice 1 3 (rmap0N (\x -> ifF (x >. r0) r0 x) v)
      * rbuild1 3 (const $ rconst $ OR.constant (shapeToList shTail) 1)
@@ -335,7 +335,7 @@ nestedBuildMap r =
       v' = rreplicate0N (177 :$: ZS) r
       nestedMap x = rmap0N (x /) (w x)
       variableLengthBuild iy = rbuild1 7 (\ix ->
-        rindex v' (ix + iy :.: ZI))
+        rindex v' (ix + iy :.: ZIR))
       doublyBuild =
         rbuild1 3 (rreplicate0N (takeShape @n @(6 - n)
                              $ 2 :$: 4 :$: 2 :$: 1 :$: 3 :$: 2 :$: ZS)
@@ -383,9 +383,9 @@ nestedSumBuild v =
     ifF (ix2 >. ix1)
         (rmap0N ((* (-0.00000003)) . sqrt . abs)
          $ nestedBuildMap (rsum0 v)
-           `rindex` (ix2 `rem` 3 :.: minF 1 ix1 :.: minF ix1 3 :.: ZI))
+           `rindex` (ix2 `rem` 3 :.: minF 1 ix1 :.: minF ix1 3 :.: ZIR))
         (nestedBuildMap 0.00042
-         `rindex` (ix2 `rem` 3 :.: minF 1 ix1 :.: minF ix1 3 :.: ZI))
+         `rindex` (ix2 `rem` 3 :.: minF 1 ix1 :.: minF ix1 3 :.: ZIR))
 
 testNestedSumBuild1 :: Assertion
 testNestedSumBuild1 =
@@ -426,7 +426,7 @@ testNestedSumBuildB =
 nestedBuildIndex :: forall ranked r. (ADReady ranked, GoodScalar r)
                  => ranked r 5 -> ranked r 3
 nestedBuildIndex v =
-  rbuild1 2 $ \ix2 -> rindex (rbuild1 3 $ \ix3 -> rindex (rbuild1 3 $ \ix4 -> rindex v (ix4 `rem` 2 :.: ix2 :.: 0 :.: ZI)) [ix3]) (ix2 :.: ZI)
+  rbuild1 2 $ \ix2 -> rindex (rbuild1 3 $ \ix3 -> rindex (rbuild1 3 $ \ix4 -> rindex v (ix4 `rem` 2 :.: ix2 :.: 0 :.: ZIR)) [ix3]) (ix2 :.: ZIR)
 
 testNestedBuildIndex :: Assertion
 testNestedBuildIndex =
@@ -501,7 +501,7 @@ braidedBuilds :: forall ranked n r. (ADReady ranked, GoodScalar r, KnownNat n, D
 braidedBuilds r =
   rbuild1 3 (\ix1 ->
     rbuild1 4 (\ix2 -> rindex (rfromList
-      [rfromIndex0 ix2, 7, rsum0 (rslice 1 1 r), -0.2]) (ix1 :.: ZI)))
+      [rfromIndex0 ix2, 7, rsum0 (rslice 1 1 r), -0.2]) (ix1 :.: ZIR)))
 
 testBraidedBuilds :: Assertion
 testBraidedBuilds =
@@ -545,7 +545,7 @@ concatBuild r =
                    + maxF j (i `quot` (j + 1)) * (rprimalPart . rfloor) (rsum0 r)
                    - ifF (r <=. r &&* i <. j)
                          (rprimalPart $ rminIndex (rflatten r))
-                         ((rprimalPart . rfloor) $ rsum0 $ r ! ((i * j) `rem` 7 :.: ZI))))) r)
+                         ((rprimalPart . rfloor) $ rsum0 $ r ! ((i * j) `rem` 7 :.: ZIR))))) r)
             , rbuild1 13 (\_k ->
                 rsum $ rtr $ rreplicate (rlength r) (rslice 0 1 r)) ])
 

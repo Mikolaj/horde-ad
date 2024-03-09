@@ -121,7 +121,7 @@ type IntOf (f :: TensorType ty) = RankedOf (PrimalOf f) Int64 0
 -- explicitly typed, do not inform the compiler about the length
 -- of the list until runtime. That means that some errors are hidden
 -- and also extra type applications may be needed to satisfy the compiler.
--- Therefore, there is a real trade-off between @[2]@ and @(2 :.: ZI).
+-- Therefore, there is a real trade-off between @[2]@ and @(2 :.: ZIR).
 type IndexOf (f :: TensorType ty) n = Index n (IntOf f)
 
 -- TODO: ensure this is checked (runtime-checked, if necessary):

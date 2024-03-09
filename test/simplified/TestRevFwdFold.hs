@@ -1199,7 +1199,7 @@ unitriangular2 k sh =
   rgather @_ @_ @_ @_ @1 (k :$: k :$: sh)
           (rfromList [ rreplicate0N sh 0
                      , rreplicate0N sh 1 ])
-          (\(i :.: j :.: ZI) -> ifF (i <. j) 0 1 :.: ZI)
+          (\(i :.: j :.: ZIR) -> ifF (i <. j) 0 1 :.: ZIR)
 
 testUnitriangular2PP :: Assertion
 testUnitriangular2PP = do

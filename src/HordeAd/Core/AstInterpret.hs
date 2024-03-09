@@ -210,7 +210,7 @@ interpretAst !env = \case
   AstSumOfList args ->
     let args2 = interpretAst env <$> args
     in foldr1 (+) args2  -- avoid unknown shape of @0@ in @sum@
-  AstIndex AstIota (i :.: ZI) ->
+  AstIndex AstIota (i :.: ZIR) ->
     rfromIntegral $ rconstant $ interpretAstPrimal env i
   AstIndex v ix ->
     let v2 = interpretAst env v
@@ -353,7 +353,7 @@ interpretAst !env = \case
   AstReshape sh v -> rreshape sh (interpretAst env v)
   -- These are only needed for tests that don't vectorize Ast.
   AstBuild1 k (var, AstSum (AstN2 TimesOp t (AstIndex
-                                               u (AstIntVar var2 :.: ZI))))
+                                               u (AstIntVar var2 :.: ZIR))))
     | Just Refl <- sameNat (Proxy @n) (Proxy @1)
     , var == var2, k == lengthAst u ->
         let t1 = interpretAst env t
@@ -362,7 +362,7 @@ interpretAst !env = \case
   AstBuild1 k (var, AstSum
                       (AstReshape @p
                          _sh (AstN2 TimesOp t (AstIndex
-                                                 u (AstIntVar var2 :.: ZI)))))
+                                                 u (AstIntVar var2 :.: ZIR)))))
     | Just Refl <- sameNat (Proxy @n) (Proxy @1)
     , Just Refl <- sameNat (Proxy @p) (Proxy @1)
     , var == var2, k == lengthAst u ->
@@ -382,7 +382,7 @@ interpretAst !env = \case
   AstBuild1 k (var, v) ->
     rbuild1 k (interpretLambdaI interpretAst env (var, v))
       -- to be used only in tests
-  AstGather sh AstIota (vars, i :.: ZI) ->
+  AstGather sh AstIota (vars, i :.: ZIR) ->
     rbuild sh (interpretLambdaIndex interpretAst env
                                     (vars, fromPrimal @s $ AstFromIntegral i))
   AstGather sh v (vars, ix) ->
@@ -723,7 +723,7 @@ interpretAstS !env = \case
   -- These are only needed for tests that don't vectorize Ast.
 {- TODO:
   AstBuild1 k (var, AstSum (AstN2 TimesOp [t, AstIndex
-                                                u (AstIntVar var2 :.: ZI)]))
+                                                u (AstIntVar var2 :.: ZIR)]))
     | Just Refl <- sameNat (Proxy @n) (Proxy @1)
     , var == var2, k == lengthAst u ->
         let t1 = interpretAst env t
@@ -732,7 +732,7 @@ interpretAstS !env = \case
   AstBuild1 k (var, AstSum
                       (AstReshape @p
                          _sh (AstN2 TimesOp [t, AstIndex
-                                                  u (AstIntVar var2 :.: ZI)])))
+                                                  u (AstIntVar var2 :.: ZIR)])))
     | Just Refl <- sameNat (Proxy @n) (Proxy @1)
     , Just Refl <- sameNat (Proxy @p) (Proxy @1)
     , var == var2, k == lengthAst u ->

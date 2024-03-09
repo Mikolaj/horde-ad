@@ -159,7 +159,7 @@ build1V k (var, v00) =
       let var2 = AstVarName oldVarId  -- changed shape; TODO: shall we rename?
           sh = shapeAst u
           projection = Ast.AstIndex (Ast.AstVar (k :$: sh) var2)
-                                    (Ast.AstIntVar var :.: ZI)
+                                    (Ast.AstIntVar var :.: ZIR)
           -- The subsitutions of projections don't break sharing,
           -- because they don't duplicate variables and the added var
           -- is eventually being eliminated instead of substituted for.
@@ -306,14 +306,14 @@ build1VIndex
   :: forall m n s r. (KnownNat m, KnownNat n, GoodScalar r, AstSpan s)
   => Int -> (IntVarName, AstRanked s r (m + n), AstIndex m)
   -> AstRanked s r (1 + n)
-build1VIndex k (var, v0, ZI) = build1VOccurenceUnknown k (var, v0)
+build1VIndex k (var, v0, ZIR) = build1VOccurenceUnknown k (var, v0)
 build1VIndex k (var, v0, ix@(_ :.: _)) =
   let traceRule = mkTraceRule "build1VIndex"
                               (Ast.AstBuild1 k (var, Ast.AstIndex v0 ix))
                               v0 1
   in if varNameInAst var v0
      then case astIndexStep v0 ix of  -- push deeper
-       Ast.AstIndex v1 ZI -> traceRule $
+       Ast.AstIndex v1 ZIR -> traceRule $
          build1VOccurenceUnknown k (var, v1)
        v@(Ast.AstIndex @p v1 ix1) -> traceRule $
          let (varFresh, astVarFresh, ix2) = intBindingRefresh var ix1
@@ -662,7 +662,7 @@ build1VHVector k@SNat (var, v0) =
     let var2 = AstVarName oldVarId  -- changed shape; TODO: shall we rename?
         sh = shapeAst u
         projection = Ast.AstIndex (Ast.AstVar (sNatValue k :$: sh) var2)
-                                  (Ast.AstIntVar var :.: ZI)
+                                  (Ast.AstIntVar var :.: ZIR)
         v2 = substituteAstHVector
                (SubstitutionPayloadRanked @s1 @r1 projection) var1 v
     in astLetInHVector var2 (build1VOccurenceUnknown (sNatValue k) (var, u))
@@ -760,7 +760,7 @@ substProjRanked k var sh1 var1@(AstVarName varId) =
   let var2 = AstVarName varId
       projection =
         Ast.AstIndex (Ast.AstVar (k :$: sh1) var2)
-                     (Ast.AstIntVar var :.: ZI)
+                     (Ast.AstIntVar var :.: ZIR)
   in substituteAst
        (SubstitutionPayloadRanked @s1 @r1 projection) var1
 
@@ -774,7 +774,7 @@ substProjShaped k var sh1 var1@(AstVarName varId) =
   let var2 = AstVarName varId
       projection =
         Ast.AstIndex (Ast.AstVar (k :$: sh1) var2)
-                     (Ast.AstIntVar var :.: ZI)
+                     (Ast.AstIntVar var :.: ZIR)
   in substituteAstS
        (SubstitutionPayloadRanked @s1 @r1 projection) var1
 
@@ -813,7 +813,7 @@ substProjHVector k var sh1 var1@(AstVarName varId) =
   let var2 = AstVarName varId
       projection =
         Ast.AstIndex (Ast.AstVar (k :$: sh1) var2)
-                     (Ast.AstIntVar var :.: ZI)
+                     (Ast.AstIntVar var :.: ZIR)
   in substituteAstHVector
        (SubstitutionPayloadRanked @s1 @r1 projection) var1
 
