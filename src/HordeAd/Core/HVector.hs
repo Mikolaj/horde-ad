@@ -273,13 +273,13 @@ index1DynamicF rshape sshape rindex sindex u i = case u of
     ZSR -> error "index1Dynamic: rank 0"
     _ :$: _ -> DynamicRanked $ rindex t (singletonIndex i)
   DynamicShaped t -> case sshape t of
-    ZBBSH -> error "index1Dynamic: rank 0"
+    ZS -> error "index1Dynamic: rank 0"
     _ ::$ _ -> DynamicShaped $ sindex t (ShapedList.singletonShaped i)
   DynamicRankedDummy @r @sh p1 _ -> case ShapedList.shapeSh @sh of
-    ZBBSH -> error "index1Dynamic: rank 0"
+    ZS -> error "index1Dynamic: rank 0"
     (::$) @_ @sh2 _ _ -> DynamicRankedDummy @r @sh2 p1 Proxy
   DynamicShapedDummy @r @sh p1 _ -> case ShapedList.shapeSh @sh of
-    ZBBSH -> error "index1Dynamic: rank 0"
+    ZS -> error "index1Dynamic: rank 0"
     (::$) @_ @sh2 _ _ -> DynamicShapedDummy @r @sh2 p1 Proxy
 
 replicate1HVectorF :: shaped ~ ShapedOf ranked
