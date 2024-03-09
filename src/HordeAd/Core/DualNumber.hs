@@ -28,15 +28,15 @@ import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, sameNat, type (+))
 import           Type.Reflection (typeRep)
 
-import HordeAd.Core.Ast
-import HordeAd.Core.Delta
-import HordeAd.Core.HVector
-import HordeAd.Core.IsPrimal
-import HordeAd.Core.TensorClass
-import HordeAd.Core.Types
-import HordeAd.Internal.OrthotopeOrphanInstances (sameShape)
-import HordeAd.Util.ShapedList (singletonShaped)
-import HordeAd.Util.SizedList
+import           HordeAd.Core.Ast
+import           HordeAd.Core.Delta
+import           HordeAd.Core.HVector
+import           HordeAd.Core.IsPrimal
+import           HordeAd.Core.TensorClass
+import           HordeAd.Core.Types
+import           HordeAd.Internal.OrthotopeOrphanInstances (sameShape)
+import qualified HordeAd.Util.ShapedList as ShapedList
+import           HordeAd.Util.SizedList
 
 -- * The main dual number type
 
@@ -227,7 +227,8 @@ instance ( ShapedTensor shaped, IfF (RankedOf (PrimalOf shaped))
          => IfF (ADVal shaped) where
   ifF (l1, b) v w =
     let D l2 u u' = indexPrimalS (fromListS @2 [v, w])
-                                 (singletonShaped $ ifF (emptyADShare, b) 0 1)
+                                 (ShapedList.singletonSized
+                                  $ ifF (emptyADShare, b) 0 1)
     in dDnotShared (l1 `mergeADShare` l2) u u'
 
 {- TODO: use for speed-up, e.g,. by checking the type at runtime

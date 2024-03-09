@@ -677,7 +677,7 @@ astIndexSOrStepOnly stepOnly v0 ix@((::$) @in1 i1 (rest1 :: AstIndexS shm1)) =
   Ast.AstFromListS l ->
     shareIxS rest1 $ \ix2 ->
       Ast.AstIndexS @'[in1] @shn (astFromListS $ map (`astIndexRec` ix2) l)
-                    (ShapedList.singletonShaped i1)
+                    (ShapedList.singletonSized i1)
   Ast.AstFromVectorS l | AstConst it <- i1 ->
     let i = fromIntegral $ OR.unScalar it
     in astIndex (if 0 <= i && i < V.length l
@@ -688,7 +688,7 @@ astIndexSOrStepOnly stepOnly v0 ix@((::$) @in1 i1 (rest1 :: AstIndexS shm1)) =
   Ast.AstFromVectorS l ->
     shareIxS rest1 $ \ix2 ->
       Ast.AstIndexS @'[in1] @shn (astFromVectorS $ V.map (`astIndexRec` ix2) l)
-                    (ShapedList.singletonShaped i1)
+                    (ShapedList.singletonSized i1)
   Ast.AstReplicateS v ->
     astIndex v rest1
   Ast.AstAppendS @n3 @m3 u v | AstConst it <- i1 ->

@@ -42,7 +42,6 @@ import           HordeAd.Core.IsPrimal
 import           HordeAd.Core.TensorClass
 import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances (sameShape)
-import           HordeAd.Util.ShapedList (singletonShaped)
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedList
 
@@ -357,7 +356,8 @@ instance ADReadyS shaped => ShapedTensor (ADVal shaped) where
        (FromVectorS $ V.map (\(D _ _ u') -> u') lu)
   sunravelToList (D l u u') =
     let lu = sunravelToList u
-        f i ui = dD l ui (IndexS u' (singletonShaped $ fromIntegral i))
+        f i ui = dD l ui (IndexS u' (ShapedList.singletonSized
+                                     $ fromIntegral i))
     in imap f lu
   sreplicate (D l u u') = dD l (sreplicate u) (ReplicateS u')
   sappend (D l1 u u') (D l2 v v') =

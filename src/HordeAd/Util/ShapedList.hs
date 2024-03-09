@@ -8,7 +8,7 @@ module HordeAd.Util.ShapedList
   ( -- * Shaped lists and their permutations
     ShapedList(..)
   , consShaped, unconsContShaped
-  , singletonShaped, snocSized, appendSized
+  , singletonSized, snocSized, appendSized
   , headSized, tailSized, takeSized, dropSized, splitAt_Sized
   , unsnocSized1, lastSized, initSized, zipSized, zipWith_Sized, reverseSized
   , Permutation
@@ -75,8 +75,8 @@ consShaped (ShapedNat i) l = i ::$ l
 unconsContShaped :: (ShapedNat n i -> k) -> ShapedList (n ': sh) i -> k
 unconsContShaped f (i ::$ _) = f (ShapedNat i)
 
-singletonShaped :: KnownNat n => i -> ShapedList '[n] i
-singletonShaped i = i ::$ ZS
+singletonSized :: KnownNat n => i -> ShapedList '[n] i
+singletonSized i = i ::$ ZS
 
 snocSized :: KnownNat n => ShapedList sh i -> i -> ShapedList (n ': sh) i
 snocSized ZS last1 = last1 ::$ ZS
