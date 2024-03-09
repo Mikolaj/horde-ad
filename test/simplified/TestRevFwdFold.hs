@@ -21,7 +21,7 @@ import           Test.Tasty.HUnit hiding (assert)
 
 import HordeAd
 import HordeAd.Core.AstFreshId (resetVarCounter)
-import HordeAd.Util.ShapedList (ShapedList (..))
+import HordeAd.Util.ShapedList (SizedListS (..))
 
 import CrossTesting
 import EqEpsilon

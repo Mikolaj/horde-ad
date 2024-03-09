@@ -35,7 +35,7 @@ import           HordeAd.Core.TensorClass
 import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances
   (matchingRank, sameShape)
-import           HordeAd.Util.ShapedList (ShapedList (..))
+import           HordeAd.Util.ShapedList (SizedListS (..))
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedList
 

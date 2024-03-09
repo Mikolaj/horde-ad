@@ -49,7 +49,7 @@ import           HordeAd.Core.HVectorOps
 import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances
   (MapSucc, trustMeThisIsAPermutation)
-import           HordeAd.Util.ShapedList (ShapedList (..))
+import           HordeAd.Util.ShapedList (SizedListS (..))
 import           HordeAd.Util.SizedList
 
 -- * Vectorization of AstRanked

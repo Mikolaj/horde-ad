@@ -95,7 +95,7 @@ import           HordeAd.Core.Types
 import           HordeAd.Internal.BackendConcrete
 import           HordeAd.Internal.OrthotopeOrphanInstances
   (MapSucc, matchingRank, sameShape, trustMeThisIsAPermutation)
-import           HordeAd.Util.ShapedList (ShapedList (..))
+import           HordeAd.Util.ShapedList (SizedListS (..))
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedList
 
@@ -1629,7 +1629,7 @@ astReplicate0N sh =
 astReplicate0NS :: forall shn s r. (Sh.Shape shn, GoodScalar r, AstSpan s)
                 => AstShaped s r '[] -> AstShaped s r shn
 astReplicate0NS =
-  let go :: ShapedList sh' Int -> AstShaped s r '[] -> AstShaped s r sh'
+  let go :: SizedListS sh' Int -> AstShaped s r '[] -> AstShaped s r sh'
       go ZS v = v
       go (_ ::$ sh') v = astReplicateS $ go sh' v
   in go (ShapedList.shapeSh @shn)

@@ -45,7 +45,7 @@ import           Unsafe.Coerce (unsafeCoerce)
 import           HordeAd.Internal.OrthotopeOrphanInstances
   (liftVR, liftVS, sameShape)
 import           HordeAd.Internal.TensorFFI
-import           HordeAd.Util.ShapedList (ShapedList (..), ShapedNat)
+import           HordeAd.Util.ShapedList (SizedListS (..), ShapedNat)
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedList
 
@@ -456,7 +456,7 @@ fromIndexOfR ixOf = tunScalarR . runFlip <$> ixOf
 
 type Int64Sh (n :: Nat) = ShapedNat n Int64
 
-type IndexIntSh sh = ShapedList sh Int64
+type IndexIntSh sh = SizedListS sh Int64
 
 -- TODO: try to weave a similar magic as in tindex0R
 -- TODO: for the non-singleton case see
@@ -893,8 +893,8 @@ tscaleByScalarS :: (Numeric r, Sh.Shape sh)
                 => r -> OS.Array sh r -> OS.Array sh r
 tscaleByScalarS s = liftVS (LA.scale s)
 
-toIndexOfS :: IndexIntSh sh -> ShapedList sh (Flip OR.Array Int64 0)
+toIndexOfS :: IndexIntSh sh -> SizedListS sh (Flip OR.Array Int64 0)
 toIndexOfS ix = Flip . tscalarR <$> ix
 
-fromIndexOfS :: ShapedList sh (Flip OR.Array Int64 0) -> IndexIntSh sh
+fromIndexOfS :: SizedListS sh (Flip OR.Array Int64 0) -> IndexIntSh sh
 fromIndexOfS ixOf = tunScalarR . runFlip <$> ixOf

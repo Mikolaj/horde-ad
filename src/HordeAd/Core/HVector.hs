@@ -41,7 +41,7 @@ import           Type.Reflection (Typeable, typeRep)
 
 import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances ()
-import           HordeAd.Util.ShapedList (ShapeSh, ShapedList (..))
+import           HordeAd.Util.ShapedList (ShapeSh, SizedListS (..))
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedList
 
