@@ -75,9 +75,9 @@ shapeAst = \case
     t : _ -> V.length l :$: shapeAst t
   AstReplicate s v -> s :$: shapeAst v
   AstAppend x y -> case shapeAst x of
-    ZS -> error "shapeAst: impossible pattern needlessly required"
+    ZSR -> error "shapeAst: impossible pattern needlessly required"
     xi :$: xsh -> case shapeAst y of
-      ZS -> error "shapeAst: impossible pattern needlessly required"
+      ZSR -> error "shapeAst: impossible pattern needlessly required"
       yi :$: _ -> xi + yi :$: xsh
   AstSlice _i n v -> n :$: tailShape (shapeAst v)
   AstReverse v -> shapeAst v
@@ -100,7 +100,7 @@ shapeAst = \case
 lengthAst :: (KnownNat n, GoodScalar r) => AstRanked s r (1 + n) -> Int
 {-# INLINE lengthAst #-}
 lengthAst v1 = case shapeAst v1 of
-  ZS -> error "lengthAst: impossible pattern needlessly required"
+  ZSR -> error "lengthAst: impossible pattern needlessly required"
   k :$: _ -> k
 
 shapeAstHVector :: AstHVector s -> VoidHVector

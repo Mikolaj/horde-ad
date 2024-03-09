@@ -751,7 +751,7 @@ astIndexSOrStepOnly stepOnly v0 ix@((::$) @in1 i1 (rest1 :: AstIndexS shm1)) =
         unConst (AstConst i) (Just l) = Just $ i : l
         unConst _ _ = Nothing
     in case foldr unConst (Just []) ix of
-      Just ixInt -> AstConstS $ tindexZS t $ ShapedList.listToSized @shm
+      Just ixInt -> AstConstS $ tindexZSR t $ ShapedList.listToSized @shm
                     $ map OR.unScalar ixInt
         -- TODO: we'd need mapM for Index to keep this rank-typed
       Nothing -> Ast.AstIndexS v0 ix
@@ -1602,7 +1602,7 @@ astReplicateN :: forall n p s r.
 astReplicateN sh v =
   let go :: KnownNat n'
          => ShapeInt n' -> AstRanked s r (n' + p)
-      go ZS = v
+      go ZSR = v
       go (k :$: sh2) = astReplicate k $ go sh2
   in go (takeShape sh)
 
@@ -1623,7 +1623,7 @@ astReplicate0N :: forall n s r. (KnownNat n, GoodScalar r, AstSpan s)
 astReplicate0N sh =
   let go :: KnownNat n'
          => ShapeInt n' -> AstRanked s r 0 -> AstRanked s r n'
-      go ZS v = v
+      go ZSR v = v
       go (k :$: sh') v = astReplicate k $ go sh' v
   in go sh
 

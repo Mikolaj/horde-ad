@@ -13,7 +13,7 @@ module HordeAd.Util.SizedIndex
   , backpermutePrefixIndex, permutePrefixIndex
   , listToIndex, indexToList, indexToSizedList, sizedListToIndex
     -- * Tensor shapes as fully encapsulated sized lists, with operations
-  , Shape, pattern (:$:), pattern ZS
+  , Shape, pattern (:$:), pattern ZSR
   , singletonShape, appendShape, tailShape, takeShape, dropShape
   , splitAt_Shape, lastShape, initShape, lengthShape, sizeShape, flattenShape
   , backpermutePrefixShape
@@ -189,15 +189,15 @@ newtype Shape n i = Shape (SizedList n i)
 instance Show i => Show (Shape n i) where
   showsPrec d (Shape l) = showsPrec d l
 
-pattern ZS :: forall n i. () => n ~ 0 => Shape n i
-pattern ZS = Shape ZR
+pattern ZSR :: forall n i. () => n ~ 0 => Shape n i
+pattern ZSR = Shape ZR
 
 infixr 3 :$:
 pattern (:$:) :: forall n1 i. KnownNat n1 => forall n. (KnownNat n, (1 + n) ~ n1)
              => i -> Shape n i -> Shape n1 i
 pattern i :$: sh <- (unconsShape -> Just (MkUnconsShapeRes sh i))
   where i :$: (Shape sh) = Shape (i ::: sh)
-{-# COMPLETE ZS, (:$:) #-}
+{-# COMPLETE ZSR, (:$:) #-}
 
 type role UnconsShapeRes representational nominal
 data UnconsShapeRes i n1 =
@@ -249,7 +249,7 @@ lengthShape _ = valueOf @n
 
 -- | The number of elements in an array of this shape
 sizeShape :: (Num i, KnownNat n) => Shape n i -> i
-sizeShape ZS = 1
+sizeShape ZSR = 1
 sizeShape (n :$: sh) = n * sizeShape sh
 
 flattenShape :: (Num i, KnownNat n) => Shape n i -> Shape 1 i
@@ -343,7 +343,7 @@ fromLinearIdx = \sh lin -> snd (go sh lin)
     -- Returns (linear index into array of sub-tensors,
     -- multi-index within sub-tensor).
     go :: KnownNat n1 => Shape n1 i -> j -> (j, Index n1 j)
-    go ZS n = (n, ZIR)
+    go ZSR n = (n, ZIR)
     go (0 :$: sh) _ =
       (0, 0 :.: zeroOf sh)
     go (n :$: sh) lin =
@@ -353,5 +353,5 @@ fromLinearIdx = \sh lin -> snd (go sh lin)
 
 -- | The zero index in this shape (not dependent on the actual integers).
 zeroOf :: (Num j, KnownNat n) => Shape n i -> Index n j
-zeroOf ZS = ZIR
+zeroOf ZSR = ZIR
 zeroOf (_ :$: sh) = 0 :.: zeroOf sh

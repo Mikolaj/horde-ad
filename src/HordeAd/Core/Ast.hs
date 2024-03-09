@@ -112,7 +112,7 @@ type AstInt = AstRanked PrimalSpan Int64 0
 type IntVarName = AstVarName (AstRanked PrimalSpan) Int64 0
 
 pattern AstIntVar :: IntVarName -> AstInt
-pattern AstIntVar var = AstVar ZS var
+pattern AstIntVar var = AstVar ZSR var
 
 isRankedInt :: forall s r n. (AstSpan s, GoodScalar r, KnownNat n)
             => AstRanked s r n

@@ -448,7 +448,7 @@ mapRanked10
       => ranked rq (1 + q) -> ranked rq q)
   -> DynamicTensor ranked -> DynamicTensor ranked
 mapRanked10 f (DynamicRanked t) = case rshape t of
-  ZS -> error "mapRanked10: rank 0"
+  ZSR -> error "mapRanked10: rank 0"
   _ :$: _ -> DynamicRanked $ f t
 mapRanked10 f (DynamicShaped @r @sh t) = case ShapedList.shapeSh @sh of
   ZBBSH -> error "mapRanked10: rank 0"
@@ -487,7 +487,7 @@ mapRanked11
       => ranked rq (1 + q) -> ranked rq (1 + q))
   -> DynamicTensor ranked -> DynamicTensor ranked
 mapRanked11 f (DynamicRanked t) = case rshape t of
-  ZS -> error "mapRanked11: rank 0"
+  ZSR -> error "mapRanked11: rank 0"
   _ :$: _ -> DynamicRanked $ f t
 mapRanked11 f (DynamicShaped @r @sh t) = case ShapedList.shapeSh @sh of
   ZBBSH -> error "mapRanked11: rank 0"

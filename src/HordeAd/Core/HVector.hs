@@ -270,7 +270,7 @@ index1DynamicF :: ( shaped ~ ShapedOf ranked
 {-# INLINE index1DynamicF #-}
 index1DynamicF rshape sshape rindex sindex u i = case u of
   DynamicRanked t -> case rshape t of
-    ZS -> error "index1Dynamic: rank 0"
+    ZSR -> error "index1Dynamic: rank 0"
     _ :$: _ -> DynamicRanked $ rindex t (singletonIndex i)
   DynamicShaped t -> case sshape t of
     ZBBSH -> error "index1Dynamic: rank 0"

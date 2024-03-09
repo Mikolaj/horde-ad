@@ -498,7 +498,7 @@ testSin0Fold0 = do
     (1.0 :: OR.Array 0 Double)
     (rev' (let f :: forall f. ADReady f => f Double 0 -> f Double 0
                f x0 = rfold (\x _a -> sin x)
-                            x0 (rzero @f @Double (0 :$: ZS))
+                            x0 (rzero @f @Double (0 :$: ZSR))
            in f) 1.1)
 
 testSin0Fold0ForComparison :: Assertion
@@ -882,7 +882,7 @@ testSin0Scan0 = do
     1
     (rev' (let f :: forall f. ADReady f => f Double 0 -> f Double 1
                f x0 = rscan (\x _a -> sin x)
-                            x0 (rzero @f @Double (0 :$: ZS))
+                            x0 (rzero @f @Double (0 :$: ZSR))
            in f) 1.1)
 
 testSin0Scan1 :: Assertion
@@ -1123,7 +1123,7 @@ testSin0Scan0fwd = do
     (rfwd1 @(Flip OR.Array) @Double @0 @1
     (let f :: forall f. ADReady f => f Double 0 -> f Double 1
          f x0 = rscan (\x _a -> sin x)
-                      x0 (rzero @f @Double (0 :$: ZS))
+                      x0 (rzero @f @Double (0 :$: ZSR))
      in f) 1.1)
 
 testSin0Scan1fwd :: Assertion
@@ -1187,7 +1187,7 @@ unitriangular1 k sh =
 testUnitriangular1PP :: Assertion
 testUnitriangular1PP = do
   resetVarCounter
-  let sh = 200 :$: 300 :$: 600 :$: ZS
+  let sh = 200 :$: 300 :$: 600 :$: ZSR
       k = 1000000
       a1 = unitriangular1 @3 @Double @(AstRanked FullSpan) k sh
   printAstPretty IM.empty (simplifyAst6 a1)
@@ -1204,7 +1204,7 @@ unitriangular2 k sh =
 testUnitriangular2PP :: Assertion
 testUnitriangular2PP = do
   resetVarCounter
-  let sh = 200 :$: 300 :$: 600 :$: ZS
+  let sh = 200 :$: 300 :$: 600 :$: ZSR
       k = 1000000
       a1 = unitriangular2 @3 @Double @(AstRanked FullSpan) k sh
   printAstPretty IM.empty (simplifyAst6 a1)
@@ -1283,9 +1283,9 @@ testSin0ScanD0 = do
     1
     (rev' (let f :: forall f. ADReady f => f Double 0 -> f Double 1
                f x0 = rscanZip (\x _a -> sin x)
-                             (V.fromList [voidFromSh @Double ZS])
+                             (V.fromList [voidFromSh @Double ZSR])
                              x0 (V.singleton $ DynamicRanked
-                                 $ rzero @f @Double (0 :$: ZS))
+                                 $ rzero @f @Double (0 :$: ZSR))
            in f) 1.1)
 
 testSin0rmapAccumRD0SC :: Assertion
@@ -1614,9 +1614,9 @@ testSin0rmapAccumRD0RC = do
                f x0 = (rfromD . (V.! 0))
                       $ dunHVector
                       $ dmapAccumR (Proxy @f) (SNat @0)
-                          (V.fromList [voidFromSh @Double ZS])
-                          (V.fromList [voidFromSh @Double ZS])
-                          (V.fromList [voidFromSh @Double ZS])
+                          (V.fromList [voidFromSh @Double ZSR])
+                          (V.fromList [voidFromSh @Double ZSR])
+                          (V.fromList [voidFromSh @Double ZSR])
                           (\xh _a ->
                              let x = rfromD @Double @0 $ xh V.! 0
                              in dmkHVector
@@ -1625,7 +1625,7 @@ testSin0rmapAccumRD0RC = do
                                         , DynamicRanked $ sin x ])
                           (dmkHVector $ V.singleton $ DynamicRanked x0)
                           (dmkHVector $ V.singleton $ DynamicRanked
-                              $ rzero @f @Double (0 :$: ZS))
+                              $ rzero @f @Double (0 :$: ZSR))
            in f) 1.1)
 
 testSin0rmapAccumRD0R :: Assertion
@@ -1636,9 +1636,9 @@ testSin0rmapAccumRD0R = do
                f x0 = (rfromD . (V.! 0))
                       $ dunHVector
                       $ dmapAccumR (Proxy @f) (SNat @0)
-                          (V.fromList [voidFromSh @Double ZS])
-                          (V.fromList [voidFromSh @Double ZS])
-                          (V.fromList [voidFromSh @Double ZS])
+                          (V.fromList [voidFromSh @Double ZSR])
+                          (V.fromList [voidFromSh @Double ZSR])
+                          (V.fromList [voidFromSh @Double ZSR])
                           (\xh _a ->
                              let x = rfromD @Double @0 $ xh V.! 0
                              in dmkHVector
@@ -1647,7 +1647,7 @@ testSin0rmapAccumRD0R = do
                                         , DynamicRanked $ sin x ])
                           (dmkHVector $ V.singleton $ DynamicRanked x0)
                           (dmkHVector $ V.singleton $ DynamicRanked
-                              $ rzero @f @Double (0 :$: ZS))
+                              $ rzero @f @Double (0 :$: ZSR))
            in f) 1.1)
 
 testSin0ScanD01 :: Assertion
@@ -1657,9 +1657,9 @@ testSin0ScanD01 = do
     (rev' (let f :: forall f. ADReady f => f Double 0 -> f Double 0
                f x0 = flip rindex0 [1]
                       $ rscanZip (\x _a -> sin x)
-                             (V.fromList [voidFromSh @Double ZS])
+                             (V.fromList [voidFromSh @Double ZSR])
                              x0 (V.singleton $ DynamicRanked
-                                 $ rzero @f @Double (1 :$: ZS))
+                                 $ rzero @f @Double (1 :$: ZSR))
            in f) 1.1)
 
 testSin0rmapAccumRD01SC :: Assertion
@@ -2106,7 +2106,7 @@ testSin0rmapAccumRD01SN531b0 = do
                        (dmapAccumR (Proxy @f) (SNat @0)
                           (V.fromList [ voidFromShS @Double @'[] ])
                           (V.fromList [])
-                          (V.fromList [ voidFromSh @Double ZS ])
+                          (V.fromList [ voidFromSh @Double ZSR ])
                           (let h :: forall g. ADReady g
                                  => HVector g -> HVector g
                                  -> HVectorOf g
@@ -2152,9 +2152,9 @@ testSin0rmapAccumRD01SN531bR = do
                        (dbuild1 @f (SNat @2) $ \_i ->
                        (dbuild1 @f (SNat @2) $ \_j ->
                        (dmapAccumR (Proxy @f) (SNat @1)
-                          (V.fromList [ voidFromSh @Double ZS ])
+                          (V.fromList [ voidFromSh @Double ZSR ])
                           (V.fromList [])
-                          (V.fromList [ voidFromSh @Double ZS ])
+                          (V.fromList [ voidFromSh @Double ZSR ])
                           (let h :: forall g. ADReady g
                                  => HVector g -> HVector g
                                  -> HVectorOf g
@@ -2177,7 +2177,7 @@ testSin0rmapAccumRD01SN531b0PP = do
                        (dmapAccumR (Proxy @f) (SNat @0)
                           (V.fromList [ voidFromShS @Double @'[] ])
                           (V.fromList [])
-                          (V.fromList [ voidFromSh @Double ZS ])
+                          (V.fromList [ voidFromSh @Double ZSR ])
                           (let h :: forall g. ADReady g
                                  => HVector g -> HVector g
                                  -> HVectorOf g
@@ -2189,7 +2189,7 @@ testSin0rmapAccumRD01SN531b0PP = do
                                         $ rconst $ OR.fromList [0] [] ]))))
                         $ \d -> rfromD $ d V.! 0
       g :: forall g. HVectorTensor g (ShapedOf g) => HVector g -> HVectorOf g
-      g = rrev f (V.singleton (voidFromSh @Double ZS))
+      g = rrev f (V.singleton (voidFromSh @Double ZSR))
   printAstHVectorPrettyButNested
     IM.empty
     (simplifyAstHVector6
@@ -2261,9 +2261,9 @@ testSin0rmapAccumRD01SN531bRPP = do
                        (dbuild1 @f (SNat @2) $ \_i ->
                        (dbuild1 @f (SNat @2) $ \_j ->
                        (dmapAccumR (Proxy @f) (SNat @1)
-                          (V.fromList [ voidFromSh @Double ZS ])
+                          (V.fromList [ voidFromSh @Double ZSR ])
                           (V.fromList [])
-                          (V.fromList [ voidFromSh @Double ZS ])
+                          (V.fromList [ voidFromSh @Double ZSR ])
                           (let h :: forall g. ADReady g
                                  => HVector g -> HVector g
                                  -> HVectorOf g
@@ -2274,7 +2274,7 @@ testSin0rmapAccumRD01SN531bRPP = do
                                         $ rconst $ OR.fromList [1] [0] ]))))
                         $ \d -> rfromD $ d V.! 0
       g :: forall g. HVectorTensor g (ShapedOf g) => HVector g -> HVectorOf g
-      g = rrev f (V.singleton (voidFromSh @Double ZS))
+      g = rrev f (V.singleton (voidFromSh @Double ZSR))
   printAstHVectorSimple
     IM.empty
     (simplifyAstHVector6
@@ -2292,7 +2292,7 @@ testSin0rmapAccumRD01SN531b0PPj = do
                        (dmapAccumR (Proxy @f) (SNat @0)
                           (V.fromList [ voidFromShS @Double @'[] ])
                           (V.fromList [])
-                          (V.fromList [ voidFromSh @Double ZS ])
+                          (V.fromList [ voidFromSh @Double ZSR ])
                           (let h :: forall g. ADReady g
                                  => HVector g -> HVector g
                                  -> HVectorOf g
@@ -2306,7 +2306,7 @@ testSin0rmapAccumRD01SN531b0PPj = do
                                         $ rconst $ OR.fromList [0] [] ]))))
                         $ \d -> rfromD $ d V.! 0
       g :: forall g. HVectorTensor g (ShapedOf g) => HVector g -> HVectorOf g
-      g = rrev f (V.singleton (voidFromSh @Double ZS))
+      g = rrev f (V.singleton (voidFromSh @Double ZSR))
   printAstHVectorPretty
     IM.empty
     (simplifyAstHVector6
@@ -2353,9 +2353,9 @@ testSin0rmapAccumRD01SN531bRPPj = do
                        (dbuild1 @f (SNat @2) $ \i ->
                        (dbuild1 @f (SNat @2) $ \j ->
                        (dmapAccumR (Proxy @f) (SNat @1)
-                          (V.fromList [ voidFromSh @Double ZS ])
+                          (V.fromList [ voidFromSh @Double ZSR ])
                           (V.fromList [])
-                          (V.fromList [ voidFromSh @Double ZS ])
+                          (V.fromList [ voidFromSh @Double ZSR ])
                           (let h :: forall g. ADReady g
                                  => HVector g -> HVector g
                                  -> HVectorOf g
@@ -2369,7 +2369,7 @@ testSin0rmapAccumRD01SN531bRPPj = do
                                         $ rconst $ OR.fromList [1] [0] ]))))
                         $ \d -> rfromD $ d V.! 0
       g :: forall g. HVectorTensor g (ShapedOf g) => HVector g -> HVectorOf g
-      g = rrev f (V.singleton (voidFromSh @Double ZS))
+      g = rrev f (V.singleton (voidFromSh @Double ZSR))
   printAstHVectorPretty
     IM.empty
     (simplifyAstHVector6
@@ -2784,7 +2784,7 @@ testSin0ScanD1 = do
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [1,1,1,1,1] [1.4535961214255773] :: OR.Array 5 Double)
     (rev' (\x0 -> rscanZip (\x _a -> sin x)
-                         (V.fromList [voidFromSh @Double ZS])
+                         (V.fromList [voidFromSh @Double ZSR])
                          x0 (V.singleton $ DynamicRanked
                              $ rconst (OR.constant @Double @1 [1] 42)))
           (rreplicate0N [1,1,1,1,1] 1.1))
@@ -2794,7 +2794,7 @@ testSin0ScanD2 = do
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [1,1,1,1,1] [2.2207726343670955] :: OR.Array 5 Double)
     (rev' (\x0 -> rscanZip (\x _a -> sin x)
-                         (V.fromList [voidFromSh @Double ZS])
+                         (V.fromList [voidFromSh @Double ZSR])
                          x0 (V.singleton $ DynamicRanked
                              $ rconst (OR.constant @Double @1 [5] 42)))
           (rreplicate0N [1,1,1,1,1] 1.1))
@@ -2806,8 +2806,8 @@ testSin0ScanD3 = do
     (rev' (\a0 -> rscanZip (\_x a ->
                             sin $ rfromD @Double @5
                                     (a V.! 0))
-                         (V.fromList [ voidFromSh @Double (1 :$: 1 :$: 1 :$: 1 :$: 1 :$: ZS)
-                                     , voidFromSh @Double (4 :$: 5 :$: 6 :$: 7 :$: 8 :$: ZS) ])
+                         (V.fromList [ voidFromSh @Double (1 :$: 1 :$: 1 :$: 1 :$: 1 :$: ZSR)
+                                     , voidFromSh @Double (4 :$: 5 :$: 6 :$: 7 :$: 8 :$: ZSR) ])
                          (rreplicate0N [1,1,1,1,1] 84)
                          (V.fromList
                             [ DynamicRanked
@@ -2824,7 +2824,7 @@ testSin0ScanD4 = do
     (rev' (\a0 -> rscanZip (\x a -> atan2 (sin x)
                                         (sin $ rfromD (a V.! 0)))
                          (V.fromList [voidFromSh @Double
-                                        (1 :$: 1 :$: 1 :$: 1 :$: 1 :$: ZS)])
+                                        (1 :$: 1 :$: 1 :$: 1 :$: 1 :$: ZSR)])
                          (rreplicate0N [1,1,1,1,1] 2 * a0)
                          (V.singleton $ DynamicRanked
                           $ rreplicate 3 a0)) (rreplicate0N [1,1,1,1,1] 1.1))
@@ -2839,9 +2839,9 @@ testSin0ScanD5 = do
                                           $ rtr $ rreplicate 7
                                           $ rfromD (a V.! 0)))
                          (V.fromList [ voidFromSh @Double
-                                         (2 :$: 5 :$: 1 :$: 1 :$: 1 :$: 1 :$: ZS)
+                                         (2 :$: 5 :$: 1 :$: 1 :$: 1 :$: 1 :$: ZSR)
                                      , voidFromSh @Double
-                                         (8 :$: 3 :$: 1 :$: 1 :$: 1 :$: 1 :$: ZS) ])
+                                         (8 :$: 3 :$: 1 :$: 1 :$: 1 :$: 1 :$: ZSR) ])
                          (rreplicate0N [1,1,1,1] 2 * a0)
                          (V.fromList
                             [ DynamicRanked
@@ -2863,9 +2863,9 @@ testSin0ScanD51 = do
                                           $ rsum $ rsum
                                           $ rfromD (a V.! 1)))
                          (V.fromList [ voidFromSh @Double
-                                         (2 :$: 5 :$: 1 :$: 1 :$: 1 :$: 1 :$: ZS)
+                                         (2 :$: 5 :$: 1 :$: 1 :$: 1 :$: 1 :$: ZSR)
                                      , voidFromSh @Double
-                                         (8 :$: 3 :$: 1 :$: 1 :$: 1 :$: 1 :$: ZS) ])
+                                         (8 :$: 3 :$: 1 :$: 1 :$: 1 :$: 1 :$: ZSR) ])
                          (rreplicate0N [1,1,1,1] 2 * a0)
                          (V.fromList
                             [ DynamicRanked
@@ -2898,7 +2898,7 @@ testSin0ScanD51S = do
                    (V.fromList [ voidFromShS @Double
                                                                              @'[2, 5, 1, 1, 1, 1]
                                                                            , voidFromSh @Double
-                                                                             (8 :$: 3 :$: 1 :$: 1 :$: 1 :$: 1 :$: ZS) ])
+                                                                             (8 :$: 3 :$: 1 :$: 1 :$: 1 :$: 1 :$: ZSR) ])
                    (sreplicate0N @_ @_ @[1,1,1,1] 2 * a0)
                    (V.fromList
                       [ DynamicShaped
@@ -2916,7 +2916,7 @@ testSin0ScanD6 = do
                                  $ rtr x + rreplicate 1
                                              (rreplicate 2
                                                 (rfromD (a V.! 0))))
-                         (V.fromList [voidFromSh @Double (1 :$: 1 :$: ZS)])
+                         (V.fromList [voidFromSh @Double (1 :$: 1 :$: ZSR)])
                          (rreplicate 2 (rreplicate 1 a0))
                          (V.singleton $ DynamicRanked
                           $ rreplicate 2 a0)) (rreplicate0N [1,1] 1.1))
@@ -2926,7 +2926,7 @@ testSin0ScanD7 = do
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [1,1] [310] :: OR.Array 2 Double)
     (rev' (\a0 -> rscanZip (\x _a -> rtr $ rreplicate 5 $ rsum (rtr x))
-                         (V.fromList [voidFromSh @Double (1 :$: 1 :$: ZS)])
+                         (V.fromList [voidFromSh @Double (1 :$: 1 :$: ZSR)])
                          (rreplicate 2 (rreplicate 5 a0))
                          (V.singleton $ DynamicRanked
                           $ rreplicate 2 a0)) (rreplicate0N [1,1] 1.1))
@@ -2941,7 +2941,7 @@ testSin0ScanD8 = do
                                           $ sin (rfromD $ (V.! 0)
                                                  $ mapHVectorRanked
                                                      (rsum . rreplicate 7) a)))
-                       (V.fromList [voidFromSh @Double (1 :$: 1 :$: 1 :$: ZS)])
+                       (V.fromList [voidFromSh @Double (1 :$: 1 :$: 1 :$: ZSR)])
                        (rreplicate 2 (rreplicate 5
                                         (rreplicate0N [1,1,1] 2 * a0)))
                        (V.singleton $ DynamicRanked $ rreplicate 3 a0))
@@ -2955,10 +2955,10 @@ testSin0ScanD8MapAccum = do
        (\a0 -> (rfromD @_ @6 . (V.! 1))
                $ dunHVector
                $ dmapAccumR Proxy (SNat @4)
-                   (V.fromList [voidFromSh @Double (2 :$: 5 :$: 1 :$: 1 :$: 1 :$: ZS)])
+                   (V.fromList [voidFromSh @Double (2 :$: 5 :$: 1 :$: 1 :$: 1 :$: ZSR)])
                    (V.fromList
-                      [voidFromSh @Double (2 :$: 5 :$: 1 :$: 1 :$: 1 :$: ZS)])
-                   (V.fromList [voidFromSh @Double (1 :$: 1 :$: 1 :$: ZS)])
+                      [voidFromSh @Double (2 :$: 5 :$: 1 :$: 1 :$: 1 :$: ZSR)])
+                   (V.fromList [voidFromSh @Double (1 :$: 1 :$: 1 :$: ZSR)])
                    (let g :: forall g. ADReady g
                           => HVector g -> HVector g -> HVectorOf g
                         g xh a =
@@ -2991,7 +2991,7 @@ testSin0ScanD8rev = do
                                           $ sin (rfromD $ (V.! 0)
                                                  $ mapHVectorRanked
                                                      (rsum . rreplicate 7) a)))
-                       (V.fromList [voidFromSh @Double ZS])
+                       (V.fromList [voidFromSh @Double ZSR])
                        (rreplicate 2 (rreplicate 5 (2 * a0)))
                        (V.singleton $ DynamicRanked $ rreplicate 3 a0)) 1.1)
 
@@ -3005,7 +3005,7 @@ testSin0ScanD8rev2 = do
                                                  $ mapHVectorRanked10 rsum
                                                  $ mapHVectorRanked01
                                                      (rreplicate 7) a)))
-                       (V.fromList [voidFromSh @Double ZS])
+                       (V.fromList [voidFromSh @Double ZSR])
                        (rreplicate 2 (rreplicate 5 (2 * a0)))
                        (V.singleton $ DynamicRanked $ rreplicate 3 a0))
   assertEqualUpToEpsilon 1e-10
@@ -3023,7 +3023,7 @@ testSin0ScanD8rev3 = do
                                                  $ mapHVectorRanked10 rsum
                                                  $ mapHVectorRanked01
                                                      (rreplicate 7) a)))
-                       (V.fromList [voidFromSh @Double ZS])
+                       (V.fromList [voidFromSh @Double ZSR])
                        (rreplicate 2 (rreplicate 5 (2 * a0)))
                        (V.singleton $ DynamicRanked $ rreplicate 3 a0))
   assertEqualUpToEpsilon' 1e-10
@@ -3041,7 +3041,7 @@ testSin0ScanD8rev4 = do
                                                  $ mapHVectorRanked10 rsum
                                                  $ mapHVectorRanked01
                                                      (rreplicate 7) a)))
-                       (V.fromList [ voidFromSh @Double ZS
+                       (V.fromList [ voidFromSh @Double ZSR
                                    , voidFromShS @Double @'[] ])
                        (rreplicate 2 (rreplicate 5 (2 * a0)))
                        (V.fromList [ DynamicRanked $ rreplicate 3 a0
@@ -3057,7 +3057,7 @@ testSin0ScanD1RevPP = do
   resetVarCounter
   let a1 = rrev1 @(AstRanked FullSpan) @Double @0 @1
                  (\x0 -> rscanZip (\x _a -> sin x)
-                           (V.fromList [voidFromSh @Double ZS])
+                           (V.fromList [voidFromSh @Double ZSR])
                            x0 (V.singleton $ DynamicRanked
                                $ rconst (OR.constant @Double @1 [2] 42))) 1.1
   printAstPretty IM.empty (simplifyAst6 a1)
@@ -3068,7 +3068,7 @@ testSin0ScanDFwdPP = do
   resetVarCounter
   let a1 = rfwd1 @(AstRanked PrimalSpan) @Double @0 @1
                  (\x0 -> rscanZip (\x _a -> sin x)
-                           (V.fromList [voidFromSh @Double ZS])
+                           (V.fromList [voidFromSh @Double ZSR])
                            x0 (V.singleton $ DynamicRanked
                                $ rconst (OR.constant @Double @1 [2] 42))) 1.1
   printAstPretty IM.empty (simplifyAst6 a1)
@@ -3079,7 +3079,7 @@ testSin0ScanD1Rev2PP = do
   resetVarCounter
   let a1 = rrev1 @(AstRanked FullSpan) @Double @0 @1
                  (\x0 -> rscanZip (\x a -> sin x - rfromD (a V.! 0))
-                         (V.fromList [voidFromSh @Double ZS])
+                         (V.fromList [voidFromSh @Double ZSR])
                          x0 (V.singleton $ DynamicRanked
                              $ rconst (OR.fromList @Double @1 [2] [5, 7]))) 1.1
   printAstPretty IM.empty (simplifyAst6 a1)
@@ -3090,7 +3090,7 @@ testSin0ScanDFwd2PP = do
   resetVarCounter
   let a1 = rfwd1 @(AstRanked PrimalSpan) @Double @0 @1
                  (\x0 -> rscanZip (\x a -> sin x - rfromD (a V.! 0))
-                         (V.fromList [voidFromSh @Double ZS])
+                         (V.fromList [voidFromSh @Double ZSR])
                          x0 (V.singleton $ DynamicRanked
                          $ rconst (OR.fromList @Double @1 [2] [5, 7]))) 1.1
   printAstPretty IM.empty (simplifyAst6 a1)
@@ -3113,7 +3113,7 @@ testSin0ScanD1Rev3 = do
   assertEqualUpToEpsilon' 1e-5
     (OR.fromList [] [47.150000000000006] :: OR.Array 0 Double)
     (rev' (\x0 -> rscanZip (\x a -> x + rfromD (a V.! 0))
-                           (V.fromList [voidFromSh @Double ZS])
+                           (V.fromList [voidFromSh @Double ZSR])
                            x0
                            (V.singleton $ DynamicRanked
                             $ rscan (\x a -> a * x) x0
@@ -3124,7 +3124,7 @@ testSin0ScanD1Rev3PP = do
   resetVarCounter
   let a1 = rrev1 @(AstRanked FullSpan) @Double @0 @1
                  (\x0 -> rscanZip (\x a -> x + rfromD (a V.! 0))
-                           (V.fromList [voidFromSh @Double ZS])
+                           (V.fromList [voidFromSh @Double ZSR])
                            x0
                            (V.singleton $ DynamicRanked
                             $ rscan (\x a -> a * x) x0
@@ -3137,7 +3137,7 @@ testSin0ScanDFwd3PP = do
   resetVarCounter
   let a1 = rfwd1 @(AstRanked PrimalSpan) @Double @0 @1
                  (\x0 -> rscanZip (\x a -> sin x - rfromD (a V.! 0))
-                                (V.fromList [voidFromSh @Double ZS])
+                                (V.fromList [voidFromSh @Double ZSR])
                                 x0 (V.singleton $ DynamicRanked
                                     $ rfromList [x0 * 5, x0 * 7])) 1.1
   printAstPretty IM.empty (simplifyAst6 a1)
@@ -3150,9 +3150,9 @@ testSin0ScanD0fwd = do
     (rfwd1 @(Flip OR.Array) @Double @0 @1
     (let f :: forall f. ADReady f => f Double 0 -> f Double 1
          f x0 = rscanZip (\x _a -> sin x)
-                       (V.fromList [voidFromSh @Double ZS])
+                       (V.fromList [voidFromSh @Double ZSR])
                        x0 (V.singleton $ DynamicRanked
-                           $ rzero @f @Double (0 :$: ZS))
+                           $ rzero @f @Double (0 :$: ZSR))
      in f) 1.1)
 
 testSin0ScanD1fwd :: Assertion
@@ -3161,8 +3161,8 @@ testSin0ScanD1fwd = do
     (Flip $ OR.fromList [2] [1.1,0.4989557335681351])
     (rfwd1 @(Flip OR.Array) @Double @0 @1
     (\x0 -> rscanZip (\x _a -> sin x)
-                   (V.fromList [ voidFromSh @Double ZS
-                               , voidFromSh @Double (3 :$: 4 :$: ZS)])
+                   (V.fromList [ voidFromSh @Double ZSR
+                               , voidFromSh @Double (3 :$: 4 :$: ZSR)])
                    x0 (V.fromList
                          [ DynamicRanked
                            $ rconst (OR.constant @Double @1 [1] 42)
@@ -3181,7 +3181,7 @@ testSin0ScanD8fwd = do
                                           $ sin (rfromD $ (V.! 0)
                                                  $ mapHVectorRanked
                                                      (rsum . rreplicate 7) a)))
-                      (V.fromList [voidFromSh @Double ZS])
+                      (V.fromList [voidFromSh @Double ZSR])
                       (rreplicate 2 (rreplicate 5 (2 * a0)))
                       (V.singleton $ DynamicRanked $ rreplicate 3 a0)) 1.1)
 
@@ -3193,9 +3193,9 @@ testSin0ScanD8fwdMapAccum = do
        (\a0 -> rreverse $ (rfromD . (V.! 1))
                $ dunHVector
                $ dmapAccumR Proxy (SNat @4)
-                   (V.fromList [voidFromSh @Double (2 :$: 5 :$: ZS)])
-                   (V.fromList [voidFromSh @Double (2 :$: 5 :$: ZS)])
-                   (V.fromList [voidFromSh @Double ZS])
+                   (V.fromList [voidFromSh @Double (2 :$: 5 :$: ZSR)])
+                   (V.fromList [voidFromSh @Double (2 :$: 5 :$: ZSR)])
+                   (V.fromList [voidFromSh @Double ZSR])
                    (let g :: forall g. ADReady g
                           => HVector g -> HVector g -> HVectorOf g
                         g xh a =
@@ -3225,7 +3225,7 @@ testSin0ScanD8fwd2 = do
                                                  $ mapHVectorRanked10 rsum
                                                  $ mapHVectorRanked01
                                                      (rreplicate 7) a)))
-                       (V.fromList [voidFromSh @Double ZS])
+                       (V.fromList [voidFromSh @Double ZSR])
                        (rreplicate 2 (rreplicate 5 (2 * a0)))
                        (V.singleton $ DynamicRanked $ rreplicate 3 a0))
   assertEqualUpToEpsilon 1e-10
@@ -3270,7 +3270,7 @@ testSin0FoldNestedR1PP = do
                   z (rreplicate 11 z)
       g :: forall g. HVectorTensor g (ShapedOf g) => HVector g -> HVectorOf g
       g x = rrev (\v -> f (rfromD $ v V.! 0))
-                 (V.singleton (voidFromSh @Double ZS))
+                 (V.singleton (voidFromSh @Double ZSR))
                  x
   printAstHVectorPretty
     IM.empty
@@ -3287,7 +3287,7 @@ testSin0FoldNestedR1SimpPP = do
                   z (rreplicate 11 z)
       g :: forall g. HVectorTensor g (ShapedOf g) => HVector g -> HVectorOf g
       g x = rrev (\v -> f (rfromD $ v V.! 0))
-                 (V.singleton (voidFromSh @Double ZS))
+                 (V.singleton (voidFromSh @Double ZSR))
                  x
   printAstHVectorPretty
     IM.empty
@@ -3305,7 +3305,7 @@ testSin0FoldNestedR1SimpNestedPP = do
                   z (rreplicate 11 z)
       g :: forall g. HVectorTensor g (ShapedOf g) => HVector g -> HVectorOf g
       g x = rrev (\v -> f (rfromD $ v V.! 0))
-                 (V.singleton (voidFromSh @Double ZS))
+                 (V.singleton (voidFromSh @Double ZSR))
                  x
   printAstHVectorPrettyButNested
     IM.empty
@@ -3321,7 +3321,7 @@ testSin0FoldNestedR0LengthPPs = do
                   z (rreplicate 2 z)
       g :: forall g. HVectorTensor g (ShapedOf g) => HVector g -> HVectorOf g
       g x = rrev (\v -> f (rfromD $ v V.! 0))
-                 (V.singleton (voidFromSh @Double ZS))
+                 (V.singleton (voidFromSh @Double ZSR))
                  x
   length
     (printAstHVectorSimple
@@ -3340,7 +3340,7 @@ testSin0FoldNestedR1LengthPPs = do
                   z (rreplicate 2 z)
       g :: forall g. HVectorTensor g (ShapedOf g) => HVector g -> HVectorOf g
       g x = rrev (\v -> f (rfromD $ v V.! 0))
-                 (V.singleton (voidFromSh @Double ZS))
+                 (V.singleton (voidFromSh @Double ZSR))
                  x
   length
     (printAstHVectorSimple
@@ -3361,7 +3361,7 @@ testSin0FoldNestedR2LengthPPs = do
                   z (rreplicate 2 z)
       g :: forall g. HVectorTensor g (ShapedOf g) => HVector g -> HVectorOf g
       g x = rrev (\v -> f (rfromD $ v V.! 0))
-                 (V.singleton (voidFromSh @Double ZS))
+                 (V.singleton (voidFromSh @Double ZSR))
                  x
   length
     (printAstHVectorSimple
@@ -3384,7 +3384,7 @@ testSin0FoldNestedR3LengthPPs = do
                   z (rreplicate 2 z)
       g :: forall g. HVectorTensor g (ShapedOf g) => HVector g -> HVectorOf g
       g x = rrev (\v -> f (rfromD $ v V.! 0))
-                 (V.singleton (voidFromSh @Double ZS))
+                 (V.singleton (voidFromSh @Double ZSR))
                  x
   length
     (printAstHVectorSimple
@@ -3410,7 +3410,7 @@ _testSin0FoldNestedR4LengthPPs = do
                   z (rreplicate 2 z)
       g :: forall g. HVectorTensor g (ShapedOf g) => HVector g -> HVectorOf g
       g x = rrev (\v -> f (rfromD $ v V.! 0))
-                 (V.singleton (voidFromSh @Double ZS))
+                 (V.singleton (voidFromSh @Double ZSR))
                  x
   length
     (printAstHVectorSimple
@@ -3438,7 +3438,7 @@ _testSin0FoldNestedR5LengthPPs = do
                   z (rreplicate 2 z)
       g :: forall g. HVectorTensor g (ShapedOf g) => HVector g -> HVectorOf g
       g x = rrev (\v -> f (rfromD $ v V.! 0))
-                 (V.singleton (voidFromSh @Double ZS))
+                 (V.singleton (voidFromSh @Double ZSR))
                  x
   length
     (printAstHVectorSimple
@@ -3450,7 +3450,7 @@ _testSin0FoldNestedR5LengthPPs = do
 testSin0MapAccumNestedR1PP :: Assertion
 testSin0MapAccumNestedR1PP = do
   resetVarCounter
-  let sh1 = voidFromSh @Double ZS
+  let sh1 = voidFromSh @Double ZSR
       shs1 = V.singleton sh1
       f :: forall f. ADReady f => f Double 0 -> f Double 0
       f z = rfromD $ (V.! 0) $ dunHVector
@@ -3466,7 +3466,7 @@ testSin0MapAccumNestedR1PP = do
                    (dmkHVector $ V.singleton $ DynamicRanked $ rreplicate 2 z)
       g :: forall g. HVectorTensor g (ShapedOf g) => HVector g -> HVectorOf g
       g x = rrev (\v -> f (rfromD $ v V.! 0))
-                 (V.singleton (voidFromSh @Double ZS))
+                 (V.singleton (voidFromSh @Double ZSR))
                  x
   printAstHVectorPrettyButNested
     IM.empty
@@ -3477,7 +3477,7 @@ testSin0MapAccumNestedR1PP = do
 testSin0MapAccumNestedR3LengthPP :: Assertion
 testSin0MapAccumNestedR3LengthPP = do
   resetVarCounter
-  let sh1 = voidFromSh @Double ZS
+  let sh1 = voidFromSh @Double ZSR
       shs1 = V.singleton sh1
       f :: forall f. ADReady f => f Double 0 -> f Double 0
       f z = rfromD $ (V.! 0) $ dunHVector
@@ -3499,7 +3499,7 @@ testSin0MapAccumNestedR3LengthPP = do
                    (dmkHVector $ V.singleton $ DynamicRanked $ rreplicate 2 z)
       g :: forall g. HVectorTensor g (ShapedOf g) => HVector g -> HVectorOf g
       g x = rrev (\v -> f (rfromD $ v V.! 0))
-                 (V.singleton (voidFromSh @Double ZS))
+                 (V.singleton (voidFromSh @Double ZSR))
                  x
   length
     (printAstHVectorSimple
@@ -3514,7 +3514,7 @@ testSin0MapAccumNestedR4 = do
   (1.0410225027528066 :: OR.Array 0 Double)
   (rev'
    (let
-      sh1 = voidFromSh @Double ZS
+      sh1 = voidFromSh @Double ZSR
       shs1 = V.singleton sh1
       f :: forall f. ADReady f => f Double 0 -> f Double 0
       f z = rfromD $ (V.! 0) $ dunHVector
@@ -3546,7 +3546,7 @@ _testSin0MapAccumNestedR5 = do
   (2.2173831481990922e20 :: OR.Array 0 Double)
   (rev'
    (let
-      sh1 = voidFromSh @Double ZS
+      sh1 = voidFromSh @Double ZSR
       shs1 = V.singleton sh1
       f :: forall f. ADReady f => f Double 0 -> f Double 0
       f z = rfromD $ (V.! 0) $ dunHVector
@@ -3580,7 +3580,7 @@ testSin0MapAccumNestedR5r = do
   (1.0837278549794862 :: Flip OR.Array Double 0)
   (rev @_ @_ @(AstRanked FullSpan)
    (let
-      sh1 = voidFromSh @Double ZS
+      sh1 = voidFromSh @Double ZSR
       shs1 = V.singleton sh1
       f :: forall f. ADReady f => f Double 0 -> f Double 0
       f z = rfromD $ (V.! 0) $ dunHVector
@@ -3614,7 +3614,7 @@ testSin0MapAccumNestedR10r = do
   (1.379370673816781 :: Flip OR.Array Double 0)
   (rev @_ @_ @(AstRanked FullSpan)
    (let
-      sh1 = voidFromSh @Double ZS
+      sh1 = voidFromSh @Double ZSR
       shs1 = V.singleton sh1
       f :: forall f. ADReady f => f Double 0 -> f Double 0
       f z = rfromD $ (V.! 0) $ dunHVector
@@ -3665,7 +3665,7 @@ testSin0MapAccumNestedR10f = do
   (1.379370673816781e-4 :: Flip OR.Array Double 0)
   (fwd @(AstRanked FullSpan Double 0)
    (let
-      sh1 = voidFromSh @Double ZS
+      sh1 = voidFromSh @Double ZSR
       shs1 = V.singleton sh1
       f :: forall f. ADReady f => f Double 0 -> f Double 0
       f z = rfromD $ (V.! 0) $ dunHVector
@@ -3717,7 +3717,7 @@ testSin0MapAccumNestedR10fN = do
   , 1.379370673816781e-4 :: Flip OR.Array Double 0)
   (fwd @(AstShaped FullSpan Float '[1], AstRanked FullSpan Double 0)
    (let
-      sh1 = voidFromSh @Double ZS
+      sh1 = voidFromSh @Double ZSR
       shs1 = V.singleton sh1
       g :: forall f. ADReady f => f Double 0 -> f Double 0
       g z = rfromD $ (V.! 0) $ dunHVector
@@ -3771,7 +3771,7 @@ testSin0MapAccumNestedR10rf = do
   (1.3793719002779494 :: Flip OR.Array Double 0)
   (rev @_ @_ @(AstRanked FullSpan)
    (let
-      sh1 = voidFromSh @Double ZS
+      sh1 = voidFromSh @Double ZSR
       shs1 = V.singleton sh1
       f :: forall f. ADReady f => f Double 0 -> f Double 0
       f z = rfromD $ (V.! 0) $ dunHVector
@@ -3822,7 +3822,7 @@ testSin0MapAccumNestedR10rr = do
   (1.2264611684496617e-2 :: Flip OR.Array Double 0)
   (rev @_ @_ @(AstRanked FullSpan)
    (let
-      sh1 = voidFromSh @Double ZS
+      sh1 = voidFromSh @Double ZSR
       shs1 = V.singleton sh1
       f :: forall f. ADReady f => f Double 0 -> f Double 0
       f z = rfromD $ (V.! 0) $ dunHVector
@@ -4234,7 +4234,7 @@ testSin0revhV = do
         => HVector g -> HVectorOf g
       f x =
         rrev @g @_ @Double @0 (\v -> sin (rfromD $ v V.! 0))
-             (V.singleton (voidFromSh @Double ZS))
+             (V.singleton (voidFromSh @Double ZSR))
              x
   assertEqualUpToEpsilon 1e-10
     (V.singleton $ DynamicRanked @Double @0 0.4535961214255773)
@@ -4247,7 +4247,7 @@ testSin0revhVPP = do
         => HVector g -> HVectorOf g
       f x =
         rrev @g @_ @Double @0 (\v -> sin (rfromD $ v V.! 0))
-             (V.singleton (voidFromSh @Double ZS))
+             (V.singleton (voidFromSh @Double ZSR))
              x
   printAstHVectorSimple IM.empty (f @(AstRanked FullSpan)
                                     (V.singleton
@@ -4260,7 +4260,7 @@ testSin0revhV2 = do
         => HVector g -> HVectorOf g
       f x =
         rrev @g @_ @Double @0 (\v -> sin (rfromD $ v V.! 0))
-             (V.singleton (voidFromSh @Double ZS))
+             (V.singleton (voidFromSh @Double ZSR))
              x
       h :: forall g. ADReady g
         => HVector (ADVal g)
@@ -4288,8 +4288,8 @@ testSin0revhV3 = do
 
 testSin0revhV4 :: Assertion
 testSin0revhV4 = do
-  let doms = V.singleton (voidFromSh @Double ZS)
-      doms3 = V.singleton (voidFromSh @Double (3 :$: ZS))
+  let doms = V.singleton (voidFromSh @Double ZSR)
+      doms3 = V.singleton (voidFromSh @Double (3 :$: ZSR))
       f :: forall g. (HVectorTensor g (ShapedOf g), RankedTensor g)
         => HVector g -> HVectorOf g
       f x =
@@ -4324,8 +4324,8 @@ testSin0revhV5 = do
 
 testSin0revhV6 :: Assertion
 testSin0revhV6 = do
-  let doms = V.singleton (voidFromSh @Double ZS)
-      doms3 = V.singleton (voidFromSh @Double (3 :$: ZS))
+  let doms = V.singleton (voidFromSh @Double ZSR)
+      doms3 = V.singleton (voidFromSh @Double (3 :$: ZSR))
       f :: forall g. (HVectorTensor g (ShapedOf g), RankedTensor g)
         => HVector g -> HVectorOf g
       f x =
@@ -4444,14 +4444,14 @@ fFoldZipRX :: forall ranked. ADReady ranked
 fFoldZipRX as =
   let f :: forall f. ADReady f => f Double 0 -> HVector f -> f Double 0
       f _t v = sin (rfromD (v V.! 1)) * rfromD (v V.! 1)
-      doms = V.fromList [ voidFromSh @Double ZS
-                        , voidFromSh @Double ZS ]
+      doms = V.fromList [ voidFromSh @Double ZSR
+                        , voidFromSh @Double ZSR ]
       p :: ranked Double 1
       p = rscanZip f doms 7 as
       rf :: forall f. ADReady f
          => f Double 0 -> f Double 0 -> HVector f -> HVectorOf f
       rf _x _y = rrev @f (f 42) doms  -- not exactly the rev of f
-  in fFoldZipR doms p as rf ZS 26
+  in fFoldZipR doms p as rf ZSR 26
 
 testSin0revhFoldZipR :: Assertion
 testSin0revhFoldZipR = do

@@ -64,9 +64,9 @@ gatherNested1 :: forall ranked r. (ADReady ranked, GoodScalar r)
               => ranked r 2 -> ranked r 1
 gatherNested1 t =
   rgather @ranked @r @1
-          (2 :$: ZS)
+          (2 :$: ZSR)
           (rgather @ranked @r @1
-                   (4 :$: 2 :$: ZS) t
+                   (4 :$: 2 :$: ZSR) t
                    (\(k3 :.: ZIR) -> k3 :.: ZIR))
           (\(i2 :.: ZIR) -> i2 + i2 :.: i2 :.: ZIR)
 
@@ -92,7 +92,7 @@ gather1 :: forall ranked r. (ADReady ranked, GoodScalar r)
         => ranked r 2 -> ranked r 1
 gather1 t =
   rgather @ranked @r @1
-          (2 :$: ZS)
+          (2 :$: ZSR)
           t
           (\(i2 :.: ZIR) -> i2 + i2 :.: i2 :.: ZIR)
 
@@ -129,9 +129,9 @@ gatherNested2 :: forall ranked r. (ADReady ranked, GoodScalar r)
               => ranked r 2 -> ranked r 2
 gatherNested2 t =
   rgather @ranked @r @2
-          (2 :$: 3 :$: ZS)
+          (2 :$: 3 :$: ZSR)
           (rgather @ranked @r @3
-                   (2 :$: 3 :$: 4 :$: 2 :$: ZS) t
+                   (2 :$: 3 :$: 4 :$: 2 :$: ZSR) t
                    (\(k1 :.: k2 :.: k3 :.: ZIR) -> k1 + k2 + k3 :.: ZIR))
           (\(i1 :.: i2 :.: ZIR) -> i1 :.: i2 :.: i1 + i2 :.: i1 :.: ZIR)
 
@@ -157,7 +157,7 @@ gather2 :: forall ranked r. (ADReady ranked, GoodScalar r)
         => ranked r 2 -> ranked r 2
 gather2 t =
   rgather @ranked @r @2
-          (2 :$: 3 :$: ZS)
+          (2 :$: 3 :$: ZSR)
           t
           (\(i1 :.: i2 :.: ZIR) -> i1 + i2 + i1 + i2 :.: i1 :.: ZIR)
 
@@ -194,9 +194,9 @@ gatherNested12 :: forall ranked r. (ADReady ranked, GoodScalar r)
                => ranked r 2 -> ranked r 2
 gatherNested12 t =
   rgather @ranked @r @1
-          (2 :$: 4 :$: ZS)
+          (2 :$: 4 :$: ZSR)
           (rgather @ranked @r @3
-                   (2 :$: 3 :$: 4 :$: ZS) t
+                   (2 :$: 3 :$: 4 :$: ZSR) t
                    (\(k1 :.: k2 :.: k3 :.: ZIR) -> k1 + k2 + k3 :.: k1 :.: ZIR))
           (\(i1 :.: ZIR) -> i1 :.: i1 + i1 :.: ZIR)
 
@@ -223,7 +223,7 @@ gather12 :: forall ranked r. (ADReady ranked, GoodScalar r)
          => ranked r 2 -> ranked r 2
 gather12 t =
   rgather @ranked @r @2
-          (2 :$: 4 :$: ZS)
+          (2 :$: 4 :$: ZSR)
           t
           (\(i1 :.: k3 :.: ZIR) -> i1 + i1 + i1 + k3 :.: i1 :.: ZIR)
 
@@ -262,7 +262,7 @@ gatherReshape22 :: forall ranked r. (ADReady ranked, GoodScalar r)
 gatherReshape22 t =
   rreshape @ranked @r @6 [2, 6]
   $ rreshape [3, 1, 2, 1, 1, 2]
-  $ rreshape @ranked @r @4 (1 :$: 12 :$: 1 :$: ZS)
+  $ rreshape @ranked @r @4 (1 :$: 12 :$: 1 :$: ZSR)
   $ rreshape @ranked @r @3 [3, 1, 1, 4]
   $ rreshape [2, 2, 3] t
 
@@ -401,9 +401,9 @@ scatterNested1 :: forall ranked r. (ADReady ranked, GoodScalar r)
                => ranked r 2 -> ranked r 1
 scatterNested1 t =
   rscatter @ranked @r @2
-          (2 :$: ZS)
+          (2 :$: ZSR)
           (rscatter @ranked @r @1
-                   (7 :$: 2 :$: ZS) t
+                   (7 :$: 2 :$: ZSR) t
                    (\(k3 :.: ZIR) -> k3 :.: ZIR))
           (\(i1 :.: i2 :.: ZIR) -> i2 `quot` (1 + i1) :.: ZIR)
 
@@ -428,7 +428,7 @@ scatter1 :: forall ranked r. (ADReady ranked, GoodScalar r)
          => ranked r 2 -> ranked r 1
 scatter1 t =
   rscatter @ranked @r @2
-          (2 :$: ZS)
+          (2 :$: ZSR)
           t
           (\(i1 :.: i2 :.: ZIR) -> minF (i2 + 2 * i1) 1 :.: ZIR)
 
@@ -464,9 +464,9 @@ scatterNested2 :: forall ranked r. (ADReady ranked, GoodScalar r)
               => ranked r 2 -> ranked r 2
 scatterNested2 t =
   rscatter @ranked @r @4
-          (2 :$: 3 :$: ZS)
+          (2 :$: 3 :$: ZSR)
           (rscatter @ranked @r @1
-                   (2 :$: 3 :$: 4 :$: 2 :$: ZS) t
+                   (2 :$: 3 :$: 4 :$: 2 :$: ZSR) t
                    (\(k1 :.: ZIR) -> minF k1 1 :.: minF k1 2  :.: minF k1 3 :.: ZIR))
           (\(i1 :.: i2 :.: _i3 :.: i4 :.: ZIR) ->
             minF (i1 + i2) 1 :.: minF (i4 + i1) 2 :.: ZIR)
@@ -493,7 +493,7 @@ scatter2 :: forall ranked r. (ADReady ranked, GoodScalar r)
         => ranked r 2 -> ranked r 2
 scatter2 t =
   rscatter @ranked @r @2
-          (2 :$: 3 :$: ZS)
+          (2 :$: 3 :$: ZSR)
           t
           (\(i1 :.: i2 :.: ZIR) -> minF (i1 + i2 + i1 + i2) 1 :.: minF i1 2 :.: ZIR)
 
@@ -530,9 +530,9 @@ scatterNested12 :: forall ranked r. (ADReady ranked, GoodScalar r)
                => ranked r 2 -> ranked r 2
 scatterNested12 t =
   rscatter @ranked @r @2
-          (2 :$: 4 :$: ZS)
+          (2 :$: 4 :$: ZSR)
           (rscatter @ranked @r @2
-                   (2 :$: 3 :$: 4 :$: ZS) t
+                   (2 :$: 3 :$: 4 :$: ZSR) t
                    (\(k1 :.: k2 :.: ZIR) ->
                      minF k1 1 :.: minF (k2 + k1) 2 :.: minF k1 3 :.: ZIR))
           (\(i1 :.: _i2 :.: ZIR) -> minF (i1 + i1) 1 :.: ZIR)
@@ -560,7 +560,7 @@ scatter12 :: forall ranked r. (ADReady ranked, GoodScalar r)
          => ranked r 2 -> ranked r 2
 scatter12 t =
   rscatter @ranked @r @2
-          (2 :$: 4 :$: ZS)
+          (2 :$: 4 :$: ZSR)
           t
           (\(i1 :.: k3 :.: ZIR) -> minF (i1 + i1 + i1 + k3) 1 :.: minF i1 3 :.: ZIR)
 

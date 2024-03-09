@@ -533,7 +533,7 @@ testFooPP = do
   let renames = IM.fromList [(2, "x"), (3, "y"), (4, "z")]
       fooT = foo @(AstRanked FullSpan Double 0)
       foo3 x = fooT (x, x, x)
-      (var3, ast3) = funToAstR ZS foo3
+      (var3, ast3) = funToAstR ZSR foo3
   "\\" ++ printAstVarName IM.empty var3
        ++ " -> " ++ printAstSimple IM.empty ast3
     @?= "\\x1 -> atan2 x1 (x1 * sin x1) + x1 * (x1 * sin x1)"
@@ -565,7 +565,7 @@ testFooLetPP = do
       renamesNull = IM.fromList [(1, "x1"), (2, "x2")]
       fooLetT = fooLet @(AstRanked FullSpan) @Double
       fooLet3 x = fooLetT (x, x, x)
-      (var3, ast3) = funToAstR ZS fooLet3
+      (var3, ast3) = funToAstR ZSR fooLet3
   "\\" ++ printAstVarName renamesNull var3
        ++ " -> " ++ printAstSimple renamesNull ast3
     @?= "\\x1 -> rlet (x1 * sin x1) (\\x2 -> atan2 x1 x2 + x1 * x2)"
@@ -1570,7 +1570,7 @@ konstReluAst
   :: forall r.
      (ADReady (AstRanked PrimalSpan), GoodScalar r, Differentiable r)
   => AstRanked PrimalSpan r 0 -> AstRanked PrimalSpan r 0
-konstReluAst x = rsum0 $ relu $ rreplicate0N (7 :$: ZS) x
+konstReluAst x = rsum0 $ relu $ rreplicate0N (7 :$: ZSR) x
 
 testReplicateReluAst :: Assertion
 testReplicateReluAst =
@@ -1681,17 +1681,17 @@ emptyArgs t =
   - rreshape @ranked @r @1 [0] (rfromList [])
   - rgather1 0 (rfromList []) (:.: ZIR)
   - rsum (rgather1 0 (rfromList []) (const ZIR))
-  - rsum (rgather @ranked @r @2 (0 :$: 0 :$: ZS) (rfromList []) (const (0 :.: ZIR)))
+  - rsum (rgather @ranked @r @2 (0 :$: 0 :$: ZSR) (rfromList []) (const (0 :.: ZIR)))
   - rsum (rgather @ranked @r @2 @0 @1 [0, 0] (rfromList []) (const [0]))
   - rsum (rreshape @ranked @r @1 [0, 0] (rfromList []))
-  - rindex (rfromList0N (0 :$: 0 :$: ZS) []) (42 :.: ZIR)
+  - rindex (rfromList0N (0 :$: 0 :$: ZSR) []) (42 :.: ZIR)
   - rindex (rfromList0N (0 :$: rshape @ranked @r (rfromList [])) []) (42 :.: ZIR)
   - rsum (rfromList0N (0 :$: rshape @ranked @r (rfromList [])) [])
   * rsum (rfromList [rsum (rfromList0N (0 :$: rshape @ranked @r (rfromList [])) [])])
   * rflatten (rtr (rgather1 0 t (const ZIR)))
   + rbuild1 0 (\i -> t ! [fromIntegral (rrank t) `quot` i] / rfromIndex0 i)
-  -- - rsum (rbuild @ranked @r @2 (0 :$: 0 :$: ZS) (const 73))
-  -- - rsum (rbuild @ranked @r @1 (0 :$: 0 :$: ZS) (const $ rfromList []))
+  -- - rsum (rbuild @ranked @r @2 (0 :$: 0 :$: ZSR) (const 73))
+  -- - rsum (rbuild @ranked @r @1 (0 :$: 0 :$: ZSR) (const $ rfromList []))
        -- these fail and rightly so; TODO: make them fail earlier
 
 testEmptyArgs0 :: Assertion

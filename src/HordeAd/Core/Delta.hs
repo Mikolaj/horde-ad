@@ -458,8 +458,8 @@ shapeDeltaR = \case
   LetR _ d -> shapeDeltaR d
   IndexR d _ -> dropShape (shapeDeltaR d)
   SumR d -> tailShape (shapeDeltaR d)
-  Sum0R{} -> ZS
-  Dot0R{} -> ZS
+  Sum0R{} -> ZSR
+  Dot0R{} -> ZSR
   ScatterR sh _ _ -> sh
   FromListR l -> case l of
     [] -> case sameNat (Proxy @n) (Proxy @1) of
@@ -473,9 +473,9 @@ shapeDeltaR = \case
     d : _ -> length l :$: shapeDeltaR d
   ReplicateR n d -> n :$: shapeDeltaR d
   AppendR x y -> case shapeDeltaR x of
-    ZS -> error "shapeDeltaR: impossible pattern needlessly required"
+    ZSR -> error "shapeDeltaR: impossible pattern needlessly required"
     xi :$: xsh -> case shapeDeltaR y of
-      ZS -> error "shapeDeltaR: impossible pattern needlessly required"
+      ZSR -> error "shapeDeltaR: impossible pattern needlessly required"
       yi :$: _ -> xi + yi :$: xsh
   SliceR _ n d -> n :$: tailShape (shapeDeltaR d)
   ReverseR d -> shapeDeltaR d
@@ -491,7 +491,7 @@ lengthDeltaR :: forall ranked r n.
                 , RankedTensor ranked, ShapedTensor (ShapedOf ranked) )
              => DeltaR ranked r (1 + n) -> Int
 lengthDeltaR d = case shapeDeltaR d of
-  ZS -> error "lengthDeltaR: impossible pattern needlessly required"
+  ZSR -> error "lengthDeltaR: impossible pattern needlessly required"
   k :$: _ -> k
 
 shapeDeltaH :: forall ranked.
@@ -764,7 +764,7 @@ evalR !s !c = let (abShared, cShared) = rregister c (astBindings s)
     n :$: _ -> let k = lengthDeltaR d
                    s2 = evalR sShared (rslice 0 k cShared) d
                in evalR s2 (rslice k (n - k) cShared) e
-    ZS -> error "evalR: impossible pattern needlessly required"
+    ZSR -> error "evalR: impossible pattern needlessly required"
   SliceR i n d -> case rshape c of
     n' :$: rest ->
       assert (n' == n `blame` (n', n)) $
@@ -772,7 +772,7 @@ evalR !s !c = let (abShared, cShared) = rregister c (astBindings s)
                        , c
                        , rzero (lengthDeltaR d - i - n :$: rest) ])
               d
-    ZS -> error "evalR: impossible pattern needlessly required"
+    ZSR -> error "evalR: impossible pattern needlessly required"
   ReverseR d -> evalR s (rreverse c) d
   TransposeR perm d ->
     let perm_reversed = map snd $ sort $ zip perm [0 .. length perm - 1]
