@@ -41,7 +41,7 @@ import           GHC.TypeLits
 infixr 3 :::
 type role SizedList nominal representational
 data SizedList (n :: Nat) i where
-  Z :: SizedList 0 i
+  ZR :: SizedList 0 i
   (:::) :: KnownNat n
         => i -> SizedList n i -> SizedList (1 + n) i
 
@@ -65,23 +65,23 @@ instance KnownNat n => IsList (SizedList n i) where
   toList = sizedListToList
 
 singletonSized :: i -> SizedList 1 i
-singletonSized i = i ::: Z
+singletonSized i = i ::: ZR
 
 snocSized :: KnownNat n => SizedList n i -> i -> SizedList (1 + n) i
-snocSized Z last1 = last1 ::: Z
+snocSized ZR last1 = last1 ::: ZR
 snocSized (i ::: ix) last1 = i ::: snocSized ix last1
 
 appendSized :: KnownNat n
             => SizedList m i -> SizedList n i -> SizedList (m + n) i
-appendSized Z ix2 = ix2
+appendSized ZR ix2 = ix2
 appendSized (i1 ::: ix1) ix2 = i1 ::: appendSized ix1 ix2
 
 headSized :: SizedList (1 + n) i -> i
-headSized Z = error "headSized: impossible pattern needlessly required"
+headSized ZR = error "headSized: impossible pattern needlessly required"
 headSized (i ::: _ix) = i
 
 tailSized :: SizedList (1 + n) i -> SizedList n i
-tailSized Z = error "tailSized: impossible pattern needlessly required"
+tailSized ZR = error "tailSized: impossible pattern needlessly required"
 tailSized (_i ::: ix) = ix
 
 takeSized :: forall len n i. KnownNat len
@@ -97,41 +97,41 @@ splitAt_Sized :: (KnownNat m, KnownNat n)
 splitAt_Sized ix = (takeSized ix, dropSized ix)
 
 unsnocSized1 :: SizedList (1 + n) i -> (SizedList n i, i)
-unsnocSized1 Z = error "unsnocSized1: impossible pattern needlessly required"
+unsnocSized1 ZR = error "unsnocSized1: impossible pattern needlessly required"
 unsnocSized1 (i ::: ix) = case ix of
-  Z -> (Z, i)
+  ZR -> (ZR, i)
   _ ::: _ -> let (init1, last1) = unsnocSized1 ix
              in (i ::: init1, last1)
 
 lastSized :: SizedList (1 + n) i -> i
-lastSized Z = error "lastSized: impossible pattern needlessly required"
-lastSized (i ::: Z) = i
+lastSized ZR = error "lastSized: impossible pattern needlessly required"
+lastSized (i ::: ZR) = i
 lastSized (_i ::: ix@(_ ::: _)) = lastSized ix
 
 initSized :: SizedList (1 + n) i -> SizedList n i
-initSized Z = error "initSized: impossible pattern needlessly required"
-initSized (_i ::: Z) = Z
+initSized ZR = error "initSized: impossible pattern needlessly required"
+initSized (_i ::: ZR) = ZR
 initSized (i ::: ix@(_ ::: _)) = i ::: initSized ix
 
 zipSized :: SizedList n i -> SizedList n j -> SizedList n (i, j)
-zipSized Z Z = Z
+zipSized ZR ZR = ZR
 zipSized (i ::: irest) (j ::: jrest) = (i, j) ::: zipSized irest jrest
 zipSized _ _ = error "zipSized: impossible pattern needlessly required"
 
 zipWith_Sized :: (i -> j -> k) -> SizedList n i -> SizedList n j
               -> SizedList n k
-zipWith_Sized _ Z Z = Z
+zipWith_Sized _ ZR ZR = ZR
 zipWith_Sized f (i ::: irest) (j ::: jrest) =
   f i j ::: zipWith_Sized f irest jrest
 zipWith_Sized _ _ _ =
   error "zipWith_Sized: impossible pattern needlessly required"
 
 reverseSized :: SizedList n i -> SizedList n i
-reverseSized l = go l Z
+reverseSized l = go l ZR
  where
   -- This constraint is mistakenly reported by GHC 9.4 as redundant:
   go :: KnownNat n => SizedList m i -> SizedList n i -> SizedList (m + n) i
-  go Z acc = acc
+  go ZR acc = acc
   go (x ::: xs) acc = go xs (x ::: acc)
 
 -- | As in orthotope, we usually backpermute, in which case a permutation lists
@@ -168,7 +168,7 @@ permutePrefixList p l = V.toList $ Data.Vector.fromList l V.// zip p l
 -- on the corresponding pair of indices.
 sizedListCompare :: Monoid m
                  => (i -> i -> m) -> SizedList n i -> SizedList n i -> m
-sizedListCompare _ Z Z = mempty
+sizedListCompare _ ZR ZR = mempty
 sizedListCompare f (i ::: idx) (j ::: idx') =
   f i j <> sizedListCompare f idx idx'
 sizedListCompare _ _ _ =
@@ -178,7 +178,7 @@ sizedListCompare _ _ _ =
 -- but the rest of our code caught up and fails with GHC 9.0 as well.
 listToSized :: forall n i. KnownNat n => [i] -> SizedList n i
 listToSized []
-  | Just Refl <- sameNat (Proxy @n) (Proxy @0) = Z
+  | Just Refl <- sameNat (Proxy @n) (Proxy @0) = ZR
   | otherwise = error $ "listToSized: input list too short; missing "
                         ++ show (valueOf @n :: Int)
 listToSized (i : is)
@@ -194,5 +194,5 @@ listToSized (i : is)
                             ++ show (length (i : is))
 
 sizedListToList :: SizedList n i -> [i]
-sizedListToList Z = []
+sizedListToList ZR = []
 sizedListToList (i ::: is) = i : sizedListToList is

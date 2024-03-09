@@ -221,7 +221,7 @@ data DeltaR :: RankedTensorType -> RankedTensorType where
     -- ^ Build a tensor by adding up tensors of rank @n@ taken from
     -- the third argument and inserted in a zero tensor
     -- at indexes of length @p@. Indexes of length 0 insert tensors trivially,
-    -- so that, e.g, @Scatter1 5 (const Z) (Replicate0R [5] d) []@ is equivalent
+    -- so that, e.g, @Scatter1 5 (const ZR) (Replicate0R [5] d) []@ is equivalent
     -- to @5 * d@. If an index of length @p@ is out of bounds, no tensor
     -- is added at such an index (and similarly in @ScatterN@).
     -- The semantics of the operation permits index out of bounds
@@ -267,7 +267,7 @@ data DeltaR :: RankedTensorType -> RankedTensorType where
           -> DeltaR ranked r (m + n)
     -- ^ Build a tensor by picking tensors of rank @n@ at the given indexes
     -- of length @p@. Index of length 0 results in identity, so that,
-    -- e.g, @Gather1 (const Z) [] (ScalarR d) k@ is equivalent
+    -- e.g, @Gather1 (const ZR) [] (ScalarR d) k@ is equivalent
     -- to @Replicate0R [k] d@. If an index of length @p@ is out of bounds,
     -- tensor 0 is chosen instead or projecting (and similarly in @GatherN@).
     -- The semantics of the operation permits index out of bounds
@@ -323,7 +323,7 @@ data DeltaS :: ShapedTensorType -> ShapedTensorType where
     -- ^ Build a tensor by adding up tensors of rank @n@ taken from
     -- the third argument and inserted in a zero tensor
     -- at indexes of length @p@. Indexes of length 0 insert tensors trivially,
-    -- so that, e.g, @Scatter1 5 (const Z) (Replicate0R [5] d) []@ is equivalent
+    -- so that, e.g, @Scatter1 5 (const ZR) (Replicate0R [5] d) []@ is equivalent
     -- to @5 * d@. If an index of length @p@ is out of bounds, no tensor
     -- is added at such an index (and similarly in @ScatterN@).
     -- The semantics of the operation permits index out of bounds
@@ -379,7 +379,7 @@ data DeltaS :: ShapedTensorType -> ShapedTensorType where
           -> DeltaS shaped r (sh2 Sh.++ Sh.Drop p sh)
     -- ^ Build a tensor by picking tensors of rank @n@ at the given indexes
     -- of length @p@. Index of length 0 results in identity, so that,
-    -- e.g, @Gather1 (const Z) [] (ScalarR d) k@ is equivalent
+    -- e.g, @Gather1 (const ZR) [] (ScalarR d) k@ is equivalent
     -- to @Replicate0R [k] d@. If an index of length @p@ is out of bounds,
     -- tensor 0 is chosen instead or projecting (and similarly in @GatherN@).
     -- The semantics of the operation permits index out of bounds

@@ -72,7 +72,7 @@ instance Show i => Show (Index n i) where
   showsPrec d (Index l) = showsPrec d l
 
 pattern ZI :: forall n i. () => n ~ 0 => Index n i
-pattern ZI = Index Z
+pattern ZI = Index ZR
 
 infixr 3 :.
 pattern (:.) :: forall n1 i. KnownNat n1 => forall n. (KnownNat n, (1 + n) ~ n1)
@@ -87,7 +87,7 @@ data UnconsIndexRes i n1 =
 unconsIndex :: Index n1 i -> Maybe (UnconsIndexRes i n1)
 unconsIndex (Index sh) = case sh of
   i ::: sh' -> Just (UnconsIndexRes (Index sh') i)
-  Z -> Nothing
+  ZR -> Nothing
 
 deriving newtype instance Functor (Index n)
 
@@ -190,7 +190,7 @@ instance Show i => Show (Shape n i) where
   showsPrec d (Shape l) = showsPrec d l
 
 pattern ZS :: forall n i. () => n ~ 0 => Shape n i
-pattern ZS = Shape Z
+pattern ZS = Shape ZR
 
 infixr 3 :$
 pattern (:$) :: forall n1 i. KnownNat n1 => forall n. (KnownNat n, (1 + n) ~ n1)
@@ -205,7 +205,7 @@ data UnconsShapeRes i n1 =
 unconsShape :: Shape n1 i -> Maybe (UnconsShapeRes i n1)
 unconsShape (Shape sh) = case sh of
   i ::: sh' -> Just (MkUnconsShapeRes (Shape sh') i)
-  Z -> Nothing
+  ZR -> Nothing
 
 deriving newtype instance Functor (Shape n)
 

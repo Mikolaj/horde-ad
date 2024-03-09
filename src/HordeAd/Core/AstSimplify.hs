@@ -274,7 +274,7 @@ simplifyStepNonIndex t = case t of
   Ast.AstTranspose perm v -> astTranspose perm v
   Ast.AstReshape sh v -> astReshape sh v
   Ast.AstBuild1{} -> t
-  Ast.AstGather _ v0 (Z, ix) -> Ast.AstIndex v0 ix
+  Ast.AstGather _ v0 (ZR, ix) -> Ast.AstIndex v0 ix
   Ast.AstGather sh v0 (_, ZI) -> astReplicateN sh v0
   Ast.AstGather{} -> t  -- this is "index" enough
   Ast.AstCast v -> astCast v
@@ -504,7 +504,7 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
     astIndex (astReshapeAsGather sh v) ix
   Ast.AstBuild1 _n2 (var2, v) ->
     astIndex (astLet var2 i1 v) rest1
-  Ast.AstGather _sh v (Z, ix2) -> astIndex v (appendIndex ix2 ix)
+  Ast.AstGather _sh v (ZR, ix2) -> astIndex v (appendIndex ix2 ix)
   Ast.AstGather @_ @n7 (_ :$ sh') v (var2 ::: (vars :: AstVarList m71), ix2) ->
     let w :: AstRanked s r (m1 + n)
         w = gcastWith (unsafeCoerce Refl :: m1 + n :~: m71 + n7) $
@@ -853,7 +853,7 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
     _ | any (`varNameInAst` v0) vars0 ->
       error $ "astGather: gather vars in v0: "
               ++ show (vars0, v0)
-    (_, (Z, _)) -> astIndex v0 ix0
+    (_, (ZR, _)) -> astIndex v0 ix0
     (sh, (_, ZI)) -> astReplicateN sh v0
     (k :$ sh', (AstVarName varId ::: vars, i1 :. rest1)) ->
       if | not (any (`varNameInAst` i1) vars0) ->
@@ -1440,10 +1440,10 @@ astScatter :: forall m n p s r.
            => ShapeInt (p + n) -> AstRanked s r (m + n)
            -> (AstVarList m, AstIndex p)
            -> AstRanked s r (p + n)
-astScatter _sh v (Z, ZI) = v
+astScatter _sh v (ZR, ZI) = v
 astScatter sh v (AstVarName varId ::: vars, ix) | not $ varId `varInIndex` ix =
   astScatter sh (astSum v) (vars, ix)
--- astScatter sh v (Z, ix) = update (rzero sh 0) ix v
+-- astScatter sh v (ZR, ix) = update (rzero sh 0) ix v
 astScatter sh (Ast.AstConstant v) (vars, ix) =
   Ast.AstConstant $ astScatter sh v (vars, ix)
 astScatter sh (Ast.AstLetADShare l v) (vars, ix) =
@@ -1467,7 +1467,7 @@ astScatterS v (AstVarName varId :$: (vars :: AstVarListS sh3), ix)
                    ++ (Sh.shapeT @(Sh.Drop p sh))) $ \(Proxy @sh4) ->
       gcastWith (unsafeCoerce Refl :: sh3 Sh.++ Sh.Drop p sh :~: sh4) $
       astScatterS @sh3 @p @sh (astSumS v) (vars, ix)
--- astScatterS v (Z, ix) = update (rzero sh 0) ix v
+-- astScatterS v (ZR, ix) = update (rzero sh 0) ix v
 astScatterS (Ast.AstConstantS v) (vars, ix) =
   Ast.AstConstantS $ astScatterS v (vars, ix)
 astScatterS (Ast.AstLetADShareS l v) (vars, ix) =

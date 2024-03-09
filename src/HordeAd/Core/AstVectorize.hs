@@ -320,7 +320,7 @@ build1VIndex k (var, v0, ix@(_ :. _)) =
              ruleD = astGatherStep
                        (k :$ dropShape (shapeAst v1))
                        (build1V k (var, v1))
-                       (varFresh ::: Z, astVarFresh :. ix2)
+                       (varFresh ::: ZR, astVarFresh :. ix2)
          in if varNameInAst var v1
             then case v1 of  -- try to avoid ruleD if not a normal form
               Ast.AstFromList{} | valueOf @p == (1 :: Int) -> ruleD
@@ -332,7 +332,7 @@ build1VIndex k (var, v0, ix@(_ :. _)) =
        v -> traceRule $
          build1VOccurenceUnknown k (var, v)  -- peel off yet another constructor
      else traceRule $
-            astGatherStep (k :$ dropShape (shapeAst v0)) v0 (var ::: Z, ix)
+            astGatherStep (k :$ dropShape (shapeAst v0)) v0 (var ::: ZR, ix)
 
 
 -- * Vectorization of AstShaped
