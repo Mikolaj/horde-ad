@@ -45,7 +45,7 @@ import           Unsafe.Coerce (unsafeCoerce)
 import           HordeAd.Internal.OrthotopeOrphanInstances
   (liftVR, liftVS, sameShape)
 import           HordeAd.Internal.TensorFFI
-import           HordeAd.Util.ShapedList (SizedListS (..), ShapedNat)
+import           HordeAd.Util.ShapedList (IndexS, ShapedNat, SizedListS (..))
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedList
 
@@ -456,13 +456,14 @@ fromIndexOfR ixOf = tunScalarR . runFlip <$> ixOf
 
 type Int64Sh (n :: Nat) = ShapedNat n Int64
 
-type IndexIntSh sh = SizedListS sh Int64
+type IndexIntSh sh = IndexS sh Int64
 
 -- TODO: try to weave a similar magic as in tindex0R
 -- TODO: for the non-singleton case see
 -- https://github.com/Mikolaj/horde-ad/pull/81#discussion_r1096532164
 updateNS :: forall n sh r.
-            ( NumAndShow r, Sh.Shape sh, Sh.Shape (Sh.Drop n sh) )
+            ( NumAndShow r, Sh.Shape sh, Sh.Shape (Sh.Take n sh)
+            , Sh.Shape (Sh.Drop n sh) )
          => OS.Array sh r
          -> [(IndexIntSh (Sh.Take n sh), OS.Array (Sh.Drop n sh) r)]
          -> OS.Array sh r
@@ -541,7 +542,7 @@ tindexNS
   :: forall sh1 sh2 r.
      OS.Array (sh1 Sh.++ sh2) r -> IndexIntSh sh1 -> OS.Array sh2 r
 tindexNS (SS.A (SG.A OI.T{strides, offset, values})) ix =
-  let l = ShapedList.sizedToList ix
+  let l = ShapedList.indexToList ix
       linear = offset + sum (zipWith (*) (map fromIntegral l) strides)
       plen = length l  -- length of prefix being indexed out of
   in
@@ -557,7 +558,7 @@ tindexZS
   => OS.Array (sh1 Sh.++ sh2) r -> IndexIntSh sh1 -> OS.Array sh2 r
 tindexZS v ix =
   let sh = OS.shapeL v
-  in if ixInBounds (ShapedList.sizedToList ix) sh
+  in if ixInBounds (ShapedList.indexToList ix) sh
      then tindexNS v ix
      else 0
 
@@ -572,7 +573,7 @@ tindex0S
   => OS.Array sh r -> IndexIntSh sh -> r
 tindex0S (SS.A (SG.A OI.T{..})) ix =
   values V.! (offset + sum (zipWith (*) (map fromIntegral
-                                         $ ShapedList.sizedToList ix)
+                                         $ ShapedList.indexToList ix)
                                         strides))
     -- to avoid linearizing @values@, we do everything in unsized way
 
@@ -692,7 +693,7 @@ tmaximum0S = LA.maxElement . OS.toVector
 -- permits index out of bounds and then no tensors is added at such an index.
 tscatterZS :: forall r sh2 p sh.
               ( NumAndShow r, Sh.Shape sh, Sh.Shape sh2
-              , Sh.Shape (Sh.Drop p sh) )
+              , Sh.Shape (Sh.Take p sh), Sh.Shape (Sh.Drop p sh) )
            => OS.Array (sh2 Sh.++ Sh.Drop p sh) r
            -> (IndexIntSh sh2 -> IndexIntSh (Sh.Take p sh))
            -> OS.Array sh r
@@ -700,7 +701,7 @@ tscatterZS t f =
   let sh2 = ShapedList.shapeIntSFromT @sh2
       g ix =
         let ix2 = f ix
-        in if ixInBounds (ShapedList.sizedToList ix2) (Sh.shapeT @sh)
+        in if ixInBounds (ShapedList.indexToList ix2) (Sh.shapeT @sh)
            then M.insertWith (++) ix2
                   [OS.toVector $ tindexNS @sh2 @(Sh.Drop p sh) t ix]
            else id
@@ -714,14 +715,15 @@ tscatterZS t f =
 -- and then freezing it and calling OS.fromVector
 -- or optimize tscatterNS and instantiate it instead
 tscatterZ1S :: forall r n2 p sh.
-               (NumAndShow r, KnownNat n2, Sh.Shape sh, Sh.Shape (Sh.Drop p sh))
+               ( NumAndShow r, KnownNat n2, Sh.Shape sh
+               , Sh.Shape (Sh.Take p sh), Sh.Shape (Sh.Drop p sh) )
             => OS.Array (n2 ': Sh.Drop p sh) r
             -> (Int64Sh n2 -> IndexIntSh (Sh.Take p sh))
             -> OS.Array sh r
 tscatterZ1S t f =
     sum $ imap (\i ti ->
                    let ix2 = f $ ShapedList.shapedNat $ fromIntegral i
-                   in if ixInBounds (ShapedList.sizedToList ix2)
+                   in if ixInBounds (ShapedList.indexToList ix2)
                                     (Sh.shapeT @sh)
                       then updateNS 0 [(ix2, ti)]
                       else 0)
@@ -893,8 +895,8 @@ tscaleByScalarS :: (Numeric r, Sh.Shape sh)
                 => r -> OS.Array sh r -> OS.Array sh r
 tscaleByScalarS s = liftVS (LA.scale s)
 
-toIndexOfS :: IndexIntSh sh -> SizedListS sh (Flip OR.Array Int64 0)
+toIndexOfS :: IndexIntSh sh -> IndexS sh (Flip OR.Array Int64 0)
 toIndexOfS ix = Flip . tscalarR <$> ix
 
-fromIndexOfS :: SizedListS sh (Flip OR.Array Int64 0) -> IndexIntSh sh
+fromIndexOfS :: IndexS sh (Flip OR.Array Int64 0) -> IndexIntSh sh
 fromIndexOfS ixOf = tunScalarR . runFlip <$> ixOf

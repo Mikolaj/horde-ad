@@ -354,7 +354,7 @@ funToVarsIxIOS f = do
   let p = length $ Sh.shapeT @sh
   varList <- replicateM p unsafeGetFreshAstVarName
   let !vars = ShapedList.listToSized varList
-      !ix = ShapedList.listToSized $ map AstIntVar varList
+      !ix = ShapedList.listToIndex $ map AstIntVar varList
   return $! f (vars, ix)
 
 funToVarsIxS

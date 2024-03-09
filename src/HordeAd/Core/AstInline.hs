@@ -272,16 +272,16 @@ inlineAstS memo v0 = case v0 of
   Ast.AstIndexS @sh1 v ix ->
     let (memo1, v2) = inlineAstS memo v
         (memo2, ix2) = mapAccumR inlineAst memo1
-                                 (ShapedList.sizedToList ix)
-    in (memo2, Ast.AstIndexS @sh1 v2 (ShapedList.listToSized ix2))
+                                 (ShapedList.indexToList ix)
+    in (memo2, Ast.AstIndexS @sh1 v2 (ShapedList.listToIndex ix2))
   Ast.AstSumS v -> second Ast.AstSumS (inlineAstS memo v)
   Ast.AstScatterS @sh2 @p v (vars, ix) ->
     let (memo1, v2) = inlineAstS memo v
         (memoI0, ix2) = mapAccumR inlineAst EM.empty
-                                  (ShapedList.sizedToList ix)
+                                  (ShapedList.indexToList ix)
         count = Sh.sizeT @sh
         memo2 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1 memoI0
-    in (memo2, Ast.AstScatterS @sh2 @p v2 (vars, ShapedList.listToSized ix2))
+    in (memo2, Ast.AstScatterS @sh2 @p v2 (vars, ShapedList.listToIndex ix2))
   Ast.AstFromListS l ->
     let (memo2, l2) = mapAccumR inlineAstS memo l
     in (memo2, Ast.AstFromListS l2)
@@ -306,10 +306,10 @@ inlineAstS memo v0 = case v0 of
   Ast.AstGatherS @sh2 @p v (vars, ix) ->
     let (memo1, v2) = inlineAstS memo v
         (memoI0, ix2) = mapAccumR inlineAst EM.empty
-                                  (ShapedList.sizedToList ix)
+                                  (ShapedList.indexToList ix)
         count = Sh.sizeT @sh
         memo2 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1 memoI0
-    in (memo2, Ast.AstGatherS @sh2 @p v2 (vars, ShapedList.listToSized ix2))
+    in (memo2, Ast.AstGatherS @sh2 @p v2 (vars, ShapedList.listToIndex ix2))
   Ast.AstCastS v -> second Ast.AstCastS $ inlineAstS memo v
   Ast.AstFromIntegralS v ->
     second Ast.AstFromIntegralS $ inlineAstS memo v

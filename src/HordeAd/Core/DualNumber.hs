@@ -227,7 +227,7 @@ instance ( ShapedTensor shaped, IfF (RankedOf (PrimalOf shaped))
          => IfF (ADVal shaped) where
   ifF (l1, b) v w =
     let D l2 u u' = indexPrimalS (fromListS @2 [v, w])
-                                 (ShapedList.singletonSized
+                                 (ShapedList.singletonIndex
                                   $ ifF (emptyADShare, b) 0 1)
     in dDnotShared (l1 `mergeADShare` l2) u u'
 

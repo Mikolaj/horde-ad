@@ -454,7 +454,7 @@ printAstS cfg d = \case
     showParen (d > 9)
     $ printAstS cfg 10 v
       . showString " !$ "
-      . showListWith (printAstInt cfg 0) (ShapedList.sizedToList ix)
+      . showListWith (printAstInt cfg 0) (ShapedList.indexToList ix)
   AstSumS v -> printPrefixOp printAstS cfg d "ssum" [v]
   AstScatterS v (vars, ix) ->
     showParen (d > 10)
@@ -466,7 +466,7 @@ printAstS cfg d = \case
            . showListWith (printAstIntVar cfg)
                           (ShapedList.sizedToList vars)
            . showString " -> "
-           . showListWith (printAstInt cfg 0) (ShapedList.sizedToList ix))
+           . showListWith (printAstInt cfg 0) (ShapedList.indexToList ix))
   AstFromListS l ->
     showParen (d > 10)
     $ showString "sfromList "
@@ -510,7 +510,7 @@ printAstS cfg d = \case
            . showListWith (printAstIntVar cfg)
                           (ShapedList.sizedToList vars)
            . showString " -> "
-           . showListWith (printAstInt cfg 0) (ShapedList.sizedToList ix))
+           . showListWith (printAstInt cfg 0) (ShapedList.indexToList ix))
   AstCastS v -> printPrefixOp printAstS cfg d "scast" [v]
   AstFromIntegralS a ->
     printPrefixOp printAstS cfg d "sfromIntegral" [a]

@@ -396,7 +396,7 @@ instance AstSpan s => ShapedTensor (AstShaped s) where
                  => AstShaped s r (n ': sh) -> [AstShaped s r sh]
   sunravelToList t =
     let f :: Int -> AstShaped s r sh
-        f i = AstIndexS t (ShapedList.singletonSized $ fromIntegral i)
+        f i = AstIndexS t (ShapedList.singletonIndex $ fromIntegral i)
     in map f [0 .. slength t - 1]
   sreplicate = AstReplicateS
   sappend = AstAppendS
@@ -890,7 +890,7 @@ instance AstSpan s => ShapedTensor (AstNoVectorizeS s) where
                  => AstNoVectorizeS s r (n ': sh) -> [AstNoVectorizeS s r sh]
   sunravelToList (AstNoVectorizeS t) =
     let f :: Int -> AstNoVectorizeS s r sh
-        f i = AstNoVectorizeS $ AstIndexS t (ShapedList.singletonSized $ fromIntegral i)
+        f i = AstNoVectorizeS $ AstIndexS t (ShapedList.singletonIndex $ fromIntegral i)
     in map f [0 .. slength t - 1]
   sreplicate = AstNoVectorizeS . AstReplicateS . unAstNoVectorizeS
   sappend u v =
@@ -1074,7 +1074,7 @@ instance AstSpan s => ShapedTensor (AstNoSimplifyS s) where
                  => AstNoSimplifyS s r (n ': sh) -> [AstNoSimplifyS s r sh]
   sunravelToList (AstNoSimplifyS t) =
     let f :: Int -> AstNoSimplifyS s r sh
-        f i = AstNoSimplifyS $ AstIndexS t (ShapedList.singletonSized
+        f i = AstNoSimplifyS $ AstIndexS t (ShapedList.singletonIndex
                                             $ fromIntegral i)
     in map f [0 .. slength t - 1]
   sreplicate = AstNoSimplifyS . AstReplicateS . unAstNoSimplifyS

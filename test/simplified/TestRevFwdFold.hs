@@ -21,7 +21,7 @@ import           Test.Tasty.HUnit hiding (assert)
 
 import HordeAd
 import HordeAd.Core.AstFreshId (resetVarCounter)
-import HordeAd.Util.ShapedList (SizedListS (..))
+import HordeAd.Util.ShapedList (pattern (:.$), pattern ZIS)
 
 import CrossTesting
 import EqEpsilon
@@ -3105,7 +3105,7 @@ testSin0ScanD1Rev2 = do
                 (V.fromList [voidFromShS @Double @'[]])
                 x0 (V.singleton $ DynamicShaped
                     $ sconst (OS.fromList @'[2, 2] @Double [5, 7, 3, 4])
-                      !$ (k ::$ ZS) ))
+                      !$ (k :.$ ZIS) ))
           1.1)
 
 testSin0ScanD1Rev3 :: Assertion

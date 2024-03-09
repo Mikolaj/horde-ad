@@ -142,7 +142,7 @@ extendEnvVarsS :: forall ranked sh.
                -> AstEnv ranked
 extendEnvVarsS vars !ix !env =
   let assocs = zip (ShapedList.sizedToList vars)
-                   (ShapedList.sizedToList ix)
+                   (ShapedList.indexToList ix)
   in foldr (uncurry extendEnvI) env assocs
 
 

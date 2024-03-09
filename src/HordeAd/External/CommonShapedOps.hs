@@ -62,7 +62,7 @@ sfromIndex1 :: forall r sh shaped.
                (ADReadyS shaped, GoodScalar r, KnownNat (Sh.Rank sh))
             => IndexSh shaped sh -> shaped r '[Sh.Rank sh]
 sfromIndex1 =
-  sfromIntegral . sconstant . sfromR . rfromList . ShapedList.sizedToList
+  sfromIntegral . sconstant . sfromR . rfromList . ShapedList.indexToList
 
 sletIx :: forall r sh n shaped.
           (ADReadyS shaped, GoodScalar r, Sh.Shape sh, KnownNat n)
@@ -236,7 +236,7 @@ slicezS d ixBase =
 -- | Retrieve the element at the given index,
 --   returning zero for out of range indices.
 --
--- The @ShapedList.listToSized@ in the implementation here should not verify
+-- The @ShapedList.listToIndex@ in the implementation here should not verify
 -- that the index fits inside the type-level shape, because vectorization
 -- may make it not fit and that's fine. In the worst case, indexing ignores
 -- such invalid indexes and returns 0.
@@ -248,7 +248,7 @@ indexz0SLet
 indexz0SLet d ix0 =
   sletIx ix0 $ \ix ->
     ifF (within0S @shOut @shaped ix)
-        (sindex0 d (ShapedList.listToSized (indexToList ix)))
+        (sindex0 d (ShapedList.listToIndex (indexToList ix)))
         0
 
 -- | Retrieve the element at the given index,
@@ -266,7 +266,7 @@ indexz0S
   => shaped r sh -> IndexOf shaped (Sh.Rank shOut) -> shaped r '[]
 indexz0S d ix =
   ifF (within0S @shOut @shaped ix)
-      (sindex0 d (ShapedList.listToSized (indexToList ix)))
+      (sindex0 d (ShapedList.listToIndex (indexToList ix)))
       0
 
 -- | Given an index and shape, check if the index is fully within the shape.

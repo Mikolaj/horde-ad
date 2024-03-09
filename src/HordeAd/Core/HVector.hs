@@ -274,7 +274,7 @@ index1DynamicF rshape sshape rindex sindex u i = case u of
     _ :$: _ -> DynamicRanked $ rindex t (singletonIndex i)
   DynamicShaped t -> case sshape t of
     ZS -> error "index1Dynamic: rank 0"
-    _ ::$ _ -> DynamicShaped $ sindex t (ShapedList.singletonSized i)
+    _ ::$ _ -> DynamicShaped $ sindex t (ShapedList.singletonIndex i)
   DynamicRankedDummy @r @sh p1 _ -> case ShapedList.shapeIntSFromT @sh of
     ZS -> error "index1Dynamic: rank 0"
     (::$) @_ @sh2 _ _ -> DynamicRankedDummy @r @sh2 p1 Proxy

@@ -24,7 +24,7 @@ import HordeAd.Core.HVector
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.External.CommonShapedOps (lossSoftMaxCrossEntropyS)
-import HordeAd.Util.ShapedList (SizedListS (..))
+import HordeAd.Util.ShapedList (pattern (:.$), pattern ZIS)
 import MnistData
 
 -- | The differentiable type of all trainable parameters of this nn.
@@ -57,7 +57,7 @@ unrollLastS f s0 xs w =
   let g :: (c, state) -> shaped r sh -> (c, state)
       g (_, !s) x = f s x w
       projections :: [shaped r sh]
-      projections = map (\i -> sindex xs (fromIntegral i ::$ ZS))
+      projections = map (\i -> sindex xs (fromIntegral i :.$ ZIS))
                         [0 .. (valueOf @n :: Int)- 1]
   in foldl' g (undefined, s0) projections
 

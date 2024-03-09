@@ -95,7 +95,8 @@ import           HordeAd.Core.Types
 import           HordeAd.Internal.BackendConcrete
 import           HordeAd.Internal.OrthotopeOrphanInstances
   (MapSucc, matchingRank, sameShape, trustMeThisIsAPermutation)
-import           HordeAd.Util.ShapedList (SizedListS (..))
+import           HordeAd.Util.ShapedList
+  (SizedListS (..), pattern (:.$), pattern ZIS)
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedList
 
@@ -144,7 +145,7 @@ astTransposeAsGatherS v =
                    :: Sh.Permute perm (Sh.Take p sh) :~: sh2) $
         funToVarsIxS @sh2 $ \ (!vars, !ix) ->
           let asts :: AstIndexS (Sh.Take p sh)
-              asts = ShapedList.permutePrefixSized (Sh.shapeT @perm) ix
+              asts = ShapedList.permutePrefixIndex (Sh.shapeT @perm) ix
           in gcastWith (unsafeCoerce Refl
                         :: Sh.Permute perm sh :~: sh2 Sh.++ Sh.Drop p sh) $
              astGatherS @sh2 @p @sh v (vars, asts)
@@ -320,7 +321,7 @@ simplifyStepNonIndexS t = case t of
   Ast.AstGatherS @_ @p @sh1 v0 (ZS, ix) ->
     gcastWith (unsafeCoerce Refl :: sh1 :~: Sh.Take p sh1 Sh.++ Sh.Drop p sh1)
     $ Ast.AstIndexS v0 ix
-  Ast.AstGatherS @sh2 @p @sh1 v0 (_ , ZS) ->
+  Ast.AstGatherS @sh2 @p @sh1 v0 (_ , ZIS) ->
     gcastWith (unsafeCoerce Refl :: Sh.Drop p sh1 :~: sh1) $
     astReplicateNS @sh2 @sh1 v0
   Ast.AstGatherS{} -> t  -- this is "index" enough
@@ -534,7 +535,7 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :.: (rest1 :: AstIndex m1)) =
        gcastWith (unsafeCoerce Refl :: sh :~: p_take Sh.++ p_drop) $
        gcastWith (unsafeCoerce Refl :: Sh.Rank p_drop :~: n) $
        astRFromS $ astIndexStepS @p_take @p_drop
-                                 t (ShapedList.listToSized $ indexToList ix)
+                                 t (ShapedList.listToIndex $ indexToList ix)
   Ast.AstConstant v -> Ast.AstConstant $ astIndex v ix
   Ast.AstPrimalPart{} -> Ast.AstIndex v0 ix  -- must be a NF
   Ast.AstDualPart{} -> Ast.AstIndex v0 ix
@@ -547,17 +548,17 @@ astIndexSOrStepOnly
      , GoodScalar r, AstSpan s )
   => Bool -> AstShaped s r (shm Sh.++ shn) -> AstIndexS shm
   -> AstShaped s r shn
-astIndexSOrStepOnly stepOnly (Ast.AstIndexS v ix) ZS =
+astIndexSOrStepOnly stepOnly (Ast.AstIndexS v ix) ZIS =
   astIndexSOrStepOnly stepOnly v ix
-astIndexSOrStepOnly _ v0 ZS = v0
-astIndexSOrStepOnly stepOnly v0 ix@((::$) @in1 i1 (rest1 :: AstIndexS shm1)) =
+astIndexSOrStepOnly _ v0 ZIS = v0
+astIndexSOrStepOnly stepOnly v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS shm1)) =
   let astIndexRec, astIndex
         :: forall shm' shn' s'.
            ( Sh.Shape shm', Sh.Shape shn', Sh.Shape (shm' Sh.++ shn')
            , AstSpan s' )
         => AstShaped s' r (shm' Sh.++ shn') -> AstIndexS shm'
         -> AstShaped s' r shn'
-      astIndexRec vRec ZS = vRec
+      astIndexRec vRec ZIS = vRec
       astIndexRec vRec ixRec =
         if stepOnly then Ast.AstIndexS vRec ixRec else astIndexS vRec ixRec
       astIndex = if stepOnly then astIndexStepS else astIndexS
@@ -628,7 +629,7 @@ astIndexSOrStepOnly stepOnly v0 ix@((::$) @in1 i1 (rest1 :: AstIndexS shm1)) =
                :: (sh4 Sh.++ shm) Sh.++ shn :~: sh4 Sh.++ (shm Sh.++ shn)) $
     Sh.withShapeP (Sh.shapeT @sh4 ++ Sh.shapeT @shm) $ \(Proxy @sh41) ->
       gcastWith (unsafeCoerce Refl :: sh4 Sh.++ shm :~: sh41) $
-      astIndexS v (ShapedList.appendSized ix2 ix)
+      astIndexS v (ShapedList.appendIndex ix2 ix)
   Ast.AstSumS @n1 v ->
     let perm3 = backpermCycle $ length (Sh.shapeT @shm) + 1
     in Sh.withShapeP (Sh.shapeT @shm
@@ -672,42 +673,42 @@ astIndexSOrStepOnly stepOnly v0 ix@((::$) @in1 i1 (rest1 :: AstIndexS shm1)) =
                  then l !! i
                  else astReplicate0NS @(shm1 Sh.++ shn) 0) rest1
 
-  Ast.AstFromListS{} | ZS <- rest1 ->  -- normal form
+  Ast.AstFromListS{} | ZIS <- rest1 ->  -- normal form
     Ast.AstIndexS v0 ix
   Ast.AstFromListS l ->
     shareIxS rest1 $ \ix2 ->
       Ast.AstIndexS @'[in1] @shn (astFromListS $ map (`astIndexRec` ix2) l)
-                    (ShapedList.singletonSized i1)
+                    (ShapedList.singletonIndex i1)
   Ast.AstFromVectorS l | AstConst it <- i1 ->
     let i = fromIntegral $ OR.unScalar it
     in astIndex (if 0 <= i && i < V.length l
                  then l V.! i
                  else astReplicate0NS @(shm1 Sh.++ shn) 0) rest1
-  Ast.AstFromVectorS{} | ZS <- rest1 ->  -- normal form
+  Ast.AstFromVectorS{} | ZIS <- rest1 ->  -- normal form
     Ast.AstIndexS v0 ix
   Ast.AstFromVectorS l ->
     shareIxS rest1 $ \ix2 ->
       Ast.AstIndexS @'[in1] @shn (astFromVectorS $ V.map (`astIndexRec` ix2) l)
-                    (ShapedList.singletonSized i1)
+                    (ShapedList.singletonIndex i1)
   Ast.AstReplicateS v ->
     astIndex v rest1
   Ast.AstAppendS @n3 @m3 u v | AstConst it <- i1 ->
     let i = fromIntegral $ OR.unScalar it
         len = valueOf @m3 :: Int
     in if len > i
-       then astIndex @(m3 ': shm1) u (i1 ::$ rest1)
+       then astIndex @(m3 ': shm1) u (i1 :.$ rest1)
        else astIndex @(n3 ': shm1)
-                     v (simplifyAst (i1 - fromIntegral len) ::$ rest1)
+                     v (simplifyAst (i1 - fromIntegral len) :.$ rest1)
   Ast.AstAppendS{} ->  -- normal form
     Ast.AstIndexS v0 ix
   Ast.AstSliceS @i v ->
     let ii = simplifyAst (i1 + fromIntegral (valueOf @i :: Int))
       -- we generate this index, so we simplify on the spot
-    in astIndex v (ii ::$ rest1)
+    in astIndex v (ii :.$ rest1)
   Ast.AstReverseS v ->
     let iRev = simplifyAst (fromIntegral (valueOf @in1 - 1 :: Int) - i1)
       -- we generate this index, so we simplify on the spot
-    in astIndex v (iRev ::$ rest1)
+    in astIndex v (iRev :.$ rest1)
   Ast.AstTransposeS @perm @sh2 v
     | length (Sh.shapeT @shm) >= length (Sh.shapeT @perm) ->
       Sh.withShapeP
@@ -715,7 +716,7 @@ astIndexSOrStepOnly stepOnly v0 ix@((::$) @in1 i1 (rest1 :: AstIndexS shm1)) =
                            (Sh.shapeT @shm)) $ \(Proxy @shmPerm) ->
           gcastWith (unsafeCoerce Refl :: shm :~: Sh.Permute perm shmPerm) $
           let ix2 :: AstIndexS shmPerm =
-                ShapedList.permutePrefixShaped @perm ix
+                ShapedList.permutePrefixIndexT @perm ix
           in gcastWith (unsafeCoerce Refl :: sh2 :~: shmPerm Sh.++ shn) $
              astIndex @shmPerm v ix2
   Ast.AstTransposeS @perm v ->
@@ -733,7 +734,7 @@ astIndexSOrStepOnly stepOnly v0 ix@((::$) @in1 i1 (rest1 :: AstIndexS shm1)) =
       gcastWith (unsafeCoerce Refl :: (Sh.Take p sh Sh.++ shm :~: sh1n)) $
       gcastWith (unsafeCoerce Refl :: Sh.Take p sh Sh.++ shm Sh.++ shn :~: sh) $
         -- TODO: why is this needed? if it's true (it is), GHC should know it
-      astIndex v (ShapedList.appendSized ix2 ix)
+      astIndex v (ShapedList.appendIndex ix2 ix)
   Ast.AstGatherS v (var2 ::$ (vars :: AstVarListS shm71), ix2) ->
     withListSh (Proxy @shn) $ \_ ->
       Sh.withShapeP (Sh.shapeT @shm1 ++ Sh.shapeT @shn) $ \(Proxy @sh1n) ->
@@ -750,7 +751,7 @@ astIndexSOrStepOnly stepOnly v0 ix@((::$) @in1 i1 (rest1 :: AstIndexS shm1)) =
         unConst (AstConst i) (Just l) = Just $ i : l
         unConst _ _ = Nothing
     in case foldr unConst (Just []) ix of
-      Just ixInt -> AstConstS $ tindexZS t $ ShapedList.listToSized @shm
+      Just ixInt -> AstConstS $ tindexZS t $ ShapedList.listToIndex @shm
                     $ map OR.unScalar ixInt
         -- TODO: we'd need mapM for Index to keep this rank-typed
       Nothing -> Ast.AstIndexS v0 ix
@@ -830,7 +831,7 @@ astGatherStepS
   -> (AstVarListS sh2, AstIndexS (Sh.Take p sh))
   -> AstShaped s r (sh2 Sh.++ Sh.Drop p sh)
 -- TODO: this probably needs an extra condition similar to kN == vkN below
---astGatherStepS v (AstVarName varId ::$ ZS, AstIntVarS varId2 ::$ ZS)
+--astGatherStepS v (AstVarName varId ::$ ZS, AstIntVarS varId2 :.$ ZIS)
 --  | varId == varId2 = ...
 astGatherStepS v (vars, ix) = Ast.AstGatherS v (vars, ix)  -- TODO
 
@@ -1419,7 +1420,7 @@ astSumS t0 = case sameNat (Proxy @n) (Proxy @0) of
   _ -> case t0 of
     -- Ast.AstLetS var u v -> astLetS var u (astSumS v)
     Ast.AstLetADShareS l v -> Ast.AstLetADShareS l (astSumS v)
-    Ast.AstScatterS @sh2 @p v (vars, _ ::$ ix) ->
+    Ast.AstScatterS @sh2 @p v (vars, _ :.$ ix) ->
       gcastWith (unsafeCoerce Refl
                  :: Sh.Drop p (n : sh) :~: Sh.Drop (p - 1) sh) $
       gcastWith (unsafeCoerce Refl
@@ -1456,7 +1457,7 @@ astScatterS :: forall sh2 p sh s r.
             => AstShaped s r (sh2 Sh.++ Sh.Drop p sh)
             -> (AstVarListS sh2, AstIndexS (Sh.Take p sh))
             -> AstShaped s r sh
-astScatterS v (ZS, ZS) =
+astScatterS v (ZS, ZIS) =
   gcastWith (unsafeCoerce Refl
              :: Sh.Take p sh Sh.++ Sh.Drop p sh :~: sh)
   v
@@ -1874,7 +1875,7 @@ astTransposeS = \case
           gcastWith (unsafeCoerce Refl
                      :: Sh.Permute perm (Sh.Take p sh) :~: shpPerm) $
           let ix2 :: AstIndexS (Sh.Take p shPerm) =
-                ShapedList.backpermutePrefixShaped @perm ix
+                ShapedList.backpermutePrefixIndexT @perm ix
           in gcastWith (unsafeCoerce Refl
                         :: Sh.Drop p shPerm :~: Sh.Drop p sh) $
              astScatterS @sh2 @p @shPerm v (vars, ix2)
@@ -1901,7 +1902,7 @@ astTransposeS = \case
         gcastWith (unsafeCoerce Refl
                    :: Sh.Permute perm sh2 :~: shmPerm) $
         let vars2 :: AstVarListS shmPerm =
-              ShapedList.backpermutePrefixShaped @perm vars
+              ShapedList.backpermutePrefixSizedT @perm vars
         in gcastWith (unsafeCoerce Refl
                       :: Sh.Permute perm sh2 Sh.++ Sh.Drop p sh3
                          :~: Sh.Permute perm sh) $
@@ -3161,7 +3162,7 @@ substitute1AstIndexS
 substitute1AstIndexS i var ix =
   let mix = fmap (substitute1Ast i var) ix
   in if any isJust mix
-     then Just $ ShapedList.zipWith_Sized fromMaybe ix mix
+     then Just $ ShapedList.zipWith_Index fromMaybe ix mix
      else Nothing
 
 substitute1AstDynamic

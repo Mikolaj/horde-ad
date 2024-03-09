@@ -41,7 +41,7 @@ import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.Internal.OrthotopeOrphanInstances (sameShape)
-import HordeAd.Util.ShapedList (SizedListS (..))
+import HordeAd.Util.ShapedList (pattern (:.$), pattern ZIS)
 import HordeAd.Util.SizedList
 
 interpretAstPrimalRuntimeSpecialized
@@ -587,7 +587,7 @@ interpretAstS !env = \case
   AstSumOfListS args ->
     let args2 = interpretAstS env <$> args
     in sum args2
-  AstIndexS AstIotaS (i ::$ ZS) ->
+  AstIndexS AstIotaS (i :.$ ZIS) ->
     sfromIntegral . sconstant . sfromR $ interpretAstPrimal env i
   AstIndexS @sh1 v ix ->
     let v2 = interpretAstS env v
@@ -753,7 +753,7 @@ interpretAstS !env = \case
   AstBuild1S (var, v) ->
     sbuild1 (interpretLambdaIS interpretAstS env (var, v))
       -- to be used only in tests
-  AstGatherS @sh2 AstIotaS (vars, i ::$ ZS) ->
+  AstGatherS @sh2 AstIotaS (vars, i :.$ ZIS) ->
     gcastWith (unsafeCoerce Refl :: Sh.Take (Sh.Rank sh) sh :~: sh)
     $ gcastWith (unsafeCoerce Refl :: Sh.Drop (Sh.Rank sh) sh :~: '[])
     $ gcastWith (unsafeCoerce Refl :: sh2 :~: sh)

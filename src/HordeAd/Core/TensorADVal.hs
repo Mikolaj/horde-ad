@@ -356,7 +356,7 @@ instance ADReadyS shaped => ShapedTensor (ADVal shaped) where
        (FromVectorS $ V.map (\(D _ _ u') -> u') lu)
   sunravelToList (D l u u') =
     let lu = sunravelToList u
-        f i ui = dD l ui (IndexS u' (ShapedList.singletonSized
+        f i ui = dD l ui (IndexS u' (ShapedList.singletonIndex
                                      $ fromIntegral i))
     in imap f lu
   sreplicate (D l u u') = dD l (sreplicate u) (ReplicateS u')

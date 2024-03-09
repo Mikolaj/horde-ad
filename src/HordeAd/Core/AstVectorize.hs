@@ -49,7 +49,8 @@ import           HordeAd.Core.HVectorOps
 import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances
   (MapSucc, trustMeThisIsAPermutation)
-import           HordeAd.Util.ShapedList (SizedListS (..))
+import           HordeAd.Util.ShapedList
+  (SizedListS (..), pattern (:.$), pattern ZIS)
 import           HordeAd.Util.SizedList
 
 -- * Vectorization of AstRanked
@@ -420,7 +421,7 @@ build1VS (var, v00) =
     Ast.AstLetS @sh1 @_ @r1 @_ @s1 var1@(AstVarName oldVarId) u v ->
       let var2 = AstVarName oldVarId  -- changed shape; TODO: shall we rename?
           projection = Ast.AstIndexS (Ast.AstVarS @(k ': sh1) var2)
-                                     (Ast.AstIntVar var ::$ ZS)
+                                     (Ast.AstIntVar var :.$ ZIS)
           v2 = substituteAstS
                  (SubstitutionPayloadShaped @s1 @r1 projection) var1 v
       in astLetS var2 (build1VOccurenceUnknownS @k (var, u))
@@ -429,11 +430,11 @@ build1VS (var, v00) =
     Ast.AstCondS b (Ast.AstConstantS v) (Ast.AstConstantS w) ->
       let t = Ast.AstConstantS
               $ astIndexStepS @'[2] (astFromListS [v, w])
-                                    (astCond b 0 1 ::$ ZS)
+                                    (astCond b 0 1 :.$ ZIS)
       in build1VS (var, t)
     Ast.AstCondS b v w ->
       let t = astIndexStepS @'[2] (astFromListS [v, w])
-                                  (astCond b 0 1 ::$ ZS)
+                                  (astCond b 0 1 :.$ ZIS)
       in build1VS (var, t)
 
     Ast.AstMinIndexS v -> Ast.AstMinIndexS $ build1VS (var, v)
@@ -477,7 +478,7 @@ build1VS (var, v00) =
       let (varFresh, astVarFresh, ix2) = intBindingRefreshS var ix
       in astScatterS @(k ': sh2) @(1 + p)
                      (build1VOccurenceUnknownS (var, v))
-                     (varFresh ::$ vars, astVarFresh ::$ ix2)
+                     (varFresh ::$ vars, astVarFresh :.$ ix2)
 
     Ast.AstFromListS l -> traceRule $
       astTrS $ astFromListS (map (\v -> build1VOccurenceUnknownS (var, v)) l)
@@ -517,7 +518,7 @@ build1VS (var, v00) =
       let (varFresh, astVarFresh, ix2) = intBindingRefreshS var ix
       in astGatherStepS @(k ': sh2) @(1 + p)
                         (build1VOccurenceUnknownS @k (var, v))
-                        (varFresh ::$ vars, astVarFresh ::$ ix2)
+                        (varFresh ::$ vars, astVarFresh :.$ ix2)
     Ast.AstCastS v -> astCastS $ build1VS (var, v)
     Ast.AstFromIntegralS v -> astFromIntegralS $ build1VS (var, v)
     Ast.AstConstS{} ->
@@ -546,22 +547,22 @@ build1VS (var, v00) =
 
 build1VIndexS
   :: forall k p sh s r.
-     ( GoodScalar r, KnownNat k, Sh.Shape sh
+     ( GoodScalar r, KnownNat k, Sh.Shape sh, Sh.Shape (Sh.Take p sh)
      , Sh.Shape (Sh.Drop p (Sh.Take p sh Sh.++ Sh.Drop p sh)), AstSpan s )
   => (IntVarName, AstShaped s r sh, AstIndexS (Sh.Take p sh))
   -> AstShaped s r (k ': Sh.Drop p sh)
-build1VIndexS (var, v0, ZS) =
+build1VIndexS (var, v0, ZIS) =
   gcastWith (unsafeCoerce Refl :: p :~: 0)
     -- otherwise sh would need to be empty, but then Take gets stuck
     -- so the application of this function wouldn't type-check
   $ build1VOccurenceUnknownS (var, v0)
-build1VIndexS (var, v0, ix@(_ ::$ _)) =
+build1VIndexS (var, v0, ix@(_ :.$ _)) =
   gcastWith (unsafeCoerce Refl :: sh :~: Sh.Take p sh Sh.++ Sh.Drop p sh) $
   let vTrace = Ast.AstBuild1S (var, Ast.AstIndexS v0 ix)
       traceRule = mkTraceRuleS "build1VIndexS" vTrace v0 1
   in if varNameInAstS var v0
      then case astIndexStepS v0 ix of  -- push deeper
-       Ast.AstIndexS v1 ZS -> traceRule $
+       Ast.AstIndexS v1 ZIS -> traceRule $
          build1VOccurenceUnknownS (var, v1)
        v@(Ast.AstIndexS @sh1 v1 ix1) -> traceRule $
          gcastWith (unsafeCoerce Refl
@@ -574,7 +575,7 @@ build1VIndexS (var, v0, ix@(_ ::$ _)) =
          let (varFresh, astVarFresh, ix2) = intBindingRefreshS var ix1
              ruleD = astGatherStepS @'[k] @(1 + Sh.Rank sh1)
                        (build1VS @k (var, v1))
-                       (varFresh ::$ ZS, astVarFresh ::$ ix2)
+                       (varFresh ::$ ZS, astVarFresh :.$ ix2)
              len = length $ Sh.shapeT @sh1
          in if varNameInAstS var v1
             then case v1 of  -- try to avoid ruleD if not a normal form
@@ -671,7 +672,7 @@ build1VHVector k@SNat (var, v0) =
     var1@(AstVarName oldVarId) u v ->
       let var2 = AstVarName oldVarId  -- changed shape; TODO: shall we rename?
           projection = Ast.AstIndexS (Ast.AstVarS @(k ': sh2) var2)
-                                     (Ast.AstIntVar var ::$ ZS)
+                                     (Ast.AstIntVar var :.$ ZIS)
           v2 = substituteAstHVector
                  (SubstitutionPayloadShaped @s1 @r1 projection) var1 v
       in astLetInHVectorS var2 (build1VOccurenceUnknownS @k (var, u))
@@ -786,7 +787,7 @@ substProjRankedS var var1@(AstVarName varId) =
   let var2 = AstVarName varId
       projection =
         Ast.AstIndexS (Ast.AstVarS @(k ': sh1) var2)
-                      (Ast.AstIntVar var ::$ ZS)
+                      (Ast.AstIntVar var :.$ ZIS)
   in substituteAst
        (SubstitutionPayloadShaped @s1 @r1 projection) var1
 
@@ -799,7 +800,7 @@ substProjShapedS var var1@(AstVarName varId) =
   let var2 = AstVarName varId
       projection =
         Ast.AstIndexS (Ast.AstVarS @(k ': sh1) var2)
-                      (Ast.AstIntVar var ::$ ZS)
+                      (Ast.AstIntVar var :.$ ZIS)
   in substituteAstS
        (SubstitutionPayloadShaped @s1 @r1 projection) var1
 
@@ -825,7 +826,7 @@ substProjHVectorS var var1@(AstVarName varId) =
   let var2 = AstVarName varId
       projection =
         Ast.AstIndexS (Ast.AstVarS @(k ': sh1) var2)
-                      (Ast.AstIntVar var ::$ ZS)
+                      (Ast.AstIntVar var :.$ ZIS)
   in substituteAstHVector
        (SubstitutionPayloadShaped @s1 @r1 projection) var1
 

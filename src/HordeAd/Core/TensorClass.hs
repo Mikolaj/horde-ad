@@ -42,7 +42,7 @@ import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances
   (matchingRank, sameShape)
 import           HordeAd.Util.ShapedList
-  (ShapeIntS, SizedListS (..), consShaped)
+  (ShapeIntS, SizedListS (..), consIndex, pattern (:.$), pattern ZIS)
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedList
 
@@ -398,7 +398,7 @@ class ( Integral (IntOf shaped), CShaped shaped Num
   sdot0 t u = ssum (sflatten (t * u))
   smatvecmul :: forall r m n. (GoodScalar r, KnownNat m, KnownNat n)
              => shaped r '[m, n] -> shaped r '[n] -> shaped r '[m]
-  smatvecmul m v = sbuild1 (\i -> sdot0 v (m !$ consShaped i ZS))
+  smatvecmul m v = sbuild1 (\i -> sdot0 v (m !$ consIndex i ZIS))
   smatmul2 :: forall r n m p. (GoodScalar r, KnownNat n, KnownNat m, KnownNat p)
            => shaped r '[m, n] -> shaped r '[n, p] -> shaped r '[m, p]
   smatmul2 m1 m2 =
@@ -418,7 +418,7 @@ class ( Integral (IntOf shaped), CShaped shaped Num
     => shaped r (n2 ': Sh.Drop p sh)
     -> (IntSh shaped n2 -> IndexSh shaped (Sh.Take p sh))
     -> shaped r sh
-  sscatter1 v f = sscatter @shaped @r @'[n2] v (ShapedList.unconsContShaped f)
+  sscatter1 v f = sscatter @shaped @r @'[n2] v (ShapedList.unconsContIndex f)
 
   -- Tensor codomain, often tensor construction, sometimes transformation
   -- (for these, suffix 1 doesn't mean codomain rank 1, but building up
@@ -458,9 +458,9 @@ class ( Integral (IntOf shaped), CShaped shaped Num
   suncons :: forall r n sh. (GoodScalar r, KnownNat n, Sh.Shape sh)
           => shaped r (n ': sh) -> Maybe (shaped r sh, shaped r (n - 1 ': sh))
   suncons v = case cmpNat (Proxy @1) (Proxy @n) of
-    EQI -> Just ( v !$ (0 ::$ ZS)
+    EQI -> Just ( v !$ (0 :.$ ZIS)
                 , sslice @shaped @r @1 @(n - 1) @0 Proxy Proxy v )
-    LTI -> Just ( v !$ (0 ::$ ZS)
+    LTI -> Just ( v !$ (0 :.$ ZIS)
                 , sslice @shaped @r @1 @(n - 1) @0 Proxy Proxy v )
     _ -> Nothing
   sreverse :: (GoodScalar r, KnownNat n, Sh.Shape sh)
@@ -493,9 +493,9 @@ class ( Integral (IntOf shaped), CShaped shaped Num
           -> (IndexSh shaped sh1 -> shaped r (Sh.Drop m sh))
           -> shaped r (sh1 Sh.++ Sh.Drop m sh)
         buildSh sh1 sh1m f = case (sh1, sh1m) of
-          (ZS, _) -> f ZS
+          (ZS, _) -> f ZIS
           (_ ::$ sh2, _ ::$ sh2m) ->
-            let g i = buildSh sh2 sh2m (f . consShaped i)
+            let g i = buildSh sh2 sh2m (f . consIndex i)
             in sbuild1 g
     in gcastWith (unsafeCoerce Refl
                   :: sh :~: Sh.Take m sh Sh.++ Sh.Drop m sh)
@@ -515,7 +515,7 @@ class ( Integral (IntOf shaped), CShaped shaped Num
            (GoodScalar r, GoodScalar r2, KnownNat n, Sh.Shape sh)
         => (shaped r sh -> shaped r2 sh)
         -> shaped r (n ': sh) -> shaped r2 (n ': sh)
-  smap1 f u = sbuild1 (\i -> f (u !$ consShaped i ZS))
+  smap1 f u = sbuild1 (\i -> f (u !$ consIndex i ZIS))
   smap0N :: forall r r2 sh.
             (GoodScalar r, GoodScalar r2, Sh.Shape sh, KnownNat (Sh.Rank sh))
          => (shaped r '[] -> shaped r2 '[]) -> shaped r sh -> shaped r2 sh
@@ -541,8 +541,8 @@ class ( Integral (IntOf shaped), CShaped shaped Num
             => (shaped r1 sh1 -> shaped r2 sh2 -> shaped r sh)
             -> shaped r1 (n ': sh1) -> shaped r2 (n ': sh2)
             -> shaped r (n ': sh)
-  szipWith1 f u v = sbuild1 (\i -> f (u !$ consShaped i ZS)
-                                     (v !$ consShaped i ZS))
+  szipWith1 f u v = sbuild1 (\i -> f (u !$ consIndex i ZIS)
+                                     (v !$ consIndex i ZIS))
   szipWith0N :: forall r1 r2 r sh.
                 ( GoodScalar r1, GoodScalar r2, GoodScalar r
                 , Sh.Shape sh, KnownNat (Sh.Rank sh) )
@@ -576,9 +576,9 @@ class ( Integral (IntOf shaped), CShaped shaped Num
              -> shaped r1 (n ': sh1) -> shaped r2 (n ': sh2)
              -> shaped r3 (n ': sh3)
              -> shaped r (n ': sh)
-  szipWith31 f u v w = sbuild1 (\i -> f (u !$ consShaped i ZS)
-                                        (v !$ consShaped i ZS)
-                                        (w !$ consShaped i ZS))
+  szipWith31 f u v w = sbuild1 (\i -> f (u !$ consIndex i ZIS)
+                                        (v !$ consIndex i ZIS)
+                                        (w !$ consIndex i ZIS))
   szipWith30N :: forall r1 r2 r3 r sh.
                  ( GoodScalar r1, GoodScalar r2, GoodScalar r3, GoodScalar r
                  , Sh.Shape sh, KnownNat (Sh.Rank sh) )
@@ -622,10 +622,10 @@ class ( Integral (IntOf shaped), CShaped shaped Num
              -> shaped r1 (n ': sh1) -> shaped r2 (n ': sh2)
              -> shaped r3 (n ': sh3) -> shaped r4 (n ': sh4)
              -> shaped r (n ': sh)
-  szipWith41 f u v w x = sbuild1 (\i -> f (u !$ consShaped i ZS)
-                                          (v !$ consShaped i ZS)
-                                          (w !$ consShaped i ZS)
-                                          (x !$ consShaped i ZS))
+  szipWith41 f u v w x = sbuild1 (\i -> f (u !$ consIndex i ZIS)
+                                          (v !$ consIndex i ZIS)
+                                          (w !$ consIndex i ZIS)
+                                          (x !$ consIndex i ZIS))
   szipWith40N :: forall r1 r2 r3 r4 r sh.
                  ( GoodScalar r1, GoodScalar r2, GoodScalar r3, GoodScalar r4
                  , GoodScalar r, Sh.Shape sh, KnownNat (Sh.Rank sh) )
@@ -654,7 +654,7 @@ class ( Integral (IntOf shaped), CShaped shaped Num
     => shaped r sh
     -> (IntSh shaped n2 -> IndexSh shaped (Sh.Take p sh))
     -> shaped r (n2 ': Sh.Drop p sh)
-  sgather1 v f = sgather @shaped @r @'[n2] v (ShapedList.unconsContShaped f)
+  sgather1 v f = sgather @shaped @r @'[n2] v (ShapedList.unconsContIndex f)
   scast :: (RealFrac r1, RealFrac r2, GoodScalar r1, GoodScalar r2, Sh.Shape sh)
         => shaped r1 sh -> shaped r2 sh
   sfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2, Sh.Shape sh)

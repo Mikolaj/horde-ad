@@ -1,4 +1,4 @@
-{-# LANGUAGE AllowAmbiguousTypes, DerivingStrategies #-}
+{-# LANGUAGE AllowAmbiguousTypes, DerivingStrategies, ViewPatterns #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -fconstraint-solver-iterations=10000 #-}
@@ -12,13 +12,19 @@ module HordeAd.Util.ShapedList
   , headSized, tailSized, takeSized, dropSized, splitAt_Sized
   , unsnocSized1, lastSized, initSized, zipSized, zipWith_Sized, reverseSized
   , Permutation  -- ^ re-exported from "SizedList"
-  , backpermutePrefixShaped, backpermutePrefixSized
-  , permutePrefixShaped, permutePrefixSized
+  , backpermutePrefixSized, backpermutePrefixSizedT
+  , permutePrefixSized, permutePrefixSizedT
   , sizedCompare, listToSized, sizedToList
-  , shapedToSized, shapedToIndex
-    -- * Tensor indexes as fully encapsulated sized lists, with operations
-  , IndexS
-  -- * Tensor shapes as fully encapsulated sized lists, with operations
+  , shapedToSized
+    -- * Tensor indexes as fully encapsulated shaped lists, with operations
+  , IndexS, pattern (:.$), pattern ZIS
+  , consIndex, unconsContIndex
+  , singletonIndex, appendIndex
+  , zipWith_Index
+  , backpermutePrefixIndex, backpermutePrefixIndexT
+  , permutePrefixIndex, permutePrefixIndexT
+  , listToIndex, indexToList, indexToSized, sizedToIndex, shapedToIndex
+  -- * Tensor shapes as fully encapsulated shaped lists, with operations
   , ShapedNat, shapedNat, unShapedNat
   , ShapeS, ShapeIntS, shapeIntSFromT
     -- * Operations involving both indexes and shapes
@@ -135,16 +141,6 @@ zipWith_Sized f (i ::$ irest) (j ::$ jrest) =
 reverseSized :: Sh.Shape sh => SizedListS sh i -> SizedListS sh i
 reverseSized = listToSized . reverse . sizedToList
 
-backpermutePrefixShaped
-  :: forall perm sh i.
-     (Sh.Shape perm, Sh.Shape sh, Sh.Shape (Sh.Permute perm sh))
-  => SizedListS sh i -> SizedListS (Sh.Permute perm sh) i
-backpermutePrefixShaped ix =
-  if length (Sh.shapeT @sh) < length (Sh.shapeT @perm)
-  then error "backpermutePrefixShaped: cannot permute a list shorter than permutation"
-  else listToSized $ SizedList.backpermutePrefixList (Sh.shapeT @perm)
-                   $ sizedToList ix
-
 -- This permutes a prefix of the sized list of the length of the permutation.
 -- The rest of the sized list is left intact.
 backpermutePrefixSized :: forall sh sh2 i. (Sh.Shape sh, Sh.Shape sh2)
@@ -154,13 +150,14 @@ backpermutePrefixSized p ix =
   then error "backpermutePrefixSized: cannot permute a list shorter than permutation"
   else listToSized $ SizedList.backpermutePrefixList p $ sizedToList ix
 
-permutePrefixShaped
-  :: forall perm sh i. (Sh.Shape perm, Sh.Shape sh)
-  => SizedListS (Sh.Permute perm sh) i -> SizedListS sh i
-permutePrefixShaped ix =
+backpermutePrefixSizedT
+  :: forall perm sh i.
+     (Sh.Shape perm, Sh.Shape sh, Sh.Shape (Sh.Permute perm sh))
+  => SizedListS sh i -> SizedListS (Sh.Permute perm sh) i
+backpermutePrefixSizedT ix =
   if length (Sh.shapeT @sh) < length (Sh.shapeT @perm)
-  then error "permutePrefixShaped: cannot permute a list shorter than permutation"
-  else listToSized $ SizedList.permutePrefixList (Sh.shapeT @perm)
+  then error "backpermutePrefixShaped: cannot permute a list shorter than permutation"
+  else listToSized $ SizedList.backpermutePrefixList (Sh.shapeT @perm)
                    $ sizedToList ix
 
 permutePrefixSized :: forall sh sh2 i. (Sh.Shape sh, Sh.Shape sh2)
@@ -169,6 +166,15 @@ permutePrefixSized p ix =
   if length (Sh.shapeT @sh) < length p
   then error "permutePrefixSized: cannot permute a list shorter than permutation"
   else listToSized $ SizedList.permutePrefixList p $ sizedToList ix
+
+permutePrefixSizedT
+  :: forall perm sh i. (Sh.Shape perm, Sh.Shape sh)
+  => SizedListS (Sh.Permute perm sh) i -> SizedListS sh i
+permutePrefixSizedT ix =
+  if length (Sh.shapeT @sh) < length (Sh.shapeT @perm)
+  then error "permutePrefixShaped: cannot permute a list shorter than permutation"
+  else listToSized $ SizedList.permutePrefixList (Sh.shapeT @perm)
+                   $ sizedToList ix
 
 -- | Pairwise comparison of two sized list values.
 -- The comparison function is invoked once for each rank
@@ -213,17 +219,112 @@ shapedToSized :: KnownNat (Sh.Rank sh)
                   => SizedListS sh i -> SizedList.SizedList (Sh.Rank sh) i
 shapedToSized = SizedList.listToSized . sizedToList
 
+
+-- * Tensor indexes as fully encapsulated shaped lists, with operations
+
+type role IndexS nominal representational
+newtype IndexS sh i = IndexS (SizedListS sh i)
+  deriving (Eq, Ord)
+
+-- This is only lawful when OverloadedLists is enabled.
+-- However, it's much more readable when tracing and debugging.
+instance Show i => Show (IndexS sh i) where
+  showsPrec d (IndexS l) = showsPrec d l
+
+pattern ZIS :: forall sh i. () => sh ~ '[] => IndexS sh i
+pattern ZIS = IndexS ZS
+
+{- TODO: The following is wrong, see (:$:). In particular, the second type
+   argument of the (:.$) constructor should be sh. I barely hacked k in there
+   or I wouldn't be able to use the pattern to deconstruct sh1.
+   Additionally, it requires Sh.Shape sh1 that (:$:) doesn't and it may
+   necessitate a runtime creation of a singleton and an unsafeCoerce. -}
+infixr 3 :.$
+pattern (:.$)
+  :: forall k sh1 i. (Sh.Shape sh1, k ~ Sh.Index sh1 0)
+  => forall sh. (KnownNat k, Sh.Shape sh, (k : sh) ~ sh1)
+  => i -> IndexS sh i -> IndexS sh1 i
+pattern i :.$ shl <- (unconsIndex -> Just (UnconsIndexRes shl i))
+  where i :.$ (IndexS shl) = IndexS (i ::$ shl)
+{-# COMPLETE ZIS, (:.$) #-}
+
+type role UnconsIndexRes representational nominal
+data UnconsIndexRes i sh1 =
+  forall k sh. (KnownNat k, Sh.Shape sh, (k : sh) ~ sh1)
+  => UnconsIndexRes (IndexS sh i) i
+unconsIndex :: IndexS sh1 i -> Maybe (UnconsIndexRes i sh1)
+unconsIndex (IndexS shl) = case shl of
+  i ::$ shl' -> Just (UnconsIndexRes (IndexS shl') i)
+  ZS -> Nothing
+
+deriving newtype instance Functor (IndexS n)
+
+instance Foldable (IndexS n) where
+  foldr f z l = foldr f z (indexToList l)
+
+instance Sh.Shape sh => IsList (IndexS sh i) where
+  type Item (IndexS sh i) = i
+  fromList = listToIndex
+  toList = indexToList
+
+consIndex :: (KnownNat n, Sh.Shape sh)
+          => ShapedNat n i -> IndexS sh i -> IndexS (n ': sh) i
+consIndex (ShapedNat i) l = i :.$ l
+
+unconsContIndex :: (KnownNat n, Sh.Shape sh)
+                => (ShapedNat n i -> k) -> IndexS (n ': sh) i -> k
+unconsContIndex f (i :.$ _) = f (ShapedNat i)
+
+singletonIndex :: KnownNat n => i -> IndexS '[n] i
+singletonIndex = IndexS . singletonSized
+
+appendIndex :: Sh.Shape (sh2 Sh.++ sh)
+            => IndexS sh2 i -> IndexS sh i -> IndexS (sh2 Sh.++ sh) i
+appendIndex (IndexS ix1) (IndexS ix2) = IndexS $ appendSized ix1 ix2
+
+backpermutePrefixIndex :: forall sh sh2 i. (Sh.Shape sh, Sh.Shape sh2)
+                       => Permutation -> IndexS sh i -> IndexS sh2 i
+backpermutePrefixIndex p (IndexS ix) = IndexS $ backpermutePrefixSized p ix
+
+backpermutePrefixIndexT
+  :: forall perm sh i.
+     (Sh.Shape perm, Sh.Shape sh, Sh.Shape (Sh.Permute perm sh))
+  => IndexS sh i -> IndexS (Sh.Permute perm sh) i
+backpermutePrefixIndexT (IndexS ix) = IndexS $ backpermutePrefixSizedT @perm ix
+
+-- Inverse permutation of indexes corresponds to normal permutation
+-- of the shape of the projected tensor.
+permutePrefixIndex :: forall sh sh2 i. (Sh.Shape sh, Sh.Shape sh2)
+                   => Permutation -> IndexS sh i -> IndexS sh2 i
+permutePrefixIndex p (IndexS ix) = IndexS $ permutePrefixSized p ix
+
+-- Inverse permutation of indexes corresponds to normal permutation
+-- of the shape of the projected tensor.
+permutePrefixIndexT :: forall perm sh i. (Sh.Shape perm, Sh.Shape sh)
+                    => IndexS (Sh.Permute perm sh) i -> IndexS sh i
+permutePrefixIndexT (IndexS ix) = IndexS $ permutePrefixSizedT @perm ix
+
+zipWith_Index :: (i -> j -> k) -> IndexS sh i -> IndexS sh j -> IndexS sh k
+zipWith_Index f (IndexS l1) (IndexS l2) = IndexS $ zipWith_Sized f l1 l2
+
+listToIndex :: Sh.Shape sh => [i] -> IndexS sh i
+listToIndex = IndexS . listToSized
+
+indexToList :: IndexS sh i -> [i]
+indexToList (IndexS l) = sizedToList l
+
+indexToSized :: IndexS sh i -> SizedListS sh i
+indexToSized (IndexS l) = l
+
+sizedToIndex :: SizedListS sh i -> IndexS sh i
+sizedToIndex = IndexS
+
 shapedToIndex :: KnownNat (Sh.Rank sh)
-                  => SizedListS sh i -> SizedList.Index (Sh.Rank sh) i
-shapedToIndex = SizedList.listToIndex . sizedToList
+              => IndexS sh i -> SizedList.Index (Sh.Rank sh) i
+shapedToIndex = SizedList.listToIndex . indexToList
 
 
--- * Tensor indexes as fully encapsulated sized lists, with operations
-
-type IndexS = SizedListS
-
-
--- * Tensor shapes as fully encapsulated sized lists, with operations
+-- * Tensor shapes as fully encapsulated shaped lists, with operations
 
 type ShapeS = SizedListS
 
@@ -257,18 +358,19 @@ shapeIntSFromT = listToSized $ Sh.shapeT @sh
 -- If any of the dimensions is 0 or if rank is 0, the result will be 0,
 -- which is fine, that's pointing at the start of the empty buffer.
 -- Note that the resulting 0 may be a complex term.
-toLinearIdx :: forall sh1 sh2 i j. (Sh.Shape sh2, Integral i, Num j)
-            => SizedListS (sh1 Sh.++ sh2) i -> SizedListS sh1 j
+toLinearIdx :: forall sh1 sh2 i j.
+               (Sh.Shape sh1, Sh.Shape sh2, Integral i, Num j)
+            => SizedListS (sh1 Sh.++ sh2) i -> IndexS sh1 j
             -> ShapedNat (Sh.Size sh1 * Sh.Size sh2) j
 toLinearIdx = \sh idx -> shapedNat $ go sh idx 0
   where
     -- Additional argument: index, in the @m - m1@ dimensional array so far,
     -- of the @m - m1 + n@ dimensional tensor pointed to by the current
     -- @m - m1@ dimensional index prefix.
-    go :: forall sh3.
-          SizedListS (sh3 Sh.++ sh2) i -> SizedListS sh3 j -> j -> j
-    go _sh ZS tensidx = fromIntegral (Sh.sizeT @(sh3 Sh.++ sh2)) * tensidx
-    go (n ::$ sh) (i ::$ idx) tensidx = go sh idx (fromIntegral n * tensidx + i)
+    go :: forall sh3. Sh.Shape sh3
+       => SizedListS (sh3 Sh.++ sh2) i -> IndexS sh3 j -> j -> j
+    go _sh ZIS tensidx = fromIntegral (Sh.sizeT @(sh3 Sh.++ sh2)) * tensidx
+    go (n ::$ sh) (i :.$ idx) tensidx = go sh idx (fromIntegral n * tensidx + i)
     go _ _ _ = error "toLinearIdx: impossible pattern needlessly required"
 
 -- | Given a linear index into the buffer, get the corresponding
@@ -280,21 +382,21 @@ toLinearIdx = \sh idx -> shapedNat $ go sh idx 0
 -- because it doesn't matter, because it's going to point at the start
 -- of the empty buffer anyway.
 fromLinearIdx :: forall sh i j. (Integral i, Integral j)
-              => SizedListS sh i -> ShapedNat (Sh.Size sh) j -> SizedListS sh j
+              => SizedListS sh i -> ShapedNat (Sh.Size sh) j -> IndexS sh j
 fromLinearIdx = \sh (ShapedNat lin) -> snd (go sh lin)
   where
     -- Returns (linear index into array of sub-tensors,
     -- multi-index within sub-tensor).
-    go :: SizedListS sh1 i -> j -> (j, SizedListS sh1 j)
-    go ZS n = (n, ZS)
+    go :: SizedListS sh1 i -> j -> (j, IndexS sh1 j)
+    go ZS n = (n, ZIS)
     go (0 ::$ sh) _ =
-      (0, 0 ::$ zeroOf sh)
+      (0, 0 :.$ zeroOf sh)
     go (n ::$ sh) lin =
       let (tensLin, idxInTens) = go sh lin
           (tensLin', i) = tensLin `quotRem` fromIntegral n
-      in (tensLin', i ::$ idxInTens)
+      in (tensLin', i :.$ idxInTens)
 
 -- | The zero index in this shape (not dependent on the actual integers).
-zeroOf :: Num j => SizedListS sh i -> SizedListS sh j
-zeroOf ZS = ZS
-zeroOf (_ ::$ sh) = 0 ::$ zeroOf sh
+zeroOf :: Num j => SizedListS sh i -> IndexS sh j
+zeroOf ZS = ZIS
+zeroOf (_ ::$ sh) = 0 :.$ zeroOf sh

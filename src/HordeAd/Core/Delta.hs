@@ -74,7 +74,7 @@ import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.Internal.OrthotopeOrphanInstances
   (sameShape, trustMeThisIsAPermutation)
-import HordeAd.Util.ShapedList (SizedListS (..))
+import HordeAd.Util.ShapedList (pattern (:.$), pattern ZIS)
 import HordeAd.Util.SizedList
 
 -- * Reverse and forward derivative computation for HVectorPseudoTensor
@@ -850,10 +850,10 @@ evalS !s !c = let (abShared, cShared) = sregister c (astBindings s)
 
   FromListS ld ->
     ifoldl' (\ !s2 i d2 ->
-      evalS s2 (cShared !$ (fromIntegral i ::$ ZS)) d2) sShared ld
+      evalS s2 (cShared !$ (fromIntegral i :.$ ZIS)) d2) sShared ld
   FromVectorS ld ->
     V.ifoldl' (\ !s2 i d2 ->
-      evalS s2 (cShared !$ (fromIntegral i ::$ ZS)) d2) sShared ld
+      evalS s2 (cShared !$ (fromIntegral i :.$ ZIS)) d2) sShared ld
   ReplicateS d -> evalS s (ssum c) d
   AppendS @_ @_ @m d e ->
     let s2 = evalS sShared (sslice (Proxy @0) Proxy cShared) d
