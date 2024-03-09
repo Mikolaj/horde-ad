@@ -255,16 +255,19 @@ instance Show i => Show (Index n i) where
 pattern ZIR :: forall n i. () => n ~ 0 => Index n i
 pattern ZIR = Index ZR
 
+{- TODO: The following is wrong, see (:$:). -}
 infixr 3 :.:
-pattern (:.:) :: forall n1 i. KnownNat n1 => forall n. (KnownNat n, (1 + n) ~ n1)
-             => i -> Index n i -> Index n1 i
+pattern (:.:)
+  :: forall n1 i. KnownNat n1
+  => forall n. (KnownNat n, (1 + n) ~ n1)
+  => i -> Index n i -> Index n1 i
 pattern i :.: sh <- (unconsIndex -> Just (UnconsIndexRes sh i))
   where i :.: (Index sh) = Index (i ::: sh)
 {-# COMPLETE ZIR, (:.:) #-}
 
 type role UnconsIndexRes representational nominal
 data UnconsIndexRes i n1 =
-  forall n. n1 ~ (1 + n) => UnconsIndexRes (Index n i) i
+  forall n. (1 + n) ~ n1 => UnconsIndexRes (Index n i) i
 unconsIndex :: Index n1 i -> Maybe (UnconsIndexRes i n1)
 unconsIndex (Index sh) = case sh of
   i ::: sh' -> Just (UnconsIndexRes (Index sh') i)
@@ -373,16 +376,28 @@ instance Show i => Show (Shape n i) where
 pattern ZSR :: forall n i. () => n ~ 0 => Shape n i
 pattern ZSR = Shape ZR
 
+{- TODO: The following is wrong, it should behave the same as ::: and so
+   the first argument should be n, as in
+pattern (:$:)
+  :: forall n i n1. KnownNat n
+  => forall n1. (KnownNat n1, (1 + n) ~ n1)
+  => i -> Shape n i -> Shape n1 i
+but then GHC 9.8.2 complains
+    • The result type of the signature for ‘:$:’, namely ‘Shape n1 i’
+        mentions existential type variable ‘n1’
+-}
 infixr 3 :$:
-pattern (:$:) :: forall n1 i. KnownNat n1 => forall n. (KnownNat n, (1 + n) ~ n1)
-             => i -> Shape n i -> Shape n1 i
+pattern (:$:)
+  :: forall n1 i. KnownNat n1
+  => forall n. (KnownNat n, (1 + n) ~ n1)
+  => i -> Shape n i -> Shape n1 i
 pattern i :$: sh <- (unconsShape -> Just (MkUnconsShapeRes sh i))
   where i :$: (Shape sh) = Shape (i ::: sh)
 {-# COMPLETE ZSR, (:$:) #-}
 
 type role UnconsShapeRes representational nominal
 data UnconsShapeRes i n1 =
-  forall n. n1 ~ (1 + n) => MkUnconsShapeRes (Shape n i) i
+  forall n. (1 + n) ~ n1 => MkUnconsShapeRes (Shape n i) i
 unconsShape :: Shape n1 i -> Maybe (UnconsShapeRes i n1)
 unconsShape (Shape sh) = case sh of
   i ::: sh' -> Just (MkUnconsShapeRes (Shape sh') i)
