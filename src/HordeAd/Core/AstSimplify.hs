@@ -551,7 +551,7 @@ astIndexSOrStepOnly
 astIndexSOrStepOnly stepOnly (Ast.AstIndexS v ix) ZSH =
   astIndexSOrStepOnly stepOnly v ix
 astIndexSOrStepOnly _ v0 ZSH = v0
-astIndexSOrStepOnly stepOnly v0 ix@((:!!!$) @in1 i1 (rest1 :: AstIndexS shm1)) =
+astIndexSOrStepOnly stepOnly v0 ix@((::$) @in1 i1 (rest1 :: AstIndexS shm1)) =
   let astIndexRec, astIndex
         :: forall shm' shn' s'.
            ( Sh.Shape shm', Sh.Shape shn', Sh.Shape (shm' Sh.++ shn')
@@ -651,7 +651,7 @@ astIndexSOrStepOnly stepOnly v0 ix@((:!!!$) @in1 i1 (rest1 :: AstIndexS shm1)) =
                              ix
 -- TODO:
 --  Ast.AstScatterS @sh2 @p7 @sh7
---                  v (vars, AstIntVar var5 :!!!$ (ix2 :: AstIndexS p71))
+--                  v (vars, AstIntVar var5 ::$ (ix2 :: AstIndexS p71))
 --    | AstIntVar var6 <- i1, var6 == var5 ->
 --        gcastWith (unsafeCoerce Refl
 --                   :: shm1 Sh.++ shn :~: p71 Sh.++ Sh.Drop p7 sh7) $
@@ -696,19 +696,19 @@ astIndexSOrStepOnly stepOnly v0 ix@((:!!!$) @in1 i1 (rest1 :: AstIndexS shm1)) =
     let i = fromIntegral $ OR.unScalar it
         len = valueOf @m3 :: Int
     in if len > i
-       then astIndex @(m3 ': shm1) u (i1 :!!!$ rest1)
+       then astIndex @(m3 ': shm1) u (i1 ::$ rest1)
        else astIndex @(n3 ': shm1)
-                     v (simplifyAst (i1 - fromIntegral len) :!!!$ rest1)
+                     v (simplifyAst (i1 - fromIntegral len) ::$ rest1)
   Ast.AstAppendS{} ->  -- normal form
     Ast.AstIndexS v0 ix
   Ast.AstSliceS @i v ->
     let ii = simplifyAst (i1 + fromIntegral (valueOf @i :: Int))
       -- we generate this index, so we simplify on the spot
-    in astIndex v (ii :!!!$ rest1)
+    in astIndex v (ii ::$ rest1)
   Ast.AstReverseS v ->
     let iRev = simplifyAst (fromIntegral (valueOf @in1 - 1 :: Int) - i1)
       -- we generate this index, so we simplify on the spot
-    in astIndex v (iRev :!!!$ rest1)
+    in astIndex v (iRev ::$ rest1)
   Ast.AstTransposeS @perm @sh2 v
     | length (Sh.shapeT @shm) >= length (Sh.shapeT @perm) ->
       Sh.withShapeP
@@ -735,7 +735,7 @@ astIndexSOrStepOnly stepOnly v0 ix@((:!!!$) @in1 i1 (rest1 :: AstIndexS shm1)) =
       gcastWith (unsafeCoerce Refl :: Sh.Take p sh Sh.++ shm Sh.++ shn :~: sh) $
         -- TODO: why is this needed? if it's true (it is), GHC should know it
       astIndex v (ShapedList.appendSized ix2 ix)
-  Ast.AstGatherS v (var2 :!!!$ (vars :: AstVarListS shm71), ix2) ->
+  Ast.AstGatherS v (var2 ::$ (vars :: AstVarListS shm71), ix2) ->
     withListSh (Proxy @shn) $ \_ ->
       Sh.withShapeP (Sh.shapeT @shm1 ++ Sh.shapeT @shn) $ \(Proxy @sh1n) ->
         gcastWith (unsafeCoerce Refl :: shm1 Sh.++ shn :~: sh1n) $
@@ -831,7 +831,7 @@ astGatherStepS
   -> (AstVarListS sh2, AstIndexS (Sh.Take p sh))
   -> AstShaped s r (sh2 Sh.++ Sh.Drop p sh)
 -- TODO: this probably needs an extra condition similar to kN == vkN below
---astGatherStepS v (AstVarName varId :!!!$ ZSH, AstIntVarS varId2 :!!!$ ZSH)
+--astGatherStepS v (AstVarName varId ::$ ZSH, AstIntVarS varId2 ::$ ZSH)
 --  | varId == varId2 = ...
 astGatherStepS v (vars, ix) = Ast.AstGatherS v (vars, ix)  -- TODO
 
@@ -1420,7 +1420,7 @@ astSumS t0 = case sameNat (Proxy @n) (Proxy @0) of
   _ -> case t0 of
     -- Ast.AstLetS var u v -> astLetS var u (astSumS v)
     Ast.AstLetADShareS l v -> Ast.AstLetADShareS l (astSumS v)
-    Ast.AstScatterS @sh2 @p v (vars, _ :!!!$ ix) ->
+    Ast.AstScatterS @sh2 @p v (vars, _ ::$ ix) ->
       gcastWith (unsafeCoerce Refl
                  :: Sh.Drop p (n : sh) :~: Sh.Drop (p - 1) sh) $
       gcastWith (unsafeCoerce Refl
@@ -1461,7 +1461,7 @@ astScatterS v (ZSH, ZSH) =
   gcastWith (unsafeCoerce Refl
              :: Sh.Take p sh Sh.++ Sh.Drop p sh :~: sh)
   v
-astScatterS v (AstVarName varId :!!!$ (vars :: AstVarListS sh3), ix)
+astScatterS v (AstVarName varId ::$ (vars :: AstVarListS sh3), ix)
   | not $ varId `varInIndexS` ix =
     Sh.withShapeP (Sh.shapeT @sh3
                    ++ (Sh.shapeT @(Sh.Drop p sh))) $ \(Proxy @sh4) ->
@@ -1612,7 +1612,7 @@ astReplicateNS :: forall shn shp s r.
 astReplicateNS v =
   let go :: ShapeSh shn' -> AstShaped s r (shn' Sh.++ shp)
       go ZSH = v
-      go ((:!!!$) @k @shn2 _ shn2) =
+      go ((::$) @k @shn2 _ shn2) =
         Sh.withShapeP (Sh.shapeT @shn2 ++ Sh.shapeT @shp) $ \(Proxy @sh) ->
           gcastWith (unsafeCoerce Refl :: sh :~: shn2 Sh.++ shp) $
           astReplicateS @k $ go shn2
@@ -1632,7 +1632,7 @@ astReplicate0NS :: forall shn s r. (Sh.Shape shn, GoodScalar r, AstSpan s)
 astReplicate0NS =
   let go :: ShapedList sh' Int -> AstShaped s r '[] -> AstShaped s r sh'
       go ZSH v = v
-      go (_ :!!!$ sh') v = astReplicateS $ go sh' v
+      go (_ ::$ sh') v = astReplicateS $ go sh' v
   in go (ShapedList.shapeSh @shn)
 
 astAppend :: (KnownNat n, GoodScalar r, AstSpan s)
@@ -1727,12 +1727,12 @@ astSliceS w@(Ast.AstAppendS (u :: AstShaped s r (ulen : sh))
         LTI -> astSliceS @(i - ulen) @n @k v
         EQI -> astSliceS @0 @n @k v
         GTI -> Ast.AstSliceS @i w -- cheap iff fits in one
-astSliceS (Ast.AstGatherS v (var :!!!$ vars, ix)) =
+astSliceS (Ast.AstGatherS v (var ::$ vars, ix)) =
   let ivar = AstIntVar var + valueOf @i
       ix2 = substituteAstIndexS  -- cheap subst, because ivar is tiny
               (SubstitutionPayloadRanked @PrimalSpan @Int64 ivar)
               var ix
-  in astGatherS v (var :!!!$ vars, ix2)
+  in astGatherS v (var ::$ vars, ix2)
 astSliceS v = Ast.AstSliceS @i v
 
 astReverse :: forall n s r. (KnownNat n, GoodScalar r, AstSpan s)
@@ -1761,12 +1761,12 @@ astReverseS (Ast.AstFromListS l) = Ast.AstFromListS $ reverse l
 astReverseS (Ast.AstFromVectorS l) = Ast.AstFromVectorS $ V.reverse l
 astReverseS (Ast.AstReplicateS v) = Ast.AstReplicateS v
 astReverseS (Ast.AstReverseS v) = v
-astReverseS (Ast.AstGatherS v ((:!!!$) @k var vars, ix)) =
+astReverseS (Ast.AstGatherS v ((::$) @k var vars, ix)) =
   let ivar = valueOf @k - AstIntVar var
       ix2 = substituteAstIndexS  -- cheap subst, because ivar is tiny
               (SubstitutionPayloadRanked @PrimalSpan @Int64 ivar)
               var ix
-  in astGatherS v (var :!!!$ vars, ix2)
+  in astGatherS v (var ::$ vars, ix2)
 astReverseS v = Ast.AstReverseS v
 
 -- Beware, this does not do full simplification, which often requires

@@ -457,9 +457,9 @@ class ( Integral (IntOf shaped), CShaped shaped Num
   suncons :: forall r n sh. (GoodScalar r, KnownNat n, Sh.Shape sh)
           => shaped r (n ': sh) -> Maybe (shaped r sh, shaped r (n - 1 ': sh))
   suncons v = case cmpNat (Proxy @1) (Proxy @n) of
-    EQI -> Just ( v !$ (0 :!!!$ ZSH)
+    EQI -> Just ( v !$ (0 ::$ ZSH)
                 , sslice @shaped @r @1 @(n - 1) @0 Proxy Proxy v )
-    LTI -> Just ( v !$ (0 :!!!$ ZSH)
+    LTI -> Just ( v !$ (0 ::$ ZSH)
                 , sslice @shaped @r @1 @(n - 1) @0 Proxy Proxy v )
     _ -> Nothing
   sreverse :: (GoodScalar r, KnownNat n, Sh.Shape sh)
@@ -493,7 +493,7 @@ class ( Integral (IntOf shaped), CShaped shaped Num
           -> shaped r (sh1 Sh.++ Sh.Drop m sh)
         buildSh sh1 sh1m f = case (sh1, sh1m) of
           (ZSH, _) -> f ZSH
-          (_ :!!!$ sh2, _ :!!!$ sh2m) ->
+          (_ ::$ sh2, _ ::$ sh2m) ->
             let g i = buildSh sh2 sh2m (f . consShaped i)
             in sbuild1 g
     in gcastWith (unsafeCoerce Refl
