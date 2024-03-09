@@ -159,7 +159,7 @@ build1V k (var, v00) =
       let var2 = AstVarName oldVarId  -- changed shape; TODO: shall we rename?
           sh = shapeAst u
           projection = Ast.AstIndex (Ast.AstVar (k :$: sh) var2)
-                                    (Ast.AstIntVar var :. ZI)
+                                    (Ast.AstIntVar var :.: ZI)
           -- The subsitutions of projections don't break sharing,
           -- because they don't duplicate variables and the added var
           -- is eventually being eliminated instead of substituted for.
@@ -214,7 +214,7 @@ build1V k (var, v00) =
       let (varFresh, astVarFresh, ix2) = intBindingRefresh var ix
       in astScatter (k :$: sh)
                     (build1VOccurenceUnknown k (var, v))
-                    (varFresh ::: vars, astVarFresh :. ix2)
+                    (varFresh ::: vars, astVarFresh :.: ix2)
 
     Ast.AstFromList l -> traceRule $
       astTr $ astFromList (map (\v -> build1VOccurenceUnknown k (var, v)) l)
@@ -239,7 +239,7 @@ build1V k (var, v00) =
       let (varFresh, astVarFresh, ix2) = intBindingRefresh var ix
       in astGatherStep (k :$: sh)
                        (build1VOccurenceUnknown k (var, v))
-                       (varFresh ::: vars, astVarFresh :. ix2)
+                       (varFresh ::: vars, astVarFresh :.: ix2)
     Ast.AstCast v -> astCast $ build1V k (var, v)
     Ast.AstFromIntegral v -> astFromIntegral $ build1V k (var, v)
     Ast.AstConst{} ->
@@ -307,7 +307,7 @@ build1VIndex
   => Int -> (IntVarName, AstRanked s r (m + n), AstIndex m)
   -> AstRanked s r (1 + n)
 build1VIndex k (var, v0, ZI) = build1VOccurenceUnknown k (var, v0)
-build1VIndex k (var, v0, ix@(_ :. _)) =
+build1VIndex k (var, v0, ix@(_ :.: _)) =
   let traceRule = mkTraceRule "build1VIndex"
                               (Ast.AstBuild1 k (var, Ast.AstIndex v0 ix))
                               v0 1
@@ -320,7 +320,7 @@ build1VIndex k (var, v0, ix@(_ :. _)) =
              ruleD = astGatherStep
                        (k :$: dropShape (shapeAst v1))
                        (build1V k (var, v1))
-                       (varFresh ::: ZR, astVarFresh :. ix2)
+                       (varFresh ::: ZR, astVarFresh :.: ix2)
          in if varNameInAst var v1
             then case v1 of  -- try to avoid ruleD if not a normal form
               Ast.AstFromList{} | valueOf @p == (1 :: Int) -> ruleD
@@ -662,7 +662,7 @@ build1VHVector k@SNat (var, v0) =
     let var2 = AstVarName oldVarId  -- changed shape; TODO: shall we rename?
         sh = shapeAst u
         projection = Ast.AstIndex (Ast.AstVar (sNatValue k :$: sh) var2)
-                                  (Ast.AstIntVar var :. ZI)
+                                  (Ast.AstIntVar var :.: ZI)
         v2 = substituteAstHVector
                (SubstitutionPayloadRanked @s1 @r1 projection) var1 v
     in astLetInHVector var2 (build1VOccurenceUnknown (sNatValue k) (var, u))
@@ -760,7 +760,7 @@ substProjRanked k var sh1 var1@(AstVarName varId) =
   let var2 = AstVarName varId
       projection =
         Ast.AstIndex (Ast.AstVar (k :$: sh1) var2)
-                     (Ast.AstIntVar var :. ZI)
+                     (Ast.AstIntVar var :.: ZI)
   in substituteAst
        (SubstitutionPayloadRanked @s1 @r1 projection) var1
 
@@ -774,7 +774,7 @@ substProjShaped k var sh1 var1@(AstVarName varId) =
   let var2 = AstVarName varId
       projection =
         Ast.AstIndex (Ast.AstVar (k :$: sh1) var2)
-                     (Ast.AstIntVar var :. ZI)
+                     (Ast.AstIntVar var :.: ZI)
   in substituteAstS
        (SubstitutionPayloadRanked @s1 @r1 projection) var1
 
@@ -813,7 +813,7 @@ substProjHVector k var sh1 var1@(AstVarName varId) =
   let var2 = AstVarName varId
       projection =
         Ast.AstIndex (Ast.AstVar (k :$: sh1) var2)
-                     (Ast.AstIntVar var :. ZI)
+                     (Ast.AstIntVar var :.: ZI)
   in substituteAstHVector
        (SubstitutionPayloadRanked @s1 @r1 projection) var1
 

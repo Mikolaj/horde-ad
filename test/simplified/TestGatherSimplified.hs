@@ -67,8 +67,8 @@ gatherNested1 t =
           (2 :$: ZS)
           (rgather @ranked @r @1
                    (4 :$: 2 :$: ZS) t
-                   (\(k3 :. ZI) -> k3 :. ZI))
-          (\(i2 :. ZI) -> i2 + i2 :. i2 :. ZI)
+                   (\(k3 :.: ZI) -> k3 :.: ZI))
+          (\(i2 :.: ZI) -> i2 + i2 :.: i2 :.: ZI)
 
 testGatherNested1 :: Assertion
 testGatherNested1 =
@@ -94,7 +94,7 @@ gather1 t =
   rgather @ranked @r @1
           (2 :$: ZS)
           t
-          (\(i2 :. ZI) -> i2 + i2 :. i2 :. ZI)
+          (\(i2 :.: ZI) -> i2 + i2 :.: i2 :.: ZI)
 
 testGather1 :: Assertion
 testGather1 =
@@ -132,8 +132,8 @@ gatherNested2 t =
           (2 :$: 3 :$: ZS)
           (rgather @ranked @r @3
                    (2 :$: 3 :$: 4 :$: 2 :$: ZS) t
-                   (\(k1 :. k2 :. k3 :. ZI) -> k1 + k2 + k3 :. ZI))
-          (\(i1 :. i2 :. ZI) -> i1 :. i2 :. i1 + i2 :. i1 :. ZI)
+                   (\(k1 :.: k2 :.: k3 :.: ZI) -> k1 + k2 + k3 :.: ZI))
+          (\(i1 :.: i2 :.: ZI) -> i1 :.: i2 :.: i1 + i2 :.: i1 :.: ZI)
 
 testGatherNested2 :: Assertion
 testGatherNested2 =
@@ -159,7 +159,7 @@ gather2 t =
   rgather @ranked @r @2
           (2 :$: 3 :$: ZS)
           t
-          (\(i1 :. i2 :. ZI) -> i1 + i2 + i1 + i2 :. i1 :. ZI)
+          (\(i1 :.: i2 :.: ZI) -> i1 + i2 + i1 + i2 :.: i1 :.: ZI)
 
 testGather2 :: Assertion
 testGather2 =
@@ -197,8 +197,8 @@ gatherNested12 t =
           (2 :$: 4 :$: ZS)
           (rgather @ranked @r @3
                    (2 :$: 3 :$: 4 :$: ZS) t
-                   (\(k1 :. k2 :. k3 :. ZI) -> k1 + k2 + k3 :. k1 :. ZI))
-          (\(i1 :. ZI) -> i1 :. i1 + i1 :. ZI)
+                   (\(k1 :.: k2 :.: k3 :.: ZI) -> k1 + k2 + k3 :.: k1 :.: ZI))
+          (\(i1 :.: ZI) -> i1 :.: i1 + i1 :.: ZI)
 
 testGatherNested12 :: Assertion
 testGatherNested12 =
@@ -225,7 +225,7 @@ gather12 t =
   rgather @ranked @r @2
           (2 :$: 4 :$: ZS)
           t
-          (\(i1 :. k3 :. ZI) -> i1 + i1 + i1 + k3 :. i1 :. ZI)
+          (\(i1 :.: k3 :.: ZI) -> i1 + i1 + i1 + k3 :.: i1 :.: ZI)
 
 testGather12 :: Assertion
 testGather12 =
@@ -404,8 +404,8 @@ scatterNested1 t =
           (2 :$: ZS)
           (rscatter @ranked @r @1
                    (7 :$: 2 :$: ZS) t
-                   (\(k3 :. ZI) -> k3 :. ZI))
-          (\(i1 :. i2 :. ZI) -> i2 `quot` (1 + i1) :. ZI)
+                   (\(k3 :.: ZI) -> k3 :.: ZI))
+          (\(i1 :.: i2 :.: ZI) -> i2 `quot` (1 + i1) :.: ZI)
 
 testScatterNested1 :: Assertion
 testScatterNested1 =
@@ -430,7 +430,7 @@ scatter1 t =
   rscatter @ranked @r @2
           (2 :$: ZS)
           t
-          (\(i1 :. i2 :. ZI) -> minF (i2 + 2 * i1) 1 :. ZI)
+          (\(i1 :.: i2 :.: ZI) -> minF (i2 + 2 * i1) 1 :.: ZI)
 
 testScatter1 :: Assertion
 testScatter1 =
@@ -467,9 +467,9 @@ scatterNested2 t =
           (2 :$: 3 :$: ZS)
           (rscatter @ranked @r @1
                    (2 :$: 3 :$: 4 :$: 2 :$: ZS) t
-                   (\(k1 :. ZI) -> minF k1 1 :. minF k1 2  :. minF k1 3 :. ZI))
-          (\(i1 :. i2 :. _i3 :. i4 :. ZI) ->
-            minF (i1 + i2) 1 :. minF (i4 + i1) 2 :. ZI)
+                   (\(k1 :.: ZI) -> minF k1 1 :.: minF k1 2  :.: minF k1 3 :.: ZI))
+          (\(i1 :.: i2 :.: _i3 :.: i4 :.: ZI) ->
+            minF (i1 + i2) 1 :.: minF (i4 + i1) 2 :.: ZI)
 
 testScatterNested2 :: Assertion
 testScatterNested2 =
@@ -495,7 +495,7 @@ scatter2 t =
   rscatter @ranked @r @2
           (2 :$: 3 :$: ZS)
           t
-          (\(i1 :. i2 :. ZI) -> minF (i1 + i2 + i1 + i2) 1 :. minF i1 2 :. ZI)
+          (\(i1 :.: i2 :.: ZI) -> minF (i1 + i2 + i1 + i2) 1 :.: minF i1 2 :.: ZI)
 
 testScatter2 :: Assertion
 testScatter2 =
@@ -533,9 +533,9 @@ scatterNested12 t =
           (2 :$: 4 :$: ZS)
           (rscatter @ranked @r @2
                    (2 :$: 3 :$: 4 :$: ZS) t
-                   (\(k1 :. k2 :. ZI) ->
-                     minF k1 1 :. minF (k2 + k1) 2 :. minF k1 3 :. ZI))
-          (\(i1 :. _i2 :. ZI) -> minF (i1 + i1) 1 :. ZI)
+                   (\(k1 :.: k2 :.: ZI) ->
+                     minF k1 1 :.: minF (k2 + k1) 2 :.: minF k1 3 :.: ZI))
+          (\(i1 :.: _i2 :.: ZI) -> minF (i1 + i1) 1 :.: ZI)
 
 testScatterNested12 :: Assertion
 testScatterNested12 =
@@ -562,7 +562,7 @@ scatter12 t =
   rscatter @ranked @r @2
           (2 :$: 4 :$: ZS)
           t
-          (\(i1 :. k3 :. ZI) -> minF (i1 + i1 + i1 + k3) 1 :. minF i1 3 :. ZI)
+          (\(i1 :.: k3 :.: ZI) -> minF (i1 + i1 + i1 + k3) 1 :.: minF i1 3 :.: ZI)
 
 testScatter12 :: Assertion
 testScatter12 =

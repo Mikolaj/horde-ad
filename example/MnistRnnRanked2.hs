@@ -63,7 +63,7 @@ unrollLastR f s0 xs w =
       g (_, !s) x = f s x w
       projections :: [ranked r n]
       projections = case rshape xs of
-        len :$: _ -> map (\i -> rindex xs (fromIntegral i :. ZI)) [0 .. len - 1]
+        len :$: _ -> map (\i -> rindex xs (fromIntegral i :.: ZI)) [0 .. len - 1]
         ZS -> error "impossible pattern needlessly required"
   in foldl' g (undefined, s0) projections
 

@@ -1344,8 +1344,8 @@ fooNoGoAst v =
   in rbuild1 3 (\ix ->
        barAst (3.14, bar (3.14, rindex v [(ix + (rprimalPart . rfloor) r) `minF` 2 `maxF` 0]))
        + ifF ( (&&*)
-                    (rindex v (ix * 2 :. ZI) <=. 0)
-                        -- @1 not required thanks to :.; see below for @ and []
+                    (rindex v (ix * 2 :.: ZI) <=. 0)
+                        -- @1 not required thanks to :.:; see below for @ and []
                     (6 >. abs ix) )
                  r (5 * r))
      / rslice 1 3 (rmap0N (\x -> ifF (x >. r) r x) v)
@@ -1391,7 +1391,7 @@ nestedBuildMap r =
       v0' = rreplicate0N [177] r :: ranked r 1
   in rlet v0' $ \v' ->
     let nestedMap x0 = rlet x0 $ \x -> rmap0N (x /) (w x)
-        variableLengthBuild iy = rbuild1 7 (\ix -> rindex v' (ix + iy :. ZI))
+        variableLengthBuild iy = rbuild1 7 (\ix -> rindex v' (ix + iy :.: ZI))
         doublyBuild = rbuild1 5 (rminimum . variableLengthBuild)
     in rmap0N (\x0 -> rlet x0 $ \x -> x * rsum0
                            (rbuild1 3 (\ix -> bar (x, rindex v' [ix]))
@@ -1433,7 +1433,7 @@ testNestedSumBuild =
 nestedBuildIndex :: forall ranked r. (ADReady ranked, GoodScalar r)
                  => ranked r 1 -> ranked r 1
 nestedBuildIndex v =
-  rbuild1 2 $ \ix2 -> rindex (rbuild1 3 $ \ix3 -> rindex (rbuild1 4 $ \ix4 -> rindex v (ix4 :. ZI)) [ix3]) (ix2 :. ZI)
+  rbuild1 2 $ \ix2 -> rindex (rbuild1 3 $ \ix3 -> rindex (rbuild1 4 $ \ix4 -> rindex v (ix4 :.: ZI)) [ix3]) (ix2 :.: ZI)
 
 testNestedBuildIndex :: Assertion
 testNestedBuildIndex =
@@ -1640,7 +1640,7 @@ braidedBuilds :: forall ranked r.
 braidedBuilds r =
   rbuild1 3 (\ix1 ->
     rbuild1 4 (\ix2 -> rindex (rfromList0N [4]
-      [rfromIndex0 ix2, 7, r, -0.2]) (ix1 :. ZI)))
+      [rfromIndex0 ix2, 7, r, -0.2]) (ix1 :.: ZI)))
 
 testBraidedBuilds1 :: Assertion
 testBraidedBuilds1 =
@@ -1679,13 +1679,13 @@ emptyArgs t =
   rfromList @ranked @r @0 []
   - rfromList0N (rshape @ranked @r (rfromList [])) []
   - rreshape @ranked @r @1 [0] (rfromList [])
-  - rgather1 0 (rfromList []) (:. ZI)
+  - rgather1 0 (rfromList []) (:.: ZI)
   - rsum (rgather1 0 (rfromList []) (const ZI))
-  - rsum (rgather @ranked @r @2 (0 :$: 0 :$: ZS) (rfromList []) (const (0 :. ZI)))
+  - rsum (rgather @ranked @r @2 (0 :$: 0 :$: ZS) (rfromList []) (const (0 :.: ZI)))
   - rsum (rgather @ranked @r @2 @0 @1 [0, 0] (rfromList []) (const [0]))
   - rsum (rreshape @ranked @r @1 [0, 0] (rfromList []))
-  - rindex (rfromList0N (0 :$: 0 :$: ZS) []) (42 :. ZI)
-  - rindex (rfromList0N (0 :$: rshape @ranked @r (rfromList [])) []) (42 :. ZI)
+  - rindex (rfromList0N (0 :$: 0 :$: ZS) []) (42 :.: ZI)
+  - rindex (rfromList0N (0 :$: rshape @ranked @r (rfromList [])) []) (42 :.: ZI)
   - rsum (rfromList0N (0 :$: rshape @ranked @r (rfromList [])) [])
   * rsum (rfromList [rsum (rfromList0N (0 :$: rshape @ranked @r (rfromList [])) [])])
   * rflatten (rtr (rgather1 0 t (const ZI)))

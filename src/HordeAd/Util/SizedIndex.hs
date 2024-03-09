@@ -6,7 +6,7 @@ module HordeAd.Util.SizedIndex
   ( -- * Concrete type synonyms to be used in many other modules
     ShapeInt, Permutation
     -- * Tensor indexes as fully encapsulated sized lists, with operations
-  , Index, pattern (:.), pattern ZI
+  , Index, pattern (:.:), pattern ZI
   , singletonIndex, snocIndex, appendIndex
   , headIndex, tailIndex, takeIndex, dropIndex, splitAt_Index, splitAtInt_Index
   , unsnocIndex1, lastIndex, initIndex, zipIndex, zipWith_Index
@@ -54,7 +54,7 @@ type ShapeInt n = Shape n Int
 
 -- | An index in an n-dimensional array represented as a sized list.
 -- The slowest-moving index is at the head position;
--- thus the index 'i :. j :. Z' represents 'a[i][j]' in traditional C notation.
+-- thus the index 'i :.: j :.: Z' represents 'a[i][j]' in traditional C notation.
 --
 -- Since we don't have type-level shape information in this variant,
 -- we don't assume the indexes are legal, meaning non-negative and bound
@@ -74,12 +74,12 @@ instance Show i => Show (Index n i) where
 pattern ZI :: forall n i. () => n ~ 0 => Index n i
 pattern ZI = Index ZR
 
-infixr 3 :.
-pattern (:.) :: forall n1 i. KnownNat n1 => forall n. (KnownNat n, (1 + n) ~ n1)
+infixr 3 :.:
+pattern (:.:) :: forall n1 i. KnownNat n1 => forall n. (KnownNat n, (1 + n) ~ n1)
              => i -> Index n i -> Index n1 i
-pattern i :. sh <- (unconsIndex -> Just (UnconsIndexRes sh i))
-  where i :. (Index sh) = Index (i ::: sh)
-{-# COMPLETE ZI, (:.) #-}
+pattern i :.: sh <- (unconsIndex -> Just (UnconsIndexRes sh i))
+  where i :.: (Index sh) = Index (i ::: sh)
+{-# COMPLETE ZI, (:.:) #-}
 
 type role UnconsIndexRes representational nominal
 data UnconsIndexRes i n1 =
@@ -325,7 +325,7 @@ toLinearIdx = \sh idx -> go sh idx 0
     go :: KnownNat m1
        => Shape (m1 + n) i -> Index m1 j -> j -> j
     go sh ZI tensidx = fromIntegral (sizeShape sh) * tensidx
-    go (n :$: sh) (i :. idx) tensidx = go sh idx (fromIntegral n * tensidx + i)
+    go (n :$: sh) (i :.: idx) tensidx = go sh idx (fromIntegral n * tensidx + i)
     go _ _ _ = error "toLinearIdx: impossible pattern needlessly required"
 
 -- | Given a linear index into the buffer, get the corresponding
@@ -345,13 +345,13 @@ fromLinearIdx = \sh lin -> snd (go sh lin)
     go :: KnownNat n1 => Shape n1 i -> j -> (j, Index n1 j)
     go ZS n = (n, ZI)
     go (0 :$: sh) _ =
-      (0, 0 :. zeroOf sh)
+      (0, 0 :.: zeroOf sh)
     go (n :$: sh) lin =
       let (tensLin, idxInTens) = go sh lin
           (tensLin', i) = tensLin `quotRem` fromIntegral n
-      in (tensLin', i :. idxInTens)
+      in (tensLin', i :.: idxInTens)
 
 -- | The zero index in this shape (not dependent on the actual integers).
 zeroOf :: (Num j, KnownNat n) => Shape n i -> Index n j
 zeroOf ZS = ZI
-zeroOf (_ :$: sh) = 0 :. zeroOf sh
+zeroOf (_ :$: sh) = 0 :.: zeroOf sh
