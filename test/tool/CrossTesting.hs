@@ -237,7 +237,7 @@ rev' f vals =
       gradient5AstS = parseHVector vals astPSimpleAstS
       cderivative = cfwd f vals vals
       derivative = fwd @(AstRanked FullSpan r m) f vals vals
-      derivativeRfwd1 = rfwd1 @(Flip OR.Array) @r @n @m f vals
+      derivativeRfwd1 = rfwd1ds @(Flip OR.Array) @r @n @m f vals vals
   in ( value0, value1, value2, value3, value2UnSimp, value3UnSimp
      , value4, value5
      , gradient1, gradientRrev1, gradient2, gradient3
@@ -363,6 +363,8 @@ assertEqualUpToEpsilon'
                                  errMargin cderivative derivativeRfwd1
   -- The formula for comparing derivative and gradient is due to @awf
   -- at https://github.com/Mikolaj/horde-ad/issues/15#issuecomment-1063251319
+  -- and a similar property stated mathematically is in Lemma 1 in
+  -- https://www.microsoft.com/en-us/research/uploads/prod/2021/08/higher-order-ad.pdf
   assertEqualUpToEpsilonWithMark "Reverse vs forward"
                                  1e-5 (rdot0 expected vals) (rsum0 derivative)
   -- No Eq instance, so let's compare the text.
@@ -494,17 +496,22 @@ rrev1 f u =
       domsOf = rrev @g fHVector shapes (V.singleton $ DynamicRanked u)
   in rletHVectorIn domsOf (\v -> rfromD $ v V.! 0)
 
-rfwd1 :: forall g r n m r3.
-         (ADReady g, GoodScalar r, GoodScalar r3, KnownNat n, KnownNat m)
-      => (forall f. ADReady f => f r n -> f r3 m) -> g r n -> g r3 m
-rfwd1 f u =
+rfwd1ds :: forall g r n m r3.
+           (ADReady g, GoodScalar r, GoodScalar r3, KnownNat n, KnownNat m)
+        => (forall f. ADReady f => f r n -> f r3 m) -> g r n -> g r n -> g r3 m
+rfwd1ds f u ds =
   let fHVector :: forall f. ADReady f => HVector f -> f r3 m
       fHVector v = f (rfromD $ v V.! 0)
       sh = rshape u
       zero = voidFromSh @r @n sh
       shapes = V.fromList [zero]
   in rfwd @g fHVector shapes (V.singleton $ DynamicRanked u)
-                             (V.singleton $ DynamicRanked u)  -- simple
+                             (V.singleton $ DynamicRanked ds)
+
+rfwd1 :: forall g r n m r3.
+         (ADReady g, GoodScalar r, GoodScalar r3, KnownNat n, KnownNat m)
+      => (forall f. ADReady f => f r n -> f r3 m) -> g r n -> g r3 m
+rfwd1 f u = rfwd1ds f u (rreplicate0N (rshape u) 1)
 
 srev1 :: forall g r sh sh2 r3.
          (ADReadyS g, GoodScalar r, GoodScalar r3, Sh.Shape sh, Sh.Shape sh2)
@@ -529,4 +536,4 @@ sfwd1 f u =
       zero = voidFromShS @r @sh
       shapes = V.fromList [zero]
   in sfwd @(RankedOf g) fHVector shapes (V.singleton $ DynamicShaped u)
-                                        (V.singleton $ DynamicShaped u)
+                                        (V.singleton $ DynamicShaped @r @sh 1)

@@ -399,7 +399,7 @@ testSin0Rrev5' = do
 testSin0Rfwd :: Assertion
 testSin0Rfwd = do
   assertEqualUpToEpsilon 1e-10
-    0.4989557335681351
+    0.4535961214255773  -- agrees with the rrev1 version above
     (rfwd1 @(Flip OR.Array) @Double @0 @0 sin 1.1)
 
 testSin0RfwdPP1 :: Assertion
@@ -407,40 +407,40 @@ testSin0RfwdPP1 = do
   resetVarCounter
   let a1 = rfwd1 @(AstRanked PrimalSpan) @Double @0 @0 sin 1.1
   printAstPretty IM.empty a1
-    @?= "1.1 * cos 1.1"
+    @?= "1.0 * cos 1.1"  -- agrees with the rrev1 version above
 
 testSin0RfwdPP1FullUnsimp :: Assertion
 testSin0RfwdPP1FullUnsimp = do
   resetVarCounter
   let a1 = rfwd1 @(AstRanked FullSpan) @Double @0 @0 sin 1.1
   printAstPretty IM.empty a1
-    @?= "let [x4 @Natural @Double @[]] = (\\[x1] [x2] -> let x3 = x1 * cos x2 in [x3]) [[1.1], [1.1]] in x4"
+    @?= "let [x4 @Natural @Double @[]] = (\\[x1] [x2] -> let x3 = x1 * cos x2 in [x3]) [[1.0], [1.1]] in x4"
 
 testSin0RfwdPP1Full :: Assertion
 testSin0RfwdPP1Full = do
   resetVarCounter
   let a1 = rfwd1 @(AstRanked FullSpan) @Double @0 @0 sin 1.1
   printAstPretty IM.empty (simplifyAst6 a1)
-    @?= "let [x4 @Natural @Double @[]] = (\\[x1] [x2] -> [x1 * cos x2]) [[1.1], [1.1]] in x4"
+    @?= "let [x4 @Natural @Double @[]] = (\\[x1] [x2] -> [x1 * cos x2]) [[1.0], [1.1]] in x4"
 
 testSin0Rfwd3 :: Assertion
 testSin0Rfwd3 = do
   let f = rfwd1 @(ADVal (Flip OR.Array)) @Double @0 @0 sin
   assertEqualUpToEpsilon 1e-10
-    (-0.5794051721062019)
+    (-0.9803280960675791)
     (cfwd f 1.1 1.1)
 
 testSin0Rfwd4 :: Assertion
 testSin0Rfwd4 = do
   assertEqualUpToEpsilon 1e-10
-    0.43812441332801516
+    0.8988770945225438  -- agrees with the rrev1 version above
     ((rfwd1 sin . rfwd1 @(Flip OR.Array) @Double @0 @0 sin) 1.1)
 
 testSin0RfwdPP4 :: Assertion
 testSin0RfwdPP4 = do
   let a1 = (rfwd1 sin . rfwd1 @(AstRanked PrimalSpan) @Double @0 @0 sin) 1.1
   printAstPretty IM.empty (simplifyAst6 a1)
-    @?= "(1.1 * cos 1.1) * cos (1.1 * cos 1.1)"
+    @?= "1.0 * cos (1.0 * cos 1.1)"  -- agrees with the rrev1 version above
 
 -- Disabled, because different variable names with -O1.
 _testSin0RfwdPP4Dual :: Assertion
@@ -452,31 +452,31 @@ _testSin0RfwdPP4Dual = do
 testSin0Rfwd5 :: Assertion
 testSin0Rfwd5 = do
   assertEqualUpToEpsilon 1e-10
-    (-0.5794051721062019)
+    (-0.8912073600614354)  -- agrees with the rrev1 version above
     (rfwd1 @(Flip OR.Array) @Double @0 @0 (rfwd1 sin) 1.1)
 
 testSin0RfwdPP5 :: Assertion
 testSin0RfwdPP5 = do
   let a1 = rfwd1 @(AstRanked PrimalSpan) @Double @0 @0 (rfwd1 sin) 1.1
   printAstPretty IM.empty (simplifyAst6 a1)
-    @?= "1.1 * cos 1.1 + (1.1 * negate (sin 1.1)) * 1.1"
+    @?= "(1.0 * negate (sin 1.1)) * 1.0"  -- agrees with the rrev1 version above
 
 testSin0Rfwd3' :: Assertion
 testSin0Rfwd3' = do
   assertEqualUpToEpsilon' 1e-10
-    (-0.5267319746420018 :: OR.Array 0 Double)
+    (-0.8912073600614354 :: OR.Array 0 Double)
     (rev' (rfwd1 sin) 1.1)
 
 testSin0Rfwd4' :: Assertion
 testSin0Rfwd4' = do
   assertEqualUpToEpsilon' 1e-10
-    (-0.336754499012933 :: OR.Array 0 Double)
+    (0.39052780643689855 :: OR.Array 0 Double)
     (rev' (rfwd1 sin . rfwd1 sin) 1.1)
 
 testSin0Rfwd5' :: Assertion
 testSin0Rfwd5' = do
   assertEqualUpToEpsilon' 1e-10
-    (-3.036239473702109 :: OR.Array 0 Double)
+    (-0.4535961214255773 :: OR.Array 0 Double)
     (rev' (rfwd1 (rfwd1 sin)) 1.1)
 
 testSin0Rrev5S :: Assertion
@@ -785,7 +785,7 @@ testSin0Fold18Srev = do
 testSin0Fold8fwd :: Assertion
 testSin0Fold8fwd = do
   assertEqualUpToEpsilon 1e-10
-    (Flip $ OR.constant [2, 5] (-0.242034255165279))
+    (Flip $ OR.constant [2, 5] (-0.2200311410593445))
     (rfwd1 @(Flip OR.Array) @Double @0 @2
        (\a0 -> rfold (\x a -> rtr $ rreplicate 5
                                  $ atan2 (rsum (rtr $ sin x))
@@ -804,13 +804,13 @@ testSin0Fold8fwd2 = do
                         (rreplicate 2 (rreplicate 5 (2 * a0)))
                         (rreplicate 3 a0))
   assertEqualUpToEpsilon 1e-10
-    106.39901975715969
+    98.72666469795735
     (crev h 1.1)
 
 testSin0Fold8Sfwd :: Assertion
 testSin0Fold8Sfwd = do
   assertEqualUpToEpsilon 1e-10
-    (Flip $ OR.constant [2, 5] (-0.242034255165279))
+    (Flip $ OR.constant [2, 5] (-0.2200311410593445))
     (rfwd1 (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[2, 5]
                 f a0 = sfold @_ @f @Double @Double @'[2, 5] @'[] @3
                         (\x a -> str $ sreplicate @_ @5
@@ -835,7 +835,7 @@ testSin0Fold8Sfwd2 = do
                         (sreplicate @_ @3 a0)
                  in rfromS . f . sfromR)
   assertEqualUpToEpsilon 1e-10
-    (Flip $ OR.constant [2, 5] 11.703892173287567)
+    (Flip $ OR.constant [2, 5] 10.859933116775313)
     (cfwd h 1.1 1.1)
 
 testSin0Fold5Sfwd :: Assertion
@@ -1013,7 +1013,7 @@ testSin0ScanFwdPP = do
                  (\x0 -> rscan (\x _a -> sin x) x0
                            (rconst (OR.constant @Double @1 [2] 42))) 1.1
   printAstPrettyButNested IM.empty (simplifyAst6 a1)
-    @?= "let v5 = rconst (fromList [2] [42.0,42.0]) in let [x6 @Natural @Double @[], v7 @Natural @Double @[2], v8 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) (\\[x16] [x17] -> let x21 = sin x16 in [x21, x16, x21]) (\\[x24, x25] [x26, x27] -> let x36 = x24 * cos x26 in [x36, x24, x36]) (\\[x39, x40, x41] [x42, x43] -> [cos x42 * (x41 + x39) + x40, 0.0]) [1.1] [v5] in let [x10 @Natural @Double @[], v11 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) (\\[x57] [x58, x59, x60] -> let x62 = x57 * cos x59 in [x62, x62]) (\\[x63, x65, x67, x69] [x64, x66, x68, x70] -> let x77 = x63 * cos x68 + (x67 * negate (sin x68)) * x64 in [x77, x77]) (\\[x87, x88] [x78, x79, x80, x81] -> let x91 = x88 + x87 in [cos x80 * x91, 0, negate (sin x80) * (x78 * x91), 0]) [1.1] [rreplicate 2 0.0, v7, v5] in rappend (rreplicate 1 1.1) v11"
+    @?= "let v5 = rconst (fromList [2] [42.0,42.0]) in let [x6 @Natural @Double @[], v7 @Natural @Double @[2], v8 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) (\\[x16] [x17] -> let x21 = sin x16 in [x21, x16, x21]) (\\[x24, x25] [x26, x27] -> let x36 = x24 * cos x26 in [x36, x24, x36]) (\\[x39, x40, x41] [x42, x43] -> [cos x42 * (x41 + x39) + x40, 0.0]) [1.1] [v5] in let [x10 @Natural @Double @[], v11 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) (\\[x57] [x58, x59, x60] -> let x62 = x57 * cos x59 in [x62, x62]) (\\[x63, x65, x67, x69] [x64, x66, x68, x70] -> let x77 = x63 * cos x68 + (x67 * negate (sin x68)) * x64 in [x77, x77]) (\\[x87, x88] [x78, x79, x80, x81] -> let x91 = x88 + x87 in [cos x80 * x91, 0, negate (sin x80) * (x78 * x91), 0]) [1.0] [rreplicate 2 0.0, v7, v5] in rappend (rreplicate 1 1.0) v11"
 
 testSin0ScanFwdPPFull :: Assertion
 testSin0ScanFwdPPFull = do
@@ -1022,7 +1022,7 @@ testSin0ScanFwdPPFull = do
                  (\x0 -> rscan (\x _a -> sin x) x0
                            (rconst (OR.constant @Double @1 [2] 42))) 1.1
   printAstPrettyButNested IM.empty (simplifyAst6 a1)
-    @?= "let [v15 @Natural @Double @[3]] = (\\[x1] [x2] -> let v5 = rconst (fromList [2] [42.0,42.0]) in let [x6 @Natural @Double @[], v7 @Natural @Double @[2], v8 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) (\\[x16] [x17] -> let x21 = sin x16 in [x21, x16, x21]) (\\[x24, x25] [x26, x27] -> let x36 = x24 * cos x26 in [x36, x24, x36]) (\\[x39, x40, x41] [x42, x43] -> [cos x42 * (x41 + x39) + x40, 0.0]) [x2] [v5] in let [x10 @Natural @Double @[], v11 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) (\\[x57] [x58, x59, x60] -> let x62 = x57 * cos x59 in [x62, x62]) (\\[x63, x65, x67, x69] [x64, x66, x68, x70] -> let x77 = x63 * cos x68 + (x67 * negate (sin x68)) * x64 in [x77, x77]) (\\[x87, x88] [x78, x79, x80, x81] -> let x91 = x88 + x87 in [cos x80 * x91, 0, negate (sin x80) * (x78 * x91), 0]) [x1] [rreplicate 2 0.0, v7, v5] in [rappend (rreplicate 1 x1) v11]) [[1.1], [1.1]] in v15"
+    @?= "let [v15 @Natural @Double @[3]] = (\\[x1] [x2] -> let v5 = rconst (fromList [2] [42.0,42.0]) in let [x6 @Natural @Double @[], v7 @Natural @Double @[2], v8 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) (\\[x16] [x17] -> let x21 = sin x16 in [x21, x16, x21]) (\\[x24, x25] [x26, x27] -> let x36 = x24 * cos x26 in [x36, x24, x36]) (\\[x39, x40, x41] [x42, x43] -> [cos x42 * (x41 + x39) + x40, 0.0]) [x2] [v5] in let [x10 @Natural @Double @[], v11 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) (\\[x57] [x58, x59, x60] -> let x62 = x57 * cos x59 in [x62, x62]) (\\[x63, x65, x67, x69] [x64, x66, x68, x70] -> let x77 = x63 * cos x68 + (x67 * negate (sin x68)) * x64 in [x77, x77]) (\\[x87, x88] [x78, x79, x80, x81] -> let x91 = x88 + x87 in [cos x80 * x91, 0, negate (sin x80) * (x78 * x91), 0]) [x1] [rreplicate 2 0.0, v7, v5] in [rappend (rreplicate 1 x1) v11]) [[1.0], [1.1]] in v15"
 
 testSin0Scan1Rev2PP1 :: Assertion
 testSin0Scan1Rev2PP1 = do
@@ -1101,7 +1101,7 @@ testSin0ScanFwd3PP = do
                  (\x0 -> rscan (\x a -> sin x - a) x0
                            (rfromList [x0 * 5, x0 * 7])) 1.1
   printAstPretty IM.empty (simplifyAst6 a1)
-    @?= "let v5 = rfromList [1.1 * 5.0, 1.1 * 7.0] in let [x6 @Natural @Double @[], v7 @Natural @Double @[2], v8 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.1] [v5] in let [x13 @Natural @Double @[], v14 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.1] [rfromList [1.1 * 5.0, 1.1 * 7.0], v7, v5] in rappend (rreplicate 1 1.1) v14"
+    @?= "let v5 = rfromList [1.1 * 5.0, 1.1 * 7.0] in let [x6 @Natural @Double @[], v7 @Natural @Double @[2], v8 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.1] [v5] in let [x13 @Natural @Double @[], v14 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.0] [rfromList [1.0 * 5.0, 1.0 * 7.0], v7, v5] in rappend (rreplicate 1 1.0) v14"
 
 testSin0Scan1Rev3 :: Assertion
 testSin0Scan1Rev3 = do
@@ -1119,7 +1119,7 @@ testSin0Scan1Rev3ForComparison = do
 testSin0Scan0fwd :: Assertion
 testSin0Scan0fwd = do
   assertEqualUpToEpsilon 1e-10
-    (Flip $ OR.fromList [1] [1.1])
+    (Flip $ OR.fromList [1] [1.0])
     (rfwd1 @(Flip OR.Array) @Double @0 @1
     (let f :: forall f. ADReady f => f Double 0 -> f Double 1
          f x0 = rscan (\x _a -> sin x)
@@ -1129,7 +1129,7 @@ testSin0Scan0fwd = do
 testSin0Scan1fwd :: Assertion
 testSin0Scan1fwd = do
   assertEqualUpToEpsilon 1e-10
-    (Flip $ OR.fromList [2] [1.1,0.4989557335681351])
+    (Flip $ OR.fromList [2] [1.0,0.4535961214255773])
     (rfwd1 @(Flip OR.Array) @Double @0 @1
     (\x0 -> rscan (\x _a -> sin x)
                   x0 (rconst (OR.constant @Double @1 [1] 42)))
@@ -1138,14 +1138,14 @@ testSin0Scan1fwd = do
 testSin0Scan1FwdForComparison :: Assertion
 testSin0Scan1FwdForComparison = do
   assertEqualUpToEpsilon 1e-10
-    (Flip $ OR.fromList [2] [1.1,0.4989557335681351])
+    (Flip $ OR.fromList [2] [1.0,0.4535961214255773])
     (rfwd1 @(Flip OR.Array) @Double @0 @1
     (\x0 -> rfromList [x0, sin x0]) 1.1)
 
 testSin0Scan8fwd :: Assertion
 testSin0Scan8fwd = do
   assertEqualUpToEpsilon 1e-10
-    (Flip $ OR.fromList [4,2,5] [2.2,2.2,2.2,2.2,2.2,2.2,2.2,2.2,2.2,2.2,-0.6450465372542022,-0.6450465372542022,-0.6450465372542022,-0.6450465372542022,-0.6450465372542022,-0.6450465372542022,-0.6450465372542022,-0.6450465372542022,-0.6450465372542022,-0.6450465372542022,-0.2642905982717151,-0.2642905982717151,-0.2642905982717151,-0.2642905982717151,-0.2642905982717151,-0.2642905982717151,-0.2642905982717151,-0.2642905982717151,-0.2642905982717151,-0.2642905982717151,-0.242034255165279,-0.242034255165279,-0.242034255165279,-0.242034255165279,-0.242034255165279,-0.242034255165279,-0.242034255165279,-0.242034255165279,-0.242034255165279,-0.242034255165279])
+    (Flip $ OR.fromList [4,2,5] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445])
     (rfwd1 @(Flip OR.Array) @Double @0 @3
        (\a0 -> rscan (\x a -> rtr $ rreplicate 5
                                  $ atan2 (rsum (rtr $ sin x))
@@ -1164,7 +1164,7 @@ testSin0Scan8fwd2 = do
                         (rreplicate 2 (rreplicate 5 (2 * a0)))
                         (rreplicate 3 a0))
   assertEqualUpToEpsilon 1e-10
-    (Flip $ OR.fromList [] [324.086730481586])
+    (Flip $ OR.fromList [] [285.95794829475744])
     (crev h 1.1)
 
 testUnitriangular0PP :: Assertion
@@ -3072,7 +3072,7 @@ testSin0ScanDFwdPP = do
                            x0 (V.singleton $ DynamicRanked
                                $ rconst (OR.constant @Double @1 [2] 42))) 1.1
   printAstPretty IM.empty (simplifyAst6 a1)
-    @?= "let v5 = rconst (fromList [2] [42.0,42.0]) in let [x6 @Natural @Double @[], v7 @Natural @Double @[2], v8 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.1] [v5] in let [x10 @Natural @Double @[], v11 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.1] [rreplicate 2 0.0, v7, v5] in rappend (rreplicate 1 1.1) v11"
+    @?= "let v5 = rconst (fromList [2] [42.0,42.0]) in let [x6 @Natural @Double @[], v7 @Natural @Double @[2], v8 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.1] [v5] in let [x10 @Natural @Double @[], v11 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.0] [rreplicate 2 0.0, v7, v5] in rappend (rreplicate 1 1.0) v11"
 
 testSin0ScanD1Rev2PP :: Assertion
 testSin0ScanD1Rev2PP = do
@@ -3094,7 +3094,7 @@ testSin0ScanDFwd2PP = do
                          x0 (V.singleton $ DynamicRanked
                          $ rconst (OR.fromList @Double @1 [2] [5, 7]))) 1.1
   printAstPretty IM.empty (simplifyAst6 a1)
-    @?= "let v5 = rconst (fromList [2] [5.0,7.0]) in let [x6 @Natural @Double @[], v7 @Natural @Double @[2], v8 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.1] [v5] in let [x10 @Natural @Double @[], v11 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.1] [rreplicate 2 0.0, v7, v5] in rappend (rreplicate 1 1.1) v11"
+    @?= "let v5 = rconst (fromList [2] [5.0,7.0]) in let [x6 @Natural @Double @[], v7 @Natural @Double @[2], v8 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.1] [v5] in let [x10 @Natural @Double @[], v11 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.0] [rreplicate 2 0.0, v7, v5] in rappend (rreplicate 1 1.0) v11"
 
 testSin0ScanD1Rev2 :: Assertion
 testSin0ScanD1Rev2 = do
@@ -3141,12 +3141,12 @@ testSin0ScanDFwd3PP = do
                                 x0 (V.singleton $ DynamicRanked
                                     $ rfromList [x0 * 5, x0 * 7])) 1.1
   printAstPretty IM.empty (simplifyAst6 a1)
-    @?= "let v5 = rfromList [1.1 * 5.0, 1.1 * 7.0] in let [x6 @Natural @Double @[], v7 @Natural @Double @[2], v8 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.1] [v5] in let [x13 @Natural @Double @[], v14 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.1] [rfromList [1.1 * 5.0, 1.1 * 7.0], v7, v5] in rappend (rreplicate 1 1.1) v14"
+    @?= "let v5 = rfromList [1.1 * 5.0, 1.1 * 7.0] in let [x6 @Natural @Double @[], v7 @Natural @Double @[2], v8 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.1] [v5] in let [x13 @Natural @Double @[], v14 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.0] [rfromList [1.0 * 5.0, 1.0 * 7.0], v7, v5] in rappend (rreplicate 1 1.0) v14"
 
 testSin0ScanD0fwd :: Assertion
 testSin0ScanD0fwd = do
   assertEqualUpToEpsilon 1e-10
-    (Flip $ OR.fromList [1] [1.1])
+    (Flip $ OR.fromList [1] [1.0])
     (rfwd1 @(Flip OR.Array) @Double @0 @1
     (let f :: forall f. ADReady f => f Double 0 -> f Double 1
          f x0 = rscanZip (\x _a -> sin x)
@@ -3158,7 +3158,7 @@ testSin0ScanD0fwd = do
 testSin0ScanD1fwd :: Assertion
 testSin0ScanD1fwd = do
   assertEqualUpToEpsilon 1e-10
-    (Flip $ OR.fromList [2] [1.1,0.4989557335681351])
+    (Flip $ OR.fromList [2] [1.0,0.4535961214255773])
     (rfwd1 @(Flip OR.Array) @Double @0 @1
     (\x0 -> rscanZip (\x _a -> sin x)
                    (V.fromList [ voidFromSh @Double ZSR
@@ -3173,7 +3173,7 @@ testSin0ScanD1fwd = do
 testSin0ScanD8fwd :: Assertion
 testSin0ScanD8fwd = do
   assertEqualUpToEpsilon 1e-10
-    (Flip $ OR.fromList [4,2,5] [2.2,2.2,2.2,2.2,2.2,2.2,2.2,2.2,2.2,2.2,-0.6450465372542022,-0.6450465372542022,-0.6450465372542022,-0.6450465372542022,-0.6450465372542022,-0.6450465372542022,-0.6450465372542022,-0.6450465372542022,-0.6450465372542022,-0.6450465372542022,-0.2642905982717151,-0.2642905982717151,-0.2642905982717151,-0.2642905982717151,-0.2642905982717151,-0.2642905982717151,-0.2642905982717151,-0.2642905982717151,-0.2642905982717151,-0.2642905982717151,-0.242034255165279,-0.242034255165279,-0.242034255165279,-0.242034255165279,-0.242034255165279,-0.242034255165279,-0.242034255165279,-0.242034255165279,-0.242034255165279,-0.242034255165279])
+    (Flip $ OR.fromList [4,2,5] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445])
     (rfwd1 @(Flip OR.Array) @Double @0 @3
        (\a0 -> rscanZip (\x a -> rtr $ rreplicate 5
                                  $ atan2 (rsum (rtr $ sin x))
@@ -3188,7 +3188,7 @@ testSin0ScanD8fwd = do
 testSin0ScanD8fwdMapAccum :: Assertion
 testSin0ScanD8fwdMapAccum = do
   assertEqualUpToEpsilon 1e-10
-    (Flip $ OR.fromList [4,2,5] [2.2,2.2,2.2,2.2,2.2,2.2,2.2,2.2,2.2,2.2,-0.6450465372542022,-0.6450465372542022,-0.6450465372542022,-0.6450465372542022,-0.6450465372542022,-0.6450465372542022,-0.6450465372542022,-0.6450465372542022,-0.6450465372542022,-0.6450465372542022,-0.2642905982717151,-0.2642905982717151,-0.2642905982717151,-0.2642905982717151,-0.2642905982717151,-0.2642905982717151,-0.2642905982717151,-0.2642905982717151,-0.2642905982717151,-0.2642905982717151,-0.242034255165279,-0.242034255165279,-0.242034255165279,-0.242034255165279,-0.242034255165279,-0.242034255165279,-0.242034255165279,-0.242034255165279,-0.242034255165279,-0.242034255165279])
+    (Flip $ OR.fromList [4,2,5] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445])
     (rfwd1 @(Flip OR.Array) @Double @0 @3 @Double
        (\a0 -> rreverse $ (rfromD . (V.! 1))
                $ dunHVector
@@ -3229,7 +3229,7 @@ testSin0ScanD8fwd2 = do
                        (rreplicate 2 (rreplicate 5 (2 * a0)))
                        (V.singleton $ DynamicRanked $ rreplicate 3 a0))
   assertEqualUpToEpsilon 1e-10
-    (Flip $ OR.fromList [] [324.086730481586])
+    (Flip $ OR.fromList [] [285.95794829475744])
     (crev h 1.1)
 
 testSin0FoldNestedS1 :: Assertion
@@ -3768,7 +3768,7 @@ testSin0MapAccumNestedR10fN = do
 testSin0MapAccumNestedR10rf :: Assertion
 testSin0MapAccumNestedR10rf = do
  assertEqualUpToEpsilon 1e-10
-  (1.3793719002779494 :: Flip OR.Array Double 0)
+  (1.2264611684496617e-2 :: Flip OR.Array Double 0)
   (rev @_ @_ @(AstRanked FullSpan)
    (let
       sh1 = voidFromSh @Double ZSR
@@ -4003,7 +4003,7 @@ testSin0FoldNestedS5fwd = do
                               a (sreplicate @_ @1 x))
                             a0 (sreplicate @_ @1 a0)
   assertEqualUpToEpsilon 1e-10
-    0.24200000000000005
+    0.22000000000000003
     (sfwd1 @(Flip OS.Array) @Double @'[] @'[] f 1.1)
 
 testSin0FoldNestedSi :: Assertion
