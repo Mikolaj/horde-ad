@@ -45,7 +45,8 @@ import           Unsafe.Coerce (unsafeCoerce)
 import           HordeAd.Internal.OrthotopeOrphanInstances
   (liftVR, liftVS, sameShape)
 import           HordeAd.Internal.TensorFFI
-import           HordeAd.Util.ShapedList (IndexS, ShapedNat, SizedListS (..))
+import           HordeAd.Util.ShapedList
+  (IndexS, ShapedNat, pattern (:$$), pattern ZSS)
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedList
 
@@ -587,8 +588,8 @@ tsumS
 tsumS (SS.A (SG.A (OI.T (_ : ss) o vt))) | V.length vt == 1 =
   SS.A (SG.A (OI.T ss o (V.map (* valueOf @n) vt)))
 tsumS t = case ShapedList.shapeIntSFromT @(n ': sh) of
-  _ ::$ ZS -> OS.scalar $ tsum0S t
-  k ::$ sh2 ->
+  _ :$$ ZSS -> OS.scalar $ tsum0S t
+  k :$$ sh2 ->
     OS.fromVector $ unsafePerformIO $ do  -- unsafe only due to FFI
       v <- V.unsafeThaw $ OS.toVector t
       VM.unsafeWith v $ \ptr -> do
@@ -753,7 +754,7 @@ treplicateS
   :: forall n sh r. (Numeric r, KnownNat n, Sh.Shape sh)
   => OS.Array sh r -> OS.Array (n ': sh) r
 treplicateS u = case ShapedList.shapeIntSFromT @sh of
-  ZS -> OS.constant (OS.unScalar u)
+  ZSS -> OS.constant (OS.unScalar u)
   _ -> OS.ravel $ OSB.constant u
 
 treplicate0NS

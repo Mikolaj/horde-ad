@@ -96,7 +96,7 @@ import           HordeAd.Internal.BackendConcrete
 import           HordeAd.Internal.OrthotopeOrphanInstances
   (MapSucc, matchingRank, sameShape, trustMeThisIsAPermutation)
 import           HordeAd.Util.ShapedList
-  (SizedListS (..), pattern (:.$), pattern ZIS)
+  (SizedListS (..), pattern (:$$), pattern (:.$), pattern ZIS, pattern ZSS)
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedList
 
@@ -831,7 +831,7 @@ astGatherStepS
   -> (AstVarListS sh2, AstIndexS (Sh.Take p sh))
   -> AstShaped s r (sh2 Sh.++ Sh.Drop p sh)
 -- TODO: this probably needs an extra condition similar to kN == vkN below
---astGatherStepS v (AstVarName varId ::$ ZS, AstIntVarS varId2 :.$ ZIS)
+--astGatherStepS v (AstVarName varId ::$ ZSS, AstIntVarS varId2 :.$ ZIS)
 --  | varId == varId2 = ...
 astGatherStepS v (vars, ix) = Ast.AstGatherS v (vars, ix)  -- TODO
 
@@ -1610,9 +1610,10 @@ astReplicateNS :: forall shn shp s r.
                   (Sh.Shape shn, Sh.Shape shp, GoodScalar r, AstSpan s)
                => AstShaped s r shp -> AstShaped s r (shn Sh.++ shp)
 astReplicateNS v =
-  let go :: ShapeIntS shn' -> AstShaped s r (shn' Sh.++ shp)
-      go ZS = v
-      go ((::$) @k @shn2 _ shn2) =
+  let go :: Sh.Shape shn'
+         => ShapeIntS shn' -> AstShaped s r (shn' Sh.++ shp)
+      go ZSS = v
+      go ((:$$) @k _ (shn2 :: ShapeIntS shn2)) =
         Sh.withShapeP (Sh.shapeT @shn2 ++ Sh.shapeT @shp) $ \(Proxy @sh) ->
           gcastWith (unsafeCoerce Refl :: sh :~: shn2 Sh.++ shp) $
           astReplicateS @k $ go shn2
@@ -1630,9 +1631,10 @@ astReplicate0N sh =
 astReplicate0NS :: forall shn s r. (Sh.Shape shn, GoodScalar r, AstSpan s)
                 => AstShaped s r '[] -> AstShaped s r shn
 astReplicate0NS =
-  let go :: SizedListS sh' Int -> AstShaped s r '[] -> AstShaped s r sh'
-      go ZS v = v
-      go (_ ::$ sh') v = astReplicateS $ go sh' v
+  let go :: Sh.Shape sh'
+         => ShapeIntS sh' -> AstShaped s r '[] -> AstShaped s r sh'
+      go ZSS v = v
+      go (_ :$$ sh') v = astReplicateS $ go sh' v
   in go (ShapedList.shapeIntSFromT @shn)
 
 astAppend :: (KnownNat n, GoodScalar r, AstSpan s)

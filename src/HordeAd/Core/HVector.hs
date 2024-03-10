@@ -41,7 +41,7 @@ import           Type.Reflection (Typeable, typeRep)
 
 import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances ()
-import           HordeAd.Util.ShapedList (ShapeIntS, SizedListS (..))
+import           HordeAd.Util.ShapedList (ShapeIntS, pattern (:$$), pattern ZSS)
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedList
 
@@ -273,14 +273,14 @@ index1DynamicF rshape sshape rindex sindex u i = case u of
     ZSR -> error "index1Dynamic: rank 0"
     _ :$: _ -> DynamicRanked $ rindex t (singletonIndex i)
   DynamicShaped t -> case sshape t of
-    ZS -> error "index1Dynamic: rank 0"
-    _ ::$ _ -> DynamicShaped $ sindex t (ShapedList.singletonIndex i)
+    ZSS -> error "index1Dynamic: rank 0"
+    _ :$$ _ -> DynamicShaped $ sindex t (ShapedList.singletonIndex i)
   DynamicRankedDummy @r @sh p1 _ -> case ShapedList.shapeIntSFromT @sh of
-    ZS -> error "index1Dynamic: rank 0"
-    (::$) @_ @sh2 _ _ -> DynamicRankedDummy @r @sh2 p1 Proxy
+    ZSS -> error "index1Dynamic: rank 0"
+    (:$$) @_ @sh2 _ _ -> DynamicRankedDummy @r @sh2 p1 Proxy
   DynamicShapedDummy @r @sh p1 _ -> case ShapedList.shapeIntSFromT @sh of
-    ZS -> error "index1Dynamic: rank 0"
-    (::$) @_ @sh2 _ _ -> DynamicShapedDummy @r @sh2 p1 Proxy
+    ZSS -> error "index1Dynamic: rank 0"
+    (:$$) @_ @sh2 _ _ -> DynamicShapedDummy @r @sh2 p1 Proxy
 
 replicate1HVectorF :: shaped ~ ShapedOf ranked
                    => (forall r n. (GoodScalar r, KnownNat n)
