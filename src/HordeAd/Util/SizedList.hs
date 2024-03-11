@@ -255,11 +255,11 @@ instance Show i => Show (Index n i) where
 pattern ZIR :: forall n i. () => n ~ 0 => Index n i
 pattern ZIR = Index ZR
 
-{- TODO: The following is wrong, see (:$:). -}
+-- Note that the type arguments are different than for (:::).
 infixr 3 :.:
 pattern (:.:)
-  :: forall n1 i. KnownNat n1
-  => forall n. (KnownNat n, (1 + n) ~ n1)
+  :: forall n1 i.
+     forall n. (KnownNat n, (1 + n) ~ n1)
   => i -> Index n i -> Index n1 i
 pattern i :.: sh <- (unconsIndex -> Just (UnconsIndexRes sh i))
   where i :.: (Index sh) = Index (i ::: sh)
@@ -267,7 +267,7 @@ pattern i :.: sh <- (unconsIndex -> Just (UnconsIndexRes sh i))
 
 type role UnconsIndexRes representational nominal
 data UnconsIndexRes i n1 =
-  forall n. (1 + n) ~ n1 => UnconsIndexRes (Index n i) i
+  forall n. (KnownNat n, (1 + n) ~ n1) => UnconsIndexRes (Index n i) i
 unconsIndex :: Index n1 i -> Maybe (UnconsIndexRes i n1)
 unconsIndex (Index sh) = case sh of
   i ::: sh' -> Just (UnconsIndexRes (Index sh') i)
@@ -376,20 +376,11 @@ instance Show i => Show (Shape n i) where
 pattern ZSR :: forall n i. () => n ~ 0 => Shape n i
 pattern ZSR = Shape ZR
 
-{- TODO: The following is wrong, it should behave the same as ::: and so
-   the first argument should be n, as in
-pattern (:$:)
-  :: forall n i n1. KnownNat n
-  => forall n1. (KnownNat n1, (1 + n) ~ n1)
-  => i -> Shape n i -> Shape n1 i
-but then GHC 9.8.2 complains
-    • The result type of the signature for ‘:$:’, namely ‘Shape n1 i’
-        mentions existential type variable ‘n1’
--}
+-- Note that the type arguments are different than for (:::).
 infixr 3 :$:
 pattern (:$:)
-  :: forall n1 i. KnownNat n1
-  => forall n. (KnownNat n, (1 + n) ~ n1)
+  :: forall n1 i.
+     forall n. (KnownNat n, (1 + n) ~ n1)
   => i -> Shape n i -> Shape n1 i
 pattern i :$: sh <- (unconsShape -> Just (MkUnconsShapeRes sh i))
   where i :$: (Shape sh) = Shape (i ::: sh)
@@ -397,7 +388,7 @@ pattern i :$: sh <- (unconsShape -> Just (MkUnconsShapeRes sh i))
 
 type role UnconsShapeRes representational nominal
 data UnconsShapeRes i n1 =
-  forall n. (1 + n) ~ n1 => MkUnconsShapeRes (Shape n i) i
+  forall n. (KnownNat n, (1 + n) ~ n1) => MkUnconsShapeRes (Shape n i) i
 unconsShape :: Shape n1 i -> Maybe (UnconsShapeRes i n1)
 unconsShape (Shape sh) = case sh of
   i ::: sh' -> Just (MkUnconsShapeRes (Shape sh') i)
@@ -455,11 +446,11 @@ lengthShape :: forall n i. KnownNat n => Shape n i -> Int
 lengthShape _ = valueOf @n
 
 -- | The number of elements in an array of this shape
-sizeShape :: (Num i, KnownNat n) => Shape n i -> i
+sizeShape :: Num i => Shape n i -> i
 sizeShape ZSR = 1
 sizeShape (n :$: sh) = n * sizeShape sh
 
-flattenShape :: (Num i, KnownNat n) => Shape n i -> Shape 1 i
+flattenShape :: Num i => Shape n i -> Shape 1 i
 flattenShape = singletonShape . sizeShape
 
 backpermutePrefixShape :: forall n i. KnownNat n
@@ -522,15 +513,14 @@ withListSh (Proxy @sh) f =
 -- If any of the dimensions is 0 or if rank is 0, the result will be 0,
 -- which is fine, that's pointing at the start of the empty buffer.
 -- Note that the resulting 0 may be a complex term.
-toLinearIdx :: forall m n i j. (Integral i, Num j, KnownNat m, KnownNat n)
+toLinearIdx :: forall m n i j. (Integral i, Num j)
             => Shape (m + n) i -> Index m j -> j
 toLinearIdx = \sh idx -> go sh idx 0
   where
     -- Additional argument: index, in the @m - m1@ dimensional array so far,
     -- of the @m - m1 + n@ dimensional tensor pointed to by the current
     -- @m - m1@ dimensional index prefix.
-    go :: KnownNat m1
-       => Shape (m1 + n) i -> Index m1 j -> j -> j
+    go :: Shape (m1 + n) i -> Index m1 j -> j -> j
     go sh ZIR tensidx = fromIntegral (sizeShape sh) * tensidx
     go (n :$: sh) (i :.: idx) tensidx = go sh idx (fromIntegral n * tensidx + i)
     go _ _ _ = error "toLinearIdx: impossible pattern needlessly required"
@@ -543,13 +533,13 @@ toLinearIdx = \sh idx -> go sh idx 0
 -- and a fake index with correct length but lots of zeroes is produced,
 -- because it doesn't matter, because it's going to point at the start
 -- of the empty buffer anyway.
-fromLinearIdx :: forall n i j. (Integral i, Integral j, KnownNat n)
+fromLinearIdx :: forall n i j. (Integral i, Integral j)
               => Shape n i -> j -> Index n j
 fromLinearIdx = \sh lin -> snd (go sh lin)
   where
     -- Returns (linear index into array of sub-tensors,
     -- multi-index within sub-tensor).
-    go :: KnownNat n1 => Shape n1 i -> j -> (j, Index n1 j)
+    go :: Shape n1 i -> j -> (j, Index n1 j)
     go ZSR n = (n, ZIR)
     go (0 :$: sh) _ =
       (0, 0 :.: zeroOf sh)
@@ -559,6 +549,6 @@ fromLinearIdx = \sh lin -> snd (go sh lin)
       in (tensLin', i :.: idxInTens)
 
 -- | The zero index in this shape (not dependent on the actual integers).
-zeroOf :: (Num j, KnownNat n) => Shape n i -> Index n j
+zeroOf :: Num j => Shape n i -> Index n j
 zeroOf ZSR = ZIR
 zeroOf (_ :$: sh) = 0 :.: zeroOf sh

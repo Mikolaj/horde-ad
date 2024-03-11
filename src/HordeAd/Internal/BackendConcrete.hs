@@ -462,9 +462,7 @@ type IndexIntSh sh = IndexS sh Int64
 -- TODO: try to weave a similar magic as in tindex0R
 -- TODO: for the non-singleton case see
 -- https://github.com/Mikolaj/horde-ad/pull/81#discussion_r1096532164
-updateNS :: forall n sh r.
-            ( NumAndShow r, Sh.Shape sh, Sh.Shape (Sh.Take n sh)
-            , Sh.Shape (Sh.Drop n sh) )
+updateNS :: forall n sh r. (NumAndShow r, Sh.Shape sh, Sh.Shape (Sh.Drop n sh))
          => OS.Array sh r
          -> [(IndexIntSh (Sh.Take n sh), OS.Array (Sh.Drop n sh) r)]
          -> OS.Array sh r
@@ -693,8 +691,7 @@ tmaximum0S = LA.maxElement . OS.toVector
 -- Note how ix being in bounds is checked. The semantics of the operation
 -- permits index out of bounds and then no tensors is added at such an index.
 tscatterZS :: forall r sh2 p sh.
-              ( NumAndShow r, Sh.Shape sh, Sh.Shape sh2
-              , Sh.Shape (Sh.Take p sh), Sh.Shape (Sh.Drop p sh) )
+              (NumAndShow r, Sh.Shape sh, Sh.Shape sh2, Sh.Shape (Sh.Drop p sh))
            => OS.Array (sh2 Sh.++ Sh.Drop p sh) r
            -> (IndexIntSh sh2 -> IndexIntSh (Sh.Take p sh))
            -> OS.Array sh r
@@ -716,8 +713,7 @@ tscatterZS t f =
 -- and then freezing it and calling OS.fromVector
 -- or optimize tscatterNS and instantiate it instead
 tscatterZ1S :: forall r n2 p sh.
-               ( NumAndShow r, KnownNat n2, Sh.Shape sh
-               , Sh.Shape (Sh.Take p sh), Sh.Shape (Sh.Drop p sh) )
+               (NumAndShow r, KnownNat n2, Sh.Shape sh, Sh.Shape (Sh.Drop p sh))
             => OS.Array (n2 ': Sh.Drop p sh) r
             -> (Int64Sh n2 -> IndexIntSh (Sh.Take p sh))
             -> OS.Array sh r

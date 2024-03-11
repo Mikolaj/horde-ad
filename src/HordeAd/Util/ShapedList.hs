@@ -236,14 +236,10 @@ instance Show i => Show (IndexS sh i) where
 pattern ZIS :: forall sh i. () => sh ~ '[] => IndexS sh i
 pattern ZIS = IndexS ZS
 
-{- TODO: The following is wrong, see (:$:). In particular, the second type
-   argument of the (:.$) constructor should be sh. I barely hacked k in there
-   or I wouldn't be able to use the pattern to deconstruct sh1.
-   Additionally, it requires Sh.Shape sh1 that (:$:) doesn't and it may
-   necessitate a runtime creation of a singleton and an unsafeCoerce. -}
+-- Note that the type arguments are different than for (::$).
 infixr 3 :.$
 pattern (:.$)
-  :: forall k sh1 i. (Sh.Shape sh1, k ~ Sh.Index sh1 0)
+  :: forall k sh1 i. k ~ Sh.Index sh1 0
   => forall sh. (KnownNat k, Sh.Shape sh, (k : sh) ~ sh1)
   => i -> IndexS sh i -> IndexS sh1 i
 pattern i :.$ shl <- (unconsIndex -> Just (UnconsIndexRes shl i))
@@ -273,8 +269,7 @@ consIndex :: (KnownNat n, Sh.Shape sh)
           => ShapedNat n i -> IndexS sh i -> IndexS (n ': sh) i
 consIndex (ShapedNat i) l = i :.$ l
 
-unconsContIndex :: (KnownNat n, Sh.Shape sh)
-                => (ShapedNat n i -> k) -> IndexS (n ': sh) i -> k
+unconsContIndex :: (ShapedNat n i -> k) -> IndexS (n ': sh) i -> k
 unconsContIndex f (i :.$ _) = f (ShapedNat i)
 
 singletonIndex :: KnownNat n => i -> IndexS '[n] i
@@ -340,14 +335,10 @@ instance Show i => Show (ShapeS sh i) where
 pattern ZSS :: forall sh i. () => sh ~ '[] => ShapeS sh i
 pattern ZSS = ShapeS ZS
 
-{- TODO: The following is wrong, see (:$:). In particular, the second type
-   argument of the (:$$) constructor should be sh. I barely hacked k in there
-   or I wouldn't be able to use the pattern to deconstruct sh1.
-   Additionally, it requires Sh.Shape sh1 that (:$:) doesn't and it may
-   necessitate a runtime creation of a singleton and an unsafeCoerce. -}
+-- Note that the type arguments are different than for (::$).
 infixr 3 :$$
 pattern (:$$)
-  :: forall k sh1 i. (Sh.Shape sh1, k ~ Sh.Index sh1 0)
+  :: forall k sh1 i. k ~ Sh.Index sh1 0
   => forall sh. (KnownNat k, Sh.Shape sh, (k : sh) ~ sh1)
   => i -> ShapeS sh i -> ShapeS sh1 i
 pattern i :$$ shl <- (unconsShape -> Just (UnconsShapeRes shl i))
@@ -409,9 +400,7 @@ shapeToList (ShapeS l) = sizedToList l
 -- If any of the dimensions is 0 or if rank is 0, the result will be 0,
 -- which is fine, that's pointing at the start of the empty buffer.
 -- Note that the resulting 0 may be a complex term.
-toLinearIdx :: forall sh1 sh2 i j.
-               ( Sh.Shape sh1, Sh.Shape sh2, Sh.Shape (sh1 Sh.++ sh2)
-               , Integral i, Num j )
+toLinearIdx :: forall sh1 sh2 i j. (Sh.Shape sh2, Integral i, Num j)
             => ShapeS (sh1 Sh.++ sh2) i -> IndexS sh1 j
             -> ShapedNat (Sh.Size sh1 * Sh.Size sh2) j
 toLinearIdx = \sh idx -> shapedNat $ go sh idx 0
@@ -419,8 +408,7 @@ toLinearIdx = \sh idx -> shapedNat $ go sh idx 0
     -- Additional argument: index, in the @m - m1@ dimensional array so far,
     -- of the @m - m1 + n@ dimensional tensor pointed to by the current
     -- @m - m1@ dimensional index prefix.
-    go :: forall sh3. (Sh.Shape sh3, Sh.Shape (sh3 Sh.++ sh2))
-       => ShapeS (sh3 Sh.++ sh2) i -> IndexS sh3 j -> j -> j
+    go :: forall sh3. ShapeS (sh3 Sh.++ sh2) i -> IndexS sh3 j -> j -> j
     go _sh ZIS tensidx = fromIntegral (Sh.sizeT @(sh3 Sh.++ sh2)) * tensidx
     go (n :$$ sh) (i :.$ idx) tensidx = go sh idx (fromIntegral n * tensidx + i)
     go _ _ _ = error "toLinearIdx: impossible pattern needlessly required"
@@ -433,13 +421,13 @@ toLinearIdx = \sh idx -> shapedNat $ go sh idx 0
 -- and a fake index with correct length but lots of zeroes is produced,
 -- because it doesn't matter, because it's going to point at the start
 -- of the empty buffer anyway.
-fromLinearIdx :: forall sh i j. (Sh.Shape sh, Integral i, Integral j)
+fromLinearIdx :: forall sh i j. (Integral i, Integral j)
               => ShapeS sh i -> ShapedNat (Sh.Size sh) j -> IndexS sh j
 fromLinearIdx = \sh (ShapedNat lin) -> snd (go sh lin)
   where
     -- Returns (linear index into array of sub-tensors,
     -- multi-index within sub-tensor).
-    go :: Sh.Shape sh1 => ShapeS sh1 i -> j -> (j, IndexS sh1 j)
+    go :: ShapeS sh1 i -> j -> (j, IndexS sh1 j)
     go ZSS n = (n, ZIS)
     go (0 :$$ sh) _ =
       (0, 0 :.$ zeroOf sh)
@@ -449,6 +437,6 @@ fromLinearIdx = \sh (ShapedNat lin) -> snd (go sh lin)
       in (tensLin', i :.$ idxInTens)
 
 -- | The zero index in this shape (not dependent on the actual integers).
-zeroOf :: (Sh.Shape sh, Num j) => ShapeS sh i -> IndexS sh j
+zeroOf :: Num j => ShapeS sh i -> IndexS sh j
 zeroOf ZSS = ZIS
 zeroOf (_ :$$ sh) = 0 :.$ zeroOf sh

@@ -176,8 +176,7 @@ class ( Integral (IntOf ranked), CRanked ranked Num
          => ShapeInt (m + n) -> (IndexOf ranked m -> ranked r n)
          -> ranked r (m + n)
   rbuild sh0 f0 =
-    let buildSh :: KnownNat m1
-                => ShapeInt m1 -> (IndexOf ranked m1 -> ranked r n)
+    let buildSh :: ShapeInt m1 -> (IndexOf ranked m1 -> ranked r n)
                 -> ranked r (m1 + n)
         buildSh ZSR f = f ZIR
         buildSh (k :$: sh) f =
@@ -487,8 +486,8 @@ class ( Integral (IntOf shaped), CShaped shaped Num
          -> shaped r sh
   sbuild =
     let buildSh
-          :: forall sh1. (Sh.Shape sh1, Sh.Shape (sh1 Sh.++ Sh.Drop m sh))
-          => ShapeIntS sh1 -> ShapeIntS (sh1 Sh.++ Sh.Drop m sh)
+          :: forall sh1.
+             ShapeIntS sh1 -> ShapeIntS (sh1 Sh.++ Sh.Drop m sh)
           -> (IndexSh shaped sh1 -> shaped r (Sh.Drop m sh))
           -> shaped r (sh1 Sh.++ Sh.Drop m sh)
         buildSh sh1 sh1m f = case (sh1, sh1m) of

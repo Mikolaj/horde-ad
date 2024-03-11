@@ -1600,8 +1600,7 @@ astReplicateN :: forall n p s r.
                  (KnownNat n, KnownNat p, GoodScalar r, AstSpan s)
               => ShapeInt (n + p) -> AstRanked s r p -> AstRanked s r (n + p)
 astReplicateN sh v =
-  let go :: KnownNat n'
-         => ShapeInt n' -> AstRanked s r (n' + p)
+  let go :: ShapeInt n' -> AstRanked s r (n' + p)
       go ZSR = v
       go (k :$: sh2) = astReplicate k $ go sh2
   in go (takeShape sh)
@@ -1610,8 +1609,7 @@ astReplicateNS :: forall shn shp s r.
                   (Sh.Shape shn, Sh.Shape shp, GoodScalar r, AstSpan s)
                => AstShaped s r shp -> AstShaped s r (shn Sh.++ shp)
 astReplicateNS v =
-  let go :: Sh.Shape shn'
-         => ShapeIntS shn' -> AstShaped s r (shn' Sh.++ shp)
+  let go :: ShapeIntS shn' -> AstShaped s r (shn' Sh.++ shp)
       go ZSS = v
       go ((:$$) @k _ (shn2 :: ShapeIntS shn2)) =
         Sh.withShapeP (Sh.shapeT @shn2 ++ Sh.shapeT @shp) $ \(Proxy @sh) ->
@@ -1619,11 +1617,10 @@ astReplicateNS v =
           astReplicateS @k $ go shn2
   in go (ShapedList.shapeIntSFromT @shn)
 
-astReplicate0N :: forall n s r. (KnownNat n, GoodScalar r, AstSpan s)
+astReplicate0N :: forall n s r. (GoodScalar r, AstSpan s)
                => ShapeInt n -> AstRanked s r 0 -> AstRanked s r n
 astReplicate0N sh =
-  let go :: KnownNat n'
-         => ShapeInt n' -> AstRanked s r 0 -> AstRanked s r n'
+  let go :: ShapeInt n' -> AstRanked s r 0 -> AstRanked s r n'
       go ZSR v = v
       go (k :$: sh') v = astReplicate k $ go sh' v
   in go sh
@@ -1631,8 +1628,7 @@ astReplicate0N sh =
 astReplicate0NS :: forall shn s r. (Sh.Shape shn, GoodScalar r, AstSpan s)
                 => AstShaped s r '[] -> AstShaped s r shn
 astReplicate0NS =
-  let go :: Sh.Shape sh'
-         => ShapeIntS sh' -> AstShaped s r '[] -> AstShaped s r sh'
+  let go :: ShapeIntS sh' -> AstShaped s r '[] -> AstShaped s r sh'
       go ZSS v = v
       go (_ :$$ sh') v = astReplicateS $ go sh' v
   in go (ShapedList.shapeIntSFromT @shn)
