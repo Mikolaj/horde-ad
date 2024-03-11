@@ -406,7 +406,7 @@ testPiecewiseLinear2PP = do
   printPrimal6Pretty renames (simplifyArtifactRev artifactRev)
     @?= "\\x1 -> [ifF (x1 >. 0.0) 2.0 5.0 * x1]"
   show deltas
-    @?= "HVectorPseudoTensor {unHVectorPseudoTensor = HToH [DynamicRanked (LetR 100000005 (ScaleR (AstVar [] (AstVarId 100000002)) (InputR [] (InputId 0))))]}"
+    @?= "HVectorPseudoTensor {unHVectorPseudoTensor = HToH [DynamicRanked (ShareR 100000005 (ScaleR (AstVar [] (AstVarId 100000002)) (InputR [] (InputId 0))))]}"
 
 overleaf :: forall r ranked. (RankedTensor ranked, GoodScalar r)
          => ranked r 1 -> ranked r 0
@@ -480,7 +480,7 @@ testOverleafPP = do
   printPrimal6Pretty renames (simplifyArtifactRev artifactRev)
     @?= printPrimal6Pretty renames artifactRev
   show deltas
-    @?= "HVectorPseudoTensor {unHVectorPseudoTensor = HToH [DynamicRanked (LetR 100000002 (SumR (LetR 100000001 (GatherR [50] (InputR [28] (InputId 0)) <function>))))]}"
+    @?= "HVectorPseudoTensor {unHVectorPseudoTensor = HToH [DynamicRanked (ShareR 100000002 (SumR (ShareR 100000001 (GatherR [50] (InputR [28] (InputId 0)) <function>))))]}"
 
 foo :: RealFloat a => (a, a, a) -> a
 foo (x, y, z) =
@@ -657,7 +657,7 @@ testListSumrPP = do
   printPrimal6Pretty renames (simplifyArtifactRev artifactRev)
     @?= "\\x1 x2 x3 x4 -> [x1 + x2 + x3 + x4]"
   show deltas
-    @?= "HVectorPseudoTensor {unHVectorPseudoTensor = HToH [DynamicRanked (LetR 100000003 (AddR (InputR [] (InputId 0)) (LetR 100000002 (AddR (InputR [] (InputId 1)) (LetR 100000001 (AddR (InputR [] (InputId 2)) (InputR [] (InputId 3))))))))]}"
+    @?= "HVectorPseudoTensor {unHVectorPseudoTensor = HToH [DynamicRanked (ShareR 100000003 (AddR (InputR [] (InputId 0)) (ShareR 100000002 (AddR (InputR [] (InputId 1)) (ShareR 100000001 (AddR (InputR [] (InputId 2)) (InputR [] (InputId 3))))))))]}"
 
 -- Note that the function is not associative, so foldr vs foldl matters.
 rankedListSum2r :: (RankedTensor ranked, GoodScalar r)
@@ -819,7 +819,7 @@ testReluPP = do
   printPrimal6Pretty renames (simplifyArtifactRev artifactRev)
     @?= "\\m1 -> [rgather [3,4] (rconst (fromList [2] [0.0,1.0])) (\\[i5, i6] -> [ifF (m1 ! [i5, i6] <=. 0.0) 0 1]) * m1]"
   show deltas
-    @?= "HVectorPseudoTensor {unHVectorPseudoTensor = HToH [DynamicRanked (LetR 100000003 (ScaleR (AstVar [3,4] (AstVarId 100000007)) (InputR [3,4] (InputId 0))))]}"
+    @?= "HVectorPseudoTensor {unHVectorPseudoTensor = HToH [DynamicRanked (ShareR 100000003 (ScaleR (AstVar [3,4] (AstVarId 100000007)) (InputR [3,4] (InputId 0))))]}"
 
 testReluPP2 :: Assertion
 testReluPP2 = do
@@ -864,7 +864,7 @@ testReluSimplerPP = do
   printPrimal6Pretty renames (simplifyArtifactRev artifactRev)
     @?= "\\m1 -> [rgather [3,4] (rconst (fromList [2] [0.0,1.0])) (\\[i5, i6] -> [ifF (m1 ! [i5, i6] <=. 0.0) 0 1]) * m1]"
   show deltas
-    @?= "HVectorPseudoTensor {unHVectorPseudoTensor = HToH [DynamicRanked (LetR 100000003 (ScaleR (AstVar [3,4] (AstVarId 100000007)) (InputR [3,4] (InputId 0))))]}"
+    @?= "HVectorPseudoTensor {unHVectorPseudoTensor = HToH [DynamicRanked (ShareR 100000003 (ScaleR (AstVar [3,4] (AstVarId 100000007)) (InputR [3,4] (InputId 0))))]}"
 
 testReluSimplerPP2 :: Assertion
 testReluSimplerPP2 = do
@@ -1015,7 +1015,7 @@ testReluMaxPP = do
   printPrimal6Pretty renames (simplifyArtifactRev artifactRev)
     @?= "\\m1 -> [rgather [3,4] (rfromList [rreplicate 3 (rreplicate 4 0.0), m1]) (\\[i6, i7] -> [ifF (0.0 >=. m1 ! [i6, i7]) 0 1, i6, i7])]"
   show deltas
-    @?= "HVectorPseudoTensor {unHVectorPseudoTensor = HToH [DynamicRanked (LetR 100000005 (GatherR [3,4] (LetR 100000003 (FromListR [ZeroR [3,4],InputR [3,4] (InputId 0)])) <function>))]}"
+    @?= "HVectorPseudoTensor {unHVectorPseudoTensor = HToH [DynamicRanked (ShareR 100000005 (GatherR [3,4] (ShareR 100000003 (FromListR [ZeroR [3,4],InputR [3,4] (InputId 0)])) <function>))]}"
 
 testReluMaxPP2 :: Assertion
 testReluMaxPP2 = do
@@ -1081,7 +1081,7 @@ testDot2PP = do
   printPrimal6Pretty renames (simplifyArtifactRev artifactRev)
     @?= "\\m1 m2 -> [rsum (rreshape [6] (m1 * m2))]"
   show deltas
-    @?= "HVectorPseudoTensor {unHVectorPseudoTensor = HToH [DynamicRanked (LetR 100000001 (AddR (Dot0R (AstVar [2,3] (AstVarId 100000002)) (InputR [2,3] (InputId 0))) (Dot0R (AstVar [2,3] (AstVarId 100000001)) (InputR [2,3] (InputId 1)))))]}"
+    @?= "HVectorPseudoTensor {unHVectorPseudoTensor = HToH [DynamicRanked (ShareR 100000001 (AddR (Dot0R (AstVar [2,3] (AstVarId 100000002)) (InputR [2,3] (InputId 0))) (Dot0R (AstVar [2,3] (AstVarId 100000001)) (InputR [2,3] (InputId 1)))))]}"
 
 testMatvecmulPP :: Assertion
 testMatvecmulPP = do
