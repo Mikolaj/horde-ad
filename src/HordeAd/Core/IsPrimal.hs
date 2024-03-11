@@ -2,7 +2,7 @@
 -- and the instances of the class for all kinds it's going to be use at
 -- (@Nat@ and @[Nat]@). This class abstract over some of the operations
 -- involving primal and dual components of dual numbers, most importantly
--- the @Let@ operations for sharing delta expressions, regardless
+-- the @Share@ operations for sharing delta expressions, regardless
 -- of the typing of the tensors being used (ranked vs shaped).
 --
 -- This module uses and rather safely encapsulates impure side-effects.
@@ -108,7 +108,7 @@ instance (GoodScalar r, KnownNat n, RankedTensor ranked)
     ZeroR{} -> d
     InputR{} -> d
     RFromS{} -> d
-    LetR{} -> d  -- should not happen, but older/lower id is safer anyway
+    ShareR{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDeltaR d
 
 instance (GoodScalar r, Sh.Shape sh, ShapedTensor shaped)
@@ -126,7 +126,7 @@ instance (GoodScalar r, Sh.Shape sh, ShapedTensor shaped)
     ZeroS -> d
     InputS{} -> d
     SFromR{} -> d
-    LetS{} -> d  -- should not happen, but older/lower id is safer anyway
+    ShareS{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDeltaS d
 
 
@@ -167,16 +167,16 @@ wrapDeltaR :: DeltaR ranked r n -> DeltaR ranked r n
 {-# NOINLINE wrapDeltaR #-}
 wrapDeltaR !d = unsafePerformIO $ do
   n <- unsafeGetFreshId
-  return $! LetR (NodeId n) d
+  return $! ShareR (NodeId n) d
 
 wrapDeltaS :: DeltaS shaped r sh -> DeltaS shaped r sh
 {-# NOINLINE wrapDeltaS #-}
 wrapDeltaS !d = unsafePerformIO $ do
   n <- unsafeGetFreshId
-  return $! LetS (NodeId n) d
+  return $! ShareS (NodeId n) d
 
 wrapDeltaH :: DeltaH ranked -> DeltaH ranked
 {-# NOINLINE wrapDeltaH #-}
 wrapDeltaH !d = unsafePerformIO $ do
   n <- unsafeGetFreshId
-  return $! LetH (NodeId n) d
+  return $! ShareH (NodeId n) d

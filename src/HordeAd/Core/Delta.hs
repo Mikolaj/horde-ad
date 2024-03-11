@@ -142,9 +142,9 @@ derivativeFromDeltaH dim (HVectorPseudoTensor deltaTopLevel) ds =
 -- have analogues at the level of vectors, matrices and arbitrary tensors,
 -- but the other operations are specific to the rank.
 --
--- The `NodeId` identifier that appears in a @Let0 n d@ expression
+-- The `NodeId` identifier that appears in a @ShareR n d@ expression
 -- is the unique identity stamp of subterm @d@, that is, there is
--- no different term @e@ such that @Let0 n e@ appears in any delta
+-- no different term @e@ such that @ShareR n e@ appears in any delta
 -- expression term in memory during the same run of an executable.
 -- The subterm identity is used to avoid evaluating shared
 -- subterms repeatedly in gradient and derivative computations.
@@ -201,7 +201,7 @@ data DeltaR :: RankedTensorType -> RankedTensorType where
   ScaleR :: ranked r n -> DeltaR ranked r n -> DeltaR ranked r n
   AddR :: DeltaR ranked r n -> DeltaR ranked r n
        -> DeltaR ranked r n
-  LetR :: NodeId ranked -> DeltaR ranked r n -> DeltaR ranked r n
+  ShareR :: NodeId ranked -> DeltaR ranked r n -> DeltaR ranked r n
 
   IndexR :: (KnownNat n, KnownNat m)
          => DeltaR ranked r (m + n) -> IndexOf ranked m
@@ -298,7 +298,7 @@ data DeltaS :: ShapedTensorType -> ShapedTensorType where
          -> DeltaS shaped r sh
   AddS :: DeltaS shaped r sh -> DeltaS shaped r sh
        -> DeltaS shaped r sh
-  LetS :: NodeId (RankedOf shaped) -> DeltaS shaped r sh -> DeltaS shaped r sh
+  ShareS :: NodeId (RankedOf shaped) -> DeltaS shaped r sh -> DeltaS shaped r sh
 
   IndexS :: (Sh.Shape sh1, Sh.Shape (sh1 Sh.++ sh2))
          => DeltaS shaped r (sh1 Sh.++ sh2)
@@ -403,7 +403,7 @@ deriving instance ( Sh.Shape sh0, GoodScalar r0
 
 type role DeltaH nominal
 data DeltaH :: RankedTensorType -> Type where
-  LetH :: NodeId ranked -> DeltaH ranked -> DeltaH ranked
+  ShareH :: NodeId ranked -> DeltaH ranked -> DeltaH ranked
   HToH :: HVector (DeltaR ranked) -> DeltaH ranked
   MapAccumR
     :: SNat k
@@ -455,7 +455,7 @@ shapeDeltaR = \case
   InputR sh _ -> sh
   ScaleR _ d -> shapeDeltaR d
   AddR d _ -> shapeDeltaR d
-  LetR _ d -> shapeDeltaR d
+  ShareR _ d -> shapeDeltaR d
   IndexR d _ -> dropShape (shapeDeltaR d)
   SumR d -> tailShape (shapeDeltaR d)
   Sum0R{} -> ZSR
@@ -498,7 +498,7 @@ shapeDeltaH :: forall ranked.
                (RankedTensor ranked, ShapedTensor (ShapedOf ranked))
             => DeltaH ranked -> VoidHVector
 shapeDeltaH = \case
-  LetH _ d -> shapeDeltaH d
+  ShareH _ d -> shapeDeltaH d
   HToH v ->
     V.map (voidFromDynamicF (shapeToList . shapeDeltaR)) v
   MapAccumR k accShs bShs _eShs _q _es _df _rf _acc0' _es' ->
@@ -690,12 +690,12 @@ evalR !s !c = let (abShared, cShared) = rregister c (astBindings s)
                           $ iMap s}
     -- This and similar don't need to be runtime-specialized,
     -- because the type of c determines the Num instance for (+).
-    -- Note that we can't express sharing by inserting Let constructors
+    -- Note that we can't express sharing by inserting Share constructors
     -- into iMap, because often sharing needs to work across many
     -- iMap keys. That's why global sharing is used, via rregister.
   ScaleR k d -> evalR s (k * c) d
   AddR d e -> evalR (evalR sShared cShared d) cShared e
-  LetR n d ->
+  ShareR n d ->
     -- In this context, by construction, @d@ is the dual component
     -- of a dual number term. Let's say that, at this point, evaluation
     -- considers position (node) p out of possibly multiple positions
@@ -713,7 +713,7 @@ evalR !s !c = let (abShared, cShared) = rregister c (astBindings s)
     -- maps and eventually their total sum represents the total
     -- influence of the objective function's subcomputation
     -- (more precisely, subgraph of the data flow graph in question)
-    -- corresponding to the shared term @Let0 n d@. This total
+    -- corresponding to the shared term @ShareR n d@. This total
     -- influence over the objective function's behaviour is called
     -- in short the cotangent of the node identifier @n@.
     -- In other words, the cotangent of @n@ is the sum,
@@ -721,14 +721,14 @@ evalR !s !c = let (abShared, cShared) = rregister c (astBindings s)
     -- that are a reference to node @n@, of the partial derivative
     -- of the objective function with respect to the subcomputation
     -- corresponding to @q@ (meaning, subcomputations denoted by
-    -- Haskell terms whose dual components are @Let n ...@).
+    -- Haskell terms whose dual components are @Share n ...@).
     --
     -- For @Input@ terms, the eventual lists of cotangents end up
     -- in the cells of the gradient vectors that are the final
     -- result of the evaluation.
     assert (case d of
               ZeroR{} -> False
-              LetR{} -> False  -- wasteful and nonsensical
+              ShareR{} -> False  -- wasteful and nonsensical
               _ -> True)
     $ case EM.lookup n $ nMap s of
         Just (DynamicRanked _) ->
@@ -821,10 +821,10 @@ evalS !s !c = let (abShared, cShared) = sregister c (astBindings s)
                         $ iMap s}
   ScaleS k d -> evalS s (k * c) d
   AddS d e -> evalS (evalS sShared cShared d) cShared e
-  LetS n d ->
+  ShareS n d ->
     assert (case d of
               ZeroS -> False
-              LetS{} -> False  -- wasteful and nonsensical
+              ShareS{} -> False  -- wasteful and nonsensical
               _ -> True)
     $ case EM.lookup n $ nMap s of
         Just (DynamicShaped _) ->
@@ -901,9 +901,9 @@ evalH
 evalH !s !c = let (abShared, cShared) = dregister (dmkHVector c) (astBindings s)
                   sShared = s {astBindings = abShared}
               in \case
-  LetH n d ->
+  ShareH n d ->
     assert (case d of
-              LetH{} -> False  -- wasteful and nonsensical
+              ShareH{} -> False  -- wasteful and nonsensical
               _ -> True)
     $ case EM.lookup n $ hnMap s of
         Just{} ->
@@ -1005,7 +1005,7 @@ evalFromnMap s@EvalState{nMap, dMap, hnMap, hdMap} =
                     then treplicate0ND sh 0 `OD.update` [(ixs, c)]
                     else v `OD.update` [(ixs, v `rindex0D` ixs + c)]
           in s {iMap = EM.adjust f i $ iMap s}
-        Index0 (LetR n d) ixs' sh ->
+        Index0 (ShareR n d) ixs' sh ->
           let ixs = indexToList ixs'
           in case EM.lookup n $ nMap s of
             Just (DynamicRanked _) ->
@@ -1086,7 +1086,7 @@ fwdR dimR params s = \case
   AddR d e -> let (s2, t) = fwdR dimR params s d
                   (s3, u) = fwdR dimR params s2 e
               in (s3, t + u)
-  LetR n d ->
+  ShareR n d ->
     case EM.lookup n $ dMap s of
       Just (DynamicRanked @r2 @n2 e) -> case sameNat (Proxy @n2) (Proxy @n) of
         Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
@@ -1163,7 +1163,7 @@ fwdS dimR params s = \case
   AddS d e -> let (s2, t) = fwdS dimR params s d
                   (s3, u) = fwdS dimR params s2 e
               in (s3, t + u)
-  LetS n d ->
+  ShareS n d ->
     case EM.lookup n $ dMap s of
       Just (DynamicShaped @r2 @sh2 e) -> case sameShape @sh2 @sh of
         Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
@@ -1225,7 +1225,7 @@ fwdH
   => Int -> HVector ranked -> EvalState ranked -> DeltaH ranked
   -> (EvalState ranked, HVectorOf ranked)
 fwdH dimR params s = \case
-  LetH n d ->
+  ShareH n d ->
     case EM.lookup n $ hdMap s of
       Just hv -> (s, dmkHVector hv)
       Nothing ->
