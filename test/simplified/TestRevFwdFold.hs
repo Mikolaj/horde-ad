@@ -1040,7 +1040,8 @@ testSin0Scan1Rev2PPA = do
         revArtifactAdapt @Double @1 @(AstRanked FullSpan)
                  True
                  (\x0 -> rscan (\x a -> sin x - a) x0
-                           (rconst (OR.fromList @Double @1 [2] [5, 7]))) 1.1
+                           (rconst (OR.fromList @Double @1 [2] [5, 7])))
+                 1.1
   printAstHVectorPretty IM.empty (simplifyAstHVector6 a1)
     @?= "let v4 = rconst (fromList [2] [5.0,7.0]) in let [x5 @Natural @Double @[], v6 @Natural @Double @[2], v7 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [x1] [v4] in let [x12 @Natural @Double @[], v13 @Natural @Double @[2]] = dmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> [0.0] [rslice 1 2 v8, v6, v4] in [x12 + v8 ! [0]]"
 
@@ -1050,7 +1051,8 @@ testSin0Scan1Rev2PPForComparison = do
   let ((_, a1, _), _) =
         revArtifactAdapt @Double @1 @(AstRanked FullSpan)
                  True
-                 (\x0 -> rfromList [sin (sin x0 - 5) - 7, sin x0 - 5, x0]) 1.1
+                 (\x0 -> rfromList [sin (sin x0 - 5) - 7, sin x0 - 5, x0])
+                 1.1
   printAstHVectorPretty IM.empty (simplifyAstHVector6 a1)
     @?= "[cos x1 * (cos (sin x1 - 5.0) * v3 ! [0]) + cos x1 * v3 ! [1] + v3 ! [2]]"
 

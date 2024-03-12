@@ -9,11 +9,16 @@ import Prelude
 import           Control.Exception (assert)
 import qualified Data.Array.RankedS as OR
 import           Data.Bifunctor.Flip
+import qualified Data.EnumMap.Strict as EM
+import qualified Data.Strict.IntMap as IM
+import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat)
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
 import HordeAd
+import HordeAd.Core.AstFreshId (resetVarCounter)
+import HordeAd.Core.TensorAst
 import HordeAd.Internal.BackendConcrete
 
 import CrossTesting
@@ -57,6 +62,9 @@ testTrees =
   , testCase "disparityKonst" test_disparityKonst
   , testCase "disparityKonst2" test_disparityKonst2
   , testCase "disparitySmall" test_disparitySmall
+  , testCase "Conv2dUnpaddedPP" testConv2dUnpaddedPP
+  , testCase "Conv2dUnpadded2PP" testConv2dUnpadded2PP
+  , testCase "Conv2dUnpadded3PP" testConv2dUnpadded3PP
   ]
 
 -- The examples reproduce and transformed in this file are borrowed
@@ -530,3 +538,68 @@ test_disparitySmall = do
   assertEqualUpToEpsilon' 1e-7
     (OR.fromList [1,2,3,2] [-1.0,0.0,-1.0,0.0,-1.0,0.0,1.0,0.0,-1.0,0.0,1.0,0.0])
     (rev' @Double @4 (costVolume 1 2 arrL) arrR)
+
+
+-- * PP Tests
+
+unPaddedPPString :: String
+unPaddedPPString = "\\u57 u1 u2 -> let w59 = rgather [2,2,2,2,1,2,2,2] u57 (\\[i83, i84, i85, i86, i87, i88, i89, i90] -> [rem (quot (i90 + 2 * i89 + 4 * i88 + 8 * i87 + 8 * i86 + 16 * i85 + 64 * i83 + 32 * i84) 64) 2, rem (quot (i90 + 2 * i89 + 4 * i88 + 8 * i87 + 8 * i86 + 16 * i85 + 64 * i83 + 32 * i84) 32) 2, rem (quot (i90 + 2 * i89 + 4 * i88 + 8 * i87 + 8 * i86 + 16 * i85 + 64 * i83 + 32 * i84) 16) 2, rem (quot (i90 + 2 * i89 + 4 * i88 + 8 * i87 + 8 * i86 + 16 * i85 + 64 * i83 + 32 * i84) 8) 2]) in [rscatter [2,2,2,2] (rscatter [2,2,1,2,2,2] (rsum (rsum (rsum (rtranspose [1,2,3,0] (rreplicate 2 (rgather [2,2,2,1,2,2,2] (rfromList [rgather [2,2,2,1,2,2,2] u2 (\\[i34, i35, i36, i37, i38, i39, i40] -> [i34 + i37, i38, i35 + i39, i36 + i40]), rreplicate 2 (rreplicate 2 (rreplicate 2 (rreplicate 1 (rreplicate 2 (rreplicate 2 (rreplicate 2 0.0))))))]) (\\[i41, i42, i43, i44, i45, i46, i47] -> [ifF ((0 <=. i41 + i44 &&* 2 >. i41 + i44) &&* ((0 <=. i45 &&* 2 >. i45) &&* ((0 <=. i42 + i46 &&* 2 >. i42 + i46) &&* (0 <=. i43 + i47 &&* 2 >. i43 + i47)))) 0 1, i41, i42, i43, i44, i45, i46, i47]))) * rtranspose [0,2,3,1] w59)))) (\\[i60, i61, i62, i63, i64] -> [ifF ((0 <=. i60 + i61 &&* 2 >. i60 + i61) &&* ((0 <=. i62 &&* 2 >. i62) &&* ((0 <=. i63 &&* 2 >. i63) &&* (0 <=. i64 &&* 2 >. i64)))) 0 1, i60, i61, i62, i63, i64]) ! [0]) (\\[i66, i67] -> [i66 + i67]), rscatter [2,2,2,2] (rscatter [2,2,2,2,1,2,2,2] (rsum (rtranspose [3,0,1,2] (rreplicate 2 (rreplicate 2 (rreplicate 2 (rgather [2,1,2,2,2] (rfromList [rgather [2,1,2,2,2] u1 (\\[i48, i49] -> [i48 + i49]), rreplicate 2 (rreplicate 1 (rreplicate 2 (rreplicate 2 (rreplicate 2 0.0))))]) (\\[i50, i51, i52, i53, i54] -> [ifF ((0 <=. i50 + i51 &&* 2 >. i50 + i51) &&* ((0 <=. i52 &&* 2 >. i52) &&* ((0 <=. i53 &&* 2 >. i53) &&* (0 <=. i54 &&* 2 >. i54)))) 0 1, i50, i51, i52, i53, i54]))))) * rtranspose [1,0] w59)) (\\[i68, i69, i70, i71, i72, i73, i74] -> [ifF ((0 <=. i68 + i71 &&* 2 >. i68 + i71) &&* ((0 <=. i72 &&* 2 >. i72) &&* ((0 <=. i69 + i73 &&* 2 >. i69 + i73) &&* (0 <=. i70 + i74 &&* 2 >. i70 + i74)))) 0 1, i68, i69, i70, i71, i72, i73, i74]) ! [0]) (\\[i76, i77, i78, i79, i80, i81, i82] -> [i76 + i79, i80, i77 + i81, i78 + i82])]"
+
+unPaddedPPString3 :: String
+unPaddedPPString3 = "\\u33 u1 u2 -> let w35 = rgather [2,2,2,2,1,2,2,2] u33 (\\[i45, i46, i47, i48, i49, i50, i51, i52] -> [rem (quot (i52 + 2 * i51 + 4 * i50 + 8 * i49 + 8 * i48 + 16 * i47 + 64 * i45 + 32 * i46) 64) 2, rem (quot (i52 + 2 * i51 + 4 * i50 + 8 * i49 + 8 * i48 + 16 * i47 + 64 * i45 + 32 * i46) 32) 2, rem (quot (i52 + 2 * i51 + 4 * i50 + 8 * i49 + 8 * i48 + 16 * i47 + 64 * i45 + 32 * i46) 16) 2, rem (quot (i52 + 2 * i51 + 4 * i50 + 8 * i49 + 8 * i48 + 16 * i47 + 64 * i45 + 32 * i46) 8) 2]) in [rscatter [2,2,2,2] (rsum (rsum (rsum (rtranspose [1,2,3,0] (rreplicate 2 (rgather [2,2,2,1,2,2,2] u2 (\\[i22, i23, i24, i25, i26, i27, i28] -> [i22 + i25, i26, i23 + i27, i24 + i28]))) * rtranspose [0,2,3,1] w35)))) (\\[i36, i37] -> [i36 + i37]), rscatter [2,2,2,2] (rsum (rtranspose [3,0,1,2] (rreplicate 2 (rreplicate 2 (rreplicate 2 (rgather [2,1,2,2,2] u1 (\\[i29, i30] -> [i29 + i30]))))) * rtranspose [1,0] w35)) (\\[i38, i39, i40, i41, i42, i43, i44] -> [i38 + i41, i42, i39 + i43, i40 + i44])]"
+
+testConv2dUnpaddedPP :: Assertion
+testConv2dUnpaddedPP = do
+  resetVarCounter
+  let f :: HVector (AstRanked FullSpan) -> AstRanked FullSpan Double 4
+      f v = conv2dUnpadded (rfromD $ v V.! 0) (rfromD $ v V.! 1)
+      g :: Double -> Flip OR.Array Double 4
+      g x = Flip $ OR.fromList [2,2,2,2] $ replicate 16 x
+      (artifactRev, _) =
+        revArtifactAdapt @Double @4 @(AstRanked FullSpan)
+                 True
+                 f
+                 (V.fromList [ DynamicRanked @Double @4 (g 1.1)
+                             , DynamicRanked @Double @4 (g 2.3) ])
+  printGradient6Pretty IM.empty (simplifyArtifactRev artifactRev)
+    @?= unPaddedPPString
+
+testConv2dUnpadded2PP :: Assertion
+testConv2dUnpadded2PP = do
+  resetVarCounter
+  let f :: HVector (AstRanked FullSpan)
+        -> HVectorPseudoTensor (AstRanked FullSpan) Float '()
+      f v = HVectorPseudoTensor $ dmkHVector
+            $ V.singleton $ DynamicRanked @Double @4
+            $ conv2dUnpadded (rfromD $ v V.! 0) (rfromD $ v V.! 1)
+      shs = V.fromList [ voidFromSh @Double (2 :$: 2 :$: 2 :$: 2 :$: ZSR)
+                       , voidFromSh @Double (2 :$: 2 :$: 2 :$: 2 :$: ZSR) ]
+      (artifactRev, _) =
+        revArtifactFromForwardPass
+          True (forwardPassByInterpretation f EM.empty) shs
+  printGradient6Pretty IM.empty (simplifyArtifactRev artifactRev)
+    @?= unPaddedPPString
+
+-- This is fragile due to indexing out of bounds, see above.
+testConv2dUnpadded3PP :: Assertion
+testConv2dUnpadded3PP = do
+  resetVarCounter
+  let f :: HVector (AstRanked FullSpan)
+        -> HVectorPseudoTensor (AstRanked FullSpan) Float '()
+      f v = HVectorPseudoTensor $ dmkHVector
+            $ V.singleton $ DynamicRanked @Double @4
+            $ conv2d (rfromD $ v V.! 0) (rfromD $ v V.! 1)
+      shs = V.fromList [ voidFromSh @Double (2 :$: 2 :$: 2 :$: 2 :$: ZSR)
+                       , voidFromSh @Double (2 :$: 2 :$: 2 :$: 2 :$: ZSR) ]
+      (artifactRev@((_, varsPrimal), _, HVectorPseudoTensor unPrimal), _) =
+        revArtifactFromForwardPass
+          True (forwardPassByInterpretation f EM.empty) shs
+  printGradient6Pretty IM.empty (simplifyArtifactRev artifactRev)
+    @?= unPaddedPPString3
+  "\\" ++ unwords (map (printAstDynamicVarNameBrief IM.empty) varsPrimal)
+       ++ " -> " ++ printAstHVectorPretty IM.empty unPrimal
+    @?= "\\u1 u2 -> let w31 = rtranspose [1,0] (rreplicate 2 (rgather [2,2,2,1,2,2,2] u2 (\\[i22, i23, i24, i25, i26, i27, i28] -> [i22 + i25, i26, i23 + i27, i24 + i28]))) ; w32 = rtranspose [0,3,1,2] (rreplicate 2 (rreplicate 2 (rreplicate 2 (rgather [2,1,2,2,2] u1 (\\[i29, i30] -> [i29 + i30]))))) in [rsum (rtranspose [4,0,1,2,3] (rreshape [2,2,2,2,8] (w31 * w32)))]"
+  "\\" ++ unwords (map (printAstDynamicVarNameBrief IM.empty) varsPrimal)
+       ++ " -> " ++ printAstHVectorPretty IM.empty
+                                          (simplifyAstHVector6 unPrimal)
+    @?= "\\u1 u2 -> [rsum (rgather [8,2,2,2,2] (rtranspose [1,0] (rreplicate 2 (rgather [2,2,2,1,2,2,2] u2 (\\[i22, i23, i24, i25, i26, i27, i28] -> [i22 + i25, i26, i23 + i27, i24 + i28]))) * rtranspose [0,3,1,2] (rreplicate 2 (rreplicate 2 (rreplicate 2 (rgather [2,1,2,2,2] u1 (\\[i29, i30] -> [i29 + i30])))))) (\\[i53, i54, i55, i56, i57] -> [rem (quot (i53 + 8 * i57 + 16 * i56 + 64 * i54 + 32 * i55) 64) 2, rem (quot (i53 + 8 * i57 + 16 * i56 + 64 * i54 + 32 * i55) 32) 2, rem (quot (i53 + 8 * i57 + 16 * i56 + 64 * i54 + 32 * i55) 16) 2, rem (quot (i53 + 8 * i57 + 16 * i56 + 64 * i54 + 32 * i55) 8) 2, 0, rem (quot (i53 + 8 * i57 + 16 * i56 + 64 * i54 + 32 * i55) 4) 2, rem (quot (i53 + 8 * i57 + 16 * i56 + 64 * i54 + 32 * i55) 2) 2, rem (i53 + 8 * i57 + 16 * i56 + 64 * i54 + 32 * i55) 2]))]"
