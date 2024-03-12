@@ -113,8 +113,8 @@ revDtMaybe f vals mdt =
   in parseHVector vals
      $ fst $ revEvalArtifact artifact valsH mdth
 {-# SPECIALIZE revDtMaybe
-  :: KnownNat n
-  => ( AdaptableHVector (AstRanked FullSpan) astvals
+  :: ( KnownNat n
+     , AdaptableHVector (AstRanked FullSpan) astvals
      , AdaptableHVector (Flip OR.Array) (Value astvals)
      , TermValue astvals )
   => (astvals -> AstRanked FullSpan Double n)
@@ -139,8 +139,8 @@ revArtifactAdapt hasDt f vals =
       voidH = voidFromHVector valsH
   in revProduceArtifact hasDt g EM.empty voidH
 {-# SPECIALIZE revArtifactAdapt
-  :: KnownNat n
-  => ( AdaptableHVector (AstRanked FullSpan) astvals
+  :: ( KnownNat n
+     , AdaptableHVector (AstRanked FullSpan) astvals
      , AdaptableHVector (Flip OR.Array) (Value astvals)
      , TermValue astvals )
   => Bool -> (astvals -> AstRanked FullSpan Double n) -> Value astvals
