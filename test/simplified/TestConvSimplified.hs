@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedLists #-}
+{-# OPTIONS_GHC -fno-cse #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 -- | Tests of convolution and disparity cost volume defined using the build
 -- operation of ranked tensors.
