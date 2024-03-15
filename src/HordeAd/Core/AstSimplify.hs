@@ -246,21 +246,21 @@ astNonIndexStep t = case t of
   Ast.AstIota -> t
   AstN1 opCode u ->
     case isRankedInt u of
-      Just Refl -> simplifyAstNumOp1 opCode u
+      Just Refl -> contractAstNumOp1 opCode u
       _ -> t
   AstN2 opCode u v ->
     case isRankedInt u of
-      Just Refl -> simplifyAstNumOp2 opCode u v
+      Just Refl -> contractAstNumOp2 opCode u v
       _ -> t
   Ast.AstR1{} -> t
   Ast.AstR2{} -> t
   Ast.AstI2 opCode u v ->
     case isRankedInt u of
-      Just Refl -> simplifyAstIntegralOp2 opCode u v
+      Just Refl -> contractAstIntegralOp2 opCode u v
       _ -> t
   AstSumOfList args ->
     case isRankedInt t of
-      Just Refl -> foldr1 simplifyAstPlusOp args
+      Just Refl -> foldr1 contractAstPlusOp args
       _ -> t
   Ast.AstIndex{} -> t  -- was supposed to be *non*-index
   Ast.AstSum v -> astSum v
@@ -483,7 +483,7 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :.: (rest1 :: AstIndex m1)) =
        over a tensor product or something else that indexes in complex ways?
     let vlen = AstConst $ lengthAst v
         ix2 = simplifyAstInt (AstIntOp MinusIntOp [i1, vlen]) :.: rest1
-    in case simplifyAstBool $ AstRelInt LsOp [i1, vlen] of
+    in case contractAstBool $ AstRelInt LsOp [i1, vlen] of
       AstBoolConst b -> if b then astIndex v ix else astIndex w ix2
       bExpr -> astCond bExpr (astIndexRec v ix) (astIndexRec w ix2)
     -}
@@ -1027,7 +1027,7 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
           iw = simplifyAstInt (AstIntOp MinusIntOp [i4, vlen])
           v2 = astGatherRec sh4 v (vars4, i4 :.: rest4)
           w2 = astGatherRec sh4 w (vars4, iw :.: rest4)
-      in case simplifyAstBool $ AstRelInt LsOp [i4, vlen] of
+      in case contractAstBool $ AstRelInt LsOp [i4, vlen] of
         AstBoolConst b -> if b
                           then astGather sh4 v (vars4, i4 :.: rest4)
                           else astGather sh4 w (vars4, iw :.: rest4)
@@ -1061,7 +1061,7 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
       -- altogether (terrible for user comfort, especially wrt typing).
       let substLet :: AstIndex m7 -> AstVarList m7 -> AstInt -> AstInt
           substLet ix vars i =
-            simplifyAstInt  -- we generate this index, so we simplify on the spot
+            simplifyAstInt  -- we generate the index, so we simplify on the spot
             $ foldr (uncurry astLetInt) i
                     (zipSized vars (indexToSized ix))
           composedGather :: p' <= m2 => AstRanked s r' (m' + n')
@@ -2371,21 +2371,21 @@ simplifyAst t = case t of
   Ast.AstIota -> t
   AstN1 opCode u ->
     case isRankedInt u of
-      Just Refl -> simplifyAstNumOp1 opCode (simplifyAst u)
+      Just Refl -> contractAstNumOp1 opCode (simplifyAst u)
       _ -> AstN1 opCode (simplifyAst u)
   AstN2 opCode u v ->
     case isRankedInt u of
-      Just Refl -> simplifyAstNumOp2 opCode (simplifyAst u) (simplifyAst v)
+      Just Refl -> contractAstNumOp2 opCode (simplifyAst u) (simplifyAst v)
       _ -> AstN2 opCode (simplifyAst u) (simplifyAst v)
   Ast.AstR1 opCode u -> Ast.AstR1 opCode (simplifyAst u)
   Ast.AstR2 opCode u v -> Ast.AstR2 opCode (simplifyAst u) (simplifyAst v)
   Ast.AstI2 opCode u v ->
     case isRankedInt u of
-      Just Refl -> simplifyAstIntegralOp2 opCode (simplifyAst u) (simplifyAst v)
+      Just Refl -> contractAstIntegralOp2 opCode (simplifyAst u) (simplifyAst v)
       _ -> Ast.AstI2 opCode (simplifyAst u) (simplifyAst v)
   AstSumOfList args ->
     case isRankedInt t of
-      Just Refl -> foldr1 simplifyAstPlusOp (map simplifyAst args)
+      Just Refl -> foldr1 contractAstPlusOp (map simplifyAst args)
       _ -> astSumOfList (map simplifyAst args)
   Ast.AstIndex v ix -> astIndexR (simplifyAst v) (simplifyAstIndex ix)
   Ast.AstSum v -> astSum (simplifyAst v)
@@ -2553,10 +2553,10 @@ simplifyAstBool t = case t of
   Ast.AstBoolNot (AstBoolConst b) -> AstBoolConst $ not b
   Ast.AstBoolNot arg -> Ast.AstBoolNot $ simplifyAstBool arg
   Ast.AstB2 opCodeBool arg1 arg2 ->
-    simplifyAstB2 opCodeBool (simplifyAstBool arg1) (simplifyAstBool arg2)
+    contractAstB2 opCodeBool (simplifyAstBool arg1) (simplifyAstBool arg2)
   AstBoolConst{} -> t
   Ast.AstRel opCodeRel arg1 arg2 ->
-    simplifyRelOp opCodeRel (simplifyAst arg1) (simplifyAst arg2)
+    contractRelOp opCodeRel (simplifyAst arg1) (simplifyAst arg2)
       -- These expressions potentially represent large tensors that are
       -- expensive to compute even when constant so we simplify and ignore them,
       -- because computation should be done on GPU, not on CPU when simplifying;
@@ -2566,32 +2566,35 @@ simplifyAstBool t = case t of
   Ast.AstRelS opCodeRel arg1 arg2 ->
     Ast.AstRelS opCodeRel (simplifyAstS arg1) (simplifyAstS arg2)
 
+
+-- * Contraction of arithmetic and boolean operation terms
+
 -- TODO: when we have more tests, try to limit this rewrite
 -- (or only the first half) to Int64 at rank 0 and see if performance improves
 -- even more.
-simplifyRelOp :: (KnownNat n, GoodScalar r)
+contractRelOp :: (KnownNat n, GoodScalar r)
               => OpCodeRel
               -> AstRanked PrimalSpan r n -> AstRanked PrimalSpan r n
               -> AstBool
-simplifyRelOp EqOp (AstConst u) (AstConst v) = AstBoolConst $ u == v
-simplifyRelOp NeqOp (AstConst u) (AstConst v) = AstBoolConst $ u /= v
-simplifyRelOp LeqOp (AstConst u) (AstConst v) = AstBoolConst $ u <= v
-simplifyRelOp GeqOp (AstConst u) (AstConst v) = AstBoolConst $ u >= v
-simplifyRelOp LsOp (AstConst u) (AstConst v) = AstBoolConst $ u < v
-simplifyRelOp GtOp (AstConst u) (AstConst v) = AstBoolConst $ u > v
-simplifyRelOp EqOp (Ast.AstVar _ u) (Ast.AstVar _ v) | u == v =
+contractRelOp EqOp (AstConst u) (AstConst v) = AstBoolConst $ u == v
+contractRelOp NeqOp (AstConst u) (AstConst v) = AstBoolConst $ u /= v
+contractRelOp LeqOp (AstConst u) (AstConst v) = AstBoolConst $ u <= v
+contractRelOp GeqOp (AstConst u) (AstConst v) = AstBoolConst $ u >= v
+contractRelOp LsOp (AstConst u) (AstConst v) = AstBoolConst $ u < v
+contractRelOp GtOp (AstConst u) (AstConst v) = AstBoolConst $ u > v
+contractRelOp EqOp (Ast.AstVar _ u) (Ast.AstVar _ v) | u == v =
   AstBoolConst True
-simplifyRelOp LeqOp (Ast.AstVar _ u) (Ast.AstVar _ v) | u == v =
+contractRelOp LeqOp (Ast.AstVar _ u) (Ast.AstVar _ v) | u == v =
   AstBoolConst True
-simplifyRelOp GeqOp (Ast.AstVar _ u) (Ast.AstVar _ v) | u == v =
+contractRelOp GeqOp (Ast.AstVar _ u) (Ast.AstVar _ v) | u == v =
   AstBoolConst True
-simplifyRelOp NeqOp (Ast.AstVar _ u) (Ast.AstVar _ v) | u == v =
+contractRelOp NeqOp (Ast.AstVar _ u) (Ast.AstVar _ v) | u == v =
   AstBoolConst False
-simplifyRelOp LsOp (Ast.AstVar _ u) (Ast.AstVar _ v) | u == v =
+contractRelOp LsOp (Ast.AstVar _ u) (Ast.AstVar _ v) | u == v =
   AstBoolConst False
-simplifyRelOp GtOp (Ast.AstVar _ u) (Ast.AstVar _ v) | u == v =
+contractRelOp GtOp (Ast.AstVar _ u) (Ast.AstVar _ v) | u == v =
   AstBoolConst False
-simplifyRelOp opCodeRel arg1 arg2 = Ast.AstRel opCodeRel arg1 arg2
+contractRelOp opCodeRel arg1 arg2 = Ast.AstRel opCodeRel arg1 arg2
 
 -- TODO: let's aim at SOP (Sum-of-Products) form, just as
 -- ghc-typelits-natnormalise does. Also, let's associate to the right
@@ -2626,62 +2629,62 @@ simplifyRelOp opCodeRel arg1 arg2 = Ast.AstRel opCodeRel arg1 arg2
 -- max n (signum (abs x)) | n <= 0 --> signum (abs x).
 -- We could use sharing via @rlet@ when terms are duplicated, but it's
 -- unclear if the term bloat is worth it.
-simplifyAstPlusOp :: AstInt -> AstInt -> AstInt
-simplifyAstPlusOp (AstSumOfList (AstConst u : lu))
+contractAstPlusOp :: AstInt -> AstInt -> AstInt
+contractAstPlusOp (AstSumOfList (AstConst u : lu))
                   (AstSumOfList (AstConst v : lv)) =
   addConstToList (u + v) (lu ++ lv)
-simplifyAstPlusOp (AstSumOfList lu)
+contractAstPlusOp (AstSumOfList lu)
                   (AstSumOfList (AstConst v : lv)) =
   AstSumOfList (AstConst v : lv ++ lu)
-simplifyAstPlusOp (AstSumOfList lu)
+contractAstPlusOp (AstSumOfList lu)
                   (AstSumOfList lv) =
   AstSumOfList (lu ++ lv)
 
-simplifyAstPlusOp (AstConst u)
+contractAstPlusOp (AstConst u)
                   (AstSumOfList (AstConst v : lv)) =
   addConstToList (u + v) lv
-simplifyAstPlusOp u
+contractAstPlusOp u
                   (AstSumOfList (AstConst v : lv)) =
   AstSumOfList (AstConst v : u : lv)
-simplifyAstPlusOp u
+contractAstPlusOp u
                   (AstSumOfList lv) =
   AstSumOfList (u : lv)
 
-simplifyAstPlusOp (AstSumOfList (AstConst u : lu))
+contractAstPlusOp (AstSumOfList (AstConst u : lu))
                   (AstConst v) =
   addConstToList (u + v) lu
-simplifyAstPlusOp (AstSumOfList (AstConst u : lu))
+contractAstPlusOp (AstSumOfList (AstConst u : lu))
                   v =
   AstSumOfList (AstConst u : v : lu)
-simplifyAstPlusOp (AstSumOfList lu)
+contractAstPlusOp (AstSumOfList lu)
                   v =
   AstSumOfList (v : lu)
 
-simplifyAstPlusOp (AstConst u) (AstConst v) = AstConst $ u + v
-simplifyAstPlusOp u (AstConst v) = addConstToList v [u]
-simplifyAstPlusOp (AstConst u) v = addConstToList u [v]
+contractAstPlusOp (AstConst u) (AstConst v) = AstConst $ u + v
+contractAstPlusOp u (AstConst v) = addConstToList v [u]
+contractAstPlusOp (AstConst u) v = addConstToList u [v]
 
 -- Unfortunately, these won't fire if the required terms are scattered
 -- among elements of the AstSumOfList list. However, in many cases,
 -- binary addition is used interspersed with other operations,
 -- so longer lists don't form and so these terms have a chance to be adjacent,
 -- especially that AstConst is guaranteed not to intervene.
-simplifyAstPlusOp (AstN1 NegateOp (Ast.AstVar _ var))
+contractAstPlusOp (AstN1 NegateOp (Ast.AstVar _ var))
                   (Ast.AstVar _ var')
   | var == var' = 0
-simplifyAstPlusOp (Ast.AstVar _ var')
+contractAstPlusOp (Ast.AstVar _ var')
                   (AstN1 NegateOp (Ast.AstVar _ var))
   | var == var' = 0
-simplifyAstPlusOp
+contractAstPlusOp
   (Ast.AstI2 RemOp (AstN1 NegateOp (Ast.AstVar _ var)) (AstConst v))
   (Ast.AstI2 RemOp (Ast.AstVar _ var') (AstConst v'))
   | var == var' && v == v' = 0
-simplifyAstPlusOp
+contractAstPlusOp
   (Ast.AstI2 RemOp (Ast.AstVar _ var') (AstConst v'))
   (Ast.AstI2 RemOp (AstN1 NegateOp (Ast.AstVar _ var)) (AstConst v))
   | var == var' && v == v' = 0
 
-simplifyAstPlusOp u v = AstSumOfList [u, v]
+contractAstPlusOp u v = AstSumOfList [u, v]
 
 addConstToList :: OR.Array 0 Int64 -> [AstInt] -> AstInt
 addConstToList _ [] = error "addConstToList: AstSumOfList list too short"
@@ -2690,113 +2693,113 @@ addConstToList arr [i] =
 addConstToList arr l =
   if OR.allA (== 0) arr then AstSumOfList l else AstSumOfList (AstConst arr : l)
 
-simplifyAstNumOp1 :: OpCodeNum1 -> AstInt -> AstInt
-simplifyAstNumOp1 NegateOp (AstConst u) = AstConst $ negate u
-simplifyAstNumOp1 NegateOp (AstSumOfList l) =
-  foldr1 simplifyAstPlusOp (map (simplifyAstNumOp1 NegateOp) l)
-simplifyAstNumOp1 NegateOp (AstN2 TimesOp (AstConst u) v) =
-  simplifyAstNumOp2 TimesOp (AstConst $ negate u) v
+contractAstNumOp1 :: OpCodeNum1 -> AstInt -> AstInt
+contractAstNumOp1 NegateOp (AstConst u) = AstConst $ negate u
+contractAstNumOp1 NegateOp (AstSumOfList l) =
+  foldr1 contractAstPlusOp (map (contractAstNumOp1 NegateOp) l)
+contractAstNumOp1 NegateOp (AstN2 TimesOp (AstConst u) v) =
+  contractAstNumOp2 TimesOp (AstConst $ negate u) v
     -- given a choice, prefer to negate a constant
-simplifyAstNumOp1 NegateOp (AstN2 TimesOp u v) =
-  simplifyAstNumOp2 TimesOp u (simplifyAstNumOp1 NegateOp v)
-simplifyAstNumOp1 NegateOp (AstN1 NegateOp u) = u
-simplifyAstNumOp1 NegateOp (AstN1 SignumOp u) =
-  simplifyAstNumOp1 SignumOp (simplifyAstNumOp1 NegateOp u)
-simplifyAstNumOp1 NegateOp (Ast.AstI2 QuotOp u v) =
-  simplifyAstIntegralOp2 QuotOp (simplifyAstNumOp1 NegateOp u) v
+contractAstNumOp1 NegateOp (AstN2 TimesOp u v) =
+  contractAstNumOp2 TimesOp u (contractAstNumOp1 NegateOp v)
+contractAstNumOp1 NegateOp (AstN1 NegateOp u) = u
+contractAstNumOp1 NegateOp (AstN1 SignumOp u) =
+  contractAstNumOp1 SignumOp (contractAstNumOp1 NegateOp u)
+contractAstNumOp1 NegateOp (Ast.AstI2 QuotOp u v) =
+  contractAstIntegralOp2 QuotOp (contractAstNumOp1 NegateOp u) v
     -- v is likely positive and let's keep it so
-simplifyAstNumOp1 NegateOp (Ast.AstI2 RemOp u v) =
-  simplifyAstIntegralOp2 RemOp (simplifyAstNumOp1 NegateOp u) v
+contractAstNumOp1 NegateOp (Ast.AstI2 RemOp u v) =
+  contractAstIntegralOp2 RemOp (contractAstNumOp1 NegateOp u) v
     -- v is likely positive and let's keep it so
 
-simplifyAstNumOp1 AbsOp (AstConst u) = AstConst $ abs u
-simplifyAstNumOp1 AbsOp (AstN1 AbsOp u) = AstN1 AbsOp u
-simplifyAstNumOp1 AbsOp (AstN1 NegateOp u) = simplifyAstNumOp1 AbsOp u
-simplifyAstNumOp1 SignumOp (AstConst u) = AstConst $ signum u
-simplifyAstNumOp1 SignumOp (AstN1 SignumOp u) = AstN1 SignumOp u
-simplifyAstNumOp1 SignumOp (AstN1 AbsOp u) =
-  simplifyAstNumOp1 AbsOp (AstN1 SignumOp u)
+contractAstNumOp1 AbsOp (AstConst u) = AstConst $ abs u
+contractAstNumOp1 AbsOp (AstN1 AbsOp u) = AstN1 AbsOp u
+contractAstNumOp1 AbsOp (AstN1 NegateOp u) = contractAstNumOp1 AbsOp u
+contractAstNumOp1 SignumOp (AstConst u) = AstConst $ signum u
+contractAstNumOp1 SignumOp (AstN1 SignumOp u) = AstN1 SignumOp u
+contractAstNumOp1 SignumOp (AstN1 AbsOp u) =
+  contractAstNumOp1 AbsOp (AstN1 SignumOp u)
 
-simplifyAstNumOp1 opCode u = AstN1 opCode u
+contractAstNumOp1 opCode u = AstN1 opCode u
 
-simplifyAstNumOp2 :: OpCodeNum2 -> AstInt -> AstInt -> AstInt
-simplifyAstNumOp2 MinusOp u v =
-  simplifyAstPlusOp u (simplifyAstNumOp1 NegateOp v)
-simplifyAstNumOp2 TimesOp (AstConst u) (AstConst v) = AstConst $ u * v
-simplifyAstNumOp2 TimesOp (AstConst 0) _v = AstConst 0
-simplifyAstNumOp2 TimesOp _u (AstConst 0) = AstConst 0
-simplifyAstNumOp2 TimesOp (AstConst 1) v = v
-simplifyAstNumOp2 TimesOp u (AstConst 1) = u
+contractAstNumOp2 :: OpCodeNum2 -> AstInt -> AstInt -> AstInt
+contractAstNumOp2 MinusOp u v =
+  contractAstPlusOp u (contractAstNumOp1 NegateOp v)
+contractAstNumOp2 TimesOp (AstConst u) (AstConst v) = AstConst $ u * v
+contractAstNumOp2 TimesOp (AstConst 0) _v = AstConst 0
+contractAstNumOp2 TimesOp _u (AstConst 0) = AstConst 0
+contractAstNumOp2 TimesOp (AstConst 1) v = v
+contractAstNumOp2 TimesOp u (AstConst 1) = u
 {- TODO: is it worth adding AstLet with a fresh variables
    to share w and so make these rules safe? Perhaps after we decide
    a normal form (e.g., a polynomial)?
-simplifyAstNumOp TimesOp (AstN2 PlusOp (u, v), w) =
-  simplifyAstPlusOp ( simplifyAstNumOp TimesOp (u, w)
-                    , simplifyAstNumOp TimesOp (v, w) )
-simplifyAstNumOp TimesOp (u, AstN2 PlusOp (v, w)) =
-  simplifyAstPlusOp ( simplifyAstNumOp TimesOp (u, v)
-                    , simplifyAstNumOp TimesOp (u, w) )
+contractAstNumOp TimesOp (AstN2 PlusOp (u, v), w) =
+  contractAstPlusOp ( contractAstNumOp TimesOp (u, w)
+                    , contractAstNumOp TimesOp (v, w) )
+contractAstNumOp TimesOp (u, AstN2 PlusOp (v, w)) =
+  contractAstPlusOp ( contractAstNumOp TimesOp (u, v)
+                    , contractAstNumOp TimesOp (u, w) )
 -}
-simplifyAstNumOp2 TimesOp (AstSumOfList l) w@AstConst{} =
-  foldr1 simplifyAstPlusOp (map (\u -> simplifyAstNumOp2 TimesOp u w) l)
-simplifyAstNumOp2 TimesOp u@AstConst{} (AstSumOfList l) =
-  foldr1 simplifyAstPlusOp (map (simplifyAstNumOp2 TimesOp u) l)
+contractAstNumOp2 TimesOp (AstSumOfList l) w@AstConst{} =
+  foldr1 contractAstPlusOp (map (\u -> contractAstNumOp2 TimesOp u w) l)
+contractAstNumOp2 TimesOp u@AstConst{} (AstSumOfList l) =
+  foldr1 contractAstPlusOp (map (contractAstNumOp2 TimesOp u) l)
 -- TODO: perhaps aim for a polynomial normal form? but that requires global
 -- inspection of the whole expression
-simplifyAstNumOp2 TimesOp (AstConst u) (AstN2 TimesOp (AstConst v) w) =
-  simplifyAstNumOp2 TimesOp (AstConst $ u * v) w
-simplifyAstNumOp2 TimesOp u (AstConst n) =
-  simplifyAstNumOp2 TimesOp (AstConst n) u
-simplifyAstNumOp2 TimesOp (AstN2 TimesOp u v) w =
-  simplifyAstNumOp2 TimesOp u (simplifyAstNumOp2 TimesOp v w)
+contractAstNumOp2 TimesOp (AstConst u) (AstN2 TimesOp (AstConst v) w) =
+  contractAstNumOp2 TimesOp (AstConst $ u * v) w
+contractAstNumOp2 TimesOp u (AstConst n) =
+  contractAstNumOp2 TimesOp (AstConst n) u
+contractAstNumOp2 TimesOp (AstN2 TimesOp u v) w =
+  contractAstNumOp2 TimesOp u (contractAstNumOp2 TimesOp v w)
 
 -- With static shapes, the second argument to QuotOp and RemOp
 -- is often a constant, which makes such rules worth including,
 -- since they are likely to fire. To help them fire, we avoid changing
 -- that constant, if possible, e.g., in rules for NegateOp.
-simplifyAstNumOp2
+contractAstNumOp2
   TimesOp (AstConst v)
           (Ast.AstI2 QuotOp (Ast.AstVar sh var) (AstConst v')) | v == v' =
-    simplifyAstNumOp2 MinusOp
+    contractAstNumOp2 MinusOp
                       (Ast.AstVar sh var)
                       (Ast.AstI2 RemOp (Ast.AstVar sh var) (AstConst v))
-simplifyAstNumOp2 opCode u v = AstN2 opCode u v
+contractAstNumOp2 opCode u v = AstN2 opCode u v
 
-simplifyAstIntegralOp2 :: OpCodeIntegral2 -> AstInt -> AstInt -> AstInt
-simplifyAstIntegralOp2 QuotOp (AstConst u) (AstConst v) = AstConst $ quot u v
-simplifyAstIntegralOp2 QuotOp (AstConst 0) _v = AstConst 0
-simplifyAstIntegralOp2 QuotOp u (AstConst 1) = u
-simplifyAstIntegralOp2 QuotOp (Ast.AstI2 RemOp _u (AstConst v)) (AstConst v')
+contractAstIntegralOp2 :: OpCodeIntegral2 -> AstInt -> AstInt -> AstInt
+contractAstIntegralOp2 QuotOp (AstConst u) (AstConst v) = AstConst $ quot u v
+contractAstIntegralOp2 QuotOp (AstConst 0) _v = AstConst 0
+contractAstIntegralOp2 QuotOp u (AstConst 1) = u
+contractAstIntegralOp2 QuotOp (Ast.AstI2 RemOp _u (AstConst v)) (AstConst v')
   | v' >= v && v >= 0 = 0
-simplifyAstIntegralOp2 QuotOp (Ast.AstI2 QuotOp u v) w =
-  simplifyAstIntegralOp2 QuotOp u (simplifyAstNumOp2 TimesOp v w)
-simplifyAstIntegralOp2 QuotOp (Ast.AstN2 TimesOp (AstConst u) v) (AstConst u')
+contractAstIntegralOp2 QuotOp (Ast.AstI2 QuotOp u v) w =
+  contractAstIntegralOp2 QuotOp u (contractAstNumOp2 TimesOp v w)
+contractAstIntegralOp2 QuotOp (Ast.AstN2 TimesOp (AstConst u) v) (AstConst u')
   | u == u' = v
 
-simplifyAstIntegralOp2 RemOp (AstConst u) (AstConst v) = AstConst $ rem u v
-simplifyAstIntegralOp2 RemOp (AstConst 0) _v = 0
-simplifyAstIntegralOp2 RemOp _u (AstConst 1) = 0
-simplifyAstIntegralOp2 RemOp (Ast.AstI2 RemOp u (AstConst v)) (AstConst v')
+contractAstIntegralOp2 RemOp (AstConst u) (AstConst v) = AstConst $ rem u v
+contractAstIntegralOp2 RemOp (AstConst 0) _v = 0
+contractAstIntegralOp2 RemOp _u (AstConst 1) = 0
+contractAstIntegralOp2 RemOp (Ast.AstI2 RemOp u (AstConst v)) (AstConst v')
   | v' >= v && v >= 0 = Ast.AstI2 RemOp u (AstConst v)
-simplifyAstIntegralOp2 RemOp (Ast.AstI2 RemOp u (AstConst v)) (AstConst v')
-  | rem v v' == 0 && v > 0 = simplifyAstIntegralOp2 RemOp u (AstConst v')
-simplifyAstIntegralOp2 RemOp (AstN2 TimesOp (AstConst u) _v) (AstConst u')
+contractAstIntegralOp2 RemOp (Ast.AstI2 RemOp u (AstConst v)) (AstConst v')
+  | rem v v' == 0 && v > 0 = contractAstIntegralOp2 RemOp u (AstConst v')
+contractAstIntegralOp2 RemOp (AstN2 TimesOp (AstConst u) _v) (AstConst u')
   | rem u u' == 0 = 0
 
-simplifyAstIntegralOp2 opCode u v = Ast.AstI2 opCode u v
+contractAstIntegralOp2 opCode u v = Ast.AstI2 opCode u v
 
 -- TODO: let's aim at SOP (Sum-of-Products) form, just as
 -- ghc-typelits-natnormalise does. Also, let's associate to the right.
-simplifyAstB2 :: OpCodeBool -> AstBool -> AstBool -> AstBool
-simplifyAstB2 AndOp (AstBoolConst True) b = b
-simplifyAstB2 AndOp (AstBoolConst False) _b = AstBoolConst False
-simplifyAstB2 AndOp b (AstBoolConst True) = b
-simplifyAstB2 AndOp _b (AstBoolConst False) = AstBoolConst False
-simplifyAstB2 OrOp (AstBoolConst True) _b = AstBoolConst True
-simplifyAstB2 OrOp (AstBoolConst False) b = b
-simplifyAstB2 OrOp _b (AstBoolConst True) = AstBoolConst True
-simplifyAstB2 OrOp b (AstBoolConst False) = b
-simplifyAstB2 opCodeBool arg1 arg2 = Ast.AstB2 opCodeBool arg1 arg2
+contractAstB2 :: OpCodeBool -> AstBool -> AstBool -> AstBool
+contractAstB2 AndOp (AstBoolConst True) b = b
+contractAstB2 AndOp (AstBoolConst False) _b = AstBoolConst False
+contractAstB2 AndOp b (AstBoolConst True) = b
+contractAstB2 AndOp _b (AstBoolConst False) = AstBoolConst False
+contractAstB2 OrOp (AstBoolConst True) _b = AstBoolConst True
+contractAstB2 OrOp (AstBoolConst False) b = b
+contractAstB2 OrOp _b (AstBoolConst True) = AstBoolConst True
+contractAstB2 OrOp b (AstBoolConst False) = b
+contractAstB2 opCodeBool arg1 arg2 = Ast.AstB2 opCodeBool arg1 arg2
 
 
 -- * Substitution payload and adaptors for AstVarName
@@ -2915,7 +2918,7 @@ substitute1Ast i var v1 = case v1 of
   Ast.AstIota -> Nothing
   Ast.AstN1 opCode u ->
     (\u2 -> case isRankedInt u2 of
-       Just Refl -> simplifyAstNumOp1 opCode u2
+       Just Refl -> contractAstNumOp1 opCode u2
        _ -> Ast.AstN1 opCode u2)
     <$> substitute1Ast i var u
   Ast.AstN2 opCode u v ->
@@ -2923,7 +2926,7 @@ substitute1Ast i var v1 = case v1 of
         mv = substitute1Ast i var v
     in if isJust mu || isJust mv
        then Just $ case isRankedInt u of
-         Just Refl -> simplifyAstNumOp2 opCode (fromMaybe u mu) (fromMaybe v mv)
+         Just Refl -> contractAstNumOp2 opCode (fromMaybe u mu) (fromMaybe v mv)
          _ -> Ast.AstN2 opCode (fromMaybe u mu) (fromMaybe v mv)
        else Nothing
   Ast.AstR1 opCode u -> Ast.AstR1 opCode <$> substitute1Ast i var u
@@ -2939,14 +2942,14 @@ substitute1Ast i var v1 = case v1 of
     in if isJust mu || isJust mv
        then Just $ case isRankedInt u of
          Just Refl ->
-           simplifyAstIntegralOp2 opCode (fromMaybe u mu) (fromMaybe v mv)
+           contractAstIntegralOp2 opCode (fromMaybe u mu) (fromMaybe v mv)
          _ -> Ast.AstI2 opCode (fromMaybe u mu) (fromMaybe v mv)
        else Nothing
   Ast.AstSumOfList args ->
     let margs = map (substitute1Ast i var) args
     in if any isJust margs
        then Just $ case isRankedInt v1 of
-         Just Refl -> foldr1 simplifyAstPlusOp $ zipWith fromMaybe args margs
+         Just Refl -> foldr1 contractAstPlusOp $ zipWith fromMaybe args margs
          _ -> astSumOfList $ zipWith fromMaybe args margs
        else Nothing
   Ast.AstIndex v ix ->
@@ -3252,7 +3255,7 @@ substitute1AstBool i var = \case
     let mb1 = substitute1AstBool i var arg1
         mb2 = substitute1AstBool i var arg2
     in if isJust mb1 || isJust mb2
-       then Just $ simplifyAstB2 opCodeBool (fromMaybe arg1 mb1)
+       then Just $ contractAstB2 opCodeBool (fromMaybe arg1 mb1)
                                             (fromMaybe arg2 mb2)
        else Nothing
   Ast.AstBoolConst{} -> Nothing
@@ -3260,7 +3263,7 @@ substitute1AstBool i var = \case
     let mr1 = substitute1Ast i var arg1
         mr2 = substitute1Ast i var arg2
     in if isJust mr1 || isJust mr2
-       then Just $ simplifyRelOp opCodeRel (fromMaybe arg1 mr1)
+       then Just $ contractRelOp opCodeRel (fromMaybe arg1 mr1)
                                            (fromMaybe arg2 mr2)
        else Nothing
   Ast.AstRelS opCodeRel arg1 arg2 ->
