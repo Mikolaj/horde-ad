@@ -230,7 +230,7 @@ build1V k (var, v00) =
     Ast.AstReverse v -> traceRule $
       astTr $ astReverse $ astTr $ build1V k (var, v)
     Ast.AstTranspose perm v -> traceRule $
-      astTranspose (simplifyPermutation $ 0 : map succ perm)
+      astTranspose (normalizePermutation $ 0 : map succ perm)
                    (build1V k (var, v))
     Ast.AstReshape sh v -> traceRule $
       astReshape (k :$: sh) $ build1V k (var, v)

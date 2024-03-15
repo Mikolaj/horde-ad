@@ -16,7 +16,7 @@
 -- sure subterms introduced by vectorization are maximally simplified.
 module HordeAd.Core.AstSimplify
   ( -- * Permutation operations
-    simplifyPermutation
+    normalizePermutation
     -- * The combinators for indexing and gather
   , simplifyStepNonIndex, simplifyStepNonIndexS, astIndexStep, astIndexStepS
   , astGatherStep, astGatherStepS
@@ -209,8 +209,8 @@ astReshapeAsGatherS v =
 
 -- * Permutation operations
 
-simplifyPermutation :: Permutation -> Permutation
-simplifyPermutation perm =
+normalizePermutation :: Permutation -> Permutation
+normalizePermutation perm =
   map fst $ dropWhileEnd (uncurry (==)) $ zip perm [0 ..]
 
 -- A representation of a cycle backpermutation.
@@ -1801,7 +1801,7 @@ astTranspose perm = \case
     let perm2Matched =
           perm2
           ++ take (length perm - length perm2) (drop (length perm2) [0 ..])
-        perm3 = simplifyPermutation $ backpermutePrefixList perm perm2Matched
+        perm3 = normalizePermutation $ backpermutePrefixList perm perm2Matched
     in astTranspose perm3 t
       -- this rule can be disabled to test fusion of gathers
   -- Note that the following would be wrong, because transpose really
@@ -1882,7 +1882,7 @@ astTransposeS = \case
         perm2Matched =
           perm2V
           ++ take (length permV - length perm2V) (drop (length perm2V) [0 ..])
-        perm3V = simplifyPermutation $ backpermutePrefixList permV perm2Matched
+        perm3V = normalizePermutation $ backpermutePrefixList permV perm2Matched
     in Sh.withShapeP perm3V $ \(Proxy @perm3) ->
       trustMeThisIsAPermutation @perm3 $
       gcastWith (unsafeCoerce Refl
@@ -2396,7 +2396,7 @@ simplifyAst t = case t of
     -- The first attempt is for the case of v being a transpose, which would
     -- simplify to a huge gather, but instead we may fuse it at once
     -- or leave it to be executed via changing only the strides.
-    let perm1 = simplifyPermutation perm
+    let perm1 = normalizePermutation perm
     in case astTranspose perm1 v of
       Ast.AstTranspose perm2 v2 | perm2 == perm1 ->
         -- no luck, let's try simplifying the argument
