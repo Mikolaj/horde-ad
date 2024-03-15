@@ -947,9 +947,8 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
           perm4 = permCycle $ valueOf @m' + 1
           (sh41, sh42) = splitAt_Shape @m' sh4
           sh5 = appendShape sh41 (lengthAst v :$: sh42)
-      in astSum $ astTransposeAsGather perm4  -- TODO: inline and simplify less
-         $ astGather sh5 (astTransposeAsGather perm3 v) (vars4, ix4)
-             -- TODO: why is simplification not idempotent without AsGather?
+      in astSum $ astTranspose perm4
+         $ astGather sh5 (astTranspose perm3 v) (vars4, ix4)
     Ast.AstScatter @_ @n7 (_ :$: sh)
                    v (vars, AstIntVar var5 :.: (ix2 :: AstIndex p71))
       | AstIntVar var6 <- i4, var6 == var5 ->
