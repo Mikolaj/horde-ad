@@ -34,6 +34,8 @@ module HordeAd.Core.AstSimplify
   , astLetInHVector, astLetInHVectorS
     -- * The simplifying bottom-up pass
   , simplifyAst, simplifyAstHVector, simplifyAstS
+    -- * The expanding (to gather expressions) bottom-up pass
+  , expandAst, expandAstHVector, expandAstS
     -- * Substitution payload and adaptors for AstVarName
   , SubstitutionPayload(..)
   , substituteAst, substitute1Ast, substituteAstIndex
@@ -2348,10 +2350,10 @@ simplifyAstInt :: AstInt -> AstInt
 simplifyAstInt = simplifyAst
 
 simplifyAstIndex :: AstIndex n -> AstIndex n
-simplifyAstIndex = fmap simplifyAst
+simplifyAstIndex = fmap simplifyAstInt
 
 simplifyAstIndexS :: AstIndexS sh -> AstIndexS sh
-simplifyAstIndexS = fmap simplifyAst
+simplifyAstIndexS = fmap simplifyAstInt
 
 -- | This function guarantees full simplification: every redex
 -- is visited and each combinator applied. The most exhaustive and costly
@@ -2565,6 +2567,228 @@ simplifyAstBool t = case t of
       -- we simplify them a bit more than the shaped ones.
   Ast.AstRelS opCodeRel arg1 arg2 ->
     Ast.AstRelS opCodeRel (simplifyAstS arg1) (simplifyAstS arg2)
+
+
+-- * The expanding (to gather expressions) bottom-up pass
+
+expandAstInt :: AstInt -> AstInt
+expandAstInt = expandAst
+
+expandAstIndex :: AstIndex n -> AstIndex n
+expandAstIndex = fmap expandAstInt
+
+expandAstIndexS :: AstIndexS sh -> AstIndexS sh
+expandAstIndexS = fmap expandAstInt
+
+expandAst
+  :: forall n s r. (GoodScalar r, KnownNat n, AstSpan s)
+  => AstRanked s r n -> AstRanked s r n
+expandAst t = case t of
+  Ast.AstVar{} -> t
+  Ast.AstLet var u v -> astLet var (expandAst u) (expandAst v)
+  Ast.AstLetADShare{} -> error "expandAst: AstLetADShare"
+  Ast.AstCond b a2 a3 ->
+    astCond (expandAstBool b) (expandAst a2) (expandAst a3)
+  Ast.AstMinIndex a -> Ast.AstMinIndex (expandAst a)
+  Ast.AstMaxIndex a -> Ast.AstMaxIndex (expandAst a)
+  Ast.AstFloor a -> Ast.AstFloor (expandAst a)
+  Ast.AstIota -> t
+  AstN1 opCode u ->
+    case isRankedInt u of
+      Just Refl -> contractAstNumOp1 opCode (expandAst u)
+      _ -> AstN1 opCode (expandAst u)
+  AstN2 opCode u v ->
+    case isRankedInt u of
+      Just Refl -> contractAstNumOp2 opCode (expandAst u) (expandAst v)
+      _ -> AstN2 opCode (expandAst u) (expandAst v)
+  Ast.AstR1 opCode u -> Ast.AstR1 opCode (expandAst u)
+  Ast.AstR2 opCode u v -> Ast.AstR2 opCode (expandAst u) (expandAst v)
+  Ast.AstI2 opCode u v ->
+    case isRankedInt u of
+      Just Refl -> contractAstIntegralOp2 opCode (expandAst u) (expandAst v)
+      _ -> Ast.AstI2 opCode (expandAst u) (expandAst v)
+  AstSumOfList args ->
+    case isRankedInt t of
+      Just Refl -> foldr1 contractAstPlusOp (map expandAst args)
+      _ -> astSumOfList (map expandAst args)
+  Ast.AstIndex v ix -> astIndexR (expandAst v) (expandAstIndex ix)
+  Ast.AstSum v -> astSum (expandAst v)
+  Ast.AstScatter sh v (var, ix) ->
+    astScatter sh (expandAst v) (var, expandAstIndex ix)
+  Ast.AstFromList l -> astFromList (map expandAst l)
+  Ast.AstFromVector l -> astFromVector (V.map expandAst l)
+  Ast.AstReplicate k v -> astReplicate k (expandAst v)
+  Ast.AstAppend x y -> astAppend (expandAst x) (expandAst y)
+  Ast.AstSlice i k v -> astSlice i k (expandAst v)
+  Ast.AstReverse v -> astReverse (expandAst v)
+  Ast.AstTranspose perm v ->
+    -- The first attempt is for the case of v being a transpose, which would
+    -- expand to a huge gather, but instead we may fuse it at once
+    -- or leave it to be executed via changing only the strides.
+    let perm1 = normalizePermutation perm
+    in case astTranspose perm1 v of
+      Ast.AstTranspose perm2 v2 | perm2 == perm1 ->
+        -- no luck, let's try expanding the argument
+        case astTranspose perm2 (expandAst v2) of
+          u@(Ast.AstTranspose _ Ast.AstVar{}) -> u  -- normal form
+          u@(Ast.AstTranspose _ (AstN1 _ w)) | isVar w -> u  -- normal form
+          u@(Ast.AstTranspose _ AstN2{}) -> u  -- normal form
+          u@(Ast.AstTranspose _ (Ast.AstR1 _ w)) | isVar w -> u
+          u@(Ast.AstTranspose _ Ast.AstR2{}) -> u
+          u@(Ast.AstTranspose _ AstSumOfList{}) -> u  -- normal form
+          u@(Ast.AstTranspose _ Ast.AstScatter{}) -> u  -- normal form
+          u@(Ast.AstTranspose _ Ast.AstReplicate{}) -> u  -- normal form
+          Ast.AstTranspose perm3 v3 ->  -- not nf, let's express all as gather
+            astTransposeAsGather perm3 v3
+              -- this is expensive, but the only way to guarantee
+              -- full simplification
+          u -> expandAst u
+      u -> expandAst u
+  Ast.AstReshape sh v ->
+    case astReshape sh v of  -- see above
+      Ast.AstReshape sh2 v2 ->
+        case astReshape sh2 (expandAst v2) of
+          u@(Ast.AstReshape _ Ast.AstVar{}) -> u  -- normal form
+          u@(Ast.AstReshape _ (AstN1 _ w)) | isVar w -> u
+          u@(Ast.AstReshape _ AstN2{}) -> u
+              -- normal form, because gather doesn't go inside AstN2 either
+          u@(Ast.AstReshape _ (Ast.AstR1 _ w)) | isVar w -> u
+          u@(Ast.AstReshape _ Ast.AstR2{}) -> u
+          u@(Ast.AstReshape _ AstSumOfList{}) -> u  -- normal form
+          u@(Ast.AstReshape _ Ast.AstScatter{}) -> u  -- normal form
+          -- Not a normal form, because often AstReshape scan be eliminated:
+          -- u@(Ast.AstReshape _ Ast.AstReplicate{}) -> u  -- normal form
+          Ast.AstReshape sh3 v3 -> astReshapeAsGather sh3 v3
+            -- this is terribly expensive, but the only way to fully expand
+          u -> expandAst u
+      u -> expandAst u
+  Ast.AstBuild1 k (var, v) -> Ast.AstBuild1 k (var, expandAst v)
+  Ast.AstGather sh v (vars, ix) ->
+    astGatherR sh (expandAst v) (vars, expandAstIndex ix)
+  Ast.AstCast v -> astCast $ expandAst v
+  Ast.AstFromIntegral v -> astFromIntegral $ expandAst v
+  AstConst{} -> t
+  Ast.AstLetHVectorIn vars l v ->
+    astLetHVectorIn vars (expandAstHVector l) (expandAst v)
+  Ast.AstLetHFunIn var f v ->
+    astLetHFunIn var (expandAstHFun f) (expandAst v)
+  Ast.AstRFromS v -> astRFromS $ expandAstS v
+  Ast.AstConstant v -> Ast.AstConstant (expandAst v)
+  Ast.AstPrimalPart v -> astPrimalPart (expandAst v)
+  Ast.AstDualPart v -> astDualPart (expandAst v)
+  Ast.AstD u u' -> Ast.AstD (expandAst u) (expandAst u')
+
+expandAstS
+  :: (Sh.Shape sh, GoodScalar r, AstSpan s)
+  => AstShaped s r sh -> AstShaped s r sh
+expandAstS t = case t of
+  Ast.AstVarS{} -> t
+  Ast.AstLetS var u v -> astLetS var (expandAstS u) (expandAstS v)
+  Ast.AstLetADShareS{} -> error "expandAstS: AstLetADShareS"
+  Ast.AstCondS b a2 a3 ->
+    astCondS (expandAstBool b) (expandAstS a2) (expandAstS a3)
+  Ast.AstMinIndexS a -> Ast.AstMinIndexS (expandAstS a)
+  Ast.AstMaxIndexS a -> Ast.AstMaxIndexS (expandAstS a)
+  Ast.AstFloorS a -> Ast.AstFloorS (expandAstS a)
+  Ast.AstIotaS -> t
+  AstN1S opCode u -> AstN1S opCode (expandAstS u)
+  AstN2S opCode u v -> AstN2S opCode (expandAstS u) (expandAstS v)
+  Ast.AstR1S opCode u -> Ast.AstR1S opCode (expandAstS u)
+  Ast.AstR2S opCode u v -> Ast.AstR2S opCode (expandAstS u) (expandAstS v)
+  Ast.AstI2S opCode u v -> Ast.AstI2S opCode (expandAstS u) (expandAstS v)
+  AstSumOfListS args -> astSumOfListS (map expandAstS args)
+  Ast.AstIndexS v ix ->
+    Ast.AstIndexS (expandAstS v) (expandAstIndexS ix)  -- TODO
+  Ast.AstSumS v -> astSumS (expandAstS v)
+  Ast.AstScatterS v (var, ix) ->
+    astScatterS (expandAstS v) (var, expandAstIndexS ix)
+  Ast.AstFromListS l -> astFromListS (map expandAstS l)
+  Ast.AstFromVectorS l -> astFromVectorS (V.map expandAstS l)
+  Ast.AstReplicateS v -> astReplicateS (expandAstS v)
+  Ast.AstAppendS x y -> astAppendS (expandAstS x) (expandAstS y)
+  Ast.AstSliceS @i v -> astSliceS @i (expandAstS v)
+  Ast.AstReverseS v -> astReverseS (expandAstS v)
+  Ast.AstTransposeS @perm v -> astTransposeS @perm $ expandAstS v
+  Ast.AstReshapeS v -> astReshapeS $ expandAstS v
+  Ast.AstBuild1S (var, v) -> Ast.AstBuild1S (var, expandAstS v)
+  Ast.AstGatherS v (vars, ix) ->
+    astGatherS (expandAstS v) (vars, expandAstIndexS ix)
+  Ast.AstCastS v -> astCastS $ expandAstS v
+  Ast.AstFromIntegralS v -> astFromIntegralS $ expandAstS v
+  AstConstS{} -> t
+  Ast.AstLetHVectorInS vars l v ->
+    astLetHVectorInS vars (expandAstHVector l) (expandAstS v)
+  Ast.AstLetHFunInS var f v ->
+    astLetHFunInS var (expandAstHFun f) (expandAstS v)
+  Ast.AstSFromR v -> astSFromR $ expandAst v
+  Ast.AstConstantS v -> Ast.AstConstantS (expandAstS v)
+  Ast.AstPrimalPartS v -> astPrimalPartS (expandAstS v)
+  Ast.AstDualPartS v -> astDualPartS (expandAstS v)
+  Ast.AstDS u u' -> Ast.AstDS (expandAstS u) (expandAstS u')
+
+expandAstDynamic
+  :: AstSpan s
+  => AstDynamic s -> AstDynamic s
+expandAstDynamic (DynamicRanked u) =
+  DynamicRanked $ expandAst u
+expandAstDynamic (DynamicShaped u) =
+  DynamicShaped $ expandAstS u
+expandAstDynamic u@DynamicRankedDummy{} = u
+expandAstDynamic u@DynamicShapedDummy{} = u
+
+expandAstHVector
+  :: AstSpan s => AstHVector s -> AstHVector s
+expandAstHVector = \case
+  Ast.AstMkHVector l -> Ast.AstMkHVector $ V.map expandAstDynamic l
+  Ast.AstHApply t ll -> astHApply (expandAstHFun t)
+                                  (map (V.map expandAstDynamic) ll)
+  Ast.AstLetHVectorInHVector vars u v ->
+    astLetHVectorInHVector vars (expandAstHVector u) (expandAstHVector v)
+  Ast.AstLetHFunInHVector var f v ->
+    astLetHFunInHVector var (expandAstHFun f) (expandAstHVector v)
+  Ast.AstLetInHVector var u v ->
+    astLetInHVector var (expandAst u) (expandAstHVector v)
+  Ast.AstLetInHVectorS var u v ->
+    astLetInHVectorS var (expandAstS u) (expandAstHVector v)
+  Ast.AstBuildHVector1 k (var, v) ->
+    Ast.AstBuildHVector1 k (var, expandAstHVector v)
+  Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc0 es ->
+    Ast.AstMapAccumRDer k accShs bShs eShs
+                        (expandAstHFun f)
+                        (expandAstHFun df)
+                        (expandAstHFun rf)
+                        (expandAstHVector acc0)
+                        (expandAstHVector es)
+  Ast.AstMapAccumLDer k accShs bShs eShs f df rf acc0 es ->
+    Ast.AstMapAccumLDer k accShs bShs eShs
+                        (expandAstHFun f)
+                        (expandAstHFun df)
+                        (expandAstHFun rf)
+                        (expandAstHVector acc0)
+                        (expandAstHVector es)
+
+expandAstHFun :: AstHFun -> AstHFun
+expandAstHFun = \case
+  Ast.AstLambda ~(vvars, l) -> Ast.AstLambda (vvars, expandAstHVector l)
+  t@(Ast.AstVarHFun{}) -> t
+
+expandAstBool :: AstBool -> AstBool
+expandAstBool t = case t of
+  Ast.AstBoolNot (AstBoolConst b) -> AstBoolConst $ not b
+  Ast.AstBoolNot arg -> Ast.AstBoolNot $ expandAstBool arg
+  Ast.AstB2 opCodeBool arg1 arg2 ->
+    contractAstB2 opCodeBool (expandAstBool arg1) (expandAstBool arg2)
+  AstBoolConst{} -> t
+  Ast.AstRel opCodeRel arg1 arg2 ->
+    contractRelOp opCodeRel (expandAst arg1) (expandAst arg2)
+      -- These expressions potentially represent large tensors that are
+      -- expensive to compute even when constant so we expand and ignore them,
+      -- because computation should be done on GPU, not on CPU when expanding;
+      -- we'd need a flag to control how much we pre-compute.
+      -- Anyway, because these tensors sometimes represent indexes,
+      -- we expand them a bit more than the shaped ones.
+  Ast.AstRelS opCodeRel arg1 arg2 ->
+    Ast.AstRelS opCodeRel (expandAstS arg1) (expandAstS arg2)
 
 
 -- * Contraction of arithmetic and boolean operation terms

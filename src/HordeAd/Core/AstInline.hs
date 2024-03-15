@@ -48,7 +48,7 @@ simplifyArtifactRev (vars, gradient, HVectorPseudoTensor primal) =
 simplifyAst6
   :: (GoodScalar r, KnownNat n, AstSpan s)
   => AstRanked s r n -> AstRanked s r n
-simplifyAst6 = simplifyAst . snd . inlineAst EM.empty . simplifyAst
+simplifyAst6 = expandAst . snd . inlineAst EM.empty . simplifyAst
 {-# SPECIALIZE simplifyAst6
   :: (KnownNat n, AstSpan s)
   => AstRanked s Double n
@@ -57,7 +57,7 @@ simplifyAst6 = simplifyAst . snd . inlineAst EM.empty . simplifyAst
 simplifyAst6S
   :: (GoodScalar r, Sh.Shape sh, AstSpan s)
   => AstShaped s r sh -> AstShaped s r sh
-simplifyAst6S = simplifyAstS . snd . inlineAstS EM.empty . simplifyAstS
+simplifyAst6S = expandAstS . snd . inlineAstS EM.empty . simplifyAstS
 {-# SPECIALIZE simplifyAst6S
   :: (Sh.Shape sh, AstSpan s)
   => AstShaped s Double sh
@@ -66,7 +66,7 @@ simplifyAst6S = simplifyAstS . snd . inlineAstS EM.empty . simplifyAstS
 simplifyAstHVector6
   :: AstSpan s => AstHVector s -> AstHVector s
 simplifyAstHVector6 =
-  simplifyAstHVector . snd . inlineAstHVector EM.empty . simplifyAstHVector
+  expandAstHVector . snd . inlineAstHVector EM.empty . simplifyAstHVector
     -- no specialization possible except for the tag type s
 
 
