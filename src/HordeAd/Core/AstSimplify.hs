@@ -184,7 +184,7 @@ astReshapeAsGather shOut v =
     let shIn = shapeAst v
         asts :: AstIndex p
         asts = let i = toLinearIdx @m @0 shOut ix
-               in simplifyAst <$> fromLinearIdx shIn i
+               in simplifyAstIndex $ fromLinearIdx shIn i
                     -- we generate these, so we simplify
     in astGatherR @m @0 shOut v (vars, asts)
 
@@ -200,7 +200,7 @@ astReshapeAsGatherS v =
         asts :: AstIndexS sh
         asts = let i :: ShapedList.ShapedNat (Sh.Size sh2) AstInt
                    i = ShapedList.toLinearIdx @sh2 @'[] shOut ix
-               in simplifyAst <$> ShapedList.fromLinearIdx shIn i
+               in simplifyAstIndexS $ ShapedList.fromLinearIdx shIn i
                     -- we generate these, so we simplify
     in gcastWith (unsafeCoerce Refl :: Sh.Take (Sh.Rank sh) sh :~: sh) $
        gcastWith (unsafeCoerce Refl :: Sh.Drop (Sh.Rank sh) sh :~: '[]) $
@@ -347,7 +347,7 @@ astIndexStep
      (KnownNat m, KnownNat n, GoodScalar r, AstSpan s)
   => AstRanked s r (m + n) -> AstIndex m -> AstRanked s r n
 astIndexStep v ix = astIndexROrStepOnly True (simplifyStepNonIndex v)
-                                             (fmap simplifyAst ix)
+                                             (simplifyAstIndex ix)
 
 astIndexS
   :: forall sh1 sh2 s r.
@@ -364,7 +364,7 @@ astIndexStepS
   => AstShaped s r (sh1 Sh.++ sh2) -> AstIndexS sh1
   -> AstShaped s r sh2
 astIndexStepS v ix = astIndexSOrStepOnly True (simplifyStepNonIndexS v)
-                                              (fmap simplifyAst ix)
+                                              (simplifyAstIndexS ix)
 
 -- If stepOnly is set, we reduce only as long as needed to reveal
 -- a non-indexing constructor or one of the normal forms (one-element
@@ -474,7 +474,7 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :.: (rest1 :: AstIndex m1)) =
         len = lengthAst u
     in if len > i
        then astIndex u ix
-       else astIndex v (simplifyAst (i1 - fromIntegral len) :.: rest1)
+       else astIndex v (simplifyAstInt (i1 - fromIntegral len) :.: rest1)
   Ast.AstAppend{} ->  -- normal form
     {- We can't do the following, because we can get, e.g., division
        by zero in the index in the counterfactual branch and sometimes
@@ -482,18 +482,18 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :.: (rest1 :: AstIndex m1)) =
        and see the TODO there. Maybe this is fixable with gather working
        over a tensor product or something else that indexes in complex ways?
     let vlen = AstConst $ lengthAst v
-        ix2 = simplifyAst (AstIntOp MinusIntOp [i1, vlen]) :.: rest1
+        ix2 = simplifyAstInt (AstIntOp MinusIntOp [i1, vlen]) :.: rest1
     in case simplifyAstBool $ AstRelInt LsOp [i1, vlen] of
       AstBoolConst b -> if b then astIndex v ix else astIndex w ix2
       bExpr -> astCond bExpr (astIndexRec v ix) (astIndexRec w ix2)
     -}
     Ast.AstIndex v0 ix
   Ast.AstSlice i _k v ->
-    let ii = simplifyAst (i1 + fromIntegral i)
+    let ii = simplifyAstInt (i1 + fromIntegral i)
       -- we generate this index, so we simplify on the spot
     in astIndex v (ii :.: rest1)
   Ast.AstReverse v ->
-    let iRev = simplifyAst (fromIntegral (lengthAst v - 1) - i1)
+    let iRev = simplifyAstInt (fromIntegral (lengthAst v - 1) - i1)
       -- we generate this index, so we simplify on the spot
     in astIndex v (iRev :.: rest1)
   Ast.AstTranspose perm v | valueOf @m >= length perm ->
@@ -698,15 +698,15 @@ astIndexSOrStepOnly stepOnly v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS shm1)) =
     in if len > i
        then astIndex @(m3 ': shm1) u (i1 :.$ rest1)
        else astIndex @(n3 ': shm1)
-                     v (simplifyAst (i1 - fromIntegral len) :.$ rest1)
+                     v (simplifyAstInt (i1 - fromIntegral len) :.$ rest1)
   Ast.AstAppendS{} ->  -- normal form
     Ast.AstIndexS v0 ix
   Ast.AstSliceS @i v ->
-    let ii = simplifyAst (i1 + fromIntegral (valueOf @i :: Int))
+    let ii = simplifyAstInt (i1 + fromIntegral (valueOf @i :: Int))
       -- we generate this index, so we simplify on the spot
     in astIndex v (ii :.$ rest1)
   Ast.AstReverseS v ->
-    let iRev = simplifyAst (fromIntegral (valueOf @in1 - 1 :: Int) - i1)
+    let iRev = simplifyAstInt (fromIntegral (valueOf @in1 - 1 :: Int) - i1)
       -- we generate this index, so we simplify on the spot
     in astIndex v (iRev :.$ rest1)
   Ast.AstTransposeS @perm @sh2 v
@@ -819,7 +819,7 @@ astGatherStep
   -> AstRanked s r (m + n)
 astGatherStep sh v (vars, ix) =
   astGatherROrStepOnly True sh (simplifyStepNonIndex v)
-                       (vars, fmap simplifyAst ix)
+                       (vars, simplifyAstIndex ix)
 
 astGatherStepS
   :: forall sh2 p sh s r.
@@ -1013,7 +1013,7 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
       in if len > i
          then astGather sh4 u (vars4, ix4)
          else astGather sh4 v
-                        (vars4, simplifyAst (i4 - fromIntegral len) :.: rest4)
+                        (vars4, simplifyAstInt (i4 - fromIntegral len) :.: rest4)
     Ast.AstAppend{} ->  -- normal form
       {- This is wrong, see astIndexROrStepOnly:
          We can't express append as gather, because AstFromList needs
@@ -1024,7 +1024,7 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
          and get all the remaining indexes inside AstGather.
          BTW, probably fusion is halted also due to NF with AstScatter.
       let vlen = AstConst $ lengthAst v
-          iw = simplifyAst (AstIntOp MinusIntOp [i4, vlen])
+          iw = simplifyAstInt (AstIntOp MinusIntOp [i4, vlen])
           v2 = astGatherRec sh4 v (vars4, i4 :.: rest4)
           w2 = astGatherRec sh4 w (vars4, iw :.: rest4)
       in case simplifyAstBool $ AstRelInt LsOp [i4, vlen] of
@@ -1037,11 +1037,11 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
       -}
       Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstSlice i _k v ->
-      let ii = simplifyAst (i4 + fromIntegral i)
+      let ii = simplifyAstInt (i4 + fromIntegral i)
         -- we generate this index, so we simplify on the spot
       in astGather sh4 v (vars4, ii :.: rest4)
     Ast.AstReverse v ->
-      let iRev = simplifyAst (fromIntegral (lengthAst v - 1) - i4)
+      let iRev = simplifyAstInt (fromIntegral (lengthAst v - 1) - i4)
         -- we generate this index, so we simplify on the spot
       in astGather sh4 v (vars4, iRev :.: rest4)
     Ast.AstTranspose perm v | valueOf @p' >= length perm ->
@@ -1061,7 +1061,7 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
       -- altogether (terrible for user comfort, especially wrt typing).
       let substLet :: AstIndex m7 -> AstVarList m7 -> AstInt -> AstInt
           substLet ix vars i =
-            simplifyAst  -- we generate this index, so we simplify on the spot
+            simplifyAstInt  -- we generate this index, so we simplify on the spot
             $ foldr (uncurry astLetInt) i
                     (zipSized vars (indexToSized ix))
           composedGather :: p' <= m2 => AstRanked s r' (m' + n')
@@ -2344,6 +2344,15 @@ astLetHFunInHVector = Ast.AstLetHFunInHVector
 
 -- * The simplifying bottom-up pass
 
+simplifyAstInt :: AstInt -> AstInt
+simplifyAstInt = simplifyAst
+
+simplifyAstIndex :: AstIndex n -> AstIndex n
+simplifyAstIndex = fmap simplifyAst
+
+simplifyAstIndexS :: AstIndexS sh -> AstIndexS sh
+simplifyAstIndexS = fmap simplifyAst
+
 -- | This function guarantees full simplification: every redex
 -- is visited and each combinator applied. The most exhaustive and costly
 -- variants of each combinator are used, e.g., astIndexR.
@@ -2378,10 +2387,10 @@ simplifyAst t = case t of
     case isRankedInt t of
       Just Refl -> foldr1 simplifyAstPlusOp (map simplifyAst args)
       _ -> astSumOfList (map simplifyAst args)
-  Ast.AstIndex v ix -> astIndexR (simplifyAst v) (fmap simplifyAst ix)
+  Ast.AstIndex v ix -> astIndexR (simplifyAst v) (simplifyAstIndex ix)
   Ast.AstSum v -> astSum (simplifyAst v)
   Ast.AstScatter sh v (var, ix) ->
-    astScatter sh (simplifyAst v) (var, fmap simplifyAst ix)
+    astScatter sh (simplifyAst v) (var, simplifyAstIndex ix)
   Ast.AstFromList l -> astFromList (map simplifyAst l)
   Ast.AstFromVector l -> astFromVector (V.map simplifyAst l)
   Ast.AstReplicate k v -> astReplicate k (simplifyAst v)
@@ -2431,7 +2440,7 @@ simplifyAst t = case t of
       u -> simplifyAst u
   Ast.AstBuild1 k (var, v) -> Ast.AstBuild1 k (var, simplifyAst v)
   Ast.AstGather sh v (vars, ix) ->
-    astGatherR sh (simplifyAst v) (vars, fmap simplifyAst ix)
+    astGatherR sh (simplifyAst v) (vars, simplifyAstIndex ix)
   Ast.AstCast v -> astCast $ simplifyAst v
   Ast.AstFromIntegral v -> astFromIntegral $ simplifyAst v
   AstConst{} -> t
@@ -2465,10 +2474,10 @@ simplifyAstS t = case t of
   Ast.AstI2S opCode u v -> Ast.AstI2S opCode (simplifyAstS u) (simplifyAstS v)
   AstSumOfListS args -> astSumOfListS (map simplifyAstS args)
   Ast.AstIndexS v ix ->
-    Ast.AstIndexS (simplifyAstS v) (fmap simplifyAst ix)  -- TODO
+    Ast.AstIndexS (simplifyAstS v) (simplifyAstIndexS ix)  -- TODO
   Ast.AstSumS v -> astSumS (simplifyAstS v)
   Ast.AstScatterS v (var, ix) ->
-    astScatterS (simplifyAstS v) (var, fmap simplifyAst ix)
+    astScatterS (simplifyAstS v) (var, simplifyAstIndexS ix)
   Ast.AstFromListS l -> astFromListS (map simplifyAstS l)
   Ast.AstFromVectorS l -> astFromVectorS (V.map simplifyAstS l)
   Ast.AstReplicateS v -> astReplicateS (simplifyAstS v)
@@ -2479,7 +2488,7 @@ simplifyAstS t = case t of
   Ast.AstReshapeS v -> astReshapeS $ simplifyAstS v
   Ast.AstBuild1S (var, v) -> Ast.AstBuild1S (var, simplifyAstS v)
   Ast.AstGatherS v (vars, ix) ->
-    astGatherS (simplifyAstS v) (vars, fmap simplifyAst ix)
+    astGatherS (simplifyAstS v) (vars, simplifyAstIndexS ix)
   Ast.AstCastS v -> astCastS $ simplifyAstS v
   Ast.AstFromIntegralS v -> astFromIntegralS $ simplifyAstS v
   AstConstS{} -> t
