@@ -18,7 +18,7 @@ module HordeAd.Core.AstSimplify
   ( -- * Permutation operations
     normalizePermutation
     -- * The combinators for indexing and gather
-  , simplifyStepNonIndex, simplifyStepNonIndexS, astIndexStep, astIndexStepS
+  , astNonIndexStep, astNonIndexStepS, astIndexStep, astIndexStepS
   , astGatherStep, astGatherStepS
     -- * The simplifying combinators, one for most AST constructors
   , astLet, astLetS, astCond, astCondS, astSumOfList, astSumOfListS
@@ -232,13 +232,13 @@ permCycle n = [k `mod` n | k <- [-1, 0 .. n - 2]]
 -- This does a single step of simplification of any non-indexing term
 -- (many steps if guaranteed net beneficial). Terms representing integers
 -- and and AstBool terms are simplified as much as possible.
-simplifyStepNonIndex
+astNonIndexStep
   :: (KnownNat n, GoodScalar r, AstSpan s)
   => AstRanked s r n -> AstRanked s r n
-simplifyStepNonIndex t = case t of
+astNonIndexStep t = case t of
   Ast.AstVar{} -> t
   Ast.AstLet var u v -> astLet var u v
-  Ast.AstLetADShare{} -> error "simplifyStepNonIndex: AstLetADShare"
+  Ast.AstLetADShare{} -> error "astNonIndexStep: AstLetADShare"
   Ast.AstCond a b c -> astCond a b c
   Ast.AstMinIndex{} -> t
   Ast.AstMaxIndex{} -> t
@@ -288,13 +288,13 @@ simplifyStepNonIndex t = case t of
   Ast.AstDualPart v -> astDualPart v
   Ast.AstD{} -> t
 
-simplifyStepNonIndexS
+astNonIndexStepS
   :: (Sh.Shape sh, GoodScalar r, AstSpan s)
   => AstShaped s r sh -> AstShaped s r sh
-simplifyStepNonIndexS t = case t of
+astNonIndexStepS t = case t of
   Ast.AstVarS{} -> t
   Ast.AstLetS var u v -> astLetS var u v
-  Ast.AstLetADShareS{} -> error "simplifyStepNonIndexS: AstLetADShareS"
+  Ast.AstLetADShareS{} -> error "astNonIndexStepS: AstLetADShareS"
   Ast.AstCondS a b c -> astCondS a b c
   Ast.AstMinIndexS{} -> t
   Ast.AstMaxIndexS{} -> t
@@ -346,7 +346,7 @@ astIndexStep
   :: forall m n s r.
      (KnownNat m, KnownNat n, GoodScalar r, AstSpan s)
   => AstRanked s r (m + n) -> AstIndex m -> AstRanked s r n
-astIndexStep v ix = astIndexROrStepOnly True (simplifyStepNonIndex v)
+astIndexStep v ix = astIndexROrStepOnly True (astNonIndexStep v)
                                              (simplifyAstIndex ix)
 
 astIndexS
@@ -363,7 +363,7 @@ astIndexStepS
      , GoodScalar r, AstSpan s )
   => AstShaped s r (sh1 Sh.++ sh2) -> AstIndexS sh1
   -> AstShaped s r sh2
-astIndexStepS v ix = astIndexSOrStepOnly True (simplifyStepNonIndexS v)
+astIndexStepS v ix = astIndexSOrStepOnly True (astNonIndexStepS v)
                                               (simplifyAstIndexS ix)
 
 -- If stepOnly is set, we reduce only as long as needed to reveal
@@ -818,7 +818,7 @@ astGatherStep
   => ShapeInt (m + n) -> AstRanked s r (p + n) -> (AstVarList m, AstIndex p)
   -> AstRanked s r (m + n)
 astGatherStep sh v (vars, ix) =
-  astGatherROrStepOnly True sh (simplifyStepNonIndex v)
+  astGatherROrStepOnly True sh (astNonIndexStep v)
                        (vars, simplifyAstIndex ix)
 
 astGatherStepS

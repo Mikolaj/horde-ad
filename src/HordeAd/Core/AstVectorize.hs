@@ -141,7 +141,7 @@ build1V
   :: forall n s r. (KnownNat n, GoodScalar r, AstSpan s)
   => Int -> (IntVarName, AstRanked s r n) -> AstRanked s r (1 + n)
 build1V k (var, v00) =
-  let v0 = simplifyStepNonIndex v00
+  let v0 = astNonIndexStep v00
         -- Almost surely the term will be transformed, so it can just
         -- as well we one-step simplified first (many steps if redexes
         -- get uncovered and so the simplification requires only constant
@@ -408,7 +408,7 @@ build1VS
   :: forall k sh s r. (GoodScalar r, KnownNat k, Sh.Shape sh, AstSpan s)
   => (IntVarName, AstShaped s r sh) -> AstShaped s r (k ': sh)
 build1VS (var, v00) =
-  let v0 = simplifyStepNonIndexS v00
+  let v0 = astNonIndexStepS v00
         -- Almost surely the term will be transformed, so it can just
         -- as well we one-step simplified first (many steps if redexes
         -- get uncovered and so the simplification requires only constant
