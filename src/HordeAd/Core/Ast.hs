@@ -115,7 +115,7 @@ pattern AstIntVar var = AstVar ZSR var
 
 isRankedInt :: forall s r n. (AstSpan s, GoodScalar r, KnownNat n)
             => AstRanked s r n
-            -> Maybe (AstRanked s r n :~: AstRanked PrimalSpan Int64 0)
+            -> Maybe (AstRanked s r n :~: AstInt)
 isRankedInt _ = case ( sameAstSpan @s @PrimalSpan
                      , testEquality (typeRep @r) (typeRep @Int64)
                      , sameNat (Proxy @n) (Proxy @0) ) of

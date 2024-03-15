@@ -515,7 +515,7 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :.: (rest1 :: AstIndex m1)) =
   Ast.AstCast t -> astCast $ astIndexROrStepOnly stepOnly t ix
   Ast.AstFromIntegral v -> astFromIntegral $ astIndexROrStepOnly stepOnly v ix
   AstConst t ->
-    let unConst :: AstRanked PrimalSpan Int64 0 -> Maybe [OR.Array 0 Int64]
+    let unConst :: AstInt -> Maybe [OR.Array 0 Int64]
                 -> Maybe [OR.Array 0 Int64]
         unConst (AstConst i) (Just l) = Just $ i : l
         unConst _ _ = Nothing
@@ -746,7 +746,7 @@ astIndexSOrStepOnly stepOnly v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS shm1)) =
   Ast.AstCastS t -> astCastS $ astIndexSOrStepOnly stepOnly t ix
   Ast.AstFromIntegralS v -> astFromIntegralS $ astIndexSOrStepOnly stepOnly v ix
   AstConstS t ->
-    let unConst :: AstRanked PrimalSpan Int64 0 -> Maybe [OR.Array 0 Int64]
+    let unConst :: AstInt -> Maybe [OR.Array 0 Int64]
                 -> Maybe [OR.Array 0 Int64]
         unConst (AstConst i) (Just l) = Just $ i : l
         unConst _ _ = Nothing
@@ -781,9 +781,7 @@ shareIx :: (KnownNat n, KnownNat m)
         => AstIndex n -> (AstIndex n -> AstRanked s r m) -> AstRanked s r m
 {-# NOINLINE shareIx #-}
 shareIx ix f = unsafePerformIO $ do
-  let shareI :: AstRanked PrimalSpan Int64 0
-             -> IO ( Maybe (IntVarName, AstRanked PrimalSpan Int64 0)
-                   , AstRanked PrimalSpan Int64 0 )
+  let shareI :: AstInt -> IO (Maybe (IntVarName, AstInt), AstInt)
       shareI i | astIsSmall True i = return (Nothing, i)
       shareI i = funToAstIntVarIO $ \ (!varFresh, !astVarFresh) ->
                    (Just (varFresh, i), astVarFresh)
@@ -1298,9 +1296,7 @@ astLet var u v = Ast.AstLet var u v
 -- Normally, that's asymptotically worse than doing this
 -- in a global inlining pass, but we assume indexes expressions
 -- are short and we need them simple ASAP.
-astLetInt :: AstVarName (AstRanked PrimalSpan) Int64 0
-          -> AstRanked PrimalSpan Int64 0 -> AstRanked PrimalSpan Int64 0
-          -> AstRanked PrimalSpan Int64 0
+astLetInt :: IntVarName -> AstInt -> AstInt -> AstInt
 astLetInt var u v | var `varNameInAst` v = astLet var u v
 astLetInt _ _ v = v
 
@@ -2621,9 +2617,7 @@ simplifyRelOp opCodeRel arg1 arg2 = Ast.AstRel opCodeRel arg1 arg2
 -- max n (signum (abs x)) | n <= 0 --> signum (abs x).
 -- We could use sharing via @rlet@ when terms are duplicated, but it's
 -- unclear if the term bloat is worth it.
-simplifyAstPlusOp :: AstRanked PrimalSpan Int64 0
-                  -> AstRanked PrimalSpan Int64 0
-                  -> AstRanked PrimalSpan Int64 0
+simplifyAstPlusOp :: AstInt -> AstInt -> AstInt
 simplifyAstPlusOp (AstSumOfList (AstConst u : lu))
                   (AstSumOfList (AstConst v : lv)) =
   addConstToList (u + v) (lu ++ lv)
@@ -2680,17 +2674,14 @@ simplifyAstPlusOp
 
 simplifyAstPlusOp u v = AstSumOfList [u, v]
 
-addConstToList :: OR.Array 0 Int64 -> [AstRanked PrimalSpan Int64 0]
-               -> AstRanked PrimalSpan Int64 0
+addConstToList :: OR.Array 0 Int64 -> [AstInt] -> AstInt
 addConstToList _ [] = error "addConstToList: AstSumOfList list too short"
 addConstToList arr [i] =
   if OR.allA (== 0) arr then i else AstSumOfList [AstConst arr, i]
 addConstToList arr l =
   if OR.allA (== 0) arr then AstSumOfList l else AstSumOfList (AstConst arr : l)
 
-simplifyAstNumOp1 :: OpCodeNum1
-                  -> AstRanked PrimalSpan Int64 0
-                  -> AstRanked PrimalSpan Int64 0
+simplifyAstNumOp1 :: OpCodeNum1 -> AstInt -> AstInt
 simplifyAstNumOp1 NegateOp (AstConst u) = AstConst $ negate u
 simplifyAstNumOp1 NegateOp (AstSumOfList l) =
   foldr1 simplifyAstPlusOp (map (simplifyAstNumOp1 NegateOp) l)
@@ -2719,10 +2710,7 @@ simplifyAstNumOp1 SignumOp (AstN1 AbsOp u) =
 
 simplifyAstNumOp1 opCode u = AstN1 opCode u
 
-simplifyAstNumOp2 :: OpCodeNum2
-                  -> AstRanked PrimalSpan Int64 0
-                  -> AstRanked PrimalSpan Int64 0
-                  -> AstRanked PrimalSpan Int64 0
+simplifyAstNumOp2 :: OpCodeNum2 -> AstInt -> AstInt -> AstInt
 simplifyAstNumOp2 MinusOp u v =
   simplifyAstPlusOp u (simplifyAstNumOp1 NegateOp v)
 simplifyAstNumOp2 TimesOp (AstConst u) (AstConst v) = AstConst $ u * v
@@ -2765,10 +2753,7 @@ simplifyAstNumOp2
                       (Ast.AstI2 RemOp (Ast.AstVar sh var) (AstConst v))
 simplifyAstNumOp2 opCode u v = AstN2 opCode u v
 
-simplifyAstIntegralOp2 :: OpCodeIntegral2
-                       -> AstRanked PrimalSpan Int64 0
-                       -> AstRanked PrimalSpan Int64 0
-                       -> AstRanked PrimalSpan Int64 0
+simplifyAstIntegralOp2 :: OpCodeIntegral2 -> AstInt -> AstInt -> AstInt
 simplifyAstIntegralOp2 QuotOp (AstConst u) (AstConst v) = AstConst $ quot u v
 simplifyAstIntegralOp2 QuotOp (AstConst 0) _v = AstConst 0
 simplifyAstIntegralOp2 QuotOp u (AstConst 1) = u
