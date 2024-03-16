@@ -854,7 +854,9 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
       error $ "astGather: gather vars in v0: "
               ++ show (vars0, v0)
     (_, (ZR, _)) -> astIndex v0 ix0
-    (sh, (_, ZIR)) -> astReplicateN sh v0
+    (sh, (_, ZIR)) -> if stepOnly
+                      then Ast.AstGather sh0 v0 (vars0, ix0)
+                      else astReplicateN sh v0
     (k :$: sh', (AstVarName varId ::: vars, i1 :.: rest1)) ->
       if | not (any (`varNameInAst` i1) vars0) ->
            astGatherROrStepOnly stepOnly sh0 (astIndex v0 (i1 :.: ZIR))
@@ -872,7 +874,10 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
          | varInIndex varId ix0 ->
            astGatherCase sh0 v0 (vars0, ix0)
          | otherwise ->
-           astReplicate k (astGatherROrStepOnly stepOnly sh' v0 (vars, ix0))
+           if stepOnly
+           then Ast.AstGather sh0 v0 (vars0, ix0)
+           else astReplicate
+                  k (astGatherROrStepOnly stepOnly sh' v0 (vars, ix0))
        where
         (restN, iN) = unsnocIndex1 ix0
         (varsN, varN) = unsnocSized1 vars0
