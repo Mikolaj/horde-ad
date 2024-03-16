@@ -372,9 +372,8 @@ assertEqualUpToEpsilon'
               (show astSimp)
               (show (simplifyAst6 astSimp))
   assertEqual "Idempotence of gradient simplification"
+              (show astVectSimp)
               (show (simplifyAst6 astVectSimp))
-              (show (simplifyAst6 $ simplifyAst6 astVectSimp))
-    -- treble simplify, because more simplification is required
 
 assertEqualUpToEpsilonShort
     :: ( v ~ Flip OR.Array r m, a ~ Flip OR.Array r n
