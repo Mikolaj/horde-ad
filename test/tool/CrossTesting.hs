@@ -368,9 +368,13 @@ assertEqualUpToEpsilon'
   assertEqualUpToEpsilonWithMark "Reverse vs forward"
                                  1e-5 (rdot0 expected vals) (rsum0 derivative)
   -- No Eq instance, so let's compare the text.
-  show (simplifyAst6 $ simplifyAst6 astVectSimp)
-    @?= show (simplifyAst6 astVectSimp)  -- more simplification is needed
-  show (simplifyAst6 astSimp) @?= show astSimp
+  assertEqual "Idempotence of primal simplification"
+              (show astSimp)
+              (show (simplifyAst6 astSimp))
+  assertEqual "Idempotence of gradient simplification"
+              (show (simplifyAst6 astVectSimp))
+              (show (simplifyAst6 $ simplifyAst6 astVectSimp))
+    -- treble simplify, because more simplification is required
 
 assertEqualUpToEpsilonShort
     :: ( v ~ Flip OR.Array r m, a ~ Flip OR.Array r n
@@ -463,8 +467,12 @@ assertEqualUpToEpsilonShort
   assertEqualUpToEpsilonWithMark "Forward vs reverse"
                                  1e-5 (rsum0 derivative) (rdot0 expected vals)
   -- No Eq instance, so let's compare the text.
-  show (simplifyAst6 astVectSimp) @?= show astVectSimp
-  show (simplifyAst6 astSimp) @?= show astSimp
+  assertEqual "Idempotence of primal simplification"
+              (show astSimp)
+              (show (simplifyAst6 astSimp))
+  assertEqual "Idempotence of gradient simplification"
+              (show astVectSimp)
+              (show (simplifyAst6 astVectSimp))
 
 t16 :: (Numeric r, Fractional r) => Flip OR.Array r 5
 t16 = Flip $ OR.fromList [2, 2, 1, 2, 2] [5, 2, 6, 1, -2, 0.000001, 0.1, -0.2, 13.1, 9, 8, -4, 34, 2.99432, -33, 26]
