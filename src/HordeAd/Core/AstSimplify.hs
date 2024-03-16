@@ -1049,9 +1049,11 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
     Ast.AstTranspose perm v | valueOf @p' >= length perm ->
       astGather sh4 v (vars4, permutePrefixIndex perm ix4)
     Ast.AstTranspose perm v ->
-      astGather sh4 (astTransposeAsGather perm v) (vars4, ix4)
+      if stepOnly then Ast.AstGather sh4 v4 (vars4, ix4)
+      else astGather sh4 (astTransposeAsGather perm v) (vars4, ix4)
     Ast.AstReshape sh v ->
-      astGather sh4 (astReshapeAsGather sh v) (vars4, ix4)
+      if stepOnly then Ast.AstGather sh4 v4 (vars4, ix4)
+      else astGather sh4 (astReshapeAsGather sh v) (vars4, ix4)
     Ast.AstBuild1{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstGather @m2 @n2 _sh2 v2 (vars2, ix2) ->
       -- Term ix4 is duplicated without sharing and we can't help it,
