@@ -610,7 +610,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
                               parameters0
     in \parameters -> assert (voidHVectorMatches parameters0 parameters) $
       let env = extendEnvHVector @(AstRanked s) vars parameters EM.empty
-      in interpretAstHVector env gradient
+      in simplifyAstHVector6 $ interpretAstHVector env gradient
         -- this interpretation both substitutes parameters for the variables and
         -- reinterprets @PrimalSpan@ terms in @s@ terms;
         -- we could shortcut when @s@ is @PrimalSpan@ and @parameters@
@@ -628,7 +628,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
         g !hv = HVectorPseudoTensor $ unHFun f [hv]
         (((varsDt, vars), gradient, _primal), _delta) =
           revProduceArtifact True g EM.empty shs
-     in AstLambda ([varsDt, vars], gradient)
+     in AstLambda ([varsDt, vars], simplifyAstHVector6 gradient)
   dfwd :: VoidHVector
        -> HFun
        -> AstHFun
@@ -640,7 +640,8 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
         g !hv = HVectorPseudoTensor $ unHFun f [hv]
         (((varsDt, vars), derivative, _primal), _delta) =
           fwdProduceArtifact g EM.empty shs
-     in AstLambda ([varsDt, vars], unHVectorPseudoTensor derivative)
+     in AstLambda ( [varsDt, vars]
+                  , simplifyAstHVector6 $ unHVectorPseudoTensor derivative )
   dmapAccumRDer
     :: Proxy (AstRanked s)
     -> SNat k
