@@ -370,7 +370,7 @@ testGatherSimpPP33 = do
   let !t1 = gatherTranspose33 @(AstRanked PrimalSpan)
             $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (AstVarName . intToAstVarId $ 100000000)
   length (show t1) @?= 567
-  length (show (simplifyAst6 @Float t1)) @?= 7787
+  length (show (simplifyAst6 @Float t1)) @?= 7789
   resetVarCounter
   let !t2 = (\t -> rmatmul2 (rreshape [6, 8] (rconst $ runFlip t48))
                             (rreshape @(AstRanked PrimalSpan) @Float @10 [8, 16] t))

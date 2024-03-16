@@ -2400,46 +2400,8 @@ simplifyAst t = case t of
   Ast.AstSlice i k v -> astSlice i k (simplifyAst v)
   Ast.AstReverse v -> astReverse (simplifyAst v)
   Ast.AstTranspose perm v ->
-    -- The first attempt is for the case of v being a transpose, which would
-    -- simplify to a huge gather, but instead we may fuse it at once
-    -- or leave it to be executed via changing only the strides.
-    let perm1 = normalizePermutation perm
-    in case astTranspose perm1 v of
-      Ast.AstTranspose perm2 v2 | perm2 == perm1 ->
-        -- no luck, let's try simplifying the argument
-        case astTranspose perm2 (simplifyAst v2) of
-          u@(Ast.AstTranspose _ Ast.AstVar{}) -> u  -- normal form
-          u@(Ast.AstTranspose _ (AstN1 _ w)) | isVar w -> u  -- normal form
-          u@(Ast.AstTranspose _ AstN2{}) -> u  -- normal form
-          u@(Ast.AstTranspose _ (Ast.AstR1 _ w)) | isVar w -> u
-          u@(Ast.AstTranspose _ Ast.AstR2{}) -> u
-          u@(Ast.AstTranspose _ AstSumOfList{}) -> u  -- normal form
-          u@(Ast.AstTranspose _ Ast.AstScatter{}) -> u  -- normal form
-          u@(Ast.AstTranspose _ Ast.AstReplicate{}) -> u  -- normal form
-          Ast.AstTranspose perm3 v3 ->  -- not nf, let's express all as gather
-            astTransposeAsGather perm3 v3
-              -- this is expensive, but the only way to guarantee
-              -- full simplification
-          u -> simplifyAst u
-      u -> simplifyAst u
-  Ast.AstReshape sh v ->
-    case astReshape sh v of  -- see above
-      Ast.AstReshape sh2 v2 ->
-        case astReshape sh2 (simplifyAst v2) of
-          u@(Ast.AstReshape _ Ast.AstVar{}) -> u  -- normal form
-          u@(Ast.AstReshape _ (AstN1 _ w)) | isVar w -> u
-          u@(Ast.AstReshape _ AstN2{}) -> u
-              -- normal form, because gather doesn't go inside AstN2 either
-          u@(Ast.AstReshape _ (Ast.AstR1 _ w)) | isVar w -> u
-          u@(Ast.AstReshape _ Ast.AstR2{}) -> u
-          u@(Ast.AstReshape _ AstSumOfList{}) -> u  -- normal form
-          u@(Ast.AstReshape _ Ast.AstScatter{}) -> u  -- normal form
-          -- Not a normal form, because often AstReshape scan be eliminated:
-          -- u@(Ast.AstReshape _ Ast.AstReplicate{}) -> u  -- normal form
-          Ast.AstReshape sh3 v3 -> astReshapeAsGather sh3 v3
-            -- this is terribly expensive, but the only way to fully simplify
-          u -> simplifyAst u
-      u -> simplifyAst u
+    astTranspose (normalizePermutation perm) (simplifyAst v)
+  Ast.AstReshape sh v -> astReshape sh (simplifyAst v)
   Ast.AstBuild1 k (var, v) -> Ast.AstBuild1 k (var, simplifyAst v)
   Ast.AstGather sh v (vars, ix) ->
     astGatherR sh (simplifyAst v) (vars, simplifyAstIndex ix)

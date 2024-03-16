@@ -1210,7 +1210,7 @@ testUnitriangular2PP = do
       k = 1000000
       a1 = unitriangular2 @3 @Double @(AstRanked FullSpan) k sh
   printAstPretty IM.empty (simplifyAst6 a1)
-    @?= "rgather [1000000,1000000,200,300,600] (rfromList [rreplicate 1000000 (rreplicate 1000000 (rreplicate 200 (rreplicate 300 (rreplicate 600 0.0)))), rreplicate 1000000 (rreplicate 1000000 (rreplicate 200 (rreplicate 300 (rreplicate 600 1.0))))]) (\\[i9, i10] -> [ifF (i9 <. i10) 0 1, i9, i10])"
+    @?= "rgather [1000000,1000000,200,300,600] (rfromList [rreplicate 1000000 (rreplicate 1000000 (rreplicate 200 (rreplicate 300 (rreplicate 600 0.0)))), rreplicate 1000000 (rreplicate 1000000 (rreplicate 200 (rreplicate 300 (rreplicate 600 1.0))))]) (\\[i3, i4] -> [ifF (i3 <. i4) 0 1, i3, i4])"
 
 rscanZip :: forall rn n ranked.
             ( GoodScalar rn, KnownNat n, RankedTensor ranked
