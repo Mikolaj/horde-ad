@@ -1381,11 +1381,11 @@ astCondS b v w = Ast.AstCondS b v w
 
 astSumOfList :: (KnownNat n, GoodScalar r, AstSpan s)
              => [AstRanked s r n] -> AstRanked s r n
-astSumOfList = foldr1 (+)  -- @sum@ breaks
+astSumOfList = foldr1 (+)  -- @sum@ breaks and also reverse order
 
 astSumOfListS :: (Sh.Shape sh, GoodScalar r, AstSpan s)
               => [AstShaped s r sh] -> AstShaped s r sh
-astSumOfListS = sum
+astSumOfListS = foldr1 (+)  -- @sum@ reverses order
 
 astSum :: (KnownNat n, GoodScalar r, AstSpan s)
        => AstRanked s r (1 + n) -> AstRanked s r n

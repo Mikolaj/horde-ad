@@ -2196,7 +2196,7 @@ testSin0rmapAccumRD01SN531b0PP = do
     IM.empty
     (simplifyAstHVector6
      $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 1.1))
-    @?= "let [x16 @[Natural] @Double @[], v17 @[Natural] @Double @[0]] = dmapAccumRDer (SNat @0) (\\[x24] [x25] -> [x24, x24]) (\\[x33, x34] [x35, x36] -> [x33, x33]) (\\[x46, x47] [x48, x49] -> [0.0 + x46 + x47, 0.0]) [1.1] [rconst (fromList [0] [])] in let [x20 @[Natural] @Double @[], v21 @Natural @Double @[0]] = dmapAccumLDer (SNat @0) (\\[x59] [x60, x61] -> [x59, 0]) (\\[x68, x69, x70] [x71, x72, x73] -> [x68, 0.0]) (\\[x81, x82] [x83, x84, x85] -> [x81, 0, 0]) [4.0] [v17, rconst (fromList [0] [])] in [rfromS x20]"
+    @?= "let [x16 @[Natural] @Double @[], v17 @[Natural] @Double @[0]] = dmapAccumRDer (SNat @0) (\\[x24] [x25] -> [x24, x24]) (\\[x33, x34] [x35, x36] -> [x33, x33]) (\\[x46, x47] [x48, x49] -> [0.0 + x47 + x46, 0.0]) [1.1] [rconst (fromList [0] [])] in let [x20 @[Natural] @Double @[], v21 @Natural @Double @[0]] = dmapAccumLDer (SNat @0) (\\[x59] [x60, x61] -> [x59, 0]) (\\[x68, x69, x70] [x71, x72, x73] -> [x68, 0.0]) (\\[x81, x82] [x83, x84, x85] -> [x81, 0, 0]) [4.0] [v17, rconst (fromList [0] [])] in [rfromS x20]"
 
 testSin0rmapAccumRD01SN531bSPP :: Assertion
 testSin0rmapAccumRD01SN531bSPP = do
@@ -2313,7 +2313,7 @@ testSin0rmapAccumRD01SN531b0PPj = do
     IM.empty
     (simplifyAstHVector6
      $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 1.1))
-    @?= "let [m23 @[Natural] @Double @[2,2], t24 @[Natural] @Double @[0,2,2]] = dmapAccumRDer (SNat @0) <lambda> <lambda> <lambda> [sfromIntegral (sfromR (rtranspose [1,0] (rreplicate 2 (rconst (fromList [2] [0,1]))) + rreplicate 2 (rconst (fromList [2] [0,1])))) + sconst @[2,2] (fromList @[2,2] [0.0,0.0,0.0,0.0]) + sconst @[2,2] (fromList @[2,2] [0.0,0.0,0.0,0.0]) + sreplicate (sconst @[2] (fromList @[2] [0.0,0.0])) + sreplicate (sreplicate 0.0) + sreplicate (sconst @[2] (fromList @[2] [0.0,0.0])) + sreplicate (sreplicate 1.1) + sconst @[2,2] (fromList @[2,2] [0.0,0.0,0.0,0.0]) + sconst @[2,2] (fromList @[2,2] [0.0,0.0,0.0,0.0]) + sconst @[2,2] (fromList @[2,2] [0.0,0.0,0.0,0.0]) + sconst @[2,2] (fromList @[2,2] [0.0,0.0,0.0,0.0])] [rtranspose [2,0,1] (rreplicate 2 (rreplicate 2 (rconst (fromList [0] []))))] in let [m28 @[Natural] @Double @[2,2], t29 @Natural @Double @[0,2,2]] = dmapAccumLDer (SNat @0) <lambda> <lambda> <lambda> [sscatter (sconst @[2,2] (fromList @[2,2] [1.0,1.0,1.0,1.0])) (\\[i26] -> [i26])] [t24, rtranspose [2,0,1] (rreplicate 2 (rreplicate 2 (rconst (fromList [0] []))))] in [rfromS (ssum (ssum m28))]"
+    @?= "let [m23 @[Natural] @Double @[2,2], t24 @[Natural] @Double @[0,2,2]] = dmapAccumRDer (SNat @0) <lambda> <lambda> <lambda> [sfromIntegral (sfromR (rtranspose [1,0] (rreplicate 2 (rconst (fromList [2] [0,1]))) + rreplicate 2 (rconst (fromList [2] [0,1])))) + sreplicate (sreplicate 1.1) + sconst @[2,2] (fromList @[2,2] [0.0,0.0,0.0,0.0]) + sconst @[2,2] (fromList @[2,2] [0.0,0.0,0.0,0.0])] [rtranspose [2,0,1] (rreplicate 2 (rreplicate 2 (rconst (fromList [0] []))))] in let [m28 @[Natural] @Double @[2,2], t29 @Natural @Double @[0,2,2]] = dmapAccumLDer (SNat @0) <lambda> <lambda> <lambda> [sscatter (sconst @[2,2] (fromList @[2,2] [1.0,1.0,1.0,1.0])) (\\[i26] -> [i26])] [t24, rtranspose [2,0,1] (rreplicate 2 (rreplicate 2 (rconst (fromList [0] []))))] in [rfromS (ssum (ssum m28))]"
 
 testSin0rmapAccumRD01SN531bSPPj :: Assertion
 testSin0rmapAccumRD01SN531bSPPj = do
@@ -2344,7 +2344,7 @@ testSin0rmapAccumRD01SN531bSPPj = do
     IM.empty
     (simplifyAstHVector6
      $ g @(AstRanked PrimalSpan) (V.singleton $ DynamicShaped @Double @'[] 1.1))
-    @?= "let [m13 @[Natural] @Double @[2,2], t14 @[Natural] @Double @[1,2,2]] = dmapAccumRDer (SNat @1) <lambda> <lambda> <lambda> [sconst @[2,2] (fromList @[2,2] [0.0,0.0,0.0,0.0]) + sfromIntegral (sfromR (rtranspose [1,0] (rreplicate 2 (rconst (fromList [2] [0,1]))) + rreplicate 2 (rconst (fromList [2] [0,1])))) + sreplicate (sconst @[2] (fromList @[2] [0.0,0.0])) + sreplicate (sreplicate 0.0) + sreplicate (sconst @[2] (fromList @[2] [0.0,0.0])) + sreplicate (sreplicate 1.1)] [stranspose (sreplicate (sreplicate (sconst @[1] (fromList @[1] [0.0]))))] in let [m20 @[Natural] @Double @[2,2], t21 @[Natural] @Double @[1,2,2]] = dmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> [sscatter (sconst @[2,2] (fromList @[2,2] [1.0,1.0,1.0,1.0])) (\\[i18] -> [i18])] [t14, stranspose (sreplicate (sreplicate (sconst @[1] (fromList @[1] [0.0]))))] in [ssum (ssum m20)]"
+    @?= "let [m13 @[Natural] @Double @[2,2], t14 @[Natural] @Double @[1,2,2]] = dmapAccumRDer (SNat @1) <lambda> <lambda> <lambda> [sconst @[2,2] (fromList @[2,2] [0.0,0.0,0.0,0.0]) + sreplicate (sreplicate 1.1) + sfromIntegral (sfromR (rtranspose [1,0] (rreplicate 2 (rconst (fromList [2] [0,1]))) + rreplicate 2 (rconst (fromList [2] [0,1]))))] [stranspose (sreplicate (sreplicate (sconst @[1] (fromList @[1] [0.0]))))] in let [m20 @[Natural] @Double @[2,2], t21 @[Natural] @Double @[1,2,2]] = dmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> [sscatter (sconst @[2,2] (fromList @[2,2] [1.0,1.0,1.0,1.0])) (\\[i18] -> [i18])] [t14, stranspose (sreplicate (sreplicate (sconst @[1] (fromList @[1] [0.0]))))] in [ssum (ssum m20)]"
 
 testSin0rmapAccumRD01SN531bRPPj :: Assertion
 testSin0rmapAccumRD01SN531bRPPj = do
@@ -3260,7 +3260,7 @@ testSin0FoldNestedS1PP = do
   printAstHVectorPretty
     IM.empty
     (g @(AstRanked PrimalSpan) (V.singleton $ DynamicShaped @Double @'[] 1.1))
-    @?= "let [x4 @[Natural] @Double @[], v5 @[Natural] @Double @[11]] = dmapAccumLDer (SNat @11) <lambda> <lambda> <lambda> [1.1] [sreplicate 1.1] in let [x9 @[Natural] @Double @[], v10 @[Natural] @Double @[11]] = dmapAccumRDer (SNat @11) <lambda> <lambda> <lambda> [1.0] [v5, sreplicate 1.1] in [0.0 + ssum v10 + x9]"
+    @?= "let [x4 @[Natural] @Double @[], v5 @[Natural] @Double @[11]] = dmapAccumLDer (SNat @11) <lambda> <lambda> <lambda> [1.1] [sreplicate 1.1] in let [x9 @[Natural] @Double @[], v10 @[Natural] @Double @[11]] = dmapAccumRDer (SNat @11) <lambda> <lambda> <lambda> [1.0] [v5, sreplicate 1.1] in [ssum v10 + x9]"
 
 testSin0FoldNestedR1PP :: Assertion
 testSin0FoldNestedR1PP = do
