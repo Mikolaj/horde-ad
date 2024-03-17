@@ -2633,7 +2633,7 @@ expandAst t = case t of
       u -> expandAst u
   Ast.AstBuild1 k (var, v) -> Ast.AstBuild1 k (var, expandAst v)
   Ast.AstGather sh v (vars, ix) ->
-    astGatherR sh (expandAst v) (vars, expandAstIndex ix)
+    astGatherStep sh (expandAst v) (vars, expandAstIndex ix)
   Ast.AstCast v -> astCast $ expandAst v
   Ast.AstFromIntegral v -> astFromIntegral $ expandAst v
   AstConst{} -> t
@@ -2681,7 +2681,7 @@ expandAstS t = case t of
   Ast.AstReshapeS v -> astReshapeS $ expandAstS v
   Ast.AstBuild1S (var, v) -> Ast.AstBuild1S (var, expandAstS v)
   Ast.AstGatherS v (vars, ix) ->
-    astGatherS (expandAstS v) (vars, expandAstIndexS ix)
+    astGatherStepS (expandAstS v) (vars, expandAstIndexS ix)
   Ast.AstCastS v -> astCastS $ expandAstS v
   Ast.AstFromIntegralS v -> astFromIntegralS $ expandAstS v
   AstConstS{} -> t
