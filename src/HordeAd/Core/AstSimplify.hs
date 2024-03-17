@@ -888,7 +888,7 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
       error $ "astGather: gather vars in v0: "
               ++ show (vars0, v0)
     (_, (ZR, _)) -> astIndex v0 ix0
-    (sh, (_, ZIR)) -> if knobStepOnly knobs
+    (sh, (_, ZIR)) -> if knobExpand knobs
                       then Ast.AstGather sh0 v0 (vars0, ix0)
                       else astReplicateN sh v0
     (k :$: sh', (AstVarName varId ::: vars, i1 :.: rest1)) ->
@@ -908,10 +908,9 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
          | varInIndex varId ix0 ->
            astGatherCase sh0 v0 (vars0, ix0)
          | otherwise ->
-           if knobStepOnly knobs
+           if knobExpand knobs
            then Ast.AstGather sh0 v0 (vars0, ix0)
-           else astReplicate
-                  k (astGatherKnobsR knobs sh' v0 (vars, ix0))
+           else astReplicate k (astGatherKnobsR knobs sh' v0 (vars, ix0))
        where
         (restN, iN) = unsnocIndex1 ix0
         (varsN, varN) = unsnocSized1 vars0
@@ -1100,11 +1099,13 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
     Ast.AstTranspose perm v | valueOf @p' >= length perm ->
       astGather sh4 v (vars4, permutePrefixIndex perm ix4)
     Ast.AstTranspose perm v ->
-      if knobStepOnly knobs then Ast.AstGather sh4 v4 (vars4, ix4)
-      else astGather sh4 (astTransposeAsGather knobs perm v) (vars4, ix4)
+      if knobExpand knobs
+      then astGather sh4 (astTransposeAsGather knobs perm v) (vars4, ix4)
+      else Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstReshape sh v ->
-      if knobStepOnly knobs then Ast.AstGather sh4 v4 (vars4, ix4)
-      else astGather sh4 (astReshapeAsGather knobs sh v) (vars4, ix4)
+      if knobExpand knobs
+      then astGather sh4 (astReshapeAsGather knobs sh v) (vars4, ix4)
+      else Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstBuild1{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstGather @m2 @n2 _sh2 v2 (vars2, ix2) ->
       -- Term ix4 is duplicated without sharing and we can't help it,
@@ -2632,7 +2633,9 @@ expandAst t = case t of
     case isRankedInt t of
       Just Refl -> foldr1 contractAstPlusOp (map expandAst args)
       _ -> astSumOfList (map expandAst args)
-  Ast.AstIndex v ix -> astIndexR (expandAst v) (expandAstIndex ix)
+  Ast.AstIndex v ix -> astIndexKnobsR (defaultKnobs {knobExpand = True})
+                                      (expandAst v)
+                                      (expandAstIndex ix)
   Ast.AstSum v -> astSum (expandAst v)
   Ast.AstScatter sh v (var, ix) ->
     astScatter sh (expandAst v) (var, expandAstIndex ix)
@@ -2660,7 +2663,7 @@ expandAst t = case t of
           u@(Ast.AstTranspose _ Ast.AstScatter{}) -> u  -- normal form
           u@(Ast.AstTranspose _ Ast.AstReplicate{}) -> u  -- normal form
           Ast.AstTranspose perm3 v3 ->  -- not nf, let's express all as gather
-            astTransposeAsGather defaultKnobs perm3 v3
+            astTransposeAsGather (defaultKnobs {knobExpand = True}) perm3 v3
               -- this is expensive, but the only way to guarantee
               -- full simplification
           u -> expandAst u
@@ -2679,13 +2682,15 @@ expandAst t = case t of
           u@(Ast.AstReshape _ Ast.AstScatter{}) -> u  -- normal form
           -- Not a normal form, because often AstReshape scan be eliminated:
           -- u@(Ast.AstReshape _ Ast.AstReplicate{}) -> u  -- normal form
-          Ast.AstReshape sh3 v3 -> astReshapeAsGather defaultKnobs sh3 v3
-            -- this is terribly expensive, but the only way to fully expand
+          Ast.AstReshape sh3 v3 ->
+            astReshapeAsGather (defaultKnobs {knobExpand = True}) sh3 v3
+              -- this is terribly expensive, but the only way to fully expand
           u -> expandAst u
       u -> expandAst u
   Ast.AstBuild1 k (var, v) -> Ast.AstBuild1 k (var, expandAst v)
   Ast.AstGather sh v (vars, ix) ->
-    astGatherStep sh (expandAst v) (vars, expandAstIndex ix)
+    astGatherKnobsR (defaultKnobs {knobExpand = True})
+                    sh (expandAst v) (vars, expandAstIndex ix)
   Ast.AstCast v -> astCast $ expandAst v
   Ast.AstFromIntegral v -> astFromIntegral $ expandAst v
   AstConst{} -> t
@@ -2718,8 +2723,9 @@ expandAstS t = case t of
   Ast.AstR2S opCode u v -> Ast.AstR2S opCode (expandAstS u) (expandAstS v)
   Ast.AstI2S opCode u v -> Ast.AstI2S opCode (expandAstS u) (expandAstS v)
   AstSumOfListS args -> astSumOfListS (map expandAstS args)
-  Ast.AstIndexS v ix ->
-    Ast.AstIndexS (expandAstS v) (expandAstIndexS ix)  -- TODO
+  Ast.AstIndexS v ix -> astIndexKnobsS (defaultKnobs {knobExpand = True})
+                                       (expandAstS v)
+                                       (expandAstIndexS ix)
   Ast.AstSumS v -> astSumS (expandAstS v)
   Ast.AstScatterS v (var, ix) ->
     astScatterS (expandAstS v) (var, expandAstIndexS ix)
@@ -2733,7 +2739,8 @@ expandAstS t = case t of
   Ast.AstReshapeS v -> astReshapeS $ expandAstS v
   Ast.AstBuild1S (var, v) -> Ast.AstBuild1S (var, expandAstS v)
   Ast.AstGatherS v (vars, ix) ->
-    astGatherStepS (expandAstS v) (vars, expandAstIndexS ix)
+    astGatherKnobsS (defaultKnobs {knobExpand = True})
+                    (expandAstS v) (vars, expandAstIndexS ix)
   Ast.AstCastS v -> astCastS $ expandAstS v
   Ast.AstFromIntegralS v -> astFromIntegralS $ expandAstS v
   AstConstS{} -> t
