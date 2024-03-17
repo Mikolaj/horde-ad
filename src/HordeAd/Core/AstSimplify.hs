@@ -2622,7 +2622,12 @@ expandAst t = case t of
   AstN2 opCode u v ->
     case isRankedInt u of
       Just Refl -> contractAstNumOp2 opCode (expandAst u) (expandAst v)
-      _ -> AstN2 opCode (expandAst u) (expandAst v)
+      _ -> case opCode of
+        TimesOp | not (isVar u || isVar u) ->
+          AstN2 opCode (simplifyAst u) (simplifyAst v)
+            -- TODO: a workaround for interpretMatmul2 not yet generalized
+            -- to gathers (and moved from AstInterpret here, ideally)
+        _ -> AstN2 opCode (expandAst u) (expandAst v)
   Ast.AstR1 opCode u -> Ast.AstR1 opCode (expandAst u)
   Ast.AstR2 opCode u v -> Ast.AstR2 opCode (expandAst u) (expandAst v)
   Ast.AstI2 opCode u v ->

@@ -304,14 +304,14 @@ testGatherSimpPP23 = do
                 (t * rreplicate0N [6, 2] (rfromIndex0 i))))
             $ AstVar [6, 2] (AstVarName . intToAstVarId $ 100000000)
   length (show t1) @?= 186
-  length (show (simplifyAst6 @Float t1)) @?= 481
+  length (show (simplifyAst6 @Float t1)) @?= 186
   resetVarCounter
   let !t2 = (\t -> rbuild1 4 (\i ->
               rreshape @(AstRanked PrimalSpan) @Float @2 @2 [2, 6]
                 (t * rreplicate0N [6, 2] (rfromIndex0 i))))
             $ AstVar [6, 2] (AstVarName . intToAstVarId $ 100000000)
   length (show t2) @?= 186
-  length (show (simplifyAst6 @Float t2)) @?= 481
+  length (show (simplifyAst6 @Float t2)) @?= 186
 
 -- Depending on if and how transpose it desugared, this may or may not result
 -- in dozens of nested gathers that should vanish after simplification.
@@ -370,7 +370,7 @@ testGatherSimpPP33 = do
   let !t1 = gatherTranspose33 @(AstRanked PrimalSpan)
             $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (AstVarName . intToAstVarId $ 100000000)
   length (show t1) @?= 567
-  length (show (simplifyAst6 @Float t1)) @?= 7789
+  length (show (simplifyAst6 @Float t1)) @?= 548
   resetVarCounter
   let !t2 = (\t -> rmatmul2 (rreshape [6, 8] (rconst $ runFlip t48))
                             (rreshape @(AstRanked PrimalSpan) @Float @10 [8, 16] t))
@@ -385,7 +385,7 @@ testGatherSimpPP34 = do
              gatherTranspose33 @(AstRanked PrimalSpan) (t * rreplicate0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (rfromIndex0 i))))
             $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (AstVarName . intToAstVarId $ 100000000)
   length (show t1) @?= 728
-  length (show (simplifyAst6 @Float t1)) @?= 15204
+  length (show (simplifyAst6 @Float t1)) @?= 728
   resetVarCounter
   let !t2 = (\t -> rbuild1 4 (\i ->
               (\t' -> rmatmul2 (rreshape [6, 8] (rconst $ runFlip t48))
@@ -393,7 +393,7 @@ testGatherSimpPP34 = do
                 (t * rreplicate0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (rfromIndex0 i))))
             $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (AstVarName . intToAstVarId $ 100000000)
   length (show t2) @?= 624
-  length (show (simplifyAst6 @Float t2)) @?= 921
+  length (show (simplifyAst6 @Float t2)) @?= 624
 
 -- scatters instead of gathers
 
