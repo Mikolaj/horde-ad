@@ -102,6 +102,15 @@ import           HordeAd.Util.ShapedList
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedList
 
+data SimplifyKnobs = SimplifyKnobs
+  { knobStepOnly :: Bool
+  , knobExpand   :: Bool
+  }
+
+defaultKnobs :: SimplifyKnobs
+defaultKnobs = SimplifyKnobs False False
+
+
 -- * Expressing operations as Gather; introduces new variable names
 
 -- We keep AstTranspose terms for as long as possible, because
@@ -110,9 +119,9 @@ import           HordeAd.Util.SizedList
 -- this function is invoked.
 astTransposeAsGather
   :: forall n s r. (KnownNat n, GoodScalar r, AstSpan s)
-  => Permutation -> AstRanked s r n -> AstRanked s r n
+  => SimplifyKnobs -> Permutation -> AstRanked s r n -> AstRanked s r n
 {-# NOINLINE astTransposeAsGather #-}
-astTransposeAsGather perm v =
+astTransposeAsGather knobs perm v =
   let pInt = length perm
   in case someNatVal $ toInteger pInt of
     Just (SomeNat @p _) -> do
@@ -120,10 +129,10 @@ astTransposeAsGather perm v =
         let asts :: AstIndex p
             asts = permutePrefixIndex perm ix
         in case cmpNat (Proxy @p) (Proxy @n) of
-          EQI -> astGatherR @p @(n - p)
+          EQI -> astGatherROrStepOnly @p @(n - p) knobs
                             (backpermutePrefixShape perm (shapeAst v)) v
                             (vars, asts)
-          LTI -> astGatherR @p @(n - p)
+          LTI -> astGatherROrStepOnly @p @(n - p) knobs
                             (backpermutePrefixShape perm (shapeAst v)) v
                             (vars, asts)
           _ -> error "astTransposeAsGather: permutation longer than rank"
@@ -132,9 +141,9 @@ astTransposeAsGather perm v =
 astTransposeAsGatherS
   :: forall perm sh s r p.
      (Sh.Shape perm, Sh.Shape sh, Sh.Rank perm <= Sh.Rank sh, p ~ Sh.Rank perm)
-  => AstShaped s r sh -> AstShaped s r (Sh.Permute perm sh)
+  => SimplifyKnobs -> AstShaped s r sh -> AstShaped s r (Sh.Permute perm sh)
 {-# NOINLINE astTransposeAsGatherS #-}
-astTransposeAsGatherS v =
+astTransposeAsGatherS knobs v =
   Sh.withShapeP (drop (length (Sh.shapeT @perm))
                  $ Sh.shapeT @sh) $ \(Proxy @shd) ->
     gcastWith (unsafeCoerce Refl :: Sh.Drop p sh :~: shd) $
@@ -150,7 +159,7 @@ astTransposeAsGatherS v =
               asts = ShapedList.permutePrefixIndex (Sh.shapeT @perm) ix
           in gcastWith (unsafeCoerce Refl
                         :: Sh.Permute perm sh :~: sh2 Sh.++ Sh.Drop p sh) $
-             astGatherS @sh2 @p @sh v (vars, asts)
+             astGatherSOrStepOnly @sh2 @p @sh knobs v (vars, asts)
 
 -- This generates big terms that don't simplify well,
 -- so we keep the AstReshape form until simplification gets stuck.
@@ -179,22 +188,22 @@ astTransposeAsGatherS v =
 -- normalized between each reshape.
 astReshapeAsGather
   :: forall p m s r. (KnownNat p, KnownNat m, GoodScalar r, AstSpan s)
-  => ShapeInt m -> AstRanked s r p -> AstRanked s r m
+  => SimplifyKnobs -> ShapeInt m -> AstRanked s r p -> AstRanked s r m
 {-# NOINLINE astReshapeAsGather #-}
-astReshapeAsGather shOut v =
+astReshapeAsGather knobs shOut v =
   funToVarsIx (lengthShape shOut) $ \ (!vars, !ix) ->
     let shIn = shapeAst v
         asts :: AstIndex p
         asts = let i = toLinearIdx @m @0 shOut ix
                in simplifyAstIndex $ fromLinearIdx shIn i
                     -- we generate these, so we simplify
-    in astGatherR @m @0 shOut v (vars, asts)
+    in astGatherROrStepOnly @m @0 knobs shOut v (vars, asts)
 
 astReshapeAsGatherS
   :: forall sh sh2 r s. (Sh.Shape sh, Sh.Shape sh2, Sh.Size sh ~ Sh.Size sh2)
-  => AstShaped s r sh -> AstShaped s r sh2
+  => SimplifyKnobs -> AstShaped s r sh -> AstShaped s r sh2
 {-# NOINLINE astReshapeAsGatherS #-}
-astReshapeAsGatherS v =
+astReshapeAsGatherS knobs v =
   gcastWith (unsafeCoerce Refl :: sh2 Sh.++ '[] :~: sh2) $
   funToVarsIxS @sh2 $ \ (!vars, !ix) ->
     let shIn = ShapedList.shapeIntSFromT @sh
@@ -206,7 +215,7 @@ astReshapeAsGatherS v =
                     -- we generate these, so we simplify
     in gcastWith (unsafeCoerce Refl :: Sh.Take (Sh.Rank sh) sh :~: sh) $
        gcastWith (unsafeCoerce Refl :: Sh.Drop (Sh.Rank sh) sh :~: '[]) $
-       astGatherS @sh2 @(Sh.Rank sh) @sh v (vars, asts)
+       astGatherSOrStepOnly @sh2 @(Sh.Rank sh) @sh knobs v (vars, asts)
 
 
 -- * Permutation operations
@@ -342,14 +351,15 @@ astIndexR
   :: forall m n s r.
      (KnownNat m, KnownNat n, GoodScalar r, AstSpan s)
   => AstRanked s r (m + n) -> AstIndex m -> AstRanked s r n
-astIndexR = astIndexROrStepOnly False
+astIndexR = astIndexROrStepOnly defaultKnobs
 
 astIndexStep
   :: forall m n s r.
      (KnownNat m, KnownNat n, GoodScalar r, AstSpan s)
   => AstRanked s r (m + n) -> AstIndex m -> AstRanked s r n
-astIndexStep v ix = astIndexROrStepOnly True (astNonIndexStep v)
-                                             (simplifyAstIndex ix)
+astIndexStep v ix = astIndexROrStepOnly (defaultKnobs {knobStepOnly = True})
+                                        (astNonIndexStep v)
+                                        (simplifyAstIndex ix)
 
 astIndexS
   :: forall sh1 sh2 s r.
@@ -357,7 +367,7 @@ astIndexS
      , GoodScalar r, AstSpan s )
   => AstShaped s r (sh1 Sh.++ sh2) -> AstIndexS sh1
   -> AstShaped s r sh2
-astIndexS = astIndexSOrStepOnly False
+astIndexS = astIndexSOrStepOnly defaultKnobs
 
 astIndexStepS
   :: forall sh1 sh2 s r.
@@ -365,10 +375,11 @@ astIndexStepS
      , GoodScalar r, AstSpan s )
   => AstShaped s r (sh1 Sh.++ sh2) -> AstIndexS sh1
   -> AstShaped s r sh2
-astIndexStepS v ix = astIndexSOrStepOnly True (astNonIndexStepS v)
-                                              (simplifyAstIndexS ix)
+astIndexStepS v ix = astIndexSOrStepOnly (defaultKnobs {knobStepOnly = True})
+                                         (astNonIndexStepS v)
+                                         (simplifyAstIndexS ix)
 
--- If stepOnly is set, we reduce only as long as needed to reveal
+-- If knobStepOnly is set, we reduce only as long as needed to reveal
 -- a non-indexing constructor or one of the normal forms (one-element
 -- indexing applied to AstFromList or AstFromVector or indexing
 -- of a term with no possible occurrences of Int variables). Otherwise,
@@ -379,34 +390,44 @@ astIndexStepS v ix = astIndexSOrStepOnly True (astNonIndexStepS v)
 astIndexROrStepOnly
   :: forall m n s r.
      (KnownNat m, KnownNat n, GoodScalar r, AstSpan s)
-  => Bool -> AstRanked s r (m + n) -> AstIndex m -> AstRanked s r n
-astIndexROrStepOnly stepOnly (Ast.AstIndex v ix) ZIR =
-  astIndexROrStepOnly stepOnly v ix  -- no non-indexing constructor yet revealed
+  => SimplifyKnobs -> AstRanked s r (m + n) -> AstIndex m -> AstRanked s r n
+astIndexROrStepOnly knobs (Ast.AstIndex v ix) ZIR =
+  astIndexROrStepOnly knobs v ix  -- no non-indexing constructor yet revealed
 astIndexROrStepOnly _ v0 ZIR = v0
-astIndexROrStepOnly stepOnly v0 ix@(i1 :.: (rest1 :: AstIndex m1)) =
+astIndexROrStepOnly knobs v0 ix@(i1 :.: (rest1 :: AstIndex m1)) =
  let astIndexRec, astIndex
        :: forall m' n' s'. (KnownNat m', KnownNat n', AstSpan s')
        => AstRanked s' r (m' + n') -> AstIndex m' -> AstRanked s' r n'
-     astIndexRec vRec ZIR = vRec
-     astIndexRec vRec ixRec =
-       if stepOnly then Ast.AstIndex vRec ixRec else astIndexR vRec ixRec
-     astIndex = if stepOnly then astIndexStep else astIndexR
+     astIndexRec v2 ZIR = v2
+     astIndexRec v2 ix2 = if knobStepOnly knobs
+                          then Ast.AstIndex v2 ix2
+                          else astIndexROrStepOnly knobs v2 ix2
+     astIndex v2 ix2 = if knobStepOnly knobs
+                       then astIndexROrStepOnly knobs
+                                                (astNonIndexStep v2)
+                                                (simplifyAstIndex ix2)
+                       else astIndexROrStepOnly knobs v2 ix2
      astGather
        :: forall m' n' p'.
           (KnownNat m', KnownNat p', KnownNat n')
        => ShapeInt (m' + n') -> AstRanked s r (p' + n')
        -> (AstVarList m', AstIndex p')
        -> AstRanked s r (m' + n')
-     astGather = if stepOnly then astGatherStep else astGatherR
+     astGather sh2 v2 (vars2, ix2) =
+       if knobStepOnly knobs
+       then astGatherROrStepOnly knobs
+                                 sh2 (astNonIndexStep v2)
+                                 (vars2, simplifyAstIndex ix2)
+       else astGatherROrStepOnly knobs sh2 v2 (vars2, ix2)
  in case v0 of
   Ast.AstVar{} -> Ast.AstIndex v0 ix
   Ast.AstLet var u v -> astLet var u (astIndexRec v ix)
   Ast.AstLetADShare{} -> error "astIndexROrStepOnly: AstLetADShare"
   Ast.AstCond b v w ->
     shareIx ix $ \ix2 -> astCond b (astIndexRec v ix2) (astIndexRec w ix2)
-  Ast.AstMinIndex v -> Ast.AstMinIndex $ astIndexROrStepOnly stepOnly v ix
-  Ast.AstMaxIndex v -> Ast.AstMaxIndex $ astIndexROrStepOnly stepOnly v ix
-  Ast.AstFloor v -> Ast.AstFloor $ astIndexROrStepOnly stepOnly v ix
+  Ast.AstMinIndex v -> Ast.AstMinIndex $ astIndexROrStepOnly knobs v ix
+  Ast.AstMaxIndex v -> Ast.AstMaxIndex $ astIndexROrStepOnly knobs v ix
+  Ast.AstFloor v -> Ast.AstFloor $ astIndexROrStepOnly knobs v ix
   Ast.AstIota | AstConst i <- i1 -> fromIntegral i
   Ast.AstIota -> Ast.AstIndex v0 ix
   AstN1 opCode u ->
@@ -501,9 +522,9 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :.: (rest1 :: AstIndex m1)) =
   Ast.AstTranspose perm v | valueOf @m >= length perm ->
     astIndex v (permutePrefixIndex perm ix)
   Ast.AstTranspose perm v ->
-    astIndex (astTransposeAsGather perm v) ix
+    astIndex (astTransposeAsGather knobs perm v) ix
   Ast.AstReshape sh v ->
-    astIndex (astReshapeAsGather sh v) ix
+    astIndex (astReshapeAsGather knobs sh v) ix
   Ast.AstBuild1 _n2 (var2, v) ->
     astIndex (astLet var2 i1 v) rest1
   Ast.AstGather _sh v (ZR, ix2) -> astIndex v (appendIndex ix2 ix)
@@ -514,8 +535,8 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :.: (rest1 :: AstIndex m1)) =
     in astLet var2 i1 $ astIndex w rest1
   Ast.AstGather{} ->
     error "astIndex: AstGather: impossible pattern needlessly required"
-  Ast.AstCast t -> astCast $ astIndexROrStepOnly stepOnly t ix
-  Ast.AstFromIntegral v -> astFromIntegral $ astIndexROrStepOnly stepOnly v ix
+  Ast.AstCast t -> astCast $ astIndexROrStepOnly knobs t ix
+  Ast.AstFromIntegral v -> astFromIntegral $ astIndexROrStepOnly knobs v ix
   AstConst t ->
     let unConst :: AstInt -> Maybe [OR.Array 0 Int64]
                 -> Maybe [OR.Array 0 Int64]
@@ -548,22 +569,27 @@ astIndexSOrStepOnly
   :: forall shm shn s r.
      ( Sh.Shape shm, Sh.Shape shn, Sh.Shape (shm Sh.++ shn)
      , GoodScalar r, AstSpan s )
-  => Bool -> AstShaped s r (shm Sh.++ shn) -> AstIndexS shm
+  => SimplifyKnobs -> AstShaped s r (shm Sh.++ shn) -> AstIndexS shm
   -> AstShaped s r shn
-astIndexSOrStepOnly stepOnly (Ast.AstIndexS v ix) ZIS =
-  astIndexSOrStepOnly stepOnly v ix
+astIndexSOrStepOnly knobs (Ast.AstIndexS v ix) ZIS =
+  astIndexSOrStepOnly knobs v ix
 astIndexSOrStepOnly _ v0 ZIS = v0
-astIndexSOrStepOnly stepOnly v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS shm1)) =
+astIndexSOrStepOnly knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS shm1)) =
   let astIndexRec, astIndex
         :: forall shm' shn' s'.
            ( Sh.Shape shm', Sh.Shape shn', Sh.Shape (shm' Sh.++ shn')
            , AstSpan s' )
         => AstShaped s' r (shm' Sh.++ shn') -> AstIndexS shm'
         -> AstShaped s' r shn'
-      astIndexRec vRec ZIS = vRec
-      astIndexRec vRec ixRec =
-        if stepOnly then Ast.AstIndexS vRec ixRec else astIndexS vRec ixRec
-      astIndex = if stepOnly then astIndexStepS else astIndexS
+      astIndexRec v2 ZIS = v2
+      astIndexRec v2 ix2 = if knobStepOnly knobs
+                           then Ast.AstIndexS v2 ix2
+                           else astIndexSOrStepOnly knobs v2 ix2
+      astIndex v2 ix2 = if knobStepOnly knobs
+                        then astIndexSOrStepOnly knobs
+                                                 (astNonIndexStepS v2)
+                                                 (simplifyAstIndexS ix2)
+                        else astIndexSOrStepOnly knobs v2 ix2
       astGather
         :: forall shm' shn' p'.
            ( Sh.Shape shm', Sh.Shape shn'
@@ -571,7 +597,12 @@ astIndexSOrStepOnly stepOnly v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS shm1)) =
         => AstShaped s r shm'
         -> (AstVarListS shn', AstIndexS (Sh.Take p' shm'))
         -> AstShaped s r (shn' Sh.++ Sh.Drop p' shm')
-      astGather = if stepOnly then astGatherStepS else astGatherS
+      astGather v2 (vars2, ix2) =
+        if knobStepOnly knobs
+        then astGatherSOrStepOnly knobs
+                                  (astNonIndexStepS v2)
+                                  (vars2, simplifyAstIndexS ix2)
+        else astGatherSOrStepOnly knobs v2 (vars2, ix2)
  in case v0 of
   Ast.AstVarS{} -> Ast.AstIndexS v0 ix
   Ast.AstLetS var u v -> astLetS var u (astIndexRec v ix)
@@ -592,7 +623,7 @@ astIndexSOrStepOnly stepOnly v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS shm1)) =
         gcastWith (unsafeCoerce Refl
                    :: shm Sh.++ (shn Sh.++ '[Sh.Last shz]) :~: n1 ': shz) $
         Ast.AstMinIndexS @(Sh.Drop 1 shn Sh.++ '[Sh.Last shz]) @(Sh.Index shn 0)
-        $ astIndexSOrStepOnly @shm @(shn Sh.++ '[Sh.Last shz]) stepOnly v ix
+        $ astIndexSOrStepOnly @shm @(shn Sh.++ '[Sh.Last shz]) knobs v ix
   Ast.AstMaxIndexS @shz @n1 v ->
     Sh.withShapeP (drop 1 (Sh.shapeT @shn)
                    ++ [last (Sh.shapeT @shz)]) $ \(Proxy @shd) ->
@@ -607,8 +638,8 @@ astIndexSOrStepOnly stepOnly v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS shm1)) =
         gcastWith (unsafeCoerce Refl
                    :: shm Sh.++ (shn Sh.++ '[Sh.Last shz]) :~: n1 ': shz) $
         Ast.AstMaxIndexS @(Sh.Drop 1 shn Sh.++ '[Sh.Last shz]) @(Sh.Index shn 0)
-        $ astIndexSOrStepOnly @shm @(shn Sh.++ '[Sh.Last shz]) stepOnly v ix
-  Ast.AstFloorS v -> Ast.AstFloorS $ astIndexSOrStepOnly stepOnly v ix
+        $ astIndexSOrStepOnly @shm @(shn Sh.++ '[Sh.Last shz]) knobs v ix
+  Ast.AstFloorS v -> Ast.AstFloorS $ astIndexSOrStepOnly knobs v ix
   Ast.AstIotaS | AstConst i <- i1 -> fromIntegral i
   Ast.AstIotaS -> Ast.AstIndexS v0 ix
   AstN1S opCode u ->
@@ -722,9 +753,9 @@ astIndexSOrStepOnly stepOnly v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS shm1)) =
           in gcastWith (unsafeCoerce Refl :: sh2 :~: shmPerm Sh.++ shn) $
              astIndex @shmPerm v ix2
   Ast.AstTransposeS @perm v ->
-    astIndex (astTransposeAsGatherS @perm v) ix
+    astIndex (astTransposeAsGatherS @perm knobs v) ix
   Ast.AstReshapeS v ->
-    astIndex (astReshapeAsGatherS v) ix
+    astIndex (astReshapeAsGatherS knobs v) ix
   Ast.AstBuild1S (var2, v) ->
     withListSh (Proxy @(shm1 Sh.++ shn)) $ \_ ->
       astIndex (astSFromR @(shm1 Sh.++ shn) $ astLet var2 i1 $ astRFromS v)
@@ -745,8 +776,8 @@ astIndexSOrStepOnly stepOnly v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS shm1)) =
             w = astGather v (vars, ix2)
         in astSFromR $ astLet var2 i1 $ astRFromS $ astIndexS @shm1 @shn w rest1
       -- this uses astLet, because the index integers are ranked
-  Ast.AstCastS t -> astCastS $ astIndexSOrStepOnly stepOnly t ix
-  Ast.AstFromIntegralS v -> astFromIntegralS $ astIndexSOrStepOnly stepOnly v ix
+  Ast.AstCastS t -> astCastS $ astIndexSOrStepOnly knobs t ix
+  Ast.AstFromIntegralS v -> astFromIntegralS $ astIndexSOrStepOnly knobs v ix
   AstConstS t ->
     let unConst :: AstInt -> Maybe [OR.Array 0 Int64]
                 -> Maybe [OR.Array 0 Int64]
@@ -803,7 +834,7 @@ astGatherR
      (KnownNat m, KnownNat p, KnownNat n, GoodScalar r, AstSpan s)
   => ShapeInt (m + n) -> AstRanked s r (p + n) -> (AstVarList m, AstIndex p)
   -> AstRanked s r (m + n)
-astGatherR = astGatherROrStepOnly False
+astGatherR = astGatherROrStepOnly defaultKnobs
 
 astGatherS
   :: forall sh2 p sh s r.
@@ -820,7 +851,8 @@ astGatherStep
   => ShapeInt (m + n) -> AstRanked s r (p + n) -> (AstVarList m, AstIndex p)
   -> AstRanked s r (m + n)
 astGatherStep sh v (vars, ix) =
-  astGatherROrStepOnly True sh (astNonIndexStep v)
+  astGatherROrStepOnly (defaultKnobs {knobStepOnly = True})
+                       sh (astNonIndexStep v)
                        (vars, simplifyAstIndex ix)
 
 astGatherStepS
@@ -845,21 +877,21 @@ astGatherStepS v (vars, ix) = Ast.AstGatherS v (vars, ix)  -- TODO
 astGatherROrStepOnly
   :: forall m n p s r.
      (KnownNat m, KnownNat p, KnownNat n, GoodScalar r, AstSpan s)
-  => Bool -> ShapeInt (m + n) -> AstRanked s r (p + n)
+  => SimplifyKnobs -> ShapeInt (m + n) -> AstRanked s r (p + n)
   -> (AstVarList m, AstIndex p)
   -> AstRanked s r (m + n)
-astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
+astGatherROrStepOnly knobs sh0 v0 (vars0, ix0) =
   case (sh0, (vars0, ix0)) of
     _ | any (`varNameInAst` v0) vars0 ->
       error $ "astGather: gather vars in v0: "
               ++ show (vars0, v0)
     (_, (ZR, _)) -> astIndex v0 ix0
-    (sh, (_, ZIR)) -> if stepOnly
+    (sh, (_, ZIR)) -> if knobStepOnly knobs
                       then Ast.AstGather sh0 v0 (vars0, ix0)
                       else astReplicateN sh v0
     (k :$: sh', (AstVarName varId ::: vars, i1 :.: rest1)) ->
       if | not (any (`varNameInAst` i1) vars0) ->
-           astGatherROrStepOnly stepOnly sh0 (astIndex v0 (i1 :.: ZIR))
+           astGatherROrStepOnly knobs sh0 (astIndex v0 (i1 :.: ZIR))
                                 (vars0, rest1)
          | case iN of
              AstIntVar varN' ->
@@ -870,14 +902,14 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
                  (kN :$: _, vkN :$: _) -> kN == vkN
                  _ -> error "impossible pattern needlessly required"
              _ -> False
-           -> astGatherROrStepOnly stepOnly sh0 v0 (varsN, restN)
+           -> astGatherROrStepOnly knobs sh0 v0 (varsN, restN)
          | varInIndex varId ix0 ->
            astGatherCase sh0 v0 (vars0, ix0)
          | otherwise ->
-           if stepOnly
+           if knobStepOnly knobs
            then Ast.AstGather sh0 v0 (vars0, ix0)
            else astReplicate
-                  k (astGatherROrStepOnly stepOnly sh' v0 (vars, ix0))
+                  k (astGatherROrStepOnly knobs sh' v0 (vars, ix0))
        where
         (restN, iN) = unsnocIndex1 ix0
         (varsN, varN) = unsnocSized1 vars0
@@ -886,15 +918,27 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
  where
   astIndex :: forall m' n' s'. (KnownNat m', KnownNat n', AstSpan s')
            => AstRanked s' r (m' + n') -> AstIndex m' -> AstRanked s' r n'
-  astIndex = if stepOnly then astIndexStep else astIndexR
+  astIndex v2 ix2 = if knobStepOnly knobs
+                    then astIndexROrStepOnly knobs
+                                             (astNonIndexStep v2)
+                                             (simplifyAstIndex ix2)
+                    else astIndexROrStepOnly knobs v2 ix2
   astGatherRec, astGather
     :: forall m' n' p' s' r'.
        (KnownNat m', KnownNat p', KnownNat n', AstSpan s', GoodScalar r')
     => ShapeInt (m' + n') -> AstRanked s' r' (p' + n')
     -> (AstVarList m', AstIndex p')
     -> AstRanked s' r' (m' + n')
-  astGatherRec = if stepOnly then Ast.AstGather else astGatherR
-  astGather = if stepOnly then astGatherStep else astGatherR
+  astGatherRec sh2 v2 (vars2, ix2) =
+    if knobStepOnly knobs
+    then Ast.AstGather sh2 v2 (vars2, ix2)
+    else astGatherROrStepOnly knobs sh2 v2 (vars2, ix2)
+  astGather sh2 v2 (vars2, ix2) =
+    if knobStepOnly knobs
+    then astGatherROrStepOnly knobs
+                              sh2 (astNonIndexStep v2)
+                              (vars2, simplifyAstIndex ix2)
+    else astGatherROrStepOnly knobs sh2 v2 (vars2, ix2)
   -- Note that v4 is in weak head normal form and so can't one-step reduce
   -- and so we don't have to reduce it to expose any top redexes.
   astGatherCase
@@ -913,17 +957,17 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
                                    (astGather sh4 w (vars4, ix4))
     Ast.AstMinIndex v ->
       Ast.AstMinIndex
-      $ astGatherROrStepOnly stepOnly
+      $ astGatherROrStepOnly knobs
           (sh4 `appendShape` singletonShape (lastShape (shapeAst v)))
           v (vars4, ix4)
     Ast.AstMaxIndex v ->
       Ast.AstMaxIndex
-      $ astGatherROrStepOnly stepOnly
+      $ astGatherROrStepOnly knobs
           (sh4 `appendShape` singletonShape (lastShape (shapeAst v)))
           v (vars4, ix4)
     Ast.AstFloor v ->
       Ast.AstFloor
-      $ astGatherROrStepOnly stepOnly sh4 v (vars4, ix4)
+      $ astGatherROrStepOnly knobs sh4 v (vars4, ix4)
     Ast.AstIota | AstConst i <- i4 -> case sameNat (Proxy @p') (Proxy @1) of
       Just Refl -> astReplicate0N sh4 $ fromIntegral i
       _ -> error "astGather: AstIota: impossible pattern needlessly required"
@@ -1054,11 +1098,11 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
     Ast.AstTranspose perm v | valueOf @p' >= length perm ->
       astGather sh4 v (vars4, permutePrefixIndex perm ix4)
     Ast.AstTranspose perm v ->
-      if stepOnly then Ast.AstGather sh4 v4 (vars4, ix4)
-      else astGather sh4 (astTransposeAsGather perm v) (vars4, ix4)
+      if knobStepOnly knobs then Ast.AstGather sh4 v4 (vars4, ix4)
+      else astGather sh4 (astTransposeAsGather knobs perm v) (vars4, ix4)
     Ast.AstReshape sh v ->
-      if stepOnly then Ast.AstGather sh4 v4 (vars4, ix4)
-      else astGather sh4 (astReshapeAsGather sh v) (vars4, ix4)
+      if knobStepOnly knobs then Ast.AstGather sh4 v4 (vars4, ix4)
+      else astGather sh4 (astReshapeAsGather knobs sh v) (vars4, ix4)
     Ast.AstBuild1{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstGather @m2 @n2 _sh2 v2 (vars2, ix2) ->
       -- Term ix4 is duplicated without sharing and we can't help it,
@@ -1110,9 +1154,7 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
          astRFromS $ astGatherStepS @_ @p' @sh v
                      ( ShapedList.listToSized $ sizedToList vars4
                      , ShapedList.listToSized $ indexToList ix4 ) -}
-    Ast.AstConstant v ->
-      Ast.AstConstant
-      $ (if stepOnly then astGatherStep else astGatherR) sh4 v (vars4, ix4)
+    Ast.AstConstant v -> Ast.AstConstant $ astGather sh4 v (vars4, ix4)
     Ast.AstPrimalPart{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstDualPart{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstD u u' ->
@@ -1164,6 +1206,15 @@ isVarS (Ast.AstConstantS (Ast.AstVarS{})) = True
 isVarS (Ast.AstPrimalPartS (Ast.AstVarS{})) = True
 isVarS (Ast.AstDualPartS (Ast.AstVarS{})) = True
 isVarS _ = False
+
+astGatherSOrStepOnly
+  :: forall sh2 p sh s r.
+     ( Sh.Shape sh, Sh.Shape sh2
+     , Sh.Shape (Sh.Take p sh), Sh.Shape (Sh.Drop p sh) )
+  => SimplifyKnobs -> AstShaped s r sh
+  -> (AstVarListS sh2, AstIndexS (Sh.Take p sh))
+  -> AstShaped s r (sh2 Sh.++ Sh.Drop p sh)
+astGatherSOrStepOnly _ v (vars, ix) = Ast.AstGatherS v (vars, ix)  -- TODO
 
 {-
 -- TODO: To apply this to astGatherR. we'd need to take the last variable
@@ -2608,7 +2659,7 @@ expandAst t = case t of
           u@(Ast.AstTranspose _ Ast.AstScatter{}) -> u  -- normal form
           u@(Ast.AstTranspose _ Ast.AstReplicate{}) -> u  -- normal form
           Ast.AstTranspose perm3 v3 ->  -- not nf, let's express all as gather
-            astTransposeAsGather perm3 v3
+            astTransposeAsGather defaultKnobs perm3 v3
               -- this is expensive, but the only way to guarantee
               -- full simplification
           u -> expandAst u
@@ -2627,7 +2678,7 @@ expandAst t = case t of
           u@(Ast.AstReshape _ Ast.AstScatter{}) -> u  -- normal form
           -- Not a normal form, because often AstReshape scan be eliminated:
           -- u@(Ast.AstReshape _ Ast.AstReplicate{}) -> u  -- normal form
-          Ast.AstReshape sh3 v3 -> astReshapeAsGather sh3 v3
+          Ast.AstReshape sh3 v3 -> astReshapeAsGather defaultKnobs sh3 v3
             -- this is terribly expensive, but the only way to fully expand
           u -> expandAst u
       u -> expandAst u
