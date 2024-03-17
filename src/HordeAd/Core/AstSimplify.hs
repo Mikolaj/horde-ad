@@ -557,8 +557,8 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIndex m1)) =
        Sh.withShapeP dropSh $ \(Proxy @p_drop) ->
        gcastWith (unsafeCoerce Refl :: sh :~: p_take Sh.++ p_drop) $
        gcastWith (unsafeCoerce Refl :: Sh.Rank p_drop :~: n) $
-       astRFromS $ astIndexStepS @p_take @p_drop
-                                 t (ShapedList.listToIndex $ indexToList ix)
+       astRFromS $ astIndexKnobsS @p_take @p_drop knobs
+                                  t (ShapedList.listToIndex $ indexToList ix)
   Ast.AstConstant v -> Ast.AstConstant $ astIndex v ix
   Ast.AstPrimalPart{} -> Ast.AstIndex v0 ix  -- must be a NF
   Ast.AstDualPart{} -> Ast.AstIndex v0 ix
@@ -798,7 +798,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS shm1)) =
                       -- reversing this equality causes " Could not deduce
                       -- ‘KnownNat (OS.Rank sh1)’ error, but this is
                       -- probably ~fine and maybe caused by KnownNat.Solver
-      astSFromR $ astIndexStep t (ShapedList.shapedToIndex ix)
+      astSFromR $ astIndexKnobsR knobs t (ShapedList.shapedToIndex ix)
   Ast.AstConstantS v -> Ast.AstConstantS $ astIndex v ix
   Ast.AstPrimalPartS{} -> Ast.AstIndexS v0 ix  -- must be a NF
   Ast.AstDualPartS{} -> Ast.AstIndexS v0 ix
@@ -842,7 +842,7 @@ astGatherS
   => AstShaped s r sh
   -> (AstVarListS sh2, AstIndexS (Sh.Take p sh))
   -> AstShaped s r (sh2 Sh.++ Sh.Drop p sh)
-astGatherS v (vars, ix) = Ast.AstGatherS v (vars, ix)  -- TODO
+astGatherS = astGatherKnobsS defaultKnobs
 
 astGatherStep
   :: forall m n p s r.
@@ -856,7 +856,7 @@ astGatherStep sh v (vars, ix) =
 
 astGatherStepS
   :: forall sh2 p sh s r.
-     ( Sh.Shape sh, Sh.Shape sh2
+     ( Sh.Shape sh, Sh.Shape sh2, GoodScalar r, AstSpan s
      , Sh.Shape (Sh.Take p sh), Sh.Shape (Sh.Drop p sh) )
   => AstShaped s r sh
   -> (AstVarListS sh2, AstIndexS (Sh.Take p sh))
@@ -864,7 +864,10 @@ astGatherStepS
 -- TODO: this probably needs an extra condition similar to kN == vkN below
 --astGatherStepS v (AstVarName varId ::$ ZSS, AstIntVarS varId2 :.$ ZIS)
 --  | varId == varId2 = ...
-astGatherStepS v (vars, ix) = Ast.AstGatherS v (vars, ix)  -- TODO
+astGatherStepS v (vars, ix) =
+  astGatherKnobsS (defaultKnobs {knobStepOnly = True})
+                  (astNonIndexStepS v)
+                  (vars, simplifyAstIndexS ix)
 
 -- Assumption: vars0 don't not occur in v0. The assumption only holds
 -- when newly generated variables are fresh, which is the case as long
@@ -2494,8 +2497,7 @@ simplifyAstS t = case t of
   Ast.AstR2S opCode u v -> Ast.AstR2S opCode (simplifyAstS u) (simplifyAstS v)
   Ast.AstI2S opCode u v -> Ast.AstI2S opCode (simplifyAstS u) (simplifyAstS v)
   AstSumOfListS args -> astSumOfListS (map simplifyAstS args)
-  Ast.AstIndexS v ix ->
-    Ast.AstIndexS (simplifyAstS v) (simplifyAstIndexS ix)  -- TODO
+  Ast.AstIndexS v ix -> astIndexS (simplifyAstS v) (simplifyAstIndexS ix)
   Ast.AstSumS v -> astSumS (simplifyAstS v)
   Ast.AstScatterS v (var, ix) ->
     astScatterS (simplifyAstS v) (var, simplifyAstIndexS ix)
@@ -3337,7 +3339,7 @@ substitute1AstS i var = \case
   Ast.AstIndexS v ix ->
     case (substitute1AstS i var v, substitute1AstIndexS i var ix) of
       (Nothing, Nothing) -> Nothing
-      (mv, mix) -> Just $ astIndexStepS (fromMaybe v mv) (fromMaybe ix mix)
+      (mv, mix) -> Just $ astIndexS (fromMaybe v mv) (fromMaybe ix mix)
   Ast.AstSumS v -> astSumS <$> substitute1AstS i var v
   Ast.AstScatterS v (vars, ix) ->
     case (substitute1AstS i var v, substitute1AstIndexS i var ix) of
