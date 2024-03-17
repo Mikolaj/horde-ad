@@ -6,7 +6,6 @@ module MnistFcnnRanked2 where
 
 import Prelude
 
-import           Control.Exception (assert)
 import qualified Data.Array.RankedS as OR
 import           Data.Bifunctor.Flip
 import           Data.Kind (Type)
@@ -60,8 +59,7 @@ afcnnMnist2 :: (ADReady ranked, GoodScalar r, Differentiable r)
             -> ranked r 1
 afcnnMnist2 factivationHidden factivationOutput
             datum ((hidden, bias), (hidden2, bias2), (readout, biasr)) =
-  let !_A = assert (sizeMnistGlyphInt == rlength datum) ()
-      hiddenLayer1 = rmatvecmul hidden datum + bias
+  let hiddenLayer1 = rmatvecmul hidden datum + bias
       nonlinearLayer1 = factivationHidden hiddenLayer1
       hiddenLayer2 = rcast (rmatvecmul hidden2 (rcast nonlinearLayer1)) + bias2
       nonlinearLayer2 = factivationHidden hiddenLayer2

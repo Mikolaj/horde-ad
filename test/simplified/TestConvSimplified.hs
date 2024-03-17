@@ -595,6 +595,8 @@ testConv2dUnpadded3PP = do
       (artifactRev@((_, varsPrimal), _, HVectorPseudoTensor unPrimal), _) =
         revArtifactFromForwardPass
           True (forwardPassByInterpretation f EM.empty) shs
+  printGradient6Pretty IM.empty artifactRev
+    @?= "\\u33 u1 u2 -> let w31 = rtranspose [1,0] (rreplicate 2 (rgather [2,2,2,1,2,2,2] u2 (\\[i22, i23, i24, i25, i26, i27, i28] -> [i22 + i25, i26, i23 + i27, i24 + i28]))) ; w32 = rtranspose [0,3,1,2] (rreplicate 2 (rreplicate 2 (rreplicate 2 (rgather [2,1,2,2,2] u1 (\\[i29, i30] -> [i29 + i30]))))) in let [u34 @Natural @Double @[2,2,2,2]] = [u33] in let w35 = rreshape [2,2,2,2,1,2,2,2] (rtranspose [1,2,3,4,0] (rreplicate 8 u34)) in [rscatter [2,2,2,2] (rsum (rsum (rsum (rtranspose [0,2,3,1] (w31 * w35))))) (\\[i36, i37] -> [i36 + i37]), rscatter [2,2,2,2] (rsum (rtranspose [1,0] (w32 * w35))) (\\[i38, i39, i40, i41, i42, i43, i44] -> [i38 + i41, i42, i39 + i43, i40 + i44])]"
   printGradient6Pretty IM.empty (simplifyArtifactRev artifactRev)
     @?= unPaddedPPString3
   "\\" ++ unwords (map (printAstDynamicVarNameBrief IM.empty) varsPrimal)
