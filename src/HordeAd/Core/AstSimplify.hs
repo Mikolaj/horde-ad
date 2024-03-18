@@ -1834,22 +1834,10 @@ astTranspose perm = \case
   t | null perm -> t
   Ast.AstLet var u v -> astLet var u (astTranspose perm v)
   AstN1 opCode u | not (isVar u) -> AstN1 opCode (astTranspose perm u)
-  AstN2 opCode u@Ast.AstTranspose{} v ->
-    AstN2 opCode (astTranspose perm u) (astTranspose perm v)
-  AstN2 opCode u@(Ast.AstConstant Ast.AstTranspose{}) v ->
-    AstN2 opCode (astTranspose perm u) (astTranspose perm v)
-  AstN2 opCode u v@Ast.AstTranspose{} ->
-    AstN2 opCode (astTranspose perm u) (astTranspose perm v)
-  AstN2 opCode u v@(Ast.AstConstant Ast.AstTranspose{}) ->
+  AstN2 opCode u v | not (isVar u && isVar v) ->
     AstN2 opCode (astTranspose perm u) (astTranspose perm v)
   Ast.AstR1 opCode u | not (isVar u) -> Ast.AstR1 opCode (astTranspose perm u)
-  Ast.AstR2 opCode u@Ast.AstTranspose{} v ->
-    Ast.AstR2 opCode (astTranspose perm u) (astTranspose perm v)
-  Ast.AstR2 opCode u@(Ast.AstConstant Ast.AstTranspose{}) v ->
-    Ast.AstR2 opCode (astTranspose perm u) (astTranspose perm v)
-  Ast.AstR2 opCode u v@Ast.AstTranspose{} ->
-    Ast.AstR2 opCode (astTranspose perm u) (astTranspose perm v)
-  Ast.AstR2 opCode u v@(Ast.AstConstant Ast.AstTranspose{}) ->
+  Ast.AstR2 opCode u v | not (isVar u && isVar v) ->
     Ast.AstR2 opCode (astTranspose perm u) (astTranspose perm v)
   Ast.AstSum v -> astSum $ astTranspose (0 : map succ perm) v
   Ast.AstScatter @_ @_ @p sh v (vars, ix) | length perm <= valueOf @p ->
@@ -1888,23 +1876,11 @@ astTransposeS = \case
       gcastWith (unsafeCoerce Refl :: Sh.Permute perm sh :~: shp) $
       astLetS var u (astTransposeS @perm v)
   AstN1S opCode u | not (isVarS u) -> AstN1S opCode (astTransposeS @perm u)
-  AstN2S opCode u@Ast.AstTransposeS{} v ->
-    AstN2S opCode (astTransposeS @perm u) (astTransposeS @perm v)
-  AstN2S opCode u@(Ast.AstConstantS Ast.AstTransposeS{}) v ->
-    AstN2S opCode (astTransposeS @perm u) (astTransposeS @perm v)
-  AstN2S opCode u v@Ast.AstTransposeS{} ->
-    AstN2S opCode (astTransposeS @perm u) (astTransposeS @perm v)
-  AstN2S opCode u v@(Ast.AstConstantS Ast.AstTransposeS{}) ->
+  AstN2S opCode u v | not (isVarS u && isVarS v) ->
     AstN2S opCode (astTransposeS @perm u) (astTransposeS @perm v)
   Ast.AstR1S opCode u | not (isVarS u) ->
     Ast.AstR1S opCode (astTransposeS @perm u)
-  Ast.AstR2S opCode u@Ast.AstTransposeS{} v ->
-    Ast.AstR2S opCode (astTransposeS @perm u) (astTransposeS @perm v)
-  Ast.AstR2S opCode u@(Ast.AstConstantS Ast.AstTransposeS{}) v ->
-    Ast.AstR2S opCode (astTransposeS @perm u) (astTransposeS @perm v)
-  Ast.AstR2S opCode u v@Ast.AstTransposeS{} ->
-    Ast.AstR2S opCode (astTransposeS @perm u) (astTransposeS @perm v)
-  Ast.AstR2S opCode u v@(Ast.AstConstantS Ast.AstTransposeS{}) ->
+  Ast.AstR2S opCode u v | not (isVarS u && isVarS v) ->
     Ast.AstR2S opCode (astTransposeS @perm u) (astTransposeS @perm v)
   Ast.AstSumS @n @sh1 v ->
     let zsuccPerm = 0 : map succ (Sh.shapeT @perm)
@@ -1976,23 +1952,11 @@ astReshape :: forall p m s r. (KnownNat p, KnownNat m, GoodScalar r, AstSpan s)
 astReshape shOut = \case
   Ast.AstLet var u v -> astLet var u (astReshape shOut v)
   AstN1 opCode u | not (isVar u) -> AstN1 opCode (astReshape shOut u)
-  AstN2 opCode (Ast.AstReshape _ u) v ->
+  AstN2 opCode u v | not (isVar u && isVar v) ->
     AstN2 opCode (astReshape shOut u) (astReshape shOut v)
-  AstN2 opCode (Ast.AstConstant (Ast.AstReshape _ u)) v ->
-    AstN2 opCode (astReshape shOut (Ast.AstConstant u)) (astReshape shOut v)
-  AstN2 opCode u (Ast.AstReshape _ v) ->
-    AstN2 opCode (astReshape shOut u) (astReshape shOut v)
-  AstN2 opCode u (Ast.AstConstant (Ast.AstReshape _ v)) ->
-    AstN2 opCode (astReshape shOut u) (astReshape shOut (Ast.AstConstant v))
   Ast.AstR1 opCode u | not (isVar u) -> Ast.AstR1 opCode (astReshape shOut u)
-  Ast.AstR2 opCode (Ast.AstReshape _ u) v ->
+  Ast.AstR2 opCode u v | not (isVar u && isVar v) ->
     Ast.AstR2 opCode (astReshape shOut u) (astReshape shOut v)
-  Ast.AstR2 opCode (Ast.AstConstant (Ast.AstReshape _ u)) v ->
-    Ast.AstR2 opCode (astReshape shOut (Ast.AstConstant u)) (astReshape shOut v)
-  Ast.AstR2 opCode u (Ast.AstReshape _ v) ->
-    Ast.AstR2 opCode (astReshape shOut u) (astReshape shOut v)
-  Ast.AstR2 opCode u (Ast.AstConstant (Ast.AstReshape _ v)) ->
-    Ast.AstR2 opCode (astReshape shOut u) (astReshape shOut (Ast.AstConstant v))
   Ast.AstFromList [x] -> astReshape shOut x
   Ast.AstFromVector l | [x] <- V.toList l -> astReshape shOut x
   Ast.AstReplicate 1 x -> astReshape shOut x
@@ -2014,28 +1978,12 @@ astReshapeS :: forall sh sh2 r s.
 astReshapeS = \case
   Ast.AstLetS var u v -> astLetS var u (astReshapeS @_ @sh2 v)
   AstN1S opCode u | not (isVarS u) -> AstN1S opCode (astReshapeS @_ @sh2 u)
-  AstN2S opCode (Ast.AstReshapeS u) v ->
+  AstN2S opCode u v | not (isVarS u && isVarS v) ->
     AstN2S opCode (astReshapeS @_ @sh2 u) (astReshapeS @_ @sh2 v)
-  AstN2S opCode (Ast.AstConstantS (Ast.AstReshapeS u)) v ->
-    AstN2S opCode (astReshapeS @_ @sh2 (Ast.AstConstantS u))
-                  (astReshapeS @_ @sh2 v)
-  AstN2S opCode u (Ast.AstReshapeS v) ->
-    AstN2S opCode (astReshapeS @_ @sh2 u) (astReshapeS @_ @sh2 v)
-  AstN2S opCode u (Ast.AstConstantS (Ast.AstReshapeS v)) ->
-    AstN2S opCode (astReshapeS @_ @sh2 u)
-                  (astReshapeS @_ @sh2 (Ast.AstConstantS v))
   Ast.AstR1S opCode u | not (isVarS u) ->
     Ast.AstR1S opCode (astReshapeS @_ @sh2 u)
-  Ast.AstR2S opCode (Ast.AstReshapeS u) v ->
+  Ast.AstR2S opCode u v | not (isVarS u && isVarS v) ->
     Ast.AstR2S opCode (astReshapeS @_ @sh2 u) (astReshapeS @_ @sh2 v)
-  Ast.AstR2S opCode (Ast.AstConstantS (Ast.AstReshapeS u)) v ->
-    Ast.AstR2S opCode (astReshapeS @_ @sh2 (Ast.AstConstantS u))
-                      (astReshapeS @_ @sh2 v)
-  Ast.AstR2S opCode u (Ast.AstReshapeS v) ->
-    Ast.AstR2S opCode (astReshapeS @_ @sh2 u) (astReshapeS @_ @sh2 v)
-  Ast.AstR2S opCode u (Ast.AstConstantS (Ast.AstReshapeS v)) ->
-    Ast.AstR2S opCode (astReshapeS @_ @sh2 u)
-                      (astReshapeS @_ @sh2 (Ast.AstConstantS v))
   Ast.AstFromListS @n l | Just Refl <- sameNat (Proxy @n) (Proxy @1) ->
     astReshapeS $ l !! 0
   Ast.AstFromVectorS @n l | Just Refl <- sameNat (Proxy @n) (Proxy @1) ->
@@ -2661,9 +2609,9 @@ expandAst t = case t of
         case astTranspose perm2 (expandAst v2) of
           u@(Ast.AstTranspose _ Ast.AstVar{}) -> u  -- normal form
           u@(Ast.AstTranspose _ (AstN1 _ w)) | isVar w -> u  -- normal form
-          u@(Ast.AstTranspose _ AstN2{}) -> u  -- normal form
+          u@(Ast.AstTranspose _ (AstN2 _ x y)) | isVar x && isVar y -> u
           u@(Ast.AstTranspose _ (Ast.AstR1 _ w)) | isVar w -> u
-          u@(Ast.AstTranspose _ Ast.AstR2{}) -> u
+          u@(Ast.AstTranspose _ (Ast.AstR2 _ x y)) | isVar x && isVar y -> u
           u@(Ast.AstTranspose _ AstSumOfList{}) -> u  -- normal form
           u@(Ast.AstTranspose _ Ast.AstScatter{}) -> u  -- normal form
           u@(Ast.AstTranspose _ Ast.AstReplicate{}) -> u  -- normal form
@@ -2679,10 +2627,9 @@ expandAst t = case t of
         case astReshape sh2 (expandAst v2) of
           u@(Ast.AstReshape _ Ast.AstVar{}) -> u  -- normal form
           u@(Ast.AstReshape _ (AstN1 _ w)) | isVar w -> u
-          u@(Ast.AstReshape _ AstN2{}) -> u
-              -- normal form, because gather doesn't go inside AstN2 either
+          u@(Ast.AstReshape _ (AstN2 _ x y)) | isVar x && isVar y -> u
           u@(Ast.AstReshape _ (Ast.AstR1 _ w)) | isVar w -> u
-          u@(Ast.AstReshape _ Ast.AstR2{}) -> u
+          u@(Ast.AstReshape _ (Ast.AstR2 _ x y)) | isVar x && isVar y -> u
           u@(Ast.AstReshape _ AstSumOfList{}) -> u  -- normal form
           u@(Ast.AstReshape _ Ast.AstScatter{}) -> u  -- normal form
           -- Not a normal form, because often AstReshape scan be eliminated:

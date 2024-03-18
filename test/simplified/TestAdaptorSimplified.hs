@@ -1095,11 +1095,11 @@ testMatvecmulPP = do
   printGradient6Pretty renames artifactRev
     @?= "\\v4 m1 v2 -> let [v5 @Natural @Double @[2]] = [v4] in [rreplicate 2 v2 * rtranspose [1,0] (rreplicate 3 v5), rsum (m1 * rtranspose [1,0] (rreplicate 3 v5))]"
   printPrimal6Pretty renames artifactRev
-    @?= "\\m1 v2 -> [rsum (rtranspose [1,0] (rreplicate 2 v2 * m1))]"
+    @?= "\\m1 v2 -> [rsum (rtranspose [1,0] (rreplicate 2 v2) * rtranspose [1,0] m1)]"
   printGradient6Pretty renames (simplifyArtifactRev artifactRev)
     @?= "\\v4 m1 v2 -> [rreplicate 2 v2 * rtranspose [1,0] (rreplicate 3 v4), rsum (m1 * rtranspose [1,0] (rreplicate 3 v4))]"
   printPrimal6Pretty renames (simplifyArtifactRev artifactRev)
-    @?= "\\m1 v2 -> [rsum (rtranspose [1,0] (rreplicate 2 v2 * m1))]"
+    @?= "\\m1 v2 -> [rsum (rtranspose [1,0] (rreplicate 2 v2) * rtranspose [1,0] m1)]"
 
 -- The results in the three following tests are the same and the extra
 -- post factum simplification doesn't change the terms.
