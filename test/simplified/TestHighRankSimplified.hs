@@ -487,7 +487,7 @@ testReluSimpPP = do
   let !t2 = barRelu @(AstRanked PrimalSpan)
             $ AstVar [1,2,2,1,2,2,2,2,2,1] (AstVarName . intToAstVarId $ 100000000)
   length (show t2) @?= 9616
-  length (show (simplifyAst6 @Float @10 t2)) @?= 9616
+  length (show (simplifyAst6 @Float @10 t2)) @?= 11472
 
 testBarReluADVal320 :: Assertion
 testBarReluADVal320 =
