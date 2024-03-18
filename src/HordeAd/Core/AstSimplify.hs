@@ -1862,6 +1862,7 @@ astTranspose perm = \case
   Ast.AstConstant v -> Ast.AstConstant $ astTranspose perm v
   Ast.AstLetADShare l v -> Ast.AstLetADShare l $ astTranspose perm v
   u -> Ast.AstTranspose perm u
+    -- we don't go inside AstSumOfList, because they are usually long
 
 astTransposeS :: forall perm sh s r.
                  ( OS.Permutation perm, Sh.Shape perm, Sh.Shape sh
@@ -2598,47 +2599,33 @@ expandAst t = case t of
   Ast.AstAppend x y -> astAppend (expandAst x) (expandAst y)
   Ast.AstSlice i k v -> astSlice i k (expandAst v)
   Ast.AstReverse v -> astReverse (expandAst v)
-  Ast.AstTranspose perm v ->
-    -- The first attempt is for the case of v being a transpose, which would
-    -- expand to a huge gather, but instead we may fuse it at once
-    -- or leave it to be executed via changing only the strides.
-    let perm1 = normalizePermutation perm
-    in case astTranspose perm1 v of
-      Ast.AstTranspose perm2 v2 | perm2 == perm1 ->
-        -- no luck, let's try expanding the argument
-        case astTranspose perm2 (expandAst v2) of
-          u@(Ast.AstTranspose _ Ast.AstVar{}) -> u  -- normal form
-          u@(Ast.AstTranspose _ (AstN1 _ w)) | isVar w -> u  -- normal form
-          u@(Ast.AstTranspose _ (AstN2 _ x y)) | isVar x && isVar y -> u
-          u@(Ast.AstTranspose _ (Ast.AstR1 _ w)) | isVar w -> u
-          u@(Ast.AstTranspose _ (Ast.AstR2 _ x y)) | isVar x && isVar y -> u
-          u@(Ast.AstTranspose _ AstSumOfList{}) -> u  -- normal form
-          u@(Ast.AstTranspose _ Ast.AstScatter{}) -> u  -- normal form
-          u@(Ast.AstTranspose _ Ast.AstReplicate{}) -> u  -- normal form
-          Ast.AstTranspose perm3 v3 ->  -- not nf, let's express all as gather
-            astTransposeAsGather (defaultKnobs {knobExpand = True}) perm3 v3
-              -- this is expensive, but the only way to guarantee
-              -- full simplification
-          u -> expandAst u
-      u -> expandAst u
-  Ast.AstReshape sh v ->
-    case astReshape sh v of  -- see above
-      Ast.AstReshape sh2 v2 ->
-        case astReshape sh2 (expandAst v2) of
-          u@(Ast.AstReshape _ Ast.AstVar{}) -> u  -- normal form
-          u@(Ast.AstReshape _ (AstN1 _ w)) | isVar w -> u
-          u@(Ast.AstReshape _ (AstN2 _ x y)) | isVar x && isVar y -> u
-          u@(Ast.AstReshape _ (Ast.AstR1 _ w)) | isVar w -> u
-          u@(Ast.AstReshape _ (Ast.AstR2 _ x y)) | isVar x && isVar y -> u
-          u@(Ast.AstReshape _ AstSumOfList{}) -> u  -- normal form
-          u@(Ast.AstReshape _ Ast.AstScatter{}) -> u  -- normal form
-          -- Not a normal form, because often AstReshape scan be eliminated:
-          -- u@(Ast.AstReshape _ Ast.AstReplicate{}) -> u  -- normal form
-          Ast.AstReshape sh3 v3 ->
-            astReshapeAsGather (defaultKnobs {knobExpand = True}) sh3 v3
-              -- this is terribly expensive, but the only way to fully expand
-          u -> expandAst u
-      u -> expandAst u
+  Ast.AstTranspose perm v -> case v of
+    Ast.AstVar{} -> t  -- normal form
+    AstN1 _ w | isVar w -> t  -- normal form
+    AstN2 _ x y | isVar x && isVar y -> t  -- normal form
+    Ast.AstR1 _ w | isVar w -> t  -- normal form
+    Ast.AstR2 _ x y | isVar x && isVar y -> t  -- normal form
+    AstSumOfList{} -> t  -- normal form
+    Ast.AstScatter @_ @_ @p _ _ _ | length perm > valueOf @p -> t  -- nf
+    Ast.AstReplicate{} -> t  -- normal form
+    _ ->  -- not nf, let's express all as a gather
+      astTransposeAsGather (defaultKnobs {knobExpand = True})
+                           (normalizePermutation perm)
+                           (expandAst v)
+        -- this is expensive but the only way to guarantee full simplification
+  Ast.AstReshape sh v -> case v of
+    Ast.AstVar{} -> t  -- normal form
+    AstN1 _ w | isVar w -> t  -- normal form
+    AstN2 _ x y | isVar x && isVar y -> t  -- normal form
+    Ast.AstR1 _ w | isVar w -> t  -- normal form
+    Ast.AstR2 _ x y | isVar x && isVar y -> t  -- normal form
+    AstSumOfList{} -> t  -- normal form
+    Ast.AstScatter{} -> t  -- normal form
+    _ ->  -- not nf, let's express all as a gather
+      astReshapeAsGather (defaultKnobs {knobExpand = True})
+                         sh
+                         (expandAst v)
+        -- this is expensive but the only way to guarantee full simplification
   Ast.AstBuild1 k (var, v) -> Ast.AstBuild1 k (var, expandAst v)
   Ast.AstGather sh v (vars, ix) ->
     astGatherKnobsR (defaultKnobs {knobExpand = True})
