@@ -997,8 +997,10 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
           perm4 = permCycle $ valueOf @m' + 1
           (sh41, sh42) = splitAt_Shape @m' sh4
           sh5 = appendShape sh41 (lengthAst v :$: sh42)
-      in astSum $ astTranspose perm4
-         $ astGather sh5 (astTranspose perm3 v) (vars4, ix4)
+          innerGather = astGather sh5 (astTranspose perm3 v) (vars4, ix4)
+      in if not (knobExpand knobs) || length perm4 <= valueOf @m'
+         then astSum $ astTranspose perm4 innerGather
+         else astSum $ astTransposeAsGather knobs perm4 innerGather
     Ast.AstScatter @_ @n7 (_ :$: sh)
                    v (vars, AstIntVar var5 :.: (ix2 :: AstIndex p71))
       | AstIntVar var6 <- i4, var6 == var5 ->
@@ -2608,6 +2610,12 @@ expandAst t = case t of
     AstSumOfList{} -> t  -- normal form
     Ast.AstScatter @_ @_ @p _ _ _ | length perm > valueOf @p -> t  -- nf
     Ast.AstReplicate{} -> t  -- normal form
+      -- TODO: this nf is silly, but right now transposes of replicates
+      -- are small OR.Arrays and equivalent gathers are large OR.Arrays,
+      -- so this has to stay. Maybe we should contract gathers back
+      -- to transposes of replicates (not only to replicates). Or maybe
+      -- we should extend orthotope to any gather schemes, not only
+      -- the simple ones.
     _ ->  -- not nf, let's express all as a gather
       astTransposeAsGather (defaultKnobs {knobExpand = True})
                            (normalizePermutation perm)
