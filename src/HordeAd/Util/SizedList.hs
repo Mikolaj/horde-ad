@@ -75,7 +75,7 @@ infixr 3 :::
 type role SizedList nominal representational
 data SizedList (n :: Nat) i where
   ZR :: SizedList 0 i
-  (:::) :: KnownNat n
+  (:::) :: forall n {i}. KnownNat n
         => i -> SizedList n i -> SizedList (1 + n) i
 
 deriving instance Eq i => Eq (SizedList n i)
@@ -255,10 +255,9 @@ instance Show i => Show (Index n i) where
 pattern ZIR :: forall n i. () => n ~ 0 => Index n i
 pattern ZIR = Index ZR
 
--- Note that the type arguments are different than for (:::).
 infixr 3 :.:
 pattern (:.:)
-  :: forall n1 i.
+  :: forall {n1} {i}.
      forall n. (KnownNat n, (1 + n) ~ n1)
   => i -> Index n i -> Index n1 i
 pattern i :.: sh <- (unconsIndex -> Just (UnconsIndexRes sh i))
@@ -376,10 +375,9 @@ instance Show i => Show (Shape n i) where
 pattern ZSR :: forall n i. () => n ~ 0 => Shape n i
 pattern ZSR = Shape ZR
 
--- Note that the type arguments are different than for (:::).
 infixr 3 :$:
 pattern (:$:)
-  :: forall n1 i.
+  :: forall {n1} {i}.
      forall n. (KnownNat n, (1 + n) ~ n1)
   => i -> Shape n i -> Shape n1 i
 pattern i :$: sh <- (unconsShape -> Just (MkUnconsShapeRes sh i))

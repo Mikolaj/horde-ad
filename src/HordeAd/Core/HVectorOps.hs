@@ -503,12 +503,12 @@ mapRanked11 f (DynamicShaped @r @sh t) = case ShapedList.shapeIntSFromT @sh of
           _ -> error "mapRanked01: impossible someNatVal"
 mapRanked11 f (DynamicRankedDummy @r @sh _ _) = case ShapedList.shapeIntSFromT @sh of
   ZSS -> error "mapRanked11: rank 0"
-  (:$$) @_ @sh0 k _ ->
+  k :$$ (_ :: ShapeIntS sh0) ->
     withListSh (Proxy @sh0) $ \sh1 ->
       DynamicRanked @r $ f (rzero $ k :$: sh1)
 mapRanked11 f (DynamicShapedDummy @r @sh _ _) = case ShapedList.shapeIntSFromT @sh of
   ZSS -> error "mapRanked11: rank 0"
-  (:$$) @_ @sh0 k _ ->
+  k :$$ (_ :: ShapeIntS sh0) ->
     withListSh (Proxy @sh0) $ \(sh1 :: ShapeInt n) ->
       let res = f @r (rzero $ k :$: sh1)
       in Sh.withShapeP (shapeToList $ rshape res) $ \(Proxy @shr) ->
@@ -567,7 +567,7 @@ mapShaped11 f (DynamicRanked @r @n2 t) =
   Sh.withShapeP (shapeToList $ rshape t) $ \(Proxy @sh) ->
     case ShapedList.shapeIntSFromT @sh of
       ZSS -> error "mapShaped11: rank 0"
-      (:$$) @n @shr _ _ -> case sameNat (Proxy @n) (Proxy @k) of
+      (:$$) @n _ (_ :: ShapeIntS shr) -> case sameNat (Proxy @n) (Proxy @k) of
         Just Refl -> withListSh (Proxy @shr) $ \(_ :: ShapeInt m) ->
           gcastWith (unsafeCoerce Refl :: n2 :~: 1 + m) $
           DynamicRanked $ rfromS $ f @r @shr $ sfromR t
@@ -577,17 +577,19 @@ mapShaped11 f (DynamicShaped @r t) = case sshape t of
   (:$$) @n _ _ -> case sameNat (Proxy @n) (Proxy @k) of
     Just Refl -> DynamicShaped $ f t
     Nothing -> error "mapShaped11: wrong width"
-mapShaped11 f (DynamicRankedDummy @r @sh _ _) = case ShapedList.shapeIntSFromT @sh of
-  ZSS -> error "mapShaped11: rank 0"
-  (:$$) @n @shr _ _ -> case sameNat (Proxy @n) (Proxy @k) of
-    Just Refl -> withListSh (Proxy @shr) $ \_ ->
-      DynamicRanked $ rfromS $ f @r @shr 0
-    Nothing -> error "mapShaped11: wrong width"
-mapShaped11 f (DynamicShapedDummy @r @sh _ _) = case ShapedList.shapeIntSFromT @sh of
-  ZSS -> error "mapShaped11: rank 0"
-  (:$$) @n @shr _ _ -> case sameNat (Proxy @n) (Proxy @k) of
-    Just Refl -> DynamicShaped $ f @r @shr 0
-    Nothing -> error "mapShaped11: wrong width"
+mapShaped11 f (DynamicRankedDummy @r @sh _ _) =
+  case ShapedList.shapeIntSFromT @sh of
+    ZSS -> error "mapShaped11: rank 0"
+    (:$$) @n _ (_ :: ShapeIntS shr) -> case sameNat (Proxy @n) (Proxy @k) of
+      Just Refl -> withListSh (Proxy @shr) $ \_ ->
+        DynamicRanked $ rfromS $ f @r @shr 0
+      Nothing -> error "mapShaped11: wrong width"
+mapShaped11 f (DynamicShapedDummy @r @sh _ _) =
+  case ShapedList.shapeIntSFromT @sh of
+    ZSS -> error "mapShaped11: rank 0"
+    (:$$) @n _ (_ :: ShapeIntS shr) -> case sameNat (Proxy @n) (Proxy @k) of
+      Just Refl -> DynamicShaped $ f @r @shr 0
+      Nothing -> error "mapShaped11: wrong width"
 
 index1HVector :: ( RankedTensor ranked, ShapedTensor (ShapedOf ranked)
                  , RankedOf (PrimalOf (ShapedOf ranked))

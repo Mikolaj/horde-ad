@@ -54,8 +54,8 @@ infixr 3 ::$
 type role SizedListS nominal representational
 data SizedListS (sh :: [Nat]) i where
   ZS :: SizedListS '[] i
-  (::$) :: (KnownNat n, Sh.Shape sh)
-        => i -> SizedListS sh i -> SizedListS (n ': sh) i
+  (::$) :: forall k sh {i}. (KnownNat k, Sh.Shape sh)
+        => i -> SizedListS sh i -> SizedListS (k : sh) i
 
 deriving instance Eq i => Eq (SizedListS sh i)
 
@@ -236,11 +236,10 @@ instance Show i => Show (IndexS sh i) where
 pattern ZIS :: forall sh i. () => sh ~ '[] => IndexS sh i
 pattern ZIS = IndexS ZS
 
--- Note that the type arguments are different than for (::$).
 infixr 3 :.$
 pattern (:.$)
-  :: forall k sh1 i. k ~ Sh.Index sh1 0
-  => forall sh. (KnownNat k, Sh.Shape sh, (k : sh) ~ sh1)
+  :: forall {sh1} {i}. ()
+  => forall k sh. (KnownNat k, Sh.Shape sh, (k : sh) ~ sh1)
   => i -> IndexS sh i -> IndexS sh1 i
 pattern i :.$ shl <- (unconsIndex -> Just (UnconsIndexRes shl i))
   where i :.$ (IndexS shl) = IndexS (i ::$ shl)
@@ -335,11 +334,10 @@ instance Show i => Show (ShapeS sh i) where
 pattern ZSS :: forall sh i. () => sh ~ '[] => ShapeS sh i
 pattern ZSS = ShapeS ZS
 
--- Note that the type arguments are different than for (::$).
 infixr 3 :$$
 pattern (:$$)
-  :: forall k sh1 i. k ~ Sh.Index sh1 0
-  => forall sh. (KnownNat k, Sh.Shape sh, (k : sh) ~ sh1)
+  :: forall {sh1} {i}. ()
+  => forall k sh. (KnownNat k, Sh.Shape sh, (k : sh) ~ sh1)
   => i -> ShapeS sh i -> ShapeS sh1 i
 pattern i :$$ shl <- (unconsShape -> Just (UnconsShapeRes shl i))
   where i :$$ (ShapeS shl) = ShapeS (i ::$ shl)
