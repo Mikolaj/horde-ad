@@ -498,19 +498,12 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIndex m1)) =
     in if len > i
        then astIndex u ix
        else astIndex v (simplifyAstInt (i1 - fromIntegral len) :.: rest1)
-  Ast.AstAppend{} ->  -- normal form
-    {- We can't do the following, because we can get, e.g., division
-       by zero in the index in the counterfactual branch and sometimes
-       all branches are materialized. Similarly for gather of append
-       and see the TODO there. Maybe this is fixable with gather working
-       over a tensor product or something else that indexes in complex ways?
-    let vlen = AstConst $ lengthAst v
-        ix2 = simplifyAstInt (AstIntOp MinusIntOp [i1, vlen]) :.: rest1
-    in case contractAstBool $ AstRelInt LsOp [i1, vlen] of
-      AstBoolConst b -> if b then astIndex v ix else astIndex w ix2
-      bExpr -> astCond bExpr (astIndexRec v ix) (astIndexRec w ix2)
-    -}
-    Ast.AstIndex v0 ix
+  Ast.AstAppend u v ->
+    let ulen = AstConst $ fromIntegral $ lengthAst u
+        ix2 = simplifyAstInt (AstN2 MinusOp i1 ulen) :.: rest1
+    in case simplifyAstBool $ Ast.AstRel LsOp i1 ulen of
+      AstBoolConst b -> if b then astIndex u ix else astIndex v ix2
+      bExpr -> astCond bExpr (astIndexRec u ix) (astIndexRec v ix2)
   Ast.AstSlice i _k v ->
     let ii = simplifyAstInt (i1 + fromIntegral i)
       -- we generate this index, so we simplify on the spot
@@ -731,8 +724,13 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS shm1)) =
        then astIndex @(m3 ': shm1) u (i1 :.$ rest1)
        else astIndex @(n3 ': shm1)
                      v (simplifyAstInt (i1 - fromIntegral len) :.$ rest1)
-  Ast.AstAppendS{} ->  -- normal form
-    Ast.AstIndexS v0 ix
+  Ast.AstAppendS @_ @m u v ->
+    let ulen = AstConst $ fromIntegral $ (valueOf @m :: Int)
+        ix1 = i1 :.$ rest1
+        ix2 = simplifyAstInt (AstN2 MinusOp i1 ulen) :.$ rest1
+    in case simplifyAstBool $ Ast.AstRel LsOp i1 ulen of
+      AstBoolConst b -> if b then astIndex u ix1 else astIndex v ix2
+      bExpr -> astCondS bExpr (astIndexRec u ix1) (astIndexRec v ix2)
   Ast.AstSliceS @i v ->
     let ii = simplifyAstInt (i1 + fromIntegral (valueOf @i :: Int))
       -- we generate this index, so we simplify on the spot
