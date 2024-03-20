@@ -1065,29 +1065,28 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
       in if len > i
          then astGather sh4 u (vars4, ix4)
          else astGather sh4 v
-                        (vars4, simplifyAstInt (i4 - fromIntegral len) :.: rest4)
-    Ast.AstAppend{} ->  -- normal form
-      {- This is wrong, see astIndexKnobsR:
-         We can't express append as gather, because AstFromList needs
-         arguments of the same shape, so here we need to inline a lot of code.
-         TODO: The normal form is not acceptable, because fusion is halted
-         and can't get inside AstAppend, unlike inside AstFromList.
-         Let's see if we can do the same trick as with AstFromList
-         and get all the remaining indexes inside AstGather.
-         BTW, probably fusion is halted also due to NF with AstScatter.
-      let vlen = AstConst $ lengthAst v
-          iw = simplifyAstInt (AstIntOp MinusIntOp [i4, vlen])
-          v2 = astGatherRec sh4 v (vars4, i4 :.: rest4)
-          w2 = astGatherRec sh4 w (vars4, iw :.: rest4)
-      in case contractAstBool $ AstRelInt LsOp [i4, vlen] of
+                        ( vars4
+                        , simplifyAstInt (i4 - fromIntegral len) :.: rest4 )
+    Ast.AstAppend u v ->
+      let ulen = AstConst $ fromIntegral $ lengthAst u
+          iu = simplifyAstInt (AstN2 MinusOp i4 ulen)
+      in case simplifyAstBool $ Ast.AstRel LsOp i4 ulen of
         AstBoolConst b -> if b
-                          then astGather sh4 v (vars4, i4 :.: rest4)
-                          else astGather sh4 w (vars4, iw :.: rest4)
-        b -> astGather sh4 (astFromList [v2, w2])
-                       (vars4, AstIntCond b 0 1
-                               :.: sizedToIndex (fmap AstIntVar vars4))
-      -}
-      Ast.AstGather sh4 v4 (vars4, ix4)
+                          then astGather sh4 u (vars4, i4 :.: rest4)
+                          else astGather sh4 v (vars4, iu :.: rest4)
+        bExpr ->
+          funToVarsIx (valueOf @m') $ \ (!varsFresh, !ixFresh) ->
+            let u2 = astGatherRec sh4 u (vars4, i4 :.: rest4)
+                v2 = astGatherRec sh4 v (vars4, iu :.: rest4)
+                -- This subst doesn't break sharing because it's a rename.
+                subst i =
+                  foldr (uncurry substituteAstBool) i
+                        (zipSized (fmap (SubstitutionPayloadRanked
+                                           @PrimalSpan @Int64)
+                                   $ indexToSized ixFresh) vars4)
+                bExpr5 = subst bExpr
+            in astGather sh4 (astFromList [u2, v2])
+                             (varsFresh, astCond bExpr5 0 1 :.: ixFresh)
     Ast.AstSlice i _k v ->
       let ii = simplifyAstInt (i4 + fromIntegral i)
         -- we generate this index, so we simplify on the spot
@@ -3056,6 +3055,13 @@ substituteAstHVector
   -> AstHVector s
 substituteAstHVector i (AstVarName varId) v1 =
   fromMaybe v1 $ substitute1AstHVector i varId v1
+
+substituteAstBool
+  :: (GoodScalar r2, AstSpan s2)
+  => SubstitutionPayload s2 r2 -> AstVarName (f s2) r2 y -> AstBool
+  -> AstBool
+substituteAstBool i (AstVarName varId) v1 =
+  fromMaybe v1 $ substitute1AstBool i varId v1
 
 
 -- * Substitution workers
