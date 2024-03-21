@@ -213,11 +213,11 @@ instance Enum (OR.Array n r) where  -- dummy, to satisfy Integral below
 
 instance (Num (Vector r), Integral r, KnownNat n, Numeric r, Show r)
          => Integral (OR.Array n r) where
-  quot = liftVR2 quot
-  rem = liftVR2 rem
+  quot = liftVR2 (\x y -> if y == 0 then 0 else quot x y)
+  rem = liftVR2 (\x y -> if y == 0 then 0 else rem x y)
   quotRem x y = (quot x y, rem x y)  -- TODO, another variant of liftVR2 needed
-  div = liftVR2 div
-  mod = liftVR2 mod
+  div = liftVR2 (\x y -> if y == 0 then 0 else div x y)
+  mod = liftVR2 (\x y -> if y == 0 then 0 else mod x y)
   -- divMod  -- TODO
   toInteger = case sameNat (Proxy @n) (Proxy @0) of
     Just Refl -> toInteger . OR.unScalar
@@ -232,11 +232,11 @@ instance Enum (OS.Array sh r) where  -- dummy, to satisfy Integral below
 
 instance (Num (Vector r), Integral r, Sh.Shape sh, Numeric r, Show r)
          => Integral (OS.Array sh r) where
-  quot = liftVS2 quot
-  rem = liftVS2 rem
+  quot = liftVS2 (\x y -> if y == 0 then 0 else quot x y)
+  rem = liftVS2 (\x y -> if y == 0 then 0 else rem x y)
   quotRem x y = (quot x y, rem x y)  -- TODO, another variant of liftVS2 needed
-  div = liftVS2 div
-  mod = liftVS2 mod
+  div = liftVS2 (\x y -> if y == 0 then 0 else div x y)
+  mod = liftVS2 (\x y -> if y == 0 then 0 else mod x y)
   -- divMod  -- TODO
   toInteger = case sameShape @sh @'[] of
     Just Refl -> toInteger . OS.unScalar
