@@ -552,6 +552,7 @@ instance (Num (OR.Array n r), AstSpan s)
   u * AstLetADShare l v = AstLetADShare l $ u * v
   u * v = AstN2 TimesOp u v
 
+  negate (AstConst u) = AstConst $ negate u  -- common in indexing
   negate (AstLetADShare l u) = AstLetADShare l $ negate u
   negate u = AstN1 NegateOp u
   abs = AstN1 AbsOp
