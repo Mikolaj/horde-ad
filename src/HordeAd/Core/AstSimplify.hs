@@ -41,9 +41,6 @@ module HordeAd.Core.AstSimplify
   , substituteAst, substitute1Ast, substituteAstIndex
   , substituteAstS, substitute1AstS, substituteAstIndexS
   , substituteAstHVector, substitute1AstHVector
-
-    -- * Misc
-  , astReplicate0N
   ) where
 
 import Prelude
@@ -461,17 +458,16 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIndex m1)) =
         gcastWith (unsafeCoerce Refl :: m1 + n :~: p71 + n7) $
         if i6 == i5
         then astIndex (astScatter sh v (vars, ix2)) rest1
-        else astIndex (astReplicate0N @(m1 + n) sh 0) rest1
+        else astReplicate0N (dropShape @m1 sh) 0
   -- AstScatter sh v (vars2, ZIR) ->
   --   AstScatter sh (astIndex (astTranspose perm3 v) ix) (vars2, ZIR)
   Ast.AstScatter{} ->  -- normal form
     Ast.AstIndex v0 ix
   Ast.AstFromList l | AstConst it <- i1 ->
     let i = fromIntegral $ OR.unScalar it
-    in astIndex (if 0 <= i && i < length l
-                 then l !! i
-                 else astReplicate0N @(m1 + n)
-                                     (dropShape $ shapeAst v0) 0) rest1
+    in if 0 <= i && i < length l
+       then astIndex (l !! i) rest1
+       else astReplicate0N (dropShape $ shapeAst v0) 0
   Ast.AstFromList{} | ZIR <- rest1 ->  -- normal form
     Ast.AstIndex v0 ix
   Ast.AstFromList l ->
@@ -480,10 +476,9 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIndex m1)) =
                    (singletonIndex i1)
   Ast.AstFromVector l | AstConst it <- i1 ->
     let i = fromIntegral $ OR.unScalar it
-    in astIndex (if 0 <= i && i < V.length l
-                 then l V.! i
-                 else astReplicate0N @(m1 + n)
-                                     (dropShape $ shapeAst v0) 0) rest1
+    in if 0 <= i && i < length l
+       then astIndex (l V.! i) rest1
+       else astReplicate0N (dropShape $ shapeAst v0) 0
   Ast.AstFromVector{} | ZIR <- rest1 ->  -- normal form
     Ast.AstIndex v0 ix
   Ast.AstFromVector l ->
@@ -506,12 +501,6 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIndex m1)) =
       bExpr -> astCond bExpr (astIndex v rest1) zero -}
   Ast.AstReplicate _k v ->
     astIndex v rest1
-  Ast.AstAppend u v | AstConst it <- i1 ->
-    let i = fromIntegral $ OR.unScalar it
-        len = lengthAst u
-    in if len > i
-       then astIndex u ix
-       else astIndex v (simplifyAstInt (i1 - fromIntegral len) :.: rest1)
   Ast.AstAppend u v ->
     let ulen = AstConst $ fromIntegral $ lengthAst u
         ix2 = simplifyAstInt (AstN2 MinusOp i1 ulen) :.: rest1
@@ -708,10 +697,9 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS shm1)) =
     Ast.AstIndexS v0 ix
   Ast.AstFromListS l | AstConst it <- i1 ->
     let i = fromIntegral $ OR.unScalar it
-    in astIndex (if 0 <= i && i < length l
-                 then l !! i
-                 else astReplicate0NS @(shm1 Sh.++ shn) 0) rest1
-
+    in if 0 <= i && i < length l
+       then astIndex (l !! i) rest1
+       else 0
   Ast.AstFromListS{} | ZIS <- rest1 ->  -- normal form
     Ast.AstIndexS v0 ix
   Ast.AstFromListS l ->
@@ -720,9 +708,9 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS shm1)) =
                     (ShapedList.singletonIndex i1)
   Ast.AstFromVectorS l | AstConst it <- i1 ->
     let i = fromIntegral $ OR.unScalar it
-    in astIndex (if 0 <= i && i < V.length l
-                 then l V.! i
-                 else astReplicate0NS @(shm1 Sh.++ shn) 0) rest1
+    in if 0 <= i && i < length l
+       then astIndex (l V.! i) rest1
+       else 0
   Ast.AstFromVectorS{} | ZIS <- rest1 ->  -- normal form
     Ast.AstIndexS v0 ix
   Ast.AstFromVectorS l ->
@@ -731,13 +719,6 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS shm1)) =
                     (ShapedList.singletonIndex i1)
   Ast.AstReplicateS v ->
     astIndex v rest1
-  Ast.AstAppendS @n3 @m3 u v | AstConst it <- i1 ->
-    let i = fromIntegral $ OR.unScalar it
-        len = valueOf @m3 :: Int
-    in if len > i
-       then astIndex @(m3 ': shm1) u (i1 :.$ rest1)
-       else astIndex @(n3 ': shm1)
-                     v (simplifyAstInt (i1 - fromIntegral len) :.$ rest1)
   Ast.AstAppendS @_ @m u v ->
     let ulen = AstConst $ fromIntegral $ (valueOf @m :: Int)
         ix1 = i1 :.$ rest1
@@ -1025,16 +1006,14 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
           gcastWith (unsafeCoerce Refl :: p1' + n' :~: p71 + n7) $
           if i6 == i5
           then astGather sh4 (astScatter sh v (vars, ix2)) (vars4, rest4)
-          else astGather sh4 (astReplicate0N sh 0) (vars4, rest4)
+          else astReplicate0N sh4 0
     Ast.AstScatter{} ->  -- normal form
       Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstFromList l | AstConst it <- i4 ->
       let i = fromIntegral $ OR.unScalar it
-      in astGather sh4 (if 0 <= i && i < length l
-                        then l !! i
-                        else astReplicate0N @(p1' + n')
-                                            (dropShape $ shapeAst v4) 0)
-                       (vars4, rest4)
+      in if 0 <= i && i < length l
+         then astGather sh4 (l !! i) (vars4, rest4)
+         else astReplicate0N sh4 0
     Ast.AstFromList{} | gatherFromNF vars4 ix4 ->  -- normal form
       Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstFromList l ->
@@ -1052,11 +1031,9 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
         in astGather sh4 (astFromList $ map f l) (varsFresh, i5 :.: ixFresh)
     Ast.AstFromVector l | AstConst it <- i4 ->
       let i = fromIntegral $ OR.unScalar it
-      in astGather sh4 (if 0 <= i && i < V.length l
-                        then l V.! i
-                        else astReplicate0N @(p1' + n')
-                                            (dropShape $ shapeAst v4) 0)
-                       (vars4, rest4)
+      in if 0 <= i && i < length l
+         then astGather sh4 (l V.! i) (vars4, rest4)
+         else astReplicate0N sh4 0
     Ast.AstFromVector{} | gatherFromNF vars4 ix4 ->  -- normal form
       Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstFromVector l ->
@@ -1074,20 +1051,10 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
        in astGather sh4 (astFromVector $ V.map f l) (varsFresh, i5 :.: ixFresh)
     Ast.AstReplicate k v | AstConst it <- i4 ->
       let i = fromIntegral $ OR.unScalar it
-      in astGather sh4 (if 0 <= i && i < k
-                        then v
-                        else astReplicate0N @(p1' + n')
-                                            (dropShape $ shapeAst v4) 0)
-                       (vars4, rest4)
+      in if 0 <= i && i < k
+         then astGather sh4 v (vars4, rest4)
+         else astReplicate0N sh4 0
     Ast.AstReplicate _k v -> astGather sh4 v (vars4, rest4)
-    Ast.AstAppend u v | AstConst it <- i4 ->
-      let i = fromIntegral $ OR.unScalar it
-          len = lengthAst u
-      in if len > i
-         then astGather sh4 u (vars4, ix4)
-         else astGather sh4 v
-                        ( vars4
-                        , simplifyAstInt (i4 - fromIntegral len) :.: rest4 )
     Ast.AstAppend u v ->
       let ulen = AstConst $ fromIntegral $ lengthAst u
           iu = simplifyAstInt (AstN2 MinusOp i4 ulen)
