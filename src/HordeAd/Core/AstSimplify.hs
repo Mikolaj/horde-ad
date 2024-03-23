@@ -490,6 +490,20 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIndex m1)) =
     shareIx rest1 $ \ix2 ->
       Ast.AstIndex (astFromVector $ V.map (`astIndexRec` ix2) l)
                    (singletonIndex i1)
+  Ast.AstReplicate k v | AstConst it <- i1 ->
+    let i = fromIntegral $ OR.unScalar it
+    in if 0 <= i && i < k
+       then astIndex v rest1
+       else astReplicate0N (dropShape $ shapeAst v) 0
+{- TODO: this generalization of the above case slows down test 3nestedSumBuild1
+   orders of magnitude
+  Ast.AstReplicate k v ->
+    let len = AstConst $ fromIntegral k
+        zero = astReplicate0N (dropShape $ shapeAst v) 0
+    in case simplifyAstBool $ Ast.AstB2 AndOp (Ast.AstRel LeqOp 0 i1)
+                                              (Ast.AstRel LsOp i1 len) of
+      AstBoolConst b -> if b then astIndex v rest1 else zero
+      bExpr -> astCond bExpr (astIndex v rest1) zero -}
   Ast.AstReplicate _k v ->
     astIndex v rest1
   Ast.AstAppend u v | AstConst it <- i1 ->
@@ -1058,6 +1072,13 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
                                $ indexToSized ixFresh) vars4)
             i5 = subst i4
        in astGather sh4 (astFromVector $ V.map f l) (varsFresh, i5 :.: ixFresh)
+    Ast.AstReplicate k v | AstConst it <- i4 ->
+      let i = fromIntegral $ OR.unScalar it
+      in astGather sh4 (if 0 <= i && i < k
+                        then v
+                        else astReplicate0N @(p1' + n')
+                                            (dropShape $ shapeAst v4) 0)
+                       (vars4, rest4)
     Ast.AstReplicate _k v -> astGather sh4 v (vars4, rest4)
     Ast.AstAppend u v | AstConst it <- i4 ->
       let i = fromIntegral $ OR.unScalar it
@@ -1498,6 +1519,11 @@ astScatter :: forall m n p s r.
            -> (AstVarList m, AstIndex p)
            -> AstRanked s r (p + n)
 astScatter _sh v (ZR, ZIR) = v
+astScatter sh@(k :$: _) _v (_vars, AstConst it :.: _ix)
+  | let i = fromIntegral $ OR.unScalar it
+  , not (0 <= i && i < k) =
+      astReplicate0N sh 0
+-- else update (rzero sh 0) [AstConst it] (astScatter ...)
 astScatter sh v (AstVarName varId ::: vars, ix) | not $ varId `varInIndex` ix =
   astScatter sh (astSum v) (vars, ix)
 -- astScatter sh v (ZR, ix) = update (rzero sh 0) ix v

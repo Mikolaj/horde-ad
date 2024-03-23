@@ -157,6 +157,11 @@ testTrees =
   , testCase "2concatBuild5" testConcatBuild5
   , testCase "2concatBuild6" testConcatBuild6
   , testCase "2concatBuild7" testConcatBuild7
+--  , testCase "2concatBuild8" testConcatBuild8
+--  , testCase "2concatBuild9" testConcatBuild9
+  , testCase "2concatBuild10" testConcatBuild10
+  , testCase "2concatBuild11" testConcatBuild11
+  , testCase "2concatBuild12" testConcatBuild12
   , testCase "2emptyArgs0" testEmptyArgs0
   , testCase "2emptyArgs1" testEmptyArgs1
   , testCase "2emptyArgs4" testEmptyArgs4
@@ -1716,9 +1721,9 @@ testConcatBuild4 =
 concatBuild5 :: (ADReady ranked, GoodScalar r) => ranked r 0 -> ranked r 1
 concatBuild5 r =
   rlet (rgather1 5 (rreplicate 1 r)
-                   (\i -> (1 `quot` (4 + i)) :.: ZIR)) $ \a ->
+                   (\i -> (1 `quot` (5 + i)) :.: ZIR)) $ \a ->
     (rappend a (rgather1 5 (rreplicate 1 r)
-                           (\i -> (1 `quot` (4 + i)) :.: ZIR)))
+                           (\i -> (1 `quot` (5 + i)) :.: ZIR)))
 
 testConcatBuild5 :: Assertion
 testConcatBuild5 =
@@ -1755,6 +1760,73 @@ testConcatBuild7 =
   assertEqualUpToEpsilon' 1e-10
     10
     (rev' @Double @1 concatBuild7 3.4)
+
+_concatBuild8 :: (ADReady ranked, GoodScalar r) => ranked r 0 -> ranked r 1
+_concatBuild8 r =
+  rlet (rgather1 5 (rreplicate 1 r)
+                   (\i -> (1 `quot` (5 - i)) :.: ZIR)) $ \a ->
+    (rappend a (rgather1 5 (rreplicate 1 r)
+                           (\i -> (1 `quot` (5 - i)) :.: ZIR)))
+
+_testConcatBuild8 :: Assertion
+_testConcatBuild8 =
+  assertEqualUpToEpsilon' 1e-10
+    10
+    (rev' @Double @1 _concatBuild8 3.4)
+
+_concatBuild9 :: (ADReady ranked, GoodScalar r) => ranked r 0 -> ranked r 2
+_concatBuild9 r =
+  rbuild1 7 (\j ->
+    rappend (rappend
+             (rlet (rgather1 5 (rreplicate 1 r)
+                   (\i -> (1 `quot` (4 - i)) :.: ZIR)) $ \a ->
+    (rappend (rgather1 5 (rreplicate 1 r)
+                         (\i -> (1 `quot` (100 * maxF 0 (i - j))) :.: ZIR)) a))
+                     (rreplicate 1 (rfromIndex0 j)))
+            (rbuild1 13 (const r)))
+
+_testConcatBuild9 :: Assertion
+_testConcatBuild9 =
+  assertEqualUpToEpsilon' 1e-10
+    161
+    (rev' @Double @2 _concatBuild9 3.4)
+
+concatBuild10 :: (ADReady ranked, GoodScalar r) => ranked r 0 -> ranked r 2
+concatBuild10 r =
+  rbuild1 7 (\j ->
+    rappend (rappend
+             (rlet (rgather1 5 (rreplicate 1 r)
+                   (\_i -> 10000 :.: ZIR)) $ \a ->
+    (rappend (rgather1 5 (rreplicate 1 r)
+                         (\_i -> (-1) :.: ZIR)) a))
+                     (rreplicate 1 (rfromIndex0 j)))
+            (rbuild1 13 (const r)))
+
+testConcatBuild10 :: Assertion
+testConcatBuild10 =
+  assertEqualUpToEpsilon' 1e-10
+    91
+    (rev' @Double @2 concatBuild10 3.4)
+
+concatBuild11 :: (ADReady ranked, GoodScalar r) => ranked r 0 -> ranked r 1
+concatBuild11 r =
+  rgather1 5 (rreplicate 1 r) (\_i -> (-1) :.: ZIR)
+
+testConcatBuild11 :: Assertion
+testConcatBuild11 =
+  assertEqualUpToEpsilon' 1e-10
+    0
+    (rev' @Double @1 concatBuild11 3.4)
+
+concatBuild12 :: (ADReady ranked, GoodScalar r) => ranked r 0 -> ranked r 0
+concatBuild12 r =
+  rindex (rreplicate 1 r) ((-1) :.: ZIR)
+
+testConcatBuild12 :: Assertion
+testConcatBuild12 =
+  assertEqualUpToEpsilon' 1e-10
+    0
+    (rev' @Double @0 concatBuild12 3.4)
 
 emptyArgs :: forall ranked r. (ADReady ranked, GoodScalar r, Differentiable r)
           => ranked r 1 -> ranked r 1
