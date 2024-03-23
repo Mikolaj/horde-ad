@@ -592,17 +592,14 @@ testConv2dUnpadded3PP = do
             $ conv2d (rfromD $ v V.! 0) (rfromD $ v V.! 1)
       shs = V.fromList [ voidFromSh @Double (2 :$: 2 :$: 2 :$: 2 :$: ZSR)
                        , voidFromSh @Double (2 :$: 2 :$: 2 :$: 2 :$: ZSR) ]
-      (artifactRev@((_, varsPrimal), _, HVectorPseudoTensor unPrimal), _) =
+      (artifactRev, _) =
         revArtifactFromForwardPass
           True (forwardPassByInterpretation f EM.empty) shs
   printGradient6Pretty IM.empty artifactRev
     @?= "\\u33 u1 u2 -> let w31 = rtranspose [4,1,0,2,3] (rreplicate 2 (rreshape [2,2,2,8] (rgather [2,2,2,1,2,2,2] u2 (\\[i22, i23, i24, i25, i26, i27, i28] -> [i22 + i25, i26, i23 + i27, i24 + i28])))) ; w32 = rtranspose [4,0,3,1,2] (rreplicate 2 (rreplicate 2 (rreplicate 2 (rreshape [2,8] (rgather [2,1,2,2,2] u1 (\\[i29, i30] -> [i29 + i30])))))) in let [u34 @Natural @Double @[2,2,2,2]] = [u33] in [rscatter [2,2,2,2] (rreshape [2,1,2,2,2] (rsum (rsum (rsum (rtranspose [1,3,4,2,0] w31 * rtranspose [1,3,4,2,0] (rreplicate 8 u34)))))) (\\[i35, i36] -> [i35 + i36]), rscatter [2,2,2,2] (rreshape [2,2,2,1,2,2,2] (rsum (rtranspose [2,1,3,4,0] w32 * rtranspose [2,1,3,4,0] (rreplicate 8 u34)))) (\\[i37, i38, i39, i40, i41, i42, i43] -> [i37 + i40, i41, i38 + i42, i39 + i43])]"
   printGradient6Pretty IM.empty (simplifyArtifactRev artifactRev)
     @?= unPaddedPPString3
-  "\\" ++ unwords (map (printAstDynamicVarNameBrief IM.empty) varsPrimal)
-       ++ " -> " ++ printAstHVectorPretty IM.empty unPrimal
+  printPrimal6Pretty IM.empty artifactRev
     @?= "\\u1 u2 -> let w31 = rtranspose [4,1,0,2,3] (rreplicate 2 (rreshape [2,2,2,8] (rgather [2,2,2,1,2,2,2] u2 (\\[i22, i23, i24, i25, i26, i27, i28] -> [i22 + i25, i26, i23 + i27, i24 + i28])))) ; w32 = rtranspose [4,0,3,1,2] (rreplicate 2 (rreplicate 2 (rreplicate 2 (rreshape [2,8] (rgather [2,1,2,2,2] u1 (\\[i29, i30] -> [i29 + i30])))))) in [rsum (w31 * w32)]"
-  "\\" ++ unwords (map (printAstDynamicVarNameBrief IM.empty) varsPrimal)
-       ++ " -> " ++ printAstHVectorPretty IM.empty
-                                          (simplifyAstHVector6 unPrimal)
+  printPrimal6Pretty IM.empty (simplifyArtifactRev artifactRev)
     @?= "\\u1 u2 -> [rsum (rtranspose [4,1,0,2,3] (rreplicate 2 (rreshape [2,2,2,8] (rgather [2,2,2,1,2,2,2] u2 (\\[i22, i23, i24, i25, i26, i27, i28] -> [i22 + i25, i26, i23 + i27, i24 + i28])))) * rtranspose [4,0,3,1,2] (rreplicate 2 (rreplicate 2 (rreplicate 2 (rreshape [2,8] (rgather [2,1,2,2,2] u1 (\\[i29, i30] -> [i29 + i30])))))))]"

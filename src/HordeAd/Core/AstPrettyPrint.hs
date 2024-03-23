@@ -13,6 +13,7 @@ module HordeAd.Core.AstPrettyPrint
   , printAstHVectorSimple, printAstHVectorPretty, printAstHVectorPrettyButNested
   , printGradient6Simple, printGradient6Pretty
   , printPrimal6Simple, printPrimal6Pretty
+  , printArtifactFwdSimple, printArtifactFwdPretty
   ) where
 
 import Prelude
@@ -993,3 +994,23 @@ printPrimal6Pretty renames ((_, vars1), _, HVectorPseudoTensor primal) =
   let varsPP = map (printAstDynamicVarNameBrief renames) vars1
   in "\\" ++ unwords varsPP
           ++ " -> " ++ printAstHVectorPretty renames primal
+
+printArtifactFwdSimple
+  :: IntMap String
+  -> AstArtifactFwd (HVectorPseudoTensor (AstRanked PrimalSpan)) r y
+  -> String
+printArtifactFwdSimple renames
+                       ((varsDt, vars1),  HVectorPseudoTensor derivarive, _) =
+  let varsPP = map (printAstDynamicVarNameBrief renames) $ varsDt ++ vars1
+  in "\\" ++ unwords varsPP
+          ++ " -> " ++ printAstHVectorSimple renames derivarive
+
+printArtifactFwdPretty
+  :: IntMap String
+  -> AstArtifactFwd (HVectorPseudoTensor (AstRanked PrimalSpan)) r y
+  -> String
+printArtifactFwdPretty renames
+                       ((varsDt, vars1), HVectorPseudoTensor derivarive, _) =
+  let varsPP = map (printAstDynamicVarNameBrief renames) $ varsDt ++ vars1
+  in "\\" ++ unwords varsPP
+          ++ " -> " ++ printAstHVectorPretty renames derivarive
