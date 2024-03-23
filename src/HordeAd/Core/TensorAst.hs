@@ -862,9 +862,7 @@ deriving instance (RealFloat (AstShaped s r sh))
                   => RealFloat (AstNoSimplifyS s r sh)
 
 instance AstSpan s => RankedTensor (AstRaw s) where
-  rlet a f =
-    AstRaw
-    $ astLetFunUnRaw (unAstRaw a) (unAstRaw . f . AstRaw)
+  rlet a f = AstRaw $ astLetFunRaw (unAstRaw a) (unAstRaw . f . AstRaw)
   rshape = shapeAst . unAstRaw
   rminIndex = AstRaw . fromPrimal . AstMinIndex
               . astSpanPrimal . unAstRaw
@@ -918,27 +916,23 @@ instance AstSpan s => RankedTensor (AstRaw s) where
   rScale s t = AstRaw $ astDualPart
                $ AstConstant (unAstRaw s) * AstD (rzero (rshape s)) (unAstRaw t)
 
-astLetFunUnRaw :: (KnownNat n, KnownNat m, GoodScalar r, AstSpan s)
-                => AstRanked s r n -> (AstRanked s r n -> AstRanked s r2 m)
-                -> AstRanked s r2 m
-astLetFunUnRaw a f =
+astLetFunRaw :: (KnownNat n, KnownNat m, GoodScalar r, AstSpan s)
+             => AstRanked s r n -> (AstRanked s r n -> AstRanked s r2 m)
+             -> AstRanked s r2 m
+astLetFunRaw a f =
   let sh = shapeAst a
       (var, ast) = funToAstR sh f
   in AstLet var a ast
 
-astLetFunUnRawS
-  :: (Sh.Shape sh, Sh.Shape sh2, GoodScalar r, AstSpan s)
-  => AstShaped s r sh -> (AstShaped s r sh -> AstShaped s r2 sh2)
-  -> AstShaped s r2 sh2
-astLetFunUnRawS a f =
+astLetFunRawS :: (Sh.Shape sh, Sh.Shape sh2, GoodScalar r, AstSpan s)
+              => AstShaped s r sh -> (AstShaped s r sh -> AstShaped s r2 sh2)
+              -> AstShaped s r2 sh2
+astLetFunRawS a f =
   let (var, ast) = funToAstS f
   in AstLetS var a ast
 
 instance AstSpan s => ShapedTensor (AstRawS s) where
-  slet a f =
-    AstRawS
-    $ astLetFunUnRawS (unAstRawS a)
-                       (unAstRawS . f . AstRawS)
+  slet a f = AstRawS $ astLetFunRawS (unAstRawS a) (unAstRawS . f . AstRawS)
   sminIndex = AstRawS . fromPrimalS . AstMinIndexS
               . astSpanPrimalS . unAstRawS
   smaxIndex = AstRawS . fromPrimalS . AstMaxIndexS
@@ -1240,7 +1234,7 @@ noVectorizeHVector =
 instance AstSpan s => RankedTensor (AstNoSimplify s) where
   rlet a f =
     AstNoSimplify
-    $ astLetFunUnSimp (unAstNoSimplify a) (unAstNoSimplify . f . AstNoSimplify)
+    $ astLetFunRaw (unAstNoSimplify a) (unAstNoSimplify . f . AstNoSimplify)
   rshape = shapeAst . unAstNoSimplify
   rminIndex = AstNoSimplify . fromPrimal . AstMinIndex
               . astSpanPrimal . unAstNoSimplify
@@ -1297,27 +1291,10 @@ instance AstSpan s => RankedTensor (AstNoSimplify s) where
                $ AstConstant (unAstNoSimplify s)
                  * AstD (rzero (rshape s)) (unAstNoSimplify t)
 
-astLetFunUnSimp :: (KnownNat n, KnownNat m, GoodScalar r, AstSpan s)
-                => AstRanked s r n -> (AstRanked s r n -> AstRanked s r2 m)
-                -> AstRanked s r2 m
-astLetFunUnSimp a f =
-  let sh = shapeAst a
-      (var, ast) = funToAstR sh f
-  in AstLet var a ast
-
-astLetFunUnSimpS
-  :: (Sh.Shape sh, Sh.Shape sh2, GoodScalar r, AstSpan s)
-  => AstShaped s r sh -> (AstShaped s r sh -> AstShaped s r2 sh2)
-  -> AstShaped s r2 sh2
-astLetFunUnSimpS a f =
-  let (var, ast) = funToAstS f
-  in AstLetS var a ast
-
 instance AstSpan s => ShapedTensor (AstNoSimplifyS s) where
   slet a f =
     AstNoSimplifyS
-    $ astLetFunUnSimpS (unAstNoSimplifyS a)
-                       (unAstNoSimplifyS . f . AstNoSimplifyS)
+    $ astLetFunRawS (unAstNoSimplifyS a) (unAstNoSimplifyS . f . AstNoSimplifyS)
   sminIndex = AstNoSimplifyS . fromPrimalS . AstMinIndexS
               . astSpanPrimalS . unAstNoSimplifyS
   smaxIndex = AstNoSimplifyS . fromPrimalS . AstMaxIndexS
