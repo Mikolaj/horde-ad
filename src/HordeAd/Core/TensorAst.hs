@@ -280,7 +280,9 @@ instance AstSpan s => RankedTensor (AstRanked s) where
     _ -> (emptyADShare, u)
   -- For convenience and simplicity we define this for all spans,
   -- but it can only ever be used for PrimalSpan.
-  rregister = astRegisterFun
+  rregister = case sameAstSpan @s @PrimalSpan of
+    Just Refl -> astRegisterFun
+    _ -> error "rregister: used not at PrimalSpan"
   rsharePrimal =
     case sameAstSpan @s @PrimalSpan of
       Just Refl -> astRegisterADShare
@@ -413,7 +415,9 @@ instance AstSpan s => ShapedTensor (AstShaped s) where
     AstLetADShareS l t -> (l, t)
     AstConstantS (AstLetADShareS l t) -> (l, AstConstantS t)
     _ -> (emptyADShare, u)
-  sregister = astRegisterFunS
+  sregister = case sameAstSpan @s @PrimalSpan of
+    Just Refl -> astRegisterFunS
+    _ -> error "sregister: used not at PrimalSpan"
   ssharePrimal =
     case sameAstSpan @s @PrimalSpan of
       Just Refl -> astRegisterADShareS
@@ -577,11 +581,15 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
                         l
         , asts )
   dsharePrimal _ _ = error "dsharePrimal: wrong span"
-  dregister !r !l =
-    fun1DToAst (shapeAstHVector r) $ \ !vars !asts -> case vars of
-      [] -> (l, V.empty)
-      !var : _ ->  -- vars are fresh, so var uniquely represent vars
-        ((dynamicVarNameToAstVarId var, AstBindingsHVector vars r) : l, asts)
+  dregister =
+    case sameAstSpan @s @PrimalSpan of
+      Just Refl -> \ !r !l ->
+        fun1DToAst (shapeAstHVector r) $ \ !vars !asts -> case vars of
+          [] -> (l, V.empty)
+          !var : _ ->  -- vars are fresh, so var uniquely represent vars
+            ( (dynamicVarNameToAstVarId var, AstBindingsHVector vars r) : l
+            , asts )
+      _ -> error "dregister: used not at PrimalSpan"
   dbuild1 = astBuildHVector1Vectorize
   rrev :: (GoodScalar r, KnownNat n)
        => (forall f. ADReady f => HVector f -> f r n)
@@ -710,7 +718,7 @@ astBuildHVector1Vectorize k f = build1VectorizeHVector k $ funToAstI f
   -> HVectorPseudoTensor (AstRanked PrimalSpan) Double y
   -> Maybe (HVectorPseudoTensor (AstRanked PrimalSpan) Double y)
   -> HVectorPseudoTensor (DeltaR (AstRanked PrimalSpan)) Double y
-  -> (AstBindingsD (AstRanked PrimalSpan), HVector (AstRanked PrimalSpan)) #-}
+  -> (AstBindings, HVector (AstRanked PrimalSpan)) #-}
 {-# SPECIALIZE evalFromnMap
   :: EvalState (AstRanked PrimalSpan) -> EvalState (AstRanked PrimalSpan) #-}
 

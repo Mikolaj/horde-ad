@@ -55,8 +55,8 @@ unsafeGetFreshAstVarName =
 
 astRegisterFun
   :: (GoodScalar r, KnownNat n)
-  => AstRanked s r n -> AstBindingsD (AstRanked s)
-  -> (AstBindingsD (AstRanked s), AstRanked s r n)
+  => AstRanked PrimalSpan r n -> AstBindings
+  -> (AstBindings, AstRanked PrimalSpan r n)
 {-# NOINLINE astRegisterFun #-}
 astRegisterFun !r !l | astIsSmall True r = (l, r)
 astRegisterFun r l = unsafePerformIO $ do
@@ -67,8 +67,8 @@ astRegisterFun r l = unsafePerformIO $ do
 
 astRegisterFunS
   :: (Sh.Shape sh, GoodScalar r)
-  => AstShaped s r sh -> AstBindingsD (AstRanked s)
-  -> (AstBindingsD (AstRanked s), AstShaped s r sh)
+  => AstShaped PrimalSpan r sh -> AstBindings
+  -> (AstBindings, AstShaped PrimalSpan r sh)
 {-# NOINLINE astRegisterFunS #-}
 astRegisterFunS !r !l | astIsSmallS True r = (l, r)
 astRegisterFunS r l = unsafePerformIO $ do

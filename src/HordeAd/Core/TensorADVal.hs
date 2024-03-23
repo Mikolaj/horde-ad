@@ -111,7 +111,7 @@ cfwdOnHVector parameters f ds =
 
 unletPseudo
   :: ADReady ranked
-  => ADShare -> AstBindingsD ranked -> HVectorPseudoTensor ranked r y
+  => ADShare -> AstBindings -> HVectorPseudoTensor ranked r y
   -> HVectorPseudoTensor ranked r y
 unletPseudo l astBindings =
   HVectorPseudoTensor . dunlet l astBindings . unHVectorPseudoTensor

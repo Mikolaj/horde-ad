@@ -10,7 +10,7 @@
 -- differentiation interface in "HordeAd.Core.Engine".
 module HordeAd.Core.TensorClass
   ( -- * Re-exports
-    ShapeInt, ShapeIntS
+    ShapeInt, ShapeIntS, AstBindings
     -- * The tensor classes
   , RankedTensor(..), ShapedTensor(..), HVectorTensor(..), HFun(..)
   , rfromD, sfromD
@@ -316,8 +316,7 @@ class ( Integral (IntOf ranked), CRanked ranked Num
   rletUnwrap :: ranked r n -> (ADShare, ranked r n)
   rletUnwrap u = (emptyADShare, u)
   rregister :: (GoodScalar r, KnownNat n)
-            => ranked r n -> AstBindingsD ranked
-            -> (AstBindingsD ranked, ranked r n)
+            => ranked r n -> AstBindings -> (AstBindings, ranked r n)
   rregister r l = (l, r)
   rsharePrimal :: (GoodScalar r, KnownNat n)
                => ranked r n -> ADShare -> (ADShare, ranked r n)
@@ -698,8 +697,7 @@ class ( Integral (IntOf shaped), CShaped shaped Num
   sletUnwrap :: shaped r sh -> (ADShare, shaped r sh)
   sletUnwrap u = (emptyADShare, u)
   sregister :: (GoodScalar r, Sh.Shape sh)
-            => shaped r sh -> AstBindingsD (RankedOf shaped)
-            -> (AstBindingsD (RankedOf shaped), shaped r sh)
+            => shaped r sh -> AstBindings -> (AstBindings, shaped r sh)
   sregister r l = (l, r)
   ssharePrimal :: (GoodScalar r, Sh.Shape sh)
                => shaped r sh -> ADShare -> (ADShare, shaped r sh)
@@ -758,12 +756,10 @@ class HVectorTensor (ranked :: RankedTensorType)
                 => shaped r sh
                 -> (shaped r sh -> HVectorOf ranked)
                 -> HVectorOf ranked
-  dunlet :: ADShare -> AstBindingsD ranked -> HVectorOf ranked
-         -> HVectorOf ranked
+  dunlet :: ADShare -> AstBindings -> HVectorOf ranked -> HVectorOf ranked
   dunlet l astBindings = assert (nullADShare l && null astBindings)
   dsharePrimal :: HVectorOf ranked -> ADShare -> (ADShare, HVector ranked)
-  dregister :: HVectorOf ranked -> AstBindingsD ranked
-            -> (AstBindingsD ranked, HVector ranked)
+  dregister :: HVectorOf ranked -> AstBindings -> (AstBindings, HVector ranked)
   dbuild1 :: SNat k
           -> (IntOf ranked -> HVectorOf ranked)  -- sh_i
           -> HVectorOf ranked  -- k ': sh_i

@@ -89,7 +89,7 @@ gradientFromDeltaH
   -> HVectorPseudoTensor ranked r y
   -> Maybe (HVectorPseudoTensor ranked r y)
   -> HVectorPseudoTensor (DeltaR ranked) r y
-  -> (AstBindingsD ranked, HVector ranked)
+  -> (AstBindings, HVector ranked)
 gradientFromDeltaH !parameters0 (HVectorPseudoTensor value)
                    !mdt (HVectorPseudoTensor deltaTopLevel) =
   let shDt = dshape value
@@ -114,7 +114,7 @@ derivativeFromDeltaH
   => Int
   -> HVectorPseudoTensor (DeltaR ranked) r y
   -> HVector ranked
-  -> (AstBindingsD ranked, HVectorPseudoTensor ranked r y)
+  -> (AstBindings, HVectorPseudoTensor ranked r y)
 derivativeFromDeltaH dim (HVectorPseudoTensor deltaTopLevel) ds =
   -- EvalState is too complex for the forward derivative, but since
   -- it's already defined, let's use it.
@@ -550,7 +550,7 @@ data EvalState ranked = EvalState
       -- evaluating
   , hdMap       :: EM.EnumMap (NodeId ranked) (HVector ranked)
   , hnMap       :: EM.EnumMap (NodeId ranked) (DeltaH ranked)
-  , astBindings :: AstBindingsD ranked
+  , astBindings :: AstBindings
   }
 
 -- | Delta expressions naturally denote forward derivatives, as encoded
