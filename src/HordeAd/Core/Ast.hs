@@ -819,31 +819,32 @@ maxF u v = ifF (u >=. v) u v
 type instance RankedOf (AstRaw s) = AstRaw s
 type instance ShapedOf (AstRaw s) = AstRawS s
 type instance HVectorOf (AstRaw s) = AstRawWrap (AstHVector s)
-type instance PrimalOf (AstRaw s) = AstRanked PrimalSpan
-type instance DualOf (AstRaw s) = AstRanked DualSpan
+type instance PrimalOf (AstRaw s) = AstRaw PrimalSpan
+type instance DualOf (AstRaw s) = AstRaw DualSpan
 type instance RankedOf (AstRawS s) = AstRaw s
 type instance ShapedOf (AstRawS s) = AstRawS s
-type instance PrimalOf (AstRawS s) = AstShaped PrimalSpan
-type instance DualOf (AstRawS s) = AstShaped DualSpan
+type instance PrimalOf (AstRawS s) = AstRawS PrimalSpan
+type instance DualOf (AstRawS s) = AstRawS DualSpan
 
 type instance RankedOf (AstNoVectorize s) = AstNoVectorize s
 type instance ShapedOf (AstNoVectorize s) = AstNoVectorizeS s
 type instance HVectorOf (AstNoVectorize s) = AstNoVectorizeWrap (AstHVector s)
-type instance PrimalOf (AstNoVectorize s) = AstRanked PrimalSpan
-type instance DualOf (AstNoVectorize s) = AstRanked DualSpan
+type instance PrimalOf (AstNoVectorize s) = AstNoVectorize PrimalSpan
+type instance DualOf (AstNoVectorize s) = AstNoVectorize DualSpan
 type instance RankedOf (AstNoVectorizeS s) = AstNoVectorize s
 type instance ShapedOf (AstNoVectorizeS s) = AstNoVectorizeS s
-type instance PrimalOf (AstNoVectorizeS s) = AstShaped PrimalSpan
-type instance DualOf (AstNoVectorizeS s) = AstShaped DualSpan
+type instance PrimalOf (AstNoVectorizeS s) = AstNoVectorizeS PrimalSpan
+type instance DualOf (AstNoVectorizeS s) = AstNoVectorizeS DualSpan
+
 type instance RankedOf (AstNoSimplify s) = AstNoSimplify s
 type instance ShapedOf (AstNoSimplify s) = AstNoSimplifyS s
 type instance HVectorOf (AstNoSimplify s) = AstNoSimplifyWrap (AstHVector s)
-type instance PrimalOf (AstNoSimplify s) = AstRanked PrimalSpan
-type instance DualOf (AstNoSimplify s) = AstRanked DualSpan
+type instance PrimalOf (AstNoSimplify s) = AstNoSimplify PrimalSpan
+type instance DualOf (AstNoSimplify s) = AstNoSimplify DualSpan
 type instance RankedOf (AstNoSimplifyS s) = AstNoSimplify s
 type instance ShapedOf (AstNoSimplifyS s) = AstNoSimplifyS s
-type instance PrimalOf (AstNoSimplifyS s) = AstShaped PrimalSpan
-type instance DualOf (AstNoSimplifyS s) = AstShaped DualSpan
+type instance PrimalOf (AstNoSimplifyS s) = AstNoSimplifyS PrimalSpan
+type instance DualOf (AstNoSimplifyS s) = AstNoSimplifyS DualSpan
 
 type role AstRaw nominal nominal nominal
 newtype AstRaw s r n =

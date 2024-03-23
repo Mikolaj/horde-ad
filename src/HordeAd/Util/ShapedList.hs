@@ -369,6 +369,8 @@ instance Sh.Shape sh => IsList (ShapeS sh i) where
 type role ShapedNat nominal representational
 newtype ShapedNat (n :: Nat) a = ShapedNat {unShapedNat :: a}
 
+deriving stock instance Functor (ShapedNat n)
+
 -- TODO: actually check or wrap a check for later, based on a mechanism
 -- provided by @a@ somehow
 shapedNat :: forall n a. a -> ShapedNat n a
