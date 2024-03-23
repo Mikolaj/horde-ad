@@ -251,12 +251,6 @@ instance AstSpan s => RankedTensor (AstRanked s) where
 
   rfromList = AstFromList
   rfromVector = AstFromVector
-  runravelToList :: forall r n. (GoodScalar r, KnownNat n)
-                 => AstRanked s r (1 + n) -> [AstRanked s r n]
-  runravelToList t =
-    let f :: Int -> AstRanked s r n
-        f i = AstIndex t (singletonIndex $ fromIntegral i)
-    in map f [0 .. rlength t - 1]
   rreplicate = AstReplicate
   rappend = AstAppend
   rslice = AstSlice
@@ -392,12 +386,6 @@ instance AstSpan s => ShapedTensor (AstShaped s) where
 
   sfromList = AstFromListS
   sfromVector = AstFromVectorS
-  sunravelToList :: forall r n sh. (GoodScalar r, KnownNat n, Sh.Shape sh)
-                 => AstShaped s r (n ': sh) -> [AstShaped s r sh]
-  sunravelToList t =
-    let f :: Int -> AstShaped s r sh
-        f i = AstIndexS t (ShapedList.singletonIndex $ fromIntegral i)
-    in map f [0 .. slength t - 1]
   sreplicate = AstReplicateS
   sappend = AstAppendS
   sslice (_ :: Proxy i) Proxy = AstSliceS @i
@@ -864,12 +852,9 @@ deriving instance (RealFloat (AstShaped s r sh))
 instance AstSpan s => RankedTensor (AstRaw s) where
   rlet a f = AstRaw $ astLetFunRaw (unAstRaw a) (unAstRaw . f . AstRaw)
   rshape = shapeAst . unAstRaw
-  rminIndex = AstRaw . fromPrimal . AstMinIndex
-              . astSpanPrimal . unAstRaw
-  rmaxIndex = AstRaw . fromPrimal . AstMaxIndex
-              . astSpanPrimal . unAstRaw
-  rfloor = AstRaw . fromPrimal . AstFloor
-           . astSpanPrimal . unAstRaw
+  rminIndex = AstRaw . fromPrimal . AstMinIndex . astSpanPrimal . unAstRaw
+  rmaxIndex = AstRaw . fromPrimal . AstMaxIndex . astSpanPrimal . unAstRaw
+  rfloor = AstRaw . fromPrimal . AstFloor . astSpanPrimal . unAstRaw
   riota = AstRaw . fromPrimal $ AstIota
   rindex v ix = AstRaw $ AstIndex (unAstRaw v) (unAstRaw <$> ix)
   rsum = AstRaw . AstSum . unAstRaw
@@ -878,15 +863,8 @@ instance AstSpan s => RankedTensor (AstRaw s) where
                         -- this introduces new variable names
   rfromList = AstRaw . AstFromList . map unAstRaw
   rfromVector = AstRaw . AstFromVector . V.map unAstRaw
-  runravelToList :: forall r n. (GoodScalar r, KnownNat n)
-                 => AstRaw s r (1 + n) -> [AstRaw s r n]
-  runravelToList (AstRaw t) =
-    let f :: Int -> AstRaw s r n
-        f i = AstRaw $ AstIndex t (singletonIndex $ fromIntegral i)
-    in map f [0 .. rlength t - 1]
   rreplicate k = AstRaw . AstReplicate k . unAstRaw
-  rappend u v =
-    AstRaw $ AstAppend (unAstRaw u) (unAstRaw v)
+  rappend u v = AstRaw $ AstAppend (unAstRaw u) (unAstRaw v)
   rslice i n = AstRaw . AstSlice i n . unAstRaw
   rreverse = AstRaw . AstReverse . unAstRaw
   rtranspose perm = AstRaw . AstTranspose perm . unAstRaw
@@ -898,13 +876,11 @@ instance AstSpan s => RankedTensor (AstRaw s) where
                    $ funToAstIndex (fmap unAstRaw . f . fmap AstRaw)
                        -- this introduces new variable names
   rcast = AstRaw . AstCast . unAstRaw
-  rfromIntegral = AstRaw . fromPrimal . AstFromIntegral
-                  . astSpanPrimal . unAstRaw
+  rfromIntegral =
+    AstRaw . fromPrimal . AstFromIntegral . astSpanPrimal . unAstRaw
   rconst = AstRaw . fromPrimal . AstConst
   rletHVectorIn a f =
-    AstRaw
-    $ astLetHVectorInFun (unAstRawWrap a)
-                         (unAstRaw . f . rawHVector)
+    AstRaw $ astLetHVectorInFun (unAstRawWrap a) (unAstRaw . f . rawHVector)
   rletHFunIn a f = AstRaw $ rletHFunIn a (unAstRaw . f)
   rfromS = AstRaw . rfromS @(AstRanked s) . unAstRawS
 
@@ -947,13 +923,6 @@ instance AstSpan s => ShapedTensor (AstRawS s) where
                      -- this introduces new variable names
   sfromList = AstRawS . AstFromListS . map unAstRawS
   sfromVector = AstRawS . AstFromVectorS . V.map unAstRawS
-  sunravelToList :: forall r n sh. (GoodScalar r, KnownNat n, Sh.Shape sh)
-                 => AstRawS s r (n ': sh) -> [AstRawS s r sh]
-  sunravelToList (AstRawS t) =
-    let f :: Int -> AstRawS s r sh
-        f i = AstRawS $ AstIndexS t (ShapedList.singletonIndex
-                                            $ fromIntegral i)
-    in map f [0 .. slength t - 1]
   sreplicate = AstRawS . AstReplicateS . unAstRawS
   sappend u v =
     AstRawS $ AstAppendS (unAstRawS u) (unAstRawS v)
@@ -1068,12 +1037,6 @@ instance AstSpan s => RankedTensor (AstNoVectorize s) where
                           -- this introduces new variable names
   rfromList = AstNoVectorize . AstFromList . map unAstNoVectorize
   rfromVector = AstNoVectorize . AstFromVector . V.map unAstNoVectorize
-  runravelToList :: forall r n. (GoodScalar r, KnownNat n)
-                 => AstNoVectorize s r (1 + n) -> [AstNoVectorize s r n]
-  runravelToList (AstNoVectorize t) =
-    let f :: Int -> AstNoVectorize s r n
-        f i = AstNoVectorize $ AstIndex t (singletonIndex $ fromIntegral i)
-    in map f [0 .. rlength t - 1]
   rreplicate k = AstNoVectorize . AstReplicate k . unAstNoVectorize
   rappend u v =
     AstNoVectorize $ AstAppend (unAstNoVectorize u) (unAstNoVectorize v)
@@ -1127,12 +1090,6 @@ instance AstSpan s => ShapedTensor (AstNoVectorizeS s) where
                        -- this introduces new variable names
   sfromList = AstNoVectorizeS . AstFromListS . map unAstNoVectorizeS
   sfromVector = AstNoVectorizeS . AstFromVectorS . V.map unAstNoVectorizeS
-  sunravelToList :: forall r n sh. (GoodScalar r, KnownNat n, Sh.Shape sh)
-                 => AstNoVectorizeS s r (n ': sh) -> [AstNoVectorizeS s r sh]
-  sunravelToList (AstNoVectorizeS t) =
-    let f :: Int -> AstNoVectorizeS s r sh
-        f i = AstNoVectorizeS $ AstIndexS t (ShapedList.singletonIndex $ fromIntegral i)
-    in map f [0 .. slength t - 1]
   sreplicate = AstNoVectorizeS . AstReplicateS . unAstNoVectorizeS
   sappend u v =
     AstNoVectorizeS $ AstAppendS (unAstNoVectorizeS u) (unAstNoVectorizeS v)
@@ -1252,12 +1209,6 @@ instance AstSpan s => RankedTensor (AstNoSimplify s) where
                           -- this introduces new variable names
   rfromList = AstNoSimplify . AstFromList . map unAstNoSimplify
   rfromVector = AstNoSimplify . AstFromVector . V.map unAstNoSimplify
-  runravelToList :: forall r n. (GoodScalar r, KnownNat n)
-                 => AstNoSimplify s r (1 + n) -> [AstNoSimplify s r n]
-  runravelToList (AstNoSimplify t) =
-    let f :: Int -> AstNoSimplify s r n
-        f i = AstNoSimplify $ AstIndex t (singletonIndex $ fromIntegral i)
-    in map f [0 .. rlength t - 1]
   rreplicate k = AstNoSimplify . AstReplicate k . unAstNoSimplify
   rappend u v =
     AstNoSimplify $ AstAppend (unAstNoSimplify u) (unAstNoSimplify v)
@@ -1311,13 +1262,6 @@ instance AstSpan s => ShapedTensor (AstNoSimplifyS s) where
                        -- this introduces new variable names
   sfromList = AstNoSimplifyS . AstFromListS . map unAstNoSimplifyS
   sfromVector = AstNoSimplifyS . AstFromVectorS . V.map unAstNoSimplifyS
-  sunravelToList :: forall r n sh. (GoodScalar r, KnownNat n, Sh.Shape sh)
-                 => AstNoSimplifyS s r (n ': sh) -> [AstNoSimplifyS s r sh]
-  sunravelToList (AstNoSimplifyS t) =
-    let f :: Int -> AstNoSimplifyS s r sh
-        f i = AstNoSimplifyS $ AstIndexS t (ShapedList.singletonIndex
-                                            $ fromIntegral i)
-    in map f [0 .. slength t - 1]
   sreplicate = AstNoSimplifyS . AstReplicateS . unAstNoSimplifyS
   sappend u v =
     AstNoSimplifyS $ AstAppendS (unAstNoSimplifyS u) (unAstNoSimplifyS v)

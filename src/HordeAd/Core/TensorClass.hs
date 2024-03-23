@@ -144,8 +144,12 @@ class ( Integral (IntOf ranked), CRanked ranked Num
   -- | Warning: during computation, sharing between the elements
   -- of the resulting list is likely to be lost, so it needs to be ensured
   -- by explicit sharing, e.g., 'rlet'.
-  runravelToList :: (GoodScalar r, KnownNat n)
+  runravelToList :: forall r n. (GoodScalar r, KnownNat n)
                  => ranked r (1 + n) -> [ranked r n]
+  runravelToList t =
+    let f :: Int -> ranked r n
+        f i = rindex t (singletonIndex $ fromIntegral i)
+    in map f [0 .. rlength t - 1]
   rreplicate :: (GoodScalar r, KnownNat n)
              => Int -> ranked r n -> ranked r (1 + n)
   rreplicate0N :: (GoodScalar r, KnownNat n)
@@ -439,8 +443,12 @@ class ( Integral (IntOf shaped), CShaped shaped Num
   -- | Warning: during computation, sharing between the elements
   -- of the resulting list is likely to be lost, so it needs to be ensured
   -- by explicit sharing, e.g., 'slet'.
-  sunravelToList :: (GoodScalar r, KnownNat n, Sh.Shape sh)
+  sunravelToList :: forall r n sh. (GoodScalar r, KnownNat n, Sh.Shape sh)
                  => shaped r (n ': sh) -> [shaped r sh]
+  sunravelToList t =
+    let f :: Int -> shaped r sh
+        f i = sindex t (ShapedList.singletonIndex $ fromIntegral i)
+    in map f [0 .. slength t - 1]
   sreplicate :: (KnownNat n, Sh.Shape sh, GoodScalar r)
              => shaped r sh -> shaped r (n ': sh)
   sreplicate0N :: forall r sh.
