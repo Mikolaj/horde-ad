@@ -20,7 +20,8 @@ module HordeAd.Core.Ast
   , OpCodeIntegral2(..), OpCodeBool(..), OpCodeRel(..)
     -- * Boolean definitions and instances
   , BoolOf, IfF(..), EqF(..), OrdF(..), minF, maxF
-    -- * The auxiliary AstNoVectorize and AstNoSimplify definitions, for tests
+    -- * The AstRaw, AstNoVectorize and AstNoSimplify definitions
+  , AstRaw(..), AstRawS(..), AstRawWrap(..)
   , AstNoVectorize(..), AstNoVectorizeS(..), AstNoVectorizeWrap(..)
   , AstNoSimplify(..), AstNoSimplifyS(..), AstNoSimplifyWrap(..)
   ) where
@@ -98,6 +99,7 @@ type instance PrimalOf (HVectorPseudoTensor (AstRanked s)) =
 -- in more costly computations. Also, that would prevent simplification
 -- of the instances, especially after applied to arguments that are terms.
 type instance HFunOf (AstRanked s) = AstHFun
+type instance HFunOf (AstRaw s) = AstHFun
 type instance HFunOf (AstNoVectorize s) = AstHFun
 type instance HFunOf (AstNoSimplify s) = AstHFun
 
@@ -812,7 +814,17 @@ maxF :: (IfF f, OrdF f, GoodScalar r, HasSingletonDict y)
 maxF u v = ifF (u >=. v) u v
 
 
--- * The auxiliary AstNoVectorize and AstNoSimplify definitions, for tests
+-- * The AstRaw, AstNoVectorize and AstNoSimplify definitions
+
+type instance RankedOf (AstRaw s) = AstRaw s
+type instance ShapedOf (AstRaw s) = AstRawS s
+type instance HVectorOf (AstRaw s) = AstRawWrap (AstHVector s)
+type instance PrimalOf (AstRaw s) = AstRanked PrimalSpan
+type instance DualOf (AstRaw s) = AstRanked DualSpan
+type instance RankedOf (AstRawS s) = AstRaw s
+type instance ShapedOf (AstRawS s) = AstRawS s
+type instance PrimalOf (AstRawS s) = AstShaped PrimalSpan
+type instance DualOf (AstRawS s) = AstShaped DualSpan
 
 type instance RankedOf (AstNoVectorize s) = AstNoVectorize s
 type instance ShapedOf (AstNoVectorize s) = AstNoVectorizeS s
@@ -832,6 +844,20 @@ type instance RankedOf (AstNoSimplifyS s) = AstNoSimplify s
 type instance ShapedOf (AstNoSimplifyS s) = AstNoSimplifyS s
 type instance PrimalOf (AstNoSimplifyS s) = AstShaped PrimalSpan
 type instance DualOf (AstNoSimplifyS s) = AstShaped DualSpan
+
+type role AstRaw nominal nominal nominal
+newtype AstRaw s r n =
+  AstRaw {unAstRaw :: AstRanked s r n}
+deriving instance GoodScalar r => Show (AstRaw s r n)
+
+type role AstRawS nominal nominal nominal
+newtype AstRawS s r sh =
+  AstRawS {unAstRawS :: AstShaped s r sh}
+deriving instance (GoodScalar r, Sh.Shape sh) => Show (AstRawS s r sh)
+
+type role AstRawWrap nominal
+newtype AstRawWrap t = AstRawWrap {unAstRawWrap :: t}
+ deriving Show
 
 type role AstNoVectorize nominal nominal nominal
 newtype AstNoVectorize s r n =
