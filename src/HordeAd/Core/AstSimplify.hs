@@ -1920,7 +1920,7 @@ astTransposeS = \case
       astTransposeS @perm3 t
   Ast.AstGatherS @sh2 @p @sh3 v (vars, ix)
     -- TODO: should the below be backpermute or permute?
-    | length (Sh.shapeT @perm) <= length (Sh.shapeT @(Sh.Take p sh3)) ->
+    | length (Sh.shapeT @perm) <= length (Sh.shapeT @sh2) ->
       Sh.withShapeP (backpermutePrefixList
                        (Sh.shapeT @perm)
                        (Sh.shapeT @sh2)) $ \(Proxy @shmPerm) ->
@@ -1931,7 +1931,7 @@ astTransposeS = \case
         in gcastWith (unsafeCoerce Refl
                       :: Sh.Permute perm sh2 Sh.++ Sh.Drop p sh3
                          :~: Sh.Permute perm sh) $
-           astGatherS @(Sh.Permute perm sh2) @p @sh3 v (vars2, ix)
+           astGatherS @shmPerm @p @sh3 v (vars2, ix)
   AstConstS t -> AstConstS $ ttransposeS @perm t
   Ast.AstConstantS v -> Ast.AstConstantS $ astTransposeS @perm v
   Ast.AstLetADShareS l v -> Ast.AstLetADShareS l $ astTransposeS @perm v
