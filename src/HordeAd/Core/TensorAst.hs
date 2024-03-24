@@ -1047,8 +1047,29 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
   sletInHVector u f =
     AstRawWrap
     $ astLetInHVectorFunRawS (unAstRawS u) (unAstRawWrap . f . AstRawS)
-  dsharePrimal = error "dsharePrimal for AstRaw"
-  dregister = error "dregister for AstRaw"
+  dunlet =
+    case sameAstSpan @s @PrimalSpan of
+      Just Refl -> \l astBindings t ->
+        AstRawWrap $ unletAstHVector6 l astBindings $ unAstRawWrap t
+      _ -> error "dunlet: used not at PrimalSpan"
+  dsharePrimal !(AstRawWrap r) !l | Just Refl <- sameAstSpan @s @PrimalSpan =
+    fun1DToAst (shapeAstHVector r) $ \ !vars !asts -> case vars of
+      [] -> (l, V.empty)
+      !var : _ ->  -- vars are fresh, so var uniquely represent vars
+        ( insertADShare (dynamicVarNameToAstVarId var)
+                        (AstBindingsHVector vars r)
+                        l
+        , rawHVector asts )
+  dsharePrimal _ _ = error "dsharePrimal: wrong span"
+  dregister =
+    case sameAstSpan @s @PrimalSpan of
+      Just Refl -> \ !(AstRawWrap r) !l ->
+        fun1DToAst (shapeAstHVector r) $ \ !vars !asts -> case vars of
+          [] -> (l, V.empty)
+          !var : _ ->  -- vars are fresh, so var uniquely represent vars
+            ( (dynamicVarNameToAstVarId var, AstBindingsHVector vars r) : l
+            , rawHVector asts )
+      _ -> error "dregister: used not at PrimalSpan"
   dbuild1 k f = AstRawWrap
                 $ AstBuildHVector1 k $ funToAstI (unAstRawWrap . f . AstRaw)
   rrev _ = error "rrev for AstRaw"
