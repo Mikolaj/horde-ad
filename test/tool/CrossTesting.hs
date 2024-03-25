@@ -87,12 +87,12 @@ rev' f vals =
       (advalGrad, value1) = crevDtMaybeBoth dt g parameters
       gradient1 = parseHVector vals advalGrad
       gradientRrev1 = rrev1 @(Flip OR.Array) @r @n @m f vals
-      g9 :: HVector (ADVal (AstRanked PrimalSpan))
-         -> ADVal (AstRanked PrimalSpan) r m
-      g9 inputs = f @(ADVal (AstRanked PrimalSpan))
+      g9 :: HVector (ADVal (AstRaw PrimalSpan))
+         -> ADVal (AstRaw PrimalSpan) r m
+      g9 inputs = f @(ADVal (AstRaw PrimalSpan))
                   $ parseHVector (fromDValue vals) inputs
       revEvalArtifact9
-        :: AstArtifactRev (HVectorPseudoTensor (AstRanked PrimalSpan)) Float '()
+        :: AstArtifactRev (HVectorPseudoTensor (AstRaw PrimalSpan)) Float '()
         -> HVector (Flip OR.Array)
         -> (HVector (Flip OR.Array), Flip OR.Array r m)
       revEvalArtifact9 a1 a2 =
@@ -122,7 +122,7 @@ rev' f vals =
         -> ADVal (Flip OR.Array) r m
       h fx1 fx2 gx inputs =
         hGeneral @(ADVal (Flip OR.Array)) fx1 fx2 gx
-                 (parseHVector valsFrom  inputs)
+                 (parseHVector valsFrom inputs)
       (astGrad, value2) =
         crevDtMaybeBoth dt (h id id id) parameters
       gradient2 = parseHVector vals astGrad
@@ -166,10 +166,10 @@ rev' f vals =
            => (f1 r m -> AstRanked PrimalSpan r m)
            -> (AstRanked PrimalSpan r n -> f1 r n)
            -> (AstRanked PrimalSpan r m -> AstRanked PrimalSpan r m)
-           -> HVector (ADVal (AstRanked PrimalSpan))
-           -> ADVal (AstRanked PrimalSpan) r m
+           -> HVector (ADVal (AstRaw PrimalSpan))
+           -> ADVal (AstRaw PrimalSpan) r m
       hAst fx1 fx2 gx inputs
-        = hGeneral @(ADVal (AstRanked PrimalSpan))
+        = hGeneral @(ADVal (AstRaw PrimalSpan))
                    fx1 fx2 gx (parseHVector (fromDValue vals) inputs)
       artifactsGradAst =
         fst $ revProduceArtifactWithoutInterpretation

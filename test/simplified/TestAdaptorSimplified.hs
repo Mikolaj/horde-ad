@@ -417,7 +417,7 @@ testPiecewiseLinear2PP = do
   printPrimal6Pretty renames (simplifyArtifactRev artifactRev)
     @?= "\\x1 -> [ifF (x1 >. 0.0) 2.0 5.0 * x1]"
   show deltas
-    @?= "HVectorPseudoTensor {unHVectorPseudoTensor = HToH [DynamicRanked (ShareR 100000005 (ScaleR (AstVar [] (AstVarId 100000002)) (InputR [] (InputId 0))))]}"
+    @?= "HVectorPseudoTensor {unHVectorPseudoTensor = HToH [DynamicRanked (ShareR 100000005 (ScaleR (AstRaw {unAstRaw = AstVar [] (AstVarId 100000002)}) (InputR [] (InputId 0))))]}"
 
 overleaf :: forall r ranked. (RankedTensor ranked, GoodScalar r)
          => ranked r 1 -> ranked r 0
@@ -830,7 +830,7 @@ testReluPP = do
   printPrimal6Pretty renames (simplifyArtifactRev artifactRev)
     @?= "\\m1 -> [rgather [3,4] (rconst (fromList [2] [0.0,1.0])) (\\[i5, i6] -> [ifF (m1 ! [i5, i6] <=. 0.0) 0 1]) * m1]"
   show deltas
-    @?= "HVectorPseudoTensor {unHVectorPseudoTensor = HToH [DynamicRanked (ShareR 100000003 (ScaleR (AstVar [3,4] (AstVarId 100000007)) (InputR [3,4] (InputId 0))))]}"
+    @?= "HVectorPseudoTensor {unHVectorPseudoTensor = HToH [DynamicRanked (ShareR 100000003 (ScaleR (AstRaw {unAstRaw = AstVar [3,4] (AstVarId 100000007)}) (InputR [3,4] (InputId 0))))]}"
 
 testReluPP2 :: Assertion
 testReluPP2 = do
@@ -875,7 +875,7 @@ testReluSimplerPP = do
   printPrimal6Pretty renames (simplifyArtifactRev artifactRev)
     @?= "\\m1 -> [rgather [3,4] (rconst (fromList [2] [0.0,1.0])) (\\[i5, i6] -> [ifF (m1 ! [i5, i6] <=. 0.0) 0 1]) * m1]"
   show deltas
-    @?= "HVectorPseudoTensor {unHVectorPseudoTensor = HToH [DynamicRanked (ShareR 100000003 (ScaleR (AstVar [3,4] (AstVarId 100000007)) (InputR [3,4] (InputId 0))))]}"
+    @?= "HVectorPseudoTensor {unHVectorPseudoTensor = HToH [DynamicRanked (ShareR 100000003 (ScaleR (AstRaw {unAstRaw = AstVar [3,4] (AstVarId 100000007)}) (InputR [3,4] (InputId 0))))]}"
 
 testReluSimplerPP2 :: Assertion
 testReluSimplerPP2 = do
@@ -1071,9 +1071,9 @@ testDot1PP = do
                  ( Flip $ OR.fromList [3] [1 .. 3]
                  , Flip $ OR.fromList [3] [4 .. 6] )
   printGradient6Pretty renames artifactRev
-    @?= "\\x3 v1 v2 -> let [x4 @Natural @Double @[]] = [x3] in [v2 * rreplicate 3 x4, v1 * rreplicate 3 x4]"
+    @?= "\\x3 v1 v2 -> let [x4 @Natural @Double @[]] = [x3] in [v2 * rreshape [3] (rreplicate 3 x4), v1 * rreshape [3] (rreplicate 3 x4)]"
   printPrimal6Pretty renames artifactRev
-    @?= "\\v1 v2 -> [rsum (v1 * v2)]"
+    @?= "\\v1 v2 -> [rsum (rreshape [3] (v1 * v2))]"
 
 testDot2PP :: Assertion
 testDot2PP = do
@@ -1092,7 +1092,7 @@ testDot2PP = do
   printPrimal6Pretty renames (simplifyArtifactRev artifactRev)
     @?= "\\m1 m2 -> [rsum (rreshape [6] (m1 * m2))]"
   show deltas
-    @?= "HVectorPseudoTensor {unHVectorPseudoTensor = HToH [DynamicRanked (ShareR 100000001 (AddR (Dot0R (AstVar [2,3] (AstVarId 100000002)) (InputR [2,3] (InputId 0))) (Dot0R (AstVar [2,3] (AstVarId 100000001)) (InputR [2,3] (InputId 1)))))]}"
+    @?= "HVectorPseudoTensor {unHVectorPseudoTensor = HToH [DynamicRanked (ShareR 100000001 (AddR (Dot0R (AstRaw {unAstRaw = AstVar [2,3] (AstVarId 100000002)}) (InputR [2,3] (InputId 0))) (Dot0R (AstRaw {unAstRaw = AstVar [2,3] (AstVarId 100000001)}) (InputR [2,3] (InputId 1)))))]}"
 
 testMatvecmulPP :: Assertion
 testMatvecmulPP = do
@@ -1104,7 +1104,7 @@ testMatvecmulPP = do
                  ( Flip $ OR.fromList [2,3] [1 :: Double .. 6]
                  , Flip $ OR.fromList [3] [7 .. 9] )
   printGradient6Pretty renames artifactRev
-    @?= "\\v4 m1 v2 -> let [v5 @Natural @Double @[2]] = [v4] in [rreplicate 2 v2 * rtranspose [1,0] (rreplicate 3 v5), rsum (m1 * rtranspose [1,0] (rreplicate 3 v5))]"
+    @?= "\\v4 m1 v2 -> let [v5 @Natural @Double @[2]] = [v4] in [rtranspose [1,0] (rtranspose [1,0] (rreplicate 2 v2) * rreplicate 3 v5), rsum (rtranspose [1,0] (rtranspose [1,0] m1 * rreplicate 3 v5))]"
   printPrimal6Pretty renames artifactRev
     @?= "\\m1 v2 -> [rsum (rtranspose [1,0] (rreplicate 2 v2) * rtranspose [1,0] m1)]"
   printGradient6Pretty renames (simplifyArtifactRev artifactRev)
@@ -1115,7 +1115,7 @@ testMatvecmulPP = do
 -- The results in the three following tests are the same and the extra
 -- post factum simplification doesn't change the terms.
 sGradient6Pretty, sPrimal6Pretty :: String
-sGradient6Pretty = "\\m3 m1 m2 -> let [m4 @Natural @Double @[2,4]] = [m3] in [rsum (rtranspose [2,0,1] (rreplicate 2 m2) * rtranspose [2,1,0] (rreplicate 3 m4)), rsum (rtranspose [1,2,0] (rreplicate 4 m1) * rtranspose [1,0] (rreplicate 3 m4))]"
+sGradient6Pretty = "\\m3 m1 m2 -> let [m4 @Natural @Double @[2,4]] = [m3] in [rsum (rtranspose [2,1,0] (rtranspose [1,0] (rreplicate 2 m2) * rreplicate 3 m4)), rsum (rtranspose [1,0] (rtranspose [2,1,0] (rreplicate 4 m1) * rreplicate 3 m4))]"
 sPrimal6Pretty = "\\m1 m2 -> [rsum (rtranspose [2,1,0] (rreplicate 4 m1) * rtranspose [1,0] (rreplicate 2 m2))]"
 
 testMatmul2PP :: Assertion
@@ -1150,7 +1150,7 @@ testMatmul2FromMatvecmulPP = do
                  ( Flip $ OR.fromList [2,3] [1 :: Double .. 6]
                  , Flip $ OR.fromList [3,4] [7 .. 18] )
   printGradient6Pretty renames artifactRev
-    @?= "\\m5 m1 m2 -> let [m6 @Natural @Double @[2,4]] = [m5] in [rsum (rtranspose [2,0,1] (rreplicate 2 m2) * rtranspose [2,1,0] (rreplicate 3 m6)), rsum (rtranspose [1,2,0] (rreplicate 4 m1) * rtranspose [1,0] (rreplicate 3 m6))]"
+    @?= "\\m5 m1 m2 -> let [m6 @Natural @Double @[2,4]] = [m5] in [rsum (rtranspose [2,1,0] (rtranspose [1,0] (rreplicate 2 m2) * rreplicate 3 m6)), rsum (rtranspose [1,0] (rtranspose [2,1,0] (rreplicate 4 m1) * rreplicate 3 m6))]"
   printPrimal6Pretty renames artifactRev
     @?= sPrimal6Pretty
 
@@ -1172,7 +1172,7 @@ testMatmul2PaperPP = do
                  ( Flip $ OR.fromList [2,3] [1 :: Double .. 6]
                  , Flip $ OR.fromList [3,4] [7 .. 18] )
   printGradient6Pretty renames artifactRev
-    @?= "\\m7 m1 m2 -> let [m8 @Natural @Double @[2,4]] = [m7] in [rsum (rtranspose [2,0,1] (rreplicate 2 m2) * rtranspose [2,1,0] (rreplicate 3 m8)), rsum (rtranspose [1,2,0] (rreplicate 4 m1) * rtranspose [1,0] (rreplicate 3 m8))]"
+    @?= "\\m7 m1 m2 -> let [m8 @Natural @Double @[2,4]] = [m7] in [rsum (rtranspose [2,1,0] (rtranspose [1,0] (rreplicate 2 m2) * rreplicate 3 m8)), rsum (rtranspose [1,0] (rtranspose [2,1,0] (rreplicate 4 m1) * rreplicate 3 m8))]"
   printPrimal6Pretty renames artifactRev
     @?= sPrimal6Pretty
 
@@ -1186,7 +1186,7 @@ testMatmul2PPS = do
                  ( Flip $ OS.fromList @'[2,3] [1 :: Double .. 6]
                  , Flip $ OS.fromList @'[3,4] [7 .. 18] )
   printGradient6Pretty renames artifactRev
-    @?= "\\m3 m1 m2 -> let [m4 @[Natural] @Double @[2,4]] = [m3] in [ssum (stranspose (sreplicate m2) * stranspose (sreplicate m4)), ssum (stranspose (sreplicate m1) * stranspose (sreplicate m4))]"
+    @?= "\\m3 m1 m2 -> let [m4 @[Natural] @Double @[2,4]] = [m3] in [ssum (stranspose (stranspose (sreplicate m2) * sreplicate m4)), ssum (stranspose (stranspose (sreplicate m1) * sreplicate m4))]"
   printPrimal6Pretty renames artifactRev
     @?= "\\m1 m2 -> [ssum (stranspose (sreplicate m1) * stranspose (sreplicate m2))]"
   printGradient6Pretty renames (simplifyArtifactRev artifactRev)

@@ -4,7 +4,8 @@
 -- the impurity, though some functions are in IO and they are used
 -- with @unsafePerformIO@ outside, so some of it escapes.
 module HordeAd.Core.AstFreshId
-  ( astRegisterFun, astRegisterFunS, astRegisterADShare, astRegisterADShareS
+  ( unRawHVector, rawHVector
+  , astRegisterFun, astRegisterFunS, astRegisterADShare, astRegisterADShareS
   , funToAstIOR, funToAstR, funToAstIOS, funToAstS
   , fun1DToAst, fun1HToAst, fun1LToAst
   , funToAstRevIO, funToAstRev, funToAstFwdIO, funToAstFwd
@@ -33,6 +34,22 @@ import           HordeAd.Core.Types
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedList
 
+unRawHVector :: HVector (AstRaw s) -> HVector (AstRanked s)
+unRawHVector =
+  let f (DynamicRanked (AstRaw t)) = DynamicRanked t
+      f (DynamicShaped (AstRawS t)) = DynamicShaped t
+      f (DynamicRankedDummy p1 p2) = DynamicRankedDummy p1 p2
+      f (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
+  in V.map f
+
+rawHVector :: HVector (AstRanked s) -> HVector (AstRaw s)
+rawHVector =
+  let f (DynamicRanked t) = DynamicRanked $ AstRaw t
+      f (DynamicShaped t) = DynamicShaped $ AstRawS t
+      f (DynamicRankedDummy p1 p2) = DynamicRankedDummy p1 p2
+      f (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
+  in V.map f
+
 -- Impure but in the most trivial way (only ever incremented counter).
 unsafeAstVarCounter :: Counter
 {-# NOINLINE unsafeAstVarCounter #-}
@@ -55,49 +72,49 @@ unsafeGetFreshAstVarName =
 
 astRegisterFun
   :: (GoodScalar r, KnownNat n)
-  => AstRanked PrimalSpan r n -> AstBindings
-  -> (AstBindings, AstRanked PrimalSpan r n)
+  => AstRaw PrimalSpan r n -> AstBindings
+  -> (AstBindings, AstRaw PrimalSpan r n)
 {-# NOINLINE astRegisterFun #-}
-astRegisterFun !r !l | astIsSmall True r = (l, r)
-astRegisterFun r l = unsafePerformIO $ do
+astRegisterFun !r !l | astIsSmall True (unAstRaw r) = (l, r)
+astRegisterFun (AstRaw r) l = unsafePerformIO $ do
   !freshId <- unsafeGetFreshAstVarId
   let !r2 = AstVar (shapeAst r) $ AstVarName freshId
       !d = DynamicRanked r
-  return ((freshId, AstBindingsSimple d) : l, r2)
+  return ((freshId, AstBindingsSimple d) : l, AstRaw r2)
 
 astRegisterFunS
   :: (Sh.Shape sh, GoodScalar r)
-  => AstShaped PrimalSpan r sh -> AstBindings
-  -> (AstBindings, AstShaped PrimalSpan r sh)
+  => AstRawS PrimalSpan r sh -> AstBindings
+  -> (AstBindings, AstRawS PrimalSpan r sh)
 {-# NOINLINE astRegisterFunS #-}
-astRegisterFunS !r !l | astIsSmallS True r = (l, r)
-astRegisterFunS r l = unsafePerformIO $ do
+astRegisterFunS !r !l | astIsSmallS True (unAstRawS r) = (l, r)
+astRegisterFunS (AstRawS r) l = unsafePerformIO $ do
   !freshId <- unsafeGetFreshAstVarId
   let !r2 = AstVarS $ AstVarName freshId
       !d = DynamicShaped r
-  return ((freshId, AstBindingsSimple d) : l, r2)
+  return ((freshId, AstBindingsSimple d) : l, AstRawS r2)
 
 astRegisterADShare :: (GoodScalar r, KnownNat n)
-                   => AstRanked PrimalSpan r n -> ADShare
-                   -> (ADShare, AstRanked PrimalSpan r n)
+                   => AstRaw PrimalSpan r n -> ADShare
+                   -> (ADShare, AstRaw PrimalSpan r n)
 {-# NOINLINE astRegisterADShare #-}
-astRegisterADShare !r !l | astIsSmall True r = (l, r)
-astRegisterADShare r l = unsafePerformIO $ do
+astRegisterADShare !r !l | astIsSmall True (unAstRaw r) = (l, r)
+astRegisterADShare (AstRaw r) l = unsafePerformIO $ do
   freshId <- unsafeGetFreshAstVarId
   let !l2 = insertADShare freshId (AstBindingsSimple $ DynamicRanked r) l
       !r2 = AstVar (shapeAst r) $ AstVarName freshId
-  return (l2, r2)
+  return (l2, AstRaw r2)
 
 astRegisterADShareS :: (GoodScalar r, Sh.Shape sh)
-                    => AstShaped PrimalSpan r sh -> ADShare
-                    -> (ADShare, AstShaped PrimalSpan r sh)
+                    => AstRawS PrimalSpan r sh -> ADShare
+                    -> (ADShare, AstRawS PrimalSpan r sh)
 {-# NOINLINE astRegisterADShareS #-}
-astRegisterADShareS !r !l | astIsSmallS True r = (l, r)
-astRegisterADShareS r l = unsafePerformIO $ do
+astRegisterADShareS !r !l | astIsSmallS True (unAstRawS r) = (l, r)
+astRegisterADShareS (AstRawS r) l = unsafePerformIO $ do
   freshId <- unsafeGetFreshAstVarId
   let !l2 = insertADShare freshId (AstBindingsSimple $ DynamicShaped r) l
       !r2 = AstVarS $ AstVarName freshId
-  return (l2, r2)
+  return (l2, AstRawS r2)
 
 funToAstIOR :: forall n m s r r2. GoodScalar r
             => ShapeInt n -> (AstRanked s r n -> AstRanked s r2 m)
@@ -201,7 +218,7 @@ dynamicToVar (DynamicShapedDummy @r2 @sh2 _ _) = do
 
 funToAstRevIO :: VoidHVector
               -> IO ( [AstDynamicVarName]
-                    , HVector (AstRanked PrimalSpan)
+                    , HVector (AstRaw PrimalSpan)
                     , [AstDynamicVarName]
                     , HVector (AstRanked FullSpan) )
 {-# INLINE funToAstRevIO #-}
@@ -227,25 +244,23 @@ funToAstRevIO parameters0 = do
     <- unzip4 <$> mapM f (V.toList parameters0)
   let !vp = V.fromList astsPrimal
       !va = V.fromList asts
-  return (varsPrimal, vp, vars, va)
+  return (varsPrimal, rawHVector vp, vars, va)
 
 -- The AstVarName type with its parameter somehow prevents cse and crashes
 -- compared with a bare AstVarId, so let's keep it.
 funToAstRev :: VoidHVector
             -> ( [AstDynamicVarName]
-               , HVector (AstRanked PrimalSpan)
+               , HVector (AstRaw PrimalSpan)
                , [AstDynamicVarName]
                , HVector (AstRanked FullSpan) )
 {-# NOINLINE funToAstRev #-}
-funToAstRev parameters0 = unsafePerformIO $ do
-  (!varsPrimal, !astsPrimal, !vars, !asts) <- funToAstRevIO parameters0
-  return (varsPrimal, astsPrimal, vars, asts)
+funToAstRev parameters0 = unsafePerformIO $ funToAstRevIO parameters0
 
 funToAstFwdIO :: VoidHVector
               -> IO ( [AstDynamicVarName]
-                    , HVector (AstRanked PrimalSpan)
+                    , HVector (AstRaw PrimalSpan)
                     , [AstDynamicVarName]
-                    , HVector (AstRanked PrimalSpan)
+                    , HVector (AstRaw PrimalSpan)
                     , [AstDynamicVarName]
                     , HVector (AstRanked FullSpan) )
 {-# INLINE funToAstFwdIO #-}
@@ -287,15 +302,15 @@ funToAstFwdIO parameters0 = do
   let !vd = V.fromList astsPrimalDs
       !vp = V.fromList astsPrimal
       !va = V.fromList asts
-  return (varsPrimalDs, vd, varsPrimal, vp, vars, va)
+  return (varsPrimalDs, rawHVector vd, varsPrimal, rawHVector vp, vars, va)
 
 -- The AstVarName type with its parameter somehow prevents cse and crashes
 -- compared with a bare AstVarId, so let's keep it.
 funToAstFwd :: VoidHVector
             -> ( [AstDynamicVarName]
-               , HVector (AstRanked PrimalSpan)
+               , HVector (AstRaw PrimalSpan)
                , [AstDynamicVarName]
-               , HVector (AstRanked PrimalSpan)
+               , HVector (AstRaw PrimalSpan)
                , [AstDynamicVarName]
                , HVector (AstRanked FullSpan) )
 {-# NOINLINE funToAstFwd #-}

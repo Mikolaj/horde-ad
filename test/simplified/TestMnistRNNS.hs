@@ -23,7 +23,7 @@ import           Text.Printf
 import HordeAd
 import HordeAd.Core.Adaptor
 import HordeAd.Core.AstEnv
-import HordeAd.Core.AstFreshId (funToAstIOS, funToAstRevIO)
+import HordeAd.Core.AstFreshId
 import HordeAd.Core.TensorAst
 import HordeAd.External.OptimizerTools
 
@@ -176,7 +176,8 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
                     <$> loadMnistData trainGlyphsPath trainLabelsPath
        testData <- map rankBatch . take (totalBatchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
-       (_, hVectorPrimal, vars, _) <- funToAstRevIO $ voidFromHVector hVectorInit
+       (_, hVectorPrimal, vars, _)
+         <- funToAstRevIO $ voidFromHVector hVectorInit
        let testDataR = packBatchR testData
        (varGlyph, _, astGlyph) <-
          funToAstIOS {-@'[batch_size, SizeMnistHeight, SizeMnistWidth]-} id
@@ -185,8 +186,10 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
        let ast :: AstShaped PrimalSpan r '[]
            ast = MnistRnnShaped2.rnnMnistLossFusedS
                    width batch_size (astGlyph, astLabel)
-                   (parseHVector (fromDValue valsInit) hVectorPrimal)
-           runBatch :: (HVector (Flip OR.Array), StateAdam) -> (Int, [MnistDataS r])
+                   (parseHVector (fromDValue valsInit)
+                                 (unRawHVector hVectorPrimal))
+           runBatch :: (HVector (Flip OR.Array), StateAdam)
+                    -> (Int, [MnistDataS r])
                     -> IO (HVector (Flip OR.Array), StateAdam)
            runBatch (!parameters, !stateAdam) (k, chunk) = do
              let f :: MnistDataBatchS batch_size r
@@ -295,8 +298,8 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
          funToAstIOS {-@'[batch_size, SizeMnistHeight, SizeMnistWidth]-} id
        (varLabel, varLabelD, astLabel) <-
          funToAstIOS {-@'[batch_size, SizeMnistLabel]-} id
-       let envInit = extendEnvS varGlyph (sconstant astGlyph)
-                     $ extendEnvS varLabel (sconstant astLabel)
+       let envInit = extendEnvS varGlyph (sconstant $ AstRawS astGlyph)
+                     $ extendEnvS varLabel (sconstant $ AstRawS astLabel)
                        EM.empty
            f = MnistRnnShaped2.rnnMnistLossFusedS
                  width batch_size (astGlyph, astLabel)

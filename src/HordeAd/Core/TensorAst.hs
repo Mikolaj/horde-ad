@@ -56,10 +56,10 @@ revProduceArtifactH
      ( AdaptableHVector (AstRanked FullSpan) (g r y)
      , AdaptableHVector (AstRanked FullSpan) astvals
      , TermValue astvals )
-  => Bool -> (astvals -> g r y) -> AstEnv (ADVal (AstRanked PrimalSpan))
+  => Bool -> (astvals -> g r y) -> AstEnv (ADVal (AstRaw PrimalSpan))
   -> Value astvals -> VoidHVector
-  -> ( AstArtifactRev (HVectorPseudoTensor (AstRanked PrimalSpan)) Float '()
-     , Dual (HVectorPseudoTensor (AstRanked PrimalSpan)) Float '() )
+  -> ( AstArtifactRev (HVectorPseudoTensor (AstRaw PrimalSpan)) Float '()
+     , Dual (HVectorPseudoTensor (AstRaw PrimalSpan)) Float '() )
 {-# INLINE revProduceArtifactH #-}
 revProduceArtifactH hasDt f envInit vals0 =
   let g :: HVector (AstRanked FullSpan)
@@ -71,11 +71,11 @@ revProduceArtifactH hasDt f envInit vals0 =
 forwardPassByInterpretation
   :: (HVector (AstRanked FullSpan)
       -> HVectorPseudoTensor (AstRanked FullSpan) r y)
-  -> AstEnv (ADVal (AstRanked PrimalSpan))
-  -> HVector (AstRanked PrimalSpan)
+  -> AstEnv (ADVal (AstRaw PrimalSpan))
+  -> HVector (AstRaw PrimalSpan)
   -> [AstDynamicVarName]
   -> HVector (AstRanked FullSpan)
-  -> ADVal (HVectorPseudoTensor (AstRanked PrimalSpan)) r y
+  -> ADVal (HVectorPseudoTensor (AstRaw PrimalSpan)) r y
 {-# INLINE forwardPassByInterpretation #-}
 forwardPassByInterpretation g envInit hVectorPrimal vars hVector =
   let deltaInputs = generateDeltaInputs hVectorPrimal
@@ -89,13 +89,13 @@ forwardPassByInterpretation g envInit hVectorPrimal vars hVector =
 
 revArtifactFromForwardPass
   :: Bool
-  -> (HVector (AstRanked PrimalSpan)
+  -> (HVector (AstRaw PrimalSpan)
       -> [AstDynamicVarName]
       -> HVector (AstRanked FullSpan)
-      -> ADVal (HVectorPseudoTensor (AstRanked PrimalSpan)) r y)
+      -> ADVal (HVectorPseudoTensor (AstRaw PrimalSpan)) r y)
   -> VoidHVector
-  -> ( AstArtifactRev (HVectorPseudoTensor (AstRanked PrimalSpan)) r y
-     , Dual (HVectorPseudoTensor (AstRanked PrimalSpan)) r y )
+  -> ( AstArtifactRev (HVectorPseudoTensor (AstRaw PrimalSpan)) r y
+     , Dual (HVectorPseudoTensor (AstRaw PrimalSpan)) r y )
 {-# INLINE revArtifactFromForwardPass #-}
 revArtifactFromForwardPass hasDt forwardPass parameters0 =
   let -- Bangs and the compound function to fix the numbering of variables
@@ -107,15 +107,15 @@ revArtifactFromForwardPass hasDt forwardPass parameters0 =
       -- before gradientFromDelta allocates new memory and new FFI is started.
       !(D l (HVectorPseudoTensor primalBody) delta) =
         forwardPass hVectorPrimal vars hVector
-      domsB = shapeAstHVector primalBody
+      domsB = shapeAstHVector $ unAstRawWrap primalBody
   in fun1DToAst domsB $ \ !varsDt !astsDt ->
     let mdt = if hasDt
-              then Just $ HVectorPseudoTensor $ AstMkHVector astsDt
+              then Just $ HVectorPseudoTensor $ AstRawWrap $ AstMkHVector astsDt
               else Nothing
         !(!astBindings, !gradient) =
           gradientFromDeltaH
             parameters0 (HVectorPseudoTensor primalBody) mdt delta
-        unGradient = dunlet l astBindings (AstMkHVector gradient)
+        unGradient = dunlet l astBindings (dmkHVector gradient)
         unPrimal = dunlet l [] primalBody
     in ( ((varsDt, varsPrimal), unGradient, HVectorPseudoTensor unPrimal)
        , delta )
@@ -124,22 +124,22 @@ revProduceArtifact
   :: Bool
   -> (HVector (AstRanked FullSpan)
       -> HVectorPseudoTensor (AstRanked FullSpan) r y)
-  -> AstEnv (ADVal (AstRanked PrimalSpan))
+  -> AstEnv (ADVal (AstRaw PrimalSpan))
   -> VoidHVector
-  -> ( AstArtifactRev (HVectorPseudoTensor (AstRanked PrimalSpan)) r y
-     , Dual (HVectorPseudoTensor (AstRanked PrimalSpan)) r y )
+  -> ( AstArtifactRev (HVectorPseudoTensor (AstRaw PrimalSpan)) r y
+     , Dual (HVectorPseudoTensor (AstRaw PrimalSpan)) r y )
 {-# INLINE revProduceArtifact #-}
 revProduceArtifact hasDt g envInit =
   revArtifactFromForwardPass hasDt (forwardPassByInterpretation g envInit)
 
 fwdArtifactFromForwardPass
-  :: (HVector (AstRanked PrimalSpan)
+  :: (HVector (AstRaw PrimalSpan)
       -> [AstDynamicVarName]
       -> HVector (AstRanked FullSpan)
-      -> ADVal (HVectorPseudoTensor (AstRanked PrimalSpan)) r y)
+      -> ADVal (HVectorPseudoTensor (AstRaw PrimalSpan)) r y)
   -> VoidHVector
-  -> ( AstArtifactFwd (HVectorPseudoTensor (AstRanked PrimalSpan)) r y
-     , Dual (HVectorPseudoTensor (AstRanked PrimalSpan)) r y )
+  -> ( AstArtifactFwd (HVectorPseudoTensor (AstRaw PrimalSpan)) r y
+     , Dual (HVectorPseudoTensor (AstRaw PrimalSpan)) r y )
 {-# INLINE fwdArtifactFromForwardPass #-}
 fwdArtifactFromForwardPass forwardPass parameters0 =
   let !(!varsPrimalDs, hVectorDs, varsPrimal, hVectorPrimal, vars, hVector) =
@@ -157,10 +157,10 @@ fwdArtifactFromForwardPass forwardPass parameters0 =
 fwdProduceArtifact
   :: (HVector (AstRanked FullSpan)
       -> HVectorPseudoTensor (AstRanked FullSpan) r y)
-  -> AstEnv (ADVal (AstRanked PrimalSpan))
+  -> AstEnv (ADVal (AstRaw PrimalSpan))
   -> VoidHVector
-  -> ( AstArtifactFwd (HVectorPseudoTensor (AstRanked PrimalSpan)) r y
-     , Dual (HVectorPseudoTensor (AstRanked PrimalSpan)) r y )
+  -> ( AstArtifactFwd (HVectorPseudoTensor (AstRaw PrimalSpan)) r y
+     , Dual (HVectorPseudoTensor (AstRaw PrimalSpan)) r y )
 {-# INLINE fwdProduceArtifact #-}
 fwdProduceArtifact g envInit =
   fwdArtifactFromForwardPass (forwardPassByInterpretation g envInit)
@@ -265,28 +265,6 @@ instance AstSpan s => RankedTensor (AstRanked s) where
   rletHVectorIn = astLetHVectorInFun
   rletHFunIn = astLetHFunInFun
   rfromS = astRFromS
-
-  rletWrap l u | Just Refl <- sameAstSpan @s @PrimalSpan =
-    if nullADShare l then u else AstLetADShare l u
-  rletWrap _ _ = error "rletWrap: wrong span"
-    -- We can't use astLet here, because it may inline a let that is
-    -- present at the top level of the dual number and so we'd lose
-    -- sharing that is not visible in this restricted context.
-    -- To make sure astLet is not used on these, we mark them with
-    -- a special constructor that also makes comparing lets cheap.
-  rletUnwrap u = case u of
-    AstLetADShare l t -> (l, t)
-    AstConstant (AstLetADShare l t) -> (l, AstConstant t)
-    _ -> (emptyADShare, u)
-  -- For convenience and simplicity we define this for all spans,
-  -- but it can only ever be used for PrimalSpan.
-  rregister = case sameAstSpan @s @PrimalSpan of
-    Just Refl -> astRegisterFun
-    _ -> error "rregister: used not at PrimalSpan"
-  rsharePrimal =
-    case sameAstSpan @s @PrimalSpan of
-      Just Refl -> astRegisterADShare
-      _ -> error "rsharePrimal: used not at PrimalSpan"
 
   rconstant = fromPrimal
   rprimalPart = astSpanPrimal
@@ -402,26 +380,6 @@ instance AstSpan s => ShapedTensor (AstShaped s) where
   sletHVectorIn = astLetHVectorInFunS
   sletHFunIn = astLetHFunInFunS
   sfromR = astSFromR
-
-  sletWrap l u | Just Refl <- sameAstSpan @s @PrimalSpan =
-    if nullADShare l then u else AstLetADShareS l u
-  sletWrap _ _ = error "sletWrap: wrong span"
-    -- We can't use astLet here, because it may inline a let that is
-    -- present at the top level of the dual number and so we'd lose
-    -- sharing that is not visible in this restricted context.
-    -- To make sure astLet is not used on these, we mark them with
-    -- a special constructor that also makes comparing lets cheap.
-  sletUnwrap u = case u of
-    AstLetADShareS l t -> (l, t)
-    AstConstantS (AstLetADShareS l t) -> (l, AstConstantS t)
-    _ -> (emptyADShare, u)
-  sregister = case sameAstSpan @s @PrimalSpan of
-    Just Refl -> astRegisterFunS
-    _ -> error "sregister: used not at PrimalSpan"
-  ssharePrimal =
-    case sameAstSpan @s @PrimalSpan of
-      Just Refl -> astRegisterADShareS
-      _ -> error "ssharePrimal: used not at PrimalSpan"
 
   sconstant = fromPrimalS
   sprimalPart = astSpanPrimalS
@@ -545,6 +503,9 @@ instance TermValue (HVectorPseudoTensor (AstRanked FullSpan) r y) where
 instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   dshape = shapeAstHVector
   dmkHVector = AstMkHVector
+  dlambda shss f = AstLambda
+                   $ fun1LToAst shss $ \ !vvars !ll -> (vvars, unHFun f ll)
+  dHApply = astHApply
   dunHVector hVectorOf =
     let f :: Int -> DynamicTensor VoidTensor -> AstDynamic s
         f i = \case
@@ -556,15 +517,16 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
             DynamicShaped @r @sh
             $ sletHVectorIn @(AstShaped s) hVectorOf (sfromD . (V.! i))
     in V.imap f $ shapeAstHVector hVectorOf
-  dlambda shss f = AstLambda
-                   $ fun1LToAst shss $ \ !vvars !ll -> (vvars, unHFun f ll)
-  dHApply = astHApply
   dletHVectorInHVector = astLetHVectorInHVectorFun
   dletHFunInHVector = astLetHFunInHVectorFun
   rletInHVector = astLetInHVectorFun
   sletInHVector = astLetInHVectorFunS
   -- For convenience and simplicity we define this for all spans,
   -- but it can only ever be used for PrimalSpan.
+  -- In this instance, these three ops are only used for some rare tests that
+  -- use the non-symbolic pipeline to compute a symbolic
+  -- value of the derivative at a particular fixed input.
+  -- TODO: make these tests use AstRaw instead of AstRanked.
   dunlet =
     case sameAstSpan @s @PrimalSpan of
       Just Refl -> unletAstHVector6
@@ -606,7 +568,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
                               parameters0
     in \parameters -> assert (voidHVectorMatches parameters0 parameters) $
       let env = extendEnvHVector @(AstRanked s) vars parameters EM.empty
-      in simplifyAstHVector6 $ interpretAstHVector env gradient
+      in simplifyAstHVector5 $ interpretAstHVector env $ unAstRawWrap gradient
         -- this interpretation both substitutes parameters for the variables and
         -- reinterprets @PrimalSpan@ terms in @s@ terms;
         -- we could shortcut when @s@ is @PrimalSpan@ and @parameters@
@@ -624,7 +586,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
         g !hv = HVectorPseudoTensor $ unHFun f [hv]
         (((varsDt, vars), gradient, _primal), _delta) =
           revProduceArtifact True g EM.empty shs
-     in AstLambda ([varsDt, vars], simplifyAstHVector6 gradient)
+     in AstLambda ([varsDt, vars], simplifyAstHVector5 $ unAstRawWrap gradient)
   dfwd :: VoidHVector
        -> HFun
        -> AstHFun
@@ -637,7 +599,8 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
         (((varsDt, vars), derivative, _primal), _delta) =
           fwdProduceArtifact g EM.empty shs
      in AstLambda ( [varsDt, vars]
-                  , simplifyAstHVector6 $ unHVectorPseudoTensor derivative )
+                  , simplifyAstHVector5 $ unAstRawWrap
+                    $ unHVectorPseudoTensor derivative )
   dmapAccumRDer
     :: Proxy (AstRanked s)
     -> SNat k
@@ -891,6 +854,29 @@ instance AstSpan s => RankedTensor (AstRaw s) where
     AstRaw $ astLetHVectorInFunRaw (unAstRawWrap a) (unAstRaw . f . rawHVector)
   rletHFunIn a f = AstRaw $ astLetHFunInFunRaw a (unAstRaw . f)
   rfromS = AstRaw . AstRFromS . unAstRawS
+
+  rletWrap l u | Just Refl <- sameAstSpan @s @PrimalSpan =
+    if nullADShare l then u else AstRaw $ AstLetADShare l (unAstRaw u)
+  rletWrap _ _ = error "rletWrap: wrong span"
+    -- We can't use astLet here, because it may inline a let that is
+    -- present at the top level of the dual number and so we'd lose
+    -- sharing that is not visible in this restricted context.
+    -- To make sure astLet is not used on these, we mark them with
+    -- a special constructor that also makes comparing lets cheap.
+  rletUnwrap u = case unAstRaw u of
+    AstLetADShare l t -> (l, AstRaw t)
+    AstConstant (AstLetADShare l t) -> (l, AstRaw $ AstConstant t)
+    _ -> (emptyADShare, u)
+  -- For convenience and simplicity we define this for all spans,
+  -- but it can only ever be used for PrimalSpan.
+  rregister = case sameAstSpan @s @PrimalSpan of
+    Just Refl -> astRegisterFun
+    _ -> error "rregister: used not at PrimalSpan"
+  rsharePrimal =
+    case sameAstSpan @s @PrimalSpan of
+      Just Refl -> astRegisterADShare
+      _ -> error "rsharePrimal: used not at PrimalSpan"
+
   rconstant = AstRaw . fromPrimal . unAstRaw
   rprimalPart = AstRaw . astSpanPrimal . unAstRaw
   rdualPart = AstRaw . astSpanDual . unAstRaw
@@ -901,6 +887,7 @@ instance AstSpan s => RankedTensor (AstRaw s) where
 astLetFunRaw :: (KnownNat n, KnownNat m, GoodScalar r, AstSpan s)
              => AstRanked s r n -> (AstRanked s r n -> AstRanked s r2 m)
              -> AstRanked s r2 m
+astLetFunRaw a f | astIsSmall True a = f a  -- too important an optimization
 astLetFunRaw a f =
   let sh = shapeAst a
       (var, ast) = funToAstR sh f
@@ -909,6 +896,7 @@ astLetFunRaw a f =
 astLetFunRawS :: (Sh.Shape sh, Sh.Shape sh2, GoodScalar r, AstSpan s)
               => AstShaped s r sh -> (AstShaped s r sh -> AstShaped s r2 sh2)
               -> AstShaped s r2 sh2
+astLetFunRawS a f | astIsSmallS True a = f a
 astLetFunRawS a f =
   let (var, ast) = funToAstS f
   in AstLetS var a ast
@@ -964,6 +952,7 @@ astLetHFunInHVectorFunRaw a f =
 astLetInHVectorFunRaw :: (KnownNat n, GoodScalar r, AstSpan s)
                       => AstRanked s r n -> (AstRanked s r n -> AstHVector s)
                       -> AstHVector s
+astLetInHVectorFunRaw a f | astIsSmall True a = f a
 astLetInHVectorFunRaw a f = unsafePerformIO $ do  -- the id causes trouble
   let sh = shapeAst a
   (!var, _, !ast) <- funToAstIOR sh id
@@ -972,6 +961,7 @@ astLetInHVectorFunRaw a f = unsafePerformIO $ do  -- the id causes trouble
 astLetInHVectorFunRawS :: (Sh.Shape sh, GoodScalar r, AstSpan s)
                        => AstShaped s r sh -> (AstShaped s r sh -> AstHVector s)
                        -> AstHVector s
+astLetInHVectorFunRawS a f | astIsSmallS True a = f a
 astLetInHVectorFunRawS a f = unsafePerformIO $ do  -- the id causes trouble
   (!var, _, !ast) <- funToAstIOS id
   return $! AstLetInHVectorS var a (f ast)
@@ -1010,6 +1000,27 @@ instance AstSpan s => ShapedTensor (AstRawS s) where
     $ astLetHVectorInFunRawS (unAstRawWrap a) (unAstRawS . f . rawHVector)
   sletHFunIn a f = AstRawS $ astLetHFunInFunRawS a (unAstRawS . f)
   sfromR = AstRawS . AstSFromR . unAstRaw
+
+  sletWrap l u | Just Refl <- sameAstSpan @s @PrimalSpan =
+    if nullADShare l then u else AstRawS $ AstLetADShareS l (unAstRawS u)
+  sletWrap _ _ = error "sletWrap: wrong span"
+    -- We can't use astLet here, because it may inline a let that is
+    -- present at the top level of the dual number and so we'd lose
+    -- sharing that is not visible in this restricted context.
+    -- To make sure astLet is not used on these, we mark them with
+    -- a special constructor that also makes comparing lets cheap.
+  sletUnwrap u = case unAstRawS u of
+    AstLetADShareS l t -> (l, AstRawS t)
+    AstConstantS (AstLetADShareS l t) -> (l, AstRawS $ AstConstantS t)
+    _ -> (emptyADShare, u)
+  sregister = case sameAstSpan @s @PrimalSpan of
+    Just Refl -> astRegisterFunS
+    _ -> error "sregister: used not at PrimalSpan"
+  ssharePrimal =
+    case sameAstSpan @s @PrimalSpan of
+      Just Refl -> astRegisterADShareS
+      _ -> error "ssharePrimal: used not at PrimalSpan"
+
   sconstant = AstRawS . fromPrimalS . unAstRawS
   sprimalPart = AstRawS . astSpanPrimalS . unAstRawS
   sdualPart = AstRawS . astSpanDualS . unAstRawS
@@ -1072,9 +1083,11 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
       _ -> error "dregister: used not at PrimalSpan"
   dbuild1 k f = AstRawWrap
                 $ AstBuildHVector1 k $ funToAstI (unAstRawWrap . f . AstRaw)
-  rrev _ = error "rrev for AstRaw"
-  drevDt = error "drevDt for AstRaw"
-  dfwd = error "dfwd for AstRaw"
+  rrev f parameters0 hVector =  -- we don't have an AST constructor to hold it
+    AstRawWrap
+    $ rrev f parameters0 (unRawHVector hVector)
+  drevDt = drevDt @(AstRanked s)
+  dfwd = dfwd @(AstRanked s)
   dmapAccumRDer _ k accShs bShs eShs f df rf acc0 es =
     AstRawWrap
     $ AstMapAccumRDer k accShs bShs eShs f df rf (unAstRawWrap acc0)
@@ -1083,22 +1096,6 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
     AstRawWrap
     $ AstMapAccumLDer k accShs bShs eShs f df rf (unAstRawWrap acc0)
                                                  (unAstRawWrap es)
-
-unRawHVector :: HVector (AstRaw s) -> HVector (AstRanked s)
-unRawHVector =
-  let f (DynamicRanked (AstRaw t)) = DynamicRanked t
-      f (DynamicShaped (AstRawS t)) = DynamicShaped t
-      f (DynamicRankedDummy p1 p2) = DynamicRankedDummy p1 p2
-      f (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
-  in V.map f
-
-rawHVector :: HVector (AstRanked s) -> HVector (AstRaw s)
-rawHVector =
-  let f (DynamicRanked t) = DynamicRanked $ AstRaw t
-      f (DynamicShaped t) = DynamicShaped $ AstRawS t
-      f (DynamicRankedDummy p1 p2) = DynamicRankedDummy p1 p2
-      f (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
-  in V.map f
 
 instance AstSpan s => RankedTensor (AstNoVectorize s) where
   rlet a f =

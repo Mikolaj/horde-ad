@@ -4,7 +4,7 @@
 module HordeAd.Core.AstInline
   ( -- * Inlining and simplification pass operations to be applied after unlet
     simplifyArtifactRev, simplifyArtifactFwd
-  , simplifyAst6, simplifyAst6S, simplifyAstHVector6
+  , simplifyAst6, simplifyAst6S, simplifyAstHVector5, simplifyAstHVector6
     -- * The unlet pass eliminating nested lets bottom-up
   , unletAstHVector6
   ) where
@@ -35,15 +35,16 @@ import           HordeAd.Util.SizedList
 -- * Inlining and simplification pass operations to be applied after unlet
 
 simplifyArtifactRev
-  :: AstArtifactRev (HVectorPseudoTensor (AstRanked PrimalSpan)) r y
-  -> AstArtifactRev (HVectorPseudoTensor (AstRanked PrimalSpan)) r y
+  :: AstArtifactRev (HVectorPseudoTensor (AstRaw PrimalSpan)) r y
+  -> AstArtifactRev (HVectorPseudoTensor (AstRaw PrimalSpan)) r y
 simplifyArtifactRev (vars, gradient, HVectorPseudoTensor primal) =
-  ( vars, simplifyAstHVector6 gradient
-  , HVectorPseudoTensor $ simplifyAstHVector6 primal)
+  ( vars
+  , simplifyAstHVector6 gradient
+  , HVectorPseudoTensor $ simplifyAstHVector6 primal )
 
 simplifyArtifactFwd
-  :: AstArtifactFwd (HVectorPseudoTensor (AstRanked PrimalSpan)) r y
-  -> AstArtifactFwd (HVectorPseudoTensor (AstRanked PrimalSpan)) r y
+  :: AstArtifactFwd (HVectorPseudoTensor (AstRaw PrimalSpan)) r y
+  -> AstArtifactFwd (HVectorPseudoTensor (AstRaw PrimalSpan)) r y
 simplifyArtifactFwd ( vars
                     , HVectorPseudoTensor derivative
                     , HVectorPseudoTensor primal ) =
@@ -79,13 +80,18 @@ simplifyAst6S =
   => AstShaped s Double sh
   -> AstShaped s Double sh #-}
 
-simplifyAstHVector6
+simplifyAstHVector5
   :: AstSpan s => AstHVector s -> AstHVector s
-simplifyAstHVector6 =
+simplifyAstHVector5 =
   snd . inlineAstHVector EM.empty
   . simplifyAstHVector . expandAstHVector
   . snd . inlineAstHVector EM.empty . simplifyAstHVector
     -- no specialization possible except for the tag type s
+
+simplifyAstHVector6
+  :: AstSpan s => AstRawWrap (AstHVector s) -> AstRawWrap (AstHVector s)
+simplifyAstHVector6 =
+  AstRawWrap . simplifyAstHVector5 . unAstRawWrap
 
 
 -- * The pass that inlines lets with the bottom-up strategy

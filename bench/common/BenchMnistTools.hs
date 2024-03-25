@@ -138,8 +138,8 @@ mnistTrainBench1VTO extraPrefix chunkLength xs widthHidden widthHidden2
       funToAstIOR (singletonShape sizeMnistGlyphInt) id
     (varLabel, varLabelD, astLabel) <-
       funToAstIOR (singletonShape sizeMnistLabelInt) id
-    let envInit = extendEnvR varGlyph (rconstant astGlyph)
-                  $ extendEnvR varLabel (rconstant astLabel)
+    let envInit = extendEnvR varGlyph (rconstant $ AstRaw astGlyph)
+                  $ extendEnvR varLabel (rconstant $ AstRaw astLabel)
                   EM.empty
         f = MnistFcnnRanked1.afcnnMnistLoss1TensorData @(AstRanked FullSpan)
               widthHidden widthHidden2
@@ -311,8 +311,8 @@ mnistTrainBench2VTO extraPrefix chunkLength xs widthHidden widthHidden2
       funToAstIOR (singletonShape sizeMnistGlyphInt) id
     (varLabel, varLabelD, astLabel) <-
       funToAstIOR (singletonShape sizeMnistLabelInt) id
-    let envInit = extendEnvR varGlyph (rconstant astGlyph)
-                  $ extendEnvR varLabel (rconstant astLabel)
+    let envInit = extendEnvR varGlyph (rconstant $ AstRaw astGlyph)
+                  $ extendEnvR varLabel (rconstant $ AstRaw astLabel)
                   EM.empty
         f = MnistFcnnRanked2.afcnnMnistLoss2TensorData @(AstRanked FullSpan)
               (rconstant astGlyph, rconstant astLabel)
