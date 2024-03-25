@@ -1451,7 +1451,9 @@ astSum t0 = case shapeAst t0 of
     Ast.AstFromList l -> astSumOfList l
     Ast.AstFromVector l -> astSumOfList $ V.toList l
     Ast.AstReplicate k v -> v * astReplicate0N (shapeAst v) (fromIntegral k)
-    Ast.AstReverse v -> Ast.AstSum v
+    Ast.AstSlice _i 0 v -> astReplicate0N (tailShape $ shapeAst v) 0
+    Ast.AstSlice i 1 v -> astIndexR v (fromIntegral i :.: ZIR)
+    Ast.AstReverse v -> astSum v
     AstConst t -> AstConst $ tsumR t
     Ast.AstConstant v -> Ast.AstConstant $ astSum v
     _ -> Ast.AstSum t0
@@ -1474,7 +1476,10 @@ astSumS t0 = case sameNat (Proxy @n) (Proxy @0) of
     Ast.AstFromListS l -> astSumOfListS l
     Ast.AstFromVectorS l -> astSumOfListS $ V.toList l
     Ast.AstReplicateS @k v -> v * astReplicate0NS (valueOf @k)
-    Ast.AstReverseS v -> Ast.AstSumS v
+    Ast.AstSliceS @i @k _v | Just Refl <- sameNat (Proxy @k) (Proxy @0) -> 0
+    Ast.AstSliceS @i @k v | Just Refl <- sameNat (Proxy @k) (Proxy @1) ->
+      astIndexS v (valueOf @i :.$ ZIS)
+    Ast.AstReverseS v -> astSumS v
     AstConstS t -> AstConstS $ tsumS t
     Ast.AstConstantS v -> Ast.AstConstantS $ astSumS v
     _ -> Ast.AstSumS t0

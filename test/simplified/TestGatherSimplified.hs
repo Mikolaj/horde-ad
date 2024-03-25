@@ -118,7 +118,7 @@ testGatherSimpPP1 :: Assertion
 testGatherSimpPP1 = do
   resetVarCounter
   let !t1 = gatherNested1 @(AstRanked PrimalSpan) $ AstVar [7, 2] (AstVarName . intToAstVarId $ 100000000)
-  length (show t1) @?= 256
+  length (show t1) @?= 182
   resetVarCounter
   let !t2 = gather1 @(AstRanked PrimalSpan) $ AstVar [7, 2] (AstVarName . intToAstVarId $ 100000000)
   length (show t2) @?= 182
@@ -183,7 +183,7 @@ testGatherSimpPP2 :: Assertion
 testGatherSimpPP2 = do
   resetVarCounter
   let !t1 = gatherNested2 @(AstRanked PrimalSpan) $ AstVar [7, 2] (AstVarName . intToAstVarId $ 100000000)
-  length (show t1) @?= 458
+  length (show t1) @?= 343
   resetVarCounter
   let !t2 = gather2 @(AstRanked PrimalSpan) $ AstVar [7, 2] (AstVarName . intToAstVarId $ 100000000)
   length (show t2) @?= 265
@@ -250,7 +250,7 @@ testGatherSimpPP12 :: Assertion
 testGatherSimpPP12 = do
   resetVarCounter
   let !t1 = gatherNested12 @(AstRanked PrimalSpan) $ AstVar [7, 2] (AstVarName . intToAstVarId $ 100000000)
-  length (show t1) @?= 406
+  length (show t1) @?= 343
   resetVarCounter
   let !t2 = gather12 @(AstRanked PrimalSpan) $ AstVar [7, 2] (AstVarName . intToAstVarId $ 100000000)
   length (show t2) @?= 265
@@ -369,7 +369,7 @@ testGatherSimpPP33 = do
   resetVarCounter
   let !t1 = gatherTranspose33 @(AstRanked PrimalSpan)
             $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (AstVarName . intToAstVarId $ 100000000)
-  length (show t1) @?= 567
+  length (show t1) @?= 548
   length (show (simplifyAst6 @Float t1)) @?= 548
   resetVarCounter
   let !t2 = (\t -> rmatmul2 (rreshape [6, 8] (rconst $ runFlip t48))
