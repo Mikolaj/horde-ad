@@ -526,7 +526,8 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   -- In this instance, these three ops are only used for some rare tests that
   -- use the non-symbolic pipeline to compute a symbolic
   -- value of the derivative at a particular fixed input.
-  -- TODO: make these tests use AstRaw instead of AstRanked.
+  -- The limitation of AstRaw as a newtype make it impossible
+  -- to switch the tests from AstRanked to AstRaw.
   dunlet =
     case sameAstSpan @s @PrimalSpan of
       Just Refl -> unletAstHVector6
@@ -1083,6 +1084,9 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
       _ -> error "dregister: used not at PrimalSpan"
   dbuild1 k f = AstRawWrap
                 $ AstBuildHVector1 k $ funToAstI (unAstRawWrap . f . AstRaw)
+  -- These three methods are called at this type in delta evaluation via
+  -- dmapAccumR and dmapAccumL, they have to work. We could refrain from
+  -- simplifying the resulting terms, but it's not clear that's more consistent.
   rrev f parameters0 hVector =  -- we don't have an AST constructor to hold it
     AstRawWrap
     $ rrev f parameters0 (unRawHVector hVector)
