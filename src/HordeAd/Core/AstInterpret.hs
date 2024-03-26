@@ -142,6 +142,7 @@ interpretAst !env = \case
         env2 w = extendEnvR var w env
     in rlet t (\w -> interpretAst (env2 w) v)
   AstLetADShare{} -> error "interpretAst: AstLetADShare"
+  AstShare{} -> error "interpretAst: AstShare"
   AstCond b a1 a2 ->
     let b1 = interpretAstBool env b
         t2 = interpretAst env a1
@@ -533,7 +534,8 @@ interpretAstS !env = \case
     let t = interpretAstSRuntimeSpecialized env u
         env2 w = extendEnvS var w env
     in slet t (\w -> interpretAstS (env2 w) v)
-  AstLetADShareS{} -> error "interpretAstS: AstLetADShare"
+  AstLetADShareS{} -> error "interpretAstS: AstLetADShareS"
+  AstShareS{} -> error "interpretAstS: AstShareS"
   AstCondS b a1 a2 ->
     let b1 = interpretAstBool env b
         t2 = interpretAstS env a1
@@ -854,6 +856,7 @@ interpretAstHVector !env = \case
     let t = interpretAstSRuntimeSpecialized env u
         env2 w = extendEnvS var w env
     in sletInHVector t (\w -> interpretAstHVector (env2 w) v)
+  AstShareHVector{} -> error "interpretAstHVector: AstShareHVector"
   AstBuildHVector1 k (var, v) ->
     dbuild1 k (interpretLambdaIHVector interpretAstHVector env (var, v))
   AstMapAccumRDer k accShs bShs eShs f0 df0 rf0 acc0 es ->

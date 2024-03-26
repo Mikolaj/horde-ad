@@ -181,6 +181,8 @@ data AstRanked :: AstSpanType -> RankedTensorType where
    -- these are mixed local/global lets, because they can be identical
    -- to the lets stored in the D constructor and so should not be inlined
    -- even in trivial cases until the transpose pass eliminates D
+  AstShare :: AstVarName (AstRanked s) r n -> AstRanked s r n
+           -> AstRanked s r n
   AstCond :: AstBool
           -> AstRanked s r n -> AstRanked s r n -> AstRanked s r n
 
@@ -283,6 +285,8 @@ data AstShaped :: AstSpanType -> ShapedTensorType where
    -- these are mixed local/global lets, because they can be identical
    -- to the lets stored in the D constructor and so should not be inlined
    -- even in trivial cases until the transpose pass eliminates D
+  AstShareS :: AstVarName (AstShaped s) r sh -> AstShaped s r sh
+            -> AstShaped s r sh
   AstCondS :: AstBool
            -> AstShaped s r sh -> AstShaped s r sh -> AstShaped s r sh
 
@@ -412,6 +416,8 @@ data AstHVector :: AstSpanType -> Type where
                    => AstVarName (AstShaped s) r sh -> AstShaped s r sh
                    -> AstHVector s2
                    -> AstHVector s2
+  AstShareHVector :: [AstDynamicVarName] -> AstHVector s
+                  -> AstHVector s
   AstBuildHVector1 :: SNat k -> (IntVarName, AstHVector s) -> AstHVector s
   AstMapAccumRDer
     :: SNat k

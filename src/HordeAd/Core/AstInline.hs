@@ -126,6 +126,7 @@ inlineAst memo v0 = case v0 of
         in (memo3, substituteAst (SubstitutionPayloadRanked u0) var v2)
       _ -> (memo2, Ast.AstLet var u2 v2)
   Ast.AstLetADShare{} -> error "inlineAst: AstLetADShare"
+  Ast.AstShare{} -> error "inlineAst: AstShare"
   Ast.AstCond b a2 a3 ->
     -- This is a place where our inlining may increase code size
     -- by enlarging both branches due to not considering number of syntactic
@@ -255,6 +256,7 @@ inlineAstS memo v0 = case v0 of
         in (memo3, substituteAstS (SubstitutionPayloadShaped u0) var v2)
       _ -> (memo2, Ast.AstLetS var u2 v2)
   Ast.AstLetADShareS{} -> error "inlineAstS: AstLetADShareS"
+  Ast.AstShareS{} -> error "inlineAstS: AstShareS"
   Ast.AstCondS b a2 a3 ->
     -- This is a place where our inlining may increase code size
     -- by enlarging both branches due to not considering number of syntactic
@@ -429,6 +431,7 @@ inlineAstHVector memo v0 = case v0 of
                -- u is small, so the union is fast
            , substituteAstHVector (SubstitutionPayloadShaped u0) var v2 )
       _ -> (memo2, Ast.AstLetInHVectorS var u2 v2)
+  Ast.AstShareHVector{} -> error "inlineAstHVector: AstShareHVector"
   Ast.AstBuildHVector1 k (var, v) ->
     let (memoV0, v2) = inlineAstHVector EM.empty v
         memo1 = EM.unionWith (\c1 c0 -> c1 + sNatValue k * c0) memo memoV0
@@ -523,6 +526,7 @@ unletAst env t = case t of
           -- and via unletAst, but if many lets can be eliminated,
           -- subtractADShare does it much faster
     in unletAst env $ bindsToLet v lassocs
+  Ast.AstShare{} -> error "unletAst: AstShare"
   Ast.AstCond b a1 a2 ->
     Ast.AstCond
       (unletAstBool env b) (unletAst env a1) (unletAst env a2)
@@ -600,6 +604,7 @@ unletAstS env t = case t of
           -- and via unletAst, but if many lets can be eliminated,
           -- subtractADShare does it much faster
     in unletAstS env $ bindsToLetS v lassocs
+  Ast.AstShareS{} -> error "unletAstS: AstShareS"
   Ast.AstCondS b a1 a2 ->
     Ast.AstCondS
       (unletAstBool env b) (unletAstS env a1) (unletAstS env a2)
@@ -696,6 +701,7 @@ unletAstHVector env = \case
        else let env2 = env {unletSet = ES.insert vv (unletSet env)}
             in Ast.AstLetInHVectorS var (unletAstS env u)
                                         (unletAstHVector env2 v)
+  Ast.AstShareHVector{} -> error "unletAstHVector: AstShareHVector"
   Ast.AstBuildHVector1 k (var, v) ->
     Ast.AstBuildHVector1 k (var, unletAstHVector env v)
   Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc0 es ->

@@ -47,6 +47,7 @@ shapeAst = \case
   AstVar sh _var -> sh
   AstLet _ _ v -> shapeAst v
   AstLetADShare _ v-> shapeAst v
+  AstShare _ v-> shapeAst v
   AstCond _b v _w -> shapeAst v
   AstMinIndex a -> initShape $ shapeAst a
   AstMaxIndex a -> initShape $ shapeAst a
@@ -111,6 +112,7 @@ shapeAstHVector = \case
   AstLetHFunInHVector _ _ v -> shapeAstHVector v
   AstLetInHVector _ _ v -> shapeAstHVector v
   AstLetInHVectorS _ _ v -> shapeAstHVector v
+  AstShareHVector _ v -> shapeAstHVector v
   AstBuildHVector1 k (_, v) -> replicate1VoidHVector k $ shapeAstHVector v
   AstMapAccumRDer k accShs bShs _eShs _f _df _rf _acc0 _es ->
     accShs V.++ replicate1VoidHVector k bShs
@@ -140,6 +142,7 @@ varInAst var = \case
   AstVar _ var2 -> fromEnum var == fromEnum var2
   AstLet _var2 u v -> varInAst var u || varInAst var v
   AstLetADShare l v -> varInADShare var l || varInAst var v
+  AstShare _ v -> varInAst var v
   AstCond b v w -> varInAstBool var b || varInAst var v || varInAst var w
   AstMinIndex a -> varInAst var a
   AstMaxIndex a -> varInAst var a
@@ -184,6 +187,7 @@ varInAstS var = \case
   AstVarS var2 -> fromEnum var == fromEnum var2
   AstLetS _var2 u v -> varInAstS var u || varInAstS var v
   AstLetADShareS l v -> varInADShare var l || varInAstS var v
+  AstShareS _ v -> varInAstS var v
   AstCondS b v w -> varInAstBool var b || varInAstS var v || varInAstS var w
   AstMinIndexS a -> varInAstS var a
   AstMaxIndexS a -> varInAstS var a
@@ -236,6 +240,7 @@ varInAstHVector var = \case
     varInAstHFun var f || varInAstHVector var v
   AstLetInHVector _var2 u v -> varInAst var u || varInAstHVector var v
   AstLetInHVectorS _var2 u v -> varInAstS var u || varInAstHVector var v
+  AstShareHVector _ v -> varInAstHVector var v
   AstBuildHVector1 _ (_var2, v) -> varInAstHVector var v
   AstMapAccumRDer _k _accShs _bShs _eShs _f _df _rf acc0 es ->
     varInAstHVector var acc0 || varInAstHVector var es

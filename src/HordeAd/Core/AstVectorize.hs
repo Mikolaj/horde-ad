@@ -169,6 +169,7 @@ build1V k (var, v00) =
                      (build1VOccurenceUnknownRefresh k (var, v2))
                         -- ensure no duplicated bindings, see below
     Ast.AstLetADShare{} -> error "build1V: AstLetADShare"
+    Ast.AstShare{} -> error "build1V: AstShare"
     Ast.AstCond b (Ast.AstConstant v) (Ast.AstConstant w) ->
       let t = Ast.AstConstant
               $ astIndexStep (astFromList [v, w])
@@ -426,6 +427,7 @@ build1VS (var, v00) =
       in astLetS var2 (build1VOccurenceUnknownS @k (var, u))
                       (build1VOccurenceUnknownRefreshS (var, v2))
     Ast.AstLetADShareS{} -> error "build1VS: AstLetADShareS"
+    Ast.AstShareS{} -> error "build1VS: AstShareS"
     Ast.AstCondS b (Ast.AstConstantS v) (Ast.AstConstantS w) ->
       let t = Ast.AstConstantS
               $ astIndexStepS @'[2] (astFromListS [v, w])
@@ -676,6 +678,8 @@ build1VHVector k@SNat (var, v0) =
       in astLetInHVectorS var2 (build1VOccurenceUnknownS @k (var, u))
                                (build1VOccurenceUnknownHVectorRefresh
                                   k (var, v2))
+  Ast.AstShareHVector{} ->
+    error "build1VHVector: impossible case of AstShareHVector"
   Ast.AstBuildHVector1{} ->
     error "build1VHVector: impossible case of AstBuildHVector1"
   Ast.AstMapAccumRDer k5 accShs bShs eShs f df rf acc0 es ->

@@ -247,6 +247,7 @@ astNonIndexStep t = case t of
   Ast.AstVar{} -> t
   Ast.AstLet var u v -> astLet var u v
   Ast.AstLetADShare{} -> error "astNonIndexStep: AstLetADShare"
+  Ast.AstShare{} -> error "astNonIndexStep: AstShare"
   Ast.AstCond a b c -> astCond a b c
   Ast.AstMinIndex{} -> t
   Ast.AstMaxIndex{} -> t
@@ -303,6 +304,7 @@ astNonIndexStepS t = case t of
   Ast.AstVarS{} -> t
   Ast.AstLetS var u v -> astLetS var u v
   Ast.AstLetADShareS{} -> error "astNonIndexStepS: AstLetADShareS"
+  Ast.AstShareS{} -> error "astNonIndexStepS: AstShareS"
   Ast.AstCondS a b c -> astCondS a b c
   Ast.AstMinIndexS{} -> t
   Ast.AstMaxIndexS{} -> t
@@ -420,6 +422,7 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIndex m1)) =
   Ast.AstVar{} -> Ast.AstIndex v0 ix
   Ast.AstLet var u v -> astLet var u (astIndexRec v ix)
   Ast.AstLetADShare{} -> error "astIndexKnobsR: AstLetADShare"
+  Ast.AstShare{} -> error "astIndexKnobsR: AstShare"
   Ast.AstCond b v w ->
     shareIx ix $ \ix2 -> astCond b (astIndexRec v ix2) (astIndexRec w ix2)
   Ast.AstMinIndex v -> Ast.AstMinIndex $ astIndexKnobsR knobs v ix
@@ -602,6 +605,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS shm1)) =
   Ast.AstVarS{} -> Ast.AstIndexS v0 ix
   Ast.AstLetS var u v -> astLetS var u (astIndexRec v ix)
   Ast.AstLetADShareS{} -> error "astIndexKnobsRS: AstLetADShareS"
+  Ast.AstShareS{} -> error "astIndexKnobsRS: AstShareS"
   Ast.AstCondS b v w ->
     shareIxS ix $ \ix2 -> astCondS b (astIndexRec v ix2) (astIndexRec w ix2)
   Ast.AstMinIndexS @shz @n1 v ->
@@ -947,6 +951,7 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
     Ast.AstVar{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstLet var u v -> astLet var u (astGatherCase sh4 v (vars4, ix4))
     Ast.AstLetADShare{} -> error "astGatherCase: AstLetADShare"
+    Ast.AstShare{} -> error "astGatherCase: AstShare"
     Ast.AstCond b v w -> astCond b (astGather sh4 v (vars4, ix4))
                                    (astGather sh4 w (vars4, ix4))
     Ast.AstMinIndex v ->
@@ -2055,6 +2060,7 @@ astPrimalPart :: (GoodScalar r, KnownNat n)
 astPrimalPart t = case t of
   Ast.AstVar{} -> Ast.AstPrimalPart t  -- the only normal form
   Ast.AstLet var u v -> astLet var u (astPrimalPart v)
+  Ast.AstShare{} -> error "astPrimalPart: AstShare"
   AstN1 opCode u -> AstN1 opCode (astPrimalPart u)
   AstN2 opCode u v -> AstN2 opCode (astPrimalPart u) (astPrimalPart v)
   Ast.AstR1 opCode u -> Ast.AstR1 opCode (astPrimalPart u)
@@ -2087,6 +2093,7 @@ astPrimalPartS :: (GoodScalar r, Sh.Shape sh)
 astPrimalPartS t = case t of
   Ast.AstVarS{} -> Ast.AstPrimalPartS t  -- the only normal form
   Ast.AstLetS var u v -> astLetS var u (astPrimalPartS v)
+  Ast.AstShareS{} -> error "astPrimalPartS: AstShareS"
   AstN1S opCode u -> AstN1S opCode (astPrimalPartS u)
   AstN2S opCode u v -> AstN2S opCode (astPrimalPartS u) (astPrimalPartS v)
   Ast.AstR1S opCode u -> Ast.AstR1S opCode (astPrimalPartS u)
@@ -2124,6 +2131,7 @@ astDualPart :: (GoodScalar r, KnownNat n)
 astDualPart t = case t of
   Ast.AstVar{} -> Ast.AstDualPart t
   Ast.AstLet var u v -> astLet var u (astDualPart v)
+  Ast.AstShare{} -> error "astDualPart: AstShare"
   AstN1{} -> Ast.AstDualPart t  -- stuck; the ops are not defined on dual part
   AstN2{} -> Ast.AstDualPart t  -- stuck; the ops are not defined on dual part
   Ast.AstR1{} -> Ast.AstDualPart t
@@ -2156,6 +2164,7 @@ astDualPartS :: (GoodScalar r, Sh.Shape sh)
 astDualPartS t = case t of
   Ast.AstVarS{} -> Ast.AstDualPartS t
   Ast.AstLetS var u v -> astLetS var u (astDualPartS v)
+  Ast.AstShareS{} -> error "astDualPartS: AstShareS"
   AstN1S{} -> Ast.AstDualPartS t
   AstN2S{} -> Ast.AstDualPartS t
   Ast.AstR1S{} -> Ast.AstDualPartS t
@@ -2372,6 +2381,7 @@ simplifyAst t = case t of
   Ast.AstVar{} -> t
   Ast.AstLet var u v -> astLet var (simplifyAst u) (simplifyAst v)
   Ast.AstLetADShare{} -> error "simplifyAst: AstLetADShare"
+  Ast.AstShare{} -> error "simplifyAst: AstShare"
   Ast.AstCond b a2 a3 ->
     astCond (simplifyAstBool b) (simplifyAst a2) (simplifyAst a3)
   Ast.AstMinIndex a -> Ast.AstMinIndex (simplifyAst a)
@@ -2432,6 +2442,7 @@ simplifyAstS t = case t of
   Ast.AstVarS{} -> t
   Ast.AstLetS var u v -> astLetS var (simplifyAstS u) (simplifyAstS v)
   Ast.AstLetADShareS{} -> error "simplifyAstS: AstLetADShareS"
+  Ast.AstShareS{} -> error "simplifyAstS: AstShareS"
   Ast.AstCondS b a2 a3 ->
     astCondS (simplifyAstBool b) (simplifyAstS a2) (simplifyAstS a3)
   Ast.AstMinIndexS a -> Ast.AstMinIndexS (simplifyAstS a)
@@ -2496,6 +2507,7 @@ simplifyAstHVector = \case
     astLetInHVector var (simplifyAst u) (simplifyAstHVector v)
   Ast.AstLetInHVectorS var u v ->
     astLetInHVectorS var (simplifyAstS u) (simplifyAstHVector v)
+  Ast.AstShareHVector{} -> error "simplifyAstHVector: AstShareHVector"
   Ast.AstBuildHVector1 k (var, v) ->
     Ast.AstBuildHVector1 k (var, simplifyAstHVector v)
   Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc0 es ->
@@ -2555,6 +2567,7 @@ expandAst t = case t of
   Ast.AstVar{} -> t
   Ast.AstLet var u v -> astLet var (expandAst u) (expandAst v)
   Ast.AstLetADShare{} -> error "expandAst: AstLetADShare"
+  Ast.AstShare{} -> error "expandAst: AstShare"
   Ast.AstCond b a2 a3 ->
     astCond (expandAstBool b) (expandAst a2) (expandAst a3)
   Ast.AstMinIndex a -> Ast.AstMinIndex (expandAst a)
@@ -2653,6 +2666,7 @@ expandAstS t = case t of
   Ast.AstVarS{} -> t
   Ast.AstLetS var u v -> astLetS var (expandAstS u) (expandAstS v)
   Ast.AstLetADShareS{} -> error "expandAstS: AstLetADShareS"
+  Ast.AstShareS{} -> error "expandAstS: AstShareS"
   Ast.AstCondS b a2 a3 ->
     astCondS (expandAstBool b) (expandAstS a2) (expandAstS a3)
   Ast.AstMinIndexS a -> Ast.AstMinIndexS (expandAstS a)
@@ -2720,6 +2734,7 @@ expandAstHVector = \case
     astLetInHVector var (expandAst u) (expandAstHVector v)
   Ast.AstLetInHVectorS var u v ->
     astLetInHVectorS var (expandAstS u) (expandAstHVector v)
+  Ast.AstShareHVector{} -> error "expandAstHVector: AstShareHVector"
   Ast.AstBuildHVector1 k (var, v) ->
     Ast.AstBuildHVector1 k (var, expandAstHVector v)
   Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc0 es ->
@@ -3106,6 +3121,7 @@ substitute1Ast i var v1 = case v1 of
       (Nothing, Nothing) -> Nothing
       (mu, mv) -> Just $ astLet var2 (fromMaybe u mu) (fromMaybe v mv)
   Ast.AstLetADShare{} -> error "substitute1Ast: AstLetADShare"
+  Ast.AstShare{} -> error "substitute1Ast: AstShare"
   Ast.AstCond b v w ->
     case ( substitute1AstBool i var b
          , substitute1Ast i var v
@@ -3256,6 +3272,7 @@ substitute1AstS i var = \case
       (Nothing, Nothing) -> Nothing
       (mu, mv) -> Just $ astLetS var2 (fromMaybe u mu) (fromMaybe v mv)
   Ast.AstLetADShareS{} -> error "substitute1AstS: AstLetADShareS"
+  Ast.AstShareS{} -> error "substitute1AstS: AstShareS"
   Ast.AstCondS b v w ->
     case ( substitute1AstBool i var b
          , substitute1AstS i var v
@@ -3404,6 +3421,7 @@ substitute1AstHVector i var = \case
     case (substitute1AstS i var u, substitute1AstHVector i var v) of
       (Nothing, Nothing) -> Nothing
       (mu, mv) -> Just $ astLetInHVectorS var2 (fromMaybe u mu) (fromMaybe v mv)
+  Ast.AstShareHVector{} -> error "substitute1AstHVector: AstShareHVector"
   Ast.AstBuildHVector1 k (var2, v) ->
     Ast.AstBuildHVector1 k . (var2,) <$> substitute1AstHVector i var v
   Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc0 es ->

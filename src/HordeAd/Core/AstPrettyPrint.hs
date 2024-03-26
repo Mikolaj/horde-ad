@@ -79,6 +79,7 @@ areAllArgsInts = \case
   AstVar{} -> True
   AstLet{} -> True  -- too early to tell, but displays the same
   AstLetADShare{} -> True  -- too early to tell
+  AstShare{} -> True  -- too early to tell
   AstCond{} -> True  -- too early to tell
   AstMinIndex{} -> False
   AstMaxIndex{} -> False
@@ -252,6 +253,12 @@ printAstAux cfg d = \case
              . showString " -> "
              . printAst cfg 0 v0)
   AstLetADShare l v -> printAst cfg d $ bindsToLet v (assocsADShare l)
+  AstShare var v ->
+    showParen (d > 10)
+    $ showString "rshare "
+      . printAstVar cfg var
+      . showString " "
+      . printAst cfg 11 v
   AstCond b a1 a2 ->
     showParen (d > 10)
     $ showString "ifF "
@@ -428,6 +435,12 @@ printAstS cfg d = \case
              . showString " -> "
              . printAstS cfg 0 v0)
   AstLetADShareS l v -> printAstS cfg d $ bindsToLetS v (assocsADShare l)
+  AstShareS var v ->
+    showParen (d > 10)
+    $ showString "sshare "
+      . printAstVarS cfg var
+      . showString " "
+      . printAstS cfg 11 v
   AstCondS b a1 a2 ->
     showParen (d > 10)
     $ showString "ifF "
@@ -728,6 +741,13 @@ printAstHVector cfg d = \case
              . printAstVarS cfg var0
              . showString " -> "
              . printAstHVector cfg 0 v0)
+  AstShareHVector vars l ->
+    showParen (d > 10)
+    $ showString "dshare "
+      . showListWith (showString
+                      . printAstDynamicVarName (varRenames cfg)) vars
+      . showString " "
+      . printAstHVector cfg 11 l
   AstBuildHVector1 k (var, v) ->
     showParen (d > 10)
     $ showString "dbuild1 "
