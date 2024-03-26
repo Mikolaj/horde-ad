@@ -893,8 +893,8 @@ evalH
   :: forall ranked shaped. (ADReady ranked, shaped ~ ShapedOf ranked)
   => EvalState ranked -> HVector ranked -> DeltaH ranked
   -> EvalState ranked
-evalH !s !c = let (abShared, cShared) = dregister (dmkHVector c) (astBindings s)
-                  sShared = s {astBindings = abShared}
+evalH !s !c = let cShared = c
+                  sShared = s
               in \case
   ShareH n d ->
     assert (case d of
