@@ -49,7 +49,7 @@ import           HordeAd.Util.SizedList
 
 crevOnADInputs
   :: ADReady ranked
-  => Maybe (HVectorPseudoTensor ranked r y)
+  => Maybe (HVector ranked)
   -> (HVector (ADVal ranked)
       -> ADVal (HVectorPseudoTensor ranked) r y)
   -> HVector (ADVal ranked)
@@ -71,7 +71,7 @@ crevOnADInputs mdt f inputs =
 
 crevOnHVector
   :: ADReady ranked
-  => Maybe (HVectorPseudoTensor ranked r y)
+  => Maybe (HVector ranked)
   -> (HVector (ADVal ranked)
       -> ADVal (HVectorPseudoTensor ranked) r y)
   -> HVector ranked
@@ -493,7 +493,7 @@ instance ADReadyBoth ranked shaped
         rf :: forall f. ADReady f => [HVector f] -> HVectorOf f
         rf [!db, !a] =
           -- This computes the derivative of g again for each new db and a.
-          fst $ crevOnHVector (Just $ HVectorPseudoTensor $ dmkHVector db) g a
+          fst $ crevOnHVector (Just db) g a
         rf _ = error "rf: wrong number of arguments"
     in HFun rf
   dfwd :: VoidHVector

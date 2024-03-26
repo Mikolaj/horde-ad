@@ -110,7 +110,7 @@ revArtifactFromForwardPass hasDt forwardPass parameters0 =
       domsB = shapeAstHVector $ unAstRawWrap primalBody
   in fun1DToAst domsB $ \ !varsDt !astsDt ->
     let mdt = if hasDt
-              then Just $ HVectorPseudoTensor $ AstRawWrap $ AstMkHVector astsDt
+              then Just $ rawHVector astsDt
               else Nothing
         !(!astBindings, !gradient) =
           gradientFromDeltaH
@@ -692,7 +692,7 @@ astBuildHVector1Vectorize k f = build1VectorizeHVector k $ funToAstI f
 {-# SPECIALIZE gradientFromDeltaH
   :: VoidHVector
   -> HVectorPseudoTensor (AstRanked PrimalSpan) Double y
-  -> Maybe (HVectorPseudoTensor (AstRanked PrimalSpan) Double y)
+  -> Maybe (HVector (AstRanked PrimalSpan))
   -> HVectorPseudoTensor (DeltaR (AstRanked PrimalSpan)) Double y
   -> (AstBindings, HVector (AstRanked PrimalSpan)) #-}
 {-# SPECIALIZE evalFromnMap

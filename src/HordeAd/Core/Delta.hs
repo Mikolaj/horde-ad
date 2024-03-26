@@ -57,6 +57,7 @@ import           Data.Int (Int64)
 import           Data.Kind (Type)
 import           Data.List (foldl', sort)
 import           Data.List.Index (ifoldl')
+import           Data.Maybe (fromMaybe)
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import           Data.Traversable (mapAccumL)
@@ -87,22 +88,16 @@ gradientFromDeltaH
   :: forall ranked r (y :: ()). ADReady ranked
   => VoidHVector
   -> HVectorPseudoTensor ranked r y
-  -> Maybe (HVectorPseudoTensor ranked r y)
+  -> Maybe (HVector ranked)
   -> HVectorPseudoTensor (DeltaR ranked) r y
   -> (AstBindings, HVector ranked)
 gradientFromDeltaH !parameters0 (HVectorPseudoTensor value)
                    !mdt (HVectorPseudoTensor deltaTopLevel) =
   let shDt = dshape value
-      dt :: HVectorOf ranked
-      dt = maybe (dmkHVector $ mapHVectorShaped (const 1)
-                  $ V.map dynamicFromVoid shDt)
-                 unHVectorPseudoTensor
-                 mdt
+      dt =
+        fromMaybe (mapHVectorShaped (const 1) $ V.map dynamicFromVoid shDt) mdt
       s0 = initEvalState parameters0
-      (abShared, dtShared) =  -- really not to share, but to convert to HVector
-        dregister dt (astBindings s0)
-      sShared = s0 {astBindings = abShared}
-      s1 = evalH sShared dtShared deltaTopLevel
+      s1 = evalH s0 dt deltaTopLevel
       !s2 = evalFromnMap s1
       !gradient = V.fromList $ EM.elems $ iMap s2
   in (astBindings s2, gradient)

@@ -245,7 +245,7 @@ instance HVectorTensor (Flip OR.Array) (Flip OS.Array) where
                                (HVectorPseudoTensor $ HToH as')
         rf :: [HVector (Flip OR.Array)] -> HVectorOf (Flip OR.Array)
         rf [!db, !a] =
-          fst $ crevOnHVector (Just $ HVectorPseudoTensor $ dmkHVector db) g a
+          fst $ crevOnHVector (Just db) g a
         rf _ = error "rf: wrong number of arguments"
     in rf
   dfwd :: VoidHVector
@@ -359,7 +359,7 @@ instance AdaptableHVector (Flip OR.Array)
 {-# SPECIALIZE gradientFromDeltaH
   :: VoidHVector
   -> HVectorPseudoTensor (Flip OR.Array) Double y
-  -> Maybe (HVectorPseudoTensor (Flip OR.Array) Double y)
+  -> Maybe (HVector (Flip OR.Array))
   -> HVectorPseudoTensor (DeltaR (Flip OR.Array)) Double y
   -> (AstBindings, HVector (Flip OR.Array)) #-}
 {-# SPECIALIZE evalFromnMap

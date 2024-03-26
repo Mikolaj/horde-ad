@@ -313,14 +313,12 @@ crevDtMaybe f vals mdt =
   let g hVector = hVectorADValToADVal
                   $ toHVectorOf $ f $ parseHVector (fromDValue vals) hVector
       valsH = toHVectorOf vals
-      mdth = HVectorPseudoTensor
-             . toHVectorOf @(Flip OR.Array)
-             <$> mdt
+      mdth = toHVector @(Flip OR.Array) <$> mdt
   in parseHVector vals
      $ fst $ crevOnHVector mdth g valsH
 
 {-# SPECIALIZE crevOnHVector
-  :: Maybe (HVectorPseudoTensor (Flip OR.Array) Float '())
+  :: Maybe (HVector (Flip OR.Array))
   -> (HVector (ADVal (Flip OR.Array))
   -> ADVal (HVectorPseudoTensor (Flip OR.Array)) Float '())
   -> HVector (Flip OR.Array)

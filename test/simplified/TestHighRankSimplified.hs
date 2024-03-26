@@ -610,7 +610,7 @@ testConcatBuild3PP2 = do
   let (artifactRev, _) =
         revArtifactAdapt True t (Flip $ OR.fromList [3] [0.651,0.14,0.3414])
   printGradient6Simple renames artifactRev
-    @?= "\\m8 v1 -> dletHVectorInHVector (dmkHVector (fromList [DynamicRanked m8])) (\\[m9 @Natural @Double @[5,2]] -> dmkHVector (fromList [DynamicRankedDummy]))"
+    @?= "\\m8 v1 -> dmkHVector (fromList [DynamicRankedDummy])"
   printPrimal6Simple renames artifactRev
     @?= "\\v1 -> dmkHVector (fromList [DynamicRanked (rfromIntegral (rgather [5,2] (rfromList [rreplicate 5 (rconst (fromList [2] [0,1])), quot (rtranspose [1,0] (rreplicate 2 (rconst (fromList [5] [0,1,2,3,4])))) (rreplicate 5 (rconst (fromList [2] [0,1]) + rreplicate 2 1))]) (\\[i6, i7] -> [ifF (i7 >=. quot i6 (1 + i7)) 0 1, i6, i7])))])"
   printPrimal6Simple renames (simplifyArtifactRev artifactRev)
