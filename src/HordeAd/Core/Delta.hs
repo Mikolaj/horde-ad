@@ -1087,10 +1087,9 @@ fwdR dimR params s = \case
       Just{} ->error "fwdR: corrupted dMap"
       Nothing ->
         let (s2, cRaw) = fwdR dimR params s d
-            (abShared, cShared) = rregister cRaw (astBindings s2)
-            s3 = s2 {astBindings = abShared}
-            s4 = s3 {dMap = EM.insert n (DynamicRanked cShared) (dMap s3)}
-        in (s4, cShared)
+            cShared = rshare cRaw
+            s3 = s2 {dMap = EM.insert n (DynamicRanked cShared) (dMap s2)}
+        in (s3, cShared)
 
   IndexR d ix -> second (`rindex` ix) $ fwdR dimR params s d
   SumR d -> second rsum $ fwdR dimR params s d
@@ -1164,10 +1163,9 @@ fwdS dimR params s = \case
       Just{} -> error "fwdS: corrupted dMap"
       Nothing ->
         let (s2, cRaw) = fwdS dimR params s d
-            (abShared, cShared) = sregister cRaw (astBindings s2)
-            s3 = s2 {astBindings = abShared}
-            s4 = s3 {dMap = EM.insert n (DynamicShaped cShared) (dMap s3)}
-        in (s4, cShared)
+            cShared = sshare cRaw
+            s3 = s2 {dMap = EM.insert n (DynamicShaped cShared) (dMap s2)}
+        in (s3, cShared)
 
   IndexS d ix -> second (`sindex` ix) $ fwdS dimR params s d
   SumS d -> second ssum $ fwdS dimR params s d
@@ -1221,10 +1219,9 @@ fwdH dimR params s = \case
       Just hv -> (s, dmkHVector hv)
       Nothing ->
         let (s2, cRaw) = fwdH dimR params s d
-            (abShared, cShared) = dregister cRaw (astBindings s2)
-            s3 = s2 {astBindings = abShared}
-            s4 = s3 {hdMap = EM.insert n cShared (hdMap s3)}
-        in (s4, dmkHVector cShared)
+            cShared = dunHVector $ dshare cRaw
+            s3 = s2 {hdMap = EM.insert n cShared (hdMap s2)}
+        in (s3, dmkHVector cShared)
   HToH v -> second dmkHVector $ fwdHVector dimR params s v
   MapAccumR k accShs bShs eShs q es df _rf acc0' es' ->
     let (s2, cacc0) = fwdHVector dimR params s acc0'
