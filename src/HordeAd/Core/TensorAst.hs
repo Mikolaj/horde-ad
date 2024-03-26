@@ -266,6 +266,10 @@ instance AstSpan s => RankedTensor (AstRanked s) where
   rletHFunIn = astLetHFunInFun
   rfromS = astRFromS
 
+  rshare a@(AstShare{}) = a
+  rshare a | astIsSmall True a = a
+  rshare a = fun1RToAst $ \var -> AstShare var a
+
   rconstant = fromPrimal
   rprimalPart = astSpanPrimal
   rdualPart = astSpanDual
@@ -380,6 +384,10 @@ instance AstSpan s => ShapedTensor (AstShaped s) where
   sletHVectorIn = astLetHVectorInFunS
   sletHFunIn = astLetHFunInFunS
   sfromR = astSFromR
+
+  sshare a@(AstShareS{}) = a
+  sshare a | astIsSmallS True a = a
+  sshare a = fun1SToAst $ \var -> AstShareS var a
 
   sconstant = fromPrimalS
   sprimalPart = astSpanPrimalS
@@ -553,6 +561,10 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
             ( (dynamicVarNameToAstVarId var, AstBindingsHVector vars r) : l
             , asts )
       _ -> error "dregister: used not at PrimalSpan"
+  dshare a@(AstShareHVector{}) = a
+  dshare a =
+    let shs = shapeAstHVector a
+    in fun1XToAst shs $ \vars -> AstShareHVector vars a
   dbuild1 = astBuildHVector1Vectorize
   rrev :: (GoodScalar r, KnownNat n)
        => (forall f. ADReady f => HVector f -> f r n)
@@ -877,6 +889,9 @@ instance AstSpan s => RankedTensor (AstRaw s) where
     case sameAstSpan @s @PrimalSpan of
       Just Refl -> astRegisterADShare
       _ -> error "rsharePrimal: used not at PrimalSpan"
+  rshare a@(AstRaw (AstShare{})) = a
+  rshare a | astIsSmall True (unAstRaw a) = a
+  rshare a = AstRaw $ fun1RToAst $ \var -> AstShare var (unAstRaw a)
 
   rconstant = AstRaw . fromPrimal . unAstRaw
   rprimalPart = AstRaw . astSpanPrimal . unAstRaw
@@ -1021,6 +1036,9 @@ instance AstSpan s => ShapedTensor (AstRawS s) where
     case sameAstSpan @s @PrimalSpan of
       Just Refl -> astRegisterADShareS
       _ -> error "ssharePrimal: used not at PrimalSpan"
+  sshare a@(AstRawS (AstShareS{})) = a
+  sshare a | astIsSmallS True (unAstRawS a) = a
+  sshare a = AstRawS $ fun1SToAst $ \var -> AstShareS var (unAstRawS a)
 
   sconstant = AstRawS . fromPrimalS . unAstRawS
   sprimalPart = AstRawS . astSpanPrimalS . unAstRawS
@@ -1082,6 +1100,10 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
             ( (dynamicVarNameToAstVarId var, AstBindingsHVector vars r) : l
             , rawHVector asts )
       _ -> error "dregister: used not at PrimalSpan"
+  dshare a@(AstRawWrap (AstShareHVector{})) = a
+  dshare (AstRawWrap a) =
+    let shs = shapeAstHVector a
+    in AstRawWrap $ fun1XToAst shs $ \vars -> AstShareHVector vars a
   dbuild1 k f = AstRawWrap
                 $ AstBuildHVector1 k $ funToAstI (unAstRawWrap . f . AstRaw)
   -- These three methods are called at this type in delta evaluation via

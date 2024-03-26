@@ -321,6 +321,8 @@ class ( Integral (IntOf ranked), CRanked ranked Num
   rsharePrimal :: (GoodScalar r, KnownNat n)
                => ranked r n -> ADShare -> (ADShare, ranked r n)
   rsharePrimal r l = (l, r)
+  rshare :: KnownNat n => ranked r n -> ranked r n
+  rshare = id
 
   -- Primal/dual things.
   rconstant :: (GoodScalar r, KnownNat n) => PrimalOf ranked r n -> ranked r n
@@ -702,6 +704,8 @@ class ( Integral (IntOf shaped), CShaped shaped Num
   ssharePrimal :: (GoodScalar r, Sh.Shape sh)
                => shaped r sh -> ADShare -> (ADShare, shaped r sh)
   ssharePrimal r l = (l, r)
+  sshare :: Sh.Shape sh => shaped r sh -> shaped r sh
+  sshare = id
 
   -- Primal/dual things.
   sconstant :: (GoodScalar r, Sh.Shape sh)
@@ -760,6 +764,8 @@ class HVectorTensor (ranked :: RankedTensorType)
   dunlet l astBindings = assert (nullADShare l && null astBindings)
   dsharePrimal :: HVectorOf ranked -> ADShare -> (ADShare, HVector ranked)
   dregister :: HVectorOf ranked -> AstBindings -> (AstBindings, HVector ranked)
+  dshare :: HVectorOf ranked -> HVectorOf ranked
+  dshare = id
   dbuild1 :: SNat k
           -> (IntOf ranked -> HVectorOf ranked)  -- sh_i
           -> HVectorOf ranked  -- k ': sh_i

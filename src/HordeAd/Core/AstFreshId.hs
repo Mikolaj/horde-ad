@@ -7,6 +7,7 @@ module HordeAd.Core.AstFreshId
   ( unRawHVector, rawHVector
   , astRegisterFun, astRegisterFunS, astRegisterADShare, astRegisterADShareS
   , funToAstIOR, funToAstR, funToAstIOS, funToAstS
+  , fun1RToAst, fun1SToAst, fun1XToAst
   , fun1DToAst, fun1HToAst, fun1LToAst
   , funToAstRevIO, funToAstRev, funToAstFwdIO, funToAstFwd
   , funToAstIOI, funToAstI, funToAstIntVarIO, funToAstIntVar
@@ -156,6 +157,49 @@ funToAstS :: forall sh sh2 s r r2. (Sh.Shape sh, GoodScalar r)
 funToAstS f = unsafePerformIO $ do
   (!var, _, !ast) <- funToAstIOS f
   return (var, ast)
+
+fun1RToAstIO :: (AstVarName (AstRanked s) r n -> AstRanked s r n)
+             -> IO (AstRanked s r n)
+{-# INLINE fun1RToAstIO #-}
+fun1RToAstIO f = do
+  freshId <- unsafeGetFreshAstVarName
+  return $! f freshId
+
+fun1RToAst :: (AstVarName (AstRanked s) r n -> AstRanked s r n)
+           -> AstRanked s r n
+{-# NOINLINE fun1RToAst #-}
+fun1RToAst f = unsafePerformIO $ fun1RToAstIO f
+
+fun1SToAstIO :: (AstVarName (AstShaped s) r sh -> AstShaped s r sh)
+             -> IO (AstShaped s r sh)
+{-# INLINE fun1SToAstIO #-}
+fun1SToAstIO f = do
+  freshId <- unsafeGetFreshAstVarName
+  return $! f freshId
+
+fun1SToAst :: (AstVarName (AstShaped s) r sh -> AstShaped s r sh)
+           -> AstShaped s r sh
+{-# NOINLINE fun1SToAst #-}
+fun1SToAst f = unsafePerformIO $ fun1SToAstIO f
+
+fun1XToAstIO :: VoidHVector -> ([AstDynamicVarName] -> AstHVector s)
+             -> IO (AstHVector s)
+{-# INLINE fun1XToAstIO #-}
+fun1XToAstIO shs g = do
+  let f :: DynamicTensor VoidTensor
+        -> IO AstDynamicVarName
+      f (DynamicRankedDummy @r @sh _ _) = do
+        freshId <- unsafeGetFreshAstVarId
+        return $! AstDynamicVarName @Nat @r @sh freshId
+      f (DynamicShapedDummy @r @sh _ _) = do
+        freshId <- unsafeGetFreshAstVarId
+        return $! AstDynamicVarName @[Nat] @r @sh freshId
+  g <$> mapM f (V.toList shs)
+
+fun1XToAst :: VoidHVector -> ([AstDynamicVarName] -> AstHVector s)
+           -> AstHVector s
+{-# NOINLINE fun1XToAst #-}
+fun1XToAst shs f = unsafePerformIO $ fun1XToAstIO shs f
 
 fun1LToAstIO :: [VoidHVector]
              -> ([[AstDynamicVarName]] -> [HVector (AstRanked s)] -> a)
