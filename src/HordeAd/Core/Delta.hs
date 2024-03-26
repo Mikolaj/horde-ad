@@ -677,8 +677,8 @@ evalR
      (KnownNat n, GoodScalar r, ADReady ranked, shaped ~ ShapedOf ranked)
   => EvalState ranked -> ranked r n -> DeltaR ranked r n
   -> EvalState ranked
-evalR !s !c = let (abShared, cShared) = rregister c (astBindings s)
-                  sShared = s {astBindings = abShared}
+evalR !s !c = let cShared = rshare c
+                  sShared = s
               in \case
   ZeroR{} -> s
   InputR _ i -> s {iMap = EM.adjust (DynamicRanked . raddDynamic c) i
@@ -687,7 +687,7 @@ evalR !s !c = let (abShared, cShared) = rregister c (astBindings s)
     -- because the type of c determines the Num instance for (+).
     -- Note that we can't express sharing by inserting Share constructors
     -- into iMap, because often sharing needs to work across many
-    -- iMap keys. That's why global sharing is used, via rregister.
+    -- iMap keys. That's why global sharing is used.
   ScaleR k d -> evalR s (k * c) d
   AddR d e -> evalR (evalR sShared cShared d) cShared e
   ShareR n d ->
@@ -808,8 +808,8 @@ evalS
      (Sh.Shape sh, GoodScalar r, ADReady ranked, shaped ~ ShapedOf ranked)
   => EvalState ranked -> shaped r sh -> DeltaS shaped r sh
   -> EvalState ranked
-evalS !s !c = let (abShared, cShared) = sregister c (astBindings s)
-                  sShared = s {astBindings = abShared}
+evalS !s !c = let cShared = sshare c
+                  sShared = s
               in \case
   ZeroS -> s
   InputS i -> s {iMap = EM.adjust (DynamicShaped . saddDynamic c) i
@@ -893,9 +893,7 @@ evalH
   :: forall ranked shaped. (ADReady ranked, shaped ~ ShapedOf ranked)
   => EvalState ranked -> HVector ranked -> DeltaH ranked
   -> EvalState ranked
-evalH !s !c = let cShared = c
-                  sShared = s
-              in \case
+evalH !s !c = \case
   ShareH n d ->
     assert (case d of
               ShareH{} -> False  -- wasteful and nonsensical
@@ -910,7 +908,7 @@ evalH !s !c = let cShared = c
   MapAccumR k accShs bShs eShs q es _df rf acc0' es' ->
     let accLen = V.length accShs
         bLen = V.length bShs
-        (c0, crest) = V.splitAt accLen cShared
+        (c0, crest) = V.splitAt accLen c
         dacc_desUnshared =
           dmapAccumL (Proxy @ranked)
                      k accShs eShs (bShs V.++ accShs V.++ eShs)
@@ -919,15 +917,14 @@ evalH !s !c = let cShared = c
                         in unHFun rf [dx V.++ db, acc_e])
                      (dmkHVector c0)
                      (dmkHVector $ V.concat [crest, q, es])
-        (abShared2, dacc_des) = dregister dacc_desUnshared (astBindings sShared)
-        s2 = sShared {astBindings = abShared2}
+        dacc_des = dunHVector $ dshare dacc_desUnshared
         (dacc, des) = V.splitAt accLen dacc_des
-        s3 = evalHVector s2 dacc acc0'
-    in evalHVector s3 des es'
+        s2 = evalHVector s dacc acc0'
+    in evalHVector s2 des es'
   MapAccumL k accShs bShs eShs q es _df rf acc0' es' ->
     let accLen = V.length accShs
         bLen = V.length bShs
-        (c0, crest) = V.splitAt accLen cShared
+        (c0, crest) = V.splitAt accLen c
         dacc_desUnshared =
           dmapAccumR (Proxy @ranked)
                      k accShs eShs (bShs V.++ accShs V.++ eShs)
@@ -936,11 +933,10 @@ evalH !s !c = let cShared = c
                         in unHFun rf [dx V.++ db, acc_e])
                      (dmkHVector c0)
                      (dmkHVector $ V.concat [crest, q, es])
-        (abShared2, dacc_des) = dregister dacc_desUnshared (astBindings sShared)
-        s2 = sShared {astBindings = abShared2}
+        dacc_des = dunHVector $ dshare dacc_desUnshared
         (dacc, des) = V.splitAt accLen dacc_des
-        s3 = evalHVector s2 dacc acc0'
-    in evalHVector s3 des es'
+        s2 = evalHVector s dacc acc0'
+    in evalHVector s2 des es'
 
 evalFromnMap :: (ADReady ranked, shaped ~ ShapedOf ranked)
              => EvalState ranked -> EvalState ranked

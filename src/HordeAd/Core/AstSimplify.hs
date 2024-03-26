@@ -247,7 +247,7 @@ astNonIndexStep t = case t of
   Ast.AstVar{} -> t
   Ast.AstLet var u v -> astLet var u v
   Ast.AstLetADShare{} -> error "astNonIndexStep: AstLetADShare"
-  Ast.AstShare{} -> error "astNonIndexStep: AstShare"
+  Ast.AstShare{} -> t  -- TODO: error "astNonIndexStep: AstShare"
   Ast.AstCond a b c -> astCond a b c
   Ast.AstMinIndex{} -> t
   Ast.AstMaxIndex{} -> t
@@ -304,7 +304,7 @@ astNonIndexStepS t = case t of
   Ast.AstVarS{} -> t
   Ast.AstLetS var u v -> astLetS var u v
   Ast.AstLetADShareS{} -> error "astNonIndexStepS: AstLetADShareS"
-  Ast.AstShareS{} -> error "astNonIndexStepS: AstShareS"
+  Ast.AstShareS{} -> t  -- TODO: error "astNonIndexStepS: AstShareS"
   Ast.AstCondS a b c -> astCondS a b c
   Ast.AstMinIndexS{} -> t
   Ast.AstMaxIndexS{} -> t
@@ -422,7 +422,7 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIndex m1)) =
   Ast.AstVar{} -> Ast.AstIndex v0 ix
   Ast.AstLet var u v -> astLet var u (astIndexRec v ix)
   Ast.AstLetADShare{} -> error "astIndexKnobsR: AstLetADShare"
-  Ast.AstShare{} -> error "astIndexKnobsR: AstShare"
+  Ast.AstShare{} -> Ast.AstIndex v0 ix  -- TODO: error "astIndexKnobsR: AstShare"
   Ast.AstCond b v w ->
     shareIx ix $ \ix2 -> astCond b (astIndexRec v ix2) (astIndexRec w ix2)
   Ast.AstMinIndex v -> Ast.AstMinIndex $ astIndexKnobsR knobs v ix
@@ -605,7 +605,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS shm1)) =
   Ast.AstVarS{} -> Ast.AstIndexS v0 ix
   Ast.AstLetS var u v -> astLetS var u (astIndexRec v ix)
   Ast.AstLetADShareS{} -> error "astIndexKnobsRS: AstLetADShareS"
-  Ast.AstShareS{} -> error "astIndexKnobsRS: AstShareS"
+  Ast.AstShareS{} -> Ast.AstIndexS v0 ix  -- TODO: error "astIndexKnobsRS: AstShareS"
   Ast.AstCondS b v w ->
     shareIxS ix $ \ix2 -> astCondS b (astIndexRec v ix2) (astIndexRec w ix2)
   Ast.AstMinIndexS @shz @n1 v ->

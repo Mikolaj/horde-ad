@@ -514,6 +514,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   dlambda shss f = AstLambda
                    $ fun1LToAst shss $ \ !vvars !ll -> (vvars, unHFun f ll)
   dHApply = astHApply
+  dunHVector (AstMkHVector l) = l
   dunHVector hVectorOf =
     let f :: Int -> DynamicTensor VoidTensor -> AstDynamic s
         f i = \case
@@ -1053,6 +1054,7 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
   dlambda shss f = AstLambda
                    $ fun1LToAst shss $ \ !vvars !ll -> (vvars, unHFun f ll)
   dHApply t ll = AstRawWrap $ AstHApply t (map unRawHVector ll)
+  dunHVector (AstRawWrap (AstMkHVector l)) = rawHVector l
   dunHVector hVectorOf =
     let f :: Int -> DynamicTensor VoidTensor -> AstDynamic s
         f i = \case
@@ -1393,6 +1395,7 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
                    $ fun1LToAst shss $ \ !vvars !ll -> (vvars, unHFun f ll)
   dHApply t ll =
     AstNoSimplifyWrap $ AstHApply t (map unNoSimplifyHVector ll)
+  dunHVector (AstNoSimplifyWrap (AstMkHVector l)) = noSimplifyHVector l
   dunHVector hVectorOf =
     let f :: Int -> DynamicTensor VoidTensor -> AstDynamic s
         f i = \case
