@@ -520,11 +520,9 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
         f i = \case
           DynamicRankedDummy @r @sh _ _ ->
             withListSh (Proxy @sh) $ \(_ :: ShapeInt n) ->
-              DynamicRanked @r @n
-              $ rletHVectorIn @(AstRanked s) hVectorOf (rfromD . (V.! i))
+              DynamicRanked @r @n $ AstProject hVectorOf i
           DynamicShapedDummy @r @sh _ _ ->
-            DynamicShaped @r @sh
-            $ sletHVectorIn @(AstShaped s) hVectorOf (sfromD . (V.! i))
+            DynamicShaped @r @sh $ AstProjectS hVectorOf i
     in V.imap f $ shapeAstHVector hVectorOf
   dletHVectorInHVector = astLetHVectorInHVectorFun
   dletHFunInHVector = astLetHFunInHVectorFun
@@ -1055,17 +1053,15 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
                    $ fun1LToAst shss $ \ !vvars !ll -> (vvars, unHFun f ll)
   dHApply t ll = AstRawWrap $ AstHApply t (map unRawHVector ll)
   dunHVector (AstRawWrap (AstMkHVector l)) = rawHVector l
-  dunHVector hVectorOf =
+  dunHVector (AstRawWrap hVectorOf) =
     let f :: Int -> DynamicTensor VoidTensor -> AstDynamic s
         f i = \case
           DynamicRankedDummy @r @sh _ _ ->
             withListSh (Proxy @sh) $ \(_ :: ShapeInt n) ->
-              DynamicRanked @r @n $ unAstRaw
-              $ rletHVectorIn @(AstRaw s) hVectorOf (rfromD . (V.! i))
+              DynamicRanked @r @n $ AstProject hVectorOf i
           DynamicShapedDummy @r @sh _ _ ->
-            DynamicShaped @r @sh $ unAstRawS
-            $ sletHVectorIn @(AstRawS s) hVectorOf (sfromD . (V.! i))
-    in rawHVector $ V.imap f $ shapeAstHVector $ unAstRawWrap hVectorOf
+            DynamicShaped @r @sh $ AstProjectS hVectorOf i
+    in rawHVector $ V.imap f $ shapeAstHVector hVectorOf
   dletHVectorInHVector a f =
     AstRawWrap
     $ astLetHVectorInHVectorFunRaw (unAstRawWrap a)
@@ -1396,18 +1392,16 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
   dHApply t ll =
     AstNoSimplifyWrap $ AstHApply t (map unNoSimplifyHVector ll)
   dunHVector (AstNoSimplifyWrap (AstMkHVector l)) = noSimplifyHVector l
-  dunHVector hVectorOf =
+  dunHVector (AstNoSimplifyWrap hVectorOf) =
     let f :: Int -> DynamicTensor VoidTensor -> AstDynamic s
         f i = \case
           DynamicRankedDummy @r @sh _ _ ->
             withListSh (Proxy @sh) $ \(_ :: ShapeInt n) ->
-              DynamicRanked @r @n $ unAstNoSimplify
-              $ rletHVectorIn @(AstNoSimplify s) hVectorOf (rfromD . (V.! i))
+              DynamicRanked @r @n $  AstProject hVectorOf i
           DynamicShapedDummy @r @sh _ _ ->
-            DynamicShaped @r @sh $ unAstNoSimplifyS
-            $ sletHVectorIn @(AstNoSimplifyS s) hVectorOf (sfromD . (V.! i))
+            DynamicShaped @r @sh $ AstProjectS hVectorOf i
     in noSimplifyHVector
-       $ V.imap f $ shapeAstHVector $ unAstNoSimplifyWrap hVectorOf
+       $ V.imap f $ shapeAstHVector hVectorOf
   dletHVectorInHVector a f =
     AstNoSimplifyWrap
     $ astLetHVectorInHVectorFunRaw (unAstNoSimplifyWrap a)
