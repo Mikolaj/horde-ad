@@ -246,6 +246,10 @@ build1V k (var, v00) =
     Ast.AstConst{} ->
       error "build1V: AstConst can't have free index variables"
 
+    Ast.AstProject l p -> case someNatVal $ toInteger k of
+      Just (SomeNat @k3 _) ->
+        astProject (build1VOccurenceUnknownHVector (SNat @k3) (var, l)) p
+      _ -> error "build1V: impossible someNatVal"
     Ast.AstLetHVectorIn vars1 l v -> case someNatVal $ toInteger k of
       Just (SomeNat @k3 _) ->
         -- Here substitution traverses @v@ term tree @length vars@ times.
@@ -525,6 +529,8 @@ build1VS (var, v00) =
     Ast.AstConstS{} ->
       error "build1VS: AstConstS can't have free index variables"
 
+    Ast.AstProjectS l p ->
+      astProjectS (build1VOccurenceUnknownHVector (SNat @k) (var, l)) p
     Ast.AstLetHVectorInS vars1 l v ->
       -- See the AstLetHVectorIn case for comments.
       let (vOut, varsOut) = substProjVarsS @k var vars1 v

@@ -27,7 +27,8 @@ module HordeAd.Core.AstSimplify
   , astReplicate, astReplicateS, astAppend, astAppendS, astSlice, astSliceS
   , astReverse, astReverseS
   , astTranspose, astTransposeS, astReshape, astReshapeS
-  , astCast, astCastS, astFromIntegral, astFromIntegralS, astRFromS, astSFromR
+  , astCast, astCastS, astFromIntegral, astFromIntegralS
+  , astProject, astProjectS, astRFromS, astSFromR
   , astPrimalPart, astPrimalPartS, astDualPart, astDualPartS
   , astLetHVectorIn, astLetHVectorInS, astLetHFunIn, astLetHFunInS, astHApply
   , astLetHVectorInHVector, astLetHFunInHVector
@@ -89,6 +90,7 @@ import qualified HordeAd.Core.Ast as Ast
 import           HordeAd.Core.AstFreshId
 import           HordeAd.Core.AstTools
 import           HordeAd.Core.HVector
+import           HordeAd.Core.HVectorOps
 import           HordeAd.Core.TensorClass
 import           HordeAd.Core.Types
 import           HordeAd.Internal.BackendConcrete
@@ -289,6 +291,7 @@ astNonIndexStep t = case t of
   Ast.AstCast v -> astCast v
   Ast.AstFromIntegral v -> astFromIntegral v
   AstConst{} -> t
+  Ast.AstProject l p -> astProject l p
   Ast.AstLetHVectorIn vars u v -> astLetHVectorIn vars u v
   Ast.AstLetHFunIn var u v -> astLetHFunIn var u v
   Ast.AstRFromS v -> astRFromS v
@@ -338,6 +341,7 @@ astNonIndexStepS t = case t of
   Ast.AstCastS v -> astCastS v
   Ast.AstFromIntegralS v -> astFromIntegralS v
   AstConstS{} -> t
+  Ast.AstProjectS l p -> astProjectS l p
   Ast.AstLetHVectorInS vars u v -> astLetHVectorInS vars u v
   Ast.AstLetHFunInS var u v -> astLetHFunInS var u v
   Ast.AstSFromR v -> astSFromR v
@@ -546,6 +550,11 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIndex m1)) =
                     $ map OR.unScalar ixInt
         -- TODO: we'd need mapM for Index to keep this rank-typed
       Nothing -> Ast.AstIndex v0 ix
+  Ast.AstProject{} -> error "astIndexKnobsR: AstProject"
+    {- The term should get simplified before this monstrosity kicks in:
+    fun1DToAst (shapeAstHVector l) $ \ !vars !asts ->
+      let lp = fromDynamicR (\sh -> astReplicate0N sh 0) (asts V.! p)
+      in astLetHVectorIn vars l (astIndexRec lp ix) -}
   Ast.AstLetHVectorIn vars l v ->
     astLetHVectorIn vars l (astIndexRec v ix)
   Ast.AstLetHFunIn var f v ->
@@ -784,6 +793,11 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS shm1)) =
                     $ map OR.unScalar ixInt
         -- TODO: we'd need mapM for Index to keep this rank-typed
       Nothing -> Ast.AstIndexS v0 ix
+  Ast.AstProjectS{} -> error "astIndexKnobsRS: AstProjectsS"
+    {- The term should get simplified before this monstrosity kicks in:
+    fun1DToAst (shapeAstHVector l) $ \ !vars !asts ->
+      let lp = fromDynamicS (asts V.! p)
+      in astLetHVectorInS vars l (astIndexRec lp ix) -}
   Ast.AstLetHVectorInS vars l v ->
     astLetHVectorInS vars l (astIndexRec v ix)
   Ast.AstLetHFunInS var f v ->
@@ -1131,6 +1145,8 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
     Ast.AstCast v -> astCast $ astGather sh4 v (vars4, ix4)
     Ast.AstFromIntegral v -> astFromIntegral $ astGather sh4 v (vars4, ix4)
     AstConst{} ->  -- free variables possible, so can't compute the tensor
+      Ast.AstGather sh4 v4 (vars4, ix4)
+    Ast.AstProject{} ->  -- most likely reduced before it gets there
       Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstLetHVectorIn vars l v ->
       astLetHVectorIn vars l (astGatherCase sh4 v (vars4, ix4))
@@ -2036,6 +2052,36 @@ astFromIntegralS (Ast.AstLetADShareS l v) =
 astFromIntegralS (Ast.AstFromIntegralS v) = astFromIntegralS v
 astFromIntegralS v = Ast.AstFromIntegralS v
 
+astProject
+  :: forall n r s. (KnownNat n, GoodScalar r, AstSpan s)
+  => AstHVector s -> Int -> AstRanked s r n
+astProject l p = case l of
+  Ast.AstMkHVector l3 -> fromDynamicR (\sh -> astReplicate0N sh 0) (l3 V.! p)
+  Ast.AstLetHVectorInHVector vars d1 d2 ->
+    astLetHVectorIn vars d1 (astProject d2 p)
+  Ast.AstLetInHVector var u2 d2 ->
+    astLet var u2 (astProject d2 p)
+  Ast.AstLetInHVectorS var u2 d2 ->
+    case shapeAstHVector d2 V.! p of
+      DynamicRankedDummy @_ @sh _ _ | Just Refl <- matchingRank @sh @n ->
+        astRFromS @sh $ astLetS var u2 $ astSFromR @sh (astProject d2 p)
+      _ -> error "astProject: wrong shape"
+  _ -> Ast.AstProject l p
+
+astProjectS
+  :: forall sh r s. (Sh.Shape sh, GoodScalar r, AstSpan s)
+  => AstHVector s -> Int -> AstShaped s r sh
+astProjectS l p = case l of
+  Ast.AstMkHVector l3 -> fromDynamicS (l3 V.! p)
+  Ast.AstLetHVectorInHVector vars d1 d2 ->
+    astLetHVectorInS vars d1 (astProjectS d2 p)
+  Ast.AstLetInHVector var u2 d2 ->
+    withListSh (Proxy @sh) $ \_ ->
+      astSFromR $ astLet var u2 $ astRFromS @sh (astProjectS d2 p)
+  Ast.AstLetInHVectorS var u2 d2 ->
+    astLetS var u2 (astProjectS d2 p)
+  _ -> Ast.AstProjectS l p
+
 astRFromS :: Sh.Shape sh
           => AstShaped s r sh -> AstRanked s r (Sh.Rank sh)
 astRFromS (AstConstS t) = AstConst $ Data.Array.Convert.convert t
@@ -2081,6 +2127,7 @@ astPrimalPart t = case t of
   Ast.AstBuild1 k (var, v) -> Ast.AstBuild1 k (var, astPrimalPart v)
   Ast.AstGather sh v (vars, ix) -> astGatherR sh (astPrimalPart v) (vars, ix)
   Ast.AstCast v -> astCast $ astPrimalPart v
+  Ast.AstProject{} -> Ast.AstPrimalPart t  -- should get simplified early
   Ast.AstLetHVectorIn vars l v -> astLetHVectorIn vars l (astPrimalPart v)
   Ast.AstLetHFunIn var f v -> astLetHFunIn var f (astPrimalPart v)
   Ast.AstRFromS v -> astRFromS $ astPrimalPartS v
@@ -2116,6 +2163,7 @@ astPrimalPartS t = case t of
   Ast.AstBuild1S (var, v) -> Ast.AstBuild1S (var, astPrimalPartS v)
   Ast.AstGatherS v (vars, ix) -> astGatherS (astPrimalPartS v) (vars, ix)
   Ast.AstCastS v -> astCastS $ astPrimalPartS v
+  Ast.AstProjectS{} -> Ast.AstPrimalPartS t
   Ast.AstLetHVectorInS vars l v ->
     astLetHVectorInS vars l (astPrimalPartS v)
   Ast.AstLetHFunInS var f v -> astLetHFunInS var f (astPrimalPartS v)
@@ -2152,6 +2200,7 @@ astDualPart t = case t of
   Ast.AstBuild1 k (var, v) -> Ast.AstBuild1 k (var, astDualPart v)
   Ast.AstGather sh v (vars, ix) -> astGatherR sh (astDualPart v) (vars, ix)
   Ast.AstCast v -> astCast $ astDualPart v
+  Ast.AstProject{} -> Ast.AstDualPart t
   Ast.AstLetHVectorIn vars l v -> astLetHVectorIn vars l (astDualPart v)
   Ast.AstLetHFunIn var f v -> astLetHFunIn var f (astDualPart v)
   Ast.AstRFromS v -> astRFromS $ astDualPartS v
@@ -2185,6 +2234,7 @@ astDualPartS t = case t of
   Ast.AstBuild1S (var, v) -> Ast.AstBuild1S (var, astDualPartS v)
   Ast.AstGatherS v (vars, ix) -> astGatherS (astDualPartS v) (vars, ix)
   Ast.AstCastS v -> astCastS $ astDualPartS v
+  Ast.AstProjectS{} -> Ast.AstDualPartS t
   Ast.AstLetHVectorInS var f v -> astLetHVectorInS var f (astDualPartS v)
   Ast.AstLetHFunInS var f v -> astLetHFunInS var f (astDualPartS v)
   Ast.AstSFromR v -> astSFromR $ astDualPart v
@@ -2309,7 +2359,7 @@ astLetHVectorIn vars l v =
       Ast.AstLetInHVector var2 u2 d2 ->
         astLet var2 u2
         $ astLetHVectorIn vars d2 v
-      Ast.AstLetInHVectorS @sh3 var2 u2 d2 ->
+      Ast.AstLetInHVectorS var2 u2 d2 ->
         astRFromS $ astLetS var2 u2 $ astSFromR @sh
         $ astLetHVectorIn vars d2 v
       _ -> Ast.AstLetHVectorIn vars l v
@@ -2337,7 +2387,7 @@ astLetHVectorInS vars l v =
     Ast.AstLetInHVector var2 u2 d2 ->
       astSFromR $ astLet var2 u2 $ astRFromS
       $ astLetHVectorInS vars d2 v
-    Ast.AstLetInHVectorS @sh3 var2 u2 d2 ->
+    Ast.AstLetInHVectorS var2 u2 d2 ->
       astLetS var2 u2
       $ astLetHVectorInS vars d2 v
     _ -> Ast.AstLetHVectorInS vars l v
@@ -2425,6 +2475,7 @@ simplifyAst t = case t of
   Ast.AstCast v -> astCast $ simplifyAst v
   Ast.AstFromIntegral v -> astFromIntegral $ simplifyAst v
   AstConst{} -> t
+  Ast.AstProject l p -> astProject (simplifyAstHVector l) p
   Ast.AstLetHVectorIn vars l v ->
     astLetHVectorIn vars (simplifyAstHVector l) (simplifyAst v)
   Ast.AstLetHFunIn var f v ->
@@ -2473,6 +2524,7 @@ simplifyAstS t = case t of
   Ast.AstCastS v -> astCastS $ simplifyAstS v
   Ast.AstFromIntegralS v -> astFromIntegralS $ simplifyAstS v
   AstConstS{} -> t
+  Ast.AstProjectS l p -> astProjectS (simplifyAstHVector l) p
   Ast.AstLetHVectorInS vars l v ->
     astLetHVectorInS vars (simplifyAstHVector l) (simplifyAstS v)
   Ast.AstLetHFunInS var f v ->
@@ -2649,6 +2701,7 @@ expandAst t = case t of
   Ast.AstCast v -> astCast $ expandAst v
   Ast.AstFromIntegral v -> astFromIntegral $ expandAst v
   AstConst{} -> t
+  Ast.AstProject l p -> astProject (expandAstHVector l) p
   Ast.AstLetHVectorIn vars l v ->
     astLetHVectorIn vars (expandAstHVector l) (expandAst v)
   Ast.AstLetHFunIn var f v ->
@@ -2700,6 +2753,7 @@ expandAstS t = case t of
   Ast.AstCastS v -> astCastS $ expandAstS v
   Ast.AstFromIntegralS v -> astFromIntegralS $ expandAstS v
   AstConstS{} -> t
+  Ast.AstProjectS l p -> astProjectS (expandAstHVector l) p
   Ast.AstLetHVectorInS vars l v ->
     astLetHVectorInS vars (expandAstHVector l) (expandAstS v)
   Ast.AstLetHFunInS var f v ->
@@ -3208,6 +3262,10 @@ substitute1Ast i var v1 = case v1 of
   Ast.AstCast v -> astCast <$> substitute1Ast i var v
   Ast.AstFromIntegral v -> astFromIntegral <$> substitute1Ast i var v
   Ast.AstConst{} -> Nothing
+  Ast.AstProject l p ->
+    case substitute1AstHVector i var l of
+      Nothing -> Nothing
+      ml -> Just $ astProject (fromMaybe l ml) p
   Ast.AstLetHVectorIn vars l v ->
     case (substitute1AstHVector i var l, substitute1Ast i var v) of
       (Nothing, Nothing) -> Nothing
@@ -3348,6 +3406,10 @@ substitute1AstS i var = \case
   Ast.AstCastS v -> astCastS <$> substitute1AstS i var v
   Ast.AstFromIntegralS a -> astFromIntegralS <$> substitute1AstS i var a
   Ast.AstConstS{} -> Nothing
+  Ast.AstProjectS l p ->
+    case substitute1AstHVector i var l of
+      Nothing -> Nothing
+      ml -> Just $ astProjectS (fromMaybe l ml) p
   Ast.AstLetHVectorInS vars l v ->
     case (substitute1AstHVector i var l, substitute1AstS i var v) of
       (Nothing, Nothing) -> Nothing

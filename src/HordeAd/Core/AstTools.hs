@@ -89,6 +89,9 @@ shapeAst = \case
   AstCast t -> shapeAst t
   AstFromIntegral a -> shapeAst a
   AstConst a -> listToShape $ OR.shapeL a
+  AstProject l p -> case shapeAstHVector l V.! p of
+    DynamicRankedDummy @_ @sh _ _ -> listToShape $ Sh.shapeT @sh
+    DynamicShapedDummy{} -> error "shapeAst: DynamicShapedDummy"
   AstLetHVectorIn _ _ v -> shapeAst v
   AstLetHFunIn _ _ v -> shapeAst v
   AstRFromS @sh _ -> listToShape $ Sh.shapeT @sh
@@ -170,6 +173,7 @@ varInAst var = \case
   AstCast t -> varInAst var t
   AstFromIntegral t -> varInAst var t
   AstConst{} -> False
+  AstProject l _p -> varInAstHVector var l  -- conservative
   AstLetHVectorIn _vars l v -> varInAstHVector var l || varInAst var v
   AstLetHFunIn _var2 f v -> varInAstHFun var f || varInAst var v
   AstRFromS v -> varInAstS var v
@@ -215,6 +219,7 @@ varInAstS var = \case
   AstCastS t -> varInAstS var t
   AstFromIntegralS a -> varInAstS var a
   AstConstS{} -> False
+  AstProjectS l _p -> varInAstHVector var l  -- conservative
   AstLetHVectorInS _vars l v -> varInAstHVector var l || varInAstS var v
   AstLetHFunInS _var2 f v -> varInAstHFun var f || varInAstS var v
   AstSFromR v -> varInAst var v

@@ -404,6 +404,11 @@ interpretAst !env = \case
   AstFromIntegral v ->
     rfromIntegral $ rconstant $ interpretAstPrimalRuntimeSpecialized env v
   AstConst a -> rconst a
+  AstProject l p ->
+    let lt = interpretAstHVector env l
+    in rletHVectorIn lt (\lw -> rfromD $ lw V.! p)
+         -- This is weak, but we don't need rproject nor sproject.
+         -- Most likely, the term gets simplified before interpretation anyway.
   AstLetHVectorIn vars l v ->
     let lt = interpretAstHVector env l
         env2 lw = assert (voidHVectorMatches (voidFromVars vars) lw
@@ -783,6 +788,9 @@ interpretAstS !env = \case
   AstFromIntegralS v ->
     sfromIntegral $ sconstant $ interpretAstPrimalSRuntimeSpecialized env v
   AstConstS a -> sconst a
+  AstProjectS l p ->
+    let lt = interpretAstHVector env l
+    in sletHVectorIn lt (\lw -> sfromD $ lw V.! p)
   AstLetHVectorInS vars l v ->
     let lt = interpretAstHVector env l
         env2 lw = assert (voidHVectorMatches (voidFromVars vars) lw

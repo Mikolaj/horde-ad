@@ -8,7 +8,7 @@ module HordeAd.Core.HVectorOps
   , sizeHVector, shapeDynamic
   , dynamicsMatch, hVectorsMatch, voidHVectorMatches, voidHVectorsMatch
   , voidFromDynamic, voidFromHVector, dynamicFromVoid
-  , fromHVectorR, fromHVectorS
+  , fromDynamicR, fromDynamicS, fromHVectorR, fromHVectorS
   , unravelHVector, ravelHVector
   , mapHVectorRanked, mapHVectorRanked01, mapHVectorRanked10, mapHVectorRanked11
   , mapHVectorShaped11, mapHVectorShaped
@@ -215,27 +215,51 @@ dynamicFromVoid :: DynamicTensor VoidTensor -> DynamicTensor ranked
 dynamicFromVoid (DynamicRankedDummy p1 p2) = DynamicRankedDummy p1 p2
 dynamicFromVoid (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
 
+fromDynamicR :: forall r n ranked.
+                (GoodScalar r, KnownNat n)
+             => (ShapeInt n -> ranked r n) -> DynamicTensor ranked
+             -> ranked r n
+fromDynamicR zero = \case
+  DynamicRanked @r2 @n2 t -> case sameNat (Proxy @n2) (Proxy @n) of
+    Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
+      Just Refl -> t
+      _ -> error $ "fromDynamicR: scalar mismatch in "
+                   ++ show (typeRep @r2, typeRep @r)
+    _ -> error "fromDynamicR: rank mismatch"
+  DynamicShaped{} -> error "fromDynamicR: ranked from shaped"
+  DynamicRankedDummy @r2 @sh2 _ _ -> case matchingRank @sh2 @n of
+    Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
+      Just Refl -> let sh2 = listToShape (Sh.shapeT @sh2)
+                   in zero sh2
+      _ -> error "fromDynamicR: scalar mismatch"
+    _ -> error "fromDynamicR: shape mismatch"
+  DynamicShapedDummy{} -> error "fromDynamicR: ranked from shaped"
+
+fromDynamicS :: forall r sh shaped
+              . ( Num (shaped r sh), GoodScalar r, Sh.Shape sh
+                , ShapedOf (RankedOf shaped) ~ shaped )
+             => DynamicTensor (RankedOf shaped)
+             -> shaped r sh
+fromDynamicS = \case
+  DynamicRanked{} -> error "fromDynamicS: shaped from ranked"
+  DynamicShaped @r2 @sh2 t -> case sameShape @sh2 @sh of
+    Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
+      Just Refl -> t
+      _ -> error "fromDynamicS: scalar mismatch"
+    _ -> error "fromDynamicS: shape mismatch"
+  DynamicRankedDummy{} -> error "fromDynamicS: shaped from ranked"
+  DynamicShapedDummy @r2 @sh2 _ _ -> case sameShape @sh2 @sh of
+    Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
+      Just Refl -> 0
+      _ -> error "fromDynamicS: scalar mismatch"
+    _ -> error "fromDynamicS: shape mismatch"
+
 fromHVectorR :: forall r n ranked.
                 (RankedTensor ranked, GoodScalar r, KnownNat n)
              => HVector ranked
              -> Maybe (ranked r n, HVector ranked)
 fromHVectorR params = case V.uncons params of
-  Just (DynamicRanked @r2 @n2 t, rest) -> case sameNat (Proxy @n2)
-                                                       (Proxy @n) of
-    Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
-      Just Refl -> Just (t, rest)
-      _ -> error $ "fromHVectorR: scalar mismatch in "
-                   ++ show (typeRep @r2, typeRep @r)
-    _ -> error "fromHVectorR: rank mismatch"
-  Just (DynamicShaped{}, _) -> error "fromHVectorR: ranked from shaped"
-  Just (DynamicRankedDummy @r2 @sh2 _ _, rest) -> case matchingRank @sh2 @n of
-    Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
-      Just Refl ->
-         let sh2 = listToShape (Sh.shapeT @sh2)
-         in Just (rzero sh2 :: ranked r2 (Sh.Rank sh2), rest)
-      _ -> error "fromHVectorR: scalar mismatch"
-    _ -> error "fromHVectorR: shape mismatch"
-  Just (DynamicShapedDummy{}, _) -> error "fromHVectorR: ranked from shaped"
+  Just (dynamic, rest) -> Just (fromDynamicR rzero dynamic, rest)
   Nothing -> Nothing
 
 fromHVectorS :: forall r sh shaped
@@ -244,20 +268,7 @@ fromHVectorS :: forall r sh shaped
              => HVector (RankedOf shaped)
              -> Maybe (shaped r sh,  HVector (RankedOf shaped))
 fromHVectorS params = case V.uncons params of
-  Just (DynamicRanked{}, _) -> error "fromHVectorS: shaped from ranked"
-  Just (DynamicShaped @r2 @sh2 t, rest) -> case sameShape @sh2 @sh of
-    Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
-      Just Refl -> Just (t, rest)
-      _ -> error "fromHVectorS: scalar mismatch"
-    _ -> error "fromHVectorS: shape mismatch"
-  Just (DynamicRankedDummy{}, _) -> error "fromHVectorS: shaped from ranked"
-  Just (DynamicShapedDummy @r2 @sh2 _ _, rest) -> case sameShape @sh2 @sh of
-    Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
-      Just Refl ->
-        -- The dummy gets removed, so we verify its types before it does.
-        Just (0 :: shaped r2 sh2, rest)
-      _ -> error "fromHVectorS: scalar mismatch"
-    _ -> error "fromHVectorS: shape mismatch"
+  Just (dynamic, rest) -> Just (fromDynamicS dynamic, rest)
   Nothing -> Nothing
 
 unravelDynamic

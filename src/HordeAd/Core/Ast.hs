@@ -251,6 +251,7 @@ data AstRanked :: AstSpanType -> RankedTensorType where
   AstFromIntegral :: (GoodScalar r1, Integral r1)
                   => AstRanked PrimalSpan r1 n -> AstRanked PrimalSpan r2 n
   AstConst :: OR.Array n r -> AstRanked PrimalSpan r n
+  AstProject :: AstHVector s -> Int -> AstRanked s r n
   AstLetHVectorIn :: AstSpan s
                   => [AstDynamicVarName] -> AstHVector s
                   -> AstRanked s2 r n
@@ -369,6 +370,7 @@ data AstShaped :: AstSpanType -> ShapedTensorType where
   AstFromIntegralS :: (GoodScalar r1, Integral r1)
                    => AstShaped PrimalSpan r1 sh -> AstShaped PrimalSpan r2 sh
   AstConstS :: OS.Array sh r -> AstShaped PrimalSpan r sh
+  AstProjectS :: AstHVector s -> Int -> AstShaped s r sh
   AstLetHVectorInS :: AstSpan s
                    => [AstDynamicVarName] -> AstHVector s
                    -> AstShaped s2 r sh

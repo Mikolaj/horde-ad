@@ -209,6 +209,9 @@ inlineAst memo v0 = case v0 of
   Ast.AstCast v -> second Ast.AstCast $ inlineAst memo v
   Ast.AstFromIntegral v -> second Ast.AstFromIntegral $ inlineAst memo v
   Ast.AstConst{} -> (memo, v0)
+  Ast.AstProject l p ->
+    let (memo1, l2) = inlineAstHVector memo l
+    in (memo1, Ast.AstProject l2 p)
   Ast.AstLetHVectorIn vars l v ->
     -- We don't inline, but elsewhere try to reduce to constructors that we do.
     let (memo1, l2) = inlineAstHVector memo l
@@ -343,6 +346,9 @@ inlineAstS memo v0 = case v0 of
   Ast.AstFromIntegralS v ->
     second Ast.AstFromIntegralS $ inlineAstS memo v
   Ast.AstConstS{} -> (memo, v0)
+  Ast.AstProjectS l p ->
+    let (memo1, l2) = inlineAstHVector memo l
+    in (memo1, Ast.AstProjectS l2 p)
   Ast.AstLetHVectorInS vars l v ->
     -- We don't inline, but elsewhere try to reduce to constructors that we do.
     let (memo1, l2) = inlineAstHVector memo l
@@ -568,6 +574,7 @@ unletAst env t = case t of
   Ast.AstCast v -> Ast.AstCast (unletAst env v)
   Ast.AstFromIntegral v -> Ast.AstFromIntegral (unletAst env v)
   Ast.AstConst{} -> t
+  Ast.AstProject l p -> Ast.AstProject (unletAstHVector env l) p
   Ast.AstLetHVectorIn vars l v -> case vars of
     [] -> error "unletAst: empty hVector"
     var : _ ->  -- vars are fresh, so var uniquely represent vars
@@ -646,6 +653,7 @@ unletAstS env t = case t of
   Ast.AstCastS v -> Ast.AstCastS (unletAstS env v)
   Ast.AstFromIntegralS v -> Ast.AstFromIntegralS (unletAstS env v)
   Ast.AstConstS{} -> t
+  Ast.AstProjectS l p -> Ast.AstProjectS (unletAstHVector env l) p
   Ast.AstLetHVectorInS vars l v -> case vars of
     [] -> error "unletAstS: empty hVector"
     var : _ ->  -- vars are fresh, so var uniquely represent vars
@@ -831,6 +839,9 @@ shareAst memo v0 = case v0 of
   Ast.AstCast v -> second Ast.AstCast $ shareAst memo v
   Ast.AstFromIntegral v -> second Ast.AstFromIntegral $ shareAst memo v
   Ast.AstConst{} -> (memo, v0)
+  Ast.AstProject l p ->
+    let (memo1, l2) = shareAstHVector memo l
+    in (memo1, Ast.AstProject l2 p)
   Ast.AstLetHVectorIn vars l v ->
     let (memo1, l2) = shareAstHVector memo l
         (memo2, v2) = shareAst memo1 v
@@ -935,6 +946,9 @@ shareAstS memo v0 = case v0 of
   Ast.AstFromIntegralS v ->
     second Ast.AstFromIntegralS $ shareAstS memo v
   Ast.AstConstS{} -> (memo, v0)
+  Ast.AstProjectS l p ->
+    let (memo1, l2) = shareAstHVector memo l
+    in (memo1, Ast.AstProjectS l2 p)
   Ast.AstLetHVectorInS vars l v ->
     let (memo1, l2) = shareAstHVector memo l
         (memo2, v2) = shareAstS memo1 v

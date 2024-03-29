@@ -107,6 +107,7 @@ areAllArgsInts = \case
   AstCast{} -> False
   AstFromIntegral{} -> True
   AstConst{} -> True
+  AstProject{} -> True  -- too early to tell
   AstLetHVectorIn{} -> True  -- too early to tell
   AstLetHFunIn{} -> True  -- too early to tell
   AstRFromS{} -> False
@@ -352,6 +353,12 @@ printAstAux cfg d = \case
            $ showString "rconst "
              . (showParen True
                 $ shows a)
+  AstProject l p ->
+    showParen (d > 10)
+    $ showString "rproject "  -- fake, no such surface syntax
+      . printAstHVector cfg 0 l
+      . showString " "
+      . shows p
   AstLetHVectorIn vars l v ->
     if loseRoudtrip cfg
     then
@@ -535,6 +542,12 @@ printAstS cfg d = \case
            $ showString ("sconst @" ++ show (Sh.shapeT @sh2) ++ " ")
              . (showParen True
                 $ shows a)
+  AstProjectS l p ->
+    showParen (d > 10)
+    $ showString "sproject "  -- fake, no such surface syntax
+      . printAstHVector cfg 0 l
+      . showString " "
+      . shows p
   AstLetHVectorInS vars l v ->
     if loseRoudtrip cfg
     then
