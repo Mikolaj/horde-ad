@@ -999,9 +999,10 @@ shareAstHVector memo v0 = case v0 of
     let (memo1, v2) = shareAstHVector memo v
         (memo2, u2) = shareAstS memo1 u
     in (memo2, Ast.AstLetInHVectorS var u2 v2)
+  Ast.AstShareHVector [] l -> (memo, l)  -- no need to share an empty HVector
   Ast.AstShareHVector vars l | Just Refl <- sameAstSpan @s @PrimalSpan ->
     -- We assume l is the same if vars are the same.
-    let var = vars !! 0  -- vars are fresh, so var uniquely represent vars
+    let var = vars !! 0  -- vars are fresh, so var uniquely represents vars
         varId = dynamicVarNameToAstVarId var
         f :: AstDynamicVarName -> DynamicTensor (AstRanked PrimalSpan)
         f (AstDynamicVarName @ty @rD @shD varIdD) =
