@@ -112,7 +112,7 @@ revArtifactFromForwardPass hasDt forwardPass parameters0 =
     let mdt = if hasDt
               then Just $ rawHVector astsDt
               else Nothing
-        !(!astBindings, !gradient) =
+        !gradient =
           gradientFromDeltaH
             parameters0 (HVectorPseudoTensor primalBody) mdt delta
         unGradient = dunlet l (dmkHVector gradient)
@@ -146,7 +146,7 @@ fwdArtifactFromForwardPass forwardPass parameters0 =
         funToAstFwd parameters0 in
   let !(D l (HVectorPseudoTensor primalBody) delta) =
         forwardPass hVectorPrimal vars hVector in
-  let !(!astBindings, !(HVectorPseudoTensor derivative)) =
+  let !(HVectorPseudoTensor derivative) =
         derivativeFromDeltaH (V.length parameters0) delta hVectorDs
       unDerivative = HVectorPseudoTensor $ dunlet l derivative
       unPrimal = HVectorPseudoTensor $ dunlet l primalBody
@@ -683,7 +683,7 @@ astBuildHVector1Vectorize k f = build1VectorizeHVector k $ funToAstI f
   -> HVectorPseudoTensor (AstRanked PrimalSpan) Double y
   -> Maybe (HVector (AstRanked PrimalSpan))
   -> HVectorPseudoTensor (DeltaR (AstRanked PrimalSpan)) Double y
-  -> (AstBindings, HVector (AstRanked PrimalSpan)) #-}
+  -> HVector (AstRanked PrimalSpan) #-}
 {-# SPECIALIZE evalFromnMap
   :: EvalState (AstRanked PrimalSpan) -> EvalState (AstRanked PrimalSpan) #-}
 

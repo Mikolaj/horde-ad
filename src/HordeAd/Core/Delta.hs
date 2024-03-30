@@ -90,7 +90,7 @@ gradientFromDeltaH
   -> HVectorPseudoTensor ranked r y
   -> Maybe (HVector ranked)
   -> HVectorPseudoTensor (DeltaR ranked) r y
-  -> (AstBindings, HVector ranked)
+  -> HVector ranked
 gradientFromDeltaH !parameters0 (HVectorPseudoTensor value)
                    !mdt (HVectorPseudoTensor deltaTopLevel) =
   let shDt = dshape value
@@ -98,9 +98,8 @@ gradientFromDeltaH !parameters0 (HVectorPseudoTensor value)
         fromMaybe (mapHVectorShaped (const 1) $ V.map dynamicFromVoid shDt) mdt
       s0 = initEvalState parameters0
       s1 = evalH s0 dt deltaTopLevel
-      !s2 = evalFromnMap s1
-      !gradient = V.fromList $ EM.elems $ iMap s2
-  in (astBindings s2, gradient)
+      s2 = evalFromnMap s1
+  in V.fromList $ EM.elems $ iMap s2
 
 -- @r@ is a placeholder here, it's reduced away. @y@ is '(), but GHC doesn't
 -- know it has to be that.
@@ -109,13 +108,13 @@ derivativeFromDeltaH
   => Int
   -> HVectorPseudoTensor (DeltaR ranked) r y
   -> HVector ranked
-  -> (AstBindings, HVectorPseudoTensor ranked r y)
+  -> HVectorPseudoTensor ranked r y
 derivativeFromDeltaH dim (HVectorPseudoTensor deltaTopLevel) ds =
   -- EvalState is too complex for the forward derivative, but since
   -- it's already defined, let's use it.
-  let s0 = EvalState EM.empty EM.empty EM.empty EM.empty EM.empty []
-      !(!s2, !c) = fwdH dim ds s0 deltaTopLevel
-  in (astBindings s2, HVectorPseudoTensor c)
+  let s0 = EvalState EM.empty EM.empty EM.empty EM.empty EM.empty
+      !(!_s2, !c) = fwdH dim ds s0 deltaTopLevel
+  in HVectorPseudoTensor c
 
 
 -- * Abstract syntax trees of the delta expressions
@@ -545,7 +544,6 @@ data EvalState ranked = EvalState
       -- evaluating
   , hdMap       :: EM.EnumMap (NodeId ranked) (HVector ranked)
   , hnMap       :: EM.EnumMap (NodeId ranked) (DeltaH ranked)
-  , astBindings :: AstBindings
   }
 
 -- | Delta expressions naturally denote forward derivatives, as encoded
@@ -620,7 +618,6 @@ initEvalState !parameters0 =
       nMap = EM.empty
       hdMap = EM.empty
       hnMap = EM.empty
-      astBindings = []
   in EvalState {..}
 
 

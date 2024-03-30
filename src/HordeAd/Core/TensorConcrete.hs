@@ -360,7 +360,7 @@ instance AdaptableHVector (Flip OR.Array)
   -> HVectorPseudoTensor (Flip OR.Array) Double y
   -> Maybe (HVector (Flip OR.Array))
   -> HVectorPseudoTensor (DeltaR (Flip OR.Array)) Double y
-  -> (AstBindings, HVector (Flip OR.Array)) #-}
+  -> HVector (Flip OR.Array) #-}
 {-# SPECIALIZE evalFromnMap
   :: EvalState (Flip OR.Array) -> EvalState (Flip OR.Array) #-}
 

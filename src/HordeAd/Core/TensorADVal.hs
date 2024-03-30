@@ -65,8 +65,7 @@ crevOnADInputs mdt f inputs =
                    => ADVal g r2 n -> ShapeInt n
       rshapePrimal (D _ p _) = rshape p
       parameters0 = V.map (voidFromDynamicF (shapeToList . rshapePrimal)) inputs
-      (!astBindings, !gradient) =
-        gradientFromDeltaH parameters0 v mdt deltaTopLevel
+      !gradient = gradientFromDeltaH parameters0 v mdt deltaTopLevel
   in (dunlet l (dmkHVector gradient), unletPseudo l v)
 
 crevOnHVector
@@ -92,8 +91,7 @@ cfwdOnADInputs
 {-# INLINE cfwdOnADInputs #-}
 cfwdOnADInputs inputs f ds =
   let !(D l v deltaTopLevel) = f inputs in
-  let (astBindings, derivative) =
-        derivativeFromDeltaH (V.length inputs) deltaTopLevel ds
+  let derivative = derivativeFromDeltaH (V.length inputs) deltaTopLevel ds
   in (unletPseudo l derivative, unletPseudo l v)
 
 cfwdOnHVector

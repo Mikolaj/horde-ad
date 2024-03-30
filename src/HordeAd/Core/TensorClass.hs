@@ -10,7 +10,7 @@
 -- differentiation interface in "HordeAd.Core.Engine".
 module HordeAd.Core.TensorClass
   ( -- * Re-exports
-    ShapeInt, ShapeIntS, AstBindings
+    ShapeInt, ShapeIntS
     -- * The tensor classes
   , RankedTensor(..), ShapedTensor(..), HVectorTensor(..), HFun(..)
   , rfromD, sfromD

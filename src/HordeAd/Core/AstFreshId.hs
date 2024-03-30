@@ -5,7 +5,7 @@
 -- with @unsafePerformIO@ outside, so some of it escapes.
 module HordeAd.Core.AstFreshId
   ( unRawHVector, rawHVector
-  , astRegisterFun, astRegisterFunS, astRegisterADShare, astRegisterADShareS
+  , astRegisterADShare, astRegisterADShareS
   , funToAstIOR, funToAstR, funToAstIOS, funToAstS
   , fun1RToAst, fun1SToAst, fun1XToAst
   , fun1DToAst, fun1HToAst, fun1LToAst
@@ -70,30 +70,6 @@ unsafeGetFreshAstVarName :: IO (AstVarName f r y)
 {-# INLINE unsafeGetFreshAstVarName #-}
 unsafeGetFreshAstVarName =
   AstVarName . intToAstVarId <$> atomicAddCounter_ unsafeAstVarCounter 1
-
-astRegisterFun
-  :: (GoodScalar r, KnownNat n)
-  => AstRaw PrimalSpan r n -> AstBindings
-  -> (AstBindings, AstRaw PrimalSpan r n)
-{-# NOINLINE astRegisterFun #-}
-astRegisterFun !r !l | astIsSmall True (unAstRaw r) = (l, r)
-astRegisterFun (AstRaw r) l = unsafePerformIO $ do
-  !freshId <- unsafeGetFreshAstVarId
-  let !r2 = AstVar (shapeAst r) $ AstVarName freshId
-      !d = DynamicRanked r
-  return ((freshId, AstBindingsSimple d) : l, AstRaw r2)
-
-astRegisterFunS
-  :: (Sh.Shape sh, GoodScalar r)
-  => AstRawS PrimalSpan r sh -> AstBindings
-  -> (AstBindings, AstRawS PrimalSpan r sh)
-{-# NOINLINE astRegisterFunS #-}
-astRegisterFunS !r !l | astIsSmallS True (unAstRawS r) = (l, r)
-astRegisterFunS (AstRawS r) l = unsafePerformIO $ do
-  !freshId <- unsafeGetFreshAstVarId
-  let !r2 = AstVarS $ AstVarName freshId
-      !d = DynamicShaped r
-  return ((freshId, AstBindingsSimple d) : l, AstRawS r2)
 
 astRegisterADShare :: (GoodScalar r, KnownNat n)
                    => AstRaw PrimalSpan r n -> ADShare
