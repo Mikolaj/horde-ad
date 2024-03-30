@@ -162,7 +162,7 @@ fun1RToAstIO :: (AstVarName (AstRanked s) r n -> AstRanked s r n)
              -> IO (AstRanked s r n)
 {-# INLINE fun1RToAstIO #-}
 fun1RToAstIO f = do
-  freshId <- unsafeGetFreshAstVarName
+  !freshId <- unsafeGetFreshAstVarName
   return $! f freshId
 
 fun1RToAst :: (AstVarName (AstRanked s) r n -> AstRanked s r n)
@@ -174,7 +174,7 @@ fun1SToAstIO :: (AstVarName (AstShaped s) r sh -> AstShaped s r sh)
              -> IO (AstShaped s r sh)
 {-# INLINE fun1SToAstIO #-}
 fun1SToAstIO f = do
-  freshId <- unsafeGetFreshAstVarName
+  !freshId <- unsafeGetFreshAstVarName
   return $! f freshId
 
 fun1SToAst :: (AstVarName (AstShaped s) r sh -> AstShaped s r sh)
@@ -194,7 +194,8 @@ fun1XToAstIO shs g = do
       f (DynamicShapedDummy @r @sh _ _) = do
         freshId <- unsafeGetFreshAstVarId
         return $! AstDynamicVarName @[Nat] @r @sh freshId
-  g <$> mapM f (V.toList shs)
+  !vars <- mapM f (V.toList shs)
+  return $! g vars
 
 fun1XToAst :: VoidHVector -> ([AstDynamicVarName] -> AstHVector s)
            -> AstHVector s
