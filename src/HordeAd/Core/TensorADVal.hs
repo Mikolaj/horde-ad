@@ -67,7 +67,7 @@ crevOnADInputs mdt f inputs =
       parameters0 = V.map (voidFromDynamicF (shapeToList . rshapePrimal)) inputs
       (!astBindings, !gradient) =
         gradientFromDeltaH parameters0 v mdt deltaTopLevel
-  in (dunlet l astBindings (dmkHVector gradient), unletPseudo l [] v)
+  in (dunlet l (dmkHVector gradient), unletPseudo l v)
 
 crevOnHVector
   :: ADReady ranked
@@ -94,7 +94,7 @@ cfwdOnADInputs inputs f ds =
   let !(D l v deltaTopLevel) = f inputs in
   let (astBindings, derivative) =
         derivativeFromDeltaH (V.length inputs) deltaTopLevel ds
-  in (unletPseudo l astBindings derivative, unletPseudo l [] v)
+  in (unletPseudo l derivative, unletPseudo l v)
 
 cfwdOnHVector
   :: ADReady ranked
@@ -111,10 +111,10 @@ cfwdOnHVector parameters f ds =
 
 unletPseudo
   :: ADReady ranked
-  => ADShare -> AstBindings -> HVectorPseudoTensor ranked r y
+  => ADShare -> HVectorPseudoTensor ranked r y
   -> HVectorPseudoTensor ranked r y
-unletPseudo l astBindings =
-  HVectorPseudoTensor . dunlet l astBindings . unHVectorPseudoTensor
+unletPseudo l =
+  HVectorPseudoTensor . dunlet l . unHVectorPseudoTensor
 
 
 -- * Ranked tensor instances

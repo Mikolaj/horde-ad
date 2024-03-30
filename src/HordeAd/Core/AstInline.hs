@@ -502,16 +502,14 @@ emptyUnletEnv :: ADShare -> UnletEnv
 emptyUnletEnv = UnletEnv ES.empty
 
 unletAstHVector6
-  :: ADShare -> AstBindings -> AstHVector PrimalSpan
+  :: ADShare -> AstHVector PrimalSpan
   -> AstHVector PrimalSpan
-unletAstHVector6 l astBindings t =
+unletAstHVector6 l t =
   let (memoOut, share) = shareAstHVector EM.empty t
       bindingsOut = EM.toDescList memoOut
   in unletAstHVector (emptyUnletEnv l)
      $ bindsToHVectorLet
-         (bindsToHVectorLet
-           (bindsToHVectorLet share bindingsOut)
-           astBindings)
+         (bindsToHVectorLet share bindingsOut)
          (assocsADShare l)
 
 -- TODO: if a nested let is alone, eliminate the nesting let instead;

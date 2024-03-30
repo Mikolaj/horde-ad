@@ -754,8 +754,8 @@ class HVectorTensor (ranked :: RankedTensorType)
                 => shaped r sh
                 -> (shaped r sh -> HVectorOf ranked)
                 -> HVectorOf ranked
-  dunlet :: ADShare -> AstBindings -> HVectorOf ranked -> HVectorOf ranked
-  dunlet l astBindings = assert (nullADShare l && null astBindings)
+  dunlet :: ADShare -> HVectorOf ranked -> HVectorOf ranked
+  dunlet l = assert (nullADShare l)
   dsharePrimal :: HVectorOf ranked -> ADShare -> (ADShare, HVector ranked)
   dshare :: HVectorOf ranked -> HVectorOf ranked
   dshare = id
