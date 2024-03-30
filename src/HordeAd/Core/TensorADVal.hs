@@ -175,8 +175,8 @@ instance DualNumberValue a => DualNumberValue [a] where
 -- in tests. None others are used anywhere.
 instance ADReady ranked => RankedTensor (ADVal ranked) where
   rlet (D l u u') f =
-    let !(!l2, var2) = rsharePrimal u l
-    in f (dDnotShared l2 var2 u')
+    let !var2 = rshare u
+    in f (dDnotShared l var2 u')
       -- u' doesn't need to be shared, because deltas are shared separately
 
   rshape (D _ u _) = rshape u
@@ -206,9 +206,10 @@ instance ADReady ranked => RankedTensor (ADVal ranked) where
   rsum0 (D l u u') = dD l (rsum0 u) (Sum0R u')
   rdot0 (D l1 ue u') (D l2 ve v') =
     -- The bangs below are neccessary for GHC 9.2.7 test results to match 9.4.
-    let !(!l3, u) = rsharePrimal ue $ l1 `mergeADShare` l2 in
-    let !(!l4, v) = rsharePrimal ve l3
-    in dD l4 (rdot0 u v) (dAdd (Dot0R v u') (Dot0R u v'))
+    let !l3 = l1 `mergeADShare` l2 in
+    let !u = rshare ue in
+    let !v = rshare ve
+    in dD l3 (rdot0 u v) (dAdd (Dot0R v u') (Dot0R u v'))
   rscatter sh (D l u u') f =
     let g x = rprimalPart <$> f (rconstant <$> x)
     in dD l (rscatter sh u g) (ScatterR sh u' g)
@@ -305,8 +306,8 @@ instance (ADReadyS shaped, Sh.Shape sh, GoodScalar r)
 -- in tests. None others are used anywhere.
 instance ADReadyS shaped => ShapedTensor (ADVal shaped) where
   slet (D l u u') f =
-    let !(!l2, var2) = ssharePrimal u l
-    in f (dDnotShared l2 var2 u')
+    let !var2 = sshare u
+    in f (dDnotShared l var2 u')
       -- u' doesn't need to be shared, because deltas are shared separately
 
   -- This is very slow, but is fortunately not needed:
@@ -333,9 +334,10 @@ instance ADReadyS shaped => ShapedTensor (ADVal shaped) where
   ssum0 (D l u u') = dD l (ssum0 u) (Sum0S u')
   sdot0 (D l1 ue u') (D l2 ve v') =
     -- The bangs below are neccessary for GHC 9.2.7 test results to match 9.4.
-    let !(!l3, u) = ssharePrimal ue $ l1 `mergeADShare` l2 in
-    let !(!l4, v) = ssharePrimal ve l3
-    in dD l4 (sdot0 u v) (dAdd (Dot0S v u') (Dot0S u v'))
+    let !l3 = l1 `mergeADShare` l2 in
+    let !u = sshare ue in
+    let !v = sshare ve
+    in dD l3 (sdot0 u v) (dAdd (Dot0S v u') (Dot0S u v'))
   sscatter (D l u u') f =
     let g x = rprimalPart <$> f (rconstant <$> x)
     in dD l (sscatter u g) (ScatterS u' g)
@@ -445,11 +447,11 @@ instance ADReadyBoth ranked shaped
 -}
   dletHFunInHVector = (&)
   rletInHVector (D l u u') f =
-    let !(!l2, var2) = rsharePrimal u l
-    in f (dDnotShared l2 var2 u')
+    let !var2 = rshare u
+    in f (dDnotShared l var2 u')
   sletInHVector (D l u u') f =
-    let !(!l2, var2) = ssharePrimal u l
-    in f (dDnotShared l2 var2 u')
+    let !var2 = sshare u
+    in f (dDnotShared l var2 u')
   dsharePrimal d l = (l, d)
   dbuild1 k f =
     ravelHVector $ map (f . fromIntegral) [0 .. (sNatValue k :: Int) - 1]
@@ -519,9 +521,8 @@ instance ADReadyBoth ranked shaped
             && voidHVectorMatches accShs acc0D) $
     let (ll2, acc0, acc0') = unADValHVector acc0D
         (ll3, esUnshared, es') = unADValHVector esD
-        (l4, es) =
-          dsharePrimal (dmkHVector esUnshared)
-                       (flattenADShare $ V.toList ll2 ++ V.toList ll3)
+        l4 = flattenADShare $ V.toList ll2 ++ V.toList ll3
+        es = dshare (dmkHVector esUnshared)
         codomainShs = accShs V.++ bShs
         accLen = V.length accShs
         hvToPair :: forall f. HVector f -> (HVector f, HVector f)
@@ -557,8 +558,8 @@ instance ADReadyBoth ranked shaped
                                            [ accShs V.++ codomainShs
                                            , accShs V.++ eShs ]
                                    $ HFun rg)
-                                  (dmkHVector acc0) (dmkHVector es)
-        (l5, pShared) = dsharePrimal pUnshared l4
+                                  (dmkHVector acc0) es
+        pShared = dunHVector $ dshare pUnshared
         -- This code makes sense only thanks to HVector being a representation
         -- of tuples in the struct of arrays format.
         accFin = V.take accLen pShared
@@ -566,8 +567,8 @@ instance ADReadyBoth ranked shaped
         bs = V.drop (2 * accLen) pShared
         !_A = assert (voidHVectorMatches (replicate1VoidHVector k bShs) bs) ()
         primal = accFin V.++ bs
-        dual = wrapDeltaH $ MapAccumR k accShs bShs eShs q es df rf acc0' es'
-    in ahhToHVector l5 primal dual
+        dual = wrapDeltaH $ MapAccumR k accShs bShs eShs q (dunHVector es) df rf acc0' es'
+    in ahhToHVector l4 primal dual
   dmapAccumLDer
     :: Proxy (ADVal ranked)
     -> SNat k
@@ -589,9 +590,8 @@ instance ADReadyBoth ranked shaped
                     , shapeVoidHVector (voidFromHVector acc0D) )) $
     let (ll2, acc0, acc0') = unADValHVector acc0D
         (ll3, esUnshared, es') = unADValHVector esD
-        (l4, es) =
-          dsharePrimal (dmkHVector esUnshared)
-                       (flattenADShare $ V.toList ll2 ++ V.toList ll3)
+        l4 = flattenADShare $ V.toList ll2 ++ V.toList ll3
+        es = dshare (dmkHVector esUnshared)
         codomainShs = accShs V.++ bShs
         accLen = V.length accShs
         hvToPair :: forall f. HVector f -> (HVector f, HVector f)
@@ -627,15 +627,15 @@ instance ADReadyBoth ranked shaped
                                            [ accShs V.++ codomainShs
                                            , accShs V.++ eShs ]
                                    $ HFun rg)
-                                  (dmkHVector acc0) (dmkHVector es)
-        (l5, pShared) = dsharePrimal pUnshared l4
+                                  (dmkHVector acc0) es
+        pShared = dunHVector $ dshare pUnshared
         accFin = V.take accLen pShared
         q = V.slice accLen accLen pShared
         bs = V.drop (2 * accLen) pShared
         !_A = assert (voidHVectorMatches (replicate1VoidHVector k bShs) bs) ()
         primal = accFin V.++ bs
-        dual = wrapDeltaH $ MapAccumL k accShs bShs eShs q es df rf acc0' es'
-    in ahhToHVector l5 primal dual
+        dual = wrapDeltaH $ MapAccumL k accShs bShs eShs q (dunHVector es) df rf acc0' es'
+    in ahhToHVector l4 primal dual
 
 -- Float and '() are placeholders here; they are reduced away.
 ahhToHVector
