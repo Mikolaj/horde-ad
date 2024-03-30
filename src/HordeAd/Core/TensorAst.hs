@@ -551,15 +551,6 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
                         l
         , asts )
   dsharePrimal _ _ = error "dsharePrimal: wrong span"
-  dregister =
-    case sameAstSpan @s @PrimalSpan of
-      Just Refl -> \ !r !l ->
-        fun1DToAst (shapeAstHVector r) $ \ !vars !asts -> case vars of
-          [] -> (l, V.empty)
-          !var : _ ->  -- vars are fresh, so var uniquely represent vars
-            ( (dynamicVarNameToAstVarId var, AstBindingsHVector vars r) : l
-            , asts )
-      _ -> error "dregister: used not at PrimalSpan"
   dshare a@(AstShareHVector{}) = a
   dshare a =
     let shs = shapeAstHVector a
@@ -881,9 +872,6 @@ instance AstSpan s => RankedTensor (AstRaw s) where
     _ -> (emptyADShare, u)
   -- For convenience and simplicity we define this for all spans,
   -- but it can only ever be used for PrimalSpan.
-  rregister = case sameAstSpan @s @PrimalSpan of
-    Just Refl -> astRegisterFun
-    _ -> error "rregister: used not at PrimalSpan"
   rsharePrimal =
     case sameAstSpan @s @PrimalSpan of
       Just Refl -> astRegisterADShare
@@ -1028,9 +1016,6 @@ instance AstSpan s => ShapedTensor (AstRawS s) where
     AstLetADShareS l t -> (l, AstRawS t)
     AstConstantS (AstLetADShareS l t) -> (l, AstRawS $ AstConstantS t)
     _ -> (emptyADShare, u)
-  sregister = case sameAstSpan @s @PrimalSpan of
-    Just Refl -> astRegisterFunS
-    _ -> error "sregister: used not at PrimalSpan"
   ssharePrimal =
     case sameAstSpan @s @PrimalSpan of
       Just Refl -> astRegisterADShareS
@@ -1089,15 +1074,6 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
                         l
         , rawHVector asts )
   dsharePrimal _ _ = error "dsharePrimal: wrong span"
-  dregister =
-    case sameAstSpan @s @PrimalSpan of
-      Just Refl -> \ !(AstRawWrap r) !l ->
-        fun1DToAst (shapeAstHVector r) $ \ !vars !asts -> case vars of
-          [] -> (l, V.empty)
-          !var : _ ->  -- vars are fresh, so var uniquely represent vars
-            ( (dynamicVarNameToAstVarId var, AstBindingsHVector vars r) : l
-            , rawHVector asts )
-      _ -> error "dregister: used not at PrimalSpan"
   dshare a@(AstRawWrap (AstShareHVector{})) = a
   dshare (AstRawWrap a) =
     let shs = shapeAstHVector a
@@ -1240,7 +1216,6 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
     $ sletInHVector (unAstNoVectorizeS u)
                     (unAstNoVectorizeWrap . f . AstNoVectorizeS)
   dsharePrimal = error "dsharePrimal for AstNoVectorize"
-  dregister = error "dregister for AstNoVectorize"
   dbuild1 k f =
     AstNoVectorizeWrap
     $ AstBuildHVector1 k $ funToAstI (unAstNoVectorizeWrap . f . AstNoVectorize)
@@ -1418,7 +1393,6 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
     $ astLetInHVectorFunRawS (unAstNoSimplifyS u)
                              (unAstNoSimplifyWrap . f . AstNoSimplifyS)
   dsharePrimal = error "dsharePrimal for AstNoSimplify"
-  dregister = error "dregister for AstNoSimplify"
   dbuild1 k f = AstNoSimplifyWrap
                 $ astBuildHVector1Vectorize
                     k (unAstNoSimplifyWrap . f . AstNoSimplify)

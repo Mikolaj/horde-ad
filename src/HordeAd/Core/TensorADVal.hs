@@ -460,7 +460,6 @@ instance ADReadyBoth ranked shaped
     let !(!l2, var2) = ssharePrimal u l
     in f (dDnotShared l2 var2 u')
   dsharePrimal d l = (l, d)
-  dregister d l = (l, d)
   dbuild1 k f =
     ravelHVector $ map (f . fromIntegral) [0 .. (sNatValue k :: Int) - 1]
   rrev :: (GoodScalar r, KnownNat n)

@@ -211,7 +211,6 @@ instance HVectorTensor (Flip OR.Array) (Flip OS.Array) where
   rletInHVector = (&)
   sletInHVector = (&)
   dsharePrimal d l = (l, d)
-  dregister d l = (l, d)
   dbuild1 k f =
     ravelHVector $ map (f . fromIntegral) [0 .. (sNatValue k :: Int) - 1]
   rrev :: (GoodScalar r, KnownNat n)
