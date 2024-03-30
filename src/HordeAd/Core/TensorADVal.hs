@@ -459,7 +459,6 @@ instance ADReadyBoth ranked shaped
   sletInHVector (D l u u') f =
     let !var2 = sshare u
     in f (dDnotShared l var2 u')
-  dsharePrimal d l = (l, d)
   dbuild1 k f =
     ravelHVector $ map (f . fromIntegral) [0 .. (sNatValue k :: Int) - 1]
   rrev :: (GoodScalar r, KnownNat n)

@@ -5,7 +5,6 @@
 -- with @unsafePerformIO@ outside, so some of it escapes.
 module HordeAd.Core.AstFreshId
   ( unRawHVector, rawHVector
-  , astRegisterADShare, astRegisterADShareS
   , funToAstIOR, funToAstR, funToAstIOS, funToAstS
   , fun1RToAst, fun1SToAst, fun1XToAst
   , fun1DToAst, fun1HToAst, fun1LToAst
@@ -29,7 +28,6 @@ import           GHC.TypeLits (KnownNat, Nat)
 import           System.IO.Unsafe (unsafePerformIO)
 
 import           HordeAd.Core.Ast
-import           HordeAd.Core.AstTools
 import           HordeAd.Core.HVector
 import           HordeAd.Core.Types
 import qualified HordeAd.Util.ShapedList as ShapedList
@@ -70,28 +68,6 @@ unsafeGetFreshAstVarName :: IO (AstVarName f r y)
 {-# INLINE unsafeGetFreshAstVarName #-}
 unsafeGetFreshAstVarName =
   AstVarName . intToAstVarId <$> atomicAddCounter_ unsafeAstVarCounter 1
-
-astRegisterADShare :: (GoodScalar r, KnownNat n)
-                   => AstRaw PrimalSpan r n -> ADShare
-                   -> (ADShare, AstRaw PrimalSpan r n)
-{-# NOINLINE astRegisterADShare #-}
-astRegisterADShare !r !l | astIsSmall True (unAstRaw r) = (l, r)
-astRegisterADShare (AstRaw r) l = unsafePerformIO $ do
-  freshId <- unsafeGetFreshAstVarId
-  let !l2 = insertADShare freshId (AstBindingsSimple $ DynamicRanked r) l
-      !r2 = AstVar (shapeAst r) $ AstVarName freshId
-  return (l2, AstRaw r2)
-
-astRegisterADShareS :: (GoodScalar r, Sh.Shape sh)
-                    => AstRawS PrimalSpan r sh -> ADShare
-                    -> (ADShare, AstRawS PrimalSpan r sh)
-{-# NOINLINE astRegisterADShareS #-}
-astRegisterADShareS !r !l | astIsSmallS True (unAstRawS r) = (l, r)
-astRegisterADShareS (AstRawS r) l = unsafePerformIO $ do
-  freshId <- unsafeGetFreshAstVarId
-  let !l2 = insertADShare freshId (AstBindingsSimple $ DynamicShaped r) l
-      !r2 = AstVarS $ AstVarName freshId
-  return (l2, AstRawS r2)
 
 funToAstIOR :: forall n m s r r2. GoodScalar r
             => ShapeInt n -> (AstRanked s r n -> AstRanked s r2 m)
