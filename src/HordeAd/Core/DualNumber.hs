@@ -282,12 +282,13 @@ instance (Num (f r z), IsPrimal f r z)
     dD (l1 `mergeADShare` l2) (u - v) (dAdd u' (dScale (intOfShape v (-1)) v'))
   D l1 ue u' * D l2 ve v' =
     -- The bangs are neccessary for GHC 9.2.7 test results to match 9.4.
-    let !(!l3, u) = sharePrimal ue $ l1 `mergeADShare` l2 in
-    let !(!l4, v) = sharePrimal ve l3
-    in dD l4 (u * v) (dAdd (dScale v u') (dScale u v'))
+    let !l3 = l1 `mergeADShare` l2 in
+    let !u = sharePrimal ue in
+    let !v = sharePrimal ve
+    in dD l3 (u * v) (dAdd (dScale v u') (dScale u v'))
   negate (D l v v') = dD l (negate v) (dScale (intOfShape v (-1)) v')
-  abs (D l ve v') = let !(!l2, v) = sharePrimal ve l
-                    in dD l2 (abs v) (dScale (signum v) v')
+  abs (D l ve v') = let !v = sharePrimal ve
+                    in dD l (abs v) (dScale (signum v) v')
   signum (D l v _) = dD l (signum v) (dZeroOfShape v)
   fromInteger = constantADVal . fromInteger
 
@@ -325,14 +326,15 @@ instance (Fractional (f r z), IsPrimal f r z)
       => Fractional (ADVal (AstRanked PrimalSpan) Double n) #-}
 -}
   D l1 ue u' / D l2 ve v' =
-    let !(!l3, u) = sharePrimal ue $ l1 `mergeADShare` l2 in
-    let !(!l4, v) = sharePrimal ve l3
-    in dD l4 (u / v)
+    let !l3 = l1 `mergeADShare` l2 in
+    let !u = sharePrimal ue in
+    let !v = sharePrimal ve
+    in dD l3 (u / v)
              (dAdd (dScale (recip v) u') (dScale ((- u) / (v * v)) v'))
   recip (D l ve v') =
-    let !(!l2, v) = sharePrimal ve l
+    let !v = sharePrimal ve
         minusRecipSq = - recip (v * v)
-    in dD l2 (recip v) (dScale minusRecipSq v')
+    in dD l (recip v) (dScale minusRecipSq v')
   fromRational = constantADVal . fromRational
 
 instance (Floating (f r z), IsPrimal f r z)
@@ -350,48 +352,49 @@ instance (Floating (f r z), IsPrimal f r z)
       => Floating (ADVal (AstRanked PrimalSpan) Double n) #-}
 -}
   pi = constantADVal pi
-  exp (D l ue u') = let !(!l2, expU) = sharePrimal (exp ue) l
-                    in dD l2 expU (dScale expU u')
-  log (D l ue u') = let !(!l2, u) = sharePrimal ue l
-                    in dD l2 (log u) (dScale (recip u) u')
-  sqrt (D l ue u') = let !(!l2, sqrtU) = sharePrimal (sqrt ue) l
-                     in dD l2 sqrtU (dScale (recip (sqrtU + sqrtU)) u')
+  exp (D l ue u') = let !expU = sharePrimal (exp ue)
+                    in dD l expU (dScale expU u')
+  log (D l ue u') = let !u = sharePrimal ue
+                    in dD l (log u) (dScale (recip u) u')
+  sqrt (D l ue u') = let !sqrtU = sharePrimal (sqrt ue)
+                     in dD l sqrtU (dScale (recip (sqrtU + sqrtU)) u')
   D l1 ue u' ** D l2 ve v' =
-    let !(!l3, u) = sharePrimal ue $ l1 `mergeADShare` l2 in
-    let !(!l4, v) = sharePrimal ve l3
-    in dD l4 (u ** v) (dAdd (dScale (v * (u ** (v - intOfShape v 1))) u')
+    let !l3 = l1 `mergeADShare` l2 in
+    let !u = sharePrimal ue in
+    let !v = sharePrimal ve
+    in dD l3 (u ** v) (dAdd (dScale (v * (u ** (v - intOfShape v 1))) u')
                             (dScale ((u ** v) * log u) v'))
   logBase x y = log y / log x
-  sin (D l ue u') = let (l2, u) = sharePrimal ue l
-                    in dD l2 (sin u) (dScale (cos u) u')
-  cos (D l ue u') = let (l2, u) = sharePrimal ue l
-                    in dD l2 (cos u) (dScale (- (sin u)) u')
-  tan (D l ue u') = let (l2, u) = sharePrimal ue l
-                        (l3, cosU) = sharePrimal (cos u) l2
-                    in dD l3 (tan u) (dScale (recip (cosU * cosU)) u')
-  asin (D l ue u') = let (l2, u) = sharePrimal ue l
-                     in dD l2 (asin u)
+  sin (D l ue u') = let !u = sharePrimal ue
+                    in dD l (sin u) (dScale (cos u) u')
+  cos (D l ue u') = let !u = sharePrimal ue
+                    in dD l (cos u) (dScale (- (sin u)) u')
+  tan (D l ue u') = let !u = sharePrimal ue in
+                    let !cosU = sharePrimal (cos u)
+                    in dD l (tan u) (dScale (recip (cosU * cosU)) u')
+  asin (D l ue u') = let !u = sharePrimal ue
+                     in dD l (asin u)
                            (dScale (recip (sqrt (intOfShape u 1 - u * u))) u')
-  acos (D l ue u') = let (l2, u) = sharePrimal ue l
-                     in dD l2 (acos u)
+  acos (D l ue u') = let !u = sharePrimal ue
+                     in dD l (acos u)
                            (dScale (- recip (sqrt (intOfShape u 1 - u * u))) u')
-  atan (D l ue u') = let (l2, u) = sharePrimal ue l
-                     in dD l2 (atan u)
+  atan (D l ue u') = let !u = sharePrimal ue
+                     in dD l (atan u)
                            (dScale (recip (intOfShape u 1 + u * u)) u')
-  sinh (D l ue u') = let (l2, u) = sharePrimal ue l
-                     in dD l2 (sinh u) (dScale (cosh u) u')
-  cosh (D l ue u') = let (l2, u) = sharePrimal ue l
-                     in dD l2 (cosh u) (dScale (sinh u) u')
-  tanh (D l ue u') = let (l2, y) = sharePrimal (tanh ue) l
-                     in dD l2 y (dScale (intOfShape y 1 - y * y) u')
-  asinh (D l ue u') = let (l2, u) = sharePrimal ue l
-                      in dD l2 (asinh u)
+  sinh (D l ue u') = let !u = sharePrimal ue
+                     in dD l (sinh u) (dScale (cosh u) u')
+  cosh (D l ue u') = let !u = sharePrimal ue
+                     in dD l (cosh u) (dScale (sinh u) u')
+  tanh (D l ue u') = let !y = sharePrimal (tanh ue)
+                     in dD l y (dScale (intOfShape y 1 - y * y) u')
+  asinh (D l ue u') = let !u = sharePrimal ue
+                      in dD l (asinh u)
                             (dScale (recip (sqrt (intOfShape u 1 + u * u))) u')
-  acosh (D l ue u') = let (l2, u) = sharePrimal ue l
-                      in dD l2 (acosh u)
+  acosh (D l ue u') = let !u = sharePrimal ue
+                      in dD l (acosh u)
                             (dScale (recip (sqrt (u * u - intOfShape u 1))) u')
-  atanh (D l ue u') = let (l2, u) = sharePrimal ue l
-                      in dD l2 (atanh u)
+  atanh (D l ue u') = let !u = sharePrimal ue
+                      in dD l (atanh u)
                             (dScale (recip (intOfShape u 1 - u * u)) u')
 
 instance (RealFrac (f r z), IsPrimal f r z)
@@ -415,10 +418,11 @@ instance (RealFloat (f r z), IsPrimal f r z)
       => RealFloat (ADVal (AstRanked PrimalSpan) Double n) #-}
 -}
   atan2 (D l1 ue u') (D l2 ve v') =
-    let !(!l3, u) = sharePrimal ue $ l1 `mergeADShare` l2 in
-    let !(!l4, v) = sharePrimal ve l3 in
-    let !(!l5, t) = sharePrimal (recip (u * u + v * v)) l4
-    in dD l5 (atan2 u v) (dAdd (dScale ((- u) * t) v') (dScale (v * t) u'))
+    let !l3 = l1 `mergeADShare` l2 in
+    let !u = sharePrimal ue in
+    let !v = sharePrimal ve in
+    let !t = sharePrimal (recip (u * u + v * v))
+    in dD l3 (atan2 u v) (dAdd (dScale ((- u) * t) v') (dScale (v * t) u'))
   -- Note that for term types @a@ this is invalid without an extra let
   -- containing the first field of @D@. However, for terms this is
   -- unimplemented anyway.

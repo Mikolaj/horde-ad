@@ -29,7 +29,6 @@ import           Data.Kind (Constraint, Type)
 import           GHC.TypeLits (KnownNat, Nat)
 import           System.IO.Unsafe (unsafePerformIO)
 
-import HordeAd.Core.Ast
 import HordeAd.Core.Delta
 import HordeAd.Core.HVector
 import HordeAd.Core.TensorClass
@@ -59,7 +58,7 @@ class IsPrimal f r z where
   dScale :: f r z -> Dual f r z -> Dual f r z
   dAdd :: Dual f r z -> Dual f r z -> Dual f r z
   intOfShape :: f r z -> Int -> f r z
-  sharePrimal :: f r z -> ADShare -> (ADShare, f r z)
+  sharePrimal :: f r z -> f r z  -- impure
   shareDual :: Dual f r z -> Dual f r z
 
 -- | The instances are impure, because 'shareDual'
@@ -103,7 +102,7 @@ instance (GoodScalar r, KnownNat n, RankedTensor ranked)
   dAdd v w = AddR v w
   intOfShape tsh c =
     rconst $ OR.constant (shapeToList $ rshape tsh) (fromIntegral c)
-  sharePrimal = rsharePrimal
+  sharePrimal = rshare
   shareDual d = case d of
     ZeroR{} -> d
     InputR{} -> d
@@ -121,7 +120,7 @@ instance (GoodScalar r, Sh.Shape sh, ShapedTensor shaped)
   dAdd v w = AddS v w
   intOfShape _tsh c =  -- not needed for shaped, here, but ranked above need it
     sconst $ fromIntegral c
-  sharePrimal = ssharePrimal
+  sharePrimal = sshare
   shareDual d = case d of
     ZeroS -> d
     InputS{} -> d
