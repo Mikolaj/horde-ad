@@ -115,8 +115,8 @@ revArtifactFromForwardPass hasDt forwardPass parameters0 =
         !gradient =
           gradientFromDeltaH
             parameters0 (HVectorPseudoTensor primalBody) mdt delta
-        unGradient = dunlet l (dmkHVector gradient)
-        unPrimal = dunlet l primalBody
+        unGradient = dunlet (dmkHVector gradient)
+        unPrimal = dunlet primalBody
     in ( ((varsDt, varsPrimal), unGradient, HVectorPseudoTensor unPrimal)
        , delta )
 
@@ -148,8 +148,8 @@ fwdArtifactFromForwardPass forwardPass parameters0 =
         forwardPass hVectorPrimal vars hVector in
   let !(HVectorPseudoTensor derivative) =
         derivativeFromDeltaH (V.length parameters0) delta hVectorDs
-      unDerivative = HVectorPseudoTensor $ dunlet l derivative
-      unPrimal = HVectorPseudoTensor $ dunlet l primalBody
+      unDerivative = HVectorPseudoTensor $ dunlet derivative
+      unPrimal = HVectorPseudoTensor $ dunlet primalBody
   in ( ((varsPrimalDs, varsPrimal), unDerivative, unPrimal)
      , delta )
 
@@ -1044,8 +1044,8 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
     $ astLetInHVectorFunRawS (unAstRawS u) (unAstRawWrap . f . AstRawS)
   dunlet =
     case sameAstSpan @s @PrimalSpan of
-      Just Refl -> \l t ->
-        AstRawWrap $ unletAstHVector6 l $ unAstRawWrap t
+      Just Refl -> \t ->
+        AstRawWrap $ unletAstHVector6 $ unAstRawWrap t
       _ -> error "dunlet: used not at PrimalSpan"
   dshare a@(AstRawWrap (AstShareHVector{})) = a
   dshare (AstRawWrap a) =

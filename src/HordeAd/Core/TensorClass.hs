@@ -20,7 +20,6 @@ module HordeAd.Core.TensorClass
 
 import Prelude
 
-import           Control.Exception.Assert.Sugar
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as Sh
@@ -748,8 +747,8 @@ class HVectorTensor (ranked :: RankedTensorType)
                 => shaped r sh
                 -> (shaped r sh -> HVectorOf ranked)
                 -> HVectorOf ranked
-  dunlet :: ADShare -> HVectorOf ranked -> HVectorOf ranked
-  dunlet l = assert (nullADShare l)
+  dunlet :: HVectorOf ranked -> HVectorOf ranked
+  dunlet = id
   dshare :: HVectorOf ranked -> HVectorOf ranked
   dshare = id
   dbuild1 :: SNat k
