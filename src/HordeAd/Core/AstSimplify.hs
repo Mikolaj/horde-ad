@@ -248,7 +248,6 @@ astNonIndexStep
 astNonIndexStep t = case t of
   Ast.AstVar{} -> t
   Ast.AstLet var u v -> astLet var u v
-  Ast.AstLetADShare{} -> error "astNonIndexStep: AstLetADShare"
   Ast.AstShare{} -> t  -- TODO: error "astNonIndexStep: AstShare"
   Ast.AstCond a b c -> astCond a b c
   Ast.AstMinIndex{} -> t
@@ -306,7 +305,6 @@ astNonIndexStepS
 astNonIndexStepS t = case t of
   Ast.AstVarS{} -> t
   Ast.AstLetS var u v -> astLetS var u v
-  Ast.AstLetADShareS{} -> error "astNonIndexStepS: AstLetADShareS"
   Ast.AstShareS{} -> t  -- TODO: error "astNonIndexStepS: AstShareS"
   Ast.AstCondS a b c -> astCondS a b c
   Ast.AstMinIndexS{} -> t
@@ -425,7 +423,6 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIndex m1)) =
  in case v0 of
   Ast.AstVar{} -> Ast.AstIndex v0 ix
   Ast.AstLet var u v -> astLet var u (astIndexRec v ix)
-  Ast.AstLetADShare{} -> error "astIndexKnobsR: AstLetADShare"
   Ast.AstShare{} -> Ast.AstIndex v0 ix  -- TODO: error "astIndexKnobsR: AstShare"
   Ast.AstCond b v w ->
     shareIx ix $ \ix2 -> astCond b (astIndexRec v ix2) (astIndexRec w ix2)
@@ -613,7 +610,6 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS shm1)) =
  in case v0 of
   Ast.AstVarS{} -> Ast.AstIndexS v0 ix
   Ast.AstLetS var u v -> astLetS var u (astIndexRec v ix)
-  Ast.AstLetADShareS{} -> error "astIndexKnobsRS: AstLetADShareS"
   Ast.AstShareS{} -> Ast.AstIndexS v0 ix  -- TODO: error "astIndexKnobsRS: AstShareS"
   Ast.AstCondS b v w ->
     shareIxS ix $ \ix2 -> astCondS b (astIndexRec v ix2) (astIndexRec w ix2)
@@ -964,7 +960,6 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
                        , ix4@(i4 :.: (rest4 :: AstIndex p1')) ) = case v4 of
     Ast.AstVar{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstLet var u v -> astLet var u (astGatherCase sh4 v (vars4, ix4))
-    Ast.AstLetADShare{} -> error "astGatherCase: AstLetADShare"
     Ast.AstShare{} -> error "astGatherCase: AstShare"
     Ast.AstCond b v w -> astCond b (astGather sh4 v (vars4, ix4))
                                    (astGather sh4 w (vars4, ix4))
@@ -1355,11 +1350,6 @@ astLet var u v@(Ast.AstDualPart (Ast.AstVar _ var2)) =  -- a noop
       _ -> error "astLet: rank mismatch"
     _ -> error "astLet: span mismatch"
   else v
-astLet var (Ast.AstLetADShare l u) v
-  | Just Refl <- sameAstSpan @s2 @PrimalSpan =
-    Ast.AstLetADShare l $ Ast.AstLet var u v
-astLet var u (Ast.AstLetADShare l v) | not (varNameInADShare var l) =
-  Ast.AstLetADShare l $ Ast.AstLet var u v
 astLet var u v = Ast.AstLet var u v
 
 -- A special variant to bind integer expressions inside indexes.
@@ -1421,31 +1411,18 @@ astLetS var u v@(Ast.AstDualPartS (Ast.AstVarS var2)) =  -- a noop
       _ -> error "astLetS: shape mismatch"
     _ -> error "astLetS: span mismatch"
   else v
-astLetS var (Ast.AstLetADShareS l u) v
-  | Just Refl <- sameAstSpan @s2 @PrimalSpan =
-    Ast.AstLetADShareS l $ Ast.AstLetS var u v
-astLetS var u (Ast.AstLetADShareS l v) | not (varNameInADShare var l) =
-  Ast.AstLetADShareS l $ Ast.AstLetS var u v
 astLetS var u v = Ast.AstLetS var u v
 
 astCond :: AstBool -> AstRanked s r n -> AstRanked s r n -> AstRanked s r n
 astCond (AstBoolConst b) v w = if b then v else w
 astCond b (Ast.AstConstant v) (Ast.AstConstant w) =
   Ast.AstConstant $ Ast.AstCond b v w
-astCond b (Ast.AstLetADShare l v) w =
-  Ast.AstLetADShare l $ Ast.AstCond b v w
-astCond b v (Ast.AstLetADShare l w) =
-  Ast.AstLetADShare l $ Ast.AstCond b v w
 astCond b v w = Ast.AstCond b v w
 
 astCondS :: AstBool -> AstShaped s r sh -> AstShaped s r sh -> AstShaped s r sh
 astCondS (AstBoolConst b) v w = if b then v else w
 astCondS b (Ast.AstConstantS v) (Ast.AstConstantS w) =
   Ast.AstConstantS $ Ast.AstCondS b v w
-astCondS b (Ast.AstLetADShareS l v) w =
-  Ast.AstLetADShareS l $ Ast.AstCondS b v w
-astCondS b v (Ast.AstLetADShareS l w) =
-  Ast.AstLetADShareS l $ Ast.AstCondS b v w
 astCondS b v w = Ast.AstCondS b v w
 
 astSumOfList :: (KnownNat n, GoodScalar r, AstSpan s)
@@ -1467,7 +1444,6 @@ astSum t0 = case shapeAst t0 of
     -- but for AstLetADShare it's usually fine, because they are often
     -- either global or duplicated and rarely local and unique
     -- and we prefer the global to duplicated
-    Ast.AstLetADShare l v -> Ast.AstLetADShare l (astSum v)
     Ast.AstScatter (_ :$: sh) v (vars, _ :.: ix) -> astScatter sh v (vars, ix)
     Ast.AstFromList l -> astSumOfList l
     Ast.AstFromVector l -> astSumOfList $ V.toList l
@@ -1487,7 +1463,6 @@ astSumS t0 = case sameNat (Proxy @n) (Proxy @0) of
   Just Refl -> astReshapeS t0
   _ -> case t0 of
     -- Ast.AstLetS var u v -> astLetS var u (astSumS v)
-    Ast.AstLetADShareS l v -> Ast.AstLetADShareS l (astSumS v)
     Ast.AstScatterS @sh2 @p v (vars, _ :.$ ix) ->
       gcastWith (unsafeCoerce Refl
                  :: Sh.Drop p (n : sh) :~: Sh.Drop (p - 1) sh) $
@@ -1522,8 +1497,6 @@ astScatter sh v (AstVarName varId ::: vars, ix) | not $ varId `varInIndex` ix =
 -- astScatter sh v (ZR, ix) = update (rzero sh 0) ix v
 astScatter sh (Ast.AstConstant v) (vars, ix) =
   Ast.AstConstant $ astScatter sh v (vars, ix)
-astScatter sh (Ast.AstLetADShare l v) (vars, ix) =
-  Ast.AstLetADShare l $ astScatter sh v (vars, ix)
 astScatter sh v (vars, ix) = Ast.AstScatter sh v (vars, ix)
 
 astScatterS :: forall sh2 p sh s r.
@@ -1546,8 +1519,6 @@ astScatterS v (AstVarName varId ::$ (vars :: AstVarListS sh3), ix)
 -- astScatterS v (ZR, ix) = update (rzero sh 0) ix v
 astScatterS (Ast.AstConstantS v) (vars, ix) =
   Ast.AstConstantS $ astScatterS v (vars, ix)
-astScatterS (Ast.AstLetADShareS l v) (vars, ix) =
-  Ast.AstLetADShareS l $ astScatterS v (vars, ix)
 astScatterS v (vars, ix) = Ast.AstScatterS v (vars, ix)
 
 astFromList :: forall s r n. (KnownNat n, GoodScalar r, AstSpan s)
@@ -1636,7 +1607,6 @@ astFromVectorS l = Ast.AstFromVectorS l
 astReplicate :: (KnownNat n, GoodScalar r, AstSpan s)
              => Int -> AstRanked s r n -> AstRanked s r (1 + n)
 astReplicate k = \case
-  Ast.AstLetADShare l v -> Ast.AstLetADShare l $ astReplicate k v
 {- TODO: these may be counterproductive with many gathers and their fusion
          though these let transpose cancel out with each other sometimes
          (instead we should try to cancel out inside replicate and only move
@@ -1658,7 +1628,6 @@ astReplicateS :: forall n sh s r.
                  (KnownNat n, Sh.Shape sh, GoodScalar r, AstSpan s)
               => AstShaped s r sh -> AstShaped s r (n ': sh)
 astReplicateS = \case
-  Ast.AstLetADShareS l v -> Ast.AstLetADShareS l $ astReplicateS v
   Ast.AstTransposeS @perm @sh1 v ->
     let zsuccPerm = 0 : map succ (Sh.shapeT @perm)
     in Sh.withShapeP zsuccPerm $ \(Proxy @zsuccP) ->
@@ -1715,10 +1684,6 @@ astAppend :: (KnownNat n, GoodScalar r, AstSpan s)
 astAppend (AstConst u) (AstConst v) = AstConst $ tappendR u v
 astAppend (Ast.AstConstant u) (Ast.AstConstant v) =
   Ast.AstConstant $ astAppend u v
-astAppend (Ast.AstLetADShare l u) v =
-  Ast.AstLetADShare l $ astAppend u v
-astAppend u (Ast.AstLetADShare l v) =
-  Ast.AstLetADShare l $ astAppend u v
 astAppend (Ast.AstFromList l1) (Ast.AstFromList l2) = astFromList $ l1 ++ l2
 astAppend (Ast.AstFromList l1) (Ast.AstFromVector l2) =
   astFromList $ l1 ++ V.toList l2
@@ -1734,10 +1699,6 @@ astAppendS :: (KnownNat m, KnownNat n, Sh.Shape sh, GoodScalar r, AstSpan s)
 astAppendS (AstConstS u) (AstConstS v) = AstConstS $ tappendS u v
 astAppendS (Ast.AstConstantS u) (Ast.AstConstantS v) =
   Ast.AstConstantS $ astAppendS u v
-astAppendS (Ast.AstLetADShareS l u) v =
-  Ast.AstLetADShareS l $ astAppendS u v
-astAppendS u (Ast.AstLetADShareS l v) =
-  Ast.AstLetADShareS l $ astAppendS u v
 astAppendS (Ast.AstFromListS l1) (Ast.AstFromListS l2) = astFromListS $ l1 ++ l2
 astAppendS (Ast.AstFromListS l1) (Ast.AstFromVectorS l2) =
   astFromListS $ l1 ++ V.toList l2
@@ -1751,7 +1712,6 @@ astSlice :: forall k s r. (KnownNat k, GoodScalar r, AstSpan s)
          => Int -> Int -> AstRanked s r (1 + k) -> AstRanked s r (1 + k)
 astSlice i n (AstConst t) = AstConst $ tsliceR i n t
 astSlice i n (Ast.AstConstant v) = Ast.AstConstant $ astSlice i n v
-astSlice i n (Ast.AstLetADShare l v) = Ast.AstLetADShare l $ astSlice i n v
 astSlice 0 n v | n == lengthAst v = v
 astSlice i n (Ast.AstFromList l) = astFromList $ take n (drop i l)
 astSlice i n (Ast.AstFromVector l) = astFromVector $ V.take n (V.drop i l)
@@ -1782,7 +1742,6 @@ astSliceS :: forall i n k sh s r.
           => AstShaped s r (i + n + k ': sh) -> AstShaped s r (n ': sh)
 astSliceS (AstConstS t) = AstConstS $ tsliceS @i @n t
 astSliceS (Ast.AstConstantS v) = Ast.AstConstantS $ astSliceS @i @n v
-astSliceS (Ast.AstLetADShareS l v) = Ast.AstLetADShareS l $ astSliceS @i @n v
 astSliceS v | Just Refl <- sameNat (Proxy @i) (Proxy @0)
             , Just Refl <- sameNat (Proxy @k) (Proxy @0) = v
 astSliceS (Ast.AstFromListS l) =
@@ -1813,7 +1772,6 @@ astReverse :: forall n s r. (KnownNat n, GoodScalar r, AstSpan s)
            => AstRanked s r (1 + n) -> AstRanked s r (1 + n)
 astReverse (AstConst t) = AstConst $ treverseR t
 astReverse (Ast.AstConstant v) = Ast.AstConstant $ astReverse v
-astReverse (Ast.AstLetADShare l v) = Ast.AstLetADShare l $ astReverse v
 astReverse (Ast.AstFromList l) = Ast.AstFromList $ reverse l
 astReverse (Ast.AstFromVector l) = Ast.AstFromVector $ V.reverse l
 astReverse (Ast.AstReplicate k v) = Ast.AstReplicate k v
@@ -1830,7 +1788,6 @@ astReverseS :: forall n sh s r. (KnownNat n, Sh.Shape sh, GoodScalar r)
             => AstShaped s r (n ': sh) -> AstShaped s r (n ': sh)
 astReverseS (AstConstS t) = AstConstS $ treverseS t
 astReverseS (Ast.AstConstantS v) = Ast.AstConstantS $ astReverseS v
-astReverseS (Ast.AstLetADShareS l v) = Ast.AstLetADShareS l $ astReverseS v
 astReverseS (Ast.AstFromListS l) = Ast.AstFromListS $ reverse l
 astReverseS (Ast.AstFromVectorS l) = Ast.AstFromVectorS $ V.reverse l
 astReverseS (Ast.AstReplicateS v) = Ast.AstReplicateS v
@@ -1878,7 +1835,6 @@ astTranspose perm = \case
                (backpermutePrefixSized perm vars, ix)
   AstConst t -> AstConst $ ttransposeR perm t
   Ast.AstConstant v -> Ast.AstConstant $ astTranspose perm v
-  Ast.AstLetADShare l v -> Ast.AstLetADShare l $ astTranspose perm v
   u -> Ast.AstTranspose perm u
     -- we don't go inside AstSumOfList, because they are usually long
 
@@ -1960,7 +1916,6 @@ astTransposeS = \case
            astGatherS @shmPerm @p @sh3 v (vars2, ix)
   AstConstS t -> AstConstS $ ttransposeS @perm t
   Ast.AstConstantS v -> Ast.AstConstantS $ astTransposeS @perm v
-  Ast.AstLetADShareS l v -> Ast.AstLetADShareS l $ astTransposeS @perm v
   u -> Ast.AstTransposeS @perm u  -- TODO
 
 -- Beware, this does not do full simplification, which often requires
@@ -1982,7 +1937,6 @@ astReshape shOut = \case
   Ast.AstReshape _ v -> astReshape shOut v
   AstConst t -> AstConst $ OR.reshape (shapeToList shOut) t
   Ast.AstConstant v -> Ast.AstConstant $ astReshape shOut v
-  Ast.AstLetADShare l v -> Ast.AstLetADShare l $ astReshape shOut v
   v -> let shIn = shapeAst v
        in case sameNat (Proxy @p) (Proxy @m) of
          Just Refl -> if shIn == shOut
@@ -2012,7 +1966,6 @@ astReshapeS = \case
   Ast.AstReshapeS v -> astReshapeS @_ @sh2 v
   AstConstS t -> AstConstS $ OS.reshape t
   Ast.AstConstantS v -> Ast.AstConstantS $ astReshapeS v
-  Ast.AstLetADShareS l v -> Ast.AstLetADShareS l $ astReshapeS v
   v -> case sameShape @sh @sh2 of
          Just Refl -> v
          _ -> Ast.AstReshapeS v
@@ -2021,7 +1974,6 @@ astCast :: (KnownNat n, GoodScalar r1, GoodScalar r2, RealFrac r1, RealFrac r2)
         => AstRanked s r1 n -> AstRanked s r2 n
 astCast (AstConst t) = AstConst $ tcastR t
 astCast (Ast.AstConstant v) = Ast.AstConstant $ astCast v
-astCast (Ast.AstLetADShare l v) = Ast.AstLetADShare l $ astCast v
 astCast (Ast.AstCast v) = astCast v
 astCast (Ast.AstFromIntegral v) = astFromIntegral v
 astCast v = Ast.AstCast v
@@ -2031,7 +1983,6 @@ astCastS :: ( Sh.Shape sh, GoodScalar r1, GoodScalar r2, RealFrac r1
          => AstShaped s r1 sh -> AstShaped s r2 sh
 astCastS (AstConstS t) = AstConstS $ tcastS t
 astCastS (Ast.AstConstantS v) = Ast.AstConstantS $ astCastS v
-astCastS (Ast.AstLetADShareS l v) = Ast.AstLetADShareS l $ astCastS v
 astCastS (Ast.AstCastS v) = astCastS v
 astCastS (Ast.AstFromIntegralS v) = astFromIntegralS v
 astCastS v = Ast.AstCastS v
@@ -2039,16 +1990,12 @@ astCastS v = Ast.AstCastS v
 astFromIntegral :: (KnownNat n, GoodScalar r1, GoodScalar r2, Integral r1)
                 => AstRanked PrimalSpan r1 n -> AstRanked PrimalSpan r2 n
 astFromIntegral (AstConst t) = AstConst $ tfromIntegralR t
-astFromIntegral (Ast.AstLetADShare l v) =
-  Ast.AstLetADShare l $ astFromIntegral v
 astFromIntegral (Ast.AstFromIntegral v) = astFromIntegral v
 astFromIntegral v = Ast.AstFromIntegral v
 
 astFromIntegralS :: (Sh.Shape sh, GoodScalar r1, GoodScalar r2, Integral r1)
                  => AstShaped PrimalSpan r1 sh -> AstShaped PrimalSpan r2 sh
 astFromIntegralS (AstConstS t) = AstConstS $ tfromIntegralS t
-astFromIntegralS (Ast.AstLetADShareS l v) =
-  Ast.AstLetADShareS l $ astFromIntegralS v
 astFromIntegralS (Ast.AstFromIntegralS v) = astFromIntegralS v
 astFromIntegralS v = Ast.AstFromIntegralS v
 
@@ -2086,7 +2033,6 @@ astRFromS :: Sh.Shape sh
           => AstShaped s r sh -> AstRanked s r (Sh.Rank sh)
 astRFromS (AstConstS t) = AstConst $ Data.Array.Convert.convert t
 astRFromS (Ast.AstConstantS v) = Ast.AstConstant $ astRFromS v
-astRFromS (Ast.AstLetADShareS l v) = Ast.AstLetADShare l $ astRFromS v
 astRFromS (Ast.AstSFromR v) = v  -- no information lost, so no checks
 astRFromS v = Ast.AstRFromS v
 
@@ -2094,7 +2040,6 @@ astSFromR :: forall sh s r. (Sh.Shape sh, KnownNat (Sh.Rank sh))
           => AstRanked s r (Sh.Rank sh) -> AstShaped s r sh
 astSFromR (AstConst t) = AstConstS $ Data.Array.Convert.convert t
 astSFromR (Ast.AstConstant v) = Ast.AstConstantS $ astSFromR v
-astSFromR (Ast.AstLetADShare l v) = Ast.AstLetADShareS l $ astSFromR v
 astSFromR (Ast.AstRFromS @sh1 v) =
   case sameShape @sh1 @sh of
     Just Refl -> v
@@ -2430,7 +2375,6 @@ simplifyAst
 simplifyAst t = case t of
   Ast.AstVar{} -> t
   Ast.AstLet var u v -> astLet var (simplifyAst u) (simplifyAst v)
-  Ast.AstLetADShare{} -> error "simplifyAst: AstLetADShare"
   Ast.AstShare{} -> error "simplifyAst: AstShare"
   Ast.AstCond b a2 a3 ->
     astCond (simplifyAstBool b) (simplifyAst a2) (simplifyAst a3)
@@ -2492,7 +2436,6 @@ simplifyAstS
 simplifyAstS t = case t of
   Ast.AstVarS{} -> t
   Ast.AstLetS var u v -> astLetS var (simplifyAstS u) (simplifyAstS v)
-  Ast.AstLetADShareS{} -> error "simplifyAstS: AstLetADShareS"
   Ast.AstShareS{} -> error "simplifyAstS: AstShareS"
   Ast.AstCondS b a2 a3 ->
     astCondS (simplifyAstBool b) (simplifyAstS a2) (simplifyAstS a3)
@@ -2618,7 +2561,6 @@ expandAst
 expandAst t = case t of
   Ast.AstVar{} -> t
   Ast.AstLet var u v -> astLet var (expandAst u) (expandAst v)
-  Ast.AstLetADShare{} -> error "expandAst: AstLetADShare"
   Ast.AstShare{} -> error "expandAst: AstShare"
   Ast.AstCond b a2 a3 ->
     astCond (expandAstBool b) (expandAst a2) (expandAst a3)
@@ -2718,7 +2660,6 @@ expandAstS
 expandAstS t = case t of
   Ast.AstVarS{} -> t
   Ast.AstLetS var u v -> astLetS var (expandAstS u) (expandAstS v)
-  Ast.AstLetADShareS{} -> error "expandAstS: AstLetADShareS"
   Ast.AstShareS{} -> error "expandAstS: AstShareS"
   Ast.AstCondS b a2 a3 ->
     astCondS (expandAstBool b) (expandAstS a2) (expandAstS a3)
@@ -3174,7 +3115,6 @@ substitute1Ast i var v1 = case v1 of
     case (substitute1Ast i var u, substitute1Ast i var v) of
       (Nothing, Nothing) -> Nothing
       (mu, mv) -> Just $ astLet var2 (fromMaybe u mu) (fromMaybe v mv)
-  Ast.AstLetADShare{} -> error "substitute1Ast: AstLetADShare"
   Ast.AstShare{} -> error "substitute1Ast: AstShare"
   Ast.AstCond b v w ->
     case ( substitute1AstBool i var b
@@ -3329,7 +3269,6 @@ substitute1AstS i var = \case
     case (substitute1AstS i var u, substitute1AstS i var v) of
       (Nothing, Nothing) -> Nothing
       (mu, mv) -> Just $ astLetS var2 (fromMaybe u mu) (fromMaybe v mv)
-  Ast.AstLetADShareS{} -> error "substitute1AstS: AstLetADShareS"
   Ast.AstShareS{} -> error "substitute1AstS: AstShareS"
   Ast.AstCondS b v w ->
     case ( substitute1AstBool i var b

@@ -141,7 +141,6 @@ interpretAst !env = \case
     let t = interpretAstRuntimeSpecialized env u
         env2 w = extendEnvR var w env
     in rlet t (\w -> interpretAst (env2 w) v)
-  AstLetADShare{} -> error "interpretAst: AstLetADShare"
   AstShare{} -> error "interpretAst: AstShare"
   AstCond b a1 a2 ->
     let b1 = interpretAstBool env b
@@ -539,7 +538,6 @@ interpretAstS !env = \case
     let t = interpretAstSRuntimeSpecialized env u
         env2 w = extendEnvS var w env
     in slet t (\w -> interpretAstS (env2 w) v)
-  AstLetADShareS{} -> error "interpretAstS: AstLetADShareS"
   AstShareS{} -> error "interpretAstS: AstShareS"
   AstCondS b a1 a2 ->
     let b1 = interpretAstBool env b

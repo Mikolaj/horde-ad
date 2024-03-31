@@ -169,25 +169,25 @@ fwdProduceArtifact g envInit =
 type instance SimpleBoolOf (AstRanked s) = AstBool
 
 instance AstSpan s => EqF (AstRanked s) where
-  v ==. u = (emptyADShare, AstRel EqOp (astSpanPrimal v) (astSpanPrimal u))
-  v /=. u = (emptyADShare, AstRel NeqOp (astSpanPrimal v) (astSpanPrimal u))
+  v ==. u = AstRel EqOp (astSpanPrimal v) (astSpanPrimal u)
+  v /=. u = AstRel NeqOp (astSpanPrimal v) (astSpanPrimal u)
 
 instance AstSpan s => OrdF (AstRanked s) where
-  AstConst u <. AstConst v = (emptyADShare, AstBoolConst $ u < v)
+  AstConst u <. AstConst v = AstBoolConst $ u < v
     -- common in indexing
-  v <. u = (emptyADShare, AstRel LsOp (astSpanPrimal v) (astSpanPrimal u))
-  AstConst u <=. AstConst v = (emptyADShare, AstBoolConst $ u <= v)
+  v <. u = AstRel LsOp (astSpanPrimal v) (astSpanPrimal u)
+  AstConst u <=. AstConst v = AstBoolConst $ u <= v
     -- common in indexing
-  v <=. u = (emptyADShare, AstRel LeqOp (astSpanPrimal v) (astSpanPrimal u))
-  AstConst u >. AstConst v = (emptyADShare, AstBoolConst $ u > v)
+  v <=. u = AstRel LeqOp (astSpanPrimal v) (astSpanPrimal u)
+  AstConst u >. AstConst v = AstBoolConst $ u > v
     -- common in indexing
-  v >. u = (emptyADShare, AstRel GtOp (astSpanPrimal v) (astSpanPrimal u))
-  AstConst u >=. AstConst v = (emptyADShare, AstBoolConst $ u >= v)
+  v >. u = AstRel GtOp (astSpanPrimal v) (astSpanPrimal u)
+  AstConst u >=. AstConst v = AstBoolConst $ u >= v
     -- common in indexing
-  v >=. u = (emptyADShare, AstRel GeqOp (astSpanPrimal v) (astSpanPrimal u))
+  v >=. u = AstRel GeqOp (astSpanPrimal v) (astSpanPrimal u)
 
 instance IfF (AstRanked s) where
-  ifF (_, b) = astCond b
+  ifF b = astCond b
 
 
 -- * Unlawful boolean instances of shaped AST; they are lawful modulo evaluation
@@ -195,25 +195,25 @@ instance IfF (AstRanked s) where
 type instance SimpleBoolOf (AstShaped s) = AstBool
 
 instance AstSpan s => EqF (AstShaped s) where
-  v ==. u = (emptyADShare, AstRelS EqOp (astSpanPrimalS v) (astSpanPrimalS u))
-  v /=. u = (emptyADShare, AstRelS NeqOp (astSpanPrimalS v) (astSpanPrimalS u))
+  v ==. u = AstRelS EqOp (astSpanPrimalS v) (astSpanPrimalS u)
+  v /=. u = AstRelS NeqOp (astSpanPrimalS v) (astSpanPrimalS u)
 
 instance AstSpan s => OrdF (AstShaped s) where
-  AstConstS u <. AstConstS v = (emptyADShare, AstBoolConst $ u < v)
+  AstConstS u <. AstConstS v = AstBoolConst $ u < v
     -- common in indexing
-  v <. u = (emptyADShare, AstRelS LsOp (astSpanPrimalS v) (astSpanPrimalS u))
-  AstConstS u <=. AstConstS v = (emptyADShare, AstBoolConst $ u <= v)
+  v <. u = AstRelS LsOp (astSpanPrimalS v) (astSpanPrimalS u)
+  AstConstS u <=. AstConstS v = AstBoolConst $ u <= v
     -- common in indexing
-  v <=. u = (emptyADShare, AstRelS LeqOp (astSpanPrimalS v) (astSpanPrimalS u))
-  AstConstS u >. AstConstS v = (emptyADShare, AstBoolConst $ u > v)
+  v <=. u = AstRelS LeqOp (astSpanPrimalS v) (astSpanPrimalS u)
+  AstConstS u >. AstConstS v = AstBoolConst $ u > v
     -- common in indexing
-  v >. u = (emptyADShare, AstRelS GtOp (astSpanPrimalS v) (astSpanPrimalS u))
-  AstConstS u >=. AstConstS v = (emptyADShare, AstBoolConst $ u >= v)
+  v >. u = AstRelS GtOp (astSpanPrimalS v) (astSpanPrimalS u)
+  AstConstS u >=. AstConstS v =  AstBoolConst $ u >= v
     -- common in indexing
-  v >=. u = (emptyADShare, AstRelS GeqOp (astSpanPrimalS v) (astSpanPrimalS u))
+  v >=. u = AstRelS GeqOp (astSpanPrimalS v) (astSpanPrimalS u)
 
 instance IfF (AstShaped s) where
-  ifF (_, b) = astCondS b
+  ifF b = astCondS b
 
 
 -- * Ranked tensor AST instances
@@ -847,18 +847,6 @@ instance AstSpan s => RankedTensor (AstRaw s) where
   rletHFunIn a f = AstRaw $ astLetHFunInFunRaw a (unAstRaw . f)
   rfromS = AstRaw . AstRFromS . unAstRawS
 
-  rletWrap l u | Just Refl <- sameAstSpan @s @PrimalSpan =
-    if nullADShare l then u else AstRaw $ AstLetADShare l (unAstRaw u)
-  rletWrap _ _ = error "rletWrap: wrong span"
-    -- We can't use astLet here, because it may inline a let that is
-    -- present at the top level of the dual number and so we'd lose
-    -- sharing that is not visible in this restricted context.
-    -- To make sure astLet is not used on these, we mark them with
-    -- a special constructor that also makes comparing lets cheap.
-  rletUnwrap u = case unAstRaw u of
-    AstLetADShare l t -> (l, AstRaw t)
-    AstConstant (AstLetADShare l t) -> (l, AstRaw $ AstConstant t)
-    _ -> (emptyADShare, u)
   -- For convenience and simplicity we define this for all spans,
   -- but it can only ever be used for PrimalSpan.
   rshare a@(AstRaw (AstShare{})) = a
@@ -989,18 +977,6 @@ instance AstSpan s => ShapedTensor (AstRawS s) where
   sletHFunIn a f = AstRawS $ astLetHFunInFunRawS a (unAstRawS . f)
   sfromR = AstRawS . AstSFromR . unAstRaw
 
-  sletWrap l u | Just Refl <- sameAstSpan @s @PrimalSpan =
-    if nullADShare l then u else AstRawS $ AstLetADShareS l (unAstRawS u)
-  sletWrap _ _ = error "sletWrap: wrong span"
-    -- We can't use astLet here, because it may inline a let that is
-    -- present at the top level of the dual number and so we'd lose
-    -- sharing that is not visible in this restricted context.
-    -- To make sure astLet is not used on these, we mark them with
-    -- a special constructor that also makes comparing lets cheap.
-  sletUnwrap u = case unAstRawS u of
-    AstLetADShareS l t -> (l, AstRawS t)
-    AstConstantS (AstLetADShareS l t) -> (l, AstRawS $ AstConstantS t)
-    _ -> (emptyADShare, u)
   sshare a@(AstRawS (AstShareS{})) = a
   sshare a | astIsSmallS True (unAstRawS a) = a
   sshare a = AstRawS $ fun1SToAst $ \ !var -> AstShareS var (unAstRawS a)

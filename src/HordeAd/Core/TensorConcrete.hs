@@ -38,17 +38,17 @@ import HordeAd.Util.ShapedList (shapedNat, unShapedNat)
 type instance SimpleBoolOf (Flip OR.Array) = Bool
 
 instance EqF (Flip OR.Array) where
-  u ==. v = (emptyADShare, u == v)
-  u /=. v = (emptyADShare, u /= v)
+  u ==. v = u == v
+  u /=. v = u /= v
 
 instance OrdF (Flip OR.Array) where
-  u <. v = (emptyADShare, u < v)
-  u <=. v = (emptyADShare, u <= v)
-  u >. v = (emptyADShare, u > v)
-  u >=. v = (emptyADShare, u >= v)
+  u <. v = u < v
+  u <=. v = u <= v
+  u >. v = u > v
+  u >=. v = u >= v
 
 instance IfF (Flip OR.Array) where
-  ifF (_, b) v w = if b then v else w
+  ifF b v w = if b then v else w
 
 type instance RankedOf (Flip OR.Array) = Flip OR.Array
 
@@ -120,17 +120,17 @@ instance RankedTensor (Flip OR.Array) where
 type instance SimpleBoolOf (Flip OS.Array) = Bool
 
 instance EqF (Flip OS.Array) where
-  u ==. v = (emptyADShare, u == v)
-  u /=. v = (emptyADShare, u /= v)
+  u ==. v = u == v
+  u /=. v = u /= v
 
 instance OrdF (Flip OS.Array) where
-  u <. v = (emptyADShare, u < v)
-  u <=. v = (emptyADShare, u <= v)
-  u >. v = (emptyADShare, u > v)
-  u >=. v = (emptyADShare, u >= v)
+  u <. v = u < v
+  u <=. v = u <= v
+  u >. v = u > v
+  u >=. v = u >= v
 
 instance IfF (Flip OS.Array) where
-  ifF (_, b) v w = if b then v else w
+  ifF b v w = if b then v else w
 
 type instance RankedOf (Flip OS.Array) = Flip OR.Array
 

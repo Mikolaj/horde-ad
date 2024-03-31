@@ -127,7 +127,6 @@ inlineAst memo v0 = case v0 of
                       -- u is small, so the union is fast
         in (memo3, substituteAst (SubstitutionPayloadRanked u0) var v2)
       _ -> (memo2, Ast.AstLet var u2 v2)
-  Ast.AstLetADShare{} -> error "inlineAst: AstLetADShare"
   Ast.AstShare{} -> error "inlineAst: AstShare"
   Ast.AstCond b a2 a3 ->
     -- This is a place where our inlining may increase code size
@@ -260,7 +259,6 @@ inlineAstS memo v0 = case v0 of
                       -- u is small, so the union is fast
         in (memo3, substituteAstS (SubstitutionPayloadShaped u0) var v2)
       _ -> (memo2, Ast.AstLetS var u2 v2)
-  Ast.AstLetADShareS{} -> error "inlineAstS: AstLetADShareS"
   Ast.AstShareS{} -> error "inlineAstS: AstShareS"
   Ast.AstCondS b a2 a3 ->
     -- This is a place where our inlining may increase code size
@@ -511,7 +509,6 @@ shareAst memo v0 = case v0 of
     let (memo1, v2) = shareAst memo v
         (memo2, u2) = shareAst memo1 u
     in (memo2, Ast.AstLet var u2 v2)
-  Ast.AstLetADShare{} -> (memo, v0)
   Ast.AstShare var v | Just Refl <- sameAstSpan @s @PrimalSpan ->
     -- We assume v is the same if var is the same.
     let varId = varNameToAstVarId var
@@ -617,7 +614,6 @@ shareAstS memo v0 = case v0 of
     let (memo1, v2) = shareAstS memo v
         (memo2, u2) = shareAstS memo1 u
     in (memo2, Ast.AstLetS var u2 v2)
-  Ast.AstLetADShareS{} -> (memo, v0)
   Ast.AstShareS var v | Just Refl <- sameAstSpan @s @PrimalSpan ->
     -- We assume v is the same if var is the same.
     let varId = varNameToAstVarId var

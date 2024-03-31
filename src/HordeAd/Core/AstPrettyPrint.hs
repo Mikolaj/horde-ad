@@ -32,7 +32,6 @@ import           GHC.TypeLits (KnownNat, Nat, sameNat)
 import           Type.Reflection (typeRep)
 
 import           HordeAd.Core.Ast
-import           HordeAd.Core.AstTools
 import           HordeAd.Core.HVector
 import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances (sameShape)
@@ -78,7 +77,6 @@ areAllArgsInts = \case
   -- and so also aribtrary choices in resolving it.
   AstVar{} -> True
   AstLet{} -> True  -- too early to tell, but displays the same
-  AstLetADShare{} -> True  -- too early to tell
   AstShare{} -> True  -- too early to tell
   AstCond{} -> True  -- too early to tell
   AstMinIndex{} -> False
@@ -253,7 +251,6 @@ printAstAux cfg d = \case
              . printAstVarFromLet u0 cfg var0
              . showString " -> "
              . printAst cfg 0 v0)
-  AstLetADShare l v -> printAst cfg d $ bindsToLet v (assocsADShare l)
   AstShare var v ->
     showParen (d > 10)
     $ showString "rshare "
@@ -441,7 +438,6 @@ printAstS cfg d = \case
              . printAstVarS cfg var0
              . showString " -> "
              . printAstS cfg 0 v0)
-  AstLetADShareS l v -> printAstS cfg d $ bindsToLetS v (assocsADShare l)
   AstShareS var v ->
     showParen (d > 10)
     $ showString "sshare "
