@@ -9,7 +9,7 @@ module HordeAd.Core.Ast
     AstSpanType(..), AstSpan(..), sameAstSpan
     -- * Assorted small definitions
   , AstInt, IntVarName, pattern AstIntVar, isRankedInt
-  , AstBindings, ADShare
+  , AstBindings
     -- * More and less typed variables and type synonyms containing them
   , AstVarName(..), varNameToAstVarId
   , AstArtifactRev, AstArtifactFwd
@@ -125,7 +125,6 @@ isRankedInt _ = case ( sameAstSpan @s @PrimalSpan
                   _ -> Nothing
 
 type AstBindings = AstBindingsD (AstRanked PrimalSpan)
-type ADShare = ADShareD (AstRanked PrimalSpan)
 
 
 -- * More and less typed variables and type synonyms containing them
@@ -176,8 +175,6 @@ data AstRanked :: AstSpanType -> RankedTensorType where
          => AstVarName (AstRanked s) r n -> AstRanked s r n
          -> AstRanked s2 r2 m
          -> AstRanked s2 r2 m
-  AstLetADShare :: ADShare -> AstRanked PrimalSpan r n
-                -> AstRanked PrimalSpan r n
    -- these are mixed local/global lets, because they can be identical
    -- to the lets stored in the D constructor and so should not be inlined
    -- even in trivial cases until the transpose pass eliminates D
@@ -281,8 +278,6 @@ data AstShaped :: AstSpanType -> ShapedTensorType where
           => AstVarName (AstShaped s) r sh1 -> AstShaped s r sh1
           -> AstShaped s2 r2 sh2
           -> AstShaped s2 r2 sh2
-  AstLetADShareS :: ADShare -> AstShaped PrimalSpan r sh
-                 -> AstShaped PrimalSpan r sh
    -- these are mixed local/global lets, because they can be identical
    -- to the lets stored in the D constructor and so should not be inlined
    -- even in trivial cases until the transpose pass eliminates D
@@ -535,9 +530,6 @@ instance (Num (OR.Array n r), AstSpan s)
     AstSumOfList (AstConst v : lv ++ lu)
   AstSumOfList lu + AstSumOfList lv = AstSumOfList (lu ++ lv)
 
-  AstLetADShare l u + v = AstLetADShare l $ u + v
-  u + AstLetADShare l v = AstLetADShare l $ u + v
-
   AstConst u + AstSumOfList (AstConst v : lv) =
     AstSumOfList (AstConst (u + v) : lv)
   u + AstSumOfList (AstConst v : lv) = AstSumOfList (AstConst v : u : lv)
@@ -553,17 +545,12 @@ instance (Num (OR.Array n r), AstSpan s)
   u + v = AstSumOfList [u, v]
 
   AstConst u - AstConst v = AstConst (u - v)  -- common in indexing
-  AstLetADShare l u - v = AstLetADShare l $ u - v
-  u - AstLetADShare l v = AstLetADShare l $ u - v
   u - v = AstN2 MinusOp u v
 
   AstConst u * AstConst v = AstConst (u * v)  -- common in indexing
-  AstLetADShare l u * v = AstLetADShare l $ u * v
-  u * AstLetADShare l v = AstLetADShare l $ u * v
   u * v = AstN2 TimesOp u v
 
   negate (AstConst u) = AstConst $ negate u  -- common in indexing
-  negate (AstLetADShare l u) = AstLetADShare l $ negate u
   negate u = AstN1 NegateOp u
   abs = AstN1 AbsOp
   signum = AstN1 SignumOp
@@ -660,9 +647,6 @@ instance (Num (OS.Array sh r), AstSpan s)
     AstSumOfListS (AstConstS v : lv ++ lu)
   AstSumOfListS lu + AstSumOfListS lv = AstSumOfListS (lu ++ lv)
 
-  AstLetADShareS l u + v = AstLetADShareS l $ u + v
-  u + AstLetADShareS l v = AstLetADShareS l $ u + v
-
   AstConstS u + AstSumOfListS (AstConstS v : lv) =
     AstSumOfListS (AstConstS (u + v) : lv)
   u + AstSumOfListS (AstConstS v : lv) = AstSumOfListS (AstConstS v : u : lv)
@@ -678,16 +662,11 @@ instance (Num (OS.Array sh r), AstSpan s)
   u + v = AstSumOfListS [u, v]
 
   AstConstS u - AstConstS v = AstConstS (u - v)  -- common in indexing
-  AstLetADShareS l u - v = AstLetADShareS l $ u - v
-  u - AstLetADShareS l v = AstLetADShareS l $ u - v
   u - v = AstN2S MinusOp u v
 
   AstConstS u * AstConstS v = AstConstS (u * v)  -- common in indexing
-  AstLetADShareS l u * v = AstLetADShareS l $ u * v
-  u * AstLetADShareS l v = AstLetADShareS l $ u * v
   u * v = AstN2S TimesOp u v
 
-  negate (AstLetADShareS l u) = AstLetADShareS l $ negate u
   negate u = AstN1S NegateOp u
   abs = AstN1S AbsOp
   signum = AstN1S SignumOp
@@ -779,19 +758,7 @@ instance Boolean AstBool where
 -- * Boolean definitions and instances
 
 type BoolOf :: TensorType ty -> Type
-type BoolOf f = (ADShare, SimpleBoolOf f)
-
--- This and below is inspired by https://hackage.haskell.org/package/Boolean,
--- but renamed so that it does not conflict with it nor with Applicative
--- and modified to depend on the tensor structure functor only,
--- not on the type resulting from applying the functor to the underlying
--- scalar and rank/shape.
-instance Boolean b => Boolean (ADShare, b) where
-  true = (emptyADShare, true)
-  false = (emptyADShare, false)
-  notB (l, b) = (l, notB b)
-  (l1, b) &&* (l2, c) = (l1 `mergeADShare` l2, b &&* c)
-  (l1, b) ||* (l2, c) = (l1 `mergeADShare` l2, b ||* c)
+type BoolOf f = SimpleBoolOf f
 
 class Boolean (SimpleBoolOf f) => IfF (f :: TensorType ty) where
   ifF :: (GoodScalar r, HasSingletonDict y)

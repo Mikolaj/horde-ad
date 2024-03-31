@@ -7,10 +7,10 @@ module HordeAd.Core.AstTools
   ( -- * Shape calculation
     shapeAst, lengthAst, shapeAstHVector, shapeAstHFun, domainShapesAstHFun
     -- * Variable occurrence detection
-  , varInAst, varInADShare, varInAstBool, varInIndex
+  , varInAst, varInAstBool, varInIndex
   , varInAstS, varInIndexS
   , varInAstDynamic, varInAstHVector
-  , varNameInAst, varNameInADShare, varNameInAstS, varNameInAstHVector
+  , varNameInAst, varNameInAstS, varNameInAstHVector
     -- * Determining if a term is too small to require sharing
   , astIsSmall, astIsSmallS
     -- * Odds and ends
@@ -47,7 +47,6 @@ shapeAst :: forall n s r. (KnownNat n, GoodScalar r)
 shapeAst = \case
   AstVar sh _var -> sh
   AstLet _ _ v -> shapeAst v
-  AstLetADShare _ v-> shapeAst v
   AstShare _ v-> shapeAst v
   AstCond _b v _w -> shapeAst v
   AstMinIndex a -> initShape $ shapeAst a
@@ -145,7 +144,6 @@ varInAst :: forall s r n. AstSpan s
 varInAst var = \case
   AstVar _ var2 -> fromEnum var == fromEnum var2
   AstLet _var2 u v -> varInAst var u || varInAst var v
-  AstLetADShare l v -> varInADShare var l || varInAst var v
   AstShare _ v -> varInAst var v
   AstCond b v w -> varInAstBool var b || varInAst var v || varInAst var w
   AstMinIndex a -> varInAst var a
@@ -191,7 +189,6 @@ varInAstS :: forall s r sh. AstSpan s
 varInAstS var = \case
   AstVarS var2 -> fromEnum var == fromEnum var2
   AstLetS _var2 u v -> varInAstS var u || varInAstS var v
-  AstLetADShareS l v -> varInADShare var l || varInAstS var v
   AstShareS _ v -> varInAstS var v
   AstCondS b v w -> varInAstBool var b || varInAstS var v || varInAstS var w
   AstMinIndexS a -> varInAstS var a
@@ -231,9 +228,6 @@ varInAstS var = \case
 
 varInIndexS :: AstVarId -> AstIndexS sh -> Bool
 varInIndexS var = any (varInAst var)
-
-varInADShare :: AstVarId -> ADShare -> Bool
-varInADShare = varInADShareF varInAstDynamic varInAstHVector
 
 varInAstHVector :: AstSpan s
                 => AstVarId -> AstHVector s -> Bool
@@ -277,9 +271,6 @@ varInAstBool var = \case
 varNameInAst :: AstSpan s2
              => AstVarName f r n -> AstRanked s2 r2 n2 -> Bool
 varNameInAst (AstVarName varId) = varInAst varId
-
-varNameInADShare :: AstVarName f r n -> ADShare -> Bool
-varNameInADShare (AstVarName varId) = varInADShare varId
 
 varNameInAstS :: AstSpan s2
               => AstVarName f r sh -> AstShaped s2 r2 sh2 -> Bool

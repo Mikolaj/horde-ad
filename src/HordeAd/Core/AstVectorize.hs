@@ -168,7 +168,6 @@ build1V k (var, v00) =
       in astLet var2 (build1VOccurenceUnknown k (var, u))
                      (build1VOccurenceUnknownRefresh k (var, v2))
                         -- ensure no duplicated bindings, see below
-    Ast.AstLetADShare{} -> error "build1V: AstLetADShare"
     Ast.AstShare{} -> error "build1V: AstShare"
     Ast.AstCond b (Ast.AstConstant v) (Ast.AstConstant w) ->
       let t = Ast.AstConstant
@@ -430,7 +429,6 @@ build1VS (var, v00) =
                  (SubstitutionPayloadShaped @s1 @r1 projection) var1 v
       in astLetS var2 (build1VOccurenceUnknownS @k (var, u))
                       (build1VOccurenceUnknownRefreshS (var, v2))
-    Ast.AstLetADShareS{} -> error "build1VS: AstLetADShareS"
     Ast.AstShareS{} -> error "build1VS: AstShareS"
     Ast.AstCondS b (Ast.AstConstantS v) (Ast.AstConstantS w) ->
       let t = Ast.AstConstantS

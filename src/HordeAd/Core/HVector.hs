@@ -18,9 +18,6 @@ module HordeAd.Core.HVector
     -- * ADShare definition
   , AstVarId, intToAstVarId, AstDynamicVarName(..), dynamicVarNameToAstVarId
   , AstBindingsCase(..), AstBindingsD, varInAstBindingsCase
-  , ADShareD
-  , emptyADShare, insertADShare, mergeADShare, subtractADShare
-  , flattenADShare, assocsADShare, varInADShareF, nullADShare
   ) where
 
 import Prelude
@@ -28,16 +25,12 @@ import Prelude
 import           Control.DeepSeq (NFData (..))
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.Shape as Sh
-import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
 import           Data.Kind (Constraint, Type)
-import           Data.List (foldl')
-import           Data.Maybe (fromMaybe)
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality (testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, Nat, type (+))
-import           System.IO.Unsafe (unsafePerformIO)
 import           Type.Reflection (Typeable, typeRep)
 
 import           HordeAd.Core.Types
@@ -348,130 +341,6 @@ deriving instance ( Show (HVectorOf ranked)
 type AstBindingsD (ranked :: RankedTensorType) =
   [(AstVarId, AstBindingsCase ranked)]
 
-unsafeGlobalCounter :: Counter
-{-# NOINLINE unsafeGlobalCounter #-}
-unsafeGlobalCounter = unsafePerformIO (newCounter 0)
-
-unsafeGetFreshId :: IO Int
-{-# INLINE unsafeGetFreshId #-}
-unsafeGetFreshId = atomicAddCounter_ unsafeGlobalCounter 1
-
--- Data invariant: the list is reverse-sorted wrt keys.
--- This permits not inspecting too long a prefix of the list, usually,
--- which is crucial for performance. The strictness is crucial for correctness
--- in the presence of impurity for generating fresh variables.
--- The first integer field permits something akin to pointer equality
--- but with less false negatives, because it's stable.
-type role ADShareD nominal
-type ADShareD :: RankedTensorType -> Type
-data ADShareD ranked =
-    ADShareNil
-  | ADShareCons Int AstVarId (AstBindingsCase ranked) (ADShareD ranked)
-deriving instance ( Show (HVectorOf ranked)
-                  , CRanked ranked Show, CShaped (ShapedOf ranked) Show )
-                  => Show (ADShareD ranked)
-
-emptyADShare :: ADShareD d
-emptyADShare = ADShareNil
-
-insertADShare :: forall d.
-                 AstVarId -> AstBindingsCase d -> ADShareD d -> ADShareD d
-insertADShare !key !t !s =
-  -- The Maybe over-engineering ensures that we never refresh an id
-  -- unnecessarily. In theory, when merging alternating equal lists
-  -- with different ids, this improves runtime from quadratic to linear,
-  -- but we apparently don't have such tests or they are too small,
-  -- so this causes a couple percent overhead instead.
-  let insertAD :: ADShareD d -> Maybe (ADShareD d)
-      insertAD ADShareNil =
-        Just $ ADShareCons (- fromEnum key) key t ADShareNil
-      insertAD l2@(ADShareCons _id2 key2 t2 rest2) =
-        case compare key key2 of
-          EQ -> Nothing
-                  -- the lists only ever grow and only in fresh/unique way,
-                  -- so identical key means identical payload
-          LT -> case insertAD rest2 of
-            Nothing -> Nothing
-            Just l3 -> Just $ freshInsertADShare key2 t2 l3
-          GT -> Just $ freshInsertADShare key t l2
-  in fromMaybe s (insertAD s)
-
-freshInsertADShare :: AstVarId -> AstBindingsCase d -> ADShareD d -> ADShareD d
-{-# NOINLINE freshInsertADShare #-}
-freshInsertADShare !key !t !s = unsafePerformIO $ do
-  id0 <- unsafeGetFreshId
-  return $! ADShareCons id0 key t s
-
-mergeADShare :: ADShareD d -> ADShareD d -> ADShareD d
-mergeADShare !s1 !s2 =
-  let mergeAD :: ADShareD d -> ADShareD d -> Maybe (ADShareD d)
-      mergeAD ADShareNil ADShareNil = Nothing
-      mergeAD l ADShareNil = Just l
-      mergeAD ADShareNil l = Just l
-      mergeAD l1@(ADShareCons id1 key1 t1 rest1)
-              l2@(ADShareCons id2 key2 t2 rest2) =
-        if id1 == id2
-        then -- This assert is quadratic, so can only be enabled when debugging:
-             -- assert (_lengthADShare l1 == _lengthADShare l2) $
-             Nothing
-               -- the lists only ever grow and only in fresh/unique way,
-               -- so an identical id means the rest is the same
-        else case compare key1 key2 of
-          EQ -> case mergeAD rest1 rest2 of
-             Nothing -> Nothing
-             Just l3 -> Just $ freshInsertADShare key2 t2 l3
-          LT -> case mergeAD l1 rest2 of
-             Nothing -> Just l2
-             Just l3 -> Just $ freshInsertADShare key2 t2 l3
-          GT -> case mergeAD rest1 l2 of
-             Nothing -> Just l1
-             Just l3 -> Just $ freshInsertADShare key1 t1 l3
-  in fromMaybe s1 (mergeAD s1 s2)
-
--- The result type is not as expected. The result is as if assocsADShare
--- was applied to the expected one.
-subtractADShare :: ADShareD d -> ADShareD d -> AstBindingsD d
-{-# INLINE subtractADShare #-}  -- help list fusion
-subtractADShare !s1 !s2 =
-  let subAD :: ADShareD d -> ADShareD d -> AstBindingsD d
-      subAD !l ADShareNil = assocsADShare l
-      subAD ADShareNil _ = []
-      subAD l1@(ADShareCons id1 key1 t1 rest1)
-            l2@(ADShareCons id2 key2 _ rest2) =
-        if id1 == id2
-        then []  -- the lists only ever grow and only in fresh/unique way,
-                 -- so an identical id means the rest is the same
-        else case compare key1 key2 of
-          EQ -> subAD rest1 rest2
-          LT -> subAD l1 rest2
-          GT -> (key1, t1) : subAD rest1 l2
-  in subAD s1 s2
-
--- TODO: rename to concat? make it a monoid?
-flattenADShare :: [ADShareD d] -> ADShareD d
-flattenADShare = foldl' mergeADShare emptyADShare
-
-assocsADShare :: ADShareD d -> AstBindingsD d
-{-# INLINE assocsADShare #-}  -- help list fusion
-assocsADShare ADShareNil = []
-assocsADShare (ADShareCons _ key t rest) =
-  (key, t) : assocsADShare rest
-
-_lengthADShare :: Int -> ADShareD d -> Int
-_lengthADShare acc ADShareNil = acc
-_lengthADShare acc (ADShareCons _ _ _ rest) = _lengthADShare (acc + 1) rest
-
-varInADShareF :: (AstVarId -> DynamicTensor d -> Bool)
-                -> (AstVarId -> HVectorOf d -> Bool)
-                -> AstVarId -> ADShareD d
-                -> Bool
-{-# INLINE varInADShareF #-}
-varInADShareF _ _ _ ADShareNil = False
-varInADShareF varInAstDynamic varInAstHVector var (ADShareCons _ _ d rest) =
-  varInAstBindingsCase varInAstDynamic varInAstHVector var d
-  || varInADShareF varInAstDynamic varInAstHVector var rest
-    -- TODO: for good Core, probably a local recursive 'go' is needed
-
 varInAstBindingsCase :: (AstVarId -> DynamicTensor d -> Bool)
                      -> (AstVarId -> HVectorOf d -> Bool)
                      -> AstVarId -> AstBindingsCase d
@@ -481,8 +350,3 @@ varInAstBindingsCase varInAstDynamic _varInAstHVector var
                      (AstBindingsSimple t) = varInAstDynamic var t
 varInAstBindingsCase _varInAstDynamic varInAstHVector var
                      (AstBindingsHVector _ t) = varInAstHVector var t
-
-nullADShare :: ADShareD d -> Bool
-{-# INLINE nullADShare #-}
-nullADShare ADShareNil = True
-nullADShare ADShareCons{} = False

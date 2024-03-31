@@ -309,11 +309,6 @@ class ( Integral (IntOf ranked), CRanked ranked Num
   rdot1In :: GoodScalar r => ranked r 2 -> ranked r 2 -> ranked r 1
   rdot1In t u = rsumIn (t * u)
     -- TODO: generalize, replace by stride analysis, etc.
-  rletWrap :: (GoodScalar r, KnownNat n)
-           => ADShare -> ranked r n -> ranked r n
-  rletWrap _l u = u
-  rletUnwrap :: ranked r n -> (ADShare, ranked r n)
-  rletUnwrap u = (emptyADShare, u)
   rshare :: KnownNat n => ranked r n -> ranked r n
   rshare = id
 
@@ -686,11 +681,6 @@ class ( Integral (IntOf shaped), CShaped shaped Num
           => shaped r '[n, m] -> shaped r '[n, m] -> shaped r '[n]
   sdot1In t u = ssumIn (t * u)
     -- TODO: generalize, replace by stride analysis, etc.
-  sletWrap :: (GoodScalar r, Sh.Shape sh)
-           => ADShare -> shaped r sh -> shaped r sh
-  sletWrap _l u = u
-  sletUnwrap :: shaped r sh -> (ADShare, shaped r sh)
-  sletUnwrap u = (emptyADShare, u)
   sshare :: Sh.Shape sh => shaped r sh -> shaped r sh
   sshare = id
 

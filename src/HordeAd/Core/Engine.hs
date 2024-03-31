@@ -810,12 +810,12 @@ cfwd f vals ds =
 {-# SPECIALIZE interpretAstBool
   :: AstEnv (ADVal (Flip OR.Array))
   -> AstBool
-  -> (ADShare, Bool) #-}
+  -> Bool #-}
 {-# SPECIALIZE interpretAstBool
   :: AstEnv (ADVal (AstRanked PrimalSpan))
   -> AstBool
-  -> (ADShare, AstBool) #-}
+  -> AstBool #-}
 {-# SPECIALIZE interpretAstBool
   :: AstEnv (Flip OR.Array)
   -> AstBool
-  -> (ADShare, Bool) #-}
+  -> Bool #-}
