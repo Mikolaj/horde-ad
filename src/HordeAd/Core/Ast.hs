@@ -9,7 +9,6 @@ module HordeAd.Core.Ast
     AstSpanType(..), AstSpan(..), sameAstSpan
     -- * Assorted small definitions
   , AstInt, IntVarName, pattern AstIntVar, isRankedInt
-  , AstBindings
     -- * More and less typed variables and type synonyms containing them
   , AstVarName(..), varNameToAstVarId
   , AstArtifactRev, AstArtifactFwd
@@ -123,8 +122,6 @@ isRankedInt _ = case ( sameAstSpan @s @PrimalSpan
                      , sameNat (Proxy @n) (Proxy @0) ) of
                   (Just Refl, Just Refl, Just Refl) -> Just Refl
                   _ -> Nothing
-
-type AstBindings = AstBindingsD (AstRanked PrimalSpan)
 
 
 -- * More and less typed variables and type synonyms containing them
