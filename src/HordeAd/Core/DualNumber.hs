@@ -18,9 +18,6 @@ import Prelude
 import           Control.Exception.Assert.Sugar
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.Shape as Sh
-import           Data.Bifunctor.Clown
-import           Data.Bifunctor.Product
-import           Data.Functor.Const
 import           Data.Kind (Type)
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality (testEquality, (:~:) (Refl))
@@ -54,10 +51,10 @@ import           HordeAd.Util.SizedList
 -- is determined by a definition of type family @Dual@ provided elsewhere.
 type role ADVal nominal nominal nominal
 data ADVal (f :: TensorType ty) (r :: Type) (z :: ty) =
-  ADVal ADShare (f r z) (Dual f r z)
+  ADVal (f r z) (Dual f r z)
 
-pattern D :: ADShare -> f r z -> Dual f r z -> ADVal f r z
-pattern D l t u <- ADVal l t u  -- enforces only pattern matching
+pattern D :: f r z -> Dual f r z -> ADVal f r z
+pattern D t u <- ADVal t u  -- enforces only pattern matching
 {-# COMPLETE D #-}
 
 deriving instance (Show (f r z), Show (Dual f r z))
@@ -69,8 +66,8 @@ deriving instance (Show (f r z), Show (Dual f r z))
 -- The bare constructor should not be used directly (which is not enforced
 -- by the types yet), except when deconstructing via pattern-matching.
 dD :: IsPrimal f r z
-   => ADShare -> f r z -> Dual f r z -> ADVal f r z
-dD !l !a !dual = dDnotShared l a (shareDual dual)
+   => f r z -> Dual f r z -> ADVal f r z
+dD !a !dual = dDnotShared a (shareDual dual)
 
 -- | This a not so smart a constructor for 'D' of 'ADVal' that does not record
 -- sharing information. If used in contexts where sharing may occur,
@@ -78,35 +75,34 @@ dD !l !a !dual = dDnotShared l a (shareDual dual)
 -- in backpropagation phase. In contexts without sharing, it saves
 -- some evaluation time and memory (in term structure, but even more
 -- in the per-node data stored while evaluating).
-dDnotShared :: ADShare -> f r z -> Dual f r z -> ADVal f r z
+dDnotShared :: f r z -> Dual f r z -> ADVal f r z
 dDnotShared = ADVal
 
 
 -- * Auxiliary definitions
 
 constantADVal :: IsPrimal f r z => f r z -> ADVal f r z
-constantADVal a = dDnotShared emptyADShare a (dZeroOfShape a)
+constantADVal a = dDnotShared a (dZeroOfShape a)
 
 -- | Add sharing information to the top level of a term, presumably
 -- constructed using multiple applications of the `dDnotShared` operation.
 -- The resulting term may not have sharing information inside,
 -- but is ready to be shared as a whole.
 ensureToplevelSharing :: IsPrimal f r z => ADVal f r z -> ADVal f r z
-ensureToplevelSharing (D l u u') = dD l u u'
+ensureToplevelSharing (D u u') = dD u u'
 
 scaleNotShared :: (Num (f r z), IsPrimal f r z)
                => f r z -> ADVal f r z -> ADVal f r z
-scaleNotShared !a (D l u u') = dDnotShared l (a * u) (dScale a u')
+scaleNotShared !a (D u u') = dDnotShared (a * u) (dScale a u')
 
 addNotShared :: (Num (f r z), IsPrimal f r z)
              => ADVal f r z -> ADVal f r z -> ADVal f r z
-addNotShared (D l1 u u') (D l2 v v') =
-  dDnotShared (l1 `mergeADShare` l2) (u + v) (dAdd u' v')
+addNotShared (D u u') (D v v') = dDnotShared (u + v) (dAdd u' v')
 
 multNotShared :: (Num (f r z), IsPrimal f r z)
               => ADVal f r z -> ADVal f r z -> ADVal f r z
-multNotShared (D l1 u u') (D l2 v v') =
-  dDnotShared (l1 `mergeADShare` l2) (u * v) (dAdd (dScale v u') (dScale u v'))
+multNotShared (D u u') (D v v') =
+  dDnotShared (u * v) (dAdd (dScale v u') (dScale u v'))
 {-
 addParameters :: (Numeric r, Num (Vector r), DTensorOf r ~ OD.Array r)
               => HVector r -> HVector r -> HVector r
@@ -160,11 +156,11 @@ makeADInputs =
       f (DynamicRanked @r @n t) (DynamicRanked @r2 @n2 d)
         | Just Refl <- sameNat (Proxy @n) (Proxy @n2)
         , Just Refl <- testEquality (typeRep @r) (typeRep @r2) =
-          DynamicRanked $ dDnotShared emptyADShare t d
+          DynamicRanked $ dDnotShared t d
       f (DynamicShaped @r @sh t) (DynamicShaped @r2 @sh2 d)
         | Just Refl <- sameShape @sh @sh2
         , Just Refl <- testEquality (typeRep @r) (typeRep @r2) =
-          DynamicShaped $ dDnotShared emptyADShare t d
+          DynamicShaped $ dDnotShared t d
       f _ _ = error "makeADInputs: non-matching arguments"
   in V.zipWith f
 
@@ -174,62 +170,60 @@ makeADInputs =
 type instance SimpleBoolOf (ADVal f) = SimpleBoolOf f
 
 instance EqF f => EqF (ADVal f) where
-  D l1 u _ ==. D l2 v _ = (l1 `mergeADShare` l2, snd $ u ==. v)
-  D l1 u _ /=. D l2 v _ = (l1 `mergeADShare` l2, snd $ u /=. v)
+  D u _ ==. D v _ = u ==. v
+  D u _ /=. D v _ = u /=. v
 
 instance OrdF f => OrdF (ADVal f) where
-  D l1 u _ <. D l2 v _ = (l1 `mergeADShare` l2, snd $ u <. v)
-  D l1 u _ <=. D l2 v _ = (l1 `mergeADShare` l2, snd $ u <=. v)
-  D l1 u _ >. D l2 v _ = (l1 `mergeADShare` l2, snd $ u >. v)
-  D l1 u _ >=. D l2 v _ = (l1 `mergeADShare` l2, snd $ u >=. v)
+  D u _ <. D v _ = u <. v
+  D u _ <=. D v _ = u <=. v
+  D u _ >. D v _ = u >. v
+  D u _ >=. D v _ = u >=. v
 
 indexPrimal :: (RankedTensor ranked, KnownNat m, KnownNat n, GoodScalar r)
             => ADVal ranked r (m + n) -> IndexOf ranked m
             -> ADVal ranked r n
-indexPrimal (D l u u') ix = dD l (rindex u ix) (IndexR u' ix)
+indexPrimal (D u u') ix = dD (rindex u ix) (IndexR u' ix)
 
 fromList :: (RankedTensor ranked, KnownNat n, GoodScalar r)
          => [ADVal ranked r n]
          -> ADVal ranked r (1 + n)
 fromList lu =
   -- TODO: if lu is empty, crash if n =\ 0 or use List.NonEmpty.
-  dD (flattenADShare $ map (\(D l _ _) -> l) lu)
-     (rfromList $ map (\(D _ u _) -> u) lu)
-     (FromListR $ map (\(D _ _ u') -> u') lu)
+  dD (rfromList $ map (\(D u _) -> u) lu)
+     (FromListR $ map (\(D _ u') -> u') lu)
 
 instance ( RankedTensor ranked, IfF (RankedOf (PrimalOf ranked))
          , Boolean (SimpleBoolOf ranked)
          , SimpleBoolOf (RankedOf (PrimalOf ranked)) ~ SimpleBoolOf ranked )
          => IfF (ADVal ranked) where
-  ifF (l1, b) v w =
-    let D l2 u u' = indexPrimal (fromList [v, w])
-                                (singletonIndex $ ifF (emptyADShare, b) 0 1)
-    in dDnotShared (l1 `mergeADShare` l2) u u'
+  ifF b v w =
+    let D u u' = indexPrimal (fromList [v, w])
+                             (singletonIndex $ ifF b 0 1)
+    in dDnotShared u u'
 
 indexPrimalS :: ( ShapedTensor shaped, GoodScalar r
                 , Sh.Shape sh1, Sh.Shape sh2, Sh.Shape (sh1 Sh.++ sh2) )
              => ADVal shaped r (sh1 Sh.++ sh2) -> IndexSh shaped sh1
              -> ADVal shaped r sh2
-indexPrimalS (D l u u') ix = dD l (sindex u ix) (IndexS u' ix)
+indexPrimalS (D u u') ix = dD (sindex u ix) (IndexS u' ix)
 
 fromListS :: forall n sh shaped r.
              (ShapedTensor shaped, KnownNat n, Sh.Shape sh, GoodScalar r)
            => [ADVal shaped r sh]
            -> ADVal shaped r (n ': sh)
 fromListS lu = assert (length lu == valueOf @n) $
-  dD (flattenADShare $ map (\(D l _ _) -> l) lu)
-     (sfromList $ map (\(D _ u _) -> u) lu)
-     (FromListS $ map (\(D _ _ u') -> u') lu)
+  dD (sfromList $ map (\(D u _) -> u) lu)
+     (FromListS $ map (\(D _ u') -> u') lu)
 
 instance ( ShapedTensor shaped, IfF (RankedOf (PrimalOf shaped))
          , Boolean (SimpleBoolOf shaped)
          , SimpleBoolOf (RankedOf (PrimalOf shaped)) ~ SimpleBoolOf shaped )
          => IfF (ADVal shaped) where
-  ifF (l1, b) v w =
-    let D l2 u u' = indexPrimalS (fromListS @2 [v, w])
-                                 (ShapedList.singletonIndex
-                                  $ ifF (emptyADShare, b) 0 1)
-    in dDnotShared (l1 `mergeADShare` l2) u u'
+  ifF b v w =
+    let D u u' = indexPrimalS (fromListS @2 [v, w])
+                              (ShapedList.singletonIndex
+                               $ ifF b 0 1)
+    in dDnotShared u u'
 
 {- TODO: use for speed-up, e.g,. by checking the type at runtime
 instance IfF (ADVal (Flip OR.Array)) where
@@ -249,7 +243,7 @@ type instance HFunOf (ADVal f) = HFun
 
 type instance PrimalOf (ADVal f) = f
 
-type instance DualOf (ADVal f) = Product (Clown (Const ADShare)) (Dual f)
+type instance DualOf (ADVal f) = Dual f
 
 
 -- * Numeric instances
@@ -277,19 +271,18 @@ instance (Num (f r z), IsPrimal f r z)
   {-# SPECIALIZE instance KnownNat n
                           => Num (ADVal (AstRanked PrimalSpan) Double n) #-}
 -}
-  D l1 u u' + D l2 v v' = dD (l1 `mergeADShare` l2) (u + v) (dAdd u' v')
-  D l1 u u' - D l2 v v' =
-    dD (l1 `mergeADShare` l2) (u - v) (dAdd u' (dScale (intOfShape v (-1)) v'))
-  D l1 ue u' * D l2 ve v' =
+  D u u' + D v v' = dD (u + v) (dAdd u' v')
+  D u u' - D v v' =
+    dD (u - v) (dAdd u' (dScale (intOfShape v (-1)) v'))
+  D ue u' * D ve v' =
     -- The bangs are neccessary for GHC 9.2.7 test results to match 9.4.
-    let !l3 = l1 `mergeADShare` l2 in
     let !u = sharePrimal ue in
     let !v = sharePrimal ve
-    in dD l3 (u * v) (dAdd (dScale v u') (dScale u v'))
-  negate (D l v v') = dD l (negate v) (dScale (intOfShape v (-1)) v')
-  abs (D l ve v') = let !v = sharePrimal ve
-                    in dD l (abs v) (dScale (signum v) v')
-  signum (D l v _) = dD l (signum v) (dZeroOfShape v)
+    in dD (u * v) (dAdd (dScale v u') (dScale u v'))
+  negate (D v v') = dD (negate v) (dScale (intOfShape v (-1)) v')
+  abs (D ve v') = let !v = sharePrimal ve
+                  in dD (abs v) (dScale (signum v) v')
+  signum (D v _) = dD (signum v) (dZeroOfShape v)
   fromInteger = constantADVal . fromInteger
 
 instance (Real (f r z), IsPrimal f r z)
@@ -303,10 +296,8 @@ instance Enum (ADVal f r z) where  -- dummy, to satisfy Integral below
 
 instance (Integral (f r z), IsPrimal f r z)
          => Integral (ADVal f r z) where
-  quot (D l1 u _) (D l2 v _) =
-    dD (l1 `mergeADShare` l2) (quot u v) (dZeroOfShape u)
-  rem (D l1 u _) (D l2 v _) =
-    dD (l1 `mergeADShare` l2) (rem u v) (dZeroOfShape u)
+  quot (D u _) (D v _) = dD (quot u v) (dZeroOfShape u)
+  rem (D u _) (D v _) = dD (rem u v) (dZeroOfShape u)
   quotRem x y = (quot x y, rem x y)
   divMod _ _ = error "divMod: disabled; much less efficient than quot and rem"
   toInteger = undefined  -- we can't evaluate uninstantiated variables, etc.
@@ -325,16 +316,15 @@ instance (Fractional (f r z), IsPrimal f r z)
       KnownNat n
       => Fractional (ADVal (AstRanked PrimalSpan) Double n) #-}
 -}
-  D l1 ue u' / D l2 ve v' =
-    let !l3 = l1 `mergeADShare` l2 in
+  D ue u' / D ve v' =
     let !u = sharePrimal ue in
     let !v = sharePrimal ve
-    in dD l3 (u / v)
-             (dAdd (dScale (recip v) u') (dScale ((- u) / (v * v)) v'))
-  recip (D l ve v') =
+    in dD (u / v)
+          (dAdd (dScale (recip v) u') (dScale ((- u) / (v * v)) v'))
+  recip (D ve v') =
     let !v = sharePrimal ve
         minusRecipSq = - recip (v * v)
-    in dD l (recip v) (dScale minusRecipSq v')
+    in dD (recip v) (dScale minusRecipSq v')
   fromRational = constantADVal . fromRational
 
 instance (Floating (f r z), IsPrimal f r z)
@@ -352,50 +342,49 @@ instance (Floating (f r z), IsPrimal f r z)
       => Floating (ADVal (AstRanked PrimalSpan) Double n) #-}
 -}
   pi = constantADVal pi
-  exp (D l ue u') = let !expU = sharePrimal (exp ue)
-                    in dD l expU (dScale expU u')
-  log (D l ue u') = let !u = sharePrimal ue
-                    in dD l (log u) (dScale (recip u) u')
-  sqrt (D l ue u') = let !sqrtU = sharePrimal (sqrt ue)
-                     in dD l sqrtU (dScale (recip (sqrtU + sqrtU)) u')
-  D l1 ue u' ** D l2 ve v' =
-    let !l3 = l1 `mergeADShare` l2 in
+  exp (D ue u') = let !expU = sharePrimal (exp ue)
+                  in dD expU (dScale expU u')
+  log (D ue u') = let !u = sharePrimal ue
+                  in dD (log u) (dScale (recip u) u')
+  sqrt (D ue u') = let !sqrtU = sharePrimal (sqrt ue)
+                   in dD sqrtU (dScale (recip (sqrtU + sqrtU)) u')
+  D ue u' ** D ve v' =
     let !u = sharePrimal ue in
     let !v = sharePrimal ve
-    in dD l3 (u ** v) (dAdd (dScale (v * (u ** (v - intOfShape v 1))) u')
-                            (dScale ((u ** v) * log u) v'))
+    in dD (u ** v) (dAdd (dScale (v * (u ** (v - intOfShape v 1))) u')
+                         (dScale ((u ** v) * log u) v'))
   logBase x y = log y / log x
-  sin (D l ue u') = let !u = sharePrimal ue
-                    in dD l (sin u) (dScale (cos u) u')
-  cos (D l ue u') = let !u = sharePrimal ue
-                    in dD l (cos u) (dScale (- (sin u)) u')
-  tan (D l ue u') = let !u = sharePrimal ue in
-                    let !cosU = sharePrimal (cos u)
-                    in dD l (tan u) (dScale (recip (cosU * cosU)) u')
-  asin (D l ue u') = let !u = sharePrimal ue
-                     in dD l (asin u)
-                           (dScale (recip (sqrt (intOfShape u 1 - u * u))) u')
-  acos (D l ue u') = let !u = sharePrimal ue
-                     in dD l (acos u)
-                           (dScale (- recip (sqrt (intOfShape u 1 - u * u))) u')
-  atan (D l ue u') = let !u = sharePrimal ue
-                     in dD l (atan u)
-                           (dScale (recip (intOfShape u 1 + u * u)) u')
-  sinh (D l ue u') = let !u = sharePrimal ue
-                     in dD l (sinh u) (dScale (cosh u) u')
-  cosh (D l ue u') = let !u = sharePrimal ue
-                     in dD l (cosh u) (dScale (sinh u) u')
-  tanh (D l ue u') = let !y = sharePrimal (tanh ue)
-                     in dD l y (dScale (intOfShape y 1 - y * y) u')
-  asinh (D l ue u') = let !u = sharePrimal ue
-                      in dD l (asinh u)
-                            (dScale (recip (sqrt (intOfShape u 1 + u * u))) u')
-  acosh (D l ue u') = let !u = sharePrimal ue
-                      in dD l (acosh u)
-                            (dScale (recip (sqrt (u * u - intOfShape u 1))) u')
-  atanh (D l ue u') = let !u = sharePrimal ue
-                      in dD l (atanh u)
-                            (dScale (recip (intOfShape u 1 - u * u)) u')
+  sin (D ue u') = let !u = sharePrimal ue
+                  in dD (sin u) (dScale (cos u) u')
+  cos (D ue u') = let !u = sharePrimal ue
+                  in dD (cos u) (dScale (- (sin u)) u')
+  tan (D ue u') = let !u = sharePrimal ue in
+                  let !cosU = sharePrimal (cos u)
+                  in dD (tan u) (dScale (recip (cosU * cosU)) u')
+  asin (D ue u') = let !u = sharePrimal ue
+                   in dD (asin u)
+                         (dScale (recip (sqrt (intOfShape u 1 - u * u))) u')
+  acos (D ue u') = let !u = sharePrimal ue
+                   in dD (acos u)
+                         (dScale (- recip (sqrt (intOfShape u 1 - u * u))) u')
+  atan (D ue u') = let !u = sharePrimal ue
+                   in dD (atan u)
+                         (dScale (recip (intOfShape u 1 + u * u)) u')
+  sinh (D ue u') = let !u = sharePrimal ue
+                   in dD (sinh u) (dScale (cosh u) u')
+  cosh (D ue u') = let !u = sharePrimal ue
+                   in dD (cosh u) (dScale (sinh u) u')
+  tanh (D ue u') = let !y = sharePrimal (tanh ue)
+                   in dD y (dScale (intOfShape y 1 - y * y) u')
+  asinh (D ue u') = let !u = sharePrimal ue
+                    in dD (asinh u)
+                          (dScale (recip (sqrt (intOfShape u 1 + u * u))) u')
+  acosh (D ue u') = let !u = sharePrimal ue
+                    in dD (acosh u)
+                          (dScale (recip (sqrt (u * u - intOfShape u 1))) u')
+  atanh (D ue u') = let !u = sharePrimal ue
+                    in dD (atanh u)
+                          (dScale (recip (intOfShape u 1 - u * u)) u')
 
 instance (RealFrac (f r z), IsPrimal f r z)
          => RealFrac (ADVal f r z) where
@@ -417,22 +406,21 @@ instance (RealFloat (f r z), IsPrimal f r z)
       KnownNat n
       => RealFloat (ADVal (AstRanked PrimalSpan) Double n) #-}
 -}
-  atan2 (D l1 ue u') (D l2 ve v') =
-    let !l3 = l1 `mergeADShare` l2 in
+  atan2 (D ue u') (D ve v') =
     let !u = sharePrimal ue in
     let !v = sharePrimal ve in
     let !t = sharePrimal (recip (u * u + v * v))
-    in dD l3 (atan2 u v) (dAdd (dScale ((- u) * t) v') (dScale (v * t) u'))
+    in dD (atan2 u v) (dAdd (dScale ((- u) * t) v') (dScale (v * t) u'))
   -- Note that for term types @a@ this is invalid without an extra let
   -- containing the first field of @D@. However, for terms this is
   -- unimplemented anyway.
-  floatRadix (D _ u _) = floatRadix u
-  floatDigits (D _ u _) = floatDigits u
-  floatRange (D _ u _) = floatRange u
-  decodeFloat (D _ u _) = decodeFloat u
+  floatRadix (D u _) = floatRadix u
+  floatDigits (D u _) = floatDigits u
+  floatRange (D u _) = floatRange u
+  decodeFloat (D u _) = decodeFloat u
   encodeFloat i j = constantADVal (encodeFloat i j)
-  isNaN (D _ u _) = isNaN u
-  isInfinite (D _ u _) = isInfinite u
-  isDenormalized (D _ u _) = isDenormalized u
-  isNegativeZero (D _ u _) = isNegativeZero u
-  isIEEE (D _ u _) = isIEEE u
+  isNaN (D u _) = isNaN u
+  isInfinite (D u _) = isInfinite u
+  isDenormalized (D u _) = isDenormalized u
+  isNegativeZero (D u _) = isNegativeZero u
+  isIEEE (D u _) = isIEEE u

@@ -82,9 +82,8 @@ forwardPassByInterpretation g envInit hVectorPrimal vars hVector =
       varInputs = makeADInputs hVectorPrimal deltaInputs
       HVectorPseudoTensor ast = g hVector
       env = foldr extendEnvD envInit $ zip vars $ V.toList varInputs
-      (ll, as, as') = unADValHVector $ interpretAstHVector env ast
-  in dDnotShared (flattenADShare $ V.toList ll)
-                 (HVectorPseudoTensor $ dmkHVector as)
+      (as, as') = unADValHVector $ interpretAstHVector env ast
+  in dDnotShared (HVectorPseudoTensor $ dmkHVector as)
                  (HVectorPseudoTensor $ HToH as')
 
 revArtifactFromForwardPass
@@ -105,7 +104,7 @@ revArtifactFromForwardPass hasDt forwardPass parameters0 =
         funToAstRev parameters0 in
   let -- Evaluate completely after terms constructed, to free memory
       -- before gradientFromDelta allocates new memory and new FFI is started.
-      !(D l (HVectorPseudoTensor primalBody) delta) =
+      !(D (HVectorPseudoTensor primalBody) delta) =
         forwardPass hVectorPrimal vars hVector
       domsB = shapeAstHVector $ unAstRawWrap primalBody
   in fun1DToAst domsB $ \ !varsDt !astsDt ->
@@ -144,7 +143,7 @@ fwdArtifactFromForwardPass
 fwdArtifactFromForwardPass forwardPass parameters0 =
   let !(!varsPrimalDs, hVectorDs, varsPrimal, hVectorPrimal, vars, hVector) =
         funToAstFwd parameters0 in
-  let !(D l (HVectorPseudoTensor primalBody) delta) =
+  let !(D (HVectorPseudoTensor primalBody) delta) =
         forwardPass hVectorPrimal vars hVector in
   let !(HVectorPseudoTensor derivative) =
         derivativeFromDeltaH (V.length parameters0) delta hVectorDs
