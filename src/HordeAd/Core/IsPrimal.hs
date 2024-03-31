@@ -35,7 +35,7 @@ import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.Util.SizedList
 
--- | The type family that to each differentiable type assigns
+-- | The type family that to each dfferentiable type assigns
 -- its delta expression type. The dispatch is on the type parameter @ty@,
 -- which is 'Nat', @[Nat]@ or @()@, respectively.
 type Dual :: TensorType ty -> TensorType ty

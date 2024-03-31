@@ -21,11 +21,8 @@ import Prelude
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as Sh
 import qualified Data.Array.ShapedS as OS
-import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
-import           Data.Bifunctor.Product
 import qualified Data.EnumMap.Strict as EM
-import           Data.Functor.Const
 import           Data.Int (Int64)
 import           Data.Maybe (fromMaybe, isJust)
 import qualified Data.Vector.Generic as V
@@ -511,42 +508,42 @@ cfwd f vals ds =
   :: (KnownNat n, GoodScalar r)
   => AstEnv (ADVal (Flip OR.Array))
   -> AstRanked DualSpan r n
-  -> Product (Clown (Const ADShare)) (DeltaR (Flip OR.Array)) r n #-}
+  -> DeltaR (Flip OR.Array) r n #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
   => AstEnv (ADVal (Flip OR.Array))
   -> AstRanked DualSpan Double n
-  -> Product (Clown (Const ADShare)) (DeltaR (Flip OR.Array)) Double n #-}
+  -> DeltaR (Flip OR.Array) Double n #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
   => AstEnv (ADVal (Flip OR.Array))
   -> AstRanked DualSpan Float n
-  -> Product (Clown (Const ADShare)) (DeltaR (Flip OR.Array)) Float n #-}
+  -> DeltaR (Flip OR.Array) Float n #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
   => AstEnv (ADVal (Flip OR.Array))
   -> AstRanked DualSpan Int64 n
-  -> Product (Clown (Const ADShare)) (DeltaR (Flip OR.Array)) Int64 n #-}
+  -> DeltaR (Flip OR.Array) Int64 n #-}
 {-# SPECIALIZE interpretAstDual
   :: (KnownNat n, GoodScalar r)
   => AstEnv (ADVal (AstRanked PrimalSpan))
   -> AstRanked DualSpan r n
-  -> Product (Clown (Const ADShare)) (DeltaR (AstRanked PrimalSpan)) r n #-}
+  -> DeltaR (AstRanked PrimalSpan) r n #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
   => AstEnv (ADVal (AstRanked PrimalSpan))
   -> AstRanked DualSpan Double n
-  -> Product (Clown (Const ADShare)) (DeltaR (AstRanked PrimalSpan)) Double n #-}
+  -> DeltaR (AstRanked PrimalSpan) Double n #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
   => AstEnv (ADVal (AstRanked PrimalSpan))
   -> AstRanked DualSpan Float n
-  -> Product (Clown (Const ADShare)) (DeltaR (AstRanked PrimalSpan)) Float n #-}
+  -> DeltaR (AstRanked PrimalSpan) Float n #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
   => AstEnv (ADVal (AstRanked PrimalSpan))
   -> AstRanked DualSpan Int64 n
-  -> Product (Clown (Const ADShare)) (DeltaR (AstRanked PrimalSpan)) Int64 n #-}
+  -> DeltaR (AstRanked PrimalSpan) Int64 n #-}
 {-# SPECIALIZE interpretAstDual
   :: (KnownNat n, GoodScalar r)
   => AstEnv (Flip OR.Array)
@@ -572,42 +569,42 @@ cfwd f vals ds =
   :: (Sh.Shape sh, GoodScalar r)
   => AstEnv (ADVal (Flip OR.Array))
   -> AstShaped DualSpan r sh
-  -> Product (Clown (Const ADShare)) (DeltaS (Flip OS.Array)) r sh #-}
+  -> DeltaS (Flip OS.Array) r sh #-}
 {-# SPECIALIZE interpretAstDualS
   :: Sh.Shape sh
   => AstEnv (ADVal (Flip OR.Array))
   -> AstShaped DualSpan Double sh
-  -> Product (Clown (Const ADShare)) (DeltaS (Flip OS.Array)) Double sh #-}
+  -> DeltaS (Flip OS.Array) Double sh #-}
 {-# SPECIALIZE interpretAstDualS
   :: Sh.Shape sh
   => AstEnv (ADVal (Flip OR.Array))
   -> AstShaped DualSpan Float sh
-  -> Product (Clown (Const ADShare)) (DeltaS (Flip OS.Array)) Float sh #-}
+  -> DeltaS (Flip OS.Array) Float sh #-}
 {-# SPECIALIZE interpretAstDualS
   :: Sh.Shape sh
   => AstEnv (ADVal (Flip OR.Array))
   -> AstShaped DualSpan Int64 sh
-  -> Product (Clown (Const ADShare)) (DeltaS (Flip OS.Array)) Int64 sh #-}
+  -> DeltaS (Flip OS.Array) Int64 sh #-}
 {-# SPECIALIZE interpretAstDualS
   :: (Sh.Shape sh, GoodScalar r)
   => AstEnv (ADVal (AstRanked PrimalSpan))
   -> AstShaped DualSpan r sh
-  -> Product (Clown (Const ADShare)) (DeltaS (AstShaped PrimalSpan)) r sh #-}
+  -> DeltaS (AstShaped PrimalSpan) r sh #-}
 {-# SPECIALIZE interpretAstDualS
   :: Sh.Shape sh
   => AstEnv (ADVal (AstRanked PrimalSpan))
   -> AstShaped DualSpan Double sh
-  -> Product (Clown (Const ADShare)) (DeltaS (AstShaped PrimalSpan)) Double sh #-}
+  -> DeltaS (AstShaped PrimalSpan) Double sh #-}
 {-# SPECIALIZE interpretAstDualS
   :: Sh.Shape sh
   => AstEnv (ADVal (AstRanked PrimalSpan))
   -> AstShaped DualSpan Float sh
-  -> Product (Clown (Const ADShare)) (DeltaS (AstShaped PrimalSpan)) Float sh #-}
+  -> DeltaS (AstShaped PrimalSpan) Float sh #-}
 {-# SPECIALIZE interpretAstDualS
   :: Sh.Shape sh
   => AstEnv (ADVal (AstRanked PrimalSpan))
   -> AstShaped DualSpan Int64 sh
-  -> Product (Clown (Const ADShare)) (DeltaS (AstShaped PrimalSpan)) Int64 sh #-}
+  -> DeltaS (AstShaped PrimalSpan) Int64 sh #-}
 {-# SPECIALIZE interpretAstDualS
   :: (Sh.Shape sh, GoodScalar r)
   => AstEnv (Flip OR.Array)

@@ -221,9 +221,8 @@ instance HVectorTensor (Flip OR.Array) (Flip OS.Array) where
     -- This computes the derivative of g again for each new @parmeters@.
     let g :: HVector (ADVal (Flip OR.Array))
           -> ADVal (HVectorPseudoTensor (Flip OR.Array)) r y
-        g !hv = let D l a a' = f hv
-                in dDnotShared l
-                               (HVectorPseudoTensor $ dmkHVector
+        g !hv = let D a a' = f hv
+                in dDnotShared (HVectorPseudoTensor $ dmkHVector
                                 $ V.singleton $ DynamicRanked a)
                                (HVectorPseudoTensor $ HToH
                                 $ V.singleton $ DynamicRanked a')
@@ -237,9 +236,8 @@ instance HVectorTensor (Flip OR.Array) (Flip OS.Array) where
     let g :: ADReady f
           => HVector (ADVal f)
           -> ADVal (HVectorPseudoTensor f) r y
-        g !hv = let (ll, as, as') = unADValHVector $ unHFun h [hv]
-                in dDnotShared (flattenADShare $ V.toList ll)
-                               (HVectorPseudoTensor $ dmkHVector as)
+        g !hv = let (as, as') = unADValHVector $ unHFun h [hv]
+                in dDnotShared (HVectorPseudoTensor $ dmkHVector as)
                                (HVectorPseudoTensor $ HToH as')
         rf :: [HVector (Flip OR.Array)] -> HVectorOf (Flip OR.Array)
         rf [!db, !a] =
@@ -253,9 +251,8 @@ instance HVectorTensor (Flip OR.Array) (Flip OS.Array) where
     let g :: ADReady f
           => HVector (ADVal f)
           -> ADVal (HVectorPseudoTensor f) r y
-        g !hv = let (ll, as, as') = unADValHVector $ unHFun h [hv]
-                in dDnotShared (flattenADShare $ V.toList ll)
-                               (HVectorPseudoTensor $ dmkHVector as)
+        g !hv = let (as, as') = unADValHVector $ unHFun h [hv]
+                in dDnotShared (HVectorPseudoTensor $ dmkHVector as)
                                (HVectorPseudoTensor $ HToH as')
         df :: [HVector (Flip OR.Array)] -> HVectorOf (Flip OR.Array)
         df [!da, !a] = fst $ cfwdOnHVector a g da

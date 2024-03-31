@@ -125,7 +125,7 @@ testTrees =
   , testCase "2fooBuild" testFooBuild
   , testCase "2fooMap1" testFooMap1
   , testCase "2fooNoGoAst" testFooNoGoAst
-  , testCase "2fooNoGo" testFooNoGo
+  , testCase "2fooNoGo0" testFooNoGo0
   , testCase "2nestedBuildMap1" testNestedBuildMap1
   , testCase "2nestedSumBuild" testNestedSumBuild
   , testCase "2nestedBuildIndex" testNestedBuildIndex
@@ -1388,8 +1388,8 @@ fooNoGo v =
      / rslice 1 3 (rmap0N (\x -> ifF (x >. r) r x) v)
      * rbuild1 3 (const 1)
 
-testFooNoGo :: Assertion
-testFooNoGo =
+testFooNoGo0 :: Assertion
+testFooNoGo0 =
   assertEqualUpToEpsilon' 1e-6
    (OR.fromList [5] [5.037878787878788,-14.394255484765257,43.23648655081373,-0.8403418295960368,5.037878787878788])
    (rev' @Double @1 fooNoGo

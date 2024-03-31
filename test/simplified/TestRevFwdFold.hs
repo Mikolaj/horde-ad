@@ -318,7 +318,7 @@ _testFooRrevPP2 = do
 
 testFooRrev3 :: Assertion
 testFooRrev3 = do
-  let f (D _ a _) =
+  let f (D a _) =
         let (a1, _, _) = fooRrev @(ADVal (Flip OR.Array)) @Double
                                  (OR.unScalar (runFlip a), 2.2, 3.3)
         in a1
