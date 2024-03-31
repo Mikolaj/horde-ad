@@ -67,7 +67,7 @@ deriving instance (Show (f r z), Show (Dual f r z))
 -- by the types yet), except when deconstructing via pattern-matching.
 dD :: IsPrimal f r z
    => f r z -> Dual f r z -> ADVal f r z
-dD !a !dual = dDnotShared a (shareDual dual)
+dD !a !dual = ADVal a (shareDual dual)
 
 -- | This a not so smart a constructor for 'D' of 'ADVal' that does not record
 -- sharing information. If used in contexts where sharing may occur,

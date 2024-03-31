@@ -60,7 +60,7 @@ crevDtMaybeBoth mdt f vals =
                   $ f $ parseHVector (fromDValue vals) hVector
       valsH = toHVectorOf vals
       mdth = toHVector <$> mdt
-      (grad, HVectorPseudoTensor res) = crevOnHVector mdth g valsH
+      (grad, res) = crevOnHVector mdth g valsH
   in (parseHVector vals grad, rfromD $ res V.! 0)
 
 rev' :: forall r m n v a.
@@ -100,7 +100,7 @@ rev' f vals =
         -> (HVector (Flip OR.Array), Flip OR.Array r m)
       revEvalArtifact7 a1 a2 =
         let (grad, v) = revEvalArtifact a1 a2 Nothing
-        in (grad, rfromD (unHVectorPseudoTensor v V.! 0))
+        in (grad, rfromD (v V.! 0))
       hGeneral
         :: (ADReady fgen, ADReady f1)
         => (f1 r m -> AstRanked PrimalSpan r m)

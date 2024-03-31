@@ -104,20 +104,18 @@ revArtifactFromForwardPass hasDt forwardPass parameters0 =
         funToAstRev parameters0 in
   let -- Evaluate completely after terms constructed, to free memory
       -- before gradientFromDelta allocates new memory and new FFI is started.
-      !(D (HVectorPseudoTensor primalBody) delta) =
+      !(D (HVectorPseudoTensor primalBody) (HVectorPseudoTensor delta)) =
         forwardPass hVectorPrimal vars hVector
       domsB = shapeAstHVector $ unAstRawWrap primalBody
   in fun1DToAst domsB $ \ !varsDt !astsDt ->
     let mdt = if hasDt
               then Just $ rawHVector astsDt
               else Nothing
-        !gradient =
-          gradientFromDeltaH
-            parameters0 (HVectorPseudoTensor primalBody) mdt delta
+        !gradient = gradientFromDeltaH parameters0 primalBody mdt delta
         unGradient = dunlet (dmkHVector gradient)
         unPrimal = dunlet primalBody
     in ( ((varsDt, varsPrimal), unGradient, HVectorPseudoTensor unPrimal)
-       , delta )
+       , HVectorPseudoTensor delta )
 
 revProduceArtifact
   :: Bool
@@ -143,14 +141,14 @@ fwdArtifactFromForwardPass
 fwdArtifactFromForwardPass forwardPass parameters0 =
   let !(!varsPrimalDs, hVectorDs, varsPrimal, hVectorPrimal, vars, hVector) =
         funToAstFwd parameters0 in
-  let !(D (HVectorPseudoTensor primalBody) delta) =
+  let !(D (HVectorPseudoTensor primalBody) (HVectorPseudoTensor delta)) =
         forwardPass hVectorPrimal vars hVector in
-  let !(HVectorPseudoTensor derivative) =
+  let !derivative =
         derivativeFromDeltaH (V.length parameters0) delta hVectorDs
       unDerivative = HVectorPseudoTensor $ dunlet derivative
       unPrimal = HVectorPseudoTensor $ dunlet primalBody
   in ( ((varsPrimalDs, varsPrimal), unDerivative, unPrimal)
-     , delta )
+     , HVectorPseudoTensor delta )
 
 fwdProduceArtifact
   :: (HVector (AstRanked FullSpan)
@@ -208,7 +206,7 @@ instance AstSpan s => OrdF (AstShaped s) where
   AstConstS u >. AstConstS v = AstBoolConst $ u > v
     -- common in indexing
   v >. u = AstRelS GtOp (astSpanPrimalS v) (astSpanPrimalS u)
-  AstConstS u >=. AstConstS v =  AstBoolConst $ u >= v
+  AstConstS u >=. AstConstS v = AstBoolConst $ u >= v
     -- common in indexing
   v >=. u = AstRelS GeqOp (astSpanPrimalS v) (astSpanPrimalS u)
 
@@ -670,9 +668,9 @@ astBuildHVector1Vectorize k f = build1VectorizeHVector k $ funToAstI f
 -- but is possible here:
 {-# SPECIALIZE gradientFromDeltaH
   :: VoidHVector
-  -> HVectorPseudoTensor (AstRanked PrimalSpan) Double y
+  -> HVectorOf (AstRanked PrimalSpan)
   -> Maybe (HVector (AstRanked PrimalSpan))
-  -> HVectorPseudoTensor (DeltaR (AstRanked PrimalSpan)) Double y
+  -> DeltaH (AstRanked PrimalSpan)
   -> HVector (AstRanked PrimalSpan) #-}
 {-# SPECIALIZE evalFromnMap
   :: EvalState (AstRanked PrimalSpan) -> EvalState (AstRanked PrimalSpan) #-}

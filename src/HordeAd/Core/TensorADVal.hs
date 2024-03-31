@@ -49,20 +49,21 @@ crevOnADInputs
   -> (HVector (ADVal ranked)
       -> ADVal (HVectorPseudoTensor ranked) r y)
   -> HVector (ADVal ranked)
-  -> (HVectorOf ranked, HVectorPseudoTensor ranked r y)
+  -> (HVectorOf ranked, HVectorOf ranked)
 -- The functions in which @revOnADInputs@ inlines are not inlined themselves
 -- in client code, so the bloat is limited.
 {-# INLINE crevOnADInputs #-}
 crevOnADInputs mdt f inputs =
   let -- Evaluate completely after terms constructed, to free memory
       -- before evaluation allocates new memory and new FFI is started.
-      !(D v deltaTopLevel) = f inputs in
+      !(D (HVectorPseudoTensor v)
+          (HVectorPseudoTensor deltaTopLevel)) = f inputs in
   let rshapePrimal :: (GoodScalar r2, KnownNat n, ADReady g)
                    => ADVal g r2 n -> ShapeInt n
       rshapePrimal (D p _) = rshape p
       parameters0 = V.map (voidFromDynamicF (shapeToList . rshapePrimal)) inputs
       !gradient = gradientFromDeltaH parameters0 v mdt deltaTopLevel
-  in (dunlet (dmkHVector gradient), unletPseudo v)
+  in (dunlet (dmkHVector gradient), dunlet v)
 
 crevOnHVector
   :: ADReady ranked
@@ -70,7 +71,7 @@ crevOnHVector
   -> (HVector (ADVal ranked)
       -> ADVal (HVectorPseudoTensor ranked) r y)
   -> HVector ranked
-  -> (HVectorOf ranked, HVectorPseudoTensor ranked r y)
+  -> (HVectorOf ranked, HVectorOf ranked)
 crevOnHVector mdt f parameters =
   let deltaInputs = generateDeltaInputs parameters
       inputs = makeADInputs parameters deltaInputs
@@ -82,13 +83,13 @@ cfwdOnADInputs
   -> (HVector (ADVal ranked)
       -> ADVal (HVectorPseudoTensor ranked) r y)
   -> HVector ranked
-  -> ( HVectorPseudoTensor ranked r y
-     , HVectorPseudoTensor ranked r y )
+  -> (HVectorOf ranked, HVectorOf ranked)
 {-# INLINE cfwdOnADInputs #-}
 cfwdOnADInputs inputs f ds =
-  let !(D v deltaTopLevel) = f inputs in
+  let !(D (HVectorPseudoTensor v)
+          (HVectorPseudoTensor deltaTopLevel)) = f inputs in
   let derivative = derivativeFromDeltaH (V.length inputs) deltaTopLevel ds
-  in (unletPseudo derivative, unletPseudo v)
+  in (dunlet derivative, dunlet v)
 
 cfwdOnHVector
   :: ADReady ranked
@@ -96,19 +97,11 @@ cfwdOnHVector
   -> (HVector (ADVal ranked)
       -> ADVal (HVectorPseudoTensor ranked) r y)
   -> HVector ranked
-  -> ( HVectorPseudoTensor ranked r y
-     , HVectorPseudoTensor ranked r y )
+  -> (HVectorOf ranked, HVectorOf ranked)
 cfwdOnHVector parameters f ds =
   let deltaInputs = generateDeltaInputs parameters
       inputs = makeADInputs parameters deltaInputs
   in cfwdOnADInputs inputs f ds
-
-unletPseudo
-  :: ADReady ranked
-  => HVectorPseudoTensor ranked r y
-  -> HVectorPseudoTensor ranked r y
-unletPseudo =
-  HVectorPseudoTensor . dunlet . unHVectorPseudoTensor
 
 
 -- * Ranked tensor instances
@@ -487,7 +480,7 @@ instance ADReadyBoth ranked shaped
                 in dDnotShared (HVectorPseudoTensor $ dmkHVector as)
                                (HVectorPseudoTensor $ HToH as')
         df :: forall f. ADReady f => [HVector f] -> HVectorOf f
-        df [!da, !a] = unHVectorPseudoTensor $ fst $ cfwdOnHVector a g da
+        df [!da, !a] = fst $ cfwdOnHVector a g da
           -- This computes the derivative of g again for each new da and a.
         df _ = error "df: wrong number of arguments"
     in HFun df

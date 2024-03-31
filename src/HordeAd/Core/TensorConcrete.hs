@@ -255,7 +255,7 @@ instance HVectorTensor (Flip OR.Array) (Flip OS.Array) where
                 in dDnotShared (HVectorPseudoTensor $ dmkHVector as)
                                (HVectorPseudoTensor $ HToH as')
         df :: [HVector (Flip OR.Array)] -> HVectorOf (Flip OR.Array)
-        df [!da, !a] = unHVectorPseudoTensor $ fst $ cfwdOnHVector a g da
+        df [!da, !a] = fst $ cfwdOnHVector a g da
         df _ = error "df: wrong number of arguments"
     in df
   rfold f x0 as = foldl' f x0 (runravelToList as)
@@ -353,9 +353,9 @@ instance AdaptableHVector (Flip OR.Array)
 -- but is possible here:
 {-# SPECIALIZE gradientFromDeltaH
   :: VoidHVector
-  -> HVectorPseudoTensor (Flip OR.Array) Double y
+  -> HVector (Flip OR.Array)
   -> Maybe (HVector (Flip OR.Array))
-  -> HVectorPseudoTensor (DeltaR (Flip OR.Array)) Double y
+  -> DeltaH (Flip OR.Array)
   -> HVector (Flip OR.Array) #-}
 {-# SPECIALIZE evalFromnMap
   :: EvalState (Flip OR.Array) -> EvalState (Flip OR.Array) #-}
