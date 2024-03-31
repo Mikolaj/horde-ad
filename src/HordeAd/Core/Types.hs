@@ -10,7 +10,7 @@ module HordeAd.Core.Types
     -- * Generic types of indexes used in tensor operations
   , IntOf, IndexOf, IntSh, IndexSh
     -- * Generic types of booleans used in tensor operations
-  , SimpleBoolOf, Boolean(..)
+  , BoolOf, Boolean(..)
     -- * Definitions to help express and manipulate type-level natural numbers
   , SNat, pattern SNat, withSNat, sNatValue, proxyFromSNat
   ) where
@@ -139,7 +139,7 @@ type IndexSh (f :: TensorType ty) (sh :: [Nat]) = IndexS sh (IntOf f)
 
 -- * Generic types of booleans used in tensor operations
 
-type family SimpleBoolOf (t :: ty) :: Type
+type family BoolOf (t :: ty) :: Type
 
 
 -- * Definitions to help express and manipulate type-level natural numbers

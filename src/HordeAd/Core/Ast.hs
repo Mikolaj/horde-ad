@@ -19,7 +19,7 @@ module HordeAd.Core.Ast
   , AstBool(..), OpCodeNum1(..), OpCodeNum2(..), OpCode1(..), OpCode2(..)
   , OpCodeIntegral2(..), OpCodeBool(..), OpCodeRel(..)
     -- * Boolean definitions and instances
-  , BoolOf, IfF(..), EqF(..), OrdF(..), minF, maxF
+  , IfF(..), EqF(..), OrdF(..), minF, maxF
     -- * The AstRaw, AstNoVectorize and AstNoSimplify definitions
   , AstRaw(..), AstRawS(..), AstRawWrap(..)
   , AstNoVectorize(..), AstNoVectorizeS(..), AstNoVectorizeWrap(..)
@@ -757,22 +757,19 @@ instance Boolean AstBool where
 
 -- * Boolean definitions and instances
 
-type BoolOf :: TensorType ty -> Type
-type BoolOf f = SimpleBoolOf f
-
-class Boolean (SimpleBoolOf f) => IfF (f :: TensorType ty) where
+class Boolean (BoolOf f) => IfF (f :: TensorType ty) where
   ifF :: (GoodScalar r, HasSingletonDict y)
       => BoolOf f -> f r y -> f r y -> f r y
 
 infix 4 ==., /=.
-class Boolean (SimpleBoolOf f) => EqF (f :: TensorType ty) where
+class Boolean (BoolOf f) => EqF (f :: TensorType ty) where
   -- The existential variables here are handled in instances, e.g., via AstRel.
   (==.), (/=.) :: (GoodScalar r, HasSingletonDict y)
                => f r y -> f r y -> BoolOf f
   u /=. v = notB (u ==. v)
 
 infix 4 <., <=., >=., >.
-class Boolean (SimpleBoolOf f) => OrdF (f :: TensorType ty) where
+class Boolean (BoolOf f) => OrdF (f :: TensorType ty) where
   -- The existential variables here are handled in instances, e.g., via AstRel.
   (<.), (<=.), (>.), (>=.) :: (GoodScalar r, HasSingletonDict y)
                            => f r y -> f r y -> BoolOf f

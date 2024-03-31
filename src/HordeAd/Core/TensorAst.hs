@@ -166,7 +166,7 @@ fwdProduceArtifact g envInit =
 
 -- * Unlawful boolean instances of ranked AST; they are lawful modulo evaluation
 
-type instance SimpleBoolOf (AstRanked s) = AstBool
+type instance BoolOf (AstRanked s) = AstBool
 
 instance AstSpan s => EqF (AstRanked s) where
   v ==. u = AstRel EqOp (astSpanPrimal v) (astSpanPrimal u)
@@ -192,7 +192,7 @@ instance IfF (AstRanked s) where
 
 -- * Unlawful boolean instances of shaped AST; they are lawful modulo evaluation
 
-type instance SimpleBoolOf (AstShaped s) = AstBool
+type instance BoolOf (AstShaped s) = AstBool
 
 instance AstSpan s => EqF (AstShaped s) where
   v ==. u = AstRelS EqOp (astSpanPrimalS v) (astSpanPrimalS u)
@@ -680,7 +680,7 @@ astBuildHVector1Vectorize k f = build1VectorizeHVector k $ funToAstI f
 
 -- * The AstRaw, AstNoVectorize and AstNoSimplify instances
 
-type instance SimpleBoolOf (AstRaw s) = AstBool
+type instance BoolOf (AstRaw s) = AstBool
 
 deriving instance IfF (AstRaw s)
 deriving instance AstSpan s => EqF (AstRaw s)
@@ -702,7 +702,7 @@ deriving instance (RealFrac (AstRanked s r n))
 deriving instance (RealFloat (AstRanked s r n))
                   => RealFloat (AstRaw s r n)
 
-type instance SimpleBoolOf (AstRawS s) = AstBool
+type instance BoolOf (AstRawS s) = AstBool
 
 deriving instance IfF (AstRawS s)
 deriving instance AstSpan s => EqF (AstRawS s)
@@ -724,7 +724,7 @@ deriving instance (RealFrac (AstShaped s r sh))
 deriving instance (RealFloat (AstShaped s r sh))
                   => RealFloat (AstRawS s r sh)
 
-type instance SimpleBoolOf (AstNoVectorize s) = AstBool
+type instance BoolOf (AstNoVectorize s) = AstBool
 
 deriving instance IfF (AstNoVectorize s)
 deriving instance AstSpan s => EqF (AstNoVectorize s)
@@ -746,7 +746,7 @@ deriving instance (RealFrac (AstRanked s r n))
 deriving instance (RealFloat (AstRanked s r n))
                   => RealFloat (AstNoVectorize s r n)
 
-type instance SimpleBoolOf (AstNoVectorizeS s) = AstBool
+type instance BoolOf (AstNoVectorizeS s) = AstBool
 
 deriving instance IfF (AstNoVectorizeS s)
 deriving instance AstSpan s => EqF (AstNoVectorizeS s)
@@ -768,7 +768,7 @@ deriving instance (RealFrac (AstShaped s r sh))
 deriving instance (RealFloat (AstShaped s r sh))
                   => RealFloat (AstNoVectorizeS s r sh)
 
-type instance SimpleBoolOf (AstNoSimplify s) = AstBool
+type instance BoolOf (AstNoSimplify s) = AstBool
 
 deriving instance IfF (AstNoSimplify s)
 deriving instance AstSpan s => EqF (AstNoSimplify s)
@@ -790,7 +790,7 @@ deriving instance (RealFrac (AstRanked s r n))
 deriving instance (RealFloat (AstRanked s r n))
                   => RealFloat (AstNoSimplify s r n)
 
-type instance SimpleBoolOf (AstNoSimplifyS s) = AstBool
+type instance BoolOf (AstNoSimplifyS s) = AstBool
 
 deriving instance IfF (AstNoSimplifyS s)
 deriving instance AstSpan s => EqF (AstNoSimplifyS s)
