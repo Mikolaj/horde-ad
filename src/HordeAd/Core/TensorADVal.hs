@@ -67,7 +67,7 @@ crevOnADInputs mdt f inputs =
       rshapePrimal (D _ p _) = rshape p
       parameters0 = V.map (voidFromDynamicF (shapeToList . rshapePrimal)) inputs
       !gradient = gradientFromDeltaH parameters0 v mdt deltaTopLevel
-  in (dunlet l (dmkHVector gradient), dunlet l v)
+  in (dunlet (dmkHVector gradient), dunlet v)
 
 crevOnHVector
   :: ADReady ranked
@@ -93,7 +93,7 @@ cfwdOnADInputs inputs f ds =
   let !(D l (HVectorPseudoTensor v)
             (HVectorPseudoTensor deltaTopLevel)) = f inputs in
   let derivative = derivativeFromDeltaH (V.length inputs) deltaTopLevel ds
-  in (dunlet l derivative, dunlet l v)
+  in (dunlet derivative, dunlet v)
 
 cfwdOnHVector
   :: ADReady ranked
