@@ -168,7 +168,7 @@ makeADInputs =
 
 -- * Assorted instances
 
-type instance SimpleBoolOf (ADVal f) = SimpleBoolOf f
+type instance BoolOf (ADVal f) = BoolOf f
 
 instance EqF f => EqF (ADVal f) where
   D u _ ==. D v _ = u ==. v
@@ -197,8 +197,8 @@ fromList lu =
     -- going through strict vectors for the proper order of sharing stamps
 
 instance ( RankedTensor ranked, IfF (RankedOf (PrimalOf ranked))
-         , Boolean (SimpleBoolOf ranked)
-         , SimpleBoolOf (RankedOf (PrimalOf ranked)) ~ SimpleBoolOf ranked )
+         , Boolean (BoolOf ranked)
+         , BoolOf (RankedOf (PrimalOf ranked)) ~ BoolOf ranked )
          => IfF (ADVal ranked) where
   ifF !b !v !w =  -- bangs for the proper order of sharing stamps
     let D u u' = indexPrimal (fromList [v, w])
@@ -223,8 +223,8 @@ fromListS lu = assert (length lu == valueOf @n) $
     -- going through strict vectors for the proper order of sharing stamps
 
 instance ( ShapedTensor shaped, IfF (RankedOf (PrimalOf shaped))
-         , Boolean (SimpleBoolOf shaped)
-         , SimpleBoolOf (RankedOf (PrimalOf shaped)) ~ SimpleBoolOf shaped )
+         , Boolean (BoolOf shaped)
+         , BoolOf (RankedOf (PrimalOf shaped)) ~ BoolOf shaped )
          => IfF (ADVal shaped) where
   ifF !b !v !w =  -- bangs for the proper order of sharing stamps
     let D u u' = indexPrimalS (fromListS @2 [v, w])

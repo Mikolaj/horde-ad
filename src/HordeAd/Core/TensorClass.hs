@@ -1148,13 +1148,13 @@ type ADReadySmall ranked shaped =
   , PrimalOf ranked ~ RankedOf (PrimalOf shaped)
   , ShapedOf (PrimalOf ranked) ~ PrimalOf shaped
   , PrimalOf shaped ~ ShapedOf (PrimalOf ranked)
-  , SimpleBoolOf ranked ~ SimpleBoolOf shaped
-  , SimpleBoolOf shaped ~ SimpleBoolOf ranked
-  , SimpleBoolOf ranked ~ SimpleBoolOf (PrimalOf ranked)
-  , SimpleBoolOf (PrimalOf ranked) ~ SimpleBoolOf ranked
-  , SimpleBoolOf shaped ~ SimpleBoolOf (PrimalOf shaped)
-  , SimpleBoolOf (PrimalOf shaped) ~ SimpleBoolOf shaped
-  , Boolean (SimpleBoolOf ranked)
+  , BoolOf ranked ~ BoolOf shaped
+  , BoolOf shaped ~ BoolOf ranked
+  , BoolOf ranked ~ BoolOf (PrimalOf ranked)
+  , BoolOf (PrimalOf ranked) ~ BoolOf ranked
+  , BoolOf shaped ~ BoolOf (PrimalOf shaped)
+  , BoolOf (PrimalOf shaped) ~ BoolOf shaped
+  , Boolean (BoolOf ranked)
   , IfF ranked, IfF shaped, IfF (PrimalOf ranked), IfF (PrimalOf shaped)
   , EqF ranked, EqF shaped, EqF (PrimalOf ranked), EqF (PrimalOf shaped)
   , OrdF ranked, OrdF shaped, OrdF (PrimalOf ranked), OrdF (PrimalOf shaped)

@@ -35,7 +35,7 @@ import HordeAd.Core.Types
 import HordeAd.Internal.BackendConcrete
 import HordeAd.Util.ShapedList (shapedNat, unShapedNat)
 
-type instance SimpleBoolOf (Flip OR.Array) = Bool
+type instance BoolOf (Flip OR.Array) = Bool
 
 instance EqF (Flip OR.Array) where
   u ==. v = u == v
@@ -117,7 +117,7 @@ instance RankedTensor (Flip OR.Array) where
   rD u _ = u
   rScale _ _ = DummyDual
 
-type instance SimpleBoolOf (Flip OS.Array) = Bool
+type instance BoolOf (Flip OS.Array) = Bool
 
 instance EqF (Flip OS.Array) where
   u ==. v = u == v
