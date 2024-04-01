@@ -130,7 +130,7 @@ revArtifactAdapt
      , TermValue astvals )
   => Bool -> (astvals -> tgtAstVals) -> Value astvals
   -> ( AstArtifactRev (HVectorPseudoTensor (AstRaw PrimalSpan)) Float '()
-     , HVectorPseudoTensor (DeltaR (AstRaw PrimalSpan)) Float '() )
+     , DeltaH (AstRaw PrimalSpan) )
 revArtifactAdapt hasDt f vals =
   let g hVector = HVectorPseudoTensor
                   $ toHVectorOf $ f $ parseHVector (fromValue vals) hVector
@@ -144,7 +144,7 @@ revArtifactAdapt hasDt f vals =
      , TermValue astvals )
   => Bool -> (astvals -> AstRanked FullSpan Double n) -> Value astvals
   -> ( AstArtifactRev (HVectorPseudoTensor (AstRaw PrimalSpan)) Float '()
-     , HVectorPseudoTensor (DeltaR (AstRaw PrimalSpan)) Float '() ) #-}
+     , DeltaH (AstRaw PrimalSpan) ) #-}
 
 revProduceArtifactWithoutInterpretation
   :: (AdaptableHVector (ADVal (AstRaw PrimalSpan))
@@ -153,7 +153,7 @@ revProduceArtifactWithoutInterpretation
   -> (HVector (ADVal (AstRaw PrimalSpan)) -> ADVal primal_g r y)
   -> VoidHVector
   -> ( AstArtifactRev (HVectorPseudoTensor (AstRaw PrimalSpan)) Float '()
-     , HVectorPseudoTensor (DeltaR (AstRaw PrimalSpan)) Float '() )
+     , DeltaH (AstRaw PrimalSpan) )
 {-# INLINE revProduceArtifactWithoutInterpretation #-}
 revProduceArtifactWithoutInterpretation hasDt f =
   let g hVectorPrimal vars hVector =
@@ -232,7 +232,7 @@ fwdArtifactAdapt
   => (astvals -> tgtAstVals) -> Value astvals
   -> ( AstArtifactFwd (HVectorPseudoTensor (AstRaw PrimalSpan))
                       Float '()
-     , HVectorPseudoTensor (DeltaR (AstRaw PrimalSpan)) Float '() )
+     , DeltaH (AstRaw PrimalSpan) )
 fwdArtifactAdapt f vals =
   let g hVector = HVectorPseudoTensor
                   $ toHVectorOf $ f $ parseHVector (fromValue vals) hVector
