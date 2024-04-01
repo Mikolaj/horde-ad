@@ -40,7 +40,6 @@ import HordeAd.Core.Delta
 import HordeAd.Core.DualNumber
 import HordeAd.Core.HVector
 import HordeAd.Core.HVectorOps
-import HordeAd.Core.IsPrimal
 import HordeAd.Core.TensorADVal
 import HordeAd.Core.TensorAst
 import HordeAd.Core.Types
@@ -131,7 +130,7 @@ revArtifactAdapt
      , TermValue astvals )
   => Bool -> (astvals -> tgtAstVals) -> Value astvals
   -> ( AstArtifactRev (HVectorPseudoTensor (AstRaw PrimalSpan)) Float '()
-     , Dual (HVectorPseudoTensor (AstRaw PrimalSpan)) Float '() )
+     , HVectorPseudoTensor (DeltaR (AstRaw PrimalSpan)) Float '() )
 revArtifactAdapt hasDt f vals =
   let g hVector = HVectorPseudoTensor
                   $ toHVectorOf $ f $ parseHVector (fromValue vals) hVector
@@ -145,7 +144,7 @@ revArtifactAdapt hasDt f vals =
      , TermValue astvals )
   => Bool -> (astvals -> AstRanked FullSpan Double n) -> Value astvals
   -> ( AstArtifactRev (HVectorPseudoTensor (AstRaw PrimalSpan)) Float '()
-     , Dual (HVectorPseudoTensor (AstRaw PrimalSpan)) Float '() ) #-}
+     , HVectorPseudoTensor (DeltaR (AstRaw PrimalSpan)) Float '() ) #-}
 
 revProduceArtifactWithoutInterpretation
   :: (AdaptableHVector (ADVal (AstRaw PrimalSpan))
@@ -154,7 +153,7 @@ revProduceArtifactWithoutInterpretation
   -> (HVector (ADVal (AstRaw PrimalSpan)) -> ADVal primal_g r y)
   -> VoidHVector
   -> ( AstArtifactRev (HVectorPseudoTensor (AstRaw PrimalSpan)) Float '()
-     , Dual (HVectorPseudoTensor (AstRaw PrimalSpan)) Float '() )
+     , HVectorPseudoTensor (DeltaR (AstRaw PrimalSpan)) Float '() )
 {-# INLINE revProduceArtifactWithoutInterpretation #-}
 revProduceArtifactWithoutInterpretation hasDt f =
   let g hVectorPrimal vars hVector =
@@ -233,7 +232,7 @@ fwdArtifactAdapt
   => (astvals -> tgtAstVals) -> Value astvals
   -> ( AstArtifactFwd (HVectorPseudoTensor (AstRaw PrimalSpan))
                       Float '()
-     , Dual (HVectorPseudoTensor (AstRaw PrimalSpan)) Float '() )
+     , HVectorPseudoTensor (DeltaR (AstRaw PrimalSpan)) Float '() )
 fwdArtifactAdapt f vals =
   let g hVector = HVectorPseudoTensor
                   $ toHVectorOf $ f $ parseHVector (fromValue vals) hVector

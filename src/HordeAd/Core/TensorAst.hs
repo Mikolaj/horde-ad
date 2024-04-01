@@ -41,7 +41,6 @@ import           HordeAd.Core.Delta
 import           HordeAd.Core.DualNumber
 import           HordeAd.Core.HVector
 import           HordeAd.Core.HVectorOps
-import           HordeAd.Core.IsPrimal
 import           HordeAd.Core.TensorADVal (unADValHVector)
 import           HordeAd.Core.TensorClass
 import           HordeAd.Core.TensorConcrete ()
@@ -59,7 +58,7 @@ revProduceArtifactH
   => Bool -> (astvals -> g r y) -> AstEnv (ADVal (AstRaw PrimalSpan))
   -> Value astvals -> VoidHVector
   -> ( AstArtifactRev (HVectorPseudoTensor (AstRaw PrimalSpan)) Float '()
-     , Dual (HVectorPseudoTensor (AstRaw PrimalSpan)) Float '() )
+     , HVectorPseudoTensor (DeltaR (AstRaw PrimalSpan)) Float '() )
 {-# INLINE revProduceArtifactH #-}
 revProduceArtifactH hasDt f envInit vals0 =
   let g :: HVector (AstRanked FullSpan)
@@ -95,7 +94,7 @@ revArtifactFromForwardPass
       -> ADVal (HVectorPseudoTensor (AstRaw PrimalSpan)) r y)
   -> VoidHVector
   -> ( AstArtifactRev (HVectorPseudoTensor (AstRaw PrimalSpan)) r y
-     , Dual (HVectorPseudoTensor (AstRaw PrimalSpan)) r y )
+     , HVectorPseudoTensor (DeltaR (AstRaw PrimalSpan)) r y )
 {-# INLINE revArtifactFromForwardPass #-}
 revArtifactFromForwardPass hasDt forwardPass parameters0 =
   let -- Bangs and the compound function to fix the numbering of variables
@@ -125,7 +124,7 @@ revProduceArtifact
   -> AstEnv (ADVal (AstRaw PrimalSpan))
   -> VoidHVector
   -> ( AstArtifactRev (HVectorPseudoTensor (AstRaw PrimalSpan)) r y
-     , Dual (HVectorPseudoTensor (AstRaw PrimalSpan)) r y )
+     , HVectorPseudoTensor (DeltaR (AstRaw PrimalSpan)) r y )
 {-# INLINE revProduceArtifact #-}
 revProduceArtifact hasDt g envInit =
   revArtifactFromForwardPass hasDt (forwardPassByInterpretation g envInit)
@@ -137,7 +136,7 @@ fwdArtifactFromForwardPass
       -> ADVal (HVectorPseudoTensor (AstRaw PrimalSpan)) r y)
   -> VoidHVector
   -> ( AstArtifactFwd (HVectorPseudoTensor (AstRaw PrimalSpan)) r y
-     , Dual (HVectorPseudoTensor (AstRaw PrimalSpan)) r y )
+     , HVectorPseudoTensor (DeltaR (AstRaw PrimalSpan)) r y )
 {-# INLINE fwdArtifactFromForwardPass #-}
 fwdArtifactFromForwardPass forwardPass parameters0 =
   let !(!varsPrimalDs, hVectorDs, varsPrimal, hVectorPrimal, vars, hVector) =
@@ -157,7 +156,7 @@ fwdProduceArtifact
   -> AstEnv (ADVal (AstRaw PrimalSpan))
   -> VoidHVector
   -> ( AstArtifactFwd (HVectorPseudoTensor (AstRaw PrimalSpan)) r y
-     , Dual (HVectorPseudoTensor (AstRaw PrimalSpan)) r y )
+     , HVectorPseudoTensor (DeltaR (AstRaw PrimalSpan)) r y )
 {-# INLINE fwdProduceArtifact #-}
 fwdProduceArtifact g envInit =
   fwdArtifactFromForwardPass (forwardPassByInterpretation g envInit)
