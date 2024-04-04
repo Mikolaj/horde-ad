@@ -753,8 +753,7 @@ type ShareMemo = EM.EnumMap AstVarId (AstBindingsCase (AstRanked PrimalSpan))
 
 shareAst
   :: forall n s r. (GoodScalar r, KnownNat n, AstSpan s)
-  => ShareMemo
-  -> AstRanked s r n -> (ShareMemo, AstRanked s r n)
+  => ShareMemo -> AstRanked s r n -> (ShareMemo, AstRanked s r n)
 shareAst memo v0 = case v0 of
   Ast.AstVar{} -> (memo, v0)
   Ast.AstLet var u v ->
@@ -838,6 +837,10 @@ shareAst memo v0 = case v0 of
   Ast.AstFromIntegral v -> second Ast.AstFromIntegral $ shareAst memo v
   Ast.AstConst{} -> (memo, v0)
   Ast.AstProject l p ->
+    -- This doesn't get simplified even if l is an HVector of vars freshly
+    -- created by shareAstHVector. However, then l is shared, so the cost
+    -- per AstProject is only slightly (2 words? 1 indirection?)
+    -- higher than if simplified.
     let (memo1, l2) = shareAstHVector memo l
     in (memo1, Ast.AstProject l2 p)
   Ast.AstLetHVectorIn vars l v ->
@@ -859,8 +862,7 @@ shareAst memo v0 = case v0 of
 
 shareAstS
   :: forall sh s r. (GoodScalar r, Sh.Shape sh, AstSpan s)
-  => ShareMemo
-  -> AstShaped s r sh -> (ShareMemo, AstShaped s r sh)
+  => ShareMemo -> AstShaped s r sh -> (ShareMemo, AstShaped s r sh)
 shareAstS memo v0 = case v0 of
   Ast.AstVarS{} -> (memo, v0)
   Ast.AstLetS var u v ->

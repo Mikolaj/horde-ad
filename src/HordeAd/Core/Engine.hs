@@ -27,7 +27,7 @@ import           Data.Bifunctor.Product
 import qualified Data.EnumMap.Strict as EM
 import           Data.Functor.Const
 import           Data.Int (Int64)
-import           Data.Maybe (isJust)
+import           Data.Maybe (fromMaybe, isJust)
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat)
 import           Type.Reflection (Typeable)
@@ -109,7 +109,7 @@ revDtMaybe f vals mdt =
       valsH = toHVectorOf vals
       voidH = voidFromHVector valsH
       artifact = fst $ revProduceArtifact (isJust mdt) g EM.empty voidH
-      mdth = HVectorPseudoTensor . toHVectorOf <$> mdt
+      mdth = toHVectorOf <$> mdt
   in parseHVector vals
      $ fst $ revEvalArtifact artifact valsH mdth
 {-# SPECIALIZE revDtMaybe
@@ -178,19 +178,19 @@ forwardPassByApplication g hVectorPrimal _vars _hVector =
 revEvalArtifact
   :: AstArtifactRev (HVectorPseudoTensor (AstRaw PrimalSpan)) r y
   -> HVector (Flip OR.Array)
-  -> Maybe (HVectorPseudoTensor (Flip OR.Array) r y)
-  -> (HVector (Flip OR.Array), HVectorPseudoTensor (Flip OR.Array) r y)
+  -> Maybe (HVectorOf (Flip OR.Array))
+  -> (HVector (Flip OR.Array), HVector (Flip OR.Array))
 {-# INLINE revEvalArtifact #-}
 revEvalArtifact ((varsDt, vars), gradient, primal) parameters mdt =
   let env = foldr extendEnvD EM.empty $ zip vars $ V.toList parameters
       domsB = voidFromVars varsDt
       dt1 = mapHVectorShaped (const 1) $ V.map dynamicFromVoid domsB
-      dts = maybe dt1 unHVectorPseudoTensor mdt
+      dts = fromMaybe dt1 mdt
       envDt = extendEnvHVector varsDt dts env
       gradientHVector = interpretAstHVector envDt $ unAstRawWrap gradient
       primalTensor = interpretAstHVector env $ unAstRawWrap
                      $ unHVectorPseudoTensor primal
-  in (gradientHVector, HVectorPseudoTensor primalTensor)
+  in (gradientHVector, primalTensor)
 
 
 -- * Forward derivative adaptors
@@ -221,8 +221,7 @@ fwd f vals ds =
       artifact = fst $ fwdProduceArtifact g EM.empty voidH
       dsH = toHVectorOf ds
       err = error "fwd: codomain of unknown length"
-  in parseHVector err $ unHVectorPseudoTensor
-     $ fst $ fwdEvalArtifact artifact valsH dsH
+  in parseHVector err $ fst $ fwdEvalArtifact artifact valsH dsH
 
 fwdArtifactAdapt
   :: forall r y g tgtAstVals astvals.
@@ -246,8 +245,7 @@ fwdEvalArtifact
   :: AstArtifactFwd (HVectorPseudoTensor (AstRaw PrimalSpan)) r y
   -> HVector (Flip OR.Array)
   -> HVector (Flip OR.Array)
-  -> ( HVectorPseudoTensor (Flip OR.Array) r y
-     , HVectorPseudoTensor (Flip OR.Array) r y )
+  -> (HVector (Flip OR.Array), HVector (Flip OR.Array))
 {-# INLINE fwdEvalArtifact #-}
 fwdEvalArtifact ((varDs, vars), derivative, primal) parameters ds =
   if hVectorsMatch parameters ds then
@@ -257,8 +255,7 @@ fwdEvalArtifact ((varDs, vars), derivative, primal) parameters ds =
                            $ unHVectorPseudoTensor derivative
         primalTensor = interpretAstHVector env $ unAstRawWrap
                        $ unHVectorPseudoTensor primal
-    in ( HVectorPseudoTensor derivativeTensor
-       , HVectorPseudoTensor primalTensor )
+    in (derivativeTensor, primalTensor)
  else error "fwdEvalArtifact: forward derivative input and sensitivity arguments should have same shapes"
 
 
@@ -322,8 +319,7 @@ crevDtMaybe f vals mdt =
   -> (HVector (ADVal (Flip OR.Array))
   -> ADVal (HVectorPseudoTensor (Flip OR.Array)) Float '())
   -> HVector (Flip OR.Array)
-  -> ( HVectorOf (Flip OR.Array)
-     , HVectorPseudoTensor (Flip OR.Array) Float '() ) #-}
+  -> (HVector (Flip OR.Array), HVector (Flip OR.Array)) #-}
 
 
 -- * Old derivative adaptors, with constant and fixed inputs
@@ -345,8 +341,7 @@ cfwd f vals ds =
       valsH = toHVectorOf vals
       dsH = toHVectorOf ds
       err = error "fwd: codomain of unknown length"
-  in parseHVector err $ unHVectorPseudoTensor
-     $ fst $ cfwdOnHVector valsH g dsH
+  in parseHVector err $ fst $ cfwdOnHVector valsH g dsH
 
 
 

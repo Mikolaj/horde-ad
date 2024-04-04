@@ -42,7 +42,7 @@ sgd gamma f trainingData parameters0 = go trainingData parameters0 where
   go [] parameters = (parameters, 0)
   go (a : rest) !parameters =
     let inputs = makeADInputs parameters deltaInputs
-        (gradients, HVectorPseudoTensor valueNew) =
+        (gradients, valueNew) =
           crevOnADInputs Nothing (g a) inputs
         parametersNew = updateWithGradient gamma parameters gradients
     in if null rest

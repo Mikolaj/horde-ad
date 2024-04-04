@@ -80,41 +80,31 @@ import HordeAd.Util.SizedList
 
 -- * Reverse and forward derivative computation for HVectorPseudoTensor
 
--- @r@ is a placeholder here, it's reduced away. @y@ is '(), but GHC doesn't
--- know it has to be that. We could instead provide a type-level list of nats
--- and lists of nats or at least the length of the list, and a list
--- of the scalar types, but the shaped typing is too complex already.
 gradientFromDeltaH
-  :: forall ranked r (y :: ()). ADReady ranked
-  => VoidHVector
-  -> HVectorPseudoTensor ranked r y
-  -> Maybe (HVector ranked)
-  -> HVectorPseudoTensor (DeltaR ranked) r y
+  :: forall ranked. ADReady ranked
+  => VoidHVector -> HVectorOf ranked
+  -> Maybe (HVector ranked) -> DeltaH ranked
   -> HVector ranked
-gradientFromDeltaH !parameters0 (HVectorPseudoTensor value)
-                   !mdt (HVectorPseudoTensor deltaTopLevel) =
+gradientFromDeltaH !parameters0 value
+                   !mdt deltaTopLevel =
   let shDt = dshape value
-      dt =
-        fromMaybe (mapHVectorShaped (const 1) $ V.map dynamicFromVoid shDt) mdt
+      dt = fromMaybe (mapHVectorShaped (const 1)
+                      $ V.map dynamicFromVoid shDt) mdt
       s0 = initEvalState parameters0
       s1 = evalH s0 dt deltaTopLevel
       s2 = evalFromnMap s1
   in V.fromList $ EM.elems $ iMap s2
 
--- @r@ is a placeholder here, it's reduced away. @y@ is '(), but GHC doesn't
--- know it has to be that.
 derivativeFromDeltaH
-  :: forall ranked r (y :: ()). ADReady ranked
-  => Int
-  -> HVectorPseudoTensor (DeltaR ranked) r y
-  -> HVector ranked
-  -> HVectorPseudoTensor ranked r y
-derivativeFromDeltaH dim (HVectorPseudoTensor deltaTopLevel) ds =
+  :: forall ranked. ADReady ranked
+  => Int -> DeltaH ranked -> HVector ranked
+  -> HVectorOf ranked
+derivativeFromDeltaH dim deltaTopLevel ds =
   -- EvalState is too complex for the forward derivative, but since
   -- it's already defined, let's use it.
   let s0 = EvalState EM.empty EM.empty EM.empty EM.empty EM.empty
       !(!_s2, !c) = fwdH dim ds s0 deltaTopLevel
-  in HVectorPseudoTensor c
+  in c
 
 
 -- * Abstract syntax trees of the delta expressions
@@ -675,7 +665,6 @@ evalR
   => EvalState ranked -> ranked r n -> DeltaR ranked r n
   -> EvalState ranked
 evalR !s !c = let cShared = rshare c
-                  sShared = s
               in \case
   ZeroR{} -> s
   InputR _ i -> s {iMap = EM.adjust (DynamicRanked . raddDynamic c) i
@@ -686,7 +675,7 @@ evalR !s !c = let cShared = rshare c
     -- into iMap, because often sharing needs to work across many
     -- iMap keys. That's why global sharing is used.
   ScaleR k d -> evalR s (k * c) d
-  AddR d e -> evalR (evalR sShared cShared d) cShared e
+  AddR d e -> evalR (evalR s cShared d) cShared e
   ShareR n d ->
     -- In this context, by construction, @d@ is the dual component
     -- of a dual number term. Let's say that, at this point, evaluation
@@ -733,28 +722,28 @@ evalR !s !c = let cShared = rshare c
         _ -> error "evalR: corrupted nMap"
 
   IndexR d ix -> evalR s (rscatter @ranked @r @0
-                                       (shapeDeltaR d) c (const ix)) d
+                                   (shapeDeltaR d) c (const ix)) d
     -- equivalent: evalR s (updateNR (treplicate0NR sh 0) [(ix, c)]) d
   SumR d -> evalR s (rreplicate (lengthDeltaR d) c) d
   Sum0R d -> evalR s (rreplicate0N (shapeDeltaR d) c) d
   Dot0R v vd -> evalR s (v * rreplicate0N (rshape v) c) vd
-               -- too slow: evalR s (rmap0N (* (tscalar c)) v) vd
+                  -- too slow: evalR s (rmap0N (* (tscalar c)) v) vd
   ScatterR _sh d f -> evalR s (rgather (shapeDeltaR d) c f) d
 
   FromListR @n1 ld ->
     let cxs :: [ranked r n1]
         cxs = runravelToList cShared
-    in foldl' (\ !s2 (cx, d2) -> evalR s2 cx d2) sShared
+    in foldl' (\ !s2 (cx, d2) -> evalR s2 cx d2) s
        $ zip cxs ld
   FromVectorR @n1 ld ->
     let cxs :: [ranked r n1]
         cxs = runravelToList cShared
-    in foldl' (\ !s2 (cx, d2) -> evalR s2 cx d2) sShared
+    in foldl' (\ !s2 (cx, d2) -> evalR s2 cx d2) s
        $ zip cxs (V.toList ld)
   ReplicateR _n d -> evalR s (rsum c) d
   AppendR d e -> case rshape c of
     n :$: _ -> let k = lengthDeltaR d
-                   s2 = evalR sShared (rslice 0 k cShared) d
+                   s2 = evalR s (rslice 0 k cShared) d
                in evalR s2 (rslice k (n - k) cShared) e
     ZSR -> error "evalR: impossible pattern needlessly required"
   SliceR i n d -> case rshape c of
@@ -781,8 +770,8 @@ evalR !s !c = let cShared = rshare c
         ci = DynamicRanked c
     in assert (dynamicsMatch (cs V.! i) ci) $
        evalH s (cs V.// [(i, ci)]) d
-      -- should be used only with small vectors or we end up with the same
-      -- problem of summing a lot of one-hots as in indexing
+        -- should be used only with small vectors or we end up with the same
+        -- problem of summing a lot of one-hots as in indexing
 
 evalSRuntimeSpecialized
   :: forall sh r ranked shaped.
@@ -806,13 +795,12 @@ evalS
   => EvalState ranked -> shaped r sh -> DeltaS shaped r sh
   -> EvalState ranked
 evalS !s !c = let cShared = sshare c
-                  sShared = s
               in \case
   ZeroS -> s
   InputS i -> s {iMap = EM.adjust (DynamicShaped . saddDynamic c) i
                         $ iMap s}
   ScaleS k d -> evalS s (k * c) d
-  AddS d e -> evalS (evalS sShared cShared d) cShared e
+  AddS d e -> evalS (evalS s cShared d) cShared e
   ShareS n d ->
     assert (case d of
               ZeroS -> False
@@ -842,13 +830,13 @@ evalS !s !c = let cShared = sshare c
 
   FromListS ld ->
     ifoldl' (\ !s2 i d2 ->
-      evalS s2 (cShared !$ (fromIntegral i :.$ ZIS)) d2) sShared ld
+      evalS s2 (cShared !$ (fromIntegral i :.$ ZIS)) d2) s ld
   FromVectorS ld ->
     V.ifoldl' (\ !s2 i d2 ->
-      evalS s2 (cShared !$ (fromIntegral i :.$ ZIS)) d2) sShared ld
+      evalS s2 (cShared !$ (fromIntegral i :.$ ZIS)) d2) s ld
   ReplicateS d -> evalS s (ssum c) d
   AppendS @_ @_ @m d e ->
-    let s2 = evalS sShared (sslice (Proxy @0) Proxy cShared) d
+    let s2 = evalS s (sslice (Proxy @0) Proxy cShared) d
     in evalS s2 (sslice (Proxy @m) Proxy cShared) e
   SliceS @_ @i d ->
     evalS s (sappend @shaped @r @i 0 (sappend c 0)) d
