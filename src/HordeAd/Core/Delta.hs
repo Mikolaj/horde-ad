@@ -1125,7 +1125,7 @@ fwdR dimR params s = \case
     fwdR dimR params s d  -- no information lost, so no checks
   RFromS d -> second rfromS $ fwdS dimR params s d
   RFromH d i -> let (s2, v) = fwdH dimR params s d
-                in (s2, rletHVectorIn v $ \res -> rfromD $ res V.! i)
+                in (s2, rfromD $ dunHVector v V.! i)
 
 fwdS
   :: forall sh r ranked shaped.
@@ -1204,7 +1204,7 @@ fwdS dimR params s = \case
       _ -> error "fwdS: different shapes in SFromR(RFromS)"
   SFromR d -> second sfromR $ fwdR dimR params s d
   SFromH d i -> let (s2, v) = fwdH dimR params s d
-                in (s2, sletHVectorIn v $ \res -> sfromD $ res V.! i)
+                in (s2, sfromD $ dunHVector v V.! i)
 
 fwdH
   :: forall ranked shaped. (ADReady ranked, shaped ~ ShapedOf ranked)
