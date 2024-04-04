@@ -528,22 +528,22 @@ toInputId i = assert (i >= 0) $ InputId i
 -- 2. key `member` dMap == nMap!key is DynamicRanked
 type role EvalState nominal
 data EvalState ranked = EvalState
-  { iMap        :: EM.EnumMap (InputId ranked) (DynamicTensor ranked)
+  { iMap  :: EM.EnumMap (InputId ranked) (DynamicTensor ranked)
       -- ^ eventually, cotangents of objective function inputs
       -- (eventually copied to the vector representing the gradient
       -- of the objective function);
       -- the identifiers need to be contiguous and start at 0
-  , dMap        :: EM.EnumMap (NodeId ranked) (DynamicTensor ranked)
+  , dMap  :: EM.EnumMap (NodeId ranked) (DynamicTensor ranked)
       -- ^ eventually, cotangents of non-input subterms indexed
       -- by their node identifiers
-  , nMap        :: EM.EnumMap (NodeId ranked) (DynamicTensor (DeltaR ranked))
+  , nMap  :: EM.EnumMap (NodeId ranked) (DynamicTensor (DeltaR ranked))
       -- ^ nodes left to be evaluated;
       -- we can't evaluate them at once, because their other shared copies
       -- may still not be processed, so we'd not take advantage of the sharing
       -- and not take into account the whole summed context when finally
       -- evaluating
-  , hdMap       :: EM.EnumMap (NodeId ranked) (HVector ranked)
-  , hnMap       :: EM.EnumMap (NodeId ranked) (DeltaH ranked)
+  , hdMap :: EM.EnumMap (NodeId ranked) (HVector ranked)
+  , hnMap :: EM.EnumMap (NodeId ranked) (DeltaH ranked)
   }
 
 -- | Delta expressions naturally denote forward derivatives, as encoded

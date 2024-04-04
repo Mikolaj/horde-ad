@@ -24,6 +24,7 @@ testTrees =
   , testCase "gather1" testGather1
   , testCase "gatherBuild1" testGatherBuild1
   , testCase "gatherSimpPP1" testGatherSimpPP1
+  , testCase "gatherNested02" testGatherNested02
   , testCase "gatherNested2" testGatherNested2
   , testCase "gatherNestedBuild2" testGatherNestedBuild2
   , testCase "gather2" testGather2
@@ -102,7 +103,7 @@ testGather1 =
     (OR.fromList [7,2]
                  [1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
     (rev' @Double @1 gather1
-                               (rreplicate 7 $ rfromList [0, 1]))
+          (rreplicate 7 $ rfromList [0, 1]))
 
 testGatherBuild1 :: Assertion
 testGatherBuild1 =
@@ -125,6 +126,22 @@ testGatherSimpPP1 = do
   length (show (simplifyAst6 @Float t1))
     @?= length (show (simplifyAst6 @Float t2))
 
+gatherNested02 :: forall ranked r. (ADReady ranked, GoodScalar r)
+               => ranked r 1 -> ranked r 1
+gatherNested02 t =
+  rgather @ranked @r @1
+          (1 :$: ZSR)
+          (rgather @ranked @r @1
+                   (2 :$: ZSR) t
+                   (\(k3 :.: ZIR) -> k3 + k3 :.: ZIR))
+          (\(i1 :.: ZIR) -> i1 + i1 + i1 :.: ZIR)
+
+testGatherNested02 :: Assertion
+testGatherNested02 =
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [4] [1.0,0.0,0.0,0.0])
+    (rev' @Double @1 gatherNested02 (rreplicate 4 0.1))
+
 gatherNested2 :: forall ranked r. (ADReady ranked, GoodScalar r)
               => ranked r 2 -> ranked r 2
 gatherNested2 t =
@@ -141,7 +158,7 @@ testGatherNested2 =
     (OR.fromList [7,2]
                  [1.0,0.0,0.0,0.0,1.0,1.0,0.0,0.0,1.0,1.0,0.0,0.0,0.0,1.0])
     (rev' @Double @2 gatherNested2
-                               (rreplicate 7 $ rfromList [0, 1]))
+          (rreplicate 7 $ rfromList [0, 1]))
 
 testGatherNestedBuild2 :: Assertion
 testGatherNestedBuild2 =
