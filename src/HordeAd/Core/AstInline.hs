@@ -756,10 +756,8 @@ shareAst
   => ShareMemo -> AstRanked s r n -> (ShareMemo, AstRanked s r n)
 shareAst memo v0 = case v0 of
   Ast.AstVar{} -> (memo, v0)
-  Ast.AstLet var u v ->
-    let (memo1, v2) = shareAst memo v
-        (memo2, u2) = shareAst memo1 u
-    in (memo2, Ast.AstLet var u2 v2)
+  Ast.AstLet{} -> (memo, v0)  -- delta eval doesn't create lets and no lets
+                              -- survive instantiating in ADVal
   Ast.AstLetADShare{} -> (memo, v0)
   Ast.AstShare var v | Just Refl <- sameAstSpan @s @PrimalSpan ->
     -- We assume v is the same if var is the same.
@@ -843,14 +841,8 @@ shareAst memo v0 = case v0 of
     -- higher than if simplified.
     let (memo1, l2) = shareAstHVector memo l
     in (memo1, Ast.AstProject l2 p)
-  Ast.AstLetHVectorIn vars l v ->
-    let (memo1, l2) = shareAstHVector memo l
-        (memo2, v2) = shareAst memo1 v
-    in (memo2, Ast.AstLetHVectorIn vars l2 v2)
-  Ast.AstLetHFunIn var f v ->
-    let (memo1, v2) = shareAst memo v
-        (memo2, f2) = shareAstHFun memo1 f
-    in (memo2, Ast.AstLetHFunIn var f2 v2)
+  Ast.AstLetHVectorIn{} -> (memo, v0)
+  Ast.AstLetHFunIn{} -> (memo, v0)
   Ast.AstRFromS v -> second Ast.AstRFromS $ shareAstS memo v
   Ast.AstConstant a -> second Ast.AstConstant $ shareAst memo a
   Ast.AstPrimalPart a -> second Ast.AstPrimalPart $ shareAst memo a
@@ -865,10 +857,7 @@ shareAstS
   => ShareMemo -> AstShaped s r sh -> (ShareMemo, AstShaped s r sh)
 shareAstS memo v0 = case v0 of
   Ast.AstVarS{} -> (memo, v0)
-  Ast.AstLetS var u v ->
-    let (memo1, v2) = shareAstS memo v
-        (memo2, u2) = shareAstS memo1 u
-    in (memo2, Ast.AstLetS var u2 v2)
+  Ast.AstLetS{} -> (memo, v0)
   Ast.AstLetADShareS{} -> (memo, v0)
   Ast.AstShareS var v | Just Refl <- sameAstSpan @s @PrimalSpan ->
     -- We assume v is the same if var is the same.
@@ -949,14 +938,8 @@ shareAstS memo v0 = case v0 of
   Ast.AstProjectS l p ->
     let (memo1, l2) = shareAstHVector memo l
     in (memo1, Ast.AstProjectS l2 p)
-  Ast.AstLetHVectorInS vars l v ->
-    let (memo1, l2) = shareAstHVector memo l
-        (memo2, v2) = shareAstS memo1 v
-    in (memo2, Ast.AstLetHVectorInS vars l2 v2)
-  Ast.AstLetHFunInS var f v ->
-    let (memo1, v2) = shareAstS memo v
-        (memo2, f2) = shareAstHFun memo1 f
-    in (memo2, Ast.AstLetHFunInS var f2 v2)
+  Ast.AstLetHVectorInS{} -> (memo, v0)
+  Ast.AstLetHFunInS{} -> (memo, v0)
   Ast.AstSFromR v -> second Ast.AstSFromR $ shareAst memo v
   Ast.AstConstantS a -> second Ast.AstConstantS $ shareAstS memo a
   Ast.AstPrimalPartS a -> second Ast.AstPrimalPartS $ shareAstS memo a
@@ -985,22 +968,10 @@ shareAstHVector memo v0 = case v0 of
     let (memo1, t2) = shareAstHFun memo t
         (memo2, ll2) = mapAccumR (mapAccumR shareAstDynamic) memo1 ll
     in (memo2, Ast.AstHApply t2 ll2)
-  Ast.AstLetHVectorInHVector vars u v ->
-    let (memo1, u2) = shareAstHVector memo u
-        (memo2, v2) = shareAstHVector memo1 v
-    in (memo2, Ast.AstLetHVectorInHVector vars u2 v2)
-  Ast.AstLetHFunInHVector var f v ->
-    let (memo1, v2) = shareAstHVector memo v
-        (memo2, f2) = shareAstHFun memo1 f
-    in (memo2, Ast.AstLetHFunInHVector var f2 v2)
-  Ast.AstLetInHVector var u v ->
-    let (memo1, v2) = shareAstHVector memo v
-        (memo2, u2) = shareAst memo1 u
-    in (memo2, Ast.AstLetInHVector var u2 v2)
-  Ast.AstLetInHVectorS var u v ->
-    let (memo1, v2) = shareAstHVector memo v
-        (memo2, u2) = shareAstS memo1 u
-    in (memo2, Ast.AstLetInHVectorS var u2 v2)
+  Ast.AstLetHVectorInHVector{} -> (memo, v0)
+  Ast.AstLetHFunInHVector{} -> (memo, v0)
+  Ast.AstLetInHVector{} -> (memo, v0)
+  Ast.AstLetInHVectorS{} -> (memo, v0)
   Ast.AstShareHVector [] l -> (memo, l)  -- no need to share an empty HVector
   Ast.AstShareHVector vars l | Just Refl <- sameAstSpan @s @PrimalSpan ->
     -- We assume l is the same if vars are the same.
