@@ -751,6 +751,35 @@ unletAstBool env t = case t of
 
 type ShareMemo = EM.EnumMap AstVarId (AstBindingsCase (AstRanked PrimalSpan))
 
+-- This works only because the other code never inserts the same rshare
+-- into more than one index element, with the share containing
+-- the gather/scatter/build variables corresponding to the index.
+shareAstScoped
+  :: forall n s r. (GoodScalar r, KnownNat n, AstSpan s)
+  => [IntVarName] -> ShareMemo -> AstRanked s r n
+  -> (ShareMemo, AstRanked s r n)
+shareAstScoped vars0 memo0 v0 =
+  let (memo1, v1) = shareAst memo0 v0
+      memoDiff = EM.difference memo1 memo0
+      occursVar d varId =
+        varInAstBindingsCase varInAstDynamic varInAstHVector varId d
+      varsOccur vs d = any (occursVar d) vs
+      closeOccurs :: [AstVarId] -> ShareMemo -> (ShareMemo, ShareMemo)
+      closeOccurs vars memo =
+        let (memoLocal, memoGlobal) = EM.partition (varsOccur vars) memo
+        in if EM.null memoLocal
+           then (memoLocal, memoGlobal)
+           else -- TODO: we probably need to include all variables from
+                -- the HVector case, not only the first variable
+                -- that represents them
+                let vars2 = EM.keys memoLocal
+                    (memoLocal2, memoGlobal2) = closeOccurs vars2 memoGlobal
+                in (EM.union memoLocal memoLocal2, memoGlobal2)
+      (memoLocal1, memoGlobal1) =
+        closeOccurs (map varNameToAstVarId vars0) memoDiff
+      bindingsLocal = EM.toDescList memoLocal1
+  in (EM.union memo0 memoGlobal1, bindsToLet v1 bindingsLocal)
+
 shareAst
   :: forall n s r. (GoodScalar r, KnownNat n, AstSpan s)
   => ShareMemo -> AstRanked s r n -> (ShareMemo, AstRanked s r n)
@@ -805,8 +834,9 @@ shareAst memo v0 = case v0 of
     in (memo2, Ast.AstIndex v2 (listToIndex ix2))
   Ast.AstSum v -> second Ast.AstSum (shareAst memo v)
   Ast.AstScatter sh v (vars, ix) ->
-    let (memo1, v2) = shareAst memo v
-        (memo2, ix2) = mapAccumR shareAst memo1 (indexToList ix)
+    let (memo1, ix2) = mapAccumR (shareAstScoped $ sizedToList vars)
+                                 memo (indexToList ix)
+        (memo2, v2) = shareAst memo1 v
     in (memo2, Ast.AstScatter sh v2 (vars, listToIndex ix2))
   Ast.AstFromList l ->
     let (memo2, l2) = mapAccumR shareAst memo l
@@ -825,11 +855,12 @@ shareAst memo v0 = case v0 of
     second (Ast.AstTranspose perm) $ shareAst memo v
   Ast.AstReshape sh v -> second (Ast.AstReshape sh) (shareAst memo v)
   Ast.AstBuild1 k (var, v) ->
-    let (memo1, v2) = shareAst memo v
+    let (memo1, v2) = shareAstScoped [var] memo v
     in (memo1, Ast.AstBuild1 k (var, v2))
   Ast.AstGather sh v (vars, ix) ->
-    let (memo1, v2) = shareAst memo v
-        (memo2, ix2) = mapAccumR shareAst memo1 (indexToList ix)
+    let (memo1, ix2) = mapAccumR (shareAstScoped $ sizedToList vars)
+                                 memo (indexToList ix)
+        (memo2, v2) = shareAst memo1 v
     in (memo2, Ast.AstGather sh v2 (vars, listToIndex ix2))
   Ast.AstCast v -> second Ast.AstCast $ shareAst memo v
   Ast.AstFromIntegral v -> second Ast.AstFromIntegral $ shareAst memo v
@@ -905,8 +936,10 @@ shareAstS memo v0 = case v0 of
     in (memo2, Ast.AstIndexS @sh1 v2 (ShapedList.listToIndex ix2))
   Ast.AstSumS v -> second Ast.AstSumS (shareAstS memo v)
   Ast.AstScatterS @sh2 @p v (vars, ix) ->
-    let (memo1, v2) = shareAstS memo v
-        (memo2, ix2) = mapAccumR shareAst memo1 (ShapedList.indexToList ix)
+    let (memo1, ix2) =
+          mapAccumR (shareAstScoped $ ShapedList.sizedToList vars)
+                    memo (ShapedList.indexToList ix)
+        (memo2, v2) = shareAstS memo1 v
     in (memo2, Ast.AstScatterS @sh2 @p v2 (vars, ShapedList.listToIndex ix2))
   Ast.AstFromListS l ->
     let (memo2, l2) = mapAccumR shareAstS memo l
@@ -924,12 +957,12 @@ shareAstS memo v0 = case v0 of
   Ast.AstTransposeS @perm v ->
     second (Ast.AstTransposeS @perm) $ shareAstS memo v
   Ast.AstReshapeS v -> second Ast.AstReshapeS (shareAstS memo v)
-  Ast.AstBuild1S @n (var, v) ->
-    let (memo1, v2) = shareAstS memo v
-    in (memo1, Ast.AstBuild1S (var, v2))
+  Ast.AstBuild1S{} -> error "shareAstS: AstBuild1S"  -- not hard to add
   Ast.AstGatherS @sh2 @p v (vars, ix) ->
-    let (memo1, v2) = shareAstS memo v
-        (memo2, ix2) = mapAccumR shareAst memo1 (ShapedList.indexToList ix)
+    let (memo1, ix2) =
+          mapAccumR (shareAstScoped $ ShapedList.sizedToList vars)
+                    memo (ShapedList.indexToList ix)
+        (memo2, v2) = shareAstS memo1 v
     in (memo2, Ast.AstGatherS @sh2 @p v2 (vars, ShapedList.listToIndex ix2))
   Ast.AstCastS v -> second Ast.AstCastS $ shareAstS memo v
   Ast.AstFromIntegralS v ->
@@ -991,9 +1024,7 @@ shareAstHVector memo v0 = case v0 of
             in (EM.insert varId d memo1, astVars)
   Ast.AstShareHVector{} ->
     error "shareAstHVector: AstShareHVector not in PrimalSpan"
-  Ast.AstBuildHVector1 k (var, v) ->
-    let (memo1, v2) = shareAstHVector memo v
-    in (memo1, Ast.AstBuildHVector1 k (var, v2))
+  Ast.AstBuildHVector1{} -> error "shareAstS: AstBuild1S"  -- not hard to add
   Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc0 es ->
     let (memo1, acc02) = shareAstHVector memo acc0
         (memo2, es2) = shareAstHVector memo1 es

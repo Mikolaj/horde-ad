@@ -134,7 +134,8 @@ testTrees =
   , testCase "2barRelu3" testBarRelu3
   , testCase "2barReluMaxDt" testBarReluMaxDt
   , testCase "2barReluMax" testBarReluMax
-  , testCase "2barReluMax3" testBarReluMax3
+  , testCase "2barReluMax30" testBarReluMax30
+  , testCase "2barReluMax31" testBarReluMax31
   , testCase "2barReluMax3CFwd" testBarReluMax3CFwd
   , testCase "2barReluMax3FwdS" testBarReluMax3FwdS
   , testCase "2barReluMax3FwdFrom" testBarReluMax3FwdFrom
@@ -1475,6 +1476,11 @@ testBarRelu3 =
     (OR.fromList [2, 1, 2] [4.5309153191767395,4.5302138998556,-9.39547533946234,95.29759282497125])
     (rev' @Double @3 barRelu (Flip $ OR.fromList [2, 1, 2] [1.1, 2, 3, 4.2]))
 
+barReluMax0
+  :: ( ADReady ranked, GoodScalar r, KnownNat n, RealFloat (ranked r n) )
+  => ranked r n -> ranked r n
+barReluMax0 x = reluMax $ bar (x, x)
+
 barReluMax
   :: ( ADReady ranked, GoodScalar r, KnownNat n, RealFloat (ranked r n) )
   => ranked r n -> ranked r n
@@ -1492,8 +1498,14 @@ testBarReluMax =
     (OR.fromList [] [4.5309153191767395])
     (rev' @Double @0 barReluMax (Flip $ OR.fromList [] [1.1]))
 
-testBarReluMax3 :: Assertion
-testBarReluMax3 =
+testBarReluMax30 :: Assertion
+testBarReluMax30 =
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [1] [4.5309153191767395])
+    (rev' @Double @1 barReluMax0 (Flip $ OR.fromList [1] [1.1]))
+
+testBarReluMax31 :: Assertion
+testBarReluMax31 =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [2, 1, 2] [4.5309153191767395,4.5302138998556,-9.39547533946234,95.29759282497125])
     (rev' @Double @3 barReluMax (Flip $ OR.fromList [2, 1, 2] [1.1, 2, 3, 4.2]))

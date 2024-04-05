@@ -9,6 +9,7 @@ module HordeAd.Core.AstTools
     -- * Variable occurrence detection
   , varInAst, varInADShare, varInAstBool, varInIndex
   , varInAstS, varInIndexS
+  , varInAstDynamic, varInAstHVector
   , varNameInAst, varNameInADShare, varNameInAstS, varNameInAstHVector
     -- * Determining if a term is too small to require sharing
   , astIsSmall, astIsSmallS
@@ -330,17 +331,17 @@ astIsSmallS relaxed = \case
 
 -- * Odds and ends
 
-bindsToLet :: forall n s r. (AstSpan s, KnownNat n, GoodScalar r)
-           => AstRanked s r n -> AstBindingsD (AstRanked s) -> AstRanked s r n
+bindsToLet :: forall n s s2 r. (AstSpan s, AstSpan s2, KnownNat n, GoodScalar r)
+           => AstRanked s r n -> AstBindingsD (AstRanked s2) -> AstRanked s r n
 {-# INLINE bindsToLet #-}  -- help list fusion
 bindsToLet = foldl' bindToLet
  where
   bindToLet :: AstRanked s r n
-            -> (AstVarId, AstBindingsCase (AstRanked s))
+            -> (AstVarId, AstBindingsCase (AstRanked s2))
             -> AstRanked s r n
   bindToLet !u (varId, AstBindingsSimple d) =
     let convertShaped :: (GoodScalar r2, Sh.Shape sh2)
-                      => AstShaped s r2 sh2 -> AstRanked s r n
+                      => AstShaped s2 r2 sh2 -> AstRanked s r n
         convertShaped t =
           Sh.withShapeP (shapeToList $ shapeAst u) $ \proxy -> case proxy of
             Proxy @sh | Just Refl <- matchingRank @sh @n ->

@@ -17,7 +17,8 @@ module HordeAd.Core.HVector
   , voidFromDynamicF, replicate1VoidHVector, index1HVectorF, replicate1HVectorF
     -- * ADShare definition
   , AstVarId, intToAstVarId, AstDynamicVarName(..), dynamicVarNameToAstVarId
-  , AstBindingsCase(..), AstBindingsD, ADShareD
+  , AstBindingsCase(..), AstBindingsD, varInAstBindingsCase
+  , ADShareD
   , emptyADShare, insertADShare, mergeADShare, subtractADShare
   , flattenADShare, assocsADShare, varInADShareF, nullADShare
   ) where
