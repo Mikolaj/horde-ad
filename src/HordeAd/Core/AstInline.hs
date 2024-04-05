@@ -1024,19 +1024,13 @@ shareAstHVector memo v0 = case v0 of
     let (memo1, v2) = shareAstHVector memo v
     in (memo1, Ast.AstBuildHVector1 k (var, v2))
   Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc0 es ->
-    let (memo1, f2) = shareAstHFun memo f
-        (memo2, df2) = shareAstHFun memo1 df
-        (memo3, rf2) = shareAstHFun memo2 rf
-        (memo4, acc02) = shareAstHVector memo3 acc0
-        (memo5, es2) = shareAstHVector memo4 es
-    in (memo5, Ast.AstMapAccumRDer k accShs bShs eShs f2 df2 rf2 acc02 es2)
+    let (memo1, acc02) = shareAstHVector memo acc0
+        (memo2, es2) = shareAstHVector memo1 es
+    in (memo2, Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc02 es2)
   Ast.AstMapAccumLDer k accShs bShs eShs f df rf acc0 es ->
-    let (memo1, f2) = shareAstHFun memo f
-        (memo2, df2) = shareAstHFun memo1 df
-        (memo3, rf2) = shareAstHFun memo2 rf
-        (memo4, acc02) = shareAstHVector memo3 acc0
-        (memo5, es2) = shareAstHVector memo4 es
-    in (memo5, Ast.AstMapAccumLDer k accShs bShs eShs f2 df2 rf2 acc02 es2)
+    let (memo1, acc02) = shareAstHVector memo acc0
+        (memo2, es2) = shareAstHVector memo1 es
+    in (memo2, Ast.AstMapAccumLDer k accShs bShs eShs f df rf acc02 es2)
 
 shareAstHFun
   :: ShareMemo -> AstHFun -> (ShareMemo, AstHFun)
