@@ -9,6 +9,7 @@
 -- for ranked tensors and shaped tensors.
 module HordeAd.Core.TensorADVal
   ( aDValToHVector, hVectorADValToADVal, unADValHVector, unADValDynamicTensor
+  , aDValHVector
   , crevOnADInputs, crevOnHVector, cfwdOnADInputs, cfwdOnHVector
   ) where
 
@@ -24,9 +25,11 @@ import           Data.Function ((&))
 import           Data.List (foldl')
 import           Data.List.Index (imap)
 import           Data.Proxy (Proxy (Proxy))
-import           Data.Type.Equality ((:~:) (Refl))
+import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, sameNat)
+import           Type.Reflection (typeRep)
+import           Unsafe.Coerce (unsafeCoerce)
 
 import           HordeAd.Core.Adaptor
 import           HordeAd.Core.Ast
@@ -37,7 +40,8 @@ import           HordeAd.Core.HVectorOps
 import           HordeAd.Core.IsPrimal
 import           HordeAd.Core.TensorClass
 import           HordeAd.Core.Types
-import           HordeAd.Internal.OrthotopeOrphanInstances (sameShape)
+import           HordeAd.Internal.OrthotopeOrphanInstances
+  (matchingRank, sameShape)
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedList
 
@@ -176,14 +180,6 @@ instance ADReady ranked => RankedTensor (ADVal ranked) where
       -- u' doesn't need to be shared, because deltas are shared separately
 
   rshape (D u _) = rshape u
-  -- This is very slow, but is fortunately not needed:
-  -- rshape (D l u _) = rshape (rletWrap l u)
-  --
-  -- All underlying scalars supporting these operations
-  -- result in empty delta expression, but it's still advantageous to store
-  -- @l@ in the @D@ triple instead of in @u@ via @letWrap@.
-  -- When, later on, these are to be treated as indexes, sprimalPart needs
-  -- to be called, which moves @l@ to @u@ via @letWrap@.
   rminIndex (D u _) =
     let v = rminIndex u
     in dDnotShared v (dZeroOfShape v)
@@ -242,22 +238,12 @@ instance ADReady ranked => RankedTensor (ADVal ranked) where
     in dDnotShared v (dZeroOfShape v)
   rconst t = constantADVal (rconst t)
   rletHVectorIn asD f = f asD
-{- TODO: Verify if this really helps sharing.
-         BTW, it's broken when simplification in astLetHVectorIn is disabled,
-         probably because asUnshared has variables bound in ll2
-         and so l3 has such variables, but an individual l doesn't provied
-         them all, so some variables are dangling when interpreting terms.
-         We'd need to flatten ll2 and put instead of l.
-    let !(!ll2, asUnshared, as') = unADValHVector asD
-        !(!l3, as) =
-          dsharePrimal (dmkHVector asUnshared) emptyADShare
-        aDValDynamicTensor3 l a a' =
-          aDValDynamicTensor (mergeADShare l3 l) a a'
-        doms = V.zipWith3 aDValDynamicTensor3 ll2 as as'
-          -- This could be done with rsharePrimal,
-          -- but more ADShare nodes would generated.
-    in f doms
--}
+{- TODO: Try again once we have tests that show this sharing is needed:
+    let !(!asUnshared, as') = unADValHVector asD
+        !as = dunHVector $ dshare $ dmkHVector asUnshared
+          -- TODO: could this be done with rshare? Would it be better?
+        doms = aDValHVector as as'
+    in f doms -}
   rletHFunIn = (&)
   rfromS :: forall r sh. (GoodScalar r, Sh.Shape sh)
          => ADVal (ShapedOf ranked) r sh -> ADVal ranked r (Sh.Rank sh)
@@ -300,14 +286,6 @@ instance ADReadyS shaped => ShapedTensor (ADVal shaped) where
     in f (dDnotShared var2 u')
       -- u' doesn't need to be shared, because deltas are shared separately
 
-  -- This is very slow, but is fortunately not needed:
-  -- rshape (D l u _) = rshape (rletWrap l u)
-  --
-  -- All underlying scalars supporting these operations
-  -- result in empty delta expression, but it's still advantageous to store
-  -- @l@ in the @D@ triple instead of in @u@ via @letWrap@.
-  -- When, later on, these are to be treated as indexes, sprimalPart needs
-  -- to be called, which moves @l@ to @u@ via @letWrap@.
   sminIndex (D u _) =
     let v = sminIndex u
     in dDnotShared v (dZeroOfShape v)
@@ -370,17 +348,12 @@ instance ADReadyS shaped => ShapedTensor (ADVal shaped) where
     in dDnotShared v (dZeroOfShape v)
   sconst t = constantADVal (sconst t)
   sletHVectorIn asD f = f asD
-{- TODO: See similar code above.
-    let !(!ll2, asUnshared, as') = unADValHVector asD
-        !(!l3, as) =
-          dsharePrimal @(RankedOf shaped) @shaped
-                       (dmkHVector asUnshared) emptyADShare
-            -- This could be done with ssharePrimal, but the code
-            -- would be more complex and more ADShare nodes generated.
-            -- OTOH, f would be free to assume there are no dangling variables.
-        !(D l u u') = f $ aDValHVector ll2 as as'
-    in dDnotShared (mergeADShare l3 l) u u'
--}
+{- TODO: Try again once we have tests that show this sharing is needed:
+    let !(!asUnshared, as') = unADValHVector asD
+        !as = dunHVector $ dshare $ dmkHVector asUnshared
+          -- TODO: could this be done with rshare? Would it be better?
+        doms = aDValHVector as as'
+    in f doms -}
   sletHFunIn = (&)
   sfromR :: forall r sh. (GoodScalar r, Sh.Shape sh, KnownNat (Sh.Rank sh))
          => ADVal (RankedOf shaped) r (Sh.Rank sh) -> ADVal shaped r sh
@@ -418,17 +391,12 @@ instance ADReadyBoth ranked shaped
   dHApply (HFun f) = f
   dunHVector = id
   dletHVectorInHVector asD f = f asD
-{- TODO: See similar code above.
-    let !(!ll2, asUnshared, as') = unADValHVector asD
-        !(!l3, as) =
-          dsharePrimal (dmkHVector asUnshared) emptyADShare
-        aDValDynamicTensor3 l a a' =
-          aDValDynamicTensor (mergeADShare l3 l) a a'
-        doms = V.zipWith3 aDValDynamicTensor3 ll2 as as'
-          -- This could be done with rsharePrimal,
-          -- but more ADShare nodes would generated.
-    in f doms
--}
+{- TODO: Try again once we have tests that show this sharing is needed:
+    let !(!asUnshared, as') = unADValHVector asD
+        !as = dunHVector $ dshare $ dmkHVector asUnshared
+          -- TODO: could this be done with rshare? Would it be better?
+        doms = aDValHVector as as'
+    in f doms -}
   dletHFunInHVector = (&)
   rletInHVector (D u u') f =
     let !var2 = rshare u
@@ -615,7 +583,6 @@ instance ADReadyBoth ranked shaped
         dual = wrapDeltaH $ MapAccumL k accShs bShs eShs q (dunHVector es) df rf acc0' es'
     in ahhToHVector primal dual
 
--- Float and '() are placeholders here; they are reduced away.
 ahhToHVector
   :: forall ranked. RankedOf (ShapedOf ranked) ~ ranked
   => HVector ranked -> DeltaH ranked -> HVector (ADVal ranked)
@@ -662,3 +629,34 @@ unADValDynamicTensor (DynamicRankedDummy p1 p2) =
   (DynamicRankedDummy p1 p2, DynamicRankedDummy p1 p2)
 unADValDynamicTensor (DynamicShapedDummy p1 p2) =
   (DynamicShapedDummy p1 p2, DynamicShapedDummy p1 p2)
+
+-- TODO: not dead code: will be used in dletHVectorInHVector.
+aDValHVector :: (RankedTensor f, ShapedTensor (ShapedOf f))
+             => HVector f -> HVector (Dual f) -> HVector (ADVal f)
+aDValHVector = V.zipWith aDValDynamicTensor
+
+-- TODO: Apparently other combinations occur in dletHVectorInHVector. Why?
+aDValDynamicTensor :: (RankedTensor f, ShapedTensor (ShapedOf f))
+                   => DynamicTensor f -> DynamicTensor (Dual f)
+                   -> DynamicTensor (ADVal f)
+aDValDynamicTensor (DynamicRanked @r1 @n1 t) (DynamicRanked @r2 @n2 t')
+  | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
+  , Just Refl <- sameNat (Proxy @n1) (Proxy @n2) =
+    DynamicRanked (dDnotShared t t')
+aDValDynamicTensor (DynamicShaped @r1 @sh1 t) (DynamicShaped @r2 @sh2 t')
+  | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
+  , Just Refl <- sameShape @sh1 @sh2 =
+    DynamicShaped (dDnotShared t t')
+aDValDynamicTensor (DynamicRankedDummy @r1 @sh1 _ _)
+                   (DynamicRanked @r2 @n2 t')
+  | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
+  , Just Refl <- matchingRank @sh1 @n2 =
+    withListShape (Sh.shapeT @sh1) $ \(sh4 :: ShapeInt n4) ->
+      gcastWith (unsafeCoerce Refl :: n4 :~: Sh.Rank sh1) $
+      DynamicRanked (dDnotShared (rzero sh4) t')
+aDValDynamicTensor (DynamicShapedDummy @r1 @sh1 _ _)
+                   (DynamicShaped @r2 @sh2 t')
+  | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
+  , Just Refl <- sameShape @sh1 @sh2 =
+    DynamicShaped (dDnotShared 0 t')
+aDValDynamicTensor _ _ = error "aDValDynamicTensor: wrong arguments"
