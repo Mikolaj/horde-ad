@@ -11,6 +11,7 @@ module HordeAd.Core.AstTools
   , varInAstS, varInIndexS
   , varInAstDynamic, varInAstHVector
   , varNameInAst, varNameInAstS, varNameInAstHVector
+  , varInAstBindingsCase
     -- * Determining if a term is too small to require sharing
   , astIsSmall, astIsSmallS
     -- * Odds and ends
@@ -280,6 +281,10 @@ varNameInAstS (AstVarName varId) = varInAstS varId
 varNameInAstHVector :: AstSpan s
                     => AstVarName f r n -> AstHVector s -> Bool
 varNameInAstHVector (AstVarName varId) = varInAstHVector varId
+
+varInAstBindingsCase :: AstSpan s => AstVarId -> AstBindingsCase s -> Bool
+varInAstBindingsCase var (AstBindingsSimple t) = varInAstDynamic var t
+varInAstBindingsCase var (AstBindingsHVector _ t) = varInAstHVector var t
 
 
 -- * Determining if a term is too small to require sharing

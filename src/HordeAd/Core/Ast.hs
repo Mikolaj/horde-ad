@@ -13,8 +13,8 @@ module HordeAd.Core.Ast
   , AstVarName(..), varNameToAstVarId
   , AstArtifactRev, AstArtifactFwd
   , AstIndex, AstVarList, AstIndexS, AstVarListS
-    -- * AstBindingsCase and related definitions
-  , AstBindingsCase(..), AstBindings, varInAstBindingsCase
+    -- * AstBindingsCase and AstBindings
+  , AstBindingsCase(..), AstBindings
     -- * ASTs
   , AstRanked(..), AstShaped(..), AstDynamic, AstHVector(..), AstHFun(..)
   , AstBool(..), OpCodeNum1(..), OpCodeNum2(..), OpCode1(..), OpCode2(..)
@@ -181,7 +181,7 @@ type AstIndexS sh = IndexS sh AstInt
 type AstVarListS sh = SizedListS sh IntVarName
 
 
--- * AstBindingsCase and related definitions
+-- * AstBindingsCase and AstBindings
 
 type role AstBindingsCase nominal
 data AstBindingsCase (s :: AstSpanType) =
@@ -190,16 +190,6 @@ data AstBindingsCase (s :: AstSpanType) =
 deriving instance Show (AstBindingsCase s)
 
 type AstBindings (s :: AstSpanType) = [(AstVarId, AstBindingsCase s)]
-
-varInAstBindingsCase :: (AstVarId -> DynamicTensor (AstRanked s) -> Bool)
-                     -> (AstVarId -> HVectorOf (AstRanked s) -> Bool)
-                     -> AstVarId -> AstBindingsCase s
-                     -> Bool
-{-# INLINE varInAstBindingsCase #-}
-varInAstBindingsCase varInAstDynamic _varInAstHVector var
-                     (AstBindingsSimple t) = varInAstDynamic var t
-varInAstBindingsCase _varInAstDynamic varInAstHVector var
-                     (AstBindingsHVector _ t) = varInAstHVector var t
 
 
 -- * ASTs

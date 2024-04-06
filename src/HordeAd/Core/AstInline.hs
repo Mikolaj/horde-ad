@@ -509,9 +509,7 @@ shareAstScoped
 shareAstScoped vars0 memo0 v0 =
   let (memo1, v1) = shareAst memo0 v0
       memoDiff = EM.difference memo1 memo0
-      occursVar d varId =
-        varInAstBindingsCase varInAstDynamic varInAstHVector varId d
-      varsOccur vs d = any (occursVar d) vs
+      varsOccur vs d = any (`varInAstBindingsCase` d) vs
       closeOccurs :: [AstVarId] -> ShareMemo -> (ShareMemo, ShareMemo)
       closeOccurs vars memo =
         let (memoLocal, memoGlobal) = EM.partition (varsOccur vars) memo
