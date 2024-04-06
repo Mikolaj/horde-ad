@@ -13,7 +13,7 @@ module HordeAd.Core.HVector
   , VoidTensor, absurdTensor, VoidHVector, DynamicScalar(..)
   , scalarDynamic, shapeVoidDynamic, shapeVoidHVector, shapeDynamicF
   , rankDynamic, isDynamicRanked, isDynamicDummy
-  , voidFromVar, voidFromVars, voidFromShL, voidFromSh, voidFromShS
+  , voidFromShL, voidFromSh, voidFromShS
   , voidFromDynamicF, replicate1VoidHVector, index1HVectorF, replicate1HVectorF
     -- * AstBindingsCase and related definitions
   , AstVarId, intToAstVarId, AstDynamicVarName(..), dynamicVarNameToAstVarId
@@ -28,9 +28,8 @@ import qualified Data.Array.Shape as Sh
 import           Data.Kind (Constraint, Type)
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
-import           Data.Type.Equality (testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, Nat, type (+))
+import           GHC.TypeLits (KnownNat, type (+))
 import           Type.Reflection (Typeable, typeRep)
 
 import           HordeAd.Core.Types
@@ -183,15 +182,6 @@ isDynamicDummy DynamicRanked{} = False
 isDynamicDummy DynamicShaped{} = False
 isDynamicDummy DynamicRankedDummy{} = True
 isDynamicDummy DynamicShapedDummy{} = True
-
-voidFromVar :: AstDynamicVarName -> DynamicTensor VoidTensor
-voidFromVar (AstDynamicVarName @ty @rD @shD _) =
-  case testEquality (typeRep @ty) (typeRep @Nat) of
-    Just Refl -> DynamicRankedDummy @rD @shD Proxy Proxy
-    _ -> DynamicShapedDummy @rD @shD Proxy Proxy
-
-voidFromVars :: [AstDynamicVarName] -> VoidHVector
-voidFromVars = V.fromList . map voidFromVar
 
 voidFromShL :: forall r. GoodScalar r
             => [Int] -> DynamicTensor VoidTensor
