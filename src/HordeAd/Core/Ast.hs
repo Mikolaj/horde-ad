@@ -1,4 +1,4 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE UndecidableInstances, AllowAmbiguousTypes #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 -- | AST of the code to be differentiated. It's needed mostly for handling
 -- higher order operations such as build and map, via vectorization,
@@ -7,12 +7,14 @@
 module HordeAd.Core.Ast
   ( -- * The AstSpan kind
     AstSpanType(..), AstSpan(..), sameAstSpan
-    -- * Assorted small definitions
-  , AstInt, IntVarName, pattern AstIntVar, isRankedInt
     -- * More and less typed variables and type synonyms containing them
+  , AstVarId, intToAstVarId, AstDynamicVarName(..), dynamicVarNameToAstVarId
+  , AstInt, IntVarName, pattern AstIntVar, isRankedInt
   , AstVarName(..), varNameToAstVarId
   , AstArtifactRev, AstArtifactFwd
   , AstIndex, AstVarList, AstIndexS, AstVarListS
+    -- * AstBindingsCase and related definitions
+  , AstBindingsCase(..), AstBindingsD, varInAstBindingsCase
     -- * ASTs
   , AstRanked(..), AstShaped(..), AstDynamic, AstHVector(..), AstHFun(..)
   , AstBool(..), OpCodeNum1(..), OpCodeNum2(..), OpCode1(..), OpCode2(..)
@@ -103,7 +105,35 @@ type instance HFunOf (AstNoVectorize s) = AstHFun
 type instance HFunOf (AstNoSimplify s) = AstHFun
 
 
--- * Assorted small definitions
+-- * More and less typed variables and type synonyms containing them
+
+-- We avoid adding a phantom type denoting the tensor functor,
+-- because it can't be easily compared (even fully applies) and so the phantom
+-- is useless. We don't add the underlying scalar nor the rank/shape,
+-- because some collections differ in those too, e.g., HVector,
+-- e.g. in AstLetHVectorS. We don't add a phantom span, because
+-- carrying around type constructors that need to be applied to span
+-- complicates the system greatly for moderate type safety gain
+-- and also such a high number of ID types induces many conversions.
+newtype AstVarId = AstVarId Int
+ deriving (Eq, Ord, Show, Enum)
+
+intToAstVarId :: Int -> AstVarId
+intToAstVarId = AstVarId
+
+-- This can't be replaced by AstVarId. because in some places it's used
+-- to record the type, scalar and shape of arguments in a HVector.
+--
+-- A lot of the variables are existential, but there's no nesting,
+-- so no special care about picking specializations at runtime is needed.
+data AstDynamicVarName where
+  AstDynamicVarName :: forall (ty :: Type) r sh.
+                       (Typeable ty, GoodScalar r, Sh.Shape sh)
+                    => AstVarId -> AstDynamicVarName
+deriving instance Show AstDynamicVarName
+
+dynamicVarNameToAstVarId :: AstDynamicVarName -> AstVarId
+dynamicVarNameToAstVarId (AstDynamicVarName varId) = varId
 
 -- | This is the (arbitrarily) chosen representation of terms representing
 -- integers in the indexes of tensor operations.
@@ -122,9 +152,6 @@ isRankedInt _ = case ( sameAstSpan @s @PrimalSpan
                      , sameNat (Proxy @n) (Proxy @0) ) of
                   (Just Refl, Just Refl, Just Refl) -> Just Refl
                   _ -> Nothing
-
-
--- * More and less typed variables and type synonyms containing them
 
 type role AstVarName phantom phantom nominal
 newtype AstVarName (f :: TensorType ty) (r :: Type) (y :: ty) =
@@ -152,6 +179,30 @@ type AstVarList n = SizedList n IntVarName
 type AstIndexS sh = IndexS sh AstInt
 
 type AstVarListS sh = SizedListS sh IntVarName
+
+
+-- * AstBindingsCase and related definitions
+
+type role AstBindingsCase nominal
+data AstBindingsCase ranked =
+    AstBindingsSimple (DynamicTensor ranked)
+  | AstBindingsHVector [AstDynamicVarName] (HVectorOf ranked)
+deriving instance ( Show (HVectorOf ranked)
+                  , CRanked ranked Show, CShaped (ShapedOf ranked) Show )
+                  => Show (AstBindingsCase ranked)
+
+type AstBindingsD (ranked :: RankedTensorType) =
+  [(AstVarId, AstBindingsCase ranked)]
+
+varInAstBindingsCase :: (AstVarId -> DynamicTensor d -> Bool)
+                     -> (AstVarId -> HVectorOf d -> Bool)
+                     -> AstVarId -> AstBindingsCase d
+                     -> Bool
+{-# INLINE varInAstBindingsCase #-}
+varInAstBindingsCase varInAstDynamic _varInAstHVector var
+                     (AstBindingsSimple t) = varInAstDynamic var t
+varInAstBindingsCase _varInAstDynamic varInAstHVector var
+                     (AstBindingsHVector _ t) = varInAstHVector var t
 
 
 -- * ASTs

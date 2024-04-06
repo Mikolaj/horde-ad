@@ -31,6 +31,7 @@ import           GHC.TypeLits
 import           Type.Reflection (typeRep)
 import           Unsafe.Coerce (unsafeCoerce)
 
+import           HordeAd.Core.Ast
 import           HordeAd.Core.HVector
 import           HordeAd.Core.TensorClass
 import           HordeAd.Core.Types

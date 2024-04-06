@@ -15,9 +15,6 @@ module HordeAd.Core.HVector
   , rankDynamic, isDynamicRanked, isDynamicDummy
   , voidFromShL, voidFromSh, voidFromShS
   , voidFromDynamicF, replicate1VoidHVector, index1HVectorF, replicate1HVectorF
-    -- * AstBindingsCase and related definitions
-  , AstVarId, intToAstVarId, AstDynamicVarName(..), dynamicVarNameToAstVarId
-  , AstBindingsCase(..), AstBindingsD, varInAstBindingsCase
   ) where
 
 import Prelude
@@ -30,7 +27,7 @@ import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, type (+))
-import           Type.Reflection (Typeable, typeRep)
+import           Type.Reflection (typeRep)
 
 import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances ()
@@ -288,55 +285,3 @@ replicate1DynamicF rreplicate sreplicate k@(SNat @k) u = case u of
   DynamicShaped t -> DynamicShaped $ sreplicate @k t
   DynamicRankedDummy @r @sh p1 _ -> DynamicRankedDummy @r @(k ': sh) p1 Proxy
   DynamicShapedDummy @r @sh p1 _ -> DynamicShapedDummy @r @(k ': sh) p1 Proxy
-
-
--- * AstBindingsCase and related definitions
-
--- We avoid adding a phantom type denoting the tensor functor,
--- because it can't be easily compared (even fully applies) and so the phantom
--- is useless. We don't add the underlying scalar nor the rank/shape,
--- because some collections differ in those too, e.g., HVector,
--- e.g. in AstLetHVectorS. We don't add a phantom span, because
--- carrying around type constructors that need to be applied to span
--- complicates the system greatly for moderate type safety gain
--- and also such a high number of ID types induces many conversions.
-newtype AstVarId = AstVarId Int
- deriving (Eq, Ord, Show, Enum)
-
-intToAstVarId :: Int -> AstVarId
-intToAstVarId = AstVarId
-
--- This can't be replaced by AstVarId. because in some places it's used
--- to record the type, scalar and shape of arguments in a HVector.
---
--- A lot of the variables are existential, but there's no nesting,
--- so no special care about picking specializations at runtime is needed.
-data AstDynamicVarName where
-  AstDynamicVarName :: forall (ty :: Type) r sh.
-                       (Typeable ty, GoodScalar r, Sh.Shape sh)
-                    => AstVarId -> AstDynamicVarName
-deriving instance Show AstDynamicVarName
-
-dynamicVarNameToAstVarId :: AstDynamicVarName -> AstVarId
-dynamicVarNameToAstVarId (AstDynamicVarName varId) = varId
-
-type role AstBindingsCase nominal
-data AstBindingsCase ranked =
-    AstBindingsSimple (DynamicTensor ranked)
-  | AstBindingsHVector [AstDynamicVarName] (HVectorOf ranked)
-deriving instance ( Show (HVectorOf ranked)
-                  , CRanked ranked Show, CShaped (ShapedOf ranked) Show )
-                  => Show (AstBindingsCase ranked)
-
-type AstBindingsD (ranked :: RankedTensorType) =
-  [(AstVarId, AstBindingsCase ranked)]
-
-varInAstBindingsCase :: (AstVarId -> DynamicTensor d -> Bool)
-                     -> (AstVarId -> HVectorOf d -> Bool)
-                     -> AstVarId -> AstBindingsCase d
-                     -> Bool
-{-# INLINE varInAstBindingsCase #-}
-varInAstBindingsCase varInAstDynamic _varInAstHVector var
-                     (AstBindingsSimple t) = varInAstDynamic var t
-varInAstBindingsCase _varInAstDynamic varInAstHVector var
-                     (AstBindingsHVector _ t) = varInAstHVector var t
