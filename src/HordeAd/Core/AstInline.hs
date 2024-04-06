@@ -497,7 +497,7 @@ unletAstHVector6 t =
       bindingsOut = EM.toDescList memoOut
   in bindsToHVectorLet share bindingsOut
 
-type ShareMemo = EM.EnumMap AstVarId (AstBindingsCase (AstRanked PrimalSpan))
+type ShareMemo = EM.EnumMap AstVarId (AstBindingsCase PrimalSpan)
 
 -- This works only because the other code never inserts the same rshare
 -- into more than one index element, with the share containing

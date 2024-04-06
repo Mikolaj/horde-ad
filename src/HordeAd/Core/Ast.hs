@@ -14,7 +14,7 @@ module HordeAd.Core.Ast
   , AstArtifactRev, AstArtifactFwd
   , AstIndex, AstVarList, AstIndexS, AstVarListS
     -- * AstBindingsCase and related definitions
-  , AstBindingsCase(..), AstBindingsD, varInAstBindingsCase
+  , AstBindingsCase(..), AstBindings, varInAstBindingsCase
     -- * ASTs
   , AstRanked(..), AstShaped(..), AstDynamic, AstHVector(..), AstHFun(..)
   , AstBool(..), OpCodeNum1(..), OpCodeNum2(..), OpCode1(..), OpCode2(..)
@@ -184,19 +184,16 @@ type AstVarListS sh = SizedListS sh IntVarName
 -- * AstBindingsCase and related definitions
 
 type role AstBindingsCase nominal
-data AstBindingsCase ranked =
-    AstBindingsSimple (DynamicTensor ranked)
-  | AstBindingsHVector [AstDynamicVarName] (HVectorOf ranked)
-deriving instance ( Show (HVectorOf ranked)
-                  , CRanked ranked Show, CShaped (ShapedOf ranked) Show )
-                  => Show (AstBindingsCase ranked)
+data AstBindingsCase (s :: AstSpanType) =
+    AstBindingsSimple (DynamicTensor (AstRanked s))
+  | AstBindingsHVector [AstDynamicVarName] (HVectorOf (AstRanked s))
+deriving instance Show (AstBindingsCase s)
 
-type AstBindingsD (ranked :: RankedTensorType) =
-  [(AstVarId, AstBindingsCase ranked)]
+type AstBindings (s :: AstSpanType) = [(AstVarId, AstBindingsCase s)]
 
-varInAstBindingsCase :: (AstVarId -> DynamicTensor d -> Bool)
-                     -> (AstVarId -> HVectorOf d -> Bool)
-                     -> AstVarId -> AstBindingsCase d
+varInAstBindingsCase :: (AstVarId -> DynamicTensor (AstRanked s) -> Bool)
+                     -> (AstVarId -> HVectorOf (AstRanked s) -> Bool)
+                     -> AstVarId -> AstBindingsCase s
                      -> Bool
 {-# INLINE varInAstBindingsCase #-}
 varInAstBindingsCase varInAstDynamic _varInAstHVector var
