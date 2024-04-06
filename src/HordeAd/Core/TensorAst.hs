@@ -538,15 +538,6 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   -- These and many similar bangs are necessary to ensure variable IDs
   -- are generated in the expected order, resulting in nesting of lets
   -- occuring in the correct order and so no scoping errors.
-  dsharePrimal !r !l | Just Refl <- sameAstSpan @s @PrimalSpan =
-    fun1DToAst (shapeAstHVector r) $ \ !vars !asts -> case vars of
-      [] -> (l, V.empty)
-      !var : _ ->  -- vars are fresh, so var uniquely represent vars
-        ( insertADShare (dynamicVarNameToAstVarId var)
-                        (AstBindingsHVector vars r)
-                        l
-        , asts )
-  dsharePrimal _ _ = error "dsharePrimal: wrong span"
   dshare a@(AstShareHVector{}) = a
   dshare a =
     let shs = shapeAstHVector a
@@ -868,10 +859,6 @@ instance AstSpan s => RankedTensor (AstRaw s) where
     _ -> (emptyADShare, u)
   -- For convenience and simplicity we define this for all spans,
   -- but it can only ever be used for PrimalSpan.
-  rsharePrimal =
-    case sameAstSpan @s @PrimalSpan of
-      Just Refl -> astRegisterADShare
-      _ -> error "rsharePrimal: used not at PrimalSpan"
   rshare a@(AstRaw (AstShare{})) = a
   rshare a | astIsSmall True (unAstRaw a) = a
   rshare a = AstRaw $ fun1RToAst $ \ !var -> AstShare var (unAstRaw a)
@@ -1012,10 +999,6 @@ instance AstSpan s => ShapedTensor (AstRawS s) where
     AstLetADShareS l t -> (l, AstRawS t)
     AstConstantS (AstLetADShareS l t) -> (l, AstRawS $ AstConstantS t)
     _ -> (emptyADShare, u)
-  ssharePrimal =
-    case sameAstSpan @s @PrimalSpan of
-      Just Refl -> astRegisterADShareS
-      _ -> error "ssharePrimal: used not at PrimalSpan"
   sshare a@(AstRawS (AstShareS{})) = a
   sshare a | astIsSmallS True (unAstRawS a) = a
   sshare a = AstRawS $ fun1SToAst $ \ !var -> AstShareS var (unAstRawS a)
@@ -1061,15 +1044,6 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
       Just Refl -> \l t ->
         AstRawWrap $ unletAstHVector6 l $ unAstRawWrap t
       _ -> error "dunlet: used not at PrimalSpan"
-  dsharePrimal !(AstRawWrap r) !l | Just Refl <- sameAstSpan @s @PrimalSpan =
-    fun1DToAst (shapeAstHVector r) $ \ !vars !asts -> case vars of
-      [] -> (l, V.empty)
-      !var : _ ->  -- vars are fresh, so var uniquely represent vars
-        ( insertADShare (dynamicVarNameToAstVarId var)
-                        (AstBindingsHVector vars r)
-                        l
-        , rawHVector asts )
-  dsharePrimal _ _ = error "dsharePrimal: wrong span"
   dshare a@(AstRawWrap (AstShareHVector{})) = a
   dshare (AstRawWrap a) =
     let shs = shapeAstHVector a
@@ -1211,7 +1185,6 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
     AstNoVectorizeWrap
     $ sletInHVector (unAstNoVectorizeS u)
                     (unAstNoVectorizeWrap . f . AstNoVectorizeS)
-  dsharePrimal = error "dsharePrimal for AstNoVectorize"
   dbuild1 k f =
     AstNoVectorizeWrap
     $ AstBuildHVector1 k $ funToAstI (unAstNoVectorizeWrap . f . AstNoVectorize)
@@ -1388,7 +1361,6 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
     AstNoSimplifyWrap
     $ astLetInHVectorFunRawS (unAstNoSimplifyS u)
                              (unAstNoSimplifyWrap . f . AstNoSimplifyS)
-  dsharePrimal = error "dsharePrimal for AstNoSimplify"
   dbuild1 k f = AstNoSimplifyWrap
                 $ astBuildHVector1Vectorize
                     k (unAstNoSimplifyWrap . f . AstNoSimplify)

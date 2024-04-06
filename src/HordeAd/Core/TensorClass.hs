@@ -315,9 +315,6 @@ class ( Integral (IntOf ranked), CRanked ranked Num
   rletWrap _l u = u
   rletUnwrap :: ranked r n -> (ADShare, ranked r n)
   rletUnwrap u = (emptyADShare, u)
-  rsharePrimal :: (GoodScalar r, KnownNat n)
-               => ranked r n -> ADShare -> (ADShare, ranked r n)
-  rsharePrimal r l = (l, r)
   rshare :: KnownNat n => ranked r n -> ranked r n
   rshare = id
 
@@ -695,9 +692,6 @@ class ( Integral (IntOf shaped), CShaped shaped Num
   sletWrap _l u = u
   sletUnwrap :: shaped r sh -> (ADShare, shaped r sh)
   sletUnwrap u = (emptyADShare, u)
-  ssharePrimal :: (GoodScalar r, Sh.Shape sh)
-               => shaped r sh -> ADShare -> (ADShare, shaped r sh)
-  ssharePrimal r l = (l, r)
   sshare :: Sh.Shape sh => shaped r sh -> shaped r sh
   sshare = id
 
@@ -756,7 +750,6 @@ class HVectorTensor (ranked :: RankedTensorType)
                 -> HVectorOf ranked
   dunlet :: ADShare -> HVectorOf ranked -> HVectorOf ranked
   dunlet l = assert (nullADShare l)
-  dsharePrimal :: HVectorOf ranked -> ADShare -> (ADShare, HVector ranked)
   dshare :: HVectorOf ranked -> HVectorOf ranked
   dshare = id
   dbuild1 :: SNat k
