@@ -1773,6 +1773,9 @@ testConcatBuild7 =
     10
     (rev' @Double @1 concatBuild7 3.4)
 
+-- These tests show that term rewriting changes the value
+-- of out-of-bounds indexing, e.g., of gather(replicate)
+-- that reduces to a non-gather. Vectorization is not needed for that.
 _concatBuild8 :: (ADReady ranked, GoodScalar r) => ranked r 0 -> ranked r 1
 _concatBuild8 r =
   rlet (rgather1 5 (rreplicate 1 r)

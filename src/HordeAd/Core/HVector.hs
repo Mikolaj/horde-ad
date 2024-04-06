@@ -15,7 +15,7 @@ module HordeAd.Core.HVector
   , rankDynamic, isDynamicRanked, isDynamicDummy
   , voidFromVar, voidFromVars, voidFromShL, voidFromSh, voidFromShS
   , voidFromDynamicF, replicate1VoidHVector, index1HVectorF, replicate1HVectorF
-    -- * ADShare definition
+    -- * AstBindingsCase and related definitions
   , AstVarId, intToAstVarId, AstDynamicVarName(..), dynamicVarNameToAstVarId
   , AstBindingsCase(..), AstBindingsD, varInAstBindingsCase
   ) where
@@ -300,7 +300,7 @@ replicate1DynamicF rreplicate sreplicate k@(SNat @k) u = case u of
   DynamicShapedDummy @r @sh p1 _ -> DynamicShapedDummy @r @(k ': sh) p1 Proxy
 
 
--- * ADShare definition
+-- * AstBindingsCase and related definitions
 
 -- We avoid adding a phantom type denoting the tensor functor,
 -- because it can't be easily compared (even fully applies) and so the phantom

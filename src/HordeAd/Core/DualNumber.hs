@@ -45,10 +45,9 @@ import           HordeAd.Util.SizedList
 -- The second argument is the underlying scalar type. The third
 -- is the rank or shape of the tensor value.
 --
--- The datatype is implemented as dual numbers (hence @D@),
--- where @ADShare@ holds the sharing information if the values are,
--- in fact, AST terms. The @f r z@ value is the primal component,
--- which is the normal, the basic value. The exact type of the dual component
+-- The datatype is implemented as dual numbers (hence @D@).,
+-- The @f r z@ value is the primal component, which is the normal,
+-- the basic value. The exact type of the dual component
 -- is determined by a definition of type family @Dual@ provided elsewhere.
 type role ADVal nominal nominal nominal
 data ADVal (f :: TensorType ty) (r :: Type) (z :: ty) =

@@ -1440,10 +1440,7 @@ astSum t0 = case shapeAst t0 of
 --  1 :$: rest -> astReshape rest t0  -- TODO: slows down the CNNO test
   _ -> case t0 of
     -- Ast.AstLet var u v -> astLet var u (astSum v)
-    -- this is problematic, because it keeps huge tensors alive for longer;
-    -- but for AstLetADShare it's usually fine, because they are often
-    -- either global or duplicated and rarely local and unique
-    -- and we prefer the global to duplicated
+    -- this is problematic, because it keeps huge tensors alive for longer
     Ast.AstScatter (_ :$: sh) v (vars, _ :.: ix) -> astScatter sh v (vars, ix)
     Ast.AstFromList l -> astSumOfList l
     Ast.AstFromVector l -> astSumOfList $ V.toList l

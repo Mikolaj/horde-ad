@@ -447,7 +447,7 @@ _testSin0RfwdPP4Dual :: Assertion
 _testSin0RfwdPP4Dual = do
   let a1 = (rfwd1 sin . rfwd1 @(AstRanked DualSpan) @Double @0 @0 sin) 1.1
   printAstPretty IM.empty (simplifyAst6 a1)
-    @?= "let [x20 @Natural @Double @[]] = (\\[x17] [x18] -> [x17 * cos x18]) [[let [x16 @Natural @Double @[]] = (\\[x13] [x14] -> [x13 * cos x14]) [[rdualPart 1.1], [rdualPart 1.1]] in x16], [let [x16 @Natural @Double @[]] = (\\[x13] [x14] -> [x13 * cos x14]) [[rdualPart 1.1], [rdualPart 1.1]] in x16]] in x20"
+    @?= "rproject (\\[x13] [x14] -> [x13 * cos x14]) [[rdualPart 1.0], [rproject (\\[x10] [x11] -> [x10 * cos x11]) [[rdualPart 1.0], [rdualPart 1.1]] 0]] 0"
 
 testSin0Rfwd5 :: Assertion
 testSin0Rfwd5 = do
