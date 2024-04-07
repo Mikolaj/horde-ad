@@ -87,9 +87,6 @@ type instance ShapedOf (AstShaped s) = AstShaped s
 type instance PrimalOf (AstShaped s) = AstShaped PrimalSpan
 type instance DualOf (AstShaped s) = AstShaped DualSpan
 
-type instance PrimalOf (HVectorPseudoTensor (AstRanked s)) =
-  HVectorPseudoTensor (AstRanked PrimalSpan)
-
 -- These instances can't be just HFun, because they need to be vectorized
 -- and vectorization applies such functions to the variable from build1
 -- and the variable has to be eliminated via vectorization to preserve
