@@ -452,15 +452,6 @@ astBuild1VectorizeS f =
 
 -- * HVectorTensor instance
 
-instance DualNumberValue (DynamicTensor (AstRanked PrimalSpan)) where
-  type DValue (DynamicTensor (AstRanked PrimalSpan)) =
-    DynamicTensor (Flip OR.Array)
-  fromDValue = \case
-    DynamicRanked t -> DynamicRanked $ fromPrimal $ AstConst $ runFlip t
-    DynamicShaped t -> DynamicShaped $ fromPrimalS $ AstConstS $ runFlip t
-    DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
-    DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
-
 instance TermValue (DynamicTensor (AstRanked FullSpan)) where
   type Value (DynamicTensor (AstRanked FullSpan)) =
     DynamicTensor (Flip OR.Array)
@@ -476,10 +467,6 @@ instance AdaptableHVector (AstRanked s) (AstHVector s) where
   fromHVector aInit params =
     let (portion, rest) = V.splitAt (V.length $ shapeAstHVector aInit) params
     in Just (AstMkHVector portion, rest)
-
-instance DualNumberValue (AstHVector PrimalSpan) where
-  type DValue (AstHVector PrimalSpan) = HVector (Flip OR.Array)
-  fromDValue t = AstMkHVector $ V.map fromDValue t
 
 -- HVector causes overlap and violation of injectivity,
 -- hence Data.NonStrict.Vector. Injectivity is crucial to limit the number

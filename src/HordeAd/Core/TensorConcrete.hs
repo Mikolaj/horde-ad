@@ -368,9 +368,3 @@ instance (RankedTensor ranked, ShapedTensor (ShapedOf ranked))
     DynamicShaped t -> DynamicShaped $ constantADVal $ sconst $ runFlip t
     DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
     DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
-
-instance ADReady ranked
-         => DualNumberValue (ADVal (HVectorPseudoTensor ranked) Float '()) where
-  type DValue (ADVal (HVectorPseudoTensor ranked) Float '()) =
-    HVectorPseudoTensor (Flip OR.Array) Float '()
-  fromDValue = hVectorADValToADVal . fromDValue . unHVectorPseudoTensor
