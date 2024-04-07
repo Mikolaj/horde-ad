@@ -562,7 +562,7 @@ testConv2dUnpaddedPP = do
                  f
                  (V.fromList [ DynamicRanked @Double @4 (g 1.1)
                              , DynamicRanked @Double @4 (g 2.3) ])
-  printGradient6Pretty IM.empty (simplifyArtifactRev artifactRev)
+  printGradient6Pretty IM.empty (simplifyArtifact artifactRev)
     @?= unPaddedPPString
 
 testConv2dUnpadded2PP :: Assertion
@@ -578,7 +578,7 @@ testConv2dUnpadded2PP = do
       (artifactRev, _) =
         revArtifactFromForwardPass
           True (forwardPassByInterpretation f EM.empty) shs
-  printGradient6Pretty IM.empty (simplifyArtifactRev artifactRev)
+  printGradient6Pretty IM.empty (simplifyArtifact artifactRev)
     @?= unPaddedPPString
 
 -- This is fragile due to indexing out of bounds, see above.
@@ -597,9 +597,9 @@ testConv2dUnpadded3PP = do
           True (forwardPassByInterpretation f EM.empty) shs
   printGradient6Pretty IM.empty artifactRev
     @?= "\\u33 u1 u2 -> let w31 = rtranspose [4,1,0,2,3] (rreplicate 2 (rreshape [2,2,2,8] (rgather [2,2,2,1,2,2,2] u2 (\\[i22, i23, i24, i25, i26, i27, i28] -> [i22 + i25, i26, i23 + i27, i24 + i28])))) ; w32 = rtranspose [4,0,3,1,2] (rreplicate 2 (rreplicate 2 (rreplicate 2 (rreshape [2,8] (rgather [2,1,2,2,2] u1 (\\[i29, i30] -> [i29 + i30])))))) in [rscatter [2,2,2,2] (rreshape [2,1,2,2,2] (rsum (rsum (rsum (rtranspose [1,3,4,2,0] (w31 * rreplicate 8 u33)))))) (\\[i34, i35] -> [i34 + i35]), rscatter [2,2,2,2] (rreshape [2,2,2,1,2,2,2] (rsum (rtranspose [2,1,3,4,0] (w32 * rreplicate 8 u33)))) (\\[i36, i37, i38, i39, i40, i41, i42] -> [i36 + i39, i40, i37 + i41, i38 + i42])]"
-  printGradient6Pretty IM.empty (simplifyArtifactRev artifactRev)
+  printGradient6Pretty IM.empty (simplifyArtifact artifactRev)
     @?= unPaddedPPString3
   printPrimal6Pretty IM.empty artifactRev
     @?= "\\u1 u2 -> let w31 = rtranspose [4,1,0,2,3] (rreplicate 2 (rreshape [2,2,2,8] (rgather [2,2,2,1,2,2,2] u2 (\\[i22, i23, i24, i25, i26, i27, i28] -> [i22 + i25, i26, i23 + i27, i24 + i28])))) ; w32 = rtranspose [4,0,3,1,2] (rreplicate 2 (rreplicate 2 (rreplicate 2 (rreshape [2,8] (rgather [2,1,2,2,2] u1 (\\[i29, i30] -> [i29 + i30])))))) in [rsum (w31 * w32)]"
-  printPrimal6Pretty IM.empty (simplifyArtifactRev artifactRev)
+  printPrimal6Pretty IM.empty (simplifyArtifact artifactRev)
     @?= "\\u1 u2 -> [rsum (rtranspose [4,1,0,2,3] (rreplicate 2 (rreshape [2,2,2,8] (rgather [2,2,2,1,2,2,2] u2 (\\[i22, i23, i24, i25, i26, i27, i28] -> [i22 + i25, i26, i23 + i27, i24 + i28])))) * rtranspose [4,0,3,1,2] (rreplicate 2 (rreplicate 2 (rreplicate 2 (rreshape [2,8] (rgather [2,1,2,2,2] u1 (\\[i29, i30] -> [i29 + i30])))))))]"

@@ -3,7 +3,7 @@
 -- | Inlining and other manipulations of the let-like constructors.
 module HordeAd.Core.AstInline
   ( -- * Inlining and simplification pass operations to be applied after unlet
-    simplifyArtifactRev, simplifyArtifactFwd
+    simplifyArtifact
   , simplifyAst6, simplifyAst6S, simplifyAstHVector5, simplifyAstHVector6
     -- * The unlet pass eliminating nested lets bottom-up
   , unletAstHVector6
@@ -36,12 +36,8 @@ import           HordeAd.Util.SizedList
 
 -- * Inlining and simplification pass operations to be applied after unlet
 
-simplifyArtifactRev :: AstArtifact -> AstArtifact
-simplifyArtifactRev (vars, gradient, primal) =
-  (vars, simplifyAstHVector6 gradient, simplifyAstHVector6 primal)
-
-simplifyArtifactFwd :: AstArtifact -> AstArtifact
-simplifyArtifactFwd (vars, derivative, primal) =
+simplifyArtifact :: AstArtifact -> AstArtifact
+simplifyArtifact (vars, derivative, primal) =
   (vars, simplifyAstHVector6 derivative, simplifyAstHVector6 primal)
 
 -- Potentially, some more inlining could be triggered after the second

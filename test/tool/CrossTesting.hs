@@ -176,13 +176,13 @@ rev' f vals =
         revEvalArtifact7 artifactsGradAst parameters
       gradient2Ast = parseHVector vals astGradAst
       (astGradAstS, value2AstS) =
-        revEvalArtifact7 (simplifyArtifactRev artifactsGradAst) parameters
+        revEvalArtifact7 (simplifyArtifact artifactsGradAst) parameters
       gradient2AstS = parseHVector vals astGradAstS
       artifactsGradAstT =
         fst $ revProduceArtifactWithoutInterpretation
                 True (hAst id id id) parameters0
       (astGradAstST, value2AstST) =
-        revEvalArtifact7 (simplifyArtifactRev artifactsGradAstT) parameters
+        revEvalArtifact7 (simplifyArtifact artifactsGradAstT) parameters
       gradient2AstST = parseHVector vals astGradAstST
       artifactsSimpleAst =
         fst $ revProduceArtifactWithoutInterpretation
@@ -191,7 +191,7 @@ rev' f vals =
         revEvalArtifact7 artifactsSimpleAst parameters
       gradient3Ast = parseHVector vals astSimpleAst
       (astSimpleAstS, value3AstS) =
-        revEvalArtifact7 (simplifyArtifactRev artifactsSimpleAst) parameters
+        revEvalArtifact7 (simplifyArtifact artifactsSimpleAst) parameters
       gradient3AstS = parseHVector vals astSimpleAstS
       artifactsGradAstUnSimp =
         fst $ revProduceArtifactWithoutInterpretation
@@ -200,7 +200,7 @@ rev' f vals =
         revEvalArtifact7 artifactsGradAstUnSimp parameters
       gradient2AstUnSimp = parseHVector vals astGradAstUnSimp
       (astGradAstSUnSimp, value2AstSUnSimp) =
-        revEvalArtifact7 (simplifyArtifactRev artifactsGradAstUnSimp)
+        revEvalArtifact7 (simplifyArtifact artifactsGradAstUnSimp)
                         parameters
       gradient2AstSUnSimp = parseHVector vals astGradAstSUnSimp
       artifactsSimpleAstUnSimp =
@@ -211,7 +211,7 @@ rev' f vals =
         revEvalArtifact7 artifactsSimpleAstUnSimp parameters
       gradient3AstUnSimp = parseHVector vals astSimpleAstUnSimp
       (astSimpleAstSUnSimp, value3AstSUnSimp) =
-        revEvalArtifact7 (simplifyArtifactRev artifactsSimpleAstUnSimp)
+        revEvalArtifact7 (simplifyArtifact artifactsSimpleAstUnSimp)
                         parameters
       gradient3AstSUnSimp = parseHVector vals astSimpleAstSUnSimp
       artifactsPrimalAst =
@@ -221,7 +221,7 @@ rev' f vals =
         revEvalArtifact7 artifactsPrimalAst parameters
       gradient4Ast = parseHVector vals astPrimalAst
       (astPrimalAstS, value4AstS) =
-        revEvalArtifact7 (simplifyArtifactRev artifactsPrimalAst) parameters
+        revEvalArtifact7 (simplifyArtifact artifactsPrimalAst) parameters
       gradient4AstS = parseHVector vals astPrimalAstS
       artifactsPSimpleAst =
         fst $ revProduceArtifactWithoutInterpretation
@@ -231,7 +231,7 @@ rev' f vals =
         revEvalArtifact7 artifactsPSimpleAst parameters
       gradient5Ast = parseHVector vals astPSimpleAst
       (astPSimpleAstS, value5AstS) =
-        revEvalArtifact7 (simplifyArtifactRev artifactsPSimpleAst) parameters
+        revEvalArtifact7 (simplifyArtifact artifactsPSimpleAst) parameters
       gradient5AstS = parseHVector vals astPSimpleAstS
       cderivative = cfwd f vals vals
       derivative = fwd @(AstRanked FullSpan r m) f vals vals
