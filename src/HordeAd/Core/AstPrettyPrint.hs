@@ -11,9 +11,8 @@ module HordeAd.Core.AstPrettyPrint
   , printAstSimple, printAstPretty, printAstPrettyButNested
   , printAstSimpleS, printAstPrettyS, printAstPrettyButNestedS
   , printAstHVectorSimple, printAstHVectorPretty, printAstHVectorPrettyButNested
-  , printGradient6Simple, printGradient6Pretty
-  , printPrimal6Simple, printPrimal6Pretty
-  , printArtifactFwdSimple, printArtifactFwdPretty
+  , printArtifactSimple, printArtifactPretty
+  , printArtifactPrimalSimple, printArtifactPrimalPretty
   ) where
 
 import Prelude
@@ -988,56 +987,38 @@ printAstHVectorPrettyButNested
 printAstHVectorPrettyButNested renames t =
   printAstHVector (defaulPrintConfig2 True False renames) 0 t ""
 
-printGradient6Simple
+printArtifactSimple
   :: IntMap String
   -> AstArtifact
   -> String
-printGradient6Simple renames ((varsDt, vars1), gradient, _) =
-  let varsPP = map (printAstDynamicVarNameBrief renames) $ varsDt ++ vars1
-  in "\\" ++ unwords varsPP
-          ++ " -> " ++ printAstHVectorSimple renames (unAstRawWrap gradient)
-
-printGradient6Pretty
-  :: IntMap String
-  -> AstArtifact
-  -> String
-printGradient6Pretty renames ((varsDt, vars1), gradient, _) =
-  let varsPP = map (printAstDynamicVarNameBrief renames) $ varsDt ++ vars1
-  in "\\" ++ unwords varsPP
-          ++ " -> " ++ printAstHVectorPretty renames (unAstRawWrap gradient)
-
-printPrimal6Simple
-  :: IntMap String
-  -> AstArtifact
-  -> String
-printPrimal6Simple renames ((_, vars1), _, primal) =
-  let varsPP = map (printAstDynamicVarNameBrief renames) vars1
-  in "\\" ++ unwords varsPP
-          ++ " -> " ++ printAstHVectorSimple renames (unAstRawWrap primal)
-
-printPrimal6Pretty
-  :: IntMap String
-  -> AstArtifact
-  -> String
-printPrimal6Pretty renames ((_, vars1), _, primal) =
-  let varsPP = map (printAstDynamicVarNameBrief renames) vars1
-  in "\\" ++ unwords varsPP
-          ++ " -> " ++ printAstHVectorPretty renames (unAstRawWrap primal)
-
-printArtifactFwdSimple
-  :: IntMap String
-  -> AstArtifact
-  -> String
-printArtifactFwdSimple renames ((varsDt, vars1), derivative, _) =
+printArtifactSimple renames ((varsDt, vars1), derivative, _) =
   let varsPP = map (printAstDynamicVarNameBrief renames) $ varsDt ++ vars1
   in "\\" ++ unwords varsPP
           ++ " -> " ++ printAstHVectorSimple renames (unAstRawWrap derivative)
 
-printArtifactFwdPretty
+printArtifactPretty
   :: IntMap String
   -> AstArtifact
   -> String
-printArtifactFwdPretty renames ((varsDt, vars1), derivative, _) =
+printArtifactPretty renames ((varsDt, vars1), derivative, _) =
   let varsPP = map (printAstDynamicVarNameBrief renames) $ varsDt ++ vars1
   in "\\" ++ unwords varsPP
           ++ " -> " ++ printAstHVectorPretty renames (unAstRawWrap derivative)
+
+printArtifactPrimalSimple
+  :: IntMap String
+  -> AstArtifact
+  -> String
+printArtifactPrimalSimple renames ((_, vars1), _, primal) =
+  let varsPP = map (printAstDynamicVarNameBrief renames) vars1
+  in "\\" ++ unwords varsPP
+          ++ " -> " ++ printAstHVectorSimple renames (unAstRawWrap primal)
+
+printArtifactPrimalPretty
+  :: IntMap String
+  -> AstArtifact
+  -> String
+printArtifactPrimalPretty renames ((_, vars1), _, primal) =
+  let varsPP = map (printAstDynamicVarNameBrief renames) vars1
+  in "\\" ++ unwords varsPP
+          ++ " -> " ++ printAstHVectorPretty renames (unAstRawWrap primal)

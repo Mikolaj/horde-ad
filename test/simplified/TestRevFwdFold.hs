@@ -1042,7 +1042,7 @@ testSin0Scan1Rev2PPA = do
                  (\x0 -> rscan (\x a -> sin x - a) x0
                            (rconst (OR.fromList @Double @1 [2] [5, 7])))
                  1.1
-  printGradient6Pretty IM.empty (simplifyArtifact art)
+  printArtifactPretty IM.empty (simplifyArtifact art)
     @?= "\\v8 x1 -> let v4 = rconst (fromList [2] [5.0,7.0]) in let [x5 @Natural @Double @[], v6 @Natural @Double @[2], v7 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [x1] [v4] in let [x9 @Natural @Double @[], v10 @Natural @Double @[2]] = dmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> [0] [rslice 1 2 v8, v6, v4] in [x9 + v8 ! [0]]"
 
 testSin0Scan1Rev2PPForComparison :: Assertion
@@ -1053,7 +1053,7 @@ testSin0Scan1Rev2PPForComparison = do
                  True
                  (\x0 -> rfromList [sin (sin x0 - 5) - 7, sin x0 - 5, x0])
                  1.1
-  printGradient6Pretty IM.empty (simplifyArtifact art)
+  printArtifactPretty IM.empty (simplifyArtifact art)
     @?= "\\v3 x1 -> [cos x1 * (cos (sin x1 - 5.0) * v3 ! [0]) + cos x1 * v3 ! [1] + v3 ! [2]]"
 
 testSin0Scan1Fwd2PP :: Assertion
@@ -1063,7 +1063,7 @@ testSin0Scan1Fwd2PP = do
         fwdArtifactAdapt @Double @1 @(AstRanked FullSpan)
                  (\x0 -> rscan (\x a -> sin x - a) x0
                            (rconst (OR.fromList @Double @1 [2] [5, 7]))) 1.1
-  printArtifactFwdPretty IM.empty (simplifyArtifact art)
+  printArtifactPretty IM.empty (simplifyArtifact art)
     @?= "\\x1 x2 -> let v5 = rconst (fromList [2] [5.0,7.0]) in let [x6 @Natural @Double @[], v7 @Natural @Double @[2], v8 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [x2] [v5] in let [x9 @Natural @Double @[], v10 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [x1] [rreplicate 2 0.0, v7, v5] in [rappend (rreplicate 1 x1) v10]"
 
 testSin0Scan1Rev2 :: Assertion
