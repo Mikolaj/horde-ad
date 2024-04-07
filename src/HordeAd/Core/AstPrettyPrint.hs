@@ -990,7 +990,7 @@ printAstHVectorPrettyButNested renames t =
 
 printGradient6Simple
   :: IntMap String
-  -> AstArtifactRev (HVectorPseudoTensor (AstRaw PrimalSpan)) r y
+  -> AstArtifactRev
   -> String
 printGradient6Simple renames ((varsDt, vars1), gradient, _) =
   let varsPP = map (printAstDynamicVarNameBrief renames) $ varsDt ++ vars1
@@ -999,7 +999,7 @@ printGradient6Simple renames ((varsDt, vars1), gradient, _) =
 
 printGradient6Pretty
   :: IntMap String
-  -> AstArtifactRev (HVectorPseudoTensor (AstRaw PrimalSpan)) r y
+  -> AstArtifactRev
   -> String
 printGradient6Pretty renames ((varsDt, vars1), gradient, _) =
   let varsPP = map (printAstDynamicVarNameBrief renames) $ varsDt ++ vars1
@@ -1008,38 +1008,36 @@ printGradient6Pretty renames ((varsDt, vars1), gradient, _) =
 
 printPrimal6Simple
   :: IntMap String
-  -> AstArtifactRev (HVectorPseudoTensor (AstRaw PrimalSpan)) r y
+  -> AstArtifactRev
   -> String
-printPrimal6Simple renames ((_, vars1), _, HVectorPseudoTensor primal) =
+printPrimal6Simple renames ((_, vars1), _, primal) =
   let varsPP = map (printAstDynamicVarNameBrief renames) vars1
   in "\\" ++ unwords varsPP
           ++ " -> " ++ printAstHVectorSimple renames (unAstRawWrap primal)
 
 printPrimal6Pretty
   :: IntMap String
-  -> AstArtifactRev (HVectorPseudoTensor (AstRaw PrimalSpan)) r y
+  -> AstArtifactRev
   -> String
-printPrimal6Pretty renames ((_, vars1), _, HVectorPseudoTensor primal) =
+printPrimal6Pretty renames ((_, vars1), _, primal) =
   let varsPP = map (printAstDynamicVarNameBrief renames) vars1
   in "\\" ++ unwords varsPP
           ++ " -> " ++ printAstHVectorPretty renames (unAstRawWrap primal)
 
 printArtifactFwdSimple
   :: IntMap String
-  -> AstArtifactFwd (HVectorPseudoTensor (AstRaw PrimalSpan)) r y
+  -> AstArtifactFwd
   -> String
-printArtifactFwdSimple renames
-                       ((varsDt, vars1),  HVectorPseudoTensor derivative, _) =
+printArtifactFwdSimple renames ((varsDt, vars1), derivative, _) =
   let varsPP = map (printAstDynamicVarNameBrief renames) $ varsDt ++ vars1
   in "\\" ++ unwords varsPP
           ++ " -> " ++ printAstHVectorSimple renames (unAstRawWrap derivative)
 
 printArtifactFwdPretty
   :: IntMap String
-  -> AstArtifactFwd (HVectorPseudoTensor (AstRaw PrimalSpan)) r y
+  -> AstArtifactFwd
   -> String
-printArtifactFwdPretty renames
-                       ((varsDt, vars1), HVectorPseudoTensor derivative, _) =
+printArtifactFwdPretty renames ((varsDt, vars1), derivative, _) =
   let varsPP = map (printAstDynamicVarNameBrief renames) $ varsDt ++ vars1
   in "\\" ++ unwords varsPP
           ++ " -> " ++ printAstHVectorPretty renames (unAstRawWrap derivative)

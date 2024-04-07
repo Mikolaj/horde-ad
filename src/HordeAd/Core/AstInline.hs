@@ -36,23 +36,13 @@ import           HordeAd.Util.SizedList
 
 -- * Inlining and simplification pass operations to be applied after unlet
 
-simplifyArtifactRev
-  :: AstArtifactRev (HVectorPseudoTensor (AstRaw PrimalSpan)) r y
-  -> AstArtifactRev (HVectorPseudoTensor (AstRaw PrimalSpan)) r y
-simplifyArtifactRev (vars, gradient, HVectorPseudoTensor primal) =
-  ( vars
-  , simplifyAstHVector6 gradient
-  , HVectorPseudoTensor $ simplifyAstHVector6 primal )
+simplifyArtifactRev :: AstArtifactRev -> AstArtifactRev
+simplifyArtifactRev (vars, gradient, primal) =
+  (vars, simplifyAstHVector6 gradient, simplifyAstHVector6 primal)
 
-simplifyArtifactFwd
-  :: AstArtifactFwd (HVectorPseudoTensor (AstRaw PrimalSpan)) r y
-  -> AstArtifactFwd (HVectorPseudoTensor (AstRaw PrimalSpan)) r y
-simplifyArtifactFwd ( vars
-                    , HVectorPseudoTensor derivative
-                    , HVectorPseudoTensor primal ) =
-  ( vars
-  , HVectorPseudoTensor $ simplifyAstHVector6 derivative
-  , HVectorPseudoTensor $ simplifyAstHVector6 primal )
+simplifyArtifactFwd :: AstArtifactFwd -> AstArtifactFwd
+simplifyArtifactFwd (vars, derivative, primal) =
+  (vars, simplifyAstHVector6 derivative, simplifyAstHVector6 primal)
 
 -- Potentially, some more inlining could be triggered after the second
 -- simplification, but it's probably rare, so we don't insisit on a fixpoint.

@@ -126,8 +126,7 @@ revArtifactAdapt
      , AdaptableHVector (Flip OR.Array) (Value astvals)
      , TermValue astvals )
   => Bool -> (astvals -> tgtAstVals) -> Value astvals
-  -> ( AstArtifactRev (HVectorPseudoTensor (AstRaw PrimalSpan)) Float '()
-     , DeltaH (AstRaw PrimalSpan) )
+  -> (AstArtifactRev, DeltaH (AstRaw PrimalSpan))
 revArtifactAdapt hasDt f vals =
   let g hVector = HVectorPseudoTensor
                   $ toHVectorOf $ f $ parseHVector (fromValue vals) hVector
@@ -140,8 +139,7 @@ revArtifactAdapt hasDt f vals =
      , AdaptableHVector (Flip OR.Array) (Value astvals)
      , TermValue astvals )
   => Bool -> (astvals -> AstRanked FullSpan Double n) -> Value astvals
-  -> ( AstArtifactRev (HVectorPseudoTensor (AstRaw PrimalSpan)) Float '()
-     , DeltaH (AstRaw PrimalSpan) ) #-}
+  -> (AstArtifactRev, DeltaH (AstRaw PrimalSpan)) #-}
 
 revProduceArtifactWithoutInterpretation
   :: (AdaptableHVector (ADVal (AstRaw PrimalSpan))
@@ -149,8 +147,7 @@ revProduceArtifactWithoutInterpretation
   => Bool
   -> (HVector (ADVal (AstRaw PrimalSpan)) -> ADVal primal_g r y)
   -> VoidHVector
-  -> ( AstArtifactRev (HVectorPseudoTensor (AstRaw PrimalSpan)) Float '()
-     , DeltaH (AstRaw PrimalSpan) )
+  -> (AstArtifactRev, DeltaH (AstRaw PrimalSpan))
 {-# INLINE revProduceArtifactWithoutInterpretation #-}
 revProduceArtifactWithoutInterpretation hasDt f =
   let g hVectorPrimal vars hVector =
@@ -172,7 +169,7 @@ forwardPassByApplication g hVectorPrimal _vars _hVector =
   in g varInputs
 
 revEvalArtifact
-  :: AstArtifactRev (HVectorPseudoTensor (AstRaw PrimalSpan)) r y
+  :: AstArtifactRev
   -> HVector (Flip OR.Array)
   -> Maybe (HVectorOf (Flip OR.Array))
   -> (HVector (Flip OR.Array), HVector (Flip OR.Array))
@@ -184,8 +181,7 @@ revEvalArtifact ((varsDt, vars), gradient, primal) parameters mdt =
       dts = fromMaybe dt1 mdt
       envDt = extendEnvHVector varsDt dts env
       gradientHVector = interpretAstHVector envDt $ unAstRawWrap gradient
-      primalTensor = interpretAstHVector env $ unAstRawWrap
-                     $ unHVectorPseudoTensor primal
+      primalTensor = interpretAstHVector env $ unAstRawWrap primal
   in (gradientHVector, primalTensor)
 
 
@@ -227,9 +223,7 @@ fwdArtifactAdapt
      , AdaptableHVector (Flip OR.Array) (Value astvals)
      , TermValue astvals )
   => (astvals -> tgtAstVals) -> Value astvals
-  -> ( AstArtifactFwd (HVectorPseudoTensor (AstRaw PrimalSpan))
-                      Float '()
-     , DeltaH (AstRaw PrimalSpan) )
+  -> (AstArtifactFwd, DeltaH (AstRaw PrimalSpan))
 fwdArtifactAdapt f vals =
   let g hVector = HVectorPseudoTensor
                   $ toHVectorOf $ f $ parseHVector (fromValue vals) hVector
@@ -238,7 +232,7 @@ fwdArtifactAdapt f vals =
   in fwdProduceArtifact g EM.empty voidH
 
 fwdEvalArtifact
-  :: AstArtifactFwd (HVectorPseudoTensor (AstRaw PrimalSpan)) r y
+  :: AstArtifactFwd
   -> HVector (Flip OR.Array)
   -> HVector (Flip OR.Array)
   -> (HVector (Flip OR.Array), HVector (Flip OR.Array))
@@ -247,10 +241,8 @@ fwdEvalArtifact ((varDs, vars), derivative, primal) parameters ds =
   if hVectorsMatch parameters ds then
     let env = foldr extendEnvD EM.empty $ zip vars $ V.toList parameters
         envDs = foldr extendEnvD env $ zip varDs $ V.toList ds
-        derivativeTensor = interpretAstHVector envDs $ unAstRawWrap
-                           $ unHVectorPseudoTensor derivative
-        primalTensor = interpretAstHVector env $ unAstRawWrap
-                       $ unHVectorPseudoTensor primal
+        derivativeTensor = interpretAstHVector envDs $ unAstRawWrap derivative
+        primalTensor = interpretAstHVector env $ unAstRawWrap primal
     in (derivativeTensor, primalTensor)
  else error "fwdEvalArtifact: forward derivative input and sensitivity arguments should have same shapes"
 

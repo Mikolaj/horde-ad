@@ -57,7 +57,7 @@ revProduceArtifactH
      , TermValue astvals )
   => Bool -> (astvals -> g r y) -> AstEnv (ADVal (AstRaw PrimalSpan))
   -> Value astvals -> VoidHVector
-  -> ( AstArtifactRev (HVectorPseudoTensor (AstRaw PrimalSpan)) Float '()
+  -> ( AstArtifactRev
      , DeltaH (AstRaw PrimalSpan) )
 {-# INLINE revProduceArtifactH #-}
 revProduceArtifactH hasDt f envInit vals0 =
@@ -92,7 +92,7 @@ revArtifactFromForwardPass
       -> HVector (AstRanked FullSpan)
       -> ADVal (HVectorPseudoTensor (AstRaw PrimalSpan)) r y)
   -> VoidHVector
-  -> ( AstArtifactRev (HVectorPseudoTensor (AstRaw PrimalSpan)) r y
+  -> ( AstArtifactRev
      , DeltaH (AstRaw PrimalSpan) )
 {-# INLINE revArtifactFromForwardPass #-}
 revArtifactFromForwardPass hasDt forwardPass parameters0 =
@@ -113,7 +113,7 @@ revArtifactFromForwardPass hasDt forwardPass parameters0 =
         !gradient = gradientFromDeltaH parameters0 primalBody mdt delta
         unGradient = dunlet (dmkHVector gradient)
         unPrimal = dunlet primalBody
-    in ( ((varsDt, varsPrimal), unGradient, HVectorPseudoTensor unPrimal)
+    in ( ((varsDt, varsPrimal), unGradient, unPrimal)
        , delta )
 
 revProduceArtifact
@@ -122,7 +122,7 @@ revProduceArtifact
       -> HVectorPseudoTensor (AstRanked FullSpan) r y)
   -> AstEnv (ADVal (AstRaw PrimalSpan))
   -> VoidHVector
-  -> ( AstArtifactRev (HVectorPseudoTensor (AstRaw PrimalSpan)) r y
+  -> ( AstArtifactRev
      , DeltaH (AstRaw PrimalSpan) )
 {-# INLINE revProduceArtifact #-}
 revProduceArtifact hasDt g envInit =
@@ -134,7 +134,7 @@ fwdArtifactFromForwardPass
       -> HVector (AstRanked FullSpan)
       -> ADVal (HVectorPseudoTensor (AstRaw PrimalSpan)) r y)
   -> VoidHVector
-  -> ( AstArtifactFwd (HVectorPseudoTensor (AstRaw PrimalSpan)) r y
+  -> ( AstArtifactFwd
      , DeltaH (AstRaw PrimalSpan) )
 {-# INLINE fwdArtifactFromForwardPass #-}
 fwdArtifactFromForwardPass forwardPass parameters0 =
@@ -144,8 +144,8 @@ fwdArtifactFromForwardPass forwardPass parameters0 =
         forwardPass hVectorPrimal vars hVector in
   let !derivative =
         derivativeFromDeltaH (V.length parameters0) delta hVectorDs
-      unDerivative = HVectorPseudoTensor $ dunlet derivative
-      unPrimal = HVectorPseudoTensor $ dunlet primalBody
+      unDerivative = dunlet derivative
+      unPrimal = dunlet primalBody
   in ( ((varsPrimalDs, varsPrimal), unDerivative, unPrimal)
      , delta )
 
@@ -154,7 +154,7 @@ fwdProduceArtifact
       -> HVectorPseudoTensor (AstRanked FullSpan) r y)
   -> AstEnv (ADVal (AstRaw PrimalSpan))
   -> VoidHVector
-  -> ( AstArtifactFwd (HVectorPseudoTensor (AstRaw PrimalSpan)) r y
+  -> ( AstArtifactFwd
      , DeltaH (AstRaw PrimalSpan) )
 {-# INLINE fwdProduceArtifact #-}
 fwdProduceArtifact g envInit =
@@ -575,8 +575,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
         (((varsDt, vars), derivative, _primal), _delta) =
           fwdProduceArtifact g EM.empty shs
      in AstLambda ( [varsDt, vars]
-                  , simplifyAstHVector5 $ unAstRawWrap
-                    $ unHVectorPseudoTensor derivative )
+                  , simplifyAstHVector5 $ unAstRawWrap $ derivative )
   dmapAccumRDer
     :: Proxy (AstRanked s)
     -> SNat k

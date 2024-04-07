@@ -95,7 +95,7 @@ rev' f vals =
         revEvalArtifact7 artifactsGradAst9 parameters
       gradient9 = parseHVector vals advalGrad9
       revEvalArtifact7
-        :: AstArtifactRev (HVectorPseudoTensor (AstRaw PrimalSpan)) Float '()
+        :: AstArtifactRev
         -> HVector (Flip OR.Array)
         -> (HVector (Flip OR.Array), Flip OR.Array r m)
       revEvalArtifact7 a1 a2 =
