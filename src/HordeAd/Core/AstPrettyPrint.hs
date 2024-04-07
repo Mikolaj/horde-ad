@@ -990,7 +990,7 @@ printAstHVectorPrettyButNested renames t =
 
 printGradient6Simple
   :: IntMap String
-  -> AstArtifactRev
+  -> AstArtifact
   -> String
 printGradient6Simple renames ((varsDt, vars1), gradient, _) =
   let varsPP = map (printAstDynamicVarNameBrief renames) $ varsDt ++ vars1
@@ -999,7 +999,7 @@ printGradient6Simple renames ((varsDt, vars1), gradient, _) =
 
 printGradient6Pretty
   :: IntMap String
-  -> AstArtifactRev
+  -> AstArtifact
   -> String
 printGradient6Pretty renames ((varsDt, vars1), gradient, _) =
   let varsPP = map (printAstDynamicVarNameBrief renames) $ varsDt ++ vars1
@@ -1008,7 +1008,7 @@ printGradient6Pretty renames ((varsDt, vars1), gradient, _) =
 
 printPrimal6Simple
   :: IntMap String
-  -> AstArtifactRev
+  -> AstArtifact
   -> String
 printPrimal6Simple renames ((_, vars1), _, primal) =
   let varsPP = map (printAstDynamicVarNameBrief renames) vars1
@@ -1017,7 +1017,7 @@ printPrimal6Simple renames ((_, vars1), _, primal) =
 
 printPrimal6Pretty
   :: IntMap String
-  -> AstArtifactRev
+  -> AstArtifact
   -> String
 printPrimal6Pretty renames ((_, vars1), _, primal) =
   let varsPP = map (printAstDynamicVarNameBrief renames) vars1
@@ -1026,7 +1026,7 @@ printPrimal6Pretty renames ((_, vars1), _, primal) =
 
 printArtifactFwdSimple
   :: IntMap String
-  -> AstArtifactFwd
+  -> AstArtifact
   -> String
 printArtifactFwdSimple renames ((varsDt, vars1), derivative, _) =
   let varsPP = map (printAstDynamicVarNameBrief renames) $ varsDt ++ vars1
@@ -1035,7 +1035,7 @@ printArtifactFwdSimple renames ((varsDt, vars1), derivative, _) =
 
 printArtifactFwdPretty
   :: IntMap String
-  -> AstArtifactFwd
+  -> AstArtifact
   -> String
 printArtifactFwdPretty renames ((varsDt, vars1), derivative, _) =
   let varsPP = map (printAstDynamicVarNameBrief renames) $ varsDt ++ vars1

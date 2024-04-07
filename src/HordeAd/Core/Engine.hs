@@ -126,7 +126,7 @@ revArtifactAdapt
      , AdaptableHVector (Flip OR.Array) (Value astvals)
      , TermValue astvals )
   => Bool -> (astvals -> tgtAstVals) -> Value astvals
-  -> (AstArtifactRev, DeltaH (AstRaw PrimalSpan))
+  -> (AstArtifact, DeltaH (AstRaw PrimalSpan))
 revArtifactAdapt hasDt f vals =
   let g hVector = HVectorPseudoTensor
                   $ toHVectorOf $ f $ parseHVector (fromValue vals) hVector
@@ -139,7 +139,7 @@ revArtifactAdapt hasDt f vals =
      , AdaptableHVector (Flip OR.Array) (Value astvals)
      , TermValue astvals )
   => Bool -> (astvals -> AstRanked FullSpan Double n) -> Value astvals
-  -> (AstArtifactRev, DeltaH (AstRaw PrimalSpan)) #-}
+  -> (AstArtifact, DeltaH (AstRaw PrimalSpan)) #-}
 
 revProduceArtifactWithoutInterpretation
   :: (AdaptableHVector (ADVal (AstRaw PrimalSpan))
@@ -147,7 +147,7 @@ revProduceArtifactWithoutInterpretation
   => Bool
   -> (HVector (ADVal (AstRaw PrimalSpan)) -> ADVal primal_g r y)
   -> VoidHVector
-  -> (AstArtifactRev, DeltaH (AstRaw PrimalSpan))
+  -> (AstArtifact, DeltaH (AstRaw PrimalSpan))
 {-# INLINE revProduceArtifactWithoutInterpretation #-}
 revProduceArtifactWithoutInterpretation hasDt f =
   let g hVectorPrimal vars hVector =
@@ -169,7 +169,7 @@ forwardPassByApplication g hVectorPrimal _vars _hVector =
   in g varInputs
 
 revEvalArtifact
-  :: AstArtifactRev
+  :: AstArtifact
   -> HVector (Flip OR.Array)
   -> Maybe (HVectorOf (Flip OR.Array))
   -> (HVector (Flip OR.Array), HVector (Flip OR.Array))
@@ -223,7 +223,7 @@ fwdArtifactAdapt
      , AdaptableHVector (Flip OR.Array) (Value astvals)
      , TermValue astvals )
   => (astvals -> tgtAstVals) -> Value astvals
-  -> (AstArtifactFwd, DeltaH (AstRaw PrimalSpan))
+  -> (AstArtifact, DeltaH (AstRaw PrimalSpan))
 fwdArtifactAdapt f vals =
   let g hVector = HVectorPseudoTensor
                   $ toHVectorOf $ f $ parseHVector (fromValue vals) hVector
@@ -232,7 +232,7 @@ fwdArtifactAdapt f vals =
   in fwdProduceArtifact g EM.empty voidH
 
 fwdEvalArtifact
-  :: AstArtifactFwd
+  :: AstArtifact
   -> HVector (Flip OR.Array)
   -> HVector (Flip OR.Array)
   -> (HVector (Flip OR.Array), HVector (Flip OR.Array))

@@ -36,11 +36,11 @@ import           HordeAd.Util.SizedList
 
 -- * Inlining and simplification pass operations to be applied after unlet
 
-simplifyArtifactRev :: AstArtifactRev -> AstArtifactRev
+simplifyArtifactRev :: AstArtifact -> AstArtifact
 simplifyArtifactRev (vars, gradient, primal) =
   (vars, simplifyAstHVector6 gradient, simplifyAstHVector6 primal)
 
-simplifyArtifactFwd :: AstArtifactFwd -> AstArtifactFwd
+simplifyArtifactFwd :: AstArtifact -> AstArtifact
 simplifyArtifactFwd (vars, derivative, primal) =
   (vars, simplifyAstHVector6 derivative, simplifyAstHVector6 primal)
 

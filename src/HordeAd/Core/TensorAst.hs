@@ -57,7 +57,7 @@ revProduceArtifactH
      , TermValue astvals )
   => Bool -> (astvals -> g r y) -> AstEnv (ADVal (AstRaw PrimalSpan))
   -> Value astvals -> VoidHVector
-  -> ( AstArtifactRev
+  -> ( AstArtifact
      , DeltaH (AstRaw PrimalSpan) )
 {-# INLINE revProduceArtifactH #-}
 revProduceArtifactH hasDt f envInit vals0 =
@@ -92,7 +92,7 @@ revArtifactFromForwardPass
       -> HVector (AstRanked FullSpan)
       -> ADVal (HVectorPseudoTensor (AstRaw PrimalSpan)) r y)
   -> VoidHVector
-  -> ( AstArtifactRev
+  -> ( AstArtifact
      , DeltaH (AstRaw PrimalSpan) )
 {-# INLINE revArtifactFromForwardPass #-}
 revArtifactFromForwardPass hasDt forwardPass parameters0 =
@@ -122,7 +122,7 @@ revProduceArtifact
       -> HVectorPseudoTensor (AstRanked FullSpan) r y)
   -> AstEnv (ADVal (AstRaw PrimalSpan))
   -> VoidHVector
-  -> ( AstArtifactRev
+  -> ( AstArtifact
      , DeltaH (AstRaw PrimalSpan) )
 {-# INLINE revProduceArtifact #-}
 revProduceArtifact hasDt g envInit =
@@ -134,7 +134,7 @@ fwdArtifactFromForwardPass
       -> HVector (AstRanked FullSpan)
       -> ADVal (HVectorPseudoTensor (AstRaw PrimalSpan)) r y)
   -> VoidHVector
-  -> ( AstArtifactFwd
+  -> ( AstArtifact
      , DeltaH (AstRaw PrimalSpan) )
 {-# INLINE fwdArtifactFromForwardPass #-}
 fwdArtifactFromForwardPass forwardPass parameters0 =
@@ -154,7 +154,7 @@ fwdProduceArtifact
       -> HVectorPseudoTensor (AstRanked FullSpan) r y)
   -> AstEnv (ADVal (AstRaw PrimalSpan))
   -> VoidHVector
-  -> ( AstArtifactFwd
+  -> ( AstArtifact
      , DeltaH (AstRaw PrimalSpan) )
 {-# INLINE fwdProduceArtifact #-}
 fwdProduceArtifact g envInit =
