@@ -33,6 +33,7 @@ import HordeAd.Core.Adaptor
 import HordeAd.Core.Ast
 import HordeAd.Core.AstEnv
 import HordeAd.Core.AstInterpret
+import HordeAd.Core.AstTools
 import HordeAd.Core.Delta
 import HordeAd.Core.DualNumber
 import HordeAd.Core.HVector
@@ -171,18 +172,22 @@ forwardPassByApplication g hVectorPrimal _vars _hVector =
 revEvalArtifact
   :: AstArtifact
   -> HVector (Flip OR.Array)
-  -> Maybe (HVectorOf (Flip OR.Array))
+  -> Maybe (HVector (Flip OR.Array))
   -> (HVector (Flip OR.Array), HVector (Flip OR.Array))
 {-# INLINE revEvalArtifact #-}
-revEvalArtifact ((varsDt, vars), gradient, primal) parameters mdt =
-  let env = foldr extendEnvD EM.empty $ zip vars $ V.toList parameters
-      domsB = voidFromVars varsDt
+revEvalArtifact ((varsDt, vars), AstRawWrap gradient, AstRawWrap primal)
+                parameters mdt =
+  let domsB = voidFromVars varsDt
       dt1 = mapHVectorShaped (const 1) $ V.map dynamicFromVoid domsB
       dts = fromMaybe dt1 mdt
-      envDt = extendEnvHVector varsDt dts env
-      gradientHVector = interpretAstHVector envDt $ unAstRawWrap gradient
-      primalTensor = interpretAstHVector env $ unAstRawWrap primal
-  in (gradientHVector, primalTensor)
+  in if voidHVectorMatches (shapeAstHVector primal) dts
+     then
+       let env = extendEnvHVector vars parameters EM.empty
+           envDt = extendEnvHVector varsDt dts env
+           gradientHVector = interpretAstHVector envDt gradient
+           primalTensor = interpretAstHVector env primal
+       in (gradientHVector, primalTensor)
+     else error "revEvalArtifact: primal result and the incoming contangent should have same shapes"
 
 
 -- * Forward derivative adaptors
@@ -239,8 +244,8 @@ fwdEvalArtifact
 {-# INLINE fwdEvalArtifact #-}
 fwdEvalArtifact ((varDs, vars), derivative, primal) parameters ds =
   if hVectorsMatch parameters ds then
-    let env = foldr extendEnvD EM.empty $ zip vars $ V.toList parameters
-        envDs = foldr extendEnvD env $ zip varDs $ V.toList ds
+    let env = extendEnvHVector vars parameters EM.empty
+        envDs = extendEnvHVector varDs ds env
         derivativeTensor = interpretAstHVector envDs $ unAstRawWrap derivative
         primalTensor = interpretAstHVector env $ unAstRawWrap primal
     in (derivativeTensor, primalTensor)
