@@ -1,15 +1,15 @@
 {-# LANGUAGE UndecidableInstances #-}
--- | Operations on the product (heterogeneous list) object for tensors.
--- In particular, adaptors for working with such types of collections of tensors
--- that are isormorphic to products.
+-- | Operations on the untyped product (heterogeneous vector) of tensors.
+-- In particular, adaptors for working with types of collections of tensors
+-- that are isomorphic to products.
 --
--- This is used as a representation of the domains of objective functions
+-- This is necessary as a representation of the domains of objective functions
 -- that become the codomains of the reverse derivative functions
--- and also to hangle multiple arguments and results of fold-like operations.
+-- and also to handle multiple arguments and results of fold-like operations.
 module HordeAd.Core.Adaptor
-  ( AdaptableHVector(..), TermValue(..), DualNumberValue(..), ForgetShape(..)
-  , RandomHVector(..)
-  , parseHVector
+  ( AdaptableHVector(..), parseHVector
+  , TermValue(..), DualNumberValue(..)
+  , ForgetShape(..), RandomHVector(..)
   ) where
 
 import Prelude
@@ -32,20 +32,32 @@ import HordeAd.Core.Types
 -- * Adaptor classes
 
 -- Inspired by adaptors from @tomjaguarpaw's branch.
-class HVectorTensor ranked (ShapedOf ranked)
-      => AdaptableHVector (ranked :: RankedTensorType) vals where
-  toHVectorOf :: vals -> HVectorOf ranked
+class AdaptableHVector (ranked :: RankedTensorType) vals where
+  toHVectorOf :: HVectorTensor ranked (ShapedOf ranked)
+              => vals -> HVectorOf ranked
   toHVectorOf = dmkHVector . toHVector
-    -- ^ represent a value of the domain of objective function
-    -- in a canonical, much less typed way common to all possible types
+    -- ^ represent a collection of tensors in much less typed but canonical way
+    -- as an untyped product of tensors
   toHVector :: vals -> HVector ranked
     -- ^ a helper function, not to be used, but to be a building block
-    -- for @toHVectorOf@
+    -- for @toHVectorOf@ for some instances
   fromHVector :: vals -> HVector ranked -> Maybe (vals, HVector ranked)
-    -- ^ recovers a value of the domain of objective function
-    -- from its canonical representation, using the general shape
-    -- recorded in a value of a more concrete type; the remainder
-    -- may be used in a different recursive call working on the same data
+    -- ^ recovers a collection of tensors from its canonical representation,
+    -- using the general shape recorded in another collection of the same type;
+    -- the remaining data may be used in a another structurally recursive
+    -- call working on the same data to build a larger compound collection
+
+-- | Recovers a value of a collection of tensors type and asserts
+-- there is no remainder. This is the main call of the recursive
+-- procedure where @fromHVector@ calls itself recursively for sub-values
+-- across mutliple instances.
+parseHVector
+  :: AdaptableHVector ranked vals
+  => vals -> HVector ranked -> vals
+parseHVector aInit hVector =
+  case fromHVector aInit hVector of
+    Just (vals, rest) -> assert (V.null rest) vals
+    Nothing -> error "parseHVector: truncated product of tensors"
 
 class TermValue vals where
   type Value vals = result | result -> vals
@@ -60,7 +72,7 @@ class DualNumberValue vals where
                     -- but possibly more concrete, e.g., arrays instead of terms
                     -- where the injectivity is hard to obtain, but is not
                     -- so important, because the type is used more internally
-                    -- and for tests than by the library users
+                    -- and for tests rather than by the library users
   fromDValue :: DValue vals -> vals  -- ^ an embedding
 
 -- | A helper class for for converting all tensors inside a type
@@ -71,19 +83,7 @@ class ForgetShape vals where
 
 -- | A helper class for randomly generating initial parameters.
 class RandomHVector vals where
-  randomVals :: forall g. RandomGen g
-             => Double -> g -> (vals, g)
-
--- | Recovers a value of the domain of objective function and asserts
--- there is no remainder. This is the main call of the recursive
--- procedure where @fromHVector@ calls itself for sub-values.
-parseHVector
-  :: AdaptableHVector ranked vals
-  => vals -> HVector ranked -> vals
-parseHVector aInit hVector =
-  case fromHVector aInit hVector of
-    Just (vals, rest) -> assert (V.null rest) vals
-    Nothing -> error "parseHVector: Nothing"
+  randomVals :: RandomGen g => Double -> g -> (vals, g)
 
 
 -- * Basic Adaptor class instances
@@ -91,32 +91,15 @@ parseHVector aInit hVector =
 {- This is temporarily moved to TensorADVal in order to specialize manually
 instance AdaptableHVector ranked a
          => AdaptableHVector ranked [a] where
-  {-# SPECIALIZE instance
-      (KnownNat n, AdaptableHVector OD.Array (OR.Array n Double))
-      => AdaptableHVector OD.Array
-                          [OR.Array n Double] #-}
-  {-# SPECIALIZE instance
-      ( KnownNat n, AstSpan s
-      , AdaptableHVector (AstDynamic s)
-                         (AstRanked s Double n) )
-      => AdaptableHVector (AstDynamic s)
-                          [AstRanked s Double n] #-}
-  -- TODO: Specialize to ADVal, too, which requires resolving a module dep loop
-  type Value [a] = [Value a]
-  toHVector = V.concat . map toHVector
-  fromHVector lInit source =
-    let f (!lAcc, !restAcc) !aInit =
-          case fromHVector aInit restAcc of
-            Just (a, rest) -> (a : lAcc, rest)
-            Nothing -> error "fromHVector [a]"
-        (l, !restAll) = foldl' f ([], source) lInit
-        !rl = reverse l
-    in Just (rl, restAll)
-    -- is the following as performant? benchmark:
-    -- > fromHVector lInit source =
-    -- >   let f = swap . flip fromHVector
-    -- >   in swap $ mapAccumL f source lInit
 -}
+
+instance TermValue a => TermValue [a] where
+  type Value [a] = [Value a]
+  fromValue = map fromValue
+
+instance DualNumberValue a => DualNumberValue [a] where
+  type DValue [a] = [DValue a]
+  fromDValue = map fromDValue
 
 instance ForgetShape a
          => ForgetShape [a] where
@@ -158,12 +141,11 @@ instance AdaptableHVector ranked a
             Just (a, rest) -> (V.snoc lAcc a, rest)
               -- this snoc, if the vector is long, is very costly;
               -- a solution might be to define Value to be a list
-            Nothing -> error "fromHVector [a]"
+            Nothing -> error "fromHVector: Nothing"
         (!l, !restAll) = V.foldl' f (V.empty, source) lInit
     in Just (l, restAll)
 
-instance HVectorTensor ranked (ShapedOf ranked)
-         => AdaptableHVector ranked (DynamicTensor ranked) where
+instance AdaptableHVector ranked (DynamicTensor ranked) where
   toHVector = V.singleton
   fromHVector _aInit = V.uncons
 

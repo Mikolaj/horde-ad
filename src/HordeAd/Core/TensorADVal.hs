@@ -149,7 +149,7 @@ instance AdaptableHVector ranked a
     let f (!lAcc, !restAcc) !aInit =
           case fromHVector aInit restAcc of
             Just (a, rest) -> (a : lAcc, rest)
-            Nothing -> error "fromHVector [a]"
+            Nothing -> error "fromHVector: Nothing"
         (l, !restAll) = foldl' f ([], source) lInit
         !rl = reverse l
     in Just (rl, restAll)
@@ -157,14 +157,6 @@ instance AdaptableHVector ranked a
     -- > fromHVector lInit source =
     -- >   let f = swap . flip fromHVector
     -- >   in swap $ mapAccumL f source lInit
-
-instance TermValue a => TermValue [a] where
-  type Value [a] = [Value a]
-  fromValue = map fromValue
-
-instance DualNumberValue a => DualNumberValue [a] where
-  type DValue [a] = [DValue a]
-  fromDValue = map fromDValue
 
 -- Note that these instances don't do vectorization. To enable it,
 -- use the Ast instance and only then interpret in ADVal.

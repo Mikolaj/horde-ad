@@ -470,7 +470,7 @@ instance TermValue (DynamicTensor (AstRanked FullSpan)) where
     DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
     DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
 
-instance AstSpan s => AdaptableHVector (AstRanked s) (AstHVector s) where
+instance AdaptableHVector (AstRanked s) (AstHVector s) where
   toHVector = undefined  -- impossible without losing sharing
   toHVectorOf = id  -- but this is possible
   fromHVector aInit params =
