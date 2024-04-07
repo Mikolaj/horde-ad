@@ -37,8 +37,9 @@ import           HordeAd.Util.SizedList
 -- * Inlining and simplification pass operations to be applied after unlet
 
 simplifyArtifact :: AstArtifact -> AstArtifact
-simplifyArtifact (vars, derivative, primal) =
-  (vars, simplifyAstHVector6 derivative, simplifyAstHVector6 primal)
+simplifyArtifact art =
+  art { artDerivative = simplifyAstHVector6 $ artDerivative art
+      , artPrimal = simplifyAstHVector6 $ artPrimal art }
 
 -- Potentially, some more inlining could be triggered after the second
 -- simplification, but it's probably rare, so we don't insisit on a fixpoint.

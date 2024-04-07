@@ -991,7 +991,7 @@ printArtifactSimple
   :: IntMap String
   -> AstArtifact
   -> String
-printArtifactSimple renames ((varsDt, vars1), derivative, _) =
+printArtifactSimple renames (AstArtifact varsDt vars1 derivative _) =
   let varsPP = map (printAstDynamicVarNameBrief renames) $ varsDt ++ vars1
   in "\\" ++ unwords varsPP
           ++ " -> " ++ printAstHVectorSimple renames (unAstRawWrap derivative)
@@ -1000,7 +1000,7 @@ printArtifactPretty
   :: IntMap String
   -> AstArtifact
   -> String
-printArtifactPretty renames ((varsDt, vars1), derivative, _) =
+printArtifactPretty renames (AstArtifact varsDt vars1 derivative _) =
   let varsPP = map (printAstDynamicVarNameBrief renames) $ varsDt ++ vars1
   in "\\" ++ unwords varsPP
           ++ " -> " ++ printAstHVectorPretty renames (unAstRawWrap derivative)
@@ -1009,7 +1009,7 @@ printArtifactPrimalSimple
   :: IntMap String
   -> AstArtifact
   -> String
-printArtifactPrimalSimple renames ((_, vars1), _, primal) =
+printArtifactPrimalSimple renames (AstArtifact _ vars1 _ primal) =
   let varsPP = map (printAstDynamicVarNameBrief renames) vars1
   in "\\" ++ unwords varsPP
           ++ " -> " ++ printAstHVectorSimple renames (unAstRawWrap primal)
@@ -1018,7 +1018,7 @@ printArtifactPrimalPretty
   :: IntMap String
   -> AstArtifact
   -> String
-printArtifactPrimalPretty renames ((_, vars1), _, primal) =
+printArtifactPrimalPretty renames (AstArtifact _ vars1 _ primal) =
   let varsPP = map (printAstDynamicVarNameBrief renames) vars1
   in "\\" ++ unwords varsPP
           ++ " -> " ++ printAstHVectorPretty renames (unAstRawWrap primal)

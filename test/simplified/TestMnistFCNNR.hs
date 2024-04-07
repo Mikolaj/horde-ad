@@ -314,12 +314,12 @@ mnistTestCase1VTO prefix epochs maxBatches widthHidden widthHidden2
            f = MnistFcnnRanked1.afcnnMnistLoss1TensorData @(AstRanked FullSpan)
                  widthHidden widthHidden2
                  (rconstant astGlyph, rconstant astLabel)
-           (((varDtAgain, vars1Again), gradientRaw, primal), _) =
+           (AstArtifact varDtAgain vars1Again gradientRaw primal, _) =
              revProduceArtifactH False f envInit valsInit
                                  (voidFromHVector hVectorInit)
            gradient = simplifyAstHVector6 gradientRaw
            vars1AndInputAgain = vars1Again ++ [varGlyphD, varLabelD]
-           vars = (varDtAgain, vars1AndInputAgain)
+           art = AstArtifact varDtAgain vars1AndInputAgain gradient primal
            go :: [MnistData r] -> HVector (Flip OR.Array) -> HVector (Flip OR.Array)
            go [] parameters = parameters
            go ((glyph, label) : rest) !parameters =
@@ -330,8 +330,7 @@ mnistTestCase1VTO prefix epochs maxBatches widthHidden widthHidden2
                  parametersAndInput =
                    V.concat [parameters, V.fromList [glyphD, labelD]]
                  gradientHVector =
-                   fst $ revEvalArtifact (vars, gradient, primal)
-                                         parametersAndInput Nothing
+                   fst $ revEvalArtifact art parametersAndInput Nothing
              in go rest (updateWithGradient gamma parameters gradientHVector)
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
@@ -629,12 +628,12 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                        EM.empty
            f = MnistFcnnRanked2.afcnnMnistLoss2TensorData @(AstRanked FullSpan)
                  (rconstant astGlyph, rconstant astLabel)
-           (((varDtAgain, vars1Again), gradientRaw, primal), _) =
+           (AstArtifact varDtAgain vars1Again gradientRaw primal, _) =
              revProduceArtifactH False f envInit valsInit
                                  (voidFromHVector hVectorInit)
            gradient = simplifyAstHVector6 gradientRaw
            vars1AndInputAgain = vars1Again ++ [varGlyphD, varLabelD]
-           vars = (varDtAgain, vars1AndInputAgain)
+           art = AstArtifact varDtAgain vars1AndInputAgain gradient primal
            go :: [MnistData r] -> HVector (Flip OR.Array) -> HVector (Flip OR.Array)
            go [] parameters = parameters
            go ((glyph, label) : rest) !parameters =
@@ -645,8 +644,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                  parametersAndInput =
                    V.concat [parameters, V.fromList [glyphD, labelD]]
                  gradientHVector =
-                   fst $ revEvalArtifact (vars, gradient, primal)
-                                         parametersAndInput Nothing
+                   fst $ revEvalArtifact art parametersAndInput Nothing
              in go rest (updateWithGradient gamma parameters gradientHVector)
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.

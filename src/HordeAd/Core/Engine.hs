@@ -175,7 +175,8 @@ revEvalArtifact
   -> Maybe (HVector (Flip OR.Array))
   -> (HVector (Flip OR.Array), HVector (Flip OR.Array))
 {-# INLINE revEvalArtifact #-}
-revEvalArtifact ((varsDt, vars), AstRawWrap gradient, AstRawWrap primal)
+revEvalArtifact (AstArtifact varsDt vars
+                             (AstRawWrap gradient) (AstRawWrap primal))
                 parameters mdt =
   let domsB = voidFromVars varsDt
       dt1 = mapHVectorShaped (const 1) $ V.map dynamicFromVoid domsB
@@ -242,7 +243,7 @@ fwdEvalArtifact
   -> HVector (Flip OR.Array)
   -> (HVector (Flip OR.Array), HVector (Flip OR.Array))
 {-# INLINE fwdEvalArtifact #-}
-fwdEvalArtifact ((varDs, vars), derivative, primal) parameters ds =
+fwdEvalArtifact (AstArtifact varDs vars derivative primal) parameters ds =
   if hVectorsMatch parameters ds then
     let env = extendEnvHVector vars parameters EM.empty
         envDs = extendEnvHVector varDs ds env
