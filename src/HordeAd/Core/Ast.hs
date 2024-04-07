@@ -790,7 +790,7 @@ instance Boolean AstBool where
   b ||* c = AstB2 OrOp b c
 
 
--- * Boolean definitions and instances
+-- * Boolean definitions
 
 class Boolean (BoolOf f) => IfF (f :: TensorType ty) where
   ifF :: (GoodScalar r, HasSingletonDict y)

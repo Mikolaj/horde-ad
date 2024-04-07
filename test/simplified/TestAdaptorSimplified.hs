@@ -166,6 +166,7 @@ testTrees =
   , testCase "2emptyArgs0" testEmptyArgs0
   , testCase "2emptyArgs1" testEmptyArgs1
   , testCase "2emptyArgs4" testEmptyArgs4
+  , testCase "2filterPositiveFail" testFilterPositiveFail
   , testCase "2blowupPP" fblowupPP
   , testCase "2blowupLetPP" fblowupLetPP
   , blowupTests
@@ -1883,6 +1884,25 @@ testEmptyArgs4 =
     (rev' @Double @1
           (\t -> rbuild [2, 5, 11, 0] (const $ emptyArgs t))
           (Flip $ OR.fromList [1] [0.24]))
+
+filterPositiveFail :: ADReady ranked
+                   => ranked Double 1 -> ranked Double 1
+filterPositiveFail v =
+  let l = runravelToList v
+      -- l2 = filter (\x -> x >= 0) l
+      -- Could not deduce ‘Ord (ranked Double 0)’
+      -- l2 = filter (\x -> x >=. 0) l
+      -- Could not deduce ‘BoolOf ranked ~ Bool’
+      l2 = take 3 l  -- the most I can do
+  in rfromList l2
+
+testFilterPositiveFail :: Assertion
+testFilterPositiveFail =
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [5] [1.0,1.0,1.0,0.0,0.0])
+    (rev' @Double @1
+          filterPositiveFail
+          (Flip $ OR.fromList [5] [0.24, 52, -0.5, 0.33, 0.1]))
 
 -- Catastrophic loss of sharing prevented.
 fblowup :: forall ranked r. (ADReady ranked, GoodScalar r, Differentiable r)
