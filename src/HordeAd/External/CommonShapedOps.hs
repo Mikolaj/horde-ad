@@ -21,7 +21,6 @@ import           GHC.TypeLits
   (Div, KnownNat, SomeNat (..), someNatVal, type (-), type (<=))
 import           Unsafe.Coerce (unsafeCoerce)
 
-import           HordeAd.Core.Ast
 import           HordeAd.Core.TensorClass
 import           HordeAd.Core.Types
 import           HordeAd.External.CommonRankedOps

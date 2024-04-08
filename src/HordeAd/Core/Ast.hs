@@ -1,13 +1,14 @@
-{-# LANGUAGE UndecidableInstances, AllowAmbiguousTypes #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
--- | AST of the code to be differentiated. It's needed mostly for handling
--- higher order operations such as build and map, via vectorization,
--- and for producing reusable reverse derivative terms. However,
--- it can also be used for other code transformations, e.g., simplification.
+-- | AST of the code built using the @RankedTensor@ and related classes.
+-- The AST is needed for handling second order operations (such as build
+-- and map, via IET (vectorization), and for producing reusable reverse
+-- derivative terms. However, it can also be used for other code
+-- transformations, e.g., simplification.
 module HordeAd.Core.Ast
   ( -- * The AstSpan kind
     AstSpanType(..), AstSpan(..), sameAstSpan
-    -- * More and less typed variables and type synonyms containing them
+    -- * More and less typed variables and related type synonyms
   , AstVarId, intToAstVarId, AstDynamicVarName(..), dynamicVarNameToAstVarId
   , AstInt, IntVarName, pattern AstIntVar, isRankedInt
   , AstVarName(..), varNameToAstVarId
@@ -18,8 +19,6 @@ module HordeAd.Core.Ast
   , AstRanked(..), AstShaped(..), AstDynamic, AstHVector(..), AstHFun(..)
   , AstBool(..), OpCodeNum1(..), OpCodeNum2(..), OpCode1(..), OpCode2(..)
   , OpCodeIntegral2(..), OpCodeBool(..), OpCodeRel(..)
-    -- * Boolean definitions and instances
-  , IfF(..), EqF(..), OrdF(..), minF, maxF
     -- * The AstRaw, AstNoVectorize and AstNoSimplify definitions
   , AstRaw(..), AstRawS(..), AstRawWrap(..)
   , AstNoVectorize(..), AstNoVectorizeS(..), AstNoVectorizeWrap(..)
@@ -44,12 +43,36 @@ import HordeAd.Core.Types
 import HordeAd.Util.ShapedList (SizedListS (..), IndexS)
 import HordeAd.Util.SizedList
 
+-- * Basic type family instances
+
+type instance RankedOf (AstRanked s) = AstRanked s
+type instance ShapedOf (AstRanked s) = AstShaped s
+type instance PrimalOf (AstRanked s) = AstRanked PrimalSpan
+type instance DualOf (AstRanked s) = AstRanked DualSpan
+
+type instance HVectorOf (AstRanked s) = AstHVector s
+-- This can't be just HFun, because they need to be vectorized
+-- and vectorization applies such functions to the variable from build1
+-- and the variable has to be eliminated via vectorization to preserve
+-- the closed form of the function. Just applying a Haskell closure
+-- to the build1 variable and then duplicating the result of the function
+-- would not eliminate the variable and also would likely results
+-- in more costly computations. Also, that would prevent simplification
+-- of the instances, especially after applied to arguments that are terms.
+type instance HFunOf (AstRanked s) = AstHFun
+
+type instance RankedOf (AstShaped s) = AstRanked s
+type instance ShapedOf (AstShaped s) = AstShaped s
+type instance PrimalOf (AstShaped s) = AstShaped PrimalSpan
+type instance DualOf (AstShaped s) = AstShaped DualSpan
+
+
 -- * The AstSpan kind
 
 -- | A kind (a type intended to be promoted) marking whether an AST term
 -- is supposed to denote the primal part of a dual number, the dual part
 -- or the whole dual number. It's mainly used to index the terms
--- of the AstRanked and realated GADTs.
+-- of the AstRanked and related GADTs.
 type data AstSpanType = PrimalSpan | DualSpan | FullSpan
 
 class Typeable s => AstSpan (s :: AstSpanType) where
@@ -74,43 +97,15 @@ sameAstSpan = case eqTypeRep (typeRep @s1) (typeRep @s2) of
                 Nothing -> Nothing
 
 
--- * Basic type family instances
-
-type instance RankedOf (AstRanked s) = AstRanked s
-type instance ShapedOf (AstRanked s) = AstShaped s
-type instance HVectorOf (AstRanked s) = AstHVector s
-type instance PrimalOf (AstRanked s) = AstRanked PrimalSpan
-type instance DualOf (AstRanked s) = AstRanked DualSpan
-
-type instance RankedOf (AstShaped s) = AstRanked s
-type instance ShapedOf (AstShaped s) = AstShaped s
-type instance PrimalOf (AstShaped s) = AstShaped PrimalSpan
-type instance DualOf (AstShaped s) = AstShaped DualSpan
-
--- These instances can't be just HFun, because they need to be vectorized
--- and vectorization applies such functions to the variable from build1
--- and the variable has to be eliminated via vectorization to preserve
--- the closed form of the function. Just applying a Haskell closure
--- to the build1 variable and then duplicating the result of the function
--- would not eliminate the variable and also would likely results
--- in more costly computations. Also, that would prevent simplification
--- of the instances, especially after applied to arguments that are terms.
-type instance HFunOf (AstRanked s) = AstHFun
-type instance HFunOf (AstRaw s) = AstHFun
-type instance HFunOf (AstNoVectorize s) = AstHFun
-type instance HFunOf (AstNoSimplify s) = AstHFun
-
-
--- * More and less typed variables and type synonyms containing them
+-- * More and less typed variables and related type synonyms
 
 -- We avoid adding a phantom type denoting the tensor functor,
--- because it can't be easily compared (even fully applies) and so the phantom
+-- because it can't be easily compared (even fully applied) and so the phantom
 -- is useless. We don't add the underlying scalar nor the rank/shape,
--- because some collections differ in those too, e.g., HVector,
--- e.g. in AstLetHVectorS. We don't add a phantom span, because
--- carrying around type constructors that need to be applied to span
+-- because some collections differ in those too. We don't add a phantom span,
+-- because carrying around type constructors that need to be applied to span
 -- complicates the system greatly for moderate type safety gain
--- and also such a high number of ID types induces many conversions.
+-- and a high number of different ID types induces many conversions.
 newtype AstVarId = AstVarId Int
  deriving (Eq, Ord, Show, Enum)
 
@@ -120,7 +115,7 @@ intToAstVarId = AstVarId
 -- This can't be replaced by AstVarId. because in some places it's used
 -- to record the type, scalar and shape of arguments in a HVector.
 --
--- A lot of the variables are existential, but there's no nesting,
+-- These variables have existential parameters, but there's no nesting,
 -- so no special care about picking specializations at runtime is needed.
 data AstDynamicVarName where
   AstDynamicVarName :: forall (ty :: Type) r sh.
@@ -131,7 +126,28 @@ deriving instance Show AstDynamicVarName
 dynamicVarNameToAstVarId :: AstDynamicVarName -> AstVarId
 dynamicVarNameToAstVarId (AstDynamicVarName varId) = varId
 
--- | This is the (arbitrarily) chosen representation of terms representing
+type role AstVarName phantom phantom nominal
+newtype AstVarName (f :: TensorType ty) (r :: Type) (y :: ty) =
+  AstVarName AstVarId
+ deriving (Eq, Ord, Enum)
+
+instance Show (AstVarName f r y) where
+  showsPrec d (AstVarName varId) =
+    showsPrec d varId  -- less verbose, more readable
+
+varNameToAstVarId :: AstVarName f r y -> AstVarId
+varNameToAstVarId (AstVarName varId) = varId
+
+-- The reverse derivative artifact from step 6) of our full pipeline.
+-- The same type can also hold the forward derivative artifact.
+data AstArtifact = AstArtifact
+  { artVarsDt :: [AstDynamicVarName]
+  , artVarsPrimal :: [AstDynamicVarName]
+  , artDerivative :: HVectorOf (AstRaw PrimalSpan)
+  , artPrimal :: HVectorOf (AstRaw PrimalSpan)
+  }
+
+-- | This is the (arbitrarily) chosen representation of terms denoting
 -- integers in the indexes of tensor operations.
 type AstInt = AstRanked PrimalSpan Int64 0
 
@@ -148,27 +164,6 @@ isRankedInt _ = case ( sameAstSpan @s @PrimalSpan
                      , sameNat (Proxy @n) (Proxy @0) ) of
                   (Just Refl, Just Refl, Just Refl) -> Just Refl
                   _ -> Nothing
-
-type role AstVarName phantom phantom nominal
-newtype AstVarName (f :: TensorType ty) (r :: Type) (y :: ty) =
-  AstVarName AstVarId
- deriving (Eq, Ord, Enum)
-
-instance Show (AstVarName f r y) where
-  showsPrec d (AstVarName varId) =
-    showsPrec d varId  -- backward compatibility vs test results
-
-varNameToAstVarId :: AstVarName f r y -> AstVarId
-varNameToAstVarId (AstVarName varId) = varId
-
--- The reverse derivative artifact from step 6) of our full pipeline.
--- The same type can also hold the forward derivative artifact.
-data AstArtifact = AstArtifact
-  { artVarsDt :: [AstDynamicVarName]
-  , artVarsPrimal :: [AstDynamicVarName]
-  , artDerivative :: HVectorOf (AstRaw PrimalSpan)
-  , artPrimal :: HVectorOf (AstRaw PrimalSpan)
-  }
 
 type AstIndex n = Index n AstInt
 
@@ -193,10 +188,6 @@ type AstBindings (s :: AstSpanType) = [(AstVarId, AstBindingsCase s)]
 -- * ASTs
 
 -- | AST for ranked tensors that are meant to be differentiated.
---
--- We use here @ShapeInt@ for simplicity. @Shape n AstInt@ gives
--- more expressiveness, but leads to irregular tensors,
--- especially after vectorization, and prevents static checking of shapes.
 type role AstRanked nominal nominal nominal
   -- r has to be nominal, because type class arguments always are
 data AstRanked :: AstSpanType -> RankedTensorType where
@@ -208,9 +199,6 @@ data AstRanked :: AstSpanType -> RankedTensorType where
          => AstVarName (AstRanked s) r n -> AstRanked s r n
          -> AstRanked s2 r2 m
          -> AstRanked s2 r2 m
-   -- these are mixed local/global lets, because they can be identical
-   -- to the lets stored in the D constructor and so should not be inlined
-   -- even in trivial cases until the transpose pass eliminates D
   AstShare :: AstVarName (AstRanked s) r n -> AstRanked s r n
            -> AstRanked s r n
   AstCond :: AstBool
@@ -302,16 +290,12 @@ deriving instance GoodScalar r => Show (AstRanked s r n)
 -- | AST for shaped tensors that are meant to be differentiated.
 type role AstShaped nominal nominal nominal
 data AstShaped :: AstSpanType -> ShapedTensorType where
-  -- To permit defining objective functions in Ast, not just constants:
   AstVarS :: forall sh r s. AstVarName (AstShaped s) r sh -> AstShaped s r sh
   AstLetS :: forall sh1 sh2 r r2 s s2.
              (Sh.Shape sh1, Sh.Shape sh2, GoodScalar r, AstSpan s)
           => AstVarName (AstShaped s) r sh1 -> AstShaped s r sh1
           -> AstShaped s2 r2 sh2
           -> AstShaped s2 r2 sh2
-   -- these are mixed local/global lets, because they can be identical
-   -- to the lets stored in the D constructor and so should not be inlined
-   -- even in trivial cases until the transpose pass eliminates D
   AstShareS :: AstVarName (AstShaped s) r sh -> AstShaped s r sh
             -> AstShaped s r sh
   AstCondS :: AstBool
@@ -551,8 +535,8 @@ instance Ord (AstRanked s r n) where
 
 instance (Num (OR.Array n r), AstSpan s)
          => Num (AstRanked s r n) where
-  -- The normal form has AstConst, if any, as the first element of the list
-  -- all lists fully flattened and length >= 2.
+  -- The normal form has AstConst, if any, as the first element of the list.
+  -- All lists fully flattened and length >= 2.
   AstSumOfList (AstConst u : lu) + AstSumOfList (AstConst v : lv) =
     AstSumOfList (AstConst (u + v) : lu ++ lv)
   AstSumOfList lu + AstSumOfList (AstConst v : lv) =
@@ -668,8 +652,8 @@ instance Ord (AstShaped s r sh) where
 
 instance (Num (OS.Array sh r), AstSpan s)
          => Num (AstShaped s r sh) where
-  -- The normal form has AstConst, if any, as the first element of the list
-  -- all lists fully flattened and length >= 2.
+  -- The normal form has AstConst, if any, as the first element of the list.
+  -- All lists fully flattened and length >= 2.
   AstSumOfListS (AstConstS u : lu) + AstSumOfListS (AstConstS v : lv) =
     AstSumOfListS (AstConstS (u + v) : lu ++ lv)
   AstSumOfListS lu + AstSumOfListS (AstConstS v : lv) =
@@ -784,44 +768,14 @@ instance Boolean AstBool where
   b ||* c = AstB2 OrOp b c
 
 
--- * Boolean definitions
-
-class Boolean (BoolOf f) => IfF (f :: TensorType ty) where
-  ifF :: (GoodScalar r, HasSingletonDict y)
-      => BoolOf f -> f r y -> f r y -> f r y
-
-infix 4 ==., /=.
-class Boolean (BoolOf f) => EqF (f :: TensorType ty) where
-  -- The existential variables here are handled in instances, e.g., via AstRel.
-  (==.), (/=.) :: (GoodScalar r, HasSingletonDict y)
-               => f r y -> f r y -> BoolOf f
-  u /=. v = notB (u ==. v)
-
-infix 4 <., <=., >=., >.
-class Boolean (BoolOf f) => OrdF (f :: TensorType ty) where
-  -- The existential variables here are handled in instances, e.g., via AstRel.
-  (<.), (<=.), (>.), (>=.) :: (GoodScalar r, HasSingletonDict y)
-                           => f r y -> f r y -> BoolOf f
-  u >. v = v <. u
-  u >=. v = notB (u <. v)
-  u <=. v = v >=. u
-
-minF :: (IfF f, OrdF f, GoodScalar r, HasSingletonDict y)
-     => f r y -> f r y -> f r y
-minF u v = ifF (u <=. v) u v
-
-maxF :: (IfF f, OrdF f, GoodScalar r, HasSingletonDict y)
-     => f r y -> f r y -> f r y
-maxF u v = ifF (u >=. v) u v
-
-
 -- * The AstRaw, AstNoVectorize and AstNoSimplify definitions
 
 type instance RankedOf (AstRaw s) = AstRaw s
 type instance ShapedOf (AstRaw s) = AstRawS s
-type instance HVectorOf (AstRaw s) = AstRawWrap (AstHVector s)
 type instance PrimalOf (AstRaw s) = AstRaw PrimalSpan
 type instance DualOf (AstRaw s) = AstRaw DualSpan
+type instance HVectorOf (AstRaw s) = AstRawWrap (AstHVector s)
+type instance HFunOf (AstRaw s) = AstHFun
 type instance RankedOf (AstRawS s) = AstRaw s
 type instance ShapedOf (AstRawS s) = AstRawS s
 type instance PrimalOf (AstRawS s) = AstRawS PrimalSpan
@@ -829,9 +783,10 @@ type instance DualOf (AstRawS s) = AstRawS DualSpan
 
 type instance RankedOf (AstNoVectorize s) = AstNoVectorize s
 type instance ShapedOf (AstNoVectorize s) = AstNoVectorizeS s
-type instance HVectorOf (AstNoVectorize s) = AstNoVectorizeWrap (AstHVector s)
 type instance PrimalOf (AstNoVectorize s) = AstNoVectorize PrimalSpan
 type instance DualOf (AstNoVectorize s) = AstNoVectorize DualSpan
+type instance HVectorOf (AstNoVectorize s) = AstNoVectorizeWrap (AstHVector s)
+type instance HFunOf (AstNoVectorize s) = AstHFun
 type instance RankedOf (AstNoVectorizeS s) = AstNoVectorize s
 type instance ShapedOf (AstNoVectorizeS s) = AstNoVectorizeS s
 type instance PrimalOf (AstNoVectorizeS s) = AstNoVectorizeS PrimalSpan
@@ -839,9 +794,10 @@ type instance DualOf (AstNoVectorizeS s) = AstNoVectorizeS DualSpan
 
 type instance RankedOf (AstNoSimplify s) = AstNoSimplify s
 type instance ShapedOf (AstNoSimplify s) = AstNoSimplifyS s
-type instance HVectorOf (AstNoSimplify s) = AstNoSimplifyWrap (AstHVector s)
 type instance PrimalOf (AstNoSimplify s) = AstNoSimplify PrimalSpan
 type instance DualOf (AstNoSimplify s) = AstNoSimplify DualSpan
+type instance HVectorOf (AstNoSimplify s) = AstNoSimplifyWrap (AstHVector s)
+type instance HFunOf (AstNoSimplify s) = AstHFun
 type instance RankedOf (AstNoSimplifyS s) = AstNoSimplify s
 type instance ShapedOf (AstNoSimplifyS s) = AstNoSimplifyS s
 type instance PrimalOf (AstNoSimplifyS s) = AstNoSimplifyS PrimalSpan

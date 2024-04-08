@@ -9,8 +9,9 @@ module HordeAd.Core.Types
   , RankedOf, ShapedOf, HVectorOf, HFunOf, PrimalOf, DualOf, DummyDual(..)
     -- * Generic types of indexes used in tensor operations
   , IntOf, IndexOf, IntSh, IndexSh
-    -- * Generic types of booleans used in tensor operations
+    -- * Generic types of booleans and related class definitions
   , BoolOf, Boolean(..)
+  , IfF(..), EqF(..), OrdF(..), minF, maxF
     -- * Definitions to help express and manipulate type-level natural numbers
   , SNat, pattern SNat, withSNat, sNatValue, proxyFromSNat
   ) where
@@ -137,9 +138,37 @@ type IntSh (f :: TensorType ty) (n :: Nat) = ShapedNat n (IntOf f)
 type IndexSh (f :: TensorType ty) (sh :: [Nat]) = IndexS sh (IntOf f)
 
 
--- * Generic types of booleans used in tensor operations
+-- * Generic types of booleans and related class definitions
 
 type family BoolOf (t :: ty) :: Type
+
+class Boolean (BoolOf f) => IfF (f :: TensorType ty) where
+  ifF :: (GoodScalar r, HasSingletonDict y)
+      => BoolOf f -> f r y -> f r y -> f r y
+
+infix 4 ==., /=.
+class Boolean (BoolOf f) => EqF (f :: TensorType ty) where
+  -- The existential variables here are handled in instances, e.g., via AstRel.
+  (==.), (/=.) :: (GoodScalar r, HasSingletonDict y)
+               => f r y -> f r y -> BoolOf f
+  u /=. v = notB (u ==. v)
+
+infix 4 <., <=., >=., >.
+class Boolean (BoolOf f) => OrdF (f :: TensorType ty) where
+  -- The existential variables here are handled in instances, e.g., via AstRel.
+  (<.), (<=.), (>.), (>=.) :: (GoodScalar r, HasSingletonDict y)
+                           => f r y -> f r y -> BoolOf f
+  u >. v = v <. u
+  u >=. v = notB (u <. v)
+  u <=. v = v >=. u
+
+minF :: (IfF f, OrdF f, GoodScalar r, HasSingletonDict y)
+     => f r y -> f r y -> f r y
+minF u v = ifF (u <=. v) u v
+
+maxF :: (IfF f, OrdF f, GoodScalar r, HasSingletonDict y)
+     => f r y -> f r y -> f r y
+maxF u v = ifF (u >=. v) u v
 
 
 -- * Definitions to help express and manipulate type-level natural numbers

@@ -24,7 +24,6 @@ import qualified Numeric.LinearAlgebra as LA
 import           System.Random
 
 import HordeAd.Core.Adaptor
-import HordeAd.Core.Ast
 import HordeAd.Core.Delta
 import HordeAd.Core.DualNumber
 import HordeAd.Core.HVector

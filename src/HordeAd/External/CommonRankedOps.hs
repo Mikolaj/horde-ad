@@ -15,7 +15,6 @@ import Control.Exception (assert)
 import GHC.TypeLits (KnownNat)
 
 import Data.Int (Int64)
-import HordeAd.Core.Ast
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.Util.SizedList

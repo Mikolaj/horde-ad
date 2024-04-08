@@ -35,7 +35,6 @@ import           Numeric.LinearAlgebra (Vector)
 import           Type.Reflection (typeRep)
 import           Unsafe.Coerce (unsafeCoerce)
 
-import           HordeAd.Core.Ast
 import           HordeAd.Core.HVector
 import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances

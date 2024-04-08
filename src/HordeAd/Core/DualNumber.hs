@@ -26,7 +26,6 @@ import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, sameNat, type (+))
 import           Type.Reflection (typeRep)
 
-import           HordeAd.Core.Ast
 import           HordeAd.Core.Delta
 import           HordeAd.Core.HVector
 import           HordeAd.Core.IsPrimal
