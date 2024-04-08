@@ -1086,7 +1086,7 @@ testSin0Scan1Rev3PP = do
                  (\x0 -> rscan (\x a -> sin x - a) x0
                            (rfromList [x0 * 5, x0 * 7])) 1.1
   printAstPretty IM.empty (simplifyAst6 a1)
-    @?= "let v13 = rfromList [1.1 * 5.0, 1.1 * 7.0] in let [x14 @Natural @Double @[], v15 @Natural @Double @[2], v16 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.1] [v13] in let v17 = rconst (fromList [3] [1.0,1.0,1.0]) in let [x22 @Natural @Double @[], v23 @Natural @Double @[2]] = dmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> [0] [rslice 1 2 v17, v15, v13] in 5.0 * v23 ! [0] + 7.0 * v23 ! [1] + x22 + v17 ! [0]"
+    @?= "let v13 = rfromVector (fromList [1.1 * 5.0, 1.1 * 7.0]) in let [x14 @Natural @Double @[], v15 @Natural @Double @[2], v16 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.1] [v13] in let v17 = rconst (fromList [3] [1.0,1.0,1.0]) in let [x22 @Natural @Double @[], v23 @Natural @Double @[2]] = dmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> [0] [rslice 1 2 v17, v15, v13] in 5.0 * v23 ! [0] + 7.0 * v23 ! [1] + x22 + v17 ! [0]"
 
 testSin0Scan1Rev3PPForComparison :: Assertion
 testSin0Scan1Rev3PPForComparison = do
@@ -1103,7 +1103,7 @@ testSin0ScanFwd3PP = do
                  (\x0 -> rscan (\x a -> sin x - a) x0
                            (rfromList [x0 * 5, x0 * 7])) 1.1
   printAstPretty IM.empty (simplifyAst6 a1)
-    @?= "let v5 = rfromList [1.1 * 5.0, 1.1 * 7.0] in let [x6 @Natural @Double @[], v7 @Natural @Double @[2], v8 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.1] [v5] in let [x12 @Natural @Double @[], v13 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.0] [rfromList [1.0 * 5.0, 1.0 * 7.0], v7, v5] in rappend (rreplicate 1 1.0) v13"
+    @?= "let v5 = rfromVector (fromList [1.1 * 5.0, 1.1 * 7.0]) in let [x6 @Natural @Double @[], v7 @Natural @Double @[2], v8 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.1] [v5] in let [x12 @Natural @Double @[], v13 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.0] [rfromVector (fromList [1.0 * 5.0, 1.0 * 7.0]), v7, v5] in rappend (rreplicate 1 1.0) v13"
 
 testSin0Scan1Rev3 :: Assertion
 testSin0Scan1Rev3 = do
@@ -1193,7 +1193,7 @@ testUnitriangular1PP = do
       k = 1000000
       a1 = unitriangular1 @3 @Double @(AstRanked FullSpan) k sh
   printAstPretty IM.empty (simplifyAst6 a1)
-    @?= "rgather [1000000,1000000,200,300,600] (rfromList [rreplicate 1000000 (rreplicate 1000000 (rreplicate 200 (rreplicate 300 (rreplicate 600 0.0)))), rreplicate 1000000 (rreplicate 1000000 (rreplicate 200 (rreplicate 300 (rreplicate 600 1.0))))]) (\\[i5, i6] -> [ifF (i5 <=. i6) 0 1, i5, i6])"
+    @?= "rgather [1000000,1000000,200,300,600] (rfromVector (fromList [rreplicate 1000000 (rreplicate 1000000 (rreplicate 200 (rreplicate 300 (rreplicate 600 0.0)))), rreplicate 1000000 (rreplicate 1000000 (rreplicate 200 (rreplicate 300 (rreplicate 600 1.0))))])) (\\[i5, i6] -> [ifF (i5 <=. i6) 0 1, i5, i6])"
 
 unitriangular2 :: (KnownNat k, GoodScalar rk, ADReady ranked)
                => Int -> ShapeInt k -> ranked rk (2 + k)
@@ -1210,7 +1210,7 @@ testUnitriangular2PP = do
       k = 1000000
       a1 = unitriangular2 @3 @Double @(AstRanked FullSpan) k sh
   printAstPretty IM.empty (simplifyAst6 a1)
-    @?= "rgather [1000000,1000000,200,300,600] (rfromList [rreplicate 1000000 (rreplicate 1000000 (rreplicate 200 (rreplicate 300 (rreplicate 600 0.0)))), rreplicate 1000000 (rreplicate 1000000 (rreplicate 200 (rreplicate 300 (rreplicate 600 1.0))))]) (\\[i3, i4] -> [ifF (i3 <. i4) 0 1, i3, i4])"
+    @?= "rgather [1000000,1000000,200,300,600] (rfromVector (fromList [rreplicate 1000000 (rreplicate 1000000 (rreplicate 200 (rreplicate 300 (rreplicate 600 0.0)))), rreplicate 1000000 (rreplicate 1000000 (rreplicate 200 (rreplicate 300 (rreplicate 600 1.0))))])) (\\[i3, i4] -> [ifF (i3 <. i4) 0 1, i3, i4])"
 
 rscanZip :: forall rn n ranked.
             ( GoodScalar rn, KnownNat n, RankedTensor ranked
@@ -3132,7 +3132,7 @@ testSin0ScanD1Rev3PP = do
                             $ rscan (\x a -> a * x) x0
                                     (rfromList [x0 * 5, x0]))) 1.1
   length (printAstSimple IM.empty (simplifyAst6 a1))
-    @?= 4432
+    @?= 4445
 
 testSin0ScanDFwd3PP :: Assertion
 testSin0ScanDFwd3PP = do
@@ -3143,7 +3143,7 @@ testSin0ScanDFwd3PP = do
                                 x0 (V.singleton $ DynamicRanked
                                     $ rfromList [x0 * 5, x0 * 7])) 1.1
   printAstPretty IM.empty (simplifyAst6 a1)
-    @?= "let v5 = rfromList [1.1 * 5.0, 1.1 * 7.0] in let [x6 @Natural @Double @[], v7 @Natural @Double @[2], v8 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.1] [v5] in let [x12 @Natural @Double @[], v13 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.0] [rfromList [1.0 * 5.0, 1.0 * 7.0], v7, v5] in rappend (rreplicate 1 1.0) v13"
+    @?= "let v5 = rfromVector (fromList [1.1 * 5.0, 1.1 * 7.0]) in let [x6 @Natural @Double @[], v7 @Natural @Double @[2], v8 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.1] [v5] in let [x12 @Natural @Double @[], v13 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.0] [rfromVector (fromList [1.0 * 5.0, 1.0 * 7.0]), v7, v5] in rappend (rreplicate 1 1.0) v13"
 
 testSin0ScanD0fwd :: Assertion
 testSin0ScanD0fwd = do

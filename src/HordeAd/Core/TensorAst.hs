@@ -239,7 +239,6 @@ instance AstSpan s => RankedTensor (AstRanked s) where
   rsum = astSum
   rscatter sh t f = astScatter sh t (funToAstIndex f)  -- introduces new vars
 
-  rfromList = astFromList
   rfromVector = astFromVector
   rreplicate = astReplicate
   rappend = astAppend
@@ -358,7 +357,6 @@ instance AstSpan s => ShapedTensor (AstShaped s) where
   ssum = astSumS
   sscatter t f = astScatterS t (funToAstIndexS f)  -- introduces new vars
 
-  sfromList = astFromListS
   sfromVector = astFromVectorS
   sreplicate = astReplicateS
   sappend = astAppendS
@@ -802,7 +800,6 @@ instance AstSpan s => RankedTensor (AstRaw s) where
   rscatter sh t f = AstRaw $ AstScatter sh (unAstRaw t)
                     $ funToAstIndex (fmap unAstRaw . f . fmap AstRaw)
                         -- this introduces new variable names
-  rfromList = AstRaw . AstFromList . map unAstRaw
   rfromVector = AstRaw . AstFromVector . V.map unAstRaw
   rreplicate k = AstRaw . AstReplicate k . unAstRaw
   rappend u v = AstRaw $ AstAppend (unAstRaw u) (unAstRaw v)
@@ -931,7 +928,6 @@ instance AstSpan s => ShapedTensor (AstRawS s) where
   sscatter t f = AstRawS $ AstScatterS (unAstRawS t)
                  $ funToAstIndexS (fmap unAstRaw . f . fmap AstRaw)
                      -- this introduces new variable names
-  sfromList = AstRawS . AstFromListS . map unAstRawS
   sfromVector = AstRawS . AstFromVectorS . V.map unAstRawS
   sreplicate = AstRawS . AstReplicateS . unAstRawS
   sappend u v = AstRawS $ AstAppendS (unAstRawS u) (unAstRawS v)
@@ -1038,7 +1034,6 @@ instance AstSpan s => RankedTensor (AstNoVectorize s) where
   rscatter sh t f =
     AstNoVectorize $ rscatter sh (unAstNoVectorize t)
                    $ fmap unAstNoVectorize . f . fmap AstNoVectorize
-  rfromList = AstNoVectorize . rfromList . map unAstNoVectorize
   rfromVector = AstNoVectorize . rfromVector . V.map unAstNoVectorize
   rreplicate k = AstNoVectorize . rreplicate k . unAstNoVectorize
   rappend u v =
@@ -1082,7 +1077,6 @@ instance AstSpan s => ShapedTensor (AstNoVectorizeS s) where
   ssum = AstNoVectorizeS . ssum . unAstNoVectorizeS
   sscatter t f = AstNoVectorizeS $ sscatter (unAstNoVectorizeS t)
                  $ fmap unAstNoVectorize . f . fmap AstNoVectorize
-  sfromList = AstNoVectorizeS . sfromList . map unAstNoVectorizeS
   sfromVector = AstNoVectorizeS . sfromVector . V.map unAstNoVectorizeS
   sreplicate = AstNoVectorizeS . sreplicate . unAstNoVectorizeS
   sappend u v =
@@ -1195,7 +1189,6 @@ instance AstSpan s => RankedTensor (AstNoSimplify s) where
                     $ funToAstIndex
                         (fmap unAstNoSimplify . f . fmap AstNoSimplify)
                           -- this introduces new variable names
-  rfromList = AstNoSimplify . AstFromList . map unAstNoSimplify
   rfromVector = AstNoSimplify . AstFromVector . V.map unAstNoSimplify
   rreplicate k = AstNoSimplify . AstReplicate k . unAstNoSimplify
   rappend u v =
@@ -1246,7 +1239,6 @@ instance AstSpan s => ShapedTensor (AstNoSimplifyS s) where
                  $ funToAstIndexS
                      (fmap unAstNoSimplify . f . fmap AstNoSimplify)
                        -- this introduces new variable names
-  sfromList = AstNoSimplifyS . AstFromListS . map unAstNoSimplifyS
   sfromVector = AstNoSimplifyS . AstFromVectorS . V.map unAstNoSimplifyS
   sreplicate = AstNoSimplifyS . AstReplicateS . unAstNoSimplifyS
   sappend u v =

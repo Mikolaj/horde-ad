@@ -91,7 +91,6 @@ areAllArgsInts = \case
   AstIndex{} -> False  -- the index arguments are taken care of via printAstInt
   AstSum{} -> False
   AstScatter{} -> False
-  AstFromList{} -> False
   AstFromVector{} -> False
   AstReplicate{} -> False
   AstAppend{} -> False
@@ -299,10 +298,6 @@ printAstAux cfg d = \case
                           (sizedToList vars)
            . showString " -> "
            . showListWith (printAstInt cfg 0) (indexToList ix))
-  AstFromList l ->
-    showParen (d > 10)
-    $ showString "rfromList "
-      . showListWith (printAst cfg 0) l
   AstFromVector l ->
     showParen (d > 10)
     $ showString "rfromVector "
@@ -483,10 +478,6 @@ printAstS cfg d = \case
                           (ShapedList.sizedToList vars)
            . showString " -> "
            . showListWith (printAstInt cfg 0) (ShapedList.indexToList ix))
-  AstFromListS l ->
-    showParen (d > 10)
-    $ showString "sfromList "
-      . showListWith (printAstS cfg 0) l
   AstFromVectorS l ->
     showParen (d > 10)
     $ showString "sfromVector "

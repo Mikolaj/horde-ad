@@ -164,9 +164,6 @@ inlineAst memo v0 = case v0 of
         count = sizeShape sh
         memo2 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1 memoI0
     in (memo2, Ast.AstScatter sh v2 (vars, listToIndex ix2))
-  Ast.AstFromList l ->
-    let (memo2, l2) = mapAccumR inlineAst memo l
-    in (memo2, Ast.AstFromList l2)
   Ast.AstFromVector l ->
     let (memo2, l2) = mapAccumR inlineAst memo (V.toList l)
     in (memo2, Ast.AstFromVector $ V.fromList l2)
@@ -298,9 +295,6 @@ inlineAstS memo v0 = case v0 of
         count = Sh.sizeT @sh
         memo2 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1 memoI0
     in (memo2, Ast.AstScatterS @sh2 @p v2 (vars, ShapedList.listToIndex ix2))
-  Ast.AstFromListS l ->
-    let (memo2, l2) = mapAccumR inlineAstS memo l
-    in (memo2, Ast.AstFromListS l2)
   Ast.AstFromVectorS l ->
     let (memo2, l2) = mapAccumR inlineAstS memo (V.toList l)
     in (memo2, Ast.AstFromVectorS $ V.fromList l2)
@@ -570,9 +564,6 @@ shareAst memo v0 = case v0 of
                                  memo (indexToList ix)
         (memo2, v2) = shareAst memo1 v
     in (memo2, Ast.AstScatter sh v2 (vars, listToIndex ix2))
-  Ast.AstFromList l ->
-    let (memo2, l2) = mapAccumR shareAst memo l
-    in (memo2, Ast.AstFromList l2)
   Ast.AstFromVector l ->
     let (memo2, l2) = mapAccumR shareAst memo (V.toList l)
     in (memo2, Ast.AstFromVector $ V.fromList l2)
@@ -672,9 +663,6 @@ shareAstS memo v0 = case v0 of
                     memo (ShapedList.indexToList ix)
         (memo2, v2) = shareAstS memo1 v
     in (memo2, Ast.AstScatterS @sh2 @p v2 (vars, ShapedList.listToIndex ix2))
-  Ast.AstFromListS l ->
-    let (memo2, l2) = mapAccumR shareAstS memo l
-    in (memo2, Ast.AstFromListS l2)
   Ast.AstFromVectorS l ->
     let (memo2, l2) = mapAccumR shareAstS memo (V.toList l)
     in (memo2, Ast.AstFromVectorS $ V.fromList l2)

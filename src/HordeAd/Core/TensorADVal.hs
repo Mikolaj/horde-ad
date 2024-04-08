@@ -197,10 +197,7 @@ instance ADReady ranked => RankedTensor (ADVal ranked) where
     let g x = rprimalPart <$> f (rconstant <$> x)
     in dD (rscatter sh u g) (ScatterR sh u' g)
 
-  rfromList = fromList
-  rfromVector lu =
-    dD (rfromVector $ V.map (\(D u _) -> u) lu)
-       (FromVectorR $ V.map (\(D _ u') -> u') lu)
+  rfromVector = fromVector
   runravelToList (D u u') =
     let lu = runravelToList u
         f i ui = dD ui (IndexR u' (singletonIndex $ fromIntegral i))
@@ -216,7 +213,7 @@ instance ADReady ranked => RankedTensor (ADVal ranked) where
   rreshape sh t@(D u u') = case sameNat (Proxy @m) (Proxy @n) of
     Just Refl | sh == rshape u -> t
     _ -> dD (rreshape sh u) (ReshapeR sh u')
-  rbuild1 k f = fromList $ map (f . fromIntegral) [0 .. k - 1]
+  rbuild1 k f = rfromList $ map (f . fromIntegral) [0 .. k - 1]
                    -- element-wise (POPL) version
   rgather sh (D u u') f =
     let g x = rprimalPart <$> f (rconstant <$> x)
@@ -301,10 +298,7 @@ instance ADReadyS shaped => ShapedTensor (ADVal shaped) where
     let g x = rprimalPart <$> f (rconstant <$> x)
     in dD (sscatter u g) (ScatterS u' g)
 
-  sfromList = fromListS
-  sfromVector lu =
-    dD (sfromVector $ V.map (\(D u _) -> u) lu)
-       (FromVectorS $ V.map (\(D _ u') -> u') lu)
+  sfromVector = fromVectorS
   sunravelToList (D u u') =
     let lu = sunravelToList u
         f i ui = dD ui (IndexS u' (ShapedList.singletonIndex
@@ -328,7 +322,7 @@ instance ADReadyS shaped => ShapedTensor (ADVal shaped) where
   sbuild1 :: forall r n sh. (GoodScalar r, KnownNat n, Sh.Shape sh)
           => (IntSh (ADVal shaped) n -> ADVal shaped r sh)
           -> ADVal shaped r (n ': sh)
-  sbuild1 f = fromListS $ map (f . ShapedList.shapedNat . fromIntegral)
+  sbuild1 f = sfromList $ map (f . ShapedList.shapedNat . fromIntegral)
                               [0 :: Int .. valueOf @n - 1]
                    -- element-wise (POPL) version
   sgather (D u u') f =

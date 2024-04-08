@@ -327,9 +327,6 @@ interpretAst !env = \case
     let t1 = interpretAst env v
         f2 = interpretLambdaIndexToIndex interpretAstPrimal env (vars, ix)
     in rscatter sh t1 f2
-  AstFromList l ->
-    let l2 = interpretAst env <$> l
-    in rfromList l2
   AstFromVector l ->
     let l2 = V.map (interpretAst env) l
     in rfromVector l2
@@ -697,9 +694,6 @@ interpretAstS !env = \case
     let t1 = interpretAstS env v
         f2 = interpretLambdaIndexToIndexS interpretAstPrimal env (vars, ix)
     in sscatter t1 f2
-  AstFromListS l ->
-    let l2 = interpretAstS env <$> l
-    in sfromList l2
   AstFromVectorS l ->
     let l2 = V.map (interpretAstS env) l
     in sfromVector l2

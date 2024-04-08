@@ -212,9 +212,6 @@ data DeltaR :: RankedTensorType -> RankedTensorType where
     -- and then no tensors is added at such an index.
     -- TODO: this is a haddock for Scatter1; fix.
 
-  FromListR :: KnownNat n
-            => [DeltaR ranked r n] -> DeltaR ranked r (1 + n)
-    -- ^ Create a tensor from a list treated as the outermost dimension.
   FromVectorR :: KnownNat n
               => Data.Vector.Vector (DeltaR ranked r n)
               -> DeltaR ranked r (1 + n)
@@ -314,9 +311,6 @@ data DeltaS :: ShapedTensorType -> ShapedTensorType where
     -- and then no tensors is added at such an index.
     -- TODO: this is a haddock for Scatter1; fix.
 
-  FromListS :: (Sh.Shape sh, KnownNat n)
-            => [DeltaS shaped r sh] -> DeltaS shaped r (n ': sh)
-    -- ^ Create a tensor from a list treated as the outermost dimension.
   FromVectorS :: (Sh.Shape sh, KnownNat n)
               => Data.Vector.Vector (DeltaS shaped r sh)
               -> DeltaS shaped r (n ': sh)
@@ -445,15 +439,10 @@ shapeDeltaR = \case
   Sum0R{} -> ZSR
   Dot0R{} -> ZSR
   ScatterR sh _ _ -> sh
-  FromListR l -> case l of
-    [] -> case sameNat (Proxy @n) (Proxy @1) of
-      Just Refl -> singletonShape 0  -- the only case where we can guess sh
-      _ -> error "shapeDeltaR: FromListR with no arguments"
-    d : _ -> length l :$: shapeDeltaR d
   FromVectorR l -> case V.toList l of
     [] -> case sameNat (Proxy @n) (Proxy @1) of
       Just Refl -> singletonShape 0  -- the only case where we can guess sh
-      _ -> error "shapeDeltaR: FromListR with no arguments"
+      _ -> error "shapeDeltaR: FromVectorR with no arguments"
     d : _ -> length l :$: shapeDeltaR d
   ReplicateR n d -> n :$: shapeDeltaR d
   AppendR x y -> case shapeDeltaR x of
@@ -730,11 +719,6 @@ evalR !s !c = let cShared = rshare c
                   -- too slow: evalR s (rmap0N (* (tscalar c)) v) vd
   ScatterR _sh d f -> evalR s (rgather (shapeDeltaR d) c f) d
 
-  FromListR @n1 ld ->
-    let cxs :: [ranked r n1]
-        cxs = runravelToList cShared
-    in foldl' (\ !s2 (cx, d2) -> evalR s2 cx d2) s
-       $ zip cxs ld
   FromVectorR @n1 ld ->
     let cxs :: [ranked r n1]
         cxs = runravelToList cShared
@@ -828,9 +812,6 @@ evalS !s !c = let cShared = sshare c
     -- too slow: evalS s (smap0N (* (sscalar c)) v) vd
   ScatterS d f -> evalS s (sgather c f) d
 
-  FromListS ld ->
-    ifoldl' (\ !s2 i d2 ->
-      evalS s2 (cShared !$ (fromIntegral i :.$ ZIS)) d2) s ld
   FromVectorS ld ->
     V.ifoldl' (\ !s2 i d2 ->
       evalS s2 (cShared !$ (fromIntegral i :.$ ZIS)) d2) s ld
@@ -1086,9 +1067,6 @@ fwdR dimR params s = \case
     let (s2, t) = fwdR dimR params s d
     in (s2, rscatter sh t f)
 
-  FromListR lsd ->
-    let (s2, l) = mapAccumL (fwdR dimR params) s lsd
-    in (s2, rfromList l)
   FromVectorR lsd ->
     let (s2, l) = mapAccumL (fwdR dimR params) s lsd
     in (s2, rfromVector l)
@@ -1162,9 +1140,6 @@ fwdS dimR params s = \case
     let (s2, t) = fwdS dimR params s d
     in (s2, sscatter t f)
 
-  FromListS lsd ->
-    let (s2, l) = mapAccumL (fwdS dimR params) s lsd
-    in (s2, sfromList l)
   FromVectorS lsd ->
     let (s2, l) = mapAccumL (fwdS dimR params) s lsd
     in (s2, sfromVector l)

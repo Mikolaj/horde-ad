@@ -171,11 +171,11 @@ build1V k (var, v00) =
     Ast.AstShare{} -> error "build1V: AstShare"
     Ast.AstCond b (Ast.AstConstant v) (Ast.AstConstant w) ->
       let t = Ast.AstConstant
-              $ astIndexStep (astFromList [v, w])
+              $ astIndexStep (astFromVector $ V.fromList [v, w])
                              (singletonIndex (astCond b 0 1))
       in build1V k (var, t)
     Ast.AstCond b v w ->
-      let t = astIndexStep (astFromList [v, w])
+      let t = astIndexStep (astFromVector $ V.fromList [v, w])
                            (singletonIndex (astCond b 0 1))
       in build1V k (var, t)
 
@@ -216,8 +216,6 @@ build1V k (var, v00) =
                     (build1VOccurenceUnknown k (var, v))
                     (varFresh ::: vars, astVarFresh :.: ix2)
 
-    Ast.AstFromList l -> traceRule $
-      astTr $ astFromList (map (\v -> build1VOccurenceUnknown k (var, v)) l)
     Ast.AstFromVector l -> traceRule $
       astTr $ astFromVector (V.map (\v -> build1VOccurenceUnknown k (var, v)) l)
     Ast.AstReplicate s v -> traceRule $
@@ -327,7 +325,6 @@ build1VIndex k (var, v0, ix@(_ :.: _)) =
                        (varFresh ::: ZR, astVarFresh :.: ix2)
          in if varNameInAst var v1
             then case v1 of  -- try to avoid ruleD if not a normal form
-              Ast.AstFromList{} | valueOf @p == (1 :: Int) -> ruleD
               Ast.AstFromVector{} | valueOf @p == (1 :: Int) -> ruleD
               Ast.AstScatter{} -> ruleD
               _ -> build1VOccurenceUnknown k (var, v)  -- not a normal form
@@ -432,11 +429,11 @@ build1VS (var, v00) =
     Ast.AstShareS{} -> error "build1VS: AstShareS"
     Ast.AstCondS b (Ast.AstConstantS v) (Ast.AstConstantS w) ->
       let t = Ast.AstConstantS
-              $ astIndexStepS @'[2] (astFromListS [v, w])
+              $ astIndexStepS @'[2] (astFromVectorS $ V.fromList [v, w])
                                     (astCond b 0 1 :.$ ZIS)
       in build1VS (var, t)
     Ast.AstCondS b v w ->
-      let t = astIndexStepS @'[2] (astFromListS [v, w])
+      let t = astIndexStepS @'[2] (astFromVectorS $ V.fromList [v, w])
                                   (astCond b 0 1 :.$ ZIS)
       in build1VS (var, t)
 
@@ -483,8 +480,6 @@ build1VS (var, v00) =
                      (build1VOccurenceUnknownS (var, v))
                      (varFresh ::$ vars, astVarFresh :.$ ix2)
 
-    Ast.AstFromListS l -> traceRule $
-      astTrS $ astFromListS (map (\v -> build1VOccurenceUnknownS (var, v)) l)
     Ast.AstFromVectorS l -> traceRule $
       astTrS
       $ astFromVectorS (V.map (\v -> build1VOccurenceUnknownS (var, v)) l)
@@ -584,7 +579,6 @@ build1VIndexS (var, v0, ix@(_ :.$ _)) =
              len = length $ Sh.shapeT @sh1
          in if varNameInAstS var v1
             then case v1 of  -- try to avoid ruleD if not a normal form
-              Ast.AstFromListS{} | len == 1 -> ruleD
               Ast.AstFromVectorS{} | len == 1 -> ruleD
               Ast.AstScatterS{} -> ruleD
               _ -> build1VOccurenceUnknownS (var, v)  -- not a normal form

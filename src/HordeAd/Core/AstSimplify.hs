@@ -22,8 +22,7 @@ module HordeAd.Core.AstSimplify
   , astGatherStep, astGatherStepS
     -- * The simplifying combinators, one for most AST constructors
   , astLet, astLetS, astCond, astCondS, astSumOfList, astSumOfListS
-  , astSum, astSumS, astScatter, astScatterS
-  , astFromList, astFromListS, astFromVector, astFromVectorS
+  , astSum, astSumS, astScatter, astScatterS, astFromVector, astFromVectorS
   , astReplicate, astReplicateS, astAppend, astAppendS, astSlice, astSliceS
   , astReverse, astReverseS
   , astTranspose, astTransposeS, astReshape, astReshapeS
@@ -275,7 +274,6 @@ astNonIndexStep t = case t of
   Ast.AstIndex{} -> t  -- was supposed to be *non*-index
   Ast.AstSum v -> astSum v
   Ast.AstScatter sh v (vars, ix) -> astScatter sh v (vars, ix)
-  Ast.AstFromList l -> astFromList l
   Ast.AstFromVector l -> astFromVector l
   Ast.AstReplicate k v -> astReplicate k v
   Ast.AstAppend x y -> astAppend x y
@@ -320,7 +318,6 @@ astNonIndexStepS t = case t of
   Ast.AstIndexS{} -> t  -- was supposed to be *non*-index
   Ast.AstSumS v -> astSumS v
   Ast.AstScatterS v (vars, ix) -> astScatterS v (vars, ix)
-  Ast.AstFromListS l -> astFromListS l
   Ast.AstFromVectorS l -> astFromVectorS l
   Ast.AstReplicateS v -> astReplicateS v
   Ast.AstAppendS x y -> astAppendS x y
@@ -382,7 +379,7 @@ astIndexStepS v ix = astIndexKnobsS (defaultKnobs {knobStepOnly = True})
 
 -- If knobStepOnly is set, we reduce only as long as needed to reveal
 -- a non-indexing constructor or one of the normal forms (one-element
--- indexing applied to AstFromList or AstFromVector or indexing
+-- indexing applied to AstFromVector or indexing
 -- of a term with no possible occurrences of Int variables). Otherwise,
 -- we simplify exhaustively.
 --
@@ -467,17 +464,6 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIndex m1)) =
   --   AstScatter sh (astIndex (astTranspose perm3 v) ix) (vars2, ZIR)
   Ast.AstScatter{} ->  -- normal form
     Ast.AstIndex v0 ix
-  Ast.AstFromList l | AstConst it <- i1 ->
-    let i = fromIntegral $ OR.unScalar it
-    in if 0 <= i && i < length l
-       then astIndex (l !! i) rest1
-       else astReplicate0N (dropShape $ shapeAst v0) 0
-  Ast.AstFromList{} | ZIR <- rest1 ->  -- normal form
-    Ast.AstIndex v0 ix
-  Ast.AstFromList l ->
-    shareIx rest1 $ \ix2 ->
-      Ast.AstIndex (astFromList $ map (`astIndexRec` ix2) l)
-                   (singletonIndex i1)
   Ast.AstFromVector l | AstConst it <- i1 ->
     let i = fromIntegral $ OR.unScalar it
     in if 0 <= i && i < length l
@@ -704,17 +690,6 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS shm1)) =
   --   AstScatter sh (astIndex (astTranspose perm3 v) ix) (vars2, ZIR)
   Ast.AstScatterS{} ->  -- normal form
     Ast.AstIndexS v0 ix
-  Ast.AstFromListS l | AstConst it <- i1 ->
-    let i = fromIntegral $ OR.unScalar it
-    in if 0 <= i && i < length l
-       then astIndex (l !! i) rest1
-       else 0
-  Ast.AstFromListS{} | ZIS <- rest1 ->  -- normal form
-    Ast.AstIndexS v0 ix
-  Ast.AstFromListS l ->
-    shareIxS rest1 $ \ix2 ->
-      Ast.AstIndexS @'[in1] @shn (astFromListS $ map (`astIndexRec` ix2) l)
-                    (ShapedList.singletonIndex i1)
   Ast.AstFromVectorS l | AstConst it <- i1 ->
     let i = fromIntegral $ OR.unScalar it
     in if 0 <= i && i < length l
@@ -995,7 +970,6 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
     Ast.AstI2{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     AstSumOfList{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstIndex v2 ix2 -> case (v2, ix2) of
-      (Ast.AstFromList{}, i2 :.: ZIR) -> astGather sh4 v2 (vars4, i2 :.: ix4)
       (Ast.AstFromVector{}, i2 :.: ZIR) -> astGather sh4 v2 (vars4, i2 :.: ix4)
       _ ->  -- AstVar, AstConst
         Ast.AstGather sh4 v4 (vars4, ix4)
@@ -1023,26 +997,6 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
           else astReplicate0N sh4 0
     Ast.AstScatter{} ->  -- normal form
       Ast.AstGather sh4 v4 (vars4, ix4)
-    Ast.AstFromList l | AstConst it <- i4 ->
-      let i = fromIntegral $ OR.unScalar it
-      in if 0 <= i && i < length l
-         then astGather sh4 (l !! i) (vars4, rest4)
-         else astReplicate0N sh4 0
-    Ast.AstFromList{} | gatherFromNF vars4 ix4 ->  -- normal form
-      Ast.AstGather sh4 v4 (vars4, ix4)
-    Ast.AstFromList l ->
-      -- Term rest4 is duplicated without sharing and we can't help it,
-      -- because it needs to be in scope of vars4, so we can't use rlet.
-      funToVarsIx (valueOf @m') $ \ (!varsFresh, !ixFresh) ->
-        let f v = astGatherRec sh4 v (vars4, rest4)
-            -- This subst doesn't currently break sharing because it's a rename.
-            subst i =
-              foldr (uncurry substituteAst) i
-                    (zipSized (fmap (SubstitutionPayloadRanked
-                                       @PrimalSpan @Int64)
-                               $ indexToSized ixFresh) vars4)
-            i5 = subst i4
-        in astGather sh4 (astFromList $ map f l) (varsFresh, i5 :.: ixFresh)
     Ast.AstFromVector l | AstConst it <- i4 ->
       let i = fromIntegral $ OR.unScalar it
       in if 0 <= i && i < length l
@@ -1087,7 +1041,7 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
                                            @PrimalSpan @Int64)
                                    $ indexToSized ixFresh) vars4)
                 bExpr5 = subst bExpr
-            in astGather sh4 (astFromList [u2, v2])
+            in astGather sh4 (astFromVector $ V.fromList [u2, v2])
                              (varsFresh, astCond bExpr5 0 1 :.: ixFresh)
     Ast.AstSlice i _k v ->
       let ii = simplifyAstInt (i4 + fromIntegral i)
@@ -1442,7 +1396,6 @@ astSum t0 = case shapeAst t0 of
     -- Ast.AstLet var u v -> astLet var u (astSum v)
     -- this is problematic, because it keeps huge tensors alive for longer
     Ast.AstScatter (_ :$: sh) v (vars, _ :.: ix) -> astScatter sh v (vars, ix)
-    Ast.AstFromList l -> astSumOfList l
     Ast.AstFromVector l -> astSumOfList $ V.toList l
     Ast.AstReplicate k v -> v * astReplicate0N (shapeAst v) (fromIntegral k)
     Ast.AstSlice _i 0 v -> astReplicate0N (tailShape $ shapeAst v) 0
@@ -1466,7 +1419,6 @@ astSumS t0 = case sameNat (Proxy @n) (Proxy @0) of
       gcastWith (unsafeCoerce Refl
                  :: Sh.Drop 1 (Sh.Take p (n : sh)) :~: Sh.Take (p - 1) sh) $
       astScatterS @sh2 @(p - 1) @sh v (vars, ix)
-    Ast.AstFromListS l -> astSumOfListS l
     Ast.AstFromVectorS l -> astSumOfListS $ V.toList l
     Ast.AstReplicateS @k v -> v * astReplicate0NS (valueOf @k)
     Ast.AstSliceS @i @k _v | Just Refl <- sameNat (Proxy @k) (Proxy @0) -> 0
@@ -1517,47 +1469,6 @@ astScatterS v (AstVarName varId ::$ (vars :: AstVarListS sh3), ix)
 astScatterS (Ast.AstConstantS v) (vars, ix) =
   Ast.AstConstantS $ astScatterS v (vars, ix)
 astScatterS v (vars, ix) = Ast.AstScatterS v (vars, ix)
-
-astFromList :: forall s r n. (KnownNat n, GoodScalar r, AstSpan s)
-            => [AstRanked s r n] -> AstRanked s r (1 + n)
-astFromList [a] = astReplicate 1 a
-astFromList l | Just Refl <- sameAstSpan @s @PrimalSpan =
-  let unConst :: AstRanked PrimalSpan r n -> Maybe (OR.Array n r)
-      unConst (AstConst t) = Just t
-      unConst _ = Nothing
-  in case mapM unConst l of
-    Just l3 -> AstConst $ tfromListR l3
-    Nothing -> Ast.AstFromList l
-astFromList l | Just Refl <- sameAstSpan @s @FullSpan =
-  let unConstant :: AstRanked FullSpan r n -> Maybe (AstRanked PrimalSpan r n)
-      unConstant (Ast.AstConstant t) = Just t
-      unConstant _ = Nothing
-  in case mapM unConstant l of
-    Just [] -> Ast.AstFromList []
-    Just l2 -> Ast.AstConstant $ astFromList l2
-    Nothing -> Ast.AstFromList l
-astFromList l = Ast.AstFromList l
-
-astFromListS :: forall s r n sh.
-                (KnownNat n, Sh.Shape sh, GoodScalar r, AstSpan s)
-             => [AstShaped s r sh] -> AstShaped s r (n ': sh)
-astFromListS [a] = astReplicateS a
-astFromListS l | Just Refl <- sameAstSpan @s @PrimalSpan =
-  let unConst :: AstShaped PrimalSpan r sh -> Maybe (OS.Array sh r)
-      unConst (AstConstS t) = Just t
-      unConst _ = Nothing
-  in case mapM unConst l of
-    Just l3 -> AstConstS $ tfromListS l3
-    Nothing -> Ast.AstFromListS l
-astFromListS l | Just Refl <- sameAstSpan @s @FullSpan =
-  let unConstant :: AstShaped FullSpan r sh -> Maybe (AstShaped PrimalSpan r sh)
-      unConstant (Ast.AstConstantS t) = Just t
-      unConstant _ = Nothing
-  in case mapM unConstant l of
-    Just [] -> Ast.AstFromListS []
-    Just l2 -> Ast.AstConstantS $ astFromListS l2
-    Nothing -> Ast.AstFromListS l
-astFromListS l = Ast.AstFromListS l
 
 astFromVector :: forall s r n. (KnownNat n, GoodScalar r, AstSpan s)
               => Data.Vector.Vector (AstRanked s r n) -> AstRanked s r (1 + n)
@@ -1681,11 +1592,6 @@ astAppend :: (KnownNat n, GoodScalar r, AstSpan s)
 astAppend (AstConst u) (AstConst v) = AstConst $ tappendR u v
 astAppend (Ast.AstConstant u) (Ast.AstConstant v) =
   Ast.AstConstant $ astAppend u v
-astAppend (Ast.AstFromList l1) (Ast.AstFromList l2) = astFromList $ l1 ++ l2
-astAppend (Ast.AstFromList l1) (Ast.AstFromVector l2) =
-  astFromList $ l1 ++ V.toList l2
-astAppend (Ast.AstFromVector l1) (Ast.AstFromList l2) =
-  astFromList $ V.toList l1 ++ l2
 astAppend (Ast.AstFromVector l1) (Ast.AstFromVector l2) =
   astFromVector $ l1 V.++ l2
 astAppend u v = Ast.AstAppend u v
@@ -1696,11 +1602,6 @@ astAppendS :: (KnownNat m, KnownNat n, Sh.Shape sh, GoodScalar r, AstSpan s)
 astAppendS (AstConstS u) (AstConstS v) = AstConstS $ tappendS u v
 astAppendS (Ast.AstConstantS u) (Ast.AstConstantS v) =
   Ast.AstConstantS $ astAppendS u v
-astAppendS (Ast.AstFromListS l1) (Ast.AstFromListS l2) = astFromListS $ l1 ++ l2
-astAppendS (Ast.AstFromListS l1) (Ast.AstFromVectorS l2) =
-  astFromListS $ l1 ++ V.toList l2
-astAppendS (Ast.AstFromVectorS l1) (Ast.AstFromListS l2) =
-  astFromListS $ V.toList l1 ++ l2
 astAppendS (Ast.AstFromVectorS l1) (Ast.AstFromVectorS l2) =
   astFromVectorS $ l1 V.++ l2
 astAppendS u v = Ast.AstAppendS u v
@@ -1710,7 +1611,6 @@ astSlice :: forall k s r. (KnownNat k, GoodScalar r, AstSpan s)
 astSlice i n (AstConst t) = AstConst $ tsliceR i n t
 astSlice i n (Ast.AstConstant v) = Ast.AstConstant $ astSlice i n v
 astSlice 0 n v | n == lengthAst v = v
-astSlice i n (Ast.AstFromList l) = astFromList $ take n (drop i l)
 astSlice i n (Ast.AstFromVector l) = astFromVector $ V.take n (V.drop i l)
 astSlice _i n (Ast.AstReplicate _n2 v) = astReplicate n v
 astSlice i n w@(Ast.AstAppend (u :: AstRanked s r (1 + k))
@@ -1741,8 +1641,6 @@ astSliceS (AstConstS t) = AstConstS $ tsliceS @i @n t
 astSliceS (Ast.AstConstantS v) = Ast.AstConstantS $ astSliceS @i @n v
 astSliceS v | Just Refl <- sameNat (Proxy @i) (Proxy @0)
             , Just Refl <- sameNat (Proxy @k) (Proxy @0) = v
-astSliceS (Ast.AstFromListS l) =
-  astFromListS $ take (valueOf @n) (drop (valueOf @i) l)
 astSliceS (Ast.AstFromVectorS l) =
   astFromVectorS $ V.take (valueOf @n) (V.drop (valueOf @i) l)
 astSliceS (Ast.AstReplicateS v) = astReplicateS @n v
@@ -1769,7 +1667,6 @@ astReverse :: forall n s r. (KnownNat n, GoodScalar r, AstSpan s)
            => AstRanked s r (1 + n) -> AstRanked s r (1 + n)
 astReverse (AstConst t) = AstConst $ treverseR t
 astReverse (Ast.AstConstant v) = Ast.AstConstant $ astReverse v
-astReverse (Ast.AstFromList l) = Ast.AstFromList $ reverse l
 astReverse (Ast.AstFromVector l) = Ast.AstFromVector $ V.reverse l
 astReverse (Ast.AstReplicate k v) = Ast.AstReplicate k v
 astReverse (Ast.AstReverse v) = v
@@ -1785,7 +1682,6 @@ astReverseS :: forall n sh s r. (KnownNat n, Sh.Shape sh, GoodScalar r)
             => AstShaped s r (n ': sh) -> AstShaped s r (n ': sh)
 astReverseS (AstConstS t) = AstConstS $ treverseS t
 astReverseS (Ast.AstConstantS v) = Ast.AstConstantS $ astReverseS v
-astReverseS (Ast.AstFromListS l) = Ast.AstFromListS $ reverse l
 astReverseS (Ast.AstFromVectorS l) = Ast.AstFromVectorS $ V.reverse l
 astReverseS (Ast.AstReplicateS v) = Ast.AstReplicateS v
 astReverseS (Ast.AstReverseS v) = v
@@ -1928,7 +1824,6 @@ astReshape shOut = \case
   Ast.AstR1 opCode u | not (isVar u) -> Ast.AstR1 opCode (astReshape shOut u)
   Ast.AstR2 opCode u v | not (isVar u && isVar v) ->
     Ast.AstR2 opCode (astReshape shOut u) (astReshape shOut v)
-  Ast.AstFromList [x] -> astReshape shOut x
   Ast.AstFromVector l | [x] <- V.toList l -> astReshape shOut x
   Ast.AstReplicate 1 x -> astReshape shOut x
   Ast.AstReshape _ v -> astReshape shOut v
@@ -1954,8 +1849,6 @@ astReshapeS = \case
     Ast.AstR1S opCode (astReshapeS @_ @sh2 u)
   Ast.AstR2S opCode u v | not (isVarS u && isVarS v) ->
     Ast.AstR2S opCode (astReshapeS @_ @sh2 u) (astReshapeS @_ @sh2 v)
-  Ast.AstFromListS @n l | Just Refl <- sameNat (Proxy @n) (Proxy @1) ->
-    astReshapeS $ l !! 0
   Ast.AstFromVectorS @n l | Just Refl <- sameNat (Proxy @n) (Proxy @1) ->
     astReshapeS $ l V.! 0
   Ast.AstReplicateS @n x | Just Refl <- sameNat (Proxy @n) (Proxy @1) ->
@@ -2058,7 +1951,6 @@ astPrimalPart t = case t of
   Ast.AstIndex v ix -> astIndexR (astPrimalPart v) ix
   Ast.AstSum v -> astSum (astPrimalPart v)
   Ast.AstScatter sh v (var, ix) -> astScatter sh (astPrimalPart v) (var, ix)
-  Ast.AstFromList l -> astFromList (map astPrimalPart l)
   Ast.AstFromVector l -> astFromVector (V.map astPrimalPart l)
   Ast.AstReplicate k v -> astReplicate k (astPrimalPart v)
   Ast.AstAppend x y -> astAppend (astPrimalPart x) (astPrimalPart y)
@@ -2094,7 +1986,6 @@ astPrimalPartS t = case t of
   Ast.AstIndexS v ix -> Ast.AstIndexS (astPrimalPartS v) ix
   Ast.AstSumS v -> astSumS (astPrimalPartS v)
   Ast.AstScatterS v (var, ix) -> astScatterS (astPrimalPartS v) (var, ix)
-  Ast.AstFromListS l -> astFromListS (map astPrimalPartS l)
   Ast.AstFromVectorS l -> astFromVectorS (V.map astPrimalPartS l)
   Ast.AstReplicateS v -> astReplicateS (astPrimalPartS v)
   Ast.AstAppendS x y -> astAppendS (astPrimalPartS x) (astPrimalPartS y)
@@ -2131,7 +2022,6 @@ astDualPart t = case t of
   Ast.AstIndex v ix -> astIndexR (astDualPart v) ix
   Ast.AstSum v -> astSum (astDualPart v)
   Ast.AstScatter sh v (var, ix) -> astScatter sh (astDualPart v) (var, ix)
-  Ast.AstFromList l -> astFromList (map astDualPart l)
   Ast.AstFromVector l -> astFromVector (V.map astDualPart l)
   Ast.AstReplicate k v -> astReplicate k (astDualPart v)
   Ast.AstAppend x y -> astAppend (astDualPart x) (astDualPart y)
@@ -2165,7 +2055,6 @@ astDualPartS t = case t of
   Ast.AstIndexS v ix -> Ast.AstIndexS (astDualPartS v) ix
   Ast.AstSumS v -> astSumS (astDualPartS v)
   Ast.AstScatterS v (var, ix) -> astScatterS (astDualPartS v) (var, ix)
-  Ast.AstFromListS l -> astFromListS (map astDualPartS l)
   Ast.AstFromVectorS l -> astFromVectorS (V.map astDualPartS l)
   Ast.AstReplicateS v -> astReplicateS (astDualPartS v)
   Ast.AstAppendS x y -> astAppendS (astDualPartS x) (astDualPartS y)
@@ -2401,7 +2290,6 @@ simplifyAst t = case t of
   Ast.AstSum v -> astSum (simplifyAst v)
   Ast.AstScatter sh v (var, ix) ->
     astScatter sh (simplifyAst v) (var, simplifyAstIndex ix)
-  Ast.AstFromList l -> astFromList (map simplifyAst l)
   Ast.AstFromVector l -> astFromVector (V.map simplifyAst l)
   Ast.AstReplicate k v -> astReplicate k (simplifyAst v)
   Ast.AstAppend x y -> astAppend (simplifyAst x) (simplifyAst y)
@@ -2450,7 +2338,6 @@ simplifyAstS t = case t of
   Ast.AstSumS v -> astSumS (simplifyAstS v)
   Ast.AstScatterS v (var, ix) ->
     astScatterS (simplifyAstS v) (var, simplifyAstIndexS ix)
-  Ast.AstFromListS l -> astFromListS (map simplifyAstS l)
   Ast.AstFromVectorS l -> astFromVectorS (V.map simplifyAstS l)
   Ast.AstReplicateS v -> astReplicateS (simplifyAstS v)
   Ast.AstAppendS x y -> astAppendS (simplifyAstS x) (simplifyAstS y)
@@ -2594,7 +2481,6 @@ expandAst t = case t of
   Ast.AstSum v -> astSum (expandAst v)
   Ast.AstScatter sh v (var, ix) ->
     astScatter sh (expandAst v) (var, expandAstIndex ix)
-  Ast.AstFromList l -> astFromList (map expandAst l)
   Ast.AstFromVector l -> astFromVector (V.map expandAst l)
   Ast.AstReplicate k v -> astReplicate k (expandAst v)
   Ast.AstAppend x y -> astAppend (expandAst x) (expandAst y)
@@ -2676,7 +2562,6 @@ expandAstS t = case t of
   Ast.AstSumS v -> astSumS (expandAstS v)
   Ast.AstScatterS v (var, ix) ->
     astScatterS (expandAstS v) (var, expandAstIndexS ix)
-  Ast.AstFromListS l -> astFromListS (map expandAstS l)
   Ast.AstFromVectorS l -> astFromVectorS (V.map expandAstS l)
   Ast.AstReplicateS v -> astReplicateS (expandAstS v)
   Ast.AstAppendS x y -> astAppendS (expandAstS x) (expandAstS y)
@@ -3170,11 +3055,6 @@ substitute1Ast i var v1 = case v1 of
       (Nothing, Nothing) -> Nothing
       (mv, mix) -> Just $ astScatter sh (fromMaybe v mv)
                                         (vars, fromMaybe ix mix)
-  Ast.AstFromList args ->
-    let margs = map (substitute1Ast i var) args
-    in if any isJust margs
-       then Just $ astFromList $ zipWith fromMaybe args margs
-       else Nothing
   Ast.AstFromVector args ->
     let margs = V.map (substitute1Ast i var) args
     in if V.any isJust margs
@@ -3313,11 +3193,6 @@ substitute1AstS i var = \case
       (Nothing, Nothing) -> Nothing
       (mv, mix) -> Just $ astScatterS (fromMaybe v mv)
                                       (vars, fromMaybe ix mix)
-  Ast.AstFromListS args ->
-    let margs = map (substitute1AstS i var) args
-    in if any isJust margs
-       then Just $ astFromListS $ zipWith fromMaybe args margs
-       else Nothing
   Ast.AstFromVectorS args ->
     let margs = V.map (substitute1AstS i var) args
     in if V.any isJust margs

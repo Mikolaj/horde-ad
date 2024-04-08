@@ -66,11 +66,6 @@ shapeAst = \case
   AstIndex v _is -> dropShape (shapeAst v)
   AstSum v -> tailShape $ shapeAst v
   AstScatter sh _ _ -> sh
-  AstFromList l -> case l of
-    [] -> case sameNat (Proxy @n) (Proxy @1) of
-      Just Refl -> singletonShape 0  -- the only case where we can guess sh
-      _ -> error "shapeAst: AstFromList with no arguments"
-    t : _ -> length l :$: shapeAst t
   AstFromVector l -> case V.toList l of
     [] -> case sameNat (Proxy @n) (Proxy @1) of
       Just Refl -> singletonShape 0
@@ -161,7 +156,6 @@ varInAst var = \case
   AstIndex v ix -> varInAst var v || varInIndex var ix
   AstSum v -> varInAst var v
   AstScatter _ v (_vars, ix) -> varInIndex var ix || varInAst var v
-  AstFromList l -> any (varInAst var) l  -- down from rank 1 to 0
   AstFromVector vl -> any (varInAst var) $ V.toList vl
   AstReplicate _ v -> varInAst var v
   AstAppend v u -> varInAst var v || varInAst var u
@@ -206,7 +200,6 @@ varInAstS var = \case
   AstIndexS v ix -> varInAstS var v || varInIndexS var ix
   AstSumS v -> varInAstS var v
   AstScatterS v (_vars, ix) -> varInIndexS var ix || varInAstS var v
-  AstFromListS l -> any (varInAstS var) l  -- down from rank 1 to 0
   AstFromVectorS vl -> any (varInAstS var) $ V.toList vl
   AstReplicateS v -> varInAstS var v
   AstAppendS v u -> varInAstS var v || varInAstS var u

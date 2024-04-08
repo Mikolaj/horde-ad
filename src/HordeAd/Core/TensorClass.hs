@@ -131,12 +131,13 @@ class ( Integral (IntOf ranked), CRanked ranked Num
   -- by one rank, and is omitted if a more general variant is not defined).
   rfromList :: (GoodScalar r, KnownNat n)
             => [ranked r n] -> ranked r (1 + n)
+  rfromList = rfromVector . V.fromList
+    -- goring through strict vectors, because laziness is risky with impurity
   rfromList0N :: (GoodScalar r, KnownNat n)
               => ShapeInt n -> [ranked r 0] -> ranked r n
-  rfromList0N sh = rreshape sh . rfromList
+  rfromList0N sh = rfromVector0N sh . V.fromList
   rfromVector :: (GoodScalar r, KnownNat n)
               => Data.Vector.Vector (ranked r n) -> ranked r (1 + n)
-  rfromVector v = rfromList (V.toList v)  -- horribly inefficient for large vs
   rfromVector0N :: (GoodScalar r, KnownNat n)
                 => ShapeInt n -> Data.Vector.Vector (ranked r 0) -> ranked r n
   rfromVector0N sh = rreshape sh . rfromVector
@@ -417,13 +418,13 @@ class ( Integral (IntOf shaped), CShaped shaped Num
   -- by one rank, and is omitted if a more general variant is not defined).
   sfromList :: (GoodScalar r, KnownNat n, Sh.Shape sh)
             => [shaped r sh] -> shaped r (n ': sh)
+  sfromList = sfromVector . V.fromList
   sfromList0N :: forall r sh.
                  (GoodScalar r, Sh.Shape sh, KnownNat (Sh.Size sh))
               => [shaped r '[]] -> shaped r sh
-  sfromList0N = sreshape @shaped @r @'[Sh.Size sh] @sh . sfromList
+  sfromList0N = sfromVector0N . V.fromList
   sfromVector :: (GoodScalar r, KnownNat n, Sh.Shape sh)
               => Data.Vector.Vector (shaped r sh) -> shaped r (n ': sh)
-  sfromVector v = sfromList (V.toList v)  -- horribly inefficient for large vs
   sfromVector0N :: forall r sh.
                    (GoodScalar r, Sh.Shape sh, KnownNat (Sh.Size sh))
                 => Data.Vector.Vector (shaped r '[])

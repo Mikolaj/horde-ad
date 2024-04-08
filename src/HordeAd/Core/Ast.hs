@@ -251,8 +251,6 @@ data AstRanked :: AstSpanType -> RankedTensorType where
              -> AstRanked s r (m + n) -> (AstVarList m, AstIndex p)
              -> AstRanked s r (p + n)
 
-  AstFromList :: KnownNat n
-              => [AstRanked s r n] -> AstRanked s r (1 + n)
   AstFromVector :: KnownNat n
                 => Data.Vector.Vector (AstRanked s r n) -> AstRanked s r (1 + n)
   AstReplicate :: KnownNat n
@@ -361,8 +359,6 @@ data AstShaped :: AstSpanType -> ShapedTensorType where
               -> (AstVarListS sh2, AstIndexS (Sh.Take p sh))
               -> AstShaped s r sh
 
-  AstFromListS :: (KnownNat n, Sh.Shape sh)
-               => [AstShaped s r sh] -> AstShaped s r (n ': sh)
   AstFromVectorS :: (KnownNat n, Sh.Shape sh)
                  => Data.Vector.Vector (AstShaped s r sh)
                  -> AstShaped s r (n ': sh)

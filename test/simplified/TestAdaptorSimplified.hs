@@ -400,7 +400,7 @@ testPiecewiseLinearPP = do
   printArtifactPretty renames (simplifyArtifact artifactRev)
     @?= "\\x2 x1 -> let v3 = rscatter [2] x2 (\\[] -> [ifF (x1 >. 0.0) 0 1]) in [2.0 * v3 ! [0] + 5.0 * v3 ! [1]]"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
-    @?= "\\x1 -> [rfromList [2.0 * x1, 5.0 * x1] ! [ifF (x1 >. 0.0) 0 1]]"
+    @?= "\\x1 -> [rfromVector (fromList [2.0 * x1, 5.0 * x1]) ! [ifF (x1 >. 0.0) 0 1]]"
 
 testPiecewiseLinear2PP :: Assertion
 testPiecewiseLinear2PP = do
@@ -1020,15 +1020,15 @@ testReluMaxPP = do
       (var3, ast3) = funToAstR [3, 4] reluT
   "\\" ++ printAstVarName renamesNull var3
        ++ " -> " ++ printAstSimple renamesNull ast3
-    @?= "\\m1 -> rgather [3,4] (rfromList [rconstant (rreplicate 3 (rreplicate 4 0.0)), m1]) (\\[i5, i4] -> [ifF (0.0 >=. rprimalPart m1 ! [i5, i4]) 0 1, i5, i4])"
+    @?= "\\m1 -> rgather [3,4] (rfromVector (fromList [rconstant (rreplicate 3 (rreplicate 4 0.0)), m1])) (\\[i5, i4] -> [ifF (0.0 >=. rprimalPart m1 ! [i5, i4]) 0 1, i5, i4])"
   resetVarCounter
   let (artifactRev, deltas) = revArtifactAdapt True reluT (Flip $ OR.constant [3, 4] 4)
   printArtifactPretty renames (simplifyArtifact artifactRev)
     @?= "\\m8 m1 -> [rscatter [2,3,4] m8 (\\[i9, i10] -> [ifF (0.0 >=. m1 ! [i9, i10]) 0 1, i9, i10]) ! [1]]"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
-    @?= "\\m1 -> [rgather [3,4] (rfromList [rreplicate 3 (rreplicate 4 0.0), m1]) (\\[i6, i7] -> [ifF (0.0 >=. m1 ! [i6, i7]) 0 1, i6, i7])]"
+    @?= "\\m1 -> [rgather [3,4] (rfromVector (fromList [rreplicate 3 (rreplicate 4 0.0), m1])) (\\[i6, i7] -> [ifF (0.0 >=. m1 ! [i6, i7]) 0 1, i6, i7])]"
   show deltas
-    @?= "HToH [DynamicRanked (ShareR 100000005 (GatherR [3,4] (ShareR 100000003 (FromListR [ZeroR [3,4],InputR [3,4] (InputId 0)])) <function>))]"
+    @?= "HToH [DynamicRanked (ShareR 100000005 (GatherR [3,4] (ShareR 100000003 (FromVectorR [ZeroR [3,4],InputR [3,4] (InputId 0)])) <function>))]"
 
 testReluMaxPP2 :: Assertion
 testReluMaxPP2 = do
@@ -1041,17 +1041,17 @@ testReluMaxPP2 = do
       (var3, ast3) = funToAstR [5] (\t -> reluT2 (t, 7))
   "\\" ++ printAstVarName renamesNull var3
        ++ " -> " ++ printAstSimple renamesNull ast3
-    @?= "\\v1 -> rgather [5] (rfromList [rconstant (rreplicate 5 0.0), v1 * rconstant (rreplicate 5 7.0)]) (\\[i3] -> [ifF (0.0 >=. rprimalPart v1 ! [i3] * 7.0) 0 1, i3])"
+    @?= "\\v1 -> rgather [5] (rfromVector (fromList [rconstant (rreplicate 5 0.0), v1 * rconstant (rreplicate 5 7.0)])) (\\[i3] -> [ifF (0.0 >=. rprimalPart v1 ! [i3] * 7.0) 0 1, i3])"
   resetVarCounter
   let (artifactRev, _deltas) = revArtifactAdapt True reluT2 (Flip $ OR.constant [5] 128, 42)
   printArtifactPretty renames artifactRev
     @?= "\\v7 v1 x2 -> let m10 = rscatter [2,5] v7 (\\[i8] -> [let x9 = v1 ! [i8] in ifF (0.0 >=. x9 * x2) 0 1, i8]) ; v11 = m10 ! [1] in [rreplicate 5 x2 * v11, rsum (v1 * v11)]"
   printArtifactPrimalPretty renames artifactRev
-    @?= "\\v1 x2 -> [rgather [5] (rfromList [rreplicate 5 0.0, v1 * rreplicate 5 x2]) (\\[i5] -> [let x6 = v1 ! [i5] in ifF (0.0 >=. x6 * x2) 0 1, i5])]"
+    @?= "\\v1 x2 -> [rgather [5] (rfromVector (fromList [rreplicate 5 0.0, v1 * rreplicate 5 x2])) (\\[i5] -> [let x6 = v1 ! [i5] in ifF (0.0 >=. x6 * x2) 0 1, i5])]"
   printArtifactPretty renames (simplifyArtifact artifactRev)
     @?= "\\v7 v1 x2 -> let v11 = rscatter [2,5] v7 (\\[i8] -> [ifF (0.0 >=. v1 ! [i8] * x2) 0 1, i8]) ! [1] in [rreplicate 5 x2 * v11, rsum (v1 * v11)]"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
-    @?= "\\v1 x2 -> [rgather [5] (rfromList [rreplicate 5 0.0, v1 * rreplicate 5 x2]) (\\[i5] -> [ifF (0.0 >=. v1 ! [i5] * x2) 0 1, i5])]"
+    @?= "\\v1 x2 -> [rgather [5] (rfromVector (fromList [rreplicate 5 0.0, v1 * rreplicate 5 x2])) (\\[i5] -> [ifF (0.0 >=. v1 ! [i5] * x2) 0 1, i5])]"
 
 testReluMax3 :: Assertion
 testReluMax3 = do

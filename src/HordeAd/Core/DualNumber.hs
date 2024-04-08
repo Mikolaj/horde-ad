@@ -7,7 +7,7 @@ module HordeAd.Core.DualNumber
   ( -- * The main dual number type
     ADVal, dD, pattern D, dDnotShared, constantADVal
     -- * Auxiliary definitions
-  , indexPrimal, fromList, indexPrimalS, fromListS
+  , indexPrimal, fromVector, indexPrimalS, fromVectorS
   , ensureToplevelSharing, scaleNotShared, addNotShared, multNotShared
 --  , addParameters, dotParameters
   , generateDeltaInputs, makeADInputs
@@ -184,23 +184,20 @@ indexPrimal :: (RankedTensor ranked, KnownNat m, KnownNat n, GoodScalar r)
             -> ADVal ranked r n
 indexPrimal (D u u') ix = dD (rindex u ix) (IndexR u' ix)
 
-fromList :: (RankedTensor ranked, KnownNat n, GoodScalar r)
-         => [ADVal ranked r n]
-         -> ADVal ranked r (1 + n)
-fromList lu =
+fromVector :: (RankedTensor ranked, KnownNat n, GoodScalar r)
+           => Data.Vector.Vector (ADVal ranked r n)
+           -> ADVal ranked r (1 + n)
+fromVector lu =
   -- TODO: if lu is empty, crash if n =\ 0 or use List.NonEmpty.
-  dD (let !vec = V.map (\(D u _) -> u) $ V.fromList lu
-      in rfromList $ Data.Vector.toList vec)
-     (let !vec = V.map (\(D _ u') -> u') $ V.fromList lu
-      in FromListR $ Data.Vector.toList vec)
-    -- going through strict vectors for the proper order of sharing stamps
+  dD (rfromVector $ V.map (\(D u _) -> u)  lu)
+     (FromVectorR $ V.map (\(D _ u') -> u') lu)
 
 instance ( RankedTensor ranked, IfF (RankedOf (PrimalOf ranked))
          , Boolean (BoolOf ranked)
          , BoolOf (RankedOf (PrimalOf ranked)) ~ BoolOf ranked )
          => IfF (ADVal ranked) where
   ifF !b !v !w =  -- bangs for the proper order of sharing stamps
-    let D u u' = indexPrimal (fromList [v, w])
+    let D u u' = indexPrimal (fromVector $ V.fromList [v, w])
                              (singletonIndex $ ifF b 0 1)
     in dDnotShared u u'
 
@@ -210,23 +207,20 @@ indexPrimalS :: ( ShapedTensor shaped, GoodScalar r
              -> ADVal shaped r sh2
 indexPrimalS (D u u') ix = dD (sindex u ix) (IndexS u' ix)
 
-fromListS :: forall n sh shaped r.
-             (ShapedTensor shaped, KnownNat n, Sh.Shape sh, GoodScalar r)
-           => [ADVal shaped r sh]
-           -> ADVal shaped r (n ': sh)
-fromListS lu = assert (length lu == valueOf @n) $
-  dD (let !vec = V.map (\(D u _) -> u) $ V.fromList lu
-      in sfromList $ Data.Vector.toList vec)
-     (let !vec = V.map (\(D _ u') -> u') $ V.fromList lu
-      in FromListS $ Data.Vector.toList vec)
-    -- going through strict vectors for the proper order of sharing stamps
+fromVectorS :: forall n sh shaped r.
+               (ShapedTensor shaped, KnownNat n, Sh.Shape sh, GoodScalar r)
+            => Data.Vector.Vector (ADVal shaped r sh)
+            -> ADVal shaped r (n ': sh)
+fromVectorS lu = assert (length lu == valueOf @n) $
+  dD (sfromVector $ V.map (\(D u _) -> u) lu)
+     (FromVectorS $ V.map (\(D _ u') -> u') lu)
 
 instance ( ShapedTensor shaped, IfF (RankedOf (PrimalOf shaped))
          , Boolean (BoolOf shaped)
          , BoolOf (RankedOf (PrimalOf shaped)) ~ BoolOf shaped )
          => IfF (ADVal shaped) where
   ifF !b !v !w =  -- bangs for the proper order of sharing stamps
-    let D u u' = indexPrimalS (fromListS @2 [v, w])
+    let D u u' = indexPrimalS (fromVectorS @2 $ V.fromList [v, w])
                               (ShapedList.singletonIndex
                                $ ifF b 0 1)
     in dDnotShared u u'
