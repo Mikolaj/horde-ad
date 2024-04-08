@@ -271,7 +271,7 @@ funToAstFwdIO parameters0 = do
         freshId <- unsafeGetFreshAstVarId
         return $! withListSh (Proxy @sh) $ \sh ->
           let varE :: AstVarId -> AstDynamicVarName
-              varE varId = AstDynamicVarName @Nat @r @sh varId
+              varE = AstDynamicVarName @Nat @r @sh
               dynE :: AstVarId -> AstDynamic s
               dynE varId = DynamicRanked @r (AstVar sh (AstVarName varId))
               !vd = varE freshIdDs
@@ -285,7 +285,7 @@ funToAstFwdIO parameters0 = do
         freshId <- unsafeGetFreshAstVarId
         return $!
           let varE :: AstVarId -> AstDynamicVarName
-              varE varId = AstDynamicVarName @[Nat] @r @sh varId
+              varE = AstDynamicVarName @[Nat] @r @sh
               dynE :: AstVarId -> AstDynamic s
               dynE varId = DynamicShaped @r @sh (AstVarS (AstVarName varId))
               !vd = varE freshIdDs

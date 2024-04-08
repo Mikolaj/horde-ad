@@ -342,8 +342,7 @@ printAstAux cfg d = \case
       Just Refl -> shows $ OR.unScalar a
       _ -> showParen (d > 10)
            $ showString "rconst "
-             . (showParen True
-                $ shows a)
+             . showParen True (shows a)
   AstProject l p ->
     showParen (d > 10)
     $ showString "rproject "  -- fake, no such surface syntax

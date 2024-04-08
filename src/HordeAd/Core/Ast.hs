@@ -680,7 +680,7 @@ instance (Num (OS.Array sh r), AstSpan s)
   AstConstS u * AstConstS v = AstConstS (u * v)  -- common in indexing
   u * v = AstN2S TimesOp u v
 
-  negate u = AstN1S NegateOp u
+  negate = AstN1S NegateOp
   abs = AstN1S AbsOp
   signum = AstN1S SignumOp
   fromInteger = fromPrimalS . AstConstS . fromInteger

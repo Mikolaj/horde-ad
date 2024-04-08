@@ -244,8 +244,8 @@ instance ADReady ranked => RankedTensor (ADVal ranked) where
   rconstant t = dDnotShared t (dZeroOfShape t)
   rprimalPart (D u _) = u
   rdualPart (D _ u') = u'
-  rD r delta = dD r delta
-  rScale r delta = dScale r delta
+  rD = dD
+  rScale = dScale
 
 
 -- * Shaped tensor instances
@@ -354,8 +354,8 @@ instance ADReadyS shaped => ShapedTensor (ADVal shaped) where
   sconstant t = dDnotShared t (dZeroOfShape t)
   sprimalPart (D u _) = u
   sdualPart (D _ u') = u'
-  sD r delta = dD r delta
-  sScale r delta = dScale r delta
+  sD = dD
+  sScale = dScale
 
 
 -- * HVectorTensor instance

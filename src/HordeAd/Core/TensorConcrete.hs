@@ -261,6 +261,7 @@ instance HVectorTensor (Flip OR.Array) (Flip OS.Array) where
   rscan f x0 as = rfromList $ scanl' f x0 (runravelToList as)
   sfold f x0 as = foldl' f x0 (sunravelToList as)
   sscan f x0 as = sfromList $ scanl' f x0 (sunravelToList as)
+  -- The eta-expansion below is needed for typing.
   dmapAccumR _ k accShs bShs _eShs f acc0 es =
     oRdmapAccumR k accShs bShs _eShs f acc0 es
   dmapAccumRDer _ k accShs bShs eShs f _df _rf acc0 es =

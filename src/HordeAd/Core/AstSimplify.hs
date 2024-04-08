@@ -704,7 +704,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS shm1)) =
   Ast.AstReplicateS v ->
     astIndex v rest1
   Ast.AstAppendS @_ @m u v ->
-    let ulen = AstConst $ fromIntegral $ (valueOf @m :: Int)
+    let ulen = AstConst $ fromIntegral (valueOf @m :: Int)
         ix1 = i1 :.$ rest1
         ix2 = simplifyAstInt (AstN2 MinusOp i1 ulen) :.$ rest1
     in case simplifyAstBool $ Ast.AstRel LsOp i1 ulen of

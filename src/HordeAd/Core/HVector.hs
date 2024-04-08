@@ -270,8 +270,8 @@ replicate1HVectorF :: shaped ~ ShapedOf ranked
                        => shaped r sh -> shaped r (n ': sh))
                    -> SNat k -> HVector ranked -> HVector ranked
 {-# INLINE replicate1HVectorF #-}
-replicate1HVectorF rreplicate sreplicate k u =
-  V.map (replicate1DynamicF rreplicate sreplicate k) u
+replicate1HVectorF rreplicate sreplicate k =
+  V.map (replicate1DynamicF rreplicate sreplicate k)
 
 replicate1DynamicF :: shaped ~ ShapedOf ranked
                    => (forall r n. (GoodScalar r, KnownNat n)

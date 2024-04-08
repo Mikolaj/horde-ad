@@ -179,7 +179,7 @@ instance AstSpan s => OrdF (AstRanked s) where
   v >=. u = AstRel GeqOp (astSpanPrimal v) (astSpanPrimal u)
 
 instance IfF (AstRanked s) where
-  ifF b = astCond b
+  ifF = astCond
 
 
 -- * Unlawful boolean instances of shaped AST; they are lawful modulo evaluation
@@ -205,7 +205,7 @@ instance AstSpan s => OrdF (AstShaped s) where
   v >=. u = AstRelS GeqOp (astSpanPrimalS v) (astSpanPrimalS u)
 
 instance IfF (AstShaped s) where
-  ifF b = astCondS b
+  ifF = astCondS
 
 
 -- * Ranked tensor AST instances
@@ -568,7 +568,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
         (AstArtifact varsDt vars derivative _primal, _delta) =
           fwdProduceArtifact g EM.empty shs
      in AstLambda ( [varsDt, vars]
-                  , simplifyAstHVector5 $ unAstRawWrap $ derivative )
+                  , simplifyAstHVector5 $ unAstRawWrap derivative )
   dmapAccumRDer
     :: Proxy (AstRanked s)
     -> SNat k
@@ -581,8 +581,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     -> AstHVector s
     -> AstHVector s
     -> AstHVector s
-  dmapAccumRDer _ !k !accShs !bShs !eShs f df rf acc0 es =
-    AstMapAccumRDer k accShs bShs eShs f df rf acc0 es
+  dmapAccumRDer _ !k !accShs !bShs !eShs = AstMapAccumRDer k accShs bShs eShs
   dmapAccumLDer
     :: Proxy (AstRanked s)
     -> SNat k
@@ -595,8 +594,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     -> AstHVector s
     -> AstHVector s
     -> AstHVector s
-  dmapAccumLDer _ !k !accShs !bShs !eShs f df rf acc0 es =
-    AstMapAccumLDer k accShs bShs eShs f df rf acc0 es
+  dmapAccumLDer _ !k !accShs !bShs !eShs = AstMapAccumLDer k accShs bShs eShs
 
 astLetHVectorInHVectorFun
   :: AstSpan s
@@ -993,8 +991,7 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
     $ astLetInHVectorFunRawS (unAstRawS u) (unAstRawWrap . f . AstRawS)
   dunlet =
     case sameAstSpan @s @PrimalSpan of
-      Just Refl -> \t ->
-        AstRawWrap $ unletAstHVector6 $ unAstRawWrap t
+      Just Refl -> AstRawWrap . unletAstHVector6 . unAstRawWrap
       _ -> error "dunlet: used not at PrimalSpan"
   dshare a@(AstRawWrap (AstShareHVector{})) = a
   dshare (AstRawWrap a) =

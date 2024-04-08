@@ -1834,9 +1834,9 @@ testSin0rmapAccumRD01SN5 = do
                                                (sfromD (a V.! 1))
                                        , DynamicShaped
                                          $ sreplicate @_ @3
-                                             ((sindex0 @_ @_ @'[2]
-                                                       (sfromD (a V.! 2)) [1])
-                                               / sin x / 3)
+                                             (sindex0 @_ @_ @'[2]
+                                                       (sfromD (a V.! 2)) [1]
+                                              / sin x / 3)
                                        , DynamicShaped
                                          $ sreplicate @_ @3
                                              (ssum @_ @_ @2 (sfromD (a V.! 1))
@@ -1882,9 +1882,9 @@ testSin0rmapAccumRD01SN51 = do
                                                (sfromD (a V.! 3))
                                        , DynamicShaped
                                          $ sreplicate @_ @3
-                                             ((sindex0 @_ @_ @'[2]
-                                                       (sfromD (a V.! 2)) [1])
-                                               / sin x / 3)
+                                             (sindex0 @_ @_ @'[2]
+                                                       (sfromD (a V.! 2)) [1]
+                                              / sin x / 3)
                                        , DynamicShaped
                                          $ sbuild1 @_ @_ @4 $ \i ->
                                              sfromD (a V.! 1)
@@ -1930,9 +1930,9 @@ testSin0rmapAccumRD01SN52 = do
                                                (sfromD (a V.! 1))
                                        , DynamicShaped
                                          $ sreplicate @_ @3
-                                             ((sindex0 @_ @_ @'[2]
-                                                       (sfromD (a V.! 2)) [1])
-                                               / sin x / 3)
+                                             (sindex0 @_ @_ @'[2]
+                                                       (sfromD (a V.! 2)) [1]
+                                              / sin x / 3)
                                        , DynamicShaped
                                          $ sreplicate @_ @3
                                              (ssum @_ @_ @2 (sfromD (a V.! 1))
@@ -2027,9 +2027,9 @@ testSin0rmapAccumRD01SN531 = do
                                            - sreplicate @_ @3
                                              (sindex0 @_ @_ @'[3]
                                                        (sfromD (a V.! 1)) [1]
-                                             - (smaxIndex
-                                                  @_ @Double @Double @'[] @3
-                                                  (sin x / 3))) ]
+                                             - smaxIndex
+                                                 @_ @Double @Double @'[] @3
+                                                 (sin x / 3)) ]
                            in g)
                           (dmkHVector $ V.singleton $ DynamicShaped x0)
                           (dmkHVector $ V.fromList [ DynamicShaped @Double @'[2, 1]
@@ -2080,9 +2080,9 @@ testSin0rmapAccumRD01SN531a = do
                                            - sreplicate @_ @3
                                              (sindex0 @_ @_ @'[3]
                                                        (sfromD (a V.! 1)) [1]
-                                             - (smaxIndex
-                                                  @_ @Double @Double @'[] @3
-                                                  (sin x / 3))) ]
+                                             - smaxIndex
+                                                 @_ @Double @Double @'[] @3
+                                                 (sin x / 3)) ]
                            in g)
                           (dmkHVector $ V.fromList [ DynamicShaped
                                         $ x0 / (1 + sreplicate @_ @3 (sfromIntegral (sconstant (sfromR j))))
@@ -2582,9 +2582,9 @@ testSin0rmapAccumRD01SN55acc = do
                                            - sreplicate @_ @3
                                              (sindex0 @_ @_ @'[3]
                                                        (sfromD (a V.! 1)) [1]
-                                             - (smaxIndex
-                                                  @_ @Double @Double @'[] @3
-                                                  (sin x / 3))) ]
+                                             - smaxIndex
+                                                 @_ @Double @Double @'[] @3
+                                                 (sin x / 3)) ]
                            in g)
                           (dmkHVector $ V.fromList [])
                           (dmkHVector $ V.fromList [ DynamicShaped @Double @'[2, 1]
@@ -2722,9 +2722,9 @@ testSin0rmapAccumRD01SN6 = do
                                                (sfromD (a V.! 1))
                                        , DynamicShaped
                                          $ sreplicate @_ @3
-                                             ((sindex0 @_ @_ @'[2]
-                                                       (sfromD (a V.! 2)) [1])
-                                               / sin x / 3)
+                                             (sindex0 @_ @_ @'[2]
+                                                      (sfromD (a V.! 2)) [1]
+                                              / sin x / 3)
                                        , DynamicShaped
                                          $ sreplicate @_ @3
                                              (ssum @_ @_ @2 (sfromD (a V.! 1))
@@ -2766,9 +2766,9 @@ testSin0rmapAccumRD01SN7 = do
                                        , DynamicShaped
                                          $ sreplicate @_ @3
                                              (sin x / 6
-                                              + (sindex0 @_ @_ @'[2]
-                                                       (sfromD (a V.! 2)) [1])
-                                                 / sin x / 3)
+                                              + sindex0 @_ @_ @'[2]
+                                                        (sfromD (a V.! 2)) [1]
+                                                / sin x / 3)
                                        , DynamicShaped
                                          $ sreplicate @_ @3
                                              (ssum @_ @_ @2 (sfromD (a V.! 1))
