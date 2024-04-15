@@ -6,7 +6,7 @@ module HordeAd.Core.AstEnv
   ( -- * The environment and operations for extending it
     AstEnv, AstEnvElem(..)
   , extendEnvR, extendEnvS, extendEnvHVector, extendEnvHFun, extendEnvD
-    -- * The operations for interpreting binding (visible lambdas)
+    -- * The operations for interpreting bindings
   , interpretLambdaI, interpretLambdaIS, interpretLambdaIHVector
   , interpretLambdaIndex, interpretLambdaIndexS
   , interpretLambdaIndexToIndex, interpretLambdaIndexToIndexS
@@ -56,37 +56,34 @@ deriving instance ( CRanked ranked Show, CShaped (ShapedOf ranked) Show
 
 -- An informal invariant: if s is FullSpan, ranked is dual numbers,
 -- and if s is PrimalSpan, ranked is their primal part.
--- The same for all the function below.
-extendEnvR :: forall ranked r n s.
-              (KnownNat n, GoodScalar r)
-           => AstVarName (AstRanked s) r n -> ranked r n
-           -> AstEnv ranked -> AstEnv ranked
+-- The same for all functions below.
+extendEnvR :: forall ranked r n s. (KnownNat n, GoodScalar r)
+           => AstVarName (AstRanked s) r n -> ranked r n -> AstEnv ranked
+           -> AstEnv ranked
 extendEnvR (AstVarName varId) !t !env =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvR: duplicate " ++ show varId)
                    varId (AstEnvElemRanked t) env
 
-extendEnvS :: forall ranked r sh s.
-              (Sh.Shape sh, GoodScalar r)
+extendEnvS :: forall ranked r sh s. (Sh.Shape sh, GoodScalar r)
            => AstVarName (AstShaped s) r sh -> ShapedOf ranked r sh
-           -> AstEnv ranked -> AstEnv ranked
+           -> AstEnv ranked
+           -> AstEnv ranked
 extendEnvS (AstVarName varId) !t !env =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvS: duplicate " ++ show varId)
                    varId (AstEnvElemShaped t) env
 
 extendEnvHVector :: forall ranked. ADReady ranked
-                 => [AstDynamicVarName] -> HVector ranked
-                 -> AstEnv ranked -> AstEnv ranked
+                 => [AstDynamicVarName] -> HVector ranked -> AstEnv ranked
+                 -> AstEnv ranked
 extendEnvHVector vars !pars !env = assert (length vars == V.length pars) $
   foldr extendEnvD env $ zip vars (V.toList pars)
 
-extendEnvHFun :: AstVarId -> HFunOf ranked
-              -> AstEnv ranked -> AstEnv ranked
+extendEnvHFun :: AstVarId -> HFunOf ranked -> AstEnv ranked
+              -> AstEnv ranked
 extendEnvHFun !varId !t !env =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvHFun: duplicate " ++ show varId)
                    varId (AstEnvElemHFun t) env
 
--- We don't need to manually pick a specialization for the existential
--- variable r2, because the operations do not depend on r2.
 extendEnvD :: forall ranked. ADReady ranked
            => (AstDynamicVarName, DynamicTensor ranked)
            -> AstEnv ranked
@@ -146,7 +143,7 @@ extendEnvVarsS vars !ix !env =
   in foldr (uncurry extendEnvI) env assocs
 
 
--- * The operations for interpreting binding (visible lambdas)
+-- * The operations for interpreting bindings
 
 interpretLambdaI
   :: forall ranked n s r.
