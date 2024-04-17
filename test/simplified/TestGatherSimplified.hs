@@ -123,8 +123,8 @@ testGatherSimpPP1 = do
   resetVarCounter
   let !t2 = gather1 @(AstRanked PrimalSpan) $ AstVar [7, 2] (AstVarName . intToAstVarId $ 100000000)
   length (show t2) @?= 182
-  length (show (simplifyAst6 @Float t1))
-    @?= length (show (simplifyAst6 @Float t2))
+  length (show (simplifyInlineAst @Float t1))
+    @?= length (show (simplifyInlineAst @Float t2))
 
 gatherNested02 :: forall ranked r. (ADReady ranked, GoodScalar r)
                => ranked r 1 -> ranked r 1
@@ -204,8 +204,8 @@ testGatherSimpPP2 = do
   resetVarCounter
   let !t2 = gather2 @(AstRanked PrimalSpan) $ AstVar [7, 2] (AstVarName . intToAstVarId $ 100000000)
   length (show t2) @?= 265
-  length (show (simplifyAst6 @Float t1)) @?= 265
-  length (show (simplifyAst6 @Float t2)) @?= 265
+  length (show (simplifyInlineAst @Float t1)) @?= 265
+  length (show (simplifyInlineAst @Float t2)) @?= 265
 
 gatherNested12 :: forall ranked r. (ADReady ranked, GoodScalar r)
                => ranked r 2 -> ranked r 2
@@ -271,8 +271,8 @@ testGatherSimpPP12 = do
   resetVarCounter
   let !t2 = gather12 @(AstRanked PrimalSpan) $ AstVar [7, 2] (AstVarName . intToAstVarId $ 100000000)
   length (show t2) @?= 265
-  length (show (simplifyAst6 @Float t1)) @?= 265
-  length (show (simplifyAst6 @Float t2)) @?= 265
+  length (show (simplifyInlineAst @Float t1)) @?= 265
+  length (show (simplifyInlineAst @Float t2)) @?= 265
 
 gatherReshape22 :: forall ranked r. (ADReady ranked, GoodScalar r)
                 => ranked r 2 -> ranked r 2
@@ -306,12 +306,12 @@ testGatherSimpPP22 = do
   resetVarCounter
   let !t1 = gatherReshape22 @(AstRanked PrimalSpan) $ AstVar [6, 2] (AstVarName . intToAstVarId $ 100000000)
   length (show t1) @?= 52
-  length (show (simplifyAst6 @Float t1)) @?= 52
+  length (show (simplifyInlineAst @Float t1)) @?= 52
   resetVarCounter
   let !t2 = rreshape @(AstRanked PrimalSpan) @Float @2 @2 [2, 6]
             $ AstVar [6, 2] (AstVarName . intToAstVarId $ 100000000)
   length (show t2) @?= 52
-  length (show (simplifyAst6 @Float t2)) @?= 52
+  length (show (simplifyInlineAst @Float t2)) @?= 52
 
 testGatherSimpPP23 :: Assertion
 testGatherSimpPP23 = do
@@ -321,14 +321,14 @@ testGatherSimpPP23 = do
                 (t * rreplicate0N [6, 2] (rfromIndex0 i))))
             $ AstVar [6, 2] (AstVarName . intToAstVarId $ 100000000)
   length (show t1) @?= 186
-  length (show (simplifyAst6 @Float t1)) @?= 186
+  length (show (simplifyInlineAst @Float t1)) @?= 186
   resetVarCounter
   let !t2 = (\t -> rbuild1 4 (\i ->
               rreshape @(AstRanked PrimalSpan) @Float @2 @2 [2, 6]
                 (t * rreplicate0N [6, 2] (rfromIndex0 i))))
             $ AstVar [6, 2] (AstVarName . intToAstVarId $ 100000000)
   length (show t2) @?= 186
-  length (show (simplifyAst6 @Float t2)) @?= 186
+  length (show (simplifyInlineAst @Float t2)) @?= 186
 
 -- Depending on if and how transpose it desugared, this may or may not result
 -- in dozens of nested gathers that should vanish after simplification.
@@ -387,13 +387,13 @@ testGatherSimpPP33 = do
   let !t1 = gatherTranspose33 @(AstRanked PrimalSpan)
             $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (AstVarName . intToAstVarId $ 100000000)
   length (show t1) @?= 548
-  length (show (simplifyAst6 @Float t1)) @?= 548
+  length (show (simplifyInlineAst @Float t1)) @?= 548
   resetVarCounter
   let !t2 = (\t -> rmatmul2 (rreshape [6, 8] (rconst $ runFlip t48))
                             (rreshape @(AstRanked PrimalSpan) @Float @10 [8, 16] t))
             $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (AstVarName . intToAstVarId $ 100000000)
   length (show t2) @?= 467
-  length (show (simplifyAst6 @Float t2)) @?= 467
+  length (show (simplifyInlineAst @Float t2)) @?= 467
 
 testGatherSimpPP34 :: Assertion
 testGatherSimpPP34 = do
@@ -402,7 +402,7 @@ testGatherSimpPP34 = do
              gatherTranspose33 @(AstRanked PrimalSpan) (t * rreplicate0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (rfromIndex0 i))))
             $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (AstVarName . intToAstVarId $ 100000000)
   length (show t1) @?= 871
-  length (show (simplifyAst6 @Float t1)) @?= 871
+  length (show (simplifyInlineAst @Float t1)) @?= 871
   resetVarCounter
   let !t2 = (\t -> rbuild1 4 (\i ->
               (\t' -> rmatmul2 (rreshape [6, 8] (rconst $ runFlip t48))
@@ -410,7 +410,7 @@ testGatherSimpPP34 = do
                 (t * rreplicate0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (rfromIndex0 i))))
             $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (AstVarName . intToAstVarId $ 100000000)
   length (show t2) @?= 624
-  length (show (simplifyAst6 @Float t2)) @?= 624
+  length (show (simplifyInlineAst @Float t2)) @?= 624
 
 -- scatters instead of gathers
 
@@ -474,8 +474,8 @@ testScatterSimpPP1 = do
   resetVarCounter
   let !t2 = scatter1 @(AstRanked PrimalSpan) $ AstVar [7, 2] (AstVarName . intToAstVarId $ 100000000)
   length (show t2) @?= 423
-  length (show (simplifyAst6 @Float t1)) @?= 290
-  length (show (simplifyAst6 @Float t2)) @?= 423
+  length (show (simplifyInlineAst @Float t1)) @?= 290
+  length (show (simplifyInlineAst @Float t2)) @?= 423
 
 scatterNested2 :: forall ranked r. (ADReady ranked, GoodScalar r)
               => ranked r 2 -> ranked r 2
@@ -540,8 +540,8 @@ testScatterSimpPP2 = do
   resetVarCounter
   let !t2 = scatter2 @(AstRanked PrimalSpan) $ AstVar [7, 2] (AstVarName . intToAstVarId $ 100000000)
   length (show t2) @?= 606
-  length (show (simplifyAst6 @Float t1)) @?= 1101
-  length (show (simplifyAst6 @Float t2)) @?= 606
+  length (show (simplifyInlineAst @Float t1)) @?= 1101
+  length (show (simplifyInlineAst @Float t2)) @?= 606
 
 scatterNested12 :: forall ranked r. (ADReady ranked, GoodScalar r)
                => ranked r 2 -> ranked r 2
@@ -608,5 +608,5 @@ testScatterSimpPP12 = do
   resetVarCounter
   let !t2 = scatter12 @(AstRanked PrimalSpan) $ AstVar [7, 2] (AstVarName . intToAstVarId $ 100000000)
   length (show t2) @?= 606
-  length (show (simplifyAst6 @Float t1)) @?= 933
-  length (show (simplifyAst6 @Float t2)) @?= 606
+  length (show (simplifyInlineAst @Float t1)) @?= 933
+  length (show (simplifyInlineAst @Float t2)) @?= 606

@@ -3,10 +3,10 @@
 -- | Inlining and global sharing elimination.
 module HordeAd.Core.AstInline
   ( -- * The joint inlining and simplification term transformation
-    simplifyArtifact
-  , simplifyAst6, simplifyAst6S, simplifyAstHVector5, simplifyAstHVector6
+    simplifyArtifact, simplifyInlineAst, simplifyInlineAstS
+  , simplifyInlineHVector, simplifyInlineHVectorRaw
     -- * The translates global sharing to normal lets
-  , unletAstHVector6
+  , unletAstHVector
   ) where
 
 import Prelude
@@ -38,49 +38,47 @@ import           HordeAd.Util.SizedList
 
 simplifyArtifact :: AstArtifact -> AstArtifact
 simplifyArtifact art =
-  art { artDerivative = simplifyAstHVector6 $ artDerivative art
-      , artPrimal = simplifyAstHVector6 $ artPrimal art }
+  art { artDerivative = simplifyInlineHVectorRaw $ artDerivative art
+      , artPrimal = simplifyInlineHVectorRaw $ artPrimal art }
 
 -- Potentially, some more inlining could be triggered after the second
 -- simplification, but it's probably rare, so we don't insisit on a fixpoint.
 -- The second simplification is very likely to trigger, because substitution
 -- often reveals redexes.
-simplifyAst6
+simplifyInlineAst
   :: (GoodScalar r, KnownNat n, AstSpan s)
   => AstRanked s r n -> AstRanked s r n
-simplifyAst6 =
+simplifyInlineAst =
   snd . inlineAst EM.empty
   . simplifyAst . expandAst
   . snd . inlineAst EM.empty . simplifyAst
-{-# SPECIALIZE simplifyAst6
+{-# SPECIALIZE simplifyInlineAst
   :: (KnownNat n, AstSpan s)
-  => AstRanked s Double n
-  -> AstRanked s Double n #-}
+  => AstRanked s Double n -> AstRanked s Double n #-}
 
-simplifyAst6S
+simplifyInlineAstS
   :: (GoodScalar r, Sh.Shape sh, AstSpan s)
   => AstShaped s r sh -> AstShaped s r sh
-simplifyAst6S =
+simplifyInlineAstS =
   snd . inlineAstS EM.empty
   . simplifyAstS . expandAstS
   . snd . inlineAstS EM.empty . simplifyAstS
-{-# SPECIALIZE simplifyAst6S
+{-# SPECIALIZE simplifyInlineAstS
   :: (Sh.Shape sh, AstSpan s)
-  => AstShaped s Double sh
-  -> AstShaped s Double sh #-}
+  => AstShaped s Double sh -> AstShaped s Double sh #-}
 
-simplifyAstHVector5
+simplifyInlineHVector
   :: AstSpan s => AstHVector s -> AstHVector s
-simplifyAstHVector5 =
+simplifyInlineHVector =
   snd . inlineAstHVector EM.empty
   . simplifyAstHVector . expandAstHVector
   . snd . inlineAstHVector EM.empty . simplifyAstHVector
     -- no specialization possible except for the tag type s
 
-simplifyAstHVector6
+simplifyInlineHVectorRaw
   :: AstSpan s => AstRawWrap (AstHVector s) -> AstRawWrap (AstHVector s)
-simplifyAstHVector6 =
-  AstRawWrap . simplifyAstHVector5 . unAstRawWrap
+simplifyInlineHVectorRaw =
+  AstRawWrap . simplifyInlineHVector . unAstRawWrap
 
 
 -- * The pass that inlines lets with the bottom-up strategy
@@ -472,8 +470,8 @@ inlineAstBool memo v0 = case v0 of
 
 -- * The translates global sharing to normal lets
 
-unletAstHVector6 :: AstHVector PrimalSpan -> AstHVector PrimalSpan
-unletAstHVector6 t =
+unletAstHVector :: AstHVector PrimalSpan -> AstHVector PrimalSpan
+unletAstHVector t =
   let (memoOut, share) = shareAstHVector EM.empty t
       bindingsOut = EM.toDescList memoOut
   in bindsToHVectorLet share bindingsOut

@@ -317,7 +317,7 @@ mnistTestCase1VTO prefix epochs maxBatches widthHidden widthHidden2
            (AstArtifact varDtAgain vars1Again gradientRaw primal, _) =
              revProduceArtifactH False f envInit valsInit
                                  (voidFromHVector hVectorInit)
-           gradient = simplifyAstHVector6 gradientRaw
+           gradient = simplifyInlineHVectorRaw gradientRaw
            vars1AndInputAgain = vars1Again ++ [varGlyphD, varLabelD]
            art = AstArtifact varDtAgain vars1AndInputAgain gradient primal
            go :: [MnistData r] -> HVector (Flip OR.Array) -> HVector (Flip OR.Array)
@@ -631,7 +631,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
            (AstArtifact varDtAgain vars1Again gradientRaw primal, _) =
              revProduceArtifactH False f envInit valsInit
                                  (voidFromHVector hVectorInit)
-           gradient = simplifyAstHVector6 gradientRaw
+           gradient = simplifyInlineHVectorRaw gradientRaw
            vars1AndInputAgain = vars1Again ++ [varGlyphD, varLabelD]
            art = AstArtifact varDtAgain vars1AndInputAgain gradient primal
            go :: [MnistData r] -> HVector (Flip OR.Array) -> HVector (Flip OR.Array)

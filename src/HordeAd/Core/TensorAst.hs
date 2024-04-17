@@ -512,7 +512,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   -- to switch the tests from AstRanked to AstRaw.
   dunlet =
     case sameAstSpan @s @PrimalSpan of
-      Just Refl -> unletAstHVector6
+      Just Refl -> unletAstHVector
       _ -> error "dunlet: used not at PrimalSpan"
   -- These and many similar bangs are necessary to ensure variable IDs
   -- are generated in the expected order, resulting in nesting of lets
@@ -537,7 +537,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
                               parameters0
     in \parameters -> assert (voidHVectorMatches parameters0 parameters) $
       let env = extendEnvHVector @(AstRanked s) vars parameters EM.empty
-      in simplifyAstHVector5 $ interpretAstHVector env $ unAstRawWrap gradient
+      in simplifyInlineHVector $ interpretAstHVector env $ unAstRawWrap gradient
         -- this interpretation both substitutes parameters for the variables and
         -- reinterprets @PrimalSpan@ terms in @s@ terms;
         -- we could shortcut when @s@ is @PrimalSpan@ and @parameters@
@@ -555,7 +555,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
         g !hv = HVectorPseudoTensor $ unHFun f [hv]
         (AstArtifact varsDt vars gradient _primal, _delta) =
           revProduceArtifact True g EM.empty shs
-     in AstLambda ([varsDt, vars], simplifyAstHVector5 $ unAstRawWrap gradient)
+     in AstLambda ([varsDt, vars], simplifyInlineHVector $ unAstRawWrap gradient)
   dfwd :: VoidHVector
        -> HFun
        -> AstHFun
@@ -568,7 +568,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
         (AstArtifact varsDt vars derivative _primal, _delta) =
           fwdProduceArtifact g EM.empty shs
      in AstLambda ( [varsDt, vars]
-                  , simplifyAstHVector5 $ unAstRawWrap derivative )
+                  , simplifyInlineHVector $ unAstRawWrap derivative )
   dmapAccumRDer
     :: Proxy (AstRanked s)
     -> SNat k
@@ -991,7 +991,7 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
     $ astLetInHVectorFunRawS (unAstRawS u) (unAstRawWrap . f . AstRawS)
   dunlet =
     case sameAstSpan @s @PrimalSpan of
-      Just Refl -> AstRawWrap . unletAstHVector6 . unAstRawWrap
+      Just Refl -> AstRawWrap . unletAstHVector . unAstRawWrap
       _ -> error "dunlet: used not at PrimalSpan"
   dshare a@(AstRawWrap (AstShareHVector{})) = a
   dshare (AstRawWrap a) =

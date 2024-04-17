@@ -300,7 +300,7 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
            (AstArtifact varDtAgain vars1Again gradientRaw primal, _) =
              revProduceArtifactH False f envInit valsInit
                                  (voidFromHVector hVectorInit)
-           gradient = simplifyAstHVector6 gradientRaw
+           gradient = simplifyInlineHVectorRaw gradientRaw
            vars1AndInputAgain = vars1Again ++ [varGlyphD, varLabelD]
            art = AstArtifact varDtAgain vars1AndInputAgain gradient primal
            go :: [MnistDataBatchR r] -> (HVector (Flip OR.Array), StateAdam)

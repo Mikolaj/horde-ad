@@ -125,7 +125,7 @@ rev' f vals =
         crevDtMaybeBoth dt (h id id id) parameters
       gradient2 = parseHVector vals astGrad
       (astSimple, value3) =
-        crevDtMaybeBoth dt (h id id simplifyAst6) parameters
+        crevDtMaybeBoth dt (h id id simplifyInlineAst) parameters
       gradient3 = parseHVector vals astSimple
       (astGradUnSimp, value2UnSimp) =
         crevDtMaybeBoth dt (h unAstNoSimplify AstNoSimplify id) parameters
@@ -134,12 +134,12 @@ rev' f vals =
         rrev1 @(Flip OR.Array) @r @n @m
               (hGeneral unAstNoSimplify AstNoSimplify id) vals
       (astSimpleUnSimp, value3UnSimp) =
-        crevDtMaybeBoth dt (h unAstNoSimplify AstNoSimplify simplifyAst6)
+        crevDtMaybeBoth dt (h unAstNoSimplify AstNoSimplify simplifyInlineAst)
                       parameters
       gradient3UnSimp = parseHVector vals astSimpleUnSimp
       gradientRrev3UnSimp =
         rrev1 @(Flip OR.Array) @r @n @m
-              (hGeneral unAstNoSimplify AstNoSimplify simplifyAst6) vals
+              (hGeneral unAstNoSimplify AstNoSimplify simplifyInlineAst) vals
       (astPrimal, value4) =
         crevDtMaybeBoth dt (h unAstNoVectorize AstNoVectorize id)
                       parameters
@@ -149,15 +149,15 @@ rev' f vals =
       gradientRrev4 = rrev1 @(Flip OR.Array) @r @n @m
                             (hGeneral unAstNoVectorize AstNoVectorize id) vals
       (astPSimple, value5) =
-        crevDtMaybeBoth dt (h unAstNoVectorize AstNoVectorize simplifyAst6)
+        crevDtMaybeBoth dt (h unAstNoVectorize AstNoVectorize simplifyInlineAst)
                       parameters
       gradient5 = parseHVector vals astPSimple
       gradientRrev5 =
         rrev1 @(Flip OR.Array) @r @n @m
-              (hGeneral unAstNoVectorize AstNoVectorize simplifyAst6) vals
-      astVectSimp = simplifyAst6 $ snd $ funToAstR (rshape vals) f
+              (hGeneral unAstNoVectorize AstNoVectorize simplifyInlineAst) vals
+      astVectSimp = simplifyInlineAst $ snd $ funToAstR (rshape vals) f
       astSimp =
-        simplifyAst6 $ simplifyAst6 $ snd  -- builds simplify with difficulty
+        simplifyInlineAst $ simplifyInlineAst $ snd  -- builds simplify with difficulty
         $ funToAstR (rshape vals) (unAstNoVectorize . f . AstNoVectorize)
       -- Here comes the part with Ast gradients.
       hAst :: ADReady f1
@@ -186,7 +186,7 @@ rev' f vals =
       gradient2AstST = parseHVector vals astGradAstST
       artifactsSimpleAst =
         fst $ revProduceArtifactWithoutInterpretation
-                False (hAst id id simplifyAst6) parameters0
+                False (hAst id id simplifyInlineAst) parameters0
       (astSimpleAst, value3Ast) =
         revEvalArtifact7 artifactsSimpleAst parameters
       gradient3Ast = parseHVector vals astSimpleAst
@@ -205,7 +205,7 @@ rev' f vals =
       gradient2AstSUnSimp = parseHVector vals astGradAstSUnSimp
       artifactsSimpleAstUnSimp =
         fst $ revProduceArtifactWithoutInterpretation
-                False (hAst unAstNoSimplify AstNoSimplify simplifyAst6)
+                False (hAst unAstNoSimplify AstNoSimplify simplifyInlineAst)
                 parameters0
       (astSimpleAstUnSimp, value3AstUnSimp) =
         revEvalArtifact7 artifactsSimpleAstUnSimp parameters
@@ -225,7 +225,7 @@ rev' f vals =
       gradient4AstS = parseHVector vals astPrimalAstS
       artifactsPSimpleAst =
         fst $ revProduceArtifactWithoutInterpretation
-                False (hAst unAstNoVectorize AstNoVectorize simplifyAst6)
+                False (hAst unAstNoVectorize AstNoVectorize simplifyInlineAst)
                 parameters0
       (astPSimpleAst, value5Ast) =
         revEvalArtifact7 artifactsPSimpleAst parameters
@@ -368,10 +368,10 @@ assertEqualUpToEpsilon'
   -- No Eq instance, so let's compare the text.
   assertEqual "Idempotence of primal simplification"
               (show astSimp)
-              (show (simplifyAst6 astSimp))
+              (show (simplifyInlineAst astSimp))
   assertEqual "Idempotence of gradient simplification"
               (show astVectSimp)
-              (show (simplifyAst6 astVectSimp))
+              (show (simplifyInlineAst astVectSimp))
 
 assertEqualUpToEpsilonShort
     :: ( v ~ Flip OR.Array r m, a ~ Flip OR.Array r n
@@ -466,10 +466,10 @@ assertEqualUpToEpsilonShort
   -- No Eq instance, so let's compare the text.
   assertEqual "Idempotence of primal simplification"
               (show astSimp)
-              (show (simplifyAst6 astSimp))
+              (show (simplifyInlineAst astSimp))
   assertEqual "Idempotence of gradient simplification"
               (show astVectSimp)
-              (show (simplifyAst6 astVectSimp))
+              (show (simplifyInlineAst astVectSimp))
 
 t16 :: (Numeric r, Fractional r) => Flip OR.Array r 5
 t16 = Flip $ OR.fromList [2, 2, 1, 2, 2] [5, 2, 6, 1, -2, 0.000001, 0.1, -0.2, 13.1, 9, 8, -4, 34, 2.99432, -33, 26]
