@@ -2,7 +2,7 @@
 -- generate fresh variables and sometimes also produce AST terms
 -- by applying functions to such variables. This modules encapsulates
 -- the impurity, though some functions are in IO and they are used
--- with @unsafePerformIO@ outside, so some of it escapes.
+-- with @unsafePerformIO@ outside, so some of the impurity escapes.
 module HordeAd.Core.AstFreshId
   ( unRawHVector, rawHVector
   , funToAstIOR, funToAstR, funToAstIOS, funToAstS
@@ -243,8 +243,6 @@ funToAstRevIO parameters0 = do
       !va = V.fromList asts
   return (varsPrimal, rawHVector vp, vars, va)
 
--- The AstVarName type with its parameter somehow prevents cse and crashes
--- compared with a bare AstVarId, so let's keep it.
 funToAstRev :: VoidHVector
             -> ( [AstDynamicVarName]
                , HVector (AstRaw PrimalSpan)
@@ -301,8 +299,6 @@ funToAstFwdIO parameters0 = do
       !va = V.fromList asts
   return (varsPrimalDs, rawHVector vd, varsPrimal, rawHVector vp, vars, va)
 
--- The AstVarName type with its parameter somehow prevents cse and crashes
--- compared with a bare AstVarId, so let's keep it.
 funToAstFwd :: VoidHVector
             -> ( [AstDynamicVarName]
                , HVector (AstRaw PrimalSpan)

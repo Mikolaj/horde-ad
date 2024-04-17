@@ -1,11 +1,11 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
--- | Inlining and other manipulations of the let-like constructors.
+-- | Inlining and global sharing elimination.
 module HordeAd.Core.AstInline
-  ( -- * Inlining and simplification pass operations to be applied after unlet
+  ( -- * The joint inlining and simplification term transformation
     simplifyArtifact
   , simplifyAst6, simplifyAst6S, simplifyAstHVector5, simplifyAstHVector6
-    -- * The unlet pass eliminating nested lets bottom-up
+    -- * The translates global sharing to normal lets
   , unletAstHVector6
   ) where
 
@@ -34,7 +34,7 @@ import           HordeAd.Core.Types
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedList
 
--- * Inlining and simplification pass operations to be applied after unlet
+-- * The joint inlining and simplification term transformation
 
 simplifyArtifact :: AstArtifact -> AstArtifact
 simplifyArtifact art =
@@ -470,7 +470,7 @@ inlineAstBool memo v0 = case v0 of
     in (memo2, Ast.AstRelS opCodeRel r1 r2)
 
 
--- * The pass that removes global sharing, producing a map of shared terms
+-- * The translates global sharing to normal lets
 
 unletAstHVector6 :: AstHVector PrimalSpan -> AstHVector PrimalSpan
 unletAstHVector6 t =
