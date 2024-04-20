@@ -2,8 +2,11 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -fmax-pmcheck-models=10000 #-}
 {-# OPTIONS_GHC -freduction-depth=10000 #-}
--- | Interpretation of AST terms in an aribtrary @RankedTensor@
--- and/or @ShapedTensor@ class instance.
+-- | Interpretation of AST terms in an aribtrary @RankedTensor@ & Co instance.
+-- With the exception of the the interpretation of the sharing mechanisms,
+-- the interpretation is the unique homorphism determined by the instance.
+-- The sharing mechanisms are translated so as to preserve sharing in case
+-- the instance is a term algebra as well.
 module HordeAd.Core.AstInterpret
   ( interpretAstPrimal, interpretAst
   , interpretAstPrimalS, interpretAstS

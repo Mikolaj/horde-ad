@@ -1,13 +1,13 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fconstraint-solver-iterations=10000 #-}
--- | Pretty-printing of AST of the code to be differentiated or resulting
--- from the differentiation.
+-- | Pretty-printing of the AST. Some of the variants of pretty-printing
+-- almost roundtrip, while others are more readable but less faithful.
 module HordeAd.Core.AstPrettyPrint
-  ( -- * Pretty-print variables
+  ( -- * Pretty-printing of variables
     printAstVarName, printAstVarNameS, printAstDynamicVarNameBrief
   , printAstDynamicVarName
   , printAstIntVarName
-    -- * User-friendly API for pretty-printing AST terms
+    -- * Pretty-printing terms in a few useful configurations
   , printAstSimple, printAstPretty, printAstPrettyButNested
   , printAstSimpleS, printAstPrettyS, printAstPrettyButNestedS
   , printAstHVectorSimple, printAstHVectorPretty, printAstHVectorPrettyButNested
@@ -43,7 +43,8 @@ import           HordeAd.Util.SizedList
 
 -- TODO: ensure that terms roundtrip if neither loseRoudtrip
 -- nor ignoreNestedLambdas is set.
--- Ideally, it would also preserve sharing.
+-- Ideally, pretty-printing would also preserve the explicit sharing
+-- in this case instead of displaying it as Haskell sharing.
 -- Note that other options may cause the roundtrip to cost more than
 -- a single pass over the term, e.g., ignoreNestedLambdas causes derivatives
 -- to be recomputed.
@@ -113,7 +114,7 @@ areAllArgsInts = \case
   AstD{} -> False  -- dual number
 
 
--- * Pretty-print variables
+-- * Pretty-printing of variables
 
 printAstVarId :: String -> PrintConfig -> AstVarId -> ShowS
 printAstVarId prefix cfg var =
@@ -936,7 +937,7 @@ printAstRelOp pr cfg d opCode u v = case opCode of
   GtOp -> printBinaryOp pr cfg d u (4, " >. ") v
 
 
--- * User-friendly API for pretty-printing AST terms
+-- * Pretty-printing terms in a few useful configurations
 
 printAstSimple :: (GoodScalar r, KnownNat n, AstSpan s)
                => IntMap String -> AstRanked s r n -> String
