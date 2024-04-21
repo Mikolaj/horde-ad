@@ -79,16 +79,6 @@ tshapeR
   => OR.Array n r -> ShapeInt n
 tshapeR = listToShape . OR.shapeL
 
-tsizeR
-  :: OR.Array n r -> Int
-tsizeR = OR.size
-
-tlengthR
-  :: OR.Array (1 + n) r -> Int
-tlengthR u = case OR.shapeL u of
-  [] -> error "tlength: missing dimensions"
-  k : _ -> k
-
 tminIndexR
   :: forall n r r2. (NumAndShow r, NumAndShow r2, KnownNat n)
   => OR.Array (1 + n) r -> OR.Array n r2
@@ -140,12 +130,6 @@ tindexZR v ix =
      then tindexNR v ix
      else OR.constant (drop (valueOf @m) sh) 0
 
-tindex1R
-  :: Numeric r
-  => OR.Array (1 + n) r -> Int64 -> OR.Array n r
-tindex1R t i = OR.index t (fromIntegral i)
-
--- TODO: optimize to tindex1R for n == 0
 tindex0R
   :: Numeric r
   => OR.Array n r -> IndexInt n -> r
@@ -214,16 +198,6 @@ tmatmul2R t u =
         _ -> error "tmatmul2R: wrong shape"
   in OR.fromVector [trows, ucols] $ LA.flatten
      $ LA.reshape tcols t2 LA.<> LA.reshape ucols u2
-
-tminimum0R
-  :: Numeric r
-  => OR.Array 1 r -> r
-tminimum0R = LA.minElement . OR.toVector
-
-tmaximum0R
-  :: Numeric r
-  => OR.Array 1 r -> r
-tmaximum0R = LA.maxElement . OR.toVector
 
 -- Performance depends a lot on the number and size of tensors.
 -- If tensors are not tiny, memory taken by underlying vectors matters most
@@ -334,28 +308,6 @@ treshapeR
   => ShapeInt m -> OR.Array n r -> OR.Array m r
 treshapeR sh = OR.reshape (shapeToList sh)
 
-tbuildNR
-  :: forall m n r.
-     ShapeInt (m + n) -> (IndexInt m -> OR.Array n r) -> OR.Array (m + n) r
-tbuildNR = undefined  -- using rbuild definition instead
--- TODO: use tbuild0R and tbuild1R whenever faster and possible;
--- also consider generating a flat vector and reshaping at the end
--- to save on creating the intermediate tensors, though that's
--- a negligible cost if the tensors of rank n don't have a small size
-{-
-  let buildSh :: forall m1. KnownNat m1
-              => ShapeInt m1 -> (IndexInt m1 -> OR.Array n r)
-              -> OR.Array (m1 + n) r
-      buildSh ZSR f = f ZIR
-      buildSh (0 :$: sh) _ =
-        OR.fromList (0 : shapeToList sh ++ shapeToList (dropShape @m @n sh0)) []
-      buildSh (k :$: sh) f =
-        let g i = buildSh sh (\ix -> f (i :.: ix))
-        in OR.ravel $ ORB.fromList [k]
-           $ map g [0 .. fromIntegral k - 1]
-  in buildSh (takeShape @m @n sh0) f0
--}
-
 tbuild1R
   :: forall n r. (KnownNat n, Numeric r)
   => Int -> (Int64 -> OR.Array n r) -> OR.Array (1 + n) r
@@ -376,26 +328,6 @@ tzipWith0NR
   -> OR.Array n r -> OR.Array n r2 -> OR.Array n r3
 tzipWith0NR f = OR.zipWithA (\x y -> tunScalarR $ f (tscalarR x) (tscalarR y))
                 -- bad type: liftVR2 . Numeric.LinearAlgebra.Devel.zipVectorWith
-
-tgatherNR :: forall m p n r.
-             (KnownNat m, KnownNat p, KnownNat n, NumAndShow r)
-          => ShapeInt (m + n) -> OR.Array (p + n) r
-          -> (IndexInt m -> IndexInt p)
-          -> OR.Array (m + n) r
-tgatherNR sh t f =
-  let shm = takeShape @m sh
-      s = sizeShape shm
-      l = [ OR.toVector $ t `tindexNR` f (fromLinearIdx shm i)
-          | i <- [0 .. fromIntegral s - 1] ]
-  in OR.fromVector (shapeToList sh) $ LA.vjoin l
-
-tgather1R :: forall p n r. (KnownNat p, KnownNat n, NumAndShow r)
-          => Int -> OR.Array (p + n) r -> (Int64 -> IndexInt p)
-          -> OR.Array (1 + n) r
-tgather1R 0 t _ = OR.fromList (0 : drop (valueOf @p) (OR.shapeL t)) []
-tgather1R k t f =
-  let l = map (\i -> t `tindexNR` f i) [0 .. fromIntegral k - 1]
-  in OR.ravel $ ORB.fromList [k] l
 
 -- TODO: this can be slightly optimized by normalizing t first (?)
 -- and then inlining toVector and tindexZR
@@ -561,12 +493,6 @@ tindexZS v ix =
      then tindexNS v ix
      else 0
 
-tindex1S
-  :: (Numeric r, KnownNat n)
-  => OS.Array (n ': sh) r -> Int64Sh n -> OS.Array sh r
-tindex1S t i = OS.index t (fromIntegral $ ShapedList.unShapedNat i)
-
--- TODO: optimize to tindex1S for n == 0
 tindex0S
   :: Numeric r
   => OS.Array sh r -> IndexIntSh sh -> r
@@ -670,16 +596,6 @@ tmatmul2S t u =
       u2 = OS.toVector u
   in OS.fromVector $ LA.flatten
      $ LA.reshape (valueOf @n) t2 LA.<> LA.reshape (valueOf @p) u2
-
-tminimum0S
-  :: (Numeric r, KnownNat n)
-  => OS.Array '[n] r -> r
-tminimum0S = LA.minElement . OS.toVector
-
-tmaximum0S
-  :: (Numeric r, KnownNat n)
-  => OS.Array '[n] r -> r
-tmaximum0S = LA.maxElement . OS.toVector
 
 -- Performance depends a lot on the number and size of tensors.
 -- If tensors are not tiny, memory taken by underlying vectors matters most
@@ -785,15 +701,6 @@ treshapeS
   => OS.Array sh r -> OS.Array sh2 r
 treshapeS = OS.reshape
 
-tbuildNS
-  :: (IndexIntSh (Sh.Take m sh) -> OS.Array (Sh.Drop m sh) r)
-  -> OS.Array sh r
-tbuildNS = undefined  -- using sbuild definition instead
-  -- TODO: use tbuild0S and tbuild1S whenever faster and possible;
-  -- also consider generating a flat vector and reshaping at the end
-  -- to save on creating the intermediate tensors, though that's
-  -- a negligible cost if the tensors of rank n don't have a small size
-
 tbuild1S
   :: forall n sh r. (KnownNat n, Numeric r, Sh.Shape sh)
   => (Int64Sh n -> OS.Array sh r) -> OS.Array (n ': sh) r
@@ -815,24 +722,6 @@ tzipWith0NS
   -> OS.Array sh r1 -> OS.Array sh r2 -> OS.Array sh r
 tzipWith0NS f = OS.zipWithA (\x y -> tunScalarS $ f (tscalarS x) (tscalarS y))
                 -- bad type: liftVS2 . Numeric.LinearAlgebra.Devel.zipVectorWith
-
-tgatherNS :: forall sh2 p sh r.
-             ( NumAndShow r, Sh.Shape sh2, Sh.Shape (Sh.Drop p sh)
-             , Sh.Shape (sh2 Sh.++ Sh.Drop p sh) )
-          => OS.Array sh r
-          -> (IndexIntSh sh2 -> IndexIntSh (Sh.Take p sh))
-          -> OS.Array (sh2 Sh.++ Sh.Drop p sh) r
-tgatherNS t f =
-  let sh2 = ShapedList.shapeIntSFromT @sh2
-      s = Sh.sizeT @sh2
-      l = gcastWith (unsafeCoerce Refl
-                     :: sh :~: Sh.Take p sh Sh.++ Sh.Drop p sh)
-          $ [ OS.toVector
-                (t `tindexNS` f (ShapedList.fromLinearIdx sh2
-                                 $ ShapedList.shapedNat $ fromIntegral i)
-                 :: OS.Array (Sh.Drop p sh) r)
-            | i <- [0 .. s - 1] ]
-  in OS.fromVector $ LA.vjoin l
 
 -- TODO: this can be slightly optimized by normalizing t first (?)
 -- and then inlining toVector and tindexZS
