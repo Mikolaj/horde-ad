@@ -96,7 +96,7 @@ import           HordeAd.Internal.BackendConcrete
 import           HordeAd.Internal.OrthotopeOrphanInstances
   (FlipS (..), MapSucc, trustMeThisIsAPermutation)
 import           HordeAd.Util.ShapedList
-  (SizedListS (..), pattern (:.$), pattern ZIS)
+  (pattern (:.$), pattern (::$), pattern ZIS, pattern ZS)
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedList
 
