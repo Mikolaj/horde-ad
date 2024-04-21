@@ -50,7 +50,7 @@ import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances
   (MapSucc, trustMeThisIsAPermutation)
 import           HordeAd.Util.ShapedList
-  (SizedListS (..), pattern (:.$), pattern ZIS)
+  (pattern (:.$), pattern (::$), pattern ZIS, pattern ZS)
 import           HordeAd.Util.SizedList
 
 -- * Vectorization of AstRanked

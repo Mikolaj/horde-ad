@@ -1,13 +1,14 @@
-{-# LANGUAGE AllowAmbiguousTypes, DerivingStrategies, ViewPatterns #-}
+{-# LANGUAGE AllowAmbiguousTypes, DerivingStrategies #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -fconstraint-solver-iterations=10000 #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 -- | @[Nat]@-indexed lists to be used as is for lists of tensor variables,
 -- tensor shapes and tensor indexes.
 module HordeAd.Util.ShapedList
   ( -- * Shaped lists (sized, where size is shape) and their permutations
     IntSh, IndexSh
-  , SizedListS(..)
+  , SizedListS, pattern (::$), pattern ZS
   , consShaped, unconsContShaped
   , singletonSized, snocSized, appendSized
   , headSized, tailSized, takeSized, dropSized, splitAt_Sized
@@ -42,6 +43,17 @@ import           GHC.Exts (IsList (..))
 import           GHC.TypeLits (KnownNat, Nat, type (*))
 import           Unsafe.Coerce (unsafeCoerce)
 
+import           Data.Array.Nested
+  ( IxS (..)
+  , ListS
+  , StaticShapeS (..)
+  , pattern (:$$)
+  , pattern (:.$)
+  , pattern (::$)
+  , pattern ZIS
+  , pattern ZS
+  , pattern ZSS
+  )
 import           HordeAd.Core.Types
 import           HordeAd.Util.SizedList (Permutation)
 import qualified HordeAd.Util.SizedList as SizedList
@@ -60,28 +72,15 @@ type IntSh (f :: TensorType ty) (n :: Nat) = ShapedNat n (IntOf f)
 -- and up to evaluation.
 type IndexSh (f :: TensorType ty) (sh :: [Nat]) = IndexS sh (IntOf f)
 
+-- | Lists indexed by shapes, that is, lists of the GHC @Nat@.
+type SizedListS n i = ListS n i
 
--- | Strict lists indexed by shapes, that is, lists of the GHC @Nat@.
-infixr 3 ::$
-type role SizedListS nominal representational
-data SizedListS (sh :: [Nat]) i where
-  ZS :: SizedListS '[] i
-  (::$) :: forall k sh {i}. (KnownNat k, KnownShape sh)
-        => i -> SizedListS sh i -> SizedListS (k : sh) i
-
-deriving instance Eq i => Eq (SizedListS sh i)
-
-deriving instance Ord i => Ord (SizedListS sh i)
-
+{-
 -- This is only lawful when OverloadedLists is enabled.
 -- However, it's much more readable when tracing and debugging.
 instance Show i => Show (SizedListS sh i) where
   showsPrec d l = showsPrec d (sizedToList l)
-
-deriving stock instance Functor (SizedListS sh)
-
-instance Foldable (SizedListS sh) where
-  foldr f z l = foldr f z (sizedToList l)
+-}
 
 instance KnownShape sh => IsList (SizedListS sh i) where
   type Item (SizedListS sh i) = i
@@ -222,40 +221,18 @@ shapedToSized = SizedList.listToSized . sizedToList
 
 -- * Tensor indexes as fully encapsulated shaped lists, with operations
 
-type role IndexS nominal representational
-newtype IndexS sh i = IndexS (SizedListS sh i)
-  deriving (Eq, Ord)
+type IndexS sh i = IxS sh i
 
+pattern IndexS :: forall {sh :: [Nat]} {i}. ListS sh i -> IxS sh i
+pattern IndexS l = IxS l
+{-# COMPLETE IndexS #-}
+
+{-
 -- This is only lawful when OverloadedLists is enabled.
 -- However, it's much more readable when tracing and debugging.
 instance Show i => Show (IndexS sh i) where
   showsPrec d (IndexS l) = showsPrec d l
-
-pattern ZIS :: forall sh i. () => sh ~ '[] => IndexS sh i
-pattern ZIS = IndexS ZS
-
-infixr 3 :.$
-pattern (:.$)
-  :: forall {sh1} {i}. ()
-  => forall k sh. (KnownNat k, KnownShape sh, (k : sh) ~ sh1)
-  => i -> IndexS sh i -> IndexS sh1 i
-pattern i :.$ shl <- (unconsIndex -> Just (UnconsIndexRes shl i))
-  where i :.$ (IndexS shl) = IndexS (i ::$ shl)
-{-# COMPLETE ZIS, (:.$) #-}
-
-type role UnconsIndexRes representational nominal
-data UnconsIndexRes i sh1 =
-  forall k sh. (KnownNat k, KnownShape sh, (k : sh) ~ sh1)
-  => UnconsIndexRes (IndexS sh i) i
-unconsIndex :: IndexS sh1 i -> Maybe (UnconsIndexRes i sh1)
-unconsIndex (IndexS shl) = case shl of
-  i ::$ shl' -> Just (UnconsIndexRes (IndexS shl') i)
-  ZS -> Nothing
-
-deriving newtype instance Functor (IndexS n)
-
-instance Foldable (IndexS n) where
-  foldr f z l = foldr f z (indexToList l)
+-}
 
 instance KnownShape sh => IsList (IndexS sh i) where
   type Item (IndexS sh i) = i
@@ -320,40 +297,18 @@ shapedToIndex = SizedList.listToIndex . indexToList
 
 -- * Tensor shapes as fully encapsulated shaped lists, with operations
 
-type role ShapeS nominal representational
-newtype ShapeS sh i = ShapeS (SizedListS sh i)
-  deriving (Eq, Ord)
+type ShapeS sh i = StaticShapeS sh i
 
+pattern ShapeS :: forall {sh :: [Nat]} {i}. ListS sh i -> StaticShapeS sh i
+pattern ShapeS l = StaticShapeS l
+{-# COMPLETE ShapeS #-}
+
+{-
 -- This is only lawful when OverloadedLists is enabled.
 -- However, it's much more readable when tracing and debugging.
 instance Show i => Show (ShapeS sh i) where
   showsPrec d (ShapeS l) = showsPrec d l
-
-pattern ZSS :: forall sh i. () => sh ~ '[] => ShapeS sh i
-pattern ZSS = ShapeS ZS
-
-infixr 3 :$$
-pattern (:$$)
-  :: forall {sh1} {i}. ()
-  => forall k sh. (KnownNat k, KnownShape sh, (k : sh) ~ sh1)
-  => i -> ShapeS sh i -> ShapeS sh1 i
-pattern i :$$ shl <- (unconsShape -> Just (UnconsShapeRes shl i))
-  where i :$$ (ShapeS shl) = ShapeS (i ::$ shl)
-{-# COMPLETE ZSS, (:$$) #-}
-
-type role UnconsShapeRes representational nominal
-data UnconsShapeRes i sh1 =
-  forall k sh. (KnownNat k, KnownShape sh, (k : sh) ~ sh1)
-  => UnconsShapeRes (ShapeS sh i) i
-unconsShape :: ShapeS sh1 i -> Maybe (UnconsShapeRes i sh1)
-unconsShape (ShapeS shl) = case shl of
-  i ::$ shl' -> Just (UnconsShapeRes (ShapeS shl') i)
-  ZS -> Nothing
-
-deriving newtype instance Functor (ShapeS n)
-
-instance Foldable (ShapeS n) where
-  foldr f z l = foldr f z (shapeToList l)
+-}
 
 instance KnownShape sh => IsList (ShapeS sh i) where
   type Item (ShapeS sh i) = i
@@ -381,7 +336,6 @@ listToShape = ShapeS . listToSized
 
 shapeToList :: ShapeS sh i -> [i]
 shapeToList (ShapeS l) = sizedToList l
-
 
 -- * Operations involving both indexes and shapes
 

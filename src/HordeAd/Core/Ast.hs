@@ -42,7 +42,7 @@ import HordeAd.Core.HVector
 import HordeAd.Core.Types
 import HordeAd.Internal.OrthotopeOrphanInstances
   (IntegralF (..), RealFloatF (..), FlipS(..))
-import HordeAd.Util.ShapedList (IndexS, SizedListS (..))
+import HordeAd.Util.ShapedList (IndexS, SizedListS)
 import HordeAd.Util.SizedList
 
 -- * Basic type family instances
