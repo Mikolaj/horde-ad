@@ -25,9 +25,9 @@ module HordeAd.Util.ShapedList
   , permutePrefixIndex, permutePrefixIndexT
   , listToIndex, indexToList, indexToSized, sizedToIndex, shapedToIndex
   -- * Tensor shapes as fully encapsulated shaped lists, with operations
+  , ShapeS, pattern (:$$), pattern ZSS, ShapeIntS
   , ShapedNat, shapedNat, unShapedNat
-  , ShapeS, pattern (:$$), pattern ZSS
-  , ShapeIntS, shapeIntSFromT
+  , shapeIntSFromT
   , listToShape, shapeToList
     -- * Operations involving both indexes and shapes
   , toLinearIdx, fromLinearIdx
@@ -362,6 +362,8 @@ instance Sh.Shape sh => IsList (ShapeS sh i) where
   fromList = listToShape
   toList = shapeToList
 
+type ShapeIntS (sh :: [Nat]) = ShapeS sh Int
+
 -- TODO: ensure this is checked (runtime-checked, if necessary):
 -- | The value of this type has to be positive and less than the @n@ bound.
 -- If the values are terms, this is relative to environment
@@ -377,10 +379,8 @@ shapedNat :: forall n a. a -> ShapedNat n a
 shapedNat = ShapedNat
 
 -- TODO: ensure this can't be subverted:
--- | These are singletons. The integers inside are equal to the type-level
--- dimensions.
-type ShapeIntS (sh :: [Nat]) = ShapeS sh Int
-
+-- This creates a singleton for ShapeS. The integers inside are equal
+-- to the type-level dimensions.
 shapeIntSFromT :: forall sh. Sh.Shape sh => ShapeIntS sh
 shapeIntSFromT = listToShape $ Sh.shapeT @sh
 
