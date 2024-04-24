@@ -27,8 +27,8 @@ module HordeAd.Util.ShapedList
   -- * Tensor shapes as fully encapsulated shaped lists, with operations
   , ShapeS, pattern (:$$), pattern ZSS, ShapeIntS
   , ShapedNat, shapedNat, unShapedNat
-  , shapeIntSFromT
   , listToShape, shapeToList
+  , SShape(..), KnownShape(..), shapeIntSFromT
     -- * Operations involving both indexes and shapes
   , toLinearIdx, fromLinearIdx
   ) where
@@ -41,7 +41,16 @@ import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality (gcastWith, (:~:) (Refl))
 import           GHC.Exts (IsList (..))
 import           GHC.TypeLits
-  (KnownNat, Nat, SomeNat (..), someNatVal, type (*))
+  ( KnownNat
+  , Nat
+  , SNat
+  , SomeNat (..)
+  , fromSNat
+  , natSing
+  , pattern SNat
+  , someNatVal
+  , type (*)
+  )
 import           Unsafe.Coerce (unsafeCoerce)
 
 import           HordeAd.Util.SizedList (Permutation)
@@ -378,17 +387,37 @@ deriving stock instance Functor (ShapedNat n)
 shapedNat :: forall n a. a -> ShapedNat n a
 shapedNat = ShapedNat
 
--- TODO: ensure this can't be subverted:
--- This creates a singleton for ShapeS. The integers inside are equal
--- to the type-level dimensions.
-shapeIntSFromT :: forall sh. Sh.Shape sh => ShapeIntS sh
-shapeIntSFromT = listToShape $ Sh.shapeT @sh
-
 listToShape :: Sh.Shape sh => [i] -> ShapeS sh i
 listToShape = ShapeS . listToSized
 
 shapeToList :: ShapeS sh i -> [i]
 shapeToList (ShapeS l) = sizedToList l
+
+-- Below, copied with modification from ox-arrays.
+
+-- | The shape of a shape-typed array given as a list of 'SNat' values.
+type role SShape nominal
+data SShape sh where
+  ShNil :: SShape '[]
+  ShCons :: Sh.Shape sh => SNat n -> SShape sh -> SShape (n : sh)
+deriving instance Show (SShape sh)
+infixr 5 `ShCons`
+
+-- | A statically-known shape of a shape-typed array.
+class KnownShape sh where knownShape :: SShape sh
+instance KnownShape '[] where knownShape = ShNil
+instance (KnownNat n, KnownShape sh, Sh.Shape sh)
+         => KnownShape (n : sh) where knownShape = ShCons natSing knownShape
+
+-- This creates a singleton for a shape. The integers inside are equal
+-- to the type-level dimensions.
+shapeIntSFromT :: forall sh. Sh.Shape sh => SShape sh
+shapeIntSFromT = lToSShape $ listToSized $ Sh.shapeT @sh
+ where
+  lToSShape :: SizedListS sh' Int -> SShape sh'
+  lToSShape = \case
+    ZS -> ShNil
+    _k ::$ l -> ShCons natSing (lToSShape l)
 
 
 -- * Operations involving both indexes and shapes
@@ -400,17 +429,18 @@ shapeToList (ShapeS l) = sizedToList l
 -- If any of the dimensions is 0 or if rank is 0, the result will be 0,
 -- which is fine, that's pointing at the start of the empty buffer.
 -- Note that the resulting 0 may be a complex term.
-toLinearIdx :: forall sh1 sh2 i j. (Sh.Shape sh2, Integral i, Num j)
-            => ShapeS (sh1 Sh.++ sh2) i -> IndexS sh1 j
+toLinearIdx :: forall sh1 sh2 j. (Sh.Shape sh2, Num j)
+            => SShape (sh1 Sh.++ sh2) -> IndexS sh1 j
             -> ShapedNat (Sh.Size sh1 * Sh.Size sh2) j
 toLinearIdx = \sh idx -> shapedNat $ go sh idx 0
   where
     -- Additional argument: index, in the @m - m1@ dimensional array so far,
     -- of the @m - m1 + n@ dimensional tensor pointed to by the current
     -- @m - m1@ dimensional index prefix.
-    go :: forall sh3. ShapeS (sh3 Sh.++ sh2) i -> IndexS sh3 j -> j -> j
+    go :: forall sh3. SShape (sh3 Sh.++ sh2) -> IndexS sh3 j -> j -> j
     go _sh ZIS tensidx = fromIntegral (Sh.sizeT @(sh3 Sh.++ sh2)) * tensidx
-    go (n :$$ sh) (i :.$ idx) tensidx = go sh idx (fromIntegral n * tensidx + i)
+    go (ShCons n sh) (i :.$ idx) tensidx =
+      go sh idx (fromIntegral (fromSNat n) * tensidx + i)
     go _ _ _ = error "toLinearIdx: impossible pattern needlessly required"
 
 -- | Given a linear index into the buffer, get the corresponding
@@ -421,22 +451,22 @@ toLinearIdx = \sh idx -> shapedNat $ go sh idx 0
 -- and a fake index with correct length but lots of zeroes is produced,
 -- because it doesn't matter, because it's going to point at the start
 -- of the empty buffer anyway.
-fromLinearIdx :: forall sh i j. (Integral i, Integral j)
-              => ShapeS sh i -> ShapedNat (Sh.Size sh) j -> IndexS sh j
+fromLinearIdx :: forall sh j. Integral j
+              => SShape sh -> ShapedNat (Sh.Size sh) j -> IndexS sh j
 fromLinearIdx = \sh (ShapedNat lin) -> snd (go sh lin)
   where
     -- Returns (linear index into array of sub-tensors,
     -- multi-index within sub-tensor).
-    go :: ShapeS sh1 i -> j -> (j, IndexS sh1 j)
-    go ZSS n = (n, ZIS)
-    go (0 :$$ sh) _ =
+    go :: SShape sh1 -> j -> (j, IndexS sh1 j)
+    go ShNil n = (n, ZIS)
+    go (ShCons k@SNat sh) _ | fromSNat k == 0 =
       (0, 0 :.$ zeroOf sh)
-    go (n :$$ sh) lin =
+    go (ShCons n@SNat sh) lin =
       let (tensLin, idxInTens) = go sh lin
-          (tensLin', i) = tensLin `quotRem` fromIntegral n
+          (tensLin', i) = tensLin `quotRem` fromIntegral (fromSNat n)
       in (tensLin', i :.$ idxInTens)
 
 -- | The zero index in this shape (not dependent on the actual integers).
-zeroOf :: Num j => ShapeS sh i -> IndexS sh j
-zeroOf ZSS = ZIS
-zeroOf (_ :$$ sh) = 0 :.$ zeroOf sh
+zeroOf :: Num j => SShape sh -> IndexS sh j
+zeroOf ShNil = ZIS
+zeroOf (ShCons SNat sh) = 0 :.$ zeroOf sh

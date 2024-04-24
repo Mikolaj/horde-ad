@@ -40,7 +40,7 @@ import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances
   (matchingRank, sameShape)
 import           HordeAd.Util.ShapedList
-  (ShapeIntS, consIndex, pattern (:$$), pattern (:.$), pattern ZIS, pattern ZSS)
+  (ShapeIntS, consIndex, pattern (:.$), pattern ZIS)
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedList
 
@@ -342,7 +342,7 @@ class ( Integral (IntOf shaped), CShaped shaped Num
 
   -- Integer codomain
   sshape :: forall sh r. (GoodScalar r, Sh.Shape sh)
-         => shaped r sh -> ShapeIntS sh
+         => shaped r sh -> ShapedList.SShape sh
   sshape _ = ShapedList.shapeIntSFromT @sh
   srank :: forall sh r. (GoodScalar r, KnownNat (Sh.Rank sh))
         => shaped r sh -> Int
@@ -484,17 +484,18 @@ class ( Integral (IntOf shaped), CShaped shaped Num
   sbuild =
     let buildSh
           :: forall sh1.
-             ShapeIntS sh1 -> ShapeIntS (sh1 Sh.++ Sh.Drop m sh)
+             ShapedList.SShape sh1 -> ShapedList.SShape (sh1 Sh.++ Sh.Drop m sh)
           -> (IndexSh shaped sh1 -> shaped r (Sh.Drop m sh))
           -> shaped r (sh1 Sh.++ Sh.Drop m sh)
         buildSh sh1 sh1m f = case (sh1, sh1m) of
-          (ZSS, _) -> f ZIS
-          (_ :$$ sh2, _ :$$ sh2m) ->
+          (ShapedList.ShNil, _) -> f ZIS
+          (ShapedList.ShCons SNat sh2, ShapedList.ShCons _ sh2m) ->
             let g i = buildSh sh2 sh2m (f . consIndex i)
             in sbuild1 g
     in gcastWith (unsafeCoerce Refl
                   :: sh :~: Sh.Take m sh Sh.++ Sh.Drop m sh)
-       $ buildSh (ShapedList.shapeIntSFromT @(Sh.Take m sh)) (ShapedList.shapeIntSFromT @sh)
+       $ buildSh (ShapedList.shapeIntSFromT @(Sh.Take m sh))
+                 (ShapedList.shapeIntSFromT @sh)
   sbuild1 :: forall r n sh. (GoodScalar r, KnownNat n, Sh.Shape sh)
           => (IntSh shaped n -> shaped r sh)
           -> shaped r (n ': sh)

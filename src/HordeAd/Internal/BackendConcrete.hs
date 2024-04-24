@@ -36,7 +36,15 @@ import           Data.Type.Equality (gcastWith, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Storable.Mutable as VM
 import           GHC.TypeLits
-  (KnownNat, Nat, SomeNat (..), sameNat, someNatVal, type (+), type (<=))
+  ( KnownNat
+  , Nat
+  , SomeNat (..)
+  , fromSNat
+  , sameNat
+  , someNatVal
+  , type (+)
+  , type (<=)
+  )
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           System.IO.Unsafe (unsafePerformIO)
@@ -45,8 +53,7 @@ import           Unsafe.Coerce (unsafeCoerce)
 import           HordeAd.Internal.OrthotopeOrphanInstances
   (liftVR, liftVS, sameShape)
 import           HordeAd.Internal.TensorFFI
-import           HordeAd.Util.ShapedList
-  (IndexS, ShapedNat, pattern (:$$), pattern ZSS)
+import           HordeAd.Util.ShapedList (IndexS, ShapedNat)
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedList
 
@@ -512,15 +519,15 @@ tsumS
 tsumS (SS.A (SG.A (OI.T (_ : ss) o vt))) | V.length vt == 1 =
   SS.A (SG.A (OI.T ss o (V.map (* valueOf @n) vt)))
 tsumS t = case ShapedList.shapeIntSFromT @(n ': sh) of
-  _ :$$ ZSS -> OS.scalar $ tsum0S t
-  k :$$ sh2 ->
+  ShapedList.ShCons _ ShapedList.ShNil -> OS.scalar $ tsum0S t
+  ShapedList.ShCons @sh2 k _ ->
     OS.fromVector $ unsafePerformIO $ do  -- unsafe only due to FFI
       v <- V.unsafeThaw $ OS.toVector t
       VM.unsafeWith v $ \ptr -> do
-        let len2 = product sh2
+        let len2 = Sh.sizeT @sh2
         v2 <- VM.new len2
         VM.unsafeWith v2 $ \ptr2 -> do
-          rowSum len2 k ptr ptr2
+          rowSum len2 (fromInteger $ fromSNat k) ptr ptr2
           void $ V.unsafeFreeze v
           V.unsafeFreeze v2
 
@@ -666,7 +673,7 @@ treplicateS
   :: forall n sh r. (Numeric r, KnownNat n, Sh.Shape sh)
   => OS.Array sh r -> OS.Array (n ': sh) r
 treplicateS u = case ShapedList.shapeIntSFromT @sh of
-  ZSS -> OS.constant (OS.unScalar u)
+  ShapedList.ShNil -> OS.constant (OS.unScalar u)
   _ -> OS.ravel $ OSB.constant u
 
 treplicate0NS

@@ -96,7 +96,7 @@ import           HordeAd.Internal.BackendConcrete
 import           HordeAd.Internal.OrthotopeOrphanInstances
   (MapSucc, matchingRank, sameShape, trustMeThisIsAPermutation)
 import           HordeAd.Util.ShapedList
-  (SizedListS (..), pattern (:$$), pattern (:.$), pattern ZIS, pattern ZSS)
+  (SizedListS (..), pattern (:.$), pattern ZIS)
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedList
 
@@ -1562,9 +1562,9 @@ astReplicateNS :: forall shn shp s r.
                   (Sh.Shape shn, Sh.Shape shp, GoodScalar r, AstSpan s)
                => AstShaped s r shp -> AstShaped s r (shn Sh.++ shp)
 astReplicateNS v =
-  let go :: ShapeIntS shn' -> AstShaped s r (shn' Sh.++ shp)
-      go ZSS = v
-      go ((:$$) @k _ (shn2 :: ShapeIntS shn2)) =
+  let go :: ShapedList.SShape shn' -> AstShaped s r (shn' Sh.++ shp)
+      go ShapedList.ShNil = v
+      go (ShapedList.ShCons @shn2 @k SNat shn2) =
         Sh.withShapeP (Sh.shapeT @shn2 ++ Sh.shapeT @shp) $ \(Proxy @sh) ->
           gcastWith (unsafeCoerce Refl :: sh :~: shn2 Sh.++ shp) $
           astReplicateS @k $ go shn2
@@ -1581,9 +1581,9 @@ astReplicate0N sh =
 astReplicate0NS :: forall shn s r. (Sh.Shape shn, GoodScalar r, AstSpan s)
                 => AstShaped s r '[] -> AstShaped s r shn
 astReplicate0NS =
-  let go :: ShapeIntS sh' -> AstShaped s r '[] -> AstShaped s r sh'
-      go ZSS v = v
-      go (_ :$$ sh') v = astReplicateS $ go sh' v
+  let go :: ShapedList.SShape sh' -> AstShaped s r '[] -> AstShaped s r sh'
+      go ShapedList.ShNil v = v
+      go (ShapedList.ShCons SNat sh') v = astReplicateS $ go sh' v
   in go (ShapedList.shapeIntSFromT @shn)
 
 astAppend :: (KnownNat n, GoodScalar r, AstSpan s)
