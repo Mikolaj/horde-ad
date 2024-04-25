@@ -4,7 +4,8 @@
 -- | @GHC.Nat@-indexed lists, tensors shapes and indexes.
 module HordeAd.Util.SizedList
   ( -- * Sized lists and their permutations
-    SizedList(..)
+    IndexOf
+  , SizedList(..)
   , singletonSized, snocSized, appendSized
   , headSized, tailSized, takeSized, dropSized, splitAt_Sized
   , unsnocSized1, lastSized, initSized, zipSized, zipWith_Sized, reverseSized
@@ -55,7 +56,17 @@ import           GHC.TypeLits
   )
 import           Unsafe.Coerce (unsafeCoerce)
 
+import HordeAd.Core.Types
+
 -- * Sized lists and their permutations
+
+-- | Thanks to the OverloadedLists mechanism, values of this type can be
+-- written using the normal list notation. However, such values, if not
+-- explicitly typed, do not inform the compiler about the length
+-- of the list until runtime. That means that some errors are hidden
+-- and also extra type applications may be needed to satisfy the compiler.
+-- Therefore, there is a real trade-off between @[2]@ and @(2 :.: ZIR).
+type IndexOf (f :: TensorType ty) n = Index n (IntOf f)
 
 -- | Standard strict sized lists indexed by the GHC @Nat@ type.
 --

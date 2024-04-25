@@ -6,14 +6,14 @@ module HordeAd.Core.Types
     -- * Some fundamental constraints
   , GoodScalar, HasSingletonDict, Differentiable, IfDifferentiable(..)
     -- * Type families that tensors will belong to
-  , RankedOf, ShapedOf, HVectorOf, HFunOf, PrimalOf, DualOf, DummyDual(..)
-    -- * Generic types of indexes used in tensor operations
-  , IntOf, IndexOf, IntSh, IndexSh
+  , IntOf, RankedOf, ShapedOf, HVectorOf, HFunOf, PrimalOf, DualOf, DummyDual(..)
     -- * Generic types of booleans and related class definitions
   , BoolOf, Boolean(..)
   , IfF(..), EqF(..), OrdF(..), minF, maxF
     -- * Definitions to help express and manipulate type-level natural numbers
   , SNat, pattern SNat, withSNat, sNatValue, proxyFromSNat
+    -- * Definitions for type-level list shapes
+  , SShape(..), KnownShape(..)
   ) where
 
 import Prelude
@@ -25,14 +25,12 @@ import           Data.Int (Int64)
 import           Data.Kind (Constraint, Type)
 import           Data.Proxy (Proxy (Proxy))
 import           GHC.TypeLits
-  (KnownNat, Nat, SNat, fromSNat, pattern SNat, withSomeSNat)
+  (KnownNat, Nat, SNat, fromSNat, natSing, pattern SNat, withSomeSNat)
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import           Type.Reflection (Typeable)
 
 import HordeAd.Internal.OrthotopeOrphanInstances ()
 import HordeAd.Internal.TensorFFI
-import HordeAd.Util.ShapedList (IndexS, ShapedNat)
-import HordeAd.Util.SizedList
 
 -- * Types of types of tensors
 
@@ -83,6 +81,12 @@ instance IfDifferentiable Float where
 
 -- * Type families that tensors will belong to
 
+-- This is used only in indexing and similar contexts.
+-- If used as size or shape, it would give more expressiveness,
+-- but would lead to irregular tensors, especially after vectorization,
+-- and would prevent statically known shapes.
+type IntOf (f :: TensorType ty) = RankedOf (PrimalOf f) Int64 0
+
 -- ty is intended to be Nat or [Nat] (or nothing, if we support scalars)
 type family RankedOf (f :: TensorType ty) :: RankedTensorType
 
@@ -107,35 +111,6 @@ type family DualOf (f :: TensorType ty) :: TensorType ty
 type role DummyDual representational nominal
 type DummyDual :: TensorType ty
 data DummyDual r (y :: ty) = DummyDual
-
-
--- * Generic types of integer indexes used in tensor operations
-
--- This is used only in indexing and similar contexts.
--- If used as size or shape, it would give more expressiveness,
--- but would lead to irregular tensors, especially after vectorization,
--- and would prevent statically known shapes.
-type IntOf (f :: TensorType ty) = RankedOf (PrimalOf f) Int64 0
-
--- | Thanks to the OverloadedLists mechanism, values of this type can be
--- written using the normal list notation. However, such values, if not
--- explicitly typed, do not inform the compiler about the length
--- of the list until runtime. That means that some errors are hidden
--- and also extra type applications may be needed to satisfy the compiler.
--- Therefore, there is a real trade-off between @[2]@ and @(2 :.: ZIR).
-type IndexOf (f :: TensorType ty) n = Index n (IntOf f)
-
--- TODO: ensure this is checked (runtime-checked, if necessary):
--- | The value of this type has to be positive and less than the @n@ bound.
--- If the values are terms, this is relative to environment
--- and up to evaluation.
-type IntSh (f :: TensorType ty) (n :: Nat) = ShapedNat n (IntOf f)
-
--- TODO: ensure this is checked (runtime-checked, if necessary):
--- | The values of this type are bounded by the shape.
--- If the values are terms, this is relative to environment
--- and up to evaluation.
-type IndexSh (f :: TensorType ty) (sh :: [Nat]) = IndexS sh (IntOf f)
 
 
 -- * Generic types of booleans and related class definitions
@@ -184,3 +159,22 @@ sNatValue = fromInteger . fromSNat
 
 proxyFromSNat :: SNat n -> Proxy n
 proxyFromSNat SNat = Proxy
+
+
+-- * Definitions for type-level list shapes
+
+-- Below, copied with modification from ox-arrays.
+
+-- | The shape of a shape-typed array given as a list of 'SNat' values.
+type role SShape nominal
+data SShape sh where
+  ShNil :: SShape '[]
+  ShCons :: Sh.Shape sh => SNat n -> SShape sh -> SShape (n : sh)
+deriving instance Show (SShape sh)
+infixr 5 `ShCons`
+
+-- | A statically-known shape of a shape-typed array.
+class KnownShape sh where knownShape :: SShape sh
+instance KnownShape '[] where knownShape = ShNil
+instance (KnownNat n, KnownShape sh, Sh.Shape sh)
+         => KnownShape (n : sh) where knownShape = ShCons natSing knownShape

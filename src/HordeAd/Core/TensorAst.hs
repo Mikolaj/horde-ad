@@ -45,6 +45,7 @@ import           HordeAd.Core.TensorADVal (unADValHVector)
 import           HordeAd.Core.TensorClass
 import           HordeAd.Core.TensorConcrete ()
 import           HordeAd.Core.Types
+import           HordeAd.Util.ShapedList (IntSh)
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedList
 

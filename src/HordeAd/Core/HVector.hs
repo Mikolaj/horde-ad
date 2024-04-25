@@ -220,13 +220,13 @@ index1HVectorF :: ( shaped ~ ShapedOf ranked
                => (forall r n. (GoodScalar r, KnownNat n)
                    => ranked r n -> ShapeInt n)
                -> (forall sh r. (GoodScalar r, Sh.Shape sh)
-                   => shaped r sh -> ShapedList.SShape sh)
+                   => shaped r sh -> SShape sh)
                -> (forall r m n. (GoodScalar r, KnownNat m, KnownNat n)
                    => ranked r (m + n) -> IndexOf ranked m -> ranked r n)
                -> (forall r sh1 sh2.
                    ( GoodScalar r, Sh.Shape sh1, Sh.Shape sh2
                    , Sh.Shape (sh1 Sh.++ sh2) )
-                   => shaped r (sh1 Sh.++ sh2) -> IndexSh shaped sh1
+                   => shaped r (sh1 Sh.++ sh2) -> ShapedList.IndexSh shaped sh1
                    -> shaped r sh2)
                -> HVector ranked -> IntOf ranked -> HVector ranked
 {-# INLINE index1HVectorF #-}
@@ -238,13 +238,13 @@ index1DynamicF :: ( shaped ~ ShapedOf ranked
                => (forall r n. (GoodScalar r, KnownNat n)
                    => ranked r n -> ShapeInt n)
                -> (forall sh r. (GoodScalar r, Sh.Shape sh)
-                   => shaped r sh -> ShapedList.SShape sh)
+                   => shaped r sh -> SShape sh)
                -> (forall r m n. (GoodScalar r, KnownNat m, KnownNat n)
                    => ranked r (m + n) -> IndexOf ranked m -> ranked r n)
                -> (forall r sh1 sh2.
                    ( GoodScalar r, Sh.Shape sh1, Sh.Shape sh2
                    , Sh.Shape (sh1 Sh.++ sh2) )
-                   => shaped r (sh1 Sh.++ sh2) -> IndexSh shaped sh1
+                   => shaped r (sh1 Sh.++ sh2) -> ShapedList.IndexSh shaped sh1
                    -> shaped r sh2)
                -> DynamicTensor ranked -> IntOf ranked -> DynamicTensor ranked
 {-# INLINE index1DynamicF #-}
@@ -253,15 +253,15 @@ index1DynamicF rshape sshape rindex sindex u i = case u of
     ZSR -> error "index1Dynamic: rank 0"
     _ :$: _ -> DynamicRanked $ rindex t (singletonIndex i)
   DynamicShaped t -> case sshape t of
-    ShapedList.ShNil -> error "index1Dynamic: rank 0"
-    ShapedList.ShCons SNat _ ->
+    ShNil -> error "index1Dynamic: rank 0"
+    ShCons SNat _ ->
       DynamicShaped $ sindex t (ShapedList.singletonIndex i)
   DynamicRankedDummy @r @sh p1 _ -> case ShapedList.shapeIntSFromT @sh of
-    ShapedList.ShNil -> error "index1Dynamic: rank 0"
-    ShapedList.ShCons @sh2 _ _ -> DynamicRankedDummy @r @sh2 p1 Proxy
+    ShNil -> error "index1Dynamic: rank 0"
+    ShCons @sh2 _ _ -> DynamicRankedDummy @r @sh2 p1 Proxy
   DynamicShapedDummy @r @sh p1 _ -> case ShapedList.shapeIntSFromT @sh of
-    ShapedList.ShNil -> error "index1Dynamic: rank 0"
-    ShapedList.ShCons @sh2 _ _ -> DynamicShapedDummy @r @sh2 p1 Proxy
+    ShNil -> error "index1Dynamic: rank 0"
+    ShCons @sh2 _ _ -> DynamicShapedDummy @r @sh2 p1 Proxy
 
 replicate1HVectorF :: shaped ~ ShapedOf ranked
                    => (forall r n. (GoodScalar r, KnownNat n)

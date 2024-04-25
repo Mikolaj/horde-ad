@@ -24,6 +24,7 @@ import           Unsafe.Coerce (unsafeCoerce)
 import           HordeAd.Core.TensorClass
 import           HordeAd.Core.Types
 import           HordeAd.External.CommonRankedOps
+import           HordeAd.Util.ShapedList (IndexSh, IntSh)
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedList
 

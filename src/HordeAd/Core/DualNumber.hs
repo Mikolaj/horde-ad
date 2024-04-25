@@ -32,6 +32,7 @@ import           HordeAd.Core.IsPrimal
 import           HordeAd.Core.TensorClass
 import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances (sameShape)
+import           HordeAd.Util.ShapedList (IndexSh)
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedList
 

@@ -74,7 +74,7 @@ import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.Internal.OrthotopeOrphanInstances
   (sameShape, trustMeThisIsAPermutation)
-import HordeAd.Util.ShapedList (pattern (:.$), pattern ZIS)
+import HordeAd.Util.ShapedList (IndexSh, pattern (:.$), pattern ZIS)
 import HordeAd.Util.SizedList
 
 -- * Reverse and forward derivative computation for HVectorPseudoTensor

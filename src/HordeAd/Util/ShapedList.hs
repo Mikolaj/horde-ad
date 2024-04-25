@@ -6,7 +6,8 @@
 -- tensor shapes and tensor indexes.
 module HordeAd.Util.ShapedList
   ( -- * Shaped lists (sized, where size is shape) and their permutations
-    SizedListS(..)
+    IntSh, IndexSh
+  , SizedListS(..)
   , consShaped, unconsContShaped
   , singletonSized, snocSized, appendSized
   , headSized, tailSized, takeSized, dropSized, splitAt_Sized
@@ -28,9 +29,10 @@ module HordeAd.Util.ShapedList
   , ShapeS, pattern (:$$), pattern ZSS, ShapeIntS
   , ShapedNat, shapedNat, unShapedNat
   , listToShape, shapeToList
-  , SShape(..), KnownShape(..), shapeIntSFromT
     -- * Operations involving both indexes and shapes
   , toLinearIdx, fromLinearIdx
+
+  , shapeIntSFromT  -- TODO: remove
   ) where
 
 import Prelude
@@ -41,22 +43,38 @@ import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality (gcastWith, (:~:) (Refl))
 import           GHC.Exts (IsList (..))
 import           GHC.TypeLits
-  ( KnownNat
-  , Nat
-  , SNat
-  , SomeNat (..)
-  , fromSNat
-  , natSing
-  , pattern SNat
-  , someNatVal
-  , type (*)
-  )
+  (KnownNat, Nat, SomeNat (..), fromSNat, natSing, someNatVal, type (*))
 import           Unsafe.Coerce (unsafeCoerce)
 
+import           HordeAd.Core.Types
 import           HordeAd.Util.SizedList (Permutation)
 import qualified HordeAd.Util.SizedList as SizedList
 
+-- This creates a singleton for a shape. The integers inside are equal
+-- to the type-level dimensions.
+shapeIntSFromT :: forall sh. Sh.Shape sh => SShape sh
+shapeIntSFromT = lToSShape $ listToSized $ Sh.shapeT @sh
+ where
+  lToSShape :: SizedListS sh' Int -> SShape sh'
+  lToSShape = \case
+    ZS -> ShNil
+    _k ::$ l -> ShCons natSing (lToSShape l)
+
+
 -- * Shaped lists and their permutations
+
+-- TODO: ensure this is checked (runtime-checked, if necessary):
+-- | The value of this type has to be positive and less than the @n@ bound.
+-- If the values are terms, this is relative to environment
+-- and up to evaluation.
+type IntSh (f :: TensorType ty) (n :: Nat) = ShapedNat n (IntOf f)
+
+-- TODO: ensure this is checked (runtime-checked, if necessary):
+-- | The values of this type are bounded by the shape.
+-- If the values are terms, this is relative to environment
+-- and up to evaluation.
+type IndexSh (f :: TensorType ty) (sh :: [Nat]) = IndexS sh (IntOf f)
+
 
 -- | Strict lists indexed by shapes, that is, lists of the GHC @Nat@.
 infixr 3 ::$
@@ -392,32 +410,6 @@ listToShape = ShapeS . listToSized
 
 shapeToList :: ShapeS sh i -> [i]
 shapeToList (ShapeS l) = sizedToList l
-
--- Below, copied with modification from ox-arrays.
-
--- | The shape of a shape-typed array given as a list of 'SNat' values.
-type role SShape nominal
-data SShape sh where
-  ShNil :: SShape '[]
-  ShCons :: Sh.Shape sh => SNat n -> SShape sh -> SShape (n : sh)
-deriving instance Show (SShape sh)
-infixr 5 `ShCons`
-
--- | A statically-known shape of a shape-typed array.
-class KnownShape sh where knownShape :: SShape sh
-instance KnownShape '[] where knownShape = ShNil
-instance (KnownNat n, KnownShape sh, Sh.Shape sh)
-         => KnownShape (n : sh) where knownShape = ShCons natSing knownShape
-
--- This creates a singleton for a shape. The integers inside are equal
--- to the type-level dimensions.
-shapeIntSFromT :: forall sh. Sh.Shape sh => SShape sh
-shapeIntSFromT = lToSShape $ listToSized $ Sh.shapeT @sh
- where
-  lToSShape :: SizedListS sh' Int -> SShape sh'
-  lToSShape = \case
-    ZS -> ShNil
-    _k ::$ l -> ShCons natSing (lToSShape l)
 
 
 -- * Operations involving both indexes and shapes
