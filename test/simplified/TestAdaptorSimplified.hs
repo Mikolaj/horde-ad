@@ -1520,12 +1520,12 @@ testBarReluMax3CFwd =
                      (Flip $ OR.fromList [2, 1, 2] [0.1, 0.2, 0.3, 0.42]))
 
 reluMaxS :: forall shaped sh r.
-            (ADReadyS shaped, GoodScalar r, Sh.Shape sh, KnownNat (Sh.Rank sh))
+            (ADReadyS shaped, GoodScalar r, KnownShape sh, KnownNat (Sh.Rank sh))
          => shaped r sh -> shaped r sh
 reluMaxS = smap0N (maxF 0)
 
 barReluMaxS
-  :: ( ADReadyS shaped, GoodScalar r, Sh.Shape sh, KnownNat (Sh.Rank sh)
+  :: ( ADReadyS shaped, GoodScalar r, KnownShape sh, KnownNat (Sh.Rank sh)
      , RealFloat (shaped r sh) )
   => shaped r sh -> shaped r sh
 barReluMaxS x = reluMaxS $ bar (x, reluMaxS x)

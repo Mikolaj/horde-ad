@@ -13,7 +13,6 @@ import Prelude
 
 import           Control.Arrow (second)
 import           Data.Array.Internal (valueOf)
-import qualified Data.Array.Shape as Sh
 import qualified Data.EnumMap.Strict as EM
 import           Data.List (mapAccumR)
 import           Data.Maybe (fromMaybe)
@@ -57,14 +56,14 @@ simplifyInlineAst =
   => AstRanked s Double n -> AstRanked s Double n #-}
 
 simplifyInlineAstS
-  :: (GoodScalar r, Sh.Shape sh, AstSpan s)
+  :: (GoodScalar r, KnownShape sh, AstSpan s)
   => AstShaped s r sh -> AstShaped s r sh
 simplifyInlineAstS =
   snd . inlineAstS EM.empty
   . simplifyAstS . expandAstS
   . snd . inlineAstS EM.empty . simplifyAstS
 {-# SPECIALIZE simplifyInlineAstS
-  :: (Sh.Shape sh, AstSpan s)
+  :: (KnownShape sh, AstSpan s)
   => AstShaped s Double sh -> AstShaped s Double sh #-}
 
 simplifyInlineHVector
@@ -218,7 +217,7 @@ inlineAst memo v0 = case v0 of
     in (memo2, Ast.AstD t1 t2)
 
 inlineAstS
-  :: forall sh s r. (GoodScalar r, Sh.Shape sh, AstSpan s)
+  :: forall sh s r. (GoodScalar r, KnownShape sh, AstSpan s)
   => AstMemo
   -> AstShaped s r sh -> (AstMemo, AstShaped s r sh)
 inlineAstS memo v0 = case v0 of
@@ -290,7 +289,7 @@ inlineAstS memo v0 = case v0 of
     let (memo1, v2) = inlineAstS memo v
         (memoI0, ix2) = mapAccumR inlineAst EM.empty
                                   (ShapedList.indexToList ix)
-        count = Sh.sizeT @sh
+        count = sizeT @sh
         memo2 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1 memoI0
     in (memo2, Ast.AstScatterS @sh2 @p v2 (vars, ShapedList.listToIndex ix2))
   Ast.AstFromVectorS l ->
@@ -315,7 +314,7 @@ inlineAstS memo v0 = case v0 of
     let (memo1, v2) = inlineAstS memo v
         (memoI0, ix2) = mapAccumR inlineAst EM.empty
                                   (ShapedList.indexToList ix)
-        count = Sh.sizeT @sh
+        count = sizeT @sh
         memo2 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1 memoI0
     in (memo2, Ast.AstGatherS @sh2 @p v2 (vars, ShapedList.listToIndex ix2))
   Ast.AstCastS v -> second Ast.AstCastS $ inlineAstS memo v
@@ -605,7 +604,7 @@ shareAst memo v0 = case v0 of
     in (memo2, Ast.AstD t1 t2)
 
 shareAstS
-  :: forall sh s r. (GoodScalar r, Sh.Shape sh, AstSpan s)
+  :: forall sh s r. (GoodScalar r, KnownShape sh, AstSpan s)
   => ShareMemo -> AstShaped s r sh -> (ShareMemo, AstShaped s r sh)
 shareAstS memo v0 = case v0 of
   Ast.AstVarS{} -> (memo, v0)

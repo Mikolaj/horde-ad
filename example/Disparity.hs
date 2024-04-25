@@ -75,7 +75,7 @@ testCostVolume
 -- | Generate an array of random values for testing.
 random
  :: forall sh a
- .  (Num a, R.UniformRange a, Storable a, Sh.Shape sh)
+ .  (Num a, R.UniformRange a, Storable a, KnownShape sh)
  => Int -> OS.Array sh a
 random seed
  = let  xs = OS.fromList

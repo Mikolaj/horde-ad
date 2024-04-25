@@ -485,13 +485,13 @@ withListShape shList f =
 
 -- All three shape representations denote the same shape.
 withListSh
-  :: Sh.Shape sh
+  :: KnownShape sh
   => Proxy sh
   -> (forall n. (KnownNat n, Sh.Rank sh ~ n)
       => ShapeInt n -> a)
   -> a
 withListSh (Proxy @sh) f =
-  let shList = Sh.shapeT @sh
+  let shList = shapeT @sh
   in case someNatVal $ toInteger (length shList) of
     Just (SomeNat @n _) ->
       gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: n) $

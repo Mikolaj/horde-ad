@@ -22,7 +22,6 @@ module HordeAd.Core.IsPrimal
 import Prelude
 
 import qualified Data.Array.RankedS as OR
-import qualified Data.Array.Shape as Sh
 import           Data.IORef.Unboxed
   (Counter, atomicAddCounter_, newCounter, writeIORefU)
 import           Data.Kind (Constraint, Type)
@@ -110,7 +109,7 @@ instance (GoodScalar r, KnownNat n, RankedTensor ranked)
     ShareR{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDeltaR d
 
-instance (GoodScalar r, Sh.Shape sh, ShapedTensor shaped)
+instance (GoodScalar r, KnownShape sh, ShapedTensor shaped)
          => IsPrimal @[Nat] shaped r sh where
   dZeroOfShape _tsh = ZeroS
   dScale _ ZeroS = ZeroS

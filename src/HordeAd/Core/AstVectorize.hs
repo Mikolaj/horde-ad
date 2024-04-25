@@ -343,13 +343,13 @@ build1VIndex k (var, v0, ix@(_ :.: _)) =
 --
 -- This abbreviation is used a lot below.
 astTrS :: forall n m sh s r.
-          (KnownNat n, KnownNat m, Sh.Shape sh, GoodScalar r, AstSpan s)
+          (KnownNat n, KnownNat m, KnownShape sh, GoodScalar r, AstSpan s)
        => AstShaped s r (n ': m ': sh) -> AstShaped s r (m ': n ': sh)
 astTrS = withListSh (Proxy @sh) $ \_ -> astTransposeS @'[1, 0]
 
 -- | This works analogously to @build1Vectorize@m.
 build1VectorizeS
-  :: forall k sh s r. (GoodScalar r, KnownNat k, Sh.Shape sh, AstSpan s)
+  :: forall k sh s r. (GoodScalar r, KnownNat k, KnownShape sh, AstSpan s)
   => (IntVarName, AstShaped s r sh) -> AstShaped s r (k ': sh)
 {-# NOINLINE build1VectorizeS #-}
 build1VectorizeS (var, v0) = unsafePerformIO $ do
@@ -374,7 +374,7 @@ build1VectorizeS (var, v0) = unsafePerformIO $ do
   return endTerm
 
 build1VOccurenceUnknownS
-  :: forall k sh s r. (GoodScalar r, KnownNat k, Sh.Shape sh, AstSpan s)
+  :: forall k sh s r. (GoodScalar r, KnownNat k, KnownShape sh, AstSpan s)
   => (IntVarName, AstShaped s r sh) -> AstShaped s r (k ': sh)
 build1VOccurenceUnknownS (var, v0) =
   let traceRule = mkTraceRuleS "build1VOccS" (Ast.AstBuild1S (var, v0)) v0 1
@@ -384,7 +384,7 @@ build1VOccurenceUnknownS (var, v0) =
        astReplicateS v0
 
 build1VOccurenceUnknownRefreshS
-  :: forall k sh s r. (GoodScalar r, KnownNat k, Sh.Shape sh, AstSpan s)
+  :: forall k sh s r. (GoodScalar r, KnownNat k, KnownShape sh, AstSpan s)
   => (IntVarName, AstShaped s r sh) -> AstShaped s r (k ': sh)
 {-# NOINLINE build1VOccurenceUnknownRefreshS #-}
 build1VOccurenceUnknownRefreshS (var, v0) =
@@ -405,7 +405,7 @@ intBindingRefreshS var ix =
     in (varFresh, astVarFresh, ix2)
 
 build1VS
-  :: forall k sh s r. (GoodScalar r, KnownNat k, Sh.Shape sh, AstSpan s)
+  :: forall k sh s r. (GoodScalar r, KnownNat k, KnownShape sh, AstSpan s)
   => (IntVarName, AstShaped s r sh) -> AstShaped s r (k ': sh)
 build1VS (var, v00) =
   let v0 = astNonIndexStepS v00
@@ -493,8 +493,8 @@ build1VS (var, v00) =
     Ast.AstReverseS v -> traceRule $
       astTrS $ astReverseS $ astTrS $ build1VS (var, v)
     Ast.AstTransposeS @perm @sh1 v -> traceRule $
-      let zsuccPerm = 0 : map succ (Sh.shapeT @perm)
-      in Sh.withShapeP zsuccPerm $ \(Proxy @zsuccP) ->
+      let zsuccPerm = 0 : map succ (shapeT @perm)
+      in withShapeP zsuccPerm $ \(Proxy @zsuccP) ->
         gcastWith (unsafeCoerce Refl :: 0 ': MapSucc perm :~: zsuccP) $
           -- this one is needed for GHC >= 9.8 due to #23763
         gcastWith (unsafeCoerce Refl
@@ -547,8 +547,8 @@ build1VS (var, v00) =
 
 build1VIndexS
   :: forall k p sh s r.
-     ( GoodScalar r, KnownNat k, Sh.Shape sh, Sh.Shape (Sh.Take p sh)
-     , Sh.Shape (Sh.Drop p (Sh.Take p sh Sh.++ Sh.Drop p sh)), AstSpan s )
+     ( GoodScalar r, KnownNat k, KnownShape sh, KnownShape (Sh.Take p sh)
+     , KnownShape (Sh.Drop p (Sh.Take p sh Sh.++ Sh.Drop p sh)), AstSpan s )
   => (IntVarName, AstShaped s r sh, AstIndexS (Sh.Take p sh))
   -> AstShaped s r (k ': Sh.Drop p sh)
 build1VIndexS (var, v0, ZIS) =
@@ -576,7 +576,7 @@ build1VIndexS (var, v0, ix@(_ :.$ _)) =
              ruleD = astGatherStepS @'[k] @(1 + Sh.Rank sh1)
                        (build1VS @k (var, v1))
                        (varFresh ::$ ZS, astVarFresh :.$ ix2)
-             len = length $ Sh.shapeT @sh1
+             len = length $ shapeT @sh1
          in if varNameInAstS var v1
             then case v1 of  -- try to avoid ruleD if not a normal form
               Ast.AstFromVectorS{} | len == 1 -> ruleD
@@ -765,7 +765,7 @@ substProjRanked k var sh1 var1@(AstVarName varId) =
        (SubstitutionPayloadRanked @s1 @r1 projection) var1
 
 substProjShaped :: forall n1 r1 sh r s1 s.
-                   ( KnownNat n1, GoodScalar r1, Sh.Shape sh, GoodScalar r
+                   ( KnownNat n1, GoodScalar r1, KnownShape sh, GoodScalar r
                    , AstSpan s, AstSpan s1 )
                 => Int -> IntVarName -> ShapeInt n1
                 -> AstVarName (AstRanked s1) r1 n1
@@ -779,7 +779,7 @@ substProjShaped k var sh1 var1@(AstVarName varId) =
        (SubstitutionPayloadRanked @s1 @r1 projection) var1
 
 substProjRankedS :: forall k sh1 r1 n r s1 s.
-                    ( KnownNat k, Sh.Shape sh1, GoodScalar r1
+                    ( KnownNat k, KnownShape sh1, GoodScalar r1
                     , KnownNat n, GoodScalar r, AstSpan s, AstSpan s1 )
                  => IntVarName -> AstVarName (AstShaped s1) r1 sh1
                  -> AstRanked s r n -> AstRanked s r n
@@ -792,8 +792,8 @@ substProjRankedS var var1@(AstVarName varId) =
        (SubstitutionPayloadShaped @s1 @r1 projection) var1
 
 substProjShapedS :: forall k sh1 r1 sh r s1 s.
-                    ( KnownNat k, Sh.Shape sh1, GoodScalar r1
-                    , Sh.Shape sh, GoodScalar r, AstSpan s, AstSpan s1 )
+                    ( KnownNat k, KnownShape sh1, GoodScalar r1
+                    , KnownShape sh, GoodScalar r, AstSpan s, AstSpan s1 )
                  => IntVarName -> AstVarName (AstShaped s1) r1 sh1
                  -> AstShaped s r sh -> AstShaped s r sh
 substProjShapedS var var1@(AstVarName varId) =
@@ -818,7 +818,7 @@ substProjHVector k var sh1 var1@(AstVarName varId) =
        (SubstitutionPayloadRanked @s1 @r1 projection) var1
 
 substProjHVectorS :: forall k sh1 r1 s1 s.
-                     ( KnownNat k, Sh.Shape sh1, GoodScalar r1
+                     ( KnownNat k, KnownShape sh1, GoodScalar r1
                      , AstSpan s, AstSpan s1 )
                   => IntVarName -> AstVarName (AstShaped s1) r1 sh1
                   -> AstHVector s -> AstHVector s
@@ -848,7 +848,7 @@ substProjDynamic var v3 (AstDynamicVarName @ty @r3 @sh3 varId)
 substProjDynamic _ _ _ = error "substProjDynamic: unexpected type"
 
 substProjDynamicS :: forall k sh r s.
-                     (KnownNat k, Sh.Shape sh, GoodScalar r, AstSpan s)
+                     (KnownNat k, KnownShape sh, GoodScalar r, AstSpan s)
                   => IntVarName -> AstShaped s r sh
                   -> AstDynamicVarName
                   -> (AstShaped s r sh, AstDynamicVarName)
@@ -872,7 +872,7 @@ substProjVars :: forall k n r s.
 substProjVars var vars v3 = mapAccumR (substProjDynamic @k var) v3 vars
 
 substProjVarsS :: forall k sh r s.
-                  (KnownNat k, Sh.Shape sh, GoodScalar r, AstSpan s)
+                  (KnownNat k, KnownShape sh, GoodScalar r, AstSpan s)
                => IntVarName -> [AstDynamicVarName]
                -> AstShaped s r sh
                -> (AstShaped s r sh, [AstDynamicVarName])
@@ -908,11 +908,11 @@ astTrDynamic t@(DynamicRanked @_ @n1 u) =
     LTI -> DynamicRanked $ astTr @(n1 - 2) u
     _ -> t
 astTrDynamic t@(DynamicShaped @_ @sh u) =
-  let sh1 = Sh.shapeT @sh
+  let sh1 = shapeT @sh
       permute10 (m0 : m1 : ms) = m1 : m0 : ms
       permute10 ms = ms
       sh1Permuted = permute10 sh1
-  in Sh.withShapeP sh1Permuted $ \(Proxy @shPermuted) ->
+  in withShapeP sh1Permuted $ \(Proxy @shPermuted) ->
        withListSh (Proxy @sh) $ \_ ->
          case cmpNat (Proxy @2) (Proxy @(Sh.Rank sh)) of
            EQI -> case astTransposeS @'[1, 0] u of
@@ -927,14 +927,14 @@ astTrDynamic t@(DynamicShaped @_ @sh u) =
 astTrDynamic (DynamicRankedDummy p1 (Proxy @sh1)) =
   let permute10 (m0 : m1 : ms) = m1 : m0 : ms
       permute10 ms = ms
-      sh1Permuted = permute10 $ Sh.shapeT @sh1
-  in Sh.withShapeP sh1Permuted $ \proxy ->
+      sh1Permuted = permute10 $ shapeT @sh1
+  in withShapeP sh1Permuted $ \proxy ->
        DynamicRankedDummy p1 proxy
 astTrDynamic (DynamicShapedDummy p1 (Proxy @sh1)) =
   let permute10 (m0 : m1 : ms) = m1 : m0 : ms
       permute10 ms = ms
-      sh1Permuted = permute10 $ Sh.shapeT @sh1
-  in Sh.withShapeP sh1Permuted $ \proxy ->
+      sh1Permuted = permute10 $ shapeT @sh1
+  in withShapeP sh1Permuted $ \proxy ->
        DynamicShapedDummy p1 proxy
 
 astTrAstHVector :: forall s. AstSpan s
@@ -1012,7 +1012,7 @@ mkTraceRule prefix from caseAnalysed nwords to = unsafePerformIO $ do
   return $! to
 
 mkTraceRuleS :: forall sh sh2 s r.
-                (GoodScalar r, Sh.Shape sh, Sh.Shape sh2, AstSpan s)
+                (GoodScalar r, KnownShape sh, KnownShape sh2, AstSpan s)
              => String -> AstShaped s r sh -> AstShaped s r sh2 -> Int
              -> AstShaped s r sh -> AstShaped s r sh
 {-# NOINLINE mkTraceRuleS #-}

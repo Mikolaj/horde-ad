@@ -11,7 +11,6 @@ module EqEpsilon
 import Prelude
 
 import qualified Data.Array.RankedS as OR
-import qualified Data.Array.Shape as Sh
 import qualified Data.Array.ShapedS as OS
 import           Data.Int (Int64)
 import           Data.IORef
@@ -21,6 +20,7 @@ import           System.IO.Unsafe
 import           Test.Tasty.HUnit
 import           Test.Tasty.Options
 
+import HordeAd.Core.Types
 import Shared
 
 newtype EqEpsilon = EqEpsilon Rational
@@ -313,7 +313,7 @@ instance (AssertEqualUpToEpsilon a,
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e9  a9 >>
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e10 a10
 
-instance (VS.Storable a, Sh.Shape sh1, AssertEqualUpToEpsilon a)
+instance (VS.Storable a, KnownShape sh1, AssertEqualUpToEpsilon a)
          => AssertEqualUpToEpsilon (OS.Array sh1 a) where
   assertEqualUpToEpsilonWithMsg msg eqEpsilon expected actual =
     assert_list (assertEqualUpToEpsilonWithMsg msg eqEpsilon)

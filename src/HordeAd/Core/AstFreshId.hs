@@ -18,7 +18,6 @@ import Prelude
 
 import           Control.Monad (mapAndUnzipM, replicateM)
 import           Data.Array.Internal (valueOf)
-import qualified Data.Array.Shape as Sh
 import           Data.IORef.Unboxed
   (Counter, atomicAddCounter_, newCounter, writeIORefU)
 import           Data.List (unzip4, unzip6)
@@ -77,7 +76,7 @@ funToAstIOR :: forall n m s r r2. GoodScalar r
 {-# INLINE funToAstIOR #-}
 funToAstIOR sh f = do
   freshId <- unsafeGetFreshAstVarId
-  return $! Sh.withShapeP (shapeToList sh) $ \(Proxy @p_sh) ->
+  return $! withShapeP (shapeToList sh) $ \(Proxy @p_sh) ->
     let varName = AstVarName freshId
         !x = f (AstVar sh varName)
     in (varName, AstDynamicVarName @Nat @r @p_sh freshId, x)
@@ -90,7 +89,7 @@ funToAstR sh f = unsafePerformIO $ do
   (!var, _, !ast) <- funToAstIOR sh f
   return (var, ast)
 
-funToAstIOS :: forall sh sh2 s r r2. (Sh.Shape sh, GoodScalar r)
+funToAstIOS :: forall sh sh2 s r r2. (KnownShape sh, GoodScalar r)
             => (AstShaped s r sh -> AstShaped s r2 sh2)
             -> IO ( AstVarName (AstShaped s) r sh
                   , AstDynamicVarName
@@ -102,7 +101,7 @@ funToAstIOS f = do
       !x = f (AstVarS varName)
   return (varName, AstDynamicVarName @[Nat] @r @sh freshId, x)
 
-funToAstS :: forall sh sh2 s r r2. (Sh.Shape sh, GoodScalar r)
+funToAstS :: forall sh sh2 s r r2. (KnownShape sh, GoodScalar r)
           => (AstShaped s r sh -> AstShaped s r2 sh2)
           -> (AstVarName (AstShaped s) r sh, AstShaped s r2 sh2)
 {-# NOINLINE funToAstS #-}
@@ -355,24 +354,24 @@ funToAstIndex f = unsafePerformIO . funToVarsIxIO (valueOf @m)
                   $ \ (!vars, !ix) -> let !x = f ix in (vars, x)
 
 funToVarsIxIOS
-  :: forall sh a. Sh.Shape sh
+  :: forall sh a. KnownShape sh
   => ((AstVarListS sh, AstIndexS sh) -> a) -> IO a
 {-# INLINE funToVarsIxIOS #-}
 funToVarsIxIOS f = do
-  let p = length $ Sh.shapeT @sh
+  let p = length $ shapeT @sh
   varList <- replicateM p unsafeGetFreshAstVarName
   let !vars = ShapedList.listToSized varList
       !ix = ShapedList.listToIndex $ map AstIntVar varList
   return $! f (vars, ix)
 
 funToVarsIxS
-  :: Sh.Shape sh
+  :: KnownShape sh
   => ((AstVarListS sh, AstIndexS sh) -> a) -> a
 {-# NOINLINE funToVarsIxS #-}
 funToVarsIxS = unsafePerformIO . funToVarsIxIOS
 
 funToAstIndexS
-  :: Sh.Shape sh
+  :: KnownShape sh
   => (AstIndexS sh -> AstIndexS sh2) -> (AstVarListS sh, AstIndexS sh2)
 {-# NOINLINE funToAstIndexS #-}
 funToAstIndexS f = unsafePerformIO $ funToVarsIxIOS

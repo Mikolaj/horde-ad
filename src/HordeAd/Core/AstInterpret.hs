@@ -136,7 +136,7 @@ interpretAst !env = \case
                    (valueOf @n :: Int, valueOf @n2 :: Int, varId, t, env)
     Just (AstEnvElemShaped @_ @sh2 t) ->
       error $ "interpretAst: wrong tensor kind in environment"
-              `showFailure` (sh, Sh.shapeT @sh2, varId, t, env)
+              `showFailure` (sh, shapeT @sh2, varId, t, env)
     _ -> error $ "interpretAst: unknown variable " ++ show varId
                  ++ " in environment " ++ show env
   AstLet var u v ->
@@ -459,7 +459,7 @@ interpretAst !env = \case
 
 interpretAstPrimalSRuntimeSpecialized
   :: forall ranked sh r.
-     (Sh.Shape sh, ADReady ranked, Typeable r)
+     (KnownShape sh, ADReady ranked, Typeable r)
   => AstEnv ranked
   -> AstShaped PrimalSpan r sh -> PrimalOf (ShapedOf ranked) r sh
 interpretAstPrimalSRuntimeSpecialized !env t =
@@ -475,7 +475,7 @@ interpretAstPrimalSRuntimeSpecialized !env t =
 
 interpretAstPrimalS
   :: forall ranked sh r.
-     (Sh.Shape sh, ADReady ranked, GoodScalar r)
+     (KnownShape sh, ADReady ranked, GoodScalar r)
   => AstEnv ranked
   -> AstShaped PrimalSpan r sh -> PrimalOf (ShapedOf ranked) r sh
 interpretAstPrimalS !env v1 = case v1 of
@@ -491,7 +491,7 @@ interpretAstPrimalS !env v1 = case v1 of
 
 interpretAstDualS
   :: forall ranked sh r.
-     (Sh.Shape sh, ADReady ranked, GoodScalar r)
+     (KnownShape sh, ADReady ranked, GoodScalar r)
   => AstEnv ranked
   -> AstShaped DualSpan r sh -> DualOf (ShapedOf ranked) r sh
 interpretAstDualS !env v1 = case v1 of
@@ -501,7 +501,7 @@ interpretAstDualS !env v1 = case v1 of
 
 interpretAstSRuntimeSpecialized
   :: forall ranked sh s r.
-     (Sh.Shape sh, ADReady ranked, Typeable r, AstSpan s)
+     (KnownShape sh, ADReady ranked, Typeable r, AstSpan s)
   => AstEnv ranked
   -> AstShaped s r sh -> ShapedOf ranked r sh
 interpretAstSRuntimeSpecialized !env t =
@@ -517,7 +517,7 @@ interpretAstSRuntimeSpecialized !env t =
 
 interpretAstS
   :: forall ranked sh s r shaped.
-     ( Sh.Shape sh, ADReady ranked, GoodScalar r, AstSpan s
+     ( KnownShape sh, ADReady ranked, GoodScalar r, AstSpan s
      , shaped ~ ShapedOf ranked )
   => AstEnv ranked
   -> AstShaped s r sh -> shaped r sh
@@ -529,7 +529,7 @@ interpretAstS !env = \case
         _ -> error "interpretAstS: scalar mismatch"
       Nothing -> error $ "interpretAstS: wrong shape in environment"
                          `showFailure`
-                         (Sh.shapeT @sh, Sh.shapeT @sh2, varId, t, env)
+                         (shapeT @sh, shapeT @sh2, varId, t, env)
     Just (AstEnvElemRanked _t) ->
       error "interpretAstS: wrong tensor kind in environment"
     _ -> error $ "interpretAstS: unknown variable " ++ show varId

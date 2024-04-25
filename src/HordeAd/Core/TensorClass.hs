@@ -290,7 +290,7 @@ class ( Integral (IntOf ranked), CRanked ranked Num
              => HFunOf ranked
              -> (HFunOf ranked -> ranked r n)
              -> ranked r n
-  rfromS :: (GoodScalar r, Sh.Shape sh)
+  rfromS :: (GoodScalar r, KnownShape sh)
          => ShapedOf ranked r sh -> ranked r (Sh.Rank sh)
   -- Prevents wrong shape in @0@ with ranked (but not shaped) tensors
   -- at any rank greater than zero.
@@ -335,30 +335,30 @@ class ( Integral (IntOf shaped), CShaped shaped Num
       , TensorSupports RealFloat shaped, TensorSupports Integral shaped )
       => ShapedTensor (shaped :: ShapedTensorType) where
 
-  slet :: (Sh.Shape sh, Sh.Shape sh2, GoodScalar r, GoodScalar r2)
+  slet :: (KnownShape sh, KnownShape sh2, GoodScalar r, GoodScalar r2)
        => shaped r sh -> (shaped r sh -> shaped r2 sh2)
        -> shaped r2 sh2
   slet a f = f a
 
   -- Integer codomain
-  sshape :: forall sh r. (GoodScalar r, Sh.Shape sh)
+  sshape :: forall sh r. (GoodScalar r, KnownShape sh)
          => shaped r sh -> SShape sh
-  sshape _ = ShapedList.shapeIntSFromT @sh
+  sshape _ = knownShape @sh
   srank :: forall sh r. (GoodScalar r, KnownNat (Sh.Rank sh))
         => shaped r sh -> Int
   srank _ = valueOf @(Sh.Rank sh)
-  ssize :: forall sh r. (GoodScalar r, Sh.Shape sh) => shaped r sh -> Int
-  ssize _ = Sh.sizeT @sh
+  ssize :: forall sh r. (GoodScalar r, KnownShape sh) => shaped r sh -> Int
+  ssize _ = sizeT @sh
   slength :: forall r n sh. (GoodScalar r, KnownNat n)
           => shaped r (n ': sh) -> Int
   slength _ = valueOf @n
-  sminIndex :: ( GoodScalar r, GoodScalar r2, Sh.Shape sh, KnownNat n
-               , Sh.Shape (Sh.Init (n ': sh)) )  -- partial
+  sminIndex :: ( GoodScalar r, GoodScalar r2, KnownShape sh, KnownNat n
+               , KnownShape (Sh.Init (n ': sh)) )  -- partial
             => shaped r (n ': sh) -> shaped r2 (Sh.Init (n ': sh))
-  smaxIndex :: ( GoodScalar r, GoodScalar r2, Sh.Shape sh, KnownNat n
-               , Sh.Shape (Sh.Init (n ': sh)) )  -- partial
+  smaxIndex :: ( GoodScalar r, GoodScalar r2, KnownShape sh, KnownNat n
+               , KnownShape (Sh.Init (n ': sh)) )  -- partial
             => shaped r (n ': sh) -> shaped r2 (Sh.Init (n ': sh))
-  sfloor :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2, Sh.Shape sh)
+  sfloor :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2, KnownShape sh)
          => shaped r sh -> shaped r2 sh
     -- not IntSh, because the integer can be negative
     -- TODO: shall we make it abs (floor v)?
@@ -369,23 +369,23 @@ class ( Integral (IntOf shaped), CShaped shaped Num
   -- an operation, often a tensor reduction. A number suffix in the name
   -- indicates the rank of the codomain, if bounded.
   sindex, (!$) :: forall r sh1 sh2.
-                  ( GoodScalar r, Sh.Shape sh1, Sh.Shape sh2
-                  , Sh.Shape (sh1 Sh.++ sh2) )
+                  ( GoodScalar r, KnownShape sh1, KnownShape sh2
+                  , KnownShape (sh1 Sh.++ sh2) )
                => shaped r (sh1 Sh.++ sh2) -> IndexSh shaped sh1
                -> shaped r sh2
   infixl 9 !$
   (!$) = sindex  -- prefix form better when type applications are necessary
-  sindex0 :: forall r sh1. (GoodScalar r, Sh.Shape sh1)
+  sindex0 :: forall r sh1. (GoodScalar r, KnownShape sh1)
           => shaped r sh1 -> IndexSh shaped sh1
           -> shaped r '[]
   sindex0 = gcastWith (unsafeCoerce Refl :: sh1 Sh.++ '[] :~: sh1)
               sindex
-  ssum :: forall r n sh. (GoodScalar r, KnownNat n, Sh.Shape sh)
+  ssum :: forall r n sh. (GoodScalar r, KnownNat n, KnownShape sh)
        => shaped r (n ': sh) -> shaped r sh
-  ssum0 :: (GoodScalar r, Sh.Shape sh, KnownNat (Sh.Size sh))
+  ssum0 :: (GoodScalar r, KnownShape sh, KnownNat (Sh.Size sh))
         => shaped r sh -> shaped r '[]
   ssum0 = ssum . sflatten
-  sdot0 :: (GoodScalar r, Sh.Shape sh, KnownNat (Sh.Size sh))
+  sdot0 :: (GoodScalar r, KnownShape sh, KnownNat (Sh.Size sh))
         => shaped r sh -> shaped r sh -> shaped r '[]
   sdot0 t u = ssum (sflatten (t * u))
   smatvecmul :: forall r m n. (GoodScalar r, KnownNat m, KnownNat n)
@@ -398,15 +398,15 @@ class ( Integral (IntOf shaped), CShaped shaped Num
           * stranspose (Proxy @'[1, 0]) (sreplicate @shaped @m m2))
   sscatter
     :: forall r sh2 p sh.
-       ( GoodScalar r, Sh.Shape sh2, Sh.Shape sh, Sh.Shape (Sh.Take p sh)
-       , Sh.Shape (Sh.Drop p sh), Sh.Shape (sh2 Sh.++ Sh.Drop p sh) )
+       ( GoodScalar r, KnownShape sh2, KnownShape sh, KnownShape (Sh.Take p sh)
+       , KnownShape (Sh.Drop p sh), KnownShape (sh2 Sh.++ Sh.Drop p sh) )
     => shaped r (sh2 Sh.++ Sh.Drop p sh)
     -> (IndexSh shaped sh2 -> IndexSh shaped (Sh.Take p sh))
     -> shaped r sh
   sscatter1
     :: forall r n2 p sh.
-       ( GoodScalar r, KnownNat n2, Sh.Shape sh, Sh.Shape (Sh.Take p sh)
-       , Sh.Shape (Sh.Drop p sh) )
+       ( GoodScalar r, KnownNat n2, KnownShape sh, KnownShape (Sh.Take p sh)
+       , KnownShape (Sh.Drop p sh) )
     => shaped r (n2 ': Sh.Drop p sh)
     -> (IntSh shaped n2 -> IndexSh shaped (Sh.Take p sh))
     -> shaped r sh
@@ -415,43 +415,43 @@ class ( Integral (IntOf shaped), CShaped shaped Num
   -- Tensor codomain, often tensor construction, sometimes transformation
   -- (for these, suffix 1 doesn't mean codomain rank 1, but building up
   -- by one rank, and is omitted if a more general variant is not defined).
-  sfromList :: (GoodScalar r, KnownNat n, Sh.Shape sh)
+  sfromList :: (GoodScalar r, KnownNat n, KnownShape sh)
             => [shaped r sh] -> shaped r (n ': sh)
   sfromList = sfromVector . V.fromList
   sfromList0N :: forall r sh.
-                 (GoodScalar r, Sh.Shape sh, KnownNat (Sh.Size sh))
+                 (GoodScalar r, KnownShape sh, KnownNat (Sh.Size sh))
               => [shaped r '[]] -> shaped r sh
   sfromList0N = sfromVector0N . V.fromList
-  sfromVector :: (GoodScalar r, KnownNat n, Sh.Shape sh)
+  sfromVector :: (GoodScalar r, KnownNat n, KnownShape sh)
               => Data.Vector.Vector (shaped r sh) -> shaped r (n ': sh)
   sfromVector0N :: forall r sh.
-                   (GoodScalar r, Sh.Shape sh, KnownNat (Sh.Size sh))
+                   (GoodScalar r, KnownShape sh, KnownNat (Sh.Size sh))
                 => Data.Vector.Vector (shaped r '[])
                 -> shaped r sh
   sfromVector0N = sreshape @shaped @r @'[Sh.Size sh] @sh . sfromVector
   -- | Warning: during computation, sharing between the elements
   -- of the resulting list is likely to be lost, so it needs to be ensured
   -- by explicit sharing, e.g., 'slet'.
-  sunravelToList :: forall r n sh. (GoodScalar r, KnownNat n, Sh.Shape sh)
+  sunravelToList :: forall r n sh. (GoodScalar r, KnownNat n, KnownShape sh)
                  => shaped r (n ': sh) -> [shaped r sh]
   sunravelToList t =
     let f :: Int -> shaped r sh
         f i = sindex t (ShapedList.singletonIndex $ fromIntegral i)
     in map f [0 .. slength t - 1]
-  sreplicate :: (KnownNat n, Sh.Shape sh, GoodScalar r)
+  sreplicate :: (KnownNat n, KnownShape sh, GoodScalar r)
              => shaped r sh -> shaped r (n ': sh)
   sreplicate0N :: forall r sh.
-                  (GoodScalar r, Sh.Shape sh, KnownNat (Sh.Size sh))
+                  (GoodScalar r, KnownShape sh, KnownNat (Sh.Size sh))
                => shaped r '[] -> shaped r sh
   sreplicate0N = sreshape @shaped @r @'[Sh.Size sh] @sh
                  . sreplicate @shaped @(Sh.Size sh)
-  sappend :: (GoodScalar r, KnownNat m, KnownNat n, Sh.Shape sh)
+  sappend :: (GoodScalar r, KnownNat m, KnownNat n, KnownShape sh)
           => shaped r (m ': sh) -> shaped r (n ': sh)
           -> shaped r ((m + n) ': sh)
-  sslice :: (GoodScalar r, KnownNat i, KnownNat n, KnownNat k, Sh.Shape sh)
+  sslice :: (GoodScalar r, KnownNat i, KnownNat n, KnownNat k, KnownShape sh)
          => Proxy i -> Proxy n
          -> shaped r (i + n + k ': sh) -> shaped r (n ': sh)
-  suncons :: forall r n sh. (GoodScalar r, KnownNat n, Sh.Shape sh)
+  suncons :: forall r n sh. (GoodScalar r, KnownNat n, KnownShape sh)
           => shaped r (n ': sh) -> Maybe (shaped r sh, shaped r (n - 1 ': sh))
   suncons v = case cmpNat (Proxy @1) (Proxy @n) of
     EQI -> Just ( v !$ (0 :.$ ZIS)
@@ -459,26 +459,26 @@ class ( Integral (IntOf shaped), CShaped shaped Num
     LTI -> Just ( v !$ (0 :.$ ZIS)
                 , sslice @shaped @r @1 @(n - 1) @0 Proxy Proxy v )
     _ -> Nothing
-  sreverse :: (GoodScalar r, KnownNat n, Sh.Shape sh)
+  sreverse :: (GoodScalar r, KnownNat n, KnownShape sh)
            => shaped r (n ': sh) -> shaped r (n ': sh)
-  str :: ( GoodScalar r, KnownNat n, KnownNat m, Sh.Shape sh
+  str :: ( GoodScalar r, KnownNat n, KnownNat m, KnownShape sh
          , KnownNat (Sh.Rank sh) )
       => shaped r (n ': m ': sh) -> shaped r (m ': n ': sh)
   str = stranspose (Proxy @'[1, 0])
   stranspose :: forall perm r sh.
-                ( OS.Permutation perm, Sh.Shape perm, Sh.Shape sh
-                , KnownNat (Sh.Rank sh), Sh.Shape (Sh.Permute perm sh)
+                ( OS.Permutation perm, KnownShape perm, KnownShape sh
+                , KnownNat (Sh.Rank sh), KnownShape (Sh.Permute perm sh)
                 , Sh.Rank perm <= Sh.Rank sh, GoodScalar r )
              => Proxy perm -> shaped r sh -> shaped r (Sh.Permute perm sh)
-  sflatten :: (GoodScalar r, Sh.Shape sh, KnownNat (Sh.Size sh))
+  sflatten :: (GoodScalar r, KnownShape sh, KnownNat (Sh.Size sh))
            => shaped r sh -> shaped r '[Sh.Size sh]
   sflatten = sreshape
-  sreshape :: ( GoodScalar r, Sh.Shape sh, Sh.Shape sh2
+  sreshape :: ( GoodScalar r, KnownShape sh, KnownShape sh2
               , Sh.Size sh ~ Sh.Size sh2 )
            => shaped r sh -> shaped r sh2
     -- beware that the order of type arguments is different than in orthotope
     -- and than the order of value arguments in the ranked version
-  sbuild :: forall r m sh. (GoodScalar r, Sh.Shape sh, Sh.Shape (Sh.Take m sh))
+  sbuild :: forall r m sh. (GoodScalar r, KnownShape sh, KnownShape (Sh.Take m sh))
          => (IndexSh shaped (Sh.Take m sh) -> shaped r (Sh.Drop m sh))
          -> shaped r sh
   sbuild =
@@ -494,26 +494,26 @@ class ( Integral (IntOf shaped), CShaped shaped Num
             in sbuild1 g
     in gcastWith (unsafeCoerce Refl
                   :: sh :~: Sh.Take m sh Sh.++ Sh.Drop m sh)
-       $ buildSh (ShapedList.shapeIntSFromT @(Sh.Take m sh))
-                 (ShapedList.shapeIntSFromT @sh)
-  sbuild1 :: forall r n sh. (GoodScalar r, KnownNat n, Sh.Shape sh)
+       $ buildSh (knownShape @(Sh.Take m sh))
+                 (knownShape @sh)
+  sbuild1 :: forall r n sh. (GoodScalar r, KnownNat n, KnownShape sh)
           => (IntSh shaped n -> shaped r sh)
           -> shaped r (n ': sh)
   smap :: forall r r2 m sh.
           ( GoodScalar r, GoodScalar r2, KnownNat m
-          , Sh.Shape sh, Sh.Shape (Sh.Take m sh), Sh.Shape (Sh.Drop m sh) )
+          , KnownShape sh, KnownShape (Sh.Take m sh), KnownShape (Sh.Drop m sh) )
        => (shaped r (Sh.Drop m sh) -> shaped r2 (Sh.Drop m sh))
        -> shaped r sh -> shaped r2 sh
   smap f v = gcastWith (unsafeCoerce Refl
                         :: sh :~: Sh.Take m sh Sh.++ Sh.Drop m sh)
              $ sbuild (\ix -> f (v !$ ix))
   smap1 :: forall r r2 sh n.
-           (GoodScalar r, GoodScalar r2, KnownNat n, Sh.Shape sh)
+           (GoodScalar r, GoodScalar r2, KnownNat n, KnownShape sh)
         => (shaped r sh -> shaped r2 sh)
         -> shaped r (n ': sh) -> shaped r2 (n ': sh)
   smap1 f u = sbuild1 (\i -> f (u !$ consIndex i ZIS))
   smap0N :: forall r r2 sh.
-            (GoodScalar r, GoodScalar r2, Sh.Shape sh, KnownNat (Sh.Rank sh))
+            (GoodScalar r, GoodScalar r2, KnownShape sh, KnownNat (Sh.Rank sh))
          => (shaped r '[] -> shaped r2 '[]) -> shaped r sh -> shaped r2 sh
   smap0N f v =
     gcastWith (unsafeCoerce Refl :: Sh.Drop (Sh.Rank sh) sh :~: '[])
@@ -521,9 +521,9 @@ class ( Integral (IntOf shaped), CShaped shaped Num
     $ sbuild @shaped @r2 @(Sh.Rank sh) (f . sindex0 v)
   szipWith :: forall r1 r2 r m sh1 sh2 sh.
               ( GoodScalar r1, GoodScalar r2, GoodScalar r
-              , KnownNat m, Sh.Shape sh1, Sh.Shape sh2, Sh.Shape sh
-              , Sh.Shape (Sh.Take m sh), Sh.Shape (Sh.Drop m sh1)
-              , Sh.Shape (Sh.Drop m sh2), Sh.Shape (Sh.Drop m sh)
+              , KnownNat m, KnownShape sh1, KnownShape sh2, KnownShape sh
+              , KnownShape (Sh.Take m sh), KnownShape (Sh.Drop m sh1)
+              , KnownShape (Sh.Drop m sh2), KnownShape (Sh.Drop m sh)
               , sh1 ~ Sh.Take m sh Sh.++ Sh.Drop m sh1
               , sh2 ~ Sh.Take m sh Sh.++ Sh.Drop m sh2 )
            => (shaped r1 (Sh.Drop m sh1)
@@ -533,7 +533,7 @@ class ( Integral (IntOf shaped), CShaped shaped Num
   szipWith f u v = sbuild (\ix -> f (u !$ ix) (v !$ ix))
   szipWith1 :: forall r1 r2 r n sh1 sh2 sh.
                ( GoodScalar r1, GoodScalar r2, GoodScalar r
-               , KnownNat n, Sh.Shape sh1, Sh.Shape sh2, Sh.Shape sh )
+               , KnownNat n, KnownShape sh1, KnownShape sh2, KnownShape sh )
             => (shaped r1 sh1 -> shaped r2 sh2 -> shaped r sh)
             -> shaped r1 (n ': sh1) -> shaped r2 (n ': sh2)
             -> shaped r (n ': sh)
@@ -541,7 +541,7 @@ class ( Integral (IntOf shaped), CShaped shaped Num
                                      (v !$ consIndex i ZIS))
   szipWith0N :: forall r1 r2 r sh.
                 ( GoodScalar r1, GoodScalar r2, GoodScalar r
-                , Sh.Shape sh, KnownNat (Sh.Rank sh) )
+                , KnownShape sh, KnownNat (Sh.Rank sh) )
              => (shaped r1 '[] -> shaped r2 '[] -> shaped r '[])
              -> shaped r1 sh -> shaped r2 sh -> shaped r sh
   szipWith0N f u v =
@@ -551,10 +551,10 @@ class ( Integral (IntOf shaped), CShaped shaped Num
   szipWith3 :: forall r1 r2 r3 r m sh1 sh2 sh3 sh.
                ( GoodScalar r1, GoodScalar r2, GoodScalar r3, GoodScalar r
                , KnownNat m
-               , Sh.Shape sh1, Sh.Shape sh2, Sh.Shape sh3, Sh.Shape sh
-               , Sh.Shape (Sh.Take m sh), Sh.Shape (Sh.Drop m sh1)
-               , Sh.Shape (Sh.Drop m sh2), Sh.Shape (Sh.Drop m sh3)
-               , Sh.Shape (Sh.Drop m sh)
+               , KnownShape sh1, KnownShape sh2, KnownShape sh3, KnownShape sh
+               , KnownShape (Sh.Take m sh), KnownShape (Sh.Drop m sh1)
+               , KnownShape (Sh.Drop m sh2), KnownShape (Sh.Drop m sh3)
+               , KnownShape (Sh.Drop m sh)
                , sh1 ~ Sh.Take m sh Sh.++ Sh.Drop m sh1
                , sh2 ~ Sh.Take m sh Sh.++ Sh.Drop m sh2
                , sh3 ~ Sh.Take m sh Sh.++ Sh.Drop m sh3 )
@@ -567,7 +567,7 @@ class ( Integral (IntOf shaped), CShaped shaped Num
   szipWith31 :: forall r1 r2 r3 r n sh1 sh2 sh3 sh.
                 ( GoodScalar r1, GoodScalar r2, GoodScalar r3, GoodScalar r
                 , KnownNat n
-                , Sh.Shape sh1, Sh.Shape sh2, Sh.Shape sh3, Sh.Shape sh )
+                , KnownShape sh1, KnownShape sh2, KnownShape sh3, KnownShape sh )
              => (shaped r1 sh1 -> shaped r2 sh2 -> shaped r3 sh3 -> shaped r sh)
              -> shaped r1 (n ': sh1) -> shaped r2 (n ': sh2)
              -> shaped r3 (n ': sh3)
@@ -577,7 +577,7 @@ class ( Integral (IntOf shaped), CShaped shaped Num
                                         (w !$ consIndex i ZIS))
   szipWith30N :: forall r1 r2 r3 r sh.
                  ( GoodScalar r1, GoodScalar r2, GoodScalar r3, GoodScalar r
-                 , Sh.Shape sh, KnownNat (Sh.Rank sh) )
+                 , KnownShape sh, KnownNat (Sh.Rank sh) )
               => (shaped r1 '[] -> shaped r2 '[] -> shaped r3 '[]
                   -> shaped r '[])
               -> shaped r1 sh -> shaped r2 sh -> shaped r3 sh -> shaped r sh
@@ -590,11 +590,11 @@ class ( Integral (IntOf shaped), CShaped shaped Num
   szipWith4 :: forall r1 r2 r3 r4 r m sh1 sh2 sh3 sh4 sh.
                ( GoodScalar r1, GoodScalar r2, GoodScalar r3, GoodScalar r4
                , GoodScalar r, KnownNat m
-               , Sh.Shape sh1, Sh.Shape sh2, Sh.Shape sh3, Sh.Shape sh4
-               , Sh.Shape sh
-               , Sh.Shape (Sh.Take m sh), Sh.Shape (Sh.Drop m sh1)
-               , Sh.Shape (Sh.Drop m sh2), Sh.Shape (Sh.Drop m sh3)
-               , Sh.Shape (Sh.Drop m sh4), Sh.Shape (Sh.Drop m sh)
+               , KnownShape sh1, KnownShape sh2, KnownShape sh3, KnownShape sh4
+               , KnownShape sh
+               , KnownShape (Sh.Take m sh), KnownShape (Sh.Drop m sh1)
+               , KnownShape (Sh.Drop m sh2), KnownShape (Sh.Drop m sh3)
+               , KnownShape (Sh.Drop m sh4), KnownShape (Sh.Drop m sh)
                , sh1 ~ Sh.Take m sh Sh.++ Sh.Drop m sh1
                , sh2 ~ Sh.Take m sh Sh.++ Sh.Drop m sh2
                , sh3 ~ Sh.Take m sh Sh.++ Sh.Drop m sh3
@@ -611,8 +611,8 @@ class ( Integral (IntOf shaped), CShaped shaped Num
   szipWith41 :: forall r1 r2 r3 r4 r n sh1 sh2 sh3 sh4 sh.
                 ( GoodScalar r1, GoodScalar r2, GoodScalar r3, GoodScalar r4
                 , GoodScalar r, KnownNat n
-                , Sh.Shape sh1, Sh.Shape sh2, Sh.Shape sh3, Sh.Shape sh4
-                , Sh.Shape sh )
+                , KnownShape sh1, KnownShape sh2, KnownShape sh3, KnownShape sh4
+                , KnownShape sh )
              => (shaped r1 sh1 -> shaped r2 sh2 -> shaped r3 sh3
                  -> shaped r4 sh4 -> shaped r sh)
              -> shaped r1 (n ': sh1) -> shaped r2 (n ': sh2)
@@ -624,7 +624,7 @@ class ( Integral (IntOf shaped), CShaped shaped Num
                                           (x !$ consIndex i ZIS))
   szipWith40N :: forall r1 r2 r3 r4 r sh.
                  ( GoodScalar r1, GoodScalar r2, GoodScalar r3, GoodScalar r4
-                 , GoodScalar r, Sh.Shape sh, KnownNat (Sh.Rank sh) )
+                 , GoodScalar r, KnownShape sh, KnownNat (Sh.Rank sh) )
               => (shaped r1 '[] -> shaped r2 '[] -> shaped r3 '[]
                   -> shaped r4 '[] -> shaped r '[])
               -> shaped r1 sh -> shaped r2 sh -> shaped r3 sh -> shaped r4 sh
@@ -638,42 +638,42 @@ class ( Integral (IntOf shaped), CShaped shaped Num
                                                 (sindex0 x ix))
   sgather
     :: forall r sh2 p sh.
-       ( GoodScalar r, Sh.Shape sh2, Sh.Shape sh, Sh.Shape (Sh.Take p sh)
-       , Sh.Shape (Sh.Drop p sh), Sh.Shape (sh2 Sh.++ Sh.Drop p sh) )
+       ( GoodScalar r, KnownShape sh2, KnownShape sh, KnownShape (Sh.Take p sh)
+       , KnownShape (Sh.Drop p sh), KnownShape (sh2 Sh.++ Sh.Drop p sh) )
     => shaped r sh
     -> (IndexSh shaped sh2 -> IndexSh shaped (Sh.Take p sh))
     -> shaped r (sh2 Sh.++ Sh.Drop p sh)
   sgather1
     :: forall r n2 p sh.
-       ( GoodScalar r, KnownNat n2, Sh.Shape sh, Sh.Shape (Sh.Take p sh)
-       , Sh.Shape (Sh.Drop p sh) )
+       ( GoodScalar r, KnownNat n2, KnownShape sh, KnownShape (Sh.Take p sh)
+       , KnownShape (Sh.Drop p sh) )
     => shaped r sh
     -> (IntSh shaped n2 -> IndexSh shaped (Sh.Take p sh))
     -> shaped r (n2 ': Sh.Drop p sh)
   sgather1 v f = sgather @shaped @r @'[n2] v (ShapedList.unconsContIndex f)
-  scast :: (RealFrac r1, RealFrac r2, GoodScalar r1, GoodScalar r2, Sh.Shape sh)
+  scast :: (RealFrac r1, RealFrac r2, GoodScalar r1, GoodScalar r2, KnownShape sh)
         => shaped r1 sh -> shaped r2 sh
-  sfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2, Sh.Shape sh)
+  sfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2, KnownShape sh)
                 => shaped r1 sh -> shaped r2 sh
-  sconst :: (GoodScalar r, Sh.Shape sh) => OS.Array sh r -> shaped r sh
-  sletHVectorIn :: (Sh.Shape sh, GoodScalar r)
+  sconst :: (GoodScalar r, KnownShape sh) => OS.Array sh r -> shaped r sh
+  sletHVectorIn :: (KnownShape sh, GoodScalar r)
                 => HVectorOf (RankedOf shaped)
                 -> (HVector (RankedOf shaped) -> shaped r sh)
                 -> shaped r sh
-  sletHFunIn :: (Sh.Shape sh, GoodScalar r)
+  sletHFunIn :: (KnownShape sh, GoodScalar r)
              => HFunOf (RankedOf shaped)
              -> (HFunOf (RankedOf shaped) -> shaped r sh)
              -> shaped r sh
-  sfromR :: (GoodScalar r, Sh.Shape sh, KnownNat (Sh.Rank sh))
+  sfromR :: (GoodScalar r, KnownShape sh, KnownNat (Sh.Rank sh))
          => RankedOf shaped r (Sh.Rank sh) -> shaped r sh
 
   -- ** No serviceable parts beyond this point ** --
 
   sscaleByScalar
-    :: (GoodScalar r, Sh.Shape sh, KnownNat (Sh.Size sh))
+    :: (GoodScalar r, KnownShape sh, KnownNat (Sh.Size sh))
     => shaped r '[] -> shaped r sh -> shaped r sh
   sscaleByScalar s v = v * sreplicate0N s
-  ssumIn :: ( GoodScalar r, Sh.Shape sh, KnownNat n, KnownNat m
+  ssumIn :: ( GoodScalar r, KnownShape sh, KnownNat n, KnownNat m
             , KnownNat (Sh.Rank sh) )
          => shaped r (n ': m ': sh) -> shaped r (n ': sh)
   ssumIn = ssum . str
@@ -682,19 +682,19 @@ class ( Integral (IntOf shaped), CShaped shaped Num
           => shaped r '[n, m] -> shaped r '[n, m] -> shaped r '[n]
   sdot1In t u = ssumIn (t * u)
     -- TODO: generalize, replace by stride analysis, etc.
-  sshare :: Sh.Shape sh => shaped r sh -> shaped r sh
+  sshare :: KnownShape sh => shaped r sh -> shaped r sh
   sshare = id
 
   -- Primal/dual things.
-  sconstant :: (GoodScalar r, Sh.Shape sh)
+  sconstant :: (GoodScalar r, KnownShape sh)
             => PrimalOf shaped r sh -> shaped r sh
-  sprimalPart :: (GoodScalar r, Sh.Shape sh)
+  sprimalPart :: (GoodScalar r, KnownShape sh)
               => shaped r sh -> PrimalOf shaped r sh
-  sdualPart :: (GoodScalar r, Sh.Shape sh)
+  sdualPart :: (GoodScalar r, KnownShape sh)
             => shaped r sh -> DualOf shaped r sh
-  sD :: (GoodScalar r, Sh.Shape sh)
+  sD :: (GoodScalar r, KnownShape sh)
      => PrimalOf shaped r sh -> DualOf shaped r sh -> shaped r sh
-  sScale :: (GoodScalar r, Sh.Shape sh)
+  sScale :: (GoodScalar r, KnownShape sh)
          => PrimalOf shaped r sh -> DualOf shaped r sh -> DualOf shaped r sh
 
 
@@ -734,7 +734,7 @@ class HVectorTensor (ranked :: RankedTensorType)
                 => ranked r n
                 -> (ranked r n -> HVectorOf ranked)
                 -> HVectorOf ranked
-  sletInHVector :: (GoodScalar r, Sh.Shape sh)
+  sletInHVector :: (GoodScalar r, KnownShape sh)
                 => shaped r sh
                 -> (shaped r sh -> HVectorOf ranked)
                 -> HVectorOf ranked
@@ -800,14 +800,14 @@ class HVectorTensor (ranked :: RankedTensorType)
         h = dfwd @ranked shs (HFun g)
     in \es ds -> let hv = dHApply h [ds, es]
                  in rfromD $ dunHVector hv V.! 0
-  srev :: ( GoodScalar r, Sh.Shape sh, shaped ~ ShapedOf ranked
+  srev :: ( GoodScalar r, KnownShape sh, shaped ~ ShapedOf ranked
           , ShapedTensor shaped )
        => (forall f. ADReadyS f => HVector (RankedOf f) -> f r sh)
        -> VoidHVector
        -> HVector ranked
        -> HVectorOf ranked
   srev f shs es = srevDt f shs es 1
-  srevDt :: (GoodScalar r, Sh.Shape sh, shaped ~ ShapedOf ranked)
+  srevDt :: (GoodScalar r, KnownShape sh, shaped ~ ShapedOf ranked)
          => (forall f. ADReadyS f => HVector (RankedOf f) -> f r sh)
          -> VoidHVector
          -> HVector ranked
@@ -819,7 +819,7 @@ class HVectorTensor (ranked :: RankedTensorType)
         g _ = error "g: wrong number of arguments"
         h = drevDt @ranked shs (HFun g)
     in \es dt -> dHApply h [V.singleton $ DynamicShaped dt, es]
-  sfwd :: ( GoodScalar r, Sh.Shape sh, RankedTensor ranked, ShapedTensor shaped
+  sfwd :: ( GoodScalar r, KnownShape sh, RankedTensor ranked, ShapedTensor shaped
           , shaped ~ ShapedOf ranked, ranked ~ RankedOf shaped )
        => (forall f. ADReadyS f => HVector (RankedOf f) -> f r sh)
        -> VoidHVector
@@ -917,7 +917,7 @@ class HVectorTensor (ranked :: RankedTensorType)
   -- | A strict left fold.
   sfold
     :: forall rn rm sh shm k.
-       ( GoodScalar rn, GoodScalar rm, Sh.Shape sh, Sh.Shape shm, KnownNat k
+       ( GoodScalar rn, GoodScalar rm, KnownShape sh, KnownShape shm, KnownNat k
        , ShapedTensor shaped
        , shaped ~ ShapedOf ranked, ranked ~ RankedOf shaped )
     => (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh)
@@ -943,7 +943,7 @@ class HVectorTensor (ranked :: RankedTensorType)
       (\res -> sfromD $ res V.! 0)
   sscan
     :: forall rn rm sh shm k.
-       ( GoodScalar rn, GoodScalar rm, Sh.Shape sh, Sh.Shape shm, KnownNat k
+       ( GoodScalar rn, GoodScalar rm, KnownShape sh, KnownShape shm, KnownNat k
        , ShapedTensor shaped
        , shaped ~ ShapedOf ranked, ranked ~ RankedOf shaped )
     => (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh)
@@ -1099,7 +1099,7 @@ rfromD (DynamicShapedDummy @r2 @sh2 _ _) =
 
 sfromD :: forall r sh shaped.
           ( ShapedTensor shaped
-          , GoodScalar r, Sh.Shape sh
+          , GoodScalar r, KnownShape sh
           , ShapedOf (RankedOf shaped) ~ shaped )
        => DynamicTensor (RankedOf shaped) -> shaped r sh
 sfromD (DynamicRanked @r2 @n2 t) = case matchingRank @sh @n2 of
@@ -1111,17 +1111,17 @@ sfromD (DynamicShaped @r2 @sh2 t) = case sameShape @sh2 @sh of
   Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
     Just Refl -> t
     _ -> error "sfromD: scalar mismatch"
-  _ -> error $ "sfromD: shape mismatch " ++ show (Sh.shapeT @sh2, Sh.shapeT @sh)
+  _ -> error $ "sfromD: shape mismatch " ++ show (shapeT @sh2, shapeT @sh)
 sfromD (DynamicRankedDummy @r2 @sh2 _ _) = case sameShape @sh2 @sh of
   Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
     Just Refl -> 0
     _ -> error "sfromD: scalar mismatch"
-  _ -> error $ "sfromD: shape mismatch " ++ show (Sh.shapeT @sh2, Sh.shapeT @sh)
+  _ -> error $ "sfromD: shape mismatch " ++ show (shapeT @sh2, shapeT @sh)
 sfromD (DynamicShapedDummy @r2 @sh2 _ _) = case sameShape @sh2 @sh of
   Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
     Just Refl -> 0
     _ -> error "sfromD: scalar mismatch"
-  _ -> error $ "sfromD: shape mismatch " ++ show (Sh.shapeT @sh2, Sh.shapeT @sh)
+  _ -> error $ "sfromD: shape mismatch " ++ show (shapeT @sh2, shapeT @sh)
 
 newtype HFun =
   HFun {unHFun :: forall f. ADReady f => [HVector f] -> HVectorOf f}

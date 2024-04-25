@@ -322,17 +322,17 @@ instance ForgetShape (Flip OR.Array r n) where
   type NoShape (Flip OR.Array r n) = Flip OR.Array r n
   forgetShape = id
 
-instance (GoodScalar r, Sh.Shape sh)
+instance (GoodScalar r, KnownShape sh)
          => AdaptableHVector (Flip OR.Array) (Flip OS.Array r sh) where
   toHVector = V.singleton . DynamicShaped
   fromHVector _aInit = fromHVectorS
 
-instance Sh.Shape sh
+instance KnownShape sh
          => ForgetShape (Flip OS.Array r sh) where
   type NoShape (Flip OS.Array r sh) = Flip OR.Array r (Sh.Rank sh)  -- key case
   forgetShape = Flip . Data.Array.Convert.convert . runFlip
 
-instance (Sh.Shape sh, Numeric r, Fractional r, Random r, Num (Vector r))
+instance (KnownShape sh, Numeric r, Fractional r, Random r, Num (Vector r))
          => RandomHVector (Flip OS.Array r sh) where
   randomVals range g =
     let createRandomVector n seed =

@@ -48,11 +48,11 @@ type role DynamicTensor nominal
 data DynamicTensor (ranked :: RankedTensorType) where
   DynamicRanked :: (GoodScalar r, KnownNat n)
                 => ranked r n -> DynamicTensor ranked
-  DynamicShaped :: (GoodScalar r, Sh.Shape sh)
+  DynamicShaped :: (GoodScalar r, KnownShape sh)
                 => ShapedOf ranked r sh -> DynamicTensor ranked
-  DynamicRankedDummy :: (GoodScalar r, Sh.Shape sh)
+  DynamicRankedDummy :: (GoodScalar r, KnownShape sh)
                      => Proxy r -> Proxy sh -> DynamicTensor ranked
-  DynamicShapedDummy :: (GoodScalar r, Sh.Shape sh)
+  DynamicShapedDummy :: (GoodScalar r, KnownShape sh)
                      => Proxy r -> Proxy sh -> DynamicTensor ranked
 
 deriving instance
@@ -73,10 +73,10 @@ instance (forall r20 y20. (KnownNat y20, GoodScalar r20) => c (ranked r20 y20))
       => CRanked ranked c where
 
 type CShaped :: ShapedTensorType -> (Type -> Constraint) -> Constraint
-class (forall r30 y30. (Sh.Shape y30, GoodScalar r30) => c (shaped r30 y30))
+class (forall r30 y30. (KnownShape y30, GoodScalar r30) => c (shaped r30 y30))
       => CShaped shaped c where
 instance
-      (forall r30 y30. (Sh.Shape y30, GoodScalar r30) => c (shaped r30 y30))
+      (forall r30 y30. (KnownShape y30, GoodScalar r30) => c (shaped r30 y30))
       => CShaped shaped c where
 
 -- | This is a heterogeneous vector, used as represenation of tuples
@@ -157,13 +157,13 @@ shapeDynamicF :: (forall r n. (GoodScalar r, KnownNat n) => ranked r n -> [Int])
               -> DynamicTensor ranked -> [Int]
 {-# INLINE shapeDynamicF #-}
 shapeDynamicF f (DynamicRanked t) = f t
-shapeDynamicF _ (DynamicShaped @_ @sh _) = Sh.shapeT @sh
+shapeDynamicF _ (DynamicShaped @_ @sh _) = shapeT @sh
 shapeDynamicF _ (DynamicRankedDummy _ proxy_sh) = Sh.shapeP proxy_sh
 shapeDynamicF _ (DynamicShapedDummy _ proxy_sh) = Sh.shapeP proxy_sh
 
 rankDynamic :: DynamicTensor ranked -> Int
 rankDynamic (DynamicRanked @_ @n _) = valueOf @n
-rankDynamic (DynamicShaped @_ @sh _) = length $ Sh.shapeT @sh
+rankDynamic (DynamicShaped @_ @sh _) = length $ shapeT @sh
 rankDynamic (DynamicRankedDummy _ proxy_sh) = length $ Sh.shapeP proxy_sh
 rankDynamic (DynamicShapedDummy _ proxy_sh) = length $ Sh.shapeP proxy_sh
 
@@ -181,14 +181,14 @@ isDynamicDummy DynamicShapedDummy{} = True
 
 voidFromShL :: forall r. GoodScalar r
             => [Int] -> DynamicTensor VoidTensor
-voidFromShL sh = Sh.withShapeP sh $ \proxySh ->
+voidFromShL sh = withShapeP sh $ \proxySh ->
                    DynamicRankedDummy (Proxy @r) proxySh
 
 voidFromSh :: forall r n. GoodScalar r
            => ShapeInt n -> DynamicTensor VoidTensor
 voidFromSh sh = voidFromShL @r (shapeToList sh)
 
-voidFromShS :: forall r sh. (GoodScalar r, Sh.Shape sh)
+voidFromShS :: forall r sh. (GoodScalar r, KnownShape sh)
             => DynamicTensor VoidTensor
 voidFromShS = DynamicShapedDummy @r @sh Proxy Proxy
 
@@ -199,7 +199,7 @@ voidFromDynamicF
 {-# INLINE voidFromDynamicF #-}
 voidFromDynamicF f (DynamicRanked @r2 @n2 t) =
   let sh = f t
-  in Sh.withShapeP sh $ \proxySh ->
+  in withShapeP sh $ \proxySh ->
        DynamicRankedDummy (Proxy @r2) proxySh
 voidFromDynamicF _ (DynamicShaped @r2 @sh2 _) =
   DynamicShapedDummy @r2 @sh2 Proxy Proxy
@@ -219,13 +219,13 @@ index1HVectorF :: ( shaped ~ ShapedOf ranked
                   , RankedOf (PrimalOf shaped) ~ RankedOf (PrimalOf ranked) )
                => (forall r n. (GoodScalar r, KnownNat n)
                    => ranked r n -> ShapeInt n)
-               -> (forall sh r. (GoodScalar r, Sh.Shape sh)
+               -> (forall sh r. (GoodScalar r, KnownShape sh)
                    => shaped r sh -> SShape sh)
                -> (forall r m n. (GoodScalar r, KnownNat m, KnownNat n)
                    => ranked r (m + n) -> IndexOf ranked m -> ranked r n)
                -> (forall r sh1 sh2.
-                   ( GoodScalar r, Sh.Shape sh1, Sh.Shape sh2
-                   , Sh.Shape (sh1 Sh.++ sh2) )
+                   ( GoodScalar r, KnownShape sh1, KnownShape sh2
+                   , KnownShape (sh1 Sh.++ sh2) )
                    => shaped r (sh1 Sh.++ sh2) -> ShapedList.IndexSh shaped sh1
                    -> shaped r sh2)
                -> HVector ranked -> IntOf ranked -> HVector ranked
@@ -237,13 +237,13 @@ index1DynamicF :: ( shaped ~ ShapedOf ranked
                   , RankedOf (PrimalOf shaped) ~ RankedOf (PrimalOf ranked) )
                => (forall r n. (GoodScalar r, KnownNat n)
                    => ranked r n -> ShapeInt n)
-               -> (forall sh r. (GoodScalar r, Sh.Shape sh)
+               -> (forall sh r. (GoodScalar r, KnownShape sh)
                    => shaped r sh -> SShape sh)
                -> (forall r m n. (GoodScalar r, KnownNat m, KnownNat n)
                    => ranked r (m + n) -> IndexOf ranked m -> ranked r n)
                -> (forall r sh1 sh2.
-                   ( GoodScalar r, Sh.Shape sh1, Sh.Shape sh2
-                   , Sh.Shape (sh1 Sh.++ sh2) )
+                   ( GoodScalar r, KnownShape sh1, KnownShape sh2
+                   , KnownShape (sh1 Sh.++ sh2) )
                    => shaped r (sh1 Sh.++ sh2) -> ShapedList.IndexSh shaped sh1
                    -> shaped r sh2)
                -> DynamicTensor ranked -> IntOf ranked -> DynamicTensor ranked
@@ -256,17 +256,17 @@ index1DynamicF rshape sshape rindex sindex u i = case u of
     ShNil -> error "index1Dynamic: rank 0"
     ShCons SNat _ ->
       DynamicShaped $ sindex t (ShapedList.singletonIndex i)
-  DynamicRankedDummy @r @sh p1 _ -> case ShapedList.shapeIntSFromT @sh of
+  DynamicRankedDummy @r @sh p1 _ -> case knownShape @sh of
     ShNil -> error "index1Dynamic: rank 0"
     ShCons @sh2 _ _ -> DynamicRankedDummy @r @sh2 p1 Proxy
-  DynamicShapedDummy @r @sh p1 _ -> case ShapedList.shapeIntSFromT @sh of
+  DynamicShapedDummy @r @sh p1 _ -> case knownShape @sh of
     ShNil -> error "index1Dynamic: rank 0"
     ShCons @sh2 _ _ -> DynamicShapedDummy @r @sh2 p1 Proxy
 
 replicate1HVectorF :: shaped ~ ShapedOf ranked
                    => (forall r n. (GoodScalar r, KnownNat n)
                        => Int -> ranked r n -> ranked r (1 + n))
-                   -> (forall n sh r. (KnownNat n, Sh.Shape sh, GoodScalar r)
+                   -> (forall n sh r. (KnownNat n, KnownShape sh, GoodScalar r)
                        => shaped r sh -> shaped r (n ': sh))
                    -> SNat k -> HVector ranked -> HVector ranked
 {-# INLINE replicate1HVectorF #-}
@@ -276,7 +276,7 @@ replicate1HVectorF rreplicate sreplicate k =
 replicate1DynamicF :: shaped ~ ShapedOf ranked
                    => (forall r n. (GoodScalar r, KnownNat n)
                        => Int -> ranked r n -> ranked r (1 + n))
-                   -> (forall n sh r. (KnownNat n, Sh.Shape sh, GoodScalar r)
+                   -> (forall n sh r. (KnownNat n, KnownShape sh, GoodScalar r)
                        => shaped r sh -> shaped r (n ': sh))
                    -> SNat k -> DynamicTensor ranked -> DynamicTensor ranked
 {-# INLINE replicate1DynamicF #-}

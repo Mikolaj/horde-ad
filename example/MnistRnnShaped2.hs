@@ -9,7 +9,6 @@ import Prelude hiding (foldl')
 
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
-import qualified Data.Array.Shape as Sh
 import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
 import           Data.Kind (Type)
@@ -43,14 +42,14 @@ type LayerWeigthsRNNShaped shaped in_width out_width r =
   , shaped r '[out_width] )           -- bias
 
 zeroStateS
-  :: (ShapedTensor shaped, Sh.Shape sh, GoodScalar r)
+  :: (ShapedTensor shaped, KnownShape sh, GoodScalar r)
   => (shaped r sh  -- state
       -> a)
   -> a
 zeroStateS f = f 0
 
 unrollLastS :: forall shaped state c w r n sh.
-               (ShapedTensor shaped, KnownNat n, Sh.Shape sh, GoodScalar r)
+               (ShapedTensor shaped, KnownNat n, KnownShape sh, GoodScalar r)
             => (state -> shaped r sh -> w -> (c, state))
             -> (state -> shaped r (n ': sh) -> w -> (c, state))
 unrollLastS f s0 xs w =

@@ -175,7 +175,7 @@ tunravelToListR t = case OR.shapeL t of
   0 : _ -> []
   _ -> ORB.toList $ OR.unravel t
 
-tunravelToListS :: (Numeric r, KnownNat n, Sh.Shape sh)
+tunravelToListS :: (Numeric r, KnownNat n, KnownShape sh)
                 => OS.Array (n ': sh) r -> [OS.Array sh r]
 tunravelToListS t = case OS.shapeL t of
   0 : _ -> []
@@ -402,13 +402,13 @@ type IndexIntSh sh = IndexS sh Int64
 -- TODO: try to weave a similar magic as in tindex0R
 -- TODO: for the non-singleton case see
 -- https://github.com/Mikolaj/horde-ad/pull/81#discussion_r1096532164
-updateNS :: forall n sh r. (NumAndShow r, Sh.Shape sh, Sh.Shape (Sh.Drop n sh))
+updateNS :: forall n sh r. (NumAndShow r, KnownShape sh, KnownShape (Sh.Drop n sh))
          => OS.Array sh r
          -> [(IndexIntSh (Sh.Take n sh), OS.Array (Sh.Drop n sh) r)]
          -> OS.Array sh r
 updateNS arr upd =
   let values = OS.toVector arr
-      sh = ShapedList.shapeIntSFromT @sh
+      sh = knownShape @sh
       f !t (ix, u) =
         let v = OS.toVector u
             i = gcastWith (unsafeCoerce Refl
@@ -421,8 +421,8 @@ updateNS arr upd =
   in OS.fromVector (foldl' f values upd)
 
 tminIndexS
-  :: forall n sh r r2. ( NumAndShow r, NumAndShow r2, Sh.Shape sh, KnownNat n
-                       , Sh.Shape (Sh.Init (n ': sh)) )
+  :: forall n sh r r2. ( NumAndShow r, NumAndShow r2, KnownShape sh, KnownNat n
+                       , KnownShape (Sh.Init (n ': sh)) )
   => OS.Array (n ': sh) r -> OS.Array (Sh.Init (n ': sh)) r2
 tminIndexS =
   let f :: KnownNat m => OS.Array '[m] r -> OS.Array '[] r2
@@ -430,7 +430,7 @@ tminIndexS =
   in case sameShape @sh @'[] of
     Just Refl -> f @n
     _ ->
-      let sh = Sh.shapeT @sh
+      let sh = shapeT @sh
       in case someNatVal $ toInteger $ last sh of
         Just (SomeNat @m _proxy) ->
           case someNatVal $ toInteger $ length sh of
@@ -447,8 +447,8 @@ tminIndexS =
         Nothing -> error "tmaxIndexS: impossible someNatVal error"
 
 tmaxIndexS
-  :: forall n sh r r2. ( NumAndShow r, NumAndShow r2, Sh.Shape sh, KnownNat n
-                       , Sh.Shape (Sh.Init (n ': sh)) )
+  :: forall n sh r r2. ( NumAndShow r, NumAndShow r2, KnownShape sh, KnownNat n
+                       , KnownShape (Sh.Init (n ': sh)) )
   => OS.Array (n ': sh) r -> OS.Array (Sh.Init (n ': sh)) r2
 tmaxIndexS =
   let f :: KnownNat m => OS.Array '[m] r -> OS.Array '[] r2
@@ -456,7 +456,7 @@ tmaxIndexS =
   in case sameShape @sh @'[] of
     Just Refl -> f @n
     _ ->
-      let sh = Sh.shapeT @sh
+      let sh = shapeT @sh
       in case someNatVal $ toInteger $ last sh of
         Just (SomeNat @m _proxy) ->
           case someNatVal $ toInteger $ length sh of
@@ -473,7 +473,7 @@ tmaxIndexS =
         Nothing -> error "tmaxIndexS: impossible someNatVal error"
 
 -- TODO: use Convert, fromInt/toInt and fromZ/toZ from hmatrix
-tfloorS :: (NumAndShow r, RealFrac r, NumAndShow r2, Integral r2, Sh.Shape sh)
+tfloorS :: (NumAndShow r, RealFrac r, NumAndShow r2, Integral r2, KnownShape sh)
         => OS.Array sh r -> OS.Array sh r2
 tfloorS = liftVS (V.map floor)
 
@@ -493,7 +493,7 @@ tindexNS (SS.A (SG.A OI.T{strides, offset, values})) ix =
 -- may not fit within the type-level shape, which we catch in the @ixInBounds@
 -- and return 0, so it's fine. Similarly in gather and scatter.
 tindexZS
-  :: forall sh1 sh2 r. (NumAndShow r, Sh.Shape sh2, Sh.Shape (sh1 Sh.++ sh2))
+  :: forall sh1 sh2 r. (NumAndShow r, KnownShape sh2, KnownShape (sh1 Sh.++ sh2))
   => OS.Array (sh1 Sh.++ sh2) r -> IndexIntSh sh1 -> OS.Array sh2 r
 tindexZS v ix =
   let sh = OS.shapeL v
@@ -515,17 +515,17 @@ tindex0S (SS.A (SG.A OI.T{..})) ix =
 -- No NOINLINE, because apparently nothing breaks and hmatrix, etc.
 -- also don't put NOINLINE in the functions using FFI.
 tsumS
-  :: forall n sh r. (KnownNat n, Numeric r, RowSum r, Sh.Shape sh)
+  :: forall n sh r. (KnownNat n, Numeric r, RowSum r, KnownShape sh)
   => OS.Array (n ': sh) r -> OS.Array sh r
 tsumS (SS.A (SG.A (OI.T (_ : ss) o vt))) | V.length vt == 1 =
   SS.A (SG.A (OI.T ss o (V.map (* valueOf @n) vt)))
-tsumS t = case ShapedList.shapeIntSFromT @(n ': sh) of
+tsumS t = case knownShape @(n ': sh) of
   ShCons _ ShNil -> OS.scalar $ tsum0S t
   ShCons @sh2 k _ ->
     OS.fromVector $ unsafePerformIO $ do  -- unsafe only due to FFI
       v <- V.unsafeThaw $ OS.toVector t
       VM.unsafeWith v $ \ptr -> do
-        let len2 = Sh.sizeT @sh2
+        let len2 = sizeT @sh2
         v2 <- VM.new len2
         VM.unsafeWith v2 $ \ptr2 -> do
           rowSum len2 (fromInteger $ fromSNat k) ptr ptr2
@@ -534,7 +534,7 @@ tsumS t = case ShapedList.shapeIntSFromT @(n ': sh) of
 
 -- Sum the innermost dimension (at least at rank 2; TODO: generalize).
 tsumInS
-  :: forall m n sh r. (KnownNat n, Numeric r, RowSum r, KnownNat m, Sh.Shape sh)
+  :: forall m n sh r. (KnownNat n, Numeric r, RowSum r, KnownNat m, KnownShape sh)
   => OS.Array (m ': n ': sh) r -> OS.Array (m ': sh) r
 tsumInS t = case OS.shapeL t of
   [] -> error "tsumInS: null shape"
@@ -558,20 +558,20 @@ tsumInS t = case OS.shapeL t of
   _ -> error "tsumInS: not yet generalized beyond rank 2"
 
 tsum0S
-  :: forall sh r. (Numeric r, Sh.Shape sh)
+  :: forall sh r. (Numeric r, KnownShape sh)
   => OS.Array sh r -> r
 tsum0S (SS.A (SG.A (OI.T _ _ vt))) | V.length vt == 1 =
-  fromIntegral (Sh.sizeT @sh) * vt V.! 0
+  fromIntegral (sizeT @sh) * vt V.! 0
 -- tsumInS t@(SS.A (SG.A (OI.T _ _ vt))) | V.length vt == 1 =
 tsum0S (SS.A (SG.A t)) =
-  LA.sumElements $ OI.toUnorderedVectorT (Sh.shapeT @sh) t
+  LA.sumElements $ OI.toUnorderedVectorT (shapeT @sh) t
 
 tdot0S
-  :: forall sh r. (Numeric r, Sh.Shape sh)
+  :: forall sh r. (Numeric r, KnownShape sh)
   => OS.Array sh r -> OS.Array sh r -> r
 tdot0S (SS.A (SG.A (OI.T _ _ vt))) (SS.A (SG.A (OI.T _ _ vu)))
   | V.length vt == 1 && V.length vu == 1 =
-      fromIntegral (Sh.sizeT @sh) * vt V.! 0 * vu V.! 0
+      fromIntegral (sizeT @sh) * vt V.! 0 * vu V.! 0
 tdot0S t u = OS.toVector t LA.<.> OS.toVector u
   -- TODO: if offset 0 and same strides, use toUnorderedVectorT
   -- TODO: if either has length 1 values, it may or may not be faster to do
@@ -615,21 +615,21 @@ tmatmul2S t u =
 -- Note how ix being in bounds is checked. The semantics of the operation
 -- permits index out of bounds and then no tensors is added at such an index.
 tscatterZS :: forall r sh2 p sh.
-              (NumAndShow r, Sh.Shape sh, Sh.Shape sh2, Sh.Shape (Sh.Drop p sh))
+              (NumAndShow r, KnownShape sh, KnownShape sh2, KnownShape (Sh.Drop p sh))
            => OS.Array (sh2 Sh.++ Sh.Drop p sh) r
            -> (IndexIntSh sh2 -> IndexIntSh (Sh.Take p sh))
            -> OS.Array sh r
 tscatterZS t f =
-  let sh2 = ShapedList.shapeIntSFromT @sh2
+  let sh2 = knownShape @sh2
       g ix =
         let ix2 = f ix
-        in if ixInBounds (ShapedList.indexToList ix2) (Sh.shapeT @sh)
+        in if ixInBounds (ShapedList.indexToList ix2) (shapeT @sh)
            then M.insertWith (++) ix2
                   [OS.toVector $ tindexNS @sh2 @(Sh.Drop p sh) t ix]
            else id
       ivs = foldr g M.empty [ ShapedList.fromLinearIdx sh2
                               $ ShapedList.shapedNat $ fromIntegral i
-                            | i <- [0 .. Sh.sizeT @sh2 - 1] ]
+                            | i <- [0 .. sizeT @sh2 - 1] ]
   in updateNS 0 $ map (second $ OS.fromVector . sum) $ M.assocs ivs
 
 -- TODO: update in place in ST or with a vector builder, but that requires
@@ -637,7 +637,7 @@ tscatterZS t f =
 -- and then freezing it and calling OS.fromVector
 -- or optimize tscatterNS and instantiate it instead
 tscatterZ1S :: forall r n2 p sh.
-               (NumAndShow r, KnownNat n2, Sh.Shape sh, Sh.Shape (Sh.Drop p sh))
+               (NumAndShow r, KnownNat n2, KnownShape sh, KnownShape (Sh.Drop p sh))
             => OS.Array (n2 ': Sh.Drop p sh) r
             -> (Int64Sh n2 -> IndexIntSh (Sh.Take p sh))
             -> OS.Array sh r
@@ -645,45 +645,45 @@ tscatterZ1S t f =
     sum $ imap (\i ti ->
                    let ix2 = f $ ShapedList.shapedNat $ fromIntegral i
                    in if ixInBounds (ShapedList.indexToList ix2)
-                                    (Sh.shapeT @sh)
+                                    (shapeT @sh)
                       then updateNS 0 [(ix2, ti)]
                       else 0)
         $ tunravelToListS t
 
 tfromListS
-  :: forall n sh r. (Numeric r, KnownNat n, Sh.Shape sh)
+  :: forall n sh r. (Numeric r, KnownNat n, KnownShape sh)
   => [OS.Array sh r] -> OS.Array (n ': sh) r
 tfromListS l = OS.ravel $ OSB.fromList l
 
 tfromList0NS
-  :: (Numeric r, Sh.Shape sh)
+  :: (Numeric r, KnownShape sh)
   => [r] -> OS.Array sh r
 tfromList0NS = OS.fromList
 
 tfromVectorS
-  :: forall n sh r. (Numeric r, KnownNat n, Sh.Shape sh)
+  :: forall n sh r. (Numeric r, KnownNat n, KnownShape sh)
   => Data.Vector.Vector (OS.Array sh r) -> OS.Array (n ': sh) r
 tfromVectorS l = OS.ravel $ OSB.fromVector $ V.convert l
 
 tfromVector0NS
-  :: (Numeric r, Sh.Shape sh)
+  :: (Numeric r, KnownShape sh)
   => Data.Vector.Vector r -> OS.Array sh r
 tfromVector0NS l = OS.fromVector $ V.convert l
 
 treplicateS
-  :: forall n sh r. (Numeric r, KnownNat n, Sh.Shape sh)
+  :: forall n sh r. (Numeric r, KnownNat n, KnownShape sh)
   => OS.Array sh r -> OS.Array (n ': sh) r
-treplicateS u = case ShapedList.shapeIntSFromT @sh of
+treplicateS u = case knownShape @sh of
   ShNil -> OS.constant (OS.unScalar u)
   _ -> OS.ravel $ OSB.constant u
 
 treplicate0NS
-  :: (Numeric r, Sh.Shape sh)
+  :: (Numeric r, KnownShape sh)
   => r -> OS.Array sh r
 treplicate0NS = OS.constant
 
 tappendS
-  :: (Numeric r, KnownNat m, KnownNat n, Sh.Shape sh)
+  :: (Numeric r, KnownNat m, KnownNat n, KnownShape sh)
   => OS.Array (m ': sh) r -> OS.Array (n ': sh) r -> OS.Array ((m + n) ': sh) r
 tappendS = OS.append
 
@@ -693,24 +693,24 @@ tsliceS
 tsliceS = OS.slice @'[ '(i, n) ]
 
 treverseS
-  :: (KnownNat n, Sh.Shape sh)
+  :: (KnownNat n, KnownShape sh)
    => OS.Array (n ': sh) r -> OS.Array (n ': sh) r
 treverseS = OS.rev @'[0]
 
 ttransposeS
   :: forall perm r sh.
-     ( Sh.Shape perm, OS.Permutation perm, Sh.Shape sh, KnownNat (Sh.Rank sh)
+     ( KnownShape perm, OS.Permutation perm, KnownShape sh, KnownNat (Sh.Rank sh)
      , Sh.Rank perm <= Sh.Rank sh )
   => OS.Array sh r -> OS.Array (Sh.Permute perm sh) r
 ttransposeS = OS.transpose @perm
 
 treshapeS
-  :: (Numeric r, Sh.Shape sh, Sh.Shape sh2, Sh.Size sh ~ Sh.Size sh2)
+  :: (Numeric r, KnownShape sh, KnownShape sh2, Sh.Size sh ~ Sh.Size sh2)
   => OS.Array sh r -> OS.Array sh2 r
 treshapeS = OS.reshape
 
 tbuild1S
-  :: forall n sh r. (KnownNat n, Numeric r, Sh.Shape sh)
+  :: forall n sh r. (KnownNat n, Numeric r, KnownShape sh)
   => (Int64Sh n -> OS.Array sh r) -> OS.Array (n ': sh) r
 tbuild1S f =
   let k = valueOf @n
@@ -718,14 +718,14 @@ tbuild1S f =
      $ map (f . ShapedList.shapedNat) [0 .. k - 1]  -- hope this fuses
 
 tmap0NS
-  :: (Numeric r, Numeric r2, Sh.Shape sh)
+  :: (Numeric r, Numeric r2, KnownShape sh)
   => (OS.Array '[] r -> OS.Array '[] r2) -> OS.Array sh r -> OS.Array sh r2
 tmap0NS f = OS.mapA (tunScalarS . f . tscalarS)
             -- too slow: tbuildNS (tshapeS v) (\ix -> f $ v `tindexNS` ix)
             -- bad type: liftVS . LA.cmap
 
 tzipWith0NS
-  :: (Numeric r1, Numeric r2, Numeric r, Sh.Shape sh)
+  :: (Numeric r1, Numeric r2, Numeric r, KnownShape sh)
   => (OS.Array '[] r1 -> OS.Array '[] r2 -> OS.Array '[] r)
   -> OS.Array sh r1 -> OS.Array sh r2 -> OS.Array sh r
 tzipWith0NS f = OS.zipWithA (\x y -> tunScalarS $ f (tscalarS x) (tscalarS y))
@@ -737,14 +737,14 @@ tzipWith0NS f = OS.zipWithA (\x y -> tunScalarS $ f (tscalarS x) (tscalarS y))
 -- Note how tindexZS is used. The semantics of the operation
 -- permits index out of bounds and the result of such indexing is zero.
 tgatherZS :: forall sh2 p sh r.
-             ( NumAndShow r, Sh.Shape sh, Sh.Shape sh2, Sh.Shape (Sh.Drop p sh)
-             , Sh.Shape (sh2 Sh.++ Sh.Drop p sh) )
+             ( NumAndShow r, KnownShape sh, KnownShape sh2, KnownShape (Sh.Drop p sh)
+             , KnownShape (sh2 Sh.++ Sh.Drop p sh) )
           => OS.Array sh r
           -> (IndexIntSh sh2 -> IndexIntSh (Sh.Take p sh))
           -> OS.Array (sh2 Sh.++ Sh.Drop p sh) r
 tgatherZS t f =
-  let sh2 = ShapedList.shapeIntSFromT @sh2
-      s = Sh.sizeT @sh2
+  let sh2 = knownShape @sh2
+      s = sizeT @sh2
       l = gcastWith (unsafeCoerce Refl
                      :: sh :~: Sh.Take p sh Sh.++ Sh.Drop p sh)
           $ [ OS.toVector
@@ -755,7 +755,7 @@ tgatherZS t f =
   in OS.fromVector $ LA.vjoin l
 
 tgatherZ1S :: forall n2 p sh r.
-              (KnownNat n2, NumAndShow r, Sh.Shape sh, Sh.Shape (Sh.Drop p sh))
+              (KnownNat n2, NumAndShow r, KnownShape sh, KnownShape (Sh.Drop p sh))
            => OS.Array sh r -> (Int64Sh n2 -> IndexIntSh (Sh.Take p sh))
            -> OS.Array (n2 ': Sh.Drop p sh) r
 tgatherZ1S t f =
@@ -766,12 +766,12 @@ tgatherZ1S t f =
   in OS.ravel $ OSB.fromList l
 
 -- TODO: use Convert, fromInt/toInt and fromZ/toZ from hmatrix
-tcastS :: (Numeric r1, Numeric r2, Sh.Shape sh, Real r1, Fractional r2)
+tcastS :: (Numeric r1, Numeric r2, KnownShape sh, Real r1, Fractional r2)
        => OS.Array sh r1 -> OS.Array sh r2
 tcastS = liftVS (V.map realToFrac)
 
 -- TODO: use Convert, fromInt/toInt and fromZ/toZ from hmatrix
-tfromIntegralS :: (Numeric r1, Numeric r2, Sh.Shape sh, Integral r1)
+tfromIntegralS :: (Numeric r1, Numeric r2, KnownShape sh, Integral r1)
                => OS.Array sh r1 -> OS.Array sh r2
 tfromIntegralS = liftVS (V.map fromIntegral)
 
@@ -785,7 +785,7 @@ tunScalarS
   => OS.Array '[] r -> r
 tunScalarS = OS.unScalar
 
-tscaleByScalarS :: (Numeric r, Sh.Shape sh)
+tscaleByScalarS :: (Numeric r, KnownShape sh)
                 => r -> OS.Array sh r -> OS.Array sh r
 tscaleByScalarS s = liftVS (LA.scale s)
 

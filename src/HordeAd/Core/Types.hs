@@ -1,4 +1,4 @@
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE AllowAmbiguousTypes, UndecidableInstances #-}
 -- | Some fundamental type families and types.
 module HordeAd.Core.Types
   ( -- * Kinds of the functors that determine the structure of a tensor type
@@ -13,7 +13,7 @@ module HordeAd.Core.Types
     -- * Definitions to help express and manipulate type-level natural numbers
   , SNat, pattern SNat, withSNat, sNatValue, proxyFromSNat
     -- * Definitions for type-level list shapes
-  , SShape(..), KnownShape(..)
+  , SShape(..), KnownShape2(..), KnownShape, shapeT, sizeT, withShapeP
   ) where
 
 import Prelude
@@ -57,7 +57,7 @@ type HasSingletonDict :: ty -> Constraint
 type family HasSingletonDict (y :: ty) where
   HasSingletonDict '() = ()
   HasSingletonDict n = KnownNat n
-  HasSingletonDict sh = Sh.Shape sh
+  HasSingletonDict sh = KnownShape sh
 
 type Differentiable r = (RealFloat r, RealFloat (Vector r))
 
@@ -169,12 +169,29 @@ proxyFromSNat SNat = Proxy
 type role SShape nominal
 data SShape sh where
   ShNil :: SShape '[]
-  ShCons :: Sh.Shape sh => SNat n -> SShape sh -> SShape (n : sh)
+  ShCons :: KnownShape sh => SNat n -> SShape sh -> SShape (n : sh)
 deriving instance Show (SShape sh)
 infixr 5 `ShCons`
 
 -- | A statically-known shape of a shape-typed array.
-class KnownShape sh where knownShape :: SShape sh
-instance KnownShape '[] where knownShape = ShNil
-instance (KnownNat n, KnownShape sh, Sh.Shape sh)
-         => KnownShape (n : sh) where knownShape = ShCons natSing knownShape
+class KnownShape2 sh where knownShape :: SShape sh
+instance KnownShape2 '[] where knownShape = ShNil
+instance (KnownNat n, KnownShape2 sh, Sh.Shape sh)
+         => KnownShape2 (n : sh) where knownShape = ShCons natSing knownShape
+
+type KnownShape sh = (KnownShape2 sh, Sh.Shape sh)
+
+shapeT :: forall sh. KnownShape2 sh => [Int]
+shapeT = sshapeToList (knownShape @sh)
+
+sshapeToList :: SShape sh -> [Int]
+sshapeToList ShNil = []
+sshapeToList (ShCons n l) = sNatValue n : sshapeToList l
+
+sizeT :: forall sh. KnownShape2 sh => Int
+sizeT = product $ shapeT @sh
+
+withShapeP :: [Int] -> (forall sh. KnownShape sh => Proxy sh -> r) -> r
+withShapeP [] f = f (Proxy @('[] :: [Nat]))
+withShapeP (n : ns) f = withSNat n $ \(SNat @n) ->
+  withShapeP ns (\(Proxy @ns) -> f (Proxy @(n : ns)))

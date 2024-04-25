@@ -21,7 +21,6 @@ module HordeAd.Core.AstTools
 import Prelude hiding (foldl')
 
 import qualified Data.Array.RankedS as OR
-import qualified Data.Array.Shape as Sh
 import qualified Data.Array.ShapedS as OS
 import           Data.List (foldl')
 import           Data.Proxy (Proxy (Proxy))
@@ -87,11 +86,11 @@ shapeAst = \case
   AstFromIntegral a -> shapeAst a
   AstConst a -> listToShape $ OR.shapeL a
   AstProject l p -> case shapeAstHVector l V.! p of
-    DynamicRankedDummy @_ @sh _ _ -> listToShape $ Sh.shapeT @sh
+    DynamicRankedDummy @_ @sh _ _ -> listToShape $ shapeT @sh
     DynamicShapedDummy{} -> error "shapeAst: DynamicShapedDummy"
   AstLetHVectorIn _ _ v -> shapeAst v
   AstLetHFunIn _ _ v -> shapeAst v
-  AstRFromS @sh _ -> listToShape $ Sh.shapeT @sh
+  AstRFromS @sh _ -> listToShape $ shapeT @sh
   AstConstant a -> shapeAst a
   AstPrimalPart a -> shapeAst a
   AstDualPart a -> shapeAst a
@@ -300,7 +299,7 @@ astIsSmall relaxed = \case
   AstDualPart v -> astIsSmall relaxed v
   _ -> False
 
-astIsSmallS :: forall sh s r. Sh.Shape sh
+astIsSmallS :: forall sh s r. KnownShape sh
             => Bool -> AstShaped s r sh -> Bool
 astIsSmallS relaxed = \case
   AstVarS{} -> True
@@ -330,10 +329,10 @@ bindsToLet = foldl' bindToLet
             -> (AstVarId, AstBindingsCase s2)
             -> AstRanked s r n
   bindToLet !u (varId, AstBindingsSimple d) =
-    let convertShaped :: (GoodScalar r2, Sh.Shape sh2)
+    let convertShaped :: (GoodScalar r2, KnownShape sh2)
                       => AstShaped s2 r2 sh2 -> AstRanked s r n
         convertShaped t =
-          Sh.withShapeP (shapeToList $ shapeAst u) $ \proxy -> case proxy of
+          withShapeP (shapeToList $ shapeAst u) $ \proxy -> case proxy of
             Proxy @sh | Just Refl <- matchingRank @sh @n ->
               AstRFromS @sh $ AstLetS (AstVarName varId) t (AstSFromR u)
             _ -> error "bindToLet: wrong rank"
@@ -347,7 +346,7 @@ bindsToLet = foldl' bindToLet
   bindToLet u (_, AstBindingsHVector lids d) =
     AstLetHVectorIn lids d u
 
-bindsToLetS :: forall sh s r. (AstSpan s, Sh.Shape sh)
+bindsToLetS :: forall sh s r. (AstSpan s, KnownShape sh)
             => AstShaped s r sh -> AstBindings s -> AstShaped s r sh
 {-# INLINE bindsToLetS #-}  -- help list fusion
 bindsToLetS = foldl' bindToLetS

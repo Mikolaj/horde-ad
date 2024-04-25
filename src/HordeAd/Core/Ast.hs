@@ -119,7 +119,7 @@ intToAstVarId = AstVarId
 -- so no special care about picking specializations at runtime is needed.
 data AstDynamicVarName where
   AstDynamicVarName :: forall (ty :: Type) r sh.
-                       (Typeable ty, GoodScalar r, Sh.Shape sh)
+                       (Typeable ty, GoodScalar r, KnownShape sh)
                     => AstVarId -> AstDynamicVarName
 deriving instance Show AstDynamicVarName
 
@@ -275,7 +275,7 @@ data AstRanked :: AstSpanType -> RankedTensorType where
   AstLetHFunIn :: AstVarId -> AstHFun
                -> AstRanked s2 r n
                -> AstRanked s2 r n
-  AstRFromS :: Sh.Shape sh
+  AstRFromS :: KnownShape sh
             => AstShaped s r sh -> AstRanked s r (Sh.Rank sh)
 
   -- For the forbidden half of the RankedTensor class:
@@ -292,7 +292,7 @@ type role AstShaped nominal nominal nominal
 data AstShaped :: AstSpanType -> ShapedTensorType where
   AstVarS :: forall sh r s. AstVarName (AstShaped s) r sh -> AstShaped s r sh
   AstLetS :: forall sh1 sh2 r r2 s s2.
-             (Sh.Shape sh1, Sh.Shape sh2, GoodScalar r, AstSpan s)
+             (KnownShape sh1, KnownShape sh2, GoodScalar r, AstSpan s)
           => AstVarName (AstShaped s) r sh1 -> AstShaped s r sh1
           -> AstShaped s2 r2 sh2
           -> AstShaped s2 r2 sh2
@@ -301,10 +301,10 @@ data AstShaped :: AstSpanType -> ShapedTensorType where
   AstCondS :: AstBool
            -> AstShaped s r sh -> AstShaped s r sh -> AstShaped s r sh
 
-  AstMinIndexS :: (Sh.Shape sh, KnownNat n, GoodScalar r)
+  AstMinIndexS :: (KnownShape sh, KnownNat n, GoodScalar r)
                => AstShaped PrimalSpan r (n ': sh)
                -> AstShaped PrimalSpan r2 (Sh.Init (n ': sh))
-  AstMaxIndexS :: (Sh.Shape sh, KnownNat n, GoodScalar r)
+  AstMaxIndexS :: (KnownShape sh, KnownNat n, GoodScalar r)
                => AstShaped PrimalSpan r (n ': sh)
                -> AstShaped PrimalSpan r2 (Sh.Init (n ': sh))
   AstFloorS :: (GoodScalar r, RealFrac r, Integral r2)
@@ -327,7 +327,7 @@ data AstShaped :: AstSpanType -> ShapedTensorType where
 
   -- For the main part of the ShapedTensor class:
   AstIndexS :: forall sh1 sh2 s r.
-               (Sh.Shape sh1, Sh.Shape sh2, Sh.Shape (sh1 Sh.++ sh2))
+               (KnownShape sh1, KnownShape sh2, KnownShape (sh1 Sh.++ sh2))
             => AstShaped s r (sh1 Sh.++ sh2) -> AstIndexS sh1
             -> AstShaped s r sh2
     -- first ix is for outermost dimension; empty index means identity,
@@ -336,39 +336,39 @@ data AstShaped :: AstSpanType -> ShapedTensorType where
   AstSumS :: forall n sh r s. KnownNat n
           => AstShaped s r (n ': sh) -> AstShaped s r sh
   AstScatterS :: forall sh2 p sh r s.
-                 ( Sh.Shape sh2, Sh.Shape sh
-                 , Sh.Shape (Sh.Take p sh), Sh.Shape (Sh.Drop p sh)
-                 , Sh.Shape (sh2 Sh.++ Sh.Drop p sh) )
+                 ( KnownShape sh2, KnownShape sh
+                 , KnownShape (Sh.Take p sh), KnownShape (Sh.Drop p sh)
+                 , KnownShape (sh2 Sh.++ Sh.Drop p sh) )
               => AstShaped s r (sh2 Sh.++ Sh.Drop p sh)
               -> (AstVarListS sh2, AstIndexS (Sh.Take p sh))
               -> AstShaped s r sh
 
-  AstFromVectorS :: (KnownNat n, Sh.Shape sh)
+  AstFromVectorS :: (KnownNat n, KnownShape sh)
                  => Data.Vector.Vector (AstShaped s r sh)
                  -> AstShaped s r (n ': sh)
-  AstReplicateS :: (KnownNat n, Sh.Shape sh)
+  AstReplicateS :: (KnownNat n, KnownShape sh)
                 => AstShaped s r sh -> AstShaped s r (n ': sh)
-  AstAppendS :: (KnownNat n, KnownNat m, Sh.Shape sh)
+  AstAppendS :: (KnownNat n, KnownNat m, KnownShape sh)
              => AstShaped s r (m ': sh) -> AstShaped s r (n ': sh)
              -> AstShaped s r ((m + n) ': sh)
-  AstSliceS :: (KnownNat i, KnownNat n, KnownNat k, Sh.Shape sh)
+  AstSliceS :: (KnownNat i, KnownNat n, KnownNat k, KnownShape sh)
             => AstShaped s r (i + n + k ': sh) -> AstShaped s r (n ': sh)
-  AstReverseS :: (KnownNat n, Sh.Shape sh)
+  AstReverseS :: (KnownNat n, KnownShape sh)
               => AstShaped s r (n ': sh) -> AstShaped s r (n ': sh)
   AstTransposeS :: forall perm sh r s.
-                   ( OS.Permutation perm, Sh.Shape perm, Sh.Shape sh
+                   ( OS.Permutation perm, KnownShape perm, KnownShape sh
                    , KnownNat (Sh.Rank sh), Sh.Rank perm <= Sh.Rank sh )
                 => AstShaped s r sh -> AstShaped s r (Sh.Permute perm sh)
-  AstReshapeS :: (Sh.Shape sh, Sh.Size sh ~ Sh.Size sh2)
+  AstReshapeS :: (KnownShape sh, Sh.Size sh ~ Sh.Size sh2)
               => AstShaped s r sh -> AstShaped s r sh2
     -- beware that the order of type arguments is different than in orthotope
     -- and than the order of value arguments in the ranked version
-  AstBuild1S :: (KnownNat n, Sh.Shape sh)
+  AstBuild1S :: (KnownNat n, KnownShape sh)
              => (IntVarName, AstShaped s r sh)
              -> AstShaped s r (n ': sh)
   AstGatherS :: forall sh2 p sh r s.
-                ( Sh.Shape sh, Sh.Shape sh2
-                , Sh.Shape (Sh.Take p sh), Sh.Shape (Sh.Drop p sh) )
+                ( KnownShape sh, KnownShape sh2
+                , KnownShape (Sh.Take p sh), KnownShape (Sh.Drop p sh) )
              => AstShaped s r sh
              -> (AstVarListS sh2, AstIndexS (Sh.Take p sh))
              -> AstShaped s r (sh2 Sh.++ Sh.Drop p sh)
@@ -386,7 +386,7 @@ data AstShaped :: AstSpanType -> ShapedTensorType where
   AstLetHFunInS :: AstVarId -> AstHFun
                 -> AstShaped s2 r sh
                 -> AstShaped s2 r sh
-  AstSFromR :: (Sh.Shape sh, KnownNat (Sh.Rank sh))
+  AstSFromR :: (KnownShape sh, KnownNat (Sh.Rank sh))
             => AstRanked s r (Sh.Rank sh) -> AstShaped s r sh
 
   -- For the forbidden half of the ShapedTensor class:
@@ -396,7 +396,7 @@ data AstShaped :: AstSpanType -> ShapedTensorType where
   AstDS :: AstShaped PrimalSpan r sh -> AstShaped DualSpan r sh
         -> AstShaped FullSpan r sh
 
-deriving instance (GoodScalar r, Sh.Shape sh) => Show (AstShaped s r sh)
+deriving instance (GoodScalar r, KnownShape sh) => Show (AstShaped s r sh)
 
 type AstDynamic (s :: AstSpanType) = DynamicTensor (AstRanked s)
 
@@ -422,7 +422,7 @@ data AstHVector :: AstSpanType -> Type where
                   => AstVarName (AstRanked s) r n -> AstRanked s r n
                   -> AstHVector s2
                   -> AstHVector s2
-  AstLetInHVectorS :: (Sh.Shape sh, GoodScalar r, AstSpan s)
+  AstLetInHVectorS :: (KnownShape sh, GoodScalar r, AstSpan s)
                    => AstVarName (AstShaped s) r sh -> AstShaped s r sh
                    -> AstHVector s2
                    -> AstHVector s2
@@ -483,7 +483,7 @@ data AstBool where
   AstRel :: (KnownNat n, GoodScalar r)
          => OpCodeRel -> AstRanked PrimalSpan r n -> AstRanked PrimalSpan r n
          -> AstBool
-  AstRelS :: (Sh.Shape sh, GoodScalar r)
+  AstRelS :: (KnownShape sh, GoodScalar r)
           => OpCodeRel -> AstShaped PrimalSpan r sh -> AstShaped PrimalSpan r sh
           -> AstBool
 deriving instance Show AstBool
@@ -811,7 +811,7 @@ deriving instance GoodScalar r => Show (AstRaw s r n)
 type role AstRawS nominal nominal nominal
 newtype AstRawS s r sh =
   AstRawS {unAstRawS :: AstShaped s r sh}
-deriving instance (GoodScalar r, Sh.Shape sh) => Show (AstRawS s r sh)
+deriving instance (GoodScalar r, KnownShape sh) => Show (AstRawS s r sh)
 
 type role AstRawWrap nominal
 newtype AstRawWrap t = AstRawWrap {unAstRawWrap :: t}
@@ -825,7 +825,7 @@ deriving instance GoodScalar r => Show (AstNoVectorize s r n)
 type role AstNoVectorizeS nominal nominal nominal
 newtype AstNoVectorizeS s r sh =
   AstNoVectorizeS {unAstNoVectorizeS :: AstShaped s r sh}
-deriving instance (GoodScalar r, Sh.Shape sh) => Show (AstNoVectorizeS s r sh)
+deriving instance (GoodScalar r, KnownShape sh) => Show (AstNoVectorizeS s r sh)
 
 type role AstNoVectorizeWrap nominal
 newtype AstNoVectorizeWrap t = AstNoVectorizeWrap {unAstNoVectorizeWrap :: t}
@@ -839,7 +839,7 @@ deriving instance GoodScalar r => Show (AstNoSimplify s r n)
 type role AstNoSimplifyS nominal nominal nominal
 newtype AstNoSimplifyS s r sh =
   AstNoSimplifyS {unAstNoSimplifyS :: AstShaped s r sh}
-deriving instance (GoodScalar r, Sh.Shape sh) => Show (AstNoSimplifyS s r sh)
+deriving instance (GoodScalar r, KnownShape sh) => Show (AstNoSimplifyS s r sh)
 
 type role AstNoSimplifyWrap nominal
 newtype AstNoSimplifyWrap t = AstNoSimplifyWrap {unAstNoSimplifyWrap :: t}

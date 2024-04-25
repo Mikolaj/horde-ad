@@ -235,7 +235,7 @@ instance ADReady ranked => RankedTensor (ADVal ranked) where
         doms = aDValHVector as as'
     in f doms -}
   rletHFunIn = (&)
-  rfromS :: forall r sh. (GoodScalar r, Sh.Shape sh)
+  rfromS :: forall r sh. (GoodScalar r, KnownShape sh)
          => ADVal (ShapedOf ranked) r sh -> ADVal ranked r (Sh.Rank sh)
   rfromS (D u u') = dDnotShared (rfromS u) (dRFromS u')
    where
@@ -251,14 +251,14 @@ instance ADReady ranked => RankedTensor (ADVal ranked) where
 
 -- * Shaped tensor instances
 
-instance ( ADReadyS shaped, Sh.Shape sh, GoodScalar r
+instance ( ADReadyS shaped, KnownShape sh, GoodScalar r
          , ranked ~ RankedOf shaped )
          => AdaptableHVector (ADVal ranked)
                              (ADVal shaped r sh) where
   toHVector = V.singleton . DynamicShaped
   fromHVector _aInit = fromHVectorS
 
-instance (ADReadyS shaped, Sh.Shape sh, GoodScalar r)
+instance (ADReadyS shaped, KnownShape sh, GoodScalar r)
          => DualNumberValue (ADVal shaped r sh) where
   type DValue (ADVal shaped r sh) = Flip OS.Array r sh   -- ! not Value(shaped)
   fromDValue t = constantADVal $ sconst $ runFlip t
@@ -314,13 +314,13 @@ instance ADReadyS shaped => ShapedTensor (ADVal shaped) where
   stranspose (perm_proxy :: Proxy perm) (D u u') =
     dD (stranspose perm_proxy u) (TransposeS @shaped @perm u')
   sreshape :: forall sh sh2 r.
-              ( GoodScalar r, Sh.Shape sh, Sh.Shape sh2
+              ( GoodScalar r, KnownShape sh, KnownShape sh2
               , Sh.Size sh ~ Sh.Size sh2 )
            => ADVal shaped r sh -> ADVal shaped r sh2
   sreshape t@(D u u') = case sameShape @sh2 @sh of
     Just Refl -> t
     _ -> dD (sreshape u) (ReshapeS u')
-  sbuild1 :: forall r n sh. (GoodScalar r, KnownNat n, Sh.Shape sh)
+  sbuild1 :: forall r n sh. (GoodScalar r, KnownNat n, KnownShape sh)
           => (IntSh (ADVal shaped) n -> ADVal shaped r sh)
           -> ADVal shaped r (n ': sh)
   sbuild1 f = sfromList $ map (f . ShapedList.shapedNat . fromIntegral)
@@ -342,7 +342,7 @@ instance ADReadyS shaped => ShapedTensor (ADVal shaped) where
         doms = aDValHVector as as'
     in f doms -}
   sletHFunIn = (&)
-  sfromR :: forall r sh. (GoodScalar r, Sh.Shape sh, KnownNat (Sh.Rank sh))
+  sfromR :: forall r sh. (GoodScalar r, KnownShape sh, KnownNat (Sh.Rank sh))
          => ADVal (RankedOf shaped) r (Sh.Rank sh) -> ADVal shaped r sh
   sfromR (D u u') = dDnotShared (sfromR u) (dSFromR u')
    where
@@ -638,7 +638,7 @@ aDValDynamicTensor (DynamicRankedDummy @r1 @sh1 _ _)
                    (DynamicRanked @r2 @n2 t')
   | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
   , Just Refl <- matchingRank @sh1 @n2 =
-    withListShape (Sh.shapeT @sh1) $ \(sh4 :: ShapeInt n4) ->
+    withListShape (shapeT @sh1) $ \(sh4 :: ShapeInt n4) ->
       gcastWith (unsafeCoerce Refl :: n4 :~: Sh.Rank sh1) $
       DynamicRanked (dDnotShared (rzero sh4) t')
 aDValDynamicTensor (DynamicShapedDummy @r1 @sh1 _ _)

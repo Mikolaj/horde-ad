@@ -7,7 +7,6 @@ module Shared
 import Prelude
 
 import qualified Data.Array.RankedS as OR
-import qualified Data.Array.Shape as Sh
 import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
 import qualified Data.Char
@@ -38,7 +37,7 @@ instance (VS.Storable a) => HasShape (VS.Vector a) where
 instance HasShape (Flip OR.Array a n) where
   shapeL = OR.shapeL . runFlip
 
-instance Sh.Shape sh => HasShape (Flip OS.Array a sh) where
+instance KnownShape sh => HasShape (Flip OS.Array a sh) where
   shapeL = OS.shapeL . runFlip
 
 instance HasShape (LA.Matrix a) where
@@ -46,9 +45,9 @@ instance HasShape (LA.Matrix a) where
 
 instance RankedTensor ranked => HasShape (DynamicTensor ranked) where
   shapeL (DynamicRanked t) = shapeToList $ rshape t
-  shapeL (DynamicShaped @_ @sh _) = Sh.shapeT @sh
-  shapeL (DynamicRankedDummy @_ @sh _ _) = Sh.shapeT @sh
-  shapeL (DynamicShapedDummy @_ @sh _ _) = Sh.shapeT @sh
+  shapeL (DynamicShaped @_ @sh _) = shapeT @sh
+  shapeL (DynamicRankedDummy @_ @sh _ _) = shapeT @sh
+  shapeL (DynamicShapedDummy @_ @sh _ _) = shapeT @sh
 
 instance {-# OVERLAPPABLE #-} (Foldable t) => HasShape (t a) where
   shapeL = (: []) . length
@@ -63,11 +62,11 @@ class Linearizable a b | a -> b where
 instance (VS.Storable a) => Linearizable (VS.Vector a) a where
   linearize = VS.toList
 
-instance (VS.Storable a, Sh.Shape sh)
+instance (VS.Storable a, KnownShape sh)
          => Linearizable (OS.Array sh a) a where
   linearize = OS.toList
 
-instance (VS.Storable a, Sh.Shape sh)
+instance (VS.Storable a, KnownShape sh)
          => Linearizable (Flip OS.Array a sh) a where
   linearize = OS.toList . runFlip
 
@@ -82,7 +81,7 @@ instance (LA.Element a) => Linearizable (LA.Matrix a) a where
 
 instance ( forall r n. (GoodScalar r, KnownNat n)
            => Linearizable (ranked r n) r
-         , forall r sh. (GoodScalar r, Sh.Shape sh)
+         , forall r sh. (GoodScalar r, KnownShape sh)
            => Linearizable (shaped r sh) r
          , shaped ~ ShapedOf ranked )  -- a hack for quantified constraints
          => Linearizable (DynamicTensor ranked) Double where
@@ -90,8 +89,8 @@ instance ( forall r n. (GoodScalar r, KnownNat n)
     map toDouble $ linearize @(ranked r2 n2) @r2 t
   linearize (DynamicShaped @r2 @sh2 t) =
     map toDouble $ linearize @(ShapedOf ranked r2 sh2) @r2 t
-  linearize (DynamicRankedDummy @_ @sh _ _) = replicate (Sh.sizeT @sh) 0
-  linearize (DynamicShapedDummy @_ @sh _ _) = replicate (Sh.sizeT @sh) 0
+  linearize (DynamicRankedDummy @_ @sh _ _) = replicate (sizeT @sh) 0
+  linearize (DynamicShapedDummy @_ @sh _ _) = replicate (sizeT @sh) 0
 
 instance {-# OVERLAPPABLE #-} (Foldable t) => Linearizable (t a) a where
   linearize = Data.Foldable.toList

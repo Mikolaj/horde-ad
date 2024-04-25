@@ -9,7 +9,6 @@ import Prelude
 
 import           Control.Exception.Assert.Sugar
 import qualified Data.Array.RankedS as OR
-import qualified Data.Array.Shape as Sh
 import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
 import           Data.Proxy (Proxy (Proxy))
@@ -1249,7 +1248,7 @@ rscanZip f eShs acc0 es =
       (\res -> rappend (rfromList [acc0]) (rfromD $ res V.! 1))
 
 sscanZip :: forall rn sh k ranked shaped.
-            ( GoodScalar rn, Sh.Shape sh, KnownNat k, ShapedTensor shaped
+            ( GoodScalar rn, KnownShape sh, KnownNat k, ShapedTensor shaped
             , HVectorTensor ranked shaped
             , shaped ~ ShapedOf ranked, ranked ~ RankedOf shaped )
        => (forall f. ADReadyS f
@@ -4486,7 +4485,7 @@ testSin0revhFoldZip4R = do
 
 fFoldS
   :: forall m k rm shm r sh shaped.
-     ( KnownNat k, GoodScalar rm, Sh.Shape shm, GoodScalar r, Sh.Shape sh
+     ( KnownNat k, GoodScalar rm, KnownShape shm, GoodScalar r, KnownShape sh
      , ADReadyS shaped, KnownNat m, OS.Rank shm ~ m)
   => shaped r (1 + k ': sh)
   -> shaped rm (k ': shm)

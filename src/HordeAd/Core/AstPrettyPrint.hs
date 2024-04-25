@@ -19,7 +19,6 @@ import Prelude
 
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
-import qualified Data.Array.Shape as Sh
 import qualified Data.Array.ShapedS as OS
 import           Data.List (intersperse)
 import           Data.Proxy (Proxy (Proxy))
@@ -138,9 +137,9 @@ printAstVar :: forall n s r. KnownNat n
             => PrintConfig -> AstVarName (AstRanked s) r n -> ShowS
 printAstVar = printAstVarN (valueOf @n)
 
-printAstVarS :: forall sh s r. Sh.Shape sh
+printAstVarS :: forall sh s r. KnownShape sh
              => PrintConfig -> AstVarName (AstShaped s) r sh -> ShowS
-printAstVarS = printAstVarN (length (Sh.shapeT @sh))
+printAstVarS = printAstVarN (length (shapeT @sh))
 
 printAstIntVar :: PrintConfig -> IntVarName -> ShowS
 printAstIntVar cfg (AstVarName varId) = printAstVarId "i" cfg varId
@@ -170,7 +169,7 @@ printAstVarName :: KnownNat n
 printAstVarName renames var =
   printAstVar (defaulPrintConfig False renames) var ""
 
-printAstVarNameS :: Sh.Shape sh
+printAstVarNameS :: KnownShape sh
                  => IntMap String -> AstVarName (AstShaped s) r sh
                  -> String
 printAstVarNameS renames var =
@@ -185,7 +184,7 @@ printAstDynamicVarName renames var@(AstDynamicVarName @ty @r @sh _varId) =
   printAstDynamicVarNameBrief renames var
   ++ " @" ++ show (typeRep @ty)
   ++ " @" ++ show (typeRep @r)
-  ++ " @" ++ show (Sh.shapeT @sh)
+  ++ " @" ++ show (shapeT @sh)
 
 printAstDynamicVarNameCfg :: PrintConfig -> AstDynamicVarName -> String
 printAstDynamicVarNameCfg cfg =
@@ -402,7 +401,7 @@ printAstAux cfg d = \case
   AstDualPart a -> printPrefixOp printAst cfg d "rdualPart" [a]
   AstD u u' -> printPrefixBinaryOp printAst printAst cfg d "rD" u u'
 
-printAstS :: forall sh s r. (GoodScalar r, Sh.Shape sh, AstSpan s)
+printAstS :: forall sh s r. (GoodScalar r, KnownShape sh, AstSpan s)
           => PrintConfig -> Int -> AstShaped s r sh -> ShowS
 printAstS cfg d = \case
   AstVarS var -> printAstVarS cfg var
@@ -525,7 +524,7 @@ printAstS cfg d = \case
     case sameShape @sh @'[] of
       Just Refl -> shows $ OS.unScalar a
       _ -> showParen (d > 10)
-           $ showString ("sconst @" ++ show (Sh.shapeT @sh2) ++ " ")
+           $ showString ("sconst @" ++ show (shapeT @sh2) ++ " ")
              . (showParen True
                 $ shows a)
   AstProjectS l p ->
@@ -952,15 +951,15 @@ printAstPrettyButNested :: (GoodScalar r, KnownNat n, AstSpan s)
 printAstPrettyButNested renames t =
   printAst (defaulPrintConfig2 True False renames) 0 t ""
 
-printAstSimpleS :: (GoodScalar r, Sh.Shape sh, AstSpan s)
+printAstSimpleS :: (GoodScalar r, KnownShape sh, AstSpan s)
                 => IntMap String -> AstShaped s r sh -> String
 printAstSimpleS renames t = printAstS (defaulPrintConfig False renames) 0 t ""
 
-printAstPrettyS :: (GoodScalar r, Sh.Shape sh, AstSpan s)
+printAstPrettyS :: (GoodScalar r, KnownShape sh, AstSpan s)
                 => IntMap String -> AstShaped s r sh -> String
 printAstPrettyS renames t = printAstS (defaulPrintConfig True renames) 0 t ""
 
-printAstPrettyButNestedS :: (GoodScalar r, Sh.Shape sh, AstSpan s)
+printAstPrettyButNestedS :: (GoodScalar r, KnownShape sh, AstSpan s)
                          => IntMap String -> AstShaped s r sh -> String
 printAstPrettyButNestedS renames t =
   printAstS (defaulPrintConfig2 True False renames) 0 t ""

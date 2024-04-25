@@ -10,7 +10,6 @@ module CrossTesting
 import Prelude
 
 import qualified Data.Array.RankedS as OR
-import qualified Data.Array.Shape as Sh
 import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
 import qualified Data.Vector.Generic as V
@@ -519,7 +518,7 @@ rfwd1 :: forall g r n m r3.
 rfwd1 f u = rfwd1ds f u (rreplicate0N (rshape u) 1)
 
 srev1 :: forall g r sh sh2 r3.
-         (ADReadyS g, GoodScalar r, GoodScalar r3, Sh.Shape sh, Sh.Shape sh2)
+         (ADReadyS g, GoodScalar r, GoodScalar r3, KnownShape sh, KnownShape sh2)
       => (forall f. ADReadyS f => f r sh -> f r3 sh2) -> g r sh -> g r sh
 srev1 f u =
   let fHVector :: forall f. ADReadyS f
@@ -532,7 +531,7 @@ srev1 f u =
   in sletHVectorIn domsOf (\v -> sfromD $ v V.! 0)
 
 sfwd1 :: forall g r sh sh2 r3.
-         (ADReadyS g, GoodScalar r, GoodScalar r3, Sh.Shape sh, Sh.Shape sh2)
+         (ADReadyS g, GoodScalar r, GoodScalar r3, KnownShape sh, KnownShape sh2)
       => (forall f. ADReadyS f => f r sh -> f r3 sh2) -> g r sh -> g r3 sh2
 sfwd1 f u =
   let fHVector :: forall f. ADReadyS f

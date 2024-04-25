@@ -255,7 +255,7 @@ data DeltaR :: RankedTensorType -> RankedTensorType where
     -- TODO: this is a haddock for Gather1; fix.
   CastR :: (GoodScalar r1, RealFrac r1, RealFrac r2)
         => DeltaR ranked r1 n -> DeltaR ranked r2 n
-  RFromS :: forall sh r ranked. Sh.Shape sh
+  RFromS :: forall sh r ranked. KnownShape sh
          => DeltaS (ShapedOf ranked) r sh
          -> DeltaR ranked r (Sh.Rank sh)
   RFromH :: DeltaH ranked -> Int -> DeltaR ranked r n
@@ -280,7 +280,7 @@ data DeltaS :: ShapedTensorType -> ShapedTensorType where
        -> DeltaS shaped r sh
   ShareS :: NodeId (RankedOf shaped) -> DeltaS shaped r sh -> DeltaS shaped r sh
 
-  IndexS :: (Sh.Shape sh1, Sh.Shape (sh1 Sh.++ sh2))
+  IndexS :: (KnownShape sh1, KnownShape (sh1 Sh.++ sh2))
          => DeltaS shaped r (sh1 Sh.++ sh2)
          -> IndexSh shaped sh1
          -> DeltaS shaped r sh2
@@ -288,14 +288,14 @@ data DeltaS :: ShapedTensorType -> ShapedTensorType where
     -- If index is out of bounds, the result is defined and is 0.
   SumS :: KnownNat n
        => DeltaS shaped r (n ': sh) -> DeltaS shaped r sh
-  Sum0S :: (Sh.Shape sh, KnownNat (Sh.Size sh))
+  Sum0S :: (KnownShape sh, KnownNat (Sh.Size sh))
         => DeltaS shaped r sh -> DeltaS shaped r '[]
-  Dot0S :: (Sh.Shape sh, KnownNat (Sh.Size sh))
+  Dot0S :: (KnownShape sh, KnownNat (Sh.Size sh))
         => shaped r sh -> DeltaS shaped r sh
         -> DeltaS shaped r '[]
   ScatterS :: forall shaped r sh2 p sh.
-              ( Sh.Shape sh2, Sh.Shape (Sh.Take p sh), Sh.Shape (Sh.Drop p sh)
-              , Sh.Shape (sh2 Sh.++ Sh.Drop p sh) )
+              ( KnownShape sh2, KnownShape (Sh.Take p sh), KnownShape (Sh.Drop p sh)
+              , KnownShape (sh2 Sh.++ Sh.Drop p sh) )
            => DeltaS shaped r (sh2 Sh.++ Sh.Drop p sh)
            -> (IndexSh shaped sh2
                -> IndexSh shaped (Sh.Take p sh))
@@ -310,16 +310,16 @@ data DeltaS :: ShapedTensorType -> ShapedTensorType where
     -- and then no tensors is added at such an index.
     -- TODO: this is a haddock for Scatter1; fix.
 
-  FromVectorS :: (Sh.Shape sh, KnownNat n)
+  FromVectorS :: (KnownShape sh, KnownNat n)
               => Data.Vector.Vector (DeltaS shaped r sh)
               -> DeltaS shaped r (n ': sh)
     -- ^ Create a tensor from a boxed vector treated as the outermost dimension.
   ReplicateS :: forall shaped r n sh.
-                (Sh.Shape sh, KnownNat n)
+                (KnownShape sh, KnownNat n)
              => DeltaS shaped r sh -> DeltaS shaped r (n ': sh)
     -- ^ Copy the given tensor along the new, outermost dimension.
   AppendS :: forall shaped r m n sh.
-             (KnownNat m, KnownNat n, Sh.Shape sh)
+             (KnownNat m, KnownNat n, KnownShape sh)
           => DeltaS shaped r (m ': sh)
           -> DeltaS shaped r (n ': sh)
           -> DeltaS shaped r ((m + n) ': sh)
@@ -327,29 +327,29 @@ data DeltaS :: ShapedTensorType -> ShapedTensorType where
     -- All dimensions, except the outermost, must be the same.
     -- The integer argument is the outermost size of the first array.
   SliceS :: forall shaped i n k r sh.
-            (KnownNat i, KnownNat n, KnownNat k, Sh.Shape sh)
+            (KnownNat i, KnownNat n, KnownNat k, KnownShape sh)
          => DeltaS shaped r (i + n + k ': sh)
          -> DeltaS shaped r (n ': sh)
     -- ^ Extract a slice of an array along the outermost dimension.
     -- The extracted slice must fall within the dimension.
     -- The last argument is the outermost size of the argument array.
-  ReverseS :: (Sh.Shape sh, KnownNat n)
+  ReverseS :: (KnownShape sh, KnownNat n)
            => DeltaS shaped r (n ': sh)
            -> DeltaS shaped r (n ': sh)
     -- ^ Reverse elements of the outermost dimension.
   TransposeS :: forall shaped perm r sh.
-                ( OS.Permutation perm, Sh.Shape perm, Sh.Shape sh
+                ( OS.Permutation perm, KnownShape perm, KnownShape sh
                 , KnownNat (Sh.Rank sh), Sh.Rank perm <= Sh.Rank sh )
              => DeltaS shaped r sh
              -> DeltaS shaped r (Sh.Permute perm sh)
     -- ^ Transpose according to the permutation.
-  ReshapeS :: (Sh.Shape sh, Sh.Size sh ~ Sh.Size sh2)
+  ReshapeS :: (KnownShape sh, Sh.Size sh ~ Sh.Size sh2)
            => DeltaS shaped r sh
            -> DeltaS shaped r sh2
     -- ^ Change the shape of the tensor from the first to the second.
   GatherS :: forall shaped r sh2 p sh.
-             ( Sh.Shape sh2, Sh.Shape sh
-             , Sh.Shape (Sh.Take p sh), Sh.Shape (Sh.Drop p sh) )
+             ( KnownShape sh2, KnownShape sh
+             , KnownShape (Sh.Take p sh), KnownShape (Sh.Drop p sh) )
           => DeltaS shaped r sh
           -> (IndexSh shaped sh2
               -> IndexSh shaped (Sh.Take p sh))
@@ -369,7 +369,7 @@ data DeltaS :: ShapedTensorType -> ShapedTensorType where
          -> DeltaS shaped r sh
   SFromH :: DeltaH (RankedOf shaped) -> Int -> DeltaS shaped r sh
 
-deriving instance ( Sh.Shape sh0, GoodScalar r0
+deriving instance ( KnownShape sh0, GoodScalar r0
                   , Show (IntOf (RankedOf shaped))
                   , Show (IntOf shaped)
                   , CRanked (RankedOf shaped) Show
@@ -455,7 +455,7 @@ shapeDeltaR = \case
   ReshapeR sh _ -> sh
   GatherR sh _ _ -> sh
   CastR d -> shapeDeltaR d
-  RFromS @sh _ -> listToShape $ Sh.shapeT @sh
+  RFromS @sh _ -> listToShape $ shapeT @sh
   RFromH d i -> listToShape $ shapeVoidDynamic (shapeDeltaH d V.! i)
 
 lengthDeltaR :: forall ranked r n.
@@ -758,7 +758,7 @@ evalR !s !c = let cShared = rshare c
 
 evalSRuntimeSpecialized
   :: forall sh r ranked shaped.
-     (Sh.Shape sh, GoodScalar r, ADReady ranked, shaped ~ ShapedOf ranked)
+     (KnownShape sh, GoodScalar r, ADReady ranked, shaped ~ ShapedOf ranked)
   => EvalState ranked -> shaped r sh -> DeltaS shaped r sh
   -> EvalState ranked
 evalSRuntimeSpecialized !s !c =
@@ -774,7 +774,7 @@ evalSRuntimeSpecialized !s !c =
 
 evalS
   :: forall sh r ranked shaped.
-     (Sh.Shape sh, GoodScalar r, ADReady ranked, shaped ~ ShapedOf ranked)
+     (KnownShape sh, GoodScalar r, ADReady ranked, shaped ~ ShapedOf ranked)
   => EvalState ranked -> shaped r sh -> DeltaS shaped r sh
   -> EvalState ranked
 evalS !s !c = let cShared = sshare c
@@ -826,9 +826,9 @@ evalS !s !c = let cShared = sshare c
     -- so we unsafeCoerce, knowing that it's safe in this case.
     -- TODO: instead add a tensor operation that permutes
     -- in the other direction? What if the backend doesn't have it?
-    let perm = Sh.shapeT @perm
+    let perm = shapeT @perm
         permRev = map snd $ sort $ zip perm [0 .. length perm - 1]
-    in Sh.withShapeP permRev $ \(Proxy @permR) ->
+    in withShapeP permRev $ \(Proxy @permR) ->
       gcastWith (unsafeCoerce Refl
                  :: Sh.Permute permR sh :~: sh2)
       $ gcastWith (unsafeCoerce Refl
@@ -1094,7 +1094,7 @@ fwdR dimR params s = \case
 
 fwdS
   :: forall sh r ranked shaped.
-     (Sh.Shape sh, GoodScalar r, ADReady ranked, shaped ~ ShapedOf ranked)
+     (KnownShape sh, GoodScalar r, ADReady ranked, shaped ~ ShapedOf ranked)
   => Int -> HVector ranked -> EvalState ranked -> DeltaS shaped r sh
   -> (EvalState ranked, shaped r sh)
 fwdS dimR params s = \case

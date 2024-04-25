@@ -19,7 +19,6 @@ module HordeAd.Core.AstEnv
 import Prelude
 
 import           Control.Exception.Assert.Sugar
-import qualified Data.Array.Shape as Sh
 import qualified Data.EnumMap.Strict as EM
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality (testEquality, (:~:) (Refl))
@@ -47,7 +46,7 @@ type role AstEnvElem nominal
 data AstEnvElem (ranked :: RankedTensorType) where
   AstEnvElemRanked :: (GoodScalar r, KnownNat n)
                    => ranked r n -> AstEnvElem ranked
-  AstEnvElemShaped :: (GoodScalar r, Sh.Shape sh)
+  AstEnvElemShaped :: (GoodScalar r, KnownShape sh)
                    => ShapedOf ranked r sh -> AstEnvElem ranked
   AstEnvElemHFun :: HFunOf ranked -> AstEnvElem ranked
 
@@ -65,7 +64,7 @@ extendEnvR (AstVarName varId) !t !env =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvR: duplicate " ++ show varId)
                    varId (AstEnvElemRanked t) env
 
-extendEnvS :: forall ranked r sh s. (Sh.Shape sh, GoodScalar r)
+extendEnvS :: forall ranked r sh s. (KnownShape sh, GoodScalar r)
            => AstVarName (AstShaped s) r sh -> ShapedOf ranked r sh
            -> AstEnv ranked
            -> AstEnv ranked
@@ -113,7 +112,7 @@ extendEnvD vd@(AstDynamicVarName @ty @r @sh varId, d) !env = case d of
       extendEnvS @ranked @r @sh (AstVarName varId) 0 env
   _ -> error $ "extendEnvD: impossible type"
                `showFailure`
-               ( vd, typeRep @ty, typeRep @r, Sh.shapeT @sh
+               ( vd, typeRep @ty, typeRep @r, shapeT @sh
                , scalarDynamic d, shapeDynamic d )
 
 extendEnvI :: ( RankedTensor ranked
