@@ -558,7 +558,8 @@ mapShaped
       => shaped rq shq -> shaped rq shq)
   -> DynamicTensor (RankedOf shaped) -> DynamicTensor (RankedOf shaped)
 mapShaped f (DynamicRanked @r @n t) =
-    withListShapeIntS (shapeToList $ rshape t) $ \(Proxy @sh) (_ :: ShapeInt m) ->
+  Sh.withShapeP (shapeToList $ rshape t) $ \(Proxy @sh) ->
+    withListSh (Proxy @sh) $ \(_ :: ShapeInt m) ->
       gcastWith (unsafeCoerce Refl :: n :~: m) $
       DynamicRanked $ rfromS $ f @r @sh $ sfromR t
 mapShaped f (DynamicShaped t) = DynamicShaped $ f t
