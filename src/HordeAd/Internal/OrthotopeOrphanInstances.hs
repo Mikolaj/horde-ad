@@ -3,7 +3,7 @@
 -- | Orphan instances for orthotope classes.
 module HordeAd.Internal.OrthotopeOrphanInstances
   ( liftVR, liftVR2, liftVS, liftVS2
-  , MapSucc, trustMeThisIsAPermutation, sameShape, matchingRank
+  , MapSucc, trustMeThisIsAPermutation
   ) where
 
 import Prelude
@@ -238,7 +238,7 @@ instance (Num (Vector r), Integral r, Sh.Shape sh, Numeric r, Show r)
   div = liftVS2 (\x y -> if y == 0 then 0 else div x y)
   mod = liftVS2 (\x y -> if y == 0 then 0 else mod x y)
   -- divMod  -- TODO
-  toInteger = case sameShape @sh @'[] of
+  toInteger = case sameShapeS @sh @'[] of
     Just Refl -> toInteger . OS.unScalar
     _ -> error $ "OS.toInteger: shape not empty: "
                  ++ show (Sh.shapeT @sh)
@@ -390,17 +390,10 @@ trustMeThisIsAPermutation :: forall is r. (OS.Permutation is => r) -> r
 trustMeThisIsAPermutation r = case trustMeThisIsAPermutationDict @is of
   Dict -> r
 
-sameShape :: forall sh1 sh2. (Sh.Shape sh1, Sh.Shape sh2) => Maybe (sh1 :~: sh2)
-sameShape = case eqTypeRep (typeRep @sh1) (typeRep @sh2) of
-              Just HRefl -> Just Refl
-              Nothing -> Nothing
-
-matchingRank :: forall sh1 n2. (Sh.Shape sh1, KnownNat n2)
-             => Maybe (Sh.Rank sh1 :~: n2)
-matchingRank =
-  if length (Sh.shapeT @sh1) == valueOf @n2
-  then Just (unsafeCoerce Refl :: Sh.Rank sh1 :~: n2)
-  else Nothing
+sameShapeS :: forall sh1 sh2. (Sh.Shape sh1, Sh.Shape sh2) => Maybe (sh1 :~: sh2)
+sameShapeS = case eqTypeRep (typeRep @sh1) (typeRep @sh2) of
+               Just HRefl -> Just Refl
+               Nothing -> Nothing
 
 instance Enum (Vector r) where  -- dummy, to satisfy Integral below
   toEnum = undefined

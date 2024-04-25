@@ -51,8 +51,7 @@ import           System.IO.Unsafe (unsafePerformIO)
 import           Unsafe.Coerce (unsafeCoerce)
 
 import           HordeAd.Core.Types
-import           HordeAd.Internal.OrthotopeOrphanInstances
-  (liftVR, liftVS, sameShape)
+import           HordeAd.Internal.OrthotopeOrphanInstances (liftVR, liftVS)
 import           HordeAd.Internal.TensorFFI
 import           HordeAd.Util.ShapedList (IndexS, ShapedNat)
 import qualified HordeAd.Util.ShapedList as ShapedList

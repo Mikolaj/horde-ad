@@ -37,8 +37,6 @@ import           Unsafe.Coerce (unsafeCoerce)
 
 import           HordeAd.Core.HVector
 import           HordeAd.Core.Types
-import           HordeAd.Internal.OrthotopeOrphanInstances
-  (matchingRank, sameShape)
 import           HordeAd.Util.ShapedList
   (IndexSh, IntSh, ShapeIntS, consIndex, pattern (:.$), pattern ZIS)
 import qualified HordeAd.Util.ShapedList as ShapedList

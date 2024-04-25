@@ -94,7 +94,7 @@ import           HordeAd.Core.TensorClass
 import           HordeAd.Core.Types
 import           HordeAd.Internal.BackendConcrete
 import           HordeAd.Internal.OrthotopeOrphanInstances
-  (MapSucc, matchingRank, sameShape, trustMeThisIsAPermutation)
+  (MapSucc, trustMeThisIsAPermutation)
 import           HordeAd.Util.ShapedList
   (SizedListS (..), pattern (:.$), pattern ZIS)
 import qualified HordeAd.Util.ShapedList as ShapedList

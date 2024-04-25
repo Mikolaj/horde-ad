@@ -14,20 +14,24 @@ module HordeAd.Core.Types
   , SNat, pattern SNat, withSNat, sNatValue, proxyFromSNat
     -- * Definitions for type-level list shapes
   , SShape(..), KnownShape2(..), KnownShape, shapeT, shapeP, sizeT, withShapeP
+  , sameShape, matchingRank
   ) where
 
 import Prelude
 
 import           Control.DeepSeq (NFData (..))
+import           Data.Array.Internal (valueOf)
 import qualified Data.Array.Shape as Sh
 import           Data.Boolean (Boolean (..))
 import           Data.Int (Int64)
 import           Data.Kind (Constraint, Type)
 import           Data.Proxy (Proxy (Proxy))
+import           Data.Type.Equality ((:~:) (Refl))
 import           GHC.TypeLits
   (KnownNat, Nat, SNat, fromSNat, natSing, pattern SNat, withSomeSNat)
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import           Type.Reflection (Typeable)
+import           Unsafe.Coerce (unsafeCoerce)
 
 import HordeAd.Internal.OrthotopeOrphanInstances ()
 import HordeAd.Internal.TensorFFI
@@ -170,6 +174,7 @@ type role SShape nominal
 data SShape sh where
   ShNil :: SShape '[]
   ShCons :: KnownShape sh => SNat n -> SShape sh -> SShape (n : sh)
+deriving instance Eq (SShape sh)
 deriving instance Show (SShape sh)
 infixr 5 `ShCons`
 
@@ -198,3 +203,16 @@ withShapeP :: [Int] -> (forall sh. KnownShape sh => Proxy sh -> r) -> r
 withShapeP [] f = f (Proxy @('[] :: [Nat]))
 withShapeP (n : ns) f = withSNat n $ \(SNat @n) ->
   withShapeP ns (\(Proxy @ns) -> f (Proxy @(n : ns)))
+
+sameShape :: forall sh1 sh2. (KnownShape2 sh1, KnownShape2 sh2)
+          => Maybe (sh1 :~: sh2)
+sameShape = case shapeT @sh1 == shapeT @sh2 of
+              True -> Just (unsafeCoerce Refl :: sh1 :~: sh2)
+              False -> Nothing
+
+matchingRank :: forall sh1 n2. (KnownShape2 sh1, KnownNat n2)
+             => Maybe (Sh.Rank sh1 :~: n2)
+matchingRank =
+  if length (shapeT @sh1) == valueOf @n2
+  then Just (unsafeCoerce Refl :: Sh.Rank sh1 :~: n2)
+  else Nothing
