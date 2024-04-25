@@ -158,14 +158,14 @@ shapeDynamicF :: (forall r n. (GoodScalar r, KnownNat n) => ranked r n -> [Int])
 {-# INLINE shapeDynamicF #-}
 shapeDynamicF f (DynamicRanked t) = f t
 shapeDynamicF _ (DynamicShaped @_ @sh _) = shapeT @sh
-shapeDynamicF _ (DynamicRankedDummy _ proxy_sh) = Sh.shapeP proxy_sh
-shapeDynamicF _ (DynamicShapedDummy _ proxy_sh) = Sh.shapeP proxy_sh
+shapeDynamicF _ (DynamicRankedDummy _ proxy_sh) = shapeP proxy_sh
+shapeDynamicF _ (DynamicShapedDummy _ proxy_sh) = shapeP proxy_sh
 
 rankDynamic :: DynamicTensor ranked -> Int
 rankDynamic (DynamicRanked @_ @n _) = valueOf @n
 rankDynamic (DynamicShaped @_ @sh _) = length $ shapeT @sh
-rankDynamic (DynamicRankedDummy _ proxy_sh) = length $ Sh.shapeP proxy_sh
-rankDynamic (DynamicShapedDummy _ proxy_sh) = length $ Sh.shapeP proxy_sh
+rankDynamic (DynamicRankedDummy _ proxy_sh) = length $ shapeP proxy_sh
+rankDynamic (DynamicShapedDummy _ proxy_sh) = length $ shapeP proxy_sh
 
 isDynamicRanked :: DynamicTensor ranked -> Bool
 isDynamicRanked DynamicRanked{} = True

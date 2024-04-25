@@ -13,7 +13,7 @@ module HordeAd.Core.Types
     -- * Definitions to help express and manipulate type-level natural numbers
   , SNat, pattern SNat, withSNat, sNatValue, proxyFromSNat
     -- * Definitions for type-level list shapes
-  , SShape(..), KnownShape2(..), KnownShape, shapeT, sizeT, withShapeP
+  , SShape(..), KnownShape2(..), KnownShape, shapeT, shapeP, sizeT, withShapeP
   ) where
 
 import Prelude
@@ -183,6 +183,9 @@ type KnownShape sh = (KnownShape2 sh, Sh.Shape sh)
 
 shapeT :: forall sh. KnownShape2 sh => [Int]
 shapeT = sshapeToList (knownShape @sh)
+
+shapeP :: forall sh. KnownShape2 sh => Proxy sh -> [Int]
+shapeP _ = sshapeToList (knownShape @sh)
 
 sshapeToList :: SShape sh -> [Int]
 sshapeToList ShNil = []
