@@ -15,6 +15,7 @@ module HordeAd.Core.Types
     -- * Definitions for type-level list shapes
   , SShape(..), KnownShape2(..), KnownShape, shapeT, shapeP, sizeT, sizeP
   , withShapeP, sameShape, matchingRank
+  , Dict(..)
   ) where
 
 import Prelude
@@ -219,3 +220,9 @@ matchingRank =
   if length (shapeT @sh1) == valueOf @n2
   then Just (unsafeCoerce Refl :: Sh.Rank sh1 :~: n2)
   else Nothing
+
+-- | Evidence for the constraint @c a@.
+type role Dict representational nominal
+type Dict :: forall {k}. (k -> Constraint) -> k -> Type
+data Dict c a where
+  Dict :: c a => Dict c a
