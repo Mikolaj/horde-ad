@@ -77,7 +77,7 @@ type role SShape nominal
 data SShape sh where
   ShNil :: SShape '[]
   ShCons :: KnownShape sh => SNat n -> SShape sh -> SShape (n : sh)
-deriving instance Eq (SShape sh)
+-- TODO: re-add, if beneficial, when we drop GHC 9.6: deriving instance Eq (SShape sh)
 deriving instance Show (SShape sh)
 infixr 5 `ShCons`
 
