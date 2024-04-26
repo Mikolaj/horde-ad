@@ -20,6 +20,7 @@ import           Test.Tasty.HUnit hiding (assert)
 
 import HordeAd
 import HordeAd.Core.AstFreshId (resetVarCounter)
+import HordeAd.Internal.OrthotopeOrphanInstances (RealFloatF (..))
 import HordeAd.Util.ShapedList (pattern (:.$), pattern ZIS)
 
 import CrossTesting
@@ -635,7 +636,7 @@ testSin0Fold4S = do
   assertEqualUpToEpsilon' 1e-10
     (-0.7053476446727861 :: OR.Array 0 Double)
     (rev' (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
-               f a0 = sfold (\x a -> atan2 (sin x) (sin a))
+               f a0 = sfold (\x a -> atan2F (sin x) (sin a))
                         (2 * a0) (sreplicate @f @3 a0)
            in rfromS . f . sfromR) 1.1)
 
@@ -648,9 +649,9 @@ testSin0Fold5S = do
                                    => f2 Double '[] -> f2 Double '[2, 5]
                                    -> f2 Double '[]
                                  g x a = ssum
-                                   $ atan2 (sin $ sreplicate @f2 @5 x)
-                                         (ssum $ sin $ ssum
-                                          $ str $ sreplicate @f2 @7 a)
+                                   $ atan2F (sin $ sreplicate @f2 @5 x)
+                                            (ssum $ sin $ ssum
+                                             $ str $ sreplicate @f2 @7 a)
                              in g)
                         (2 * a0)
                         (sreplicate @f @3
@@ -689,9 +690,9 @@ testSin0Fold8S = do
     (rev' (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[2, 5]
                f a0 = sfold @_ @f @Double @Double @'[2, 5] @'[] @3
                         (\x a -> str $ sreplicate @_ @5
-                                 $ atan2 (ssum (str $ sin x))
-                                         (sreplicate @_ @2
-                                          $ sin (ssum $ sreplicate @_ @7 a)))
+                                 $ atan2F (ssum (str $ sin x))
+                                          (sreplicate @_ @2
+                                           $ sin (ssum $ sreplicate @_ @7 a)))
                         (sreplicate @_ @2 (sreplicate @_ @5 (2 * a0)))
                         (sreplicate @_ @3 a0)
            in rfromS . f . sfromR) 1.1)
@@ -728,9 +729,9 @@ testSin0Fold8Srev = do
     (rrev1 (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[2, 5]
                 f a0 = sfold @_ @f @Double @Double @'[2, 5] @'[] @3
                         (\x a -> str $ sreplicate @_ @5
-                                 $ atan2 (ssum (str $ sin x))
-                                         (sreplicate @_ @2
-                                          $ sin (ssum $ sreplicate @_ @7 a)))
+                                 $ atan2F (ssum (str $ sin x))
+                                          (sreplicate @_ @2
+                                           $ sin (ssum $ sreplicate @_ @7 a)))
                         (sreplicate @_ @2 (sreplicate @_ @5 (2 * a0)))
                         (sreplicate @_ @3 a0)
             in rfromS . f . sfromR) 1.1)
@@ -742,9 +743,9 @@ testSin0Fold8Srev2 = do
                        => f Double '[] -> f Double '[2, 5]
                      f a0 = sfold @_ @f @Double @Double @'[2, 5] @'[] @3
                         (\x a -> str $ sreplicate @_ @5
-                                 $ atan2 (ssum (str $ sin x))
-                                         (sreplicate @_ @2
-                                          $ sin (ssum $ sreplicate @_ @7 a)))
+                                 $ atan2F (ssum (str $ sin x))
+                                          (sreplicate @_ @2
+                                           $ sin (ssum $ sreplicate @_ @7 a)))
                         (sreplicate @_ @2 (sreplicate @_ @5 (2 * a0)))
                         (sreplicate @_ @3 a0)
                  in f)
@@ -758,9 +759,9 @@ testSin0Fold182SrevPP = do
   let a1 = rrev1 @(AstRanked FullSpan)
            (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[5]
                 f a0 = sfold @_ @f @Double @Double @'[5] @'[] @1
-                        (\_x a -> atan2 (sreplicate @_ @5 a)
-                                        (sreplicate @_ @5
-                                         $ sin (ssum $ sreplicate @_ @7 a)))
+                        (\_x a -> atan2F (sreplicate @_ @5 a)
+                                         (sreplicate @_ @5
+                                          $ sin (ssum $ sreplicate @_ @7 a)))
                         (sreplicate @_ @5 a0)
                         (sreplicate @_ @1 a0)
             in rfromS . f . sfromR) 1.1
@@ -774,9 +775,9 @@ testSin0Fold18Srev = do
     (rrev1 (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[2, 5]
                 f a0 = sfold @_ @f @Double @Double @'[2, 5] @'[] @2
                         (\x a -> str $ sreplicate @_ @5
-                                 $ atan2 (ssum (str $ sin x))
-                                         (sreplicate @_ @2
-                                          $ sin (ssum $ sreplicate @_ @7 a)))
+                                 $ atan2F (ssum (str $ sin x))
+                                          (sreplicate @_ @2
+                                           $ sin (ssum $ sreplicate @_ @7 a)))
                         (sreplicate @_ @2 (sreplicate @_ @5 (2 * a0)))
                         (sreplicate @_ @2 a0)
             in rfromS . f . sfromR) 1.1)
@@ -813,9 +814,9 @@ testSin0Fold8Sfwd = do
     (rfwd1 (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[2, 5]
                 f a0 = sfold @_ @f @Double @Double @'[2, 5] @'[] @3
                         (\x a -> str $ sreplicate @_ @5
-                                 $ atan2 (ssum (str $ sin x))
-                                         (sreplicate @_ @2
-                                          $ sin (ssum $ sreplicate @_ @7 a)))
+                                 $ atan2F (ssum (str $ sin x))
+                                          (sreplicate @_ @2
+                                           $ sin (ssum $ sreplicate @_ @7 a)))
                         (sreplicate @_ @2 (sreplicate @_ @5 (2 * a0)))
                         (sreplicate @_ @3 a0)
             in rfromS . f . sfromR) 1.1)
@@ -827,9 +828,9 @@ testSin0Fold8Sfwd2 = do
                        => f Double '[] -> f Double '[2, 5]
                      f a0 = sfold @_ @f @Double @Double @'[2, 5] @'[] @3
                         (\x a -> str $ sreplicate @_ @5
-                                 $ atan2 (ssum (str $ sin x))
-                                         (sreplicate @_ @2
-                                          $ sin (ssum $ sreplicate @_ @7 a)))
+                                 $ atan2F (ssum (str $ sin x))
+                                          (sreplicate @_ @2
+                                           $ sin (ssum $ sreplicate @_ @7 a)))
                         (sreplicate @_ @2 (sreplicate @_ @5 (2 * a0)))
                         (sreplicate @_ @3 a0)
                  in rfromS . f . sfromR)
@@ -846,9 +847,9 @@ testSin0Fold5Sfwd = do
                                    => f2 Double '[] -> f2 Double '[2, 5]
                                    -> f2 Double '[]
                                  g x a = ssum
-                                   $ atan2 (sin $ sreplicate @f2 @5 x)
-                                         (ssum $ sin $ ssum
-                                          $ str $ sreplicate @f2 @7 a)
+                                   $ atan2F (sin $ sreplicate @f2 @5 x)
+                                            (ssum $ sin $ ssum
+                                             $ str $ sreplicate @f2 @7 a)
                              in g)
                         (2 * a0)
                         (sreplicate @f @3
@@ -865,9 +866,9 @@ testSin0Fold5Sfwds = do
                                    => f2 Double '[] -> f2 Double '[2, 5]
                                    -> f2 Double '[]
                                  g x a = ssum
-                                   $ atan2 (sin $ sreplicate @f2 @5 x)
-                                         (ssum $ sin $ ssum
-                                          $ str $ sreplicate @f2 @7 a)
+                                   $ atan2F (sin $ sreplicate @f2 @5 x)
+                                            (ssum $ sin $ ssum
+                                             $ str $ sreplicate @f2 @7 a)
                              in g)
                         (2 * a0)
                         (sreplicate @f @3
@@ -2716,7 +2717,7 @@ testSin0rmapAccumRD01SN6 = do
                                    $ V.fromList
                                        [ DynamicShaped
                                          $ sin x
-                                           `atan2` smaxIndex
+                                           `atan2F` smaxIndex
                                                @_ @Double @Double @'[] @2
                                                (sfromD (a V.! 1))
                                        , DynamicShaped
@@ -2889,7 +2890,7 @@ testSin0ScanD51S = do
                           -> f2 Double '[1,1,1,1]
                         g x a =
                           ssum
-                          $ atan2 (sin $ sreplicate @f2 @5 x)
+                          $ atan2F (sin $ sreplicate @f2 @5 x)
                                   (ssum $ sin $ ssum
                                    $ str $ sreplicate @f2 @7
                                    $ sreplicate @f2 @2 $ sreplicate @f2 @5
@@ -4012,7 +4013,7 @@ testSin0FoldNestedSi = do
   assertEqualUpToEpsilon' 1e-10
     (-0.20775612781643243 :: OR.Array 0 Double)
     (rev' (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[3]
-               f a0 = sfold (\x a -> atan2
+               f a0 = sfold (\x a -> atan2F
                                        (sscan (+) (ssum x)
                                           (sscan (*) 2
                                                  (sreplicate @_ @1 a)))

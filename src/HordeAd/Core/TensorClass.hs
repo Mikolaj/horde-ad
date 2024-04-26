@@ -37,7 +37,8 @@ import           Unsafe.Coerce (unsafeCoerce)
 
 import           HordeAd.Core.HVector
 import           HordeAd.Core.Types
-import           HordeAd.Internal.OrthotopeOrphanInstances (IntegralF (..))
+import           HordeAd.Internal.OrthotopeOrphanInstances
+  (IntegralF (..), RealFloatF (..))
 import           HordeAd.Util.ShapedList
   (IndexSh, IntSh, ShapeIntS, consIndex, pattern (:.$), pattern ZIS)
 import qualified HordeAd.Util.ShapedList as ShapedList
@@ -336,7 +337,9 @@ class ( Integral (IntOf ranked), CRanked ranked Num
 -- * Shaped tensor class definition
 
 class ( Integral (IntOf shaped), CShaped shaped Num
-      , TensorSupports RealFloat shaped, TensorSupports2 Integral IntegralF shaped )
+      , TensorSupports2 RealFloat Floating shaped
+      , TensorSupports2 RealFloat RealFloatF shaped
+      , TensorSupports2 Integral IntegralF shaped )
       => ShapedTensor (shaped :: ShapedTensorType) where
 
   slet :: (KnownShape sh, KnownShape sh2, GoodScalar r, GoodScalar r2)

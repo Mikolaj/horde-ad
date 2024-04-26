@@ -18,6 +18,7 @@ import           Test.Tasty.HUnit hiding (assert)
 
 import HordeAd
 import HordeAd.Core.AstFreshId (funToAstR, resetVarCounter)
+import HordeAd.Internal.OrthotopeOrphanInstances (RealFloatF (..))
 
 import CrossTesting
 import EqEpsilon
@@ -77,6 +78,11 @@ foo (x,y,z) =
   let w = x * sin y
   in atan2 z w + z * w
 
+fooF :: RealFloatF a => (a,a,a) -> a
+fooF (x,y,z) =
+  let w = x * sin y
+  in atan2F z w + z * w
+
 testFoo :: Assertion
 testFoo =
   assertEqualUpToEpsilon 1e-3
@@ -88,6 +94,11 @@ bar (x, y) =
   let w = foo (x, y, x) * sin y
   in atan2 x w + y * w
 
+barF :: forall a. RealFloatF a => (a, a) -> a
+barF (x, y) =
+  let w = fooF (x, y, x) * sin y
+  in atan2F x w + y * w
+
 testBar :: Assertion
 testBar =
   assertEqualUpToEpsilon 1e-5
@@ -98,7 +109,7 @@ testBarS :: Assertion
 testBarS =
   assertEqualUpToEpsilon 1e-5
     (Flip $ OS.fromList @'[3, 1, 2, 2, 1, 2, 2] [304.13867,914.9335,823.0187,1464.4688,5264.3306,1790.0055,1535.4309,3541.6572,304.13867,914.9335,823.0187,1464.4688,6632.4355,6047.113,1535.4309,1346.6815,45.92141,6.4903135,5.5406737,1.4242969,6.4903135,1.1458766,4.6446533,2.3550234,88.783676,27.467598,125.27507,18.177452,647.1917,0.3878851,2177.6152,786.1792,6.4903135,6.4903135,6.4903135,6.4903135,2.3550234,2.3550234,2.3550234,2.3550234,21.783596,2.3550234,2.3550234,2.3550234,21.783596,21.783596,21.783596,21.783596], Flip $ OS.fromList @'[3, 1, 2, 2, 1, 2, 2] [-5728.7617,24965.113,32825.07,-63505.953,-42592.203,145994.88,-500082.5,-202480.06,-5728.7617,24965.113,32825.07,-63505.953,49494.473,-2446.7632,-500082.5,-125885.58,-43.092484,-1.9601002,-98.97709,2.1931143,-1.9601002,1.8243169,-4.0434446,-1.5266153,2020.9731,-538.0603,-84.28137,62.963814,-34987.0,-9.917454,135.30023,17741.998,-1.9601002,-1.9601002,-1.9601002,-1.9601002,-1.5266153,-1.5266153,-1.5266153,-1.5266153,-4029.1775,-1.5266153,-1.5266153,-1.5266153,-4029.1775,-4029.1775,-4029.1775,-4029.1775])
-    (crev (bar @(ADVal (Flip OS.Array) Float '[3, 1, 2, 2, 1, 2, 2])) (sfromR t48, sfromR t48))
+    (crev (barF @(ADVal (Flip OS.Array) Float '[3, 1, 2, 2, 1, 2, 2])) (sfromR t48, sfromR t48))
 
 -- A dual-number and list-based version of a function that goes
 -- from `R^3` to `R`.

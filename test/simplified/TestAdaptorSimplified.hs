@@ -25,6 +25,7 @@ import HordeAd
 import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId (funToAstR, funToAstS, resetVarCounter)
 import HordeAd.Core.IsPrimal (resetIdCounter)
+import HordeAd.Internal.OrthotopeOrphanInstances (RealFloatF (..))
 
 import CrossTesting
 import EqEpsilon
@@ -235,19 +236,19 @@ testZero3S :: Assertion
 testZero3S =
   assertEqualUpToEpsilon 1e-9
     (Flip $ OS.fromList @'[33, 2] (replicate 66 3.6174114266850617))
-    (crev (\x -> bar @(ADVal (Flip OS.Array) Double '[33, 2]) (x, x)) 1)
+    (crev (\x -> barF @(ADVal (Flip OS.Array) Double '[33, 2]) (x, x)) 1)
 
 testCFwdZero3S :: Assertion
 testCFwdZero3S =
   assertEqualUpToEpsilon 1e-9
     (Flip $ OS.fromList @'[33, 2] (replicate 66 3.9791525693535674))
-    (cfwd (\x -> bar @(ADVal (Flip OS.Array) Double '[33, 2]) (x, x)) 1 1.1)
+    (cfwd (\x -> barF @(ADVal (Flip OS.Array) Double '[33, 2]) (x, x)) 1 1.1)
 
 testFwdZero3S :: Assertion
 testFwdZero3S =
   assertEqualUpToEpsilon 1e-9
     (Flip $ OS.fromList @'[33, 2] (replicate 66 3.9791525693535674))
-    (fwd (\x -> bar @(AstShaped FullSpan Double '[33, 2]) (x, x)) 1 1.1)
+    (fwd (\x -> barF @(AstShaped FullSpan Double '[33, 2]) (x, x)) 1 1.1)
 
 testZero4S :: Assertion
 testZero4S =
@@ -271,7 +272,7 @@ testZero6S =
   assertEqualUpToEpsilon 1e-9
     (Flip $ OS.fromList @'[2, 2, 2, 2, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 2, 2, 2, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,11,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,111,1,1,1,1, 2, 2, 2, 2] (replicate (product ([2, 2, 2, 2, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 2, 2, 2, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,11,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,111,1,1,1,1, 2, 2, 2, 2] :: [Int])) 3.6174114266850617))
     (rev @Double @'[2, 2, 2, 2, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 2, 2, 2, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,11,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,111,1,1,1,1, 2, 2, 2, 2]
-         @(AstShaped FullSpan) (\x -> bar (x, x)) 1)
+         @(AstShaped FullSpan) (\x -> barF (x, x)) 1)
 
 testZero7S :: Assertion
 testZero7S =
@@ -500,6 +501,11 @@ foo (x, y, z) =
   let w = x * sin y
   in atan2 z w + z * w
 
+fooF :: RealFloatF a => (a, a, a) -> a
+fooF (x, y, z) =
+  let w = x * sin y
+  in atan2F z w + z * w
+
 testFoo :: Assertion
 testFoo = do
   assertEqualUpToEpsilon 1e-10
@@ -510,14 +516,14 @@ testFooS :: Assertion
 testFooS = do
   assertEqualUpToEpsilon 1e-10
     (2.4396285219055063, -1.953374825727421, 0.9654825811012627)
-    (rev @Double @'[3, 534, 3] @(AstShaped FullSpan) foo (1.1, 2.2, 3.3))
+    (rev @Double @'[3, 534, 3] @(AstShaped FullSpan) fooF (1.1, 2.2, 3.3))
 
 testFooSToFloat :: Assertion
 testFooSToFloat = do
   assertEqualUpToEpsilon 1e-10
     (2.4396285219055063, -1.953374825727421, 0.9654825811012627)
     (rev @Float @'[3, 534, 3] @(AstShaped FullSpan)
-         (scast . foo)
+         (scast . fooF)
          (1.1 :: Flip OS.Array Double '[3, 534, 3], 2.2, 3.3))
 
 testFooSBoth :: Assertion
@@ -525,7 +531,7 @@ testFooSBoth = do
   assertEqualUpToEpsilon 1e-10
     (2.439628436155373, -1.9533749, 0.9654825479484146)
     (rev @Float @'[3, 534, 3] @(AstShaped FullSpan)
-         (scast . foo . (\(d, f, d2) -> (d, scast f, d2)))
+         (scast . fooF . (\(d, f, d2) -> (d, scast f, d2)))
          ( 1.1 :: Flip OS.Array Double '[3, 534, 3]
          , 2.2 :: Flip OS.Array Float '[3, 534, 3]
          , 3.3 ))
@@ -1201,6 +1207,11 @@ bar (x, y) =
   let w = foo (x, y, x) * sin y
   in atan2 x w + y * w
 
+barF :: forall a. RealFloatF a => (a, a) -> a
+barF (x, y) =
+  let w = fooF (x, y, x) * sin y
+  in atan2F x w + y * w
+
 testBar :: Assertion
 testBar =
   assertEqualUpToEpsilon 1e-9
@@ -1211,13 +1222,13 @@ testBarS :: Assertion
 testBarS =
   assertEqualUpToEpsilon 1e-9
     (3.1435239435581166,-1.1053869545195814)
-    (crev (bar @(ADVal (Flip OS.Array) Double '[])) (1.1, 2.2))
+    (crev (barF @(ADVal (Flip OS.Array) Double '[])) (1.1, 2.2))
 
 testBar2S :: Assertion
 testBar2S =
   assertEqualUpToEpsilon 1e-9
     (3.1435239435581166,-1.1053869545195814)
-    (rev (bar @(AstShaped FullSpan Double '[52, 2, 2, 1, 1, 3])) (1.1, 2.2))
+    (rev (barF @(AstShaped FullSpan Double '[52, 2, 2, 1, 1, 3])) (1.1, 2.2))
 
 testBarCFwd :: Assertion
 testBarCFwd =
@@ -1526,9 +1537,9 @@ reluMaxS = smap0N (maxF 0)
 
 barReluMaxS
   :: ( ADReadyS shaped, GoodScalar r, KnownShape sh, KnownNat (Sh.Rank sh)
-     , RealFloat (shaped r sh) )
+     , RealFloatF (shaped r sh) )
   => shaped r sh -> shaped r sh
-barReluMaxS x = reluMaxS $ bar (x, reluMaxS x)
+barReluMaxS x = reluMaxS $ barF (x, reluMaxS x)
 
 -- Previously the shape of FromListR[ZeroR] couldn't be determined
 -- in buildDerivative, so this was needed. See below that it now works fine.

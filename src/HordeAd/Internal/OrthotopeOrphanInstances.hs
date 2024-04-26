@@ -10,7 +10,7 @@ module HordeAd.Internal.OrthotopeOrphanInstances
   , Dict(..)
   , -- * Numeric instances for tensors
     liftVR, liftVR2, liftVS, liftVS2
-  , IntegralF(..)
+  , IntegralF(..), RealFloatF(..)
   , -- * Assorted orphans and additions
     MapSucc, trustMeThisIsAPermutation
   ) where
@@ -416,20 +416,12 @@ instance (Real (Vector r), KnownNat n, Numeric r, Show r, Ord r)
          => Real (OR.Array n r) where
   toRational = undefined  -- TODO
 
-instance (Real (Vector r), KnownShape2 sh, OS.Shape sh, Numeric r, Ord r)
-         => Real (OS.Array sh r) where
-  toRational = undefined  -- TODO
-
 instance ( RealFrac (Vector r), KnownNat n, Numeric r, Show r, Fractional r
          , Ord r )
          => RealFrac (OR.Array n r) where
   properFraction = error "OR.properFraction: can't be implemented"
     -- The integral type doesn't have a Storable constraint,
     -- so we can't implement this (nor even RealFracB from Boolean package).
-
-instance (RealFrac (Vector r), KnownShape2 sh, OS.Shape sh, Numeric r, Fractional r, Ord r)
-         => RealFrac (OS.Array sh r) where
-  properFraction = error "OS.properFraction: can't be implemented"
 
 instance ( RealFloat (Vector r), KnownNat n, Numeric r, Show r, Floating r
          , Ord r )
@@ -446,19 +438,12 @@ instance ( RealFloat (Vector r), KnownNat n, Numeric r, Show r, Floating r
   isNegativeZero = undefined
   isIEEE = undefined
 
-instance (RealFloat (Vector r), KnownShape2 sh, OS.Shape sh, Numeric r, Floating r, Ord r)
-         => RealFloat (OS.Array sh r) where
-  atan2 = liftVS2NoAdapt atan2
-  floatRadix = undefined  -- TODO (and below)
-  floatDigits = undefined
-  floatRange = undefined
-  decodeFloat = undefined
-  encodeFloat = undefined
-  isNaN = undefined
-  isInfinite = undefined
-  isDenormalized = undefined
-  isNegativeZero = undefined
-  isIEEE = undefined
+class Floating a => RealFloatF a where
+  atan2F :: a -> a -> a
+
+instance (Floating r, RealFloat (Vector r), KnownShape2 sh, Numeric r)
+         => RealFloatF (OS.Array sh r) where
+  atan2F = liftVS2NoAdapt atan2
 
 deriving instance Num (f a b) => Num (Flip f b a)
 
@@ -475,6 +460,8 @@ deriving instance Floating (f a b) => Floating (Flip f b a)
 deriving instance Real (f a b) => Real (Flip f b a)
 
 deriving instance RealFrac (f a b) => RealFrac (Flip f b a)
+
+deriving instance RealFloatF (f a b) => RealFloatF (Flip f b a)
 
 deriving instance RealFloat (f a b) => RealFloat (Flip f b a)
 

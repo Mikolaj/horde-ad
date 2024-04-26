@@ -583,7 +583,7 @@ interpretAstS !env = \case
   AstR2S opCode u v ->
     let u2 = interpretAstS env u
         v2 = interpretAstS env v
-    in interpretAstR2 opCode u2 v2
+    in interpretAstR2F opCode u2 v2
   AstI2S opCode u v ->
     let u2 = interpretAstS env u
         v2 = interpretAstS env v

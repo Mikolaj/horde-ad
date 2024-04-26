@@ -31,7 +31,8 @@ import           HordeAd.Core.HVector
 import           HordeAd.Core.IsPrimal
 import           HordeAd.Core.TensorClass
 import           HordeAd.Core.Types
-import           HordeAd.Internal.OrthotopeOrphanInstances (IntegralF (..))
+import           HordeAd.Internal.OrthotopeOrphanInstances
+  (IntegralF (..), RealFloatF (..))
 import           HordeAd.Util.ShapedList (IndexSh)
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedList
@@ -396,6 +397,14 @@ instance (RealFrac (f r z), IsPrimal f r z)
   properFraction = undefined
     -- The integral type doesn't have a Storable constraint,
     -- so we can't implement this (nor RealFracB from Boolean package).
+
+instance (Fractional (f r z), RealFloatF (f r z), IsPrimal f r z)
+         => RealFloatF (ADVal f r z) where
+  atan2F (D ue u') (D ve v') =
+    let !u = sharePrimal ue in
+    let !v = sharePrimal ve in
+    let !t = sharePrimal (recip (u * u + v * v))
+    in dD (atan2F u v) (dAdd (dScale ((- u) * t) v') (dScale (v * t) u'))
 
 instance (RealFloat (f r z), IsPrimal f r z)
          => RealFloat (ADVal f r z) where

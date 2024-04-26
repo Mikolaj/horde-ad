@@ -13,6 +13,7 @@ module HordeAd.Core.AstEnv
   , interpretLambdaHsH
     -- * Interpretation of arithmetic, boolean and relation operations
   , interpretAstN1, interpretAstN2, interpretAstR1, interpretAstR2
+  , interpretAstR2F
   , interpretAstI2, interpretAstI2F, interpretAstB2, interpretAstRelOp
   ) where
 
@@ -31,7 +32,8 @@ import           HordeAd.Core.HVector
 import           HordeAd.Core.HVectorOps
 import           HordeAd.Core.TensorClass
 import           HordeAd.Core.Types
-import           HordeAd.Internal.OrthotopeOrphanInstances (IntegralF (..))
+import           HordeAd.Internal.OrthotopeOrphanInstances
+  (IntegralF (..), RealFloatF (..))
 import           HordeAd.Util.ShapedList (IndexSh, IntSh)
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedList
@@ -250,7 +252,7 @@ interpretAstN2 :: Num a
 interpretAstN2 MinusOp u v = u - v
 interpretAstN2 TimesOp u v = u * v
 
-interpretAstR1 :: RealFloat a
+interpretAstR1 :: Floating a
                => OpCode1 -> a -> a
 {-# INLINE interpretAstR1 #-}
 interpretAstR1 RecipOp u = recip u
@@ -277,6 +279,14 @@ interpretAstR2 DivideOp u v = u / v
 interpretAstR2 PowerOp u v = u ** v
 interpretAstR2 LogBaseOp u v = logBase u v
 interpretAstR2 Atan2Op u v = atan2 u v
+
+interpretAstR2F :: RealFloatF a
+                => OpCode2 -> a -> a -> a
+{-# INLINE interpretAstR2F #-}
+interpretAstR2F DivideOp u v = u / v
+interpretAstR2F PowerOp u v = u ** v
+interpretAstR2F LogBaseOp u v = logBase u v
+interpretAstR2F Atan2Op u v = atan2F u v
 
 interpretAstI2 :: Integral a
                => OpCodeIntegral2 -> a -> a -> a

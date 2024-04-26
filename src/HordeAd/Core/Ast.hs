@@ -40,9 +40,10 @@ import           Type.Reflection (Typeable, eqTypeRep, typeRep, (:~~:) (HRefl))
 
 import HordeAd.Core.HVector
 import HordeAd.Core.Types
-import HordeAd.Util.ShapedList (SizedListS (..), IndexS)
+import HordeAd.Internal.OrthotopeOrphanInstances
+  (IntegralF (..), RealFloatF (..))
+import HordeAd.Util.ShapedList (IndexS, SizedListS (..))
 import HordeAd.Util.SizedList
-import HordeAd.Internal.OrthotopeOrphanInstances (IntegralF(..))
 
 -- * Basic type family instances
 
@@ -142,10 +143,10 @@ varNameToAstVarId (AstVarName varId) = varId
 -- The reverse derivative artifact from step 6) of our full pipeline.
 -- The same type can also hold the forward derivative artifact.
 data AstArtifact = AstArtifact
-  { artVarsDt :: [AstDynamicVarName]
+  { artVarsDt     :: [AstDynamicVarName]
   , artVarsPrimal :: [AstDynamicVarName]
   , artDerivative :: HVectorOf (AstRaw PrimalSpan)
-  , artPrimal :: HVectorOf (AstRaw PrimalSpan)
+  , artPrimal     :: HVectorOf (AstRaw PrimalSpan)
   }
 
 -- | This is the (arbitrarily) chosen representation of terms denoting
@@ -688,15 +689,6 @@ instance (Num (OS.Array sh r), AstSpan s, OS.Shape sh)
     -- it's crucial that there is no AstConstant in fromInteger code
     -- so that we don't need 4 times the simplification rules
 
-instance (Real (OS.Array sh r), AstSpan s, OS.Shape sh)
-         => Real (AstShaped s r sh) where
-  toRational = undefined
-    -- very low priority, since these are all extremely not continuous
-
-instance Enum r => Enum (AstShaped s r n) where
-  toEnum = undefined
-  fromEnum = undefined  -- do we need to define our own Enum class for this?
-
 -- Warning: div and mod operations are very costly (simplifying them
 -- requires constructing conditionals, etc). If this error is removed,
 -- they are going to work, but slowly.
@@ -731,28 +723,9 @@ instance (Differentiable r, Floating (OS.Array sh r), AstSpan s, OS.Shape sh)
   acosh = AstR1S AcoshOp
   atanh = AstR1S AtanhOp
 
-instance (Differentiable r, RealFrac (OS.Array sh r), AstSpan s, OS.Shape sh)
-         => RealFrac (AstShaped s r sh) where
-  properFraction = undefined
-    -- The integral type doesn't have a Storable constraint,
-    -- so we can't implement this (nor RealFracB from Boolean package).
-
-instance (Differentiable r, RealFloat (OS.Array sh r), AstSpan s, OS.Shape sh)
-         => RealFloat (AstShaped s r sh) where
-  atan2 = AstR2S Atan2Op
-  -- We can be selective here and omit the other methods,
-  -- most of which don't even have a differentiable codomain.
-  floatRadix = undefined
-  floatDigits = undefined
-  floatRange = undefined
-  decodeFloat = undefined
-  encodeFloat = undefined
-  isNaN = undefined
-  isInfinite = undefined
-  isDenormalized = undefined
-  isNegativeZero = undefined
-  isIEEE = undefined
-
+instance (Differentiable r, Floating (OS.Array sh r), AstSpan s, OS.Shape sh)
+         => RealFloatF (AstShaped s r sh) where
+  atan2F = AstR2S Atan2Op
 
 -- * Unlawful instances of AST for bool; they are lawful modulo evaluation
 
