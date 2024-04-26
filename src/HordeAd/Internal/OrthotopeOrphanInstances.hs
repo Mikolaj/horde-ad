@@ -180,6 +180,13 @@ liftVR2 !op t@(RS.A (RG.A sh oit@(OI.T sst _ vt)))
            $ RS.A $ RG.A sh $ oit {OI.values = vt `op` vu}
       else OR.fromVector sh $ OR.toVector t `op` OR.toVector u
 
+liftVR2UnlessZero
+  :: (Num (Vector r), Numeric r, Show r, KnownNat n, Eq r)
+  => (Vector r -> Vector r -> Vector r)
+  -> OR.Array n r -> OR.Array n r -> OR.Array n r
+liftVR2UnlessZero op =
+  liftVR2 (\x y -> if y == 0 then 0 else op x y)
+
 -- For the operations where hmatrix can't adapt/expand scalars.
 liftVR2NoAdapt
   :: (Numeric r, Show r, KnownNat n)
@@ -256,6 +263,14 @@ liftVS2 !op t@(SS.A (SG.A oit@(OI.T sst _ vt)))
            $ SS.A $ SG.A $ oit {OI.values = vt `op` vu}
       else OS.fromVector $ OS.toVector t `op` OS.toVector u
 
+liftVS2UnlessZero
+  :: forall sh r. (Num (Vector r), Numeric r, KnownShape2 sh, Eq r)
+  => (Vector r -> Vector r -> Vector r)
+  -> OS.Array sh r -> OS.Array sh r -> OS.Array sh r
+liftVS2UnlessZero op
+  | Dict <- lemShapeFromKnownShape (Proxy @sh) =
+    liftVS2 (\x y -> if y == 0 then 0 else op x y)
+
 liftVS2NoAdapt
   :: forall sh r. (Numeric r, KnownShape2 sh)
   => (Vector r -> Vector r -> Vector r)
@@ -319,11 +334,11 @@ instance Enum (OR.Array n r) where  -- dummy, to satisfy Integral below
 
 instance (Num (Vector r), Integral r, KnownNat n, Numeric r, Show r)
          => Integral (OR.Array n r) where
-  quot = liftVR2 (\x y -> if y == 0 then 0 else quot x y)
-  rem = liftVR2 (\x y -> if y == 0 then 0 else rem x y)
+  quot = liftVR2UnlessZero quot
+  rem = liftVR2UnlessZero rem
   quotRem x y = (quot x y, rem x y)  -- TODO, another variant of liftVR2 needed
-  div = liftVR2 (\x y -> if y == 0 then 0 else div x y)
-  mod = liftVR2 (\x y -> if y == 0 then 0 else mod x y)
+  div = liftVR2UnlessZero div
+  mod = liftVR2UnlessZero mod
   -- divMod  -- TODO
   toInteger = case sameNat (Proxy @n) (Proxy @0) of
     Just Refl -> toInteger . OR.unScalar
@@ -338,11 +353,11 @@ instance Enum (OS.Array sh r) where  -- dummy, to satisfy Integral below
 
 instance (Num (Vector r), Integral r, KnownShape2 sh, OS.Shape sh, Numeric r, Show r)
          => Integral (OS.Array sh r) where
-  quot = liftVS2 (\x y -> if y == 0 then 0 else quot x y)
-  rem = liftVS2 (\x y -> if y == 0 then 0 else rem x y)
+  quot = liftVS2UnlessZero quot
+  rem = liftVS2UnlessZero rem
   quotRem x y = (quot x y, rem x y)  -- TODO, another variant of liftVS2 needed
-  div = liftVS2 (\x y -> if y == 0 then 0 else div x y)
-  mod = liftVS2 (\x y -> if y == 0 then 0 else mod x y)
+  div = liftVS2UnlessZero div
+  mod = liftVS2UnlessZero mod
   -- divMod  -- TODO
   toInteger = case sameShape @sh @'[] of
     Just Refl -> toInteger . OS.unScalar
