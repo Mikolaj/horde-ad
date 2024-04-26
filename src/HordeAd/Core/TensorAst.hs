@@ -337,11 +337,11 @@ instance (GoodScalar r, KnownShape sh, ShapedTensor (AstShaped s), AstSpan s)
   toHVector = V.singleton . DynamicShaped
   fromHVector _aInit = fromHVectorS
 
-instance DualNumberValue (AstShaped PrimalSpan r sh) where
+instance OS.Shape sh => DualNumberValue (AstShaped PrimalSpan r sh) where
   type DValue (AstShaped PrimalSpan r sh) = Flip OS.Array r sh
   fromDValue t = fromPrimalS $ AstConstS $ runFlip t
 
-instance TermValue (AstShaped FullSpan r sh) where
+instance OS.Shape sh => TermValue (AstShaped FullSpan r sh) where
   type Value (AstShaped FullSpan r sh) = Flip OS.Array r sh
   fromValue t = fromPrimalS $ AstConstS $ runFlip t
 

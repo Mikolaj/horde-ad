@@ -377,7 +377,7 @@ data AstShaped :: AstSpanType -> ShapedTensorType where
            => AstShaped s r1 sh -> AstShaped s r2 sh
   AstFromIntegralS :: (GoodScalar r1, Integral r1)
                    => AstShaped PrimalSpan r1 sh -> AstShaped PrimalSpan r2 sh
-  AstConstS :: OS.Array sh r -> AstShaped PrimalSpan r sh
+  AstConstS :: OS.Shape sh => OS.Array sh r -> AstShaped PrimalSpan r sh
   AstProjectS :: AstHVector s -> Int -> AstShaped s r sh
   AstLetHVectorInS :: AstSpan s
                    => [AstDynamicVarName] -> AstHVector s
@@ -650,7 +650,7 @@ instance Eq (AstShaped s r sh) where
 instance Ord (AstShaped s r sh) where
   (<=) = error "AST requires that OrdF be used instead"
 
-instance (Num (OS.Array sh r), AstSpan s)
+instance (Num (OS.Array sh r), AstSpan s, OS.Shape sh)
          => Num (AstShaped s r sh) where
   -- The normal form has AstConst, if any, as the first element of the list.
   -- All lists fully flattened and length >= 2.
@@ -687,7 +687,8 @@ instance (Num (OS.Array sh r), AstSpan s)
     -- it's crucial that there is no AstConstant in fromInteger code
     -- so that we don't need 4 times the simplification rules
 
-instance (Real (OS.Array sh r), AstSpan s) => Real (AstShaped s r sh) where
+instance (Real (OS.Array sh r), AstSpan s, OS.Shape sh)
+         => Real (AstShaped s r sh) where
   toRational = undefined
     -- very low priority, since these are all extremely not continuous
 
@@ -698,7 +699,7 @@ instance Enum r => Enum (AstShaped s r n) where
 -- Warning: div and mod operations are very costly (simplifying them
 -- requires constructing conditionals, etc). If this error is removed,
 -- they are going to work, but slowly.
-instance (Integral r, Integral (OS.Array sh r), AstSpan s)
+instance (Integral r, Integral (OS.Array sh r), AstSpan s, OS.Shape sh)
          => Integral (AstShaped s r sh) where
   quot = AstI2S QuotOp
   rem = AstI2S RemOp
@@ -706,13 +707,13 @@ instance (Integral r, Integral (OS.Array sh r), AstSpan s)
   divMod _ _ = error "divMod: disabled; much less efficient than quot and rem"
   toInteger = undefined  -- we can't evaluate uninstantiated variables, etc.
 
-instance (Differentiable r, Fractional (OS.Array sh r), AstSpan s)
+instance (Differentiable r, Fractional (OS.Array sh r), AstSpan s, OS.Shape sh)
          => Fractional (AstShaped s r sh) where
   u / v = AstR2S DivideOp u v
   recip = AstR1S RecipOp
   fromRational = fromPrimalS . AstConstS . fromRational
 
-instance (Differentiable r, Floating (OS.Array sh r), AstSpan s)
+instance (Differentiable r, Floating (OS.Array sh r), AstSpan s, OS.Shape sh)
          => Floating (AstShaped s r sh) where
   pi = fromPrimalS $ AstConstS pi
   exp = AstR1S ExpOp
@@ -733,13 +734,13 @@ instance (Differentiable r, Floating (OS.Array sh r), AstSpan s)
   acosh = AstR1S AcoshOp
   atanh = AstR1S AtanhOp
 
-instance (Differentiable r, RealFrac (OS.Array sh r), AstSpan s)
+instance (Differentiable r, RealFrac (OS.Array sh r), AstSpan s, OS.Shape sh)
          => RealFrac (AstShaped s r sh) where
   properFraction = undefined
     -- The integral type doesn't have a Storable constraint,
     -- so we can't implement this (nor RealFracB from Boolean package).
 
-instance (Differentiable r, RealFloat (OS.Array sh r), AstSpan s)
+instance (Differentiable r, RealFloat (OS.Array sh r), AstSpan s, OS.Shape sh)
          => RealFloat (AstShaped s r sh) where
   atan2 = AstR2S Atan2Op
   -- We can be selective here and omit the other methods,

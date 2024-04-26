@@ -1807,7 +1807,7 @@ astTransposeS = \case
                       :: Sh.Permute perm sh2 Sh.++ Sh.Drop p sh3
                          :~: Sh.Permute perm sh) $
            astGatherS @shmPerm @p @sh3 v (vars2, ix)
-  AstConstS t -> AstConstS $ ttransposeS @perm t
+  -- TODO: AstConstS t -> AstConstS $ ttransposeS @perm t
   Ast.AstConstantS v -> Ast.AstConstantS $ astTransposeS @perm v
   u -> Ast.AstTransposeS @perm u  -- TODO
 
