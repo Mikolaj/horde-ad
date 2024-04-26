@@ -20,21 +20,15 @@ module HordeAd.Core.Types
 
 import Prelude
 
-import           Control.DeepSeq (NFData (..))
-import           Data.Array.Internal (valueOf)
-import qualified Data.Array.Shape as Sh
-import           Data.Boolean (Boolean (..))
-import           Data.Int (Int64)
-import           Data.Kind (Constraint, Type)
-import           Data.Proxy (Proxy (Proxy))
-import           Data.Type.Equality ((:~:) (Refl))
-import           GHC.TypeLits
-  (KnownNat, Nat, SNat, fromSNat, natSing, pattern SNat, withSomeSNat)
-import           Numeric.LinearAlgebra (Numeric, Vector)
-import           Type.Reflection (Typeable)
-import           Unsafe.Coerce (unsafeCoerce)
+import Control.DeepSeq (NFData (..))
+import Data.Boolean (Boolean (..))
+import Data.Int (Int64)
+import Data.Kind (Constraint, Type)
+import GHC.TypeLits (KnownNat, Nat)
+import Numeric.LinearAlgebra (Numeric, Vector)
+import Type.Reflection (Typeable)
 
-import HordeAd.Internal.OrthotopeOrphanInstances ()
+import HordeAd.Internal.OrthotopeOrphanInstances
 import HordeAd.Internal.TensorFFI
 
 -- * Types of types of tensors
@@ -149,88 +143,3 @@ minF u v = ifF (u <=. v) u v
 maxF :: (IfF f, OrdF f, GoodScalar r, HasSingletonDict y)
      => f r y -> f r y -> f r y
 maxF u v = ifF (u >=. v) u v
-
-
--- * Definitions to help express and manipulate type-level natural numbers
-
-withSNat :: Int -> (forall n. KnownNat n => (SNat n -> r)) -> r
-withSNat i f = withSomeSNat (fromIntegral i) $ \msnat -> case msnat of
-  Just snat@SNat -> f snat
-  Nothing -> error "withSNat: negative argument"
-
-sNatValue :: forall n i. Num i => SNat n -> i
-{-# INLINE sNatValue #-}
-sNatValue = fromInteger . fromSNat
-
-proxyFromSNat :: SNat n -> Proxy n
-proxyFromSNat SNat = Proxy
-
-
--- * Definitions for type-level list shapes
-
--- Below, copied with modification from ox-arrays.
-
--- | The shape of a shape-typed array given as a list of 'SNat' values.
-type role SShape nominal
-data SShape sh where
-  ShNil :: SShape '[]
-  ShCons :: KnownShape sh => SNat n -> SShape sh -> SShape (n : sh)
-deriving instance Eq (SShape sh)
-deriving instance Show (SShape sh)
-infixr 5 `ShCons`
-
--- | A statically-known shape of a shape-typed array.
-class KnownShape2 sh where knownShape :: SShape sh
-instance KnownShape2 '[] where knownShape = ShNil
-instance (KnownNat n, KnownShape2 sh, Sh.Shape sh)
-         => KnownShape2 (n : sh) where knownShape = ShCons natSing knownShape
-
-type KnownShape sh = (KnownShape2 sh, Sh.Shape sh)
-
-shapeT :: forall sh. KnownShape2 sh => [Int]
-shapeT = sshapeToList (knownShape @sh)
-
-shapeP :: forall sh. KnownShape2 sh => Proxy sh -> [Int]
-shapeP _ = sshapeToList (knownShape @sh)
-
-sshapeToList :: SShape sh -> [Int]
-sshapeToList ShNil = []
-sshapeToList (ShCons n l) = sNatValue n : sshapeToList l
-
-sizeT :: forall sh. KnownShape2 sh => Int
-sizeT = product $ shapeT @sh
-
-sizeP :: forall sh. KnownShape2 sh => Proxy sh -> Int
-sizeP _ = sizeT @sh
-
-withShapeP :: [Int] -> (forall sh. KnownShape sh => Proxy sh -> r) -> r
-withShapeP [] f = f (Proxy @('[] :: [Nat]))
-withShapeP (n : ns) f = withSNat n $ \(SNat @n) ->
-  withShapeP ns (\(Proxy @ns) -> f (Proxy @(n : ns)))
-
-sameShape :: forall sh1 sh2. (KnownShape2 sh1, KnownShape2 sh2)
-          => Maybe (sh1 :~: sh2)
-sameShape = case shapeT @sh1 == shapeT @sh2 of
-              True -> Just (unsafeCoerce Refl :: sh1 :~: sh2)
-              False -> Nothing
-
-matchingRank :: forall sh1 n2. (KnownShape2 sh1, KnownNat n2)
-             => Maybe (Sh.Rank sh1 :~: n2)
-matchingRank =
-  if length (shapeT @sh1) == valueOf @n2
-  then Just (unsafeCoerce Refl :: Sh.Rank sh1 :~: n2)
-  else Nothing
-
--- | Evidence for the constraint @c a@.
-type role Dict representational nominal
-type Dict :: forall {k}. (k -> Constraint) -> k -> Type
-data Dict c a where
-  Dict :: c a => Dict c a
-
-shapeFromSShape :: SShape sh -> Dict Sh.Shape sh
-shapeFromSShape ShNil = Dict
-shapeFromSShape (ShCons SNat sh) | Dict <- shapeFromSShape sh = Dict
-
-lemShapeFromKnownShape :: forall sh. KnownShape2 sh
-                       => Proxy sh -> Dict Sh.Shape sh
-lemShapeFromKnownShape _ = shapeFromSShape (knownShape @sh)
