@@ -152,8 +152,8 @@ addDynamic t u = error $ "addDynamic: wrong arguments: " ++ show (t, u)
 sizeHVector :: forall ranked. RankedTensor ranked => HVector ranked -> Int
 sizeHVector = let f (DynamicRanked @r t) = rsize @ranked @r t
                   f (DynamicShaped @_ @sh _) = sizeT @sh
-                  f (DynamicRankedDummy _ proxy_sh) = Sh.sizeP proxy_sh
-                  f (DynamicShapedDummy _ proxy_sh) = Sh.sizeP proxy_sh
+                  f (DynamicRankedDummy _ proxy_sh) = sizeP proxy_sh
+                  f (DynamicShapedDummy _ proxy_sh) = sizeP proxy_sh
               in V.sum . V.map f
 
 shapeDynamic :: RankedTensor ranked

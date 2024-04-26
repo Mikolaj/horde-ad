@@ -13,8 +13,8 @@ module HordeAd.Core.Types
     -- * Definitions to help express and manipulate type-level natural numbers
   , SNat, pattern SNat, withSNat, sNatValue, proxyFromSNat
     -- * Definitions for type-level list shapes
-  , SShape(..), KnownShape2(..), KnownShape, shapeT, shapeP, sizeT, withShapeP
-  , sameShape, matchingRank
+  , SShape(..), KnownShape2(..), KnownShape, shapeT, shapeP, sizeT, sizeP
+  , withShapeP, sameShape, matchingRank
   ) where
 
 import Prelude
@@ -198,6 +198,9 @@ sshapeToList (ShCons n l) = sNatValue n : sshapeToList l
 
 sizeT :: forall sh. KnownShape2 sh => Int
 sizeT = product $ shapeT @sh
+
+sizeP :: forall sh. KnownShape2 sh => Proxy sh -> Int
+sizeP _ = sizeT @sh
 
 withShapeP :: [Int] -> (forall sh. KnownShape sh => Proxy sh -> r) -> r
 withShapeP [] f = f (Proxy @('[] :: [Nat]))
