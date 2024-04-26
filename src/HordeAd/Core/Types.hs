@@ -14,7 +14,7 @@ module HordeAd.Core.Types
   , SNat, pattern SNat, withSNat, sNatValue, proxyFromSNat
     -- * Definitions for type-level list shapes
   , SShape(..), KnownShape2(..), KnownShape, shapeT, shapeP, sizeT, sizeP
-  , withShapeP, sameShape, matchingRank
+  , withShapeP, sameShape, matchingRank, lemShapeFromKnownShape
   , Dict(..)
   ) where
 
@@ -226,3 +226,11 @@ type role Dict representational nominal
 type Dict :: forall {k}. (k -> Constraint) -> k -> Type
 data Dict c a where
   Dict :: c a => Dict c a
+
+shapeFromSShape :: SShape sh -> Dict Sh.Shape sh
+shapeFromSShape ShNil = Dict
+shapeFromSShape (ShCons SNat sh) | Dict <- shapeFromSShape sh = Dict
+
+lemShapeFromKnownShape :: forall sh. KnownShape2 sh
+                       => Proxy sh -> Dict Sh.Shape sh
+lemShapeFromKnownShape _ = shapeFromSShape (knownShape @sh)
