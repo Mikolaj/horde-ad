@@ -50,7 +50,6 @@ import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           Numeric.LinearAlgebra.Data (arctan2)
 import           Numeric.LinearAlgebra.Devel (zipVectorWith)
-import           Type.Reflection (eqTypeRep, typeRep, (:~~:) (HRefl))
 import           Unsafe.Coerce (unsafeCoerce)
 
 -- * Definitions to help express and manipulate type-level natural numbers
@@ -224,61 +223,63 @@ liftVR2NoAdapt !op t@(RS.A (RG.A sh oit@(OI.T sst _ vt)))
 
 -- See the various comments above; we don't repeat them below.
 liftVS
-  :: forall sh r1 r. (Numeric r1, Numeric r, Sh.Shape sh)
+  :: forall sh r1 r. (Numeric r1, Numeric r, KnownShape2 sh)
   => (Vector r1 -> Vector r)
   -> OS.Array sh r1 -> OS.Array sh r
-liftVS !op t@(SS.A (SG.A oit)) =
-  if Sh.sizeT @sh >= V.length (OI.values oit)
+liftVS !op t@(SS.A (SG.A oit)) | Dict <- lemShapeFromKnownShape (Proxy @sh) =
+  if sizeT @sh >= V.length (OI.values oit)
   then SS.A $ SG.A $ oit {OI.values = op $ OI.values oit}
   else OS.fromVector $ op $ OS.toVector t
 
 liftVS2
-  :: forall sh r. (Numeric r, Sh.Shape sh)
+  :: forall sh r. (Numeric r, KnownShape2 sh)
   => (Vector r -> Vector r -> Vector r)
   -> OS.Array sh r -> OS.Array sh r -> OS.Array sh r
 liftVS2 !op t@(SS.A (SG.A oit@(OI.T sst _ vt)))
-            u@(SS.A (SG.A oiu@(OI.T _ _ vu))) =
+            u@(SS.A (SG.A oiu@(OI.T _ _ vu)))
+ | Dict <- lemShapeFromKnownShape (Proxy @sh) =
   case (V.length vt, V.length vu) of
     (1, 1) -> SS.A $ SG.A $ OI.T sst 0 $ vt `op` vu
     (1, _) ->
-      if Sh.sizeT @sh >= V.length vu
+      if sizeT @sh >= V.length vu
       then SS.A $ SG.A $ oiu {OI.values = vt `op` vu}
       else OS.fromVector $ vt `op` OS.toVector u
     (_, 1) ->
-      if Sh.sizeT @sh >= V.length vt
+      if sizeT @sh >= V.length vt
       then SS.A $ SG.A $ oit {OI.values = vt `op` vu}
       else OS.fromVector $ OS.toVector t `op` vu
     (_, _) ->
-      if Sh.sizeT @sh >= V.length vt
-         && Sh.sizeT @sh >= V.length vu
+      if sizeT @sh >= V.length vt
+         && sizeT @sh >= V.length vu
          && OI.strides oit == OI.strides oiu
       then assert (OI.offset oit == OI.offset oiu && V.length vt == V.length vu)
            $ SS.A $ SG.A $ oit {OI.values = vt `op` vu}
       else OS.fromVector $ OS.toVector t `op` OS.toVector u
 
 liftVS2NoAdapt
-  :: forall sh r. (Numeric r, Sh.Shape sh)
+  :: forall sh r. (Numeric r, KnownShape2 sh)
   => (Vector r -> Vector r -> Vector r)
   -> OS.Array sh r -> OS.Array sh r -> OS.Array sh r
 liftVS2NoAdapt !op t@(SS.A (SG.A oit@(OI.T sst _ vt)))
-                   u@(SS.A (SG.A oiu@(OI.T _ _ vu))) =
+                   u@(SS.A (SG.A oiu@(OI.T _ _ vu)))
+ | Dict <- lemShapeFromKnownShape (Proxy @sh)  =
   case (V.length vt, V.length vu) of
     (1, 1) -> SS.A $ SG.A $ OI.T sst 0 $ vt `op` vu
     (1, _) ->
-      if Sh.sizeT @sh >= V.length vu
+      if sizeT @sh >= V.length vu
       then SS.A $ SG.A
                 $ oiu {OI.values = LA.konst (vt V.! 0) (V.length vu) `op` vu}
       else let v = OS.toVector u
            in OS.fromVector $ LA.konst (vt V.! 0) (V.length v) `op` v
     (_, 1) ->
-      if Sh.sizeT @sh >= V.length vt
+      if sizeT @sh >= V.length vt
       then SS.A $ SG.A
                 $ oit {OI.values = vt `op` LA.konst (vu V.! 0) (V.length vt)}
       else let v = OS.toVector t
            in OS.fromVector $ v `op` LA.konst (vu V.! 0) (V.length v)
     (_, _) ->
-      if Sh.sizeT @sh >= V.length vt
-         && Sh.sizeT @sh >= V.length vu
+      if sizeT @sh >= V.length vt
+         && sizeT @sh >= V.length vu
          && OI.strides oit == OI.strides oiu
       then assert (OI.offset oit == OI.offset oiu && V.length vt == V.length vu)
            $ SS.A $ SG.A $ oit {OI.values = vt `op` vu}
@@ -300,14 +301,15 @@ instance (Num (Vector r), KnownNat n, Numeric r, Show r)
     Nothing -> error $ "OR.fromInteger: shape unknown at rank "
                        ++ show (valueOf @n :: Int)
 
-instance (Num (Vector r), Sh.Shape sh, Numeric r) => Num (OS.Array sh r) where
+instance (Num (Vector r), KnownShape2 sh, Numeric r) => Num (OS.Array sh r) where
   (+) = liftVS2 (+)
   (-) = liftVS2 (-)
   (*) = liftVS2 (*)
   negate = liftVS negate
   abs = liftVS abs
   signum = liftVS signum
-  fromInteger = OS.constant . fromInteger
+  fromInteger | Dict <- lemShapeFromKnownShape (Proxy @sh) =
+    OS.constant . fromInteger
 
 instance Enum (OR.Array n r) where  -- dummy, to satisfy Integral below
   toEnum :: HasCallStack => Int -> a
@@ -334,7 +336,7 @@ instance Enum (OS.Array sh r) where  -- dummy, to satisfy Integral below
   fromEnum :: HasCallStack => a -> Int
   fromEnum _ = error "fromEnum: undefined for OS.Array"
 
-instance (Num (Vector r), Integral r, Sh.Shape sh, Numeric r, Show r)
+instance (Num (Vector r), Integral r, KnownShape2 sh, OS.Shape sh, Numeric r, Show r)
          => Integral (OS.Array sh r) where
   quot = liftVS2 (\x y -> if y == 0 then 0 else quot x y)
   rem = liftVS2 (\x y -> if y == 0 then 0 else rem x y)
@@ -342,10 +344,10 @@ instance (Num (Vector r), Integral r, Sh.Shape sh, Numeric r, Show r)
   div = liftVS2 (\x y -> if y == 0 then 0 else div x y)
   mod = liftVS2 (\x y -> if y == 0 then 0 else mod x y)
   -- divMod  -- TODO
-  toInteger = case sameShapeS @sh @'[] of
+  toInteger = case sameShape @sh @'[] of
     Just Refl -> toInteger . OS.unScalar
     _ -> error $ "OS.toInteger: shape not empty: "
-                 ++ show (Sh.shapeT @sh)
+                 ++ show (shapeT @sh)
 
 instance (Num (Vector r), KnownNat n, Numeric r, Show r, Fractional r)
          => Fractional (OR.Array n r) where
@@ -356,11 +358,12 @@ instance (Num (Vector r), KnownNat n, Numeric r, Show r, Fractional r)
     Nothing -> error $ "OR.fromRational: shape unknown at rank "
                        ++ show (valueOf @n :: Int)
 
-instance (Num (Vector r), Sh.Shape sh, Numeric r, Fractional r)
+instance (Num (Vector r), KnownShape2 sh, Numeric r, Fractional r)
          => Fractional (OS.Array sh r) where
   (/) = liftVS2 (/)
   recip = liftVS recip
-  fromRational = OS.constant . fromRational
+  fromRational | Dict <- lemShapeFromKnownShape (Proxy @sh) =
+    OS.constant . fromRational
 
 instance (Floating (Vector r), KnownNat n, Numeric r, Show r, Floating r)
          => Floating (OR.Array n r) where
@@ -383,9 +386,9 @@ instance (Floating (Vector r), KnownNat n, Numeric r, Show r, Floating r)
   acosh = liftVR acosh
   atanh = liftVR atanh
 
-instance (Floating (Vector r), Sh.Shape sh, Numeric r, Floating r)
+instance (Floating (Vector r), KnownShape2 sh, Numeric r, Floating r)
          => Floating (OS.Array sh r) where
-  pi = OS.constant pi
+  pi | Dict <- lemShapeFromKnownShape (Proxy @sh) = OS.constant pi
   exp = liftVS exp
   log = liftVS log
   sqrt = liftVS sqrt
@@ -408,7 +411,7 @@ instance (Real (Vector r), KnownNat n, Numeric r, Show r, Ord r)
          => Real (OR.Array n r) where
   toRational = undefined  -- TODO
 
-instance (Real (Vector r), Sh.Shape sh, Numeric r, Ord r)
+instance (Real (Vector r), KnownShape2 sh, OS.Shape sh, Numeric r, Ord r)
          => Real (OS.Array sh r) where
   toRational = undefined  -- TODO
 
@@ -419,7 +422,7 @@ instance ( RealFrac (Vector r), KnownNat n, Numeric r, Show r, Fractional r
     -- The integral type doesn't have a Storable constraint,
     -- so we can't implement this (nor even RealFracB from Boolean package).
 
-instance (RealFrac (Vector r), Sh.Shape sh, Numeric r, Fractional r, Ord r)
+instance (RealFrac (Vector r), KnownShape2 sh, OS.Shape sh, Numeric r, Fractional r, Ord r)
          => RealFrac (OS.Array sh r) where
   properFraction = error "OS.properFraction: can't be implemented"
 
@@ -438,7 +441,7 @@ instance ( RealFloat (Vector r), KnownNat n, Numeric r, Show r, Floating r
   isNegativeZero = undefined
   isIEEE = undefined
 
-instance (RealFloat (Vector r), Sh.Shape sh, Numeric r, Floating r, Ord r)
+instance (RealFloat (Vector r), KnownShape2 sh, OS.Shape sh, Numeric r, Floating r, Ord r)
          => RealFloat (OS.Array sh r) where
   atan2 = liftVS2NoAdapt atan2
   floatRadix = undefined  -- TODO (and below)
@@ -489,11 +492,6 @@ trustMeThisIsAPermutationDict = unsafeCoerce (Dict :: Dict OS.Permutation '[])
 trustMeThisIsAPermutation :: forall is r. (OS.Permutation is => r) -> r
 trustMeThisIsAPermutation r = case trustMeThisIsAPermutationDict @is of
   Dict -> r
-
-sameShapeS :: forall sh1 sh2. (Sh.Shape sh1, Sh.Shape sh2) => Maybe (sh1 :~: sh2)
-sameShapeS = case eqTypeRep (typeRep @sh1) (typeRep @sh2) of
-               Just HRefl -> Just Refl
-               Nothing -> Nothing
 
 instance Enum (Vector r) where  -- dummy, to satisfy Integral below
   toEnum = undefined
