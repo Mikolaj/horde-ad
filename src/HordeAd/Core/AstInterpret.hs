@@ -587,7 +587,7 @@ interpretAstS !env = \case
   AstI2S opCode u v ->
     let u2 = interpretAstS env u
         v2 = interpretAstS env v
-    in interpretAstI2 opCode u2 v2
+    in interpretAstI2F opCode u2 v2
   AstSumOfListS args ->
     let args2 = interpretAstS env <$> args
     in sum args2

@@ -42,6 +42,7 @@ import HordeAd.Core.HVector
 import HordeAd.Core.Types
 import HordeAd.Util.ShapedList (SizedListS (..), IndexS)
 import HordeAd.Util.SizedList
+import HordeAd.Internal.OrthotopeOrphanInstances (IntegralF(..))
 
 -- * Basic type family instances
 
@@ -699,13 +700,9 @@ instance Enum r => Enum (AstShaped s r n) where
 -- Warning: div and mod operations are very costly (simplifying them
 -- requires constructing conditionals, etc). If this error is removed,
 -- they are going to work, but slowly.
-instance (Integral r, Integral (OS.Array sh r), AstSpan s, OS.Shape sh)
-         => Integral (AstShaped s r sh) where
-  quot = AstI2S QuotOp
-  rem = AstI2S RemOp
-  quotRem u v = (AstI2S QuotOp u v, AstI2S RemOp u v)
-  divMod _ _ = error "divMod: disabled; much less efficient than quot and rem"
-  toInteger = undefined  -- we can't evaluate uninstantiated variables, etc.
+instance Integral r => IntegralF (AstShaped s r sh) where
+  quotF = AstI2S QuotOp
+  remF = AstI2S RemOp
 
 instance (Differentiable r, Fractional (OS.Array sh r), AstSpan s, OS.Shape sh)
          => Fractional (AstShaped s r sh) where

@@ -37,6 +37,7 @@ import           Unsafe.Coerce (unsafeCoerce)
 
 import           HordeAd.Core.HVector
 import           HordeAd.Core.Types
+import           HordeAd.Internal.OrthotopeOrphanInstances (IntegralF (..))
 import           HordeAd.Util.ShapedList
   (IndexSh, IntSh, ShapeIntS, consIndex, pattern (:.$), pattern ZIS)
 import qualified HordeAd.Util.ShapedList as ShapedList
@@ -48,6 +49,11 @@ type TensorSupports :: (Type -> Constraint) -> TensorType ty -> Constraint
 type TensorSupports c f =
   forall r y. (GoodScalar r, HasSingletonDict y)
               => (c r, c (Vector r)) => c (f r y)
+
+type TensorSupports2 :: (Type -> Constraint) -> (Type -> Constraint) -> TensorType ty -> Constraint
+type TensorSupports2 c1 c2 f =
+  forall r y. (GoodScalar r, HasSingletonDict y)
+              => (c1 r, c1 (Vector r)) => c2 (f r y)
 
 -- | The superclasses indicate that it's not only a container array,
 -- but also a mathematical tensor, sporting numeric operations.
@@ -330,7 +336,7 @@ class ( Integral (IntOf ranked), CRanked ranked Num
 -- * Shaped tensor class definition
 
 class ( Integral (IntOf shaped), CShaped shaped Num
-      , TensorSupports RealFloat shaped, TensorSupports Integral shaped )
+      , TensorSupports RealFloat shaped, TensorSupports2 Integral IntegralF shaped )
       => ShapedTensor (shaped :: ShapedTensorType) where
 
   slet :: (KnownShape sh, KnownShape sh2, GoodScalar r, GoodScalar r2)

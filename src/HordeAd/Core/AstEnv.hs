@@ -13,7 +13,7 @@ module HordeAd.Core.AstEnv
   , interpretLambdaHsH
     -- * Interpretation of arithmetic, boolean and relation operations
   , interpretAstN1, interpretAstN2, interpretAstR1, interpretAstR2
-  , interpretAstI2, interpretAstB2, interpretAstRelOp
+  , interpretAstI2, interpretAstI2F, interpretAstB2, interpretAstRelOp
   ) where
 
 import Prelude
@@ -31,6 +31,7 @@ import           HordeAd.Core.HVector
 import           HordeAd.Core.HVectorOps
 import           HordeAd.Core.TensorClass
 import           HordeAd.Core.Types
+import           HordeAd.Internal.OrthotopeOrphanInstances (IntegralF (..))
 import           HordeAd.Util.ShapedList (IndexSh, IntSh)
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedList
@@ -282,6 +283,12 @@ interpretAstI2 :: Integral a
 {-# INLINE interpretAstI2 #-}
 interpretAstI2 QuotOp u v = quot u v
 interpretAstI2 RemOp u v = rem u v
+
+interpretAstI2F :: IntegralF a
+                => OpCodeIntegral2 -> a -> a -> a
+{-# INLINE interpretAstI2F #-}
+interpretAstI2F QuotOp u v = quotF u v
+interpretAstI2F RemOp u v = remF u v
 
 interpretAstB2 :: Boolean b
                => OpCodeBool -> b -> b -> b

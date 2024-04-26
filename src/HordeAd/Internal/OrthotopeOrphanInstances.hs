@@ -10,6 +10,7 @@ module HordeAd.Internal.OrthotopeOrphanInstances
   , Dict(..)
   , -- * Numeric instances for tensors
     liftVR, liftVR2, liftVS, liftVS2
+  , IntegralF(..)
   , -- * Assorted orphans and additions
     MapSucc, trustMeThisIsAPermutation
   ) where
@@ -345,24 +346,13 @@ instance (Num (Vector r), Integral r, KnownNat n, Numeric r, Show r)
     _ -> error $ "OR.toInteger: rank not zero: "
                  ++ show (valueOf @n :: Int)
 
-instance Enum (OS.Array sh r) where  -- dummy, to satisfy Integral below
-  toEnum :: HasCallStack => Int -> a
-  toEnum _ = error "toEnum: undefined for OS.Array"
-  fromEnum :: HasCallStack => a -> Int
-  fromEnum _ = error "fromEnum: undefined for OS.Array"
+class IntegralF a where
+  quotF, remF :: a -> a -> a
 
-instance (Num (Vector r), Integral r, KnownShape2 sh, OS.Shape sh, Numeric r, Show r)
-         => Integral (OS.Array sh r) where
-  quot = liftVS2UnlessZero quot
-  rem = liftVS2UnlessZero rem
-  quotRem x y = (quot x y, rem x y)  -- TODO, another variant of liftVS2 needed
-  div = liftVS2UnlessZero div
-  mod = liftVS2UnlessZero mod
-  -- divMod  -- TODO
-  toInteger = case sameShape @sh @'[] of
-    Just Refl -> toInteger . OS.unScalar
-    _ -> error $ "OS.toInteger: shape not empty: "
-                 ++ show (shapeT @sh)
+instance (Num (Vector r), Integral r, KnownShape2 sh, Numeric r, Show r)
+         => IntegralF (OS.Array sh r) where
+  quotF = liftVS2UnlessZero quot
+  remF = liftVS2UnlessZero rem
 
 instance (Num (Vector r), KnownNat n, Numeric r, Show r, Fractional r)
          => Fractional (OR.Array n r) where
@@ -473,6 +463,8 @@ instance (RealFloat (Vector r), KnownShape2 sh, OS.Shape sh, Numeric r, Floating
 deriving instance Num (f a b) => Num (Flip f b a)
 
 deriving instance Enum (f a b) => Enum (Flip f b a)
+
+deriving instance IntegralF (f a b) => IntegralF (Flip f b a)
 
 deriving instance Integral (f a b) => Integral (Flip f b a)
 

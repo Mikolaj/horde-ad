@@ -31,6 +31,7 @@ import           HordeAd.Core.HVector
 import           HordeAd.Core.IsPrimal
 import           HordeAd.Core.TensorClass
 import           HordeAd.Core.Types
+import           HordeAd.Internal.OrthotopeOrphanInstances (IntegralF (..))
 import           HordeAd.Util.ShapedList (IndexSh)
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedList
@@ -292,6 +293,11 @@ instance (Real (f r z), IsPrimal f r z)
 instance Enum (ADVal f r z) where  -- dummy, to satisfy Integral below
   toEnum = undefined
   fromEnum = undefined
+
+instance (IntegralF (f r z), IsPrimal f r z)
+         => IntegralF (ADVal f r z) where
+  quotF (D u _) (D v _) = dD (quotF u v) (dZeroOfShape u)
+  remF (D u _) (D v _) = dD (remF u v) (dZeroOfShape u)
 
 instance (Integral (f r z), IsPrimal f r z)
          => Integral (ADVal f r z) where
