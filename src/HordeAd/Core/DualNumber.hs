@@ -230,7 +230,7 @@ instance ( ShapedTensor shaped, IfF (RankedOf (PrimalOf shaped))
 instance IfF (ADVal (Flip OR.Array)) where
   ifF (_, b) v w = if b then v else w
 
-instance IfF (ADVal (Flip OS.Array)) where
+instance IfF (ADVal (FlipS OS.Array)) where
   ifF (_, b) v w = if b then v else w
 -}
 

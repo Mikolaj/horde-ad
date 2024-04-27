@@ -21,6 +21,7 @@ import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId (funToAstIOR)
 import HordeAd.Core.TensorAst
 import HordeAd.External.OptimizerTools
+import HordeAd.Internal.OrthotopeOrphanInstances (FlipS (..))
 
 import           MnistData
 import qualified MnistFcnnRanked1
@@ -211,7 +212,7 @@ mnistTrainBench2VTA extraPrefix chunkLength xs widthHidden widthHidden2
                 forgetShape $ fst
                 $ randomVals
                     @(MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
-                        (Flip OS.Array) widthHidden widthHidden2 r)
+                        (FlipS OS.Array) widthHidden widthHidden2 r)
                     1 (mkStdGen 44)
               Nothing -> error "valsInit: impossible someNatVal error"
           Nothing -> error "valsInit: impossible someNatVal error"
@@ -241,7 +242,7 @@ mnistTestBench2VTA extraPrefix chunkLength xs widthHidden widthHidden2 = do
                 forgetShape $ fst
                 $ randomVals
                     @(MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
-                        (Flip OS.Array) widthHidden widthHidden2 r)
+                        (FlipS OS.Array) widthHidden widthHidden2 r)
                     1 (mkStdGen 44)
               Nothing -> error "valsInit: impossible someNatVal error"
           Nothing -> error "valsInit: impossible someNatVal error"
@@ -297,7 +298,7 @@ mnistTrainBench2VTO extraPrefix chunkLength xs widthHidden widthHidden2
                 forgetShape $ fst
                 $ randomVals
                     @(MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
-                        (Flip OS.Array) widthHidden widthHidden2 r)
+                        (FlipS OS.Array) widthHidden widthHidden2 r)
                     1 (mkStdGen 44)
               Nothing -> error "valsInit: impossible someNatVal error"
           Nothing -> error "valsInit: impossible someNatVal error"

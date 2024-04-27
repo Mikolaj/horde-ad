@@ -45,7 +45,7 @@ import           HordeAd.Core.TensorClass
 import           HordeAd.Core.TensorConcrete ()
 import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances
-  (IntegralF (..), RealFloatF (..))
+  (FlipS (..), IntegralF (..), RealFloatF (..))
 import           HordeAd.Util.ShapedList (IntSh)
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedList
@@ -340,12 +340,12 @@ instance (GoodScalar r, KnownShape sh, ShapedTensor (AstShaped s), AstSpan s)
   fromHVector _aInit = fromHVectorS
 
 instance OS.Shape sh => DualNumberValue (AstShaped PrimalSpan r sh) where
-  type DValue (AstShaped PrimalSpan r sh) = Flip OS.Array r sh
-  fromDValue t = fromPrimalS $ AstConstS $ runFlip t
+  type DValue (AstShaped PrimalSpan r sh) = FlipS OS.Array r sh
+  fromDValue t = fromPrimalS $ AstConstS $ runFlipS t
 
 instance OS.Shape sh => TermValue (AstShaped FullSpan r sh) where
-  type Value (AstShaped FullSpan r sh) = Flip OS.Array r sh
-  fromValue t = fromPrimalS $ AstConstS $ runFlip t
+  type Value (AstShaped FullSpan r sh) = FlipS OS.Array r sh
+  fromValue t = fromPrimalS $ AstConstS $ runFlipS t
 
 instance AstSpan s => ShapedTensor (AstShaped s) where
   slet = astLetFunS
@@ -452,7 +452,7 @@ instance TermValue (DynamicTensor (AstRanked FullSpan)) where
     DynamicTensor (Flip OR.Array)
   fromValue = \case
     DynamicRanked t -> DynamicRanked $ fromPrimal $ AstConst $ runFlip t
-    DynamicShaped t -> DynamicShaped $ fromPrimalS $ AstConstS $ runFlip t
+    DynamicShaped t -> DynamicShaped $ fromPrimalS $ AstConstS $ runFlipS t
     DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
     DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
 

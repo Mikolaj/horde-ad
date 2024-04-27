@@ -22,6 +22,7 @@ import HordeAd.Core.HVector
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.External.CommonShapedOps
+import HordeAd.Internal.OrthotopeOrphanInstances (FlipS (..))
 import MnistData
 
 -- | The differentiable type of all trainable parameters of this nn.
@@ -137,7 +138,7 @@ convMnistTestS
      ( h ~ SizeMnistHeight, w ~ SizeMnistWidth
      , 1 <= kh
      , 1 <= kw
-     , shaped ~ Flip OS.Array
+     , shaped ~ FlipS OS.Array
      , GoodScalar r, Differentiable r )
   => SNat kh -> SNat kw
   -> SNat c_out
@@ -152,17 +153,17 @@ convMnistTestS kh@SNat kw@SNat
                c_out@SNat n_hidden@SNat batch_size@SNat
                valsInit (glyphS, labelS) testParams =
   let input :: shaped r '[batch_size, 1, h, w]
-      input = Flip $ OS.reshape glyphS
+      input = FlipS $ OS.reshape glyphS
       outputS =
         let nn :: ADCnnMnistParametersShaped shaped h w kh kw c_out n_hidden r
                -> shaped r '[SizeMnistLabel, batch_size]
             nn = convMnistTwoS kh kw (SNat @h) (SNat @w)
                                c_out n_hidden batch_size
                                input
-        in runFlip $ nn $ parseHVector valsInit testParams
-      outputs = map OS.toVector $ map runFlip $ sunravelToList
-                $ Flip $ OS.transpose @'[1, 0] $ outputS
-      labels = map OS.toVector $ map runFlip $ sunravelToList $ Flip labelS
+        in runFlipS $ nn $ parseHVector valsInit testParams
+      outputs = map OS.toVector $ map runFlipS $ sunravelToList
+                $ FlipS $ OS.transpose @'[1, 0] $ outputS
+      labels = map OS.toVector $ map runFlipS $ sunravelToList $ FlipS labelS
       matchesLabels :: Vector r -> Vector r -> Int
       matchesLabels output label | V.maxIndex output == V.maxIndex label = 1
                                  | otherwise = 0

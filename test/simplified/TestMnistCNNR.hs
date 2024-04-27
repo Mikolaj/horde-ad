@@ -28,6 +28,7 @@ import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.TensorAst
 import HordeAd.External.OptimizerTools
+import HordeAd.Internal.OrthotopeOrphanInstances (FlipS (..))
 
 import EqEpsilon
 
@@ -62,7 +63,7 @@ mnistTestCaseCNNA prefix epochs maxBatches kh kw c_out n_hidden
            ,Just (SomeNat @c_out _), Just (SomeNat @n_hidden _) ) ->
             forgetShape $ fst
             $ randomVals @(MnistCnnRanked2.ADCnnMnistParametersShaped
-                             (Flip OS.Array) SizeMnistHeight SizeMnistWidth
+                             (FlipS OS.Array) SizeMnistHeight SizeMnistWidth
                              kh kw c_out n_hidden r)
                 0.4 (mkStdGen 44)
           _ -> error "impossible someNatVal error"
@@ -161,7 +162,7 @@ mnistTestCaseCNNI prefix epochs maxBatches kh kw c_out n_hidden
            ,Just (SomeNat @c_out _), Just (SomeNat @n_hidden _) ) ->
             forgetShape $ fst
             $ randomVals @(MnistCnnRanked2.ADCnnMnistParametersShaped
-                             (Flip OS.Array) SizeMnistHeight SizeMnistWidth
+                             (FlipS OS.Array) SizeMnistHeight SizeMnistWidth
                              kh kw c_out n_hidden r)
                 0.4 (mkStdGen 44)
           _ -> error "impossible someNatVal error"
@@ -275,7 +276,7 @@ mnistTestCaseCNNO prefix epochs maxBatches kh kw c_out n_hidden
     ,Just (SomeNat @c_out _), Just (SomeNat @n_hidden _) ) ->
     let valsInitShaped
           :: MnistCnnRanked2.ADCnnMnistParametersShaped
-               (Flip OS.Array) SizeMnistHeight SizeMnistWidth
+               (FlipS OS.Array) SizeMnistHeight SizeMnistWidth
                kh kw c_out n_hidden r
         valsInitShaped = fst $ randomVals 0.4 (mkStdGen 44)
         valsInit :: MnistCnnRanked2.ADCnnMnistParameters ranked r
@@ -399,7 +400,7 @@ testCNNOPP = do
       valsInit =
         forgetShape $ fst
         $ randomVals @(MnistCnnRanked2.ADCnnMnistParametersShaped
-                         (Flip OS.Array) 4 4  -- see sizeMnistWidthI, etc.
+                         (FlipS OS.Array) 4 4  -- see sizeMnistWidthI, etc.
                          1 1 1 1 Double)
                      0.4 (mkStdGen 44)
       afcnn2T :: MnistCnnRanked2.ADCnnMnistParameters (AstRanked FullSpan)

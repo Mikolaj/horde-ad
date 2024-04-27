@@ -18,6 +18,7 @@ import qualified Numeric.LinearAlgebra as LA
 import HordeAd.Core.HVector
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
+import HordeAd.Internal.OrthotopeOrphanInstances (FlipS (..))
 import HordeAd.Internal.TensorFFI
 import HordeAd.Util.SizedList
 
@@ -37,8 +38,8 @@ instance (VS.Storable a) => HasShape (VS.Vector a) where
 instance HasShape (Flip OR.Array a n) where
   shapeL = OR.shapeL . runFlip
 
-instance KnownShape sh => HasShape (Flip OS.Array a sh) where
-  shapeL = OS.shapeL . runFlip
+instance KnownShape sh => HasShape (FlipS OS.Array a sh) where
+  shapeL = OS.shapeL . runFlipS
 
 instance HasShape (LA.Matrix a) where
   shapeL matrix = [LA.rows matrix, LA.cols matrix]
@@ -67,8 +68,8 @@ instance (VS.Storable a, KnownShape sh)
   linearize = OS.toList
 
 instance (VS.Storable a, KnownShape sh)
-         => Linearizable (Flip OS.Array a sh) a where
-  linearize = OS.toList . runFlip
+         => Linearizable (FlipS OS.Array a sh) a where
+  linearize = OS.toList . runFlipS
 
 instance (VS.Storable a) => Linearizable (OR.Array n a) a where
   linearize = OR.toList

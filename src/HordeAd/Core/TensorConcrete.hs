@@ -32,6 +32,7 @@ import HordeAd.Core.TensorADVal
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.Internal.BackendConcrete
+import HordeAd.Internal.OrthotopeOrphanInstances (FlipS (..))
 import HordeAd.Util.ShapedList (shapedNat, unShapedNat)
 
 type instance BoolOf (Flip OR.Array) = Bool
@@ -51,7 +52,7 @@ instance IfF (Flip OR.Array) where
 
 type instance RankedOf (Flip OR.Array) = Flip OR.Array
 
-type instance ShapedOf (Flip OR.Array) = Flip OS.Array
+type instance ShapedOf (Flip OR.Array) = FlipS OS.Array
 
 type instance HVectorOf (Flip OR.Array) = HVector (Flip OR.Array)
 
@@ -103,7 +104,7 @@ instance RankedTensor (Flip OR.Array) where
   rconst = Flip
   rletHVectorIn = (&)
   rletHFunIn = (&)
-  rfromS = Flip . Data.Array.Convert.convert . runFlip
+  rfromS = Flip . Data.Array.Convert.convert . runFlipS
 
   rscaleByScalar s v =
     Flip $ tscaleByScalarR (tunScalarR $ runFlip s) (runFlip v)
@@ -116,82 +117,82 @@ instance RankedTensor (Flip OR.Array) where
   rD u _ = u
   rScale _ _ = DummyDual
 
-type instance BoolOf (Flip OS.Array) = Bool
+type instance BoolOf (FlipS OS.Array) = Bool
 
-instance EqF (Flip OS.Array) where
+instance EqF (FlipS OS.Array) where
   u ==. v = u == v
   u /=. v = u /= v
 
-instance OrdF (Flip OS.Array) where
+instance OrdF (FlipS OS.Array) where
   u <. v = u < v
   u <=. v = u <= v
   u >. v = u > v
   u >=. v = u >= v
 
-instance IfF (Flip OS.Array) where
+instance IfF (FlipS OS.Array) where
   ifF b v w = if b then v else w
 
-type instance RankedOf (Flip OS.Array) = Flip OR.Array
+type instance RankedOf (FlipS OS.Array) = Flip OR.Array
 
-type instance ShapedOf (Flip OS.Array) = Flip OS.Array
+type instance ShapedOf (FlipS OS.Array) = FlipS OS.Array
 
-type instance PrimalOf (Flip OS.Array) = Flip OS.Array
+type instance PrimalOf (FlipS OS.Array) = FlipS OS.Array
 
-type instance DualOf (Flip OS.Array) = DummyDual
+type instance DualOf (FlipS OS.Array) = DummyDual
 
-instance ShapedTensor (Flip OS.Array) where
-  sminIndex = Flip . tminIndexS . runFlip
-  smaxIndex = Flip . tmaxIndexS . runFlip
-  sfloor = Flip . tfloorS . runFlip
+instance ShapedTensor (FlipS OS.Array) where
+  sminIndex = FlipS . tminIndexS . runFlipS
+  smaxIndex = FlipS . tmaxIndexS . runFlipS
+  sfloor = FlipS . tfloorS . runFlipS
   siota :: forall n r. (GoodScalar r, KnownNat n)
-        => Flip OS.Array r '[n]  -- from 0 to n - 1
+        => FlipS OS.Array r '[n]  -- from 0 to n - 1
   siota = let n = valueOf @n :: Int
-          in Flip $ OS.fromList $ map fromIntegral [0 .. n - 1]
-  sindex v ix = Flip $ tindexZS (runFlip v) (fromIndexOfS ix)
-  sindex0 v ix = Flip . tscalarS $ tindex0S (runFlip v) (fromIndexOfS ix)
-  ssum = Flip . tsumS . runFlip
-  ssum0 = Flip . tscalarS . tsum0S . runFlip
-  sdot0 u v = Flip $ tscalarS $ tdot0S (runFlip u) (runFlip v)
-  smatvecmul m v = Flip $ tmatvecmulS (runFlip m) (runFlip v)
-  smatmul2 m1 m2 = Flip $ tmatmul2S (runFlip m1) (runFlip m2)
-  sscatter t f = Flip $ tscatterZS (runFlip t)
+          in FlipS $ OS.fromList $ map fromIntegral [0 .. n - 1]
+  sindex v ix = FlipS $ tindexZS (runFlipS v) (fromIndexOfS ix)
+  sindex0 v ix = FlipS . tscalarS $ tindex0S (runFlipS v) (fromIndexOfS ix)
+  ssum = FlipS . tsumS . runFlipS
+  ssum0 = FlipS . tscalarS . tsum0S . runFlipS
+  sdot0 u v = FlipS $ tscalarS $ tdot0S (runFlipS u) (runFlipS v)
+  smatvecmul m v = FlipS $ tmatvecmulS (runFlipS m) (runFlipS v)
+  smatmul2 m1 m2 = FlipS $ tmatmul2S (runFlipS m1) (runFlipS m2)
+  sscatter t f = FlipS $ tscatterZS (runFlipS t)
                                    (fromIndexOfS . f . toIndexOfS)
-  sscatter1 t f = Flip $ tscatterZ1S (runFlip t)
-                                     (fromIndexOfS . f . shapedNat . Flip
-                                      . tscalarR . unShapedNat)
-  sfromList = Flip . tfromListS . map runFlip
-  sfromList0N = Flip . tfromList0NS . map (tunScalarS . runFlip)
-  sfromVector = Flip . tfromVectorS . V.map runFlip
-  sfromVector0N = Flip . tfromVector0NS . V.map (tunScalarS . runFlip)
-  sunravelToList = map Flip . tunravelToListS . runFlip
-  sreplicate = Flip . treplicateS . runFlip
-  sreplicate0N = Flip . treplicate0NS . tunScalarS . runFlip
-  sappend u v = Flip $ tappendS (runFlip u) (runFlip v)
-  sslice (_ :: Proxy i) _ = Flip . tsliceS @i . runFlip
-  sreverse = Flip . treverseS . runFlip
-  stranspose (_ :: Proxy perm) = Flip . ttransposeS @perm . runFlip
-  sreshape = Flip . treshapeS . runFlip
-  sbuild1 f = Flip $ tbuild1S (runFlip . f . shapedNat . Flip
-                               . tscalarR . unShapedNat)
-  smap0N f t = Flip $ tmap0NS (runFlip . f . Flip) (runFlip t)
-  szipWith0N f t u = Flip $ tzipWith0NS (\v w -> runFlip $ f (Flip v) (Flip w))
-                                        (runFlip t) (runFlip u)
-  sgather t f = Flip $ tgatherZS (runFlip t)
-                                 (fromIndexOfS . f . toIndexOfS)
-  sgather1 t f = Flip $ tgatherZ1S (runFlip t)
-                                   (fromIndexOfS . f . shapedNat . Flip
-                                    . tscalarR . unShapedNat)
-  scast = Flip . tcastS . runFlip
-  sfromIntegral = Flip . tfromIntegralS . runFlip
-  sconst = Flip
+  sscatter1 t f = FlipS $ tscatterZ1S (runFlipS t)
+                                      (fromIndexOfS . f . shapedNat . Flip
+                                       . tscalarR . unShapedNat)
+  sfromList = FlipS . tfromListS . map runFlipS
+  sfromList0N = FlipS . tfromList0NS . map (tunScalarS . runFlipS)
+  sfromVector = FlipS . tfromVectorS . V.map runFlipS
+  sfromVector0N = FlipS . tfromVector0NS . V.map (tunScalarS . runFlipS)
+  sunravelToList = map FlipS . tunravelToListS . runFlipS
+  sreplicate = FlipS . treplicateS . runFlipS
+  sreplicate0N = FlipS . treplicate0NS . tunScalarS . runFlipS
+  sappend u v = FlipS $ tappendS (runFlipS u) (runFlipS v)
+  sslice (_ :: Proxy i) _ = FlipS . tsliceS @i . runFlipS
+  sreverse = FlipS . treverseS . runFlipS
+  stranspose (_ :: Proxy perm) = FlipS . ttransposeS @perm . runFlipS
+  sreshape = FlipS . treshapeS . runFlipS
+  sbuild1 f = FlipS $ tbuild1S (runFlipS . f . shapedNat . Flip
+                                . tscalarR . unShapedNat)
+  smap0N f t = FlipS $ tmap0NS (runFlipS . f . FlipS) (runFlipS t)
+  szipWith0N f t u = FlipS $ tzipWith0NS (\v w -> runFlipS $ f (FlipS v) (FlipS w))
+                                        (runFlipS t) (runFlipS u)
+  sgather t f = FlipS $ tgatherZS (runFlipS t)
+                                  (fromIndexOfS . f . toIndexOfS)
+  sgather1 t f = FlipS $ tgatherZ1S (runFlipS t)
+                                    (fromIndexOfS . f . shapedNat . Flip
+                                     . tscalarR . unShapedNat)
+  scast = FlipS . tcastS . runFlipS
+  sfromIntegral = FlipS . tfromIntegralS . runFlipS
+  sconst = FlipS
   sletHVectorIn = (&)
   sletHFunIn = (&)
-  sfromR = Flip . Data.Array.Convert.convert . runFlip
+  sfromR = FlipS . Data.Array.Convert.convert . runFlip
 
   sscaleByScalar s v =
-    Flip $ tscaleByScalarS (tunScalarS $ runFlip s) (runFlip v)
-  ssumIn = Flip . tsumInS . runFlip
-  sdot1In u v = Flip $ tdot1InS (runFlip u) (runFlip v)
+    FlipS $ tscaleByScalarS (tunScalarS $ runFlipS s) (runFlipS v)
+  ssumIn = FlipS . tsumInS . runFlipS
+  sdot1In u v = FlipS $ tdot1InS (runFlipS u) (runFlipS v)
 
   sconstant = id
   sprimalPart = id
@@ -199,7 +200,7 @@ instance ShapedTensor (Flip OS.Array) where
   sD u _ = u
   sScale _ _ = DummyDual
 
-instance HVectorTensor (Flip OR.Array) (Flip OS.Array) where
+instance HVectorTensor (Flip OR.Array) (FlipS OS.Array) where
   dshape = voidFromHVector
   dmkHVector = id
   dlambda _ f = unHFun f  -- the eta-expansion is needed for typing
@@ -323,24 +324,24 @@ instance ForgetShape (Flip OR.Array r n) where
   forgetShape = id
 
 instance (GoodScalar r, KnownShape sh)
-         => AdaptableHVector (Flip OR.Array) (Flip OS.Array r sh) where
+         => AdaptableHVector (Flip OR.Array) (FlipS OS.Array r sh) where
   toHVector = V.singleton . DynamicShaped
   fromHVector _aInit = fromHVectorS
 
 instance KnownShape sh
-         => ForgetShape (Flip OS.Array r sh) where
-  type NoShape (Flip OS.Array r sh) = Flip OR.Array r (Sh.Rank sh)  -- key case
-  forgetShape = Flip . Data.Array.Convert.convert . runFlip
+         => ForgetShape (FlipS OS.Array r sh) where
+  type NoShape (FlipS OS.Array r sh) = Flip OR.Array r (Sh.Rank sh)  -- key case
+  forgetShape = Flip . Data.Array.Convert.convert . runFlipS
 
 instance (KnownShape sh, Numeric r, Fractional r, Random r, Num (Vector r))
-         => RandomHVector (Flip OS.Array r sh) where
+         => RandomHVector (FlipS OS.Array r sh) where
   randomVals range g =
     let createRandomVector n seed =
           LA.scale (2 * realToFrac range)
           $ V.fromListN n (randoms seed) - LA.scalar 0.5
         (g1, g2) = split g
         arr = OS.fromVector $ createRandomVector (OS.sizeP (Proxy @sh)) g1
-    in (Flip arr, g2)
+    in (FlipS arr, g2)
 
 instance AdaptableHVector (Flip OR.Array)
                           (HVectorPseudoTensor (Flip OR.Array) r y) where
@@ -365,6 +366,6 @@ instance (RankedTensor ranked, ShapedTensor (ShapedOf ranked))
   type DValue (DynamicTensor (ADVal ranked)) = DynamicTensor (Flip OR.Array)
   fromDValue = \case
     DynamicRanked t -> DynamicRanked $ constantADVal $ rconst $ runFlip t
-    DynamicShaped t -> DynamicShaped $ constantADVal $ sconst $ runFlip t
+    DynamicShaped t -> DynamicShaped $ constantADVal $ sconst $ runFlipS t
     DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
     DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2

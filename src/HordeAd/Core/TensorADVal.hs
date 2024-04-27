@@ -40,6 +40,7 @@ import           HordeAd.Core.HVectorOps
 import           HordeAd.Core.IsPrimal
 import           HordeAd.Core.TensorClass
 import           HordeAd.Core.Types
+import           HordeAd.Internal.OrthotopeOrphanInstances (FlipS (..))
 import           HordeAd.Util.ShapedList (IntSh)
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedList
@@ -258,8 +259,8 @@ instance ( ADReadyS shaped, KnownShape sh, GoodScalar r
 
 instance (ADReadyS shaped, KnownShape sh, GoodScalar r)
          => DualNumberValue (ADVal shaped r sh) where
-  type DValue (ADVal shaped r sh) = Flip OS.Array r sh   -- ! not Value(shaped)
-  fromDValue t = constantADVal $ sconst $ runFlip t
+  type DValue (ADVal shaped r sh) = FlipS OS.Array r sh   -- ! not Value(shaped)
+  fromDValue t = constantADVal $ sconst $ runFlipS t
 
 -- Note that these instances don't do vectorization. To enable it,
 -- use the Ast instance and only then interpret in ADVal.

@@ -20,7 +20,7 @@ import           Test.Tasty.HUnit hiding (assert)
 
 import HordeAd
 import HordeAd.Core.AstFreshId (resetVarCounter)
-import HordeAd.Internal.OrthotopeOrphanInstances (RealFloatF (..))
+import HordeAd.Internal.OrthotopeOrphanInstances (FlipS (..), RealFloatF (..))
 import HordeAd.Util.ShapedList (pattern (:.$), pattern ZIS)
 
 import CrossTesting
@@ -483,7 +483,7 @@ testSin0Rrev5S :: Assertion
 testSin0Rrev5S = do
   assertEqualUpToEpsilon 1e-10
     (-0.8912073600614354)
-    (srev1 @(Flip OS.Array) @Double @'[] @'[] (srev1 sin) 1.1)
+    (srev1 @(FlipS OS.Array) @Double @'[] @'[] (srev1 sin) 1.1)
 
 testSin0RrevPP5S :: Assertion
 testSin0RrevPP5S = do
@@ -738,7 +738,7 @@ testSin0Fold8Srev = do
 
 testSin0Fold8Srev2 :: Assertion
 testSin0Fold8Srev2 = do
-  let h = srev1 @(ADVal (Flip OS.Array))
+  let h = srev1 @(ADVal (FlipS OS.Array))
                 (let f :: forall f. ADReadyS f
                        => f Double '[] -> f Double '[2, 5]
                      f a0 = sfold @_ @f @Double @Double @'[2, 5] @'[] @3
@@ -2622,7 +2622,7 @@ testSin0rmapAccumRD01SN56 = do
 testSin0rmapAccumRD01SN57 :: Assertion
 testSin0rmapAccumRD01SN57 = do
   assertEqualUpToEpsilon 1e-10
-    (Flip $ OS.fromList @'[2] [0.4989557335681351,1.1])
+    (FlipS $ OS.fromList @'[2] [0.4989557335681351,1.1])
     (cfwd (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[2]
                f x0 = (sfromD . (V.! 1))
                       $ dunHVector
@@ -2647,7 +2647,7 @@ testSin0rmapAccumRD01SN57 = do
 testSin0rmapAccumRD01SN58 :: Assertion
 testSin0rmapAccumRD01SN58 = do
   assertEqualUpToEpsilon 1e-10
-    (Flip $ OS.fromList @'[5] [0,0,0,0,1.1])
+    (FlipS $ OS.fromList @'[5] [0,0,0,0,1.1])
     (cfwd (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[5]
                f x0 = (sfromD . (V.! 1))
                       $ dunHVector
@@ -2672,7 +2672,7 @@ testSin0rmapAccumRD01SN58 = do
 testSin0rmapAccumRD01SN59 :: Assertion
 testSin0rmapAccumRD01SN59 = do
   assertEqualUpToEpsilon 1e-10
-    (Flip $ OS.fromList @'[1] [1.1])
+    (FlipS $ OS.fromList @'[1] [1.1])
     (cfwd (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[1]
                f x0 = (sfromD . (V.! 1))
                       $ dunHVector
@@ -2779,7 +2779,7 @@ testSin0rmapAccumRD01SN7 = do
                                          , DynamicShaped @Double @'[1, 2] 0
                                          , DynamicShaped @Double @'[1, 2] 0
                                          , DynamicShaped @Double @'[1, 2] 0 ])
-           in hVectorADValToADVal . f @(ADVal (Flip OS.Array))) 1.1)
+           in hVectorADValToADVal . f @(ADVal (FlipS OS.Array))) 1.1)
 
 testSin0ScanD1 :: Assertion
 testSin0ScanD1 = do
@@ -3715,7 +3715,7 @@ testSin0MapAccumNestedR10f = do
 testSin0MapAccumNestedR10fN :: Assertion
 testSin0MapAccumNestedR10fN = do
  assertEqualUpToEpsilon 1e-10
-  ( 1.379370673816781e-4 :: Flip OS.Array Float '[1]
+  ( 1.379370673816781e-4 :: FlipS OS.Array Float '[1]
   , 1.379370673816781e-4 :: Flip OR.Array Double 0)
   (fwd @(AstShaped FullSpan Float '[1], AstRanked FullSpan Double 0)
    (let
@@ -3987,7 +3987,7 @@ testSin0FoldNestedS5rev = do
                             a0 (sreplicate @_ @1 a0)
   assertEqualUpToEpsilon 1e-10
     0.22000000000000003
-    (srev1 @(Flip OS.Array) @Double @'[] @'[] f 1.1)
+    (srev1 @(FlipS OS.Array) @Double @'[] @'[] f 1.1)
 
 testSin0FoldNestedS5fwd :: Assertion
 testSin0FoldNestedS5fwd = do
@@ -4006,7 +4006,7 @@ testSin0FoldNestedS5fwd = do
                             a0 (sreplicate @_ @1 a0)
   assertEqualUpToEpsilon 1e-10
     0.22000000000000003
-    (sfwd1 @(Flip OS.Array) @Double @'[] @'[] f 1.1)
+    (sfwd1 @(FlipS OS.Array) @Double @'[] @'[] f 1.1)
 
 testSin0FoldNestedSi :: Assertion
 testSin0FoldNestedSi = do
@@ -4374,10 +4374,10 @@ testSin0revhV8 = do
         -> ADVal (HVectorPseudoTensor g) Float '()
       h = hVectorADValToADVal . f
   assertEqualUpToEpsilon 1e-10
-    (V.singleton $ DynamicShaped @Double @'[3] $ sfromList @(Flip OS.Array) [1, 1, 1])
+    (V.singleton $ DynamicShaped @Double @'[3] $ sfromList @(FlipS OS.Array) [1, 1, 1])
     (crev (h @(Flip OR.Array))
           (V.singleton $ DynamicShaped @Double @'[3]
-           $ sreplicate @(Flip OS.Array) @3 1.1))
+           $ sreplicate @(FlipS OS.Array) @3 1.1))
 
 fFoldZipR
   :: forall n r ranked.

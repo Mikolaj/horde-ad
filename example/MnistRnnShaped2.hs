@@ -23,6 +23,7 @@ import HordeAd.Core.HVector
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.External.CommonShapedOps (lossSoftMaxCrossEntropyS)
+import HordeAd.Internal.OrthotopeOrphanInstances (FlipS (..))
 import HordeAd.Util.ShapedList (pattern (:.$), pattern ZIS)
 import MnistData
 
@@ -144,7 +145,7 @@ rnnMnistLossFusedS out_width@SNat
 rnnMnistTestS
   :: forall shaped h w out_width batch_size r.
      ( h ~ SizeMnistHeight, w ~ SizeMnistWidth
-     , shaped ~ Flip OS.Array, Differentiable r
+     , shaped ~ FlipS OS.Array, Differentiable r
      , GoodScalar r )
   => SNat out_width
   -> SNat batch_size
@@ -154,7 +155,7 @@ rnnMnistTestS
   -> r
 rnnMnistTestS out_width@SNat batch_size@SNat
               valsInit (glyphS, labelS) testParams =
-  let xs = Flip $ OS.transpose @'[2, 1, 0] glyphS
+  let xs = FlipS $ OS.transpose @'[2, 1, 0] glyphS
       outputS =
         let nn :: ADRnnMnistParametersShaped shaped h out_width r
                -> shaped r '[SizeMnistLabel, batch_size]
@@ -162,10 +163,10 @@ rnnMnistTestS out_width@SNat batch_size@SNat
                                batch_size
                                (SNat @h) (SNat @w)
                                xs
-        in runFlip $ nn $ parseHVector valsInit testParams
-      outputs = map OS.toVector $ map runFlip $ sunravelToList
-                $ Flip $ OS.transpose @'[1, 0] outputS
-      labels = map OS.toVector $ map runFlip $ sunravelToList $ Flip labelS
+        in runFlipS $ nn $ parseHVector valsInit testParams
+      outputs = map OS.toVector $ map runFlipS $ sunravelToList
+                $ FlipS $ OS.transpose @'[1, 0] outputS
+      labels = map OS.toVector $ map runFlipS $ sunravelToList $ FlipS labelS
       matchesLabels :: Vector r -> Vector r -> Int
       matchesLabels output label | V.maxIndex output == V.maxIndex label = 1
                                  | otherwise = 0

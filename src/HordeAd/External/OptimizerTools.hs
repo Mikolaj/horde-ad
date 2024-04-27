@@ -48,8 +48,8 @@ updateWithGradient gamma params gradient =
             (case sameShape @sh1 @sh2 of
                Just Refl -> case testEquality (typeRep @r1) (typeRep @r2) of
                  Just Refl ->
-                   DynamicShaped $ Flip
-                   $ liftVS2 updateVector (runFlip t1) (runFlip t2)
+                   DynamicShaped $ FlipS
+                   $ liftVS2 updateVector (runFlipS t1) (runFlipS t2)
                  _ -> error "updateWithGradient: scalar mismatch"
                _ -> error "updateWithGradient: rank mismatch")
           i

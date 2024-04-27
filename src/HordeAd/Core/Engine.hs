@@ -40,6 +40,7 @@ import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorADVal
 import HordeAd.Core.TensorAst
 import HordeAd.Core.Types
+import HordeAd.Internal.OrthotopeOrphanInstances (FlipS (..))
 
 -- * Reverse derivative adaptors
 
@@ -367,7 +368,7 @@ cfwd f vals ds =
   :: (KnownShape sh, Typeable r)
   => AstEnv (ADVal (Flip OR.Array))
   -> AstShaped PrimalSpan r sh
-  -> Flip OS.Array r sh #-}
+  -> FlipS OS.Array r sh #-}
 {-# SPECIALIZE interpretAstPrimalSRuntimeSpecialized
   :: (KnownShape sh, Typeable r)
   => AstEnv (ADVal (AstRanked PrimalSpan))
@@ -377,7 +378,7 @@ cfwd f vals ds =
   :: (KnownShape sh, Typeable r)
   => AstEnv (Flip OR.Array)
   -> AstShaped PrimalSpan r sh
-  -> Flip OS.Array r sh #-}
+  -> FlipS OS.Array r sh #-}
 
 {-# SPECIALIZE interpretAstPrimal
   :: (KnownNat n, GoodScalar r)
@@ -444,22 +445,22 @@ cfwd f vals ds =
   :: (KnownShape sh, GoodScalar r)
   => AstEnv (ADVal (Flip OR.Array))
   -> AstShaped PrimalSpan r sh
-  -> Flip OS.Array r sh #-}
+  -> FlipS OS.Array r sh #-}
 {-# SPECIALIZE interpretAstPrimalS
   :: KnownShape sh
   => AstEnv (ADVal (Flip OR.Array))
   -> AstShaped PrimalSpan Double sh
-  -> Flip OS.Array Double sh #-}
+  -> FlipS OS.Array Double sh #-}
 {-# SPECIALIZE interpretAstPrimalS
   :: KnownShape sh
   => AstEnv (ADVal (Flip OR.Array))
   -> AstShaped PrimalSpan Float sh
-  -> Flip OS.Array Float sh #-}
+  -> FlipS OS.Array Float sh #-}
 {-# SPECIALIZE interpretAstPrimalS
   :: KnownShape sh
   => AstEnv (ADVal (Flip OR.Array))
   -> AstShaped PrimalSpan Int64 sh
-  -> Flip OS.Array Int64 sh #-}
+  -> FlipS OS.Array Int64 sh #-}
 {-# SPECIALIZE interpretAstPrimalS
   :: (KnownShape sh, GoodScalar r)
   => AstEnv (ADVal (AstRanked PrimalSpan))
@@ -484,22 +485,22 @@ cfwd f vals ds =
   :: (KnownShape sh, GoodScalar r)
   => AstEnv (Flip OR.Array)
   -> AstShaped PrimalSpan r sh
-  -> Flip OS.Array r sh #-}
+  -> FlipS OS.Array r sh #-}
 {-# SPECIALIZE interpretAstPrimalS
   :: KnownShape sh
   => AstEnv (Flip OR.Array)
   -> AstShaped PrimalSpan Double sh
-  -> Flip OS.Array Double sh #-}
+  -> FlipS OS.Array Double sh #-}
 {-# SPECIALIZE interpretAstPrimalS
   :: KnownShape sh
   => AstEnv (Flip OR.Array)
   -> AstShaped PrimalSpan Float sh
-  -> Flip OS.Array Float sh #-}
+  -> FlipS OS.Array Float sh #-}
 {-# SPECIALIZE interpretAstPrimalS
   :: KnownShape sh
   => AstEnv (Flip OR.Array)
   -> AstShaped PrimalSpan Int64 sh
-  -> Flip OS.Array Int64 sh #-}
+  -> FlipS OS.Array Int64 sh #-}
 
 {-# SPECIALIZE interpretAstDual
   :: (KnownNat n, GoodScalar r)
@@ -566,22 +567,22 @@ cfwd f vals ds =
   :: (KnownShape sh, GoodScalar r)
   => AstEnv (ADVal (Flip OR.Array))
   -> AstShaped DualSpan r sh
-  -> DeltaS (Flip OS.Array) r sh #-}
+  -> DeltaS (FlipS OS.Array) r sh #-}
 {-# SPECIALIZE interpretAstDualS
   :: KnownShape sh
   => AstEnv (ADVal (Flip OR.Array))
   -> AstShaped DualSpan Double sh
-  -> DeltaS (Flip OS.Array) Double sh #-}
+  -> DeltaS (FlipS OS.Array) Double sh #-}
 {-# SPECIALIZE interpretAstDualS
   :: KnownShape sh
   => AstEnv (ADVal (Flip OR.Array))
   -> AstShaped DualSpan Float sh
-  -> DeltaS (Flip OS.Array) Float sh #-}
+  -> DeltaS (FlipS OS.Array) Float sh #-}
 {-# SPECIALIZE interpretAstDualS
   :: KnownShape sh
   => AstEnv (ADVal (Flip OR.Array))
   -> AstShaped DualSpan Int64 sh
-  -> DeltaS (Flip OS.Array) Int64 sh #-}
+  -> DeltaS (FlipS OS.Array) Int64 sh #-}
 {-# SPECIALIZE interpretAstDualS
   :: (KnownShape sh, GoodScalar r)
   => AstEnv (ADVal (AstRanked PrimalSpan))
@@ -645,7 +646,7 @@ cfwd f vals ds =
   :: (KnownShape sh, Typeable r, AstSpan s)
   => AstEnv (ADVal (Flip OR.Array))
   -> AstShaped s r sh
-  -> ADVal (Flip OS.Array) r sh #-}
+  -> ADVal (FlipS OS.Array) r sh #-}
 {-# SPECIALIZE interpretAstSRuntimeSpecialized
   :: (KnownShape sh, Typeable r, AstSpan s)
   => AstEnv (ADVal (AstRanked PrimalSpan))
@@ -655,7 +656,7 @@ cfwd f vals ds =
   :: (KnownShape sh, Typeable r, AstSpan s)
   => AstEnv (Flip OR.Array)
   -> AstShaped s r sh
-  -> Flip OS.Array r sh #-}
+  -> FlipS OS.Array r sh #-}
 
 -- This is needed for all three AstSpan values, to handle recursive calls
 -- from interpretAstDual, etc.
@@ -724,22 +725,22 @@ cfwd f vals ds =
   :: (KnownShape sh, GoodScalar r, AstSpan s)
   => AstEnv (ADVal (Flip OR.Array))
   -> AstShaped s r sh
-  -> ADVal (Flip OS.Array) r sh #-}
+  -> ADVal (FlipS OS.Array) r sh #-}
 {-# SPECIALIZE interpretAstS
   :: (KnownShape sh, AstSpan s)
   => AstEnv (ADVal (Flip OR.Array))
   -> AstShaped s Double sh
-  -> ADVal (Flip OS.Array) Double sh #-}
+  -> ADVal (FlipS OS.Array) Double sh #-}
 {-# SPECIALIZE interpretAstS
   :: (KnownShape sh, AstSpan s)
   => AstEnv (ADVal (Flip OR.Array))
   -> AstShaped s Float sh
-  -> ADVal (Flip OS.Array) Float sh #-}
+  -> ADVal (FlipS OS.Array) Float sh #-}
 {-# SPECIALIZE interpretAstS
   :: (KnownShape sh, AstSpan s)
   => AstEnv (ADVal (Flip OR.Array))
   -> AstShaped s Int64 sh
-  -> ADVal (Flip OS.Array) Int64 sh #-}
+  -> ADVal (FlipS OS.Array) Int64 sh #-}
 {-# SPECIALIZE interpretAstS
   :: (KnownShape sh, GoodScalar r, AstSpan s)
   => AstEnv (ADVal (AstRanked PrimalSpan))
@@ -764,22 +765,22 @@ cfwd f vals ds =
   :: (KnownShape sh, GoodScalar r, AstSpan s)
   => AstEnv (Flip OR.Array)
   -> AstShaped s r sh
-  -> Flip OS.Array r sh #-}
+  -> FlipS OS.Array r sh #-}
 {-# SPECIALIZE interpretAstS
   :: (KnownShape sh, AstSpan s)
   => AstEnv (Flip OR.Array)
   -> AstShaped s Double sh
-  -> Flip OS.Array Double sh #-}
+  -> FlipS OS.Array Double sh #-}
 {-# SPECIALIZE interpretAstS
   :: (KnownShape sh, AstSpan s)
   => AstEnv (Flip OR.Array)
   -> AstShaped s Float sh
-  -> Flip OS.Array Float sh #-}
+  -> FlipS OS.Array Float sh #-}
 {-# SPECIALIZE interpretAstS
   :: (KnownShape sh, AstSpan s)
   => AstEnv (Flip OR.Array)
   -> AstShaped s Int64 sh
-  -> Flip OS.Array Int64 sh #-}
+  -> FlipS OS.Array Int64 sh #-}
 
 -- This is needed for all three AstSpan values, to handle recursive calls
 -- from interpretAstDual, etc.

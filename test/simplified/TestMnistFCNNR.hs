@@ -28,6 +28,7 @@ import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.TensorAst
 import HordeAd.External.OptimizerTools
+import HordeAd.Internal.OrthotopeOrphanInstances (FlipS (..))
 
 import EqEpsilon
 
@@ -399,7 +400,7 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
                 forgetShape $ fst
                 $ randomVals
                     @(MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
-                        (Flip OS.Array) widthHidden widthHidden2 r)
+                        (FlipS OS.Array) widthHidden widthHidden2 r)
                     1 (mkStdGen 44)
               Nothing -> error "valsInit: impossible someNatVal error"
           Nothing -> error "valsInit: impossible someNatVal error"
@@ -490,7 +491,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
                 forgetShape $ fst
                 $ randomVals
                     @(MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
-                        (Flip OS.Array) widthHidden widthHidden2 r)
+                        (FlipS OS.Array) widthHidden widthHidden2 r)
                     1 (mkStdGen 44)
       hVectorInit = toHVectorOf valsInit
       name = prefix ++ ": "
@@ -595,7 +596,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
    Just (SomeNat @widthHidden2 _) ->
     let valsInitShaped
           :: MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
-               (Flip OS.Array) widthHidden widthHidden2 r
+               (FlipS OS.Array) widthHidden widthHidden2 r
         valsInitShaped = fst $ randomVals 1 (mkStdGen 44)
         valsInit :: MnistFcnnRanked2.ADFcnnMnist2Parameters ranked r
         valsInit =

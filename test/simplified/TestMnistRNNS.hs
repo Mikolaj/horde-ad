@@ -26,6 +26,7 @@ import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.TensorAst
 import HordeAd.External.OptimizerTools
+import HordeAd.Internal.OrthotopeOrphanInstances (FlipS (..))
 
 import EqEpsilon
 
@@ -42,7 +43,7 @@ testTrees = [ tensorADValMnistTestsRNNSA
 -- which side-steps vectorization.
 mnistTestCaseRNNSA
   :: forall shaped width batch_size r.
-     ( shaped ~ Flip OS.Array, Differentiable r, GoodScalar r, Random r
+     ( shaped ~ FlipS OS.Array, Differentiable r, GoodScalar r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> SNat width -> SNat batch_size -> Int -> r
@@ -142,7 +143,7 @@ tensorADValMnistTestsRNNSA = testGroup "RNNS ADVal MNIST tests"
 -- but differentiated anew in each gradient descent iteration.
 mnistTestCaseRNNSI
   :: forall shaped width batch_size r.
-     ( shaped ~ Flip OS.Array, Differentiable r, GoodScalar r, Random r
+     ( shaped ~ FlipS OS.Array, Differentiable r, GoodScalar r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> SNat width -> SNat batch_size -> Int -> r
@@ -259,7 +260,7 @@ tensorADValMnistTestsRNNSI = testGroup "RNNS Intermediate MNIST tests"
 -- descent iteration.
 mnistTestCaseRNNSO
   :: forall shaped width batch_size r.
-     ( shaped ~ Flip OS.Array, Differentiable r, GoodScalar r, Random r
+     ( shaped ~ FlipS OS.Array, Differentiable r, GoodScalar r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> SNat width -> SNat batch_size -> Int -> r

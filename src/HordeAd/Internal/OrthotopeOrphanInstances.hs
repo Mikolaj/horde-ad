@@ -10,7 +10,7 @@ module HordeAd.Internal.OrthotopeOrphanInstances
   , Dict(..)
   , -- * Numeric instances for tensors
     liftVR, liftVR2, liftVS, liftVS2
-  , IntegralF(..), RealFloatF(..)
+  , IntegralF(..), RealFloatF(..), FlipS(..)
   , -- * Assorted orphans and additions
     MapSucc, trustMeThisIsAPermutation
   ) where
@@ -466,6 +466,35 @@ deriving instance RealFloatF (f a b) => RealFloatF (Flip f b a)
 deriving instance RealFloat (f a b) => RealFloat (Flip f b a)
 
 deriving instance NFData (f a b) => NFData (Flip f b a)
+
+type role FlipS nominal nominal nominal
+type FlipS :: forall {k}. ([Nat] -> k -> Type) -> k -> [Nat] -> Type
+newtype FlipS p a (b :: [Nat]) = FlipS { runFlipS :: p b a }
+
+instance (Show r, Numeric r, KnownShape2 sh) => Show (FlipS OS.Array r sh) where
+  showsPrec :: Int -> FlipS OS.Array r sh -> ShowS
+  showsPrec d (FlipS u) | Dict <- lemShapeFromKnownShape (Proxy @sh) =
+    showString "Flip " . showParen True (showsPrec d u)
+
+instance (Eq r, Numeric r, KnownShape2 sh) => Eq (FlipS OS.Array r sh) where
+  (==) :: FlipS OS.Array r sh -> FlipS OS.Array r sh -> Bool
+  FlipS u == FlipS v | Dict <- lemShapeFromKnownShape (Proxy @sh) = u == v
+
+instance (Ord r, Numeric r, KnownShape2 sh) => Ord (FlipS OS.Array r sh) where
+  (<=) :: FlipS OS.Array r sh -> FlipS OS.Array r sh -> Bool
+  FlipS u <= FlipS v | Dict <- lemShapeFromKnownShape (Proxy @sh) = u <= v
+
+deriving instance Num (f a b) => Num (FlipS f b a)
+
+deriving instance IntegralF (f a b) => IntegralF (FlipS f b a)
+
+deriving instance Fractional (f a b) => Fractional (FlipS f b a)
+
+deriving instance Floating (f a b) => Floating (FlipS f b a)
+
+deriving instance RealFloatF (f a b) => RealFloatF (FlipS f b a)
+
+deriving instance NFData (f a b) => NFData (FlipS f b a)
 
 
 -- * Assorted orphans and additions
