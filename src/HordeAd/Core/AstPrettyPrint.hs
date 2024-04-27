@@ -32,6 +32,7 @@ import           Type.Reflection (typeRep)
 import           HordeAd.Core.Ast
 import           HordeAd.Core.HVector
 import           HordeAd.Core.Types
+import           HordeAd.Internal.OrthotopeOrphanInstances (FlipS (..))
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedList
 
@@ -519,7 +520,7 @@ printAstS cfg d = \case
   AstCastS v -> printPrefixOp printAstS cfg d "scast" [v]
   AstFromIntegralS a ->
     printPrefixOp printAstS cfg d "sfromIntegral" [a]
-  AstConstS @sh2 a ->
+  AstConstS @_ @sh2 (FlipS a) ->
     case sameShape @sh @'[] of
       Just Refl -> shows $ OS.unScalar a
       _ -> showParen (d > 10)

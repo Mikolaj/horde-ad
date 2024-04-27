@@ -41,7 +41,7 @@ import           Type.Reflection (Typeable, eqTypeRep, typeRep, (:~~:) (HRefl))
 import HordeAd.Core.HVector
 import HordeAd.Core.Types
 import HordeAd.Internal.OrthotopeOrphanInstances
-  (IntegralF (..), RealFloatF (..))
+  (IntegralF (..), RealFloatF (..), FlipS(..))
 import HordeAd.Util.ShapedList (IndexS, SizedListS (..))
 import HordeAd.Util.SizedList
 
@@ -379,7 +379,7 @@ data AstShaped :: AstSpanType -> ShapedTensorType where
            => AstShaped s r1 sh -> AstShaped s r2 sh
   AstFromIntegralS :: (GoodScalar r1, Integral r1)
                    => AstShaped PrimalSpan r1 sh -> AstShaped PrimalSpan r2 sh
-  AstConstS :: OS.Shape sh => OS.Array sh r -> AstShaped PrimalSpan r sh
+  AstConstS :: FlipS OS.Array r sh -> AstShaped PrimalSpan r sh
   AstProjectS :: AstHVector s -> Int -> AstShaped s r sh
   AstLetHVectorInS :: AstSpan s
                    => [AstDynamicVarName] -> AstHVector s
@@ -652,7 +652,7 @@ instance Eq (AstShaped s r sh) where
 instance Ord (AstShaped s r sh) where
   (<=) = error "AST requires that OrdF be used instead"
 
-instance (Num (OS.Array sh r), AstSpan s, OS.Shape sh)
+instance (Num (OS.Array sh r), AstSpan s)
          => Num (AstShaped s r sh) where
   -- The normal form has AstConst, if any, as the first element of the list.
   -- All lists fully flattened and length >= 2.
@@ -696,13 +696,13 @@ instance Integral r => IntegralF (AstShaped s r sh) where
   quotF = AstI2S QuotOp
   remF = AstI2S RemOp
 
-instance (Differentiable r, Fractional (OS.Array sh r), AstSpan s, OS.Shape sh)
+instance (Differentiable r, Fractional (OS.Array sh r), AstSpan s)
          => Fractional (AstShaped s r sh) where
   u / v = AstR2S DivideOp u v
   recip = AstR1S RecipOp
   fromRational = fromPrimalS . AstConstS . fromRational
 
-instance (Differentiable r, Floating (OS.Array sh r), AstSpan s, OS.Shape sh)
+instance (Differentiable r, Floating (OS.Array sh r), AstSpan s)
          => Floating (AstShaped s r sh) where
   pi = fromPrimalS $ AstConstS pi
   exp = AstR1S ExpOp
@@ -723,7 +723,7 @@ instance (Differentiable r, Floating (OS.Array sh r), AstSpan s, OS.Shape sh)
   acosh = AstR1S AcoshOp
   atanh = AstR1S AtanhOp
 
-instance (Differentiable r, Floating (OS.Array sh r), AstSpan s, OS.Shape sh)
+instance (Differentiable r, Floating (OS.Array sh r), AstSpan s)
          => RealFloatF (AstShaped s r sh) where
   atan2F = AstR2S Atan2Op
 

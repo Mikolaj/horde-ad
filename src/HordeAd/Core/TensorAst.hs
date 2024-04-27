@@ -339,13 +339,13 @@ instance (GoodScalar r, KnownShape sh, ShapedTensor (AstShaped s), AstSpan s)
   toHVector = V.singleton . DynamicShaped
   fromHVector _aInit = fromHVectorS
 
-instance OS.Shape sh => DualNumberValue (AstShaped PrimalSpan r sh) where
+instance DualNumberValue (AstShaped PrimalSpan r sh) where
   type DValue (AstShaped PrimalSpan r sh) = FlipS OS.Array r sh
-  fromDValue t = fromPrimalS $ AstConstS $ runFlipS t
+  fromDValue t = fromPrimalS $ AstConstS t
 
-instance OS.Shape sh => TermValue (AstShaped FullSpan r sh) where
+instance TermValue (AstShaped FullSpan r sh) where
   type Value (AstShaped FullSpan r sh) = FlipS OS.Array r sh
-  fromValue t = fromPrimalS $ AstConstS $ runFlipS t
+  fromValue t = fromPrimalS $ AstConstS t
 
 instance AstSpan s => ShapedTensor (AstShaped s) where
   slet = astLetFunS
@@ -370,7 +370,7 @@ instance AstSpan s => ShapedTensor (AstShaped s) where
   sgather t f = astGatherStepS t (funToAstIndexS f)  -- introduces new vars
   scast = astCastS
   sfromIntegral = fromPrimalS . astFromIntegralS . astSpanPrimalS
-  sconst = fromPrimalS . AstConstS
+  sconst = fromPrimalS . AstConstS . FlipS
   sletHVectorIn = astLetHVectorInFunS
   sletHFunIn = astLetHFunInFunS
   sfromR = astSFromR
@@ -452,7 +452,7 @@ instance TermValue (DynamicTensor (AstRanked FullSpan)) where
     DynamicTensor (Flip OR.Array)
   fromValue = \case
     DynamicRanked t -> DynamicRanked $ fromPrimal $ AstConst $ runFlip t
-    DynamicShaped t -> DynamicShaped $ fromPrimalS $ AstConstS $ runFlipS t
+    DynamicShaped t -> DynamicShaped $ fromPrimalS $ AstConstS t
     DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
     DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
 
@@ -929,7 +929,7 @@ instance AstSpan s => ShapedTensor (AstRawS s) where
   scast = AstRawS . AstCastS . unAstRawS
   sfromIntegral = AstRawS . fromPrimalS . AstFromIntegralS
                   . astSpanPrimalS . unAstRawS
-  sconst = AstRawS . fromPrimalS . AstConstS
+  sconst = AstRawS . fromPrimalS . AstConstS . FlipS
   sletHVectorIn a f =
     AstRawS
     $ astLetHVectorInFunRawS (unAstRawWrap a) (unAstRawS . f . rawHVector)
@@ -1242,7 +1242,7 @@ instance AstSpan s => ShapedTensor (AstNoSimplifyS s) where
   scast = AstNoSimplifyS . AstCastS . unAstNoSimplifyS
   sfromIntegral = AstNoSimplifyS . fromPrimalS . AstFromIntegralS
                   . astSpanPrimalS . unAstNoSimplifyS
-  sconst = AstNoSimplifyS . fromPrimalS . AstConstS
+  sconst = AstNoSimplifyS . fromPrimalS . AstConstS . FlipS
   sletHVectorIn a f =
     AstNoSimplifyS
     $ astLetHVectorInFunRawS (unAstNoSimplifyWrap a)

@@ -43,6 +43,7 @@ import HordeAd.Core.HVector
 import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
+import HordeAd.Internal.OrthotopeOrphanInstances (FlipS (..))
 import HordeAd.Util.ShapedList (pattern (:.$), pattern ZIS)
 import HordeAd.Util.SizedList
 
@@ -716,7 +717,8 @@ interpretAstS !env = \case
     let i = valueOf @i
         n = valueOf @n
     in interpretAstS env
-       $ AstConstS $ OS.fromList $ map fromIntegral [i :: Int .. i + n - 1]
+       $ AstConstS $ FlipS $ OS.fromList
+       $ map fromIntegral [i :: Int .. i + n - 1]
   AstSliceS @i v -> sslice (Proxy @i) Proxy (interpretAstS env v)
   AstReverseS v -> sreverse (interpretAstS env v)
   AstTransposeS @perm v -> stranspose (Proxy @perm) $ interpretAstS env v
@@ -781,7 +783,7 @@ interpretAstS !env = \case
   AstCastS v -> scast $ interpretAstSRuntimeSpecialized env v
   AstFromIntegralS v ->
     sfromIntegral $ sconstant $ interpretAstPrimalSRuntimeSpecialized env v
-  AstConstS a -> sconst a
+  AstConstS a -> sconst $ runFlipS a
   AstProjectS l p ->
     let lt = interpretAstHVector env l
     in sletHVectorIn lt (\lw -> sfromD $ lw V.! p)

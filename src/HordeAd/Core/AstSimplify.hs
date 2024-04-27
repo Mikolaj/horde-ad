@@ -94,7 +94,7 @@ import           HordeAd.Core.TensorClass
 import           HordeAd.Core.Types
 import           HordeAd.Internal.BackendConcrete
 import           HordeAd.Internal.OrthotopeOrphanInstances
-  (MapSucc, trustMeThisIsAPermutation)
+  (FlipS (..), MapSucc, trustMeThisIsAPermutation)
 import           HordeAd.Util.ShapedList
   (SizedListS (..), pattern (:.$), pattern ZIS)
 import qualified HordeAd.Util.ShapedList as ShapedList
@@ -760,8 +760,8 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS shm1)) =
         unConst (AstConst i) (Just l) = Just $ i : l
         unConst _ _ = Nothing
     in case foldr unConst (Just []) ix of
-      Just ixInt -> AstConstS $ tindexZS t $ ShapedList.listToIndex @shm
-                    $ map OR.unScalar ixInt
+      Just ixInt -> AstConstS $ FlipS $ tindexZS (runFlipS t)
+                    $ ShapedList.listToIndex @shm $ map OR.unScalar ixInt
         -- TODO: we'd need mapM for Index to keep this rank-typed
       Nothing -> Ast.AstIndexS v0 ix
   Ast.AstProjectS{} -> error "astIndexKnobsRS: AstProjectsS"
@@ -1425,7 +1425,7 @@ astSumS t0 = case sameNat (Proxy @n) (Proxy @0) of
     Ast.AstSliceS @i @k v | Just Refl <- sameNat (Proxy @k) (Proxy @1) ->
       astIndexS v (valueOf @i :.$ ZIS)
     Ast.AstReverseS v -> astSumS v
-    AstConstS t -> AstConstS $ tsumS t
+    AstConstS t -> AstConstS $ FlipS $ tsumS $ runFlipS t
     Ast.AstConstantS v -> Ast.AstConstantS $ astSumS v
     _ -> Ast.AstSumS t0
 
@@ -1497,10 +1497,10 @@ astFromVectorS :: forall s r n sh.
 astFromVectorS v | V.length v == 1 = astReplicateS (v V.! 0)
 astFromVectorS l | Just Refl <- sameAstSpan @s @PrimalSpan =
   let unConst :: AstShaped PrimalSpan r sh -> Maybe (OS.Array sh r)
-      unConst (AstConstS t) = Just t
+      unConst (AstConstS t) = Just $ runFlipS t
       unConst _ = Nothing
   in case V.mapM unConst l of
-    Just l3 -> AstConstS $ tfromVectorS l3
+    Just l3 -> AstConstS $ FlipS $ tfromVectorS l3
     Nothing -> Ast.AstFromVectorS l
 astFromVectorS l | Just Refl <- sameAstSpan @s @FullSpan =
   let unConstant :: AstShaped FullSpan r sh -> Maybe (AstShaped PrimalSpan r sh)
@@ -1599,7 +1599,7 @@ astAppend u v = Ast.AstAppend u v
 astAppendS :: (KnownNat m, KnownNat n, KnownShape sh, GoodScalar r, AstSpan s)
            => AstShaped s r (m ': sh) -> AstShaped s r (n ': sh)
            -> AstShaped s r ((m + n) ': sh)
-astAppendS (AstConstS u) (AstConstS v) = AstConstS $ tappendS u v
+astAppendS (AstConstS u) (AstConstS v) = AstConstS $ FlipS $ tappendS (runFlipS u) (runFlipS v)
 astAppendS (Ast.AstConstantS u) (Ast.AstConstantS v) =
   Ast.AstConstantS $ astAppendS u v
 astAppendS (Ast.AstFromVectorS l1) (Ast.AstFromVectorS l2) =
@@ -1637,7 +1637,7 @@ astSliceS :: forall i n k sh s r.
              ( KnownNat i, KnownNat n, KnownNat k, KnownShape sh, GoodScalar r
              , AstSpan s )
           => AstShaped s r (i + n + k ': sh) -> AstShaped s r (n ': sh)
-astSliceS (AstConstS t) = AstConstS $ tsliceS @i @n t
+astSliceS (AstConstS t) = AstConstS $ FlipS $ tsliceS @i @n $ runFlipS t
 astSliceS (Ast.AstConstantS v) = Ast.AstConstantS $ astSliceS @i @n v
 astSliceS v | Just Refl <- sameNat (Proxy @i) (Proxy @0)
             , Just Refl <- sameNat (Proxy @k) (Proxy @0) = v
@@ -1680,7 +1680,7 @@ astReverse v = Ast.AstReverse v
 
 astReverseS :: forall n sh s r. (KnownNat n, KnownShape sh, GoodScalar r)
             => AstShaped s r (n ': sh) -> AstShaped s r (n ': sh)
-astReverseS (AstConstS t) = AstConstS $ treverseS t
+astReverseS (AstConstS t) = AstConstS $ FlipS $ treverseS $ runFlipS t
 astReverseS (Ast.AstConstantS v) = Ast.AstConstantS $ astReverseS v
 astReverseS (Ast.AstFromVectorS l) = Ast.AstFromVectorS $ V.reverse l
 astReverseS (Ast.AstReplicateS v) = Ast.AstReplicateS v
@@ -1807,7 +1807,7 @@ astTransposeS = \case
                       :: Sh.Permute perm sh2 Sh.++ Sh.Drop p sh3
                          :~: Sh.Permute perm sh) $
            astGatherS @shmPerm @p @sh3 v (vars2, ix)
-  -- TODO: AstConstS t -> AstConstS $ ttransposeS @perm t
+  -- TODO: AstConstS t -> AstConstS $ FlipS $ ttransposeS @perm $ runFlipS t
   Ast.AstConstantS v -> Ast.AstConstantS $ astTransposeS @perm v
   u -> Ast.AstTransposeS @perm u  -- TODO
 
@@ -1854,7 +1854,7 @@ astReshapeS = \case
   Ast.AstReplicateS @n x | Just Refl <- sameNat (Proxy @n) (Proxy @1) ->
     astReshapeS x
   Ast.AstReshapeS v -> astReshapeS @_ @sh2 v
-  AstConstS t -> AstConstS $ OS.reshape t
+  AstConstS t -> AstConstS $ FlipS $ treshapeS $ runFlipS t
   Ast.AstConstantS v -> Ast.AstConstantS $ astReshapeS v
   v -> case sameShape @sh @sh2 of
          Just Refl -> v
@@ -1871,7 +1871,7 @@ astCast v = Ast.AstCast v
 astCastS :: ( KnownShape sh, GoodScalar r1, GoodScalar r2, RealFrac r1
             , RealFrac r2 )
          => AstShaped s r1 sh -> AstShaped s r2 sh
-astCastS (AstConstS t) = AstConstS $ tcastS t
+astCastS (AstConstS t) = AstConstS $ FlipS $ tcastS $ runFlipS t
 astCastS (Ast.AstConstantS v) = Ast.AstConstantS $ astCastS v
 astCastS (Ast.AstCastS v) = astCastS v
 astCastS (Ast.AstFromIntegralS v) = astFromIntegralS v
@@ -1885,7 +1885,7 @@ astFromIntegral v = Ast.AstFromIntegral v
 
 astFromIntegralS :: (KnownShape sh, GoodScalar r1, GoodScalar r2, Integral r1)
                  => AstShaped PrimalSpan r1 sh -> AstShaped PrimalSpan r2 sh
-astFromIntegralS (AstConstS t) = AstConstS $ tfromIntegralS t
+astFromIntegralS (AstConstS t) = AstConstS $ FlipS $ tfromIntegralS $ runFlipS t
 astFromIntegralS (Ast.AstFromIntegralS v) = astFromIntegralS v
 astFromIntegralS v = Ast.AstFromIntegralS v
 
@@ -1921,14 +1921,14 @@ astProjectS l p = case l of
 
 astRFromS :: KnownShape sh
           => AstShaped s r sh -> AstRanked s r (Sh.Rank sh)
-astRFromS (AstConstS t) = AstConst $ Data.Array.Convert.convert t
+astRFromS (AstConstS t) = AstConst $ Data.Array.Convert.convert $ runFlipS t
 astRFromS (Ast.AstConstantS v) = Ast.AstConstant $ astRFromS v
 astRFromS (Ast.AstSFromR v) = v  -- no information lost, so no checks
 astRFromS v = Ast.AstRFromS v
 
 astSFromR :: forall sh s r. (KnownShape sh, KnownNat (Sh.Rank sh))
           => AstRanked s r (Sh.Rank sh) -> AstShaped s r sh
-astSFromR (AstConst t) = AstConstS $ Data.Array.Convert.convert t
+astSFromR (AstConst t) = AstConstS $ FlipS $ Data.Array.Convert.convert t
 astSFromR (Ast.AstConstant v) = Ast.AstConstantS $ astSFromR v
 astSFromR (Ast.AstRFromS @sh1 v) =
   case sameShape @sh1 @sh of

@@ -33,6 +33,7 @@ import HordeAd.Core.HVector
 import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
+import HordeAd.Internal.OrthotopeOrphanInstances (FlipS (..))
 import HordeAd.Util.SizedList
 
 -- * Shape calculation
@@ -309,7 +310,7 @@ astIsSmallS relaxed = \case
     relaxed && astIsSmallS relaxed v  -- materialized via vector slice; cheap
   AstTransposeS v ->
     relaxed && astIsSmallS relaxed v  -- often cheap and often fuses
-  AstConstS c -> OS.size c <= 1
+  AstConstS (FlipS c) -> OS.size c <= 1
   AstSFromR v -> astIsSmall relaxed v
   AstConstantS v -> astIsSmallS relaxed v
   AstPrimalPartS v -> astIsSmallS relaxed v
