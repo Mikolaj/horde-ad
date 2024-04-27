@@ -174,7 +174,7 @@ tunravelToListR t = case OR.shapeL t of
   0 : _ -> []
   _ -> ORB.toList $ OR.unravel t
 
-tunravelToListS :: forall r n sh. (Numeric r, KnownNat n, KnownShape2 sh)
+tunravelToListS :: forall r n sh. (Numeric r, KnownNat n, KnownShape sh)
                 => OS.Array (n ': sh) r -> [OS.Array sh r]
 tunravelToListS t | Dict <- lemShapeFromKnownShape (Proxy @sh) =
   case OS.shapeL t of
@@ -402,7 +402,7 @@ type IndexIntSh sh = IndexS sh Int64
 -- TODO: try to weave a similar magic as in tindex0R
 -- TODO: for the non-singleton case see
 -- https://github.com/Mikolaj/horde-ad/pull/81#discussion_r1096532164
-updateNS :: forall n sh r. (NumAndShow r, KnownShape2 sh, KnownShape2 (Sh.Drop n sh))
+updateNS :: forall n sh r. (NumAndShow r, KnownShape sh, KnownShape (Sh.Drop n sh))
          => OS.Array sh r
          -> [(IndexIntSh (Sh.Take n sh), OS.Array (Sh.Drop n sh) r)]
          -> OS.Array sh r
@@ -422,8 +422,8 @@ updateNS arr upd | Dict <- lemShapeFromKnownShape (Proxy @sh)
   in OS.fromVector (foldl' f values upd)
 
 tminIndexS
-  :: forall n sh r r2. ( NumAndShow r, NumAndShow r2, KnownShape2 sh, KnownNat n
-                       , KnownShape2 (Sh.Init (n ': sh)) )
+  :: forall n sh r r2. ( NumAndShow r, NumAndShow r2, KnownShape sh, KnownNat n
+                       , KnownShape (Sh.Init (n ': sh)) )
   => OS.Array (n ': sh) r -> OS.Array (Sh.Init (n ': sh)) r2
 tminIndexS | Dict <- lemShapeFromKnownShape (Proxy @sh)
            , Dict <- lemShapeFromKnownShape (Proxy @(Sh.Init (n ': sh))) =
@@ -449,8 +449,8 @@ tminIndexS | Dict <- lemShapeFromKnownShape (Proxy @sh)
         Nothing -> error "tmaxIndexS: impossible someNatVal error"
 
 tmaxIndexS
-  :: forall n sh r r2. ( NumAndShow r, NumAndShow r2, KnownShape2 sh, KnownNat n
-                       , KnownShape2 (Sh.Init (n ': sh)) )
+  :: forall n sh r r2. ( NumAndShow r, NumAndShow r2, KnownShape sh, KnownNat n
+                       , KnownShape (Sh.Init (n ': sh)) )
   => OS.Array (n ': sh) r -> OS.Array (Sh.Init (n ': sh)) r2
 tmaxIndexS | Dict <- lemShapeFromKnownShape (Proxy @sh)
            , Dict <- lemShapeFromKnownShape (Proxy @(Sh.Init (n ': sh))) =
@@ -477,7 +477,7 @@ tmaxIndexS | Dict <- lemShapeFromKnownShape (Proxy @sh)
 
 -- TODO: use Convert, fromInt/toInt and fromZ/toZ from hmatrix
 tfloorS :: forall r r2 sh.
-           (NumAndShow r, RealFrac r, NumAndShow r2, Integral r2, KnownShape2 sh)
+           (NumAndShow r, RealFrac r, NumAndShow r2, Integral r2, KnownShape sh)
         => OS.Array sh r -> OS.Array sh r2
 tfloorS | Dict <- lemShapeFromKnownShape (Proxy @sh) = liftVS (V.map floor)
 
@@ -497,7 +497,7 @@ tindexNS (SS.A (SG.A OI.T{strides, offset, values})) ix =
 -- may not fit within the type-level shape, which we catch in the @ixInBounds@
 -- and return 0, so it's fine. Similarly in gather and scatter.
 tindexZS
-  :: forall sh1 sh2 r. (NumAndShow r, KnownShape2 sh2, KnownShape2 (sh1 Sh.++ sh2))
+  :: forall sh1 sh2 r. (NumAndShow r, KnownShape sh2, KnownShape (sh1 Sh.++ sh2))
   => OS.Array (sh1 Sh.++ sh2) r -> IndexIntSh sh1 -> OS.Array sh2 r
 tindexZS v ix | Dict <- lemShapeFromKnownShape (Proxy @sh2)
               , Dict <- lemShapeFromKnownShape (Proxy @(sh1 Sh.++ sh2)) =
@@ -520,7 +520,7 @@ tindex0S (SS.A (SG.A OI.T{..})) ix =
 -- No NOINLINE, because apparently nothing breaks and hmatrix, etc.
 -- also don't put NOINLINE in the functions using FFI.
 tsumS
-  :: forall n sh r. (KnownNat n, Numeric r, RowSum r, KnownShape2 sh)
+  :: forall n sh r. (KnownNat n, Numeric r, RowSum r, KnownShape sh)
   => OS.Array (n ': sh) r -> OS.Array sh r
 tsumS (SS.A (SG.A (OI.T (_ : ss) o vt))) | V.length vt == 1 =
   SS.A (SG.A (OI.T ss o (V.map (* valueOf @n) vt)))
@@ -540,7 +540,7 @@ tsumS t | Dict <- lemShapeFromKnownShape (Proxy @sh) =
 
 -- Sum the innermost dimension (at least at rank 2; TODO: generalize).
 tsumInS
-  :: forall m n sh r. (KnownNat n, Numeric r, RowSum r, KnownNat m, KnownShape2 sh)
+  :: forall m n sh r. (KnownNat n, Numeric r, RowSum r, KnownNat m, KnownShape sh)
   => OS.Array (m ': n ': sh) r -> OS.Array (m ': sh) r
 tsumInS t | Dict <- lemShapeFromKnownShape (Proxy @sh) = case OS.shapeL t of
   [] -> error "tsumInS: null shape"
@@ -564,7 +564,7 @@ tsumInS t | Dict <- lemShapeFromKnownShape (Proxy @sh) = case OS.shapeL t of
   _ -> error "tsumInS: not yet generalized beyond rank 2"
 
 tsum0S
-  :: forall sh r. (Numeric r, KnownShape2 sh)
+  :: forall sh r. (Numeric r, KnownShape sh)
   => OS.Array sh r -> r
 tsum0S (SS.A (SG.A (OI.T _ _ vt))) | V.length vt == 1 =
   fromIntegral (sizeT @sh) * vt V.! 0
@@ -573,7 +573,7 @@ tsum0S (SS.A (SG.A t)) =
   LA.sumElements $ OI.toUnorderedVectorT (shapeT @sh) t
 
 tdot0S
-  :: forall sh r. (Numeric r, KnownShape2 sh)
+  :: forall sh r. (Numeric r, KnownShape sh)
   => OS.Array sh r -> OS.Array sh r -> r
 tdot0S (SS.A (SG.A (OI.T _ _ vt))) (SS.A (SG.A (OI.T _ _ vu)))
   | V.length vt == 1 && V.length vu == 1 =
@@ -622,7 +622,7 @@ tmatmul2S t u =
 -- Note how ix being in bounds is checked. The semantics of the operation
 -- permits index out of bounds and then no tensors is added at such an index.
 tscatterZS :: forall r sh2 p sh.
-              (NumAndShow r, KnownShape2 sh, KnownShape2 sh2, KnownShape2 (Sh.Drop p sh))
+              (NumAndShow r, KnownShape sh, KnownShape sh2, KnownShape (Sh.Drop p sh))
            => OS.Array (sh2 Sh.++ Sh.Drop p sh) r
            -> (IndexIntSh sh2 -> IndexIntSh (Sh.Take p sh))
            -> OS.Array sh r
@@ -645,7 +645,7 @@ tscatterZS t f | Dict <- lemShapeFromKnownShape (Proxy @sh)
 -- and then freezing it and calling OS.fromVector
 -- or optimize tscatterNS and instantiate it instead
 tscatterZ1S :: forall r n2 p sh.
-               (NumAndShow r, KnownNat n2, KnownShape2 sh, KnownShape2 (Sh.Drop p sh))
+               (NumAndShow r, KnownNat n2, KnownShape sh, KnownShape (Sh.Drop p sh))
             => OS.Array (n2 ': Sh.Drop p sh) r
             -> (Int64Sh n2 -> IndexIntSh (Sh.Take p sh))
             -> OS.Array sh r
@@ -659,30 +659,30 @@ tscatterZ1S t f | Dict <- lemShapeFromKnownShape (Proxy @sh) =
         $ tunravelToListS t
 
 tfromListS
-  :: forall n sh r. (Numeric r, KnownNat n, KnownShape2 sh)
+  :: forall n sh r. (Numeric r, KnownNat n, KnownShape sh)
   => [OS.Array sh r] -> OS.Array (n ': sh) r
 tfromListS l | Dict <- lemShapeFromKnownShape (Proxy @sh) =
   OS.ravel $ OSB.fromList l
 
 tfromList0NS
-  :: forall r sh. (Numeric r, KnownShape2 sh)
+  :: forall r sh. (Numeric r, KnownShape sh)
   => [r] -> OS.Array sh r
 tfromList0NS | Dict <- lemShapeFromKnownShape (Proxy @sh) = OS.fromList
 
 tfromVectorS
-  :: forall n sh r. (Numeric r, KnownNat n, KnownShape2 sh)
+  :: forall n sh r. (Numeric r, KnownNat n, KnownShape sh)
   => Data.Vector.Vector (OS.Array sh r) -> OS.Array (n ': sh) r
 tfromVectorS l | Dict <- lemShapeFromKnownShape (Proxy @sh) =
   OS.ravel $ OSB.fromVector $ V.convert l
 
 tfromVector0NS
-  :: forall r sh. (Numeric r, KnownShape2 sh)
+  :: forall r sh. (Numeric r, KnownShape sh)
   => Data.Vector.Vector r -> OS.Array sh r
 tfromVector0NS l | Dict <- lemShapeFromKnownShape (Proxy @sh) =
   OS.fromVector $ V.convert l
 
 treplicateS
-  :: forall n sh r. (Numeric r, KnownNat n, KnownShape2 sh)
+  :: forall n sh r. (Numeric r, KnownNat n, KnownShape sh)
   => OS.Array sh r -> OS.Array (n ': sh) r
 treplicateS u | Dict <- lemShapeFromKnownShape (Proxy @sh) =
   case knownShape @sh of
@@ -690,12 +690,12 @@ treplicateS u | Dict <- lemShapeFromKnownShape (Proxy @sh) =
     _ -> OS.ravel $ OSB.constant u
 
 treplicate0NS
-  :: forall r sh. (Numeric r, KnownShape2 sh)
+  :: forall r sh. (Numeric r, KnownShape sh)
   => r -> OS.Array sh r
 treplicate0NS | Dict <- lemShapeFromKnownShape (Proxy @sh) = OS.constant
 
 tappendS
-  :: forall r m n sh. (Numeric r, KnownNat m, KnownNat n, KnownShape2 sh)
+  :: forall r m n sh. (Numeric r, KnownNat m, KnownNat n, KnownShape sh)
   => OS.Array (m ': sh) r -> OS.Array (n ': sh) r -> OS.Array ((m + n) ': sh) r
 tappendS | Dict <- lemShapeFromKnownShape (Proxy @sh) = OS.append
 
@@ -705,13 +705,13 @@ tsliceS
 tsliceS = OS.slice @'[ '(i, n) ]
 
 treverseS
-  :: forall n sh r. (KnownNat n, KnownShape2 sh)
+  :: forall n sh r. (KnownNat n, KnownShape sh)
   => OS.Array (n ': sh) r -> OS.Array (n ': sh) r
 treverseS | Dict <- lemShapeFromKnownShape (Proxy @sh) = OS.rev @'[0]
 
 ttransposeS
   :: forall perm r sh.
-     ( KnownShape2 perm, OS.Permutation perm, KnownShape2 sh, KnownNat (Sh.Rank sh)
+     ( KnownShape perm, OS.Permutation perm, KnownShape sh, KnownNat (Sh.Rank sh)
      , Sh.Rank perm <= Sh.Rank sh )
   => OS.Array sh r -> OS.Array (Sh.Permute perm sh) r
 ttransposeS | Dict <- lemShapeFromKnownShape (Proxy @perm)
@@ -719,13 +719,13 @@ ttransposeS | Dict <- lemShapeFromKnownShape (Proxy @perm)
 
 treshapeS
   :: forall r sh sh2.
-     (Numeric r, KnownShape2 sh, KnownShape2 sh2, Sh.Size sh ~ Sh.Size sh2)
+     (Numeric r, KnownShape sh, KnownShape sh2, Sh.Size sh ~ Sh.Size sh2)
   => OS.Array sh r -> OS.Array sh2 r
 treshapeS | Dict <- lemShapeFromKnownShape (Proxy @sh)
           , Dict <- lemShapeFromKnownShape (Proxy @sh2) = OS.reshape
 
 tbuild1S
-  :: forall n sh r. (KnownNat n, Numeric r, KnownShape2 sh)
+  :: forall n sh r. (KnownNat n, Numeric r, KnownShape sh)
   => (Int64Sh n -> OS.Array sh r) -> OS.Array (n ': sh) r
 tbuild1S f | Dict <- lemShapeFromKnownShape (Proxy @sh) =
   let k = valueOf @n
@@ -733,7 +733,7 @@ tbuild1S f | Dict <- lemShapeFromKnownShape (Proxy @sh) =
      $ map (f . ShapedList.shapedNat) [0 .. k - 1]  -- hope this fuses
 
 tmap0NS
-  :: forall r r2 sh. (Numeric r, Numeric r2, KnownShape2 sh)
+  :: forall r r2 sh. (Numeric r, Numeric r2, KnownShape sh)
   => (OS.Array '[] r -> OS.Array '[] r2) -> OS.Array sh r -> OS.Array sh r2
 tmap0NS f | Dict <- lemShapeFromKnownShape (Proxy @sh) =
   OS.mapA (tunScalarS . f . tscalarS)
@@ -741,7 +741,7 @@ tmap0NS f | Dict <- lemShapeFromKnownShape (Proxy @sh) =
             -- bad type: liftVS . LA.cmap
 
 tzipWith0NS
-  :: forall r1 r2 r sh. (Numeric r1, Numeric r2, Numeric r, KnownShape2 sh)
+  :: forall r1 r2 r sh. (Numeric r1, Numeric r2, Numeric r, KnownShape sh)
   => (OS.Array '[] r1 -> OS.Array '[] r2 -> OS.Array '[] r)
   -> OS.Array sh r1 -> OS.Array sh r2 -> OS.Array sh r
 tzipWith0NS f | Dict <- lemShapeFromKnownShape (Proxy @sh) =
@@ -754,8 +754,8 @@ tzipWith0NS f | Dict <- lemShapeFromKnownShape (Proxy @sh) =
 -- Note how tindexZS is used. The semantics of the operation
 -- permits index out of bounds and the result of such indexing is zero.
 tgatherZS :: forall sh2 p sh r.
-             ( NumAndShow r, KnownShape2 sh, KnownShape2 sh2, KnownShape2 (Sh.Drop p sh)
-             , KnownShape2 (sh2 Sh.++ Sh.Drop p sh) )
+             ( NumAndShow r, KnownShape sh, KnownShape sh2, KnownShape (Sh.Drop p sh)
+             , KnownShape (sh2 Sh.++ Sh.Drop p sh) )
           => OS.Array sh r
           -> (IndexIntSh sh2 -> IndexIntSh (Sh.Take p sh))
           -> OS.Array (sh2 Sh.++ Sh.Drop p sh) r
@@ -775,7 +775,7 @@ tgatherZS t f | Dict <- lemShapeFromKnownShape (Proxy @sh)
   in OS.fromVector $ LA.vjoin l
 
 tgatherZ1S :: forall n2 p sh r.
-              (KnownNat n2, NumAndShow r, KnownShape2 sh, KnownShape2 (Sh.Drop p sh))
+              (KnownNat n2, NumAndShow r, KnownShape sh, KnownShape (Sh.Drop p sh))
            => OS.Array sh r -> (Int64Sh n2 -> IndexIntSh (Sh.Take p sh))
            -> OS.Array (n2 ': Sh.Drop p sh) r
 tgatherZ1S t f | Dict <- lemShapeFromKnownShape (Proxy @sh)
@@ -788,13 +788,13 @@ tgatherZ1S t f | Dict <- lemShapeFromKnownShape (Proxy @sh)
 
 -- TODO: use Convert, fromInt/toInt and fromZ/toZ from hmatrix
 tcastS :: forall r1 r2 sh.
-          (Numeric r1, Numeric r2, KnownShape2 sh, Real r1, Fractional r2)
+          (Numeric r1, Numeric r2, KnownShape sh, Real r1, Fractional r2)
        => OS.Array sh r1 -> OS.Array sh r2
 tcastS | Dict <- lemShapeFromKnownShape (Proxy @sh) = liftVS (V.map realToFrac)
 
 -- TODO: use Convert, fromInt/toInt and fromZ/toZ from hmatrix
 tfromIntegralS :: forall r1 r2 sh .
-                  (Numeric r1, Numeric r2, KnownShape2 sh, Integral r1)
+                  (Numeric r1, Numeric r2, KnownShape sh, Integral r1)
                => OS.Array sh r1 -> OS.Array sh r2
 tfromIntegralS | Dict <- lemShapeFromKnownShape (Proxy @sh) =
   liftVS (V.map fromIntegral)
@@ -809,7 +809,7 @@ tunScalarS
   => OS.Array '[] r -> r
 tunScalarS = OS.unScalar
 
-tscaleByScalarS :: forall r sh. (Numeric r, KnownShape2 sh)
+tscaleByScalarS :: forall r sh. (Numeric r, KnownShape sh)
                 => r -> OS.Array sh r -> OS.Array sh r
 tscaleByScalarS s | Dict <- lemShapeFromKnownShape (Proxy @sh) =
   liftVS (LA.scale s)

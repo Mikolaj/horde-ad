@@ -13,7 +13,7 @@ module HordeAd.Core.Types
     -- * Definitions to help express and manipulate type-level natural numbers
   , SNat, pattern SNat, withSNat, sNatValue, proxyFromSNat
     -- * Definitions for type-level list shapes
-  , SShape(..), KnownShape2(..), KnownShape, shapeT, shapeP, sizeT, sizeP
+  , SShape(..), KnownShape(..), shapeT, shapeP, sizeT, sizeP
   , withShapeP, sameShape, matchingRank, lemShapeFromKnownShape
   , Dict(..)
   ) where

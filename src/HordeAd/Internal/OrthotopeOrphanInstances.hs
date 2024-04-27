@@ -5,7 +5,7 @@ module HordeAd.Internal.OrthotopeOrphanInstances
   ( -- * Definitions to help express and manipulate type-level natural numbers
     SNat, pattern SNat, withSNat, sNatValue, proxyFromSNat
     -- * Definitions for type-level list shapes
-  , SShape(..), KnownShape2(..), KnownShape, shapeT, shapeP, sizeT, sizeP
+  , SShape(..), KnownShape(..), shapeT, shapeP, sizeT, sizeP
   , withShapeP, sameShape, matchingRank, lemShapeFromKnownShape
   , Dict(..)
   , -- * Numeric instances for tensors
@@ -83,27 +83,25 @@ deriving instance Show (SShape sh)
 infixr 5 `ShCons`
 
 -- | A statically-known shape of a shape-typed array.
-class KnownShape2 sh where knownShape :: SShape sh
-instance KnownShape2 '[] where knownShape = ShNil
-instance (KnownNat n, KnownShape2 sh)
-         => KnownShape2 (n : sh) where knownShape = ShCons natSing knownShape
+class KnownShape sh where knownShape :: SShape sh
+instance KnownShape '[] where knownShape = ShNil
+instance (KnownNat n, KnownShape sh)
+         => KnownShape (n : sh) where knownShape = ShCons natSing knownShape
 
-type KnownShape sh = KnownShape2 sh
-
-shapeT :: forall sh. KnownShape2 sh => [Int]
+shapeT :: forall sh. KnownShape sh => [Int]
 shapeT = sshapeToList (knownShape @sh)
 
-shapeP :: forall sh. KnownShape2 sh => Proxy sh -> [Int]
+shapeP :: forall sh. KnownShape sh => Proxy sh -> [Int]
 shapeP _ = sshapeToList (knownShape @sh)
 
 sshapeToList :: SShape sh -> [Int]
 sshapeToList ShNil = []
 sshapeToList (ShCons n l) = sNatValue n : sshapeToList l
 
-sizeT :: forall sh. KnownShape2 sh => Int
+sizeT :: forall sh. KnownShape sh => Int
 sizeT = product $ shapeT @sh
 
-sizeP :: forall sh. KnownShape2 sh => Proxy sh -> Int
+sizeP :: forall sh. KnownShape sh => Proxy sh -> Int
 sizeP _ = sizeT @sh
 
 withShapeP :: [Int] -> (forall sh. KnownShape sh => Proxy sh -> r) -> r
@@ -111,13 +109,13 @@ withShapeP [] f = f (Proxy @('[] :: [Nat]))
 withShapeP (n : ns) f = withSNat n $ \(SNat @n) ->
   withShapeP ns (\(Proxy @ns) -> f (Proxy @(n : ns)))
 
-sameShape :: forall sh1 sh2. (KnownShape2 sh1, KnownShape2 sh2)
+sameShape :: forall sh1 sh2. (KnownShape sh1, KnownShape sh2)
           => Maybe (sh1 :~: sh2)
 sameShape = case shapeT @sh1 == shapeT @sh2 of
               True -> Just (unsafeCoerce Refl :: sh1 :~: sh2)
               False -> Nothing
 
-matchingRank :: forall sh1 n2. (KnownShape2 sh1, KnownNat n2)
+matchingRank :: forall sh1 n2. (KnownShape sh1, KnownNat n2)
              => Maybe (Sh.Rank sh1 :~: n2)
 matchingRank =
   if length (shapeT @sh1) == valueOf @n2
@@ -134,7 +132,7 @@ shapeFromSShape :: SShape sh -> Dict Sh.Shape sh
 shapeFromSShape ShNil = Dict
 shapeFromSShape (ShCons SNat sh) | Dict <- shapeFromSShape sh = Dict
 
-lemShapeFromKnownShape :: forall sh. KnownShape2 sh
+lemShapeFromKnownShape :: forall sh. KnownShape sh
                        => Proxy sh -> Dict Sh.Shape sh
 lemShapeFromKnownShape _ = shapeFromSShape (knownShape @sh)
 
@@ -232,7 +230,7 @@ liftVR2NoAdapt !op t@(RS.A (RG.A sh oit@(OI.T sst _ vt)))
 
 -- See the various comments above; we don't repeat them below.
 liftVS
-  :: forall sh r1 r. (Numeric r1, Numeric r, KnownShape2 sh)
+  :: forall sh r1 r. (Numeric r1, Numeric r, KnownShape sh)
   => (Vector r1 -> Vector r)
   -> OS.Array sh r1 -> OS.Array sh r
 liftVS !op t@(SS.A (SG.A oit)) | Dict <- lemShapeFromKnownShape (Proxy @sh) =
@@ -241,7 +239,7 @@ liftVS !op t@(SS.A (SG.A oit)) | Dict <- lemShapeFromKnownShape (Proxy @sh) =
   else OS.fromVector $ op $ OS.toVector t
 
 liftVS2
-  :: forall sh r. (Numeric r, KnownShape2 sh)
+  :: forall sh r. (Numeric r, KnownShape sh)
   => (Vector r -> Vector r -> Vector r)
   -> OS.Array sh r -> OS.Array sh r -> OS.Array sh r
 liftVS2 !op t@(SS.A (SG.A oit@(OI.T sst _ vt)))
@@ -266,7 +264,7 @@ liftVS2 !op t@(SS.A (SG.A oit@(OI.T sst _ vt)))
       else OS.fromVector $ OS.toVector t `op` OS.toVector u
 
 liftVS2UnlessZero
-  :: forall sh r. (Num (Vector r), Numeric r, KnownShape2 sh, Eq r)
+  :: forall sh r. (Num (Vector r), Numeric r, KnownShape sh, Eq r)
   => (Vector r -> Vector r -> Vector r)
   -> OS.Array sh r -> OS.Array sh r -> OS.Array sh r
 liftVS2UnlessZero op
@@ -274,7 +272,7 @@ liftVS2UnlessZero op
     liftVS2 (\x y -> if y == 0 then 0 else op x y)
 
 liftVS2NoAdapt
-  :: forall sh r. (Numeric r, KnownShape2 sh)
+  :: forall sh r. (Numeric r, KnownShape sh)
   => (Vector r -> Vector r -> Vector r)
   -> OS.Array sh r -> OS.Array sh r -> OS.Array sh r
 liftVS2NoAdapt !op t@(SS.A (SG.A oit@(OI.T sst _ vt)))
@@ -318,7 +316,7 @@ instance (Num (Vector r), KnownNat n, Numeric r, Show r)
     Nothing -> error $ "OR.fromInteger: shape unknown at rank "
                        ++ show (valueOf @n :: Int)
 
-instance (Num (Vector r), KnownShape2 sh, Numeric r) => Num (OS.Array sh r) where
+instance (Num (Vector r), KnownShape sh, Numeric r) => Num (OS.Array sh r) where
   (+) = liftVS2 (+)
   (-) = liftVS2 (-)
   (*) = liftVS2 (*)
@@ -350,7 +348,7 @@ instance (Num (Vector r), Integral r, KnownNat n, Numeric r, Show r)
 class IntegralF a where
   quotF, remF :: a -> a -> a
 
-instance (Num (Vector r), Integral r, KnownShape2 sh, Numeric r, Show r)
+instance (Num (Vector r), Integral r, KnownShape sh, Numeric r, Show r)
          => IntegralF (OS.Array sh r) where
   quotF = liftVS2UnlessZero quot
   remF = liftVS2UnlessZero rem
@@ -364,7 +362,7 @@ instance (Num (Vector r), KnownNat n, Numeric r, Show r, Fractional r)
     Nothing -> error $ "OR.fromRational: shape unknown at rank "
                        ++ show (valueOf @n :: Int)
 
-instance (Num (Vector r), KnownShape2 sh, Numeric r, Fractional r)
+instance (Num (Vector r), KnownShape sh, Numeric r, Fractional r)
          => Fractional (OS.Array sh r) where
   (/) = liftVS2 (/)
   recip = liftVS recip
@@ -392,7 +390,7 @@ instance (Floating (Vector r), KnownNat n, Numeric r, Show r, Floating r)
   acosh = liftVR acosh
   atanh = liftVR atanh
 
-instance (Floating (Vector r), KnownShape2 sh, Numeric r, Floating r)
+instance (Floating (Vector r), KnownShape sh, Numeric r, Floating r)
          => Floating (OS.Array sh r) where
   pi | Dict <- lemShapeFromKnownShape (Proxy @sh) = OS.constant pi
   exp = liftVS exp
@@ -442,7 +440,7 @@ instance ( RealFloat (Vector r), KnownNat n, Numeric r, Show r, Floating r
 class Floating a => RealFloatF a where
   atan2F :: a -> a -> a
 
-instance (Floating r, RealFloat (Vector r), KnownShape2 sh, Numeric r)
+instance (Floating r, RealFloat (Vector r), KnownShape sh, Numeric r)
          => RealFloatF (OS.Array sh r) where
   atan2F = liftVS2NoAdapt atan2
 
@@ -472,17 +470,17 @@ type role FlipS nominal nominal nominal
 type FlipS :: forall {k}. ([Nat] -> k -> Type) -> k -> [Nat] -> Type
 newtype FlipS p a (b :: [Nat]) = FlipS { runFlipS :: p b a }
 
-instance (Show r, VS.Storable r, KnownShape2 sh)
+instance (Show r, VS.Storable r, KnownShape sh)
          => Show (FlipS OS.Array r sh) where
   showsPrec :: Int -> FlipS OS.Array r sh -> ShowS
   showsPrec d (FlipS u) | Dict <- lemShapeFromKnownShape (Proxy @sh) =
     showString "Flip " . showParen True (showsPrec d u)
 
-instance (Eq r, Numeric r, KnownShape2 sh) => Eq (FlipS OS.Array r sh) where
+instance (Eq r, Numeric r, KnownShape sh) => Eq (FlipS OS.Array r sh) where
   (==) :: FlipS OS.Array r sh -> FlipS OS.Array r sh -> Bool
   FlipS u == FlipS v | Dict <- lemShapeFromKnownShape (Proxy @sh) = u == v
 
-instance (Ord r, Numeric r, KnownShape2 sh) => Ord (FlipS OS.Array r sh) where
+instance (Ord r, Numeric r, KnownShape sh) => Ord (FlipS OS.Array r sh) where
   (<=) :: FlipS OS.Array r sh -> FlipS OS.Array r sh -> Bool
   FlipS u <= FlipS v | Dict <- lemShapeFromKnownShape (Proxy @sh) = u <= v
 
