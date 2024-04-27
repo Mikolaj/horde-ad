@@ -5,7 +5,7 @@ module HordeAd.Internal.OrthotopeOrphanInstances
   ( -- * Definitions to help express and manipulate type-level natural numbers
     SNat, pattern SNat, withSNat, sNatValue, proxyFromSNat
     -- * Definitions for type-level list shapes
-  , SShape(..), KnownShape(..), shapeT, shapeP, sizeT, sizeP
+  , shapeT, shapeP, sizeT, sizeP
   , withShapeP, sameShape, matchingRank, lemShapeFromKnownShape
   , Dict(..)
   , -- * Numeric instances for tensors
@@ -38,21 +38,14 @@ import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Storable as VS
 import           GHC.Stack
 import           GHC.TypeLits
-  ( KnownNat
-  , Nat
-  , SNat
-  , fromSNat
-  , natSing
-  , pattern SNat
-  , sameNat
-  , type (+)
-  , withSomeSNat
-  )
+  (KnownNat, Nat, SNat, fromSNat, pattern SNat, sameNat, type (+), withSomeSNat)
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           Numeric.LinearAlgebra.Data (arctan2)
 import           Numeric.LinearAlgebra.Devel (zipVectorWith)
 import           Unsafe.Coerce (unsafeCoerce)
+
+import Data.Array.Nested (KnownShape (..), SShape (..))
 
 -- * Definitions to help express and manipulate type-level natural numbers
 
@@ -72,21 +65,6 @@ proxyFromSNat SNat = Proxy
 -- * Definitions for type-level list shapes
 
 -- Below, copied with modification from ox-arrays.
-
--- | The shape of a shape-typed array given as a list of 'SNat' values.
-type role SShape nominal
-data SShape sh where
-  ShNil :: SShape '[]
-  ShCons :: KnownShape sh => SNat n -> SShape sh -> SShape (n : sh)
--- TODO: re-add, if beneficial, when we drop GHC 9.6: deriving instance Eq (SShape sh)
-deriving instance Show (SShape sh)
-infixr 5 `ShCons`
-
--- | A statically-known shape of a shape-typed array.
-class KnownShape sh where knownShape :: SShape sh
-instance KnownShape '[] where knownShape = ShNil
-instance (KnownNat n, KnownShape sh)
-         => KnownShape (n : sh) where knownShape = ShCons natSing knownShape
 
 shapeT :: forall sh. KnownShape sh => [Int]
 shapeT = sshapeToList (knownShape @sh)
