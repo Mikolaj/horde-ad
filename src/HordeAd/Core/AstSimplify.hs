@@ -1919,16 +1919,18 @@ astProjectS l p = case l of
     astLetS var u2 (astProjectS d2 p)
   _ -> Ast.AstProjectS l p
 
-astRFromS :: KnownShape sh
+astRFromS :: forall sh s r. KnownShape sh
           => AstShaped s r sh -> AstRanked s r (Sh.Rank sh)
-astRFromS (AstConstS t) = AstConst $ Data.Array.Convert.convert $ runFlipS t
+astRFromS (AstConstS t) | Dict <- lemShapeFromKnownShape (Proxy @sh) =
+  AstConst $ Data.Array.Convert.convert $ runFlipS t
 astRFromS (Ast.AstConstantS v) = Ast.AstConstant $ astRFromS v
 astRFromS (Ast.AstSFromR v) = v  -- no information lost, so no checks
 astRFromS v = Ast.AstRFromS v
 
 astSFromR :: forall sh s r. (KnownShape sh, KnownNat (Sh.Rank sh))
           => AstRanked s r (Sh.Rank sh) -> AstShaped s r sh
-astSFromR (AstConst t) = AstConstS $ FlipS $ Data.Array.Convert.convert t
+astSFromR (AstConst t) | Dict <- lemShapeFromKnownShape (Proxy @sh) =
+  AstConstS $ FlipS $ Data.Array.Convert.convert t
 astSFromR (Ast.AstConstant v) = Ast.AstConstantS $ astSFromR v
 astSFromR (Ast.AstRFromS @sh1 v) =
   case sameShape @sh1 @sh of

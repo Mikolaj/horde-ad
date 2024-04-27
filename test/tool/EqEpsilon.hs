@@ -21,6 +21,7 @@ import           Test.Tasty.HUnit
 import           Test.Tasty.Options
 
 import HordeAd.Core.Types
+import HordeAd.Internal.OrthotopeOrphanInstances (FlipS (..))
 import Shared
 
 newtype EqEpsilon = EqEpsilon Rational
@@ -314,7 +315,7 @@ instance (AssertEqualUpToEpsilon a,
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e10 a10
 
 instance (VS.Storable a, KnownShape sh1, AssertEqualUpToEpsilon a)
-         => AssertEqualUpToEpsilon (OS.Array sh1 a) where
+         => AssertEqualUpToEpsilon (FlipS OS.Array a sh1) where
   assertEqualUpToEpsilonWithMsg msg eqEpsilon expected actual =
     assert_list (assertEqualUpToEpsilonWithMsg msg eqEpsilon)
                 (linearize expected)

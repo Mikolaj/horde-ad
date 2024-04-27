@@ -104,7 +104,10 @@ instance RankedTensor (Flip OR.Array) where
   rconst = Flip
   rletHVectorIn = (&)
   rletHFunIn = (&)
-  rfromS = Flip . Data.Array.Convert.convert . runFlipS
+  rfromS :: forall r sh. KnownShape sh
+         => FlipS OS.Array r sh -> Flip OR.Array r (Sh.Rank sh)
+  rfromS | Dict <- lemShapeFromKnownShape (Proxy @sh) =
+    Flip . Data.Array.Convert.convert . runFlipS
 
   rscaleByScalar s v =
     Flip $ tscaleByScalarR (tunScalarR $ runFlip s) (runFlip v)
@@ -187,7 +190,10 @@ instance ShapedTensor (FlipS OS.Array) where
   sconst = FlipS
   sletHVectorIn = (&)
   sletHFunIn = (&)
-  sfromR = FlipS . Data.Array.Convert.convert . runFlip
+  sfromR :: forall r sh. KnownShape sh
+         => Flip OR.Array r (Sh.Rank sh) -> FlipS OS.Array r sh
+  sfromR | Dict <- lemShapeFromKnownShape (Proxy @sh) =
+    FlipS . Data.Array.Convert.convert . runFlip
 
   sscaleByScalar s v =
     FlipS $ tscaleByScalarS (tunScalarS $ runFlipS s) (runFlipS v)
@@ -331,16 +337,17 @@ instance (GoodScalar r, KnownShape sh)
 instance KnownShape sh
          => ForgetShape (FlipS OS.Array r sh) where
   type NoShape (FlipS OS.Array r sh) = Flip OR.Array r (Sh.Rank sh)  -- key case
-  forgetShape = Flip . Data.Array.Convert.convert . runFlipS
+  forgetShape | Dict <- lemShapeFromKnownShape (Proxy @sh) =
+    Flip . Data.Array.Convert.convert . runFlipS
 
 instance (KnownShape sh, Numeric r, Fractional r, Random r, Num (Vector r))
          => RandomHVector (FlipS OS.Array r sh) where
-  randomVals range g =
+  randomVals range g | Dict <- lemShapeFromKnownShape (Proxy @sh) =
     let createRandomVector n seed =
           LA.scale (2 * realToFrac range)
           $ V.fromListN n (randoms seed) - LA.scalar 0.5
         (g1, g2) = split g
-        arr = OS.fromVector $ createRandomVector (OS.sizeP (Proxy @sh)) g1
+        arr = OS.fromVector $ createRandomVector (sizeP (Proxy @sh)) g1
     in (FlipS arr, g2)
 
 instance AdaptableHVector (Flip OR.Array)

@@ -520,7 +520,7 @@ printAstS cfg d = \case
   AstCastS v -> printPrefixOp printAstS cfg d "scast" [v]
   AstFromIntegralS a ->
     printPrefixOp printAstS cfg d "sfromIntegral" [a]
-  AstConstS @_ @sh2 (FlipS a) ->
+  AstConstS @_ @sh2 (FlipS a) | Dict <- lemShapeFromKnownShape (Proxy @sh2) ->
     case sameShape @sh @'[] of
       Just Refl -> shows $ OS.unScalar a
       _ -> showParen (d > 10)

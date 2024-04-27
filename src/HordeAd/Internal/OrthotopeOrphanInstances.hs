@@ -35,6 +35,7 @@ import           Data.Kind (Constraint, Type)
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
+import qualified Data.Vector.Storable as VS
 import           GHC.Stack
 import           GHC.TypeLits
   ( KnownNat
@@ -84,10 +85,10 @@ infixr 5 `ShCons`
 -- | A statically-known shape of a shape-typed array.
 class KnownShape2 sh where knownShape :: SShape sh
 instance KnownShape2 '[] where knownShape = ShNil
-instance (KnownNat n, KnownShape2 sh, Sh.Shape sh)
+instance (KnownNat n, KnownShape2 sh)
          => KnownShape2 (n : sh) where knownShape = ShCons natSing knownShape
 
-type KnownShape sh = (KnownShape2 sh, Sh.Shape sh)
+type KnownShape sh = KnownShape2 sh
 
 shapeT :: forall sh. KnownShape2 sh => [Int]
 shapeT = sshapeToList (knownShape @sh)
@@ -471,7 +472,8 @@ type role FlipS nominal nominal nominal
 type FlipS :: forall {k}. ([Nat] -> k -> Type) -> k -> [Nat] -> Type
 newtype FlipS p a (b :: [Nat]) = FlipS { runFlipS :: p b a }
 
-instance (Show r, Numeric r, KnownShape2 sh) => Show (FlipS OS.Array r sh) where
+instance (Show r, VS.Storable r, KnownShape2 sh)
+         => Show (FlipS OS.Array r sh) where
   showsPrec :: Int -> FlipS OS.Array r sh -> ShowS
   showsPrec d (FlipS u) | Dict <- lemShapeFromKnownShape (Proxy @sh) =
     showString "Flip " . showParen True (showsPrec d u)

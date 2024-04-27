@@ -1255,9 +1255,13 @@ instance AstSpan s => ShapedTensor (AstNoSimplifyS s) where
   sdualPart = AstNoSimplifyS . astSpanDualS . unAstNoSimplifyS
   sD u u' =
     AstNoSimplifyS $ astSpanDS (unAstNoSimplifyS u) (unAstNoSimplifyS u')
-  sScale s t = AstNoSimplifyS $ astDualPartS
-               $ AstConstantS (unAstNoSimplifyS s)
-                 * AstDS 0 (unAstNoSimplifyS t)
+  sScale :: forall r sh. (GoodScalar r, KnownShape sh)
+         => AstNoSimplifyS PrimalSpan r sh -> AstNoSimplifyS DualSpan r sh
+         -> AstNoSimplifyS DualSpan r sh
+  sScale s t | Dict <- lemShapeFromKnownShape (Proxy @sh) =
+    AstNoSimplifyS $ astDualPartS
+                   $ AstConstantS (unAstNoSimplifyS s)
+                     * AstDS 0 (unAstNoSimplifyS t)
 
 instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
   dshape = shapeAstHVector . unAstNoSimplifyWrap

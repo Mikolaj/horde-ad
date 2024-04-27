@@ -11,6 +11,7 @@ import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
 import qualified Data.Char
 import qualified Data.Foldable
+import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Vector.Storable as VS
 import           GHC.TypeLits (KnownNat)
 import qualified Numeric.LinearAlgebra as LA
@@ -39,7 +40,7 @@ instance HasShape (Flip OR.Array a n) where
   shapeL = OR.shapeL . runFlip
 
 instance KnownShape sh => HasShape (FlipS OS.Array a sh) where
-  shapeL = OS.shapeL . runFlipS
+  shapeL | Dict <- lemShapeFromKnownShape (Proxy @sh) = OS.shapeL . runFlipS
 
 instance HasShape (LA.Matrix a) where
   shapeL matrix = [LA.rows matrix, LA.cols matrix]
@@ -65,11 +66,11 @@ instance (VS.Storable a) => Linearizable (VS.Vector a) a where
 
 instance (VS.Storable a, KnownShape sh)
          => Linearizable (OS.Array sh a) a where
-  linearize = OS.toList
+  linearize | Dict <- lemShapeFromKnownShape (Proxy @sh) = OS.toList
 
 instance (VS.Storable a, KnownShape sh)
          => Linearizable (FlipS OS.Array a sh) a where
-  linearize = OS.toList . runFlipS
+  linearize | Dict <- lemShapeFromKnownShape (Proxy @sh) = OS.toList . runFlipS
 
 instance (VS.Storable a) => Linearizable (OR.Array n a) a where
   linearize = OR.toList
