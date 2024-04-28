@@ -7,7 +7,6 @@ module HordeAd.Internal.OrthotopeOrphanInstances
     -- * Definitions for type-level list shapes
   , shapeT, shapeP, sizeT, sizeP
   , withShapeP, sameShape, matchingRank, lemShapeFromKnownShape
-  , Dict(..)
   , -- * Numeric instances for tensors
     liftVR, liftVR2, liftVS, liftVS2
   , IntegralF(..), RealFloatF(..), FlipS(..)
@@ -31,7 +30,7 @@ import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as Sh
 import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
-import           Data.Kind (Constraint, Type)
+import           Data.Kind (Type)
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
@@ -45,7 +44,7 @@ import           Numeric.LinearAlgebra.Data (arctan2)
 import           Numeric.LinearAlgebra.Devel (zipVectorWith)
 import           Unsafe.Coerce (unsafeCoerce)
 
-import Data.Array.Nested (KnownShape (..), SShape (..))
+import Data.Array.Nested (Dict(..), KnownShape (..), SShape (..))
 
 -- * Definitions to help express and manipulate type-level natural numbers
 
@@ -99,12 +98,6 @@ matchingRank =
   if length (shapeT @sh1) == valueOf @n2
   then Just (unsafeCoerce Refl :: Sh.Rank sh1 :~: n2)
   else Nothing
-
--- | Evidence for the constraint @c a@.
-type role Dict representational nominal
-type Dict :: forall {k}. (k -> Constraint) -> k -> Type
-data Dict c a where
-  Dict :: c a => Dict c a
 
 shapeFromSShape :: SShape sh -> Dict Sh.Shape sh
 shapeFromSShape ShNil = Dict
