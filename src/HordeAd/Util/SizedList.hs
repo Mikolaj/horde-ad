@@ -5,7 +5,7 @@
 module HordeAd.Util.SizedList
   ( -- * Sized lists and their permutations
     IndexOf
-  , SizedList(..)
+  , SizedList(..), pattern (:::), pattern ZR
   , singletonSized, snocSized, appendSized
   , headSized, tailSized, takeSized, dropSized, splitAt_Sized
   , unsnocSized1, lastSized, initSized, zipSized, zipWith_Sized, reverseSized
@@ -45,7 +45,6 @@ import qualified Data.Vector.Generic as V
 import           GHC.Exts (IsList (..))
 import           GHC.TypeLits
   ( KnownNat
-  , Nat
   , OrderingI (..)
   , SomeNat (..)
   , cmpNat
@@ -55,6 +54,9 @@ import           GHC.TypeLits
   , type (-)
   )
 import           Unsafe.Coerce (unsafeCoerce)
+
+import           Data.Array.Nested (ToINat)
+import qualified Data.Array.Nested as Nested
 
 import HordeAd.Core.Types
 
@@ -82,26 +84,59 @@ type IndexOf (f :: TensorType ty) n = Index n (IntOf f)
 -- tensor rank) and usually eventually needed. We could still (in GHC 9.4
 -- at least) coerce the strict @SizedList@ to @[i]@, but not the other
 -- way around.
-infixr 3 :::
+
 type role SizedList nominal representational
-data SizedList (n :: Nat) i where
-  ZR :: SizedList 0 i
-  (:::) :: forall n {i}. KnownNat n
-        => i -> SizedList n i -> SizedList (1 + n) i
-
-deriving instance Eq i => Eq (SizedList n i)
-
-deriving instance Ord i => Ord (SizedList n i)
+newtype SizedList n i = SizedList (Nested.ListR (ToINat n) i)
+  deriving (Eq, Ord)
 
 -- This is only lawful when OverloadedLists is enabled.
 -- However, it's much more readable when tracing and debugging.
 instance Show i => Show (SizedList n i) where
   showsPrec d l = showsPrec d (sizedToList l)
 
-deriving stock instance Functor (SizedList n)
+pattern ZR :: forall n i. () => n ~ 0 => SizedList n i
+pattern ZR <- (unnilSizedList -> Just UnnilSizedListRes)
+  where ZR = SizedList Nested.ZR
 
-instance Foldable (SizedList n) where
-  foldr f z l = foldr f z (sizedToList l)
+type role UnnilSizedListRes nominal
+data UnnilSizedListRes n = n ~ 0 => UnnilSizedListRes
+unnilSizedList :: forall n i. SizedList n i -> Maybe (UnnilSizedListRes n)
+unnilSizedList (SizedList sh) = case sh of
+  _i Nested.::: _sh' -> Nothing
+  Nested.ZR | Refl <- Nested.lemInjectiveToINat @n -> Just UnnilSizedListRes
+
+infixr 3 :::
+pattern (:::)
+  :: forall {n1} {i}.
+     forall n. (KnownNat n, (1 + n) ~ n1)
+               -- Nested.KnownINat (ToINat n), (S (ToINat n) ~ ToINat n1)
+  => i -> SizedList n i -> SizedList n1 i
+pattern i ::: sh <- (unconsSizedList -> Just (UnconsSizedListRes sh i))
+  where i ::: (SizedList sh)
+          | Dict <- Nested.knownListR sh =  -- TODO: this recomputes the Dict and it's hard not to
+--          , Refl <- Nested.lemInjectiveToINat @n1
+--          , Refl <- Nested.lemInjectiveFromINat @k
+--          , Dict <- Nested.knownNatFromINat (Proxy @k) =
+            SizedList (unsafeCoerce $ i Nested.::: sh)  -- TODO
+{-# COMPLETE ZR, (:::) #-}
+
+type role UnconsSizedListRes representational nominal
+data UnconsSizedListRes i n1 =
+  forall n. (KnownNat n, (1 + n) ~ n1)
+            => UnconsSizedListRes (SizedList n i) i
+unconsSizedList :: forall n1 i.
+                   SizedList n1 i -> Maybe (UnconsSizedListRes i n1)
+unconsSizedList (SizedList sh) = case sh of
+  (Nested.:::) @k i sh' | Refl <- Nested.lemInjectiveToINat @n1
+                        , Refl <- Nested.lemInjectiveFromINat @k
+-- this is not needed only thanks to KnownINat in Internal.hs   , Dict <- Nested.knownListR sh'  -- TODO: this recomputes the Dict
+                        , Dict <- Nested.knownNatFromINat (Proxy @k) ->
+    Just (UnconsSizedListRes (SizedList sh') i)
+  Nested.ZR -> Nothing
+
+deriving newtype instance Functor (SizedList n)
+
+deriving newtype instance Foldable (SizedList n)
 
 instance KnownNat n => IsList (SizedList n i) where
   type Item (SizedList n i) = i
