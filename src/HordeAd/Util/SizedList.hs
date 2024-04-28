@@ -109,15 +109,10 @@ infixr 3 :::
 pattern (:::)
   :: forall {n1} {i}.
      forall n. (KnownNat n, (1 + n) ~ n1)
-               -- Nested.KnownINat (ToINat n), (S (ToINat n) ~ ToINat n1)
   => i -> SizedList n i -> SizedList n1 i
 pattern i ::: sh <- (unconsSizedList -> Just (UnconsSizedListRes sh i))
-  where i ::: (SizedList sh)
-          | Dict <- Nested.knownListR sh =  -- TODO: this recomputes the Dict and it's hard not to
---          , Refl <- Nested.lemInjectiveToINat @n1
---          , Refl <- Nested.lemInjectiveFromINat @k
---          , Dict <- Nested.knownNatFromINat (Proxy @k) =
-            SizedList (unsafeCoerce $ i Nested.::: sh)  -- TODO
+  where i ::: (SizedList sh) =
+          SizedList (unsafeCoerce $ i Nested.::: sh)  -- TODO
 {-# COMPLETE ZR, (:::) #-}
 
 type role UnconsSizedListRes representational nominal
@@ -129,7 +124,7 @@ unconsSizedList :: forall n1 i.
 unconsSizedList (SizedList sh) = case sh of
   (Nested.:::) @k i sh' | Refl <- Nested.lemInjectiveToINat @n1
                         , Refl <- Nested.lemInjectiveFromINat @k
--- this is not needed only thanks to KnownINat in Internal.hs   , Dict <- Nested.knownListR sh'  -- TODO: this recomputes the Dict
+                        , Dict <- Nested.knownListR sh'  -- TODO: this recomputes the Dict, but storing it in ListR and converting back and forth would be similarly expensive
                         , Dict <- Nested.knownNatFromINat (Proxy @k) ->
     Just (UnconsSizedListRes (SizedList sh') i)
   Nested.ZR -> Nothing
