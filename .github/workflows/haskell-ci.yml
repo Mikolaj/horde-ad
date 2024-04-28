@@ -135,6 +135,9 @@ jobs:
         uses: actions/checkout@v3
         with:
           path: source
+      - name: checkout ox-arrays
+        run:
+          git clone --branch=experiment-with-KnownShape https://git.tomsmeding.com/ox-arrays $GITHUB_WORKSPACE/source/ox-arrays
       - name: initial cabal.project for sdist
         run: |
           touch cabal.project
@@ -151,11 +154,13 @@ jobs:
       - name: generate cabal.project
         run: |
           PKGDIR_horde_ad="$(find "$GITHUB_WORKSPACE/unpacked" -maxdepth 1 -type d -regex '.*/horde-ad-[0-9.]*')"
+          PKGDIR_ox_arrays="$(find "$GITHUB_WORKSPACE/source" -maxdepth 1 -type d -regex '.*/ox-arrays')"
           echo "PKGDIR_horde_ad=${PKGDIR_horde_ad}" >> "$GITHUB_ENV"
+          echo "PKGDIR_ox_arrays=${PKGDIR_ox_arrays}" >> "$GITHUB_ENV"
           rm -f cabal.project cabal.project.local
           touch cabal.project
           touch cabal.project.local
-          echo "packages: ${PKGDIR_horde_ad}" >> cabal.project
+          echo "packages: ${PKGDIR_horde_ad} ${PKGDIR_ox_arrays}" >> cabal.project
           echo "package horde-ad" >> cabal.project
           echo "    ghc-options: -Werror=missing-methods" >> cabal.project
           cat >> cabal.project <<EOF
