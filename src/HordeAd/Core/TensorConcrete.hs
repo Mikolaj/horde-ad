@@ -10,7 +10,6 @@ import Prelude hiding (foldl')
 
 import           Data.Array.Convert
 import           Data.Array.Internal (valueOf)
-import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as Sh
 import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
@@ -35,35 +34,35 @@ import HordeAd.Internal.BackendConcrete
 import HordeAd.Internal.OrthotopeOrphanInstances (FlipS (..))
 import HordeAd.Util.ShapedList (shapedNat, unShapedNat)
 
-type instance BoolOf (Flip OR.Array) = Bool
+type instance BoolOf (ORArray) = Bool
 
-instance EqF (Flip OR.Array) where
+instance EqF (ORArray) where
   u ==. v = u == v
   u /=. v = u /= v
 
-instance OrdF (Flip OR.Array) where
+instance OrdF (ORArray) where
   u <. v = u < v
   u <=. v = u <= v
   u >. v = u > v
   u >=. v = u >= v
 
-instance IfF (Flip OR.Array) where
+instance IfF (ORArray) where
   ifF b v w = if b then v else w
 
-type instance RankedOf (Flip OR.Array) = Flip OR.Array
+type instance RankedOf (ORArray) = ORArray
 
-type instance ShapedOf (Flip OR.Array) = FlipS OS.Array
+type instance ShapedOf (ORArray) = OSArray
 
-type instance HVectorOf (Flip OR.Array) = HVector (Flip OR.Array)
+type instance HVectorOf (ORArray) = HVector (ORArray)
 
-type instance HFunOf (Flip OR.Array) =
-  [HVector (Flip OR.Array)] -> HVectorOf (Flip OR.Array)
+type instance HFunOf (ORArray) =
+  [HVector (ORArray)] -> HVectorOf (ORArray)
 
-type instance PrimalOf (Flip OR.Array) = Flip OR.Array
+type instance PrimalOf (ORArray) = ORArray
 
-type instance DualOf (Flip OR.Array) = DummyDual
+type instance DualOf (ORArray) = DummyDual
 
-instance RankedTensor (Flip OR.Array) where
+instance RankedTensor (ORArray) where
   rshape = tshapeR . runFlip
   rminIndex = Flip . tminIndexR . runFlip
   rmaxIndex = Flip . tmaxIndexR . runFlip
@@ -105,7 +104,7 @@ instance RankedTensor (Flip OR.Array) where
   rletHVectorIn = (&)
   rletHFunIn = (&)
   rfromS :: forall r sh. KnownShape sh
-         => FlipS OS.Array r sh -> Flip OR.Array r (Sh.Rank sh)
+         => OSArray r sh -> ORArray r (Sh.Rank sh)
   rfromS | Dict <- lemShapeFromKnownShape (Proxy @sh) =
     Flip . Data.Array.Convert.convert . runFlipS
 
@@ -120,35 +119,35 @@ instance RankedTensor (Flip OR.Array) where
   rD u _ = u
   rScale _ _ = DummyDual
 
-type instance BoolOf (FlipS OS.Array) = Bool
+type instance BoolOf (OSArray) = Bool
 
-instance EqF (FlipS OS.Array) where
+instance EqF (OSArray) where
   u ==. v = u == v
   u /=. v = u /= v
 
-instance OrdF (FlipS OS.Array) where
+instance OrdF (OSArray) where
   u <. v = u < v
   u <=. v = u <= v
   u >. v = u > v
   u >=. v = u >= v
 
-instance IfF (FlipS OS.Array) where
+instance IfF (OSArray) where
   ifF b v w = if b then v else w
 
-type instance RankedOf (FlipS OS.Array) = Flip OR.Array
+type instance RankedOf (OSArray) = ORArray
 
-type instance ShapedOf (FlipS OS.Array) = FlipS OS.Array
+type instance ShapedOf (OSArray) = OSArray
 
-type instance PrimalOf (FlipS OS.Array) = FlipS OS.Array
+type instance PrimalOf (OSArray) = OSArray
 
-type instance DualOf (FlipS OS.Array) = DummyDual
+type instance DualOf (OSArray) = DummyDual
 
-instance ShapedTensor (FlipS OS.Array) where
+instance ShapedTensor (OSArray) where
   sminIndex = FlipS . tminIndexS . runFlipS
   smaxIndex = FlipS . tmaxIndexS . runFlipS
   sfloor = FlipS . tfloorS . runFlipS
   siota :: forall n r. (GoodScalar r, KnownNat n)
-        => FlipS OS.Array r '[n]  -- from 0 to n - 1
+        => OSArray r '[n]  -- from 0 to n - 1
   siota = let n = valueOf @n :: Int
           in FlipS $ OS.fromList $ map fromIntegral [0 .. n - 1]
   sindex v ix = FlipS $ tindexZS (runFlipS v) (fromIndexOfS ix)
@@ -191,7 +190,7 @@ instance ShapedTensor (FlipS OS.Array) where
   sletHVectorIn = (&)
   sletHFunIn = (&)
   sfromR :: forall r sh. KnownShape sh
-         => Flip OR.Array r (Sh.Rank sh) -> FlipS OS.Array r sh
+         => ORArray r (Sh.Rank sh) -> OSArray r sh
   sfromR | Dict <- lemShapeFromKnownShape (Proxy @sh) =
     FlipS . Data.Array.Convert.convert . runFlip
 
@@ -206,7 +205,7 @@ instance ShapedTensor (FlipS OS.Array) where
   sD u _ = u
   sScale _ _ = DummyDual
 
-instance HVectorTensor (Flip OR.Array) (FlipS OS.Array) where
+instance HVectorTensor (ORArray) (OSArray) where
   dshape = voidFromHVector
   dmkHVector = id
   dlambda _ f = unHFun f  -- the eta-expansion is needed for typing
@@ -221,12 +220,12 @@ instance HVectorTensor (Flip OR.Array) (FlipS OS.Array) where
   rrev :: (GoodScalar r, KnownNat n)
        => (forall f. ADReady f => HVector f -> f r n)
        -> VoidHVector
-       -> HVector (Flip OR.Array)
-       -> HVector (Flip OR.Array)
+       -> HVector (ORArray)
+       -> HVector (ORArray)
   rrev f _parameters0 parameters =
     -- This computes the derivative of g again for each new @parmeters@.
-    let g :: HVector (ADVal (Flip OR.Array))
-          -> ADVal (HVectorPseudoTensor (Flip OR.Array)) r y
+    let g :: HVector (ADVal (ORArray))
+          -> ADVal (HVectorPseudoTensor (ORArray)) r y
         g !hv = let D a a' = f hv
                 in dDnotShared (HVectorPseudoTensor $ dmkHVector
                                 $ V.singleton $ DynamicRanked a)
@@ -237,7 +236,7 @@ instance HVectorTensor (Flip OR.Array) (FlipS OS.Array) where
   -- ADVal ranked instance, because the type family instance is the same.
   drevDt :: VoidHVector
          -> HFun
-         -> HFunOf (Flip OR.Array)
+         -> HFunOf (ORArray)
   drevDt _shs h =
     let g :: ADReady f
           => HVector (ADVal f)
@@ -245,14 +244,14 @@ instance HVectorTensor (Flip OR.Array) (FlipS OS.Array) where
         g !hv = let (as, as') = unADValHVector $ unHFun h [hv]
                 in dDnotShared (HVectorPseudoTensor $ dmkHVector as)
                                (HVectorPseudoTensor $ HToH as')
-        rf :: [HVector (Flip OR.Array)] -> HVectorOf (Flip OR.Array)
+        rf :: [HVector (ORArray)] -> HVectorOf (ORArray)
         rf [!db, !a] =
           fst $ crevOnHVector (Just db) g a
         rf _ = error "rf: wrong number of arguments"
     in rf
   dfwd :: VoidHVector
        -> HFun
-       -> HFunOf (Flip OR.Array)
+       -> HFunOf (ORArray)
   dfwd _shs h =
     let g :: ADReady f
           => HVector (ADVal f)
@@ -260,7 +259,7 @@ instance HVectorTensor (Flip OR.Array) (FlipS OS.Array) where
         g !hv = let (as, as') = unADValHVector $ unHFun h [hv]
                 in dDnotShared (HVectorPseudoTensor $ dmkHVector as)
                                (HVectorPseudoTensor $ HToH as')
-        df :: [HVector (Flip OR.Array)] -> HVectorOf (Flip OR.Array)
+        df :: [HVector (ORArray)] -> HVectorOf (ORArray)
         df [!da, !a] = fst $ cfwdOnHVector a g da
         df _ = error "df: wrong number of arguments"
     in df
@@ -283,16 +282,16 @@ oRdmapAccumR
   -> VoidHVector
   -> VoidHVector
   -> VoidHVector
-  -> (HVector (Flip OR.Array) -> HVector (Flip OR.Array)
-      -> HVectorOf (Flip OR.Array))
-  -> HVector (Flip OR.Array)
-  -> HVector (Flip OR.Array)
-  -> HVector (Flip OR.Array)
+  -> (HVector (ORArray) -> HVector (ORArray)
+      -> HVectorOf (ORArray))
+  -> HVector (ORArray)
+  -> HVector (ORArray)
+  -> HVector (ORArray)
 oRdmapAccumR k accShs bShs _eShs f acc0 es = case sNatValue k :: Int of
   0 -> acc0 V.++ replicate1HVector k (V.map dynamicFromVoid bShs)
   _ -> let accLen = V.length accShs
-           g :: HVector (Flip OR.Array) -> HVector (Flip OR.Array)
-             -> (HVector (Flip OR.Array), HVector (Flip OR.Array))
+           g :: HVector (ORArray) -> HVector (ORArray)
+             -> (HVector (ORArray), HVector (ORArray))
            g !x !a = V.splitAt accLen $ f x a
            (xout, lout) = mapAccumR g acc0 (unravelHVector es)
        in xout V.++ ravelHVector lout
@@ -303,45 +302,45 @@ oRdmapAccumL
   -> VoidHVector
   -> VoidHVector
   -> VoidHVector
-  -> (HVector (Flip OR.Array) -> HVector (Flip OR.Array)
-      -> HVectorOf (Flip OR.Array))
-  -> HVector (Flip OR.Array)
-  -> HVector (Flip OR.Array)
-  -> HVector (Flip OR.Array)
+  -> (HVector (ORArray) -> HVector (ORArray)
+      -> HVectorOf (ORArray))
+  -> HVector (ORArray)
+  -> HVector (ORArray)
+  -> HVector (ORArray)
 oRdmapAccumL k accShs bShs _eShs f acc0 es = case sNatValue k :: Int of
   0 -> acc0 V.++ replicate1HVector k (V.map dynamicFromVoid bShs)
   _ -> let accLen = V.length accShs
-           g :: HVector (Flip OR.Array) -> HVector (Flip OR.Array)
-             -> (HVector (Flip OR.Array), HVector (Flip OR.Array))
+           g :: HVector (ORArray) -> HVector (ORArray)
+             -> (HVector (ORArray), HVector (ORArray))
            g !x !a = V.splitAt accLen $ f x a
            (xout, lout) = mapAccumL g acc0 (unravelHVector es)
        in xout V.++ ravelHVector lout
 
 instance (GoodScalar r, KnownNat n)
-         => AdaptableHVector (Flip OR.Array) (Flip OR.Array r n) where
+         => AdaptableHVector (ORArray) (ORArray r n) where
   {-# SPECIALIZE instance
       KnownNat n
-      => AdaptableHVector (Flip OR.Array) (Flip OR.Array Double n) #-}
+      => AdaptableHVector (ORArray) (ORArray Double n) #-}
   toHVector = V.singleton . DynamicRanked
   fromHVector _aInit = fromHVectorR
 
-instance ForgetShape (Flip OR.Array r n) where
-  type NoShape (Flip OR.Array r n) = Flip OR.Array r n
+instance ForgetShape (ORArray r n) where
+  type NoShape (ORArray r n) = ORArray r n
   forgetShape = id
 
 instance (GoodScalar r, KnownShape sh)
-         => AdaptableHVector (Flip OR.Array) (FlipS OS.Array r sh) where
+         => AdaptableHVector (ORArray) (OSArray r sh) where
   toHVector = V.singleton . DynamicShaped
   fromHVector _aInit = fromHVectorS
 
 instance KnownShape sh
-         => ForgetShape (FlipS OS.Array r sh) where
-  type NoShape (FlipS OS.Array r sh) = Flip OR.Array r (Sh.Rank sh)  -- key case
+         => ForgetShape (OSArray r sh) where
+  type NoShape (OSArray r sh) = ORArray r (Sh.Rank sh)  -- key case
   forgetShape | Dict <- lemShapeFromKnownShape (Proxy @sh) =
     Flip . Data.Array.Convert.convert . runFlipS
 
 instance (KnownShape sh, Numeric r, Fractional r, Random r, Num (Vector r))
-         => RandomHVector (FlipS OS.Array r sh) where
+         => RandomHVector (OSArray r sh) where
   randomVals range g | Dict <- lemShapeFromKnownShape (Proxy @sh) =
     let createRandomVector n seed =
           LA.scale (2 * realToFrac range)
@@ -350,8 +349,8 @@ instance (KnownShape sh, Numeric r, Fractional r, Random r, Num (Vector r))
         arr = OS.fromVector $ createRandomVector (sizeP (Proxy @sh)) g1
     in (FlipS arr, g2)
 
-instance AdaptableHVector (Flip OR.Array)
-                          (HVectorPseudoTensor (Flip OR.Array) r y) where
+instance AdaptableHVector (ORArray)
+                          (HVectorPseudoTensor (ORArray) r y) where
   toHVector = unHVectorPseudoTensor
   fromHVector (HVectorPseudoTensor aInit) params =
     let (portion, rest) = V.splitAt (V.length aInit) params
@@ -361,16 +360,16 @@ instance AdaptableHVector (Flip OR.Array)
 -- but is possible here:
 {-# SPECIALIZE gradientFromDeltaH
   :: VoidHVector
-  -> HVector (Flip OR.Array)
-  -> Maybe (HVector (Flip OR.Array))
-  -> DeltaH (Flip OR.Array)
-  -> HVector (Flip OR.Array) #-}
+  -> HVector (ORArray)
+  -> Maybe (HVector (ORArray))
+  -> DeltaH (ORArray)
+  -> HVector (ORArray) #-}
 {-# SPECIALIZE evalFromnMap
-  :: EvalState (Flip OR.Array) -> EvalState (Flip OR.Array) #-}
+  :: EvalState (ORArray) -> EvalState (ORArray) #-}
 
 instance (RankedTensor ranked, ShapedTensor (ShapedOf ranked))
          => DualNumberValue (DynamicTensor (ADVal ranked)) where
-  type DValue (DynamicTensor (ADVal ranked)) = DynamicTensor (Flip OR.Array)
+  type DValue (DynamicTensor (ADVal ranked)) = DynamicTensor (ORArray)
   fromDValue = \case
     DynamicRanked t -> DynamicRanked $ constantADVal $ rconst $ runFlip t
     DynamicShaped t -> DynamicShaped $ constantADVal $ sconst $ runFlipS t
