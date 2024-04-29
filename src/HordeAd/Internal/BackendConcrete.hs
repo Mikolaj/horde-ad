@@ -51,11 +51,17 @@ import           System.IO.Unsafe (unsafePerformIO)
 import           Unsafe.Coerce (unsafeCoerce)
 
 import           HordeAd.Core.Types
-import           HordeAd.Internal.OrthotopeOrphanInstances (liftVR, liftVS)
+import           HordeAd.Internal.OrthotopeOrphanInstances
+  (FlipS, liftVR, liftVS)
 import           HordeAd.Internal.TensorFFI
 import           HordeAd.Util.ShapedList (IndexS, ShapedNat)
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedList
+
+type ORArray = Flip OR.Array
+
+type OSArray = FlipS OS.Array
+
 
 -- * Ranked tensor operations
 
@@ -386,10 +392,10 @@ tscaleByScalarR :: (Numeric r, KnownNat n)
                 => r -> OR.Array n r -> OR.Array n r
 tscaleByScalarR s = liftVR (LA.scale s)
 
-toIndexOfR :: IndexInt n -> Index n (Flip OR.Array Int64 0)
+toIndexOfR :: IndexInt n -> Index n (ORArray Int64 0)
 toIndexOfR ix = Flip . tscalarR <$> ix
 
-fromIndexOfR :: Index n (Flip OR.Array Int64 0) -> IndexInt n
+fromIndexOfR :: Index n (ORArray Int64 0) -> IndexInt n
 fromIndexOfR ixOf = tunScalarR . runFlip <$> ixOf
 
 
@@ -814,8 +820,8 @@ tscaleByScalarS :: forall r sh. (Numeric r, KnownShape sh)
 tscaleByScalarS s | Dict <- lemShapeFromKnownShape (Proxy @sh) =
   liftVS (LA.scale s)
 
-toIndexOfS :: IndexIntSh sh -> IndexS sh (Flip OR.Array Int64 0)
+toIndexOfS :: IndexIntSh sh -> IndexS sh (ORArray Int64 0)
 toIndexOfS ix = Flip . tscalarR <$> ix
 
-fromIndexOfS :: IndexS sh (Flip OR.Array Int64 0) -> IndexIntSh sh
+fromIndexOfS :: IndexS sh (ORArray Int64 0) -> IndexIntSh sh
 fromIndexOfS ixOf = tunScalarR . runFlip <$> ixOf
