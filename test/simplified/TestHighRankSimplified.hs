@@ -7,6 +7,7 @@ module TestHighRankSimplified (testTrees) where
 import Prelude
 
 import qualified Data.Array.RankedS as OR
+import qualified Data.Array.Shape as Sh
 import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
 import qualified Data.Strict.IntMap as IM
@@ -16,9 +17,11 @@ import           GHC.TypeLits (KnownNat, type (+), type (-), type (<=))
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
-import HordeAd
-import HordeAd.Core.AstFreshId (funToAstR, resetVarCounter)
-import HordeAd.Internal.OrthotopeOrphanInstances (FlipS (..), RealFloatF (..))
+import           HordeAd
+import           HordeAd.Core.AstFreshId (funToAstR, resetVarCounter)
+import           HordeAd.Internal.OrthotopeOrphanInstances
+  (FlipS (..), IntegralF (..), RealFloatF (..))
+import qualified HordeAd.Util.ShapedList as ShapedList
 
 import CrossTesting
 import EqEpsilon
@@ -37,6 +40,8 @@ testTrees =
   , testCase "3fooBuild92V" testFooBuild92V
   , testCase "3fooBuild21" testFooBuild21
   , testCase "3fooBuild25" testFooBuild25
+  , testCase "3fooBuild21S" testFooBuild21S
+  , testCase "3fooBuild25S" testFooBuild25S
   , testCase "3fooBuild3" testFooBuild3
   , testCase "3fooBuildDt" testFooBuildDt
   , testCase "3fooBuildDt2" testFooBuildDt2
@@ -224,6 +229,36 @@ testFooBuild25 =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [2,2,1,2,2] [0.22360679774997896,0.35355339059327373,0.20412414523193154,0.5,-0.35355339059327373,500.0,1.5811388300841895,-1.118033988749895,0.1381447409988844,0.16666666666666666,0.17677669529663687,-0.25,8.574929257125441e-2,0.288948802391873,-8.703882797784893e-2,9.805806756909202e-2])
     (rev' @Double @5 fooBuild2 t16)
+
+fooBuild2S
+  :: forall k sh ranked r shaped.
+     (ADReady ranked, GoodScalar r, KnownNat k, Floating (shaped r sh), RealFloat r, shaped ~ ShapedOf ranked, KnownShape sh, KnownNat (Sh.Size (k : sh)))
+  => shaped r (k : sh) -> ranked r (1 + Sh.Rank sh)
+fooBuild2S v = rfromS $
+  sbuild1 @_ @_ @2 $ \ix ->
+    ifF (sfromR (ShapedList.unShapedNat ix) - (sprimalPart . sfloor) (ssum0 @shaped @r @[5,12,11,9,4]
+             $ sreplicate0N @_ @_ @[5,12,11,9,4] (ssum0 v)) - 10001 >=. 0
+         &&* sfromR (ShapedList.unShapedNat ix) - (sprimalPart . sfloor) (ssum0 @shaped @r @[5,12,11,9,4]
+             $ sreplicate0N @_ @_ @[5,12,11,9,4] (ssum0 v)) - 10001 <=. 1)
+        (sindex v (ShapedList.singletonIndex (rfromS $ sfromR (ShapedList.unShapedNat ix) - (sprimalPart . sfloor) (ssum0 @shaped @r @[5,12,11,9,4]
+             $ sreplicate0N @_ @_ @[5,12,11,9,4] (ssum0 v)) - 10001)))
+           -- index out of bounds; also fine
+        (sqrt $ abs $ sindex v (ShapedList.singletonIndex (rfromS $ let rr = (sfromR (ShapedList.unShapedNat ix) - (sprimalPart . sfloor) (ssum0 v) - 10001) `remF` 2
+                                in ifF (signum rr ==. negate (signum 2))
+                                   (rr + 2)
+                                   rr)))
+
+testFooBuild21S :: Assertion
+testFooBuild21S =
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [2] [0.2886751345948129,0.35355339059327373])
+    (rev' @Double @1 (fooBuild2S @2 @'[] . sfromR) (Flip $ OR.fromList [2] [3.0,2.0]))
+
+testFooBuild25S :: Assertion
+testFooBuild25S =
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [2,2,1,2,2] [0.22360679774997896,0.35355339059327373,0.20412414523193154,0.5,-0.35355339059327373,500.0,1.5811388300841895,-1.118033988749895,0.1381447409988844,0.16666666666666666,0.17677669529663687,-0.25,8.574929257125441e-2,0.288948802391873,-8.703882797784893e-2,9.805806756909202e-2])
+    (rev' @Double @5 (fooBuild2S @2 @[2, 1, 2, 2] . sfromR) t16)
 
 fooBuild3 :: forall ranked r n.
              ( ADReady ranked, GoodScalar r, KnownNat n, RealFloat (ranked r n) )
