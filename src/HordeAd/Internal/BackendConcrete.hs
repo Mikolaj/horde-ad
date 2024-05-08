@@ -25,6 +25,7 @@ import qualified Data.Array.Shape as Sh
 import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
+import           Data.Coerce (Coercible, coerce)
 import           Data.Functor (void)
 import           Data.Int (Int64)
 import           Data.List (foldl')
@@ -50,7 +51,7 @@ import qualified Numeric.LinearAlgebra as LA
 import           System.IO.Unsafe (unsafePerformIO)
 import           Unsafe.Coerce (unsafeCoerce)
 
-import qualified Data.Array.Shape as X
+import qualified Data.Array.Mixed as X
 
 import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances
@@ -60,9 +61,13 @@ import           HordeAd.Util.ShapedList (IndexS, ShapedNat)
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedList
 
+import qualified Data.Array.Mixed as X
+import qualified Data.Array.Nested as Nested
+import qualified Data.Array.Nested.Internal as Nested.Internal
+
 type ORArray = Flip OR.Array
 
-type OSArray = FlipS OS.Array
+type OSArray = FlipS Nested.Shaped
 
 
 -- * Ranked tensor operations
@@ -183,7 +188,7 @@ tunravelToListR t = case OR.shapeL t of
   _ -> ORB.toList $ OR.unravel t
 
 tunravelToListS :: forall r n sh. (Numeric r, KnownNat n, KnownShape sh)
-                => OS.Array (n ': sh) r -> [OS.Array sh r]
+                => Nested.Shaped (n ': sh) r -> [Nested.Shaped sh r]
 tunravelToListS t | Dict <- lemShapeFromKnownShape (Proxy @sh) =
   case OS.shapeL t of
     0 : _ -> []
@@ -411,9 +416,9 @@ type IndexIntSh sh = IndexS sh Int64
 -- TODO: for the non-singleton case see
 -- https://github.com/Mikolaj/horde-ad/pull/81#discussion_r1096532164
 updateNS :: forall n sh r. (NumAndShow r, KnownShape sh, KnownShape (Sh.Drop n sh))
-         => OS.Array sh r
-         -> [(IndexIntSh (Sh.Take n sh), OS.Array (Sh.Drop n sh) r)]
-         -> OS.Array sh r
+         => Nested.Shaped sh r
+         -> [(IndexIntSh (Sh.Take n sh), Nested.Shaped (Sh.Drop n sh) r)]
+         -> Nested.Shaped sh r
 updateNS arr upd | Dict <- lemShapeFromKnownShape (Proxy @sh)
                  , Dict <- lemShapeFromKnownShape (Proxy @(Sh.Drop n sh)) =
   let values = OS.toVector arr
@@ -432,10 +437,10 @@ updateNS arr upd | Dict <- lemShapeFromKnownShape (Proxy @sh)
 tminIndexS
   :: forall n sh r r2. ( NumAndShow r, NumAndShow r2, KnownShape sh, KnownNat n
                        , KnownShape (Sh.Init (n ': sh)) )
-  => OS.Array (n ': sh) r -> OS.Array (Sh.Init (n ': sh)) r2
+  => Nested.Shaped (n ': sh) r -> Nested.Shaped (Sh.Init (n ': sh)) r2
 tminIndexS | Dict <- lemShapeFromKnownShape (Proxy @sh)
            , Dict <- lemShapeFromKnownShape (Proxy @(Sh.Init (n ': sh))) =
-  let f :: KnownNat m => OS.Array '[m] r -> OS.Array '[] r2
+  let f :: KnownNat m => Nested.Shaped '[m] r -> Nested.Shaped '[] r2
       f = OS.scalar . fromIntegral . LA.minIndex . OS.toVector
   in case sameShape @sh @'[] of
     Just Refl -> f @n
@@ -459,10 +464,10 @@ tminIndexS | Dict <- lemShapeFromKnownShape (Proxy @sh)
 tmaxIndexS
   :: forall n sh r r2. ( NumAndShow r, NumAndShow r2, KnownShape sh, KnownNat n
                        , KnownShape (Sh.Init (n ': sh)) )
-  => OS.Array (n ': sh) r -> OS.Array (Sh.Init (n ': sh)) r2
+  => Nested.Shaped (n ': sh) r -> Nested.Shaped (Sh.Init (n ': sh)) r2
 tmaxIndexS | Dict <- lemShapeFromKnownShape (Proxy @sh)
            , Dict <- lemShapeFromKnownShape (Proxy @(Sh.Init (n ': sh))) =
-  let f :: KnownNat m => OS.Array '[m] r -> OS.Array '[] r2
+  let f :: KnownNat m => Nested.Shaped '[m] r -> Nested.Shaped '[] r2
       f = OS.scalar . fromIntegral . LA.maxIndex . OS.toVector
   in case sameShape @sh @'[] of
     Just Refl -> f @n
@@ -486,12 +491,12 @@ tmaxIndexS | Dict <- lemShapeFromKnownShape (Proxy @sh)
 -- TODO: use Convert, fromInt/toInt and fromZ/toZ from hmatrix
 tfloorS :: forall r r2 sh.
            (NumAndShow r, RealFrac r, NumAndShow r2, Integral r2, KnownShape sh)
-        => OS.Array sh r -> OS.Array sh r2
+        => Nested.Shaped sh r -> Nested.Shaped sh r2
 tfloorS | Dict <- lemShapeFromKnownShape (Proxy @sh) = liftVS (V.map floor)
 
 tindexNS
   :: forall sh1 sh2 r.
-     OS.Array (sh1 X.++ sh2) r -> IndexIntSh sh1 -> OS.Array sh2 r
+     Nested.Shaped (sh1 X.++ sh2) r -> IndexIntSh sh1 -> Nested.Shaped sh2 r
 tindexNS (SS.A (SG.A OI.T{strides, offset, values})) ix =
   let l = ShapedList.indexToList ix
       linear = offset + sum (zipWith (*) (map fromIntegral l) strides)
@@ -506,7 +511,7 @@ tindexNS (SS.A (SG.A OI.T{strides, offset, values})) ix =
 -- and return 0, so it's fine. Similarly in gather and scatter.
 tindexZS
   :: forall sh1 sh2 r. (NumAndShow r, KnownShape sh2, KnownShape (sh1 X.++ sh2))
-  => OS.Array (sh1 X.++ sh2) r -> IndexIntSh sh1 -> OS.Array sh2 r
+  => Nested.Shaped (sh1 X.++ sh2) r -> IndexIntSh sh1 -> Nested.Shaped sh2 r
 tindexZS v ix | Dict <- lemShapeFromKnownShape (Proxy @sh2)
               , Dict <- lemShapeFromKnownShape (Proxy @(sh1 X.++ sh2)) =
   let sh = OS.shapeL v
@@ -516,7 +521,7 @@ tindexZS v ix | Dict <- lemShapeFromKnownShape (Proxy @sh2)
 
 tindex0S
   :: Numeric r
-  => OS.Array sh r -> IndexIntSh sh -> r
+  => Nested.Shaped sh r -> IndexIntSh sh -> r
 tindex0S (SS.A (SG.A OI.T{..})) ix =
   values V.! (offset + sum (zipWith (*) (map fromIntegral
                                          $ ShapedList.indexToList ix)
@@ -529,7 +534,7 @@ tindex0S (SS.A (SG.A OI.T{..})) ix =
 -- also don't put NOINLINE in the functions using FFI.
 tsumS
   :: forall n sh r. (KnownNat n, Numeric r, RowSum r, KnownShape sh)
-  => OS.Array (n ': sh) r -> OS.Array sh r
+  => Nested.Shaped (n ': sh) r -> Nested.Shaped sh r
 tsumS (SS.A (SG.A (OI.T (_ : ss) o vt))) | V.length vt == 1 =
   SS.A (SG.A (OI.T ss o (V.map (* valueOf @n) vt)))
 tsumS t | Dict <- lemShapeFromKnownShape (Proxy @sh) =
@@ -549,7 +554,7 @@ tsumS t | Dict <- lemShapeFromKnownShape (Proxy @sh) =
 -- Sum the innermost dimension (at least at rank 2; TODO: generalize).
 tsumInS
   :: forall m n sh r. (KnownNat n, Numeric r, RowSum r, KnownNat m, KnownShape sh)
-  => OS.Array (m ': n ': sh) r -> OS.Array (m ': sh) r
+  => Nested.Shaped (m ': n ': sh) r -> Nested.Shaped (m ': sh) r
 tsumInS t | Dict <- lemShapeFromKnownShape (Proxy @sh) = case OS.shapeL t of
   [] -> error "tsumInS: null shape"
 {-
@@ -573,7 +578,7 @@ tsumInS t | Dict <- lemShapeFromKnownShape (Proxy @sh) = case OS.shapeL t of
 
 tsum0S
   :: forall sh r. (Numeric r, KnownShape sh)
-  => OS.Array sh r -> r
+  => Nested.Shaped sh r -> r
 tsum0S (SS.A (SG.A (OI.T _ _ vt))) | V.length vt == 1 =
   fromIntegral (sizeT @sh) * vt V.! 0
 -- tsumInS t@(SS.A (SG.A (OI.T _ _ vt))) | V.length vt == 1 =
@@ -582,7 +587,7 @@ tsum0S (SS.A (SG.A t)) =
 
 tdot0S
   :: forall sh r. (Numeric r, KnownShape sh)
-  => OS.Array sh r -> OS.Array sh r -> r
+  => Nested.Shaped sh r -> Nested.Shaped sh r -> r
 tdot0S (SS.A (SG.A (OI.T _ _ vt))) (SS.A (SG.A (OI.T _ _ vu)))
   | V.length vt == 1 && V.length vu == 1 =
       fromIntegral (sizeT @sh) * vt V.! 0 * vu V.! 0
@@ -594,7 +599,7 @@ tdot0S t u | Dict <- lemShapeFromKnownShape (Proxy @sh) =
 
 tdot1InS
   :: (NumAndShow r, RowSum r, KnownNat m, KnownNat n)
-  => OS.Array '[m, n] r -> OS.Array '[m, n] r -> OS.Array '[m] r
+  => Nested.Shaped '[m, n] r -> Nested.Shaped '[m, n] r -> Nested.Shaped '[m] r
 tdot1InS t@(SS.A (SG.A (OI.T _ _ vt))) u@(SS.A (SG.A (OI.T _ _ vu))) =
   if V.length vt == 1 || V.length vu == 1
   then tsumInS (t * u)
@@ -605,7 +610,7 @@ tdot1InS t@(SS.A (SG.A (OI.T _ _ vt))) u@(SS.A (SG.A (OI.T _ _ vu))) =
 
 tmatvecmulS
   :: forall m n r. (Numeric r, KnownNat m, KnownNat n)
-  => OS.Array '[m, n] r -> OS.Array '[n] r -> OS.Array '[m] r
+  => Nested.Shaped '[m, n] r -> Nested.Shaped '[n] r -> Nested.Shaped '[m] r
 tmatvecmulS t u =
   let t2 = OS.toVector t
       u2 = OS.toVector u
@@ -613,7 +618,7 @@ tmatvecmulS t u =
 
 tmatmul2S
   :: forall m n p r. (Numeric r, KnownNat m, KnownNat n, KnownNat p)
-  => OS.Array '[m, n] r -> OS.Array '[n, p] r -> OS.Array '[m, p] r
+  => Nested.Shaped '[m, n] r -> Nested.Shaped '[n, p] r -> Nested.Shaped '[m, p] r
 tmatmul2S t u =
   let t2 = OS.toVector t
       u2 = OS.toVector u
@@ -631,9 +636,9 @@ tmatmul2S t u =
 -- permits index out of bounds and then no tensors is added at such an index.
 tscatterZS :: forall r sh2 p sh.
               (NumAndShow r, KnownShape sh, KnownShape sh2, KnownShape (Sh.Drop p sh))
-           => OS.Array (sh2 X.++ Sh.Drop p sh) r
+           => Nested.Shaped (sh2 X.++ Sh.Drop p sh) r
            -> (IndexIntSh sh2 -> IndexIntSh (Sh.Take p sh))
-           -> OS.Array sh r
+           -> Nested.Shaped sh r
 tscatterZS t f | Dict <- lemShapeFromKnownShape (Proxy @sh)
                , Dict <- lemShapeFromKnownShape (Proxy @(Sh.Drop p sh)) =
   let sh2 = knownShape @sh2
@@ -654,9 +659,9 @@ tscatterZS t f | Dict <- lemShapeFromKnownShape (Proxy @sh)
 -- or optimize tscatterNS and instantiate it instead
 tscatterZ1S :: forall r n2 p sh.
                (NumAndShow r, KnownNat n2, KnownShape sh, KnownShape (Sh.Drop p sh))
-            => OS.Array (n2 ': Sh.Drop p sh) r
+            => Nested.Shaped (n2 ': Sh.Drop p sh) r
             -> (Int64Sh n2 -> IndexIntSh (Sh.Take p sh))
-            -> OS.Array sh r
+            -> Nested.Shaped sh r
 tscatterZ1S t f | Dict <- lemShapeFromKnownShape (Proxy @sh) =
     sum $ imap (\i ti ->
                    let ix2 = f $ ShapedList.shapedNat $ fromIntegral i
@@ -668,30 +673,30 @@ tscatterZ1S t f | Dict <- lemShapeFromKnownShape (Proxy @sh) =
 
 tfromListS
   :: forall n sh r. (Numeric r, KnownNat n, KnownShape sh)
-  => [OS.Array sh r] -> OS.Array (n ': sh) r
+  => [Nested.Shaped sh r] -> Nested.Shaped (n ': sh) r
 tfromListS l | Dict <- lemShapeFromKnownShape (Proxy @sh) =
   OS.ravel $ OSB.fromList l
 
 tfromList0NS
   :: forall r sh. (Numeric r, KnownShape sh)
-  => [r] -> OS.Array sh r
+  => [r] -> Nested.Shaped sh r
 tfromList0NS | Dict <- lemShapeFromKnownShape (Proxy @sh) = OS.fromList
 
 tfromVectorS
   :: forall n sh r. (Numeric r, KnownNat n, KnownShape sh)
-  => Data.Vector.Vector (OS.Array sh r) -> OS.Array (n ': sh) r
+  => Data.Vector.Vector (Nested.Shaped sh r) -> Nested.Shaped (n ': sh) r
 tfromVectorS l | Dict <- lemShapeFromKnownShape (Proxy @sh) =
   OS.ravel $ OSB.fromVector $ V.convert l
 
 tfromVector0NS
   :: forall r sh. (Numeric r, KnownShape sh)
-  => Data.Vector.Vector r -> OS.Array sh r
+  => Data.Vector.Vector r -> Nested.Shaped sh r
 tfromVector0NS l | Dict <- lemShapeFromKnownShape (Proxy @sh) =
   OS.fromVector $ V.convert l
 
 treplicateS
   :: forall n sh r. (Numeric r, KnownNat n, KnownShape sh)
-  => OS.Array sh r -> OS.Array (n ': sh) r
+  => Nested.Shaped sh r -> Nested.Shaped (n ': sh) r
 treplicateS u | Dict <- lemShapeFromKnownShape (Proxy @sh) =
   case knownShape @sh of
     ShNil -> OS.constant (OS.unScalar u)
@@ -699,50 +704,51 @@ treplicateS u | Dict <- lemShapeFromKnownShape (Proxy @sh) =
 
 treplicate0NS
   :: forall r sh. (Numeric r, KnownShape sh)
-  => r -> OS.Array sh r
+  => r -> Nested.Shaped sh r
 treplicate0NS | Dict <- lemShapeFromKnownShape (Proxy @sh) = OS.constant
 
 tappendS
   :: forall r m n sh. (Numeric r, KnownNat m, KnownNat n, KnownShape sh)
-  => OS.Array (m ': sh) r -> OS.Array (n ': sh) r -> OS.Array ((m + n) ': sh) r
+  => Nested.Shaped (m ': sh) r -> Nested.Shaped (n ': sh) r -> Nested.Shaped ((m + n) ': sh) r
 tappendS | Dict <- lemShapeFromKnownShape (Proxy @sh) = OS.append
 
 tsliceS
   :: forall i n k sh r. KnownNat i
-  => OS.Array (i + n + k ': sh) r -> OS.Array (n ': sh) r
+  => Nested.Shaped (i + n + k ': sh) r -> Nested.Shaped (n ': sh) r
 tsliceS = OS.slice @'[ '(i, n) ]
 
 treverseS
   :: forall n sh r. (KnownNat n, KnownShape sh)
-  => OS.Array (n ': sh) r -> OS.Array (n ': sh) r
+  => Nested.Shaped (n ': sh) r -> Nested.Shaped (n ': sh) r
 treverseS | Dict <- lemShapeFromKnownShape (Proxy @sh) = OS.rev @'[0]
 
 ttransposeS
   :: forall perm r sh.
      ( KnownShape perm, OS.Permutation perm, KnownShape sh, KnownNat (Sh.Rank sh)
      , Sh.Rank perm <= Sh.Rank sh )
-  => OS.Array sh r -> OS.Array (Sh.Permute perm sh) r
+  => Nested.Shaped sh r -> Nested.Shaped (Sh.Permute perm sh) r
 ttransposeS | Dict <- lemShapeFromKnownShape (Proxy @perm)
             , Dict <- lemShapeFromKnownShape (Proxy @sh) = OS.transpose @perm
 
 treshapeS
   :: forall r sh sh2.
      (Numeric r, KnownShape sh, KnownShape sh2, Sh.Size sh ~ Sh.Size sh2)
-  => OS.Array sh r -> OS.Array sh2 r
+  => Nested.Shaped sh r -> Nested.Shaped sh2 r
 treshapeS | Dict <- lemShapeFromKnownShape (Proxy @sh)
           , Dict <- lemShapeFromKnownShape (Proxy @sh2) = OS.reshape
 
 tbuild1S
   :: forall n sh r. (KnownNat n, Numeric r, KnownShape sh)
-  => (Int64Sh n -> OS.Array sh r) -> OS.Array (n ': sh) r
+  => (Int64Sh n -> Nested.Shaped sh r) -> Nested.Shaped (n ': sh) r
 tbuild1S f | Dict <- lemShapeFromKnownShape (Proxy @sh) =
   let k = valueOf @n
   in OS.ravel $ OSB.fromList
      $ map (f . ShapedList.shapedNat) [0 .. k - 1]  -- hope this fuses
 
+{- TODO
 tmap0NS
   :: forall r r2 sh. (Numeric r, Numeric r2, KnownShape sh)
-  => (OS.Array '[] r -> OS.Array '[] r2) -> OS.Array sh r -> OS.Array sh r2
+  => (Nested.Shaped '[] r -> Nested.Shaped '[] r2) -> Nested.Shaped sh r -> Nested.Shaped sh r2
 tmap0NS f | Dict <- lemShapeFromKnownShape (Proxy @sh) =
   OS.mapA (tunScalarS . f . tscalarS)
             -- too slow: tbuildNS (tshapeS v) (\ix -> f $ v `tindexNS` ix)
@@ -750,11 +756,12 @@ tmap0NS f | Dict <- lemShapeFromKnownShape (Proxy @sh) =
 
 tzipWith0NS
   :: forall r1 r2 r sh. (Numeric r1, Numeric r2, Numeric r, KnownShape sh)
-  => (OS.Array '[] r1 -> OS.Array '[] r2 -> OS.Array '[] r)
-  -> OS.Array sh r1 -> OS.Array sh r2 -> OS.Array sh r
+  => (Nested.Shaped '[] r1 -> Nested.Shaped '[] r2 -> Nested.Shaped '[] r)
+  -> Nested.Shaped sh r1 -> Nested.Shaped sh r2 -> Nested.Shaped sh r
 tzipWith0NS f | Dict <- lemShapeFromKnownShape (Proxy @sh) =
   OS.zipWithA (\x y -> tunScalarS $ f (tscalarS x) (tscalarS y))
                 -- bad type: liftVS2 . Numeric.LinearAlgebra.Devel.zipVectorWith
+-}
 
 -- TODO: this can be slightly optimized by normalizing t first (?)
 -- and then inlining toVector and tindexZS
@@ -764,9 +771,9 @@ tzipWith0NS f | Dict <- lemShapeFromKnownShape (Proxy @sh) =
 tgatherZS :: forall sh2 p sh r.
              ( NumAndShow r, KnownShape sh, KnownShape sh2, KnownShape (Sh.Drop p sh)
              , KnownShape (sh2 X.++ Sh.Drop p sh) )
-          => OS.Array sh r
+          => Nested.Shaped sh r
           -> (IndexIntSh sh2 -> IndexIntSh (Sh.Take p sh))
-          -> OS.Array (sh2 X.++ Sh.Drop p sh) r
+          -> Nested.Shaped (sh2 X.++ Sh.Drop p sh) r
 tgatherZS t f | Dict <- lemShapeFromKnownShape (Proxy @sh)
               , Dict <- lemShapeFromKnownShape (Proxy @(Sh.Drop p sh))
               , Dict <- lemShapeFromKnownShape
@@ -775,17 +782,28 @@ tgatherZS t f | Dict <- lemShapeFromKnownShape (Proxy @sh)
       s = sizeT @sh2
       l = gcastWith (unsafeCoerce Refl
                      :: sh :~: Sh.Take p sh X.++ Sh.Drop p sh)
-          $ [ OS.toVector
-                (t `tindexZS` f (ShapedList.fromLinearIdx sh2
-                                 $ ShapedList.shapedNat $ fromIntegral i)
-                 :: OS.Array (Sh.Drop p sh) r)
+          $ [ stoVector  -- Nested.stoVector
+                (Nested.sindexPartial t
+                   $ fmap fromIntegral
+                   $ f (ShapedList.fromLinearIdx sh2
+                        $ ShapedList.shapedNat $ fromIntegral i)
+                 :: Nested.Shaped (Sh.Drop p sh) r)
             | i <- [0 .. s - 1] ]
-  in OS.fromVector $ LA.vjoin l
+  in sfromVector $ LA.vjoin l  -- Nested.sfromVector $ LA.vjoin l
 
+stoVector :: (KnownShape sh, NumAndShow r)
+          => Nested.Shaped sh r -> Vector r
+stoVector = undefined
+
+sfromVector :: (KnownShape sh, NumAndShow r)
+            => Vector r -> Nested.Shaped sh r
+sfromVector = undefined
+
+{- TODO
 tgatherZ1S :: forall n2 p sh r.
               (KnownNat n2, NumAndShow r, KnownShape sh, KnownShape (Sh.Drop p sh))
-           => OS.Array sh r -> (Int64Sh n2 -> IndexIntSh (Sh.Take p sh))
-           -> OS.Array (n2 ': Sh.Drop p sh) r
+           => Nested.Shaped sh r -> (Int64Sh n2 -> IndexIntSh (Sh.Take p sh))
+           -> Nested.Shaped (n2 ': Sh.Drop p sh) r
 tgatherZ1S t f | Dict <- lemShapeFromKnownShape (Proxy @sh)
                , Dict <- lemShapeFromKnownShape (Proxy @(Sh.Drop p sh)) =
   let l = gcastWith (unsafeCoerce Refl
@@ -793,34 +811,40 @@ tgatherZ1S t f | Dict <- lemShapeFromKnownShape (Proxy @sh)
           $ map (\i -> t `tindexZS` f (ShapedList.shapedNat i))
                 [0 .. valueOf @n2 - 1]
   in OS.ravel $ OSB.fromList l
+-}
 
 -- TODO: use Convert, fromInt/toInt and fromZ/toZ from hmatrix
 tcastS :: forall r1 r2 sh.
           (Numeric r1, Numeric r2, KnownShape sh, Real r1, Fractional r2)
-       => OS.Array sh r1 -> OS.Array sh r2
-tcastS | Dict <- lemShapeFromKnownShape (Proxy @sh) = liftVS (V.map realToFrac)
+       => Nested.Shaped sh r1 -> Nested.Shaped sh r2
+tcastS =
+--  liftVS (V.map realToFrac)
+  undefined
 
 -- TODO: use Convert, fromInt/toInt and fromZ/toZ from hmatrix
-tfromIntegralS :: forall r1 r2 sh .
+tfromIntegralS :: forall r1 r2 sh.
                   (Numeric r1, Numeric r2, KnownShape sh, Integral r1)
-               => OS.Array sh r1 -> OS.Array sh r2
-tfromIntegralS | Dict <- lemShapeFromKnownShape (Proxy @sh) =
-  liftVS (V.map fromIntegral)
+               => Nested.Shaped sh r1 -> Nested.Shaped sh r2
+tfromIntegralS =
+--  liftVS (V.map fromIntegral)
+  undefined
 
 tscalarS
   :: Numeric r
-  => r -> OS.Array '[] r
-tscalarS = OS.scalar
+  => r -> Nested.Shaped '[] r
+tscalarS = Nested.sscalar
 
 tunScalarS
   :: Numeric r
-  => OS.Array '[] r -> r
-tunScalarS = OS.unScalar
+  => Nested.Shaped '[] r -> r
+tunScalarS = Nested.sunScalar
 
-tscaleByScalarS :: forall r sh. (Numeric r, KnownShape sh)
-                => r -> OS.Array sh r -> OS.Array sh r
-tscaleByScalarS s | Dict <- lemShapeFromKnownShape (Proxy @sh) =
-  liftVS (LA.scale s)
+tscaleByScalarS :: forall r sh. (Numeric r, KnownShape sh, Coercible (Nested.Mixed (Nested.Internal.MapJust sh) (Nested.Primitive r)) (Nested.Mixed (Nested.Internal.MapJust sh) r))
+                => r -> Nested.Shaped sh r -> Nested.Shaped sh r
+tscaleByScalarS s =
+--  liftVS (LA.scale s)
+--  Nested.rlift $ Nested.Internal.mliftPrim $ LA.scale s
+  (Nested.sconstant s *)
 
 toIndexOfS :: IndexIntSh sh -> IndexS sh (ORArray Int64 0)
 toIndexOfS ix = Flip . tscalarR <$> ix

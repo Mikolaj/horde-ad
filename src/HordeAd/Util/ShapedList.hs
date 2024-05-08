@@ -43,7 +43,6 @@ import           GHC.Exts (IsList (..))
 import           GHC.TypeLits (KnownNat, Nat, type (*))
 import           Unsafe.Coerce (unsafeCoerce)
 
-import qualified Data.Array.Shape as X
 import           Data.Array.Nested
   ( IxS (..)
   , ListS
@@ -55,6 +54,7 @@ import           Data.Array.Nested
   , pattern ZS
   , pattern ZSS
   )
+import qualified Data.Array.Mixed as X
 
 import           HordeAd.Core.Types
 import           HordeAd.Util.SizedList (Permutation)

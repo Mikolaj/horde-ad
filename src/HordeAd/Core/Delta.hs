@@ -68,7 +68,7 @@ import           Text.Show.Functions ()
 import           Type.Reflection (typeRep)
 import           Unsafe.Coerce (unsafeCoerce)
 
-import qualified Data.Array.Shape as X
+import qualified Data.Array.Mixed as X
 
 import HordeAd.Core.HVector
 import HordeAd.Core.HVectorOps

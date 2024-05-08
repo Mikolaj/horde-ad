@@ -176,14 +176,16 @@ instance ShapedTensor (OSArray) where
   sreshape = FlipS . treshapeS . runFlipS
   sbuild1 f = FlipS $ tbuild1S (runFlipS . f . shapedNat . Flip
                                 . tscalarR . unShapedNat)
-  smap0N f t = FlipS $ tmap0NS (runFlipS . f . FlipS) (runFlipS t)
-  szipWith0N f t u = FlipS $ tzipWith0NS (\v w -> runFlipS $ f (FlipS v) (FlipS w))
-                                        (runFlipS t) (runFlipS u)
+-- TODO
+--  smap0N f t = FlipS $ tmap0NS (runFlipS . f . FlipS) (runFlipS t)
+--  szipWith0N f t u = FlipS $ tzipWith0NS (\v w -> runFlipS $ f (FlipS v) (FlipS w))
+--                                        (runFlipS t) (runFlipS u)
   sgather t f = FlipS $ tgatherZS (runFlipS t)
                                   (fromIndexOfS . f . toIndexOfS)
-  sgather1 t f = FlipS $ tgatherZ1S (runFlipS t)
-                                    (fromIndexOfS . f . shapedNat . Flip
-                                     . tscalarR . unShapedNat)
+-- TODO
+-- sgather1 t f = FlipS $ tgatherZ1S (runFlipS t)
+--                                    (fromIndexOfS . f . shapedNat . Flip
+--                                     . tscalarR . unShapedNat)
   scast = FlipS . tcastS . runFlipS
   sfromIntegral = FlipS . tfromIntegralS . runFlipS
   sconst = FlipS

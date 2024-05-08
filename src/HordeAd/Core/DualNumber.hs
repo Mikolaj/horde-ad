@@ -25,7 +25,7 @@ import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, sameNat, type (+))
 import           Type.Reflection (typeRep)
 
-import qualified Data.Array.Shape as X
+import qualified Data.Array.Mixed as X
 
 import           HordeAd.Core.Delta
 import           HordeAd.Core.HVector
