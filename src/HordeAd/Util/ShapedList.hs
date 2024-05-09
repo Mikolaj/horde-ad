@@ -43,6 +43,7 @@ import           GHC.Exts (IsList (..))
 import           GHC.TypeLits (KnownNat, Nat, type (*))
 import           Unsafe.Coerce (unsafeCoerce)
 
+import qualified Data.Array.Shape as X
 import           Data.Array.Nested
   ( IxS (..)
   , ListS
@@ -54,6 +55,7 @@ import           Data.Array.Nested
   , pattern ZS
   , pattern ZSS
   )
+
 import           HordeAd.Core.Types
 import           HordeAd.Util.SizedList (Permutation)
 import qualified HordeAd.Util.SizedList as SizedList
@@ -104,9 +106,9 @@ snocSized ((::$) @_ @sh2 i ix) last1 = case knownShape @sh2 of
   ShNil -> i ::$ snocSized ix last1
   ShCons SNat _ -> i ::$ snocSized ix last1
 
-appendSized :: KnownShape (sh2 Sh.++ sh)
+appendSized :: KnownShape (sh2 X.++ sh)
             => SizedListS sh2 i -> SizedListS sh i
-            -> SizedListS (sh2 Sh.++ sh) i
+            -> SizedListS (sh2 X.++ sh) i
 appendSized l1 l2 = listToSized $ sizedToList l1 ++ sizedToList l2
 
 headSized :: SizedListS (n ': sh) i -> i
@@ -249,8 +251,8 @@ unconsContIndex f (i :.$ _) = f (ShapedNat i)
 singletonIndex :: KnownNat n => i -> IndexS '[n] i
 singletonIndex = IndexS . singletonSized
 
-appendIndex :: KnownShape (sh2 Sh.++ sh)
-            => IndexS sh2 i -> IndexS sh i -> IndexS (sh2 Sh.++ sh) i
+appendIndex :: KnownShape (sh2 X.++ sh)
+            => IndexS sh2 i -> IndexS sh i -> IndexS (sh2 X.++ sh) i
 appendIndex (IndexS ix1) (IndexS ix2) = IndexS $ appendSized ix1 ix2
 
 backpermutePrefixIndex :: forall sh sh2 i. (KnownShape sh, KnownShape sh2)
@@ -347,15 +349,15 @@ shapeToList (ShapeS l) = sizedToList l
 -- which is fine, that's pointing at the start of the empty buffer.
 -- Note that the resulting 0 may be a complex term.
 toLinearIdx :: forall sh1 sh2 j. (KnownShape sh2, Num j)
-            => SShape (sh1 Sh.++ sh2) -> IndexS sh1 j
+            => SShape (sh1 X.++ sh2) -> IndexS sh1 j
             -> ShapedNat (Sh.Size sh1 * Sh.Size sh2) j
 toLinearIdx = \sh idx -> shapedNat $ go sh idx 0
   where
     -- Additional argument: index, in the @m - m1@ dimensional array so far,
     -- of the @m - m1 + n@ dimensional tensor pointed to by the current
     -- @m - m1@ dimensional index prefix.
-    go :: forall sh3. SShape (sh3 Sh.++ sh2) -> IndexS sh3 j -> j -> j
-    go _sh ZIS tensidx = fromIntegral (sizeT @(sh3 Sh.++ sh2)) * tensidx
+    go :: forall sh3. SShape (sh3 X.++ sh2) -> IndexS sh3 j -> j -> j
+    go _sh ZIS tensidx = fromIntegral (sizeT @(sh3 X.++ sh2)) * tensidx
     go (ShCons n sh) (i :.$ idx) tensidx =
       go sh idx (sNatValue n * tensidx + i)
     go _ _ _ = error "toLinearIdx: impossible pattern needlessly required"

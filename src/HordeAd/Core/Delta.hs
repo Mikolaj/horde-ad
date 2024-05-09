@@ -68,6 +68,8 @@ import           Text.Show.Functions ()
 import           Type.Reflection (typeRep)
 import           Unsafe.Coerce (unsafeCoerce)
 
+import qualified Data.Array.Shape as X
+
 import HordeAd.Core.HVector
 import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorClass
@@ -279,8 +281,8 @@ data DeltaS :: ShapedTensorType -> ShapedTensorType where
        -> DeltaS shaped r sh
   ShareS :: NodeId (RankedOf shaped) -> DeltaS shaped r sh -> DeltaS shaped r sh
 
-  IndexS :: (KnownShape sh1, KnownShape (sh1 Sh.++ sh2))
-         => DeltaS shaped r (sh1 Sh.++ sh2)
+  IndexS :: (KnownShape sh1, KnownShape (sh1 X.++ sh2))
+         => DeltaS shaped r (sh1 X.++ sh2)
          -> IndexSh shaped sh1
          -> DeltaS shaped r sh2
     -- ^ The sub-tensor at the given index.
@@ -294,8 +296,8 @@ data DeltaS :: ShapedTensorType -> ShapedTensorType where
         -> DeltaS shaped r '[]
   ScatterS :: forall shaped r sh2 p sh.
               ( KnownShape sh2, KnownShape (Sh.Take p sh), KnownShape (Sh.Drop p sh)
-              , KnownShape (sh2 Sh.++ Sh.Drop p sh) )
-           => DeltaS shaped r (sh2 Sh.++ Sh.Drop p sh)
+              , KnownShape (sh2 X.++ Sh.Drop p sh) )
+           => DeltaS shaped r (sh2 X.++ Sh.Drop p sh)
            -> (IndexSh shaped sh2
                -> IndexSh shaped (Sh.Take p sh))
            -> DeltaS shaped r sh
@@ -352,7 +354,7 @@ data DeltaS :: ShapedTensorType -> ShapedTensorType where
           => DeltaS shaped r sh
           -> (IndexSh shaped sh2
               -> IndexSh shaped (Sh.Take p sh))
-          -> DeltaS shaped r (sh2 Sh.++ Sh.Drop p sh)
+          -> DeltaS shaped r (sh2 X.++ Sh.Drop p sh)
     -- ^ Build a tensor by picking tensors of rank @n@ at the given indexes
     -- of length @p@. Index of length 0 results in identity, so that,
     -- e.g, @Gather1 (const ZR) [] (ScalarR d) k@ is equivalent
@@ -799,9 +801,9 @@ evalS !s !c = let cShared = sshare c
 
   IndexS @sh1 d ix ->
     gcastWith (unsafeCoerce Refl
-               :: Sh.Drop (Sh.Rank sh1) (sh1 Sh.++ sh) :~: sh)
+               :: Sh.Drop (Sh.Rank sh1) (sh1 X.++ sh) :~: sh)
     $ gcastWith (unsafeCoerce Refl
-                 :: Sh.Take (Sh.Rank sh1) (sh1 Sh.++ sh) :~: sh1)
+                 :: Sh.Take (Sh.Rank sh1) (sh1 X.++ sh) :~: sh1)
     $ evalS s (sscatter @shaped @r @'[] @(Sh.Rank sh1) c (const ix)) d
     -- equivalent: evalS s (updateNR (replicate0NR sh 0) [(ix, c)]) d
   SumS d -> evalS s (sreplicate c) d

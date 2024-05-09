@@ -35,6 +35,8 @@ import           Numeric.LinearAlgebra (Vector)
 import           Type.Reflection (typeRep)
 import           Unsafe.Coerce (unsafeCoerce)
 
+import qualified Data.Array.Shape as X
+
 import           HordeAd.Core.HVector
 import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances
@@ -377,15 +379,15 @@ class ( Integral (IntOf shaped), CShaped shaped Num
   -- indicates the rank of the codomain, if bounded.
   sindex, (!$) :: forall r sh1 sh2.
                   ( GoodScalar r, KnownShape sh1, KnownShape sh2
-                  , KnownShape (sh1 Sh.++ sh2) )
-               => shaped r (sh1 Sh.++ sh2) -> IndexSh shaped sh1
+                  , KnownShape (sh1 X.++ sh2) )
+               => shaped r (sh1 X.++ sh2) -> IndexSh shaped sh1
                -> shaped r sh2
   infixl 9 !$
   (!$) = sindex  -- prefix form better when type applications are necessary
   sindex0 :: forall r sh1. (GoodScalar r, KnownShape sh1)
           => shaped r sh1 -> IndexSh shaped sh1
           -> shaped r '[]
-  sindex0 = gcastWith (unsafeCoerce Refl :: sh1 Sh.++ '[] :~: sh1)
+  sindex0 = gcastWith (unsafeCoerce Refl :: sh1 X.++ '[] :~: sh1)
               sindex
   ssum :: forall r n sh. (GoodScalar r, KnownNat n, KnownShape sh)
        => shaped r (n ': sh) -> shaped r sh
@@ -406,8 +408,8 @@ class ( Integral (IntOf shaped), CShaped shaped Num
   sscatter
     :: forall r sh2 p sh.
        ( GoodScalar r, KnownShape sh2, KnownShape sh, KnownShape (Sh.Take p sh)
-       , KnownShape (Sh.Drop p sh), KnownShape (sh2 Sh.++ Sh.Drop p sh) )
-    => shaped r (sh2 Sh.++ Sh.Drop p sh)
+       , KnownShape (Sh.Drop p sh), KnownShape (sh2 X.++ Sh.Drop p sh) )
+    => shaped r (sh2 X.++ Sh.Drop p sh)
     -> (IndexSh shaped sh2 -> IndexSh shaped (Sh.Take p sh))
     -> shaped r sh
   sscatter1
@@ -491,16 +493,16 @@ class ( Integral (IntOf shaped), CShaped shaped Num
   sbuild =
     let buildSh
           :: forall sh1.
-             SShape sh1 -> SShape (sh1 Sh.++ Sh.Drop m sh)
+             SShape sh1 -> SShape (sh1 X.++ Sh.Drop m sh)
           -> (IndexSh shaped sh1 -> shaped r (Sh.Drop m sh))
-          -> shaped r (sh1 Sh.++ Sh.Drop m sh)
+          -> shaped r (sh1 X.++ Sh.Drop m sh)
         buildSh sh1 sh1m f = case (sh1, sh1m) of
           (ShNil, _) -> f ZIS
           (ShCons SNat sh2, ShCons _ sh2m) ->
             let g i = buildSh sh2 sh2m (f . consIndex i)
             in sbuild1 g
     in gcastWith (unsafeCoerce Refl
-                  :: sh :~: Sh.Take m sh Sh.++ Sh.Drop m sh)
+                  :: sh :~: Sh.Take m sh X.++ Sh.Drop m sh)
        $ buildSh (knownShape @(Sh.Take m sh))
                  (knownShape @sh)
   sbuild1 :: forall r n sh. (GoodScalar r, KnownNat n, KnownShape sh)
@@ -512,7 +514,7 @@ class ( Integral (IntOf shaped), CShaped shaped Num
        => (shaped r (Sh.Drop m sh) -> shaped r2 (Sh.Drop m sh))
        -> shaped r sh -> shaped r2 sh
   smap f v = gcastWith (unsafeCoerce Refl
-                        :: sh :~: Sh.Take m sh Sh.++ Sh.Drop m sh)
+                        :: sh :~: Sh.Take m sh X.++ Sh.Drop m sh)
              $ sbuild (\ix -> f (v !$ ix))
   smap1 :: forall r r2 sh n.
            (GoodScalar r, GoodScalar r2, KnownNat n, KnownShape sh)
@@ -531,8 +533,8 @@ class ( Integral (IntOf shaped), CShaped shaped Num
               , KnownNat m, KnownShape sh1, KnownShape sh2, KnownShape sh
               , KnownShape (Sh.Take m sh), KnownShape (Sh.Drop m sh1)
               , KnownShape (Sh.Drop m sh2), KnownShape (Sh.Drop m sh)
-              , sh1 ~ Sh.Take m sh Sh.++ Sh.Drop m sh1
-              , sh2 ~ Sh.Take m sh Sh.++ Sh.Drop m sh2 )
+              , sh1 ~ Sh.Take m sh X.++ Sh.Drop m sh1
+              , sh2 ~ Sh.Take m sh X.++ Sh.Drop m sh2 )
            => (shaped r1 (Sh.Drop m sh1)
                -> shaped r2 (Sh.Drop m sh2)
                -> shaped r (Sh.Drop m sh))
@@ -562,9 +564,9 @@ class ( Integral (IntOf shaped), CShaped shaped Num
                , KnownShape (Sh.Take m sh), KnownShape (Sh.Drop m sh1)
                , KnownShape (Sh.Drop m sh2), KnownShape (Sh.Drop m sh3)
                , KnownShape (Sh.Drop m sh)
-               , sh1 ~ Sh.Take m sh Sh.++ Sh.Drop m sh1
-               , sh2 ~ Sh.Take m sh Sh.++ Sh.Drop m sh2
-               , sh3 ~ Sh.Take m sh Sh.++ Sh.Drop m sh3 )
+               , sh1 ~ Sh.Take m sh X.++ Sh.Drop m sh1
+               , sh2 ~ Sh.Take m sh X.++ Sh.Drop m sh2
+               , sh3 ~ Sh.Take m sh X.++ Sh.Drop m sh3 )
             => (shaped r1 (Sh.Drop m sh1)
                 -> shaped r2 (Sh.Drop m sh2)
                 -> shaped r3 (Sh.Drop m sh3)
@@ -602,10 +604,10 @@ class ( Integral (IntOf shaped), CShaped shaped Num
                , KnownShape (Sh.Take m sh), KnownShape (Sh.Drop m sh1)
                , KnownShape (Sh.Drop m sh2), KnownShape (Sh.Drop m sh3)
                , KnownShape (Sh.Drop m sh4), KnownShape (Sh.Drop m sh)
-               , sh1 ~ Sh.Take m sh Sh.++ Sh.Drop m sh1
-               , sh2 ~ Sh.Take m sh Sh.++ Sh.Drop m sh2
-               , sh3 ~ Sh.Take m sh Sh.++ Sh.Drop m sh3
-               , sh4 ~ Sh.Take m sh Sh.++ Sh.Drop m sh4 )
+               , sh1 ~ Sh.Take m sh X.++ Sh.Drop m sh1
+               , sh2 ~ Sh.Take m sh X.++ Sh.Drop m sh2
+               , sh3 ~ Sh.Take m sh X.++ Sh.Drop m sh3
+               , sh4 ~ Sh.Take m sh X.++ Sh.Drop m sh4 )
             => (shaped r1 (Sh.Drop m sh1)
                 -> shaped r2 (Sh.Drop m sh2)
                 -> shaped r3 (Sh.Drop m sh3)
@@ -646,10 +648,10 @@ class ( Integral (IntOf shaped), CShaped shaped Num
   sgather
     :: forall r sh2 p sh.
        ( GoodScalar r, KnownShape sh2, KnownShape sh, KnownShape (Sh.Take p sh)
-       , KnownShape (Sh.Drop p sh), KnownShape (sh2 Sh.++ Sh.Drop p sh) )
+       , KnownShape (Sh.Drop p sh), KnownShape (sh2 X.++ Sh.Drop p sh) )
     => shaped r sh
     -> (IndexSh shaped sh2 -> IndexSh shaped (Sh.Take p sh))
-    -> shaped r (sh2 Sh.++ Sh.Drop p sh)
+    -> shaped r (sh2 X.++ Sh.Drop p sh)
   sgather1
     :: forall r n2 p sh.
        ( GoodScalar r, KnownNat n2, KnownShape sh, KnownShape (Sh.Take p sh)

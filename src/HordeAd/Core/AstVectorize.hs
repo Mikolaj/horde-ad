@@ -36,6 +36,8 @@ import           System.IO.Unsafe (unsafePerformIO)
 import           Type.Reflection (typeRep)
 import           Unsafe.Coerce (unsafeCoerce)
 
+import qualified Data.Array.Shape as X
+
 import           HordeAd.Core.Ast hiding
   (AstBool (..), AstHVector (..), AstRanked (..), AstShaped (..))
 import           HordeAd.Core.Ast (AstHVector, AstRanked, AstShaped)
@@ -464,9 +466,9 @@ build1VS (var, v00) =
 
     Ast.AstIndexS @sh1 v ix -> traceRule $
       gcastWith (unsafeCoerce Refl
-                 :: Sh.Take (Sh.Rank sh1) (sh1 Sh.++ sh) :~: sh1) $
+                 :: Sh.Take (Sh.Rank sh1) (sh1 X.++ sh) :~: sh1) $
       gcastWith (unsafeCoerce Refl
-                 :: Sh.Drop (Sh.Rank sh1) (sh1 Sh.++ sh) :~: sh) $
+                 :: Sh.Drop (Sh.Rank sh1) (sh1 X.++ sh) :~: sh) $
       build1VIndexS @k @(Sh.Rank sh1) (var, v, ix)  -- @var@ is in @v@ or @ix@
     Ast.AstSumS v -> traceRule $
       astSumS $ astTrS $ build1VS (var, v)
@@ -548,7 +550,7 @@ build1VS (var, v00) =
 build1VIndexS
   :: forall k p sh s r.
      ( GoodScalar r, KnownNat k, KnownShape sh, KnownShape (Sh.Take p sh)
-     , KnownShape (Sh.Drop p (Sh.Take p sh Sh.++ Sh.Drop p sh)), AstSpan s )
+     , KnownShape (Sh.Drop p (Sh.Take p sh X.++ Sh.Drop p sh)), AstSpan s )
   => (IntVarName, AstShaped s r sh, AstIndexS (Sh.Take p sh))
   -> AstShaped s r (k ': Sh.Drop p sh)
 build1VIndexS (var, v0, ZIS) =
@@ -557,7 +559,7 @@ build1VIndexS (var, v0, ZIS) =
     -- so the application of this function wouldn't type-check
   $ build1VOccurenceUnknownS (var, v0)
 build1VIndexS (var, v0, ix@(_ :.$ _)) =
-  gcastWith (unsafeCoerce Refl :: sh :~: Sh.Take p sh Sh.++ Sh.Drop p sh) $
+  gcastWith (unsafeCoerce Refl :: sh :~: Sh.Take p sh X.++ Sh.Drop p sh) $
   let vTrace = Ast.AstBuild1S (var, Ast.AstIndexS v0 ix)
       traceRule = mkTraceRuleS "build1VIndexS" vTrace v0 1
   in if varNameInAstS var v0
@@ -567,11 +569,11 @@ build1VIndexS (var, v0, ix@(_ :.$ _)) =
        v@(Ast.AstIndexS @sh1 v1 ix1) -> traceRule $
          gcastWith (unsafeCoerce Refl
                     :: k ': sh1 :~: Sh.Take (1 + Sh.Rank sh1)
-                                            (k ': sh1 Sh.++ Sh.Drop p sh)) $
+                                            (k ': sh1 X.++ Sh.Drop p sh)) $
          gcastWith (unsafeCoerce Refl
                     :: Sh.Drop p sh
                        :~: Sh.Drop (1 + Sh.Rank sh1)
-                                   (k ': sh1 Sh.++ Sh.Drop p sh)) $
+                                   (k ': sh1 X.++ Sh.Drop p sh)) $
          let (varFresh, astVarFresh, ix2) = intBindingRefreshS var ix1
              ruleD = astGatherStepS @'[k] @(1 + Sh.Rank sh1)
                        (build1VS @k (var, v1))
