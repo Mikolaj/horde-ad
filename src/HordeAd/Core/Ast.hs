@@ -38,6 +38,8 @@ import           Data.Type.Equality (testEquality, (:~:) (Refl))
 import           GHC.TypeLits (KnownNat, sameNat, type (+), type (<=))
 import           Type.Reflection (Typeable, eqTypeRep, typeRep, (:~~:) (HRefl))
 
+import qualified Data.Array.Shape as X
+
 import HordeAd.Core.HVector
 import HordeAd.Core.Types
 import HordeAd.Internal.OrthotopeOrphanInstances
@@ -329,8 +331,8 @@ data AstShaped :: AstSpanType -> ShapedTensorType where
 
   -- For the main part of the ShapedTensor class:
   AstIndexS :: forall sh1 sh2 s r.
-               (KnownShape sh1, KnownShape sh2, KnownShape (sh1 Sh.++ sh2))
-            => AstShaped s r (sh1 Sh.++ sh2) -> AstIndexS sh1
+               (KnownShape sh1, KnownShape sh2, KnownShape (sh1 X.++ sh2))
+            => AstShaped s r (sh1 X.++ sh2) -> AstIndexS sh1
             -> AstShaped s r sh2
     -- first ix is for outermost dimension; empty index means identity,
     -- if index is out of bounds, the result is defined and is 0,
@@ -340,8 +342,8 @@ data AstShaped :: AstSpanType -> ShapedTensorType where
   AstScatterS :: forall sh2 p sh r s.
                  ( KnownShape sh2, KnownShape sh
                  , KnownShape (Sh.Take p sh), KnownShape (Sh.Drop p sh)
-                 , KnownShape (sh2 Sh.++ Sh.Drop p sh) )
-              => AstShaped s r (sh2 Sh.++ Sh.Drop p sh)
+                 , KnownShape (sh2 X.++ Sh.Drop p sh) )
+              => AstShaped s r (sh2 X.++ Sh.Drop p sh)
               -> (AstVarListS sh2, AstIndexS (Sh.Take p sh))
               -> AstShaped s r sh
 
@@ -373,7 +375,7 @@ data AstShaped :: AstSpanType -> ShapedTensorType where
                 , KnownShape (Sh.Take p sh), KnownShape (Sh.Drop p sh) )
              => AstShaped s r sh
              -> (AstVarListS sh2, AstIndexS (Sh.Take p sh))
-             -> AstShaped s r (sh2 Sh.++ Sh.Drop p sh)
+             -> AstShaped s r (sh2 X.++ Sh.Drop p sh)
     -- out of bounds indexing is permitted
   AstCastS :: (GoodScalar r1, RealFrac r1, RealFrac r2)
            => AstShaped s r1 sh -> AstShaped s r2 sh

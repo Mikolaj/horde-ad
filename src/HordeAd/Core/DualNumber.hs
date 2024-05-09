@@ -17,7 +17,6 @@ import Prelude
 
 import           Control.Exception.Assert.Sugar
 import           Data.Array.Internal (valueOf)
-import qualified Data.Array.Shape as Sh
 import           Data.Kind (Type)
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
@@ -25,6 +24,8 @@ import           Data.Type.Equality (testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, sameNat, type (+))
 import           Type.Reflection (typeRep)
+
+import qualified Data.Array.Shape as X
 
 import           HordeAd.Core.Delta
 import           HordeAd.Core.HVector
@@ -203,8 +204,8 @@ instance ( RankedTensor ranked, IfF (RankedOf (PrimalOf ranked))
     in dDnotShared u u'
 
 indexPrimalS :: ( ShapedTensor shaped, GoodScalar r
-                , KnownShape sh1, KnownShape sh2, KnownShape (sh1 Sh.++ sh2) )
-             => ADVal shaped r (sh1 Sh.++ sh2) -> IndexSh shaped sh1
+                , KnownShape sh1, KnownShape sh2, KnownShape (sh1 X.++ sh2) )
+             => ADVal shaped r (sh1 X.++ sh2) -> IndexSh shaped sh1
              -> ADVal shaped r sh2
 indexPrimalS (D u u') ix = dD (sindex u ix) (IndexS u' ix)
 

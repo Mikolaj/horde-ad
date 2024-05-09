@@ -50,6 +50,8 @@ import qualified Numeric.LinearAlgebra as LA
 import           System.IO.Unsafe (unsafePerformIO)
 import           Unsafe.Coerce (unsafeCoerce)
 
+import qualified Data.Array.Shape as X
+
 import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances
   (FlipS, liftVR, liftVS)
@@ -419,7 +421,7 @@ updateNS arr upd | Dict <- lemShapeFromKnownShape (Proxy @sh)
       f !t (ix, u) =
         let v = OS.toVector u
             i = gcastWith (unsafeCoerce Refl
-                           :: sh :~: Sh.Take n sh Sh.++ Sh.Drop n sh)
+                           :: sh :~: Sh.Take n sh X.++ Sh.Drop n sh)
                 $ fromIntegral
                 $ ShapedList.unShapedNat
                 $ ShapedList.toLinearIdx @(Sh.Take n sh) @(Sh.Drop n sh)
@@ -444,7 +446,7 @@ tminIndexS | Dict <- lemShapeFromKnownShape (Proxy @sh)
           case someNatVal $ toInteger $ length sh of
             Just (SomeNat @shRank _proxy) ->
               gcastWith (unsafeCoerce Refl
-                           :: Sh.Take (Sh.Rank sh) (n ': sh) Sh.++ '[]
+                           :: Sh.Take (Sh.Rank sh) (n ': sh) X.++ '[]
                               :~: Sh.Init (n ': sh) ) $
               gcastWith (unsafeCoerce Refl
                            :: Sh.Drop (Sh.Rank sh) (n ': sh) :~: '[m]) $
@@ -471,7 +473,7 @@ tmaxIndexS | Dict <- lemShapeFromKnownShape (Proxy @sh)
           case someNatVal $ toInteger $ length sh of
             Just (SomeNat @shRank _proxy) ->
               gcastWith (unsafeCoerce Refl
-                           :: Sh.Take (Sh.Rank sh) (n ': sh) Sh.++ '[]
+                           :: Sh.Take (Sh.Rank sh) (n ': sh) X.++ '[]
                               :~: Sh.Init (n ': sh) ) $
               gcastWith (unsafeCoerce Refl
                            :: Sh.Drop (Sh.Rank sh) (n ': sh) :~: '[m]) $
@@ -489,7 +491,7 @@ tfloorS | Dict <- lemShapeFromKnownShape (Proxy @sh) = liftVS (V.map floor)
 
 tindexNS
   :: forall sh1 sh2 r.
-     OS.Array (sh1 Sh.++ sh2) r -> IndexIntSh sh1 -> OS.Array sh2 r
+     OS.Array (sh1 X.++ sh2) r -> IndexIntSh sh1 -> OS.Array sh2 r
 tindexNS (SS.A (SG.A OI.T{strides, offset, values})) ix =
   let l = ShapedList.indexToList ix
       linear = offset + sum (zipWith (*) (map fromIntegral l) strides)
@@ -503,10 +505,10 @@ tindexNS (SS.A (SG.A OI.T{strides, offset, values})) ix =
 -- may not fit within the type-level shape, which we catch in the @ixInBounds@
 -- and return 0, so it's fine. Similarly in gather and scatter.
 tindexZS
-  :: forall sh1 sh2 r. (NumAndShow r, KnownShape sh2, KnownShape (sh1 Sh.++ sh2))
-  => OS.Array (sh1 Sh.++ sh2) r -> IndexIntSh sh1 -> OS.Array sh2 r
+  :: forall sh1 sh2 r. (NumAndShow r, KnownShape sh2, KnownShape (sh1 X.++ sh2))
+  => OS.Array (sh1 X.++ sh2) r -> IndexIntSh sh1 -> OS.Array sh2 r
 tindexZS v ix | Dict <- lemShapeFromKnownShape (Proxy @sh2)
-              , Dict <- lemShapeFromKnownShape (Proxy @(sh1 Sh.++ sh2)) =
+              , Dict <- lemShapeFromKnownShape (Proxy @(sh1 X.++ sh2)) =
   let sh = OS.shapeL v
   in if ixInBounds (ShapedList.indexToList ix) sh
      then tindexNS v ix
@@ -629,7 +631,7 @@ tmatmul2S t u =
 -- permits index out of bounds and then no tensors is added at such an index.
 tscatterZS :: forall r sh2 p sh.
               (NumAndShow r, KnownShape sh, KnownShape sh2, KnownShape (Sh.Drop p sh))
-           => OS.Array (sh2 Sh.++ Sh.Drop p sh) r
+           => OS.Array (sh2 X.++ Sh.Drop p sh) r
            -> (IndexIntSh sh2 -> IndexIntSh (Sh.Take p sh))
            -> OS.Array sh r
 tscatterZS t f | Dict <- lemShapeFromKnownShape (Proxy @sh)
@@ -761,18 +763,18 @@ tzipWith0NS f | Dict <- lemShapeFromKnownShape (Proxy @sh) =
 -- permits index out of bounds and the result of such indexing is zero.
 tgatherZS :: forall sh2 p sh r.
              ( NumAndShow r, KnownShape sh, KnownShape sh2, KnownShape (Sh.Drop p sh)
-             , KnownShape (sh2 Sh.++ Sh.Drop p sh) )
+             , KnownShape (sh2 X.++ Sh.Drop p sh) )
           => OS.Array sh r
           -> (IndexIntSh sh2 -> IndexIntSh (Sh.Take p sh))
-          -> OS.Array (sh2 Sh.++ Sh.Drop p sh) r
+          -> OS.Array (sh2 X.++ Sh.Drop p sh) r
 tgatherZS t f | Dict <- lemShapeFromKnownShape (Proxy @sh)
               , Dict <- lemShapeFromKnownShape (Proxy @(Sh.Drop p sh))
               , Dict <- lemShapeFromKnownShape
-                          (Proxy @(sh2 Sh.++ Sh.Drop p sh)) =
+                          (Proxy @(sh2 X.++ Sh.Drop p sh)) =
   let sh2 = knownShape @sh2
       s = sizeT @sh2
       l = gcastWith (unsafeCoerce Refl
-                     :: sh :~: Sh.Take p sh Sh.++ Sh.Drop p sh)
+                     :: sh :~: Sh.Take p sh X.++ Sh.Drop p sh)
           $ [ OS.toVector
                 (t `tindexZS` f (ShapedList.fromLinearIdx sh2
                                  $ ShapedList.shapedNat $ fromIntegral i)
@@ -787,7 +789,7 @@ tgatherZ1S :: forall n2 p sh r.
 tgatherZ1S t f | Dict <- lemShapeFromKnownShape (Proxy @sh)
                , Dict <- lemShapeFromKnownShape (Proxy @(Sh.Drop p sh)) =
   let l = gcastWith (unsafeCoerce Refl
-                     :: sh :~: Sh.Take p sh Sh.++ Sh.Drop p sh)
+                     :: sh :~: Sh.Take p sh X.++ Sh.Drop p sh)
           $ map (\i -> t `tindexZS` f (ShapedList.shapedNat i))
                 [0 .. valueOf @n2 - 1]
   in OS.ravel $ OSB.fromList l
