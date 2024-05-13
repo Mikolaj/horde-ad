@@ -770,34 +770,29 @@ tzipWith0NS f | Dict <- lemShapeFromKnownShape (Proxy @sh) =
 -- permits index out of bounds and the result of such indexing is zero.
 tgatherZS :: forall sh2 p sh r.
              ( NumAndShow r, KnownShape sh, KnownShape sh2, KnownShape (Sh.Drop p sh)
-             , KnownShape (sh2 X.++ Sh.Drop p sh) )
+             , KnownShape (sh2 X.++ Sh.Drop p sh)
+             , Coercible (Nested.Shaped (sh2 X.++ Sh.Drop p sh) r) (Nested.Shaped (sh2 X.++ Sh.Drop p sh) (Nested.Primitive r)) )
           => Nested.Shaped sh r
           -> (IndexIntSh sh2 -> IndexIntSh (Sh.Take p sh))
           -> Nested.Shaped (sh2 X.++ Sh.Drop p sh) r
-tgatherZS t f | Dict <- lemShapeFromKnownShape (Proxy @sh)
-              , Dict <- lemShapeFromKnownShape (Proxy @(Sh.Drop p sh))
-              , Dict <- lemShapeFromKnownShape
-                          (Proxy @(sh2 X.++ Sh.Drop p sh)) =
+tgatherZS t f =
   let sh2 = knownShape @sh2
       s = sizeT @sh2
+      l :: [Vector r]
       l = gcastWith (unsafeCoerce Refl
                      :: sh :~: Sh.Take p sh X.++ Sh.Drop p sh)
           $ [ stoVector  -- Nested.stoVector
-                (Nested.sindexPartial t
+                ((Nested.sindexPartial t
                    $ fmap fromIntegral
                    $ f (ShapedList.fromLinearIdx sh2
-                        $ ShapedList.shapedNat $ fromIntegral i)
+                        $ ShapedList.shapedNat $ fromIntegral i))
                  :: Nested.Shaped (Sh.Drop p sh) r)
             | i <- [0 .. s - 1] ]
-  in sfromVector $ LA.vjoin l  -- Nested.sfromVector $ LA.vjoin l
+  in coerce $ Nested.sfromVector $ LA.vjoin l
 
 stoVector :: (KnownShape sh, NumAndShow r)
           => Nested.Shaped sh r -> Vector r
 stoVector = undefined
-
-sfromVector :: (KnownShape sh, NumAndShow r)
-            => Vector r -> Nested.Shaped sh r
-sfromVector = undefined
 
 {- TODO
 tgatherZ1S :: forall n2 p sh r.
