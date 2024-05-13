@@ -788,7 +788,7 @@ tgatherZS t f =
                         $ ShapedList.shapedNat $ fromIntegral i))
                  :: Nested.Shaped (Sh.Drop p sh) r)
             | i <- [0 .. s - 1] ]
-  in coerce $ Nested.sfromVector $ LA.vjoin l
+  in (coerce :: Nested.Shaped (sh2 X.++ Sh.Drop p sh) (Nested.Primitive r) -> Nested.Shaped (sh2 X.++ Sh.Drop p sh) r) $ Nested.sfromVector $ LA.vjoin l
 
 stoVector :: (KnownShape sh, NumAndShow r)
           => Nested.Shaped sh r -> Vector r
