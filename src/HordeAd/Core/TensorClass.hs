@@ -10,7 +10,7 @@
 -- differentiation interface in "HordeAd.Core.Engine".
 module HordeAd.Core.TensorClass
   ( -- * Re-exports
-    ShapeInt, ShapeIntS
+    ShapeInt, ShapeS
     -- * The tensor classes
   , RankedTensor(..), ShapedTensor(..), HVectorTensor(..), HFun(..)
   , rfromD, sfromD
@@ -42,7 +42,7 @@ import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances
   (IntegralF (..), RealFloatF (..))
 import           HordeAd.Util.ShapedList
-  (IndexSh, IntSh, ShapeIntS, consIndex, pattern (:.$), pattern ZIS)
+  (IndexSh, IntSh, ShapeS, consIndex, pattern (:.$), pattern ZIS)
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedList
 
@@ -351,7 +351,7 @@ class ( Integral (IntOf shaped), CShaped shaped Num
 
   -- Integer codomain
   sshape :: forall sh r. (GoodScalar r, KnownShape sh)
-         => shaped r sh -> SShape sh
+         => shaped r sh -> ShS sh
   sshape _ = knownShape @sh
   srank :: forall sh r. (GoodScalar r, KnownNat (Sh.Rank sh))
         => shaped r sh -> Int
@@ -493,12 +493,12 @@ class ( Integral (IntOf shaped), CShaped shaped Num
   sbuild =
     let buildSh
           :: forall sh1.
-             SShape sh1 -> SShape (sh1 X.++ Sh.Drop m sh)
+             ShS sh1 -> ShS (sh1 X.++ Sh.Drop m sh)
           -> (IndexSh shaped sh1 -> shaped r (Sh.Drop m sh))
           -> shaped r (sh1 X.++ Sh.Drop m sh)
         buildSh sh1 sh1m f = case (sh1, sh1m) of
-          (ShNil, _) -> f ZIS
-          (ShCons SNat sh2, ShCons _ sh2m) ->
+          (ZSS, _) -> f ZIS
+          ((:$$) SNat sh2, (:$$) _ sh2m) | Dict <- sshapeKnown sh2m ->
             let g i = buildSh sh2 sh2m (f . consIndex i)
             in sbuild1 g
     in gcastWith (unsafeCoerce Refl

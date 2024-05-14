@@ -5,7 +5,7 @@ module HordeAd.Internal.OrthotopeOrphanInstances
   ( -- * Definitions to help express and manipulate type-level natural numbers
     SNat, pattern SNat, withSNat, sNatValue, proxyFromSNat
     -- * Definitions for type-level list shapes
-  , shapeT, shapeP, sizeT, sizeP
+  , shapeT, shapeP, sizeT, sizeP, shSToList
   , withShapeP, sameShape, matchingRank, lemShapeFromKnownShape
   , -- * Numeric instances for tensors
     liftVR, liftVR2, liftVS, liftVS2
@@ -44,7 +44,7 @@ import           Numeric.LinearAlgebra.Data (arctan2)
 import           Numeric.LinearAlgebra.Devel (zipVectorWith)
 import           Unsafe.Coerce (unsafeCoerce)
 
-import Data.Array.Nested (Dict(..), KnownShape (..), SShape (..))
+import Data.Array.Nested (Dict (..), KnownShape (..), ShS (ZSS, (:$$)))
 
 -- * Definitions to help express and manipulate type-level natural numbers
 
@@ -66,14 +66,14 @@ proxyFromSNat SNat = Proxy
 -- Below, copied with modification from ox-arrays.
 
 shapeT :: forall sh. KnownShape sh => [Int]
-shapeT = sshapeToList (knownShape @sh)
+shapeT = shSToList (knownShape @sh)
 
 shapeP :: forall sh. KnownShape sh => Proxy sh -> [Int]
-shapeP _ = sshapeToList (knownShape @sh)
+shapeP _ = shSToList (knownShape @sh)
 
-sshapeToList :: SShape sh -> [Int]
-sshapeToList ShNil = []
-sshapeToList (ShCons n l) = sNatValue n : sshapeToList l
+shSToList :: ShS sh -> [Int]
+shSToList ZSS = []
+shSToList ((:$$) n l) = sNatValue n : shSToList l
 
 sizeT :: forall sh. KnownShape sh => Int
 sizeT = product $ shapeT @sh
@@ -99,13 +99,13 @@ matchingRank =
   then Just (unsafeCoerce Refl :: Sh.Rank sh1 :~: n2)
   else Nothing
 
-shapeFromSShape :: SShape sh -> Dict Sh.Shape sh
-shapeFromSShape ShNil = Dict
-shapeFromSShape (ShCons SNat sh) | Dict <- shapeFromSShape sh = Dict
+shapeFromShS :: ShS sh -> Dict Sh.Shape sh
+shapeFromShS ZSS = Dict
+shapeFromShS ((:$$) SNat sh) | Dict <- shapeFromShS sh = Dict
 
 lemShapeFromKnownShape :: forall sh. KnownShape sh
                        => Proxy sh -> Dict Sh.Shape sh
-lemShapeFromKnownShape _ = shapeFromSShape (knownShape @sh)
+lemShapeFromKnownShape _ = shapeFromShS (knownShape @sh)
 
 
 -- * Numeric instances for tensors

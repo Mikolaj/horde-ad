@@ -221,7 +221,7 @@ index1HVectorF :: ( shaped ~ ShapedOf ranked
                => (forall r n. (GoodScalar r, KnownNat n)
                    => ranked r n -> ShapeInt n)
                -> (forall sh r. (GoodScalar r, KnownShape sh)
-                   => shaped r sh -> SShape sh)
+                   => shaped r sh -> ShS sh)
                -> (forall r m n. (GoodScalar r, KnownNat m, KnownNat n)
                    => ranked r (m + n) -> IndexOf ranked m -> ranked r n)
                -> (forall r sh1 sh2.
@@ -239,7 +239,7 @@ index1DynamicF :: ( shaped ~ ShapedOf ranked
                => (forall r n. (GoodScalar r, KnownNat n)
                    => ranked r n -> ShapeInt n)
                -> (forall sh r. (GoodScalar r, KnownShape sh)
-                   => shaped r sh -> SShape sh)
+                   => shaped r sh -> ShS sh)
                -> (forall r m n. (GoodScalar r, KnownNat m, KnownNat n)
                    => ranked r (m + n) -> IndexOf ranked m -> ranked r n)
                -> (forall r sh1 sh2.
@@ -254,15 +254,17 @@ index1DynamicF rshape sshape rindex sindex u i = case u of
     ZSR -> error "index1Dynamic: rank 0"
     _ :$: _ -> DynamicRanked $ rindex t (singletonIndex i)
   DynamicShaped t -> case sshape t of
-    ShNil -> error "index1Dynamic: rank 0"
-    ShCons SNat _ ->
+    ZSS -> error "index1Dynamic: rank 0"
+    (:$$) SNat tl | Dict <- sshapeKnown tl ->
       DynamicShaped $ sindex t (ShapedList.singletonIndex i)
   DynamicRankedDummy @r @sh p1 _ -> case knownShape @sh of
-    ShNil -> error "index1Dynamic: rank 0"
-    ShCons @sh2 _ _ -> DynamicRankedDummy @r @sh2 p1 Proxy
+    ZSS -> error "index1Dynamic: rank 0"
+    (:$$) @_ @sh2 _ tl | Dict <- sshapeKnown tl ->
+                         DynamicRankedDummy @r @sh2 p1 Proxy
   DynamicShapedDummy @r @sh p1 _ -> case knownShape @sh of
-    ShNil -> error "index1Dynamic: rank 0"
-    ShCons @sh2 _ _ -> DynamicShapedDummy @r @sh2 p1 Proxy
+    ZSS -> error "index1Dynamic: rank 0"
+    (:$$) @_ @sh2 _ tl | Dict <- sshapeKnown tl ->
+                         DynamicShapedDummy @r @sh2 p1 Proxy
 
 replicate1HVectorF :: shaped ~ ShapedOf ranked
                    => (forall r n. (GoodScalar r, KnownNat n)
