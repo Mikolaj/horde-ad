@@ -10,7 +10,7 @@ module HordeAd.Util.ShapedList
     IntSh, IndexSh
   , SizedListS, pattern (::$), pattern ZS
   , consShaped, unconsContShaped
-  , singletonSized, snocSized, appendSized
+  , singletonSized, appendSized
   , headSized, tailSized, takeSized, dropSized, splitAt_Sized
   , unsnocSized1, lastSized, initSized, zipSized, zipWith_Sized, reverseSized
   , Permutation  -- ^ re-exported from "SizedList"
@@ -27,7 +27,7 @@ module HordeAd.Util.ShapedList
   , permutePrefixIndex, permutePrefixIndexT
   , listToIndex, indexToList, indexToSized, sizedToIndex, shapedToIndex
   -- * Tensor shapes as fully encapsulated shaped lists, with operations
-  , ShapeS, pattern (:$$), pattern ZSS, ShapeIntS
+  , ShapeS, pattern (:$$), pattern ZSS
   , ShapedNat, shapedNat, unShapedNat
   , listToShape, shapeToList
     -- * Operations involving both indexes and shapes
@@ -36,25 +36,15 @@ module HordeAd.Util.ShapedList
 
 import Prelude
 
+import           Control.Exception.Assert.Sugar
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.Shape as Sh
-import           Data.Type.Equality (gcastWith, (:~:) (Refl))
 import           GHC.Exts (IsList (..))
 import           GHC.TypeLits (KnownNat, Nat, type (*))
-import           Unsafe.Coerce (unsafeCoerce)
 
-import           Data.Array.Nested
-  ( IxS (..)
-  , ListS
-  , StaticShapeS (..)
-  , pattern (:$$)
-  , pattern (:.$)
-  , pattern (::$)
-  , pattern ZIS
-  , pattern ZS
-  , pattern ZSS
-  )
 import qualified Data.Array.Mixed as X
+import           Data.Array.Nested
+  (IxS (..), ListS, pattern (:.$), pattern (::$), pattern ZIS, pattern ZS)
 
 import           HordeAd.Core.Types
 import           HordeAd.Util.SizedList (Permutation)
@@ -90,21 +80,14 @@ instance KnownShape sh => IsList (SizedListS sh i) where
   toList = sizedToList
 
 -- TODO: should we actually replace ::$ with that in the external API?
-consShaped :: (KnownNat n, KnownShape sh)
-           => ShapedNat n i -> SizedListS sh i -> SizedListS (n ': sh) i
+consShaped :: ShapedNat n i -> SizedListS sh i -> SizedListS (n ': sh) i
 consShaped (ShapedNat i) l = i ::$ l
 
 unconsContShaped :: (ShapedNat n i -> k) -> SizedListS (n ': sh) i -> k
 unconsContShaped f (i ::$ _) = f (ShapedNat i)
 
-singletonSized :: KnownNat n => i -> SizedListS '[n] i
+singletonSized :: i -> SizedListS '[n] i
 singletonSized i = i ::$ ZS
-
-snocSized :: KnownNat n => SizedListS sh i -> i -> SizedListS (n ': sh) i
-snocSized ZS last1 = last1 ::$ ZS
-snocSized ((::$) @_ @sh2 i ix) last1 = case knownShape @sh2 of
-  ShNil -> i ::$ snocSized ix last1
-  ShCons SNat _ -> i ::$ snocSized ix last1
 
 appendSized :: KnownShape (sh2 X.++ sh)
             => SizedListS sh2 i -> SizedListS sh i
@@ -202,15 +185,20 @@ sizedCompare _ ZS ZS = mempty
 sizedCompare f (i ::$ idx) (j ::$ idx') =
   f i j <> sizedCompare f idx idx'
 
-listToSized :: forall sh i. KnownShape sh => [i] -> SizedListS sh i
-listToSized l = case (l, knownShape @sh) of
-  ([], ShNil) -> gcastWith (unsafeCoerce Refl :: sh :~: '[])
-                 ZS
-  (_, ShNil)  -> error $ "listToSized: input list too long; spurious "
-                         ++ show (length l)
-  ([], ShCons{}) -> error $ "listToSized: input list too short; missing "
-                            ++ show (sizeT @sh :: Int)
-  (i : is, ShCons SNat _) -> i ::$ listToSized is
+listToSized :: KnownShape sh => [i] -> SizedListS sh i
+listToSized l = tupleToShape l knownShape
+ where
+  tupleToShape :: [i] -> ShS sh1 -> SizedListS sh1 i
+  tupleToShape = \cases
+    [] ZSS -> ZS
+    _ ZSS -> error $ "listToSized: input list too long; spurious "
+                     ++ show (length l)
+    [] ks@(_ :$$ _) -> error $ "listToSized: input list too short; missing "
+                               ++ show (length (shSToList ks))
+    (i : is) (_hd :$$ tl) -> -- @i@ can be, e.g., variables, so we can't assert,
+                             -- but this should morally hold, after valuation:
+                             -- assert (i <= sNatValue hd) $
+                             i ::$ tupleToShape is tl
 
 sizedToList :: SizedListS sh i -> [i]
 sizedToList ZS = []
@@ -241,14 +229,13 @@ instance KnownShape sh => IsList (IndexS sh i) where
   fromList = listToIndex
   toList = indexToList
 
-consIndex :: (KnownNat n, KnownShape sh)
-          => ShapedNat n i -> IndexS sh i -> IndexS (n ': sh) i
+consIndex :: ShapedNat n i -> IndexS sh i -> IndexS (n ': sh) i
 consIndex (ShapedNat i) l = i :.$ l
 
 unconsContIndex :: (ShapedNat n i -> k) -> IndexS (n ': sh) i -> k
 unconsContIndex f (i :.$ _) = f (ShapedNat i)
 
-singletonIndex :: KnownNat n => i -> IndexS '[n] i
+singletonIndex :: i -> IndexS '[n] i
 singletonIndex = IndexS . singletonSized
 
 appendIndex :: KnownShape (sh2 X.++ sh)
@@ -299,25 +286,19 @@ shapedToIndex = SizedList.listToIndex . indexToList
 
 -- * Tensor shapes as fully encapsulated shaped lists, with operations
 
-type ShapeS sh i = StaticShapeS sh i
-
-pattern ShapeS :: forall {sh :: [Nat]} {i}. ListS sh i -> StaticShapeS sh i
-pattern ShapeS l = StaticShapeS l
-{-# COMPLETE ShapeS #-}
+type ShapeS sh = ShS sh
 
 {-
 -- This is only lawful when OverloadedLists is enabled.
 -- However, it's much more readable when tracing and debugging.
-instance Show i => Show (ShapeS sh i) where
+instance Show i => Show (ShapeS sh) where
   showsPrec d (ShapeS l) = showsPrec d l
 -}
 
-instance KnownShape sh => IsList (ShapeS sh i) where
-  type Item (ShapeS sh i) = i
+instance KnownShape sh => IsList (ShapeS sh) where
+  type Item (ShapeS sh) = Int
   fromList = listToShape
   toList = shapeToList
-
-type ShapeIntS (sh :: [Nat]) = ShapeS sh Int
 
 -- TODO: ensure this is checked (runtime-checked, if necessary):
 -- | The value of this type has to be positive and less than the @n@ bound.
@@ -333,11 +314,22 @@ deriving stock instance Functor (ShapedNat n)
 shapedNat :: forall n a. a -> ShapedNat n a
 shapedNat = ShapedNat
 
-listToShape :: KnownShape sh => [i] -> ShapeS sh i
-listToShape = ShapeS . listToSized
+listToShape :: KnownShape sh => [Int] -> ShapeS sh
+listToShape l = tupleToShape l knownShape
+ where
+  tupleToShape :: [Int] -> ShS sh1 -> ShapeS sh1
+  tupleToShape = \cases
+    [] ZSS -> ZSS
+    _ ZSS -> error $ "listToShape: input list too long; spurious "
+                     ++ show (length l)
+    [] ks@(_ :$$ _) -> error $ "listToShape: input list too short; missing "
+                               ++ show (length (shSToList ks))
+    (i : is) (hd :$$ tl) -> assert (i == sNatValue hd) $
+                            hd :$$ tupleToShape is tl
 
-shapeToList :: ShapeS sh i -> [i]
-shapeToList (ShapeS l) = sizedToList l
+shapeToList :: ShapeS sh -> [Int]
+shapeToList ZSS = []
+shapeToList (i :$$ is) = sNatValue i : shapeToList is
 
 -- * Operations involving both indexes and shapes
 
@@ -349,16 +341,16 @@ shapeToList (ShapeS l) = sizedToList l
 -- which is fine, that's pointing at the start of the empty buffer.
 -- Note that the resulting 0 may be a complex term.
 toLinearIdx :: forall sh1 sh2 j. (KnownShape sh2, Num j)
-            => SShape (sh1 X.++ sh2) -> IndexS sh1 j
+            => ShS (sh1 X.++ sh2) -> IndexS sh1 j
             -> ShapedNat (Sh.Size sh1 * Sh.Size sh2) j
 toLinearIdx = \sh idx -> shapedNat $ go sh idx 0
   where
     -- Additional argument: index, in the @m - m1@ dimensional array so far,
     -- of the @m - m1 + n@ dimensional tensor pointed to by the current
     -- @m - m1@ dimensional index prefix.
-    go :: forall sh3. SShape (sh3 X.++ sh2) -> IndexS sh3 j -> j -> j
+    go :: forall sh3. ShS (sh3 X.++ sh2) -> IndexS sh3 j -> j -> j
     go _sh ZIS tensidx = fromIntegral (sizeT @(sh3 X.++ sh2)) * tensidx
-    go (ShCons n sh) (i :.$ idx) tensidx =
+    go ((:$$) n sh) (i :.$ idx) tensidx =
       go sh idx (sNatValue n * tensidx + i)
     go _ _ _ = error "toLinearIdx: impossible pattern needlessly required"
 
@@ -371,21 +363,21 @@ toLinearIdx = \sh idx -> shapedNat $ go sh idx 0
 -- because it doesn't matter, because it's going to point at the start
 -- of the empty buffer anyway.
 fromLinearIdx :: forall sh j. Integral j
-              => SShape sh -> ShapedNat (Sh.Size sh) j -> IndexS sh j
+              => ShS sh -> ShapedNat (Sh.Size sh) j -> IndexS sh j
 fromLinearIdx = \sh (ShapedNat lin) -> snd (go sh lin)
   where
     -- Returns (linear index into array of sub-tensors,
     -- multi-index within sub-tensor).
-    go :: SShape sh1 -> j -> (j, IndexS sh1 j)
-    go ShNil n = (n, ZIS)
-    go (ShCons k@SNat sh) _ | sNatValue k == (0 :: Int) =
+    go :: ShS sh1 -> j -> (j, IndexS sh1 j)
+    go ZSS n = (n, ZIS)
+    go ((:$$) k@SNat sh) _ | sNatValue k == (0 :: Int) =
       (0, 0 :.$ zeroOf sh)
-    go (ShCons n@SNat sh) lin =
+    go ((:$$) n@SNat sh) lin =
       let (tensLin, idxInTens) = go sh lin
           (tensLin', i) = tensLin `quotRem` sNatValue n
       in (tensLin', i :.$ idxInTens)
 
 -- | The zero index in this shape (not dependent on the actual integers).
-zeroOf :: Num j => SShape sh -> IndexS sh j
-zeroOf ShNil = ZIS
-zeroOf (ShCons SNat sh) = 0 :.$ zeroOf sh
+zeroOf :: Num j => ShS sh -> IndexS sh j
+zeroOf ZSS = ZIS
+zeroOf ((:$$) SNat sh) = 0 :.$ zeroOf sh

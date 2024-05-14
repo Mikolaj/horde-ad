@@ -539,8 +539,8 @@ tsumS (SS.A (SG.A (OI.T (_ : ss) o vt))) | V.length vt == 1 =
   SS.A (SG.A (OI.T ss o (V.map (* valueOf @n) vt)))
 tsumS t | Dict <- lemShapeFromKnownShape (Proxy @sh) =
   case knownShape @(n ': sh) of
-    ShCons _ ShNil -> OS.scalar $ tsum0S t
-    ShCons @sh2 k _ ->
+    (:$$) _ ZSS -> OS.scalar $ tsum0S t
+    (:$$) @sh2 k _ ->
       OS.fromVector $ unsafePerformIO $ do  -- unsafe only due to FFI
         v <- V.unsafeThaw $ OS.toVector t
         VM.unsafeWith v $ \ptr -> do
@@ -699,7 +699,7 @@ treplicateS
   => Nested.Shaped sh r -> Nested.Shaped (n ': sh) r
 treplicateS u | Dict <- lemShapeFromKnownShape (Proxy @sh) =
   case knownShape @sh of
-    ShNil -> OS.constant (OS.unScalar u)
+    ZSS -> OS.constant (OS.unScalar u)
     _ -> OS.ravel $ OSB.constant u
 
 treplicate0NS

@@ -1564,9 +1564,9 @@ astReplicateNS :: forall shn shp s r.
                   (KnownShape shn, KnownShape shp, GoodScalar r, AstSpan s)
                => AstShaped s r shp -> AstShaped s r (shn X.++ shp)
 astReplicateNS v =
-  let go :: SShape shn' -> AstShaped s r (shn' X.++ shp)
-      go ShNil = v
-      go (ShCons @shn2 @k SNat shn2) =
+  let go :: ShS shn' -> AstShaped s r (shn' X.++ shp)
+      go ZSS = v
+      go ((:$$) @shn2 @k SNat shn2) =
         withShapeP (shapeT @shn2 ++ shapeT @shp) $ \(Proxy @sh) ->
           gcastWith (unsafeCoerce Refl :: sh :~: shn2 X.++ shp) $
           astReplicateS @k $ go shn2
@@ -1583,9 +1583,9 @@ astReplicate0N sh =
 astReplicate0NS :: forall shn s r. (KnownShape shn, GoodScalar r, AstSpan s)
                 => AstShaped s r '[] -> AstShaped s r shn
 astReplicate0NS =
-  let go :: SShape sh' -> AstShaped s r '[] -> AstShaped s r sh'
-      go ShNil v = v
-      go (ShCons SNat sh') v = astReplicateS $ go sh' v
+  let go :: ShS sh' -> AstShaped s r '[] -> AstShaped s r sh'
+      go ZSS v = v
+      go ((:$$) SNat sh') v = astReplicateS $ go sh' v
   in go (knownShape @shn)
 
 astAppend :: forall n r s. (KnownNat n, GoodScalar r, AstSpan s)
