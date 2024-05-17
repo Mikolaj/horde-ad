@@ -1,11 +1,11 @@
-{-# LANGUAGE DerivingStrategies, ViewPatterns #-}
+{-# LANGUAGE DerivingStrategies #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | @GHC.Nat@-indexed lists, tensors shapes and indexes.
 module HordeAd.Util.SizedList
   ( -- * Sized lists and their permutations
     IndexOf
-  , SizedList(..), pattern (:::), pattern ZR
+  , SizedList, pattern (:::), pattern ZR
   , singletonSized, snocSized, appendSized
   , headSized, tailSized, takeSized, dropSized, splitAt_Sized
   , unsnocSized1, lastSized, initSized, zipSized, zipWith_Sized, reverseSized
@@ -55,8 +55,15 @@ import           GHC.TypeLits
   )
 import           Unsafe.Coerce (unsafeCoerce)
 
-import           Data.Array.Nested (ToINat)
-import qualified Data.Array.Nested as Nested
+import Data.Array.Nested
+  ( IxR (..)
+  , ListR (..)
+  , ShR (..)
+  , pattern (:.:)
+  , pattern (:::)
+  , pattern ZIR
+  , pattern ZR
+  )
 
 import HordeAd.Core.Types
 
@@ -85,53 +92,12 @@ type IndexOf (f :: TensorType ty) n = Index n (IntOf f)
 -- at least) coerce the strict @SizedList@ to @[i]@, but not the other
 -- way around.
 
-type role SizedList nominal representational
-newtype SizedList n i = SizedList (Nested.ListR (ToINat n) i)
-  deriving (Eq, Ord)
+type SizedList n i = ListR n i
 
 -- This is only lawful when OverloadedLists is enabled.
 -- However, it's much more readable when tracing and debugging.
-instance Show i => Show (SizedList n i) where
-  showsPrec d l = showsPrec d (sizedToList l)
-
-pattern ZR :: forall n i. () => n ~ 0 => SizedList n i
-pattern ZR <- (unnilSizedList -> Just UnnilSizedListRes)
-  where ZR = SizedList Nested.ZR
-
-type role UnnilSizedListRes nominal
-data UnnilSizedListRes n = n ~ 0 => UnnilSizedListRes
-unnilSizedList :: forall n i. SizedList n i -> Maybe (UnnilSizedListRes n)
-unnilSizedList (SizedList sh) = case sh of
-  _i Nested.::: _sh' -> Nothing
-  Nested.ZR | Refl <- Nested.lemInjectiveToINat @n -> Just UnnilSizedListRes
-
-infixr 3 :::
-pattern (:::)
-  :: forall {n1} {i}.
-     forall n. (KnownNat n, (1 + n) ~ n1)
-  => i -> SizedList n i -> SizedList n1 i
-pattern i ::: sh <- (unconsSizedList -> Just (UnconsSizedListRes sh i))
-  where i ::: (SizedList sh) =
-          SizedList (unsafeCoerce $ i Nested.::: sh)  -- TODO
-{-# COMPLETE ZR, (:::) #-}
-
-type role UnconsSizedListRes representational nominal
-data UnconsSizedListRes i n1 =
-  forall n. (KnownNat n, (1 + n) ~ n1)
-            => UnconsSizedListRes (SizedList n i) i
-unconsSizedList :: forall n1 i.
-                   SizedList n1 i -> Maybe (UnconsSizedListRes i n1)
-unconsSizedList (SizedList sh) = case sh of
-  (Nested.:::) @k i sh' | Refl <- Nested.lemInjectiveToINat @n1
-                        , Refl <- Nested.lemInjectiveFromINat @k
-                        , Dict <- Nested.knownListR sh'  -- TODO: this recomputes the Dict, but storing it in ListR and converting back and forth would be similarly expensive
-                        , Dict <- Nested.knownNatFromINat (Proxy @k) ->
-    Just (UnconsSizedListRes (SizedList sh') i)
-  Nested.ZR -> Nothing
-
-deriving newtype instance Functor (SizedList n)
-
-deriving newtype instance Foldable (SizedList n)
+--instance Show i => Show (SizedList n i) where
+--  showsPrec d l = showsPrec d (sizedToList l)
 
 instance KnownNat n => IsList (SizedList n i) where
   type Item (SizedList n i) = i
@@ -284,39 +250,12 @@ sizedToList (i ::: is) = i : sizedToList is
 -- until we we actually attempt projecting. In case that the values
 -- are terms, there is no absolute corrcetness criterion anyway,
 -- because the eventual integer value depends on a variable valuation.
-type role Index nominal representational
-newtype Index n i = Index (SizedList n i)
-  deriving (Eq, Ord)
+type Index n i = IxR n i
 
 -- This is only lawful when OverloadedLists is enabled.
 -- However, it's much more readable when tracing and debugging.
-instance Show i => Show (Index n i) where
-  showsPrec d (Index l) = showsPrec d l
-
-pattern ZIR :: forall n i. () => n ~ 0 => Index n i
-pattern ZIR = Index ZR
-
-infixr 3 :.:
-pattern (:.:)
-  :: forall {n1} {i}.
-     forall n. (KnownNat n, (1 + n) ~ n1)
-  => i -> Index n i -> Index n1 i
-pattern i :.: sh <- (unconsIndex -> Just (UnconsIndexRes sh i))
-  where i :.: (Index sh) = Index (i ::: sh)
-{-# COMPLETE ZIR, (:.:) #-}
-
-type role UnconsIndexRes representational nominal
-data UnconsIndexRes i n1 =
-  forall n. (KnownNat n, (1 + n) ~ n1) => UnconsIndexRes (Index n i) i
-unconsIndex :: Index n1 i -> Maybe (UnconsIndexRes i n1)
-unconsIndex (Index sh) = case sh of
-  i ::: sh' -> Just (UnconsIndexRes (Index sh') i)
-  ZR -> Nothing
-
-deriving newtype instance Functor (Index n)
-
-instance Foldable (Index n) where
-  foldr f z l = foldr f z (indexToList l)
+--instance Show i => Show (Index n i) where
+--  showsPrec d (IxR l) = showsPrec d l
 
 instance KnownNat n => IsList (Index n i) where
   type Item (Index n i) = i
@@ -324,27 +263,27 @@ instance KnownNat n => IsList (Index n i) where
   toList = indexToList
 
 singletonIndex :: i -> Index 1 i
-singletonIndex = Index . singletonSized
+singletonIndex = IxR . singletonSized
 
 snocIndex :: KnownNat n => Index n i -> i -> Index (1 + n) i
-snocIndex (Index ix) i = Index $ snocSized ix i
+snocIndex (IxR ix) i = IxR $ snocSized ix i
 
 appendIndex :: KnownNat n => Index m i -> Index n i -> Index (m + n) i
-appendIndex (Index ix1) (Index ix2) = Index $ appendSized ix1 ix2
+appendIndex (IxR ix1) (IxR ix2) = IxR $ appendSized ix1 ix2
 
 headIndex :: Index (1 + n) i -> i
-headIndex (Index ix) = headSized ix
+headIndex (IxR ix) = headSized ix
 
 tailIndex :: Index (1 + n) i -> Index n i
-tailIndex (Index ix) = Index $ tailSized ix
+tailIndex (IxR ix) = IxR $ tailSized ix
 
 takeIndex :: forall m n i. KnownNat m
           => Index (m + n) i -> Index m i
-takeIndex (Index ix) = Index $ takeSized ix
+takeIndex (IxR ix) = IxR $ takeSized ix
 
 dropIndex :: forall m n i. (KnownNat m, KnownNat n)
           => Index (m + n) i -> Index n i
-dropIndex (Index ix) = Index $ dropSized ix
+dropIndex (IxR ix) = IxR $ dropSized ix
 
 splitAt_Index :: (KnownNat m, KnownNat n)
               => Index (m + n) i -> (Index m i, Index n i)
@@ -363,83 +302,56 @@ splitAtInt_Index j ix =
     Nothing -> error "splitAtInt_Index: impossible someNatVal error"
 
 unsnocIndex1 :: Index (1 + n) i -> (Index n i, i)
-unsnocIndex1 (Index ix) = first Index $ unsnocSized1 ix
+unsnocIndex1 (IxR ix) = first IxR $ unsnocSized1 ix
 
 lastIndex :: Index (1 + n) i -> i
-lastIndex (Index ix) = lastSized ix
+lastIndex (IxR ix) = lastSized ix
 
 initIndex :: Index (1 + n) i -> Index n i
-initIndex (Index ix) = Index $ initSized ix
+initIndex (IxR ix) = IxR $ initSized ix
 
 zipIndex :: Index n i -> Index n j -> Index n (i, j)
-zipIndex (Index l1) (Index l2) = Index $ zipSized l1 l2
+zipIndex (IxR l1) (IxR l2) = IxR $ zipSized l1 l2
 
 zipWith_Index :: (i -> j -> k) -> Index n i -> Index n j -> Index n k
-zipWith_Index f (Index l1) (Index l2) = Index $ zipWith_Sized f l1 l2
+zipWith_Index f (IxR l1) (IxR l2) = IxR $ zipWith_Sized f l1 l2
 
 backpermutePrefixIndex :: forall n i. KnownNat n
                        => Permutation -> Index n i -> Index n i
-backpermutePrefixIndex p (Index ix) = Index $ backpermutePrefixSized p ix
+backpermutePrefixIndex p (IxR ix) = IxR $ backpermutePrefixSized p ix
 
 -- Inverse permutation of indexes corresponds to normal permutation
 -- of the shape of the projected tensor.
 permutePrefixIndex :: forall n i. KnownNat n
                    => Permutation -> Index n i -> Index n i
-permutePrefixIndex p (Index ix) = Index $ permutePrefixSized p ix
+permutePrefixIndex p (IxR ix) = IxR $ permutePrefixSized p ix
 
 listToIndex :: KnownNat n => [i] -> Index n i
-listToIndex = Index . listToSized
+listToIndex = IxR . listToSized
 
 indexToList :: Index n i -> [i]
-indexToList (Index l) = sizedToList l
+indexToList (IxR l) = sizedToList l
 
 indexToSized :: Index n i -> SizedList n i
-indexToSized (Index l) = l
+indexToSized (IxR l) = l
 
 sizedToIndex :: SizedList n i -> Index n i
-sizedToIndex = Index
+sizedToIndex = IxR
 
 
 -- * Tensor shapes as fully encapsulated sized lists, with operations
 
 -- | The shape of an n-dimensional array represented as a sized list.
 -- The order of dimensions corresponds to that in @Index@.
-type role Shape nominal representational
-newtype Shape n i = Shape (SizedList n i)
-  deriving Eq
+type Shape n i = ShR n i
 
 -- This is only lawful when OverloadedLists is enabled.
 -- However, it's much more readable when tracing and debugging.
-instance Show i => Show (Shape n i) where
-  showsPrec d (Shape l) = showsPrec d l
-
-pattern ZSR :: forall n i. () => n ~ 0 => Shape n i
-pattern ZSR = Shape ZR
-
-infixr 3 :$:
-pattern (:$:)
-  :: forall {n1} {i}.
-     forall n. (KnownNat n, (1 + n) ~ n1)
-  => i -> Shape n i -> Shape n1 i
-pattern i :$: sh <- (unconsShape -> Just (MkUnconsShapeRes sh i))
-  where i :$: (Shape sh) = Shape (i ::: sh)
-{-# COMPLETE ZSR, (:$:) #-}
-
-type role UnconsShapeRes representational nominal
-data UnconsShapeRes i n1 =
-  forall n. (KnownNat n, (1 + n) ~ n1) => MkUnconsShapeRes (Shape n i) i
-unconsShape :: Shape n1 i -> Maybe (UnconsShapeRes i n1)
-unconsShape (Shape sh) = case sh of
-  i ::: sh' -> Just (MkUnconsShapeRes (Shape sh') i)
-  ZR -> Nothing
-
-deriving newtype instance Functor (Shape n)
-
-instance Foldable (Shape n) where
-  foldr f z l = foldr f z (shapeToList l)
+--instance Show i => Show (Shape n i) where
+--  showsPrec d (ShR l) = showsPrec d l
 
 instance KnownNat n => IsList (Shape n i) where
-  type Item (Shape n i) = i
+  type Item (ShR n i) = i
   fromList = listToShape
   toList = shapeToList
 
@@ -455,31 +367,31 @@ instance KnownNat n => IsList (Shape n i) where
 type ShapeInt n = Shape n Int
 
 singletonShape :: i -> Shape 1 i
-singletonShape = Shape . singletonSized
+singletonShape = ShR . singletonSized
 
 appendShape :: KnownNat n => Shape m i -> Shape n i -> Shape (m + n) i
-appendShape (Shape ix1) (Shape ix2) = Shape $ appendSized ix1 ix2
+appendShape (ShR ix1) (ShR ix2) = ShR $ appendSized ix1 ix2
 
 tailShape :: Shape (1 + n) i -> Shape n i
-tailShape (Shape ix) = Shape $ tailSized ix
+tailShape (ShR ix) = ShR $ tailSized ix
 
 takeShape :: forall m n i. KnownNat m
           => Shape (m + n) i -> Shape m i
-takeShape (Shape ix) = Shape $ takeSized ix
+takeShape (ShR ix) = ShR $ takeSized ix
 
 dropShape :: forall m n i. (KnownNat m, KnownNat n)
           => Shape (m + n) i -> Shape n i
-dropShape (Shape ix) = Shape $ dropSized ix
+dropShape (ShR ix) = ShR $ dropSized ix
 
 splitAt_Shape :: (KnownNat m, KnownNat n)
               => Shape (m + n) i -> (Shape m i, Shape n i)
 splitAt_Shape ix = (takeShape ix, dropShape ix)
 
 lastShape :: Shape (1 + n) i -> i
-lastShape (Shape ix) = lastSized ix
+lastShape (ShR ix) = lastSized ix
 
 initShape :: Shape (1 + n) i -> Shape n i
-initShape (Shape ix) = Shape $ initSized ix
+initShape (ShR ix) = ShR $ initSized ix
 
 lengthShape :: forall n i. KnownNat n => Shape n i -> Int
 lengthShape _ = valueOf @n
@@ -494,14 +406,14 @@ flattenShape = singletonShape . sizeShape
 
 backpermutePrefixShape :: forall n i. KnownNat n
                        => Permutation -> Shape n i -> Shape n i
-backpermutePrefixShape p (Shape is) = Shape $ backpermutePrefixSized p is
+backpermutePrefixShape p (ShR is) = ShR $ backpermutePrefixSized p is
 
 -- Warning: do not pass a list of strides to this function.
 listToShape :: KnownNat n => [i] -> Shape n i
-listToShape = Shape . listToSized
+listToShape = ShR . listToSized
 
 shapeToList :: Shape n i -> [i]
-shapeToList (Shape l) = sizedToList l
+shapeToList (ShR l) = sizedToList l
 
 -- Both shape representations denote the same shape.
 withListShape

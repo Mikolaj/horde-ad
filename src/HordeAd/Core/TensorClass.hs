@@ -36,6 +36,7 @@ import           Type.Reflection (typeRep)
 import           Unsafe.Coerce (unsafeCoerce)
 
 import qualified Data.Array.Mixed as X
+import qualified Data.Array.Nested as Nested
 
 import           HordeAd.Core.HVector
 import           HordeAd.Core.Types
@@ -189,7 +190,7 @@ class ( Integral (IntOf ranked), CRanked ranked Num
     let buildSh :: ShapeInt m1 -> (IndexOf ranked m1 -> ranked r n)
                 -> ranked r (m1 + n)
         buildSh ZSR f = f ZIR
-        buildSh (k :$: sh) f =
+        buildSh (k :$: sh) f | Dict <- Nested.knownShR sh =
           let g i = buildSh sh (\ix -> f (i :.: ix))
           in rbuild1 k g
     in buildSh (takeShape @m @n sh0) f0

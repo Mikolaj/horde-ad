@@ -30,6 +30,7 @@ import           Data.Functor (void)
 import           Data.Int (Int64)
 import           Data.List (foldl')
 import           Data.List.Index (imap)
+import qualified Data.List.NonEmpty as NonEmpty
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Map as M
 import qualified Data.Strict.Vector as Data.Vector
@@ -727,22 +728,21 @@ ttransposeS
      ( KnownShape perm, OS.Permutation perm, KnownShape sh, KnownNat (Sh.Rank sh)
      , Sh.Rank perm <= Sh.Rank sh )
   => Nested.Shaped sh r -> Nested.Shaped (Sh.Permute perm sh) r
-ttransposeS | Dict <- lemShapeFromKnownShape (Proxy @perm)
-            , Dict <- lemShapeFromKnownShape (Proxy @sh) = OS.transpose @perm
+ttransposeS | Dict <- lemShapeFromKnownShape (Proxy @perm) =
+  Nested.stranspose (Sh.shapeT @perm)
 
 treshapeS
   :: forall r sh sh2.
      (Numeric r, KnownShape sh, KnownShape sh2, Sh.Size sh ~ Sh.Size sh2)
   => Nested.Shaped sh r -> Nested.Shaped sh2 r
-treshapeS | Dict <- lemShapeFromKnownShape (Proxy @sh)
-          , Dict <- lemShapeFromKnownShape (Proxy @sh2) = OS.reshape
+treshapeS = Nested.sreshape knownShape
 
 tbuild1S
   :: forall n sh r. (KnownNat n, Numeric r, KnownShape sh)
   => (Int64Sh n -> Nested.Shaped sh r) -> Nested.Shaped (n ': sh) r
-tbuild1S f | Dict <- lemShapeFromKnownShape (Proxy @sh) =
+tbuild1S f =
   let k = valueOf @n
-  in OS.ravel $ OSB.fromList
+  in Nested.sfromList1 $ NonEmpty.fromList
      $ map (f . ShapedList.shapedNat) [0 .. k - 1]  -- hope this fuses
 
 {- TODO
@@ -781,20 +781,15 @@ tgatherZS t f =
       l :: [Vector r]
       l = gcastWith (unsafeCoerce Refl
                      :: sh :~: Sh.Take p sh X.++ Sh.Drop p sh)
-          $ [ stoVector  -- Nested.stoVector
+          $ [ Nested.stoVector
                 ((Nested.sindexPartial t
                    $ fmap fromIntegral
                    $ f (ShapedList.fromLinearIdx sh2
                         $ ShapedList.shapedNat $ fromIntegral i))
                  :: Nested.Shaped (Sh.Drop p sh) r)
             | i <- [0 .. s - 1] ]
-  in (coerce :: Nested.Shaped (sh2 X.++ Sh.Drop p sh) (Nested.Primitive r) -> Nested.Shaped (sh2 X.++ Sh.Drop p sh) r) $ Nested.sfromVector $ LA.vjoin l
+  in Nested.sfromVector $ LA.vjoin l
 
-stoVector :: (KnownShape sh, NumAndShow r)
-          => Nested.Shaped sh r -> Vector r
-stoVector = undefined
-
-{- TODO
 tgatherZ1S :: forall n2 p sh r.
               (KnownNat n2, NumAndShow r, KnownShape sh, KnownShape (Sh.Drop p sh))
            => Nested.Shaped sh r -> (Int64Sh n2 -> IndexIntSh (Sh.Take p sh))
@@ -803,10 +798,9 @@ tgatherZ1S t f | Dict <- lemShapeFromKnownShape (Proxy @sh)
                , Dict <- lemShapeFromKnownShape (Proxy @(Sh.Drop p sh)) =
   let l = gcastWith (unsafeCoerce Refl
                      :: sh :~: Sh.Take p sh X.++ Sh.Drop p sh)
-          $ map (\i -> t `tindexZS` f (ShapedList.shapedNat i))
-                [0 .. valueOf @n2 - 1]
-  in OS.ravel $ OSB.fromList l
--}
+          $ NonEmpty.fromList (map (\i -> t `Nested.sindexPartial` fmap fromIntegral (f (ShapedList.shapedNat i)))
+                [0 .. valueOf @n2 - 1])
+  in Nested.sfromList1 l
 
 -- TODO: use Convert, fromInt/toInt and fromZ/toZ from hmatrix
 tcastS :: forall r1 r2 sh.
@@ -834,7 +828,7 @@ tunScalarS
   => Nested.Shaped '[] r -> r
 tunScalarS = Nested.sunScalar
 
-tscaleByScalarS :: forall r sh. (Numeric r, KnownShape sh, Coercible (Nested.Mixed (Nested.Internal.MapJust sh) (Nested.Primitive r)) (Nested.Mixed (Nested.Internal.MapJust sh) r))
+tscaleByScalarS :: forall r sh. (Numeric r, KnownShape sh)
                 => r -> Nested.Shaped sh r -> Nested.Shaped sh r
 tscaleByScalarS s =
 --  liftVS (LA.scale s)
