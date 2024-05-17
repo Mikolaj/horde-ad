@@ -476,7 +476,7 @@ class ( Integral (IntOf shaped), CShaped shaped Num
       => shaped r (n ': m ': sh) -> shaped r (m ': n ': sh)
   str = stranspose (Proxy @'[1, 0])
   stranspose :: forall perm r sh.
-                ( OS.Permutation perm, KnownShape perm, KnownShape sh
+                ( PermC perm, KnownShape perm, KnownShape sh
                 , KnownNat (Sh.Rank sh), KnownShape (Sh.Permute perm sh)
                 , Sh.Rank perm <= Sh.Rank sh, GoodScalar r )
              => Proxy perm -> shaped r sh -> shaped r (Sh.Permute perm sh)

@@ -1,4 +1,5 @@
-{-# LANGUAGE AllowAmbiguousTypes, CPP, UndecidableInstances #-}
+{-# LANGUAGE AllowAmbiguousTypes, CPP, UndecidableInstances,
+             UndecidableSuperClasses #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 -- | Orphan instances for orthotope classes.
 module HordeAd.Internal.OrthotopeOrphanInstances
@@ -11,7 +12,7 @@ module HordeAd.Internal.OrthotopeOrphanInstances
     liftVR, liftVR2, liftVS, liftVS2
   , IntegralF(..), RealFloatF(..), FlipS(..)
   , -- * Assorted orphans and additions
-    MapSucc, trustMeThisIsAPermutation
+    MapSucc, PermC, trustMeThisIsAPermutation
   ) where
 
 import Prelude
@@ -44,8 +45,9 @@ import           Numeric.LinearAlgebra.Data (arctan2)
 import           Numeric.LinearAlgebra.Devel (zipVectorWith)
 import           Unsafe.Coerce (unsafeCoerce)
 
-import Data.Array.Mixed (Dict (..))
-import Data.Array.Nested (KnownShape (..), ShS (ZSS, (:$$)))
+import           Data.Array.Mixed (Dict (..))
+import qualified Data.Array.Mixed as X
+import           Data.Array.Nested (KnownShape (..), ShS (ZSS, (:$$)))
 
 -- * Definitions to help express and manipulate type-level natural numbers
 
@@ -481,10 +483,13 @@ type family MapSucc (xs :: [Nat]) :: [Nat] where
   MapSucc '[] = '[]
   MapSucc (x ': xs) = 1 + x ': MapSucc xs
 
-trustMeThisIsAPermutationDict :: forall is. Dict OS.Permutation is
-trustMeThisIsAPermutationDict = unsafeCoerce (Dict :: Dict OS.Permutation '[])
+class X.Permutation is => PermC is
+instance X.Permutation is => PermC is
 
-trustMeThisIsAPermutation :: forall is r. (OS.Permutation is => r) -> r
+trustMeThisIsAPermutationDict :: forall is. Dict PermC is
+trustMeThisIsAPermutationDict = unsafeCoerce (Dict :: Dict PermC '[])
+
+trustMeThisIsAPermutation :: forall is r. (PermC is => r) -> r
 trustMeThisIsAPermutation r = case trustMeThisIsAPermutationDict @is of
   Dict -> r
 

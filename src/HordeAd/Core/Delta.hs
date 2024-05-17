@@ -51,7 +51,6 @@ import Prelude
 import           Control.Arrow (second)
 import           Control.Exception.Assert.Sugar
 import qualified Data.Array.Shape as Sh
-import qualified Data.Array.ShapedS as OS
 import qualified Data.EnumMap.Strict as EM
 import           Data.Int (Int64)
 import           Data.Kind (Type)
@@ -339,7 +338,7 @@ data DeltaS :: ShapedTensorType -> ShapedTensorType where
            -> DeltaS shaped r (n ': sh)
     -- ^ Reverse elements of the outermost dimension.
   TransposeS :: forall shaped perm r sh.
-                ( OS.Permutation perm, KnownShape perm, KnownShape sh
+                ( PermC perm, KnownShape perm, KnownShape sh
                 , KnownNat (Sh.Rank sh), Sh.Rank perm <= Sh.Rank sh )
              => DeltaS shaped r sh
              -> DeltaS shaped r (Sh.Permute perm sh)
