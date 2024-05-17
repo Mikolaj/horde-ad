@@ -1734,7 +1734,7 @@ astTranspose perm = \case
     -- we don't go inside AstSumOfList, because they are usually long
 
 astTransposeS :: forall perm sh s r.
-                 ( OS.Permutation perm, KnownShape perm, KnownShape sh
+                 ( PermC perm, KnownShape perm, KnownShape sh
                  , KnownNat (Sh.Rank sh), Sh.Rank perm <= Sh.Rank sh
                  , GoodScalar r, AstSpan s )
               => AstShaped s r sh -> AstShaped s r (Sh.Permute perm sh)

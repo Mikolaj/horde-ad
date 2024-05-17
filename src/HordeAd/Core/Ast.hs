@@ -360,7 +360,7 @@ data AstShaped :: AstSpanType -> ShapedTensorType where
   AstReverseS :: (KnownNat n, KnownShape sh)
               => AstShaped s r (n ': sh) -> AstShaped s r (n ': sh)
   AstTransposeS :: forall perm sh r s.
-                   ( OS.Permutation perm, KnownShape perm, KnownShape sh
+                   ( PermC perm, KnownShape perm, KnownShape sh
                    , KnownNat (Sh.Rank sh), Sh.Rank perm <= Sh.Rank sh )
                 => AstShaped s r sh -> AstShaped s r (Sh.Permute perm sh)
   AstReshapeS :: (KnownShape sh, Sh.Size sh ~ Sh.Size sh2)

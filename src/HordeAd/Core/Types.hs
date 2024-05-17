@@ -16,7 +16,7 @@ module HordeAd.Core.Types
   , ShS(..), KnownShape(..), shapeT, shapeP, sizeT, sizeP
   , shSToList, sshapeKnown
   , withShapeP, sameShape, matchingRank, lemShapeFromKnownShape
-  , Dict(..)
+  , Dict(..), PermC
   ) where
 
 import Prelude
