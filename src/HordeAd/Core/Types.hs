@@ -29,7 +29,8 @@ import GHC.TypeLits (KnownNat, Nat)
 import Numeric.LinearAlgebra (Numeric, Vector)
 import Type.Reflection (Typeable)
 
-import Data.Array.Nested (Dict (..), KnownShape (..), ShS (..))
+import Data.Array.Mixed (Dict (..))
+import Data.Array.Nested (KnownShape (..), ShS (..))
 import Data.Array.Nested.Internal (sshapeKnown)
 
 import HordeAd.Internal.OrthotopeOrphanInstances

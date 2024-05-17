@@ -1,6 +1,7 @@
 {-# LANGUAGE AllowAmbiguousTypes, QuantifiedConstraints,
              UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
+{-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | The product (heterogeneous list) object for tensors.
 --
 -- This is used as a representation of the domains of objective functions

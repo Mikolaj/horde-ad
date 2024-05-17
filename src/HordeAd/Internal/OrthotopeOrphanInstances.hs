@@ -44,7 +44,8 @@ import           Numeric.LinearAlgebra.Data (arctan2)
 import           Numeric.LinearAlgebra.Devel (zipVectorWith)
 import           Unsafe.Coerce (unsafeCoerce)
 
-import Data.Array.Nested (Dict (..), KnownShape (..), ShS (ZSS, (:$$)))
+import Data.Array.Mixed (Dict (..))
+import Data.Array.Nested (KnownShape (..), ShS (ZSS, (:$$)))
 
 -- * Definitions to help express and manipulate type-level natural numbers
 
