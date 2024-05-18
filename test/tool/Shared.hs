@@ -39,8 +39,8 @@ instance (VS.Storable a) => HasShape (VS.Vector a) where
 instance HasShape (Flip OR.Array a n) where
   shapeL = OR.shapeL . runFlip
 
-instance KnownShape sh => HasShape (FlipS OS.Array a sh) where
-  shapeL | Dict <- lemShapeFromKnownShape (Proxy @sh) = OS.shapeL . runFlipS
+instance KnownShS sh => HasShape (FlipS OS.Array a sh) where
+  shapeL | Dict <- lemShapeFromKnownShS (Proxy @sh) = OS.shapeL . runFlipS
 
 instance HasShape (LA.Matrix a) where
   shapeL matrix = [LA.rows matrix, LA.cols matrix]
@@ -64,13 +64,13 @@ class Linearizable a b | a -> b where
 instance (VS.Storable a) => Linearizable (VS.Vector a) a where
   linearize = VS.toList
 
-instance (VS.Storable a, KnownShape sh)
+instance (VS.Storable a, KnownShS sh)
          => Linearizable (OS.Array sh a) a where
-  linearize | Dict <- lemShapeFromKnownShape (Proxy @sh) = OS.toList
+  linearize | Dict <- lemShapeFromKnownShS (Proxy @sh) = OS.toList
 
-instance (VS.Storable a, KnownShape sh)
+instance (VS.Storable a, KnownShS sh)
          => Linearizable (FlipS OS.Array a sh) a where
-  linearize | Dict <- lemShapeFromKnownShape (Proxy @sh) = OS.toList . runFlipS
+  linearize | Dict <- lemShapeFromKnownShS (Proxy @sh) = OS.toList . runFlipS
 
 instance (VS.Storable a) => Linearizable (OR.Array n a) a where
   linearize = OR.toList
@@ -83,7 +83,7 @@ instance (LA.Element a) => Linearizable (LA.Matrix a) a where
 
 instance ( forall r n. (GoodScalar r, KnownNat n)
            => Linearizable (ranked r n) r
-         , forall r sh. (GoodScalar r, KnownShape sh)
+         , forall r sh. (GoodScalar r, KnownShS sh)
            => Linearizable (shaped r sh) r
          , shaped ~ ShapedOf ranked )  -- a hack for quantified constraints
          => Linearizable (DynamicTensor ranked) Double where

@@ -204,13 +204,13 @@ instance ( RankedTensor ranked, IfF (RankedOf (PrimalOf ranked))
     in dDnotShared u u'
 
 indexPrimalS :: ( ShapedTensor shaped, GoodScalar r
-                , KnownShape sh1, KnownShape sh2, KnownShape (sh1 X.++ sh2) )
+                , KnownShS sh1, KnownShS sh2, KnownShS (sh1 X.++ sh2) )
              => ADVal shaped r (sh1 X.++ sh2) -> IndexSh shaped sh1
              -> ADVal shaped r sh2
 indexPrimalS (D u u') ix = dD (sindex u ix) (IndexS u' ix)
 
 fromVectorS :: forall n sh shaped r.
-               (ShapedTensor shaped, KnownNat n, KnownShape sh, GoodScalar r)
+               (ShapedTensor shaped, KnownNat n, KnownShS sh, GoodScalar r)
             => Data.Vector.Vector (ADVal shaped r sh)
             -> ADVal shaped r (n ': sh)
 fromVectorS lu = assert (length lu == valueOf @n) $

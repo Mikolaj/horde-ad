@@ -56,14 +56,14 @@ simplifyInlineAst =
   => AstRanked s Double n -> AstRanked s Double n #-}
 
 simplifyInlineAstS
-  :: (GoodScalar r, KnownShape sh, AstSpan s)
+  :: (GoodScalar r, KnownShS sh, AstSpan s)
   => AstShaped s r sh -> AstShaped s r sh
 simplifyInlineAstS =
   snd . inlineAstS EM.empty
   . simplifyAstS . expandAstS
   . snd . inlineAstS EM.empty . simplifyAstS
 {-# SPECIALIZE simplifyInlineAstS
-  :: (KnownShape sh, AstSpan s)
+  :: (KnownShS sh, AstSpan s)
   => AstShaped s Double sh -> AstShaped s Double sh #-}
 
 simplifyInlineHVector
@@ -217,7 +217,7 @@ inlineAst memo v0 = case v0 of
     in (memo2, Ast.AstD t1 t2)
 
 inlineAstS
-  :: forall sh s r. (GoodScalar r, KnownShape sh, AstSpan s)
+  :: forall sh s r. (GoodScalar r, KnownShS sh, AstSpan s)
   => AstMemo
   -> AstShaped s r sh -> (AstMemo, AstShaped s r sh)
 inlineAstS memo v0 = case v0 of
@@ -604,7 +604,7 @@ shareAst memo v0 = case v0 of
     in (memo2, Ast.AstD t1 t2)
 
 shareAstS
-  :: forall sh s r. (GoodScalar r, KnownShape sh, AstSpan s)
+  :: forall sh s r. (GoodScalar r, KnownShS sh, AstSpan s)
   => ShareMemo -> AstShaped s r sh -> (ShareMemo, AstShaped s r sh)
 shareAstS memo v0 = case v0 of
   Ast.AstVarS{} -> (memo, v0)

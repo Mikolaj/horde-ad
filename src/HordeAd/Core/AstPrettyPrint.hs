@@ -137,7 +137,7 @@ printAstVar :: forall n s r. KnownNat n
             => PrintConfig -> AstVarName (AstRanked s) r n -> ShowS
 printAstVar = printAstVarN (valueOf @n)
 
-printAstVarS :: forall sh s r. KnownShape sh
+printAstVarS :: forall sh s r. KnownShS sh
              => PrintConfig -> AstVarName (AstShaped s) r sh -> ShowS
 printAstVarS = printAstVarN (length (shapeT @sh))
 
@@ -169,7 +169,7 @@ printAstVarName :: KnownNat n
 printAstVarName renames var =
   printAstVar (defaulPrintConfig False renames) var ""
 
-printAstVarNameS :: KnownShape sh
+printAstVarNameS :: KnownShS sh
                  => IntMap String -> AstVarName (AstShaped s) r sh
                  -> String
 printAstVarNameS renames var =
@@ -401,7 +401,7 @@ printAstAux cfg d = \case
   AstDualPart a -> printPrefixOp printAst cfg d "rdualPart" [a]
   AstD u u' -> printPrefixBinaryOp printAst printAst cfg d "rD" u u'
 
-printAstS :: forall sh s r. (GoodScalar r, KnownShape sh, AstSpan s)
+printAstS :: forall sh s r. (GoodScalar r, KnownShS sh, AstSpan s)
           => PrintConfig -> Int -> AstShaped s r sh -> ShowS
 printAstS cfg d = \case
   AstVarS var -> printAstVarS cfg var
@@ -520,7 +520,7 @@ printAstS cfg d = \case
   AstCastS v -> printPrefixOp printAstS cfg d "scast" [v]
   AstFromIntegralS a ->
     printPrefixOp printAstS cfg d "sfromIntegral" [a]
-  AstConstS @_ @sh2 (FlipS a) | Dict <- lemShapeFromKnownShape (Proxy @sh2) ->
+  AstConstS @_ @sh2 (FlipS a) | Dict <- lemShapeFromKnownShS (Proxy @sh2) ->
     case sameShape @sh @'[] of
       Just Refl -> shows $ OS.unScalar a
       _ -> showParen (d > 10)
@@ -951,15 +951,15 @@ printAstPrettyButNested :: (GoodScalar r, KnownNat n, AstSpan s)
 printAstPrettyButNested renames t =
   printAst (defaulPrintConfig2 True False renames) 0 t ""
 
-printAstSimpleS :: (GoodScalar r, KnownShape sh, AstSpan s)
+printAstSimpleS :: (GoodScalar r, KnownShS sh, AstSpan s)
                 => IntMap String -> AstShaped s r sh -> String
 printAstSimpleS renames t = printAstS (defaulPrintConfig False renames) 0 t ""
 
-printAstPrettyS :: (GoodScalar r, KnownShape sh, AstSpan s)
+printAstPrettyS :: (GoodScalar r, KnownShS sh, AstSpan s)
                 => IntMap String -> AstShaped s r sh -> String
 printAstPrettyS renames t = printAstS (defaulPrintConfig True renames) 0 t ""
 
-printAstPrettyButNestedS :: (GoodScalar r, KnownShape sh, AstSpan s)
+printAstPrettyButNestedS :: (GoodScalar r, KnownShS sh, AstSpan s)
                          => IntMap String -> AstShaped s r sh -> String
 printAstPrettyButNestedS renames t =
   printAstS (defaulPrintConfig2 True False renames) 0 t ""

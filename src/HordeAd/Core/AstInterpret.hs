@@ -459,7 +459,7 @@ interpretAst !env = \case
 
 interpretAstPrimalSRuntimeSpecialized
   :: forall ranked sh r.
-     (KnownShape sh, ADReady ranked, Typeable r)
+     (KnownShS sh, ADReady ranked, Typeable r)
   => AstEnv ranked
   -> AstShaped PrimalSpan r sh -> PrimalOf (ShapedOf ranked) r sh
 interpretAstPrimalSRuntimeSpecialized !env t =
@@ -475,7 +475,7 @@ interpretAstPrimalSRuntimeSpecialized !env t =
 
 interpretAstPrimalS
   :: forall ranked sh r.
-     (KnownShape sh, ADReady ranked, GoodScalar r)
+     (KnownShS sh, ADReady ranked, GoodScalar r)
   => AstEnv ranked
   -> AstShaped PrimalSpan r sh -> PrimalOf (ShapedOf ranked) r sh
 interpretAstPrimalS !env v1 = case v1 of
@@ -491,7 +491,7 @@ interpretAstPrimalS !env v1 = case v1 of
 
 interpretAstDualS
   :: forall ranked sh r.
-     (KnownShape sh, ADReady ranked, GoodScalar r)
+     (KnownShS sh, ADReady ranked, GoodScalar r)
   => AstEnv ranked
   -> AstShaped DualSpan r sh -> DualOf (ShapedOf ranked) r sh
 interpretAstDualS !env v1 = case v1 of
@@ -501,7 +501,7 @@ interpretAstDualS !env v1 = case v1 of
 
 interpretAstSRuntimeSpecialized
   :: forall ranked sh s r.
-     (KnownShape sh, ADReady ranked, Typeable r, AstSpan s)
+     (KnownShS sh, ADReady ranked, Typeable r, AstSpan s)
   => AstEnv ranked
   -> AstShaped s r sh -> ShapedOf ranked r sh
 interpretAstSRuntimeSpecialized !env t =
@@ -517,7 +517,7 @@ interpretAstSRuntimeSpecialized !env t =
 
 interpretAstS
   :: forall ranked sh s r shaped.
-     ( KnownShape sh, ADReady ranked, GoodScalar r, AstSpan s
+     ( KnownShS sh, ADReady ranked, GoodScalar r, AstSpan s
      , shaped ~ ShapedOf ranked )
   => AstEnv ranked
   -> AstShaped s r sh -> shaped r sh

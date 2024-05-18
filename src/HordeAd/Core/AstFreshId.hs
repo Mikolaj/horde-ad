@@ -89,7 +89,7 @@ funToAstR sh f = unsafePerformIO $ do
   (!var, _, !ast) <- funToAstIOR sh f
   return (var, ast)
 
-funToAstIOS :: forall sh sh2 s r r2. (KnownShape sh, GoodScalar r)
+funToAstIOS :: forall sh sh2 s r r2. (KnownShS sh, GoodScalar r)
             => (AstShaped s r sh -> AstShaped s r2 sh2)
             -> IO ( AstVarName (AstShaped s) r sh
                   , AstDynamicVarName
@@ -101,7 +101,7 @@ funToAstIOS f = do
       !x = f (AstVarS varName)
   return (varName, AstDynamicVarName @[Nat] @r @sh freshId, x)
 
-funToAstS :: forall sh sh2 s r r2. (KnownShape sh, GoodScalar r)
+funToAstS :: forall sh sh2 s r r2. (KnownShS sh, GoodScalar r)
           => (AstShaped s r sh -> AstShaped s r2 sh2)
           -> (AstVarName (AstShaped s) r sh, AstShaped s r2 sh2)
 {-# NOINLINE funToAstS #-}
@@ -354,7 +354,7 @@ funToAstIndex f = unsafePerformIO . funToVarsIxIO (valueOf @m)
                   $ \ (!vars, !ix) -> let !x = f ix in (vars, x)
 
 funToVarsIxIOS
-  :: forall sh a. KnownShape sh
+  :: forall sh a. KnownShS sh
   => ((AstVarListS sh, AstIndexS sh) -> a) -> IO a
 {-# INLINE funToVarsIxIOS #-}
 funToVarsIxIOS f = do
@@ -365,13 +365,13 @@ funToVarsIxIOS f = do
   return $! f (vars, ix)
 
 funToVarsIxS
-  :: KnownShape sh
+  :: KnownShS sh
   => ((AstVarListS sh, AstIndexS sh) -> a) -> a
 {-# NOINLINE funToVarsIxS #-}
 funToVarsIxS = unsafePerformIO . funToVarsIxIOS
 
 funToAstIndexS
-  :: KnownShape sh
+  :: KnownShS sh
   => (AstIndexS sh -> AstIndexS sh2) -> (AstVarListS sh, AstIndexS sh2)
 {-# NOINLINE funToAstIndexS #-}
 funToAstIndexS f = unsafePerformIO $ funToVarsIxIOS

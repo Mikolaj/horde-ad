@@ -365,17 +365,17 @@ cfwd f vals ds =
   -> Flip OR.Array r n #-}
 
 {-# SPECIALIZE interpretAstPrimalSRuntimeSpecialized
-  :: (KnownShape sh, Typeable r)
+  :: (KnownShS sh, Typeable r)
   => AstEnv (ADVal (Flip OR.Array))
   -> AstShaped PrimalSpan r sh
   -> FlipS OS.Array r sh #-}
 {-# SPECIALIZE interpretAstPrimalSRuntimeSpecialized
-  :: (KnownShape sh, Typeable r)
+  :: (KnownShS sh, Typeable r)
   => AstEnv (ADVal (AstRanked PrimalSpan))
   -> AstShaped PrimalSpan r sh
   -> AstShaped PrimalSpan r sh #-}
 {-# SPECIALIZE interpretAstPrimalSRuntimeSpecialized
-  :: (KnownShape sh, Typeable r)
+  :: (KnownShS sh, Typeable r)
   => AstEnv (Flip OR.Array)
   -> AstShaped PrimalSpan r sh
   -> FlipS OS.Array r sh #-}
@@ -442,62 +442,62 @@ cfwd f vals ds =
   -> Flip OR.Array Int64 n #-}
 
 {-# SPECIALIZE interpretAstPrimalS
-  :: (KnownShape sh, GoodScalar r)
+  :: (KnownShS sh, GoodScalar r)
   => AstEnv (ADVal (Flip OR.Array))
   -> AstShaped PrimalSpan r sh
   -> FlipS OS.Array r sh #-}
 {-# SPECIALIZE interpretAstPrimalS
-  :: KnownShape sh
+  :: KnownShS sh
   => AstEnv (ADVal (Flip OR.Array))
   -> AstShaped PrimalSpan Double sh
   -> FlipS OS.Array Double sh #-}
 {-# SPECIALIZE interpretAstPrimalS
-  :: KnownShape sh
+  :: KnownShS sh
   => AstEnv (ADVal (Flip OR.Array))
   -> AstShaped PrimalSpan Float sh
   -> FlipS OS.Array Float sh #-}
 {-# SPECIALIZE interpretAstPrimalS
-  :: KnownShape sh
+  :: KnownShS sh
   => AstEnv (ADVal (Flip OR.Array))
   -> AstShaped PrimalSpan Int64 sh
   -> FlipS OS.Array Int64 sh #-}
 {-# SPECIALIZE interpretAstPrimalS
-  :: (KnownShape sh, GoodScalar r)
+  :: (KnownShS sh, GoodScalar r)
   => AstEnv (ADVal (AstRanked PrimalSpan))
   -> AstShaped PrimalSpan r sh
   -> AstShaped PrimalSpan r sh #-}
 {-# SPECIALIZE interpretAstPrimalS
-  :: KnownShape sh
+  :: KnownShS sh
   => AstEnv (ADVal (AstRanked PrimalSpan))
   -> AstShaped PrimalSpan Double sh
   -> AstShaped PrimalSpan Double sh #-}
 {-# SPECIALIZE interpretAstPrimalS
-  :: KnownShape sh
+  :: KnownShS sh
   => AstEnv (ADVal (AstRanked PrimalSpan))
   -> AstShaped PrimalSpan Float sh
   -> AstShaped PrimalSpan Float sh #-}
 {-# SPECIALIZE interpretAstPrimalS
-  :: KnownShape sh
+  :: KnownShS sh
   => AstEnv (ADVal (AstRanked PrimalSpan))
   -> AstShaped PrimalSpan Int64 sh
   -> AstShaped PrimalSpan Int64 sh #-}
 {-# SPECIALIZE interpretAstPrimalS
-  :: (KnownShape sh, GoodScalar r)
+  :: (KnownShS sh, GoodScalar r)
   => AstEnv (Flip OR.Array)
   -> AstShaped PrimalSpan r sh
   -> FlipS OS.Array r sh #-}
 {-# SPECIALIZE interpretAstPrimalS
-  :: KnownShape sh
+  :: KnownShS sh
   => AstEnv (Flip OR.Array)
   -> AstShaped PrimalSpan Double sh
   -> FlipS OS.Array Double sh #-}
 {-# SPECIALIZE interpretAstPrimalS
-  :: KnownShape sh
+  :: KnownShS sh
   => AstEnv (Flip OR.Array)
   -> AstShaped PrimalSpan Float sh
   -> FlipS OS.Array Float sh #-}
 {-# SPECIALIZE interpretAstPrimalS
-  :: KnownShape sh
+  :: KnownShS sh
   => AstEnv (Flip OR.Array)
   -> AstShaped PrimalSpan Int64 sh
   -> FlipS OS.Array Int64 sh #-}
@@ -564,62 +564,62 @@ cfwd f vals ds =
   -> DummyDual Int64 n #-}
 
 {-# SPECIALIZE interpretAstDualS
-  :: (KnownShape sh, GoodScalar r)
+  :: (KnownShS sh, GoodScalar r)
   => AstEnv (ADVal (Flip OR.Array))
   -> AstShaped DualSpan r sh
   -> DeltaS (FlipS OS.Array) r sh #-}
 {-# SPECIALIZE interpretAstDualS
-  :: KnownShape sh
+  :: KnownShS sh
   => AstEnv (ADVal (Flip OR.Array))
   -> AstShaped DualSpan Double sh
   -> DeltaS (FlipS OS.Array) Double sh #-}
 {-# SPECIALIZE interpretAstDualS
-  :: KnownShape sh
+  :: KnownShS sh
   => AstEnv (ADVal (Flip OR.Array))
   -> AstShaped DualSpan Float sh
   -> DeltaS (FlipS OS.Array) Float sh #-}
 {-# SPECIALIZE interpretAstDualS
-  :: KnownShape sh
+  :: KnownShS sh
   => AstEnv (ADVal (Flip OR.Array))
   -> AstShaped DualSpan Int64 sh
   -> DeltaS (FlipS OS.Array) Int64 sh #-}
 {-# SPECIALIZE interpretAstDualS
-  :: (KnownShape sh, GoodScalar r)
+  :: (KnownShS sh, GoodScalar r)
   => AstEnv (ADVal (AstRanked PrimalSpan))
   -> AstShaped DualSpan r sh
   -> DeltaS (AstShaped PrimalSpan) r sh #-}
 {-# SPECIALIZE interpretAstDualS
-  :: KnownShape sh
+  :: KnownShS sh
   => AstEnv (ADVal (AstRanked PrimalSpan))
   -> AstShaped DualSpan Double sh
   -> DeltaS (AstShaped PrimalSpan) Double sh #-}
 {-# SPECIALIZE interpretAstDualS
-  :: KnownShape sh
+  :: KnownShS sh
   => AstEnv (ADVal (AstRanked PrimalSpan))
   -> AstShaped DualSpan Float sh
   -> DeltaS (AstShaped PrimalSpan) Float sh #-}
 {-# SPECIALIZE interpretAstDualS
-  :: KnownShape sh
+  :: KnownShS sh
   => AstEnv (ADVal (AstRanked PrimalSpan))
   -> AstShaped DualSpan Int64 sh
   -> DeltaS (AstShaped PrimalSpan) Int64 sh #-}
 {-# SPECIALIZE interpretAstDualS
-  :: (KnownShape sh, GoodScalar r)
+  :: (KnownShS sh, GoodScalar r)
   => AstEnv (Flip OR.Array)
   -> AstShaped DualSpan r sh
   -> DummyDual r sh #-}
 {-# SPECIALIZE interpretAstDualS
-  :: KnownShape sh
+  :: KnownShS sh
   => AstEnv (Flip OR.Array)
   -> AstShaped DualSpan Double sh
   -> DummyDual Double sh #-}
 {-# SPECIALIZE interpretAstDualS
-  :: KnownShape sh
+  :: KnownShS sh
   => AstEnv (Flip OR.Array)
   -> AstShaped DualSpan Float sh
   -> DummyDual Float sh #-}
 {-# SPECIALIZE interpretAstDualS
-  :: KnownShape sh
+  :: KnownShS sh
   => AstEnv (Flip OR.Array)
   -> AstShaped DualSpan Int64 sh
   -> DummyDual Int64 sh #-}
@@ -643,17 +643,17 @@ cfwd f vals ds =
   -> Flip OR.Array r n #-}
 
 {-# SPECIALIZE interpretAstSRuntimeSpecialized
-  :: (KnownShape sh, Typeable r, AstSpan s)
+  :: (KnownShS sh, Typeable r, AstSpan s)
   => AstEnv (ADVal (Flip OR.Array))
   -> AstShaped s r sh
   -> ADVal (FlipS OS.Array) r sh #-}
 {-# SPECIALIZE interpretAstSRuntimeSpecialized
-  :: (KnownShape sh, Typeable r, AstSpan s)
+  :: (KnownShS sh, Typeable r, AstSpan s)
   => AstEnv (ADVal (AstRanked PrimalSpan))
   -> AstShaped s r sh
   -> ADVal (AstShaped PrimalSpan) r sh #-}
 {-# SPECIALIZE interpretAstSRuntimeSpecialized
-  :: (KnownShape sh, Typeable r, AstSpan s)
+  :: (KnownShS sh, Typeable r, AstSpan s)
   => AstEnv (Flip OR.Array)
   -> AstShaped s r sh
   -> FlipS OS.Array r sh #-}
@@ -722,62 +722,62 @@ cfwd f vals ds =
   -> Flip OR.Array Int64 n #-}
 
 {-# SPECIALIZE interpretAstS
-  :: (KnownShape sh, GoodScalar r, AstSpan s)
+  :: (KnownShS sh, GoodScalar r, AstSpan s)
   => AstEnv (ADVal (Flip OR.Array))
   -> AstShaped s r sh
   -> ADVal (FlipS OS.Array) r sh #-}
 {-# SPECIALIZE interpretAstS
-  :: (KnownShape sh, AstSpan s)
+  :: (KnownShS sh, AstSpan s)
   => AstEnv (ADVal (Flip OR.Array))
   -> AstShaped s Double sh
   -> ADVal (FlipS OS.Array) Double sh #-}
 {-# SPECIALIZE interpretAstS
-  :: (KnownShape sh, AstSpan s)
+  :: (KnownShS sh, AstSpan s)
   => AstEnv (ADVal (Flip OR.Array))
   -> AstShaped s Float sh
   -> ADVal (FlipS OS.Array) Float sh #-}
 {-# SPECIALIZE interpretAstS
-  :: (KnownShape sh, AstSpan s)
+  :: (KnownShS sh, AstSpan s)
   => AstEnv (ADVal (Flip OR.Array))
   -> AstShaped s Int64 sh
   -> ADVal (FlipS OS.Array) Int64 sh #-}
 {-# SPECIALIZE interpretAstS
-  :: (KnownShape sh, GoodScalar r, AstSpan s)
+  :: (KnownShS sh, GoodScalar r, AstSpan s)
   => AstEnv (ADVal (AstRanked PrimalSpan))
   -> AstShaped s r sh
   -> ADVal (AstShaped PrimalSpan) r sh #-}
 {-# SPECIALIZE interpretAstS
-  :: (KnownShape sh, AstSpan s)
+  :: (KnownShS sh, AstSpan s)
   => AstEnv (ADVal (AstRanked PrimalSpan))
   -> AstShaped s Double sh
   -> ADVal (AstShaped PrimalSpan) Double sh #-}
 {-# SPECIALIZE interpretAstS
-  :: (KnownShape sh, AstSpan s)
+  :: (KnownShS sh, AstSpan s)
   => AstEnv (ADVal (AstRanked PrimalSpan))
   -> AstShaped s Float sh
   -> ADVal (AstShaped PrimalSpan) Float sh #-}
 {-# SPECIALIZE interpretAstS
-  :: (KnownShape sh, AstSpan s)
+  :: (KnownShS sh, AstSpan s)
   => AstEnv (ADVal (AstRanked PrimalSpan))
   -> AstShaped s Int64 sh
   -> ADVal (AstShaped PrimalSpan) Int64 sh #-}
 {-# SPECIALIZE interpretAstS
-  :: (KnownShape sh, GoodScalar r, AstSpan s)
+  :: (KnownShS sh, GoodScalar r, AstSpan s)
   => AstEnv (Flip OR.Array)
   -> AstShaped s r sh
   -> FlipS OS.Array r sh #-}
 {-# SPECIALIZE interpretAstS
-  :: (KnownShape sh, AstSpan s)
+  :: (KnownShS sh, AstSpan s)
   => AstEnv (Flip OR.Array)
   -> AstShaped s Double sh
   -> FlipS OS.Array Double sh #-}
 {-# SPECIALIZE interpretAstS
-  :: (KnownShape sh, AstSpan s)
+  :: (KnownShS sh, AstSpan s)
   => AstEnv (Flip OR.Array)
   -> AstShaped s Float sh
   -> FlipS OS.Array Float sh #-}
 {-# SPECIALIZE interpretAstS
-  :: (KnownShape sh, AstSpan s)
+  :: (KnownShS sh, AstSpan s)
   => AstEnv (Flip OR.Array)
   -> AstShaped s Int64 sh
   -> FlipS OS.Array Int64 sh #-}

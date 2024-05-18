@@ -255,7 +255,7 @@ data DeltaR :: RankedTensorType -> RankedTensorType where
     -- TODO: this is a haddock for Gather1; fix.
   CastR :: (GoodScalar r1, RealFrac r1, RealFrac r2)
         => DeltaR ranked r1 n -> DeltaR ranked r2 n
-  RFromS :: forall sh r ranked. KnownShape sh
+  RFromS :: forall sh r ranked. KnownShS sh
          => DeltaS (ShapedOf ranked) r sh
          -> DeltaR ranked r (Sh.Rank sh)
   RFromH :: DeltaH ranked -> Int -> DeltaR ranked r n
@@ -280,7 +280,7 @@ data DeltaS :: ShapedTensorType -> ShapedTensorType where
        -> DeltaS shaped r sh
   ShareS :: NodeId (RankedOf shaped) -> DeltaS shaped r sh -> DeltaS shaped r sh
 
-  IndexS :: (KnownShape sh1, KnownShape (sh1 X.++ sh2))
+  IndexS :: (KnownShS sh1, KnownShS (sh1 X.++ sh2))
          => DeltaS shaped r (sh1 X.++ sh2)
          -> IndexSh shaped sh1
          -> DeltaS shaped r sh2
@@ -288,14 +288,14 @@ data DeltaS :: ShapedTensorType -> ShapedTensorType where
     -- If index is out of bounds, the result is defined and is 0.
   SumS :: KnownNat n
        => DeltaS shaped r (n ': sh) -> DeltaS shaped r sh
-  Sum0S :: (KnownShape sh, KnownNat (Sh.Size sh))
+  Sum0S :: (KnownShS sh, KnownNat (Sh.Size sh))
         => DeltaS shaped r sh -> DeltaS shaped r '[]
-  Dot0S :: (KnownShape sh, KnownNat (Sh.Size sh))
+  Dot0S :: (KnownShS sh, KnownNat (Sh.Size sh))
         => shaped r sh -> DeltaS shaped r sh
         -> DeltaS shaped r '[]
   ScatterS :: forall shaped r sh2 p sh.
-              ( KnownShape sh2, KnownShape (Sh.Take p sh), KnownShape (Sh.Drop p sh)
-              , KnownShape (sh2 X.++ Sh.Drop p sh) )
+              ( KnownShS sh2, KnownShS (Sh.Take p sh), KnownShS (Sh.Drop p sh)
+              , KnownShS (sh2 X.++ Sh.Drop p sh) )
            => DeltaS shaped r (sh2 X.++ Sh.Drop p sh)
            -> (IndexSh shaped sh2
                -> IndexSh shaped (Sh.Take p sh))
@@ -310,16 +310,16 @@ data DeltaS :: ShapedTensorType -> ShapedTensorType where
     -- and then no tensors is added at such an index.
     -- TODO: this is a haddock for Scatter1; fix.
 
-  FromVectorS :: (KnownShape sh, KnownNat n)
+  FromVectorS :: (KnownShS sh, KnownNat n)
               => Data.Vector.Vector (DeltaS shaped r sh)
               -> DeltaS shaped r (n ': sh)
     -- ^ Create a tensor from a boxed vector treated as the outermost dimension.
   ReplicateS :: forall shaped r n sh.
-                (KnownShape sh, KnownNat n)
+                (KnownShS sh, KnownNat n)
              => DeltaS shaped r sh -> DeltaS shaped r (n ': sh)
     -- ^ Copy the given tensor along the new, outermost dimension.
   AppendS :: forall shaped r m n sh.
-             (KnownNat m, KnownNat n, KnownShape sh)
+             (KnownNat m, KnownNat n, KnownShS sh)
           => DeltaS shaped r (m ': sh)
           -> DeltaS shaped r (n ': sh)
           -> DeltaS shaped r ((m + n) ': sh)
@@ -327,29 +327,29 @@ data DeltaS :: ShapedTensorType -> ShapedTensorType where
     -- All dimensions, except the outermost, must be the same.
     -- The integer argument is the outermost size of the first array.
   SliceS :: forall shaped i n k r sh.
-            (KnownNat i, KnownNat n, KnownNat k, KnownShape sh)
+            (KnownNat i, KnownNat n, KnownNat k, KnownShS sh)
          => DeltaS shaped r (i + n + k ': sh)
          -> DeltaS shaped r (n ': sh)
     -- ^ Extract a slice of an array along the outermost dimension.
     -- The extracted slice must fall within the dimension.
     -- The last argument is the outermost size of the argument array.
-  ReverseS :: (KnownShape sh, KnownNat n)
+  ReverseS :: (KnownShS sh, KnownNat n)
            => DeltaS shaped r (n ': sh)
            -> DeltaS shaped r (n ': sh)
     -- ^ Reverse elements of the outermost dimension.
   TransposeS :: forall shaped perm r sh.
-                ( PermC perm, KnownShape perm, KnownShape sh
+                ( PermC perm, KnownShS perm, KnownShS sh
                 , KnownNat (Sh.Rank sh), Sh.Rank perm <= Sh.Rank sh )
              => DeltaS shaped r sh
              -> DeltaS shaped r (Sh.Permute perm sh)
     -- ^ Transpose according to the permutation.
-  ReshapeS :: (KnownShape sh, Sh.Size sh ~ Sh.Size sh2)
+  ReshapeS :: (KnownShS sh, Sh.Size sh ~ Sh.Size sh2)
            => DeltaS shaped r sh
            -> DeltaS shaped r sh2
     -- ^ Change the shape of the tensor from the first to the second.
   GatherS :: forall shaped r sh2 p sh.
-             ( KnownShape sh2, KnownShape sh
-             , KnownShape (Sh.Take p sh), KnownShape (Sh.Drop p sh) )
+             ( KnownShS sh2, KnownShS sh
+             , KnownShS (Sh.Take p sh), KnownShS (Sh.Drop p sh) )
           => DeltaS shaped r sh
           -> (IndexSh shaped sh2
               -> IndexSh shaped (Sh.Take p sh))
@@ -369,7 +369,7 @@ data DeltaS :: ShapedTensorType -> ShapedTensorType where
          -> DeltaS shaped r sh
   SFromH :: DeltaH (RankedOf shaped) -> Int -> DeltaS shaped r sh
 
-deriving instance ( KnownShape sh0, GoodScalar r0
+deriving instance ( KnownShS sh0, GoodScalar r0
                   , Show (IntOf (RankedOf shaped))
                   , Show (IntOf shaped)
                   , CRanked (RankedOf shaped) Show
@@ -758,7 +758,7 @@ evalR !s !c = let cShared = rshare c
 
 evalSRuntimeSpecialized
   :: forall sh r ranked shaped.
-     (KnownShape sh, GoodScalar r, ADReady ranked, shaped ~ ShapedOf ranked)
+     (KnownShS sh, GoodScalar r, ADReady ranked, shaped ~ ShapedOf ranked)
   => EvalState ranked -> shaped r sh -> DeltaS shaped r sh
   -> EvalState ranked
 evalSRuntimeSpecialized !s !c =
@@ -774,7 +774,7 @@ evalSRuntimeSpecialized !s !c =
 
 evalS
   :: forall sh r ranked shaped.
-     (KnownShape sh, GoodScalar r, ADReady ranked, shaped ~ ShapedOf ranked)
+     (KnownShS sh, GoodScalar r, ADReady ranked, shaped ~ ShapedOf ranked)
   => EvalState ranked -> shaped r sh -> DeltaS shaped r sh
   -> EvalState ranked
 evalS !s !c = let cShared = sshare c
@@ -1094,7 +1094,7 @@ fwdR dimR params s = \case
 
 fwdS
   :: forall sh r ranked shaped.
-     (KnownShape sh, GoodScalar r, ADReady ranked, shaped ~ ShapedOf ranked)
+     (KnownShS sh, GoodScalar r, ADReady ranked, shaped ~ ShapedOf ranked)
   => Int -> HVector ranked -> EvalState ranked -> DeltaS shaped r sh
   -> (EvalState ranked, shaped r sh)
 fwdS dimR params s = \case

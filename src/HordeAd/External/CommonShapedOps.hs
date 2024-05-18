@@ -29,7 +29,7 @@ import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedList
 
 sminIndexN :: ( ADReadyS shaped, GoodScalar r
-              , KnownShape sh, KnownNat (Sh.Size sh) )
+              , KnownShS sh, KnownNat (Sh.Size sh) )
            => shaped r sh -> IndexSh shaped sh
 sminIndexN t =
   ShapedList.fromLinearIdx
@@ -37,7 +37,7 @@ sminIndexN t =
     (ShapedList.shapedNat $ rfromS $ sprimalPart $ sminIndex (sflatten t))
 
 smaxIndexN :: ( ADReadyS shaped, GoodScalar r
-              , KnownShape sh, KnownNat (Sh.Size sh) )
+              , KnownShS sh, KnownNat (Sh.Size sh) )
            => shaped r sh -> IndexSh shaped sh
 smaxIndexN t =
   ShapedList.fromLinearIdx
@@ -45,12 +45,12 @@ smaxIndexN t =
     (ShapedList.shapedNat $ rfromS $ sprimalPart $ smaxIndex (sflatten t))
 
 sminimum :: forall r sh shaped.
-            (ADReadyS shaped, GoodScalar r, KnownShape sh, KnownNat (Sh.Size sh))
+            (ADReadyS shaped, GoodScalar r, KnownShS sh, KnownNat (Sh.Size sh))
          => shaped r sh -> shaped r '[]
 sminimum t = sindex0 t (sminIndexN t)
 
 smaximum :: forall r sh shaped.
-            (ADReadyS shaped, GoodScalar r, KnownShape sh, KnownNat (Sh.Size sh))
+            (ADReadyS shaped, GoodScalar r, KnownShS sh, KnownNat (Sh.Size sh))
          => shaped r sh -> shaped r '[]
 smaximum t = sindex0 t (smaxIndexN t)
 
@@ -65,20 +65,20 @@ sfromIndex1 =
   sfromIntegral . sconstant . sfromR . rfromList . ShapedList.indexToList
 
 sletIx :: forall r sh n shaped.
-          (ADReadyS shaped, GoodScalar r, KnownShape sh, KnownNat n)
+          (ADReadyS shaped, GoodScalar r, KnownShS sh, KnownNat n)
        => IndexOf shaped n -> (IndexOf shaped n -> shaped r sh) -> shaped r sh
 sletIx ix0 f = slet (sfromR @shaped @Int64 @'[n]
                      $ rint64FromIndex1 ix0) $ \ixT ->
                  f $ rint64ToIndex1 $ rfromS @(RankedOf shaped) ixT
 
 scaleS :: forall shaped r sh.
-          (KnownShape sh, ADReadyS shaped, GoodScalar r)
+          (KnownShS sh, ADReadyS shaped, GoodScalar r)
        => PrimalOf shaped r sh -> shaped r sh -> shaped r sh
 scaleS a d = sconstant a * d
 
 reluS, reluLeakyS
   :: forall shaped sh r.
-     ( KnownShape sh, KnownNat (Sh.Rank sh), ADReadyS shaped, GoodScalar r
+     ( KnownShS sh, KnownNat (Sh.Rank sh), ADReadyS shaped, GoodScalar r
      , Differentiable r )
   => shaped r sh -> shaped r sh
 reluS v0 = slet v0 $ \v ->
@@ -91,7 +91,7 @@ reluLeakyS v0 = slet v0 $ \v ->
 
 -- TODO: verify how faster a dedicated ShapedTensor method would be
 logisticS :: forall shaped r sh.
-             ( KnownShape sh, ShapedTensor shaped, GoodScalar r
+             ( KnownShS sh, ShapedTensor shaped, GoodScalar r
              , Floating (PrimalOf shaped r sh) )
           => shaped r sh -> shaped r sh
 logisticS d0 = slet d0 $ \d ->  -- used in rprimalPart and in sdualPart
@@ -103,7 +103,7 @@ logisticS d0 = slet d0 $ \d ->  -- used in rprimalPart and in sdualPart
 -- TODO: verify how faster a @x * x@ version would be
 -- Optimized and more clearly written @u ** 2@.
 squareS :: forall shaped r sh.
-           ( KnownShape sh, ShapedTensor shaped, Num (PrimalOf shaped r sh)
+           ( KnownShS sh, ShapedTensor shaped, Num (PrimalOf shaped r sh)
            , GoodScalar r )
        => shaped r sh -> shaped r sh
 squareS d = let u = sprimalPart d
@@ -112,12 +112,12 @@ squareS d = let u = sprimalPart d
 
 squaredDifferenceS
   :: forall shaped sh r.
-     ( KnownShape sh, ShapedTensor shaped, Num (PrimalOf shaped r sh)
+     ( KnownShS sh, ShapedTensor shaped, Num (PrimalOf shaped r sh)
      , GoodScalar r )
   => PrimalOf shaped r sh -> shaped r sh -> shaped r sh
 squaredDifferenceS targ res = squareS $ res - sconstant targ
 
-lossCrossEntropyVS :: ( KnownShape sh, KnownNat (Sh.Size sh)
+lossCrossEntropyVS :: ( KnownShS sh, KnownNat (Sh.Size sh)
                       , ShapedTensor shaped, GoodScalar r, Differentiable r )
                    => shaped r sh
                    -> shaped r sh
@@ -130,7 +130,7 @@ lossCrossEntropyVS targ res = negate $ log res `sdot0` targ
 lossSoftMaxCrossEntropyS
   :: forall shaped sh r.
      ( ADReadyS shaped, ADReadyS (PrimalOf shaped)
-     , GoodScalar r, KnownShape sh, KnownNat (Sh.Size sh)
+     , GoodScalar r, KnownShS sh, KnownNat (Sh.Size sh)
      , Differentiable r )
   => PrimalOf shaped r sh -> shaped r sh -> shaped r '[]
 lossSoftMaxCrossEntropyS target d' = slet d' $ \d ->
@@ -171,7 +171,7 @@ maxPool1S v =
           Nothing -> error "maxPool1S: impossible someNatVal error"
   in sfromList $ map maxOfSlice l
 
-softMax1S :: ( KnownShape sh, KnownNat (Sh.Size sh)
+softMax1S :: ( KnownShS sh, KnownNat (Sh.Size sh)
              , ShapedTensor shaped, GoodScalar r, Differentiable r )
           => shaped r sh -> shaped r sh
 softMax1S d =
@@ -214,7 +214,7 @@ conv2dUnpaddedS arrK arrA =
 --   elements are set to zero.
 slicezS
   :: forall shOut sh shaped r.
-     ( KnownShape sh, KnownShape shOut, KnownShape (Sh.Take (Sh.Rank sh) shOut)
+     ( KnownShS sh, KnownShS shOut, KnownShS (Sh.Take (Sh.Rank sh) shOut)
      , KnownNat (Sh.Rank sh)
      , Sh.Rank shOut ~ Sh.Rank sh, ADReadyS shaped, GoodScalar r )
   => shaped r sh -> IndexSh shaped sh -> shaped r shOut
@@ -242,7 +242,7 @@ slicezS d ixBase =
 -- such invalid indexes and returns 0.
 indexz0SLet
   :: forall shOut sh shaped r.
-     ( KnownShape shOut, KnownNat (Sh.Rank shOut), KnownShape sh
+     ( KnownShS shOut, KnownNat (Sh.Rank shOut), KnownShS sh
      , ADReadyS shaped, GoodScalar r )
   => shaped r sh -> IndexOf shaped (Sh.Rank shOut) -> shaped r '[]
 indexz0SLet d ix0 =
@@ -262,7 +262,7 @@ indexz0SLet d ix0 =
 -- are used).
 indexz0S
   :: forall shOut sh shaped r.
-     (KnownShape shOut, KnownShape sh, ADReadyS shaped, GoodScalar r)
+     (KnownShS shOut, KnownShS sh, ADReadyS shaped, GoodScalar r)
   => shaped r sh -> IndexOf shaped (Sh.Rank shOut) -> shaped r '[]
 indexz0S d ix =
   ifF (within0S @shOut @shaped ix)
@@ -272,7 +272,7 @@ indexz0S d ix =
 -- | Given an index and shape, check if the index is fully within the shape.
 -- Note that @ix@ is used twice, so should be shared outside.
 within0S
-  :: forall shOut shaped. (KnownShape shOut, ADReadyS shaped)
+  :: forall shOut shaped. (KnownShS shOut, ADReadyS shaped)
   => IndexOf shaped (Sh.Rank shOut)
        -- the indexes may be outside shOut and even negative (e.g., for
        -- convolutions with padding)

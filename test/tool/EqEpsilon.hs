@@ -314,7 +314,7 @@ instance (AssertEqualUpToEpsilon a,
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e9  a9 >>
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e10 a10
 
-instance (VS.Storable a, KnownShape sh1, AssertEqualUpToEpsilon a)
+instance (VS.Storable a, KnownShS sh1, AssertEqualUpToEpsilon a)
          => AssertEqualUpToEpsilon (FlipS OS.Array a sh1) where
   assertEqualUpToEpsilonWithMsg msg eqEpsilon expected actual =
     assert_list (assertEqualUpToEpsilonWithMsg msg eqEpsilon)

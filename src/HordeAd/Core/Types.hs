@@ -13,9 +13,9 @@ module HordeAd.Core.Types
     -- * Definitions to help express and manipulate type-level natural numbers
   , SNat, pattern SNat, withSNat, sNatValue, proxyFromSNat
     -- * Definitions for type-level list shapes
-  , ShS(..), KnownShape(..), shapeT, shapeP, sizeT, sizeP
-  , shSToList, sshapeKnown
-  , withShapeP, sameShape, matchingRank, lemShapeFromKnownShape
+  , ShS(..), KnownShS(..), shapeT, shapeP, sizeT, sizeP
+  , shSToList, sshapeKnown, slistKnown, sixKnown, knownShR, knownListR
+  , withShapeP, sameShape, matchingRank, lemShapeFromKnownShS
   , Dict(..), PermC
   ) where
 
@@ -30,11 +30,32 @@ import Numeric.LinearAlgebra (Numeric, Vector)
 import Type.Reflection (Typeable)
 
 import Data.Array.Mixed (Dict (..))
-import Data.Array.Nested (KnownShape (..), ShS (..))
-import Data.Array.Nested.Internal (sshapeKnown)
+import Data.Array.Nested
+  (IxS (..), KnownShS (..), ListR (..), ListS (..), ShR (..), ShS (..))
+import Data.Array.Nested.Internal (knownNatSucc)
 
 import HordeAd.Internal.OrthotopeOrphanInstances
 import HordeAd.Internal.TensorFFI
+
+sshapeKnown :: ShS sh -> Dict KnownShS sh
+sshapeKnown ZSS = Dict
+sshapeKnown (SNat :$$ sh) | Dict <- sshapeKnown sh = Dict
+
+slistKnown :: ListS sh i -> Dict KnownShS sh
+slistKnown ZS = Dict
+slistKnown (_ ::$ sh) | Dict <- slistKnown sh = Dict
+
+sixKnown :: IxS sh i -> Dict KnownShS sh
+sixKnown ZIS = Dict
+sixKnown (_ :.$ sh) | Dict <- sixKnown sh = Dict
+
+knownShR :: ShR n i -> Dict KnownNat n
+knownShR ZSR = Dict
+knownShR (_ :$: (l :: ShR m i)) | Dict <- knownShR l = knownNatSucc @m
+
+knownListR :: ListR n i -> Dict KnownNat n
+knownListR ZR = Dict
+knownListR (_ ::: (l :: ListR m i)) | Dict <- knownListR l = knownNatSucc @m
 
 -- * Types of types of tensors
 
@@ -61,7 +82,7 @@ type HasSingletonDict :: ty -> Constraint
 type family HasSingletonDict (y :: ty) where
   HasSingletonDict '() = ()
   HasSingletonDict n = KnownNat n
-  HasSingletonDict sh = KnownShape sh
+  HasSingletonDict sh = KnownShS sh
 
 type Differentiable r = (RealFloat r, RealFloat (Vector r))
 

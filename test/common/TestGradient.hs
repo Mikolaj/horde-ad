@@ -219,7 +219,7 @@ testFooS =
          , OS.fromList [3.3, 3.4, 3.5]
          , OS.fromList [4.4, 4.5, 4.6, 4.7]) )
 
-barS :: (ADModeAndNum d r, KnownShape sh)
+barS :: (ADModeAndNum d r, KnownShS sh)
      => SNat n1 -> SNat n2
      -> ( ADVal d r
         , ADVal d (OS.Array '[n1, n2] r)
@@ -233,7 +233,7 @@ barS SNat SNat (s, w, xs) =
 
 -- TODO: this is a fake implementation and not general enough type,
 -- waiting for https://github.com/Mikolaj/horde-ad/issues/69
-dotGeneral :: (ADModeAndNum d r, KnownShape sh, KnownNat n1)
+dotGeneral :: (ADModeAndNum d r, KnownShS sh, KnownNat n1)
            => ADVal d (OS.Array '[n1, n2] r)
            -> ADVal d (OS.Array (n2 ': sh) r)
            -> ADVal d (OS.Array (n1 ': sh) r)
@@ -242,7 +242,7 @@ dotGeneral _ _ = konstS 42
 bar_3_75
   :: forall r k sh d.
      ( d ~ 'ADModeValue, AdaptableScalar d r
-     , KnownNat k, KnownShape sh)
+     , KnownNat k, KnownShS sh)
   => ( r
      , OS.Array '[3, 75] r
      , [OS.Array (75 ': sh) r] )
@@ -265,7 +265,7 @@ testBarV =
 bar_jvp_3_75
   :: forall r sh d.
      ( d ~ 'ADModeDerivative, Dual d r ~ r, AdaptableScalar d r
-     , KnownShape sh )
+     , KnownShS sh )
   => ( r
      , OS.Array '[3, 75] r
      , [OS.Array (75 ': sh) r] )
@@ -297,7 +297,7 @@ testBarF =
 bar_rev_3_75
   :: forall r sh d.
      ( d ~ 'ADModeGradient, HasDelta r, AdaptableScalar d r
-     , KnownShape sh)
+     , KnownShS sh)
   => ( r
      , OS.Array '[3, 75] r
      , [OS.Array (75 ': sh) r] )
@@ -505,14 +505,14 @@ conv2d_dKrn arrA arrB =
 --
 --   If the slice extends out side the source array then the corresponding
 --   elements are set to zero.
-slicezOS :: forall shOut sh r. (Numeric r, KnownShape sh, KnownShape shOut)
+slicezOS :: forall shOut sh r. (Numeric r, KnownShS sh, KnownShS shOut)
          => OS.Array sh r -> [Int] -> OS.Array shOut r
 slicezOS arr ixBase =
   OS.generate $ \ixResult -> indexzOS arr (zipWith (+) ixBase ixResult)
 
 -- | Retrieve the element at the given index,
 --   returning zero for out of range indices.
-indexzOS :: forall sh r. (Numeric r, KnownShape sh)
+indexzOS :: forall sh r. (Numeric r, KnownShS sh)
          => OS.Array sh r -> [Int] -> r
 indexzOS arr ix = if withinOS @sh ix
                   then tindex0D (Data.Array.Convert.convert arr) ix
@@ -520,7 +520,7 @@ indexzOS arr ix = if withinOS @sh ix
 
 -- | Compute the dot product of elements in two arrays.
 --   The arrays have the same shape.
-dotOS :: (Numeric r, KnownShape sh)
+dotOS :: (Numeric r, KnownShS sh)
       => OS.Array sh r -> OS.Array sh r -> r
 dotOS arr1 arr2 = OS.toVector arr1 LA.<.> OS.toVector arr2
 

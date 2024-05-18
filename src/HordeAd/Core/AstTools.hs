@@ -299,7 +299,7 @@ astIsSmall relaxed = \case
   AstDualPart v -> astIsSmall relaxed v
   _ -> False
 
-astIsSmallS :: forall sh s r. KnownShape sh
+astIsSmallS :: forall sh s r. KnownShS sh
             => Bool -> AstShaped s r sh -> Bool
 astIsSmallS relaxed = \case
   AstVarS{} -> True
@@ -310,7 +310,7 @@ astIsSmallS relaxed = \case
     relaxed && astIsSmallS relaxed v  -- materialized via vector slice; cheap
   AstTransposeS v ->
     relaxed && astIsSmallS relaxed v  -- often cheap and often fuses
-  AstConstS (FlipS c) | Dict <- lemShapeFromKnownShape (Proxy @sh) ->
+  AstConstS (FlipS c) | Dict <- lemShapeFromKnownShS (Proxy @sh) ->
     OS.size c <= 1
   AstSFromR v -> astIsSmall relaxed v
   AstConstantS v -> astIsSmallS relaxed v
@@ -330,7 +330,7 @@ bindsToLet = foldl' bindToLet
             -> (AstVarId, AstBindingsCase s2)
             -> AstRanked s r n
   bindToLet !u (varId, AstBindingsSimple d) =
-    let convertShaped :: (GoodScalar r2, KnownShape sh2)
+    let convertShaped :: (GoodScalar r2, KnownShS sh2)
                       => AstShaped s2 r2 sh2 -> AstRanked s r n
         convertShaped t =
           withShapeP (shapeToList $ shapeAst u) $ \proxy -> case proxy of
@@ -341,16 +341,16 @@ bindsToLet = foldl' bindToLet
       DynamicRanked w -> AstLet (AstVarName varId) w u
       DynamicShaped w -> convertShaped w
       DynamicRankedDummy @r2 @sh2 _ _
-        | Dict <- lemShapeFromKnownShape (Proxy @sh2) ->
+        | Dict <- lemShapeFromKnownShS (Proxy @sh2) ->
           withListSh (Proxy @sh2) $ \_ ->
             AstLet @_ @n @r2 @_ @s (AstVarName varId) (AstRFromS @sh2 @s @r2 0) u
       DynamicShapedDummy @r2 @sh2 _ _
-        | Dict <- lemShapeFromKnownShape (Proxy @sh2) ->
+        | Dict <- lemShapeFromKnownShS (Proxy @sh2) ->
           convertShaped @r2 @sh2 0
   bindToLet u (_, AstBindingsHVector lids d) =
     AstLetHVectorIn lids d u
 
-bindsToLetS :: forall sh s r. (AstSpan s, KnownShape sh)
+bindsToLetS :: forall sh s r. (AstSpan s, KnownShS sh)
             => AstShaped s r sh -> AstBindings s -> AstShaped s r sh
 {-# INLINE bindsToLetS #-}  -- help list fusion
 bindsToLetS = foldl' bindToLetS
@@ -364,7 +364,7 @@ bindsToLetS = foldl' bindToLetS
         AstSFromR $ AstLet (AstVarName varId) w (AstRFromS u)
     DynamicShaped w -> AstLetS (AstVarName varId) w u
     DynamicRankedDummy @r2 @sh2 _ _
-      | Dict <- lemShapeFromKnownShape (Proxy @sh2) ->
+      | Dict <- lemShapeFromKnownShS (Proxy @sh2) ->
         withListSh (Proxy @sh2) $ \_ ->
           withListSh (Proxy @sh) $ \_ ->
             AstSFromR
@@ -384,7 +384,7 @@ bindsToHVectorLet = foldl' bindToHVectorLet
     DynamicRanked w -> AstLetInHVector (AstVarName varId) w u
     DynamicShaped w -> AstLetInHVectorS (AstVarName varId) w u
     DynamicRankedDummy @r2 @sh2 _ _
-      | Dict <- lemShapeFromKnownShape (Proxy @sh2) ->
+      | Dict <- lemShapeFromKnownShS (Proxy @sh2) ->
         withListSh (Proxy @sh2) $ \_ ->
           AstLetInHVector (AstVarName varId) (AstRFromS @sh2 @s @r2 0) u
     DynamicShapedDummy @r2 @sh2 _ _ ->

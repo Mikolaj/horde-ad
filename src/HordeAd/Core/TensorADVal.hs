@@ -234,7 +234,7 @@ instance ADReady ranked => RankedTensor (ADVal ranked) where
         doms = aDValHVector as as'
     in f doms -}
   rletHFunIn = (&)
-  rfromS :: forall r sh. (GoodScalar r, KnownShape sh)
+  rfromS :: forall r sh. (GoodScalar r, KnownShS sh)
          => ADVal (ShapedOf ranked) r sh -> ADVal ranked r (Sh.Rank sh)
   rfromS (D u u') = dDnotShared (rfromS u) (dRFromS u')
    where
@@ -250,14 +250,14 @@ instance ADReady ranked => RankedTensor (ADVal ranked) where
 
 -- * Shaped tensor instances
 
-instance ( ADReadyS shaped, KnownShape sh, GoodScalar r
+instance ( ADReadyS shaped, KnownShS sh, GoodScalar r
          , ranked ~ RankedOf shaped )
          => AdaptableHVector (ADVal ranked)
                              (ADVal shaped r sh) where
   toHVector = V.singleton . DynamicShaped
   fromHVector _aInit = fromHVectorS
 
-instance (ADReadyS shaped, KnownShape sh, GoodScalar r)
+instance (ADReadyS shaped, KnownShS sh, GoodScalar r)
          => DualNumberValue (ADVal shaped r sh) where
   type DValue (ADVal shaped r sh) = FlipS OS.Array r sh   -- ! not Value(shaped)
   fromDValue t = constantADVal $ sconst $ runFlipS t
@@ -313,13 +313,13 @@ instance ADReadyS shaped => ShapedTensor (ADVal shaped) where
   stranspose (perm_proxy :: Proxy perm) (D u u') =
     dD (stranspose perm_proxy u) (TransposeS @shaped @perm u')
   sreshape :: forall sh sh2 r.
-              ( GoodScalar r, KnownShape sh, KnownShape sh2
+              ( GoodScalar r, KnownShS sh, KnownShS sh2
               , Sh.Size sh ~ Sh.Size sh2 )
            => ADVal shaped r sh -> ADVal shaped r sh2
   sreshape t@(D u u') = case sameShape @sh2 @sh of
     Just Refl -> t
     _ -> dD (sreshape u) (ReshapeS u')
-  sbuild1 :: forall r n sh. (GoodScalar r, KnownNat n, KnownShape sh)
+  sbuild1 :: forall r n sh. (GoodScalar r, KnownNat n, KnownShS sh)
           => (IntSh (ADVal shaped) n -> ADVal shaped r sh)
           -> ADVal shaped r (n ': sh)
   sbuild1 f = sfromList $ map (f . ShapedList.shapedNat . fromIntegral)
@@ -341,7 +341,7 @@ instance ADReadyS shaped => ShapedTensor (ADVal shaped) where
         doms = aDValHVector as as'
     in f doms -}
   sletHFunIn = (&)
-  sfromR :: forall r sh. (GoodScalar r, KnownShape sh, KnownNat (Sh.Rank sh))
+  sfromR :: forall r sh. (GoodScalar r, KnownShS sh, KnownNat (Sh.Rank sh))
          => ADVal (RankedOf shaped) r (Sh.Rank sh) -> ADVal shaped r sh
   sfromR (D u u') = dDnotShared (sfromR u) (dSFromR u')
    where
