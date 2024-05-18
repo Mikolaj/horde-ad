@@ -43,14 +43,14 @@ type LayerWeigthsRNNShaped shaped in_width out_width r =
   , shaped r '[out_width] )           -- bias
 
 zeroStateS
-  :: (ShapedTensor shaped, KnownShape sh, GoodScalar r)
+  :: (ShapedTensor shaped, KnownShS sh, GoodScalar r)
   => (shaped r sh  -- state
       -> a)
   -> a
 zeroStateS f = f 0
 
 unrollLastS :: forall shaped state c w r n sh.
-               (ShapedTensor shaped, KnownNat n, KnownShape sh, GoodScalar r)
+               (ShapedTensor shaped, KnownNat n, KnownShS sh, GoodScalar r)
             => (state -> shaped r sh -> w -> (c, state))
             -> (state -> shaped r (n ': sh) -> w -> (c, state))
 unrollLastS f s0 xs w =

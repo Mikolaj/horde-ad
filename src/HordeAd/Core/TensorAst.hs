@@ -334,7 +334,7 @@ astBuild1Vectorize k f = build1Vectorize k $ funToAstI f
 
 -- * Shaped tensor AST instances
 
-instance (GoodScalar r, KnownShape sh, ShapedTensor (AstShaped s), AstSpan s)
+instance (GoodScalar r, KnownShS sh, ShapedTensor (AstShaped s), AstSpan s)
          => AdaptableHVector (AstRanked s) (AstShaped s r sh) where
   toHVector = V.singleton . DynamicShaped
   fromHVector _aInit = fromHVectorS
@@ -386,7 +386,7 @@ instance AstSpan s => ShapedTensor (AstShaped s) where
   sScale s t = astDualPartS $ AstConstantS s * AstDS 0 t
 
 astLetHVectorInFunS
-  :: forall sh s r. (KnownShape sh, GoodScalar r, AstSpan s)
+  :: forall sh s r. (KnownShS sh, GoodScalar r, AstSpan s)
   => AstHVector s -> (HVector (AstRanked s) -> AstShaped s r sh)
   -> AstShaped s r sh
 {-# INLINE astLetHVectorInFunS #-}
@@ -403,7 +403,7 @@ astLetHFunInFunS a f =
       shs = shapeAstHFun a
   in fun1HToAst shss shs $ \ !var !ast -> astLetHFunInS var a (f ast)
 
-astSpanPrimalS :: forall s r sh. (KnownShape sh, GoodScalar r, AstSpan s)
+astSpanPrimalS :: forall s r sh. (KnownShS sh, GoodScalar r, AstSpan s)
                => AstShaped s r sh -> AstShaped PrimalSpan r sh
 astSpanPrimalS t | Just Refl <- sameAstSpan @s @PrimalSpan = t
 astSpanPrimalS _ | Just Refl <- sameAstSpan @s @DualSpan =
@@ -413,7 +413,7 @@ astSpanPrimalS _ | Just Refl <- sameAstSpan @s @DualSpan =
 astSpanPrimalS t | Just Refl <- sameAstSpan @s @FullSpan = astPrimalPartS t
 astSpanPrimalS _ = error "a spuriuos case for pattern match coverage"
 
-astSpanDualS :: forall s r sh. (KnownShape sh, GoodScalar r, AstSpan s)
+astSpanDualS :: forall s r sh. (KnownShS sh, GoodScalar r, AstSpan s)
              => AstShaped s r sh -> AstShaped DualSpan r sh
 astSpanDualS t | Just Refl <- sameAstSpan @s @PrimalSpan =
   AstDualPartS $ AstConstantS t  -- this is nil; likely to happen
@@ -429,7 +429,7 @@ astSpanDS _ u' | Just Refl <- sameAstSpan @s @DualSpan = u'
 astSpanDS u u' | Just Refl <- sameAstSpan @s @FullSpan = AstDS u u'
 astSpanDS _ _ = error "a spuriuos case for pattern match coverage"
 
-astLetFunS :: ( KnownShape sh, KnownShape sh2, GoodScalar r, GoodScalar r2
+astLetFunS :: ( KnownShS sh, KnownShS sh2, GoodScalar r, GoodScalar r2
               , AstSpan s )
           => AstShaped s r sh -> (AstShaped s r sh -> AstShaped s r2 sh2)
           -> AstShaped s r2 sh2
@@ -438,7 +438,7 @@ astLetFunS a f =
   let (var, ast) = funToAstS f
   in astLetS var a ast  -- safe, because subsitution ruled out above
 
-astBuild1VectorizeS :: (KnownNat n, KnownShape sh, GoodScalar r, AstSpan s)
+astBuild1VectorizeS :: (KnownNat n, KnownShS sh, GoodScalar r, AstSpan s)
                     => (IntSh (AstShaped PrimalSpan) n -> AstShaped s r sh)
                     -> AstShaped s r (n ': sh)
 astBuild1VectorizeS f =
@@ -627,7 +627,7 @@ astLetInHVectorFun a f = unsafePerformIO $ do  -- the id causes trouble
   return $! astLetInHVector var a (f ast)
               -- safe because subsitution ruled out above
 
-astLetInHVectorFunS :: (KnownShape sh, GoodScalar r, AstSpan s)
+astLetInHVectorFunS :: (KnownShS sh, GoodScalar r, AstSpan s)
                     => AstShaped s r sh -> (AstShaped s r sh -> AstHVector s)
                     -> AstHVector s
 {-# NOINLINE astLetInHVectorFunS #-}
@@ -829,7 +829,7 @@ astLetFunRaw a f =
       (var, ast) = funToAstR sh f
   in AstLet var a ast
 
-astLetFunRawS :: (KnownShape sh, KnownShape sh2, GoodScalar r, AstSpan s)
+astLetFunRawS :: (KnownShS sh, KnownShS sh2, GoodScalar r, AstSpan s)
               => AstShaped s r sh -> (AstShaped s r sh -> AstShaped s r2 sh2)
               -> AstShaped s r2 sh2
 astLetFunRawS a f | astIsSmallS True a = f a
@@ -894,7 +894,7 @@ astLetInHVectorFunRaw a f = unsafePerformIO $ do  -- the id causes trouble
   (!var, _, !ast) <- funToAstIOR sh id
   return $! AstLetInHVector var a (f ast)
 
-astLetInHVectorFunRawS :: (KnownShape sh, GoodScalar r, AstSpan s)
+astLetInHVectorFunRawS :: (KnownShS sh, GoodScalar r, AstSpan s)
                        => AstShaped s r sh -> (AstShaped s r sh -> AstHVector s)
                        -> AstHVector s
 astLetInHVectorFunRawS a f | astIsSmallS True a = f a
@@ -1265,10 +1265,10 @@ instance AstSpan s => ShapedTensor (AstNoSimplifyS s) where
   sdualPart = AstNoSimplifyS . astSpanDualS . unAstNoSimplifyS
   sD u u' =
     AstNoSimplifyS $ astSpanDS (unAstNoSimplifyS u) (unAstNoSimplifyS u')
-  sScale :: forall r sh. (GoodScalar r, KnownShape sh)
+  sScale :: forall r sh. (GoodScalar r, KnownShS sh)
          => AstNoSimplifyS PrimalSpan r sh -> AstNoSimplifyS DualSpan r sh
          -> AstNoSimplifyS DualSpan r sh
-  sScale s t | Dict <- lemShapeFromKnownShape (Proxy @sh) =
+  sScale s t | Dict <- lemShapeFromKnownShS (Proxy @sh) =
     AstNoSimplifyS $ astDualPartS
                    $ AstConstantS (unAstNoSimplifyS s)
                      * AstDS 0 (unAstNoSimplifyS t)

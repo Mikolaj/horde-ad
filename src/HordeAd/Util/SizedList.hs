@@ -427,7 +427,7 @@ withListShape shList f =
 
 -- All three shape representations denote the same shape.
 withListSh
-  :: KnownShape sh
+  :: KnownShS sh
   => Proxy sh
   -> (forall n. (KnownNat n, Sh.Rank sh ~ n)
       => ShapeInt n -> a)

@@ -232,7 +232,7 @@ testFooBuild25 =
 
 fooBuild2S
   :: forall k sh ranked r shaped.
-     (ADReady ranked, GoodScalar r, KnownNat k, Floating (shaped r sh), RealFloat r, shaped ~ ShapedOf ranked, KnownShape sh, KnownNat (Sh.Size (k : sh)))
+     (ADReady ranked, GoodScalar r, KnownNat k, Floating (shaped r sh), RealFloat r, shaped ~ ShapedOf ranked, KnownShS sh, KnownNat (Sh.Size (k : sh)))
   => shaped r (k : sh) -> ranked r (1 + Sh.Rank sh)
 fooBuild2S v = rfromS $
   sbuild1 @_ @_ @2 $ \ix ->

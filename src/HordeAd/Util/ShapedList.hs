@@ -9,15 +9,18 @@ module HordeAd.Util.ShapedList
   ( -- * Shaped lists (sized, where size is shape) and their permutations
     IntSh, IndexSh
   , SizedListS, pattern (::$), pattern ZS
-  , consShaped, unconsContShaped
+  -- , consShaped, unconsContShaped
   , singletonSized, appendSized
   , headSized, tailSized, takeSized, dropSized, splitAt_Sized
-  , unsnocSized1, lastSized, initSized, zipSized, zipWith_Sized, reverseSized
+  -- , unsnocSized1, lastSized
+  -- , initSized, zipSized
+  , zipWith_Sized, reverseSized
   , Permutation  -- ^ re-exported from "SizedList"
   , backpermutePrefixSized, backpermutePrefixSizedT
   , permutePrefixSized, permutePrefixSizedT
-  , sizedCompare, listToSized, sizedToList
-  , shapedToSized
+  -- , sizedCompare
+  , listToSized, sizedToList
+  -- , shapedToSized
     -- * Tensor indexes as fully encapsulated shaped lists, with operations
   , IndexS, pattern (:.$), pattern ZIS
   , consIndex, unconsContIndex
@@ -25,7 +28,8 @@ module HordeAd.Util.ShapedList
   , zipWith_Index
   , backpermutePrefixIndex, backpermutePrefixIndexT
   , permutePrefixIndex, permutePrefixIndexT
-  , listToIndex, indexToList, indexToSized, sizedToIndex, shapedToIndex
+  , listToIndex, indexToList  -- indexToSized, sizedToIndex
+  , shapedToIndex
   -- * Tensor shapes as fully encapsulated shaped lists, with operations
   , ShapeS, pattern (:$$), pattern ZSS
   , ShapedNat, shapedNat, unShapedNat
@@ -42,9 +46,10 @@ import qualified Data.Array.Shape as Sh
 import           GHC.Exts (IsList (..))
 import           GHC.TypeLits (KnownNat, Nat, type (*))
 
-import qualified Data.Array.Shape as X
 import           Data.Array.Nested
   (IxS (..), ListS, pattern (:.$), pattern (::$), pattern ZIS, pattern ZS)
+import qualified Data.Array.Shape as X
+import           Data.Functor.Const
 
 import           HordeAd.Core.Types
 import           HordeAd.Util.SizedList (Permutation)
@@ -67,84 +72,76 @@ type IndexSh (f :: TensorType ty) (sh :: [Nat]) = IndexS sh (IntOf f)
 -- | Lists indexed by shapes, that is, lists of the GHC @Nat@.
 type SizedListS n i = ListS n i
 
-{-
--- This is only lawful when OverloadedLists is enabled.
--- However, it's much more readable when tracing and debugging.
-instance Show i => Show (SizedListS sh i) where
-  showsPrec d l = showsPrec d (sizedToList l)
--}
+-- TODO: use SNat instead of ShapedNat for ShS? or Fin for IxS? but what here?
+-- outdated: -- TODO: should we actually replace ::$ with that in the external API?
+-- consShaped :: ShapedNat n i -> SizedListS sh i -> SizedListS (n ': sh) i
+-- consShaped (ShapedNat i) l = i ::$ l
 
-instance KnownShape sh => IsList (SizedListS sh i) where
-  type Item (SizedListS sh i) = i
-  fromList = listToSized
-  toList = sizedToList
+-- unconsContShaped :: (ShapedNat n i -> k) -> SizedListS (n ': sh) i -> k
+-- unconsContShaped f (i ::$ _) = f (ShapedNat i)
 
--- TODO: should we actually replace ::$ with that in the external API?
-consShaped :: ShapedNat n i -> SizedListS sh i -> SizedListS (n ': sh) i
-consShaped (ShapedNat i) l = i ::$ l
-
-unconsContShaped :: (ShapedNat n i -> k) -> SizedListS (n ': sh) i -> k
-unconsContShaped f (i ::$ _) = f (ShapedNat i)
-
-singletonSized :: i -> SizedListS '[n] i
+singletonSized :: KnownNat n => i n -> SizedListS '[n] i
 singletonSized i = i ::$ ZS
 
-appendSized :: KnownShape (sh2 X.++ sh)
-            => SizedListS sh2 i -> SizedListS sh i
-            -> SizedListS (sh2 X.++ sh) i
+appendSized :: KnownShS (sh2 X.++ sh)
+            => SizedListS sh2 (Const i) -> SizedListS sh (Const i)
+            -> SizedListS (sh2 X.++ sh) (Const i)
 appendSized l1 l2 = listToSized $ sizedToList l1 ++ sizedToList l2
 
-headSized :: SizedListS (n ': sh) i -> i
+headSized :: SizedListS (n ': sh) i -> i n
 headSized (i ::$ _ix) = i
 
 tailSized :: SizedListS (n ': sh) i -> SizedListS sh i
 tailSized (_i ::$ ix) = ix
 
-takeSized :: forall len sh i. (KnownNat len, KnownShape (Sh.Take len sh))
-          => SizedListS sh i -> SizedListS (Sh.Take len sh) i
+takeSized :: forall len sh i. (KnownNat len, KnownShS (Sh.Take len sh))
+          => SizedListS sh (Const i) -> SizedListS (Sh.Take len sh) (Const i)
 takeSized ix = listToSized $ take (valueOf @len) $ sizedToList ix
 
-dropSized :: forall len sh i. (KnownNat len, KnownShape (Sh.Drop len sh))
-          => SizedListS sh i -> SizedListS  (Sh.Drop len sh) i
+dropSized :: forall len sh i. (KnownNat len, KnownShS (Sh.Drop len sh))
+          => SizedListS sh (Const i) -> SizedListS  (Sh.Drop len sh) (Const i)
 dropSized ix = listToSized $ drop (valueOf @len) $ sizedToList ix
 
 splitAt_Sized
-  :: (KnownNat len, KnownShape (Sh.Drop len sh), KnownShape (Sh.Take len sh))
-  => SizedListS sh i
-  -> (SizedListS (Sh.Take len sh) i, SizedListS (Sh.Drop len sh) i)
+  :: (KnownNat len, KnownShS (Sh.Drop len sh), KnownShS (Sh.Take len sh))
+  => SizedListS sh (Const i)
+  -> (SizedListS (Sh.Take len sh) (Const i), SizedListS (Sh.Drop len sh) (Const i))
 splitAt_Sized ix = (takeSized ix, dropSized ix)
 
+{-
 unsnocSized1 :: SizedListS (n ': sh) i -> (SizedListS sh i, i)
 unsnocSized1 (i ::$ ix) = case ix of
   ZS -> (ZS, i)
   _ ::$ _ -> let (init1, last1) = unsnocSized1 ix
              in (i ::$ init1, last1)
+-}
 
-lastSized :: SizedListS (n ': sh) i -> i
-lastSized (i ::$ ZS) = i
-lastSized (_i ::$ ix@(_ ::$ _)) = lastSized ix
+-- lastSized :: SizedListS (n ': sh) i -> i
+-- lastSized (i ::$ ZS) = i
+-- lastSized (_i ::$ ix@(_ ::$ _)) = lastSized ix
 
-initSized :: SizedListS (n ': sh) i -> SizedListS sh i
-initSized (_i ::$ ZS) = ZS
-initSized (i ::$ ix@(_ ::$ _)) = i ::$ initSized ix
+-- initSized :: SizedListS (n ': sh) i -> SizedListS sh i
+-- initSized (_i ::$ ZS) = ZS
+-- initSized (i ::$ ix@(_ ::$ _)) = i ::$ initSized ix
 
-zipSized :: SizedListS sh i -> SizedListS sh j -> SizedListS sh (i, j)
-zipSized ZS ZS = ZS
-zipSized (i ::$ irest) (j ::$ jrest) = (i, j) ::$ zipSized irest jrest
+-- zipSized :: SizedListS sh i -> SizedListS sh j -> SizedListS sh (i, j)
+-- zipSized ZS ZS = ZS
+-- zipSized (i ::$ irest) (j ::$ jrest) = (i, j) ::$ zipSized irest jrest
 
-zipWith_Sized :: (i -> j -> k) -> SizedListS sh i -> SizedListS sh j
-              -> SizedListS sh k
+zipWith_Sized :: (i -> j -> k)
+              -> SizedListS sh (Const i) -> SizedListS sh (Const j)
+              -> SizedListS sh (Const k)
 zipWith_Sized _ ZS ZS = ZS
-zipWith_Sized f (i ::$ irest) (j ::$ jrest) =
-  f i j ::$ zipWith_Sized f irest jrest
+zipWith_Sized f ((Const i) ::$ irest) ((Const j) ::$ jrest) =
+  Const (f i j) ::$ zipWith_Sized f irest jrest
 
-reverseSized :: KnownShape sh => SizedListS sh i -> SizedListS sh i
+reverseSized :: KnownShS sh => SizedListS sh (Const i) -> SizedListS sh (Const i)
 reverseSized = listToSized . reverse . sizedToList
 
 -- This permutes a prefix of the sized list of the length of the permutation.
 -- The rest of the sized list is left intact.
-backpermutePrefixSized :: forall sh sh2 i. (KnownShape sh, KnownShape sh2)
-                       => Permutation -> SizedListS sh i -> SizedListS sh2 i
+backpermutePrefixSized :: forall sh sh2 i. (KnownShS sh, KnownShS sh2)
+                       => Permutation -> SizedListS sh (Const i) -> SizedListS sh2 (Const i)
 backpermutePrefixSized p ix =
   if length (shapeT @sh) < length p
   then error "backpermutePrefixSized: cannot permute a list shorter than permutation"
@@ -152,43 +149,45 @@ backpermutePrefixSized p ix =
 
 backpermutePrefixSizedT
   :: forall perm sh i.
-     (KnownShape perm, KnownShape sh, KnownShape (Sh.Permute perm sh))
-  => SizedListS sh i -> SizedListS (Sh.Permute perm sh) i
+     (KnownShS perm, KnownShS sh, KnownShS (Sh.Permute perm sh))
+  => SizedListS sh (Const i) -> SizedListS (Sh.Permute perm sh) (Const i)
 backpermutePrefixSizedT ix =
   if length (shapeT @sh) < length (shapeT @perm)
   then error "backpermutePrefixShaped: cannot permute a list shorter than permutation"
   else listToSized $ SizedList.backpermutePrefixList (shapeT @perm)
                    $ sizedToList ix
 
-permutePrefixSized :: forall sh sh2 i. (KnownShape sh, KnownShape sh2)
-                   => Permutation -> SizedListS sh i -> SizedListS sh2 i
+permutePrefixSized :: forall sh sh2 i. (KnownShS sh, KnownShS sh2)
+                   => Permutation -> SizedListS sh (Const i) -> SizedListS sh2 (Const i)
 permutePrefixSized p ix =
   if length (shapeT @sh) < length p
   then error "permutePrefixSized: cannot permute a list shorter than permutation"
   else listToSized $ SizedList.permutePrefixList p $ sizedToList ix
 
 permutePrefixSizedT
-  :: forall perm sh i. (KnownShape perm, KnownShape sh)
-  => SizedListS (Sh.Permute perm sh) i -> SizedListS sh i
+  :: forall perm sh i. (KnownShS perm, KnownShS sh)
+  => SizedListS (Sh.Permute perm sh) (Const i) -> SizedListS sh (Const i)
 permutePrefixSizedT ix =
   if length (shapeT @sh) < length (shapeT @perm)
   then error "permutePrefixShaped: cannot permute a list shorter than permutation"
   else listToSized $ SizedList.permutePrefixList (shapeT @perm)
                    $ sizedToList ix
 
+{-
 -- | Pairwise comparison of two sized list values.
 -- The comparison function is invoked once for each rank
 -- on the corresponding pair of indices.
 sizedCompare :: Monoid m
-                 => (i -> i -> m) -> SizedListS sh i -> SizedListS sh i -> m
+             => (i -> i -> m) -> SizedListS sh i -> SizedListS sh i -> m
 sizedCompare _ ZS ZS = mempty
 sizedCompare f (i ::$ idx) (j ::$ idx') =
   f i j <> sizedCompare f idx idx'
+-}
 
-listToSized :: KnownShape sh => [i] -> SizedListS sh i
-listToSized l = tupleToShape l knownShape
+listToSized :: KnownShS sh => [i] -> SizedListS sh (Const i)
+listToSized l = tupleToShape l knownShS
  where
-  tupleToShape :: [i] -> ShS sh1 -> SizedListS sh1 i
+  tupleToShape :: [i] -> ShS sh1 -> SizedListS sh1 (Const i)
   tupleToShape = \cases
     [] ZSS -> ZS
     _ ZSS -> error $ "listToSized: input list too long; spurious "
@@ -198,22 +197,22 @@ listToSized l = tupleToShape l knownShape
     (i : is) (_hd :$$ tl) -> -- @i@ can be, e.g., variables, so we can't assert,
                              -- but this should morally hold, after valuation:
                              -- assert (i <= sNatValue hd) $
-                             i ::$ tupleToShape is tl
+                             Const i ::$ tupleToShape is tl
 
-sizedToList :: SizedListS sh i -> [i]
+sizedToList :: SizedListS sh (Const i) -> [i]
 sizedToList ZS = []
-sizedToList (i ::$ is) = i : sizedToList is
+sizedToList (i ::$ is) = getConst i : sizedToList is
 
-shapedToSized :: KnownNat (Sh.Rank sh)
-                  => SizedListS sh i -> SizedList.SizedList (Sh.Rank sh) i
-shapedToSized = SizedList.listToSized . sizedToList
+-- shapedToSized :: KnownNat (Sh.Rank sh)
+--               => SizedListS sh i -> SizedList.SizedList (Sh.Rank sh) i
+-- shapedToSized = SizedList.listToSized . sizedToList
 
 
 -- * Tensor indexes as fully encapsulated shaped lists, with operations
 
 type IndexS sh i = IxS sh i
 
-pattern IndexS :: forall {sh :: [Nat]} {i}. ListS sh i -> IxS sh i
+pattern IndexS :: forall {sh :: [Nat]} {i}. ListS sh (Const i) -> IxS sh i
 pattern IndexS l = IxS l
 {-# COMPLETE IndexS #-}
 
@@ -224,60 +223,61 @@ instance Show i => Show (IndexS sh i) where
   showsPrec d (IndexS l) = showsPrec d l
 -}
 
-instance KnownShape sh => IsList (IndexS sh i) where
+instance KnownShS sh => IsList (IndexS sh i) where
   type Item (IndexS sh i) = i
   fromList = listToIndex
   toList = indexToList
 
-consIndex :: ShapedNat n i -> IndexS sh i -> IndexS (n ': sh) i
+consIndex :: KnownNat n => ShapedNat n i -> IndexS sh i -> IndexS (n ': sh) i
 consIndex (ShapedNat i) l = i :.$ l
 
 unconsContIndex :: (ShapedNat n i -> k) -> IndexS (n ': sh) i -> k
 unconsContIndex f (i :.$ _) = f (ShapedNat i)
 
-singletonIndex :: i -> IndexS '[n] i
-singletonIndex = IndexS . singletonSized
+-- TODO take Fin instead of i?
+singletonIndex :: KnownNat n => i -> IndexS '[n] i
+singletonIndex i = i :.$ ZIS
 
-appendIndex :: KnownShape (sh2 X.++ sh)
+appendIndex :: KnownShS (sh2 X.++ sh)
             => IndexS sh2 i -> IndexS sh i -> IndexS (sh2 X.++ sh) i
 appendIndex (IndexS ix1) (IndexS ix2) = IndexS $ appendSized ix1 ix2
 
-backpermutePrefixIndex :: forall sh sh2 i. (KnownShape sh, KnownShape sh2)
+backpermutePrefixIndex :: forall sh sh2 i. (KnownShS sh, KnownShS sh2)
                        => Permutation -> IndexS sh i -> IndexS sh2 i
 backpermutePrefixIndex p (IndexS ix) = IndexS $ backpermutePrefixSized p ix
 
 backpermutePrefixIndexT
   :: forall perm sh i.
-     (KnownShape perm, KnownShape sh, KnownShape (Sh.Permute perm sh))
+     (KnownShS perm, KnownShS sh, KnownShS (Sh.Permute perm sh))
   => IndexS sh i -> IndexS (Sh.Permute perm sh) i
 backpermutePrefixIndexT (IndexS ix) = IndexS $ backpermutePrefixSizedT @perm ix
 
 -- Inverse permutation of indexes corresponds to normal permutation
 -- of the shape of the projected tensor.
-permutePrefixIndex :: forall sh sh2 i. (KnownShape sh, KnownShape sh2)
+permutePrefixIndex :: forall sh sh2 i. (KnownShS sh, KnownShS sh2)
                    => Permutation -> IndexS sh i -> IndexS sh2 i
 permutePrefixIndex p (IndexS ix) = IndexS $ permutePrefixSized p ix
 
 -- Inverse permutation of indexes corresponds to normal permutation
 -- of the shape of the projected tensor.
-permutePrefixIndexT :: forall perm sh i. (KnownShape perm, KnownShape sh)
+permutePrefixIndexT :: forall perm sh i. (KnownShS perm, KnownShS sh)
                     => IndexS (Sh.Permute perm sh) i -> IndexS sh i
 permutePrefixIndexT (IndexS ix) = IndexS $ permutePrefixSizedT @perm ix
 
 zipWith_Index :: (i -> j -> k) -> IndexS sh i -> IndexS sh j -> IndexS sh k
 zipWith_Index f (IndexS l1) (IndexS l2) = IndexS $ zipWith_Sized f l1 l2
 
-listToIndex :: KnownShape sh => [i] -> IndexS sh i
+listToIndex :: KnownShS sh => [i] -> IndexS sh i
 listToIndex = IndexS . listToSized
 
 indexToList :: IndexS sh i -> [i]
 indexToList (IndexS l) = sizedToList l
 
-indexToSized :: IndexS sh i -> SizedListS sh i
-indexToSized (IndexS l) = l
+-- indexToSized :: IndexS sh i -> SizedListS sh i
+-- indexToSized (IndexS l) = l
 
-sizedToIndex :: SizedListS sh i -> IndexS sh i
-sizedToIndex = IndexS
+-- sizedToIndex :: SizedListS sh i -> IndexS sh i
+-- sizedToIndex = IndexS
 
 shapedToIndex :: KnownNat (Sh.Rank sh)
               => IndexS sh i -> SizedList.Index (Sh.Rank sh) i
@@ -295,7 +295,7 @@ instance Show i => Show (ShapeS sh) where
   showsPrec d (ShapeS l) = showsPrec d l
 -}
 
-instance KnownShape sh => IsList (ShapeS sh) where
+instance KnownShS sh => IsList (ShapeS sh) where
   type Item (ShapeS sh) = Int
   fromList = listToShape
   toList = shapeToList
@@ -314,8 +314,8 @@ deriving stock instance Functor (ShapedNat n)
 shapedNat :: forall n a. a -> ShapedNat n a
 shapedNat = ShapedNat
 
-listToShape :: KnownShape sh => [Int] -> ShapeS sh
-listToShape l = tupleToShape l knownShape
+listToShape :: KnownShS sh => [Int] -> ShapeS sh
+listToShape l = tupleToShape l knownShS
  where
   tupleToShape :: [Int] -> ShS sh1 -> ShapeS sh1
   tupleToShape = \cases
@@ -340,7 +340,7 @@ shapeToList (i :$$ is) = sNatValue i : shapeToList is
 -- If any of the dimensions is 0 or if rank is 0, the result will be 0,
 -- which is fine, that's pointing at the start of the empty buffer.
 -- Note that the resulting 0 may be a complex term.
-toLinearIdx :: forall sh1 sh2 j. (KnownShape sh2, Num j)
+toLinearIdx :: forall sh1 sh2 j. (KnownShS sh2, Num j)
             => ShS (sh1 X.++ sh2) -> IndexS sh1 j
             -> ShapedNat (Sh.Size sh1 * Sh.Size sh2) j
 toLinearIdx = \sh idx -> shapedNat $ go sh idx 0

@@ -1249,7 +1249,7 @@ rscanZip f eShs acc0 es =
       (\res -> rappend (rfromList [acc0]) (rfromD $ res V.! 1))
 
 sscanZip :: forall rn sh k ranked shaped.
-            ( GoodScalar rn, KnownShape sh, KnownNat k, ShapedTensor shaped
+            ( GoodScalar rn, KnownShS sh, KnownNat k, ShapedTensor shaped
             , HVectorTensor ranked shaped
             , shaped ~ ShapedOf ranked, ranked ~ RankedOf shaped )
        => (forall f. ADReadyS f
@@ -4486,7 +4486,7 @@ testSin0revhFoldZip4R = do
 
 fFoldS
   :: forall m k rm shm r sh shaped.
-     ( KnownNat k, GoodScalar rm, KnownShape shm, GoodScalar r, KnownShape sh
+     ( KnownNat k, GoodScalar rm, KnownShS shm, GoodScalar r, KnownShS sh
      , ADReadyS shaped, KnownNat m, OS.Rank shm ~ m)
   => shaped r (1 + k ': sh)
   -> shaped rm (k ': shm)

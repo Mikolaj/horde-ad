@@ -47,7 +47,7 @@ type role AstEnvElem nominal
 data AstEnvElem (ranked :: RankedTensorType) where
   AstEnvElemRanked :: (GoodScalar r, KnownNat n)
                    => ranked r n -> AstEnvElem ranked
-  AstEnvElemShaped :: (GoodScalar r, KnownShape sh)
+  AstEnvElemShaped :: (GoodScalar r, KnownShS sh)
                    => ShapedOf ranked r sh -> AstEnvElem ranked
   AstEnvElemHFun :: HFunOf ranked -> AstEnvElem ranked
 
@@ -65,7 +65,7 @@ extendEnvR (AstVarName varId) !t !env =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvR: duplicate " ++ show varId)
                    varId (AstEnvElemRanked t) env
 
-extendEnvS :: forall ranked r sh s. (KnownShape sh, GoodScalar r)
+extendEnvS :: forall ranked r sh s. (KnownShS sh, GoodScalar r)
            => AstVarName (AstShaped s) r sh -> ShapedOf ranked r sh
            -> AstEnv ranked
            -> AstEnv ranked

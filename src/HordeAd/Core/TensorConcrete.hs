@@ -103,9 +103,9 @@ instance RankedTensor (ORArray) where
   rconst = Flip
   rletHVectorIn = (&)
   rletHFunIn = (&)
-  rfromS :: forall r sh. KnownShape sh
+  rfromS :: forall r sh. KnownShS sh
          => OSArray r sh -> ORArray r (Sh.Rank sh)
-  rfromS | Dict <- lemShapeFromKnownShape (Proxy @sh) =
+  rfromS | Dict <- lemShapeFromKnownShS (Proxy @sh) =
     Flip . Data.Array.Convert.convert . runFlipS
 
   rscaleByScalar s v =
@@ -191,9 +191,9 @@ instance ShapedTensor (OSArray) where
   sconst = FlipS
   sletHVectorIn = (&)
   sletHFunIn = (&)
-  sfromR :: forall r sh. KnownShape sh
+  sfromR :: forall r sh. KnownShS sh
          => ORArray r (Sh.Rank sh) -> OSArray r sh
-  sfromR | Dict <- lemShapeFromKnownShape (Proxy @sh) =
+  sfromR | Dict <- lemShapeFromKnownShS (Proxy @sh) =
     FlipS . Data.Array.Convert.convert . runFlip
 
   sscaleByScalar s v =
@@ -330,20 +330,20 @@ instance ForgetShape (ORArray r n) where
   type NoShape (ORArray r n) = ORArray r n
   forgetShape = id
 
-instance (GoodScalar r, KnownShape sh)
+instance (GoodScalar r, KnownShS sh)
          => AdaptableHVector (ORArray) (OSArray r sh) where
   toHVector = V.singleton . DynamicShaped
   fromHVector _aInit = fromHVectorS
 
-instance KnownShape sh
+instance KnownShS sh
          => ForgetShape (OSArray r sh) where
   type NoShape (OSArray r sh) = ORArray r (Sh.Rank sh)  -- key case
-  forgetShape | Dict <- lemShapeFromKnownShape (Proxy @sh) =
+  forgetShape | Dict <- lemShapeFromKnownShS (Proxy @sh) =
     Flip . Data.Array.Convert.convert . runFlipS
 
-instance (KnownShape sh, Numeric r, Fractional r, Random r, Num (Vector r))
+instance (KnownShS sh, Numeric r, Fractional r, Random r, Num (Vector r))
          => RandomHVector (OSArray r sh) where
-  randomVals range g | Dict <- lemShapeFromKnownShape (Proxy @sh) =
+  randomVals range g | Dict <- lemShapeFromKnownShS (Proxy @sh) =
     let createRandomVector n seed =
           LA.scale (2 * realToFrac range)
           $ V.fromListN n (randoms seed) - LA.scalar 0.5
