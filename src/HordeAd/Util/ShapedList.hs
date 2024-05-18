@@ -42,7 +42,7 @@ import qualified Data.Array.Shape as Sh
 import           GHC.Exts (IsList (..))
 import           GHC.TypeLits (KnownNat, Nat, type (*))
 
-import qualified Data.Array.Mixed as X
+import qualified Data.Array.Shape as X
 import           Data.Array.Nested
   (IxS (..), ListS, pattern (:.$), pattern (::$), pattern ZIS, pattern ZS)
 

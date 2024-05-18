@@ -46,7 +46,7 @@ import           Numeric.LinearAlgebra.Devel (zipVectorWith)
 import           Unsafe.Coerce (unsafeCoerce)
 
 import           Data.Array.Mixed (Dict (..))
-import qualified Data.Array.Mixed as X
+import qualified Data.Array.Shape as X
 import           Data.Array.Nested (KnownShape (..), ShS (ZSS, (:$$)))
 
 -- * Definitions to help express and manipulate type-level natural numbers

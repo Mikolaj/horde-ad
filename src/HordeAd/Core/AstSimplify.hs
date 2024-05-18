@@ -77,7 +77,7 @@ import           System.IO.Unsafe (unsafePerformIO)
 import           Type.Reflection (typeRep)
 import           Unsafe.Coerce (unsafeCoerce)
 
-import qualified Data.Array.Mixed as X
+import qualified Data.Array.Shape as X
 
 import           HordeAd.Core.Ast
   ( AstBool (AstBoolConst)
@@ -1566,7 +1566,7 @@ astReplicateNS :: forall shn shp s r.
 astReplicateNS v =
   let go :: ShS shn' -> AstShaped s r (shn' X.++ shp)
       go ZSS = v
-      go ((:$$) @shn2 @k SNat shn2) =
+      go ((:$$) @_ @shn2 @k SNat shn2) =
         withShapeP (shapeT @shn2 ++ shapeT @shp) $ \(Proxy @sh) ->
           gcastWith (unsafeCoerce Refl :: sh :~: shn2 X.++ shp) $
           astReplicateS @k $ go shn2
