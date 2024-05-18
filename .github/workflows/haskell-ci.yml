@@ -12,6 +12,7 @@
 #
 # REGENDATA ("0.14.1",["github","horde-ad.cabal"])
 #
+
 name: Haskell-CI
 on:
   - push
@@ -19,7 +20,7 @@ on:
 jobs:
   linux:
     name: Haskell-CI - Linux - ${{ matrix.compiler }}
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     timeout-minutes:
       60
     container:
