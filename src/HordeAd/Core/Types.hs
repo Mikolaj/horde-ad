@@ -14,7 +14,7 @@ module HordeAd.Core.Types
   , SNat, pattern SNat, withSNat, sNatValue, proxyFromSNat
     -- * Definitions for type-level list shapes
   , ShS(..), KnownShS(..), shapeT, shapeP, sizeT, sizeP
-  , shSToList, sshapeKnown, slistKnown, sixKnown, knownShR, knownListR
+  , sshapeKnown, slistKnown, sixKnown, knownShR, knownListR
   , withShapeP, sameShape, matchingRank, lemShapeFromKnownShS
   , Dict(..), PermC
   ) where
