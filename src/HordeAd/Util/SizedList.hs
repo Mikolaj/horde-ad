@@ -38,21 +38,14 @@ import Prelude
 import           Control.Arrow (first)
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.Shape as Sh
+import qualified Data.Foldable as Foldable
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality (gcastWith, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.Exts (IsList (..))
 import           GHC.TypeLits
-  ( KnownNat
-  , OrderingI (..)
-  , SomeNat (..)
-  , cmpNat
-  , sameNat
-  , someNatVal
-  , type (+)
-  , type (-)
-  )
+  (KnownNat, SomeNat (..), sameNat, someNatVal, type (+))
 import           Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Nested
@@ -93,16 +86,6 @@ type IndexOf (f :: TensorType ty) n = Index n (IntOf f)
 -- way around.
 
 type SizedList n i = ListR n i
-
--- This is only lawful when OverloadedLists is enabled.
--- However, it's much more readable when tracing and debugging.
---instance Show i => Show (SizedList n i) where
---  showsPrec d l = showsPrec d (sizedToList l)
-
-instance KnownNat n => IsList (SizedList n i) where
-  type Item (SizedList n i) = i
-  fromList = listToSized
-  toList = sizedToList
 
 singletonSized :: i -> SizedList 1 i
 singletonSized i = i ::: ZR
@@ -217,25 +200,10 @@ sizedCompare _ _ _ =
 -- Look Ma, no unsafeCoerce! This compiles only with GHC >= 9.2,
 -- but the rest of our code caught up and fails with GHC 9.0 as well.
 listToSized :: forall n i. KnownNat n => [i] -> SizedList n i
-listToSized []
-  | Just Refl <- sameNat (Proxy @n) (Proxy @0) = ZR
-  | otherwise = error $ "listToSized: input list too short; missing "
-                        ++ show (valueOf @n :: Int)
-listToSized (i : is)
-  -- What we really need here to make the types check out is a <= check.
-  | EQI <- cmpNat (Proxy @1) (Proxy @n) =
-      let sh = listToSized @(n - 1) is
-      in i ::: sh
-  | LTI <- cmpNat (Proxy @1) (Proxy @n) =
-      let sh = listToSized @(n - 1) is
-      in i ::: sh
-  | otherwise =
-      error $ "listToSized: input list too long; spurious "
-                            ++ show (length (i : is))
+listToSized = fromList
 
 sizedToList :: SizedList n i -> [i]
-sizedToList ZR = []
-sizedToList (i ::: is) = i : sizedToList is
+sizedToList = Foldable.toList
 
 
 -- * Tensor indexes as fully encapsulated sized lists, with operations
@@ -251,16 +219,6 @@ sizedToList (i ::: is) = i : sizedToList is
 -- are terms, there is no absolute corrcetness criterion anyway,
 -- because the eventual integer value depends on a variable valuation.
 type Index n i = IxR n i
-
--- This is only lawful when OverloadedLists is enabled.
--- However, it's much more readable when tracing and debugging.
---instance Show i => Show (Index n i) where
---  showsPrec d (IxR l) = showsPrec d l
-
-instance KnownNat n => IsList (Index n i) where
-  type Item (Index n i) = i
-  fromList = listToIndex
-  toList = indexToList
 
 singletonIndex :: i -> Index 1 i
 singletonIndex = IxR . singletonSized
@@ -327,10 +285,10 @@ permutePrefixIndex :: forall n i. KnownNat n
 permutePrefixIndex p (IxR ix) = IxR $ permutePrefixSized p ix
 
 listToIndex :: KnownNat n => [i] -> Index n i
-listToIndex = IxR . listToSized
+listToIndex = fromList
 
 indexToList :: Index n i -> [i]
-indexToList (IxR l) = sizedToList l
+indexToList = Foldable.toList
 
 indexToSized :: Index n i -> SizedList n i
 indexToSized (IxR l) = l
@@ -344,16 +302,6 @@ sizedToIndex = IxR
 -- | The shape of an n-dimensional array represented as a sized list.
 -- The order of dimensions corresponds to that in @Index@.
 type Shape n i = ShR n i
-
--- This is only lawful when OverloadedLists is enabled.
--- However, it's much more readable when tracing and debugging.
---instance Show i => Show (Shape n i) where
---  showsPrec d (ShR l) = showsPrec d l
-
-instance KnownNat n => IsList (Shape n i) where
-  type Item (ShR n i) = i
-  fromList = listToShape
-  toList = shapeToList
 
 -- This type is user facing so we warn similarly as for IndexOf.
 -- | This is a shape of a tensor, which implies the numbers are non-negative.
@@ -410,10 +358,10 @@ backpermutePrefixShape p (ShR is) = ShR $ backpermutePrefixSized p is
 
 -- Warning: do not pass a list of strides to this function.
 listToShape :: KnownNat n => [i] -> Shape n i
-listToShape = ShR . listToSized
+listToShape = fromList
 
 shapeToList :: Shape n i -> [i]
-shapeToList (ShR l) = sizedToList l
+shapeToList = Foldable.toList
 
 -- Both shape representations denote the same shape.
 withListShape

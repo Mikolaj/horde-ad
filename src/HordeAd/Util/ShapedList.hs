@@ -40,16 +40,24 @@ module HordeAd.Util.ShapedList
 
 import Prelude
 
-import           Control.Exception.Assert.Sugar
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.Shape as Sh
+import qualified Data.Foldable as Foldable
+import           Data.Functor.Const
 import           GHC.Exts (IsList (..))
 import           GHC.TypeLits (KnownNat, Nat, type (*))
 
 import           Data.Array.Nested
-  (IxS (..), ListS, pattern (:.$), pattern (::$), pattern ZIS, pattern ZS)
+  ( IxS (..)
+  , ListS
+  , listSToList
+  , pattern (:.$)
+  , pattern (::$)
+  , pattern ZIS
+  , pattern ZS
+  , shSToList
+  )
 import qualified Data.Array.Shape as X
-import           Data.Functor.Const
 
 import           HordeAd.Core.Types
 import           HordeAd.Util.SizedList (Permutation)
@@ -185,23 +193,10 @@ sizedCompare f (i ::$ idx) (j ::$ idx') =
 -}
 
 listToSized :: KnownShS sh => [i] -> SizedListS sh (Const i)
-listToSized l = tupleToShape l knownShS
- where
-  tupleToShape :: [i] -> ShS sh1 -> SizedListS sh1 (Const i)
-  tupleToShape = \cases
-    [] ZSS -> ZS
-    _ ZSS -> error $ "listToSized: input list too long; spurious "
-                     ++ show (length l)
-    [] ks@(_ :$$ _) -> error $ "listToSized: input list too short; missing "
-                               ++ show (length (shSToList ks))
-    (i : is) (_hd :$$ tl) -> -- @i@ can be, e.g., variables, so we can't assert,
-                             -- but this should morally hold, after valuation:
-                             -- assert (i <= sNatValue hd) $
-                             Const i ::$ tupleToShape is tl
+listToSized = fromList
 
 sizedToList :: SizedListS sh (Const i) -> [i]
-sizedToList ZS = []
-sizedToList (i ::$ is) = getConst i : sizedToList is
+sizedToList = listSToList
 
 -- shapedToSized :: KnownNat (Sh.Rank sh)
 --               => SizedListS sh i -> SizedList.SizedList (Sh.Rank sh) i
@@ -215,18 +210,6 @@ type IndexS sh i = IxS sh i
 pattern IndexS :: forall {sh :: [Nat]} {i}. ListS sh (Const i) -> IxS sh i
 pattern IndexS l = IxS l
 {-# COMPLETE IndexS #-}
-
-{-
--- This is only lawful when OverloadedLists is enabled.
--- However, it's much more readable when tracing and debugging.
-instance Show i => Show (IndexS sh i) where
-  showsPrec d (IndexS l) = showsPrec d l
--}
-
-instance KnownShS sh => IsList (IndexS sh i) where
-  type Item (IndexS sh i) = i
-  fromList = listToIndex
-  toList = indexToList
 
 consIndex :: KnownNat n => ShapedNat n i -> IndexS sh i -> IndexS (n ': sh) i
 consIndex (ShapedNat i) l = i :.$ l
@@ -268,10 +251,10 @@ zipWith_Index :: (i -> j -> k) -> IndexS sh i -> IndexS sh j -> IndexS sh k
 zipWith_Index f (IndexS l1) (IndexS l2) = IndexS $ zipWith_Sized f l1 l2
 
 listToIndex :: KnownShS sh => [i] -> IndexS sh i
-listToIndex = IndexS . listToSized
+listToIndex = fromList
 
 indexToList :: IndexS sh i -> [i]
-indexToList (IndexS l) = sizedToList l
+indexToList = Foldable.toList
 
 -- indexToSized :: IndexS sh i -> SizedListS sh i
 -- indexToSized (IndexS l) = l
@@ -288,18 +271,6 @@ shapedToIndex = SizedList.listToIndex . indexToList
 
 type ShapeS sh = ShS sh
 
-{-
--- This is only lawful when OverloadedLists is enabled.
--- However, it's much more readable when tracing and debugging.
-instance Show i => Show (ShapeS sh) where
-  showsPrec d (ShapeS l) = showsPrec d l
--}
-
-instance KnownShS sh => IsList (ShapeS sh) where
-  type Item (ShapeS sh) = Int
-  fromList = listToShape
-  toList = shapeToList
-
 -- TODO: ensure this is checked (runtime-checked, if necessary):
 -- | The value of this type has to be positive and less than the @n@ bound.
 -- If the values are terms, this is relative to environment
@@ -315,21 +286,10 @@ shapedNat :: forall n a. a -> ShapedNat n a
 shapedNat = ShapedNat
 
 listToShape :: KnownShS sh => [Int] -> ShapeS sh
-listToShape l = tupleToShape l knownShS
- where
-  tupleToShape :: [Int] -> ShS sh1 -> ShapeS sh1
-  tupleToShape = \cases
-    [] ZSS -> ZSS
-    _ ZSS -> error $ "listToShape: input list too long; spurious "
-                     ++ show (length l)
-    [] ks@(_ :$$ _) -> error $ "listToShape: input list too short; missing "
-                               ++ show (length (shSToList ks))
-    (i : is) (hd :$$ tl) -> assert (i == sNatValue hd) $
-                            hd :$$ tupleToShape is tl
+listToShape = fromList
 
 shapeToList :: ShapeS sh -> [Int]
-shapeToList ZSS = []
-shapeToList (i :$$ is) = sNatValue i : shapeToList is
+shapeToList = shSToList
 
 -- * Operations involving both indexes and shapes
 

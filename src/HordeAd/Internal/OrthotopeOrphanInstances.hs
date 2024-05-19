@@ -6,7 +6,7 @@ module HordeAd.Internal.OrthotopeOrphanInstances
   ( -- * Definitions to help express and manipulate type-level natural numbers
     SNat, pattern SNat, withSNat, sNatValue, proxyFromSNat
     -- * Definitions for type-level list shapes
-  , shapeT, shapeP, sizeT, sizeP, shSToList
+  , shapeT, shapeP, sizeT, sizeP
   , withShapeP, sameShape, matchingRank, lemShapeFromKnownShS
   , -- * Numeric instances for tensors
     liftVR, liftVR2, liftVS, liftVS2
@@ -46,8 +46,9 @@ import           Numeric.LinearAlgebra.Devel (zipVectorWith)
 import           Unsafe.Coerce (unsafeCoerce)
 
 import           Data.Array.Mixed (Dict (..))
-import qualified Data.Array.Shape as X
 import           Data.Array.Nested (KnownShS (..), ShS (ZSS, (:$$)))
+import           Data.Array.Nested.Internal (shSToList)
+import qualified Data.Array.Shape as X
 
 -- * Definitions to help express and manipulate type-level natural numbers
 
@@ -73,10 +74,6 @@ shapeT = shSToList (knownShS @sh)
 
 shapeP :: forall sh. KnownShS sh => Proxy sh -> [Int]
 shapeP _ = shSToList (knownShS @sh)
-
-shSToList :: ShS sh -> [Int]
-shSToList ZSS = []
-shSToList ((:$$) n l) = sNatValue n : shSToList l
 
 sizeT :: forall sh. KnownShS sh => Int
 sizeT = product $ shapeT @sh
