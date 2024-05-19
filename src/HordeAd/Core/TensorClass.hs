@@ -25,6 +25,8 @@ import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as Sh
 import qualified Data.Array.ShapedS as OS
 import           Data.Kind (Constraint, Type)
+import           Data.List.NonEmpty (NonEmpty)
+import qualified Data.List.NonEmpty as NonEmpty
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
@@ -136,12 +138,13 @@ class ( Integral (IntOf ranked), CRanked ranked Num
   -- (for these, suffix 1 doesn't mean codomain rank 1, but building up
   -- by one rank, and is omitted if a more general variant is not defined).
   rfromList :: (GoodScalar r, KnownNat n)
-            => [ranked r n] -> ranked r (1 + n)
-  rfromList = rfromVector . V.fromList
+            => NonEmpty (ranked r n) -> ranked r (1 + n)
+  rfromList = rfromVector . V.fromList . NonEmpty.toList
     -- goring through strict vectors, because laziness is risky with impurity
   rfromList0N :: (GoodScalar r, KnownNat n)
               => ShapeInt n -> [ranked r 0] -> ranked r n
   rfromList0N sh = rfromVector0N sh . V.fromList
+  -- This is morally non-empty strict vectors:
   rfromVector :: (GoodScalar r, KnownNat n)
               => Data.Vector.Vector (ranked r n) -> ranked r (1 + n)
   rfromVector0N :: (GoodScalar r, KnownNat n)
@@ -425,12 +428,13 @@ class ( Integral (IntOf shaped), CShaped shaped Num
   -- (for these, suffix 1 doesn't mean codomain rank 1, but building up
   -- by one rank, and is omitted if a more general variant is not defined).
   sfromList :: (GoodScalar r, KnownNat n, KnownShS sh)
-            => [shaped r sh] -> shaped r (n ': sh)
-  sfromList = sfromVector . V.fromList
+            => NonEmpty (shaped r sh) -> shaped r (n ': sh)
+  sfromList = sfromVector . V.fromList . NonEmpty.toList
   sfromList0N :: forall r sh.
                  (GoodScalar r, KnownShS sh, KnownNat (Sh.Size sh))
               => [shaped r '[]] -> shaped r sh
   sfromList0N = sfromVector0N . V.fromList
+  -- This is morally non-empty strict vectors:
   sfromVector :: (GoodScalar r, KnownNat n, KnownShS sh)
               => Data.Vector.Vector (shaped r sh) -> shaped r (n ': sh)
   sfromVector0N :: forall r sh.

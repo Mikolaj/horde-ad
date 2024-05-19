@@ -11,8 +11,12 @@ module HordeAd.External.CommonRankedOps
 
 import Prelude
 
-import Control.Exception (assert)
-import GHC.TypeLits (KnownNat)
+import           Control.Exception (assert)
+import qualified Data.Array.RankedS as OR
+import qualified Data.List.NonEmpty as NonEmpty
+import           Data.Proxy (Proxy (Proxy))
+import           Data.Type.Equality ((:~:) (Refl))
+import           GHC.TypeLits (KnownNat, sameNat)
 
 import Data.Int (Int64)
 import HordeAd.Core.TensorClass
@@ -52,16 +56,22 @@ rfromIndex0 :: forall r ranked.
 rfromIndex0 = rfromIntegral . rconstant
 
 rfromIndex1 :: forall n r ranked.
-               ( RankedTensor ranked, RankedTensor (PrimalOf ranked)
+               ( KnownNat n
+               , RankedTensor ranked, RankedTensor (PrimalOf ranked)
                , GoodScalar r, RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
             => IndexOf ranked n -> ranked r 1
-rfromIndex1 = rfromIntegral . rconstant . rfromList . indexToList
+rfromIndex1 = case sameNat (Proxy @n) (Proxy @0) of
+  Just Refl -> const $ rconst $ OR.fromList [0] []
+  _ -> rfromIntegral . rconstant . rfromList . NonEmpty.fromList . indexToList
 
 rint64FromIndex1 :: forall n ranked.
-                    ( RankedTensor ranked, RankedTensor (PrimalOf ranked)
+                    ( KnownNat n
+                    , RankedTensor ranked, RankedTensor (PrimalOf ranked)
                     , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
                  => IndexOf ranked n -> ranked Int64 1
-rint64FromIndex1 = rconstant . rfromList . indexToList
+rint64FromIndex1 = case sameNat (Proxy @n) (Proxy @0) of
+  Just Refl -> const $ rconst $ OR.fromList [0] []
+  _ -> rconstant . rfromList . NonEmpty.fromList . indexToList
 
 rint64ToIndex1 :: forall n ranked.
                   ( KnownNat n
@@ -168,7 +178,7 @@ maxPool1 :: ( RankedTensor ranked, GoodScalar r
          => Int -> Int -> ranked r 1 -> ranked r 1
 maxPool1 ksize stride v =
   let slices = [rslice i ksize v | i <- [0, stride .. rlength v - ksize]]
-  in rfromList $ map rmaximum slices
+  in rfromList $ NonEmpty.fromList $ map rmaximum slices
 
 softMax1 :: (RankedTensor ranked, KnownNat n, GoodScalar r, Differentiable r)
          => ranked r n -> ranked r n

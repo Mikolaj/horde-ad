@@ -9,6 +9,7 @@ import Prelude
 import           Control.Exception (assert)
 import qualified Data.Array.RankedS as OR
 import           Data.Bifunctor.Flip
+import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Vector.Generic as V
 import           GHC.Exts (inline)
 
@@ -42,7 +43,7 @@ listMatmul1
 listMatmul1 x0 weights = rlet x0 $ \x ->
   let f :: ranked r 1 -> ranked r 0
       f v = v `rdot0` x
-  in rfromList $ map f weights
+  in rfromList $ NonEmpty.fromList $ map f weights
 
 -- | Fully connected neural network for the MNIST digit classification task.
 -- There are two hidden layers and both use the same activation function.

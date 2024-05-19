@@ -14,6 +14,7 @@ import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
 import           Data.Int (Int64)
 import           Data.List (foldl1')
+import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Strict.IntMap as IM
 import           Foreign.C (CInt)
 import           GHC.TypeLits (KnownNat)
@@ -1858,23 +1859,26 @@ testConcatBuild12 =
 emptyArgs :: forall ranked r. (ADReady ranked, GoodScalar r, Differentiable r)
           => ranked r 1 -> ranked r 1
 emptyArgs t =
-  rfromList @ranked @r @0 []
-  - rfromList0N (rshape @ranked @r (rfromList [])) []
-  - rreshape @ranked @r @1 [0] (rfromList [])
-  - rgather1 0 (rfromList []) (:.: ZIR)
-  - rsum (rgather1 0 (rfromList []) (const ZIR))
-  - rsum (rgather @ranked @r @2 (0 :$: 0 :$: ZSR) (rfromList []) (const (0 :.: ZIR)))
-  - rsum (rgather @ranked @r @2 @0 @1 [0, 0] (rfromList []) (const [0]))
-  - rsum (rreshape @ranked @r @1 [0, 0] (rfromList []))
+  emptyTensor
+  - rfromList0N (rshape @ranked @r emptyTensor) []
+  - rreshape @ranked @r @1 [0] emptyTensor
+  - rgather1 0 emptyTensor (:.: ZIR)
+  - rsum (rgather1 0 emptyTensor (const ZIR))
+  - rsum (rgather @ranked @r @2 (0 :$: 0 :$: ZSR) emptyTensor (const (0 :.: ZIR)))
+  - rsum (rgather @ranked @r @2 @0 @1 [0, 0] emptyTensor (const [0]))
+  - rsum (rreshape @ranked @r @1 [0, 0] emptyTensor)
   - rindex (rfromList0N (0 :$: 0 :$: ZSR) []) (42 :.: ZIR)
-  - rindex (rfromList0N (0 :$: rshape @ranked @r (rfromList [])) []) (42 :.: ZIR)
-  - rsum (rfromList0N (0 :$: rshape @ranked @r (rfromList [])) [])
-  * rsum (rfromList [rsum (rfromList0N (0 :$: rshape @ranked @r (rfromList [])) [])])
+  - rindex (rfromList0N (0 :$: rshape @ranked @r emptyTensor) []) (42 :.: ZIR)
+  - rsum (rfromList0N (0 :$: rshape @ranked @r emptyTensor) [])
+  * rsum (rfromList [rsum (rfromList0N (0 :$: rshape @ranked @r emptyTensor) [])])
   * rflatten (rtr (rgather1 0 t (const ZIR)))
   + rbuild1 0 (\i -> t ! [fromIntegral (rrank t) `quot` i] / rfromIndex0 i)
   -- - rsum (rbuild @ranked @r @2 (0 :$: 0 :$: ZSR) (const 73))
   -- - rsum (rbuild @ranked @r @1 (0 :$: 0 :$: ZSR) (const $ rfromList []))
        -- these fail and rightly so; TODO: make them fail earlier
+ where
+  emptyTensor :: ranked r 1
+  emptyTensor = rconst $ OR.fromList [0] []
 
 testEmptyArgs0 :: Assertion
 testEmptyArgs0 =
@@ -1905,7 +1909,7 @@ filterPositiveFail v =
       -- l2 = filter (\x -> x >=. 0) l
       -- Could not deduce ‘BoolOf ranked ~ Bool’
       l2 = take 3 l  -- the most I can do
-  in rfromList l2
+  in rfromList $ NonEmpty.fromList l2
 
 testFilterPositiveFail :: Assertion
 testFilterPositiveFail =
