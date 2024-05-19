@@ -13,12 +13,14 @@ import Prelude
 
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.Shape as Sh
+import qualified Data.Array.ShapedS as OS
 import           Data.Int (Int64)
+import qualified Data.List.NonEmpty as NonEmpty
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality (gcastWith, (:~:) (Refl))
 import           Data.Type.Ord (Compare)
 import           GHC.TypeLits
-  (Div, KnownNat, SomeNat (..), someNatVal, type (-), type (<=))
+  (Div, KnownNat, SomeNat (..), sameNat, someNatVal, type (-), type (<=))
 import           Unsafe.Coerce (unsafeCoerce)
 
 import           HordeAd.Core.TensorClass
@@ -61,8 +63,10 @@ sfromIndex0 = sfromIntegral . sconstant . sfromR . ShapedList.unShapedNat
 sfromIndex1 :: forall r sh shaped.
                (ADReadyS shaped, GoodScalar r, KnownNat (Sh.Rank sh))
             => IndexSh shaped sh -> shaped r '[Sh.Rank sh]
-sfromIndex1 =
-  sfromIntegral . sconstant . sfromR . rfromList . ShapedList.indexToList
+sfromIndex1 = case sameNat (Proxy @(Sh.Rank sh)) (Proxy @0) of
+  Just Refl -> const $ sconst $ OS.fromList []
+  _ -> sfromIntegral . sconstant . sfromR . rfromList
+       . NonEmpty.fromList . ShapedList.indexToList
 
 sletIx :: forall r sh n shaped.
           (ADReadyS shaped, GoodScalar r, KnownShS sh, KnownNat n)
@@ -169,7 +173,7 @@ maxPool1S v =
             smaximum $ sslice @shaped @r @i @(m - i - ksize) @ksize
                               Proxy Proxy v
           Nothing -> error "maxPool1S: impossible someNatVal error"
-  in sfromList $ map maxOfSlice l
+  in sfromList $ NonEmpty.fromList $ map maxOfSlice l
 
 softMax1S :: ( KnownShS sh, KnownNat (Sh.Size sh)
              , ShapedTensor shaped, GoodScalar r, Differentiable r )

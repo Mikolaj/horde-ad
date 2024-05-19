@@ -24,10 +24,11 @@ import           Data.Bifunctor.Flip
 import           Data.Function ((&))
 import           Data.List (foldl')
 import           Data.List.Index (imap)
+import qualified Data.List.NonEmpty as NonEmpty
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, sameNat)
+import           GHC.TypeLits (KnownNat, sameNat, type (+))
 import           Type.Reflection (typeRep)
 import           Unsafe.Coerce (unsafeCoerce)
 
@@ -213,7 +214,15 @@ instance ADReady ranked => RankedTensor (ADVal ranked) where
   rreshape sh t@(D u u') = case sameNat (Proxy @m) (Proxy @n) of
     Just Refl | sh == rshape u -> t
     _ -> dD (rreshape sh u) (ReshapeR sh u')
-  rbuild1 k f = rfromList $ map (f . fromIntegral) [0 .. k - 1]
+  rbuild1 :: forall r n. (GoodScalar r, KnownNat n)
+          => Int -> (IntOf (ADVal ranked) -> ADVal ranked r n)
+          -> ADVal ranked r (1 + n)
+  rbuild1 0 _ = case sameNat (Proxy @n) (Proxy @0) of
+    Just Refl -> rconst $ OR.fromList [0] []
+                   -- the only case where we can guess sh
+    _ ->  error "rbuild1: shape ambiguity, no arguments"
+  rbuild1 k f = rfromList $ NonEmpty.fromList
+                          $ map (f . fromIntegral) [0 .. k - 1]
                    -- element-wise (POPL) version
   rgather sh (D u u') f =
     let g x = rprimalPart <$> f (rconstant <$> x)
@@ -322,9 +331,12 @@ instance ADReadyS shaped => ShapedTensor (ADVal shaped) where
   sbuild1 :: forall r n sh. (GoodScalar r, KnownNat n, KnownShS sh)
           => (IntSh (ADVal shaped) n -> ADVal shaped r sh)
           -> ADVal shaped r (n ': sh)
-  sbuild1 f = sfromList $ map (f . ShapedList.shapedNat . fromIntegral)
-                              [0 :: Int .. valueOf @n - 1]
-                   -- element-wise (POPL) version
+  sbuild1 f | Dict <- lemShapeFromKnownShS (Proxy @sh) = case valueOf @n of
+    0 -> sconst $ OS.fromList []
+    k -> sfromList $ NonEmpty.fromList
+                   $ map (f . ShapedList.shapedNat . fromIntegral)
+                         [0 :: Int .. k - 1]
+           -- element-wise (POPL) version
   sgather (D u u') f =
     let g x = rprimalPart <$> f (rconstant <$> x)
     in dD (sgather u g) (GatherS u' g)

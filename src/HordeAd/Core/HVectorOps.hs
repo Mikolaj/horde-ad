@@ -23,6 +23,7 @@ import Prelude
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.Shape as Sh
 import           Data.List (foldl', transpose)
+import qualified Data.List.NonEmpty as NonEmpty
 import           Data.Maybe (isJust)
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
@@ -334,7 +335,7 @@ ravelDynamicRanked ld = case ld of
           g DynamicShapedDummy{} =
             error "ravelDynamicRanked: DynamicShapedDummy"
           g _ = error "ravelDynamicRanked: wrong scalar or rank"
-      in DynamicRanked $ rfromList $ map g ld
+      in DynamicRanked $ rfromList $ NonEmpty.fromList $ map g ld
     _ -> error "ravelDynamicRanked: impossible someNatVal"
 
 ravelDynamicShaped
@@ -361,7 +362,7 @@ ravelDynamicShaped ld = case ld of
               | Just Refl <- sameShape @shq @shp
               , Just Refl <- testEquality (typeRep @rq) (typeRep @rp) = 0
             g _ = error "ravelDynamicShaped: wrong scalar or rank"
-        in DynamicShaped $ sfromList @_ @_ @p1 $ map g ld
+        in DynamicShaped $ sfromList @_ @_ @p1 $ NonEmpty.fromList $ map g ld
       _ -> error "ravelDynamicShaped: impossible someNatVal"
 
 ravelDynamic

@@ -15,6 +15,7 @@ import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
 import           Data.Function ((&))
 import           Data.List (foldl', mapAccumL, mapAccumR, scanl')
+import qualified Data.List.NonEmpty as NonEmpty
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat)
@@ -78,7 +79,7 @@ instance RankedTensor (ORArray) where
                                          (fromIndexOfR . f . toIndexOfR)
   rscatter1 sh t f = Flip $ tscatterZ1R sh (runFlip t)
                                            (fromIndexOfR . f . Flip . tscalarR)
-  rfromList = Flip . tfromListR . map runFlip
+  rfromList = Flip . tfromListR . NonEmpty.map runFlip
   rfromList0N sh = Flip . tfromList0NR sh . map (tunScalarR . runFlip)
   rfromVector = Flip . tfromVectorR . V.map runFlip
   rfromVector0N sh = Flip . tfromVector0NR sh . V.map (tunScalarR . runFlip)
@@ -162,7 +163,7 @@ instance ShapedTensor (OSArray) where
   sscatter1 t f = FlipS $ tscatterZ1S (runFlipS t)
                                       (fromIndexOfS . f . shapedNat . Flip
                                        . tscalarR . unShapedNat)
-  sfromList = FlipS . tfromListS . map runFlipS
+  sfromList = FlipS . tfromListS . NonEmpty.map runFlipS
   sfromList0N = FlipS . tfromList0NS . map (tunScalarS . runFlipS)
   sfromVector = FlipS . tfromVectorS . V.map runFlipS
   sfromVector0N = FlipS . tfromVector0NS . V.map (tunScalarS . runFlipS)
@@ -266,9 +267,11 @@ instance HVectorTensor (ORArray) (OSArray) where
         df _ = error "df: wrong number of arguments"
     in df
   rfold f x0 as = foldl' f x0 (runravelToList as)
-  rscan f x0 as = rfromList $ scanl' f x0 (runravelToList as)
+  rscan f x0 as =
+    rfromList $ NonEmpty.fromList $ scanl' f x0 (runravelToList as)
   sfold f x0 as = foldl' f x0 (sunravelToList as)
-  sscan f x0 as = sfromList $ scanl' f x0 (sunravelToList as)
+  sscan f x0 as =
+    sfromList $ NonEmpty.fromList $ scanl' f x0 (sunravelToList as)
   -- The eta-expansion below is needed for typing.
   dmapAccumR _ k accShs bShs _eShs f acc0 es =
     oRdmapAccumR k accShs bShs _eShs f acc0 es

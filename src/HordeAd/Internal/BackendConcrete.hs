@@ -29,6 +29,8 @@ import           Data.Functor (void)
 import           Data.Int (Int64)
 import           Data.List (foldl')
 import           Data.List.Index (imap)
+import           Data.List.NonEmpty (NonEmpty)
+import qualified Data.List.NonEmpty as NonEmpty
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Map as M
 import qualified Data.Strict.Vector as Data.Vector
@@ -262,12 +264,8 @@ tscatterZ1R sh t f = case OR.shapeL t of
 
 tfromListR
   :: forall n r. (KnownNat n, Numeric r)
-  => [OR.Array n r] -> OR.Array (1 + n) r
-tfromListR [] =
-  case sameNat (Proxy @n) (Proxy @0) of
-    Just Refl -> OR.fromList [0] []  -- the only case where we can guess sh
-    _ ->  error "tfromListR: shape ambiguity, no arguments"
-tfromListR l = OR.ravel $ ORB.fromList [length l] l
+  => NonEmpty (OR.Array n r) -> OR.Array (1 + n) r
+tfromListR l = OR.ravel . ORB.fromList [NonEmpty.length l] . NonEmpty.toList $ l
 
 tfromList0NR
   :: (KnownNat n, Numeric r)
@@ -327,7 +325,9 @@ treshapeR sh = OR.reshape (shapeToList sh)
 tbuild1R
   :: forall n r. (KnownNat n, Numeric r)
   => Int -> (Int64 -> OR.Array n r) -> OR.Array (1 + n) r
-tbuild1R 0 _ = tfromListR []  -- if we applied f, we'd change strictness
+tbuild1R 0 _ = case sameNat (Proxy @n) (Proxy @0) of
+  Just Refl -> OR.fromList [0] []  -- the only case where we can guess sh
+  _ ->  error "tbuild1R: shape ambiguity, no arguments"
 tbuild1R k f = OR.ravel $ ORB.fromList [k]
                $ map f [0 .. fromIntegral k - 1]  -- hope this fuses
 
@@ -668,9 +668,9 @@ tscatterZ1S t f | Dict <- lemShapeFromKnownShS (Proxy @sh) =
 
 tfromListS
   :: forall n sh r. (Numeric r, KnownNat n, KnownShS sh)
-  => [OS.Array sh r] -> OS.Array (n ': sh) r
+  => NonEmpty (OS.Array sh r) -> OS.Array (n ': sh) r
 tfromListS l | Dict <- lemShapeFromKnownShS (Proxy @sh) =
-  OS.ravel $ OSB.fromList l
+  OS.ravel $ OSB.fromList $ NonEmpty.toList l
 
 tfromList0NS
   :: forall r sh. (Numeric r, KnownShS sh)
