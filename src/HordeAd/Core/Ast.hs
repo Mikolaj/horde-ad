@@ -39,7 +39,7 @@ import           GHC.TypeLits (KnownNat, sameNat, type (+), type (<=))
 import           Type.Reflection (Typeable, eqTypeRep, typeRep, (:~~:) (HRefl))
 import           Data.Functor.Const
 
-import qualified Data.Array.Shape as X
+import qualified Data.Array.Mixed as X
 
 import HordeAd.Core.HVector
 import HordeAd.Core.Types

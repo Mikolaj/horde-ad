@@ -144,8 +144,8 @@ type instance PrimalOf (OSArray) = OSArray
 type instance DualOf (OSArray) = DummyDual
 
 instance ShapedTensor (OSArray) where
-  sminIndex = FlipS . tminIndexS . runFlipS
-  smaxIndex = FlipS . tmaxIndexS . runFlipS
+-- TODO  sminIndex = FlipS . tminIndexS . runFlipS
+--  smaxIndex = FlipS . tmaxIndexS . runFlipS
   sfloor = FlipS . tfloorS . runFlipS
   siota :: forall n r. (GoodScalar r, KnownNat n)
         => OSArray r '[n]  -- from 0 to n - 1

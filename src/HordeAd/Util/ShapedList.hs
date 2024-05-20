@@ -57,7 +57,7 @@ import           Data.Array.Nested
   , pattern ZS
   , shSToList
   )
-import qualified Data.Array.Shape as X
+import qualified Data.Array.Mixed as X
 
 import           HordeAd.Core.Types
 import           HordeAd.Util.SizedList (Permutation)

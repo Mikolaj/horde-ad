@@ -48,7 +48,7 @@ import           Unsafe.Coerce (unsafeCoerce)
 import           Data.Array.Mixed (Dict (..))
 import           Data.Array.Nested (KnownShS (..), ShS (ZSS, (:$$)))
 import           Data.Array.Nested.Internal (shSToList)
-import qualified Data.Array.Shape as X
+import qualified Data.Array.Mixed as X
 
 -- * Definitions to help express and manipulate type-level natural numbers
 
