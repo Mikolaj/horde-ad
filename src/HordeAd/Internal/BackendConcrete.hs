@@ -52,7 +52,9 @@ import qualified Numeric.LinearAlgebra as LA
 import           System.IO.Unsafe (unsafePerformIO)
 import           Unsafe.Coerce (unsafeCoerce)
 
-import qualified Data.Array.Shape as X
+import qualified Data.Array.Mixed as X
+import qualified Data.Array.Nested as Nested
+import qualified Data.Array.Nested.Internal as Nested.Internal
 
 import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances
@@ -64,7 +66,7 @@ import           HordeAd.Util.SizedList
 
 type ORArray = Flip OR.Array
 
-type OSArray = FlipS OS.Array
+type OSArray = FlipS OS.Array  -- Nested.Shaped
 
 
 -- * Ranked tensor operations
@@ -429,6 +431,7 @@ updateNS arr upd | Dict <- lemShapeFromKnownShS (Proxy @sh)
         in LA.vjoin [V.take i t, v, V.drop (i + V.length v) t]
   in OS.fromVector (foldl' f values upd)
 
+{- TODO
 tminIndexS
   :: forall n sh r r2. ( NumAndShow r, NumAndShow r2, KnownShS sh, KnownNat n
                        , KnownShS (Sh.Init (n ': sh)) )
@@ -482,6 +485,7 @@ tmaxIndexS | Dict <- lemShapeFromKnownShS (Proxy @sh)
               OS.rerank @(Sh.Rank sh) (f @m)
             Nothing -> error "tmaxIndexS: impossible someNatVal error"
         Nothing -> error "tmaxIndexS: impossible someNatVal error"
+-}
 
 -- TODO: use Convert, fromInt/toInt and fromZ/toZ from hmatrix
 tfloorS :: forall r r2 sh.
@@ -719,11 +723,11 @@ treverseS | Dict <- lemShapeFromKnownShS (Proxy @sh) = OS.rev @'[0]
 
 ttransposeS
   :: forall perm r sh.
-     ( KnownShS perm, OS.Permutation perm, KnownShS sh, KnownNat (Sh.Rank sh)
+     ( KnownShS perm, PermC perm, KnownShS sh, KnownNat (Sh.Rank sh)
      , Sh.Rank perm <= Sh.Rank sh )
   => OS.Array sh r -> OS.Array (Sh.Permute perm sh) r
 ttransposeS | Dict <- lemShapeFromKnownShS (Proxy @perm)
-            , Dict <- lemShapeFromKnownShS (Proxy @sh) = OS.transpose @perm
+            , Dict <- lemShapeFromKnownShS (Proxy @sh) = undefined  -- TODO: OS.transpose @perm
 
 treshapeS
   :: forall r sh sh2.

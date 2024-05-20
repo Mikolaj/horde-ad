@@ -51,7 +51,7 @@ import qualified Data.Array.Convert
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as Sh
-import qualified Data.Array.Shape as X
+import qualified Data.Array.Mixed as X
 import qualified Data.Array.ShapedS as OS
 import           Data.Functor.Const
 import           Data.Int (Int64)
@@ -778,8 +778,10 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS shm1)) | Dict <- s
   Ast.AstSFromR @sh t ->
     withListSh (Proxy @shn) $ \_ ->
       gcastWith (unsafeCoerce Refl
+                 :: Sh.Rank shm + Sh.Rank shn :~: Sh.Rank (shm Sh.++ shn)) $
+      gcastWith (unsafeCoerce Refl
                  :: Sh.Rank shm + Sh.Rank shn :~: Sh.Rank (shm X.++ shn)) $
-                      -- reversing this equality causes " Could not deduce
+                      -- reversing this equality causes "Could not deduce
                       -- ‘KnownNat (OS.Rank sh1)’ error, but this is
                       -- probably ~fine and maybe caused by KnownNat.Solver
       astSFromR $ astIndexKnobsR knobs t (ShapedList.shapedToIndex ix)
