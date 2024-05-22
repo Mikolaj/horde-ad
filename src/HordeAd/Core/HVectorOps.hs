@@ -125,9 +125,9 @@ sumDynamicShaped dsOrig@(d : _) =
       DynamicShaped $ foldl' saddDynamic t ds
     (_ : _, _) -> error "sumDynamicShaped: wrong filtering"
     ([], DynamicRankedDummy @r @sh _ _) ->
-      DynamicShaped @r @sh 0
+      DynamicShaped @r @sh (srepl 0)
     ([], DynamicShapedDummy @r @sh _ _) ->
-      DynamicShaped @r @sh 0
+      DynamicShaped @r @sh (srepl 0)
     ([], _) -> error "sumDynamicShaped: wrong filtering"
 
 addDynamic :: forall ranked.
@@ -245,11 +245,11 @@ fromDynamicR zero = \case
   DynamicShapedDummy{} -> error "fromDynamicR: ranked from shaped"
 
 fromDynamicS :: forall r sh shaped
-              . ( Num (shaped r sh), GoodScalar r, KnownShS sh
+              . ( GoodScalar r, KnownShS sh
                 , ShapedOf (RankedOf shaped) ~ shaped )
-             => DynamicTensor (RankedOf shaped)
+             => shaped r sh -> DynamicTensor (RankedOf shaped)
              -> shaped r sh
-fromDynamicS = \case
+fromDynamicS zero = \case
   DynamicRanked{} -> error "fromDynamicS: shaped from ranked"
   DynamicShaped @r2 @sh2 t -> case sameShape @sh2 @sh of
     Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
@@ -259,7 +259,7 @@ fromDynamicS = \case
   DynamicRankedDummy{} -> error "fromDynamicS: shaped from ranked"
   DynamicShapedDummy @r2 @sh2 _ _ -> case sameShape @sh2 @sh of
     Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
-      Just Refl -> 0
+      Just Refl -> zero
       _ -> error "fromDynamicS: scalar mismatch"
     _ -> error "fromDynamicS: shape mismatch"
 
@@ -277,7 +277,7 @@ fromHVectorS :: forall r sh shaped
              => HVector (RankedOf shaped)
              -> Maybe (shaped r sh,  HVector (RankedOf shaped))
 fromHVectorS params = case V.uncons params of
-  Just (dynamic, rest) -> Just (fromDynamicS dynamic, rest)
+  Just (dynamic, rest) -> Just (fromDynamicS (srepl 0) dynamic, rest)
   Nothing -> Nothing
 
 unravelDynamic
@@ -302,7 +302,7 @@ unravelDynamic (DynamicRankedDummy @rp @sh _ _) =
 unravelDynamic (DynamicShapedDummy @rp @sh _ _) = case knownShS @sh of
   ZSS -> error "unravelDynamic: rank 0"
   (:$$) SNat tl | Dict <- sshapeKnown tl ->
-    map DynamicShaped $ sunravelToList (0 :: ShapedOf ranked rp sh)
+    map DynamicShaped $ sunravelToList (srepl 0 :: ShapedOf ranked rp sh)
 
 unravelHVector
   :: forall ranked. (RankedTensor ranked, ShapedTensor (ShapedOf ranked))
@@ -360,7 +360,7 @@ ravelDynamicShaped ld = case ld of
               error "ravelDynamicShaped: DynamicRankedDummy"
             g (DynamicShapedDummy @rq @shq _ _)
               | Just Refl <- sameShape @shq @shp
-              , Just Refl <- testEquality (typeRep @rq) (typeRep @rp) = 0
+              , Just Refl <- testEquality (typeRep @rq) (typeRep @rp) = srepl 0
             g _ = error "ravelDynamicShaped: wrong scalar or rank"
         in DynamicShaped $ sfromList @_ @_ @p1 $ NonEmpty.fromList $ map g ld
       _ -> error "ravelDynamicShaped: impossible someNatVal"
@@ -564,8 +564,8 @@ mapShaped f (DynamicRanked @r @n t) =
 mapShaped f (DynamicShaped t) = DynamicShaped $ f t
 mapShaped f (DynamicRankedDummy @r @sh _ _) =
   withListSh (Proxy @sh) $ \_ ->
-    DynamicRanked $ rfromS $ f @r @sh 0
-mapShaped f (DynamicShapedDummy @r @sh _ _) = DynamicShaped $ f @r @sh 0
+    DynamicRanked $ rfromS $ f @r @sh (srepl 0)
+mapShaped f (DynamicShapedDummy @r @sh _ _) = DynamicShaped $ f @r @sh (srepl 0)
 
 mapHVectorShaped11
   :: forall k k1 shaped.
@@ -607,14 +607,14 @@ mapShaped11 f (DynamicRankedDummy @r @sh _ _) =
     (:$$) @n @shr SNat tl
       | Dict <- sshapeKnown tl -> case sameNat (Proxy @n) (Proxy @k) of
         Just Refl -> withListSh (Proxy @shr) $ \_ ->
-          DynamicRanked $ rfromS $ f @r @shr 0
+          DynamicRanked $ rfromS $ f @r @shr (srepl 0)
         Nothing -> error "mapShaped11: wrong width"
 mapShaped11 f (DynamicShapedDummy @r @sh _ _) =
   case knownShS @sh of
     ZSS -> error "mapShaped11: rank 0"
     (:$$) @n @shr SNat tl
       | Dict <- sshapeKnown tl -> case sameNat (Proxy @n) (Proxy @k) of
-        Just Refl -> DynamicShaped $ f @r @shr 0
+        Just Refl -> DynamicShaped $ f @r @shr (srepl 0)
         Nothing -> error "mapShaped11: wrong width"
 
 index1HVector :: ( RankedTensor ranked, ShapedTensor (ShapedOf ranked)

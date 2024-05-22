@@ -1,13 +1,15 @@
 {-# LANGUAGE AllowAmbiguousTypes, CPP, UndecidableInstances,
              UndecidableSuperClasses #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
+{-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 -- | Orphan instances for orthotope classes.
 module HordeAd.Internal.OrthotopeOrphanInstances
   ( -- * Definitions to help express and manipulate type-level natural numbers
     SNat, pattern SNat, withSNat, sNatValue, proxyFromSNat
     -- * Definitions for type-level list shapes
   , shapeT, shapeP, sizeT, sizeP
-  , withShapeP, sameShape, matchingRank, lemShapeFromKnownShS
+  , withShapeP, sameShape, matchingRank
+  , lemShapeFromKnownShS, lemKnownNatRank, lemKnownNatSize
   , -- * Numeric instances for tensors
     liftVR, liftVR2, liftVS, liftVS2
   , IntegralF(..), RealFloatF(..), FlipS(..)
@@ -38,7 +40,16 @@ import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Storable as VS
 import           GHC.Stack
 import           GHC.TypeLits
-  (KnownNat, Nat, SNat, fromSNat, pattern SNat, sameNat, type (+), withSomeSNat)
+  ( KnownNat
+  , Nat
+  , SNat
+  , fromSNat
+  , pattern SNat
+  , sameNat
+  , type (*)
+  , type (+)
+  , withSomeSNat
+  )
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           Numeric.LinearAlgebra.Data (arctan2)
@@ -46,9 +57,11 @@ import           Numeric.LinearAlgebra.Devel (zipVectorWith)
 import           Unsafe.Coerce (unsafeCoerce)
 
 import           Data.Array.Mixed (Dict (..))
-import           Data.Array.Nested (KnownShS (..), ShS (ZSS, (:$$)))
-import           Data.Array.Nested.Internal (shSToList)
 import qualified Data.Array.Mixed as X
+import           Data.Array.Nested (KnownShS (..), ShS (ZSS, (:$$)))
+import qualified Data.Array.Nested as Nested
+import           Data.Array.Nested.Internal (shSToList)
+import qualified Data.Array.Nested.Internal as Nested.Internal
 
 -- * Definitions to help express and manipulate type-level natural numbers
 
@@ -107,6 +120,19 @@ lemShapeFromKnownShS :: forall sh. KnownShS sh
                        => Proxy sh -> Dict Sh.Shape sh
 lemShapeFromKnownShS _ = shapeFromShS (knownShS @sh)
 
+lemKnownNatRank :: ShS sh -> Dict KnownNat (Sh.Rank sh)
+lemKnownNatRank ZSS = Dict
+lemKnownNatRank (_ :$$ sh) | Dict <- lemKnownNatRank sh = Dict
+
+lemKnownNatSize' :: forall n sh. KnownNat n
+                 => ShS sh -> Dict KnownNat (Sh.Size' n sh)
+lemKnownNatSize' ZSS = Dict
+lemKnownNatSize' ((:$$) @k @sh' _ sh2)
+                 | Dict <- lemKnownNatSize' @(n * k) @sh' sh2 =
+  Dict
+
+lemKnownNatSize :: ShS sh -> Dict KnownNat (Sh.Size sh)
+lemKnownNatSize sh = lemKnownNatSize' @1 sh
 
 -- * Numeric instances for tensors
 
@@ -324,6 +350,11 @@ instance (Num (Vector r), Integral r, KnownShS sh, Numeric r, Show r)
   quotF = liftVS2UnlessZero quot
   remF = liftVS2UnlessZero rem
 
+instance (Nested.Internal.PrimElt r, Num (Vector r), Integral r, KnownShS sh, Numeric r, Show r)
+         => IntegralF (Nested.Shaped sh r) where
+  quotF = Nested.Internal.arithPromoteShaped2 (Nested.Internal.mliftPrim2 quot)
+  remF = Nested.Internal.arithPromoteShaped2 (Nested.Internal.mliftPrim2 rem)
+
 instance (Num (Vector r), KnownNat n, Numeric r, Show r, Fractional r)
          => Fractional (OR.Array n r) where
   (/) = liftVR2 (/)
@@ -415,6 +446,10 @@ instance (Floating r, RealFloat (Vector r), KnownShS sh, Numeric r)
          => RealFloatF (OS.Array sh r) where
   atan2F = liftVS2NoAdapt atan2
 
+instance (Nested.Internal.PrimElt r, RealFloat r, RealFloat (Vector r), KnownShS sh, Numeric r)
+         => RealFloatF (Nested.Shaped sh r) where
+  atan2F = Nested.Internal.arithPromoteShaped2 (Nested.Internal.mliftPrim2 atan2)
+
 deriving instance Num (f a b) => Num (Flip f b a)
 
 deriving instance Enum (f a b) => Enum (Flip f b a)
@@ -447,13 +482,29 @@ instance (Show r, VS.Storable r, KnownShS sh)
   showsPrec d (FlipS u) | Dict <- lemShapeFromKnownShS (Proxy @sh) =
     showString "Flip " . showParen True (showsPrec d u)
 
+instance (Show (Nested.Mixed (Nested.Internal.MapJust sh) r))
+         => Show (FlipS Nested.Shaped r sh) where
+  showsPrec :: Int -> FlipS Nested.Shaped r sh -> ShowS
+  showsPrec d (FlipS u) =
+    showString "Flip " . showParen True (showsPrec d u)
+
 instance (Eq r, Numeric r, KnownShS sh) => Eq (FlipS OS.Array r sh) where
   (==) :: FlipS OS.Array r sh -> FlipS OS.Array r sh -> Bool
   FlipS u == FlipS v | Dict <- lemShapeFromKnownShS (Proxy @sh) = u == v
 
+instance (Eq r, Numeric r, KnownShS sh, Eq (Nested.Mixed (Nested.Internal.MapJust sh) r)) => Eq (FlipS Nested.Shaped r sh) where
+  (==) :: FlipS Nested.Shaped r sh -> FlipS Nested.Shaped r sh -> Bool
+  FlipS u == FlipS v = u == v
+
 instance (Ord r, Numeric r, KnownShS sh) => Ord (FlipS OS.Array r sh) where
   (<=) :: FlipS OS.Array r sh -> FlipS OS.Array r sh -> Bool
   FlipS u <= FlipS v | Dict <- lemShapeFromKnownShS (Proxy @sh) = u <= v
+
+instance (Ord r, Numeric r, KnownShS sh, Eq (Nested.Mixed (Nested.Internal.MapJust sh) r), Ord (Nested.Mixed '[] r)) => Ord (FlipS Nested.Shaped r sh) where
+  (<=) :: FlipS Nested.Shaped r sh -> FlipS Nested.Shaped r sh -> Bool
+  FlipS u <= FlipS v = case sameShape @sh @'[] of
+    Just Refl -> u <= v
+    _ -> undefined
 
 deriving instance Num (f a b) => Num (FlipS f b a)
 

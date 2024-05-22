@@ -19,6 +19,8 @@ import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           Type.Reflection (typeRep)
 
+import qualified Data.Array.Nested.Internal as Nested.Internal
+
 import HordeAd.Core.HVector
 import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorConcrete ()
@@ -49,7 +51,7 @@ updateWithGradient gamma params gradient =
                Just Refl -> case testEquality (typeRep @r1) (typeRep @r2) of
                  Just Refl ->
                    DynamicShaped $ FlipS
-                   $ liftVS2 updateVector (runFlipS t1) (runFlipS t2)
+                   $ Nested.Internal.arithPromoteShaped2 (Nested.Internal.mliftPrim2 (\i r -> i - (realToFrac gamma) * r)) (runFlipS t1) (runFlipS t2) -- liftVS2 updateVector (runFlipS t1) (runFlipS t2)
                  _ -> error "updateWithGradient: scalar mismatch"
                _ -> error "updateWithGradient: rank mismatch")
           i

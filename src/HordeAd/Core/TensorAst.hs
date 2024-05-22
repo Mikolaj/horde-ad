@@ -27,6 +27,8 @@ import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, type (+))
 import           System.IO.Unsafe (unsafePerformIO)
 
+import qualified Data.Array.Nested as Nested
+
 import           HordeAd.Core.Adaptor
 import           HordeAd.Core.Ast
 import           HordeAd.Core.AstEnv
@@ -44,6 +46,7 @@ import           HordeAd.Core.TensorADVal (unADValHVector)
 import           HordeAd.Core.TensorClass
 import           HordeAd.Core.TensorConcrete ()
 import           HordeAd.Core.Types
+import           HordeAd.Internal.BackendOX (OSArray)
 import           HordeAd.Internal.OrthotopeOrphanInstances
   (FlipS (..), IntegralF (..), RealFloatF (..))
 import           HordeAd.Util.ShapedList (IntSh)
@@ -339,13 +342,17 @@ instance (GoodScalar r, KnownShS sh, ShapedTensor (AstShaped s), AstSpan s)
   toHVector = V.singleton . DynamicShaped
   fromHVector _aInit = fromHVectorS
 
-instance DualNumberValue (AstShaped PrimalSpan r sh) where
-  type DValue (AstShaped PrimalSpan r sh) = FlipS OS.Array r sh
-  fromDValue t = fromPrimalS $ AstConstS t
+instance (GoodScalar r, KnownShS sh)
+         => DualNumberValue (AstShaped PrimalSpan r sh) where
+  type DValue (AstShaped PrimalSpan r sh) = OSArray r sh
+  fromDValue t | Dict <- lemShapeFromKnownShS (Proxy @sh) = fromPrimalS $ AstConstS $ FlipS $ OS.fromVector @sh $ Nested.stoVector $ runFlipS t
+      -- TODO: this is probably very wrong
 
-instance TermValue (AstShaped FullSpan r sh) where
-  type Value (AstShaped FullSpan r sh) = FlipS OS.Array r sh
-  fromValue t = fromPrimalS $ AstConstS t
+instance (GoodScalar r, KnownShS sh)
+         => TermValue (AstShaped FullSpan r sh) where
+  type Value (AstShaped FullSpan r sh) = OSArray r sh
+  fromValue t | Dict <- lemShapeFromKnownShS (Proxy @sh) = fromPrimalS $ AstConstS $ FlipS $ OS.fromVector @sh $ Nested.stoVector $ runFlipS t
+      -- TODO: this is probably very wrong
 
 instance AstSpan s => ShapedTensor (AstShaped s) where
   slet = astLetFunS
@@ -452,7 +459,9 @@ instance TermValue (DynamicTensor (AstRanked FullSpan)) where
     DynamicTensor (Flip OR.Array)
   fromValue = \case
     DynamicRanked t -> DynamicRanked $ fromPrimal $ AstConst $ runFlip t
-    DynamicShaped t -> DynamicShaped $ fromPrimalS $ AstConstS t
+    DynamicShaped @_ @sh t | Dict <- lemShapeFromKnownShS (Proxy @sh) ->
+      DynamicShaped $ fromPrimalS $ AstConstS $ FlipS $ OS.fromVector @sh $ Nested.stoVector $ runFlipS t
+      -- TODO: this is probably very wrong
     DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
     DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
 

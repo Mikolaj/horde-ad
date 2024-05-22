@@ -18,11 +18,15 @@ import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, Nat, type (*))
 import           Numeric.LinearAlgebra (Vector)
 
+import qualified Data.Array.Nested as Nested
+
 import HordeAd.Core.Adaptor
 import HordeAd.Core.HVector
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.External.CommonShapedOps (lossSoftMaxCrossEntropyS)
+import HordeAd.Internal.BackendConcrete (tunravelToListS)
+import HordeAd.Internal.BackendOX (OSArray)
 import HordeAd.Internal.OrthotopeOrphanInstances (FlipS (..))
 import HordeAd.Util.ShapedList (pattern (:.$), pattern ZIS)
 import MnistData
@@ -145,7 +149,7 @@ rnnMnistLossFusedS out_width@SNat
 rnnMnistTestS
   :: forall shaped h w out_width batch_size r.
      ( h ~ SizeMnistHeight, w ~ SizeMnistWidth
-     , shaped ~ FlipS OS.Array, Differentiable r
+     , shaped ~ OSArray, Differentiable r
      , GoodScalar r )
   => SNat out_width
   -> SNat batch_size
@@ -155,7 +159,8 @@ rnnMnistTestS
   -> r
 rnnMnistTestS out_width@SNat batch_size@SNat
               valsInit (glyphS, labelS) testParams =
-  let xs = FlipS $ OS.transpose @'[2, 1, 0] glyphS
+  let xs = sconst $ OS.transpose @'[2, 1, 0] glyphS
+      outputS :: OS.Array '[SizeMnistLabel, batch_size] r
       outputS =
         let nn :: ADRnnMnistParametersShaped shaped h out_width r
                -> shaped r '[SizeMnistLabel, batch_size]
@@ -163,10 +168,11 @@ rnnMnistTestS out_width@SNat batch_size@SNat
                                batch_size
                                (SNat @h) (SNat @w)
                                xs
-        in runFlipS $ nn $ parseHVector valsInit testParams
-      outputs = map OS.toVector $ map runFlipS $ sunravelToList
-                $ FlipS $ OS.transpose @'[1, 0] outputS
-      labels = map OS.toVector $ map runFlipS $ sunravelToList $ FlipS labelS
+        in -- TODO
+          OS.fromVector $ Nested.stoVector $ runFlipS $ nn $ parseHVector valsInit testParams
+      outputs = map OS.toVector $ tunravelToListS
+                $ OS.transpose @'[1, 0] outputS
+      labels = map OS.toVector $ tunravelToListS labelS
       matchesLabels :: Vector r -> Vector r -> Int
       matchesLabels output label | V.maxIndex output == V.maxIndex label = 1
                                  | otherwise = 0

@@ -86,11 +86,11 @@ reluS, reluLeakyS
      , Differentiable r )
   => shaped r sh -> shaped r sh
 reluS v0 = slet v0 $ \v ->
-  let oneIfGtZero = smap0N (\x -> ifF (x <=. 0) 0.0 1.0) v
+  let oneIfGtZero = smap0N (\x -> ifF (x <=. sscalar 0) (sscalar 0.0) (sscalar 1.0)) v
   in oneIfGtZero * v
 
 reluLeakyS v0 = slet v0 $ \v ->
-  let oneIfGtZero = smap0N (\x -> ifF (x <=. 0) 0.01 1.0) v
+  let oneIfGtZero = smap0N (\x -> ifF (x <=. sscalar 0) (sscalar 00.01) (sscalar 01.0)) v
   in oneIfGtZero * v
 
 -- TODO: verify how faster a dedicated ShapedTensor method would be
@@ -99,10 +99,10 @@ logisticS :: forall shaped r sh.
              , Floating (PrimalOf shaped r sh) )
           => shaped r sh -> shaped r sh
 logisticS d0 = slet d0 $ \d ->  -- used in rprimalPart and in sdualPart
-  let y0 = recip (1 + exp (- sprimalPart d))
+  let y0 = recip (sprimalPart @shaped (srepl 1) + exp (- sprimalPart d))
   in slet (sconstant y0)  -- we don't have sletPrimal
      $ \y1 -> let y = sprimalPart y1
-              in sD y (sScale @shaped (y * (1 - y)) $ sdualPart d)
+              in sD y (sScale @shaped (y * (sprimalPart @shaped (srepl 1) - y)) $ sdualPart d)
 
 -- TODO: verify how faster a @x * x@ version would be
 -- Optimized and more clearly written @u ** 2@.
@@ -253,7 +253,7 @@ indexz0SLet d ix0 =
   sletIx ix0 $ \ix ->
     ifF (within0S @shOut @shaped ix)
         (sindex0 d (ShapedList.listToIndex (indexToList ix)))
-        0
+        (srepl 0)
 
 -- | Retrieve the element at the given index,
 --   returning zero for out of range indices.
@@ -271,7 +271,7 @@ indexz0S
 indexz0S d ix =
   ifF (within0S @shOut @shaped ix)
       (sindex0 d (ShapedList.listToIndex (indexToList ix)))
-      0
+      (srepl 0)
 
 -- | Given an index and shape, check if the index is fully within the shape.
 -- Note that @ix@ is used twice, so should be shared outside.

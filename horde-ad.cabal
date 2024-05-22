@@ -157,9 +157,10 @@ library horde-ad-simplified
                       HordeAd.External.CommonShapedOps
                       HordeAd.External.Optimizer
                       HordeAd.External.OptimizerTools
-                      HordeAd.Internal.OrthotopeOrphanInstances
-                      HordeAd.Internal.TensorFFI
                       HordeAd.Internal.BackendConcrete
+                      HordeAd.Internal.OrthotopeOrphanInstances
+                      HordeAd.Internal.BackendOX
+                      HordeAd.Internal.TensorFFI
                       HordeAd.Util.ShapedList
                       HordeAd.Util.SizedList
 
@@ -220,6 +221,7 @@ library exampleLibrary
       , hmatrix
       , mnist-idx
       , orthotope
+      , ox-arrays
       , random
       , vector
       , zlib
@@ -385,6 +387,7 @@ library testToolLibrary
       , enummapset
       , hmatrix
       , orthotope
+      , ox-arrays
       , tasty >= 1.0
       , tasty-hunit
       , vector
@@ -419,6 +422,7 @@ library testCommonLibrary
       , hmatrix
       , ilist
       , orthotope
+      , ox-arrays
       , random
       , strict-containers
       , tasty >= 1.0

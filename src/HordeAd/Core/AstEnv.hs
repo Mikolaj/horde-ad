@@ -110,7 +110,7 @@ extendEnvD vd@(AstDynamicVarName @ty @r @sh varId, d) !env = case d of
     | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat])
     , Just Refl <- sameShape @sh3 @sh
     , Just Refl <- testEquality (typeRep @r) (typeRep @r3) ->
-      extendEnvS @ranked @r @sh (AstVarName varId) 0 env
+      extendEnvS @ranked @r @sh (AstVarName varId) (srepl 0) env
   _ -> error $ "extendEnvD: impossible type"
                `showFailure`
                ( vd, typeRep @ty, typeRep @r, shapeT @sh

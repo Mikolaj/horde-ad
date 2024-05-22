@@ -212,7 +212,7 @@ interpretAst !env = \case
     in interpretAstI2 opCode u2 v2
   AstSumOfList args ->
     let args2 = interpretAst env <$> args
-    in foldr1 (+) args2  -- avoid unknown shape of @0@ in @sum@
+    in foldr1 (+) args2  -- avoid @fromInteger 0@ in @sum@
   AstIndex AstIota (i :.: ZIR) ->
     rfromIntegral $ rconstant $ interpretAstPrimal env i
   AstIndex v ix ->
@@ -591,7 +591,7 @@ interpretAstS !env = \case
     in interpretAstI2F opCode u2 v2
   AstSumOfListS args ->
     let args2 = interpretAstS env <$> args
-    in sum args2
+    in foldr1 (+) args2  -- avoid @fromInteger 0@ in @sum@
   AstIndexS AstIotaS (i :.$ ZIS) ->
     sfromIntegral . sconstant . sfromR $ interpretAstPrimal env i
   AstIndexS @sh1 v ix ->
