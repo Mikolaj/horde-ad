@@ -540,4 +540,4 @@ sfwd1 f u =
       zero = voidFromShS @r @sh
       shapes = V.fromList [zero]
   in sfwd @(RankedOf g) fHVector shapes (V.singleton $ DynamicShaped u)
-                                        (V.singleton $ DynamicShaped @r @sh 1)
+                                        (V.singleton $ DynamicShaped @r @sh (srepl 1))
