@@ -17,11 +17,15 @@ import           GHC.TypeLits (type (*), type (+), type (<=), type Div)
 import           Numeric.LinearAlgebra (Vector)
 import           Unsafe.Coerce (unsafeCoerce)
 
+import qualified Data.Array.Nested as Nested
+
 import HordeAd.Core.Adaptor
 import HordeAd.Core.HVector
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.External.CommonShapedOps
+import HordeAd.Internal.BackendConcrete (tunravelToListS)
+import HordeAd.Internal.BackendOX (OSArray)
 import HordeAd.Internal.OrthotopeOrphanInstances (FlipS (..))
 import MnistData
 
@@ -138,7 +142,7 @@ convMnistTestS
      ( h ~ SizeMnistHeight, w ~ SizeMnistWidth
      , 1 <= kh
      , 1 <= kw
-     , shaped ~ FlipS OS.Array
+     , shaped ~ OSArray
      , GoodScalar r, Differentiable r )
   => SNat kh -> SNat kw
   -> SNat c_out
@@ -153,17 +157,19 @@ convMnistTestS kh@SNat kw@SNat
                c_out@SNat n_hidden@SNat batch_size@SNat
                valsInit (glyphS, labelS) testParams =
   let input :: shaped r '[batch_size, 1, h, w]
-      input = FlipS $ OS.reshape glyphS
+      input = sconst $ OS.reshape glyphS
+      outputS :: OS.Array '[SizeMnistLabel, batch_size] r
       outputS =
         let nn :: ADCnnMnistParametersShaped shaped h w kh kw c_out n_hidden r
                -> shaped r '[SizeMnistLabel, batch_size]
             nn = convMnistTwoS kh kw (SNat @h) (SNat @w)
                                c_out n_hidden batch_size
                                input
-        in runFlipS $ nn $ parseHVector valsInit testParams
-      outputs = map OS.toVector $ map runFlipS $ sunravelToList
-                $ FlipS $ OS.transpose @'[1, 0] $ outputS
-      labels = map OS.toVector $ map runFlipS $ sunravelToList $ FlipS labelS
+        in -- TODO
+          OS.fromVector $ Nested.stoVector $ runFlipS $ nn $ parseHVector valsInit testParams
+      outputs = map OS.toVector $ tunravelToListS
+                $ OS.transpose @'[1, 0] $ outputS
+      labels = map OS.toVector $ tunravelToListS labelS
       matchesLabels :: Vector r -> Vector r -> Int
       matchesLabels output label | V.maxIndex output == V.maxIndex label = 1
                                  | otherwise = 0

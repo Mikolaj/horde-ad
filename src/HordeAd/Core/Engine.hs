@@ -39,6 +39,7 @@ import HordeAd.Core.HVector
 import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorADVal
 import HordeAd.Core.TensorAst
+import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.Internal.OrthotopeOrphanInstances (FlipS (..))
 
@@ -179,7 +180,7 @@ revEvalArtifact (AstArtifact varsDt vars
                              (AstRawWrap gradient) (AstRawWrap primal))
                 parameters mdt =
   let domsB = voidFromVars varsDt
-      dt1 = mapHVectorShaped (const 1) $ V.map dynamicFromVoid domsB
+      dt1 = mapHVectorShaped (const $ srepl 1) $ V.map dynamicFromVoid domsB
       dts = fromMaybe dt1 mdt
   in if voidHVectorMatches (shapeAstHVector primal) dts
      then

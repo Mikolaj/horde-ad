@@ -32,6 +32,8 @@ import           GHC.TypeLits (KnownNat, sameNat, type (+))
 import           Type.Reflection (typeRep)
 import           Unsafe.Coerce (unsafeCoerce)
 
+import qualified Data.Array.Nested as Nested
+
 import           HordeAd.Core.Adaptor
 import           HordeAd.Core.Ast
 import           HordeAd.Core.Delta
@@ -41,6 +43,7 @@ import           HordeAd.Core.HVectorOps
 import           HordeAd.Core.IsPrimal
 import           HordeAd.Core.TensorClass
 import           HordeAd.Core.Types
+import           HordeAd.Internal.BackendOX (OSArray)
 import           HordeAd.Internal.OrthotopeOrphanInstances (FlipS (..))
 import           HordeAd.Util.ShapedList (IntSh)
 import qualified HordeAd.Util.ShapedList as ShapedList
@@ -268,8 +271,9 @@ instance ( ADReadyS shaped, KnownShS sh, GoodScalar r
 
 instance (ADReadyS shaped, KnownShS sh, GoodScalar r)
          => DualNumberValue (ADVal shaped r sh) where
-  type DValue (ADVal shaped r sh) = FlipS OS.Array r sh   -- ! not Value(shaped)
-  fromDValue t = constantADVal $ sconst $ runFlipS t
+  type DValue (ADVal shaped r sh) = OSArray r sh   -- ! not Value(shaped)
+  fromDValue t | Dict <- lemShapeFromKnownShS (Proxy @sh) = constantADVal $ sconst $ OS.fromVector @sh $ Nested.stoVector $ runFlipS t
+      -- TODO: this is probably very wrong
 
 -- Note that these instances don't do vectorization. To enable it,
 -- use the Ast instance and only then interpret in ADVal.
@@ -656,5 +660,5 @@ aDValDynamicTensor (DynamicShapedDummy @r1 @sh1 _ _)
                    (DynamicShaped @r2 @sh2 t')
   | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
   , Just Refl <- sameShape @sh1 @sh2 =
-    DynamicShaped (dDnotShared 0 t')
+    DynamicShaped (dDnotShared (srepl 0) t')
 aDValDynamicTensor _ _ = error "aDValDynamicTensor: wrong arguments"

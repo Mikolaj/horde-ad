@@ -13,7 +13,7 @@ module HordeAd.Core.TensorClass
     ShapeInt, ShapeS
     -- * The tensor classes
   , RankedTensor(..), ShapedTensor(..), HVectorTensor(..), HFun(..)
-  , rfromD, sfromD
+  , rfromD, sfromD, ingestData, sscalar, srepl
     -- * The giga-constraint
   , ADReady, ADReadyBoth, ADReadyR, ADReadyS
   ) where
@@ -820,7 +820,7 @@ class HVectorTensor (ranked :: RankedTensorType)
        -> VoidHVector
        -> HVector ranked
        -> HVectorOf ranked
-  srev f shs es = srevDt @_ @_ @r @sh f shs es 1
+  srev f shs es = srevDt @_ @_ @r @sh f shs es (srepl 1)
   srevDt :: (GoodScalar r, KnownShS sh, shaped ~ ShapedOf ranked)
          => (forall f. ADReadyS f => HVector (RankedOf f) -> f r sh)
          -> VoidHVector
@@ -1128,14 +1128,26 @@ sfromD (DynamicShaped @r2 @sh2 t) = case sameShape @sh2 @sh of
   _ -> error $ "sfromD: shape mismatch " ++ show (shapeT @sh2, shapeT @sh)
 sfromD (DynamicRankedDummy @r2 @sh2 _ _) = case sameShape @sh2 @sh of
   Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
-    Just Refl -> 0
+    Just Refl -> srepl 0
     _ -> error "sfromD: scalar mismatch"
   _ -> error $ "sfromD: shape mismatch " ++ show (shapeT @sh2, shapeT @sh)
 sfromD (DynamicShapedDummy @r2 @sh2 _ _) = case sameShape @sh2 @sh of
   Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
-    Just Refl -> 0
+    Just Refl -> srepl 0
     _ -> error "sfromD: scalar mismatch"
   _ -> error $ "sfromD: shape mismatch " ++ show (shapeT @sh2, shapeT @sh)
+
+ingestData :: forall r sh shaped.
+              (GoodScalar r, KnownShS sh, ShapedTensor shaped)
+           => [r] -> shaped r sh
+ingestData l | Dict <- lemShapeFromKnownShS (Proxy @sh) = sconst $ OS.fromList l
+
+sscalar :: (GoodScalar r, ShapedTensor shaped) => r -> shaped r '[]
+sscalar = sconst . OS.scalar
+
+srepl :: forall sh r shaped. (GoodScalar r, KnownShS sh, ShapedTensor shaped)
+      => r -> shaped r sh
+srepl | Dict <- lemKnownNatSize (knownShS @sh) = sreplicate0N . sscalar
 
 newtype HFun =
   HFun {unHFun :: forall f. ADReady f => [HVector f] -> HVectorOf f}

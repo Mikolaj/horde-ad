@@ -49,9 +49,9 @@ import           Control.Exception.Assert.Sugar
 import           Control.Monad (mapAndUnzipM)
 import qualified Data.Array.Convert
 import           Data.Array.Internal (valueOf)
+import qualified Data.Array.Mixed as X
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as Sh
-import qualified Data.Array.Mixed as X
 import qualified Data.Array.ShapedS as OS
 import           Data.Functor.Const
 import           Data.Int (Int64)
@@ -696,7 +696,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS shm1)) | Dict <- s
     let i = fromIntegral $ OR.unScalar it
     in if 0 <= i && i < length l
        then astIndex (l V.! i) rest1
-       else 0
+       else {-srepl-} 0
   Ast.AstFromVectorS{} | ZIS <- rest1 ->  -- normal form
     Ast.AstIndexS v0 ix
   Ast.AstFromVectorS l ->
@@ -1413,7 +1413,7 @@ astSum t0 = case shapeAst t0 of
 astSumS :: forall n sh r s. (KnownNat n, KnownShS sh, GoodScalar r, AstSpan s)
         => AstShaped s r (n ': sh) -> AstShaped s r sh
 astSumS t0 = case sameNat (Proxy @n) (Proxy @0) of
- Just Refl -> 0
+ Just Refl -> {-srepl-} 0
  _ -> case sameNat (Proxy @n) (Proxy @1) of
   Just Refl -> astReshapeS t0
   _ -> case t0 of
@@ -1426,7 +1426,7 @@ astSumS t0 = case sameNat (Proxy @n) (Proxy @0) of
       astScatterS @sh2 @(p - 1) @sh v (vars, ix)
     Ast.AstFromVectorS l -> astSumOfListS $ V.toList l
     Ast.AstReplicateS @k v -> v * astReplicate0NS (valueOf @k)
-    Ast.AstSliceS @i @k _v | Just Refl <- sameNat (Proxy @k) (Proxy @0) -> 0
+    Ast.AstSliceS @i @k _v | Just Refl <- sameNat (Proxy @k) (Proxy @0) -> {-srepl-} 0
     Ast.AstSliceS @i @k v | Just Refl <- sameNat (Proxy @k) (Proxy @1) ->
       astIndexS v (valueOf @i :.$ ZIS)
     Ast.AstReverseS v -> astSumS v
@@ -1917,7 +1917,7 @@ astProjectS
   :: forall sh r s. (KnownShS sh, GoodScalar r, AstSpan s)
   => AstHVector s -> Int -> AstShaped s r sh
 astProjectS l p = case l of
-  Ast.AstMkHVector l3 -> fromDynamicS (l3 V.! p)
+  Ast.AstMkHVector l3 -> fromDynamicS 0 {-(astReplicate0NS 0)-} (l3 V.! p)
   Ast.AstLetHVectorInHVector vars d1 d2 ->
     astLetHVectorInS vars d1 (astProjectS d2 p)
   Ast.AstLetInHVector var u2 d2 ->
@@ -2143,12 +2143,12 @@ mapRankedShaped fRanked fShaped
     , Just Refl <- sameShape @sh3 @sh4
     , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) ->
         withListSh (Proxy @sh3) $ \_ ->
-          fRanked (AstVarName varId) (astRFromS @sh3 @_ @r3 0) acc
+          fRanked (AstVarName varId) (astRFromS @sh3 @_ @r3 ({-srepl-} 0)) acc
   DynamicShapedDummy @r4 @sh4 _ _
     | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat])
     , Just Refl <- sameShape @sh3 @sh4
     , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) ->
-        fShaped @sh4 @r4 (AstVarName varId) 0 acc
+        fShaped @sh4 @r4 (AstVarName varId) ({-srepl-} 0) acc
   _ -> error $ "mapRankedShaped: corrupted arguments"
                `showFailure`
                ( vd, typeRep @ty, typeRep @r3, shapeT @sh3

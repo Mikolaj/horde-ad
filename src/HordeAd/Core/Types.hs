@@ -1,4 +1,4 @@
-{-# LANGUAGE AllowAmbiguousTypes, UndecidableInstances #-}
+{-# LANGUAGE AllowAmbiguousTypes, ImpredicativeTypes, UndecidableInstances #-}
 -- | Some fundamental type families and types.
 module HordeAd.Core.Types
   ( -- * Kinds of the functors that determine the structure of a tensor type
@@ -15,7 +15,8 @@ module HordeAd.Core.Types
     -- * Definitions for type-level list shapes
   , ShS(..), KnownShS(..), shapeT, shapeP, sizeT, sizeP
   , sshapeKnown, slistKnown, sixKnown, knownShR, knownListR
-  , withShapeP, sameShape, matchingRank, lemShapeFromKnownShS
+  , withShapeP, sameShape, matchingRank
+  , lemShapeFromKnownShS, lemKnownNatRank, lemKnownNatSize
   , Dict(..), PermC
   ) where
 
@@ -29,10 +30,12 @@ import GHC.TypeLits (KnownNat, Nat)
 import Numeric.LinearAlgebra (Numeric, Vector)
 import Type.Reflection (Typeable)
 
-import Data.Array.Mixed (Dict (..))
-import Data.Array.Nested
+import           Data.Array.Mixed (Dict (..))
+import           Data.Array.Nested
   (IxS (..), KnownShS (..), ListR (..), ListS (..), ShR (..), ShS (..))
-import Data.Array.Nested.Internal (knownNatSucc)
+import qualified Data.Array.Nested as Nested
+import           Data.Array.Nested.Internal (knownNatSucc)
+import qualified Data.Array.Nested.Internal as Nested.Internal
 
 import HordeAd.Internal.OrthotopeOrphanInstances
 import HordeAd.Internal.TensorFFI
@@ -67,7 +70,7 @@ type ShapedTensorType = TensorType [Nat]
 
 type GoodScalarConstraint r =
   ( Show r, Ord r, Numeric r, Num r, Num (Vector r), RowSum r, Typeable r
-  , IfDifferentiable r, NFData r )
+  , IfDifferentiable r, NFData r, Nested.Internal.PrimElt r, Nested.Internal.Elt r, forall sh. Show (Nested.Mixed sh r), forall sh. Eq (Nested.Mixed sh r), Ord (Nested.Mixed '[] r) )
 
 
 -- * Some fundamental constraints

@@ -87,7 +87,7 @@ gradientFromDeltaH
 gradientFromDeltaH !parameters0 value
                    !mdt deltaTopLevel =
   let shDt = dshape value
-      dt = fromMaybe (mapHVectorShaped (const 1)
+      dt = fromMaybe (mapHVectorShaped (const $ srepl 1)
                       $ V.map dynamicFromVoid shDt) mdt
       s0 = initEvalState parameters0
       s1 = evalH s0 dt deltaTopLevel
@@ -819,7 +819,7 @@ evalS !s !c = let cShared = sshare c
     let s2 = evalS s (sslice (Proxy @0) Proxy cShared) d
     in evalS s2 (sslice (Proxy @m) Proxy cShared) e
   SliceS @_ @i d ->
-    evalS s (sappend @shaped @r @i 0 (sappend c 0)) d
+    evalS s (sappend @shaped @r @i (srepl 0) (sappend c (srepl 0))) d
   ReverseS d -> evalS s (sreverse c) d
   TransposeS @_ @perm @_ @sh2 d ->
     -- Reversing the permutation at the type level would be too hard,
@@ -1098,7 +1098,7 @@ fwdS
   => Int -> HVector ranked -> EvalState ranked -> DeltaS shaped r sh
   -> (EvalState ranked, shaped r sh)
 fwdS dimR params s = \case
-  ZeroS -> (s, 0)
+  ZeroS -> (s, srepl 0)
   InputS (InputId i) ->
     if i < dimR
     then case params V.! i of
@@ -1131,9 +1131,9 @@ fwdS dimR params s = \case
 
   IndexS d ix -> second (`sindex` ix) $ fwdS dimR params s d
   SumS d -> second ssum $ fwdS dimR params s d
-  Sum0S ZeroS -> (s, 0)
+  Sum0S ZeroS -> (s, srepl 0)
   Sum0S d -> second ssum0 $ fwdS dimR params s d
-  Dot0S _ ZeroS -> (s, 0)
+  Dot0S _ ZeroS -> (s, srepl 0)
   Dot0S v d -> second (sdot0 v) $ fwdS dimR params s d
   ScatterS d f ->
     let (s2, t) = fwdS dimR params s d

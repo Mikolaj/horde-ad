@@ -34,6 +34,7 @@ import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.TensorAst
 import HordeAd.External.OptimizerTools
+import HordeAd.Internal.BackendOX (OSArray)
 import HordeAd.Internal.OrthotopeOrphanInstances (FlipS (..))
 
 import EqEpsilon
@@ -66,7 +67,7 @@ mnistTestCaseRNNA prefix epochs maxBatches width miniBatchSize totalBatchSize
           Just (SomeNat @width _) ->
             forgetShape $ fst
             $ randomVals @(MnistRnnRanked2.ADRnnMnistParametersShaped
-                             (FlipS OS.Array) width r)
+                             OSArray width r)
                 0.4 (mkStdGen 44)
       hVectorInit = toHVectorOf valsInit
       name = prefix ++ ": "
@@ -159,7 +160,7 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
           Just (SomeNat @width _) ->
             forgetShape $ fst
             $ randomVals @(MnistRnnRanked2.ADRnnMnistParametersShaped
-                             (FlipS OS.Array) width r)
+                             OSArray width r)
                 0.4 (mkStdGen 44)
       hVectorInit = toHVectorOf valsInit
       name = prefix ++ ": "
@@ -266,7 +267,7 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
   Nothing -> error "impossible someNatVal error"
   Just (SomeNat @width _) ->
     let valsInitShaped
-          :: MnistRnnRanked2.ADRnnMnistParametersShaped (FlipS OS.Array) width r
+          :: MnistRnnRanked2.ADRnnMnistParametersShaped OSArray width r
         valsInitShaped = fst $ randomVals 0.4 (mkStdGen 44)
         valsInit :: MnistRnnRanked2.ADRnnMnistParameters ranked r
         valsInit = forgetShape valsInitShaped
