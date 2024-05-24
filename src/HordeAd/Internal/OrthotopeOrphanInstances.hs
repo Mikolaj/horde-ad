@@ -62,6 +62,7 @@ import           Data.Array.Nested (KnownShS (..), ShS (ZSS, (:$$)))
 import qualified Data.Array.Nested as Nested
 import           Data.Array.Nested.Internal (shSToList)
 import qualified Data.Array.Nested.Internal as Nested.Internal
+import qualified Data.Array.Nested.Internal.Arith as Nested.Internal.Arith
 
 -- * Definitions to help express and manipulate type-level natural numbers
 
@@ -446,7 +447,7 @@ instance (Floating r, RealFloat (Vector r), KnownShS sh, Numeric r)
          => RealFloatF (OS.Array sh r) where
   atan2F = liftVS2NoAdapt atan2
 
-instance (Nested.Internal.PrimElt r, RealFloat r, RealFloat (Vector r), KnownShS sh, Numeric r)
+instance (Nested.Internal.Arith.NumElt r, Nested.Internal.PrimElt r, RealFloat r, RealFloat (Vector r), KnownShS sh, Numeric r)
          => RealFloatF (Nested.Shaped sh r) where
   atan2F = Nested.Internal.arithPromoteShaped2 (Nested.Internal.mliftPrim2 atan2)
 
