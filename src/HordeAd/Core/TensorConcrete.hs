@@ -28,7 +28,6 @@ import           Unsafe.Coerce (unsafeCoerce)
 
 import qualified Data.Array.Mixed as X
 import qualified Data.Array.Nested as Nested
-import qualified Data.Array.Nested.Internal as Nested.Internal
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.Delta
@@ -365,6 +364,7 @@ instance (GoodScalar r, KnownShS sh)
                 , Dict <- lemKnownNatRank (knownShS @sh) =
     Flip $ OR.fromVector (Nested.shSToList (knownShS @sh)) $ Nested.stoVector {-Nested.rstoRanked -} (runFlipS t)
 
+-- TODO: probably this or the next instance is eventually not needed:
 instance (KnownShS sh, GoodScalar r, Fractional r, Random r, Num (Vector r))
          => RandomHVector (OSArray r sh) where
   randomVals range g | Dict <- lemShapeFromKnownShS (Proxy @sh) =
@@ -373,6 +373,16 @@ instance (KnownShS sh, GoodScalar r, Fractional r, Random r, Num (Vector r))
           $ V.fromListN n (randoms seed) - LA.scalar 0.5
         (g1, g2) = split g
         arr = Nested.sfromVector knownShS $ createRandomVector (sizeP (Proxy @sh)) g1
+    in (FlipS arr, g2)
+
+instance (KnownShS sh, Numeric r, Fractional r, Random r, Num (Vector r))
+         => RandomHVector (FlipS OS.Array r sh) where
+  randomVals range g | Dict <- lemShapeFromKnownShS (Proxy @sh) =
+    let createRandomVector n seed =
+          LA.scale (2 * realToFrac range)
+          $ V.fromListN n (randoms seed) - LA.scalar 0.5
+        (g1, g2) = split g
+        arr = OS.fromVector $ createRandomVector (sizeP (Proxy @sh)) g1
     in (FlipS arr, g2)
 
 instance AdaptableHVector (ORArray)
