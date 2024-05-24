@@ -54,6 +54,7 @@ import           Unsafe.Coerce (unsafeCoerce)
 import qualified Data.Array.Mixed as X
 import qualified Data.Array.Nested as Nested
 import qualified Data.Array.Nested.Internal as Nested.Internal
+import qualified Data.Array.Nested.Internal.Arith as Nested.Internal.Arith
 
 import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances
@@ -72,7 +73,7 @@ type OSArray = FlipS Nested.Shaped
 
 -- We often debug around here, so let's add Show and obfuscate it
 -- to avoid warnings that it's unused. The addition silences warnings upstream.
-type NumAndShow r = (Nested.Internal.Elt r, Nested.Internal.PrimElt r, Numeric r, Show r, Num (Vector r))
+type NumAndShow r = (Nested.Internal.Elt r, Nested.Internal.PrimElt r, Nested.Internal.Arith.NumElt r, Numeric r, Show r, Num (Vector r))
 
 type IndexInt n = Index n Int64
 
@@ -834,7 +835,7 @@ tunScalarS
   => Nested.Shaped '[] r -> r
 tunScalarS = Nested.sunScalar
 
-tscaleByScalarS :: forall r sh. (Nested.Internal.PrimElt r, Numeric r, KnownShS sh)
+tscaleByScalarS :: forall r sh. (Nested.Internal.PrimElt r, Nested.Internal.Arith.NumElt r, Numeric r, KnownShS sh)
                 => r -> Nested.Shaped sh r -> Nested.Shaped sh r
 tscaleByScalarS s =
 -- TODO: liftVS (LA.scale s)
