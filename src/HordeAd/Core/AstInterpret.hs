@@ -591,7 +591,8 @@ interpretAstS !env = \case
     in interpretAstI2F opCode u2 v2
   AstSumOfListS args ->
     let args2 = interpretAstS env <$> args
-    in foldr1 (+) args2  -- avoid @fromInteger 0@ in @sum@
+    in foldl1 (+) (srepl 0 : args2)  -- backward compat vs @sum@
+-- TODO: in foldr1 (+) args2  -- avoid @fromInteger 0@ in @sum@
   AstIndexS AstIotaS (i :.$ ZIS) ->
     sfromIntegral . sconstant . sfromR $ interpretAstPrimal env i
   AstIndexS @sh1 v ix ->

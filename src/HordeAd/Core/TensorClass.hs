@@ -787,7 +787,7 @@ class HVectorTensor (ranked :: RankedTensorType)
        -> HVector ranked
        -> HVectorOf ranked
   -- We can't get sh from anywhere, so this is not possible:
-  -- srev f shs es = rrevDt f shs es (rreplicate0N sh 1)
+  -- rrev f shs es = rrevDt f shs es (rreplicate0N sh 1)
   rrevDt :: (GoodScalar r, KnownNat n)
          => (forall f. ADReady f => HVector f -> f r n)
          -> VoidHVector
@@ -1147,7 +1147,14 @@ sscalar = sconst . OS.scalar
 
 srepl :: forall sh r shaped. (GoodScalar r, KnownShS sh, ShapedTensor shaped)
       => r -> shaped r sh
-srepl | Dict <- lemKnownNatSize (knownShS @sh) = sreplicate0N . sscalar
+srepl | Dict <- lemShapeFromKnownShS (Proxy @sh) =
+  sconst . OS.constant
+  -- TODO: the following simplifies better, because the replication is not
+  -- hidden at low level:
+  -- Dict <- lemKnownNatSize (knownShS @sh) =
+  --   sreplicate0N . sscalar
+  -- though we could also look at the low level in @isSmall@ and mark
+  -- replicated constants as small
 
 newtype HFun =
   HFun {unHFun :: forall f. ADReady f => [HVector f] -> HVectorOf f}
