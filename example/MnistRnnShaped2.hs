@@ -51,7 +51,7 @@ zeroStateS
   => (shaped r sh  -- state
       -> a)
   -> a
-zeroStateS f = f 0
+zeroStateS f = f (srepl 0)
 
 unrollLastS :: forall shaped state c w r n sh.
                (ShapedTensor shaped, KnownNat n, KnownShS sh, GoodScalar r)
@@ -144,7 +144,7 @@ rnnMnistLossFusedS out_width@SNat
                              xs adparameters
       targets = str labelS
       loss = lossSoftMaxCrossEntropyS targets result
-  in sconstant (recip $ sNatValue batch_size) * loss
+  in sconstant (recip $ srepl $ sNatValue batch_size) * loss
 
 rnnMnistTestS
   :: forall shaped h w out_width batch_size r.
