@@ -695,10 +695,10 @@ tfromVector0NS = tfromList0NS . V.toList
 treplicateS
   :: forall n sh r. (NumAndShow r, KnownNat n, KnownShS sh)
   => Nested.Shaped sh r -> Nested.Shaped (n ': sh) r
-treplicateS u = Nested.sfromListOuter SNat $ NonEmpty.fromList $ replicate (valueOf @n) u
-  -- TODO: optimize as in
-  --   ZSS -> OS.constant (OS.unScalar u)
-  --   _ -> OS.ravel $ OSB.constant u
+treplicateS u =
+  case NonEmpty.nonEmpty $ replicate (valueOf @n) u of
+    Nothing -> Nested.sreplicate knownShS 0
+    Just l -> Nested.sfromListOuter SNat l
 
 treplicate0NS
   :: forall r sh. (NumAndShow r, KnownShS sh)
