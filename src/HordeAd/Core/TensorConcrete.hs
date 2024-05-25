@@ -364,6 +364,12 @@ instance (GoodScalar r, KnownShS sh)
                 , Dict <- lemKnownNatRank (knownShS @sh) =
     Flip $ OR.fromVector (Nested.shSToList (knownShS @sh)) $ Nested.stoVector {-Nested.rstoRanked -} (runFlipS t)
 
+instance KnownShS sh
+         => ForgetShape (FlipS OS.Array r sh) where
+  type NoShape (FlipS OS.Array r sh) = ORArray r (Sh.Rank sh)  -- key case
+  forgetShape | Dict <- lemShapeFromKnownShS (Proxy @sh) =
+    Flip . Data.Array.Convert.convert . runFlipS
+
 -- TODO: probably this or the next instance is eventually not needed:
 instance (KnownShS sh, GoodScalar r, Fractional r, Random r, Num (Vector r))
          => RandomHVector (OSArray r sh) where
