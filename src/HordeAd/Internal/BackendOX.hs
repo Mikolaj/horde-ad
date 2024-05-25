@@ -506,7 +506,7 @@ tindexZS v ix =
   let sh = Nested.Internal.shSToList $ Nested.sshape v
   in if ixInBounds (ShapedList.indexToList ix) sh
      then tindexNS v ix
-     else (Nested.sreplicate knownShS 0)
+     else (Nested.sreplicateScal knownShS 0)
 
 tindex0S
   :: NumAndShow r
@@ -558,7 +558,7 @@ tsumInS t = case OS.shapeL t of
   [] -> error "tsumInS: null shape"
 {-
   k2 : 0 : [] ->
-    (Nested.sreplicate knownShS 0)  -- the shape is known from sh, so no ambiguity
+    (Nested.sreplicateScal knownShS 0)  -- the shape is known from sh, so no ambiguity
 -}
   [k2, k] -> case t of
     SS.A (SG.A (OI.T (s2 : _) o vt)) | V.length vt == 1 ->
@@ -600,7 +600,7 @@ tdot1InS
   :: (NumAndShow r, RowSum r, KnownNat m, KnownNat n)
   => Nested.Shaped '[m, n] r -> Nested.Shaped '[m, n] r -> Nested.Shaped '[m] r
 tdot1InS t u = -- TODO: t@(SS.A (SG.A (OI.T _ _ vt))) u@(SS.A (SG.A (OI.T _ _ vu))) =
---  if V.length vt == 1 || V.length vu == Nested.sreplicate knownShS 1
+--  if V.length vt == 1 || V.length vu == Nested.sreplicateScal knownShS 1
 --  then tsumInS (t * u)
 --  else
     let lt = map Nested.stoVector $ tunravelToListS t
@@ -650,7 +650,7 @@ tscatterZS t f =
       ivs = foldr g M.empty [ ShapedList.fromLinearIdx sh2
                               $ ShapedList.shapedNat $ fromIntegral i
                             | i <- [0 .. sizeT @sh2 - 1] ]
-  in updateNS (Nested.sreplicate knownShS 0) $ map (second $ Nested.sfromVector knownShS . sum) $ M.assocs ivs
+  in updateNS (Nested.sreplicateScal knownShS 0) $ map (second $ Nested.sfromVector knownShS . sum) $ M.assocs ivs
 
 -- TODO: update in place in ST or with a vector builder, but that requires
 -- building the underlying value vector with crafty index computations
@@ -666,8 +666,8 @@ tscatterZ1S t f =
                    let ix2 = f $ ShapedList.shapedNat $ fromIntegral i
                    in if ixInBounds (ShapedList.indexToList ix2)
                                     (shapeT @sh)
-                      then updateNS (Nested.sreplicate knownShS 0) [(ix2, ti)]
-                      else Nested.sreplicate knownShS 0)
+                      then updateNS (Nested.sreplicateScal knownShS 0) [(ix2, ti)]
+                      else Nested.sreplicateScal knownShS 0)
         $ tunravelToListS t
 
 tfromListS
@@ -698,13 +698,13 @@ treplicateS
   => Nested.Shaped sh r -> Nested.Shaped (n ': sh) r
 treplicateS u =
   case NonEmpty.nonEmpty $ replicate (valueOf @n) u of
-    Nothing -> Nested.sreplicate knownShS 0
+    Nothing -> Nested.sreplicateScal knownShS 0
     Just l -> Nested.sfromListOuter SNat l
 
 treplicate0NS
   :: forall r sh. (NumAndShow r, KnownShS sh)
   => r -> Nested.Shaped sh r
-treplicate0NS = Nested.sreplicate knownShS
+treplicate0NS = Nested.sreplicateScal knownShS
 
 tappendS
   :: forall r m n sh. (NumAndShow r, KnownNat m, KnownNat n, KnownShS sh)
@@ -839,7 +839,7 @@ tscaleByScalarS :: forall r sh. (Nested.Internal.PrimElt r, Nested.Internal.Arit
                 => r -> Nested.Shaped sh r -> Nested.Shaped sh r
 tscaleByScalarS s =
 -- TODO: liftVS (LA.scale s)
-  (Nested.sreplicate Nested.knownShS s *)
+  (Nested.sreplicateScal Nested.knownShS s *)
 
 toIndexOfS :: IndexIntSh sh -> IndexS sh (ORArray Int64 0)
 toIndexOfS ix = Flip . tscalarR <$> ix
