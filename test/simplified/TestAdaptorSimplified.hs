@@ -35,23 +35,23 @@ import EqEpsilon
 testTrees :: [TestTree]
 testTrees =
   [ testCase "2zeroZ" testZeroZ
---  , testCase "2zeroS" testZeroS
---  , testCase "2CFwdZeroS" testCFwdZeroS
---  , testCase "2FwdZeroS" testFwdZeroS
+  , testCase "2zeroS" testZeroS
+  , testCase "2CFwdZeroS" testCFwdZeroS
+  , testCase "2FwdZeroS" testFwdZeroS
   , testCase "2zero2S" testZero2S
   , testCase "2CFwdZero2S" testCFwdZero2S
   , testCase "2FwdZero2S" testFwdZero2S
   , testCase "2zero3S" testZero3S
   , testCase "2CFwdZero3S" testCFwdZero3S
   , testCase "2FwdZero3S" testFwdZero3S
---  , testCase "2zero4S" testZero4S
+  , testCase "2zero4S" testZero4S
   , testCase "2zero5S" testZero5S
   , testCase "2zero6S" testZero6S
   , testCase "2zero7S" testZero7S
   , testCase "2zero8" testZero8
---  , testCase "2zero9S" testZero9S
---  , testCase "2CFwdZero9S" testCFwdZero9S
---  , testCase "2FwdZero9S" testFwdZero9S
+  , testCase "2zero9S" testZero9S
+  , testCase "2CFwdZero9S" testCFwdZero9S
+  , testCase "2FwdZero9S" testFwdZero9S
   , testCase "2zero10S" testZero10S
   , testCase "2CFwdZero10S" testCFwdZero10S
   , testCase "2FwdZero10S" testFwdZero10S
@@ -69,9 +69,9 @@ testTrees =
   , testCase "2overleafCIntToFloatp" testOverleafCIntToFloatp
   , testCase "2overleafPP" testOverleafPP
   , testCase "2foo" testFoo
---  , testCase "2fooS" testFooS
---  , testCase "2fooSToFloat" testFooSToFloat
---  , testCase "2fooSBoth" testFooSBoth
+  , testCase "2fooS" testFooS
+  , testCase "2fooSToFloat" testFooSToFloat
+  , testCase "2fooSBoth" testFooSBoth
   , testCase "2fooBoth" testFooBoth
   , testCase "2fooPP" testFooPP
   , testCase "2fooLet" testFooLet
@@ -187,25 +187,28 @@ testZeroS :: Assertion
 testZeroS =
   assertEqualUpToEpsilon 1e-9
     (sconst $ OS.fromList @'[0, 2, 4, 0, 1] [])
-    (crev (let f :: Num a => a -> a
-               f = const 3
-           in f @(ADVal OSArray Double '[0, 2, 4, 0, 1])) 42)
+    (crev (let f :: ADVal OSArray Double '[0, 2, 4, 0, 1]
+                 -> ADVal OSArray Double '[0, 2, 4, 0, 1]
+               f = const (srepl 3)
+           in f) (srepl 42))
 
 testCFwdZeroS :: Assertion
 testCFwdZeroS =
   assertEqualUpToEpsilon 1e-9
     (sconst $ OS.fromList @'[0, 2, 4, 0, 1] [])
-    (cfwd (let f :: Num a => a -> a
-               f = const 3
-           in f @(ADVal OSArray Double '[0, 2, 4, 0, 1])) 42 41)
+    (cfwd (let f :: ADVal OSArray Double '[0, 2, 4, 0, 1]
+                 -> ADVal OSArray Double '[0, 2, 4, 0, 1]
+               f = const (srepl 3)
+           in f) 42 41)
 
 testFwdZeroS :: Assertion
 testFwdZeroS =
   assertEqualUpToEpsilon 1e-9
     (sconst $ OS.fromList @'[0, 2, 4, 0, 1] [])
-    (fwd (let f :: Num a => a -> a
-              f = const 3
-          in f @(AstShaped FullSpan Double '[0, 2, 4, 0, 1])) 42 41)
+    (fwd (let f :: AstShaped FullSpan Double '[0, 2, 4, 0, 1]
+                -> AstShaped FullSpan Double '[0, 2, 4, 0, 1]
+              f = const (srepl 3)
+          in f) (srepl 42) (srepl 41))
 
 testZero2S :: Assertion
 testZero2S =
@@ -256,9 +259,8 @@ testZero4S :: Assertion
 testZero4S =
   assertEqualUpToEpsilon 1e-9
     (sconst $ OS.fromList @'[] [0])
-    (rev @Double @'[] @(AstShaped FullSpan)
-         (let f :: Num a => a -> a
-              f = const 3
+    (rev @Double @'[] @(AstShaped FullSpan) @_ @(AstShaped FullSpan Double '[])
+         (let f = const (srepl 3)
           in f) (srepl 42))
 
 testZero5S :: Assertion
@@ -292,31 +294,31 @@ testZero9S :: Assertion
 testZero9S =
   assertEqualUpToEpsilon 1e-9
     (Flip $ OR.fromList [0, 2, 4, 0, 1] [])
-    (crev (let f :: Num a => b -> a
-               f = const 3
-           in f @(ADVal OSArray Double '[0, 2, 4, 0, 1])
-                @(ADVal (Flip OR.Array) Double 5))
+    (crev (let f :: ADVal (Flip OR.Array) Double 5
+                 -> ADVal OSArray Double '[0, 2, 4, 0, 1]
+               f = const (srepl 3)
+           in f)
           (rreplicate0N [0, 2, 4, 0, 1] 42))
 
 testCFwdZero9S :: Assertion
 testCFwdZero9S =
   assertEqualUpToEpsilon 1e-9
     (sconst $ OS.fromList @'[0, 2, 4, 0, 1] [])
-    (cfwd (let f :: Num a => b -> a
-               f = const 3
-           in f @(ADVal OSArray Double '[0, 2, 4, 0, 1])
-                @(ADVal (Flip OR.Array) Double 5))
+    (cfwd (let f :: ADVal (Flip OR.Array) Double 5
+                 -> ADVal OSArray Double '[0, 2, 4, 0, 1]
+               f = const (srepl 3)
+           in f)
           (rreplicate0N [0, 2, 4, 0, 1] 42) (rreplicate0N [0, 2, 4, 0, 1] 41))
 
 testFwdZero9S :: Assertion
 testFwdZero9S =
   assertEqualUpToEpsilon 1e-9
     (sconst $ OS.fromList @'[0, 2, 4, 0, 1] [])
-    (fwd (let f :: Num a => b -> a
-              f = const 3
-          in f @(AstShaped FullSpan Double '[0, 2, 4, 0, 1])
-               @(AstRanked FullSpan Double 5))
-          (rreplicate0N [0, 2, 4, 0, 1] 42) (rreplicate0N [0, 2, 4, 0, 1] 41))
+    (fwd (let f :: AstRanked FullSpan Double 5
+                -> AstShaped FullSpan Double '[0, 2, 4, 0, 1]
+              f = const (srepl 3)
+          in f)
+         (rreplicate0N [0, 2, 4, 0, 1] 42) (rreplicate0N [0, 2, 4, 0, 1] 41))
 
 testZero10S :: Assertion
 testZero10S =
@@ -517,26 +519,26 @@ testFoo = do
 testFooS :: Assertion
 testFooS = do
   assertEqualUpToEpsilon 1e-10
-    (2.4396285219055063, -1.953374825727421, 0.9654825811012627)
-    (rev @Double @'[3, 534, 3] @(AstShaped FullSpan) fooF (1.1, 2.2, 3.3))
+    (srepl 2.4396285219055063, srepl (-1.953374825727421), srepl 0.9654825811012627)
+    (rev @Double @'[3, 534, 3] @(AstShaped FullSpan) fooF (srepl 1.1, srepl 2.2, srepl 3.3))
 
 testFooSToFloat :: Assertion
 testFooSToFloat = do
   assertEqualUpToEpsilon 1e-10
-    (2.4396285219055063, -1.953374825727421, 0.9654825811012627)
+    (srepl 2.4396285219055063, srepl (-1.953374825727421), srepl 0.9654825811012627)
     (rev @Float @'[3, 534, 3] @(AstShaped FullSpan)
          (scast . fooF)
-         (1.1 :: OSArray Double '[3, 534, 3], 2.2, 3.3))
+         (srepl 1.1 :: OSArray Double '[3, 534, 3], srepl 2.2, srepl 3.3))
 
 testFooSBoth :: Assertion
 testFooSBoth = do
   assertEqualUpToEpsilon 1e-10
-    (2.439628436155373, -1.9533749, 0.9654825479484146)
+    (srepl 2.439628436155373, srepl (-1.9533749), srepl 0.9654825479484146)
     (rev @Float @'[3, 534, 3] @(AstShaped FullSpan)
          (scast . fooF . (\(d, f, d2) -> (d, scast f, d2)))
-         ( 1.1 :: OSArray Double '[3, 534, 3]
-         , 2.2 :: OSArray Float '[3, 534, 3]
-         , 3.3 ))
+         ( srepl 1.1 :: OSArray Double '[3, 534, 3]
+         , srepl 2.2 :: OSArray Float '[3, 534, 3]
+         , srepl 3.3 ))
 
 testFooBoth :: Assertion
 testFooBoth = do
