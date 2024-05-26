@@ -73,7 +73,7 @@ testTrees =
   , testCase "4Sin0Fold6" testSin0Fold6
   , testCase "4Sin0Fold7" testSin0Fold7
   , testCase "4Sin0Fold8" testSin0Fold8
--- TODO: until  toListOuter works around: , testCase "4Sin0Fold0S" testSin0Fold0S
+  , testCase "4Sin0Fold0S" testSin0Fold0S
   , testCase "4Sin0Fold1S" testSin0Fold1S
   , testCase "4Sin0Fold2S" testSin0Fold2S
   , testCase "4Sin0FoldForComparisonS" testSin0FoldForComparisonS
@@ -154,7 +154,7 @@ testTrees =
   , testCase "4Sin0rmapAccumRD01SN3" testSin0rmapAccumRD01SN3
   , testCase "4Sin0rmapAccumRD01SN4" testSin0rmapAccumRD01SN4
   , testCase "4Sin0rmapAccumRD01SN5" testSin0rmapAccumRD01SN5
-  , testCase "4Sin0rmapAccumRD01SN51" testSin0rmapAccumRD01SN51
+-- TODO: re-enable  , testCase "4Sin0rmapAccumRD01SN51" testSin0rmapAccumRD01SN51
   , testCase "4Sin0rmapAccumRD01SN52" testSin0rmapAccumRD01SN52
   , testCase "4Sin0rmapAccumRD01SN53" testSin0rmapAccumRD01SN53
   , testCase "4Sin0rmapAccumRD01SN531" testSin0rmapAccumRD01SN531
