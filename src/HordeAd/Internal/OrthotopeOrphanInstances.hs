@@ -447,7 +447,7 @@ instance (Floating r, RealFloat (Vector r), KnownShS sh, Numeric r)
          => RealFloatF (OS.Array sh r) where
   atan2F = liftVS2NoAdapt atan2
 
-instance (Nested.Internal.Arith.NumElt r, Nested.Internal.PrimElt r, RealFloat r, RealFloat (Vector r), KnownShS sh, Numeric r)
+instance (Nested.Internal.Arith.NumElt r, Nested.Internal.PrimElt r, RealFloat r, RealFloat (Vector r), Nested.Internal.Arith.FloatElt r, KnownShS sh, Numeric r)
          => RealFloatF (Nested.Shaped sh r) where
   atan2F = Nested.Internal.arithPromoteShaped2 (Nested.Internal.mliftPrim2 atan2)
 
