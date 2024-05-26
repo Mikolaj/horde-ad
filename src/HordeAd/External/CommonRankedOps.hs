@@ -23,30 +23,34 @@ import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.Util.SizedList
 
-rminIndexN :: ( RankedTensor ranked, KnownNat n, GoodScalar r
+rminIndexN :: ( RankedTensor ranked, RankedTensor (PrimalOf ranked)
+              , KnownNat n, GoodScalar r
               , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
            => ranked r n -> IndexOf ranked n
-rminIndexN t = fromLinearIdx (rshape t) (rprimalPart $ rminIndex (rflatten t))
+rminIndexN t = fromLinearIdx (rscalar . fromIntegral) (rshape t) (rprimalPart $ rminIndex (rflatten t))
 
-rmaxIndexN :: ( RankedTensor ranked, KnownNat n, GoodScalar r
+rmaxIndexN :: ( RankedTensor ranked, RankedTensor (PrimalOf ranked)
+              , KnownNat n, GoodScalar r
               , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
            => ranked r n -> IndexOf ranked n
-rmaxIndexN t = fromLinearIdx (rshape t) (rprimalPart $ rmaxIndex (rflatten t))
+rmaxIndexN t = fromLinearIdx (rscalar . fromIntegral) (rshape t) (rprimalPart $ rmaxIndex (rflatten t))
 
-rminimum :: ( RankedTensor ranked, KnownNat n, GoodScalar r
+rminimum :: ( RankedTensor ranked, RankedTensor (PrimalOf ranked)
+            , KnownNat n, GoodScalar r
             , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
          => ranked r n -> ranked r 0
 -- The let is required to preserve the sharing of the argument, which is
 -- used twice: in rminIndex and in tindex0.
 rminimum t0 = rlet t0 $ \t ->
-                rindex0 t $ fromLinearIdx (rshape t)
+                rindex0 t $ fromLinearIdx (rscalar . fromIntegral) (rshape t)
                                           (rprimalPart $ rminIndex (rflatten t))
 
-rmaximum :: ( RankedTensor ranked, KnownNat n, GoodScalar r
+rmaximum :: ( RankedTensor ranked, RankedTensor (PrimalOf ranked)
+            , KnownNat n, GoodScalar r
             , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
          => ranked r n -> ranked r 0
 rmaximum t0 = rlet t0 $ \t ->
-                rindex0 t $ fromLinearIdx (rshape t)
+                rindex0 t $ fromLinearIdx (rscalar . fromIntegral) (rshape t)
                                           (rprimalPart $ rmaxIndex (rflatten t))
 
 rfromIndex0 :: forall r ranked.
@@ -146,8 +150,9 @@ lossCrossEntropyV targ res = negate $ log res `rdot0` targ
 -- rendering of the MNIST data all labels are one-hot.
 lossSoftMaxCrossEntropyR
   :: forall ranked n r.
-     ( RankedTensor ranked, RankedTensor (PrimalOf ranked), KnownNat n
-     , GoodScalar r
+     ( RankedTensor ranked, RankedTensor (PrimalOf ranked)
+     , RankedTensor (PrimalOf (PrimalOf ranked))
+     , KnownNat n, GoodScalar r
      , RankedOf (PrimalOf (PrimalOf ranked)) ~ PrimalOf (PrimalOf ranked)
      , Differentiable r )
   => PrimalOf ranked r n -> ranked r n -> ranked r 0
@@ -173,7 +178,8 @@ lossSoftMaxCrossEntropyR target d' = rlet d' $ \d ->
          -- tDot0 (softMaxU - target) u'
 
 -- No padding; remaining areas ignored.
-maxPool1 :: ( RankedTensor ranked, GoodScalar r
+maxPool1 :: ( RankedTensor ranked, RankedTensor (PrimalOf ranked)
+            , GoodScalar r
             , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
          => Int -> Int -> ranked r 1 -> ranked r 1
 maxPool1 ksize stride v =

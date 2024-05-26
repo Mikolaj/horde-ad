@@ -239,7 +239,7 @@ tscatterZR sh t f =
         in if ixInBounds (indexToList ix2) (shapeToList sh)
            then M.insertWith (++) ix2 [OR.toVector $ t `tindexNR` ix]
            else id
-      ivs = foldr g M.empty [ fromLinearIdx shm i
+      ivs = foldr g M.empty [ fromLinearIdx fromIntegral shm i
                             | i <- [0 .. fromIntegral s - 1] ]
   in updateNR (treplicate0NR sh 0) $ map (second $ OR.fromVector shDropP . sum)
                                    $ M.assocs ivs
@@ -357,7 +357,7 @@ tgatherZR :: forall m p n r.
 tgatherZR sh t f =
   let shm = takeShape @m sh
       s = sizeShape shm
-      l = [ OR.toVector $ t `tindexZR` f (fromLinearIdx shm i)
+      l = [ OR.toVector $ t `tindexZR` f (fromLinearIdx fromIntegral shm i)
           | i <- [0 .. fromIntegral s - 1] ]
   in OR.fromVector (shapeToList sh) $ LA.vjoin l
 
@@ -647,7 +647,7 @@ tscatterZS t f =
            then M.insertWith (++) ix2
                   [Nested.stoVector $ tindexNS @sh2 @(Sh.Drop p sh) t ix]
            else id
-      ivs = foldr g M.empty [ ShapedList.fromLinearIdx sh2
+      ivs = foldr g M.empty [ ShapedList.fromLinearIdx fromIntegral sh2
                               $ ShapedList.shapedNat $ fromIntegral i
                             | i <- [0 .. sizeT @sh2 - 1] ]
   in updateNS (Nested.sreplicateScal knownShS 0) $ map (second $ Nested.sfromVector knownShS . sum) $ M.assocs ivs
@@ -791,7 +791,7 @@ tgatherZS t f =
       l = gcastWith (unsafeCoerce Refl
                      :: sh :~: Sh.Take p sh X.++ Sh.Drop p sh)
           $ [ Nested.stoVector
-                (t `tindexZS` f (ShapedList.fromLinearIdx sh2
+                (t `tindexZS` f (ShapedList.fromLinearIdx fromIntegral sh2
                                  $ ShapedList.shapedNat $ fromIntegral i)
                  :: Nested.Shaped (Sh.Drop p sh) r)
             | i <- [0 .. s - 1] ]

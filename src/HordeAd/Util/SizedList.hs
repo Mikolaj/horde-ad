@@ -398,6 +398,8 @@ withListSh (Proxy @sh) f =
 -- If any of the dimensions is 0 or if rank is 0, the result will be 0,
 -- which is fine, that's pointing at the start of the empty buffer.
 -- Note that the resulting 0 may be a complex term.
+--
+-- Warning: @fromInteger@ of type @j@ cannot be used.
 toLinearIdx :: forall m n i j. (Integral i, Num j)
             => (Int -> j) -> Shape (m + n) i -> Index m j -> j
 toLinearIdx fromInt = \sh idx -> go sh idx (fromInt 0)
@@ -418,22 +420,24 @@ toLinearIdx fromInt = \sh idx -> go sh idx (fromInt 0)
 -- and a fake index with correct length but lots of zeroes is produced,
 -- because it doesn't matter, because it's going to point at the start
 -- of the empty buffer anyway.
+--
+-- Warning: @fromInteger@ of type @j@ cannot be used.
 fromLinearIdx :: forall n i j. (Integral i, Integral j)
-              => Shape n i -> j -> Index n j
-fromLinearIdx = \sh lin -> snd (go sh lin)
+              => (Int -> j) -> Shape n i -> j -> Index n j
+fromLinearIdx fromInt = \sh lin -> snd (go sh lin)
   where
     -- Returns (linear index into array of sub-tensors,
     -- multi-index within sub-tensor).
     go :: Shape n1 i -> j -> (j, Index n1 j)
     go ZSR n = (n, ZIR)
-    go (0 :$: sh) _ =
-      (0, 0 :.: zeroOf sh)
+    go (k :$: sh) _ | signum k == 0 =
+      (fromInt 0, fromInt 0 :.: zeroOf fromInt sh)
     go (n :$: sh) lin =
       let (tensLin, idxInTens) = go sh lin
-          (tensLin', i) = tensLin `quotRem` fromIntegral n
+          (tensLin', i) = tensLin `quotRem` fromInt (fromIntegral n)
       in (tensLin', i :.: idxInTens)
 
 -- | The zero index in this shape (not dependent on the actual integers).
-zeroOf :: Num j => Shape n i -> Index n j
-zeroOf ZSR = ZIR
-zeroOf (_ :$: sh) = 0 :.: zeroOf sh
+zeroOf :: Num j => (Int -> j) -> Shape n i -> Index n j
+zeroOf _ ZSR = ZIR
+zeroOf fromInt (_ :$: sh) = fromInt 0 :.: zeroOf fromInt sh

@@ -323,21 +323,22 @@ toLinearIdx fromInt = \sh idx -> shapedNat $ go sh idx (fromInt 0)
 -- because it doesn't matter, because it's going to point at the start
 -- of the empty buffer anyway.
 fromLinearIdx :: forall sh j. Integral j
-              => ShS sh -> ShapedNat (Sh.Size sh) j -> IndexS sh j
-fromLinearIdx = \sh (ShapedNat lin) -> snd (go sh lin)
+              => (Int -> j) -> ShS sh -> ShapedNat (Sh.Size sh) j
+              -> IndexS sh j
+fromLinearIdx fromInt = \sh (ShapedNat lin) -> snd (go sh lin)
   where
     -- Returns (linear index into array of sub-tensors,
     -- multi-index within sub-tensor).
     go :: ShS sh1 -> j -> (j, IndexS sh1 j)
     go ZSS n = (n, ZIS)
     go ((:$$) k@SNat sh) _ | sNatValue k == 0 =
-      (0, 0 :.$ zeroOf sh)
+      (fromInt 0, fromInt 0 :.$ zeroOf fromInt sh)
     go ((:$$) n@SNat sh) lin =
       let (tensLin, idxInTens) = go sh lin
-          (tensLin', i) = tensLin `quotRem` fromIntegral (sNatValue n)  -- !!!
+          (tensLin', i) = tensLin `quotRem` fromInt (sNatValue n)
       in (tensLin', i :.$ idxInTens)
 
 -- | The zero index in this shape (not dependent on the actual integers).
-zeroOf :: Num j => ShS sh -> IndexS sh j
-zeroOf ZSS = ZIS
-zeroOf ((:$$) SNat sh) = 0 :.$ zeroOf sh
+zeroOf :: Num j => (Int -> j) -> ShS sh -> IndexS sh j
+zeroOf _ ZSS = ZIS
+zeroOf fromInt ((:$$) SNat sh) = fromInt 0 :.$ zeroOf fromInt sh
