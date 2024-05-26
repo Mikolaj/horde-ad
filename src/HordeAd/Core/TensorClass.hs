@@ -13,7 +13,7 @@ module HordeAd.Core.TensorClass
     ShapeInt, ShapeS
     -- * The tensor classes
   , RankedTensor(..), ShapedTensor(..), HVectorTensor(..), HFun(..)
-  , rfromD, sfromD, ingestData, sscalar, srepl
+  , rfromD, sfromD, rscalar, ingestData, sscalar, srepl
     -- * The giga-constraint
   , ADReady, ADReadyBoth, ADReadyR, ADReadyS
   ) where
@@ -1136,6 +1136,9 @@ sfromD (DynamicShapedDummy @r2 @sh2 _ _) = case sameShape @sh2 @sh of
     Just Refl -> srepl 0
     _ -> error "sfromD: scalar mismatch"
   _ -> error $ "sfromD: shape mismatch " ++ show (shapeT @sh2, shapeT @sh)
+
+rscalar :: (GoodScalar r, RankedTensor ranked) => r -> ranked r 0
+rscalar = rconst . OR.scalar
 
 ingestData :: forall r sh shaped.
               (GoodScalar r, KnownShS sh, ShapedTensor shaped)
