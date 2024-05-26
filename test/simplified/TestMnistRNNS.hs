@@ -59,7 +59,7 @@ mnistTestCaseRNNSA prefix epochs maxBatches width@SNat batch_size@SNat
       miniBatchSize = sNatValue batch_size
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
-                        , show (sNatValue width :: Int), show miniBatchSize
+                        , show (sNatValue width), show miniBatchSize
                         , show (V.length hVectorInit)
                         , show (sizeHVector hVectorInit) ]
       ftest :: Int -> MnistDataBatchR r -> HVector (Flip OR.Array) -> r
@@ -102,7 +102,7 @@ mnistTestCaseRNNSA prefix epochs maxBatches width@SNat batch_size@SNat
                  !testScore =
                    ftest (totalBatchSize * maxBatches) testDataR parameters2
                  !lenChunk = length chunk
-             unless (sNatValue width < (10 :: Int)) $ do
+             unless (sNatValue width < 10) $ do
                hPutStrLn stderr $ printf "\n%s: (Batch %d with %d points)" prefix k lenChunk
                hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
                hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
@@ -110,7 +110,7 @@ mnistTestCaseRNNSA prefix epochs maxBatches width@SNat batch_size@SNat
        let runEpoch :: Int -> (HVector (Flip OR.Array), StateAdam) -> IO (HVector (Flip OR.Array))
            runEpoch n (params2, _) | n > epochs = return params2
            runEpoch n paramsStateAdam@(!_, !_) = do
-             unless (sNatValue width < (10 :: Int)) $
+             unless (sNatValue width < 10) $
                hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
              let trainDataShuffled = shuffle (mkStdGen $ n + 5) trainData
                  chunks = take maxBatches
@@ -158,7 +158,7 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
       miniBatchSize = sNatValue batch_size
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
-                        , show (sNatValue width :: Int), show miniBatchSize
+                        , show (sNatValue width), show miniBatchSize
                         , show (V.length hVectorInit)
                         , show (sizeHVector hVectorInit) ]
       ftest :: Int -> MnistDataBatchR r -> HVector (Flip OR.Array) -> r
@@ -216,7 +216,7 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
                  !testScore =
                    ftest (totalBatchSize * maxBatches) testDataR parameters2
                  !lenChunk = length chunk
-             unless (sNatValue width < (10 :: Int)) $ do
+             unless (sNatValue width < 10) $ do
                hPutStrLn stderr $ printf "\n%s: (Batch %d with %d points)" prefix k lenChunk
                hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
                hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
@@ -224,7 +224,7 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
        let runEpoch :: Int -> (HVector (Flip OR.Array), StateAdam) -> IO (HVector (Flip OR.Array))
            runEpoch n (params2, _) | n > epochs = return params2
            runEpoch n paramsStateAdam@(!_, !_) = do
-             unless (sNatValue width < (10 :: Int)) $
+             unless (sNatValue width < 10) $
                hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
              let trainDataShuffled = shuffle (mkStdGen $ n + 5) trainData
                  chunks = take maxBatches
@@ -276,7 +276,7 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
         miniBatchSize = sNatValue batch_size
         name = prefix ++ ": "
                ++ unwords [ show epochs, show maxBatches
-                          , show (sNatValue width :: Int), show miniBatchSize
+                          , show (sNatValue width), show miniBatchSize
                           , show (V.length hVectorInit)
                           , show (sizeHVector hVectorInit) ]
         ftest :: Int -> MnistDataBatchR r -> HVector (Flip OR.Array) -> r
@@ -339,7 +339,7 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
                  !testScore =
                    ftest (totalBatchSize * maxBatches) testDataR parameters2
                  !lenChunk = length chunk
-             unless (sNatValue width < (10 :: Int)) $ do
+             unless (sNatValue width < 10) $ do
                hPutStrLn stderr $ printf "\n%s: (Batch %d with %d points)" prefix k lenChunk
                hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
                hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
@@ -347,7 +347,7 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
        let runEpoch :: Int -> (HVector (Flip OR.Array), StateAdam) -> IO (HVector (Flip OR.Array))
            runEpoch n (params2, _) | n > epochs = return params2
            runEpoch n paramsStateAdam@(!_, !_) = do
-             unless (sNatValue width < (10 :: Int)) $
+             unless (sNatValue width < 10) $
                hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
              let trainDataShuffled = shuffle (mkStdGen $ n + 5) trainData
                  chunks = take maxBatches

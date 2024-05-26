@@ -135,7 +135,7 @@ convMnistLossFusedS kh@SNat kw@SNat
                              input adparameters
       targets = str labelS
       loss = lossSoftMaxCrossEntropyS targets result
-  in sconstant (recip $ sNatValue batch_size) * loss
+  in sconstant (recip $ srepl $ fromIntegral $ sNatValue batch_size) * loss
 
 convMnistTestS
   :: forall kh kw h w c_out n_hidden batch_size shaped r.
@@ -152,7 +152,7 @@ convMnistTestS
   -> HVector (Flip OR.Array)
   -> r
 convMnistTestS  _ _ _ _ batch_size@SNat _ _ _
-  | sNatValue batch_size == (0 :: Int) = 0
+  | sNatValue batch_size == 0 = 0
 convMnistTestS kh@SNat kw@SNat
                c_out@SNat n_hidden@SNat batch_size@SNat
                valsInit (glyphS, labelS) testParams =
@@ -174,4 +174,4 @@ convMnistTestS kh@SNat kw@SNat
       matchesLabels output label | V.maxIndex output == V.maxIndex label = 1
                                  | otherwise = 0
   in fromIntegral (sum (zipWith matchesLabels outputs labels))
-     / sNatValue batch_size
+     / fromIntegral (sNatValue batch_size)

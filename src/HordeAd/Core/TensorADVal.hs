@@ -407,7 +407,7 @@ instance ADReadyBoth ranked shaped
     let !var2 = sshare u
     in f (dDnotShared var2 u')
   dbuild1 k f =
-    ravelHVector $ map (f . fromIntegral) [0 .. (sNatValue k :: Int) - 1]
+    ravelHVector $ map (f . fromIntegral) [0 .. sNatValue k - 1]
   rrev :: (GoodScalar r, KnownNat n)
        => (forall f. ADReady f => HVector f -> f r n)
        -> VoidHVector
