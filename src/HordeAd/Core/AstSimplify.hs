@@ -194,7 +194,7 @@ astReshapeAsGather knobs shOut v =
   funToVarsIx (lengthShape shOut) $ \ (!vars, !ix) ->
     let shIn = shapeAst v
         asts :: AstIndex p
-        asts = let i = toLinearIdx @m @0 shOut ix
+        asts = let i = toLinearIdx @m @0 (AstConst . OR.scalar . fromIntegral) shOut ix
                in simplifyAstIndex $ fromLinearIdx shIn i
                     -- we generate these, so we simplify
     in astGatherKnobsR @m @0 knobs shOut v (vars, asts)
@@ -210,7 +210,7 @@ astReshapeAsGatherS knobs v =
         shOut = knownShS @sh2
         asts :: AstIndexS sh
         asts = let i :: ShapedList.ShapedNat (Sh.Size sh2) AstInt
-                   i = ShapedList.toLinearIdx @sh2 @'[] shOut ix
+                   i = ShapedList.toLinearIdx @sh2 @'[] (AstConst . OR.scalar . fromIntegral) shOut ix
                in simplifyAstIndexS $ ShapedList.fromLinearIdx shIn i
                     -- we generate these, so we simplify
     in gcastWith (unsafeCoerce Refl :: Sh.Take (Sh.Rank sh) sh :~: sh) $

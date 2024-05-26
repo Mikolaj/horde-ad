@@ -345,12 +345,12 @@ lengthShape :: forall n i. KnownNat n => Shape n i -> Int
 lengthShape _ = valueOf @n
 
 -- | The number of elements in an array of this shape
-sizeShape :: Num i => Shape n i -> i
+sizeShape :: (Num i, Integral i) => Shape n i -> Int
 sizeShape ZSR = 1
-sizeShape (n :$: sh) = n * sizeShape sh
+sizeShape (n :$: sh) = fromIntegral n * sizeShape sh
 
-flattenShape :: Num i => Shape n i -> Shape 1 i
-flattenShape = singletonShape . sizeShape
+flattenShape :: (Num i, Integral i) => Shape n i -> Shape 1 i
+flattenShape = singletonShape . fromIntegral . sizeShape
 
 backpermutePrefixShape :: forall n i. KnownNat n
                        => Permutation -> Shape n i -> Shape n i
@@ -399,15 +399,15 @@ withListSh (Proxy @sh) f =
 -- which is fine, that's pointing at the start of the empty buffer.
 -- Note that the resulting 0 may be a complex term.
 toLinearIdx :: forall m n i j. (Integral i, Num j)
-            => Shape (m + n) i -> Index m j -> j
-toLinearIdx = \sh idx -> go sh idx 0
+            => (Int -> j) -> Shape (m + n) i -> Index m j -> j
+toLinearIdx fromInt = \sh idx -> go sh idx (fromInt 0)
   where
     -- Additional argument: index, in the @m - m1@ dimensional array so far,
     -- of the @m - m1 + n@ dimensional tensor pointed to by the current
     -- @m - m1@ dimensional index prefix.
     go :: Shape (m1 + n) i -> Index m1 j -> j -> j
-    go sh ZIR tensidx = fromIntegral (sizeShape sh) * tensidx
-    go (n :$: sh) (i :.: idx) tensidx = go sh idx (fromIntegral n * tensidx + i)
+    go sh ZIR tensidx = fromInt (sizeShape sh) * tensidx
+    go (n :$: sh) (i :.: idx) tensidx = go sh idx (fromInt (fromIntegral n) * tensidx + i)
     go _ _ _ = error "toLinearIdx: impossible pattern needlessly required"
 
 -- | Given a linear index into the buffer, get the corresponding

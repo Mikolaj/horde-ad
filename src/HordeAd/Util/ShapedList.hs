@@ -47,6 +47,7 @@ import           Data.Functor.Const
 import           GHC.Exts (IsList (..))
 import           GHC.TypeLits (KnownNat, Nat, type (*))
 
+import qualified Data.Array.Mixed as X
 import           Data.Array.Nested
   ( IxS (..)
   , ListS
@@ -57,7 +58,6 @@ import           Data.Array.Nested
   , pattern ZS
   , shSToList
   )
-import qualified Data.Array.Mixed as X
 
 import           HordeAd.Core.Types
 import           HordeAd.Util.SizedList (Permutation)
@@ -301,17 +301,17 @@ shapeToList = shSToList
 -- which is fine, that's pointing at the start of the empty buffer.
 -- Note that the resulting 0 may be a complex term.
 toLinearIdx :: forall sh1 sh2 j. (KnownShS sh2, Num j)
-            => ShS (sh1 X.++ sh2) -> IndexS sh1 j
+            => (Int -> j) -> ShS (sh1 X.++ sh2) -> IndexS sh1 j
             -> ShapedNat (Sh.Size sh1 * Sh.Size sh2) j
-toLinearIdx = \sh idx -> shapedNat $ go sh idx 0
+toLinearIdx fromInt = \sh idx -> shapedNat $ go sh idx (fromInt 0)
   where
     -- Additional argument: index, in the @m - m1@ dimensional array so far,
     -- of the @m - m1 + n@ dimensional tensor pointed to by the current
     -- @m - m1@ dimensional index prefix.
     go :: forall sh3. ShS (sh3 X.++ sh2) -> IndexS sh3 j -> j -> j
-    go _sh ZIS tensidx = fromIntegral (sizeT @(sh3 X.++ sh2)) * tensidx
+    go _sh ZIS tensidx = fromInt (sizeT @(sh3 X.++ sh2)) * tensidx
     go ((:$$) n sh) (i :.$ idx) tensidx =
-      go sh idx (sNatValue n * tensidx + i)
+      go sh idx (fromInt (sNatValue n) * tensidx + i)
     go _ _ _ = error "toLinearIdx: impossible pattern needlessly required"
 
 -- | Given a linear index into the buffer, get the corresponding

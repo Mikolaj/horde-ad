@@ -82,7 +82,7 @@ updateNR arr upd =
       sh = listToShape shRaw
       f !t (ix, u) =
         let v = OR.toVector u
-            i = fromIntegral $ toLinearIdx @n @m sh ix
+            i = fromIntegral $ toLinearIdx @n @m fromIntegral sh ix
         in LA.vjoin [V.take i t, v, V.drop (i + V.length v) t]
   in OR.fromVector shRaw (foldl' f values upd)
 
@@ -420,7 +420,7 @@ updateNS arr upd | Dict <- lemShapeFromKnownShS (Proxy @sh)
                 $ fromIntegral
                 $ ShapedList.unShapedNat
                 $ ShapedList.toLinearIdx @(Sh.Take n sh) @(Sh.Drop n sh)
-                                         sh ix
+                                         fromIntegral sh ix
         in LA.vjoin [V.take i t, v, V.drop (i + V.length v) t]
   in OS.fromVector (foldl' f values upd)
 
