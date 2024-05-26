@@ -238,7 +238,7 @@ instance HVectorTensor (ORArray) (OSArray) where
   rletInHVector = (&)
   sletInHVector = (&)
   dbuild1 k f =
-    ravelHVector $ map (f . fromIntegral) [0 .. (sNatValue k :: Int) - 1]
+    ravelHVector $ map (f . fromIntegral) [0 .. sNatValue k - 1]
   rrev :: (GoodScalar r, KnownNat n)
        => (forall f. ADReady f => HVector f -> f r n)
        -> VoidHVector
@@ -311,7 +311,7 @@ oRdmapAccumR
   -> HVector (ORArray)
   -> HVector (ORArray)
   -> HVector (ORArray)
-oRdmapAccumR k accShs bShs _eShs f acc0 es = case sNatValue k :: Int of
+oRdmapAccumR k accShs bShs _eShs f acc0 es = case sNatValue k of
   0 -> acc0 V.++ replicate1HVector k (V.map dynamicFromVoid bShs)
   _ -> let accLen = V.length accShs
            g :: HVector (ORArray) -> HVector (ORArray)
@@ -331,7 +331,7 @@ oRdmapAccumL
   -> HVector (ORArray)
   -> HVector (ORArray)
   -> HVector (ORArray)
-oRdmapAccumL k accShs bShs _eShs f acc0 es = case sNatValue k :: Int of
+oRdmapAccumL k accShs bShs _eShs f acc0 es = case sNatValue k of
   0 -> acc0 V.++ replicate1HVector k (V.map dynamicFromVoid bShs)
   _ -> let accLen = V.length accShs
            g :: HVector (ORArray) -> HVector (ORArray)

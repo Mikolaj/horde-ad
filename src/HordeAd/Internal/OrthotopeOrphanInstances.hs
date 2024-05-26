@@ -71,7 +71,7 @@ withSNat i f = withSomeSNat (fromIntegral i) $ \msnat -> case msnat of
   Just snat@SNat -> f snat
   Nothing -> error "withSNat: negative argument"
 
-sNatValue :: forall n i. Num i => SNat n -> i
+sNatValue :: forall n. SNat n -> Int
 {-# INLINE sNatValue #-}
 sNatValue = fromInteger . fromSNat
 

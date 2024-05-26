@@ -1060,7 +1060,7 @@ mkTraceRuleHVector from k var to = unsafePerformIO $ do
     hPutStrLnFlush stderr $ paddedNesting ++ "rule " ++ ruleNamePadded
                             ++ " sends "
                             ++ padString width
-                                 ("build " ++ show (sNatValue k :: Int) ++ " ("
+                                 ("build " ++ show (sNatValue k) ++ " ("
                                   ++ printAstIntVarName renames var ++ ") "
                                   ++  stringFrom)
                             ++ " to " ++ padString width stringTo

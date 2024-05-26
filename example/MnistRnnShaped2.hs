@@ -144,7 +144,7 @@ rnnMnistLossFusedS out_width@SNat
                              xs adparameters
       targets = str labelS
       loss = lossSoftMaxCrossEntropyS targets result
-  in sconstant (recip $ srepl $ sNatValue batch_size) * loss
+  in sconstant (recip $ srepl $ fromIntegral $ sNatValue batch_size) * loss
 
 rnnMnistTestS
   :: forall shaped h w out_width batch_size r.
@@ -177,4 +177,4 @@ rnnMnistTestS out_width@SNat batch_size@SNat
       matchesLabels output label | V.maxIndex output == V.maxIndex label = 1
                                  | otherwise = 0
   in fromIntegral (sum (zipWith matchesLabels outputs labels))
-     / sNatValue batch_size
+     / fromIntegral (sNatValue batch_size)

@@ -330,11 +330,11 @@ fromLinearIdx = \sh (ShapedNat lin) -> snd (go sh lin)
     -- multi-index within sub-tensor).
     go :: ShS sh1 -> j -> (j, IndexS sh1 j)
     go ZSS n = (n, ZIS)
-    go ((:$$) k@SNat sh) _ | sNatValue k == (0 :: Int) =
+    go ((:$$) k@SNat sh) _ | sNatValue k == 0 =
       (0, 0 :.$ zeroOf sh)
     go ((:$$) n@SNat sh) lin =
       let (tensLin, idxInTens) = go sh lin
-          (tensLin', i) = tensLin `quotRem` sNatValue n
+          (tensLin', i) = tensLin `quotRem` fromIntegral (sNatValue n)  -- !!!
       in (tensLin', i :.$ idxInTens)
 
 -- | The zero index in this shape (not dependent on the actual integers).
