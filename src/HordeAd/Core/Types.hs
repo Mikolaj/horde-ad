@@ -71,7 +71,7 @@ type ShapedTensorType = TensorType [Nat]
 
 type GoodScalarConstraint r =
   ( Show r, Ord r, Numeric r, Num r, Num (Vector r), RowSum r, Typeable r
-  , IfDifferentiable r, NFData r, Nested.Internal.PrimElt r, Nested.Internal.Elt r, Nested.Internal.Arith.NumElt r, Nested.Internal.Arith.FloatElt r, forall sh. Show (Nested.Mixed sh r), forall sh. Eq (Nested.Mixed sh r), forall sh. NFData (Nested.Mixed sh r), Ord (Nested.Mixed '[] r) )
+  , IfDifferentiable r, NFData r, Nested.Internal.PrimElt r, Nested.Internal.Elt r, Nested.Internal.Arith.NumElt r, forall sh. Show (Nested.Mixed sh r), forall sh. Eq (Nested.Mixed sh r), forall sh. NFData (Nested.Mixed sh r), Ord (Nested.Mixed '[] r) )
 
 
 -- * Some fundamental constraints
@@ -88,7 +88,8 @@ type family HasSingletonDict (y :: ty) where
   HasSingletonDict n = KnownNat n
   HasSingletonDict sh = KnownShS sh
 
-type Differentiable r = (RealFloat r, RealFloat (Vector r))
+type Differentiable r =
+  (RealFloat r, RealFloat (Vector r), Nested.Internal.Arith.FloatElt r)
 
 -- We white-list all types on which we permit differentiation (e.g., SGD)
 -- to work. This is for technical typing purposes and imposes updates

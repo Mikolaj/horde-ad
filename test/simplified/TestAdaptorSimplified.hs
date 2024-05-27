@@ -1359,7 +1359,7 @@ testFooMap1 =
     4.438131773975095e7
     (rev' @Double @1 fooMap1 1.1)
 
-barAst :: (Numeric r, Show r, RealFloat r, RealFloat (Vector r))
+barAst :: (Numeric r, Show r, Differentiable r)
        => (AstRanked PrimalSpan r 0, AstRanked PrimalSpan r 0) -> AstRanked PrimalSpan r 0
 barAst (x, y) =
   let w = foo (x, y, x) * sin y

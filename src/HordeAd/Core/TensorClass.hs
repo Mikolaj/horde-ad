@@ -38,6 +38,7 @@ import           Type.Reflection (typeRep)
 import           Unsafe.Coerce (unsafeCoerce)
 
 import qualified Data.Array.Mixed as X
+import qualified Data.Array.Nested.Internal.Arith as Nested.Internal.Arith
 
 import           HordeAd.Core.HVector
 import           HordeAd.Core.Types
@@ -60,10 +61,17 @@ type TensorSupports2 c1 c2 f =
   forall r y. (GoodScalar r, HasSingletonDict y)
               => (c1 r, c1 (Vector r)) => c2 (f r y)
 
+type TensorSupports3 :: (Type -> Constraint) -> (Type -> Constraint) -> TensorType ty -> Constraint
+type TensorSupports3 c1 c2 f =
+  forall r y. (GoodScalar r, HasSingletonDict y)
+              => c1 r => c2 (f r y)
+
 -- | The superclasses indicate that it's not only a container array,
 -- but also a mathematical tensor, sporting numeric operations.
 class ( Integral (IntOf ranked), CRanked ranked Num
-      , TensorSupports RealFloat ranked, TensorSupports Integral ranked )
+      , TensorSupports3 RealFloatAndFloatElt RealFloat ranked
+          -- TODO: no idea why FloatElt here is needed
+      , TensorSupports Integral ranked )
       => RankedTensor (ranked :: RankedTensorType) where
 
   rlet :: (KnownNat n, KnownNat m, GoodScalar r, GoodScalar r2)
@@ -341,9 +349,14 @@ class ( Integral (IntOf ranked), CRanked ranked Num
 
 -- * Shaped tensor class definition
 
+class (RealFloat r, RealFloat (Vector r), Nested.Internal.Arith.FloatElt r)
+      => RealFloatAndFloatElt r
+instance (RealFloat r, RealFloat (Vector r), Nested.Internal.Arith.FloatElt r)
+         => RealFloatAndFloatElt r
+
 class ( Integral (IntOf shaped), CShaped shaped Num
-      , TensorSupports2 RealFloat Floating shaped
-      , TensorSupports2 RealFloat RealFloatF shaped
+      , TensorSupports3 RealFloatAndFloatElt Floating shaped
+      , TensorSupports3 RealFloatAndFloatElt RealFloatF shaped
       , TensorSupports2 Integral IntegralF shaped )
       => ShapedTensor (shaped :: ShapedTensorType) where
 
