@@ -37,7 +37,7 @@ import           Numeric.LinearAlgebra (Vector)
 import           Type.Reflection (typeRep)
 import           Unsafe.Coerce (unsafeCoerce)
 
-import qualified Data.Array.Mixed as X
+import qualified Data.Array.Mixed.Shape as X
 import qualified Data.Array.Mixed.Internal.Arith as Nested.Internal.Arith
 import qualified Data.Array.Mixed.Types as X
 

@@ -26,9 +26,9 @@ import qualified Numeric.LinearAlgebra as LA
 import           System.Random
 import           Unsafe.Coerce (unsafeCoerce)
 
-import qualified Data.Array.Mixed as X
-import qualified Data.Array.Nested as Nested
 import qualified Data.Array.Mixed.Shape as X
+import qualified Data.Array.Nested as Nested
+import qualified Data.Array.Nested.Internal.Shape as Nested.Internal.Shape
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.Delta
@@ -114,7 +114,7 @@ instance RankedTensor (ORArray) where
   rfromS :: forall r sh. (GoodScalar r, KnownShS sh)
          => OSArray r sh -> ORArray r (Sh.Rank sh)
   rfromS t | Dict <- lemKnownNatRank (knownShS @sh) =
-    Flip $ OR.fromVector (Nested.shSToList (knownShS @sh)) $ Nested.stoVector {-Nested.rstoRanked -} (runFlipS t)
+    Flip $ OR.fromVector (Nested.Internal.Shape.shsToList (knownShS @sh)) $ Nested.stoVector {-Nested.rstoRanked -} (runFlipS t)
     -- TODO
 
   rscaleByScalar s v =
@@ -363,7 +363,7 @@ instance (GoodScalar r, KnownShS sh)
   type NoShape (OSArray r sh) = ORArray r (Sh.Rank sh)  -- key case
   forgetShape t | Dict <- lemShapeFromKnownShS (Proxy @sh)
                 , Dict <- lemKnownNatRank (knownShS @sh) =
-    Flip $ OR.fromVector (Nested.shSToList (knownShS @sh)) $ Nested.stoVector {-Nested.rstoRanked -} (runFlipS t)
+    Flip $ OR.fromVector (Nested.Internal.Shape.shsToList (knownShS @sh)) $ Nested.stoVector {-Nested.rstoRanked -} (runFlipS t)
 
 instance KnownShS sh
          => ForgetShape (FlipS OS.Array r sh) where
