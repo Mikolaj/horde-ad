@@ -30,13 +30,13 @@ import GHC.TypeLits (KnownNat, Nat)
 import Numeric.LinearAlgebra (Numeric, Vector)
 import Type.Reflection (Typeable)
 
-import           Data.Array.Mixed (Dict (..))
 import           Data.Array.Nested
   (IxS (..), KnownShS (..), ListR (..), ListS (..), ShR (..), ShS (..))
 import qualified Data.Array.Nested as Nested
 import           Data.Array.Nested.Internal (knownNatSucc)
 import qualified Data.Array.Nested.Internal as Nested.Internal
-import qualified Data.Array.Nested.Internal.Arith as Nested.Internal.Arith
+import qualified Data.Array.Mixed.Internal.Arith as Nested.Internal.Arith
+import           Data.Array.Mixed.Types (Dict (..))
 
 import HordeAd.Internal.OrthotopeOrphanInstances
 import HordeAd.Internal.TensorFFI

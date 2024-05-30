@@ -28,6 +28,7 @@ import           Unsafe.Coerce (unsafeCoerce)
 
 import qualified Data.Array.Mixed as X
 import qualified Data.Array.Nested as Nested
+import qualified Data.Array.Mixed.Shape as X
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.Delta

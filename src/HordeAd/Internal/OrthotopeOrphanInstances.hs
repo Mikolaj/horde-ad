@@ -56,13 +56,14 @@ import           Numeric.LinearAlgebra.Data (arctan2)
 import           Numeric.LinearAlgebra.Devel (zipVectorWith)
 import           Unsafe.Coerce (unsafeCoerce)
 
-import           Data.Array.Mixed (Dict (..))
+import           Data.Array.Mixed.Types (Dict (..))
 import qualified Data.Array.Mixed as X
 import           Data.Array.Nested (KnownShS (..), ShS (ZSS, (:$$)))
 import qualified Data.Array.Nested as Nested
 import           Data.Array.Nested.Internal (shSToList)
 import qualified Data.Array.Nested.Internal as Nested.Internal
-import qualified Data.Array.Nested.Internal.Arith as Nested.Internal.Arith
+import qualified Data.Array.Mixed.Internal.Arith as Nested.Internal.Arith
+import qualified Data.Array.Mixed.Permutation as Permutation
 
 -- * Definitions to help express and manipulate type-level natural numbers
 
@@ -532,8 +533,8 @@ type family MapSucc (xs :: [Nat]) :: [Nat] where
   MapSucc '[] = '[]
   MapSucc (x ': xs) = 1 + x ': MapSucc xs
 
-class X.Permutation is => PermC is
-instance X.Permutation is => PermC is
+class Permutation.IsPermutation is => PermC is
+instance Permutation.IsPermutation is => PermC is
 
 trustMeThisIsAPermutationDict :: forall is. Dict PermC is
 trustMeThisIsAPermutationDict = unsafeCoerce (Dict :: Dict PermC '[])

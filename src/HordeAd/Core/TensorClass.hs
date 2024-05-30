@@ -38,7 +38,8 @@ import           Type.Reflection (typeRep)
 import           Unsafe.Coerce (unsafeCoerce)
 
 import qualified Data.Array.Mixed as X
-import qualified Data.Array.Nested.Internal.Arith as Nested.Internal.Arith
+import qualified Data.Array.Mixed.Internal.Arith as Nested.Internal.Arith
+import qualified Data.Array.Mixed.Types as X
 
 import           HordeAd.Core.HVector
 import           HordeAd.Core.Types
