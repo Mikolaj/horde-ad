@@ -49,7 +49,6 @@ import           Control.Exception.Assert.Sugar
 import           Control.Monad (mapAndUnzipM)
 import qualified Data.Array.Convert
 import           Data.Array.Internal (valueOf)
-import qualified Data.Array.Mixed as X
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as Sh
 import qualified Data.Array.ShapedS as OS
@@ -78,6 +77,9 @@ import           GHC.TypeLits
 import           System.IO.Unsafe (unsafePerformIO)
 import           Type.Reflection (typeRep)
 import           Unsafe.Coerce (unsafeCoerce)
+
+import qualified Data.Array.Mixed.Types as X
+import qualified Data.Array.Mixed as X
 
 import           HordeAd.Core.Ast
   ( AstBool (AstBoolConst)

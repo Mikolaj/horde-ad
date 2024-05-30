@@ -48,6 +48,7 @@ import           GHC.Exts (IsList (..))
 import           GHC.TypeLits (KnownNat, Nat, type (*))
 
 import qualified Data.Array.Mixed as X
+import qualified Data.Array.Mixed.Types as X
 import           Data.Array.Nested
   ( IxS (..)
   , ListS

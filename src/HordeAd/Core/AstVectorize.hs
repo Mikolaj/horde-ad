@@ -38,6 +38,7 @@ import           Type.Reflection (typeRep)
 import           Unsafe.Coerce (unsafeCoerce)
 
 import qualified Data.Array.Mixed as X
+import qualified Data.Array.Mixed.Types as X
 
 import           HordeAd.Core.Ast hiding
   (AstBool (..), AstHVector (..), AstRanked (..), AstShaped (..))

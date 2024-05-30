@@ -54,7 +54,10 @@ import           Unsafe.Coerce (unsafeCoerce)
 import qualified Data.Array.Mixed as X
 import qualified Data.Array.Nested as Nested
 import qualified Data.Array.Nested.Internal as Nested.Internal
-import qualified Data.Array.Nested.Internal.Arith as Nested.Internal.Arith
+import qualified Data.Array.Mixed.Internal.Arith as Nested.Internal.Arith
+import qualified Data.Array.Mixed.Types as X
+import qualified Data.Array.Mixed.Permutation as Permutation
+import qualified Data.Array.Mixed.Shape as X
 
 import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances
@@ -728,18 +731,18 @@ ttransposeS
      , NumAndShow r, PermC perm, KnownShS sh, KnownNat (Sh.Rank sh)
      , Sh.Rank perm <= Sh.Rank sh )
 --     , X.Rank perm <= X.Rank sh )
-  => {-Nested.HList SNat perm ->-} Nested.Shaped sh r
+  => {-Permutation.Perm SNat perm ->-} Nested.Shaped sh r
 --  -> Nested.Shaped (X.PermutePrefix perm sh) r
   -> Nested.Shaped (Sh.Permute perm sh) r
 ttransposeS =
   gcastWith (unsafeCoerce Refl :: Compare (X.Rank perm) (X.Rank sh) :~: LT) $
   gcastWith (unsafeCoerce Refl
-             :: Sh.Permute perm sh :~: X.PermutePrefix perm sh) $
+             :: Sh.Permute perm sh :~: Permutation.PermutePrefix perm sh) $
   Nested.stranspose @perm (convert knownShS)
  where
-  convert :: Nested.ShS sh1 -> Nested.HList SNat sh1
-  convert Nested.ZSS = X.HNil
-  convert (n Nested.:$$ sh) = n `X.HCons` convert sh
+  convert :: Nested.ShS sh1 -> Permutation.Perm sh1
+  convert Nested.ZSS = Permutation.PNil
+  convert (n Nested.:$$ sh) = n `Permutation.PCons` convert sh
 
 treshapeS
   :: forall r sh sh2.
