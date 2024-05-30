@@ -47,18 +47,11 @@ import           Data.Functor.Const
 import           GHC.Exts (IsList (..))
 import           GHC.TypeLits (KnownNat, Nat, type (*))
 
-import qualified Data.Array.Mixed as X
+import qualified Data.Array.Mixed.Shape as X
 import qualified Data.Array.Mixed.Types as X
 import           Data.Array.Nested
-  ( IxS (..)
-  , ListS
-  , listSToList
-  , pattern (:.$)
-  , pattern (::$)
-  , pattern ZIS
-  , pattern ZS
-  , shSToList
-  )
+  (IxS (..), ListS, pattern (:.$), pattern (::$), pattern ZIS, pattern ZS)
+import           Data.Array.Nested.Internal.Shape (listsToList, shsToList)
 
 import           HordeAd.Core.Types
 import           HordeAd.Util.SizedList (Permutation)
@@ -197,7 +190,7 @@ listToSized :: KnownShS sh => [i] -> SizedListS sh (Const i)
 listToSized = fromList
 
 sizedToList :: SizedListS sh (Const i) -> [i]
-sizedToList = listSToList
+sizedToList = listsToList
 
 -- shapedToSized :: KnownNat (Sh.Rank sh)
 --               => SizedListS sh i -> SizedList.SizedList (Sh.Rank sh) i
@@ -290,7 +283,7 @@ listToShape :: KnownShS sh => [Int] -> ShapeS sh
 listToShape = fromList
 
 shapeToList :: ShapeS sh -> [Int]
-shapeToList = shSToList
+shapeToList = shsToList
 
 -- * Operations involving both indexes and shapes
 

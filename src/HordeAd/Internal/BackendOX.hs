@@ -51,13 +51,13 @@ import qualified Numeric.LinearAlgebra as LA
 import           System.IO.Unsafe (unsafePerformIO)
 import           Unsafe.Coerce (unsafeCoerce)
 
-import qualified Data.Array.Mixed as X
-import qualified Data.Array.Nested as Nested
-import qualified Data.Array.Nested.Internal as Nested.Internal
 import qualified Data.Array.Mixed.Internal.Arith as Nested.Internal.Arith
-import qualified Data.Array.Mixed.Types as X
 import qualified Data.Array.Mixed.Permutation as Permutation
 import qualified Data.Array.Mixed.Shape as X
+import qualified Data.Array.Mixed.Types as X
+import qualified Data.Array.Nested as Nested
+import qualified Data.Array.Nested.Internal.Shape as Nested.Internal.Shape
+import qualified Data.Array.Nested.Internal.Shaped as Nested.Internal
 
 import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances
@@ -76,7 +76,7 @@ type OSArray = FlipS Nested.Shaped
 
 -- We often debug around here, so let's add Show and obfuscate it
 -- to avoid warnings that it's unused. The addition silences warnings upstream.
-type NumAndShow r = (Nested.Internal.Elt r, Nested.Internal.PrimElt r, Nested.Internal.Arith.NumElt r, Numeric r, Show r, Num (Vector r))
+type NumAndShow r = (Nested.Elt r, Nested.PrimElt r, Nested.Internal.Arith.NumElt r, Numeric r, Show r, Num (Vector r))
 
 type IndexInt n = Index n Int64
 
@@ -506,7 +506,7 @@ tindexZS
   :: forall sh1 sh2 r. (NumAndShow r, KnownShS sh2, KnownShS (sh1 X.++ sh2))
   => Nested.Shaped (sh1 X.++ sh2) r -> IndexIntSh sh1 -> Nested.Shaped sh2 r
 tindexZS v ix =
-  let sh = Nested.Internal.shSToList $ Nested.sshape v
+  let sh = Nested.Internal.Shape.shsToList $ Nested.sshape v
   in if ixInBounds (ShapedList.indexToList ix) sh
      then tindexNS v ix
      else (Nested.sreplicateScal knownShS 0)
@@ -515,7 +515,7 @@ tindex0S
   :: NumAndShow r
   => Nested.Shaped sh r -> IndexIntSh sh -> r
 tindex0S v ix =
-  let sh = Nested.Internal.shSToList $ Nested.sshape v
+  let sh = Nested.Internal.Shape.shsToList $ Nested.sshape v
   in if ixInBounds (ShapedList.indexToList ix) sh
      then Nested.sindex v (fmap fromIntegral ix)
      else 0
@@ -829,16 +829,16 @@ tfromIntegralS =
   Nested.sfromVector knownShS . V.map fromIntegral . Nested.stoVector
 
 tscalarS
-  :: (Nested.Internal.Elt r, Numeric r)
+  :: (Nested.Elt r, Numeric r)
   => r -> Nested.Shaped '[] r
 tscalarS = Nested.sscalar
 
 tunScalarS
-  :: (Nested.Internal.Elt r, Numeric r)
+  :: (Nested.Elt r, Numeric r)
   => Nested.Shaped '[] r -> r
 tunScalarS = Nested.sunScalar
 
-tscaleByScalarS :: forall r sh. (Nested.Internal.PrimElt r, Nested.Internal.Arith.NumElt r, Numeric r, KnownShS sh)
+tscaleByScalarS :: forall r sh. (Nested.PrimElt r, Nested.Internal.Arith.NumElt r, Numeric r, KnownShS sh)
                 => r -> Nested.Shaped sh r -> Nested.Shaped sh r
 tscaleByScalarS s =
 -- TODO: liftVS (LA.scale s)

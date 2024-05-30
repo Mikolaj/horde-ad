@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes, ImpredicativeTypes, UndecidableInstances #-}
+{-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 -- | Some fundamental type families and types.
 module HordeAd.Core.Types
   ( -- * Kinds of the functors that determine the structure of a tensor type
@@ -26,17 +27,16 @@ import Control.DeepSeq (NFData (..))
 import Data.Boolean (Boolean (..))
 import Data.Int (Int64)
 import Data.Kind (Constraint, Type)
-import GHC.TypeLits (KnownNat, Nat)
+import GHC.TypeLits (KnownNat, Nat, type (+))
 import Numeric.LinearAlgebra (Numeric, Vector)
 import Type.Reflection (Typeable)
 
+import qualified Data.Array.Mixed.Internal.Arith as Nested.Internal.Arith
+import           Data.Array.Mixed.Types (Dict (..))
 import           Data.Array.Nested
   (IxS (..), KnownShS (..), ListR (..), ListS (..), ShR (..), ShS (..))
 import qualified Data.Array.Nested as Nested
-import           Data.Array.Nested.Internal (knownNatSucc)
-import qualified Data.Array.Nested.Internal as Nested.Internal
-import qualified Data.Array.Mixed.Internal.Arith as Nested.Internal.Arith
-import           Data.Array.Mixed.Types (Dict (..))
+import qualified Data.Array.Nested.Internal.Shaped as Nested.Internal
 
 import HordeAd.Internal.OrthotopeOrphanInstances
 import HordeAd.Internal.TensorFFI
@@ -52,6 +52,9 @@ slistKnown (_ ::$ sh) | Dict <- slistKnown sh = Dict
 sixKnown :: IxS sh i -> Dict KnownShS sh
 sixKnown ZIS = Dict
 sixKnown (_ :.$ sh) | Dict <- sixKnown sh = Dict
+
+knownNatSucc :: KnownNat n => Dict KnownNat (n + 1)
+knownNatSucc = Dict
 
 knownShR :: ShR n i -> Dict KnownNat n
 knownShR ZSR = Dict
@@ -71,7 +74,7 @@ type ShapedTensorType = TensorType [Nat]
 
 type GoodScalarConstraint r =
   ( Show r, Ord r, Numeric r, Num r, Num (Vector r), RowSum r, Typeable r
-  , IfDifferentiable r, NFData r, Nested.Internal.PrimElt r, Nested.Internal.Elt r, Nested.Internal.Arith.NumElt r, forall sh. Show (Nested.Mixed sh r), forall sh. Eq (Nested.Mixed sh r), forall sh. NFData (Nested.Mixed sh r), Ord (Nested.Mixed '[] r) )
+  , IfDifferentiable r, NFData r, Nested.PrimElt r, Nested.Elt r, Nested.Internal.Arith.NumElt r, forall sh. Show (Nested.Mixed sh r), forall sh. Eq (Nested.Mixed sh r), forall sh. NFData (Nested.Mixed sh r), Ord (Nested.Mixed '[] r) )
 
 
 -- * Some fundamental constraints

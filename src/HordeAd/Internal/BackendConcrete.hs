@@ -52,7 +52,7 @@ import qualified Numeric.LinearAlgebra as LA
 import           System.IO.Unsafe (unsafePerformIO)
 import           Unsafe.Coerce (unsafeCoerce)
 
-import qualified Data.Array.Mixed as X
+import qualified Data.Array.Mixed.Shape as X
 import qualified Data.Array.Mixed.Types as X
 
 import           HordeAd.Core.Types
