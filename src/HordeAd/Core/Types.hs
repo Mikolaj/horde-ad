@@ -17,7 +17,7 @@ module HordeAd.Core.Types
   , ShS(..), KnownShS(..), shapeT, shapeP, sizeT, sizeP
   , sshapeKnown, slistKnown, sixKnown, knownShR, knownListR
   , withShapeP, sameShape, matchingRank
-  , lemShapeFromKnownShS, lemKnownNatRank, lemKnownNatSize
+  , lemShapeFromKnownShS, lemKnownNatRank
   , Dict(..), PermC
   ) where
 
