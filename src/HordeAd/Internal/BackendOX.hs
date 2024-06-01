@@ -727,11 +727,8 @@ treverseS = Nested.srev1
 -- TODO: remove the conversion and overhaul the whole codebase
 ttransposeS
   :: forall perm r sh.
-     ( NumAndShow r, PermC perm, KnownShS sh, KnownNat (X.Rank sh)
-     , X.Rank perm <= X.Rank sh )
---     , X.Rank perm <= X.Rank sh )
+     (NumAndShow r, PermC perm, KnownShS sh, X.Rank perm <= X.Rank sh )
   => Permutation.Perm perm -> Nested.Shaped sh r
---  -> Nested.Shaped (X.PermutePrefix perm sh) r
   -> Nested.Shaped (Permutation.PermutePrefix perm sh) r
 ttransposeS perm =
   gcastWith (unsafeCoerce Refl :: Compare (X.Rank perm) (X.Rank sh) :~: LT) $
