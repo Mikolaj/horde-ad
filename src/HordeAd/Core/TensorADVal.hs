@@ -28,12 +28,14 @@ import qualified Data.List.NonEmpty as NonEmpty
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, sameNat, type (+))
+import           GHC.TypeLits (KnownNat, sameNat, type (+), type (<=))
 import           Type.Reflection (typeRep)
 import           Unsafe.Coerce (unsafeCoerce)
 
-import qualified Data.Array.Nested as Nested
+import qualified Data.Array.Mixed.Permutation as Permutation
 import qualified Data.Array.Mixed.Shape as X
+import qualified Data.Array.Nested as Nested
+import qualified Data.Array.Nested.Internal.Shape as Nested.Internal.Shape
 
 import           HordeAd.Core.Adaptor
 import           HordeAd.Core.Ast
@@ -45,7 +47,8 @@ import           HordeAd.Core.IsPrimal
 import           HordeAd.Core.TensorClass
 import           HordeAd.Core.Types
 import           HordeAd.Internal.BackendOX (OSArray)
-import           HordeAd.Internal.OrthotopeOrphanInstances (FlipS (..))
+import           HordeAd.Internal.OrthotopeOrphanInstances
+  (FlipS (..), lemKnownShS)
 import           HordeAd.Util.ShapedList (IntSh)
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedList
@@ -324,7 +327,13 @@ instance ADReadyS shaped => ShapedTensor (ADVal shaped) where
   sslice (i_proxy :: Proxy i) n_proxy (D u u') =
     dD (sslice i_proxy n_proxy u) (SliceS @shaped @i u')
   sreverse (D u u') = dD (sreverse u) (ReverseS u')
-  stranspose perm (D u u') =
+
+  stranspose :: forall perm r sh.
+                ( PermC perm, KnownShS sh, KnownNat (X.Rank sh)
+                , X.Rank perm <= X.Rank sh, GoodScalar r )
+             => Permutation.Perm perm -> ADVal shaped r sh
+             -> ADVal shaped r (Permutation.PermutePrefix perm sh)
+  stranspose perm (D u u') | Dict <- lemKnownShS (Nested.Internal.Shape.shsPermutePrefix perm (knownShS @sh)) =
     dD (stranspose perm u) (TransposeS @shaped perm u')
   sreshape :: forall sh sh2 r.
               ( GoodScalar r, KnownShS sh, KnownShS sh2

@@ -340,8 +340,8 @@ data DeltaS :: ShapedTensorType -> ShapedTensorType where
            -> DeltaS shaped r (n ': sh)
     -- ^ Reverse elements of the outermost dimension.
   TransposeS :: forall shaped perm r sh.
-                ( PermC perm, KnownShS sh
-                , KnownNat (X.Rank sh), X.Rank perm <= X.Rank sh )
+                ( PermC perm, KnownShS sh, KnownNat (X.Rank sh)
+                , X.Rank perm <= X.Rank sh )
              => Permutation.Perm perm
              -> DeltaS shaped r sh
              -> DeltaS shaped r (Permutation.PermutePrefix perm sh)
