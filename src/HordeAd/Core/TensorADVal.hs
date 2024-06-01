@@ -329,7 +329,7 @@ instance ADReadyS shaped => ShapedTensor (ADVal shaped) where
   sreverse (D u u') = dD (sreverse u) (ReverseS u')
 
   stranspose :: forall perm r sh.
-                ( PermC perm, KnownShS sh, KnownNat (X.Rank sh)
+                ( PermC perm, KnownShS sh
                 , X.Rank perm <= X.Rank sh, GoodScalar r )
              => Permutation.Perm perm -> ADVal shaped r sh
              -> ADVal shaped r (Permutation.PermutePrefix perm sh)
