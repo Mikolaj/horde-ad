@@ -737,7 +737,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS shm1)) | Dict <- s
                          (shapeT @shm)) $ \(Proxy @shmPerm) ->
         gcastWith (unsafeCoerce Refl :: shm :~: Permutation.PermutePrefix perm shmPerm) $
         let ix2 :: AstIndexS shmPerm = unsafeCoerce $
-              Nested.Internal.Shape.applyPermIxS perm ix
+              Nested.Internal.Shape.ixsPermutePrefix perm ix
         in gcastWith (unsafeCoerce Refl :: sh2 :~: shmPerm X.++ shn) $
            astIndex @shmPerm v ix2
   Ast.AstReshapeS v ->
@@ -1795,7 +1795,7 @@ astTransposeS perm t = case perm of
                      :: Permutation.PermutePrefix perm (Sh.Take p sh)
                         :~: shpPerm) $
           let ix2 :: AstIndexS (Sh.Take p shPerm) =
-                Nested.Internal.Shape.applyPermIxS perm ix
+                Nested.Internal.Shape.ixsPermutePrefix perm ix
           in gcastWith (X.unsafeCoerceRefl
                         :: Sh.Drop p shPerm :~: Sh.Drop p sh) $
              astScatterS @sh2 @p @shPerm v (vars, ix2)
@@ -1814,7 +1814,7 @@ astTransposeS perm t = case perm of
                          :: Permutation.PermutePrefix perm (Sh.Take p sh)
                             :~: (Sh.Take p (Permutation.PermutePrefix perm sh))) $
               let ix2 :: AstIndexS (Sh.Take p (Permutation.PermutePrefix perm sh)) =
-                    Nested.Internal.Shape.applyPermIxS perm ix
+                    Nested.Internal.Shape.ixsPermutePrefix perm ix
               in gcastWith (unsafeCoerce Refl
                             :: Sh.Drop p (Permutation.PermutePrefix perm sh) :~: Sh.Drop p sh) $
                  astScatterS @sh2 @p @(Permutation.PermutePrefix perm sh) v (vars, ix2)
@@ -1842,7 +1842,7 @@ astTransposeS perm t = case perm of
         gcastWith (unsafeCoerce Refl
                    :: Permutation.PermutePrefix perm sh2 :~: shmPerm) $
         let vars2 :: AstVarListS shmPerm =
-              Nested.Internal.Shape.applyPermS perm vars
+              Nested.Internal.Shape.listsPermutePrefix perm vars
         in gcastWith (unsafeCoerce Refl
                       :: Permutation.PermutePrefix perm sh2 X.++ Sh.Drop p sh3
                          :~: Permutation.PermutePrefix perm sh) $
