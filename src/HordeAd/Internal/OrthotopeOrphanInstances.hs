@@ -9,7 +9,7 @@ module HordeAd.Internal.OrthotopeOrphanInstances
     -- * Definitions for type-level list shapes
   , shapeT, shapeP, sizeT, sizeP
   , withShapeP, sameShape, matchingRank
-  , lemShapeFromKnownShS, lemKnownNatRank
+  , lemShapeFromKnownShS, lemKnownNatRank, lemKnownShS
   , -- * Numeric instances for tensors
     liftVR, liftVR2, liftVS, liftVS2
   , IntegralF(..), RealFloatF(..), FlipS(..)
@@ -127,6 +127,11 @@ lemShapeFromKnownShS _ = shapeFromShS (knownShS @sh)
 lemKnownNatRank :: ShS sh -> Dict KnownNat (X.Rank sh)
 lemKnownNatRank ZSS = Dict
 lemKnownNatRank (_ :$$ sh) | Dict <- lemKnownNatRank sh = Dict
+
+lemKnownShS :: ShS sh -> Dict KnownShS sh
+lemKnownShS ZSS = Dict
+lemKnownShS (SNat :$$ ssh) | Dict <- lemKnownShS ssh = Dict
+
 
 -- * Numeric instances for tensors
 
