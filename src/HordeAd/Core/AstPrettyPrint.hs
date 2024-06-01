@@ -494,8 +494,9 @@ printAstS cfg d = \case
          . foldr (.) id rs
   AstSliceS v -> printPrefixOp printAstS cfg d "sslice" [v]
   AstReverseS v -> printPrefixOp printAstS cfg d "sreverse" [v]
-  AstTransposeS v ->
+  AstTransposeS perm v ->
     printPrefixOp printAstS cfg d "stranspose" [v]
+-- TODO:    printPrefixOp printAstS cfg d ("stranspose " ++ show (permToList perm)) [v]
   AstReshapeS v ->
     printPrefixOp printAstS cfg d "sreshape" [v]
   AstBuild1S (var, v) ->

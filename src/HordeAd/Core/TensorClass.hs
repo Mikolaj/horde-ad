@@ -37,8 +37,9 @@ import           Numeric.LinearAlgebra (Vector)
 import           Type.Reflection (typeRep)
 import           Unsafe.Coerce (unsafeCoerce)
 
-import qualified Data.Array.Mixed.Shape as X
 import qualified Data.Array.Mixed.Internal.Arith as Nested.Internal.Arith
+import qualified Data.Array.Mixed.Permutation as Permutation
+import qualified Data.Array.Mixed.Shape as X
 import qualified Data.Array.Mixed.Types as X
 
 import           HordeAd.Core.HVector
@@ -420,8 +421,8 @@ class ( Integral (IntOf shaped), CShaped shaped Num
   smatmul2 :: forall r n m p. (GoodScalar r, KnownNat n, KnownNat m, KnownNat p)
            => shaped r '[m, n] -> shaped r '[n, p] -> shaped r '[m, p]
   smatmul2 m1 m2 =
-    ssum (stranspose (Proxy @'[2, 1, 0]) (sreplicate @shaped @p m1)
-          * stranspose (Proxy @'[1, 0]) (sreplicate @shaped @m m2))
+    ssum (stranspose (Permutation.makePerm @'[2, 1, 0]) (sreplicate @shaped @p m1)
+          * stranspose (Permutation.makePerm @'[1, 0]) (sreplicate @shaped @m m2))
   sscatter
     :: forall r sh2 p sh.
        ( GoodScalar r, KnownShS sh2, KnownShS sh, KnownShS (Sh.Take p sh)
@@ -491,12 +492,13 @@ class ( Integral (IntOf shaped), CShaped shaped Num
   str :: ( GoodScalar r, KnownNat n, KnownNat m, KnownShS sh
          , KnownNat (Sh.Rank sh) )
       => shaped r (n ': m ': sh) -> shaped r (m ': n ': sh)
-  str = stranspose (Proxy @'[1, 0])
+  str = stranspose (Permutation.makePerm @'[1, 0])
   stranspose :: forall perm r sh.
-                ( PermC perm, KnownShS perm, KnownShS sh
+                ( PermC perm, KnownShS sh
                 , KnownNat (Sh.Rank sh), KnownShS (Sh.Permute perm sh)
                 , Sh.Rank perm <= Sh.Rank sh, GoodScalar r )
-             => Proxy perm -> shaped r sh -> shaped r (Sh.Permute perm sh)
+             => Permutation.Perm perm -> shaped r sh
+             -> shaped r (Sh.Permute perm sh)
   sflatten :: (GoodScalar r, KnownShS sh, KnownNat (Sh.Size sh))
            => shaped r sh -> shaped r '[Sh.Size sh]
   sflatten = sreshape

@@ -182,7 +182,7 @@ instance ShapedTensor (OSArray) where
   sappend u v = FlipS $ tappendS (runFlipS u) (runFlipS v)
   sslice (_ :: Proxy i) _ = FlipS . tsliceS @i . runFlipS
   sreverse = FlipS . treverseS . runFlipS
-  stranspose (_ :: Proxy perm) = FlipS . ttransposeS @perm . runFlipS
+  stranspose perm = FlipS . ttransposeS perm . runFlipS
   sreshape = FlipS . treshapeS . runFlipS
   sbuild1 f = FlipS $ tbuild1S (runFlipS . f . shapedNat . Flip
                                 . tscalarR . unShapedNat)

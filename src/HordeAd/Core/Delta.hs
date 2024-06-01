@@ -67,6 +67,7 @@ import           Text.Show.Functions ()
 import           Type.Reflection (typeRep)
 import           Unsafe.Coerce (unsafeCoerce)
 
+import qualified Data.Array.Mixed.Permutation as Permutation
 import qualified Data.Array.Mixed.Shape as X
 import qualified Data.Array.Mixed.Types as X
 
@@ -339,9 +340,10 @@ data DeltaS :: ShapedTensorType -> ShapedTensorType where
            -> DeltaS shaped r (n ': sh)
     -- ^ Reverse elements of the outermost dimension.
   TransposeS :: forall shaped perm r sh.
-                ( PermC perm, KnownShS perm, KnownShS sh
+                ( PermC perm, KnownShS sh
                 , KnownNat (Sh.Rank sh), Sh.Rank perm <= Sh.Rank sh )
-             => DeltaS shaped r sh
+             => Permutation.Perm perm
+             -> DeltaS shaped r sh
              -> DeltaS shaped r (Sh.Permute perm sh)
     -- ^ Transpose according to the permutation.
   ReshapeS :: (KnownShS sh, Sh.Size sh ~ Sh.Size sh2)
@@ -822,25 +824,15 @@ evalS !s !c = let cShared = sshare c
   SliceS @_ @i d ->
     evalS s (sappend @shaped @r @i (srepl 0) (sappend c (srepl 0))) d
   ReverseS d -> evalS s (sreverse c) d
-  TransposeS @_ @perm @_ @sh2 d ->
-    -- Reversing the permutation at the type level would be too hard,
-    -- so we unsafeCoerce, knowing that it's safe in this case.
-    -- TODO: instead add a tensor operation that permutes
-    -- in the other direction? What if the backend doesn't have it?
-    let perm = shapeT @perm
-        permRev = map snd $ sort $ zip perm [0 .. length perm - 1]
-    in withShapeP permRev $ \(Proxy @permR) ->
-      gcastWith (unsafeCoerce Refl
-                 :: Sh.Permute permR sh :~: sh2)
-      $ gcastWith (unsafeCoerce Refl
-                   :: Sh.Rank sh :~: Sh.Rank sh2)
-      $ gcastWith (unsafeCoerce Refl
-                   :: Sh.Rank permR :~: Sh.Rank perm)
-      $ evalS s
-              (trustMeThisIsAPermutation @permR
-                 (stranspose (Proxy @permR))
-                 c)
-              d
+  TransposeS @_ @perm @_ @sh2 perm d ->
+    Permutation.permInverse perm $ \(permRev :: Permutation.Perm permR) _ ->
+        gcastWith (unsafeCoerce Refl
+                   :: Sh.Permute permR sh :~: sh2)
+        $ gcastWith (unsafeCoerce Refl
+                     :: Sh.Rank sh :~: Sh.Rank sh2)
+        $ gcastWith (unsafeCoerce Refl
+                     :: Sh.Rank permR :~: Sh.Rank perm)
+        $ evalS s (stranspose permRev c) d
   ReshapeS d -> evalS s (sreshape c) d
   GatherS d f -> evalS s (sscatter c f) d
   CastS d -> evalSRuntimeSpecialized s (scast c) d
@@ -1152,8 +1144,8 @@ fwdS dimR params s = \case
     in (s3, sappend t u)
   SliceS @_ @i d -> second (sslice (Proxy @i) Proxy) $ fwdS dimR params s d
   ReverseS d -> second sreverse $ fwdS dimR params s d
-  TransposeS @_ @perm d -> second (stranspose (Proxy @perm))
-                           $ fwdS dimR params s d
+  TransposeS @_ @perm perm d -> second (stranspose perm)
+                                $ fwdS dimR params s d
   ReshapeS d -> second sreshape $ fwdS dimR params s d
   GatherS d f ->
     let (s2, t) = fwdS dimR params s d

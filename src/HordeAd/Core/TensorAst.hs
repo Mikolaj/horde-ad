@@ -371,7 +371,7 @@ instance AstSpan s => ShapedTensor (AstShaped s) where
   sappend = astAppendS
   sslice (_ :: Proxy i) Proxy = astSliceS @i
   sreverse = astReverseS
-  stranspose (_ :: Proxy perm) = astTransposeS @perm
+  stranspose perm = astTransposeS perm
   sreshape = astReshapeS
   sbuild1 = astBuild1VectorizeS
   sgather t f = astGatherStepS t (funToAstIndexS f)  -- introduces new vars
@@ -927,7 +927,7 @@ instance AstSpan s => ShapedTensor (AstRawS s) where
   sappend u v = AstRawS $ AstAppendS (unAstRawS u) (unAstRawS v)
   sslice (_ :: Proxy i) Proxy = AstRawS . AstSliceS @i . unAstRawS
   sreverse = AstRawS . AstReverseS . unAstRawS
-  stranspose (_ :: Proxy perm) = AstRawS . AstTransposeS @perm . unAstRawS
+  stranspose perm = AstRawS . AstTransposeS perm . unAstRawS
   sreshape = AstRawS . AstReshapeS . unAstRawS
   sbuild1 f = AstRawS $ AstBuild1S
               $ funToAstI  -- this introduces new variable names
@@ -1248,8 +1248,8 @@ instance AstSpan s => ShapedTensor (AstNoSimplifyS s) where
     AstNoSimplifyS $ AstAppendS (unAstNoSimplifyS u) (unAstNoSimplifyS v)
   sslice (_ :: Proxy i) Proxy = AstNoSimplifyS . AstSliceS @i . unAstNoSimplifyS
   sreverse = AstNoSimplifyS . AstReverseS . unAstNoSimplifyS
-  stranspose (_ :: Proxy perm) =
-    AstNoSimplifyS . AstTransposeS @perm . unAstNoSimplifyS
+  stranspose perm =
+    AstNoSimplifyS . AstTransposeS perm . unAstNoSimplifyS
   sreshape = AstNoSimplifyS . AstReshapeS . unAstNoSimplifyS
   sbuild1 f =
     AstNoSimplifyS

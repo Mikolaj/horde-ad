@@ -204,7 +204,7 @@ varInAstS var = \case
   AstAppendS v u -> varInAstS var v || varInAstS var u
   AstSliceS v -> varInAstS var v
   AstReverseS v -> varInAstS var v
-  AstTransposeS v -> varInAstS var v
+  AstTransposeS _perm v -> varInAstS var v
   AstReshapeS v -> varInAstS var v
   AstBuild1S (_var2, v) -> varInAstS var v
   AstGatherS v (_vars, ix) -> varInIndexS var ix || varInAstS var v
@@ -308,7 +308,7 @@ astIsSmallS relaxed = \case
     relaxed && astIsSmallS relaxed v  -- materialized via tricks, so prob. safe
   AstSliceS v ->
     relaxed && astIsSmallS relaxed v  -- materialized via vector slice; cheap
-  AstTransposeS v ->
+  AstTransposeS _perm v ->
     relaxed && astIsSmallS relaxed v  -- often cheap and often fuses
   AstConstS (FlipS c) | Dict <- lemShapeFromKnownShS (Proxy @sh) ->
     OS.size c <= 1

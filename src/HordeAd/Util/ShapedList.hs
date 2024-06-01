@@ -29,11 +29,11 @@ module HordeAd.Util.ShapedList
   , backpermutePrefixIndex, backpermutePrefixIndexT
   , permutePrefixIndex, permutePrefixIndexT
   , listToIndex, indexToList  -- indexToSized, sizedToIndex
-  , shapedToIndex
+  , shapedToIndex, ixsLengthSNat
   -- * Tensor shapes as fully encapsulated shaped lists, with operations
   , ShapeS, pattern (:$$), pattern ZSS
   , ShapedNat, shapedNat, unShapedNat
-  , listToShape, shapeToList
+  , listToShape, shapeToList, takeShS, dropShS
     -- * Operations involving both indexes and shapes
   , toLinearIdx, fromLinearIdx
   ) where
@@ -260,6 +260,10 @@ shapedToIndex :: KnownNat (Sh.Rank sh)
               => IndexS sh i -> SizedList.Index (Sh.Rank sh) i
 shapedToIndex = SizedList.listToIndex . indexToList
 
+ixsLengthSNat :: IxS list i -> SNat (Sh.Rank list)
+ixsLengthSNat ZIS = SNat
+ixsLengthSNat (_ :.$ l) | SNat <- ixsLengthSNat l = SNat
+
 
 -- * Tensor shapes as fully encapsulated shaped lists, with operations
 
@@ -284,6 +288,15 @@ listToShape = fromList
 
 shapeToList :: ShapeS sh -> [Int]
 shapeToList = shsToList
+
+takeShS :: forall len sh. (KnownNat len, KnownShS (Sh.Take len sh))
+        => ShS sh -> ShS (Sh.Take len sh)
+takeShS ix = listToShape $ take (valueOf @len) $ shapeToList ix
+
+dropShS :: forall len sh. (KnownNat len, KnownShS (Sh.Drop len sh))
+        => ShS sh -> ShS (Sh.Drop len sh)
+dropShS ix = listToShape $ drop (valueOf @len) $ shapeToList ix
+
 
 -- * Operations involving both indexes and shapes
 

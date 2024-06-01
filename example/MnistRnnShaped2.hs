@@ -18,6 +18,7 @@ import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, Nat, type (*))
 import           Numeric.LinearAlgebra (Vector)
 
+import qualified Data.Array.Mixed.Permutation as Permutation
 import qualified Data.Array.Nested as Nested
 
 import HordeAd.Core.Adaptor
@@ -137,7 +138,7 @@ rnnMnistLossFusedS
 rnnMnistLossFusedS out_width@SNat
                    batch_size@SNat
                    (glyphS, labelS) adparameters =
-  let xs = stranspose (Proxy @'[2, 1, 0]) glyphS
+  let xs = stranspose (Permutation.makePerm @'[2, 1, 0]) glyphS
       result = rnnMnistZeroS out_width
                              batch_size
                              (SNat @h) (SNat @w)

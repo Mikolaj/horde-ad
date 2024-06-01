@@ -323,8 +323,8 @@ instance ADReadyS shaped => ShapedTensor (ADVal shaped) where
   sslice (i_proxy :: Proxy i) n_proxy (D u u') =
     dD (sslice i_proxy n_proxy u) (SliceS @shaped @i u')
   sreverse (D u u') = dD (sreverse u) (ReverseS u')
-  stranspose (perm_proxy :: Proxy perm) (D u u') =
-    dD (stranspose perm_proxy u) (TransposeS @shaped @perm u')
+  stranspose perm (D u u') =
+    dD (stranspose perm u) (TransposeS @shaped perm u')
   sreshape :: forall sh sh2 r.
               ( GoodScalar r, KnownShS sh, KnownShS sh2
               , Sh.Size sh ~ Sh.Size sh2 )

@@ -37,6 +37,7 @@ import           System.IO.Unsafe (unsafePerformIO)
 import           Type.Reflection (typeRep)
 import           Unsafe.Coerce (unsafeCoerce)
 
+import qualified Data.Array.Mixed.Permutation as Permutation
 import qualified Data.Array.Mixed.Shape as X
 import qualified Data.Array.Mixed.Types as X
 
@@ -52,7 +53,7 @@ import           HordeAd.Core.HVector
 import           HordeAd.Core.HVectorOps
 import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances
-  (MapSucc, trustMeThisIsAPermutation)
+  (trustMeThisIsAPermutation)
 import           HordeAd.Util.ShapedList
   (pattern (:.$), pattern (::$), pattern ZIS, pattern ZS)
 import           HordeAd.Util.SizedList
@@ -349,7 +350,7 @@ build1VIndex k (var, v0, ix@(_ :.: _)) =
 astTrS :: forall n m sh s r.
           (KnownNat n, KnownNat m, KnownShS sh, GoodScalar r, AstSpan s)
        => AstShaped s r (n ': m ': sh) -> AstShaped s r (m ': n ': sh)
-astTrS = withListSh (Proxy @sh) $ \_ -> astTransposeS @'[1, 0]
+astTrS = withListSh (Proxy @sh) $ \_ -> astTransposeS (Permutation.makePerm @'[1, 0])
 
 -- | This works analogously to @build1Vectorize@m.
 build1VectorizeS
@@ -496,17 +497,16 @@ build1VS (var, v00) =
       astTrS $ astSliceS @i $ astTrS $ build1VS (var, v)
     Ast.AstReverseS v -> traceRule $
       astTrS $ astReverseS $ astTrS $ build1VS (var, v)
-    Ast.AstTransposeS @perm @sh1 v -> traceRule $
-      let zsuccPerm = 0 : map succ (shapeT @perm)
-      in withShapeP zsuccPerm $ \(Proxy @zsuccP) ->
-        gcastWith (unsafeCoerce Refl :: 0 ': MapSucc perm :~: zsuccP) $
-          -- this one is needed for GHC >= 9.8 due to #23763
+    Ast.AstTransposeS @perm @sh1 perm v -> traceRule $
+      let zsuccPerm :: Permutation.Perm (0 : Permutation.MapSucc perm)
+          zsuccPerm = Permutation.permShift1 perm
+      in
         gcastWith (unsafeCoerce Refl
-                   :: Sh.Permute zsuccP (k : sh1) :~: k : sh) $
+                   :: Sh.Permute (0 : Permutation.MapSucc perm) (k : sh1) :~: k : sh) $
         gcastWith (unsafeCoerce Refl
-                   :: Sh.Rank zsuccP :~: 1 + Sh.Rank perm) $
-        trustMeThisIsAPermutation @zsuccP
-        $ astTransposeS @zsuccP $ build1VS @k (var, v)
+                   :: Sh.Rank (0 : Permutation.MapSucc perm) :~: 1 + Sh.Rank perm) $
+        trustMeThisIsAPermutation @(0 : Permutation.MapSucc perm)
+        $ astTransposeS zsuccPerm $ build1VS @k (var, v)
     Ast.AstReshapeS @sh2 v -> traceRule $
       gcastWith (unsafeCoerce Refl
                  :: Sh.Size (k ': sh) :~: Sh.Size (k ': sh2)) $
@@ -919,11 +919,11 @@ astTrDynamic t@(DynamicShaped @_ @sh u) =
   in withShapeP sh1Permuted $ \(Proxy @shPermuted) ->
        withListSh (Proxy @sh) $ \_ ->
          case cmpNat (Proxy @2) (Proxy @(Sh.Rank sh)) of
-           EQI -> case astTransposeS @'[1, 0] u of
+           EQI -> case astTransposeS (Permutation.makePerm @'[1, 0]) u of
              (w :: AstShaped s4 r4 sh4) ->
                gcastWith (unsafeCoerce Refl :: sh4 :~: shPermuted) $
                DynamicShaped w
-           LTI -> case astTransposeS @'[1, 0] u of
+           LTI -> case astTransposeS (Permutation.makePerm @'[1, 0]) u of
              (w :: AstShaped s4 r4 sh4) ->
                gcastWith (unsafeCoerce Refl :: sh4 :~: shPermuted) $
                DynamicShaped w
