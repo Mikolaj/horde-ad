@@ -727,22 +727,17 @@ treverseS = Nested.srev1
 -- TODO: remove the conversion and overhaul the whole codebase
 ttransposeS
   :: forall perm r sh.
-     ( KnownShS perm  -- remove me
-     , NumAndShow r, PermC perm, KnownShS sh, KnownNat (Sh.Rank sh)
+     ( NumAndShow r, PermC perm, KnownShS sh, KnownNat (Sh.Rank sh)
      , Sh.Rank perm <= Sh.Rank sh )
 --     , X.Rank perm <= X.Rank sh )
-  => {-Permutation.Perm SNat perm ->-} Nested.Shaped sh r
+  => Permutation.Perm perm -> Nested.Shaped sh r
 --  -> Nested.Shaped (X.PermutePrefix perm sh) r
   -> Nested.Shaped (Sh.Permute perm sh) r
-ttransposeS =
+ttransposeS perm =
   gcastWith (unsafeCoerce Refl :: Compare (X.Rank perm) (X.Rank sh) :~: LT) $
   gcastWith (unsafeCoerce Refl
              :: Sh.Permute perm sh :~: Permutation.PermutePrefix perm sh) $
-  Nested.stranspose @perm (convert knownShS)
- where
-  convert :: Nested.ShS sh1 -> Permutation.Perm sh1
-  convert Nested.ZSS = Permutation.PNil
-  convert (n Nested.:$$ sh) = n `Permutation.PCons` convert sh
+  Nested.stranspose perm
 
 treshapeS
   :: forall r sh sh2.

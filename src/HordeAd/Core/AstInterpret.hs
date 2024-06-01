@@ -35,6 +35,9 @@ import           GHC.TypeLits (KnownNat, sameNat)
 import           Type.Reflection (Typeable, typeRep)
 import           Unsafe.Coerce (unsafeCoerce)
 
+import qualified Data.Array.Mixed.Shape as X
+import qualified Data.Array.Mixed.Types as X
+
 import HordeAd.Core.Ast
 import HordeAd.Core.AstEnv
 import HordeAd.Core.AstSimplify
@@ -722,7 +725,7 @@ interpretAstS !env = \case
        $ map fromIntegral [i :: Int .. i + n - 1]
   AstSliceS @i v -> sslice (Proxy @i) Proxy (interpretAstS env v)
   AstReverseS v -> sreverse (interpretAstS env v)
-  AstTransposeS @perm v -> stranspose (Proxy @perm) $ interpretAstS env v
+  AstTransposeS perm v -> stranspose perm $ interpretAstS env v
   AstReshapeS v -> sreshape (interpretAstS env v)
   -- These are only needed for tests that don't vectorize Ast.
 {- TODO:

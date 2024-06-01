@@ -303,8 +303,8 @@ inlineAstS memo v0 = case v0 of
     in (memo2, Ast.AstAppendS t1 t2)
   Ast.AstSliceS @i v -> second (Ast.AstSliceS @i) (inlineAstS memo v)
   Ast.AstReverseS v -> second Ast.AstReverseS (inlineAstS memo v)
-  Ast.AstTransposeS @perm v ->
-    second (Ast.AstTransposeS @perm) $ inlineAstS memo v
+  Ast.AstTransposeS perm v ->
+    second (Ast.AstTransposeS perm) $ inlineAstS memo v
   Ast.AstReshapeS v -> second Ast.AstReshapeS (inlineAstS memo v)
   Ast.AstBuild1S @n (var, v) ->
     let (memoV0, v2) = inlineAstS EM.empty v
@@ -670,8 +670,8 @@ shareAstS memo v0 = case v0 of
     in (memo2, Ast.AstAppendS t1 t2)
   Ast.AstSliceS @i v -> second (Ast.AstSliceS @i) (shareAstS memo v)
   Ast.AstReverseS v -> second Ast.AstReverseS (shareAstS memo v)
-  Ast.AstTransposeS @perm v ->
-    second (Ast.AstTransposeS @perm) $ shareAstS memo v
+  Ast.AstTransposeS perm v ->
+    second (Ast.AstTransposeS perm) $ shareAstS memo v
   Ast.AstReshapeS v -> second Ast.AstReshapeS (shareAstS memo v)
   Ast.AstBuild1S{} -> error "shareAstS: AstBuild1S"  -- not hard to add
   Ast.AstGatherS @sh2 @p v (vars, ix) ->

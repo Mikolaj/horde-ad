@@ -17,6 +17,7 @@ import           GHC.TypeLits (type (*), type (+), type (<=), type Div)
 import           Numeric.LinearAlgebra (Vector)
 import           Unsafe.Coerce (unsafeCoerce)
 
+import qualified Data.Array.Mixed.Permutation as Permutation
 import qualified Data.Array.Nested as Nested
 
 import HordeAd.Core.Adaptor
@@ -64,7 +65,7 @@ convMnistLayerS
 convMnistLayerS SNat SNat SNat SNat SNat SNat SNat
                 ker input bias =
   let yConv = conv2dUnpaddedS ker input
-      biasStretched = stranspose (Proxy @'[0, 3, 1, 2])
+      biasStretched = stranspose (Permutation.makePerm @'[0, 3, 1, 2])
                       $ sreplicate {-@batch_size-}
                       $ sreplicate {-@h-}
                       $ sreplicate {-@w-} bias

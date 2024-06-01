@@ -14,7 +14,7 @@ module HordeAd.Internal.OrthotopeOrphanInstances
     liftVR, liftVR2, liftVS, liftVS2
   , IntegralF(..), RealFloatF(..), FlipS(..)
   , -- * Assorted orphans and additions
-    MapSucc, PermC, trustMeThisIsAPermutation
+    PermC, trustMeThisIsAPermutation
   ) where
 
 import Prelude

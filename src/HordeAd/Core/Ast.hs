@@ -41,6 +41,7 @@ import           Data.Functor.Const
 
 import qualified Data.Array.Mixed.Shape as X
 import qualified Data.Array.Mixed.Types as X
+import qualified Data.Array.Mixed.Permutation as Permutation
 
 import HordeAd.Core.HVector
 import HordeAd.Core.Types
@@ -363,9 +364,10 @@ data AstShaped :: AstSpanType -> ShapedTensorType where
   AstReverseS :: (KnownNat n, KnownShS sh)
               => AstShaped s r (n ': sh) -> AstShaped s r (n ': sh)
   AstTransposeS :: forall perm sh r s.
-                   ( PermC perm, KnownShS perm, KnownShS sh
+                   ( PermC perm, KnownShS sh
                    , KnownNat (Sh.Rank sh), Sh.Rank perm <= Sh.Rank sh )
-                => AstShaped s r sh -> AstShaped s r (Sh.Permute perm sh)
+                => Permutation.Perm perm -> AstShaped s r sh
+                -> AstShaped s r (Sh.Permute perm sh)
   AstReshapeS :: (KnownShS sh, Sh.Size sh ~ Sh.Size sh2)
               => AstShaped s r sh -> AstShaped s r sh2
     -- beware that the order of type arguments is different than in orthotope
