@@ -309,10 +309,10 @@ data AstShaped :: AstSpanType -> ShapedTensorType where
   AstCondS :: AstBool
            -> AstShaped s r sh -> AstShaped s r sh -> AstShaped s r sh
 
-  AstMinIndexS :: (KnownShS sh, KnownNat n, GoodScalar r)
+  AstMinIndexS :: (KnownShS sh, KnownNat n, GoodScalar r, GoodScalar r2)
                => AstShaped PrimalSpan r (n ': sh)
                -> AstShaped PrimalSpan r2 (Sh.Init (n ': sh))
-  AstMaxIndexS :: (KnownShS sh, KnownNat n, GoodScalar r)
+  AstMaxIndexS :: (KnownShS sh, KnownNat n, GoodScalar r, GoodScalar r2)
                => AstShaped PrimalSpan r (n ': sh)
                -> AstShaped PrimalSpan r2 (Sh.Init (n ': sh))
   AstFloorS :: (GoodScalar r, RealFrac r, Integral r2)
