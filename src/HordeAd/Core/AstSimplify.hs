@@ -133,7 +133,7 @@ astTransposeAsGather knobs perm v =
     Just (SomeNat @p _) -> do
       funToVarsIx pInt $ \ (!vars, !ix) ->
         let asts :: AstIndex p
-            asts = permutePrefixIndex perm ix
+            asts = Nested.Internal.Shape.ixrPermutePrefix (permInverse perm) ix
         in case cmpNat (Proxy @p) (Proxy @n) of
           EQI -> astGatherKnobsR @p @(n - p) knobs
                                  (Nested.Internal.Shape.shrPermutePrefix perm (shapeAst v)) v
@@ -515,7 +515,7 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIndex m1)) =
       -- we generate this index, so we simplify on the spot
     in astIndex v (iRev :.: rest1)
   Ast.AstTranspose perm v | valueOf @m >= length perm ->
-    astIndex v (permutePrefixIndex perm ix)
+    astIndex v (Nested.Internal.Shape.ixrPermutePrefix (permInverse perm) ix)
   Ast.AstTranspose perm v ->
     astIndex (astTransposeAsGather knobs perm v) ix
   Ast.AstReshape sh v ->
@@ -1061,7 +1061,7 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
         -- we generate this index, so we simplify on the spot
       in astGather sh4 v (vars4, iRev :.: rest4)
     Ast.AstTranspose perm v | valueOf @p' >= length perm ->
-      astGather sh4 v (vars4, permutePrefixIndex perm ix4)
+      astGather sh4 v (vars4, Nested.Internal.Shape.ixrPermutePrefix (permInverse perm) ix4)
     Ast.AstTranspose perm v ->
       if knobExpand knobs
       then astGather sh4 (astTransposeAsGather knobs perm v) (vars4, ix4)

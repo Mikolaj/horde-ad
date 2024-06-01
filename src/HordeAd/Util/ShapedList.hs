@@ -16,7 +16,6 @@ module HordeAd.Util.ShapedList
   -- , initSized, zipSized
   , zipWith_Sized, reverseSized
   , Permutation  -- ^ re-exported from "SizedList"
-  , permutePrefixSized, permutePrefixSizedT
   -- , sizedCompare
   , listToSized, sizedToList
   -- , shapedToSized
@@ -25,7 +24,6 @@ module HordeAd.Util.ShapedList
   , consIndex, unconsContIndex
   , singletonIndex, appendIndex
   , zipWith_Index
-  , permutePrefixIndex, permutePrefixIndexT
   , listToIndex, indexToList  -- indexToSized, sizedToIndex
   , shapedToIndex, ixsLengthSNat
   -- * Tensor shapes as fully encapsulated shaped lists, with operations
@@ -34,6 +32,8 @@ module HordeAd.Util.ShapedList
   , listToShape, shapeToList, takeShS, dropShS
     -- * Operations involving both indexes and shapes
   , toLinearIdx, fromLinearIdx
+
+  , permutePrefixIndex
   ) where
 
 import Prelude
@@ -139,22 +139,6 @@ zipWith_Sized f ((Const i) ::$ irest) ((Const j) ::$ jrest) =
 reverseSized :: KnownShS sh => SizedListS sh (Const i) -> SizedListS sh (Const i)
 reverseSized = listToSized . reverse . sizedToList
 
-permutePrefixSized :: forall sh sh2 i. (KnownShS sh, KnownShS sh2)
-                   => Permutation -> SizedListS sh (Const i) -> SizedListS sh2 (Const i)
-permutePrefixSized p ix =
-  if length (shapeT @sh) < length p
-  then error "permutePrefixSized: cannot permute a list shorter than permutation"
-  else listToSized $ SizedList.permutePrefixList p $ sizedToList ix
-
-permutePrefixSizedT
-  :: forall perm sh i. (KnownShS perm, KnownShS sh)
-  => SizedListS (Permutation.PermutePrefix perm sh) (Const i) -> SizedListS sh (Const i)
-permutePrefixSizedT ix =
-  if length (shapeT @sh) < length (shapeT @perm)
-  then error "permutePrefixShaped: cannot permute a list shorter than permutation"
-  else listToSized $ SizedList.permutePrefixList (shapeT @perm)
-                   $ sizedToList ix
-
 {-
 -- | Pairwise comparison of two sized list values.
 -- The comparison function is invoked once for each rank
@@ -198,18 +182,6 @@ singletonIndex i = i :.$ ZIS
 appendIndex :: KnownShS (sh2 X.++ sh)
             => IndexS sh2 i -> IndexS sh i -> IndexS (sh2 X.++ sh) i
 appendIndex (IndexS ix1) (IndexS ix2) = IndexS $ appendSized ix1 ix2
-
--- Inverse permutation of indexes corresponds to normal permutation
--- of the shape of the projected tensor.
-permutePrefixIndex :: forall sh sh2 i. (KnownShS sh, KnownShS sh2)
-                   => Permutation -> IndexS sh i -> IndexS sh2 i
-permutePrefixIndex p (IndexS ix) = IndexS $ permutePrefixSized p ix
-
--- Inverse permutation of indexes corresponds to normal permutation
--- of the shape of the projected tensor.
-permutePrefixIndexT :: forall perm sh i. (KnownShS perm, KnownShS sh)
-                    => IndexS (Permutation.PermutePrefix perm sh) i -> IndexS sh i
-permutePrefixIndexT (IndexS ix) = IndexS $ permutePrefixSizedT @perm ix
 
 zipWith_Index :: (i -> j -> k) -> IndexS sh i -> IndexS sh j -> IndexS sh k
 zipWith_Index f (IndexS l1) (IndexS l2) = IndexS $ zipWith_Sized f l1 l2
@@ -319,3 +291,17 @@ fromLinearIdx fromInt = \sh (ShapedNat lin) -> snd (go sh lin)
 zeroOf :: Num j => (Int -> j) -> ShS sh -> IndexS sh j
 zeroOf _ ZSS = ZIS
 zeroOf fromInt ((:$$) SNat sh) = fromInt 0 :.$ zeroOf fromInt sh
+
+-- TODO: these hacks stay for now:
+permutePrefixSized :: forall sh sh2 i. (KnownShS sh, KnownShS sh2)
+                   => Permutation -> SizedListS sh (Const i) -> SizedListS sh2 (Const i)
+permutePrefixSized p ix =
+  if length (shapeT @sh) < length p
+  then error "permutePrefixSized: cannot permute a list shorter than permutation"
+  else listToSized $ SizedList.permutePrefixList p $ sizedToList ix
+
+-- Inverse permutation of indexes corresponds to normal permutation
+-- of the shape of the projected tensor.
+permutePrefixIndex :: forall sh sh2 i. (KnownShS sh, KnownShS sh2)
+                   => Permutation -> IndexS sh i -> IndexS sh2 i
+permutePrefixIndex p (IndexS ix) = IndexS $ permutePrefixSized p ix
