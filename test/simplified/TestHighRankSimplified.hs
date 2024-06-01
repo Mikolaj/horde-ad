@@ -17,6 +17,8 @@ import           GHC.TypeLits (KnownNat, type (+), type (-), type (<=))
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
+import qualified Data.Array.Mixed.Shape as X
+
 import           HordeAd
 import           HordeAd.Core.AstFreshId (funToAstR, resetVarCounter)
 import           HordeAd.Internal.BackendOX (OSArray)
@@ -235,7 +237,7 @@ testFooBuild25 =
 fooBuild2S
   :: forall k sh ranked r shaped.
      (ADReady ranked, GoodScalar r, KnownNat k, Floating (shaped r sh), RealFloat r, shaped ~ ShapedOf ranked, KnownShS sh, KnownNat (Sh.Size (k : sh)))
-  => shaped r (k : sh) -> ranked r (1 + Sh.Rank sh)
+  => shaped r (k : sh) -> ranked r (1 + X.Rank sh)
 fooBuild2S v = rfromS $
   sbuild1 @_ @_ @2 $ \ix ->
     ifF (sfromR (ShapedList.unShapedNat ix) - (sprimalPart . sfloor) (ssum0 @shaped @r @[5,12,11,9,4]

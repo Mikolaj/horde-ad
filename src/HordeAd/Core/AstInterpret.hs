@@ -761,12 +761,12 @@ interpretAstS !env = \case
     sbuild1 (interpretLambdaIS interpretAstS env (var, v))
       -- to be used only in tests
   AstGatherS @sh2 AstIotaS (vars, i :.$ ZIS) ->
-    gcastWith (unsafeCoerce Refl :: Sh.Take (Sh.Rank sh) sh :~: sh)
-    $ gcastWith (unsafeCoerce Refl :: Sh.Drop (Sh.Rank sh) sh :~: '[])
+    gcastWith (unsafeCoerce Refl :: Sh.Take (X.Rank sh) sh :~: sh)
+    $ gcastWith (unsafeCoerce Refl :: Sh.Drop (X.Rank sh) sh :~: '[])
     $ gcastWith (unsafeCoerce Refl :: sh2 :~: sh)
         -- transitivity of type equality doesn't work, by design,
         -- so this direct cast is needed instead of more basic laws
-    $ sbuild @shaped @r @(Sh.Rank sh)
+    $ sbuild @shaped @r @(X.Rank sh)
              (interpretLambdaIndexS
                 interpretAstS env
                 (vars, fromPrimalS @s $ AstFromIntegralS $ AstSFromR i))

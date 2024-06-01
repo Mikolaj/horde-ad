@@ -23,6 +23,8 @@ import           GHC.TypeLits
   (Div, KnownNat, SomeNat (..), sameNat, someNatVal, type (-), type (<=))
 import           Unsafe.Coerce (unsafeCoerce)
 
+import qualified Data.Array.Mixed.Shape as X
+
 import           HordeAd.Core.TensorClass
 import           HordeAd.Core.Types
 import           HordeAd.External.CommonRankedOps
@@ -61,9 +63,9 @@ sfromIndex0 :: forall n r shaped. (ADReadyS shaped, GoodScalar r)
 sfromIndex0 = sfromIntegral . sconstant . sfromR . ShapedList.unShapedNat
 
 sfromIndex1 :: forall r sh shaped.
-               (ADReadyS shaped, GoodScalar r, KnownNat (Sh.Rank sh))
-            => IndexSh shaped sh -> shaped r '[Sh.Rank sh]
-sfromIndex1 = case sameNat (Proxy @(Sh.Rank sh)) (Proxy @0) of
+               (ADReadyS shaped, GoodScalar r, KnownNat (X.Rank sh))
+            => IndexSh shaped sh -> shaped r '[X.Rank sh]
+sfromIndex1 = case sameNat (Proxy @(X.Rank sh)) (Proxy @0) of
   Just Refl -> const $ sconst $ OS.fromList []
   _ -> sfromIntegral . sconstant . sfromR . rfromList
        . NonEmpty.fromList . ShapedList.indexToList
@@ -82,7 +84,7 @@ scaleS a d = sconstant a * d
 
 reluS, reluLeakyS
   :: forall shaped sh r.
-     ( KnownShS sh, KnownNat (Sh.Rank sh), ADReadyS shaped, GoodScalar r
+     ( KnownShS sh, KnownNat (X.Rank sh), ADReadyS shaped, GoodScalar r
      , Differentiable r )
   => shaped r sh -> shaped r sh
 reluS v0 = slet v0 $ \v ->
@@ -204,7 +206,7 @@ conv2dUnpaddedS
   -> shaped r '[nImgs, nCinpA, nAh, nAw]
   -> shaped r shB
 conv2dUnpaddedS arrK arrA =
-  sbuild @shaped @r @(Sh.Rank shB) $ \case
+  sbuild @shaped @r @(X.Rank shB) $ \case
     [iImg, iCout, iBh, iBw] ->
       let arrAt = slicezS @shK1 arrA [iImg, 0, iBh, iBw]
           arrKt = slicezS arrK [iCout, 0, 0, 0]
@@ -218,15 +220,15 @@ conv2dUnpaddedS arrK arrA =
 --   elements are set to zero.
 slicezS
   :: forall shOut sh shaped r.
-     ( KnownShS sh, KnownShS shOut, KnownShS (Sh.Take (Sh.Rank sh) shOut)
-     , KnownNat (Sh.Rank sh)
-     , Sh.Rank shOut ~ Sh.Rank sh, ADReadyS shaped, GoodScalar r )
+     ( KnownShS sh, KnownShS shOut, KnownShS (Sh.Take (X.Rank sh) shOut)
+     , KnownNat (X.Rank sh)
+     , X.Rank shOut ~ X.Rank sh, ADReadyS shaped, GoodScalar r )
   => shaped r sh -> IndexSh shaped sh -> shaped r shOut
 slicezS d ixBase =
   gcastWith (unsafeCoerce Refl
-             :: Sh.Rank (Sh.Take (Sh.Rank shOut) shOut) :~: Sh.Rank shOut) $
-  gcastWith (unsafeCoerce Refl :: Sh.Drop (Sh.Rank sh) shOut :~: '[]) $
-  sbuild @shaped @r @(Sh.Rank shOut)
+             :: X.Rank (Sh.Take (X.Rank shOut) shOut) :~: X.Rank shOut) $
+  gcastWith (unsafeCoerce Refl :: Sh.Drop (X.Rank sh) shOut :~: '[]) $
+  sbuild @shaped @r @(X.Rank shOut)
   $ \ixResult ->
       indexz0S @shOut d (zipWith_Index (+)
                                        (ShapedList.shapedToIndex ixBase)
@@ -246,9 +248,9 @@ slicezS d ixBase =
 -- such invalid indexes and returns 0.
 indexz0SLet
   :: forall shOut sh shaped r.
-     ( KnownShS shOut, KnownNat (Sh.Rank shOut), KnownShS sh
+     ( KnownShS shOut, KnownNat (X.Rank shOut), KnownShS sh
      , ADReadyS shaped, GoodScalar r )
-  => shaped r sh -> IndexOf shaped (Sh.Rank shOut) -> shaped r '[]
+  => shaped r sh -> IndexOf shaped (X.Rank shOut) -> shaped r '[]
 indexz0SLet d ix0 =
   sletIx ix0 $ \ix ->
     ifF (within0S @shOut @shaped ix)
@@ -267,7 +269,7 @@ indexz0SLet d ix0 =
 indexz0S
   :: forall shOut sh shaped r.
      (KnownShS shOut, KnownShS sh, ADReadyS shaped, GoodScalar r)
-  => shaped r sh -> IndexOf shaped (Sh.Rank shOut) -> shaped r '[]
+  => shaped r sh -> IndexOf shaped (X.Rank shOut) -> shaped r '[]
 indexz0S d ix =
   ifF (within0S @shOut @shaped ix)
       (sindex0 d (ShapedList.listToIndex (indexToList ix)))
@@ -277,7 +279,7 @@ indexz0S d ix =
 -- Note that @ix@ is used twice, so should be shared outside.
 within0S
   :: forall shOut shaped. (KnownShS shOut, ADReadyS shaped)
-  => IndexOf shaped (Sh.Rank shOut)
+  => IndexOf shaped (X.Rank shOut)
        -- the indexes may be outside shOut and even negative (e.g., for
        -- convolutions with padding)
   -> BoolOf shaped
@@ -301,7 +303,7 @@ maxPool2dUnpaddedS
   -> shaped r shOut
 maxPool2dUnpaddedS arr =
   let stride = valueOf @stride :: Int
-  in sbuild @shaped @r @(Sh.Rank shOut) $ \case
+  in sbuild @shaped @r @(X.Rank shOut) $ \case
     [iImg, iChan, iBh, iBw] ->
       let arrt = slicezS @shK1
                          arr [ iImg, iChan

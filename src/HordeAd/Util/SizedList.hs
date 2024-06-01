@@ -57,6 +57,7 @@ import Data.Array.Nested
   , pattern ZIR
   , pattern ZR
   )
+import qualified Data.Array.Mixed.Shape as X
 
 import HordeAd.Core.Types
 
@@ -377,14 +378,14 @@ withListShape shList f =
 withListSh
   :: KnownShS sh
   => Proxy sh
-  -> (forall n. (KnownNat n, Sh.Rank sh ~ n)
+  -> (forall n. (KnownNat n, X.Rank sh ~ n)
       => ShapeInt n -> a)
   -> a
 withListSh (Proxy @sh) f =
   let shList = shapeT @sh
   in case someNatVal $ toInteger (length shList) of
     Just (SomeNat @n _) ->
-      gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: n) $
+      gcastWith (unsafeCoerce Refl :: X.Rank sh :~: n) $
       f $ listToShape @n shList
     _ -> error "withListSh: impossible someNatVal error"
 

@@ -193,8 +193,8 @@ listToSized = fromList
 sizedToList :: SizedListS sh (Const i) -> [i]
 sizedToList = listsToList
 
--- shapedToSized :: KnownNat (Sh.Rank sh)
---               => SizedListS sh i -> SizedList.SizedList (Sh.Rank sh) i
+-- shapedToSized :: KnownNat (X.Rank sh)
+--               => SizedListS sh i -> SizedList.SizedList (X.Rank sh) i
 -- shapedToSized = SizedList.listToSized . sizedToList
 
 
@@ -257,11 +257,11 @@ indexToList = Foldable.toList
 -- sizedToIndex :: SizedListS sh i -> IndexS sh i
 -- sizedToIndex = IndexS
 
-shapedToIndex :: KnownNat (Sh.Rank sh)
-              => IndexS sh i -> SizedList.Index (Sh.Rank sh) i
+shapedToIndex :: KnownNat (X.Rank sh)
+              => IndexS sh i -> SizedList.Index (X.Rank sh) i
 shapedToIndex = SizedList.listToIndex . indexToList
 
-ixsLengthSNat :: IxS list i -> SNat (Sh.Rank list)
+ixsLengthSNat :: IxS list i -> SNat (X.Rank list)
 ixsLengthSNat ZIS = SNat
 ixsLengthSNat (_ :.$ l) | SNat <- ixsLengthSNat l = SNat
 

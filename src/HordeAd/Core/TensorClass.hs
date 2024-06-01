@@ -311,7 +311,7 @@ class ( Integral (IntOf ranked), CRanked ranked Num
              -> (HFunOf ranked -> ranked r n)
              -> ranked r n
   rfromS :: (GoodScalar r, KnownShS sh)
-         => ShapedOf ranked r sh -> ranked r (Sh.Rank sh)
+         => ShapedOf ranked r sh -> ranked r (X.Rank sh)
   -- Prevents wrong shape in @0@ with ranked (but not shaped) tensors
   -- at any rank greater than zero.
   rzero :: (GoodScalar r, KnownNat n)
@@ -371,9 +371,9 @@ class ( Integral (IntOf shaped), CShaped shaped Num
   sshape :: forall sh r. (GoodScalar r, KnownShS sh)
          => shaped r sh -> ShS sh
   sshape _ = knownShS @sh
-  srank :: forall sh r. (GoodScalar r, KnownNat (Sh.Rank sh))
+  srank :: forall sh r. (GoodScalar r, KnownNat (X.Rank sh))
         => shaped r sh -> Int
-  srank _ = valueOf @(Sh.Rank sh)
+  srank _ = valueOf @(X.Rank sh)
   ssize :: forall sh r. (GoodScalar r, KnownShS sh) => shaped r sh -> Int
   ssize _ = sizeT @sh
   slength :: forall r n sh. (GoodScalar r, KnownNat n)
@@ -490,13 +490,13 @@ class ( Integral (IntOf shaped), CShaped shaped Num
   sreverse :: (GoodScalar r, KnownNat n, KnownShS sh)
            => shaped r (n ': sh) -> shaped r (n ': sh)
   str :: ( GoodScalar r, KnownNat n, KnownNat m, KnownShS sh
-         , KnownNat (Sh.Rank sh) )
+         , KnownNat (X.Rank sh) )
       => shaped r (n ': m ': sh) -> shaped r (m ': n ': sh)
   str = stranspose (Permutation.makePerm @'[1, 0])
   stranspose :: forall perm r sh.
                 ( PermC perm, KnownShS sh
-                , KnownNat (Sh.Rank sh), KnownShS (Permutation.PermutePrefix perm sh)
-                , Sh.Rank perm <= Sh.Rank sh, GoodScalar r )
+                , KnownNat (X.Rank sh), KnownShS (Permutation.PermutePrefix perm sh)
+                , X.Rank perm <= X.Rank sh, GoodScalar r )
              => Permutation.Perm perm -> shaped r sh
              -> shaped r (Permutation.PermutePrefix perm sh)
   sflatten :: (GoodScalar r, KnownShS sh, KnownNat (Sh.Size sh))
@@ -542,12 +542,12 @@ class ( Integral (IntOf shaped), CShaped shaped Num
         -> shaped r (n ': sh) -> shaped r2 (n ': sh)
   smap1 f u = sbuild1 (\i -> f (u !$ consIndex i ZIS))
   smap0N :: forall r r2 sh.
-            (GoodScalar r, GoodScalar r2, KnownShS sh, KnownNat (Sh.Rank sh))
+            (GoodScalar r, GoodScalar r2, KnownShS sh, KnownNat (X.Rank sh))
          => (shaped r '[] -> shaped r2 '[]) -> shaped r sh -> shaped r2 sh
   smap0N f v =
-    gcastWith (unsafeCoerce Refl :: Sh.Drop (Sh.Rank sh) sh :~: '[])
-    $ gcastWith (unsafeCoerce Refl :: Sh.Take (Sh.Rank sh) sh :~: sh)
-    $ sbuild @shaped @r2 @(Sh.Rank sh) (f . sindex0 v)
+    gcastWith (unsafeCoerce Refl :: Sh.Drop (X.Rank sh) sh :~: '[])
+    $ gcastWith (unsafeCoerce Refl :: Sh.Take (X.Rank sh) sh :~: sh)
+    $ sbuild @shaped @r2 @(X.Rank sh) (f . sindex0 v)
   szipWith :: forall r1 r2 r m sh1 sh2 sh.
               ( GoodScalar r1, GoodScalar r2, GoodScalar r
               , KnownNat m, KnownShS sh1, KnownShS sh2, KnownShS sh
@@ -570,13 +570,13 @@ class ( Integral (IntOf shaped), CShaped shaped Num
                                      (v !$ consIndex i ZIS))
   szipWith0N :: forall r1 r2 r sh.
                 ( GoodScalar r1, GoodScalar r2, GoodScalar r
-                , KnownShS sh, KnownNat (Sh.Rank sh) )
+                , KnownShS sh, KnownNat (X.Rank sh) )
              => (shaped r1 '[] -> shaped r2 '[] -> shaped r '[])
              -> shaped r1 sh -> shaped r2 sh -> shaped r sh
   szipWith0N f u v =
-    gcastWith (unsafeCoerce Refl :: Sh.Drop (Sh.Rank sh) sh :~: '[])
-    $ gcastWith (unsafeCoerce Refl :: Sh.Take (Sh.Rank sh) sh :~: sh)
-    $ sbuild @shaped @_ @(Sh.Rank sh) (\ix -> f (sindex0 u ix) (sindex0 v ix))
+    gcastWith (unsafeCoerce Refl :: Sh.Drop (X.Rank sh) sh :~: '[])
+    $ gcastWith (unsafeCoerce Refl :: Sh.Take (X.Rank sh) sh :~: sh)
+    $ sbuild @shaped @_ @(X.Rank sh) (\ix -> f (sindex0 u ix) (sindex0 v ix))
   szipWith3 :: forall r1 r2 r3 r m sh1 sh2 sh3 sh.
                ( GoodScalar r1, GoodScalar r2, GoodScalar r3, GoodScalar r
                , KnownNat m
@@ -606,14 +606,14 @@ class ( Integral (IntOf shaped), CShaped shaped Num
                                         (w !$ consIndex i ZIS))
   szipWith30N :: forall r1 r2 r3 r sh.
                  ( GoodScalar r1, GoodScalar r2, GoodScalar r3, GoodScalar r
-                 , KnownShS sh, KnownNat (Sh.Rank sh) )
+                 , KnownShS sh, KnownNat (X.Rank sh) )
               => (shaped r1 '[] -> shaped r2 '[] -> shaped r3 '[]
                   -> shaped r '[])
               -> shaped r1 sh -> shaped r2 sh -> shaped r3 sh -> shaped r sh
   szipWith30N f u v w =
-    gcastWith (unsafeCoerce Refl :: Sh.Drop (Sh.Rank sh) sh :~: '[])
-    $ gcastWith (unsafeCoerce Refl :: Sh.Take (Sh.Rank sh) sh :~: sh)
-    $ sbuild @shaped @_ @(Sh.Rank sh) (\ix -> f (sindex0 u ix)
+    gcastWith (unsafeCoerce Refl :: Sh.Drop (X.Rank sh) sh :~: '[])
+    $ gcastWith (unsafeCoerce Refl :: Sh.Take (X.Rank sh) sh :~: sh)
+    $ sbuild @shaped @_ @(X.Rank sh) (\ix -> f (sindex0 u ix)
                                                 (sindex0 v ix)
                                                 (sindex0 w ix))
   szipWith4 :: forall r1 r2 r3 r4 r m sh1 sh2 sh3 sh4 sh.
@@ -653,15 +653,15 @@ class ( Integral (IntOf shaped), CShaped shaped Num
                                           (x !$ consIndex i ZIS))
   szipWith40N :: forall r1 r2 r3 r4 r sh.
                  ( GoodScalar r1, GoodScalar r2, GoodScalar r3, GoodScalar r4
-                 , GoodScalar r, KnownShS sh, KnownNat (Sh.Rank sh) )
+                 , GoodScalar r, KnownShS sh, KnownNat (X.Rank sh) )
               => (shaped r1 '[] -> shaped r2 '[] -> shaped r3 '[]
                   -> shaped r4 '[] -> shaped r '[])
               -> shaped r1 sh -> shaped r2 sh -> shaped r3 sh -> shaped r4 sh
               -> shaped r sh
   szipWith40N f u v w x =
-    gcastWith (unsafeCoerce Refl :: Sh.Drop (Sh.Rank sh) sh :~: '[])
-    $ gcastWith (unsafeCoerce Refl :: Sh.Take (Sh.Rank sh) sh :~: sh)
-    $ sbuild @shaped @_ @(Sh.Rank sh) (\ix -> f (sindex0 u ix)
+    gcastWith (unsafeCoerce Refl :: Sh.Drop (X.Rank sh) sh :~: '[])
+    $ gcastWith (unsafeCoerce Refl :: Sh.Take (X.Rank sh) sh :~: sh)
+    $ sbuild @shaped @_ @(X.Rank sh) (\ix -> f (sindex0 u ix)
                                                 (sindex0 v ix)
                                                 (sindex0 w ix)
                                                 (sindex0 x ix))
@@ -693,8 +693,8 @@ class ( Integral (IntOf shaped), CShaped shaped Num
              => HFunOf (RankedOf shaped)
              -> (HFunOf (RankedOf shaped) -> shaped r sh)
              -> shaped r sh
-  sfromR :: (GoodScalar r, KnownShS sh, KnownNat (Sh.Rank sh))
-         => RankedOf shaped r (Sh.Rank sh) -> shaped r sh
+  sfromR :: (GoodScalar r, KnownShS sh, KnownNat (X.Rank sh))
+         => RankedOf shaped r (X.Rank sh) -> shaped r sh
 
   -- ** No serviceable parts beyond this point ** --
 
@@ -703,7 +703,7 @@ class ( Integral (IntOf shaped), CShaped shaped Num
     => shaped r '[] -> shaped r sh -> shaped r sh
   sscaleByScalar s v = v * sreplicate0N s
   ssumIn :: ( GoodScalar r, KnownShS sh, KnownNat n, KnownNat m
-            , KnownNat (Sh.Rank sh) )
+            , KnownNat (X.Rank sh) )
          => shaped r (n ': m ': sh) -> shaped r (n ': sh)
   ssumIn = ssum . str
     -- TODO: generalize, replace by stride analysis, etc.

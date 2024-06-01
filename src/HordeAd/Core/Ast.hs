@@ -284,7 +284,7 @@ data AstRanked :: AstSpanType -> RankedTensorType where
                -> AstRanked s2 r n
                -> AstRanked s2 r n
   AstRFromS :: KnownShS sh
-            => AstShaped s r sh -> AstRanked s r (Sh.Rank sh)
+            => AstShaped s r sh -> AstRanked s r (X.Rank sh)
 
   -- For the forbidden half of the RankedTensor class:
   AstConstant :: AstRanked PrimalSpan r n -> AstRanked FullSpan r n
@@ -365,7 +365,7 @@ data AstShaped :: AstSpanType -> ShapedTensorType where
               => AstShaped s r (n ': sh) -> AstShaped s r (n ': sh)
   AstTransposeS :: forall perm sh r s.
                    ( PermC perm, KnownShS sh
-                   , KnownNat (Sh.Rank sh), Sh.Rank perm <= Sh.Rank sh )
+                   , KnownNat (X.Rank sh), X.Rank perm <= X.Rank sh )
                 => Permutation.Perm perm -> AstShaped s r sh
                 -> AstShaped s r (Permutation.PermutePrefix perm sh)
   AstReshapeS :: (KnownShS sh, Sh.Size sh ~ Sh.Size sh2)
@@ -395,8 +395,8 @@ data AstShaped :: AstSpanType -> ShapedTensorType where
   AstLetHFunInS :: AstVarId -> AstHFun
                 -> AstShaped s2 r sh
                 -> AstShaped s2 r sh
-  AstSFromR :: (KnownShS sh, KnownNat (Sh.Rank sh))
-            => AstRanked s r (Sh.Rank sh) -> AstShaped s r sh
+  AstSFromR :: (KnownShS sh, KnownNat (X.Rank sh))
+            => AstRanked s r (X.Rank sh) -> AstShaped s r sh
 
   -- For the forbidden half of the ShapedTensor class:
   AstConstantS :: AstShaped PrimalSpan r sh -> AstShaped FullSpan r sh

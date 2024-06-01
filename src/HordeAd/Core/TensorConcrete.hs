@@ -112,7 +112,7 @@ instance RankedTensor (ORArray) where
   rletHVectorIn = (&)
   rletHFunIn = (&)
   rfromS :: forall r sh. (GoodScalar r, KnownShS sh)
-         => OSArray r sh -> ORArray r (Sh.Rank sh)
+         => OSArray r sh -> ORArray r (X.Rank sh)
   rfromS t | Dict <- lemKnownNatRank (knownShS @sh) =
     Flip $ OR.fromVector (Nested.Internal.Shape.shsToList (knownShS @sh)) $ Nested.stoVector {-Nested.rstoRanked -} (runFlipS t)
     -- TODO
@@ -201,7 +201,7 @@ instance ShapedTensor (OSArray) where
             (GoodScalar r, KnownShS sh) => OS.Array sh r -> OSArray r sh
   sconst t | Dict <- lemShapeFromKnownShS (Proxy @sh)
            , Dict <- lemKnownNatRank (knownShS @sh) =
-    gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: X.Rank sh) $
+    gcastWith (unsafeCoerce Refl :: X.Rank sh :~: X.Rank sh) $
     FlipS $ Nested.rcastToShaped
               (Nested.rfromOrthotope (SNat @(X.Rank sh))
                                      (Data.Array.Convert.convert t))
@@ -209,10 +209,10 @@ instance ShapedTensor (OSArray) where
   sletHVectorIn = (&)
   sletHFunIn = (&)
   sfromR :: forall r sh. (GoodScalar r, KnownShS sh)
-         => ORArray r (Sh.Rank sh) -> OSArray r sh
+         => ORArray r (X.Rank sh) -> OSArray r sh
   sfromR t | Dict <- lemShapeFromKnownShS (Proxy @sh)
            , Dict <- lemKnownNatRank (knownShS @sh) =
-    gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: X.Rank sh) $
+    gcastWith (unsafeCoerce Refl :: X.Rank sh :~: X.Rank sh) $
     FlipS $ Nested.rcastToShaped
               (Nested.rfromOrthotope (SNat @(X.Rank sh)) (runFlip t))
               knownShS
@@ -360,14 +360,14 @@ instance (GoodScalar r, KnownShS sh)
 
 instance (GoodScalar r, KnownShS sh)
          => ForgetShape (OSArray r sh) where
-  type NoShape (OSArray r sh) = ORArray r (Sh.Rank sh)  -- key case
+  type NoShape (OSArray r sh) = ORArray r (X.Rank sh)  -- key case
   forgetShape t | Dict <- lemShapeFromKnownShS (Proxy @sh)
                 , Dict <- lemKnownNatRank (knownShS @sh) =
     Flip $ OR.fromVector (Nested.Internal.Shape.shsToList (knownShS @sh)) $ Nested.stoVector {-Nested.rstoRanked -} (runFlipS t)
 
 instance KnownShS sh
          => ForgetShape (FlipS OS.Array r sh) where
-  type NoShape (FlipS OS.Array r sh) = ORArray r (Sh.Rank sh)  -- key case
+  type NoShape (FlipS OS.Array r sh) = ORArray r (X.Rank sh)  -- key case
   forgetShape | Dict <- lemShapeFromKnownShS (Proxy @sh) =
     Flip . Data.Array.Convert.convert . runFlipS
 

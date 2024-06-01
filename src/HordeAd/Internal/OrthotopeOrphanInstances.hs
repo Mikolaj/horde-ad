@@ -110,10 +110,10 @@ sameShape = case shapeT @sh1 == shapeT @sh2 of
               False -> Nothing
 
 matchingRank :: forall sh1 n2. (KnownShS sh1, KnownNat n2)
-             => Maybe (Sh.Rank sh1 :~: n2)
+             => Maybe (X.Rank sh1 :~: n2)
 matchingRank =
   if length (shapeT @sh1) == valueOf @n2
-  then Just (unsafeCoerce Refl :: Sh.Rank sh1 :~: n2)
+  then Just (unsafeCoerce Refl :: X.Rank sh1 :~: n2)
   else Nothing
 
 shapeFromShS :: ShS sh -> Dict Sh.Shape sh
@@ -124,7 +124,7 @@ lemShapeFromKnownShS :: forall sh. KnownShS sh
                        => Proxy sh -> Dict Sh.Shape sh
 lemShapeFromKnownShS _ = shapeFromShS (knownShS @sh)
 
-lemKnownNatRank :: ShS sh -> Dict KnownNat (Sh.Rank sh)
+lemKnownNatRank :: ShS sh -> Dict KnownNat (X.Rank sh)
 lemKnownNatRank ZSS = Dict
 lemKnownNatRank (_ :$$ sh) | Dict <- lemKnownNatRank sh = Dict
 
@@ -517,7 +517,7 @@ deriving instance NFData (f a b) => NFData (FlipS f b a)
 
 -- TODO: move to separate orphan module(s) at some point
 
-instance (Sh.Shape sh, Sh.Rank sh ~ n)
+instance (Sh.Shape sh, X.Rank sh ~ n)
          => Convert (OS.Array sh a) (OR.Array n a) where
   convert (SS.A a@(SG.A t)) = RS.A (RG.A (SG.shapeL a) t)
 

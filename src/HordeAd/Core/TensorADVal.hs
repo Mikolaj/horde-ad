@@ -33,6 +33,7 @@ import           Type.Reflection (typeRep)
 import           Unsafe.Coerce (unsafeCoerce)
 
 import qualified Data.Array.Nested as Nested
+import qualified Data.Array.Mixed.Shape as X
 
 import           HordeAd.Core.Adaptor
 import           HordeAd.Core.Ast
@@ -247,7 +248,7 @@ instance ADReady ranked => RankedTensor (ADVal ranked) where
     in f doms -}
   rletHFunIn = (&)
   rfromS :: forall r sh. (GoodScalar r, KnownShS sh)
-         => ADVal (ShapedOf ranked) r sh -> ADVal ranked r (Sh.Rank sh)
+         => ADVal (ShapedOf ranked) r sh -> ADVal ranked r (X.Rank sh)
   rfromS (D u u') = dDnotShared (rfromS u) (dRFromS u')
    where
     dRFromS (SFromR d) = d  -- no information lost, so no checks
@@ -357,8 +358,8 @@ instance ADReadyS shaped => ShapedTensor (ADVal shaped) where
         doms = aDValHVector as as'
     in f doms -}
   sletHFunIn = (&)
-  sfromR :: forall r sh. (GoodScalar r, KnownShS sh, KnownNat (Sh.Rank sh))
-         => ADVal (RankedOf shaped) r (Sh.Rank sh) -> ADVal shaped r sh
+  sfromR :: forall r sh. (GoodScalar r, KnownShS sh, KnownNat (X.Rank sh))
+         => ADVal (RankedOf shaped) r (X.Rank sh) -> ADVal shaped r sh
   sfromR (D u u') = dDnotShared (sfromR u) (dSFromR u')
    where
     dSFromR (RFromS @sh1 d) =
@@ -654,7 +655,7 @@ aDValDynamicTensor (DynamicRankedDummy @r1 @sh1 _ _)
   | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
   , Just Refl <- matchingRank @sh1 @n2 =
     withListShape (shapeT @sh1) $ \(sh4 :: ShapeInt n4) ->
-      gcastWith (unsafeCoerce Refl :: n4 :~: Sh.Rank sh1) $
+      gcastWith (unsafeCoerce Refl :: n4 :~: X.Rank sh1) $
       DynamicRanked (dDnotShared (rzero sh4) t')
 aDValDynamicTensor (DynamicShapedDummy @r1 @sh1 _ _)
                    (DynamicShaped @r2 @sh2 t')

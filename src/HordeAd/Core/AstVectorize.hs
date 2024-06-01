@@ -342,7 +342,7 @@ build1VIndex k (var, v0, ix@(_ :.: _)) =
 
 -- * Vectorization of AstShaped
 
--- TODO: we avoid constraint KnownNat (Sh.Rank sh) that would infect
+-- TODO: we avoid constraint KnownNat (X.Rank sh) that would infect
 -- a lot of AstShaped constructor and from there a lot of the codebase.
 -- This should be solved in a cleaner way.
 --
@@ -469,10 +469,10 @@ build1VS (var, v00) =
 
     Ast.AstIndexS @sh1 v ix -> traceRule $
       gcastWith (unsafeCoerce Refl
-                 :: Sh.Take (Sh.Rank sh1) (sh1 X.++ sh) :~: sh1) $
+                 :: Sh.Take (X.Rank sh1) (sh1 X.++ sh) :~: sh1) $
       gcastWith (unsafeCoerce Refl
-                 :: Sh.Drop (Sh.Rank sh1) (sh1 X.++ sh) :~: sh) $
-      build1VIndexS @k @(Sh.Rank sh1) (var, v, ix)  -- @var@ is in @v@ or @ix@
+                 :: Sh.Drop (X.Rank sh1) (sh1 X.++ sh) :~: sh) $
+      build1VIndexS @k @(X.Rank sh1) (var, v, ix)  -- @var@ is in @v@ or @ix@
     Ast.AstSumS v -> traceRule $
       astSumS $ astTrS $ build1VS (var, v)
     Ast.AstScatterS @sh2 @p @sh3 v (vars, ix) -> traceRule $
@@ -504,7 +504,7 @@ build1VS (var, v00) =
         gcastWith (unsafeCoerce Refl
                    :: Permutation.PermutePrefix (0 : Permutation.MapSucc perm) (k : sh1) :~: k : sh) $
         gcastWith (unsafeCoerce Refl
-                   :: Sh.Rank (0 : Permutation.MapSucc perm) :~: 1 + Sh.Rank perm) $
+                   :: X.Rank (0 : Permutation.MapSucc perm) :~: 1 + X.Rank perm) $
         trustMeThisIsAPermutation @(0 : Permutation.MapSucc perm)
         $ astTransposeS zsuccPerm $ build1VS @k (var, v)
     Ast.AstReshapeS @sh2 v -> traceRule $
@@ -570,14 +570,14 @@ build1VIndexS (var, v0, ix@(_ :.$ _)) =
          build1VOccurenceUnknownS (var, v1)
        v@(Ast.AstIndexS @sh1 v1 ix1) -> traceRule $
          gcastWith (unsafeCoerce Refl
-                    :: k ': sh1 :~: Sh.Take (1 + Sh.Rank sh1)
+                    :: k ': sh1 :~: Sh.Take (1 + X.Rank sh1)
                                             (k ': sh1 X.++ Sh.Drop p sh)) $
          gcastWith (unsafeCoerce Refl
                     :: Sh.Drop p sh
-                       :~: Sh.Drop (1 + Sh.Rank sh1)
+                       :~: Sh.Drop (1 + X.Rank sh1)
                                    (k ': sh1 X.++ Sh.Drop p sh)) $
          let (varFresh, astVarFresh, ix2) = intBindingRefreshS var ix1
-             ruleD = astGatherStepS @'[k] @(1 + Sh.Rank sh1)
+             ruleD = astGatherStepS @'[k] @(1 + X.Rank sh1)
                        (build1VS @k (var, v1))
                        (Const varFresh ::$ ZS, astVarFresh :.$ ix2)
              len = length $ shapeT @sh1
@@ -918,7 +918,7 @@ astTrDynamic t@(DynamicShaped @_ @sh u) =
       sh1Permuted = permute10 sh1
   in withShapeP sh1Permuted $ \(Proxy @shPermuted) ->
        withListSh (Proxy @sh) $ \_ ->
-         case cmpNat (Proxy @2) (Proxy @(Sh.Rank sh)) of
+         case cmpNat (Proxy @2) (Proxy @(X.Rank sh)) of
            EQI -> case astTransposeS (Permutation.makePerm @'[1, 0]) u of
              (w :: AstShaped s4 r4 sh4) ->
                gcastWith (unsafeCoerce Refl :: sh4 :~: shPermuted) $
