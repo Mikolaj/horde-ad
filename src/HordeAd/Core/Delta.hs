@@ -70,6 +70,7 @@ import           Unsafe.Coerce (unsafeCoerce)
 import qualified Data.Array.Mixed.Permutation as Permutation
 import qualified Data.Array.Mixed.Shape as X
 import qualified Data.Array.Mixed.Types as X
+import qualified Data.Array.Nested.Internal.Shape as Nested.Internal.Shape
 
 import HordeAd.Core.HVector
 import HordeAd.Core.HVectorOps
@@ -454,7 +455,7 @@ shapeDeltaR = \case
       yi :$: _ -> xi + yi :$: xsh
   SliceR _ n d -> n :$: tailShape (shapeDeltaR d)
   ReverseR d -> shapeDeltaR d
-  TransposeR perm d -> backpermutePrefixShape perm (shapeDeltaR d)
+  TransposeR perm d -> Nested.Internal.Shape.shrPermutePrefix perm (shapeDeltaR d)
   ReshapeR sh _ -> sh
   GatherR sh _ _ -> sh
   CastR d -> shapeDeltaR d

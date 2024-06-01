@@ -10,15 +10,14 @@ module HordeAd.Util.SizedList
   , headSized, tailSized, takeSized, dropSized, splitAt_Sized
   , unsnocSized1, lastSized, initSized, zipSized, zipWith_Sized, reverseSized
   , Permutation
-  , backpermutePrefixList, permutePrefixList
-  , backpermutePrefixSized, permutePrefixSized
+  , backpermutePrefixList, permutePrefixList, permutePrefixSized
   , sizedCompare, listToSized, sizedToList
     -- * Tensor indexes as fully encapsulated sized lists, with operations
   , Index, pattern (:.:), pattern ZIR
   , singletonIndex, snocIndex, appendIndex
   , headIndex, tailIndex, takeIndex, dropIndex, splitAt_Index, splitAtInt_Index
   , unsnocIndex1, lastIndex, initIndex, zipIndex, zipWith_Index
-  , backpermutePrefixIndex, permutePrefixIndex
+  , permutePrefixIndex
   , listToIndex, indexToList, indexToSized, sizedToIndex
     -- * Tensor shapes as fully encapsulated sized lists, with operations
   , Shape, pattern (:$:), pattern ZSR, ShapeInt
@@ -26,7 +25,6 @@ module HordeAd.Util.SizedList
   , tailShape, takeShape, dropShape, splitAt_Shape
   , lastShape, initShape
   , lengthShape, sizeShape, flattenShape
-  , backpermutePrefixShape
   , listToShape, shapeToList
   , withListShape, withListSh
     -- * Operations involving both indexes and shapes
@@ -48,7 +46,8 @@ import           GHC.TypeLits
   (KnownNat, SomeNat (..), sameNat, someNatVal, type (+))
 import           Unsafe.Coerce (unsafeCoerce)
 
-import Data.Array.Nested
+import qualified Data.Array.Mixed.Shape as X
+import           Data.Array.Nested
   ( IxR (..)
   , ListR (..)
   , ShR (..)
@@ -57,7 +56,6 @@ import Data.Array.Nested
   , pattern ZIR
   , pattern ZR
   )
-import qualified Data.Array.Mixed.Shape as X
 
 import HordeAd.Core.Types
 
@@ -171,15 +169,6 @@ backpermutePrefixList p l = map (l !!) p ++ drop (length p) l
 permutePrefixList :: Permutation -> [i] -> [i]
 permutePrefixList p l = V.toList $ Data.Vector.fromList l V.// zip p l
 
--- This permutes a prefix of the sized list of the length of the permutation.
--- The rest of the sized list is left intact.
-backpermutePrefixSized :: forall n i. KnownNat n
-                       => Permutation -> SizedList n i -> SizedList n i
-backpermutePrefixSized p ix =
-  if valueOf @n < length p
-  then error "backpermutePrefixSized: cannot permute a list shorter than permutation"
-  else listToSized $ backpermutePrefixList p $ sizedToList ix
-
 permutePrefixSized :: forall n i. KnownNat n
                    => Permutation -> SizedList n i -> SizedList n i
 permutePrefixSized p ix =
@@ -275,10 +264,6 @@ zipIndex (IxR l1) (IxR l2) = IxR $ zipSized l1 l2
 zipWith_Index :: (i -> j -> k) -> Index n i -> Index n j -> Index n k
 zipWith_Index f (IxR l1) (IxR l2) = IxR $ zipWith_Sized f l1 l2
 
-backpermutePrefixIndex :: forall n i. KnownNat n
-                       => Permutation -> Index n i -> Index n i
-backpermutePrefixIndex p (IxR ix) = IxR $ backpermutePrefixSized p ix
-
 -- Inverse permutation of indexes corresponds to normal permutation
 -- of the shape of the projected tensor.
 permutePrefixIndex :: forall n i. KnownNat n
@@ -352,10 +337,6 @@ sizeShape (n :$: sh) = fromIntegral n * sizeShape sh
 
 flattenShape :: (Num i, Integral i) => Shape n i -> Shape 1 i
 flattenShape = singletonShape . fromIntegral . sizeShape
-
-backpermutePrefixShape :: forall n i. KnownNat n
-                       => Permutation -> Shape n i -> Shape n i
-backpermutePrefixShape p (ShR is) = ShR $ backpermutePrefixSized p is
 
 -- Warning: do not pass a list of strides to this function.
 listToShape :: KnownNat n => [i] -> Shape n i

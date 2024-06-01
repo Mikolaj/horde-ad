@@ -136,10 +136,10 @@ astTransposeAsGather knobs perm v =
             asts = permutePrefixIndex perm ix
         in case cmpNat (Proxy @p) (Proxy @n) of
           EQI -> astGatherKnobsR @p @(n - p) knobs
-                                 (backpermutePrefixShape perm (shapeAst v)) v
+                                 (Nested.Internal.Shape.shrPermutePrefix perm (shapeAst v)) v
                                  (vars, asts)
           LTI -> astGatherKnobsR @p @(n - p) knobs
-                                 (backpermutePrefixShape perm (shapeAst v)) v
+                                 (Nested.Internal.Shape.shrPermutePrefix perm (shapeAst v)) v
                                  (vars, asts)
           _ -> error "astTransposeAsGather: permutation longer than rank"
     Nothing -> error "astTransposeAsGather: impossible someNatVal error"
@@ -1721,8 +1721,8 @@ astTranspose perm = \case
   Ast.AstSum v -> astSum $ astTranspose (0 : map succ perm) v
   Ast.AstScatter @_ @_ @p sh v (vars, ix) | length perm <= valueOf @p ->
     -- TODO: should the below be backpermute or permute?
-    astScatter (backpermutePrefixShape perm sh) v
-               (vars, backpermutePrefixIndex perm ix)
+    astScatter (Nested.Internal.Shape.shrPermutePrefix perm sh) v
+               (vars, Nested.Internal.Shape.ixrPermutePrefix perm ix)
   Ast.AstTranspose perm2 t ->
     let perm2Matched =
           perm2
@@ -1732,11 +1732,11 @@ astTranspose perm = \case
       -- this rule can be disabled to test fusion of gathers
   -- Note that the following would be wrong, because transpose really
   -- changes the linearisation order, while reshape only modifies indexing:
-  -- (perm, AstReshape sh v) -> astReshape (backpermutePrefixShape perm sh) v
+  -- (perm, AstReshape sh v) -> astReshape (Nested.Internal.Shape.shrPermutePrefix perm sh) v
   Ast.AstGather @m sh v (vars, ix) | length perm <= valueOf @m ->
     -- TODO: should the below be backpermute or permute?
-    astGatherR (backpermutePrefixShape perm sh) v
-               (backpermutePrefixSized perm vars, ix)
+    astGatherR (Nested.Internal.Shape.shrPermutePrefix perm sh) v
+               (Nested.Internal.Shape.listrPermutePrefix perm vars, ix)
   AstConst t -> AstConst $ ttransposeR perm t
   Ast.AstConstant v -> Ast.AstConstant $ astTranspose perm v
   u -> Ast.AstTranspose perm u
