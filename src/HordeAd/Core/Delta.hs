@@ -344,7 +344,7 @@ data DeltaS :: ShapedTensorType -> ShapedTensorType where
                 , KnownNat (Sh.Rank sh), Sh.Rank perm <= Sh.Rank sh )
              => Permutation.Perm perm
              -> DeltaS shaped r sh
-             -> DeltaS shaped r (Sh.Permute perm sh)
+             -> DeltaS shaped r (Permutation.PermutePrefix perm sh)
     -- ^ Transpose according to the permutation.
   ReshapeS :: (KnownShS sh, Sh.Size sh ~ Sh.Size sh2)
            => DeltaS shaped r sh
@@ -827,7 +827,7 @@ evalS !s !c = let cShared = sshare c
   TransposeS @_ @perm @_ @sh2 perm d ->
     Permutation.permInverse perm $ \(permRev :: Permutation.Perm permR) _ ->
         gcastWith (unsafeCoerce Refl
-                   :: Sh.Permute permR sh :~: sh2)
+                   :: Permutation.PermutePrefix permR sh :~: sh2)
         $ gcastWith (unsafeCoerce Refl
                      :: Sh.Rank sh :~: Sh.Rank sh2)
         $ gcastWith (unsafeCoerce Refl

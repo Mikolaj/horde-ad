@@ -47,6 +47,7 @@ import           Data.Functor.Const
 import           GHC.Exts (IsList (..))
 import           GHC.TypeLits (KnownNat, Nat, type (*))
 
+import qualified Data.Array.Mixed.Permutation as Permutation
 import qualified Data.Array.Mixed.Shape as X
 import qualified Data.Array.Mixed.Types as X
 import           Data.Array.Nested
@@ -151,8 +152,8 @@ backpermutePrefixSized p ix =
 
 backpermutePrefixSizedT
   :: forall perm sh i.
-     (KnownShS perm, KnownShS sh, KnownShS (Sh.Permute perm sh))
-  => SizedListS sh (Const i) -> SizedListS (Sh.Permute perm sh) (Const i)
+     (KnownShS perm, KnownShS sh, KnownShS (Permutation.PermutePrefix perm sh))
+  => SizedListS sh (Const i) -> SizedListS (Permutation.PermutePrefix perm sh) (Const i)
 backpermutePrefixSizedT ix =
   if length (shapeT @sh) < length (shapeT @perm)
   then error "backpermutePrefixShaped: cannot permute a list shorter than permutation"
@@ -168,7 +169,7 @@ permutePrefixSized p ix =
 
 permutePrefixSizedT
   :: forall perm sh i. (KnownShS perm, KnownShS sh)
-  => SizedListS (Sh.Permute perm sh) (Const i) -> SizedListS sh (Const i)
+  => SizedListS (Permutation.PermutePrefix perm sh) (Const i) -> SizedListS sh (Const i)
 permutePrefixSizedT ix =
   if length (shapeT @sh) < length (shapeT @perm)
   then error "permutePrefixShaped: cannot permute a list shorter than permutation"
@@ -225,8 +226,8 @@ backpermutePrefixIndex p (IndexS ix) = IndexS $ backpermutePrefixSized p ix
 
 backpermutePrefixIndexT
   :: forall perm sh i.
-     (KnownShS perm, KnownShS sh, KnownShS (Sh.Permute perm sh))
-  => IndexS sh i -> IndexS (Sh.Permute perm sh) i
+     (KnownShS perm, KnownShS sh, KnownShS (Permutation.PermutePrefix perm sh))
+  => IndexS sh i -> IndexS (Permutation.PermutePrefix perm sh) i
 backpermutePrefixIndexT (IndexS ix) = IndexS $ backpermutePrefixSizedT @perm ix
 
 -- Inverse permutation of indexes corresponds to normal permutation
@@ -238,7 +239,7 @@ permutePrefixIndex p (IndexS ix) = IndexS $ permutePrefixSized p ix
 -- Inverse permutation of indexes corresponds to normal permutation
 -- of the shape of the projected tensor.
 permutePrefixIndexT :: forall perm sh i. (KnownShS perm, KnownShS sh)
-                    => IndexS (Sh.Permute perm sh) i -> IndexS sh i
+                    => IndexS (Permutation.PermutePrefix perm sh) i -> IndexS sh i
 permutePrefixIndexT (IndexS ix) = IndexS $ permutePrefixSizedT @perm ix
 
 zipWith_Index :: (i -> j -> k) -> IndexS sh i -> IndexS sh j -> IndexS sh k

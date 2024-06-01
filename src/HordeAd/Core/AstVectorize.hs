@@ -502,7 +502,7 @@ build1VS (var, v00) =
           zsuccPerm = Permutation.permShift1 perm
       in
         gcastWith (unsafeCoerce Refl
-                   :: Sh.Permute (0 : Permutation.MapSucc perm) (k : sh1) :~: k : sh) $
+                   :: Permutation.PermutePrefix (0 : Permutation.MapSucc perm) (k : sh1) :~: k : sh) $
         gcastWith (unsafeCoerce Refl
                    :: Sh.Rank (0 : Permutation.MapSucc perm) :~: 1 + Sh.Rank perm) $
         trustMeThisIsAPermutation @(0 : Permutation.MapSucc perm)
