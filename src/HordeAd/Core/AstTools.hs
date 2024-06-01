@@ -28,6 +28,8 @@ import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, sameNat, type (+))
 
+import qualified Data.Array.Nested.Internal.Shape as Nested.Internal.Shape
+
 import HordeAd.Core.Ast
 import HordeAd.Core.HVector
 import HordeAd.Core.HVectorOps
@@ -78,7 +80,7 @@ shapeAst = \case
       yi :$: _ -> xi + yi :$: xsh
   AstSlice _i n v -> n :$: tailShape (shapeAst v)
   AstReverse v -> shapeAst v
-  AstTranspose perm v -> backpermutePrefixShape perm (shapeAst v)
+  AstTranspose perm v -> Nested.Internal.Shape.shrPermutePrefix perm (shapeAst v)
   AstReshape sh _v -> sh
   AstBuild1 k (_var, v) -> k :$: shapeAst v
   AstGather sh _v (_vars, _ix) -> sh

@@ -16,7 +16,6 @@ module HordeAd.Util.ShapedList
   -- , initSized, zipSized
   , zipWith_Sized, reverseSized
   , Permutation  -- ^ re-exported from "SizedList"
-  , backpermutePrefixSized, backpermutePrefixSizedT
   , permutePrefixSized, permutePrefixSizedT
   -- , sizedCompare
   , listToSized, sizedToList
@@ -26,7 +25,6 @@ module HordeAd.Util.ShapedList
   , consIndex, unconsContIndex
   , singletonIndex, appendIndex
   , zipWith_Index
-  , backpermutePrefixIndex, backpermutePrefixIndexT
   , permutePrefixIndex, permutePrefixIndexT
   , listToIndex, indexToList  -- indexToSized, sizedToIndex
   , shapedToIndex, ixsLengthSNat
@@ -141,25 +139,6 @@ zipWith_Sized f ((Const i) ::$ irest) ((Const j) ::$ jrest) =
 reverseSized :: KnownShS sh => SizedListS sh (Const i) -> SizedListS sh (Const i)
 reverseSized = listToSized . reverse . sizedToList
 
--- This permutes a prefix of the sized list of the length of the permutation.
--- The rest of the sized list is left intact.
-backpermutePrefixSized :: forall sh sh2 i. (KnownShS sh, KnownShS sh2)
-                       => Permutation -> SizedListS sh (Const i) -> SizedListS sh2 (Const i)
-backpermutePrefixSized p ix =
-  if length (shapeT @sh) < length p
-  then error "backpermutePrefixSized: cannot permute a list shorter than permutation"
-  else listToSized $ SizedList.backpermutePrefixList p $ sizedToList ix
-
-backpermutePrefixSizedT
-  :: forall perm sh i.
-     (KnownShS perm, KnownShS sh, KnownShS (Permutation.PermutePrefix perm sh))
-  => SizedListS sh (Const i) -> SizedListS (Permutation.PermutePrefix perm sh) (Const i)
-backpermutePrefixSizedT ix =
-  if length (shapeT @sh) < length (shapeT @perm)
-  then error "backpermutePrefixShaped: cannot permute a list shorter than permutation"
-  else listToSized $ SizedList.backpermutePrefixList (shapeT @perm)
-                   $ sizedToList ix
-
 permutePrefixSized :: forall sh sh2 i. (KnownShS sh, KnownShS sh2)
                    => Permutation -> SizedListS sh (Const i) -> SizedListS sh2 (Const i)
 permutePrefixSized p ix =
@@ -219,16 +198,6 @@ singletonIndex i = i :.$ ZIS
 appendIndex :: KnownShS (sh2 X.++ sh)
             => IndexS sh2 i -> IndexS sh i -> IndexS (sh2 X.++ sh) i
 appendIndex (IndexS ix1) (IndexS ix2) = IndexS $ appendSized ix1 ix2
-
-backpermutePrefixIndex :: forall sh sh2 i. (KnownShS sh, KnownShS sh2)
-                       => Permutation -> IndexS sh i -> IndexS sh2 i
-backpermutePrefixIndex p (IndexS ix) = IndexS $ backpermutePrefixSized p ix
-
-backpermutePrefixIndexT
-  :: forall perm sh i.
-     (KnownShS perm, KnownShS sh, KnownShS (Permutation.PermutePrefix perm sh))
-  => IndexS sh i -> IndexS (Permutation.PermutePrefix perm sh) i
-backpermutePrefixIndexT (IndexS ix) = IndexS $ backpermutePrefixSizedT @perm ix
 
 -- Inverse permutation of indexes corresponds to normal permutation
 -- of the shape of the projected tensor.
