@@ -732,11 +732,11 @@ ttransposeS
 --     , X.Rank perm <= X.Rank sh )
   => Permutation.Perm perm -> Nested.Shaped sh r
 --  -> Nested.Shaped (X.PermutePrefix perm sh) r
-  -> Nested.Shaped (Sh.Permute perm sh) r
+  -> Nested.Shaped (Permutation.PermutePrefix perm sh) r
 ttransposeS perm =
   gcastWith (unsafeCoerce Refl :: Compare (X.Rank perm) (X.Rank sh) :~: LT) $
   gcastWith (unsafeCoerce Refl
-             :: Sh.Permute perm sh :~: Permutation.PermutePrefix perm sh) $
+             :: Permutation.PermutePrefix perm sh :~: Permutation.PermutePrefix perm sh) $
   Nested.stranspose perm
 
 treshapeS

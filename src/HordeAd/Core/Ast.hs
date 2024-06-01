@@ -367,7 +367,7 @@ data AstShaped :: AstSpanType -> ShapedTensorType where
                    ( PermC perm, KnownShS sh
                    , KnownNat (Sh.Rank sh), Sh.Rank perm <= Sh.Rank sh )
                 => Permutation.Perm perm -> AstShaped s r sh
-                -> AstShaped s r (Sh.Permute perm sh)
+                -> AstShaped s r (Permutation.PermutePrefix perm sh)
   AstReshapeS :: (KnownShS sh, Sh.Size sh ~ Sh.Size sh2)
               => AstShaped s r sh -> AstShaped s r sh2
     -- beware that the order of type arguments is different than in orthotope

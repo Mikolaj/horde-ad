@@ -715,14 +715,6 @@ treverseS
   => OS.Array (n ': sh) r -> OS.Array (n ': sh) r
 treverseS | Dict <- lemShapeFromKnownShS (Proxy @sh) = OS.rev @'[0]
 
-ttransposeS
-  :: forall perm r sh.
-     ( KnownShS perm, PermC perm, KnownShS sh, KnownNat (Sh.Rank sh)
-     , Sh.Rank perm <= Sh.Rank sh )
-  => OS.Array sh r -> OS.Array (Sh.Permute perm sh) r
-ttransposeS | Dict <- lemShapeFromKnownShS (Proxy @perm)
-            , Dict <- lemShapeFromKnownShS (Proxy @sh) = undefined  -- TODO: OS.transpose @perm
-
 treshapeS
   :: forall r sh sh2.
      (Numeric r, KnownShS sh, KnownShS sh2, Sh.Size sh ~ Sh.Size sh2)

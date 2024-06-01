@@ -495,10 +495,10 @@ class ( Integral (IntOf shaped), CShaped shaped Num
   str = stranspose (Permutation.makePerm @'[1, 0])
   stranspose :: forall perm r sh.
                 ( PermC perm, KnownShS sh
-                , KnownNat (Sh.Rank sh), KnownShS (Sh.Permute perm sh)
+                , KnownNat (Sh.Rank sh), KnownShS (Permutation.PermutePrefix perm sh)
                 , Sh.Rank perm <= Sh.Rank sh, GoodScalar r )
              => Permutation.Perm perm -> shaped r sh
-             -> shaped r (Sh.Permute perm sh)
+             -> shaped r (Permutation.PermutePrefix perm sh)
   sflatten :: (GoodScalar r, KnownShS sh, KnownNat (Sh.Size sh))
            => shaped r sh -> shaped r '[Sh.Size sh]
   sflatten = sreshape
