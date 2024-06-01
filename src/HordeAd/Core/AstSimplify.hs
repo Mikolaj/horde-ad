@@ -146,7 +146,7 @@ astTransposeAsGather knobs perm v =
 
 astTransposeAsGatherS
   :: forall perm sh s r p.
-     (KnownShS sh, Sh.Rank perm <= Sh.Rank sh, p ~ Sh.Rank perm)
+     (KnownShS sh, X.Rank perm <= X.Rank sh, p ~ X.Rank perm)
   => Permutation.Perm perm -> SimplifyKnobs -> AstShaped s r sh
   -> AstShaped s r (Permutation.PermutePrefix perm sh)
 {-# NOINLINE astTransposeAsGatherS #-}
@@ -220,9 +220,9 @@ astReshapeAsGatherS knobs v =
                    i = ShapedList.toLinearIdx @sh2 @'[] (AstConst . OR.scalar . fromIntegral) shOut ix
                in simplifyAstIndexS $ ShapedList.fromLinearIdx (AstConst . OR.scalar . fromIntegral) shIn i
                     -- we generate these, so we simplify
-    in gcastWith (unsafeCoerce Refl :: Sh.Take (Sh.Rank sh) sh :~: sh) $
-       gcastWith (unsafeCoerce Refl :: Sh.Drop (Sh.Rank sh) sh :~: '[]) $
-       astGatherKnobsS @sh2 @(Sh.Rank sh) @sh knobs v (vars, asts)
+    in gcastWith (unsafeCoerce Refl :: Sh.Take (X.Rank sh) sh :~: sh) $
+       gcastWith (unsafeCoerce Refl :: Sh.Drop (X.Rank sh) sh :~: '[]) $
+       astGatherKnobsS @sh2 @(X.Rank sh) @sh knobs v (vars, asts)
 
 
 -- * Permutation operations
@@ -556,7 +556,7 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIndex m1)) =
     in withShapeP takeSh $ \(Proxy @p_take) ->
        withShapeP dropSh $ \(Proxy @p_drop) ->
        gcastWith (unsafeCoerce Refl :: sh :~: p_take X.++ p_drop) $
-       gcastWith (unsafeCoerce Refl :: Sh.Rank p_drop :~: n) $
+       gcastWith (unsafeCoerce Refl :: X.Rank p_drop :~: n) $
        astRFromS $ astIndexKnobsS @p_take @p_drop knobs
                                   t (ShapedList.listToIndex $ indexToList ix)
   Ast.AstConstant v -> Ast.AstConstant $ astIndex v ix
@@ -669,10 +669,10 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS shm1)) | Dict <- s
       gcastWith (unsafeCoerce Refl :: shm X.++ (n1 : shn) :~: sm1n) $
       withSNat (1 + length (shapeT @shn)
                 + length (shapeT @shm)) $ \(SNat @r1mn) ->
-        gcastWith (unsafeCoerce Refl :: Sh.Rank (n1 : shm X.++ shn) :~: r1mn) $
+        gcastWith (unsafeCoerce Refl :: X.Rank (n1 : shm X.++ shn) :~: r1mn) $
         Permutation.permFromList perm3 $ \(perm :: Permutation.Perm perm3P) ->
           gcastWith (unsafeCoerce Refl
-                     :: Compare (OS.Rank perm3P) (Sh.Rank (n1 : shm X.++ shn))
+                     :: Compare (X.Rank perm3P) (X.Rank (n1 : shm X.++ shn))
                         :~: LT) $
           gcastWith (unsafeCoerce Refl
                      :: Permutation.PermutePrefix perm3P (n1 : (shm X.++ shn))
@@ -785,13 +785,9 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS shm1)) | Dict <- s
     astLetHFunInS var f (astIndexRec v ix)
   Ast.AstSFromR @sh t ->
     withListSh (Proxy @shn) $ \_ ->
+    withListSh (Proxy @shm) $ \_ ->
       gcastWith (unsafeCoerce Refl
-                 :: Sh.Rank shm + Sh.Rank shn :~: Sh.Rank (shm Sh.++ shn)) $
-      gcastWith (unsafeCoerce Refl
-                 :: Sh.Rank shm + Sh.Rank shn :~: Sh.Rank (shm X.++ shn)) $
-                      -- reversing this equality causes "Could not deduce
-                      -- ‘KnownNat (OS.Rank sh1)’ error, but this is
-                      -- probably ~fine and maybe caused by KnownNat.Solver
+                 :: X.Rank shm + X.Rank shn :~: X.Rank (shm X.++ shn)) $
       astSFromR $ astIndexKnobsR knobs t (ShapedList.shapedToIndex ix)
   Ast.AstConstantS v -> Ast.AstConstantS $ astIndex v ix
   Ast.AstPrimalPartS{} -> Ast.AstIndexS v0 ix  -- must be a NF
@@ -1123,7 +1119,7 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
          gcastWith (unsafeCoerce Refl :: sh :~: p_take X.++ p_drop) $
          gcastWith (unsafeCoerce Refl :: p_take :~: Sh.Take p' sh) $
          gcastWith (unsafeCoerce Refl :: p_drop :~: Sh.Drop p' sh) $
-         gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: p' + n') $
+         gcastWith (unsafeCoerce Refl :: X.Rank sh :~: p' + n') $
          astRFromS $ astGatherStepS @_ @p' @sh v
                      ( ShapedList.listToSized $ sizedToList vars4
                      , ShapedList.listToSized $ indexToList ix4 ) -}
@@ -1556,7 +1552,7 @@ astReplicateS = \case
     in
       gcastWith (unsafeCoerce Refl
                  :: Permutation.PermutePrefix (0 : Permutation.MapSucc perm) (n : sh1) :~: n : sh) $
-      gcastWith (unsafeCoerce Refl :: Sh.Rank (0 : Permutation.MapSucc perm) :~: 1 + Sh.Rank perm) $
+      gcastWith (unsafeCoerce Refl :: X.Rank (0 : Permutation.MapSucc perm) :~: 1 + X.Rank perm) $
       trustMeThisIsAPermutation @(0 : Permutation.MapSucc perm) $
       astTransposeS zsuccPerm $ astReplicateS @n v
   Ast.AstConstantS v -> Ast.AstConstantS $ astReplicateS v
@@ -1748,7 +1744,7 @@ astTranspose perm = \case
 
 astTransposeS :: forall perm sh s r.
                  ( PermC perm, KnownShS sh
-                 , KnownNat (Sh.Rank sh), Sh.Rank perm <= Sh.Rank sh
+                 , KnownNat (X.Rank sh), X.Rank perm <= X.Rank sh
                  , GoodScalar r, AstSpan s )
               => Permutation.Perm perm -> AstShaped s r sh
               -> AstShaped s r (Permutation.PermutePrefix perm sh)
@@ -1774,8 +1770,8 @@ astTransposeS perm t = case perm of
       withShapeP (backpermutePrefixList (Permutation.permToList' perm)
                                         (shapeT @sh)) $ \(Proxy @shp) ->
         gcastWith (unsafeCoerce Refl :: Permutation.PermutePrefix perm sh :~: shp) $
-        gcastWith (unsafeCoerce Refl :: Sh.Rank (0 : Permutation.MapSucc perm)
-                                        :~: 1 + Sh.Rank perm) $
+        gcastWith (unsafeCoerce Refl :: X.Rank (0 : Permutation.MapSucc perm)
+                                        :~: 1 + X.Rank perm) $
         gcastWith (unsafeCoerce Refl
                    :: Permutation.PermutePrefix (0 : Permutation.MapSucc perm) (n : sh)
                       :~: n : Permutation.PermutePrefix perm sh) $
@@ -1829,7 +1825,7 @@ astTransposeS perm t = case perm of
     in Permutation.permFromList perm3V $ \(perm3 :: Permutation.Perm perm3) ->
       trustMeThisIsAPermutation @perm3 $
       gcastWith (unsafeCoerce Refl
-                 :: Compare (OS.Rank perm3) (OS.Rank sh2) :~: LT) $
+                 :: Compare (X.Rank perm3) (X.Rank sh2) :~: LT) $
       gcastWith (unsafeCoerce Refl
                  :: Permutation.PermutePrefix perm3 sh2 :~: Permutation.PermutePrefix perm sh) $
       astTransposeS perm3 t
@@ -1960,16 +1956,17 @@ astProjectS l p = case l of
   _ -> Ast.AstProjectS l p
 
 astRFromS :: forall sh s r. KnownShS sh
-          => AstShaped s r sh -> AstRanked s r (Sh.Rank sh)
+          => AstShaped s r sh -> AstRanked s r (X.Rank sh)
 astRFromS (AstConstS t) | Dict <- lemShapeFromKnownShS (Proxy @sh) =
   AstConst $ Data.Array.Convert.convert $ runFlipS t
 astRFromS (Ast.AstConstantS v) = Ast.AstConstant $ astRFromS v
 astRFromS (Ast.AstSFromR v) = v  -- no information lost, so no checks
 astRFromS v = Ast.AstRFromS v
 
-astSFromR :: forall sh s r. (KnownShS sh, KnownNat (Sh.Rank sh))
-          => AstRanked s r (Sh.Rank sh) -> AstShaped s r sh
+astSFromR :: forall sh s r. (KnownShS sh, KnownNat (X.Rank sh))
+          => AstRanked s r (X.Rank sh) -> AstShaped s r sh
 astSFromR (AstConst t) | Dict <- lemShapeFromKnownShS (Proxy @sh) =
+  gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: X.Rank sh) $
   AstConstS $ FlipS $ Data.Array.Convert.convert t
 astSFromR (Ast.AstConstant v) = Ast.AstConstantS $ astSFromR v
 astSFromR (Ast.AstRFromS @sh1 v) =

@@ -259,7 +259,7 @@ data DeltaR :: RankedTensorType -> RankedTensorType where
         => DeltaR ranked r1 n -> DeltaR ranked r2 n
   RFromS :: forall sh r ranked. KnownShS sh
          => DeltaS (ShapedOf ranked) r sh
-         -> DeltaR ranked r (Sh.Rank sh)
+         -> DeltaR ranked r (X.Rank sh)
   RFromH :: DeltaH ranked -> Int -> DeltaR ranked r n
 
 deriving instance ( KnownNat n0, GoodScalar r0
@@ -341,7 +341,7 @@ data DeltaS :: ShapedTensorType -> ShapedTensorType where
     -- ^ Reverse elements of the outermost dimension.
   TransposeS :: forall shaped perm r sh.
                 ( PermC perm, KnownShS sh
-                , KnownNat (Sh.Rank sh), Sh.Rank perm <= Sh.Rank sh )
+                , KnownNat (X.Rank sh), X.Rank perm <= X.Rank sh )
              => Permutation.Perm perm
              -> DeltaS shaped r sh
              -> DeltaS shaped r (Permutation.PermutePrefix perm sh)
@@ -367,8 +367,8 @@ data DeltaS :: ShapedTensorType -> ShapedTensorType where
     -- TODO: this is a haddock for Gather1; fix.
   CastS :: (GoodScalar r1, RealFrac r1, RealFrac r2)
         => DeltaS shaped r1 sh -> DeltaS shaped r2 sh
-  SFromR :: forall sh r shaped. KnownNat (Sh.Rank sh)
-         => DeltaR (RankedOf shaped) r (Sh.Rank sh)
+  SFromR :: forall sh r shaped. KnownNat (X.Rank sh)
+         => DeltaR (RankedOf shaped) r (X.Rank sh)
          -> DeltaS shaped r sh
   SFromH :: DeltaH (RankedOf shaped) -> Int -> DeltaS shaped r sh
 
@@ -803,10 +803,10 @@ evalS !s !c = let cShared = sshare c
 
   IndexS @sh1 d ix ->
     gcastWith (unsafeCoerce Refl
-               :: Sh.Drop (Sh.Rank sh1) (sh1 X.++ sh) :~: sh)
+               :: Sh.Drop (X.Rank sh1) (sh1 X.++ sh) :~: sh)
     $ gcastWith (unsafeCoerce Refl
-                 :: Sh.Take (Sh.Rank sh1) (sh1 X.++ sh) :~: sh1)
-    $ evalS s (sscatter @shaped @r @'[] @(Sh.Rank sh1) c (const ix)) d
+                 :: Sh.Take (X.Rank sh1) (sh1 X.++ sh) :~: sh1)
+    $ evalS s (sscatter @shaped @r @'[] @(X.Rank sh1) c (const ix)) d
     -- equivalent: evalS s (updateNR (replicate0NR sh 0) [(ix, c)]) d
   SumS d -> evalS s (sreplicate c) d
   Sum0S d -> evalS s (sreplicate0N c) d
@@ -829,9 +829,9 @@ evalS !s !c = let cShared = sshare c
         gcastWith (unsafeCoerce Refl
                    :: Permutation.PermutePrefix permR sh :~: sh2)
         $ gcastWith (unsafeCoerce Refl
-                     :: Sh.Rank sh :~: Sh.Rank sh2)
+                     :: X.Rank sh :~: X.Rank sh2)
         $ gcastWith (unsafeCoerce Refl
-                     :: Sh.Rank permR :~: Sh.Rank perm)
+                     :: X.Rank permR :~: X.Rank perm)
         $ evalS s (stranspose permRev c) d
   ReshapeS d -> evalS s (sreshape c) d
   GatherS d f -> evalS s (sscatter c f) d

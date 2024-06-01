@@ -22,12 +22,14 @@ import           Numeric.LinearAlgebra (Numeric, Vector)
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
-import HordeAd
-import HordeAd.Core.AstEnv
-import HordeAd.Core.AstFreshId (funToAstR, funToAstS, resetVarCounter)
-import HordeAd.Core.IsPrimal (resetIdCounter)
-import HordeAd.Internal.BackendOX (OSArray)
-import HordeAd.Internal.OrthotopeOrphanInstances (FlipS (..), RealFloatF (..))
+import qualified Data.Array.Mixed.Shape as X
+import           HordeAd
+import           HordeAd.Core.AstEnv
+import           HordeAd.Core.AstFreshId (funToAstR, funToAstS, resetVarCounter)
+import           HordeAd.Core.IsPrimal (resetIdCounter)
+import           HordeAd.Internal.BackendOX (OSArray)
+import           HordeAd.Internal.OrthotopeOrphanInstances
+  (FlipS (..), RealFloatF (..))
 
 import CrossTesting
 import EqEpsilon
@@ -1535,12 +1537,12 @@ testBarReluMax3CFwd =
                      (Flip $ OR.fromList [2, 1, 2] [0.1, 0.2, 0.3, 0.42]))
 
 reluMaxS :: forall shaped sh r.
-            (ADReadyS shaped, GoodScalar r, KnownShS sh, KnownNat (Sh.Rank sh))
+            (ADReadyS shaped, GoodScalar r, KnownShS sh, KnownNat (X.Rank sh))
          => shaped r sh -> shaped r sh
 reluMaxS = smap0N (maxF 0)
 
 barReluMaxS
-  :: ( ADReadyS shaped, GoodScalar r, KnownShS sh, KnownNat (Sh.Rank sh)
+  :: ( ADReadyS shaped, GoodScalar r, KnownShS sh, KnownNat (X.Rank sh)
      , RealFloatF (shaped r sh) )
   => shaped r sh -> shaped r sh
 barReluMaxS x = reluMaxS $ barF (x, reluMaxS x)

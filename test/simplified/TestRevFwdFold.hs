@@ -19,6 +19,7 @@ import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
 import qualified Data.Array.Nested as Nested
+import qualified Data.Array.Mixed.Shape as X
 
 import HordeAd
 import HordeAd.Core.AstFreshId (resetVarCounter)
@@ -4490,7 +4491,7 @@ testSin0revhFoldZip4R = do
 fFoldS
   :: forall m k rm shm r sh shaped.
      ( KnownNat k, GoodScalar rm, KnownShS shm, GoodScalar r, KnownShS sh
-     , ADReadyS shaped, KnownNat m, OS.Rank shm ~ m)
+     , ADReadyS shaped, KnownNat m, X.Rank shm ~ m)
   => shaped r (1 + k ': sh)
   -> shaped rm (k ': shm)
   -> (forall f. ADReadyS f

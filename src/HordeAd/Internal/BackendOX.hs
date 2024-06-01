@@ -727,8 +727,8 @@ treverseS = Nested.srev1
 -- TODO: remove the conversion and overhaul the whole codebase
 ttransposeS
   :: forall perm r sh.
-     ( NumAndShow r, PermC perm, KnownShS sh, KnownNat (Sh.Rank sh)
-     , Sh.Rank perm <= Sh.Rank sh )
+     ( NumAndShow r, PermC perm, KnownShS sh, KnownNat (X.Rank sh)
+     , X.Rank perm <= X.Rank sh )
 --     , X.Rank perm <= X.Rank sh )
   => Permutation.Perm perm -> Nested.Shaped sh r
 --  -> Nested.Shaped (X.PermutePrefix perm sh) r
