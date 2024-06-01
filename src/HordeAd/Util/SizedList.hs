@@ -9,15 +9,14 @@ module HordeAd.Util.SizedList
   , singletonSized, snocSized, appendSized
   , headSized, tailSized, takeSized, dropSized, splitAt_Sized
   , unsnocSized1, lastSized, initSized, zipSized, zipWith_Sized, reverseSized
-  , Permutation
-  , backpermutePrefixList, permutePrefixList, permutePrefixSized
+  , Permutation, permInverse
+  , backpermutePrefixList, permutePrefixList
   , sizedCompare, listToSized, sizedToList
     -- * Tensor indexes as fully encapsulated sized lists, with operations
   , Index, pattern (:.:), pattern ZIR
   , singletonIndex, snocIndex, appendIndex
   , headIndex, tailIndex, takeIndex, dropIndex, splitAt_Index, splitAtInt_Index
   , unsnocIndex1, lastIndex, initIndex, zipIndex, zipWith_Index
-  , permutePrefixIndex
   , listToIndex, indexToList, indexToSized, sizedToIndex
     -- * Tensor shapes as fully encapsulated sized lists, with operations
   , Shape, pattern (:$:), pattern ZSR, ShapeInt
@@ -37,6 +36,7 @@ import           Control.Arrow (first)
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.Shape as Sh
 import qualified Data.Foldable as Foldable
+import           Data.List (foldl', sort)
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality (gcastWith, (:~:) (Refl))
@@ -161,6 +161,9 @@ reverseSized l = go l ZR
 -- an occasional forward permutation.
 type Permutation = [Int]
 
+permInverse :: Permutation -> Permutation
+permInverse perm = map snd $ sort $ zip perm [0 .. length perm - 1]
+
 backpermutePrefixList :: Permutation -> [i] -> [i]
 backpermutePrefixList p l = map (l !!) p ++ drop (length p) l
 
@@ -168,13 +171,6 @@ backpermutePrefixList p l = map (l !!) p ++ drop (length p) l
 -- but don't follow them. Storable vectors wouldn't work for Ast.
 permutePrefixList :: Permutation -> [i] -> [i]
 permutePrefixList p l = V.toList $ Data.Vector.fromList l V.// zip p l
-
-permutePrefixSized :: forall n i. KnownNat n
-                   => Permutation -> SizedList n i -> SizedList n i
-permutePrefixSized p ix =
-  if valueOf @n < length p
-  then error "permutePrefixSized: cannot permute a list shorter than permutation"
-  else listToSized $ permutePrefixList p $ sizedToList ix
 
 -- | Pairwise comparison of two sized list values.
 -- The comparison function is invoked once for each rank
@@ -263,12 +259,6 @@ zipIndex (IxR l1) (IxR l2) = IxR $ zipSized l1 l2
 
 zipWith_Index :: (i -> j -> k) -> Index n i -> Index n j -> Index n k
 zipWith_Index f (IxR l1) (IxR l2) = IxR $ zipWith_Sized f l1 l2
-
--- Inverse permutation of indexes corresponds to normal permutation
--- of the shape of the projected tensor.
-permutePrefixIndex :: forall n i. KnownNat n
-                   => Permutation -> Index n i -> Index n i
-permutePrefixIndex p (IxR ix) = IxR $ permutePrefixSized p ix
 
 listToIndex :: KnownNat n => [i] -> Index n i
 listToIndex = fromList

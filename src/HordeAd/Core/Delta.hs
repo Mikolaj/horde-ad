@@ -54,7 +54,7 @@ import qualified Data.Array.Shape as Sh
 import qualified Data.EnumMap.Strict as EM
 import           Data.Int (Int64)
 import           Data.Kind (Type)
-import           Data.List (foldl', sort)
+import           Data.List (foldl')
 import           Data.Maybe (fromMaybe)
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
@@ -743,8 +743,8 @@ evalR !s !c = let cShared = rshare c
     ZSR -> error "evalR: impossible pattern needlessly required"
   ReverseR d -> evalR s (rreverse c) d
   TransposeR perm d ->
-    let perm_reversed = map snd $ sort $ zip perm [0 .. length perm - 1]
-    in evalR s (rtranspose perm_reversed c) d
+    let permR = permInverse perm
+    in evalR s (rtranspose permR c) d
   ReshapeR _sh d -> evalR s (rreshape (shapeDeltaR d) c) d
   GatherR _sh d f -> evalR s (rscatter (shapeDeltaR d) c f) d
 
