@@ -18,7 +18,6 @@ module HordeAd.Core.Engine
 
 import Prelude
 
-import qualified Data.Array.RankedS as OR
 import qualified Data.EnumMap.Strict as EM
 import           Data.Int (Int64)
 import           Data.Maybe (fromMaybe, isJust)

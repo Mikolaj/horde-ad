@@ -28,7 +28,7 @@ import           HordeAd.Core.AstFreshId (funToAstR, funToAstS, resetVarCounter)
 import           HordeAd.Core.IsPrimal (resetIdCounter)
 import           HordeAd.Internal.BackendOX (OSArray)
 import           HordeAd.Internal.OrthotopeOrphanInstances
-  (FlipR (..), FlipS (..), RealFloatF (..))
+  (FlipR (..), FlipS (..), IntegralF (..), RealFloatF (..))
 
 import CrossTesting
 import EqEpsilon
@@ -429,7 +429,7 @@ testPiecewiseLinear2PP = do
 
 overleaf :: forall r ranked. (RankedTensor ranked, GoodScalar r)
          => ranked r 1 -> ranked r 0
-overleaf v = let wrap i = i `rem` fromIntegral (rlength v)
+overleaf v = let wrap i = i `remF` fromIntegral (rlength v)
              in rsum (rbuild @ranked @r @1 [50] (\[i] -> rindex v [wrap i]))
 
 testOverleaf :: Assertion
@@ -487,15 +487,15 @@ testOverleafPP = do
       (var3, ast3) = funToAstR [28] fT
   "\\" ++ printAstVarName renamesNull var3
        ++ " -> " ++ printAstSimple renamesNull ast3
-    @?= "\\v -> rsum (rgather [50] v (\\[i] -> [rem i 28]))"
+    @?= "\\v -> rsum (rgather [50] v (\\[i] -> [remF i 28]))"
   resetVarCounter
   let (artifactRev, deltas) = revArtifactAdapt True fT (FlipR $ OR.fromList [28] [0 .. 27])
   printArtifactPretty renames artifactRev
-    @?= "\\x4 v1 -> [rscatter [28] (rreplicate 50 x4) (\\[i5] -> [rem i5 28])]"
+    @?= "\\x4 v1 -> [rscatter [28] (rreplicate 50 x4) (\\[i5] -> [remF i5 28])]"
   printArtifactPrimalPretty renames artifactRev
-    @?= "\\v1 -> [rsum (rgather [50] v1 (\\[i3] -> [rem i3 28]))]"
+    @?= "\\v1 -> [rsum (rgather [50] v1 (\\[i3] -> [remF i3 28]))]"
   printArtifactPretty renames (simplifyArtifact artifactRev)
-    @?= "\\x4 v1 -> [rscatter [28] (rreplicate 50 x4) (\\[i5] -> [rem i5 28])]"
+    @?= "\\x4 v1 -> [rscatter [28] (rreplicate 50 x4) (\\[i5] -> [remF i5 28])]"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
     @?= printArtifactPrimalPretty renames artifactRev
   show deltas
@@ -1727,7 +1727,7 @@ testConcatBuild2 =
 concatBuild3 :: (ADReady ranked, GoodScalar r) => ranked r 0 -> ranked r 1
 concatBuild3 r =
   rlet (rfromList [r, 1, 2, 3, 4]) $ \a ->
-    rbuild1 10 (\i -> ifF (i <. 5) (rindex a [i]) (rindex a [i - 5 + (1 `quot` maxF 0 (i - 5))]))
+    rbuild1 10 (\i -> ifF (i <. 5) (rindex a [i]) (rindex a [i - 5 + (1 `quotF` maxF 0 (i - 5))]))
 
 testConcatBuild3 :: Assertion
 testConcatBuild3 =
@@ -1738,7 +1738,7 @@ testConcatBuild3 =
 concatBuild4 :: (ADReady ranked, GoodScalar r) => ranked r 0 -> ranked r 1
 concatBuild4 r =
   rlet (rgather1 5 (rreplicate 1 r)
-                   (\i -> (1 `quot` (4 + i)) :.: ZIR)) $ \a ->
+                   (\i -> (1 `quotF` (4 + i)) :.: ZIR)) $ \a ->
     rappend a a
 
 testConcatBuild4 :: Assertion
@@ -1750,9 +1750,9 @@ testConcatBuild4 =
 concatBuild5 :: (ADReady ranked, GoodScalar r) => ranked r 0 -> ranked r 1
 concatBuild5 r =
   rlet (rgather1 5 (rreplicate 1 r)
-                   (\i -> (1 `quot` (5 + i)) :.: ZIR)) $ \a ->
+                   (\i -> (1 `quotF` (5 + i)) :.: ZIR)) $ \a ->
     (rappend a (rgather1 5 (rreplicate 1 r)
-                           (\i -> (1 `quot` (5 + i)) :.: ZIR)))
+                           (\i -> (1 `quotF` (5 + i)) :.: ZIR)))
 
 testConcatBuild5 :: Assertion
 testConcatBuild5 =
@@ -1765,9 +1765,9 @@ concatBuild6 r =
   rbuild1 7 (\j ->
     rappend (rappend
              (rlet (rgather1 5 (rreplicate 1 r)
-                   (\i -> (1 `quot` (4 + i)) :.: ZIR)) $ \a ->
+                   (\i -> (1 `quotF` (4 + i)) :.: ZIR)) $ \a ->
     (rappend (rgather1 5 (rreplicate 1 r)
-                         (\i -> (1 `quot` (100 * maxF 0 (i - j))) :.: ZIR)) a))
+                         (\i -> (1 `quotF` (100 * maxF 0 (i - j))) :.: ZIR)) a))
                      (rreplicate 1 (rfromIndex0 j)))
             (rbuild1 13 (const r)))
 
@@ -1781,7 +1781,7 @@ concatBuild7 :: (ADReady ranked, GoodScalar r) => ranked r 0 -> ranked r 1
 concatBuild7 r =
   rbuild1 10 $ \j ->
     (rappend (rreplicate 5 r) (rgather1 5 (rreplicate 1 r)
-                                 (\i -> (1 `quot` maxF 0 (j - i)) :.: ZIR)))
+                                 (\i -> (1 `quotF` maxF 0 (j - i)) :.: ZIR)))
      ! (j :.: ZIR)
 
 testConcatBuild7 :: Assertion
@@ -1796,9 +1796,9 @@ testConcatBuild7 =
 _concatBuild8 :: (ADReady ranked, GoodScalar r) => ranked r 0 -> ranked r 1
 _concatBuild8 r =
   rlet (rgather1 5 (rreplicate 1 r)
-                   (\i -> (1 `quot` (5 - i)) :.: ZIR)) $ \a ->
+                   (\i -> (1 `quotF` (5 - i)) :.: ZIR)) $ \a ->
     (rappend a (rgather1 5 (rreplicate 1 r)
-                           (\i -> (1 `quot` (5 - i)) :.: ZIR)))
+                           (\i -> (1 `quotF` (5 - i)) :.: ZIR)))
 
 _testConcatBuild8 :: Assertion
 _testConcatBuild8 =
@@ -1811,9 +1811,9 @@ _concatBuild9 r =
   rbuild1 7 (\j ->
     rappend (rappend
              (rlet (rgather1 5 (rreplicate 1 r)
-                   (\i -> (1 `quot` (4 - i)) :.: ZIR)) $ \a ->
+                   (\i -> (1 `quotF` (4 - i)) :.: ZIR)) $ \a ->
     (rappend (rgather1 5 (rreplicate 1 r)
-                         (\i -> (1 `quot` (100 * maxF 0 (i - j))) :.: ZIR)) a))
+                         (\i -> (1 `quotF` (100 * maxF 0 (i - j))) :.: ZIR)) a))
                      (rreplicate 1 (rfromIndex0 j)))
             (rbuild1 13 (const r)))
 
@@ -1876,7 +1876,7 @@ emptyArgs t =
   - rsum (rfromList0N (0 :$: rshape @ranked @r emptyTensor) [])
   * rsum (rfromList [rsum (rfromList0N (0 :$: rshape @ranked @r emptyTensor) [])])
   * rflatten (rtr (rgather1 0 t (const ZIR)))
-  + rbuild1 0 (\i -> t ! [fromIntegral (rrank t) `quot` i] / rfromIndex0 i)
+  + rbuild1 0 (\i -> t ! [fromIntegral (rrank t) `quotF` i] / rfromIndex0 i)
   -- - rsum (rbuild @ranked @r @2 (0 :$: 0 :$: ZSR) (const 73))
   -- - rsum (rbuild @ranked @r @1 (0 :$: 0 :$: ZSR) (const $ rfromList []))
        -- these fail and rightly so; TODO: make them fail earlier
@@ -1961,7 +1961,7 @@ fblowupMult k inputs =
             yscaled = sqrt $ 0.499999985 * 0.499999985 * ysum * ysum
               -- without the scaling we'd get NaN at once
         in blowup (pred n) yscaled - rfromIndex0 0
-      y0 = (inputs ! [0 `rem` 2]) * (inputs ! [1])
+      y0 = (inputs ! [0 `remF` 2]) * (inputs ! [1])
   in blowup k y0
 
 fblowupMultLet :: forall ranked r.
@@ -1976,7 +1976,7 @@ fblowupMultLet i k inputs =
                         sqrt $ 0.499999985 * 0.499999985 * ysum * ysum
               -- without the scaling we'd get NaN at once
         in blowup (pred n) yscaled - rfromIndex0 i
-      y0 = (inputs ! [i `rem` 2]) * (inputs ! [1])
+      y0 = (inputs ! [i `remF` 2]) * (inputs ! [1])
   in blowup k y0
 
 fblowupPP :: Assertion

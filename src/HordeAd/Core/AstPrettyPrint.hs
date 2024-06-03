@@ -494,7 +494,7 @@ printAstS cfg d = \case
          . foldr (.) id rs
   AstSliceS v -> printPrefixOp printAstS cfg d "sslice" [v]
   AstReverseS v -> printPrefixOp printAstS cfg d "sreverse" [v]
-  AstTransposeS perm v ->
+  AstTransposeS _perm v ->
     printPrefixOp printAstS cfg d "stranspose" [v]
 -- TODO:    printPrefixOp printAstS cfg d ("stranspose " ++ show (permToList perm)) [v]
   AstReshapeS v ->
@@ -884,8 +884,8 @@ printAstR2 pr cfg d opCode u v = case opCode of
 printAstI2 :: (PrintConfig -> Int -> a -> ShowS)
            -> PrintConfig -> Int -> OpCodeIntegral2 -> a -> a -> ShowS
 printAstI2 pr cfg d opCode u v = case opCode of
-  QuotOp -> printPrefixOp pr cfg d "quot" [u, v]
-  RemOp -> printPrefixOp pr cfg d "rem" [u, v]
+  QuotOp -> printPrefixOp pr cfg d "quotF" [u, v]
+  RemOp -> printPrefixOp pr cfg d "remF" [u, v]
 
 printPrefixOp :: (PrintConfig -> Int -> a -> ShowS)
               -> PrintConfig -> Int -> String -> [a]

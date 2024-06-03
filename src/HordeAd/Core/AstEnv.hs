@@ -14,7 +14,7 @@ module HordeAd.Core.AstEnv
     -- * Interpretation of arithmetic, boolean and relation operations
   , interpretAstN1, interpretAstN2, interpretAstR1, interpretAstR2
   , interpretAstR2F
-  , interpretAstI2, interpretAstI2F, interpretAstB2, interpretAstRelOp
+  , interpretAstI2F, interpretAstB2, interpretAstRelOp
   ) where
 
 import Prelude
@@ -287,12 +287,6 @@ interpretAstR2F DivideOp u v = u / v
 interpretAstR2F PowerOp u v = u ** v
 interpretAstR2F LogBaseOp u v = logBase u v
 interpretAstR2F Atan2Op u v = atan2F u v
-
-interpretAstI2 :: Integral a
-               => OpCodeIntegral2 -> a -> a -> a
-{-# INLINE interpretAstI2 #-}
-interpretAstI2 QuotOp u v = quot u v
-interpretAstI2 RemOp u v = rem u v
 
 interpretAstI2F :: IntegralF a
                 => OpCodeIntegral2 -> a -> a -> a
