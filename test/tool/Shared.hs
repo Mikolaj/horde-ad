@@ -8,7 +8,6 @@ import Prelude
 
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
-import           Data.Bifunctor.Flip
 import qualified Data.Char
 import qualified Data.Foldable
 import           Data.Proxy (Proxy (Proxy))
@@ -22,7 +21,7 @@ import HordeAd.Core.HVector
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.Internal.BackendOX (OSArray)
-import HordeAd.Internal.OrthotopeOrphanInstances (FlipS (..))
+import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..), FlipS (..))
 import HordeAd.Internal.TensorFFI
 import HordeAd.Util.SizedList
 
@@ -39,8 +38,8 @@ class HasShape a where
 instance (VS.Storable a) => HasShape (VS.Vector a) where
   shapeL = (: []) . VS.length
 
-instance HasShape (Flip OR.Array a n) where
-  shapeL = OR.shapeL . runFlip
+instance HasShape (FlipR OR.Array a n) where
+  shapeL = OR.shapeL . runFlipR
 
 instance KnownShS sh => HasShape (FlipS OS.Array a sh) where
   shapeL | Dict <- lemShapeFromKnownShS (Proxy @sh) = OS.shapeL . runFlipS
@@ -85,8 +84,8 @@ instance (VS.Storable a, Nested.PrimElt a, KnownShS sh)
 instance (VS.Storable a) => Linearizable (OR.Array n a) a where
   linearize = OR.toList
 
-instance (VS.Storable a) => Linearizable (Flip OR.Array a n) a where
-  linearize = OR.toList . runFlip
+instance (VS.Storable a) => Linearizable (FlipR OR.Array a n) a where
+  linearize = OR.toList . runFlipR
 
 instance (LA.Element a) => Linearizable (LA.Matrix a) a where
   linearize = LA.toList . LA.flatten

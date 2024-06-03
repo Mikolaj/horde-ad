@@ -169,7 +169,6 @@ library horde-ad-simplified
     build-depends:
         assert-failure
       , base >= 4.18 && < 99
-      , bifunctors
       , Boolean
       , deepseq
       , enummapset
@@ -214,7 +213,6 @@ library exampleLibrary
       , horde-ad:horde-ad-simplified
 
       , base
-      , bifunctors
       , bytestring
       , ghc-typelits-knownnat
       , ghc-typelits-natnormalise
@@ -244,7 +242,6 @@ library benchCommonLibrary
       , horde-ad:horde-ad-simplified
 
       , base
-      , bifunctors
       , criterion
       , enummapset
       , hmatrix
@@ -383,7 +380,6 @@ library testToolLibrary
       , horde-ad:horde-ad-simplified
 
       , base
-      , bifunctors
       , enummapset
       , hmatrix
       , orthotope
@@ -415,7 +411,6 @@ library testCommonLibrary
 
       , assert-failure
       , base
-      , bifunctors
       , enummapset
       , ghc-typelits-knownnat
       , ghc-typelits-natnormalise

@@ -6,7 +6,6 @@ module MnistCnnRanked2 where
 import Prelude
 
 import qualified Data.Array.RankedS as OR
-import           Data.Bifunctor.Flip
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (type (*), type (+), type Div)
 import           Numeric.LinearAlgebra (Vector)
@@ -16,6 +15,7 @@ import HordeAd.Core.HVector
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.External.CommonRankedOps
+import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..))
 import HordeAd.Util.SizedList
 import MnistData
 
@@ -112,25 +112,25 @@ convMnistLossFusedR batch_size (glyphR, labelR) adparameters =
 
 convMnistTestR
   :: forall ranked r.
-     (ranked ~ Flip OR.Array, GoodScalar r, Differentiable r)
+     (ranked ~ FlipR OR.Array, GoodScalar r, Differentiable r)
   => ADCnnMnistParameters ranked r
   -> Int
   -> MnistDataBatchR r
-  -> HVector (Flip OR.Array)
+  -> HVector (FlipR OR.Array)
   -> r
 convMnistTestR _ 0 _ _ = 0
 convMnistTestR valsInit batch_size (glyphR, labelR) testParams =
   let input =
-        Flip $ OR.reshape [batch_size, 1, sizeMnistHeightInt, sizeMnistWidthInt]
+        FlipR $ OR.reshape [batch_size, 1, sizeMnistHeightInt, sizeMnistWidthInt]
                           glyphR
       outputR =
         let nn :: ADCnnMnistParameters ranked r
                -> ranked r 2  -- [SizeMnistLabel, batch_size]
             nn = convMnistTwoR sizeMnistHeightInt sizeMnistWidthInt
                                batch_size input
-        in runFlip $ nn $ parseHVector valsInit testParams
-      outputs = map OR.toVector $ map runFlip $ runravelToList $ Flip $ OR.transpose [1, 0] outputR
-      labels = map OR.toVector $ map runFlip $ runravelToList $ Flip labelR
+        in runFlipR $ nn $ parseHVector valsInit testParams
+      outputs = map OR.toVector $ map runFlipR $ runravelToList $ FlipR $ OR.transpose [1, 0] outputR
+      labels = map OR.toVector $ map runFlipR $ runravelToList $ FlipR labelR
       matchesLabels :: Vector r -> Vector r -> Int
       matchesLabels output label | V.maxIndex output == V.maxIndex label = 1
                                  | otherwise = 0

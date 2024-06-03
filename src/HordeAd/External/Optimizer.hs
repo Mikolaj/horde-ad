@@ -8,7 +8,6 @@ module HordeAd.External.Optimizer
 import Prelude
 
 import qualified Data.Array.RankedS as OR
-import           Data.Bifunctor.Flip
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat)
 
@@ -20,6 +19,7 @@ import HordeAd.Core.TensorClass
 import HordeAd.Core.TensorConcrete ()
 import HordeAd.Core.Types
 import HordeAd.External.OptimizerTools
+import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..))
 
 -- These functions have their SPECIALIZE pragmas in MnistData.
 
@@ -27,18 +27,18 @@ import HordeAd.External.OptimizerTools
 sgd :: forall n r a. (KnownNat n, GoodScalar r)
     => Double
     -> (a
-        -> HVector (ADVal (Flip OR.Array))
-        -> ADVal (Flip OR.Array) r n)
+        -> HVector (ADVal (FlipR OR.Array))
+        -> ADVal (FlipR OR.Array) r n)
     -> [a]  -- ^ training data
-    -> HVector (Flip OR.Array)  -- ^ initial parameters
-    -> (HVector (Flip OR.Array), Flip OR.Array r n)
+    -> HVector (FlipR OR.Array)  -- ^ initial parameters
+    -> (HVector (FlipR OR.Array), FlipR OR.Array r n)
 sgd gamma f trainingData parameters0 = go trainingData parameters0 where
   g a hVector = hVectorADValToADVal
                 $ toHVector
                 $ f a $ parseHVector (fromDValue parameters0) hVector
-  deltaInputs = generateDeltaInputs @(Flip OR.Array) parameters0
-  go :: [a] -> HVector (Flip OR.Array)
-     -> (HVector (Flip OR.Array), Flip OR.Array r n)
+  deltaInputs = generateDeltaInputs @(FlipR OR.Array) parameters0
+  go :: [a] -> HVector (FlipR OR.Array)
+     -> (HVector (FlipR OR.Array), FlipR OR.Array r n)
   go [] parameters = (parameters, 0)
   go (a : rest) !parameters =
     let inputs = makeADInputs parameters deltaInputs
@@ -55,20 +55,20 @@ sgd gamma f trainingData parameters0 = go trainingData parameters0 where
 -- | An implementation of the Adam gradient descent.
 sgdAdam
   :: forall f r a y.
-     ( RankedOf f ~ Flip OR.Array
-     , AdaptableHVector (ADVal (Flip OR.Array)) (ADVal f r y) )
-  => (a -> HVector (ADVal (Flip OR.Array)) -> ADVal f r y)
+     ( RankedOf f ~ FlipR OR.Array
+     , AdaptableHVector (ADVal (FlipR OR.Array)) (ADVal f r y) )
+  => (a -> HVector (ADVal (FlipR OR.Array)) -> ADVal f r y)
   -> [a]
-  -> HVector (Flip OR.Array)
+  -> HVector (FlipR OR.Array)
   -> StateAdam
-  -> (HVector (Flip OR.Array), StateAdam)
+  -> (HVector (FlipR OR.Array), StateAdam)
 {-# INLINE sgdAdam #-}
 sgdAdam = sgdAdamArgs updateWithGradientAdam defaultArgsAdam
 
 sgdAdamArgs
   :: forall f r a y.
-     ( RankedOf f ~ Flip OR.Array
-     , AdaptableHVector (ADVal (Flip OR.Array)) (ADVal f r y) )
+     ( RankedOf f ~ FlipR OR.Array
+     , AdaptableHVector (ADVal (FlipR OR.Array)) (ADVal f r y) )
   => (ArgsAdam -> StateAdam -> HVector (RankedOf f) -> HVectorOf (RankedOf f)
       -> (HVector (RankedOf f), StateAdam))
   -> ArgsAdam

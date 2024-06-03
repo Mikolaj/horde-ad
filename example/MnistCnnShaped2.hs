@@ -9,7 +9,6 @@ import Prelude
 
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
-import           Data.Bifunctor.Flip
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality (gcastWith, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
@@ -27,7 +26,7 @@ import HordeAd.Core.Types
 import HordeAd.External.CommonShapedOps
 import HordeAd.Internal.BackendConcrete (tunravelToListS)
 import HordeAd.Internal.BackendOX (OSArray)
-import HordeAd.Internal.OrthotopeOrphanInstances (FlipS (..))
+import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..), FlipS (..))
 import MnistData
 
 -- | The differentiable type of all trainable parameters of this nn.
@@ -150,7 +149,7 @@ convMnistTestS
   -> SNat n_hidden -> SNat batch_size
   -> ADCnnMnistParametersShaped shaped h w kh kw c_out n_hidden r
   -> MnistDataBatchS batch_size r
-  -> HVector (Flip OR.Array)
+  -> HVector (FlipR OR.Array)
   -> r
 convMnistTestS  _ _ _ _ batch_size@SNat _ _ _
   | sNatValue batch_size == 0 = 0

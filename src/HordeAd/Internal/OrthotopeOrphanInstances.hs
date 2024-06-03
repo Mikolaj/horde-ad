@@ -12,7 +12,7 @@ module HordeAd.Internal.OrthotopeOrphanInstances
   , lemShapeFromKnownShS, lemKnownNatRank, lemKnownShS
   , -- * Numeric instances for tensors
     liftVR, liftVR2, liftVS, liftVS2
-  , IntegralF(..), RealFloatF(..), FlipS(..)
+  , IntegralF(..), RealFloatF(..), FlipR(..), FlipS(..)
   , -- * Assorted orphans and additions
     PermC, trustMeThisIsAPermutation
   ) where
@@ -32,7 +32,6 @@ import qualified Data.Array.Internal.ShapedS as SS
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as Sh
 import qualified Data.Array.ShapedS as OS
-import           Data.Bifunctor.Flip
 import           Data.Kind (Type)
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality ((:~:) (Refl))
@@ -449,27 +448,61 @@ instance (Nested.Internal.Arith.NumElt r, Nested.PrimElt r, RealFloat r, RealFlo
          => RealFloatF (Nested.Shaped sh r) where
   atan2F = Nested.Internal.arithPromoteShaped2 (Nested.Internal.Mixed.mliftPrim2 atan2)
 
-deriving instance Num (f a b) => Num (Flip f b a)
+type role FlipR nominal nominal nominal
+type FlipR :: forall {k}. (Nat -> k -> Type) -> k -> Nat -> Type
+newtype FlipR p a (b :: Nat) = FlipR { runFlipR :: p b a }
 
-deriving instance Enum (f a b) => Enum (Flip f b a)
+instance (Show r, VS.Storable r, KnownNat n)
+         => Show (FlipR OR.Array r n) where
+  showsPrec :: Int -> FlipR OR.Array r n -> ShowS
+  showsPrec d (FlipR u) =
+    showString "Flip " . showParen True (showsPrec d u)
 
-deriving instance IntegralF (f a b) => IntegralF (Flip f b a)
+instance (Show (Nested.Mixed (Mixed.Types.Replicate n Nothing) r))
+         => Show (FlipR Nested.Ranked r n) where
+  showsPrec :: Int -> FlipR Nested.Ranked r n -> ShowS
+  showsPrec d (FlipR u) =
+    showString "Flip " . showParen True (showsPrec d u)
 
-deriving instance Integral (f a b) => Integral (Flip f b a)
+instance (Eq r, Numeric r, KnownNat n) => Eq (FlipR OR.Array r n) where
+  (==) :: FlipR OR.Array r n -> FlipR OR.Array r n -> Bool
+  FlipR u == FlipR v = u == v
 
-deriving instance Fractional (f a b) => Fractional (Flip f b a)
+instance (Eq r, Numeric r, KnownNat n, Eq (Nested.Mixed (Mixed.Types.Replicate n Nothing) r)) => Eq (FlipR Nested.Ranked r n) where
+  (==) :: FlipR Nested.Ranked r n -> FlipR Nested.Ranked r n -> Bool
+  FlipR u == FlipR v = u == v
 
-deriving instance Floating (f a b) => Floating (Flip f b a)
+instance (Ord r, Numeric r, KnownNat n) => Ord (FlipR OR.Array r n) where
+  (<=) :: FlipR OR.Array r n -> FlipR OR.Array r n -> Bool
+  FlipR u <= FlipR v = u <= v
 
-deriving instance Real (f a b) => Real (Flip f b a)
+instance (Ord r, Numeric r, KnownNat n, Eq (Nested.Mixed (Mixed.Types.Replicate n Nothing) r), Ord (Nested.Mixed '[] r)) => Ord (FlipR Nested.Ranked r n) where
+  (<=) :: FlipR Nested.Ranked r n -> FlipR Nested.Ranked r n -> Bool
+  FlipR u <= FlipR v = case sameNat (Proxy @n) (Proxy @0) of
+    Just Refl -> u <= v
+    _ -> undefined
 
-deriving instance RealFrac (f a b) => RealFrac (Flip f b a)
+deriving instance Num (f a b) => Num (FlipR f b a)
 
-deriving instance RealFloatF (f a b) => RealFloatF (Flip f b a)
+deriving instance Enum (f a b) => Enum (FlipR f b a)
 
-deriving instance RealFloat (f a b) => RealFloat (Flip f b a)
+deriving instance IntegralF (f a b) => IntegralF (FlipR f b a)
 
-deriving instance NFData (f a b) => NFData (Flip f b a)
+deriving instance (Integral (f a b), Ord (FlipR f b a)) => Integral (FlipR f b a)
+
+deriving instance Fractional (f a b) => Fractional (FlipR f b a)
+
+deriving instance Floating (f a b) => Floating (FlipR f b a)
+
+deriving instance (Real (f a b), Ord (FlipR f b a)) => Real (FlipR f b a)
+
+deriving instance (RealFrac (f a b), Ord (FlipR f b a)) => RealFrac (FlipR f b a)
+
+deriving instance RealFloatF (f a b) => RealFloatF (FlipR f b a)
+
+deriving instance (RealFloat (f a b), Ord (FlipR f b a)) => RealFloat (FlipR f b a)
+
+deriving instance NFData (f a b) => NFData (FlipR f b a)
 
 type role FlipS nominal nominal nominal
 type FlipS :: forall {k}. ([Nat] -> k -> Type) -> k -> [Nat] -> Type
@@ -479,13 +512,13 @@ instance (Show r, VS.Storable r, KnownShS sh)
          => Show (FlipS OS.Array r sh) where
   showsPrec :: Int -> FlipS OS.Array r sh -> ShowS
   showsPrec d (FlipS u) | Dict <- lemShapeFromKnownShS (Proxy @sh) =
-    showString "Flip " . showParen True (showsPrec d u)
+    showString "FlipR " . showParen True (showsPrec d u)
 
 instance (Show (Nested.Mixed (Mixed.Types.MapJust sh) r))
          => Show (FlipS Nested.Shaped r sh) where
   showsPrec :: Int -> FlipS Nested.Shaped r sh -> ShowS
   showsPrec d (FlipS u) =
-    showString "Flip " . showParen True (showsPrec d u)
+    showString "FlipR " . showParen True (showsPrec d u)
 
 instance (Eq r, Numeric r, KnownShS sh) => Eq (FlipS OS.Array r sh) where
   (==) :: FlipS OS.Array r sh -> FlipS OS.Array r sh -> Bool

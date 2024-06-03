@@ -8,7 +8,6 @@ import Prelude
 
 import           Criterion.Main
 import qualified Data.Array.RankedS as OR
-import           Data.Bifunctor.Flip
 import           Data.List (foldl1')
 import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality (gcastWith, (:~:) (Refl))
@@ -27,6 +26,7 @@ import           Unsafe.Coerce (unsafeCoerce)
 
 import HordeAd
 import HordeAd.Internal.BackendConcrete
+import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..))
 
 bgroup100, bgroup1000, bgroup1e4, bgroup1e5, bgroup1e6, bgroup1e7, bgroup5e7 :: [Double] -> Benchmark
 bgroup100 = envProd 100 $ \args -> bgroup "100" $ benchProd args
@@ -46,20 +46,20 @@ bgroup5e7 = envProd 5e7 $ \args -> bgroup "5e7" $ benchProd args
 
 envProd :: r ~ Double
         => Rational
-        -> (([r], [Flip OR.Array r 0], Data.Vector.Vector (Flip OR.Array r 0))
+        -> (([r], [FlipR OR.Array r 0], Data.Vector.Vector (FlipR OR.Array r 0))
             -> Benchmark)
         -> [r]
         -> Benchmark
 envProd k f allxs =
   env (return $!
          let l = take (round k) allxs
-             list = map (Flip . tscalarR) l
-             vec :: Data.Vector.Vector (Flip OR.Array Double 0)
+             list = map (FlipR . tscalarR) l
+             vec :: Data.Vector.Vector (FlipR OR.Array Double 0)
              vec = V.fromList list
          in (l, list, vec)) f
 
 benchProd :: r ~ Double
-          => ([r], [Flip OR.Array r 0], Data.Vector.Vector (Flip OR.Array r 0))
+          => ([r], [FlipR OR.Array r 0], Data.Vector.Vector (FlipR OR.Array r 0))
           -> [Benchmark]
 benchProd ~(_l, list, _vec) =
     [ bench "crev List" $ nf crevRankedListProd list
@@ -73,13 +73,13 @@ benchProd ~(_l, list, _vec) =
 -- has a negligible cost, so we are creating such vectors below freely
 --    , bench "crev List2Vec" $
 --        nf (map (tunScalarR . runFlip) . V.toList . crev rankedVecProd)
---           (let list2 = map (Flip . tscalarR) l
---                vec2 :: Data.Vector.Vector (Flip OR.Array Double 0)
+--           (let list2 = map (FlipR . tscalarR) l
+--                vec2 :: Data.Vector.Vector (FlipR OR.Array Double 0)
 --                vec2 = V.fromList list2
 --            in vec2)
 {- bit-rotten
     , bench "VecD crev" $
-        let f :: DynamicTensor (Flip OR.Array) -> Flip OR.Array Double 0
+        let f :: DynamicTensor (FlipR OR.Array) -> FlipR OR.Array Double 0
             f (DynamicRanked @r2 @n2 d) =
                  gcastWith (unsafeCoerce Refl :: r2 :~: Double) $
                  gcastWith (unsafeCoerce Refl :: n2 :~: 0) $
@@ -96,20 +96,20 @@ rankedListProd :: (RankedTensor ranked, GoodScalar r)
                => [ranked r 0] -> ranked r 0
 rankedListProd = foldl1' (*)
 
-crevRankedListProd :: [Flip OR.Array Double 0] -> [Flip OR.Array Double 0]
+crevRankedListProd :: [FlipR OR.Array Double 0] -> [FlipR OR.Array Double 0]
 crevRankedListProd = crev rankedListProd
 
-revRankedListProd :: [Flip OR.Array Double 0] -> [Flip OR.Array Double 0]
+revRankedListProd :: [FlipR OR.Array Double 0] -> [FlipR OR.Array Double 0]
 revRankedListProd = rev @Double @0 @(AstRanked FullSpan) rankedListProd
 
 rankedListProdr :: (RankedTensor ranked, GoodScalar r)
                 => [ranked r 0] -> ranked r 0
 rankedListProdr = foldr1 (*)
 
-crevRankedListProdr :: [Flip OR.Array Double 0] -> [Flip OR.Array Double 0]
+crevRankedListProdr :: [FlipR OR.Array Double 0] -> [FlipR OR.Array Double 0]
 crevRankedListProdr = crev rankedListProdr
 
-revRankedListProdr :: [Flip OR.Array Double 0] -> [Flip OR.Array Double 0]
+revRankedListProdr :: [FlipR OR.Array Double 0] -> [FlipR OR.Array Double 0]
 revRankedListProdr = rev @Double @0 @(AstRanked FullSpan) rankedListProdr
 
 _rankedVecProd :: (RankedTensor ranked, GoodScalar r)
@@ -139,13 +139,13 @@ rankedVecDProd =
   in V.foldl' f 0
 
 rankedNoShareListProd :: GoodScalar r
-                      => [ADVal (Flip OR.Array) r 0]
-                      -> ADVal (Flip OR.Array) r 0
+                      => [ADVal (FlipR OR.Array) r 0]
+                      -> ADVal (FlipR OR.Array) r 0
 rankedNoShareListProd = foldl1' multNotShared
 
 _rankedNoShareVecProd :: GoodScalar r
-                      => Data.Vector.Vector (ADVal (Flip OR.Array) r 0)
-                      -> ADVal (Flip OR.Array) r 0
+                      => Data.Vector.Vector (ADVal (FlipR OR.Array) r 0)
+                      -> ADVal (FlipR OR.Array) r 0
 _rankedNoShareVecProd = V.foldl1' multNotShared
 
 

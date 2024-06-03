@@ -10,7 +10,6 @@ import Prelude hiding (foldl')
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
-import           Data.Bifunctor.Flip
 import           Data.Kind (Type)
 import           Data.List (foldl')
 import           Data.Proxy (Proxy (Proxy))
@@ -28,7 +27,7 @@ import HordeAd.Core.Types
 import HordeAd.External.CommonShapedOps (lossSoftMaxCrossEntropyS)
 import HordeAd.Internal.BackendConcrete (tunravelToListS)
 import HordeAd.Internal.BackendOX (OSArray)
-import HordeAd.Internal.OrthotopeOrphanInstances (FlipS (..))
+import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..), FlipS (..))
 import HordeAd.Util.ShapedList (pattern (:.$), pattern ZIS)
 import MnistData
 
@@ -156,7 +155,7 @@ rnnMnistTestS
   -> SNat batch_size
   -> ADRnnMnistParametersShaped shaped h out_width r
   -> MnistDataBatchS batch_size r
-  -> HVector (Flip OR.Array)
+  -> HVector (FlipR OR.Array)
   -> r
 rnnMnistTestS out_width@SNat batch_size@SNat
               valsInit (glyphS, labelS) testParams =

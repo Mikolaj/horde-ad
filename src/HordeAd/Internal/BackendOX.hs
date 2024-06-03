@@ -22,7 +22,6 @@ import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as Sh
 import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
-import           Data.Bifunctor.Flip
 import           Data.Functor (void)
 import           Data.Int (Int64)
 import           Data.List (foldl')
@@ -61,13 +60,13 @@ import qualified Data.Array.Nested.Internal.Shaped as Nested.Internal
 
 import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances
-  (FlipS, liftVR, liftVS)
+  (FlipR (..), FlipS, liftVR, liftVS)
 import           HordeAd.Internal.TensorFFI
 import           HordeAd.Util.ShapedList (IndexS, ShapedNat)
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedList
 
-type ORArray = Flip OR.Array
+type ORArray = FlipR OR.Array
 
 type OSArray = FlipS Nested.Shaped
 
@@ -397,10 +396,10 @@ tscaleByScalarR :: (Numeric r, KnownNat n)
 tscaleByScalarR s = liftVR (LA.scale s)
 
 toIndexOfR :: IndexInt n -> Index n (ORArray Int64 0)
-toIndexOfR ix = Flip . tscalarR <$> ix
+toIndexOfR ix = FlipR . tscalarR <$> ix
 
 fromIndexOfR :: Index n (ORArray Int64 0) -> IndexInt n
-fromIndexOfR ixOf = tunScalarR . runFlip <$> ixOf
+fromIndexOfR ixOf = tunScalarR . runFlipR <$> ixOf
 
 
 -- * Shaped tensor operations
@@ -837,7 +836,7 @@ tscaleByScalarS s =
   (Nested.sreplicateScal Nested.knownShS s *)
 
 toIndexOfS :: IndexIntSh sh -> IndexS sh (ORArray Int64 0)
-toIndexOfS ix = Flip . tscalarR <$> ix
+toIndexOfS ix = FlipR . tscalarR <$> ix
 
 fromIndexOfS :: IndexS sh (ORArray Int64 0) -> IndexIntSh sh
-fromIndexOfS ixOf = tunScalarR . runFlip <$> ixOf
+fromIndexOfS ixOf = tunScalarR . runFlipR <$> ixOf

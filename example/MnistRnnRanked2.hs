@@ -6,7 +6,6 @@ module MnistRnnRanked2 where
 import Prelude hiding (foldl')
 
 import qualified Data.Array.RankedS as OR
-import           Data.Bifunctor.Flip
 import           Data.Kind (Type)
 import           Data.List (foldl')
 import qualified Data.Vector.Generic as V
@@ -18,6 +17,7 @@ import HordeAd.Core.HVector
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.External.CommonRankedOps
+import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..))
 import HordeAd.Util.SizedList
 import MnistData
 
@@ -130,23 +130,23 @@ rnnMnistLossFusedR batch_size (glyphR, labelR) adparameters =
 
 rnnMnistTestR
   :: forall ranked r.
-     (ranked ~ Flip OR.Array, GoodScalar r, Differentiable r)
+     (ranked ~ FlipR OR.Array, GoodScalar r, Differentiable r)
   => ADRnnMnistParameters ranked r
   -> Int
   -> MnistDataBatchR r  -- batch_size
-  -> HVector (Flip OR.Array)
+  -> HVector (FlipR OR.Array)
   -> r
 rnnMnistTestR _ 0 _ _ = 0
 rnnMnistTestR valsInit batch_size (glyphR, labelR) testParams =
-  let xs = Flip $ OR.transpose [2, 1, 0] glyphR
+  let xs = FlipR $ OR.transpose [2, 1, 0] glyphR
       outputR =
         let nn :: ADRnnMnistParameters ranked r
                     -- SizeMnistHeight out_width
                -> ranked r 2  -- [SizeMnistLabel, batch_size]
             nn = rnnMnistZeroR batch_size xs
-        in runFlip $ nn $ parseHVector valsInit testParams
-      outputs = map OR.toVector $ map runFlip $ runravelToList $ Flip $ OR.transpose [1, 0] outputR
-      labels = map OR.toVector $ map runFlip $ runravelToList $ Flip labelR
+        in runFlipR $ nn $ parseHVector valsInit testParams
+      outputs = map OR.toVector $ map runFlipR $ runravelToList $ FlipR $ OR.transpose [1, 0] outputR
+      labels = map OR.toVector $ map runFlipR $ runravelToList $ FlipR labelR
       matchesLabels :: Vector r -> Vector r -> Int
       matchesLabels output label | V.maxIndex output == V.maxIndex label = 1
                                  | otherwise = 0

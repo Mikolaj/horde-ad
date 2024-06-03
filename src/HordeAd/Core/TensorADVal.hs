@@ -20,7 +20,6 @@ import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as Sh
 import qualified Data.Array.ShapedS as OS
-import           Data.Bifunctor.Flip
 import           Data.Function ((&))
 import           Data.List (foldl')
 import           Data.List.Index (imap)
@@ -48,7 +47,7 @@ import           HordeAd.Core.TensorClass
 import           HordeAd.Core.Types
 import           HordeAd.Internal.BackendOX (OSArray)
 import           HordeAd.Internal.OrthotopeOrphanInstances
-  (FlipS (..), lemKnownShS)
+  (FlipR (..), FlipS (..), lemKnownShS)
 import           HordeAd.Util.ShapedList (IntSh)
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedList
@@ -124,9 +123,9 @@ instance (KnownNat n, GoodScalar r, ADReady ranked)
 {- TODO: RULE left-hand side too complicated to desugar in GHC 9.6.4
     with -O0, but not -O1
   {-# SPECIALIZE instance
-      (KnownNat n, ADReady (Flip OR.Array))
-      => AdaptableHVector (ADVal (Flip OR.Array))
-                          (ADVal (Flip OR.Array) Double n) #-}
+      (KnownNat n, ADReady (FlipR OR.Array))
+      => AdaptableHVector (ADVal (FlipR OR.Array))
+                          (ADVal (FlipR OR.Array) Double n) #-}
   {-# SPECIALIZE instance
       (KnownNat n, ADReady (AstRanked PrimalSpan))
       => AdaptableHVector (ADVal (AstRanked PrimalSpan))
@@ -137,15 +136,15 @@ instance (KnownNat n, GoodScalar r, ADReady ranked)
 
 instance (KnownNat n, GoodScalar r, ADReady ranked)
          => DualNumberValue (ADVal ranked r n) where
-  type DValue (ADVal ranked r n) = Flip OR.Array r n  -- ! not Value(ranked)
-  fromDValue t = constantADVal $ rconst $ runFlip t
+  type DValue (ADVal ranked r n) = FlipR OR.Array r n  -- ! not Value(ranked)
+  fromDValue t = constantADVal $ rconst $ runFlipR t
 
 -- This is temporarily moved from Adaptor in order to specialize manually
 instance AdaptableHVector ranked a
          => AdaptableHVector ranked [a] where
   {-# SPECIALIZE instance
-      AdaptableHVector (Flip OR.Array) (OR.Array n Double)
-      => AdaptableHVector (Flip OR.Array)
+      AdaptableHVector (FlipR OR.Array) (OR.Array n Double)
+      => AdaptableHVector (FlipR OR.Array)
                           [OR.Array n Double] #-}
   {-# SPECIALIZE instance
       AdaptableHVector (AstRanked s)

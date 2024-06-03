@@ -19,7 +19,6 @@ module HordeAd.Core.Engine
 import Prelude
 
 import qualified Data.Array.RankedS as OR
-import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
 import           Data.Int (Int64)
 import           Data.Maybe (fromMaybe, isJust)
@@ -40,7 +39,7 @@ import HordeAd.Core.TensorADVal
 import HordeAd.Core.TensorAst
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
-import HordeAd.Internal.BackendOX (OSArray)
+import HordeAd.Internal.BackendOX (ORArray, OSArray)
 
 -- * Reverse derivative adaptors
 
@@ -63,8 +62,8 @@ rev
      ( tgtAstVals ~ g r y
      , AdaptableHVector (AstRanked FullSpan) astvals
      , AdaptableHVector (AstRanked FullSpan) tgtAstVals
-     , AdaptableHVector (Flip OR.Array) (Value astvals)
-     , AdaptableHVector (Flip OR.Array) (Value tgtAstVals)
+     , AdaptableHVector ORArray (Value astvals)
+     , AdaptableHVector ORArray (Value tgtAstVals)
      , TermValue astvals )
   => (astvals -> tgtAstVals) -> Value astvals -> Value astvals
 {-# INLINE rev #-}
@@ -82,8 +81,8 @@ revDt
   :: forall tgtAstVals astvals.
      ( AdaptableHVector (AstRanked FullSpan) astvals
      , AdaptableHVector (AstRanked FullSpan) tgtAstVals
-     , AdaptableHVector (Flip OR.Array) (Value astvals)
-     , AdaptableHVector (Flip OR.Array) (Value tgtAstVals)
+     , AdaptableHVector ORArray (Value astvals)
+     , AdaptableHVector ORArray (Value tgtAstVals)
      , TermValue astvals )
   => (astvals -> tgtAstVals) -> Value astvals -> Value tgtAstVals
   -> Value astvals
@@ -94,8 +93,8 @@ revDtMaybe
   :: forall tgtAstVals astvals.
      ( AdaptableHVector (AstRanked FullSpan) astvals
      , AdaptableHVector (AstRanked FullSpan) tgtAstVals
-     , AdaptableHVector (Flip OR.Array) (Value astvals)
-     , AdaptableHVector (Flip OR.Array) (Value tgtAstVals)
+     , AdaptableHVector ORArray (Value astvals)
+     , AdaptableHVector ORArray (Value tgtAstVals)
      , TermValue astvals )
   => (astvals -> tgtAstVals) -> Value astvals -> Maybe (Value tgtAstVals)
   -> Value astvals
@@ -112,11 +111,11 @@ revDtMaybe f vals mdt =
 {-# SPECIALIZE revDtMaybe
   :: ( KnownNat n
      , AdaptableHVector (AstRanked FullSpan) astvals
-     , AdaptableHVector (Flip OR.Array) (Value astvals)
+     , AdaptableHVector ORArray (Value astvals)
      , TermValue astvals )
   => (astvals -> AstRanked FullSpan Double n)
   -> Value astvals
-  -> Maybe (Flip OR.Array Double n)
+  -> Maybe (ORArray Double n)
   -> Value astvals #-}
 
 revArtifactAdapt
@@ -124,20 +123,20 @@ revArtifactAdapt
      ( tgtAstVals ~ g r y
      , AdaptableHVector (AstRanked FullSpan) astvals
      , AdaptableHVector (AstRanked FullSpan) tgtAstVals
-     , AdaptableHVector (Flip OR.Array) (Value astvals)
+     , AdaptableHVector ORArray (Value astvals)
      , TermValue astvals )
   => Bool -> (astvals -> tgtAstVals) -> Value astvals
   -> (AstArtifact, DeltaH (AstRaw PrimalSpan))
 revArtifactAdapt hasDt f vals =
   let g hVector = HVectorPseudoTensor
                   $ toHVectorOf $ f $ parseHVector (fromValue vals) hVector
-      valsH = toHVectorOf @(Flip OR.Array) vals
+      valsH = toHVectorOf @ORArray vals
       voidH = voidFromHVector valsH
   in revProduceArtifact hasDt g EM.empty voidH
 {-# SPECIALIZE revArtifactAdapt
   :: ( KnownNat n
      , AdaptableHVector (AstRanked FullSpan) astvals
-     , AdaptableHVector (Flip OR.Array) (Value astvals)
+     , AdaptableHVector ORArray (Value astvals)
      , TermValue astvals )
   => Bool -> (astvals -> AstRanked FullSpan Double n) -> Value astvals
   -> (AstArtifact, DeltaH (AstRaw PrimalSpan)) #-}
@@ -171,9 +170,9 @@ forwardPassByApplication g hVectorPrimal _vars _hVector =
 
 revEvalArtifact
   :: AstArtifact
-  -> HVector (Flip OR.Array)
-  -> Maybe (HVector (Flip OR.Array))
-  -> (HVector (Flip OR.Array), HVector (Flip OR.Array))
+  -> HVector ORArray
+  -> Maybe (HVector ORArray)
+  -> (HVector ORArray, HVector ORArray)
 {-# INLINE revEvalArtifact #-}
 revEvalArtifact (AstArtifact varsDt vars
                              (AstRawWrap gradient) (AstRawWrap primal))
@@ -206,8 +205,8 @@ fwd
   :: forall tgtAstVals astvals.
      ( AdaptableHVector (AstRanked FullSpan) astvals
      , AdaptableHVector (AstRanked FullSpan) tgtAstVals
-     , AdaptableHVector (Flip OR.Array) (Value astvals)
-     , AdaptableHVector (Flip OR.Array) (Value tgtAstVals)
+     , AdaptableHVector ORArray (Value astvals)
+     , AdaptableHVector ORArray (Value tgtAstVals)
      , TermValue astvals )
   => (astvals -> tgtAstVals) -> Value astvals -> Value astvals
   -> Value tgtAstVals
@@ -226,22 +225,22 @@ fwdArtifactAdapt
      ( tgtAstVals ~ g r y
      , AdaptableHVector (AstRanked FullSpan) astvals
      , AdaptableHVector (AstRanked FullSpan) tgtAstVals
-     , AdaptableHVector (Flip OR.Array) (Value astvals)
+     , AdaptableHVector ORArray (Value astvals)
      , TermValue astvals )
   => (astvals -> tgtAstVals) -> Value astvals
   -> (AstArtifact, DeltaH (AstRaw PrimalSpan))
 fwdArtifactAdapt f vals =
   let g hVector = HVectorPseudoTensor
                   $ toHVectorOf $ f $ parseHVector (fromValue vals) hVector
-      valsH = toHVectorOf @(Flip OR.Array) vals
+      valsH = toHVectorOf @ORArray vals
       voidH = voidFromHVector valsH
   in fwdProduceArtifact g EM.empty voidH
 
 fwdEvalArtifact
   :: AstArtifact
-  -> HVector (Flip OR.Array)
-  -> HVector (Flip OR.Array)
-  -> (HVector (Flip OR.Array), HVector (Flip OR.Array))
+  -> HVector ORArray
+  -> HVector ORArray
+  -> (HVector ORArray, HVector ORArray)
 {-# INLINE fwdEvalArtifact #-}
 fwdEvalArtifact (AstArtifact varDs vars derivative primal) parameters ds =
   if hVectorsMatch parameters ds then
@@ -255,7 +254,7 @@ fwdEvalArtifact (AstArtifact varDs vars derivative primal) parameters ds =
 
 -- * Old gradient adaptors, with constant and fixed inputs and dt
 
--- The equality `RankedOf f ~ Flip OR.Array` is needed for type-checking
+-- The equality `RankedOf f ~ ORArray` is needed for type-checking
 -- later on, even though GHC 9.6.4 reports it as redundant.
 --
 -- We are inlining these functions because they take function arguments
@@ -267,11 +266,11 @@ fwdEvalArtifact (AstArtifact varDs vars derivative primal) parameters ds =
 -- These work for @f@ both ranked and shaped.
 crev
   :: forall r y f vals advals.
-     ( RankedOf f ~ Flip OR.Array
-     , AdaptableHVector (ADVal (Flip OR.Array)) advals
-     , AdaptableHVector (ADVal (Flip OR.Array)) (ADVal f r y)
-     , AdaptableHVector (Flip OR.Array) vals
-     , AdaptableHVector (Flip OR.Array) (f r y)
+     ( RankedOf f ~ ORArray
+     , AdaptableHVector (ADVal ORArray) advals
+     , AdaptableHVector (ADVal ORArray) (ADVal f r y)
+     , AdaptableHVector ORArray vals
+     , AdaptableHVector ORArray (f r y)
      , DualNumberValue advals, vals ~ DValue advals )
   => (advals -> ADVal f r y) -> vals -> vals
 {-# INLINE crev #-}
@@ -280,11 +279,11 @@ crev f vals = crevDtMaybe f vals Nothing
 -- | This version additionally takes the sensitivity parameter.
 crevDt
   :: forall r y f vals advals.
-     ( RankedOf f ~ Flip OR.Array
-     , AdaptableHVector (ADVal (Flip OR.Array)) advals
-     , AdaptableHVector (ADVal (Flip OR.Array)) (ADVal f r y)
-     , AdaptableHVector (Flip OR.Array) vals
-     , AdaptableHVector (Flip OR.Array) (f r y)
+     ( RankedOf f ~ ORArray
+     , AdaptableHVector (ADVal ORArray) advals
+     , AdaptableHVector (ADVal ORArray) (ADVal f r y)
+     , AdaptableHVector ORArray vals
+     , AdaptableHVector ORArray (f r y)
      , DualNumberValue advals, vals ~ DValue advals )
   => (advals -> ADVal f r y) -> vals -> f r y -> vals
 {-# INLINE crevDt #-}
@@ -292,11 +291,11 @@ crevDt f vals dt = crevDtMaybe f vals (Just dt)
 
 crevDtMaybe
   :: forall r y f vals advals.
-     ( RankedOf f ~ Flip OR.Array
-     , AdaptableHVector (ADVal (Flip OR.Array)) advals
-     , AdaptableHVector (ADVal (Flip OR.Array)) (ADVal f r y)
-     , AdaptableHVector (Flip OR.Array) vals
-     , AdaptableHVector (Flip OR.Array) (f r y)
+     ( RankedOf f ~ ORArray
+     , AdaptableHVector (ADVal ORArray) advals
+     , AdaptableHVector (ADVal ORArray) (ADVal f r y)
+     , AdaptableHVector ORArray vals
+     , AdaptableHVector ORArray (f r y)
      , DualNumberValue advals, vals ~ DValue advals )
   => (advals -> ADVal f r y) -> vals -> Maybe (f r y) -> vals
 {-# INLINE crevDtMaybe #-}
@@ -304,16 +303,16 @@ crevDtMaybe f vals mdt =
   let g hVector = hVectorADValToADVal
                   $ toHVectorOf $ f $ parseHVector (fromDValue vals) hVector
       valsH = toHVectorOf vals
-      mdth = toHVector @(Flip OR.Array) <$> mdt
+      mdth = toHVector @ORArray <$> mdt
   in parseHVector vals
      $ fst $ crevOnHVector mdth g valsH
 
 {-# SPECIALIZE crevOnHVector
-  :: Maybe (HVector (Flip OR.Array))
-  -> (HVector (ADVal (Flip OR.Array))
-  -> ADVal (HVectorPseudoTensor (Flip OR.Array)) Float '())
-  -> HVector (Flip OR.Array)
-  -> (HVector (Flip OR.Array), HVector (Flip OR.Array)) #-}
+  :: Maybe (HVector ORArray)
+  -> (HVector (ADVal ORArray)
+  -> ADVal (HVectorPseudoTensor ORArray) Float '())
+  -> HVector ORArray
+  -> (HVector ORArray, HVector ORArray) #-}
 
 
 -- * Old derivative adaptors, with constant and fixed inputs
@@ -321,16 +320,16 @@ crevDtMaybe f vals mdt =
 -- | This takes the sensitivity parameter, by convention.
 cfwd
   :: forall r y f vals advals.
-     ( RankedOf f ~ Flip OR.Array
-     , AdaptableHVector (ADVal (Flip OR.Array)) advals
-     , AdaptableHVector (ADVal (Flip OR.Array)) (ADVal f r y)
-     , AdaptableHVector (Flip OR.Array) vals
-     , AdaptableHVector (Flip OR.Array) (f r y)
+     ( RankedOf f ~ ORArray
+     , AdaptableHVector (ADVal ORArray) advals
+     , AdaptableHVector (ADVal ORArray) (ADVal f r y)
+     , AdaptableHVector ORArray vals
+     , AdaptableHVector ORArray (f r y)
      , DualNumberValue advals, vals ~ DValue advals )
   => (advals -> ADVal f r y) -> vals -> vals -> f r y
 cfwd f vals ds =
   let g hVector = hVectorADValToADVal
-                  $ toHVectorOf @(ADVal (Flip OR.Array))
+                  $ toHVectorOf @(ADVal ORArray)
                   $ f $ parseHVector (fromDValue vals) hVector
       valsH = toHVectorOf vals
       dsH = toHVectorOf ds
@@ -350,9 +349,9 @@ cfwd f vals ds =
 
 {-# SPECIALIZE interpretAstPrimalRuntimeSpecialized
   :: (KnownNat n, Typeable r)
-  => AstEnv (ADVal (Flip OR.Array))
+  => AstEnv (ADVal ORArray)
   -> AstRanked PrimalSpan r n
-  -> Flip OR.Array r n #-}
+  -> ORArray r n #-}
 {-# SPECIALIZE interpretAstPrimalRuntimeSpecialized
   :: (KnownNat n, Typeable r)
   => AstEnv (ADVal (AstRanked PrimalSpan))
@@ -360,13 +359,13 @@ cfwd f vals ds =
   -> AstRanked PrimalSpan r n #-}
 {-# SPECIALIZE interpretAstPrimalRuntimeSpecialized
   :: (KnownNat n, Typeable r)
-  => AstEnv (Flip OR.Array)
+  => AstEnv ORArray
   -> AstRanked PrimalSpan r n
-  -> Flip OR.Array r n #-}
+  -> ORArray r n #-}
 
 {-# SPECIALIZE interpretAstPrimalSRuntimeSpecialized
   :: (KnownShS sh, Typeable r)
-  => AstEnv (ADVal (Flip OR.Array))
+  => AstEnv (ADVal ORArray)
   -> AstShaped PrimalSpan r sh
   -> OSArray r sh #-}
 {-# SPECIALIZE interpretAstPrimalSRuntimeSpecialized
@@ -376,30 +375,30 @@ cfwd f vals ds =
   -> AstShaped PrimalSpan r sh #-}
 {-# SPECIALIZE interpretAstPrimalSRuntimeSpecialized
   :: (KnownShS sh, Typeable r)
-  => AstEnv (Flip OR.Array)
+  => AstEnv ORArray
   -> AstShaped PrimalSpan r sh
   -> OSArray r sh #-}
 
 {-# SPECIALIZE interpretAstPrimal
   :: (KnownNat n, GoodScalar r)
-  => AstEnv (ADVal (Flip OR.Array))
+  => AstEnv (ADVal ORArray)
   -> AstRanked PrimalSpan r n
-  -> Flip OR.Array r n #-}
+  -> ORArray r n #-}
 {-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
-  => AstEnv (ADVal (Flip OR.Array))
+  => AstEnv (ADVal ORArray)
   -> AstRanked PrimalSpan Double n
-  -> Flip OR.Array Double n #-}
+  -> ORArray Double n #-}
 {-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
-  => AstEnv (ADVal (Flip OR.Array))
+  => AstEnv (ADVal ORArray)
   -> AstRanked PrimalSpan Float n
-  -> Flip OR.Array Float n #-}
+  -> ORArray Float n #-}
 {-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
-  => AstEnv (ADVal (Flip OR.Array))
+  => AstEnv (ADVal ORArray)
   -> AstRanked PrimalSpan Int64 n
-  -> Flip OR.Array Int64 n #-}
+  -> ORArray Int64 n #-}
 {-# SPECIALIZE interpretAstPrimal
   :: (KnownNat n, GoodScalar r)
   => AstEnv (ADVal (AstRanked PrimalSpan))
@@ -422,43 +421,43 @@ cfwd f vals ds =
   -> AstRanked PrimalSpan Int64 n #-}
 {-# SPECIALIZE interpretAstPrimal
   :: (KnownNat n, GoodScalar r)
-  => AstEnv (Flip OR.Array)
+  => AstEnv ORArray
   -> AstRanked PrimalSpan r n
-  -> Flip OR.Array r n #-}
+  -> ORArray r n #-}
 {-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
-  => AstEnv (Flip OR.Array)
+  => AstEnv ORArray
   -> AstRanked PrimalSpan Double n
-  -> Flip OR.Array Double n #-}
+  -> ORArray Double n #-}
 {-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
-  => AstEnv (Flip OR.Array)
+  => AstEnv ORArray
   -> AstRanked PrimalSpan Float n
-  -> Flip OR.Array Float n #-}
+  -> ORArray Float n #-}
 {-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
-  => AstEnv (Flip OR.Array)
+  => AstEnv ORArray
   -> AstRanked PrimalSpan Int64 n
-  -> Flip OR.Array Int64 n #-}
+  -> ORArray Int64 n #-}
 
 {-# SPECIALIZE interpretAstPrimalS
   :: (KnownShS sh, GoodScalar r)
-  => AstEnv (ADVal (Flip OR.Array))
+  => AstEnv (ADVal ORArray)
   -> AstShaped PrimalSpan r sh
   -> OSArray r sh #-}
 {-# SPECIALIZE interpretAstPrimalS
   :: KnownShS sh
-  => AstEnv (ADVal (Flip OR.Array))
+  => AstEnv (ADVal ORArray)
   -> AstShaped PrimalSpan Double sh
   -> OSArray Double sh #-}
 {-# SPECIALIZE interpretAstPrimalS
   :: KnownShS sh
-  => AstEnv (ADVal (Flip OR.Array))
+  => AstEnv (ADVal ORArray)
   -> AstShaped PrimalSpan Float sh
   -> OSArray Float sh #-}
 {-# SPECIALIZE interpretAstPrimalS
   :: KnownShS sh
-  => AstEnv (ADVal (Flip OR.Array))
+  => AstEnv (ADVal ORArray)
   -> AstShaped PrimalSpan Int64 sh
   -> OSArray Int64 sh #-}
 {-# SPECIALIZE interpretAstPrimalS
@@ -483,45 +482,45 @@ cfwd f vals ds =
   -> AstShaped PrimalSpan Int64 sh #-}
 {-# SPECIALIZE interpretAstPrimalS
   :: (KnownShS sh, GoodScalar r)
-  => AstEnv (Flip OR.Array)
+  => AstEnv ORArray
   -> AstShaped PrimalSpan r sh
   -> OSArray r sh #-}
 {-# SPECIALIZE interpretAstPrimalS
   :: KnownShS sh
-  => AstEnv (Flip OR.Array)
+  => AstEnv ORArray
   -> AstShaped PrimalSpan Double sh
   -> OSArray Double sh #-}
 {-# SPECIALIZE interpretAstPrimalS
   :: KnownShS sh
-  => AstEnv (Flip OR.Array)
+  => AstEnv ORArray
   -> AstShaped PrimalSpan Float sh
   -> OSArray Float sh #-}
 {-# SPECIALIZE interpretAstPrimalS
   :: KnownShS sh
-  => AstEnv (Flip OR.Array)
+  => AstEnv ORArray
   -> AstShaped PrimalSpan Int64 sh
   -> OSArray Int64 sh #-}
 
 {-# SPECIALIZE interpretAstDual
   :: (KnownNat n, GoodScalar r)
-  => AstEnv (ADVal (Flip OR.Array))
+  => AstEnv (ADVal ORArray)
   -> AstRanked DualSpan r n
-  -> DeltaR (Flip OR.Array) r n #-}
+  -> DeltaR ORArray r n #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
-  => AstEnv (ADVal (Flip OR.Array))
+  => AstEnv (ADVal ORArray)
   -> AstRanked DualSpan Double n
-  -> DeltaR (Flip OR.Array) Double n #-}
+  -> DeltaR ORArray Double n #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
-  => AstEnv (ADVal (Flip OR.Array))
+  => AstEnv (ADVal ORArray)
   -> AstRanked DualSpan Float n
-  -> DeltaR (Flip OR.Array) Float n #-}
+  -> DeltaR ORArray Float n #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
-  => AstEnv (ADVal (Flip OR.Array))
+  => AstEnv (ADVal ORArray)
   -> AstRanked DualSpan Int64 n
-  -> DeltaR (Flip OR.Array) Int64 n #-}
+  -> DeltaR ORArray Int64 n #-}
 {-# SPECIALIZE interpretAstDual
   :: (KnownNat n, GoodScalar r)
   => AstEnv (ADVal (AstRanked PrimalSpan))
@@ -544,43 +543,43 @@ cfwd f vals ds =
   -> DeltaR (AstRanked PrimalSpan) Int64 n #-}
 {-# SPECIALIZE interpretAstDual
   :: (KnownNat n, GoodScalar r)
-  => AstEnv (Flip OR.Array)
+  => AstEnv ORArray
   -> AstRanked DualSpan r n
   -> DummyDual r n #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
-  => AstEnv (Flip OR.Array)
+  => AstEnv ORArray
   -> AstRanked DualSpan Double n
   -> DummyDual Double n #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
-  => AstEnv (Flip OR.Array)
+  => AstEnv ORArray
   -> AstRanked DualSpan Float n
   -> DummyDual Float n #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
-  => AstEnv (Flip OR.Array)
+  => AstEnv ORArray
   -> AstRanked DualSpan Int64 n
   -> DummyDual Int64 n #-}
 
 {-# SPECIALIZE interpretAstDualS
   :: (KnownShS sh, GoodScalar r)
-  => AstEnv (ADVal (Flip OR.Array))
+  => AstEnv (ADVal ORArray)
   -> AstShaped DualSpan r sh
   -> DeltaS OSArray r sh #-}
 {-# SPECIALIZE interpretAstDualS
   :: KnownShS sh
-  => AstEnv (ADVal (Flip OR.Array))
+  => AstEnv (ADVal ORArray)
   -> AstShaped DualSpan Double sh
   -> DeltaS OSArray Double sh #-}
 {-# SPECIALIZE interpretAstDualS
   :: KnownShS sh
-  => AstEnv (ADVal (Flip OR.Array))
+  => AstEnv (ADVal ORArray)
   -> AstShaped DualSpan Float sh
   -> DeltaS OSArray Float sh #-}
 {-# SPECIALIZE interpretAstDualS
   :: KnownShS sh
-  => AstEnv (ADVal (Flip OR.Array))
+  => AstEnv (ADVal ORArray)
   -> AstShaped DualSpan Int64 sh
   -> DeltaS OSArray Int64 sh #-}
 {-# SPECIALIZE interpretAstDualS
@@ -605,22 +604,22 @@ cfwd f vals ds =
   -> DeltaS (AstShaped PrimalSpan) Int64 sh #-}
 {-# SPECIALIZE interpretAstDualS
   :: (KnownShS sh, GoodScalar r)
-  => AstEnv (Flip OR.Array)
+  => AstEnv ORArray
   -> AstShaped DualSpan r sh
   -> DummyDual r sh #-}
 {-# SPECIALIZE interpretAstDualS
   :: KnownShS sh
-  => AstEnv (Flip OR.Array)
+  => AstEnv ORArray
   -> AstShaped DualSpan Double sh
   -> DummyDual Double sh #-}
 {-# SPECIALIZE interpretAstDualS
   :: KnownShS sh
-  => AstEnv (Flip OR.Array)
+  => AstEnv ORArray
   -> AstShaped DualSpan Float sh
   -> DummyDual Float sh #-}
 {-# SPECIALIZE interpretAstDualS
   :: KnownShS sh
-  => AstEnv (Flip OR.Array)
+  => AstEnv ORArray
   -> AstShaped DualSpan Int64 sh
   -> DummyDual Int64 sh #-}
 
@@ -628,9 +627,9 @@ cfwd f vals ds =
 -- from interpretAstDual, etc.
 {-# SPECIALIZE interpretAstRuntimeSpecialized
   :: (KnownNat n, Typeable r, AstSpan s)
-  => AstEnv (ADVal (Flip OR.Array))
+  => AstEnv (ADVal ORArray)
   -> AstRanked s r n
-  -> ADVal (Flip OR.Array) r n #-}
+  -> ADVal ORArray r n #-}
 {-# SPECIALIZE interpretAstRuntimeSpecialized
   :: (KnownNat n, Typeable r, AstSpan s)
   => AstEnv (ADVal (AstRanked PrimalSpan))
@@ -638,13 +637,13 @@ cfwd f vals ds =
   -> ADVal (AstRanked PrimalSpan) r n #-}
 {-# SPECIALIZE interpretAstRuntimeSpecialized
   :: (KnownNat n, Typeable r, AstSpan s)
-  => AstEnv (Flip OR.Array)
+  => AstEnv ORArray
   -> AstRanked s r n
-  -> Flip OR.Array r n #-}
+  -> ORArray r n #-}
 
 {-# SPECIALIZE interpretAstSRuntimeSpecialized
   :: (KnownShS sh, Typeable r, AstSpan s)
-  => AstEnv (ADVal (Flip OR.Array))
+  => AstEnv (ADVal ORArray)
   -> AstShaped s r sh
   -> ADVal OSArray r sh #-}
 {-# SPECIALIZE interpretAstSRuntimeSpecialized
@@ -654,7 +653,7 @@ cfwd f vals ds =
   -> ADVal (AstShaped PrimalSpan) r sh #-}
 {-# SPECIALIZE interpretAstSRuntimeSpecialized
   :: (KnownShS sh, Typeable r, AstSpan s)
-  => AstEnv (Flip OR.Array)
+  => AstEnv ORArray
   -> AstShaped s r sh
   -> OSArray r sh #-}
 
@@ -662,24 +661,24 @@ cfwd f vals ds =
 -- from interpretAstDual, etc.
 {-# SPECIALIZE interpretAst
   :: (KnownNat n, GoodScalar r, AstSpan s)
-  => AstEnv (ADVal (Flip OR.Array))
+  => AstEnv (ADVal ORArray)
   -> AstRanked s r n
-  -> ADVal (Flip OR.Array) r n #-}
+  -> ADVal ORArray r n #-}
 {-# SPECIALIZE interpretAst
   :: (KnownNat n, AstSpan s)
-  => AstEnv (ADVal (Flip OR.Array))
+  => AstEnv (ADVal ORArray)
   -> AstRanked s Double n
-  -> ADVal (Flip OR.Array) Double n #-}
+  -> ADVal ORArray Double n #-}
 {-# SPECIALIZE interpretAst
   :: (KnownNat n, AstSpan s)
-  => AstEnv (ADVal (Flip OR.Array))
+  => AstEnv (ADVal ORArray)
   -> AstRanked s Float n
-  -> ADVal (Flip OR.Array) Float n #-}
+  -> ADVal ORArray Float n #-}
 {-# SPECIALIZE interpretAst
   :: (KnownNat n, AstSpan s)
-  => AstEnv (ADVal (Flip OR.Array))
+  => AstEnv (ADVal ORArray)
   -> AstRanked s Int64 n
-  -> ADVal (Flip OR.Array) Int64 n #-}
+  -> ADVal ORArray Int64 n #-}
 {-# SPECIALIZE interpretAst
   :: (KnownNat n, GoodScalar r, AstSpan s)
   => AstEnv (ADVal (AstRanked PrimalSpan))
@@ -702,43 +701,43 @@ cfwd f vals ds =
   -> ADVal (AstRanked PrimalSpan) Int64 n #-}
 {-# SPECIALIZE interpretAst
   :: (KnownNat n, GoodScalar r, AstSpan s)
-  => AstEnv (Flip OR.Array)
+  => AstEnv ORArray
   -> AstRanked s r n
-  -> Flip OR.Array r n #-}
+  -> ORArray r n #-}
 {-# SPECIALIZE interpretAst
   :: (KnownNat n, AstSpan s)
-  => AstEnv (Flip OR.Array)
+  => AstEnv ORArray
   -> AstRanked s Double n
-  -> Flip OR.Array Double n #-}
+  -> ORArray Double n #-}
 {-# SPECIALIZE interpretAst
   :: (KnownNat n, AstSpan s)
-  => AstEnv (Flip OR.Array)
+  => AstEnv ORArray
   -> AstRanked s Float n
-  -> Flip OR.Array Float n #-}
+  -> ORArray Float n #-}
 {-# SPECIALIZE interpretAst
   :: (KnownNat n, AstSpan s)
-  => AstEnv (Flip OR.Array)
+  => AstEnv ORArray
   -> AstRanked s Int64 n
-  -> Flip OR.Array Int64 n #-}
+  -> ORArray Int64 n #-}
 
 {-# SPECIALIZE interpretAstS
   :: (KnownShS sh, GoodScalar r, AstSpan s)
-  => AstEnv (ADVal (Flip OR.Array))
+  => AstEnv (ADVal ORArray)
   -> AstShaped s r sh
   -> ADVal OSArray r sh #-}
 {-# SPECIALIZE interpretAstS
   :: (KnownShS sh, AstSpan s)
-  => AstEnv (ADVal (Flip OR.Array))
+  => AstEnv (ADVal ORArray)
   -> AstShaped s Double sh
   -> ADVal OSArray Double sh #-}
 {-# SPECIALIZE interpretAstS
   :: (KnownShS sh, AstSpan s)
-  => AstEnv (ADVal (Flip OR.Array))
+  => AstEnv (ADVal ORArray)
   -> AstShaped s Float sh
   -> ADVal OSArray Float sh #-}
 {-# SPECIALIZE interpretAstS
   :: (KnownShS sh, AstSpan s)
-  => AstEnv (ADVal (Flip OR.Array))
+  => AstEnv (ADVal ORArray)
   -> AstShaped s Int64 sh
   -> ADVal OSArray Int64 sh #-}
 {-# SPECIALIZE interpretAstS
@@ -763,22 +762,22 @@ cfwd f vals ds =
   -> ADVal (AstShaped PrimalSpan) Int64 sh #-}
 {-# SPECIALIZE interpretAstS
   :: (KnownShS sh, GoodScalar r, AstSpan s)
-  => AstEnv (Flip OR.Array)
+  => AstEnv ORArray
   -> AstShaped s r sh
   -> OSArray r sh #-}
 {-# SPECIALIZE interpretAstS
   :: (KnownShS sh, AstSpan s)
-  => AstEnv (Flip OR.Array)
+  => AstEnv ORArray
   -> AstShaped s Double sh
   -> OSArray Double sh #-}
 {-# SPECIALIZE interpretAstS
   :: (KnownShS sh, AstSpan s)
-  => AstEnv (Flip OR.Array)
+  => AstEnv ORArray
   -> AstShaped s Float sh
   -> OSArray Float sh #-}
 {-# SPECIALIZE interpretAstS
   :: (KnownShS sh, AstSpan s)
-  => AstEnv (Flip OR.Array)
+  => AstEnv ORArray
   -> AstShaped s Int64 sh
   -> OSArray Int64 sh #-}
 
@@ -786,9 +785,9 @@ cfwd f vals ds =
 -- from interpretAstDual, etc.
 {-# SPECIALIZE interpretAstHVector
   :: AstSpan s
-  => AstEnv (ADVal (Flip OR.Array))
+  => AstEnv (ADVal ORArray)
   -> AstHVector s
-  -> HVector (ADVal (Flip OR.Array)) #-}
+  -> HVector (ADVal ORArray) #-}
 {-# SPECIALIZE interpretAstHVector
   :: AstSpan s
   => AstEnv (ADVal (AstRanked PrimalSpan))
@@ -796,17 +795,17 @@ cfwd f vals ds =
   -> HVector (ADVal (AstRanked PrimalSpan)) #-}
 {-# SPECIALIZE interpretAstHVector
   :: AstSpan s
-  => AstEnv (Flip OR.Array)
+  => AstEnv ORArray
   -> AstHVector s
-  -> HVector (Flip OR.Array) #-}
+  -> HVector ORArray #-}
 {-# SPECIALIZE interpretAstHVector
   :: AstSpan s
-  => AstEnv (Flip OR.Array)
+  => AstEnv ORArray
   -> AstHVector s
-  -> HVector (Flip OR.Array) #-}
+  -> HVector ORArray #-}
 
 {-# SPECIALIZE interpretAstBool
-  :: AstEnv (ADVal (Flip OR.Array))
+  :: AstEnv (ADVal ORArray)
   -> AstBool
   -> Bool #-}
 {-# SPECIALIZE interpretAstBool
@@ -814,6 +813,6 @@ cfwd f vals ds =
   -> AstBool
   -> AstBool #-}
 {-# SPECIALIZE interpretAstBool
-  :: AstEnv (Flip OR.Array)
+  :: AstEnv ORArray
   -> AstBool
   -> Bool #-}
