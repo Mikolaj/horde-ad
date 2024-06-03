@@ -372,14 +372,14 @@ withListSh (Proxy @sh) f =
 -- Note that the resulting 0 may be a complex term.
 --
 -- Warning: @fromInteger@ of type @j@ cannot be used.
-toLinearIdx :: forall m n i j. (Integral i, Num j)
-            => (Int -> j) -> Shape (m + n) i -> Index m j -> j
+toLinearIdx :: forall m n j. Num j
+            => (Int -> j) -> Shape (m + n) Int -> Index m j -> j
 toLinearIdx fromInt = \sh idx -> go sh idx (fromInt 0)
   where
     -- Additional argument: index, in the @m - m1@ dimensional array so far,
     -- of the @m - m1 + n@ dimensional tensor pointed to by the current
     -- @m - m1@ dimensional index prefix.
-    go :: Shape (m1 + n) i -> Index m1 j -> j -> j
+    go :: Shape (m1 + n) Int -> Index m1 j -> j -> j
     go sh ZIR tensidx = fromInt (sizeShape sh) * tensidx
     go (n :$: sh) (i :.: idx) tensidx = go sh idx (fromInt (fromIntegral n) * tensidx + i)
     go _ _ _ = error "toLinearIdx: impossible pattern needlessly required"
@@ -394,13 +394,13 @@ toLinearIdx fromInt = \sh idx -> go sh idx (fromInt 0)
 -- of the empty buffer anyway.
 --
 -- Warning: @fromInteger@ of type @j@ cannot be used.
-fromLinearIdx :: forall n i j. (Integral i, Integral j)
-              => (Int -> j) -> Shape n i -> j -> Index n j
+fromLinearIdx :: forall n j. Integral j
+              => (Int -> j) -> Shape n Int -> j -> Index n j
 fromLinearIdx fromInt = \sh lin -> snd (go sh lin)
   where
     -- Returns (linear index into array of sub-tensors,
     -- multi-index within sub-tensor).
-    go :: Shape n1 i -> j -> (j, Index n1 j)
+    go :: Shape n1 Int -> j -> (j, Index n1 j)
     go ZSR n = (n, ZIR)
     go (k :$: sh) _ | signum k == 0 =
       (fromInt 0, fromInt 0 :.: zeroOf fromInt sh)
