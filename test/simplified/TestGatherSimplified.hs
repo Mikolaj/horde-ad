@@ -13,7 +13,7 @@ import           Test.Tasty.HUnit hiding (assert)
 
 import HordeAd
 import HordeAd.Core.AstFreshId (resetVarCounter)
-import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..))
+import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..), IntegralF (..))
 
 import CrossTesting
 
@@ -422,7 +422,7 @@ scatterNested1 t =
           (rscatter @ranked @r @1
                    (7 :$: 2 :$: ZSR) t
                    (\(k3 :.: ZIR) -> k3 :.: ZIR))
-          (\(i1 :.: i2 :.: ZIR) -> i2 `quot` (1 + i1) :.: ZIR)
+          (\(i1 :.: i2 :.: ZIR) -> i2 `quotF` (1 + i1) :.: ZIR)
 
 testScatterNested1 :: Assertion
 testScatterNested1 =

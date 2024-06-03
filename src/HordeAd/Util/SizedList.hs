@@ -58,6 +58,7 @@ import           Data.Array.Nested
   )
 
 import HordeAd.Core.Types
+import HordeAd.Internal.OrthotopeOrphanInstances (IntegralF (..))
 
 -- * Sized lists and their permutations
 
@@ -394,7 +395,7 @@ toLinearIdx fromInt = \sh idx -> go sh idx (fromInt 0)
 -- of the empty buffer anyway.
 --
 -- Warning: @fromInteger@ of type @j@ cannot be used.
-fromLinearIdx :: forall n j. Integral j
+fromLinearIdx :: forall n j. (Num j, IntegralF j)
               => (Int -> j) -> Shape n Int -> j -> Index n j
 fromLinearIdx fromInt = \sh lin -> snd (go sh lin)
   where
@@ -406,7 +407,8 @@ fromLinearIdx fromInt = \sh lin -> snd (go sh lin)
       (fromInt 0, fromInt 0 :.: zeroOf fromInt sh)
     go (n :$: sh) lin =
       let (tensLin, idxInTens) = go sh lin
-          (tensLin', i) = tensLin `quotRem` fromInt (fromIntegral n)
+          tensLin' = tensLin `quotF` fromInt (fromIntegral n)
+          i = tensLin `remF` fromInt (fromIntegral n)
       in (tensLin', i :.: idxInTens)
 
 -- | The zero index in this shape (not dependent on the actual integers).

@@ -212,7 +212,7 @@ interpretAst !env = \case
   AstI2 opCode u v ->
     let u2 = interpretAst env u
         v2 = interpretAst env v
-    in interpretAstI2 opCode u2 v2
+    in interpretAstI2F opCode u2 v2
   AstSumOfList args ->
     let args2 = interpretAst env <$> args
     in foldr1 (+) args2  -- avoid @fromInteger 0@ in @sum@

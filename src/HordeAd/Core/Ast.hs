@@ -591,13 +591,9 @@ instance Enum r => Enum (AstRanked s r n) where
 -- Warning: div and mod operations are very costly (simplifying them
 -- requires constructing conditionals, etc). If this error is removed,
 -- they are going to work, but slowly.
-instance (Integral r, Integral (OR.Array n r), AstSpan s)
-         => Integral (AstRanked s r n) where
-  quot = AstI2 QuotOp
-  rem = AstI2 RemOp
-  quotRem u v = (AstI2 QuotOp u v, AstI2 RemOp u v)
-  divMod _ _ = error "divMod: disabled; much less efficient than quot and rem"
-  toInteger = undefined  -- we can't evaluate uninstantiated variables, etc.
+instance Integral r => IntegralF (AstRanked s r n) where
+  quotF = AstI2 QuotOp
+  remF = AstI2 RemOp
 
 instance (Differentiable r, Fractional (OR.Array n r), AstSpan s)
          => Fractional (AstRanked s r n) where

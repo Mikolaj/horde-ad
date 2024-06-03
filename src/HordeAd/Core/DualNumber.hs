@@ -302,14 +302,6 @@ instance (IntegralF (f r z), IsPrimal f r z)
   quotF (D u _) (D v _) = dD (quotF u v) (dZeroOfShape u)
   remF (D u _) (D v _) = dD (remF u v) (dZeroOfShape u)
 
-instance (Integral (f r z), IsPrimal f r z)
-         => Integral (ADVal f r z) where
-  quot (D u _) (D v _) = dD (quot u v) (dZeroOfShape u)
-  rem (D u _) (D v _) = dD (rem u v) (dZeroOfShape u)
-  quotRem x y = (quot x y, rem x y)
-  divMod _ _ = error "divMod: disabled; much less efficient than quot and rem"
-  toInteger = undefined  -- we can't evaluate uninstantiated variables, etc.
-
 instance (Fractional (f r z), IsPrimal f r z)
          => Fractional (ADVal f r z) where
 {- TODO: this causes a cyclic dependency:

@@ -53,6 +53,7 @@ import           Data.Array.Nested
 import           Data.Array.Nested.Internal.Shape (listsToList, shsToList)
 
 import           HordeAd.Core.Types
+import           HordeAd.Internal.OrthotopeOrphanInstances (IntegralF (..))
 import           HordeAd.Util.SizedList (Permutation)
 import qualified HordeAd.Util.SizedList as SizedList
 
@@ -271,7 +272,7 @@ toLinearIdx fromInt = \sh idx -> shapedNat $ go sh idx (fromInt 0)
 -- and a fake index with correct length but lots of zeroes is produced,
 -- because it doesn't matter, because it's going to point at the start
 -- of the empty buffer anyway.
-fromLinearIdx :: forall sh j. Integral j
+fromLinearIdx :: forall sh j. (Num j, IntegralF j)
               => (Int -> j) -> ShS sh -> ShapedNat (Sh.Size sh) j
               -> IndexS sh j
 fromLinearIdx fromInt = \sh (ShapedNat lin) -> snd (go sh lin)
@@ -284,7 +285,8 @@ fromLinearIdx fromInt = \sh (ShapedNat lin) -> snd (go sh lin)
       (fromInt 0, fromInt 0 :.$ zeroOf fromInt sh)
     go ((:$$) n@SNat sh) lin =
       let (tensLin, idxInTens) = go sh lin
-          (tensLin', i) = tensLin `quotRem` fromInt (sNatValue n)
+          tensLin' = tensLin `quotF` fromInt (sNatValue n)
+          i = tensLin `remF` fromInt (sNatValue n)
       in (tensLin', i :.$ idxInTens)
 
 -- | The zero index in this shape (not dependent on the actual integers).

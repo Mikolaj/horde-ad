@@ -109,7 +109,7 @@ barF (x, y) =
 testBar :: Assertion
 testBar =
   assertEqualUpToEpsilon 1e-5
-    (FlipR $ OR.fromList [3, 1, 2, 2, 1, 2, 2] [304.13867,914.9335,823.0187,1464.4688,5264.3306,1790.0055,1535.4309,3541.6572,304.13867,914.9335,823.0187,1464.4688,6632.4355,6047.113,1535.4309,1346.6815,45.92141,6.4903135,5.5406737,1.4242969,6.4903135,1.1458766,4.6446533,2.3550234,88.783676,27.467598,125.27507,18.177452,647.1917,0.3878851,2177.6152,786.1792,6.4903135,6.4903135,6.4903135,6.4903135,2.3550234,2.3550234,2.3550234,2.3550234,21.783596,2.3550234,2.3550234,2.3550234,21.783596,21.783596,21.783596,21.783596],FlipR $ OR.fromList [3, 1, 2, 2, 1, 2, 2] [-5728.7617,24965.113,32825.07,-63505.953,-42592.203,145994.88,-500082.5,-202480.06,-5728.7617,24965.113,32825.07,-63505.953,49494.473,-2446.7632,-500082.5,-125885.58,-43.092484,-1.9601002,-98.97709,2.1931143,-1.9601002,1.8243169,-4.0434446,-1.5266153,2020.9731,-538.0603,-84.28137,62.963814,-34987.0,-9.917454,135.30023,17741.998,-1.9601002,-1.9601002,-1.9601002,-1.9601002,-1.5266153,-1.5266153,-1.5266153,-1.5266153,-4029.1775,-1.5266153,-1.5266153,-1.5266153,-4029.1775,-4029.1775,-4029.1775,-4029.1775])
+    (FlipR $ OR.fromList [3, 1, 2, 2, 1, 2, 2] [304.13867,914.9335,823.0187,1464.4688,5264.3306,1790.0055,1535.4309,3541.6572,304.13867,914.9335,823.0187,1464.4688,6632.4355,6047.113,1535.4309,1346.6815,45.92141,6.4903135,5.5406737,1.4242969,6.4903135,1.1458766,4.6446533,2.3550234,88.783676,27.467598,125.27507,18.177452,647.1917,0.3878851,2177.6152,786.1792,6.4903135,6.4903135,6.4903135,6.4903135,2.3550234,2.3550234,2.3550234,2.3550234,21.783596,2.3550234,2.3550234,2.3550234,21.783596,21.783596,21.783596,21.783596],FlipR $ OR.fromList [3, 1, 2, 2, 1, 2, 2] [-5728.761,24965.113,32825.074,-63505.957,-42592.203,145994.89,-500082.5,-202480.05,-5728.761,24965.113,32825.074,-63505.957,49494.473,-2446.7632,-500082.5,-125885.58,-43.092484,-1.9601007,-98.97708,2.1931143,-1.9601007,1.8243167,-4.0434446,-1.5266151,2020.9731,-538.06036,-84.28139,62.963818,-34987.0,-9.917454,135.3003,17741.996,-1.9601007,-1.9601007,-1.9601007,-1.9601007,-1.5266151,-1.5266151,-1.5266151,-1.5266151,-4029.1775,-1.5266151,-1.5266151,-1.5266151,-4029.1775,-4029.1775,-4029.1775,-4029.1775])
     (crev (bar @(ADVal (FlipR OR.Array) Float 7)) (t48, t48))
 
 -- Numerically unstable ATM.
@@ -176,7 +176,7 @@ fooBuild2 v =
         (rindex v [ix - (rprimalPart . rfloor) (rsum0 @ranked @r @5
                                 $ rreplicate0N [5,12,11,9,4] (rsum0 v)) - 10001])
            -- index out of bounds; also fine
-        (sqrt $ abs $ rindex v [let rr = (ix - (rprimalPart . rfloor) (rsum0 v) - 10001) `rem` 2
+        (sqrt $ abs $ rindex v [let rr = (ix - (rprimalPart . rfloor) (rsum0 v) - 10001) `remF` 2
                                 in ifF (signum rr ==. negate (signum 2))
                                    (rr + 2)
                                    rr])
@@ -432,9 +432,9 @@ nestedSumBuild v =
     ifF (ix2 >. ix1)
         (rmap0N ((* (-0.00000003)) . sqrt . abs)
          $ nestedBuildMap (rsum0 v)
-           `rindex` (ix2 `rem` 3 :.: minF 1 ix1 :.: minF ix1 3 :.: ZIR))
+           `rindex` (ix2 `remF` 3 :.: minF 1 ix1 :.: minF ix1 3 :.: ZIR))
         (nestedBuildMap 0.00042
-         `rindex` (ix2 `rem` 3 :.: minF 1 ix1 :.: minF ix1 3 :.: ZIR))
+         `rindex` (ix2 `remF` 3 :.: minF 1 ix1 :.: minF ix1 3 :.: ZIR))
 
 testNestedSumBuild1 :: Assertion
 testNestedSumBuild1 =
@@ -459,7 +459,7 @@ nestedSumBuildB v =
              , rsum $ rbuild [9, 2] $ const $ rfromIndex0 ix
              , rindex v (listToIndex @n
                          $ replicate (rrank v - 1)
-                             (maxF 0 $ minF 1 $ ix2 `quot` 2 + ix `quot` 4 - 1))
+                             (maxF 0 $ minF 1 $ ix2 `quotF` 2 + ix `quotF` 4 - 1))
              , rbuild1 2 (\_ -> rsum0 v)
              , rsum (rbuild1 7 (\ix7 ->
                  rreplicate 2 (rfromIndex0 ix7)))
@@ -475,7 +475,7 @@ testNestedSumBuildB =
 nestedBuildIndex :: forall ranked r. (ADReady ranked, GoodScalar r)
                  => ranked r 5 -> ranked r 3
 nestedBuildIndex v =
-  rbuild1 2 $ \ix2 -> rindex (rbuild1 3 $ \ix3 -> rindex (rbuild1 3 $ \ix4 -> rindex v (ix4 `rem` 2 :.: ix2 :.: 0 :.: ZIR)) [ix3]) (ix2 :.: ZIR)
+  rbuild1 2 $ \ix2 -> rindex (rbuild1 3 $ \ix3 -> rindex (rbuild1 3 $ \ix4 -> rindex v (ix4 `remF` 2 :.: ix2 :.: 0 :.: ZIR)) [ix3]) (ix2 :.: ZIR)
 
 testNestedBuildIndex :: Assertion
 testNestedBuildIndex =
@@ -590,11 +590,11 @@ concatBuild r =
             , rbuild1 1 (\j -> rmap0N (* rfromIndex0 (j - i)) r)
             , rbuild1 11 (\j ->
                 rmap0N (* (rfromIndex0
-                  (125 * (j `rem` (abs (signum i + abs i) + 1))
-                   + maxF j (i `quot` (j + 1)) * (rprimalPart . rfloor) (rsum0 r)
+                  (125 * (j `remF` (abs (signum i + abs i) + 1))
+                   + maxF j (i `quotF` (j + 1)) * (rprimalPart . rfloor) (rsum0 r)
                    - ifF (r <=. r &&* i <. j)
                          (rprimalPart $ rminIndex (rflatten r))
-                         ((rprimalPart . rfloor) $ rsum0 $ r ! ((i * j) `rem` 7 :.: ZIR))))) r)
+                         ((rprimalPart . rfloor) $ rsum0 $ r ! ((i * j) `remF` 7 :.: ZIR))))) r)
             , rbuild1 13 (\_k ->
                 rsum $ rtr $ rreplicate (rlength r) (rslice 0 1 r)) ])
 
@@ -615,7 +615,7 @@ concatBuild2 :: (ADReady ranked, GoodScalar r, KnownNat n)
              => ranked r (1 + n) -> ranked r (3 + n)
 concatBuild2 r =
   rbuild1 5 (\i ->
-    rbuild1 2 (\j -> rmap0N (* rfromIndex0 (maxF j (i `quot` (j + 1)))) r))
+    rbuild1 2 (\j -> rmap0N (* rfromIndex0 (maxF j (i `quotF` (j + 1)))) r))
 
 testConcatBuild2 :: Assertion
 testConcatBuild2 =
@@ -633,7 +633,7 @@ concatBuild3 :: (ADReady ranked, GoodScalar r)
              => ranked r 1 -> ranked r 2
 concatBuild3 _r =
   rbuild1 5 (\i ->
-    rbuild1 2 (\j -> rfromIndex0 (maxF j (i `quot` (j + 1)))))
+    rbuild1 2 (\j -> rfromIndex0 (maxF j (i `quotF` (j + 1)))))
 
 testConcatBuild3 :: Assertion
 testConcatBuild3 =
@@ -649,7 +649,7 @@ testConcatBuild3PP = do
       (var3, ast3) = funToAstR [3] t
   "\\" ++ printAstVarName renames var3
        ++ " -> " ++ printAstSimple renames ast3
-    @?= "\\v1 -> rconstant (rfromIntegral (rgather [5,2] (rfromVector (fromList [rreplicate 5 (rslice 0 2 riota), quot (rtranspose [1,0] (rreplicate 2 (rslice 0 5 riota))) (rreplicate 5 (rreplicate 2 1 + rslice 0 2 riota))])) (\\[i5, i4] -> [ifF (i4 >=. quot i5 (1 + i4)) 0 1, i5, i4])))"
+    @?= "\\v1 -> rconstant (rfromIntegral (rgather [5,2] (rfromVector (fromList [rreplicate 5 (rslice 0 2 riota), quotF (rtranspose [1,0] (rreplicate 2 (rslice 0 5 riota))) (rreplicate 5 (rreplicate 2 1 + rslice 0 2 riota))])) (\\[i5, i4] -> [ifF (i4 >=. quotF i5 (1 + i4)) 0 1, i5, i4])))"
 
 testConcatBuild3PP2 :: Assertion
 testConcatBuild3PP2 = do
@@ -661,6 +661,6 @@ testConcatBuild3PP2 = do
   printArtifactSimple renames artifactRev
     @?= "\\m8 v1 -> dmkHVector (fromList [DynamicRankedDummy])"
   printArtifactPrimalSimple renames artifactRev
-    @?= "\\v1 -> dmkHVector (fromList [DynamicRanked (rfromIntegral (rgather [5,2] (rfromVector (fromList [rreplicate 5 (rconst (fromList [2] [0,1])), quot (rtranspose [1,0] (rreplicate 2 (rconst (fromList [5] [0,1,2,3,4])))) (rreplicate 5 (rconst (fromList [2] [0,1]) + rreplicate 2 1))])) (\\[i6, i7] -> [ifF (i7 >=. quot i6 (1 + i7)) 0 1, i6, i7])))])"
+    @?= "\\v1 -> dmkHVector (fromList [DynamicRanked (rfromIntegral (rgather [5,2] (rfromVector (fromList [rreplicate 5 (rconst (fromList [2] [0,1])), quotF (rtranspose [1,0] (rreplicate 2 (rconst (fromList [5] [0,1,2,3,4])))) (rreplicate 5 (rconst (fromList [2] [0,1]) + rreplicate 2 1))])) (\\[i6, i7] -> [ifF (i7 >=. quotF i6 (1 + i7)) 0 1, i6, i7])))])"
   printArtifactPrimalSimple renames (simplifyArtifact artifactRev)
-    @?= "\\v1 -> dmkHVector (fromList [DynamicRanked (rfromIntegral (rgather [5,2] (rfromVector (fromList [rreplicate 5 (rconst (fromList [2] [0,1])), quot (rtranspose [1,0] (rreplicate 2 (rconst (fromList [5] [0,1,2,3,4])))) (rreplicate 5 (rconst (fromList [2] [0,1]) + rreplicate 2 1))])) (\\[i6, i7] -> [ifF (i7 >=. quot i6 (1 + i7)) 0 1, i6, i7])))])"
+    @?= "\\v1 -> dmkHVector (fromList [DynamicRanked (rfromIntegral (rgather [5,2] (rfromVector (fromList [rreplicate 5 (rconst (fromList [2] [0,1])), quotF (rtranspose [1,0] (rreplicate 2 (rconst (fromList [5] [0,1,2,3,4])))) (rreplicate 5 (rconst (fromList [2] [0,1]) + rreplicate 2 1))])) (\\[i6, i7] -> [ifF (i7 >=. quotF i6 (1 + i7)) 0 1, i6, i7])))])"

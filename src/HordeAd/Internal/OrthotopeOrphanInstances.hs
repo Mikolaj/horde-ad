@@ -32,6 +32,7 @@ import qualified Data.Array.Internal.ShapedS as SS
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as Sh
 import qualified Data.Array.ShapedS as OS
+import           Data.Int (Int64)
 import           Data.Kind (Type)
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality ((:~:) (Refl))
@@ -63,6 +64,7 @@ import qualified Data.Array.Mixed.Types as Mixed.Types
 import           Data.Array.Nested (KnownShS (..), ShS (ZSS, (:$$)))
 import qualified Data.Array.Nested as Nested
 import qualified Data.Array.Nested.Internal.Mixed as Nested.Internal.Mixed
+import qualified Data.Array.Nested.Internal.Ranked as Nested.Internal
 import           Data.Array.Nested.Internal.Shape (shsToList)
 import qualified Data.Array.Nested.Internal.Shaped as Nested.Internal
 
@@ -342,6 +344,20 @@ instance (Num (Vector r), Integral r, KnownNat n, Numeric r, Show r)
 
 class IntegralF a where
   quotF, remF :: a -> a -> a
+
+instance IntegralF Int64 where
+  quotF = quot
+  remF = rem
+
+instance (Num (Vector r), Integral r, KnownNat n, Numeric r, Show r)
+         => IntegralF (OR.Array n r) where
+  quotF = liftVR2UnlessZero quot
+  remF = liftVR2UnlessZero rem
+
+instance (Nested.PrimElt r, Num (Vector r), Integral r, KnownNat n, Numeric r, Show r)
+         => IntegralF (Nested.Ranked n r) where
+  quotF = Nested.Internal.arithPromoteRanked2 (Nested.Internal.Mixed.mliftPrim2 quot)
+  remF = Nested.Internal.arithPromoteRanked2 (Nested.Internal.Mixed.mliftPrim2 rem)
 
 instance (Num (Vector r), Integral r, KnownShS sh, Numeric r, Show r)
          => IntegralF (OS.Array sh r) where
