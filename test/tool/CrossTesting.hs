@@ -10,7 +10,6 @@ module CrossTesting
 import Prelude
 
 import qualified Data.Array.RankedS as OR
-import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat)
@@ -30,6 +29,7 @@ import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorADVal
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
+import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..))
 
 import EqEpsilon
 
@@ -37,19 +37,19 @@ assertEqualUpToEpsilon1
   :: (AssertEqualUpToEpsilon (OR.Array n r), HasCallStack)
   => Rational
   -> OR.Array n r
-  -> Flip OR.Array r n
+  -> FlipR OR.Array r n
   -> Assertion
 assertEqualUpToEpsilon1 eps expected result =
-  assertEqualUpToEpsilon eps expected (runFlip result)
+  assertEqualUpToEpsilon eps expected (runFlipR result)
 
 crevDtMaybeBoth
   :: forall r y f vals advals.
      ( GoodScalar r, KnownNat y
-     , RankedOf f ~ Flip OR.Array  -- this helps with type reconstruction later
-     , AdaptableHVector (ADVal (Flip OR.Array)) advals
-     , AdaptableHVector (ADVal (Flip OR.Array)) (ADVal f r y)
-     , AdaptableHVector (Flip OR.Array) vals
-     , AdaptableHVector (Flip OR.Array) (f r y)
+     , RankedOf f ~ FlipR OR.Array  -- this helps with type reconstruction later
+     , AdaptableHVector (ADVal (FlipR OR.Array)) advals
+     , AdaptableHVector (ADVal (FlipR OR.Array)) (ADVal f r y)
+     , AdaptableHVector (FlipR OR.Array) vals
+     , AdaptableHVector (FlipR OR.Array) (f r y)
      , DualNumberValue advals, vals ~ DValue advals )
   => Maybe (f r y) -> (advals -> ADVal f r y) -> vals -> (vals, RankedOf f r y)
 {-# INLINE crevDtMaybeBoth #-}
@@ -64,7 +64,7 @@ crevDtMaybeBoth mdt f vals =
 
 rev' :: forall r m n v a.
         ( KnownNat n, KnownNat m, GoodScalar r
-        , v ~ Flip OR.Array r m, a ~ Flip OR.Array r n )
+        , v ~ FlipR OR.Array r m, a ~ FlipR OR.Array r n )
      => (forall f. ADReady f => f r n -> f r m)
      -> a
      -> ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a, a, a, a, a, a
@@ -78,12 +78,12 @@ rev' f vals =
       parameters0 = voidFromHVector parameters
       dt = Nothing
       valsFrom = fromDValue vals
-      g :: HVector (ADVal (Flip OR.Array))
-        -> ADVal (Flip OR.Array) r m
+      g :: HVector (ADVal (FlipR OR.Array))
+        -> ADVal (FlipR OR.Array) r m
       g inputs = f $ parseHVector valsFrom  inputs
       (advalGrad, value1) = crevDtMaybeBoth dt g parameters
       gradient1 = parseHVector vals advalGrad
-      gradientRrev1 = rrev1 @(Flip OR.Array) @r @n @m @r f vals
+      gradientRrev1 = rrev1 @(FlipR OR.Array) @r @n @m @r f vals
       g9 :: HVector (ADVal (AstRaw PrimalSpan))
          -> ADVal (AstRaw PrimalSpan) r m
       g9 inputs = f @(ADVal (AstRaw PrimalSpan))
@@ -95,8 +95,8 @@ rev' f vals =
       gradient9 = parseHVector vals advalGrad9
       revEvalArtifact7
         :: AstArtifact
-        -> HVector (Flip OR.Array)
-        -> (HVector (Flip OR.Array), Flip OR.Array r m)
+        -> HVector (FlipR OR.Array)
+        -> (HVector (FlipR OR.Array), FlipR OR.Array r m)
       revEvalArtifact7 a1 a2 =
         let (grad, v) = revEvalArtifact a1 a2 Nothing
         in (grad, rfromD (v V.! 0))
@@ -115,10 +115,10 @@ rev' f vals =
         => (f1 r m -> AstRanked PrimalSpan r m)
         -> (AstRanked PrimalSpan r n -> f1 r n)
         -> (AstRanked PrimalSpan r m -> AstRanked PrimalSpan r m)
-        -> HVector (ADVal (Flip OR.Array))
-        -> ADVal (Flip OR.Array) r m
+        -> HVector (ADVal (FlipR OR.Array))
+        -> ADVal (FlipR OR.Array) r m
       h fx1 fx2 gx inputs =
-        hGeneral @(ADVal (Flip OR.Array)) fx1 fx2 gx
+        hGeneral @(ADVal (FlipR OR.Array)) fx1 fx2 gx
                  (parseHVector valsFrom inputs)
       (astGrad, value2) =
         crevDtMaybeBoth dt (h id id id) parameters
@@ -130,14 +130,14 @@ rev' f vals =
         crevDtMaybeBoth dt (h unAstNoSimplify AstNoSimplify id) parameters
       gradient2UnSimp = parseHVector vals astGradUnSimp
       gradientRrev2UnSimp =
-        rrev1 @(Flip OR.Array) @r @n @m @r
+        rrev1 @(FlipR OR.Array) @r @n @m @r
               (hGeneral unAstNoSimplify AstNoSimplify id) vals
       (astSimpleUnSimp, value3UnSimp) =
         crevDtMaybeBoth dt (h unAstNoSimplify AstNoSimplify simplifyInlineAst)
                       parameters
       gradient3UnSimp = parseHVector vals astSimpleUnSimp
       gradientRrev3UnSimp =
-        rrev1 @(Flip OR.Array) @r @n @m @r
+        rrev1 @(FlipR OR.Array) @r @n @m @r
               (hGeneral unAstNoSimplify AstNoSimplify simplifyInlineAst) vals
       (astPrimal, value4) =
         crevDtMaybeBoth dt (h unAstNoVectorize AstNoVectorize id)
@@ -145,14 +145,14 @@ rev' f vals =
           -- use the AstNoVectorize instance that does no vectorization
           -- and then interpret the results as the Ast instance
       gradient4 = parseHVector vals astPrimal
-      gradientRrev4 = rrev1 @(Flip OR.Array) @r @n @m @r
+      gradientRrev4 = rrev1 @(FlipR OR.Array) @r @n @m @r
                             (hGeneral unAstNoVectorize AstNoVectorize id) vals
       (astPSimple, value5) =
         crevDtMaybeBoth dt (h unAstNoVectorize AstNoVectorize simplifyInlineAst)
                       parameters
       gradient5 = parseHVector vals astPSimple
       gradientRrev5 =
-        rrev1 @(Flip OR.Array) @r @n @m @r
+        rrev1 @(FlipR OR.Array) @r @n @m @r
               (hGeneral unAstNoVectorize AstNoVectorize simplifyInlineAst) vals
       astVectSimp = simplifyInlineAst $ snd $ funToAstR (rshape vals) f
       astSimp =
@@ -234,7 +234,7 @@ rev' f vals =
       gradient5AstS = parseHVector vals astPSimpleAstS
       cderivative = cfwd f vals vals
       derivative = fwd @(AstRanked FullSpan r m) f vals vals
-      derivativeRfwd1 = rfwd1ds @(Flip OR.Array) @r @n @m f vals vals
+      derivativeRfwd1 = rfwd1ds @(FlipR OR.Array) @r @n @m f vals vals
   in ( value0, value1, value2, value3, value2UnSimp, value3UnSimp
      , value4, value5
      , gradient1, gradientRrev1, gradient2, gradient3
@@ -253,7 +253,7 @@ rev' f vals =
      , vals, cderivative, derivative, derivativeRfwd1)
 
 assertEqualUpToEpsilon'
-    :: ( v ~ Flip OR.Array r m, a ~ Flip OR.Array r n
+    :: ( v ~ FlipR OR.Array r m, a ~ FlipR OR.Array r n
        , AssertEqualUpToEpsilon a, AssertEqualUpToEpsilon v
        , AssertEqualUpToEpsilon r
        , KnownNat n, KnownNat m, GoodScalar r, HasCallStack)
@@ -284,7 +284,7 @@ assertEqualUpToEpsilon'
     , gradient3AstUnSimp, gradient3AstSUnSimp
     , gradient4Ast, gradient4AstS, gradient5Ast, gradient5AstS
     , vals, cderivative, derivative, derivativeRfwd1 ) = do
-  let expected = Flip expected'
+  let expected = FlipR expected'
   assertEqualUpToEpsilonWithMark "Val ADVal" errMargin value0 value1
   assertEqualUpToEpsilonWithMark "Val Vectorized" errMargin value0 value2
   assertEqualUpToEpsilonWithMark "Val Vect+Simp" errMargin value0 value3
@@ -373,7 +373,7 @@ assertEqualUpToEpsilon'
               (show (simplifyInlineAst astVectSimp))
 
 assertEqualUpToEpsilonShort
-    :: ( v ~ Flip OR.Array r m, a ~ Flip OR.Array r n
+    :: ( v ~ FlipR OR.Array r m, a ~ FlipR OR.Array r n
        , AssertEqualUpToEpsilon a, AssertEqualUpToEpsilon v
        , AssertEqualUpToEpsilon r
        , KnownNat n, KnownNat m, GoodScalar r, HasCallStack)
@@ -404,7 +404,7 @@ assertEqualUpToEpsilonShort
     , gradient3AstUnSimp, gradient3AstSUnSimp
     , _gradient4Ast, _gradient4AstS, _gradient5Ast, _gradient5AstS
     , vals, cderivative, derivative, derivativeRfwd1) = do
-  let expected = Flip expected'
+  let expected = FlipR expected'
   assertEqualUpToEpsilonWithMark "Val ADVal" errMargin value0 value1
   assertEqualUpToEpsilonWithMark "Val Vectorized" errMargin value0 value2
   assertEqualUpToEpsilonWithMark "Val Vect+Simp" errMargin value0 value3
@@ -470,23 +470,23 @@ assertEqualUpToEpsilonShort
               (show astVectSimp)
               (show (simplifyInlineAst astVectSimp))
 
-t16 :: (Numeric r, Fractional r) => Flip OR.Array r 5
-t16 = Flip $ OR.fromList [2, 2, 1, 2, 2] [5, 2, 6, 1, -2, 0.000001, 0.1, -0.2, 13.1, 9, 8, -4, 34, 2.99432, -33, 26]
+t16 :: (Numeric r, Fractional r) => FlipR OR.Array r 5
+t16 = FlipR $ OR.fromList [2, 2, 1, 2, 2] [5, 2, 6, 1, -2, 0.000001, 0.1, -0.2, 13.1, 9, 8, -4, 34, 2.99432, -33, 26]
 
-t16b :: (Numeric r, Fractional r) => Flip OR.Array r 4
-t16b = Flip $ OR.fromList [2, 2, 2, 2] [5, 2, 6, 1, -2, 0, 0.1, -0.2, 13.1, 9, 8, -4, 582934, 2.99432, -335, 26]
+t16b :: (Numeric r, Fractional r) => FlipR OR.Array r 4
+t16b = FlipR $ OR.fromList [2, 2, 2, 2] [5, 2, 6, 1, -2, 0, 0.1, -0.2, 13.1, 9, 8, -4, 582934, 2.99432, -335, 26]
 
-t48 :: (Numeric r, Fractional r) => Flip OR.Array r 7
-t48 = Flip $ OR.fromList [3, 1, 2, 2, 1, 2, 2] [18.1,29.1,32.1,40.1,52.0,53.99432,97.1,58.8943200001,18.1,29.1,32.1,40.1,58.0,54.99432,97.1,52.8943200001, 5, 2, 6, 1, -2, 0.92, 0.1, -0.2, 13.1, 9, 8, -4, 34, 2.99432, -33, 26, 2, 2, 2, 2, -0.2,-0.2,-0.2,-0.2,25.0003,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003]
+t48 :: (Numeric r, Fractional r) => FlipR OR.Array r 7
+t48 = FlipR $ OR.fromList [3, 1, 2, 2, 1, 2, 2] [18.1,29.1,32.1,40.1,52.0,53.99432,97.1,58.8943200001,18.1,29.1,32.1,40.1,58.0,54.99432,97.1,52.8943200001, 5, 2, 6, 1, -2, 0.92, 0.1, -0.2, 13.1, 9, 8, -4, 34, 2.99432, -33, 26, 2, 2, 2, 2, -0.2,-0.2,-0.2,-0.2,25.0003,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003]
 
-t128 :: (Numeric r, Fractional r) => Flip OR.Array r 10
-t128 = Flip $ OR.fromList [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] [29.1,32.1,40.1,29.0,53.99432,97.1,58.8943200001,18.1,29.1,32.1,40.1,32.0,53.99432,97.1,25.8943200001, 5, 2, 6, 1, -2, 97.1,58.8943200001,97.1,55.8943200001,97.1,58.8943200001,18.1,29.1,32.1,40.1,32.1,32.1,40.1,53.0,53.99432, -0.00001, 0.1, -0.2, 13.1, 9, 8, -4, 29, 2.99432, -335, 26, 2, 2, 2, 2, -0.2,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003,-0.2,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003,40.1,8.0,11.0,-3.0,25.89432,28.79432,-39.09999999999997,25.8,40.1,8.0,11.0,-3.0,25.89432,28.79432,-19.09999999999997,25.8, 8.1,29.1,32.1,40.1,32.1,40.1,292.0,53.99432,97.1,55.8943200001,97.1,85.8943200001,97.1,85.8943200001,18.1,29.1,32.1,40.1,32.1,40.1,32.1,40.1,22.0,53.99432,97.1,82.8943200001,97.1,22.8943200001,97.1,58.8943200001,18.1,29.1,32.1,40.1,32.1,40.1,32.1,40.1,89.0,53.99432,97.1,56.8943200001,97.1,52.8943200001,97.1,55.8943200001]
+t128 :: (Numeric r, Fractional r) => FlipR OR.Array r 10
+t128 = FlipR $ OR.fromList [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] [29.1,32.1,40.1,29.0,53.99432,97.1,58.8943200001,18.1,29.1,32.1,40.1,32.0,53.99432,97.1,25.8943200001, 5, 2, 6, 1, -2, 97.1,58.8943200001,97.1,55.8943200001,97.1,58.8943200001,18.1,29.1,32.1,40.1,32.1,32.1,40.1,53.0,53.99432, -0.00001, 0.1, -0.2, 13.1, 9, 8, -4, 29, 2.99432, -335, 26, 2, 2, 2, 2, -0.2,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003,-0.2,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003,40.1,8.0,11.0,-3.0,25.89432,28.79432,-39.09999999999997,25.8,40.1,8.0,11.0,-3.0,25.89432,28.79432,-19.09999999999997,25.8, 8.1,29.1,32.1,40.1,32.1,40.1,292.0,53.99432,97.1,55.8943200001,97.1,85.8943200001,97.1,85.8943200001,18.1,29.1,32.1,40.1,32.1,40.1,32.1,40.1,22.0,53.99432,97.1,82.8943200001,97.1,22.8943200001,97.1,58.8943200001,18.1,29.1,32.1,40.1,32.1,40.1,32.1,40.1,89.0,53.99432,97.1,56.8943200001,97.1,52.8943200001,97.1,55.8943200001]
 
-t128b :: (Numeric r, Fractional r) => Flip OR.Array r 4
-t128b = Flip $ OR.reshape [4, 2, 4, 4] $ runFlip t128
+t128b :: (Numeric r, Fractional r) => FlipR OR.Array r 4
+t128b = FlipR $ OR.reshape [4, 2, 4, 4] $ runFlipR t128
 
-t128c :: (Numeric r, Fractional r) => Flip OR.Array r 4
-t128c = Flip $ OR.reshape [2, 2, 8, 4] $ runFlip t128
+t128c :: (Numeric r, Fractional r) => FlipR OR.Array r 4
+t128c = FlipR $ OR.reshape [2, 2, 8, 4] $ runFlipR t128
 
 rrev1 :: forall g r n m r3.
          (ADReady g, GoodScalar r, GoodScalar r3, KnownNat n, KnownNat m)

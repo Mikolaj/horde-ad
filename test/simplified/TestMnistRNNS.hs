@@ -11,7 +11,6 @@ import           Control.Monad (foldM, unless)
 import qualified Data.Array.Convert
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
-import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
 import qualified Data.Vector.Generic as V
 import           System.IO (hPutStrLn, stderr)
@@ -27,7 +26,7 @@ import HordeAd.Core.AstFreshId
 import HordeAd.Core.TensorAst
 import HordeAd.External.OptimizerTools
 import HordeAd.Internal.BackendOX (OSArray)
-import HordeAd.Internal.OrthotopeOrphanInstances (FlipS (..))
+import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..), FlipS (..))
 
 import EqEpsilon
 
@@ -62,10 +61,10 @@ mnistTestCaseRNNSA prefix epochs maxBatches width@SNat batch_size@SNat
                         , show (sNatValue width), show miniBatchSize
                         , show (V.length hVectorInit)
                         , show (sizeHVector hVectorInit) ]
-      ftest :: Int -> MnistDataBatchR r -> HVector (Flip OR.Array) -> r
+      ftest :: Int -> MnistDataBatchR r -> HVector (FlipR OR.Array) -> r
       ftest 0 _ _ = 0
       ftest miniBatchSize' (glyphs, labels) testParams =
-        assert (miniBatchSize' == rlength (Flip glyphs)) $
+        assert (miniBatchSize' == rlength (FlipR glyphs)) $
         withSNat miniBatchSize' $ \bs@SNat ->
           let mnist = ( Data.Array.Convert.convert glyphs
                       , Data.Array.Convert.convert labels )
@@ -79,11 +78,11 @@ mnistTestCaseRNNSA prefix epochs maxBatches width@SNat batch_size@SNat
        testData <- map rankBatch . take (totalBatchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
        let testDataR = packBatchR testData
-           runBatch :: (HVector (Flip OR.Array), StateAdam) -> (Int, [MnistDataS r])
-                    -> IO (HVector (Flip OR.Array), StateAdam)
+           runBatch :: (HVector (FlipR OR.Array), StateAdam) -> (Int, [MnistDataS r])
+                    -> IO (HVector (FlipR OR.Array), StateAdam)
            runBatch (!parameters, !stateAdam) (k, chunk) = do
              let f :: MnistDataBatchS batch_size r
-                   -> HVector (ADVal (Flip OR.Array))
+                   -> HVector (ADVal (FlipR OR.Array))
                    -> ADVal shaped r '[]
                  f (glyphS, labelS) adinputs =
                    MnistRnnShaped2.rnnMnistLossFusedS
@@ -107,7 +106,7 @@ mnistTestCaseRNNSA prefix epochs maxBatches width@SNat batch_size@SNat
                hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
                hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int -> (HVector (Flip OR.Array), StateAdam) -> IO (HVector (Flip OR.Array))
+       let runEpoch :: Int -> (HVector (FlipR OR.Array), StateAdam) -> IO (HVector (FlipR OR.Array))
            runEpoch n (params2, _) | n > epochs = return params2
            runEpoch n paramsStateAdam@(!_, !_) = do
              unless (sNatValue width < 10) $
@@ -161,11 +160,11 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
                         , show (sNatValue width), show miniBatchSize
                         , show (V.length hVectorInit)
                         , show (sizeHVector hVectorInit) ]
-      ftest :: Int -> MnistDataBatchR r -> HVector (Flip OR.Array) -> r
+      ftest :: Int -> MnistDataBatchR r -> HVector (FlipR OR.Array) -> r
       ftest 0 _ _ = 0
       ftest miniBatchSize' (glyphs, labels) testParams =
-        assert (miniBatchSize' == rlength (Flip glyphs)) $
-        assert (miniBatchSize' == rlength (Flip labels)) $
+        assert (miniBatchSize' == rlength (FlipR glyphs)) $
+        assert (miniBatchSize' == rlength (FlipR labels)) $
         withSNat miniBatchSize' $ \bs@SNat ->
           let mnist = ( Data.Array.Convert.convert glyphs
                       , Data.Array.Convert.convert labels )
@@ -190,12 +189,12 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
                    width batch_size (astGlyph, astLabel)
                    (parseHVector (fromDValue valsInit)
                                  (unRawHVector hVectorPrimal))
-           runBatch :: (HVector (Flip OR.Array), StateAdam)
+           runBatch :: (HVector (FlipR OR.Array), StateAdam)
                     -> (Int, [MnistDataS r])
-                    -> IO (HVector (Flip OR.Array), StateAdam)
+                    -> IO (HVector (FlipR OR.Array), StateAdam)
            runBatch (!parameters, !stateAdam) (k, chunk) = do
              let f :: MnistDataBatchS batch_size r
-                   -> HVector (ADVal (Flip OR.Array))
+                   -> HVector (ADVal (FlipR OR.Array))
                    -> ADVal shaped r '[]
                  f (glyph, label) varInputs =
                    let env = foldr extendEnvD EM.empty
@@ -221,7 +220,7 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
                hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
                hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int -> (HVector (Flip OR.Array), StateAdam) -> IO (HVector (Flip OR.Array))
+       let runEpoch :: Int -> (HVector (FlipR OR.Array), StateAdam) -> IO (HVector (FlipR OR.Array))
            runEpoch n (params2, _) | n > epochs = return params2
            runEpoch n paramsStateAdam@(!_, !_) = do
              unless (sNatValue width < 10) $
@@ -279,10 +278,10 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
                           , show (sNatValue width), show miniBatchSize
                           , show (V.length hVectorInit)
                           , show (sizeHVector hVectorInit) ]
-        ftest :: Int -> MnistDataBatchR r -> HVector (Flip OR.Array) -> r
+        ftest :: Int -> MnistDataBatchR r -> HVector (FlipR OR.Array) -> r
         ftest 0 _ _ = 0
         ftest miniBatchSize' (glyphs, labels) testParams =
-          assert (miniBatchSize' == rlength (Flip glyphs)) $
+          assert (miniBatchSize' == rlength (FlipR glyphs)) $
           withSNat miniBatchSize' $ \bs@SNat ->
             let mnist = ( Data.Array.Convert.convert glyphs
                         , Data.Array.Convert.convert labels )
@@ -311,8 +310,8 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
            gradient = simplifyInlineHVectorRaw gradientRaw
            vars1AndInputAgain = vars1Again ++ [varGlyphD, varLabelD]
            art = AstArtifact varDtAgain vars1AndInputAgain gradient primal
-           go :: [MnistDataBatchS batch_size r] -> (HVector (Flip OR.Array), StateAdam)
-              -> (HVector (Flip OR.Array), StateAdam)
+           go :: [MnistDataBatchS batch_size r] -> (HVector (FlipR OR.Array), StateAdam)
+              -> (HVector (FlipR OR.Array), StateAdam)
            go [] (parameters, stateAdam) = (parameters, stateAdam)
            go ((glyph, label) : rest) (!parameters, !stateAdam) =
              let glyphD = DynamicShaped $ sconst glyph
@@ -323,8 +322,8 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
                    fst $ revEvalArtifact art parametersAndInput Nothing
              in go rest (updateWithGradientAdam defaultArgsAdam stateAdam
                                                 parameters gradientHVector)
-           runBatch :: (HVector (Flip OR.Array), StateAdam) -> (Int, [MnistDataS r])
-                    -> IO (HVector (Flip OR.Array), StateAdam)
+           runBatch :: (HVector (FlipR OR.Array), StateAdam) -> (Int, [MnistDataS r])
+                    -> IO (HVector (FlipR OR.Array), StateAdam)
            runBatch (!parameters, !stateAdam) (k, chunk) = do
              let chunkS = map packBatch
                           $ filter (\ch -> length ch == miniBatchSize)
@@ -344,7 +343,7 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
                hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
                hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int -> (HVector (Flip OR.Array), StateAdam) -> IO (HVector (Flip OR.Array))
+       let runEpoch :: Int -> (HVector (FlipR OR.Array), StateAdam) -> IO (HVector (FlipR OR.Array))
            runEpoch n (params2, _) | n > epochs = return params2
            runEpoch n paramsStateAdam@(!_, !_) = do
              unless (sNatValue width < 10) $

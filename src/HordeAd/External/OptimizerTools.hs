@@ -10,7 +10,6 @@ module HordeAd.External.OptimizerTools
 import Prelude
 
 import qualified Data.Array.RankedS as OR
-import           Data.Bifunctor.Flip
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality (testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
@@ -28,21 +27,21 @@ import HordeAd.Core.TensorConcrete ()
 import HordeAd.Core.Types
 import HordeAd.Internal.OrthotopeOrphanInstances
 
-updateWithGradient :: Double -> HVector (Flip OR.Array) -> HVector (Flip OR.Array) -> HVector (Flip OR.Array)
+updateWithGradient :: Double -> HVector (FlipR OR.Array) -> HVector (FlipR OR.Array) -> HVector (FlipR OR.Array)
 updateWithGradient gamma params gradient =
   let updateVector :: (Numeric r, Fractional r, Num (Vector r))
                    => Vector r -> Vector r -> Vector r
       updateVector i r = i - LA.scale (realToFrac gamma) r
-      updateR :: DynamicTensor (Flip OR.Array) -> DynamicTensor (Flip OR.Array)
-              -> DynamicTensor (Flip OR.Array)
+      updateR :: DynamicTensor (FlipR OR.Array) -> DynamicTensor (FlipR OR.Array)
+              -> DynamicTensor (FlipR OR.Array)
       updateR i r = case (i, r) of
         (DynamicRanked @r1 @n1 t1, DynamicRanked @r2 @n2 t2) ->
           ifDifferentiable @r1
             (case sameNat (Proxy @n1) (Proxy @n2) of
                Just Refl -> case testEquality (typeRep @r1) (typeRep @r2) of
                  Just Refl ->
-                   DynamicRanked $ Flip
-                   $ liftVR2 updateVector (runFlip t1) (runFlip t2)
+                   DynamicRanked $ FlipR
+                   $ liftVR2 updateVector (runFlipR t1) (runFlipR t2)
                  _ -> error "updateWithGradient: scalar mismatch"
                _ -> error "updateWithGradient: rank mismatch")
           i
@@ -60,19 +59,19 @@ updateWithGradient gamma params gradient =
   in V.zipWith updateR params gradient
 
 {-
-gradientIsNil :: (Eq r, Numeric r) => HVector (Flip OR.Array) -> Bool
-gradientIsNil (HVector (Flip OR.Array) gradient0 gradientR) =
+gradientIsNil :: (Eq r, Numeric r) => HVector (FlipR OR.Array) -> Bool
+gradientIsNil (HVector (FlipR OR.Array) gradient0 gradientR) =
   V.all (== 0) gradient0
   && V.all isTensorDummyD gradientR
 
-minimumGradient :: (Ord r, Numeric r) => HVector (Flip OR.Array) -> r
-minimumGradient (HVector (Flip OR.Array) gradient0 gradientR) =
+minimumGradient :: (Ord r, Numeric r) => HVector (FlipR OR.Array) -> r
+minimumGradient (HVector (FlipR OR.Array) gradient0 gradientR) =
   min (if V.null gradient0 then 0 else LA.minElement gradient0)
       (if V.null gradientR then 0
        else V.minimum (V.map OR.minimumA gradientR))
 
-maximumGradient :: (Ord r, Numeric r) => HVector (Flip OR.Array) -> r
-maximumGradient (HVector (Flip OR.Array) gradient0 gradientR) =
+maximumGradient :: (Ord r, Numeric r) => HVector (FlipR OR.Array) -> r
+maximumGradient (HVector (FlipR OR.Array) gradient0 gradientR) =
   max (if V.null gradient0 then 0 else LA.maxElement gradient0)
       (if V.null gradientR then 0
        else V.maximum (V.map OR.maximumA gradientR))
@@ -97,8 +96,8 @@ defaultArgsAdam = ArgsAdam
 
 data StateAdam = StateAdam
   { tAdam :: Int  -- iteration count
-  , mAdam :: HVector (Flip OR.Array)
-  , vAdam :: HVector (Flip OR.Array)
+  , mAdam :: HVector (FlipR OR.Array)
+  , vAdam :: HVector (FlipR OR.Array)
   }
 
 initialStateAdam :: VoidHVector -> StateAdam
@@ -134,8 +133,8 @@ liftArray43 f m1 m2 m3 m4 =
             ++ show (OR.shapeL m1, OR.shapeL m2, OR.shapeL m3, OR.shapeL m4)
 
 updateWithGradientAdam
-  :: ArgsAdam -> StateAdam -> HVector (Flip OR.Array) -> HVector (Flip OR.Array)
-  -> (HVector (Flip OR.Array), StateAdam)
+  :: ArgsAdam -> StateAdam -> HVector (FlipR OR.Array) -> HVector (FlipR OR.Array)
+  -> (HVector (FlipR OR.Array), StateAdam)
 updateWithGradientAdam ArgsAdam{..} StateAdam{tAdam, mAdam, vAdam}
                        paramsR gradientR =
   let mAdamR = mAdam
@@ -160,11 +159,11 @@ updateWithGradientAdam ArgsAdam{..} StateAdam{tAdam, mAdam, vAdam}
                  / (sqrt vANew + LA.scalar (realToFrac epsilon)) )
                       -- the @scalar@ is safe here;
                       -- @addConstant@ would be better, but it's not exposed
-      updateR :: DynamicTensor (Flip OR.Array) -> DynamicTensor (Flip OR.Array)
-              -> DynamicTensor (Flip OR.Array) -> DynamicTensor (Flip OR.Array)
-              -> ( DynamicTensor (Flip OR.Array)
-                 , DynamicTensor (Flip OR.Array)
-                 , DynamicTensor (Flip OR.Array) )
+      updateR :: DynamicTensor (FlipR OR.Array) -> DynamicTensor (FlipR OR.Array)
+              -> DynamicTensor (FlipR OR.Array) -> DynamicTensor (FlipR OR.Array)
+              -> ( DynamicTensor (FlipR OR.Array)
+                 , DynamicTensor (FlipR OR.Array)
+                 , DynamicTensor (FlipR OR.Array) )
       updateR emA@(DynamicRanked @r1 @n1 mA) evA@(DynamicRanked @r2 @n2 vA)
               ep@(DynamicRanked @r3 @n3 p) (DynamicRanked @r4 @n4 g) =
         ifDifferentiable @r1
@@ -177,11 +176,11 @@ updateWithGradientAdam ArgsAdam{..} StateAdam{tAdam, mAdam, vAdam}
              ( Just Refl, Just Refl, Just Refl
               ,Just Refl, Just Refl, Just Refl ) ->
                let (od1, od2, od3) =
-                     liftArray43 updateVector (runFlip mA) (runFlip vA)
-                                              (runFlip p) (runFlip g)
-               in ( DynamicRanked $ Flip od1
-                  , DynamicRanked $ Flip od2
-                  , DynamicRanked $ Flip od3 )
+                     liftArray43 updateVector (runFlipR mA) (runFlipR vA)
+                                              (runFlipR p) (runFlipR g)
+               in ( DynamicRanked $ FlipR od1
+                  , DynamicRanked $ FlipR od2
+                  , DynamicRanked $ FlipR od3 )
              _ -> error "updateWithGradientAdam: type mismatch")
           (emA, evA, ep)
       updateR emA evA ep _ =

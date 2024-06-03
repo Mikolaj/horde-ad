@@ -13,7 +13,6 @@ import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as Sh
 import qualified Data.Array.ShapedS as OS
-import           Data.Bifunctor.Flip
 import           Data.Function ((&))
 import           Data.List (foldl', mapAccumL, mapAccumR, scanl')
 import qualified Data.List.NonEmpty as NonEmpty
@@ -39,7 +38,7 @@ import HordeAd.Core.TensorADVal
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.Internal.BackendOX
-import HordeAd.Internal.OrthotopeOrphanInstances (FlipS (..))
+import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..), FlipS (..))
 import HordeAd.Util.ShapedList (shapedNat, unShapedNat)
 
 type instance BoolOf (ORArray) = Bool
@@ -71,56 +70,56 @@ type instance PrimalOf (ORArray) = ORArray
 type instance DualOf (ORArray) = DummyDual
 
 instance RankedTensor (ORArray) where
-  rshape = tshapeR . runFlip
-  rminIndex = Flip . tminIndexR . runFlip
-  rmaxIndex = Flip . tmaxIndexR . runFlip
-  rfloor = Flip . tfloorR . runFlip
-  rindex v ix = Flip $ tindexZR (runFlip v) (fromIndexOfR ix)
-  rindex0 v ix = Flip . tscalarR $ tindex0R (runFlip v) (fromIndexOfR ix)
-  rsum = Flip . tsumR . runFlip
-  rsum0 = Flip . tscalarR . tsum0R . runFlip
-  rdot0 u v = Flip $ tscalarR $ tdot0R (runFlip u) (runFlip v)
-  rmatvecmul m v = Flip $ tmatvecmulR (runFlip m) (runFlip v)
-  rmatmul2 m1 m2 = Flip $ tmatmul2R (runFlip m1) (runFlip m2)
-  rscatter sh t f = Flip $ tscatterZR sh (runFlip t)
+  rshape = tshapeR . runFlipR
+  rminIndex = FlipR . tminIndexR . runFlipR
+  rmaxIndex = FlipR . tmaxIndexR . runFlipR
+  rfloor = FlipR . tfloorR . runFlipR
+  rindex v ix = FlipR $ tindexZR (runFlipR v) (fromIndexOfR ix)
+  rindex0 v ix = FlipR . tscalarR $ tindex0R (runFlipR v) (fromIndexOfR ix)
+  rsum = FlipR . tsumR . runFlipR
+  rsum0 = FlipR . tscalarR . tsum0R . runFlipR
+  rdot0 u v = FlipR $ tscalarR $ tdot0R (runFlipR u) (runFlipR v)
+  rmatvecmul m v = FlipR $ tmatvecmulR (runFlipR m) (runFlipR v)
+  rmatmul2 m1 m2 = FlipR $ tmatmul2R (runFlipR m1) (runFlipR m2)
+  rscatter sh t f = FlipR $ tscatterZR sh (runFlipR t)
                                          (fromIndexOfR . f . toIndexOfR)
-  rscatter1 sh t f = Flip $ tscatterZ1R sh (runFlip t)
-                                           (fromIndexOfR . f . Flip . tscalarR)
-  rfromList = Flip . tfromListR . NonEmpty.map runFlip
-  rfromList0N sh = Flip . tfromList0NR sh . map (tunScalarR . runFlip)
-  rfromVector = Flip . tfromVectorR . V.map runFlip
-  rfromVector0N sh = Flip . tfromVector0NR sh . V.map (tunScalarR . runFlip)
-  runravelToList = map Flip . tunravelToListR . runFlip
-  rreplicate k = Flip . treplicateR k . runFlip
-  rreplicate0N sh = Flip . treplicate0NR sh . tunScalarR . runFlip
-  rappend u v = Flip $ tappendR (runFlip u) (runFlip v)
-  rslice i n = Flip . tsliceR i n . runFlip
-  rreverse = Flip . treverseR . runFlip
-  rtranspose perm = Flip . ttransposeR perm . runFlip
-  rreshape sh = Flip . treshapeR sh . runFlip
-  rbuild1 k f = Flip $ tbuild1R k (runFlip . f . Flip . tscalarR)
-  rmap0N f t = Flip $ tmap0NR (runFlip . f . Flip) (runFlip t)
-  rzipWith0N f t u = Flip $ tzipWith0NR (\v w -> runFlip $ f (Flip v) (Flip w))
-                                        (runFlip t) (runFlip u)
-  rgather sh t f = Flip $ tgatherZR sh (runFlip t)
+  rscatter1 sh t f = FlipR $ tscatterZ1R sh (runFlipR t)
+                                           (fromIndexOfR . f . FlipR . tscalarR)
+  rfromList = FlipR . tfromListR . NonEmpty.map runFlipR
+  rfromList0N sh = FlipR . tfromList0NR sh . map (tunScalarR . runFlipR)
+  rfromVector = FlipR . tfromVectorR . V.map runFlipR
+  rfromVector0N sh = FlipR . tfromVector0NR sh . V.map (tunScalarR . runFlipR)
+  runravelToList = map FlipR . tunravelToListR . runFlipR
+  rreplicate k = FlipR . treplicateR k . runFlipR
+  rreplicate0N sh = FlipR . treplicate0NR sh . tunScalarR . runFlipR
+  rappend u v = FlipR $ tappendR (runFlipR u) (runFlipR v)
+  rslice i n = FlipR . tsliceR i n . runFlipR
+  rreverse = FlipR . treverseR . runFlipR
+  rtranspose perm = FlipR . ttransposeR perm . runFlipR
+  rreshape sh = FlipR . treshapeR sh . runFlipR
+  rbuild1 k f = FlipR $ tbuild1R k (runFlipR . f . FlipR . tscalarR)
+  rmap0N f t = FlipR $ tmap0NR (runFlipR . f . FlipR) (runFlipR t)
+  rzipWith0N f t u = FlipR $ tzipWith0NR (\v w -> runFlipR $ f (FlipR v) (FlipR w))
+                                        (runFlipR t) (runFlipR u)
+  rgather sh t f = FlipR $ tgatherZR sh (runFlipR t)
                                        (fromIndexOfR . f . toIndexOfR)
-  rgather1 k t f = Flip $ tgatherZ1R k (runFlip t)
-                                       (fromIndexOfR . f . Flip . tscalarR)
-  rcast = Flip . tcastR . runFlip
-  rfromIntegral = Flip . tfromIntegralR . runFlip
-  rconst = Flip
+  rgather1 k t f = FlipR $ tgatherZ1R k (runFlipR t)
+                                       (fromIndexOfR . f . FlipR . tscalarR)
+  rcast = FlipR . tcastR . runFlipR
+  rfromIntegral = FlipR . tfromIntegralR . runFlipR
+  rconst = FlipR
   rletHVectorIn = (&)
   rletHFunIn = (&)
   rfromS :: forall r sh. (GoodScalar r, KnownShS sh)
          => OSArray r sh -> ORArray r (X.Rank sh)
   rfromS t | Dict <- lemKnownNatRank (knownShS @sh) =
-    Flip $ OR.fromVector (Nested.Internal.Shape.shsToList (knownShS @sh)) $ Nested.stoVector {-Nested.rstoRanked -} (runFlipS t)
+    FlipR $ OR.fromVector (Nested.Internal.Shape.shsToList (knownShS @sh)) $ Nested.stoVector {-Nested.rstoRanked -} (runFlipS t)
     -- TODO
 
   rscaleByScalar s v =
-    Flip $ tscaleByScalarR (tunScalarR $ runFlip s) (runFlip v)
-  rsumIn = Flip . tsumInR . runFlip
-  rdot1In u v = Flip $ tdot1InR (runFlip u) (runFlip v)
+    FlipR $ tscaleByScalarR (tunScalarR $ runFlipR s) (runFlipR v)
+  rsumIn = FlipR . tsumInR . runFlipR
+  rdot1In u v = FlipR $ tdot1InR (runFlipR u) (runFlipR v)
 
   rconstant = id
   rprimalPart = id
@@ -170,7 +169,7 @@ instance ShapedTensor (OSArray) where
   sscatter t f = FlipS $ tscatterZS (runFlipS t)
                                    (fromIndexOfS . f . toIndexOfS)
   sscatter1 t f = FlipS $ tscatterZ1S (runFlipS t)
-                                      (fromIndexOfS . f . shapedNat . Flip
+                                      (fromIndexOfS . f . shapedNat . FlipR
                                        . tscalarR . unShapedNat)
   sfromList = FlipS . tfromListS . NonEmpty.map runFlipS
   sfromList0N = FlipS . tfromList0NS . map (tunScalarS . runFlipS)
@@ -184,7 +183,7 @@ instance ShapedTensor (OSArray) where
   sreverse = FlipS . treverseS . runFlipS
   stranspose perm = FlipS . ttransposeS perm . runFlipS
   sreshape = FlipS . treshapeS . runFlipS
-  sbuild1 f = FlipS $ tbuild1S (runFlipS . f . shapedNat . Flip
+  sbuild1 f = FlipS $ tbuild1S (runFlipS . f . shapedNat . FlipR
                                 . tscalarR . unShapedNat)
 -- TODO
 --  smap0N f t = FlipS $ tmap0NS (runFlipS . f . FlipS) (runFlipS t)
@@ -193,7 +192,7 @@ instance ShapedTensor (OSArray) where
   sgather t f = FlipS $ tgatherZS (runFlipS t)
                                   (fromIndexOfS . f . toIndexOfS)
   sgather1 t f = FlipS $ tgatherZ1S (runFlipS t)
-                                    (fromIndexOfS . f . shapedNat . Flip
+                                    (fromIndexOfS . f . shapedNat . FlipR
                                      . tscalarR . unShapedNat)
   scast = FlipS . tcastS . runFlipS
   sfromIntegral = FlipS . tfromIntegralS . runFlipS
@@ -214,7 +213,7 @@ instance ShapedTensor (OSArray) where
            , Dict <- lemKnownNatRank (knownShS @sh) =
     gcastWith (unsafeCoerce Refl :: X.Rank sh :~: X.Rank sh) $
     FlipS $ Nested.rcastToShaped
-              (Nested.rfromOrthotope (SNat @(X.Rank sh)) (runFlip t))
+              (Nested.rfromOrthotope (SNat @(X.Rank sh)) (runFlipR t))
               knownShS
 
   sscaleByScalar s v =
@@ -363,13 +362,13 @@ instance (GoodScalar r, KnownShS sh)
   type NoShape (OSArray r sh) = ORArray r (X.Rank sh)  -- key case
   forgetShape t | Dict <- lemShapeFromKnownShS (Proxy @sh)
                 , Dict <- lemKnownNatRank (knownShS @sh) =
-    Flip $ OR.fromVector (Nested.Internal.Shape.shsToList (knownShS @sh)) $ Nested.stoVector {-Nested.rstoRanked -} (runFlipS t)
+    FlipR $ OR.fromVector (Nested.Internal.Shape.shsToList (knownShS @sh)) $ Nested.stoVector {-Nested.rstoRanked -} (runFlipS t)
 
 instance KnownShS sh
          => ForgetShape (FlipS OS.Array r sh) where
   type NoShape (FlipS OS.Array r sh) = ORArray r (X.Rank sh)  -- key case
   forgetShape | Dict <- lemShapeFromKnownShS (Proxy @sh) =
-    Flip . Data.Array.Convert.convert . runFlipS
+    FlipR . Data.Array.Convert.convert . runFlipS
 
 -- TODO: probably this or the next instance is eventually not needed:
 instance (KnownShS sh, GoodScalar r, Fractional r, Random r, Num (Vector r))
@@ -414,7 +413,7 @@ instance (RankedTensor ranked, ShapedTensor (ShapedOf ranked))
          => DualNumberValue (DynamicTensor (ADVal ranked)) where
   type DValue (DynamicTensor (ADVal ranked)) = DynamicTensor (ORArray)
   fromDValue = \case
-    DynamicRanked t -> DynamicRanked $ constantADVal $ rconst $ runFlip t
+    DynamicRanked t -> DynamicRanked $ constantADVal $ rconst $ runFlipR t
     DynamicShaped @_ @sh t | Dict <- lemShapeFromKnownShS (Proxy @sh) ->
       DynamicShaped $ constantADVal $ sconst $ OS.fromVector @sh $ Nested.stoVector $ runFlipS t
       -- TODO: this is probably very wrong

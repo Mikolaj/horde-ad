@@ -7,7 +7,6 @@ module MnistFcnnRanked2 where
 import Prelude
 
 import qualified Data.Array.RankedS as OR
-import           Data.Bifunctor.Flip
 import           Data.Kind (Type)
 import qualified Data.Vector.Generic as V
 import           GHC.Exts (inline)
@@ -18,6 +17,7 @@ import HordeAd.Core.HVector
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.External.CommonRankedOps
+import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..))
 import MnistData
 
 -- | The differentiable type of all trainable parameters of this nn.
@@ -89,10 +89,10 @@ afcnnMnistLoss2 (datum, target) =
 -- and the trained parameters.
 afcnnMnistTest2
   :: forall ranked r.
-     (ranked ~ Flip OR.Array, GoodScalar r, Differentiable r)
+     (ranked ~ FlipR OR.Array, GoodScalar r, Differentiable r)
   => ADFcnnMnist2Parameters ranked r
   -> [MnistData r]
-  -> HVector (Flip OR.Array)
+  -> HVector (FlipR OR.Array)
   -> r
 afcnnMnistTest2 _ [] _ = 0
 afcnnMnistTest2 valsInit dataList testParams =
@@ -102,7 +102,7 @@ afcnnMnistTest2 valsInit dataList testParams =
             nn :: ADFcnnMnist2Parameters ranked r
                -> ranked r 1
             nn = inline afcnnMnist2 logistic softMax1 glyph1
-            v = OR.toVector $ runFlip $ nn $ parseHVector valsInit testParams
+            v = OR.toVector $ runFlipR $ nn $ parseHVector valsInit testParams
         in V.maxIndex v == V.maxIndex label
   in fromIntegral (length (filter matchesLabels dataList))
      / fromIntegral (length dataList)

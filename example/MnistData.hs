@@ -11,7 +11,6 @@ import qualified Data.Array.Ranked as ORB
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
-import           Data.Bifunctor.Flip
 import qualified Data.ByteString.Lazy as LBS
 import           Data.IDX
 import           Data.List (sortOn)
@@ -24,6 +23,7 @@ import           System.IO (IOMode (ReadMode), withBinaryFile)
 import           System.Random
 
 import HordeAd
+import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..))
 
 type SizeMnistWidth = 28 :: Nat
 
@@ -166,17 +166,17 @@ chunksOf n = go where
   :: KnownNat y
   => Double
   -> (MnistData Double
-      -> HVector (ADVal (Flip OR.Array))
-      -> ADVal (Flip OR.Array) Double y)
+      -> HVector (ADVal (FlipR OR.Array))
+      -> ADVal (FlipR OR.Array) Double y)
   -> [MnistData Double]
-  -> HVector (Flip OR.Array)
-  -> (HVector (Flip OR.Array), Flip OR.Array Double y) #-}
+  -> HVector (FlipR OR.Array)
+  -> (HVector (FlipR OR.Array), FlipR OR.Array Double y) #-}
 
 {-# SPECIALIZE sgdAdam
   :: KnownNat y
-  => (MnistDataBatchR Double -> HVector (ADVal (Flip OR.Array))
-      -> ADVal (Flip OR.Array) Double y)
+  => (MnistDataBatchR Double -> HVector (ADVal (FlipR OR.Array))
+      -> ADVal (FlipR OR.Array) Double y)
   -> [MnistDataBatchR Double]
-  -> HVector (Flip OR.Array)
+  -> HVector (FlipR OR.Array)
   -> StateAdam
-  -> (HVector (Flip OR.Array), StateAdam) #-}
+  -> (HVector (FlipR OR.Array), StateAdam) #-}

@@ -24,7 +24,6 @@ import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as Sh
 import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
-import           Data.Bifunctor.Flip
 import           Data.Functor (void)
 import           Data.Int (Int64)
 import           Data.List (foldl')
@@ -57,7 +56,7 @@ import qualified Data.Array.Mixed.Types as X
 
 import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances
-  (FlipS, liftVR, liftVS)
+  (FlipR (..), FlipS, liftVR, liftVS)
 import           HordeAd.Internal.TensorFFI
 import           HordeAd.Util.ShapedList (IndexS, ShapedNat)
 import qualified HordeAd.Util.ShapedList as ShapedList
@@ -390,11 +389,11 @@ tscaleByScalarR :: (Numeric r, KnownNat n)
                 => r -> OR.Array n r -> OR.Array n r
 tscaleByScalarR s = liftVR (LA.scale s)
 
-toIndexOfR :: IndexInt n -> Index n (Flip OR.Array Int64 0)
-toIndexOfR ix = Flip . tscalarR <$> ix
+toIndexOfR :: IndexInt n -> Index n (FlipR OR.Array Int64 0)
+toIndexOfR ix = FlipR . tscalarR <$> ix
 
-fromIndexOfR :: Index n (Flip OR.Array Int64 0) -> IndexInt n
-fromIndexOfR ixOf = tunScalarR . runFlip <$> ixOf
+fromIndexOfR :: Index n (FlipR OR.Array Int64 0) -> IndexInt n
+fromIndexOfR ixOf = tunScalarR . runFlipR <$> ixOf
 
 
 -- * Shaped tensor operations
@@ -812,8 +811,8 @@ tscaleByScalarS :: forall r sh. (Numeric r, KnownShS sh)
 tscaleByScalarS s | Dict <- lemShapeFromKnownShS (Proxy @sh) =
   liftVS (LA.scale s)
 
-toIndexOfS :: IndexIntSh sh -> IndexS sh (Flip OR.Array Int64 0)
-toIndexOfS ix = Flip . tscalarR <$> ix
+toIndexOfS :: IndexIntSh sh -> IndexS sh (FlipR OR.Array Int64 0)
+toIndexOfS ix = FlipR . tscalarR <$> ix
 
-fromIndexOfS :: IndexS sh (Flip OR.Array Int64 0) -> IndexIntSh sh
-fromIndexOfS ixOf = tunScalarR . runFlip <$> ixOf
+fromIndexOfS :: IndexS sh (FlipR OR.Array Int64 0) -> IndexIntSh sh
+fromIndexOfS ixOf = tunScalarR . runFlipR <$> ixOf

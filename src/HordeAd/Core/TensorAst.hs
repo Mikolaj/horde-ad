@@ -18,7 +18,6 @@ import Prelude
 import           Control.Exception.Assert.Sugar
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
-import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality ((:~:) (Refl))
@@ -48,7 +47,7 @@ import           HordeAd.Core.TensorConcrete ()
 import           HordeAd.Core.Types
 import           HordeAd.Internal.BackendOX (OSArray)
 import           HordeAd.Internal.OrthotopeOrphanInstances
-  (FlipS (..), IntegralF (..), RealFloatF (..))
+  (FlipR (..), FlipS (..), IntegralF (..), RealFloatF (..))
 import           HordeAd.Util.ShapedList (IntSh)
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedList
@@ -224,12 +223,12 @@ instance (GoodScalar r, KnownNat n, RankedTensor (AstRanked s), AstSpan s)
   fromHVector _aInit = fromHVectorR
 
 instance DualNumberValue (AstRanked PrimalSpan r n) where
-  type DValue (AstRanked PrimalSpan r n) = Flip OR.Array r n
-  fromDValue t = fromPrimal $ AstConst $ runFlip t
+  type DValue (AstRanked PrimalSpan r n) = FlipR OR.Array r n
+  fromDValue t = fromPrimal $ AstConst $ runFlipR t
 
 instance TermValue (AstRanked FullSpan r n) where
-  type Value (AstRanked FullSpan r n) = Flip OR.Array r n
-  fromValue t = fromPrimal $ AstConst $ runFlip t
+  type Value (AstRanked FullSpan r n) = FlipR OR.Array r n
+  fromValue t = fromPrimal $ AstConst $ runFlipR t
 
 instance AstSpan s => RankedTensor (AstRanked s) where
   rlet = astLetFun
@@ -456,9 +455,9 @@ astBuild1VectorizeS f =
 
 instance TermValue (DynamicTensor (AstRanked FullSpan)) where
   type Value (DynamicTensor (AstRanked FullSpan)) =
-    DynamicTensor (Flip OR.Array)
+    DynamicTensor (FlipR OR.Array)
   fromValue = \case
-    DynamicRanked t -> DynamicRanked $ fromPrimal $ AstConst $ runFlip t
+    DynamicRanked t -> DynamicRanked $ fromPrimal $ AstConst $ runFlipR t
     DynamicShaped @_ @sh t | Dict <- lemShapeFromKnownShS (Proxy @sh) ->
       DynamicShaped $ fromPrimalS $ AstConstS $ FlipS $ OS.fromVector @sh $ Nested.stoVector $ runFlipS t
       -- TODO: this is probably very wrong
@@ -477,7 +476,7 @@ instance AdaptableHVector (AstRanked s) (AstHVector s) where
 -- of type applications the library user has to supply.
 instance TermValue (AstHVector FullSpan) where
   type Value (AstHVector FullSpan) =
-    Data.NonStrict.Vector.Vector (DynamicTensor (Flip OR.Array))
+    Data.NonStrict.Vector.Vector (DynamicTensor (FlipR OR.Array))
   fromValue t = AstMkHVector $ V.convert $ V.map fromValue t
 
 instance AdaptableHVector (AstRanked FullSpan)
@@ -490,7 +489,7 @@ instance AdaptableHVector (AstRanked FullSpan)
 
 instance TermValue (HVectorPseudoTensor (AstRanked FullSpan) r y) where
   type Value (HVectorPseudoTensor (AstRanked FullSpan) r y) =
-    HVectorPseudoTensor (Flip OR.Array) r y
+    HVectorPseudoTensor (FlipR OR.Array) r y
   fromValue (HVectorPseudoTensor t) =
     HVectorPseudoTensor $ AstMkHVector $ V.map fromValue t
 

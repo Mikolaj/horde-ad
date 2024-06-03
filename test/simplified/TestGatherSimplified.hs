@@ -8,12 +8,12 @@ module TestGatherSimplified (testTrees) where
 import Prelude
 
 import qualified Data.Array.RankedS as OR
-import           Data.Bifunctor.Flip
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
 import HordeAd
 import HordeAd.Core.AstFreshId (resetVarCounter)
+import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..))
 
 import CrossTesting
 
@@ -335,7 +335,7 @@ testGatherSimpPP23 = do
 gatherTranspose33 :: forall ranked r. (ADReady ranked, GoodScalar r, RealFloat r)
                   => ranked r 10 -> ranked r 2
 gatherTranspose33 t =
-  rmatmul2 (rreshape [6, 8] (rconst $ runFlip t48))
+  rmatmul2 (rreshape [6, 8] (rconst $ runFlipR t48))
     (rtr
      $ rreshape @ranked @r @4 [16, 8]
      $ rtranspose [0, 1, 2]
@@ -389,7 +389,7 @@ testGatherSimpPP33 = do
   length (show t1) @?= 548
   length (show (simplifyInlineAst @Float t1)) @?= 548
   resetVarCounter
-  let !t2 = (\t -> rmatmul2 (rreshape [6, 8] (rconst $ runFlip t48))
+  let !t2 = (\t -> rmatmul2 (rreshape [6, 8] (rconst $ runFlipR t48))
                             (rreshape @(AstRanked PrimalSpan) @Float @10 [8, 16] t))
             $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (AstVarName . intToAstVarId $ 100000000)
   length (show t2) @?= 467
@@ -405,7 +405,7 @@ testGatherSimpPP34 = do
   length (show (simplifyInlineAst @Float t1)) @?= 871
   resetVarCounter
   let !t2 = (\t -> rbuild1 4 (\i ->
-              (\t' -> rmatmul2 (rreshape [6, 8] (rconst $ runFlip t48))
+              (\t' -> rmatmul2 (rreshape [6, 8] (rconst $ runFlipR t48))
                                (rreshape @(AstRanked PrimalSpan) @Float @10 [8, 16] t'))
                 (t * rreplicate0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (rfromIndex0 i))))
             $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (AstVarName . intToAstVarId $ 100000000)
