@@ -1190,7 +1190,7 @@ type ADReadyS shaped = ADReadyBoth (RankedOf shaped) shaped
 
 -- Here is in other places reflexive closure of type equalities is created
 -- manually (and not for all equalities) due to #23333.
-type ADReadySmall ranked shaped =
+type ADReadyBoth ranked shaped =
   ( shaped ~ ShapedOf ranked, ranked ~ RankedOf shaped
   , ShapedOf shaped ~ shaped, RankedOf ranked ~ ranked
   , RankedOf (PrimalOf ranked) ~ PrimalOf ranked
@@ -1211,12 +1211,9 @@ type ADReadySmall ranked shaped =
   , OrdF ranked, OrdF shaped, OrdF (PrimalOf ranked), OrdF (PrimalOf shaped)
   , RankedTensor ranked, RankedTensor (PrimalOf ranked)
   , ShapedTensor shaped, ShapedTensor (PrimalOf shaped)
+  , HVectorTensor ranked shaped
+  , HVectorTensor (PrimalOf ranked) (PrimalOf shaped)
   , CRanked ranked Show, CRanked (PrimalOf ranked) Show
   , CShaped shaped Show, CShaped (PrimalOf shaped) Show
   , Show (HFunOf ranked)
   )
-
-type ADReadyBoth ranked shaped =
-  ( ADReadySmall ranked shaped
-  , HVectorTensor ranked shaped
-  , HVectorTensor (PrimalOf ranked) (PrimalOf shaped) )
