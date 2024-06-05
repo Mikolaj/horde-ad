@@ -272,10 +272,10 @@ testTrees =
   , testCase "4Sin0revhFold5S" testSin0revhFold5S
   ]
 
-foo :: RealFloat a => (a, a, a) -> a
+foo :: RealFloatF a => (a, a, a) -> a
 foo (x, y, z) =
   let w = x * sin y
-  in atan2 z w + z * w
+  in atan2F z w + z * w
 
 fooRrev :: forall g a. (ADReady g, GoodScalar a, Differentiable a)
         => (a, a, a) -> (g a 0, g a 0, g a 0)
@@ -544,7 +544,7 @@ testSin0Fold4 :: Assertion
 testSin0Fold4 = do
   assertEqualUpToEpsilon' 1e-10
     (-0.7053476446727861 :: OR.Array 0 Double)
-    (rev' (\a0 -> rfold (\x a -> atan2 (sin x) (sin a))
+    (rev' (\a0 -> rfold (\x a -> atan2F (sin x) (sin a))
                         (2 * a0) (rreplicate 3 a0)) 1.1)
 
 testSin0Fold5 :: Assertion
@@ -552,7 +552,7 @@ testSin0Fold5 = do
   assertEqualUpToEpsilon' 1e-10
     (1.2992412552109085 :: OR.Array 0 Double)
     (rev' (\a0 -> rfold (\x a -> rsum
-                                 $ atan2 (sin $ rreplicate 5 x)
+                                 $ atan2F (sin $ rreplicate 5 x)
                                          (rsum $ sin $ rsum
                                           $ rtr $ rreplicate 7 a))
                         (2 * a0)
@@ -580,7 +580,7 @@ testSin0Fold8 = do
   assertEqualUpToEpsilon' 1e-10
     (-2.200311410593445 :: OR.Array 0 Double)
     (rev' (\a0 -> rfold (\x a -> rtr $ rreplicate 5
-                                 $ atan2 (rsum (rtr $ sin x))
+                                 $ atan2F (rsum (rtr $ sin x))
                                          (rreplicate 2
                                           $ sin (rsum $ rreplicate 7 a)))
                         (rreplicate 2 (rreplicate 5 (2 * a0)))
@@ -707,7 +707,7 @@ testSin0Fold8rev = do
     (-2.200311410593445 :: FlipR OR.Array Double 0)
     (rrev1 @(FlipR OR.Array) @Double @0 @2
        (\a0 -> rfold (\x a -> rtr $ rreplicate 5
-                                 $ atan2 (rsum (rtr $ sin x))
+                                 $ atan2F (rsum (rtr $ sin x))
                                          (rreplicate 2
                                           $ sin (rsum $ rreplicate 7 a)))
                         (rreplicate 2 (rreplicate 5 (2 * a0)))
@@ -717,7 +717,7 @@ testSin0Fold8rev2 :: Assertion
 testSin0Fold8rev2 = do
   let h = rrev1 @(ADVal (FlipR OR.Array)) @Double @0 @2
         (\a0 -> rfold (\x a -> rtr $ rreplicate 5
-                                 $ atan2 (rsum (rtr $ sin x))
+                                 $ atan2F (rsum (rtr $ sin x))
                                          (rreplicate 2
                                           $ sin (rsum $ rreplicate 7 a)))
                         (rreplicate 2 (rreplicate 5 (2 * a0)))
@@ -792,7 +792,7 @@ testSin0Fold8fwd = do
     (FlipR $ OR.constant [2, 5] (-0.2200311410593445))
     (rfwd1 @(FlipR OR.Array) @Double @0 @2
        (\a0 -> rfold (\x a -> rtr $ rreplicate 5
-                                 $ atan2 (rsum (rtr $ sin x))
+                                 $ atan2F (rsum (rtr $ sin x))
                                          (rreplicate 2
                                           $ sin (rsum $ rreplicate 7 a)))
                         (rreplicate 2 (rreplicate 5 (2 * a0)))
@@ -802,7 +802,7 @@ testSin0Fold8fwd2 :: Assertion
 testSin0Fold8fwd2 = do
   let h = rfwd1 @(ADVal (FlipR OR.Array)) @Double @0 @2
         (\a0 -> rfold (\x a -> rtr $ rreplicate 5
-                                 $ atan2 (rsum (rtr $ sin x))
+                                 $ atan2F (rsum (rtr $ sin x))
                                          (rreplicate 2
                                           $ sin (rsum $ rreplicate 7 a)))
                         (rreplicate 2 (rreplicate 5 (2 * a0)))
@@ -924,7 +924,7 @@ testSin0Scan4 :: Assertion
 testSin0Scan4 = do
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [1,1,1,1,1] [-0.4458209450295252] :: OR.Array 5 Double)
-    (rev' (\a0 -> rscan (\x a -> atan2 (sin x) (sin a))
+    (rev' (\a0 -> rscan (\x a -> atan2F (sin x) (sin a))
                         (rreplicate0N [1,1,1,1,1] 2 * a0)
                         (rreplicate 3 a0)) (rreplicate0N [1,1,1,1,1] 1.1))
 
@@ -933,7 +933,7 @@ testSin0Scan5 = do
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [1,1,1,1] [4.126141830000979] :: OR.Array 4 Double)
     (rev' (\a0 -> rscan (\x a -> rsum
-                                 $ atan2 (sin $ rreplicate 5 x)
+                                 $ atan2F (sin $ rreplicate 5 x)
                                          (rsum $ sin $ rsum
                                           $ rtr $ rreplicate 7 a))
                         (rreplicate0N [1,1,1,1] 2 * a0)
@@ -962,7 +962,7 @@ testSin0Scan8 = do
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [1,1,1] [9.532987357352765] :: OR.Array 3 Double)
     (rev' (\a0 -> rscan (\x a -> rtr $ rreplicate 5
-                                 $ atan2 (rsum (rtr $ sin x))
+                                 $ atan2F (rsum (rtr $ sin x))
                                          (rreplicate 2
                                           $ sin (rsum $ rreplicate 7 a)))
                         (rreplicate 2 (rreplicate 5 (rreplicate0N [1,1,1] 2 * a0)))
@@ -974,7 +974,7 @@ testSin0Scan8rev = do
     (FlipR $ OR.fromList [] [9.53298735735276])
     (rrev1 @(FlipR OR.Array) @Double @0 @3
        (\a0 -> rscan (\x a -> rtr $ rreplicate 5
-                                 $ atan2 (rsum (rtr $ sin x))
+                                 $ atan2F (rsum (rtr $ sin x))
                                          (rreplicate 2
                                           $ sin (rsum $ rreplicate 7 a)))
                         (rreplicate 2 (rreplicate 5 (2 * a0)))
@@ -984,7 +984,7 @@ testSin0Scan8rev2 :: Assertion
 testSin0Scan8rev2 = do
   let h = rrev1 @(ADVal (FlipR OR.Array)) @Double @0 @3
         (\a0 -> rscan (\x a -> rtr $ rreplicate 5
-                                 $ atan2 (rsum (rtr $ sin x))
+                                 $ atan2F (rsum (rtr $ sin x))
                                          (rreplicate 2
                                           $ sin (rsum $ rreplicate 7 a)))
                         (rreplicate 2 (rreplicate 5 (2 * a0)))
@@ -1154,7 +1154,7 @@ testSin0Scan8fwd = do
     (FlipR $ OR.fromList [4,2,5] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445])
     (rfwd1 @(FlipR OR.Array) @Double @0 @3
        (\a0 -> rscan (\x a -> rtr $ rreplicate 5
-                                 $ atan2 (rsum (rtr $ sin x))
+                                 $ atan2F (rsum (rtr $ sin x))
                                          (rreplicate 2
                                           $ sin (rsum $ rreplicate 7 a)))
                         (rreplicate 2 (rreplicate 5 (2 * a0)))
@@ -1164,7 +1164,7 @@ testSin0Scan8fwd2 :: Assertion
 testSin0Scan8fwd2 = do
   let h = rfwd1 @(ADVal (FlipR OR.Array)) @Double @0 @3
         (\a0 -> rscan (\x a -> rtr $ rreplicate 5
-                                 $ atan2 (rsum (rtr $ sin x))
+                                 $ atan2F (rsum (rtr $ sin x))
                                          (rreplicate 2
                                           $ sin (rsum $ rreplicate 7 a)))
                         (rreplicate 2 (rreplicate 5 (2 * a0)))
@@ -2827,7 +2827,7 @@ testSin0ScanD4 :: Assertion
 testSin0ScanD4 = do
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [1,1,1,1,1] [-0.4458209450295252] :: OR.Array 5 Double)
-    (rev' (\a0 -> rscanZip (\x a -> atan2 (sin x)
+    (rev' (\a0 -> rscanZip (\x a -> atan2F (sin x)
                                         (sin $ rfromD (a V.! 0)))
                          (V.fromList [voidFromSh @Double
                                         (1 :$: 1 :$: 1 :$: 1 :$: 1 :$: ZSR)])
@@ -2840,7 +2840,7 @@ testSin0ScanD5 = do
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [1,1,1,1] [4.126141830000979] :: OR.Array 4 Double)
     (rev' (\a0 -> rscanZip (\x a -> rsum
-                                 $ atan2 (sin $ rreplicate 5 x)
+                                 $ atan2F (sin $ rreplicate 5 x)
                                          (rsum $ sin $ rsum
                                           $ rtr $ rreplicate 7
                                           $ rfromD (a V.! 0)))
@@ -2862,7 +2862,7 @@ testSin0ScanD51 = do
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [1,1,1,1] [319.68688158967257] :: OR.Array 4 Double)
     (rev' (\a0 -> rscanZip (\x a -> rsum
-                                 $ atan2 (sin $ rreplicate 5 x)
+                                 $ atan2F (sin $ rreplicate 5 x)
                                          (rsum $ sin $ rsum
                                           $ rtr $ rreplicate 7
                                           $ rreplicate 2 $ rreplicate 5
@@ -2942,7 +2942,7 @@ testSin0ScanD8 = do
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [1,1,1] [9.532987357352765] :: OR.Array 3 Double)
     (rev' (\a0 -> rscanZip (\x a -> rtr $ rreplicate 5
-                                 $ atan2 (rsum (rtr $ sin x))
+                                 $ atan2F (rsum (rtr $ sin x))
                                          (rreplicate 2
                                           $ sin (rfromD $ (V.! 0)
                                                  $ mapHVectorRanked
@@ -2973,7 +2973,7 @@ testSin0ScanD8MapAccum = do
                           $ V.fromList
                             [ DynamicRanked
                                $ rtr $ rreplicate 5
-                                 $ atan2 (rsum (rtr $ sin x))
+                                 $ atan2F (rsum (rtr $ sin x))
                                          (rreplicate 2
                                           $ sin (rfromD $ (V.! 0)
                                                  $ mapHVectorRanked
@@ -2992,7 +2992,7 @@ testSin0ScanD8rev = do
     (FlipR $ OR.fromList [] [9.53298735735276])
     (rrev1 @(FlipR OR.Array) @Double @0 @3
        (\a0 -> rscanZip (\x a -> rtr $ rreplicate 5
-                                 $ atan2 (rsum (rtr $ sin x))
+                                 $ atan2F (rsum (rtr $ sin x))
                                          (rreplicate 2
                                           $ sin (rfromD $ (V.! 0)
                                                  $ mapHVectorRanked
@@ -3005,7 +3005,7 @@ testSin0ScanD8rev2 :: Assertion
 testSin0ScanD8rev2 = do
   let h = rrev1 @(ADVal (FlipR OR.Array)) @Double @0 @3
         (\a0 -> rscanZip (\x a -> rtr $ rreplicate 5
-                                 $ atan2 (rsum (rtr $ sin x))
+                                 $ atan2F (rsum (rtr $ sin x))
                                          (rreplicate 2
                                           $ sin (rfromD $ (V.! 0)
                                                  $ mapHVectorRanked10 rsum
@@ -3023,7 +3023,7 @@ testSin0ScanD8rev3 = do
   let h :: forall f. ADReady f => f Double 0 -> f Double 0
       h = rrev1 @f @Double @0 @3
         (\a0 -> rscanZip (\x a -> rtr $ rreplicate 5
-                                 $ atan2 (rsum (rtr $ sin x))
+                                 $ atan2F (rsum (rtr $ sin x))
                                          (rreplicate 2
                                           $ sin (rfromD $ (V.! 0)
                                                  $ mapHVectorRanked10 rsum
@@ -3041,7 +3041,7 @@ testSin0ScanD8rev4 = do
   let h :: forall f. ADReady f => f Double 0 -> f Double 0
       h = rrev1 @f @Double @0 @3
         (\a0 -> rscanZip (\x a -> rtr $ rreplicate 5
-                                 $ atan2 (rsum (rtr $ sin x))
+                                 $ atan2F (rsum (rtr $ sin x))
                                          (rreplicate 2
                                           $ sin (rfromD $ (V.! 0)
                                                  $ mapHVectorRanked10 rsum
@@ -3182,7 +3182,7 @@ testSin0ScanD8fwd = do
     (FlipR $ OR.fromList [4,2,5] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445])
     (rfwd1 @(FlipR OR.Array) @Double @0 @3
        (\a0 -> rscanZip (\x a -> rtr $ rreplicate 5
-                                 $ atan2 (rsum (rtr $ sin x))
+                                 $ atan2F (rsum (rtr $ sin x))
                                          (rreplicate 2
                                           $ sin (rfromD $ (V.! 0)
                                                  $ mapHVectorRanked
@@ -3210,7 +3210,7 @@ testSin0ScanD8fwdMapAccum = do
                           $ V.fromList
                             [ DynamicRanked
                                $ rtr $ rreplicate 5
-                                 $ atan2 (rsum (rtr $ sin x))
+                                 $ atan2F (rsum (rtr $ sin x))
                                          (rreplicate 2
                                           $ sin (rfromD $ (V.! 0)
                                                  $ mapHVectorRanked
@@ -3225,7 +3225,7 @@ testSin0ScanD8fwd2 :: Assertion
 testSin0ScanD8fwd2 = do
   let h = rfwd1 @(ADVal (FlipR OR.Array)) @Double @0 @3
         (\a0 -> rscanZip (\x a -> rtr $ rreplicate 5
-                                 $ atan2 (rsum (rtr $ sin x))
+                                 $ atan2F (rsum (rtr $ sin x))
                                          (rreplicate 2
                                           $ sin (rfromD $ (V.! 0)
                                                  $ mapHVectorRanked10 rsum
@@ -4173,7 +4173,7 @@ testSin0FoldNestedRi = do
   assertEqualUpToEpsilon' 1e-10
     (-0.20775612781643243 :: OR.Array 0 Double)
     (rev' (let f :: forall f. ADReady f => f Double 0 -> f Double 1
-               f a0 = rfold (\x a -> atan2
+               f a0 = rfold (\x a -> atan2F
                                        (rscan (+) (rsum x)
                                           (rscan (*) 2
                                                  (rreplicate 1 a)))

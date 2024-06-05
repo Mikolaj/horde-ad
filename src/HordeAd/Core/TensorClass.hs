@@ -71,8 +71,8 @@ type TensorSupports3 c1 c2 f =
 -- | The superclasses indicate that it's not only a container array,
 -- but also a mathematical tensor, sporting numeric operations.
 class ( Num (IntOf ranked), IntegralF (IntOf ranked), CRanked ranked Num
-      , TensorSupports3 RealFloatAndFloatElt RealFloat ranked
-          -- TODO: no idea why FloatElt here is needed
+      , TensorSupports3 RealFloatAndFloatElt Floating ranked
+      , TensorSupports3 RealFloatAndFloatElt RealFloatF ranked
       , TensorSupports2 Integral IntegralF ranked )
       => RankedTensor (ranked :: RankedTensorType) where
 

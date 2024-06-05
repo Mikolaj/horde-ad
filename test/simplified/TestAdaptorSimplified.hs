@@ -8,7 +8,6 @@ module TestAdaptorSimplified
 import Prelude
 
 import qualified Data.Array.RankedS as OR
-import qualified Data.Array.Shape as Sh
 import qualified Data.Array.ShapedS as OS
 import qualified Data.EnumMap.Strict as EM
 import           Data.Int (Int64)
@@ -501,10 +500,10 @@ testOverleafPP = do
   show deltas
     @?= "HToH [DynamicRanked (ShareR 100000002 (SumR (ShareR 100000001 (GatherR [50] (InputR [28] (InputId 0)) <function>))))]"
 
-foo :: RealFloat a => (a, a, a) -> a
+foo :: RealFloatF a => (a, a, a) -> a
 foo (x, y, z) =
   let w = x * sin y
-  in atan2 z w + z * w
+  in atan2F z w + z * w
 
 fooF :: RealFloatF a => (a, a, a) -> a
 fooF (x, y, z) =
@@ -560,21 +559,21 @@ testFooPP = do
       (var3, ast3) = funToAstR ZSR foo3
   "\\" ++ printAstVarName IM.empty var3
        ++ " -> " ++ printAstSimple IM.empty ast3
-    @?= "\\x1 -> atan2 x1 (x1 * sin x1) + x1 * (x1 * sin x1)"
+    @?= "\\x1 -> atan2F x1 (x1 * sin x1) + x1 * (x1 * sin x1)"
   resetVarCounter
   let (artifactRev, _) = revArtifactAdapt True fooT (4, 5, 6)
   printArtifactSimple renames artifactRev
     @?= "\\x9 x1 x y -> rletInHVector (sin x) (\\z -> rletInHVector (x1 * z) (\\x5 -> rletInHVector (recip (y * y + x5 * x5)) (\\x6 -> rletInHVector (sin x) (\\x7 -> rletInHVector (x1 * x7) (\\x8 -> rletInHVector (y * x9) (\\x10 -> rletInHVector ((negate y * x6) * x9) (\\x11 -> dmkHVector (fromList [DynamicRanked (z * x11 + x7 * x10), DynamicRanked (cos x * (x1 * x11) + cos x * (x1 * x10)), DynamicRanked ((x5 * x6) * x9 + x8 * x9)]))))))))"
   printArtifactPrimalSimple renames artifactRev
-    @?= "\\x1 x y -> rletInHVector (sin x) (\\z -> rletInHVector (x1 * z) (\\x5 -> rletInHVector (sin x) (\\x7 -> rletInHVector (x1 * x7) (\\x8 -> dmkHVector (fromList [DynamicRanked (atan2 y x5 + y * x8)])))))"
+    @?= "\\x1 x y -> rletInHVector (sin x) (\\z -> rletInHVector (x1 * z) (\\x5 -> rletInHVector (sin x) (\\x7 -> rletInHVector (x1 * x7) (\\x8 -> dmkHVector (fromList [DynamicRanked (atan2F y x5 + y * x8)])))))"
 
 fooLet :: forall ranked r n.
-          (RealFloat (ranked r n), RankedTensor ranked, KnownNat n, GoodScalar r)
+          (RealFloatF (ranked r n), RankedTensor ranked, KnownNat n, GoodScalar r)
        => (ranked r n, ranked r n, ranked r n) -> ranked r n
 fooLet (x, y, z) =
   let w0 = x * sin y
   in rlet w0 $ \w ->
-     atan2 z w + z * w
+     atan2F z w + z * w
 
 testFooLet :: Assertion
 testFooLet = do
@@ -592,13 +591,13 @@ testFooLetPP = do
       (var3, ast3) = funToAstR ZSR fooLet3
   "\\" ++ printAstVarName renamesNull var3
        ++ " -> " ++ printAstSimple renamesNull ast3
-    @?= "\\x1 -> rlet (x1 * sin x1) (\\x2 -> atan2 x1 x2 + x1 * x2)"
+    @?= "\\x1 -> rlet (x1 * sin x1) (\\x2 -> atan2F x1 x2 + x1 * x2)"
   resetVarCounter
   let (artifactRev, _)= revArtifactAdapt True fooLetT (4, 5, 6)
   printArtifactPretty renames (simplifyArtifact artifactRev)
     @?= "\\x8 x1 x y -> let x5 = sin x ; x6 = x1 * x5 ; x7 = recip (y * y + x6 * x6) ; x9 = (negate y * x7) * x8 + y * x8 in [x5 * x9, cos x * (x1 * x9), (x6 * x7) * x8 + x6 * x8]"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
-    @?= "\\x1 x y -> let x6 = x1 * sin x in [atan2 y x6 + y * x6]"
+    @?= "\\x1 x y -> let x6 = x1 * sin x in [atan2F y x6 + y * x6]"
 
 shapedListProd :: (ShapedTensor shaped, GoodScalar r)
                => [shaped r '[]] -> shaped r '[]
@@ -1207,10 +1206,10 @@ testMatmul2PPS = do
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
     @?= "\\m1 m2 -> [ssum (stranspose (sreplicate m1) * stranspose (sreplicate m2))]"
 
-bar :: forall a. RealFloat a => (a, a) -> a
+bar :: forall a. RealFloatF a => (a, a) -> a
 bar (x, y) =
   let w = foo (x, y, x) * sin y
-  in atan2 x w + y * w
+  in atan2F x w + y * w
 
 barF :: forall a. RealFloatF a => (a, a) -> a
 barF (x, y) =
@@ -1247,11 +1246,11 @@ testBarFwd =
     9.327500345189534e-2
     (fwd @(AstRanked FullSpan Double 0) bar (1.1, 2.2) (0.1, 0.2))
 
-barADVal2 :: forall a. RealFloat a
+barADVal2 :: forall a. RealFloatF a
           => (a, a, a) -> a
 barADVal2 (x,y,z) =
   let w = foo (x,y,z) * sin y
-  in atan2 z w + z * w
+  in atan2F z w + z * w
 
 -- A check if gradient computation is re-entrant.
 -- This test fails (not on first run, but on repetition) if old terms,
@@ -1270,7 +1269,7 @@ baz :: ( ADVal (FlipR OR.Array) Double 0
     -> ADVal (FlipR OR.Array) Double 0
 baz (_x,y,z) =
   let w = fooConstant * barADVal2 (y,y,z) * sin y
-  in atan2 z w + z * w
+  in atan2F z w + z * w
 
 -- An "old term", computed once, stored at top level.
 fooConstant :: ADVal (FlipR OR.Array) Double 0
@@ -1304,7 +1303,7 @@ fooD :: forall r. r ~ Double
      => [ADVal (FlipR OR.Array) r 0] -> ADVal (FlipR OR.Array) r 0
 fooD [x, y, z] =
   let w = x * sin y
-  in atan2 z w + z * w
+  in atan2F z w + z * w
 fooD _ = error "wrong number of arguments"
 
 testFooD :: Assertion
@@ -1364,7 +1363,7 @@ barAst :: (Numeric r, Show r, Differentiable r)
        => (AstRanked PrimalSpan r 0, AstRanked PrimalSpan r 0) -> AstRanked PrimalSpan r 0
 barAst (x, y) =
   let w = foo (x, y, x) * sin y
-  in atan2 x w + y * w
+  in atan2F x w + y * w
 
 fooNoGoAst :: forall r. (GoodScalar r, Differentiable r)
            => AstRanked PrimalSpan r 1 -> AstRanked PrimalSpan r 1
@@ -1494,12 +1493,12 @@ testBarRelu3 =
     (rev' @Double @3 barRelu (FlipR $ OR.fromList [2, 1, 2] [1.1, 2, 3, 4.2]))
 
 barReluMax0
-  :: ( ADReady ranked, GoodScalar r, KnownNat n, RealFloat (ranked r n) )
+  :: ( ADReady ranked, GoodScalar r, KnownNat n, RealFloatF (ranked r n) )
   => ranked r n -> ranked r n
 barReluMax0 x = reluMax $ bar (x, x)
 
 barReluMax
-  :: ( ADReady ranked, GoodScalar r, KnownNat n, RealFloat (ranked r n) )
+  :: ( ADReady ranked, GoodScalar r, KnownNat n, RealFloatF (ranked r n) )
   => ranked r n -> ranked r n
 barReluMax x = reluMax $ bar (x, reluMax x)
 

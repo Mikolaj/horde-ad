@@ -323,25 +323,6 @@ instance (Num (Vector r), KnownShS sh, Numeric r) => Num (OS.Array sh r) where
   fromInteger | Dict <- lemShapeFromKnownShS (Proxy @sh) =
     OS.constant . fromInteger
 
-instance Enum (OR.Array n r) where  -- dummy, to satisfy Integral below
-  toEnum :: HasCallStack => Int -> a
-  toEnum _ = error "toEnum: undefined for OR.Array"
-  fromEnum :: HasCallStack => a -> Int
-  fromEnum _ = error "fromEnum: undefined for OR.Array"
-
-instance (Num (Vector r), Integral r, KnownNat n, Numeric r, Show r)
-         => Integral (OR.Array n r) where
-  quot = liftVR2UnlessZero quot
-  rem = liftVR2UnlessZero rem
-  quotRem x y = (quot x y, rem x y)  -- TODO, another variant of liftVR2 needed
-  div = liftVR2UnlessZero div
-  mod = liftVR2UnlessZero mod
-  -- divMod  -- TODO
-  toInteger = case sameNat (Proxy @n) (Proxy @0) of
-    Just Refl -> toInteger . OR.unScalar
-    _ -> error $ "OR.toInteger: rank not zero: "
-                 ++ show (valueOf @n :: Int)
-
 class IntegralF a where
   quotF, remF :: a -> a -> a
 
@@ -427,34 +408,16 @@ instance (Floating (Vector r), KnownShS sh, Numeric r, Floating r)
   acosh = liftVS acosh
   atanh = liftVS atanh
 
-instance (Real (Vector r), KnownNat n, Numeric r, Show r, Ord r)
-         => Real (OR.Array n r) where
-  toRational = undefined  -- TODO
-
-instance ( RealFrac (Vector r), KnownNat n, Numeric r, Show r, Fractional r
-         , Ord r )
-         => RealFrac (OR.Array n r) where
-  properFraction = error "OR.properFraction: can't be implemented"
-    -- The integral type doesn't have a Storable constraint,
-    -- so we can't implement this (nor even RealFracB from Boolean package).
-
-instance ( RealFloat (Vector r), KnownNat n, Numeric r, Show r, Floating r
-         , Ord r )
-         => RealFloat (OR.Array n r) where
-  atan2 = liftVR2NoAdapt atan2
-  floatRadix = undefined  -- TODO (and below)
-  floatDigits = undefined
-  floatRange = undefined
-  decodeFloat = undefined
-  encodeFloat = undefined
-  isNaN = undefined
-  isInfinite = undefined
-  isDenormalized = undefined
-  isNegativeZero = undefined
-  isIEEE = undefined
-
 class Floating a => RealFloatF a where
   atan2F :: a -> a -> a
+
+instance (Show r, Floating r, RealFloat (Vector r), KnownNat n, Numeric r)
+         => RealFloatF (OR.Array n r) where
+  atan2F = liftVR2NoAdapt atan2
+
+instance (Nested.Internal.Arith.NumElt r, Nested.PrimElt r, RealFloat r, RealFloat (Vector r), Nested.Internal.Arith.FloatElt r, KnownNat n, Numeric r)
+         => RealFloatF (Nested.Ranked n r) where
+  atan2F = Nested.Internal.arithPromoteRanked2 (Nested.Internal.Mixed.mliftPrim2 atan2)
 
 instance (Floating r, RealFloat (Vector r), KnownShS sh, Numeric r)
          => RealFloatF (OS.Array sh r) where

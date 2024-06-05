@@ -272,13 +272,13 @@ interpretAstR1 AsinhOp u = asinh u
 interpretAstR1 AcoshOp u = acosh u
 interpretAstR1 AtanhOp u = atanh u
 
-interpretAstR2 :: RealFloat a
+interpretAstR2 :: RealFloatF a
                => OpCode2 -> a -> a -> a
 {-# INLINE interpretAstR2 #-}
 interpretAstR2 DivideOp u v = u / v
 interpretAstR2 PowerOp u v = u ** v
 interpretAstR2 LogBaseOp u v = logBase u v
-interpretAstR2 Atan2Op u v = atan2 u v
+interpretAstR2 Atan2Op u v = atan2F u v
 
 interpretAstR2F :: RealFloatF a
                 => OpCode2 -> a -> a -> a

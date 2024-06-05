@@ -879,7 +879,7 @@ printAstR2 pr cfg d opCode u v = case opCode of
   DivideOp -> printBinaryOp pr cfg d u (7, " / ") v
   PowerOp -> printBinaryOp pr cfg d u (8, " ** ") v
   LogBaseOp -> printPrefixOp pr cfg d "logBase" [u, v]
-  Atan2Op -> printPrefixOp pr cfg d "atan2" [u, v]
+  Atan2Op -> printPrefixOp pr cfg d "atan2F" [u, v]
 
 printAstI2 :: (PrintConfig -> Int -> a -> ShowS)
            -> PrintConfig -> Int -> OpCodeIntegral2 -> a -> a -> ShowS
