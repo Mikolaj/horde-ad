@@ -102,7 +102,7 @@ import           HordeAd.Core.TensorClass
 import           HordeAd.Core.Types
 import           HordeAd.Internal.BackendConcrete
 import           HordeAd.Internal.OrthotopeOrphanInstances
-  (FlipS (..), trustMeThisIsAPermutation)
+  (FlipS (..), IntegralF (..), trustMeThisIsAPermutation)
 import           HordeAd.Util.ShapedList
   (pattern (:.$), pattern (::$), pattern ZIS, pattern ZS)
 import qualified HordeAd.Util.ShapedList as ShapedList
@@ -175,7 +175,7 @@ astTransposeAsGatherS perm knobs v =
 -- the range of all integer variables (taken from shapes) and the floor
 -- and minimum/maximum terms (obtained by analysing the embedded Ast term),
 -- because many of the emerging terms are not equal to their simplifed
--- forms without this data. Probably we could just subsitute @var `rem` range@
+-- forms without this data. Probably we could just subsitute @var `remF` range@
 -- for each variable.
 --
 -- TODO: To make this less disastrous, we need to add an extra constructor
@@ -435,7 +435,9 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIndex m1)) =
   Ast.AstMinIndex v -> Ast.AstMinIndex $ astIndexKnobsR knobs v ix
   Ast.AstMaxIndex v -> Ast.AstMaxIndex $ astIndexKnobsR knobs v ix
   Ast.AstFloor v -> Ast.AstFloor $ astIndexKnobsR knobs v ix
-  Ast.AstIota | AstConst i <- i1 -> fromIntegral i
+  Ast.AstIota | AstConst{} <- i1 -> case sameNat (Proxy @n) (Proxy @0) of
+    Just Refl -> astFromIntegral i1
+    _ -> error "astIndexKnobsR: rank not 0"
   Ast.AstIota -> Ast.AstIndex v0 ix
   AstN1 opCode u ->
     shareIx ix $ \ix2 -> AstN1 opCode (astIndexRec u ix2)
@@ -639,7 +641,9 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS shm1)) | Dict <- s
         Ast.AstMaxIndexS @(Sh.Drop 1 shn X.++ '[Sh.Last shz]) @(Sh.Index shn 0)
         $ astIndexKnobsS @shm @(shn X.++ '[Sh.Last shz]) knobs v ix
   Ast.AstFloorS v -> Ast.AstFloorS $ astIndexKnobsS knobs v ix
-  Ast.AstIotaS | AstConst i <- i1 -> fromIntegral i
+  Ast.AstIotaS | AstConst{} <- i1 -> case sameShape @shn @'[] of
+    Just Refl -> astFromIntegralS $ astSFromR i1
+    _ -> error "astIndexKnobsS: shape not []"
   Ast.AstIotaS -> Ast.AstIndexS v0 ix
   AstN1S opCode u ->
     shareIxS ix $ \ix2 -> AstN1S opCode (astIndexRec u ix2)
@@ -960,8 +964,8 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
     Ast.AstFloor v ->
       Ast.AstFloor
       $ astGatherKnobsR knobs sh4 v (vars4, ix4)
-    Ast.AstIota | AstConst i <- i4 -> case sameNat (Proxy @p') (Proxy @1) of
-      Just Refl -> astReplicate0N sh4 $ fromIntegral i
+    Ast.AstIota | AstConst{} <- i4 -> case sameNat (Proxy @p') (Proxy @1) of
+      Just Refl -> astReplicate0N sh4 $ astFromIntegral i4
       _ -> error "astGather: AstIota: impossible pattern needlessly required"
     Ast.AstIota ->  -- probably nothing can be simplified; a normal form
       Ast.AstGather sh4 v4 (vars4, ix4)
@@ -2890,7 +2894,7 @@ contractAstNumOp2
 contractAstNumOp2 opCode u v = AstN2 opCode u v
 
 contractAstIntegralOp2 :: OpCodeIntegral2 -> AstInt -> AstInt -> AstInt
-contractAstIntegralOp2 QuotOp (AstConst u) (AstConst v) = AstConst $ quot u v
+contractAstIntegralOp2 QuotOp (AstConst u) (AstConst v) = AstConst $ quotF u v
 contractAstIntegralOp2 QuotOp (AstConst 0) _v = AstConst 0
 contractAstIntegralOp2 QuotOp u (AstConst 1) = u
 contractAstIntegralOp2 QuotOp (Ast.AstI2 RemOp _u (AstConst v)) (AstConst v')
@@ -2900,15 +2904,15 @@ contractAstIntegralOp2 QuotOp (Ast.AstI2 QuotOp u v) w =
 contractAstIntegralOp2 QuotOp (Ast.AstN2 TimesOp (AstConst u) v) (AstConst u')
   | u == u' = v
 
-contractAstIntegralOp2 RemOp (AstConst u) (AstConst v) = AstConst $ rem u v
+contractAstIntegralOp2 RemOp (AstConst u) (AstConst v) = AstConst $ remF u v
 contractAstIntegralOp2 RemOp (AstConst 0) _v = 0
 contractAstIntegralOp2 RemOp _u (AstConst 1) = 0
 contractAstIntegralOp2 RemOp (Ast.AstI2 RemOp u (AstConst v)) (AstConst v')
   | v' >= v && v >= 0 = Ast.AstI2 RemOp u (AstConst v)
 contractAstIntegralOp2 RemOp (Ast.AstI2 RemOp u (AstConst v)) (AstConst v')
-  | rem v v' == 0 && v > 0 = contractAstIntegralOp2 RemOp u (AstConst v')
+  | remF v v' == 0 && v > 0 = contractAstIntegralOp2 RemOp u (AstConst v')
 contractAstIntegralOp2 RemOp (AstN2 TimesOp (AstConst u) _v) (AstConst u')
-  | rem u u' == 0 = 0
+  | remF u u' == 0 = 0
 
 contractAstIntegralOp2 opCode u v = Ast.AstI2 opCode u v
 

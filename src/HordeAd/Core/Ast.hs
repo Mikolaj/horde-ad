@@ -628,21 +628,9 @@ instance (Differentiable r, RealFrac (OR.Array n r), AstSpan s)
     -- The integral type doesn't have a Storable constraint,
     -- so we can't implement this (nor RealFracB from Boolean package).
 
-instance (Differentiable r, RealFloat (OR.Array n r), AstSpan s)
-         => RealFloat (AstRanked s r n) where
-  atan2 = AstR2 Atan2Op
-  -- We can be selective here and omit the other methods,
-  -- most of which don't even have a differentiable codomain.
-  floatRadix = undefined
-  floatDigits = undefined
-  floatRange = undefined
-  decodeFloat = undefined
-  encodeFloat = undefined
-  isNaN = undefined
-  isInfinite = undefined
-  isDenormalized = undefined
-  isNegativeZero = undefined
-  isIEEE = undefined
+instance (Differentiable r, Floating (OR.Array n r), AstSpan s)
+         => RealFloatF (AstRanked s r n) where
+  atan2F = AstR2 Atan2Op
 
 
 -- * Unlawful numeric instances of shaped AST; they are lawful modulo evaluation

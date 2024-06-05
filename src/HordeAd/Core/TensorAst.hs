@@ -683,8 +683,8 @@ deriving instance Floating (AstRanked s r n)
                   => Floating (AstRaw s r n)
 deriving instance (RealFrac (AstRanked s r n))
                   => RealFrac (AstRaw s r n)
-deriving instance (RealFloat (AstRanked s r n))
-                  => RealFloat (AstRaw s r n)
+deriving instance (RealFloatF (AstRanked s r n))
+                  => RealFloatF (AstRaw s r n)
 
 type instance BoolOf (AstRawS s) = AstBool
 
@@ -722,8 +722,8 @@ deriving instance Floating (AstRanked s r n)
                   => Floating (AstNoVectorize s r n)
 deriving instance (RealFrac (AstRanked s r n))
                   => RealFrac (AstNoVectorize s r n)
-deriving instance (RealFloat (AstRanked s r n))
-                  => RealFloat (AstNoVectorize s r n)
+deriving instance (RealFloatF (AstRanked s r n))
+                  => RealFloatF (AstNoVectorize s r n)
 
 type instance BoolOf (AstNoVectorizeS s) = AstBool
 
@@ -761,8 +761,8 @@ deriving instance Floating (AstRanked s r n)
                   => Floating (AstNoSimplify s r n)
 deriving instance (RealFrac (AstRanked s r n))
                   => RealFrac (AstNoSimplify s r n)
-deriving instance (RealFloat (AstRanked s r n))
-                  => RealFloat (AstNoSimplify s r n)
+deriving instance (RealFloatF (AstRanked s r n))
+                  => RealFloatF (AstNoSimplify s r n)
 
 type instance BoolOf (AstNoSimplifyS s) = AstBool
 

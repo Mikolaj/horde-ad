@@ -22,7 +22,7 @@ import           HordeAd
 import           HordeAd.Core.AstFreshId (funToAstR, resetVarCounter)
 import           HordeAd.Internal.BackendOX (OSArray)
 import           HordeAd.Internal.OrthotopeOrphanInstances
-  (FlipR (..), FlipS (..), IntegralF (..), RealFloatF (..))
+  (FlipR (..), IntegralF (..), RealFloatF (..))
 import qualified HordeAd.Util.ShapedList as ShapedList
 
 import CrossTesting
@@ -80,10 +80,10 @@ testTrees =
   , testCase "3concatBuild3PP2" testConcatBuild3PP2
   ]
 
-foo :: RealFloat a => (a,a,a) -> a
+foo :: RealFloatF a => (a,a,a) -> a
 foo (x,y,z) =
   let w = x * sin y
-  in atan2 z w + z * w
+  in atan2F z w + z * w
 
 fooF :: RealFloatF a => (a,a,a) -> a
 fooF (x,y,z) =
@@ -96,10 +96,10 @@ testFoo =
     (FlipR $ OR.fromList [2,2,1, 2,2] [-4.6947093,1.5697206,-1.6332961,0.34882763,1.5697206,-1.0,-0.9784988,-0.9158946,6.6326222,3.6699238,7.85237,-2.9069107,17.976654,0.3914159,32.98194,19.807974],FlipR $ OR.fromList [2,2,1, 2,2] [6.943779,-1.436789,33.67549,0.22397964,-1.436789,-1.0,-0.975235,-0.90365005,147.06645,-73.022705,-9.238474,-10.042692,-980.2843,-7.900571,-14.451739,436.9084],FlipR $ OR.fromList [2,2,1, 2,2] [-4.8945336,2.067469,-1.7196897,1.3341143,2.067469,1.0,0.99846554,0.99536234,6.6943173,3.7482092,7.977362,-3.1475093,18.000969,0.48736274,33.01224,19.845064])
     (rev @Float @5 @(AstRanked FullSpan) foo (t16, t16, t16))
 
-bar :: forall a. RealFloat a => (a, a) -> a
+bar :: forall a. RealFloatF a => (a, a) -> a
 bar (x, y) =
   let w = foo (x, y, x) * sin y
-  in atan2 x w + y * w
+  in atan2F x w + y * w
 
 barF :: forall a. RealFloatF a => (a, a) -> a
 barF (x, y) =
@@ -122,11 +122,11 @@ _testBarS =
 
 -- A dual-number and list-based version of a function that goes
 -- from `R^3` to `R`.
-fooD :: forall r n. (RealFloat (ADVal (FlipR OR.Array) r n))
+fooD :: forall r n. (RealFloatF (ADVal (FlipR OR.Array) r n))
      => [ADVal (FlipR OR.Array) r n] -> ADVal (FlipR OR.Array) r n
 fooD [x, y, z] =
   let w = x * sin y
-  in atan2 z w + z * w
+  in atan2F z w + z * w
 fooD _ = error "wrong number of arguments"
 
 testFooD :: Assertion
@@ -265,7 +265,7 @@ testFooBuild25S =
     (rev' @Double @5 (fooBuild2S @2 @[2, 1, 2, 2] . sfromR) t16)
 
 fooBuild3 :: forall ranked r n.
-             ( ADReady ranked, GoodScalar r, KnownNat n, RealFloat (ranked r n) )
+             ( ADReady ranked, GoodScalar r, KnownNat n, RealFloatF (ranked r n) )
           => ranked r (1 + n) -> ranked r (1 + n)
 fooBuild3 v =
   rbuild1 22 $ \ix ->
@@ -279,7 +279,7 @@ testFooBuild3 =
     (rev' @Double @5 fooBuild3 t16)
 
 fooBuild5 :: forall ranked r n.
-             ( ADReady ranked, GoodScalar r, KnownNat n, RealFloat (ranked r n) )
+             ( ADReady ranked, GoodScalar r, KnownNat n, RealFloatF (ranked r n) )
           => ranked r (1 + n) -> ranked r (1 + n)
 fooBuild5 v =
   let r = rsum v
@@ -310,7 +310,7 @@ testFooBuild5 =
     (rev' @Double @7 fooBuild5 t48)
 
 fooBuild1 :: forall ranked r n.
-             ( ADReady ranked, GoodScalar r, KnownNat n, RealFloat (ranked r n) )
+             ( ADReady ranked, GoodScalar r, KnownNat n, RealFloatF (ranked r n) )
           => ranked r (1 + n) -> ranked r (1 + n)
 fooBuild1 v =
   let r = rsum v
