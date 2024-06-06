@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedLists #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 -- | Ranked tensor-based implementation of Convolutional Neural Network
 -- for classification of MNIST digits. Sports 2 hidden layers.
@@ -10,11 +11,14 @@ import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (type (*), type (+), type Div)
 import           Numeric.LinearAlgebra (Vector)
 
+import qualified Data.Array.Nested as Nested
+
 import HordeAd.Core.Adaptor
 import HordeAd.Core.HVector
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.External.CommonRankedOps
+import HordeAd.Internal.BackendOX (ORArray)
 import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..))
 import HordeAd.Util.SizedList
 import MnistData
@@ -112,25 +116,25 @@ convMnistLossFusedR batch_size (glyphR, labelR) adparameters =
 
 convMnistTestR
   :: forall ranked r.
-     (ranked ~ FlipR OR.Array, GoodScalar r, Differentiable r)
+     (ranked ~ ORArray, GoodScalar r, Differentiable r)
   => ADCnnMnistParameters ranked r
   -> Int
   -> MnistDataBatchR r
-  -> HVector (FlipR OR.Array)
+  -> HVector ORArray
   -> r
 convMnistTestR _ 0 _ _ = 0
 convMnistTestR valsInit batch_size (glyphR, labelR) testParams =
   let input =
-        FlipR $ OR.reshape [batch_size, 1, sizeMnistHeightInt, sizeMnistWidthInt]
-                          glyphR
+        FlipR $ Nested.rreshape [batch_size, 1, sizeMnistHeightInt, sizeMnistWidthInt]
+                                $ Nested.rfromOrthotope SNat glyphR
       outputR =
         let nn :: ADCnnMnistParameters ranked r
                -> ranked r 2  -- [SizeMnistLabel, batch_size]
             nn = convMnistTwoR sizeMnistHeightInt sizeMnistWidthInt
                                batch_size input
         in runFlipR $ nn $ parseHVector valsInit testParams
-      outputs = map OR.toVector $ map runFlipR $ runravelToList $ FlipR $ OR.transpose [1, 0] outputR
-      labels = map OR.toVector $ map runFlipR $ runravelToList $ FlipR labelR
+      outputs = map Nested.rtoVector $ map runFlipR $ runravelToList $ FlipR $ Nested.rtranspose [1, 0] outputR
+      labels = map Nested.rtoVector $ map runFlipR $ runravelToList $ FlipR $ Nested.rfromOrthotope SNat labelR
       matchesLabels :: Vector r -> Vector r -> Int
       matchesLabels output label | V.maxIndex output == V.maxIndex label = 1
                                  | otherwise = 0

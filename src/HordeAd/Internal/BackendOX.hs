@@ -4,7 +4,7 @@
 -- | Tensor operations implementation using the ox-arrays package.
 module HordeAd.Internal.BackendOX
   ( module HordeAd.Internal.BackendOX
-  , tsumR, tsum0R, tsumInR
+--  , tsumR, tsum0R, tsumInR
   ) where
 
 import Prelude hiding (foldl')
@@ -22,6 +22,7 @@ import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as Sh
 import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
+import qualified Data.Foldable as Foldable
 import           Data.Functor (void)
 import           Data.Int (Int64)
 import           Data.List (foldl')
@@ -35,6 +36,7 @@ import           Data.Type.Equality (gcastWith, (:~:) (Refl))
 import           Data.Type.Ord (Compare)
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Storable.Mutable as VM
+import qualified GHC.IsList as IsList
 import           GHC.TypeLits
   ( KnownNat
   , Nat
@@ -55,18 +57,19 @@ import qualified Data.Array.Mixed.Permutation as Permutation
 import qualified Data.Array.Mixed.Shape as X
 import qualified Data.Array.Mixed.Types as X
 import qualified Data.Array.Nested as Nested
+import qualified Data.Array.Nested.Internal.Ranked as Nested.Internal
 import qualified Data.Array.Nested.Internal.Shape as Nested.Internal.Shape
 import qualified Data.Array.Nested.Internal.Shaped as Nested.Internal
 
 import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances
   (FlipR (..), FlipS, liftVR, liftVS)
-import           HordeAd.Internal.TensorFFI
+import           HordeAd.Internal.TensorFFI hiding (tsumR)
 import           HordeAd.Util.ShapedList (IndexS, ShapedNat)
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedList
 
-type ORArray = FlipR OR.Array
+type ORArray = FlipR Nested.Ranked
 
 type OSArray = FlipS Nested.Shaped
 
@@ -82,48 +85,50 @@ type IndexInt n = Index n Int64
 -- TODO: try to weave a similar magic as in tindex0R
 -- TODO: for the non-singleton case see
 -- https://github.com/Mikolaj/horde-ad/pull/81#discussion_r1096532164
-updateNR :: forall n m a. (Numeric a, KnownNat n, KnownNat m)
-         => OR.Array (n + m) a -> [(IndexInt n, OR.Array m a)]
-         -> OR.Array (n + m) a
+updateNR :: forall n m a. (NumAndShow a, KnownNat n, KnownNat m)
+         => Nested.Ranked (n + m) a -> [(IndexInt n, Nested.Ranked m a)]
+         -> Nested.Ranked (n + m) a
 updateNR arr upd =
-  let values = OR.toVector arr
-      shRaw = OR.shapeL arr
-      sh = listToShape shRaw
+  let values = Nested.rtoVector arr
+      sh = Nested.rshape arr
       f !t (ix, u) =
-        let v = OR.toVector u
+        let v = Nested.rtoVector u
             i = fromIntegral $ toLinearIdx @n @m fromIntegral sh ix
         in LA.vjoin [V.take i t, v, V.drop (i + V.length v) t]
-  in OR.fromVector shRaw (foldl' f values upd)
+  in Nested.rfromVector sh (foldl' f values upd)
 
 tshapeR
-  :: KnownNat n
-  => OR.Array n r -> ShapeInt n
-tshapeR = listToShape . OR.shapeL
+  :: (NumAndShow r, KnownNat n)
+  => Nested.Ranked n r -> ShapeInt n
+tshapeR = Nested.rshape
 
 tminIndexR
   :: forall n r r2. (NumAndShow r, NumAndShow r2, KnownNat n)
-  => OR.Array (1 + n) r -> OR.Array n r2
+  => Nested.Ranked (1 + n) r -> Nested.Ranked n r2
 tminIndexR =
-  let f :: OR.Array 1 r -> OR.Array 0 r2
-      f = OR.scalar . fromIntegral . LA.minIndex . OR.toVector
+  let f :: Nested.Ranked 1 r -> Nested.Ranked 0 r2
+      f = Nested.rscalar . fromIntegral . LA.minIndex . Nested.rtoVector
   in case sameNat (Proxy @n) (Proxy @0) of
     Just Refl -> f
-    _ -> OR.rerank f
+    _ -> Nested.rrerank (SNat @n) ZSR f
 
 tmaxIndexR
   :: forall n r r2. (NumAndShow r, NumAndShow r2, KnownNat n)
-  => OR.Array (1 + n) r -> OR.Array n r2
+  => Nested.Ranked (1 + n) r -> Nested.Ranked n r2
 tmaxIndexR =
-  let f :: OR.Array 1 r -> OR.Array 0 r2
-      f = OR.scalar . fromIntegral . LA.maxIndex . OR.toVector
+  let f :: Nested.Ranked 1 r -> Nested.Ranked 0 r2
+      f = Nested.rscalar . fromIntegral . LA.maxIndex . Nested.rtoVector
   in case sameNat (Proxy @n) (Proxy @0) of
     Just Refl -> f
-    _ -> OR.rerank f
+    _ -> Nested.rrerank (SNat @n) ZSR f
 
 -- TODO: use Convert, fromInt/toInt and fromZ/toZ from hmatrix
 tfloorR :: (NumAndShow r, RealFrac r, NumAndShow r2, Integral r2, KnownNat n)
-        => OR.Array n r -> OR.Array n r2
-tfloorR = liftVR (V.map floor)
+        => Nested.Ranked n r -> Nested.Ranked n r2
+tfloorR t =
+  -- TODO: liftVR (V.map floor)
+  let sh = Nested.rshape t
+  in Nested.rfromVector sh . V.map floor . Nested.rtoVector $ t
 
 ixInBounds :: [Int64] -> [Int] -> Bool
 ixInBounds ix sh =
@@ -131,7 +136,9 @@ ixInBounds ix sh =
 
 tindexNR
   :: forall m n r. (KnownNat m, NumAndShow r)
-  => OR.Array (m + n) r -> IndexInt m -> OR.Array n r
+  => Nested.Ranked (m + n) r -> IndexInt m -> Nested.Ranked n r
+tindexNR v ix = Nested.rindexPartial v (fmap fromIntegral ix)
+{- TODO
 tindexNR v@(RS.A (RG.A sh OI.T{strides, offset, values})) ix =
   let l = indexToList ix
       linear = offset + sum (zipWith (*) (map fromIntegral l) strides)
@@ -141,81 +148,113 @@ tindexNR v@(RS.A (RG.A sh OI.T{strides, offset, values})) ix =
     RS.A (RG.A (drop plen sh) OI.T{ strides = drop plen strides
                                   , offset = linear
                                   , values })
+-}
 
 tindexZR
   :: forall m n r. (KnownNat m, KnownNat n, NumAndShow r)
-  => OR.Array (m + n) r -> IndexInt m -> OR.Array n r
+  => Nested.Ranked (m + n) r -> IndexInt m -> Nested.Ranked n r
 tindexZR v ix =
-  let sh = OR.shapeL v
-  in if ixInBounds (indexToList ix) sh
+  let sh = Nested.rshape v
+  in if ixInBounds (indexToList ix) (Foldable.toList sh)
      then tindexNR v ix
-     else OR.constant (drop (valueOf @m) sh) 0
+     else Nested.rreplicateScal (dropShape @m sh) 0
+--          Nested.constant (drop (valueOf @m) sh) 0
 
 tindex0R
-  :: Numeric r
-  => OR.Array n r -> IndexInt n -> r
+  :: NumAndShow r
+  => Nested.Ranked n r -> IndexInt n -> r
+tindex0R v ix =
+  let sh = Foldable.toList $ Nested.rshape v
+  in if ixInBounds (indexToList ix) sh
+     then Nested.rindex v (fmap fromIntegral ix)
+     else 0
+{- TODO, and check bounds, too
 tindex0R (RS.A (RG.A _ OI.T{..})) ix =
   values V.! (offset + sum (zipWith (*) (map fromIntegral $ indexToList ix)
                                         strides))
     -- to avoid linearizing @values@, we do everything in unsized way
+-}
+
+tsumR
+  :: forall n r. (KnownNat n, NumAndShow r, RowSum r)
+  => Nested.Ranked (1 + n) r -> Nested.Ranked n r
+{- TODO
+tsumR (RS.A (RG.A (k : sh) (OI.T (_ : ss) o vt))) | V.length vt == 1 =
+  RS.A (RG.A sh (OI.T ss o (V.map (* fromIntegral k) vt)))
+-}
+tsumR t = case Nested.rshape t of
+-- TODO: does GHC need this?  [] -> error "tsumR: null shape"
+  0 :$: sh2 -> Nested.rsumOuter1 t  -- TODO: OR.constant sh2 0  -- the shape is known from sh, so no ambiguity
+  k :$: sh2 -> case sameNat (Proxy @n) (Proxy @0) of
+    Just Refl -> Nested.rsumOuter1 t  -- TODO: OR.scalar $ tsum0R t
+    _ -> Nested.rfromVector sh2 $ unsafePerformIO $ do  -- unsafe only due to FFI
+      v <- V.unsafeThaw $ Nested.rtoVector t
+      VM.unsafeWith v $ \ptr -> do
+        let len2 = product sh2
+        v2 <- VM.new len2
+        VM.unsafeWith v2 $ \ptr2 -> do
+          rowSum len2 k ptr ptr2
+          void $ V.unsafeFreeze v
+          V.unsafeFreeze v2
 
 tdot0R
-  :: Numeric r
-  => OR.Array n r -> OR.Array n r -> r
+  :: NumAndShow r
+  => Nested.Ranked n r -> Nested.Ranked n r -> r
+{- TODO
 tdot0R (RS.A (RG.A sh (OI.T _ _ vt))) (RS.A (RG.A _ (OI.T _ _ vu)))
   | V.length vt == 1 && V.length vu == 1 =
       fromIntegral (product sh) * vt V.! 0 * vu V.! 0
-tdot0R t u = OR.toVector t LA.<.> OR.toVector u
+-}
+tdot0R t u = Nested.rtoVector t LA.<.> Nested.rtoVector u
   -- TODO: if offset 0 and same strides, use toUnorderedVectorT
   -- TODO: if either has length 1 values, it may or may not be faster to do
   -- tsum0R (t * u)
 
 tdot1InR
   :: (NumAndShow r, RowSum r)
-  => OR.Array 2 r -> OR.Array 2 r -> OR.Array 1 r
-tdot1InR t@(RS.A (RG.A _ (OI.T _ _ vt))) u@(RS.A (RG.A _ (OI.T _ _ vu))) =
-  if V.length vt == 1 || V.length vu == 1
-  then tsumInR (t * u)
-  else let lt = map OR.toVector $ tunravelToListR t
-           lu = map OR.toVector $ tunravelToListR u
+  => Nested.Ranked 2 r -> Nested.Ranked 2 r -> Nested.Ranked 1 r
+tdot1InR t u = -- TODO: t@(RS.A (RG.A _ (OI.T _ _ vt))) u@(RS.A (RG.A _ (OI.T _ _ vu))) =
+--  if V.length vt == 1 || V.length vu == 1
+--  then tsumInR (t * u)
+--  else
+       let lt = map Nested.rtoVector $ tunravelToListR t
+           lu = map Nested.rtoVector $ tunravelToListR u
            l = zipWith (LA.<.>) lt lu
-       in OR.fromList [length l] l
+       in Nested.rfromList1 $ NonEmpty.fromList l
 
 -- TODO: add these to orthotope, faster; factor out unravel through them
 -- and think if ravelFromList makes sense
-tunravelToListR :: Numeric r => OR.Array (1 + n) r -> [OR.Array n r]
-tunravelToListR t = case OR.shapeL t of
-  0 : _ -> []
-  _ -> ORB.toList $ OR.unravel t
+tunravelToListR :: NumAndShow r => Nested.Ranked (1 + n) r -> [Nested.Ranked n r]
+tunravelToListR = Nested.rtoListOuter
 
 tunravelToListS :: forall r n sh. (NumAndShow r, KnownNat n, KnownShS sh)
                 => Nested.Shaped (n ': sh) r -> [Nested.Shaped sh r]
 tunravelToListS = Nested.stoListOuter
 
 tmatvecmulR
-  :: Numeric r
-  => OR.Array 2 r -> OR.Array 1 r -> OR.Array 1 r
+  :: NumAndShow r
+  => Nested.Ranked 2 r -> Nested.Ranked 1 r -> Nested.Ranked 1 r
 tmatvecmulR t u =
-  let t2 = OR.toVector t
-      u2 = OR.toVector u
-      (trows, tcols) = case OR.shapeL t of
+  let t2 = Nested.rtoVector t
+      u2 = Nested.rtoVector u
+      (trows, tcols) = case Foldable.toList $ Nested.rshape t of
         [r, c] -> (r, c)
-        _ -> error "tmatvecmulR: wrong shape"
-  in OR.fromVector [trows] $ LA.reshape tcols t2 LA.#> u2
+        _ -> error "tmatvecmulR: impossible wrong shape"
+  in Nested.rfromVector (IsList.fromList [trows]) $ LA.reshape tcols t2 LA.#> u2
 
 tmatmul2R
-  :: Numeric r
-  => OR.Array 2 r -> OR.Array 2 r -> OR.Array 2 r
+  :: NumAndShow r
+  => Nested.Ranked 2 r -> Nested.Ranked 2 r -> Nested.Ranked 2 r
 tmatmul2R t u =
-  let t2 = OR.toVector t
-      u2 = OR.toVector u
-      (trows, tcols) = case OR.shapeL t of
+  let t2 = Nested.rtoVector t
+      u2 = Nested.rtoVector u
+      (trows, tcols) = case Foldable.toList $ Nested.rshape t of
         [r, c] -> (r, c)
-        _ -> error "tmatmul2R: wrong shape"
-      ucols = case OR.shapeL u of
+        _ -> error "tmatmul2R: impossible wrong shape"
+      ucols = case Foldable.toList $ Nested.rshape u of
         [_, c] -> c
-        _ -> error "tmatmul2R: wrong shape"
-  in OR.fromVector [trows, ucols] $ LA.flatten
+        _ -> error "tmatmul2R: impossible wrong shape"
+  in Nested.rfromVector (IsList.fromList [trows, ucols]) $ LA.flatten
      $ LA.reshape tcols t2 LA.<> LA.reshape ucols u2
 
 -- Performance depends a lot on the number and size of tensors.
@@ -229,33 +268,33 @@ tmatmul2R t u =
 -- permits index out of bounds and then no tensors is added at such an index.
 tscatterZR :: forall m p n r.
               (KnownNat m, KnownNat p, KnownNat n, NumAndShow r)
-           => ShapeInt (p + n) -> OR.Array (m + n) r
+           => ShapeInt (p + n) -> Nested.Ranked (m + n) r
            -> (IndexInt m -> IndexInt p)
-           -> OR.Array (p + n) r
+           -> Nested.Ranked (p + n) r
 tscatterZR sh t f =
-  let (sh2, shDropP) = splitAt (valueOf @m) $ OR.shapeL t
-      s = product sh2
-      shm = listToShape sh2
+  let (shm, shDropP) = splitAt_Shape @m $ Nested.rshape t
+      s = product $ shapeToList shm
       g ix =
         let ix2 = f ix
         in if ixInBounds (indexToList ix2) (shapeToList sh)
-           then M.insertWith (++) ix2 [OR.toVector $ t `tindexNR` ix]
+           then M.insertWith (++) ix2 [Nested.rtoVector $ t `tindexNR` ix]
            else id
       ivs = foldr g M.empty [ fromLinearIdx fromIntegral shm i
                             | i <- [0 .. fromIntegral s - 1] ]
-  in updateNR (treplicate0NR sh 0) $ map (second $ OR.fromVector shDropP . sum)
+  in updateNR (treplicate0NR sh 0) $ map (second $ Nested.rfromVector shDropP . sum)
                                    $ M.assocs ivs
 
 -- TODO: update in place in ST or with a vector builder, but that requires
 -- building the underlying value vector with crafty index computations
--- and then freezing it and calling OR.fromVector
+-- and then freezing it and calling Nested.rfromVector
 -- or optimize tscatterNR and instantiate it instead
 tscatterZ1R :: (NumAndShow r, KnownNat p, KnownNat n)
-            => ShapeInt (p + n) -> OR.Array (1 + n) r -> (Int64 -> IndexInt p)
-            -> OR.Array (p + n) r
-tscatterZ1R sh t f = case OR.shapeL t of
-  0 : _ -> OR.constant (shapeToList sh) 0
-  _ ->
+            => ShapeInt (p + n) -> Nested.Ranked (1 + n) r -> (Int64 -> IndexInt p)
+            -> Nested.Ranked (p + n) r
+tscatterZ1R sh t f =
+-- TODO: tscatterZ1R sh t f = case Foldable.toList $ Nested.rshape t of
+--   0 : _ -> Nested.constant (shapeToList sh) 0
+--  _ ->
       sum $ imap (\i ti ->
                      let ix2 = f $ fromIntegral i
                      in if ixInBounds (indexToList ix2) (shapeToList sh)
@@ -264,87 +303,103 @@ tscatterZ1R sh t f = case OR.shapeL t of
           $ tunravelToListR t
 
 tfromListR
-  :: forall n r. (KnownNat n, Numeric r)
-  => NonEmpty (OR.Array n r) -> OR.Array (1 + n) r
-tfromListR l = OR.ravel . ORB.fromList [NonEmpty.length l] . NonEmpty.toList $ l
+  :: forall n r. (KnownNat n, NumAndShow r)
+  => NonEmpty (Nested.Ranked n r) -> Nested.Ranked (1 + n) r
+tfromListR = Nested.rfromListOuter  -- TODO: make this strict
 
 tfromList0NR
-  :: (KnownNat n, Numeric r)
-  => ShapeInt n -> [r] -> OR.Array n r
-tfromList0NR sh = OR.fromList (shapeToList sh)
+  :: (KnownNat n, NumAndShow r)
+  => ShapeInt n -> [r] -> Nested.Ranked n r
+tfromList0NR sh = Nested.Internal.rfromListPrimLinear sh
+  -- TODO: make this strict
 
 tfromVectorR
-  :: forall n r. (KnownNat n, Numeric r)
-  => Data.Vector.Vector (OR.Array n r) -> OR.Array (1 + n) r
-tfromVectorR l | V.null l =
-  case sameNat (Proxy @n) (Proxy @0) of
-    Just Refl -> OR.fromList [0] []
-    _ ->  error "tfromVectorR: shape ambiguity, no arguments"
-tfromVectorR l = OR.ravel $ ORB.fromVector [V.length l] $ V.convert l
+  :: forall n r. (KnownNat n, NumAndShow r)
+  => Data.Vector.Vector (Nested.Ranked n r) -> Nested.Ranked (1 + n) r
+-- TODO: tfromVectorR l | V.null l =
+--  case sameNat (Proxy @n) (Proxy @0) of
+--    Just Refl -> Nested.rfromListOuter [0] []
+--    _ ->  error "tfromVectorR: shape ambiguity, no arguments"
+tfromVectorR = tfromListR . NonEmpty.fromList . V.toList
+-- Nested.ravel $ ORB.fromVector [V.length l] $ V.convert l
 
 tfromVector0NR
-  :: (KnownNat n, Numeric r)
-  => ShapeInt n -> Data.Vector.Vector r -> OR.Array n r
-tfromVector0NR sh l = OR.fromVector (shapeToList sh) $ V.convert l
+  :: (KnownNat n, NumAndShow r)
+  => ShapeInt n -> Data.Vector.Vector r -> Nested.Ranked n r
+tfromVector0NR sh = tfromList0NR sh . V.toList
+  -- TODO: optimize
 
 treplicateR
-  :: forall n r. (KnownNat n, Numeric r)
-  => Int -> OR.Array n r -> OR.Array (1 + n) r
-treplicateR 0 u = OR.fromList (0 : OR.shapeL u) []
-treplicateR s u = case sameNat (Proxy @n) (Proxy @0) of
-  Just Refl -> OR.constant [s] (OR.unScalar u)
-  _ -> OR.ravel $ ORB.constant [s] u
+  :: forall n r. (KnownNat n, NumAndShow r)
+  => Int -> Nested.Ranked n r -> Nested.Ranked (1 + n) r
+-- TODO: treplicateR 0 u = Nested.rfromListOuter (0 : Nested.shapeL u) []
+--treplicateR s u = case sameNat (Proxy @n) (Proxy @0) of
+--  Just Refl -> Nested.constant [s] (Nested.runScalar u)
+--  _ -> Nested.ravel $ ORB.constant [s] u
+treplicateR n u =
+  case NonEmpty.nonEmpty $ replicate n u of
+    Nothing -> let sh = Nested.rshape u
+               in Nested.rreplicateScal (n :$: sh) 0
+    Just l -> Nested.rfromListOuter l
 
 treplicate0NR
-  :: (KnownNat n, Numeric r)
-  => ShapeInt n -> r -> OR.Array n r
-treplicate0NR sh = OR.constant (shapeToList sh)
+  :: (KnownNat n, NumAndShow r)
+  => ShapeInt n -> r -> Nested.Ranked n r
+treplicate0NR = Nested.rreplicateScal
 
 tappendR
-  :: (KnownNat n, Numeric r)
-  => OR.Array n r -> OR.Array n r -> OR.Array n r
-tappendR = OR.append
+  :: (KnownNat n, NumAndShow r)
+  => Nested.Ranked (1 + n) r -> Nested.Ranked (1 + n) r
+  -> Nested.Ranked (1 + n) r
+tappendR = Nested.rappend
 
 tsliceR
-  :: Int -> Int -> OR.Array n r -> OR.Array n r
-tsliceR i n = OR.slice [(i, n)]
+  :: NumAndShow r
+  => Int -> Int -> Nested.Ranked (1 + n) r -> Nested.Ranked (1 + n) r
+tsliceR i n = Nested.rslice i n
 
 treverseR
-  :: OR.Array (1 + n) r -> OR.Array (1 + n) r
-treverseR = OR.rev [0]
+  :: NumAndShow r
+  => Nested.Ranked (1 + n) r -> Nested.Ranked (1 + n) r
+treverseR = Nested.rrev1
 
 ttransposeR
-  :: KnownNat n
-  => Permutation -> OR.Array n r -> OR.Array n r
-ttransposeR = OR.transpose
+  :: (KnownNat n, NumAndShow r)
+  => Permutation -> Nested.Ranked n r -> Nested.Ranked n r
+ttransposeR = Nested.rtranspose
 
 treshapeR
-  :: (KnownNat n, KnownNat m, Numeric r)
-  => ShapeInt m -> OR.Array n r -> OR.Array m r
-treshapeR sh = OR.reshape (shapeToList sh)
+  :: (KnownNat n, KnownNat m, NumAndShow r)
+  => ShapeInt m -> Nested.Ranked n r -> Nested.Ranked m r
+treshapeR = Nested.rreshape
 
 tbuild1R
-  :: forall n r. (KnownNat n, Numeric r)
-  => Int -> (Int64 -> OR.Array n r) -> OR.Array (1 + n) r
-tbuild1R 0 _ = case sameNat (Proxy @n) (Proxy @0) of
-  Just Refl -> OR.fromList [0] []  -- the only case where we can guess sh
-  _ ->  error "tbuild1R: shape ambiguity, no arguments"
-tbuild1R k f = OR.ravel $ ORB.fromList [k]
-               $ map f [0 .. fromIntegral k - 1]  -- hope this fuses
-
+  :: forall n r. (KnownNat n, NumAndShow r)
+  => Int -> (Int64 -> Nested.Ranked n r) -> Nested.Ranked (1 + n) r
+tbuild1R k f =
+  Nested.rfromListOuter
+  $ NonEmpty.map f
+  $ NonEmpty.fromList [0 .. fromIntegral k - 1]  -- hope this fuses
+-- TODO: tbuild1R 0 _ = case sameNat (Proxy @n) (Proxy @0) of
+--  Just Refl -> Nested.rfromListOuter [0] []  -- the only case where we can guess sh
+--  _ ->  error "tbuild1R: shape ambiguity, no arguments"
+--tbuild1R k f = Nested.ravel $ ORB.fromList [k]
+--               $ map f [0 .. fromIntegral k - 1]  -- hope this fuses
+{- TODO
 tmap0NR
   :: (Numeric r, Numeric r2)
-  => (OR.Array 0 r -> OR.Array 0 r2) -> OR.Array n r -> OR.Array n r2
-tmap0NR f = OR.mapA (tunScalarR . f . tscalarR)
+  => (Nested.Ranked 0 r -> Nested.Ranked 0 r2) -> Nested.Ranked n r -> Nested.Ranked n r2
+tmap0NR f = Nested.mapA (tunScalarR . f . tscalarR)
             -- too slow: tbuildNR (tshapeR v) (\ix -> f $ v `tindexNR` ix)
             -- bad type: liftVR . LA.cmap
 
 tzipWith0NR
   :: (Numeric r, Numeric r2, Numeric r3)
-  => (OR.Array 0 r -> OR.Array 0 r2 -> OR.Array 0 r3)
-  -> OR.Array n r -> OR.Array n r2 -> OR.Array n r3
-tzipWith0NR f = OR.zipWithA (\x y -> tunScalarR $ f (tscalarR x) (tscalarR y))
+  => (Nested.Ranked 0 r -> Nested.Ranked 0 r2 -> Nested.Ranked 0 r3)
+  -> Nested.Ranked n r -> Nested.Ranked n r2 -> Nested.Ranked n r3
+tzipWith0NR f = Nested.zipWithA (\x y -> tunScalarR $ f (tscalarR x) (tscalarR y))
                 -- bad type: liftVR2 . Numeric.LinearAlgebra.Devel.zipVectorWith
+-}
 
 -- TODO: this can be slightly optimized by normalizing t first (?)
 -- and then inlining toVector and tindexZR
@@ -353,47 +408,54 @@ tzipWith0NR f = OR.zipWithA (\x y -> tunScalarR $ f (tscalarR x) (tscalarR y))
 -- permits index out of bounds and the result of such indexing is zero.
 tgatherZR :: forall m p n r.
              (KnownNat m, KnownNat p, KnownNat n, NumAndShow r)
-          => ShapeInt (m + n) -> OR.Array (p + n) r
+          => ShapeInt (m + n) -> Nested.Ranked (p + n) r
           -> (IndexInt m -> IndexInt p)
-          -> OR.Array (m + n) r
+          -> Nested.Ranked (m + n) r
 tgatherZR sh t f =
   let shm = takeShape @m sh
       s = sizeShape shm
-      l = [ OR.toVector $ t `tindexZR` f (fromLinearIdx fromIntegral shm i)
+      l = [ Nested.rtoVector $ t `tindexZR` f (fromLinearIdx fromIntegral shm i)
           | i <- [0 .. fromIntegral s - 1] ]
-  in OR.fromVector (shapeToList sh) $ LA.vjoin l
+  in Nested.rfromVector sh $ LA.vjoin l
 
 tgatherZ1R :: forall p n r. (KnownNat p, KnownNat n, NumAndShow r)
-           => Int -> OR.Array (p + n) r -> (Int64 -> IndexInt p)
-           -> OR.Array (1 + n) r
-tgatherZ1R 0 t _ = OR.fromList (0 : drop (valueOf @p) (OR.shapeL t)) []
+           => Int -> Nested.Ranked (p + n) r -> (Int64 -> IndexInt p)
+           -> Nested.Ranked (1 + n) r
+-- TODO: tgatherZ1R 0 t _ = Nested.rfromListOuter (0 : drop (valueOf @p) (Nested.shapeL t)) []
 tgatherZ1R k t f =
-  let l = map (\i -> t `tindexZR` f i) [0 .. fromIntegral k - 1]
-  in OR.ravel $ ORB.fromList [k] l
+  let l = NonEmpty.map (\i -> t `tindexZR` f i)
+                       (NonEmpty.fromList [0 .. fromIntegral k - 1])
+  in Nested.rfromListOuter l
 
 -- TODO: use Convert, fromInt/toInt and fromZ/toZ from hmatrix
-tcastR :: (Numeric r1, Numeric r2, KnownNat n, Real r1, Fractional r2)
-       => OR.Array n r1 -> OR.Array n r2
-tcastR = liftVR (V.map realToFrac)
+tcastR :: (NumAndShow r1, NumAndShow r2, KnownNat n, Real r1, Fractional r2)
+       => Nested.Ranked n r1 -> Nested.Ranked n r2
+tcastR t = -- TODO: liftVR (V.map realToFrac)
+  let sh = Nested.rshape t
+  in Nested.rfromVector sh . V.map realToFrac . Nested.rtoVector $ t
 
 -- TODO: use Convert, fromInt/toInt and fromZ/toZ from hmatrix
-tfromIntegralR :: (Numeric r1, Numeric r2, KnownNat n, Integral r1)
-               => OR.Array n r1 -> OR.Array n r2
-tfromIntegralR = liftVR (V.map fromIntegral)
+tfromIntegralR :: (NumAndShow r1, NumAndShow r2, KnownNat n, Integral r1)
+               => Nested.Ranked n r1 -> Nested.Ranked n r2
+tfromIntegralR t = -- TODO: liftVR (V.map fromIntegral)
+  let sh = Nested.rshape t
+  in Nested.rfromVector sh . V.map fromIntegral . Nested.rtoVector $ t
 
 tscalarR
-  :: Numeric r
-  => r -> OR.Array 0 r
-tscalarR = OR.scalar
+  :: (Nested.Elt r, Numeric r)
+  => r -> Nested.Ranked 0 r
+tscalarR = Nested.rscalar
 
 tunScalarR
-  :: Numeric r
-  => OR.Array 0 r -> r
-tunScalarR = OR.unScalar
+  :: (Nested.Elt r, Numeric r)
+  => Nested.Ranked 0 r -> r
+tunScalarR = Nested.runScalar
 
-tscaleByScalarR :: (Numeric r, KnownNat n)
-                => r -> OR.Array n r -> OR.Array n r
-tscaleByScalarR s = liftVR (LA.scale s)
+tscaleByScalarR :: (Nested.PrimElt r, Nested.Elt r, Nested.Internal.Arith.NumElt r, Numeric r, KnownNat n)
+                => r -> Nested.Ranked n r -> Nested.Ranked n r
+tscaleByScalarR s t = -- TODO: liftVR (LA.scale s)
+  let sh = Nested.rshape t
+  in Nested.rreplicateScal sh s * t
 
 toIndexOfR :: IndexInt n -> Index n (ORArray Int64 0)
 toIndexOfR ix = FlipR . tscalarR <$> ix
@@ -508,7 +570,7 @@ tindexZS v ix =
   let sh = Nested.Internal.Shape.shsToList $ Nested.sshape v
   in if ixInBounds (ShapedList.indexToList ix) sh
      then tindexNS v ix
-     else (Nested.sreplicateScal knownShS 0)
+     else Nested.sreplicateScal knownShS 0
 
 tindex0S
   :: NumAndShow r

@@ -12,11 +12,14 @@ import qualified Data.Vector.Generic as V
 import           GHC.Exts (inline)
 import           GHC.TypeLits (Nat)
 
+import qualified Data.Array.Nested as Nested
+
 import HordeAd.Core.Adaptor
 import HordeAd.Core.HVector
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.External.CommonRankedOps
+import HordeAd.Internal.BackendOX (ORArray)
 import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..))
 import MnistData
 
@@ -89,10 +92,10 @@ afcnnMnistLoss2 (datum, target) =
 -- and the trained parameters.
 afcnnMnistTest2
   :: forall ranked r.
-     (ranked ~ FlipR OR.Array, GoodScalar r, Differentiable r)
+     (ranked ~ ORArray, GoodScalar r, Differentiable r)
   => ADFcnnMnist2Parameters ranked r
   -> [MnistData r]
-  -> HVector (FlipR OR.Array)
+  -> HVector ORArray
   -> r
 afcnnMnistTest2 _ [] _ = 0
 afcnnMnistTest2 valsInit dataList testParams =
@@ -102,7 +105,7 @@ afcnnMnistTest2 valsInit dataList testParams =
             nn :: ADFcnnMnist2Parameters ranked r
                -> ranked r 1
             nn = inline afcnnMnist2 logistic softMax1 glyph1
-            v = OR.toVector $ runFlipR $ nn $ parseHVector valsInit testParams
+            v = OR.toVector $ Nested.rtoOrthotope $ runFlipR $ nn $ parseHVector valsInit testParams
         in V.maxIndex v == V.maxIndex label
   in fromIntegral (length (filter matchesLabels dataList))
      / fromIntegral (length dataList)

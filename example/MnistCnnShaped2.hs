@@ -24,7 +24,7 @@ import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.External.CommonShapedOps
 import HordeAd.Internal.BackendConcrete (tunravelToListS)
-import HordeAd.Internal.BackendOX (OSArray)
+import HordeAd.Internal.BackendOX (ORArray, OSArray)
 import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..), FlipS (..))
 import MnistData
 
@@ -148,7 +148,7 @@ convMnistTestS
   -> SNat n_hidden -> SNat batch_size
   -> ADCnnMnistParametersShaped shaped h w kh kw c_out n_hidden r
   -> MnistDataBatchS batch_size r
-  -> HVector (FlipR OR.Array)
+  -> HVector ORArray
   -> r
 convMnistTestS  _ _ _ _ batch_size@SNat _ _ _
   | sNatValue batch_size == 0 = 0

@@ -22,7 +22,8 @@ import qualified Data.Array.Nested as Nested
 
 import HordeAd
 import HordeAd.Core.AstFreshId (resetVarCounter)
-import HordeAd.Internal.BackendOX (OSArray)
+import HordeAd.Internal.BackendConcrete
+import HordeAd.Internal.BackendOX (ORArray, OSArray)
 import HordeAd.Internal.OrthotopeOrphanInstances
   (FlipR (..), FlipS (..), RealFloatF (..))
 import HordeAd.Util.ShapedList (pattern (:.$), pattern ZIS)
@@ -298,13 +299,13 @@ testFooRrev :: Assertion
 testFooRrev = do
   assertEqualUpToEpsilon 1e-10
     (2.4396285219055063, -1.953374825727421, 0.9654825811012627)
-    (fooRrev @(FlipR OR.Array) @Double (1.1, 2.2, 3.3))
+    (fooRrev @ORArray @Double (1.1, 2.2, 3.3))
 
 testFooRrev2 :: Assertion
 testFooRrev2 = do
   assertEqualUpToEpsilon 1e-10
     (2.4396284, -1.9533751, 0.96548253)
-    (fooRrev @(FlipR OR.Array) @Float (1.1, 2.2, 3.3))
+    (fooRrev @ORArray @Float (1.1, 2.2, 3.3))
 
 testFooRrevPP1 :: Assertion
 testFooRrevPP1 = do
@@ -323,8 +324,8 @@ _testFooRrevPP2 = do
 testFooRrev3 :: Assertion
 testFooRrev3 = do
   let f (D a _) =
-        let (a1, _, _) = fooRrev @(ADVal (FlipR OR.Array)) @Double
-                                 (OR.unScalar (runFlipR a), 2.2, 3.3)
+        let (a1, _, _) = fooRrev @(ADVal ORArray) @Double
+                                 (Nested.runScalar (runFlipR a), 2.2, 3.3)
         in a1
   assertEqualUpToEpsilon 1e-10
     0
@@ -334,7 +335,7 @@ testSin0Rrev :: Assertion
 testSin0Rrev = do
   assertEqualUpToEpsilon 1e-10
     0.4535961214255773
-    (rrev1 @(FlipR OR.Array) @Double @0 @0 sin 1.1)
+    (rrev1 @ORArray @Double @0 @0 sin 1.1)
 
 testSin0RrevPP1 :: Assertion
 testSin0RrevPP1 = do
@@ -352,7 +353,7 @@ testSin0RrevPP2 = do
 
 testSin0Rrev3 :: Assertion
 testSin0Rrev3 = do
-  let f = rrev1 @(ADVal (FlipR OR.Array)) @Double @0 @0 sin
+  let f = rrev1 @(ADVal ORArray) @Double @0 @0 sin
   assertEqualUpToEpsilon 1e-10
     (-0.8912073600614354)
     (crev f 1.1)
@@ -361,7 +362,7 @@ testSin0Rrev4 :: Assertion
 testSin0Rrev4 = do
   assertEqualUpToEpsilon 1e-10
     0.8988770945225438
-    ((rrev1 sin . rrev1 @(FlipR OR.Array) @Double @0 @0 sin) 1.1)
+    ((rrev1 sin . rrev1 @ORArray @Double @0 @0 sin) 1.1)
 
 testSin0RrevPP4 :: Assertion
 testSin0RrevPP4 = do
@@ -373,7 +374,7 @@ testSin0Rrev5 :: Assertion
 testSin0Rrev5 = do
   assertEqualUpToEpsilon 1e-10
     (-0.8912073600614354)
-    (rrev1 @(FlipR OR.Array) @Double @0 @0 (rrev1 sin) 1.1)
+    (rrev1 @ORArray @Double @0 @0 (rrev1 sin) 1.1)
 
 testSin0RrevPP5 :: Assertion
 testSin0RrevPP5 = do
@@ -404,7 +405,7 @@ testSin0Rfwd :: Assertion
 testSin0Rfwd = do
   assertEqualUpToEpsilon 1e-10
     0.4535961214255773  -- agrees with the rrev1 version above
-    (rfwd1 @(FlipR OR.Array) @Double @0 @0 sin 1.1)
+    (rfwd1 @ORArray @Double @0 @0 sin 1.1)
 
 testSin0RfwdPP1 :: Assertion
 testSin0RfwdPP1 = do
@@ -429,7 +430,7 @@ testSin0RfwdPP1Full = do
 
 testSin0Rfwd3 :: Assertion
 testSin0Rfwd3 = do
-  let f = rfwd1 @(ADVal (FlipR OR.Array)) @Double @0 @0 sin
+  let f = rfwd1 @(ADVal ORArray) @Double @0 @0 sin
   assertEqualUpToEpsilon 1e-10
     (-0.9803280960675791)
     (cfwd f 1.1 1.1)
@@ -438,7 +439,7 @@ testSin0Rfwd4 :: Assertion
 testSin0Rfwd4 = do
   assertEqualUpToEpsilon 1e-10
     0.8988770945225438  -- agrees with the rrev1 version above
-    ((rfwd1 sin . rfwd1 @(FlipR OR.Array) @Double @0 @0 sin) 1.1)
+    ((rfwd1 sin . rfwd1 @ORArray @Double @0 @0 sin) 1.1)
 
 testSin0RfwdPP4 :: Assertion
 testSin0RfwdPP4 = do
@@ -457,7 +458,7 @@ testSin0Rfwd5 :: Assertion
 testSin0Rfwd5 = do
   assertEqualUpToEpsilon 1e-10
     (-0.8912073600614354)  -- agrees with the rrev1 version above
-    (rfwd1 @(FlipR OR.Array) @Double @0 @0 (rfwd1 sin) 1.1)
+    (rfwd1 @ORArray @Double @0 @0 (rfwd1 sin) 1.1)
 
 testSin0RfwdPP5 :: Assertion
 testSin0RfwdPP5 = do
@@ -704,8 +705,8 @@ testSin0Fold8S = do
 testSin0Fold8rev :: Assertion
 testSin0Fold8rev = do
   assertEqualUpToEpsilon 1e-10
-    (-2.200311410593445 :: FlipR OR.Array Double 0)
-    (rrev1 @(FlipR OR.Array) @Double @0 @2
+    (-2.200311410593445 :: ORArray Double 0)
+    (rrev1 @ORArray @Double @0 @2
        (\a0 -> rfold (\x a -> rtr $ rreplicate 5
                                  $ atan2F (rsum (rtr $ sin x))
                                          (rreplicate 2
@@ -715,7 +716,7 @@ testSin0Fold8rev = do
 
 testSin0Fold8rev2 :: Assertion
 testSin0Fold8rev2 = do
-  let h = rrev1 @(ADVal (FlipR OR.Array)) @Double @0 @2
+  let h = rrev1 @(ADVal ORArray) @Double @0 @2
         (\a0 -> rfold (\x a -> rtr $ rreplicate 5
                                  $ atan2F (rsum (rtr $ sin x))
                                          (rreplicate 2
@@ -729,7 +730,7 @@ testSin0Fold8rev2 = do
 testSin0Fold8Srev :: Assertion
 testSin0Fold8Srev = do
   assertEqualUpToEpsilon 1e-10
-    (-2.200311410593445 :: FlipR OR.Array Double 0)
+    (-2.200311410593445 :: ORArray Double 0)
     (rrev1 (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[2, 5]
                 f a0 = sfold @_ @f @Double @Double @'[2, 5] @'[] @3
                         (\x a -> str $ sreplicate @_ @5
@@ -775,7 +776,7 @@ testSin0Fold182SrevPP = do
 testSin0Fold18Srev :: Assertion
 testSin0Fold18Srev = do
   assertEqualUpToEpsilon 1e-10
-    (-2.4026418024701366 :: FlipR OR.Array Double 0)
+    (-2.4026418024701366 :: ORArray Double 0)
     (rrev1 (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[2, 5]
                 f a0 = sfold @_ @f @Double @Double @'[2, 5] @'[] @2
                         (\x a -> str $ sreplicate @_ @5
@@ -788,9 +789,9 @@ testSin0Fold18Srev = do
 
 testSin0Fold8fwd :: Assertion
 testSin0Fold8fwd = do
-  assertEqualUpToEpsilon 1e-10
-    (FlipR $ OR.constant [2, 5] (-0.2200311410593445))
-    (rfwd1 @(FlipR OR.Array) @Double @0 @2
+  assertEqualUpToEpsilon1 1e-10
+    (OR.constant [2, 5] (-0.2200311410593445))
+    (rfwd1 @ORArray @Double @0 @2
        (\a0 -> rfold (\x a -> rtr $ rreplicate 5
                                  $ atan2F (rsum (rtr $ sin x))
                                          (rreplicate 2
@@ -800,7 +801,7 @@ testSin0Fold8fwd = do
 
 testSin0Fold8fwd2 :: Assertion
 testSin0Fold8fwd2 = do
-  let h = rfwd1 @(ADVal (FlipR OR.Array)) @Double @0 @2
+  let h = rfwd1 @(ADVal ORArray) @Double @0 @2
         (\a0 -> rfold (\x a -> rtr $ rreplicate 5
                                  $ atan2F (rsum (rtr $ sin x))
                                          (rreplicate 2
@@ -813,8 +814,8 @@ testSin0Fold8fwd2 = do
 
 testSin0Fold8Sfwd :: Assertion
 testSin0Fold8Sfwd = do
-  assertEqualUpToEpsilon 1e-10
-    (FlipR $ OR.constant [2, 5] (-0.2200311410593445))
+  assertEqualUpToEpsilon1 1e-10
+    (OR.constant [2, 5] (-0.2200311410593445))
     (rfwd1 (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[2, 5]
                 f a0 = sfold @_ @f @Double @Double @'[2, 5] @'[] @3
                         (\x a -> str $ sreplicate @_ @5
@@ -827,7 +828,7 @@ testSin0Fold8Sfwd = do
 
 testSin0Fold8Sfwd2 :: Assertion
 testSin0Fold8Sfwd2 = do
-  let h = rfwd1 @(ADVal (FlipR OR.Array))
+  let h = rfwd1 @(ADVal ORArray)
                 (let f :: forall f. ADReadyS f
                        => f Double '[] -> f Double '[2, 5]
                      f a0 = sfold @_ @f @Double @Double @'[2, 5] @'[] @3
@@ -838,8 +839,8 @@ testSin0Fold8Sfwd2 = do
                         (sreplicate @_ @2 (sreplicate @_ @5 (srepl 2 * a0)))
                         (sreplicate @_ @3 a0)
                  in rfromS . f . sfromR)
-  assertEqualUpToEpsilon 1e-10
-    (FlipR $ OR.constant [2, 5] 10.859933116775313)
+  assertEqualUpToEpsilon1 1e-10
+    (OR.constant [2, 5] 10.859933116775313)
     (cfwd h 1.1 1.1)
 
 testSin0Fold5Sfwd :: Assertion
@@ -895,14 +896,14 @@ testSin0Scan1 = do
     (OR.fromList [1,1,1,1,1] [1.4535961214255773] :: OR.Array 5 Double)
     (rev' (\x0 -> rscan (\x _a -> sin x)
                         x0 (rconst (OR.constant @Double @1 [1] 42)))
-          (rreplicate0N [1,1,1,1,1] 1.1))
+          (FlipR $ treplicate0NR [1,1,1,1,1] 1.1))
 
 testSin0Scan1ForComparison :: Assertion
 testSin0Scan1ForComparison = do
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [1,1,1,1,1] [1.4535961214255773] :: OR.Array 5 Double)
     (rev' (\x0 -> rfromList [x0, sin x0])
-          (rreplicate0N [1,1,1,1,1] 1.1))
+          (FlipR $ treplicate0NR [1,1,1,1,1] 1.1))
 
 testSin0Scan2 :: Assertion
 testSin0Scan2 = do
@@ -910,7 +911,7 @@ testSin0Scan2 = do
     (OR.fromList [1,1,1,1,1] [2.2207726343670955] :: OR.Array 5 Double)
     (rev' (\x0 -> rscan (\x _a -> sin x)
                         x0 (rconst (OR.constant @Double @1 [5] 42)))
-          (rreplicate0N [1,1,1,1,1] 1.1))
+          (FlipR $ treplicate0NR [1,1,1,1,1] 1.1))
 
 testSin0Scan3 :: Assertion
 testSin0Scan3 = do
@@ -918,7 +919,7 @@ testSin0Scan3 = do
     (OR.fromList [1,1,1,1,1] [1.360788364276732] :: OR.Array 5 Double)
     (rev' (\a0 -> rscan (\_x a -> sin a)
                         (rreplicate0N [1,1,1,1,1] 84)
-                        (rreplicate 3 a0)) (rreplicate0N [1,1,1,1,1] 1.1))
+                        (rreplicate 3 a0)) (FlipR $ treplicate0NR [1,1,1,1,1] 1.1))
 
 testSin0Scan4 :: Assertion
 testSin0Scan4 = do
@@ -926,7 +927,7 @@ testSin0Scan4 = do
     (OR.fromList [1,1,1,1,1] [-0.4458209450295252] :: OR.Array 5 Double)
     (rev' (\a0 -> rscan (\x a -> atan2F (sin x) (sin a))
                         (rreplicate0N [1,1,1,1,1] 2 * a0)
-                        (rreplicate 3 a0)) (rreplicate0N [1,1,1,1,1] 1.1))
+                        (rreplicate 3 a0)) (FlipR $ treplicate0NR [1,1,1,1,1] 1.1))
 
 testSin0Scan5 :: Assertion
 testSin0Scan5 = do
@@ -938,7 +939,7 @@ testSin0Scan5 = do
                                           $ rtr $ rreplicate 7 a))
                         (rreplicate0N [1,1,1,1] 2 * a0)
                         (rreplicate 3 (rreplicate 2 (rreplicate 5 a0))))
-          (rreplicate0N [1,1,1,1] 1.1))
+          (FlipR $ treplicate0NR [1,1,1,1] 1.1))
 
 testSin0Scan6 :: Assertion
 testSin0Scan6 = do
@@ -947,7 +948,7 @@ testSin0Scan6 = do
     (rev' (\a0 -> rscan (\x a -> rtr
                                  $ rtr x + rreplicate 1 (rreplicate 2 a))
                         (rreplicate 2 (rreplicate 1 a0))
-                        (rreplicate 2 a0)) (rreplicate0N [1,1] 1.1))
+                        (rreplicate 2 a0)) (FlipR $ treplicate0NR [1,1] 1.1))
 
 testSin0Scan7 :: Assertion
 testSin0Scan7 = do
@@ -955,7 +956,7 @@ testSin0Scan7 = do
     (OR.fromList [1,1] [310] :: OR.Array 2 Double)
     (rev' (\a0 -> rscan (\x _a -> rtr $ rreplicate 5 $ rsum (rtr x))
                         (rreplicate 2 (rreplicate 5 a0))
-                        (rreplicate 2 a0)) (rreplicate0N [1,1] 1.1))
+                        (rreplicate 2 a0)) (FlipR $ treplicate0NR [1,1] 1.1))
 
 testSin0Scan8 :: Assertion
 testSin0Scan8 = do
@@ -966,13 +967,13 @@ testSin0Scan8 = do
                                          (rreplicate 2
                                           $ sin (rsum $ rreplicate 7 a)))
                         (rreplicate 2 (rreplicate 5 (rreplicate0N [1,1,1] 2 * a0)))
-                        (rreplicate 3 a0)) (rreplicate0N [1,1,1] 1.1))
+                        (rreplicate 3 a0)) (FlipR $ treplicate0NR [1,1,1] 1.1))
 
 testSin0Scan8rev :: Assertion
 testSin0Scan8rev = do
-  assertEqualUpToEpsilon 1e-10
-    (FlipR $ OR.fromList [] [9.53298735735276])
-    (rrev1 @(FlipR OR.Array) @Double @0 @3
+  assertEqualUpToEpsilon1 1e-10
+    (OR.fromList [] [9.53298735735276])
+    (rrev1 @ORArray @Double @0 @3
        (\a0 -> rscan (\x a -> rtr $ rreplicate 5
                                  $ atan2F (rsum (rtr $ sin x))
                                          (rreplicate 2
@@ -982,15 +983,15 @@ testSin0Scan8rev = do
 
 testSin0Scan8rev2 :: Assertion
 testSin0Scan8rev2 = do
-  let h = rrev1 @(ADVal (FlipR OR.Array)) @Double @0 @3
+  let h = rrev1 @(ADVal ORArray) @Double @0 @3
         (\a0 -> rscan (\x a -> rtr $ rreplicate 5
                                  $ atan2F (rsum (rtr $ sin x))
                                          (rreplicate 2
                                           $ sin (rsum $ rreplicate 7 a)))
                         (rreplicate 2 (rreplicate 5 (2 * a0)))
                         (rreplicate 3 a0))
-  assertEqualUpToEpsilon 1e-10
-    (FlipR $ OR.fromList [] [285.9579482947575])
+  assertEqualUpToEpsilon1 1e-10
+    (OR.fromList [] [285.9579482947575])
     (crev h 1.1)
 
 testSin0Scan1RevPP1 :: Assertion
@@ -1124,9 +1125,9 @@ testSin0Scan1Rev3ForComparison = do
 
 testSin0Scan0fwd :: Assertion
 testSin0Scan0fwd = do
-  assertEqualUpToEpsilon 1e-10
-    (FlipR $ OR.fromList [1] [1.0])
-    (rfwd1 @(FlipR OR.Array) @Double @0 @1
+  assertEqualUpToEpsilon1 1e-10
+    (OR.fromList [1] [1.0])
+    (rfwd1 @ORArray @Double @0 @1
     (let f :: forall f. ADReady f => f Double 0 -> f Double 1
          f x0 = rscan (\x _a -> sin x)
                       x0 (rzero @f @Double (0 :$: ZSR))
@@ -1134,25 +1135,25 @@ testSin0Scan0fwd = do
 
 testSin0Scan1fwd :: Assertion
 testSin0Scan1fwd = do
-  assertEqualUpToEpsilon 1e-10
-    (FlipR $ OR.fromList [2] [1.0,0.4535961214255773])
-    (rfwd1 @(FlipR OR.Array) @Double @0 @1
+  assertEqualUpToEpsilon1 1e-10
+    (OR.fromList [2] [1.0,0.4535961214255773])
+    (rfwd1 @ORArray @Double @0 @1
     (\x0 -> rscan (\x _a -> sin x)
                   x0 (rconst (OR.constant @Double @1 [1] 42)))
           1.1)
 
 testSin0Scan1FwdForComparison :: Assertion
 testSin0Scan1FwdForComparison = do
-  assertEqualUpToEpsilon 1e-10
-    (FlipR $ OR.fromList [2] [1.0,0.4535961214255773])
-    (rfwd1 @(FlipR OR.Array) @Double @0 @1
+  assertEqualUpToEpsilon1 1e-10
+    (OR.fromList [2] [1.0,0.4535961214255773])
+    (rfwd1 @ORArray @Double @0 @1
     (\x0 -> rfromList [x0, sin x0]) 1.1)
 
 testSin0Scan8fwd :: Assertion
 testSin0Scan8fwd = do
-  assertEqualUpToEpsilon 1e-10
-    (FlipR $ OR.fromList [4,2,5] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445])
-    (rfwd1 @(FlipR OR.Array) @Double @0 @3
+  assertEqualUpToEpsilon1 1e-10
+    (OR.fromList [4,2,5] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445])
+    (rfwd1 @ORArray @Double @0 @3
        (\a0 -> rscan (\x a -> rtr $ rreplicate 5
                                  $ atan2F (rsum (rtr $ sin x))
                                          (rreplicate 2
@@ -1162,15 +1163,15 @@ testSin0Scan8fwd = do
 
 testSin0Scan8fwd2 :: Assertion
 testSin0Scan8fwd2 = do
-  let h = rfwd1 @(ADVal (FlipR OR.Array)) @Double @0 @3
+  let h = rfwd1 @(ADVal ORArray) @Double @0 @3
         (\a0 -> rscan (\x a -> rtr $ rreplicate 5
                                  $ atan2F (rsum (rtr $ sin x))
                                          (rreplicate 2
                                           $ sin (rsum $ rreplicate 7 a)))
                         (rreplicate 2 (rreplicate 5 (2 * a0)))
                         (rreplicate 3 a0))
-  assertEqualUpToEpsilon 1e-10
-    (FlipR $ OR.fromList [] [285.95794829475744])
+  assertEqualUpToEpsilon1 1e-10
+    (OR.fromList [] [285.95794829475744])
     (crev h 1.1)
 
 testUnitriangular0PP :: Assertion
@@ -2446,7 +2447,7 @@ testSin0rmapAccumRD01SN531d = do
                           (dmkHVector $ V.fromList [ DynamicShaped @Double @'[2]
                                          (sfromList0N
                                            [sscalar 0.4, sfromIntegral (sconstant (sfromR i))]) ])))
-      in f . sfromR) (1.1 :: FlipR OR.Array Double 0))
+      in f . sfromR) (1.1 :: ORArray Double 0))
 
 -- TODO: empty tensor/heterogeneous vector of tensors ambiguity breaks things
 _testSin0rmapAccumRD01SN531Slice :: Assertion
@@ -2793,7 +2794,7 @@ testSin0ScanD1 = do
                          (V.fromList [voidFromSh @Double ZSR])
                          x0 (V.singleton $ DynamicRanked
                              $ rconst (OR.constant @Double @1 [1] 42)))
-          (rreplicate0N [1,1,1,1,1] 1.1))
+          (FlipR $ treplicate0NR [1,1,1,1,1] 1.1))
 
 testSin0ScanD2 :: Assertion
 testSin0ScanD2 = do
@@ -2803,7 +2804,7 @@ testSin0ScanD2 = do
                          (V.fromList [voidFromSh @Double ZSR])
                          x0 (V.singleton $ DynamicRanked
                              $ rconst (OR.constant @Double @1 [5] 42)))
-          (rreplicate0N [1,1,1,1,1] 1.1))
+          (FlipR $ treplicate0NR [1,1,1,1,1] 1.1))
 
 testSin0ScanD3 :: Assertion
 testSin0ScanD3 = do
@@ -2821,7 +2822,7 @@ testSin0ScanD3 = do
                             , DynamicRanked
                               $ rconst (OR.constant @Double @6
                                           [3, 4, 5, 6, 7, 8] 32) ]))
-                         (rreplicate0N [1,1,1,1,1] 1.1))
+                         (FlipR $ treplicate0NR [1,1,1,1,1] 1.1))
 
 testSin0ScanD4 :: Assertion
 testSin0ScanD4 = do
@@ -2833,7 +2834,7 @@ testSin0ScanD4 = do
                                         (1 :$: 1 :$: 1 :$: 1 :$: 1 :$: ZSR)])
                          (rreplicate0N [1,1,1,1,1] 2 * a0)
                          (V.singleton $ DynamicRanked
-                          $ rreplicate 3 a0)) (rreplicate0N [1,1,1,1,1] 1.1))
+                          $ rreplicate 3 a0)) (FlipR $ treplicate0NR [1,1,1,1,1] 1.1))
 
 testSin0ScanD5 :: Assertion
 testSin0ScanD5 = do
@@ -2855,7 +2856,7 @@ testSin0ScanD5 = do
                             , DynamicRanked
                               $ rreplicate 3 (rreplicate 8 (rreplicate 3 a0)) ]
                          ))
-          (rreplicate0N [1,1,1,1] 1.1))
+          (FlipR $ treplicate0NR [1,1,1,1] 1.1))
 
 testSin0ScanD51 :: Assertion
 testSin0ScanD51 = do
@@ -2879,7 +2880,7 @@ testSin0ScanD51 = do
                             , DynamicRanked
                               $ rreplicate 3 (rreplicate 8 (rreplicate 3 a0)) ]
                          ))
-          (rreplicate0N [1,1,1,1] 1.1))
+          (FlipR $ treplicate0NR [1,1,1,1] 1.1))
 
 testSin0ScanD51S :: Assertion
 testSin0ScanD51S = do
@@ -2912,7 +2913,7 @@ testSin0ScanD51S = do
                       , DynamicRanked $ rfromS
                         $ sreplicate @f @3 (sreplicate @f @8 (sreplicate @f @3 a0)) ]
                    )
-           in rfromS . f . sfromR) (rreplicate0N [1,1,1,1] 1.1))
+           in rfromS . f . sfromR) (FlipR $ treplicate0NR [1,1,1,1] 1.1))
 
 testSin0ScanD6 :: Assertion
 testSin0ScanD6 = do
@@ -2925,7 +2926,7 @@ testSin0ScanD6 = do
                          (V.fromList [voidFromSh @Double (1 :$: 1 :$: ZSR)])
                          (rreplicate 2 (rreplicate 1 a0))
                          (V.singleton $ DynamicRanked
-                          $ rreplicate 2 a0)) (rreplicate0N [1,1] 1.1))
+                          $ rreplicate 2 a0)) (FlipR $ treplicate0NR [1,1] 1.1))
 
 testSin0ScanD7 :: Assertion
 testSin0ScanD7 = do
@@ -2935,7 +2936,7 @@ testSin0ScanD7 = do
                          (V.fromList [voidFromSh @Double (1 :$: 1 :$: ZSR)])
                          (rreplicate 2 (rreplicate 5 a0))
                          (V.singleton $ DynamicRanked
-                          $ rreplicate 2 a0)) (rreplicate0N [1,1] 1.1))
+                          $ rreplicate 2 a0)) (FlipR $ treplicate0NR [1,1] 1.1))
 
 testSin0ScanD8 :: Assertion
 testSin0ScanD8 = do
@@ -2951,7 +2952,7 @@ testSin0ScanD8 = do
                        (rreplicate 2 (rreplicate 5
                                         (rreplicate0N [1,1,1] 2 * a0)))
                        (V.singleton $ DynamicRanked $ rreplicate 3 a0))
-                       (rreplicate0N [1,1,1] 1.1))
+                       (FlipR $ treplicate0NR [1,1,1] 1.1))
 
 testSin0ScanD8MapAccum :: Assertion
 testSin0ScanD8MapAccum = do
@@ -2984,13 +2985,13 @@ testSin0ScanD8MapAccum = do
                        $ rreplicate 2 (rreplicate 5
                                       (rreplicate0N [1,1,1] 2 * a0)))
                       (dmkHVector $ V.singleton $ DynamicRanked $ rreplicate 4 a0))
-       (rreplicate0N [1,1,1] 1.1))
+       (FlipR $ treplicate0NR [1,1,1] 1.1))
 
 testSin0ScanD8rev :: Assertion
 testSin0ScanD8rev = do
-  assertEqualUpToEpsilon 1e-10
-    (FlipR $ OR.fromList [] [9.53298735735276])
-    (rrev1 @(FlipR OR.Array) @Double @0 @3
+  assertEqualUpToEpsilon1 1e-10
+    (OR.fromList [] [9.53298735735276])
+    (rrev1 @ORArray @Double @0 @3
        (\a0 -> rscanZip (\x a -> rtr $ rreplicate 5
                                  $ atan2F (rsum (rtr $ sin x))
                                          (rreplicate 2
@@ -3003,7 +3004,7 @@ testSin0ScanD8rev = do
 
 testSin0ScanD8rev2 :: Assertion
 testSin0ScanD8rev2 = do
-  let h = rrev1 @(ADVal (FlipR OR.Array)) @Double @0 @3
+  let h = rrev1 @(ADVal ORArray) @Double @0 @3
         (\a0 -> rscanZip (\x a -> rtr $ rreplicate 5
                                  $ atan2F (rsum (rtr $ sin x))
                                          (rreplicate 2
@@ -3014,8 +3015,8 @@ testSin0ScanD8rev2 = do
                        (V.fromList [voidFromSh @Double ZSR])
                        (rreplicate 2 (rreplicate 5 (2 * a0)))
                        (V.singleton $ DynamicRanked $ rreplicate 3 a0))
-  assertEqualUpToEpsilon 1e-10
-    (FlipR $ OR.fromList [] [285.9579482947575])
+  assertEqualUpToEpsilon1 1e-10
+    (OR.fromList [] [285.9579482947575])
     (crev h 1.1)
 
 testSin0ScanD8rev3 :: Assertion
@@ -3151,9 +3152,9 @@ testSin0ScanDFwd3PP = do
 
 testSin0ScanD0fwd :: Assertion
 testSin0ScanD0fwd = do
-  assertEqualUpToEpsilon 1e-10
-    (FlipR $ OR.fromList [1] [1.0])
-    (rfwd1 @(FlipR OR.Array) @Double @0 @1
+  assertEqualUpToEpsilon1 1e-10
+    (OR.fromList [1] [1.0])
+    (rfwd1 @ORArray @Double @0 @1
     (let f :: forall f. ADReady f => f Double 0 -> f Double 1
          f x0 = rscanZip (\x _a -> sin x)
                        (V.fromList [voidFromSh @Double ZSR])
@@ -3163,9 +3164,9 @@ testSin0ScanD0fwd = do
 
 testSin0ScanD1fwd :: Assertion
 testSin0ScanD1fwd = do
-  assertEqualUpToEpsilon 1e-10
-    (FlipR $ OR.fromList [2] [1.0,0.4535961214255773])
-    (rfwd1 @(FlipR OR.Array) @Double @0 @1
+  assertEqualUpToEpsilon1 1e-10
+    (OR.fromList [2] [1.0,0.4535961214255773])
+    (rfwd1 @ORArray @Double @0 @1
     (\x0 -> rscanZip (\x _a -> sin x)
                    (V.fromList [ voidFromSh @Double ZSR
                                , voidFromSh @Double (3 :$: 4 :$: ZSR)])
@@ -3178,9 +3179,9 @@ testSin0ScanD1fwd = do
 
 testSin0ScanD8fwd :: Assertion
 testSin0ScanD8fwd = do
-  assertEqualUpToEpsilon 1e-10
-    (FlipR $ OR.fromList [4,2,5] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445])
-    (rfwd1 @(FlipR OR.Array) @Double @0 @3
+  assertEqualUpToEpsilon1 1e-10
+    (OR.fromList [4,2,5] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445])
+    (rfwd1 @ORArray @Double @0 @3
        (\a0 -> rscanZip (\x a -> rtr $ rreplicate 5
                                  $ atan2F (rsum (rtr $ sin x))
                                          (rreplicate 2
@@ -3193,9 +3194,9 @@ testSin0ScanD8fwd = do
 
 testSin0ScanD8fwdMapAccum :: Assertion
 testSin0ScanD8fwdMapAccum = do
-  assertEqualUpToEpsilon 1e-10
-    (FlipR $ OR.fromList [4,2,5] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445])
-    (rfwd1 @(FlipR OR.Array) @Double @0 @3 @Double
+  assertEqualUpToEpsilon1 1e-10
+    (OR.fromList [4,2,5] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445])
+    (rfwd1 @ORArray @Double @0 @3 @Double
        (\a0 -> rreverse $ (rfromD . (V.! 1))
                $ dunHVector
                $ dmapAccumR Proxy (SNat @4)
@@ -3223,7 +3224,7 @@ testSin0ScanD8fwdMapAccum = do
 
 testSin0ScanD8fwd2 :: Assertion
 testSin0ScanD8fwd2 = do
-  let h = rfwd1 @(ADVal (FlipR OR.Array)) @Double @0 @3
+  let h = rfwd1 @(ADVal ORArray) @Double @0 @3
         (\a0 -> rscanZip (\x a -> rtr $ rreplicate 5
                                  $ atan2F (rsum (rtr $ sin x))
                                          (rreplicate 2
@@ -3234,8 +3235,8 @@ testSin0ScanD8fwd2 = do
                        (V.fromList [voidFromSh @Double ZSR])
                        (rreplicate 2 (rreplicate 5 (2 * a0)))
                        (V.singleton $ DynamicRanked $ rreplicate 3 a0))
-  assertEqualUpToEpsilon 1e-10
-    (FlipR $ OR.fromList [] [285.95794829475744])
+  assertEqualUpToEpsilon1 1e-10
+    (OR.fromList [] [285.95794829475744])
     (crev h 1.1)
 
 testSin0FoldNestedS1 :: Assertion
@@ -3583,7 +3584,7 @@ _testSin0MapAccumNestedR5 = do
 testSin0MapAccumNestedR5r :: Assertion
 testSin0MapAccumNestedR5r = do
  assertEqualUpToEpsilon 1e-10
-  (1.0837278549794862 :: FlipR OR.Array Double 0)
+  (1.0837278549794862 :: ORArray Double 0)
   (rev @_ @_ @(AstRanked FullSpan)
    (let
       sh1 = voidFromSh @Double ZSR
@@ -3617,7 +3618,7 @@ testSin0MapAccumNestedR5r = do
 testSin0MapAccumNestedR10r :: Assertion
 testSin0MapAccumNestedR10r = do
  assertEqualUpToEpsilon 1e-10
-  (1.379370673816781 :: FlipR OR.Array Double 0)
+  (1.379370673816781 :: ORArray Double 0)
   (rev @_ @_ @(AstRanked FullSpan)
    (let
       sh1 = voidFromSh @Double ZSR
@@ -3668,7 +3669,7 @@ testSin0MapAccumNestedR10r = do
 testSin0MapAccumNestedR10f :: Assertion
 testSin0MapAccumNestedR10f = do
  assertEqualUpToEpsilon 1e-10
-  (1.379370673816781e-4 :: FlipR OR.Array Double 0)
+  (1.379370673816781e-4 :: ORArray Double 0)
   (fwd @(AstRanked FullSpan Double 0)
    (let
       sh1 = voidFromSh @Double ZSR
@@ -3720,7 +3721,7 @@ testSin0MapAccumNestedR10fN :: Assertion
 testSin0MapAccumNestedR10fN = do
  assertEqualUpToEpsilon 1e-10
   ( srepl 1.379370673816781e-4 :: OSArray Float '[1]
-  , 1.379370673816781e-4 :: FlipR OR.Array Double 0)
+  , 1.379370673816781e-4 :: ORArray Double 0)
   (fwd @(AstShaped FullSpan Float '[1], AstRanked FullSpan Double 0)
    (let
       sh1 = voidFromSh @Double ZSR
@@ -3774,7 +3775,7 @@ testSin0MapAccumNestedR10fN = do
 testSin0MapAccumNestedR10rf :: Assertion
 testSin0MapAccumNestedR10rf = do
  assertEqualUpToEpsilon 1e-10
-  (1.2264611684496617e-2 :: FlipR OR.Array Double 0)
+  (1.2264611684496617e-2 :: ORArray Double 0)
   (rev @_ @_ @(AstRanked FullSpan)
    (let
       sh1 = voidFromSh @Double ZSR
@@ -3825,7 +3826,7 @@ testSin0MapAccumNestedR10rf = do
 testSin0MapAccumNestedR10rr :: Assertion
 testSin0MapAccumNestedR10rr = do
  assertEqualUpToEpsilon 1e-10
-  (1.2264611684496617e-2 :: FlipR OR.Array Double 0)
+  (1.2264611684496617e-2 :: ORArray Double 0)
   (rev @_ @_ @(AstRanked FullSpan)
    (let
       sh1 = voidFromSh @Double ZSR
@@ -4244,7 +4245,7 @@ testSin0revhV = do
              x
   assertEqualUpToEpsilon 1e-10
     (V.singleton $ DynamicRanked @Double @0 0.4535961214255773)
-    (f @(FlipR OR.Array) (V.singleton $ DynamicRanked @Double @0 1.1))
+    (f @ORArray (V.singleton $ DynamicRanked @Double @0 1.1))
 
 testSin0revhVPP :: Assertion
 testSin0revhVPP = do
@@ -4274,7 +4275,7 @@ testSin0revhV2 = do
       h = hVectorADValToADVal . f
   assertEqualUpToEpsilon 1e-10
     (V.singleton $ DynamicRanked @Double @0 (-0.8912073600614354))
-    (crev (h @(FlipR OR.Array)) (V.singleton $ DynamicRanked @Double @0 1.1))
+    (crev (h @ORArray) (V.singleton $ DynamicRanked @Double @0 1.1))
 
 testSin0revhV3 :: Assertion
 testSin0revhV3 = do
@@ -4290,7 +4291,7 @@ testSin0revhV3 = do
       h = hVectorADValToADVal . f
   assertEqualUpToEpsilon 1e-10
     (V.singleton $ DynamicShaped @Double @'[] (sscalar $ -0.8912073600614354))
-    (crev (h @(FlipR OR.Array)) (V.singleton $ DynamicShaped @Double @'[] (srepl 1.1)))
+    (crev (h @ORArray) (V.singleton $ DynamicShaped @Double @'[] (srepl 1.1)))
 
 testSin0revhV4 :: Assertion
 testSin0revhV4 = do
@@ -4307,7 +4308,7 @@ testSin0revhV4 = do
       h = hVectorADValToADVal . f
   assertEqualUpToEpsilon 1e-10
     (V.singleton $ DynamicRanked @Double @1 $ rfromList [0, 0, 0])
-    (crev (h @(FlipR OR.Array))
+    (crev (h @ORArray)
           (V.singleton $ DynamicRanked @Double @1 $ rreplicate 3 1.1))
 
 testSin0revhV5 :: Assertion
@@ -4325,7 +4326,7 @@ testSin0revhV5 = do
       h = hVectorADValToADVal . f
   assertEqualUpToEpsilon 1e-10
     (V.singleton $ DynamicShaped @Double @'[3] $ ingestData [0, 0, 0])
-    (crev (h @(FlipR OR.Array))
+    (crev (h @ORArray)
           (V.singleton $ DynamicShaped @Double @'[3] $ sreplicate @_ @3 (sscalar 1.1)))
 
 testSin0revhV6 :: Assertion
@@ -4345,7 +4346,7 @@ testSin0revhV6 = do
       h = hVectorADValToADVal . f
   assertEqualUpToEpsilon 1e-10
     (V.singleton $ DynamicRanked @Double @1 $ rfromList [4.0,6.0,8.0])
-    (crev (h @(FlipR OR.Array))
+    (crev (h @ORArray)
           (V.singleton $ DynamicRanked @Double @1 $ rreplicate 3 1.1))
 
 testSin0revhV7 :: Assertion
@@ -4365,7 +4366,7 @@ testSin0revhV7 = do
       h = hVectorADValToADVal . f
   assertEqualUpToEpsilon 1e-10
     (V.singleton $ DynamicShaped @Double @'[3] $ ingestData [4.0,6.0,8.0])
-    (crev (h @(FlipR OR.Array))
+    (crev (h @ORArray)
           (V.singleton $ DynamicShaped @Double @'[3] $ sreplicate @_ @3 (sscalar 1.1)))
 
 testSin0revhV8 :: Assertion
@@ -4379,7 +4380,7 @@ testSin0revhV8 = do
       h = hVectorADValToADVal . f
   assertEqualUpToEpsilon 1e-10
     (V.singleton $ DynamicShaped @Double @'[3] $ ingestData [1, 1, 1])
-    (crev (h @(FlipR OR.Array))
+    (crev (h @ORArray)
           (V.singleton $ DynamicShaped @Double @'[3]
            $ sreplicate @OSArray @3 (sscalar 1.1)))
 
@@ -4461,10 +4462,10 @@ fFoldZipRX as =
 
 testSin0revhFoldZipR :: Assertion
 testSin0revhFoldZipR = do
-  let h :: ranked ~ FlipR OR.Array
+  let h :: ranked ~ ORArray
         => HVector (ADVal ranked)
         -> ADVal (HVectorPseudoTensor ranked) Float '()
-      h = hVectorADValToADVal . fFoldZipRX @(ADVal (FlipR OR.Array))
+      h = hVectorADValToADVal . fFoldZipRX @(ADVal ORArray)
   assertEqualUpToEpsilon 1e-10
     (V.fromList [ DynamicRanked @Double @1 $ rfromList [0, 0, 0]
                 , DynamicRanked @Double @1
@@ -4561,9 +4562,9 @@ testSin0revhFoldS = do
 testSin0revhFold2S :: Assertion
 testSin0revhFold2S = do
   assertEqualUpToEpsilon' 1e-10
-    (runFlipR $ rreplicate 3 (-7.313585321642452e-2))
+    (treplicateR 3 (-7.313585321642452e-2))
     (rev' (rfromS . fFoldSX . sfromR)
-          (rreplicate 3 1.1))
+          (FlipR $ treplicateR 3 1.1))
 
 testSin0revhFold3S :: Assertion
 testSin0revhFold3S = do
@@ -4571,7 +4572,7 @@ testSin0revhFold3S = do
     (V.fromList [ DynamicShaped @Double @'[3] $ ingestData [0, 0, 0]
                 , DynamicShaped @Double @'[3]
                   $ sreplicate @_ @3 (sscalar (-7.313585321642452e-2)) ])
-    (crev (\(asD :: HVector (ADVal (FlipR OR.Array))) ->
+    (crev (\(asD :: HVector (ADVal ORArray)) ->
              fFoldSX (sfromD (asD V.! 1)))
           (V.fromList [ DynamicShaped @Double @'[3] $ sreplicate @_ @3 (sscalar 1.1)
                       , DynamicShaped @Double @'[3] $ sreplicate @_ @3 (sscalar 1.1) ]))

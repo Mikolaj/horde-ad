@@ -1,9 +1,10 @@
+{-# LANGUAGE OverloadedLists #-}
 -- | Testing harness that differentiates a single objective function using
 -- over a twenty different pipeline variants and compares the results.
 module CrossTesting
   ( assertEqualUpToEpsilon1
   , rev', assertEqualUpToEpsilon', assertEqualUpToEpsilonShort
-  , t16, t16b, t48, t128, t128b, t128c
+  , t16, t16OR, t16b, t48, t48OR, t128, t128OR, t128b, t128c
   , rrev1, rfwd1, srev1, sfwd1
   ) where
 
@@ -15,6 +16,8 @@ import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat)
 import           Numeric.LinearAlgebra (Numeric)
 import           Test.Tasty.HUnit hiding (assert)
+
+import qualified Data.Array.Nested as Nested
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.Ast
@@ -29,27 +32,29 @@ import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorADVal
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
+import HordeAd.Internal.BackendConcrete (tdot0R, treshapeR, tsum0R)
+import HordeAd.Internal.BackendOX (ORArray)
 import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..))
 
 import EqEpsilon
 
 assertEqualUpToEpsilon1
-  :: (AssertEqualUpToEpsilon (OR.Array n r), HasCallStack)
+  :: (GoodScalar r, AssertEqualUpToEpsilon (OR.Array n r), HasCallStack)
   => Rational
   -> OR.Array n r
-  -> FlipR OR.Array r n
+  -> ORArray r n
   -> Assertion
 assertEqualUpToEpsilon1 eps expected result =
-  assertEqualUpToEpsilon eps expected (runFlipR result)
+  assertEqualUpToEpsilon eps expected (Nested.rtoOrthotope $ runFlipR result)
 
 crevDtMaybeBoth
   :: forall r y f vals advals.
      ( GoodScalar r, KnownNat y
-     , RankedOf f ~ FlipR OR.Array  -- this helps with type reconstruction later
-     , AdaptableHVector (ADVal (FlipR OR.Array)) advals
-     , AdaptableHVector (ADVal (FlipR OR.Array)) (ADVal f r y)
-     , AdaptableHVector (FlipR OR.Array) vals
-     , AdaptableHVector (FlipR OR.Array) (f r y)
+     , RankedOf f ~ ORArray  -- this helps with type reconstruction later
+     , AdaptableHVector (ADVal ORArray) advals
+     , AdaptableHVector (ADVal ORArray) (ADVal f r y)
+     , AdaptableHVector ORArray vals
+     , AdaptableHVector ORArray (f r y)
      , DualNumberValue advals, vals ~ DValue advals )
   => Maybe (f r y) -> (advals -> ADVal f r y) -> vals -> (vals, RankedOf f r y)
 {-# INLINE crevDtMaybeBoth #-}
@@ -72,18 +77,20 @@ rev' :: forall r m n v a.
         , v, v, v, v, v, v, v, v, v, v, v, v, v, v
         , a, a, a, a, a, a, a, a, a, a, a, a, a, a
         , a, v, v, v )
-rev' f vals =
-  let value0 = f vals
+rev' f valsOR =
+  let vals :: FlipR Nested.Ranked r n
+      vals = fromORArray valsOR
+      value0 = f vals
       parameters = toHVectorOf vals
       parameters0 = voidFromHVector parameters
       dt = Nothing
       valsFrom = fromDValue vals
-      g :: HVector (ADVal (FlipR OR.Array))
-        -> ADVal (FlipR OR.Array) r m
+      g :: HVector (ADVal ORArray)
+        -> ADVal ORArray r m
       g inputs = f $ parseHVector valsFrom  inputs
       (advalGrad, value1) = crevDtMaybeBoth dt g parameters
       gradient1 = parseHVector vals advalGrad
-      gradientRrev1 = rrev1 @(FlipR OR.Array) @r @n @m f vals
+      gradientRrev1 = rrev1 @ORArray @r @n @m f vals
       g9 :: HVector (ADVal (AstRaw PrimalSpan))
          -> ADVal (AstRaw PrimalSpan) r m
       g9 inputs = f @(ADVal (AstRaw PrimalSpan))
@@ -95,11 +102,11 @@ rev' f vals =
       gradient9 = parseHVector vals advalGrad9
       revEvalArtifact7
         :: AstArtifact
-        -> HVector (FlipR OR.Array)
-        -> (HVector (FlipR OR.Array), FlipR OR.Array r m)
+        -> HVector ORArray
+        -> (HVector ORArray, FlipR OR.Array r m)
       revEvalArtifact7 a1 a2 =
         let (grad, v) = revEvalArtifact a1 a2 Nothing
-        in (grad, rfromD (v V.! 0))
+        in (grad, toORArray $ rfromD (v V.! 0))
       hGeneral
         :: (ADReady fgen, ADReady f1)
         => (f1 r m -> AstRanked PrimalSpan r m)
@@ -115,10 +122,10 @@ rev' f vals =
         => (f1 r m -> AstRanked PrimalSpan r m)
         -> (AstRanked PrimalSpan r n -> f1 r n)
         -> (AstRanked PrimalSpan r m -> AstRanked PrimalSpan r m)
-        -> HVector (ADVal (FlipR OR.Array))
-        -> ADVal (FlipR OR.Array) r m
+        -> HVector (ADVal ORArray)
+        -> ADVal ORArray r m
       h fx1 fx2 gx inputs =
-        hGeneral @(ADVal (FlipR OR.Array)) fx1 fx2 gx
+        hGeneral @(ADVal ORArray) fx1 fx2 gx
                  (parseHVector valsFrom inputs)
       (astGrad, value2) =
         crevDtMaybeBoth dt (h id id id) parameters
@@ -130,14 +137,14 @@ rev' f vals =
         crevDtMaybeBoth dt (h unAstNoSimplify AstNoSimplify id) parameters
       gradient2UnSimp = parseHVector vals astGradUnSimp
       gradientRrev2UnSimp =
-        rrev1 @(FlipR OR.Array) @r @n @m
+        rrev1 @ORArray @r @n @m
               (hGeneral unAstNoSimplify AstNoSimplify id) vals
       (astSimpleUnSimp, value3UnSimp) =
         crevDtMaybeBoth dt (h unAstNoSimplify AstNoSimplify simplifyInlineAst)
                       parameters
       gradient3UnSimp = parseHVector vals astSimpleUnSimp
       gradientRrev3UnSimp =
-        rrev1 @(FlipR OR.Array) @r @n @m
+        rrev1 @ORArray @r @n @m
               (hGeneral unAstNoSimplify AstNoSimplify simplifyInlineAst) vals
       (astPrimal, value4) =
         crevDtMaybeBoth dt (h unAstNoVectorize AstNoVectorize id)
@@ -145,14 +152,14 @@ rev' f vals =
           -- use the AstNoVectorize instance that does no vectorization
           -- and then interpret the results as the Ast instance
       gradient4 = parseHVector vals astPrimal
-      gradientRrev4 = rrev1 @(FlipR OR.Array) @r @n @m
+      gradientRrev4 = rrev1 @ORArray @r @n @m
                             (hGeneral unAstNoVectorize AstNoVectorize id) vals
       (astPSimple, value5) =
         crevDtMaybeBoth dt (h unAstNoVectorize AstNoVectorize simplifyInlineAst)
                       parameters
       gradient5 = parseHVector vals astPSimple
       gradientRrev5 =
-        rrev1 @(FlipR OR.Array) @r @n @m
+        rrev1 @ORArray @r @n @m
               (hGeneral unAstNoVectorize AstNoVectorize simplifyInlineAst) vals
       astVectSimp = simplifyInlineAst $ snd $ funToAstR (rshape vals) f
       astSimp =
@@ -234,23 +241,25 @@ rev' f vals =
       gradient5AstS = parseHVector vals astPSimpleAstS
       cderivative = cfwd f vals vals
       derivative = fwd @(AstRanked FullSpan r m) f vals vals
-      derivativeRfwd1 = rfwd1ds @(FlipR OR.Array) @r @n @m f vals vals
-  in ( value0, value1, value2, value3, value2UnSimp, value3UnSimp
-     , value4, value5
-     , gradient1, gradientRrev1, gradient2, gradient3
-     , gradient2UnSimp, gradientRrev2UnSimp
-     , gradient3UnSimp, gradientRrev3UnSimp
-     , gradient4, gradientRrev4, gradient5, gradientRrev5
+      derivativeRfwd1 = rfwd1ds @ORArray @r @n @m f vals vals
+      toORArray (FlipR t) = FlipR $ Nested.rtoOrthotope t
+      fromORArray (FlipR t) = FlipR $ Nested.rfromOrthotope SNat t
+  in ( toORArray value0, toORArray value1, toORArray value2, toORArray value3, toORArray value2UnSimp, toORArray value3UnSimp
+     , toORArray value4, toORArray value5
+     , toORArray gradient1, toORArray gradientRrev1, toORArray gradient2, toORArray gradient3
+     , toORArray gradient2UnSimp, toORArray gradientRrev2UnSimp
+     , toORArray gradient3UnSimp, toORArray gradientRrev3UnSimp
+     , toORArray gradient4, toORArray gradientRrev4, toORArray gradient5, toORArray gradientRrev5
      , astVectSimp, astSimp
      , value9, value2Ast, value2AstS, value2AstST, value3Ast, value3AstS
      , value2AstUnSimp, value2AstSUnSimp, value3AstUnSimp, value3AstSUnSimp
      , value4Ast, value4AstS, value5Ast, value5AstS
-     , gradient9, gradient2Ast, gradient2AstS, gradient2AstST
-     , gradient3Ast, gradient3AstS
-     , gradient2AstUnSimp, gradient2AstSUnSimp
-     , gradient3AstUnSimp, gradient3AstSUnSimp
-     , gradient4Ast, gradient4AstS, gradient5Ast, gradient5AstS
-     , vals, cderivative, derivative, derivativeRfwd1)
+     , toORArray gradient9, toORArray gradient2Ast, toORArray gradient2AstS, toORArray gradient2AstST
+     , toORArray gradient3Ast, toORArray gradient3AstS
+     , toORArray gradient2AstUnSimp, toORArray gradient2AstSUnSimp
+     , toORArray gradient3AstUnSimp, toORArray gradient3AstSUnSimp
+     , toORArray gradient4Ast, toORArray gradient4AstS, toORArray gradient5Ast, toORArray gradient5AstS
+     , valsOR, toORArray cderivative, toORArray derivative, toORArray derivativeRfwd1)
 
 assertEqualUpToEpsilon'
     :: ( v ~ FlipR OR.Array r m, a ~ FlipR OR.Array r n
@@ -363,7 +372,7 @@ assertEqualUpToEpsilon'
   -- and a similar property stated mathematically is in Lemma 1 in
   -- https://www.microsoft.com/en-us/research/uploads/prod/2021/08/higher-order-ad.pdf
   assertEqualUpToEpsilonWithMark "Reverse vs forward"
-                                 1e-5 (rdot0 expected vals) (rsum0 derivative)
+                                 1e-5 (tdot0R (runFlipR expected) (runFlipR vals)) (tsum0R $ runFlipR derivative)
   -- No Eq instance, so let's compare the text.
   assertEqual "Idempotence of primal simplification"
               (show astSimp)
@@ -461,7 +470,7 @@ assertEqualUpToEpsilonShort
   assertEqualUpToEpsilonWithMark "Derivatives rfwd"
                                  errMargin cderivative derivativeRfwd1
   assertEqualUpToEpsilonWithMark "Forward vs reverse"
-                                 1e-5 (rsum0 derivative) (rdot0 expected vals)
+                                 1e-5 (tsum0R $ runFlipR derivative) (tdot0R (runFlipR expected) (runFlipR vals))
   -- No Eq instance, so let's compare the text.
   assertEqual "Idempotence of primal simplification"
               (show astSimp)
@@ -470,23 +479,32 @@ assertEqualUpToEpsilonShort
               (show astVectSimp)
               (show (simplifyInlineAst astVectSimp))
 
-t16 :: (Numeric r, Fractional r) => FlipR OR.Array r 5
-t16 = FlipR $ OR.fromList [2, 2, 1, 2, 2] [5, 2, 6, 1, -2, 0.000001, 0.1, -0.2, 13.1, 9, 8, -4, 34, 2.99432, -33, 26]
+t16 :: (Numeric r, Fractional r, Nested.PrimElt r) => ORArray r 5
+t16 = FlipR $ Nested.rfromOrthotope SNat $ OR.fromList [2, 2, 1, 2, 2] [5, 2, 6, 1, -2, 0.000001, 0.1, -0.2, 13.1, 9, 8, -4, 34, 2.99432, -33, 26]
 
-t16b :: (Numeric r, Fractional r) => FlipR OR.Array r 4
-t16b = FlipR $ OR.fromList [2, 2, 2, 2] [5, 2, 6, 1, -2, 0, 0.1, -0.2, 13.1, 9, 8, -4, 582934, 2.99432, -335, 26]
+t16OR :: (Numeric r, Fractional r) => FlipR OR.Array r 5
+t16OR = FlipR $ OR.fromList [2, 2, 1, 2, 2] [5, 2, 6, 1, -2, 0.000001, 0.1, -0.2, 13.1, 9, 8, -4, 34, 2.99432, -33, 26]
 
-t48 :: (Numeric r, Fractional r) => FlipR OR.Array r 7
-t48 = FlipR $ OR.fromList [3, 1, 2, 2, 1, 2, 2] [18.1,29.1,32.1,40.1,52.0,53.99432,97.1,58.8943200001,18.1,29.1,32.1,40.1,58.0,54.99432,97.1,52.8943200001, 5, 2, 6, 1, -2, 0.92, 0.1, -0.2, 13.1, 9, 8, -4, 34, 2.99432, -33, 26, 2, 2, 2, 2, -0.2,-0.2,-0.2,-0.2,25.0003,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003]
+t16b :: (Numeric r, Fractional r, Nested.PrimElt r) => ORArray r 4
+t16b = FlipR $ Nested.rfromOrthotope SNat $ OR.fromList [2, 2, 2, 2] [5, 2, 6, 1, -2, 0, 0.1, -0.2, 13.1, 9, 8, -4, 582934, 2.99432, -335, 26]
 
-t128 :: (Numeric r, Fractional r) => FlipR OR.Array r 10
-t128 = FlipR $ OR.fromList [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] [29.1,32.1,40.1,29.0,53.99432,97.1,58.8943200001,18.1,29.1,32.1,40.1,32.0,53.99432,97.1,25.8943200001, 5, 2, 6, 1, -2, 97.1,58.8943200001,97.1,55.8943200001,97.1,58.8943200001,18.1,29.1,32.1,40.1,32.1,32.1,40.1,53.0,53.99432, -0.00001, 0.1, -0.2, 13.1, 9, 8, -4, 29, 2.99432, -335, 26, 2, 2, 2, 2, -0.2,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003,-0.2,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003,40.1,8.0,11.0,-3.0,25.89432,28.79432,-39.09999999999997,25.8,40.1,8.0,11.0,-3.0,25.89432,28.79432,-19.09999999999997,25.8, 8.1,29.1,32.1,40.1,32.1,40.1,292.0,53.99432,97.1,55.8943200001,97.1,85.8943200001,97.1,85.8943200001,18.1,29.1,32.1,40.1,32.1,40.1,32.1,40.1,22.0,53.99432,97.1,82.8943200001,97.1,22.8943200001,97.1,58.8943200001,18.1,29.1,32.1,40.1,32.1,40.1,32.1,40.1,89.0,53.99432,97.1,56.8943200001,97.1,52.8943200001,97.1,55.8943200001]
+t48 :: (Numeric r, Fractional r, Nested.PrimElt r) => ORArray r 7
+t48 = FlipR $ Nested.rfromOrthotope SNat $ OR.fromList [3, 1, 2, 2, 1, 2, 2] [18.1,29.1,32.1,40.1,52.0,53.99432,97.1,58.8943200001,18.1,29.1,32.1,40.1,58.0,54.99432,97.1,52.8943200001, 5, 2, 6, 1, -2, 0.92, 0.1, -0.2, 13.1, 9, 8, -4, 34, 2.99432, -33, 26, 2, 2, 2, 2, -0.2,-0.2,-0.2,-0.2,25.0003,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003]
 
-t128b :: (Numeric r, Fractional r) => FlipR OR.Array r 4
-t128b = FlipR $ OR.reshape [4, 2, 4, 4] $ runFlipR t128
+t48OR :: (Numeric r, Fractional r) => FlipR OR.Array r 7
+t48OR = FlipR $ OR.fromList [3, 1, 2, 2, 1, 2, 2] [18.1,29.1,32.1,40.1,52.0,53.99432,97.1,58.8943200001,18.1,29.1,32.1,40.1,58.0,54.99432,97.1,52.8943200001, 5, 2, 6, 1, -2, 0.92, 0.1, -0.2, 13.1, 9, 8, -4, 34, 2.99432, -33, 26, 2, 2, 2, 2, -0.2,-0.2,-0.2,-0.2,25.0003,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003]
 
-t128c :: (Numeric r, Fractional r) => FlipR OR.Array r 4
-t128c = FlipR $ OR.reshape [2, 2, 8, 4] $ runFlipR t128
+t128 :: (Numeric r, Fractional r, Nested.PrimElt r) => ORArray r 10
+t128 = FlipR $ Nested.rfromOrthotope SNat $ OR.fromList [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] [29.1,32.1,40.1,29.0,53.99432,97.1,58.8943200001,18.1,29.1,32.1,40.1,32.0,53.99432,97.1,25.8943200001, 5, 2, 6, 1, -2, 97.1,58.8943200001,97.1,55.8943200001,97.1,58.8943200001,18.1,29.1,32.1,40.1,32.1,32.1,40.1,53.0,53.99432, -0.00001, 0.1, -0.2, 13.1, 9, 8, -4, 29, 2.99432, -335, 26, 2, 2, 2, 2, -0.2,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003,-0.2,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003,40.1,8.0,11.0,-3.0,25.89432,28.79432,-39.09999999999997,25.8,40.1,8.0,11.0,-3.0,25.89432,28.79432,-19.09999999999997,25.8, 8.1,29.1,32.1,40.1,32.1,40.1,292.0,53.99432,97.1,55.8943200001,97.1,85.8943200001,97.1,85.8943200001,18.1,29.1,32.1,40.1,32.1,40.1,32.1,40.1,22.0,53.99432,97.1,82.8943200001,97.1,22.8943200001,97.1,58.8943200001,18.1,29.1,32.1,40.1,32.1,40.1,32.1,40.1,89.0,53.99432,97.1,56.8943200001,97.1,52.8943200001,97.1,55.8943200001]
+
+t128OR :: (Numeric r, Fractional r) => FlipR OR.Array r 10
+t128OR = FlipR $ OR.fromList [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] [29.1,32.1,40.1,29.0,53.99432,97.1,58.8943200001,18.1,29.1,32.1,40.1,32.0,53.99432,97.1,25.8943200001, 5, 2, 6, 1, -2, 97.1,58.8943200001,97.1,55.8943200001,97.1,58.8943200001,18.1,29.1,32.1,40.1,32.1,32.1,40.1,53.0,53.99432, -0.00001, 0.1, -0.2, 13.1, 9, 8, -4, 29, 2.99432, -335, 26, 2, 2, 2, 2, -0.2,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003,-0.2,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003,40.1,8.0,11.0,-3.0,25.89432,28.79432,-39.09999999999997,25.8,40.1,8.0,11.0,-3.0,25.89432,28.79432,-19.09999999999997,25.8, 8.1,29.1,32.1,40.1,32.1,40.1,292.0,53.99432,97.1,55.8943200001,97.1,85.8943200001,97.1,85.8943200001,18.1,29.1,32.1,40.1,32.1,40.1,32.1,40.1,22.0,53.99432,97.1,82.8943200001,97.1,22.8943200001,97.1,58.8943200001,18.1,29.1,32.1,40.1,32.1,40.1,32.1,40.1,89.0,53.99432,97.1,56.8943200001,97.1,52.8943200001,97.1,55.8943200001]
+
+t128b :: (Numeric r, Fractional r, Nested.Elt r, Nested.PrimElt r) => FlipR OR.Array r 4
+t128b = FlipR $ treshapeR [4, 2, 4, 4] $ runFlipR t128OR
+
+t128c :: (Numeric r, Fractional r, Nested.Elt r, Nested.PrimElt r) => FlipR OR.Array r 4
+t128c = FlipR $ treshapeR [2, 2, 8, 4] $ runFlipR t128OR
 
 rrev1 :: forall g r n m r3.
          (ADReady g, GoodScalar r, GoodScalar r3, KnownNat n, KnownNat m)

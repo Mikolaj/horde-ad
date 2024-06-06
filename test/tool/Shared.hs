@@ -20,7 +20,7 @@ import qualified Data.Array.Nested as Nested
 import HordeAd.Core.HVector
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
-import HordeAd.Internal.BackendOX (OSArray)
+import HordeAd.Internal.BackendOX (ORArray, OSArray)
 import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..), FlipS (..))
 import HordeAd.Internal.TensorFFI
 import HordeAd.Util.SizedList
@@ -43,6 +43,9 @@ instance HasShape (FlipR OR.Array a n) where
 
 instance KnownShS sh => HasShape (FlipS OS.Array a sh) where
   shapeL | Dict <- lemShapeFromKnownShS (Proxy @sh) = OS.shapeL . runFlipS
+
+instance Nested.PrimElt a => HasShape (ORArray a n) where
+  shapeL = OR.shapeL . Nested.rtoOrthotope . runFlipR
 
 instance KnownShS sh => HasShape (OSArray a sh) where
   shapeL _ = shapeT @sh
@@ -76,6 +79,10 @@ instance (VS.Storable a, KnownShS sh)
 instance (VS.Storable a, KnownShS sh)
          => Linearizable (FlipS OS.Array a sh) a where
   linearize | Dict <- lemShapeFromKnownShS (Proxy @sh) = OS.toList . runFlipS
+
+instance (VS.Storable a, Nested.PrimElt a, KnownNat n)
+         => Linearizable (ORArray a n) a where
+  linearize = VS.toList . Nested.rtoVector . runFlipR
 
 instance (VS.Storable a, Nested.PrimElt a, KnownShS sh)
          => Linearizable (OSArray a sh) a where

@@ -5,21 +5,24 @@ module MnistRnnRanked2 where
 
 import Prelude hiding (foldl')
 
-import qualified Data.Array.RankedS as OR
 import           Data.Kind (Type)
 import           Data.List (foldl')
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, Nat, type (+))
 import           Numeric.LinearAlgebra (Vector)
 
-import HordeAd.Core.Adaptor
-import HordeAd.Core.HVector
-import HordeAd.Core.TensorClass
-import HordeAd.Core.Types
-import HordeAd.External.CommonRankedOps
-import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..))
-import HordeAd.Util.SizedList
-import MnistData
+import qualified Data.Array.Nested as Nested
+
+import qualified Data.Array.RankedS as OR
+import           HordeAd.Core.Adaptor
+import           HordeAd.Core.HVector
+import           HordeAd.Core.TensorClass
+import           HordeAd.Core.Types
+import           HordeAd.External.CommonRankedOps
+import           HordeAd.Internal.BackendOX (ORArray)
+import           HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..))
+import           HordeAd.Util.SizedList
+import           MnistData
 
 -- | The differentiable type of all trainable parameters of this nn.
 -- Shaped version, statically checking all dimension widths.
@@ -130,23 +133,23 @@ rnnMnistLossFusedR batch_size (glyphR, labelR) adparameters =
 
 rnnMnistTestR
   :: forall ranked r.
-     (ranked ~ FlipR OR.Array, GoodScalar r, Differentiable r)
+     (ranked ~ ORArray, GoodScalar r, Differentiable r)
   => ADRnnMnistParameters ranked r
   -> Int
   -> MnistDataBatchR r  -- batch_size
-  -> HVector (FlipR OR.Array)
+  -> HVector ORArray
   -> r
 rnnMnistTestR _ 0 _ _ = 0
 rnnMnistTestR valsInit batch_size (glyphR, labelR) testParams =
-  let xs = FlipR $ OR.transpose [2, 1, 0] glyphR
+  let xs = FlipR $ Nested.rtranspose [2, 1, 0] $ Nested.rfromOrthotope SNat glyphR
       outputR =
         let nn :: ADRnnMnistParameters ranked r
                     -- SizeMnistHeight out_width
                -> ranked r 2  -- [SizeMnistLabel, batch_size]
             nn = rnnMnistZeroR batch_size xs
         in runFlipR $ nn $ parseHVector valsInit testParams
-      outputs = map OR.toVector $ map runFlipR $ runravelToList $ FlipR $ OR.transpose [1, 0] outputR
-      labels = map OR.toVector $ map runFlipR $ runravelToList $ FlipR labelR
+      outputs = map Nested.rtoVector $ map runFlipR $ runravelToList $ FlipR $ Nested.rtranspose [1, 0] outputR
+      labels = map Nested.rtoVector $ map runFlipR $ runravelToList $ FlipR $ Nested.rfromOrthotope SNat labelR
       matchesLabels :: Vector r -> Vector r -> Int
       matchesLabels output label | V.maxIndex output == V.maxIndex label = 1
                                  | otherwise = 0
