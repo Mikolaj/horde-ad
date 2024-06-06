@@ -13,7 +13,7 @@ module HordeAd.Core.TensorClass
     ShapeInt, ShapeS
     -- * The tensor classes
   , RankedTensor(..), ShapedTensor(..), HVectorTensor(..), HFun(..)
-  , rfromD, sfromD, rscalar, ringestData, ingestData, sscalar, srepl
+  , rfromD, sfromD, rscalar, ringestData, ringestData1, ingestData, sscalar, srepl
     -- * The giga-constraint
   , ADReady, ADReadyBoth, ADReadyR, ADReadyS
   ) where
@@ -1158,6 +1158,11 @@ ringestData :: forall ranked r n.
               (GoodScalar r, KnownNat n, RankedTensor ranked)
            => [Int] -> [r] -> ranked r n
 ringestData sh l = rconst $ OR.fromList sh l
+
+ringestData1 :: forall ranked r n.
+               (GoodScalar r, KnownNat n, RankedTensor ranked)
+            => [r] -> ranked r n
+ringestData1 l = rconst $ OR.fromList [length l] l
 
 ingestData :: forall shaped r sh.
               (GoodScalar r, KnownShS sh, ShapedTensor shaped)
