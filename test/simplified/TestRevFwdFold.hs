@@ -329,25 +329,25 @@ testFooRrev3 = do
         in a1
   assertEqualUpToEpsilon 1e-10
     0
-    (crev f 1.1)
+    (crev f (rscalar 1.1))
 
 testSin0Rrev :: Assertion
 testSin0Rrev = do
   assertEqualUpToEpsilon 1e-10
-    0.4535961214255773
-    (rrev1 @ORArray @Double @0 @0 sin 1.1)
+    (rscalar 0.4535961214255773)
+    (rrev1 @ORArray @Double @0 @0 sin (rscalar 1.1))
 
 testSin0RrevPP1 :: Assertion
 testSin0RrevPP1 = do
   resetVarCounter
-  let a1 = rrev1 @(AstRanked FullSpan) @Double @0 @0 sin 1.1
+  let a1 = rrev1 @(AstRanked FullSpan) @Double @0 @0 sin (rscalar 1.1)
   printAstPretty IM.empty a1
     @?= "cos 1.1 * 1.0"
 
 testSin0RrevPP2 :: Assertion
 testSin0RrevPP2 = do
   resetVarCounter
-  let a1 = rrev1 @(AstRanked FullSpan) @Double @0 @0 sin 1.1
+  let a1 = rrev1 @(AstRanked FullSpan) @Double @0 @0 sin (rscalar 1.1)
   printAstSimple IM.empty a1
     @?= "cos (rconstant 1.1) * rconstant 1.0"
 
@@ -356,32 +356,32 @@ testSin0Rrev3 = do
   let f = rrev1 @(ADVal ORArray) @Double @0 @0 sin
   assertEqualUpToEpsilon 1e-10
     (-0.8912073600614354)
-    (crev f 1.1)
+    (crev f (rscalar 1.1))
 
 testSin0Rrev4 :: Assertion
 testSin0Rrev4 = do
   assertEqualUpToEpsilon 1e-10
     0.8988770945225438
-    ((rrev1 sin . rrev1 @ORArray @Double @0 @0 sin) 1.1)
+    ((rrev1 sin . rrev1 @ORArray @Double @0 @0 sin) (rscalar 1.1))
 
 testSin0RrevPP4 :: Assertion
 testSin0RrevPP4 = do
-  let a1 = (rrev1 sin . rrev1 @(AstRanked FullSpan) @Double @0 @0 sin) 1.1
+  let a1 = (rrev1 sin . rrev1 @(AstRanked FullSpan) @Double @0 @0 sin) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineAst a1)
-    @?= "cos (cos 1.1 * 1.0) * 1.0"
+    @?= "cos (cos [1.1] * 1.0) * 1.0"
 
 testSin0Rrev5 :: Assertion
 testSin0Rrev5 = do
   assertEqualUpToEpsilon 1e-10
     (-0.8912073600614354)
-    (rrev1 @ORArray @Double @0 @0 (rrev1 sin) 1.1)
+    (rrev1 @ORArray @Double @0 @0 (rrev1 sin) (rscalar 1.1))
 
 testSin0RrevPP5 :: Assertion
 testSin0RrevPP5 = do
   resetVarCounter
-  let a1 = rrev1 @(AstRanked FullSpan) @Double @0 @0 (rrev1 sin) 1.1
+  let a1 = rrev1 @(AstRanked FullSpan) @Double @0 @0 (rrev1 sin) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineAst a1)
-    @?= "negate (sin 1.1) * (1.0 * 1.0)"
+    @?= "negate (sin [1.1]) * (1.0 * 1.0)"
 
 testSin0Rrev3' :: Assertion
 testSin0Rrev3' = do
@@ -405,66 +405,66 @@ testSin0Rfwd :: Assertion
 testSin0Rfwd = do
   assertEqualUpToEpsilon 1e-10
     0.4535961214255773  -- agrees with the rrev1 version above
-    (rfwd1 @ORArray @Double @0 @0 sin 1.1)
+    (rfwd1 @ORArray @Double @0 @0 sin (rscalar 1.1))
 
 testSin0RfwdPP1 :: Assertion
 testSin0RfwdPP1 = do
   resetVarCounter
-  let a1 = rfwd1 @(AstRanked PrimalSpan) @Double @0 @0 sin 1.1
+  let a1 = rfwd1 @(AstRanked PrimalSpan) @Double @0 @0 sin (rscalar 1.1)
   printAstPretty IM.empty a1
-    @?= "1.0 * cos 1.1"  -- agrees with the rrev1 version above
+    @?= "1.0 * cos [1.1]"  -- agrees with the rrev1 version above
 
 testSin0RfwdPP1FullUnsimp :: Assertion
 testSin0RfwdPP1FullUnsimp = do
   resetVarCounter
-  let a1 = rfwd1 @(AstRanked FullSpan) @Double @0 @0 sin 1.1
+  let a1 = rfwd1 @(AstRanked FullSpan) @Double @0 @0 sin (rscalar 1.1)
   printAstPretty IM.empty a1
-    @?= "rproject (\\[x1] [x2] -> [x1 * cos x2]) [[1.0], [1.1]] 0"
+    @?= "rproject (\\[x1] [x2] -> [x1 * cos x2]) [[1.0], [[1.1]]] 0"
 
 testSin0RfwdPP1Full :: Assertion
 testSin0RfwdPP1Full = do
   resetVarCounter
-  let a1 = rfwd1 @(AstRanked FullSpan) @Double @0 @0 sin 1.1
+  let a1 = rfwd1 @(AstRanked FullSpan) @Double @0 @0 sin (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineAst a1)
-    @?= "rproject (\\[x1] [x2] -> [x1 * cos x2]) [[1.0], [1.1]] 0"
+    @?= "rproject (\\[x1] [x2] -> [x1 * cos x2]) [[1.0], [[1.1]]] 0"
 
 testSin0Rfwd3 :: Assertion
 testSin0Rfwd3 = do
   let f = rfwd1 @(ADVal ORArray) @Double @0 @0 sin
   assertEqualUpToEpsilon 1e-10
     (-0.9803280960675791)
-    (cfwd f 1.1 1.1)
+    (cfwd f (rscalar 1.1) (rscalar 1.1))
 
 testSin0Rfwd4 :: Assertion
 testSin0Rfwd4 = do
   assertEqualUpToEpsilon 1e-10
     0.8988770945225438  -- agrees with the rrev1 version above
-    ((rfwd1 sin . rfwd1 @ORArray @Double @0 @0 sin) 1.1)
+    ((rfwd1 sin . rfwd1 @ORArray @Double @0 @0 sin) (rscalar 1.1))
 
 testSin0RfwdPP4 :: Assertion
 testSin0RfwdPP4 = do
-  let a1 = (rfwd1 sin . rfwd1 @(AstRanked PrimalSpan) @Double @0 @0 sin) 1.1
+  let a1 = (rfwd1 sin . rfwd1 @(AstRanked PrimalSpan) @Double @0 @0 sin) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineAst a1)
-    @?= "1.0 * cos (1.0 * cos 1.1)"  -- agrees with the rrev1 version above
+    @?= "1.0 * cos (1.0 * cos [1.1])"  -- agrees with the rrev1 version above
 
 -- Disabled, because different variable names with -O1.
 _testSin0RfwdPP4Dual :: Assertion
 _testSin0RfwdPP4Dual = do
-  let a1 = (rfwd1 sin . rfwd1 @(AstRanked DualSpan) @Double @0 @0 sin) 1.1
+  let a1 = (rfwd1 sin . rfwd1 @(AstRanked DualSpan) @Double @0 @0 sin) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineAst a1)
-    @?= "rproject (\\[x13] [x14] -> [x13 * cos x14]) [[rdualPart 1.0], [rproject (\\[x10] [x11] -> [x10 * cos x11]) [[rdualPart 1.0], [rdualPart 1.1]] 0]] 0"
+    @?= "rproject (\\[x13] [x14] -> [x13 * cos x14]) [[rdualPart 1.0], [rproject (\\[x10] [x11] -> [x10 * cos x11]) [[rdualPart 1.0], [rdualPart [1.1]]] 0]] 0"
 
 testSin0Rfwd5 :: Assertion
 testSin0Rfwd5 = do
   assertEqualUpToEpsilon 1e-10
     (-0.8912073600614354)  -- agrees with the rrev1 version above
-    (rfwd1 @ORArray @Double @0 @0 (rfwd1 sin) 1.1)
+    (rfwd1 @ORArray @Double @0 @0 (rfwd1 sin) (rscalar 1.1))
 
 testSin0RfwdPP5 :: Assertion
 testSin0RfwdPP5 = do
-  let a1 = rfwd1 @(AstRanked PrimalSpan) @Double @0 @0 (rfwd1 sin) 1.1
+  let a1 = rfwd1 @(AstRanked PrimalSpan) @Double @0 @0 (rfwd1 sin) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineAst a1)
-    @?= "(1.0 * negate (sin 1.1)) * 1.0"  -- agrees with the rrev1 version above
+    @?= "(1.0 * negate (sin [1.1])) * 1.0"  -- agrees with the rrev1 version above
 
 testSin0Rfwd3' :: Assertion
 testSin0Rfwd3' = do
@@ -495,7 +495,7 @@ testSin0RrevPP5S = do
   resetVarCounter
   let a1 = srev1 @(AstShaped PrimalSpan) @Double @'[] @'[] (srev1 sin) 1.1
   printAstPrettyS IM.empty (simplifyInlineAstS a1)
-    @?= "negate (sin 1.1) * (1.0 * 1.0)"
+    @?= "negate (sin (sscalar 1.1)) * ((sscalar 1.0) * (sscalar 1.0))"
 
 testSin0Fold0 :: Assertion
 testSin0Fold0 = do
@@ -712,7 +712,7 @@ testSin0Fold8rev = do
                                          (rreplicate 2
                                           $ sin (rsum $ rreplicate 7 a)))
                         (rreplicate 2 (rreplicate 5 (2 * a0)))
-                        (rreplicate 3 a0)) 1.1)
+                        (rreplicate 3 a0)) (rscalar 1.1))
 
 testSin0Fold8rev2 :: Assertion
 testSin0Fold8rev2 = do
@@ -725,7 +725,7 @@ testSin0Fold8rev2 = do
                         (rreplicate 3 a0))
   assertEqualUpToEpsilon 1e-10
     98.72666469795736
-    (crev h 1.1)
+    (crev h (rscalar 1.1))
 
 testSin0Fold8Srev :: Assertion
 testSin0Fold8Srev = do
@@ -739,7 +739,7 @@ testSin0Fold8Srev = do
                                            $ sin (ssum $ sreplicate @_ @7 a)))
                         (sreplicate @_ @2 (sreplicate @_ @5 (srepl 2 * a0)))
                         (sreplicate @_ @3 a0)
-            in rfromS . f . sfromR) 1.1)
+            in rfromS . f . sfromR) (rscalar 1.1))
 
 testSin0Fold8Srev2 :: Assertion
 testSin0Fold8Srev2 = do
@@ -769,9 +769,9 @@ testSin0Fold182SrevPP = do
                                           $ sin (ssum $ sreplicate @_ @7 a)))
                         (sreplicate @_ @5 a0)
                         (sreplicate @_ @1 a0)
-            in rfromS . f . sfromR) 1.1
+            in rfromS . f . sfromR) (rscalar 1.1)
   printAstPretty IM.empty a1
-    @?= "let [v10 @[Natural] @Double @[5], m11 @[Natural] @Double @[1,5]] = dmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> [sreplicate 1.1] [sreplicate 1.1] in let [v15 @[Natural] @Double @[5], v16 @[Natural] @Double @[1]] = dmapAccumRDer (SNat @1) <lambda> <lambda> <lambda> [sconst @[5] (fromList @[5] [1.0,1.0,1.0,1.0,1.0])] [m11, sreplicate 1.1] in rfromS (sreshape v16) + rfromS (ssum v15)"
+    @?= "let [v10 @[Natural] @Double @[5], m11 @[Natural] @Double @[1,5]] = dmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> [sreplicate [1.1]] [sreplicate [1.1]] in let [v15 @[Natural] @Double @[5], v16 @[Natural] @Double @[1]] = dmapAccumRDer (SNat @1) <lambda> <lambda> <lambda> [sconst @[5] (fromList @[5] [1.0,1.0,1.0,1.0,1.0])] [m11, sreplicate [1.1]] in rfromS (sreshape v16) + rfromS (ssum v15)"
 
 testSin0Fold18Srev :: Assertion
 testSin0Fold18Srev = do
@@ -785,7 +785,7 @@ testSin0Fold18Srev = do
                                            $ sin (ssum $ sreplicate @_ @7 a)))
                         (sreplicate @_ @2 (sreplicate @_ @5 (srepl 2 * a0)))
                         (sreplicate @_ @2 a0)
-            in rfromS . f . sfromR) 1.1)
+            in rfromS . f . sfromR) (rscalar 1.1))
 
 testSin0Fold8fwd :: Assertion
 testSin0Fold8fwd = do
@@ -797,7 +797,7 @@ testSin0Fold8fwd = do
                                          (rreplicate 2
                                           $ sin (rsum $ rreplicate 7 a)))
                         (rreplicate 2 (rreplicate 5 (2 * a0)))
-                        (rreplicate 3 a0)) 1.1)
+                        (rreplicate 3 a0)) (rscalar 1.1))
 
 testSin0Fold8fwd2 :: Assertion
 testSin0Fold8fwd2 = do
@@ -810,7 +810,7 @@ testSin0Fold8fwd2 = do
                         (rreplicate 3 a0))
   assertEqualUpToEpsilon 1e-10
     98.72666469795735
-    (crev h 1.1)
+    (crev h (rscalar 1.1))
 
 testSin0Fold8Sfwd :: Assertion
 testSin0Fold8Sfwd = do
@@ -824,7 +824,7 @@ testSin0Fold8Sfwd = do
                                            $ sin (ssum $ sreplicate @_ @7 a)))
                         (sreplicate @_ @2 (sreplicate @_ @5 (srepl 2 * a0)))
                         (sreplicate @_ @3 a0)
-            in rfromS . f . sfromR) 1.1)
+            in rfromS . f . sfromR) (rscalar 1.1))
 
 testSin0Fold8Sfwd2 :: Assertion
 testSin0Fold8Sfwd2 = do
@@ -841,7 +841,7 @@ testSin0Fold8Sfwd2 = do
                  in rfromS . f . sfromR)
   assertEqualUpToEpsilon1 1e-10
     (OR.constant [2, 5] 10.859933116775313)
-    (cfwd h 1.1 1.1)
+    (cfwd h (rscalar 1.1) (rscalar 1.1))
 
 testSin0Fold5Sfwd :: Assertion
 testSin0Fold5Sfwd = do
@@ -860,7 +860,7 @@ testSin0Fold5Sfwd = do
                         (sreplicate @f @3
                                     (sreplicate @f @2
                                                 (sreplicate @f @5 a0)))
-           in rfromS . f . sfromR) 1.1 1.1)
+           in rfromS . f . sfromR) (rscalar 1.1) (rscalar 1.1))
 
 testSin0Fold5Sfwds :: Assertion
 testSin0Fold5Sfwds = do
@@ -979,7 +979,7 @@ testSin0Scan8rev = do
                                          (rreplicate 2
                                           $ sin (rsum $ rreplicate 7 a)))
                         (rreplicate 2 (rreplicate 5 (2 * a0)))
-                        (rreplicate 3 a0)) 1.1)
+                        (rreplicate 3 a0)) (rscalar 1.1))
 
 testSin0Scan8rev2 :: Assertion
 testSin0Scan8rev2 = do
@@ -992,51 +992,51 @@ testSin0Scan8rev2 = do
                         (rreplicate 3 a0))
   assertEqualUpToEpsilon1 1e-10
     (OR.fromList [] [285.9579482947575])
-    (crev h 1.1)
+    (crev h (rscalar 1.1))
 
 testSin0Scan1RevPP1 :: Assertion
 testSin0Scan1RevPP1 = do
   resetVarCounter
   let a1 = rrev1 @(AstRanked FullSpan) @Double @0 @1
                  (\x0 -> rscan (\x _a -> sin x) x0
-                           (rconst (OR.constant @Double @1 [2] 42))) 1.1
+                           (rconst (OR.constant @Double @1 [2] 42))) (rscalar 1.1)
   printAstPrettyButNested IM.empty (simplifyInlineAst a1)
-    @?= "let v12 = rconst (fromList [2] [42.0,42.0]) in let [x13 @Natural @Double @[], v14 @Natural @Double @[2], v15 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) (\\[x28] [x29] -> let x36 = sin x28 in [x36, x28, x36]) (\\[x41, x42] [x43, x44] -> let x55 = x41 * cos x43 in [x55, x41, x55]) (\\[x61, x62, x63] [x64, x65] -> [cos x64 * (x63 + x61) + x62, 0.0]) [1.1] [v12] in let v16 = rconst (fromList [3] [1.0,1.0,1.0]) in let [x21 @Natural @Double @[], v22 @Natural @Double @[2]] = dmapAccumRDer (SNat @2) (\\[x79] [x80, x81, x82] -> [cos x81 * (x80 + x79), 0]) (\\[x96, x97, x98, x99] [x100, x101, x102, x103] -> [(x98 * negate (sin x102)) * (x101 + x100) + (x97 + x96) * cos x102, 0.0]) (\\[x113, x114] [x115, x116, x117, x118] -> let x119 = cos x117 * x113 in [x119, x119, negate (sin x117) * ((x116 + x115) * x113), 0]) [0] [rslice 1 2 v16, v14, v12] in x21 + v16 ! [0]"
+    @?= "let v12 = rconst (fromList [2] [42.0,42.0]) in let [x13 @Natural @Double @[], v14 @Natural @Double @[2], v15 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) (\\[x28] [x29] -> let x36 = sin x28 in [x36, x28, x36]) (\\[x41, x42] [x43, x44] -> let x55 = x41 * cos x43 in [x55, x41, x55]) (\\[x61, x62, x63] [x64, x65] -> [cos x64 * (x63 + x61) + x62, 0.0]) [[1.1]] [v12] in let v16 = rconst (fromList [3] [1.0,1.0,1.0]) in let [x21 @Natural @Double @[], v22 @Natural @Double @[2]] = dmapAccumRDer (SNat @2) (\\[x79] [x80, x81, x82] -> [cos x81 * (x80 + x79), 0]) (\\[x96, x97, x98, x99] [x100, x101, x102, x103] -> [(x98 * negate (sin x102)) * (x101 + x100) + (x97 + x96) * cos x102, 0.0]) (\\[x113, x114] [x115, x116, x117, x118] -> let x119 = cos x117 * x113 in [x119, x119, negate (sin x117) * ((x116 + x115) * x113), 0]) [0] [rslice 1 2 v16, v14, v12] in x21 + v16 ! [0]"
 
 testSin0Scan1RevPPForComparison :: Assertion
 testSin0Scan1RevPPForComparison = do
   resetVarCounter
   let a1 = rrev1 @(AstRanked FullSpan) @Double @0 @1
-                 (\x0 -> rfromList [sin (sin x0), sin x0, x0]) 1.1
+                 (\x0 -> rfromList [sin (sin x0), sin x0, x0]) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineAst a1)
-    @?= "let v6 = rconst (fromList [3] [1.0,1.0,1.0]) in cos 1.1 * (cos (sin 1.1) * v6 ! [0]) + cos 1.1 * v6 ! [1] + v6 ! [2]"
+    @?= "let v6 = rconst (fromList [3] [1.0,1.0,1.0]) in cos [1.1] * (cos (sin [1.1]) * v6 ! [0]) + cos [1.1] * v6 ! [1] + v6 ! [2]"
 
 testSin0ScanFwdPP :: Assertion
 testSin0ScanFwdPP = do
   resetVarCounter
   let a1 = rfwd1 @(AstRanked PrimalSpan) @Double @0 @1
                  (\x0 -> rscan (\x _a -> sin x) x0
-                           (rconst (OR.constant @Double @1 [2] 42))) 1.1
+                           (rconst (OR.constant @Double @1 [2] 42))) (rscalar 1.1)
   printAstPrettyButNested IM.empty (simplifyInlineAst a1)
-    @?= "let v5 = rconst (fromList [2] [42.0,42.0]) in let [x6 @Natural @Double @[], v7 @Natural @Double @[2], v8 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) (\\[x12] [x13] -> let x17 = sin x12 in [x17, x12, x17]) (\\[x20, x21] [x22, x23] -> let x31 = x20 * cos x22 in [x31, x20, x31]) (\\[x34, x35, x36] [x37, x38] -> [cos x37 * (x36 + x34) + x35, 0.0]) [1.1] [v5] in let [x9 @Natural @Double @[], v10 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) (\\[x47] [x48, x49, x50] -> let x51 = x47 * cos x49 in [x51, x51]) (\\[x52, x54, x56, x58] [x53, x55, x57, x59] -> let x64 = x52 * cos x57 + (x56 * negate (sin x57)) * x53 in [x64, x64]) (\\[x72, x73] [x65, x66, x67, x68] -> let x74 = x73 + x72 in [cos x67 * x74, 0, negate (sin x67) * (x65 * x74), 0]) [1.0] [rreplicate 2 0.0, v7, v5] in rappend (rreplicate 1 1.0) v10"
+    @?= "let v5 = rconst (fromList [2] [42.0,42.0]) in let [x6 @Natural @Double @[], v7 @Natural @Double @[2], v8 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) (\\[x12] [x13] -> let x17 = sin x12 in [x17, x12, x17]) (\\[x20, x21] [x22, x23] -> let x31 = x20 * cos x22 in [x31, x20, x31]) (\\[x34, x35, x36] [x37, x38] -> [cos x37 * (x36 + x34) + x35, 0.0]) [[1.1]] [v5] in let [x9 @Natural @Double @[], v10 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) (\\[x47] [x48, x49, x50] -> let x51 = x47 * cos x49 in [x51, x51]) (\\[x52, x54, x56, x58] [x53, x55, x57, x59] -> let x64 = x52 * cos x57 + (x56 * negate (sin x57)) * x53 in [x64, x64]) (\\[x72, x73] [x65, x66, x67, x68] -> let x74 = x73 + x72 in [cos x67 * x74, 0, negate (sin x67) * (x65 * x74), 0]) [1.0] [rreplicate 2 0.0, v7, v5] in rappend (rreplicate 1 1.0) v10"
 
 testSin0ScanFwdPPFull :: Assertion
 testSin0ScanFwdPPFull = do
   resetVarCounter
   let a1 = rfwd1 @(AstRanked FullSpan) @Double @0 @1
                  (\x0 -> rscan (\x _a -> sin x) x0
-                           (rconst (OR.constant @Double @1 [2] 42))) 1.1
+                           (rconst (OR.constant @Double @1 [2] 42))) (rscalar 1.1)
   printAstPrettyButNested IM.empty (simplifyInlineAst a1)
-    @?= "rproject (\\[x1] [x2] -> let v5 = rconst (fromList [2] [42.0,42.0]) in let [x6 @Natural @Double @[], v7 @Natural @Double @[2], v8 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) (\\[x12] [x13] -> let x17 = sin x12 in [x17, x12, x17]) (\\[x20, x21] [x22, x23] -> let x31 = x20 * cos x22 in [x31, x20, x31]) (\\[x34, x35, x36] [x37, x38] -> [cos x37 * (x36 + x34) + x35, 0.0]) [x2] [v5] in let [x9 @Natural @Double @[], v10 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) (\\[x47] [x48, x49, x50] -> let x51 = x47 * cos x49 in [x51, x51]) (\\[x52, x54, x56, x58] [x53, x55, x57, x59] -> let x64 = x52 * cos x57 + (x56 * negate (sin x57)) * x53 in [x64, x64]) (\\[x72, x73] [x65, x66, x67, x68] -> let x74 = x73 + x72 in [cos x67 * x74, 0, negate (sin x67) * (x65 * x74), 0]) [x1] [rreplicate 2 0.0, v7, v5] in [rappend (rreplicate 1 x1) v10]) [[1.0], [1.1]] 0"
+    @?= "rproject (\\[x1] [x2] -> let v5 = rconst (fromList [2] [42.0,42.0]) in let [x6 @Natural @Double @[], v7 @Natural @Double @[2], v8 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) (\\[x12] [x13] -> let x17 = sin x12 in [x17, x12, x17]) (\\[x20, x21] [x22, x23] -> let x31 = x20 * cos x22 in [x31, x20, x31]) (\\[x34, x35, x36] [x37, x38] -> [cos x37 * (x36 + x34) + x35, 0.0]) [x2] [v5] in let [x9 @Natural @Double @[], v10 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) (\\[x47] [x48, x49, x50] -> let x51 = x47 * cos x49 in [x51, x51]) (\\[x52, x54, x56, x58] [x53, x55, x57, x59] -> let x64 = x52 * cos x57 + (x56 * negate (sin x57)) * x53 in [x64, x64]) (\\[x72, x73] [x65, x66, x67, x68] -> let x74 = x73 + x72 in [cos x67 * x74, 0, negate (sin x67) * (x65 * x74), 0]) [x1] [rreplicate 2 0.0, v7, v5] in [rappend (rreplicate 1 x1) v10]) [[1.0], [[1.1]]] 0"
 
 testSin0Scan1Rev2PP1 :: Assertion
 testSin0Scan1Rev2PP1 = do
   resetVarCounter
   let a1 = rrev1 @(AstRanked FullSpan) @Double @0 @1
                  (\x0 -> rscan (\x a -> sin x - a) x0
-                           (rconst (OR.fromList @Double @1 [2] [5, 7]))) 1.1
+                           (rconst (OR.fromList @Double @1 [2] [5, 7]))) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineAst a1)
-    @?= "let v12 = rconst (fromList [2] [5.0,7.0]) in let [x13 @Natural @Double @[], v14 @Natural @Double @[2], v15 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.1] [v12] in let v16 = rconst (fromList [3] [1.0,1.0,1.0]) in let [x21 @Natural @Double @[], v22 @Natural @Double @[2]] = dmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> [0] [rslice 1 2 v16, v14, v12] in x21 + v16 ! [0]"
+    @?= "let v12 = rconst (fromList [2] [5.0,7.0]) in let [x13 @Natural @Double @[], v14 @Natural @Double @[2], v15 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [[1.1]] [v12] in let v16 = rconst (fromList [3] [1.0,1.0,1.0]) in let [x21 @Natural @Double @[], v22 @Natural @Double @[2]] = dmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> [0] [rslice 1 2 v16, v14, v12] in x21 + v16 ! [0]"
 
 testSin0Scan1Rev2PPA :: Assertion
 testSin0Scan1Rev2PPA = do
@@ -1046,7 +1046,7 @@ testSin0Scan1Rev2PPA = do
                  True
                  (\x0 -> rscan (\x a -> sin x - a) x0
                            (rconst (OR.fromList @Double @1 [2] [5, 7])))
-                 1.1
+                 (rscalar 1.1)
   printArtifactPretty IM.empty (simplifyArtifact art)
     @?= "\\v8 x1 -> let v4 = rconst (fromList [2] [5.0,7.0]) in let [x5 @Natural @Double @[], v6 @Natural @Double @[2], v7 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [x1] [v4] in let [x9 @Natural @Double @[], v10 @Natural @Double @[2]] = dmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> [0] [rslice 1 2 v8, v6, v4] in [x9 + v8 ! [0]]"
 
@@ -1057,7 +1057,7 @@ testSin0Scan1Rev2PPForComparison = do
         revArtifactAdapt @Double @1 @(AstRanked FullSpan)
                  True
                  (\x0 -> rfromList [sin (sin x0 - 5) - 7, sin x0 - 5, x0])
-                 1.1
+                 (rscalar 1.1)
   printArtifactPretty IM.empty (simplifyArtifact art)
     @?= "\\v3 x1 -> [cos x1 * (cos (sin x1 - 5.0) * v3 ! [0]) + cos x1 * v3 ! [1] + v3 ! [2]]"
 
@@ -1067,7 +1067,7 @@ testSin0Scan1Fwd2PP = do
   let (art, _) =
         fwdArtifactAdapt @Double @1 @(AstRanked FullSpan)
                  (\x0 -> rscan (\x a -> sin x - a) x0
-                           (rconst (OR.fromList @Double @1 [2] [5, 7]))) 1.1
+                           (rconst (OR.fromList @Double @1 [2] [5, 7]))) (rscalar 1.1)
   printArtifactPretty IM.empty (simplifyArtifact art)
     @?= "\\x1 x2 -> let v5 = rconst (fromList [2] [5.0,7.0]) in let [x6 @Natural @Double @[], v7 @Natural @Double @[2], v8 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [x2] [v5] in let [x9 @Natural @Double @[], v10 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [x1] [rreplicate 2 0.0, v7, v5] in [rappend (rreplicate 1 x1) v10]"
 
@@ -1089,26 +1089,26 @@ testSin0Scan1Rev3PP = do
   resetVarCounter
   let a1 = rrev1 @(AstRanked FullSpan) @Double @0 @1
                  (\x0 -> rscan (\x a -> sin x - a) x0
-                           (rfromList [x0 * 5, x0 * 7])) 1.1
+                           (rfromList [x0 * 5, x0 * 7])) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineAst a1)
-    @?= "let v13 = rfromVector (fromList [1.1 * 5.0, 1.1 * 7.0]) in let [x14 @Natural @Double @[], v15 @Natural @Double @[2], v16 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.1] [v13] in let v17 = rconst (fromList [3] [1.0,1.0,1.0]) in let [x22 @Natural @Double @[], v23 @Natural @Double @[2]] = dmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> [0] [rslice 1 2 v17, v15, v13] in 5.0 * v23 ! [0] + 7.0 * v23 ! [1] + x22 + v17 ! [0]"
+    @?= "let v13 = rfromVector (fromList [[1.1] * 5.0, [1.1] * 7.0]) in let [x14 @Natural @Double @[], v15 @Natural @Double @[2], v16 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [[1.1]] [v13] in let v17 = rconst (fromList [3] [1.0,1.0,1.0]) in let [x22 @Natural @Double @[], v23 @Natural @Double @[2]] = dmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> [0] [rslice 1 2 v17, v15, v13] in 5.0 * v23 ! [0] + 7.0 * v23 ! [1] + x22 + v17 ! [0]"
 
 testSin0Scan1Rev3PPForComparison :: Assertion
 testSin0Scan1Rev3PPForComparison = do
   resetVarCounter
   let a1 = rrev1 @(AstRanked FullSpan) @Double @0 @1
-                 (\x0 -> rfromList [sin (sin x0 - x0 * 5) - x0 * 7, sin x0 - x0 * 5, x0]) 1.1
+                 (\x0 -> rfromList [sin (sin x0 - x0 * 5) - x0 * 7, sin x0 - x0 * 5, x0]) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineAst a1)
-    @?= "let v9 = rconst (fromList [3] [1.0,1.0,1.0]) ; x10 = v9 ! [1] ; x11 = v9 ! [0] ; x12 = cos (sin 1.1 - 1.1 * 5.0) * x11 in cos 1.1 * x12 + 5.0 * (-1.0 * x12) + 7.0 * (-1.0 * x11) + cos 1.1 * x10 + 5.0 * (-1.0 * x10) + v9 ! [2]"
+    @?= "let v9 = rconst (fromList [3] [1.0,1.0,1.0]) ; x10 = v9 ! [1] ; x11 = v9 ! [0] ; x12 = cos (sin [1.1] - [1.1] * 5.0) * x11 in cos [1.1] * x12 + 5.0 * (-1.0 * x12) + 7.0 * (-1.0 * x11) + cos [1.1] * x10 + 5.0 * (-1.0 * x10) + v9 ! [2]"
 
 testSin0ScanFwd3PP :: Assertion
 testSin0ScanFwd3PP = do
   resetVarCounter
   let a1 = rfwd1 @(AstRanked PrimalSpan) @Double @0 @1
                  (\x0 -> rscan (\x a -> sin x - a) x0
-                           (rfromList [x0 * 5, x0 * 7])) 1.1
+                           (rfromList [x0 * 5, x0 * 7])) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineAst a1)
-    @?= "let v5 = rfromVector (fromList [1.1 * 5.0, 1.1 * 7.0]) in let [x6 @Natural @Double @[], v7 @Natural @Double @[2], v8 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.1] [v5] in let [x12 @Natural @Double @[], v13 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.0] [rfromVector (fromList [1.0 * 5.0, 1.0 * 7.0]), v7, v5] in rappend (rreplicate 1 1.0) v13"
+    @?= "let v5 = rfromVector (fromList [[1.1] * 5.0, [1.1] * 7.0]) in let [x6 @Natural @Double @[], v7 @Natural @Double @[2], v8 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [[1.1]] [v5] in let [x12 @Natural @Double @[], v13 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.0] [rfromVector (fromList [1.0 * 5.0, 1.0 * 7.0]), v7, v5] in rappend (rreplicate 1 1.0) v13"
 
 testSin0Scan1Rev3 :: Assertion
 testSin0Scan1Rev3 = do
@@ -1131,7 +1131,7 @@ testSin0Scan0fwd = do
     (let f :: forall f. ADReady f => f Double 0 -> f Double 1
          f x0 = rscan (\x _a -> sin x)
                       x0 (rzero @f @Double (0 :$: ZSR))
-     in f) 1.1)
+     in f) (rscalar 1.1))
 
 testSin0Scan1fwd :: Assertion
 testSin0Scan1fwd = do
@@ -1140,14 +1140,14 @@ testSin0Scan1fwd = do
     (rfwd1 @ORArray @Double @0 @1
     (\x0 -> rscan (\x _a -> sin x)
                   x0 (rconst (OR.constant @Double @1 [1] 42)))
-          1.1)
+          (rscalar 1.1))
 
 testSin0Scan1FwdForComparison :: Assertion
 testSin0Scan1FwdForComparison = do
   assertEqualUpToEpsilon1 1e-10
     (OR.fromList [2] [1.0,0.4535961214255773])
     (rfwd1 @ORArray @Double @0 @1
-    (\x0 -> rfromList [x0, sin x0]) 1.1)
+    (\x0 -> rfromList [x0, sin x0]) (rscalar 1.1))
 
 testSin0Scan8fwd :: Assertion
 testSin0Scan8fwd = do
@@ -1159,7 +1159,7 @@ testSin0Scan8fwd = do
                                          (rreplicate 2
                                           $ sin (rsum $ rreplicate 7 a)))
                         (rreplicate 2 (rreplicate 5 (2 * a0)))
-                        (rreplicate 3 a0)) 1.1)
+                        (rreplicate 3 a0)) (rscalar 1.1))
 
 testSin0Scan8fwd2 :: Assertion
 testSin0Scan8fwd2 = do
@@ -1172,7 +1172,7 @@ testSin0Scan8fwd2 = do
                         (rreplicate 3 a0))
   assertEqualUpToEpsilon1 1e-10
     (OR.fromList [] [285.95794829475744])
-    (crev h 1.1)
+    (crev h (rscalar 1.1))
 
 testUnitriangular0PP :: Assertion
 testUnitriangular0PP = do
@@ -1633,7 +1633,7 @@ testSin0rmapAccumRD0RC = do
                           (dmkHVector $ V.singleton $ DynamicRanked x0)
                           (dmkHVector $ V.singleton $ DynamicRanked
                               $ rzero @f @Double (0 :$: ZSR))
-           in f) 1.1)
+           in f) (rscalar 1.1))
 
 testSin0rmapAccumRD0R :: Assertion
 testSin0rmapAccumRD0R = do
@@ -2200,8 +2200,8 @@ testSin0rmapAccumRD01SN531b0PP = do
   printAstHVectorPrettyButNested
     IM.empty
     (simplifyInlineHVector
-     $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 1.1))
-    @?= "let [x14 @[Natural] @Double @[], v15 @[Natural] @Double @[0]] = dmapAccumRDer (SNat @0) (\\[x25] [x26] -> [x25, x25]) (\\[x34, x35] [x36, x37] -> [x34, x34]) (\\[x47, x48] [x49, x50] -> [0.0 + x48 + x47, 0.0]) [1.1] [rconst (fromList [0] [])] in let [x19 @[Natural] @Double @[], v20 @Natural @Double @[0]] = dmapAccumLDer (SNat @0) (\\[x59] [x60, x61] -> [x59, 0]) (\\[x68, x69, x70] [x71, x72, x73] -> [x68, 0.0]) (\\[x79, x80] [x81, x82, x83] -> [x79, 0, 0]) [4.0] [v15, rconst (fromList [0] [])] in [rfromS x19]"
+     $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1)))
+    @?= "let [x14 @[Natural] @Double @[], v15 @[Natural] @Double @[0]] = dmapAccumRDer (SNat @0) (\\[x25] [x26] -> [x25, x25]) (\\[x34, x35] [x36, x37] -> [x34, x34]) (\\[x47, x48] [x49, x50] -> [0.0 + x48 + x47, 0.0]) [[1.1]] [rconst (fromList [0] [])] in let [x19 @[Natural] @Double @[], v20 @Natural @Double @[0]] = dmapAccumLDer (SNat @0) (\\[x59] [x60, x61] -> [x59, 0]) (\\[x68, x69, x70] [x71, x72, x73] -> [x68, 0.0]) (\\[x79, x80] [x81, x82, x83] -> [x79, 0, 0]) [4.0] [v15, rconst (fromList [0] [])] in [rfromS x19]"
 
 testSin0rmapAccumRD01SN531bSPP :: Assertion
 testSin0rmapAccumRD01SN531bSPP = do
@@ -2228,8 +2228,8 @@ testSin0rmapAccumRD01SN531bSPP = do
   printAstHVectorPretty
     IM.empty
     (simplifyInlineHVector
-     $ g @(AstRanked PrimalSpan) (V.singleton $ DynamicShaped @Double @'[] 1.1))
-    @?= "let [x8 @[Natural] @Double @[], v9 @[Natural] @Double @[1]] = dmapAccumRDer (SNat @1) <lambda> <lambda> <lambda> [1.1] [sconst @[1] (fromList @[1] [0.0])] in let [x11 @[Natural] @Double @[], v12 @[Natural] @Double @[1]] = dmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> [4.0] [v9, sconst @[1] (fromList @[1] [0.0])] in [x11]"
+     $ g @(AstRanked PrimalSpan) (V.singleton $ DynamicShaped @Double @'[] (sscalar 1.1)))
+    @?= "let [x8 @[Natural] @Double @[], v9 @[Natural] @Double @[1]] = dmapAccumRDer (SNat @1) <lambda> <lambda> <lambda> [[1.1]] [sconst @[1] (fromList @[1] [0.0])] in let [x11 @[Natural] @Double @[], v12 @[Natural] @Double @[1]] = dmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> [4.0] [v9, sconst @[1] (fromList @[1] [0.0])] in [x11]"
 
 testSin0rmapAccumRD01SN531bSPPFull :: Assertion
 testSin0rmapAccumRD01SN531bSPPFull = do
@@ -2256,8 +2256,8 @@ testSin0rmapAccumRD01SN531bSPPFull = do
   printAstHVectorPretty
     IM.empty
     (simplifyInlineHVector
-     $ g @(AstRanked FullSpan) (V.singleton $ DynamicShaped @Double @'[] 1.1))
-    @?= "(\\[m10] [x1] -> let [x8 @[Natural] @Double @[], v9 @[Natural] @Double @[1]] = dmapAccumRDer (SNat @1) <lambda> <lambda> <lambda> [x1] [sconst @[1] (fromList @[1] [0.0])] in let [x11 @[Natural] @Double @[], v12 @[Natural] @Double @[1]] = dmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> [ssum (ssum m10)] [v9, sconst @[1] (fromList @[1] [0.0])] in [x11]) [[sconst @[2,2] (fromList @[2,2] [1.0,1.0,1.0,1.0])], [1.1]]"
+     $ g @(AstRanked FullSpan) (V.singleton $ DynamicShaped @Double @'[] (sscalar 1.1)))
+    @?= "(\\[m10] [x1] -> let [x8 @[Natural] @Double @[], v9 @[Natural] @Double @[1]] = dmapAccumRDer (SNat @1) <lambda> <lambda> <lambda> [x1] [sconst @[1] (fromList @[1] [0.0])] in let [x11 @[Natural] @Double @[], v12 @[Natural] @Double @[1]] = dmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> [ssum (ssum m10)] [v9, sconst @[1] (fromList @[1] [0.0])] in [x11]) [[sconst @[2,2] (fromList @[2,2] [1.0,1.0,1.0,1.0])], [[1.1]]]"
 
 testSin0rmapAccumRD01SN531bRPP :: Assertion
 testSin0rmapAccumRD01SN531bRPP = do
@@ -2285,8 +2285,8 @@ testSin0rmapAccumRD01SN531bRPP = do
   printAstHVectorSimple
     IM.empty
     (simplifyInlineHVector
-     $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 1.1))
-    @?= "dletHVectorInHVector (dmapAccumRDer (SNat @1) (\\[x25 @Natural @Double @[]] [x26 @Natural @Double @[]] -> dmkHVector (fromList [DynamicRanked x25, DynamicRanked x25])) (\\[x34 @Natural @Double @[], x35 @Natural @Double @[]] [x36 @Natural @Double @[], x37 @Natural @Double @[]] -> dmkHVector (fromList [DynamicRanked x34, DynamicRanked x34])) (\\[x47 @Natural @Double @[], x48 @Natural @Double @[]] [x49 @Natural @Double @[], x50 @Natural @Double @[]] -> dmkHVector (fromList [DynamicRanked (x47 + x48), DynamicRanked 0.0])) dmkHVector (fromList [DynamicRanked (rconstant 1.1)]) dmkHVector (fromList [DynamicRanked (rconstant (rconst (fromList [1] [0.0])))])) (\\[x14 @Natural @Double @[], v15 @Natural @Double @[1]] -> dletHVectorInHVector (dmapAccumLDer (SNat @1) (\\[x59 @Natural @Double @[]] [x60 @Natural @Double @[], x61 @Natural @Double @[]] -> dmkHVector (fromList [DynamicRanked x59, DynamicRankedDummy])) (\\[x68 @Natural @Double @[], x69 @Natural @Double @[], x70 @Natural @Double @[]] [x71 @Natural @Double @[], x72 @Natural @Double @[], x73 @Natural @Double @[]] -> dmkHVector (fromList [DynamicRanked x68, DynamicRanked 0.0])) (\\[x79 @Natural @Double @[], x80 @Natural @Double @[]] [x81 @Natural @Double @[], x82 @Natural @Double @[], x83 @Natural @Double @[]] -> dmkHVector (fromList [DynamicRanked x79, DynamicRankedDummy, DynamicRankedDummy])) dmkHVector (fromList [DynamicRanked (rconstant 4.0)]) dmkHVector (fromList [DynamicRanked v15, DynamicRanked (rconstant (rconst (fromList [1] [0.0])))])) (\\[x19 @Natural @Double @[], v20 @Natural @Double @[1]] -> dmkHVector (fromList [DynamicRanked x19])))"
+     $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1)))
+    @?= "dletHVectorInHVector (dmapAccumRDer (SNat @1) (\\[x25 @Natural @Double @[]] [x26 @Natural @Double @[]] -> dmkHVector (fromList [DynamicRanked x25, DynamicRanked x25])) (\\[x34 @Natural @Double @[], x35 @Natural @Double @[]] [x36 @Natural @Double @[], x37 @Natural @Double @[]] -> dmkHVector (fromList [DynamicRanked x34, DynamicRanked x34])) (\\[x47 @Natural @Double @[], x48 @Natural @Double @[]] [x49 @Natural @Double @[], x50 @Natural @Double @[]] -> dmkHVector (fromList [DynamicRanked (x47 + x48), DynamicRanked 0.0])) dmkHVector (fromList [DynamicRanked (rconstant [1.1])]) dmkHVector (fromList [DynamicRanked (rconstant (rconst (fromList [1] [0.0])))])) (\\[x14 @Natural @Double @[], v15 @Natural @Double @[1]] -> dletHVectorInHVector (dmapAccumLDer (SNat @1) (\\[x59 @Natural @Double @[]] [x60 @Natural @Double @[], x61 @Natural @Double @[]] -> dmkHVector (fromList [DynamicRanked x59, DynamicRankedDummy])) (\\[x68 @Natural @Double @[], x69 @Natural @Double @[], x70 @Natural @Double @[]] [x71 @Natural @Double @[], x72 @Natural @Double @[], x73 @Natural @Double @[]] -> dmkHVector (fromList [DynamicRanked x68, DynamicRanked 0.0])) (\\[x79 @Natural @Double @[], x80 @Natural @Double @[]] [x81 @Natural @Double @[], x82 @Natural @Double @[], x83 @Natural @Double @[]] -> dmkHVector (fromList [DynamicRanked x79, DynamicRankedDummy, DynamicRankedDummy])) dmkHVector (fromList [DynamicRanked (rconstant 4.0)]) dmkHVector (fromList [DynamicRanked v15, DynamicRanked (rconstant (rconst (fromList [1] [0.0])))])) (\\[x19 @Natural @Double @[], v20 @Natural @Double @[1]] -> dmkHVector (fromList [DynamicRanked x19])))"
 
 testSin0rmapAccumRD01SN531b0PPj :: Assertion
 testSin0rmapAccumRD01SN531b0PPj = do
@@ -2317,8 +2317,8 @@ testSin0rmapAccumRD01SN531b0PPj = do
   printAstHVectorPretty
     IM.empty
     (simplifyInlineHVector
-     $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 1.1))
-    @?= "let [m21 @[Natural] @Double @[2,2], t22 @[Natural] @Double @[0,2,2]] = dmapAccumRDer (SNat @0) <lambda> <lambda> <lambda> [sfromIntegral (sfromR (rtranspose [1,0] (rreplicate 2 (rconst (fromList [2] [0,1]))) + rreplicate 2 (rconst (fromList [2] [0,1])))) + sreplicate (sreplicate 1.1) + sconst @[2,2] (fromList @[2,2] [0.0,0.0,0.0,0.0]) + sconst @[2,2] (fromList @[2,2] [0.0,0.0,0.0,0.0])] [rtranspose [2,0,1] (rreplicate 2 (rreplicate 2 (rconst (fromList [0] []))))] in let [m27 @[Natural] @Double @[2,2], t28 @Natural @Double @[0,2,2]] = dmapAccumLDer (SNat @0) <lambda> <lambda> <lambda> [sscatter (sconst @[2,2] (fromList @[2,2] [1.0,1.0,1.0,1.0])) (\\[i23] -> [i23])] [t22, rtranspose [2,0,1] (rreplicate 2 (rreplicate 2 (rconst (fromList [0] []))))] in [rfromS (ssum (ssum m27))]"
+     $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1)))
+    @?= "let [m21 @[Natural] @Double @[2,2], t22 @[Natural] @Double @[0,2,2]] = dmapAccumRDer (SNat @0) <lambda> <lambda> <lambda> [sfromIntegral (sfromR (rtranspose [1,0] (rreplicate 2 (rconst (fromList [2] [0,1]))) + rreplicate 2 (rconst (fromList [2] [0,1])))) + sreplicate (sreplicate [1.1]) + sconst @[2,2] (fromList @[2,2] [0.0,0.0,0.0,0.0]) + sconst @[2,2] (fromList @[2,2] [0.0,0.0,0.0,0.0])] [rtranspose [2,0,1] (rreplicate 2 (rreplicate 2 (rconst (fromList [0] []))))] in let [m27 @[Natural] @Double @[2,2], t28 @Natural @Double @[0,2,2]] = dmapAccumLDer (SNat @0) <lambda> <lambda> <lambda> [sscatter (sconst @[2,2] (fromList @[2,2] [1.0,1.0,1.0,1.0])) (\\[i23] -> [i23])] [t22, rtranspose [2,0,1] (rreplicate 2 (rreplicate 2 (rconst (fromList [0] []))))] in [rfromS (ssum (ssum m27))]"
 
 testSin0rmapAccumRD01SN531bSPPj :: Assertion
 testSin0rmapAccumRD01SN531bSPPj = do
@@ -2348,8 +2348,8 @@ testSin0rmapAccumRD01SN531bSPPj = do
   printAstHVectorPretty
     IM.empty
     (simplifyInlineHVector
-     $ g @(AstRanked PrimalSpan) (V.singleton $ DynamicShaped @Double @'[] 1.1))
-    @?= "let [m13 @[Natural] @Double @[2,2], t14 @[Natural] @Double @[1,2,2]] = dmapAccumRDer (SNat @1) <lambda> <lambda> <lambda> [sconst @[2,2] (fromList @[2,2] [0.0,0.0,0.0,0.0]) + sreplicate (sreplicate 1.1) + sfromIntegral (sfromR (rtranspose [1,0] (rreplicate 2 (rconst (fromList [2] [0,1]))) + rreplicate 2 (rconst (fromList [2] [0,1]))))] [stranspose (sreplicate (sreplicate (sconst @[1] (fromList @[1] [0.0]))))] in let [m18 @[Natural] @Double @[2,2], t19 @[Natural] @Double @[1,2,2]] = dmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> [sscatter (sconst @[2,2] (fromList @[2,2] [1.0,1.0,1.0,1.0])) (\\[i17] -> [i17])] [t14, stranspose (sreplicate (sreplicate (sconst @[1] (fromList @[1] [0.0]))))] in [ssum (ssum m18)]"
+     $ g @(AstRanked PrimalSpan) (V.singleton $ DynamicShaped @Double @'[] (sscalar 1.1)))
+    @?= "let [m13 @[Natural] @Double @[2,2], t14 @[Natural] @Double @[1,2,2]] = dmapAccumRDer (SNat @1) <lambda> <lambda> <lambda> [sconst @[2,2] (fromList @[2,2] [0.0,0.0,0.0,0.0]) + sreplicate (sreplicate [1.1]) + sfromIntegral (sfromR (rtranspose [1,0] (rreplicate 2 (rconst (fromList [2] [0,1]))) + rreplicate 2 (rconst (fromList [2] [0,1]))))] [stranspose (sreplicate (sreplicate (sconst @[1] (fromList @[1] [0.0]))))] in let [m18 @[Natural] @Double @[2,2], t19 @[Natural] @Double @[1,2,2]] = dmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> [sscatter (sconst @[2,2] (fromList @[2,2] [1.0,1.0,1.0,1.0])) (\\[i17] -> [i17])] [t14, stranspose (sreplicate (sreplicate (sconst @[1] (fromList @[1] [0.0]))))] in [ssum (ssum m18)]"
 
 testSin0rmapAccumRD01SN531bRPPj :: Assertion
 testSin0rmapAccumRD01SN531bRPPj = do
@@ -2380,8 +2380,8 @@ testSin0rmapAccumRD01SN531bRPPj = do
   printAstHVectorPretty
     IM.empty
     (simplifyInlineHVector
-     $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 1.1))
-    @?= "let [m19 @Natural @Double @[2,2], t20 @Natural @Double @[1,2,2]] = dmapAccumRDer (SNat @1) <lambda> <lambda> <lambda> [rfromIntegral (rtranspose [1,0] (rreplicate 2 (rconst (fromList [2] [0,1]))) + rreplicate 2 (rconst (fromList [2] [0,1]))) + rreplicate 2 (rreplicate 2 1.1)] [rtranspose [2,0,1] (rreplicate 2 (rreplicate 2 (rconst (fromList [1] [0.0]))))] in let [m24 @Natural @Double @[2,2], t25 @Natural @Double @[1,2,2]] = dmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> [rconst (fromList [2,2] [1.0,1.0,1.0,1.0])] [t20, rtranspose [2,0,1] (rreplicate 2 (rreplicate 2 (rconst (fromList [1] [0.0]))))] in [rsum (rreshape [4] m24)]"
+     $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1)))
+    @?= "let [m19 @Natural @Double @[2,2], t20 @Natural @Double @[1,2,2]] = dmapAccumRDer (SNat @1) <lambda> <lambda> <lambda> [rfromIntegral (rtranspose [1,0] (rreplicate 2 (rconst (fromList [2] [0,1]))) + rreplicate 2 (rconst (fromList [2] [0,1]))) + rreplicate 2 (rreplicate 2 [1.1])] [rtranspose [2,0,1] (rreplicate 2 (rreplicate 2 (rconst (fromList [1] [0.0]))))] in let [m24 @Natural @Double @[2,2], t25 @Natural @Double @[1,2,2]] = dmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> [rconst (fromList [2,2] [1.0,1.0,1.0,1.0])] [t20, rtranspose [2,0,1] (rreplicate 2 (rreplicate 2 (rconst (fromList [1] [0.0]))))] in [rsum (rreshape [4] m24)]"
 
 testSin0rmapAccumRD01SN531c :: Assertion
 testSin0rmapAccumRD01SN531c = do
@@ -2447,7 +2447,7 @@ testSin0rmapAccumRD01SN531d = do
                           (dmkHVector $ V.fromList [ DynamicShaped @Double @'[2]
                                          (sfromList0N
                                            [sscalar 0.4, sfromIntegral (sconstant (sfromR i))]) ])))
-      in f . sfromR) (1.1 :: ORArray Double 0))
+      in f . sfromR) ((rscalar 1.1) :: ORArray Double 0))
 
 -- TODO: empty tensor/heterogeneous vector of tensors ambiguity breaks things
 _testSin0rmapAccumRD01SN531Slice :: Assertion
@@ -3000,7 +3000,7 @@ testSin0ScanD8rev = do
                                                      (rsum . rreplicate 7) a)))
                        (V.fromList [voidFromSh @Double ZSR])
                        (rreplicate 2 (rreplicate 5 (2 * a0)))
-                       (V.singleton $ DynamicRanked $ rreplicate 3 a0)) 1.1)
+                       (V.singleton $ DynamicRanked $ rreplicate 3 a0)) (rscalar 1.1))
 
 testSin0ScanD8rev2 :: Assertion
 testSin0ScanD8rev2 = do
@@ -3017,7 +3017,7 @@ testSin0ScanD8rev2 = do
                        (V.singleton $ DynamicRanked $ rreplicate 3 a0))
   assertEqualUpToEpsilon1 1e-10
     (OR.fromList [] [285.9579482947575])
-    (crev h 1.1)
+    (crev h (rscalar 1.1))
 
 testSin0ScanD8rev3 :: Assertion
 testSin0ScanD8rev3 = do
@@ -3066,9 +3066,9 @@ testSin0ScanD1RevPP = do
                  (\x0 -> rscanZip (\x _a -> sin x)
                            (V.fromList [voidFromSh @Double ZSR])
                            x0 (V.singleton $ DynamicRanked
-                               $ rconst (OR.constant @Double @1 [2] 42))) 1.1
+                               $ rconst (OR.constant @Double @1 [2] 42))) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineAst a1)
-    @?= "let v12 = rconst (fromList [2] [42.0,42.0]) in let [x13 @Natural @Double @[], v14 @Natural @Double @[2], v15 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.1] [v12] in let v16 = rconst (fromList [3] [1.0,1.0,1.0]) in let [x21 @Natural @Double @[], v22 @Natural @Double @[2]] = dmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> [0] [rslice 1 2 v16, v14, v12] in x21 + v16 ! [0]"
+    @?= "let v12 = rconst (fromList [2] [42.0,42.0]) in let [x13 @Natural @Double @[], v14 @Natural @Double @[2], v15 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [[1.1]] [v12] in let v16 = rconst (fromList [3] [1.0,1.0,1.0]) in let [x21 @Natural @Double @[], v22 @Natural @Double @[2]] = dmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> [0] [rslice 1 2 v16, v14, v12] in x21 + v16 ! [0]"
 
 testSin0ScanDFwdPP :: Assertion
 testSin0ScanDFwdPP = do
@@ -3077,9 +3077,9 @@ testSin0ScanDFwdPP = do
                  (\x0 -> rscanZip (\x _a -> sin x)
                            (V.fromList [voidFromSh @Double ZSR])
                            x0 (V.singleton $ DynamicRanked
-                               $ rconst (OR.constant @Double @1 [2] 42))) 1.1
+                               $ rconst (OR.constant @Double @1 [2] 42))) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineAst a1)
-    @?= "let v5 = rconst (fromList [2] [42.0,42.0]) in let [x6 @Natural @Double @[], v7 @Natural @Double @[2], v8 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.1] [v5] in let [x9 @Natural @Double @[], v10 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.0] [rreplicate 2 0.0, v7, v5] in rappend (rreplicate 1 1.0) v10"
+    @?= "let v5 = rconst (fromList [2] [42.0,42.0]) in let [x6 @Natural @Double @[], v7 @Natural @Double @[2], v8 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [[1.1]] [v5] in let [x9 @Natural @Double @[], v10 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.0] [rreplicate 2 0.0, v7, v5] in rappend (rreplicate 1 1.0) v10"
 
 testSin0ScanD1Rev2PP :: Assertion
 testSin0ScanD1Rev2PP = do
@@ -3088,9 +3088,9 @@ testSin0ScanD1Rev2PP = do
                  (\x0 -> rscanZip (\x a -> sin x - rfromD (a V.! 0))
                          (V.fromList [voidFromSh @Double ZSR])
                          x0 (V.singleton $ DynamicRanked
-                             $ rconst (OR.fromList @Double @1 [2] [5, 7]))) 1.1
+                             $ rconst (OR.fromList @Double @1 [2] [5, 7]))) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineAst a1)
-    @?= "let v12 = rconst (fromList [2] [5.0,7.0]) in let [x13 @Natural @Double @[], v14 @Natural @Double @[2], v15 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.1] [v12] in let v16 = rconst (fromList [3] [1.0,1.0,1.0]) in let [x21 @Natural @Double @[], v22 @Natural @Double @[2]] = dmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> [0] [rslice 1 2 v16, v14, v12] in x21 + v16 ! [0]"
+    @?= "let v12 = rconst (fromList [2] [5.0,7.0]) in let [x13 @Natural @Double @[], v14 @Natural @Double @[2], v15 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [[1.1]] [v12] in let v16 = rconst (fromList [3] [1.0,1.0,1.0]) in let [x21 @Natural @Double @[], v22 @Natural @Double @[2]] = dmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> [0] [rslice 1 2 v16, v14, v12] in x21 + v16 ! [0]"
 
 testSin0ScanDFwd2PP :: Assertion
 testSin0ScanDFwd2PP = do
@@ -3099,9 +3099,9 @@ testSin0ScanDFwd2PP = do
                  (\x0 -> rscanZip (\x a -> sin x - rfromD (a V.! 0))
                          (V.fromList [voidFromSh @Double ZSR])
                          x0 (V.singleton $ DynamicRanked
-                         $ rconst (OR.fromList @Double @1 [2] [5, 7]))) 1.1
+                         $ rconst (OR.fromList @Double @1 [2] [5, 7]))) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineAst a1)
-    @?= "let v5 = rconst (fromList [2] [5.0,7.0]) in let [x6 @Natural @Double @[], v7 @Natural @Double @[2], v8 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.1] [v5] in let [x9 @Natural @Double @[], v10 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.0] [rreplicate 2 0.0, v7, v5] in rappend (rreplicate 1 1.0) v10"
+    @?= "let v5 = rconst (fromList [2] [5.0,7.0]) in let [x6 @Natural @Double @[], v7 @Natural @Double @[2], v8 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [[1.1]] [v5] in let [x9 @Natural @Double @[], v10 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.0] [rreplicate 2 0.0, v7, v5] in rappend (rreplicate 1 1.0) v10"
 
 testSin0ScanD1Rev2 :: Assertion
 testSin0ScanD1Rev2 = do
@@ -3135,7 +3135,7 @@ testSin0ScanD1Rev3PP = do
                            x0
                            (V.singleton $ DynamicRanked
                             $ rscan (\x a -> a * x) x0
-                                    (rfromList [x0 * 5, x0]))) 1.1
+                                    (rfromList [x0 * 5, x0]))) (rscalar 1.1)
   length (printAstSimple IM.empty (simplifyInlineAst a1))
     @?= 4445
 
@@ -3146,9 +3146,9 @@ testSin0ScanDFwd3PP = do
                  (\x0 -> rscanZip (\x a -> sin x - rfromD (a V.! 0))
                                 (V.fromList [voidFromSh @Double ZSR])
                                 x0 (V.singleton $ DynamicRanked
-                                    $ rfromList [x0 * 5, x0 * 7])) 1.1
+                                    $ rfromList [x0 * 5, x0 * 7])) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineAst a1)
-    @?= "let v5 = rfromVector (fromList [1.1 * 5.0, 1.1 * 7.0]) in let [x6 @Natural @Double @[], v7 @Natural @Double @[2], v8 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.1] [v5] in let [x12 @Natural @Double @[], v13 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.0] [rfromVector (fromList [1.0 * 5.0, 1.0 * 7.0]), v7, v5] in rappend (rreplicate 1 1.0) v13"
+    @?= "let v5 = rfromVector (fromList [[1.1] * 5.0, [1.1] * 7.0]) in let [x6 @Natural @Double @[], v7 @Natural @Double @[2], v8 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [[1.1]] [v5] in let [x12 @Natural @Double @[], v13 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.0] [rfromVector (fromList [1.0 * 5.0, 1.0 * 7.0]), v7, v5] in rappend (rreplicate 1 1.0) v13"
 
 testSin0ScanD0fwd :: Assertion
 testSin0ScanD0fwd = do
@@ -3160,7 +3160,7 @@ testSin0ScanD0fwd = do
                        (V.fromList [voidFromSh @Double ZSR])
                        x0 (V.singleton $ DynamicRanked
                            $ rzero @f @Double (0 :$: ZSR))
-     in f) 1.1)
+     in f) (rscalar 1.1))
 
 testSin0ScanD1fwd :: Assertion
 testSin0ScanD1fwd = do
@@ -3175,7 +3175,7 @@ testSin0ScanD1fwd = do
                            $ rconst (OR.constant @Double @1 [1] 42)
                          , DynamicRanked
                            $ rconst (OR.constant @Double @3 [1, 3, 4] 32) ]))
-          1.1)
+          (rscalar 1.1))
 
 testSin0ScanD8fwd :: Assertion
 testSin0ScanD8fwd = do
@@ -3190,7 +3190,7 @@ testSin0ScanD8fwd = do
                                                      (rsum . rreplicate 7) a)))
                       (V.fromList [voidFromSh @Double ZSR])
                       (rreplicate 2 (rreplicate 5 (2 * a0)))
-                      (V.singleton $ DynamicRanked $ rreplicate 3 a0)) 1.1)
+                      (V.singleton $ DynamicRanked $ rreplicate 3 a0)) (rscalar 1.1))
 
 testSin0ScanD8fwdMapAccum :: Assertion
 testSin0ScanD8fwdMapAccum = do
@@ -3220,7 +3220,7 @@ testSin0ScanD8fwdMapAccum = do
                     in g)
                       (dmkHVector $ V.singleton $ DynamicRanked
                        $ rreplicate 2 (rreplicate 5 (2 * a0)))
-                      (dmkHVector $ V.singleton $ DynamicRanked $ rreplicate 4 a0)) 1.1)
+                      (dmkHVector $ V.singleton $ DynamicRanked $ rreplicate 4 a0)) (rscalar 1.1))
 
 testSin0ScanD8fwd2 :: Assertion
 testSin0ScanD8fwd2 = do
@@ -3237,7 +3237,7 @@ testSin0ScanD8fwd2 = do
                        (V.singleton $ DynamicRanked $ rreplicate 3 a0))
   assertEqualUpToEpsilon1 1e-10
     (OR.fromList [] [285.95794829475744])
-    (crev h 1.1)
+    (crev h (rscalar 1.1))
 
 testSin0FoldNestedS1 :: Assertion
 testSin0FoldNestedS1 = do
@@ -3264,8 +3264,8 @@ testSin0FoldNestedS1PP = do
                  x
   printAstHVectorPretty
     IM.empty
-    (g @(AstRanked PrimalSpan) (V.singleton $ DynamicShaped @Double @'[] 1.1))
-    @?= "let [x4 @[Natural] @Double @[], v5 @[Natural] @Double @[11]] = dmapAccumLDer (SNat @11) <lambda> <lambda> <lambda> [1.1] [sreplicate 1.1] in let [x7 @[Natural] @Double @[], v8 @[Natural] @Double @[11]] = dmapAccumRDer (SNat @11) <lambda> <lambda> <lambda> [1.0] [v5, sreplicate 1.1] in [ssum v8 + x7]"
+    (g @(AstRanked PrimalSpan) (V.singleton $ DynamicShaped @Double @'[] (sscalar 1.1)))
+    @?= "let [x4 @[Natural] @Double @[], v5 @[Natural] @Double @[11]] = dmapAccumLDer (SNat @11) <lambda> <lambda> <lambda> [[1.1]] [sreplicate [1.1]] in let [x7 @[Natural] @Double @[], v8 @[Natural] @Double @[11]] = dmapAccumRDer (SNat @11) <lambda> <lambda> <lambda> [1.0] [v5, sreplicate [1.1]] in [ssum v8 + x7]"
 
 testSin0FoldNestedR1PP :: Assertion
 testSin0FoldNestedR1PP = do
@@ -3281,8 +3281,8 @@ testSin0FoldNestedR1PP = do
                  x
   printAstHVectorPretty
     IM.empty
-    (g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 1.1))
-    @?= "let [x10 @Natural @Double @[], v11 @Natural @Double @[11]] = dmapAccumLDer (SNat @11) <lambda> <lambda> <lambda> [1.1] [rreplicate 11 1.1] in let [x15 @Natural @Double @[], v16 @Natural @Double @[11]] = dmapAccumRDer (SNat @11) <lambda> <lambda> <lambda> [1.0] [v11, rreplicate 11 1.1] in [rsum v16 + x15]"
+    (g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1)))
+    @?= "let [x10 @Natural @Double @[], v11 @Natural @Double @[11]] = dmapAccumLDer (SNat @11) <lambda> <lambda> <lambda> [[1.1]] [rreplicate 11 [1.1]] in let [x15 @Natural @Double @[], v16 @Natural @Double @[11]] = dmapAccumRDer (SNat @11) <lambda> <lambda> <lambda> [1.0] [v11, rreplicate 11 [1.1]] in [rsum v16 + x15]"
 
 testSin0FoldNestedR1SimpPP :: Assertion
 testSin0FoldNestedR1SimpPP = do
@@ -3299,8 +3299,8 @@ testSin0FoldNestedR1SimpPP = do
   printAstHVectorPretty
     IM.empty
     (simplifyInlineHVector
-     $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 1.1))
-    @?= "let [x10 @Natural @Double @[], v11 @Natural @Double @[11]] = dmapAccumLDer (SNat @11) <lambda> <lambda> <lambda> [1.1] [rreplicate 11 1.1] in let [x15 @Natural @Double @[], v16 @Natural @Double @[11]] = dmapAccumRDer (SNat @11) <lambda> <lambda> <lambda> [1.0] [v11, rreplicate 11 1.1] in [rsum v16 + x15]"
+     $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1)))
+    @?= "let [x10 @Natural @Double @[], v11 @Natural @Double @[11]] = dmapAccumLDer (SNat @11) <lambda> <lambda> <lambda> [[1.1]] [rreplicate 11 [1.1]] in let [x15 @Natural @Double @[], v16 @Natural @Double @[11]] = dmapAccumRDer (SNat @11) <lambda> <lambda> <lambda> [1.0] [v11, rreplicate 11 [1.1]] in [rsum v16 + x15]"
 
 testSin0FoldNestedR1SimpNestedPP :: Assertion
 testSin0FoldNestedR1SimpNestedPP = do
@@ -3317,8 +3317,8 @@ testSin0FoldNestedR1SimpNestedPP = do
   printAstHVectorPrettyButNested
     IM.empty
     (simplifyInlineHVector
-     $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 1.1))
-    @?= "let [x10 @Natural @Double @[], v11 @Natural @Double @[11]] = dmapAccumLDer (SNat @11) (\\[x23] [x24] -> [let [x32 @Natural @Double @[]] = dmapAccumLDer (SNat @22) (\\[x38] [x39] -> [x38 + tan x39]) (\\[x56, x57] [x58, x59] -> let x61 = cos x59 in [x56 + x57 * recip (x61 * x61)]) (\\[x71] [x72, x73] -> let x75 = cos x73 in [x71, recip (x75 * x75) * x71]) [x24] [rreplicate 22 x23] in x32, x23]) (\\[x80, x81] [x82, x83] -> let [x102 @Natural @Double @[]] = let [x99 @Natural @Double @[], v100 @Natural @Double @[22]] = dmapAccumLDer (SNat @22) (\\[x107] [x108] -> [x107 + tan x108, x107]) (\\[x122, x123] [x124, x125] -> let x138 = cos x125 in [x122 + x123 * recip (x138 * x138), x122]) (\\[x147, x148] [x149, x150] -> let x161 = cos x150 in [x147 + x148, recip (x161 * x161) * x147]) [x83] [rreplicate 22 x82] in let [x101 @Natural @Double @[]] = dmapAccumLDer (SNat @22) (\\[x170] [x171, x172, x173] -> let x176 = cos x173 in [x170 + x171 * recip (x176 * x176)]) (\\[x202, x203, x204, x205] [x206, x207, x208, x209] -> let x213 = cos x209 ; x214 = x213 * x213 ; x215 = x205 * negate (sin x209) in [x202 + x203 * recip x214 + ((x215 * x213 + x215 * x213) * negate (recip (x214 * x214))) * x207]) (\\[x231] [x232, x233, x234, x235] -> let x239 = cos x235 ; x240 = x239 * x239 ; x241 = negate (recip (x240 * x240)) * (x233 * x231) in [x231, recip x240 * x231, 0, negate (sin x235) * (x239 * x241 + x239 * x241)]) [x81] [rreplicate 22 x80, v100, rreplicate 22 x82] in [x101] in [x102, x80]) (\\[x246, x247] [x248, x249] -> let [x271 @Natural @Double @[], x272 @Natural @Double @[]] = let [x267 @Natural @Double @[], v268 @Natural @Double @[22]] = dmapAccumLDer (SNat @22) (\\[x277] [x278] -> [x277 + tan x278, x277]) (\\[x292, x293] [x294, x295] -> let x308 = cos x295 in [x292 + x293 * recip (x308 * x308), x292]) (\\[x317, x318] [x319, x320] -> let x331 = cos x320 in [x317 + x318, recip (x331 * x331) * x317]) [x249] [rreplicate 22 x248] in let [x269 @Natural @Double @[], v270 @Natural @Double @[22]] = dmapAccumRDer (SNat @22) (\\[x338] [x339, x340] -> let x343 = cos x340 in [x338, recip (x343 * x343) * x338]) (\\[x364, x365, x366] [x367, x368, x369] -> let x373 = cos x369 ; x374 = x373 * x373 ; x375 = x366 * negate (sin x369) in [x364, ((x375 * x373 + x375 * x373) * negate (recip (x374 * x374))) * x367 + x364 * recip x374]) (\\[x391, x392] [x393, x394, x395] -> let x399 = cos x395 ; x400 = x399 * x399 ; x401 = negate (recip (x400 * x400)) * (x393 * x392) in [recip x400 * x392 + x391, 0, negate (sin x395) * (x399 * x401 + x399 * x401)]) [x246] [v268, rreplicate 22 x248] in [rsum v270, x269] in [x271 + x247, x272]) [1.1] [rreplicate 11 1.1] in let [x15 @Natural @Double @[], v16 @Natural @Double @[11]] = dmapAccumRDer (SNat @11) (\\[x405] [x406, x407] -> let [x412 @Natural @Double @[], v413 @Natural @Double @[22]] = dmapAccumLDer (SNat @22) (\\[x418] [x419] -> [x418 + tan x419, x418]) (\\[x424, x425] [x426, x427] -> let x429 = cos x427 in [x424 + x425 * recip (x429 * x429), x424]) (\\[x434, x435] [x436, x437] -> let x439 = cos x437 in [x434 + x435, recip (x439 * x439) * x434]) [x407] [rreplicate 22 x406] in let [x414 @Natural @Double @[], v415 @Natural @Double @[22]] = dmapAccumRDer (SNat @22) (\\[x443] [x444, x445] -> let x447 = cos x445 in [x443, recip (x447 * x447) * x443]) (\\[x454, x455, x456] [x457, x458, x459] -> let x463 = cos x459 ; x464 = x463 * x463 ; x465 = x456 * negate (sin x459) in [x454, ((x465 * x463 + x465 * x463) * negate (recip (x464 * x464))) * x457 + x454 * recip x464]) (\\[x471, x472] [x473, x474, x475] -> let x479 = cos x475 ; x480 = x479 * x479 ; x481 = negate (recip (x480 * x480)) * (x473 * x472) in [recip x480 * x472 + x471, 0, negate (sin x475) * (x479 * x481 + x479 * x481)]) [x405] [v413, rreplicate 22 x406] in [rsum v415, x414]) (\\[x506, x507, x508] [x509, x510, x511] -> let [x512 @Natural @Double @[], v513 @Natural @Double @[22], v514 @Natural @Double @[22]] = dmapAccumLDer (SNat @22) (\\[x524] [x525] -> [x524 + tan x525, x524, x524]) (\\[x534, x535] [x536, x537] -> let x546 = cos x537 in [x534 + x535 * recip (x546 * x546), x534, x534]) (\\[x552, x553, x554] [x555, x556] -> let x565 = cos x556 in [x553 + x552 + x554, recip (x565 * x565) * x552]) [x511] [rreplicate 22 x510] in let [x515 @Natural @Double @[], v516 @Natural @Double @[22], v517 @Natural @Double @[22]] = dmapAccumRDer (SNat @22) (\\[x569] [x570, x571] -> let x579 = cos x571 in [x569, x569, recip (x579 * x579) * x569]) (\\[x586, x587, x588] [x589, x590, x591] -> let x606 = cos x591 ; x607 = x606 * x606 ; x608 = x588 * negate (sin x591) in [x586, x586, ((x608 * x606 + x608 * x606) * negate (recip (x607 * x607))) * x589 + x586 * recip x607]) (\\[x615, x616, x617] [x618, x619, x620] -> let x635 = cos x620 ; x636 = x635 * x635 ; x637 = negate (recip (x636 * x636)) * (x618 * x617) in [x616 + recip x636 * x617 + x615, 0.0, negate (sin x620) * (x635 * x637 + x635 * x637)]) [x509] [v514, rreplicate 22 x510] in let [x518 @Natural @Double @[], v519 @Natural @Double @[22]] = dmapAccumLDer (SNat @22) (\\[x642] [x643, x644, x645] -> let x647 = cos x645 in [x642 + x643 * recip (x647 * x647), x642]) (\\[x665, x666, x667, x668] [x669, x670, x671, x672] -> let x673 = cos x672 ; x674 = x673 * x673 ; x675 = x668 * negate (sin x672) in [x665 + x666 * recip x674 + ((x675 * x673 + x675 * x673) * negate (recip (x674 * x674))) * x670, x665]) (\\[x687, x688] [x689, x690, x691, x692] -> let x693 = cos x692 ; x694 = x693 * x693 ; x695 = negate (recip (x694 * x694)) * (x690 * x687) in [x687 + x688, recip x694 * x687, 0, negate (sin x692) * (x693 * x695 + x693 * x695)]) [x508] [rreplicate 22 x507, v513, rreplicate 22 x510] in let [x520 @Natural @Double @[], v521 @Natural @Double @[22]] = dmapAccumRDer (SNat @22) (\\[x702] [x703, x704, x705, x706, x707] -> let x711 = cos x707 ; x712 = x711 * x711 ; x713 = x704 * negate (sin x707) in [x702, ((x713 * x711 + x713 * x711) * negate (recip (x712 * x712))) * x705 + x702 * recip x712]) (\\[x754, x755, x756, x757, x758, x759] [x760, x761, x762, x763, x764, x765] -> let x766 = cos x765 ; x767 = x766 * x766 ; x768 = negate (sin x765) ; x769 = x762 * x768 ; x770 = x767 * x767 ; x771 = x769 * x766 + x769 * x766 ; x772 = negate (recip x770) ; x773 = x756 * x768 + ((x759 * cos x765) * -1.0) * x762 ; x774 = x759 * negate (sin x765) ; x775 = x774 * x766 + x774 * x766 in [x754, ((x773 * x766 + x774 * x769 + x773 * x766 + x774 * x769) * x772 + (((x775 * x767 + x775 * x767) * negate (recip (x770 * x770))) * -1.0) * x771) * x763 + x757 * (x771 * x772) + x754 * recip x767 + (x775 * negate (recip (x767 * x767))) * x760]) (\\[x801, x802] [x803, x804, x805, x806, x807, x808] -> let x809 = cos x808 ; x810 = x809 * x809 ; x811 = negate (sin x808) ; x812 = x805 * x811 ; x813 = x810 * x810 ; x814 = x812 * x809 + x812 * x809 ; x815 = negate (recip x813) ; x816 = x806 * x802 ; x817 = negate (recip (x813 * x813)) * (-1.0 * (x814 * x816)) ; x818 = x815 * x816 ; x819 = x809 * x818 + x809 * x818 ; x820 = x810 * x817 + x810 * x817 + negate (recip (x810 * x810)) * (x803 * x802) in [recip x810 * x802 + x801, 0, x811 * x819, (x814 * x815) * x802, 0, negate (sin x808) * (x809 * x820 + x809 * x820 + x812 * x818 + x812 * x818) + cos x808 * (-1.0 * (x805 * x819))]) [x506] [v519, rreplicate 22 x507, v516, v514, rreplicate 22 x510] in [rsum v521, x520]) (\\[x844, x845] [x846, x847, x848] -> let [x849 @Natural @Double @[], v850 @Natural @Double @[22], v851 @Natural @Double @[22]] = dmapAccumLDer (SNat @22) (\\[x862] [x863] -> [x862 + tan x863, x862, x862]) (\\[x872, x873] [x874, x875] -> let x884 = cos x875 in [x872 + x873 * recip (x884 * x884), x872, x872]) (\\[x890, x891, x892] [x893, x894] -> let x903 = cos x894 in [x891 + x890 + x892, recip (x903 * x903) * x890]) [x848] [rreplicate 22 x847] in let [x852 @Natural @Double @[], v853 @Natural @Double @[22], v854 @Natural @Double @[22]] = dmapAccumRDer (SNat @22) (\\[x907] [x908, x909] -> let x917 = cos x909 in [x907, x907, recip (x917 * x917) * x907]) (\\[x924, x925, x926] [x927, x928, x929] -> let x944 = cos x929 ; x945 = x944 * x944 ; x946 = x926 * negate (sin x929) in [x924, x924, ((x946 * x944 + x946 * x944) * negate (recip (x945 * x945))) * x927 + x924 * recip x945]) (\\[x953, x954, x955] [x956, x957, x958] -> let x973 = cos x958 ; x974 = x973 * x973 ; x975 = negate (recip (x974 * x974)) * (x956 * x955) in [x954 + recip x974 * x955 + x953, 0.0, negate (sin x958) * (x973 * x975 + x973 * x975)]) [x846] [v851, rreplicate 22 x847] in let [x855 @Natural @Double @[], v856 @Natural @Double @[22], v857 @Natural @Double @[22]] = dmapAccumLDer (SNat @22) (\\[x981] [x982, x983, x984, x985] -> let x989 = cos x985 ; x990 = x989 * x989 ; x991 = negate (recip (x990 * x990)) * (x983 * x982) in [recip x990 * x982 + x981, 0, negate (sin x985) * (x989 * x991 + x989 * x991)]) (\\[x1030, x1031, x1032, x1033, x1034] [x1035, x1036, x1037, x1038, x1039] -> let x1040 = cos x1039 ; x1041 = x1040 * x1040 ; x1042 = x1041 * x1041 ; x1043 = negate (recip x1042) ; x1044 = x1037 * x1036 ; x1045 = x1043 * x1044 ; x1046 = x1034 * negate (sin x1039) ; x1047 = x1046 * x1040 + x1046 * x1040 ; x1048 = (((x1047 * x1041 + x1047 * x1041) * negate (recip (x1042 * x1042))) * -1.0) * x1044 + (x1032 * x1036 + x1031 * x1037) * x1043 in [x1030 + (x1047 * negate (recip (x1041 * x1041))) * x1036 + x1031 * recip x1041, 0.0, ((x1034 * cos x1039) * -1.0) * (x1040 * x1045 + x1040 * x1045) + (x1046 * x1045 + x1048 * x1040 + x1046 * x1045 + x1048 * x1040) * negate (sin x1039)]) (\\[x1074, x1075, x1076] [x1077, x1078, x1079, x1080, x1081] -> let x1082 = cos x1081 ; x1083 = x1082 * x1082 ; x1084 = x1083 * x1083 ; x1085 = negate (recip x1084) ; x1086 = x1079 * x1078 ; x1087 = x1085 * x1086 ; x1088 = negate (sin x1081) * x1076 ; x1089 = x1082 * x1088 + x1082 * x1088 ; x1090 = x1085 * x1089 ; x1091 = negate (recip (x1084 * x1084)) * (-1.0 * (x1086 * x1089)) ; x1092 = x1083 * x1091 + x1083 * x1091 + negate (recip (x1083 * x1083)) * (x1078 * x1074) in [x1074, x1079 * x1090 + recip x1083 * x1074, x1078 * x1090, 0, negate (sin x1081) * (x1082 * x1092 + x1082 * x1092 + x1087 * x1088 + x1087 * x1088) + cos x1081 * (-1.0 * ((x1082 * x1087 + x1082 * x1087) * x1076))]) [x845] [rreplicate 22 x844, v853, v851, rreplicate 22 x847] in let [x858 @Natural @Double @[], v859 @Natural @Double @[22]] = dmapAccumRDer (SNat @22) (\\[x1097] [x1098, x1099, x1100] -> let x1102 = cos x1100 in [x1097 + x1098, recip (x1102 * x1102) * x1097]) (\\[x1120, x1121, x1122, x1123] [x1124, x1125, x1126, x1127] -> let x1128 = cos x1127 ; x1129 = x1128 * x1128 ; x1130 = x1123 * negate (sin x1127) in [x1120 + x1121, ((x1130 * x1128 + x1130 * x1128) * negate (recip (x1129 * x1129))) * x1124 + x1120 * recip x1129]) (\\[x1142, x1143] [x1144, x1145, x1146, x1147] -> let x1148 = cos x1147 ; x1149 = x1148 * x1148 ; x1150 = negate (recip (x1149 * x1149)) * (x1144 * x1143) in [x1142 + recip x1149 * x1143, x1142, 0, negate (sin x1147) * (x1148 * x1150 + x1148 * x1150)]) [0] [v856, v850, rreplicate 22 x847] in [x855, rsum v859 + rsum v857, x858]) [1.0] [v11, rreplicate 11 1.1] in [rsum v16 + x15]"
+     $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1)))
+    @?= "let [x10 @Natural @Double @[], v11 @Natural @Double @[11]] = dmapAccumLDer (SNat @11) (\\[x23] [x24] -> [let [x32 @Natural @Double @[]] = dmapAccumLDer (SNat @22) (\\[x38] [x39] -> [x38 + tan x39]) (\\[x56, x57] [x58, x59] -> let x61 = cos x59 in [x56 + x57 * recip (x61 * x61)]) (\\[x71] [x72, x73] -> let x75 = cos x73 in [x71, recip (x75 * x75) * x71]) [x24] [rreplicate 22 x23] in x32, x23]) (\\[x80, x81] [x82, x83] -> let [x102 @Natural @Double @[]] = let [x99 @Natural @Double @[], v100 @Natural @Double @[22]] = dmapAccumLDer (SNat @22) (\\[x107] [x108] -> [x107 + tan x108, x107]) (\\[x122, x123] [x124, x125] -> let x138 = cos x125 in [x122 + x123 * recip (x138 * x138), x122]) (\\[x147, x148] [x149, x150] -> let x161 = cos x150 in [x147 + x148, recip (x161 * x161) * x147]) [x83] [rreplicate 22 x82] in let [x101 @Natural @Double @[]] = dmapAccumLDer (SNat @22) (\\[x170] [x171, x172, x173] -> let x176 = cos x173 in [x170 + x171 * recip (x176 * x176)]) (\\[x202, x203, x204, x205] [x206, x207, x208, x209] -> let x213 = cos x209 ; x214 = x213 * x213 ; x215 = x205 * negate (sin x209) in [x202 + x203 * recip x214 + ((x215 * x213 + x215 * x213) * negate (recip (x214 * x214))) * x207]) (\\[x231] [x232, x233, x234, x235] -> let x239 = cos x235 ; x240 = x239 * x239 ; x241 = negate (recip (x240 * x240)) * (x233 * x231) in [x231, recip x240 * x231, 0, negate (sin x235) * (x239 * x241 + x239 * x241)]) [x81] [rreplicate 22 x80, v100, rreplicate 22 x82] in [x101] in [x102, x80]) (\\[x246, x247] [x248, x249] -> let [x271 @Natural @Double @[], x272 @Natural @Double @[]] = let [x267 @Natural @Double @[], v268 @Natural @Double @[22]] = dmapAccumLDer (SNat @22) (\\[x277] [x278] -> [x277 + tan x278, x277]) (\\[x292, x293] [x294, x295] -> let x308 = cos x295 in [x292 + x293 * recip (x308 * x308), x292]) (\\[x317, x318] [x319, x320] -> let x331 = cos x320 in [x317 + x318, recip (x331 * x331) * x317]) [x249] [rreplicate 22 x248] in let [x269 @Natural @Double @[], v270 @Natural @Double @[22]] = dmapAccumRDer (SNat @22) (\\[x338] [x339, x340] -> let x343 = cos x340 in [x338, recip (x343 * x343) * x338]) (\\[x364, x365, x366] [x367, x368, x369] -> let x373 = cos x369 ; x374 = x373 * x373 ; x375 = x366 * negate (sin x369) in [x364, ((x375 * x373 + x375 * x373) * negate (recip (x374 * x374))) * x367 + x364 * recip x374]) (\\[x391, x392] [x393, x394, x395] -> let x399 = cos x395 ; x400 = x399 * x399 ; x401 = negate (recip (x400 * x400)) * (x393 * x392) in [recip x400 * x392 + x391, 0, negate (sin x395) * (x399 * x401 + x399 * x401)]) [x246] [v268, rreplicate 22 x248] in [rsum v270, x269] in [x271 + x247, x272]) [[1.1]] [rreplicate 11 [1.1]] in let [x15 @Natural @Double @[], v16 @Natural @Double @[11]] = dmapAccumRDer (SNat @11) (\\[x405] [x406, x407] -> let [x412 @Natural @Double @[], v413 @Natural @Double @[22]] = dmapAccumLDer (SNat @22) (\\[x418] [x419] -> [x418 + tan x419, x418]) (\\[x424, x425] [x426, x427] -> let x429 = cos x427 in [x424 + x425 * recip (x429 * x429), x424]) (\\[x434, x435] [x436, x437] -> let x439 = cos x437 in [x434 + x435, recip (x439 * x439) * x434]) [x407] [rreplicate 22 x406] in let [x414 @Natural @Double @[], v415 @Natural @Double @[22]] = dmapAccumRDer (SNat @22) (\\[x443] [x444, x445] -> let x447 = cos x445 in [x443, recip (x447 * x447) * x443]) (\\[x454, x455, x456] [x457, x458, x459] -> let x463 = cos x459 ; x464 = x463 * x463 ; x465 = x456 * negate (sin x459) in [x454, ((x465 * x463 + x465 * x463) * negate (recip (x464 * x464))) * x457 + x454 * recip x464]) (\\[x471, x472] [x473, x474, x475] -> let x479 = cos x475 ; x480 = x479 * x479 ; x481 = negate (recip (x480 * x480)) * (x473 * x472) in [recip x480 * x472 + x471, 0, negate (sin x475) * (x479 * x481 + x479 * x481)]) [x405] [v413, rreplicate 22 x406] in [rsum v415, x414]) (\\[x506, x507, x508] [x509, x510, x511] -> let [x512 @Natural @Double @[], v513 @Natural @Double @[22], v514 @Natural @Double @[22]] = dmapAccumLDer (SNat @22) (\\[x524] [x525] -> [x524 + tan x525, x524, x524]) (\\[x534, x535] [x536, x537] -> let x546 = cos x537 in [x534 + x535 * recip (x546 * x546), x534, x534]) (\\[x552, x553, x554] [x555, x556] -> let x565 = cos x556 in [x553 + x552 + x554, recip (x565 * x565) * x552]) [x511] [rreplicate 22 x510] in let [x515 @Natural @Double @[], v516 @Natural @Double @[22], v517 @Natural @Double @[22]] = dmapAccumRDer (SNat @22) (\\[x569] [x570, x571] -> let x579 = cos x571 in [x569, x569, recip (x579 * x579) * x569]) (\\[x586, x587, x588] [x589, x590, x591] -> let x606 = cos x591 ; x607 = x606 * x606 ; x608 = x588 * negate (sin x591) in [x586, x586, ((x608 * x606 + x608 * x606) * negate (recip (x607 * x607))) * x589 + x586 * recip x607]) (\\[x615, x616, x617] [x618, x619, x620] -> let x635 = cos x620 ; x636 = x635 * x635 ; x637 = negate (recip (x636 * x636)) * (x618 * x617) in [x616 + recip x636 * x617 + x615, 0.0, negate (sin x620) * (x635 * x637 + x635 * x637)]) [x509] [v514, rreplicate 22 x510] in let [x518 @Natural @Double @[], v519 @Natural @Double @[22]] = dmapAccumLDer (SNat @22) (\\[x642] [x643, x644, x645] -> let x647 = cos x645 in [x642 + x643 * recip (x647 * x647), x642]) (\\[x665, x666, x667, x668] [x669, x670, x671, x672] -> let x673 = cos x672 ; x674 = x673 * x673 ; x675 = x668 * negate (sin x672) in [x665 + x666 * recip x674 + ((x675 * x673 + x675 * x673) * negate (recip (x674 * x674))) * x670, x665]) (\\[x687, x688] [x689, x690, x691, x692] -> let x693 = cos x692 ; x694 = x693 * x693 ; x695 = negate (recip (x694 * x694)) * (x690 * x687) in [x687 + x688, recip x694 * x687, 0, negate (sin x692) * (x693 * x695 + x693 * x695)]) [x508] [rreplicate 22 x507, v513, rreplicate 22 x510] in let [x520 @Natural @Double @[], v521 @Natural @Double @[22]] = dmapAccumRDer (SNat @22) (\\[x702] [x703, x704, x705, x706, x707] -> let x711 = cos x707 ; x712 = x711 * x711 ; x713 = x704 * negate (sin x707) in [x702, ((x713 * x711 + x713 * x711) * negate (recip (x712 * x712))) * x705 + x702 * recip x712]) (\\[x754, x755, x756, x757, x758, x759] [x760, x761, x762, x763, x764, x765] -> let x766 = cos x765 ; x767 = x766 * x766 ; x768 = negate (sin x765) ; x769 = x762 * x768 ; x770 = x767 * x767 ; x771 = x769 * x766 + x769 * x766 ; x772 = negate (recip x770) ; x773 = x756 * x768 + ((x759 * cos x765) * (-1.0)) * x762 ; x774 = x759 * negate (sin x765) ; x775 = x774 * x766 + x774 * x766 in [x754, ((x773 * x766 + x774 * x769 + x773 * x766 + x774 * x769) * x772 + (((x775 * x767 + x775 * x767) * negate (recip (x770 * x770))) * (-1.0)) * x771) * x763 + x757 * (x771 * x772) + x754 * recip x767 + (x775 * negate (recip (x767 * x767))) * x760]) (\\[x801, x802] [x803, x804, x805, x806, x807, x808] -> let x809 = cos x808 ; x810 = x809 * x809 ; x811 = negate (sin x808) ; x812 = x805 * x811 ; x813 = x810 * x810 ; x814 = x812 * x809 + x812 * x809 ; x815 = negate (recip x813) ; x816 = x806 * x802 ; x817 = negate (recip (x813 * x813)) * ((-1.0) * (x814 * x816)) ; x818 = x815 * x816 ; x819 = x809 * x818 + x809 * x818 ; x820 = x810 * x817 + x810 * x817 + negate (recip (x810 * x810)) * (x803 * x802) in [recip x810 * x802 + x801, 0, x811 * x819, (x814 * x815) * x802, 0, negate (sin x808) * (x809 * x820 + x809 * x820 + x812 * x818 + x812 * x818) + cos x808 * ((-1.0) * (x805 * x819))]) [x506] [v519, rreplicate 22 x507, v516, v514, rreplicate 22 x510] in [rsum v521, x520]) (\\[x844, x845] [x846, x847, x848] -> let [x849 @Natural @Double @[], v850 @Natural @Double @[22], v851 @Natural @Double @[22]] = dmapAccumLDer (SNat @22) (\\[x862] [x863] -> [x862 + tan x863, x862, x862]) (\\[x872, x873] [x874, x875] -> let x884 = cos x875 in [x872 + x873 * recip (x884 * x884), x872, x872]) (\\[x890, x891, x892] [x893, x894] -> let x903 = cos x894 in [x891 + x890 + x892, recip (x903 * x903) * x890]) [x848] [rreplicate 22 x847] in let [x852 @Natural @Double @[], v853 @Natural @Double @[22], v854 @Natural @Double @[22]] = dmapAccumRDer (SNat @22) (\\[x907] [x908, x909] -> let x917 = cos x909 in [x907, x907, recip (x917 * x917) * x907]) (\\[x924, x925, x926] [x927, x928, x929] -> let x944 = cos x929 ; x945 = x944 * x944 ; x946 = x926 * negate (sin x929) in [x924, x924, ((x946 * x944 + x946 * x944) * negate (recip (x945 * x945))) * x927 + x924 * recip x945]) (\\[x953, x954, x955] [x956, x957, x958] -> let x973 = cos x958 ; x974 = x973 * x973 ; x975 = negate (recip (x974 * x974)) * (x956 * x955) in [x954 + recip x974 * x955 + x953, 0.0, negate (sin x958) * (x973 * x975 + x973 * x975)]) [x846] [v851, rreplicate 22 x847] in let [x855 @Natural @Double @[], v856 @Natural @Double @[22], v857 @Natural @Double @[22]] = dmapAccumLDer (SNat @22) (\\[x981] [x982, x983, x984, x985] -> let x989 = cos x985 ; x990 = x989 * x989 ; x991 = negate (recip (x990 * x990)) * (x983 * x982) in [recip x990 * x982 + x981, 0, negate (sin x985) * (x989 * x991 + x989 * x991)]) (\\[x1030, x1031, x1032, x1033, x1034] [x1035, x1036, x1037, x1038, x1039] -> let x1040 = cos x1039 ; x1041 = x1040 * x1040 ; x1042 = x1041 * x1041 ; x1043 = negate (recip x1042) ; x1044 = x1037 * x1036 ; x1045 = x1043 * x1044 ; x1046 = x1034 * negate (sin x1039) ; x1047 = x1046 * x1040 + x1046 * x1040 ; x1048 = (((x1047 * x1041 + x1047 * x1041) * negate (recip (x1042 * x1042))) * (-1.0)) * x1044 + (x1032 * x1036 + x1031 * x1037) * x1043 in [x1030 + (x1047 * negate (recip (x1041 * x1041))) * x1036 + x1031 * recip x1041, 0.0, ((x1034 * cos x1039) * (-1.0)) * (x1040 * x1045 + x1040 * x1045) + (x1046 * x1045 + x1048 * x1040 + x1046 * x1045 + x1048 * x1040) * negate (sin x1039)]) (\\[x1074, x1075, x1076] [x1077, x1078, x1079, x1080, x1081] -> let x1082 = cos x1081 ; x1083 = x1082 * x1082 ; x1084 = x1083 * x1083 ; x1085 = negate (recip x1084) ; x1086 = x1079 * x1078 ; x1087 = x1085 * x1086 ; x1088 = negate (sin x1081) * x1076 ; x1089 = x1082 * x1088 + x1082 * x1088 ; x1090 = x1085 * x1089 ; x1091 = negate (recip (x1084 * x1084)) * ((-1.0) * (x1086 * x1089)) ; x1092 = x1083 * x1091 + x1083 * x1091 + negate (recip (x1083 * x1083)) * (x1078 * x1074) in [x1074, x1079 * x1090 + recip x1083 * x1074, x1078 * x1090, 0, negate (sin x1081) * (x1082 * x1092 + x1082 * x1092 + x1087 * x1088 + x1087 * x1088) + cos x1081 * ((-1.0) * ((x1082 * x1087 + x1082 * x1087) * x1076))]) [x845] [rreplicate 22 x844, v853, v851, rreplicate 22 x847] in let [x858 @Natural @Double @[], v859 @Natural @Double @[22]] = dmapAccumRDer (SNat @22) (\\[x1097] [x1098, x1099, x1100] -> let x1102 = cos x1100 in [x1097 + x1098, recip (x1102 * x1102) * x1097]) (\\[x1120, x1121, x1122, x1123] [x1124, x1125, x1126, x1127] -> let x1128 = cos x1127 ; x1129 = x1128 * x1128 ; x1130 = x1123 * negate (sin x1127) in [x1120 + x1121, ((x1130 * x1128 + x1130 * x1128) * negate (recip (x1129 * x1129))) * x1124 + x1120 * recip x1129]) (\\[x1142, x1143] [x1144, x1145, x1146, x1147] -> let x1148 = cos x1147 ; x1149 = x1148 * x1148 ; x1150 = negate (recip (x1149 * x1149)) * (x1144 * x1143) in [x1142 + recip x1149 * x1143, x1142, 0, negate (sin x1147) * (x1148 * x1150 + x1148 * x1150)]) [0] [v856, v850, rreplicate 22 x847] in [x855, rsum v859 + rsum v857, x858]) [1.0] [v11, rreplicate 11 [1.1]] in [rsum v16 + x15]"
 
 testSin0FoldNestedR0LengthPPs :: Assertion
 testSin0FoldNestedR0LengthPPs = do
@@ -3334,7 +3334,7 @@ testSin0FoldNestedR0LengthPPs = do
     (printAstHVectorSimple
       IM.empty
       (simplifyInlineHVector
-       $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 1.1)))
+       $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1))))
     @?= 2_209
 
 testSin0FoldNestedR1LengthPPs :: Assertion
@@ -3353,7 +3353,7 @@ testSin0FoldNestedR1LengthPPs = do
     (printAstHVectorSimple
       IM.empty
       (simplifyInlineHVector
-       $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 1.1)))
+       $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1))))
     @?= 23_019
 
 testSin0FoldNestedR2LengthPPs :: Assertion
@@ -3374,7 +3374,7 @@ testSin0FoldNestedR2LengthPPs = do
     (printAstHVectorSimple
        IM.empty
        (simplifyInlineHVector
-        $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 1.1)))
+        $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1))))
     @?= 281_404
 
 testSin0FoldNestedR3LengthPPs :: Assertion
@@ -3397,7 +3397,7 @@ testSin0FoldNestedR3LengthPPs = do
     (printAstHVectorSimple
        IM.empty
        (simplifyInlineHVector
-        $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 1.1)))
+        $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1))))
     @?= 4_089_386
 
 -- Takes 45s.
@@ -3423,7 +3423,7 @@ _testSin0FoldNestedR4LengthPPs = do
     (printAstHVectorSimple
        IM.empty
        (simplifyInlineHVector
-        $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 1.1)))
+        $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1))))
     @?= 0
 
 --- Uses 30G in GHC 9.8.1 with -O1 and patchy specialization.
@@ -3451,7 +3451,7 @@ _testSin0FoldNestedR5LengthPPs = do
     (printAstHVectorSimple
        IM.empty
        (simplifyInlineHVector
-        $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 1.1)))
+        $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1))))
     @?= 0
 
 testSin0MapAccumNestedR1PP :: Assertion
@@ -3478,8 +3478,8 @@ testSin0MapAccumNestedR1PP = do
   printAstHVectorPrettyButNested
     IM.empty
     (simplifyInlineHVector
-     $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 1.1))
-    @?= "let [x9 @Natural @Double @[], v10 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) (\\[x22] [x23] -> let [x27 @Natural @Double @[]] = dmapAccumLDer (SNat @2) (\\[x32] [x33] -> [x32 + tan x33]) (\\[x45, x46] [x47, x48] -> let x50 = cos x48 in [x45 + x46 * recip (x50 * x50)]) (\\[x58] [x59, x60] -> let x62 = cos x60 in [x58, recip (x62 * x62) * x58]) [x23] [rreplicate 2 x22] in [x27, x22]) (\\[x67, x68] [x69, x70] -> let [x86 @Natural @Double @[]] = let [x83 @Natural @Double @[], v84 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) (\\[x91] [x92] -> [x91 + tan x92, x91]) (\\[x104, x105] [x106, x107] -> let x118 = cos x107 in [x104 + x105 * recip (x118 * x118), x104]) (\\[x127, x128] [x129, x130] -> let x139 = cos x130 in [x127 + x128, recip (x139 * x139) * x127]) [x70] [rreplicate 2 x69] in let [x85 @Natural @Double @[]] = dmapAccumLDer (SNat @2) (\\[x148] [x149, x150, x151] -> let x154 = cos x151 in [x148 + x149 * recip (x154 * x154)]) (\\[x180, x181, x182, x183] [x184, x185, x186, x187] -> let x191 = cos x187 ; x192 = x191 * x191 ; x193 = x183 * negate (sin x187) in [x180 + x181 * recip x192 + ((x193 * x191 + x193 * x191) * negate (recip (x192 * x192))) * x185]) (\\[x209] [x210, x211, x212, x213] -> let x217 = cos x213 ; x218 = x217 * x217 ; x219 = negate (recip (x218 * x218)) * (x211 * x209) in [x209, recip x218 * x209, 0, negate (sin x213) * (x217 * x219 + x217 * x219)]) [x68] [rreplicate 2 x67, v84, rreplicate 2 x69] in [x85] in [x86, x67]) (\\[x224, x225] [x226, x227] -> let [x246 @Natural @Double @[], x247 @Natural @Double @[]] = let [x242 @Natural @Double @[], v243 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) (\\[x252] [x253] -> [x252 + tan x253, x252]) (\\[x265, x266] [x267, x268] -> let x279 = cos x268 in [x265 + x266 * recip (x279 * x279), x265]) (\\[x288, x289] [x290, x291] -> let x300 = cos x291 in [x288 + x289, recip (x300 * x300) * x288]) [x227] [rreplicate 2 x226] in let [x244 @Natural @Double @[], v245 @Natural @Double @[2]] = dmapAccumRDer (SNat @2) (\\[x307] [x308, x309] -> let x312 = cos x309 in [x307, recip (x312 * x312) * x307]) (\\[x333, x334, x335] [x336, x337, x338] -> let x342 = cos x338 ; x343 = x342 * x342 ; x344 = x335 * negate (sin x338) in [x333, ((x344 * x342 + x344 * x342) * negate (recip (x343 * x343))) * x336 + x333 * recip x343]) (\\[x360, x361] [x362, x363, x364] -> let x368 = cos x364 ; x369 = x368 * x368 ; x370 = negate (recip (x369 * x369)) * (x362 * x361) in [recip x369 * x361 + x360, 0, negate (sin x364) * (x368 * x370 + x368 * x370)]) [x224] [v243, rreplicate 2 x226] in [rsum v245, x244] in [x246 + x225, x247]) [1.1] [rreplicate 2 1.1] in let [x14 @Natural @Double @[], v15 @Natural @Double @[2]] = dmapAccumRDer (SNat @2) (\\[x374] [x375, x376] -> let [x381 @Natural @Double @[], v382 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) (\\[x387] [x388] -> [x387 + tan x388, x387]) (\\[x393, x394] [x395, x396] -> let x398 = cos x396 in [x393 + x394 * recip (x398 * x398), x393]) (\\[x403, x404] [x405, x406] -> let x408 = cos x406 in [x403 + x404, recip (x408 * x408) * x403]) [x376] [rreplicate 2 x375] in let [x383 @Natural @Double @[], v384 @Natural @Double @[2]] = dmapAccumRDer (SNat @2) (\\[x412] [x413, x414] -> let x416 = cos x414 in [x412, recip (x416 * x416) * x412]) (\\[x423, x424, x425] [x426, x427, x428] -> let x432 = cos x428 ; x433 = x432 * x432 ; x434 = x425 * negate (sin x428) in [x423, ((x434 * x432 + x434 * x432) * negate (recip (x433 * x433))) * x426 + x423 * recip x433]) (\\[x440, x441] [x442, x443, x444] -> let x448 = cos x444 ; x449 = x448 * x448 ; x450 = negate (recip (x449 * x449)) * (x442 * x441) in [recip x449 * x441 + x440, 0, negate (sin x444) * (x448 * x450 + x448 * x450)]) [x374] [v382, rreplicate 2 x375] in [rsum v384, x383]) (\\[x475, x476, x477] [x478, x479, x480] -> let [x481 @Natural @Double @[], v482 @Natural @Double @[2], v483 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) (\\[x493] [x494] -> [x493 + tan x494, x493, x493]) (\\[x503, x504] [x505, x506] -> let x515 = cos x506 in [x503 + x504 * recip (x515 * x515), x503, x503]) (\\[x521, x522, x523] [x524, x525] -> let x534 = cos x525 in [x522 + x521 + x523, recip (x534 * x534) * x521]) [x480] [rreplicate 2 x479] in let [x484 @Natural @Double @[], v485 @Natural @Double @[2], v486 @Natural @Double @[2]] = dmapAccumRDer (SNat @2) (\\[x538] [x539, x540] -> let x548 = cos x540 in [x538, x538, recip (x548 * x548) * x538]) (\\[x555, x556, x557] [x558, x559, x560] -> let x575 = cos x560 ; x576 = x575 * x575 ; x577 = x557 * negate (sin x560) in [x555, x555, ((x577 * x575 + x577 * x575) * negate (recip (x576 * x576))) * x558 + x555 * recip x576]) (\\[x584, x585, x586] [x587, x588, x589] -> let x604 = cos x589 ; x605 = x604 * x604 ; x606 = negate (recip (x605 * x605)) * (x587 * x586) in [x585 + recip x605 * x586 + x584, 0.0, negate (sin x589) * (x604 * x606 + x604 * x606)]) [x478] [v483, rreplicate 2 x479] in let [x487 @Natural @Double @[], v488 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) (\\[x611] [x612, x613, x614] -> let x616 = cos x614 in [x611 + x612 * recip (x616 * x616), x611]) (\\[x634, x635, x636, x637] [x638, x639, x640, x641] -> let x642 = cos x641 ; x643 = x642 * x642 ; x644 = x637 * negate (sin x641) in [x634 + x635 * recip x643 + ((x644 * x642 + x644 * x642) * negate (recip (x643 * x643))) * x639, x634]) (\\[x656, x657] [x658, x659, x660, x661] -> let x662 = cos x661 ; x663 = x662 * x662 ; x664 = negate (recip (x663 * x663)) * (x659 * x656) in [x656 + x657, recip x663 * x656, 0, negate (sin x661) * (x662 * x664 + x662 * x664)]) [x477] [rreplicate 2 x476, v482, rreplicate 2 x479] in let [x489 @Natural @Double @[], v490 @Natural @Double @[2]] = dmapAccumRDer (SNat @2) (\\[x671] [x672, x673, x674, x675, x676] -> let x680 = cos x676 ; x681 = x680 * x680 ; x682 = x673 * negate (sin x676) in [x671, ((x682 * x680 + x682 * x680) * negate (recip (x681 * x681))) * x674 + x671 * recip x681]) (\\[x723, x724, x725, x726, x727, x728] [x729, x730, x731, x732, x733, x734] -> let x735 = cos x734 ; x736 = x735 * x735 ; x737 = negate (sin x734) ; x738 = x731 * x737 ; x739 = x736 * x736 ; x740 = x738 * x735 + x738 * x735 ; x741 = negate (recip x739) ; x742 = x725 * x737 + ((x728 * cos x734) * -1.0) * x731 ; x743 = x728 * negate (sin x734) ; x744 = x743 * x735 + x743 * x735 in [x723, ((x742 * x735 + x743 * x738 + x742 * x735 + x743 * x738) * x741 + (((x744 * x736 + x744 * x736) * negate (recip (x739 * x739))) * -1.0) * x740) * x732 + x726 * (x740 * x741) + x723 * recip x736 + (x744 * negate (recip (x736 * x736))) * x729]) (\\[x770, x771] [x772, x773, x774, x775, x776, x777] -> let x778 = cos x777 ; x779 = x778 * x778 ; x780 = negate (sin x777) ; x781 = x774 * x780 ; x782 = x779 * x779 ; x783 = x781 * x778 + x781 * x778 ; x784 = negate (recip x782) ; x785 = x775 * x771 ; x786 = negate (recip (x782 * x782)) * (-1.0 * (x783 * x785)) ; x787 = x784 * x785 ; x788 = x778 * x787 + x778 * x787 ; x789 = x779 * x786 + x779 * x786 + negate (recip (x779 * x779)) * (x772 * x771) in [recip x779 * x771 + x770, 0, x780 * x788, (x783 * x784) * x771, 0, negate (sin x777) * (x778 * x789 + x778 * x789 + x781 * x787 + x781 * x787) + cos x777 * (-1.0 * (x774 * x788))]) [x475] [v488, rreplicate 2 x476, v485, v483, rreplicate 2 x479] in [rsum v490, x489]) (\\[x813, x814] [x815, x816, x817] -> let [x818 @Natural @Double @[], v819 @Natural @Double @[2], v820 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) (\\[x831] [x832] -> [x831 + tan x832, x831, x831]) (\\[x841, x842] [x843, x844] -> let x853 = cos x844 in [x841 + x842 * recip (x853 * x853), x841, x841]) (\\[x859, x860, x861] [x862, x863] -> let x872 = cos x863 in [x860 + x859 + x861, recip (x872 * x872) * x859]) [x817] [rreplicate 2 x816] in let [x821 @Natural @Double @[], v822 @Natural @Double @[2], v823 @Natural @Double @[2]] = dmapAccumRDer (SNat @2) (\\[x876] [x877, x878] -> let x886 = cos x878 in [x876, x876, recip (x886 * x886) * x876]) (\\[x893, x894, x895] [x896, x897, x898] -> let x913 = cos x898 ; x914 = x913 * x913 ; x915 = x895 * negate (sin x898) in [x893, x893, ((x915 * x913 + x915 * x913) * negate (recip (x914 * x914))) * x896 + x893 * recip x914]) (\\[x922, x923, x924] [x925, x926, x927] -> let x942 = cos x927 ; x943 = x942 * x942 ; x944 = negate (recip (x943 * x943)) * (x925 * x924) in [x923 + recip x943 * x924 + x922, 0.0, negate (sin x927) * (x942 * x944 + x942 * x944)]) [x815] [v820, rreplicate 2 x816] in let [x824 @Natural @Double @[], v825 @Natural @Double @[2], v826 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) (\\[x950] [x951, x952, x953, x954] -> let x958 = cos x954 ; x959 = x958 * x958 ; x960 = negate (recip (x959 * x959)) * (x952 * x951) in [recip x959 * x951 + x950, 0, negate (sin x954) * (x958 * x960 + x958 * x960)]) (\\[x999, x1000, x1001, x1002, x1003] [x1004, x1005, x1006, x1007, x1008] -> let x1009 = cos x1008 ; x1010 = x1009 * x1009 ; x1011 = x1010 * x1010 ; x1012 = negate (recip x1011) ; x1013 = x1006 * x1005 ; x1014 = x1012 * x1013 ; x1015 = x1003 * negate (sin x1008) ; x1016 = x1015 * x1009 + x1015 * x1009 ; x1017 = (((x1016 * x1010 + x1016 * x1010) * negate (recip (x1011 * x1011))) * -1.0) * x1013 + (x1001 * x1005 + x1000 * x1006) * x1012 in [x999 + (x1016 * negate (recip (x1010 * x1010))) * x1005 + x1000 * recip x1010, 0.0, ((x1003 * cos x1008) * -1.0) * (x1009 * x1014 + x1009 * x1014) + (x1015 * x1014 + x1017 * x1009 + x1015 * x1014 + x1017 * x1009) * negate (sin x1008)]) (\\[x1043, x1044, x1045] [x1046, x1047, x1048, x1049, x1050] -> let x1051 = cos x1050 ; x1052 = x1051 * x1051 ; x1053 = x1052 * x1052 ; x1054 = negate (recip x1053) ; x1055 = x1048 * x1047 ; x1056 = x1054 * x1055 ; x1057 = negate (sin x1050) * x1045 ; x1058 = x1051 * x1057 + x1051 * x1057 ; x1059 = x1054 * x1058 ; x1060 = negate (recip (x1053 * x1053)) * (-1.0 * (x1055 * x1058)) ; x1061 = x1052 * x1060 + x1052 * x1060 + negate (recip (x1052 * x1052)) * (x1047 * x1043) in [x1043, x1048 * x1059 + recip x1052 * x1043, x1047 * x1059, 0, negate (sin x1050) * (x1051 * x1061 + x1051 * x1061 + x1056 * x1057 + x1056 * x1057) + cos x1050 * (-1.0 * ((x1051 * x1056 + x1051 * x1056) * x1045))]) [x814] [rreplicate 2 x813, v822, v820, rreplicate 2 x816] in let [x827 @Natural @Double @[], v828 @Natural @Double @[2]] = dmapAccumRDer (SNat @2) (\\[x1066] [x1067, x1068, x1069] -> let x1071 = cos x1069 in [x1066 + x1067, recip (x1071 * x1071) * x1066]) (\\[x1089, x1090, x1091, x1092] [x1093, x1094, x1095, x1096] -> let x1097 = cos x1096 ; x1098 = x1097 * x1097 ; x1099 = x1092 * negate (sin x1096) in [x1089 + x1090, ((x1099 * x1097 + x1099 * x1097) * negate (recip (x1098 * x1098))) * x1093 + x1089 * recip x1098]) (\\[x1111, x1112] [x1113, x1114, x1115, x1116] -> let x1117 = cos x1116 ; x1118 = x1117 * x1117 ; x1119 = negate (recip (x1118 * x1118)) * (x1113 * x1112) in [x1111 + recip x1118 * x1112, x1111, 0, negate (sin x1116) * (x1117 * x1119 + x1117 * x1119)]) [0] [v825, v819, rreplicate 2 x816] in [x824, rsum v828 + rsum v826, x827]) [1.0] [v10, rreplicate 2 1.1] in [rsum v15 + x14]"
+     $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1)))
+    @?= "let [x9 @Natural @Double @[], v10 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) (\\[x22] [x23] -> let [x27 @Natural @Double @[]] = dmapAccumLDer (SNat @2) (\\[x32] [x33] -> [x32 + tan x33]) (\\[x45, x46] [x47, x48] -> let x50 = cos x48 in [x45 + x46 * recip (x50 * x50)]) (\\[x58] [x59, x60] -> let x62 = cos x60 in [x58, recip (x62 * x62) * x58]) [x23] [rreplicate 2 x22] in [x27, x22]) (\\[x67, x68] [x69, x70] -> let [x86 @Natural @Double @[]] = let [x83 @Natural @Double @[], v84 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) (\\[x91] [x92] -> [x91 + tan x92, x91]) (\\[x104, x105] [x106, x107] -> let x118 = cos x107 in [x104 + x105 * recip (x118 * x118), x104]) (\\[x127, x128] [x129, x130] -> let x139 = cos x130 in [x127 + x128, recip (x139 * x139) * x127]) [x70] [rreplicate 2 x69] in let [x85 @Natural @Double @[]] = dmapAccumLDer (SNat @2) (\\[x148] [x149, x150, x151] -> let x154 = cos x151 in [x148 + x149 * recip (x154 * x154)]) (\\[x180, x181, x182, x183] [x184, x185, x186, x187] -> let x191 = cos x187 ; x192 = x191 * x191 ; x193 = x183 * negate (sin x187) in [x180 + x181 * recip x192 + ((x193 * x191 + x193 * x191) * negate (recip (x192 * x192))) * x185]) (\\[x209] [x210, x211, x212, x213] -> let x217 = cos x213 ; x218 = x217 * x217 ; x219 = negate (recip (x218 * x218)) * (x211 * x209) in [x209, recip x218 * x209, 0, negate (sin x213) * (x217 * x219 + x217 * x219)]) [x68] [rreplicate 2 x67, v84, rreplicate 2 x69] in [x85] in [x86, x67]) (\\[x224, x225] [x226, x227] -> let [x246 @Natural @Double @[], x247 @Natural @Double @[]] = let [x242 @Natural @Double @[], v243 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) (\\[x252] [x253] -> [x252 + tan x253, x252]) (\\[x265, x266] [x267, x268] -> let x279 = cos x268 in [x265 + x266 * recip (x279 * x279), x265]) (\\[x288, x289] [x290, x291] -> let x300 = cos x291 in [x288 + x289, recip (x300 * x300) * x288]) [x227] [rreplicate 2 x226] in let [x244 @Natural @Double @[], v245 @Natural @Double @[2]] = dmapAccumRDer (SNat @2) (\\[x307] [x308, x309] -> let x312 = cos x309 in [x307, recip (x312 * x312) * x307]) (\\[x333, x334, x335] [x336, x337, x338] -> let x342 = cos x338 ; x343 = x342 * x342 ; x344 = x335 * negate (sin x338) in [x333, ((x344 * x342 + x344 * x342) * negate (recip (x343 * x343))) * x336 + x333 * recip x343]) (\\[x360, x361] [x362, x363, x364] -> let x368 = cos x364 ; x369 = x368 * x368 ; x370 = negate (recip (x369 * x369)) * (x362 * x361) in [recip x369 * x361 + x360, 0, negate (sin x364) * (x368 * x370 + x368 * x370)]) [x224] [v243, rreplicate 2 x226] in [rsum v245, x244] in [x246 + x225, x247]) [[1.1]] [rreplicate 2 [1.1]] in let [x14 @Natural @Double @[], v15 @Natural @Double @[2]] = dmapAccumRDer (SNat @2) (\\[x374] [x375, x376] -> let [x381 @Natural @Double @[], v382 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) (\\[x387] [x388] -> [x387 + tan x388, x387]) (\\[x393, x394] [x395, x396] -> let x398 = cos x396 in [x393 + x394 * recip (x398 * x398), x393]) (\\[x403, x404] [x405, x406] -> let x408 = cos x406 in [x403 + x404, recip (x408 * x408) * x403]) [x376] [rreplicate 2 x375] in let [x383 @Natural @Double @[], v384 @Natural @Double @[2]] = dmapAccumRDer (SNat @2) (\\[x412] [x413, x414] -> let x416 = cos x414 in [x412, recip (x416 * x416) * x412]) (\\[x423, x424, x425] [x426, x427, x428] -> let x432 = cos x428 ; x433 = x432 * x432 ; x434 = x425 * negate (sin x428) in [x423, ((x434 * x432 + x434 * x432) * negate (recip (x433 * x433))) * x426 + x423 * recip x433]) (\\[x440, x441] [x442, x443, x444] -> let x448 = cos x444 ; x449 = x448 * x448 ; x450 = negate (recip (x449 * x449)) * (x442 * x441) in [recip x449 * x441 + x440, 0, negate (sin x444) * (x448 * x450 + x448 * x450)]) [x374] [v382, rreplicate 2 x375] in [rsum v384, x383]) (\\[x475, x476, x477] [x478, x479, x480] -> let [x481 @Natural @Double @[], v482 @Natural @Double @[2], v483 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) (\\[x493] [x494] -> [x493 + tan x494, x493, x493]) (\\[x503, x504] [x505, x506] -> let x515 = cos x506 in [x503 + x504 * recip (x515 * x515), x503, x503]) (\\[x521, x522, x523] [x524, x525] -> let x534 = cos x525 in [x522 + x521 + x523, recip (x534 * x534) * x521]) [x480] [rreplicate 2 x479] in let [x484 @Natural @Double @[], v485 @Natural @Double @[2], v486 @Natural @Double @[2]] = dmapAccumRDer (SNat @2) (\\[x538] [x539, x540] -> let x548 = cos x540 in [x538, x538, recip (x548 * x548) * x538]) (\\[x555, x556, x557] [x558, x559, x560] -> let x575 = cos x560 ; x576 = x575 * x575 ; x577 = x557 * negate (sin x560) in [x555, x555, ((x577 * x575 + x577 * x575) * negate (recip (x576 * x576))) * x558 + x555 * recip x576]) (\\[x584, x585, x586] [x587, x588, x589] -> let x604 = cos x589 ; x605 = x604 * x604 ; x606 = negate (recip (x605 * x605)) * (x587 * x586) in [x585 + recip x605 * x586 + x584, 0.0, negate (sin x589) * (x604 * x606 + x604 * x606)]) [x478] [v483, rreplicate 2 x479] in let [x487 @Natural @Double @[], v488 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) (\\[x611] [x612, x613, x614] -> let x616 = cos x614 in [x611 + x612 * recip (x616 * x616), x611]) (\\[x634, x635, x636, x637] [x638, x639, x640, x641] -> let x642 = cos x641 ; x643 = x642 * x642 ; x644 = x637 * negate (sin x641) in [x634 + x635 * recip x643 + ((x644 * x642 + x644 * x642) * negate (recip (x643 * x643))) * x639, x634]) (\\[x656, x657] [x658, x659, x660, x661] -> let x662 = cos x661 ; x663 = x662 * x662 ; x664 = negate (recip (x663 * x663)) * (x659 * x656) in [x656 + x657, recip x663 * x656, 0, negate (sin x661) * (x662 * x664 + x662 * x664)]) [x477] [rreplicate 2 x476, v482, rreplicate 2 x479] in let [x489 @Natural @Double @[], v490 @Natural @Double @[2]] = dmapAccumRDer (SNat @2) (\\[x671] [x672, x673, x674, x675, x676] -> let x680 = cos x676 ; x681 = x680 * x680 ; x682 = x673 * negate (sin x676) in [x671, ((x682 * x680 + x682 * x680) * negate (recip (x681 * x681))) * x674 + x671 * recip x681]) (\\[x723, x724, x725, x726, x727, x728] [x729, x730, x731, x732, x733, x734] -> let x735 = cos x734 ; x736 = x735 * x735 ; x737 = negate (sin x734) ; x738 = x731 * x737 ; x739 = x736 * x736 ; x740 = x738 * x735 + x738 * x735 ; x741 = negate (recip x739) ; x742 = x725 * x737 + ((x728 * cos x734) * (-1.0)) * x731 ; x743 = x728 * negate (sin x734) ; x744 = x743 * x735 + x743 * x735 in [x723, ((x742 * x735 + x743 * x738 + x742 * x735 + x743 * x738) * x741 + (((x744 * x736 + x744 * x736) * negate (recip (x739 * x739))) * (-1.0)) * x740) * x732 + x726 * (x740 * x741) + x723 * recip x736 + (x744 * negate (recip (x736 * x736))) * x729]) (\\[x770, x771] [x772, x773, x774, x775, x776, x777] -> let x778 = cos x777 ; x779 = x778 * x778 ; x780 = negate (sin x777) ; x781 = x774 * x780 ; x782 = x779 * x779 ; x783 = x781 * x778 + x781 * x778 ; x784 = negate (recip x782) ; x785 = x775 * x771 ; x786 = negate (recip (x782 * x782)) * ((-1.0) * (x783 * x785)) ; x787 = x784 * x785 ; x788 = x778 * x787 + x778 * x787 ; x789 = x779 * x786 + x779 * x786 + negate (recip (x779 * x779)) * (x772 * x771) in [recip x779 * x771 + x770, 0, x780 * x788, (x783 * x784) * x771, 0, negate (sin x777) * (x778 * x789 + x778 * x789 + x781 * x787 + x781 * x787) + cos x777 * ((-1.0) * (x774 * x788))]) [x475] [v488, rreplicate 2 x476, v485, v483, rreplicate 2 x479] in [rsum v490, x489]) (\\[x813, x814] [x815, x816, x817] -> let [x818 @Natural @Double @[], v819 @Natural @Double @[2], v820 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) (\\[x831] [x832] -> [x831 + tan x832, x831, x831]) (\\[x841, x842] [x843, x844] -> let x853 = cos x844 in [x841 + x842 * recip (x853 * x853), x841, x841]) (\\[x859, x860, x861] [x862, x863] -> let x872 = cos x863 in [x860 + x859 + x861, recip (x872 * x872) * x859]) [x817] [rreplicate 2 x816] in let [x821 @Natural @Double @[], v822 @Natural @Double @[2], v823 @Natural @Double @[2]] = dmapAccumRDer (SNat @2) (\\[x876] [x877, x878] -> let x886 = cos x878 in [x876, x876, recip (x886 * x886) * x876]) (\\[x893, x894, x895] [x896, x897, x898] -> let x913 = cos x898 ; x914 = x913 * x913 ; x915 = x895 * negate (sin x898) in [x893, x893, ((x915 * x913 + x915 * x913) * negate (recip (x914 * x914))) * x896 + x893 * recip x914]) (\\[x922, x923, x924] [x925, x926, x927] -> let x942 = cos x927 ; x943 = x942 * x942 ; x944 = negate (recip (x943 * x943)) * (x925 * x924) in [x923 + recip x943 * x924 + x922, 0.0, negate (sin x927) * (x942 * x944 + x942 * x944)]) [x815] [v820, rreplicate 2 x816] in let [x824 @Natural @Double @[], v825 @Natural @Double @[2], v826 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) (\\[x950] [x951, x952, x953, x954] -> let x958 = cos x954 ; x959 = x958 * x958 ; x960 = negate (recip (x959 * x959)) * (x952 * x951) in [recip x959 * x951 + x950, 0, negate (sin x954) * (x958 * x960 + x958 * x960)]) (\\[x999, x1000, x1001, x1002, x1003] [x1004, x1005, x1006, x1007, x1008] -> let x1009 = cos x1008 ; x1010 = x1009 * x1009 ; x1011 = x1010 * x1010 ; x1012 = negate (recip x1011) ; x1013 = x1006 * x1005 ; x1014 = x1012 * x1013 ; x1015 = x1003 * negate (sin x1008) ; x1016 = x1015 * x1009 + x1015 * x1009 ; x1017 = (((x1016 * x1010 + x1016 * x1010) * negate (recip (x1011 * x1011))) * (-1.0)) * x1013 + (x1001 * x1005 + x1000 * x1006) * x1012 in [x999 + (x1016 * negate (recip (x1010 * x1010))) * x1005 + x1000 * recip x1010, 0.0, ((x1003 * cos x1008) * (-1.0)) * (x1009 * x1014 + x1009 * x1014) + (x1015 * x1014 + x1017 * x1009 + x1015 * x1014 + x1017 * x1009) * negate (sin x1008)]) (\\[x1043, x1044, x1045] [x1046, x1047, x1048, x1049, x1050] -> let x1051 = cos x1050 ; x1052 = x1051 * x1051 ; x1053 = x1052 * x1052 ; x1054 = negate (recip x1053) ; x1055 = x1048 * x1047 ; x1056 = x1054 * x1055 ; x1057 = negate (sin x1050) * x1045 ; x1058 = x1051 * x1057 + x1051 * x1057 ; x1059 = x1054 * x1058 ; x1060 = negate (recip (x1053 * x1053)) * ((-1.0) * (x1055 * x1058)) ; x1061 = x1052 * x1060 + x1052 * x1060 + negate (recip (x1052 * x1052)) * (x1047 * x1043) in [x1043, x1048 * x1059 + recip x1052 * x1043, x1047 * x1059, 0, negate (sin x1050) * (x1051 * x1061 + x1051 * x1061 + x1056 * x1057 + x1056 * x1057) + cos x1050 * ((-1.0) * ((x1051 * x1056 + x1051 * x1056) * x1045))]) [x814] [rreplicate 2 x813, v822, v820, rreplicate 2 x816] in let [x827 @Natural @Double @[], v828 @Natural @Double @[2]] = dmapAccumRDer (SNat @2) (\\[x1066] [x1067, x1068, x1069] -> let x1071 = cos x1069 in [x1066 + x1067, recip (x1071 * x1071) * x1066]) (\\[x1089, x1090, x1091, x1092] [x1093, x1094, x1095, x1096] -> let x1097 = cos x1096 ; x1098 = x1097 * x1097 ; x1099 = x1092 * negate (sin x1096) in [x1089 + x1090, ((x1099 * x1097 + x1099 * x1097) * negate (recip (x1098 * x1098))) * x1093 + x1089 * recip x1098]) (\\[x1111, x1112] [x1113, x1114, x1115, x1116] -> let x1117 = cos x1116 ; x1118 = x1117 * x1117 ; x1119 = negate (recip (x1118 * x1118)) * (x1113 * x1112) in [x1111 + recip x1118 * x1112, x1111, 0, negate (sin x1116) * (x1117 * x1119 + x1117 * x1119)]) [0] [v825, v819, rreplicate 2 x816] in [x824, rsum v828 + rsum v826, x827]) [1.0] [v10, rreplicate 2 [1.1]] in [rsum v15 + x14]"
 
 testSin0MapAccumNestedR3LengthPP :: Assertion
 testSin0MapAccumNestedR3LengthPP = do
@@ -3512,7 +3512,7 @@ testSin0MapAccumNestedR3LengthPP = do
     (printAstHVectorSimple
        IM.empty
        (simplifyInlineHVector
-        $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 1.1)))
+        $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1))))
     @?= 4092691
 
 testSin0MapAccumNestedR4 :: Assertion
@@ -3537,7 +3537,7 @@ testSin0MapAccumNestedR4 = do
                            (\x5 a5 -> let y = rfromD @Double @0 $ x5 V.! 0
                                           w = rfromD @Double @0 $ a5 V.! 0
                                       in dmkHVector $ V.singleton
-                                         $ DynamicRanked $ 0.01 * y + tan w)
+                                         $ DynamicRanked $ rscalar 0.01 * y + tan w)
                            (dmkHVector a4) (mkreplicate1HVector (SNat @2) x4))
                          (dmkHVector a3) (mkreplicate1HVector (SNat @2) x3))
                        (dmkHVector a2) (mkreplicate1HVector (SNat @2) x2))
@@ -3584,7 +3584,7 @@ _testSin0MapAccumNestedR5 = do
 testSin0MapAccumNestedR5r :: Assertion
 testSin0MapAccumNestedR5r = do
  assertEqualUpToEpsilon 1e-10
-  (1.0837278549794862 :: ORArray Double 0)
+  (rscalar 1.0837278549794862 :: ORArray Double 0)
   (rev @_ @_ @(AstRanked FullSpan)
    (let
       sh1 = voidFromSh @Double ZSR
@@ -3605,7 +3605,7 @@ testSin0MapAccumNestedR5r = do
                              (\x6 a6 -> let y = rfromD @Double @0 $ x6 V.! 0
                                             w = rfromD @Double @0 $ a6 V.! 0
                                         in dmkHVector $ V.singleton
-                                           $ DynamicRanked $ 0.01 * y + tan w)
+                                           $ DynamicRanked $ rscalar 0.01 * y + tan w)
                              (dmkHVector a5) (mkreplicate1HVector (SNat @2) x5))
                            (dmkHVector a4) (mkreplicate1HVector (SNat @2) x4))
                          (dmkHVector a3) (mkreplicate1HVector (SNat @2) x3))
@@ -3613,12 +3613,12 @@ testSin0MapAccumNestedR5r = do
                      (dmkHVector a) (mkreplicate1HVector (SNat @2) x))
                    (dmkHVector $ V.singleton $ DynamicRanked z)
                    (dmkHVector $ V.singleton $ DynamicRanked $ rreplicate 2 z)
-    in f) 0.0001)
+    in f) (rscalar 0.0001))
 
 testSin0MapAccumNestedR10r :: Assertion
 testSin0MapAccumNestedR10r = do
  assertEqualUpToEpsilon 1e-10
-  (1.379370673816781 :: ORArray Double 0)
+  (rscalar 1.379370673816781 :: ORArray Double 0)
   (rev @_ @_ @(AstRanked FullSpan)
    (let
       sh1 = voidFromSh @Double ZSR
@@ -3651,7 +3651,7 @@ testSin0MapAccumNestedR10r = do
                                               w = rfromD @Double @0 $ a11 V.! 0
                                           in dmkHVector $ V.singleton
                                              $ DynamicRanked
-                                             $ 0.01 * y + tan w)
+                                             $ rscalar 0.01 * y + tan w)
                                        (dmkHVector a10) (mkreplicate1HVector (SNat @2) x10))
                                      (dmkHVector a9) (mkreplicate1HVector (SNat @2) x9))
                                    (dmkHVector a8) (mkreplicate1HVector (SNat @2) x8))
@@ -3664,12 +3664,12 @@ testSin0MapAccumNestedR10r = do
                      (dmkHVector a) (mkreplicate1HVector (SNat @2) x))
                    (dmkHVector $ V.singleton $ DynamicRanked z)
                    (dmkHVector $ V.singleton $ DynamicRanked $ rreplicate 2 z)
-    in f) 0.0001)
+    in f) (rscalar 0.0001))
 
 testSin0MapAccumNestedR10f :: Assertion
 testSin0MapAccumNestedR10f = do
  assertEqualUpToEpsilon 1e-10
-  (1.379370673816781e-4 :: ORArray Double 0)
+  (rscalar 1.379370673816781e-4 :: ORArray Double 0)
   (fwd @(AstRanked FullSpan Double 0)
    (let
       sh1 = voidFromSh @Double ZSR
@@ -3702,7 +3702,7 @@ testSin0MapAccumNestedR10f = do
                                               w = rfromD @Double @0 $ a11 V.! 0
                                           in dmkHVector $ V.singleton
                                              $ DynamicRanked
-                                             $ 0.01 * y + tan w)
+                                             $ rscalar 0.01 * y + tan w)
                                        (dmkHVector a10) (mkreplicate1HVector (SNat @2) x10))
                                      (dmkHVector a9) (mkreplicate1HVector (SNat @2) x9))
                                    (dmkHVector a8) (mkreplicate1HVector (SNat @2) x8))
@@ -3715,13 +3715,13 @@ testSin0MapAccumNestedR10f = do
                      (dmkHVector a) (mkreplicate1HVector (SNat @2) x))
                    (dmkHVector $ V.singleton $ DynamicRanked z)
                    (dmkHVector $ V.singleton $ DynamicRanked $ rreplicate 2 z)
-    in f) 0.0001 0.0001)
+    in f) (rscalar 0.0001) (rscalar 0.0001))
 
 testSin0MapAccumNestedR10fN :: Assertion
 testSin0MapAccumNestedR10fN = do
  assertEqualUpToEpsilon 1e-10
   ( srepl 1.379370673816781e-4 :: OSArray Float '[1]
-  , 1.379370673816781e-4 :: ORArray Double 0)
+  , rscalar 1.379370673816781e-4 :: ORArray Double 0)
   (fwd @(AstShaped FullSpan Float '[1], AstRanked FullSpan Double 0)
    (let
       sh1 = voidFromSh @Double ZSR
@@ -3754,7 +3754,7 @@ testSin0MapAccumNestedR10fN = do
                                               w = rfromD @Double @0 $ a11 V.! 0
                                           in dmkHVector $ V.singleton
                                              $ DynamicRanked
-                                             $ 0.01 * y + tan w)
+                                             $ rscalar  0.01 * y + tan w)
                                        (dmkHVector a10) (mkreplicate1HVector (SNat @2) x10))
                                      (dmkHVector a9) (mkreplicate1HVector (SNat @2) x9))
                                    (dmkHVector a8) (mkreplicate1HVector (SNat @2) x8))
@@ -3769,13 +3769,13 @@ testSin0MapAccumNestedR10fN = do
                    (dmkHVector $ V.singleton $ DynamicRanked $ rreplicate 2 z)
       f :: forall f. ADReady f => f Double 0
         -> (ShapedOf f Float '[1], f Double 0)
-      f x = (sfromList [scast $ sfromR $ g x], g x + 0.2)
-    in f) 0.0001 0.0001)
+      f x = (sfromList [scast $ sfromR $ g x], g x + rscalar  0.2)
+    in f) (rscalar 0.0001) (rscalar 0.0001))
 
 testSin0MapAccumNestedR10rf :: Assertion
 testSin0MapAccumNestedR10rf = do
  assertEqualUpToEpsilon 1e-10
-  (1.2264611684496617e-2 :: ORArray Double 0)
+  (rscalar 1.2264611684496617e-2 :: ORArray Double 0)
   (rev @_ @_ @(AstRanked FullSpan)
    (let
       sh1 = voidFromSh @Double ZSR
@@ -3808,7 +3808,7 @@ testSin0MapAccumNestedR10rf = do
                                               w = rfromD @Double @0 $ a11 V.! 0
                                           in dmkHVector $ V.singleton
                                              $ DynamicRanked
-                                             $ 0.01 * y + tan w)
+                                             $ rscalar 0.01 * y + tan w)
                                        (dmkHVector a10) (mkreplicate1HVector (SNat @2) x10))
                                      (dmkHVector a9) (mkreplicate1HVector (SNat @2) x9))
                                    (dmkHVector a8) (mkreplicate1HVector (SNat @2) x8))
@@ -3821,12 +3821,12 @@ testSin0MapAccumNestedR10rf = do
                      (dmkHVector a) (mkreplicate1HVector (SNat @2) x))
                    (dmkHVector $ V.singleton $ DynamicRanked z)
                    (dmkHVector $ V.singleton $ DynamicRanked $ rreplicate 2 z)
-    in rfwd1 f) 0.0001)
+    in rfwd1 f) (rscalar 0.0001))
 
 testSin0MapAccumNestedR10rr :: Assertion
 testSin0MapAccumNestedR10rr = do
  assertEqualUpToEpsilon 1e-10
-  (1.2264611684496617e-2 :: ORArray Double 0)
+  (rscalar 1.2264611684496617e-2 :: ORArray Double 0)
   (rev @_ @_ @(AstRanked FullSpan)
    (let
       sh1 = voidFromSh @Double ZSR
@@ -3859,7 +3859,7 @@ testSin0MapAccumNestedR10rr = do
                                               w = rfromD @Double @0 $ a11 V.! 0
                                           in dmkHVector $ V.singleton
                                              $ DynamicRanked
-                                             $ 0.01 * y + tan w)
+                                             $ rscalar 0.01 * y + tan w)
                                        (dmkHVector a10) (mkreplicate1HVector (SNat @2) x10))
                                      (dmkHVector a9) (mkreplicate1HVector (SNat @2) x9))
                                    (dmkHVector a8) (mkreplicate1HVector (SNat @2) x8))
@@ -3872,7 +3872,7 @@ testSin0MapAccumNestedR10rr = do
                      (dmkHVector a) (mkreplicate1HVector (SNat @2) x))
                    (dmkHVector $ V.singleton $ DynamicRanked z)
                    (dmkHVector $ V.singleton $ DynamicRanked $ rreplicate 2 z)
-    in rrev1 f) 0.0001)
+    in rrev1 f) (rscalar 0.0001))
 
 testSin0FoldNestedS1FwdFwd0 :: Assertion
 testSin0FoldNestedS1FwdFwd0 = do
@@ -4041,7 +4041,7 @@ testSin0FoldNestedR1 = do
     (2.0504979297616553e-43 :: OR.Array 0 Double)
     (rev' (let f :: forall f. ADReady f => f Double 0 -> f Double 0
                f a0 = rfold (\x a ->
-                        rfold (\x2 a2 -> 0.7 * x2 * a2)
+                        rfold (\x2 a2 -> rscalar 0.7 * x2 * a2)
                               a (rreplicate 7 x))
                             a0 (rreplicate 3 a0)
            in f) 1.1)
@@ -4053,7 +4053,7 @@ testSin0FoldNestedR1RevFwd = do
     (rev' (let f :: forall f. ADReady f => f Double 0 -> f Double 0
                f a0 = rfold (\x a ->
                         rfold (\x2 a2 ->
-                                 x2 * rfwd1 (rrev1 (\b2 -> 0.7 * b2)) a2)
+                                 x2 * rfwd1 (rrev1 (\b2 -> rscalar 0.7 * b2)) a2)
                               a (rreplicate 4 x))
                             a0 (rreplicate 2 a0)
            in rrev1 $ rfwd1 f) 1.1)
@@ -4065,7 +4065,7 @@ testSin0FoldNestedR2 = do
     (rev' (let f :: forall f. ADReady f => f Double 0 -> f Double 0
                f a0 = rfold (\x a ->
                         rfold (\x2 a2 ->
-                          rfold (\x3 a3 -> 0.7 * x3 * a3)
+                          rfold (\x3 a3 -> rscalar 0.7 * x3 * a3)
                                 a2 (rreplicate 4 x2))
                               a (rreplicate 3 x))
                             a0 (rreplicate 2 a0)
@@ -4080,7 +4080,7 @@ testSin0FoldNestedR2RevFwd = do
                         rfold (\x2 a2 ->
                           rfold (\x3 a3 ->
                                    x3 * rrev1 (rfwd1 (rrev1 (\b3 ->
-                                                               0.7 * b3))) a3)
+                                                               rscalar 0.7 * b3))) a3)
                                 a2 (rreplicate 4 x2))
                               a (rreplicate 3 x))
                             a0 (rreplicate 2 a0)
@@ -4094,7 +4094,7 @@ testSin0FoldNestedR3 = do
                f a0 = rfold (\x a ->
                         rfold (\x2 a2 ->
                           rfold (\x3 a3 ->
-                            rfold (\x4 a4 -> 0.1 * x4 * a4)
+                            rfold (\x4 a4 -> rscalar 0.1 * x4 * a4)
                                   a3 (rreplicate 1 x3))
                                 a2 (rreplicate 2 x2))
                               a (rreplicate 1 x))
@@ -4110,7 +4110,7 @@ testSin0FoldNestedR4 = do
                         rfold (\x2 a2 ->
                           rfold (\x3 a3 ->
                             rfold (\x4 a4 ->
-                              rfold (\x5 a5 -> 0.1 * x5 * a5)
+                              rfold (\x5 a5 -> rscalar 0.1 * x5 * a5)
                                     a4 (rreplicate 2 x4))
                                   a3 (rreplicate 1 x3))
                                 a2 (rreplicate 1 x2))
@@ -4127,7 +4127,7 @@ testSin0FoldNestedR41 = do
                         rfold (\x2 a2 ->
                           rfold (\x3 a3 ->
                             rfold (\x4 a4 ->
-                              rfold (\x5 a5 -> 0.1 * x5 * a5)
+                              rfold (\x5 a5 -> rscalar 0.1 * x5 * a5)
                                     a4 (rreplicate 1 x4))
                                   a3 (rreplicate 1 x3))
                                 a2 (rreplicate 1 x2))
@@ -4176,17 +4176,17 @@ testSin0FoldNestedRi = do
     (rev' (let f :: forall f. ADReady f => f Double 0 -> f Double 1
                f a0 = rfold (\x a -> atan2F
                                        (rscan (+) (rsum x)
-                                          (rscan (*) 2
+                                          (rscan (*) (rscalar 2)
                                                  (rreplicate 1 a)))
                                        (rscan (\x1 a1 ->
                                           rfold (\x2 a2 ->
                                             rfold (\x3 a3 ->
-                                                     0.001 * (x3 * a3 - x3))
+                                                     (rscalar 0.001) * (x3 * a3 - x3))
                                                   a2 (rscan (+) x2
                                                             (rreplicate 3 a2)))
                                                 x1 (rreplicate 1 a1))
                                               a (rscan (-) 0 (rslice 0 1 x))))
-                            (rreplicate 3 $ 2 * a0) (rreplicate 2 a0)
+                            (rreplicate 3 $ (rscalar 2) * a0) (rreplicate 2 a0)
            in f) 1.1)
 
 testSin0FoldNestedR22 :: Assertion
@@ -4196,7 +4196,7 @@ testSin0FoldNestedR22 = do
     (rev' (let f :: forall f. ADReady f => f Double 0 -> f Double 0
                f a0 = rfold (\x a ->
                         rfold (\x2 a2 ->
-                          rfold (\x3 a3 -> 0.44 * x3 * a3)
+                          rfold (\x3 a3 -> rscalar 0.44 * x3 * a3)
                                 a2 (rscan (\x4 a4 -> x4 + a4) x2
                                           (rreplicate 2 a2)))
                               (rfold (\x4 a4 -> x4 * a4) a
@@ -4210,7 +4210,7 @@ testSin0FoldNestedR21 = do
     (7.667553331540788e-3 :: OR.Array 0 Double)
     (rev' (let f :: forall f. ADReady f => f Double 0 -> f Double 0
                f a0 = rfold (\x a -> rlet (x + a) $ \xpa ->
-                          rfold (\x3 a3 -> 0.1 * x3 * a3)
+                          rfold (\x3 a3 -> rscalar 0.1 * x3 * a3)
                                 (rfold (\x4 a4 -> x4 * a4) xpa
                                        (rreplicate 2 x))
                                 (rscan (\x4 a4 -> x4 + a4) xpa
@@ -4225,13 +4225,13 @@ testSin0FoldNestedR21PP = do
         rrev1 @(AstRanked FullSpan) @Double @0 @0
           (let f :: forall f. ADReady f => f Double 0 -> f Double 0
                f a0 = rfold (\x a -> rlet (x + a) $ \xpa ->
-                          rfold (\x3 a3 -> 0.1 * x3 * a3)
+                          rfold (\x3 a3 -> rscalar 0.1 * x3 * a3)
                                 (rfold (\x4 a4 -> x4 * a4) xpa
                                        (rreplicate 2 x))
                                 (rscan (\x4 a4 -> x4 + a4) xpa
                                        (rreplicate 2 xpa)))
                             a0 (rreplicate 2 a0)
-           in f) 1.1
+           in f) (rscalar 1.1)
   length (printAstSimple IM.empty (simplifyInlineAst a1))
     @?= 52647
 
@@ -4244,8 +4244,8 @@ testSin0revhV = do
              (V.singleton (voidFromSh @Double ZSR))
              x
   assertEqualUpToEpsilon 1e-10
-    (V.singleton $ DynamicRanked @Double @0 0.4535961214255773)
-    (f @ORArray (V.singleton $ DynamicRanked @Double @0 1.1))
+    (V.singleton $ DynamicRanked @Double @0 (rscalar 0.4535961214255773))
+    (f @ORArray (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1)))
 
 testSin0revhVPP :: Assertion
 testSin0revhVPP = do
@@ -4258,7 +4258,7 @@ testSin0revhVPP = do
              x
   printAstHVectorSimple IM.empty (f @(AstRanked FullSpan)
                                     (V.singleton
-                                     $ DynamicRanked @Double @0 1.1))
+                                     $ DynamicRanked @Double @0 (rscalar 1.1)))
     @?= "dmkHVector (fromList [DynamicRanked (cos (rconstant 1.1) * rconstant 1.0)])"
 
 testSin0revhV2 :: Assertion
@@ -4274,8 +4274,8 @@ testSin0revhV2 = do
         -> ADVal (HVectorPseudoTensor g) Float '()
       h = hVectorADValToADVal . f
   assertEqualUpToEpsilon 1e-10
-    (V.singleton $ DynamicRanked @Double @0 (-0.8912073600614354))
-    (crev (h @ORArray) (V.singleton $ DynamicRanked @Double @0 1.1))
+    (V.singleton $ DynamicRanked @Double @0 (rscalar (-0.8912073600614354)))
+    (crev (h @ORArray) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1)))
 
 testSin0revhV3 :: Assertion
 testSin0revhV3 = do
@@ -4301,15 +4301,15 @@ testSin0revhV4 = do
         => HVector g -> HVectorOf g
       f x =
         rrevDt @g @_ @Double @1 (rscanZip const doms 5)
-               doms3 x (rfromList [1, 2, 3, 4])
+               doms3 x (ringestData1 [1, 2, 3, 4])
       h :: forall g. ADReady g
         => HVector (ADVal g)
         -> ADVal (HVectorPseudoTensor g) Float '()
       h = hVectorADValToADVal . f
   assertEqualUpToEpsilon 1e-10
-    (V.singleton $ DynamicRanked @Double @1 $ rfromList [0, 0, 0])
+    (V.singleton $ DynamicRanked @Double @1 $ rfromList [rscalar 0, rscalar 0, rscalar 0])
     (crev (h @ORArray)
-          (V.singleton $ DynamicRanked @Double @1 $ rreplicate 3 1.1))
+          (V.singleton $ DynamicRanked @Double @1 $ rreplicate 3 (rscalar 1.1)))
 
 testSin0revhV5 :: Assertion
 testSin0revhV5 = do
@@ -4339,15 +4339,15 @@ testSin0revhV6 = do
         rrevDt @g @_ @Double @1
                (\v -> rscanZip (\_ w -> let z = rfromD $ w V.! 0
                                         in z * z) doms 5 v)
-                doms3 x (rfromList [1, 2, 3, 4])
+                doms3 x (ringestData1 [1, 2, 3, 4])
       h :: forall g. ADReady g
         => HVector (ADVal g)
         -> ADVal (HVectorPseudoTensor g) Float '()
       h = hVectorADValToADVal . f
   assertEqualUpToEpsilon 1e-10
-    (V.singleton $ DynamicRanked @Double @1 $ rfromList [4.0,6.0,8.0])
+    (V.singleton $ DynamicRanked @Double @1 $ ringestData1 [4.0,6.0,8.0])
     (crev (h @ORArray)
-          (V.singleton $ DynamicRanked @Double @1 $ rreplicate 3 1.1))
+          (V.singleton $ DynamicRanked @Double @1 $ rreplicate 3 (rscalar 1.1)))
 
 testSin0revhV7 :: Assertion
 testSin0revhV7 = do
@@ -4467,11 +4467,11 @@ testSin0revhFoldZipR = do
         -> ADVal (HVectorPseudoTensor ranked) Float '()
       h = hVectorADValToADVal . fFoldZipRX @(ADVal ORArray)
   assertEqualUpToEpsilon 1e-10
-    (V.fromList [ DynamicRanked @Double @1 $ rfromList [0, 0, 0]
+    (V.fromList [ DynamicRanked @Double @1 $ rfromList [rscalar 0, rscalar 0, rscalar 0]
                 , DynamicRanked @Double @1
-                  $ rreplicate 3 (-7.313585321642452e-2) ])
-    (crev h (V.fromList [ DynamicRanked @Double @1 $ rreplicate 3 1.1
-                        , DynamicRanked @Double @1 $ rreplicate 3 1.1 ]))
+                  $ rreplicate 3 (rscalar (-7.313585321642452e-2)) ])
+    (crev h (V.fromList [ DynamicRanked @Double @1 $ rreplicate 3 (rscalar 1.1)
+                        , DynamicRanked @Double @1 $ rreplicate 3 (rscalar 1.1) ]))
 
 testSin0revhFoldZip4R :: Assertion
 testSin0revhFoldZip4R = do
@@ -4483,11 +4483,11 @@ testSin0revhFoldZip4R = do
         -> HVectorPseudoTensor (AstRanked FullSpan) Float '()
       h = g @(AstRanked FullSpan)
   assertEqualUpToEpsilon 1e-10
-    (V.fromList [ DynamicRanked @Double @1 $ rfromList [0, 0, 0]
+    (V.fromList [ DynamicRanked @Double @1 $ rfromList [rscalar 0, rscalar 0, rscalar 0]
                 , DynamicRanked @Double @1
-                  $ rreplicate 3 (-7.313585321642452e-2) ])
-    (rev h (V.fromList [ DynamicRanked @Double @1 $ rreplicate 3 1.1
-                       , DynamicRanked @Double @1 $ rreplicate 3 1.1 ]))
+                  $ rreplicate 3 (rscalar (-7.313585321642452e-2)) ])
+    (rev h (V.fromList [ DynamicRanked @Double @1 $ rreplicate 3 (rscalar 1.1)
+                       , DynamicRanked @Double @1 $ rreplicate 3 (rscalar 1.1) ]))
 
 fFoldS
   :: forall m k rm shm r sh shaped.
