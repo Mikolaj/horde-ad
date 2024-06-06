@@ -18,6 +18,7 @@ module HordeAd.Core.Engine
 
 import Prelude
 
+import qualified Data.Array.RankedS as OR
 import qualified Data.EnumMap.Strict as EM
 import           Data.Int (Int64)
 import           Data.Maybe (fromMaybe, isJust)
@@ -39,6 +40,7 @@ import HordeAd.Core.TensorAst
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.Internal.BackendOX (ORArray, OSArray)
+import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..), FlipS (..))
 
 -- * Reverse derivative adaptors
 

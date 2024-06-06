@@ -45,7 +45,7 @@ import           HordeAd.Core.HVectorOps
 import           HordeAd.Core.IsPrimal
 import           HordeAd.Core.TensorClass
 import           HordeAd.Core.Types
-import           HordeAd.Internal.BackendOX (OSArray)
+import           HordeAd.Internal.BackendOX (ORArray, OSArray)
 import           HordeAd.Internal.OrthotopeOrphanInstances
   (FlipR (..), FlipS (..), lemKnownShS)
 import           HordeAd.Util.ShapedList (IntSh)
@@ -123,9 +123,9 @@ instance (KnownNat n, GoodScalar r, ADReady ranked)
 {- TODO: RULE left-hand side too complicated to desugar in GHC 9.6.4
     with -O0, but not -O1
   {-# SPECIALIZE instance
-      (KnownNat n, ADReady (FlipR OR.Array))
-      => AdaptableHVector (ADVal (FlipR OR.Array))
-                          (ADVal (FlipR OR.Array) Double n) #-}
+      (KnownNat n, ADReady ORArray)
+      => AdaptableHVector (ADVal ORArray)
+                          (ADVal ORArray Double n) #-}
   {-# SPECIALIZE instance
       (KnownNat n, ADReady (AstRanked PrimalSpan))
       => AdaptableHVector (ADVal (AstRanked PrimalSpan))
@@ -136,15 +136,15 @@ instance (KnownNat n, GoodScalar r, ADReady ranked)
 
 instance (KnownNat n, GoodScalar r, ADReady ranked)
          => DualNumberValue (ADVal ranked r n) where
-  type DValue (ADVal ranked r n) = FlipR OR.Array r n  -- ! not Value(ranked)
-  fromDValue t = constantADVal $ rconst $ runFlipR t
+  type DValue (ADVal ranked r n) = ORArray r n  -- ! not Value(ranked)
+  fromDValue t = constantADVal $ rconst $ Nested.rtoOrthotope $ runFlipR t
 
 -- This is temporarily moved from Adaptor in order to specialize manually
 instance AdaptableHVector ranked a
          => AdaptableHVector ranked [a] where
   {-# SPECIALIZE instance
-      AdaptableHVector (FlipR OR.Array) (OR.Array n Double)
-      => AdaptableHVector (FlipR OR.Array)
+      AdaptableHVector ORArray (OR.Array n Double)
+      => AdaptableHVector ORArray
                           [OR.Array n Double] #-}
   {-# SPECIALIZE instance
       AdaptableHVector (AstRanked s)

@@ -16,16 +16,19 @@ module HordeAd.Core.TensorAst
 import Prelude
 
 import           Control.Exception.Assert.Sugar
-import qualified Data.Array.RankedS as OR
+import qualified Data.Array.Convert
+import qualified Data.Array.Shape as Sh
 import qualified Data.Array.ShapedS as OS
 import qualified Data.EnumMap.Strict as EM
 import           Data.Proxy (Proxy (Proxy))
-import           Data.Type.Equality ((:~:) (Refl))
+import           Data.Type.Equality (gcastWith, (:~:) (Refl))
 import qualified Data.Vector as Data.NonStrict.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, type (+))
 import           System.IO.Unsafe (unsafePerformIO)
+import           Unsafe.Coerce (unsafeCoerce)
 
+import qualified Data.Array.Mixed.Shape as X
 import qualified Data.Array.Nested as Nested
 
 import           HordeAd.Core.Adaptor
@@ -45,7 +48,7 @@ import           HordeAd.Core.TensorADVal (unADValHVector)
 import           HordeAd.Core.TensorClass
 import           HordeAd.Core.TensorConcrete ()
 import           HordeAd.Core.Types
-import           HordeAd.Internal.BackendOX (OSArray)
+import           HordeAd.Internal.BackendOX (ORArray, OSArray)
 import           HordeAd.Internal.OrthotopeOrphanInstances
   (FlipR (..), FlipS (..), IntegralF (..), RealFloatF (..))
 import           HordeAd.Util.ShapedList (IntSh)
@@ -222,13 +225,13 @@ instance (GoodScalar r, KnownNat n, RankedTensor (AstRanked s), AstSpan s)
   toHVector = V.singleton . DynamicRanked
   fromHVector _aInit = fromHVectorR
 
-instance DualNumberValue (AstRanked PrimalSpan r n) where
-  type DValue (AstRanked PrimalSpan r n) = FlipR OR.Array r n
-  fromDValue t = fromPrimal $ AstConst $ runFlipR t
+instance GoodScalar r => DualNumberValue (AstRanked PrimalSpan r n) where
+  type DValue (AstRanked PrimalSpan r n) = ORArray r n
+  fromDValue t = fromPrimal $ AstConst $ Nested.rtoOrthotope $ runFlipR t
 
-instance TermValue (AstRanked FullSpan r n) where
-  type Value (AstRanked FullSpan r n) = FlipR OR.Array r n
-  fromValue t = fromPrimal $ AstConst $ runFlipR t
+instance GoodScalar r => TermValue (AstRanked FullSpan r n) where
+  type Value (AstRanked FullSpan r n) = ORArray r n
+  fromValue t = fromPrimal $ AstConst $ Nested.rtoOrthotope $ runFlipR t
 
 instance AstSpan s => RankedTensor (AstRanked s) where
   rlet = astLetFun
@@ -455,12 +458,12 @@ astBuild1VectorizeS f =
 
 instance TermValue (DynamicTensor (AstRanked FullSpan)) where
   type Value (DynamicTensor (AstRanked FullSpan)) =
-    DynamicTensor (FlipR OR.Array)
+    DynamicTensor ORArray
   fromValue = \case
-    DynamicRanked t -> DynamicRanked $ fromPrimal $ AstConst $ runFlipR t
+    DynamicRanked t -> DynamicRanked $ fromPrimal $ AstConst $ Nested.rtoOrthotope $ runFlipR t
     DynamicShaped @_ @sh t | Dict <- lemShapeFromKnownShS (Proxy @sh) ->
-      DynamicShaped $ fromPrimalS $ AstConstS $ FlipS $ OS.fromVector @sh $ Nested.stoVector $ runFlipS t
-      -- TODO: this is probably very wrong
+      gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: X.Rank sh) $
+      DynamicShaped @_ @sh $ fromPrimalS $ AstConstS $ FlipS $ Data.Array.Convert.convert $ Nested.rtoOrthotope $ Nested.stoRanked $ runFlipS t
     DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
     DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
 
@@ -476,7 +479,7 @@ instance AdaptableHVector (AstRanked s) (AstHVector s) where
 -- of type applications the library user has to supply.
 instance TermValue (AstHVector FullSpan) where
   type Value (AstHVector FullSpan) =
-    Data.NonStrict.Vector.Vector (DynamicTensor (FlipR OR.Array))
+    Data.NonStrict.Vector.Vector (DynamicTensor ORArray)
   fromValue t = AstMkHVector $ V.convert $ V.map fromValue t
 
 instance AdaptableHVector (AstRanked FullSpan)
@@ -489,7 +492,7 @@ instance AdaptableHVector (AstRanked FullSpan)
 
 instance TermValue (HVectorPseudoTensor (AstRanked FullSpan) r y) where
   type Value (HVectorPseudoTensor (AstRanked FullSpan) r y) =
-    HVectorPseudoTensor (FlipR OR.Array) r y
+    HVectorPseudoTensor ORArray r y
   fromValue (HVectorPseudoTensor t) =
     HVectorPseudoTensor $ AstMkHVector $ V.map fromValue t
 

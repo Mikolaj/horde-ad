@@ -27,7 +27,7 @@ import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.TensorAst
 import HordeAd.External.OptimizerTools
-import HordeAd.Internal.BackendOX (OSArray)
+import HordeAd.Internal.BackendOX (ORArray, OSArray)
 import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..), FlipS (..))
 
 import EqEpsilon
@@ -46,7 +46,7 @@ testTrees = [ tensorADValMnistTestsCNNA
 -- which side-steps vectorization.
 mnistTestCaseCNNA
   :: forall ranked r.
-     ( ranked ~ FlipR OR.Array, Differentiable r, GoodScalar r, Random r
+     ( ranked ~ ORArray, Differentiable r, GoodScalar r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> r
@@ -74,7 +74,7 @@ mnistTestCaseCNNA prefix epochs maxBatches kh kw c_out n_hidden
                         , show miniBatchSize
                         , show (V.length hVectorInit)
                         , show (sizeHVector hVectorInit) ]
-      ftest :: Int -> MnistDataBatchR r -> HVector (FlipR OR.Array) -> r
+      ftest :: Int -> MnistDataBatchR r -> HVector ORArray -> r
       ftest = MnistCnnRanked2.convMnistTestR valsInit
   in testCase name $ do
        hPutStrLn stderr $
@@ -85,10 +85,10 @@ mnistTestCaseCNNA prefix epochs maxBatches kh kw c_out n_hidden
        testData <- map rankBatch . take (totalBatchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
        let testDataR = packBatchR testData
-           runBatch :: (HVector (FlipR OR.Array), StateAdam) -> (Int, [MnistDataR r])
-                    -> IO (HVector (FlipR OR.Array), StateAdam)
+           runBatch :: (HVector ORArray, StateAdam) -> (Int, [MnistDataR r])
+                    -> IO (HVector ORArray, StateAdam)
            runBatch (!parameters, !stateAdam) (k, chunk) = do
-             let f :: MnistDataBatchR r -> HVector (ADVal (FlipR OR.Array))
+             let f :: MnistDataBatchR r -> HVector (ADVal ORArray)
                    -> ADVal ranked r 0
                  f (glyphR, labelR) adinputs =
                    MnistCnnRanked2.convMnistLossFusedR
@@ -108,7 +108,7 @@ mnistTestCaseCNNA prefix epochs maxBatches kh kw c_out n_hidden
                hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
                hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int -> (HVector (FlipR OR.Array), StateAdam) -> IO (HVector (FlipR OR.Array))
+       let runEpoch :: Int -> (HVector ORArray, StateAdam) -> IO (HVector ORArray)
            runEpoch n (params2, _) | n > epochs = return params2
            runEpoch n paramsStateAdam@(!_, !_) = do
              unless (n_hidden < 10) $
@@ -145,7 +145,7 @@ tensorADValMnistTestsCNNA = testGroup "CNN ADVal MNIST tests"
 -- but differentiated anew in each gradient descent iteration.
 mnistTestCaseCNNI
   :: forall ranked r.
-     ( ranked ~ FlipR OR.Array, Differentiable r, GoodScalar r, Random r
+     ( ranked ~ ORArray, Differentiable r, GoodScalar r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> r
@@ -173,7 +173,7 @@ mnistTestCaseCNNI prefix epochs maxBatches kh kw c_out n_hidden
                         , show miniBatchSize
                         , show (V.length hVectorInit)
                         , show (sizeHVector hVectorInit) ]
-      ftest :: Int -> MnistDataBatchR r -> HVector (FlipR OR.Array) -> r
+      ftest :: Int -> MnistDataBatchR r -> HVector ORArray -> r
       ftest = MnistCnnRanked2.convMnistTestR valsInit
   in testCase name $ do
        hPutStrLn stderr $
@@ -197,10 +197,10 @@ mnistTestCaseCNNI prefix epochs maxBatches kh kw c_out n_hidden
                    miniBatchSize (astGlyph, astLabel)
                    (parseHVector (fromDValue valsInit)
                                  (unRawHVector hVectorPrimal))
-           runBatch :: (HVector (FlipR OR.Array), StateAdam) -> (Int, [MnistDataR r])
-                    -> IO (HVector (FlipR OR.Array), StateAdam)
+           runBatch :: (HVector ORArray, StateAdam) -> (Int, [MnistDataR r])
+                    -> IO (HVector ORArray, StateAdam)
            runBatch (!parameters, !stateAdam) (k, chunk) = do
-             let f :: MnistDataBatchR r -> HVector (ADVal (FlipR OR.Array))
+             let f :: MnistDataBatchR r -> HVector (ADVal ORArray)
                    -> ADVal ranked r 0
                  f (glyph, label) varInputs =
                    let env = foldr extendEnvD EM.empty
@@ -222,7 +222,7 @@ mnistTestCaseCNNI prefix epochs maxBatches kh kw c_out n_hidden
                hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
                hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int -> (HVector (FlipR OR.Array), StateAdam) -> IO (HVector (FlipR OR.Array))
+       let runEpoch :: Int -> (HVector ORArray, StateAdam) -> IO (HVector ORArray)
            runEpoch n (params2, _) | n > epochs = return params2
            runEpoch n paramsStateAdam@(!_, !_) = do
              unless (n_hidden < 10) $
@@ -260,7 +260,7 @@ tensorADValMnistTestsCNNI = testGroup "CNN Intermediate MNIST tests"
 -- descent iteration.
 mnistTestCaseCNNO
   :: forall ranked r.
-     ( ranked ~ FlipR OR.Array, Differentiable r, GoodScalar r, Random r
+     ( ranked ~ ORArray, Differentiable r, GoodScalar r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> r
@@ -288,7 +288,7 @@ mnistTestCaseCNNO prefix epochs maxBatches kh kw c_out n_hidden
                           , show miniBatchSize
                           , show (V.length hVectorInit)
                           , show (sizeHVector hVectorInit) ]
-        ftest :: Int -> MnistDataBatchR r -> HVector (FlipR OR.Array) -> r
+        ftest :: Int -> MnistDataBatchR r -> HVector ORArray -> r
         ftest = MnistCnnRanked2.convMnistTestR valsInit
     in testCase name $ do
        hPutStrLn stderr $
@@ -316,8 +316,8 @@ mnistTestCaseCNNO prefix epochs maxBatches kh kw c_out n_hidden
            gradient = simplifyInlineHVectorRaw gradientRaw
            vars1AndInputAgain = vars1Again ++ [varGlyphD, varLabelD]
            art = AstArtifact varDtAgain vars1AndInputAgain gradient primal
-           go :: [MnistDataBatchR r] -> (HVector (FlipR OR.Array), StateAdam)
-              -> (HVector (FlipR OR.Array), StateAdam)
+           go :: [MnistDataBatchR r] -> (HVector ORArray, StateAdam)
+              -> (HVector ORArray, StateAdam)
            go [] (parameters, stateAdam) = (parameters, stateAdam)
            go ((glyph, label) : rest) (!parameters, !stateAdam) =
              let glyphD = DynamicRanked $ rconst glyph
@@ -328,8 +328,8 @@ mnistTestCaseCNNO prefix epochs maxBatches kh kw c_out n_hidden
                    fst $ revEvalArtifact art parametersAndInput Nothing
              in go rest (updateWithGradientAdam defaultArgsAdam stateAdam
                                                 parameters gradientHVector)
-           runBatch :: (HVector (FlipR OR.Array), StateAdam) -> (Int, [MnistDataR r])
-                    -> IO (HVector (FlipR OR.Array), StateAdam)
+           runBatch :: (HVector ORArray, StateAdam) -> (Int, [MnistDataR r])
+                    -> IO (HVector ORArray, StateAdam)
            runBatch (!parameters, !stateAdam) (k, chunk) = do
              let chunkR = map packBatchR
                           $ filter (\ch -> length ch == miniBatchSize)
@@ -345,7 +345,7 @@ mnistTestCaseCNNO prefix epochs maxBatches kh kw c_out n_hidden
                hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
                hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int -> (HVector (FlipR OR.Array), StateAdam) -> IO (HVector (FlipR OR.Array))
+       let runEpoch :: Int -> (HVector ORArray, StateAdam) -> IO (HVector ORArray)
            runEpoch n (params2, _) | n > epochs = return params2
            runEpoch n paramsStateAdam@(!_, !_) = do
              unless (n_hidden < 10) $
@@ -396,7 +396,7 @@ testCNNOPP = do
                    $ AstReplicate 1
                    $ AstReplicate sizeMnistWidthI
                    $ AstReplicate sizeMnistHeightI 7
-      valsInit :: MnistCnnRanked2.ADCnnMnistParameters (FlipR OR.Array) Double
+      valsInit :: MnistCnnRanked2.ADCnnMnistParameters ORArray Double
       valsInit =
         forgetShape $ fst
         $ randomVals @(MnistCnnRanked2.ADCnnMnistParametersShaped

@@ -27,13 +27,15 @@ import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 import           Text.Printf
 
+import qualified Data.Array.Nested as Nested
+
 import HordeAd
 import HordeAd.Core.Adaptor
 import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.TensorAst
 import HordeAd.External.OptimizerTools
-import HordeAd.Internal.BackendOX (OSArray)
+import HordeAd.Internal.BackendOX (ORArray, OSArray)
 import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..), FlipS (..))
 
 import EqEpsilon
@@ -52,7 +54,7 @@ testTrees = [ tensorADValMnistTestsRNNA
 -- which side-steps vectorization.
 mnistTestCaseRNNA
   :: forall ranked r.
-     ( ranked ~ FlipR OR.Array, Differentiable r, GoodScalar r, Random r
+     ( ranked ~ ORArray, Differentiable r, GoodScalar r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Int -> r
@@ -74,7 +76,7 @@ mnistTestCaseRNNA prefix epochs maxBatches width miniBatchSize totalBatchSize
                         , show width, show miniBatchSize
                         , show (V.length hVectorInit)
                         , show (sizeHVector hVectorInit) ]
-      ftest :: Int -> MnistDataBatchR r -> HVector (FlipR OR.Array) -> r
+      ftest :: Int -> MnistDataBatchR r -> HVector (ORArray) -> r
       ftest = MnistRnnRanked2.rnnMnistTestR valsInit
   in testCase name $ do
        hPutStrLn stderr $
@@ -85,10 +87,10 @@ mnistTestCaseRNNA prefix epochs maxBatches width miniBatchSize totalBatchSize
        testData <- map rankBatch . take (totalBatchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
        let testDataR = packBatchR testData
-           runBatch :: (HVector (FlipR OR.Array), StateAdam) -> (Int, [MnistDataR r])
-                    -> IO (HVector (FlipR OR.Array), StateAdam)
+           runBatch :: (HVector (ORArray), StateAdam) -> (Int, [MnistDataR r])
+                    -> IO (HVector (ORArray), StateAdam)
            runBatch (!parameters, !stateAdam) (k, chunk) = do
-             let f :: MnistDataBatchR r -> HVector (ADVal (FlipR OR.Array))
+             let f :: MnistDataBatchR r -> HVector (ADVal (ORArray))
                    -> ADVal ranked r 0
                  f (glyphR, labelR) adinputs =
                    MnistRnnRanked2.rnnMnistLossFusedR
@@ -108,7 +110,7 @@ mnistTestCaseRNNA prefix epochs maxBatches width miniBatchSize totalBatchSize
                hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
                hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int -> (HVector (FlipR OR.Array), StateAdam) -> IO (HVector (FlipR OR.Array))
+       let runEpoch :: Int -> (HVector (ORArray), StateAdam) -> IO (HVector (ORArray))
            runEpoch n (params2, _) | n > epochs = return params2
            runEpoch n paramsStateAdam@(!_, !_) = do
              unless (width < 10) $
@@ -145,7 +147,7 @@ tensorADValMnistTestsRNNA = testGroup "RNN ADVal MNIST tests"
 -- but differentiated anew in each gradient descent iteration.
 mnistTestCaseRNNI
   :: forall ranked r.
-     ( ranked ~ FlipR OR.Array, Differentiable r, GoodScalar r, Random r
+     ( ranked ~ ORArray, Differentiable r, GoodScalar r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Int -> r
@@ -167,7 +169,7 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
                         , show width, show miniBatchSize
                         , show (V.length hVectorInit)
                         , show (sizeHVector hVectorInit) ]
-      ftest :: Int -> MnistDataBatchR r -> HVector (FlipR OR.Array) -> r
+      ftest :: Int -> MnistDataBatchR r -> HVector (ORArray) -> r
       ftest = MnistRnnRanked2.rnnMnistTestR valsInit
   in testCase name $ do
        hPutStrLn stderr $
@@ -191,10 +193,10 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
                    miniBatchSize (astGlyph, astLabel)
                    (parseHVector (fromDValue valsInit)
                                  (unRawHVector hVectorPrimal))
-           runBatch :: (HVector (FlipR OR.Array), StateAdam) -> (Int, [MnistDataR r])
-                    -> IO (HVector (FlipR OR.Array), StateAdam)
+           runBatch :: (HVector (ORArray), StateAdam) -> (Int, [MnistDataR r])
+                    -> IO (HVector (ORArray), StateAdam)
            runBatch (!parameters, !stateAdam) (k, chunk) = do
-             let f :: MnistDataBatchR r -> HVector (ADVal (FlipR OR.Array))
+             let f :: MnistDataBatchR r -> HVector (ADVal (ORArray))
                    -> ADVal ranked r 0
                  f (glyph, label) varInputs =
                    let env = foldr extendEnvD EM.empty
@@ -216,7 +218,7 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
                hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
                hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int -> (HVector (FlipR OR.Array), StateAdam) -> IO (HVector (FlipR OR.Array))
+       let runEpoch :: Int -> (HVector (ORArray), StateAdam) -> IO (HVector (ORArray))
            runEpoch n (params2, _) | n > epochs = return params2
            runEpoch n paramsStateAdam@(!_, !_) = do
              unless (width < 10) $
@@ -254,7 +256,7 @@ tensorADValMnistTestsRNNI = testGroup "RNN Intermediate MNIST tests"
 -- descent iteration.
 mnistTestCaseRNNO
   :: forall ranked r.
-     ( ranked ~ FlipR OR.Array, Differentiable r, GoodScalar r, Random r
+     ( ranked ~ ORArray, Differentiable r, GoodScalar r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Int -> r
@@ -276,7 +278,7 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
                           , show width, show miniBatchSize
                           , show (V.length hVectorInit)
                           , show (sizeHVector hVectorInit) ]
-        ftest :: Int -> MnistDataBatchR r -> HVector (FlipR OR.Array) -> r
+        ftest :: Int -> MnistDataBatchR r -> HVector (ORArray) -> r
         ftest = MnistRnnRanked2.rnnMnistTestR valsInit
     in testCase name $ do
        hPutStrLn stderr $
@@ -304,8 +306,8 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
            gradient = simplifyInlineHVectorRaw gradientRaw
            vars1AndInputAgain = vars1Again ++ [varGlyphD, varLabelD]
            art = AstArtifact varDtAgain vars1AndInputAgain gradient primal
-           go :: [MnistDataBatchR r] -> (HVector (FlipR OR.Array), StateAdam)
-              -> (HVector (FlipR OR.Array), StateAdam)
+           go :: [MnistDataBatchR r] -> (HVector (ORArray), StateAdam)
+              -> (HVector (ORArray), StateAdam)
            go [] (parameters, stateAdam) = (parameters, stateAdam)
            go ((glyph, label) : rest) (!parameters, !stateAdam) =
              let glyphD = DynamicRanked $ rconst glyph
@@ -316,8 +318,8 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
                    fst $ revEvalArtifact art parametersAndInput Nothing
              in go rest (updateWithGradientAdam defaultArgsAdam stateAdam
                                                 parameters gradientHVector)
-           runBatch :: (HVector (FlipR OR.Array), StateAdam) -> (Int, [MnistDataR r])
-                    -> IO (HVector (FlipR OR.Array), StateAdam)
+           runBatch :: (HVector (ORArray), StateAdam) -> (Int, [MnistDataR r])
+                    -> IO (HVector (ORArray), StateAdam)
            runBatch (!parameters, !stateAdam) (k, chunk) = do
              let chunkR = map packBatchR
                           $ filter (\ch -> length ch == miniBatchSize)
@@ -333,7 +335,7 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
                hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
                hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int -> (HVector (FlipR OR.Array), StateAdam) -> IO (HVector (FlipR OR.Array))
+       let runEpoch :: Int -> (HVector (ORArray), StateAdam) -> IO (HVector (ORArray))
            runEpoch n (params2, _) | n > epochs = return params2
            runEpoch n paramsStateAdam@(!_, !_) = do
              unless (width < 10) $
@@ -373,27 +375,36 @@ tensorMnistTestsPP = testGroup "PP tests for RNN MNIST tests"
   ]
 
 valsInitRNNOPP
-  :: Int -> Int -> MnistRnnRanked2.ADRnnMnistParameters (FlipR OR.Array) Double
+  :: Int -> Int -> MnistRnnRanked2.ADRnnMnistParameters (ORArray) Double
 valsInitRNNOPP out_width sizeMnistHeightI =
   ( ( FlipR
+      $ Nested.rfromOrthotope SNat
       $ OR.fromList [out_width, sizeMnistHeightI]
                     (map fromIntegral [0 .. out_width * sizeMnistHeightI - 1])
     , FlipR
+      $ Nested.rfromOrthotope SNat
       $ OR.fromList [out_width, out_width]
                     (map fromIntegral [0 .. out_width * out_width - 1])
     , FlipR
+      $ Nested.rfromOrthotope SNat
       $ OR.fromList [out_width] (map fromIntegral [0 .. out_width - 1]) )
   , ( FlipR
+      $ Nested.rfromOrthotope SNat
       $ OR.fromList [out_width, out_width]
                     (map fromIntegral [0 .. out_width * out_width - 1])
     , FlipR
+      $ Nested.rfromOrthotope SNat
       $ OR.fromList [out_width, out_width]
                     (map fromIntegral [0 .. out_width * out_width - 1])
-    , FlipR $ OR.fromList [out_width] (map fromIntegral [0 .. out_width - 1]) )
+    , FlipR
+      $ Nested.rfromOrthotope SNat
+      $ OR.fromList [out_width] (map fromIntegral [0 .. out_width - 1]) )
   , ( FlipR
-      $ OR.fromList [sizeMnistLabelInt, out_width]
+       $ Nested.rfromOrthotope SNat
+     $ OR.fromList [sizeMnistLabelInt, out_width]
                     (map fromIntegral [0 .. sizeMnistLabelInt * out_width - 1])
     , FlipR
+      $ Nested.rfromOrthotope SNat
       $ OR.fromList [sizeMnistLabelInt]
                     (map fromIntegral [0 .. sizeMnistLabelInt - 1]) ) )
 

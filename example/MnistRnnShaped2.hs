@@ -8,7 +8,6 @@ module MnistRnnShaped2 where
 import Prelude hiding (foldl')
 
 import           Data.Array.Internal (valueOf)
-import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
 import           Data.Kind (Type)
 import           Data.List (foldl')
@@ -26,8 +25,8 @@ import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.External.CommonShapedOps (lossSoftMaxCrossEntropyS)
 import HordeAd.Internal.BackendConcrete (tunravelToListS)
-import HordeAd.Internal.BackendOX (OSArray)
-import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..), FlipS (..))
+import HordeAd.Internal.BackendOX (ORArray, OSArray)
+import HordeAd.Internal.OrthotopeOrphanInstances (FlipS (..))
 import HordeAd.Util.ShapedList (pattern (:.$), pattern ZIS)
 import MnistData
 
@@ -155,7 +154,7 @@ rnnMnistTestS
   -> SNat batch_size
   -> ADRnnMnistParametersShaped shaped h out_width r
   -> MnistDataBatchS batch_size r
-  -> HVector (FlipR OR.Array)
+  -> HVector ORArray
   -> r
 rnnMnistTestS out_width@SNat batch_size@SNat
               valsInit (glyphS, labelS) testParams =

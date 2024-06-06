@@ -21,12 +21,14 @@ import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
 import qualified Data.Array.Mixed.Shape as X
-import           HordeAd
-import           HordeAd.Core.AstEnv
-import           HordeAd.Core.AstFreshId (funToAstR, funToAstS, resetVarCounter)
-import           HordeAd.Core.IsPrimal (resetIdCounter)
-import           HordeAd.Internal.BackendOX (OSArray)
-import           HordeAd.Internal.OrthotopeOrphanInstances
+import qualified Data.Array.Nested as Nested
+
+import HordeAd
+import HordeAd.Core.AstEnv
+import HordeAd.Core.AstFreshId (funToAstR, funToAstS, resetVarCounter)
+import HordeAd.Core.IsPrimal (resetIdCounter)
+import HordeAd.Internal.BackendOX (ORArray, OSArray)
+import HordeAd.Internal.OrthotopeOrphanInstances
   (FlipR (..), FlipS (..), IntegralF (..), RealFloatF (..))
 
 import CrossTesting
@@ -287,14 +289,14 @@ testZero7S =
 testZero8 :: Assertion
 testZero8 =
   assertEqualUpToEpsilon 1e-10
-    (FlipR $ OR.fromList [] [0])
+    (rfromList0N [] [0])
     (rev (const 3 :: AstRanked FullSpan Double 0 -> AstShaped FullSpan Double '[]) 42)
 
 testZero9S :: Assertion
 testZero9S =
   assertEqualUpToEpsilon 1e-9
-    (FlipR $ OR.fromList [0, 2, 4, 0, 1] [])
-    (crev (let f :: ADVal (FlipR OR.Array) Double 5
+    (rfromList0N [0, 2, 4, 0, 1] [])
+    (crev (let f :: ADVal ORArray Double 5
                  -> ADVal OSArray Double '[0, 2, 4, 0, 1]
                f = const (srepl 3)
            in f)
@@ -304,7 +306,7 @@ testCFwdZero9S :: Assertion
 testCFwdZero9S =
   assertEqualUpToEpsilon 1e-9
     (sconst $ OS.fromList @'[0, 2, 4, 0, 1] [])
-    (cfwd (let f :: ADVal (FlipR OR.Array) Double 5
+    (cfwd (let f :: ADVal ORArray Double 5
                  -> ADVal OSArray Double '[0, 2, 4, 0, 1]
                f = const (srepl 3)
            in f)
@@ -323,10 +325,10 @@ testFwdZero9S =
 testZero10S :: Assertion
 testZero10S =
   assertEqualUpToEpsilon 1e-9
-    ( FlipR $ OR.fromList [0, 2, 4, 0, 1] []
+    ( rfromList0N [0, 2, 4, 0, 1] []
     , sconst $ OS.fromList @'[0, 2, 4, 0, 1] [] )
     (crev (let f = const (srepl 3) . snd
-           in f :: ( ADVal (FlipR OR.Array) Double 5
+           in f :: ( ADVal ORArray Double 5
                    , ADVal OSArray Double '[0, 2, 4, 0, 1] )
                    -> ADVal OSArray Double '[0, 2, 4, 0, 1])
           (rreplicate0N [0, 2, 4, 0, 1] 42, (srepl 21)))
@@ -336,12 +338,12 @@ testCFwdZero10S =
   assertEqualUpToEpsilon 1e-9
     (sconst $ OS.fromList @'[0, 2, 4, 0, 1] [])
     (cfwd (let f = const (srepl 3) . snd
-           in f :: ( ADVal (FlipR OR.Array) Double 5
+           in f :: ( ADVal ORArray Double 5
                    , ADVal OSArray Double '[0, 2, 4, 0, 1] )
                    -> ADVal OSArray Double '[0, 2, 4, 0, 1])
-          ( FlipR $ OR.fromList [0, 2, 4, 0, 1] []
+          ( rfromList0N [0, 2, 4, 0, 1] []
           , sconst $ OS.fromList @'[0, 2, 4, 0, 1] [] )
-          ( FlipR $ OR.fromList [0, 2, 4, 0, 1] []
+          ( rfromList0N [0, 2, 4, 0, 1] []
           , sconst $ OS.fromList @'[0, 2, 4, 0, 1] [] ))
 
 testFwdZero10S :: Assertion
@@ -352,46 +354,46 @@ testFwdZero10S =
            in f :: ( AstRanked FullSpan Double 5
                    , AstShaped FullSpan Double '[0, 2, 4, 0, 1] )
                    -> AstShaped FullSpan Double '[0, 2, 4, 0, 1])
-          ( FlipR $ OR.fromList [0, 2, 4, 0, 1] []
+          ( rfromList0N [0, 2, 4, 0, 1] []
           , sconst $ OS.fromList @'[0, 2, 4, 0, 1] [] )
-          ( FlipR $ OR.fromList [0, 2, 4, 0, 1] []
+          ( rfromList0N [0, 2, 4, 0, 1] []
           , sconst $ OS.fromList @'[0, 2, 4, 0, 1] [] ))
 
 testZero11S :: Assertion
 testZero11S =
   assertEqualUpToEpsilon 1e-9
-    ( FlipR $ OR.fromList [0, 2, 4, 0, 1] []
+    ( rfromList0N [0, 2, 4, 0, 1] []
     , sconst $ OS.fromList @'[0, 2, 4, 0, 1] [] )
     (crev (let f = const (rreplicate0N [0, 2, 4, 0, 1] 3) . snd
-           in f :: ( ADVal (FlipR OR.Array) Double 5
+           in f :: ( ADVal ORArray Double 5
                    , ADVal OSArray Double '[0, 2, 4, 0, 1] )
-                   -> ADVal (FlipR OR.Array) Double 5)
+                   -> ADVal ORArray Double 5)
           (rreplicate0N [0, 2, 4, 0, 1] 42, (srepl 21)))
 
 testCFwdZero11S :: Assertion
 testCFwdZero11S =
   assertEqualUpToEpsilon 1e-9
-    (FlipR $ OR.fromList [0, 2, 4, 0, 1] [])
+    (rfromList0N [0, 2, 4, 0, 1] [])
     (cfwd (let f = const (rreplicate0N [0, 2, 4, 0, 1] 3) . snd
-           in f :: ( ADVal (FlipR OR.Array) Double 5
+           in f :: ( ADVal ORArray Double 5
                    , ADVal OSArray Double '[0, 2, 4, 0, 1] )
-                   -> ADVal (FlipR OR.Array) Double 5)
-          ( FlipR $ OR.fromList [0, 2, 4, 0, 1] []
+                   -> ADVal ORArray Double 5)
+          ( rfromList0N [0, 2, 4, 0, 1] []
           , sconst $ OS.fromList @'[0, 2, 4, 0, 1] [] )
-          ( FlipR $ OR.fromList [0, 2, 4, 0, 1] []
+          ( rfromList0N [0, 2, 4, 0, 1] []
           , sconst $ OS.fromList @'[0, 2, 4, 0, 1] [] ))
 
 testFwdZero11S :: Assertion
 testFwdZero11S =
   assertEqualUpToEpsilon 1e-9
-    (FlipR $ OR.fromList [0, 2, 4, 0, 1] [])
+    (rfromList0N [0, 2, 4, 0, 1] [])
     (fwd  (let f = const (rreplicate0N [0, 2, 4, 0, 1] 3) . snd
            in f :: ( AstRanked FullSpan Double 5
                    , AstShaped FullSpan Double '[0, 2, 4, 0, 1] )
                    -> AstRanked FullSpan Double 5)
-          ( FlipR $ OR.fromList [0, 2, 4, 0, 1] []
+          ( rfromList0N [0, 2, 4, 0, 1] []
           , sconst $ OS.fromList @'[0, 2, 4, 0, 1] [] )
-          ( FlipR $ OR.fromList [0, 2, 4, 0, 1] []
+          ( rfromList0N [0, 2, 4, 0, 1] []
           , sconst $ OS.fromList @'[0, 2, 4, 0, 1] [] ))
 
 testPiecewiseLinearPP :: Assertion
@@ -435,37 +437,37 @@ testOverleaf :: Assertion
 testOverleaf =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList @Double @1 [28] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,1.0,1.0,1.0,1.0,1.0,1.0])
-    (rev' @Double @0 overleaf (rfromList0N [28] (map (FlipR . OR.scalar) [0 .. 27])))
+    (rev' @Double @0 overleaf (FlipR $ OR.fromList [28] [0 .. 27]))
 
 testOverleafInt64 :: Assertion
 testOverleafInt64 =
   assertEqualUpToEpsilon 1e-10
-    (FlipR $ OR.fromList @Int64 [28] (map round [2.0 :: Double,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,1.0,1.0,1.0,1.0,1.0,1.0]))
-    (crev @Int64 @0 overleaf (rfromList0N [28] (map (FlipR . OR.scalar) [0 .. 27])))
+    (ringestData [28] (map round [2.0 :: Double,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,1.0,1.0,1.0,1.0,1.0,1.0]))
+    (crev @Int64 @0 overleaf (ringestData [28] [0 .. 27]))
 
 testOverleafCInt :: Assertion
 testOverleafCInt =
   assertEqualUpToEpsilon 1e-10
-    (FlipR $ OR.fromList @CInt [28] (map round [2.0 :: Double,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,1.0,1.0,1.0,1.0,1.0,1.0]))
-    (rev @CInt @0 @(AstRanked FullSpan) overleaf (rfromList0N [28] (map (FlipR . OR.scalar) [0 .. 27])))
+    (ringestData [28] (map round [2.0 :: Double,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,1.0,1.0,1.0,1.0,1.0,1.0]))
+    (rev @CInt @0 @(AstRanked FullSpan) overleaf (ringestData [28] [0 .. 27]))
 
 testOverleafCIntToFloat :: Assertion
 testOverleafCIntToFloat =
   assertEqualUpToEpsilon 1e-10
-    (FlipR $ OR.fromList @Float @1 [28] (replicate 28 0.0))
-    (rev @Float @0 @(AstRanked FullSpan) (rfromIntegral . overleaf @CInt . rfloor) (rfromList0N [28] (map (FlipR . OR.scalar) [0 .. 27])))
+    (rfromList0N [28] (replicate 28 0.0))
+    (rev @Float @0 @(AstRanked FullSpan) (rfromIntegral . overleaf @CInt . rfloor) (ringestData @_ @Float [28] [0 .. 27]))
 
 testOverleafInt64p :: Assertion
 testOverleafInt64p =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList @Int64 [28] (map round [2.0 :: Double,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,1.0,1.0,1.0,1.0,1.0,1.0]))
-    (rev' @Int64 @0 overleaf (rfromList0N [28] (map (FlipR . OR.scalar) [0 .. 27])))
+    (rev' @Int64 @0 overleaf (FlipR $ OR.fromList [28] [0 .. 27]))
 
 testOverleafCIntp :: Assertion
 testOverleafCIntp =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList @CInt [28] (map round [2.0 :: Double,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,1.0,1.0,1.0,1.0,1.0,1.0]))
-    (rev' @CInt @0 overleaf (rfromList0N [28] (map (FlipR . OR.scalar) [0 .. 27])))
+    (rev' @CInt @0 overleaf (FlipR $ OR.fromList [28] [0 .. 27]))
 
 testOverleafCIntToFloatp :: Assertion
 testOverleafCIntToFloatp =
@@ -473,7 +475,7 @@ testOverleafCIntToFloatp =
     (OR.fromList @Float @1 [28] (replicate 28 0.0))
     (let f :: forall f. ADReady f => f Float 1 -> f Float 0
          f = rfromIntegral . overleaf @CInt . rfloor
-     in rev' @Float @0 f (rfromList0N [28] (map (FlipR . OR.scalar) [0 .. 27])))
+     in rev' @Float @0 f (FlipR $ OR.fromList [28] [0 .. 27]))
 
 testOverleafPP :: Assertion
 testOverleafPP = do
@@ -488,7 +490,7 @@ testOverleafPP = do
        ++ " -> " ++ printAstSimple renamesNull ast3
     @?= "\\v -> rsum (rgather [50] v (\\[i] -> [remF i 28]))"
   resetVarCounter
-  let (artifactRev, deltas) = revArtifactAdapt True fT (FlipR $ OR.fromList [28] [0 .. 27])
+  let (artifactRev, deltas) = revArtifactAdapt True fT (ringestData [28] [0 .. 27])
   printArtifactPretty renames artifactRev
     @?= "\\x4 v1 -> [rscatter [28] (rreplicate 50 x4) (\\[i5] -> [remF i5 28])]"
   printArtifactPrimalPretty renames artifactRev
@@ -546,8 +548,8 @@ testFooBoth = do
     (2.439628436155373, -1.9533749, 0.9654825479484146)
     (rev @Float @0 @(AstRanked FullSpan)
          (rcast . foo . (\(d, f, d2) -> (d, rcast f, d2)))
-         ( 1.1 :: FlipR OR.Array Double 0
-         , 2.2 :: FlipR OR.Array Float 0
+         ( 1.1 :: ORArray Double 0
+         , 2.2 :: ORArray Float 0
          , 3.3 ))
 
 testFooPP :: Assertion
@@ -836,7 +838,7 @@ testReluPP = do
        ++ " -> " ++ printAstSimple renamesNull ast3
     @?= "\\m1 -> rconstant (rgather [3,4] (rconst (fromList [2] [0.0,1.0])) (\\[i4, i3] -> [ifF (rprimalPart m1 ! [i4, i3] <=. 0.0) 0 1])) * m1"
   resetVarCounter
-  let (artifactRev, deltas) = revArtifactAdapt True reluT (FlipR $ OR.constant [3, 4] 4)
+  let (artifactRev, deltas) = revArtifactAdapt True reluT (rreplicate0N [3, 4] 4)
   printArtifactPretty renames (simplifyArtifact artifactRev)
     @?= "\\m8 m1 -> [rgather [3,4] (rconst (fromList [2] [0.0,1.0])) (\\[i5, i6] -> [ifF (m1 ! [i5, i6] <=. 0.0) 0 1]) * m8]"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
@@ -857,7 +859,7 @@ testReluPP2 = do
        ++ " -> " ++ printAstSimple renamesNull ast3
     @?= "\\v1 -> rconstant (rgather [5] (rconst (fromList [2] [0.0,1.0])) (\\[i2] -> [ifF (rprimalPart v1 ! [i2] * 7.0 <=. 0.0) 0 1])) * (v1 * rconstant (rreplicate 5 7.0))"
   resetVarCounter
-  let (artifactRev, _deltas) = revArtifactAdapt True reluT2 (FlipR $ OR.constant [5] 128, 42)
+  let (artifactRev, _deltas) = revArtifactAdapt True reluT2 (rreplicate0N [5] 128, 42)
   printArtifactPretty renames (simplifyArtifact artifactRev)
     @?= "\\v8 v1 x2 -> let v9 = rgather [5] (rconst (fromList [2] [0.0,1.0])) (\\[i4] -> [ifF (v1 ! [i4] * x2 <=. 0.0) 0 1]) * v8 in [rreplicate 5 x2 * v9, rsum (v1 * v9)]"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
@@ -867,7 +869,7 @@ testReluSimpler :: Assertion
 testReluSimpler = do
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [3, 4] [1.0,0.0,0.0,1.0,1.0,1.0,1.0,1.0,0.0,0.0,1.0,1.0])
-    (rev' @Double @2 relu (rfromList0N [3, 4] [1.1, -2.2, 0, 4.4, 5.5, 6.6, 7.7, 8.8, -9.9, -10, 11, 12]))
+    (rev' @Double @2 relu (FlipR $ OR.fromList [3, 4] [1.1, -2.2, 0, 4.4, 5.5, 6.6, 7.7, 8.8, -9.9, -10, 11, 12]))
 
 testReluSimplerPP :: Assertion
 testReluSimplerPP = do
@@ -881,7 +883,7 @@ testReluSimplerPP = do
        ++ " -> " ++ printAstSimple renamesNull ast3
     @?= "\\m1 -> rconstant (rgather [3,4] (rconst (fromList [2] [0.0,1.0])) (\\[i4, i3] -> [ifF (rprimalPart m1 ! [i4, i3] <=. 0.0) 0 1])) * m1"
   resetVarCounter
-  let (artifactRev, deltas) = revArtifactAdapt True reluT (FlipR $ OR.constant [3, 4] 4)
+  let (artifactRev, deltas) = revArtifactAdapt True reluT (rreplicate0N [3, 4] 4)
   printArtifactPretty renames (simplifyArtifact artifactRev)
     @?= "\\m8 m1 -> [rgather [3,4] (rconst (fromList [2] [0.0,1.0])) (\\[i5, i6] -> [ifF (m1 ! [i5, i6] <=. 0.0) 0 1]) * m8]"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
@@ -902,7 +904,7 @@ testReluSimplerPP2 = do
        ++ " -> " ++ printAstSimple renamesNull ast3
     @?= "\\v1 -> rlet (v1 * rconstant (rreplicate 5 7.0)) (\\i2 -> rconstant (rgather [5] (rconst (fromList [2] [0.0,1.0])) (\\[i3] -> [ifF (rprimalPart i2 ! [i3] <=. 0.0) 0 1])) * i2)"
   resetVarCounter
-  let (artifactRev, _deltas) = revArtifactAdapt True reluT2 (FlipR $ OR.constant [5] 128, 42)
+  let (artifactRev, _deltas) = revArtifactAdapt True reluT2 (rreplicate0N [5] 128, 42)
   printArtifactPretty renames (simplifyArtifact artifactRev)
     @?= "\\v8 v1 x2 -> let v9 = rgather [5] (rconst (fromList [2] [0.0,1.0])) (\\[i6] -> [ifF (v1 ! [i6] * x2 <=. 0.0) 0 1]) * v8 in [rreplicate 5 x2 * v9, rsum (v1 * v9)]"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
@@ -921,7 +923,7 @@ testReluSimplerPP3 = do
        ++ " -> " ++ printAstSimple renamesNull ast3
     @?= "\\v1 -> rlet (v1 * rconstant (rreplicate 3 (rreplicate 4 7.0))) (\\i2 -> rconstant (rgather [3,4] (rconst (fromList [2] [0.0,1.0])) (\\[i5, i4] -> [ifF (rprimalPart i2 ! [i5, i4] <=. 0.0) 0 1])) * i2)"
   resetVarCounter
-  let (artifactRev, _deltas) = revArtifactAdapt True reluT2 (FlipR $ OR.constant [3, 4] 128, 42)
+  let (artifactRev, _deltas) = revArtifactAdapt True reluT2 (rreplicate0N [3, 4] 128, 42)
   printArtifactPretty renames (simplifyArtifact artifactRev)
     @?= "\\m11 m1 x2 -> let m12 = rgather [3,4] (rconst (fromList [2] [0.0,1.0])) (\\[i8, i9] -> [ifF (m1 ! [i8, i9] * x2 <=. 0.0) 0 1]) * m11 in [rreplicate 3 (rreplicate 4 x2) * m12, rsum (rsum (m1 * m12))]"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
@@ -933,10 +935,9 @@ testReluSimpler3 = do
              -> AstRanked FullSpan Double 2
       reluT2 (t, r) = relu (t * rreplicate 3 (rreplicate 4 r))
   assertEqualUpToEpsilon 1e-10
-    ( FlipR
-      $ OR.fromList [3, 4] [7.0,0.0,0.0,7.0,7.0,7.0,7.0,7.0,0.0,0.0,7.0,7.0]
+    ( rfromList0N [3, 4] [7.0,0.0,0.0,7.0,7.0,7.0,7.0,7.0,0.0,0.0,7.0,7.0]
     , 57.1 )
-    (rev @Double @2 reluT2 (FlipR $ OR.fromList [3, 4] [1.1, -2.2, 0, 4.4, 5.5, 6.6, 7.7, 8.8, -9.9, -10, 11, 12], 7))
+    (rev @Double @2 reluT2 (rfromList0N [3, 4] [1.1, -2.2, 0, 4.4, 5.5, 6.6, 7.7, 8.8, -9.9, -10, 11, 12], 7))
 
 testReluSimplerPP4 :: Assertion
 testReluSimplerPP4 = do
@@ -951,7 +952,7 @@ testReluSimplerPP4 = do
        ++ " -> " ++ printAstSimple renamesNull ast3
     @?= "\\v1 -> rlet (v1 * rconstant (rreshape [3,4] (rreplicate 12 7.0))) (\\i2 -> rconstant (rgather [3,4] (rconst (fromList [2] [0.0,1.0])) (\\[i5, i4] -> [ifF (rprimalPart i2 ! [i5, i4] <=. 0.0) 0 1])) * i2)"
   resetVarCounter
-  let (artifactRev, _deltas) = revArtifactAdapt True reluT2 (FlipR $ OR.constant [3, 4] 128, 42)
+  let (artifactRev, _deltas) = revArtifactAdapt True reluT2 (rreplicate0N [3, 4] 128, 42)
   printArtifactPretty renames (simplifyArtifact artifactRev)
     @?= "\\m12 m1 x2 -> let m13 = rgather [3,4] (rconst (fromList [2] [0.0,1.0])) (\\[i9, i10] -> [ifF (m1 ! [i9, i10] * x2 <=. 0.0) 0 1]) * m12 in [rreplicate 3 (rreplicate 4 x2) * m13, rsum (rreshape [12] (m1 * m13))]"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
@@ -963,10 +964,9 @@ testReluSimpler4 = do
              -> AstRanked FullSpan Double 2
       reluT2 (t, r) = relu (t * rreplicate0N [3, 4] r)
   assertEqualUpToEpsilon 1e-10
-    ( FlipR
-      $ OR.fromList [3, 4] [7.0,0.0,0.0,7.0,7.0,7.0,7.0,7.0,0.0,0.0,7.0,7.0]
+    ( rfromList0N [3, 4] [7.0,0.0,0.0,7.0,7.0,7.0,7.0,7.0,0.0,0.0,7.0,7.0]
     , 57.1 )
-    (rev @Double @2 reluT2 (FlipR $ OR.fromList [3, 4] [1.1, -2.2, 0, 4.4, 5.5, 6.6, 7.7, 8.8, -9.9, -10, 11, 12], 7))
+    (rev @Double @2 reluT2 (rfromList0N [3, 4] [1.1, -2.2, 0, 4.4, 5.5, 6.6, 7.7, 8.8, -9.9, -10, 11, 12], 7))
 
 testReluSimplerPP4S :: Assertion
 testReluSimplerPP4S = do
@@ -1018,7 +1018,7 @@ testReluMax :: Assertion
 testReluMax = do
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [3, 4] [1.0,0.0,0.0,1.0,1.0,1.0,1.0,1.0,0.0,0.0,1.0,1.0])
-    (rev' @Double @2 reluMax (rfromList0N [3, 4] [1.1, -2.2, 0, 4.4, 5.5, 6.6, 7.7, 8.8, -9.9, -10, 11, 12]))
+    (rev' @Double @2 reluMax (FlipR $ OR.fromList [3, 4] [1.1, -2.2, 0, 4.4, 5.5, 6.6, 7.7, 8.8, -9.9, -10, 11, 12]))
 
 testReluMaxPP :: Assertion
 testReluMaxPP = do
@@ -1032,7 +1032,7 @@ testReluMaxPP = do
        ++ " -> " ++ printAstSimple renamesNull ast3
     @?= "\\m1 -> rgather [3,4] (rfromVector (fromList [rconstant (rreplicate 3 (rreplicate 4 0.0)), m1])) (\\[i5, i4] -> [ifF (0.0 >=. rprimalPart m1 ! [i5, i4]) 0 1, i5, i4])"
   resetVarCounter
-  let (artifactRev, deltas) = revArtifactAdapt True reluT (FlipR $ OR.constant [3, 4] 4)
+  let (artifactRev, deltas) = revArtifactAdapt True reluT (rreplicate0N [3, 4] 4)
   printArtifactPretty renames (simplifyArtifact artifactRev)
     @?= "\\m8 m1 -> [rscatter [2,3,4] m8 (\\[i9, i10] -> [ifF (0.0 >=. m1 ! [i9, i10]) 0 1, i9, i10]) ! [1]]"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
@@ -1053,7 +1053,7 @@ testReluMaxPP2 = do
        ++ " -> " ++ printAstSimple renamesNull ast3
     @?= "\\v1 -> rgather [5] (rfromVector (fromList [rconstant (rreplicate 5 0.0), v1 * rconstant (rreplicate 5 7.0)])) (\\[i3] -> [ifF (0.0 >=. rprimalPart v1 ! [i3] * 7.0) 0 1, i3])"
   resetVarCounter
-  let (artifactRev, _deltas) = revArtifactAdapt True reluT2 (FlipR $ OR.constant [5] 128, 42)
+  let (artifactRev, _deltas) = revArtifactAdapt True reluT2 (rreplicate0N [5] 128, 42)
   printArtifactPretty renames artifactRev
     @?= "\\v7 v1 x2 -> let m10 = rscatter [2,5] v7 (\\[i8] -> [let x9 = v1 ! [i8] in ifF (0.0 >=. x9 * x2) 0 1, i8]) ; v11 = m10 ! [1] in [rreplicate 5 x2 * v11, rsum (v1 * v11)]"
   printArtifactPrimalPretty renames artifactRev
@@ -1069,10 +1069,9 @@ testReluMax3 = do
              -> AstRanked FullSpan Double 2
       reluT2 (t, r) = reluMax (t * rreplicate 3 (rreplicate 4 r))
   assertEqualUpToEpsilon 1e-10
-    ( FlipR
-      $ OR.fromList [3, 4] [7.0,0.0,0.0,7.0,7.0,7.0,7.0,7.0,0.0,0.0,7.0,7.0]
+    ( rfromList0N [3, 4] [7.0,0.0,0.0,7.0,7.0,7.0,7.0,7.0,0.0,0.0,7.0,7.0]
     , 57.1 )
-    (rev @Double @2 reluT2 (FlipR $ OR.fromList [3, 4] [1.1, -2.2, 0, 4.4, 5.5, 6.6, 7.7, 8.8, -9.9, -10, 11, 12], 7))
+    (rev @Double @2 reluT2 (rfromList0N [3, 4] [1.1, -2.2, 0, 4.4, 5.5, 6.6, 7.7, 8.8, -9.9, -10, 11, 12], 7))
 
 testDot1PP :: Assertion
 testDot1PP = do
@@ -1080,8 +1079,8 @@ testDot1PP = do
   let renames = IM.empty
       (artifactRev, _) =
         revArtifactAdapt True (uncurry (rdot0 @(AstRanked FullSpan) @Double @1))
-                 ( FlipR $ OR.fromList [3] [1 .. 3]
-                 , FlipR $ OR.fromList [3] [4 .. 6] )
+                 ( ringestData [3] [1 .. 3]
+                 , ringestData [3] [4 .. 6] )
   printArtifactPretty renames artifactRev
     @?= "\\x3 v1 v2 -> [v2 * rreshape [3] (rreplicate 3 x3), v1 * rreshape [3] (rreplicate 3 x3)]"
   printArtifactPrimalPretty renames artifactRev
@@ -1093,8 +1092,8 @@ testDot2PP = do
   let renames = IM.empty
       (artifactRev, deltas) =
         revArtifactAdapt True (uncurry (rdot0 @(AstRanked FullSpan) @Double @2))
-                 ( FlipR $ OR.fromList [2,3] [1 .. 6]
-                 , FlipR $ OR.fromList [2,3] [7 .. 12] )
+                 ( ringestData [2,3] [1 .. 6]
+                 , ringestData [2,3] [7 .. 12] )
   printArtifactPretty renames artifactRev
     @?= "\\x3 m1 m2 -> [m2 * rreshape [2,3] (rreplicate 6 x3), m1 * rreshape [2,3] (rreplicate 6 x3)]"
   printArtifactPrimalPretty renames artifactRev
@@ -1113,8 +1112,8 @@ testMatvecmulPP = do
       (artifactRev, _) =
         revArtifactAdapt @Double @1 @(AstRanked FullSpan)
                  True (uncurry rmatvecmul)
-                 ( FlipR $ OR.fromList [2,3] [1 :: Double .. 6]
-                 , FlipR $ OR.fromList [3] [7 .. 9] )
+                 ( ringestData [2,3] [1 .. 6]
+                 , ringestData [3] [7 .. 9] )
   printArtifactPretty renames artifactRev
     @?= "\\v4 m1 v2 -> [rtranspose [1,0] (rtranspose [1,0] (rreplicate 2 v2) * rreplicate 3 v4), rsum (rtranspose [1,0] (rtranspose [1,0] m1 * rreplicate 3 v4))]"
   printArtifactPrimalPretty renames artifactRev
@@ -1137,8 +1136,8 @@ testMatmul2PP = do
       (artifactRev, _) =
         revArtifactAdapt @Double @2 @(AstRanked FullSpan)
                  True (uncurry rmatmul2)
-                 ( FlipR $ OR.fromList [2,3] [1 :: Double .. 6]
-                 , FlipR $ OR.fromList [3,4] [7 .. 18] )
+                 ( ringestData [2,3] [1 .. 6]
+                 , ringestData [3,4] [7 .. 18] )
   printArtifactPretty renames artifactRev
     @?= sGradient6Pretty
   printArtifactPrimalPretty renames artifactRev
@@ -1159,8 +1158,8 @@ testMatmul2FromMatvecmulPP = do
       (artifactRev, _) =
         revArtifactAdapt @Double @2 @(AstRanked FullSpan)
                  True (uncurry rmatmul2F)
-                 ( FlipR $ OR.fromList [2,3] [1 :: Double .. 6]
-                 , FlipR $ OR.fromList [3,4] [7 .. 18] )
+                 ( ringestData [2,3] [1 .. 6]
+                 , ringestData [3,4] [7 .. 18] )
   printArtifactPretty renames artifactRev
     @?= "\\m8 m1 m2 -> [rsum (rtranspose [2,1,0] (rtranspose [1,0] (rreplicate 2 m2) * rreplicate 3 m8)), rsum (rtranspose [1,0] (rtranspose [2,1,0] (rreplicate 4 m1) * rreplicate 3 m8))]"
   printArtifactPrimalPretty renames artifactRev
@@ -1181,8 +1180,8 @@ testMatmul2PaperPP = do
       (artifactRev, _) =
         revArtifactAdapt @Double @2 @(AstRanked FullSpan)
                  True (uncurry rmatmul2P)
-                 ( FlipR $ OR.fromList [2,3] [1 :: Double .. 6]
-                 , FlipR $ OR.fromList [3,4] [7 .. 18] )
+                 ( ringestData [2,3] [1 .. 6]
+                 , ringestData [3,4] [7 .. 18] )
   printArtifactPretty renames artifactRev
     @?= "\\m7 m1 m2 -> [rsum (rtranspose [2,1,0] (rtranspose [1,0] (rreplicate 2 m2) * rreplicate 3 m7)), rsum (rtranspose [1,0] (rtranspose [2,1,0] (rreplicate 4 m1) * rreplicate 3 m7))]"
   printArtifactPrimalPretty renames artifactRev
@@ -1220,7 +1219,7 @@ testBar :: Assertion
 testBar =
   assertEqualUpToEpsilon 1e-9
     (3.1435239435581166,-1.1053869545195814)
-    (crev (bar @(ADVal (FlipR OR.Array) Double 0)) (1.1, 2.2))
+    (crev (bar @(ADVal ORArray Double 0)) (1.1, 2.2))
 
 testBarS :: Assertion
 testBarS =
@@ -1238,7 +1237,7 @@ testBarCFwd :: Assertion
 testBarCFwd =
   assertEqualUpToEpsilon 1e-9
     9.327500345189534e-2
-    (cfwd (bar @(ADVal (FlipR OR.Array) Double 0)) (1.1, 2.2) (0.1, 0.2))
+    (cfwd (bar @(ADVal ORArray Double 0)) (1.1, 2.2) (0.1, 0.2))
 
 testBarFwd :: Assertion
 testBarFwd =
@@ -1263,16 +1262,16 @@ barADVal2 (x,y,z) =
 -- causing exactly the same danger.
 -- This example also tests unused parameters (x), another common cause
 -- of crashes in naive gradient computing code.
-baz :: ( ADVal (FlipR OR.Array) Double 0
-       , ADVal (FlipR OR.Array) Double 0
-       , ADVal (FlipR OR.Array) Double 0 )
-    -> ADVal (FlipR OR.Array) Double 0
+baz :: ( ADVal ORArray Double 0
+       , ADVal ORArray Double 0
+       , ADVal ORArray Double 0 )
+    -> ADVal ORArray Double 0
 baz (_x,y,z) =
   let w = fooConstant * barADVal2 (y,y,z) * sin y
   in atan2F z w + z * w
 
 -- An "old term", computed once, stored at top level.
-fooConstant :: ADVal (FlipR OR.Array) Double 0
+fooConstant :: ADVal ORArray Double 0
 fooConstant = foo (7, 8, 9)
 
 testBaz :: Assertion
@@ -1300,7 +1299,7 @@ testBazRenumbered =
 -- A dual-number and list-based version of a function that goes
 -- from `R^3` to `R`.
 fooD :: forall r. r ~ Double
-     => [ADVal (FlipR OR.Array) r 0] -> ADVal (FlipR OR.Array) r 0
+     => [ADVal ORArray r 0] -> ADVal ORArray r 0
 fooD [x, y, z] =
   let w = x * sin y
   in atan2F z w + z * w
@@ -1327,19 +1326,19 @@ testFooBuildDt :: Assertion
 testFooBuildDt =
   assertEqualUpToEpsilon1 1e-5
     (OR.fromList [4] [-189890.46351219364,-233886.08744601303,-222532.22669716467,-206108.68889329425])
-    (revDt @(AstRanked FullSpan Double 1) fooBuild1 (FlipR $ OR.fromList [4] [1.1, 2.2, 3.3, 4]) (FlipR $ OR.constant [3] 42))
+    (revDt @(AstRanked FullSpan Double 1) fooBuild1 (rfromList0N [4] [1.1, 2.2, 3.3, 4]) (rreplicate0N [3] 42))
 
 testFooBuildCFwd :: Assertion
 testFooBuildCFwd =
   assertEqualUpToEpsilon1 1e-5
     (OR.fromList [3] [-296584.8166864211,-290062.472288043,-265770.1775742018])
-    (cfwd @Double @1 fooBuild1 (FlipR $ OR.fromList [4] [1.1, 2.2, 3.3, 4]) (FlipR $ OR.constant [4] 42))
+    (cfwd @Double @1 fooBuild1 (rfromList0N [4] [1.1, 2.2, 3.3, 4]) (rreplicate0N [4] 42))
 
 testFooBuildFwd :: Assertion
 testFooBuildFwd =
   assertEqualUpToEpsilon1 1e-5
     (OR.fromList [3] [-296584.8166864211,-290062.472288043,-265770.1775742018])
-    (fwd @(AstRanked FullSpan Double 1) fooBuild1 (FlipR $ OR.fromList [4] [1.1, 2.2, 3.3, 4]) (FlipR $ OR.constant [4] 42))
+    (fwd @(AstRanked FullSpan Double 1) fooBuild1 (rfromList0N [4] [1.1, 2.2, 3.3, 4]) (rreplicate0N [4] 42))
 
 testFooBuild :: Assertion
 testFooBuild =
@@ -1382,7 +1381,7 @@ fooNoGoAst v =
 testFooNoGoAst :: Assertion
 testFooNoGoAst =
   let f :: (GoodScalar r, Differentiable r)
-        => ADVal (FlipR OR.Array) r 1 -> ADVal (FlipR OR.Array) r 1
+        => ADVal ORArray r 1 -> ADVal ORArray r 1
       f x = interpretAst (extendEnvR
                             (AstVarName $ intToAstVarId 100000000)
                             x EM.empty)
@@ -1390,7 +1389,7 @@ testFooNoGoAst =
   in assertEqualUpToEpsilon1 1e-6
        (OR.fromList [5] [5.037878787878788,-14.394255484765257,43.23648655081373,-0.8403418295960368,5.037878787878788])
        (crev @Double @1 f
-             (FlipR $ OR.fromList [5] [1.1 :: Double, 2.2, 3.3, 4, 5]))
+             (rfromList0N [5] [1.1, 2.2, 3.3, 4, 5]))
 
 fooNoGo :: forall ranked r. (ADReady ranked, GoodScalar r, Differentiable r)
         => ranked r 1 -> ranked r 1
@@ -1478,7 +1477,7 @@ testBarReluDt :: Assertion
 testBarReluDt =
   assertEqualUpToEpsilon1 1e-10
     (OR.fromList [] [191.20462646925841])
-    (revDt @(AstRanked FullSpan Double 0) barRelu (FlipR $ OR.fromList [] [1.1]) 42.2)
+    (revDt @(AstRanked FullSpan Double 0) barRelu (rfromList0N [] [1.1]) 42.2)
 
 testBarRelu :: Assertion
 testBarRelu =
@@ -1506,7 +1505,7 @@ testBarReluMaxDt :: Assertion
 testBarReluMaxDt =
   assertEqualUpToEpsilon1 1e-10
     (OR.fromList [] [191.20462646925841])
-    (revDt @(AstRanked FullSpan Double 0) barReluMax (FlipR $ OR.fromList [] [1.1]) 42.2)
+    (revDt @(AstRanked FullSpan Double 0) barReluMax (rfromList0N [] [1.1]) 42.2)
 
 testBarReluMax :: Assertion
 testBarReluMax =
@@ -1531,8 +1530,8 @@ testBarReluMax3CFwd =
   assertEqualUpToEpsilon1 1e-10
     (OR.fromList [2, 1, 2] [0.45309153191767404,0.9060427799711201,-2.8186426018387007,40.02498898648793])
     (cfwd @Double @3 barReluMax
-                     (FlipR $ OR.fromList [2, 1, 2] [1.1, 2, 3, 4.2])
-                     (FlipR $ OR.fromList [2, 1, 2] [0.1, 0.2, 0.3, 0.42]))
+                     (rfromList0N [2, 1, 2] [1.1, 2, 3, 4.2])
+                     (rfromList0N [2, 1, 2] [0.1, 0.2, 0.3, 0.42]))
 
 reluMaxS :: forall shaped sh r.
             (ADReadyS shaped, GoodScalar r, KnownShS sh, KnownNat (X.Rank sh))
@@ -1571,8 +1570,8 @@ testBarReluMax3FwdR =
     (OR.fromList [2, 1, 2] [0.45309153191767404,0.9060427799711201,-2.8186426018387007,40.02498898648793])
     (fwd @(AstRanked FullSpan Double 3)
          barReluMax
-         (FlipR $ OR.fromList [2, 1, 2] [1.1, 2, 3, 4.2])
-         (FlipR $ OR.fromList [2, 1, 2] [0.1, 0.2, 0.3, 0.42]))
+         (rfromList0N [2, 1, 2] [1.1, 2, 3, 4.2])
+         (rfromList0N [2, 1, 2] [0.1, 0.2, 0.3, 0.42]))
 
 barReluAst
   :: forall n r.
@@ -1584,26 +1583,26 @@ barReluAst x = relu $ bar (x, relu x)
 testBarReluAst0 :: Assertion
 testBarReluAst0 =
   let f :: (GoodScalar r, Differentiable r)
-        => ADVal (FlipR OR.Array) r 0 -> ADVal (FlipR OR.Array) r 0
+        => ADVal ORArray r 0 -> ADVal ORArray r 0
       f x = interpretAst (extendEnvR
                             (AstVarName $ intToAstVarId 100000000)
                             x EM.empty)
                          (barReluAst (AstVar [] (AstVarName . intToAstVarId $ 100000000)))
   in assertEqualUpToEpsilon1 1e-10
        (OR.fromList [] [191.20462646925841])
-       (crevDt @Double @0 f (FlipR $ OR.fromList [] [1.1]) 42.2)
+       (crevDt @Double @0 f (rscalar 1.1) 42.2)
 
 testBarReluAst1 :: Assertion
 testBarReluAst1 =
   let f :: (GoodScalar r, Differentiable r)
-        => ADVal (FlipR OR.Array) r 1 -> ADVal (FlipR OR.Array) r 1
+        => ADVal ORArray r 1 -> ADVal ORArray r 1
       f x = interpretAst (extendEnvR
                             (AstVarName $ intToAstVarId 100000000)
                             x EM.empty)
                          (barReluAst (AstVar [5] (AstVarName . intToAstVarId $ 100000000)))
   in assertEqualUpToEpsilon1 1e-10
        (OR.fromList [5] [4.530915319176739,-2.9573428114591314e-2,5.091137576320349,81.14126788127645,2.828924924816215])
-       (crev @Double @1 f (FlipR $ OR.fromList [5] [1.1, 2.2, 3.3, 4, 5]))
+       (crev @Double @1 f (rfromList0N [5] [1.1, 2.2, 3.3, 4, 5]))
 
 konstReluAst
   :: forall r.
@@ -1614,14 +1613,14 @@ konstReluAst x = rsum0 $ relu $ rreplicate0N (7 :$: ZSR) x
 testReplicateReluAst :: Assertion
 testReplicateReluAst =
   let f :: (GoodScalar r, Differentiable r)
-        => ADVal (FlipR OR.Array) r 0 -> ADVal (FlipR OR.Array) r 0
+        => ADVal ORArray r 0 -> ADVal ORArray r 0
       f x = interpretAst (extendEnvR
                             (AstVarName $ intToAstVarId 100000000)
                             x EM.empty)
                          (konstReluAst (AstVar [] (AstVarName . intToAstVarId $ 100000000)))
   in assertEqualUpToEpsilon1 1e-10
        (OR.fromList [] [295.4])
-       (crevDt @Double @0 f (FlipR $ OR.fromList [] [1.1]) 42.2)
+       (crevDt @Double @0 f (rscalar 1.1) 42.2)
 
 f1 :: (ADReady ranked, GoodScalar r) => ranked r 0 -> ranked r 0
 f1 = \arg -> rsum0 (rbuild1 10 (\i -> arg * rfromIndex0 i))
@@ -1983,7 +1982,7 @@ fblowupPP = do
   resetVarCounter
   let renames = IM.empty
       fblowupT = fblowup @(AstRanked FullSpan) @Double 1
-  let (artifactRev, _) = revArtifactAdapt True fblowupT (FlipR $ OR.constant [4] 4)
+  let (artifactRev, _) = revArtifactAdapt True fblowupT (rreplicate0N [4] 4)
   printArtifactSimple renames artifactRev
     @?= "\\x7 v1 -> rletInHVector (v1 ! [0]) (\\x2 -> rletInHVector (v1 ! [1]) (\\x3 -> rletInHVector (v1 ! [0]) (\\x4 -> rletInHVector (v1 ! [1]) (\\x5 -> rletInHVector (0.499999985 * x7) (\\x8 -> dmkHVector (fromList [DynamicRanked (rscatter [4] (recip x3 * x8) (\\[] -> [0]) + rscatter [4] ((negate x2 / (x3 * x3)) * x8) (\\[] -> [1]) + rscatter [4] (recip x5 * x8) (\\[] -> [0]) + rscatter [4] ((negate x4 / (x5 * x5)) * x8) (\\[] -> [1]))]))))))"
   printArtifactPrimalSimple renames artifactRev
@@ -1994,7 +1993,7 @@ fblowupLetPP = do
   resetVarCounter
   let renames = IM.empty
       fblowupLetT = fblowupLet @(AstRanked FullSpan) @Double 0 1
-  let (artifactRev, _) = revArtifactAdapt True fblowupLetT (FlipR $ OR.constant [4] 4)
+  let (artifactRev, _) = revArtifactAdapt True fblowupLetT (rreplicate0N [4] 4)
   printArtifactSimple renames artifactRev
     @?= "\\x7 v1 -> rletInHVector (v1 ! [0]) (\\x3 -> rletInHVector (v1 ! [1]) (\\x4 -> rletInHVector (0.499999985 * x7) (\\x8 -> rletInHVector (x8 + x8) (\\x9 -> dmkHVector (fromList [DynamicRanked (rscatter [4] (recip x4 * x9) (\\[] -> [0]) + rscatter [4] ((negate x3 / (x4 * x4)) * x9) (\\[] -> [1]))])))))"
   printArtifactPrimalSimple renames artifactRev

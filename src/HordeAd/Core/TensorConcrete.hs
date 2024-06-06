@@ -8,7 +8,7 @@ module HordeAd.Core.TensorConcrete
 
 import Prelude hiding (foldl')
 
-import           Data.Array.Convert
+import qualified Data.Array.Convert
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as Sh
@@ -19,6 +19,7 @@ import qualified Data.List.NonEmpty as NonEmpty
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality (gcastWith, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
+import qualified GHC.IsList as IsList
 import           GHC.TypeLits (KnownNat)
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
@@ -40,6 +41,17 @@ import HordeAd.Core.Types
 import HordeAd.Internal.BackendOX
 import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..), FlipS (..))
 import HordeAd.Util.ShapedList (shapedNat, unShapedNat)
+
+type instance BoolOf (FlipR OR.Array) = Bool
+type instance RankedOf (FlipR OR.Array) = FlipR OR.Array
+type instance ShapedOf (FlipR OR.Array) = FlipS OS.Array
+type instance HVectorOf (FlipR OR.Array) = HVector (FlipR OR.Array)
+type instance PrimalOf (FlipR OR.Array) = FlipR OR.Array
+
+type instance BoolOf (FlipS OS.Array) = Bool
+type instance RankedOf (FlipS OS.Array) = FlipR OR.Array
+type instance ShapedOf (FlipS OS.Array) = FlipS OS.Array
+type instance PrimalOf (FlipS OS.Array) = FlipS OS.Array
 
 type instance BoolOf (ORArray) = Bool
 
@@ -77,7 +89,7 @@ instance RankedTensor (ORArray) where
   rindex v ix = FlipR $ tindexZR (runFlipR v) (fromIndexOfR ix)
   rindex0 v ix = FlipR . tscalarR $ tindex0R (runFlipR v) (fromIndexOfR ix)
   rsum = FlipR . tsumR . runFlipR
-  rsum0 = FlipR . tscalarR . tsum0R . runFlipR
+-- TODO:    rsum0 = FlipR . tscalarR . tsum0R . runFlipR
   rdot0 u v = FlipR $ tscalarR $ tdot0R (runFlipR u) (runFlipR v)
   rmatvecmul m v = FlipR $ tmatvecmulR (runFlipR m) (runFlipR v)
   rmatmul2 m1 m2 = FlipR $ tmatmul2R (runFlipR m1) (runFlipR m2)
@@ -98,27 +110,25 @@ instance RankedTensor (ORArray) where
   rtranspose perm = FlipR . ttransposeR perm . runFlipR
   rreshape sh = FlipR . treshapeR sh . runFlipR
   rbuild1 k f = FlipR $ tbuild1R k (runFlipR . f . FlipR . tscalarR)
-  rmap0N f t = FlipR $ tmap0NR (runFlipR . f . FlipR) (runFlipR t)
-  rzipWith0N f t u = FlipR $ tzipWith0NR (\v w -> runFlipR $ f (FlipR v) (FlipR w))
-                                        (runFlipR t) (runFlipR u)
+-- TODO:    rmap0N f t = FlipR $ tmap0NR (runFlipR . f . FlipR) (runFlipR t)
+-- TODO:    rzipWith0N f t u = FlipR $ tzipWith0NR (\v w -> runFlipR $ f (FlipR v) (FlipR w))
+--                                        (runFlipR t) (runFlipR u)
   rgather sh t f = FlipR $ tgatherZR sh (runFlipR t)
                                        (fromIndexOfR . f . toIndexOfR)
   rgather1 k t f = FlipR $ tgatherZ1R k (runFlipR t)
                                        (fromIndexOfR . f . FlipR . tscalarR)
   rcast = FlipR . tcastR . runFlipR
   rfromIntegral = FlipR . tfromIntegralR . runFlipR
-  rconst = FlipR
+  rconst = FlipR . Nested.rfromOrthotope SNat
   rletHVectorIn = (&)
   rletHFunIn = (&)
   rfromS :: forall r sh. (GoodScalar r, KnownShS sh)
          => OSArray r sh -> ORArray r (X.Rank sh)
-  rfromS t | Dict <- lemKnownNatRank (knownShS @sh) =
-    FlipR $ OR.fromVector (Nested.Internal.Shape.shsToList (knownShS @sh)) $ Nested.stoVector {-Nested.rstoRanked -} (runFlipS t)
-    -- TODO
+  rfromS = FlipR . Nested.stoRanked . runFlipS
 
   rscaleByScalar s v =
     FlipR $ tscaleByScalarR (tunScalarR $ runFlipR s) (runFlipR v)
-  rsumIn = FlipR . tsumInR . runFlipR
+-- TODO:    rsumIn = FlipR . tsumInR . runFlipR
   rdot1In u v = FlipR $ tdot1InR (runFlipR u) (runFlipR v)
 
   rconstant = id
@@ -209,12 +219,7 @@ instance ShapedTensor (OSArray) where
   sletHFunIn = (&)
   sfromR :: forall r sh. (GoodScalar r, KnownShS sh)
          => ORArray r (X.Rank sh) -> OSArray r sh
-  sfromR t | Dict <- lemShapeFromKnownShS (Proxy @sh)
-           , Dict <- lemKnownNatRank (knownShS @sh) =
-    gcastWith (unsafeCoerce Refl :: X.Rank sh :~: X.Rank sh) $
-    FlipS $ Nested.rcastToShaped
-              (Nested.rfromOrthotope (SNat @(X.Rank sh)) (runFlipR t))
-              knownShS
+  sfromR = FlipS . flip Nested.rcastToShaped knownShS . runFlipR
 
   sscaleByScalar s v =
     FlipS $ tscaleByScalarS (tunScalarS $ runFlipS s) (runFlipS v)
@@ -348,6 +353,13 @@ instance (GoodScalar r, KnownNat n)
   toHVector = V.singleton . DynamicRanked
   fromHVector _aInit = fromHVectorR
 
+instance (GoodScalar r, KnownNat n)
+         => AdaptableHVector (ORArray) (FlipR OR.Array r n) where
+  toHVector = V.singleton . DynamicRanked . FlipR . Nested.rfromOrthotope SNat . runFlipR
+  fromHVector _aInit hv = case fromHVectorR hv of
+    Nothing -> Nothing
+    Just (FlipR t, hvRest) -> Just (FlipR $ Nested.rtoOrthotope t, hvRest)
+
 instance ForgetShape (ORArray r n) where
   type NoShape (ORArray r n) = ORArray r n
   forgetShape = id
@@ -360,15 +372,15 @@ instance (GoodScalar r, KnownShS sh)
 instance (GoodScalar r, KnownShS sh)
          => ForgetShape (OSArray r sh) where
   type NoShape (OSArray r sh) = ORArray r (X.Rank sh)  -- key case
-  forgetShape t | Dict <- lemShapeFromKnownShS (Proxy @sh)
-                , Dict <- lemKnownNatRank (knownShS @sh) =
-    FlipR $ OR.fromVector (Nested.Internal.Shape.shsToList (knownShS @sh)) $ Nested.stoVector {-Nested.rstoRanked -} (runFlipS t)
+  forgetShape = FlipR . Nested.stoRanked . runFlipS
 
+{- TODO: still neeed?
 instance KnownShS sh
          => ForgetShape (FlipS OS.Array r sh) where
   type NoShape (FlipS OS.Array r sh) = ORArray r (X.Rank sh)  -- key case
   forgetShape | Dict <- lemShapeFromKnownShS (Proxy @sh) =
     FlipR . Data.Array.Convert.convert . runFlipS
+-}
 
 -- TODO: probably this or the next instance is eventually not needed:
 instance (KnownShS sh, GoodScalar r, Fractional r, Random r, Num (Vector r))
@@ -412,9 +424,13 @@ instance AdaptableHVector (ORArray)
 instance (RankedTensor ranked, ShapedTensor (ShapedOf ranked))
          => DualNumberValue (DynamicTensor (ADVal ranked)) where
   type DValue (DynamicTensor (ADVal ranked)) = DynamicTensor (ORArray)
+--  type DValue (DynamicTensor (ADVal ranked)) = DynamicTensor (FlipR OR.Array)
   fromDValue = \case
-    DynamicRanked t -> DynamicRanked $ constantADVal $ rconst $ runFlipR t
+    DynamicRanked @_ @n t -> -- DynamicRanked $ constantADVal $ rconst $ runFlipR t
+      let sh = rshape t
+      in DynamicRanked @_ @n $ constantADVal $ rconst $ OR.fromVector (IsList.toList sh) $ Nested.rtoVector $ runFlipR t
     DynamicShaped @_ @sh t | Dict <- lemShapeFromKnownShS (Proxy @sh) ->
+--      DynamicShaped $ constantADVal $ sconst $ runFlipS t
       DynamicShaped $ constantADVal $ sconst $ OS.fromVector @sh $ Nested.stoVector $ runFlipS t
       -- TODO: this is probably very wrong
     DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2

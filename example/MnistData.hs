@@ -23,6 +23,7 @@ import           System.IO (IOMode (ReadMode), withBinaryFile)
 import           System.Random
 
 import HordeAd
+import HordeAd.Internal.BackendOX (ORArray)
 import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..))
 
 type SizeMnistWidth = 28 :: Nat
@@ -166,17 +167,17 @@ chunksOf n = go where
   :: KnownNat y
   => Double
   -> (MnistData Double
-      -> HVector (ADVal (FlipR OR.Array))
-      -> ADVal (FlipR OR.Array) Double y)
+      -> HVector (ADVal ORArray)
+      -> ADVal ORArray Double y)
   -> [MnistData Double]
-  -> HVector (FlipR OR.Array)
-  -> (HVector (FlipR OR.Array), FlipR OR.Array Double y) #-}
+  -> HVector ORArray
+  -> (HVector ORArray, ORArray Double y) #-}
 
 {-# SPECIALIZE sgdAdam
   :: KnownNat y
-  => (MnistDataBatchR Double -> HVector (ADVal (FlipR OR.Array))
-      -> ADVal (FlipR OR.Array) Double y)
+  => (MnistDataBatchR Double -> HVector (ADVal ORArray)
+      -> ADVal ORArray Double y)
   -> [MnistDataBatchR Double]
-  -> HVector (FlipR OR.Array)
+  -> HVector ORArray
   -> StateAdam
-  -> (HVector (FlipR OR.Array), StateAdam) #-}
+  -> (HVector ORArray, StateAdam) #-}

@@ -13,7 +13,7 @@ module HordeAd.Core.TensorClass
     ShapeInt, ShapeS
     -- * The tensor classes
   , RankedTensor(..), ShapedTensor(..), HVectorTensor(..), HFun(..)
-  , rfromD, sfromD, rscalar, ingestData, sscalar, srepl
+  , rfromD, sfromD, rscalar, ringestData, ingestData, sscalar, srepl
     -- * The giga-constraint
   , ADReady, ADReadyBoth, ADReadyR, ADReadyS
   ) where
@@ -89,7 +89,7 @@ class ( Num (IntOf ranked), IntegralF (IntOf ranked), CRanked ranked Num
   rsize = sizeShape . rshape
   rlength :: (GoodScalar r, KnownNat n) => ranked r (1 + n) -> Int
   rlength v = case rshape v of
-    ZSR -> error "tlength: impossible pattern needlessly required"
+    ZSR -> error "rlength: impossible pattern needlessly required"
     k :$: _ -> k
   rminIndex :: (GoodScalar r, GoodScalar r2, KnownNat n)
             => ranked r (1 + n) -> ranked r2 n  -- partial
@@ -1155,7 +1155,12 @@ sfromD (DynamicShapedDummy @r2 @sh2 _ _) = case sameShape @sh2 @sh of
 rscalar :: (GoodScalar r, RankedTensor ranked) => r -> ranked r 0
 rscalar = rconst . OR.scalar
 
-ingestData :: forall r sh shaped.
+ringestData :: forall ranked r n.
+              (GoodScalar r, KnownNat n, RankedTensor ranked)
+           => [Int] -> [r] -> ranked r n
+ringestData sh l = rconst $ OR.fromList sh l
+
+ingestData :: forall shaped r sh.
               (GoodScalar r, KnownShS sh, ShapedTensor shaped)
            => [r] -> shaped r sh
 ingestData l | Dict <- lemShapeFromKnownShS (Proxy @sh) = sconst $ OS.fromList l

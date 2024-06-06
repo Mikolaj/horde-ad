@@ -91,6 +91,13 @@ tshapeR
   => OR.Array n r -> ShapeInt n
 tshapeR = listToShape . OR.shapeL
 
+tlengthR
+  :: KnownNat n
+  => OR.Array n r -> Int
+tlengthR v = case tshapeR v of
+  ZSR -> error "tlengthR: impossible pattern needlessly required"
+  k :$: _ -> k
+
 tminIndexR
   :: forall n r r2. (NumAndShow r, NumAndShow r2, KnownNat n)
   => OR.Array (1 + n) r -> OR.Array n r2
