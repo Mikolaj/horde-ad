@@ -1725,12 +1725,12 @@ testConcatBuild2 =
 concatBuild3 :: (ADReady ranked, GoodScalar r) => ranked r 0 -> ranked r 1
 concatBuild3 r =
   rlet (rfromList [r, 1, 2, 3, 4]) $ \a ->
-    rbuild1 10 (\i -> ifF (i <. 5) (rindex a [i]) (rindex a [i - 5 + (1 `quotF` maxF 0 (i - 5))]))
+    rbuild1 10 (\i -> ifF (i <. 5) (rindex a [i]) (rindex a [i - 5 + (1 `quotF` maxF 1 (i - 5))]))
 
 testConcatBuild3 :: Assertion
 testConcatBuild3 =
   assertEqualUpToEpsilon' 1e-10
-    2
+    1
     (rev' @Double @1 concatBuild3 3.4)
 
 concatBuild4 :: (ADReady ranked, GoodScalar r) => ranked r 0 -> ranked r 1
@@ -1765,7 +1765,7 @@ concatBuild6 r =
              (rlet (rgather1 5 (rreplicate 1 r)
                    (\i -> (1 `quotF` (4 + i)) :.: ZIR)) $ \a ->
     (rappend (rgather1 5 (rreplicate 1 r)
-                         (\i -> (1 `quotF` (100 * maxF 0 (i - j))) :.: ZIR)) a))
+                         (\i -> (1 `quotF` (100 * maxF 1 (i - j))) :.: ZIR)) a))
                      (rreplicate 1 (rfromIndex0 j)))
             (rbuild1 13 (const r)))
 
@@ -1779,7 +1779,7 @@ concatBuild7 :: (ADReady ranked, GoodScalar r) => ranked r 0 -> ranked r 1
 concatBuild7 r =
   rbuild1 10 $ \j ->
     (rappend (rreplicate 5 r) (rgather1 5 (rreplicate 1 r)
-                                 (\i -> (1 `quotF` maxF 0 (j - i)) :.: ZIR)))
+                                 (\i -> (1 `quotF` maxF 1 (j - i)) :.: ZIR)))
      ! (j :.: ZIR)
 
 testConcatBuild7 :: Assertion
