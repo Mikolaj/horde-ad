@@ -65,7 +65,7 @@ testTrees =
   , testCase "2overleaf" testOverleaf
   , testCase "2overleafInt64n" testOverleafInt64
   , testCase "2overleafCIntn" testOverleafCInt
-  , testCase "2overleafCIntToFloatn" testOverleafCIntToFloat
+  , testCase "2overleafCIntToFloatn" testOverleafCIntToFloatn
   , testCase "2overleafInt64p" testOverleafInt64p
   , testCase "2overleafCIntp" testOverleafCIntp
   , testCase "2overleafCIntToFloatp" testOverleafCIntToFloatp
@@ -451,10 +451,10 @@ testOverleafCInt =
     (ringestData [28] (map round [2.0 :: Double,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,1.0,1.0,1.0,1.0,1.0,1.0]))
     (rev @CInt @0 @(AstRanked FullSpan) overleaf (ringestData [28] [0 .. 27]))
 
-testOverleafCIntToFloat :: Assertion
-testOverleafCIntToFloat =
+testOverleafCIntToFloatn :: Assertion
+testOverleafCIntToFloatn =
   assertEqualUpToEpsilon 1e-10
-    (rfromList0N [28] (replicate 28 0.0))
+    (rfromList0N [28] (replicate 28 (rscalar 0.0)))
     (rev @Float @0 @(AstRanked FullSpan) (rfromIntegral . overleaf @CInt . rfloor) (ringestData @_ @Float [28] [0 .. 27]))
 
 testOverleafInt64p :: Assertion
@@ -515,8 +515,8 @@ fooF (x, y, z) =
 testFoo :: Assertion
 testFoo = do
   assertEqualUpToEpsilon 1e-10
-    (2.4396285219055063, -1.953374825727421, 0.9654825811012627)
-    (rev @Double @0 @(AstRanked FullSpan) foo (1.1, 2.2, 3.3))
+    (rscalar 2.4396285219055063, rscalar (-1.953374825727421), rscalar 0.9654825811012627)
+    (rev @Double @0 @(AstRanked FullSpan) foo (rscalar 1.1, rscalar 2.2, rscalar 3.3))
 
 testFooS :: Assertion
 testFooS = do
@@ -545,12 +545,12 @@ testFooSBoth = do
 testFooBoth :: Assertion
 testFooBoth = do
   assertEqualUpToEpsilon 1e-10
-    (2.439628436155373, -1.9533749, 0.9654825479484146)
+    (rscalar 2.439628436155373, rscalar (-1.9533749), rscalar 0.9654825479484146)
     (rev @Float @0 @(AstRanked FullSpan)
          (rcast . foo . (\(d, f, d2) -> (d, rcast f, d2)))
-         ( 1.1 :: ORArray Double 0
-         , 2.2 :: ORArray Float 0
-         , 3.3 ))
+         ( rscalar 1.1 :: ORArray Double 0
+         , rscalar 2.2 :: ORArray Float 0
+         , rscalar 3.3 ))
 
 testFooPP :: Assertion
 testFooPP = do
@@ -580,8 +580,8 @@ fooLet (x, y, z) =
 testFooLet :: Assertion
 testFooLet = do
   assertEqualUpToEpsilon 1e-10
-    (2.4396285219055063, -1.953374825727421, 0.9654825811012627)
-    (rev @Double @0 @(AstRanked FullSpan) fooLet (1.1, 2.2, 3.3))
+    (rscalar 2.4396285219055063, rscalar (-1.953374825727421), rscalar 0.9654825811012627)
+    (rev @Double @0 @(AstRanked FullSpan) fooLet (rscalar 1.1, rscalar 2.2, rscalar 3.3))
 
 testFooLetPP :: Assertion
 testFooLetPP = do
@@ -768,7 +768,7 @@ testListSum2xyrPP = do
 
 ranked2xy :: (RankedTensor ranked, GoodScalar r)
           => (ranked r 0, ranked r 0) -> ranked r 0
-ranked2xy = \(x, y) -> 2 * x * y
+ranked2xy = \(x, y) -> rscalar 2 * x * y
 
 test2xyPP :: Assertion
 test2xyPP = do
@@ -786,7 +786,7 @@ test2xyPP = do
 -- Note that the function is not associative, so foldr vs foldl matters.
 rankedListSum23r :: (RankedTensor ranked, GoodScalar r)
                  => [ranked r 0] -> ranked r 0
-rankedListSum23r = foldr1 (\x y -> 2 * x + 3 * y)
+rankedListSum23r = foldr1 (\x y -> rscalar 2 * x + rscalar 3 * y)
 
 testListSum23rPP :: Assertion
 testListSum23rPP = do
@@ -802,7 +802,7 @@ testListSum23rPP = do
 
 ranked23 :: (RankedTensor ranked, GoodScalar r)
          => (ranked r 0, ranked r 0) -> ranked r 0
-ranked23 = \(x, y) -> 2 * x + 3 * y
+ranked23 = \(x, y) -> rscalar 2 * x + rscalar 3 * y
 
 test23PP :: Assertion
 test23PP = do
@@ -822,7 +822,7 @@ reluPrimal
      (ADReady ranked, GoodScalar r, KnownNat n, Differentiable r)
   => ranked r n -> ranked r n
 reluPrimal v =
-  let oneIfGtZero = rmap0N (\x -> ifF (x <=. 0) 0.0 1.0)
+  let oneIfGtZero = rmap0N (\x -> ifF (x <=. 0) (rscalar 0.0) (rscalar 1.0))
                            (rprimalPart v)
   in scale oneIfGtZero v
 
@@ -935,9 +935,9 @@ testReluSimpler3 = do
              -> AstRanked FullSpan Double 2
       reluT2 (t, r) = relu (t * rreplicate 3 (rreplicate 4 r))
   assertEqualUpToEpsilon 1e-10
-    ( rfromList0N [3, 4] [7.0,0.0,0.0,7.0,7.0,7.0,7.0,7.0,0.0,0.0,7.0,7.0]
-    , 57.1 )
-    (rev @Double @2 reluT2 (rfromList0N [3, 4] [1.1, -2.2, 0, 4.4, 5.5, 6.6, 7.7, 8.8, -9.9, -10, 11, 12], 7))
+    ( ringestData [3, 4] [7.0,0.0,0.0,7.0,7.0,7.0,7.0,7.0,0.0,0.0,7.0,7.0]
+    , rscalar 57.1 )
+    (rev @Double @2 reluT2 (ringestData [3, 4] [1.1, -2.2, 0, 4.4, 5.5, 6.6, 7.7, 8.8, -9.9, -10, 11, 12], rscalar 7))
 
 testReluSimplerPP4 :: Assertion
 testReluSimplerPP4 = do
@@ -964,9 +964,9 @@ testReluSimpler4 = do
              -> AstRanked FullSpan Double 2
       reluT2 (t, r) = relu (t * rreplicate0N [3, 4] r)
   assertEqualUpToEpsilon 1e-10
-    ( rfromList0N [3, 4] [7.0,0.0,0.0,7.0,7.0,7.0,7.0,7.0,0.0,0.0,7.0,7.0]
-    , 57.1 )
-    (rev @Double @2 reluT2 (rfromList0N [3, 4] [1.1, -2.2, 0, 4.4, 5.5, 6.6, 7.7, 8.8, -9.9, -10, 11, 12], 7))
+    ( ringestData [3, 4] [7.0,0.0,0.0,7.0,7.0,7.0,7.0,7.0,0.0,0.0,7.0,7.0]
+    , rscalar 57.1 )
+    (rev @Double @2 reluT2 (ringestData [3, 4] [1.1, -2.2, 0, 4.4, 5.5, 6.6, 7.7, 8.8, -9.9, -10, 11, 12], rscalar 7))
 
 testReluSimplerPP4S :: Assertion
 testReluSimplerPP4S = do
@@ -1012,7 +1012,7 @@ testReluSimpler4S = do
 
 reluMax :: forall ranked n r. (ADReady ranked, GoodScalar r, KnownNat n)
         => ranked r n -> ranked r n
-reluMax = rmap0N (maxF 0)
+reluMax = rmap0N (maxF (rscalar 0))
 
 testReluMax :: Assertion
 testReluMax = do
@@ -1069,9 +1069,9 @@ testReluMax3 = do
              -> AstRanked FullSpan Double 2
       reluT2 (t, r) = reluMax (t * rreplicate 3 (rreplicate 4 r))
   assertEqualUpToEpsilon 1e-10
-    ( rfromList0N [3, 4] [7.0,0.0,0.0,7.0,7.0,7.0,7.0,7.0,0.0,0.0,7.0,7.0]
-    , 57.1 )
-    (rev @Double @2 reluT2 (rfromList0N [3, 4] [1.1, -2.2, 0, 4.4, 5.5, 6.6, 7.7, 8.8, -9.9, -10, 11, 12], 7))
+    ( ringestData [3, 4] [7.0,0.0,0.0,7.0,7.0,7.0,7.0,7.0,0.0,0.0,7.0,7.0]
+    , rscalar 57.1 )
+    (rev @Double @2 reluT2 (ringestData [3, 4] [1.1, -2.2, 0, 4.4, 5.5, 6.6, 7.7, 8.8, -9.9, -10, 11, 12], rscalar 7))
 
 testDot1PP :: Assertion
 testDot1PP = do
@@ -1218,8 +1218,8 @@ barF (x, y) =
 testBar :: Assertion
 testBar =
   assertEqualUpToEpsilon 1e-9
-    (3.1435239435581166,-1.1053869545195814)
-    (crev (bar @(ADVal ORArray Double 0)) (1.1, 2.2))
+    (rscalar 3.1435239435581166,rscalar (-1.1053869545195814))
+    (crev (bar @(ADVal ORArray Double 0)) (rscalar 1.1, rscalar 2.2))
 
 testBarS :: Assertion
 testBarS =
@@ -1236,14 +1236,14 @@ testBar2S =
 testBarCFwd :: Assertion
 testBarCFwd =
   assertEqualUpToEpsilon 1e-9
-    9.327500345189534e-2
-    (cfwd (bar @(ADVal ORArray Double 0)) (1.1, 2.2) (0.1, 0.2))
+    (rscalar 9.327500345189534e-2)
+    (cfwd (bar @(ADVal ORArray Double 0)) (rscalar 1.1, rscalar 2.2) (rscalar 0.1, rscalar 0.2))
 
 testBarFwd :: Assertion
 testBarFwd =
   assertEqualUpToEpsilon 1e-9
-    9.327500345189534e-2
-    (fwd @(AstRanked FullSpan Double 0) bar (1.1, 2.2) (0.1, 0.2))
+    (rscalar 9.327500345189534e-2)
+    (fwd @(AstRanked FullSpan Double 0) bar (rscalar 1.1, rscalar 2.2) (rscalar 0.1, rscalar 0.2))
 
 barADVal2 :: forall a. RealFloatF a
           => (a, a, a) -> a
@@ -1272,13 +1272,13 @@ baz (_x,y,z) =
 
 -- An "old term", computed once, stored at top level.
 fooConstant :: ADVal ORArray Double 0
-fooConstant = foo (7, 8, 9)
+fooConstant = foo (rscalar 7, rscalar 8, rscalar 9)
 
 testBaz :: Assertion
 testBaz =
   assertEqualUpToEpsilon 1e-9
-    (0, -5219.20995030263, 2782.276274462047)
-    (crev baz (1.1, 2.2, 3.3))
+    (rscalar 0, rscalar (-5219.20995030263), rscalar 2782.276274462047)
+    (crev baz (rscalar 1.1, rscalar 2.2, rscalar 3.3))
 
 -- If terms are numbered and @z@ is, wrongly, decorated with number 0,
 -- here @fooConstant@ is likely to clash with @z@, since it was numbered
@@ -1293,8 +1293,8 @@ testBaz =
 testBazRenumbered :: Assertion
 testBazRenumbered =
   assertEqualUpToEpsilon 1e-9
-    (0, -5219.20995030263, 2783.276274462047)
-    (crev (\(x,y,z) -> z + baz (x,y,z)) (1.1, 2.2, 3.3))
+    (rscalar 0, rscalar (-5219.20995030263), rscalar 2783.276274462047)
+    (crev (\(x,y,z) -> z + baz (x,y,z)) (rscalar 1.1, rscalar 2.2, rscalar 3.3))
 
 -- A dual-number and list-based version of a function that goes
 -- from `R^3` to `R`.
@@ -1308,8 +1308,8 @@ fooD _ = error "wrong number of arguments"
 testFooD :: Assertion
 testFooD =
   assertEqualUpToEpsilon 1e-10
-    [2.4396285219055063, -1.953374825727421, 0.9654825811012627]
-    (crev fooD [1.1, 2.2, 3.3])
+    [rscalar 2.4396285219055063, rscalar (-1.953374825727421), rscalar 0.9654825811012627]
+    (crev fooD [rscalar 1.1, rscalar 2.2, rscalar 3.3])
 
 fooBuild1 :: (ADReady ranked, GoodScalar r, Differentiable r)
           => ranked r 1 -> ranked r 1
@@ -1317,8 +1317,8 @@ fooBuild1 v =
   let r = rsum0 v
       v' = rminimum v
   in rbuild1 3 $ \ix ->
-       r * foo ( 3
-               , 5 * r
+       r * foo ( rscalar 3
+               , rscalar 5 * r
                , r * rminimum v * v')
        + bar (r, rindex v [ix + 1])
 
@@ -1326,19 +1326,19 @@ testFooBuildDt :: Assertion
 testFooBuildDt =
   assertEqualUpToEpsilon1 1e-5
     (OR.fromList [4] [-189890.46351219364,-233886.08744601303,-222532.22669716467,-206108.68889329425])
-    (revDt @(AstRanked FullSpan Double 1) fooBuild1 (rfromList0N [4] [1.1, 2.2, 3.3, 4]) (rreplicate0N [3] 42))
+    (revDt @(AstRanked FullSpan Double 1) fooBuild1 (ringestData1 [1.1, 2.2, 3.3, 4]) (rreplicate0N [3] (rscalar 42)))
 
 testFooBuildCFwd :: Assertion
 testFooBuildCFwd =
   assertEqualUpToEpsilon1 1e-5
     (OR.fromList [3] [-296584.8166864211,-290062.472288043,-265770.1775742018])
-    (cfwd @Double @1 fooBuild1 (rfromList0N [4] [1.1, 2.2, 3.3, 4]) (rreplicate0N [4] 42))
+    (cfwd @Double @1 fooBuild1 (ringestData1 [1.1, 2.2, 3.3, 4]) (rreplicate0N [4] (rscalar 42)))
 
 testFooBuildFwd :: Assertion
 testFooBuildFwd =
   assertEqualUpToEpsilon1 1e-5
     (OR.fromList [3] [-296584.8166864211,-290062.472288043,-265770.1775742018])
-    (fwd @(AstRanked FullSpan Double 1) fooBuild1 (rfromList0N [4] [1.1, 2.2, 3.3, 4]) (rreplicate0N [4] 42))
+    (fwd @(AstRanked FullSpan Double 1) fooBuild1 (ringestData1 [1.1, 2.2, 3.3, 4]) (rreplicate0N [4] (rscalar 42)))
 
 testFooBuild :: Assertion
 testFooBuild =
@@ -1350,7 +1350,7 @@ fooMap1 :: (ADReady ranked, GoodScalar r, Differentiable r)
         => ranked r 0 -> ranked r 1
 fooMap1 r =
   let v = fooBuild1 $ rreplicate0N [130] r
-  in rmap0N (\x -> x * r + 5) v
+  in rmap0N (\x -> x * r + rscalar 5) v
 
 testFooMap1 :: Assertion
 testFooMap1 =
@@ -1369,14 +1369,14 @@ fooNoGoAst :: forall r. (GoodScalar r, Differentiable r)
 fooNoGoAst v =
   let r = rsum0 v
   in rbuild1 3 (\ix ->
-       barAst (3.14, bar (3.14, rindex v [(ix + (rprimalPart . rfloor) r) `minF` 2 `maxF` 0]))
+       barAst (rscalar 3.14, bar (rscalar 3.14, rindex v [(ix + (rprimalPart . rfloor) r) `minF` 2 `maxF` 0]))
        + ifF ( (&&*)
-                    (rindex v (ix * 2 :.: ZIR) <=. 0)
+                    (rindex v (ix * 2 :.: ZIR) <=. rscalar 0)
                         -- @1 not required thanks to :.:; see below for @ and []
-                    (6 >. abs ix) )
-                 r (5 * r))
+                    (rscalar 6 >. abs ix) )
+                 r (rscalar 5 * r))
      / rslice 1 3 (rmap0N (\x -> ifF (x >. r) r x) v)
-     * rbuild1 3 (const 1)
+     * rbuild1 3 (const (rscalar 1))
 
 testFooNoGoAst :: Assertion
 testFooNoGoAst =
@@ -1389,19 +1389,19 @@ testFooNoGoAst =
   in assertEqualUpToEpsilon1 1e-6
        (OR.fromList [5] [5.037878787878788,-14.394255484765257,43.23648655081373,-0.8403418295960368,5.037878787878788])
        (crev @Double @1 f
-             (rfromList0N [5] [1.1, 2.2, 3.3, 4, 5]))
+             (ringestData1 [1.1, 2.2, 3.3, 4, 5]))
 
 fooNoGo :: forall ranked r. (ADReady ranked, GoodScalar r, Differentiable r)
         => ranked r 1 -> ranked r 1
 fooNoGo v =
   let r = rsum0 v
   in rbuild1 3 (\ix ->
-       bar (3.14, bar (3.14, rindex v [(ix + (rprimalPart . rfloor) r) `minF` 2 `maxF` 0]))
-       + ifF ((&&*) (rindex @ranked @r @1 v [ix * 2] <=. 0)
-                    (6 >. abs ix))
-               r (5 * r))
+       bar (rscalar 3.14, bar (rscalar 3.14, rindex v [(ix + (rprimalPart . rfloor) r) `minF` 2 `maxF` 0]))
+       + ifF ((&&*) (rindex @ranked @r @1 v [ix * 2] <=. rscalar 0)
+                    (rscalar 6 >. abs ix))
+               r (rscalar 5 * r))
      / rslice 1 3 (rmap0N (\x -> ifF (x >. r) r x) v)
-     * rbuild1 3 (const 1)
+     * rbuild1 3 (const (rscalar 1))
 
 testFooNoGo0 :: Assertion
 testFooNoGo0 =
@@ -1477,7 +1477,7 @@ testBarReluDt :: Assertion
 testBarReluDt =
   assertEqualUpToEpsilon1 1e-10
     (OR.fromList [] [191.20462646925841])
-    (revDt @(AstRanked FullSpan Double 0) barRelu (rfromList0N [] [1.1]) 42.2)
+    (revDt @(AstRanked FullSpan Double 0) barRelu (rscalar 1.1) (rscalar 42.2))
 
 testBarRelu :: Assertion
 testBarRelu =
@@ -1505,7 +1505,7 @@ testBarReluMaxDt :: Assertion
 testBarReluMaxDt =
   assertEqualUpToEpsilon1 1e-10
     (OR.fromList [] [191.20462646925841])
-    (revDt @(AstRanked FullSpan Double 0) barReluMax (rfromList0N [] [1.1]) 42.2)
+    (revDt @(AstRanked FullSpan Double 0) barReluMax (rfromList0N [] [rscalar 1.1]) (rscalar 42.2))
 
 testBarReluMax :: Assertion
 testBarReluMax =
@@ -1530,8 +1530,8 @@ testBarReluMax3CFwd =
   assertEqualUpToEpsilon1 1e-10
     (OR.fromList [2, 1, 2] [0.45309153191767404,0.9060427799711201,-2.8186426018387007,40.02498898648793])
     (cfwd @Double @3 barReluMax
-                     (rfromList0N [2, 1, 2] [1.1, 2, 3, 4.2])
-                     (rfromList0N [2, 1, 2] [0.1, 0.2, 0.3, 0.42]))
+                     (rconst $ OR.fromList [2, 1, 2] [1.1, 2, 3, 4.2])
+                     (ringestData [2, 1, 2] [0.1, 0.2, 0.3, 0.42]))
 
 reluMaxS :: forall shaped sh r.
             (ADReadyS shaped, GoodScalar r, KnownShS sh, KnownNat (X.Rank sh))
@@ -1570,8 +1570,8 @@ testBarReluMax3FwdR =
     (OR.fromList [2, 1, 2] [0.45309153191767404,0.9060427799711201,-2.8186426018387007,40.02498898648793])
     (fwd @(AstRanked FullSpan Double 3)
          barReluMax
-         (rfromList0N [2, 1, 2] [1.1, 2, 3, 4.2])
-         (rfromList0N [2, 1, 2] [0.1, 0.2, 0.3, 0.42]))
+         (ringestData [2, 1, 2] [1.1, 2, 3, 4.2])
+         (ringestData [2, 1, 2] [0.1, 0.2, 0.3, 0.42]))
 
 barReluAst
   :: forall n r.
@@ -1590,7 +1590,7 @@ testBarReluAst0 =
                          (barReluAst (AstVar [] (AstVarName . intToAstVarId $ 100000000)))
   in assertEqualUpToEpsilon1 1e-10
        (OR.fromList [] [191.20462646925841])
-       (crevDt @Double @0 f (rscalar 1.1) 42.2)
+       (crevDt @Double @0 f (rscalar 1.1) (rscalar 42.2))
 
 testBarReluAst1 :: Assertion
 testBarReluAst1 =
@@ -1602,7 +1602,7 @@ testBarReluAst1 =
                          (barReluAst (AstVar [5] (AstVarName . intToAstVarId $ 100000000)))
   in assertEqualUpToEpsilon1 1e-10
        (OR.fromList [5] [4.530915319176739,-2.9573428114591314e-2,5.091137576320349,81.14126788127645,2.828924924816215])
-       (crev @Double @1 f (rfromList0N [5] [1.1, 2.2, 3.3, 4, 5]))
+       (crev @Double @1 f (rfromList0N [5] [rscalar 1.1, rscalar 2.2, rscalar 3.3, rscalar 4, rscalar 5]))
 
 konstReluAst
   :: forall r.
@@ -1620,7 +1620,7 @@ testReplicateReluAst =
                          (konstReluAst (AstVar [] (AstVarName . intToAstVarId $ 100000000)))
   in assertEqualUpToEpsilon1 1e-10
        (OR.fromList [] [295.4])
-       (crevDt @Double @0 f (rscalar 1.1) 42.2)
+       (crevDt @Double @0 f (rscalar 1.1) (rscalar 42.2))
 
 f1 :: (ADReady ranked, GoodScalar r) => ranked r 0 -> ranked r 0
 f1 = \arg -> rsum0 (rbuild1 10 (\i -> arg * rfromIndex0 i))
@@ -1628,8 +1628,8 @@ f1 = \arg -> rsum0 (rbuild1 10 (\i -> arg * rfromIndex0 i))
 testF1 :: Assertion
 testF1 =
   assertEqualUpToEpsilon 1e-10
-    45.0
-    (rev @Double @0 @(AstRanked FullSpan) f1 1.1)
+    (rscalar 45.0)
+    (rev @Double @0 @(AstRanked FullSpan) f1 (rscalar 1.1))
 
 testF11 :: Assertion
 testF11 =
@@ -1645,14 +1645,14 @@ f2 = \arg ->
       v1b = rsum0 (rbuild1 20 fun1)
       fun2 y i = y * rfromIndex0 @r i
       v2a = rsum0 (rbuild1 10 (fun2 arg))
-      v2b = rsum0 (rbuild1 20 (fun2 (arg + 1)))
+      v2b = rsum0 (rbuild1 20 (fun2 (arg + rscalar 1)))
   in v1a + v1b + v2a + v2b
 
 testF2 :: Assertion
 testF2 =
   assertEqualUpToEpsilon 1e-10
-    470
-    (rev @Double @0 @(AstRanked FullSpan) f2 1.1)
+    (rscalar 470)
+    (rev @Double @0 @(AstRanked FullSpan) f2 (rscalar 1.1))
 
 testF21 :: Assertion
 testF21 =
@@ -1663,14 +1663,14 @@ testF21 =
 testF2CFwd :: Assertion
 testF2CFwd =
   assertEqualUpToEpsilon 1e-10
-    47
-    (cfwd @Double @0 f2 1.1 0.1)
+    (rscalar 47)
+    (cfwd @Double @0 f2 (rscalar 1.1) (rscalar 0.1))
 
 testF2Fwd :: Assertion
 testF2Fwd =
   assertEqualUpToEpsilon 1e-10
-    47
-    (fwd @(AstRanked FullSpan Double 0) f2 1.1 0.1)
+    (rscalar 47)
+    (fwd @(AstRanked FullSpan Double 0) f2 (rscalar 1.1) (rscalar 0.1))
 
 braidedBuilds :: forall ranked r.
                  (ADReady ranked, GoodScalar r, Differentiable r)
@@ -1678,7 +1678,7 @@ braidedBuilds :: forall ranked r.
 braidedBuilds r =
   rbuild1 3 (\ix1 ->
     rbuild1 4 (\ix2 -> rindex (rfromList0N [4]
-      [rfromIndex0 ix2, 7, r, -0.2]) (ix1 :.: ZIR)))
+      [rfromIndex0 ix2, rscalar 7, r, rscalar (-0.2)]) (ix1 :.: ZIR)))
 
 testBraidedBuilds1 :: Assertion
 testBraidedBuilds1 =
@@ -1929,7 +1929,7 @@ fblowup k inputs =
       blowup 0 y = y - rfromIndex0 0
       blowup n y =
         let ysum = y + y - rfromIndex0 0
-            yscaled = 0.499999985 * ysum
+            yscaled = rscalar 0.499999985 * ysum
               -- without the scaling we'd get NaN at once
         in blowup (pred n) yscaled
       y0 = (inputs ! [0]) / (inputs ! [1])
@@ -1942,7 +1942,7 @@ fblowupLet i k inputs =
       blowup 0 y = y - rfromIndex0 i
       blowup n y1 = rlet y1 $ \y ->
         let ysum = y + y - rfromIndex0 i
-            yscaled = 0.499999985 * ysum
+            yscaled = rscalar 0.499999985 * ysum
               -- without the scaling we'd get NaN at once
         in blowup (pred n) yscaled
       y0 = (inputs ! [0]) / (inputs ! [1])
@@ -1955,8 +1955,8 @@ fblowupMult k inputs =
   let blowup :: Int -> ranked r 0 -> ranked r 0
       blowup 0 y = y
       blowup n y =
-        let ysum = y + y * y / (y - 0.000000001)
-            yscaled = sqrt $ 0.499999985 * 0.499999985 * ysum * ysum
+        let ysum = y + y * y / (y - rscalar 0.000000001)
+            yscaled = sqrt $ rscalar 0.499999985 * rscalar 0.499999985 * ysum * ysum
               -- without the scaling we'd get NaN at once
         in blowup (pred n) yscaled - rfromIndex0 0
       y0 = (inputs ! [0 `remF` 2]) * (inputs ! [1])
@@ -1969,9 +1969,9 @@ fblowupMultLet i k inputs =
   let blowup :: Int -> ranked r 0 -> ranked r 0
       blowup 0 y = y
       blowup n y1 = rlet y1 $ \y ->
-        let ysum0 = y + y * y / (y - 0.000001)
+        let ysum0 = y + y * y / (y - rscalar 0.000001)
             yscaled = rlet ysum0 $ \ysum ->
-                        sqrt $ 0.499999985 * 0.499999985 * ysum * ysum
+                        sqrt $ rscalar 0.499999985 * rscalar 0.499999985 * ysum * ysum
               -- without the scaling we'd get NaN at once
         in blowup (pred n) yscaled - rfromIndex0 i
       y0 = (inputs ! [i `remF` 2]) * (inputs ! [1])
@@ -1982,7 +1982,7 @@ fblowupPP = do
   resetVarCounter
   let renames = IM.empty
       fblowupT = fblowup @(AstRanked FullSpan) @Double 1
-  let (artifactRev, _) = revArtifactAdapt True fblowupT (rreplicate0N [4] 4)
+  let (artifactRev, _) = revArtifactAdapt True fblowupT (rreplicate0N [4] (rscalar 4))
   printArtifactSimple renames artifactRev
     @?= "\\x7 v1 -> rletInHVector (v1 ! [0]) (\\x2 -> rletInHVector (v1 ! [1]) (\\x3 -> rletInHVector (v1 ! [0]) (\\x4 -> rletInHVector (v1 ! [1]) (\\x5 -> rletInHVector (0.499999985 * x7) (\\x8 -> dmkHVector (fromList [DynamicRanked (rscatter [4] (recip x3 * x8) (\\[] -> [0]) + rscatter [4] ((negate x2 / (x3 * x3)) * x8) (\\[] -> [1]) + rscatter [4] (recip x5 * x8) (\\[] -> [0]) + rscatter [4] ((negate x4 / (x5 * x5)) * x8) (\\[] -> [1]))]))))))"
   printArtifactPrimalSimple renames artifactRev
@@ -1993,7 +1993,7 @@ fblowupLetPP = do
   resetVarCounter
   let renames = IM.empty
       fblowupLetT = fblowupLet @(AstRanked FullSpan) @Double 0 1
-  let (artifactRev, _) = revArtifactAdapt True fblowupLetT (rreplicate0N [4] 4)
+  let (artifactRev, _) = revArtifactAdapt True fblowupLetT (rreplicate0N [4] (rscalar 4))
   printArtifactSimple renames artifactRev
     @?= "\\x7 v1 -> rletInHVector (v1 ! [0]) (\\x3 -> rletInHVector (v1 ! [1]) (\\x4 -> rletInHVector (0.499999985 * x7) (\\x8 -> rletInHVector (x8 + x8) (\\x9 -> dmkHVector (fromList [DynamicRanked (rscatter [4] (recip x4 * x9) (\\[] -> [0]) + rscatter [4] ((negate x3 / (x4 * x4)) * x9) (\\[] -> [1]))])))))"
   printArtifactPrimalSimple renames artifactRev

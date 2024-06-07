@@ -298,13 +298,13 @@ fooRrev (x, y, z) =
 testFooRrev :: Assertion
 testFooRrev = do
   assertEqualUpToEpsilon 1e-10
-    (2.4396285219055063, -1.953374825727421, 0.9654825811012627)
+    (rscalar 2.4396285219055063, rscalar (-1.953374825727421), rscalar 0.9654825811012627)
     (fooRrev @ORArray @Double (1.1, 2.2, 3.3))
 
 testFooRrev2 :: Assertion
 testFooRrev2 = do
   assertEqualUpToEpsilon 1e-10
-    (2.4396284, -1.9533751, 0.96548253)
+    (rscalar 2.4396284, rscalar (-1.9533751), rscalar 0.96548253)
     (fooRrev @ORArray @Float (1.1, 2.2, 3.3))
 
 testFooRrevPP1 :: Assertion
