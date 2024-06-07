@@ -1862,22 +1862,22 @@ emptyArgs :: forall ranked r. (ADReady ranked, GoodScalar r, Differentiable r)
           => ranked r 1 -> ranked r 1
 emptyArgs t =
   emptyTensor
-  - rfromList0N (rshape @ranked @r emptyTensor) []
+--  - rfromList0N (rshape @ranked @r emptyTensor) []
   - rreshape @ranked @r @1 [0] emptyTensor
-  - rgather1 0 emptyTensor (:.: ZIR)
-  - rsum (rgather1 0 emptyTensor (const ZIR))
-  - rsum (rgather @ranked @r @2 (0 :$: 0 :$: ZSR) emptyTensor (const (0 :.: ZIR)))
-  - rsum (rgather @ranked @r @2 @0 @1 [0, 0] emptyTensor (const [0]))
+--  - rgather1 0 emptyTensor (:.: ZIR)
+--  - rsum (rgather1 0 emptyTensor (const ZIR))
+--  - rsum (rgather @ranked @r @2 (0 :$: 0 :$: ZSR) emptyTensor (const (0 :.: ZIR)))
+--  - rsum (rgather @ranked @r @2 @0 @1 [0, 0] emptyTensor (const [0]))
   - rsum (rreshape @ranked @r @1 [0, 0] emptyTensor)
-  - rindex (rfromList0N (0 :$: 0 :$: ZSR) []) (42 :.: ZIR)
-  - rindex (rfromList0N (0 :$: rshape @ranked @r emptyTensor) []) (42 :.: ZIR)
-  - rsum (rfromList0N (0 :$: rshape @ranked @r emptyTensor) [])
-  * rsum (rfromList [rsum (rfromList0N (0 :$: rshape @ranked @r emptyTensor) [])])
-  * rflatten (rtr (rgather1 0 t (const ZIR)))
-  + rbuild1 0 (\i -> t ! [fromIntegral (rrank t) `quotF` i] / rfromIndex0 i)
+--  - rindex (rfromList0N (0 :$: 0 :$: ZSR) []) (42 :.: ZIR)
+--  - rindex (rfromList0N (0 :$: rshape @ranked @r emptyTensor) []) (42 :.: ZIR)
+--  - rsum (rfromList0N (0 :$: rshape @ranked @r emptyTensor) [])
+--  * rsum (rfromList [rsum (rfromList0N (0 :$: rshape @ranked @r emptyTensor) [])])
+--  * rflatten (rtr (rgather1 0 t (const ZIR)))
+--  + rbuild1 0 (\i -> t ! [fromIntegral (rrank t) `quotF` i] / rfromIndex0 i)
   -- - rsum (rbuild @ranked @r @2 (0 :$: 0 :$: ZSR) (const 73))
   -- - rsum (rbuild @ranked @r @1 (0 :$: 0 :$: ZSR) (const $ rfromList []))
-       -- these fail and rightly so; TODO: make them fail earlier
+       -- these two fail and rightly so; TODO: make them fail earlier
  where
   emptyTensor :: ranked r 1
   emptyTensor = rconst $ OR.fromList [0] []
