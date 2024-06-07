@@ -103,11 +103,11 @@ relu, reluLeaky
      (ADReady ranked, GoodScalar r, KnownNat n, Differentiable r)
   => ranked r n -> ranked r n
 relu v0 = rlet v0 $ \v ->
-  let oneIfGtZero = rmap0N (\x -> ifF (x <=. 0) 0.0 1.0) v
+  let oneIfGtZero = rmap0N (\x -> ifF (x <=. (rscalar 0)) (rscalar 0.0) (rscalar 1.0)) v
   in oneIfGtZero * v
 
 reluLeaky v0 = rlet v0 $ \v ->
-  let oneIfGtZero = rmap0N (\x -> ifF (x <=. 0) 0.01 1.0) v
+  let oneIfGtZero = rmap0N (\x -> ifF (x <=. (rscalar 0)) (rscalar 0.01) (rscalar 1.0)) v
   in oneIfGtZero * v
 
 -- TODO: verify how faster a dedicated RankedTensor method would be
