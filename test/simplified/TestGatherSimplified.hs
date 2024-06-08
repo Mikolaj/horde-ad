@@ -8,6 +8,7 @@ module TestGatherSimplified (testTrees) where
 import Prelude
 
 import qualified Data.Array.RankedS as OR
+import           Data.Int (Int64)
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
@@ -42,6 +43,12 @@ testTrees =
   , testCase "gatherSimpPP23" testGatherSimpPP23
   , testCase "gatherTranspose33" testGatherTranspose33
   , testCase "gatherTransposeBuild33" testGatherTransposeBuild33
+  , testCase "gatherTransposeBuild331" testGatherTransposeBuild331
+  , testCase "gatherTransposeBuild332" testGatherTransposeBuild332
+  , testCase "gatherTransposeBuild333" testGatherTransposeBuild333
+  , testCase "gatherTransposeBuild334" testGatherTransposeBuild334
+  , testCase "gatherTransposeBuild335" testGatherTransposeBuild335
+  , testCase "gatherTransposeBuild336" testGatherTransposeBuild336
   , testCase "gatherSimpPP33" testGatherSimpPP33
   , testCase "gatherSimpPP34" testGatherSimpPP34
 
@@ -376,6 +383,60 @@ testGatherTransposeBuild33 =
           (\t -> rbuild1 4 (\i ->
              gatherTranspose33 (t * rreplicate0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (rfromIndex0 i))))
           t128OR)
+
+testGatherTransposeBuild331 :: Assertion
+testGatherTransposeBuild331 =
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [2, 3] [1,1,1,1,1,1])
+    (rev' @Double @3
+          (\t -> rbuild1 2 (\i ->
+             rtranspose [1, 0] (t * rreplicate0N [2, 3] (rfromIndex0 i))))
+          (FlipR $ OR.fromList [2, 3] [1,2,3,4,5,6]))
+
+testGatherTransposeBuild332 :: Assertion
+testGatherTransposeBuild332 =
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [2, 3] [1,1,1,1,1,1])
+    (rev' @Double @3
+          (\t -> rbuild1 2 (\i ->
+             rtranspose [1, 0] (t * rreplicate0N [2, 3] (rfromIndex0 i))))
+          (FlipR $ OR.fromList [2, 3] [1,2,3,4,5,6]))
+
+testGatherTransposeBuild333 :: Assertion
+testGatherTransposeBuild333 =
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [2] [1,1])
+    (rev' @Double @2
+          (\t -> rbuild1 2 (\i ->
+             (t * rreplicate0N [2] (rfromIndex0 i))))
+          (FlipR $ OR.fromList [2] [0,0]))
+
+testGatherTransposeBuild334 :: Assertion
+testGatherTransposeBuild334 =
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [2, 1] [1,1])
+    (rev' @Double @3
+          (\t -> rbuild1 2 (\i ->
+             t * rreplicate 2 (rreplicate 1 (rfromIntegral (rconstant i)))))
+         (FlipR $ OR.fromList [2, 1] [1,2]))
+
+testGatherTransposeBuild335 :: Assertion
+testGatherTransposeBuild335 =
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [2, 1] [1,1])
+    (rev' @Double @3
+          (\t ->
+             rreplicate 2 t * rtranspose [2,0,1] (rreplicate 2 (rreplicate 1 (rfromIntegral @_ @Int64 (rconst $ OR.fromList [2] [0, 1])))))
+         (FlipR $ OR.fromList [2, 1] [1,2]))
+
+testGatherTransposeBuild336 :: Assertion
+testGatherTransposeBuild336 =
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [2, 1] [1,1])
+    (rev' @Double @3
+          (\t ->
+             rreplicate 2 t * rtranspose [2,0,1] (rreplicate 2 (rreplicate 1 (rfromList [0, 1]))))
+         (FlipR $ OR.fromList [2, 1] [1,2]))
 
 -- These are different terms, but they should have similar lengths,
 -- because they differ only by single transpose and reshape, most probably,
