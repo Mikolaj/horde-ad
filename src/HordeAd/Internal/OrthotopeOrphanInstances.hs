@@ -455,11 +455,8 @@ instance (Ord r, Numeric r, KnownNat n) => Ord (FlipR OR.Array r n) where
   (<=) :: FlipR OR.Array r n -> FlipR OR.Array r n -> Bool
   FlipR u <= FlipR v = u <= v
 
-instance (Ord r, Numeric r, KnownNat n, Eq (Nested.Mixed (Mixed.Types.Replicate n Nothing) r), Ord (Nested.Mixed '[] r)) => Ord (FlipR Nested.Ranked r n) where
-  (<=) :: FlipR Nested.Ranked r n -> FlipR Nested.Ranked r n -> Bool
-  FlipR u <= FlipR v = case sameNat (Proxy @n) (Proxy @0) of
-    Just Refl -> u <= v
-    _ -> undefined
+instance (Ord r, Numeric r, KnownNat n, Eq (Nested.Mixed (Mixed.Types.Replicate n Nothing) r), Ord (Nested.Mixed (Mixed.Types.Replicate n Nothing) r)) => Ord (FlipR Nested.Ranked r n) where
+  FlipR u <= FlipR v = u <= v
 
 deriving instance Num (f a b) => Num (FlipR f b a)
 
@@ -511,11 +508,8 @@ instance (Ord r, Numeric r, KnownShS sh) => Ord (FlipS OS.Array r sh) where
   (<=) :: FlipS OS.Array r sh -> FlipS OS.Array r sh -> Bool
   FlipS u <= FlipS v | Dict <- lemShapeFromKnownShS (Proxy @sh) = u <= v
 
-instance (Ord r, Numeric r, KnownShS sh, Eq (Nested.Mixed (Mixed.Types.MapJust sh) r), Ord (Nested.Mixed '[] r)) => Ord (FlipS Nested.Shaped r sh) where
-  (<=) :: FlipS Nested.Shaped r sh -> FlipS Nested.Shaped r sh -> Bool
-  FlipS u <= FlipS v = case sameShape @sh @'[] of
-    Just Refl -> u <= v
-    _ -> undefined
+instance (Ord r, Numeric r, KnownShS sh, Eq (Nested.Mixed (Mixed.Types.MapJust sh) r), Ord (Nested.Mixed (Mixed.Types.MapJust sh) r)) => Ord (FlipS Nested.Shaped r sh) where
+  FlipS u <= FlipS v = u <= v
 
 deriving instance Num (f a b) => Num (FlipS f b a)
 

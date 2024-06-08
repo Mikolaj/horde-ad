@@ -74,7 +74,7 @@ type ShapedTensorType = TensorType [Nat]
 
 type GoodScalarConstraint r =
   ( Show r, Ord r, Numeric r, Num r, Num (Vector r), RowSum r, Typeable r
-  , IfDifferentiable r, NFData r, Nested.PrimElt r, Nested.Elt r, Nested.Internal.Arith.NumElt r, forall sh. Show (Nested.Mixed sh r), forall sh. Eq (Nested.Mixed sh r), forall sh. NFData (Nested.Mixed sh r), Ord (Nested.Mixed '[] r) )
+  , IfDifferentiable r, NFData r, Nested.PrimElt r, Nested.Elt r, Nested.Internal.Arith.NumElt r, forall sh. Show (Nested.Mixed sh r), forall sh. Eq (Nested.Mixed sh r), forall sh. NFData (Nested.Mixed sh r), forall sh. Ord (Nested.Mixed sh r) )
 
 
 -- * Some fundamental constraints
