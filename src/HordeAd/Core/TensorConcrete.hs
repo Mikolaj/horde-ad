@@ -428,7 +428,7 @@ instance (RankedTensor ranked, ShapedTensor (ShapedOf ranked))
   fromDValue = \case
     DynamicRanked @_ @n t -> -- DynamicRanked $ constantADVal $ rconst $ runFlipR t
       let sh = rshape t
-      in DynamicRanked @_ @n $ constantADVal $ rconst $ OR.fromVector (IsList.toList sh) $ Nested.rtoVector $ runFlipR t
+      in DynamicRanked @_ @n $ constantADVal $ rconst $ Nested.rtoOrthotope $ runFlipR t
     DynamicShaped @_ @sh t | Dict <- lemShapeFromKnownShS (Proxy @sh) ->
 --      DynamicShaped $ constantADVal $ sconst $ runFlipS t
       DynamicShaped $ constantADVal $ sconst $ OS.fromVector @sh $ Nested.stoVector $ runFlipS t
