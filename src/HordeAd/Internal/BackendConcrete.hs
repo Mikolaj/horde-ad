@@ -6,7 +6,7 @@
 -- (and also our own) FFI bindings.
 module HordeAd.Internal.BackendConcrete
   ( module HordeAd.Internal.BackendConcrete
-  , tsumR, tsum0R, tsumInR
+--  , tsumR, tsum0R, tsumInR
   ) where
 
 import Prelude hiding (foldl')
@@ -53,11 +53,11 @@ import           Unsafe.Coerce (unsafeCoerce)
 
 import qualified Data.Array.Mixed.Shape as X
 import qualified Data.Array.Mixed.Types as X
+import qualified Data.Array.Nested as Nested
 
 import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances
   (FlipR (..), FlipS, liftVR, liftVS)
-import           HordeAd.Internal.TensorFFI
 import           HordeAd.Util.ShapedList (IndexS, ShapedNat)
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedList
@@ -157,6 +157,20 @@ tindex0R (RS.A (RG.A _ OI.T{..})) ix =
                                         strides))
     -- to avoid linearizing @values@, we do everything in unsized way
 
+tsumR
+  :: forall n r. (KnownNat n, GoodScalar r)
+  => OR.Array (1 + n) r -> OR.Array n r
+tsumR t = Nested.rtoOrthotope $ Nested.rsumOuter1 $ Nested.rfromOrthotope SNat t
+
+tsum0R
+  :: Numeric r
+  => OR.Array n r -> r
+tsum0R (RS.A (RG.A sh (OI.T _ _ vt))) | V.length vt == 1 =
+  fromIntegral (product sh) * vt V.! 0
+-- tsumInR t@(RS.A (RG.A _ (OI.T _ _ vt))) | V.length vt == 1 =
+tsum0R (RS.A (RG.A sh t)) =
+  LA.sumElements $ OI.toUnorderedVectorT sh t
+
 tdot0R
   :: Numeric r
   => OR.Array n r -> OR.Array n r -> r
@@ -168,6 +182,7 @@ tdot0R t u = OR.toVector t LA.<.> OR.toVector u
   -- TODO: if either has length 1 values, it may or may not be faster to do
   -- tsum0R (t * u)
 
+{-
 tdot1InR
   :: (NumAndShow r, RowSum r)
   => OR.Array 2 r -> OR.Array 2 r -> OR.Array 1 r
@@ -178,6 +193,7 @@ tdot1InR t@(RS.A (RG.A _ (OI.T _ _ vt))) u@(RS.A (RG.A _ (OI.T _ _ vu))) =
            lu = map OR.toVector $ tunravelToListR u
            l = zipWith (LA.<.>) lt lu
        in OR.fromList [length l] l
+-}
 
 -- TODO: add these to orthotope, faster; factor out unravel through them
 -- and think if ravelFromList makes sense
@@ -527,6 +543,7 @@ tindex0S (SS.A (SG.A OI.T{..})) ix =
                                         strides))
     -- to avoid linearizing @values@, we do everything in unsized way
 
+{-
 -- Sum the outermost dimension.
 --
 -- No NOINLINE, because apparently nothing breaks and hmatrix, etc.
@@ -574,6 +591,7 @@ tsumInS t | Dict <- lemShapeFromKnownShS (Proxy @sh) = case OS.shapeL t of
                void $ V.unsafeFreeze v
                V.unsafeFreeze v2
   _ -> error "tsumInS: not yet generalized beyond rank 2"
+-}
 
 tsum0S
   :: forall sh r. (Numeric r, KnownShS sh)
@@ -596,6 +614,7 @@ tdot0S t u | Dict <- lemShapeFromKnownShS (Proxy @sh) =
   -- TODO: if either has length 1 values, it may or may not be faster to do
   -- tsum0S (t * u)
 
+{-
 tdot1InS
   :: (NumAndShow r, RowSum r, KnownNat m, KnownNat n)
   => OS.Array '[m, n] r -> OS.Array '[m, n] r -> OS.Array '[m] r
@@ -606,6 +625,7 @@ tdot1InS t@(SS.A (SG.A (OI.T _ _ vt))) u@(SS.A (SG.A (OI.T _ _ vu))) =
            lu = map OS.toVector $ tunravelToListS u
            l = zipWith (LA.<.>) lt lu
        in OS.fromList l
+-}
 
 tmatvecmulS
   :: forall m n r. (Numeric r, KnownNat m, KnownNat n)

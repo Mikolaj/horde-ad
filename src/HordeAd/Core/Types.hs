@@ -39,7 +39,6 @@ import qualified Data.Array.Nested as Nested
 import qualified Data.Array.Nested.Internal.Shaped as Nested.Internal
 
 import HordeAd.Internal.OrthotopeOrphanInstances
-import HordeAd.Internal.TensorFFI
 
 sshapeKnown :: ShS sh -> Dict KnownShS sh
 sshapeKnown ZSS = Dict
@@ -73,7 +72,7 @@ type RankedTensorType = TensorType Nat
 type ShapedTensorType = TensorType [Nat]
 
 type GoodScalarConstraint r =
-  ( Show r, Ord r, Numeric r, Num r, Num (Vector r), RowSum r, Typeable r
+  ( Show r, Ord r, Numeric r, Num r, Num (Vector r), Typeable r
   , IfDifferentiable r, NFData r, Nested.PrimElt r, Nested.Elt r, Nested.Internal.Arith.NumElt r, forall sh. Show (Nested.Mixed sh r), forall sh. Eq (Nested.Mixed sh r), forall sh. NFData (Nested.Mixed sh r), forall sh. Ord (Nested.Mixed sh r) )
 
 

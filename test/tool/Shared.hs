@@ -10,10 +10,14 @@ import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
 import qualified Data.Char
 import qualified Data.Foldable
+import           Data.Int (Int64)
 import           Data.Proxy (Proxy (Proxy))
+import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import qualified Data.Vector.Storable as VS
+import           Foreign.C (CInt)
 import           GHC.TypeLits (KnownNat)
 import qualified Numeric.LinearAlgebra as LA
+import           Type.Reflection (Typeable, typeRep)
 
 import qualified Data.Array.Nested as Nested
 
@@ -22,7 +26,6 @@ import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.Internal.BackendOX (ORArray, OSArray)
 import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..), FlipS (..))
-import HordeAd.Internal.TensorFFI
 import HordeAd.Util.SizedList
 
 lowercase :: String -> String
@@ -109,6 +112,18 @@ instance ( forall r n. (GoodScalar r, KnownNat n)
     map toDouble $ linearize @(ShapedOf ranked r2 sh2) @r2 t
   linearize (DynamicRankedDummy @_ @sh _ _) = replicate (sizeT @sh) 0
   linearize (DynamicShapedDummy @_ @sh _ _) = replicate (sizeT @sh) 0
+
+toDouble :: forall r. Typeable r => r -> Double
+toDouble =
+  case testEquality (typeRep @r) (typeRep @Double) of
+    Just Refl -> id
+    _ -> case testEquality (typeRep @r) (typeRep @Float) of
+      Just Refl -> realToFrac
+      _ -> case testEquality (typeRep @r) (typeRep @Int64) of
+        Just Refl -> fromIntegral
+        _ -> case testEquality (typeRep @r) (typeRep @CInt) of
+          Just Refl -> fromIntegral
+          _ -> error "an unexpected underlying scalar type"  -- catch absurd
 
 instance {-# OVERLAPPABLE #-} (Foldable t) => Linearizable (t a) a where
   linearize = Data.Foldable.toList
