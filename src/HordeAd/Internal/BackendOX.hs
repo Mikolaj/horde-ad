@@ -64,7 +64,6 @@ import qualified Data.Array.Nested.Internal.Shaped as Nested.Internal
 import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances
   (FlipR (..), FlipS, liftVR, liftVS)
-import           HordeAd.Internal.TensorFFI hiding (tsumR)
 import           HordeAd.Util.ShapedList (IndexS, ShapedNat)
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedList
@@ -176,13 +175,15 @@ tindex0R (RS.A (RG.A _ OI.T{..})) ix =
 -}
 
 tsumR
-  :: forall n r. (KnownNat n, NumAndShow r, RowSum r)
+  :: forall n r. (KnownNat n, NumAndShow r) --, RowSum r)
   => Nested.Ranked (1 + n) r -> Nested.Ranked n r
 {- TODO
 tsumR (RS.A (RG.A (k : sh) (OI.T (_ : ss) o vt))) | V.length vt == 1 =
   RS.A (RG.A sh (OI.T ss o (V.map (* fromIntegral k) vt)))
 -}
-tsumR t = case Nested.rshape t of
+tsumR = Nested.rsumOuter1
+{-
+case rshape t of
 -- TODO: does GHC need this?  [] -> error "tsumR: null shape"
   0 :$: sh2 -> Nested.rsumOuter1 t  -- TODO: OR.constant sh2 0  -- the shape is known from sh, so no ambiguity
   k :$: sh2 -> case sameNat (Proxy @n) (Proxy @0) of
@@ -196,7 +197,7 @@ tsumR t = case Nested.rshape t of
           rowSum len2 k ptr ptr2
           void $ V.unsafeFreeze v
           V.unsafeFreeze v2
-
+-}
 tdot0R
   :: NumAndShow r
   => Nested.Ranked n r -> Nested.Ranked n r -> r
@@ -211,7 +212,7 @@ tdot0R t u = Nested.rtoVector t LA.<.> Nested.rtoVector u
   -- tsum0R (t * u)
 
 tdot1InR
-  :: (NumAndShow r, RowSum r)
+  :: (NumAndShow r) -- , RowSum r)
   => Nested.Ranked 2 r -> Nested.Ranked 2 r -> Nested.Ranked 1 r
 tdot1InR t u = -- TODO: t@(RS.A (RG.A _ (OI.T _ _ vt))) u@(RS.A (RG.A _ (OI.T _ _ vu))) =
 --  if V.length vt == 1 || V.length vu == 1
@@ -593,13 +594,15 @@ tindex0S (SS.A (SG.A OI.T{..})) ix =
 -- No NOINLINE, because apparently nothing breaks and hmatrix, etc.
 -- also don't put NOINLINE in the functions using FFI.
 tsumS
-  :: forall n sh r. (KnownNat n, NumAndShow r, RowSum r, KnownShS sh)
+  :: forall n sh r. (KnownNat n, NumAndShow r{-, RowSum r-}, KnownShS sh)
   => Nested.Shaped (n ': sh) r -> Nested.Shaped sh r
 {- TODO
 tsumS (SS.A (SG.A (OI.T (_ : ss) o vt))) | V.length vt == 1 =
   SS.A (SG.A (OI.T ss o (V.map (* valueOf @n) vt)))
 -}
-tsumS t =
+tsumS = Nested.ssumOuter1
+
+{- t =
   case knownShS @(n ': sh) of
     (:$$) _ ZSS -> Nested.ssumOuter1 t  -- TODO: Nested.sscalar $ tsum0S t
     (:$$) @_ @sh2 k _ ->
@@ -612,6 +615,7 @@ tsumS t =
             rowSum len2 (fromInteger $ fromSNat k) ptr ptr2
             void $ V.unsafeFreeze v
             V.unsafeFreeze v2
+-}
 
 {- TODO
 -- Sum the innermost dimension (at least at rank 2; TODO: generalize).
@@ -661,7 +665,7 @@ tdot0S (SS.A (SG.A (OI.T _ _ vt))) (SS.A (SG.A (OI.T _ _ vu)))
 tdot0S t u = Nested.stoVector t LA.<.> Nested.stoVector u
 
 tdot1InS
-  :: (NumAndShow r, RowSum r, KnownNat m, KnownNat n)
+  :: (NumAndShow r{-, RowSum r-}, KnownNat m, KnownNat n)
   => Nested.Shaped '[m, n] r -> Nested.Shaped '[m, n] r -> Nested.Shaped '[m] r
 tdot1InS t u = -- TODO: t@(SS.A (SG.A (OI.T _ _ vt))) u@(SS.A (SG.A (OI.T _ _ vu))) =
 --  if V.length vt == 1 || V.length vu == Nested.sreplicateScal knownShS 1

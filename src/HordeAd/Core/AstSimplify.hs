@@ -1438,7 +1438,7 @@ astSumS t0 = case sameNat (Proxy @n) (Proxy @0) of
     Ast.AstSliceS @i @k v | Just Refl <- sameNat (Proxy @k) (Proxy @1) ->
       astIndexS v (valueOf @i :.$ ZIS)
     Ast.AstReverseS v -> astSumS v
-    AstConstS t -> AstConstS $ FlipS $ tsumS $ runFlipS t
+    AstConstS t | Dict <- lemShapeFromKnownShS (Proxy @sh) -> AstConstS $ FlipS $ OS.fromVector $ Nested.stoVector $ Nested.ssumOuter1 $ Nested.sfromVector (knownShS @(n ': sh)) $ OS.toVector $ runFlipS t
     Ast.AstConstantS v -> Ast.AstConstantS $ astSumS v
     _ -> Ast.AstSumS t0
 

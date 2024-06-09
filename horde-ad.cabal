@@ -50,9 +50,6 @@ build-type:         Simple
 extra-doc-files:    README.md,
                     CHANGELOG.md
 
--- Extra source files to be distributed with the package, such as examples, or a tutorial module.
-extra-source-files: src/cbits/matrix_reduce.h
-
 tested-with:        GHC ==9.6.4 || ==9.8.2
 
 bug-reports:        https://github.com/Mikolaj/horde-ad/issues
@@ -160,7 +157,6 @@ library horde-ad-simplified
                       HordeAd.Internal.BackendConcrete
                       HordeAd.Internal.OrthotopeOrphanInstances
                       HordeAd.Internal.BackendOX
-                      HordeAd.Internal.TensorFFI
                       HordeAd.Util.ShapedList
                       HordeAd.Util.SizedList
 
@@ -182,14 +178,6 @@ library horde-ad-simplified
       , strict-containers
       , unboxed-ref
       , vector
-
-    C-sources:        src/cbits/matrix_reduce.c
-    cc-options:         -O4 -Wall -std=c99
-
-    if arch(x86_64)
-        cc-options:     -msse2
-    if arch(i386)
-        cc-options:     -msse2
 
     if os(linux)
         -- cargo-culting this one:
