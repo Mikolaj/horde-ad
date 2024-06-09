@@ -6,7 +6,6 @@ import Prelude
 
 import           Criterion.Main
 import qualified Data.Array.RankedS as OR
-import qualified Data.Array.ShapedS as OS
 import qualified Data.EnumMap.Strict as EM
 import           Data.List.Index (imap)
 import qualified Data.Vector.Generic as V
@@ -21,7 +20,10 @@ import HordeAd.Core.AstFreshId (funToAstIOR)
 import HordeAd.Core.TensorAst
 import HordeAd.Core.TensorConcrete ()
 import HordeAd.External.OptimizerTools
-import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..), FlipS (..))
+import HordeAd.Internal.BackendOX (ORArray, OSArray)
+import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..))
+
+import qualified Data.Array.Nested as Nested
 
 import           MnistData
 import qualified MnistFcnnRanked1
@@ -31,7 +33,7 @@ import qualified MnistFcnnRanked2
 
 -- POPL differentiation, straight via the ADVal instance of RankedTensor,
 -- which side-steps vectorization.
-mnistTrainBench1VTA :: forall ranked r. (ranked ~ FlipR OR.Array, r ~ Double)
+mnistTrainBench1VTA :: forall ranked r. (ranked ~ ORArray, r ~ Double)
                     => String -> Int -> [MnistData r]
                     -> Int -> Int -> r
                     -> Benchmark
@@ -39,12 +41,12 @@ mnistTrainBench1VTA extraPrefix chunkLength xs widthHidden widthHidden2
                     gamma = do
   let nParams1 = MnistFcnnRanked1.afcnnMnistLen1 widthHidden widthHidden2
       params1Init =
-        imap (\i nPV -> DynamicRanked @r @1 $ FlipR $ OR.fromVector [nPV]
+        imap (\i nPV -> DynamicRanked @r @1 $ FlipR $ Nested.rfromOrthotope SNat $ OR.fromVector [nPV]
                         $ V.map realToFrac
                         $ LA.randomVector (44 + nPV + i) LA.Uniform nPV
                           - LA.scalar 0.5)
              nParams1
-      emptyR = FlipR $ OR.fromList [0] []
+      emptyR = FlipR $ Nested.rfromOrthotope SNat $ OR.fromList [0] []
       hVectorInit = V.fromList params1Init
       valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters ranked r
       valsInit = ( (replicate widthHidden emptyR, emptyR)
@@ -63,24 +65,24 @@ mnistTrainBench1VTA extraPrefix chunkLength xs widthHidden widthHidden2
                         , "m0" ++ " =" ++ show (sizeHVector hVectorInit) ]
   bench name $ nf grad chunk
 
-mnistTestBench1VTA :: forall ranked r. (ranked ~ FlipR OR.Array, r ~ Double)
+mnistTestBench1VTA :: forall ranked r. (ranked ~ ORArray, r ~ Double)
                    => String -> Int -> [MnistData r] -> Int -> Int
                    -> Benchmark
 mnistTestBench1VTA extraPrefix chunkLength xs widthHidden widthHidden2 = do
   let nParams1 = MnistFcnnRanked1.afcnnMnistLen1 widthHidden widthHidden2
       params1Init =
-        imap (\i nPV -> DynamicRanked @r @1 $ FlipR $ OR.fromVector [nPV]
+        imap (\i nPV -> DynamicRanked @r @1 $ FlipR $ Nested.rfromOrthotope SNat $ OR.fromVector [nPV]
                         $ V.map realToFrac
                         $ LA.randomVector (44 + nPV + i) LA.Uniform nPV
                           - LA.scalar 0.5)
              nParams1
-      emptyR = FlipR $ OR.fromList [0] []
+      emptyR = FlipR $ Nested.rfromOrthotope SNat $ OR.fromList [0] []
       hVectorInit = V.fromList params1Init
       valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters ranked r
       valsInit = ( (replicate widthHidden emptyR, emptyR)
                  , (replicate widthHidden2 emptyR, emptyR)
                  , (replicate sizeMnistLabelInt emptyR, emptyR) )
-      ftest :: [MnistData r] -> HVector (FlipR OR.Array) -> r
+      ftest :: [MnistData r] -> HVector (ORArray) -> r
       ftest = MnistFcnnRanked1.afcnnMnistTest1 valsInit widthHidden widthHidden2
       chunk = take chunkLength xs
       score c = ftest c hVectorInit
@@ -112,7 +114,7 @@ mnistBGroup1VTA xs0 chunkLength =
 -- JAX differentiation, Ast term built and differentiated only once
 -- and the result interpreted with different inputs in each gradient
 -- descent iteration.
-mnistTrainBench1VTO :: forall ranked r. (ranked ~ FlipR OR.Array, r ~ Double)
+mnistTrainBench1VTO :: forall ranked r. (ranked ~ ORArray, r ~ Double)
                     => String -> Int -> [MnistData r]
                     -> Int -> Int -> r
                     -> Benchmark
@@ -120,12 +122,12 @@ mnistTrainBench1VTO extraPrefix chunkLength xs widthHidden widthHidden2
                     gamma = do
   let nParams1 = MnistFcnnRanked1.afcnnMnistLen1 widthHidden widthHidden2
       params1Init =
-        imap (\i nPV -> DynamicRanked @r @1 $ FlipR $ OR.fromVector [nPV]
+        imap (\i nPV -> DynamicRanked @r @1 $ FlipR $ Nested.rfromOrthotope SNat $ OR.fromVector [nPV]
                         $ V.map realToFrac
                         $ LA.randomVector (44 + nPV + i) LA.Uniform nPV
                           - LA.scalar 0.5)
              nParams1
-      emptyR = FlipR $ OR.fromList [0] []
+      emptyR = FlipR $ Nested.rfromOrthotope SNat $ OR.fromList [0] []
       hVectorInit = V.fromList params1Init
       valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters ranked r
       valsInit = ( (replicate widthHidden emptyR, emptyR)
@@ -151,13 +153,13 @@ mnistTrainBench1VTO extraPrefix chunkLength xs widthHidden widthHidden2
         gradient = simplifyInlineHVectorRaw gradientRaw
         vars1AndInputAgain = vars1Again ++ [varGlyphD, varLabelD]
         art = AstArtifact varDtAgain vars1AndInputAgain gradient primal
-        go :: [MnistData r] -> HVector (FlipR OR.Array) -> HVector (FlipR OR.Array)
+        go :: [MnistData r] -> HVector (ORArray) -> HVector (ORArray)
         go [] parameters = parameters
         go ((glyph, label) : rest) !parameters =
           let glyphD = DynamicRanked @r @1
-                       $ FlipR $ OR.fromVector [sizeMnistGlyphInt] glyph
+                       $ FlipR $ Nested.rfromOrthotope SNat $ OR.fromVector [sizeMnistGlyphInt] glyph
               labelD = DynamicRanked @r @1
-                       $ FlipR $ OR.fromVector [sizeMnistLabelInt] label
+                       $ FlipR $ Nested.rfromOrthotope SNat $ OR.fromVector [sizeMnistLabelInt] label
               parametersAndInput =
                 V.concat [parameters, V.fromList [glyphD, labelD]]
               gradientHVector =
@@ -197,7 +199,7 @@ mnistBGroup1VTO xs0 chunkLength =
 
 -- POPL differentiation, straight via the ADVal instance of RankedTensor,
 -- which side-steps vectorization.
-mnistTrainBench2VTA :: forall ranked r. (ranked ~ FlipR OR.Array, r ~ Double)
+mnistTrainBench2VTA :: forall ranked r. (ranked ~ ORArray, r ~ Double)
                     => String -> Int -> [MnistData r]
                     -> Int -> Int -> r
                     -> Benchmark
@@ -212,7 +214,7 @@ mnistTrainBench2VTA extraPrefix chunkLength xs widthHidden widthHidden2
                 forgetShape $ fst
                 $ randomVals
                     @(MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
-                        (FlipS OS.Array) widthHidden widthHidden2 r)
+                        (OSArray) widthHidden widthHidden2 r)
                     1 (mkStdGen 44)
               Nothing -> error "valsInit: impossible someNatVal error"
           Nothing -> error "valsInit: impossible someNatVal error"
@@ -229,7 +231,7 @@ mnistTrainBench2VTA extraPrefix chunkLength xs widthHidden widthHidden2
                         , " =" ++ show (sizeHVector hVectorInit) ]
   bench name $ nf grad chunk
 
-mnistTestBench2VTA :: forall ranked r. (ranked ~ FlipR OR.Array, r ~ Double)
+mnistTestBench2VTA :: forall ranked r. (ranked ~ ORArray, r ~ Double)
                    => String -> Int -> [MnistData r] -> Int -> Int
                    -> Benchmark
 mnistTestBench2VTA extraPrefix chunkLength xs widthHidden widthHidden2 = do
@@ -242,12 +244,12 @@ mnistTestBench2VTA extraPrefix chunkLength xs widthHidden widthHidden2 = do
                 forgetShape $ fst
                 $ randomVals
                     @(MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
-                        (FlipS OS.Array) widthHidden widthHidden2 r)
+                        (OSArray) widthHidden widthHidden2 r)
                     1 (mkStdGen 44)
               Nothing -> error "valsInit: impossible someNatVal error"
           Nothing -> error "valsInit: impossible someNatVal error"
       hVectorInit = toHVectorOf valsInit
-      ftest :: [MnistData r] -> HVector (FlipR OR.Array) -> r
+      ftest :: [MnistData r] -> HVector (ORArray) -> r
       ftest = MnistFcnnRanked2.afcnnMnistTest2 valsInit
       chunk = take chunkLength xs
       score c = ftest c hVectorInit
@@ -283,7 +285,7 @@ mnistBGroup2VTA xs0 chunkLength =
 -- JAX differentiation, Ast term built and differentiated only once
 -- and the result interpreted with different inputs in each gradient
 -- descent iteration.
-mnistTrainBench2VTO :: forall ranked r. (ranked ~ FlipR OR.Array, r ~ Double)
+mnistTrainBench2VTO :: forall ranked r. (ranked ~ ORArray, r ~ Double)
                     => String -> Int -> [MnistData r]
                     -> Int -> Int -> r
                     -> Benchmark
@@ -298,7 +300,7 @@ mnistTrainBench2VTO extraPrefix chunkLength xs widthHidden widthHidden2
                 forgetShape $ fst
                 $ randomVals
                     @(MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
-                        (FlipS OS.Array) widthHidden widthHidden2 r)
+                        (OSArray) widthHidden widthHidden2 r)
                     1 (mkStdGen 44)
               Nothing -> error "valsInit: impossible someNatVal error"
           Nothing -> error "valsInit: impossible someNatVal error"
@@ -322,13 +324,13 @@ mnistTrainBench2VTO extraPrefix chunkLength xs widthHidden widthHidden2
         gradient = simplifyInlineHVectorRaw gradientRaw
         vars1AndInputAgain = vars1Again ++ [varGlyphD, varLabelD]
         art = AstArtifact varDtAgain vars1AndInputAgain gradient primal
-        go :: [MnistData r] -> HVector (FlipR OR.Array) -> HVector (FlipR OR.Array)
+        go :: [MnistData r] -> HVector (ORArray) -> HVector (ORArray)
         go [] parameters = parameters
         go ((glyph, label) : rest) !parameters =
           let glyphD = DynamicRanked @r @1
-                       $ FlipR $ OR.fromVector [sizeMnistGlyphInt] glyph
+                       $ FlipR $ Nested.rfromOrthotope SNat $ OR.fromVector [sizeMnistGlyphInt] glyph
               labelD = DynamicRanked @r @1
-                       $ FlipR $ OR.fromVector [sizeMnistLabelInt] label
+                       $ FlipR $ Nested.rfromOrthotope SNat $ OR.fromVector [sizeMnistLabelInt] label
               parametersAndInput =
                 V.concat [parameters, V.fromList [glyphD, labelD]]
               gradientHVector =

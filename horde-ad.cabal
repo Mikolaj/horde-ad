@@ -236,6 +236,7 @@ library benchCommonLibrary
       , ilist
       , inspection-testing
       , orthotope
+      , ox-arrays
       , random
       , strict-containers
       , vector

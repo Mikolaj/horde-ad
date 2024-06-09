@@ -24,6 +24,8 @@ import           Unsafe.Coerce (unsafeCoerce)
 
 --import HordeAd.Core.Adaptor
 
+import qualified Data.Array.Nested as Nested
+
 import HordeAd
 import HordeAd.Internal.BackendConcrete
 import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..))
@@ -89,7 +91,7 @@ benchProd ~(_l, list, _vec) =
                . crevOnHVector @Double Nothing rankedVecDProd)
               (V.map DynamicRanked vec)
 -}
-    , bench "NoShare List crev" $ nf (crev rankedNoShareListProd) list
+    , bench "NoShare List crev" $ nf crevRankedNoShareListProd list
     ]
 
 rankedListProd :: (RankedTensor ranked, GoodScalar r)
@@ -97,20 +99,33 @@ rankedListProd :: (RankedTensor ranked, GoodScalar r)
 rankedListProd = foldl1' (*)
 
 crevRankedListProd :: [FlipR OR.Array Double 0] -> [FlipR OR.Array Double 0]
-crevRankedListProd = crev rankedListProd
+crevRankedListProd = map (FlipR . Nested.rtoOrthotope . runFlipR)
+                     . crev rankedListProd
+                     . map (FlipR . Nested.rfromOrthotope SNat . runFlipR)
 
 revRankedListProd :: [FlipR OR.Array Double 0] -> [FlipR OR.Array Double 0]
-revRankedListProd = rev @Double @0 @(AstRanked FullSpan) rankedListProd
+revRankedListProd = map (FlipR . Nested.rtoOrthotope . runFlipR)
+                    . rev @Double @0 @(AstRanked FullSpan) rankedListProd
+                    . map (FlipR . Nested.rfromOrthotope SNat . runFlipR)
 
 rankedListProdr :: (RankedTensor ranked, GoodScalar r)
                 => [ranked r 0] -> ranked r 0
 rankedListProdr = foldr1 (*)
 
 crevRankedListProdr :: [FlipR OR.Array Double 0] -> [FlipR OR.Array Double 0]
-crevRankedListProdr = crev rankedListProdr
+crevRankedListProdr = map (FlipR . Nested.rtoOrthotope . runFlipR)
+                      . crev rankedListProdr
+                      . map (FlipR . Nested.rfromOrthotope SNat . runFlipR)
 
 revRankedListProdr :: [FlipR OR.Array Double 0] -> [FlipR OR.Array Double 0]
-revRankedListProdr = rev @Double @0 @(AstRanked FullSpan) rankedListProdr
+revRankedListProdr = map (FlipR . Nested.rtoOrthotope . runFlipR)
+                     . rev @Double @0 @(AstRanked FullSpan) rankedListProdr
+                     . map (FlipR . Nested.rfromOrthotope SNat . runFlipR)
+
+crevRankedNoShareListProd :: [FlipR OR.Array Double 0] -> [FlipR OR.Array Double 0]
+crevRankedNoShareListProd = map (FlipR . Nested.rtoOrthotope . runFlipR)
+                            . crev rankedNoShareListProd
+                            . map (FlipR . Nested.rfromOrthotope SNat . runFlipR)
 
 _rankedVecProd :: (RankedTensor ranked, GoodScalar r)
                => Data.Vector.Vector (ranked r 0) -> ranked r 0
@@ -139,13 +154,13 @@ rankedVecDProd =
   in V.foldl' f 0
 
 rankedNoShareListProd :: GoodScalar r
-                      => [ADVal (FlipR OR.Array) r 0]
-                      -> ADVal (FlipR OR.Array) r 0
+                      => [ADVal (FlipR Nested.Ranked) r 0]
+                      -> ADVal (FlipR Nested.Ranked) r 0
 rankedNoShareListProd = foldl1' multNotShared
 
 _rankedNoShareVecProd :: GoodScalar r
-                      => Data.Vector.Vector (ADVal (FlipR OR.Array) r 0)
-                      -> ADVal (FlipR OR.Array) r 0
+                      => Data.Vector.Vector (ADVal (FlipR Nested.Ranked) r 0)
+                      -> ADVal (FlipR Nested.Ranked) r 0
 _rankedNoShareVecProd = V.foldl1' multNotShared
 
 
