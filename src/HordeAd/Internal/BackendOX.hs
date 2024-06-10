@@ -29,6 +29,7 @@ import           Data.List (foldl')
 import           Data.List.Index (imap)
 import           Data.List.NonEmpty (NonEmpty)
 import qualified Data.List.NonEmpty as NonEmpty
+import           Data.Maybe (fromJust, listToMaybe)
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Map as M
 import qualified Data.Strict.Vector as Data.Vector
@@ -106,20 +107,18 @@ tminIndexR
   => Nested.Ranked (1 + n) r -> Nested.Ranked n r2
 tminIndexR =
   let f :: Nested.Ranked 1 r -> Nested.Ranked 0 r2
-      f = Nested.rscalar . fromIntegral . LA.minIndex . Nested.rtoVector
-  in case sameNat (Proxy @n) (Proxy @0) of
+      f = Nested.rscalar . fromIntegral . Nested.Internal.Shape.ixrHead . Nested.rminIndexPrim
+  in {- TODO: optimize? case sameNat (Proxy @n) (Proxy @0) of
     Just Refl -> f
-    _ -> Nested.rrerank (SNat @n) ZSR f
+    _ ->-} Nested.rrerank (SNat @n) ZSR f
 
 tmaxIndexR
   :: forall n r r2. (NumAndShow r, NumAndShow r2, KnownNat n)
   => Nested.Ranked (1 + n) r -> Nested.Ranked n r2
 tmaxIndexR =
   let f :: Nested.Ranked 1 r -> Nested.Ranked 0 r2
-      f = Nested.rscalar . fromIntegral . LA.maxIndex . Nested.rtoVector
-  in case sameNat (Proxy @n) (Proxy @0) of
-    Just Refl -> f
-    _ -> Nested.rrerank (SNat @n) ZSR f
+      f = Nested.rscalar . fromIntegral . Nested.Internal.Shape.ixrHead . Nested.rmaxIndexPrim
+  in Nested.rrerank (SNat @n) ZSR f
 
 -- TODO: use Convert, fromInt/toInt and fromZ/toZ from hmatrix
 tfloorR :: (NumAndShow r, RealFrac r, NumAndShow r2, Integral r2, KnownNat n)
@@ -498,7 +497,7 @@ tminIndexS
   => Nested.Shaped (n ': sh) r -> Nested.Shaped (Sh.Init (n ': sh)) r2
 tminIndexS =
   let f :: KnownNat m => Nested.Shaped '[m] r -> Nested.Shaped '[] r2
-      f = Nested.sscalar . fromIntegral . LA.minIndex . Nested.stoVector
+      f = Nested.sscalar . fromIntegral . Nested.Internal.Shape.ixsHead . Nested.sminIndexPrim
   in case sameShape @sh @'[] of
     Just Refl -> f @n
     _ ->
@@ -512,8 +511,8 @@ tminIndexS =
               gcastWith (unsafeCoerce Refl
                          :: Sh.Init (n ': sh) :~: Sh.Init (n ': sh) X.++ '[]) $
               Nested.srerank @'[m] @'[] @(Sh.Init (n ': sh)) knownShS knownShS (f @m)
-            Nothing -> error "tmaxIndexS: impossible someNatVal error"
-        Nothing -> error "tmaxIndexS: impossible someNatVal error"
+            Nothing -> error "tminIndexS: impossible someNatVal error"
+        Nothing -> error "tminIndexS: impossible someNatVal error"
 
 tmaxIndexS
   :: forall n sh r r2. ( NumAndShow r, NumAndShow r2, KnownShS sh, KnownNat n
@@ -521,7 +520,7 @@ tmaxIndexS
   => Nested.Shaped (n ': sh) r -> Nested.Shaped (Sh.Init (n ': sh)) r2
 tmaxIndexS =
   let f :: KnownNat m => Nested.Shaped '[m] r -> Nested.Shaped '[] r2
-      f = Nested.sscalar . fromIntegral . LA.minIndex . Nested.stoVector
+      f = Nested.sscalar . fromIntegral . Nested.Internal.Shape.ixsHead . Nested.smaxIndexPrim
   in case sameShape @sh @'[] of
     Just Refl -> f @n
     _ ->
