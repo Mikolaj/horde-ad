@@ -137,7 +137,7 @@ jobs:
           path: source
       - name: checkout ox-arrays
         run:
-          git clone --branch=unsafe-fromInteger https://git.tomsmeding.com/ox-arrays $GITHUB_WORKSPACE/source/ox-arrays
+          git clone --branch=singletons https://git.tomsmeding.com/ox-arrays $GITHUB_WORKSPACE/source/ox-arrays
       - name: initial cabal.project for sdist
         run: |
           touch cabal.project
