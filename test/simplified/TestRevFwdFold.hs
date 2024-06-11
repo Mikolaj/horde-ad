@@ -546,7 +546,7 @@ testSin0Fold4 = do
   assertEqualUpToEpsilon' 1e-10
     (-0.7053476446727861 :: OR.Array 0 Double)
     (rev' (\a0 -> rfold (\x a -> atan2F (sin x) (sin a))
-                        (2 * a0) (rreplicate 3 a0)) 1.1)
+                        (rscalar 2 * a0) (rreplicate 3 a0)) 1.1)
 
 testSin0Fold5 :: Assertion
 testSin0Fold5 = do
@@ -554,9 +554,9 @@ testSin0Fold5 = do
     (1.2992412552109085 :: OR.Array 0 Double)
     (rev' (\a0 -> rfold (\x a -> rsum
                                  $ atan2F (sin $ rreplicate 5 x)
-                                         (rsum $ sin $ rsum
-                                          $ rtr $ rreplicate 7 a))
-                        (2 * a0)
+                                          (rsum $ sin $ rsum
+                                           $ rtr $ rreplicate 7 a))
+                        (rscalar 2 * a0)
                         (rreplicate 3 (rreplicate 2 (rreplicate 5 a0)))) 1.1)
 
 testSin0Fold6 :: Assertion
