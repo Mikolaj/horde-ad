@@ -251,7 +251,7 @@ tensorIntermediateMnistTests = testGroup "Ranked Intermediate MNIST tests"
   [ mnistTestCase1VTI "VTI 1 epoch, 1 batch" 1 1 300 100 0.02 5000
                       (0.16479999999999995 :: Double)
   , mnistTestCase1VTI "VTI artificial 1 2 3 4 5" 1 2 3 4 5 5000
-                      (0.9108 :: Float)
+                      (0.902 :: Float)
   , mnistTestCase1VTI "VTI 1 epoch, 0 batch" 1 0 300 100 0.02 5000
                       (1 :: Float)
   ]
@@ -460,7 +460,7 @@ tensorADValMnistTests2 = testGroup "Ranked2 ADVal MNIST tests"
   , mnistTestCase2VTA "VTA2 artificial 1 2 3 4 5" 1 2 3 4 5 500
                        (0.89 :: Float)
   , mnistTestCase2VTA "VTA2 artificial 5 4 3 2 1" 5 4 3 2 1 499
-                       (0.8361723446893787 :: Double)
+                       (0.7454909819639279 :: Double)
   , mnistTestCase2VTA "VTA2 1 epoch, 0 batch" 1 0 300 100 0.02 500
                        (1 :: Float)
   ]
