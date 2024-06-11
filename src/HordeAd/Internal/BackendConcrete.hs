@@ -70,6 +70,7 @@ type NumAndShow r = (Numeric r, Show r, Num (Vector r))
 
 type IndexInt n = Index n Int64
 
+{-
 -- TODO: try to weave a similar magic as in tindex0R
 -- TODO: for the non-singleton case see
 -- https://github.com/Mikolaj/horde-ad/pull/81#discussion_r1096532164
@@ -85,6 +86,7 @@ updateNR arr upd =
             i = fromIntegral $ toLinearIdx @n @m fromIntegral sh ix
         in LA.vjoin [V.take i t, v, V.drop (i + V.length v) t]
   in OR.fromVector shRaw (foldl' f values upd)
+-}
 
 tshapeR
   :: KnownNat n
@@ -98,6 +100,7 @@ tlengthR v = case tshapeR v of
   ZSR -> error "tlengthR: impossible pattern needlessly required"
   k :$: _ -> k
 
+{-
 tminIndexR
   :: forall n r r2. (NumAndShow r, NumAndShow r2, KnownNat n)
   => OR.Array (1 + n) r -> OR.Array n r2
@@ -117,6 +120,7 @@ tmaxIndexR =
   in case sameNat (Proxy @n) (Proxy @0) of
     Just Refl -> f
     _ -> OR.rerank f
+-}
 
 -- TODO: use Convert, fromInt/toInt and fromZ/toZ from hmatrix
 tfloorR :: (NumAndShow r, RealFrac r, NumAndShow r2, Integral r2, KnownNat n)
@@ -209,6 +213,7 @@ tunravelToListS t | Dict <- lemShapeFromKnownShS (Proxy @sh) =
     0 : _ -> []
     _ -> OSB.toList $ OS.unravel t
 
+{-
 tmatvecmulR
   :: Numeric r
   => OR.Array 2 r -> OR.Array 1 r -> OR.Array 1 r
@@ -234,7 +239,9 @@ tmatmul2R t u =
         _ -> error "tmatmul2R: wrong shape"
   in OR.fromVector [trows, ucols] $ LA.flatten
      $ LA.reshape tcols t2 LA.<> LA.reshape ucols u2
+-}
 
+{-
 -- Performance depends a lot on the number and size of tensors.
 -- If tensors are not tiny, memory taken by underlying vectors matters most
 -- and this implementation is probbaly optimal in this respect
@@ -279,6 +286,7 @@ tscatterZ1R sh t f = case OR.shapeL t of
                         then updateNR (treplicate0NR sh 0) [(ix2, ti)]
                         else treplicate0NR sh 0)
           $ tunravelToListR t
+-}
 
 tfromListR
   :: forall n r. (KnownNat n, Numeric r)
@@ -349,13 +357,14 @@ tbuild1R 0 _ = case sameNat (Proxy @n) (Proxy @0) of
 tbuild1R k f = OR.ravel $ ORB.fromList [k]
                $ map f [0 .. fromIntegral k - 1]  -- hope this fuses
 
+
 tmap0NR
   :: (Numeric r, Numeric r2)
   => (OR.Array 0 r -> OR.Array 0 r2) -> OR.Array n r -> OR.Array n r2
 tmap0NR f = OR.mapA (tunScalarR . f . tscalarR)
             -- too slow: tbuildNR (tshapeR v) (\ix -> f $ v `tindexNR` ix)
             -- bad type: liftVR . LA.cmap
-
+{-
 tzipWith0NR
   :: (Numeric r, Numeric r2, Numeric r3)
   => (OR.Array 0 r -> OR.Array 0 r2 -> OR.Array 0 r3)
@@ -387,6 +396,7 @@ tgatherZ1R 0 t _ = OR.fromList (0 : drop (valueOf @p) (OR.shapeL t)) []
 tgatherZ1R k t f =
   let l = map (\i -> t `tindexZR` f i) [0 .. fromIntegral k - 1]
   in OR.ravel $ ORB.fromList [k] l
+-}
 
 -- TODO: use Convert, fromInt/toInt and fromZ/toZ from hmatrix
 tcastR :: (Numeric r1, Numeric r2, KnownNat n, Real r1, Fractional r2)
@@ -408,6 +418,7 @@ tunScalarR
   => OR.Array 0 r -> r
 tunScalarR = OR.unScalar
 
+{-
 tscaleByScalarR :: (Numeric r, KnownNat n)
                 => r -> OR.Array n r -> OR.Array n r
 tscaleByScalarR s = liftVR (LA.scale s)
@@ -417,6 +428,7 @@ toIndexOfR ix = FlipR . tscalarR <$> ix
 
 fromIndexOfR :: Index n (FlipR OR.Array Int64 0) -> IndexInt n
 fromIndexOfR ixOf = tunScalarR . runFlipR <$> ixOf
+-}
 
 
 -- * Shaped tensor operations
@@ -425,6 +437,7 @@ type Int64Sh (n :: Nat) = ShapedNat n Int64
 
 type IndexIntSh sh = IndexS sh Int64
 
+{-
 -- TODO: try to weave a similar magic as in tindex0R
 -- TODO: for the non-singleton case see
 -- https://github.com/Mikolaj/horde-ad/pull/81#discussion_r1096532164
@@ -446,6 +459,7 @@ updateNS arr upd | Dict <- lemShapeFromKnownShS (Proxy @sh)
                                          fromIntegral sh ix
         in LA.vjoin [V.take i t, v, V.drop (i + V.length v) t]
   in OS.fromVector (foldl' f values upd)
+-}
 
 {- TODO
 tminIndexS
@@ -627,6 +641,7 @@ tdot1InS t@(SS.A (SG.A (OI.T _ _ vt))) u@(SS.A (SG.A (OI.T _ _ vu))) =
        in OS.fromList l
 -}
 
+{-
 tmatvecmulS
   :: forall m n r. (Numeric r, KnownNat m, KnownNat n)
   => OS.Array '[m, n] r -> OS.Array '[n] r -> OS.Array '[m] r
@@ -689,6 +704,7 @@ tscatterZ1S t f | Dict <- lemShapeFromKnownShS (Proxy @sh) =
                       then updateNS 0 [(ix2, ti)]
                       else 0)
         $ tunravelToListS t
+-}
 
 tfromListS
   :: forall n sh r. (Numeric r, KnownNat n, KnownShS sh)
@@ -756,6 +772,7 @@ tbuild1S f | Dict <- lemShapeFromKnownShS (Proxy @sh) =
   in OS.ravel $ OSB.fromList
      $ map (f . ShapedList.shapedNat) [0 .. k - 1]  -- hope this fuses
 
+{-
 tmap0NS
   :: forall r r2 sh. (Numeric r, Numeric r2, KnownShS sh)
   => (OS.Array '[] r -> OS.Array '[] r2) -> OS.Array sh r -> OS.Array sh r2
@@ -809,6 +826,7 @@ tgatherZ1S t f | Dict <- lemShapeFromKnownShS (Proxy @sh)
           $ map (\i -> t `tindexZS` f (ShapedList.shapedNat i))
                 [0 .. valueOf @n2 - 1]
   in OS.ravel $ OSB.fromList l
+-}
 
 -- TODO: use Convert, fromInt/toInt and fromZ/toZ from hmatrix
 tcastS :: forall r1 r2 sh.
@@ -823,6 +841,7 @@ tfromIntegralS :: forall r1 r2 sh .
 tfromIntegralS | Dict <- lemShapeFromKnownShS (Proxy @sh) =
   liftVS (V.map fromIntegral)
 
+{-
 tscalarS
   :: Numeric r
   => r -> OS.Array '[] r
@@ -843,3 +862,4 @@ toIndexOfS ix = FlipR . tscalarR <$> ix
 
 fromIndexOfS :: IndexS sh (FlipR OR.Array Int64 0) -> IndexIntSh sh
 fromIndexOfS ixOf = tunScalarR . runFlipR <$> ixOf
+-}
