@@ -197,18 +197,20 @@ case rshape t of
           void $ V.unsafeFreeze v
           V.unsafeFreeze v2
 -}
+
 tdot0R
   :: NumAndShow r
   => Nested.Ranked n r -> Nested.Ranked n r -> r
-{- TODO
+tdot0R = Nested.rdot
+{-
 tdot0R (RS.A (RG.A sh (OI.T _ _ vt))) (RS.A (RG.A _ (OI.T _ _ vu)))
   | V.length vt == 1 && V.length vu == 1 =
       fromIntegral (product sh) * vt V.! 0 * vu V.! 0
--}
-tdot0R t u = Nested.rtoVector t LA.<.> Nested.rtoVector u
+tdot0R t u = OR.toVector t LA.<.> OR.toVector u
   -- TODO: if offset 0 and same strides, use toUnorderedVectorT
   -- TODO: if either has length 1 values, it may or may not be faster to do
   -- tsum0R (t * u)
+-}
 
 tdot1InR
   :: (NumAndShow r) -- , RowSum r)
@@ -217,9 +219,9 @@ tdot1InR t u = -- TODO: t@(RS.A (RG.A _ (OI.T _ _ vt))) u@(RS.A (RG.A _ (OI.T _ 
 --  if V.length vt == 1 || V.length vu == 1
 --  then tsumInR (t * u)
 --  else
-       let lt = map Nested.rtoVector $ tunravelToListR t
-           lu = map Nested.rtoVector $ tunravelToListR u
-           l = zipWith (LA.<.>) lt lu
+       let lt = tunravelToListR t
+           lu = tunravelToListR u
+           l = zipWith Nested.rdot1 lt lu
        in Nested.rfromList1 $ NonEmpty.fromList l
 
 -- TODO: add these to orthotope, faster; factor out unravel through them
@@ -661,8 +663,9 @@ tdot0S (SS.A (SG.A (OI.T _ _ vt))) (SS.A (SG.A (OI.T _ _ vu)))
   | V.length vt == 1 && V.length vu == 1 =
       fromIntegral (sizeT @sh) * vt V.! 0 * vu V.! 0
 -}
-tdot0S t u = Nested.stoVector t LA.<.> Nested.stoVector u
+tdot0S = Nested.sdot
 
+-- TODO: sdot1In :: shaped r (sh ++ [n]) -> shaped r (sh ++ [n]) -> shaped r sh
 tdot1InS
   :: (NumAndShow r{-, RowSum r-}, KnownNat m, KnownNat n)
   => Nested.Shaped '[m, n] r -> Nested.Shaped '[m, n] r -> Nested.Shaped '[m] r
@@ -670,9 +673,9 @@ tdot1InS t u = -- TODO: t@(SS.A (SG.A (OI.T _ _ vt))) u@(SS.A (SG.A (OI.T _ _ vu
 --  if V.length vt == 1 || V.length vu == Nested.sreplicateScal knownShS 1
 --  then tsumInS (t * u)
 --  else
-    let lt = map Nested.stoVector $ tunravelToListS t
-        lu = map Nested.stoVector $ tunravelToListS u
-        l = zipWith (LA.<.>) lt lu
+    let lt = tunravelToListS t
+        lu = tunravelToListS u
+        l = zipWith Nested.sdot1 lt lu
     in Nested.sfromList1 SNat $ NonEmpty.fromList l
 
 tmatvecmulS
