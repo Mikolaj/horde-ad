@@ -47,7 +47,6 @@ import           GHC.TypeLits
   , type (<=)
   )
 import           Numeric.LinearAlgebra (Numeric, Vector)
-import qualified Numeric.LinearAlgebra as LA
 import           System.IO.Unsafe (unsafePerformIO)
 import           Unsafe.Coerce (unsafeCoerce)
 
@@ -173,15 +172,15 @@ tsum0R (RS.A (RG.A sh (OI.T _ _ vt))) | V.length vt == 1 =
   fromIntegral (product sh) * vt V.! 0
 -- tsumInR t@(RS.A (RG.A _ (OI.T _ _ vt))) | V.length vt == 1 =
 tsum0R (RS.A (RG.A sh t)) =
-  LA.sumElements $ OI.toUnorderedVectorT sh t
+  V.sum $ OI.toUnorderedVectorT sh t
 
 tdot0R
-  :: Numeric r
+  :: (Numeric r, Num (Vector r))
   => OR.Array n r -> OR.Array n r -> r
 tdot0R (RS.A (RG.A sh (OI.T _ _ vt))) (RS.A (RG.A _ (OI.T _ _ vu)))
   | V.length vt == 1 && V.length vu == 1 =
       fromIntegral (product sh) * vt V.! 0 * vu V.! 0
-tdot0R t u = OR.toVector t LA.<.> OR.toVector u
+tdot0R t u = V.sum $ OR.toVector t * OR.toVector u  -- OR.toVector t LA.<.> OR.toVector u
   -- TODO: if offset 0 and same strides, use toUnorderedVectorT
   -- TODO: if either has length 1 values, it may or may not be faster to do
   -- tsum0R (t * u)
@@ -614,16 +613,16 @@ tsum0S (SS.A (SG.A (OI.T _ _ vt))) | V.length vt == 1 =
   fromIntegral (sizeT @sh) * vt V.! 0
 -- tsumInS t@(SS.A (SG.A (OI.T _ _ vt))) | V.length vt == 1 =
 tsum0S (SS.A (SG.A t)) =
-  LA.sumElements $ OI.toUnorderedVectorT (shapeT @sh) t
+  V.sum $ OI.toUnorderedVectorT (shapeT @sh) t
 
 tdot0S
-  :: forall sh r. (Numeric r, KnownShS sh)
+  :: forall sh r. (Numeric r, KnownShS sh, Num (Vector r))
   => OS.Array sh r -> OS.Array sh r -> r
 tdot0S (SS.A (SG.A (OI.T _ _ vt))) (SS.A (SG.A (OI.T _ _ vu)))
   | V.length vt == 1 && V.length vu == 1 =
       fromIntegral (sizeT @sh) * vt V.! 0 * vu V.! 0
 tdot0S t u | Dict <- lemShapeFromKnownShS (Proxy @sh) =
-  OS.toVector t LA.<.> OS.toVector u
+  V.sum $ OS.toVector t * OS.toVector u  -- OS.toVector t LA.<.> OS.toVector u
   -- TODO: if offset 0 and same strides, use toUnorderedVectorT
   -- TODO: if either has length 1 values, it may or may not be faster to do
   -- tsum0S (t * u)
