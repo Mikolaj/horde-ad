@@ -84,7 +84,7 @@ updateNR arr upd =
       f !t (ix, u) =
         let v = OR.toVector u
             i = fromIntegral $ toLinearIdx @n @m fromIntegral sh ix
-        in LA.vjoin [V.take i t, v, V.drop (i + V.length v) t]
+        in V.concat [V.take i t, v, V.drop (i + V.length v) t]
   in OR.fromVector shRaw (foldl' f values upd)
 -}
 
@@ -245,7 +245,7 @@ tmatmul2R t u =
 -- Performance depends a lot on the number and size of tensors.
 -- If tensors are not tiny, memory taken by underlying vectors matters most
 -- and this implementation is probbaly optimal in this respect
--- (the only new vectors are created by LA.vjoin, but this is done on demand).
+-- (the only new vectors are created by V.concat, but this is done on demand).
 -- TODO: optimize updateNR and make it consume and forget arguments
 -- one by one to make the above true
 --
@@ -387,7 +387,7 @@ tgatherZR sh t f =
       s = sizeShape shm
       l = [ OR.toVector $ t `tindexZR` f (fromLinearIdx fromIntegral shm i)
           | i <- [0 .. fromIntegral s - 1] ]
-  in OR.fromVector (shapeToList sh) $ LA.vjoin l
+  in OR.fromVector (shapeToList sh) $ V.concat l
 
 tgatherZ1R :: forall p n r. (KnownNat p, KnownNat n, NumAndShow r)
            => Int -> OR.Array (p + n) r -> (Int64 -> IndexInt p)
@@ -457,7 +457,7 @@ updateNS arr upd | Dict <- lemShapeFromKnownShS (Proxy @sh)
                 $ ShapedList.unShapedNat
                 $ ShapedList.toLinearIdx @(Sh.Take n sh) @(Sh.Drop n sh)
                                          fromIntegral sh ix
-        in LA.vjoin [V.take i t, v, V.drop (i + V.length v) t]
+        in V.concat [V.take i t, v, V.drop (i + V.length v) t]
   in OS.fromVector (foldl' f values upd)
 -}
 
@@ -662,7 +662,7 @@ tmatmul2S t u =
 -- Performance depends a lot on the number and size of tensors.
 -- If tensors are not tiny, memory taken by underlying vectors matters most
 -- and this implementation is probbaly optimal in this respect
--- (the only new vectors are created by LA.vjoin, but this is done on demand).
+-- (the only new vectors are created by V.concat, but this is done on demand).
 -- TODO: optimize updateNS and make it consume and forget arguments
 -- one by one to make the above true
 --
@@ -813,7 +813,7 @@ tgatherZS t f | Dict <- lemShapeFromKnownShS (Proxy @sh)
                                  $ ShapedList.shapedNat $ fromIntegral i)
                  :: OS.Array (Sh.Drop p sh) r)
             | i <- [0 .. s - 1] ]
-  in OS.fromVector $ LA.vjoin l
+  in OS.fromVector $ V.concat l
 
 tgatherZ1S :: forall n2 p sh r.
               (KnownNat n2, NumAndShow r, KnownShS sh, KnownShS (Sh.Drop p sh))

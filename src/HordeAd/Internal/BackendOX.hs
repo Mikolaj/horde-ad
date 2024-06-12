@@ -94,7 +94,7 @@ updateNR arr upd =
       f !t (ix, u) =
         let v = Nested.rtoVector u
             i = fromIntegral $ toLinearIdx @n @m fromIntegral sh ix
-        in LA.vjoin [V.take i t, v, V.drop (i + V.length v) t]
+        in V.concat [V.take i t, v, V.drop (i + V.length v) t]
   in Nested.rfromVector sh (foldl' f values upd)
 
 tshapeR
@@ -262,7 +262,7 @@ tmatmul2R t u =
 -- Performance depends a lot on the number and size of tensors.
 -- If tensors are not tiny, memory taken by underlying vectors matters most
 -- and this implementation is probbaly optimal in this respect
--- (the only new vectors are created by LA.vjoin, but this is done on demand).
+-- (the only new vectors are created by V.concat, but this is done on demand).
 -- TODO: optimize updateNR and make it consume and forget arguments
 -- one by one to make the above true
 --
@@ -418,7 +418,7 @@ tgatherZR sh t f =
       s = sizeShape shm
       l = [ Nested.rtoVector $ t `tindexZR` f (fromLinearIdx fromIntegral shm i)
           | i <- [0 .. fromIntegral s - 1] ]
-  in Nested.rfromVector sh $ LA.vjoin l
+  in Nested.rfromVector sh $ V.concat l
 
 tgatherZ1R :: forall p n r. (KnownNat p, KnownNat n, NumAndShow r)
            => Int -> Nested.Ranked (p + n) r -> (Int64 -> IndexInt p)
@@ -490,7 +490,7 @@ updateNS arr upd =
                 $ ShapedList.unShapedNat
                 $ ShapedList.toLinearIdx @(Sh.Take n sh) @(Sh.Drop n sh)
                                          fromIntegral sh ix
-        in LA.vjoin [V.take i t, v, V.drop (i + V.length v) t]
+        in V.concat [V.take i t, v, V.drop (i + V.length v) t]
   in Nested.sfromVector knownShS (foldl' f values upd)
 
 tminIndexS
@@ -698,7 +698,7 @@ tmatmul2S t u =
 -- Performance depends a lot on the number and size of tensors.
 -- If tensors are not tiny, memory taken by underlying vectors matters most
 -- and this implementation is probbaly optimal in this respect
--- (the only new vectors are created by LA.vjoin, but this is done on demand).
+-- (the only new vectors are created by V.concat, but this is done on demand).
 -- TODO: optimize updateNS and make it consume and forget arguments
 -- one by one to make the above true
 --
@@ -857,7 +857,7 @@ tgatherZS t f =
                                  $ ShapedList.shapedNat $ fromIntegral i)
                  :: Nested.Shaped (Sh.Drop p sh) r)
             | i <- [0 .. s - 1] ]
-  in Nested.sfromVector knownShS $ LA.vjoin l
+  in Nested.sfromVector knownShS $ V.concat l
 
 tgatherZ1S :: forall n2 p sh r.
               ( NumAndShow r
