@@ -22,7 +22,6 @@ import qualified Data.Vector.Generic as V
 import qualified GHC.IsList as IsList
 import           GHC.TypeLits (KnownNat)
 import           Numeric.LinearAlgebra (Numeric, Vector)
-import qualified Numeric.LinearAlgebra as LA
 import           System.Random
 import           Unsafe.Coerce (unsafeCoerce)
 
@@ -385,13 +384,19 @@ instance KnownShS sh
 -- TODO: probably this or the next instance is eventually not needed:
 instance (KnownShS sh, GoodScalar r, Fractional r, Random r, Num (Vector r))
          => RandomHVector (OSArray r sh) where
+  randomVals :: forall g. RandomGen g => Double -> g -> (OSArray r sh, g)
   randomVals range g | Dict <- lemShapeFromKnownShS (Proxy @sh) =
-    let createRandomVector n seed =
-          LA.scale (2 * realToFrac range)
-          $ V.fromListN n (randoms seed) - LA.scalar 0.5
+    let createRandomVector :: Int -> g -> OSArray r sh
+        createRandomVector n seed =
+          srepl (2 * realToFrac range)
+          * (FlipS (Nested.sfromVector knownShS
+                      (V.fromListN n (randoms seed)))
+             - srepl 0.5)
+--          LA.scale (2 * realToFrac range)
+--          $ V.fromListN n (randoms seed) - LA.scalar 0.5
         (g1, g2) = split g
-        arr = Nested.sfromVector knownShS $ createRandomVector (sizeP (Proxy @sh)) g1
-    in (FlipS arr, g2)
+        arr = createRandomVector (sizeP (Proxy @sh)) g1
+    in (arr, g2)
 
 instance AdaptableHVector ORArray
                           (HVectorPseudoTensor ORArray r y) where
