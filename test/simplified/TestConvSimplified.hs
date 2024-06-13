@@ -10,7 +10,7 @@ import Prelude
 import           Control.Exception (assert)
 import qualified Data.Array.RankedS as OR
 import qualified Data.EnumMap.Strict as EM
-import qualified Data.Strict.IntMap as IM
+import qualified Data.IntMap.Strict as IM
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat)
 import           Test.Tasty

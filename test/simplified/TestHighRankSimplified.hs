@@ -9,7 +9,7 @@ import Prelude
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as Sh
 import qualified Data.Array.ShapedS as OS
-import qualified Data.Strict.IntMap as IM
+import qualified Data.IntMap.Strict as IM
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, type (+), type (-), type (<=))

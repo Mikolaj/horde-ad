@@ -13,7 +13,7 @@ import qualified Data.EnumMap.Strict as EM
 import           Data.Int (Int64)
 import           Data.List (foldl1')
 import qualified Data.List.NonEmpty as NonEmpty
-import qualified Data.Strict.IntMap as IM
+import qualified Data.IntMap.Strict as IM
 import           Foreign.C (CInt)
 import           GHC.TypeLits (KnownNat)
 import           Numeric.LinearAlgebra (Numeric, Vector)
