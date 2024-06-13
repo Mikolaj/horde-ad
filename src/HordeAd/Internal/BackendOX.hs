@@ -36,6 +36,7 @@ import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality (gcastWith, (:~:) (Refl))
 import           Data.Type.Ord (Compare)
 import qualified Data.Vector.Generic as V
+import qualified Data.Vector.Storable as VS
 import qualified Data.Vector.Storable.Mutable as VM
 import qualified GHC.IsList as IsList
 import           GHC.TypeLits
@@ -48,7 +49,7 @@ import           GHC.TypeLits
   , type (+)
   , type (<=)
   )
-import           Numeric.LinearAlgebra (Numeric, Vector)
+import           Numeric.LinearAlgebra (Numeric)
 import qualified Numeric.LinearAlgebra as LA
 import           System.IO.Unsafe (unsafePerformIO)
 import           Unsafe.Coerce (unsafeCoerce)
@@ -63,8 +64,7 @@ import qualified Data.Array.Nested.Internal.Shape as Nested.Internal.Shape
 import qualified Data.Array.Nested.Internal.Shaped as Nested.Internal
 
 import           HordeAd.Core.Types
-import           HordeAd.Internal.OrthotopeOrphanInstances
-  (FlipR (..), FlipS, liftVR, liftVS)
+import           HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..), FlipS)
 import           HordeAd.Util.ShapedList (IndexS, ShapedNat)
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedList
@@ -78,7 +78,7 @@ type OSArray = FlipS Nested.Shaped
 
 -- We often debug around here, so let's add Show and obfuscate it
 -- to avoid warnings that it's unused. The addition silences warnings upstream.
-type NumAndShow r = (Nested.Elt r, Nested.PrimElt r, Nested.Internal.Arith.NumElt r, Numeric r, Show r, Num (Vector r))
+type NumAndShow r = (Nested.Elt r, Nested.PrimElt r, Nested.Internal.Arith.NumElt r, Numeric r, Show r)
 
 type IndexInt n = Index n Int64
 
@@ -279,12 +279,13 @@ tscatterZR sh t f =
       g ix =
         let ix2 = f ix
         in if ixInBounds (indexToList ix2) (shapeToList sh)
-           then M.insertWith (++) ix2 [Nested.rtoVector $ t `tindexNR` ix]
+           then M.insertWith (V.zipWith (+)) ix2 (Nested.rtoVector $ t `tindexNR` ix)
            else id
       ivs = foldr g M.empty [ fromLinearIdx fromIntegral shm i
                             | i <- [0 .. fromIntegral s - 1] ]
-  in updateNR (treplicate0NR sh 0) $ map (second $ Nested.rfromVector shDropP . sum)
-                                   $ M.assocs ivs
+  in updateNR (treplicate0NR sh 0)
+     $ map (second $ Nested.rfromVector shDropP)
+     $ M.assocs ivs
 
 -- TODO: update in place in ST or with a vector builder, but that requires
 -- building the underlying value vector with crafty index computations
@@ -714,13 +715,15 @@ tscatterZS t f =
       g ix =
         let ix2 = f ix
         in if ixInBounds (ShapedList.indexToList ix2) (shapeT @sh)
-           then M.insertWith (++) ix2
-                  [Nested.stoVector $ tindexNS @sh2 @(Sh.Drop p sh) t ix]
+           then M.insertWith (V.zipWith (+)) ix2
+                  (Nested.stoVector $ tindexNS @sh2 @(Sh.Drop p sh) t ix)
            else id
       ivs = foldr g M.empty [ ShapedList.fromLinearIdx fromIntegral sh2
                               $ ShapedList.shapedNat $ fromIntegral i
                             | i <- [0 .. sizeT @sh2 - 1] ]
-  in updateNS (Nested.sreplicateScal knownShS 0) $ map (second $ Nested.sfromVector knownShS . sum) $ M.assocs ivs
+  in updateNS (Nested.sreplicateScal knownShS 0)
+     $ map (second $ Nested.sfromVector knownShS)
+     $ M.assocs ivs
 
 -- TODO: update in place in ST or with a vector builder, but that requires
 -- building the underlying value vector with crafty index computations

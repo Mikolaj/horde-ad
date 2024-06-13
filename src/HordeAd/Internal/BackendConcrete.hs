@@ -46,7 +46,7 @@ import           GHC.TypeLits
   , type (+)
   , type (<=)
   )
-import           Numeric.LinearAlgebra (Numeric, Vector)
+import           Numeric.LinearAlgebra (Numeric)
 import           System.IO.Unsafe (unsafePerformIO)
 import           Unsafe.Coerce (unsafeCoerce)
 
@@ -65,7 +65,7 @@ import           HordeAd.Util.SizedList
 
 -- We often debug around here, so let's add Show and obfuscate it
 -- to avoid warnings that it's unused. The addition silences warnings upstream.
-type NumAndShow r = (Numeric r, Show r, Num (Vector r))
+type NumAndShow r = (Numeric r, Show r)
 
 type IndexInt n = Index n Int64
 
@@ -175,12 +175,12 @@ tsum0R (RS.A (RG.A sh t)) =
   V.sum $ OI.toUnorderedVectorT sh t
 
 tdot0R
-  :: (Numeric r, Num (Vector r))
+  :: Numeric r
   => OR.Array n r -> OR.Array n r -> r
 tdot0R (RS.A (RG.A sh (OI.T _ _ vt))) (RS.A (RG.A _ (OI.T _ _ vu)))
   | V.length vt == 1 && V.length vu == 1 =
       fromIntegral (product sh) * vt V.! 0 * vu V.! 0
-tdot0R t u = V.sum $ OR.toVector t * OR.toVector u  -- OR.toVector t LA.<.> OR.toVector u
+tdot0R t u = V.sum $ V.zipWith (*) (OR.toVector t) (OR.toVector u)  -- OR.toVector t LA.<.> OR.toVector u
   -- TODO: if offset 0 and same strides, use toUnorderedVectorT
   -- TODO: if either has length 1 values, it may or may not be faster to do
   -- tsum0R (t * u)
@@ -545,7 +545,7 @@ tindexZS v ix | Dict <- lemShapeFromKnownShS (Proxy @sh2)
   let sh = OS.shapeL v
   in if ixInBounds (ShapedList.indexToList ix) sh
      then tindexNS v ix
-     else 0
+     else OS.constant 0
 
 tindex0S
   :: Numeric r
@@ -616,13 +616,13 @@ tsum0S (SS.A (SG.A t)) =
   V.sum $ OI.toUnorderedVectorT (shapeT @sh) t
 
 tdot0S
-  :: forall sh r. (Numeric r, KnownShS sh, Num (Vector r))
+  :: forall sh r. (Numeric r, KnownShS sh)
   => OS.Array sh r -> OS.Array sh r -> r
 tdot0S (SS.A (SG.A (OI.T _ _ vt))) (SS.A (SG.A (OI.T _ _ vu)))
   | V.length vt == 1 && V.length vu == 1 =
       fromIntegral (sizeT @sh) * vt V.! 0 * vu V.! 0
 tdot0S t u | Dict <- lemShapeFromKnownShS (Proxy @sh) =
-  V.sum $ OS.toVector t * OS.toVector u  -- OS.toVector t LA.<.> OS.toVector u
+  V.sum $ V.zipWith (*) (OS.toVector t) (OS.toVector u)  -- OS.toVector t LA.<.> OS.toVector u
   -- TODO: if offset 0 and same strides, use toUnorderedVectorT
   -- TODO: if either has length 1 values, it may or may not be faster to do
   -- tsum0S (t * u)
