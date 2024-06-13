@@ -16,7 +16,6 @@ import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import qualified Data.Vector.Storable as VS
 import           Foreign.C (CInt)
 import           GHC.TypeLits (KnownNat)
-import qualified Numeric.LinearAlgebra as LA
 import           Type.Reflection (Typeable, typeRep)
 
 import qualified Data.Array.Nested as Nested
@@ -52,9 +51,6 @@ instance Nested.PrimElt a => HasShape (ORArray a n) where
 
 instance KnownShS sh => HasShape (OSArray a sh) where
   shapeL _ = shapeT @sh
-
-instance HasShape (LA.Matrix a) where
-  shapeL matrix = [LA.rows matrix, LA.cols matrix]
 
 instance RankedTensor ranked => HasShape (DynamicTensor ranked) where
   shapeL (DynamicRanked t) = shapeToList $ rshape t
@@ -96,9 +92,6 @@ instance (VS.Storable a) => Linearizable (OR.Array n a) a where
 
 instance (VS.Storable a) => Linearizable (FlipR OR.Array a n) a where
   linearize = OR.toList . runFlipR
-
-instance (LA.Element a) => Linearizable (LA.Matrix a) a where
-  linearize = LA.toList . LA.flatten
 
 instance ( forall r n. (GoodScalar r, KnownNat n)
            => Linearizable (ranked r n) r

@@ -381,7 +381,6 @@ instance KnownShS sh
     FlipR . Data.Array.Convert.convert . runFlipS
 -}
 
--- TODO: probably this or the next instance is eventually not needed:
 instance (KnownShS sh, GoodScalar r, Fractional r, Random r, Num (Vector r))
          => RandomHVector (OSArray r sh) where
   randomVals :: forall g. RandomGen g => Double -> g -> (OSArray r sh, g)
