@@ -15,7 +15,6 @@ import           Data.Type.Equality (testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, sameNat)
 import           Numeric.LinearAlgebra (Numeric, Vector)
-import qualified Numeric.LinearAlgebra as LA
 import           Type.Reflection (typeRep)
 
 import qualified Data.Array.Nested as Nested
@@ -34,7 +33,7 @@ updateWithGradient :: Double -> HVector ORArray -> HVector ORArray -> HVector OR
 updateWithGradient gamma params gradient =
   let updateVector :: (Numeric r, Fractional r, Num (Vector r))
                    => Vector r -> Vector r -> Vector r
-      updateVector i r = i - LA.scale (realToFrac gamma) r
+      updateVector i r = i - V.map (* realToFrac gamma) r
       updateR :: DynamicTensor ORArray -> DynamicTensor ORArray
               -> DynamicTensor ORArray
       updateR i r = case (i, r) of
@@ -150,16 +149,16 @@ updateWithGradientAdam ArgsAdam{..} StateAdam{tAdam, mAdam, vAdam}
                    -> Vector r -> Vector r
                    -> (Vector r, Vector r, Vector r)
       updateVector mA vA p g =
-        let mANew = LA.scale (realToFrac betaOne) mA
-                    + LA.scale (realToFrac oneMinusBeta1) g
-            vANew = LA.scale (realToFrac betaTwo) vA
-                    + LA.scale (realToFrac oneMinusBeta2) (g * g)
+        let mANew = V.map (* realToFrac betaOne) mA
+                    + V.map (* realToFrac oneMinusBeta1) g
+            vANew = V.map (* realToFrac betaTwo) vA
+                    + V.map (* realToFrac oneMinusBeta2) (g * g)
             alphat = alpha * sqrt (1 - betaTwo ^ tAdamNew)
                              / (1 - betaOne ^ tAdamNew)
         in ( mANew
            , vANew
-           , p - LA.scale (realToFrac alphat) mANew
-                 / (sqrt vANew + LA.scalar (realToFrac epsilon)) )
+           , p - V.map (* realToFrac alphat) mANew
+                 / (sqrt vANew + V.singleton (realToFrac epsilon)) )
                       -- the @scalar@ is safe here;
                       -- @addConstant@ would be better, but it's not exposed
       updateR :: DynamicTensor ORArray -> DynamicTensor ORArray
