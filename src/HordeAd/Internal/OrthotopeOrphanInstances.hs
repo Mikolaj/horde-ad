@@ -9,7 +9,7 @@ module HordeAd.Internal.OrthotopeOrphanInstances
     -- * Definitions for type-level list shapes
   , shapeT, shapeP, sizeT, sizeP
   , withShapeP, sameShape, matchingRank
-  , lemShapeFromKnownShS, lemKnownNatRank, lemKnownShS
+  , lemShapeFromKnownShS, lemKnownNatRank
     -- * Numeric instances for tensors
   , IntegralF(..), RealFloatF(..), FlipR(..), FlipS(..)
   , -- * Assorted orphans and additions
@@ -64,7 +64,7 @@ import           Data.Array.Nested (KnownShS (..), ShS (ZSS, (:$$)))
 import qualified Data.Array.Nested as Nested
 import qualified Data.Array.Nested.Internal.Mixed as Nested.Internal.Mixed
 import qualified Data.Array.Nested.Internal.Ranked as Nested.Internal
-import           Data.Array.Nested.Internal.Shape (shsToList)
+import           Data.Array.Nested.Internal.Shape (shsOrthotopeShape, shsToList)
 import qualified Data.Array.Nested.Internal.Shaped as Nested.Internal
 
 -- * Definitions to help express and manipulate type-level natural numbers
@@ -116,21 +116,13 @@ matchingRank =
   then Just (unsafeCoerce Refl :: X.Rank sh1 :~: n2)
   else Nothing
 
-shapeFromShS :: ShS sh -> Dict Sh.Shape sh
-shapeFromShS ZSS = Dict
-shapeFromShS ((:$$) SNat sh) | Dict <- shapeFromShS sh = Dict
-
 lemShapeFromKnownShS :: forall sh. KnownShS sh
                        => Proxy sh -> Dict Sh.Shape sh
-lemShapeFromKnownShS _ = shapeFromShS (knownShS @sh)
+lemShapeFromKnownShS _ = shsOrthotopeShape (knownShS @sh)
 
 lemKnownNatRank :: ShS sh -> Dict KnownNat (X.Rank sh)
 lemKnownNatRank ZSS = Dict
 lemKnownNatRank (_ :$$ sh) | Dict <- lemKnownNatRank sh = Dict
-
-lemKnownShS :: ShS sh -> Dict KnownShS sh
-lemKnownShS ZSS = Dict
-lemKnownShS (SNat :$$ ssh) | Dict <- lemKnownShS ssh = Dict
 
 
 -- * Numeric instances for tensors
