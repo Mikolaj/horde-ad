@@ -11,7 +11,7 @@ import           Control.Exception.Assert.Sugar
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
 import           Data.Proxy (Proxy (Proxy))
-import qualified Data.Strict.IntMap as IM
+import qualified Data.IntMap.Strict as IM
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, type (+))
 import           Test.Tasty

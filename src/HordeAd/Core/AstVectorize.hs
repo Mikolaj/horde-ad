@@ -19,7 +19,7 @@ import           Data.Int (Int64)
 import           Data.IORef
 import           Data.List (mapAccumR)
 import           Data.Proxy (Proxy (Proxy))
-import qualified Data.Strict.IntMap as IM
+import qualified Data.IntMap.Strict as IM
 import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits

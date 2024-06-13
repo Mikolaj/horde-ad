@@ -31,7 +31,7 @@ import           Data.List.NonEmpty (NonEmpty)
 import qualified Data.List.NonEmpty as NonEmpty
 import           Data.Maybe (fromJust, listToMaybe)
 import           Data.Proxy (Proxy (Proxy))
-import qualified Data.Strict.Map as M
+import qualified Data.Map.Strict as M
 import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality (gcastWith, (:~:) (Refl))
 import           Data.Type.Ord (Compare)

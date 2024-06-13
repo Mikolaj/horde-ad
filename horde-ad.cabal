@@ -166,6 +166,7 @@ library horde-ad-simplified
         assert-failure
       , base >= 4.18 && < 99
       , Boolean
+      , containers
       , deepseq
       , enummapset
       , ghc-typelits-knownnat
@@ -400,6 +401,7 @@ library testCommonLibrary
 
       , assert-failure
       , base
+      , containers
       , enummapset
       , ghc-typelits-knownnat
       , ghc-typelits-natnormalise

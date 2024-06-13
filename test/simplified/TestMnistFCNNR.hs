@@ -11,7 +11,7 @@ import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
 import qualified Data.EnumMap.Strict as EM
 import           Data.List.Index (imap)
-import qualified Data.Strict.IntMap as IM
+import qualified Data.IntMap.Strict as IM
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (SomeNat (..), someNatVal)
 import qualified Numeric.LinearAlgebra as LA

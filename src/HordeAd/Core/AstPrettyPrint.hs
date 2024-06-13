@@ -22,8 +22,8 @@ import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
 import           Data.List (intersperse)
 import           Data.Proxy (Proxy (Proxy))
-import           Data.Strict.IntMap (IntMap)
-import qualified Data.Strict.IntMap as IM
+import           Data.IntMap.Strict (IntMap)
+import qualified Data.IntMap.Strict as IM
 import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, Nat, sameNat)
