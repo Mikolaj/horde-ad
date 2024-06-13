@@ -151,10 +151,10 @@ astTransposeAsGatherS
   -> AstShaped s r (Permutation.PermutePrefix perm sh)
 {-# NOINLINE astTransposeAsGatherS #-}
 astTransposeAsGatherS perm knobs v =
-  withShapeP (drop (sNatValue (Permutation.permLengthSNat perm))
+  withShapeP (drop (sNatValue (Permutation.permRank perm))
               $ shapeT @sh) $ \(Proxy @shd) ->
     gcastWith (unsafeCoerce Refl :: Sh.Drop p sh :~: shd) $
-    withShapeP (take (sNatValue (Permutation.permLengthSNat perm))
+    withShapeP (take (sNatValue (Permutation.permRank perm))
                 $ shapeT @sh) $ \(Proxy @shp) ->
       gcastWith (unsafeCoerce Refl :: Sh.Take p sh :~: shp) $
       withShapeP (backpermutePrefixList (Permutation.permToList' perm)
@@ -732,7 +732,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS shm1)) | Dict <- s
       -- we generate this index, so we simplify on the spot
     in astIndex v (iRev :.$ rest1)
   Ast.AstTransposeS @perm perm v
-    | rankPerm <- Permutation.permLengthSNat perm
+    | rankPerm <- Permutation.permRank perm
     , length (shapeT @shm) < sNatValue rankPerm ->
       astIndex (astTransposeAsGatherS @perm perm knobs v) ix
   Ast.AstTransposeS @perm @sh2 perm v ->

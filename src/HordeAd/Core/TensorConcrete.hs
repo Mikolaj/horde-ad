@@ -209,7 +209,6 @@ instance ShapedTensor OSArray where
             (GoodScalar r, KnownShS sh) => OS.Array sh r -> OSArray r sh
   sconst t | Dict <- lemShapeFromKnownShS (Proxy @sh)
            , Dict <- lemKnownNatRank (knownShS @sh) =
-    gcastWith (unsafeCoerce Refl :: X.Rank sh :~: X.Rank sh) $
     FlipS $ Nested.rcastToShaped
               (Nested.rfromOrthotope (SNat @(X.Rank sh))
                                      (Data.Array.Convert.convert t))

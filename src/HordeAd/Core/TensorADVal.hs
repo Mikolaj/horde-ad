@@ -47,7 +47,7 @@ import           HordeAd.Core.TensorClass
 import           HordeAd.Core.Types
 import           HordeAd.Internal.BackendOX (ORArray, OSArray)
 import           HordeAd.Internal.OrthotopeOrphanInstances
-  (FlipR (..), FlipS (..), lemKnownShS)
+  (FlipR (..), FlipS (..))
 import           HordeAd.Util.ShapedList (IntSh)
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedList
@@ -332,7 +332,7 @@ instance ADReadyS shaped => ShapedTensor (ADVal shaped) where
                 , X.Rank perm <= X.Rank sh, GoodScalar r )
              => Permutation.Perm perm -> ADVal shaped r sh
              -> ADVal shaped r (Permutation.PermutePrefix perm sh)
-  stranspose perm (D u u') | Dict <- lemKnownShS (Nested.Internal.Shape.shsPermutePrefix perm (knownShS @sh)) =
+  stranspose perm (D u u') | Dict <- Nested.Internal.Shape.shsKnownShS (Nested.Internal.Shape.shsPermutePrefix perm (knownShS @sh)) =
     dD (stranspose perm u) (TransposeS @shaped perm u')
   sreshape :: forall sh sh2 r.
               ( GoodScalar r, KnownShS sh, KnownShS sh2
