@@ -10,8 +10,7 @@ module HordeAd.Internal.OrthotopeOrphanInstances
   , shapeT, shapeP, sizeT, sizeP
   , withShapeP, sameShape, matchingRank
   , lemShapeFromKnownShS, lemKnownNatRank, lemKnownShS
-  , -- * Numeric instances for tensors
-    liftVR, liftVR2, liftVS, liftVS2
+    -- * Numeric instances for tensors
   , IntegralF(..), RealFloatF(..), FlipR(..), FlipS(..)
   , -- * Assorted orphans and additions
     PermC, trustMeThisIsAPermutation
@@ -411,17 +410,9 @@ instance (Floating (Vector r), KnownShS sh, Numeric r, Floating r)
 class Floating a => RealFloatF a where
   atan2F :: a -> a -> a
 
-instance (Show r, Floating r, RealFloat (Vector r), KnownNat n, Numeric r)
-         => RealFloatF (OR.Array n r) where
-  atan2F = liftVR2NoAdapt atan2
-
 instance (Nested.Internal.Arith.NumElt r, Nested.PrimElt r, RealFloat r, RealFloat (Vector r), Nested.Internal.Arith.FloatElt r, KnownNat n, Numeric r)
          => RealFloatF (Nested.Ranked n r) where
   atan2F = Nested.Internal.arithPromoteRanked2 (Nested.Internal.Mixed.mliftPrim2 atan2)
-
-instance (Floating r, RealFloat (Vector r), KnownShS sh, Numeric r)
-         => RealFloatF (OS.Array sh r) where
-  atan2F = liftVS2NoAdapt atan2
 
 instance (Nested.Internal.Arith.NumElt r, Nested.PrimElt r, RealFloat r, RealFloat (Vector r), Nested.Internal.Arith.FloatElt r, KnownShS sh, Numeric r)
          => RealFloatF (Nested.Shaped sh r) where
@@ -488,13 +479,13 @@ instance (Show r, VS.Storable r, KnownShS sh)
          => Show (FlipS OS.Array r sh) where
   showsPrec :: Int -> FlipS OS.Array r sh -> ShowS
   showsPrec d (FlipS u) | Dict <- lemShapeFromKnownShS (Proxy @sh) =
-    showString "FlipR " . showParen True (showsPrec d u)
+    showString "FlipS " . showParen True (showsPrec d u)
 
 instance (Show (Nested.Mixed (Mixed.Types.MapJust sh) r))
          => Show (FlipS Nested.Shaped r sh) where
   showsPrec :: Int -> FlipS Nested.Shaped r sh -> ShowS
   showsPrec d (FlipS u) =
-    showString "FlipR " . showParen True (showsPrec d u)
+    showString "FlipS " . showParen True (showsPrec d u)
 
 instance (Eq r, Numeric r, KnownShS sh) => Eq (FlipS OS.Array r sh) where
   (==) :: FlipS OS.Array r sh -> FlipS OS.Array r sh -> Bool

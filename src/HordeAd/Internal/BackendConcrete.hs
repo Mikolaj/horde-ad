@@ -35,6 +35,7 @@ import qualified Data.Strict.Map as M
 import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality (gcastWith, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
+import qualified Data.Vector.Storable as VS
 import qualified Data.Vector.Storable.Mutable as VM
 import           GHC.TypeLits
   ( KnownNat
@@ -46,7 +47,6 @@ import           GHC.TypeLits
   , type (+)
   , type (<=)
   )
-import           Numeric.LinearAlgebra (Numeric)
 import           System.IO.Unsafe (unsafePerformIO)
 import           Unsafe.Coerce (unsafeCoerce)
 
@@ -55,8 +55,7 @@ import qualified Data.Array.Mixed.Types as X
 import qualified Data.Array.Nested as Nested
 
 import           HordeAd.Core.Types
-import           HordeAd.Internal.OrthotopeOrphanInstances
-  (FlipR (..), FlipS, liftVR, liftVS)
+import           HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..), FlipS)
 import           HordeAd.Util.ShapedList (IndexS, ShapedNat)
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedList
@@ -65,7 +64,7 @@ import           HordeAd.Util.SizedList
 
 -- We often debug around here, so let's add Show and obfuscate it
 -- to avoid warnings that it's unused. The addition silences warnings upstream.
-type NumAndShow r = (Numeric r, Show r)
+type NumAndShow r = (Num r, VS.Storable r, Show r)
 
 type IndexInt n = Index n Int64
 
@@ -124,7 +123,7 @@ tmaxIndexR =
 -- TODO: use Convert, fromInt/toInt and fromZ/toZ from hmatrix
 tfloorR :: (NumAndShow r, RealFrac r, NumAndShow r2, Integral r2, KnownNat n)
         => OR.Array n r -> OR.Array n r2
-tfloorR = liftVR (V.map floor)
+tfloorR = OR.mapA floor
 
 ixInBounds :: [Int64] -> [Int] -> Bool
 ixInBounds ix sh =
@@ -153,7 +152,7 @@ tindexZR v ix =
      else OR.constant (drop (valueOf @m) sh) 0
 
 tindex0R
-  :: Numeric r
+  :: (Num r, VS.Storable r)
   => OR.Array n r -> IndexInt n -> r
 tindex0R (RS.A (RG.A _ OI.T{..})) ix =
   values V.! (offset + sum (zipWith (*) (map fromIntegral $ indexToList ix)
@@ -166,7 +165,7 @@ tsumR
 tsumR t = Nested.rtoOrthotope $ Nested.rsumOuter1 $ Nested.rfromOrthotope SNat t
 
 tsum0R
-  :: Numeric r
+  :: (Num r, VS.Storable r)
   => OR.Array n r -> r
 tsum0R (RS.A (RG.A sh (OI.T _ _ vt))) | V.length vt == 1 =
   fromIntegral (product sh) * vt V.! 0
@@ -175,7 +174,7 @@ tsum0R (RS.A (RG.A sh t)) =
   V.sum $ OI.toUnorderedVectorT sh t
 
 tdot0R
-  :: Numeric r
+  :: (Num r, VS.Storable r)
   => OR.Array n r -> OR.Array n r -> r
 tdot0R (RS.A (RG.A sh (OI.T _ _ vt))) (RS.A (RG.A _ (OI.T _ _ vu)))
   | V.length vt == 1 && V.length vu == 1 =
@@ -200,12 +199,12 @@ tdot1InR t@(RS.A (RG.A _ (OI.T _ _ vt))) u@(RS.A (RG.A _ (OI.T _ _ vu))) =
 
 -- TODO: add these to orthotope, faster; factor out unravel through them
 -- and think if ravelFromList makes sense
-tunravelToListR :: Numeric r => OR.Array (1 + n) r -> [OR.Array n r]
+tunravelToListR :: (Num r, VS.Storable r) => OR.Array (1 + n) r -> [OR.Array n r]
 tunravelToListR t = case OR.shapeL t of
   0 : _ -> []
   _ -> ORB.toList $ OR.unravel t
 
-tunravelToListS :: forall r n sh. (Numeric r, KnownNat n, KnownShS sh)
+tunravelToListS :: forall r n sh. (Num r, VS.Storable r, KnownNat n, KnownShS sh)
                 => OS.Array (n ': sh) r -> [OS.Array sh r]
 tunravelToListS t | Dict <- lemShapeFromKnownShS (Proxy @sh) =
   case OS.shapeL t of
@@ -214,7 +213,7 @@ tunravelToListS t | Dict <- lemShapeFromKnownShS (Proxy @sh) =
 
 {-
 tmatvecmulR
-  :: Numeric r
+  :: (Num r, VS.Storable r)
   => OR.Array 2 r -> OR.Array 1 r -> OR.Array 1 r
 tmatvecmulR t u =
   let t2 = OR.toVector t
@@ -225,7 +224,7 @@ tmatvecmulR t u =
   in OR.fromVector [trows] $ LA.reshape tcols t2 LA.#> u2
 
 tmatmul2R
-  :: Numeric r
+  :: (Num r, VS.Storable r)
   => OR.Array 2 r -> OR.Array 2 r -> OR.Array 2 r
 tmatmul2R t u =
   let t2 = OR.toVector t
@@ -288,17 +287,17 @@ tscatterZ1R sh t f = case OR.shapeL t of
 -}
 
 tfromListR
-  :: forall n r. (KnownNat n, Numeric r)
+  :: forall n r. (KnownNat n, Num r, VS.Storable r)
   => NonEmpty (OR.Array n r) -> OR.Array (1 + n) r
 tfromListR l = OR.ravel . ORB.fromList [NonEmpty.length l] . NonEmpty.toList $ l
 
 tfromList0NR
-  :: (KnownNat n, Numeric r)
+  :: (KnownNat n, Num r, VS.Storable r)
   => ShapeInt n -> [r] -> OR.Array n r
 tfromList0NR sh = OR.fromList (shapeToList sh)
 
 tfromVectorR
-  :: forall n r. (KnownNat n, Numeric r)
+  :: forall n r. (KnownNat n, Num r, VS.Storable r)
   => Data.Vector.Vector (OR.Array n r) -> OR.Array (1 + n) r
 tfromVectorR l | V.null l =
   case sameNat (Proxy @n) (Proxy @0) of
@@ -307,12 +306,12 @@ tfromVectorR l | V.null l =
 tfromVectorR l = OR.ravel $ ORB.fromVector [V.length l] $ V.convert l
 
 tfromVector0NR
-  :: (KnownNat n, Numeric r)
+  :: (KnownNat n, Num r, VS.Storable r)
   => ShapeInt n -> Data.Vector.Vector r -> OR.Array n r
 tfromVector0NR sh l = OR.fromVector (shapeToList sh) $ V.convert l
 
 treplicateR
-  :: forall n r. (KnownNat n, Numeric r)
+  :: forall n r. (KnownNat n, Num r, VS.Storable r)
   => Int -> OR.Array n r -> OR.Array (1 + n) r
 treplicateR 0 u = OR.fromList (0 : OR.shapeL u) []
 treplicateR s u = case sameNat (Proxy @n) (Proxy @0) of
@@ -320,12 +319,12 @@ treplicateR s u = case sameNat (Proxy @n) (Proxy @0) of
   _ -> OR.ravel $ ORB.constant [s] u
 
 treplicate0NR
-  :: (KnownNat n, Numeric r)
+  :: (KnownNat n, Num r, VS.Storable r)
   => ShapeInt n -> r -> OR.Array n r
 treplicate0NR sh = OR.constant (shapeToList sh)
 
 tappendR
-  :: (KnownNat n, Numeric r)
+  :: (KnownNat n, Num r, VS.Storable r)
   => OR.Array n r -> OR.Array n r -> OR.Array n r
 tappendR = OR.append
 
@@ -343,12 +342,12 @@ ttransposeR
 ttransposeR = OR.transpose
 
 treshapeR
-  :: (KnownNat n, KnownNat m, Numeric r)
+  :: (KnownNat n, KnownNat m, Num r, VS.Storable r)
   => ShapeInt m -> OR.Array n r -> OR.Array m r
 treshapeR sh = OR.reshape (shapeToList sh)
 
 tbuild1R
-  :: forall n r. (KnownNat n, Numeric r)
+  :: forall n r. (KnownNat n, Num r, VS.Storable r)
   => Int -> (Int64 -> OR.Array n r) -> OR.Array (1 + n) r
 tbuild1R 0 _ = case sameNat (Proxy @n) (Proxy @0) of
   Just Refl -> OR.fromList [0] []  -- the only case where we can guess sh
@@ -358,14 +357,14 @@ tbuild1R k f = OR.ravel $ ORB.fromList [k]
 
 
 tmap0NR
-  :: (Numeric r, Numeric r2)
+  :: (Num r, VS.Storable r, Num r2, VS.Storable r2)
   => (OR.Array 0 r -> OR.Array 0 r2) -> OR.Array n r -> OR.Array n r2
 tmap0NR f = OR.mapA (tunScalarR . f . tscalarR)
             -- too slow: tbuildNR (tshapeR v) (\ix -> f $ v `tindexNR` ix)
             -- bad type: liftVR . LA.cmap
 {-
 tzipWith0NR
-  :: (Numeric r, Numeric r2, Numeric r3)
+  :: (Num r, VS.Storable r, Num r2, VS.Storable r2, Num r3, VS.Storable r3)
   => (OR.Array 0 r -> OR.Array 0 r2 -> OR.Array 0 r3)
   -> OR.Array n r -> OR.Array n r2 -> OR.Array n r3
 tzipWith0NR f = OR.zipWithA (\x y -> tunScalarR $ f (tscalarR x) (tscalarR y))
@@ -398,27 +397,27 @@ tgatherZ1R k t f =
 -}
 
 -- TODO: use Convert, fromInt/toInt and fromZ/toZ from hmatrix
-tcastR :: (Numeric r1, Numeric r2, KnownNat n, Real r1, Fractional r2)
+tcastR :: (Num r1, VS.Storable r1, VS.Storable r2, KnownNat n, Real r1, Fractional r2)
        => OR.Array n r1 -> OR.Array n r2
-tcastR = liftVR (V.map realToFrac)
+tcastR = OR.mapA realToFrac
 
 -- TODO: use Convert, fromInt/toInt and fromZ/toZ from hmatrix
-tfromIntegralR :: (Numeric r1, Numeric r2, KnownNat n, Integral r1)
+tfromIntegralR :: (Num r2, VS.Storable r1, VS.Storable r2, KnownNat n, Integral r1)
                => OR.Array n r1 -> OR.Array n r2
-tfromIntegralR = liftVR (V.map fromIntegral)
+tfromIntegralR = OR.mapA fromIntegral
 
 tscalarR
-  :: Numeric r
+  :: (Num r, VS.Storable r)
   => r -> OR.Array 0 r
 tscalarR = OR.scalar
 
 tunScalarR
-  :: Numeric r
+  :: (Num r, VS.Storable r)
   => OR.Array 0 r -> r
 tunScalarR = OR.unScalar
 
 {-
-tscaleByScalarR :: (Numeric r, KnownNat n)
+tscaleByScalarR :: (Num r, VS.Storable r, KnownNat n)
                 => r -> OR.Array n r -> OR.Array n r
 tscaleByScalarR s = liftVR (LA.scale s)
 
@@ -520,7 +519,7 @@ tmaxIndexS | Dict <- lemShapeFromKnownShS (Proxy @sh)
 tfloorS :: forall r r2 sh.
            (NumAndShow r, RealFrac r, NumAndShow r2, Integral r2, KnownShS sh)
         => OS.Array sh r -> OS.Array sh r2
-tfloorS | Dict <- lemShapeFromKnownShS (Proxy @sh) = liftVS (V.map floor)
+tfloorS | Dict <- lemShapeFromKnownShS (Proxy @sh) = OS.mapA floor
 
 tindexNS
   :: forall sh1 sh2 r.
@@ -548,7 +547,7 @@ tindexZS v ix | Dict <- lemShapeFromKnownShS (Proxy @sh2)
      else OS.constant 0
 
 tindex0S
-  :: Numeric r
+  :: (Num r, VS.Storable r)
   => OS.Array sh r -> IndexIntSh sh -> r
 tindex0S (SS.A (SG.A OI.T{..})) ix =
   values V.! (offset + sum (zipWith (*) (map fromIntegral
@@ -562,7 +561,7 @@ tindex0S (SS.A (SG.A OI.T{..})) ix =
 -- No NOINLINE, because apparently nothing breaks and hmatrix, etc.
 -- also don't put NOINLINE in the functions using FFI.
 tsumS
-  :: forall n sh r. (KnownNat n, Numeric r, RowSum r, KnownShS sh)
+  :: forall n sh r. (KnownNat n, Num r, VS.Storable r, RowSum r, KnownShS sh)
   => OS.Array (n ': sh) r -> OS.Array sh r
 tsumS (SS.A (SG.A (OI.T (_ : ss) o vt))) | V.length vt == 1 =
   SS.A (SG.A (OI.T ss o (V.map (* valueOf @n) vt)))
@@ -582,7 +581,7 @@ tsumS t | Dict <- lemShapeFromKnownShS (Proxy @sh) =
 
 -- Sum the innermost dimension (at least at rank 2; TODO: generalize).
 tsumInS
-  :: forall m n sh r. (KnownNat n, Numeric r, RowSum r, KnownNat m, KnownShS sh)
+  :: forall m n sh r. (KnownNat n, Num r, VS.Storable r, RowSum r, KnownNat m, KnownShS sh)
   => OS.Array (m ': n ': sh) r -> OS.Array (m ': sh) r
 tsumInS t | Dict <- lemShapeFromKnownShS (Proxy @sh) = case OS.shapeL t of
   [] -> error "tsumInS: null shape"
@@ -607,7 +606,7 @@ tsumInS t | Dict <- lemShapeFromKnownShS (Proxy @sh) = case OS.shapeL t of
 -}
 
 tsum0S
-  :: forall sh r. (Numeric r, KnownShS sh)
+  :: forall sh r. (Num r, VS.Storable r, KnownShS sh)
   => OS.Array sh r -> r
 tsum0S (SS.A (SG.A (OI.T _ _ vt))) | V.length vt == 1 =
   fromIntegral (sizeT @sh) * vt V.! 0
@@ -616,7 +615,7 @@ tsum0S (SS.A (SG.A t)) =
   V.sum $ OI.toUnorderedVectorT (shapeT @sh) t
 
 tdot0S
-  :: forall sh r. (Numeric r, KnownShS sh)
+  :: forall sh r. (Num r, VS.Storable r, KnownShS sh)
   => OS.Array sh r -> OS.Array sh r -> r
 tdot0S (SS.A (SG.A (OI.T _ _ vt))) (SS.A (SG.A (OI.T _ _ vu)))
   | V.length vt == 1 && V.length vu == 1 =
@@ -642,7 +641,7 @@ tdot1InS t@(SS.A (SG.A (OI.T _ _ vt))) u@(SS.A (SG.A (OI.T _ _ vu))) =
 
 {-
 tmatvecmulS
-  :: forall m n r. (Numeric r, KnownNat m, KnownNat n)
+  :: forall m n r. (Num r, VS.Storable r, KnownNat m, KnownNat n)
   => OS.Array '[m, n] r -> OS.Array '[n] r -> OS.Array '[m] r
 tmatvecmulS t u =
   let t2 = OS.toVector t
@@ -650,7 +649,7 @@ tmatvecmulS t u =
   in OS.fromVector $ LA.reshape (valueOf @n) t2 LA.#> u2
 
 tmatmul2S
-  :: forall m n p r. (Numeric r, KnownNat m, KnownNat n, KnownNat p)
+  :: forall m n p r. (Num r, VS.Storable r, KnownNat m, KnownNat n, KnownNat p)
   => OS.Array '[m, n] r -> OS.Array '[n, p] r -> OS.Array '[m, p] r
 tmatmul2S t u =
   let t2 = OS.toVector t
@@ -706,30 +705,30 @@ tscatterZ1S t f | Dict <- lemShapeFromKnownShS (Proxy @sh) =
 -}
 
 tfromListS
-  :: forall n sh r. (Numeric r, KnownNat n, KnownShS sh)
+  :: forall n sh r. (Num r, VS.Storable r, KnownNat n, KnownShS sh)
   => NonEmpty (OS.Array sh r) -> OS.Array (n ': sh) r
 tfromListS l | Dict <- lemShapeFromKnownShS (Proxy @sh) =
   OS.ravel $ OSB.fromList $ NonEmpty.toList l
 
 tfromList0NS
-  :: forall r sh. (Numeric r, KnownShS sh)
+  :: forall r sh. (Num r, VS.Storable r, KnownShS sh)
   => [r] -> OS.Array sh r
 tfromList0NS | Dict <- lemShapeFromKnownShS (Proxy @sh) = OS.fromList
 
 tfromVectorS
-  :: forall n sh r. (Numeric r, KnownNat n, KnownShS sh)
+  :: forall n sh r. (Num r, VS.Storable r, KnownNat n, KnownShS sh)
   => Data.Vector.Vector (OS.Array sh r) -> OS.Array (n ': sh) r
 tfromVectorS l | Dict <- lemShapeFromKnownShS (Proxy @sh) =
   OS.ravel $ OSB.fromVector $ V.convert l
 
 tfromVector0NS
-  :: forall r sh. (Numeric r, KnownShS sh)
+  :: forall r sh. (Num r, VS.Storable r, KnownShS sh)
   => Data.Vector.Vector r -> OS.Array sh r
 tfromVector0NS l | Dict <- lemShapeFromKnownShS (Proxy @sh) =
   OS.fromVector $ V.convert l
 
 treplicateS
-  :: forall n sh r. (Numeric r, KnownNat n, KnownShS sh)
+  :: forall n sh r. (Num r, VS.Storable r, KnownNat n, KnownShS sh)
   => OS.Array sh r -> OS.Array (n ': sh) r
 treplicateS u | Dict <- lemShapeFromKnownShS (Proxy @sh) =
   case knownShS @sh of
@@ -737,12 +736,12 @@ treplicateS u | Dict <- lemShapeFromKnownShS (Proxy @sh) =
     _ -> OS.ravel $ OSB.constant u
 
 treplicate0NS
-  :: forall r sh. (Numeric r, KnownShS sh)
+  :: forall r sh. (Num r, VS.Storable r, KnownShS sh)
   => r -> OS.Array sh r
 treplicate0NS | Dict <- lemShapeFromKnownShS (Proxy @sh) = OS.constant
 
 tappendS
-  :: forall r m n sh. (Numeric r, KnownNat m, KnownNat n, KnownShS sh)
+  :: forall r m n sh. (Num r, VS.Storable r, KnownNat m, KnownNat n, KnownShS sh)
   => OS.Array (m ': sh) r -> OS.Array (n ': sh) r -> OS.Array ((m + n) ': sh) r
 tappendS | Dict <- lemShapeFromKnownShS (Proxy @sh) = OS.append
 
@@ -758,13 +757,13 @@ treverseS | Dict <- lemShapeFromKnownShS (Proxy @sh) = OS.rev @'[0]
 
 treshapeS
   :: forall r sh sh2.
-     (Numeric r, KnownShS sh, KnownShS sh2, Sh.Size sh ~ Sh.Size sh2)
+     (Num r, VS.Storable r, KnownShS sh, KnownShS sh2, Sh.Size sh ~ Sh.Size sh2)
   => OS.Array sh r -> OS.Array sh2 r
 treshapeS | Dict <- lemShapeFromKnownShS (Proxy @sh)
           , Dict <- lemShapeFromKnownShS (Proxy @sh2) = OS.reshape
 
 tbuild1S
-  :: forall n sh r. (KnownNat n, Numeric r, KnownShS sh)
+  :: forall n sh r. (KnownNat n, Num r, VS.Storable r, KnownShS sh)
   => (Int64Sh n -> OS.Array sh r) -> OS.Array (n ': sh) r
 tbuild1S f | Dict <- lemShapeFromKnownShS (Proxy @sh) =
   let k = valueOf @n
@@ -773,7 +772,7 @@ tbuild1S f | Dict <- lemShapeFromKnownShS (Proxy @sh) =
 
 {-
 tmap0NS
-  :: forall r r2 sh. (Numeric r, Numeric r2, KnownShS sh)
+  :: forall r r2 sh. (Num r, VS.Storable r, Num r2, VS.Storable r2, KnownShS sh)
   => (OS.Array '[] r -> OS.Array '[] r2) -> OS.Array sh r -> OS.Array sh r2
 tmap0NS f | Dict <- lemShapeFromKnownShS (Proxy @sh) =
   OS.mapA (tunScalarS . f . tscalarS)
@@ -781,7 +780,7 @@ tmap0NS f | Dict <- lemShapeFromKnownShS (Proxy @sh) =
             -- bad type: liftVS . LA.cmap
 
 tzipWith0NS
-  :: forall r1 r2 r sh. (Numeric r1, Numeric r2, Numeric r, KnownShS sh)
+  :: forall r1 r2 r sh. (Num r1, VS.Storable r1, Num r2, VS.Storable r2, Num r, VS.Storable r, KnownShS sh)
   => (OS.Array '[] r1 -> OS.Array '[] r2 -> OS.Array '[] r)
   -> OS.Array sh r1 -> OS.Array sh r2 -> OS.Array sh r
 tzipWith0NS f | Dict <- lemShapeFromKnownShS (Proxy @sh) =
@@ -829,29 +828,29 @@ tgatherZ1S t f | Dict <- lemShapeFromKnownShS (Proxy @sh)
 
 -- TODO: use Convert, fromInt/toInt and fromZ/toZ from hmatrix
 tcastS :: forall r1 r2 sh.
-          (Numeric r1, Numeric r2, KnownShS sh, Real r1, Fractional r2)
+          (Num r1, VS.Storable r1, Num r2, VS.Storable r2, KnownShS sh, Real r1, Fractional r2)
        => OS.Array sh r1 -> OS.Array sh r2
-tcastS | Dict <- lemShapeFromKnownShS (Proxy @sh) = liftVS (V.map realToFrac)
+tcastS | Dict <- lemShapeFromKnownShS (Proxy @sh) = OS.mapA realToFrac
 
 -- TODO: use Convert, fromInt/toInt and fromZ/toZ from hmatrix
 tfromIntegralS :: forall r1 r2 sh .
-                  (Numeric r1, Numeric r2, KnownShS sh, Integral r1)
+                  (Num r1, VS.Storable r1, Num r2, VS.Storable r2, KnownShS sh, Integral r1)
                => OS.Array sh r1 -> OS.Array sh r2
 tfromIntegralS | Dict <- lemShapeFromKnownShS (Proxy @sh) =
-  liftVS (V.map fromIntegral)
+  OS.mapA fromIntegral
 
 {-
 tscalarS
-  :: Numeric r
+  :: (Num r, VS.Storable r)
   => r -> OS.Array '[] r
 tscalarS = OS.scalar
 
 tunScalarS
-  :: Numeric r
+  :: (Num r, VS.Storable r)
   => OS.Array '[] r -> r
 tunScalarS = OS.unScalar
 
-tscaleByScalarS :: forall r sh. (Numeric r, KnownShS sh)
+tscaleByScalarS :: forall r sh. (Num r, VS.Storable r, KnownShS sh)
                 => r -> OS.Array sh r -> OS.Array sh r
 tscaleByScalarS s | Dict <- lemShapeFromKnownShS (Proxy @sh) =
   liftVS (LA.scale s)
