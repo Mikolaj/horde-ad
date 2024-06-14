@@ -329,7 +329,7 @@ class ( Num (IntOf ranked), IntegralF (IntOf ranked), CRanked ranked Num
   rdot1In :: GoodScalar r => ranked r 2 -> ranked r 2 -> ranked r 1
   rdot1In t u = rsumIn (t * u)
     -- TODO: generalize, replace by stride analysis, etc.
-  rshare :: KnownNat n => ranked r n -> ranked r n
+  rshare :: (GoodScalar r, KnownNat n) => ranked r n -> ranked r n
   rshare = id
 
   -- Primal/dual things.
@@ -710,7 +710,7 @@ class ( Num (IntOf shaped), IntegralF (IntOf shaped), CShaped shaped Num
           => shaped r '[n, m] -> shaped r '[n, m] -> shaped r '[n]
   sdot1In t u = ssumIn (t * u)
     -- TODO: generalize, replace by stride analysis, etc.
-  sshare :: KnownShS sh => shaped r sh -> shaped r sh
+  sshare :: (GoodScalar r, KnownShS sh) => shaped r sh -> shaped r sh
   sshare = id
 
   -- Primal/dual things.

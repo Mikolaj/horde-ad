@@ -27,9 +27,7 @@ module HordeAd.Core.Ast
 
 import Prelude hiding (foldl')
 
-import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as Sh
-import qualified Data.Array.ShapedS as OS
 import           Data.Int (Int64)
 import           Data.Kind (Type)
 import           Data.Proxy (Proxy (Proxy))
@@ -43,11 +41,12 @@ import           Data.Array.Internal (valueOf)
 import qualified Data.Array.Mixed.Shape as X
 import qualified Data.Array.Mixed.Types as X
 import qualified Data.Array.Mixed.Permutation as Permutation
+import qualified Data.Array.Nested as Nested
 
 import HordeAd.Core.HVector
 import HordeAd.Core.Types
 import HordeAd.Internal.OrthotopeOrphanInstances
-  (IntegralF (..), RealFloatF (..), FlipS(..))
+  (IntegralF (..), RealFloatF (..))
 import HordeAd.Util.ShapedList (IndexS, SizedListS)
 import HordeAd.Util.SizedList
 
@@ -275,7 +274,7 @@ data AstRanked :: AstSpanType -> RankedTensorType where
           => AstRanked s r1 n -> AstRanked s r2 n
   AstFromIntegral :: (GoodScalar r1, Integral r1)
                   => AstRanked PrimalSpan r1 n -> AstRanked PrimalSpan r2 n
-  AstConst :: OR.Array n r -> AstRanked PrimalSpan r n
+  AstConst :: Nested.Ranked n r -> AstRanked PrimalSpan r n
   AstProject :: AstHVector s -> Int -> AstRanked s r n
   AstLetHVectorIn :: AstSpan s
                   => [AstDynamicVarName] -> AstHVector s
@@ -386,7 +385,7 @@ data AstShaped :: AstSpanType -> ShapedTensorType where
            => AstShaped s r1 sh -> AstShaped s r2 sh
   AstFromIntegralS :: (GoodScalar r1, Integral r1)
                    => AstShaped PrimalSpan r1 sh -> AstShaped PrimalSpan r2 sh
-  AstConstS :: FlipS OS.Array r sh -> AstShaped PrimalSpan r sh
+  AstConstS :: Nested.Shaped sh r -> AstShaped PrimalSpan r sh
   AstProjectS :: AstHVector s -> Int -> AstShaped s r sh
   AstLetHVectorInS :: AstSpan s
                    => [AstDynamicVarName] -> AstHVector s
@@ -542,7 +541,7 @@ instance Eq (AstRanked s r n) where
 instance Ord (AstRanked s r n) where
   (<=) = error "AST requires that OrdF be used instead"
 
-instance (Num (OR.Array n r), AstSpan s, KnownNat n)
+instance (Num (Nested.Ranked n r), AstSpan s, KnownNat n)
          => Num (AstRanked s r n) where
   -- The normal form has AstConst, if any, as the first element of the list.
   -- All lists fully flattened and length >= 2.
@@ -584,7 +583,7 @@ instance (Num (OR.Array n r), AstSpan s, KnownNat n)
     -- it's crucial that there is no AstConstant in fromInteger code
     -- so that we don't need 4 times the simplification rules
 
-instance (Real (OR.Array n r), AstSpan s, KnownNat n)
+instance (Real (Nested.Ranked n r), AstSpan s, KnownNat n)
          => Real (AstRanked s r n) where
   toRational = undefined
     -- very low priority, since these are all extremely not continuous
@@ -596,14 +595,14 @@ instance Integral r => IntegralF (AstRanked s r n) where
   quotF = AstI2 QuotOp
   remF = AstI2 RemOp
 
-instance (Differentiable r, Fractional (OR.Array n r), AstSpan s, KnownNat n)
+instance (GoodScalar r, Differentiable r, Fractional (Nested.Ranked n r), AstSpan s, KnownNat n)
          => Fractional (AstRanked s r n) where
   u / v = AstR2 DivideOp u v
   recip = AstR1 RecipOp
   fromRational r = error $ "fromRational not defined for AstRanked: "
                            ++ show r
 
-instance (Differentiable r, Floating (OR.Array n r), AstSpan s, KnownNat n)
+instance (GoodScalar r, Differentiable r, Floating (Nested.Ranked n r), AstSpan s, KnownNat n)
          => Floating (AstRanked s r n) where
   pi = fromPrimal $ AstConst pi
   exp = AstR1 ExpOp
@@ -624,13 +623,13 @@ instance (Differentiable r, Floating (OR.Array n r), AstSpan s, KnownNat n)
   acosh = AstR1 AcoshOp
   atanh = AstR1 AtanhOp
 
-instance (Differentiable r, RealFrac (OR.Array n r), AstSpan s, KnownNat n)
+instance (GoodScalar r, Differentiable r, RealFrac (Nested.Ranked n r), AstSpan s, KnownNat n)
          => RealFrac (AstRanked s r n) where
   properFraction = undefined
     -- The integral type doesn't have a Storable constraint,
     -- so we can't implement this (nor RealFracB from Boolean package).
 
-instance (Differentiable r, Floating (OR.Array n r), AstSpan s, KnownNat n)
+instance (GoodScalar r, Differentiable r, Floating (Nested.Ranked n r), AstSpan s, KnownNat n)
          => RealFloatF (AstRanked s r n) where
   atan2F = AstR2 Atan2Op
 
@@ -644,7 +643,7 @@ instance Eq (AstShaped s r sh) where
 instance Ord (AstShaped s r sh) where
   (<=) = error "AST requires that OrdF be used instead"
 
-instance (Num (OS.Array sh r), AstSpan s)
+instance (GoodScalar r, Num (Nested.Shaped sh r), AstSpan s)
          => Num (AstShaped s r sh) where
   -- The normal form has AstConst, if any, as the first element of the list.
   -- All lists fully flattened and length >= 2.
@@ -687,14 +686,14 @@ instance Integral r => IntegralF (AstShaped s r sh) where
   quotF = AstI2S QuotOp
   remF = AstI2S RemOp
 
-instance (Differentiable r, Fractional (OS.Array sh r), AstSpan s)
+instance (GoodScalar r, Differentiable r, KnownShS sh, Fractional (Nested.Shaped sh r), AstSpan s)
          => Fractional (AstShaped s r sh) where
   u / v = AstR2S DivideOp u v
   recip = AstR1S RecipOp
   fromRational r = error $ "fromRational not defined for AstShaped: "
                            ++ show r
 
-instance (Differentiable r, Floating (OS.Array sh r), AstSpan s)
+instance (GoodScalar r, Differentiable r, KnownShS sh, Floating (Nested.Shaped sh r), AstSpan s)
          => Floating (AstShaped s r sh) where
   pi = fromPrimalS $ AstConstS pi
   exp = AstR1S ExpOp
@@ -715,7 +714,7 @@ instance (Differentiable r, Floating (OS.Array sh r), AstSpan s)
   acosh = AstR1S AcoshOp
   atanh = AstR1S AtanhOp
 
-instance (Differentiable r, Floating (OS.Array sh r), AstSpan s)
+instance (GoodScalar r, Differentiable r, KnownShS sh, Floating (Nested.Shaped sh r), AstSpan s)
          => RealFloatF (AstShaped s r sh) where
   atan2F = AstR2S Atan2Op
 

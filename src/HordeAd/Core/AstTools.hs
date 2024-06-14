@@ -28,6 +28,7 @@ import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, sameNat, type (+))
 
+import qualified Data.Array.Nested as Nested
 import qualified Data.Array.Nested.Internal.Shape as Nested.Internal.Shape
 
 import HordeAd.Core.Ast
@@ -35,7 +36,6 @@ import HordeAd.Core.HVector
 import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
-import HordeAd.Internal.OrthotopeOrphanInstances (FlipS (..))
 import HordeAd.Util.SizedList
 
 -- * Shape calculation
@@ -86,7 +86,7 @@ shapeAst = \case
   AstGather sh _v (_vars, _ix) -> sh
   AstCast t -> shapeAst t
   AstFromIntegral a -> shapeAst a
-  AstConst a -> listToShape $ OR.shapeL a
+  AstConst a -> Nested.rshape a
   AstProject l p -> case shapeAstHVector l V.! p of
     DynamicRankedDummy @_ @sh _ _ -> listToShape $ shapeT @sh
     DynamicShapedDummy{} -> error "shapeAst: DynamicShapedDummy"
@@ -283,7 +283,7 @@ varInAstBindingsCase var (AstBindingsHVector _ t) = varInAstHVector var t
 
 -- * Determining if a term is too small to require sharing
 
-astIsSmall :: forall n s r. KnownNat n
+astIsSmall :: forall n s r. (KnownNat n, GoodScalar r)
            => Bool -> AstRanked s r n -> Bool
 astIsSmall relaxed = \case
   AstVar{} -> True
@@ -294,14 +294,14 @@ astIsSmall relaxed = \case
     relaxed && astIsSmall relaxed v  -- materialized via vector slice; cheap
   AstTranspose _ v ->
     relaxed && astIsSmall relaxed v  -- often cheap and often fuses
-  AstConst c -> OR.size c <= 1
+  AstConst c -> Nested.rsize c <= 1
   AstRFromS v -> astIsSmallS relaxed v
   AstConstant v -> astIsSmall relaxed v
   AstPrimalPart v -> astIsSmall relaxed v
   AstDualPart v -> astIsSmall relaxed v
   _ -> False
 
-astIsSmallS :: forall sh s r. KnownShS sh
+astIsSmallS :: forall sh s r. (KnownShS sh, GoodScalar r)
             => Bool -> AstShaped s r sh -> Bool
 astIsSmallS relaxed = \case
   AstVarS{} -> True
@@ -312,8 +312,8 @@ astIsSmallS relaxed = \case
     relaxed && astIsSmallS relaxed v  -- materialized via vector slice; cheap
   AstTransposeS _perm v ->
     relaxed && astIsSmallS relaxed v  -- often cheap and often fuses
-  AstConstS (FlipS c) | Dict <- lemShapeFromKnownShS (Proxy @sh) ->
-    OS.size c <= 1
+  AstConstS c | Dict <- lemShapeFromKnownShS (Proxy @sh) ->
+    Nested.ssize c <= 1
   AstSFromR v -> astIsSmall relaxed v
   AstConstantS v -> astIsSmallS relaxed v
   AstPrimalPartS v -> astIsSmallS relaxed v
@@ -329,7 +329,7 @@ astReplicate0N sh =
   let go :: ShapeInt n' -> AstRanked s r 0 -> AstRanked s r n'
       go ZSR v = v
       go (k :$: sh') v | Dict <- knownShR sh' = AstReplicate k $ go sh' v
-  in go sh . fromPrimal . AstConst . OR.scalar
+  in go sh . fromPrimal . AstConst . Nested.rscalar
 
 bindsToLet :: forall n s s2 r. (AstSpan s, AstSpan s2, KnownNat n, GoodScalar r)
            => AstRanked s r n -> AstBindings s2 -> AstRanked s r n

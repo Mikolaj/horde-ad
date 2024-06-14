@@ -37,6 +37,9 @@ import           Unsafe.Coerce (unsafeCoerce)
 
 import qualified Data.Array.Mixed.Shape as X
 import qualified Data.Array.Mixed.Types as X
+import qualified Data.Array.Nested as Nested
+import qualified Data.Array.Nested.Internal.Ranked as Nested.Internal
+import qualified Data.Array.Nested.Internal.Shaped as Nested.Internal
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstEnv
@@ -46,7 +49,6 @@ import HordeAd.Core.HVector
 import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
-import HordeAd.Internal.OrthotopeOrphanInstances (FlipS (..))
 import HordeAd.Util.ShapedList (pattern (:.$), pattern ZIS)
 import HordeAd.Util.SizedList
 
@@ -349,7 +351,7 @@ interpretAst !env = \case
     in rappend t1 t2
   AstSlice i n AstIota ->
     interpretAst env
-    $ AstConst $ OR.fromList [n] $ map fromIntegral [i .. i + n - 1]
+    $ AstConst $ Nested.Internal.rfromListPrimLinear (n :$: ZSR) $ map fromIntegral [i .. i + n - 1]
   AstSlice i n v -> rslice i n (interpretAst env v)
   AstReverse v -> rreverse (interpretAst env v)
   AstTranspose perm v -> rtranspose perm $ interpretAst env v
@@ -405,7 +407,7 @@ interpretAst !env = \case
   AstCast v -> rcast $ interpretAstRuntimeSpecialized env v
   AstFromIntegral v ->
     rfromIntegral $ rconstant $ interpretAstPrimalRuntimeSpecialized env v
-  AstConst a -> rconst a
+  AstConst a -> rconst $ Nested.rtoOrthotope a
   AstProject l p ->
     let lt = interpretAstHVector env l
     in rletHVectorIn lt (\lw -> rfromD $ lw V.! p)
@@ -721,7 +723,7 @@ interpretAstS !env = \case
     let i = valueOf @i
         n = valueOf @n
     in interpretAstS env
-       $ AstConstS $ FlipS $ OS.fromList
+       $ AstConstS $ Nested.Internal.sfromListPrimLinear Nested.knownShS
        $ map fromIntegral [i :: Int .. i + n - 1]
   AstSliceS @i v -> sslice (Proxy @i) Proxy (interpretAstS env v)
   AstReverseS v -> sreverse (interpretAstS env v)
@@ -787,7 +789,7 @@ interpretAstS !env = \case
   AstCastS v -> scast $ interpretAstSRuntimeSpecialized env v
   AstFromIntegralS v ->
     sfromIntegral $ sconstant $ interpretAstPrimalSRuntimeSpecialized env v
-  AstConstS a -> sconst $ runFlipS a
+  AstConstS a -> sconst $ Nested.stoOrthotope a
   AstProjectS l p ->
     let lt = interpretAstHVector env l
     in sletHVectorIn lt (\lw -> sfromD $ lw V.! p)
