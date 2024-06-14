@@ -293,10 +293,6 @@ instance (Real (f r z), IsPrimal f r z)
   toRational = undefined
     -- very low priority, since these are all extremely not continuous
 
-instance Enum (ADVal f r z) where  -- dummy, to satisfy Integral below
-  toEnum = undefined
-  fromEnum = undefined
-
 instance (IntegralF (f r z), IsPrimal f r z)
          => IntegralF (ADVal f r z) where
   quotF (D u _) (D v _) = dD (quotF u v) (dZeroOfShape u)
