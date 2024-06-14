@@ -38,6 +38,7 @@ import           Data.Type.Equality (testEquality, (:~:) (Refl))
 import           GHC.TypeLits (KnownNat, sameNat, type (+), type (<=))
 import           Type.Reflection (Typeable, eqTypeRep, typeRep, (:~~:) (HRefl))
 import           Data.Functor.Const
+import           Data.Array.Internal (valueOf)
 
 import qualified Data.Array.Mixed.Shape as X
 import qualified Data.Array.Mixed.Types as X
@@ -541,7 +542,7 @@ instance Eq (AstRanked s r n) where
 instance Ord (AstRanked s r n) where
   (<=) = error "AST requires that OrdF be used instead"
 
-instance (Num (OR.Array n r), AstSpan s)
+instance (Num (OR.Array n r), AstSpan s, KnownNat n)
          => Num (AstRanked s r n) where
   -- The normal form has AstConst, if any, as the first element of the list.
   -- All lists fully flattened and length >= 2.
@@ -575,11 +576,15 @@ instance (Num (OR.Array n r), AstSpan s)
   negate u = AstN1 NegateOp u
   abs = AstN1 AbsOp
   signum = AstN1 SignumOp
-  fromInteger = fromPrimal . AstConst . fromInteger
+  fromInteger :: Integer -> AstRanked s r n
+  fromInteger i = case sameNat (Proxy @n) (Proxy @0) of
+    Just Refl -> fromPrimal . AstConst . fromInteger $ i
+    Nothing -> error $ "fromInteger not defined for AstRanked of non-zero ranks: "
+                       ++ show (i, valueOf @n)
     -- it's crucial that there is no AstConstant in fromInteger code
     -- so that we don't need 4 times the simplification rules
 
-instance (Real (OR.Array n r), AstSpan s)
+instance (Real (OR.Array n r), AstSpan s, KnownNat n)
          => Real (AstRanked s r n) where
   toRational = undefined
     -- very low priority, since these are all extremely not continuous
@@ -591,13 +596,14 @@ instance Integral r => IntegralF (AstRanked s r n) where
   quotF = AstI2 QuotOp
   remF = AstI2 RemOp
 
-instance (Differentiable r, Fractional (OR.Array n r), AstSpan s)
+instance (Differentiable r, Fractional (OR.Array n r), AstSpan s, KnownNat n)
          => Fractional (AstRanked s r n) where
   u / v = AstR2 DivideOp u v
   recip = AstR1 RecipOp
-  fromRational = fromPrimal . AstConst . fromRational
+  fromRational r = error $ "fromRational not defined for AstRanked: "
+                           ++ show r
 
-instance (Differentiable r, Floating (OR.Array n r), AstSpan s)
+instance (Differentiable r, Floating (OR.Array n r), AstSpan s, KnownNat n)
          => Floating (AstRanked s r n) where
   pi = fromPrimal $ AstConst pi
   exp = AstR1 ExpOp
@@ -618,13 +624,13 @@ instance (Differentiable r, Floating (OR.Array n r), AstSpan s)
   acosh = AstR1 AcoshOp
   atanh = AstR1 AtanhOp
 
-instance (Differentiable r, RealFrac (OR.Array n r), AstSpan s)
+instance (Differentiable r, RealFrac (OR.Array n r), AstSpan s, KnownNat n)
          => RealFrac (AstRanked s r n) where
   properFraction = undefined
     -- The integral type doesn't have a Storable constraint,
     -- so we can't implement this (nor RealFracB from Boolean package).
 
-instance (Differentiable r, Floating (OR.Array n r), AstSpan s)
+instance (Differentiable r, Floating (OR.Array n r), AstSpan s, KnownNat n)
          => RealFloatF (AstRanked s r n) where
   atan2F = AstR2 Atan2Op
 
@@ -671,9 +677,8 @@ instance (Num (OS.Array sh r), AstSpan s)
   negate = AstN1S NegateOp
   abs = AstN1S AbsOp
   signum = AstN1S SignumOp
-  fromInteger = fromPrimalS . AstConstS . fromInteger
-    -- it's crucial that there is no AstConstant in fromInteger code
-    -- so that we don't need 4 times the simplification rules
+  fromInteger i = error $ "fromInteger not defined for AstShaped: "
+                          ++ show i
 
 -- Warning: div and mod operations are very costly (simplifying them
 -- requires constructing conditionals, etc). If this error is removed,
@@ -686,7 +691,8 @@ instance (Differentiable r, Fractional (OS.Array sh r), AstSpan s)
          => Fractional (AstShaped s r sh) where
   u / v = AstR2S DivideOp u v
   recip = AstR1S RecipOp
-  fromRational = fromPrimalS . AstConstS . fromRational
+  fromRational r = error $ "fromRational not defined for AstShaped: "
+                           ++ show r
 
 instance (Differentiable r, Floating (OS.Array sh r), AstSpan s)
          => Floating (AstShaped s r sh) where

@@ -11,12 +11,12 @@ import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
 import qualified Data.EnumMap.Strict as EM
 import           Data.Int (Int64)
+import qualified Data.IntMap.Strict as IM
 import           Data.List (foldl1')
 import qualified Data.List.NonEmpty as NonEmpty
-import qualified Data.IntMap.Strict as IM
 import           Foreign.C (CInt)
 import           GHC.TypeLits (KnownNat)
-import           Numeric.LinearAlgebra (Numeric, Vector)
+import           Numeric.LinearAlgebra (Numeric)
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
@@ -290,7 +290,7 @@ testZero8 :: Assertion
 testZero8 =
   assertEqualUpToEpsilon 1e-10
     (rfromList0N [] [0])
-    (rev (const 3 :: AstRanked FullSpan Double 0 -> AstShaped FullSpan Double '[]) 42)
+    (rev (const (sscalar 3) :: AstRanked FullSpan Double 0 -> AstShaped FullSpan Double '[]) 42)
 
 testZero9S :: Assertion
 testZero9S =
@@ -350,7 +350,7 @@ testFwdZero10S :: Assertion
 testFwdZero10S =
   assertEqualUpToEpsilon 1e-9
     (sconst $ OS.fromList @'[0, 2, 4, 0, 1] [])
-    (fwd  (let f = const 3 . snd
+    (fwd  (let f = const (srepl 3) . snd
            in f :: ( AstRanked FullSpan Double 5
                    , AstShaped FullSpan Double '[0, 2, 4, 0, 1] )
                    -> AstShaped FullSpan Double '[0, 2, 4, 0, 1])
@@ -975,7 +975,7 @@ testReluSimplerPP4S = do
       reluT2 :: (AstShaped FullSpan Float '[3, 4], AstShaped FullSpan Float '[])
              -> AstShaped FullSpan Float '[3, 4]
       reluT2 (t, r) = reluS (t * sreplicate0N r)
-      (var3, ast3) = funToAstS (\t -> reluT2 (t, 7))
+      (var3, ast3) = funToAstS (\t -> reluT2 (t, srepl 7))
   "\\" ++ printAstVarNameS renamesNull var3
        ++ " -> " ++ printAstSimpleS renamesNull ast3
     @?= "\\v1 -> slet (v1 * sconstant (sreshape (sreplicate 7.0))) (\\i2 -> sconstant (sgather (sreplicate (sconst @[2] (fromList @[2] [0.0,1.0]))) (\\[i5, i4] -> [i5, ifF (sprimalPart i2 !$ [i5, i4] <=. 0.0) 0 1])) * i2)"
@@ -1536,7 +1536,7 @@ testBarReluMax3CFwd =
 reluMaxS :: forall shaped sh r.
             (ADReadyS shaped, GoodScalar r, KnownShS sh, KnownNat (X.Rank sh))
          => shaped r sh -> shaped r sh
-reluMaxS = smap0N (maxF 0)
+reluMaxS = smap0N (maxF (srepl 0))
 
 barReluMaxS
   :: ( ADReadyS shaped, GoodScalar r, KnownShS sh, KnownNat (X.Rank sh)
