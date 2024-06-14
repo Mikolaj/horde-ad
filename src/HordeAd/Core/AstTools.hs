@@ -323,13 +323,13 @@ astIsSmallS relaxed = \case
 
 -- * Odds and ends
 
-astReplicate0N :: forall n s r. AstSpan s
-               => ShapeInt n -> AstRanked s r 0 -> AstRanked s r n
+astReplicate0N :: forall n s r. (AstSpan s, GoodScalar r)
+               => ShapeInt n -> r -> AstRanked s r n
 astReplicate0N sh =
   let go :: ShapeInt n' -> AstRanked s r 0 -> AstRanked s r n'
       go ZSR v = v
       go (k :$: sh') v | Dict <- knownShR sh' = AstReplicate k $ go sh' v
-  in go sh
+  in go sh . fromPrimal . AstConst . OR.scalar
 
 bindsToLet :: forall n s s2 r. (AstSpan s, AstSpan s2, KnownNat n, GoodScalar r)
            => AstRanked s r n -> AstBindings s2 -> AstRanked s r n

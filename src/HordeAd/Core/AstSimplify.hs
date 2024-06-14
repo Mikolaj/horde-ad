@@ -707,7 +707,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS shm1)) | Dict <- s
     let i = fromIntegral $ OR.unScalar it
     in if 0 <= i && i < length l
        then astIndex (l V.! i) rest1
-       else {-srepl-} 0
+       else astReplicate0NS 0
   Ast.AstFromVectorS{} | ZIS <- rest1 ->  -- normal form
     Ast.AstIndexS v0 ix
   Ast.AstFromVectorS l ->
@@ -965,7 +965,7 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
       Ast.AstFloor
       $ astGatherKnobsR knobs sh4 v (vars4, ix4)
     Ast.AstIota | AstConst{} <- i4 -> case sameNat (Proxy @p') (Proxy @1) of
-      Just Refl -> astReplicate0N sh4 $ astFromIntegral i4
+      Just Refl -> astReplicate0NT sh4 $ astFromIntegral i4
       _ -> error "astGather: AstIota: impossible pattern needlessly required"
     Ast.AstIota ->  -- probably nothing can be simplified; a normal form
       Ast.AstGather sh4 v4 (vars4, ix4)
@@ -1421,7 +1421,7 @@ astSum t0 = case shapeAst t0 of
 astSumS :: forall n sh r s. (KnownNat n, KnownShS sh, GoodScalar r, AstSpan s)
         => AstShaped s r (n ': sh) -> AstShaped s r sh
 astSumS t0 = case sameNat (Proxy @n) (Proxy @0) of
- Just Refl -> {-srepl-} 0
+ Just Refl -> astReplicate0NS 0
  _ -> case sameNat (Proxy @n) (Proxy @1) of
   Just Refl -> astReshapeS t0
   _ -> case t0 of
@@ -1434,7 +1434,7 @@ astSumS t0 = case sameNat (Proxy @n) (Proxy @0) of
       astScatterS @sh2 @(p - 1) @sh v (vars, ix)
     Ast.AstFromVectorS l -> astSumOfListS $ V.toList l
     Ast.AstReplicateS @k v -> v * astReplicate0NS (valueOf @k)
-    Ast.AstSliceS @i @k _v | Just Refl <- sameNat (Proxy @k) (Proxy @0) -> {-srepl-} 0
+    Ast.AstSliceS @i @k _v | Just Refl <- sameNat (Proxy @k) (Proxy @0) -> astReplicate0NS 0
     Ast.AstSliceS @i @k v | Just Refl <- sameNat (Proxy @k) (Proxy @1) ->
       astIndexS v (valueOf @i :.$ ZIS)
     Ast.AstReverseS v -> astSumS v
@@ -1584,20 +1584,24 @@ astReplicateNS v =
   in go (knownShS @shn)
 
 astReplicate0N :: forall n s r. (GoodScalar r, AstSpan s)
-               => ShapeInt n -> AstRanked s r 0 -> AstRanked s r n
-astReplicate0N sh =
-  let go :: ShapeInt n' -> AstRanked s r 0 -> AstRanked s r n'
-      go ZSR v = v
-      go (k :$: sh') v | Dict <- knownShR sh' = astReplicate k $ go sh' v
-  in go sh
+               => ShapeInt n -> r -> AstRanked s r n
+astReplicate0N sh = astReplicate0NT sh . fromPrimal . AstConst . OR.scalar
 
 astReplicate0NS :: forall shn s r. (KnownShS shn, GoodScalar r, AstSpan s)
-                => AstShaped s r '[] -> AstShaped s r shn
+                => r -> AstShaped s r shn
 astReplicate0NS =
   let go :: ShS sh' -> AstShaped s r '[] -> AstShaped s r sh'
       go ZSS v = v
       go ((:$$) SNat sh') v | Dict <- sshapeKnown sh' = astReplicateS $ go sh' v
-  in go (knownShS @shn)
+  in go (knownShS @shn) . fromPrimalS . AstConstS . FlipS . OS.scalar
+
+astReplicate0NT :: forall n s r. (GoodScalar r, AstSpan s)
+                => ShapeInt n -> AstRanked s r 0 -> AstRanked s r n
+astReplicate0NT sh =
+  let go :: ShapeInt n' -> AstRanked s r 0 -> AstRanked s r n'
+      go ZSR v = v
+      go (k :$: sh') v | Dict <- knownShR sh' = astReplicate k $ go sh' v
+  in go sh
 
 astAppend :: (KnownNat n, GoodScalar r, AstSpan s)
           => AstRanked s r (1 + n) -> AstRanked s r (1 + n)
@@ -1948,7 +1952,7 @@ astProjectS
   :: forall sh r s. (KnownShS sh, GoodScalar r, AstSpan s)
   => AstHVector s -> Int -> AstShaped s r sh
 astProjectS l p = case l of
-  Ast.AstMkHVector l3 -> fromDynamicS 0 {-(astReplicate0NS 0)-} (l3 V.! p)
+  Ast.AstMkHVector l3 -> fromDynamicS (astReplicate0NS 0) (l3 V.! p)
   Ast.AstLetHVectorInHVector vars d1 d2 ->
     astLetHVectorInS vars d1 (astProjectS d2 p)
   Ast.AstLetInHVector var u2 d2 ->
@@ -2175,12 +2179,12 @@ mapRankedShaped fRanked fShaped
     , Just Refl <- sameShape @sh3 @sh4
     , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) ->
         withListSh (Proxy @sh3) $ \_ ->
-          fRanked (AstVarName varId) (astRFromS @sh3 @_ @r3 ({-srepl-} 0)) acc
+          fRanked (AstVarName varId) (astRFromS @sh3 @_ @r3 (astReplicate0NS 0)) acc
   DynamicShapedDummy @r4 @sh4 _ _
     | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat])
     , Just Refl <- sameShape @sh3 @sh4
     , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) ->
-        fShaped @sh4 @r4 (AstVarName varId) ({-srepl-} 0) acc
+        fShaped @sh4 @r4 (AstVarName varId) (astReplicate0NS 0) acc
   _ -> error $ "mapRankedShaped: corrupted arguments"
                `showFailure`
                ( vd, typeRep @ty, typeRep @r3, shapeT @sh3

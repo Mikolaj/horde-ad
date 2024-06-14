@@ -10,8 +10,8 @@ import Prelude
 import           Control.Exception.Assert.Sugar
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
-import           Data.Proxy (Proxy (Proxy))
 import qualified Data.IntMap.Strict as IM
+import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, type (+))
 import           Test.Tasty
@@ -493,7 +493,7 @@ testSin0Rrev5S = do
 testSin0RrevPP5S :: Assertion
 testSin0RrevPP5S = do
   resetVarCounter
-  let a1 = srev1 @(AstShaped PrimalSpan) @Double @'[] @'[] (srev1 sin) 1.1
+  let a1 = srev1 @(AstShaped PrimalSpan) @Double @'[] @'[] (srev1 sin) (srepl 1.1)
   printAstPrettyS IM.empty (simplifyInlineAstS a1)
     @?= "negate (sin 1.1) * (1.0 * 1.0)"
 
@@ -3398,7 +3398,7 @@ testSin0FoldNestedR3LengthPPs = do
        IM.empty
        (simplifyInlineHVector
         $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1))))
-    @?= 4_089_386
+    @?= 4_089_282
 
 -- Takes 45s.
 _testSin0FoldNestedR4LengthPPs :: Assertion
@@ -3513,7 +3513,7 @@ testSin0MapAccumNestedR3LengthPP = do
        IM.empty
        (simplifyInlineHVector
         $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1))))
-    @?= 4092691
+    @?= 4092587
 
 testSin0MapAccumNestedR4 :: Assertion
 testSin0MapAccumNestedR4 = do
@@ -4144,7 +4144,7 @@ testSin0FoldNestedR40 = do
                         rfold (\x2 a2 ->
                           rfold (\x3 a3 ->
                             rfold (\x4 a4 ->
-                              rfold (\x5 a5 -> 0.1 * x5 * a5)
+                              rfold (\x5 a5 -> rscalar 0.1 * x5 * a5)
                                     a4 (rreplicate 0 x4))
                                   a3 (rreplicate 0 x3))
                                 a2 (rreplicate 0 x2))
