@@ -420,7 +420,7 @@ instance (Show r, VS.Storable r, KnownNat n)
   showsPrec d (FlipR u) =
     showString "Flip " . showParen True (showsPrec d u)
 
-instance (Show (Nested.Mixed (Mixed.Types.Replicate n Nothing) r))
+instance (Nested.Elt r, Show r, Show (Nested.Mixed (Mixed.Types.Replicate n Nothing) r))
          => Show (FlipR Nested.Ranked r n) where
   showsPrec :: Int -> FlipR Nested.Ranked r n -> ShowS
   showsPrec d (FlipR u) =
@@ -473,7 +473,7 @@ instance (Show r, VS.Storable r, KnownShS sh)
   showsPrec d (FlipS u) | Dict <- lemShapeFromKnownShS (Proxy @sh) =
     showString "FlipS " . showParen True (showsPrec d u)
 
-instance (Show (Nested.Mixed (Mixed.Types.MapJust sh) r))
+instance (Nested.Elt r, Show r, Show (Nested.Mixed (Mixed.Types.MapJust sh) r))
          => Show (FlipS Nested.Shaped r sh) where
   showsPrec :: Int -> FlipS Nested.Shaped r sh -> ShowS
   showsPrec d (FlipS u) =
