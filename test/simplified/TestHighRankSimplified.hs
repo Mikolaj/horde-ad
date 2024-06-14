@@ -533,13 +533,13 @@ testReluSimpPP = do
   resetVarCounter
   let !t1 = barRelu10xSlower @(AstRanked PrimalSpan)
             $ AstVar [1,2,2,1,2,2,2,2,2,1] (AstVarName . intToAstVarId $ 100000000)
-  length (show t1) @?= 11472
-  length (show (simplifyInlineAst @Float @10 t1)) @?= 11472
+  length (show t1) @?= 11808
+  length (show (simplifyInlineAst @Float @10 t1)) @?= 11808
   resetVarCounter
   let !t2 = barRelu @(AstRanked PrimalSpan)
             $ AstVar [1,2,2,1,2,2,2,2,2,1] (AstVarName . intToAstVarId $ 100000000)
-  length (show t2) @?= 9616
-  length (show (simplifyInlineAst @Float @10 t2)) @?= 11472
+  length (show t2) @?= 9952
+  length (show (simplifyInlineAst @Float @10 t2)) @?= 11808
 
 testBarReluADVal320 :: Assertion
 testBarReluADVal320 =
@@ -664,6 +664,6 @@ testConcatBuild3PP2 = do
   printArtifactSimple renames artifactRev
     @?= "\\m8 v1 -> dmkHVector (fromList [DynamicRankedDummy])"
   printArtifactPrimalSimple renames artifactRev
-    @?= "\\v1 -> dmkHVector (fromList [DynamicRanked (rfromIntegral (rgather [5,2] (rfromVector (fromList [rreplicate 5 (rconst (fromList [2] [0,1])), quotF (rtranspose [1,0] (rreplicate 2 (rconst (fromList [5] [0,1,2,3,4])))) (rreplicate 5 (rconst (fromList [2] [0,1]) + rreplicate 2 1))])) (\\[i6, i7] -> [ifF (i7 >=. quotF i6 (1 + i7)) 0 1, i6, i7])))])"
+    @?= "\\v1 -> dmkHVector (fromList [DynamicRanked (rfromIntegral (rgather [5,2] (rfromVector (fromList [rreplicate 5 (rconst (rfromListLinear [2] [0,1])), quotF (rtranspose [1,0] (rreplicate 2 (rconst (rfromListLinear [5] [0,1,2,3,4])))) (rreplicate 5 (rconst (rfromListLinear [2] [0,1]) + rreplicate 2 1))])) (\\[i6, i7] -> [ifF (i7 >=. quotF i6 (1 + i7)) 0 1, i6, i7])))])"
   printArtifactPrimalSimple renames (simplifyArtifact artifactRev)
-    @?= "\\v1 -> dmkHVector (fromList [DynamicRanked (rfromIntegral (rgather [5,2] (rfromVector (fromList [rreplicate 5 (rconst (fromList [2] [0,1])), quotF (rtranspose [1,0] (rreplicate 2 (rconst (fromList [5] [0,1,2,3,4])))) (rreplicate 5 (rconst (fromList [2] [0,1]) + rreplicate 2 1))])) (\\[i6, i7] -> [ifF (i7 >=. quotF i6 (1 + i7)) 0 1, i6, i7])))])"
+    @?= "\\v1 -> dmkHVector (fromList [DynamicRanked (rfromIntegral (rgather [5,2] (rfromVector (fromList [rreplicate 5 (rconst (rfromListLinear [2] [0,1])), quotF (rtranspose [1,0] (rreplicate 2 (rconst (rfromListLinear [5] [0,1,2,3,4])))) (rreplicate 5 (rconst (rfromListLinear [2] [0,1]) + rreplicate 2 1))])) (\\[i6, i7] -> [ifF (i7 >=. quotF i6 (1 + i7)) 0 1, i6, i7])))])"

@@ -227,11 +227,11 @@ instance (GoodScalar r, KnownNat n, RankedTensor (AstRanked s), AstSpan s)
 
 instance GoodScalar r => DualNumberValue (AstRanked PrimalSpan r n) where
   type DValue (AstRanked PrimalSpan r n) = ORArray r n
-  fromDValue t = fromPrimal $ AstConst $ Nested.rtoOrthotope $ runFlipR t
+  fromDValue t = fromPrimal $ AstConst $ runFlipR t
 
 instance GoodScalar r => TermValue (AstRanked FullSpan r n) where
   type Value (AstRanked FullSpan r n) = ORArray r n
-  fromValue t = fromPrimal $ AstConst $ Nested.rtoOrthotope $ runFlipR t
+  fromValue t = fromPrimal $ AstConst $ runFlipR t
 
 instance AstSpan s => RankedTensor (AstRanked s) where
   rlet = astLetFun
@@ -257,7 +257,7 @@ instance AstSpan s => RankedTensor (AstRanked s) where
   rgather sh t f = astGatherStep sh t (funToAstIndex f)  -- introduces new vars
   rcast = astCast
   rfromIntegral = fromPrimal . astFromIntegral . astSpanPrimal
-  rconst = fromPrimal . AstConst
+  rconst = fromPrimal . AstConst . Nested.rfromOrthotope SNat
   rletHVectorIn = astLetHVectorInFun
   rletHFunIn = astLetHFunInFun
   rfromS = astRFromS
@@ -347,13 +347,13 @@ instance (GoodScalar r, KnownShS sh, ShapedTensor (AstShaped s), AstSpan s)
 instance (GoodScalar r, KnownShS sh)
          => DualNumberValue (AstShaped PrimalSpan r sh) where
   type DValue (AstShaped PrimalSpan r sh) = OSArray r sh
-  fromDValue t | Dict <- lemShapeFromKnownShS (Proxy @sh) = fromPrimalS $ AstConstS $ FlipS $ OS.fromVector @sh $ Nested.stoVector $ runFlipS t
+  fromDValue t | Dict <- lemShapeFromKnownShS (Proxy @sh) = fromPrimalS $ AstConstS $ runFlipS t
       -- TODO: this is probably very wrong
 
 instance (GoodScalar r, KnownShS sh)
          => TermValue (AstShaped FullSpan r sh) where
   type Value (AstShaped FullSpan r sh) = OSArray r sh
-  fromValue t | Dict <- lemShapeFromKnownShS (Proxy @sh) = fromPrimalS $ AstConstS $ FlipS $ OS.fromVector @sh $ Nested.stoVector $ runFlipS t
+  fromValue t | Dict <- lemShapeFromKnownShS (Proxy @sh) = fromPrimalS $ AstConstS $ runFlipS t
       -- TODO: this is probably very wrong
 
 instance AstSpan s => ShapedTensor (AstShaped s) where
@@ -379,7 +379,7 @@ instance AstSpan s => ShapedTensor (AstShaped s) where
   sgather t f = astGatherStepS t (funToAstIndexS f)  -- introduces new vars
   scast = astCastS
   sfromIntegral = fromPrimalS . astFromIntegralS . astSpanPrimalS
-  sconst = fromPrimalS . AstConstS . FlipS
+  sconst = fromPrimalS . AstConstS . Nested.sfromOrthotope Nested.knownShS
   sletHVectorIn = astLetHVectorInFunS
   sletHFunIn = astLetHFunInFunS
   sfromR = astSFromR
@@ -460,10 +460,10 @@ instance TermValue (DynamicTensor (AstRanked FullSpan)) where
   type Value (DynamicTensor (AstRanked FullSpan)) =
     DynamicTensor ORArray
   fromValue = \case
-    DynamicRanked t -> DynamicRanked $ fromPrimal $ AstConst $ Nested.rtoOrthotope $ runFlipR t
+    DynamicRanked t -> DynamicRanked $ fromPrimal $ AstConst $ runFlipR t
     DynamicShaped @_ @sh t | Dict <- lemShapeFromKnownShS (Proxy @sh) ->
       gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: X.Rank sh) $
-      DynamicShaped @_ @sh $ fromPrimalS $ AstConstS $ FlipS $ Data.Array.Convert.convert $ Nested.rtoOrthotope $ Nested.stoRanked $ runFlipS t
+      DynamicShaped @_ @sh $ fromPrimalS $ AstConstS $ runFlipS t
     DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
     DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
 
@@ -809,7 +809,7 @@ instance AstSpan s => RankedTensor (AstRaw s) where
   rcast = AstRaw . AstCast . unAstRaw
   rfromIntegral =
     AstRaw . fromPrimal . AstFromIntegral . astSpanPrimal . unAstRaw
-  rconst = AstRaw . fromPrimal . AstConst
+  rconst = AstRaw . fromPrimal . AstConst . Nested.rfromOrthotope SNat
   rletHVectorIn a f =
     AstRaw $ astLetHVectorInFunRaw (unAstRawWrap a) (unAstRaw . f . rawHVector)
   rletHFunIn a f = AstRaw $ astLetHFunInFunRaw a (unAstRaw . f)
@@ -937,7 +937,7 @@ instance AstSpan s => ShapedTensor (AstRawS s) where
   scast = AstRawS . AstCastS . unAstRawS
   sfromIntegral = AstRawS . fromPrimalS . AstFromIntegralS
                   . astSpanPrimalS . unAstRawS
-  sconst = AstRawS . fromPrimalS . AstConstS . FlipS
+  sconst = AstRawS . fromPrimalS . AstConstS . Nested.sfromOrthotope Nested.knownShS
   sletHVectorIn a f =
     AstRawS
     $ astLetHVectorInFunRawS (unAstRawWrap a) (unAstRawS . f . rawHVector)
@@ -1208,7 +1208,7 @@ instance AstSpan s => RankedTensor (AstNoSimplify s) where
   rcast = AstNoSimplify . AstCast . unAstNoSimplify
   rfromIntegral = AstNoSimplify . fromPrimal . AstFromIntegral
                   . astSpanPrimal . unAstNoSimplify
-  rconst = AstNoSimplify . fromPrimal . AstConst
+  rconst = AstNoSimplify . fromPrimal . AstConst . Nested.rfromOrthotope SNat
   rletHVectorIn a f =
     AstNoSimplify
     $ astLetHVectorInFunRaw (unAstNoSimplifyWrap a)
@@ -1260,7 +1260,7 @@ instance AstSpan s => ShapedTensor (AstNoSimplifyS s) where
   scast = AstNoSimplifyS . AstCastS . unAstNoSimplifyS
   sfromIntegral = AstNoSimplifyS . fromPrimalS . AstFromIntegralS
                   . astSpanPrimalS . unAstNoSimplifyS
-  sconst = AstNoSimplifyS . fromPrimalS . AstConstS . FlipS
+  sconst = AstNoSimplifyS . fromPrimalS . AstConstS . Nested.sfromOrthotope Nested.knownShS
   sletHVectorIn a f =
     AstNoSimplifyS
     $ astLetHVectorInFunRawS (unAstNoSimplifyWrap a)

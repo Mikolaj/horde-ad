@@ -100,9 +100,9 @@ import           HordeAd.Core.HVector
 import           HordeAd.Core.HVectorOps
 import           HordeAd.Core.TensorClass
 import           HordeAd.Core.Types
-import           HordeAd.Internal.BackendConcrete
+import           HordeAd.Internal.BackendOX
 import           HordeAd.Internal.OrthotopeOrphanInstances
-  (FlipS (..), IntegralF (..), trustMeThisIsAPermutation)
+  (IntegralF (..), trustMeThisIsAPermutation)
 import           HordeAd.Util.ShapedList
   (pattern (:.$), pattern (::$), pattern ZIS, pattern ZS)
 import qualified HordeAd.Util.ShapedList as ShapedList
@@ -201,8 +201,8 @@ astReshapeAsGather knobs shOut v =
   funToVarsIx (lengthShape shOut) $ \ (!vars, !ix) ->
     let shIn = shapeAst v
         asts :: AstIndex p
-        asts = let i = toLinearIdx @m @0 (AstConst . OR.scalar . fromIntegral) shOut ix
-               in simplifyAstIndex $ fromLinearIdx (AstConst . OR.scalar . fromIntegral) shIn i
+        asts = let i = toLinearIdx @m @0 (AstConst . Nested.rscalar . fromIntegral) shOut ix
+               in simplifyAstIndex $ fromLinearIdx (AstConst . Nested.rscalar . fromIntegral) shIn i
                     -- we generate these, so we simplify
     in astGatherKnobsR @m @0 knobs shOut v (vars, asts)
 
@@ -217,8 +217,8 @@ astReshapeAsGatherS knobs v =
         shOut = knownShS @sh2
         asts :: AstIndexS sh
         asts = let i :: ShapedList.ShapedNat (Sh.Size sh2) AstInt
-                   i = ShapedList.toLinearIdx @sh2 @'[] (AstConst . OR.scalar . fromIntegral) shOut ix
-               in simplifyAstIndexS $ ShapedList.fromLinearIdx (AstConst . OR.scalar . fromIntegral) shIn i
+                   i = ShapedList.toLinearIdx @sh2 @'[] (AstConst . Nested.rscalar . fromIntegral) shOut ix
+               in simplifyAstIndexS $ ShapedList.fromLinearIdx (AstConst . Nested.rscalar . fromIntegral) shIn i
                     -- we generate these, so we simplify
     in gcastWith (unsafeCoerce Refl :: Sh.Take (X.Rank sh) sh :~: sh) $
        gcastWith (unsafeCoerce Refl :: Sh.Drop (X.Rank sh) sh :~: '[]) $
@@ -476,7 +476,7 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIndex m1)) =
   Ast.AstScatter{} ->  -- normal form
     Ast.AstIndex v0 ix
   Ast.AstFromVector l | AstConst it <- i1 ->
-    let i = fromIntegral $ OR.unScalar it
+    let i = fromIntegral $ Nested.runScalar it
     in if 0 <= i && i < length l
        then astIndex (l V.! i) rest1
        else astReplicate0N (dropShape $ shapeAst v0) 0
@@ -487,7 +487,7 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIndex m1)) =
       Ast.AstIndex (astFromVector $ V.map (`astIndexRec` ix2) l)
                    (singletonIndex i1)
   Ast.AstReplicate k v | AstConst it <- i1 ->
-    let i = fromIntegral $ OR.unScalar it
+    let i = fromIntegral $ Nested.runScalar it
     in if 0 <= i && i < k
        then astIndex v rest1
        else astReplicate0N (dropShape $ shapeAst v) 0
@@ -535,13 +535,13 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIndex m1)) =
   Ast.AstCast t -> astCast $ astIndexKnobsR knobs t ix
   Ast.AstFromIntegral v -> astFromIntegral $ astIndexKnobsR knobs v ix
   AstConst t ->
-    let unConst :: AstInt -> Maybe [OR.Array 0 Int64]
-                -> Maybe [OR.Array 0 Int64]
+    let unConst :: AstInt -> Maybe [Nested.Ranked 0 Int64]
+                -> Maybe [Nested.Ranked 0 Int64]
         unConst (AstConst i) (Just l) = Just $ i : l
         unConst _ _ = Nothing
     in case foldr unConst (Just []) ix of
       Just ixInt -> AstConst $ tindexZR t $ listToIndex
-                    $ map OR.unScalar ixInt
+                    $ map Nested.runScalar ixInt
         -- TODO: we'd need mapM for Index to keep this rank-typed
       Nothing -> Ast.AstIndex v0 ix
   Ast.AstProject{} -> error "astIndexKnobsR: AstProject"
@@ -704,7 +704,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS shm1)) | Dict <- s
   Ast.AstScatterS{} ->  -- normal form
     Ast.AstIndexS v0 ix
   Ast.AstFromVectorS l | AstConst it <- i1 ->
-    let i = fromIntegral $ OR.unScalar it
+    let i = fromIntegral $ Nested.runScalar it
     in if 0 <= i && i < length l
        then astIndex (l V.! i) rest1
        else astReplicate0NS 0
@@ -769,13 +769,13 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS shm1)) | Dict <- s
   Ast.AstCastS t -> astCastS $ astIndexKnobsS knobs t ix
   Ast.AstFromIntegralS v -> astFromIntegralS $ astIndexKnobsS knobs v ix
   AstConstS t ->
-    let unConst :: AstInt -> Maybe [OR.Array 0 Int64]
-                -> Maybe [OR.Array 0 Int64]
+    let unConst :: AstInt -> Maybe [Nested.Ranked 0 Int64]
+                -> Maybe [Nested.Ranked 0 Int64]
         unConst (AstConst i) (Just l) = Just $ i : l
         unConst _ _ = Nothing
     in case foldr unConst (Just []) ix of
-      Just ixInt -> AstConstS $ FlipS $ tindexZS (runFlipS t)
-                    $ ShapedList.listToIndex @shm $ map OR.unScalar ixInt
+      Just ixInt -> AstConstS $ tindexZS t
+                    $ ShapedList.listToIndex @shm $ map Nested.runScalar ixInt
         -- TODO: we'd need mapM for Index to keep this rank-typed
       Nothing -> Ast.AstIndexS v0 ix
   Ast.AstProjectS{} -> error "astIndexKnobsRS: AstProjectsS"
@@ -1011,7 +1011,7 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
     Ast.AstScatter{} ->  -- normal form
       Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstFromVector l | AstConst it <- i4 ->
-      let i = fromIntegral $ OR.unScalar it
+      let i = fromIntegral $ Nested.runScalar it
       in if 0 <= i && i < length l
          then astGather sh4 (l V.! i) (vars4, rest4)
          else astReplicate0N sh4 0
@@ -1031,7 +1031,7 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
             i5 = subst i4
        in astGather sh4 (astFromVector $ V.map f l) (varsFresh, i5 :.: ixFresh)
     Ast.AstReplicate k v | AstConst it <- i4 ->
-      let i = fromIntegral $ OR.unScalar it
+      let i = fromIntegral $ Nested.runScalar it
       in if 0 <= i && i < k
          then astGather sh4 v (vars4, rest4)
          else astReplicate0N sh4 0
@@ -1438,7 +1438,7 @@ astSumS t0 = case sameNat (Proxy @n) (Proxy @0) of
     Ast.AstSliceS @i @k v | Just Refl <- sameNat (Proxy @k) (Proxy @1) ->
       astIndexS v (valueOf @i :.$ ZIS)
     Ast.AstReverseS v -> astSumS v
-    AstConstS t | Dict <- lemShapeFromKnownShS (Proxy @sh) -> AstConstS $ FlipS $ OS.fromVector $ Nested.stoVector $ Nested.ssumOuter1 $ Nested.sfromVector (knownShS @(n ': sh)) $ OS.toVector $ runFlipS t
+    AstConstS t | Dict <- lemShapeFromKnownShS (Proxy @sh) -> AstConstS $ Nested.ssumOuter1 t
     Ast.AstConstantS v -> Ast.AstConstantS $ astSumS v
     _ -> Ast.AstSumS t0
 
@@ -1450,7 +1450,7 @@ astScatter :: forall m n p s r.
            -> AstRanked s r (p + n)
 astScatter _sh v (ZR, ZIR) = v
 astScatter sh@(k :$: _) _v (_vars, AstConst it :.: _ix)
-  | let i = fromIntegral $ OR.unScalar it
+  | let i = fromIntegral $ Nested.runScalar it
   , not (0 <= i && i < k) =
       astReplicate0N sh 0
 -- else update (rzero sh 0) [AstConst it] (astScatter ...)
@@ -1488,7 +1488,7 @@ astFromVector :: forall s r n. (KnownNat n, GoodScalar r, AstSpan s)
               => Data.Vector.Vector (AstRanked s r n) -> AstRanked s r (1 + n)
 astFromVector v | V.length v == 1 = astReplicate 1 (v V.! 0)
 astFromVector l | Just Refl <- sameAstSpan @s @PrimalSpan =
-  let unConst :: AstRanked PrimalSpan r n -> Maybe (OR.Array n r)
+  let unConst :: AstRanked PrimalSpan r n -> Maybe (Nested.Ranked n r)
       unConst (AstConst t) = Just t
       unConst _ = Nothing
   in case V.mapM unConst l of
@@ -1510,11 +1510,11 @@ astFromVectorS :: forall s r n sh.
                -> AstShaped s r (n ': sh)
 astFromVectorS v | V.length v == 1 = astReplicateS (v V.! 0)
 astFromVectorS l | Just Refl <- sameAstSpan @s @PrimalSpan =
-  let unConst :: AstShaped PrimalSpan r sh -> Maybe (OS.Array sh r)
-      unConst (AstConstS t) = Just $ runFlipS t
+  let unConst :: AstShaped PrimalSpan r sh -> Maybe (Nested.Shaped sh r)
+      unConst (AstConstS t) = Just t
       unConst _ = Nothing
   in case V.mapM unConst l of
-    Just l3 -> AstConstS $ FlipS $ tfromVectorS l3
+    Just l3 -> AstConstS $ tfromVectorS l3
     Nothing -> Ast.AstFromVectorS l
 astFromVectorS l | Just Refl <- sameAstSpan @s @FullSpan =
   let unConstant :: AstShaped FullSpan r sh -> Maybe (AstShaped PrimalSpan r sh)
@@ -1585,7 +1585,7 @@ astReplicateNS v =
 
 astReplicate0N :: forall n s r. (GoodScalar r, AstSpan s)
                => ShapeInt n -> r -> AstRanked s r n
-astReplicate0N sh = astReplicate0NT sh . fromPrimal . AstConst . OR.scalar
+astReplicate0N sh = astReplicate0NT sh . fromPrimal . AstConst . Nested.rscalar
 
 astReplicate0NS :: forall shn s r. (KnownShS shn, GoodScalar r, AstSpan s)
                 => r -> AstShaped s r shn
@@ -1593,7 +1593,7 @@ astReplicate0NS =
   let go :: ShS sh' -> AstShaped s r '[] -> AstShaped s r sh'
       go ZSS v = v
       go ((:$$) SNat sh') v | Dict <- sshapeKnown sh' = astReplicateS $ go sh' v
-  in go (knownShS @shn) . fromPrimalS . AstConstS . FlipS . OS.scalar
+  in go (knownShS @shn) . fromPrimalS . AstConstS . Nested.sscalar
 
 astReplicate0NT :: forall n s r. (GoodScalar r, AstSpan s)
                 => ShapeInt n -> AstRanked s r 0 -> AstRanked s r n
@@ -1616,7 +1616,7 @@ astAppend u v = Ast.AstAppend u v
 astAppendS :: (KnownNat m, KnownNat n, KnownShS sh, GoodScalar r, AstSpan s)
            => AstShaped s r (m ': sh) -> AstShaped s r (n ': sh)
            -> AstShaped s r ((m + n) ': sh)
-astAppendS (AstConstS u) (AstConstS v) = AstConstS $ FlipS $ tappendS (runFlipS u) (runFlipS v)
+astAppendS (AstConstS u) (AstConstS v) = AstConstS $ tappendS u v
 astAppendS (Ast.AstConstantS u) (Ast.AstConstantS v) =
   Ast.AstConstantS $ astAppendS u v
 astAppendS (Ast.AstFromVectorS l1) (Ast.AstFromVectorS l2) =
@@ -1654,7 +1654,7 @@ astSliceS :: forall i n k sh s r.
              ( KnownNat i, KnownNat n, KnownNat k, KnownShS sh, GoodScalar r
              , AstSpan s )
           => AstShaped s r (i + n + k ': sh) -> AstShaped s r (n ': sh)
-astSliceS (AstConstS t) = AstConstS $ FlipS $ tsliceS @i @n $ runFlipS t
+astSliceS (AstConstS t) = AstConstS $ tsliceS @i @n t
 astSliceS (Ast.AstConstantS v) = Ast.AstConstantS $ astSliceS @i @n v
 astSliceS v | Just Refl <- sameNat (Proxy @i) (Proxy @0)
             , Just Refl <- sameNat (Proxy @k) (Proxy @0) = v
@@ -1699,7 +1699,7 @@ astReverse v = Ast.AstReverse v
 
 astReverseS :: forall n sh s r. (KnownNat n, KnownShS sh, GoodScalar r)
             => AstShaped s r (n ': sh) -> AstShaped s r (n ': sh)
-astReverseS (AstConstS t) = AstConstS $ FlipS $ treverseS $ runFlipS t
+astReverseS (AstConstS t) = AstConstS $ treverseS t
 astReverseS (Ast.AstConstantS v) = Ast.AstConstantS $ astReverseS v
 astReverseS (Ast.AstFromVectorS l) = Ast.AstFromVectorS $ V.reverse l
 astReverseS (Ast.AstReplicateS v) = Ast.AstReplicateS v
@@ -1850,7 +1850,7 @@ astTransposeS perm t = case perm of
                       :: Permutation.PermutePrefix perm sh2 X.++ Sh.Drop p sh3
                          :~: Permutation.PermutePrefix perm sh) $
            astGatherS @shmPerm @p @sh3 v (vars2, ix)
- -- TODO: AstConstS t -> AstConstS $ FlipS $ ttransposeS @perm $ runFlipS t
+ -- TODO: AstConstS t -> AstConstS $ ttransposeS @perm t
   Ast.AstConstantS v -> Ast.AstConstantS $ astTransposeS perm v
   u -> Ast.AstTransposeS @perm perm u  -- TODO
 
@@ -1870,7 +1870,7 @@ astReshape shOut = \case
   Ast.AstFromVector l | [x] <- V.toList l -> astReshape shOut x
   Ast.AstReplicate 1 x -> astReshape shOut x
   Ast.AstReshape _ v -> astReshape shOut v
-  AstConst t -> AstConst $ OR.reshape (shapeToList shOut) t
+  AstConst t -> AstConst $ Nested.rreshape shOut t
   Ast.AstConstant v -> Ast.AstConstant $ astReshape shOut v
   v -> let shIn = shapeAst v
        in case sameNat (Proxy @p) (Proxy @m) of
@@ -1897,7 +1897,7 @@ astReshapeS = \case
   Ast.AstReplicateS @n x | Just Refl <- sameNat (Proxy @n) (Proxy @1) ->
     astReshapeS x
   Ast.AstReshapeS v -> astReshapeS @_ @sh2 v
-  AstConstS t -> AstConstS $ FlipS $ treshapeS $ runFlipS t
+  AstConstS t -> AstConstS $ treshapeS t
   Ast.AstConstantS v -> Ast.AstConstantS $ astReshapeS v
   v -> case sameShape @sh @sh2 of
          Just Refl -> v
@@ -1914,7 +1914,7 @@ astCast v = Ast.AstCast v
 astCastS :: ( KnownShS sh, GoodScalar r1, GoodScalar r2, RealFrac r1
             , RealFrac r2 )
          => AstShaped s r1 sh -> AstShaped s r2 sh
-astCastS (AstConstS t) = AstConstS $ FlipS $ tcastS $ runFlipS t
+astCastS (AstConstS t) = AstConstS $ tcastS t
 astCastS (Ast.AstConstantS v) = Ast.AstConstantS $ astCastS v
 astCastS (Ast.AstCastS v) = astCastS v
 astCastS (Ast.AstFromIntegralS v) = astFromIntegralS v
@@ -1928,7 +1928,7 @@ astFromIntegral v = Ast.AstFromIntegral v
 
 astFromIntegralS :: (KnownShS sh, GoodScalar r1, GoodScalar r2, Integral r1)
                  => AstShaped PrimalSpan r1 sh -> AstShaped PrimalSpan r2 sh
-astFromIntegralS (AstConstS t) = AstConstS $ FlipS $ tfromIntegralS $ runFlipS t
+astFromIntegralS (AstConstS t) = AstConstS $ tfromIntegralS t
 astFromIntegralS (Ast.AstFromIntegralS v) = astFromIntegralS v
 astFromIntegralS v = Ast.AstFromIntegralS v
 
@@ -1962,19 +1962,19 @@ astProjectS l p = case l of
     astLetS var u2 (astProjectS d2 p)
   _ -> Ast.AstProjectS l p
 
-astRFromS :: forall sh s r. KnownShS sh
+astRFromS :: forall sh s r. (GoodScalar r, KnownShS sh)
           => AstShaped s r sh -> AstRanked s r (X.Rank sh)
 astRFromS (AstConstS t) | Dict <- lemShapeFromKnownShS (Proxy @sh) =
-  AstConst $ Data.Array.Convert.convert $ runFlipS t
+  AstConst $ Nested.stoRanked t
 astRFromS (Ast.AstConstantS v) = Ast.AstConstant $ astRFromS v
 astRFromS (Ast.AstSFromR v) = v  -- no information lost, so no checks
 astRFromS v = Ast.AstRFromS v
 
-astSFromR :: forall sh s r. (KnownShS sh, KnownNat (X.Rank sh))
+astSFromR :: forall sh s r. (GoodScalar r, KnownShS sh, KnownNat (X.Rank sh))
           => AstRanked s r (X.Rank sh) -> AstShaped s r sh
 astSFromR (AstConst t) | Dict <- lemShapeFromKnownShS (Proxy @sh) =
   gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: X.Rank sh) $
-  AstConstS $ FlipS $ Data.Array.Convert.convert t
+  AstConstS $ Nested.rcastToShaped t Nested.knownShS
 astSFromR (Ast.AstConstant v) = Ast.AstConstantS $ astSFromR v
 astSFromR (Ast.AstRFromS @sh1 v) =
   case sameShape @sh1 @sh of
@@ -2818,12 +2818,12 @@ contractAstPlusOp
 
 contractAstPlusOp u v = AstSumOfList [u, v]
 
-addConstToList :: OR.Array 0 Int64 -> [AstInt] -> AstInt
+addConstToList :: Nested.Ranked 0 Int64 -> [AstInt] -> AstInt
 addConstToList _ [] = error "addConstToList: AstSumOfList list too short"
 addConstToList arr [i] =
-  if OR.allA (== 0) arr then i else AstSumOfList [AstConst arr, i]
+  if Nested.runScalar arr == 0 then i else AstSumOfList [AstConst arr, i]
 addConstToList arr l =
-  if OR.allA (== 0) arr then AstSumOfList l else AstSumOfList (AstConst arr : l)
+  if Nested.runScalar arr == 0 then AstSumOfList l else AstSumOfList (AstConst arr : l)
 
 contractAstNumOp1 :: OpCodeNum1 -> AstInt -> AstInt
 contractAstNumOp1 NegateOp (AstConst u) = AstConst $ negate u

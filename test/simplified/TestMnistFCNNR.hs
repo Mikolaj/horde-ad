@@ -10,8 +10,8 @@ import           Control.Monad (foldM, unless)
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
 import qualified Data.EnumMap.Strict as EM
-import           Data.List.Index (imap)
 import qualified Data.IntMap.Strict as IM
+import           Data.List.Index (imap)
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (SomeNat (..), someNatVal)
 import qualified Numeric.LinearAlgebra as LA
@@ -787,16 +787,16 @@ testVT2OPPNonLin = do
                     -> AstRanked FullSpan Float 1
       afcnn2TnonLin = MnistFcnnRanked2.afcnnMnist2 logistic softMax1 blackGlyph
       constant = let ((a1, a2), (a3, a4), (a5, a6)) = valsInitVT2OPP
-                 in ( ( AstCast $ AstConstant $ AstConst $ Nested.rtoOrthotope $ runFlipR a1
-                      , AstCast $ AstConstant $ AstConst $ Nested.rtoOrthotope $ runFlipR a2 )
-                    , ( AstConstant $ AstCast $ AstConst $ Nested.rtoOrthotope $ runFlipR a3
-                      , AstConstant $ AstCast $ AstConst $ Nested.rtoOrthotope $ runFlipR a4 )
-                    , ( AstCast $ AstConstant $ AstConst $ Nested.rtoOrthotope $ runFlipR a5
-                      , AstConstant $ AstCast $ AstConst $ Nested.rtoOrthotope $ runFlipR a6 ) )
+                 in ( ( AstCast $ AstConstant $ AstConst $ runFlipR a1
+                      , AstCast $ AstConstant $ AstConst $ runFlipR a2 )
+                    , ( AstConstant $ AstCast $ AstConst $ runFlipR a3
+                      , AstConstant $ AstCast $ AstConst $ runFlipR a4 )
+                    , ( AstCast $ AstConstant $ AstConst $ runFlipR a5
+                      , AstConstant $ AstCast $ AstConst $ runFlipR a6 ) )
       (_, ast3) = funToAstR @Float (singletonShape 0)
                                    (const $ afcnn2TnonLin constant)
   "\\dummy" ++ " -> " ++ printAstSimple renames ast3
-    @?= "\\dummy -> rlet (exp (rsum (rtranspose [1,0] (rreplicate 2 (rlet (rcast (rsum (rtranspose [1,0] (rreplicate 5 (rcast (rlet (rsum (rtranspose [1,0] (rreplicate 4 (rreplicate 3 (rconstant 7.0))) * rconstant (rconst (fromList [3,4] [1.0,1.0,1.0,1.0,2.0,2.0,2.0,2.0,3.0,3.0,3.0,3.0]))) + rcast (rconstant (rconst (fromList [4] [1.0,2.0,3.0,4.0])))) (\\v5 -> rlet (rconstant (recip (rreplicate 4 1.0 + exp (negate (rprimalPart v5))))) (\\v6 -> rD (rprimalPart v6) (rdualPart (rconstant (rprimalPart v6 * (rreplicate 4 1.0 - rprimalPart v6)) * rD (rreplicate 4 0.0) (rdualPart v5)))))))) * rconstant (rconst (fromList [4,5] [1.0,1.0,1.0,1.0,1.0,2.0,2.0,2.0,2.0,2.0,3.0,3.0,3.0,3.0,3.0,4.0,4.0,4.0,4.0,4.0])))) + rconstant (rcast (rconst (fromList [5] [1.0,2.0,3.0,4.0,5.0])))) (\\v7 -> rlet (rconstant (recip (rreplicate 5 1.0 + exp (negate (rprimalPart v7))))) (\\v8 -> rD (rprimalPart v8) (rdualPart (rconstant (rprimalPart v8 * (rreplicate 5 1.0 - rprimalPart v8)) * rD (rreplicate 5 0.0) (rdualPart v7))))))) * rconstant (rconst (fromList [5,2] [1.0,1.0,2.0,2.0,3.0,3.0,4.0,4.0,5.0,5.0]))) + rconstant (rcast (rconst (fromList [2] [1.0,2.0]))))) (\\v9 -> rreplicate 2 (recip (rsum v9)) * v9)"
+    @?= "\\dummy -> rlet (exp (rsum (rtranspose [1,0] (rreplicate 2 (rlet (rcast (rsum (rtranspose [1,0] (rreplicate 5 (rcast (rlet (rsum (rtranspose [1,0] (rreplicate 4 (rreplicate 3 (rconstant 7.0))) * rconstant (rconst (rfromListLinear [3,4] [1.0,1.0,1.0,1.0,2.0,2.0,2.0,2.0,3.0,3.0,3.0,3.0]))) + rcast (rconstant (rconst (rfromListLinear [4] [1.0,2.0,3.0,4.0])))) (\\v5 -> rlet (rconstant (recip (rreplicate 4 1.0 + exp (negate (rprimalPart v5))))) (\\v6 -> rD (rprimalPart v6) (rdualPart (rconstant (rprimalPart v6 * (rreplicate 4 1.0 - rprimalPart v6)) * rD (rreplicate 4 0.0) (rdualPart v5)))))))) * rconstant (rconst (rfromListLinear [4,5] [1.0,1.0,1.0,1.0,1.0,2.0,2.0,2.0,2.0,2.0,3.0,3.0,3.0,3.0,3.0,4.0,4.0,4.0,4.0,4.0])))) + rconstant (rcast (rconst (rfromListLinear [5] [1.0,2.0,3.0,4.0,5.0])))) (\\v7 -> rlet (rconstant (recip (rreplicate 5 1.0 + exp (negate (rprimalPart v7))))) (\\v8 -> rD (rprimalPart v8) (rdualPart (rconstant (rprimalPart v8 * (rreplicate 5 1.0 - rprimalPart v8)) * rD (rreplicate 5 0.0) (rdualPart v7))))))) * rconstant (rconst (rfromListLinear [5,2] [1.0,1.0,2.0,2.0,3.0,3.0,4.0,4.0,5.0,5.0]))) + rconstant (rcast (rconst (rfromListLinear [2] [1.0,2.0]))))) (\\v9 -> rreplicate 2 (recip (rsum v9)) * v9)"
 
 testVT2OPPNonLin2 :: Assertion
 testVT2OPPNonLin2 = do

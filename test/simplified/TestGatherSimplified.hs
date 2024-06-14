@@ -447,14 +447,14 @@ testGatherSimpPP33 = do
   resetVarCounter
   let !t1 = gatherTranspose33 @(AstRanked PrimalSpan)
             $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (AstVarName . intToAstVarId $ 100000000)
-  length (show t1) @?= 548
-  length (show (simplifyInlineAst @Float t1)) @?= 548
+  length (show t1) @?= 555
+  length (show (simplifyInlineAst @Float t1)) @?= 555
   resetVarCounter
   let !t2 = (\t -> rmatmul2 (rreshape [6, 8] (rconst $ runFlipR t48OR))
                             (rreshape @(AstRanked PrimalSpan) @Float @10 [8, 16] t))
             $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (AstVarName . intToAstVarId $ 100000000)
-  length (show t2) @?= 467
-  length (show (simplifyInlineAst @Float t2)) @?= 467
+  length (show t2) @?= 474
+  length (show (simplifyInlineAst @Float t2)) @?= 474
 
 testGatherSimpPP34 :: Assertion
 testGatherSimpPP34 = do
@@ -462,16 +462,16 @@ testGatherSimpPP34 = do
   let !t1 = (\t -> rbuild1 4 (\i ->
              gatherTranspose33 @(AstRanked PrimalSpan) (t * rreplicate0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (rfromIndex0 i))))
             $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (AstVarName . intToAstVarId $ 100000000)
-  length (show t1) @?= 871
-  length (show (simplifyInlineAst @Float t1)) @?= 871
+  length (show t1) @?= 878
+  length (show (simplifyInlineAst @Float t1)) @?= 878
   resetVarCounter
   let !t2 = (\t -> rbuild1 4 (\i ->
               (\t' -> rmatmul2 (rreshape [6, 8] (rconst $ runFlipR t48OR))
                                (rreshape @(AstRanked PrimalSpan) @Float @10 [8, 16] t'))
                 (t * rreplicate0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (rfromIndex0 i))))
             $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (AstVarName . intToAstVarId $ 100000000)
-  length (show t2) @?= 624
-  length (show (simplifyInlineAst @Float t2)) @?= 624
+  length (show t2) @?= 631
+  length (show (simplifyInlineAst @Float t2)) @?= 631
 
 -- scatters instead of gathers
 
@@ -531,12 +531,12 @@ testScatterSimpPP1 :: Assertion
 testScatterSimpPP1 = do
   resetVarCounter
   let !t1 = scatterNested1 @(AstRanked PrimalSpan) $ AstVar [7, 2] (AstVarName . intToAstVarId $ 100000000)
-  length (show t1) @?= 290
+  length (show t1) @?= 297
   resetVarCounter
   let !t2 = scatter1 @(AstRanked PrimalSpan) $ AstVar [7, 2] (AstVarName . intToAstVarId $ 100000000)
-  length (show t2) @?= 423
-  length (show (simplifyInlineAst @Float t1)) @?= 290
-  length (show (simplifyInlineAst @Float t2)) @?= 423
+  length (show t2) @?= 451
+  length (show (simplifyInlineAst @Float t1)) @?= 297
+  length (show (simplifyInlineAst @Float t2)) @?= 451
 
 scatterNested2 :: forall ranked r. (ADReady ranked, GoodScalar r)
               => ranked r 2 -> ranked r 2
@@ -597,12 +597,12 @@ testScatterSimpPP2 :: Assertion
 testScatterSimpPP2 = do
   resetVarCounter
   let !t1 = scatterNested2 @(AstRanked PrimalSpan) $ AstVar [7, 2] (AstVarName . intToAstVarId $ 100000000)
-  length (show t1) @?= 1101
+  length (show t1) @?= 1171
   resetVarCounter
   let !t2 = scatter2 @(AstRanked PrimalSpan) $ AstVar [7, 2] (AstVarName . intToAstVarId $ 100000000)
-  length (show t2) @?= 606
-  length (show (simplifyInlineAst @Float t1)) @?= 1101
-  length (show (simplifyInlineAst @Float t2)) @?= 606
+  length (show t2) @?= 634
+  length (show (simplifyInlineAst @Float t1)) @?= 1171
+  length (show (simplifyInlineAst @Float t2)) @?= 634
 
 scatterNested12 :: forall ranked r. (ADReady ranked, GoodScalar r)
                => ranked r 2 -> ranked r 2
@@ -665,9 +665,9 @@ testScatterSimpPP12 :: Assertion
 testScatterSimpPP12 = do
   resetVarCounter
   let !t1 = scatterNested12 @(AstRanked PrimalSpan) $ AstVar [7, 2] (AstVarName . intToAstVarId $ 100000000)
-  length (show t1) @?= 933
+  length (show t1) @?= 989
   resetVarCounter
   let !t2 = scatter12 @(AstRanked PrimalSpan) $ AstVar [7, 2] (AstVarName . intToAstVarId $ 100000000)
-  length (show t2) @?= 606
-  length (show (simplifyInlineAst @Float t1)) @?= 933
-  length (show (simplifyInlineAst @Float t2)) @?= 606
+  length (show t2) @?= 634
+  length (show (simplifyInlineAst @Float t1)) @?= 989
+  length (show (simplifyInlineAst @Float t2)) @?= 634

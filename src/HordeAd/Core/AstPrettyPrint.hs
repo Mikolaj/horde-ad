@@ -20,19 +20,20 @@ import Prelude
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
-import           Data.List (intersperse)
-import           Data.Proxy (Proxy (Proxy))
 import           Data.IntMap.Strict (IntMap)
 import qualified Data.IntMap.Strict as IM
+import           Data.List (intersperse)
+import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, Nat, sameNat)
 import           Type.Reflection (typeRep)
 
+import qualified Data.Array.Nested as Nested
+
 import           HordeAd.Core.Ast
 import           HordeAd.Core.HVector
 import           HordeAd.Core.Types
-import           HordeAd.Internal.OrthotopeOrphanInstances (FlipS (..))
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedList
 
@@ -208,7 +209,7 @@ printAst cfgOld d t =
     Just Refl ->  -- the heuristics may have been correct
       case t of
         AstVar _ var -> printAstIntVar cfgOld var
-        AstConst i -> shows $ OR.unScalar i
+        AstConst i -> shows $ Nested.runScalar i
         _ -> if areAllArgsInts t
              then printAstAux cfgOld d t
              else let cfg = cfgOld {representsIntIndex = False}
@@ -339,7 +340,7 @@ printAstAux cfg d = \case
     printPrefixOp printAst cfg d "rfromIntegral" [a]
   AstConst a ->
     case sameNat (Proxy @n) (Proxy @0) of
-      Just Refl -> shows $ OR.unScalar a
+      Just Refl -> shows $ Nested.runScalar a
       _ -> showParen (d > 10)
            $ showString "rconst "
              . showParen True (shows a)
@@ -521,9 +522,9 @@ printAstS cfg d = \case
   AstCastS v -> printPrefixOp printAstS cfg d "scast" [v]
   AstFromIntegralS a ->
     printPrefixOp printAstS cfg d "sfromIntegral" [a]
-  AstConstS @_ @sh2 (FlipS a) | Dict <- lemShapeFromKnownShS (Proxy @sh2) ->
+  AstConstS @sh2 a | Dict <- lemShapeFromKnownShS (Proxy @sh2) ->
     case sameShape @sh @'[] of
-      Just Refl -> shows $ OS.unScalar a
+      Just Refl -> shows $ Nested.sunScalar a
       _ -> showParen (d > 10)
            $ showString ("sconst @" ++ show (shapeT @sh2) ++ " ")
              . (showParen True
