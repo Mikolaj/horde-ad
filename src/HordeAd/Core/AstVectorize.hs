@@ -16,10 +16,10 @@ import           Data.Array.Internal (valueOf)
 import qualified Data.Array.Shape as Sh
 import           Data.Functor.Const
 import           Data.Int (Int64)
+import qualified Data.IntMap.Strict as IM
 import           Data.IORef
 import           Data.List (mapAccumR)
 import           Data.Proxy (Proxy (Proxy))
-import qualified Data.IntMap.Strict as IM
 import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits
@@ -735,10 +735,14 @@ build1VOccurenceUnknownDynamic k@SNat (var, d) = case d of
     DynamicRanked $ build1VOccurenceUnknown (sNatValue k) (var, u)
   DynamicShaped u ->
     DynamicShaped $ build1VOccurenceUnknownS @k (var, u)
+  DynamicRankedDummy @r @sh _ _ -> DynamicRankedDummy @r @(k ': sh) Proxy Proxy
+  DynamicShapedDummy @r @sh _ _ -> DynamicShapedDummy @r @(k ': sh) Proxy Proxy
+{- TODO: is this faster? but fromInteger has to be avoided
   DynamicRankedDummy @r @sh _ _ ->
     withListSh (Proxy @sh) $ \_ ->
       DynamicRanked @r (Ast.AstRFromS @(k ': sh) @s @r 0)
   DynamicShapedDummy @r @sh _ _ -> DynamicShaped @r @(k ': sh) 0
+-}
 
 build1VOccurenceUnknownHVectorRefresh
   :: forall k s. AstSpan s
