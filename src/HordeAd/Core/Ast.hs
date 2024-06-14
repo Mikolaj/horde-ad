@@ -584,10 +584,6 @@ instance (Real (OR.Array n r), AstSpan s)
   toRational = undefined
     -- very low priority, since these are all extremely not continuous
 
-instance Enum r => Enum (AstRanked s r n) where
-  toEnum = undefined  -- AstConst . OR.scalar . toEnum
-  fromEnum = undefined  -- do we need to define our own Enum for this?
-
 -- Warning: div and mod operations are very costly (simplifying them
 -- requires constructing conditionals, etc). If this error is removed,
 -- they are going to work, but slowly.
