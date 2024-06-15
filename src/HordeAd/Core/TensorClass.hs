@@ -13,7 +13,8 @@ module HordeAd.Core.TensorClass
     ShapeInt, ShapeS
     -- * The tensor classes
   , RankedTensor(..), ShapedTensor(..), HVectorTensor(..), HFun(..)
-  , rfromD, sfromD, rscalar, ringestData, ringestData1, ingestData, sscalar, srepl
+  , rfromD, sfromD, rscalar, rrepl, ringestData, ringestData1
+  , ingestData, sscalar, srepl
     -- * The giga-constraint
   , ADReady, ADReadyBoth, ADReadyR, ADReadyS
   ) where
@@ -31,6 +32,7 @@ import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
+import           GHC.Exts (IsList (..))
 import           GHC.TypeLits
   (KnownNat, OrderingI (..), cmpNat, sameNat, type (+), type (-), type (<=))
 import           Numeric.LinearAlgebra (Vector)
@@ -41,6 +43,9 @@ import qualified Data.Array.Mixed.Internal.Arith as Nested.Internal.Arith
 import qualified Data.Array.Mixed.Permutation as Permutation
 import qualified Data.Array.Mixed.Shape as X
 import qualified Data.Array.Mixed.Types as X
+import qualified Data.Array.Nested as Nested
+import qualified Data.Array.Nested.Internal.Ranked as Nested.Internal
+import qualified Data.Array.Nested.Internal.Shaped as Nested.Internal
 
 import           HordeAd.Core.HVector
 import           HordeAd.Core.Types
@@ -301,7 +306,7 @@ class ( Num (IntOf ranked), IntegralF (IntOf ranked), CRanked ranked Num
         => ranked r1 n -> ranked r2 n
   rfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2, KnownNat n)
                 => ranked r1 n -> ranked r2 n
-  rconst :: (GoodScalar r, KnownNat n) => OR.Array n r -> ranked r n
+  rconst :: (GoodScalar r, KnownNat n) => Nested.Ranked n r -> ranked r n
   rletHVectorIn :: (KnownNat n, GoodScalar r)
                 => HVectorOf ranked
                 -> (HVector ranked -> ranked r n)
@@ -683,7 +688,7 @@ class ( Num (IntOf shaped), IntegralF (IntOf shaped), CShaped shaped Num
         => shaped r1 sh -> shaped r2 sh
   sfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2, KnownShS sh)
                 => shaped r1 sh -> shaped r2 sh
-  sconst :: (GoodScalar r, KnownShS sh) => OS.Array sh r -> shaped r sh
+  sconst :: (GoodScalar r, KnownShS sh) => Nested.Shaped sh r -> shaped r sh
   sletHVectorIn :: (KnownShS sh, GoodScalar r)
                 => HVectorOf (RankedOf shaped)
                 -> (HVector (RankedOf shaped) -> shaped r sh)
@@ -1153,30 +1158,33 @@ sfromD (DynamicShapedDummy @r2 @sh2 _ _) = case sameShape @sh2 @sh of
   _ -> error $ "sfromD: shape mismatch " ++ show (shapeT @sh2, shapeT @sh)
 
 rscalar :: (GoodScalar r, RankedTensor ranked) => r -> ranked r 0
-rscalar = rconst . OR.scalar
+rscalar = rconst . Nested.rscalar
+
+rrepl :: forall r n ranked. (GoodScalar r, KnownNat n, RankedTensor ranked)
+      => [Int] -> r -> ranked r n
+rrepl sh = rconst . Nested.rreplicateScal (fromList sh)
 
 ringestData :: forall ranked r n.
               (GoodScalar r, KnownNat n, RankedTensor ranked)
            => [Int] -> [r] -> ranked r n
-ringestData sh l = rconst $ OR.fromList sh l
+ringestData sh l = rconst $ Nested.Internal.rfromListPrimLinear (listToShape sh) l
 
-ringestData1 :: forall ranked r n.
-               (GoodScalar r, KnownNat n, RankedTensor ranked)
-            => [r] -> ranked r n
-ringestData1 l = rconst $ OR.fromList [length l] l
+ringestData1 :: forall ranked r. (GoodScalar r, RankedTensor ranked)
+            => [r] -> ranked r 1
+ringestData1 l = rconst $ Nested.Internal.rfromList1Prim l
 
 ingestData :: forall shaped r sh.
               (GoodScalar r, KnownShS sh, ShapedTensor shaped)
            => [r] -> shaped r sh
-ingestData l | Dict <- lemShapeFromKnownShS (Proxy @sh) = sconst $ OS.fromList l
+ingestData l | Dict <- lemShapeFromKnownShS (Proxy @sh) = sconst $ Nested.Internal.sfromListPrimLinear knownShS l
 
 sscalar :: (GoodScalar r, ShapedTensor shaped) => r -> shaped r '[]
-sscalar = sconst . OS.scalar
+sscalar = sconst . Nested.sscalar
 
 srepl :: forall sh r shaped. (GoodScalar r, KnownShS sh, ShapedTensor shaped)
       => r -> shaped r sh
 srepl | Dict <- lemShapeFromKnownShS (Proxy @sh) =
-  sconst . OS.constant
+  sconst . Nested.sreplicateScal knownShS
   -- TODO: the following simplifies better, because the replication is not
   -- hidden at low level:
   -- Dict <- lemKnownNatSize (knownShS @sh) =

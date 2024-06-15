@@ -28,6 +28,8 @@ import           Data.Kind (Constraint, Type)
 import           GHC.TypeLits (KnownNat, Nat)
 import           System.IO.Unsafe (unsafePerformIO)
 
+import qualified Data.Array.Nested as Nested
+
 import HordeAd.Core.Delta
 import HordeAd.Core.HVector
 import HordeAd.Core.TensorClass
@@ -99,8 +101,7 @@ instance (GoodScalar r, KnownNat n, RankedTensor ranked)
   dAdd ZeroR{} w = w
   dAdd v ZeroR{} = v
   dAdd v w = AddR v w
-  intOfShape tsh c =
-    rconst $ OR.constant (shapeToList $ rshape tsh) (fromIntegral c)
+  intOfShape tsh c = rconst $ Nested.rreplicateScal (rshape tsh) (fromIntegral c)
   sharePrimal = rshare
   shareDual d = case d of
     ZeroR{} -> d

@@ -12,11 +12,13 @@ import qualified Data.Array.RankedS as OR
 import qualified Data.EnumMap.Strict as EM
 import qualified Data.IntMap.Strict as IM
 import qualified Data.Vector.Generic as V
+import           GHC.Exts (IsList (..))
 import           GHC.TypeLits (KnownNat)
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
 import qualified Data.Array.Nested as Nested
+import qualified Data.Array.Nested.Internal.Ranked as Nested.Internal
 
 import HordeAd
 import HordeAd.Core.AstFreshId (resetVarCounter)
@@ -112,17 +114,17 @@ slicezF shOut d ixBase =
 conv2d1
   :: (ADReady ranked, GoodScalar r, Differentiable r)
   => ranked r 4 -> ranked r 4
-conv2d1 = conv2d $ rconst $ OR.fromList [1, 1, 1, 1] [-0.2]
+conv2d1 = conv2d $ rconst $ Nested.Internal.rfromListPrimLinear (fromList [1, 1, 1, 1]) [-0.2]
 
 conv2dA
   :: (ADReady ranked, GoodScalar r, Differentiable r)
   => ranked r 4 -> ranked r 4
-conv2dA = conv2d $ rconst $ OR.fromList [1, 2, 1, 1] [-0.2, 25.0003]
+conv2dA = conv2d $ rconst $ Nested.Internal.rfromListPrimLinear (fromList [1, 2, 1, 1]) [-0.2, 25.0003]
 
 conv2dB
   :: (ADReady ranked, GoodScalar r, Differentiable r)
   => ranked r 4 -> ranked r 4
-conv2dB = conv2d $ rconst $ Nested.rtoOrthotope $ runFlipR t16b
+conv2dB = conv2d $ rconst $ runFlipR t16b
 
 testKonstG0Rev :: Assertion
 testKonstG0Rev =
@@ -141,7 +143,7 @@ testKonstG0TinyS =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [1, 1, 1, 1] [582665.99432])
     (rev' @Double @4
-          (conv2d $ rconst $ Nested.rtoOrthotope $ runFlipR $ rreplicate0N [1, 1, 1, 1] (rsum0 t16b))
+          (conv2d $ rconst $ runFlipR $ rreplicate0N [1, 1, 1, 1] (rsum0 t16b))
           (FlipR $ OR.fromList [1, 1, 1, 1] [0]))
 
 testKonstG0TinyA :: Assertion
@@ -167,43 +169,43 @@ testKonstG0LittleA =
 conv2d1Laborious
   :: (ADReady ranked, GoodScalar r, Differentiable r)
   => ranked r 4 -> ranked r 4
-conv2d1Laborious = conv2dUnpadded $ rconst $ OR.fromList [1, 1, 1, 1] [-0.2]
+conv2d1Laborious = conv2dUnpadded $ rconst $ Nested.Internal.rfromListPrimLinear (fromList [1, 1, 1, 1]) [-0.2]
 
 conv2dALaborious
   :: (ADReady ranked, GoodScalar r, Differentiable r)
   => ranked r 4 -> ranked r 4
 conv2dALaborious =
-  conv2dUnpadded $ rconst $ OR.fromList [1, 2, 1, 1] [-0.2, 25.0003]
+  conv2dUnpadded $ rconst $ Nested.Internal.rfromListPrimLinear (fromList [1, 2, 1, 1]) [-0.2, 25.0003]
 
 conv2dBLaborious
   :: (ADReady ranked, GoodScalar r, Differentiable r)
   => ranked r 4 -> ranked r 4
-conv2dBLaborious = conv2dUnpadded $ rconst $ Nested.rtoOrthotope $ runFlipR t16b
+conv2dBLaborious = conv2dUnpadded $ rconst $ runFlipR t16b
 
 conv2dCLaborious
   :: (ADReady ranked, GoodScalar r, Differentiable r)
   => ranked r 4 -> ranked r 4
-conv2dCLaborious = flip conv2dUnpadded $ rconst $ Nested.rtoOrthotope $ runFlipR t16b
+conv2dCLaborious = flip conv2dUnpadded $ rconst $ runFlipR t16b
 
 conv2dBLaborious128b
   :: (ADReady ranked, GoodScalar r, Differentiable r)
   => ranked r 4 -> ranked r 4
-conv2dBLaborious128b = conv2dUnpadded $ rconst $ runFlipR t128b
+conv2dBLaborious128b = conv2dUnpadded $ rconst $ Nested.rfromOrthotope SNat $ runFlipR t128b
 
 conv2dCLaborious128b
   :: (ADReady ranked, GoodScalar r, Differentiable r)
   => ranked r 4 -> ranked r 4
-conv2dCLaborious128b = flip conv2dUnpadded $ rconst $ runFlipR t128b
+conv2dCLaborious128b = flip conv2dUnpadded $ rconst $ Nested.rfromOrthotope SNat $ runFlipR t128b
 
 conv2dBLaborious128c
   :: (ADReady ranked, GoodScalar r, Differentiable r)
   => ranked r 4 -> ranked r 4
-conv2dBLaborious128c = conv2dUnpadded $ rconst $ runFlipR t128c
+conv2dBLaborious128c = conv2dUnpadded $ rconst $ Nested.rfromOrthotope SNat $ runFlipR t128c
 
 conv2dCLaborious128c
   :: (ADReady ranked, GoodScalar r, Differentiable r)
   => ranked r 4 -> ranked r 4
-conv2dCLaborious128c = flip conv2dUnpadded $ rconst $ runFlipR t128c
+conv2dCLaborious128c = flip conv2dUnpadded $ rconst $ Nested.rfromOrthotope SNat $ runFlipR t128c
 
 testReplicate0RevLaborious :: Assertion
 testReplicate0RevLaborious =
@@ -222,7 +224,7 @@ testReplicate0TinySLaborious =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [1, 1, 1, 1] [582665.99432])
     (rev' @Double @4
-          (conv2dUnpadded $ rconst $ Nested.rtoOrthotope $ runFlipR $ rreplicate0N [1, 1, 1, 1] (rsum0 t16b))
+          (conv2dUnpadded $ rconst $ runFlipR $ rreplicate0N [1, 1, 1, 1] (rsum0 t16b))
           (FlipR $ OR.fromList [1, 1, 1, 1] [0]))
 
 testReplicate0TinyALaborious :: Assertion

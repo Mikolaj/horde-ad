@@ -9,7 +9,7 @@ import Prelude
 import qualified Data.Array.RankedS as OR
 import           Data.Kind (Type)
 import qualified Data.Vector.Generic as V
-import           GHC.Exts (inline)
+import           GHC.Exts (IsList (..), inline)
 import           GHC.TypeLits (Nat)
 
 import qualified Data.Array.Nested as Nested
@@ -84,8 +84,8 @@ afcnnMnistLoss2
   => MnistData r -> ADFcnnMnist2Parameters ranked r
   -> ranked r 0
 afcnnMnistLoss2 (datum, target) =
-  let datum1 = rconst $ OR.fromVector [sizeMnistGlyphInt] datum
-      target1 = rconst $ OR.fromVector [sizeMnistLabelInt] target
+  let datum1 = rconst $ Nested.rfromVector (fromList [sizeMnistGlyphInt]) datum
+      target1 = rconst $ Nested.rfromVector (fromList [sizeMnistLabelInt]) target
   in afcnnMnistLoss2TensorData (datum1, target1)
 
 -- | A function testing the neural network given testing set of inputs
@@ -101,7 +101,7 @@ afcnnMnistTest2 _ [] _ = 0
 afcnnMnistTest2 valsInit dataList testParams =
   let matchesLabels :: MnistData r -> Bool
       matchesLabels (glyph, label) =
-        let glyph1 = rconst $ OR.fromVector [sizeMnistGlyphInt] glyph
+        let glyph1 = rconst $ Nested.rfromVector (fromList [sizeMnistGlyphInt]) glyph
             nn :: ADFcnnMnist2Parameters ranked r
                -> ranked r 1
             nn = inline afcnnMnist2 logistic softMax1 glyph1

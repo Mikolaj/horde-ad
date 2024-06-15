@@ -118,7 +118,7 @@ instance RankedTensor ORArray where
                                        (fromIndexOfR . f . FlipR . tscalarR)
   rcast = FlipR . tcastR . runFlipR
   rfromIntegral = FlipR . tfromIntegralR . runFlipR
-  rconst = FlipR . Nested.rfromOrthotope SNat
+  rconst = FlipR
   rletHVectorIn = (&)
   rletHFunIn = (&)
   rfromS :: forall r sh. (GoodScalar r, KnownShS sh)
@@ -205,14 +205,7 @@ instance ShapedTensor OSArray where
                                      . tscalarR . unShapedNat)
   scast = FlipS . tcastS . runFlipS
   sfromIntegral = FlipS . tfromIntegralS . runFlipS
-  sconst :: forall r sh.
-            (GoodScalar r, KnownShS sh) => OS.Array sh r -> OSArray r sh
-  sconst t | Dict <- lemShapeFromKnownShS (Proxy @sh)
-           , Dict <- lemKnownNatRank (knownShS @sh) =
-    FlipS $ Nested.rcastToShaped
-              (Nested.rfromOrthotope (SNat @(X.Rank sh))
-                                     (Data.Array.Convert.convert t))
-              knownShS
+  sconst = FlipS
   sletHVectorIn = (&)
   sletHFunIn = (&)
   sfromR :: forall r sh. (GoodScalar r, KnownShS sh)
@@ -421,10 +414,10 @@ instance (RankedTensor ranked, ShapedTensor (ShapedOf ranked))
   fromDValue = \case
     DynamicRanked @_ @n t -> -- DynamicRanked $ constantADVal $ rconst $ runFlipR t
       let sh = rshape t
-      in DynamicRanked @_ @n $ constantADVal $ rconst $ Nested.rtoOrthotope $ runFlipR t
+      in DynamicRanked @_ @n $ constantADVal $ rconst $ runFlipR t
     DynamicShaped @_ @sh t | Dict <- lemShapeFromKnownShS (Proxy @sh) ->
 --      DynamicShaped $ constantADVal $ sconst $ runFlipS t
-      DynamicShaped $ constantADVal $ sconst $ OS.fromVector @sh $ Nested.stoVector $ runFlipS t
+      DynamicShaped $ constantADVal $ sconst $ runFlipS t
       -- TODO: this is probably very wrong
     DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
     DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2

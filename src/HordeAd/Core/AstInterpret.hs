@@ -407,7 +407,7 @@ interpretAst !env = \case
   AstCast v -> rcast $ interpretAstRuntimeSpecialized env v
   AstFromIntegral v ->
     rfromIntegral $ rconstant $ interpretAstPrimalRuntimeSpecialized env v
-  AstConst a -> rconst $ Nested.rtoOrthotope a
+  AstConst a -> rconst a
   AstProject l p ->
     let lt = interpretAstHVector env l
     in rletHVectorIn lt (\lw -> rfromD $ lw V.! p)
@@ -789,7 +789,7 @@ interpretAstS !env = \case
   AstCastS v -> scast $ interpretAstSRuntimeSpecialized env v
   AstFromIntegralS v ->
     sfromIntegral $ sconstant $ interpretAstPrimalSRuntimeSpecialized env v
-  AstConstS a -> sconst $ Nested.stoOrthotope a
+  AstConstS a -> sconst a
   AstProjectS l p ->
     let lt = interpretAstHVector env l
     in sletHVectorIn lt (\lw -> sfromD $ lw V.! p)

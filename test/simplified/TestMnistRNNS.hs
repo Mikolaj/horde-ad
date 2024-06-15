@@ -19,6 +19,8 @@ import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 import           Text.Printf
 
+import qualified Data.Array.Nested as Nested
+
 import HordeAd
 import HordeAd.Core.Adaptor
 import HordeAd.Core.AstEnv
@@ -87,7 +89,7 @@ mnistTestCaseRNNSA prefix epochs maxBatches width@SNat batch_size@SNat
                    -> ADVal shaped r '[]
                  f (glyphS, labelS) adinputs =
                    MnistRnnShaped2.rnnMnistLossFusedS
-                     width batch_size (sconst glyphS, sconst labelS)
+                     width batch_size (sconst $ Nested.sfromOrthotope knownShS glyphS, sconst $ Nested.sfromOrthotope knownShS labelS)
                      (parseHVector (fromDValue valsInit) adinputs)
                  chunkS = map packBatch
                           $ filter (\ch -> length ch == miniBatchSize)
@@ -200,8 +202,8 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
                  f (glyph, label) varInputs =
                    let env = foldr extendEnvD EM.empty
                              $ zip vars $ V.toList varInputs
-                       envMnist = extendEnvS varGlyph (sconst glyph)
-                                  $ extendEnvS varLabel (sconst label) env
+                       envMnist = extendEnvS varGlyph (sconst $ Nested.sfromOrthotope knownShS glyph)
+                                  $ extendEnvS varLabel (sconst $ Nested.sfromOrthotope knownShS label) env
                    in interpretAstS envMnist ast
                  chunkS = map packBatch
                           $ filter (\ch -> length ch == miniBatchSize)
@@ -315,8 +317,8 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
               -> (HVector ORArray, StateAdam)
            go [] (parameters, stateAdam) = (parameters, stateAdam)
            go ((glyph, label) : rest) (!parameters, !stateAdam) =
-             let glyphD = DynamicShaped $ sconst glyph
-                 labelD = DynamicShaped $ sconst label
+             let glyphD = DynamicShaped $ sconst $ Nested.sfromOrthotope knownShS glyph
+                 labelD = DynamicShaped $ sconst $ Nested.sfromOrthotope knownShS label
                  parametersAndInput =
                    V.concat [parameters, V.fromList [glyphD, labelD]]
                  gradientHVector =
