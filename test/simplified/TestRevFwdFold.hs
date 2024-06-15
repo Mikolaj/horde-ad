@@ -25,7 +25,6 @@ import qualified Data.Array.Nested.Internal.Shaped as Nested.Internal
 
 import HordeAd
 import HordeAd.Core.AstFreshId (resetVarCounter)
-import HordeAd.Internal.BackendConcrete
 import HordeAd.Internal.BackendOX (ORArray, OSArray)
 import HordeAd.Internal.OrthotopeOrphanInstances
   (FlipR (..), FlipS (..), RealFloatF (..))
@@ -899,14 +898,14 @@ testSin0Scan1 = do
     (OR.fromList [1,1,1,1,1] [1.4535961214255773] :: OR.Array 5 Double)
     (rev' (\x0 -> rscan (\x _a -> sin x)
                         x0 ((rrepl @Double @1 [1] 42)))
-          (FlipR $ treplicate0NR [1,1,1,1,1] 1.1))
+          (FlipR $ OR.constant [1,1,1,1,1] 1.1))
 
 testSin0Scan1ForComparison :: Assertion
 testSin0Scan1ForComparison = do
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [1,1,1,1,1] [1.4535961214255773] :: OR.Array 5 Double)
     (rev' (\x0 -> rfromList [x0, sin x0])
-          (FlipR $ treplicate0NR [1,1,1,1,1] 1.1))
+          (FlipR $ OR.constant [1,1,1,1,1] 1.1))
 
 testSin0Scan2 :: Assertion
 testSin0Scan2 = do
@@ -914,7 +913,7 @@ testSin0Scan2 = do
     (OR.fromList [1,1,1,1,1] [2.2207726343670955] :: OR.Array 5 Double)
     (rev' (\x0 -> rscan (\x _a -> sin x)
                         x0 ((rrepl @Double @1 [5] 42)))
-          (FlipR $ treplicate0NR [1,1,1,1,1] 1.1))
+          (FlipR $ OR.constant [1,1,1,1,1] 1.1))
 
 testSin0Scan3 :: Assertion
 testSin0Scan3 = do
@@ -922,7 +921,7 @@ testSin0Scan3 = do
     (OR.fromList [1,1,1,1,1] [1.360788364276732] :: OR.Array 5 Double)
     (rev' (\a0 -> rscan (\_x a -> sin a)
                         (rreplicate0N [1,1,1,1,1] 84)
-                        (rreplicate 3 a0)) (FlipR $ treplicate0NR [1,1,1,1,1] 1.1))
+                        (rreplicate 3 a0)) (FlipR $ OR.constant [1,1,1,1,1] 1.1))
 
 testSin0Scan4 :: Assertion
 testSin0Scan4 = do
@@ -930,7 +929,7 @@ testSin0Scan4 = do
     (OR.fromList [1,1,1,1,1] [-0.4458209450295252] :: OR.Array 5 Double)
     (rev' (\a0 -> rscan (\x a -> atan2F (sin x) (sin a))
                         (rreplicate0N [1,1,1,1,1] 2 * a0)
-                        (rreplicate 3 a0)) (FlipR $ treplicate0NR [1,1,1,1,1] 1.1))
+                        (rreplicate 3 a0)) (FlipR $ OR.constant [1,1,1,1,1] 1.1))
 
 testSin0Scan5 :: Assertion
 testSin0Scan5 = do
@@ -942,7 +941,7 @@ testSin0Scan5 = do
                                           $ rtr $ rreplicate 7 a))
                         (rreplicate0N [1,1,1,1] 2 * a0)
                         (rreplicate 3 (rreplicate 2 (rreplicate 5 a0))))
-          (FlipR $ treplicate0NR [1,1,1,1] 1.1))
+          (FlipR $ OR.constant [1,1,1,1] 1.1))
 
 testSin0Scan6 :: Assertion
 testSin0Scan6 = do
@@ -951,7 +950,7 @@ testSin0Scan6 = do
     (rev' (\a0 -> rscan (\x a -> rtr
                                  $ rtr x + rreplicate 1 (rreplicate 2 a))
                         (rreplicate 2 (rreplicate 1 a0))
-                        (rreplicate 2 a0)) (FlipR $ treplicate0NR [1,1] 1.1))
+                        (rreplicate 2 a0)) (FlipR $ OR.constant [1,1] 1.1))
 
 testSin0Scan7 :: Assertion
 testSin0Scan7 = do
@@ -959,7 +958,7 @@ testSin0Scan7 = do
     (OR.fromList [1,1] [310] :: OR.Array 2 Double)
     (rev' (\a0 -> rscan (\x _a -> rtr $ rreplicate 5 $ rsum (rtr x))
                         (rreplicate 2 (rreplicate 5 a0))
-                        (rreplicate 2 a0)) (FlipR $ treplicate0NR [1,1] 1.1))
+                        (rreplicate 2 a0)) (FlipR $ OR.constant [1,1] 1.1))
 
 testSin0Scan8 :: Assertion
 testSin0Scan8 = do
@@ -970,7 +969,7 @@ testSin0Scan8 = do
                                          (rreplicate 2
                                           $ sin (rsum $ rreplicate 7 a)))
                         (rreplicate 2 (rreplicate 5 (rreplicate0N [1,1,1] 2 * a0)))
-                        (rreplicate 3 a0)) (FlipR $ treplicate0NR [1,1,1] 1.1))
+                        (rreplicate 3 a0)) (FlipR $ OR.constant [1,1,1] 1.1))
 
 testSin0Scan8rev :: Assertion
 testSin0Scan8rev = do
@@ -2797,7 +2796,7 @@ testSin0ScanD1 = do
                          (V.fromList [voidFromSh @Double ZSR])
                          x0 (V.singleton $ DynamicRanked
                              $ (rrepl @Double @1 [1] 42)))
-          (FlipR $ treplicate0NR [1,1,1,1,1] 1.1))
+          (FlipR $ OR.constant [1,1,1,1,1] 1.1))
 
 testSin0ScanD2 :: Assertion
 testSin0ScanD2 = do
@@ -2807,7 +2806,7 @@ testSin0ScanD2 = do
                          (V.fromList [voidFromSh @Double ZSR])
                          x0 (V.singleton $ DynamicRanked
                              $ (rrepl @Double @1 [5] 42)))
-          (FlipR $ treplicate0NR [1,1,1,1,1] 1.1))
+          (FlipR $ OR.constant [1,1,1,1,1] 1.1))
 
 testSin0ScanD3 :: Assertion
 testSin0ScanD3 = do
@@ -2825,7 +2824,7 @@ testSin0ScanD3 = do
                             , DynamicRanked
                               $ (rrepl @Double @6
                                           [3, 4, 5, 6, 7, 8] 32) ]))
-                         (FlipR $ treplicate0NR [1,1,1,1,1] 1.1))
+                         (FlipR $ OR.constant [1,1,1,1,1] 1.1))
 
 testSin0ScanD4 :: Assertion
 testSin0ScanD4 = do
@@ -2837,7 +2836,7 @@ testSin0ScanD4 = do
                                         (1 :$: 1 :$: 1 :$: 1 :$: 1 :$: ZSR)])
                          (rreplicate0N [1,1,1,1,1] 2 * a0)
                          (V.singleton $ DynamicRanked
-                          $ rreplicate 3 a0)) (FlipR $ treplicate0NR [1,1,1,1,1] 1.1))
+                          $ rreplicate 3 a0)) (FlipR $ OR.constant [1,1,1,1,1] 1.1))
 
 testSin0ScanD5 :: Assertion
 testSin0ScanD5 = do
@@ -2859,7 +2858,7 @@ testSin0ScanD5 = do
                             , DynamicRanked
                               $ rreplicate 3 (rreplicate 8 (rreplicate 3 a0)) ]
                          ))
-          (FlipR $ treplicate0NR [1,1,1,1] 1.1))
+          (FlipR $ OR.constant [1,1,1,1] 1.1))
 
 testSin0ScanD51 :: Assertion
 testSin0ScanD51 = do
@@ -2883,7 +2882,7 @@ testSin0ScanD51 = do
                             , DynamicRanked
                               $ rreplicate 3 (rreplicate 8 (rreplicate 3 a0)) ]
                          ))
-          (FlipR $ treplicate0NR [1,1,1,1] 1.1))
+          (FlipR $ OR.constant [1,1,1,1] 1.1))
 
 testSin0ScanD51S :: Assertion
 testSin0ScanD51S = do
@@ -2916,7 +2915,7 @@ testSin0ScanD51S = do
                       , DynamicRanked $ rfromS
                         $ sreplicate @f @3 (sreplicate @f @8 (sreplicate @f @3 a0)) ]
                    )
-           in rfromS . f . sfromR) (FlipR $ treplicate0NR [1,1,1,1] 1.1))
+           in rfromS . f . sfromR) (FlipR $ OR.constant [1,1,1,1] 1.1))
 
 testSin0ScanD6 :: Assertion
 testSin0ScanD6 = do
@@ -2929,7 +2928,7 @@ testSin0ScanD6 = do
                          (V.fromList [voidFromSh @Double (1 :$: 1 :$: ZSR)])
                          (rreplicate 2 (rreplicate 1 a0))
                          (V.singleton $ DynamicRanked
-                          $ rreplicate 2 a0)) (FlipR $ treplicate0NR [1,1] 1.1))
+                          $ rreplicate 2 a0)) (FlipR $ OR.constant [1,1] 1.1))
 
 testSin0ScanD7 :: Assertion
 testSin0ScanD7 = do
@@ -2939,7 +2938,7 @@ testSin0ScanD7 = do
                          (V.fromList [voidFromSh @Double (1 :$: 1 :$: ZSR)])
                          (rreplicate 2 (rreplicate 5 a0))
                          (V.singleton $ DynamicRanked
-                          $ rreplicate 2 a0)) (FlipR $ treplicate0NR [1,1] 1.1))
+                          $ rreplicate 2 a0)) (FlipR $ OR.constant [1,1] 1.1))
 
 testSin0ScanD8 :: Assertion
 testSin0ScanD8 = do
@@ -2955,7 +2954,7 @@ testSin0ScanD8 = do
                        (rreplicate 2 (rreplicate 5
                                         (rreplicate0N [1,1,1] 2 * a0)))
                        (V.singleton $ DynamicRanked $ rreplicate 3 a0))
-                       (FlipR $ treplicate0NR [1,1,1] 1.1))
+                       (FlipR $ OR.constant [1,1,1] 1.1))
 
 testSin0ScanD8MapAccum :: Assertion
 testSin0ScanD8MapAccum = do
@@ -2988,7 +2987,7 @@ testSin0ScanD8MapAccum = do
                        $ rreplicate 2 (rreplicate 5
                                       (rreplicate0N [1,1,1] 2 * a0)))
                       (dmkHVector $ V.singleton $ DynamicRanked $ rreplicate 4 a0))
-       (FlipR $ treplicate0NR [1,1,1] 1.1))
+       (FlipR $ OR.constant [1,1,1] 1.1))
 
 testSin0ScanD8rev :: Assertion
 testSin0ScanD8rev = do

@@ -23,7 +23,6 @@ import qualified Data.Array.Nested.Internal.Ranked as Nested.Internal
 import HordeAd
 import HordeAd.Core.AstFreshId (resetVarCounter)
 import HordeAd.Core.TensorAst
-import HordeAd.Internal.BackendConcrete
 import HordeAd.Internal.BackendOX (ORArray)
 import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..))
 
