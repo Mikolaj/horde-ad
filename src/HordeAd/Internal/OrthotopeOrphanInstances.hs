@@ -10,7 +10,7 @@ module HordeAd.Internal.OrthotopeOrphanInstances
   , shapeT, shapeP, sizeT, sizeP
   , withShapeP, sameShape, matchingRank
   , lemShapeFromKnownShS, lemKnownNatRank
-    -- * Numeric instances for tensors
+    -- * Numeric classes and instances for tensors
   , IntegralF(..), RealFloatF(..), FlipR(..), FlipS(..)
   , -- * Assorted orphans and additions
     PermC, trustMeThisIsAPermutation
@@ -125,112 +125,7 @@ lemKnownNatRank ZSS = Dict
 lemKnownNatRank (_ :$$ sh) | Dict <- lemKnownNatRank sh = Dict
 
 
--- * Numeric instances for tensors
-
-liftVR
-  :: (Numeric r1, Numeric r, KnownNat n)
-  => (Vector r1 -> Vector r)
-  -> OR.Array n r1 -> OR.Array n r
-liftVR !op t@(RS.A (RG.A sh oit)) =
-  if product sh >= V.length (OI.values oit)
-  then RS.A $ RG.A sh $ oit {OI.values = op $ OI.values oit}
-  else OR.fromVector sh $ op $ OR.toVector t
-    -- avoids applying op to any vector element not in the tensor
-    -- (or at least ensures the right asymptotic behaviour, IDK)
-
--- Inspired by OI.zipWithT.
-liftVR2
-  :: (Numeric r, Show r, KnownNat n)
-  => (Vector r -> Vector r -> Vector r)
-  -> OR.Array n r -> OR.Array n r -> OR.Array n r
-liftVR2 !op t@(RS.A (RG.A sh oit@(OI.T sst _ vt)))
-            u@(RS.A (RG.A shu oiu@(OI.T _ _ vu)))
-        = assert (sh == shu `blame` (t, u)) $
-  case (V.length vt, V.length vu) of
-    (1, 1) ->
-      -- If both vectors have length 1 then it's a degenerate case.
-      RS.A $ RG.A sh $ OI.T sst 0 $ vt `op` vu
-    (1, _) ->
-      -- First vector has length 1, hmatrix should auto-expand to match second.
-      if product sh >= V.length vu
-      then RS.A $ RG.A sh $ oiu {OI.values = vt `op` vu}
-      else OR.fromVector sh $ vt `op` OR.toVector u
-    (_, 1) ->
-      -- Second vector has length 1, hmatrix should auto-expand to match first.
-      if product sh >= V.length vt
-      then RS.A $ RG.A sh $ oit {OI.values = vt `op` vu}
-      else OR.fromVector sh $ OR.toVector t `op` vu
-    (_, _) ->
-      if product sh >= V.length vt
-         && product sh >= V.length vu
-         && OI.strides oit == OI.strides oiu
-      then assert (OI.offset oit == OI.offset oiu && V.length vt == V.length vu)
-           $ RS.A $ RG.A sh $ oit {OI.values = vt `op` vu}
-      else OR.fromVector sh $ OR.toVector t `op` OR.toVector u
-
-liftVR2UnlessZero
-  :: (Num (Vector r), Numeric r, Show r, KnownNat n, Eq r)
-  => (Vector r -> Vector r -> Vector r)
-  -> OR.Array n r -> OR.Array n r -> OR.Array n r
-liftVR2UnlessZero op =
-  liftVR2 (\x y -> if y == 0 then 0 else op x y)
-
--- For the operations where hmatrix can't adapt/expand scalars.
-liftVR2NoAdapt
-  :: (Numeric r, Show r, KnownNat n)
-  => (Vector r -> Vector r -> Vector r)
-  -> OR.Array n r -> OR.Array n r -> OR.Array n r
-liftVR2NoAdapt !op t@(RS.A (RG.A sh oit@(OI.T sst _ vt)))
-                   u@(RS.A (RG.A shu oiu@(OI.T _ _ vu)))
-               = assert (sh == shu `blame` (t, u)) $
-  case (V.length vt, V.length vu) of
-    (1, 1) ->
-      -- If both vectors have length 1 then it's a degenerate case.
-      -- Whether hmatrix can auto-expand doesn't matter here.
-      RS.A $ RG.A sh $ OI.T sst 0 $ vt `op` vu
-    (1, _) ->
-      -- First vector has length 1, but hmatrix can't auto-expand.
-      if product sh >= V.length vu
-      then RS.A $ RG.A sh
-                $ oiu {OI.values = LA.konst (vt V.! 0) (V.length vu) `op` vu}
-      else let v = OR.toVector u
-           in OR.fromVector sh $ LA.konst (vt V.! 0) (V.length v) `op` v
-    (_, 1) ->
-      -- Second vector has length 1, but hmatrix can't auto-expand.
-      if product sh >= V.length vt
-      then RS.A $ RG.A sh
-                $ oit {OI.values = vt `op` LA.konst (vu V.! 0) (V.length vt)}
-      else let v = OR.toVector t
-           in OR.fromVector sh $ v `op` LA.konst (vu V.! 0) (V.length v)
-    (_, _) ->
-      -- We don't special-case tensors that have same non-zero offsets, etc.,
-      -- because the gains are small, correctness suspect (offsets can be
-      -- larger than the vector length!) and we often apply op to sliced off
-      -- elements, which defeats asymptotic guarantees.
-      if product sh >= V.length vt
-         && product sh >= V.length vu
-         && OI.strides oit == OI.strides oiu
-      then assert (OI.offset oit == OI.offset oiu && V.length vt == V.length vu)
-           $ RS.A $ RG.A sh $ oit {OI.values = vt `op` vu}
-      else OR.fromVector sh $ OR.toVector t `op` OR.toVector u
-        -- avoids applying op to any vector element not in the tensor
-        -- (or at least ensures the right asymptotic behaviour, IDK)
-
--- These constraints force @UndecidableInstances@.
-instance (Num (Vector r), KnownNat n, Numeric r, Show r)
-         => Num (OR.Array n r) where
-  -- TODO: more of an experiment than a real workaround:
-  {-# SPECIALIZE instance KnownNat n => Num (OR.Array n Double) #-}
-  (+) = liftVR2 (+)
-  (-) = liftVR2 (-)
-  (*) = liftVR2 (*)
-  negate = liftVR negate
-  abs = liftVR abs
-  signum = liftVR signum
-  fromInteger = case sameNat (Proxy @n) (Proxy @0) of
-    Just Refl -> OR.constant [] . fromInteger
-    Nothing -> error $ "OR.fromInteger: shape unknown at rank "
-                       ++ show (valueOf @n :: Int)
+-- * Numeric classes and instances for tensors
 
 class IntegralF a where
   quotF, remF :: a -> a -> a
@@ -238,11 +133,6 @@ class IntegralF a where
 instance IntegralF Int64 where
   quotF = quot
   remF = rem
-
-instance (Num (Vector r), Integral r, KnownNat n, Numeric r, Show r)
-         => IntegralF (OR.Array n r) where
-  quotF = liftVR2UnlessZero quot
-  remF = liftVR2UnlessZero rem
 
 instance (Nested.PrimElt r, Num (Vector r), Integral r, KnownNat n, Numeric r, Show r)
          => IntegralF (Nested.Ranked n r) where
@@ -253,36 +143,6 @@ instance (Nested.PrimElt r, Num (Vector r), Integral r, KnownShS sh, Numeric r, 
          => IntegralF (Nested.Shaped sh r) where
   quotF = Nested.Internal.arithPromoteShaped2 (Nested.Internal.Mixed.mliftPrim2 quot)
   remF = Nested.Internal.arithPromoteShaped2 (Nested.Internal.Mixed.mliftPrim2 rem)
-
-instance (Num (Vector r), KnownNat n, Numeric r, Show r, Fractional r)
-         => Fractional (OR.Array n r) where
-  (/) = liftVR2 (/)
-  recip = liftVR recip
-  fromRational = case sameNat (Proxy @n) (Proxy @0) of
-    Just Refl -> OR.constant [] . fromRational
-    Nothing -> error $ "OR.fromRational: shape unknown at rank "
-                       ++ show (valueOf @n :: Int)
-
-instance (Floating (Vector r), KnownNat n, Numeric r, Show r, Floating r)
-         => Floating (OR.Array n r) where
-  pi = OR.constant [] pi
-  exp = liftVR exp
-  log = liftVR log
-  sqrt = liftVR sqrt
-  (**) = liftVR2 (**)
-  logBase = liftVR2 logBase
-  sin = liftVR sin
-  cos = liftVR cos
-  tan = liftVR tan
-  asin = liftVR asin
-  acos = liftVR acos
-  atan = liftVR atan
-  sinh = liftVR sinh
-  cosh = liftVR cosh
-  tanh = liftVR tanh
-  asinh = liftVR asinh
-  acosh = liftVR acosh
-  atanh = liftVR atanh
 
 class Floating a => RealFloatF a where
   atan2F :: a -> a -> a
@@ -311,17 +171,9 @@ instance (Nested.Elt r, Show r, Show (Nested.Mixed (Mixed.Types.Replicate n Noth
   showsPrec d (FlipR u) =
     showString "Flip " . showParen True (showsPrec d u)
 
-instance (Eq r, Numeric r, KnownNat n) => Eq (FlipR OR.Array r n) where
-  (==) :: FlipR OR.Array r n -> FlipR OR.Array r n -> Bool
-  FlipR u == FlipR v = u == v
-
 instance (Eq r, Numeric r, KnownNat n, Eq (Nested.Mixed (Mixed.Types.Replicate n Nothing) r)) => Eq (FlipR Nested.Ranked r n) where
   (==) :: FlipR Nested.Ranked r n -> FlipR Nested.Ranked r n -> Bool
   FlipR u == FlipR v = u == v
-
-instance (Ord r, Numeric r, KnownNat n) => Ord (FlipR OR.Array r n) where
-  (<=) :: FlipR OR.Array r n -> FlipR OR.Array r n -> Bool
-  FlipR u <= FlipR v = u <= v
 
 instance (Ord r, Numeric r, KnownNat n, Eq (Nested.Mixed (Mixed.Types.Replicate n Nothing) r), Ord (Nested.Mixed (Mixed.Types.Replicate n Nothing) r)) => Ord (FlipR Nested.Ranked r n) where
   FlipR u <= FlipR v = u <= v
@@ -382,6 +234,30 @@ deriving instance Floating (f a b) => Floating (FlipS f b a)
 deriving instance RealFloatF (f a b) => RealFloatF (FlipS f b a)
 
 deriving instance NFData (f a b) => NFData (FlipS f b a)
+
+-- TODO: This one is for convenience in tests only. Overhaul tests and remove.
+instance (Num (Vector r), KnownNat n, Numeric r, Show r)
+         => Num (OR.Array n r) where
+  (+) = undefined
+  (-) = undefined
+  (*) = undefined
+  negate = OR.mapA negate
+  abs = undefined
+  signum = undefined
+  fromInteger = case sameNat (Proxy @n) (Proxy @0) of
+    Just Refl -> OR.constant [] . fromInteger
+    Nothing -> error $ "OR.fromInteger: shape unknown at rank "
+                       ++ show (valueOf @n :: Int)
+
+-- TODO: This one is for convenience in tests only. Overhaul tests and remove.
+instance (Num (Vector r), KnownNat n, Numeric r, Show r, Fractional r)
+         => Fractional (OR.Array n r) where
+  (/) = undefined
+  recip = undefined
+  fromRational = case sameNat (Proxy @n) (Proxy @0) of
+    Just Refl -> OR.constant [] . fromRational
+    Nothing -> error $ "OR.fromRational: shape unknown at rank "
+                       ++ show (valueOf @n :: Int)
 
 
 -- * Assorted orphans and additions
