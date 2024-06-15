@@ -118,8 +118,9 @@ instance (GoodScalar r, KnownShS sh, ShapedTensor shaped)
   dAdd ZeroS w = w
   dAdd v ZeroS = v
   dAdd v w = AddS v w
-  intOfShape _tsh c =  -- not needed for shaped, here, but ranked above need it
-    sconst $ fromIntegral c
+  intOfShape tsh c =  -- not needed for shaped, here, but ranked above needs it,
+                      -- so we have to use it for both
+    sconst $ Nested.sreplicateScal (sshape tsh) (fromIntegral c)
   sharePrimal = sshare
   shareDual d = case d of
     ZeroS -> d
