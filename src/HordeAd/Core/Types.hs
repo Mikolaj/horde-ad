@@ -15,7 +15,7 @@ module HordeAd.Core.Types
   , SNat, pattern SNat, withSNat, sNatValue, proxyFromSNat
     -- * Definitions for type-level list shapes
   , ShS(..), KnownShS(..), shapeT, shapeP, sizeT, sizeP
-  , sshapeKnown, slistKnown, sixKnown, knownShR, knownListR
+  , sshapeKnown, slistKnown, sixKnown, knownShR
   , withShapeP, sameShape, matchingRank
   , lemShapeFromKnownShS, lemKnownNatRank
   , Dict(..), PermC
@@ -58,10 +58,6 @@ knownNatSucc = Dict
 knownShR :: ShR n i -> Dict KnownNat n
 knownShR ZSR = Dict
 knownShR (_ :$: (l :: ShR m i)) | Dict <- knownShR l = knownNatSucc @m
-
-knownListR :: ListR n i -> Dict KnownNat n
-knownListR ZR = Dict
-knownListR (_ ::: (l :: ListR m i)) | Dict <- knownListR l = knownNatSucc @m
 
 -- * Types of types of tensors
 

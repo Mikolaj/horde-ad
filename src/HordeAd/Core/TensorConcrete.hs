@@ -344,13 +344,6 @@ instance (GoodScalar r, KnownNat n)
   toHVector = V.singleton . DynamicRanked
   fromHVector _aInit = fromHVectorR
 
-instance (GoodScalar r, KnownNat n)
-         => AdaptableHVector ORArray (FlipR OR.Array r n) where
-  toHVector = V.singleton . DynamicRanked . FlipR . Nested.rfromOrthotope SNat . runFlipR
-  fromHVector _aInit hv = case fromHVectorR hv of
-    Nothing -> Nothing
-    Just (FlipR t, hvRest) -> Just (FlipR $ Nested.rtoOrthotope t, hvRest)
-
 instance ForgetShape (ORArray r n) where
   type NoShape (ORArray r n) = ORArray r n
   forgetShape = id
@@ -364,14 +357,6 @@ instance (GoodScalar r, KnownShS sh)
          => ForgetShape (OSArray r sh) where
   type NoShape (OSArray r sh) = ORArray r (X.Rank sh)  -- key case
   forgetShape = FlipR . Nested.stoRanked . runFlipS
-
-{- TODO: still neeed?
-instance KnownShS sh
-         => ForgetShape (FlipS OS.Array r sh) where
-  type NoShape (FlipS OS.Array r sh) = ORArray r (X.Rank sh)  -- key case
-  forgetShape | Dict <- lemShapeFromKnownShS (Proxy @sh) =
-    FlipR . Data.Array.Convert.convert . runFlipS
--}
 
 instance (KnownShS sh, GoodScalar r, Fractional r, Random r, Num (Vector r))
          => RandomHVector (OSArray r sh) where
@@ -410,14 +395,8 @@ instance AdaptableHVector ORArray
 instance (RankedTensor ranked, ShapedTensor (ShapedOf ranked))
          => DualNumberValue (DynamicTensor (ADVal ranked)) where
   type DValue (DynamicTensor (ADVal ranked)) = DynamicTensor ORArray
---  type DValue (DynamicTensor (ADVal ranked)) = DynamicTensor (FlipR OR.Array)
   fromDValue = \case
-    DynamicRanked @_ @n t -> -- DynamicRanked $ constantADVal $ rconst $ runFlipR t
-      let sh = rshape t
-      in DynamicRanked @_ @n $ constantADVal $ rconst $ runFlipR t
-    DynamicShaped @_ @sh t | Dict <- lemShapeFromKnownShS (Proxy @sh) ->
---      DynamicShaped $ constantADVal $ sconst $ runFlipS t
-      DynamicShaped $ constantADVal $ sconst $ runFlipS t
-      -- TODO: this is probably very wrong
+    DynamicRanked t -> DynamicRanked $ constantADVal $ rconst $ runFlipR t
+    DynamicShaped t -> DynamicShaped $ constantADVal $ sconst $ runFlipS t
     DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
     DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
