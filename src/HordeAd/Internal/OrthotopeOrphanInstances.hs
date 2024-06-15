@@ -178,25 +178,38 @@ instance (Eq r, Numeric r, KnownNat n, Eq (Nested.Mixed (Mixed.Types.Replicate n
 instance (Ord r, Numeric r, KnownNat n, Eq (Nested.Mixed (Mixed.Types.Replicate n Nothing) r), Ord (Nested.Mixed (Mixed.Types.Replicate n Nothing) r)) => Ord (FlipR Nested.Ranked r n) where
   FlipR u <= FlipR v = u <= v
 
-deriving instance Num (f a b) => Num (FlipR f b a)
+-- TODO: This is only to ensure fromInteger crashes promptly if not rank 0.
+-- deriving instance Num (f a b) => Num (FlipR f b a)
+instance (Nested.NumElt r, Nested.PrimElt r, Nested.Elt r, KnownNat n, Numeric r, Show r)
+         => Num (FlipR Nested.Ranked r n) where
+  (FlipR t) + (FlipR u) = FlipR $ t + u
+  (FlipR t) - (FlipR u) = FlipR $ t - u
+  (FlipR t) * (FlipR u) = FlipR $ t * u
+  negate (FlipR t) = FlipR $ negate t
+  abs (FlipR t) = FlipR $ abs t
+  signum (FlipR t) = FlipR $ signum t
+  fromInteger = case sameNat (Proxy @n) (Proxy @0) of
+    Just Refl -> FlipR . Nested.rscalar . fromInteger
+    Nothing -> error $ "FlipR(Nested.Ranked).fromInteger: shape unknown at rank "
+                       ++ show (valueOf @n :: Int)
 
 deriving instance Enum (f a b) => Enum (FlipR f b a)
 
 deriving instance IntegralF (f a b) => IntegralF (FlipR f b a)
 
-deriving instance (Integral (f a b), Ord (FlipR f b a)) => Integral (FlipR f b a)
+deriving instance (Num (FlipR f b a), Integral (f a b), Ord (FlipR f b a)) => Integral (FlipR f b a)
 
-deriving instance Fractional (f a b) => Fractional (FlipR f b a)
+deriving instance (Num (FlipR f b a), Fractional (f a b)) => Fractional (FlipR f b a)
 
-deriving instance Floating (f a b) => Floating (FlipR f b a)
+deriving instance (Num (FlipR f b a), Floating (f a b)) => Floating (FlipR f b a)
 
-deriving instance (Real (f a b), Ord (FlipR f b a)) => Real (FlipR f b a)
+deriving instance (Num (FlipR f b a), Real (f a b), Ord (FlipR f b a)) => Real (FlipR f b a)
 
-deriving instance (RealFrac (f a b), Ord (FlipR f b a)) => RealFrac (FlipR f b a)
+deriving instance (Num (FlipR f b a), RealFrac (f a b), Ord (FlipR f b a)) => RealFrac (FlipR f b a)
 
-deriving instance RealFloatF (f a b) => RealFloatF (FlipR f b a)
+deriving instance (Num (FlipR f b a), RealFloatF (f a b)) => RealFloatF (FlipR f b a)
 
-deriving instance (RealFloat (f a b), Ord (FlipR f b a)) => RealFloat (FlipR f b a)
+deriving instance (Num (FlipR f b a), RealFloat (f a b), Ord (FlipR f b a)) => RealFloat (FlipR f b a)
 
 deriving instance NFData (f a b) => NFData (FlipR f b a)
 
@@ -247,6 +260,20 @@ instance (Num (Vector r), KnownNat n, Numeric r, Show r)
   fromInteger = case sameNat (Proxy @n) (Proxy @0) of
     Just Refl -> OR.constant [] . fromInteger
     Nothing -> error $ "OR.fromInteger: shape unknown at rank "
+                       ++ show (valueOf @n :: Int)
+
+-- TODO: This one is for convenience in tests only. Overhaul tests and remove.
+instance (Num (Vector r), KnownNat n, Numeric r, Show r)
+         => Num (FlipR OR.Array r n) where
+  (FlipR t) + (FlipR u) = FlipR $ t + u
+  (FlipR t) - (FlipR u) = FlipR $ t - u
+  (FlipR t) * (FlipR u) = FlipR $ t * u
+  negate (FlipR t) = FlipR $ negate t
+  abs (FlipR t) = FlipR $ abs t
+  signum (FlipR t) = FlipR $ signum t
+  fromInteger = case sameNat (Proxy @n) (Proxy @0) of
+    Just Refl -> FlipR . OR.scalar . fromInteger
+    Nothing -> error $ "FlipR(OR.Array).fromInteger: shape unknown at rank "
                        ++ show (valueOf @n :: Int)
 
 -- TODO: This one is for convenience in tests only. Overhaul tests and remove.
