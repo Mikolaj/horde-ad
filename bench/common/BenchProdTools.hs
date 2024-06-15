@@ -27,7 +27,6 @@ import           Unsafe.Coerce (unsafeCoerce)
 import qualified Data.Array.Nested as Nested
 
 import HordeAd
-import HordeAd.Internal.BackendConcrete
 import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..))
 
 bgroup100, bgroup1000, bgroup1e4, bgroup1e5, bgroup1e6, bgroup1e7, bgroup5e7 :: [Double] -> Benchmark
@@ -55,7 +54,7 @@ envProd :: r ~ Double
 envProd k f allxs =
   env (return $!
          let l = take (round k) allxs
-             list = map (FlipR . tscalarR) l
+             list = map (FlipR . OR.scalar) l
              vec :: Data.Vector.Vector (FlipR OR.Array Double 0)
              vec = V.fromList list
          in (l, list, vec)) f
