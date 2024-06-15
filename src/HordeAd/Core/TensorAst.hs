@@ -347,14 +347,12 @@ instance (GoodScalar r, KnownShS sh, ShapedTensor (AstShaped s), AstSpan s)
 instance (GoodScalar r, KnownShS sh)
          => DualNumberValue (AstShaped PrimalSpan r sh) where
   type DValue (AstShaped PrimalSpan r sh) = OSArray r sh
-  fromDValue t | Dict <- lemShapeFromKnownShS (Proxy @sh) = fromPrimalS $ AstConstS $ runFlipS t
-      -- TODO: this is probably very wrong
+  fromDValue t = fromPrimalS $ AstConstS $ runFlipS t
 
 instance (GoodScalar r, KnownShS sh)
          => TermValue (AstShaped FullSpan r sh) where
   type Value (AstShaped FullSpan r sh) = OSArray r sh
-  fromValue t | Dict <- lemShapeFromKnownShS (Proxy @sh) = fromPrimalS $ AstConstS $ runFlipS t
-      -- TODO: this is probably very wrong
+  fromValue t = fromPrimalS $ AstConstS $ runFlipS t
 
 instance AstSpan s => ShapedTensor (AstShaped s) where
   slet = astLetFunS

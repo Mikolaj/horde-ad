@@ -155,7 +155,7 @@ class ( Num (IntOf ranked), IntegralF (IntOf ranked), CRanked ranked Num
   rfromList :: (GoodScalar r, KnownNat n)
             => NonEmpty (ranked r n) -> ranked r (1 + n)
   rfromList = rfromVector . V.fromList . NonEmpty.toList
-    -- goring through strict vectors, because laziness is risky with impurity
+    -- going through strict vectors, because laziness is risky with impurity
   rfromList0N :: (GoodScalar r, KnownNat n)
               => ShapeInt n -> [ranked r 0] -> ranked r n
   rfromList0N sh = rfromVector0N sh . V.fromList
@@ -1207,7 +1207,7 @@ type ADReadyR ranked = ADReadyBoth ranked (ShapedOf ranked)
 type ADReadyS shaped = ADReadyBoth (RankedOf shaped) shaped
 
 -- Here is in other places reflexive closure of type equalities is created
--- manually (and not for all equalities) due to #23333.
+-- manually (and not for all equalities) due to #23333. TODO: fixed in GHC; remove.
 type ADReadyBoth ranked shaped =
   ( shaped ~ ShapedOf ranked, ranked ~ RankedOf shaped
   , ShapedOf shaped ~ shaped, RankedOf ranked ~ ranked

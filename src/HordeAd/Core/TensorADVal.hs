@@ -277,8 +277,7 @@ instance ( ADReadyS shaped, KnownShS sh, GoodScalar r
 instance (ADReadyS shaped, KnownShS sh, GoodScalar r)
          => DualNumberValue (ADVal shaped r sh) where
   type DValue (ADVal shaped r sh) = OSArray r sh   -- ! not Value(shaped)
-  fromDValue t | Dict <- lemShapeFromKnownShS (Proxy @sh) = constantADVal $ sconst $ runFlipS t
-      -- TODO: this is probably very wrong
+  fromDValue t = constantADVal $ sconst $ runFlipS t
 
 -- Note that these instances don't do vectorization. To enable it,
 -- use the Ast instance and only then interpret in ADVal.
