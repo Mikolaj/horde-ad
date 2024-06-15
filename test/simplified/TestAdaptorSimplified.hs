@@ -15,12 +15,15 @@ import qualified Data.IntMap.Strict as IM
 import           Data.List (foldl1')
 import qualified Data.List.NonEmpty as NonEmpty
 import           Foreign.C (CInt)
+import           GHC.Exts (IsList (..))
 import           GHC.TypeLits (KnownNat)
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
 import qualified Data.Array.Mixed.Shape as X
 import qualified Data.Array.Nested as Nested
+import qualified Data.Array.Nested.Internal.Ranked as Nested.Internal
+import qualified Data.Array.Nested.Internal.Shaped as Nested.Internal
 
 import HordeAd
 import HordeAd.Core.AstEnv
@@ -187,7 +190,7 @@ testZeroZ =
 testZeroS :: Assertion
 testZeroS =
   assertEqualUpToEpsilon 1e-9
-    (sconst $ OS.fromList @'[0, 2, 4, 0, 1] [])
+    (sconst $ Nested.Internal.sfromListPrimLinear @_ @'[0, 2, 4, 0, 1] knownShS [])
     (crev (let f :: ADVal OSArray Double '[0, 2, 4, 0, 1]
                  -> ADVal OSArray Double '[0, 2, 4, 0, 1]
                f = const (srepl 3)
@@ -196,7 +199,7 @@ testZeroS =
 testCFwdZeroS :: Assertion
 testCFwdZeroS =
   assertEqualUpToEpsilon 1e-9
-    (sconst $ OS.fromList @'[0, 2, 4, 0, 1] [])
+    (sconst $ Nested.Internal.sfromListPrimLinear @_ @'[0, 2, 4, 0, 1] knownShS [])
     (cfwd (let f :: ADVal OSArray Double '[0, 2, 4, 0, 1]
                  -> ADVal OSArray Double '[0, 2, 4, 0, 1]
                f = const (srepl 3)
@@ -205,7 +208,7 @@ testCFwdZeroS =
 testFwdZeroS :: Assertion
 testFwdZeroS =
   assertEqualUpToEpsilon 1e-9
-    (sconst $ OS.fromList @'[0, 2, 4, 0, 1] [])
+    (sconst $ Nested.Internal.sfromListPrimLinear @_ @'[0, 2, 4, 0, 1] knownShS [])
     (fwd (let f :: AstShaped FullSpan Double '[0, 2, 4, 0, 1]
                 -> AstShaped FullSpan Double '[0, 2, 4, 0, 1]
               f = const (srepl 3)
@@ -214,7 +217,7 @@ testFwdZeroS =
 testZero2S :: Assertion
 testZero2S =
   assertEqualUpToEpsilon 1e-9
-    (sconst $ OS.fromList @'[] [1])
+    (sconst $ Nested.Internal.sfromListPrimLinear @_ @'[] knownShS [1])
     (crev @Double @'[] @OSArray
           (let f :: a -> a
                f = id
@@ -223,7 +226,7 @@ testZero2S =
 testCFwdZero2S :: Assertion
 testCFwdZero2S =
   assertEqualUpToEpsilon 1e-9
-    (sconst $ OS.fromList @'[] [41])
+    (sconst $ Nested.Internal.sfromListPrimLinear @_ @'[] knownShS [41])
     (cfwd @Double @'[] @OSArray
           (let f :: a -> a
                f = id
@@ -232,7 +235,7 @@ testCFwdZero2S =
 testFwdZero2S :: Assertion
 testFwdZero2S =
   assertEqualUpToEpsilon 1e-9
-    (sconst $ OS.fromList @'[] [41])
+    (sconst $ Nested.Internal.sfromListPrimLinear @_ @'[] knownShS [41])
     (fwd @(AstShaped FullSpan Double '[])
           (let f :: a -> a
                f = id
@@ -241,25 +244,25 @@ testFwdZero2S =
 testZero3S :: Assertion
 testZero3S =
   assertEqualUpToEpsilon 1e-9
-    (sconst $ OS.fromList @'[33, 2] (replicate 66 3.6174114266850617))
+    (sconst $ Nested.Internal.sfromListPrimLinear @_ @'[33, 2] knownShS (replicate 66 3.6174114266850617))
     (crev (\x -> barF @(ADVal OSArray Double '[33, 2]) (x, x)) (srepl 1))
 
 testCFwdZero3S :: Assertion
 testCFwdZero3S =
   assertEqualUpToEpsilon 1e-9
-    (sconst $ OS.fromList @'[33, 2] (replicate 66 3.9791525693535674))
+    (sconst $ Nested.Internal.sfromListPrimLinear @_ @'[33, 2] knownShS (replicate 66 3.9791525693535674))
     (cfwd (\x -> barF @(ADVal OSArray Double '[33, 2]) (x, x)) (srepl 1) (srepl 1.1))
 
 testFwdZero3S :: Assertion
 testFwdZero3S =
   assertEqualUpToEpsilon 1e-9
-    (sconst $ OS.fromList @'[33, 2] (replicate 66 3.9791525693535674))
+    (sconst $ Nested.Internal.sfromListPrimLinear @_ @'[33, 2] knownShS (replicate 66 3.9791525693535674))
     (fwd (\x -> barF @(AstShaped FullSpan Double '[33, 2]) (x, x)) (srepl 1) (srepl 1.1))
 
 testZero4S :: Assertion
 testZero4S =
   assertEqualUpToEpsilon 1e-9
-    (sconst $ OS.fromList @'[] [0])
+    (sconst $ Nested.Internal.sfromListPrimLinear @_ @'[] knownShS [0])
     (rev @Double @'[] @(AstShaped FullSpan) @_ @(AstShaped FullSpan Double '[])
          (let f = const (srepl 3)
           in f) (srepl 42))
@@ -267,7 +270,7 @@ testZero4S =
 testZero5S :: Assertion
 testZero5S =
   assertEqualUpToEpsilon 1e-9
-    (sconst $ OS.fromList @'[44] (replicate 44 1))
+    (sconst $ Nested.Internal.sfromListPrimLinear @_ @'[44] knownShS (replicate 44 1))
     (rev (let f :: a -> a
               f = id
           in f @(AstShaped FullSpan Double '[44])) (srepl 42))
@@ -275,14 +278,14 @@ testZero5S =
 testZero6S :: Assertion
 testZero6S =
   assertEqualUpToEpsilon 1e-9
-    (sconst $ OS.fromList @'[2, 2, 2, 2, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 2, 2, 2, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,11,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,111,1,1,1,1, 2, 2, 2, 2] (replicate (product ([2, 2, 2, 2, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 2, 2, 2, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,11,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,111,1,1,1,1, 2, 2, 2, 2] :: [Int])) 3.6174114266850617))
+    (sconst $ Nested.Internal.sfromListPrimLinear @_ @'[2, 2, 2, 2, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 2, 2, 2, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,11,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,111,1,1,1,1, 2, 2, 2, 2] knownShS (replicate (product ([2, 2, 2, 2, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 2, 2, 2, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,11,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,111,1,1,1,1, 2, 2, 2, 2] :: [Int])) 3.6174114266850617))
     (rev @Double @'[2, 2, 2, 2, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 2, 2, 2, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,11,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,111,1,1,1,1, 2, 2, 2, 2]
          @(AstShaped FullSpan) (\x -> barF (x, x)) (srepl 1))
 
 testZero7S :: Assertion
 testZero7S =
   assertEqualUpToEpsilon 1e-10
-    (sconst $ OS.fromList @'[] [0])
+    (sconst $ Nested.Internal.sfromListPrimLinear @_ @'[] knownShS [0])
     (rev (const 3 :: AstShaped FullSpan Double '[] -> AstRanked FullSpan Double 0) (srepl 42))
 
 testZero8 :: Assertion
@@ -304,7 +307,7 @@ testZero9S =
 testCFwdZero9S :: Assertion
 testCFwdZero9S =
   assertEqualUpToEpsilon 1e-9
-    (sconst $ OS.fromList @'[0, 2, 4, 0, 1] [])
+    (sconst $ Nested.Internal.sfromListPrimLinear @_ @'[0, 2, 4, 0, 1] knownShS [])
     (cfwd (let f :: ADVal ORArray Double 5
                  -> ADVal OSArray Double '[0, 2, 4, 0, 1]
                f = const (srepl 3)
@@ -314,7 +317,7 @@ testCFwdZero9S =
 testFwdZero9S :: Assertion
 testFwdZero9S =
   assertEqualUpToEpsilon 1e-9
-    (sconst $ OS.fromList @'[0, 2, 4, 0, 1] [])
+    (sconst $ Nested.Internal.sfromListPrimLinear @_ @'[0, 2, 4, 0, 1] knownShS [])
     (fwd (let f :: AstRanked FullSpan Double 5
                 -> AstShaped FullSpan Double '[0, 2, 4, 0, 1]
               f = const (srepl 3)
@@ -325,7 +328,7 @@ testZero10S :: Assertion
 testZero10S =
   assertEqualUpToEpsilon 1e-9
     ( rfromList0N [0, 2, 4, 0, 1] []
-    , sconst $ OS.fromList @'[0, 2, 4, 0, 1] [] )
+    , sconst $ Nested.Internal.sfromListPrimLinear @_ @'[0, 2, 4, 0, 1] knownShS [] )
     (crev (let f = const (srepl 3) . snd
            in f :: ( ADVal ORArray Double 5
                    , ADVal OSArray Double '[0, 2, 4, 0, 1] )
@@ -335,34 +338,34 @@ testZero10S =
 testCFwdZero10S :: Assertion
 testCFwdZero10S =
   assertEqualUpToEpsilon 1e-9
-    (sconst $ OS.fromList @'[0, 2, 4, 0, 1] [])
+    (sconst $ Nested.Internal.sfromListPrimLinear @_ @'[0, 2, 4, 0, 1] knownShS [])
     (cfwd (let f = const (srepl 3) . snd
            in f :: ( ADVal ORArray Double 5
                    , ADVal OSArray Double '[0, 2, 4, 0, 1] )
                    -> ADVal OSArray Double '[0, 2, 4, 0, 1])
           ( rfromList0N [0, 2, 4, 0, 1] []
-          , sconst $ OS.fromList @'[0, 2, 4, 0, 1] [] )
+          , sconst $ Nested.Internal.sfromListPrimLinear @_ @'[0, 2, 4, 0, 1] knownShS [] )
           ( rfromList0N [0, 2, 4, 0, 1] []
-          , sconst $ OS.fromList @'[0, 2, 4, 0, 1] [] ))
+          , sconst $ Nested.Internal.sfromListPrimLinear @_ @'[0, 2, 4, 0, 1] knownShS [] ))
 
 testFwdZero10S :: Assertion
 testFwdZero10S =
   assertEqualUpToEpsilon 1e-9
-    (sconst $ OS.fromList @'[0, 2, 4, 0, 1] [])
+    (sconst $ Nested.Internal.sfromListPrimLinear @_ @'[0, 2, 4, 0, 1] knownShS [])
     (fwd  (let f = const (srepl 3) . snd
            in f :: ( AstRanked FullSpan Double 5
                    , AstShaped FullSpan Double '[0, 2, 4, 0, 1] )
                    -> AstShaped FullSpan Double '[0, 2, 4, 0, 1])
           ( rfromList0N [0, 2, 4, 0, 1] []
-          , sconst $ OS.fromList @'[0, 2, 4, 0, 1] [] )
+          , sconst $ Nested.Internal.sfromListPrimLinear @_ @'[0, 2, 4, 0, 1] knownShS [] )
           ( rfromList0N [0, 2, 4, 0, 1] []
-          , sconst $ OS.fromList @'[0, 2, 4, 0, 1] [] ))
+          , sconst $ Nested.Internal.sfromListPrimLinear @_ @'[0, 2, 4, 0, 1] knownShS [] ))
 
 testZero11S :: Assertion
 testZero11S =
   assertEqualUpToEpsilon 1e-9
     ( rfromList0N [0, 2, 4, 0, 1] []
-    , sconst $ OS.fromList @'[0, 2, 4, 0, 1] [] )
+    , sconst $ Nested.Internal.sfromListPrimLinear @_ @'[0, 2, 4, 0, 1] knownShS [] )
     (crev (let f = const (rreplicate0N [0, 2, 4, 0, 1] 3) . snd
            in f :: ( ADVal ORArray Double 5
                    , ADVal OSArray Double '[0, 2, 4, 0, 1] )
@@ -378,9 +381,9 @@ testCFwdZero11S =
                    , ADVal OSArray Double '[0, 2, 4, 0, 1] )
                    -> ADVal ORArray Double 5)
           ( rfromList0N [0, 2, 4, 0, 1] []
-          , sconst $ OS.fromList @'[0, 2, 4, 0, 1] [] )
+          , sconst $ Nested.Internal.sfromListPrimLinear @_ @'[0, 2, 4, 0, 1] knownShS [] )
           ( rfromList0N [0, 2, 4, 0, 1] []
-          , sconst $ OS.fromList @'[0, 2, 4, 0, 1] [] ))
+          , sconst $ Nested.Internal.sfromListPrimLinear @_ @'[0, 2, 4, 0, 1] knownShS [] ))
 
 testFwdZero11S :: Assertion
 testFwdZero11S =
@@ -391,9 +394,9 @@ testFwdZero11S =
                    , AstShaped FullSpan Double '[0, 2, 4, 0, 1] )
                    -> AstRanked FullSpan Double 5)
           ( rfromList0N [0, 2, 4, 0, 1] []
-          , sconst $ OS.fromList @'[0, 2, 4, 0, 1] [] )
+          , sconst $ Nested.Internal.sfromListPrimLinear @_ @'[0, 2, 4, 0, 1] knownShS [] )
           ( rfromList0N [0, 2, 4, 0, 1] []
-          , sconst $ OS.fromList @'[0, 2, 4, 0, 1] [] ))
+          , sconst $ Nested.Internal.sfromListPrimLinear @_ @'[0, 2, 4, 0, 1] knownShS [] ))
 
 testPiecewiseLinearPP :: Assertion
 testPiecewiseLinearPP = do
@@ -988,7 +991,7 @@ testReluSimplerPP4S2 = do
       -- This is tweaked compared to above to avoid test artifacts coming
       -- from counter resets, which are inherently unsafe (cse, etc.).
       reluT2 (t, r) = reluS (t * sreplicate0N r)
-  let (artifactRev, _deltas) = revArtifactAdapt True reluT2 (sconst $ OS.constant 128, srepl 42)
+  let (artifactRev, _deltas) = revArtifactAdapt True reluT2 (srepl 128, srepl 42)
   printArtifactPretty renames artifactRev
     @?= "\\m12 m1 x2 -> let m6 = sreshape (sreplicate x2) ; m7 = m1 * m6 ; m11 = sgather (sreplicate (sconst @[2] (sfromListLinear [2] [0.0,1.0]))) (\\[i8, i9] -> [i8, ifF (m7 !$ [i8, i9] <=. 0.0) 0 1]) ; m13 = m11 * m12 in [m6 * m13, ssum (sreshape (m1 * m13))]"
   printArtifactPrimalPretty renames artifactRev
@@ -1005,9 +1008,9 @@ testReluSimpler4S = do
       reluT2 (t, r) = reluS (t * sreplicate0N r)
   assertEqualUpToEpsilon 1e-10
     ( sconst
-      $ OS.fromList @'[3, 4] [7.0,0.0,0.0,7.0,7.0,7.0,7.0,7.0,0.0,0.0,7.0,7.0]
+      $ Nested.Internal.sfromListPrimLinear @_ @'[3, 4] knownShS [7.0,0.0,0.0,7.0,7.0,7.0,7.0,7.0,0.0,0.0,7.0,7.0]
     , srepl 57.1 )
-    (rev @Double @'[3, 4] reluT2 (sconst $ OS.fromList @'[3, 4] [1.1, -2.2, 0, 4.4, 5.5, 6.6, 7.7, 8.8, -9.9, -10, 11, 12], srepl 7))
+    (rev @Double @'[3, 4] reluT2 (sconst $ Nested.Internal.sfromListPrimLinear @_ @'[3, 4] knownShS [1.1, -2.2, 0, 4.4, 5.5, 6.6, 7.7, 8.8, -9.9, -10, 11, 12], srepl 7))
 
 reluMax :: forall ranked n r. (ADReady ranked, GoodScalar r, KnownNat n)
         => ranked r n -> ranked r n
@@ -1193,8 +1196,8 @@ testMatmul2PPS = do
       (artifactRev, _) =
         revArtifactAdapt @Double @[2, 4] @(AstShaped FullSpan)
                  True (uncurry smatmul2)
-                 ( sconst $ OS.fromList @'[2,3] [1 :: Double .. 6]
-                 , sconst $ OS.fromList @'[3,4] [7 .. 18] )
+                 ( sconst $ Nested.Internal.sfromListPrimLinear @_ @'[2,3] knownShS [1 :: Double .. 6]
+                 , sconst $ Nested.Internal.sfromListPrimLinear @_ @'[3,4] knownShS [7 .. 18] )
   printArtifactPretty renames artifactRev
     @?= "\\m3 m1 m2 -> [ssum (stranspose (stranspose (sreplicate m2) * sreplicate m3)), ssum (stranspose (stranspose (sreplicate m1) * sreplicate m3))]"
   printArtifactPrimalPretty renames artifactRev
@@ -1529,7 +1532,7 @@ testBarReluMax3CFwd =
   assertEqualUpToEpsilon1 1e-10
     (OR.fromList [2, 1, 2] [0.45309153191767404,0.9060427799711201,-2.8186426018387007,40.02498898648793])
     (cfwd @Double @3 barReluMax
-                     (rconst $ OR.fromList [2, 1, 2] [1.1, 2, 3, 4.2])
+                     (rconst $ Nested.Internal.rfromListPrimLinear (fromList [2, 1, 2]) [1.1, 2, 3, 4.2])
                      (ringestData [2, 1, 2] [0.1, 0.2, 0.3, 0.42]))
 
 reluMaxS :: forall shaped sh r.
@@ -1548,20 +1551,20 @@ barReluMaxS x = reluMaxS $ barF (x, reluMaxS x)
 testBarReluMax3FwdS :: Assertion
 testBarReluMax3FwdS =
   assertEqualUpToEpsilon 1e-10
-    (sconst $ OS.fromList @'[2, 1, 2] [0.45309153191767404,0.9060427799711201,-2.8186426018387007,40.02498898648793])
+    (sconst $ Nested.Internal.sfromListPrimLinear @_ @'[2, 1, 2] knownShS [0.45309153191767404,0.9060427799711201,-2.8186426018387007,40.02498898648793])
     (fwd @(AstShaped FullSpan Double '[2, 1, 2])
          barReluMaxS
-         (sconst $ OS.fromList @'[2, 1, 2] [1.1, 2, 3, 4.2])
-         (sconst $ OS.fromList @'[2, 1, 2] [0.1, 0.2, 0.3, 0.42]))
+         (sconst $ Nested.Internal.sfromListPrimLinear @_ @'[2, 1, 2] knownShS [1.1, 2, 3, 4.2])
+         (sconst $ Nested.Internal.sfromListPrimLinear @_ @'[2, 1, 2] knownShS [0.1, 0.2, 0.3, 0.42]))
 
 testBarReluMax3FwdFrom :: Assertion
 testBarReluMax3FwdFrom =
   assertEqualUpToEpsilon 1e-10
-    (sconst $ OS.fromList @'[2, 1, 2] [0.45309153191767404,0.9060427799711201,-2.8186426018387007,40.02498898648793])
+    (sconst $ Nested.Internal.sfromListPrimLinear @_ @'[2, 1, 2] knownShS [0.45309153191767404,0.9060427799711201,-2.8186426018387007,40.02498898648793])
     (fwd @(AstShaped FullSpan Double '[2, 1, 2])
          (sfromR . barReluMax . rfromS)
-         (sconst $ OS.fromList @'[2, 1, 2] [1.1, 2, 3, 4.2])
-         (sconst $ OS.fromList @'[2, 1, 2] [0.1, 0.2, 0.3, 0.42]))
+         (sconst $ Nested.Internal.sfromListPrimLinear @_ @'[2, 1, 2] knownShS [1.1, 2, 3, 4.2])
+         (sconst $ Nested.Internal.sfromListPrimLinear @_ @'[2, 1, 2] knownShS [0.1, 0.2, 0.3, 0.42]))
 
 testBarReluMax3FwdR :: Assertion
 testBarReluMax3FwdR =
@@ -1879,7 +1882,7 @@ emptyArgs t =
        -- these two fail and rightly so; TODO: make them fail earlier
  where
   emptyTensor :: ranked r 1
-  emptyTensor = rconst $ OR.fromList [0] []
+  emptyTensor = rconst $ Nested.Internal.rfromListPrimLinear (fromList [0]) []
 
 testEmptyArgs0 :: Assertion
 testEmptyArgs0 =

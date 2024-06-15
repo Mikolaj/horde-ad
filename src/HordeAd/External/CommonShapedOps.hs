@@ -24,6 +24,7 @@ import           GHC.TypeLits
 import           Unsafe.Coerce (unsafeCoerce)
 
 import qualified Data.Array.Mixed.Shape as X
+import qualified Data.Array.Nested.Internal.Shaped as Nested.Internal
 
 import           HordeAd.Core.TensorClass
 import           HordeAd.Core.Types
@@ -66,7 +67,7 @@ sfromIndex1 :: forall r sh shaped.
                (ADReadyS shaped, GoodScalar r, KnownNat (X.Rank sh))
             => IndexSh shaped sh -> shaped r '[X.Rank sh]
 sfromIndex1 = case sameNat (Proxy @(X.Rank sh)) (Proxy @0) of
-  Just Refl -> const $ sconst $ OS.fromList []
+  Just Refl -> const $ sconst $ Nested.Internal.sfromListPrimLinear knownShS []
   _ -> sfromIntegral . sconstant . sfromR . rfromList
        . NonEmpty.fromList . ShapedList.indexToList
 

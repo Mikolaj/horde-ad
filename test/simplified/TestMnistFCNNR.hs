@@ -13,6 +13,7 @@ import qualified Data.EnumMap.Strict as EM
 import qualified Data.IntMap.Strict as IM
 import           Data.List.Index (imap)
 import qualified Data.Vector.Generic as V
+import           GHC.Exts (IsList (..))
 import           GHC.TypeLits (SomeNat (..), someNatVal)
 import qualified Numeric.LinearAlgebra as LA
 import           System.IO (hPutStrLn, stderr)
@@ -213,9 +214,9 @@ mnistTestCase1VTI prefix epochs maxBatches widthHidden widthHidden2
                              $ zip vars $ V.toList varInputs
                        envMnist =
                          extendEnvR varGlyph
-                           (rconst $ OR.fromVector [sizeMnistGlyphInt] glyph)
+                           (rconst $ Nested.rfromVector (fromList [sizeMnistGlyphInt]) glyph)
                          $ extendEnvR varLabel
-                             (rconst $ OR.fromVector [sizeMnistLabelInt] label)
+                             (rconst $ Nested.rfromVector (fromList [sizeMnistLabelInt]) label)
                              env
                    in interpretAst envMnist ast
                  res = fst $ sgd gamma f chunk hVector
@@ -525,9 +526,9 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
                              $ zip vars $ V.toList varInputs
                        envMnist =
                          extendEnvR varGlyph
-                           (rconst $ OR.fromVector [sizeMnistGlyphInt] glyph)
+                           (rconst $ Nested.rfromVector (fromList [sizeMnistGlyphInt]) glyph)
                          $ extendEnvR varLabel
-                             (rconst $ OR.fromVector [sizeMnistLabelInt] label)
+                             (rconst $ Nested.rfromVector (fromList [sizeMnistLabelInt]) label)
                              env
                    in interpretAst envMnist ast
                  res = fst $ sgd gamma f chunk hVector

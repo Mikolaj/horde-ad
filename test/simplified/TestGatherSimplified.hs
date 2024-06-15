@@ -9,8 +9,12 @@ import Prelude
 
 import qualified Data.Array.RankedS as OR
 import           Data.Int (Int64)
+import           GHC.Exts (IsList (..))
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
+
+import qualified Data.Array.Nested as Nested
+import qualified Data.Array.Nested.Internal.Ranked as Nested.Internal
 
 import HordeAd
 import HordeAd.Core.AstFreshId (resetVarCounter)
@@ -342,7 +346,7 @@ testGatherSimpPP23 = do
 gatherTranspose33 :: forall ranked r. (ADReady ranked, GoodScalar r, RealFloat r)
                   => ranked r 10 -> ranked r 2
 gatherTranspose33 t =
-  rmatmul2 (rreshape [6, 8] (rconst $ runFlipR t48OR))
+  rmatmul2 (rreshape [6, 8] (rconst $ Nested.rfromOrthotope SNat $ runFlipR t48OR))
     (rtr
      $ rreshape @ranked @r @4 [16, 8]
      $ rtranspose [0, 1, 2]
@@ -426,7 +430,7 @@ testGatherTransposeBuild335 =
     (OR.fromList [2, 1] [1,1])
     (rev' @Double @3
           (\t ->
-             rreplicate 2 t * rtranspose [2,0,1] (rreplicate 2 (rreplicate 1 (rfromIntegral @_ @Int64 (rconst $ OR.fromList [2] [0, 1])))))
+             rreplicate 2 t * rtranspose [2,0,1] (rreplicate 2 (rreplicate 1 (rfromIntegral @_ @Int64 (rconst $ Nested.Internal.rfromListPrimLinear (fromList [2]) [0, 1])))))
          (FlipR $ OR.fromList [2, 1] [1,2]))
 
 testGatherTransposeBuild336 :: Assertion
@@ -450,7 +454,7 @@ testGatherSimpPP33 = do
   length (show t1) @?= 555
   length (show (simplifyInlineAst @Float t1)) @?= 555
   resetVarCounter
-  let !t2 = (\t -> rmatmul2 (rreshape [6, 8] (rconst $ runFlipR t48OR))
+  let !t2 = (\t -> rmatmul2 (rreshape [6, 8] (rconst $ Nested.rfromOrthotope SNat $ runFlipR t48OR))
                             (rreshape @(AstRanked PrimalSpan) @Float @10 [8, 16] t))
             $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (AstVarName . intToAstVarId $ 100000000)
   length (show t2) @?= 474
@@ -466,7 +470,7 @@ testGatherSimpPP34 = do
   length (show (simplifyInlineAst @Float t1)) @?= 878
   resetVarCounter
   let !t2 = (\t -> rbuild1 4 (\i ->
-              (\t' -> rmatmul2 (rreshape [6, 8] (rconst $ runFlipR t48OR))
+              (\t' -> rmatmul2 (rreshape [6, 8] (rconst $ Nested.rfromOrthotope SNat $ runFlipR t48OR))
                                (rreshape @(AstRanked PrimalSpan) @Float @10 [8, 16] t'))
                 (t * rreplicate0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (rfromIndex0 i))))
             $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (AstVarName . intToAstVarId $ 100000000)

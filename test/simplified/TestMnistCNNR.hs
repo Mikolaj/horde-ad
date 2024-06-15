@@ -21,6 +21,8 @@ import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 import           Text.Printf
 
+import qualified Data.Array.Nested as Nested
+
 import HordeAd
 import HordeAd.Core.Adaptor
 import HordeAd.Core.AstEnv
@@ -92,7 +94,7 @@ mnistTestCaseCNNA prefix epochs maxBatches kh kw c_out n_hidden
                    -> ADVal ranked r 0
                  f (glyphR, labelR) adinputs =
                    MnistCnnRanked2.convMnistLossFusedR
-                     miniBatchSize (rconst glyphR, rconst labelR)
+                     miniBatchSize (rconst $ Nested.rfromOrthotope SNat glyphR, rconst $ Nested.rfromOrthotope SNat labelR)
                      (parseHVector (fromDValue valsInit) adinputs)
                  chunkR = map packBatchR
                           $ filter (\ch -> length ch == miniBatchSize)
@@ -205,8 +207,8 @@ mnistTestCaseCNNI prefix epochs maxBatches kh kw c_out n_hidden
                  f (glyph, label) varInputs =
                    let env = foldr extendEnvD EM.empty
                              $ zip vars $ V.toList varInputs
-                       envMnist = extendEnvR varGlyph (rconst glyph)
-                                  $ extendEnvR varLabel (rconst label) env
+                       envMnist = extendEnvR varGlyph (rconst $ Nested.rfromOrthotope SNat glyph)
+                                  $ extendEnvR varLabel (rconst $ Nested.rfromOrthotope SNat label) env
                    in interpretAst envMnist ast
                  chunkR = map packBatchR
                           $ filter (\ch -> length ch == miniBatchSize)
@@ -320,8 +322,8 @@ mnistTestCaseCNNO prefix epochs maxBatches kh kw c_out n_hidden
               -> (HVector ORArray, StateAdam)
            go [] (parameters, stateAdam) = (parameters, stateAdam)
            go ((glyph, label) : rest) (!parameters, !stateAdam) =
-             let glyphD = DynamicRanked $ rconst glyph
-                 labelD = DynamicRanked $ rconst label
+             let glyphD = DynamicRanked $ rconst $ Nested.rfromOrthotope SNat glyph
+                 labelD = DynamicRanked $ rconst $ Nested.rfromOrthotope SNat label
                  parametersAndInput =
                    V.concat [parameters, V.fromList [glyphD, labelD]]
                  gradientHVector =

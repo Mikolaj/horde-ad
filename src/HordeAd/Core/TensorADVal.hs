@@ -34,7 +34,9 @@ import           Unsafe.Coerce (unsafeCoerce)
 import qualified Data.Array.Mixed.Permutation as Permutation
 import qualified Data.Array.Mixed.Shape as X
 import qualified Data.Array.Nested as Nested
+import qualified Data.Array.Nested.Internal.Ranked as Nested.Internal
 import qualified Data.Array.Nested.Internal.Shape as Nested.Internal.Shape
+import qualified Data.Array.Nested.Internal.Shaped as Nested.Internal
 
 import           HordeAd.Core.Adaptor
 import           HordeAd.Core.Ast
@@ -137,7 +139,7 @@ instance (KnownNat n, GoodScalar r, ADReady ranked)
 instance (KnownNat n, GoodScalar r, ADReady ranked)
          => DualNumberValue (ADVal ranked r n) where
   type DValue (ADVal ranked r n) = ORArray r n  -- ! not Value(ranked)
-  fromDValue t = constantADVal $ rconst $ Nested.rtoOrthotope $ runFlipR t
+  fromDValue t = constantADVal $ rconst $ runFlipR t
 
 -- This is temporarily moved from Adaptor in order to specialize manually
 instance AdaptableHVector ranked a
@@ -224,7 +226,7 @@ instance ADReady ranked => RankedTensor (ADVal ranked) where
           => Int -> (IntOf (ADVal ranked) -> ADVal ranked r n)
           -> ADVal ranked r (1 + n)
   rbuild1 0 _ = case sameNat (Proxy @n) (Proxy @0) of
-    Just Refl -> rconst $ OR.fromList [0] []
+    Just Refl -> rconst $ Nested.Internal.rfromListPrimLinear (0 :$: ZSR) []
                    -- the only case where we can guess sh
     _ ->  error "rbuild1: shape ambiguity, no arguments"
   rbuild1 k f = rfromList $ NonEmpty.fromList
@@ -275,7 +277,7 @@ instance ( ADReadyS shaped, KnownShS sh, GoodScalar r
 instance (ADReadyS shaped, KnownShS sh, GoodScalar r)
          => DualNumberValue (ADVal shaped r sh) where
   type DValue (ADVal shaped r sh) = OSArray r sh   -- ! not Value(shaped)
-  fromDValue t | Dict <- lemShapeFromKnownShS (Proxy @sh) = constantADVal $ sconst $ OS.fromVector @sh $ Nested.stoVector $ runFlipS t
+  fromDValue t | Dict <- lemShapeFromKnownShS (Proxy @sh) = constantADVal $ sconst $ runFlipS t
       -- TODO: this is probably very wrong
 
 -- Note that these instances don't do vectorization. To enable it,
@@ -345,7 +347,7 @@ instance ADReadyS shaped => ShapedTensor (ADVal shaped) where
           => (IntSh (ADVal shaped) n -> ADVal shaped r sh)
           -> ADVal shaped r (n ': sh)
   sbuild1 f | Dict <- lemShapeFromKnownShS (Proxy @sh) = case valueOf @n of
-    0 -> sconst $ OS.fromList []
+    0 -> sconst $ Nested.Internal.sfromListPrimLinear knownShS []
     k -> sfromList $ NonEmpty.fromList
                    $ map (f . ShapedList.shapedNat . fromIntegral)
                          [0 :: Int .. k - 1]

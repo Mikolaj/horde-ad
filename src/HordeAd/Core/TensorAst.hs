@@ -257,7 +257,7 @@ instance AstSpan s => RankedTensor (AstRanked s) where
   rgather sh t f = astGatherStep sh t (funToAstIndex f)  -- introduces new vars
   rcast = astCast
   rfromIntegral = fromPrimal . astFromIntegral . astSpanPrimal
-  rconst = fromPrimal . AstConst . Nested.rfromOrthotope SNat
+  rconst = fromPrimal . AstConst
   rletHVectorIn = astLetHVectorInFun
   rletHFunIn = astLetHFunInFun
   rfromS = astRFromS
@@ -379,7 +379,7 @@ instance AstSpan s => ShapedTensor (AstShaped s) where
   sgather t f = astGatherStepS t (funToAstIndexS f)  -- introduces new vars
   scast = astCastS
   sfromIntegral = fromPrimalS . astFromIntegralS . astSpanPrimalS
-  sconst = fromPrimalS . AstConstS . Nested.sfromOrthotope Nested.knownShS
+  sconst = fromPrimalS . AstConstS
   sletHVectorIn = astLetHVectorInFunS
   sletHFunIn = astLetHFunInFunS
   sfromR = astSFromR
@@ -809,7 +809,7 @@ instance AstSpan s => RankedTensor (AstRaw s) where
   rcast = AstRaw . AstCast . unAstRaw
   rfromIntegral =
     AstRaw . fromPrimal . AstFromIntegral . astSpanPrimal . unAstRaw
-  rconst = AstRaw . fromPrimal . AstConst . Nested.rfromOrthotope SNat
+  rconst = AstRaw . fromPrimal . AstConst
   rletHVectorIn a f =
     AstRaw $ astLetHVectorInFunRaw (unAstRawWrap a) (unAstRaw . f . rawHVector)
   rletHFunIn a f = AstRaw $ astLetHFunInFunRaw a (unAstRaw . f)
@@ -937,7 +937,7 @@ instance AstSpan s => ShapedTensor (AstRawS s) where
   scast = AstRawS . AstCastS . unAstRawS
   sfromIntegral = AstRawS . fromPrimalS . AstFromIntegralS
                   . astSpanPrimalS . unAstRawS
-  sconst = AstRawS . fromPrimalS . AstConstS . Nested.sfromOrthotope Nested.knownShS
+  sconst = AstRawS . fromPrimalS . AstConstS
   sletHVectorIn a f =
     AstRawS
     $ astLetHVectorInFunRawS (unAstRawWrap a) (unAstRawS . f . rawHVector)
@@ -1198,7 +1198,7 @@ instance AstSpan s => RankedTensor (AstNoSimplify s) where
   rcast = AstNoSimplify . AstCast . unAstNoSimplify
   rfromIntegral = AstNoSimplify . fromPrimal . AstFromIntegral
                   . astSpanPrimal . unAstNoSimplify
-  rconst = AstNoSimplify . fromPrimal . AstConst . Nested.rfromOrthotope SNat
+  rconst = AstNoSimplify . fromPrimal . AstConst
   rletHVectorIn a f =
     AstNoSimplify
     $ astLetHVectorInFunRaw (unAstNoSimplifyWrap a)
@@ -1250,7 +1250,7 @@ instance AstSpan s => ShapedTensor (AstNoSimplifyS s) where
   scast = AstNoSimplifyS . AstCastS . unAstNoSimplifyS
   sfromIntegral = AstNoSimplifyS . fromPrimalS . AstFromIntegralS
                   . astSpanPrimalS . unAstNoSimplifyS
-  sconst = AstNoSimplifyS . fromPrimalS . AstConstS . Nested.sfromOrthotope Nested.knownShS
+  sconst = AstNoSimplifyS . fromPrimalS . AstConstS
   sletHVectorIn a f =
     AstNoSimplifyS
     $ astLetHVectorInFunRawS (unAstNoSimplifyWrap a)

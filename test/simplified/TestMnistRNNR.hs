@@ -94,7 +94,7 @@ mnistTestCaseRNNA prefix epochs maxBatches width miniBatchSize totalBatchSize
                    -> ADVal ranked r 0
                  f (glyphR, labelR) adinputs =
                    MnistRnnRanked2.rnnMnistLossFusedR
-                     miniBatchSize (rconst glyphR, rconst labelR)
+                     miniBatchSize (rconst $ Nested.rfromOrthotope SNat glyphR, rconst $ Nested.rfromOrthotope SNat labelR)
                      (parseHVector (fromDValue valsInit) adinputs)
                  chunkR = map packBatchR
                           $ filter (\ch -> length ch == miniBatchSize)
@@ -201,8 +201,8 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
                  f (glyph, label) varInputs =
                    let env = foldr extendEnvD EM.empty
                              $ zip vars $ V.toList varInputs
-                       envMnist = extendEnvR varGlyph (rconst glyph)
-                                  $ extendEnvR varLabel (rconst label) env
+                       envMnist = extendEnvR varGlyph (rconst $ Nested.rfromOrthotope SNat glyph)
+                                  $ extendEnvR varLabel (rconst $ Nested.rfromOrthotope SNat label) env
                    in interpretAst envMnist ast
                  chunkR = map packBatchR
                           $ filter (\ch -> length ch == miniBatchSize)
@@ -310,8 +310,8 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
               -> (HVector (ORArray), StateAdam)
            go [] (parameters, stateAdam) = (parameters, stateAdam)
            go ((glyph, label) : rest) (!parameters, !stateAdam) =
-             let glyphD = DynamicRanked $ rconst glyph
-                 labelD = DynamicRanked $ rconst label
+             let glyphD = DynamicRanked $ rconst $ Nested.rfromOrthotope SNat glyph
+                 labelD = DynamicRanked $ rconst $ Nested.rfromOrthotope SNat label
                  parametersAndInput =
                    V.concat [parameters, V.fromList [glyphD, labelD]]
                  gradientHVector =
