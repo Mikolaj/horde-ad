@@ -13,6 +13,7 @@ import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
 import qualified Data.EnumMap.Strict as EM
 import qualified Data.Vector.Generic as V
+import           GHC.TypeLits (KnownNat)
 import           System.IO (hPutStrLn, stderr)
 import           System.Random
 import           Test.Tasty
@@ -27,7 +28,6 @@ import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.TensorAst
 import HordeAd.External.OptimizerTools
-import HordeAd.Internal.BackendConcrete
 import HordeAd.Internal.BackendOX (ORArray, OSArray)
 import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..), FlipS (..))
 
@@ -35,6 +35,18 @@ import EqEpsilon
 
 import           MnistData
 import qualified MnistRnnShaped2
+
+tshapeR
+  :: KnownNat n
+  => OR.Array n r -> ShapeInt n
+tshapeR = listToShape . OR.shapeL
+
+tlengthR
+  :: KnownNat n
+  => OR.Array n r -> Int
+tlengthR v = case tshapeR v of
+  ZSR -> error "tlengthR: impossible pattern needlessly required"
+  k :$: _ -> k
 
 testTrees :: [TestTree]
 testTrees = [ tensorADValMnistTestsRNNSA

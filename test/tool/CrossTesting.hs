@@ -1,4 +1,3 @@
-{-# LANGUAGE OverloadedLists #-}
 -- | Testing harness that differentiates a single objective function using
 -- over a twenty different pipeline variants and compares the results.
 module CrossTesting
@@ -6,14 +5,24 @@ module CrossTesting
   , rev', assertEqualUpToEpsilon', assertEqualUpToEpsilonShort
   , t16, t16OR, t16b, t48, t48OR, t128, t128OR, t128b, t128c
   , rrev1, rfwd1, srev1, sfwd1
+  , treplicateR, tfromListR, tfromList0NR, tsumR
   ) where
 
 import Prelude
 
+import qualified Data.Array.Internal as OI
+import qualified Data.Array.Internal.RankedG as RG
+import qualified Data.Array.Internal.RankedS as RS
+import qualified Data.Array.Ranked as ORB
 import qualified Data.Array.RankedS as OR
 import qualified Data.EnumMap.Strict as EM
+import           Data.List.NonEmpty (NonEmpty)
+import qualified Data.List.NonEmpty as NonEmpty
+import           Data.Proxy (Proxy (Proxy))
+import           Data.Type.Equality (gcastWith, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat)
+import qualified Data.Vector.Storable as VS
+import           GHC.TypeLits (KnownNat, sameNat, type (+))
 import           Numeric.LinearAlgebra (Numeric)
 import           Test.Tasty.HUnit hiding (assert)
 
@@ -32,9 +41,9 @@ import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorADVal
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
-import HordeAd.Internal.BackendConcrete (tdot0R, treshapeR, tsum0R)
 import HordeAd.Internal.BackendOX (ORArray)
 import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..))
+import HordeAd.Util.SizedList
 
 import EqEpsilon
 
@@ -381,6 +390,27 @@ assertEqualUpToEpsilon'
               (show astVectSimp)
               (show (simplifyInlineAst astVectSimp))
 
+-- TODO: optimize and clean up these or maybe just switch away from OR
+tsum0R
+  :: (Num r, VS.Storable r)
+  => OR.Array n r -> r
+tsum0R (RS.A (RG.A sh (OI.T _ _ vt))) | V.length vt == 1 =
+  fromIntegral (product sh) * vt V.! 0
+-- tsumInR t@(RS.A (RG.A _ (OI.T _ _ vt))) | V.length vt == 1 =
+tsum0R (RS.A (RG.A sh t)) =
+  V.sum $ OI.toUnorderedVectorT sh t
+
+tdot0R
+  :: (Num r, VS.Storable r)
+  => OR.Array n r -> OR.Array n r -> r
+tdot0R (RS.A (RG.A sh (OI.T _ _ vt))) (RS.A (RG.A _ (OI.T _ _ vu)))
+  | V.length vt == 1 && V.length vu == 1 =
+      fromIntegral (product sh) * vt V.! 0 * vu V.! 0
+tdot0R t u = V.sum $ V.zipWith (*) (OR.toVector t) (OR.toVector u)  -- OR.toVector t LA.<.> OR.toVector u
+  -- TODO: if offset 0 and same strides, use toUnorderedVectorT
+  -- TODO: if either has length 1 values, it may or may not be faster to do
+  -- tsum0R (t * u)
+
 assertEqualUpToEpsilonShort
     :: ( v ~ FlipR OR.Array r m, a ~ FlipR OR.Array r n
        , AssertEqualUpToEpsilon a, AssertEqualUpToEpsilon v
@@ -501,10 +531,10 @@ t128OR :: (Numeric r, Fractional r) => FlipR OR.Array r 10
 t128OR = FlipR $ OR.fromList [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] [29.1,32.1,40.1,29.0,53.99432,97.1,58.8943200001,18.1,29.1,32.1,40.1,32.0,53.99432,97.1,25.8943200001, 5, 2, 6, 1, -2, 97.1,58.8943200001,97.1,55.8943200001,97.1,58.8943200001,18.1,29.1,32.1,40.1,32.1,32.1,40.1,53.0,53.99432, -0.00001, 0.1, -0.2, 13.1, 9, 8, -4, 29, 2.99432, -335, 26, 2, 2, 2, 2, -0.2,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003,-0.2,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003,40.1,8.0,11.0,-3.0,25.89432,28.79432,-39.09999999999997,25.8,40.1,8.0,11.0,-3.0,25.89432,28.79432,-19.09999999999997,25.8, 8.1,29.1,32.1,40.1,32.1,40.1,292.0,53.99432,97.1,55.8943200001,97.1,85.8943200001,97.1,85.8943200001,18.1,29.1,32.1,40.1,32.1,40.1,32.1,40.1,22.0,53.99432,97.1,82.8943200001,97.1,22.8943200001,97.1,58.8943200001,18.1,29.1,32.1,40.1,32.1,40.1,32.1,40.1,89.0,53.99432,97.1,56.8943200001,97.1,52.8943200001,97.1,55.8943200001]
 
 t128b :: (Numeric r, Fractional r, Nested.Elt r, Nested.PrimElt r) => FlipR OR.Array r 4
-t128b = FlipR $ treshapeR [4, 2, 4, 4] $ runFlipR t128OR
+t128b = FlipR $ OR.reshape [4, 2, 4, 4] $ runFlipR t128OR
 
 t128c :: (Numeric r, Fractional r, Nested.Elt r, Nested.PrimElt r) => FlipR OR.Array r 4
-t128c = FlipR $ treshapeR [2, 2, 8, 4] $ runFlipR t128OR
+t128c = FlipR $ OR.reshape [2, 2, 8, 4] $ runFlipR t128OR
 
 rrev1 :: forall g r n m r3.
          (ADReady g, GoodScalar r, GoodScalar r3, KnownNat n, KnownNat m)
@@ -560,3 +590,26 @@ sfwd1 f u =
       shapes = V.fromList [zero]
   in sfwd @(RankedOf g) fHVector shapes (V.singleton $ DynamicShaped u)
                                         (V.singleton $ DynamicShaped @r @sh (srepl 1))
+
+treplicateR
+  :: forall n r. (KnownNat n, KnownNat (1 + n), Num r, VS.Storable r)
+  => Int -> OR.Array n r -> OR.Array (1 + n) r
+treplicateR 0 u = OR.fromList (0 : OR.shapeL u) []
+treplicateR s u = case sameNat (Proxy @n) (Proxy @0) of
+  Just Refl -> OR.constant [s] (OR.unScalar u)
+  _ -> OR.ravel $ ORB.constant [s] u
+
+tfromListR
+  :: forall n r. (KnownNat n, KnownNat (1 + n), Num r, VS.Storable r)
+  => NonEmpty (OR.Array n r) -> OR.Array (1 + n) r
+tfromListR l = OR.ravel . ORB.fromList [NonEmpty.length l] . NonEmpty.toList $ l
+
+tfromList0NR
+  :: (KnownNat n, Num r, VS.Storable r)
+  => ShapeInt n -> [r] -> OR.Array n r
+tfromList0NR sh = OR.fromList (shapeToList sh)
+
+tsumR
+  :: forall n r. (KnownNat n, KnownNat (n + 1), GoodScalar r)
+  => OR.Array (n + 1) r -> OR.Array n r
+tsumR t = Nested.rtoOrthotope $ Nested.rsumOuter1 $ Nested.rfromOrthotope SNat t

@@ -18,7 +18,6 @@ import qualified Data.Array.Nested.Internal.Ranked as Nested.Internal
 
 import HordeAd
 import HordeAd.Core.AstFreshId (resetVarCounter)
-import HordeAd.Internal.BackendConcrete
 import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..), IntegralF (..))
 
 import CrossTesting

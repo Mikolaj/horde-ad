@@ -154,7 +154,6 @@ library horde-ad-simplified
                       HordeAd.External.CommonShapedOps
                       HordeAd.External.Optimizer
                       HordeAd.External.OptimizerTools
-                      HordeAd.Internal.BackendConcrete
                       HordeAd.Internal.OrthotopeOrphanInstances
                       HordeAd.Internal.BackendOX
                       HordeAd.Util.ShapedList

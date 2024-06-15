@@ -22,7 +22,6 @@ import qualified Data.Array.Nested.Internal.Shaped as Nested.Internal
 
 import           HordeAd
 import           HordeAd.Core.AstFreshId (funToAstR, resetVarCounter)
-import           HordeAd.Internal.BackendConcrete
 import           HordeAd.Internal.BackendOX (ORArray, OSArray)
 import           HordeAd.Internal.OrthotopeOrphanInstances
   (FlipR (..), IntegralF (..), RealFloatF (..))
@@ -474,7 +473,7 @@ testNestedSumBuildB :: Assertion
 testNestedSumBuildB =
   assertEqualUpToEpsilon' 1e-8
     (OR.fromList [2,3,2,2,2] [30.0,30.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,35.0,35.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0])
-    (rev' @Double @3 nestedSumBuildB (FlipR $ tsumR $ tsumR $ ttransposeR [1, 4, 2, 0, 3] $ runFlipR t48OR))
+    (rev' @Double @3 nestedSumBuildB (FlipR $ tsumR $ tsumR $ OR.transpose [1, 4, 2, 0, 3] $ runFlipR t48OR))
 
 nestedBuildIndex :: forall ranked r. (ADReady ranked, GoodScalar r)
                  => ranked r 5 -> ranked r 3
@@ -560,7 +559,7 @@ testBraidedBuilds :: Assertion
 testBraidedBuilds =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [4] [0.0,4.0,0.0,0.0])
-    (rev' @Double @2 braidedBuilds (FlipR $ treplicate0NR (4 :$: ZSR) 3.4))
+    (rev' @Double @2 (braidedBuilds @_ @4) (FlipR $ OR.constant [4] 3.4))
 
 testBraidedBuilds1 :: Assertion
 testBraidedBuilds1 =
@@ -577,14 +576,14 @@ recycled r =
 testRecycled :: Assertion
 testRecycled =
   assertEqualUpToEpsilon' 1e-6
-    (treplicate0NR (2 :$: ZSR) 5616)
-    (rev' @Double @7 recycled (FlipR $ treplicate0NR [2] 1.0001))
+    (OR.constant [2] 5616)
+    (rev' @Double @7 (recycled @_ @_ @2) (FlipR $ OR.constant [2] 1.0001))
 
 testRecycled1 :: Assertion
 testRecycled1 =
   assertEqualUpToEpsilon' 1e-6
     (tfromList0NR (5 :$: 4 :$: 2 :$: ZSR) [5184.0,5184.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,5424.0,5424.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0])
-    (rev' @Double @7 recycled (FlipR $ treplicate0NR [5, 4, 2] 0.0002))
+    (rev' @Double @7 recycled (FlipR $ OR.constant [5, 4, 2] 0.0002))
 
 concatBuild :: (ADReady ranked, GoodScalar r, KnownNat n, Differentiable r)
             => ranked r (1 + n) -> ranked r (3 + n)
