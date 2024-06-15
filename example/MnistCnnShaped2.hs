@@ -157,18 +157,18 @@ convMnistTestS kh@SNat kw@SNat
                valsInit (glyphS, labelS) testParams =
   let input :: shaped r '[batch_size, 1, h, w]
       input = sconst $ Nested.sreshape knownShS $ Nested.sfromOrthotope knownShS glyphS
-      outputS :: OS.Array '[SizeMnistLabel, batch_size] r
+      outputS :: FlipS Nested.Shaped r '[SizeMnistLabel, batch_size]
       outputS =
         let nn :: ADCnnMnistParametersShaped shaped h w kh kw c_out n_hidden r
                -> shaped r '[SizeMnistLabel, batch_size]
             nn = convMnistTwoS kh kw (SNat @h) (SNat @w)
                                c_out n_hidden batch_size
                                input
-        in -- TODO
-          OS.fromVector $ Nested.stoVector $ runFlipS $ nn $ parseHVector valsInit testParams
-      outputs = map OS.toVector $ tunravelToListS
-                $ OS.transpose @'[1, 0] $ outputS
-      labels = map OS.toVector $ tunravelToListS labelS
+        in nn $ parseHVector valsInit testParams
+      outputs = map (Nested.stoVector . runFlipS) $ sunravelToList
+                $ stranspose (Permutation.makePerm @'[1, 0]) outputS
+      labels = map (Nested.stoVector . runFlipS) $ sunravelToList
+               $ FlipS $ Nested.sfromOrthotope knownShS labelS
       matchesLabels :: Vector r -> Vector r -> Int
       matchesLabels output label | V.maxIndex output == V.maxIndex label = 1
                                  | otherwise = 0

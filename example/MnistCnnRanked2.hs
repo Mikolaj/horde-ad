@@ -124,17 +124,21 @@ convMnistTestR
   -> r
 convMnistTestR _ 0 _ _ = 0
 convMnistTestR valsInit batch_size (glyphR, labelR) testParams =
-  let input =
-        FlipR $ Nested.rreshape [batch_size, 1, sizeMnistHeightInt, sizeMnistWidthInt]
+  let input :: ranked r 4
+      input =
+        rconst $ Nested.rreshape [batch_size, 1, sizeMnistHeightInt, sizeMnistWidthInt]
                                 $ Nested.rfromOrthotope SNat glyphR
+      outputR :: FlipR Nested.Ranked r 2
       outputR =
         let nn :: ADCnnMnistParameters ranked r
                -> ranked r 2  -- [SizeMnistLabel, batch_size]
             nn = convMnistTwoR sizeMnistHeightInt sizeMnistWidthInt
                                batch_size input
-        in runFlipR $ nn $ parseHVector valsInit testParams
-      outputs = map Nested.rtoVector $ map runFlipR $ runravelToList $ FlipR $ Nested.rtranspose [1, 0] outputR
-      labels = map Nested.rtoVector $ map runFlipR $ runravelToList $ FlipR $ Nested.rfromOrthotope SNat labelR
+        in nn $ parseHVector valsInit testParams
+      outputs = map (Nested.rtoVector . runFlipR) $ runravelToList
+                $ rtranspose [1, 0] outputR
+      labels = map (Nested.rtoVector . runFlipR) $ runravelToList
+               $ FlipR $ Nested.rfromOrthotope SNat labelR
       matchesLabels :: Vector r -> Vector r -> Int
       matchesLabels output label | V.maxIndex output == V.maxIndex label = 1
                                  | otherwise = 0
