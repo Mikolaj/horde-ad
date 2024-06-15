@@ -216,78 +216,6 @@ liftVR2NoAdapt !op t@(RS.A (RG.A sh oit@(OI.T sst _ vt)))
         -- avoids applying op to any vector element not in the tensor
         -- (or at least ensures the right asymptotic behaviour, IDK)
 
--- See the various comments above; we don't repeat them below.
-liftVS
-  :: forall sh r1 r. (Numeric r1, Numeric r, KnownShS sh)
-  => (Vector r1 -> Vector r)
-  -> OS.Array sh r1 -> OS.Array sh r
-liftVS !op t@(SS.A (SG.A oit)) | Dict <- lemShapeFromKnownShS (Proxy @sh) =
-  if sizeT @sh >= V.length (OI.values oit)
-  then SS.A $ SG.A $ oit {OI.values = op $ OI.values oit}
-  else OS.fromVector $ op $ OS.toVector t
-
-liftVS2
-  :: forall sh r. (Numeric r, KnownShS sh)
-  => (Vector r -> Vector r -> Vector r)
-  -> OS.Array sh r -> OS.Array sh r -> OS.Array sh r
-liftVS2 !op t@(SS.A (SG.A oit@(OI.T sst _ vt)))
-            u@(SS.A (SG.A oiu@(OI.T _ _ vu)))
- | Dict <- lemShapeFromKnownShS (Proxy @sh) =
-  case (V.length vt, V.length vu) of
-    (1, 1) -> SS.A $ SG.A $ OI.T sst 0 $ vt `op` vu
-    (1, _) ->
-      if sizeT @sh >= V.length vu
-      then SS.A $ SG.A $ oiu {OI.values = vt `op` vu}
-      else OS.fromVector $ vt `op` OS.toVector u
-    (_, 1) ->
-      if sizeT @sh >= V.length vt
-      then SS.A $ SG.A $ oit {OI.values = vt `op` vu}
-      else OS.fromVector $ OS.toVector t `op` vu
-    (_, _) ->
-      if sizeT @sh >= V.length vt
-         && sizeT @sh >= V.length vu
-         && OI.strides oit == OI.strides oiu
-      then assert (OI.offset oit == OI.offset oiu && V.length vt == V.length vu)
-           $ SS.A $ SG.A $ oit {OI.values = vt `op` vu}
-      else OS.fromVector $ OS.toVector t `op` OS.toVector u
-
-liftVS2UnlessZero
-  :: forall sh r. (Num (Vector r), Numeric r, KnownShS sh, Eq r)
-  => (Vector r -> Vector r -> Vector r)
-  -> OS.Array sh r -> OS.Array sh r -> OS.Array sh r
-liftVS2UnlessZero op
-  | Dict <- lemShapeFromKnownShS (Proxy @sh) =
-    liftVS2 (\x y -> if y == 0 then 0 else op x y)
-
-liftVS2NoAdapt
-  :: forall sh r. (Numeric r, KnownShS sh)
-  => (Vector r -> Vector r -> Vector r)
-  -> OS.Array sh r -> OS.Array sh r -> OS.Array sh r
-liftVS2NoAdapt !op t@(SS.A (SG.A oit@(OI.T sst _ vt)))
-                   u@(SS.A (SG.A oiu@(OI.T _ _ vu)))
- | Dict <- lemShapeFromKnownShS (Proxy @sh)  =
-  case (V.length vt, V.length vu) of
-    (1, 1) -> SS.A $ SG.A $ OI.T sst 0 $ vt `op` vu
-    (1, _) ->
-      if sizeT @sh >= V.length vu
-      then SS.A $ SG.A
-                $ oiu {OI.values = LA.konst (vt V.! 0) (V.length vu) `op` vu}
-      else let v = OS.toVector u
-           in OS.fromVector $ LA.konst (vt V.! 0) (V.length v) `op` v
-    (_, 1) ->
-      if sizeT @sh >= V.length vt
-      then SS.A $ SG.A
-                $ oit {OI.values = vt `op` LA.konst (vu V.! 0) (V.length vt)}
-      else let v = OS.toVector t
-           in OS.fromVector $ v `op` LA.konst (vu V.! 0) (V.length v)
-    (_, _) ->
-      if sizeT @sh >= V.length vt
-         && sizeT @sh >= V.length vu
-         && OI.strides oit == OI.strides oiu
-      then assert (OI.offset oit == OI.offset oiu && V.length vt == V.length vu)
-           $ SS.A $ SG.A $ oit {OI.values = vt `op` vu}
-      else OS.fromVector $ OS.toVector t `op` OS.toVector u
-
 -- These constraints force @UndecidableInstances@.
 instance (Num (Vector r), KnownNat n, Numeric r, Show r)
          => Num (OR.Array n r) where
@@ -303,16 +231,6 @@ instance (Num (Vector r), KnownNat n, Numeric r, Show r)
     Just Refl -> OR.constant [] . fromInteger
     Nothing -> error $ "OR.fromInteger: shape unknown at rank "
                        ++ show (valueOf @n :: Int)
-
-instance (Num (Vector r), KnownShS sh, Numeric r) => Num (OS.Array sh r) where
-  (+) = liftVS2 (+)
-  (-) = liftVS2 (-)
-  (*) = liftVS2 (*)
-  negate = liftVS negate
-  abs = liftVS abs
-  signum = liftVS signum
-  fromInteger | Dict <- lemShapeFromKnownShS (Proxy @sh) =
-    OS.constant . fromInteger
 
 class IntegralF a where
   quotF, remF :: a -> a -> a
@@ -331,11 +249,6 @@ instance (Nested.PrimElt r, Num (Vector r), Integral r, KnownNat n, Numeric r, S
   quotF = Nested.Internal.arithPromoteRanked2 (Nested.Internal.Mixed.mliftPrim2 quot)
   remF = Nested.Internal.arithPromoteRanked2 (Nested.Internal.Mixed.mliftPrim2 rem)
 
-instance (Num (Vector r), Integral r, KnownShS sh, Numeric r, Show r)
-         => IntegralF (OS.Array sh r) where
-  quotF = liftVS2UnlessZero quot
-  remF = liftVS2UnlessZero rem
-
 instance (Nested.PrimElt r, Num (Vector r), Integral r, KnownShS sh, Numeric r, Show r)
          => IntegralF (Nested.Shaped sh r) where
   quotF = Nested.Internal.arithPromoteShaped2 (Nested.Internal.Mixed.mliftPrim2 quot)
@@ -349,13 +262,6 @@ instance (Num (Vector r), KnownNat n, Numeric r, Show r, Fractional r)
     Just Refl -> OR.constant [] . fromRational
     Nothing -> error $ "OR.fromRational: shape unknown at rank "
                        ++ show (valueOf @n :: Int)
-
-instance (Num (Vector r), KnownShS sh, Numeric r, Fractional r)
-         => Fractional (OS.Array sh r) where
-  (/) = liftVS2 (/)
-  recip = liftVS recip
-  fromRational | Dict <- lemShapeFromKnownShS (Proxy @sh) =
-    OS.constant . fromRational
 
 instance (Floating (Vector r), KnownNat n, Numeric r, Show r, Floating r)
          => Floating (OR.Array n r) where
@@ -377,27 +283,6 @@ instance (Floating (Vector r), KnownNat n, Numeric r, Show r, Floating r)
   asinh = liftVR asinh
   acosh = liftVR acosh
   atanh = liftVR atanh
-
-instance (Floating (Vector r), KnownShS sh, Numeric r, Floating r)
-         => Floating (OS.Array sh r) where
-  pi | Dict <- lemShapeFromKnownShS (Proxy @sh) = OS.constant pi
-  exp = liftVS exp
-  log = liftVS log
-  sqrt = liftVS sqrt
-  (**) = liftVS2 (**)
-  logBase = liftVS2 logBase
-  sin = liftVS sin
-  cos = liftVS cos
-  tan = liftVS tan
-  asin = liftVS asin
-  acos = liftVS acos
-  atan = liftVS atan
-  sinh = liftVS sinh
-  cosh = liftVS cosh
-  tanh = liftVS tanh
-  asinh = liftVS asinh
-  acosh = liftVS acosh
-  atanh = liftVS atanh
 
 class Floating a => RealFloatF a where
   atan2F :: a -> a -> a
@@ -479,17 +364,9 @@ instance (Nested.Elt r, Show r, Show (Nested.Mixed (Mixed.Types.MapJust sh) r))
   showsPrec d (FlipS u) =
     showString "FlipS " . showParen True (showsPrec d u)
 
-instance (Eq r, Numeric r, KnownShS sh) => Eq (FlipS OS.Array r sh) where
-  (==) :: FlipS OS.Array r sh -> FlipS OS.Array r sh -> Bool
-  FlipS u == FlipS v | Dict <- lemShapeFromKnownShS (Proxy @sh) = u == v
-
 instance (Eq r, Numeric r, KnownShS sh, Eq (Nested.Mixed (Mixed.Types.MapJust sh) r)) => Eq (FlipS Nested.Shaped r sh) where
   (==) :: FlipS Nested.Shaped r sh -> FlipS Nested.Shaped r sh -> Bool
   FlipS u == FlipS v = u == v
-
-instance (Ord r, Numeric r, KnownShS sh) => Ord (FlipS OS.Array r sh) where
-  (<=) :: FlipS OS.Array r sh -> FlipS OS.Array r sh -> Bool
-  FlipS u <= FlipS v | Dict <- lemShapeFromKnownShS (Proxy @sh) = u <= v
 
 instance (Ord r, Numeric r, KnownShS sh, Eq (Nested.Mixed (Mixed.Types.MapJust sh) r), Ord (Nested.Mixed (Mixed.Types.MapJust sh) r)) => Ord (FlipS Nested.Shaped r sh) where
   FlipS u <= FlipS v = u <= v
