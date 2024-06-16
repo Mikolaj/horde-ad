@@ -365,11 +365,8 @@ instance (KnownShS sh, GoodScalar r, Fractional r, Random r, Num (Vector r))
     let createRandomVector :: Int -> g -> OSArray r sh
         createRandomVector n seed =
           srepl (2 * realToFrac range)
-          * (FlipS (Nested.sfromVector knownShS
-                      (V.fromListN n (randoms seed)))
+          * (FlipS (Nested.sfromVector knownShS (V.fromListN n (randoms seed)))
              - srepl 0.5)
---          LA.scale (2 * realToFrac range)
---          $ V.fromListN n (randoms seed) - LA.scalar 0.5
         (g1, g2) = split g
         arr = createRandomVector (sizeP (Proxy @sh)) g1
     in (arr, g2)
