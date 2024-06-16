@@ -238,6 +238,42 @@ case rshape t of
           V.unsafeFreeze v2
 -}
 
+-- | Sum all elements of a tensor.
+tsum0R
+  :: NumAndShow r
+  => Nested.Ranked n r -> r
+-- tsum0R (RS.A (RG.A sh (OI.T _ _ vt))) | V.length vt == 1 =
+--  fromIntegral (product sh) * vt V.! 0
+tsum0R u =
+  let RS.A (RG.A sh t)  = Nested.rtoOrthotope u
+  in LA.sumElements $ OI.toUnorderedVectorT sh t
+
+{-
+-- | Sum the innermost dimension (at least at rank 2; TODO: generalize).
+-- TODO: Or is always the second dimension a better choice?
+tsumInR
+  :: forall n r. (KnownNat n, Numeric r, RowSum r)
+  => OR.Array (1 + n) r -> OR.Array n r
+-- TODO: tsumInR t@(RS.A (RG.A _ (OI.T _ _ vt))) | V.length vt == 1 = ...
+tsumInR t = case OR.shapeL t of
+  [] -> error "tsumInR: null shape"
+  [k2, 0] -> OR.constant [k2] 0  -- the shape is known from sh, so no ambiguity
+  [k2, k] -> case t of
+    RS.A (RG.A _ (OI.T (s2 : _) o vt)) | V.length vt == 1 ->
+      RS.A (RG.A [k2] (OI.T [s2] o (V.map (* fromIntegral k) vt)))
+    _ -> let sh2 = [k2]
+         in OR.fromVector sh2 $ unsafePerformIO $ do  -- unsafe only due to FFI
+           v <- V.unsafeThaw $ OR.toVector t
+           VM.unsafeWith v $ \ptr -> do
+             let len2 = product sh2
+             v2 <- VM.new len2
+             VM.unsafeWith v2 $ \ptr2 -> do
+               columnSum k len2 ptr ptr2
+               void $ V.unsafeFreeze v
+               V.unsafeFreeze v2
+  _ -> error "tsumInR: not yet generalized beyond rank 2"
+-}
+
 tdot0R
   :: NumAndShow r
   => Nested.Ranked n r -> Nested.Ranked n r -> r
@@ -660,17 +696,16 @@ tsumS = Nested.ssumOuter1
             V.unsafeFreeze v2
 -}
 
-{- TODO
+{-
 -- Sum the innermost dimension (at least at rank 2; TODO: generalize).
+-- Or is it always the second dimension as the type suggests?
 tsumInS
   :: forall m n sh r. (KnownNat n, Numeric r, KnownNat m, KnownShS sh)
   => Nested.Shaped (m ': n ': sh) r -> Nested.Shaped (m ': sh) r
 tsumInS t = case OS.shapeL t of
   [] -> error "tsumInS: null shape"
-{-
   k2 : 0 : [] ->
     (Nested.sreplicateScal knownShS 0)  -- the shape is known from sh, so no ambiguity
--}
   [k2, k] -> case t of
     SS.A (SG.A (OI.T (s2 : _) o vt)) | V.length vt == 1 ->
       SS.A (SG.A (OI.T [s2] o (V.map (* fromIntegral k) vt)))
@@ -687,15 +722,15 @@ tsumInS t = case OS.shapeL t of
   _ -> error "tsumInS: not yet generalized beyond rank 2"
 -}
 
-{- TODO
+-- | Sum all elements of a tensor.
 tsum0S
-  :: forall sh r. (Numeric r, KnownShS sh)
+  :: forall sh r. (NumAndShow r, KnownShS sh)
   => Nested.Shaped sh r -> r
-tsum0S (SS.A (SG.A (OI.T _ _ vt))) | V.length vt == 1 =
-  fromIntegral (sizeT @sh) * vt V.! 0
-tsum0S (SS.A (SG.A t)) =
-  LA.sumElements $ OI.toUnorderedVectorT (shapeT @sh) t
--}
+--tsum0S (SS.A (SG.A (OI.T _ _ vt))) | V.length vt == 1 =
+--  fromIntegral (sizeT @sh) * vt V.! 0
+tsum0S u =
+  let SS.A (SG.A t)  = Nested.stoOrthotope u
+  in LA.sumElements $ OI.toUnorderedVectorT (shapeT @sh) t
 
 tdot0S
   :: forall sh r. (NumAndShow r, KnownShS sh)
