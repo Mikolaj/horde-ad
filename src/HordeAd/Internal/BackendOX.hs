@@ -1,4 +1,4 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE AllowAmbiguousTypes, ViewPatterns #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Tensor operations implementation using the ox-arrays package.
@@ -21,6 +21,7 @@ import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as Sh
 import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
+import           Data.Coerce
 import qualified Data.Foldable as Foldable
 import           Data.Functor (void)
 import           Data.Int (Int64)
@@ -54,11 +55,13 @@ import qualified Numeric.LinearAlgebra as LA
 import           System.IO.Unsafe (unsafePerformIO)
 import           Unsafe.Coerce (unsafeCoerce)
 
-import qualified Data.Array.Mixed.Internal.Arith as Nested.Internal.Arith
+import qualified Data.Array.Mixed.Internal.Arith as Mixed.Internal.Arith
 import qualified Data.Array.Mixed.Permutation as Permutation
 import qualified Data.Array.Mixed.Shape as X
 import qualified Data.Array.Mixed.Types as X
+import qualified Data.Array.Mixed.XArray
 import qualified Data.Array.Nested as Nested
+import qualified Data.Array.Nested.Internal.Mixed as Nested.Internal
 import qualified Data.Array.Nested.Internal.Ranked as Nested.Internal
 import qualified Data.Array.Nested.Internal.Shape as Nested.Internal.Shape
 import qualified Data.Array.Nested.Internal.Shaped as Nested.Internal
@@ -78,7 +81,7 @@ type OSArray = FlipS Nested.Shaped
 
 -- We often debug around here, so let's add Show and obfuscate it
 -- to avoid warnings that it's unused. The addition silences warnings upstream.
-type NumAndShow r = (Nested.Elt r, Nested.PrimElt r, Nested.Internal.Arith.NumElt r, Numeric r, Show r)
+type NumAndShow r = (Nested.Elt r, Nested.PrimElt r, Mixed.Internal.Arith.NumElt r, Numeric r, Show r)
 
 type IndexInt n = Index n Int64
 
@@ -120,13 +123,46 @@ tmaxIndexR =
           . Nested.rmaxIndexPrim
   in Nested.rrerank (SNat @n) ZSR f
 
--- TODO: use Convert, fromInt/toInt and fromZ/toZ from hmatrix
 tfloorR :: (NumAndShow r, RealFrac r, NumAndShow r2, Integral r2, KnownNat n)
         => Nested.Ranked n r -> Nested.Ranked n r2
-tfloorR t =
-  -- TODO: previously did not canonicalise as often: liftVR (V.map floor)
-  let sh = Nested.rshape t
-  in Nested.rfromVector sh . V.map floor . Nested.rtoVector $ t
+tfloorR = {- liftVR (V.map floor)
+
+liftVR
+  :: ( KnownNat n, Nested.Internal.PrimElt r1, Nested.Internal.PrimElt r
+     , VS.Storable r, VS.Storable r1
+     , Coercible (forall sh. Nested.Mixed sh r1 -> Nested.Mixed sh r)
+                 (Nested.Ranked n r1 -> Nested.Ranked n r) )
+  => (VS.Vector r1 -> VS.Vector r)
+  -> Nested.Ranked n r1 -> Nested.Ranked n r
+liftVR = -}
+  coerce  -- arithPromoteRanked
+    (mliftNumElt1
+       (flip liftVEltwise1 (V.map floor)))
+
+{-
+-- A bit more general than Nested.Internal.arithPromoteRanked.
+arithPromoteRanked :: forall n a b.
+                      (Nested.Internal.PrimElt a, Nested.Internal.PrimElt b)
+                   => (forall sh. Nested.Mixed sh a -> Nested.Mixed sh b)
+                   -> Nested.Ranked n a -> Nested.Ranked n b
+arithPromoteRanked = coerce
+-}
+
+-- A bit more general than Nested.Internal.mliftNumElt1.
+mliftNumElt1 :: (Nested.Internal.PrimElt a, Nested.Internal.PrimElt b)
+             => (SNat (X.Rank sh) -> OR.Array (X.Rank sh) a -> OR.Array (X.Rank sh) b) -> Nested.Mixed sh a -> Nested.Mixed sh b
+mliftNumElt1 f (Nested.Internal.toPrimitive -> Nested.Internal.M_Primitive sh (Data.Array.Mixed.XArray.XArray arr)) = Nested.Internal.fromPrimitive $ Nested.Internal.M_Primitive sh (Data.Array.Mixed.XArray.XArray (f (X.shxRank sh) arr))
+
+-- A bit more general than Mixed.Internal.Arith.liftVEltwise1.
+liftVEltwise1 :: (VS.Storable a, VS.Storable b)
+              => SNat n
+              -> (VS.Vector a -> VS.Vector b)
+              -> OR.Array n a -> OR.Array n b
+liftVEltwise1 SNat f arr@(RS.A (RG.A sh (OI.T strides offset vec)))
+  | Just (blockOff, blockSz) <- Mixed.Internal.Arith.stridesDense sh offset strides =
+      let vec' = f (VS.slice blockOff blockSz vec)
+      in RS.A (RG.A sh (OI.T strides (offset - blockOff) vec'))
+  | otherwise = RS.fromVector sh (f (RS.toVector arr))
 
 ixInBounds :: [Int64] -> [Int] -> Bool
 ixInBounds ix sh =
@@ -434,19 +470,19 @@ tgatherZ1R k t f =
                        (NonEmpty.fromList [0 .. fromIntegral k - 1])
   in Nested.rfromListOuter l
 
--- TODO: use Convert, fromInt/toInt and fromZ/toZ from hmatrix
 tcastR :: (NumAndShow r1, NumAndShow r2, KnownNat n, Real r1, Fractional r2)
        => Nested.Ranked n r1 -> Nested.Ranked n r2
-tcastR t = -- TODO: liftVR (V.map realToFrac)
-  let sh = Nested.rshape t
-  in Nested.rfromVector sh . V.map realToFrac . Nested.rtoVector $ t
+tcastR =
+  coerce
+    (mliftNumElt1
+       (flip liftVEltwise1 (V.map realToFrac)))
 
--- TODO: use Convert, fromInt/toInt and fromZ/toZ from hmatrix
 tfromIntegralR :: (NumAndShow r1, NumAndShow r2, KnownNat n, Integral r1)
                => Nested.Ranked n r1 -> Nested.Ranked n r2
-tfromIntegralR t = -- TODO: liftVR (V.map fromIntegral)
-  let sh = Nested.rshape t
-  in Nested.rfromVector sh . V.map fromIntegral . Nested.rtoVector $ t
+tfromIntegralR =
+  coerce
+    (mliftNumElt1
+       (flip liftVEltwise1 (V.map fromIntegral)))
 
 tscalarR
   :: (Nested.Elt r, Numeric r)
@@ -458,11 +494,12 @@ tunScalarR
   => Nested.Ranked 0 r -> r
 tunScalarR = Nested.runScalar
 
-tscaleByScalarR :: (Nested.PrimElt r, Nested.Elt r, Nested.Internal.Arith.NumElt r, Numeric r, KnownNat n)
+tscaleByScalarR :: (Nested.PrimElt r, Nested.Elt r, Mixed.Internal.Arith.NumElt r, Numeric r, KnownNat n)
                 => r -> Nested.Ranked n r -> Nested.Ranked n r
-tscaleByScalarR s t = -- TODO: liftVR (LA.scale s)
-  let sh = Nested.rshape t
-  in Nested.rreplicateScal sh s * t
+tscaleByScalarR s =
+  coerce
+    (mliftNumElt1
+       (flip liftVEltwise1 (V.map (* s))))
 
 toIndexOfR :: IndexInt n -> Index n (ORArray Int64 0)
 toIndexOfR ix = FlipR . tscalarR <$> ix
@@ -544,13 +581,13 @@ tmaxIndexS =
             Nothing -> error "tmaxIndexS: impossible someNatVal error"
         Nothing -> error "tmaxIndexS: impossible someNatVal error"
 
--- TODO: use Convert, fromInt/toInt and fromZ/toZ from hmatrix
 tfloorS :: forall r r2 sh.
            (NumAndShow r, RealFrac r, NumAndShow r2, Integral r2, KnownShS sh)
         => Nested.Shaped sh r -> Nested.Shaped sh r2
 tfloorS =
-  -- TODO: liftVS (V.map floor)
-  Nested.sfromVector knownShS . V.map floor . Nested.stoVector
+  coerce
+    (mliftNumElt1
+       (flip liftVEltwise1 (V.map floor)))
 
 tindexNS
   :: forall sh1 sh2 r. NumAndShow r
@@ -878,21 +915,21 @@ tgatherZ1S t f =
                          (NonEmpty.fromList [0 .. valueOf @n2 - 1])
   in Nested.sfromListOuter SNat l
 
--- TODO: use Convert, fromInt/toInt and fromZ/toZ from hmatrix
 tcastS :: forall r1 r2 sh.
           (NumAndShow r1, NumAndShow r2, KnownShS sh, Real r1, Fractional r2)
        => Nested.Shaped sh r1 -> Nested.Shaped sh r2
 tcastS =
--- TODO: liftVS (V.map realToFrac)
-  Nested.sfromVector knownShS . V.map realToFrac . Nested.stoVector
+  coerce
+    (mliftNumElt1
+       (flip liftVEltwise1 (V.map realToFrac)))
 
--- TODO: use Convert, fromInt/toInt and fromZ/toZ from hmatrix
 tfromIntegralS :: forall r1 r2 sh .
                   (NumAndShow r1, NumAndShow r2, KnownShS sh, Integral r1)
                => Nested.Shaped sh r1 -> Nested.Shaped sh r2
 tfromIntegralS =
--- TODO: liftVS (V.map fromIntegral)
-  Nested.sfromVector knownShS . V.map fromIntegral . Nested.stoVector
+  coerce
+    (mliftNumElt1
+       (flip liftVEltwise1 (V.map fromIntegral)))
 
 tscalarS
   :: (Nested.Elt r, Numeric r)
@@ -904,11 +941,12 @@ tunScalarS
   => Nested.Shaped '[] r -> r
 tunScalarS = Nested.sunScalar
 
-tscaleByScalarS :: forall r sh. (Nested.PrimElt r, Nested.Internal.Arith.NumElt r, Numeric r, KnownShS sh)
+tscaleByScalarS :: forall r sh. (Nested.PrimElt r, Mixed.Internal.Arith.NumElt r, Numeric r, KnownShS sh)
                 => r -> Nested.Shaped sh r -> Nested.Shaped sh r
 tscaleByScalarS s =
--- TODO: liftVS (LA.scale s)
-  (Nested.sreplicateScal Nested.knownShS s *)
+  coerce
+    (mliftNumElt1
+       (flip liftVEltwise1 (V.map (* s))))
 
 toIndexOfS :: IndexIntSh sh -> IndexS sh (ORArray Int64 0)
 toIndexOfS ix = FlipR . tscalarR <$> ix
