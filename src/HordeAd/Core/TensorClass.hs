@@ -58,27 +58,22 @@ import           HordeAd.Util.SizedList
 
 -- * Ranked tensor class definition
 
-type TensorSupports :: (Type -> Constraint) -> TensorType ty -> Constraint
-type TensorSupports c f =
-  forall r y. (GoodScalar r, HasSingletonDict y)
-              => (c r, c (Vector r)) => c (f r y)
-
-type TensorSupports2 :: (Type -> Constraint) -> (Type -> Constraint) -> TensorType ty -> Constraint
-type TensorSupports2 c1 c2 f =
-  forall r y. (GoodScalar r, HasSingletonDict y)
-              => (c1 r, c1 (Vector r)) => c2 (f r y)
-
-type TensorSupports3 :: (Type -> Constraint) -> (Type -> Constraint) -> TensorType ty -> Constraint
-type TensorSupports3 c1 c2 f =
+type TensorSupports :: (Type -> Constraint) -> (Type -> Constraint) -> TensorType ty -> Constraint
+type TensorSupports c1 c2 f =
   forall r y. (GoodScalar r, HasSingletonDict y)
               => c1 r => c2 (f r y)
+
+class (RealFloat r, Nested.Internal.Arith.FloatElt r)
+      => RealFloatAndFloatElt r
+instance (RealFloat r, Nested.Internal.Arith.FloatElt r)
+         => RealFloatAndFloatElt r
 
 -- | The superclasses indicate that it's not only a container array,
 -- but also a mathematical tensor, sporting numeric operations.
 class ( Num (IntOf ranked), IntegralF (IntOf ranked), CRanked ranked Num
-      , TensorSupports3 RealFloatAndFloatElt Floating ranked
-      , TensorSupports3 RealFloatAndFloatElt RealFloatF ranked
-      , TensorSupports2 Integral IntegralF ranked )
+      , TensorSupports RealFloatAndFloatElt Floating ranked
+      , TensorSupports RealFloatAndFloatElt RealFloatF ranked
+      , TensorSupports Integral IntegralF ranked )
       => RankedTensor (ranked :: RankedTensorType) where
 
   rlet :: (KnownNat n, KnownNat m, GoodScalar r, GoodScalar r2)
@@ -356,15 +351,10 @@ class ( Num (IntOf ranked), IntegralF (IntOf ranked), CRanked ranked Num
 
 -- * Shaped tensor class definition
 
-class (RealFloat r, Nested.Internal.Arith.FloatElt r)
-      => RealFloatAndFloatElt r
-instance (RealFloat r, Nested.Internal.Arith.FloatElt r)
-         => RealFloatAndFloatElt r
-
 class ( Num (IntOf shaped), IntegralF (IntOf shaped), CShaped shaped Num
-      , TensorSupports3 RealFloatAndFloatElt Floating shaped
-      , TensorSupports3 RealFloatAndFloatElt RealFloatF shaped
-      , TensorSupports2 Integral IntegralF shaped )
+      , TensorSupports RealFloatAndFloatElt Floating shaped
+      , TensorSupports RealFloatAndFloatElt RealFloatF shaped
+      , TensorSupports Integral IntegralF shaped )
       => ShapedTensor (shaped :: ShapedTensorType) where
 
   slet :: (KnownShS sh, KnownShS sh2, GoodScalar r, GoodScalar r2)
