@@ -8,7 +8,6 @@ import Prelude
 
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as Sh
-import qualified Data.Array.ShapedS as OS
 import qualified Data.IntMap.Strict as IM
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
@@ -559,7 +558,7 @@ testBraidedBuilds :: Assertion
 testBraidedBuilds =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [4] [0.0,4.0,0.0,0.0])
-    (rev' @Double @2 (braidedBuilds @_ @4) (FlipR $ OR.constant [4] 3.4))
+    (rev' @Double @2 (braidedBuilds @_ @0) (FlipR $ OR.constant [4] 3.4))
 
 testBraidedBuilds1 :: Assertion
 testBraidedBuilds1 =
@@ -577,7 +576,7 @@ testRecycled :: Assertion
 testRecycled =
   assertEqualUpToEpsilon' 1e-6
     (OR.constant [2] 5616)
-    (rev' @Double @7 (recycled @_ @_ @2) (FlipR $ OR.constant [2] 1.0001))
+    (rev' @Double @7 (recycled @_ @_ @1) (FlipR $ OR.constant [2] 1.0001))
 
 testRecycled1 :: Assertion
 testRecycled1 =
