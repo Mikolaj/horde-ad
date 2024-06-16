@@ -193,11 +193,7 @@ instance (Nested.NumElt r, Nested.PrimElt r, Nested.Elt r, KnownNat n, Numeric r
     Nothing -> error $ "FlipR(Nested.Ranked).fromInteger: shape unknown at rank "
                        ++ show (valueOf @n :: Int)
 
-deriving instance Enum (f a b) => Enum (FlipR f b a)
-
 deriving instance IntegralF (f a b) => IntegralF (FlipR f b a)
-
-deriving instance (Num (FlipR f b a), Integral (f a b), Ord (FlipR f b a)) => Integral (FlipR f b a)
 
 deriving instance (Num (FlipR f b a), Fractional (f a b)) => Fractional (FlipR f b a)
 
@@ -208,8 +204,6 @@ deriving instance (Num (FlipR f b a), Real (f a b), Ord (FlipR f b a)) => Real (
 deriving instance (Num (FlipR f b a), RealFrac (f a b), Ord (FlipR f b a)) => RealFrac (FlipR f b a)
 
 deriving instance (Num (FlipR f b a), RealFloatF (f a b)) => RealFloatF (FlipR f b a)
-
-deriving instance (Num (FlipR f b a), RealFloat (f a b), Ord (FlipR f b a)) => RealFloat (FlipR f b a)
 
 deriving instance NFData (f a b) => NFData (FlipR f b a)
 
