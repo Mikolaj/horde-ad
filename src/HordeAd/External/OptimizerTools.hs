@@ -13,10 +13,13 @@ import qualified Data.Array.RankedS as OR
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality (testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
+import qualified Data.Vector.Storable as VS
 import           GHC.TypeLits (KnownNat, sameNat)
-import           Numeric.LinearAlgebra (Numeric, Vector)
+import           Numeric.LinearAlgebra (Numeric)
+import qualified Numeric.LinearAlgebra as LA
 import           Type.Reflection (typeRep)
 
+import qualified Data.Array.Mixed.Internal.Arith as Mixed.Internal.Arith
 import qualified Data.Array.Nested as Nested
 import qualified Data.Array.Nested.Internal.Mixed as Nested.Internal.Mixed
 import qualified Data.Array.Nested.Internal.Ranked as Nested.Internal
@@ -31,9 +34,13 @@ import HordeAd.Internal.OrthotopeOrphanInstances
 
 updateWithGradient :: Double -> HVector ORArray -> HVector ORArray -> HVector ORArray
 updateWithGradient gamma params gradient =
-  let updateVector :: (Numeric r, Fractional r, Num (Vector r))
-                   => Vector r -> Vector r -> Vector r
-      updateVector i r = i - V.map (* realToFrac gamma) r
+  let updateVector :: (Numeric r, Fractional r, Num (VS.Vector r))
+                   => Either r (VS.Vector r) -> Either r (VS.Vector r)
+                   -> VS.Vector r
+      updateVector i' r' = let i = either VS.singleton id i'
+                               r = either VS.singleton id r'
+                           in i - LA.scale (realToFrac gamma) r
+        -- TODO: do this on tensors instead of vectors to use ox-arrays machinery instead of LA machinery to optimize this: V.map (* realToFrac gamma)
       updateR :: DynamicTensor ORArray -> DynamicTensor ORArray
               -> DynamicTensor ORArray
       updateR i r = case (i, r) of
@@ -43,7 +50,11 @@ updateWithGradient gamma params gradient =
                Just Refl -> case testEquality (typeRep @r1) (typeRep @r2) of
                  Just Refl ->
                    DynamicRanked $ FlipR
-                   $ Nested.Internal.arithPromoteRanked2 (Nested.Internal.Mixed.mliftPrim2 (\i r -> i - (realToFrac gamma) * r)) (runFlipR t1) (runFlipR t2)  -- liftVR2 updateVector (runFlipR t1) (runFlipR t2)
+                   $ Nested.Internal.arithPromoteRanked2
+                       (Nested.Internal.Mixed.mliftNumElt2
+                          (flip Mixed.Internal.Arith.liftVEltwise2
+                             updateVector))
+                       (runFlipR t1) (runFlipR t2)
                  _ -> error "updateWithGradient: scalar mismatch"
                _ -> error "updateWithGradient: rank mismatch")
           i
@@ -53,7 +64,11 @@ updateWithGradient gamma params gradient =
                Just Refl -> case testEquality (typeRep @r1) (typeRep @r2) of
                  Just Refl ->
                    DynamicShaped $ FlipS
-                   $ Nested.Internal.arithPromoteShaped2 (Nested.Internal.Mixed.mliftPrim2 (\i r -> i - (realToFrac gamma) * r)) (runFlipS t1) (runFlipS t2) -- liftVS2 updateVector (runFlipS t1) (runFlipS t2)
+                   $ Nested.Internal.arithPromoteShaped2
+                       (Nested.Internal.Mixed.mliftNumElt2
+                          (flip Mixed.Internal.Arith.liftVEltwise2
+                             updateVector))
+                       (runFlipS t1) (runFlipS t2)
                  _ -> error "updateWithGradient: scalar mismatch"
                _ -> error "updateWithGradient: rank mismatch")
           i
@@ -117,8 +132,8 @@ initialStateAdam parameters0 =
 -- | Application of a vector function on the flattened arrays elements.
 liftArray43 :: ( Numeric a, Numeric b, Numeric c, Numeric d
                , Numeric x, Numeric y, Numeric z, KnownNat n )
-            => (Vector a -> Vector b -> Vector c -> Vector d
-                -> (Vector x, Vector y, Vector z))
+            => (VS.Vector a -> VS.Vector b -> VS.Vector c -> VS.Vector d
+                -> (VS.Vector x, VS.Vector y, VS.Vector z))
             -> OR.Array n a -> OR.Array n b -> OR.Array n c -> OR.Array n d
             -> (OR.Array n x, OR.Array n y, OR.Array n z)
 liftArray43 f m1 m2 m3 m4 =
@@ -144,23 +159,24 @@ updateWithGradientAdam ArgsAdam{..} StateAdam{tAdam, mAdam, vAdam}
       tAdamNew = tAdam + 1
       oneMinusBeta1 = 1 - betaOne
       oneMinusBeta2 = 1 - betaTwo
-      updateVector :: (Numeric r, Fractional r, Floating (Vector r))
-                   => Vector r -> Vector r
-                   -> Vector r -> Vector r
-                   -> (Vector r, Vector r, Vector r)
+      updateVector :: (Numeric r, Fractional r, Floating (VS.Vector r))
+                   => VS.Vector r -> VS.Vector r
+                   -> VS.Vector r -> VS.Vector r
+                   -> (VS.Vector r, VS.Vector r, VS.Vector r)
       updateVector mA vA p g =
-        let mANew = V.map (* realToFrac betaOne) mA
-                    + V.map (* realToFrac oneMinusBeta1) g
-            vANew = V.map (* realToFrac betaTwo) vA
-                    + V.map (* realToFrac oneMinusBeta2) (g * g)
+        let mANew = LA.scale (realToFrac betaOne) mA
+                    + LA.scale (realToFrac oneMinusBeta1) g
+            vANew = LA.scale (realToFrac betaTwo) vA
+                    + LA.scale (realToFrac oneMinusBeta2) (g * g)
             alphat = alpha * sqrt (1 - betaTwo ^ tAdamNew)
                              / (1 - betaOne ^ tAdamNew)
         in ( mANew
            , vANew
-           , p - V.map (* realToFrac alphat) mANew
+           , p - LA.scale (realToFrac alphat) mANew
                  / (sqrt vANew + V.singleton (realToFrac epsilon)) )
-                      -- the @scalar@ is safe here;
+                      -- the @LA.scalar@ (V.singleton) is safe here;
                       -- @addConstant@ would be better, but it's not exposed
+        -- TODO: do this on tensors instead of vectors to use ox-arrays machinery instead of LA machinery to optimize this: V.map (* realToFrac x)
       updateR :: DynamicTensor ORArray -> DynamicTensor ORArray
               -> DynamicTensor ORArray -> DynamicTensor ORArray
               -> ( DynamicTensor ORArray
