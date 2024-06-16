@@ -49,13 +49,13 @@ import           GHC.TypeLits
   , type (+)
   , withSomeSNat
   )
-import           Numeric.LinearAlgebra (Numeric, Vector)
+import           Numeric.LinearAlgebra (Numeric)
 import qualified Numeric.LinearAlgebra as LA
 import           Numeric.LinearAlgebra.Data (arctan2)
 import           Numeric.LinearAlgebra.Devel (zipVectorWith)
 import           Unsafe.Coerce (unsafeCoerce)
 
-import qualified Data.Array.Mixed.Internal.Arith as Nested.Internal.Arith
+import qualified Data.Array.Mixed.Internal.Arith as Mixed.Internal.Arith
 import qualified Data.Array.Mixed.Permutation as Permutation
 import qualified Data.Array.Mixed.Shape as X
 import           Data.Array.Mixed.Types (Dict (..))
@@ -134,26 +134,56 @@ instance IntegralF Int64 where
   quotF = quot
   remF = rem
 
-instance (Nested.PrimElt r, Num (Vector r), Integral r, KnownNat n, Numeric r, Show r)
+instance (Nested.PrimElt r, Num (VS.Vector r), Integral r, KnownNat n, Numeric r, Show r)
          => IntegralF (Nested.Ranked n r) where
-  quotF = Nested.Internal.arithPromoteRanked2 (Nested.Internal.Mixed.mliftPrim2 quot)
-  remF = Nested.Internal.arithPromoteRanked2 (Nested.Internal.Mixed.mliftPrim2 rem)
+  quotF = Nested.Internal.arithPromoteRanked2
+            (Nested.Internal.Mixed.mliftNumElt2
+               (flip Mixed.Internal.Arith.liftVEltwise2
+                  (\x' y' -> let x = either VS.singleton id x'
+                                 y = either VS.singleton id y'
+                             in quot x y)))
+  remF = Nested.Internal.arithPromoteRanked2
+            (Nested.Internal.Mixed.mliftNumElt2
+               (flip Mixed.Internal.Arith.liftVEltwise2
+                  (\x' y' -> let x = either VS.singleton id x'
+                                 y = either VS.singleton id y'
+                             in rem x y)))
 
-instance (Nested.PrimElt r, Num (Vector r), Integral r, KnownShS sh, Numeric r, Show r)
+instance (Nested.PrimElt r, Num (VS.Vector r), Integral r, KnownShS sh, Numeric r, Show r)
          => IntegralF (Nested.Shaped sh r) where
-  quotF = Nested.Internal.arithPromoteShaped2 (Nested.Internal.Mixed.mliftPrim2 quot)
-  remF = Nested.Internal.arithPromoteShaped2 (Nested.Internal.Mixed.mliftPrim2 rem)
+  quotF = Nested.Internal.arithPromoteShaped2
+            (Nested.Internal.Mixed.mliftNumElt2
+               (flip Mixed.Internal.Arith.liftVEltwise2
+                  (\x' y' -> let x = either VS.singleton id x'
+                                 y = either VS.singleton id y'
+                             in quot x y)))
+  remF = Nested.Internal.arithPromoteShaped2
+            (Nested.Internal.Mixed.mliftNumElt2
+               (flip Mixed.Internal.Arith.liftVEltwise2
+                  (\x' y' -> let x = either VS.singleton id x'
+                                 y = either VS.singleton id y'
+                             in rem x y)))
 
 class Floating a => RealFloatF a where
   atan2F :: a -> a -> a
 
-instance (Nested.Internal.Arith.NumElt r, Nested.PrimElt r, RealFloat r, RealFloat (Vector r), Nested.Internal.Arith.FloatElt r, KnownNat n, Numeric r)
+instance (Mixed.Internal.Arith.NumElt r, Nested.PrimElt r, RealFloat r, RealFloat (VS.Vector r), Mixed.Internal.Arith.FloatElt r, KnownNat n, Numeric r)
          => RealFloatF (Nested.Ranked n r) where
-  atan2F = Nested.Internal.arithPromoteRanked2 (Nested.Internal.Mixed.mliftPrim2 atan2)
+  atan2F = Nested.Internal.arithPromoteRanked2
+            (Nested.Internal.Mixed.mliftNumElt2
+               (flip Mixed.Internal.Arith.liftVEltwise2
+                  (\x' y' -> let x = either VS.singleton id x'
+                                 y = either VS.singleton id y'
+                             in atan2 x y)))
 
-instance (Nested.Internal.Arith.NumElt r, Nested.PrimElt r, RealFloat r, RealFloat (Vector r), Nested.Internal.Arith.FloatElt r, KnownShS sh, Numeric r)
+instance (Mixed.Internal.Arith.NumElt r, Nested.PrimElt r, RealFloat r, RealFloat (VS.Vector r), Mixed.Internal.Arith.FloatElt r, KnownShS sh, Numeric r)
          => RealFloatF (Nested.Shaped sh r) where
-  atan2F = Nested.Internal.arithPromoteShaped2 (Nested.Internal.Mixed.mliftPrim2 atan2)
+  atan2F = Nested.Internal.arithPromoteShaped2
+            (Nested.Internal.Mixed.mliftNumElt2
+               (flip Mixed.Internal.Arith.liftVEltwise2
+                  (\x' y' -> let x = either VS.singleton id x'
+                                 y = either VS.singleton id y'
+                             in atan2 x y)))
 
 type role FlipR nominal nominal nominal
 type FlipR :: forall {k}. (Nat -> k -> Type) -> k -> Nat -> Type
@@ -243,7 +273,7 @@ deriving instance RealFloatF (f a b) => RealFloatF (FlipS f b a)
 deriving instance NFData (f a b) => NFData (FlipS f b a)
 
 -- TODO: This one is for convenience in tests only. Overhaul tests and remove.
-instance (Num (Vector r), KnownNat n, Numeric r, Show r)
+instance (Num (VS.Vector r), KnownNat n, Numeric r, Show r)
          => Num (OR.Array n r) where
   (+) = undefined
   (-) = undefined
@@ -257,7 +287,7 @@ instance (Num (Vector r), KnownNat n, Numeric r, Show r)
                        ++ show (valueOf @n :: Int)
 
 -- TODO: This one is for convenience in tests only. Overhaul tests and remove.
-instance (Num (Vector r), KnownNat n, Numeric r, Show r)
+instance (Num (VS.Vector r), KnownNat n, Numeric r, Show r)
          => Num (FlipR OR.Array r n) where
   (FlipR t) + (FlipR u) = FlipR $ t + u
   (FlipR t) - (FlipR u) = FlipR $ t - u
@@ -271,7 +301,7 @@ instance (Num (Vector r), KnownNat n, Numeric r, Show r)
                        ++ show (valueOf @n :: Int)
 
 -- TODO: This one is for convenience in tests only. Overhaul tests and remove.
-instance (Num (Vector r), KnownNat n, Numeric r, Show r, Fractional r)
+instance (Num (VS.Vector r), KnownNat n, Numeric r, Show r, Fractional r)
          => Fractional (OR.Array n r) where
   (/) = undefined
   recip = undefined
@@ -303,12 +333,12 @@ trustMeThisIsAPermutation :: forall is r. (PermC is => r) -> r
 trustMeThisIsAPermutation r = case trustMeThisIsAPermutationDict @is of
   Dict -> r
 
-instance Enum (Vector r) where  -- dummy, to satisfy Integral below
+instance Enum (VS.Vector r) where  -- dummy, to satisfy Integral below
   toEnum = undefined
   fromEnum = undefined
 
-instance (Num (Vector r), Integral r, Numeric r, Show r)
-         => Integral (Vector r) where
+instance (Num (VS.Vector r), Integral r, Numeric r, Show r)
+         => Integral (VS.Vector r) where
   quot = zipVectorWith quot
   rem = zipVectorWith rem
   quotRem x y = (quot x y, rem x y)  -- TODO
@@ -317,16 +347,16 @@ instance (Num (Vector r), Integral r, Numeric r, Show r)
   -- divMod  -- TODO
   toInteger = undefined  -- not needed
 
-instance (Num (Vector r), Numeric r, Ord r)
-         => Real (Vector r) where
+instance (Num (VS.Vector r), Numeric r, Ord r)
+         => Real (VS.Vector r) where
   toRational = undefined  -- TODO
 
-instance (Num (Vector r), Numeric r, Fractional r, Ord r)
-         => RealFrac (Vector r) where
+instance (Num (VS.Vector r), Numeric r, Fractional r, Ord r)
+         => RealFrac (VS.Vector r) where
   properFraction = error "Vector.properFraction: can't be implemented"
 
-instance (Floating (Vector r), Numeric r, RealFloat r)
-         => RealFloat (Vector r) where
+instance (Floating (VS.Vector r), Numeric r, RealFloat r)
+         => RealFloat (VS.Vector r) where
   atan2 = arctan2
   floatRadix = undefined  -- TODO (and below)
   floatDigits = undefined
