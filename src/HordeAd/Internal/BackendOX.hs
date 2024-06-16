@@ -238,15 +238,15 @@ case rshape t of
           V.unsafeFreeze v2
 -}
 
--- | Sum all elements of a tensor.
+-- | Sum all elements of a tensor. TODO: is this correct?
 tsum0R
   :: NumAndShow r
   => Nested.Ranked n r -> r
--- tsum0R (RS.A (RG.A sh (OI.T _ _ vt))) | V.length vt == 1 =
---  fromIntegral (product sh) * vt V.! 0
-tsum0R u =
-  let RS.A (RG.A sh t)  = Nested.rtoOrthotope u
-  in LA.sumElements $ OI.toUnorderedVectorT sh t
+tsum0R u = case Nested.rtoOrthotope u of
+  (RS.A (RG.A sh (OI.T _ _ vt))) | V.length vt == 1 ->
+    fromIntegral (product sh) * vt V.! 0
+  (RS.A (RG.A sh t)) ->
+    LA.sumElements $ OI.toUnorderedVectorT sh t
 
 {-
 -- | Sum the innermost dimension (at least at rank 2; TODO: generalize).
@@ -722,15 +722,15 @@ tsumInS t = case OS.shapeL t of
   _ -> error "tsumInS: not yet generalized beyond rank 2"
 -}
 
--- | Sum all elements of a tensor.
+-- | Sum all elements of a tensor. TODO: is this correct?
 tsum0S
   :: forall sh r. (NumAndShow r, KnownShS sh)
   => Nested.Shaped sh r -> r
---tsum0S (SS.A (SG.A (OI.T _ _ vt))) | V.length vt == 1 =
---  fromIntegral (sizeT @sh) * vt V.! 0
-tsum0S u =
-  let SS.A (SG.A t)  = Nested.stoOrthotope u
-  in LA.sumElements $ OI.toUnorderedVectorT (shapeT @sh) t
+tsum0S u = case Nested.stoOrthotope u of
+  (SS.A (SG.A (OI.T _ _ vt))) | V.length vt == 1 ->
+    fromIntegral (sizeT @sh) * vt V.! 0
+  (SS.A (SG.A t)) ->
+    LA.sumElements $ OI.toUnorderedVectorT (shapeT @sh) t
 
 tdot0S
   :: forall sh r. (NumAndShow r, KnownShS sh)
