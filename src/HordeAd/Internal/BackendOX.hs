@@ -4,7 +4,6 @@
 -- | Tensor operations implementation using the ox-arrays package.
 module HordeAd.Internal.BackendOX
   ( module HordeAd.Internal.BackendOX
---  , tsumR, tsum0R, tsumInR
   ) where
 
 import Prelude hiding (foldl')
@@ -29,15 +28,16 @@ import           Data.List (foldl')
 import           Data.List.Index (imap)
 import           Data.List.NonEmpty (NonEmpty)
 import qualified Data.List.NonEmpty as NonEmpty
+import qualified Data.Map.Strict as M
 import           Data.Maybe (fromJust, listToMaybe)
 import           Data.Proxy (Proxy (Proxy))
-import qualified Data.Map.Strict as M
 import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality (gcastWith, (:~:) (Refl))
 import           Data.Type.Ord (Compare)
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Storable as VS
 import qualified Data.Vector.Storable.Mutable as VM
+import           GHC.Exts (IsList (..))
 import qualified GHC.IsList as IsList
 import           GHC.TypeLits
   ( KnownNat
@@ -107,24 +107,24 @@ tminIndexR
   => Nested.Ranked (1 + n) r -> Nested.Ranked n r2
 tminIndexR =
   let f :: Nested.Ranked 1 r -> Nested.Ranked 0 r2
-      f = Nested.rscalar . fromIntegral . Nested.Internal.Shape.ixrHead . Nested.rminIndexPrim
-  in {- TODO: optimize? case sameNat (Proxy @n) (Proxy @0) of
-    Just Refl -> f
-    _ ->-} Nested.rrerank (SNat @n) ZSR f
+      f = Nested.rscalar . fromIntegral . Nested.Internal.Shape.ixrHead
+          . Nested.rminIndexPrim
+  in Nested.rrerank (SNat @n) ZSR f
 
 tmaxIndexR
   :: forall n r r2. (NumAndShow r, NumAndShow r2, KnownNat n)
   => Nested.Ranked (1 + n) r -> Nested.Ranked n r2
 tmaxIndexR =
   let f :: Nested.Ranked 1 r -> Nested.Ranked 0 r2
-      f = Nested.rscalar . fromIntegral . Nested.Internal.Shape.ixrHead . Nested.rmaxIndexPrim
+      f = Nested.rscalar . fromIntegral . Nested.Internal.Shape.ixrHead
+          . Nested.rmaxIndexPrim
   in Nested.rrerank (SNat @n) ZSR f
 
 -- TODO: use Convert, fromInt/toInt and fromZ/toZ from hmatrix
 tfloorR :: (NumAndShow r, RealFrac r, NumAndShow r2, Integral r2, KnownNat n)
         => Nested.Ranked n r -> Nested.Ranked n r2
 tfloorR t =
-  -- TODO: liftVR (V.map floor)
+  -- TODO: previously did not canonicalise as often: liftVR (V.map floor)
   let sh = Nested.rshape t
   in Nested.rfromVector sh . V.map floor . Nested.rtoVector $ t
 
@@ -133,10 +133,14 @@ ixInBounds ix sh =
   and $ zipWith (\i dim -> 0 <= i && i < fromIntegral dim) ix sh
 
 tindexNR
-  :: forall m n r. (KnownNat m, NumAndShow r)
+  :: forall m n r. (KnownNat m, KnownNat n, NumAndShow r)
   => Nested.Ranked (m + n) r -> IndexInt m -> Nested.Ranked n r
-tindexNR v ix = Nested.rindexPartial v (fmap fromIntegral ix)
-{- TODO
+tindexNR v ix = let sh = Nested.rshape v
+                    !_A = assert (ixInBounds (toList ix) (toList sh)
+                                  `blame` (v, ix)) ()
+                in Nested.rindexPartial v (fmap fromIntegral ix)
+{- TODO: benchmark if this is faster enough for its complexity;
+         probably not, becasue orthotope's index does no canonicalization either
 tindexNR v@(RS.A (RG.A sh OI.T{strides, offset, values})) ix =
   let l = indexToList ix
       linear = offset + sum (zipWith (*) (map fromIntegral l) strides)
@@ -153,28 +157,28 @@ tindexZR
   => Nested.Ranked (m + n) r -> IndexInt m -> Nested.Ranked n r
 tindexZR v ix =
   let sh = Nested.rshape v
-  in if ixInBounds (indexToList ix) (Foldable.toList sh)
+  in if ixInBounds (toList ix) (toList sh)
      then tindexNR v ix
      else Nested.rreplicateScal (dropShape @m sh) 0
---          Nested.constant (drop (valueOf @m) sh) 0
 
 tindex0R
-  :: NumAndShow r
+  :: (NumAndShow r, KnownNat n)
   => Nested.Ranked n r -> IndexInt n -> r
 tindex0R v ix =
-  let sh = Foldable.toList $ Nested.rshape v
-  in if ixInBounds (indexToList ix) sh
+  let sh = Nested.rshape v
+  in if ixInBounds (toList ix) (toList sh)
      then Nested.rindex v (fmap fromIntegral ix)
      else 0
-{- TODO, and check bounds, too
+{- TODO: see above
 tindex0R (RS.A (RG.A _ OI.T{..})) ix =
   values V.! (offset + sum (zipWith (*) (map fromIntegral $ indexToList ix)
                                         strides))
-    -- to avoid linearizing @values@, we do everything in unsized way
 -}
 
+------ perf reviewed up to this point
+
 tsumR
-  :: forall n r. (KnownNat n, NumAndShow r) --, RowSum r)
+  :: forall n r. (KnownNat n, NumAndShow r)
   => Nested.Ranked (1 + n) r -> Nested.Ranked n r
 {- TODO
 tsumR (RS.A (RG.A (k : sh) (OI.T (_ : ss) o vt))) | V.length vt == 1 =
@@ -213,7 +217,7 @@ tdot0R t u = OR.toVector t LA.<.> OR.toVector u
 -}
 
 tdot1InR
-  :: (NumAndShow r) -- , RowSum r)
+  :: NumAndShow r
   => Nested.Ranked 2 r -> Nested.Ranked 2 r -> Nested.Ranked 1 r
 tdot1InR t u = -- TODO: t@(RS.A (RG.A _ (OI.T _ _ vt))) u@(RS.A (RG.A _ (OI.T _ _ vu))) =
 --  if V.length vt == 1 || V.length vu == 1
@@ -596,7 +600,7 @@ tindex0S (SS.A (SG.A OI.T{..})) ix =
 -- No NOINLINE, because apparently nothing breaks and hmatrix, etc.
 -- also don't put NOINLINE in the functions using FFI.
 tsumS
-  :: forall n sh r. (KnownNat n, NumAndShow r{-, RowSum r-}, KnownShS sh)
+  :: forall n sh r. (KnownNat n, NumAndShow r, KnownShS sh)
   => Nested.Shaped (n ': sh) r -> Nested.Shaped sh r
 {- TODO
 tsumS (SS.A (SG.A (OI.T (_ : ss) o vt))) | V.length vt == 1 =
@@ -622,7 +626,7 @@ tsumS = Nested.ssumOuter1
 {- TODO
 -- Sum the innermost dimension (at least at rank 2; TODO: generalize).
 tsumInS
-  :: forall m n sh r. (KnownNat n, Numeric r, RowSum r, KnownNat m, KnownShS sh)
+  :: forall m n sh r. (KnownNat n, Numeric r, KnownNat m, KnownShS sh)
   => Nested.Shaped (m ': n ': sh) r -> Nested.Shaped (m ': sh) r
 tsumInS t = case OS.shapeL t of
   [] -> error "tsumInS: null shape"
@@ -668,7 +672,7 @@ tdot0S = Nested.sdot
 
 -- TODO: sdot1In :: shaped r (sh ++ [n]) -> shaped r (sh ++ [n]) -> shaped r sh
 tdot1InS
-  :: (NumAndShow r{-, RowSum r-}, KnownNat m, KnownNat n)
+  :: (NumAndShow r, KnownNat m, KnownNat n)
   => Nested.Shaped '[m, n] r -> Nested.Shaped '[m, n] r -> Nested.Shaped '[m] r
 tdot1InS t u = -- TODO: t@(SS.A (SG.A (OI.T _ _ vt))) u@(SS.A (SG.A (OI.T _ _ vu))) =
 --  if V.length vt == 1 || V.length vu == Nested.sreplicateScal knownShS 1
