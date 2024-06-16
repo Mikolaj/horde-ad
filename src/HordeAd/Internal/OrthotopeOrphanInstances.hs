@@ -167,23 +167,33 @@ instance (Nested.PrimElt r, Num (VS.Vector r), Integral r, KnownShS sh, Numeric 
 class Floating a => RealFloatF a where
   atan2F :: a -> a -> a
 
-instance (Mixed.Internal.Arith.NumElt r, Nested.PrimElt r, RealFloat r, RealFloat (VS.Vector r), Mixed.Internal.Arith.FloatElt r, KnownNat n, Numeric r)
+instance (Mixed.Internal.Arith.NumElt r, Nested.PrimElt r, RealFloat r, Mixed.Internal.Arith.FloatElt r, KnownNat n, Numeric r)
          => RealFloatF (Nested.Ranked n r) where
   atan2F = Nested.Internal.arithPromoteRanked2
             (Nested.Internal.Mixed.mliftNumElt2
                (flip Mixed.Internal.Arith.liftVEltwise2
-                  (\x' y' -> let x = either VS.singleton id x'
-                                 y = either VS.singleton id y'
-                             in atan2 x y)))
+                  (\x' y' ->
+                     let (x, y) = case (x', y') of
+                           (Left x2, Left y2) ->
+                             (V.singleton x2, V.singleton y2)
+                           _ ->
+                             ( either (V.replicate (V.length y)) id x'
+                             , either (V.replicate (V.length x)) id y' )
+                     in arctan2 x y))) -- TODO: do better somehow
 
-instance (Mixed.Internal.Arith.NumElt r, Nested.PrimElt r, RealFloat r, RealFloat (VS.Vector r), Mixed.Internal.Arith.FloatElt r, KnownShS sh, Numeric r)
+instance (Mixed.Internal.Arith.NumElt r, Nested.PrimElt r, RealFloat r, Mixed.Internal.Arith.FloatElt r, KnownShS sh, Numeric r)
          => RealFloatF (Nested.Shaped sh r) where
   atan2F = Nested.Internal.arithPromoteShaped2
             (Nested.Internal.Mixed.mliftNumElt2
                (flip Mixed.Internal.Arith.liftVEltwise2
-                  (\x' y' -> let x = either VS.singleton id x'
-                                 y = either VS.singleton id y'
-                             in atan2 x y)))
+                  (\x' y' ->
+                     let (x, y) = case (x', y') of
+                           (Left x2, Left y2) ->
+                             (V.singleton x2, V.singleton y2)
+                           _ ->
+                             ( either (V.replicate (V.length y)) id x'
+                             , either (V.replicate (V.length x)) id y' )
+                     in arctan2 x y))) -- TODO: do better somehow
 
 type role FlipR nominal nominal nominal
 type FlipR :: forall {k}. (Nat -> k -> Type) -> k -> Nat -> Type
@@ -370,23 +380,3 @@ instance (Num (VS.Vector r), Numeric r, Ord r)
 instance (Num (VS.Vector r), Numeric r, Fractional r, Ord r)
          => RealFrac (VS.Vector r) where
   properFraction = error "Vector.properFraction: can't be implemented"
-
-instance (Floating (VS.Vector r), Numeric r, RealFloat r)
-         => RealFloat (VS.Vector r) where
-  atan2 v' u' =
-    let (v, u) = case (V.length v', V.length u') of
-          (1, 1) -> (v', u')
-          (1, n) -> (V.replicate n (v' V.! 0), u')
-          (n, 1) -> (v', V.replicate n (u' V.! 0))
-          _ -> (v', u')
-    in arctan2 v u
-  floatRadix = undefined
-  floatDigits = undefined
-  floatRange = undefined
-  decodeFloat = undefined
-  encodeFloat = undefined
-  isNaN = undefined
-  isInfinite = undefined
-  isDenormalized = undefined
-  isNegativeZero = undefined
-  isIEEE = undefined

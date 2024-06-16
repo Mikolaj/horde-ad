@@ -87,7 +87,7 @@ type family HasSingletonDict (y :: ty) where
   HasSingletonDict sh = KnownShS sh
 
 type Differentiable r =
-  (RealFloat r, RealFloat (Vector r), Nested.Internal.Arith.FloatElt r)
+  (RealFloat r, Nested.Internal.Arith.FloatElt r)
 
 -- We white-list all types on which we permit differentiation (e.g., SGD)
 -- to work. This is for technical typing purposes and imposes updates
