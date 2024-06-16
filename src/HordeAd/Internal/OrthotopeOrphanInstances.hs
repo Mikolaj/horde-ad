@@ -19,11 +19,9 @@ module HordeAd.Internal.OrthotopeOrphanInstances
 import Prelude
 
 import           Control.DeepSeq (NFData)
-import           Control.Exception.Assert.Sugar
 import           Data.Array.Convert (Convert)
 import qualified Data.Array.Convert
 import           Data.Array.Internal (valueOf)
-import qualified Data.Array.Internal as OI
 import qualified Data.Array.Internal.RankedG as RG
 import qualified Data.Array.Internal.RankedS as RS
 import qualified Data.Array.Internal.ShapedG as SG
@@ -37,20 +35,9 @@ import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Storable as VS
-import           GHC.Stack
 import           GHC.TypeLits
-  ( KnownNat
-  , Nat
-  , SNat
-  , fromSNat
-  , pattern SNat
-  , sameNat
-  , type (*)
-  , type (+)
-  , withSomeSNat
-  )
+  (KnownNat, Nat, SNat, fromSNat, pattern SNat, sameNat, type (+), withSomeSNat)
 import           Numeric.LinearAlgebra (Numeric)
-import qualified Numeric.LinearAlgebra as LA
 import           Numeric.LinearAlgebra.Data (arctan2)
 import           Numeric.LinearAlgebra.Devel (zipVectorWith)
 import           Unsafe.Coerce (unsafeCoerce)
@@ -134,40 +121,71 @@ instance IntegralF Int64 where
   quotF = quot
   remF = rem
 
-instance (Nested.PrimElt r, Num (VS.Vector r), Integral r, KnownNat n, Numeric r, Show r)
+instance (Nested.PrimElt r, Integral r, Numeric r)
          => IntegralF (Nested.Ranked n r) where
+  -- These can't be partial, because our conditionals are not lazy
+  -- and so the counterfactual branches, with zeros, may get executed
+  -- even though they are subsequently ignored.
   quotF = Nested.Internal.arithPromoteRanked2
             (Nested.Internal.Mixed.mliftNumElt2
                (flip Mixed.Internal.Arith.liftVEltwise2
-                  (\x' y' -> let x = either VS.singleton id x'
-                                 y = either VS.singleton id y'
-                             in quot x y)))
+                  (\x' y' ->
+                     let (x, y) = case (x', y') of
+                           (Left x2, Left y2) ->
+                             (V.singleton x2, V.singleton y2)
+                           _ ->
+                             ( either (V.replicate (V.length y)) id x'
+                             , either (V.replicate (V.length x)) id y' )
+                     in zipVectorWith
+                          (\a b -> if b == 0 then 0 else quot a b) x y)))
+                            -- TODO: do better somehow
   remF = Nested.Internal.arithPromoteRanked2
             (Nested.Internal.Mixed.mliftNumElt2
                (flip Mixed.Internal.Arith.liftVEltwise2
-                  (\x' y' -> let x = either VS.singleton id x'
-                                 y = either VS.singleton id y'
-                             in rem x y)))
+                  (\x' y' ->
+                     let (x, y) = case (x', y') of
+                           (Left x2, Left y2) ->
+                             (V.singleton x2, V.singleton y2)
+                           _ ->
+                             ( either (V.replicate (V.length y)) id x'
+                             , either (V.replicate (V.length x)) id y' )
+                     in zipVectorWith
+                          (\a b -> if b == 0 then 0 else rem a b) x y)))
+                            -- TODO: do better somehow
 
-instance (Nested.PrimElt r, Num (VS.Vector r), Integral r, KnownShS sh, Numeric r, Show r)
+instance (Nested.PrimElt r, Integral r, Numeric r)
          => IntegralF (Nested.Shaped sh r) where
   quotF = Nested.Internal.arithPromoteShaped2
             (Nested.Internal.Mixed.mliftNumElt2
                (flip Mixed.Internal.Arith.liftVEltwise2
-                  (\x' y' -> let x = either VS.singleton id x'
-                                 y = either VS.singleton id y'
-                             in quot x y)))
+                  (\x' y' ->
+                     let (x, y) = case (x', y') of
+                           (Left x2, Left y2) ->
+                             (V.singleton x2, V.singleton y2)
+                           _ ->
+                             ( either (V.replicate (V.length y)) id x'
+                             , either (V.replicate (V.length x)) id y' )
+                     in zipVectorWith
+                          (\a b -> if b == 0 then 0 else quot a b) x y)))
+                            -- TODO: do better somehow
   remF = Nested.Internal.arithPromoteShaped2
             (Nested.Internal.Mixed.mliftNumElt2
                (flip Mixed.Internal.Arith.liftVEltwise2
-                  (\x' y' -> let x = either VS.singleton id x'
-                                 y = either VS.singleton id y'
-                             in rem x y)))
+                  (\x' y' ->
+                     let (x, y) = case (x', y') of
+                           (Left x2, Left y2) ->
+                             (V.singleton x2, V.singleton y2)
+                           _ ->
+                             ( either (V.replicate (V.length y)) id x'
+                             , either (V.replicate (V.length x)) id y' )
+                     in zipVectorWith
+                          (\a b -> if b == 0 then 0 else rem a b) x y)))
+                            -- TODO: do better somehow
 
 class Floating a => RealFloatF a where
   atan2F :: a -> a -> a
 
-instance (Mixed.Internal.Arith.NumElt r, Nested.PrimElt r, RealFloat r, Mixed.Internal.Arith.FloatElt r, KnownNat n, Numeric r)
+instance (Mixed.Internal.Arith.NumElt r, Nested.PrimElt r, RealFloat r, Mixed.Internal.Arith.FloatElt r, Numeric r)
          => RealFloatF (Nested.Ranked n r) where
   atan2F = Nested.Internal.arithPromoteRanked2
             (Nested.Internal.Mixed.mliftNumElt2
@@ -179,9 +197,9 @@ instance (Mixed.Internal.Arith.NumElt r, Nested.PrimElt r, RealFloat r, Mixed.In
                            _ ->
                              ( either (V.replicate (V.length y)) id x'
                              , either (V.replicate (V.length x)) id y' )
-                     in arctan2 x y))) -- TODO: do better somehow
+                     in arctan2 x y)))  -- TODO: do better somehow
 
-instance (Mixed.Internal.Arith.NumElt r, Nested.PrimElt r, RealFloat r, Mixed.Internal.Arith.FloatElt r, KnownShS sh, Numeric r)
+instance (Mixed.Internal.Arith.NumElt r, Nested.PrimElt r, RealFloat r, Mixed.Internal.Arith.FloatElt r, Numeric r)
          => RealFloatF (Nested.Shaped sh r) where
   atan2F = Nested.Internal.arithPromoteShaped2
             (Nested.Internal.Mixed.mliftNumElt2
@@ -193,7 +211,7 @@ instance (Mixed.Internal.Arith.NumElt r, Nested.PrimElt r, RealFloat r, Mixed.In
                            _ ->
                              ( either (V.replicate (V.length y)) id x'
                              , either (V.replicate (V.length x)) id y' )
-                     in arctan2 x y))) -- TODO: do better somehow
+                     in arctan2 x y)))  -- TODO: do better somehow
 
 type role FlipR nominal nominal nominal
 type FlipR :: forall {k}. (Nat -> k -> Type) -> k -> Nat -> Type
@@ -211,16 +229,16 @@ instance (Nested.Elt r, Show r, Show (Nested.Mixed (Mixed.Types.Replicate n Noth
   showsPrec d (FlipR u) =
     showString "Flip " . showParen True (showsPrec d u)
 
-instance (Eq r, Numeric r, KnownNat n, Eq (Nested.Mixed (Mixed.Types.Replicate n Nothing) r)) => Eq (FlipR Nested.Ranked r n) where
+instance (Eq r, KnownNat n, Eq (Nested.Mixed (Mixed.Types.Replicate n Nothing) r)) => Eq (FlipR Nested.Ranked r n) where
   (==) :: FlipR Nested.Ranked r n -> FlipR Nested.Ranked r n -> Bool
   FlipR u == FlipR v = u == v
 
-instance (Ord r, Numeric r, KnownNat n, Eq (Nested.Mixed (Mixed.Types.Replicate n Nothing) r), Ord (Nested.Mixed (Mixed.Types.Replicate n Nothing) r)) => Ord (FlipR Nested.Ranked r n) where
+instance (Ord r, KnownNat n, Eq (Nested.Mixed (Mixed.Types.Replicate n Nothing) r), Ord (Nested.Mixed (Mixed.Types.Replicate n Nothing) r)) => Ord (FlipR Nested.Ranked r n) where
   FlipR u <= FlipR v = u <= v
 
 -- TODO: This is only to ensure fromInteger crashes promptly if not rank 0.
 -- deriving instance Num (f a b) => Num (FlipR f b a)
-instance (Nested.NumElt r, Nested.PrimElt r, Nested.Elt r, KnownNat n, Numeric r, Show r)
+instance (Nested.NumElt r, Nested.PrimElt r, Nested.Elt r, KnownNat n, Num r)
          => Num (FlipR Nested.Ranked r n) where
   (FlipR t) + (FlipR u) = FlipR $ t + u
   (FlipR t) - (FlipR u) = FlipR $ t - u
@@ -263,11 +281,11 @@ instance (Nested.Elt r, Show r, Show (Nested.Mixed (Mixed.Types.MapJust sh) r))
   showsPrec d (FlipS u) =
     showString "FlipS " . showParen True (showsPrec d u)
 
-instance (Eq r, Numeric r, KnownShS sh, Eq (Nested.Mixed (Mixed.Types.MapJust sh) r)) => Eq (FlipS Nested.Shaped r sh) where
+instance (Eq r, KnownShS sh, Eq (Nested.Mixed (Mixed.Types.MapJust sh) r)) => Eq (FlipS Nested.Shaped r sh) where
   (==) :: FlipS Nested.Shaped r sh -> FlipS Nested.Shaped r sh -> Bool
   FlipS u == FlipS v = u == v
 
-instance (Ord r, Numeric r, KnownShS sh, Eq (Nested.Mixed (Mixed.Types.MapJust sh) r), Ord (Nested.Mixed (Mixed.Types.MapJust sh) r)) => Ord (FlipS Nested.Shaped r sh) where
+instance (Ord r, KnownShS sh, Eq (Nested.Mixed (Mixed.Types.MapJust sh) r), Ord (Nested.Mixed (Mixed.Types.MapJust sh) r)) => Ord (FlipS Nested.Shaped r sh) where
   FlipS u <= FlipS v = u <= v
 
 deriving instance Num (f a b) => Num (FlipS f b a)
@@ -283,7 +301,7 @@ deriving instance RealFloatF (f a b) => RealFloatF (FlipS f b a)
 deriving instance NFData (f a b) => NFData (FlipS f b a)
 
 -- TODO: This one is for convenience in tests only. Overhaul tests and remove.
-instance (Num (VS.Vector r), KnownNat n, Numeric r, Show r)
+instance (KnownNat n, VS.Storable r, Num r)
          => Num (OR.Array n r) where
   (+) = undefined
   (-) = undefined
@@ -297,7 +315,7 @@ instance (Num (VS.Vector r), KnownNat n, Numeric r, Show r)
                        ++ show (valueOf @n :: Int)
 
 -- TODO: This one is for convenience in tests only. Overhaul tests and remove.
-instance (Num (VS.Vector r), KnownNat n, Numeric r, Show r)
+instance (KnownNat n, VS.Storable r, Num r)
          => Num (FlipR OR.Array r n) where
   (FlipR t) + (FlipR u) = FlipR $ t + u
   (FlipR t) - (FlipR u) = FlipR $ t - u
@@ -311,7 +329,7 @@ instance (Num (VS.Vector r), KnownNat n, Numeric r, Show r)
                        ++ show (valueOf @n :: Int)
 
 -- TODO: This one is for convenience in tests only. Overhaul tests and remove.
-instance (Num (VS.Vector r), KnownNat n, Numeric r, Show r, Fractional r)
+instance (KnownNat n, VS.Storable r, Fractional r)
          => Fractional (OR.Array n r) where
   (/) = undefined
   recip = undefined
@@ -342,41 +360,3 @@ trustMeThisIsAPermutationDict = unsafeCoerce (Dict :: Dict PermC '[])
 trustMeThisIsAPermutation :: forall is r. (PermC is => r) -> r
 trustMeThisIsAPermutation r = case trustMeThisIsAPermutationDict @is of
   Dict -> r
-
-instance Enum (VS.Vector r) where  -- dummy, to satisfy Integral below
-  toEnum = undefined
-  fromEnum = undefined
-
-instance (Num (VS.Vector r), Integral r, Numeric r, Show r)
-         => Integral (VS.Vector r) where
-  -- These can't be partial, because our conditionals are not lazy
-  -- and so the counterfactual branches, with zeros, may get executed
-  -- even though they are subsequently ignored.
-  quot v' u' =  -- TODO: once we drop LA, do this where Either is still visible
-                -- and do this for Num and all others that LA defines like below
-    let (v, u) = case (V.length v', V.length u') of
-          (1, 1) -> (v', u')
-          (1, n) -> (V.replicate n (v' V.! 0), u')
-          (n, 1) -> (v', V.replicate n (u' V.! 0))
-          _ -> (v', u')
-    in zipVectorWith (\x y -> if y == 0 then 0 else quot x y) v u
-  rem v' u' =
-    let (v, u) = case (V.length v', V.length u') of
-          (1, 1) -> (v', u')
-          (1, n) -> (V.replicate n (v' V.! 0), u')
-          (n, 1) -> (v', V.replicate n (u' V.! 0))
-          _ -> (v', u')
-    in zipVectorWith (\x y -> if y == 0 then 0 else rem x y) v u
-  quotRem x y = (quot x y, rem x y)  -- TODO
-  div = undefined
-  mod = undefined
-  divMod = undefined
-  toInteger = undefined
-
-instance (Num (VS.Vector r), Numeric r, Ord r)
-         => Real (VS.Vector r) where
-  toRational = undefined
-
-instance (Num (VS.Vector r), Numeric r, Fractional r, Ord r)
-         => RealFrac (VS.Vector r) where
-  properFraction = error "Vector.properFraction: can't be implemented"
