@@ -9,21 +9,14 @@ module HordeAd.External.OptimizerTools
 
 import Prelude
 
-import qualified Data.Array.RankedS as OR
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality (testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
-import qualified Data.Vector.Storable as VS
-import           GHC.TypeLits (KnownNat, sameNat)
-import           Numeric.LinearAlgebra (Numeric)
-import qualified Numeric.LinearAlgebra as LA
+import           GHC.TypeLits (sameNat)
 import           Type.Reflection (typeRep)
 
-import qualified Data.Array.Mixed.Internal.Arith as Mixed.Internal.Arith
 import qualified Data.Array.Nested as Nested
 import qualified Data.Array.Nested.Internal.Mixed as Nested.Internal.Mixed
-import qualified Data.Array.Nested.Internal.Ranked as Nested.Internal
-import qualified Data.Array.Nested.Internal.Shaped as Nested.Internal
 
 import HordeAd.Core.HVector
 import HordeAd.Core.HVectorOps
@@ -34,43 +27,34 @@ import HordeAd.Internal.OrthotopeOrphanInstances
 
 updateWithGradient :: Double -> HVector ORArray -> HVector ORArray -> HVector ORArray
 updateWithGradient gamma params gradient =
-  let updateVector :: (Numeric r, Fractional r, Num (VS.Vector r))
-                   => Either r (VS.Vector r) -> Either r (VS.Vector r)
-                   -> VS.Vector r
-      updateVector i' r' = let i = either VS.singleton id i'
-                               r = either VS.singleton id r'
-                           in i - LA.scale (realToFrac gamma) r
-        -- TODO: do this on tensors instead of vectors to use ox-arrays machinery instead of LA machinery to optimize this: V.map (* realToFrac gamma)
-      updateR :: DynamicTensor ORArray -> DynamicTensor ORArray
+  let updateR :: DynamicTensor ORArray -> DynamicTensor ORArray
               -> DynamicTensor ORArray
       updateR i r = case (i, r) of
-        (DynamicRanked @r1 @n1 t1, DynamicRanked @r2 @n2 t2) ->
+        ( DynamicRanked @r1 @n1 (FlipR i2)
+         ,DynamicRanked @r2 @n2 (FlipR r2)) ->
           ifDifferentiable @r1
             (case sameNat (Proxy @n1) (Proxy @n2) of
                Just Refl -> case testEquality (typeRep @r1) (typeRep @r2) of
                  Just Refl ->
                    DynamicRanked $ FlipR
-                   $ Nested.Internal.arithPromoteRanked2
-                       (Nested.Internal.Mixed.mliftNumElt2
-                          (flip Mixed.Internal.Arith.liftVEltwise2
-                             updateVector))
-                       (runFlipR t1) (runFlipR t2)
+                   $ i2 - Nested.rreplicateScal (Nested.rshape i2)
+                                                (realToFrac gamma)
+                          * r2
                  _ -> error "updateWithGradient: scalar mismatch"
                _ -> error "updateWithGradient: rank mismatch")
           i
-        (DynamicShaped @r1 @sh1 t1, DynamicShaped @r2 @sh2 t2) ->
+        ( DynamicShaped @r1 @sh1 (FlipS i2)
+         ,DynamicShaped @r2 @sh2 (FlipS r2) ) ->
           ifDifferentiable @r1
             (case sameShape @sh1 @sh2 of
                Just Refl -> case testEquality (typeRep @r1) (typeRep @r2) of
                  Just Refl ->
                    DynamicShaped $ FlipS
-                   $ Nested.Internal.arithPromoteShaped2
-                       (Nested.Internal.Mixed.mliftNumElt2
-                          (flip Mixed.Internal.Arith.liftVEltwise2
-                             updateVector))
-                       (runFlipS t1) (runFlipS t2)
+                   $ i2 - Nested.sreplicateScal (Nested.sshape i2)
+                                                (realToFrac gamma)
+                          * r2
                  _ -> error "updateWithGradient: scalar mismatch"
-               _ -> error "updateWithGradient: rank mismatch")
+               _ -> error "updateWithGradient: shape mismatch")
           i
         _ -> i   -- eval didn't update the gradient, save on computation
   in V.zipWith updateR params gradient
@@ -126,29 +110,6 @@ initialStateAdam parameters0 =
        , vAdam = zeroP
        }
 
--- TOOD: make sure this is not worse that OR.zipWith3A when transposing
--- between each application or that we never encounter such situations
---
--- | Application of a vector function on the flattened arrays elements.
-liftArray43 :: ( Numeric a, Numeric b, Numeric c, Numeric d
-               , Numeric x, Numeric y, Numeric z, KnownNat n )
-            => (VS.Vector a -> VS.Vector b -> VS.Vector c -> VS.Vector d
-                -> (VS.Vector x, VS.Vector y, VS.Vector z))
-            -> OR.Array n a -> OR.Array n b -> OR.Array n c -> OR.Array n d
-            -> (OR.Array n x, OR.Array n y, OR.Array n z)
-liftArray43 f m1 m2 m3 m4 =
-  let sz = OR.shapeL m1
-  in if sz == OR.shapeL m2 && sz == OR.shapeL m3 && sz == OR.shapeL m4
-     then let (vx, vy, vz) = f (OR.toVector m1) (OR.toVector m2)
-                               (OR.toVector m3) (OR.toVector m4)
-          in ( OR.fromVector sz vx
-             , OR.fromVector sz vy
-             , OR.fromVector sz vz
-             )
-     else error
-          $ "nonconformant arrays in liftArray43: "
-            ++ show (OR.shapeL m1, OR.shapeL m2, OR.shapeL m3, OR.shapeL m4)
-
 updateWithGradientAdam
   :: ArgsAdam -> StateAdam -> HVector ORArray -> HVector ORArray
   -> (HVector ORArray, StateAdam)
@@ -159,30 +120,31 @@ updateWithGradientAdam ArgsAdam{..} StateAdam{tAdam, mAdam, vAdam}
       tAdamNew = tAdam + 1
       oneMinusBeta1 = 1 - betaOne
       oneMinusBeta2 = 1 - betaTwo
-      updateVector :: (Numeric r, Fractional r, Floating (VS.Vector r))
-                   => VS.Vector r -> VS.Vector r
-                   -> VS.Vector r -> VS.Vector r
-                   -> (VS.Vector r, VS.Vector r, VS.Vector r)
-      updateVector mA vA p g =
-        let mANew = LA.scale (realToFrac betaOne) mA
-                    + LA.scale (realToFrac oneMinusBeta1) g
-            vANew = LA.scale (realToFrac betaTwo) vA
-                    + LA.scale (realToFrac oneMinusBeta2) (g * g)
+      updateR :: ( Fractional r, Nested.Elt r, Nested.NumElt r
+                 , Nested.FloatElt r, Nested.Internal.Mixed.PrimElt r )
+              => Nested.Ranked n r -> Nested.Ranked n r
+              -> Nested.Ranked n r -> Nested.Ranked n r
+              -> (Nested.Ranked n r, Nested.Ranked n r, Nested.Ranked n r)
+      updateR mA vA p g =
+        let sh = Nested.rshape g
+            mANew = Nested.rreplicateScal sh (realToFrac betaOne) * mA
+                    + Nested.rreplicateScal sh (realToFrac oneMinusBeta1) * g
+            vANew = Nested.rreplicateScal sh (realToFrac betaTwo) * vA
+                    + Nested.rreplicateScal sh (realToFrac oneMinusBeta2)
+                      * (g * g)
             alphat = alpha * sqrt (1 - betaTwo ^ tAdamNew)
                              / (1 - betaOne ^ tAdamNew)
         in ( mANew
            , vANew
-           , p - LA.scale (realToFrac alphat) mANew
-                 / (sqrt vANew + V.singleton (realToFrac epsilon)) )
-                      -- the @LA.scalar@ (V.singleton) is safe here;
-                      -- @addConstant@ would be better, but it's not exposed
-        -- TODO: do this on tensors instead of vectors to use ox-arrays machinery instead of LA machinery to optimize this: V.map (* realToFrac x)
-      updateR :: DynamicTensor ORArray -> DynamicTensor ORArray
+           , p - (Nested.rreplicateScal sh (realToFrac alphat) * mANew)
+                 / (sqrt vANew
+                    + Nested.rreplicateScal sh (realToFrac epsilon)) )
+      updateD :: DynamicTensor ORArray -> DynamicTensor ORArray
               -> DynamicTensor ORArray -> DynamicTensor ORArray
               -> ( DynamicTensor ORArray
                  , DynamicTensor ORArray
                  , DynamicTensor ORArray )
-      updateR emA@(DynamicRanked @r1 @n1 mA) evA@(DynamicRanked @r2 @n2 vA)
+      updateD emA@(DynamicRanked @r1 @n1 mA) evA@(DynamicRanked @r2 @n2 vA)
               ep@(DynamicRanked @r3 @n3 p) (DynamicRanked @r4 @n4 g) =
         ifDifferentiable @r1
           (case ( sameNat (Proxy @n1) (Proxy @n2)
@@ -193,20 +155,17 @@ updateWithGradientAdam ArgsAdam{..} StateAdam{tAdam, mAdam, vAdam}
                 , testEquality (typeRep @r1) (typeRep @r4) ) of
              ( Just Refl, Just Refl, Just Refl
               ,Just Refl, Just Refl, Just Refl ) ->
-               let (od1, od2, od3) =
-                     liftArray43 updateVector (Nested.rtoOrthotope $ runFlipR mA)
-                                              (Nested.rtoOrthotope $ runFlipR vA)
-                                              (Nested.rtoOrthotope $ runFlipR p)
-                                              (Nested.rtoOrthotope $ runFlipR g)
-               in ( DynamicRanked $ FlipR $ Nested.rfromOrthotope SNat od1
-                  , DynamicRanked $ FlipR $ Nested.rfromOrthotope SNat od2
-                  , DynamicRanked $ FlipR $ Nested.rfromOrthotope SNat od3 )
+               let (od1, od2, od3) = updateR (runFlipR mA) (runFlipR vA)
+                                             (runFlipR p) (runFlipR g)
+               in ( DynamicRanked $ FlipR od1
+                  , DynamicRanked $ FlipR od2
+                  , DynamicRanked $ FlipR od3 )
              _ -> error "updateWithGradientAdam: type mismatch")
           (emA, evA, ep)
-      updateR emA evA ep _ =
+      updateD emA evA ep _ =
         (emA, evA, ep)  -- eval didn't update the gradient, save on computation
       (!mAdamRNew, !vAdamRNew, !paramsRNew) =
-        V.unzip3 $ V.zipWith4 updateR mAdamR vAdamR paramsR gradientR
+        V.unzip3 $ V.zipWith4 updateD mAdamR vAdamR paramsR gradientR
   in ( paramsRNew
      , StateAdam
          { tAdam = tAdamNew
