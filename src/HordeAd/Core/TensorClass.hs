@@ -356,9 +356,9 @@ class ( Num (IntOf ranked), IntegralF (IntOf ranked), CRanked ranked Num
 
 -- * Shaped tensor class definition
 
-class (RealFloat r, RealFloat (Vector r), Nested.Internal.Arith.FloatElt r)
+class (RealFloat r, Nested.Internal.Arith.FloatElt r)
       => RealFloatAndFloatElt r
-instance (RealFloat r, RealFloat (Vector r), Nested.Internal.Arith.FloatElt r)
+instance (RealFloat r, Nested.Internal.Arith.FloatElt r)
          => RealFloatAndFloatElt r
 
 class ( Num (IntOf shaped), IntegralF (IntOf shaped), CShaped shaped Num
