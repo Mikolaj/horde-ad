@@ -38,8 +38,6 @@ import qualified Data.Vector.Storable as VS
 import           GHC.TypeLits
   (KnownNat, Nat, SNat, fromSNat, pattern SNat, sameNat, type (+), withSomeSNat)
 import           Numeric.LinearAlgebra (Numeric)
-import           Numeric.LinearAlgebra.Data (arctan2)
-import           Numeric.LinearAlgebra.Devel (zipVectorWith)
 import           Unsafe.Coerce (unsafeCoerce)
 
 import qualified Data.Array.Mixed.Internal.Arith as Mixed.Internal.Arith
@@ -136,7 +134,7 @@ instance (Nested.PrimElt r, Integral r, Numeric r)
                            _ ->
                              ( either (V.replicate (V.length y)) id x'
                              , either (V.replicate (V.length x)) id y' )
-                     in zipVectorWith
+                     in V.zipWith
                           (\a b -> if b == 0 then 0 else quot a b) x y)))
                             -- TODO: do better somehow
   remF = Nested.Internal.arithPromoteRanked2
@@ -149,7 +147,7 @@ instance (Nested.PrimElt r, Integral r, Numeric r)
                            _ ->
                              ( either (V.replicate (V.length y)) id x'
                              , either (V.replicate (V.length x)) id y' )
-                     in zipVectorWith
+                     in V.zipWith
                           (\a b -> if b == 0 then 0 else rem a b) x y)))
                             -- TODO: do better somehow
 
@@ -165,7 +163,7 @@ instance (Nested.PrimElt r, Integral r, Numeric r)
                            _ ->
                              ( either (V.replicate (V.length y)) id x'
                              , either (V.replicate (V.length x)) id y' )
-                     in zipVectorWith
+                     in V.zipWith
                           (\a b -> if b == 0 then 0 else quot a b) x y)))
                             -- TODO: do better somehow
   remF = Nested.Internal.arithPromoteShaped2
@@ -178,7 +176,7 @@ instance (Nested.PrimElt r, Integral r, Numeric r)
                            _ ->
                              ( either (V.replicate (V.length y)) id x'
                              , either (V.replicate (V.length x)) id y' )
-                     in zipVectorWith
+                     in V.zipWith
                           (\a b -> if b == 0 then 0 else rem a b) x y)))
                             -- TODO: do better somehow
 
@@ -197,7 +195,7 @@ instance (Mixed.Internal.Arith.NumElt r, Nested.PrimElt r, RealFloat r, Mixed.In
                            _ ->
                              ( either (V.replicate (V.length y)) id x'
                              , either (V.replicate (V.length x)) id y' )
-                     in arctan2 x y)))  -- TODO: do better somehow
+                     in V.zipWith atan2 x y)))  -- TODO: do better somehow
 
 instance (Mixed.Internal.Arith.NumElt r, Nested.PrimElt r, RealFloat r, Mixed.Internal.Arith.FloatElt r, Numeric r)
          => RealFloatF (Nested.Shaped sh r) where
@@ -211,7 +209,7 @@ instance (Mixed.Internal.Arith.NumElt r, Nested.PrimElt r, RealFloat r, Mixed.In
                            _ ->
                              ( either (V.replicate (V.length y)) id x'
                              , either (V.replicate (V.length x)) id y' )
-                     in arctan2 x y)))  -- TODO: do better somehow
+                     in V.zipWith atan2 x y)))  -- TODO: do better somehow
 
 type role FlipR nominal nominal nominal
 type FlipR :: forall {k}. (Nat -> k -> Type) -> k -> Nat -> Type
