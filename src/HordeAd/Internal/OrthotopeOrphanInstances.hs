@@ -339,17 +339,33 @@ instance Enum (VS.Vector r) where  -- dummy, to satisfy Integral below
 
 instance (Num (VS.Vector r), Integral r, Numeric r, Show r)
          => Integral (VS.Vector r) where
-  quot = zipVectorWith quot
-  rem = zipVectorWith rem
+  -- These can't be partial, because our conditionals are not lazy
+  -- and so the counterfactual branches, with zeros, may get executed
+  -- even though they are subsequently ignored.
+  quot v' u' =  -- TODO: once we drop LA, do this where Either is still visible
+                -- and do this for Num and all others that LA defines like below
+    let (v, u) = case (V.length v', V.length u') of
+          (1, 1) -> (v', u')
+          (1, n) -> (V.replicate n (v' V.! 0), u')
+          (n, 1) -> (v', V.replicate n (u' V.! 0))
+          _ -> (v', u')
+    in zipVectorWith (\x y -> if y == 0 then 0 else quot x y) v u
+  rem v' u' =
+    let (v, u) = case (V.length v', V.length u') of
+          (1, 1) -> (v', u')
+          (1, n) -> (V.replicate n (v' V.! 0), u')
+          (n, 1) -> (v', V.replicate n (u' V.! 0))
+          _ -> (v', u')
+    in zipVectorWith (\x y -> if y == 0 then 0 else rem x y) v u
   quotRem x y = (quot x y, rem x y)  -- TODO
-  div = zipVectorWith div
-  mod = zipVectorWith mod
-  -- divMod  -- TODO
-  toInteger = undefined  -- not needed
+  div = undefined
+  mod = undefined
+  divMod = undefined
+  toInteger = undefined
 
 instance (Num (VS.Vector r), Numeric r, Ord r)
          => Real (VS.Vector r) where
-  toRational = undefined  -- TODO
+  toRational = undefined
 
 instance (Num (VS.Vector r), Numeric r, Fractional r, Ord r)
          => RealFrac (VS.Vector r) where
@@ -357,8 +373,14 @@ instance (Num (VS.Vector r), Numeric r, Fractional r, Ord r)
 
 instance (Floating (VS.Vector r), Numeric r, RealFloat r)
          => RealFloat (VS.Vector r) where
-  atan2 = arctan2
-  floatRadix = undefined  -- TODO (and below)
+  atan2 v' u' =
+    let (v, u) = case (V.length v', V.length u') of
+          (1, 1) -> (v', u')
+          (1, n) -> (V.replicate n (v' V.! 0), u')
+          (n, 1) -> (v', V.replicate n (u' V.! 0))
+          _ -> (v', u')
+    in arctan2 v u
+  floatRadix = undefined
   floatDigits = undefined
   floatRange = undefined
   decodeFloat = undefined
