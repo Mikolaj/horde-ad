@@ -1,4 +1,4 @@
-{-# LANGUAGE AllowAmbiguousTypes, ViewPatterns #-}
+{-# LANGUAGE AllowAmbiguousTypes, ImpredicativeTypes #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Tensor operations implementation using the ox-arrays package.
@@ -125,44 +125,17 @@ tmaxIndexR =
 
 tfloorR :: (NumAndShow r, RealFrac r, NumAndShow r2, Integral r2, KnownNat n)
         => Nested.Ranked n r -> Nested.Ranked n r2
-tfloorR = {- liftVR (V.map floor)
+tfloorR = liftVR (V.map floor)
 
 liftVR
-  :: ( KnownNat n, Nested.Internal.PrimElt r1, Nested.Internal.PrimElt r
-     , VS.Storable r, VS.Storable r1
-     , Coercible (forall sh. Nested.Mixed sh r1 -> Nested.Mixed sh r)
-                 (Nested.Ranked n r1 -> Nested.Ranked n r) )
+  :: ( Nested.Internal.Mixed.PrimElt r1, Nested.Internal.Mixed.PrimElt r
+     , VS.Storable r, VS.Storable r1 )
   => (VS.Vector r1 -> VS.Vector r)
   -> Nested.Ranked n r1 -> Nested.Ranked n r
-liftVR = -}
-  coerce  -- arithPromoteRanked
-    (mliftNumElt1
-       (flip liftVEltwise1 (V.map floor)))
-
-{-
--- A bit more general than Nested.Internal.arithPromoteRanked.
-arithPromoteRanked :: forall n a b.
-                      (Nested.Internal.PrimElt a, Nested.Internal.PrimElt b)
-                   => (forall sh. Nested.Mixed sh a -> Nested.Mixed sh b)
-                   -> Nested.Ranked n a -> Nested.Ranked n b
-arithPromoteRanked = coerce
--}
-
--- A bit more general than Nested.Internal.mliftNumElt1.
-mliftNumElt1 :: (Nested.Internal.Mixed.PrimElt a, Nested.Internal.Mixed.PrimElt b)
-             => (SNat (X.Rank sh) -> OR.Array (X.Rank sh) a -> OR.Array (X.Rank sh) b) -> Nested.Mixed sh a -> Nested.Mixed sh b
-mliftNumElt1 f (Nested.Internal.Mixed.toPrimitive -> Nested.Internal.Mixed.M_Primitive sh (Data.Array.Mixed.XArray.XArray arr)) = Nested.Internal.Mixed.fromPrimitive $ Nested.Internal.Mixed.M_Primitive sh (Data.Array.Mixed.XArray.XArray (f (X.shxRank sh) arr))
-
--- A bit more general than Mixed.Internal.Arith.liftVEltwise1.
-liftVEltwise1 :: (VS.Storable a, VS.Storable b)
-              => SNat n
-              -> (VS.Vector a -> VS.Vector b)
-              -> OR.Array n a -> OR.Array n b
-liftVEltwise1 SNat f arr@(RS.A (RG.A sh (OI.T strides offset vec)))
-  | Just (blockOff, blockSz) <- Mixed.Internal.Arith.stridesDense sh offset strides =
-      let vec' = f (VS.slice blockOff blockSz vec)
-      in RS.A (RG.A sh (OI.T strides (offset - blockOff) vec'))
-  | otherwise = RS.fromVector sh (f (RS.toVector arr))
+liftVR f =
+  Nested.Internal.arithPromoteRanked
+    (Nested.Internal.Mixed.mliftNumElt1
+       (flip Mixed.Internal.Arith.liftVEltwise1 f))
 
 ixInBounds :: [Int64] -> [Int] -> Bool
 ixInBounds ix sh =
@@ -469,8 +442,8 @@ tmap0NR
   :: (Nested.Internal.Mixed.Elt r1, Nested.Internal.Mixed.Elt r, Nested.Internal.Mixed.PrimElt r1, Nested.Internal.Mixed.PrimElt r)
   => (Nested.Ranked 0 r1 -> Nested.Ranked 0 r) -> Nested.Ranked n r1 -> Nested.Ranked n r
 tmap0NR f =
-  coerce  -- Nested.Internal.arithPromoteRanked
-    (mliftPrim
+  Nested.Internal.arithPromoteRanked
+    (Nested.Internal.Mixed.mliftPrim
        (\x -> Nested.runScalar $ f (Nested.rscalar x)))
           -- too slow: tbuildNR (tshapeR v) (\ix -> f $ v `tindexNR` ix)
 
@@ -479,20 +452,9 @@ tzipWith0NR
   => (Nested.Ranked 0 r1 -> Nested.Ranked 0 r2 -> Nested.Ranked 0 r)
   -> Nested.Ranked n r1 -> Nested.Ranked n r2 -> Nested.Ranked n r
 tzipWith0NR f =
-  coerce  -- Nested.Internal.arithPromoteRanked2
-    (mliftPrim2
+  Nested.Internal.arithPromoteRanked2
+    (Nested.Internal.Mixed.mliftPrim2
        (\x y -> Nested.runScalar $ f (Nested.rscalar x) (Nested.rscalar y)))
-
-mliftPrim :: (Nested.Internal.Mixed.PrimElt a, Nested.Internal.Mixed.PrimElt b)
-          => (a -> b)
-          -> Nested.Mixed sh a -> Nested.Mixed sh b
-mliftPrim f (Nested.Internal.Mixed.toPrimitive -> Nested.Internal.Mixed.M_Primitive sh (Data.Array.Mixed.XArray.XArray arr)) = Nested.Internal.Mixed.fromPrimitive $ Nested.Internal.Mixed.M_Primitive sh (Data.Array.Mixed.XArray.XArray (OR.mapA f arr))
-
-mliftPrim2 :: (Nested.Internal.Mixed.PrimElt a, Nested.Internal.Mixed.PrimElt b, Nested.Internal.Mixed.PrimElt c)
-           => (a -> b -> c)
-           -> Nested.Mixed sh a -> Nested.Mixed sh b -> Nested.Mixed sh c
-mliftPrim2 f (Nested.Internal.Mixed.toPrimitive -> Nested.Internal.Mixed.M_Primitive sh (Data.Array.Mixed.XArray.XArray arr1)) (Nested.Internal.Mixed.toPrimitive -> Nested.Internal.Mixed.M_Primitive _ (Data.Array.Mixed.XArray.XArray arr2)) =
-  Nested.Internal.Mixed.fromPrimitive $ Nested.Internal.Mixed.M_Primitive sh (Data.Array.Mixed.XArray.XArray (OR.zipWithA f arr1 arr2))
 
 -- TODO: this can be slightly optimized by normalizing t first (?)
 -- and then inlining toVector and tindexZR
@@ -522,17 +484,11 @@ tgatherZ1R k t f =
 
 tcastR :: (NumAndShow r1, NumAndShow r2, KnownNat n, Real r1, Fractional r2)
        => Nested.Ranked n r1 -> Nested.Ranked n r2
-tcastR =
-  coerce
-    (mliftNumElt1
-       (flip liftVEltwise1 (V.map realToFrac)))
+tcastR = liftVR (V.map realToFrac)
 
 tfromIntegralR :: (NumAndShow r1, NumAndShow r2, KnownNat n, Integral r1)
                => Nested.Ranked n r1 -> Nested.Ranked n r2
-tfromIntegralR =
-  coerce
-    (mliftNumElt1
-       (flip liftVEltwise1 (V.map fromIntegral)))
+tfromIntegralR = liftVR (V.map fromIntegral)
 
 tscalarR
   :: (Nested.Elt r, Numeric r)
@@ -546,10 +502,7 @@ tunScalarR = Nested.runScalar
 
 tscaleByScalarR :: (Nested.PrimElt r, Nested.Elt r, Mixed.Internal.Arith.NumElt r, Numeric r, KnownNat n)
                 => r -> Nested.Ranked n r -> Nested.Ranked n r
-tscaleByScalarR s =
-  coerce
-    (mliftNumElt1
-       (flip liftVEltwise1 (V.map (* s))))
+tscaleByScalarR s = liftVR (V.map (* s))
 
 toIndexOfR :: IndexInt n -> Index n (ORArray Int64 0)
 toIndexOfR ix = FlipR . tscalarR <$> ix
@@ -634,10 +587,17 @@ tmaxIndexS =
 tfloorS :: forall r r2 sh.
            (NumAndShow r, RealFrac r, NumAndShow r2, Integral r2, KnownShS sh)
         => Nested.Shaped sh r -> Nested.Shaped sh r2
-tfloorS =
-  coerce
-    (mliftNumElt1
-       (flip liftVEltwise1 (V.map floor)))
+tfloorS = liftVS (V.map floor)
+
+liftVS
+  :: ( Nested.Internal.Mixed.PrimElt r1, Nested.Internal.Mixed.PrimElt r
+     , VS.Storable r, VS.Storable r1 )
+  => (VS.Vector r1 -> VS.Vector r)
+  -> Nested.Shaped sh r1 -> Nested.Shaped sh r
+liftVS f =
+  Nested.Internal.arithPromoteShaped
+    (Nested.Internal.Mixed.mliftNumElt1
+       (flip Mixed.Internal.Arith.liftVEltwise1 f))
 
 tindexNS
   :: forall sh1 sh2 r. NumAndShow r
@@ -915,8 +875,8 @@ tmap0NS
   :: forall r1 r sh. (Nested.Internal.Mixed.Elt r1, Nested.Internal.Mixed.Elt r, Nested.Internal.Mixed.PrimElt r1, Nested.Internal.Mixed.PrimElt r, KnownShS sh)
   => (Nested.Shaped '[] r1 -> Nested.Shaped '[] r) -> Nested.Shaped sh r1 -> Nested.Shaped sh r
 tmap0NS f =
-  coerce  -- Nested.Internal.arithPromoteShaped
-    (mliftPrim
+  Nested.Internal.arithPromoteShaped
+    (Nested.Internal.Mixed.mliftPrim
        (\x -> Nested.sunScalar $ f (Nested.sscalar x)))
           -- too slow: tbuildNS (tshapeS v) (\ix -> f $ v `tindexNS` ix)
 
@@ -925,10 +885,9 @@ tzipWith0NS
   => (Nested.Shaped '[] r1 -> Nested.Shaped '[] r2 -> Nested.Shaped '[] r)
   -> Nested.Shaped sh r1 -> Nested.Shaped sh r2 -> Nested.Shaped sh r
 tzipWith0NS f =
-  coerce  -- Nested.Internal.arithPromoteShaped2
-    (mliftPrim2
+  Nested.Internal.arithPromoteShaped2
+    (Nested.Internal.Mixed.mliftPrim2
        (\x y -> Nested.sunScalar $ f (Nested.sscalar x) (Nested.sscalar y)))
-
 
 -- TODO: this can be slightly optimized by normalizing t first (?)
 -- and then inlining toVector and tindexZS
@@ -968,18 +927,12 @@ tgatherZ1S t f =
 tcastS :: forall r1 r2 sh.
           (NumAndShow r1, NumAndShow r2, KnownShS sh, Real r1, Fractional r2)
        => Nested.Shaped sh r1 -> Nested.Shaped sh r2
-tcastS =
-  coerce
-    (mliftNumElt1
-       (flip liftVEltwise1 (V.map realToFrac)))
+tcastS = liftVS (V.map realToFrac)
 
 tfromIntegralS :: forall r1 r2 sh .
                   (NumAndShow r1, NumAndShow r2, KnownShS sh, Integral r1)
                => Nested.Shaped sh r1 -> Nested.Shaped sh r2
-tfromIntegralS =
-  coerce
-    (mliftNumElt1
-       (flip liftVEltwise1 (V.map fromIntegral)))
+tfromIntegralS = liftVS (V.map fromIntegral)
 
 tscalarS
   :: (Nested.Elt r, Numeric r)
@@ -993,10 +946,7 @@ tunScalarS = Nested.sunScalar
 
 tscaleByScalarS :: forall r sh. (Nested.PrimElt r, Mixed.Internal.Arith.NumElt r, Numeric r, KnownShS sh)
                 => r -> Nested.Shaped sh r -> Nested.Shaped sh r
-tscaleByScalarS s =
-  coerce
-    (mliftNumElt1
-       (flip liftVEltwise1 (V.map (* s))))
+tscaleByScalarS s = liftVS (V.map (* s))
 
 toIndexOfS :: IndexIntSh sh -> IndexS sh (ORArray Int64 0)
 toIndexOfS ix = FlipR . tscalarR <$> ix
