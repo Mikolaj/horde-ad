@@ -16,7 +16,6 @@ import           GHC.TypeLits (sameNat)
 import           Type.Reflection (typeRep)
 
 import qualified Data.Array.Nested as Nested
-import qualified Data.Array.Nested.Internal.Mixed as Nested.Internal.Mixed
 
 import HordeAd.Core.HVector
 import HordeAd.Core.HVectorOps
@@ -121,7 +120,7 @@ updateWithGradientAdam ArgsAdam{..} StateAdam{tAdam, mAdam, vAdam}
       oneMinusBeta1 = 1 - betaOne
       oneMinusBeta2 = 1 - betaTwo
       updateR :: ( Fractional r, Nested.Elt r, Nested.NumElt r
-                 , Nested.FloatElt r, Nested.Internal.Mixed.PrimElt r )
+                 , Nested.FloatElt r, Nested.PrimElt r )
               => Nested.Ranked n r -> Nested.Ranked n r
               -> Nested.Ranked n r -> Nested.Ranked n r
               -> (Nested.Ranked n r, Nested.Ranked n r, Nested.Ranked n r)
