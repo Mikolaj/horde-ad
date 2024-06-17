@@ -34,7 +34,7 @@ import           HordeAd.Core.TensorClass
 import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances
   (IntegralF (..), RealFloatF (..))
-import           HordeAd.Util.ShapedList (IndexSh, IntSh)
+import           HordeAd.Util.ShapedList (IndexSh)
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedList
 
@@ -158,15 +158,15 @@ interpretLambdaI f !env (!var, !ast) =
   \i -> f (extendEnvI var i env) ast
 
 interpretLambdaIS
-  :: forall ranked sh n s r.
+  :: forall ranked sh s r.
      (RankedTensor ranked, RankedOf (PrimalOf ranked) ~ PrimalOf ranked)
   => (AstEnv ranked -> AstShaped s r sh -> ShapedOf ranked r sh)
   -> AstEnv ranked -> (IntVarName, AstShaped s r sh)
-  -> IntSh ranked n
+  -> IntOf ranked
   -> ShapedOf ranked r sh
 {-# INLINE interpretLambdaIS #-}
 interpretLambdaIS f !env (!var, ast) =
-  \i -> f (extendEnvI var (ShapedList.unShapedNat i) env) ast
+  \i -> f (extendEnvI var i env) ast
 
 interpretLambdaIHVector
   :: forall ranked s.

@@ -29,7 +29,7 @@ import qualified Data.Array.Nested.Internal.Shaped as Nested.Internal
 import           HordeAd.Core.TensorClass
 import           HordeAd.Core.Types
 import           HordeAd.External.CommonRankedOps
-import           HordeAd.Util.ShapedList (IndexSh, IntSh)
+import           HordeAd.Util.ShapedList (IndexSh)
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedList
 
@@ -39,7 +39,7 @@ sminIndexN :: ( ADReadyS shaped, GoodScalar r
 sminIndexN t =
   ShapedList.fromLinearIdx (rscalar . fromIntegral)
     (sshape t)
-    (ShapedList.shapedNat $ rfromS $ sprimalPart $ sminIndex (sflatten t))
+    (rfromS $ sprimalPart $ sminIndex (sflatten t))
 
 smaxIndexN :: ( ADReadyS shaped, GoodScalar r
               , KnownShS sh, KnownNat (Sh.Size sh) )
@@ -47,7 +47,7 @@ smaxIndexN :: ( ADReadyS shaped, GoodScalar r
 smaxIndexN t =
   ShapedList.fromLinearIdx (rscalar . fromIntegral)
     (sshape t)
-    (ShapedList.shapedNat $ rfromS $ sprimalPart $ smaxIndex (sflatten t))
+    (rfromS $ sprimalPart $ smaxIndex (sflatten t))
 
 sminimum :: forall r sh shaped.
             (ADReadyS shaped, GoodScalar r, KnownShS sh, KnownNat (Sh.Size sh))
@@ -60,8 +60,8 @@ smaximum :: forall r sh shaped.
 smaximum t = sindex0 t (smaxIndexN t)
 
 sfromIndex0 :: forall n r shaped. (ADReadyS shaped, GoodScalar r)
-            => IntSh shaped n -> shaped r '[]
-sfromIndex0 = sfromIntegral . sconstant . sfromR . ShapedList.unShapedNat
+            => IntOf shaped -> shaped r '[]
+sfromIndex0 = sfromIntegral . sconstant . sfromR
 
 sfromIndex1 :: forall r sh shaped.
                (ADReadyS shaped, GoodScalar r, KnownNat (X.Rank sh))

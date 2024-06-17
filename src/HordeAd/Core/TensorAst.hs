@@ -51,7 +51,6 @@ import           HordeAd.Core.Types
 import           HordeAd.Internal.BackendOX (ORArray, OSArray)
 import           HordeAd.Internal.OrthotopeOrphanInstances
   (FlipR (..), FlipS (..), IntegralF (..), RealFloatF (..))
-import           HordeAd.Util.ShapedList (IntSh)
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedList
 
@@ -446,10 +445,10 @@ astLetFunS a f =
   in astLetS var a ast  -- safe, because subsitution ruled out above
 
 astBuild1VectorizeS :: (KnownNat n, KnownShS sh, GoodScalar r, AstSpan s)
-                    => (IntSh (AstShaped PrimalSpan) n -> AstShaped s r sh)
+                    => (AstInt -> AstShaped s r sh)
                     -> AstShaped s r (n ': sh)
 astBuild1VectorizeS f =
-  build1VectorizeS $ funToAstI (f . ShapedList.shapedNat)
+  build1VectorizeS $ funToAstI f
 
 
 -- * HVectorTensor instance
@@ -928,7 +927,7 @@ instance AstSpan s => ShapedTensor (AstRawS s) where
   sreshape = AstRawS . AstReshapeS . unAstRawS
   sbuild1 f = AstRawS $ AstBuild1S
               $ funToAstI  -- this introduces new variable names
-              $ unAstRawS . f . ShapedList.shapedNat . AstRaw
+              $ unAstRawS . f . AstRaw
   sgather t f = AstRawS $ AstGatherS (unAstRawS t)
                 $ funToAstIndexS (fmap unAstRaw . f . fmap AstRaw)
                     -- this introduces new variable names
@@ -1084,7 +1083,7 @@ instance AstSpan s => ShapedTensor (AstNoVectorizeS s) where
   sreshape = AstNoVectorizeS . sreshape . unAstNoVectorizeS
   sbuild1 f = AstNoVectorizeS $ AstBuild1S
                 $ funToAstI  -- this introduces new variable names
-                $ unAstNoVectorizeS . f . ShapedList.shapedNat . AstNoVectorize
+                $ unAstNoVectorizeS . f . AstNoVectorize
   sgather t f = AstNoVectorizeS $ sgather (unAstNoVectorizeS t)
                 $ fmap unAstNoVectorize . f . fmap AstNoVectorize
   scast = AstNoVectorizeS . scast . unAstNoVectorizeS
@@ -1250,7 +1249,7 @@ instance AstSpan s => ShapedTensor (AstNoSimplifyS s) where
   sreshape = AstNoSimplifyS . AstReshapeS . unAstNoSimplifyS
   sbuild1 f =
     AstNoSimplifyS
-    $ astBuild1VectorizeS (unAstNoSimplifyS . f . fmap AstNoSimplify)
+    $ astBuild1VectorizeS (unAstNoSimplifyS . f . AstNoSimplify)
   sgather t f = AstNoSimplifyS $ AstGatherS (unAstNoSimplifyS t)
                 $ funToAstIndexS
                     (fmap unAstNoSimplify . f . fmap AstNoSimplify)
