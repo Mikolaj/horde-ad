@@ -695,7 +695,7 @@ ttransposeS perm =
 
 treshapeS
   :: forall r sh sh2.
-     (NumAndShow r, KnownShS sh2, Sh.Size sh ~ Sh.Size sh2)
+     (NumAndShow r, KnownShS sh2, Nested.Internal.Shape.Product sh ~ Nested.Internal.Shape.Product sh2)
   => Nested.Shaped sh r -> Nested.Shaped sh2 r
 treshapeS = Nested.sreshape knownShS
 

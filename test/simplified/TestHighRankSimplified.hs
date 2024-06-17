@@ -17,6 +17,7 @@ import           Test.Tasty.HUnit hiding (assert)
 
 import qualified Data.Array.Mixed.Shape as X
 import qualified Data.Array.Nested as Nested
+import qualified Data.Array.Nested.Internal.Shape as Nested.Internal.Shape
 import qualified Data.Array.Nested.Internal.Shaped as Nested.Internal
 
 import           HordeAd
@@ -237,7 +238,7 @@ testFooBuild25 =
 
 fooBuild2S
   :: forall k sh ranked r shaped.
-     (ADReady ranked, GoodScalar r, KnownNat k, Floating (shaped r sh), RealFloat r, shaped ~ ShapedOf ranked, KnownShS sh, KnownNat (Sh.Size (k : sh)))
+     (ADReady ranked, GoodScalar r, KnownNat k, Floating (shaped r sh), RealFloat r, shaped ~ ShapedOf ranked, KnownShS sh, KnownNat (Nested.Internal.Shape.Product (k : sh)))
   => shaped r (k : sh) -> ranked r (1 + X.Rank sh)
 fooBuild2S v = rfromS $
   sbuild1 @_ @_ @2 $ \ix ->

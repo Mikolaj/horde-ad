@@ -42,6 +42,7 @@ import qualified Data.Array.Mixed.Shape as X
 import qualified Data.Array.Mixed.Types as X
 import qualified Data.Array.Mixed.Permutation as Permutation
 import qualified Data.Array.Nested as Nested
+import qualified Data.Array.Nested.Internal.Shape as Nested.Internal.Shape
 
 import HordeAd.Core.HVector
 import HordeAd.Core.Types
@@ -367,7 +368,7 @@ data AstShaped :: AstSpanType -> ShapedTensorType where
                    (PermC perm, KnownShS sh, X.Rank perm <= X.Rank sh)
                 => Permutation.Perm perm -> AstShaped s r sh
                 -> AstShaped s r (Permutation.PermutePrefix perm sh)
-  AstReshapeS :: (KnownShS sh, Sh.Size sh ~ Sh.Size sh2)
+  AstReshapeS :: (KnownShS sh, Nested.Internal.Shape.Product sh ~ Nested.Internal.Shape.Product sh2)
               => AstShaped s r sh -> AstShaped s r sh2
     -- beware that the order of type arguments is different than in orthotope
     -- and than the order of value arguments in the ranked version

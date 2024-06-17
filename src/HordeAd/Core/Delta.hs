@@ -291,9 +291,9 @@ data DeltaS :: ShapedTensorType -> ShapedTensorType where
     -- If index is out of bounds, the result is defined and is 0.
   SumS :: KnownNat n
        => DeltaS shaped r (n ': sh) -> DeltaS shaped r sh
-  Sum0S :: (KnownShS sh, KnownNat (Sh.Size sh))
+  Sum0S :: (KnownShS sh, KnownNat (Nested.Internal.Shape.Product sh))
         => DeltaS shaped r sh -> DeltaS shaped r '[]
-  Dot0S :: (KnownShS sh, KnownNat (Sh.Size sh))
+  Dot0S :: (KnownShS sh, KnownNat (Nested.Internal.Shape.Product sh))
         => shaped r sh -> DeltaS shaped r sh
         -> DeltaS shaped r '[]
   ScatterS :: forall shaped r sh2 p sh.
@@ -346,7 +346,7 @@ data DeltaS :: ShapedTensorType -> ShapedTensorType where
              -> DeltaS shaped r sh
              -> DeltaS shaped r (Permutation.PermutePrefix perm sh)
     -- ^ Transpose according to the permutation.
-  ReshapeS :: (KnownShS sh, Sh.Size sh ~ Sh.Size sh2)
+  ReshapeS :: (KnownShS sh, Nested.Internal.Shape.Product sh ~ Nested.Internal.Shape.Product sh2)
            => DeltaS shaped r sh
            -> DeltaS shaped r sh2
     -- ^ Change the shape of the tensor from the first to the second.

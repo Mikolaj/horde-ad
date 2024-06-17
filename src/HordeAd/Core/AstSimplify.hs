@@ -207,7 +207,7 @@ astReshapeAsGather knobs shOut v =
     in astGatherKnobsR @m @0 knobs shOut v (vars, asts)
 
 astReshapeAsGatherS
-  :: forall sh sh2 r s. (KnownShS sh, KnownShS sh2, Sh.Size sh ~ Sh.Size sh2)
+  :: forall sh sh2 r s. (KnownShS sh, KnownShS sh2, Nested.Internal.Shape.Product sh ~ Nested.Internal.Shape.Product sh2)
   => SimplifyKnobs -> AstShaped s r sh -> AstShaped s r sh2
 {-# NOINLINE astReshapeAsGatherS #-}
 astReshapeAsGatherS knobs v =
@@ -1880,7 +1880,7 @@ astReshape shOut = \case
          _ -> Ast.AstReshape shOut v
 
 astReshapeS :: forall sh sh2 r s.
-               ( KnownShS sh, KnownShS sh2, Sh.Size sh ~ Sh.Size sh2
+               ( KnownShS sh, KnownShS sh2, Nested.Internal.Shape.Product sh ~ Nested.Internal.Shape.Product sh2
                , GoodScalar r, AstSpan s )
             => AstShaped s r sh -> AstShaped s r sh2
 astReshapeS = \case
