@@ -1438,7 +1438,7 @@ astSumS t0 = case sameNat (Proxy @n) (Proxy @0) of
     Ast.AstSliceS @i @k v | Just Refl <- sameNat (Proxy @k) (Proxy @1) ->
       astIndexS v (valueOf @i :.$ ZIS)
     Ast.AstReverseS v -> astSumS v
-    AstConstS t | Dict <- lemShapeFromKnownShS (Proxy @sh) -> AstConstS $ Nested.ssumOuter1 t
+    AstConstS t -> AstConstS $ Nested.ssumOuter1 t
     Ast.AstConstantS v -> Ast.AstConstantS $ astSumS v
     _ -> Ast.AstSumS t0
 
@@ -1964,7 +1964,7 @@ astProjectS l p = case l of
 
 astRFromS :: forall sh s r. (GoodScalar r, KnownShS sh)
           => AstShaped s r sh -> AstRanked s r (X.Rank sh)
-astRFromS (AstConstS t) | Dict <- lemShapeFromKnownShS (Proxy @sh) =
+astRFromS (AstConstS t) =
   AstConst $ Nested.stoRanked t
 astRFromS (Ast.AstConstantS v) = Ast.AstConstant $ astRFromS v
 astRFromS (Ast.AstSFromR v) = v  -- no information lost, so no checks
@@ -1972,7 +1972,7 @@ astRFromS v = Ast.AstRFromS v
 
 astSFromR :: forall sh s r. (GoodScalar r, KnownShS sh, KnownNat (X.Rank sh))
           => AstRanked s r (X.Rank sh) -> AstShaped s r sh
-astSFromR (AstConst t) | Dict <- lemShapeFromKnownShS (Proxy @sh) =
+astSFromR (AstConst t) =
   gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: X.Rank sh) $
   AstConstS $ Nested.rcastToShaped t Nested.knownShS
 astSFromR (Ast.AstConstant v) = Ast.AstConstantS $ astSFromR v

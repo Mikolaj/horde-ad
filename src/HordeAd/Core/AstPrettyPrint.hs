@@ -522,7 +522,7 @@ printAstS cfg d = \case
   AstCastS v -> printPrefixOp printAstS cfg d "scast" [v]
   AstFromIntegralS a ->
     printPrefixOp printAstS cfg d "sfromIntegral" [a]
-  AstConstS @sh2 a | Dict <- lemShapeFromKnownShS (Proxy @sh2) ->
+  AstConstS @sh2 a ->
     case sameShape @sh @'[] of
       Just Refl -> shows $ Nested.sunScalar a
       _ -> showParen (d > 10)

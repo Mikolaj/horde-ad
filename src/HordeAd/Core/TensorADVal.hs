@@ -345,7 +345,7 @@ instance ADReadyS shaped => ShapedTensor (ADVal shaped) where
   sbuild1 :: forall r n sh. (GoodScalar r, KnownNat n, KnownShS sh)
           => (IntSh (ADVal shaped) n -> ADVal shaped r sh)
           -> ADVal shaped r (n ': sh)
-  sbuild1 f | Dict <- lemShapeFromKnownShS (Proxy @sh) = case valueOf @n of
+  sbuild1 f = case valueOf @n of
     0 -> sconst $ Nested.Internal.sfromListPrimLinear knownShS []
     k -> sfromList $ NonEmpty.fromList
                    $ map (f . ShapedList.shapedNat . fromIntegral)

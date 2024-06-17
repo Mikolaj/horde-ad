@@ -43,9 +43,6 @@ instance (VS.Storable a) => HasShape (VS.Vector a) where
 instance HasShape (FlipR OR.Array a n) where
   shapeL = OR.shapeL . runFlipR
 
-instance KnownShS sh => HasShape (FlipS OS.Array a sh) where
-  shapeL | Dict <- lemShapeFromKnownShS (Proxy @sh) = OS.shapeL . runFlipS
-
 instance Nested.PrimElt a => HasShape (ORArray a n) where
   shapeL = OR.shapeL . Nested.rtoOrthotope . runFlipR
 
@@ -70,14 +67,6 @@ class Linearizable a b | a -> b where
 
 instance (VS.Storable a) => Linearizable (VS.Vector a) a where
   linearize = VS.toList
-
-instance (VS.Storable a, KnownShS sh)
-         => Linearizable (OS.Array sh a) a where
-  linearize | Dict <- lemShapeFromKnownShS (Proxy @sh) = OS.toList
-
-instance (VS.Storable a, KnownShS sh)
-         => Linearizable (FlipS OS.Array a sh) a where
-  linearize | Dict <- lemShapeFromKnownShS (Proxy @sh) = OS.toList . runFlipS
 
 instance (VS.Storable a, Nested.PrimElt a, KnownNat n)
          => Linearizable (ORArray a n) a where

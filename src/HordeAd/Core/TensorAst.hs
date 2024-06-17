@@ -459,7 +459,7 @@ instance TermValue (DynamicTensor (AstRanked FullSpan)) where
     DynamicTensor ORArray
   fromValue = \case
     DynamicRanked t -> DynamicRanked $ fromPrimal $ AstConst $ runFlipR t
-    DynamicShaped @_ @sh t | Dict <- lemShapeFromKnownShS (Proxy @sh) ->
+    DynamicShaped @_ @sh t ->
       gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: X.Rank sh) $
       DynamicShaped @_ @sh $ fromPrimalS $ AstConstS $ runFlipS t
     DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
@@ -1274,7 +1274,7 @@ instance AstSpan s => ShapedTensor (AstNoSimplifyS s) where
   sScale :: forall r sh. (GoodScalar r, KnownShS sh)
          => AstNoSimplifyS PrimalSpan r sh -> AstNoSimplifyS DualSpan r sh
          -> AstNoSimplifyS DualSpan r sh
-  sScale s t | Dict <- lemShapeFromKnownShS (Proxy @sh) =
+  sScale s t =
     AstNoSimplifyS $ astDualPartS
                    $ AstConstantS (unAstNoSimplifyS s)
                      * AstDS 0 (unAstNoSimplifyS t)
