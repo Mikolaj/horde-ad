@@ -76,7 +76,6 @@ import HordeAd.Core.HVector
 import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
-import HordeAd.Internal.OrthotopeOrphanInstances (trustMeThisIsAPermutation)
 import HordeAd.Util.ShapedList (IndexSh, pattern (:.$), pattern ZIS)
 import HordeAd.Util.SizedList
 

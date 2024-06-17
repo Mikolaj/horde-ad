@@ -1,18 +1,11 @@
-{-# LANGUAGE AllowAmbiguousTypes, CPP, UndecidableInstances,
-             UndecidableSuperClasses #-}
+{-# LANGUAGE AllowAmbiguousTypes, CPP, UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
--- | Orphan instances for orthotope classes.
+-- | Some numeric classes and (orphan) instances for orthotope and ox-arrays
+-- tensors.
 module HordeAd.Internal.OrthotopeOrphanInstances
-  ( -- * Definitions to help express and manipulate type-level natural numbers
-    SNat, pattern SNat, withSNat, sNatValue, proxyFromSNat
-    -- * Definitions for type-level list shapes
-  , shapeT, shapeP, sizeT, sizeP
-  , withShapeP, sameShape, matchingRank
-    -- * Numeric classes and instances for tensors
-  , IntegralF(..), RealFloatF(..), FlipR(..), FlipS(..)
-  , -- * Assorted orphans and additions
-    PermC, trustMeThisIsAPermutation
+  ( -- * Numeric classes and instances for tensors
+    IntegralF(..), RealFloatF(..), FlipR(..), FlipS(..)
   ) where
 
 import Prelude
@@ -40,7 +33,6 @@ import           Numeric.LinearAlgebra (Numeric)
 import           Unsafe.Coerce (unsafeCoerce)
 
 import qualified Data.Array.Mixed.Internal.Arith as Mixed.Internal.Arith
-import qualified Data.Array.Mixed.Permutation as Permutation
 import qualified Data.Array.Mixed.Shape as X
 import           Data.Array.Mixed.Types (Dict (..))
 import qualified Data.Array.Mixed.Types as Mixed.Types
@@ -50,56 +42,6 @@ import qualified Data.Array.Nested.Internal.Mixed as Nested.Internal.Mixed
 import qualified Data.Array.Nested.Internal.Ranked as Nested.Internal
 import           Data.Array.Nested.Internal.Shape (shsOrthotopeShape, shsToList)
 import qualified Data.Array.Nested.Internal.Shaped as Nested.Internal
-
--- * Definitions to help express and manipulate type-level natural numbers
-
-withSNat :: Int -> (forall n. KnownNat n => (SNat n -> r)) -> r
-withSNat i f = withSomeSNat (fromIntegral i) $ \msnat -> case msnat of
-  Just snat@SNat -> f snat
-  Nothing -> error "withSNat: negative argument"
-
-sNatValue :: forall n. SNat n -> Int
-{-# INLINE sNatValue #-}
-sNatValue = fromInteger . fromSNat
-
-proxyFromSNat :: SNat n -> Proxy n
-proxyFromSNat SNat = Proxy
-
-
--- * Definitions for type-level list shapes
-
--- Below, copied with modification from ox-arrays.
-
-shapeT :: forall sh. KnownShS sh => [Int]
-shapeT = shsToList (knownShS @sh)
-
-shapeP :: forall sh. KnownShS sh => Proxy sh -> [Int]
-shapeP _ = shsToList (knownShS @sh)
-
-sizeT :: forall sh. KnownShS sh => Int
-sizeT = product $ shapeT @sh
-
-sizeP :: forall sh. KnownShS sh => Proxy sh -> Int
-sizeP _ = sizeT @sh
-
-withShapeP :: [Int] -> (forall sh. KnownShS sh => Proxy sh -> r) -> r
-withShapeP [] f = f (Proxy @('[] :: [Nat]))
-withShapeP (n : ns) f = withSNat n $ \(SNat @n) ->
-  withShapeP ns (\(Proxy @ns) -> f (Proxy @(n : ns)))
-
-sameShape :: forall sh1 sh2. (KnownShS sh1, KnownShS sh2)
-          => Maybe (sh1 :~: sh2)
-sameShape = case shapeT @sh1 == shapeT @sh2 of
-              True -> Just (unsafeCoerce Refl :: sh1 :~: sh2)
-              False -> Nothing
-
-matchingRank :: forall sh1 n2. (KnownShS sh1, KnownNat n2)
-             => Maybe (X.Rank sh1 :~: n2)
-matchingRank =
-  if length (shapeT @sh1) == valueOf @n2
-  then Just (unsafeCoerce Refl :: X.Rank sh1 :~: n2)
-  else Nothing
-
 
 -- * Numeric classes and instances for tensors
 
@@ -321,21 +263,6 @@ instance (KnownNat n, VS.Storable r, Fractional r)
     Nothing -> error $ "OR.fromRational: shape unknown at rank "
                        ++ show (valueOf @n :: Int)
 
-
--- * Assorted orphans and additions
-
--- TODO: move to separate orphan module(s) at some point
-
 instance (Sh.Shape sh, X.Rank sh ~ n)
          => Convert (OS.Array sh a) (OR.Array n a) where
   convert (SS.A a@(SG.A t)) = RS.A (RG.A (SG.shapeL a) t)
-
-class Permutation.IsPermutation is => PermC is
-instance Permutation.IsPermutation is => PermC is
-
-trustMeThisIsAPermutationDict :: forall is. Dict PermC is
-trustMeThisIsAPermutationDict = unsafeCoerce (Dict :: Dict PermC '[])
-
-trustMeThisIsAPermutation :: forall is r. (PermC is => r) -> r
-trustMeThisIsAPermutation r = case trustMeThisIsAPermutationDict @is of
-  Dict -> r

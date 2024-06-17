@@ -1,43 +1,70 @@
-{-# LANGUAGE AllowAmbiguousTypes, ImpredicativeTypes, UndecidableInstances #-}
+{-# LANGUAGE AllowAmbiguousTypes, ImpredicativeTypes, UndecidableInstances,
+             UndecidableSuperClasses #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 -- | Some fundamental type families and types.
 module HordeAd.Core.Types
-  ( -- * Kinds of the functors that determine the structure of a tensor type
-    TensorType, RankedTensorType, ShapedTensorType
+  ( -- * Definitions to help express and manipulate type-level natural numbers
+    SNat, pattern SNat, withSNat, sNatValue, proxyFromSNat
+    -- * Definitions for type-level list shapes
+  , ShS(..), KnownShS(..)
+  , sshapeKnown, slistKnown, sixKnown, knownShR
+  , shapeT, shapeP, sizeT, sizeP
+  , withShapeP, sameShape, matchingRank
+  , Dict(..), PermC, trustMeThisIsAPermutation
+    -- * Kinds of the functors that determine the structure of a tensor type
+  , TensorType, RankedTensorType, ShapedTensorType
     -- * Some fundamental constraints
   , GoodScalar, HasSingletonDict, Differentiable, IfDifferentiable(..)
     -- * Type families that tensors will belong to
-  , IntOf, RankedOf, ShapedOf, HVectorOf, HFunOf, PrimalOf, DualOf, DummyDual(..)
+  , IntOf, RankedOf, ShapedOf, HVectorOf, HFunOf, PrimalOf, DualOf
+  , DummyDual(..)
     -- * Generic types of booleans and related class definitions
   , BoolOf, Boolean(..)
   , IfF(..), EqF(..), OrdF(..), minF, maxF
-    -- * Definitions to help express and manipulate type-level natural numbers
-  , SNat, pattern SNat, withSNat, sNatValue, proxyFromSNat
-    -- * Definitions for type-level list shapes
-  , ShS(..), KnownShS(..), shapeT, shapeP, sizeT, sizeP
-  , sshapeKnown, slistKnown, sixKnown, knownShR
-  , withShapeP, sameShape, matchingRank
-  , Dict(..), PermC
   ) where
 
 import Prelude
 
 import Control.DeepSeq (NFData (..))
+import Data.Array.Internal (valueOf)
 import Data.Boolean (Boolean (..))
 import Data.Int (Int64)
 import Data.Kind (Constraint, Type)
-import GHC.TypeLits (KnownNat, Nat, type (+))
+import Data.Proxy (Proxy (Proxy))
+import Data.Type.Equality ((:~:) (Refl))
+import GHC.TypeLits
+  (KnownNat, Nat, SNat, fromSNat, pattern SNat, sameNat, type (+), withSomeSNat)
 import Numeric.LinearAlgebra (Numeric, Vector)
 import Type.Reflection (Typeable)
+import Unsafe.Coerce (unsafeCoerce)
 
 import qualified Data.Array.Mixed.Internal.Arith as Nested.Internal.Arith
+import qualified Data.Array.Mixed.Permutation as Permutation
+import qualified Data.Array.Mixed.Shape as X
 import           Data.Array.Mixed.Types (Dict (..))
 import           Data.Array.Nested
   (IxS (..), KnownShS (..), ListR (..), ListS (..), ShR (..), ShS (..))
 import qualified Data.Array.Nested as Nested
+import           Data.Array.Nested.Internal.Shape (shsOrthotopeShape, shsToList)
 import qualified Data.Array.Nested.Internal.Shaped as Nested.Internal
 
 import HordeAd.Internal.OrthotopeOrphanInstances
+
+-- * Definitions to help express and manipulate type-level natural numbers
+
+withSNat :: Int -> (forall n. KnownNat n => (SNat n -> r)) -> r
+withSNat i f = withSomeSNat (fromIntegral i) $ \msnat -> case msnat of
+  Just snat@SNat -> f snat
+  Nothing -> error "withSNat: negative argument"
+
+sNatValue :: forall n. SNat n -> Int
+{-# INLINE sNatValue #-}
+sNatValue = fromInteger . fromSNat
+
+proxyFromSNat :: SNat n -> Proxy n
+proxyFromSNat SNat = Proxy
+
+-- * Definitions for type-level list shapes
 
 sshapeKnown :: ShS sh -> Dict KnownShS sh
 sshapeKnown ZSS = Dict
@@ -57,6 +84,47 @@ knownNatSucc = Dict
 knownShR :: ShR n i -> Dict KnownNat n
 knownShR ZSR = Dict
 knownShR (_ :$: (l :: ShR m i)) | Dict <- knownShR l = knownNatSucc @m
+
+shapeT :: forall sh. KnownShS sh => [Int]
+shapeT = shsToList (knownShS @sh)
+
+shapeP :: forall sh. KnownShS sh => Proxy sh -> [Int]
+shapeP _ = shsToList (knownShS @sh)
+
+sizeT :: forall sh. KnownShS sh => Int
+sizeT = product $ shapeT @sh
+
+sizeP :: forall sh. KnownShS sh => Proxy sh -> Int
+sizeP _ = sizeT @sh
+
+withShapeP :: [Int] -> (forall sh. KnownShS sh => Proxy sh -> r) -> r
+withShapeP [] f = f (Proxy @('[] :: [Nat]))
+withShapeP (n : ns) f = withSNat n $ \(SNat @n) ->
+  withShapeP ns (\(Proxy @ns) -> f (Proxy @(n : ns)))
+
+sameShape :: forall sh1 sh2. (KnownShS sh1, KnownShS sh2)
+          => Maybe (sh1 :~: sh2)
+sameShape = case shapeT @sh1 == shapeT @sh2 of
+              True -> Just (unsafeCoerce Refl :: sh1 :~: sh2)
+              False -> Nothing
+
+matchingRank :: forall sh1 n2. (KnownShS sh1, KnownNat n2)
+             => Maybe (X.Rank sh1 :~: n2)
+matchingRank =
+  if length (shapeT @sh1) == valueOf @n2
+  then Just (unsafeCoerce Refl :: X.Rank sh1 :~: n2)
+  else Nothing
+
+class Permutation.IsPermutation is => PermC is
+instance Permutation.IsPermutation is => PermC is
+
+trustMeThisIsAPermutationDict :: forall is. Dict PermC is
+trustMeThisIsAPermutationDict = unsafeCoerce (Dict :: Dict PermC '[])
+
+trustMeThisIsAPermutation :: forall is r. (PermC is => r) -> r
+trustMeThisIsAPermutation r = case trustMeThisIsAPermutationDict @is of
+  Dict -> r
+
 
 -- * Types of types of tensors
 
