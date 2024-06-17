@@ -77,6 +77,11 @@ type ORArray = FlipR Nested.Ranked
 type OSArray = FlipS Nested.Shaped
 
 
+-- TODO: check what the following did in tsum0R and if worth emulating
+-- (also in sum1Inner and extremum and maybe tdot0R):
+-- LA.sumElements $ OI.toUnorderedVectorT sh t
+
+
 -- * Ranked tensor operations
 
 -- We often debug around here, so let's add Show and obfuscate it
@@ -128,7 +133,7 @@ tfloorR :: (NumAndShow r, RealFrac r, NumAndShow r2, Integral r2, KnownNat n)
 tfloorR = liftVR (V.map floor)
 
 liftVR
-  :: ( Nested.Internal.Mixed.PrimElt r1, Nested.Internal.Mixed.PrimElt r
+  :: ( Nested.PrimElt r1, Nested.PrimElt r
      , VS.Storable r, VS.Storable r1 )
   => (VS.Vector r1 -> VS.Vector r)
   -> Nested.Ranked n r1 -> Nested.Ranked n r
@@ -186,48 +191,23 @@ tindex0R (RS.A (RG.A _ OI.T{..})) ix =
 
 ------ perf reviewed up to this point
 
+-- | Sum the outermost dimension.
 tsumR
   :: forall n r. (KnownNat n, NumAndShow r)
   => Nested.Ranked (1 + n) r -> Nested.Ranked n r
-{- TODO
-tsumR (RS.A (RG.A (k : sh) (OI.T (_ : ss) o vt))) | V.length vt == 1 =
-  RS.A (RG.A sh (OI.T ss o (V.map (* fromIntegral k) vt)))
--}
 tsumR = Nested.rsumOuter1
-{-
-case rshape t of
--- TODO: does GHC need this?  [] -> error "tsumR: null shape"
-  0 :$: sh2 -> Nested.rsumOuter1 t  -- TODO: OR.constant sh2 0  -- the shape is known from sh, so no ambiguity
-  k :$: sh2 -> case sameNat (Proxy @n) (Proxy @0) of
-    Just Refl -> Nested.rsumOuter1 t  -- TODO: OR.scalar $ tsum0R t
-    _ -> Nested.rfromVector sh2 $ unsafePerformIO $ do  -- unsafe only due to FFI
-      v <- V.unsafeThaw $ Nested.rtoVector t
-      VM.unsafeWith v $ \ptr -> do
-        let len2 = product sh2
-        v2 <- VM.new len2
-        VM.unsafeWith v2 $ \ptr2 -> do
-          rowSum len2 k ptr ptr2
-          void $ V.unsafeFreeze v
-          V.unsafeFreeze v2
--}
 
--- | Sum all elements of a tensor. TODO: is this correct?
+-- | Sum all elements of a tensor.
 tsum0R
   :: NumAndShow r
   => Nested.Ranked n r -> r
-tsum0R u = case Nested.rtoOrthotope u of
-  (RS.A (RG.A sh (OI.T _ _ vt))) | V.length vt == 1 ->
-    fromIntegral (product sh) * vt V.! 0
-  (RS.A (RG.A sh t)) ->
-    LA.sumElements $ OI.toUnorderedVectorT sh t
+tsum0R = Nested.rsumAllPrim
 
 {-
--- | Sum the innermost dimension (at least at rank 2; TODO: generalize).
--- TODO: Or is always the second dimension a better choice?
+-- | Sum the innermost dimension (TODO: generalize the code).
 tsumInR
   :: forall n r. (KnownNat n, Numeric r, RowSum r)
   => OR.Array (1 + n) r -> OR.Array n r
--- TODO: tsumInR t@(RS.A (RG.A _ (OI.T _ _ vt))) | V.length vt == 1 = ...
 tsumInR t = case OR.shapeL t of
   [] -> error "tsumInR: null shape"
   [k2, 0] -> OR.constant [k2] 0  -- the shape is known from sh, so no ambiguity
@@ -252,9 +232,6 @@ tdot0R
   => Nested.Ranked n r -> Nested.Ranked n r -> r
 tdot0R = Nested.rdot
 {-
-tdot0R (RS.A (RG.A sh (OI.T _ _ vt))) (RS.A (RG.A _ (OI.T _ _ vu)))
-  | V.length vt == 1 && V.length vu == 1 =
-      fromIntegral (product sh) * vt V.! 0 * vu V.! 0
 tdot0R t u = OR.toVector t LA.<.> OR.toVector u
   -- TODO: if offset 0 and same strides, use toUnorderedVectorT
   -- TODO: if either has length 1 values, it may or may not be faster to do
@@ -439,7 +416,7 @@ tbuild1R k f =
 --               $ map f [0 .. fromIntegral k - 1]  -- hope this fuses
 
 tmap0NR
-  :: (Nested.Internal.Mixed.Elt r1, Nested.Internal.Mixed.Elt r, Nested.Internal.Mixed.PrimElt r1, Nested.Internal.Mixed.PrimElt r)
+  :: (Nested.Elt r1, Nested.Elt r, Nested.PrimElt r1, Nested.PrimElt r)
   => (Nested.Ranked 0 r1 -> Nested.Ranked 0 r) -> Nested.Ranked n r1 -> Nested.Ranked n r
 tmap0NR f =
   Nested.Internal.arithPromoteRanked
@@ -448,7 +425,7 @@ tmap0NR f =
           -- too slow: tbuildNR (tshapeR v) (\ix -> f $ v `tindexNR` ix)
 
 tzipWith0NR
-  :: (Nested.Internal.Mixed.Elt r, Nested.Internal.Mixed.Elt r1, Nested.Internal.Mixed.Elt r2, Nested.Internal.Mixed.PrimElt r, Nested.Internal.Mixed.PrimElt r1, Nested.Internal.Mixed.PrimElt r2)
+  :: (Nested.Elt r, Nested.Elt r1, Nested.Elt r2, Nested.PrimElt r, Nested.PrimElt r1, Nested.PrimElt r2)
   => (Nested.Ranked 0 r1 -> Nested.Ranked 0 r2 -> Nested.Ranked 0 r)
   -> Nested.Ranked n r1 -> Nested.Ranked n r2 -> Nested.Ranked n r
 tzipWith0NR f =
@@ -590,7 +567,7 @@ tfloorS :: forall r r2 sh.
 tfloorS = liftVS (V.map floor)
 
 liftVS
-  :: ( Nested.Internal.Mixed.PrimElt r1, Nested.Internal.Mixed.PrimElt r
+  :: ( Nested.PrimElt r1, Nested.PrimElt r
      , VS.Storable r, VS.Storable r1 )
   => (VS.Vector r1 -> VS.Vector r)
   -> Nested.Shaped sh r1 -> Nested.Shaped sh r
@@ -642,40 +619,18 @@ tindex0S (SS.A (SG.A OI.T{..})) ix =
     -- to avoid linearizing @values@, we do everything in unsized way
 -}
 
--- Sum the outermost dimension.
---
--- No NOINLINE, because apparently nothing breaks and hmatrix, etc.
--- also don't put NOINLINE in the functions using FFI.
+-- | Sum the outermost dimension.
 tsumS
   :: forall n sh r. (KnownNat n, NumAndShow r, KnownShS sh)
   => Nested.Shaped (n ': sh) r -> Nested.Shaped sh r
-{- TODO
-tsumS (SS.A (SG.A (OI.T (_ : ss) o vt))) | V.length vt == 1 =
-  SS.A (SG.A (OI.T ss o (V.map (* valueOf @n) vt)))
--}
 tsumS = Nested.ssumOuter1
 
-{- t =
-  case knownShS @(n ': sh) of
-    (:$$) _ ZSS -> Nested.ssumOuter1 t  -- TODO: Nested.sscalar $ tsum0S t
-    (:$$) @_ @sh2 k _ ->
-      Nested.sfromVector knownShS $ unsafePerformIO $ do  -- unsafe only due to FFI
-        v <- V.unsafeThaw $ Nested.stoVector t
-        VM.unsafeWith v $ \ptr -> do
-          let len2 = sizeT @sh2
-          v2 <- VM.new len2
-          VM.unsafeWith v2 $ \ptr2 -> do
-            rowSum len2 (fromInteger $ fromSNat k) ptr ptr2
-            void $ V.unsafeFreeze v
-            V.unsafeFreeze v2
--}
-
 {-
--- Sum the innermost dimension (at least at rank 2; TODO: generalize).
--- Or is it always the second dimension as the type suggests?
+-- | Sum the innermost dimension (TODO: generalize the code and type).
 tsumInS
   :: forall m n sh r. (KnownNat n, Numeric r, KnownNat m, KnownShS sh)
   => Nested.Shaped (m ': n ': sh) r -> Nested.Shaped (m ': sh) r
+-- TODO: shaped r (sh ++ [n]) -> shaped r sh
 tsumInS t = case OS.shapeL t of
   [] -> error "tsumInS: null shape"
   k2 : 0 : [] ->
@@ -696,24 +651,15 @@ tsumInS t = case OS.shapeL t of
   _ -> error "tsumInS: not yet generalized beyond rank 2"
 -}
 
--- | Sum all elements of a tensor. TODO: is this correct?
+-- | Sum all elements of a tensor.
 tsum0S
   :: forall sh r. (NumAndShow r, KnownShS sh)
   => Nested.Shaped sh r -> r
-tsum0S u = case Nested.stoOrthotope u of
-  (SS.A (SG.A (OI.T _ _ vt))) | V.length vt == 1 ->
-    fromIntegral (sizeT @sh) * vt V.! 0
-  (SS.A (SG.A t)) ->
-    LA.sumElements $ OI.toUnorderedVectorT (shapeT @sh) t
+tsum0S = Nested.ssumAllPrim
 
 tdot0S
   :: forall sh r. (NumAndShow r, KnownShS sh)
   => Nested.Shaped sh r -> Nested.Shaped sh r -> r
-{- TODO
-tdot0S (SS.A (SG.A (OI.T _ _ vt))) (SS.A (SG.A (OI.T _ _ vu)))
-  | V.length vt == 1 && V.length vu == 1 =
-      fromIntegral (sizeT @sh) * vt V.! 0 * vu V.! 0
--}
 tdot0S = Nested.sdot
 
 -- TODO: sdot1In :: shaped r (sh ++ [n]) -> shaped r (sh ++ [n]) -> shaped r sh
@@ -872,7 +818,7 @@ tbuild1S f =
      $ NonEmpty.fromList [0 .. k - 1]  -- hope this fuses
 
 tmap0NS
-  :: forall r1 r sh. (Nested.Internal.Mixed.Elt r1, Nested.Internal.Mixed.Elt r, Nested.Internal.Mixed.PrimElt r1, Nested.Internal.Mixed.PrimElt r, KnownShS sh)
+  :: forall r1 r sh. (Nested.Elt r1, Nested.Elt r, Nested.PrimElt r1, Nested.PrimElt r, KnownShS sh)
   => (Nested.Shaped '[] r1 -> Nested.Shaped '[] r) -> Nested.Shaped sh r1 -> Nested.Shaped sh r
 tmap0NS f =
   Nested.Internal.arithPromoteShaped
@@ -881,7 +827,7 @@ tmap0NS f =
           -- too slow: tbuildNS (tshapeS v) (\ix -> f $ v `tindexNS` ix)
 
 tzipWith0NS
-  :: forall r1 r2 r sh. (Nested.Internal.Mixed.Elt r, Nested.Internal.Mixed.Elt r1, Nested.Internal.Mixed.Elt r2, Nested.Internal.Mixed.PrimElt r, Nested.Internal.Mixed.PrimElt r1, Nested.Internal.Mixed.PrimElt r2, KnownShS sh)
+  :: forall r1 r2 r sh. (Nested.Elt r, Nested.Elt r1, Nested.Elt r2, Nested.PrimElt r, Nested.PrimElt r1, Nested.PrimElt r2, KnownShS sh)
   => (Nested.Shaped '[] r1 -> Nested.Shaped '[] r2 -> Nested.Shaped '[] r)
   -> Nested.Shaped sh r1 -> Nested.Shaped sh r2 -> Nested.Shaped sh r
 tzipWith0NS f =
