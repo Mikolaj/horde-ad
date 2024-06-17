@@ -360,7 +360,7 @@ instance (GoodScalar r, KnownShS sh)
 instance (KnownShS sh, GoodScalar r, Fractional r, Random r, Num (Vector r))
          => RandomHVector (OSArray r sh) where
   randomVals :: forall g. RandomGen g => Double -> g -> (OSArray r sh, g)
-  randomVals range g | Dict <- lemShapeFromKnownShS (Proxy @sh) =
+  randomVals range g =
     let createRandomVector :: Int -> g -> OSArray r sh
         createRandomVector n seed =
           srepl (2 * realToFrac range)

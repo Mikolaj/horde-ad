@@ -1157,14 +1157,14 @@ ringestData1 l = rconst $ Nested.Internal.rfromList1Prim l
 ingestData :: forall shaped r sh.
               (GoodScalar r, KnownShS sh, ShapedTensor shaped)
            => [r] -> shaped r sh
-ingestData l | Dict <- lemShapeFromKnownShS (Proxy @sh) = sconst $ Nested.Internal.sfromListPrimLinear knownShS l
+ingestData l= sconst $ Nested.Internal.sfromListPrimLinear knownShS l
 
 sscalar :: (GoodScalar r, ShapedTensor shaped) => r -> shaped r '[]
 sscalar = sconst . Nested.sscalar
 
 srepl :: forall sh r shaped. (GoodScalar r, KnownShS sh, ShapedTensor shaped)
       => r -> shaped r sh
-srepl | Dict <- lemShapeFromKnownShS (Proxy @sh) =
+srepl =
   sconst . Nested.sreplicateScal knownShS
   -- TODO: the following simplifies better, because the replication is not
   -- hidden at low level:

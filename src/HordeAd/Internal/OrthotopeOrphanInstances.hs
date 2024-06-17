@@ -9,7 +9,6 @@ module HordeAd.Internal.OrthotopeOrphanInstances
     -- * Definitions for type-level list shapes
   , shapeT, shapeP, sizeT, sizeP
   , withShapeP, sameShape, matchingRank
-  , lemShapeFromKnownShS, lemKnownNatRank
     -- * Numeric classes and instances for tensors
   , IntegralF(..), RealFloatF(..), FlipR(..), FlipS(..)
   , -- * Assorted orphans and additions
@@ -100,14 +99,6 @@ matchingRank =
   if length (shapeT @sh1) == valueOf @n2
   then Just (unsafeCoerce Refl :: X.Rank sh1 :~: n2)
   else Nothing
-
-lemShapeFromKnownShS :: forall sh. KnownShS sh
-                       => Proxy sh -> Dict Sh.Shape sh
-lemShapeFromKnownShS _ = shsOrthotopeShape (knownShS @sh)
-
-lemKnownNatRank :: ShS sh -> Dict KnownNat (X.Rank sh)
-lemKnownNatRank ZSS = Dict
-lemKnownNatRank (_ :$$ sh) | Dict <- lemKnownNatRank sh = Dict
 
 
 -- * Numeric classes and instances for tensors
@@ -266,12 +257,6 @@ deriving instance NFData (f a b) => NFData (FlipR f b a)
 type role FlipS nominal nominal nominal
 type FlipS :: forall {k}. ([Nat] -> k -> Type) -> k -> [Nat] -> Type
 newtype FlipS p a (b :: [Nat]) = FlipS { runFlipS :: p b a }
-
-instance (Show r, VS.Storable r, KnownShS sh)
-         => Show (FlipS OS.Array r sh) where
-  showsPrec :: Int -> FlipS OS.Array r sh -> ShowS
-  showsPrec d (FlipS u) | Dict <- lemShapeFromKnownShS (Proxy @sh) =
-    showString "FlipS " . showParen True (showsPrec d u)
 
 instance (Nested.Elt r, Show r, Show (Nested.Mixed (Mixed.Types.MapJust sh) r))
          => Show (FlipS Nested.Shaped r sh) where
