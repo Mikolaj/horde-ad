@@ -1187,7 +1187,7 @@ testUnitriangular0PP = do
     @?= "rgather [1000000,1000000] (rconst (rfromListLinear [2] [0.0,1.0])) (\\[i3, i2] -> [ifF (i3 <=. i2) 0 1])"
 
 unitriangular1 :: (KnownNat k, GoodScalar rk, ADReady ranked)
-               => Int -> ShapeInt k -> ranked rk (2 + k)
+               => Int -> IShR k -> ranked rk (2 + k)
 unitriangular1 k sh =
   rbuild1 k $ \i ->
     rbuild1 k $ \j ->
@@ -1203,7 +1203,7 @@ testUnitriangular1PP = do
     @?= "rgather [1000000,1000000,200,300,600] (rfromVector (fromList [rreplicate 1000000 (rreplicate 1000000 (rreplicate 200 (rreplicate 300 (rreplicate 600 0.0)))), rreplicate 1000000 (rreplicate 1000000 (rreplicate 200 (rreplicate 300 (rreplicate 600 1.0))))])) (\\[i5, i6] -> [ifF (i5 <=. i6) 0 1, i5, i6])"
 
 unitriangular2 :: (KnownNat k, GoodScalar rk, ADReady ranked)
-               => Int -> ShapeInt k -> ranked rk (2 + k)
+               => Int -> IShR k -> ranked rk (2 + k)
 unitriangular2 k sh =
   rgather @_ @_ @_ @_ @1 (k :$: k :$: sh)
           (rfromList [ rreplicate0N sh 0
@@ -4395,7 +4395,7 @@ fFoldZipR
   -> (forall f. ADReady f
       => f r n -> f r n -> HVector f
       -> HVectorOf f)
-  -> ShapeInt n
+  -> IShR n
   -> ranked r n
   -> HVectorOf ranked
 fFoldZipR domsOD p as rf shn cShared =

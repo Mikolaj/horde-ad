@@ -199,7 +199,7 @@ type AstBindings (s :: AstSpanType) = [(AstVarId, AstBindingsCase s)]
 type role AstRanked nominal nominal nominal
   -- r has to be nominal, because type class arguments always are
 data AstRanked :: AstSpanType -> RankedTensorType where
-  AstVar :: ShapeInt n -> AstVarName (AstRanked s) r n -> AstRanked s r n
+  AstVar :: IShR n -> AstVarName (AstRanked s) r n -> AstRanked s r n
   -- The r variable is existential here, so a proper specialization needs
   -- to be picked explicitly at runtime.
   AstLet :: forall n m r r2 s s2.
@@ -243,7 +243,7 @@ data AstRanked :: AstSpanType -> RankedTensorType where
     -- but vectorization is permitted to change the value
   AstSum :: AstRanked s r (1 + n) -> AstRanked s r n
   AstScatter :: forall m n p r s. (KnownNat m, KnownNat n, KnownNat p)
-             => ShapeInt (p + n)
+             => IShR (p + n)
              -> AstRanked s r (m + n) -> (AstVarList m, AstIndex p)
              -> AstRanked s r (p + n)
 
@@ -260,12 +260,12 @@ data AstRanked :: AstSpanType -> RankedTensorType where
              => AstRanked s r (1 + n) -> AstRanked s r (1 + n)
   AstTranspose :: Permutation.PermR -> AstRanked s r n -> AstRanked s r n
   AstReshape :: KnownNat n
-             => ShapeInt m -> AstRanked s r n -> AstRanked s r m
+             => IShR m -> AstRanked s r n -> AstRanked s r m
   AstBuild1 :: KnownNat n
             => Int -> (IntVarName, AstRanked s r n)
             -> AstRanked s r (1 + n)
   AstGather :: forall m n p r s. (KnownNat m, KnownNat n, KnownNat p)
-            => ShapeInt (m + n)
+            => IShR (m + n)
             -> AstRanked s r (p + n) -> (AstVarList m, AstIndex p)
             -> AstRanked s r (m + n)
     -- out of bounds indexing is permitted

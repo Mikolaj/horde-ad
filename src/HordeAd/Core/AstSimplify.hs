@@ -195,7 +195,7 @@ astTransposeAsGatherS perm knobs v =
 -- normalized between each reshape.
 astReshapeAsGather
   :: forall p m s r. (KnownNat p, KnownNat m, GoodScalar r, AstSpan s)
-  => SimplifyKnobs -> ShapeInt m -> AstRanked s r p -> AstRanked s r m
+  => SimplifyKnobs -> IShR m -> AstRanked s r p -> AstRanked s r m
 {-# NOINLINE astReshapeAsGather #-}
 astReshapeAsGather knobs shOut v =
   funToVarsIx (lengthShape shOut) $ \ (!vars, !ix) ->
@@ -417,7 +417,7 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIndex m1)) =
      astGather
        :: forall m' n' p'.
           (KnownNat m', KnownNat p', KnownNat n')
-       => ShapeInt (m' + n') -> AstRanked s r (p' + n')
+       => IShR (m' + n') -> AstRanked s r (p' + n')
        -> (AstVarList m', AstIndex p')
        -> AstRanked s r (m' + n')
      astGather sh2 v2 (vars2, ix2) =
@@ -825,7 +825,7 @@ shareIxS ix f = f ix
 astGatherR
   :: forall m n p s r.
      (KnownNat m, KnownNat p, KnownNat n, GoodScalar r, AstSpan s)
-  => ShapeInt (m + n) -> AstRanked s r (p + n) -> (AstVarList m, AstIndex p)
+  => IShR (m + n) -> AstRanked s r (p + n) -> (AstVarList m, AstIndex p)
   -> AstRanked s r (m + n)
 astGatherR = astGatherKnobsR defaultKnobs
 
@@ -841,7 +841,7 @@ astGatherS = astGatherKnobsS defaultKnobs
 astGatherStep
   :: forall m n p s r.
      (KnownNat m, KnownNat p, KnownNat n, GoodScalar r, AstSpan s)
-  => ShapeInt (m + n) -> AstRanked s r (p + n) -> (AstVarList m, AstIndex p)
+  => IShR (m + n) -> AstRanked s r (p + n) -> (AstVarList m, AstIndex p)
   -> AstRanked s r (m + n)
 astGatherStep sh v (vars, ix) =
   astGatherKnobsR (defaultKnobs {knobStepOnly = True})
@@ -873,7 +873,7 @@ astGatherStepS v (vars, ix) =
 astGatherKnobsR
   :: forall m n p s r.
      (KnownNat m, KnownNat p, KnownNat n, GoodScalar r, AstSpan s)
-  => SimplifyKnobs -> ShapeInt (m + n) -> AstRanked s r (p + n)
+  => SimplifyKnobs -> IShR (m + n) -> AstRanked s r (p + n)
   -> (AstVarList m, AstIndex p)
   -> AstRanked s r (m + n)
 astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
@@ -922,7 +922,7 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
   astGatherRec, astGather
     :: forall m' n' p' s' r'.
        (KnownNat m', KnownNat p', KnownNat n', AstSpan s', GoodScalar r')
-    => ShapeInt (m' + n') -> AstRanked s' r' (p' + n')
+    => IShR (m' + n') -> AstRanked s' r' (p' + n')
     -> (AstVarList m', AstIndex p')
     -> AstRanked s' r' (m' + n')
   astGatherRec sh2 v2 (vars2, ix2) =
@@ -940,7 +940,7 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
   astGatherCase
     :: forall m' n' p' r'.
        (KnownNat m', KnownNat p', KnownNat n', GoodScalar r')
-    => ShapeInt (m' + n') -> AstRanked s r' (p' + n')
+    => IShR (m' + n') -> AstRanked s r' (p' + n')
     -> (AstVarList m', AstIndex p')
     -> AstRanked s r' (m' + n')
   astGatherCase sh4 v4 (_, ZIR) = astReplicateN sh4 v4  -- not really possible
@@ -1445,7 +1445,7 @@ astSumS t0 = case sameNat (Proxy @n) (Proxy @0) of
 -- TODO: fuse scatters, scatter and sum, perhaps more (fromList?)
 astScatter :: forall m n p s r.
               (GoodScalar r, KnownNat m, KnownNat n, KnownNat p, AstSpan s)
-           => ShapeInt (p + n) -> AstRanked s r (m + n)
+           => IShR (p + n) -> AstRanked s r (m + n)
            -> (AstVarList m, AstIndex p)
            -> AstRanked s r (p + n)
 astScatter _sh v (ZR, ZIR) = v
@@ -1564,9 +1564,9 @@ astReplicateS = \case
 
 astReplicateN :: forall n p s r.
                  (KnownNat n, KnownNat p, GoodScalar r, AstSpan s)
-              => ShapeInt (n + p) -> AstRanked s r p -> AstRanked s r (n + p)
+              => IShR (n + p) -> AstRanked s r p -> AstRanked s r (n + p)
 astReplicateN sh v =
-  let go :: ShapeInt n' -> AstRanked s r (n' + p)
+  let go :: IShR n' -> AstRanked s r (n' + p)
       go ZSR = v
       go (k :$: sh2) | Dict <- knownShR sh2 = astReplicate k $ go sh2
   in go (takeShape sh)
@@ -1584,7 +1584,7 @@ astReplicateNS v =
   in go (knownShS @shn)
 
 astReplicate0N :: forall n s r. (GoodScalar r, AstSpan s)
-               => ShapeInt n -> r -> AstRanked s r n
+               => IShR n -> r -> AstRanked s r n
 astReplicate0N sh = astReplicate0NT sh . fromPrimal . AstConst . Nested.rscalar
 
 astReplicate0NS :: forall shn s r. (KnownShS shn, GoodScalar r, AstSpan s)
@@ -1596,9 +1596,9 @@ astReplicate0NS =
   in go (knownShS @shn) . fromPrimalS . AstConstS . Nested.sscalar
 
 astReplicate0NT :: forall n s r. (GoodScalar r, AstSpan s)
-                => ShapeInt n -> AstRanked s r 0 -> AstRanked s r n
+                => IShR n -> AstRanked s r 0 -> AstRanked s r n
 astReplicate0NT sh =
-  let go :: ShapeInt n' -> AstRanked s r 0 -> AstRanked s r n'
+  let go :: IShR n' -> AstRanked s r 0 -> AstRanked s r n'
       go ZSR v = v
       go (k :$: sh') v | Dict <- knownShR sh' = astReplicate k $ go sh' v
   in go sh
@@ -1858,7 +1858,7 @@ astTransposeS perm t = case perm of
 -- the gather form, so astReshapeAsGather needs to be called in addition
 -- if full simplification is required.
 astReshape :: forall p m s r. (KnownNat p, KnownNat m, GoodScalar r, AstSpan s)
-           => ShapeInt m -> AstRanked s r p -> AstRanked s r m
+           => IShR m -> AstRanked s r p -> AstRanked s r m
 astReshape shOut = \case
   Ast.AstLet var u v -> astLet var u (astReshape shOut v)
   AstN1 opCode u | not (isVar u) -> AstN1 opCode (astReshape shOut u)
@@ -2250,7 +2250,7 @@ astLetHVectorInS
   -> AstShaped s2 r sh
   -> AstShaped s2 r sh
 astLetHVectorInS vars l v =
-  withListSh (Proxy @sh) $ \(_ :: ShapeInt n) -> case l of
+  withListSh (Proxy @sh) $ \(_ :: IShR n) -> case l of
     Ast.AstMkHVector l3 ->
       let f :: forall n1 r1. (KnownNat n1, GoodScalar r1)
             => AstVarName (AstRanked s) r1 n1 -> AstRanked s r1 n1

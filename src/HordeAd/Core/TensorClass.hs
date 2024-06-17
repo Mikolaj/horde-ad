@@ -10,7 +10,7 @@
 -- differentiation interface in "HordeAd.Core.Engine".
 module HordeAd.Core.TensorClass
   ( -- * Re-exports
-    ShapeInt, ShapeS
+    IShR, ShapeS
     -- * The tensor classes
   , RankedTensor(..), ShapedTensor(..), HVectorTensor(..), HFun(..)
   , rfromD, sfromD, rscalar, rrepl, ringestData, ringestData1
@@ -82,7 +82,7 @@ class ( Num (IntOf ranked), IntegralF (IntOf ranked), CRanked ranked Num
   rlet a f = f a
 
   -- Integer codomain
-  rshape :: (GoodScalar r, KnownNat n) => ranked r n -> ShapeInt n
+  rshape :: (GoodScalar r, KnownNat n) => ranked r n -> IShR n
   rrank :: forall r n. (GoodScalar r, KnownNat n) => ranked r n -> Int
   rrank _ = valueOf @n
   rsize :: (GoodScalar r, KnownNat n) => ranked r n -> Int
@@ -134,11 +134,11 @@ class ( Num (IntOf ranked), IntegralF (IntOf ranked), CRanked ranked Num
                                * rtranspose [1,0] (rreplicate (rlength m1) m2))
     _ -> error "impossible pattern needlessly required"
   rscatter :: (GoodScalar r, KnownNat m, KnownNat n, KnownNat p)
-           => ShapeInt (p + n) -> ranked r (m + n)
+           => IShR (p + n) -> ranked r (m + n)
            -> (IndexOf ranked m -> IndexOf ranked p)
            -> ranked r (p + n)
   rscatter1 :: forall r n p. (GoodScalar r, KnownNat n, KnownNat p)
-            => ShapeInt (p + n) -> ranked r (1 + n)
+            => IShR (p + n) -> ranked r (1 + n)
             -> (IntOf ranked -> IndexOf ranked p)
             -> ranked r (p + n)
   rscatter1 sh v f = rscatter @ranked @r @1 sh v
@@ -152,13 +152,13 @@ class ( Num (IntOf ranked), IntegralF (IntOf ranked), CRanked ranked Num
   rfromList = rfromVector . V.fromList . NonEmpty.toList
     -- going through strict vectors, because laziness is risky with impurity
   rfromList0N :: (GoodScalar r, KnownNat n)
-              => ShapeInt n -> [ranked r 0] -> ranked r n
+              => IShR n -> [ranked r 0] -> ranked r n
   rfromList0N sh = rfromVector0N sh . V.fromList
   -- This is morally non-empty strict vectors:
   rfromVector :: (GoodScalar r, KnownNat n)
               => Data.Vector.Vector (ranked r n) -> ranked r (1 + n)
   rfromVector0N :: (GoodScalar r, KnownNat n)
-                => ShapeInt n -> Data.Vector.Vector (ranked r 0) -> ranked r n
+                => IShR n -> Data.Vector.Vector (ranked r 0) -> ranked r n
   rfromVector0N sh = rreshape sh . rfromVector
   -- | Warning: during computation, sharing between the elements
   -- of the resulting list is likely to be lost, so it needs to be ensured
@@ -172,7 +172,7 @@ class ( Num (IntOf ranked), IntegralF (IntOf ranked), CRanked ranked Num
   rreplicate :: (GoodScalar r, KnownNat n)
              => Int -> ranked r n -> ranked r (1 + n)
   rreplicate0N :: (GoodScalar r, KnownNat n)
-               => ShapeInt n -> ranked r 0 -> ranked r n
+               => IShR n -> ranked r 0 -> ranked r n
   rreplicate0N sh = rreshape sh . rreplicate (sizeShape sh)
   rappend :: (GoodScalar r, KnownNat n)
           => ranked r (1 + n) -> ranked r (1 + n) -> ranked r (1 + n)
@@ -194,12 +194,12 @@ class ( Num (IntOf ranked), IntegralF (IntOf ranked), CRanked ranked Num
   rflatten :: (GoodScalar r, KnownNat n) => ranked r n -> ranked r 1
   rflatten u = rreshape (flattenShape $ rshape u) u
   rreshape :: (GoodScalar r, KnownNat n, KnownNat m)
-           => ShapeInt m -> ranked r n -> ranked r m
+           => IShR m -> ranked r n -> ranked r m
   rbuild :: forall r m n. (GoodScalar r, KnownNat m, KnownNat n)
-         => ShapeInt (m + n) -> (IndexOf ranked m -> ranked r n)
+         => IShR (m + n) -> (IndexOf ranked m -> ranked r n)
          -> ranked r (m + n)
   rbuild sh0 f0 =
-    let buildSh :: ShapeInt m1 -> (IndexOf ranked m1 -> ranked r n)
+    let buildSh :: IShR m1 -> (IndexOf ranked m1 -> ranked r n)
                 -> ranked r (m1 + n)
         buildSh ZSR f = f ZIR
         buildSh (k :$: sh) f | Dict <- knownShR sh =
@@ -221,7 +221,7 @@ class ( Num (IntOf ranked), IntegralF (IntOf ranked), CRanked ranked Num
   rmap0N f v = rbuild (rshape v) (f . rindex0 v)
   rzipWith :: ( GoodScalar r1, GoodScalar r2, GoodScalar r
               , KnownNat m, KnownNat n1, KnownNat n2, KnownNat n )
-           => ShapeInt (m + n)
+           => IShR (m + n)
            -> (ranked r1 n1 -> ranked r2 n2 -> ranked r n)
            -> ranked r1 (m + n1) -> ranked r2 (m + n2) -> ranked r (m + n)
   rzipWith sh f u v = rbuild sh (\ix -> f (u ! ix) (v ! ix))
@@ -236,7 +236,7 @@ class ( Num (IntOf ranked), IntegralF (IntOf ranked), CRanked ranked Num
   rzipWith0N f u v = rbuild (rshape v) (\ix -> f (rindex0 u ix) (rindex0 v ix))
   rzipWith3 :: ( GoodScalar r1, GoodScalar r2, GoodScalar r3, GoodScalar r
                , KnownNat m, KnownNat n1, KnownNat n2, KnownNat n3, KnownNat n )
-            => ShapeInt (m + n)
+            => IShR (m + n)
             -> (ranked r1 n1 -> ranked r2 n2 -> ranked r3 n3 -> ranked r n)
             -> ranked r1 (m + n1) -> ranked r2 (m + n2) -> ranked r3 (m + n3)
             -> ranked r (m + n)
@@ -258,7 +258,7 @@ class ( Num (IntOf ranked), IntegralF (IntOf ranked), CRanked ranked Num
                , GoodScalar r, KnownNat m
                , KnownNat n1, KnownNat n2, KnownNat n3, KnownNat n4
                , KnownNat n )
-            => ShapeInt (m + n)
+            => IShR (m + n)
             -> (ranked r1 n1 -> ranked r2 n2 -> ranked r3 n3 -> ranked r4 n4
                 -> ranked r n)
             -> ranked r1 (m + n1) -> ranked r2 (m + n2) -> ranked r3 (m + n3)
@@ -288,7 +288,7 @@ class ( Num (IntOf ranked), IntegralF (IntOf ranked), CRanked ranked Num
     rbuild (rshape v) (\ix -> f (rindex0 u ix) (rindex0 v ix) (rindex0 w ix)
                                 (rindex0 x ix))
   rgather :: (GoodScalar r, KnownNat m, KnownNat n, KnownNat p)
-          => ShapeInt (m + n) -> ranked r (p + n)
+          => IShR (m + n) -> ranked r (p + n)
           -> (IndexOf ranked m -> IndexOf ranked p)
           -> ranked r (m + n)
   rgather1 :: forall r n p. (GoodScalar r, KnownNat n, KnownNat p)
@@ -315,7 +315,7 @@ class ( Num (IntOf ranked), IntegralF (IntOf ranked), CRanked ranked Num
   -- Prevents wrong shape in @0@ with ranked (but not shaped) tensors
   -- at any rank greater than zero.
   rzero :: (GoodScalar r, KnownNat n)
-        => ShapeInt n -> ranked r n
+        => IShR n -> ranked r n
   rzero sh = rreplicate0N sh 0
 
   -- ** No serviceable parts beyond this point ** --
@@ -874,7 +874,7 @@ class HVectorTensor (ranked :: RankedTensorType)
     -> ranked rm (1 + m)  -- ^ iteration is over the outermost dimension
     -> ranked rn n
   rfold f acc0 es =
-    let shm :: ShapeInt m
+    let shm :: IShR m
         (width, shm) = case rshape es of
           width2 :$: shm2 -> (width2, shm2)
           ZSR -> error "rscan: impossible pattern needlessly required"
@@ -906,7 +906,7 @@ class HVectorTensor (ranked :: RankedTensorType)
     -> ranked rm (1 + m)
     -> ranked rn (1 + n)
   rscan f acc0 es =
-    let shm :: ShapeInt m
+    let shm :: IShR m
         (width, shm) = case rshape es of
           width2 :$: shm2 -> (width2, shm2)
           ZSR -> error "rscan: impossible pattern needlessly required"
@@ -1099,14 +1099,14 @@ rfromD (DynamicShaped @r2 @sh2 t) = case matchingRank @sh2 @n of
     _ -> error "rfromD: scalar mismatch"
   _ -> error "rfromD: rank mismatch"
 rfromD (DynamicRankedDummy @r2 @sh2 _ _) =
-  withListSh (Proxy @sh2) $ \(sh1 :: ShapeInt n2) ->
+  withListSh (Proxy @sh2) $ \(sh1 :: IShR n2) ->
     case sameNat (Proxy @n2) (Proxy @n) of
       Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
         Just Refl -> rzero sh1
         _ -> error "rfromD: scalar mismatch"
       _ -> error "rfromD: rank mismatch"
 rfromD (DynamicShapedDummy @r2 @sh2 _ _) =
-  withListSh (Proxy @sh2) $ \(sh1 :: ShapeInt n2) ->
+  withListSh (Proxy @sh2) $ \(sh1 :: IShR n2) ->
     case sameNat (Proxy @n2) (Proxy @n) of
       Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
         Just Refl -> rzero sh1

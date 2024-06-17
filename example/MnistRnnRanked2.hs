@@ -52,7 +52,7 @@ type LayerWeigthsRNN (ranked :: RankedTensorType) r =
 
 zeroStateR
   :: (RankedTensor ranked, GoodScalar r, KnownNat n)
-  => ShapeInt n -> (ranked r n  -- state
+  => IShR n -> (ranked r n  -- state
                     -> a)
   -> a
 zeroStateR sh f = f (rzero sh)

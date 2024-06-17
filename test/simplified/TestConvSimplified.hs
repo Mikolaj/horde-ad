@@ -104,7 +104,7 @@ conv2d arrK arrA =
 --   If the slice extends out side the source array then the corresponding
 --   elements are set to zero.
 slicezF :: forall ranked n r. (ADReady ranked, GoodScalar r, KnownNat n)
-        => ShapeInt n -> ranked r n -> IndexOf ranked n -> ranked r n
+        => IShR n -> ranked r n -> IndexOf ranked n -> ranked r n
 slicezF shOut d ixBase =
   rbuild shOut $ \ixResult ->
     rindex @ranked @r @n @0 d (zipWith_Index (+) ixBase ixResult)

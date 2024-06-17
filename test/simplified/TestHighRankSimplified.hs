@@ -330,7 +330,7 @@ testFooBuild1 =
     (rev' @Double @5 fooBuild1 t16OR)
 
 fooMap1 :: (ADReady ranked, GoodScalar r, KnownNat n, Differentiable r)
-        => ShapeInt (1 + n) -> ranked r 0 -> ranked r (1 + n)
+        => IShR (1 + n) -> ranked r 0 -> ranked r (1 + n)
 fooMap1 sh r =
   let v = fooBuild1 $ rreplicate0N sh (r * r)
   in rmap0N (\x -> x * r + 5) v

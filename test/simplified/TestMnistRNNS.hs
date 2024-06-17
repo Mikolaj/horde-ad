@@ -38,7 +38,7 @@ import qualified MnistRnnShaped2
 
 tshapeR
   :: KnownNat n
-  => OR.Array n r -> ShapeInt n
+  => OR.Array n r -> IShR n
 tshapeR = listToShape . OR.shapeL
 
 tlengthR

@@ -605,7 +605,7 @@ tfromListR l = OR.ravel . ORB.fromList [NonEmpty.length l] . NonEmpty.toList $ l
 
 tfromList0NR
   :: (KnownNat n, Num r, VS.Storable r)
-  => ShapeInt n -> [r] -> OR.Array n r
+  => IShR n -> [r] -> OR.Array n r
 tfromList0NR sh = OR.fromList (shapeToList sh)
 
 tsumR
