@@ -39,7 +39,6 @@ import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.Internal.BackendOX
 import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..), FlipS (..))
-import HordeAd.Util.ShapedList (shapedNat, unShapedNat)
 
 type instance BoolOf (FlipR OR.Array) = Bool
 type instance RankedOf (FlipR OR.Array) = FlipR OR.Array
@@ -178,8 +177,7 @@ instance ShapedTensor OSArray where
   sscatter t f = FlipS $ tscatterZS (runFlipS t)
                                    (fromIndexOfS . f . toIndexOfS)
   sscatter1 t f = FlipS $ tscatterZ1S (runFlipS t)
-                                      (fromIndexOfS . f . shapedNat . FlipR
-                                       . tscalarR . unShapedNat)
+                                      (fromIndexOfS . f . FlipR . tscalarR)
   sfromList = FlipS . tfromListS . NonEmpty.map runFlipS
   sfromList0N = FlipS . tfromList0NS . map (tunScalarS . runFlipS)
   sfromVector = FlipS . tfromVectorS . V.map runFlipS
@@ -192,8 +190,7 @@ instance ShapedTensor OSArray where
   sreverse = FlipS . treverseS . runFlipS
   stranspose perm = FlipS . ttransposeS perm . runFlipS
   sreshape = FlipS . treshapeS . runFlipS
-  sbuild1 f = FlipS $ tbuild1S (runFlipS . f . shapedNat . FlipR
-                                . tscalarR . unShapedNat)
+  sbuild1 f = FlipS $ tbuild1S (runFlipS . f . FlipR . tscalarR)
   smap0N f t = FlipS $ tmap0NS (runFlipS . f . FlipS) (runFlipS t)
   szipWith0N f t u =
     FlipS $ tzipWith0NS (\v w -> runFlipS $ f (FlipS v) (FlipS w))
@@ -201,8 +198,7 @@ instance ShapedTensor OSArray where
   sgather t f = FlipS $ tgatherZS (runFlipS t)
                                   (fromIndexOfS . f . toIndexOfS)
   sgather1 t f = FlipS $ tgatherZ1S (runFlipS t)
-                                    (fromIndexOfS . f . shapedNat . FlipR
-                                     . tscalarR . unShapedNat)
+                                    (fromIndexOfS . f . FlipR . tscalarR)
   scast = FlipS . tcastS . runFlipS
   sfromIntegral = FlipS . tfromIntegralS . runFlipS
   sconst = FlipS

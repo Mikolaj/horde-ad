@@ -216,7 +216,7 @@ astReshapeAsGatherS knobs v =
     let shIn = knownShS @sh
         shOut = knownShS @sh2
         asts :: AstIndexS sh
-        asts = let i :: ShapedList.ShapedNat (Sh.Size sh2) AstInt
+        asts = let i :: AstInt
                    i = ShapedList.toLinearIdx @sh2 @'[] (AstConst . Nested.rscalar . fromIntegral) shOut ix
                in simplifyAstIndexS $ ShapedList.fromLinearIdx (AstConst . Nested.rscalar . fromIntegral) shIn i
                     -- we generate these, so we simplify

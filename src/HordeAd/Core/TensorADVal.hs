@@ -50,7 +50,6 @@ import           HordeAd.Core.Types
 import           HordeAd.Internal.BackendOX (ORArray, OSArray)
 import           HordeAd.Internal.OrthotopeOrphanInstances
   (FlipR (..), FlipS (..))
-import           HordeAd.Util.ShapedList (IntSh)
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedList
 
@@ -343,12 +342,12 @@ instance ADReadyS shaped => ShapedTensor (ADVal shaped) where
     Just Refl -> t
     _ -> dD (sreshape u) (ReshapeS u')
   sbuild1 :: forall r n sh. (GoodScalar r, KnownNat n, KnownShS sh)
-          => (IntSh (ADVal shaped) n -> ADVal shaped r sh)
+          => (IntOf (ADVal shaped) -> ADVal shaped r sh)
           -> ADVal shaped r (n ': sh)
   sbuild1 f = case valueOf @n of
     0 -> sconst $ Nested.Internal.sfromListPrimLinear knownShS []
     k -> sfromList $ NonEmpty.fromList
-                   $ map (f . ShapedList.shapedNat . fromIntegral)
+                   $ map (f . fromIntegral)
                          [0 :: Int .. k - 1]
            -- element-wise (POPL) version
   sgather (D u u') f =

@@ -44,7 +44,7 @@ import qualified Data.Array.Nested.Internal.Shaped as Nested.Internal
 
 import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..), FlipS)
-import           HordeAd.Util.ShapedList (IndexS, ShapedNat)
+import           HordeAd.Util.ShapedList (IndexS)
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedList
 
@@ -411,8 +411,6 @@ fromIndexOfR ixOf = tunScalarR . runFlipR <$> ixOf
 
 -- * Shaped tensor operations
 
-type Int64Sh (n :: Nat) = ShapedNat n Int64
-
 type IndexIntSh sh = IndexS sh Int64
 
 -- TODO: try to weave a similar magic as in tindex0R
@@ -430,7 +428,6 @@ updateNS arr upd =
             i = gcastWith (unsafeCoerce Refl
                            :: sh :~: Sh.Take n sh X.++ Sh.Drop n sh)
                 $ fromIntegral
-                $ ShapedList.unShapedNat
                 $ ShapedList.toLinearIdx @(Sh.Take n sh) @(Sh.Drop n sh)
                                          fromIntegral sh ix
         in V.concat [V.take i t, v, V.drop (i + V.length v) t]
@@ -614,7 +611,7 @@ tscatterZS t f =
                   (Nested.stoVector $ tindexNS @sh2 @(Sh.Drop p sh) t ix)
            else id
       ivs = foldr g M.empty [ ShapedList.fromLinearIdx fromIntegral sh2
-                              $ ShapedList.shapedNat $ fromIntegral i
+                              $ fromIntegral i
                             | i <- [0 .. sizeT @sh2 - 1] ]
   in updateNS (Nested.sreplicateScal knownShS 0)
      $ map (second $ Nested.sfromVector knownShS)
@@ -627,11 +624,11 @@ tscatterZS t f =
 tscatterZ1S :: forall r n2 p sh.
                (NumAndShow r, KnownShS sh, KnownShS (Sh.Drop p sh))
             => Nested.Shaped (n2 ': Sh.Drop p sh) r
-            -> (Int64Sh n2 -> IndexIntSh (Sh.Take p sh))
+            -> (Int64 -> IndexIntSh (Sh.Take p sh))
             -> Nested.Shaped sh r
 tscatterZ1S t f =
     sum $ imap (\i ti ->
-                   let ix2 = f $ ShapedList.shapedNat $ fromIntegral i
+                   let ix2 = f $ fromIntegral i
                    in if ixInBounds (ShapedList.indexToList ix2)
                                     (shapeT @sh)
                       then updateNS (Nested.sreplicateScal knownShS 0) [(ix2, ti)]
@@ -704,11 +701,11 @@ treshapeS = Nested.sreshape knownShS
 
 tbuild1S
   :: forall n sh r. (KnownNat n, NumAndShow r)
-  => (Int64Sh n -> Nested.Shaped sh r) -> Nested.Shaped (n ': sh) r
+  => (Int64 -> Nested.Shaped sh r) -> Nested.Shaped (n ': sh) r
 tbuild1S f =
   let k = valueOf @n
   in Nested.sfromListOuter SNat
-     $ NonEmpty.map (f . ShapedList.shapedNat)
+     $ NonEmpty.map f
      $ NonEmpty.fromList [0 .. k - 1]  -- hope this fuses
 
 tmap0NS
@@ -747,19 +744,19 @@ tgatherZS t f =
                      :: sh :~: Sh.Take p sh X.++ Sh.Drop p sh)
           $ [ Nested.stoVector
                 (t `tindexZS` f (ShapedList.fromLinearIdx fromIntegral sh2
-                                 $ ShapedList.shapedNat $ fromIntegral i)
+                                 $ fromIntegral i)
                  :: Nested.Shaped (Sh.Drop p sh) r)
             | i <- [0 .. s - 1] ]
   in Nested.sfromVector knownShS $ V.concat l
 
 tgatherZ1S :: forall n2 p sh r.
               (NumAndShow r, KnownNat n2, KnownShS (Sh.Drop p sh))
-           => Nested.Shaped sh r -> (Int64Sh n2 -> IndexIntSh (Sh.Take p sh))
+           => Nested.Shaped sh r -> (Int64 -> IndexIntSh (Sh.Take p sh))
            -> Nested.Shaped (n2 ': Sh.Drop p sh) r
 tgatherZ1S t f =
   let l = gcastWith (unsafeCoerce Refl
                      :: sh :~: Sh.Take p sh X.++ Sh.Drop p sh)
-          $ NonEmpty.map (\i -> t `tindexZS` f (ShapedList.shapedNat i))
+          $ NonEmpty.map (\i -> t `tindexZS` f i)
                          (NonEmpty.fromList [0 .. valueOf @n2 - 1])
   in Nested.sfromListOuter SNat l
 

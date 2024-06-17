@@ -7,7 +7,7 @@
 -- tensor shapes and tensor indexes.
 module HordeAd.Util.ShapedList
   ( -- * Shaped lists (sized, where size is shape) and their permutations
-    IntSh, IndexSh
+    IndexSh
   , SizedListS, pattern (::$), pattern ZS
   -- , consShaped, unconsContShaped
   , singletonSized, appendSized
@@ -20,14 +20,12 @@ module HordeAd.Util.ShapedList
   -- , shapedToSized
     -- * Tensor indexes as fully encapsulated shaped lists, with operations
   , IndexS, pattern (:.$), pattern ZIS
-  , consIndex, unconsContIndex
   , singletonIndex, appendIndex
   , zipWith_Index
   , listToIndex, indexToList  -- indexToSized, sizedToIndex
   , shapedToIndex, ixsLengthSNat
   -- * Tensor shapes as fully encapsulated shaped lists, with operations
   , ShapeS, pattern (:$$), pattern ZSS
-  , ShapedNat, shapedNat, unShapedNat
   , listToShape, shapeToList, takeShS, dropShS
     -- * Operations involving both indexes and shapes
   , toLinearIdx, fromLinearIdx
@@ -58,12 +56,6 @@ import qualified HordeAd.Util.SizedList as SizedList
 -- * Shaped lists and their permutations
 
 -- TODO: ensure this is checked (runtime-checked, if necessary):
--- | The value of this type has to be positive and less than the @n@ bound.
--- If the values are terms, this is relative to environment
--- and up to evaluation.
-type IntSh (f :: TensorType ty) (n :: Nat) = ShapedNat n (IntOf f)
-
--- TODO: ensure this is checked (runtime-checked, if necessary):
 -- | The values of this type are bounded by the shape.
 -- If the values are terms, this is relative to environment
 -- and up to evaluation.
@@ -71,14 +63,6 @@ type IndexSh (f :: TensorType ty) (sh :: [Nat]) = IndexS sh (IntOf f)
 
 -- | Lists indexed by shapes, that is, lists of the GHC @Nat@.
 type SizedListS n i = ListS n i
-
--- TODO: use SNat instead of ShapedNat for ShS? or Fin for IxS? but what here?
--- outdated: -- TODO: should we actually replace ::$ with that in the external API?
--- consShaped :: ShapedNat n i -> SizedListS sh i -> SizedListS (n ': sh) i
--- consShaped (ShapedNat i) l = i ::$ l
-
--- unconsContShaped :: (ShapedNat n i -> k) -> SizedListS (n ': sh) i -> k
--- unconsContShaped f (i ::$ _) = f (ShapedNat i)
 
 singletonSized :: KnownNat n => i n -> SizedListS '[n] i
 singletonSized i = i ::$ ZS
@@ -168,12 +152,6 @@ pattern IndexS :: forall {sh :: [Nat]} {i}. ListS sh (Const i) -> IxS sh i
 pattern IndexS l = IxS l
 {-# COMPLETE IndexS #-}
 
-consIndex :: KnownNat n => ShapedNat n i -> IndexS sh i -> IndexS (n ': sh) i
-consIndex (ShapedNat i) l = i :.$ l
-
-unconsContIndex :: (ShapedNat n i -> k) -> IndexS (n ': sh) i -> k
-unconsContIndex f (i :.$ _) = f (ShapedNat i)
-
 -- TODO take Fin instead of i?
 singletonIndex :: KnownNat n => i -> IndexS '[n] i
 singletonIndex i = i :.$ ZIS
@@ -210,20 +188,6 @@ ixsLengthSNat (_ :.$ l) | SNat <- ixsLengthSNat l = SNat
 
 type ShapeS sh = ShS sh
 
--- TODO: ensure this is checked (runtime-checked, if necessary):
--- | The value of this type has to be positive and less than the @n@ bound.
--- If the values are terms, this is relative to environment
--- and up to evaluation.
-type role ShapedNat nominal representational
-newtype ShapedNat (n :: Nat) a = ShapedNat {unShapedNat :: a}
-
-deriving stock instance Functor (ShapedNat n)
-
--- TODO: actually check or wrap a check for later, based on a mechanism
--- provided by @a@ somehow
-shapedNat :: forall n a. a -> ShapedNat n a
-shapedNat = ShapedNat
-
 listToShape :: KnownShS sh => [Int] -> ShapeS sh
 listToShape = fromList
 
@@ -249,9 +213,8 @@ dropShS ix = listToShape $ drop (valueOf @len) $ shapeToList ix
 -- which is fine, that's pointing at the start of the empty buffer.
 -- Note that the resulting 0 may be a complex term.
 toLinearIdx :: forall sh1 sh2 j. (KnownShS sh2, Num j)
-            => (Int -> j) -> ShS (sh1 X.++ sh2) -> IndexS sh1 j
-            -> ShapedNat (Sh.Size sh1 * Sh.Size sh2) j
-toLinearIdx fromInt = \sh idx -> shapedNat $ go sh idx (fromInt 0)
+            => (Int -> j) -> ShS (sh1 X.++ sh2) -> IndexS sh1 j -> j
+toLinearIdx fromInt = \sh idx -> go sh idx (fromInt 0)
   where
     -- Additional argument: index, in the @m - m1@ dimensional array so far,
     -- of the @m - m1 + n@ dimensional tensor pointed to by the current
@@ -271,9 +234,8 @@ toLinearIdx fromInt = \sh idx -> shapedNat $ go sh idx (fromInt 0)
 -- because it doesn't matter, because it's going to point at the start
 -- of the empty buffer anyway.
 fromLinearIdx :: forall sh j. (Num j, IntegralF j)
-              => (Int -> j) -> ShS sh -> ShapedNat (Sh.Size sh) j
-              -> IndexS sh j
-fromLinearIdx fromInt = \sh (ShapedNat lin) -> snd (go sh lin)
+              => (Int -> j) -> ShS sh -> j -> IndexS sh j
+fromLinearIdx fromInt = \sh lin -> snd (go sh lin)
   where
     -- Returns (linear index into array of sub-tensors,
     -- multi-index within sub-tensor).

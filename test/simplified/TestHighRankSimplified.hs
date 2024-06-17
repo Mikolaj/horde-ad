@@ -241,14 +241,14 @@ fooBuild2S
   => shaped r (k : sh) -> ranked r (1 + X.Rank sh)
 fooBuild2S v = rfromS $
   sbuild1 @_ @_ @2 $ \ix ->
-    ifF (sfromR (ShapedList.unShapedNat ix) - (sprimalPart . sfloor) (ssum0 @shaped @r @[5,12,11,9,4]
+    ifF (sfromR ix - (sprimalPart . sfloor) (ssum0 @shaped @r @[5,12,11,9,4]
              $ sreplicate0N @_ @_ @[5,12,11,9,4] (ssum0 v)) - srepl 10001 >=. srepl 0
-         &&* sfromR (ShapedList.unShapedNat ix) - (sprimalPart . sfloor) (ssum0 @shaped @r @[5,12,11,9,4]
+         &&* sfromR ix - (sprimalPart . sfloor) (ssum0 @shaped @r @[5,12,11,9,4]
              $ sreplicate0N @_ @_ @[5,12,11,9,4] (ssum0 v)) - srepl 10001 <=. srepl 1)
-        (sindex v (ShapedList.singletonIndex (rfromS $ sfromR (ShapedList.unShapedNat ix) - (sprimalPart . sfloor) (ssum0 @shaped @r @[5,12,11,9,4]
+        (sindex v (ShapedList.singletonIndex (rfromS $ sfromR ix - (sprimalPart . sfloor) (ssum0 @shaped @r @[5,12,11,9,4]
              $ sreplicate0N @_ @_ @[5,12,11,9,4] (ssum0 v)) - srepl 10001)))
            -- index out of bounds; also fine
-        (sqrt $ abs $ sindex v (ShapedList.singletonIndex (rfromS $ let rr = (sfromR (ShapedList.unShapedNat ix) - (sprimalPart . sfloor) (ssum0 v) - srepl 10001) `remF` srepl 2
+        (sqrt $ abs $ sindex v (ShapedList.singletonIndex (rfromS $ let rr = (sfromR ix - (sprimalPart . sfloor) (ssum0 v) - srepl 10001) `remF` srepl 2
                                 in ifF (signum rr ==. negate (signum $ srepl 2))
                                    (rr + srepl 2)
                                    rr)))
