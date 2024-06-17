@@ -45,6 +45,7 @@ import qualified Data.Array.Mixed.Shape as X
 import qualified Data.Array.Mixed.Types as X
 import qualified Data.Array.Nested as Nested
 import qualified Data.Array.Nested.Internal.Ranked as Nested.Internal
+import qualified Data.Array.Nested.Internal.Shape as Nested.Internal.Shape
 import qualified Data.Array.Nested.Internal.Shaped as Nested.Internal
 
 import           HordeAd.Core.HVector
@@ -401,10 +402,10 @@ class ( Num (IntOf shaped), IntegralF (IntOf shaped), CShaped shaped Num
               sindex
   ssum :: forall r n sh. (GoodScalar r, KnownNat n, KnownShS sh)
        => shaped r (n ': sh) -> shaped r sh
-  ssum0 :: (GoodScalar r, KnownShS sh, KnownNat (Sh.Size sh))
+  ssum0 :: (GoodScalar r, KnownShS sh, KnownNat (Nested.Internal.Shape.Product sh))
         => shaped r sh -> shaped r '[]
   ssum0 = ssum . sflatten
-  sdot0 :: (GoodScalar r, KnownShS sh, KnownNat (Sh.Size sh))
+  sdot0 :: (GoodScalar r, KnownShS sh, KnownNat (Nested.Internal.Shape.Product sh))
         => shaped r sh -> shaped r sh -> shaped r '[]
   sdot0 t u = ssum (sflatten (t * u))
   smatvecmul :: forall r m n. (GoodScalar r, KnownNat m, KnownNat n)
@@ -438,17 +439,17 @@ class ( Num (IntOf shaped), IntegralF (IntOf shaped), CShaped shaped Num
             => NonEmpty (shaped r sh) -> shaped r (n ': sh)
   sfromList = sfromVector . V.fromList . NonEmpty.toList
   sfromList0N :: forall r sh.
-                 (GoodScalar r, KnownShS sh, KnownNat (Sh.Size sh))
+                 (GoodScalar r, KnownShS sh, KnownNat (Nested.Internal.Shape.Product sh))
               => [shaped r '[]] -> shaped r sh
   sfromList0N = sfromVector0N . V.fromList
   -- This is morally non-empty strict vectors:
   sfromVector :: (GoodScalar r, KnownNat n, KnownShS sh)
               => Data.Vector.Vector (shaped r sh) -> shaped r (n ': sh)
   sfromVector0N :: forall r sh.
-                   (GoodScalar r, KnownShS sh, KnownNat (Sh.Size sh))
+                   (GoodScalar r, KnownShS sh, KnownNat (Nested.Internal.Shape.Product sh))
                 => Data.Vector.Vector (shaped r '[])
                 -> shaped r sh
-  sfromVector0N = sreshape @shaped @r @'[Sh.Size sh] @sh . sfromVector
+  sfromVector0N = sreshape @shaped @r @'[Nested.Internal.Shape.Product sh] @sh . sfromVector
   -- | Warning: during computation, sharing between the elements
   -- of the resulting list is likely to be lost, so it needs to be ensured
   -- by explicit sharing, e.g., 'slet'.
@@ -461,10 +462,10 @@ class ( Num (IntOf shaped), IntegralF (IntOf shaped), CShaped shaped Num
   sreplicate :: (KnownNat n, KnownShS sh, GoodScalar r)
              => shaped r sh -> shaped r (n ': sh)
   sreplicate0N :: forall r sh.
-                  (GoodScalar r, KnownShS sh, KnownNat (Sh.Size sh))
+                  (GoodScalar r, KnownShS sh, KnownNat (Nested.Internal.Shape.Product sh))
                => shaped r '[] -> shaped r sh
-  sreplicate0N = sreshape @shaped @r @'[Sh.Size sh] @sh
-                 . sreplicate @shaped @(Sh.Size sh)
+  sreplicate0N = sreshape @shaped @r @'[Nested.Internal.Shape.Product sh] @sh
+                 . sreplicate @shaped @(Nested.Internal.Shape.Product sh)
   sappend :: (GoodScalar r, KnownNat m, KnownNat n, KnownShS sh)
           => shaped r (m ': sh) -> shaped r (n ': sh)
           -> shaped r ((m + n) ': sh)
@@ -490,11 +491,11 @@ class ( Num (IntOf shaped), IntegralF (IntOf shaped), CShaped shaped Num
                 , X.Rank perm <= X.Rank sh, GoodScalar r )
              => Permutation.Perm perm -> shaped r sh
              -> shaped r (Permutation.PermutePrefix perm sh)
-  sflatten :: (GoodScalar r, KnownShS sh, KnownNat (Sh.Size sh))
-           => shaped r sh -> shaped r '[Sh.Size sh]
+  sflatten :: (GoodScalar r, KnownShS sh, KnownNat (Nested.Internal.Shape.Product sh))
+           => shaped r sh -> shaped r '[Nested.Internal.Shape.Product sh]
   sflatten = sreshape
   sreshape :: ( GoodScalar r, KnownShS sh, KnownShS sh2
-              , Sh.Size sh ~ Sh.Size sh2 )
+              , Nested.Internal.Shape.Product sh ~ Nested.Internal.Shape.Product sh2 )
            => shaped r sh -> shaped r sh2
     -- beware that the order of type arguments is different than in orthotope
     -- and than the order of value arguments in the ranked version
@@ -690,7 +691,7 @@ class ( Num (IntOf shaped), IntegralF (IntOf shaped), CShaped shaped Num
   -- ** No serviceable parts beyond this point ** --
 
   sscaleByScalar
-    :: (GoodScalar r, KnownShS sh, KnownNat (Sh.Size sh))
+    :: (GoodScalar r, KnownShS sh, KnownNat (Nested.Internal.Shape.Product sh))
     => shaped r '[] -> shaped r sh -> shaped r sh
   sscaleByScalar s v = v * sreplicate0N s
   sdot1In :: (GoodScalar r, KnownNat n, KnownNat m)

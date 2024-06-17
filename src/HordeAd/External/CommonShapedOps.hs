@@ -24,6 +24,7 @@ import           GHC.TypeLits
 import           Unsafe.Coerce (unsafeCoerce)
 
 import qualified Data.Array.Mixed.Shape as X
+import qualified Data.Array.Nested.Internal.Shape as Nested.Internal.Shape
 import qualified Data.Array.Nested.Internal.Shaped as Nested.Internal
 
 import           HordeAd.Core.TensorClass
@@ -34,7 +35,7 @@ import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedList
 
 sminIndexN :: ( ADReadyS shaped, GoodScalar r
-              , KnownShS sh, KnownNat (Sh.Size sh) )
+              , KnownShS sh, KnownNat (Nested.Internal.Shape.Product sh) )
            => shaped r sh -> IndexSh shaped sh
 sminIndexN t =
   ShapedList.fromLinearIdx (rscalar . fromIntegral)
@@ -42,7 +43,7 @@ sminIndexN t =
     (rfromS $ sprimalPart $ sminIndex (sflatten t))
 
 smaxIndexN :: ( ADReadyS shaped, GoodScalar r
-              , KnownShS sh, KnownNat (Sh.Size sh) )
+              , KnownShS sh, KnownNat (Nested.Internal.Shape.Product sh) )
            => shaped r sh -> IndexSh shaped sh
 smaxIndexN t =
   ShapedList.fromLinearIdx (rscalar . fromIntegral)
@@ -50,12 +51,12 @@ smaxIndexN t =
     (rfromS $ sprimalPart $ smaxIndex (sflatten t))
 
 sminimum :: forall r sh shaped.
-            (ADReadyS shaped, GoodScalar r, KnownShS sh, KnownNat (Sh.Size sh))
+            (ADReadyS shaped, GoodScalar r, KnownShS sh, KnownNat (Nested.Internal.Shape.Product sh))
          => shaped r sh -> shaped r '[]
 sminimum t = sindex0 t (sminIndexN t)
 
 smaximum :: forall r sh shaped.
-            (ADReadyS shaped, GoodScalar r, KnownShS sh, KnownNat (Sh.Size sh))
+            (ADReadyS shaped, GoodScalar r, KnownShS sh, KnownNat (Nested.Internal.Shape.Product sh))
          => shaped r sh -> shaped r '[]
 smaximum t = sindex0 t (smaxIndexN t)
 
@@ -124,7 +125,7 @@ squaredDifferenceS
   => PrimalOf shaped r sh -> shaped r sh -> shaped r sh
 squaredDifferenceS targ res = squareS $ res - sconstant targ
 
-lossCrossEntropyVS :: ( KnownShS sh, KnownNat (Sh.Size sh)
+lossCrossEntropyVS :: ( KnownShS sh, KnownNat (Nested.Internal.Shape.Product sh)
                       , ShapedTensor shaped, GoodScalar r, Differentiable r )
                    => shaped r sh
                    -> shaped r sh
@@ -137,7 +138,7 @@ lossCrossEntropyVS targ res = negate $ log res `sdot0` targ
 lossSoftMaxCrossEntropyS
   :: forall shaped sh r.
      ( ADReadyS shaped, ADReadyS (PrimalOf shaped)
-     , GoodScalar r, KnownShS sh, KnownNat (Sh.Size sh)
+     , GoodScalar r, KnownShS sh, KnownNat (Nested.Internal.Shape.Product sh)
      , Differentiable r )
   => PrimalOf shaped r sh -> shaped r sh -> shaped r '[]
 lossSoftMaxCrossEntropyS target d' = slet d' $ \d ->
@@ -178,7 +179,7 @@ maxPool1S v =
           Nothing -> error "maxPool1S: impossible someNatVal error"
   in sfromList $ NonEmpty.fromList $ map maxOfSlice l
 
-softMax1S :: ( KnownShS sh, KnownNat (Sh.Size sh)
+softMax1S :: ( KnownShS sh, KnownNat (Nested.Internal.Shape.Product sh)
              , ShapedTensor shaped, GoodScalar r, Differentiable r )
           => shaped r sh -> shaped r sh
 softMax1S d =

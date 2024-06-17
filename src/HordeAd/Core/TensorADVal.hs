@@ -336,7 +336,7 @@ instance ADReadyS shaped => ShapedTensor (ADVal shaped) where
     dD (stranspose perm u) (TransposeS @shaped perm u')
   sreshape :: forall sh sh2 r.
               ( GoodScalar r, KnownShS sh, KnownShS sh2
-              , Sh.Size sh ~ Sh.Size sh2 )
+              , Nested.Internal.Shape.Product sh ~ Nested.Internal.Shape.Product sh2)
            => ADVal shaped r sh -> ADVal shaped r sh2
   sreshape t@(D u u') = case sameShape @sh2 @sh of
     Just Refl -> t
