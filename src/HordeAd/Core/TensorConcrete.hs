@@ -109,9 +109,10 @@ instance RankedTensor ORArray where
   rtranspose perm = FlipR . ttransposeR perm . runFlipR
   rreshape sh = FlipR . treshapeR sh . runFlipR
   rbuild1 k f = FlipR $ tbuild1R k (runFlipR . f . FlipR . tscalarR)
--- TODO:    rmap0N f t = FlipR $ tmap0NR (runFlipR . f . FlipR) (runFlipR t)
--- TODO:    rzipWith0N f t u = FlipR $ tzipWith0NR (\v w -> runFlipR $ f (FlipR v) (FlipR w))
---                                        (runFlipR t) (runFlipR u)
+  rmap0N f t = FlipR $ tmap0NR (runFlipR . f . FlipR) (runFlipR t)
+  rzipWith0N f t u =
+    FlipR $ tzipWith0NR (\v w -> runFlipR $ f (FlipR v) (FlipR w))
+                        (runFlipR t) (runFlipR u)
   rgather sh t f = FlipR $ tgatherZR sh (runFlipR t)
                                        (fromIndexOfR . f . toIndexOfR)
   rgather1 k t f = FlipR $ tgatherZ1R k (runFlipR t)
@@ -194,10 +195,10 @@ instance ShapedTensor OSArray where
   sreshape = FlipS . treshapeS . runFlipS
   sbuild1 f = FlipS $ tbuild1S (runFlipS . f . shapedNat . FlipR
                                 . tscalarR . unShapedNat)
--- TODO
---  smap0N f t = FlipS $ tmap0NS (runFlipS . f . FlipS) (runFlipS t)
---  szipWith0N f t u = FlipS $ tzipWith0NS (\v w -> runFlipS $ f (FlipS v) (FlipS w))
---                                        (runFlipS t) (runFlipS u)
+  smap0N f t = FlipS $ tmap0NS (runFlipS . f . FlipS) (runFlipS t)
+  szipWith0N f t u =
+    FlipS $ tzipWith0NS (\v w -> runFlipS $ f (FlipS v) (FlipS w))
+                        (runFlipS t) (runFlipS u)
   sgather t f = FlipS $ tgatherZS (runFlipS t)
                                   (fromIndexOfS . f . toIndexOfS)
   sgather1 t f = FlipS $ tgatherZ1S (runFlipS t)

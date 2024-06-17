@@ -61,7 +61,7 @@ import qualified Data.Array.Mixed.Shape as X
 import qualified Data.Array.Mixed.Types as X
 import qualified Data.Array.Mixed.XArray
 import qualified Data.Array.Nested as Nested
-import qualified Data.Array.Nested.Internal.Mixed as Nested.Internal
+import qualified Data.Array.Nested.Internal.Mixed as Nested.Internal.Mixed
 import qualified Data.Array.Nested.Internal.Ranked as Nested.Internal
 import qualified Data.Array.Nested.Internal.Shape as Nested.Internal.Shape
 import qualified Data.Array.Nested.Internal.Shaped as Nested.Internal
@@ -149,9 +149,9 @@ arithPromoteRanked = coerce
 -}
 
 -- A bit more general than Nested.Internal.mliftNumElt1.
-mliftNumElt1 :: (Nested.Internal.PrimElt a, Nested.Internal.PrimElt b)
+mliftNumElt1 :: (Nested.Internal.Mixed.PrimElt a, Nested.Internal.Mixed.PrimElt b)
              => (SNat (X.Rank sh) -> OR.Array (X.Rank sh) a -> OR.Array (X.Rank sh) b) -> Nested.Mixed sh a -> Nested.Mixed sh b
-mliftNumElt1 f (Nested.Internal.toPrimitive -> Nested.Internal.M_Primitive sh (Data.Array.Mixed.XArray.XArray arr)) = Nested.Internal.fromPrimitive $ Nested.Internal.M_Primitive sh (Data.Array.Mixed.XArray.XArray (f (X.shxRank sh) arr))
+mliftNumElt1 f (Nested.Internal.Mixed.toPrimitive -> Nested.Internal.Mixed.M_Primitive sh (Data.Array.Mixed.XArray.XArray arr)) = Nested.Internal.Mixed.fromPrimitive $ Nested.Internal.Mixed.M_Primitive sh (Data.Array.Mixed.XArray.XArray (f (X.shxRank sh) arr))
 
 -- A bit more general than Mixed.Internal.Arith.liftVEltwise1.
 liftVEltwise1 :: (VS.Storable a, VS.Storable b)
@@ -464,21 +464,35 @@ tbuild1R k f =
 --  _ ->  error "tbuild1R: shape ambiguity, no arguments"
 --tbuild1R k f = Nested.ravel $ ORB.fromList [k]
 --               $ map f [0 .. fromIntegral k - 1]  -- hope this fuses
-{- TODO
+
 tmap0NR
-  :: (Numeric r, Numeric r2)
-  => (Nested.Ranked 0 r -> Nested.Ranked 0 r2) -> Nested.Ranked n r -> Nested.Ranked n r2
-tmap0NR f = Nested.mapA (tunScalarR . f . tscalarR)
-            -- too slow: tbuildNR (tshapeR v) (\ix -> f $ v `tindexNR` ix)
-            -- bad type: liftVR . LA.cmap
+  :: (Nested.Internal.Mixed.Elt r1, Nested.Internal.Mixed.Elt r, Nested.Internal.Mixed.PrimElt r1, Nested.Internal.Mixed.PrimElt r)
+  => (Nested.Ranked 0 r1 -> Nested.Ranked 0 r) -> Nested.Ranked n r1 -> Nested.Ranked n r
+tmap0NR f =
+  coerce  -- Nested.Internal.arithPromoteRanked
+    (mliftPrim
+       (\x -> Nested.runScalar $ f (Nested.rscalar x)))
+          -- too slow: tbuildNR (tshapeR v) (\ix -> f $ v `tindexNR` ix)
 
 tzipWith0NR
-  :: (Numeric r, Numeric r2, Numeric r3)
-  => (Nested.Ranked 0 r -> Nested.Ranked 0 r2 -> Nested.Ranked 0 r3)
-  -> Nested.Ranked n r -> Nested.Ranked n r2 -> Nested.Ranked n r3
-tzipWith0NR f = Nested.zipWithA (\x y -> tunScalarR $ f (tscalarR x) (tscalarR y))
-                -- bad type: liftVR2 . Numeric.LinearAlgebra.Devel.zipVectorWith
--}
+  :: (Nested.Internal.Mixed.Elt r, Nested.Internal.Mixed.Elt r1, Nested.Internal.Mixed.Elt r2, Nested.Internal.Mixed.PrimElt r, Nested.Internal.Mixed.PrimElt r1, Nested.Internal.Mixed.PrimElt r2)
+  => (Nested.Ranked 0 r1 -> Nested.Ranked 0 r2 -> Nested.Ranked 0 r)
+  -> Nested.Ranked n r1 -> Nested.Ranked n r2 -> Nested.Ranked n r
+tzipWith0NR f =
+  coerce  -- Nested.Internal.arithPromoteRanked2
+    (mliftPrim2
+       (\x y -> Nested.runScalar $ f (Nested.rscalar x) (Nested.rscalar y)))
+
+mliftPrim :: (Nested.Internal.Mixed.PrimElt a, Nested.Internal.Mixed.PrimElt b)
+          => (a -> b)
+          -> Nested.Mixed sh a -> Nested.Mixed sh b
+mliftPrim f (Nested.Internal.Mixed.toPrimitive -> Nested.Internal.Mixed.M_Primitive sh (Data.Array.Mixed.XArray.XArray arr)) = Nested.Internal.Mixed.fromPrimitive $ Nested.Internal.Mixed.M_Primitive sh (Data.Array.Mixed.XArray.XArray (OR.mapA f arr))
+
+mliftPrim2 :: (Nested.Internal.Mixed.PrimElt a, Nested.Internal.Mixed.PrimElt b, Nested.Internal.Mixed.PrimElt c)
+           => (a -> b -> c)
+           -> Nested.Mixed sh a -> Nested.Mixed sh b -> Nested.Mixed sh c
+mliftPrim2 f (Nested.Internal.Mixed.toPrimitive -> Nested.Internal.Mixed.M_Primitive sh (Data.Array.Mixed.XArray.XArray arr1)) (Nested.Internal.Mixed.toPrimitive -> Nested.Internal.Mixed.M_Primitive _ (Data.Array.Mixed.XArray.XArray arr2)) =
+  Nested.Internal.Mixed.fromPrimitive $ Nested.Internal.Mixed.M_Primitive sh (Data.Array.Mixed.XArray.XArray (OR.zipWithA f arr1 arr2))
 
 -- TODO: this can be slightly optimized by normalizing t first (?)
 -- and then inlining toVector and tindexZR
@@ -897,23 +911,24 @@ tbuild1S f =
      $ NonEmpty.map (f . ShapedList.shapedNat)
      $ NonEmpty.fromList [0 .. k - 1]  -- hope this fuses
 
-{- TODO
 tmap0NS
-  :: forall r r2 sh. (Numeric r, Numeric r2, KnownShS sh)
-  => (Nested.Shaped '[] r -> Nested.Shaped '[] r2) -> Nested.Shaped sh r -> Nested.Shaped sh r2
+  :: forall r1 r sh. (Nested.Internal.Mixed.Elt r1, Nested.Internal.Mixed.Elt r, Nested.Internal.Mixed.PrimElt r1, Nested.Internal.Mixed.PrimElt r, KnownShS sh)
+  => (Nested.Shaped '[] r1 -> Nested.Shaped '[] r) -> Nested.Shaped sh r1 -> Nested.Shaped sh r
 tmap0NS f =
-  OS.mapA (tunScalarS . f . tscalarS)
-            -- too slow: tbuildNS (tshapeS v) (\ix -> f $ v `tindexNS` ix)
-            -- bad type: liftVS . LA.cmap
+  coerce  -- Nested.Internal.arithPromoteShaped
+    (mliftPrim
+       (\x -> Nested.sunScalar $ f (Nested.sscalar x)))
+          -- too slow: tbuildNS (tshapeS v) (\ix -> f $ v `tindexNS` ix)
 
 tzipWith0NS
-  :: forall r1 r2 r sh. (Numeric r1, Numeric r2, Numeric r, KnownShS sh)
+  :: forall r1 r2 r sh. (Nested.Internal.Mixed.Elt r, Nested.Internal.Mixed.Elt r1, Nested.Internal.Mixed.Elt r2, Nested.Internal.Mixed.PrimElt r, Nested.Internal.Mixed.PrimElt r1, Nested.Internal.Mixed.PrimElt r2, KnownShS sh)
   => (Nested.Shaped '[] r1 -> Nested.Shaped '[] r2 -> Nested.Shaped '[] r)
   -> Nested.Shaped sh r1 -> Nested.Shaped sh r2 -> Nested.Shaped sh r
 tzipWith0NS f =
-  OS.zipWithA (\x y -> tunScalarS $ f (tscalarS x) (tscalarS y))
-                -- bad type: liftVS2 . Numeric.LinearAlgebra.Devel.zipVectorWith
--}
+  coerce  -- Nested.Internal.arithPromoteShaped2
+    (mliftPrim2
+       (\x y -> Nested.sunScalar $ f (Nested.sscalar x) (Nested.sscalar y)))
+
 
 -- TODO: this can be slightly optimized by normalizing t first (?)
 -- and then inlining toVector and tindexZS
