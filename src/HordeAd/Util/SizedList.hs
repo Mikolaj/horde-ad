@@ -19,7 +19,7 @@ module HordeAd.Util.SizedList
   , unsnocIndex1, lastIndex, initIndex, zipIndex, zipWith_Index
   , listToIndex, indexToList, indexToSized, sizedToIndex
     -- * Tensor shapes as fully encapsulated sized lists, with operations
-  , Shape, pattern (:$:), pattern ZSR, ShapeInt
+  , Shape, pattern (:$:), pattern ZSR, IShR
   , singletonShape, appendShape
   , tailShape, takeShape, dropShape, splitAt_Shape
   , lastShape, initShape
@@ -289,7 +289,7 @@ type Shape n i = ShR n i
 -- of the list until runtime. That means that some errors are hidden
 -- and also extra type applications may be needed to satisfy the compiler.
 -- Therefore, there is a real trade-off between @[4]@ and @(4 :$: ZIR).
-type ShapeInt n = Shape n Int
+type IShR n = Shape n Int
 
 singletonShape :: i -> Shape 1 i
 singletonShape = ShR . singletonSized
@@ -351,7 +351,7 @@ withListSh
   :: KnownShS sh
   => Proxy sh
   -> (forall n. (KnownNat n, X.Rank sh ~ n)
-      => ShapeInt n -> a)
+      => IShR n -> a)
   -> a
 withListSh (Proxy @sh) f =
   let shList = shapeT @sh

@@ -505,7 +505,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     let f :: Int -> DynamicTensor VoidTensor -> AstDynamic s
         f i = \case
           DynamicRankedDummy @r @sh _ _ ->
-            withListSh (Proxy @sh) $ \(_ :: ShapeInt n) ->
+            withListSh (Proxy @sh) $ \(_ :: IShR n) ->
               DynamicRanked @r @n $ AstProject hVectorOf i
           DynamicShapedDummy @r @sh _ _ ->
             DynamicShaped @r @sh $ AstProjectS hVectorOf i
@@ -964,7 +964,7 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
     let f :: Int -> DynamicTensor VoidTensor -> AstDynamic s
         f i = \case
           DynamicRankedDummy @r @sh _ _ ->
-            withListSh (Proxy @sh) $ \(_ :: ShapeInt n) ->
+            withListSh (Proxy @sh) $ \(_ :: IShR n) ->
               DynamicRanked @r @n $ AstProject hVectorOf i
           DynamicShapedDummy @r @sh _ _ ->
             DynamicShaped @r @sh $ AstProjectS hVectorOf i
@@ -1282,7 +1282,7 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
     let f :: Int -> DynamicTensor VoidTensor -> AstDynamic s
         f i = \case
           DynamicRankedDummy @r @sh _ _ ->
-            withListSh (Proxy @sh) $ \(_ :: ShapeInt n) ->
+            withListSh (Proxy @sh) $ \(_ :: IShR n) ->
               DynamicRanked @r @n $  AstProject hVectorOf i
           DynamicShapedDummy @r @sh _ _ ->
             DynamicShaped @r @sh $ AstProjectS hVectorOf i

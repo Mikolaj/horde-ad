@@ -46,7 +46,7 @@ import HordeAd.Util.SizedList
 -- to determine shape. If we don't switch to @Data.Array.Shaped@
 -- or revert to fully dynamic shapes, we need to redo this with more rigour.
 shapeAst :: forall n s r. (KnownNat n, GoodScalar r)
-         => AstRanked s r n -> ShapeInt n
+         => AstRanked s r n -> IShR n
 shapeAst = \case
   AstVar sh _var -> sh
   AstLet _ _ v -> shapeAst v
@@ -324,9 +324,9 @@ astIsSmallS relaxed = \case
 -- * Odds and ends
 
 astReplicate0N :: forall n s r. (AstSpan s, GoodScalar r)
-               => ShapeInt n -> r -> AstRanked s r n
+               => IShR n -> r -> AstRanked s r n
 astReplicate0N sh =
-  let go :: ShapeInt n' -> AstRanked s r 0 -> AstRanked s r n'
+  let go :: IShR n' -> AstRanked s r 0 -> AstRanked s r n'
       go ZSR v = v
       go (k :$: sh') v | Dict <- knownShR sh' = AstReplicate k $ go sh' v
   in go sh . fromPrimal . AstConst . Nested.rscalar

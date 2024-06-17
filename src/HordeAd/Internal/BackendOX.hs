@@ -83,7 +83,7 @@ updateNR arr upd =
 
 tshapeR
   :: NumAndShow r
-  => Nested.Ranked n r -> ShapeInt n
+  => Nested.Ranked n r -> IShR n
 tshapeR = Nested.rshape
 
 tminIndexR
@@ -240,7 +240,7 @@ tmatmul2R t u =
 -- permits index out of bounds and then no tensors is added at such an index.
 tscatterZR :: forall m p n r.
               (KnownNat m, KnownNat n, NumAndShow r)
-           => ShapeInt (p + n) -> Nested.Ranked (m + n) r
+           => IShR (p + n) -> Nested.Ranked (m + n) r
            -> (IndexInt m -> IndexInt p)
            -> Nested.Ranked (p + n) r
 tscatterZR sh t f =
@@ -262,7 +262,7 @@ tscatterZR sh t f =
 -- and then freezing it and calling Nested.rfromVector
 -- or optimize tscatterNR and instantiate it instead
 tscatterZ1R :: NumAndShow r
-            => ShapeInt (p + n) -> Nested.Ranked (1 + n) r -> (Int64 -> IndexInt p)
+            => IShR (p + n) -> Nested.Ranked (1 + n) r -> (Int64 -> IndexInt p)
             -> Nested.Ranked (p + n) r
 tscatterZ1R sh t f =
   sum $ imap (\i ti ->
@@ -279,7 +279,7 @@ tfromListR = Nested.rfromListOuter  -- TODO: make this strict
 
 tfromList0NR
   :: NumAndShow r
-  => ShapeInt n -> [r] -> Nested.Ranked n r
+  => IShR n -> [r] -> Nested.Ranked n r
 tfromList0NR sh = Nested.Internal.rfromListPrimLinear sh
   -- TODO: make this strict
 
@@ -290,7 +290,7 @@ tfromVectorR = tfromListR . NonEmpty.fromList . V.toList
 
 tfromVector0NR
   :: NumAndShow r
-  => ShapeInt n -> Data.Vector.Vector r -> Nested.Ranked n r
+  => IShR n -> Data.Vector.Vector r -> Nested.Ranked n r
 tfromVector0NR sh = tfromList0NR sh . V.toList
 
 treplicateR
@@ -300,7 +300,7 @@ treplicateR n = Nested.rreplicate (n :$: ZSR)
 
 treplicate0NR
   :: NumAndShow r
-  => ShapeInt n -> r -> Nested.Ranked n r
+  => IShR n -> r -> Nested.Ranked n r
 treplicate0NR = Nested.rreplicateScal
 
 tappendR
@@ -326,7 +326,7 @@ ttransposeR = Nested.rtranspose
 
 treshapeR
   :: NumAndShow r
-  => ShapeInt m -> Nested.Ranked n r -> Nested.Ranked m r
+  => IShR m -> Nested.Ranked n r -> Nested.Ranked m r
 treshapeR = Nested.rreshape
 
 tbuild1R
@@ -362,7 +362,7 @@ tzipWith0NR f =
 -- permits index out of bounds and the result of such indexing is zero.
 tgatherZR :: forall m p n r.
              (KnownNat m, KnownNat p, KnownNat n, NumAndShow r)
-          => ShapeInt (m + n) -> Nested.Ranked (p + n) r
+          => IShR (m + n) -> Nested.Ranked (p + n) r
           -> (IndexInt m -> IndexInt p)
           -> Nested.Ranked (m + n) r
 tgatherZR sh t f =

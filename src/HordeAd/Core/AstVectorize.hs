@@ -761,7 +761,7 @@ build1VOccurenceUnknownHVectorRefresh k (var, v0) =
 substProjRanked :: forall n1 r1 n r s1 s.
                    ( KnownNat n1, GoodScalar r1, KnownNat n, GoodScalar r
                    , AstSpan s, AstSpan s1 )
-                => Int -> IntVarName -> ShapeInt n1
+                => Int -> IntVarName -> IShR n1
                 -> AstVarName (AstRanked s1) r1 n1
                 -> AstRanked s r n -> AstRanked s r n
 substProjRanked k var sh1 var1@(AstVarName varId) =
@@ -775,7 +775,7 @@ substProjRanked k var sh1 var1@(AstVarName varId) =
 substProjShaped :: forall n1 r1 sh r s1 s.
                    ( KnownNat n1, GoodScalar r1, KnownShS sh, GoodScalar r
                    , AstSpan s, AstSpan s1 )
-                => Int -> IntVarName -> ShapeInt n1
+                => Int -> IntVarName -> IShR n1
                 -> AstVarName (AstRanked s1) r1 n1
                 -> AstShaped s r sh -> AstShaped s r sh
 substProjShaped k var sh1 var1@(AstVarName varId) =
@@ -814,7 +814,7 @@ substProjShapedS var var1@(AstVarName varId) =
 
 substProjHVector :: forall n1 r1 s1 s.
                     (KnownNat n1, GoodScalar r1, AstSpan s, AstSpan s1)
-                 => Int -> IntVarName -> ShapeInt n1
+                 => Int -> IntVarName -> IShR n1
                  -> AstVarName (AstRanked s1) r1 n1
                  -> AstHVector s -> AstHVector s
 substProjHVector k var sh1 var1@(AstVarName varId) =

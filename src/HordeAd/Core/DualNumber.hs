@@ -133,7 +133,7 @@ generateDeltaInputs =
   let f :: Int -> DynamicTensor ranked -> DynamicTensor (Dual ranked2)
       f i (DynamicRanked @r @n t) =
         case rshape t of
-          (sh :: ShapeInt n2) | Just Refl <- sameNat (Proxy @n) (Proxy @n2) ->
+          (sh :: IShR n2) | Just Refl <- sameNat (Proxy @n) (Proxy @n2) ->
             DynamicRanked $ InputR @ranked2 @r @n sh (toInputId i)
           _ -> error "generateDeltaInputs: wrong rank"
       f i (DynamicShaped @r @sh _) =

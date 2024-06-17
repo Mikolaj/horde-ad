@@ -180,10 +180,10 @@ derivativeFromDeltaH dim deltaTopLevel ds =
 -- provides a different semantics.
 type role DeltaR nominal nominal nominal
 data DeltaR :: RankedTensorType -> RankedTensorType where
-  ZeroR :: ShapeInt n -> DeltaR ranked r n
+  ZeroR :: IShR n -> DeltaR ranked r n
     -- ^ the shape is required for @shapeDeltaR@ and forward derivative
   InputR :: forall ranked r n.
-            ShapeInt n -> InputId ranked -> DeltaR ranked r n
+            IShR n -> InputId ranked -> DeltaR ranked r n
   ScaleR :: ranked r n -> DeltaR ranked r n -> DeltaR ranked r n
   AddR :: DeltaR ranked r n -> DeltaR ranked r n
        -> DeltaR ranked r n
@@ -201,7 +201,7 @@ data DeltaR :: RankedTensorType -> RankedTensorType where
   Dot0R :: KnownNat n
         => ranked r n -> DeltaR ranked r n -> DeltaR ranked r 0
   ScatterR :: (KnownNat m, KnownNat p, KnownNat n)
-           => ShapeInt (p + n) -> DeltaR ranked r (m + n)
+           => IShR (p + n) -> DeltaR ranked r (m + n)
            -> (IndexOf ranked m -> IndexOf ranked p)
            -> DeltaR ranked r (p + n)
     -- ^ Build a tensor by adding up tensors of rank @n@ taken from
@@ -241,11 +241,11 @@ data DeltaR :: RankedTensorType -> RankedTensorType where
              -> DeltaR ranked r n
     -- ^ Transpose according to the permutation.
   ReshapeR :: (KnownNat n, KnownNat m)
-           => ShapeInt m -> DeltaR ranked r n
+           => IShR m -> DeltaR ranked r n
            -> DeltaR ranked r m
     -- ^ Change the shape of the tensor to the given one.
   GatherR :: (KnownNat m, KnownNat p, KnownNat n)
-          => ShapeInt (m + n) -> DeltaR ranked r (p + n)
+          => IShR (m + n) -> DeltaR ranked r (p + n)
           -> (IndexOf ranked m -> IndexOf ranked p)
           -> DeltaR ranked r (m + n)
     -- ^ Build a tensor by picking tensors of rank @n@ at the given indexes
@@ -429,7 +429,7 @@ type instance HVectorOf (DeltaR ranked) = DeltaH ranked
 shapeDeltaR :: forall ranked r n.
                ( GoodScalar r, KnownNat n
                , RankedTensor ranked, ShapedTensor (ShapedOf ranked) )
-            => DeltaR ranked r n -> ShapeInt n
+            => DeltaR ranked r n -> IShR n
 shapeDeltaR = \case
   ZeroR sh -> sh
   InputR sh _ -> sh

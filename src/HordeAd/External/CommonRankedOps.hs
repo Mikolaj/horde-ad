@@ -225,7 +225,7 @@ conv2dUnpadded arrK arrA =
 --   elements are set to zero.
 slicez
   :: (ADReady ranked, GoodScalar r, KnownNat n)
-  => ShapeInt n -> ranked r n -> IndexOf ranked n -> ranked r n
+  => IShR n -> ranked r n -> IndexOf ranked n -> ranked r n
 slicez shOut d ixBase =
   rbuild shOut $ \ixResult -> indexz0 d (zipWith_Index (+) ixBase ixResult)
 
@@ -256,7 +256,7 @@ indexz0 d ix = ifF (within0 @ranked (rshape @ranked d) ix) (d ! ix) 0
 -- Note that @ix@ is used twice, so should be shared outside.
 within0
   :: forall ranked n. ADReady ranked
-  => ShapeInt n -> IndexOf ranked n -> BoolOf ranked
+  => IShR n -> IndexOf ranked n -> BoolOf ranked
 within0 sh ix =
   let within :: IntOf ranked -> IntOf ranked -> BoolOf ranked
       within i dim = 0 <=. i &&* dim >. i

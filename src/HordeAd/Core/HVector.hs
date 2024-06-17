@@ -188,7 +188,7 @@ voidFromShL sh = withShapeP sh $ \proxySh ->
                    DynamicRankedDummy (Proxy @r) proxySh
 
 voidFromSh :: forall r n. GoodScalar r
-           => ShapeInt n -> DynamicTensor VoidTensor
+           => IShR n -> DynamicTensor VoidTensor
 voidFromSh sh = voidFromShL @r (shapeToList sh)
 
 voidFromShS :: forall r sh. (GoodScalar r, KnownShS sh)
@@ -221,7 +221,7 @@ replicate1VoidTensor (SNat @k) u = case u of
 index1HVectorF :: ( shaped ~ ShapedOf ranked
                   , RankedOf (PrimalOf shaped) ~ RankedOf (PrimalOf ranked) )
                => (forall r n. (GoodScalar r, KnownNat n)
-                   => ranked r n -> ShapeInt n)
+                   => ranked r n -> IShR n)
                -> (forall sh r. (GoodScalar r, KnownShS sh)
                    => shaped r sh -> ShS sh)
                -> (forall r m n. (GoodScalar r, KnownNat m, KnownNat n)
@@ -239,7 +239,7 @@ index1HVectorF rshape sshape rindex sindex u i =
 index1DynamicF :: ( shaped ~ ShapedOf ranked
                   , RankedOf (PrimalOf shaped) ~ RankedOf (PrimalOf ranked) )
                => (forall r n. (GoodScalar r, KnownNat n)
-                   => ranked r n -> ShapeInt n)
+                   => ranked r n -> IShR n)
                -> (forall sh r. (GoodScalar r, KnownShS sh)
                    => shaped r sh -> ShS sh)
                -> (forall r m n. (GoodScalar r, KnownNat m, KnownNat n)

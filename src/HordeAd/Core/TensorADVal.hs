@@ -72,7 +72,7 @@ crevOnADInputs mdt f inputs =
       !(D (HVectorPseudoTensor v)
           (HVectorPseudoTensor deltaTopLevel)) = f inputs in
   let rshapePrimal :: (GoodScalar r2, KnownNat n, ADReady g)
-                   => ADVal g r2 n -> ShapeInt n
+                   => ADVal g r2 n -> IShR n
       rshapePrimal (D p _) = rshape p
       parameters0 = V.map (voidFromDynamicF (shapeToList . rshapePrimal)) inputs
       !gradient = gradientFromDeltaH parameters0 v mdt deltaTopLevel
@@ -218,7 +218,7 @@ instance ADReady ranked => RankedTensor (ADVal ranked) where
   rreverse (D u u') = dD (rreverse u) (ReverseR u')
   rtranspose perm (D u u') = dD (rtranspose perm u) (TransposeR perm u')
   rreshape :: forall n m r. (GoodScalar r, KnownNat n, KnownNat m)
-           => ShapeInt m -> ADVal ranked r n -> ADVal ranked r m
+           => IShR m -> ADVal ranked r n -> ADVal ranked r m
   rreshape sh t@(D u u') = case sameNat (Proxy @m) (Proxy @n) of
     Just Refl | sh == rshape u -> t
     _ -> dD (rreshape sh u) (ReshapeR sh u')
@@ -663,7 +663,7 @@ aDValDynamicTensor (DynamicRankedDummy @r1 @sh1 _ _)
                    (DynamicRanked @r2 @n2 t')
   | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
   , Just Refl <- matchingRank @sh1 @n2 =
-    withListShape (shapeT @sh1) $ \(sh4 :: ShapeInt n4) ->
+    withListShape (shapeT @sh1) $ \(sh4 :: IShR n4) ->
       gcastWith (unsafeCoerce Refl :: n4 :~: X.Rank sh1) $
       DynamicRanked (dDnotShared (rzero sh4) t')
 aDValDynamicTensor (DynamicShapedDummy @r1 @sh1 _ _)
