@@ -203,30 +203,6 @@ tsum0R
   => Nested.Ranked n r -> r
 tsum0R = Nested.rsumAllPrim
 
-{-
--- | Sum the innermost dimension (TODO: generalize the code).
-tsumInR
-  :: forall n r. (KnownNat n, Numeric r, RowSum r)
-  => OR.Array (1 + n) r -> OR.Array n r
-tsumInR t = case OR.shapeL t of
-  [] -> error "tsumInR: null shape"
-  [k2, 0] -> OR.constant [k2] 0  -- the shape is known from sh, so no ambiguity
-  [k2, k] -> case t of
-    RS.A (RG.A _ (OI.T (s2 : _) o vt)) | V.length vt == 1 ->
-      RS.A (RG.A [k2] (OI.T [s2] o (V.map (* fromIntegral k) vt)))
-    _ -> let sh2 = [k2]
-         in OR.fromVector sh2 $ unsafePerformIO $ do  -- unsafe only due to FFI
-           v <- V.unsafeThaw $ OR.toVector t
-           VM.unsafeWith v $ \ptr -> do
-             let len2 = product sh2
-             v2 <- VM.new len2
-             VM.unsafeWith v2 $ \ptr2 -> do
-               columnSum k len2 ptr ptr2
-               void $ V.unsafeFreeze v
-               V.unsafeFreeze v2
-  _ -> error "tsumInR: not yet generalized beyond rank 2"
--}
-
 tdot0R
   :: NumAndShow r
   => Nested.Ranked n r -> Nested.Ranked n r -> r
@@ -250,8 +226,6 @@ tdot1InR t u = -- TODO: t@(RS.A (RG.A _ (OI.T _ _ vt))) u@(RS.A (RG.A _ (OI.T _ 
            l = zipWith Nested.rdot1 lt lu
        in Nested.rfromList1 $ NonEmpty.fromList l
 
--- TODO: add these to orthotope, faster; factor out unravel through them
--- and think if ravelFromList makes sense
 tunravelToListR :: NumAndShow r => Nested.Ranked (1 + n) r -> [Nested.Ranked n r]
 tunravelToListR = Nested.rtoListOuter
 
@@ -624,32 +598,6 @@ tsumS
   :: forall n sh r. (KnownNat n, NumAndShow r, KnownShS sh)
   => Nested.Shaped (n ': sh) r -> Nested.Shaped sh r
 tsumS = Nested.ssumOuter1
-
-{-
--- | Sum the innermost dimension (TODO: generalize the code and type).
-tsumInS
-  :: forall m n sh r. (KnownNat n, Numeric r, KnownNat m, KnownShS sh)
-  => Nested.Shaped (m ': n ': sh) r -> Nested.Shaped (m ': sh) r
--- TODO: shaped r (sh ++ [n]) -> shaped r sh
-tsumInS t = case OS.shapeL t of
-  [] -> error "tsumInS: null shape"
-  k2 : 0 : [] ->
-    (Nested.sreplicateScal knownShS 0)  -- the shape is known from sh, so no ambiguity
-  [k2, k] -> case t of
-    SS.A (SG.A (OI.T (s2 : _) o vt)) | V.length vt == 1 ->
-      SS.A (SG.A (OI.T [s2] o (V.map (* fromIntegral k) vt)))
-    _ -> let sh2 = [k2]
-         in OS.fromVector $ unsafePerformIO $ do  -- unsafe only due to FFI
-           v <- V.unsafeThaw $ OS.toVector t
-           VM.unsafeWith v $ \ptr -> do
-             let len2 = product sh2
-             v2 <- VM.new len2
-             VM.unsafeWith v2 $ \ptr2 -> do
-               columnSum k len2 ptr ptr2
-               void $ V.unsafeFreeze v
-               V.unsafeFreeze v2
-  _ -> error "tsumInS: not yet generalized beyond rank 2"
--}
 
 -- | Sum all elements of a tensor.
 tsum0S

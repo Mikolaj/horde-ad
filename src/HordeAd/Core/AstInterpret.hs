@@ -305,9 +305,6 @@ interpretAst !env = \case
         let t1 = interpretAst env t
             t2 = interpretAst env u
         in rdot1In t1 t2
-  AstSum (AstTranspose [1, 0] t)  -- TODO: generalize
-    | Just Refl <- sameNat (Proxy @n) (Proxy @1) ->
-        rsumIn $ interpretAst env t
   AstSum (AstReshape sh (AstTranspose _ t))
     | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
         interpretAst env (AstSum (AstReshape sh t))
@@ -672,9 +669,6 @@ interpretAstS !env = \case
         let t1 = interpretAst env t
             t2 = interpretAst env u
         in rdot1In t1 t2
-  AstSum (AstTranspose [1, 0] t)  -- TODO: generalize
-    | Just Refl <- sameNat (Proxy @n) (Proxy @1) ->
-        rsumIn $ interpretAst env t
   AstSum (AstReshape sh (AstTranspose _ t))
     | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
         interpretAst env (AstSum (AstReshape sh t))
