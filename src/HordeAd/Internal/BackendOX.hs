@@ -321,7 +321,7 @@ treverseR = Nested.rrev1
 
 ttransposeR
   :: NumAndShow r
-  => Permutation -> Nested.Ranked n r -> Nested.Ranked n r
+  => Permutation.PermR -> Nested.Ranked n r -> Nested.Ranked n r
 ttransposeR = Nested.rtranspose
 
 treshapeR

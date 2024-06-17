@@ -237,7 +237,7 @@ data DeltaR :: RankedTensorType -> RankedTensorType where
            => DeltaR ranked r (1 + n) -> DeltaR ranked r (1 + n)
     -- ^ Reverse elements of the outermost dimension.
   TransposeR :: KnownNat n
-             => Permutation -> DeltaR ranked r n
+             => Permutation.PermR -> DeltaR ranked r n
              -> DeltaR ranked r n
     -- ^ Transpose according to the permutation.
   ReshapeR :: (KnownNat n, KnownNat m)

@@ -9,7 +9,7 @@ module HordeAd.Util.SizedList
   , singletonSized, snocSized, appendSized
   , headSized, tailSized, takeSized, dropSized, splitAt_Sized
   , unsnocSized1, lastSized, initSized, zipSized, zipWith_Sized, reverseSized
-  , Permutation, permInverse
+  , permInverse
   , backpermutePrefixList, permutePrefixList
   , sizedCompare, listToSized, sizedToList
     -- * Tensor indexes as fully encapsulated sized lists, with operations
@@ -160,17 +160,17 @@ reverseSized l = go l ZR
 -- | As in orthotope, we usually backpermute, in which case a permutation lists
 -- indices into the list to permute. However, we use the same type for
 -- an occasional forward permutation.
-type Permutation = [Int]
+type PermR = [Int]
 
-permInverse :: Permutation -> Permutation
+permInverse :: PermR -> PermR
 permInverse perm = map snd $ sort $ zip perm [0 .. length perm - 1]
 
-backpermutePrefixList :: Permutation -> [i] -> [i]
+backpermutePrefixList :: PermR -> [i] -> [i]
 backpermutePrefixList p l = map (l !!) p ++ drop (length p) l
 
 -- Boxed vector is not that bad, because we move pointers around,
 -- but don't follow them. Storable vectors wouldn't work for Ast.
-permutePrefixList :: Permutation -> [i] -> [i]
+permutePrefixList :: PermR -> [i] -> [i]
 permutePrefixList p l = V.toList $ Data.Vector.fromList l V.// zip p l
 
 -- | Pairwise comparison of two sized list values.

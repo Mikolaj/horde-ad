@@ -125,7 +125,7 @@ defaultKnobs = SimplifyKnobs False False
 -- this function is invoked.
 astTransposeAsGather
   :: forall n s r. (KnownNat n, GoodScalar r, AstSpan s)
-  => SimplifyKnobs -> Permutation -> AstRanked s r n -> AstRanked s r n
+  => SimplifyKnobs -> Permutation.PermR -> AstRanked s r n -> AstRanked s r n
 {-# NOINLINE astTransposeAsGather #-}
 astTransposeAsGather knobs perm v =
   let pInt = length perm
@@ -227,19 +227,19 @@ astReshapeAsGatherS knobs v =
 
 -- * Permutation operations
 
-normalizePermutation :: Permutation -> Permutation
+normalizePermutation :: Permutation.PermR -> Permutation.PermR
 normalizePermutation perm =
   map fst $ dropWhileEnd (uncurry (==)) $ zip perm [0 ..]
 
 -- A representation of a cycle backpermutation.
-backpermCycle :: Int -> Permutation
+backpermCycle :: Int -> Permutation.PermR
 backpermCycle 0 = []
 backpermCycle 1 = []
 backpermCycle n = [k `mod` n | k <- [1 .. n]]
 
 -- A representation of a cycle permutation.
 -- TODO: make sure and state if it's reverse to the above and, if not, why.
-permCycle :: Int -> Permutation
+permCycle :: Int -> Permutation.PermR
 permCycle 0 = []
 permCycle 1 = []
 permCycle n = [k `mod` n | k <- [-1, 0 .. n - 2]]
@@ -1716,7 +1716,7 @@ astReverseS v = Ast.AstReverseS v
 -- the gather form, so astTransposeAsGather needs to be called in addition
 -- if full simplification is required.
 astTranspose :: forall n s r. (GoodScalar r, KnownNat n, AstSpan s)
-             => Permutation -> AstRanked s r n -> AstRanked s r n
+             => Permutation.PermR -> AstRanked s r n -> AstRanked s r n
 astTranspose perm = \case
   t | null perm -> t
   Ast.AstLet var u v -> astLet var u (astTranspose perm v)
