@@ -48,14 +48,15 @@ import           HordeAd.Util.ShapedList (IndexS)
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedList
 
-type ORArray = FlipR Nested.Ranked
-
-type OSArray = FlipS Nested.Shaped
-
 
 -- TODO: check what the following did in tsum0R and if worth emulating
 -- (also in sum1Inner and extremum and maybe tdot0R):
 -- LA.sumElements $ OI.toUnorderedVectorT sh t
+
+
+type ORArray = FlipR Nested.Ranked
+
+type OSArray = FlipS Nested.Shaped
 
 
 -- * Ranked tensor operations

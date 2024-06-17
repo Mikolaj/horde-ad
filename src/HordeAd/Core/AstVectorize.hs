@@ -52,8 +52,6 @@ import           HordeAd.Core.AstTools
 import           HordeAd.Core.HVector
 import           HordeAd.Core.HVectorOps
 import           HordeAd.Core.Types
-import           HordeAd.Internal.OrthotopeOrphanInstances
-  (trustMeThisIsAPermutation)
 import           HordeAd.Util.ShapedList
   (pattern (:.$), pattern (::$), pattern ZIS, pattern ZS)
 import           HordeAd.Util.SizedList
