@@ -128,7 +128,6 @@ instance RankedTensor ORArray where
 
   rscaleByScalar s v =
     FlipR $ tscaleByScalarR (tunScalarR $ runFlipR s) (runFlipR v)
--- TODO:    rsumIn = FlipR . tsumInR . runFlipR
   rdot1In u v = FlipR $ tdot1InR (runFlipR u) (runFlipR v)
 
   rconstant = id
@@ -215,7 +214,6 @@ instance ShapedTensor OSArray where
 
   sscaleByScalar s v =
     FlipS $ tscaleByScalarS (tunScalarS $ runFlipS s) (runFlipS v)
--- TODO:  ssumIn = FlipS . tsumInS . runFlipS
   sdot1In u v = FlipS $ tdot1InS (runFlipS u) (runFlipS v)
 
   sconstant = id

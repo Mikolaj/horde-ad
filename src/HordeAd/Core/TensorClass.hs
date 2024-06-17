@@ -323,11 +323,8 @@ class ( Num (IntOf ranked), IntegralF (IntOf ranked), CRanked ranked Num
   rscaleByScalar :: (GoodScalar r, KnownNat n)
                  => ranked r 0 -> ranked r n -> ranked r n
   rscaleByScalar s v = v * rreplicate0N (rshape v) s
-  rsumIn :: (GoodScalar r, KnownNat n) => ranked r (2 + n) -> ranked r (1 + n)
-  rsumIn = rsum . rtr
-    -- TODO: generalize, replace by stride analysis, etc.
   rdot1In :: GoodScalar r => ranked r 2 -> ranked r 2 -> ranked r 1
-  rdot1In t u = rsumIn (t * u)
+  rdot1In t u = rsum $ rtr (t * u)
     -- TODO: generalize, replace by stride analysis, etc.
   rshare :: (GoodScalar r, KnownNat n) => ranked r n -> ranked r n
   rshare = id
@@ -696,14 +693,9 @@ class ( Num (IntOf shaped), IntegralF (IntOf shaped), CShaped shaped Num
     :: (GoodScalar r, KnownShS sh, KnownNat (Sh.Size sh))
     => shaped r '[] -> shaped r sh -> shaped r sh
   sscaleByScalar s v = v * sreplicate0N s
-  ssumIn :: ( GoodScalar r, KnownShS sh, KnownNat n, KnownNat m
-            , KnownNat (X.Rank sh) )
-         => shaped r (n ': m ': sh) -> shaped r (n ': sh)
-  ssumIn = ssum . str
-    -- TODO: generalize, replace by stride analysis, etc.
   sdot1In :: (GoodScalar r, KnownNat n, KnownNat m)
           => shaped r '[n, m] -> shaped r '[n, m] -> shaped r '[n]
-  sdot1In t u = ssumIn (t * u)
+  sdot1In t u = ssum $ str (t * u)
     -- TODO: generalize, replace by stride analysis, etc.
   sshare :: (GoodScalar r, KnownShS sh) => shaped r sh -> shaped r sh
   sshare = id

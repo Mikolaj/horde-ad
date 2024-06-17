@@ -394,9 +394,8 @@ assertEqualUpToEpsilon'
 tsum0R
   :: (Num r, VS.Storable r)
   => OR.Array n r -> r
-tsum0R (RS.A (RG.A sh (OI.T _ _ vt))) | V.length vt == 1 =
-  fromIntegral (product sh) * vt V.! 0
--- tsumInR t@(RS.A (RG.A _ (OI.T _ _ vt))) | V.length vt == 1 =
+tsum0R (RS.A (RG.A sh (OI.T _ offset vt))) | V.length vt == 1 =
+  fromIntegral (product sh) * vt V.! offset
 tsum0R (RS.A (RG.A sh t)) =
   V.sum $ OI.toUnorderedVectorT sh t
 
