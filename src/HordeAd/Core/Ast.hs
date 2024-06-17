@@ -258,7 +258,7 @@ data AstRanked :: AstSpanType -> RankedTensorType where
            => Int -> Int -> AstRanked s r (1 + n) -> AstRanked s r (1 + n)
   AstReverse :: KnownNat n
              => AstRanked s r (1 + n) -> AstRanked s r (1 + n)
-  AstTranspose :: Permutation -> AstRanked s r n -> AstRanked s r n
+  AstTranspose :: Permutation.PermR -> AstRanked s r n -> AstRanked s r n
   AstReshape :: KnownNat n
              => ShapeInt m -> AstRanked s r n -> AstRanked s r m
   AstBuild1 :: KnownNat n

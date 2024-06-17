@@ -15,7 +15,6 @@ module HordeAd.Util.ShapedList
   -- , unsnocSized1, lastSized
   -- , initSized, zipSized
   , zipWith_Sized, reverseSized
-  , Permutation  -- ^ re-exported from "SizedList"
   -- , sizedCompare
   , listToSized, sizedToList
   -- , shapedToSized
@@ -54,7 +53,6 @@ import           Data.Array.Nested.Internal.Shape (listsToList, shsToList)
 
 import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances (IntegralF (..))
-import           HordeAd.Util.SizedList (Permutation)
 import qualified HordeAd.Util.SizedList as SizedList
 
 -- * Shaped lists and their permutations
@@ -296,7 +294,7 @@ zeroOf fromInt ((:$$) SNat sh) = fromInt 0 :.$ zeroOf fromInt sh
 
 -- TODO: these hacks stay for now:
 permutePrefixSized :: forall sh sh2 i. (KnownShS sh, KnownShS sh2)
-                   => Permutation -> SizedListS sh (Const i) -> SizedListS sh2 (Const i)
+                   => Permutation.PermR -> SizedListS sh (Const i) -> SizedListS sh2 (Const i)
 permutePrefixSized p ix =
   if length (shapeT @sh) < length p
   then error "permutePrefixSized: cannot permute a list shorter than permutation"
@@ -305,5 +303,5 @@ permutePrefixSized p ix =
 -- Inverse permutation of indexes corresponds to normal permutation
 -- of the shape of the projected tensor.
 permutePrefixIndex :: forall sh sh2 i. (KnownShS sh, KnownShS sh2)
-                   => Permutation -> IndexS sh i -> IndexS sh2 i
+                   => Permutation.PermR -> IndexS sh i -> IndexS sh2 i
 permutePrefixIndex p (IndexS ix) = IndexS $ permutePrefixSized p ix

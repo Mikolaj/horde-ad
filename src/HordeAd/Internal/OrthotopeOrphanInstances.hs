@@ -330,10 +330,6 @@ instance (Sh.Shape sh, X.Rank sh ~ n)
          => Convert (OS.Array sh a) (OR.Array n a) where
   convert (SS.A a@(SG.A t)) = RS.A (RG.A (SG.shapeL a) t)
 
-type family MapSucc (xs :: [Nat]) :: [Nat] where
-  MapSucc '[] = '[]
-  MapSucc (x ': xs) = 1 + x ': MapSucc xs
-
 class Permutation.IsPermutation is => PermC is
 instance Permutation.IsPermutation is => PermC is
 

@@ -190,7 +190,7 @@ class ( Num (IntOf ranked), IntegralF (IntOf ranked), CRanked ranked Num
   rtr :: (GoodScalar r, KnownNat n) => ranked r (2 + n) -> ranked r (2 + n)
   rtr = rtranspose [1, 0]
   rtranspose :: (GoodScalar r, KnownNat n)
-             => Permutation -> ranked r n -> ranked r n
+             => Permutation.PermR -> ranked r n -> ranked r n
   rflatten :: (GoodScalar r, KnownNat n) => ranked r n -> ranked r 1
   rflatten u = rreshape (flattenShape $ rshape u) u
   rreshape :: (GoodScalar r, KnownNat n, KnownNat m)
