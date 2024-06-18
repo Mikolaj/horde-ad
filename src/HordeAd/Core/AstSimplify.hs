@@ -45,25 +45,25 @@ module HordeAd.Core.AstSimplify
 
 import Prelude
 
-import           Control.Exception.Assert.Sugar
-import           Control.Monad (mapAndUnzipM)
-import qualified Data.Array.Convert
-import           Data.Array.Internal (valueOf)
-import qualified Data.Array.RankedS as OR
-import qualified Data.Array.Shape as Sh
-import qualified Data.Array.ShapedS as OS
-import           Data.Functor.Const
-import           Data.Int (Int64)
-import           Data.Kind (Type)
-import           Data.List (dropWhileEnd)
-import           Data.Maybe (catMaybes, fromMaybe, isJust, isNothing)
-import           Data.Proxy (Proxy (Proxy))
-import qualified Data.Strict.Vector as Data.Vector
-import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
-import           Data.Type.Ord (Compare)
-import qualified Data.Vector.Generic as V
-import qualified GHC.IsList as IsList
-import           GHC.TypeLits
+import Control.Exception.Assert.Sugar
+import Control.Monad (mapAndUnzipM)
+import Data.Array.Convert qualified
+import Data.Array.Internal (valueOf)
+import Data.Array.RankedS qualified as OR
+import Data.Array.Shape qualified as Sh
+import Data.Array.ShapedS qualified as OS
+import Data.Functor.Const
+import Data.Int (Int64)
+import Data.Kind (Type)
+import Data.List (dropWhileEnd)
+import Data.Maybe (catMaybes, fromMaybe, isJust, isNothing)
+import Data.Proxy (Proxy (Proxy))
+import Data.Strict.Vector qualified as Data.Vector
+import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
+import Data.Type.Ord (Compare)
+import Data.Vector.Generic qualified as V
+import GHC.IsList qualified as IsList
+import GHC.TypeLits
   ( KnownNat
   , Nat
   , OrderingI (..)
@@ -75,37 +75,37 @@ import           GHC.TypeLits
   , type (-)
   , type (<=)
   )
-import           System.IO.Unsafe (unsafePerformIO)
-import           Type.Reflection (typeRep)
-import           Unsafe.Coerce (unsafeCoerce)
+import System.IO.Unsafe (unsafePerformIO)
+import Type.Reflection (typeRep)
+import Unsafe.Coerce (unsafeCoerce)
 
-import qualified Data.Array.Mixed.Permutation as Permutation
-import qualified Data.Array.Mixed.Shape as X
-import qualified Data.Array.Mixed.Types as X
-import qualified Data.Array.Nested as Nested
-import qualified Data.Array.Nested.Internal.Shape as Nested.Internal.Shape
+import Data.Array.Mixed.Permutation qualified as Permutation
+import Data.Array.Mixed.Shape qualified as X
+import Data.Array.Mixed.Types qualified as X
+import Data.Array.Nested qualified as Nested
+import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
-import           HordeAd.Core.Ast
+import HordeAd.Core.Ast
   ( AstBool (AstBoolConst)
   , AstHVector
   , AstRanked (AstConst, AstN1, AstN2, AstSumOfList)
   , AstShaped (AstConstS, AstN1S, AstN2S, AstSumOfListS)
   )
-import           HordeAd.Core.Ast hiding
+import HordeAd.Core.Ast hiding
   (AstBool (..), AstHVector (..), AstRanked (..), AstShaped (..))
-import qualified HordeAd.Core.Ast as Ast
-import           HordeAd.Core.AstFreshId
-import           HordeAd.Core.AstTools
-import           HordeAd.Core.HVector
-import           HordeAd.Core.HVectorOps
-import           HordeAd.Core.TensorClass
-import           HordeAd.Core.Types
-import           HordeAd.Internal.BackendOX
-import           HordeAd.Internal.OrthotopeOrphanInstances (IntegralF (..))
-import           HordeAd.Util.ShapedList
+import HordeAd.Core.Ast qualified as Ast
+import HordeAd.Core.AstFreshId
+import HordeAd.Core.AstTools
+import HordeAd.Core.HVector
+import HordeAd.Core.HVectorOps
+import HordeAd.Core.TensorClass
+import HordeAd.Core.Types
+import HordeAd.Internal.BackendOX
+import HordeAd.Internal.OrthotopeOrphanInstances (IntegralF (..))
+import HordeAd.Util.ShapedList
   (pattern (:.$), pattern (::$), pattern ZIS, pattern ZS)
-import qualified HordeAd.Util.ShapedList as ShapedList
-import           HordeAd.Util.SizedList
+import HordeAd.Util.ShapedList qualified as ShapedList
+import HordeAd.Util.SizedList
 
 data SimplifyKnobs = SimplifyKnobs
   { knobStepOnly :: Bool
@@ -1382,13 +1382,13 @@ astLetS var u v = Ast.AstLetS var u v
 astCond :: AstBool -> AstRanked s r n -> AstRanked s r n -> AstRanked s r n
 astCond (AstBoolConst b) v w = if b then v else w
 astCond b (Ast.AstConstant v) (Ast.AstConstant w) =
-  Ast.AstConstant $ Ast.AstCond b v w
+  Ast.AstConstant $ astCond b v w
 astCond b v w = Ast.AstCond b v w
 
 astCondS :: AstBool -> AstShaped s r sh -> AstShaped s r sh -> AstShaped s r sh
 astCondS (AstBoolConst b) v w = if b then v else w
 astCondS b (Ast.AstConstantS v) (Ast.AstConstantS w) =
-  Ast.AstConstantS $ Ast.AstCondS b v w
+  Ast.AstConstantS $ astCondS b v w
 astCondS b v w = Ast.AstCondS b v w
 
 astSumOfList :: (KnownNat n, GoodScalar r, AstSpan s)
@@ -1685,8 +1685,8 @@ astReverse :: forall n s r. (KnownNat n, GoodScalar r, AstSpan s)
            => AstRanked s r (1 + n) -> AstRanked s r (1 + n)
 astReverse (AstConst t) = AstConst $ treverseR t
 astReverse (Ast.AstConstant v) = Ast.AstConstant $ astReverse v
-astReverse (Ast.AstFromVector l) = Ast.AstFromVector $ V.reverse l
-astReverse (Ast.AstReplicate k v) = Ast.AstReplicate k v
+astReverse (Ast.AstFromVector l) = astFromVector $ V.reverse l
+astReverse (Ast.AstReplicate k v) = astReplicate k v
 astReverse (Ast.AstReverse v) = v
 astReverse (Ast.AstGather sh@(k :$: _) v (var ::: vars, ix)) =
   let ivar = fromIntegral k - AstIntVar var
@@ -1696,12 +1696,12 @@ astReverse (Ast.AstGather sh@(k :$: _) v (var ::: vars, ix)) =
   in astGatherR sh v (var ::: vars, ix2)
 astReverse v = Ast.AstReverse v
 
-astReverseS :: forall n sh s r. (KnownNat n, KnownShS sh, GoodScalar r)
+astReverseS :: forall n sh s r. (KnownNat n, KnownShS sh, GoodScalar r, AstSpan s)
             => AstShaped s r (n ': sh) -> AstShaped s r (n ': sh)
 astReverseS (AstConstS t) = AstConstS $ treverseS t
 astReverseS (Ast.AstConstantS v) = Ast.AstConstantS $ astReverseS v
-astReverseS (Ast.AstFromVectorS l) = Ast.AstFromVectorS $ V.reverse l
-astReverseS (Ast.AstReplicateS v) = Ast.AstReplicateS v
+astReverseS (Ast.AstFromVectorS l) = astFromVectorS $ V.reverse l
+astReverseS (Ast.AstReplicateS v) = astReplicateS v
 astReverseS (Ast.AstReverseS v) = v
 astReverseS (Ast.AstGatherS v ((::$) @k (Const var) vars, ix)) =
   let ivar = valueOf @k - AstIntVar var
