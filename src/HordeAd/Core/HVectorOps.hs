@@ -20,20 +20,18 @@ module HordeAd.Core.HVectorOps
 
 import Prelude
 
-import           Data.Array.Internal (valueOf)
-import qualified Data.Array.Shape as Sh
-import           Data.List (foldl', transpose)
-import qualified Data.List.NonEmpty as NonEmpty
-import           Data.Maybe (isJust)
-import           Data.Proxy (Proxy (Proxy))
-import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
-import qualified Data.Vector.Generic as V
-import           GHC.TypeLits
-  (KnownNat, Nat, SomeNat (..), sameNat, someNatVal, type (+))
-import           Type.Reflection (typeRep)
-import           Unsafe.Coerce (unsafeCoerce)
+import Data.Array.Internal (valueOf)
+import Data.List (foldl', transpose)
+import Data.List.NonEmpty qualified as NonEmpty
+import Data.Maybe (isJust)
+import Data.Proxy (Proxy (Proxy))
+import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
+import Data.Vector.Generic qualified as V
+import GHC.TypeLits (KnownNat, Nat, SomeNat (..), sameNat, someNatVal, type (+))
+import Type.Reflection (typeRep)
+import Unsafe.Coerce (unsafeCoerce)
 
-import qualified Data.Array.Mixed.Shape as X
+import Data.Array.Mixed.Shape qualified as X
 
 import HordeAd.Core.Ast
 import HordeAd.Core.HVector

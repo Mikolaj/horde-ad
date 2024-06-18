@@ -47,11 +47,8 @@ import Prelude
 
 import Control.Exception.Assert.Sugar
 import Control.Monad (mapAndUnzipM)
-import Data.Array.Convert qualified
 import Data.Array.Internal (valueOf)
-import Data.Array.RankedS qualified as OR
 import Data.Array.Shape qualified as Sh
-import Data.Array.ShapedS qualified as OS
 import Data.Functor.Const
 import Data.Int (Int64)
 import Data.Kind (Type)
@@ -62,7 +59,6 @@ import Data.Strict.Vector qualified as Data.Vector
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Type.Ord (Compare)
 import Data.Vector.Generic qualified as V
-import GHC.IsList qualified as IsList
 import GHC.TypeLits
   ( KnownNat
   , Nat
@@ -144,8 +140,7 @@ astTransposeAsGather knobs perm v =
     Nothing -> error "astTransposeAsGather: impossible someNatVal error"
 
 astTransposeAsGatherS
-  :: forall perm sh s r p.
-     (KnownShS sh, X.Rank perm <= X.Rank sh, p ~ X.Rank perm)
+  :: forall perm sh s r p. (KnownShS sh, p ~ X.Rank perm)
   => Permutation.Perm perm -> SimplifyKnobs -> AstShaped s r sh
   -> AstShaped s r (Permutation.PermutePrefix perm sh)
 {-# NOINLINE astTransposeAsGatherS #-}
@@ -206,7 +201,7 @@ astReshapeAsGather knobs shOut v =
     in astGatherKnobsR @m @0 knobs shOut v (vars, asts)
 
 astReshapeAsGatherS
-  :: forall sh sh2 r s. (KnownShS sh, KnownShS sh2, Nested.Internal.Shape.Product sh ~ Nested.Internal.Shape.Product sh2)
+  :: forall sh sh2 r s. (KnownShS sh, KnownShS sh2)
   => SimplifyKnobs -> AstShaped s r sh -> AstShaped s r sh2
 {-# NOINLINE astReshapeAsGatherS #-}
 astReshapeAsGatherS knobs v =
@@ -1395,7 +1390,7 @@ astSumOfList :: (KnownNat n, GoodScalar r, AstSpan s)
              => [AstRanked s r n] -> AstRanked s r n
 astSumOfList = foldr1 (+)  -- @sum@ breaks and also reverse order
 
-astSumOfListS :: (KnownShS sh, GoodScalar r, AstSpan s)
+astSumOfListS :: GoodScalar r
               => [AstShaped s r sh] -> AstShaped s r sh
 astSumOfListS = foldr1 (+)  -- @sum@ reverses order
 
@@ -1821,7 +1816,7 @@ astTransposeS perm t = case perm of
                             :: Sh.Drop p (Permutation.PermutePrefix perm sh) :~: Sh.Drop p sh) $
                  astScatterS @sh2 @p @(Permutation.PermutePrefix perm sh) v (vars, ix2)
 -}
-  Ast.AstTransposeS @perm2 @sh2 perm2 t ->  -- TODO: try to perform at type level
+  Ast.AstTransposeS @perm2 @sh2 perm2 u ->  -- TODO: try to perform at type level
     let permV = Permutation.permToList' perm
         perm2V = Permutation.permToList' perm2
         perm2Matched =
@@ -1834,7 +1829,7 @@ astTransposeS perm t = case perm of
                  :: Compare (X.Rank perm3) (X.Rank sh2) :~: LT) $
       gcastWith (unsafeCoerce Refl
                  :: Permutation.PermutePrefix perm3 sh2 :~: Permutation.PermutePrefix perm sh) $
-      astTransposeS perm3 t
+      astTransposeS perm3 u
   Ast.AstGatherS @sh2 @p @sh3 v (vars, ix)
     -- TODO: should the below be backpermute or permute?
     | length (Permutation.permToList' perm) <= length (shapeT @sh2) ->

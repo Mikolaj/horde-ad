@@ -15,29 +15,28 @@ module HordeAd.Core.DualNumber
 
 import Prelude
 
-import           Control.Exception.Assert.Sugar
-import           Data.Array.Internal (valueOf)
-import           Data.Kind (Type)
-import           Data.Proxy (Proxy (Proxy))
-import qualified Data.Strict.Vector as Data.Vector
-import           Data.Type.Equality (testEquality, (:~:) (Refl))
-import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, sameNat, type (+))
-import           Type.Reflection (typeRep)
+import Control.Exception.Assert.Sugar
+import Data.Array.Internal (valueOf)
+import Data.Kind (Type)
+import Data.Proxy (Proxy (Proxy))
+import Data.Strict.Vector qualified as Data.Vector
+import Data.Type.Equality (testEquality, (:~:) (Refl))
+import Data.Vector.Generic qualified as V
+import GHC.TypeLits (KnownNat, sameNat, type (+))
+import Type.Reflection (typeRep)
 
-import qualified Data.Array.Mixed.Shape as X
-import qualified Data.Array.Mixed.Types as X
+import Data.Array.Mixed.Types qualified as X
 
-import           HordeAd.Core.Delta
-import           HordeAd.Core.HVector
-import           HordeAd.Core.IsPrimal
-import           HordeAd.Core.TensorClass
-import           HordeAd.Core.Types
-import           HordeAd.Internal.OrthotopeOrphanInstances
+import HordeAd.Core.Delta
+import HordeAd.Core.HVector
+import HordeAd.Core.IsPrimal
+import HordeAd.Core.TensorClass
+import HordeAd.Core.Types
+import HordeAd.Internal.OrthotopeOrphanInstances
   (IntegralF (..), RealFloatF (..))
-import           HordeAd.Util.ShapedList (IndexSh)
-import qualified HordeAd.Util.ShapedList as ShapedList
-import           HordeAd.Util.SizedList
+import HordeAd.Util.ShapedList (IndexSh)
+import HordeAd.Util.ShapedList qualified as ShapedList
+import HordeAd.Util.SizedList
 
 -- * The main dual number type
 

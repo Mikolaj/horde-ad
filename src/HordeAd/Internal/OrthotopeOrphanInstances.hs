@@ -10,38 +10,34 @@ module HordeAd.Internal.OrthotopeOrphanInstances
 
 import Prelude
 
-import           Control.DeepSeq (NFData)
-import           Data.Array.Convert (Convert)
-import qualified Data.Array.Convert
-import           Data.Array.Internal (valueOf)
-import qualified Data.Array.Internal.RankedG as RG
-import qualified Data.Array.Internal.RankedS as RS
-import qualified Data.Array.Internal.ShapedG as SG
-import qualified Data.Array.Internal.ShapedS as SS
-import qualified Data.Array.RankedS as OR
-import qualified Data.Array.Shape as Sh
-import qualified Data.Array.ShapedS as OS
-import           Data.Int (Int64)
-import           Data.Kind (Type)
-import           Data.Proxy (Proxy (Proxy))
-import           Data.Type.Equality ((:~:) (Refl))
-import qualified Data.Vector.Generic as V
-import qualified Data.Vector.Storable as VS
-import           GHC.TypeLits
-  (KnownNat, Nat, SNat, fromSNat, pattern SNat, sameNat, type (+), withSomeSNat)
-import           Numeric.LinearAlgebra (Numeric)
-import           Unsafe.Coerce (unsafeCoerce)
+import Control.DeepSeq (NFData)
+import Data.Array.Convert (Convert)
+import Data.Array.Convert qualified
+import Data.Array.Internal (valueOf)
+import Data.Array.Internal.RankedG qualified as RG
+import Data.Array.Internal.RankedS qualified as RS
+import Data.Array.Internal.ShapedG qualified as SG
+import Data.Array.Internal.ShapedS qualified as SS
+import Data.Array.RankedS qualified as OR
+import Data.Array.Shape qualified as Sh
+import Data.Array.ShapedS qualified as OS
+import Data.Int (Int64)
+import Data.Kind (Type)
+import Data.Proxy (Proxy (Proxy))
+import Data.Type.Equality ((:~:) (Refl))
+import Data.Vector.Generic qualified as V
+import Data.Vector.Storable qualified as VS
+import GHC.TypeLits (KnownNat, Nat, sameNat)
+import Numeric.LinearAlgebra (Numeric)
 
-import qualified Data.Array.Mixed.Internal.Arith as Mixed.Internal.Arith
-import qualified Data.Array.Mixed.Shape as X
-import           Data.Array.Mixed.Types (Dict (..))
-import qualified Data.Array.Mixed.Types as Mixed.Types
-import           Data.Array.Nested (KnownShS (..), ShS (ZSS, (:$$)))
-import qualified Data.Array.Nested as Nested
-import qualified Data.Array.Nested.Internal.Mixed as Nested.Internal.Mixed
-import qualified Data.Array.Nested.Internal.Ranked as Nested.Internal
-import           Data.Array.Nested.Internal.Shape (shsOrthotopeShape, shsToList)
-import qualified Data.Array.Nested.Internal.Shaped as Nested.Internal
+import Data.Array.Mixed.Internal.Arith qualified as Mixed.Internal.Arith
+import Data.Array.Mixed.Shape qualified as X
+import Data.Array.Mixed.Types qualified as Mixed.Types
+import Data.Array.Nested (KnownShS (..))
+import Data.Array.Nested qualified as Nested
+import Data.Array.Nested.Internal.Mixed qualified as Nested.Internal.Mixed
+import Data.Array.Nested.Internal.Ranked qualified as Nested.Internal
+import Data.Array.Nested.Internal.Shaped qualified as Nested.Internal
 
 -- * Numeric classes and instances for tensors
 

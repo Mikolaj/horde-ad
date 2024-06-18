@@ -7,16 +7,14 @@ module MnistCnnShaped2 where
 
 import Prelude
 
-import qualified Data.Array.RankedS as OR
-import qualified Data.Array.ShapedS as OS
-import           Data.Type.Equality (gcastWith, (:~:) (Refl))
-import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (type (*), type (+), type (<=), type Div)
-import           Numeric.LinearAlgebra (Vector)
-import           Unsafe.Coerce (unsafeCoerce)
+import Data.Type.Equality (gcastWith, (:~:) (Refl))
+import Data.Vector.Generic qualified as V
+import GHC.TypeLits (type (*), type (+), type (<=), type Div)
+import Numeric.LinearAlgebra (Vector)
+import Unsafe.Coerce (unsafeCoerce)
 
-import qualified Data.Array.Mixed.Permutation as Permutation
-import qualified Data.Array.Nested as Nested
+import Data.Array.Mixed.Permutation qualified as Permutation
+import Data.Array.Nested qualified as Nested
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.HVector
@@ -24,7 +22,7 @@ import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.External.CommonShapedOps
 import HordeAd.Internal.BackendOX (ORArray, OSArray)
-import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..), FlipS (..))
+import HordeAd.Internal.OrthotopeOrphanInstances (FlipS (..))
 import MnistData
 
 -- | The differentiable type of all trainable parameters of this nn.

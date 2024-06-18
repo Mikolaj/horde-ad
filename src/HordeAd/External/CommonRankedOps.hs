@@ -11,14 +11,13 @@ module HordeAd.External.CommonRankedOps
 
 import Prelude
 
-import           Control.Exception (assert)
-import qualified Data.Array.RankedS as OR
-import qualified Data.List.NonEmpty as NonEmpty
-import           Data.Proxy (Proxy (Proxy))
-import           Data.Type.Equality ((:~:) (Refl))
-import           GHC.TypeLits (KnownNat, sameNat)
+import Control.Exception (assert)
+import Data.List.NonEmpty qualified as NonEmpty
+import Data.Proxy (Proxy (Proxy))
+import Data.Type.Equality ((:~:) (Refl))
+import GHC.TypeLits (KnownNat, sameNat)
 
-import qualified Data.Array.Nested.Internal.Ranked as Nested.Internal
+import Data.Array.Nested.Internal.Ranked qualified as Nested.Internal
 
 import Data.Int (Int64)
 import HordeAd.Core.TensorClass

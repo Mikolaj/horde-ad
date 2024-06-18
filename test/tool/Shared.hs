@@ -6,19 +6,17 @@ module Shared
 
 import Prelude
 
-import qualified Data.Array.RankedS as OR
-import qualified Data.Array.ShapedS as OS
-import qualified Data.Char
-import qualified Data.Foldable
-import           Data.Int (Int64)
-import           Data.Proxy (Proxy (Proxy))
-import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
-import qualified Data.Vector.Storable as VS
-import           Foreign.C (CInt)
-import           GHC.TypeLits (KnownNat)
-import           Type.Reflection (Typeable, typeRep)
+import Data.Array.RankedS qualified as OR
+import Data.Char qualified
+import Data.Foldable qualified
+import Data.Int (Int64)
+import Data.Type.Equality (testEquality, (:~:) (Refl))
+import Data.Vector.Storable qualified as VS
+import Foreign.C (CInt)
+import GHC.TypeLits (KnownNat)
+import Type.Reflection (Typeable, typeRep)
 
-import qualified Data.Array.Nested as Nested
+import Data.Array.Nested qualified as Nested
 
 import HordeAd.Core.HVector
 import HordeAd.Core.TensorClass
@@ -68,11 +66,11 @@ class Linearizable a b | a -> b where
 instance (VS.Storable a) => Linearizable (VS.Vector a) a where
   linearize = VS.toList
 
-instance (VS.Storable a, Nested.PrimElt a, KnownNat n)
+instance (VS.Storable a, Nested.PrimElt a)
          => Linearizable (ORArray a n) a where
   linearize = VS.toList . Nested.rtoVector . runFlipR
 
-instance (VS.Storable a, Nested.PrimElt a, KnownShS sh)
+instance (VS.Storable a, Nested.PrimElt a)
          => Linearizable (OSArray a sh) a where
   linearize = VS.toList . Nested.stoVector . runFlipS
 

@@ -33,22 +33,19 @@ import Data.Kind (Constraint, Type)
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality ((:~:) (Refl))
 import GHC.TypeLits
-  (KnownNat, Nat, SNat, fromSNat, pattern SNat, sameNat, type (+), withSomeSNat)
+  (KnownNat, Nat, SNat, fromSNat, pattern SNat, type (+), withSomeSNat)
 import Numeric.LinearAlgebra (Numeric, Vector)
 import Type.Reflection (Typeable)
 import Unsafe.Coerce (unsafeCoerce)
 
-import qualified Data.Array.Mixed.Internal.Arith as Nested.Internal.Arith
-import qualified Data.Array.Mixed.Permutation as Permutation
-import qualified Data.Array.Mixed.Shape as X
-import           Data.Array.Mixed.Types (Dict (..))
-import           Data.Array.Nested
-  (IxS (..), KnownShS (..), ListR (..), ListS (..), ShR (..), ShS (..))
-import qualified Data.Array.Nested as Nested
-import           Data.Array.Nested.Internal.Shape (shsOrthotopeShape, shsToList)
-import qualified Data.Array.Nested.Internal.Shaped as Nested.Internal
-
-import HordeAd.Internal.OrthotopeOrphanInstances
+import Data.Array.Mixed.Internal.Arith qualified as Nested.Internal.Arith
+import Data.Array.Mixed.Permutation qualified as Permutation
+import Data.Array.Mixed.Shape qualified as X
+import Data.Array.Mixed.Types (Dict (..))
+import Data.Array.Nested
+  (IxS (..), KnownShS (..), ListS (..), ShR (..), ShS (..))
+import Data.Array.Nested qualified as Nested
+import Data.Array.Nested.Internal.Shape (shsToList)
 
 -- * Definitions to help express and manipulate type-level natural numbers
 

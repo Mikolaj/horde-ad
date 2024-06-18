@@ -20,22 +20,21 @@ module HordeAd.Core.HVector
 
 import Prelude
 
-import           Control.DeepSeq (NFData (..))
-import           Data.Array.Internal (valueOf)
-import           Data.Kind (Constraint, Type)
-import           Data.Proxy (Proxy (Proxy))
-import qualified Data.Strict.Vector as Data.Vector
-import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, type (+))
-import           Type.Reflection (typeRep)
+import Control.DeepSeq (NFData (..))
+import Data.Array.Internal (valueOf)
+import Data.Kind (Constraint, Type)
+import Data.Proxy (Proxy (Proxy))
+import Data.Strict.Vector qualified as Data.Vector
+import Data.Vector.Generic qualified as V
+import GHC.TypeLits (KnownNat, type (+))
+import Type.Reflection (typeRep)
 
-import qualified Data.Array.Mixed.Shape as X
-import qualified Data.Array.Mixed.Types as X
+import Data.Array.Mixed.Types qualified as X
 
-import           HordeAd.Core.Types
-import           HordeAd.Internal.OrthotopeOrphanInstances ()
-import qualified HordeAd.Util.ShapedList as ShapedList
-import           HordeAd.Util.SizedList
+import HordeAd.Core.Types
+import HordeAd.Internal.OrthotopeOrphanInstances ()
+import HordeAd.Util.ShapedList qualified as ShapedList
+import HordeAd.Util.SizedList
 
 -- * Type definitions for dynamic tensors and tensor collections
 

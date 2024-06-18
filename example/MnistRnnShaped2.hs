@@ -7,17 +7,16 @@ module MnistRnnShaped2 where
 
 import Prelude hiding (foldl')
 
-import           Data.Array.Internal (valueOf)
-import qualified Data.Array.ShapedS as OS
-import           Data.Kind (Type)
-import           Data.List (foldl')
-import           Data.Proxy (Proxy (Proxy))
-import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, Nat, type (*))
-import           Numeric.LinearAlgebra (Vector)
+import Data.Array.Internal (valueOf)
+import Data.Kind (Type)
+import Data.List (foldl')
+import Data.Proxy (Proxy (Proxy))
+import Data.Vector.Generic qualified as V
+import GHC.TypeLits (KnownNat, Nat, type (*))
+import Numeric.LinearAlgebra (Vector)
 
-import qualified Data.Array.Mixed.Permutation as Permutation
-import qualified Data.Array.Nested as Nested
+import Data.Array.Mixed.Permutation qualified as Permutation
+import Data.Array.Nested qualified as Nested
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.HVector

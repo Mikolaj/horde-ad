@@ -27,22 +27,22 @@ module HordeAd.Core.Ast
 
 import Prelude hiding (foldl')
 
-import qualified Data.Array.Shape as Sh
-import           Data.Int (Int64)
-import           Data.Kind (Type)
-import           Data.Proxy (Proxy (Proxy))
-import qualified Data.Strict.Vector as Data.Vector
-import           Data.Type.Equality (testEquality, (:~:) (Refl))
-import           GHC.TypeLits (KnownNat, sameNat, type (+), type (<=))
-import           Type.Reflection (Typeable, eqTypeRep, typeRep, (:~~:) (HRefl))
-import           Data.Functor.Const
-import           Data.Array.Internal (valueOf)
+import Data.Array.Internal (valueOf)
+import Data.Array.Shape qualified as Sh
+import Data.Functor.Const
+import Data.Int (Int64)
+import Data.Kind (Type)
+import Data.Proxy (Proxy (Proxy))
+import Data.Strict.Vector qualified as Data.Vector
+import Data.Type.Equality (testEquality, (:~:) (Refl))
+import GHC.TypeLits (KnownNat, sameNat, type (+), type (<=))
+import Type.Reflection (Typeable, eqTypeRep, typeRep, (:~~:) (HRefl))
 
-import qualified Data.Array.Mixed.Shape as X
-import qualified Data.Array.Mixed.Types as X
-import qualified Data.Array.Mixed.Permutation as Permutation
-import qualified Data.Array.Nested as Nested
-import qualified Data.Array.Nested.Internal.Shape as Nested.Internal.Shape
+import Data.Array.Mixed.Permutation qualified as Permutation
+import Data.Array.Mixed.Shape qualified as X
+import Data.Array.Mixed.Types qualified as X
+import Data.Array.Nested qualified as Nested
+import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
 import HordeAd.Core.HVector
 import HordeAd.Core.Types
@@ -580,7 +580,7 @@ instance (Num (Nested.Ranked n r), AstSpan s, KnownNat n)
   fromInteger i = case sameNat (Proxy @n) (Proxy @0) of
     Just Refl -> fromPrimal . AstConst . fromInteger $ i
     Nothing -> error $ "fromInteger not defined for AstRanked of non-zero ranks: "
-                       ++ show (i, valueOf @n)
+                       ++ show (i, valueOf @n :: Int)
     -- it's crucial that there is no AstConstant in fromInteger code
     -- so that we don't need 4 times the simplification rules
 
@@ -644,7 +644,7 @@ instance Eq (AstShaped s r sh) where
 instance Ord (AstShaped s r sh) where
   (<=) = error "AST requires that OrdF be used instead"
 
-instance (GoodScalar r, Num (Nested.Shaped sh r), AstSpan s)
+instance (GoodScalar r, Num (Nested.Shaped sh r))
          => Num (AstShaped s r sh) where
   -- The normal form has AstConst, if any, as the first element of the list.
   -- All lists fully flattened and length >= 2.
@@ -687,7 +687,7 @@ instance Integral r => IntegralF (AstShaped s r sh) where
   quotF = AstI2S QuotOp
   remF = AstI2S RemOp
 
-instance (GoodScalar r, Differentiable r, KnownShS sh, Fractional (Nested.Shaped sh r), AstSpan s)
+instance (GoodScalar r, Differentiable r, Fractional (Nested.Shaped sh r))
          => Fractional (AstShaped s r sh) where
   u / v = AstR2S DivideOp u v
   recip = AstR1S RecipOp

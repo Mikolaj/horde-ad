@@ -11,28 +11,27 @@ module HordeAd.External.CommonShapedOps
 
 import Prelude
 
-import           Data.Array.Internal (valueOf)
-import qualified Data.Array.Shape as Sh
-import qualified Data.Array.ShapedS as OS
-import           Data.Int (Int64)
-import qualified Data.List.NonEmpty as NonEmpty
-import           Data.Proxy (Proxy (Proxy))
-import           Data.Type.Equality (gcastWith, (:~:) (Refl))
-import           Data.Type.Ord (Compare)
-import           GHC.TypeLits
+import Data.Array.Internal (valueOf)
+import Data.Array.Shape qualified as Sh
+import Data.Int (Int64)
+import Data.List.NonEmpty qualified as NonEmpty
+import Data.Proxy (Proxy (Proxy))
+import Data.Type.Equality (gcastWith, (:~:) (Refl))
+import Data.Type.Ord (Compare)
+import GHC.TypeLits
   (Div, KnownNat, SomeNat (..), sameNat, someNatVal, type (-), type (<=))
-import           Unsafe.Coerce (unsafeCoerce)
+import Unsafe.Coerce (unsafeCoerce)
 
-import qualified Data.Array.Mixed.Shape as X
-import qualified Data.Array.Nested.Internal.Shape as Nested.Internal.Shape
-import qualified Data.Array.Nested.Internal.Shaped as Nested.Internal
+import Data.Array.Mixed.Shape qualified as X
+import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
+import Data.Array.Nested.Internal.Shaped qualified as Nested.Internal
 
-import           HordeAd.Core.TensorClass
-import           HordeAd.Core.Types
-import           HordeAd.External.CommonRankedOps
-import           HordeAd.Util.ShapedList (IndexSh)
-import qualified HordeAd.Util.ShapedList as ShapedList
-import           HordeAd.Util.SizedList
+import HordeAd.Core.TensorClass
+import HordeAd.Core.Types
+import HordeAd.External.CommonRankedOps
+import HordeAd.Util.ShapedList (IndexSh)
+import HordeAd.Util.ShapedList qualified as ShapedList
+import HordeAd.Util.SizedList
 
 sminIndexN :: ( ADReadyS shaped, GoodScalar r
               , KnownShS sh, KnownNat (Nested.Internal.Shape.Product sh) )
@@ -60,7 +59,7 @@ smaximum :: forall r sh shaped.
          => shaped r sh -> shaped r '[]
 smaximum t = sindex0 t (smaxIndexN t)
 
-sfromIndex0 :: forall n r shaped. (ADReadyS shaped, GoodScalar r)
+sfromIndex0 :: forall r shaped. (ADReadyS shaped, GoodScalar r)
             => IntOf shaped -> shaped r '[]
 sfromIndex0 = sfromIntegral . sconstant . sfromR
 

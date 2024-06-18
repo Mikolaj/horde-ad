@@ -10,23 +10,23 @@ module CrossTesting
 
 import Prelude
 
-import qualified Data.Array.Internal as OI
-import qualified Data.Array.Internal.RankedG as RG
-import qualified Data.Array.Internal.RankedS as RS
-import qualified Data.Array.Ranked as ORB
-import qualified Data.Array.RankedS as OR
-import qualified Data.EnumMap.Strict as EM
-import           Data.List.NonEmpty (NonEmpty)
-import qualified Data.List.NonEmpty as NonEmpty
-import           Data.Proxy (Proxy (Proxy))
-import           Data.Type.Equality (gcastWith, (:~:) (Refl))
-import qualified Data.Vector.Generic as V
-import qualified Data.Vector.Storable as VS
-import           GHC.TypeLits (KnownNat, sameNat, type (+))
-import           Numeric.LinearAlgebra (Numeric)
-import           Test.Tasty.HUnit hiding (assert)
+import Data.Array.Internal qualified as OI
+import Data.Array.Internal.RankedG qualified as RG
+import Data.Array.Internal.RankedS qualified as RS
+import Data.Array.Ranked qualified as ORB
+import Data.Array.RankedS qualified as OR
+import Data.EnumMap.Strict qualified as EM
+import Data.List.NonEmpty (NonEmpty)
+import Data.List.NonEmpty qualified as NonEmpty
+import Data.Proxy (Proxy (Proxy))
+import Data.Type.Equality ((:~:) (Refl))
+import Data.Vector.Generic qualified as V
+import Data.Vector.Storable qualified as VS
+import GHC.TypeLits (KnownNat, sameNat, type (+))
+import Numeric.LinearAlgebra (Numeric)
+import Test.Tasty.HUnit hiding (assert)
 
-import qualified Data.Array.Nested as Nested
+import Data.Array.Nested qualified as Nested
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.Ast
@@ -274,7 +274,7 @@ assertEqualUpToEpsilon'
     :: ( v ~ FlipR OR.Array r m, a ~ FlipR OR.Array r n
        , AssertEqualUpToEpsilon a, AssertEqualUpToEpsilon v
        , AssertEqualUpToEpsilon r
-       , KnownNat n, KnownNat m, GoodScalar r, HasCallStack)
+       , KnownNat m, GoodScalar r, HasCallStack)
     => Rational  -- ^ error margin (i.e., the epsilon)
     -> OR.Array n r  -- ^ expected reverse derivative value
     -> ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a, a, a, a, a, a
@@ -414,7 +414,7 @@ assertEqualUpToEpsilonShort
     :: ( v ~ FlipR OR.Array r m, a ~ FlipR OR.Array r n
        , AssertEqualUpToEpsilon a, AssertEqualUpToEpsilon v
        , AssertEqualUpToEpsilon r
-       , KnownNat n, KnownNat m, GoodScalar r, HasCallStack)
+       , KnownNat m, GoodScalar r, HasCallStack)
     => Rational  -- ^ error margin (i.e., the epsilon)
     -> OR.Array n r  -- ^ expected reverse derivative value
     -> ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a, a, a, a, a, a
@@ -508,31 +508,31 @@ assertEqualUpToEpsilonShort
               (show astVectSimp)
               (show (simplifyInlineAst astVectSimp))
 
-t16 :: (Numeric r, Fractional r, Nested.PrimElt r) => ORArray r 5
+t16 :: (Fractional r, Nested.PrimElt r) => ORArray r 5
 t16 = FlipR $ Nested.rfromOrthotope SNat $ OR.fromList [2, 2, 1, 2, 2] [5, 2, 6, 1, -2, 0.000001, 0.1, -0.2, 13.1, 9, 8, -4, 34, 2.99432, -33, 26]
 
 t16OR :: (Numeric r, Fractional r) => FlipR OR.Array r 5
 t16OR = FlipR $ OR.fromList [2, 2, 1, 2, 2] [5, 2, 6, 1, -2, 0.000001, 0.1, -0.2, 13.1, 9, 8, -4, 34, 2.99432, -33, 26]
 
-t16b :: (Numeric r, Fractional r, Nested.PrimElt r) => ORArray r 4
+t16b :: (Fractional r, Nested.PrimElt r) => ORArray r 4
 t16b = FlipR $ Nested.rfromOrthotope SNat $ OR.fromList [2, 2, 2, 2] [5, 2, 6, 1, -2, 0, 0.1, -0.2, 13.1, 9, 8, -4, 582934, 2.99432, -335, 26]
 
-t48 :: (Numeric r, Fractional r, Nested.PrimElt r) => ORArray r 7
+t48 :: (Fractional r, Nested.PrimElt r) => ORArray r 7
 t48 = FlipR $ Nested.rfromOrthotope SNat $ OR.fromList [3, 1, 2, 2, 1, 2, 2] [18.1,29.1,32.1,40.1,52.0,53.99432,97.1,58.8943200001,18.1,29.1,32.1,40.1,58.0,54.99432,97.1,52.8943200001, 5, 2, 6, 1, -2, 0.92, 0.1, -0.2, 13.1, 9, 8, -4, 34, 2.99432, -33, 26, 2, 2, 2, 2, -0.2,-0.2,-0.2,-0.2,25.0003,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003]
 
 t48OR :: (Numeric r, Fractional r) => FlipR OR.Array r 7
 t48OR = FlipR $ OR.fromList [3, 1, 2, 2, 1, 2, 2] [18.1,29.1,32.1,40.1,52.0,53.99432,97.1,58.8943200001,18.1,29.1,32.1,40.1,58.0,54.99432,97.1,52.8943200001, 5, 2, 6, 1, -2, 0.92, 0.1, -0.2, 13.1, 9, 8, -4, 34, 2.99432, -33, 26, 2, 2, 2, 2, -0.2,-0.2,-0.2,-0.2,25.0003,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003]
 
-t128 :: (Numeric r, Fractional r, Nested.PrimElt r) => ORArray r 10
+t128 :: (Fractional r, Nested.PrimElt r) => ORArray r 10
 t128 = FlipR $ Nested.rfromOrthotope SNat $ OR.fromList [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] [29.1,32.1,40.1,29.0,53.99432,97.1,58.8943200001,18.1,29.1,32.1,40.1,32.0,53.99432,97.1,25.8943200001, 5, 2, 6, 1, -2, 97.1,58.8943200001,97.1,55.8943200001,97.1,58.8943200001,18.1,29.1,32.1,40.1,32.1,32.1,40.1,53.0,53.99432, -0.00001, 0.1, -0.2, 13.1, 9, 8, -4, 29, 2.99432, -335, 26, 2, 2, 2, 2, -0.2,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003,-0.2,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003,40.1,8.0,11.0,-3.0,25.89432,28.79432,-39.09999999999997,25.8,40.1,8.0,11.0,-3.0,25.89432,28.79432,-19.09999999999997,25.8, 8.1,29.1,32.1,40.1,32.1,40.1,292.0,53.99432,97.1,55.8943200001,97.1,85.8943200001,97.1,85.8943200001,18.1,29.1,32.1,40.1,32.1,40.1,32.1,40.1,22.0,53.99432,97.1,82.8943200001,97.1,22.8943200001,97.1,58.8943200001,18.1,29.1,32.1,40.1,32.1,40.1,32.1,40.1,89.0,53.99432,97.1,56.8943200001,97.1,52.8943200001,97.1,55.8943200001]
 
 t128OR :: (Numeric r, Fractional r) => FlipR OR.Array r 10
 t128OR = FlipR $ OR.fromList [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] [29.1,32.1,40.1,29.0,53.99432,97.1,58.8943200001,18.1,29.1,32.1,40.1,32.0,53.99432,97.1,25.8943200001, 5, 2, 6, 1, -2, 97.1,58.8943200001,97.1,55.8943200001,97.1,58.8943200001,18.1,29.1,32.1,40.1,32.1,32.1,40.1,53.0,53.99432, -0.00001, 0.1, -0.2, 13.1, 9, 8, -4, 29, 2.99432, -335, 26, 2, 2, 2, 2, -0.2,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003,-0.2,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003,40.1,8.0,11.0,-3.0,25.89432,28.79432,-39.09999999999997,25.8,40.1,8.0,11.0,-3.0,25.89432,28.79432,-19.09999999999997,25.8, 8.1,29.1,32.1,40.1,32.1,40.1,292.0,53.99432,97.1,55.8943200001,97.1,85.8943200001,97.1,85.8943200001,18.1,29.1,32.1,40.1,32.1,40.1,32.1,40.1,22.0,53.99432,97.1,82.8943200001,97.1,22.8943200001,97.1,58.8943200001,18.1,29.1,32.1,40.1,32.1,40.1,32.1,40.1,89.0,53.99432,97.1,56.8943200001,97.1,52.8943200001,97.1,55.8943200001]
 
-t128b :: (Numeric r, Fractional r, Nested.Elt r, Nested.PrimElt r) => FlipR OR.Array r 4
+t128b :: (Numeric r, Fractional r, Nested.PrimElt r) => FlipR OR.Array r 4
 t128b = FlipR $ OR.reshape [4, 2, 4, 4] $ runFlipR t128OR
 
-t128c :: (Numeric r, Fractional r, Nested.Elt r, Nested.PrimElt r) => FlipR OR.Array r 4
+t128c :: (Numeric r, Fractional r, Nested.PrimElt r) => FlipR OR.Array r 4
 t128c = FlipR $ OR.reshape [2, 2, 8, 4] $ runFlipR t128OR
 
 rrev1 :: forall g r n m r3.
@@ -590,7 +590,7 @@ sfwd1 f u =
                                         (V.singleton $ DynamicShaped @r @sh (srepl 1))
 
 treplicateR
-  :: forall n r. (KnownNat n, KnownNat (1 + n), Num r, VS.Storable r)
+  :: forall n r. (KnownNat n, KnownNat (1 + n), VS.Storable r)
   => Int -> OR.Array n r -> OR.Array (1 + n) r
 treplicateR 0 u = OR.fromList (0 : OR.shapeL u) []
 treplicateR s u = case sameNat (Proxy @n) (Proxy @0) of
@@ -598,16 +598,16 @@ treplicateR s u = case sameNat (Proxy @n) (Proxy @0) of
   _ -> OR.ravel $ ORB.constant [s] u
 
 tfromListR
-  :: forall n r. (KnownNat n, KnownNat (1 + n), Num r, VS.Storable r)
+  :: forall n r. (KnownNat (1 + n), VS.Storable r)
   => NonEmpty (OR.Array n r) -> OR.Array (1 + n) r
 tfromListR l = OR.ravel . ORB.fromList [NonEmpty.length l] . NonEmpty.toList $ l
 
 tfromList0NR
-  :: (KnownNat n, Num r, VS.Storable r)
+  :: (KnownNat n, VS.Storable r)
   => IShR n -> [r] -> OR.Array n r
 tfromList0NR sh = OR.fromList (shapeToList sh)
 
 tsumR
-  :: forall n r. (KnownNat n, KnownNat (n + 1), GoodScalar r)
+  :: forall n r. (KnownNat (n + 1), GoodScalar r)
   => OR.Array (n + 1) r -> OR.Array n r
 tsumR t = Nested.rtoOrthotope $ Nested.rsumOuter1 $ Nested.rfromOrthotope SNat t

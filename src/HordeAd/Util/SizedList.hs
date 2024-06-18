@@ -32,22 +32,20 @@ module HordeAd.Util.SizedList
 
 import Prelude
 
-import           Control.Arrow (first)
-import           Data.Array.Internal (valueOf)
-import qualified Data.Array.Shape as Sh
-import qualified Data.Foldable as Foldable
-import           Data.List (foldl', sort)
-import           Data.Proxy (Proxy (Proxy))
-import qualified Data.Strict.Vector as Data.Vector
-import           Data.Type.Equality (gcastWith, (:~:) (Refl))
-import qualified Data.Vector.Generic as V
-import           GHC.Exts (IsList (..))
-import           GHC.TypeLits
-  (KnownNat, SomeNat (..), sameNat, someNatVal, type (+))
-import           Unsafe.Coerce (unsafeCoerce)
+import Control.Arrow (first)
+import Data.Array.Internal (valueOf)
+import Data.Foldable qualified as Foldable
+import Data.List (sort)
+import Data.Proxy (Proxy (Proxy))
+import Data.Strict.Vector qualified as Data.Vector
+import Data.Type.Equality (gcastWith, (:~:) (Refl))
+import Data.Vector.Generic qualified as V
+import GHC.Exts (IsList (..))
+import GHC.TypeLits (KnownNat, SomeNat (..), sameNat, someNatVal, type (+))
+import Unsafe.Coerce (unsafeCoerce)
 
-import qualified Data.Array.Mixed.Shape as X
-import           Data.Array.Nested
+import Data.Array.Mixed.Shape qualified as X
+import Data.Array.Nested
   ( IxR (..)
   , ListR (..)
   , ShR (..)
@@ -322,11 +320,11 @@ lengthShape :: forall n i. KnownNat n => Shape n i -> Int
 lengthShape _ = valueOf @n
 
 -- | The number of elements in an array of this shape
-sizeShape :: (Num i, Integral i) => Shape n i -> Int
+sizeShape :: Integral i => Shape n i -> Int
 sizeShape ZSR = 1
 sizeShape (n :$: sh) = fromIntegral n * sizeShape sh
 
-flattenShape :: (Num i, Integral i) => Shape n i -> Shape 1 i
+flattenShape :: Integral i => Shape n i -> Shape 1 i
 flattenShape = singletonShape . fromIntegral . sizeShape
 
 -- Warning: do not pass a list of strides to this function.
@@ -382,7 +380,7 @@ toLinearIdx fromInt = \sh idx -> go sh idx (fromInt 0)
     -- @m - m1@ dimensional index prefix.
     go :: Shape (m1 + n) Int -> Index m1 j -> j -> j
     go sh ZIR tensidx = fromInt (sizeShape sh) * tensidx
-    go (n :$: sh) (i :.: idx) tensidx = go sh idx (fromInt (fromIntegral n) * tensidx + i)
+    go (n :$: sh) (i :.: idx) tensidx = go sh idx (fromInt n * tensidx + i)
     go _ _ _ = error "toLinearIdx: impossible pattern needlessly required"
 
 -- | Given a linear index into the buffer, get the corresponding
@@ -407,8 +405,8 @@ fromLinearIdx fromInt = \sh lin -> snd (go sh lin)
       (fromInt 0, fromInt 0 :.: zeroOf fromInt sh)
     go (n :$: sh) lin =
       let (tensLin, idxInTens) = go sh lin
-          tensLin' = tensLin `quotF` fromInt (fromIntegral n)
-          i = tensLin `remF` fromInt (fromIntegral n)
+          tensLin' = tensLin `quotF` fromInt n
+          i = tensLin `remF` fromInt n
       in (tensLin', i :.: idxInTens)
 
 -- | The zero index in this shape (not dependent on the actual integers).

@@ -5,26 +5,25 @@ module MnistData where
 
 import Prelude
 
-import           Codec.Compression.GZip (decompress)
-import           Data.Array.Internal (valueOf)
-import qualified Data.Array.Ranked as ORB
-import qualified Data.Array.RankedS as OR
-import qualified Data.Array.Shaped as OSB
-import qualified Data.Array.ShapedS as OS
-import qualified Data.ByteString.Lazy as LBS
-import           Data.IDX
-import           Data.List (sortOn)
-import           Data.Maybe (fromMaybe)
-import qualified Data.Vector.Generic as V
-import qualified Data.Vector.Unboxed
-import           GHC.TypeLits (KnownNat, Nat, type (*))
-import           Numeric.LinearAlgebra (Numeric, Vector)
-import           System.IO (IOMode (ReadMode), withBinaryFile)
-import           System.Random
+import Codec.Compression.GZip (decompress)
+import Data.Array.Internal (valueOf)
+import Data.Array.Ranked qualified as ORB
+import Data.Array.RankedS qualified as OR
+import Data.Array.Shaped qualified as OSB
+import Data.Array.ShapedS qualified as OS
+import Data.ByteString.Lazy qualified as LBS
+import Data.IDX
+import Data.List (sortOn)
+import Data.Maybe (fromMaybe)
+import Data.Vector.Generic qualified as V
+import Data.Vector.Unboxed qualified
+import GHC.TypeLits (KnownNat, Nat, type (*))
+import Numeric.LinearAlgebra (Numeric, Vector)
+import System.IO (IOMode (ReadMode), withBinaryFile)
+import System.Random
 
 import HordeAd
 import HordeAd.Internal.BackendOX (ORArray)
-import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..))
 
 type SizeMnistWidth = 28 :: Nat
 

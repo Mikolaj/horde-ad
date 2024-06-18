@@ -7,21 +7,20 @@ module TestRevFwdFold
 
 import Prelude
 
-import           Control.Exception.Assert.Sugar
-import qualified Data.Array.RankedS as OR
-import qualified Data.Array.ShapedS as OS
-import qualified Data.IntMap.Strict as IM
-import           Data.Proxy (Proxy (Proxy))
-import qualified Data.Vector.Generic as V
-import           GHC.Exts (IsList (..))
-import           GHC.TypeLits (KnownNat, type (+))
-import           Test.Tasty
-import           Test.Tasty.HUnit hiding (assert)
+import Control.Exception.Assert.Sugar
+import Data.Array.RankedS qualified as OR
+import Data.IntMap.Strict qualified as IM
+import Data.Proxy (Proxy (Proxy))
+import Data.Vector.Generic qualified as V
+import GHC.Exts (IsList (..))
+import GHC.TypeLits (KnownNat, type (+))
+import Test.Tasty
+import Test.Tasty.HUnit hiding (assert)
 
-import qualified Data.Array.Mixed.Shape as X
-import qualified Data.Array.Nested as Nested
-import qualified Data.Array.Nested.Internal.Ranked as Nested.Internal
-import qualified Data.Array.Nested.Internal.Shaped as Nested.Internal
+import Data.Array.Mixed.Shape qualified as X
+import Data.Array.Nested qualified as Nested
+import Data.Array.Nested.Internal.Ranked qualified as Nested.Internal
+import Data.Array.Nested.Internal.Shaped qualified as Nested.Internal
 
 import HordeAd
 import HordeAd.Core.AstFreshId (resetVarCounter)

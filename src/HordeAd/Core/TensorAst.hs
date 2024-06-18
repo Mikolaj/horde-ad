@@ -15,44 +15,40 @@ module HordeAd.Core.TensorAst
 
 import Prelude
 
-import           Control.Exception.Assert.Sugar
-import qualified Data.Array.Convert
-import qualified Data.Array.Shape as Sh
-import qualified Data.Array.ShapedS as OS
-import qualified Data.EnumMap.Strict as EM
-import           Data.Proxy (Proxy (Proxy))
-import           Data.Type.Equality (gcastWith, (:~:) (Refl))
-import qualified Data.Vector as Data.NonStrict.Vector
-import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, type (+))
-import           System.IO.Unsafe (unsafePerformIO)
-import           Unsafe.Coerce (unsafeCoerce)
+import Control.Exception.Assert.Sugar
+import Data.Array.Shape qualified as Sh
+import Data.EnumMap.Strict qualified as EM
+import Data.Proxy (Proxy (Proxy))
+import Data.Type.Equality (gcastWith, (:~:) (Refl))
+import Data.Vector qualified as Data.NonStrict.Vector
+import Data.Vector.Generic qualified as V
+import GHC.TypeLits (KnownNat, type (+))
+import System.IO.Unsafe (unsafePerformIO)
+import Unsafe.Coerce (unsafeCoerce)
 
-import qualified Data.Array.Mixed.Shape as X
-import qualified Data.Array.Nested as Nested
+import Data.Array.Mixed.Shape qualified as X
 
-import           HordeAd.Core.Adaptor
-import           HordeAd.Core.Ast
-import           HordeAd.Core.AstEnv
-import           HordeAd.Core.AstFreshId
-import           HordeAd.Core.AstInline
-import           HordeAd.Core.AstInterpret
-import           HordeAd.Core.AstSimplify
-import           HordeAd.Core.AstTools
-import           HordeAd.Core.AstVectorize
-import           HordeAd.Core.Delta
-import           HordeAd.Core.DualNumber
-import           HordeAd.Core.HVector
-import           HordeAd.Core.HVectorOps
-import           HordeAd.Core.TensorADVal (unADValHVector)
-import           HordeAd.Core.TensorClass
-import           HordeAd.Core.TensorConcrete ()
-import           HordeAd.Core.Types
-import           HordeAd.Internal.BackendOX (ORArray, OSArray)
-import           HordeAd.Internal.OrthotopeOrphanInstances
+import HordeAd.Core.Adaptor
+import HordeAd.Core.Ast
+import HordeAd.Core.AstEnv
+import HordeAd.Core.AstFreshId
+import HordeAd.Core.AstInline
+import HordeAd.Core.AstInterpret
+import HordeAd.Core.AstSimplify
+import HordeAd.Core.AstTools
+import HordeAd.Core.AstVectorize
+import HordeAd.Core.Delta
+import HordeAd.Core.DualNumber
+import HordeAd.Core.HVector
+import HordeAd.Core.HVectorOps
+import HordeAd.Core.TensorADVal (unADValHVector)
+import HordeAd.Core.TensorClass
+import HordeAd.Core.TensorConcrete ()
+import HordeAd.Core.Types
+import HordeAd.Internal.BackendOX (ORArray, OSArray)
+import HordeAd.Internal.OrthotopeOrphanInstances
   (FlipR (..), FlipS (..), IntegralF (..), RealFloatF (..))
-import qualified HordeAd.Util.ShapedList as ShapedList
-import           HordeAd.Util.SizedList
+import HordeAd.Util.SizedList
 
 -- * Symbolic reverse and forward derivative computation
 
@@ -343,12 +339,12 @@ instance (GoodScalar r, KnownShS sh, ShapedTensor (AstShaped s), AstSpan s)
   toHVector = V.singleton . DynamicShaped
   fromHVector _aInit = fromHVectorS
 
-instance (GoodScalar r, KnownShS sh)
+instance GoodScalar r
          => DualNumberValue (AstShaped PrimalSpan r sh) where
   type DValue (AstShaped PrimalSpan r sh) = OSArray r sh
   fromDValue t = fromPrimalS $ AstConstS $ runFlipS t
 
-instance (GoodScalar r, KnownShS sh)
+instance GoodScalar r
          => TermValue (AstShaped FullSpan r sh) where
   type Value (AstShaped FullSpan r sh) = OSArray r sh
   fromValue t = fromPrimalS $ AstConstS $ runFlipS t

@@ -6,26 +6,25 @@ module TestHighRankSimplified (testTrees) where
 
 import Prelude
 
-import qualified Data.Array.RankedS as OR
-import qualified Data.Array.Shape as Sh
-import qualified Data.IntMap.Strict as IM
-import qualified Data.Strict.Vector as Data.Vector
-import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, type (+), type (-), type (<=))
-import           Test.Tasty
-import           Test.Tasty.HUnit hiding (assert)
+import Data.Array.RankedS qualified as OR
+import Data.IntMap.Strict qualified as IM
+import Data.Strict.Vector qualified as Data.Vector
+import Data.Vector.Generic qualified as V
+import GHC.TypeLits (KnownNat, type (+), type (-), type (<=))
+import Test.Tasty
+import Test.Tasty.HUnit hiding (assert)
 
-import qualified Data.Array.Mixed.Shape as X
-import qualified Data.Array.Nested as Nested
-import qualified Data.Array.Nested.Internal.Shape as Nested.Internal.Shape
-import qualified Data.Array.Nested.Internal.Shaped as Nested.Internal
+import Data.Array.Mixed.Shape qualified as X
+import Data.Array.Nested qualified as Nested
+import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
+import Data.Array.Nested.Internal.Shaped qualified as Nested.Internal
 
-import           HordeAd
-import           HordeAd.Core.AstFreshId (funToAstR, resetVarCounter)
-import           HordeAd.Internal.BackendOX (ORArray, OSArray)
-import           HordeAd.Internal.OrthotopeOrphanInstances
+import HordeAd
+import HordeAd.Core.AstFreshId (funToAstR, resetVarCounter)
+import HordeAd.Internal.BackendOX (ORArray, OSArray)
+import HordeAd.Internal.OrthotopeOrphanInstances
   (FlipR (..), IntegralF (..), RealFloatF (..))
-import qualified HordeAd.Util.ShapedList as ShapedList
+import HordeAd.Util.ShapedList qualified as ShapedList
 
 import CrossTesting
 import EqEpsilon
