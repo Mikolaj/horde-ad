@@ -75,7 +75,7 @@ flag test_seq
 
 common options
   default-language:   GHC2021
-  default-extensions: StrictData, GADTs, TypeFamilies,
+  default-extensions: StrictData, ImportQualifiedPost, GADTs, TypeFamilies,
                       TypeFamilyDependencies, FunctionalDependencies,
                       RecordWildCards, MultiWayIf, LambdaCase,
                       DefaultSignatures, PatternSynonyms, NoStarIsType,

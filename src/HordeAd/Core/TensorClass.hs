@@ -21,41 +21,40 @@ module HordeAd.Core.TensorClass
 
 import Prelude
 
-import           Data.Array.Internal (valueOf)
-import qualified Data.Array.RankedS as OR
-import qualified Data.Array.Shape as Sh
-import qualified Data.Array.ShapedS as OS
-import           Data.Kind (Constraint, Type)
-import           Data.List.NonEmpty (NonEmpty)
-import qualified Data.List.NonEmpty as NonEmpty
-import           Data.Proxy (Proxy (Proxy))
-import qualified Data.Strict.Vector as Data.Vector
-import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
-import qualified Data.Vector.Generic as V
-import           GHC.Exts (IsList (..))
-import           GHC.TypeLits
+import Data.Array.Internal (valueOf)
+import Data.Array.RankedS qualified as OR
+import Data.Array.Shape qualified as Sh
+import Data.Array.ShapedS qualified as OS
+import Data.Kind (Constraint, Type)
+import Data.List.NonEmpty (NonEmpty)
+import Data.List.NonEmpty qualified as NonEmpty
+import Data.Proxy (Proxy (Proxy))
+import Data.Strict.Vector qualified as Data.Vector
+import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
+import Data.Vector.Generic qualified as V
+import GHC.Exts (IsList (..))
+import GHC.TypeLits
   (KnownNat, OrderingI (..), cmpNat, sameNat, type (+), type (-), type (<=))
-import           Numeric.LinearAlgebra (Vector)
-import           Type.Reflection (typeRep)
-import           Unsafe.Coerce (unsafeCoerce)
+import Numeric.LinearAlgebra (Vector)
+import Type.Reflection (typeRep)
+import Unsafe.Coerce (unsafeCoerce)
 
-import qualified Data.Array.Mixed.Internal.Arith as Nested.Internal.Arith
-import qualified Data.Array.Mixed.Permutation as Permutation
-import qualified Data.Array.Mixed.Shape as X
-import qualified Data.Array.Mixed.Types as X
-import qualified Data.Array.Nested as Nested
-import qualified Data.Array.Nested.Internal.Ranked as Nested.Internal
-import qualified Data.Array.Nested.Internal.Shape as Nested.Internal.Shape
-import qualified Data.Array.Nested.Internal.Shaped as Nested.Internal
+import Data.Array.Mixed.Internal.Arith qualified as Nested.Internal.Arith
+import Data.Array.Mixed.Permutation qualified as Permutation
+import Data.Array.Mixed.Shape qualified as X
+import Data.Array.Mixed.Types qualified as X
+import Data.Array.Nested qualified as Nested
+import Data.Array.Nested.Internal.Ranked qualified as Nested.Internal
+import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
+import Data.Array.Nested.Internal.Shaped qualified as Nested.Internal
 
-import           HordeAd.Core.HVector
-import           HordeAd.Core.Types
-import           HordeAd.Internal.OrthotopeOrphanInstances
+import HordeAd.Core.HVector
+import HordeAd.Core.Types
+import HordeAd.Internal.OrthotopeOrphanInstances
   (IntegralF (..), RealFloatF (..))
-import           HordeAd.Util.ShapedList
-  (IndexSh, ShapeS, pattern (:.$), pattern ZIS)
-import qualified HordeAd.Util.ShapedList as ShapedList
-import           HordeAd.Util.SizedList
+import HordeAd.Util.ShapedList (IndexSh, ShapeS, pattern (:.$), pattern ZIS)
+import HordeAd.Util.ShapedList qualified as ShapedList
+import HordeAd.Util.SizedList
 
 -- * Ranked tensor class definition
 
