@@ -6,12 +6,11 @@ module MnistCnnRanked2 where
 
 import Prelude
 
-import qualified Data.Array.RankedS as OR
-import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (type (*), type (+), type Div)
-import           Numeric.LinearAlgebra (Vector)
+import Data.Vector.Generic qualified as V
+import GHC.TypeLits (type (*), type (+), type Div)
+import Numeric.LinearAlgebra (Vector)
 
-import qualified Data.Array.Nested as Nested
+import Data.Array.Nested qualified as Nested
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.HVector

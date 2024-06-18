@@ -17,25 +17,23 @@ module HordeAd.Core.AstPrettyPrint
 
 import Prelude
 
-import           Data.Array.Internal (valueOf)
-import qualified Data.Array.RankedS as OR
-import qualified Data.Array.ShapedS as OS
-import           Data.IntMap.Strict (IntMap)
-import qualified Data.IntMap.Strict as IM
-import           Data.List (intersperse)
-import           Data.Proxy (Proxy (Proxy))
-import           Data.Type.Equality ((:~:) (Refl))
-import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, Nat, sameNat)
-import           Type.Reflection (typeRep)
+import Data.Array.Internal (valueOf)
+import Data.IntMap.Strict (IntMap)
+import Data.IntMap.Strict qualified as IM
+import Data.List (intersperse)
+import Data.Proxy (Proxy (Proxy))
+import Data.Type.Equality ((:~:) (Refl))
+import Data.Vector.Generic qualified as V
+import GHC.TypeLits (KnownNat, Nat, sameNat)
+import Type.Reflection (typeRep)
 
-import qualified Data.Array.Nested as Nested
+import Data.Array.Nested qualified as Nested
 
-import           HordeAd.Core.Ast
-import           HordeAd.Core.HVector
-import           HordeAd.Core.Types
-import qualified HordeAd.Util.ShapedList as ShapedList
-import           HordeAd.Util.SizedList
+import HordeAd.Core.Ast
+import HordeAd.Core.HVector
+import HordeAd.Core.Types
+import HordeAd.Util.ShapedList qualified as ShapedList
+import HordeAd.Util.SizedList
 
 -- * Pretty-printing setup and checks
 

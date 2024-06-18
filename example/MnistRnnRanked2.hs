@@ -5,24 +5,23 @@ module MnistRnnRanked2 where
 
 import Prelude hiding (foldl')
 
-import           Data.Kind (Type)
-import           Data.List (foldl')
-import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, Nat, type (+))
-import           Numeric.LinearAlgebra (Vector)
+import Data.Kind (Type)
+import Data.List (foldl')
+import Data.Vector.Generic qualified as V
+import GHC.TypeLits (KnownNat, Nat, type (+))
+import Numeric.LinearAlgebra (Vector)
 
-import qualified Data.Array.Nested as Nested
+import Data.Array.Nested qualified as Nested
 
-import qualified Data.Array.RankedS as OR
-import           HordeAd.Core.Adaptor
-import           HordeAd.Core.HVector
-import           HordeAd.Core.TensorClass
-import           HordeAd.Core.Types
-import           HordeAd.External.CommonRankedOps
-import           HordeAd.Internal.BackendOX (ORArray)
-import           HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..))
-import           HordeAd.Util.SizedList
-import           MnistData
+import HordeAd.Core.Adaptor
+import HordeAd.Core.HVector
+import HordeAd.Core.TensorClass
+import HordeAd.Core.Types
+import HordeAd.External.CommonRankedOps
+import HordeAd.Internal.BackendOX (ORArray)
+import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..))
+import HordeAd.Util.SizedList
+import MnistData
 
 -- | The differentiable type of all trainable parameters of this nn.
 -- Shaped version, statically checking all dimension widths.

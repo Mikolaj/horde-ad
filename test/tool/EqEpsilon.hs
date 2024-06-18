@@ -10,18 +10,15 @@ module EqEpsilon
 
 import Prelude
 
-import qualified Data.Array.RankedS as OR
-import qualified Data.Array.ShapedS as OS
-import           Data.Int (Int64)
-import           Data.IORef
-import qualified Data.Vector.Storable as VS
-import           Foreign.C (CInt)
-import           System.IO.Unsafe
-import           Test.Tasty.HUnit
-import           Test.Tasty.Options
+import Data.Array.RankedS qualified as OR
+import Data.Int (Int64)
+import Data.IORef
+import Data.Vector.Storable qualified as VS
+import Foreign.C (CInt)
+import System.IO.Unsafe
+import Test.Tasty.HUnit
+import Test.Tasty.Options
 
-import HordeAd.Core.Types
-import HordeAd.Internal.OrthotopeOrphanInstances (FlipS (..))
 import Shared
 
 newtype EqEpsilon = EqEpsilon Rational

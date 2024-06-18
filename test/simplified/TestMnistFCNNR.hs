@@ -6,23 +6,22 @@ module TestMnistFCNNR
 
 import Prelude
 
-import           Control.Monad (foldM, unless)
-import qualified Data.Array.RankedS as OR
-import qualified Data.Array.ShapedS as OS
-import qualified Data.EnumMap.Strict as EM
-import qualified Data.IntMap.Strict as IM
-import           Data.List.Index (imap)
-import qualified Data.Vector.Generic as V
-import           GHC.Exts (IsList (..))
-import           GHC.TypeLits (SomeNat (..), someNatVal)
-import qualified Numeric.LinearAlgebra as LA
-import           System.IO (hPutStrLn, stderr)
-import           System.Random
-import           Test.Tasty
-import           Test.Tasty.HUnit hiding (assert)
-import           Text.Printf
+import Control.Monad (foldM, unless)
+import Data.Array.RankedS qualified as OR
+import Data.EnumMap.Strict qualified as EM
+import Data.IntMap.Strict qualified as IM
+import Data.List.Index (imap)
+import Data.Vector.Generic qualified as V
+import GHC.Exts (IsList (..))
+import GHC.TypeLits (SomeNat (..), someNatVal)
+import Numeric.LinearAlgebra qualified as LA
+import System.IO (hPutStrLn, stderr)
+import System.Random
+import Test.Tasty
+import Test.Tasty.HUnit hiding (assert)
+import Text.Printf
 
-import qualified Data.Array.Nested as Nested
+import Data.Array.Nested qualified as Nested
 
 import HordeAd
 import HordeAd.Core.Adaptor
@@ -31,13 +30,13 @@ import HordeAd.Core.AstFreshId
 import HordeAd.Core.TensorAst
 import HordeAd.External.OptimizerTools
 import HordeAd.Internal.BackendOX (ORArray, OSArray)
-import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..), FlipS (..))
+import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..))
 
 import EqEpsilon
 
-import           MnistData
-import qualified MnistFcnnRanked1
-import qualified MnistFcnnRanked2
+import MnistData
+import MnistFcnnRanked1 qualified
+import MnistFcnnRanked2 qualified
 
 testTrees :: [TestTree]
 testTrees = [ tensorADValMnistTests

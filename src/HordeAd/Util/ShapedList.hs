@@ -35,23 +35,23 @@ module HordeAd.Util.ShapedList
 
 import Prelude
 
-import           Data.Array.Internal (valueOf)
-import qualified Data.Array.Shape as Sh
-import qualified Data.Foldable as Foldable
-import           Data.Functor.Const
-import           GHC.Exts (IsList (..))
-import           GHC.TypeLits (KnownNat, Nat, type (*))
+import Data.Array.Internal (valueOf)
+import Data.Array.Shape qualified as Sh
+import Data.Foldable qualified as Foldable
+import Data.Functor.Const
+import GHC.Exts (IsList (..))
+import GHC.TypeLits (KnownNat, Nat)
 
-import qualified Data.Array.Mixed.Permutation as Permutation
-import qualified Data.Array.Mixed.Shape as X
-import qualified Data.Array.Mixed.Types as X
-import           Data.Array.Nested
+import Data.Array.Mixed.Permutation qualified as Permutation
+import Data.Array.Mixed.Shape qualified as X
+import Data.Array.Mixed.Types qualified as X
+import Data.Array.Nested
   (IxS (..), ListS, pattern (:.$), pattern (::$), pattern ZIS, pattern ZS)
-import           Data.Array.Nested.Internal.Shape (listsToList, shsToList)
+import Data.Array.Nested.Internal.Shape (listsToList, shsToList)
 
-import           HordeAd.Core.Types
-import           HordeAd.Internal.OrthotopeOrphanInstances (IntegralF (..))
-import qualified HordeAd.Util.SizedList as SizedList
+import HordeAd.Core.Types
+import HordeAd.Internal.OrthotopeOrphanInstances (IntegralF (..))
+import HordeAd.Util.SizedList qualified as SizedList
 
 -- * Shaped lists and their permutations
 

@@ -20,16 +20,14 @@ module HordeAd.Core.AstTools
 
 import Prelude hiding (foldl')
 
-import qualified Data.Array.RankedS as OR
-import qualified Data.Array.ShapedS as OS
-import           Data.List (foldl')
-import           Data.Proxy (Proxy (Proxy))
-import           Data.Type.Equality ((:~:) (Refl))
-import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, sameNat, type (+))
+import Data.List (foldl')
+import Data.Proxy (Proxy (Proxy))
+import Data.Type.Equality ((:~:) (Refl))
+import Data.Vector.Generic qualified as V
+import GHC.TypeLits (KnownNat, sameNat, type (+))
 
-import qualified Data.Array.Nested as Nested
-import qualified Data.Array.Nested.Internal.Shape as Nested.Internal.Shape
+import Data.Array.Nested qualified as Nested
+import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
 import HordeAd.Core.Ast
 import HordeAd.Core.HVector

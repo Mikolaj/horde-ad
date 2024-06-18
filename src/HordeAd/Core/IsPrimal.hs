@@ -21,20 +21,17 @@ module HordeAd.Core.IsPrimal
 
 import Prelude
 
-import qualified Data.Array.RankedS as OR
-import           Data.IORef.Unboxed
-  (Counter, atomicAddCounter_, newCounter, writeIORefU)
-import           Data.Kind (Constraint, Type)
-import           GHC.TypeLits (KnownNat, Nat)
-import           System.IO.Unsafe (unsafePerformIO)
+import Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter, writeIORefU)
+import Data.Kind (Constraint, Type)
+import GHC.TypeLits (KnownNat, Nat)
+import System.IO.Unsafe (unsafePerformIO)
 
-import qualified Data.Array.Nested as Nested
+import Data.Array.Nested qualified as Nested
 
 import HordeAd.Core.Delta
 import HordeAd.Core.HVector
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
-import HordeAd.Util.SizedList
 
 -- | The type family that to each dfferentiable type assigns
 -- its delta expression type. The dispatch is on the type parameter @ty@,

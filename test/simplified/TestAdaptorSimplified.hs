@@ -7,23 +7,21 @@ module TestAdaptorSimplified
 
 import Prelude
 
-import qualified Data.Array.RankedS as OR
-import qualified Data.Array.ShapedS as OS
-import qualified Data.EnumMap.Strict as EM
-import           Data.Int (Int64)
-import qualified Data.IntMap.Strict as IM
-import           Data.List (foldl1')
-import qualified Data.List.NonEmpty as NonEmpty
-import           Foreign.C (CInt)
-import           GHC.Exts (IsList (..))
-import           GHC.TypeLits (KnownNat)
-import           Test.Tasty
-import           Test.Tasty.HUnit hiding (assert)
+import Data.Array.RankedS qualified as OR
+import Data.EnumMap.Strict qualified as EM
+import Data.Int (Int64)
+import Data.IntMap.Strict qualified as IM
+import Data.List (foldl1')
+import Data.List.NonEmpty qualified as NonEmpty
+import Foreign.C (CInt)
+import GHC.Exts (IsList (..))
+import GHC.TypeLits (KnownNat)
+import Test.Tasty
+import Test.Tasty.HUnit hiding (assert)
 
-import qualified Data.Array.Mixed.Shape as X
-import qualified Data.Array.Nested as Nested
-import qualified Data.Array.Nested.Internal.Ranked as Nested.Internal
-import qualified Data.Array.Nested.Internal.Shaped as Nested.Internal
+import Data.Array.Mixed.Shape qualified as X
+import Data.Array.Nested.Internal.Ranked qualified as Nested.Internal
+import Data.Array.Nested.Internal.Shaped qualified as Nested.Internal
 
 import HordeAd
 import HordeAd.Core.AstEnv
@@ -31,7 +29,7 @@ import HordeAd.Core.AstFreshId (funToAstR, funToAstS, resetVarCounter)
 import HordeAd.Core.IsPrimal (resetIdCounter)
 import HordeAd.Internal.BackendOX (ORArray, OSArray)
 import HordeAd.Internal.OrthotopeOrphanInstances
-  (FlipR (..), FlipS (..), IntegralF (..), RealFloatF (..))
+  (FlipR (..), IntegralF (..), RealFloatF (..))
 
 import CrossTesting
 import EqEpsilon
@@ -1860,9 +1858,9 @@ testConcatBuild12 =
     0
     (rev' @Double @0 concatBuild12 3.4)
 
-emptyArgs :: forall ranked r. (ADReady ranked, GoodScalar r, Differentiable r)
+emptyArgs :: forall ranked r. (ADReady ranked, GoodScalar r) -- , Differentiable r)
           => ranked r 1 -> ranked r 1
-emptyArgs t =
+emptyArgs _t =
   emptyTensor
 --  - rfromList0N (rshape @ranked @r emptyTensor) []
   - rreshape @ranked @r @1 [0] emptyTensor

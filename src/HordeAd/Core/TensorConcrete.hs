@@ -8,26 +8,19 @@ module HordeAd.Core.TensorConcrete
 
 import Prelude hiding (foldl')
 
-import qualified Data.Array.Convert
-import           Data.Array.Internal (valueOf)
-import qualified Data.Array.RankedS as OR
-import qualified Data.Array.Shape as Sh
-import qualified Data.Array.ShapedS as OS
-import           Data.Function ((&))
-import           Data.List (foldl', mapAccumL, mapAccumR, scanl')
-import qualified Data.List.NonEmpty as NonEmpty
-import           Data.Proxy (Proxy (Proxy))
-import           Data.Type.Equality (gcastWith, (:~:) (Refl))
-import qualified Data.Vector.Generic as V
-import qualified GHC.IsList as IsList
-import           GHC.TypeLits (KnownNat)
-import           Numeric.LinearAlgebra (Numeric, Vector)
-import           System.Random
-import           Unsafe.Coerce (unsafeCoerce)
+import Data.Array.Internal (valueOf)
+import Data.Array.RankedS qualified as OR
+import Data.Array.ShapedS qualified as OS
+import Data.Function ((&))
+import Data.List (foldl', mapAccumL, mapAccumR, scanl')
+import Data.List.NonEmpty qualified as NonEmpty
+import Data.Proxy (Proxy (Proxy))
+import Data.Vector.Generic qualified as V
+import GHC.TypeLits (KnownNat)
+import System.Random
 
-import qualified Data.Array.Mixed.Shape as X
-import qualified Data.Array.Nested as Nested
-import qualified Data.Array.Nested.Internal.Shape as Nested.Internal.Shape
+import Data.Array.Mixed.Shape qualified as X
+import Data.Array.Nested qualified as Nested
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.Delta
@@ -121,8 +114,6 @@ instance RankedTensor ORArray where
   rconst = FlipR
   rletHVectorIn = (&)
   rletHFunIn = (&)
-  rfromS :: forall r sh. (GoodScalar r, KnownShS sh)
-         => OSArray r sh -> ORArray r (X.Rank sh)
   rfromS = FlipR . Nested.stoRanked . runFlipS
 
   rscaleByScalar s v =
@@ -348,12 +339,12 @@ instance (GoodScalar r, KnownShS sh)
   toHVector = V.singleton . DynamicShaped
   fromHVector _aInit = fromHVectorS
 
-instance (GoodScalar r, KnownShS sh)
+instance GoodScalar r
          => ForgetShape (OSArray r sh) where
   type NoShape (OSArray r sh) = ORArray r (X.Rank sh)  -- key case
   forgetShape = FlipR . Nested.stoRanked . runFlipS
 
-instance (KnownShS sh, GoodScalar r, Fractional r, Random r, Num (Vector r))
+instance (KnownShS sh, GoodScalar r, Fractional r, Random r)
          => RandomHVector (OSArray r sh) where
   randomVals :: forall g. RandomGen g => Double -> g -> (OSArray r sh, g)
   randomVals range g =

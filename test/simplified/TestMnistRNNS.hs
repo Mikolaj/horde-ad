@@ -6,21 +6,20 @@ module TestMnistRNNS
 
 import Prelude
 
-import           Control.Exception.Assert.Sugar
-import           Control.Monad (foldM, unless)
-import qualified Data.Array.Convert
-import qualified Data.Array.RankedS as OR
-import qualified Data.Array.ShapedS as OS
-import qualified Data.EnumMap.Strict as EM
-import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat)
-import           System.IO (hPutStrLn, stderr)
-import           System.Random
-import           Test.Tasty
-import           Test.Tasty.HUnit hiding (assert)
-import           Text.Printf
+import Control.Exception.Assert.Sugar
+import Control.Monad (foldM, unless)
+import Data.Array.Convert qualified
+import Data.Array.RankedS qualified as OR
+import Data.EnumMap.Strict qualified as EM
+import Data.Vector.Generic qualified as V
+import GHC.TypeLits (KnownNat)
+import System.IO (hPutStrLn, stderr)
+import System.Random
+import Test.Tasty
+import Test.Tasty.HUnit hiding (assert)
+import Text.Printf
 
-import qualified Data.Array.Nested as Nested
+import Data.Array.Nested qualified as Nested
 
 import HordeAd
 import HordeAd.Core.Adaptor
@@ -29,12 +28,11 @@ import HordeAd.Core.AstFreshId
 import HordeAd.Core.TensorAst
 import HordeAd.External.OptimizerTools
 import HordeAd.Internal.BackendOX (ORArray, OSArray)
-import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..), FlipS (..))
 
 import EqEpsilon
 
-import           MnistData
-import qualified MnistRnnShaped2
+import MnistData
+import MnistRnnShaped2 qualified
 
 tshapeR
   :: KnownNat n

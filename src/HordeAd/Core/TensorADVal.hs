@@ -15,43 +15,39 @@ module HordeAd.Core.TensorADVal
 
 import Prelude hiding (foldl')
 
-import           Control.Exception.Assert.Sugar
-import           Data.Array.Internal (valueOf)
-import qualified Data.Array.RankedS as OR
-import qualified Data.Array.Shape as Sh
-import qualified Data.Array.ShapedS as OS
-import           Data.Function ((&))
-import           Data.List (foldl')
-import           Data.List.Index (imap)
-import qualified Data.List.NonEmpty as NonEmpty
-import           Data.Proxy (Proxy (Proxy))
-import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
-import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, sameNat, type (+), type (<=))
-import           Type.Reflection (typeRep)
-import           Unsafe.Coerce (unsafeCoerce)
+import Control.Exception.Assert.Sugar
+import Data.Array.Internal (valueOf)
+import Data.Array.RankedS qualified as OR
+import Data.Function ((&))
+import Data.List (foldl')
+import Data.List.Index (imap)
+import Data.List.NonEmpty qualified as NonEmpty
+import Data.Proxy (Proxy (Proxy))
+import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
+import Data.Vector.Generic qualified as V
+import GHC.TypeLits (KnownNat, sameNat, type (+), type (<=))
+import Type.Reflection (typeRep)
+import Unsafe.Coerce (unsafeCoerce)
 
-import qualified Data.Array.Mixed.Permutation as Permutation
-import qualified Data.Array.Mixed.Shape as X
-import qualified Data.Array.Nested as Nested
-import qualified Data.Array.Nested.Internal.Ranked as Nested.Internal
-import qualified Data.Array.Nested.Internal.Shape as Nested.Internal.Shape
-import qualified Data.Array.Nested.Internal.Shaped as Nested.Internal
+import Data.Array.Mixed.Permutation qualified as Permutation
+import Data.Array.Mixed.Shape qualified as X
+import Data.Array.Nested.Internal.Ranked qualified as Nested.Internal
+import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
+import Data.Array.Nested.Internal.Shaped qualified as Nested.Internal
 
-import           HordeAd.Core.Adaptor
-import           HordeAd.Core.Ast
-import           HordeAd.Core.Delta
-import           HordeAd.Core.DualNumber
-import           HordeAd.Core.HVector
-import           HordeAd.Core.HVectorOps
-import           HordeAd.Core.IsPrimal
-import           HordeAd.Core.TensorClass
-import           HordeAd.Core.Types
-import           HordeAd.Internal.BackendOX (ORArray, OSArray)
-import           HordeAd.Internal.OrthotopeOrphanInstances
-  (FlipR (..), FlipS (..))
-import qualified HordeAd.Util.ShapedList as ShapedList
-import           HordeAd.Util.SizedList
+import HordeAd.Core.Adaptor
+import HordeAd.Core.Ast
+import HordeAd.Core.Delta
+import HordeAd.Core.DualNumber
+import HordeAd.Core.HVector
+import HordeAd.Core.HVectorOps
+import HordeAd.Core.IsPrimal
+import HordeAd.Core.TensorClass
+import HordeAd.Core.Types
+import HordeAd.Internal.BackendOX (ORArray, OSArray)
+import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..), FlipS (..))
+import HordeAd.Util.ShapedList qualified as ShapedList
+import HordeAd.Util.SizedList
 
 -- * Non-symbolic reverse and forward derivative computation
 

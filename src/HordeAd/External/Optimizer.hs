@@ -7,9 +7,8 @@ module HordeAd.External.Optimizer
 
 import Prelude
 
-import qualified Data.Array.RankedS as OR
-import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat)
+import Data.Vector.Generic qualified as V
+import GHC.TypeLits (KnownNat)
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.DualNumber
@@ -20,7 +19,6 @@ import HordeAd.Core.TensorConcrete ()
 import HordeAd.Core.Types
 import HordeAd.External.OptimizerTools
 import HordeAd.Internal.BackendOX (ORArray)
-import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..))
 
 -- These functions have their SPECIALIZE pragmas in MnistData.
 

@@ -14,20 +14,19 @@ module TestMnistRNNR
 
 import Prelude
 
-import           Control.Monad (foldM, unless)
-import qualified Data.Array.RankedS as OR
-import qualified Data.Array.ShapedS as OS
-import qualified Data.EnumMap.Strict as EM
-import qualified Data.IntMap.Strict as IM
-import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (SomeNat (..), someNatVal)
-import           System.IO (hPutStrLn, stderr)
-import           System.Random
-import           Test.Tasty
-import           Test.Tasty.HUnit hiding (assert)
-import           Text.Printf
+import Control.Monad (foldM, unless)
+import Data.Array.RankedS qualified as OR
+import Data.EnumMap.Strict qualified as EM
+import Data.IntMap.Strict qualified as IM
+import Data.Vector.Generic qualified as V
+import GHC.TypeLits (SomeNat (..), someNatVal)
+import System.IO (hPutStrLn, stderr)
+import System.Random
+import Test.Tasty
+import Test.Tasty.HUnit hiding (assert)
+import Text.Printf
 
-import qualified Data.Array.Nested as Nested
+import Data.Array.Nested qualified as Nested
 
 import HordeAd
 import HordeAd.Core.Adaptor
@@ -36,12 +35,12 @@ import HordeAd.Core.AstFreshId
 import HordeAd.Core.TensorAst
 import HordeAd.External.OptimizerTools
 import HordeAd.Internal.BackendOX (ORArray, OSArray)
-import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..), FlipS (..))
+import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..))
 
 import EqEpsilon
 
-import           MnistData
-import qualified MnistRnnRanked2
+import MnistData
+import MnistRnnRanked2 qualified
 
 testTrees :: [TestTree]
 testTrees = [ tensorADValMnistTestsRNNA

@@ -20,26 +20,23 @@ module HordeAd.Core.AstInterpret
 
 import Prelude
 
-import           Control.Exception.Assert.Sugar
-import           Data.Array.Internal (valueOf)
-import qualified Data.Array.RankedS as OR
-import qualified Data.Array.Shape as Sh
-import qualified Data.Array.ShapedS as OS
-import qualified Data.EnumMap.Strict as EM
-import           Data.Int (Int64)
-import           Data.Proxy (Proxy (Proxy))
-import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
-import qualified Data.Vector.Generic as V
-import           Foreign.C (CInt)
-import           GHC.TypeLits (KnownNat, sameNat)
-import           Type.Reflection (Typeable, typeRep)
-import           Unsafe.Coerce (unsafeCoerce)
+import Control.Exception.Assert.Sugar
+import Data.Array.Internal (valueOf)
+import Data.Array.Shape qualified as Sh
+import Data.EnumMap.Strict qualified as EM
+import Data.Int (Int64)
+import Data.Proxy (Proxy (Proxy))
+import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
+import Data.Vector.Generic qualified as V
+import Foreign.C (CInt)
+import GHC.TypeLits (KnownNat, sameNat)
+import Type.Reflection (Typeable, typeRep)
+import Unsafe.Coerce (unsafeCoerce)
 
-import qualified Data.Array.Mixed.Shape as X
-import qualified Data.Array.Mixed.Types as X
-import qualified Data.Array.Nested as Nested
-import qualified Data.Array.Nested.Internal.Ranked as Nested.Internal
-import qualified Data.Array.Nested.Internal.Shaped as Nested.Internal
+import Data.Array.Mixed.Shape qualified as X
+import Data.Array.Nested qualified as Nested
+import Data.Array.Nested.Internal.Ranked qualified as Nested.Internal
+import Data.Array.Nested.Internal.Shaped qualified as Nested.Internal
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstEnv

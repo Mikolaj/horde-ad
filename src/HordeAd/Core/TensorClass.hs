@@ -22,9 +22,7 @@ module HordeAd.Core.TensorClass
 import Prelude
 
 import Data.Array.Internal (valueOf)
-import Data.Array.RankedS qualified as OR
 import Data.Array.Shape qualified as Sh
-import Data.Array.ShapedS qualified as OS
 import Data.Kind (Constraint, Type)
 import Data.List.NonEmpty (NonEmpty)
 import Data.List.NonEmpty qualified as NonEmpty
@@ -35,7 +33,6 @@ import Data.Vector.Generic qualified as V
 import GHC.Exts (IsList (..))
 import GHC.TypeLits
   (KnownNat, OrderingI (..), cmpNat, sameNat, type (+), type (-), type (<=))
-import Numeric.LinearAlgebra (Vector)
 import Type.Reflection (typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
