@@ -19,6 +19,7 @@ import Data.List.Index (imap)
 import Data.List.NonEmpty (NonEmpty)
 import Data.List.NonEmpty qualified as NonEmpty
 import Data.Map.Strict qualified as M
+import Data.Proxy (Proxy (Proxy))
 import Data.Strict.Vector qualified as Data.Vector
 import Data.Type.Equality (gcastWith, (:~:) (Refl))
 import Data.Type.Ord (Compare)
@@ -189,15 +190,8 @@ tdot0R t u = OR.toVector t LA.<.> OR.toVector u
 
 tdot1InR
   :: NumAndShow r
-  => Nested.Ranked 2 r -> Nested.Ranked 2 r -> Nested.Ranked 1 r
-tdot1InR t u = -- TODO: t@(RS.A (RG.A _ (OI.T _ _ vt))) u@(RS.A (RG.A _ (OI.T _ _ vu))) =
---  if V.length vt == 1 || V.length vu == 1
---  then tsumInR (t * u)
---  else
-       let lt = tunravelToListR t
-           lu = tunravelToListR u
-           l = zipWith Nested.rdot1 lt lu
-       in Nested.rfromList1 $ NonEmpty.fromList l
+  => Nested.Ranked (n + 1) r -> Nested.Ranked (n + 1) r -> Nested.Ranked n r
+tdot1InR = Nested.rdot1Inner
 
 tunravelToListR :: NumAndShow r => Nested.Ranked (1 + n) r -> [Nested.Ranked n r]
 tunravelToListR = Nested.rtoListOuter
@@ -554,18 +548,11 @@ tdot0S
   => Nested.Shaped sh r -> Nested.Shaped sh r -> r
 tdot0S = Nested.sdot
 
--- TODO: sdot1In :: shaped r (sh ++ [n]) -> shaped r (sh ++ [n]) -> shaped r sh
 tdot1InS
-  :: (NumAndShow r, KnownNat m)
-  => Nested.Shaped '[m, n] r -> Nested.Shaped '[m, n] r -> Nested.Shaped '[m] r
-tdot1InS t u = -- TODO: t@(SS.A (SG.A (OI.T _ _ vt))) u@(SS.A (SG.A (OI.T _ _ vu))) =
---  if V.length vt == 1 || V.length vu == Nested.sreplicateScal knownShS 1
---  then tsumInS (t * u)
---  else
-    let lt = tunravelToListS t
-        lu = tunravelToListS u
-        l = zipWith Nested.sdot1 lt lu
-    in Nested.sfromList1 SNat $ NonEmpty.fromList l
+  :: NumAndShow r
+  => Proxy n -> Nested.Shaped (sh X.++ '[n]) r -> Nested.Shaped (sh X.++ '[n]) r
+  -> Nested.Shaped sh r
+tdot1InS = Nested.sdot1Inner
 
 tunravelToListS :: forall r n sh. NumAndShow r
                 => Nested.Shaped (n ': sh) r -> [Nested.Shaped sh r]

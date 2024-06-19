@@ -201,7 +201,7 @@ instance ShapedTensor OSArray where
 
   sscaleByScalar s v =
     FlipS $ tscaleByScalarS (tunScalarS $ runFlipS s) (runFlipS v)
-  sdot1In u v = FlipS $ tdot1InS (runFlipS u) (runFlipS v)
+  sdot1In proxy u v = FlipS $ tdot1InS proxy (runFlipS u) (runFlipS v)
 
   sconstant = id
   sprimalPart = id
