@@ -320,7 +320,10 @@ class ( Num (IntOf ranked), IntegralF (IntOf ranked), CRanked ranked Num
   rscaleByScalar :: (GoodScalar r, KnownNat n)
                  => ranked r 0 -> ranked r n -> ranked r n
   rscaleByScalar s v = v * rreplicate0N (rshape v) s
-  rdot1In :: GoodScalar r => ranked r (n + 1) -> ranked r (n + 1) -> ranked r n
+  rdot1In :: GoodScalar r
+          => ranked r 2 -> ranked r 2
+          -> ranked r 1  -- TODO: generalize
+  rdot1In t u = rsum $ rtr (t * u)
   rshare :: (GoodScalar r, KnownNat n) => ranked r n -> ranked r n
   rshare = id
 
@@ -688,9 +691,11 @@ class ( Num (IntOf shaped), IntegralF (IntOf shaped), CShaped shaped Num
     :: (GoodScalar r, KnownShS sh, KnownNat (Nested.Internal.Shape.Product sh))
     => shaped r '[] -> shaped r sh -> shaped r sh
   sscaleByScalar s v = v * sreplicate0N s
-  sdot1In :: (GoodScalar r, KnownNat n)
-          => Proxy n -> shaped r (sh X.++ '[n]) -> shaped r (sh X.++ '[n])
-          -> shaped r sh
+  sdot1In :: (GoodScalar r, KnownNat n, KnownNat m)
+          => Proxy m
+          -> shaped r '[n, m] -> shaped r '[n, m]
+          -> shaped r '[n]  -- TODO: generalize
+  sdot1In _ t u = ssum $ str (t * u)
   sshare :: (GoodScalar r, KnownShS sh) => shaped r sh -> shaped r sh
   sshare = id
 
