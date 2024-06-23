@@ -9,13 +9,13 @@ module HordeAd.External.OptimizerTools
 
 import Prelude
 
-import           Data.Proxy (Proxy (Proxy))
-import           Data.Type.Equality (testEquality, (:~:) (Refl))
-import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (sameNat)
-import           Type.Reflection (typeRep)
+import Data.Proxy (Proxy (Proxy))
+import Data.Type.Equality (testEquality, (:~:) (Refl))
+import Data.Vector.Generic qualified as V
+import GHC.TypeLits (sameNat)
+import Type.Reflection (typeRep)
 
-import qualified Data.Array.Nested as Nested
+import Data.Array.Nested qualified as Nested
 
 import HordeAd.Core.HVector
 import HordeAd.Core.HVectorOps
@@ -119,8 +119,8 @@ updateWithGradientAdam ArgsAdam{..} StateAdam{tAdam, mAdam, vAdam}
       tAdamNew = tAdam + 1
       oneMinusBeta1 = 1 - betaOne
       oneMinusBeta2 = 1 - betaTwo
-      updateR :: ( Fractional r, Nested.Elt r, Nested.NumElt r
-                 , Nested.FloatElt r, Nested.PrimElt r )
+      updateR :: ( Fractional r
+                 , Nested.NumElt r, Nested.FloatElt r, Nested.PrimElt r )
               => Nested.Ranked n r -> Nested.Ranked n r
               -> Nested.Ranked n r -> Nested.Ranked n r
               -> (Nested.Ranked n r, Nested.Ranked n r, Nested.Ranked n r)

@@ -19,7 +19,7 @@ import Data.List.Index (imap)
 import Data.List.NonEmpty (NonEmpty)
 import Data.List.NonEmpty qualified as NonEmpty
 import Data.Map.Strict qualified as M
-import Data.Proxy (Proxy (Proxy))
+import Data.Proxy (Proxy)
 import Data.Strict.Vector qualified as Data.Vector
 import Data.Type.Equality (gcastWith, (:~:) (Refl))
 import Data.Type.Ord (Compare)
@@ -332,7 +332,7 @@ tbuild1R k f =
   $ NonEmpty.fromList [0 .. fromIntegral k - 1]  -- hope this fuses
 
 tmap0NR
-  :: (Nested.Elt r1, Nested.Elt r, Nested.PrimElt r1, Nested.PrimElt r)
+  :: (Nested.PrimElt r1, Nested.PrimElt r)
   => (Nested.Ranked 0 r1 -> Nested.Ranked 0 r) -> Nested.Ranked n r1 -> Nested.Ranked n r
 tmap0NR f =
   Nested.Internal.arithPromoteRanked
@@ -341,7 +341,7 @@ tmap0NR f =
           -- too slow: tbuildNR (tshapeR v) (\ix -> f $ v `tindexNR` ix)
 
 tzipWith0NR
-  :: (Nested.Elt r, Nested.Elt r1, Nested.Elt r2, Nested.PrimElt r, Nested.PrimElt r1, Nested.PrimElt r2)
+  :: (Nested.PrimElt r, Nested.PrimElt r1, Nested.PrimElt r2)
   => (Nested.Ranked 0 r1 -> Nested.Ranked 0 r2 -> Nested.Ranked 0 r)
   -> Nested.Ranked n r1 -> Nested.Ranked n r2 -> Nested.Ranked n r
 tzipWith0NR f =
@@ -696,7 +696,7 @@ tbuild1S f =
      $ NonEmpty.fromList [0 .. k - 1]  -- hope this fuses
 
 tmap0NS
-  :: forall r1 r sh. (Nested.Elt r1, Nested.Elt r, Nested.PrimElt r1, Nested.PrimElt r)
+  :: forall r1 r sh. (Nested.PrimElt r1, Nested.PrimElt r)
   => (Nested.Shaped '[] r1 -> Nested.Shaped '[] r) -> Nested.Shaped sh r1 -> Nested.Shaped sh r
 tmap0NS f =
   Nested.Internal.arithPromoteShaped
@@ -705,7 +705,7 @@ tmap0NS f =
           -- too slow: tbuildNS (tshapeS v) (\ix -> f $ v `tindexNS` ix)
 
 tzipWith0NS
-  :: forall r1 r2 r sh. (Nested.Elt r, Nested.Elt r1, Nested.Elt r2, Nested.PrimElt r, Nested.PrimElt r1, Nested.PrimElt r2)
+  :: forall r1 r2 r sh. (Nested.PrimElt r, Nested.PrimElt r1, Nested.PrimElt r2)
   => (Nested.Shaped '[] r1 -> Nested.Shaped '[] r2 -> Nested.Shaped '[] r)
   -> Nested.Shaped sh r1 -> Nested.Shaped sh r2 -> Nested.Shaped sh r
 tzipWith0NS f =
