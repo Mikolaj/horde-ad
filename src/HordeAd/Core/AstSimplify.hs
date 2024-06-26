@@ -2,6 +2,7 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -fmax-pmcheck-models=10000 #-}
+{-# OPTIONS_GHC -freduction-depth=10000 #-}
 -- | Term-simplifying combinators corresponding to the Ast constructors
 -- and complete bottom-up simplifying functions. The former
 -- simplify only on the basis of inspecting the roots of their
