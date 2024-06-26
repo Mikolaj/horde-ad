@@ -16,7 +16,8 @@ module HordeAd.Core.Ast
     -- * AstBindingsCase and AstBindings
   , AstBindingsCase(..), AstBindings
     -- * ASTs
-  , AstRanked(..), AstShaped(..), AstDynamic, AstHVector(..), AstHFun(..)
+  , AstType(..), AstRanked(..), AstTensor(..), AstShaped(..)
+  , AstDynamic, AstHVector(..), AstHFun(..)
   , AstBool(..), OpCodeNum1(..), OpCodeNum2(..), OpCode1(..), OpCode2(..)
   , OpCodeIntegral2(..), OpCodeBool(..), OpCodeRel(..)
     -- * The AstRaw, AstNoVectorize and AstNoSimplify definitions
@@ -35,7 +36,7 @@ import Data.Kind (Type)
 import Data.Proxy (Proxy (Proxy))
 import Data.Strict.Vector qualified as Data.Vector
 import Data.Type.Equality (testEquality, (:~:) (Refl))
-import GHC.TypeLits (KnownNat, sameNat, type (+), type (<=))
+import GHC.TypeLits (KnownNat, Nat, sameNat, type (+), type (<=))
 import Type.Reflection (Typeable, eqTypeRep, typeRep, (:~~:) (HRefl))
 
 import Data.Array.Mixed.Permutation qualified as Permutation
@@ -80,11 +81,11 @@ type instance DualOf (AstShaped s) = AstShaped DualSpan
 -- | A kind (a type intended to be promoted) marking whether an AST term
 -- is supposed to denote the primal part of a dual number, the dual part
 -- or the whole dual number. It's mainly used to index the terms
--- of the AstRanked and related GADTs.
+-- of the AstTensor and related GADTs.
 type data AstSpanType = PrimalSpan | DualSpan | FullSpan
 
 class Typeable s => AstSpan (s :: AstSpanType) where
-  fromPrimal :: AstRanked PrimalSpan r y -> AstRanked s r y
+  fromPrimal :: AstTensor PrimalSpan r y -> AstTensor s r y
   fromPrimalS :: AstShaped PrimalSpan r y -> AstShaped s r y
 
 instance AstSpan PrimalSpan where
@@ -157,17 +158,17 @@ data AstArtifact = AstArtifact
 
 -- | This is the (arbitrarily) chosen representation of terms denoting
 -- integers in the indexes of tensor operations.
-type AstInt = AstRanked PrimalSpan Int64 0
+type AstInt = AstTensor PrimalSpan Int64 (AstR 0)
 
--- TODO: type IntVarNameF = AstVarName (AstRanked PrimalSpan) Int64
-type IntVarName = AstVarName (AstRanked PrimalSpan) Int64 0
+-- TODO: type IntVarNameF = AstVarName (AstTensor PrimalSpan) Int64
+type IntVarName = AstVarName (AstTensor PrimalSpan) Int64 (AstR 0)
 
 pattern AstIntVar :: IntVarName -> AstInt
 pattern AstIntVar var = AstVar ZSR var
 
 isRankedInt :: forall s r n. (AstSpan s, GoodScalar r, KnownNat n)
-            => AstRanked s r n
-            -> Maybe (AstRanked s r n :~: AstInt)
+            => AstTensor s r (AstR n)
+            -> Maybe (AstTensor s r (AstR n) :~: AstInt)
 isRankedInt _ = case ( sameAstSpan @s @PrimalSpan
                      , testEquality (typeRep @r) (typeRep @Int64)
                      , sameNat (Proxy @n) (Proxy @0) ) of
@@ -196,105 +197,126 @@ type AstBindings (s :: AstSpanType) = [(AstVarId, AstBindingsCase s)]
 
 -- * ASTs
 
--- | AST for ranked tensors that are meant to be differentiated.
+type data AstType =
+    AstR Nat
+  | AstS [Nat]
+  | AstProduct AstType AstType
+
+-- The old AstRanked:
 type role AstRanked nominal nominal nominal
+newtype AstRanked s r n = AstRanked {unAstRanked :: AstTensor s r (AstR n)}
+deriving instance GoodScalar r => Show (AstRanked s r n)
+
+-- | AST for ranked tensors that are meant to be differentiated.
+type role AstTensor nominal nominal nominal
   -- r has to be nominal, because type class arguments always are
-data AstRanked :: AstSpanType -> RankedTensorType where
-  AstVar :: IShR n -> AstVarName (AstRanked s) r n -> AstRanked s r n
+-- data AstRanked :: AstSpanType -> RankedTensorType where
+-- data AstRanked :: AstSpanType -> Type -> Nat -> Type where
+-- data AstRanked :: Nested.Elt a => AstSpanType -> a -> Nat -> Type where
+data AstTensor :: AstSpanType -> Type -> AstType -> Type where
+--  AstPair :: AstTensor s t1 n -> AstTensor s t2 m
+--          -> AstTensor s (t1, t2) (AstProduct n m)
+  AstVar :: IShR n -> AstVarName (AstTensor s) r (AstR n)
+         -> AstTensor s r (AstR n)
   -- The r variable is existential here, so a proper specialization needs
   -- to be picked explicitly at runtime.
   AstLet :: forall n m r r2 s s2.
             (KnownNat n, KnownNat m, GoodScalar r, AstSpan s)
-         => AstVarName (AstRanked s) r n -> AstRanked s r n
-         -> AstRanked s2 r2 m
-         -> AstRanked s2 r2 m
-  AstShare :: AstVarName (AstRanked s) r n -> AstRanked s r n
-           -> AstRanked s r n
+         => AstVarName (AstTensor s) r (AstR n) -> AstTensor s r (AstR n)
+         -> AstTensor s2 r2 (AstR m)
+         -> AstTensor s2 r2 (AstR m)
+  AstShare :: AstVarName (AstTensor s) r (AstR n) -> AstTensor s r (AstR n)
+           -> AstTensor s r (AstR n)
   AstCond :: AstBool
-          -> AstRanked s r n -> AstRanked s r n -> AstRanked s r n
+          -> AstTensor s r n -> AstTensor s r n -> AstTensor s r n
 
   -- There are existential variables here, as well.
-  AstMinIndex :: GoodScalar r
-              => AstRanked PrimalSpan r (1 + n) -> AstRanked PrimalSpan r2 n
-  AstMaxIndex :: GoodScalar r
-              => AstRanked PrimalSpan r (1 + n) -> AstRanked PrimalSpan r2 n
+  AstMinIndex :: (GoodScalar r, KnownNat n)
+              => AstTensor PrimalSpan r (AstR (1 + n))
+              -> AstTensor PrimalSpan r2 (AstR n)
+  AstMaxIndex :: (GoodScalar r, KnownNat n)
+              => AstTensor PrimalSpan r (AstR (1 + n))
+              -> AstTensor PrimalSpan r2 (AstR n)
   AstFloor :: (GoodScalar r, RealFrac r, Integral r2)
-           => AstRanked PrimalSpan r n -> AstRanked PrimalSpan r2 n
-  AstIota :: AstRanked PrimalSpan r 1
+           => AstTensor PrimalSpan r n -> AstTensor PrimalSpan r2 n
+  AstIota :: AstTensor PrimalSpan r (AstR 1)
 
   -- For the numeric classes:
-  AstN1 :: OpCodeNum1 -> AstRanked s r n -> AstRanked s r n
-  AstN2 :: OpCodeNum2 -> AstRanked s r n -> AstRanked s r n
-        -> AstRanked s r n
+  AstN1 :: OpCodeNum1 -> AstTensor s r n -> AstTensor s r n
+  AstN2 :: OpCodeNum2 -> AstTensor s r n -> AstTensor s r n
+        -> AstTensor s r n
   AstR1 :: Differentiable r
-        => OpCode1 -> AstRanked s r n -> AstRanked s r n
+        => OpCode1 -> AstTensor s r n -> AstTensor s r n
   AstR2 :: Differentiable r
-        => OpCode2 -> AstRanked s r n -> AstRanked s r n
-        -> AstRanked s r n
+        => OpCode2 -> AstTensor s r n -> AstTensor s r n
+        -> AstTensor s r n
   AstI2 :: Integral r
-        => OpCodeIntegral2 -> AstRanked s r n -> AstRanked s r n
-        -> AstRanked s r n
-  AstSumOfList :: [AstRanked s r n] -> AstRanked s r n
+        => OpCodeIntegral2 -> AstTensor s r n -> AstTensor s r n
+        -> AstTensor s r n
+  AstSumOfList :: [AstTensor s r n] -> AstTensor s r n
 
   -- For the main part of the RankedTensor class:
   AstIndex :: forall m n r s. KnownNat m
-           => AstRanked s r (m + n) -> AstIndex m -> AstRanked s r n
+           => AstTensor s r (AstR (m + n)) -> AstIndex m
+           -> AstTensor s r (AstR n)
     -- first ix is for outermost dimension; empty index means identity,
     -- if index is out of bounds, the result is defined and is 0,
     -- but vectorization is permitted to change the value
-  AstSum :: AstRanked s r (1 + n) -> AstRanked s r n
+  AstSum :: KnownNat n
+         => AstTensor s r (AstR (1 + n)) -> AstTensor s r (AstR n)
   AstScatter :: forall m n p r s. (KnownNat m, KnownNat n, KnownNat p)
              => IShR (p + n)
-             -> AstRanked s r (m + n) -> (AstVarList m, AstIndex p)
-             -> AstRanked s r (p + n)
+             -> AstTensor s r (AstR (m + n)) -> (AstVarList m, AstIndex p)
+             -> AstTensor s r (AstR (p + n))
 
   AstFromVector :: KnownNat n
-                => Data.Vector.Vector (AstRanked s r n) -> AstRanked s r (1 + n)
+                => Data.Vector.Vector (AstTensor s r (AstR n)) -> AstTensor s r (AstR (1 + n))
   AstReplicate :: KnownNat n
-               => Int -> AstRanked s r n -> AstRanked s r (1 + n)
+               => Int -> AstTensor s r (AstR n) -> AstTensor s r (AstR (1 + n))
   AstAppend :: KnownNat n
-            => AstRanked s r (1 + n) -> AstRanked s r (1 + n)
-            -> AstRanked s r (1 + n)
+            => AstTensor s r (AstR (1 + n)) -> AstTensor s r (AstR (1 + n))
+            -> AstTensor s r (AstR (1 + n))
   AstSlice :: KnownNat n
-           => Int -> Int -> AstRanked s r (1 + n) -> AstRanked s r (1 + n)
+           => Int -> Int -> AstTensor s r (AstR (1 + n))
+           -> AstTensor s r (AstR (1 + n))
   AstReverse :: KnownNat n
-             => AstRanked s r (1 + n) -> AstRanked s r (1 + n)
-  AstTranspose :: Permutation.PermR -> AstRanked s r n -> AstRanked s r n
-  AstReshape :: KnownNat n
-             => IShR m -> AstRanked s r n -> AstRanked s r m
+             => AstTensor s r (AstR (1 + n)) -> AstTensor s r (AstR (1 + n))
+  AstTranspose :: Permutation.PermR -> AstTensor s r n -> AstTensor s r n
+  AstReshape :: (KnownNat n, KnownNat m)
+             => IShR m -> AstTensor s r (AstR n) -> AstTensor s r (AstR m)
   AstBuild1 :: KnownNat n
-            => Int -> (IntVarName, AstRanked s r n)
-            -> AstRanked s r (1 + n)
+            => Int -> (IntVarName, AstTensor s r (AstR n))
+            -> AstTensor s r (AstR (1 + n))
   AstGather :: forall m n p r s. (KnownNat m, KnownNat n, KnownNat p)
             => IShR (m + n)
-            -> AstRanked s r (p + n) -> (AstVarList m, AstIndex p)
-            -> AstRanked s r (m + n)
+            -> AstTensor s r (AstR (p + n)) -> (AstVarList m, AstIndex p)
+            -> AstTensor s r (AstR (m + n))
     -- out of bounds indexing is permitted
   -- There are existential variables here, as well.
   AstCast :: (GoodScalar r1, RealFrac r1, RealFrac r2)
-          => AstRanked s r1 n -> AstRanked s r2 n
+          => AstTensor s r1 n -> AstTensor s r2 n
   AstFromIntegral :: (GoodScalar r1, Integral r1)
-                  => AstRanked PrimalSpan r1 n -> AstRanked PrimalSpan r2 n
-  AstConst :: Nested.Ranked n r -> AstRanked PrimalSpan r n
-  AstProject :: AstHVector s -> Int -> AstRanked s r n
+                  => AstTensor PrimalSpan r1 n -> AstTensor PrimalSpan r2 n
+  AstConst :: Nested.Ranked n r -> AstTensor PrimalSpan r (AstR n)
+  AstProject :: AstHVector s -> Int -> AstTensor s r n
   AstLetHVectorIn :: AstSpan s
                   => [AstDynamicVarName] -> AstHVector s
-                  -> AstRanked s2 r n
-                  -> AstRanked s2 r n
+                  -> AstTensor s2 r n
+                  -> AstTensor s2 r n
   AstLetHFunIn :: AstVarId -> AstHFun
-               -> AstRanked s2 r n
-               -> AstRanked s2 r n
+               -> AstTensor s2 r n
+               -> AstTensor s2 r n
   AstRFromS :: KnownShS sh
-            => AstShaped s r sh -> AstRanked s r (X.Rank sh)
+            => AstShaped s r sh -> AstTensor s r (AstR (X.Rank sh))
 
   -- For the forbidden half of the RankedTensor class:
-  AstConstant :: AstRanked PrimalSpan r n -> AstRanked FullSpan r n
-  AstPrimalPart :: AstRanked FullSpan r n -> AstRanked PrimalSpan r n
-  AstDualPart :: AstRanked FullSpan r n -> AstRanked DualSpan r n
-  AstD :: AstRanked PrimalSpan r n -> AstRanked DualSpan r n
-       -> AstRanked FullSpan r n
+  AstConstant :: AstTensor PrimalSpan r n -> AstTensor FullSpan r n
+  AstPrimalPart :: AstTensor FullSpan r n -> AstTensor PrimalSpan r n
+  AstDualPart :: AstTensor FullSpan r n -> AstTensor DualSpan r n
+  AstD :: AstTensor PrimalSpan r n -> AstTensor DualSpan r n
+       -> AstTensor FullSpan r n
 
-deriving instance GoodScalar r => Show (AstRanked s r n)
+deriving instance GoodScalar r => Show (AstTensor s r n)
 
 -- | AST for shaped tensors that are meant to be differentiated.
 type role AstShaped nominal nominal nominal
@@ -396,7 +418,7 @@ data AstShaped :: AstSpanType -> ShapedTensorType where
                 -> AstShaped s2 r sh
                 -> AstShaped s2 r sh
   AstSFromR :: (KnownShS sh, KnownNat (X.Rank sh))
-            => AstRanked s r (X.Rank sh) -> AstShaped s r sh
+            => AstTensor s r (AstR (X.Rank sh)) -> AstShaped s r sh
 
   -- For the forbidden half of the ShapedTensor class:
   AstConstantS :: AstShaped PrimalSpan r sh -> AstShaped FullSpan r sh
@@ -428,7 +450,8 @@ data AstHVector :: AstSpanType -> Type where
   -- The r variable is existential here, so a proper specialization needs
   -- to be picked explicitly at runtime.
   AstLetInHVector :: (KnownNat n, GoodScalar r, AstSpan s)
-                  => AstVarName (AstRanked s) r n -> AstRanked s r n
+                  => AstVarName (AstTensor s) r (AstR n)
+                  -> AstTensor s r (AstR n)
                   -> AstHVector s2
                   -> AstHVector s2
   AstLetInHVectorS :: (KnownShS sh, GoodScalar r, AstSpan s)
@@ -490,7 +513,8 @@ data AstBool where
   AstBoolConst :: Bool -> AstBool
   -- There are existential variables here, as well.
   AstRel :: (KnownNat n, GoodScalar r)
-         => OpCodeRel -> AstRanked PrimalSpan r n -> AstRanked PrimalSpan r n
+         => OpCodeRel -> AstTensor PrimalSpan r (AstR n)
+         -> AstTensor PrimalSpan r (AstR n)
          -> AstBool
   AstRelS :: (KnownShS sh, GoodScalar r)
           => OpCodeRel -> AstShaped PrimalSpan r sh -> AstShaped PrimalSpan r sh
@@ -535,15 +559,15 @@ data OpCodeRel =
 -- * Unlawful numeric instances of ranked AST; they are lawful modulo evaluation
 
 -- These are, unfortunately, required by some numeric instances.
-instance Eq (AstRanked s r n) where
+instance Eq (AstTensor s r (AstR n)) where
   (==) = error "AST requires that EqF be used instead"
   (/=) = error "AST requires that EqF be used instead"
 
-instance Ord (AstRanked s r n) where
+instance Ord (AstTensor s r (AstR n)) where
   (<=) = error "AST requires that OrdF be used instead"
 
 instance (Num (Nested.Ranked n r), AstSpan s, KnownNat n)
-         => Num (AstRanked s r n) where
+         => Num (AstTensor s r (AstR n)) where
   -- The normal form has AstConst, if any, as the first element of the list.
   -- All lists fully flattened and length >= 2.
   AstSumOfList (AstConst u : lu) + AstSumOfList (AstConst v : lv) =
@@ -576,7 +600,7 @@ instance (Num (Nested.Ranked n r), AstSpan s, KnownNat n)
   negate u = AstN1 NegateOp u
   abs = AstN1 AbsOp
   signum = AstN1 SignumOp
-  fromInteger :: Integer -> AstRanked s r n
+  fromInteger :: Integer -> AstTensor s r (AstR n)
   fromInteger i = case sameNat (Proxy @n) (Proxy @0) of
     Just Refl -> fromPrimal . AstConst . fromInteger $ i
     Nothing -> error $ "fromInteger not defined for AstRanked of non-zero ranks: "
@@ -585,26 +609,26 @@ instance (Num (Nested.Ranked n r), AstSpan s, KnownNat n)
     -- so that we don't need 4 times the simplification rules
 
 instance (Real (Nested.Ranked n r), AstSpan s, KnownNat n)
-         => Real (AstRanked s r n) where
+         => Real (AstTensor s r (AstR n)) where
   toRational = undefined
     -- very low priority, since these are all extremely not continuous
 
 -- Warning: div and mod operations are very costly (simplifying them
 -- requires constructing conditionals, etc). If this error is removed,
 -- they are going to work, but slowly.
-instance Integral r => IntegralF (AstRanked s r n) where
+instance Integral r => IntegralF (AstTensor s r (AstR n)) where
   quotF = AstI2 QuotOp
   remF = AstI2 RemOp
 
 instance (GoodScalar r, Differentiable r, Fractional (Nested.Ranked n r), AstSpan s, KnownNat n)
-         => Fractional (AstRanked s r n) where
+         => Fractional (AstTensor s r (AstR n)) where
   u / v = AstR2 DivideOp u v
   recip = AstR1 RecipOp
   fromRational r = error $ "fromRational not defined for AstRanked: "
                            ++ show r
 
 instance (GoodScalar r, Differentiable r, Floating (Nested.Ranked n r), AstSpan s, KnownNat n)
-         => Floating (AstRanked s r n) where
+         => Floating (AstTensor s r (AstR n)) where
   pi = fromPrimal $ AstConst pi
   exp = AstR1 ExpOp
   log = AstR1 LogOp
@@ -625,13 +649,13 @@ instance (GoodScalar r, Differentiable r, Floating (Nested.Ranked n r), AstSpan 
   atanh = AstR1 AtanhOp
 
 instance (GoodScalar r, Differentiable r, RealFrac (Nested.Ranked n r), AstSpan s, KnownNat n)
-         => RealFrac (AstRanked s r n) where
+         => RealFrac (AstTensor s r (AstR n)) where
   properFraction = undefined
     -- The integral type doesn't have a Storable constraint,
     -- so we can't implement this (nor RealFracB from Boolean package).
 
 instance (GoodScalar r, Differentiable r, Floating (Nested.Ranked n r), AstSpan s, KnownNat n)
-         => RealFloatF (AstRanked s r n) where
+         => RealFloatF (AstTensor s r (AstR n)) where
   atan2F = AstR2 Atan2Op
 
 
@@ -768,7 +792,7 @@ type instance DualOf (AstNoSimplifyS s) = AstNoSimplifyS DualSpan
 
 type role AstRaw nominal nominal nominal
 newtype AstRaw s r n =
-  AstRaw {unAstRaw :: AstRanked s r n}
+  AstRaw {unAstRaw :: AstTensor s r (AstR n)}
 deriving instance GoodScalar r => Show (AstRaw s r n)
 
 type role AstRawS nominal nominal nominal
@@ -782,7 +806,7 @@ newtype AstRawWrap t = AstRawWrap {unAstRawWrap :: t}
 
 type role AstNoVectorize nominal nominal nominal
 newtype AstNoVectorize s r n =
-  AstNoVectorize {unAstNoVectorize :: AstRanked s r n}
+  AstNoVectorize {unAstNoVectorize :: AstTensor s r (AstR n)}
 deriving instance GoodScalar r => Show (AstNoVectorize s r n)
 
 type role AstNoVectorizeS nominal nominal nominal
@@ -796,7 +820,7 @@ newtype AstNoVectorizeWrap t = AstNoVectorizeWrap {unAstNoVectorizeWrap :: t}
 
 type role AstNoSimplify nominal nominal nominal
 newtype AstNoSimplify s r n =
-  AstNoSimplify {unAstNoSimplify :: AstRanked s r n}
+  AstNoSimplify {unAstNoSimplify :: AstTensor s r (AstR n)}
 deriving instance GoodScalar r => Show (AstNoSimplify s r n)
 
 type role AstNoSimplifyS nominal nominal nominal

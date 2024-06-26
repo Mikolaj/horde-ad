@@ -10,19 +10,19 @@ module HordeAd.Core.AstVectorize
 
 import Prelude
 
-import           Control.Exception.Assert.Sugar
-import           Control.Monad (when)
-import           Data.Array.Internal (valueOf)
-import qualified Data.Array.Shape as Sh
-import           Data.Functor.Const
-import           Data.Int (Int64)
-import qualified Data.IntMap.Strict as IM
-import           Data.IORef
-import           Data.List (mapAccumR)
-import           Data.Proxy (Proxy (Proxy))
-import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
-import qualified Data.Vector.Generic as V
-import           GHC.TypeLits
+import Control.Exception.Assert.Sugar
+import Control.Monad (when)
+import Data.Array.Internal (valueOf)
+import Data.Array.Shape qualified as Sh
+import Data.Functor.Const
+import Data.Int (Int64)
+import Data.IntMap.Strict qualified as IM
+import Data.IORef
+import Data.List (mapAccumR)
+import Data.Proxy (Proxy (Proxy))
+import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
+import Data.Vector.Generic qualified as V
+import GHC.TypeLits
   ( KnownNat
   , Nat
   , OrderingI (..)
@@ -32,35 +32,35 @@ import           GHC.TypeLits
   , type (+)
   , type (-)
   )
-import           System.IO (Handle, hFlush, hPutStrLn, stderr, stdout)
-import           System.IO.Unsafe (unsafePerformIO)
-import           Type.Reflection (typeRep)
-import           Unsafe.Coerce (unsafeCoerce)
+import System.IO (Handle, hFlush, hPutStrLn, stderr, stdout)
+import System.IO.Unsafe (unsafePerformIO)
+import Type.Reflection (typeRep)
+import Unsafe.Coerce (unsafeCoerce)
 
-import qualified Data.Array.Mixed.Permutation as Permutation
-import qualified Data.Array.Mixed.Shape as X
-import qualified Data.Array.Mixed.Types as X
+import Data.Array.Mixed.Permutation qualified as Permutation
+import Data.Array.Mixed.Shape qualified as X
+import Data.Array.Mixed.Types qualified as X
 
-import           HordeAd.Core.Ast hiding
-  (AstBool (..), AstHVector (..), AstRanked (..), AstShaped (..))
-import           HordeAd.Core.Ast (AstHVector, AstRanked, AstShaped)
-import qualified HordeAd.Core.Ast as Ast
-import           HordeAd.Core.AstFreshId
-import           HordeAd.Core.AstPrettyPrint
-import           HordeAd.Core.AstSimplify
-import           HordeAd.Core.AstTools
-import           HordeAd.Core.HVector
-import           HordeAd.Core.HVectorOps
-import           HordeAd.Core.Types
-import           HordeAd.Util.ShapedList
+import HordeAd.Core.Ast hiding
+  (AstBool (..), AstHVector (..), AstShaped (..), AstTensor (..))
+import HordeAd.Core.Ast (AstHVector, AstShaped, AstTensor)
+import HordeAd.Core.Ast qualified as Ast
+import HordeAd.Core.AstFreshId
+import HordeAd.Core.AstPrettyPrint
+import HordeAd.Core.AstSimplify
+import HordeAd.Core.AstTools
+import HordeAd.Core.HVector
+import HordeAd.Core.HVectorOps
+import HordeAd.Core.Types
+import HordeAd.Util.ShapedList
   (pattern (:.$), pattern (::$), pattern ZIS, pattern ZS)
-import           HordeAd.Util.SizedList
+import HordeAd.Util.SizedList
 
 -- * Vectorization of AstRanked
 
 -- This abbreviation is used a lot below.
 astTr :: forall n s r. (KnownNat n, GoodScalar r, AstSpan s)
-      => AstRanked s r (2 + n) -> AstRanked s r (2 + n)
+      => AstTensor s r (AstR (2 + n)) -> AstTensor s r (AstR (2 + n))
 astTr = astTranspose [1, 0]
 
 -- | The application @build1Vectorize k (var, v)@ vectorizes
@@ -72,7 +72,7 @@ astTr = astTranspose [1, 0]
 -- have any, either.
 build1Vectorize
   :: (KnownNat n, GoodScalar r, AstSpan s)
-  => Int -> (IntVarName, AstRanked s r n) -> AstRanked s r (1 + n)
+  => Int -> (IntVarName, AstTensor s r (AstR n)) -> AstTensor s r (AstR (1 + n))
 {-# NOINLINE build1Vectorize #-}
 build1Vectorize k (var, v0) = unsafePerformIO $ do
   enabled <- readIORef traceRuleEnabledRef
@@ -84,14 +84,14 @@ build1Vectorize k (var, v0) = unsafePerformIO $ do
     hPutStrLnFlush stderr $
       "\n"
       ++ "START of vectorization for term "
-      ++ ellipsisString width (printAstSimple renames startTerm)
+      ++ ellipsisString width (printAstSimple renames (AstRanked startTerm))
       ++ "\n"
   let !endTerm = build1VOccurenceUnknown k (var, v0)
   when enabled $ do
     hPutStrLnFlush stderr $
       "\n"
       ++ "END of vectorization yields "
-      ++ ellipsisString width (printAstSimple renames endTerm)
+      ++ ellipsisString width (printAstSimple renames (AstRanked endTerm))
       ++ "\n"
   let !_A = assert (shapeAst startTerm == shapeAst endTerm
                    `blame` "build1Vectorize: term shape changed"
@@ -103,7 +103,7 @@ build1Vectorize k (var, v0) = unsafePerformIO $ do
 -- @var@ occurs in @v@.
 build1VOccurenceUnknown
   :: (KnownNat n, GoodScalar r, AstSpan s)
-  => Int -> (IntVarName, AstRanked s r n) -> AstRanked s r (1 + n)
+  => Int -> (IntVarName, AstTensor s r (AstR n)) -> AstTensor s r (AstR (1 + n))
 build1VOccurenceUnknown k (var, v0) =
   let traceRule = mkTraceRule "build1VOcc" (Ast.AstBuild1 k (var, v0)) v0 1
   in if varNameInAst var v0
@@ -118,14 +118,14 @@ build1VOccurenceUnknown k (var, v0) =
 -- when rewriting terms.
 build1VOccurenceUnknownRefresh
   :: forall n s r. (KnownNat n, GoodScalar r, AstSpan s)
-  => Int -> (IntVarName, AstRanked s r n) -> AstRanked s r (1 + n)
+  => Int -> (IntVarName, AstTensor s r (AstR n)) -> AstTensor s r (AstR (1 + n))
 {-# NOINLINE build1VOccurenceUnknownRefresh #-}
 build1VOccurenceUnknownRefresh k (var, v0) =
   funToAstIntVar $ \ (!varFresh, !astVarFresh) ->
     let !v2 = substituteAst  -- cheap subst, because only a renaming
                 (SubstitutionPayloadRanked @PrimalSpan @Int64 astVarFresh)
-                var v0
-    in build1VOccurenceUnknown k (varFresh, v2)
+                var (AstRanked v0)
+    in build1VOccurenceUnknown k (varFresh, unAstRanked v2)
 
 intBindingRefresh
   :: IntVarName -> AstIndex n -> (IntVarName, AstInt, AstIndex n)
@@ -142,7 +142,7 @@ intBindingRefresh var ix =
 -- @var@ occurs in @v@.
 build1V
   :: forall n s r. (KnownNat n, GoodScalar r, AstSpan s)
-  => Int -> (IntVarName, AstRanked s r n) -> AstRanked s r (1 + n)
+  => Int -> (IntVarName, AstTensor s r (AstR n)) -> AstTensor s r (AstR (1 + n))
 build1V k (var, v00) =
   let v0 = astNonIndexStep v00
         -- Almost surely the term will be transformed, so it can just
@@ -167,9 +167,9 @@ build1V k (var, v00) =
           -- because they don't duplicate variables and the added var
           -- is eventually being eliminated instead of substituted for.
           v2 = substituteAst
-                 (SubstitutionPayloadRanked @s1 @r1 projection) var1 v
+                 (SubstitutionPayloadRanked @s1 @r1 projection) var1 (AstRanked v)
       in astLet var2 (build1VOccurenceUnknown k (var, u))
-                     (build1VOccurenceUnknownRefresh k (var, v2))
+                     (build1VOccurenceUnknownRefresh k (var, unAstRanked v2))
                         -- ensure no duplicated bindings, see below
     Ast.AstShare{} -> error "build1V: AstShare"
     Ast.AstCond b (Ast.AstConstant v) (Ast.AstConstant w) ->
@@ -309,8 +309,8 @@ build1V k (var, v00) =
 -- and pushes the build down the gather, getting the vectorization unstuck.
 build1VIndex
   :: forall m n s r. (KnownNat m, KnownNat n, GoodScalar r, AstSpan s)
-  => Int -> (IntVarName, AstRanked s r (m + n), AstIndex m)
-  -> AstRanked s r (1 + n)
+  => Int -> (IntVarName, AstTensor s r (AstR (m + n)), AstIndex m)
+  -> AstTensor s r (AstR (1 + n))
 build1VIndex k (var, v0, ZIR) = build1VOccurenceUnknown k (var, v0)
 build1VIndex k (var, v0, ix@(_ :.: _)) =
   let traceRule = mkTraceRule "build1VIndex"
@@ -635,7 +635,10 @@ build1VOccurenceUnknownHVector k (var, v0) =
       fun1DToAst (shapeAstHVector v0) $ \ !vars !asts ->
         astLetHVectorInHVector
           vars v0 (Ast.AstMkHVector
-                   $ replicate1HVectorF astReplicate astReplicateS k asts)
+                   $ replicate1HVectorF
+                       (\n (AstRanked t) -> AstRanked $ astReplicate n t)
+                       astReplicateS
+                       k asts)
 
 build1VHVector
   :: forall k s. AstSpan s
@@ -729,8 +732,8 @@ build1VOccurenceUnknownDynamic
   :: forall k s. AstSpan s
   => SNat k -> (IntVarName, AstDynamic s) -> AstDynamic s
 build1VOccurenceUnknownDynamic k@SNat (var, d) = case d of
-  DynamicRanked u ->
-    DynamicRanked $ build1VOccurenceUnknown (sNatValue k) (var, u)
+  DynamicRanked (AstRanked u) ->
+    DynamicRanked $ AstRanked $ build1VOccurenceUnknown (sNatValue k) (var, u)
   DynamicShaped u ->
     DynamicShaped $ build1VOccurenceUnknownS @k (var, u)
   DynamicRankedDummy @r @sh _ _ -> DynamicRankedDummy @r @(k ': sh) Proxy Proxy
@@ -761,14 +764,16 @@ substProjRanked :: forall n1 r1 n r s1 s.
                    , AstSpan s, AstSpan s1 )
                 => Int -> IntVarName -> IShR n1
                 -> AstVarName (AstRanked s1) r1 n1
-                -> AstRanked s r n -> AstRanked s r n
+                -> AstTensor s r (AstR n) -> AstTensor s r (AstR n)
 substProjRanked k var sh1 var1@(AstVarName varId) =
   let var2 = AstVarName varId
       projection =
         Ast.AstIndex (Ast.AstVar (k :$: sh1) var2)
                      (Ast.AstIntVar var :.: ZIR)
-  in substituteAst
-       (SubstitutionPayloadRanked @s1 @r1 projection) var1
+  in unAstRanked
+     . substituteAst
+         (SubstitutionPayloadRanked @s1 @r1 projection) var1
+     . AstRanked
 
 substProjShaped :: forall n1 r1 sh r s1 s.
                    ( KnownNat n1, GoodScalar r1, KnownShS sh, GoodScalar r
@@ -788,14 +793,16 @@ substProjRankedS :: forall k sh1 r1 n r s1 s.
                     ( KnownNat k, KnownShS sh1, GoodScalar r1
                     , KnownNat n, GoodScalar r, AstSpan s, AstSpan s1 )
                  => IntVarName -> AstVarName (AstShaped s1) r1 sh1
-                 -> AstRanked s r n -> AstRanked s r n
+                 -> AstTensor s r (AstR n) -> AstTensor s r (AstR n)
 substProjRankedS var var1@(AstVarName varId) =
   let var2 = AstVarName varId
       projection =
         Ast.AstIndexS (Ast.AstVarS @(k ': sh1) var2)
                       (Ast.AstIntVar var :.$ ZIS)
-  in substituteAst
-       (SubstitutionPayloadShaped @s1 @r1 projection) var1
+  in unAstRanked
+     . substituteAst
+         (SubstitutionPayloadShaped @s1 @r1 projection) var1
+     . AstRanked
 
 substProjShapedS :: forall k sh1 r1 sh r s1 s.
                     ( KnownNat k, KnownShS sh1, GoodScalar r1
@@ -838,9 +845,9 @@ substProjHVectorS var var1@(AstVarName varId) =
 
 substProjDynamic :: forall k n r s.
                     (KnownNat k, KnownNat n, GoodScalar r, AstSpan s)
-                 => IntVarName -> AstRanked s r n
+                 => IntVarName -> AstTensor s r (AstR n)
                  -> AstDynamicVarName
-                 -> (AstRanked s r n, AstDynamicVarName)
+                 -> (AstTensor s r (AstR n), AstDynamicVarName)
 substProjDynamic var v3 (AstDynamicVarName @ty @r3 @sh3 varId)
   | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat) =
     ( withListSh (Proxy @sh3) $ \sh1 ->
@@ -873,8 +880,8 @@ substProjDynamicS _ _ _ = error "substProjDynamicS: unexpected type"
 substProjVars :: forall k n r s.
                  (KnownNat k, KnownNat n, GoodScalar r, AstSpan s)
               => IntVarName -> [AstDynamicVarName]
-              -> AstRanked s r n
-              -> (AstRanked s r n, [AstDynamicVarName])
+              -> AstTensor s r (AstR n)
+              -> (AstTensor s r (AstR n), [AstDynamicVarName])
 substProjVars var vars v3 = mapAccumR (substProjDynamic @k var) v3 vars
 
 substProjVarsS :: forall k sh r s.
@@ -908,10 +915,10 @@ substProjVarsHVector var vars v3 =
 
 astTrDynamic :: AstSpan s
              => DynamicTensor (AstRanked s) -> DynamicTensor (AstRanked s)
-astTrDynamic t@(DynamicRanked @_ @n1 u) =
+astTrDynamic t@(DynamicRanked @_ @n1 (AstRanked u)) =
   case cmpNat (Proxy @2) (Proxy @n1) of
-    EQI -> DynamicRanked $ astTr @(n1 - 2) u
-    LTI -> DynamicRanked $ astTr @(n1 - 2) u
+    EQI -> DynamicRanked $ AstRanked $ astTr @(n1 - 2) u
+    LTI -> DynamicRanked $ AstRanked $ astTr @(n1 - 2) u
     _ -> t
 astTrDynamic t@(DynamicShaped @_ @sh u) =
   let sh1 = shapeT @sh
@@ -988,9 +995,9 @@ ellipsisString width full = let cropped = take width full
                                else take (width - 3) cropped ++ "..."
 
 mkTraceRule :: (KnownNat n, KnownNat m, GoodScalar r, AstSpan s)
-            => String -> AstRanked s r n -> AstRanked s r m -> Int
-            -> AstRanked s r n
-            -> AstRanked s r n
+            => String -> AstTensor s r (AstR n) -> AstTensor s r (AstR m) -> Int
+            -> AstTensor s r (AstR n)
+            -> AstTensor s r (AstR n)
 {-# NOINLINE mkTraceRule #-}
 mkTraceRule prefix from caseAnalysed nwords to = unsafePerformIO $ do
   enabled <- readIORef traceRuleEnabledRef
@@ -998,7 +1005,7 @@ mkTraceRule prefix from caseAnalysed nwords to = unsafePerformIO $ do
       renames = IM.fromList [(1, ""), (2, "")]
       constructorName =
         unwords $ take nwords $ words $ take 20
-        $ printAstSimple renames caseAnalysed
+        $ printAstSimple renames (AstRanked caseAnalysed)
       ruleName = prefix ++ "." ++ constructorName
       ruleNamePadded = take 20 $ ruleName ++ repeat ' '
   when enabled $ do
@@ -1006,8 +1013,8 @@ mkTraceRule prefix from caseAnalysed nwords to = unsafePerformIO $ do
     modifyIORef' traceNestingLevel succ
     let paddedNesting = take 3 $ show nestingLevel ++ repeat ' '
     -- Force in the correct order:
-    let !stringFrom = printAstSimple renames from
-    let !stringTo = printAstSimple renames to
+    let !stringFrom = printAstSimple renames (AstRanked from)
+    let !stringTo = printAstSimple renames (AstRanked to)
     hPutStrLnFlush stderr $ paddedNesting ++ "rule " ++ ruleNamePadded
                             ++ " sends " ++ padString width stringFrom
                             ++ " to " ++ padString width stringTo
