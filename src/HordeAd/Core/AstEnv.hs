@@ -19,24 +19,24 @@ module HordeAd.Core.AstEnv
 
 import Prelude
 
-import           Control.Exception.Assert.Sugar
-import qualified Data.EnumMap.Strict as EM
-import           Data.Proxy (Proxy (Proxy))
-import           Data.Type.Equality (testEquality, (:~:) (Refl))
-import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, Nat)
-import           Type.Reflection (typeRep)
+import Control.Exception.Assert.Sugar
+import Data.EnumMap.Strict qualified as EM
+import Data.Proxy (Proxy (Proxy))
+import Data.Type.Equality (testEquality, (:~:) (Refl))
+import Data.Vector.Generic qualified as V
+import GHC.TypeLits (KnownNat, Nat)
+import Type.Reflection (typeRep)
 
-import           HordeAd.Core.Ast
-import           HordeAd.Core.HVector
-import           HordeAd.Core.HVectorOps
-import           HordeAd.Core.TensorClass
-import           HordeAd.Core.Types
-import           HordeAd.Internal.OrthotopeOrphanInstances
+import HordeAd.Core.Ast
+import HordeAd.Core.HVector
+import HordeAd.Core.HVectorOps
+import HordeAd.Core.TensorClass
+import HordeAd.Core.Types
+import HordeAd.Internal.OrthotopeOrphanInstances
   (IntegralF (..), RealFloatF (..))
-import           HordeAd.Util.ShapedList (IndexSh)
-import qualified HordeAd.Util.ShapedList as ShapedList
-import           HordeAd.Util.SizedList
+import HordeAd.Util.ShapedList (IndexSh)
+import HordeAd.Util.ShapedList qualified as ShapedList
+import HordeAd.Util.SizedList
 
 -- * The environment and operations for extending it
 
@@ -59,7 +59,7 @@ deriving instance ( CRanked ranked Show, CShaped (ShapedOf ranked) Show
 -- and if s is PrimalSpan, ranked is their primal part.
 -- The same for all functions below.
 extendEnvR :: forall ranked r n s. (KnownNat n, GoodScalar r)
-           => AstVarName (AstRanked s) r n -> ranked r n -> AstEnv ranked
+           => AstVarName (AstTensor s) r (AstR n) -> ranked r n -> AstEnv ranked
            -> AstEnv ranked
 extendEnvR (AstVarName varId) !t !env =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvR: duplicate " ++ show varId)
@@ -149,8 +149,8 @@ extendEnvVarsS vars !ix !env =
 interpretLambdaI
   :: forall ranked n s r.
      (RankedTensor ranked, RankedOf (PrimalOf ranked) ~ PrimalOf ranked)
-  => (AstEnv ranked -> AstRanked s r n -> ranked r n)
-  -> AstEnv ranked -> (IntVarName, AstRanked s r n)
+  => (AstEnv ranked -> AstTensor s r (AstR n) -> ranked r n)
+  -> AstEnv ranked -> (IntVarName, AstTensor s r (AstR n))
   -> IntOf ranked
   -> ranked r n
 {-# INLINE interpretLambdaI #-}
@@ -182,8 +182,8 @@ interpretLambdaIHVector f !env (!var, !ast) =
 interpretLambdaIndex
   :: forall ranked s r m n.
      (RankedTensor ranked, RankedOf (PrimalOf ranked) ~ PrimalOf ranked)
-  => (AstEnv ranked -> AstRanked s r n -> ranked r n)
-  -> AstEnv ranked -> (AstVarList m, AstRanked s r n)
+  => (AstEnv ranked -> AstTensor s r (AstR n) -> ranked r n)
+  -> AstEnv ranked -> (AstVarList m, AstTensor s r (AstR n))
   -> IndexOf ranked m
   -> ranked r n
 {-# INLINE interpretLambdaIndex #-}

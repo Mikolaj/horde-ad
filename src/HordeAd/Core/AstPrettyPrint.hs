@@ -66,7 +66,7 @@ defaulPrintConfig2 loseRoudtrip ignoreNestedLambdas renames =
       representsIntIndex = False
   in PrintConfig {..}
 
-areAllArgsInts :: AstRanked s r n -> Bool
+areAllArgsInts :: AstTensor s r (AstR n) -> Bool
 areAllArgsInts = \case
   -- A heuristics for whether all the arguments are still Int64 rank 0 tensors
   -- morally representing integer indexes. This mostly just rules out
@@ -133,7 +133,7 @@ printAstVarN n cfg (AstVarName varId) =
   in printAstVarId prefix cfg varId
 
 printAstVar :: forall n s r. KnownNat n
-            => PrintConfig -> AstVarName (AstRanked s) r n -> ShowS
+            => PrintConfig -> AstVarName (AstTensor s) r (AstR n) -> ShowS
 printAstVar = printAstVarN (valueOf @n)
 
 printAstVarS :: forall sh s r. KnownShS sh
@@ -148,7 +148,7 @@ printAstFunVar = printAstVarId "f"
 
 printAstVarFromLet
   :: forall n s r. (GoodScalar r, KnownNat n, AstSpan s)
-  => AstRanked s r n -> PrintConfig -> AstVarName (AstRanked s) r n -> ShowS
+  => AstTensor s r (AstR n) -> PrintConfig -> AstVarName (AstTensor s) r (AstR n) -> ShowS
 printAstVarFromLet u cfg var =
   if representsIntIndex cfg && areAllArgsInts u
   then case isRankedInt u of
@@ -163,7 +163,7 @@ printAstIntVarName renames var =
   printAstIntVar (defaulPrintConfig False renames) var ""
 
 printAstVarName :: KnownNat n
-                => IntMap String -> AstVarName (AstRanked s) r n
+                => IntMap String -> AstVarName (AstTensor s) r (AstR n)
                 -> String
 printAstVarName renames var =
   printAstVar (defaulPrintConfig False renames) var ""
@@ -200,7 +200,7 @@ printAstInt cfgOld d t =
   in printAst cfg d t
 
 printAst :: forall n s r. (GoodScalar r, KnownNat n, AstSpan s)
-         => PrintConfig -> Int -> AstRanked s r n -> ShowS
+         => PrintConfig -> Int -> AstTensor s r (AstR n) -> ShowS
 printAst cfgOld d t =
   if representsIntIndex cfgOld
   then case isRankedInt t of
@@ -219,12 +219,12 @@ printAst cfgOld d t =
 
 -- Precedences used are as in Haskell.
 printAstAux :: forall n s r. (GoodScalar r, KnownNat n, AstSpan s)
-            => PrintConfig -> Int -> AstRanked s r n -> ShowS
+            => PrintConfig -> Int -> AstTensor s r (AstR n) -> ShowS
 printAstAux cfg d = \case
   AstVar _sh var -> printAstVar cfg var
   t@(AstLet var0 u0 v0) ->
     if loseRoudtrip cfg
-    then let collect :: AstRanked s r n -> ([(ShowS, ShowS)], ShowS)
+    then let collect :: AstTensor s r (AstR n) -> ([(ShowS, ShowS)], ShowS)
              collect (AstLet var u v) =
                let name = printAstVarFromLet u cfg var
                    uPP = printAst cfg 0 u
@@ -601,7 +601,7 @@ showCollectionWith start sep end showx (x:xs) s = start ++ showx x (showl xs)
 printAstDynamic :: AstSpan s
                 => PrintConfig -> Int -> AstDynamic s -> ShowS
 printAstDynamic cfg d = \case
-  DynamicRanked v -> printPrefixOp printAst cfg d "DynamicRanked" [v]
+  DynamicRanked (AstRanked v) -> printPrefixOp printAst cfg d "DynamicRanked" [v]
   DynamicShaped v -> printPrefixOp printAstS cfg d "DynamicShaped" [v]
   DynamicRankedDummy{} -> showString "DynamicRankedDummy"
   DynamicShapedDummy{} -> showString "DynamicShapedDummy"
@@ -609,7 +609,7 @@ printAstDynamic cfg d = \case
 printAstUnDynamic :: AstSpan s
                   => PrintConfig -> Int -> AstDynamic s -> ShowS
 printAstUnDynamic cfg d = \case
-  DynamicRanked v -> printAst cfg d v
+  DynamicRanked (AstRanked v) -> printAst cfg d v
   DynamicShaped v -> printAstS cfg d v
   DynamicRankedDummy{} -> showString "0"
   DynamicShapedDummy{} -> showString "0"
@@ -940,15 +940,15 @@ printAstRelOp pr cfg d opCode u v = case opCode of
 
 printAstSimple :: (GoodScalar r, KnownNat n, AstSpan s)
                => IntMap String -> AstRanked s r n -> String
-printAstSimple renames t = printAst (defaulPrintConfig False renames) 0 t ""
+printAstSimple renames (AstRanked t) = printAst (defaulPrintConfig False renames) 0 t ""
 
 printAstPretty :: (GoodScalar r, KnownNat n, AstSpan s)
                => IntMap String -> AstRanked s r n -> String
-printAstPretty renames t = printAst (defaulPrintConfig True renames) 0 t ""
+printAstPretty renames (AstRanked t) = printAst (defaulPrintConfig True renames) 0 t ""
 
 printAstPrettyButNested :: (GoodScalar r, KnownNat n, AstSpan s)
                         => IntMap String -> AstRanked s r n -> String
-printAstPrettyButNested renames t =
+printAstPrettyButNested renames (AstRanked t) =
   printAst (defaulPrintConfig2 True False renames) 0 t ""
 
 printAstSimpleS :: (GoodScalar r, KnownShS sh, AstSpan s)

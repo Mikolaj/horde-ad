@@ -16,25 +16,24 @@ module HordeAd.Core.AstFreshId
 
 import Prelude
 
-import           Control.Monad (mapAndUnzipM, replicateM)
-import           Data.Array.Internal (valueOf)
-import           Data.IORef.Unboxed
-  (Counter, atomicAddCounter_, newCounter, writeIORefU)
-import           Data.List (unzip4, unzip6)
-import           Data.Proxy (Proxy (Proxy))
-import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, Nat)
-import           System.IO.Unsafe (unsafePerformIO)
+import Control.Monad (mapAndUnzipM, replicateM)
+import Data.Array.Internal (valueOf)
+import Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter, writeIORefU)
+import Data.List (unzip4, unzip6)
+import Data.Proxy (Proxy (Proxy))
+import Data.Vector.Generic qualified as V
+import GHC.TypeLits (KnownNat, Nat)
+import System.IO.Unsafe (unsafePerformIO)
 
-import           HordeAd.Core.Ast
-import           HordeAd.Core.HVector
-import           HordeAd.Core.Types
-import qualified HordeAd.Util.ShapedList as ShapedList
-import           HordeAd.Util.SizedList
+import HordeAd.Core.Ast
+import HordeAd.Core.HVector
+import HordeAd.Core.Types
+import HordeAd.Util.ShapedList qualified as ShapedList
+import HordeAd.Util.SizedList
 
 unRawHVector :: HVector (AstRaw s) -> HVector (AstRanked s)
 unRawHVector =
-  let f (DynamicRanked (AstRaw t)) = DynamicRanked t
+  let f (DynamicRanked (AstRaw t)) = DynamicRanked (AstRanked t)
       f (DynamicShaped (AstRawS t)) = DynamicShaped t
       f (DynamicRankedDummy p1 p2) = DynamicRankedDummy p1 p2
       f (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
@@ -42,7 +41,7 @@ unRawHVector =
 
 rawHVector :: HVector (AstRanked s) -> HVector (AstRaw s)
 rawHVector =
-  let f (DynamicRanked t) = DynamicRanked $ AstRaw t
+  let f (DynamicRanked (AstRanked t)) = DynamicRanked $ AstRaw t
       f (DynamicShaped t) = DynamicShaped $ AstRawS t
       f (DynamicRankedDummy p1 p2) = DynamicRankedDummy p1 p2
       f (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
@@ -69,21 +68,21 @@ unsafeGetFreshAstVarName =
   AstVarName . intToAstVarId <$> atomicAddCounter_ unsafeAstVarCounter 1
 
 funToAstIOR :: forall n m s r r2. GoodScalar r
-            => IShR n -> (AstRanked s r n -> AstRanked s r2 m)
-            -> IO ( AstVarName (AstRanked s) r n
+            => IShR n -> (AstTensor s r (AstR n) -> AstTensor s r2 (AstR m))
+            -> IO ( AstVarName (AstTensor s) r (AstR n)
                   , AstDynamicVarName
-                  , AstRanked s r2 m )
+                  , AstTensor s r2 (AstR m) )
 {-# INLINE funToAstIOR #-}
 funToAstIOR sh f = do
   freshId <- unsafeGetFreshAstVarId
   return $! withShapeP (shapeToList sh) $ \(Proxy @p_sh) ->
     let varName = AstVarName freshId
         !x = f (AstVar sh varName)
-    in (varName, AstDynamicVarName @Nat @r @p_sh freshId, x)
+    in (AstVarName freshId{-TODO: varName-}, AstDynamicVarName @Nat @r @p_sh freshId, x)
 
 funToAstR :: GoodScalar r
-          => IShR n -> (AstRanked s r n -> AstRanked s r2 m)
-          -> (AstVarName (AstRanked s) r n, AstRanked s r2 m)
+          => IShR n -> (AstTensor s r (AstR n) -> AstTensor s r2 (AstR m))
+          -> (AstVarName (AstTensor s) r (AstR n), AstTensor s r2 (AstR m))
 {-# NOINLINE funToAstR #-}
 funToAstR sh f = unsafePerformIO $ do
   (!var, _, !ast) <- funToAstIOR sh f
@@ -109,15 +108,15 @@ funToAstS f = unsafePerformIO $ do
   (!var, _, !ast) <- funToAstIOS f
   return (var, ast)
 
-fun1RToAstIO :: (AstVarName (AstRanked s) r n -> AstRanked s r n)
-             -> IO (AstRanked s r n)
+fun1RToAstIO :: (AstVarName (AstTensor s) r (AstR n) -> AstTensor s r (AstR n))
+             -> IO (AstTensor s r (AstR n))
 {-# INLINE fun1RToAstIO #-}
 fun1RToAstIO f = do
   !freshId <- unsafeGetFreshAstVarName
   return $! f freshId
 
-fun1RToAst :: (AstVarName (AstRanked s) r n -> AstRanked s r n)
-           -> AstRanked s r n
+fun1RToAst :: (AstVarName (AstTensor s) r (AstR n) -> AstTensor s r (AstR n))
+           -> AstTensor s r (AstR n)
 {-# NOINLINE fun1RToAst #-}
 fun1RToAst f = unsafePerformIO $ fun1RToAstIO f
 
@@ -202,7 +201,7 @@ dynamicToVar (DynamicRankedDummy @r2 @sh2 _ _) = do
   return $! withListSh (Proxy @sh2) $ \sh4 ->
     let !varE = AstDynamicVarName @Nat @r2 @sh2 freshId
         dynE :: AstDynamic s
-        !dynE = DynamicRanked @r2 (AstVar sh4 (AstVarName freshId))
+        !dynE = DynamicRanked @r2 (AstRanked $ AstVar sh4 (AstVarName freshId))
     in (varE, dynE)
 dynamicToVar (DynamicShapedDummy @r2 @sh2 _ _) = do
   freshId <- unsafeGetFreshAstVarId
@@ -227,7 +226,7 @@ funToAstRevIO parameters0 = do
         return $! withListSh (Proxy @sh) $ \sh ->
           let !varE = AstDynamicVarName @Nat @r @sh freshId
               dynE :: AstDynamic s
-              !dynE = DynamicRanked @r (AstVar sh (AstVarName freshId))
+              !dynE = DynamicRanked @r (AstRanked $ AstVar sh (AstVarName freshId))
           in (varE, dynE, varE, dynE)
       f (DynamicShapedDummy @r @sh _ _) = do
         freshId <- unsafeGetFreshAstVarId
@@ -270,7 +269,7 @@ funToAstFwdIO parameters0 = do
           let varE :: AstVarId -> AstDynamicVarName
               varE = AstDynamicVarName @Nat @r @sh
               dynE :: AstVarId -> AstDynamic s
-              dynE varId = DynamicRanked @r (AstVar sh (AstVarName varId))
+              dynE varId = DynamicRanked @r (AstRanked $ AstVar sh (AstVarName varId))
               !vd = varE freshIdDs
               !dd = dynE freshIdDs
               !vi = varE freshId
