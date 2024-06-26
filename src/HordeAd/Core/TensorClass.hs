@@ -807,13 +807,14 @@ class HVectorTensor (ranked :: RankedTensorType)
         h = dfwd @ranked shs (HFun g)
     in \es ds -> let hv = dHApply h [ds, es]
                  in rfromD $ dunHVector hv V.! 0
-  srev :: ( GoodScalar r, KnownShape sh, shaped ~ ShapedOf ranked
+  srev :: forall r sh.
+          ( GoodScalar r, KnownShape sh, shaped ~ ShapedOf ranked
           , ShapedTensor shaped )
        => (forall f. ADReadyS f => HVector (RankedOf f) -> f r sh)
        -> VoidHVector
        -> HVector ranked
        -> HVectorOf ranked
-  srev f shs es = srevDt f shs es 1
+  srev f shs es = srevDt @_ @_ @r @sh f shs es 1
   srevDt :: (GoodScalar r, KnownShape sh, shaped ~ ShapedOf ranked)
          => (forall f. ADReadyS f => HVector (RankedOf f) -> f r sh)
          -> VoidHVector
@@ -826,8 +827,9 @@ class HVectorTensor (ranked :: RankedTensorType)
         g _ = error "g: wrong number of arguments"
         h = drevDt @ranked shs (HFun g)
     in \es dt -> dHApply h [V.singleton $ DynamicShaped dt, es]
-  sfwd :: ( GoodScalar r, KnownShape sh, RankedTensor ranked, ShapedTensor shaped
-          , shaped ~ ShapedOf ranked, ranked ~ RankedOf shaped )
+  sfwd :: ( GoodScalar r, KnownShape sh, RankedTensor ranked
+          , ShapedTensor shaped, shaped ~ ShapedOf ranked
+          , ranked ~ RankedOf shaped )
        => (forall f. ADReadyS f => HVector (RankedOf f) -> f r sh)
        -> VoidHVector
        -> HVector ranked

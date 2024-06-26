@@ -83,7 +83,7 @@ rev' f vals =
       g inputs = f $ parseHVector valsFrom  inputs
       (advalGrad, value1) = crevDtMaybeBoth dt g parameters
       gradient1 = parseHVector vals advalGrad
-      gradientRrev1 = rrev1 @(Flip OR.Array) @r @n @m f vals
+      gradientRrev1 = rrev1 @(Flip OR.Array) @r @n @m @r f vals
       g9 :: HVector (ADVal (AstRaw PrimalSpan))
          -> ADVal (AstRaw PrimalSpan) r m
       g9 inputs = f @(ADVal (AstRaw PrimalSpan))
@@ -130,14 +130,14 @@ rev' f vals =
         crevDtMaybeBoth dt (h unAstNoSimplify AstNoSimplify id) parameters
       gradient2UnSimp = parseHVector vals astGradUnSimp
       gradientRrev2UnSimp =
-        rrev1 @(Flip OR.Array) @r @n @m
+        rrev1 @(Flip OR.Array) @r @n @m @r
               (hGeneral unAstNoSimplify AstNoSimplify id) vals
       (astSimpleUnSimp, value3UnSimp) =
         crevDtMaybeBoth dt (h unAstNoSimplify AstNoSimplify simplifyInlineAst)
                       parameters
       gradient3UnSimp = parseHVector vals astSimpleUnSimp
       gradientRrev3UnSimp =
-        rrev1 @(Flip OR.Array) @r @n @m
+        rrev1 @(Flip OR.Array) @r @n @m @r
               (hGeneral unAstNoSimplify AstNoSimplify simplifyInlineAst) vals
       (astPrimal, value4) =
         crevDtMaybeBoth dt (h unAstNoVectorize AstNoVectorize id)
@@ -145,14 +145,14 @@ rev' f vals =
           -- use the AstNoVectorize instance that does no vectorization
           -- and then interpret the results as the Ast instance
       gradient4 = parseHVector vals astPrimal
-      gradientRrev4 = rrev1 @(Flip OR.Array) @r @n @m
+      gradientRrev4 = rrev1 @(Flip OR.Array) @r @n @m @r
                             (hGeneral unAstNoVectorize AstNoVectorize id) vals
       (astPSimple, value5) =
         crevDtMaybeBoth dt (h unAstNoVectorize AstNoVectorize simplifyInlineAst)
                       parameters
       gradient5 = parseHVector vals astPSimple
       gradientRrev5 =
-        rrev1 @(Flip OR.Array) @r @n @m
+        rrev1 @(Flip OR.Array) @r @n @m @r
               (hGeneral unAstNoVectorize AstNoVectorize simplifyInlineAst) vals
       astVectSimp = simplifyInlineAst $ snd $ funToAstR (rshape vals) f
       astSimp =
@@ -497,7 +497,8 @@ rrev1 f u =
       sh = rshape u
       zero = voidFromSh @r @n sh
       shapes = V.fromList [zero]
-      domsOf = rrev @g fHVector shapes (V.singleton $ DynamicRanked u)
+      domsOf = rrev @g @_ @r3 @m
+                    fHVector shapes (V.singleton $ DynamicRanked u)
   in rletHVectorIn domsOf (\v -> rfromD $ v V.! 0)
 
 rfwd1ds :: forall g r n m r3.
@@ -526,7 +527,7 @@ srev1 f u =
       fHVector v = f (sfromD $ v V.! 0)
       zero = voidFromShS @r @sh
       shapes = V.fromList [zero]
-      domsOf = srev @(RankedOf g)
+      domsOf = srev @(RankedOf g) @_ @r3 @sh2
                     fHVector shapes (V.singleton $ DynamicShaped u)
   in sletHVectorIn domsOf (\v -> sfromD $ v V.! 0)
 

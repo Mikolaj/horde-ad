@@ -1586,14 +1586,14 @@ astReplicate0NS =
       go (ShCons SNat sh') v = astReplicateS $ go sh' v
   in go (knownShape @shn)
 
-astAppend :: (KnownNat n, GoodScalar r, AstSpan s)
+astAppend :: forall n r s. (KnownNat n, GoodScalar r, AstSpan s)
           => AstRanked s r (1 + n) -> AstRanked s r (1 + n)
           -> AstRanked s r (1 + n)
 astAppend (AstConst u) (AstConst v) = AstConst $ tappendR u v
 astAppend (Ast.AstConstant u) (Ast.AstConstant v) =
   Ast.AstConstant $ astAppend u v
 astAppend (Ast.AstFromVector l1) (Ast.AstFromVector l2) =
-  astFromVector $ l1 V.++ l2
+  astFromVector @s @r @n $ l1 V.++ l2
 astAppend u v = Ast.AstAppend u v
 
 astAppendS :: (KnownNat m, KnownNat n, KnownShape sh, GoodScalar r, AstSpan s)

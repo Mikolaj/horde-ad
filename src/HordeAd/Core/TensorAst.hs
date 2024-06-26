@@ -989,9 +989,14 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
   -- These three methods are called at this type in delta evaluation via
   -- dmapAccumR and dmapAccumL, they have to work. We could refrain from
   -- simplifying the resulting terms, but it's not clear that's more consistent.
+  rrev :: forall r n. (GoodScalar r, KnownNat n)
+       => (forall f. ADReady f => HVector f -> f r n)
+       -> VoidHVector
+       -> HVector (AstRaw s)
+       -> HVectorOf (AstRaw s)
   rrev f parameters0 hVector =  -- we don't have an AST constructor to hold it
     AstRawWrap
-    $ rrev f parameters0 (unRawHVector hVector)
+    $ rrev @_ @_ @r @n f parameters0 (unRawHVector hVector)
   drevDt = drevDt @(AstRanked s)
   dfwd = dfwd @(AstRanked s)
   dmapAccumRDer _ k accShs bShs eShs f df rf acc0 es =
@@ -1122,9 +1127,14 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
   dbuild1 k f =
     AstNoVectorizeWrap
     $ AstBuildHVector1 k $ funToAstI (unAstNoVectorizeWrap . f . AstNoVectorize)
+  rrev :: forall r n. (GoodScalar r, KnownNat n)
+       => (forall f. ADReady f => HVector f -> f r n)
+       -> VoidHVector
+       -> HVector (AstNoVectorize s)
+       -> HVectorOf (AstNoVectorize s)
   rrev f parameters0 hVector =
     AstNoVectorizeWrap
-    $ rrev f parameters0 (unNoVectorizeHVector hVector)
+    $ rrev @_ @_ @r @n f parameters0 (unNoVectorizeHVector hVector)
   drevDt = drevDt @(AstRanked s)
   dfwd = dfwd @(AstRanked s)
   dmapAccumRDer _ k accShs bShs eShs f df rf acc0 es =
@@ -1300,9 +1310,14 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
   dbuild1 k f = AstNoSimplifyWrap
                 $ astBuildHVector1Vectorize
                     k (unAstNoSimplifyWrap . f . AstNoSimplify)
+  rrev :: forall r n. (GoodScalar r, KnownNat n)
+       => (forall f. ADReady f => HVector f -> f r n)
+       -> VoidHVector
+       -> HVector (AstNoSimplify s)
+       -> HVectorOf (AstNoSimplify s)
   rrev f parameters0 hVector =  -- we don't have an AST constructor to hold it
     AstNoSimplifyWrap
-    $ rrev f parameters0 (unNoSimplifyHVector hVector)
+    $ rrev @_ @_ @r @n f parameters0 (unNoSimplifyHVector hVector)
   drevDt = drevDt @(AstRanked s)
   dfwd = dfwd @(AstRanked s)
   dmapAccumRDer _ k accShs bShs eShs f df rf acc0 es =
