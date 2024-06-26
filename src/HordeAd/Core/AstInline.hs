@@ -11,27 +11,27 @@ module HordeAd.Core.AstInline
 
 import Prelude
 
-import           Control.Arrow (second)
-import           Data.Array.Internal (valueOf)
-import qualified Data.EnumMap.Strict as EM
-import           Data.List (mapAccumR)
-import           Data.Maybe (fromMaybe)
-import           Data.Proxy (Proxy (Proxy))
-import           Data.Type.Equality (testEquality, (:~:) (Refl))
-import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, Nat)
-import           Type.Reflection (typeRep)
+import Control.Arrow (second)
+import Data.Array.Internal (valueOf)
+import Data.EnumMap.Strict qualified as EM
+import Data.List (mapAccumR)
+import Data.Maybe (fromMaybe)
+import Data.Proxy (Proxy (Proxy))
+import Data.Type.Equality (testEquality, (:~:) (Refl))
+import Data.Vector.Generic qualified as V
+import GHC.TypeLits (KnownNat, Nat)
+import Type.Reflection (typeRep)
 
-import           HordeAd.Core.Ast (AstBool, AstHVector, AstRanked, AstShaped)
-import           HordeAd.Core.Ast hiding
-  (AstBool (..), AstHVector (..), AstRanked (..), AstShaped (..))
-import qualified HordeAd.Core.Ast as Ast
-import           HordeAd.Core.AstSimplify
-import           HordeAd.Core.AstTools
-import           HordeAd.Core.HVector
-import           HordeAd.Core.Types
-import qualified HordeAd.Util.ShapedList as ShapedList
-import           HordeAd.Util.SizedList
+import HordeAd.Core.Ast (AstBool, AstHVector, AstShaped, AstTensor)
+import HordeAd.Core.Ast hiding
+  (AstBool (..), AstHVector (..), AstShaped (..), AstTensor (..))
+import HordeAd.Core.Ast qualified as Ast
+import HordeAd.Core.AstSimplify
+import HordeAd.Core.AstTools
+import HordeAd.Core.HVector
+import HordeAd.Core.Types
+import HordeAd.Util.ShapedList qualified as ShapedList
+import HordeAd.Util.SizedList
 
 -- * The joint inlining and simplification term transformation
 
@@ -48,9 +48,9 @@ simplifyInlineAst
   :: (GoodScalar r, KnownNat n, AstSpan s)
   => AstRanked s r n -> AstRanked s r n
 simplifyInlineAst =
-  snd . inlineAst EM.empty
+  AstRanked . snd . inlineAst EM.empty
   . simplifyAst . expandAst
-  . snd . inlineAst EM.empty . simplifyAst
+  . snd . inlineAst EM.empty . simplifyAst . unAstRanked
 {-# SPECIALIZE simplifyInlineAst
   :: (KnownNat n, AstSpan s)
   => AstRanked s Double n -> AstRanked s Double n #-}
@@ -87,7 +87,7 @@ type AstMemo = EM.EnumMap AstVarId Int
 inlineAst
   :: forall n s r. (GoodScalar r, KnownNat n, AstSpan s)
   => AstMemo
-  -> AstRanked s r n -> (AstMemo, AstRanked s r n)
+  -> AstTensor s r (AstR n) -> (AstMemo, AstTensor s r (AstR n))
 inlineAst memo v0 = case v0 of
   Ast.AstVar _ (AstVarName varId) ->
     let f Nothing = Just 1
@@ -104,12 +104,12 @@ inlineAst memo v0 = case v0 of
         (memo2, u2) = inlineAst memo1NoVar u
     in case EM.findWithDefault 0 vv memo1 of
       0 -> (memo1, v2)
-      1 -> (memo2, substituteAst (SubstitutionPayloadRanked u2) var v2)
+      1 -> (memo2, unAstRanked $ substituteAst (SubstitutionPayloadRanked u2) var (AstRanked v2))
       count | astIsSmall (count < 10) u ->
         let (memoU0, u0) = inlineAst EM.empty u
             memo3 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1NoVar memoU0
                       -- u is small, so the union is fast
-        in (memo3, substituteAst (SubstitutionPayloadRanked u0) var v2)
+        in (memo3, unAstRanked $ substituteAst (SubstitutionPayloadRanked u0) var (AstRanked v2))
       _ -> (memo2, Ast.AstLet var u2 v2)
   Ast.AstShare{} -> error "inlineAst: AstShare"
   Ast.AstCond b a2 a3 ->
@@ -354,7 +354,8 @@ inlineAstDynamic
   => AstMemo -> AstDynamic s
   -> (AstMemo, AstDynamic s)
 inlineAstDynamic memo = \case
-  DynamicRanked w -> second DynamicRanked $ inlineAst memo w
+  DynamicRanked (AstRanked w) ->
+    second (DynamicRanked . AstRanked) $ inlineAst memo w
   DynamicShaped w -> second DynamicShaped $ inlineAstS memo w
   u@DynamicRankedDummy{} -> (memo, u)
   u@DynamicShapedDummy{} -> (memo, u)
@@ -482,8 +483,8 @@ type ShareMemo = EM.EnumMap AstVarId (AstBindingsCase PrimalSpan)
 -- the gather/scatter/build variables corresponding to the index.
 shareAstScoped
   :: forall n s r. (GoodScalar r, KnownNat n, AstSpan s)
-  => [IntVarName] -> ShareMemo -> AstRanked s r n
-  -> (ShareMemo, AstRanked s r n)
+  => [IntVarName] -> ShareMemo -> AstTensor s r (AstR n)
+  -> (ShareMemo, AstTensor s r (AstR n))
 shareAstScoped vars0 memo0 v0 =
   let (memo1, v1) = shareAst memo0 v0
       memoDiff = EM.difference memo1 memo0
@@ -502,11 +503,11 @@ shareAstScoped vars0 memo0 v0 =
       (memoLocal1, memoGlobal1) =
         closeOccurs (map varNameToAstVarId vars0) memoDiff
       bindingsLocal = EM.toDescList memoLocal1
-  in (EM.union memo0 memoGlobal1, bindsToLet v1 bindingsLocal)
+  in (EM.union memo0 memoGlobal1, unAstRanked $ bindsToLet (AstRanked v1) bindingsLocal)
 
 shareAst
   :: forall n s r. (GoodScalar r, KnownNat n, AstSpan s)
-  => ShareMemo -> AstRanked s r n -> (ShareMemo, AstRanked s r n)
+  => ShareMemo -> AstTensor s r (AstR n) -> (ShareMemo, AstTensor s r (AstR n))
 shareAst memo v0 = case v0 of
   Ast.AstVar{} -> (memo, v0)
   Ast.AstLet{} -> (memo, v0)  -- delta eval doesn't create lets and no lets
@@ -518,7 +519,7 @@ shareAst memo v0 = case v0 of
     in if varId `EM.member` memo
        then (memo, astVar)  -- TODO: memo AstVar
        else let (memo1, v2) = shareAst memo v
-                d = AstBindingsSimple $ DynamicRanked v2
+                d = AstBindingsSimple $ DynamicRanked $ AstRanked v2
             in (EM.insert varId d memo1, astVar)
   Ast.AstShare{} -> error "shareAst: AstShare not in PrimalSpan"
   Ast.AstCond b a2 a3 ->
@@ -702,7 +703,8 @@ shareAstDynamic
   :: AstSpan s
   => ShareMemo -> AstDynamic s -> (ShareMemo, AstDynamic s)
 shareAstDynamic memo = \case
-  DynamicRanked w -> second DynamicRanked $ shareAst memo w
+  DynamicRanked (AstRanked w) ->
+    second (DynamicRanked . AstRanked) $ shareAst memo w
   DynamicShaped w -> second DynamicShaped $ shareAstS memo w
   u@DynamicRankedDummy{} -> (memo, u)
   u@DynamicShapedDummy{} -> (memo, u)
@@ -730,7 +732,7 @@ shareAstHVector memo v0 = case v0 of
         f (AstDynamicVarName @ty @rD @shD varIdD) =
           case testEquality (typeRep @ty) (typeRep @Nat) of
             Just Refl -> withListSh (Proxy @shD) $ \sh ->
-              DynamicRanked @rD $ Ast.AstVar sh (AstVarName varIdD)
+              DynamicRanked @rD $ AstRanked $ Ast.AstVar sh (AstVarName varIdD)
             _ -> DynamicShaped @rD @shD $ Ast.AstVarS (AstVarName varIdD)
         astVars = Ast.AstMkHVector $ V.fromList $ map f vars
     in if varId `EM.member` memo

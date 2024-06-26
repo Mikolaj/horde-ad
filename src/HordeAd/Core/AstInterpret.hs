@@ -53,7 +53,7 @@ interpretAstPrimalRuntimeSpecialized
   :: forall ranked n r.
      (KnownNat n, ADReady ranked, Typeable r)
   => AstEnv ranked
-  -> AstRanked PrimalSpan r n -> PrimalOf ranked r n
+  -> AstTensor PrimalSpan r (AstR n) -> PrimalOf ranked r n
 interpretAstPrimalRuntimeSpecialized !env t =
   -- We dispatch on all expected underyling scalar types, which is
   -- necessary to run the correct specialization when unpacking
@@ -83,7 +83,7 @@ interpretAstPrimal
   :: forall ranked n r.
      (KnownNat n, ADReady ranked, GoodScalar r)
   => AstEnv ranked
-  -> AstRanked PrimalSpan r n -> PrimalOf ranked r n
+  -> AstTensor PrimalSpan r (AstR n) -> PrimalOf ranked r n
 interpretAstPrimal !env v1 = case v1 of
   AstPrimalPart (AstD u _) -> interpretAstPrimal env u
   AstPrimalPart (AstConstant u) -> interpretAstPrimal env u
@@ -99,7 +99,7 @@ interpretAstDual
   :: forall ranked n r.
      (KnownNat n, ADReady ranked, GoodScalar r)
   => AstEnv ranked
-  -> AstRanked DualSpan r n -> DualOf ranked r n
+  -> AstTensor DualSpan r (AstR n)-> DualOf ranked r n
 interpretAstDual !env v1 = case v1 of
   AstDualPart (AstD _ u') -> interpretAstDual env u'
   AstDualPart t -> rdualPart $ interpretAst env t
@@ -109,7 +109,7 @@ interpretAstRuntimeSpecialized
   :: forall ranked n s r.
      (KnownNat n, ADReady ranked, Typeable r, AstSpan s)
   => AstEnv ranked
-  -> AstRanked s r n -> ranked r n
+  -> AstTensor s r (AstR n) -> ranked r n
 interpretAstRuntimeSpecialized !env t =
   case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> interpretAst @ranked @n @s @Double env t
@@ -125,7 +125,7 @@ interpretAst
   :: forall ranked n s r.
      (KnownNat n, ADReady ranked, GoodScalar r, AstSpan s)
   => AstEnv ranked
-  -> AstRanked s r n -> ranked r n
+  -> AstTensor s r (AstR n) -> ranked r n
 interpretAst !env = \case
   AstVar sh (AstVarName varId) -> case EM.lookup varId env of
     Just (AstEnvElemRanked @r2 @n2 t) -> case sameNat (Proxy @n2) (Proxy @n) of
@@ -812,7 +812,7 @@ interpretAstDynamic
   -> AstDynamic s -> DynamicTensor ranked
 {-# INLINE interpretAstDynamic #-}
 interpretAstDynamic !env = \case
-  DynamicRanked w ->
+  DynamicRanked (AstRanked w) ->
     DynamicRanked $ interpretAstRuntimeSpecialized env w
   DynamicShaped w ->
     DynamicShaped $ interpretAstSRuntimeSpecialized env w

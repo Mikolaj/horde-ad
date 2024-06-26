@@ -163,25 +163,25 @@ fwdProduceArtifact g envInit =
 type instance BoolOf (AstRanked s) = AstBool
 
 instance AstSpan s => EqF (AstRanked s) where
-  v ==. u = AstRel EqOp (astSpanPrimal v) (astSpanPrimal u)
-  v /=. u = AstRel NeqOp (astSpanPrimal v) (astSpanPrimal u)
+  AstRanked v ==. AstRanked u = AstRel EqOp (astSpanPrimal v) (astSpanPrimal u)
+  AstRanked v /=. AstRanked u = AstRel NeqOp (astSpanPrimal v) (astSpanPrimal u)
 
 instance AstSpan s => OrdF (AstRanked s) where
-  AstConst u <. AstConst v = AstBoolConst $ u < v
+  AstRanked (AstConst u) <. AstRanked (AstConst v) = AstBoolConst $ u < v
     -- common in indexing
-  v <. u = AstRel LsOp (astSpanPrimal v) (astSpanPrimal u)
-  AstConst u <=. AstConst v = AstBoolConst $ u <= v
+  v <. u = AstRel LsOp (astSpanPrimal (unAstRanked v)) (astSpanPrimal (unAstRanked u))
+  AstRanked (AstConst u) <=. AstRanked (AstConst v) = AstBoolConst $ u <= v
     -- common in indexing
-  v <=. u = AstRel LeqOp (astSpanPrimal v) (astSpanPrimal u)
-  AstConst u >. AstConst v = AstBoolConst $ u > v
+  v <=. u = AstRel LeqOp (astSpanPrimal (unAstRanked v)) (astSpanPrimal (unAstRanked u))
+  AstRanked (AstConst u) >. AstRanked (AstConst v) = AstBoolConst $ u > v
     -- common in indexing
-  v >. u = AstRel GtOp (astSpanPrimal v) (astSpanPrimal u)
-  AstConst u >=. AstConst v = AstBoolConst $ u >= v
+  v >. u = AstRel GtOp (astSpanPrimal (unAstRanked v)) (astSpanPrimal (unAstRanked u))
+  AstRanked (AstConst u) >=. AstRanked (AstConst v) = AstBoolConst $ u >= v
     -- common in indexing
-  v >=. u = AstRel GeqOp (astSpanPrimal v) (astSpanPrimal u)
+  v >=. u = AstRel GeqOp (astSpanPrimal (unAstRanked v)) (astSpanPrimal (unAstRanked u))
 
 instance IfF (AstRanked s) where
-  ifF = astCond
+  ifF cond a b = AstRanked $ astCond cond (unAstRanked a) (unAstRanked b)
 
 
 -- * Unlawful boolean instances of shaped AST; they are lawful modulo evaluation
@@ -222,63 +222,80 @@ instance (GoodScalar r, KnownNat n, RankedTensor (AstRanked s), AstSpan s)
 
 instance GoodScalar r => DualNumberValue (AstRanked PrimalSpan r n) where
   type DValue (AstRanked PrimalSpan r n) = ORArray r n
-  fromDValue t = fromPrimal $ AstConst $ runFlipR t
+  fromDValue t = AstRanked $ fromPrimal $ AstConst $ runFlipR t
 
 instance GoodScalar r => TermValue (AstRanked FullSpan r n) where
   type Value (AstRanked FullSpan r n) = ORArray r n
-  fromValue t = fromPrimal $ AstConst $ runFlipR t
+  fromValue t = AstRanked $ fromPrimal $ AstConst $ runFlipR t
 
 instance AstSpan s => RankedTensor (AstRanked s) where
-  rlet = astLetFun
+  rlet a f =
+    AstRanked
+    $ astLetFun (unAstRanked a) (unAstRanked . f . AstRanked)
 
-  rshape = shapeAst
-  rminIndex = fromPrimal . AstMinIndex . astSpanPrimal
-  rmaxIndex = fromPrimal . AstMaxIndex . astSpanPrimal
-  rfloor = fromPrimal . AstFloor . astSpanPrimal
+  rshape = shapeAst . unAstRanked
+  rminIndex = AstRanked . fromPrimal . AstMinIndex
+              . astSpanPrimal . unAstRanked
+  rmaxIndex = AstRanked . fromPrimal . AstMaxIndex
+              . astSpanPrimal . unAstRanked
+  rfloor = AstRanked . fromPrimal . AstFloor
+           . astSpanPrimal . unAstRanked
 
-  riota = fromPrimal AstIota
-  rindex = astIndexStep
-  rsum = astSum
-  rscatter sh t f = astScatter sh t (funToAstIndex f)  -- introduces new vars
+  riota = AstRanked . fromPrimal $ AstIota
+  rindex v ix =
+    AstRanked $ astIndexStep (unAstRanked v) (unAstRanked <$> ix)
+  rsum = AstRanked . astSum . unAstRanked
+  rscatter sh t f = AstRanked $ astScatter sh (unAstRanked t)
+                    $ funToAstIndex
+                        (fmap unAstRanked . f . fmap AstRanked)
+                          -- this introduces new variable names
 
-  rfromVector = astFromVector
-  rreplicate = astReplicate
-  rappend = astAppend
-  rslice = astSlice
-  rreverse = astReverse
-  rtranspose = astTranspose
-  rreshape = astReshape
-  rbuild1 = astBuild1Vectorize
-  rgather sh t f = astGatherStep sh t (funToAstIndex f)  -- introduces new vars
-  rcast = astCast
-  rfromIntegral = fromPrimal . astFromIntegral . astSpanPrimal
-  rconst = fromPrimal . AstConst
-  rletHVectorIn = astLetHVectorInFun
-  rletHFunIn = astLetHFunInFun
-  rfromS = astRFromS
+  rfromVector = AstRanked . astFromVector . V.map unAstRanked
+  rreplicate k = AstRanked . astReplicate k . unAstRanked
+  rappend u v =
+    AstRanked $ astAppend (unAstRanked u) (unAstRanked v)
+  rslice i n = AstRanked . astSlice i n . unAstRanked
+  rreverse = AstRanked . astReverse . unAstRanked
+  rtranspose perm = AstRanked . astTranspose perm . unAstRanked
+  rreshape sh = AstRanked . astReshape sh . unAstRanked
+  rbuild1 k f =
+    AstRanked $ astBuild1Vectorize k (unAstRanked . f . AstRanked)
+  rgather sh t f = AstRanked $ astGatherStep sh (unAstRanked t)
+                   $ funToAstIndex
+                       (fmap unAstRanked . f . fmap AstRanked)
+                         -- this introduces new variable names
+  rcast = AstRanked . astCast . unAstRanked
+  rfromIntegral =
+    AstRanked . fromPrimal . astFromIntegral . astSpanPrimal . unAstRanked
+  rconst = AstRanked . fromPrimal . AstConst
+  rletHVectorIn a f =
+    AstRanked
+    $ astLetHVectorInFun a (unAstRanked . f)
+  rletHFunIn a f = AstRanked $ astLetHFunInFun a (unAstRanked . f)
+  rfromS = AstRanked . astRFromS
 
-  rshare a@(AstShare{}) = a
-  rshare a | astIsSmall True a = a
-  rshare a = fun1RToAst $ \ !var -> AstShare var a
+  rshare a@(AstRanked(AstShare{})) = a
+  rshare a | astIsSmall True (unAstRanked a) = a
+  rshare a = AstRanked $ fun1RToAst $ \ !var -> AstShare var (unAstRanked a)
 
-  rconstant = fromPrimal
-  rprimalPart = astSpanPrimal
-  rdualPart = astSpanDual
-  rD = astSpanD
-  rScale s t = astDualPart $ AstConstant s * AstD (rzero (rshape s)) t
+  rconstant = AstRanked . fromPrimal . unAstRanked
+  rprimalPart = AstRanked . astSpanPrimal . unAstRanked
+  rdualPart = AstRanked . astSpanDual . unAstRanked
+  rD u u' = AstRanked $ astSpanD (unAstRanked u) (unAstRanked u')
+  rScale s t = AstRanked $ astDualPart $ AstConstant (unAstRanked s) * AstD (unAstRanked $ rzero (rshape s)) (unAstRanked t)
 
 astLetHVectorInFun
   :: forall n s r. (KnownNat n, GoodScalar r, AstSpan s)
-  => AstHVector s -> (HVector (AstRanked s) -> AstRanked s r n)
-  -> AstRanked s r n
+  => AstHVector s -> (HVector (AstRanked s) -> AstTensor s r (AstR n))
+  -> AstTensor s r (AstR n)
 {-# INLINE astLetHVectorInFun #-}
 astLetHVectorInFun a f =
   fun1DToAst (shapeAstHVector a) $ \ !vars !asts ->
     astLetHVectorIn vars a (f asts)
 
 astLetHFunInFun
-  :: AstHFun -> (AstHFun -> AstRanked s r n)
-  -> AstRanked s r n
+  :: AstHFun -> (AstHFun -> AstTensor s r (AstR n))
+  -> AstTensor s r (AstR n)
 {-# INLINE astLetHFunInFun #-}
 astLetHFunInFun a f =
   let shss = domainShapesAstHFun a
@@ -286,7 +303,7 @@ astLetHFunInFun a f =
   in fun1HToAst shss shs $ \ !var !ast -> astLetHFunIn var a (f ast)
 
 astSpanPrimal :: forall s r n. (KnownNat n, GoodScalar r, AstSpan s)
-              => AstRanked s r n -> AstRanked PrimalSpan r n
+              => AstTensor s r (AstR n) -> AstTensor PrimalSpan r (AstR n)
 astSpanPrimal t | Just Refl <- sameAstSpan @s @PrimalSpan = t
 astSpanPrimal _ | Just Refl <- sameAstSpan @s @DualSpan =
   error "astSpanPrimal: can't recover primal from dual"
@@ -296,7 +313,7 @@ astSpanPrimal t | Just Refl <- sameAstSpan @s @FullSpan = astPrimalPart t
 astSpanPrimal _ = error "a spuriuos case for pattern match coverage"
 
 astSpanDual :: forall s r n. (KnownNat n, GoodScalar r, AstSpan s)
-            => AstRanked s r n -> AstRanked DualSpan r n
+            => AstTensor s r (AstR n) -> AstTensor DualSpan r (AstR n)
 astSpanDual t | Just Refl <- sameAstSpan @s @PrimalSpan =
   AstDualPart $ AstConstant t  -- this is nil; likely to happen
 astSpanDual t | Just Refl <- sameAstSpan @s @DualSpan = t
@@ -304,16 +321,16 @@ astSpanDual t | Just Refl <- sameAstSpan @s @FullSpan = astDualPart t
 astSpanDual _ = error "a spuriuos case for pattern match coverage"
 
 astSpanD :: forall s r n. AstSpan s
-         => AstRanked PrimalSpan r n -> AstRanked DualSpan r n
-         -> AstRanked s r n
+         => AstTensor PrimalSpan r (AstR n) -> AstTensor DualSpan r (AstR n)
+         -> AstTensor s r (AstR n)
 astSpanD u _ | Just Refl <- sameAstSpan @s @PrimalSpan = u
 astSpanD _ u' | Just Refl <- sameAstSpan @s @DualSpan = u'
 astSpanD u u' | Just Refl <- sameAstSpan @s @FullSpan = AstD u u'
 astSpanD _ _ = error "a spuriuos case for pattern match coverage"
 
 astLetFun :: (KnownNat n, KnownNat m, GoodScalar r, GoodScalar r2, AstSpan s)
-          => AstRanked s r n -> (AstRanked s r n -> AstRanked s r2 m)
-          -> AstRanked s r2 m
+          => AstTensor s r (AstR n) -> (AstTensor s r (AstR n) -> AstTensor s r2 (AstR m))
+          -> AstTensor s r2 (AstR m)
 astLetFun a f | astIsSmall True a = f a
 astLetFun a f =
   let sh = shapeAst a
@@ -327,8 +344,8 @@ astLetFun a f =
 -- pass or repeat until a fixed point is reached.
 -- This combinator also introduces new variable names.
 astBuild1Vectorize :: (KnownNat n, GoodScalar r, AstSpan s)
-                   => Int -> (AstInt -> AstRanked s r n)
-                   -> AstRanked s r (1 + n)
+                   => Int -> (AstInt -> AstTensor s r (AstR n))
+                   -> AstTensor s r (AstR (1 + n))
 astBuild1Vectorize k f = build1Vectorize k $ funToAstI f
 
 
@@ -357,9 +374,13 @@ instance AstSpan s => ShapedTensor (AstShaped s) where
   sfloor = fromPrimalS . AstFloorS . astSpanPrimalS
 
   siota = fromPrimalS AstIotaS
-  sindex = astIndexStepS
+  sindex v ix =
+    astIndexStepS v (unAstRanked <$> ix)
   ssum = astSumS
-  sscatter t f = astScatterS t (funToAstIndexS f)  -- introduces new vars
+  sscatter t f = astScatterS t
+                 $ funToAstIndexS
+                     (fmap unAstRanked . f . fmap AstRanked)
+                       -- this introduces new variable names
 
   sfromVector = astFromVectorS
   sreplicate = astReplicateS
@@ -368,14 +389,18 @@ instance AstSpan s => ShapedTensor (AstShaped s) where
   sreverse = astReverseS
   stranspose perm = astTransposeS perm
   sreshape = astReshapeS
-  sbuild1 = astBuild1VectorizeS
-  sgather t f = astGatherStepS t (funToAstIndexS f)  -- introduces new vars
+  sbuild1 f =
+    astBuild1VectorizeS (f . AstRanked)
+  sgather t f = astGatherStepS t
+                $ funToAstIndexS
+                    (fmap unAstRanked . f . fmap AstRanked)
+                      -- this introduces new variable names
   scast = astCastS
   sfromIntegral = fromPrimalS . astFromIntegralS . astSpanPrimalS
   sconst = fromPrimalS . AstConstS
   sletHVectorIn = astLetHVectorInFunS
   sletHFunIn = astLetHFunInFunS
-  sfromR = astSFromR
+  sfromR = astSFromR . unAstRanked
 
   sshare a@(AstShareS{}) = a
   sshare a | astIsSmallS True a = a
@@ -453,7 +478,7 @@ instance TermValue (DynamicTensor (AstRanked FullSpan)) where
   type Value (DynamicTensor (AstRanked FullSpan)) =
     DynamicTensor ORArray
   fromValue = \case
-    DynamicRanked t -> DynamicRanked $ fromPrimal $ AstConst $ runFlipR t
+    DynamicRanked t -> DynamicRanked $ AstRanked $ fromPrimal $ AstConst $ runFlipR t
     DynamicShaped @_ @sh t ->
       gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: X.Rank sh) $
       DynamicShaped @_ @sh $ fromPrimalS $ AstConstS $ runFlipS t
@@ -501,13 +526,15 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
         f i = \case
           DynamicRankedDummy @r @sh _ _ ->
             withListSh (Proxy @sh) $ \(_ :: IShR n) ->
-              DynamicRanked @r @n $ AstProject hVectorOf i
+              DynamicRanked @r @n $ AstRanked $ AstProject hVectorOf i
           DynamicShapedDummy @r @sh _ _ ->
             DynamicShaped @r @sh $ AstProjectS hVectorOf i
     in V.imap f $ shapeAstHVector hVectorOf
   dletHVectorInHVector = astLetHVectorInHVectorFun
   dletHFunInHVector = astLetHFunInHVectorFun
-  rletInHVector = astLetInHVectorFun
+  rletInHVector u f =
+    astLetInHVectorFun (unAstRanked u)
+                       (f . AstRanked)
   sletInHVector = astLetInHVectorFunS
   -- For convenience and simplicity we define this for all spans,
   -- but it can only ever be used for PrimalSpan.
@@ -527,7 +554,8 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   dshare a =
     let shs = shapeAstHVector a
     in fun1XToAst shs $ \ !vars -> AstShareHVector vars a
-  dbuild1 = astBuildHVector1Vectorize
+  dbuild1 k f = astBuildHVector1Vectorize
+                  k (f . AstRanked)
   rrev :: (GoodScalar r, KnownNat n)
        => (forall f. ADReady f => HVector f -> f r n)
        -> VoidHVector
@@ -621,7 +649,7 @@ astLetHFunInHVectorFun a f =
   in fun1HToAst shss shs $ \ !var !ast -> astLetHFunInHVector var a (f ast)
 
 astLetInHVectorFun :: (KnownNat n, GoodScalar r, AstSpan s)
-                   => AstRanked s r n -> (AstRanked s r n -> AstHVector s)
+                   => AstTensor s r (AstR n) -> (AstTensor s r (AstR n) -> AstHVector s)
                    -> AstHVector s
 {-# NOINLINE astLetInHVectorFun #-}
 astLetInHVectorFun a f | astIsSmall True a = f a
@@ -660,25 +688,59 @@ astBuildHVector1Vectorize k f = build1VectorizeHVector k $ funToAstI f
 
 -- * The AstRaw, AstNoVectorize and AstNoSimplify instances
 
+type instance BoolOf (AstRanked s) = AstBool
+
+{-deriving instance IfF (AstRanked s)
+deriving instance AstSpan s => EqF (AstRanked s)
+deriving instance AstSpan s => OrdF (AstRanked s)-}
+deriving instance Eq (AstRanked s r n)
+deriving instance Ord (AstRanked s r n)
+deriving instance Num (AstTensor s r (AstR n)) => Num (AstRanked s r n)
+deriving instance (Real (AstTensor s r (AstR n)))
+                   => Real (AstRanked s r n)
+deriving instance (IntegralF (AstTensor s r (AstR n)))
+                  => IntegralF (AstRanked s r n)
+deriving instance Fractional (AstTensor s r (AstR n))
+                  => Fractional (AstRanked s r n)
+deriving instance Floating (AstTensor s r (AstR n))
+                  => Floating (AstRanked s r n)
+deriving instance (RealFrac (AstTensor s r (AstR n)))
+                  => RealFrac (AstRanked s r n)
+deriving instance (RealFloatF (AstTensor s r (AstR n)))
+                  => RealFloatF (AstRanked s r n)
+
 type instance BoolOf (AstRaw s) = AstBool
 
-deriving instance IfF (AstRaw s)
+{-deriving instance IfF (AstRaw s)
 deriving instance AstSpan s => EqF (AstRaw s)
-deriving instance AstSpan s => OrdF (AstRaw s)
+deriving instance AstSpan s => OrdF (AstRaw s)-}
+
+instance AstSpan s => EqF (AstRaw s) where
+  AstRaw v ==. AstRaw u = AstRel EqOp (astSpanPrimal v) (astSpanPrimal u)
+  AstRaw v /=. AstRaw u = AstRel NeqOp (astSpanPrimal v) (astSpanPrimal u)
+
+instance AstSpan s => OrdF (AstRaw s) where
+  v <. u = AstRel LsOp (astSpanPrimal (unAstRaw v)) (astSpanPrimal (unAstRaw u))
+  v <=. u = AstRel LeqOp (astSpanPrimal (unAstRaw v)) (astSpanPrimal (unAstRaw u))
+  v >. u = AstRel GtOp (astSpanPrimal (unAstRaw v)) (astSpanPrimal (unAstRaw u))
+  v >=. u = AstRel GeqOp (astSpanPrimal (unAstRaw v)) (astSpanPrimal (unAstRaw u))
+instance IfF (AstRaw s) where
+  ifF cond a b = AstRaw $ AstCond cond (unAstRaw a) (unAstRaw b)
+
 deriving instance Eq (AstRaw s r n)
 deriving instance Ord (AstRaw s r n)
-deriving instance Num (AstRanked s r n) => Num (AstRaw s r n)
-deriving instance (Real (AstRanked s r n))
+deriving instance Num (AstTensor s r (AstR n)) => Num (AstRaw s r n)
+deriving instance (Real (AstTensor s r (AstR n)))
                    => Real (AstRaw s r n)
-deriving instance (IntegralF (AstRanked s r n))
+deriving instance (IntegralF (AstTensor s r (AstR n)))
                   => IntegralF (AstRaw s r n)
-deriving instance Fractional (AstRanked s r n)
+deriving instance Fractional (AstTensor s r (AstR n))
                   => Fractional (AstRaw s r n)
-deriving instance Floating (AstRanked s r n)
+deriving instance Floating (AstTensor s r (AstR n))
                   => Floating (AstRaw s r n)
-deriving instance (RealFrac (AstRanked s r n))
+deriving instance (RealFrac (AstTensor s r (AstR n)))
                   => RealFrac (AstRaw s r n)
-deriving instance (RealFloatF (AstRanked s r n))
+deriving instance (RealFloatF (AstTensor s r (AstR n)))
                   => RealFloatF (AstRaw s r n)
 
 type instance BoolOf (AstRawS s) = AstBool
@@ -700,23 +762,23 @@ deriving instance (RealFloatF (AstShaped s r sh))
 
 type instance BoolOf (AstNoVectorize s) = AstBool
 
-deriving instance IfF (AstNoVectorize s)
+{-deriving instance IfF (AstNoVectorize s)
 deriving instance AstSpan s => EqF (AstNoVectorize s)
-deriving instance AstSpan s => OrdF (AstNoVectorize s)
+deriving instance AstSpan s => OrdF (AstNoVectorize s)-}
 deriving instance Eq (AstNoVectorize s r n)
 deriving instance Ord (AstNoVectorize s r n)
-deriving instance Num (AstRanked s r n) => Num (AstNoVectorize s r n)
-deriving instance (Real (AstRanked s r n))
+deriving instance Num (AstTensor s r (AstR n)) => Num (AstNoVectorize s r n)
+deriving instance (Real (AstTensor s r (AstR n)))
                    => Real (AstNoVectorize s r n)
-deriving instance (IntegralF (AstRanked s r n))
+deriving instance (IntegralF (AstTensor s r (AstR n)))
                   => IntegralF (AstNoVectorize s r n)
-deriving instance Fractional (AstRanked s r n)
+deriving instance Fractional (AstTensor s r (AstR n))
                   => Fractional (AstNoVectorize s r n)
-deriving instance Floating (AstRanked s r n)
+deriving instance Floating (AstTensor s r (AstR n))
                   => Floating (AstNoVectorize s r n)
-deriving instance (RealFrac (AstRanked s r n))
+deriving instance (RealFrac (AstTensor s r (AstR n)))
                   => RealFrac (AstNoVectorize s r n)
-deriving instance (RealFloatF (AstRanked s r n))
+deriving instance (RealFloatF (AstTensor s r (AstR n)))
                   => RealFloatF (AstNoVectorize s r n)
 
 type instance BoolOf (AstNoVectorizeS s) = AstBool
@@ -738,23 +800,23 @@ deriving instance (RealFloatF (AstShaped s r sh))
 
 type instance BoolOf (AstNoSimplify s) = AstBool
 
-deriving instance IfF (AstNoSimplify s)
+{-deriving instance IfF (AstNoSimplify s)
 deriving instance AstSpan s => EqF (AstNoSimplify s)
-deriving instance AstSpan s => OrdF (AstNoSimplify s)
+deriving instance AstSpan s => OrdF (AstNoSimplify s)-}
 deriving instance Eq (AstNoSimplify s r n)
 deriving instance Ord (AstNoSimplify s r n)
-deriving instance Num (AstRanked s r n) => Num (AstNoSimplify s r n)
-deriving instance (Real (AstRanked s r n))
+deriving instance Num (AstTensor s r (AstR n)) => Num (AstNoSimplify s r n)
+deriving instance (Real (AstTensor s r (AstR n)))
                   => Real (AstNoSimplify s r n)
-deriving instance (IntegralF (AstRanked s r n))
+deriving instance (IntegralF (AstTensor s r (AstR n)))
                   => IntegralF (AstNoSimplify s r n)
-deriving instance Fractional (AstRanked s r n)
+deriving instance Fractional (AstTensor s r (AstR n))
                   => Fractional (AstNoSimplify s r n)
-deriving instance Floating (AstRanked s r n)
+deriving instance Floating (AstTensor s r (AstR n))
                   => Floating (AstNoSimplify s r n)
-deriving instance (RealFrac (AstRanked s r n))
+deriving instance (RealFrac (AstTensor s r (AstR n)))
                   => RealFrac (AstNoSimplify s r n)
-deriving instance (RealFloatF (AstRanked s r n))
+deriving instance (RealFloatF (AstTensor s r (AstR n)))
                   => RealFloatF (AstNoSimplify s r n)
 
 type instance BoolOf (AstNoSimplifyS s) = AstBool
@@ -819,11 +881,11 @@ instance AstSpan s => RankedTensor (AstRaw s) where
   rdualPart = AstRaw . astSpanDual . unAstRaw
   rD u u' = AstRaw $ astSpanD (unAstRaw u) (unAstRaw u')
   rScale s t = AstRaw $ astDualPart
-               $ AstConstant (unAstRaw s) * AstD (rzero (rshape s)) (unAstRaw t)
+               $ AstConstant (unAstRaw s) * AstD (unAstRanked $ rzero (rshape s)) (unAstRaw t)
 
 astLetFunRaw :: (KnownNat n, KnownNat m, GoodScalar r, AstSpan s)
-             => AstRanked s r n -> (AstRanked s r n -> AstRanked s r2 m)
-             -> AstRanked s r2 m
+             => AstTensor s r (AstR n) -> (AstTensor s r (AstR n) -> AstTensor s r2 (AstR m))
+             -> AstTensor s r2 (AstR m)
 astLetFunRaw a f | astIsSmall True a = f a  -- too important an optimization
 astLetFunRaw a f =
   let sh = shapeAst a
@@ -840,8 +902,8 @@ astLetFunRawS a f =
 
 astLetHVectorInFunRaw
   :: forall n s r. AstSpan s
-  => AstHVector s -> (HVector (AstRanked s) -> AstRanked s r n)
-  -> AstRanked s r n
+  => AstHVector s -> (HVector (AstRanked s) -> AstTensor s r (AstR n))
+  -> AstTensor s r (AstR n)
 astLetHVectorInFunRaw a f =
   fun1DToAst (shapeAstHVector a) $ \ !vars !asts ->
     AstLetHVectorIn vars a (f asts)
@@ -855,8 +917,8 @@ astLetHVectorInFunRawS a f =
     AstLetHVectorInS vars a (f asts)
 
 astLetHFunInFunRaw
-  :: AstHFun -> (AstHFun -> AstRanked s r n)
-  -> AstRanked s r n
+  :: AstHFun -> (AstHFun -> AstTensor s r (AstR n))
+  -> AstTensor s r (AstR n)
 astLetHFunInFunRaw a f =
   let shss = domainShapesAstHFun a
       shs = shapeAstHFun a
@@ -887,7 +949,7 @@ astLetHFunInHVectorFunRaw a f =
   in fun1HToAst shss shs $ \ !var !ast -> AstLetHFunInHVector var a (f ast)
 
 astLetInHVectorFunRaw :: (KnownNat n, GoodScalar r, AstSpan s)
-                      => AstRanked s r n -> (AstRanked s r n -> AstHVector s)
+                      => AstTensor s r (AstR n) -> (AstTensor s r (AstR n) -> AstHVector s)
                       -> AstHVector s
 astLetInHVectorFunRaw a f | astIsSmall True a = f a
 astLetInHVectorFunRaw a f = unsafePerformIO $ do  -- the id causes trouble
@@ -960,7 +1022,7 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
         f i = \case
           DynamicRankedDummy @r @sh _ _ ->
             withListSh (Proxy @sh) $ \(_ :: IShR n) ->
-              DynamicRanked @r @n $ AstProject hVectorOf i
+              DynamicRanked @r @n $ AstRanked $ AstProject hVectorOf i
           DynamicShapedDummy @r @sh _ _ ->
             DynamicShaped @r @sh $ AstProjectS hVectorOf i
     in rawHVector $ V.imap f $ shapeAstHVector hVectorOf
@@ -1011,48 +1073,54 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
 
 instance AstSpan s => RankedTensor (AstNoVectorize s) where
   rlet a f =
-    AstNoVectorize
-    $ rlet (unAstNoVectorize a) (unAstNoVectorize . f . AstNoVectorize)
-  rshape = rshape . unAstNoVectorize
-  rminIndex = AstNoVectorize . rminIndex . unAstNoVectorize
-  rmaxIndex = AstNoVectorize . rmaxIndex . unAstNoVectorize
-  rfloor = AstNoVectorize . rfloor . unAstNoVectorize
-  riota = AstNoVectorize riota
+    astNoVectorize2
+    $ rlet (unAstNoVectorize2 a) (unAstNoVectorize2 . f . astNoVectorize2)
+  rshape = rshape . unAstNoVectorize2
+  rminIndex = astNoVectorize2 . rminIndex . unAstNoVectorize2
+  rmaxIndex = astNoVectorize2 . rmaxIndex . unAstNoVectorize2
+  rfloor = astNoVectorize2 . rfloor . unAstNoVectorize2
+  riota = astNoVectorize2 riota
   rindex v ix =
-    AstNoVectorize $ rindex (unAstNoVectorize v) (unAstNoVectorize <$> ix)
-  rsum = AstNoVectorize . rsum . unAstNoVectorize
+    astNoVectorize2 $ rindex (unAstNoVectorize2 v) (unAstNoVectorize2 <$> ix)
+  rsum = astNoVectorize2 . rsum . unAstNoVectorize2
   rscatter sh t f =
-    AstNoVectorize $ rscatter sh (unAstNoVectorize t)
-                   $ fmap unAstNoVectorize . f . fmap AstNoVectorize
-  rfromVector = AstNoVectorize . rfromVector . V.map unAstNoVectorize
-  rreplicate k = AstNoVectorize . rreplicate k . unAstNoVectorize
+    astNoVectorize2 $ rscatter sh (unAstNoVectorize2 t)
+                   $ fmap unAstNoVectorize2 . f . fmap astNoVectorize2
+  rfromVector = astNoVectorize2 . rfromVector . V.map unAstNoVectorize2
+  rreplicate k = astNoVectorize2 . rreplicate k . unAstNoVectorize2
   rappend u v =
-    AstNoVectorize $ rappend (unAstNoVectorize u) (unAstNoVectorize v)
-  rslice i n = AstNoVectorize . rslice i n . unAstNoVectorize
-  rreverse = AstNoVectorize . rreverse . unAstNoVectorize
-  rtranspose perm = AstNoVectorize . rtranspose perm . unAstNoVectorize
-  rreshape sh = AstNoVectorize . rreshape sh . unAstNoVectorize
+    astNoVectorize2 $ rappend (unAstNoVectorize2 u) (unAstNoVectorize2 v)
+  rslice i n = astNoVectorize2 . rslice i n . unAstNoVectorize2
+  rreverse = astNoVectorize2 . rreverse . unAstNoVectorize2
+  rtranspose perm = astNoVectorize2 . rtranspose perm . unAstNoVectorize2
+  rreshape sh = astNoVectorize2 . rreshape sh . unAstNoVectorize2
   rbuild1 k f = AstNoVectorize $ AstBuild1 k
                 $ funToAstI  -- this introduces new variable names
                 $ unAstNoVectorize . f . AstNoVectorize
   rgather sh t f =
-    AstNoVectorize $ rgather sh (unAstNoVectorize t)
-                   $ fmap unAstNoVectorize . f . fmap AstNoVectorize
-  rcast = AstNoVectorize . rcast . unAstNoVectorize
-  rfromIntegral = AstNoVectorize . rfromIntegral . unAstNoVectorize
-  rconst = AstNoVectorize . rconst
+    astNoVectorize2 $ rgather sh (unAstNoVectorize2 t)
+                   $ fmap unAstNoVectorize2 . f . fmap astNoVectorize2
+  rcast = astNoVectorize2 . rcast . unAstNoVectorize2
+  rfromIntegral = astNoVectorize2 . rfromIntegral . unAstNoVectorize2
+  rconst = astNoVectorize2 . rconst
   rletHVectorIn a f =
-    AstNoVectorize
+    AstNoVectorize $ unAstRanked
     $ rletHVectorIn (unAstNoVectorizeWrap a)
-                    (unAstNoVectorize . f . noVectorizeHVector)
-  rletHFunIn a f = AstNoVectorize $ rletHFunIn a (unAstNoVectorize . f)
-  rfromS = AstNoVectorize . rfromS . unAstNoVectorizeS
-  rconstant = AstNoVectorize . rconstant . unAstNoVectorize
-  rprimalPart = AstNoVectorize . rprimalPart . unAstNoVectorize
-  rdualPart = AstNoVectorize . rdualPart . unAstNoVectorize
-  rD u u' = AstNoVectorize $ rD (unAstNoVectorize u) (unAstNoVectorize u')
-  rScale s t = AstNoVectorize $ rScale @(AstRanked s)
-                                       (unAstNoVectorize s) (unAstNoVectorize t)
+                    (unAstNoVectorize2 . f . noVectorizeHVector)
+  rletHFunIn a f = astNoVectorize2 $ rletHFunIn a (unAstNoVectorize2 . f)
+  rfromS = astNoVectorize2 . rfromS . unAstNoVectorizeS
+  rconstant = astNoVectorize2 . rconstant . unAstNoVectorize2
+  rprimalPart = astNoVectorize2 . rprimalPart . unAstNoVectorize2
+  rdualPart = astNoVectorize2 . rdualPart . unAstNoVectorize2
+  rD u u' = astNoVectorize2 $ rD (unAstNoVectorize2 u) (unAstNoVectorize2 u')
+  rScale s t = astNoVectorize2 $ rScale @(AstRanked s)
+                                       (unAstNoVectorize2 s) (unAstNoVectorize2 t)
+
+unAstNoVectorize2 :: AstNoVectorize s r n -> AstRanked s r n
+unAstNoVectorize2 = AstRanked . unAstNoVectorize
+
+astNoVectorize2 :: AstRanked s r n -> AstNoVectorize s r n
+astNoVectorize2 = AstNoVectorize . unAstRanked
 
 instance AstSpan s => ShapedTensor (AstNoVectorizeS s) where
   slet a f =
@@ -1063,10 +1131,10 @@ instance AstSpan s => ShapedTensor (AstNoVectorizeS s) where
   sfloor = AstNoVectorizeS . sfloor . unAstNoVectorizeS
   siota = AstNoVectorizeS siota
   sindex v ix =
-    AstNoVectorizeS $ sindex (unAstNoVectorizeS v) (unAstNoVectorize <$> ix)
+    AstNoVectorizeS $ sindex (unAstNoVectorizeS v) ((AstRanked . unAstNoVectorize) <$> ix)
   ssum = AstNoVectorizeS . ssum . unAstNoVectorizeS
   sscatter t f = AstNoVectorizeS $ sscatter (unAstNoVectorizeS t)
-                 $ fmap unAstNoVectorize . f . fmap AstNoVectorize
+                 $ fmap (AstRanked . unAstNoVectorize) . f . fmap astNoVectorize2
   sfromVector = AstNoVectorizeS . sfromVector . V.map unAstNoVectorizeS
   sreplicate = AstNoVectorizeS . sreplicate . unAstNoVectorizeS
   sappend u v =
@@ -1081,7 +1149,7 @@ instance AstSpan s => ShapedTensor (AstNoVectorizeS s) where
                 $ funToAstI  -- this introduces new variable names
                 $ unAstNoVectorizeS . f . AstNoVectorize
   sgather t f = AstNoVectorizeS $ sgather (unAstNoVectorizeS t)
-                $ fmap unAstNoVectorize . f . fmap AstNoVectorize
+                $ fmap (AstRanked . unAstNoVectorize) . f . fmap astNoVectorize2
   scast = AstNoVectorizeS . scast . unAstNoVectorizeS
   sfromIntegral = AstNoVectorizeS . sfromIntegral . unAstNoVectorizeS
   sconst = AstNoVectorizeS . sconst
@@ -1090,7 +1158,7 @@ instance AstSpan s => ShapedTensor (AstNoVectorizeS s) where
     $ sletHVectorIn (unAstNoVectorizeWrap a)
                     (unAstNoVectorizeS . f . noVectorizeHVector)
   sletHFunIn a f = AstNoVectorizeS $ sletHFunIn a (unAstNoVectorizeS . f)
-  sfromR = AstNoVectorizeS . sfromR . unAstNoVectorize
+  sfromR = AstNoVectorizeS . sfromR . AstRanked . unAstNoVectorize
   sconstant = AstNoVectorizeS . sconstant . unAstNoVectorizeS
     -- exceptionally we do simplify AstConstant to avoid long boring chains
   sprimalPart = AstNoVectorizeS . sprimalPart . unAstNoVectorizeS
@@ -1119,8 +1187,8 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
     $ dletHFunInHVector t (unAstNoVectorizeWrap . f)
   rletInHVector u f =
     AstNoVectorizeWrap
-    $ rletInHVector (unAstNoVectorize u)
-                    (unAstNoVectorizeWrap . f . AstNoVectorize)
+    $ rletInHVector (unAstNoVectorize2 u)
+                    (unAstNoVectorizeWrap . f . astNoVectorize2)
   sletInHVector u f =
     AstNoVectorizeWrap
     $ sletInHVector (unAstNoVectorizeS u)
@@ -1151,7 +1219,7 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
 
 unNoVectorizeHVector :: HVector (AstNoVectorize s) -> HVector (AstRanked s)
 unNoVectorizeHVector =
-  let f (DynamicRanked (AstNoVectorize t)) = DynamicRanked t
+  let f (DynamicRanked (AstNoVectorize t)) = DynamicRanked (AstRanked t)
       f (DynamicShaped (AstNoVectorizeS t)) = DynamicShaped t
       f (DynamicRankedDummy p1 p2) = DynamicRankedDummy p1 p2
       f (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
@@ -1159,7 +1227,7 @@ unNoVectorizeHVector =
 
 noVectorizeHVector :: HVector (AstRanked s) -> HVector (AstNoVectorize s)
 noVectorizeHVector =
-  let f (DynamicRanked t) = DynamicRanked $ AstNoVectorize t
+  let f (DynamicRanked (AstRanked t)) = DynamicRanked $ AstNoVectorize t
       f (DynamicShaped t) = DynamicShaped $ AstNoVectorizeS t
       f (DynamicRankedDummy p1 p2) = DynamicRankedDummy p1 p2
       f (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
@@ -1214,7 +1282,7 @@ instance AstSpan s => RankedTensor (AstNoSimplify s) where
   rD u u' = AstNoSimplify $ astSpanD (unAstNoSimplify u) (unAstNoSimplify u')
   rScale s t = AstNoSimplify $ astDualPart
                $ AstConstant (unAstNoSimplify s)
-                 * AstD (rzero (rshape s)) (unAstNoSimplify t)
+                 * AstD (unAstRanked $ rzero (rshape s)) (unAstNoSimplify t)
 
 instance AstSpan s => ShapedTensor (AstNoSimplifyS s) where
   slet a f =
@@ -1288,7 +1356,7 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
         f i = \case
           DynamicRankedDummy @r @sh _ _ ->
             withListSh (Proxy @sh) $ \(_ :: IShR n) ->
-              DynamicRanked @r @n $  AstProject hVectorOf i
+              DynamicRanked @r @n $ AstRanked $ AstProject hVectorOf i
           DynamicShapedDummy @r @sh _ _ ->
             DynamicShaped @r @sh $ AstProjectS hVectorOf i
     in noSimplifyHVector
@@ -1332,7 +1400,7 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
 
 unNoSimplifyHVector :: HVector (AstNoSimplify s) -> HVector (AstRanked s)
 unNoSimplifyHVector =
-  let f (DynamicRanked (AstNoSimplify t)) = DynamicRanked t
+  let f (DynamicRanked (AstNoSimplify t)) = DynamicRanked $ AstRanked t
       f (DynamicShaped (AstNoSimplifyS t)) = DynamicShaped t
       f (DynamicRankedDummy p1 p2) = DynamicRankedDummy p1 p2
       f (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
@@ -1340,7 +1408,7 @@ unNoSimplifyHVector =
 
 noSimplifyHVector :: HVector (AstRanked s) -> HVector (AstNoSimplify s)
 noSimplifyHVector =
-  let f (DynamicRanked t) = DynamicRanked $ AstNoSimplify t
+  let f (DynamicRanked (AstRanked t)) = DynamicRanked $ AstNoSimplify t
       f (DynamicShaped t) = DynamicShaped $ AstNoSimplifyS t
       f (DynamicRankedDummy p1 p2) = DynamicRankedDummy p1 p2
       f (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
