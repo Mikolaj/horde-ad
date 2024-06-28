@@ -814,8 +814,8 @@ class HVectorTensor (ranked :: RankedTensorType)
         h = dfwd @ranked shs (HFun g)
     in \es ds -> let hv = dHApply h [ds, es]
                  in rfromD $ dunHVector hv V.! 0
- srev :: forall r sh.
-         ( GoodScalar r, KnownShS sh, shaped ~ ShapedOf ranked
+  srev :: forall r sh.
+          ( GoodScalar r, KnownShS sh, shaped ~ ShapedOf ranked
           , ShapedTensor shaped )
        => (forall f. ADReadyS f => HVector (RankedOf f) -> f r sh)
        -> VoidHVector
