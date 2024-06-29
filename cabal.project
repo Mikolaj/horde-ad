@@ -5,3 +5,7 @@ package statistics
   ghc-options: -fsimpl-tick-factor=10000
 
 
+source-repository-package
+    type: git
+    location: https://git.tomsmeding.com/ox-arrays
+    tag: 9e675915525cf1b19269a0fec474a2537d2033d7
