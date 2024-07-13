@@ -124,9 +124,9 @@ rev' f valsOR =
         -> fgen r n
         -> fgen r m
       hGeneral fx1 fx2 gx inputs =
-        let (var, ast) = funToAstR (rshape vals) (fx1 . f . fx2)
+        let (var, ast) = funToAstR (rshape vals) (unAstRanked . fx1 . f . fx2 . AstRanked)
             env = extendEnvR var inputs EM.empty
-        in interpretAst env (gx ast)
+        in interpretAst env (unAstRanked $ gx $ AstRanked ast)
       h :: ADReady f1
         => (f1 r m -> AstRanked PrimalSpan r m)
         -> (AstRanked PrimalSpan r n -> f1 r n)
@@ -143,36 +143,36 @@ rev' f valsOR =
         crevDtMaybeBoth dt (h id id simplifyInlineAst) parameters
       gradient3 = parseHVector vals astSimple
       (astGradUnSimp, value2UnSimp) =
-        crevDtMaybeBoth dt (h unAstNoSimplify AstNoSimplify id) parameters
+        crevDtMaybeBoth dt (h (AstRanked . unAstNoSimplify) (AstNoSimplify . unAstRanked) id) parameters
       gradient2UnSimp = parseHVector vals astGradUnSimp
       gradientRrev2UnSimp =
-        rrev1 @ORArray @r @n @m
-              (hGeneral unAstNoSimplify AstNoSimplify id) vals
+        rrev1 @ORArray @r @n @m @r
+              (hGeneral (AstRanked . unAstNoSimplify) (AstNoSimplify . unAstRanked) id) vals
       (astSimpleUnSimp, value3UnSimp) =
-        crevDtMaybeBoth dt (h unAstNoSimplify AstNoSimplify simplifyInlineAst)
+        crevDtMaybeBoth dt (h (AstRanked . unAstNoSimplify) (AstNoSimplify . unAstRanked) simplifyInlineAst)
                       parameters
       gradient3UnSimp = parseHVector vals astSimpleUnSimp
       gradientRrev3UnSimp =
-        rrev1 @ORArray @r @n @m
-              (hGeneral unAstNoSimplify AstNoSimplify simplifyInlineAst) vals
+        rrev1 @ORArray @r @n @m @r
+              (hGeneral (AstRanked . unAstNoSimplify) (AstNoSimplify . unAstRanked) simplifyInlineAst) vals
       (astPrimal, value4) =
-        crevDtMaybeBoth dt (h unAstNoVectorize AstNoVectorize id)
+        crevDtMaybeBoth dt (h (AstRanked . unAstNoVectorize) (AstNoVectorize . unAstRanked) id)
                       parameters
           -- use the AstNoVectorize instance that does no vectorization
           -- and then interpret the results as the Ast instance
       gradient4 = parseHVector vals astPrimal
-      gradientRrev4 = rrev1 @ORArray @r @n @m
-                            (hGeneral unAstNoVectorize AstNoVectorize id) vals
+      gradientRrev4 = rrev1 @ORArray @r @n @m @r
+                            (hGeneral (AstRanked . unAstNoVectorize) (AstNoVectorize . unAstRanked) id) vals
       (astPSimple, value5) =
-        crevDtMaybeBoth dt (h unAstNoVectorize AstNoVectorize simplifyInlineAst)
+        crevDtMaybeBoth dt (h (AstRanked . unAstNoVectorize) (AstNoVectorize . unAstRanked) simplifyInlineAst)
                       parameters
       gradient5 = parseHVector vals astPSimple
       gradientRrev5 =
-        rrev1 @ORArray @r @n @m
-              (hGeneral unAstNoVectorize AstNoVectorize simplifyInlineAst) vals
-      astVectSimp = simplifyInlineAst $ snd $ funToAstR (rshape vals) f
+       rrev1 @ORArray @r @n @m @r
+              (hGeneral (AstRanked . unAstNoVectorize) (AstNoVectorize . unAstRanked) simplifyInlineAst) vals
+      astVectSimp = simplifyInlineAst $ AstRanked $ snd $ funToAstR (rshape vals) (unAstRanked . f . AstRanked)
       astSimp =
-        simplifyInlineAst $ simplifyInlineAst $ snd  -- builds simplify with difficulty
+        simplifyInlineAst $ simplifyInlineAst $ AstRanked $ snd  -- builds simplify with difficulty
         $ funToAstR (rshape vals) (unAstNoVectorize . f . AstNoVectorize)
       -- Here comes the part with Ast gradients.
       hAst :: ADReady f1
@@ -210,7 +210,7 @@ rev' f valsOR =
       gradient3AstS = parseHVector vals astSimpleAstS
       artifactsGradAstUnSimp =
         fst $ revProduceArtifactWithoutInterpretation
-                False (hAst unAstNoSimplify AstNoSimplify id) parameters0
+                False (hAst (AstRanked . unAstNoSimplify) (AstNoSimplify . unAstRanked) id) parameters0
       (astGradAstUnSimp, value2AstUnSimp) =
         revEvalArtifact7 artifactsGradAstUnSimp parameters
       gradient2AstUnSimp = parseHVector vals astGradAstUnSimp
@@ -220,7 +220,7 @@ rev' f valsOR =
       gradient2AstSUnSimp = parseHVector vals astGradAstSUnSimp
       artifactsSimpleAstUnSimp =
         fst $ revProduceArtifactWithoutInterpretation
-                False (hAst unAstNoSimplify AstNoSimplify simplifyInlineAst)
+                False (hAst (AstRanked . unAstNoSimplify) (AstNoSimplify . unAstRanked) simplifyInlineAst)
                 parameters0
       (astSimpleAstUnSimp, value3AstUnSimp) =
         revEvalArtifact7 artifactsSimpleAstUnSimp parameters
@@ -231,7 +231,7 @@ rev' f valsOR =
       gradient3AstSUnSimp = parseHVector vals astSimpleAstSUnSimp
       artifactsPrimalAst =
         fst $ revProduceArtifactWithoutInterpretation
-                False (hAst unAstNoVectorize AstNoVectorize id) parameters0
+                False (hAst (AstRanked . unAstNoVectorize) (AstNoVectorize . unAstRanked) id) parameters0
       (astPrimalAst, value4Ast) =
         revEvalArtifact7 artifactsPrimalAst parameters
       gradient4Ast = parseHVector vals astPrimalAst
@@ -240,7 +240,7 @@ rev' f valsOR =
       gradient4AstS = parseHVector vals astPrimalAstS
       artifactsPSimpleAst =
         fst $ revProduceArtifactWithoutInterpretation
-                False (hAst unAstNoVectorize AstNoVectorize simplifyInlineAst)
+                False (hAst (AstRanked . unAstNoVectorize) (AstNoVectorize . unAstRanked) simplifyInlineAst)
                 parameters0
       (astPSimpleAst, value5Ast) =
         revEvalArtifact7 artifactsPSimpleAst parameters

@@ -193,7 +193,7 @@ mnistTestCaseCNNI prefix epochs maxBatches kh kw c_out n_hidden
          funToAstIOR (miniBatchSize :$: sizeMnistLabelInt :$: ZSR) id
        let ast :: AstRanked PrimalSpan r 0
            ast = MnistCnnRanked2.convMnistLossFusedR
-                   miniBatchSize (astGlyph, astLabel)
+                   miniBatchSize (AstRanked astGlyph, AstRanked astLabel)
                    (parseHVector (fromDValue valsInit)
                                  (unRawHVector hVectorPrimal))
            runBatch :: (HVector ORArray, StateAdam) -> (Int, [MnistDataR r])
@@ -206,7 +206,7 @@ mnistTestCaseCNNI prefix epochs maxBatches kh kw c_out n_hidden
                              $ zip vars $ V.toList varInputs
                        envMnist = extendEnvR varGlyph (rconst $ Nested.rfromOrthotope SNat glyph)
                                   $ extendEnvR varLabel (rconst $ Nested.rfromOrthotope SNat label) env
-                   in interpretAst envMnist ast
+                   in interpretAst envMnist $ unAstRanked ast
                  chunkR = map packBatchR
                           $ filter (\ch -> length ch == miniBatchSize)
                           $ chunksOf miniBatchSize chunk
@@ -308,7 +308,7 @@ mnistTestCaseCNNO prefix epochs maxBatches kh kw c_out n_hidden
                      $ extendEnvR varLabel (rconstant $ AstRaw astLabel)
                        EM.empty
            f = MnistCnnRanked2.convMnistLossFusedR
-                 miniBatchSize (astGlyph, astLabel)
+                 miniBatchSize (AstRanked astGlyph, AstRanked astLabel)
            (AstArtifact varDtAgain vars1Again gradientRaw primal, _) =
              revProduceArtifactH False f envInit valsInit
                                  (voidFromHVector hVectorInit)
@@ -391,7 +391,8 @@ testCNNOPP = do
       sizeMnistWidthI = 4  -- 4; to make weightsDense empty and so speedup
       sizeMnistHeightI = 4  -- 4; to make weightsDense empty and so speedup
       blackGlyph :: AstRanked PrimalSpan Double 4
-      blackGlyph = AstReplicate batch_size
+      blackGlyph = AstRanked
+                   $ AstReplicate batch_size
                    $ AstReplicate 1
                    $ AstReplicate sizeMnistWidthI
                    $ AstReplicate sizeMnistHeightI 7

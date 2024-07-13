@@ -485,9 +485,9 @@ testOverleafPP = do
       fT :: AstRanked FullSpan Double 1
          -> AstRanked FullSpan Double 0
       fT = overleaf
-      (var3, ast3) = funToAstR [28] fT
+      (var3, ast3) = funToAstR [28] $ unAstRanked . fT . AstRanked
   "\\" ++ printAstVarName renamesNull var3
-       ++ " -> " ++ printAstSimple renamesNull ast3
+       ++ " -> " ++ printAstSimple renamesNull (AstRanked ast3)
     @?= "\\v -> rsum (rgather [50] v (\\[i] -> [remF i 28]))"
   resetVarCounter
   let (artifactRev, deltas) = revArtifactAdapt True fT (ringestData [28] [0 .. 27])
@@ -558,9 +558,9 @@ testFooPP = do
   let renames = IM.fromList [(2, "x"), (3, "y"), (4, "z")]
       fooT = foo @(AstRanked FullSpan Double 0)
       foo3 x = fooT (x, x, x)
-      (var3, ast3) = funToAstR ZSR foo3
+      (var3, ast3) = funToAstR ZSR $ unAstRanked . foo3 . AstRanked
   "\\" ++ printAstVarName IM.empty var3
-       ++ " -> " ++ printAstSimple IM.empty ast3
+       ++ " -> " ++ printAstSimple IM.empty (AstRanked ast3)
     @?= "\\x1 -> atan2F x1 (x1 * sin x1) + x1 * (x1 * sin x1)"
   resetVarCounter
   let (artifactRev, _) = revArtifactAdapt True fooT (4, 5, 6)
@@ -590,9 +590,9 @@ testFooLetPP = do
       renamesNull = IM.fromList [(1, "x1"), (2, "x2")]
       fooLetT = fooLet @(AstRanked FullSpan) @Double
       fooLet3 x = fooLetT (x, x, x)
-      (var3, ast3) = funToAstR ZSR fooLet3
+      (var3, ast3) = funToAstR ZSR $ unAstRanked . fooLet3 . AstRanked
   "\\" ++ printAstVarName renamesNull var3
-       ++ " -> " ++ printAstSimple renamesNull ast3
+       ++ " -> " ++ printAstSimple renamesNull (AstRanked ast3)
     @?= "\\x1 -> rlet (x1 * sin x1) (\\x2 -> atan2F x1 x2 + x1 * x2)"
   resetVarCounter
   let (artifactRev, _)= revArtifactAdapt True fooLetT (4, 5, 6)
@@ -833,9 +833,9 @@ testReluPP = do
       renamesNull = IM.fromList [(1, "m1"), (2, "i2")]
       reluT :: AstRanked FullSpan Double 2 -> AstRanked FullSpan Double 2
       reluT = reluPrimal
-      (var3, ast3) = funToAstR [3, 4] reluT
+      (var3, ast3) = funToAstR [3, 4] $ unAstRanked . reluT . AstRanked
   "\\" ++ printAstVarName renamesNull var3
-       ++ " -> " ++ printAstSimple renamesNull ast3
+       ++ " -> " ++ printAstSimple renamesNull (AstRanked ast3)
     @?= "\\m1 -> rconstant (rgather [3,4] (rconst (rfromListLinear [2] [0.0,1.0])) (\\[i4, i3] -> [ifF (rprimalPart m1 ! [i4, i3] <=. 0.0) 0 1])) * m1"
   resetVarCounter
   let (artifactRev, deltas) = revArtifactAdapt True reluT (rreplicate0N [3, 4] 4)
@@ -854,9 +854,9 @@ testReluPP2 = do
       reluT2 :: (AstRanked FullSpan Double 1, AstRanked FullSpan Double 0)
              -> AstRanked FullSpan Double 1
       reluT2 (t, r) = reluPrimal (t * rreplicate 5 r)
-      (var3, ast3) = funToAstR [5] (\t -> reluT2 (t, 7))
+      (var3, ast3) = funToAstR [5] (\t -> unAstRanked $ reluT2 (AstRanked t, 7))
   "\\" ++ printAstVarName renamesNull var3
-       ++ " -> " ++ printAstSimple renamesNull ast3
+       ++ " -> " ++ printAstSimple renamesNull (AstRanked ast3)
     @?= "\\v1 -> rconstant (rgather [5] (rconst (rfromListLinear [2] [0.0,1.0])) (\\[i2] -> [ifF (rprimalPart v1 ! [i2] * 7.0 <=. 0.0) 0 1])) * (v1 * rconstant (rreplicate 5 7.0))"
   resetVarCounter
   let (artifactRev, _deltas) = revArtifactAdapt True reluT2 (rreplicate0N [5] 128, 42)
@@ -878,9 +878,9 @@ testReluSimplerPP = do
       renamesNull = IM.fromList [(1, "m1"), (2, "i2")]
       reluT :: AstRanked FullSpan Double 2 -> AstRanked FullSpan Double 2
       reluT = relu
-      (var3, ast3) = funToAstR [3, 4] reluT
+      (var3, ast3) = funToAstR [3, 4] $ unAstRanked . reluT . AstRanked
   "\\" ++ printAstVarName renamesNull var3
-       ++ " -> " ++ printAstSimple renamesNull ast3
+       ++ " -> " ++ printAstSimple renamesNull (AstRanked ast3)
     @?= "\\m1 -> rconstant (rgather [3,4] (rconst (rfromListLinear [2] [0.0,1.0])) (\\[i4, i3] -> [ifF (rprimalPart m1 ! [i4, i3] <=. 0.0) 0 1])) * m1"
   resetVarCounter
   let (artifactRev, deltas) = revArtifactAdapt True reluT (rreplicate0N [3, 4] 4)
@@ -899,9 +899,9 @@ testReluSimplerPP2 = do
       reluT2 :: (AstRanked FullSpan Double 1, AstRanked FullSpan Double 0)
              -> AstRanked FullSpan Double 1
       reluT2 (t, r) = relu (t * rreplicate 5 r)
-      (var3, ast3) = funToAstR [5] (\t -> reluT2 (t, 7))
+      (var3, ast3) = funToAstR [5] (\t -> unAstRanked $ reluT2 (AstRanked t, 7))
   "\\" ++ printAstVarName renamesNull var3
-       ++ " -> " ++ printAstSimple renamesNull ast3
+       ++ " -> " ++ printAstSimple renamesNull (AstRanked ast3)
     @?= "\\v1 -> rlet (v1 * rconstant (rreplicate 5 7.0)) (\\i2 -> rconstant (rgather [5] (rconst (rfromListLinear [2] [0.0,1.0])) (\\[i3] -> [ifF (rprimalPart i2 ! [i3] <=. 0.0) 0 1])) * i2)"
   resetVarCounter
   let (artifactRev, _deltas) = revArtifactAdapt True reluT2 (rreplicate0N [5] 128, 42)
@@ -918,9 +918,9 @@ testReluSimplerPP3 = do
       reluT2 :: (AstRanked FullSpan Double 2, AstRanked FullSpan Double 0)
              -> AstRanked FullSpan Double 2
       reluT2 (t, r) = relu (t * rreplicate 3 (rreplicate 4 r))
-      (var3, ast3) = funToAstR [3, 4] (\t -> reluT2 (t, 7))
+      (var3, ast3) = funToAstR [3, 4] (\t -> unAstRanked $ reluT2 (AstRanked t, 7))
   "\\" ++ printAstVarName renamesNull var3
-       ++ " -> " ++ printAstSimple renamesNull ast3
+       ++ " -> " ++ printAstSimple renamesNull (AstRanked ast3)
     @?= "\\v1 -> rlet (v1 * rconstant (rreplicate 3 (rreplicate 4 7.0))) (\\i2 -> rconstant (rgather [3,4] (rconst (rfromListLinear [2] [0.0,1.0])) (\\[i5, i4] -> [ifF (rprimalPart i2 ! [i5, i4] <=. 0.0) 0 1])) * i2)"
   resetVarCounter
   let (artifactRev, _deltas) = revArtifactAdapt True reluT2 (rreplicate0N [3, 4] 128, 42)
@@ -947,9 +947,9 @@ testReluSimplerPP4 = do
       reluT2 :: (AstRanked FullSpan Double 2, AstRanked FullSpan Double 0)
              -> AstRanked FullSpan Double 2
       reluT2 (t, r) = relu (t * rreplicate0N [3, 4] r)
-      (var3, ast3) = funToAstR [3, 4] (\t -> reluT2 (t, 7))
+      (var3, ast3) = funToAstR [3, 4] (\t -> unAstRanked $ reluT2 (AstRanked t, 7))
   "\\" ++ printAstVarName renamesNull var3
-       ++ " -> " ++ printAstSimple renamesNull ast3
+       ++ " -> " ++ printAstSimple renamesNull (AstRanked ast3)
     @?= "\\v1 -> rlet (v1 * rconstant (rreshape [3,4] (rreplicate 12 7.0))) (\\i2 -> rconstant (rgather [3,4] (rconst (rfromListLinear [2] [0.0,1.0])) (\\[i5, i4] -> [ifF (rprimalPart i2 ! [i5, i4] <=. 0.0) 0 1])) * i2)"
   resetVarCounter
   let (artifactRev, _deltas) = revArtifactAdapt True reluT2 (rreplicate0N [3, 4] 128, 42)
@@ -1027,9 +1027,9 @@ testReluMaxPP = do
       renamesNull = IM.fromList [(1, "m1"), (2, "i2")]
       reluT :: AstRanked FullSpan Double 2 -> AstRanked FullSpan Double 2
       reluT = reluMax
-      (var3, ast3) = funToAstR [3, 4] reluT
+      (var3, ast3) = funToAstR [3, 4] $ unAstRanked . reluT . AstRanked
   "\\" ++ printAstVarName renamesNull var3
-       ++ " -> " ++ printAstSimple renamesNull ast3
+       ++ " -> " ++ printAstSimple renamesNull (AstRanked ast3)
     @?= "\\m1 -> rgather [3,4] (rfromVector (fromList [rconstant (rreplicate 3 (rreplicate 4 0.0)), m1])) (\\[i5, i4] -> [ifF (0.0 >=. rprimalPart m1 ! [i5, i4]) 0 1, i5, i4])"
   resetVarCounter
   let (artifactRev, deltas) = revArtifactAdapt True reluT (rreplicate0N [3, 4] 4)
@@ -1048,9 +1048,9 @@ testReluMaxPP2 = do
       reluT2 :: (AstRanked FullSpan Double 1, AstRanked FullSpan Double 0)
              -> AstRanked FullSpan Double 1
       reluT2 (t, r) = reluMax (t * rreplicate 5 r)
-      (var3, ast3) = funToAstR [5] (\t -> reluT2 (t, 7))
+      (var3, ast3) = funToAstR [5] (\t -> unAstRanked $ reluT2 (AstRanked t, 7))
   "\\" ++ printAstVarName renamesNull var3
-       ++ " -> " ++ printAstSimple renamesNull ast3
+       ++ " -> " ++ printAstSimple renamesNull (AstRanked ast3)
     @?= "\\v1 -> rgather [5] (rfromVector (fromList [rconstant (rreplicate 5 0.0), v1 * rconstant (rreplicate 5 7.0)])) (\\[i3] -> [ifF (0.0 >=. rprimalPart v1 ! [i3] * 7.0) 0 1, i3])"
   resetVarCounter
   let (artifactRev, _deltas) = revArtifactAdapt True reluT2 (rreplicate0N [5] 128, 42)
@@ -1385,7 +1385,7 @@ testFooNoGoAst =
       f x = interpretAst (extendEnvR
                             (AstVarName $ intToAstVarId 100000000)
                             x EM.empty)
-                         (fooNoGoAst (AstVar [5] (AstVarName . intToAstVarId $ 100000000)))
+                         (unAstRanked $ fooNoGoAst (AstRanked $ AstVar [5] (AstVarName . intToAstVarId $ 100000000)))
   in assertEqualUpToEpsilon1 1e-6
        (OR.fromList [5] [5.037878787878788,-14.394255484765257,43.23648655081373,-0.8403418295960368,5.037878787878788])
        (crev @Double @1 f
@@ -1587,7 +1587,7 @@ testBarReluAst0 =
       f x = interpretAst (extendEnvR
                             (AstVarName $ intToAstVarId 100000000)
                             x EM.empty)
-                         (barReluAst (AstVar [] (AstVarName . intToAstVarId $ 100000000)))
+                         (unAstRanked $ barReluAst (AstRanked $ AstVar [] (AstVarName . intToAstVarId $ 100000000)))
   in assertEqualUpToEpsilon1 1e-10
        (OR.fromList [] [191.20462646925841])
        (crevDt @Double @0 f (rscalar 1.1) (rscalar 42.2))
@@ -1599,7 +1599,7 @@ testBarReluAst1 =
       f x = interpretAst (extendEnvR
                             (AstVarName $ intToAstVarId 100000000)
                             x EM.empty)
-                         (barReluAst (AstVar [5] (AstVarName . intToAstVarId $ 100000000)))
+                         (unAstRanked $ barReluAst (AstRanked $ AstVar [5] (AstVarName . intToAstVarId $ 100000000)))
   in assertEqualUpToEpsilon1 1e-10
        (OR.fromList [5] [4.530915319176739,-2.9573428114591314e-2,5.091137576320349,81.14126788127645,2.828924924816215])
        (crev @Double @1 f (rfromList0N [5] [rscalar 1.1, rscalar 2.2, rscalar 3.3, rscalar 4, rscalar 5]))
@@ -1617,7 +1617,7 @@ testReplicateReluAst =
       f x = interpretAst (extendEnvR
                             (AstVarName $ intToAstVarId 100000000)
                             x EM.empty)
-                         (konstReluAst (AstVar [] (AstVarName . intToAstVarId $ 100000000)))
+                         (unAstRanked $ konstReluAst (AstRanked $ AstVar [] (AstVarName . intToAstVarId $ 100000000)))
   in assertEqualUpToEpsilon1 1e-10
        (OR.fromList [] [295.4])
        (crevDt @Double @0 f (rscalar 1.1) (rscalar 42.2))

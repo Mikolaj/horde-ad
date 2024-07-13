@@ -189,7 +189,7 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
          funToAstIOR (miniBatchSize :$: sizeMnistLabelInt :$: ZSR) id
        let ast :: AstRanked PrimalSpan r 0
            ast = MnistRnnRanked2.rnnMnistLossFusedR
-                   miniBatchSize (astGlyph, astLabel)
+                   miniBatchSize (AstRanked astGlyph, AstRanked astLabel)
                    (parseHVector (fromDValue valsInit)
                                  (unRawHVector hVectorPrimal))
            runBatch :: (HVector (ORArray), StateAdam) -> (Int, [MnistDataR r])
@@ -202,7 +202,7 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
                              $ zip vars $ V.toList varInputs
                        envMnist = extendEnvR varGlyph (rconst $ Nested.rfromOrthotope SNat glyph)
                                   $ extendEnvR varLabel (rconst $ Nested.rfromOrthotope SNat label) env
-                   in interpretAst envMnist ast
+                   in interpretAst envMnist $ unAstRanked ast
                  chunkR = map packBatchR
                           $ filter (\ch -> length ch == miniBatchSize)
                           $ chunksOf miniBatchSize chunk
@@ -298,7 +298,7 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
                      $ extendEnvR varLabel (rconstant $ AstRaw astLabel)
                        EM.empty
            f = MnistRnnRanked2.rnnMnistLossFusedR
-                 miniBatchSize (astGlyph, astLabel)
+                 miniBatchSize (AstRanked astGlyph, AstRanked astLabel)
            (AstArtifact varDtAgain vars1Again gradientRaw primal, _) =
              revProduceArtifactH False f envInit valsInit
                                  (voidFromHVector hVectorInit)
@@ -415,7 +415,8 @@ testRNNOPP = do
       sizeMnistWidthI = 1
       sizeMnistHeightI = 1
       blackGlyph :: AstRanked PrimalSpan Double 3
-      blackGlyph = AstReplicate sizeMnistWidthI
+      blackGlyph = AstRanked
+                   $ AstReplicate sizeMnistWidthI
                    $ AstReplicate sizeMnistHeightI
                    $ AstReplicate batch_size 7
       afcnn2T :: MnistRnnRanked2.ADRnnMnistParameters (AstRanked FullSpan)
@@ -441,7 +442,8 @@ testRNNOPP2 = do
       sizeMnistWidthI = 2
       sizeMnistHeightI = 2
       blackGlyph :: AstRanked PrimalSpan Double 3
-      blackGlyph = AstReplicate sizeMnistWidthI
+      blackGlyph = AstRanked
+                   $ AstReplicate sizeMnistWidthI
                    $ AstReplicate sizeMnistHeightI
                    $ AstReplicate batch_size 7
       afcnn2T :: MnistRnnRanked2.ADRnnMnistParameters (AstRanked FullSpan)

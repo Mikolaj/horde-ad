@@ -762,9 +762,14 @@ deriving instance (RealFloatF (AstShaped s r sh))
 
 type instance BoolOf (AstNoVectorize s) = AstBool
 
-{-deriving instance IfF (AstNoVectorize s)
-deriving instance AstSpan s => EqF (AstNoVectorize s)
-deriving instance AstSpan s => OrdF (AstNoVectorize s)-}
+instance IfF (AstNoVectorize s) where
+  ifF b v1 v2 =
+    AstNoVectorize $ unAstRanked
+    $ ifF b (AstRanked $ unAstNoVectorize v1) (AstRanked $ unAstNoVectorize v2)
+instance AstSpan s => EqF (AstNoVectorize s) where
+  v1 ==. v2 = AstRanked (unAstNoVectorize v1) ==. AstRanked (unAstNoVectorize v2)
+instance AstSpan s => OrdF (AstNoVectorize s) where
+  v1 <. v2 = AstRanked (unAstNoVectorize v1) <. AstRanked (unAstNoVectorize v2)
 deriving instance Eq (AstNoVectorize s r n)
 deriving instance Ord (AstNoVectorize s r n)
 deriving instance Num (AstTensor s r (AstR n)) => Num (AstNoVectorize s r n)
@@ -800,9 +805,14 @@ deriving instance (RealFloatF (AstShaped s r sh))
 
 type instance BoolOf (AstNoSimplify s) = AstBool
 
-{-deriving instance IfF (AstNoSimplify s)
-deriving instance AstSpan s => EqF (AstNoSimplify s)
-deriving instance AstSpan s => OrdF (AstNoSimplify s)-}
+instance IfF (AstNoSimplify s) where
+  ifF b v1 v2 =
+    AstNoSimplify $ unAstRanked
+    $ ifF b (AstRanked $ unAstNoSimplify v1) (AstRanked $ unAstNoSimplify v2)
+instance AstSpan s => EqF (AstNoSimplify s) where
+  v1 ==. v2 = AstRanked (unAstNoSimplify v1) ==. AstRanked (unAstNoSimplify v2)
+instance AstSpan s => OrdF (AstNoSimplify s) where
+  v1 <. v2 = AstRanked (unAstNoSimplify v1) <. AstRanked (unAstNoSimplify v2)
 deriving instance Eq (AstNoSimplify s r n)
 deriving instance Ord (AstNoSimplify s r n)
 deriving instance Num (AstTensor s r (AstR n)) => Num (AstNoSimplify s r n)

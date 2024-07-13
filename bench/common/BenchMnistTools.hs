@@ -4,14 +4,14 @@ module BenchMnistTools where
 
 import Prelude
 
-import           Criterion.Main
-import qualified Data.Array.RankedS as OR
-import qualified Data.EnumMap.Strict as EM
-import           Data.List.Index (imap)
-import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (SomeNat (..), someNatVal)
-import qualified Numeric.LinearAlgebra as LA
-import           System.Random
+import Criterion.Main
+import Data.Array.RankedS qualified as OR
+import Data.EnumMap.Strict qualified as EM
+import Data.List.Index (imap)
+import Data.Vector.Generic qualified as V
+import GHC.TypeLits (SomeNat (..), someNatVal)
+import Numeric.LinearAlgebra qualified as LA
+import System.Random
 
 import HordeAd
 import HordeAd.Core.Adaptor
@@ -23,11 +23,11 @@ import HordeAd.External.OptimizerTools
 import HordeAd.Internal.BackendOX (ORArray, OSArray)
 import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..))
 
-import qualified Data.Array.Nested as Nested
+import Data.Array.Nested qualified as Nested
 
-import           MnistData
-import qualified MnistFcnnRanked1
-import qualified MnistFcnnRanked2
+import MnistData
+import MnistFcnnRanked1 qualified
+import MnistFcnnRanked2 qualified
 
 -- * Using lists of vectors, which is rank 1
 
@@ -146,7 +146,7 @@ mnistTrainBench1VTO extraPrefix chunkLength xs widthHidden widthHidden2
                   EM.empty
         f = MnistFcnnRanked1.afcnnMnistLoss1TensorData @(AstRanked FullSpan)
               widthHidden widthHidden2
-              (rconstant astGlyph, rconstant astLabel)
+              (rconstant $ AstRanked astGlyph, rconstant $ AstRanked astLabel)
         (AstArtifact varDtAgain vars1Again gradientRaw primal, _) =
            revProduceArtifactH False f envInit valsInit
                                (voidFromHVector hVectorInit)
@@ -317,7 +317,7 @@ mnistTrainBench2VTO extraPrefix chunkLength xs widthHidden widthHidden2
                   $ extendEnvR varLabel (rconstant $ AstRaw astLabel)
                   EM.empty
         f = MnistFcnnRanked2.afcnnMnistLoss2TensorData @(AstRanked FullSpan)
-              (rconstant astGlyph, rconstant astLabel)
+              (rconstant $ AstRanked astGlyph, rconstant $ AstRanked astLabel)
         (AstArtifact varDtAgain vars1Again gradientRaw primal, _) =
            revProduceArtifactH False f envInit valsInit
                                (voidFromHVector hVectorInit)

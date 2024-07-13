@@ -199,7 +199,7 @@ mnistTestCase1VTI prefix epochs maxBatches widthHidden widthHidden2
          funToAstIOR (singletonShape sizeMnistLabelInt) id
        let ast :: AstRanked PrimalSpan r 0
            ast = MnistFcnnRanked1.afcnnMnistLoss1TensorData
-                   widthHidden widthHidden2 (astGlyph, astLabel)
+                   widthHidden widthHidden2 (AstRanked $ astGlyph, AstRanked $ astLabel)
                    (parseHVector (fromDValue valsInit)
                                  (unRawHVector hVectorPrimal))
        -- Mimic how backprop tests and display it, even though tests
@@ -217,7 +217,7 @@ mnistTestCase1VTI prefix epochs maxBatches widthHidden widthHidden2
                          $ extendEnvR varLabel
                              (rconst $ Nested.rfromVector (fromList [sizeMnistLabelInt]) label)
                              env
-                   in interpretAst envMnist ast
+                   in interpretAst envMnist $ unAstRanked ast
                  res = fst $ sgd gamma f chunk hVector
                  trainScore = ftest chunk res
                  testScore = ftest testData res
@@ -312,7 +312,7 @@ mnistTestCase1VTO prefix epochs maxBatches widthHidden widthHidden2
                      EM.empty
            f = MnistFcnnRanked1.afcnnMnistLoss1TensorData @(AstRanked FullSpan)
                  widthHidden widthHidden2
-                 (rconstant astGlyph, rconstant astLabel)
+                 (rconstant $ AstRanked astGlyph, rconstant $ AstRanked astLabel)
            (AstArtifact varDtAgain vars1Again gradientRaw primal, _) =
              revProduceArtifactH False f envInit valsInit
                                  (voidFromHVector hVectorInit)
@@ -511,7 +511,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
          funToAstIOR (singletonShape sizeMnistLabelInt) id
        let ast :: AstRanked PrimalSpan r 0
            ast = MnistFcnnRanked2.afcnnMnistLoss2TensorData
-                   (astGlyph, astLabel)
+                   (AstRanked astGlyph, AstRanked astLabel)
                    (parseHVector (fromDValue valsInit)
                                  (unRawHVector hVectorPrimal))
        -- Mimic how backprop tests and display it, even though tests
@@ -529,7 +529,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
                          $ extendEnvR varLabel
                              (rconst $ Nested.rfromVector (fromList [sizeMnistLabelInt]) label)
                              env
-                   in interpretAst envMnist ast
+                   in interpretAst envMnist $ unAstRanked ast
                  res = fst $ sgd gamma f chunk hVector
                  trainScore = ftest chunk res
                  testScore = ftest testData res
@@ -622,7 +622,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                      $ extendEnvR varLabel (rconstant $ AstRaw astLabel)
                        EM.empty
            f = MnistFcnnRanked2.afcnnMnistLoss2TensorData @(AstRanked FullSpan)
-                 (rconstant astGlyph, rconstant astLabel)
+                 (rconstant $ AstRanked astGlyph, rconstant $ AstRanked astLabel)
            (AstArtifact varDtAgain vars1Again gradientRaw primal, _) =
              revProduceArtifactH False f envInit valsInit
                                  (voidFromHVector hVectorInit)
@@ -711,7 +711,7 @@ testVTOPP = do
       afcnn2T :: MnistFcnnRanked1.ADFcnnMnist1Parameters (AstRanked FullSpan)
                                                          Double
               -> AstRanked FullSpan Double 1
-      afcnn2T = MnistFcnnRanked1.afcnnMnist1 id id 3 4 blackGlyph
+      afcnn2T = MnistFcnnRanked1.afcnnMnist1 id id 3 4 $ AstRanked blackGlyph
       (artifactRev, _) = revArtifactAdapt True afcnn2T valsInitVTOPP
   printArtifactPretty renames artifactRev
     @?= "\\v20 v1 v2 v3 v4 v5 v6 v7 v8 v9 v10 v11 v12 v13 v14 v15 -> let v18 = rfromVector (fromList [rsum (rreshape [3] (v1 * rreplicate 3 7.0)), rsum (rreshape [3] (v2 * rreplicate 3 7.0)), rsum (rreshape [3] (v3 * rreplicate 3 7.0))]) + v4 ; v19 = rfromVector (fromList [rsum (rreshape [4] (v5 * v18)), rsum (rreshape [4] (v6 * v18)), rsum (rreshape [4] (v7 * v18)), rsum (rreshape [4] (v8 * v18))]) + v9 ; x21 = v20 ! [4] ; x22 = v20 ! [3] ; x23 = v20 ! [2] ; x24 = v20 ! [1] ; x25 = v20 ! [0] ; v26 = v10 * rreshape [5] (rreplicate 5 x25) + v11 * rreshape [5] (rreplicate 5 x24) + v12 * rreshape [5] (rreplicate 5 x23) + v13 * rreshape [5] (rreplicate 5 x22) + v14 * rreshape [5] (rreplicate 5 x21) ; x27 = v26 ! [3] ; x28 = v26 ! [2] ; x29 = v26 ! [1] ; x30 = v26 ! [0] ; v31 = v5 * rreshape [4] (rreplicate 4 x30) + v6 * rreshape [4] (rreplicate 4 x29) + v7 * rreshape [4] (rreplicate 4 x28) + v8 * rreshape [4] (rreplicate 4 x27) ; x32 = v31 ! [2] ; x33 = v31 ! [1] ; x34 = v31 ! [0] in [rreplicate 3 7.0 * rreshape [3] (rreplicate 3 x34), rreplicate 3 7.0 * rreshape [3] (rreplicate 3 x33), rreplicate 3 7.0 * rreshape [3] (rreplicate 3 x32), v31, v18 * rreshape [3] (rreplicate 3 x30), v18 * rreshape [3] (rreplicate 3 x29), v18 * rreshape [3] (rreplicate 3 x28), v18 * rreshape [3] (rreplicate 3 x27), v26, v19 * rreshape [4] (rreplicate 4 x25), v19 * rreshape [4] (rreplicate 4 x24), v19 * rreshape [4] (rreplicate 4 x23), v19 * rreshape [4] (rreplicate 4 x22), v19 * rreshape [4] (rreplicate 4 x21), v20]"
@@ -731,7 +731,7 @@ testVTOPPNonLin = do
                          (AstRanked FullSpan) Double
                     -> AstRanked FullSpan Double 1
       afcnn2TnonLin =
-        MnistFcnnRanked1.afcnnMnist1 logistic softMax1 3 4 blackGlyph
+        MnistFcnnRanked1.afcnnMnist1 logistic softMax1 3 4 $ AstRanked blackGlyph
       (artifactRevnonLin, _) =
         revArtifactAdapt True afcnn2TnonLin valsInitVTOPP
   printArtifactPretty renames artifactRevnonLin
@@ -766,7 +766,7 @@ testVT2OPP = do
       afcnn2T :: MnistFcnnRanked2.ADFcnnMnist2Parameters
                    (AstRanked FullSpan) Double
               -> AstRanked FullSpan Double 1
-      afcnn2T = MnistFcnnRanked2.afcnnMnist2 id id blackGlyph
+      afcnn2T = MnistFcnnRanked2.afcnnMnist2 id id $ AstRanked blackGlyph
       (artifactRev, _) = revArtifactAdapt True afcnn2T valsInitVT2OPP
   printArtifactPretty renames artifactRev
     @?= "\\v12 m1 v2 m3 v4 m5 v6 -> let m10 = rtranspose [1,0] (rreplicate 5 (rcast (rsum (rtranspose [1,0] (rreplicate 4 (rreplicate 3 7.0)) * rtranspose [1,0] m1) + v2))) ; m11 = rtranspose [1,0] (rreplicate 2 (rcast (rsum (m10 * rtranspose [1,0] m3)) + v4)) ; v13 = rsum (rtranspose [1,0] (rtranspose [1,0] m5 * rreplicate 5 v12)) ; m14 = rreplicate 4 (rcast v13) ; v15 = rcast (rsum (rtranspose [1,0] (rtranspose [1,0] m3 * m14))) ; m16 = rreplicate 3 v15 in [rtranspose [1,0] (rtranspose [1,0] (rreplicate 4 (rreplicate 3 7.0)) * m16), v15, rtranspose [1,0] (m10 * m14), v13, rtranspose [1,0] (m11 * rreplicate 5 v12), v12]"
@@ -785,17 +785,17 @@ testVT2OPPNonLin = do
       afcnn2TnonLin :: MnistFcnnRanked2.ADFcnnMnist2Parameters
                          (AstRanked FullSpan) Float
                     -> AstRanked FullSpan Float 1
-      afcnn2TnonLin = MnistFcnnRanked2.afcnnMnist2 logistic softMax1 blackGlyph
+      afcnn2TnonLin = MnistFcnnRanked2.afcnnMnist2 logistic softMax1 $ AstRanked blackGlyph
       constant = let ((a1, a2), (a3, a4), (a5, a6)) = valsInitVT2OPP
-                 in ( ( AstCast $ AstConstant $ AstConst $ runFlipR a1
-                      , AstCast $ AstConstant $ AstConst $ runFlipR a2 )
-                    , ( AstConstant $ AstCast $ AstConst $ runFlipR a3
-                      , AstConstant $ AstCast $ AstConst $ runFlipR a4 )
-                    , ( AstCast $ AstConstant $ AstConst $ runFlipR a5
-                      , AstConstant $ AstCast $ AstConst $ runFlipR a6 ) )
+                 in ( ( AstRanked $ AstCast $ AstConstant $ AstConst $ runFlipR a1
+                      , AstRanked $ AstCast $ AstConstant $ AstConst $ runFlipR a2 )
+                    , ( AstRanked $ AstConstant $ AstCast $ AstConst $ runFlipR a3
+                      , AstRanked $ AstConstant $ AstCast $ AstConst $ runFlipR a4 )
+                    , ( AstRanked $ AstCast $ AstConstant $ AstConst $ runFlipR a5
+                      , AstRanked $ AstConstant $ AstCast $ AstConst $ runFlipR a6 ) )
       (_, ast3) = funToAstR @Float (singletonShape 0)
-                                   (const $ afcnn2TnonLin constant)
-  "\\dummy" ++ " -> " ++ printAstSimple renames ast3
+                                   (const $ unAstRanked $ afcnn2TnonLin constant)
+  "\\dummy" ++ " -> " ++ printAstSimple renames (AstRanked ast3)
     @?= "\\dummy -> rlet (exp (rsum (rtranspose [1,0] (rreplicate 2 (rlet (rcast (rsum (rtranspose [1,0] (rreplicate 5 (rcast (rlet (rsum (rtranspose [1,0] (rreplicate 4 (rreplicate 3 (rconstant 7.0))) * rconstant (rconst (rfromListLinear [3,4] [1.0,1.0,1.0,1.0,2.0,2.0,2.0,2.0,3.0,3.0,3.0,3.0]))) + rcast (rconstant (rconst (rfromListLinear [4] [1.0,2.0,3.0,4.0])))) (\\v5 -> rlet (rconstant (recip (rreplicate 4 1.0 + exp (negate (rprimalPart v5))))) (\\v6 -> rD (rprimalPart v6) (rdualPart (rconstant (rprimalPart v6 * (rreplicate 4 1.0 - rprimalPart v6)) * rD (rreplicate 4 0.0) (rdualPart v5)))))))) * rconstant (rconst (rfromListLinear [4,5] [1.0,1.0,1.0,1.0,1.0,2.0,2.0,2.0,2.0,2.0,3.0,3.0,3.0,3.0,3.0,4.0,4.0,4.0,4.0,4.0])))) + rconstant (rcast (rconst (rfromListLinear [5] [1.0,2.0,3.0,4.0,5.0])))) (\\v7 -> rlet (rconstant (recip (rreplicate 5 1.0 + exp (negate (rprimalPart v7))))) (\\v8 -> rD (rprimalPart v8) (rdualPart (rconstant (rprimalPart v8 * (rreplicate 5 1.0 - rprimalPart v8)) * rD (rreplicate 5 0.0) (rdualPart v7))))))) * rconstant (rconst (rfromListLinear [5,2] [1.0,1.0,2.0,2.0,3.0,3.0,4.0,4.0,5.0,5.0]))) + rconstant (rcast (rconst (rfromListLinear [2] [1.0,2.0]))))) (\\v9 -> rreplicate 2 (recip (rsum v9)) * v9)"
 
 testVT2OPPNonLin2 :: Assertion
@@ -806,7 +806,7 @@ testVT2OPPNonLin2 = do
       afcnn2TnonLin :: MnistFcnnRanked2.ADFcnnMnist2Parameters
                          (AstRanked FullSpan) Double
                     -> AstRanked FullSpan Double 1
-      afcnn2TnonLin = MnistFcnnRanked2.afcnnMnist2 logistic softMax1 blackGlyph
+      afcnn2TnonLin = MnistFcnnRanked2.afcnnMnist2 logistic softMax1 $ AstRanked blackGlyph
   let (artifactRevnonLin, _) =
         revArtifactAdapt True afcnn2TnonLin valsInitVT2OPP
   printArtifactPretty renames artifactRevnonLin
