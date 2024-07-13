@@ -205,7 +205,9 @@ type data AstType =
 -- The old AstRanked:
 type role AstRanked nominal nominal nominal
 newtype AstRanked s r n = AstRanked {unAstRanked :: AstTensor s r (AstR n)}
-deriving instance GoodScalar r => Show (AstRanked s r n)
+instance GoodScalar r => Show (AstRanked s r n) where
+  showsPrec k (AstRanked t) = showsPrec k t
+    -- to keep PP tests passing regardless of what wrappers we currently use
 
 -- | AST for ranked tensors that are meant to be differentiated.
 type role AstTensor nominal nominal nominal
