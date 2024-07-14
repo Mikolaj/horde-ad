@@ -349,277 +349,277 @@ cfwd f vals ds =
 {-# SPECIALIZE interpretAstPrimalRuntimeSpecialized
   :: (KnownNat n, Typeable r)
   => AstEnv (ADVal ORArray)
-  -> AstTensor PrimalSpan r (AstR n)
+  -> AstTensor PrimalSpan (AstR r n)
   -> ORArray r n #-}
 {-# SPECIALIZE interpretAstPrimalRuntimeSpecialized
   :: (KnownNat n, Typeable r)
   => AstEnv (ADVal (AstRanked PrimalSpan))
-  -> AstTensor PrimalSpan r (AstR n)
+  -> AstTensor PrimalSpan (AstR r n)
   -> AstRanked PrimalSpan r n #-}
 {-# SPECIALIZE interpretAstPrimalRuntimeSpecialized
   :: (KnownNat n, Typeable r)
   => AstEnv ORArray
-  -> AstTensor PrimalSpan r (AstR n)
+  -> AstTensor PrimalSpan (AstR r n)
   -> ORArray r n #-}
 
 {-# SPECIALIZE interpretAstPrimalSRuntimeSpecialized
   :: (KnownShS sh, Typeable r)
   => AstEnv (ADVal ORArray)
-  -> AstShaped PrimalSpan r sh
+  -> AstTensor PrimalSpan (AstS r sh)
   -> OSArray r sh #-}
 {-# SPECIALIZE interpretAstPrimalSRuntimeSpecialized
   :: (KnownShS sh, Typeable r)
   => AstEnv (ADVal (AstRanked PrimalSpan))
-  -> AstShaped PrimalSpan r sh
+  -> AstTensor PrimalSpan (AstS r sh)
   -> AstShaped PrimalSpan r sh #-}
 {-# SPECIALIZE interpretAstPrimalSRuntimeSpecialized
   :: (KnownShS sh, Typeable r)
   => AstEnv ORArray
-  -> AstShaped PrimalSpan r sh
+  -> AstTensor PrimalSpan (AstS r sh)
   -> OSArray r sh #-}
 
 {-# SPECIALIZE interpretAstPrimal
   :: (KnownNat n, GoodScalar r)
   => AstEnv (ADVal ORArray)
-  -> AstTensor PrimalSpan r (AstR n)
+  -> AstTensor PrimalSpan (AstR r n)
   -> ORArray r n #-}
 {-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
   => AstEnv (ADVal ORArray)
-  -> AstTensor PrimalSpan Double (AstR n)
+  -> AstTensor PrimalSpan (AstR Double n)
   -> ORArray Double n #-}
 {-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
   => AstEnv (ADVal ORArray)
-  -> AstTensor PrimalSpan Float (AstR n)
+  -> AstTensor PrimalSpan (AstR Float n)
   -> ORArray Float n #-}
 {-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
   => AstEnv (ADVal ORArray)
-  -> AstTensor PrimalSpan Int64 (AstR n)
+  -> AstTensor PrimalSpan (AstR Int64 n)
   -> ORArray Int64 n #-}
 {-# SPECIALIZE interpretAstPrimal
   :: (KnownNat n, GoodScalar r)
   => AstEnv (ADVal (AstRanked PrimalSpan))
-  -> AstTensor PrimalSpan r (AstR n)
+  -> AstTensor PrimalSpan (AstR r n)
   -> AstRanked PrimalSpan r n #-}
 {-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
   => AstEnv (ADVal (AstRanked PrimalSpan))
-  -> AstTensor PrimalSpan Double (AstR n)
+  -> AstTensor PrimalSpan (AstR Double n)
   -> AstRanked PrimalSpan Double n #-}
 {-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
   => AstEnv (ADVal (AstRanked PrimalSpan))
-  -> AstTensor PrimalSpan Float (AstR n)
+  -> AstTensor PrimalSpan (AstR Float n)
   -> AstRanked PrimalSpan Float n #-}
 {-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
   => AstEnv (ADVal (AstRanked PrimalSpan))
-  -> AstTensor PrimalSpan Int64 (AstR n)
+  -> AstTensor PrimalSpan (AstR Int64 n)
   -> AstRanked PrimalSpan Int64 n #-}
 {-# SPECIALIZE interpretAstPrimal
   :: (KnownNat n, GoodScalar r)
   => AstEnv ORArray
-  -> AstTensor PrimalSpan r (AstR n)
+  -> AstTensor PrimalSpan (AstR r n)
   -> ORArray r n #-}
 {-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
   => AstEnv ORArray
-  -> AstTensor PrimalSpan Double (AstR n)
+  -> AstTensor PrimalSpan (AstR Double n)
   -> ORArray Double n #-}
 {-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
   => AstEnv ORArray
-  -> AstTensor PrimalSpan Float (AstR n)
+  -> AstTensor PrimalSpan (AstR Float n)
   -> ORArray Float n #-}
 {-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
   => AstEnv ORArray
-  -> AstTensor PrimalSpan Int64 (AstR n)
+  -> AstTensor PrimalSpan (AstR Int64 n)
   -> ORArray Int64 n #-}
 
 {-# SPECIALIZE interpretAstPrimalS
   :: (KnownShS sh, GoodScalar r)
   => AstEnv (ADVal ORArray)
-  -> AstShaped PrimalSpan r sh
+  -> AstTensor PrimalSpan (AstS r sh)
   -> OSArray r sh #-}
 {-# SPECIALIZE interpretAstPrimalS
   :: KnownShS sh
   => AstEnv (ADVal ORArray)
-  -> AstShaped PrimalSpan Double sh
+  -> AstTensor PrimalSpan (AstS Double sh)
   -> OSArray Double sh #-}
 {-# SPECIALIZE interpretAstPrimalS
   :: KnownShS sh
   => AstEnv (ADVal ORArray)
-  -> AstShaped PrimalSpan Float sh
+  -> AstTensor PrimalSpan (AstS Float sh)
   -> OSArray Float sh #-}
 {-# SPECIALIZE interpretAstPrimalS
   :: KnownShS sh
   => AstEnv (ADVal ORArray)
-  -> AstShaped PrimalSpan Int64 sh
+  -> AstTensor PrimalSpan (AstS Int64 sh)
   -> OSArray Int64 sh #-}
 {-# SPECIALIZE interpretAstPrimalS
   :: (KnownShS sh, GoodScalar r)
   => AstEnv (ADVal (AstRanked PrimalSpan))
-  -> AstShaped PrimalSpan r sh
+  -> AstTensor PrimalSpan (AstS r sh)
   -> AstShaped PrimalSpan r sh #-}
 {-# SPECIALIZE interpretAstPrimalS
   :: KnownShS sh
   => AstEnv (ADVal (AstRanked PrimalSpan))
-  -> AstShaped PrimalSpan Double sh
+  -> AstTensor PrimalSpan (AstS Double sh)
   -> AstShaped PrimalSpan Double sh #-}
 {-# SPECIALIZE interpretAstPrimalS
   :: KnownShS sh
   => AstEnv (ADVal (AstRanked PrimalSpan))
-  -> AstShaped PrimalSpan Float sh
+  -> AstTensor PrimalSpan (AstS Float sh)
   -> AstShaped PrimalSpan Float sh #-}
 {-# SPECIALIZE interpretAstPrimalS
   :: KnownShS sh
   => AstEnv (ADVal (AstRanked PrimalSpan))
-  -> AstShaped PrimalSpan Int64 sh
+  -> AstTensor PrimalSpan (AstS Int64 sh)
   -> AstShaped PrimalSpan Int64 sh #-}
 {-# SPECIALIZE interpretAstPrimalS
   :: (KnownShS sh, GoodScalar r)
   => AstEnv ORArray
-  -> AstShaped PrimalSpan r sh
+  -> AstTensor PrimalSpan (AstS r sh)
   -> OSArray r sh #-}
 {-# SPECIALIZE interpretAstPrimalS
   :: KnownShS sh
   => AstEnv ORArray
-  -> AstShaped PrimalSpan Double sh
+  -> AstTensor PrimalSpan (AstS Double sh)
   -> OSArray Double sh #-}
 {-# SPECIALIZE interpretAstPrimalS
   :: KnownShS sh
   => AstEnv ORArray
-  -> AstShaped PrimalSpan Float sh
+  -> AstTensor PrimalSpan (AstS Float sh)
   -> OSArray Float sh #-}
 {-# SPECIALIZE interpretAstPrimalS
   :: KnownShS sh
   => AstEnv ORArray
-  -> AstShaped PrimalSpan Int64 sh
+  -> AstTensor PrimalSpan (AstS Int64 sh)
   -> OSArray Int64 sh #-}
 
 {-# SPECIALIZE interpretAstDual
   :: (KnownNat n, GoodScalar r)
   => AstEnv (ADVal ORArray)
-  -> AstTensor DualSpan r (AstR n)
+  -> AstTensor DualSpan (AstR r n)
   -> DeltaR ORArray r n #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
   => AstEnv (ADVal ORArray)
-  -> AstTensor DualSpan Double (AstR n)
+  -> AstTensor DualSpan (AstR Double n)
   -> DeltaR ORArray Double n #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
   => AstEnv (ADVal ORArray)
-  -> AstTensor DualSpan Float (AstR n)
+  -> AstTensor DualSpan (AstR Float n)
   -> DeltaR ORArray Float n #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
   => AstEnv (ADVal ORArray)
-  -> AstTensor DualSpan Int64 (AstR n)
+  -> AstTensor DualSpan (AstR Int64 n)
   -> DeltaR ORArray Int64 n #-}
 {-# SPECIALIZE interpretAstDual
   :: (KnownNat n, GoodScalar r)
   => AstEnv (ADVal (AstRanked PrimalSpan))
-  -> AstTensor DualSpan r (AstR n)
+  -> AstTensor DualSpan (AstR r n)
   -> DeltaR (AstRanked PrimalSpan) r n #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
   => AstEnv (ADVal (AstRanked PrimalSpan))
-  -> AstTensor DualSpan Double (AstR n)
+  -> AstTensor DualSpan (AstR Double n)
   -> DeltaR (AstRanked PrimalSpan) Double n #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
   => AstEnv (ADVal (AstRanked PrimalSpan))
-  -> AstTensor DualSpan Float (AstR n)
+  -> AstTensor DualSpan (AstR Float n)
   -> DeltaR (AstRanked PrimalSpan) Float n #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
   => AstEnv (ADVal (AstRanked PrimalSpan))
-  -> AstTensor DualSpan Int64 (AstR n)
+  -> AstTensor DualSpan (AstR Int64 n)
   -> DeltaR (AstRanked PrimalSpan) Int64 n #-}
 {-# SPECIALIZE interpretAstDual
   :: (KnownNat n, GoodScalar r)
   => AstEnv ORArray
-  -> AstTensor DualSpan r (AstR n)
+  -> AstTensor DualSpan (AstR r n)
   -> DummyDual r n #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
   => AstEnv ORArray
-  -> AstTensor DualSpan Double (AstR n)
+  -> AstTensor DualSpan (AstR Double n)
   -> DummyDual Double n #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
   => AstEnv ORArray
-  -> AstTensor DualSpan Float (AstR n)
+  -> AstTensor DualSpan (AstR Float n)
   -> DummyDual Float n #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
   => AstEnv ORArray
-  -> AstTensor DualSpan Int64 (AstR n)
+  -> AstTensor DualSpan (AstR Int64 n)
   -> DummyDual Int64 n #-}
 
 {-# SPECIALIZE interpretAstDualS
   :: (KnownShS sh, GoodScalar r)
   => AstEnv (ADVal ORArray)
-  -> AstShaped DualSpan r sh
+  -> AstTensor DualSpan (AstS r sh)
   -> DeltaS OSArray r sh #-}
 {-# SPECIALIZE interpretAstDualS
   :: KnownShS sh
   => AstEnv (ADVal ORArray)
-  -> AstShaped DualSpan Double sh
+  -> AstTensor DualSpan (AstS Double sh)
   -> DeltaS OSArray Double sh #-}
 {-# SPECIALIZE interpretAstDualS
   :: KnownShS sh
   => AstEnv (ADVal ORArray)
-  -> AstShaped DualSpan Float sh
+  -> AstTensor DualSpan (AstS Float sh)
   -> DeltaS OSArray Float sh #-}
 {-# SPECIALIZE interpretAstDualS
   :: KnownShS sh
   => AstEnv (ADVal ORArray)
-  -> AstShaped DualSpan Int64 sh
+  -> AstTensor DualSpan (AstS Int64 sh)
   -> DeltaS OSArray Int64 sh #-}
 {-# SPECIALIZE interpretAstDualS
   :: (KnownShS sh, GoodScalar r)
   => AstEnv (ADVal (AstRanked PrimalSpan))
-  -> AstShaped DualSpan r sh
+  -> AstTensor DualSpan (AstS r sh)
   -> DeltaS (AstShaped PrimalSpan) r sh #-}
 {-# SPECIALIZE interpretAstDualS
   :: KnownShS sh
   => AstEnv (ADVal (AstRanked PrimalSpan))
-  -> AstShaped DualSpan Double sh
+  -> AstTensor DualSpan (AstS Double sh)
   -> DeltaS (AstShaped PrimalSpan) Double sh #-}
 {-# SPECIALIZE interpretAstDualS
   :: KnownShS sh
   => AstEnv (ADVal (AstRanked PrimalSpan))
-  -> AstShaped DualSpan Float sh
+  -> AstTensor DualSpan (AstS Float sh)
   -> DeltaS (AstShaped PrimalSpan) Float sh #-}
 {-# SPECIALIZE interpretAstDualS
   :: KnownShS sh
   => AstEnv (ADVal (AstRanked PrimalSpan))
-  -> AstShaped DualSpan Int64 sh
+  -> AstTensor DualSpan (AstS Int64 sh)
   -> DeltaS (AstShaped PrimalSpan) Int64 sh #-}
 {-# SPECIALIZE interpretAstDualS
   :: (KnownShS sh, GoodScalar r)
   => AstEnv ORArray
-  -> AstShaped DualSpan r sh
+  -> AstTensor DualSpan (AstS r sh)
   -> DummyDual r sh #-}
 {-# SPECIALIZE interpretAstDualS
   :: KnownShS sh
   => AstEnv ORArray
-  -> AstShaped DualSpan Double sh
+  -> AstTensor DualSpan (AstS Double sh)
   -> DummyDual Double sh #-}
 {-# SPECIALIZE interpretAstDualS
   :: KnownShS sh
   => AstEnv ORArray
-  -> AstShaped DualSpan Float sh
+  -> AstTensor DualSpan (AstS Float sh)
   -> DummyDual Float sh #-}
 {-# SPECIALIZE interpretAstDualS
   :: KnownShS sh
   => AstEnv ORArray
-  -> AstShaped DualSpan Int64 sh
+  -> AstTensor DualSpan (AstS Int64 sh)
   -> DummyDual Int64 sh #-}
 
 -- This is needed for all three AstSpan values, to handle recursive calls
@@ -627,33 +627,33 @@ cfwd f vals ds =
 {-# SPECIALIZE interpretAstRuntimeSpecialized
   :: (KnownNat n, Typeable r, AstSpan s)
   => AstEnv (ADVal ORArray)
-  -> AstTensor s r (AstR n)
+  -> AstTensor s (AstR r n)
   -> ADVal ORArray r n #-}
 {-# SPECIALIZE interpretAstRuntimeSpecialized
   :: (KnownNat n, Typeable r, AstSpan s)
   => AstEnv (ADVal (AstRanked PrimalSpan))
-  -> AstTensor s r (AstR n)
+  -> AstTensor s (AstR r n)
   -> ADVal (AstRanked PrimalSpan) r n #-}
 {-# SPECIALIZE interpretAstRuntimeSpecialized
   :: (KnownNat n, Typeable r, AstSpan s)
   => AstEnv ORArray
-  -> AstTensor s r (AstR n)
+  -> AstTensor s (AstR r n)
   -> ORArray r n #-}
 
 {-# SPECIALIZE interpretAstSRuntimeSpecialized
   :: (KnownShS sh, Typeable r, AstSpan s)
   => AstEnv (ADVal ORArray)
-  -> AstShaped s r sh
+  -> AstTensor s (AstS r sh)
   -> ADVal OSArray r sh #-}
 {-# SPECIALIZE interpretAstSRuntimeSpecialized
   :: (KnownShS sh, Typeable r, AstSpan s)
   => AstEnv (ADVal (AstRanked PrimalSpan))
-  -> AstShaped s r sh
+  -> AstTensor s (AstS r sh)
   -> ADVal (AstShaped PrimalSpan) r sh #-}
 {-# SPECIALIZE interpretAstSRuntimeSpecialized
   :: (KnownShS sh, Typeable r, AstSpan s)
   => AstEnv ORArray
-  -> AstShaped s r sh
+  -> AstTensor s (AstS r sh)
   -> OSArray r sh #-}
 
 -- This is needed for all three AstSpan values, to handle recursive calls
@@ -661,123 +661,123 @@ cfwd f vals ds =
 {-# SPECIALIZE interpretAst
   :: (KnownNat n, GoodScalar r, AstSpan s)
   => AstEnv (ADVal ORArray)
-  -> AstTensor s r (AstR n)
+  -> AstTensor s (AstR r n)
   -> ADVal ORArray r n #-}
 {-# SPECIALIZE interpretAst
   :: (KnownNat n, AstSpan s)
   => AstEnv (ADVal ORArray)
-  -> AstTensor s Double (AstR n)
+  -> AstTensor s (AstR Double n)
   -> ADVal ORArray Double n #-}
 {-# SPECIALIZE interpretAst
   :: (KnownNat n, AstSpan s)
   => AstEnv (ADVal ORArray)
-  -> AstTensor s Float (AstR n)
+  -> AstTensor s (AstR Float n)
   -> ADVal ORArray Float n #-}
 {-# SPECIALIZE interpretAst
   :: (KnownNat n, AstSpan s)
   => AstEnv (ADVal ORArray)
-  -> AstTensor s Int64 (AstR n)
+  -> AstTensor s (AstR Int64 n)
   -> ADVal ORArray Int64 n #-}
 {-# SPECIALIZE interpretAst
   :: (KnownNat n, GoodScalar r, AstSpan s)
   => AstEnv (ADVal (AstRanked PrimalSpan))
-  -> AstTensor s r (AstR n)
+  -> AstTensor s (AstR r n)
   -> ADVal (AstRanked PrimalSpan) r n #-}
 {-# SPECIALIZE interpretAst
   :: (KnownNat n, AstSpan s)
   => AstEnv (ADVal (AstRanked PrimalSpan))
-  -> AstTensor s Double (AstR n)
+  -> AstTensor s (AstR Double n)
   -> ADVal (AstRanked PrimalSpan) Double n #-}
 {-# SPECIALIZE interpretAst
   :: (KnownNat n, AstSpan s)
   => AstEnv (ADVal (AstRanked PrimalSpan))
-  -> AstTensor s Float (AstR n)
+  -> AstTensor s (AstR Float n)
   -> ADVal (AstRanked PrimalSpan) Float n #-}
 {-# SPECIALIZE interpretAst
   :: (KnownNat n, AstSpan s)
   => AstEnv (ADVal (AstRanked PrimalSpan))
-  -> AstTensor s Int64 (AstR n)
+  -> AstTensor s (AstR Int64 n)
   -> ADVal (AstRanked PrimalSpan) Int64 n #-}
 {-# SPECIALIZE interpretAst
   :: (KnownNat n, GoodScalar r, AstSpan s)
   => AstEnv ORArray
-  -> AstTensor s r (AstR n)
+  -> AstTensor s (AstR r n)
   -> ORArray r n #-}
 {-# SPECIALIZE interpretAst
   :: (KnownNat n, AstSpan s)
   => AstEnv ORArray
-  -> AstTensor s Double (AstR n)
+  -> AstTensor s (AstR Double n)
   -> ORArray Double n #-}
 {-# SPECIALIZE interpretAst
   :: (KnownNat n, AstSpan s)
   => AstEnv ORArray
-  -> AstTensor s Float (AstR n)
+  -> AstTensor s (AstR Float n)
   -> ORArray Float n #-}
 {-# SPECIALIZE interpretAst
   :: (KnownNat n, AstSpan s)
   => AstEnv ORArray
-  -> AstTensor s Int64 (AstR n)
+  -> AstTensor s (AstR Int64 n)
   -> ORArray Int64 n #-}
 
 {-# SPECIALIZE interpretAstS
   :: (KnownShS sh, GoodScalar r, AstSpan s)
   => AstEnv (ADVal ORArray)
-  -> AstShaped s r sh
+  -> AstTensor s (AstS r sh)
   -> ADVal OSArray r sh #-}
 {-# SPECIALIZE interpretAstS
   :: (KnownShS sh, AstSpan s)
   => AstEnv (ADVal ORArray)
-  -> AstShaped s Double sh
+  -> AstTensor s (AstS Double sh)
   -> ADVal OSArray Double sh #-}
 {-# SPECIALIZE interpretAstS
   :: (KnownShS sh, AstSpan s)
   => AstEnv (ADVal ORArray)
-  -> AstShaped s Float sh
+  -> AstTensor s (AstS Float sh)
   -> ADVal OSArray Float sh #-}
 {-# SPECIALIZE interpretAstS
   :: (KnownShS sh, AstSpan s)
   => AstEnv (ADVal ORArray)
-  -> AstShaped s Int64 sh
+  -> AstTensor s (AstS Int64 sh)
   -> ADVal OSArray Int64 sh #-}
 {-# SPECIALIZE interpretAstS
   :: (KnownShS sh, GoodScalar r, AstSpan s)
   => AstEnv (ADVal (AstRanked PrimalSpan))
-  -> AstShaped s r sh
+  -> AstTensor s (AstS r sh)
   -> ADVal (AstShaped PrimalSpan) r sh #-}
 {-# SPECIALIZE interpretAstS
   :: (KnownShS sh, AstSpan s)
   => AstEnv (ADVal (AstRanked PrimalSpan))
-  -> AstShaped s Double sh
+  -> AstTensor s (AstS Double sh)
   -> ADVal (AstShaped PrimalSpan) Double sh #-}
 {-# SPECIALIZE interpretAstS
   :: (KnownShS sh, AstSpan s)
   => AstEnv (ADVal (AstRanked PrimalSpan))
-  -> AstShaped s Float sh
+  -> AstTensor s (AstS Float sh)
   -> ADVal (AstShaped PrimalSpan) Float sh #-}
 {-# SPECIALIZE interpretAstS
   :: (KnownShS sh, AstSpan s)
   => AstEnv (ADVal (AstRanked PrimalSpan))
-  -> AstShaped s Int64 sh
+  -> AstTensor s (AstS Int64 sh)
   -> ADVal (AstShaped PrimalSpan) Int64 sh #-}
 {-# SPECIALIZE interpretAstS
   :: (KnownShS sh, GoodScalar r, AstSpan s)
   => AstEnv ORArray
-  -> AstShaped s r sh
+  -> AstTensor s (AstS r sh)
   -> OSArray r sh #-}
 {-# SPECIALIZE interpretAstS
   :: (KnownShS sh, AstSpan s)
   => AstEnv ORArray
-  -> AstShaped s Double sh
+  -> AstTensor s (AstS Double sh)
   -> OSArray Double sh #-}
 {-# SPECIALIZE interpretAstS
   :: (KnownShS sh, AstSpan s)
   => AstEnv ORArray
-  -> AstShaped s Float sh
+  -> AstTensor s (AstS Float sh)
   -> OSArray Float sh #-}
 {-# SPECIALIZE interpretAstS
   :: (KnownShS sh, AstSpan s)
   => AstEnv ORArray
-  -> AstShaped s Int64 sh
+  -> AstTensor s (AstS Int64 sh)
   -> OSArray Int64 sh #-}
 
 -- This is needed for all three AstSpan values, to handle recursive calls

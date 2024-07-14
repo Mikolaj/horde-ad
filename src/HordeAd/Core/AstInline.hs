@@ -22,9 +22,8 @@ import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat, Nat)
 import Type.Reflection (typeRep)
 
-import HordeAd.Core.Ast (AstBool, AstHVector, AstShaped, AstTensor)
-import HordeAd.Core.Ast hiding
-  (AstBool (..), AstHVector (..), AstShaped (..), AstTensor (..))
+import HordeAd.Core.Ast hiding (AstBool (..), AstHVector (..), AstTensor (..))
+import HordeAd.Core.Ast (AstBool, AstHVector, AstTensor)
 import HordeAd.Core.Ast qualified as Ast
 import HordeAd.Core.AstSimplify
 import HordeAd.Core.AstTools
@@ -59,9 +58,9 @@ simplifyInlineAstS
   :: (GoodScalar r, KnownShS sh, AstSpan s)
   => AstShaped s r sh -> AstShaped s r sh
 simplifyInlineAstS =
-  snd . inlineAstS EM.empty
+  AstShaped . snd . inlineAstS EM.empty
   . simplifyAstS . expandAstS
-  . snd . inlineAstS EM.empty . simplifyAstS
+  . snd . inlineAstS EM.empty . simplifyAstS . unAstShaped
 {-# SPECIALIZE simplifyInlineAstS
   :: (KnownShS sh, AstSpan s)
   => AstShaped s Double sh -> AstShaped s Double sh #-}
@@ -87,7 +86,7 @@ type AstMemo = EM.EnumMap AstVarId Int
 inlineAst
   :: forall n s r. (GoodScalar r, KnownNat n, AstSpan s)
   => AstMemo
-  -> AstTensor s r (AstR n) -> (AstMemo, AstTensor s r (AstR n))
+  -> AstTensor s (AstR r n) -> (AstMemo, AstTensor s (AstR r n))
 inlineAst memo v0 = case v0 of
   Ast.AstVar _ (AstVarName varId) ->
     let f Nothing = Just 1
@@ -219,7 +218,7 @@ inlineAst memo v0 = case v0 of
 inlineAstS
   :: forall sh s r. (GoodScalar r, KnownShS sh, AstSpan s)
   => AstMemo
-  -> AstShaped s r sh -> (AstMemo, AstShaped s r sh)
+  -> AstTensor s (AstS r sh) -> (AstMemo, AstTensor s (AstS r sh))
 inlineAstS memo v0 = case v0 of
   Ast.AstVarS (AstVarName varId) ->
     let f Nothing = Just 1
@@ -233,12 +232,12 @@ inlineAstS memo v0 = case v0 of
         (memo2, u2) = inlineAstS memo1NoVar u
     in case EM.findWithDefault 0 vv memo1 of
       0 -> (memo1, v2)
-      1 -> (memo2, substituteAstS (SubstitutionPayloadShaped u2) var v2)
+      1 -> (memo2, unAstShaped $ substituteAstS (SubstitutionPayloadShaped u2) var (AstShaped v2))
       count | astIsSmallS (count < 10) u ->
         let (memoU0, u0) = inlineAstS EM.empty u
             memo3 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1NoVar memoU0
                       -- u is small, so the union is fast
-        in (memo3, substituteAstS (SubstitutionPayloadShaped u0) var v2)
+        in (memo3, unAstShaped $ substituteAstS (SubstitutionPayloadShaped u0) var (AstShaped v2))
       _ -> (memo2, Ast.AstLetS var u2 v2)
   Ast.AstShareS{} -> error "inlineAstS: AstShareS"
   Ast.AstCondS b a2 a3 ->
@@ -356,7 +355,8 @@ inlineAstDynamic
 inlineAstDynamic memo = \case
   DynamicRanked (AstRanked w) ->
     second (DynamicRanked . AstRanked) $ inlineAst memo w
-  DynamicShaped w -> second DynamicShaped $ inlineAstS memo w
+  DynamicShaped (AstShaped w) ->
+    second (DynamicShaped . AstShaped) $ inlineAstS memo w
   u@DynamicRankedDummy{} -> (memo, u)
   u@DynamicShapedDummy{} -> (memo, u)
 
@@ -483,8 +483,8 @@ type ShareMemo = EM.EnumMap AstVarId (AstBindingsCase PrimalSpan)
 -- the gather/scatter/build variables corresponding to the index.
 shareAstScoped
   :: forall n s r. (GoodScalar r, KnownNat n, AstSpan s)
-  => [IntVarName] -> ShareMemo -> AstTensor s r (AstR n)
-  -> (ShareMemo, AstTensor s r (AstR n))
+  => [IntVarName] -> ShareMemo -> AstTensor s (AstR r n)
+  -> (ShareMemo, AstTensor s (AstR r n))
 shareAstScoped vars0 memo0 v0 =
   let (memo1, v1) = shareAst memo0 v0
       memoDiff = EM.difference memo1 memo0
@@ -507,7 +507,7 @@ shareAstScoped vars0 memo0 v0 =
 
 shareAst
   :: forall n s r. (GoodScalar r, KnownNat n, AstSpan s)
-  => ShareMemo -> AstTensor s r (AstR n) -> (ShareMemo, AstTensor s r (AstR n))
+  => ShareMemo -> AstTensor s (AstR r n) -> (ShareMemo, AstTensor s (AstR r n))
 shareAst memo v0 = case v0 of
   Ast.AstVar{} -> (memo, v0)
   Ast.AstLet{} -> (memo, v0)  -- delta eval doesn't create lets and no lets
@@ -606,7 +606,7 @@ shareAst memo v0 = case v0 of
 
 shareAstS
   :: forall sh s r. (GoodScalar r, KnownShS sh, AstSpan s)
-  => ShareMemo -> AstShaped s r sh -> (ShareMemo, AstShaped s r sh)
+  => ShareMemo -> AstTensor s (AstS r sh) -> (ShareMemo, AstTensor s (AstS r sh))
 shareAstS memo v0 = case v0 of
   Ast.AstVarS{} -> (memo, v0)
   Ast.AstLetS{} -> (memo, v0)
@@ -617,7 +617,7 @@ shareAstS memo v0 = case v0 of
     in if varId `EM.member` memo
        then (memo, astVar)
        else let (memo1, v2) = shareAstS memo v
-                d = AstBindingsSimple $ DynamicShaped v2
+                d = AstBindingsSimple $ DynamicShaped $ AstShaped v2
             in (EM.insert varId d memo1, astVar)
   Ast.AstShareS{} -> error "shareAstS: AstShareS not in PrimalSpan"
   Ast.AstCondS b a2 a3 ->
@@ -705,7 +705,8 @@ shareAstDynamic
 shareAstDynamic memo = \case
   DynamicRanked (AstRanked w) ->
     second (DynamicRanked . AstRanked) $ shareAst memo w
-  DynamicShaped w -> second DynamicShaped $ shareAstS memo w
+  DynamicShaped (AstShaped w) ->
+    second (DynamicShaped . AstShaped) $ shareAstS memo w
   u@DynamicRankedDummy{} -> (memo, u)
   u@DynamicShapedDummy{} -> (memo, u)
 
@@ -733,7 +734,7 @@ shareAstHVector memo v0 = case v0 of
           case testEquality (typeRep @ty) (typeRep @Nat) of
             Just Refl -> withListSh (Proxy @shD) $ \sh ->
               DynamicRanked @rD $ AstRanked $ Ast.AstVar sh (AstVarName varIdD)
-            _ -> DynamicShaped @rD @shD $ Ast.AstVarS (AstVarName varIdD)
+            _ -> DynamicShaped @rD @shD $ AstShaped $ Ast.AstVarS (AstVarName varIdD)
         astVars = Ast.AstMkHVector $ V.fromList $ map f vars
     in if varId `EM.member` memo
        then (memo, astVars)

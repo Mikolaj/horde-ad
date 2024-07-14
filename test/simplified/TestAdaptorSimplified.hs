@@ -975,9 +975,9 @@ testReluSimplerPP4S = do
       reluT2 :: (AstShaped FullSpan Float '[3, 4], AstShaped FullSpan Float '[])
              -> AstShaped FullSpan Float '[3, 4]
       reluT2 (t, r) = reluS (t * sreplicate0N r)
-      (var3, ast3) = funToAstS (\t -> reluT2 (t, srepl 7))
+      (var3, ast3) = funToAstS (\t -> unAstShaped $ reluT2 (AstShaped t, srepl 7))
   "\\" ++ printAstVarNameS renamesNull var3
-       ++ " -> " ++ printAstSimpleS renamesNull ast3
+       ++ " -> " ++ printAstSimpleS renamesNull (AstShaped ast3)
     @?= "\\v1 -> slet (v1 * sconstant (sreshape (sreplicate 7.0))) (\\i2 -> sconstant (sgather (sreplicate (sconst @[2] (sfromListLinear [2] [0.0,1.0]))) (\\[i5, i4] -> [i5, ifF (sprimalPart i2 !$ [i5, i4] <=. 0.0) 0 1])) * i2)"
 
 testReluSimplerPP4S2 :: Assertion

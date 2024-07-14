@@ -44,7 +44,7 @@ import HordeAd.Util.SizedList
 -- to determine shape. If we don't switch to @Data.Array.Shaped@
 -- or revert to fully dynamic shapes, we need to redo this with more rigour.
 shapeAst :: forall n s r. (KnownNat n, GoodScalar r)
-         => AstTensor s r (AstR n) -> IShR n
+         => AstTensor s (AstR r n) -> IShR n
 shapeAst = \case
   AstVar sh _var -> sh
   AstLet _ _ v -> shapeAst v
@@ -97,7 +97,7 @@ shapeAst = \case
   AstD u _ -> shapeAst u
 
 -- Length of the outermost dimension.
-lengthAst :: (KnownNat n, GoodScalar r) => AstTensor s r (AstR (1 + n)) -> Int
+lengthAst :: (KnownNat n, GoodScalar r) => AstTensor s (AstR r (1 + n)) -> Int
 {-# INLINE lengthAst #-}
 lengthAst v1 = case shapeAst v1 of
   ZSR -> error "lengthAst: impossible pattern needlessly required"
@@ -136,7 +136,7 @@ domainShapesAstHFun = \case
 -- This keeps the occurrence checking code simple, because we never need
 -- to compare variables to any variable in the bindings.
 varInAst :: forall s r n. AstSpan s
-         => AstVarId -> AstTensor s r (AstR n) -> Bool
+         => AstVarId -> AstTensor s (AstR r n) -> Bool
 varInAst var = \case
   AstVar _ var2 -> fromEnum var == fromEnum var2
   AstLet _var2 u v -> varInAst var u || varInAst var v
@@ -180,7 +180,7 @@ varInIndex :: AstVarId -> AstIndex n -> Bool
 varInIndex var = any (varInAst var)
 
 varInAstS :: forall s r sh. AstSpan s
-          => AstVarId -> AstShaped s r sh -> Bool
+          => AstVarId -> AstTensor s (AstS r sh) -> Bool
 varInAstS var = \case
   AstVarS var2 -> fromEnum var == fromEnum var2
   AstLetS _var2 u v -> varInAstS var u || varInAstS var v
@@ -245,7 +245,7 @@ varInAstDynamic :: AstSpan s
                 => AstVarId -> AstDynamic s -> Bool
 varInAstDynamic var = \case
   DynamicRanked (AstRanked t) -> varInAst var t
-  DynamicShaped t -> varInAstS var t
+  DynamicShaped (AstShaped t) -> varInAstS var t
   DynamicRankedDummy{} -> False
   DynamicShapedDummy{} -> False
 
@@ -263,15 +263,15 @@ varInAstBool var = \case
   AstRelS _ arg1 arg2 -> varInAstS var arg1 || varInAstS var arg2
 
 varNameInAst :: AstSpan s2
-             => AstVarName f r n -> AstTensor s2 r2 (AstR n2) -> Bool
+             => AstVarName f y -> AstTensor s2 (AstR r2 n2) -> Bool
 varNameInAst (AstVarName varId) = varInAst varId
 
 varNameInAstS :: AstSpan s2
-              => AstVarName f r sh -> AstShaped s2 r2 sh2 -> Bool
+              => AstVarName f y -> AstTensor s2 (AstS r2 sh2) -> Bool
 varNameInAstS (AstVarName varId) = varInAstS varId
 
 varNameInAstHVector :: AstSpan s
-                    => AstVarName f r n -> AstHVector s -> Bool
+                    => AstVarName f y -> AstHVector s -> Bool
 varNameInAstHVector (AstVarName varId) = varInAstHVector varId
 
 varInAstBindingsCase :: AstSpan s => AstVarId -> AstBindingsCase s -> Bool
@@ -282,7 +282,7 @@ varInAstBindingsCase var (AstBindingsHVector _ t) = varInAstHVector var t
 -- * Determining if a term is too small to require sharing
 
 astIsSmall :: forall n s r. (KnownNat n, GoodScalar r)
-           => Bool -> AstTensor s r (AstR n) -> Bool
+           => Bool -> AstTensor s (AstR r n) -> Bool
 astIsSmall relaxed = \case
   AstVar{} -> True
   AstIota -> True
@@ -300,7 +300,7 @@ astIsSmall relaxed = \case
   _ -> False
 
 astIsSmallS :: forall sh s r. (KnownShS sh, GoodScalar r)
-            => Bool -> AstShaped s r sh -> Bool
+            => Bool -> AstTensor s (AstS r sh) -> Bool
 astIsSmallS relaxed = \case
   AstVarS{} -> True
   AstIotaS -> True
@@ -322,9 +322,9 @@ astIsSmallS relaxed = \case
 -- * Odds and ends
 
 astReplicate0N :: forall n s r. (AstSpan s, GoodScalar r)
-               => IShR n -> r -> AstTensor s r (AstR n)
+               => IShR n -> r -> AstTensor s (AstR r n)
 astReplicate0N sh =
-  let go :: IShR n' -> AstTensor s r (AstR 0) -> AstTensor s r (AstR n')
+  let go :: IShR n' -> AstTensor s (AstR r 0) -> AstTensor s (AstR r n')
       go ZSR v = v
       go (k :$: sh') v | Dict <- knownShR sh' = AstReplicate k $ go sh' v
   in go sh . fromPrimal . AstConst . Nested.rscalar
@@ -340,7 +340,7 @@ bindsToLet = foldl' bindToLet
   bindToLet !(AstRanked u) (varId, AstBindingsSimple d) =
     let convertShaped :: (GoodScalar r2, KnownShS sh2)
                       => AstShaped s2 r2 sh2 -> AstRanked s r n
-        convertShaped t = AstRanked $
+        convertShaped (AstShaped t) = AstRanked $
           withShapeP (shapeToList $ shapeAst u) $ \proxy -> case proxy of
             Proxy @sh | Just Refl <- matchingRank @sh @n ->
               AstRFromS @sh $ AstLetS (AstVarName varId) t (AstSFromR u)
@@ -365,23 +365,23 @@ bindsToLetS = foldl' bindToLetS
   bindToLetS :: AstShaped s r sh
              -> (AstVarId, AstBindingsCase s)
              -> AstShaped s r sh
-  bindToLetS !u (varId, AstBindingsSimple d) = case d of
-    DynamicRanked (AstRanked w) ->
+  bindToLetS !(AstShaped u) (varId, AstBindingsSimple d) = case d of
+    DynamicRanked (AstRanked w) -> AstShaped $
       withListSh (Proxy @sh) $ \_ ->
         AstSFromR $ AstLet (AstVarName varId) w (AstRFromS u)
-    DynamicShaped w -> AstLetS (AstVarName varId) w u
-    DynamicRankedDummy @r2 @sh2 _ _ ->
+    DynamicShaped (AstShaped w) -> AstShaped $ AstLetS (AstVarName varId) w u
+    DynamicRankedDummy @r2 @sh2 _ _ -> AstShaped $
         withListSh (Proxy @sh2) $ \sh2 ->
           withListSh (Proxy @sh) $ \_ ->
             AstSFromR
             $ AstLet (AstVarName varId) (astReplicate0N @_ @s @r2 sh2 0) (AstRFromS u)
-    DynamicShapedDummy @r2 @sh2 _ _ ->
+    DynamicShapedDummy @r2 @sh2 _ _ -> AstShaped $
         withListSh (Proxy @sh2) $ \sh2 ->
           withListSh (Proxy @sh) $ \_ ->
             AstSFromR
             $ AstLet (AstVarName varId) (astReplicate0N @_ @s @r2 sh2 0) (AstRFromS u)
-  bindToLetS u (_, AstBindingsHVector lids d) =
-    AstLetHVectorInS lids d u
+  bindToLetS (AstShaped u) (_, AstBindingsHVector lids d) =
+    AstShaped $ AstLetHVectorInS lids d u
 
 bindsToHVectorLet
    :: forall s. AstSpan s
@@ -391,7 +391,7 @@ bindsToHVectorLet = foldl' bindToHVectorLet
  where
   bindToHVectorLet !u (varId, AstBindingsSimple d) = case d of
     DynamicRanked (AstRanked w) -> AstLetInHVector (AstVarName varId) w u
-    DynamicShaped w -> AstLetInHVectorS (AstVarName varId) w u
+    DynamicShaped (AstShaped w) -> AstLetInHVectorS (AstVarName varId) w u
     DynamicRankedDummy @r2 @sh2 _ _ ->
         withListSh (Proxy @sh2) $ \sh2 ->
           AstLetInHVector (AstVarName varId) (astReplicate0N @_ @s @r2 sh2 0) u

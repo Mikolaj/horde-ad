@@ -41,9 +41,8 @@ import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape qualified as X
 import Data.Array.Mixed.Types qualified as X
 
-import HordeAd.Core.Ast hiding
-  (AstBool (..), AstHVector (..), AstShaped (..), AstTensor (..))
-import HordeAd.Core.Ast (AstHVector, AstShaped, AstTensor)
+import HordeAd.Core.Ast hiding (AstBool (..), AstHVector (..), AstTensor (..))
+import HordeAd.Core.Ast (AstHVector, AstTensor)
 import HordeAd.Core.Ast qualified as Ast
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstPrettyPrint
@@ -60,7 +59,7 @@ import HordeAd.Util.SizedList
 
 -- This abbreviation is used a lot below.
 astTr :: forall n s r. (KnownNat n, GoodScalar r, AstSpan s)
-      => AstTensor s r (AstR (2 + n)) -> AstTensor s r (AstR (2 + n))
+      => AstTensor s (AstR r (2 + n)) -> AstTensor s (AstR r (2 + n))
 astTr = astTranspose [1, 0]
 
 -- | The application @build1Vectorize k (var, v)@ vectorizes
@@ -72,7 +71,7 @@ astTr = astTranspose [1, 0]
 -- have any, either.
 build1Vectorize
   :: (KnownNat n, GoodScalar r, AstSpan s)
-  => Int -> (IntVarName, AstTensor s r (AstR n)) -> AstTensor s r (AstR (1 + n))
+  => Int -> (IntVarName, AstTensor s (AstR r n)) -> AstTensor s (AstR r (1 + n))
 {-# NOINLINE build1Vectorize #-}
 build1Vectorize k (var, v0) = unsafePerformIO $ do
   enabled <- readIORef traceRuleEnabledRef
@@ -103,7 +102,7 @@ build1Vectorize k (var, v0) = unsafePerformIO $ do
 -- @var@ occurs in @v@.
 build1VOccurenceUnknown
   :: (KnownNat n, GoodScalar r, AstSpan s)
-  => Int -> (IntVarName, AstTensor s r (AstR n)) -> AstTensor s r (AstR (1 + n))
+  => Int -> (IntVarName, AstTensor s (AstR r n)) -> AstTensor s (AstR r (1 + n))
 build1VOccurenceUnknown k (var, v0) =
   let traceRule = mkTraceRule "build1VOcc" (Ast.AstBuild1 k (var, v0)) v0 1
   in if varNameInAst var v0
@@ -118,7 +117,7 @@ build1VOccurenceUnknown k (var, v0) =
 -- when rewriting terms.
 build1VOccurenceUnknownRefresh
   :: forall n s r. (KnownNat n, GoodScalar r, AstSpan s)
-  => Int -> (IntVarName, AstTensor s r (AstR n)) -> AstTensor s r (AstR (1 + n))
+  => Int -> (IntVarName, AstTensor s (AstR r n)) -> AstTensor s (AstR r (1 + n))
 {-# NOINLINE build1VOccurenceUnknownRefresh #-}
 build1VOccurenceUnknownRefresh k (var, v0) =
   funToAstIntVar $ \ (!varFresh, !astVarFresh) ->
@@ -142,7 +141,7 @@ intBindingRefresh var ix =
 -- @var@ occurs in @v@.
 build1V
   :: forall n s r. (KnownNat n, GoodScalar r, AstSpan s)
-  => Int -> (IntVarName, AstTensor s r (AstR n)) -> AstTensor s r (AstR (1 + n))
+  => Int -> (IntVarName, AstTensor s (AstR r n)) -> AstTensor s (AstR r (1 + n))
 build1V k (var, v00) =
   let v0 = astNonIndexStep v00
         -- Almost surely the term will be transformed, so it can just
@@ -309,8 +308,8 @@ build1V k (var, v00) =
 -- and pushes the build down the gather, getting the vectorization unstuck.
 build1VIndex
   :: forall m n s r. (KnownNat m, KnownNat n, GoodScalar r, AstSpan s)
-  => Int -> (IntVarName, AstTensor s r (AstR (m + n)), AstIndex m)
-  -> AstTensor s r (AstR (1 + n))
+  => Int -> (IntVarName, AstTensor s (AstR r (m + n)), AstIndex m)
+  -> AstTensor s (AstR r (1 + n))
 build1VIndex k (var, v0, ZIR) = build1VOccurenceUnknown k (var, v0)
 build1VIndex k (var, v0, ix@(_ :.: _)) =
   let traceRule = mkTraceRule "build1VIndex"
@@ -347,13 +346,13 @@ build1VIndex k (var, v0, ix@(_ :.: _)) =
 -- This abbreviation is used a lot below.
 astTrS :: forall n m sh s r.
           (KnownNat n, KnownNat m, KnownShS sh, GoodScalar r, AstSpan s)
-       => AstShaped s r (n ': m ': sh) -> AstShaped s r (m ': n ': sh)
+       => AstTensor s (AstS r (n ': m ': sh)) -> AstTensor s (AstS r (m ': n ': sh))
 astTrS = withListSh (Proxy @sh) $ \_ -> astTransposeS (Permutation.makePerm @'[1, 0])
 
 -- | This works analogously to @build1Vectorize@m.
 build1VectorizeS
   :: forall k sh s r. (GoodScalar r, KnownNat k, KnownShS sh, AstSpan s)
-  => (IntVarName, AstShaped s r sh) -> AstShaped s r (k ': sh)
+  => (IntVarName, AstTensor s (AstS r sh)) -> AstTensor s (AstS r (k ': sh))
 {-# NOINLINE build1VectorizeS #-}
 build1VectorizeS (var, v0) = unsafePerformIO $ do
   enabled <- readIORef traceRuleEnabledRef
@@ -365,20 +364,20 @@ build1VectorizeS (var, v0) = unsafePerformIO $ do
     hPutStrLnFlush stderr $
       "\n"
       ++ "START of vectorization for term "
-      ++ ellipsisString width (printAstSimpleS renames startTerm)
+      ++ ellipsisString width (printAstSimpleS renames (AstShaped startTerm))
       ++ "\n"
   let !endTerm = build1VOccurenceUnknownS (var, v0)
   when enabled $ do
     hPutStrLnFlush stderr $
       "\n"
       ++ "END of vectorization yields "
-      ++ ellipsisString width (printAstSimpleS renames endTerm)
+      ++ ellipsisString width (printAstSimpleS renames (AstShaped endTerm))
       ++ "\n"
   return endTerm
 
 build1VOccurenceUnknownS
   :: forall k sh s r. (GoodScalar r, KnownNat k, KnownShS sh, AstSpan s)
-  => (IntVarName, AstShaped s r sh) -> AstShaped s r (k ': sh)
+  => (IntVarName, AstTensor s (AstS r sh)) -> AstTensor s (AstS r (k ': sh))
 build1VOccurenceUnknownS (var, v0) =
   let traceRule = mkTraceRuleS "build1VOccS" (Ast.AstBuild1S (var, v0)) v0 1
   in if varNameInAstS var v0
@@ -388,14 +387,14 @@ build1VOccurenceUnknownS (var, v0) =
 
 build1VOccurenceUnknownRefreshS
   :: forall k sh s r. (GoodScalar r, KnownNat k, KnownShS sh, AstSpan s)
-  => (IntVarName, AstShaped s r sh) -> AstShaped s r (k ': sh)
+  => (IntVarName, AstTensor s (AstS r sh)) -> AstTensor s (AstS r (k ': sh))
 {-# NOINLINE build1VOccurenceUnknownRefreshS #-}
-build1VOccurenceUnknownRefreshS (var, v0) =
+build1VOccurenceUnknownRefreshS (var@(AstVarName varId), v0) =
   funToAstIntVar $ \ (!varFresh, !astVarFresh) ->
     let !v2 = substituteAstS  -- cheap subst, because only a renaming
                 (SubstitutionPayloadRanked @PrimalSpan @Int64 astVarFresh)
-                var v0
-    in build1VOccurenceUnknownS (varFresh, v2)
+                (AstVarName varId) {-TODO: var-} (AstShaped v0)
+    in build1VOccurenceUnknownS (varFresh, unAstShaped v2)
 
 intBindingRefreshS
   :: IntVarName -> AstIndexS sh -> (IntVarName, AstInt, AstIndexS sh)
@@ -409,7 +408,7 @@ intBindingRefreshS var ix =
 
 build1VS
   :: forall k sh s r. (GoodScalar r, KnownNat k, KnownShS sh, AstSpan s)
-  => (IntVarName, AstShaped s r sh) -> AstShaped s r (k ': sh)
+  => (IntVarName, AstTensor s (AstS r sh)) -> AstTensor s (AstS r (k ': sh))
 build1VS (var, v00) =
   let v0 = astNonIndexStepS v00
         -- Almost surely the term will be transformed, so it can just
@@ -426,9 +425,9 @@ build1VS (var, v00) =
           projection = Ast.AstIndexS (Ast.AstVarS @(k ': sh1) var2)
                                      (Ast.AstIntVar var :.$ ZIS)
           v2 = substituteAstS
-                 (SubstitutionPayloadShaped @s1 @r1 projection) var1 v
+                 (SubstitutionPayloadShaped @s1 @r1 projection) var1 (AstShaped v)
       in astLetS var2 (build1VOccurenceUnknownS @k (var, u))
-                      (build1VOccurenceUnknownRefreshS (var, v2))
+                      (build1VOccurenceUnknownRefreshS (var, unAstShaped v2))
     Ast.AstShareS{} -> error "build1VS: AstShareS"
     Ast.AstCondS b (Ast.AstConstantS v) (Ast.AstConstantS w) ->
       let t = Ast.AstConstantS
@@ -551,8 +550,8 @@ build1VIndexS
   :: forall k p sh s r.
      ( GoodScalar r, KnownNat k, KnownShS sh, KnownShS (Sh.Take p sh)
      , KnownShS (Sh.Drop p (Sh.Take p sh X.++ Sh.Drop p sh)), AstSpan s )
-  => (IntVarName, AstShaped s r sh, AstIndexS (Sh.Take p sh))
-  -> AstShaped s r (k ': Sh.Drop p sh)
+  => (IntVarName, AstTensor s (AstS r sh), AstIndexS (Sh.Take p sh))
+  -> AstTensor s (AstS r (k ': Sh.Drop p sh))
 build1VIndexS (var, v0, ZIS) =
   gcastWith (unsafeCoerce Refl :: p :~: 0)
     -- otherwise sh would need to be empty, but then Take gets stuck
@@ -637,7 +636,7 @@ build1VOccurenceUnknownHVector k (var, v0) =
           vars v0 (Ast.AstMkHVector
                    $ replicate1HVectorF
                        (\n (AstRanked t) -> AstRanked $ astReplicate n t)
-                       astReplicateS
+                       (\(AstShaped t) -> AstShaped $ astReplicateS t)
                        k asts)
 
 build1VHVector
@@ -734,8 +733,8 @@ build1VOccurenceUnknownDynamic
 build1VOccurenceUnknownDynamic k@SNat (var, d) = case d of
   DynamicRanked (AstRanked u) ->
     DynamicRanked $ AstRanked $ build1VOccurenceUnknown (sNatValue k) (var, u)
-  DynamicShaped u ->
-    DynamicShaped $ build1VOccurenceUnknownS @k (var, u)
+  DynamicShaped (AstShaped u) ->
+    DynamicShaped $ AstShaped $ build1VOccurenceUnknownS @k (var, u)
   DynamicRankedDummy @r @sh _ _ -> DynamicRankedDummy @r @(k ': sh) Proxy Proxy
   DynamicShapedDummy @r @sh _ _ -> DynamicShapedDummy @r @(k ': sh) Proxy Proxy
 {- TODO: is this faster? but fromInteger has to be avoided
@@ -763,8 +762,8 @@ substProjRanked :: forall n1 r1 n r s1 s.
                    ( KnownNat n1, GoodScalar r1, KnownNat n, GoodScalar r
                    , AstSpan s, AstSpan s1 )
                 => Int -> IntVarName -> IShR n1
-                -> AstVarName (AstRanked s1) r1 n1
-                -> AstTensor s r (AstR n) -> AstTensor s r (AstR n)
+                -> AstVarName (AstTensor s1) (AstR r1 n1)
+                -> AstTensor s (AstR r n) -> AstTensor s (AstR r n)
 substProjRanked k var sh1 var1@(AstVarName varId) =
   let var2 = AstVarName varId
       projection =
@@ -779,48 +778,54 @@ substProjShaped :: forall n1 r1 sh r s1 s.
                    ( KnownNat n1, GoodScalar r1, KnownShS sh, GoodScalar r
                    , AstSpan s, AstSpan s1 )
                 => Int -> IntVarName -> IShR n1
-                -> AstVarName (AstRanked s1) r1 n1
-                -> AstShaped s r sh -> AstShaped s r sh
+                -> AstVarName (AstTensor s1) (AstR r1 n1)
+                -> AstTensor s (AstS r sh) -> AstTensor s (AstS r sh)
 substProjShaped k var sh1 var1@(AstVarName varId) =
   let var2 = AstVarName varId
+      var3 = AstVarName varId
       projection =
         Ast.AstIndex (Ast.AstVar (k :$: sh1) var2)
                      (Ast.AstIntVar var :.: ZIR)
-  in substituteAstS
-       (SubstitutionPayloadRanked @s1 @r1 projection) var1
+  in unAstShaped
+     . substituteAstS
+         (SubstitutionPayloadRanked @s1 @r1 projection) var3 {-TODO: var1-}
+     . AstShaped
 
 substProjRankedS :: forall k sh1 r1 n r s1 s.
                     ( KnownNat k, KnownShS sh1, GoodScalar r1
                     , KnownNat n, GoodScalar r, AstSpan s, AstSpan s1 )
-                 => IntVarName -> AstVarName (AstShaped s1) r1 sh1
-                 -> AstTensor s r (AstR n) -> AstTensor s r (AstR n)
+                 => IntVarName -> AstVarName (AstTensor s1) (AstS r1 sh1)
+                 -> AstTensor s (AstR r n) -> AstTensor s (AstR r n)
 substProjRankedS var var1@(AstVarName varId) =
   let var2 = AstVarName varId
+      var3 = AstVarName varId
       projection =
         Ast.AstIndexS (Ast.AstVarS @(k ': sh1) var2)
                       (Ast.AstIntVar var :.$ ZIS)
   in unAstRanked
      . substituteAst
-         (SubstitutionPayloadShaped @s1 @r1 projection) var1
+         (SubstitutionPayloadShaped @s1 @r1 projection) var3 {-TODO: var1-}
      . AstRanked
 
 substProjShapedS :: forall k sh1 r1 sh r s1 s.
                     ( KnownNat k, KnownShS sh1, GoodScalar r1
                     , KnownShS sh, GoodScalar r, AstSpan s, AstSpan s1 )
-                 => IntVarName -> AstVarName (AstShaped s1) r1 sh1
-                 -> AstShaped s r sh -> AstShaped s r sh
+                 => IntVarName -> AstVarName (AstTensor s1) (AstS r1 sh1)
+                 -> AstTensor s (AstS r sh) -> AstTensor s (AstS r sh)
 substProjShapedS var var1@(AstVarName varId) =
   let var2 = AstVarName varId
       projection =
         Ast.AstIndexS (Ast.AstVarS @(k ': sh1) var2)
                       (Ast.AstIntVar var :.$ ZIS)
-  in substituteAstS
-       (SubstitutionPayloadShaped @s1 @r1 projection) var1
+  in unAstShaped
+     . substituteAstS
+         (SubstitutionPayloadShaped @s1 @r1 projection) var1
+     . AstShaped
 
 substProjHVector :: forall n1 r1 s1 s.
                     (KnownNat n1, GoodScalar r1, AstSpan s, AstSpan s1)
                  => Int -> IntVarName -> IShR n1
-                 -> AstVarName (AstRanked s1) r1 n1
+                 -> AstVarName (AstTensor s1) (AstR r1 n1)
                  -> AstHVector s -> AstHVector s
 substProjHVector k var sh1 var1@(AstVarName varId) =
   let var2 = AstVarName varId
@@ -833,7 +838,7 @@ substProjHVector k var sh1 var1@(AstVarName varId) =
 substProjHVectorS :: forall k sh1 r1 s1 s.
                      ( KnownNat k, KnownShS sh1, GoodScalar r1
                      , AstSpan s, AstSpan s1 )
-                  => IntVarName -> AstVarName (AstShaped s1) r1 sh1
+                  => IntVarName -> AstVarName (AstTensor s1) (AstS r1 sh1)
                   -> AstHVector s -> AstHVector s
 substProjHVectorS var var1@(AstVarName varId) =
   let var2 = AstVarName varId
@@ -845,9 +850,9 @@ substProjHVectorS var var1@(AstVarName varId) =
 
 substProjDynamic :: forall k n r s.
                     (KnownNat k, KnownNat n, GoodScalar r, AstSpan s)
-                 => IntVarName -> AstTensor s r (AstR n)
+                 => IntVarName -> AstTensor s (AstR r n)
                  -> AstDynamicVarName
-                 -> (AstTensor s r (AstR n), AstDynamicVarName)
+                 -> (AstTensor s (AstR r n), AstDynamicVarName)
 substProjDynamic var v3 (AstDynamicVarName @ty @r3 @sh3 varId)
   | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat) =
     ( withListSh (Proxy @sh3) $ \sh1 ->
@@ -862,9 +867,9 @@ substProjDynamic _ _ _ = error "substProjDynamic: unexpected type"
 
 substProjDynamicS :: forall k sh r s.
                      (KnownNat k, KnownShS sh, GoodScalar r, AstSpan s)
-                  => IntVarName -> AstShaped s r sh
+                  => IntVarName -> AstTensor s (AstS r sh)
                   -> AstDynamicVarName
-                  -> (AstShaped s r sh, AstDynamicVarName)
+                  -> (AstTensor s (AstS r sh), AstDynamicVarName)
 substProjDynamicS var v3 (AstDynamicVarName @ty @r3 @sh3 varId)
   | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat) =
     ( withListSh (Proxy @sh3) $ \sh1 ->
@@ -880,15 +885,15 @@ substProjDynamicS _ _ _ = error "substProjDynamicS: unexpected type"
 substProjVars :: forall k n r s.
                  (KnownNat k, KnownNat n, GoodScalar r, AstSpan s)
               => IntVarName -> [AstDynamicVarName]
-              -> AstTensor s r (AstR n)
-              -> (AstTensor s r (AstR n), [AstDynamicVarName])
+              -> AstTensor s (AstR r n)
+              -> (AstTensor s (AstR r n), [AstDynamicVarName])
 substProjVars var vars v3 = mapAccumR (substProjDynamic @k var) v3 vars
 
 substProjVarsS :: forall k sh r s.
                   (KnownNat k, KnownShS sh, GoodScalar r, AstSpan s)
                => IntVarName -> [AstDynamicVarName]
-               -> AstShaped s r sh
-               -> (AstShaped s r sh, [AstDynamicVarName])
+               -> AstTensor s (AstS r sh)
+               -> (AstTensor s (AstS r sh), [AstDynamicVarName])
 substProjVarsS var vars v3 = mapAccumR (substProjDynamicS @k var) v3 vars
 
 substProjDynamicHVector :: forall k s. (KnownNat k, AstSpan s)
@@ -920,7 +925,7 @@ astTrDynamic t@(DynamicRanked @_ @n1 (AstRanked u)) =
     EQI -> DynamicRanked $ AstRanked $ astTr @(n1 - 2) u
     LTI -> DynamicRanked $ AstRanked $ astTr @(n1 - 2) u
     _ -> t
-astTrDynamic t@(DynamicShaped @_ @sh u) =
+astTrDynamic t@(DynamicShaped @_ @sh (AstShaped u)) =
   let sh1 = shapeT @sh
       permute10 (m0 : m1 : ms) = m1 : m0 : ms
       permute10 ms = ms
@@ -929,13 +934,13 @@ astTrDynamic t@(DynamicShaped @_ @sh u) =
        withListSh (Proxy @sh) $ \_ ->
          case cmpNat (Proxy @2) (Proxy @(X.Rank sh)) of
            EQI -> case astTransposeS (Permutation.makePerm @'[1, 0]) u of
-             (w :: AstShaped s4 r4 sh4) ->
+             (w :: AstTensor s4 (AstS r4 sh4)) ->
                gcastWith (unsafeCoerce Refl :: sh4 :~: shPermuted) $
-               DynamicShaped w
+               DynamicShaped $ AstShaped w
            LTI -> case astTransposeS (Permutation.makePerm @'[1, 0]) u of
-             (w :: AstShaped s4 r4 sh4) ->
+             (w :: AstTensor s4 (AstS r4 sh4)) ->
                gcastWith (unsafeCoerce Refl :: sh4 :~: shPermuted) $
-               DynamicShaped w
+               DynamicShaped $ AstShaped w
            _ -> t
 astTrDynamic (DynamicRankedDummy p1 (Proxy @sh1)) =
   let permute10 (m0 : m1 : ms) = m1 : m0 : ms
@@ -995,9 +1000,9 @@ ellipsisString width full = let cropped = take width full
                                else take (width - 3) cropped ++ "..."
 
 mkTraceRule :: (KnownNat n, KnownNat m, GoodScalar r, AstSpan s)
-            => String -> AstTensor s r (AstR n) -> AstTensor s r (AstR m) -> Int
-            -> AstTensor s r (AstR n)
-            -> AstTensor s r (AstR n)
+            => String -> AstTensor s (AstR r n) -> AstTensor s (AstR r m) -> Int
+            -> AstTensor s (AstR r n)
+            -> AstTensor s (AstR r n)
 {-# NOINLINE mkTraceRule #-}
 mkTraceRule prefix from caseAnalysed nwords to = unsafePerformIO $ do
   enabled <- readIORef traceRuleEnabledRef
@@ -1026,8 +1031,8 @@ mkTraceRule prefix from caseAnalysed nwords to = unsafePerformIO $ do
 
 mkTraceRuleS :: forall sh sh2 s r.
                 (GoodScalar r, KnownShS sh, KnownShS sh2, AstSpan s)
-             => String -> AstShaped s r sh -> AstShaped s r sh2 -> Int
-             -> AstShaped s r sh -> AstShaped s r sh
+             => String -> AstTensor s (AstS r sh) -> AstTensor s (AstS r sh2) -> Int
+             -> AstTensor s (AstS r sh) -> AstTensor s (AstS r sh)
 {-# NOINLINE mkTraceRuleS #-}
 mkTraceRuleS prefix from caseAnalysed nwords to = unsafePerformIO $ do
   enabled <- readIORef traceRuleEnabledRef
@@ -1035,7 +1040,7 @@ mkTraceRuleS prefix from caseAnalysed nwords to = unsafePerformIO $ do
       renames = IM.fromList [(1, ""), (2, "")]
       constructorName =
         unwords $ take nwords $ words $ take 20
-        $ printAstSimpleS renames caseAnalysed
+        $ printAstSimpleS renames (AstShaped caseAnalysed)
       ruleName = prefix ++ "." ++ constructorName
       ruleNamePadded = take 20 $ ruleName ++ repeat ' '
   when enabled $ do
@@ -1043,8 +1048,8 @@ mkTraceRuleS prefix from caseAnalysed nwords to = unsafePerformIO $ do
     modifyIORef' traceNestingLevel succ
     let paddedNesting = take 3 $ show nestingLevel ++ repeat ' '
     -- Force in the correct order:
-    let !stringFrom = printAstSimpleS renames from
-    let !stringTo = printAstSimpleS renames to
+    let !stringFrom = printAstSimpleS renames (AstShaped from)
+    let !stringTo = printAstSimpleS renames (AstShaped to)
     hPutStrLnFlush stderr $ paddedNesting ++ "rule " ++ ruleNamePadded
                             ++ " sends " ++ padString width stringFrom
                             ++ " to " ++ padString width stringTo

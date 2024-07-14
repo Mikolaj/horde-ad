@@ -199,7 +199,7 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
          funToAstIOS {-@'[batch_size, SizeMnistLabel]-} id
        let ast :: AstShaped PrimalSpan r '[]
            ast = MnistRnnShaped2.rnnMnistLossFusedS
-                   width batch_size (astGlyph, astLabel)
+                   width batch_size (AstShaped astGlyph, AstShaped astLabel)
                    (parseHVector (fromDValue valsInit)
                                  (unRawHVector hVectorPrimal))
            runBatch :: (HVector ORArray, StateAdam)
@@ -214,7 +214,7 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
                              $ zip vars $ V.toList varInputs
                        envMnist = extendEnvS varGlyph (sconst $ Nested.sfromOrthotope knownShS glyph)
                                   $ extendEnvS varLabel (sconst $ Nested.sfromOrthotope knownShS label) env
-                   in interpretAstS envMnist ast
+                   in interpretAstS envMnist $ unAstShaped ast
                  chunkS = map packBatch
                           $ filter (\ch -> length ch == miniBatchSize)
                           $ chunksOf miniBatchSize chunk
@@ -316,7 +316,7 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
                      $ extendEnvS varLabel (sconstant $ AstRawS astLabel)
                        EM.empty
            f = MnistRnnShaped2.rnnMnistLossFusedS
-                 width batch_size (astGlyph, astLabel)
+                 width batch_size (AstShaped astGlyph, AstShaped astLabel)
            (AstArtifact varDtAgain vars1Again gradientRaw primal, _) =
              revProduceArtifactH False f envInit valsInit
                                  (voidFromHVector hVectorInit)
