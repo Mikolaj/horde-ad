@@ -58,9 +58,9 @@ simplifyInlineAstS
   :: (GoodScalar r, KnownShS sh, AstSpan s)
   => AstShaped s r sh -> AstShaped s r sh
 simplifyInlineAstS =
-  AstShaped . snd . inlineAstS EM.empty
+  AstShaped . snd . inlineAst EM.empty
   . simplifyAstS . expandAstS
-  . snd . inlineAstS EM.empty . simplifyAstS . unAstShaped
+  . snd . inlineAst EM.empty . simplifyAstS . unAstShaped
 {-# SPECIALIZE simplifyInlineAstS
   :: (KnownShS sh, AstSpan s)
   => AstShaped s Double sh -> AstShaped s Double sh #-}
@@ -84,9 +84,8 @@ simplifyInlineHVectorRaw =
 type AstMemo = EM.EnumMap AstVarId Int
 
 inlineAst
-  :: forall n s r. (GoodScalar r, KnownNat n, AstSpan s)
-  => AstMemo
-  -> AstTensor s (AstR r n) -> (AstMemo, AstTensor s (AstR r n))
+  :: forall s y. AstSpan s
+  => AstMemo -> AstTensor s y -> (AstMemo, AstTensor s y)
 inlineAst memo v0 = case v0 of
   Ast.AstVar _ (AstVarName varId) ->
     let f Nothing = Just 1
@@ -206,7 +205,7 @@ inlineAst memo v0 = case v0 of
       1 -> (memo2, fromMaybe v2 $ substitute1Ast
                                     (SubstitutionPayloadHFun f2) var v2)
       _ -> (memo2, Ast.AstLetHFunIn var f2 v2)
-  Ast.AstRFromS v -> second Ast.AstRFromS $ inlineAstS memo v
+  Ast.AstRFromS v -> second Ast.AstRFromS $ inlineAst memo v
   Ast.AstConstant a -> second Ast.AstConstant $ inlineAst memo a
   Ast.AstPrimalPart a -> second Ast.AstPrimalPart $ inlineAst memo a
   Ast.AstDualPart a -> second Ast.AstDualPart $ inlineAst memo a
@@ -215,11 +214,6 @@ inlineAst memo v0 = case v0 of
         (memo2, t2) = inlineAst memo1 u'
     in (memo2, Ast.AstD t1 t2)
 
-inlineAstS
-  :: forall sh s r. (GoodScalar r, KnownShS sh, AstSpan s)
-  => AstMemo
-  -> AstTensor s (AstS r sh) -> (AstMemo, AstTensor s (AstS r sh))
-inlineAstS memo v0 = case v0 of
   Ast.AstVarS (AstVarName varId) ->
     let f Nothing = Just 1
         f (Just count) = Just $ succ count
@@ -227,19 +221,19 @@ inlineAstS memo v0 = case v0 of
   Ast.AstLetS var u v ->
     -- We assume there are no nested lets with the same variable.
     let vv = varNameToAstVarId var
-        (memo1, v2) = inlineAstS memo v
+        (memo1, v2) = inlineAst memo v
         memo1NoVar = EM.delete vv memo1
-        (memo2, u2) = inlineAstS memo1NoVar u
+        (memo2, u2) = inlineAst memo1NoVar u
     in case EM.findWithDefault 0 vv memo1 of
       0 -> (memo1, v2)
       1 -> (memo2, unAstShaped $ substituteAstS (SubstitutionPayloadShaped u2) var (AstShaped v2))
       count | astIsSmallS (count < 10) u ->
-        let (memoU0, u0) = inlineAstS EM.empty u
+        let (memoU0, u0) = inlineAst EM.empty u
             memo3 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1NoVar memoU0
                       -- u is small, so the union is fast
         in (memo3, unAstShaped $ substituteAstS (SubstitutionPayloadShaped u0) var (AstShaped v2))
       _ -> (memo2, Ast.AstLetS var u2 v2)
-  Ast.AstShareS{} -> error "inlineAstS: AstShareS"
+  Ast.AstShareS{} -> error "inlineAst: AstShareS"
   Ast.AstCondS b a2 a3 ->
     -- This is a place where our inlining may increase code size
     -- by enlarging both branches due to not considering number of syntactic
@@ -248,77 +242,77 @@ inlineAstS memo v0 = case v0 of
     -- that we can let it be until problems are encountered in the wild.
     -- See https://github.com/VMatthijs/CHAD/blob/main/src/Count.hs#L88-L152.
     let (memo1, b1) = inlineAstBool memo b
-        (memoA2, t2) = inlineAstS EM.empty a2
-        (memoA3, t3) = inlineAstS EM.empty a3
+        (memoA2, t2) = inlineAst EM.empty a2
+        (memoA3, t3) = inlineAst EM.empty a3
         memo4 = EM.unionWith max memoA2 memoA3
         memo5 = EM.unionWith (+) memo1 memo4
     in (memo5, Ast.AstCondS b1 t2 t3)
-  Ast.AstMinIndexS a -> second Ast.AstMinIndexS $ inlineAstS memo a
-  Ast.AstMaxIndexS a -> second Ast.AstMaxIndexS $ inlineAstS memo a
-  Ast.AstFloorS a -> second Ast.AstFloorS $ inlineAstS memo a
+  Ast.AstMinIndexS a -> second Ast.AstMinIndexS $ inlineAst memo a
+  Ast.AstMaxIndexS a -> second Ast.AstMaxIndexS $ inlineAst memo a
+  Ast.AstFloorS a -> second Ast.AstFloorS $ inlineAst memo a
   Ast.AstIotaS -> (memo, v0)
   Ast.AstN1S opCode u ->
-    let (memo2, u2) = inlineAstS memo u
+    let (memo2, u2) = inlineAst memo u
     in (memo2, Ast.AstN1S opCode u2)
   Ast.AstN2S opCode u v ->
-    let (memo2, u2) = inlineAstS memo u
-        (memo3, v3) = inlineAstS memo2 v
+    let (memo2, u2) = inlineAst memo u
+        (memo3, v3) = inlineAst memo2 v
     in (memo3, Ast.AstN2S opCode u2 v3)
   Ast.AstR1S opCode u ->
-    let (memo2, u2) = inlineAstS memo u
+    let (memo2, u2) = inlineAst memo u
     in (memo2, Ast.AstR1S opCode u2)
   Ast.AstR2S opCode u v ->
-    let (memo2, u2) = inlineAstS memo u
-        (memo3, v3) = inlineAstS memo2 v
+    let (memo2, u2) = inlineAst memo u
+        (memo3, v3) = inlineAst memo2 v
     in (memo3, Ast.AstR2S opCode u2 v3)
   Ast.AstI2S opCode u v ->
-    let (memo2, u2) = inlineAstS memo u
-        (memo3, v3) = inlineAstS memo2 v
+    let (memo2, u2) = inlineAst memo u
+        (memo3, v3) = inlineAst memo2 v
     in (memo3, Ast.AstI2S opCode u2 v3)
   Ast.AstSumOfListS args ->
-    let (memo2, args2) = mapAccumR inlineAstS memo args
+    let (memo2, args2) = mapAccumR inlineAst memo args
     in (memo2, Ast.AstSumOfListS args2)
   Ast.AstIndexS @sh1 v ix ->
-    let (memo1, v2) = inlineAstS memo v
+    let (memo1, v2) = inlineAst memo v
         (memo2, ix2) = mapAccumR inlineAst memo1
                                  (ShapedList.indexToList ix)
     in (memo2, Ast.AstIndexS @sh1 v2 (ShapedList.listToIndex ix2))
-  Ast.AstSumS v -> second Ast.AstSumS (inlineAstS memo v)
-  Ast.AstScatterS @sh2 @p v (vars, ix) ->
-    let (memo1, v2) = inlineAstS memo v
+  Ast.AstSumS v -> second Ast.AstSumS (inlineAst memo v)
+  Ast.AstScatterS @sh2 @p @sh v (vars, ix) ->
+    let (memo1, v2) = inlineAst memo v
         (memoI0, ix2) = mapAccumR inlineAst EM.empty
                                   (ShapedList.indexToList ix)
         count = sizeT @sh
         memo2 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1 memoI0
     in (memo2, Ast.AstScatterS @sh2 @p v2 (vars, ShapedList.listToIndex ix2))
   Ast.AstFromVectorS l ->
-    let (memo2, l2) = mapAccumR inlineAstS memo (V.toList l)
+    let (memo2, l2) = mapAccumR inlineAst memo (V.toList l)
     in (memo2, Ast.AstFromVectorS $ V.fromList l2)
       -- TODO: emulate mapAccum using mapM?
-  Ast.AstReplicateS v -> second Ast.AstReplicateS (inlineAstS memo v)
+  Ast.AstReplicateS v -> second Ast.AstReplicateS (inlineAst memo v)
   Ast.AstAppendS x y ->
-    let (memo1, t1) = inlineAstS memo x
-        (memo2, t2) = inlineAstS memo1 y
+    let (memo1, t1) = inlineAst memo x
+        (memo2, t2) = inlineAst memo1 y
     in (memo2, Ast.AstAppendS t1 t2)
-  Ast.AstSliceS @i v -> second (Ast.AstSliceS @i) (inlineAstS memo v)
-  Ast.AstReverseS v -> second Ast.AstReverseS (inlineAstS memo v)
+  Ast.AstSliceS @i v -> second (Ast.AstSliceS @i) (inlineAst memo v)
+  Ast.AstReverseS v -> second Ast.AstReverseS (inlineAst memo v)
   Ast.AstTransposeS perm v ->
-    second (Ast.AstTransposeS perm) $ inlineAstS memo v
-  Ast.AstReshapeS v -> second Ast.AstReshapeS (inlineAstS memo v)
+    second (Ast.AstTransposeS perm) $ inlineAst memo v
+  Ast.AstReshapeS v -> second Ast.AstReshapeS (inlineAst memo v)
   Ast.AstBuild1S @n (var, v) ->
-    let (memoV0, v2) = inlineAstS EM.empty v
+    let (memoV0, v2) = inlineAst EM.empty v
         memo1 = EM.unionWith (\c1 c0 -> c1 + valueOf @n * c0) memo memoV0
     in (memo1, Ast.AstBuild1S (var, v2))
-  Ast.AstGatherS @sh2 @p v (vars, ix) ->
-    let (memo1, v2) = inlineAstS memo v
+  Ast.AstGatherS @sh2 @p @sh v (vars, ix) ->
+    let (memo1, v2) = inlineAst memo v
         (memoI0, ix2) = mapAccumR inlineAst EM.empty
                                   (ShapedList.indexToList ix)
-        count = sizeT @sh
+        count = sizeT @sh2 + sizeT @sh - valueOf @p
         memo2 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1 memoI0
     in (memo2, Ast.AstGatherS @sh2 @p v2 (vars, ShapedList.listToIndex ix2))
-  Ast.AstCastS v -> second Ast.AstCastS $ inlineAstS memo v
+  Ast.AstCastS v -> second Ast.AstCastS $ inlineAst memo v
   Ast.AstFromIntegralS v ->
-    second Ast.AstFromIntegralS $ inlineAstS memo v
+    second Ast.AstFromIntegralS $ inlineAst memo v
   Ast.AstConstS{} -> (memo, v0)
   Ast.AstProjectS l p ->
     let (memo1, l2) = inlineAstHVector memo l
@@ -326,13 +320,13 @@ inlineAstS memo v0 = case v0 of
   Ast.AstLetHVectorInS vars l v ->
     -- We don't inline, but elsewhere try to reduce to constructors that we do.
     let (memo1, l2) = inlineAstHVector memo l
-        (memo2, v2) = inlineAstS memo1 v
+        (memo2, v2) = inlineAst memo1 v
     in (memo2, Ast.AstLetHVectorInS vars l2 v2)
   Ast.AstLetHFunInS var f v ->
     -- We assume there are no nested lets with the same variable.
     -- We assume functions are never small enough to justify inlining
     -- into more than one place.
-    let (memo1, v2) = inlineAstS memo v
+    let (memo1, v2) = inlineAst memo v
         (memo2, f2) = inlineAstHFun memo1 f
     in case EM.findWithDefault 0 var memo2 of
       0 -> (memo1, v2)
@@ -340,12 +334,12 @@ inlineAstS memo v0 = case v0 of
                                     (SubstitutionPayloadHFun f2) var v2)
       _ -> (memo2, Ast.AstLetHFunInS var f2 v2)
   Ast.AstSFromR v -> second Ast.AstSFromR $ inlineAst memo v
-  Ast.AstConstantS a -> second Ast.AstConstantS $ inlineAstS memo a
-  Ast.AstPrimalPartS a -> second Ast.AstPrimalPartS $ inlineAstS memo a
-  Ast.AstDualPartS a -> second Ast.AstDualPartS $ inlineAstS memo a
+  Ast.AstConstantS a -> second Ast.AstConstantS $ inlineAst memo a
+  Ast.AstPrimalPartS a -> second Ast.AstPrimalPartS $ inlineAst memo a
+  Ast.AstDualPartS a -> second Ast.AstDualPartS $ inlineAst memo a
   Ast.AstDS u u' ->
-    let (memo1, t1) = inlineAstS memo u
-        (memo2, t2) = inlineAstS memo1 u'
+    let (memo1, t1) = inlineAst memo u
+        (memo2, t2) = inlineAst memo1 u'
     in (memo2, Ast.AstDS t1 t2)
 
 inlineAstDynamic
@@ -356,7 +350,7 @@ inlineAstDynamic memo = \case
   DynamicRanked (AstRanked w) ->
     second (DynamicRanked . AstRanked) $ inlineAst memo w
   DynamicShaped (AstShaped w) ->
-    second (DynamicShaped . AstShaped) $ inlineAstS memo w
+    second (DynamicShaped . AstShaped) $ inlineAst memo w
   u@DynamicRankedDummy{} -> (memo, u)
   u@DynamicShapedDummy{} -> (memo, u)
 
@@ -406,12 +400,12 @@ inlineAstHVector memo v0 = case v0 of
     let vv = varNameToAstVarId var
         (memo1, v2) = inlineAstHVector memo v
         memo1NoVar = EM.delete vv memo1
-        (memo2, u2) = inlineAstS memo1NoVar u
+        (memo2, u2) = inlineAst memo1NoVar u
     in case EM.findWithDefault 0 vv memo1 of
       0 -> (memo1, v2)
       1 -> (memo2, substituteAstHVector (SubstitutionPayloadShaped u2) var v2)
       count | astIsSmallS (count < 10) u ->
-        let (memoU0, u0) = inlineAstS EM.empty u
+        let (memoU0, u0) = inlineAst EM.empty u
         in ( EM.unionWith (\c1 c0 -> c1 + count * c0) memo1NoVar memoU0
                -- u is small, so the union is fast
            , substituteAstHVector (SubstitutionPayloadShaped u0) var v2 )
@@ -463,8 +457,8 @@ inlineAstBool memo v0 = case v0 of
         (memo2, r2) = inlineAst memo1 arg2
     in (memo2, Ast.AstRel opCodeRel r1 r2)
   Ast.AstRelS opCodeRel arg1 arg2 ->
-    let (memo1, r1) = inlineAstS memo arg1
-        (memo2, r2) = inlineAstS memo1 arg2
+    let (memo1, r1) = inlineAst memo arg1
+        (memo2, r2) = inlineAst memo1 arg2
     in (memo2, Ast.AstRelS opCodeRel r1 r2)
 
 
@@ -506,8 +500,8 @@ shareAstScoped vars0 memo0 v0 =
   in (EM.union memo0 memoGlobal1, unAstRanked $ bindsToLet (AstRanked v1) bindingsLocal)
 
 shareAst
-  :: forall n s r. (GoodScalar r, KnownNat n, AstSpan s)
-  => ShareMemo -> AstTensor s (AstR r n) -> (ShareMemo, AstTensor s (AstR r n))
+  :: forall s y. AstSpan s
+  => ShareMemo -> AstTensor s y -> (ShareMemo, AstTensor s y)
 shareAst memo v0 = case v0 of
   Ast.AstVar{} -> (memo, v0)
   Ast.AstLet{} -> (memo, v0)  -- delta eval doesn't create lets and no lets
@@ -595,7 +589,7 @@ shareAst memo v0 = case v0 of
     in (memo1, Ast.AstProject l2 p)
   Ast.AstLetHVectorIn{} -> (memo, v0)
   Ast.AstLetHFunIn{} -> (memo, v0)
-  Ast.AstRFromS v -> second Ast.AstRFromS $ shareAstS memo v
+  Ast.AstRFromS v -> second Ast.AstRFromS $ shareAst memo v
   Ast.AstConstant a -> second Ast.AstConstant $ shareAst memo a
   Ast.AstPrimalPart a -> second Ast.AstPrimalPart $ shareAst memo a
   Ast.AstDualPart a -> second Ast.AstDualPart $ shareAst memo a
@@ -604,10 +598,6 @@ shareAst memo v0 = case v0 of
         (memo2, t2) = shareAst memo1 u'
     in (memo2, Ast.AstD t1 t2)
 
-shareAstS
-  :: forall sh s r. (GoodScalar r, KnownShS sh, AstSpan s)
-  => ShareMemo -> AstTensor s (AstS r sh) -> (ShareMemo, AstTensor s (AstS r sh))
-shareAstS memo v0 = case v0 of
   Ast.AstVarS{} -> (memo, v0)
   Ast.AstLetS{} -> (memo, v0)
   Ast.AstShareS var v | Just Refl <- sameAstSpan @s @PrimalSpan ->
@@ -616,74 +606,74 @@ shareAstS memo v0 = case v0 of
         astVar = Ast.AstVarS var
     in if varId `EM.member` memo
        then (memo, astVar)
-       else let (memo1, v2) = shareAstS memo v
+       else let (memo1, v2) = shareAst memo v
                 d = AstBindingsSimple $ DynamicShaped $ AstShaped v2
             in (EM.insert varId d memo1, astVar)
-  Ast.AstShareS{} -> error "shareAstS: AstShareS not in PrimalSpan"
+  Ast.AstShareS{} -> error "shareAst: AstShareS not in PrimalSpan"
   Ast.AstCondS b a2 a3 ->
     let (memo1, b1) = shareAstBool memo b
-        (memo2, t2) = shareAstS memo1 a2
-        (memo3, t3) = shareAstS memo2 a3
+        (memo2, t2) = shareAst memo1 a2
+        (memo3, t3) = shareAst memo2 a3
     in (memo3, Ast.AstCondS b1 t2 t3)
-  Ast.AstMinIndexS a -> second Ast.AstMinIndexS $ shareAstS memo a
-  Ast.AstMaxIndexS a -> second Ast.AstMaxIndexS $ shareAstS memo a
-  Ast.AstFloorS a -> second Ast.AstFloorS $ shareAstS memo a
+  Ast.AstMinIndexS a -> second Ast.AstMinIndexS $ shareAst memo a
+  Ast.AstMaxIndexS a -> second Ast.AstMaxIndexS $ shareAst memo a
+  Ast.AstFloorS a -> second Ast.AstFloorS $ shareAst memo a
   Ast.AstIotaS -> (memo, v0)
   Ast.AstN1S opCode u ->
-    let (memo2, u2) = shareAstS memo u
+    let (memo2, u2) = shareAst memo u
     in (memo2, Ast.AstN1S opCode u2)
   Ast.AstN2S opCode u v ->
-    let (memo2, u2) = shareAstS memo u
-        (memo3, v3) = shareAstS memo2 v
+    let (memo2, u2) = shareAst memo u
+        (memo3, v3) = shareAst memo2 v
     in (memo3, Ast.AstN2S opCode u2 v3)
   Ast.AstR1S opCode u ->
-    let (memo2, u2) = shareAstS memo u
+    let (memo2, u2) = shareAst memo u
     in (memo2, Ast.AstR1S opCode u2)
   Ast.AstR2S opCode u v ->
-    let (memo2, u2) = shareAstS memo u
-        (memo3, v3) = shareAstS memo2 v
+    let (memo2, u2) = shareAst memo u
+        (memo3, v3) = shareAst memo2 v
     in (memo3, Ast.AstR2S opCode u2 v3)
   Ast.AstI2S opCode u v ->
-    let (memo2, u2) = shareAstS memo u
-        (memo3, v3) = shareAstS memo2 v
+    let (memo2, u2) = shareAst memo u
+        (memo3, v3) = shareAst memo2 v
     in (memo3, Ast.AstI2S opCode u2 v3)
   Ast.AstSumOfListS args ->
-    let (memo2, args2) = mapAccumR shareAstS memo args
+    let (memo2, args2) = mapAccumR shareAst memo args
     in (memo2, Ast.AstSumOfListS args2)
   Ast.AstIndexS @sh1 v ix ->
-    let (memo1, v2) = shareAstS memo v
+    let (memo1, v2) = shareAst memo v
         (memo2, ix2) = mapAccumR shareAst memo1 (ShapedList.indexToList ix)
     in (memo2, Ast.AstIndexS @sh1 v2 (ShapedList.listToIndex ix2))
-  Ast.AstSumS v -> second Ast.AstSumS (shareAstS memo v)
+  Ast.AstSumS v -> second Ast.AstSumS (shareAst memo v)
   Ast.AstScatterS @sh2 @p v (vars, ix) ->
     let (memo1, ix2) =
           mapAccumR (shareAstScoped $ ShapedList.sizedToList vars)
                     memo (ShapedList.indexToList ix)
-        (memo2, v2) = shareAstS memo1 v
+        (memo2, v2) = shareAst memo1 v
     in (memo2, Ast.AstScatterS @sh2 @p v2 (vars, ShapedList.listToIndex ix2))
   Ast.AstFromVectorS l ->
-    let (memo2, l2) = mapAccumR shareAstS memo (V.toList l)
+    let (memo2, l2) = mapAccumR shareAst memo (V.toList l)
     in (memo2, Ast.AstFromVectorS $ V.fromList l2)
-  Ast.AstReplicateS v -> second Ast.AstReplicateS (shareAstS memo v)
+  Ast.AstReplicateS v -> second Ast.AstReplicateS (shareAst memo v)
   Ast.AstAppendS x y ->
-    let (memo1, t1) = shareAstS memo x
-        (memo2, t2) = shareAstS memo1 y
+    let (memo1, t1) = shareAst memo x
+        (memo2, t2) = shareAst memo1 y
     in (memo2, Ast.AstAppendS t1 t2)
-  Ast.AstSliceS @i v -> second (Ast.AstSliceS @i) (shareAstS memo v)
-  Ast.AstReverseS v -> second Ast.AstReverseS (shareAstS memo v)
+  Ast.AstSliceS @i v -> second (Ast.AstSliceS @i) (shareAst memo v)
+  Ast.AstReverseS v -> second Ast.AstReverseS (shareAst memo v)
   Ast.AstTransposeS perm v ->
-    second (Ast.AstTransposeS perm) $ shareAstS memo v
-  Ast.AstReshapeS v -> second Ast.AstReshapeS (shareAstS memo v)
-  Ast.AstBuild1S{} -> error "shareAstS: AstBuild1S"  -- not hard to add
+    second (Ast.AstTransposeS perm) $ shareAst memo v
+  Ast.AstReshapeS v -> second Ast.AstReshapeS (shareAst memo v)
+  Ast.AstBuild1S{} -> error "shareAst: AstBuild1S"  -- not hard to add
   Ast.AstGatherS @sh2 @p v (vars, ix) ->
     let (memo1, ix2) =
           mapAccumR (shareAstScoped $ ShapedList.sizedToList vars)
                     memo (ShapedList.indexToList ix)
-        (memo2, v2) = shareAstS memo1 v
+        (memo2, v2) = shareAst memo1 v
     in (memo2, Ast.AstGatherS @sh2 @p v2 (vars, ShapedList.listToIndex ix2))
-  Ast.AstCastS v -> second Ast.AstCastS $ shareAstS memo v
+  Ast.AstCastS v -> second Ast.AstCastS $ shareAst memo v
   Ast.AstFromIntegralS v ->
-    second Ast.AstFromIntegralS $ shareAstS memo v
+    second Ast.AstFromIntegralS $ shareAst memo v
   Ast.AstConstS{} -> (memo, v0)
   Ast.AstProjectS l p ->
     let (memo1, l2) = shareAstHVector memo l
@@ -691,12 +681,12 @@ shareAstS memo v0 = case v0 of
   Ast.AstLetHVectorInS{} -> (memo, v0)
   Ast.AstLetHFunInS{} -> (memo, v0)
   Ast.AstSFromR v -> second Ast.AstSFromR $ shareAst memo v
-  Ast.AstConstantS a -> second Ast.AstConstantS $ shareAstS memo a
-  Ast.AstPrimalPartS a -> second Ast.AstPrimalPartS $ shareAstS memo a
-  Ast.AstDualPartS a -> second Ast.AstDualPartS $ shareAstS memo a
+  Ast.AstConstantS a -> second Ast.AstConstantS $ shareAst memo a
+  Ast.AstPrimalPartS a -> second Ast.AstPrimalPartS $ shareAst memo a
+  Ast.AstDualPartS a -> second Ast.AstDualPartS $ shareAst memo a
   Ast.AstDS u u' ->
-    let (memo1, t1) = shareAstS memo u
-        (memo2, t2) = shareAstS memo1 u'
+    let (memo1, t1) = shareAst memo u
+        (memo2, t2) = shareAst memo1 u'
     in (memo2, Ast.AstDS t1 t2)
 
 shareAstDynamic
@@ -706,7 +696,7 @@ shareAstDynamic memo = \case
   DynamicRanked (AstRanked w) ->
     second (DynamicRanked . AstRanked) $ shareAst memo w
   DynamicShaped (AstShaped w) ->
-    second (DynamicShaped . AstShaped) $ shareAstS memo w
+    second (DynamicShaped . AstShaped) $ shareAst memo w
   u@DynamicRankedDummy{} -> (memo, u)
   u@DynamicShapedDummy{} -> (memo, u)
 
@@ -743,7 +733,7 @@ shareAstHVector memo v0 = case v0 of
             in (EM.insert varId d memo1, astVars)
   Ast.AstShareHVector{} ->
     error "shareAstHVector: AstShareHVector not in PrimalSpan"
-  Ast.AstBuildHVector1{} -> error "shareAstS: AstBuild1S"  -- not hard to add
+  Ast.AstBuildHVector1{} -> error "shareAst: AstBuild1S"  -- not hard to add
   Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc0 es ->
     let (memo1, acc02) = shareAstHVector memo acc0
         (memo2, es2) = shareAstHVector memo1 es
@@ -778,6 +768,6 @@ shareAstBool memo v0 = case v0 of
         (memo2, r2) = shareAst memo1 arg2
     in (memo2, Ast.AstRel opCodeRel r1 r2)
   Ast.AstRelS opCodeRel arg1 arg2 ->
-    let (memo1, r1) = shareAstS memo arg1
-        (memo2, r2) = shareAstS memo1 arg2
+    let (memo1, r1) = shareAst memo arg1
+        (memo2, r2) = shareAst memo1 arg2
     in (memo2, Ast.AstRelS opCodeRel r1 r2)

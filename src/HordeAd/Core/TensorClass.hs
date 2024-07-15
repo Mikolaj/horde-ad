@@ -415,15 +415,16 @@ class ( Num (IntOf shaped), IntegralF (IntOf shaped), CShaped shaped Num
           * stranspose (Permutation.makePerm @'[1, 0]) (sreplicate @shaped @m m2))
   sscatter
     :: forall r sh2 p sh.
-       ( GoodScalar r, KnownShS sh2, KnownShS sh, KnownShS (Sh.Take p sh)
-       , KnownShS (Sh.Drop p sh), KnownShS (sh2 X.++ Sh.Drop p sh) )
+       ( GoodScalar r, KnownShS sh2, KnownShS sh, KnownNat p
+       , KnownShS (Sh.Take p sh), KnownShS (Sh.Drop p sh)
+       , KnownShS (sh2 X.++ Sh.Drop p sh) )
     => shaped r (sh2 X.++ Sh.Drop p sh)
     -> (IndexSh shaped sh2 -> IndexSh shaped (Sh.Take p sh))
     -> shaped r sh
   sscatter1
     :: forall r n2 p sh.
-       ( GoodScalar r, KnownNat n2, KnownShS sh, KnownShS (Sh.Take p sh)
-       , KnownShS (Sh.Drop p sh) )
+       ( GoodScalar r, KnownNat n2, KnownShS sh, KnownNat p
+       , KnownShS (Sh.Take p sh), KnownShS (Sh.Drop p sh) )
     => shaped r (n2 ': Sh.Drop p sh)
     -> (IntOf shaped -> IndexSh shaped (Sh.Take p sh))
     -> shaped r sh
@@ -656,15 +657,16 @@ class ( Num (IntOf shaped), IntegralF (IntOf shaped), CShaped shaped Num
                                                 (sindex0 x ix))
   sgather
     :: forall r sh2 p sh.
-       ( GoodScalar r, KnownShS sh2, KnownShS sh, KnownShS (Sh.Take p sh)
-       , KnownShS (Sh.Drop p sh), KnownShS (sh2 X.++ Sh.Drop p sh) )
+       ( GoodScalar r, KnownShS sh2, KnownShS sh, KnownNat p
+       , KnownShS (Sh.Take p sh), KnownShS (Sh.Drop p sh)
+       , KnownShS (sh2 X.++ Sh.Drop p sh) )
     => shaped r sh
     -> (IndexSh shaped sh2 -> IndexSh shaped (Sh.Take p sh))
     -> shaped r (sh2 X.++ Sh.Drop p sh)
   sgather1
     :: forall r n2 p sh.
-       ( GoodScalar r, KnownNat n2, KnownShS sh, KnownShS (Sh.Take p sh)
-       , KnownShS (Sh.Drop p sh) )
+       ( GoodScalar r, KnownNat n2, KnownShS sh, KnownNat p
+       , KnownShS (Sh.Take p sh), KnownShS (Sh.Drop p sh) )
     => shaped r sh
     -> (IntOf shaped -> IndexSh shaped (Sh.Take p sh))
     -> shaped r (n2 ': Sh.Drop p sh)

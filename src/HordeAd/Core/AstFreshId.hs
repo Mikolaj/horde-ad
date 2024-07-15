@@ -67,7 +67,7 @@ unsafeGetFreshAstVarName :: IO (AstVarName f y)
 unsafeGetFreshAstVarName =
   AstVarName . intToAstVarId <$> atomicAddCounter_ unsafeAstVarCounter 1
 
-funToAstIOR :: forall n m s r r2. GoodScalar r
+funToAstIOR :: forall n m s r r2. (GoodScalar r, KnownNat n)
             => IShR n -> (AstTensor s (AstR r n) -> AstTensor s (AstR r2 m))
             -> IO ( AstVarName (AstTensor s) (AstR r n)
                   , AstDynamicVarName
@@ -80,7 +80,7 @@ funToAstIOR sh f = do
         !x = f (AstVar sh varName)
     in (AstVarName freshId{-TODO: varName-}, AstDynamicVarName @Nat @r @p_sh freshId, x)
 
-funToAstR :: GoodScalar r
+funToAstR :: (GoodScalar r, KnownNat n)
           => IShR n -> (AstTensor s (AstR r n) -> AstTensor s (AstR r2 m))
           -> (AstVarName (AstTensor s) (AstR r n), AstTensor s (AstR r2 m))
 {-# NOINLINE funToAstR #-}

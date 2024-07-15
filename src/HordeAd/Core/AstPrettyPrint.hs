@@ -66,7 +66,7 @@ defaulPrintConfig2 loseRoudtrip ignoreNestedLambdas renames =
       representsIntIndex = False
   in PrintConfig {..}
 
-areAllArgsInts :: AstTensor s (AstR r n) -> Bool
+areAllArgsInts :: AstTensor s y -> Bool
 areAllArgsInts = \case
   -- A heuristics for whether all the arguments are still Int64 rank 0 tensors
   -- morally representing integer indexes. This mostly just rules out
@@ -110,7 +110,7 @@ areAllArgsInts = \case
   AstPrimalPart{} -> False
   AstDualPart{} -> False
   AstD{} -> False  -- dual number
-
+  _ -> False  -- shaped  -- TODO: change type to AstR to catch missing cases
 
 -- * Pretty-printing of variables
 
@@ -199,27 +199,34 @@ printAstInt cfgOld d t =
   let cfg = cfgOld {representsIntIndex = True}
   in printAst cfg d t
 
-printAst :: forall n s r. (GoodScalar r, KnownNat n, AstSpan s)
-         => PrintConfig -> Int -> AstTensor s (AstR r n) -> ShowS
+printAst :: forall s y. AstSpan s
+         => PrintConfig -> Int -> AstTensor s y -> ShowS
 printAst cfgOld d t =
   if representsIntIndex cfgOld
-  then case isRankedInt t of
-    Just Refl ->  -- the heuristics may have been correct
-      case t of
-        AstVar _ var -> printAstIntVar cfgOld var
-        AstConst i -> shows $ Nested.runScalar i
-        _ -> if areAllArgsInts t
-             then printAstAux cfgOld d t
-             else let cfg = cfgOld {representsIntIndex = False}
-                  in printAstAux cfg d t
-    _ ->  -- the heuristics failed
-      let cfg = cfgOld {representsIntIndex = False}
-      in printAstAux cfg d t
+  then case t of
+    AstVar _ var ->
+      case isRankedInt t of  -- TODO: really needed?
+        Just Refl ->  -- the heuristics may have been correct
+          printAstIntVar cfgOld var
+        _ ->  -- the heuristics failed
+          let cfg = cfgOld {representsIntIndex = False}
+          in printAstAux cfg d t
+    AstConst i ->
+      case isRankedInt t of  -- TODO: really needed?
+        Just Refl ->  -- the heuristics may have been correct
+          shows $ Nested.runScalar i
+        _ ->  -- the heuristics failed
+          let cfg = cfgOld {representsIntIndex = False}
+          in printAstAux cfg d t
+    _ -> if areAllArgsInts t
+         then printAstAux cfgOld d t
+         else let cfg = cfgOld {representsIntIndex = False}
+              in printAstAux cfg d t
   else printAstAux cfgOld d t
 
 -- Precedences used are as in Haskell.
-printAstAux :: forall n s r. (GoodScalar r, KnownNat n, AstSpan s)
-            => PrintConfig -> Int -> AstTensor s (AstR r n) -> ShowS
+printAstAux :: forall s y. AstSpan s
+            => PrintConfig -> Int -> AstTensor s y -> ShowS
 printAstAux cfg d = \case
   AstVar _sh var -> printAstVar cfg var
   t@(AstLet var0 u0 v0) ->
@@ -336,7 +343,7 @@ printAstAux cfg d = \case
   AstCast v -> printPrefixOp printAst cfg d "rcast" [v]
   AstFromIntegral a ->
     printPrefixOp printAst cfg d "rfromIntegral" [a]
-  AstConst a ->
+  AstConst @n a ->
     case sameNat (Proxy @n) (Proxy @0) of
       Just Refl -> shows $ Nested.runScalar a
       _ -> showParen (d > 10)
@@ -392,7 +399,7 @@ printAstAux cfg d = \case
              . showString " -> "
              . printAst cfg 0 v)
         -- TODO: this does not roundtrip yet
-  AstRFromS v -> printPrefixOp printAstS cfg d "rfromS" [v]
+  AstRFromS v -> printPrefixOp printAst cfg d "rfromS" [v]
   AstConstant a -> if loseRoudtrip cfg
                    then printAst cfg d a
                    else printPrefixOp printAst cfg d "rconstant" [a]
@@ -400,19 +407,16 @@ printAstAux cfg d = \case
   AstDualPart a -> printPrefixOp printAst cfg d "rdualPart" [a]
   AstD u u' -> printPrefixBinaryOp printAst printAst cfg d "rD" u u'
 
-printAstS :: forall sh s r. (GoodScalar r, KnownShS sh, AstSpan s)
-          => PrintConfig -> Int -> AstTensor s (AstS r sh) -> ShowS
-printAstS cfg d = \case
   AstVarS var -> printAstVarS cfg var
   t@(AstLetS var0 u0 v0) ->
     if loseRoudtrip cfg
     then let collect :: AstTensor s (AstS r sh) -> ([(ShowS, ShowS)], ShowS)
              collect (AstLetS var u v) =
                let name = printAstVarS cfg var
-                   uPP = printAstS cfg 0 u
+                   uPP = printAst cfg 0 u
                    (rest, corePP) = collect v
                in ((name, uPP) : rest, corePP)
-             collect v = ([], printAstS cfg 0 v)
+             collect v = ([], printAst cfg 0 v)
              (pairs, core) = collect t
          in showParen (d > 0)
             $ showString "let "
@@ -423,52 +427,52 @@ printAstS cfg d = \case
     else
       showParen (d > 10)
       $ showString "slet "
-        . printAstS cfg 11 u0
+        . printAst cfg 11 u0
         . showString " "
         . (showParen True
            $ showString "\\"
              . printAstVarS cfg var0
              . showString " -> "
-             . printAstS cfg 0 v0)
+             . printAst cfg 0 v0)
   AstShareS var v ->
     showParen (d > 10)
     $ showString "sshare "
       . printAstVarS cfg var
       . showString " "
-      . printAstS cfg 11 v
+      . printAst cfg 11 v
   AstCondS b a1 a2 ->
     showParen (d > 10)
     $ showString "ifF "
       . printAstBool cfg 11 b
       . showString " "
-      . printAstS cfg 11 a1
+      . printAst cfg 11 a1
       . showString " "
-      . printAstS cfg 11 a2
-  AstMinIndexS a -> printPrefixOp printAstS cfg d "sminIndex" [a]
-  AstMaxIndexS a -> printPrefixOp printAstS cfg d "smaxIndex" [a]
-  AstFloorS a ->  printPrefixOp printAstS cfg d "sfloor" [a]
+      . printAst cfg 11 a2
+  AstMinIndexS a -> printPrefixOp printAst cfg d "sminIndex" [a]
+  AstMaxIndexS a -> printPrefixOp printAst cfg d "smaxIndex" [a]
+  AstFloorS a ->  printPrefixOp printAst cfg d "sfloor" [a]
   AstIotaS -> showString "siota"
-  AstN1S opCode u -> printAstN1 printAstS cfg d opCode u
-  AstN2S opCode u v -> printAstN2 printAstS cfg d opCode u v
-  AstR1S opCode u -> printAstR1 printAstS cfg d opCode u
-  AstR2S opCode u v -> printAstR2 printAstS cfg d opCode u v
-  AstI2S opCode u v -> printAstI2 printAstS cfg d opCode u v
+  AstN1S opCode u -> printAstN1 printAst cfg d opCode u
+  AstN2S opCode u v -> printAstN2 printAst cfg d opCode u v
+  AstR1S opCode u -> printAstR1 printAst cfg d opCode u
+  AstR2S opCode u v -> printAstR2 printAst cfg d opCode u v
+  AstI2S opCode u v -> printAstI2 printAst cfg d opCode u v
   AstSumOfListS [] -> error "printAst: empty AstSumOfList"
   AstSumOfListS (left : args) ->
-    let rs = map (\arg -> showString " + " . printAstS cfg 7 arg) args
+    let rs = map (\arg -> showString " + " . printAst cfg 7 arg) args
     in showParen (d > 6)
-       $ printAstS cfg 7 left
+       $ printAst cfg 7 left
          . foldr (.) id rs
   AstIndexS v ix ->
     showParen (d > 9)
-    $ printAstS cfg 10 v
+    $ printAst cfg 10 v
       . showString " !$ "
       . showListWith (printAstInt cfg 0) (ShapedList.indexToList ix)
-  AstSumS v -> printPrefixOp printAstS cfg d "ssum" [v]
+  AstSumS v -> printPrefixOp printAst cfg d "ssum" [v]
   AstScatterS v (vars, ix) ->
     showParen (d > 10)
     $ showString "sscatter "
-      . printAstS cfg 11 v
+      . printAst cfg 11 v
       . showString " "
       . (showParen True
          $ showString "\\"
@@ -481,23 +485,23 @@ printAstS cfg d = \case
     $ showString "sfromVector "
       . (showParen True
          $ showString "fromList "
-           . showListWith (printAstS cfg 0) (V.toList l))
-  AstReplicateS v -> printPrefixOp printAstS cfg d "sreplicate" [v]
+           . showListWith (printAst cfg 0) (V.toList l))
+  AstReplicateS v -> printPrefixOp printAst cfg d "sreplicate" [v]
   AstAppendS x y ->
     -- x and y have different types, unlike in AstAppend, so we
     -- have to inline printPrefixOp:
-    let rs = [ showString " " . printAstS cfg 11 x
-             , showString " " . printAstS cfg 11 y ]
+    let rs = [ showString " " . printAst cfg 11 x
+             , showString " " . printAst cfg 11 y ]
     in showParen (d > 10)
        $ showString "sappend"
          . foldr (.) id rs
-  AstSliceS v -> printPrefixOp printAstS cfg d "sslice" [v]
-  AstReverseS v -> printPrefixOp printAstS cfg d "sreverse" [v]
+  AstSliceS v -> printPrefixOp printAst cfg d "sslice" [v]
+  AstReverseS v -> printPrefixOp printAst cfg d "sreverse" [v]
   AstTransposeS _perm v ->
-    printPrefixOp printAstS cfg d "stranspose" [v]
--- TODO:    printPrefixOp printAstS cfg d ("stranspose " ++ show (permToList perm)) [v]
+    printPrefixOp printAst cfg d "stranspose" [v]
+-- TODO:    printPrefixOp printAst cfg d ("stranspose " ++ show (permToList perm)) [v]
   AstReshapeS v ->
-    printPrefixOp printAstS cfg d "sreshape" [v]
+    printPrefixOp printAst cfg d "sreshape" [v]
   AstBuild1S (var, v) ->
     showParen (d > 10)
     $ showString "sbuild1 "
@@ -505,11 +509,11 @@ printAstS cfg d = \case
          $ showString "\\"
            . printAstIntVar cfg var
            . showString " -> "
-           . printAstS cfg 0 v)
+           . printAst cfg 0 v)
   AstGatherS v (vars, ix) ->
     showParen (d > 10)
     $ showString "sgather "
-      . printAstS cfg 11 v
+      . printAst cfg 11 v
       . showString " "
       . (showParen True
          $ showString "\\"
@@ -517,14 +521,14 @@ printAstS cfg d = \case
                           (ShapedList.sizedToList vars)
            . showString " -> "
            . showListWith (printAstInt cfg 0) (ShapedList.indexToList ix))
-  AstCastS v -> printPrefixOp printAstS cfg d "scast" [v]
+  AstCastS v -> printPrefixOp printAst cfg d "scast" [v]
   AstFromIntegralS a ->
-    printPrefixOp printAstS cfg d "sfromIntegral" [a]
-  AstConstS @sh2 a ->
+    printPrefixOp printAst cfg d "sfromIntegral" [a]
+  AstConstS @sh a ->
     case sameShape @sh @'[] of
       Just Refl -> shows $ Nested.sunScalar a
       _ -> showParen (d > 10)
-           $ showString ("sconst @" ++ show (shapeT @sh2) ++ " ")
+           $ showString ("sconst @" ++ show (shapeT @sh) ++ " ")
              . (showParen True
                 $ shows a)
   AstProjectS l p ->
@@ -543,7 +547,7 @@ printAstS cfg d = \case
         . showString " = "
         . printAstHVector cfg 0 l
         . showString " in "
-        . printAstS cfg 0 v
+        . printAst cfg 0 v
     else
       showParen (d > 10)
       $ showString "sletHVectorIn "
@@ -554,7 +558,7 @@ printAstS cfg d = \case
              . showListWith (showString
                              . printAstDynamicVarName (varRenames cfg)) vars
              . showString " -> "
-             . printAstS cfg 0 v)
+             . printAst cfg 0 v)
         -- TODO: this does not roundtrip yet
   AstLetHFunInS var f v ->
     if loseRoudtrip cfg
@@ -565,7 +569,7 @@ printAstS cfg d = \case
         . showString " = "
         . printAstHFun cfg 0 f
         . showString " in "
-        . printAstS cfg 0 v
+        . printAst cfg 0 v
     else
       showParen (d > 10)
       $ showString "sletHFunIn "
@@ -575,15 +579,15 @@ printAstS cfg d = \case
            $ showString "\\"
              . printAstFunVar cfg var
              . showString " -> "
-             . printAstS cfg 0 v)
+             . printAst cfg 0 v)
         -- TODO: this does not roundtrip yet
   AstSFromR v -> printPrefixOp printAst cfg d "sfromR" [v]
   AstConstantS a -> if loseRoudtrip cfg
-                    then printAstS cfg d a
-                    else printPrefixOp printAstS cfg d "sconstant" [a]
-  AstPrimalPartS a -> printPrefixOp printAstS cfg d "sprimalPart" [a]
-  AstDualPartS a -> printPrefixOp printAstS cfg d "sdualPart" [a]
-  AstDS u u' -> printPrefixBinaryOp printAstS printAstS cfg d "sD" u u'
+                    then printAst cfg d a
+                    else printPrefixOp printAst cfg d "sconstant" [a]
+  AstPrimalPartS a -> printPrefixOp printAst cfg d "sprimalPart" [a]
+  AstDualPartS a -> printPrefixOp printAst cfg d "sdualPart" [a]
+  AstDS u u' -> printPrefixBinaryOp printAst printAst cfg d "sD" u u'
 
 -- Differs from standard only in the space after comma.
 showListWith :: (a -> ShowS) -> [a] -> ShowS
@@ -602,7 +606,7 @@ printAstDynamic :: AstSpan s
                 => PrintConfig -> Int -> AstDynamic s -> ShowS
 printAstDynamic cfg d = \case
   DynamicRanked (AstRanked v) -> printPrefixOp printAst cfg d "DynamicRanked" [v]
-  DynamicShaped (AstShaped v) -> printPrefixOp printAstS cfg d "DynamicShaped" [v]
+  DynamicShaped (AstShaped v) -> printPrefixOp printAst cfg d "DynamicShaped" [v]
   DynamicRankedDummy{} -> showString "DynamicRankedDummy"
   DynamicShapedDummy{} -> showString "DynamicShapedDummy"
 
@@ -610,7 +614,7 @@ printAstUnDynamic :: AstSpan s
                   => PrintConfig -> Int -> AstDynamic s -> ShowS
 printAstUnDynamic cfg d = \case
   DynamicRanked (AstRanked v) -> printAst cfg d v
-  DynamicShaped (AstShaped v) -> printAstS cfg d v
+  DynamicShaped (AstShaped v) -> printAst cfg d v
   DynamicRankedDummy{} -> showString "0"
   DynamicShapedDummy{} -> showString "0"
 
@@ -718,7 +722,7 @@ printAstHVector cfg d = \case
     then let collect :: AstHVector s -> ([(ShowS, ShowS)], ShowS)
              collect (AstLetInHVectorS var u v) =
                let name = printAstVarS cfg var
-                   uPP = printAstS cfg 0 u
+                   uPP = printAst cfg 0 u
                    (rest, corePP) = collect v
                in ((name, uPP) : rest, corePP)
              collect v = ([], printAstHVector cfg 0 v)
@@ -732,7 +736,7 @@ printAstHVector cfg d = \case
     else
       showParen (d > 10)
       $ showString "sletInHVector "
-        . printAstS cfg 11 u0
+        . printAst cfg 11 u0
         . showString " "
         . (showParen True
            $ showString "\\"
@@ -837,7 +841,7 @@ printAstBool cfg d = \case
   AstB2 opCode arg1 arg2 -> printAstB2 cfg d opCode arg1 arg2
   AstBoolConst b -> showString $ if b then "true" else "false"
   AstRel opCode arg1 arg2 -> printAstRelOp printAst cfg d opCode arg1 arg2
-  AstRelS opCode arg1 arg2 -> printAstRelOp printAstS cfg d opCode arg1 arg2
+  AstRelS opCode arg1 arg2 -> printAstRelOp printAst cfg d opCode arg1 arg2
 
 printAstN1 :: (PrintConfig -> Int -> a -> ShowS)
            -> PrintConfig -> Int -> OpCodeNum1 -> a -> ShowS
@@ -938,31 +942,31 @@ printAstRelOp pr cfg d opCode u v = case opCode of
 
 -- * Pretty-printing terms in a few useful configurations
 
-printAstSimple :: (GoodScalar r, KnownNat n, AstSpan s)
+printAstSimple :: AstSpan s
                => IntMap String -> AstRanked s r n -> String
 printAstSimple renames (AstRanked t) = printAst (defaulPrintConfig False renames) 0 t ""
 
-printAstPretty :: (GoodScalar r, KnownNat n, AstSpan s)
+printAstPretty :: AstSpan s
                => IntMap String -> AstRanked s r n -> String
 printAstPretty renames (AstRanked t) = printAst (defaulPrintConfig True renames) 0 t ""
 
-printAstPrettyButNested :: (GoodScalar r, KnownNat n, AstSpan s)
+printAstPrettyButNested :: AstSpan s
                         => IntMap String -> AstRanked s r n -> String
 printAstPrettyButNested renames (AstRanked t) =
   printAst (defaulPrintConfig2 True False renames) 0 t ""
 
-printAstSimpleS :: (GoodScalar r, KnownShS sh, AstSpan s)
+printAstSimpleS :: AstSpan s
                 => IntMap String -> AstShaped s r sh -> String
-printAstSimpleS renames (AstShaped t) = printAstS (defaulPrintConfig False renames) 0 t ""
+printAstSimpleS renames (AstShaped t) = printAst (defaulPrintConfig False renames) 0 t ""
 
-printAstPrettyS :: (GoodScalar r, KnownShS sh, AstSpan s)
+printAstPrettyS :: AstSpan s
                 => IntMap String -> AstShaped s r sh -> String
-printAstPrettyS renames (AstShaped t) = printAstS (defaulPrintConfig True renames) 0 t ""
+printAstPrettyS renames (AstShaped t) = printAst (defaulPrintConfig True renames) 0 t ""
 
-printAstPrettyButNestedS :: (GoodScalar r, KnownShS sh, AstSpan s)
+printAstPrettyButNestedS :: AstSpan s
                          => IntMap String -> AstShaped s r sh -> String
 printAstPrettyButNestedS renames (AstShaped t) =
-  printAstS (defaulPrintConfig2 True False renames) 0 t ""
+  printAst (defaulPrintConfig2 True False renames) 0 t ""
 
 printAstHVectorSimple :: AstSpan s => IntMap String -> AstHVector s -> String
 printAstHVectorSimple renames t =

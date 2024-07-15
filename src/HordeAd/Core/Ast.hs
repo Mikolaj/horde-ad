@@ -227,16 +227,18 @@ data AstTensor :: AstSpanType -> AstType -> Type where
 --          -> AstTensor s (t1, t2) (AstProduct n m)
 
   -- Here starts the ranked part.
-  AstVar :: IShR n -> AstVarName (AstTensor s) (AstR r n)
+  AstVar :: (GoodScalar r, KnownNat n)
+         => IShR n -> AstVarName (AstTensor s) (AstR r n)
          -> AstTensor s (AstR r n)
   -- The r variable is existential here, so a proper specialization needs
   -- to be picked explicitly at runtime.
   AstLet :: forall n m r r2 s s2.
-            (KnownNat n, KnownNat m, GoodScalar r, AstSpan s)
+            (KnownNat n, KnownNat m, GoodScalar r, GoodScalar r2, AstSpan s)
          => AstVarName (AstTensor s) (AstR r n) -> AstTensor s (AstR r n)
          -> AstTensor s2 (AstR r2 m)
          -> AstTensor s2 (AstR r2 m)
-  AstShare :: AstVarName (AstTensor s) (AstR r n) -> AstTensor s (AstR r n)
+  AstShare :: (GoodScalar r, KnownNat n)
+           => AstVarName (AstTensor s) (AstR r n) -> AstTensor s (AstR r n)
            -> AstTensor s (AstR r n)
   AstCond :: AstBool
           -> AstTensor s (AstR r n) -> AstTensor s (AstR r n) -> AstTensor s (AstR r n)
@@ -296,7 +298,7 @@ data AstTensor :: AstSpanType -> AstType -> Type where
                => Permutation.PermR -> AstTensor s (AstR r n) -> AstTensor s (AstR r n)
   AstReshape :: (KnownNat n, KnownNat m)
              => IShR m -> AstTensor s (AstR r n) -> AstTensor s (AstR r m)
-  AstBuild1 :: KnownNat n
+  AstBuild1 :: (KnownNat n, GoodScalar r)
             => Int -> (IntVarName, AstTensor s (AstR r n))
             -> AstTensor s (AstR r (1 + n))
   AstGather :: forall m n p r s. (KnownNat m, KnownNat n, KnownNat p)
@@ -309,13 +311,15 @@ data AstTensor :: AstSpanType -> AstType -> Type where
           => AstTensor s (AstR r1 n) -> AstTensor s (AstR r2 n)
   AstFromIntegral :: (GoodScalar r1, Integral r1)
                   => AstTensor PrimalSpan (AstR r1 n) -> AstTensor PrimalSpan (AstR r2 n)
-  AstConst :: Nested.Ranked n r -> AstTensor PrimalSpan (AstR r n)
+  AstConst :: forall n r. (GoodScalar r, KnownNat n)
+           => Nested.Ranked n r -> AstTensor PrimalSpan (AstR r n)
   AstProject :: AstHVector s -> Int -> AstTensor s (AstR r n)
   AstLetHVectorIn :: AstSpan s
                   => [AstDynamicVarName] -> AstHVector s
                   -> AstTensor s2 (AstR r n)
                   -> AstTensor s2 (AstR r n)
-  AstLetHFunIn :: AstVarId -> AstHFun
+  AstLetHFunIn :: (GoodScalar r, KnownNat n)
+               => AstVarId -> AstHFun
                -> AstTensor s2 (AstR r n)
                -> AstTensor s2 (AstR r n)
   AstRFromS :: KnownShS sh
@@ -329,15 +333,16 @@ data AstTensor :: AstSpanType -> AstType -> Type where
        -> AstTensor FullSpan (AstR r n)
 
   -- Here starts the shaped part.
-  AstVarS :: forall sh r s.
-             AstVarName (AstTensor s) (AstS r sh)
+  AstVarS :: forall sh r s. KnownShS sh
+          => AstVarName (AstTensor s) (AstS r sh)
           -> AstTensor s (AstS r sh)
   AstLetS :: forall sh1 sh2 r r2 s s2.
-             (KnownShS sh1, KnownShS sh2, GoodScalar r, AstSpan s)
+             (KnownShS sh1, KnownShS sh2, GoodScalar r, GoodScalar r2, AstSpan s)
           => AstVarName (AstTensor s) (AstS r sh1) -> AstTensor s (AstS r sh1)
           -> AstTensor s2 (AstS r2 sh2)
           -> AstTensor s2 (AstS r2 sh2)
-  AstShareS :: AstVarName (AstTensor s) (AstS r sh) -> AstTensor s (AstS r sh)
+  AstShareS :: (KnownShS sh, GoodScalar r)
+            => AstVarName (AstTensor s) (AstS r sh) -> AstTensor s (AstS r sh)
             -> AstTensor s (AstS r sh)
   AstCondS :: AstBool
            -> AstTensor s (AstS r sh) -> AstTensor s (AstS r sh) -> AstTensor s (AstS r sh)
@@ -377,7 +382,7 @@ data AstTensor :: AstSpanType -> AstType -> Type where
   AstSumS :: forall n sh r s. KnownNat n
           => AstTensor s (AstS r (n ': sh)) -> AstTensor s (AstS r sh)
   AstScatterS :: forall sh2 p sh r s.
-                 ( KnownShS sh2, KnownShS sh
+                 ( KnownShS sh2, KnownShS sh, KnownNat p
                  , KnownShS (Sh.Take p sh), KnownShS (Sh.Drop p sh)
                  , KnownShS (sh2 X.++ Sh.Drop p sh) )
               => AstTensor s (AstS r (sh2 X.++ Sh.Drop p sh))
@@ -408,7 +413,7 @@ data AstTensor :: AstSpanType -> AstType -> Type where
              => (IntVarName, AstTensor s (AstS r sh))
              -> AstTensor s (AstS r (n ': sh))
   AstGatherS :: forall sh2 p sh r s.
-                ( KnownShS sh, KnownShS sh2
+                ( KnownShS sh, KnownShS sh2, KnownNat p
                 , KnownShS (Sh.Take p sh), KnownShS (Sh.Drop p sh) )
              => AstTensor s (AstS r sh)
              -> (AstVarListS sh2, AstIndexS (Sh.Take p sh))
@@ -418,13 +423,15 @@ data AstTensor :: AstSpanType -> AstType -> Type where
            => AstTensor s (AstS r1 sh) -> AstTensor s (AstS r2 sh)
   AstFromIntegralS :: (GoodScalar r1, Integral r1)
                    => AstTensor PrimalSpan (AstS r1 sh) -> AstTensor PrimalSpan (AstS r2 sh)
-  AstConstS :: Nested.Shaped sh r -> AstTensor PrimalSpan (AstS r sh)
+  AstConstS :: forall sh r. (GoodScalar r, KnownShS sh)
+            => Nested.Shaped sh r -> AstTensor PrimalSpan (AstS r sh)
   AstProjectS :: AstHVector s -> Int -> AstTensor s (AstS r sh)
   AstLetHVectorInS :: AstSpan s
                    => [AstDynamicVarName] -> AstHVector s
                    -> AstTensor s2 (AstS r sh)
                    -> AstTensor s2 (AstS r sh)
-  AstLetHFunInS :: AstVarId -> AstHFun
+  AstLetHFunInS :: (GoodScalar r, KnownShS sh)
+                => AstVarId -> AstHFun
                 -> AstTensor s2 (AstS r sh)
                 -> AstTensor s2 (AstS r sh)
   AstSFromR :: (KnownShS sh, KnownNat (X.Rank sh))
@@ -577,7 +584,7 @@ instance Eq (AstTensor s (AstR r n)) where
 instance Ord (AstTensor s (AstR r n)) where
   (<=) = error "AST requires that OrdF be used instead"
 
-instance (Num (Nested.Ranked n r), AstSpan s, KnownNat n)
+instance (Num (Nested.Ranked n r), AstSpan s, GoodScalar r, KnownNat n)
          => Num (AstTensor s (AstR r n)) where
   -- The normal form has AstConst, if any, as the first element of the list.
   -- All lists fully flattened and length >= 2.
@@ -619,7 +626,7 @@ instance (Num (Nested.Ranked n r), AstSpan s, KnownNat n)
     -- it's crucial that there is no AstConstant in fromInteger code
     -- so that we don't need 4 times the simplification rules
 
-instance (Real (Nested.Ranked n r), AstSpan s, KnownNat n)
+instance (Real (Nested.Ranked n r), AstSpan s, GoodScalar r, KnownNat n)
          => Real (AstTensor s (AstR r n)) where
   toRational = undefined
     -- very low priority, since these are all extremely not continuous

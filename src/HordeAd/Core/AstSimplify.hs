@@ -159,7 +159,9 @@ astTransposeAsGatherS perm knobs v =
               asts = ShapedList.permutePrefixIndex (Permutation.permToList' perm) ix
           in gcastWith (unsafeCoerce Refl
                         :: Permutation.PermutePrefix perm sh :~: sh2 X.++ Sh.Drop p sh) $
-             astGatherKnobsS @sh2 @p @sh knobs v (vars, asts)
+             case Permutation.permRank perm of
+               SNat @p2 -> gcastWith (unsafeCoerce Refl :: p2 :~: p) $
+                           astGatherKnobsS @sh2 @p @sh knobs v (vars, asts)
 
 -- This generates big terms that don't simplify well,
 -- so we keep the AstReshape form until simplification gets stuck.
@@ -215,7 +217,9 @@ astReshapeAsGatherS knobs v =
                     -- we generate these, so we simplify
     in gcastWith (unsafeCoerce Refl :: Sh.Take (X.Rank sh) sh :~: sh) $
        gcastWith (unsafeCoerce Refl :: Sh.Drop (X.Rank sh) sh :~: '[]) $
-       astGatherKnobsS @sh2 @(X.Rank sh) @sh knobs v (vars, asts)
+       withListSh (Proxy @sh) $ \(_ :: IShR p) ->
+       gcastWith (unsafeCoerce Refl :: X.Rank sh :~: p) $
+       astGatherKnobsS @sh2 @p @sh knobs v (vars, asts)
 
 
 -- * Permutation operations
@@ -587,7 +591,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS shm1)) | Dict <- s
                         else astIndexKnobsS knobs v2 ix2
       astGather
         :: forall shm' shn' p'.
-           ( KnownShS shm', KnownShS shn'
+           ( KnownShS shm', KnownShS shn', KnownNat p'
            , KnownShS (Sh.Take p' shm'), KnownShS (Sh.Drop p' shm') )
         => AstTensor s (AstS r shm')
         -> (AstVarListS shn', AstIndexS (Sh.Take p' shm'))
@@ -797,7 +801,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS shm1)) | Dict <- s
 -- create other (and non-simplified!) big terms and also uses astIsSmall,
 -- so it's probably more efficient. Use this instead of rletIx/sletIx
 -- or design something even better.
-shareIx :: (KnownNat n, KnownNat m)
+shareIx :: (KnownNat n, KnownNat m, GoodScalar r)
         => AstIndex n -> (AstIndex n -> AstTensor s (AstR r m))
         -> AstTensor s (AstR r m)
 {-# NOINLINE shareIx #-}
@@ -826,7 +830,7 @@ astGatherR = astGatherKnobsR defaultKnobs
 
 astGatherS
   :: forall sh2 p sh s r.
-     ( KnownShS sh, KnownShS sh2
+     ( KnownShS sh, KnownShS sh2, KnownNat p
      , KnownShS (Sh.Take p sh), KnownShS (Sh.Drop p sh) )
   => AstTensor s (AstS r sh)
   -> (AstVarListS sh2, AstIndexS (Sh.Take p sh))
@@ -845,7 +849,7 @@ astGatherStep sh v (vars, ix) =
 
 astGatherStepS
   :: forall sh2 p sh s r.
-     ( KnownShS sh, KnownShS sh2, GoodScalar r, AstSpan s
+     ( KnownShS sh, KnownShS sh2, KnownNat p, GoodScalar r, AstSpan s
      , KnownShS (Sh.Take p sh), KnownShS (Sh.Drop p sh) )
   => AstTensor s (AstS r sh)
   -> (AstVarListS sh2, AstIndexS (Sh.Take p sh))
@@ -1182,7 +1186,7 @@ isVarS _ = False
 
 astGatherKnobsS
   :: forall sh2 p sh s r.
-     ( KnownShS sh, KnownShS sh2
+     ( KnownShS sh, KnownShS sh2, KnownNat p
      , KnownShS (Sh.Take p sh), KnownShS (Sh.Drop p sh) )
   => SimplifyKnobs -> AstTensor s (AstS r sh)
   -> (AstVarListS sh2, AstIndexS (Sh.Take p sh))
@@ -1430,11 +1434,20 @@ astSumS t0 = case sameNat (Proxy @n) (Proxy @0) of
   _ -> case t0 of
     -- Ast.AstLetS var u v -> astLetS var u (astSumS v)
     Ast.AstScatterS @sh2 @p v (vars, _ :.$ ix) | Dict <- sixKnown ix ->
-      gcastWith (unsafeCoerce Refl
-                 :: Sh.Drop p (n : sh) :~: Sh.Drop (p - 1) sh) $
-      gcastWith (unsafeCoerce Refl
-                 :: Sh.Drop 1 (Sh.Take p (n : sh)) :~: Sh.Take (p - 1) sh) $
-      astScatterS @sh2 @(p - 1) @sh v (vars, ix)
+      case cmpNat (Proxy @1) (Proxy @p) of
+        LTI ->
+          gcastWith (unsafeCoerce Refl
+                     :: Sh.Drop p (n : sh) :~: Sh.Drop (p - 1) sh) $
+          gcastWith (unsafeCoerce Refl
+                     :: Sh.Drop 1 (Sh.Take p (n : sh)) :~: Sh.Take (p - 1) sh) $
+          astScatterS @sh2 @(p - 1) @sh v (vars, ix)
+        EQI ->
+          gcastWith (unsafeCoerce Refl
+                     :: Sh.Drop p (n : sh) :~: Sh.Drop (p - 1) sh) $
+          gcastWith (unsafeCoerce Refl
+                     :: Sh.Drop 1 (Sh.Take p (n : sh)) :~: Sh.Take (p - 1) sh) $
+          astScatterS @sh2 @(p - 1) @sh v (vars, ix)
+        GTI -> error "astSumS: impossible p"
     Ast.AstFromVectorS l -> astSumOfListS $ V.toList l
     Ast.AstReplicateS @k v -> v * astReplicate0NS (valueOf @k)
     Ast.AstSliceS @_ @k _v | Just Refl <- sameNat (Proxy @k) (Proxy @0) -> astReplicate0NS 0
@@ -1465,7 +1478,7 @@ astScatter sh (Ast.AstConstant v) (vars, ix) =
 astScatter sh v (vars, ix) = Ast.AstScatter sh v (vars, ix)
 
 astScatterS :: forall sh2 p sh s r.
-               ( KnownShS sh2, KnownShS sh
+               ( KnownShS sh2, KnownShS sh, KnownNat p
                , KnownShS (Sh.Take p sh), KnownShS (Sh.Drop p sh)
                , KnownShS (sh2 X.++ Sh.Drop p sh), GoodScalar r, AstSpan s )
             => AstTensor s (AstS r (sh2 X.++ Sh.Drop p sh))
@@ -1980,6 +1993,8 @@ astProjectS l p = case l of
 astRFromS :: forall sh s r. (GoodScalar r, KnownShS sh)
           => AstTensor s (AstS r sh) -> AstTensor s (AstR r (X.Rank sh))
 astRFromS (AstConstS t) =
+  withListSh (Proxy @sh) $ \(_ :: IShR p) ->
+  gcastWith (unsafeCoerce Refl :: X.Rank sh :~: p) $
   AstConst $ Nested.stoRanked t
 astRFromS (Ast.AstConstantS v) = Ast.AstConstant $ astRFromS v
 astRFromS (Ast.AstSFromR v) = v  -- no information lost, so no checks
@@ -2290,13 +2305,13 @@ astLetHVectorInS vars l v =
 -- unlike astLetHVectorIn, etc., so we don't try to eliminate it.
 -- We assume functions are never small enough to justify inlining on the spot.
 astLetHFunIn
-  :: forall n r s.
-     AstVarId -> AstHFun -> AstTensor s (AstR r n) -> AstTensor s (AstR r n)
+  :: forall n r s. (GoodScalar r, KnownNat n)
+  => AstVarId -> AstHFun -> AstTensor s (AstR r n) -> AstTensor s (AstR r n)
 astLetHFunIn = Ast.AstLetHFunIn
 
 astLetHFunInS
-  :: forall sh r s.
-     AstVarId -> AstHFun -> AstTensor s (AstS r sh) -> AstTensor s (AstS r sh)
+  :: forall sh r s. (GoodScalar r, KnownShS sh)
+  => AstVarId -> AstHFun -> AstTensor s (AstS r sh) -> AstTensor s (AstS r sh)
 astLetHFunInS = Ast.AstLetHFunInS
 
 astLetHFunInHVector

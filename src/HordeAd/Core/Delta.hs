@@ -295,7 +295,8 @@ data DeltaS :: ShapedTensorType -> ShapedTensorType where
         => shaped r sh -> DeltaS shaped r sh
         -> DeltaS shaped r '[]
   ScatterS :: forall shaped r sh2 p sh.
-              ( KnownShS sh2, KnownShS (Sh.Take p sh), KnownShS (Sh.Drop p sh)
+              ( KnownShS sh2, KnownNat p
+              , KnownShS (Sh.Take p sh), KnownShS (Sh.Drop p sh)
               , KnownShS (sh2 X.++ Sh.Drop p sh) )
            => DeltaS shaped r (sh2 X.++ Sh.Drop p sh)
            -> (IndexSh shaped sh2
@@ -349,7 +350,7 @@ data DeltaS :: ShapedTensorType -> ShapedTensorType where
            -> DeltaS shaped r sh2
     -- ^ Change the shape of the tensor from the first to the second.
   GatherS :: forall shaped r sh2 p sh.
-             ( KnownShS sh2, KnownShS sh
+             ( KnownShS sh2, KnownShS sh, KnownNat p
              , KnownShS (Sh.Take p sh), KnownShS (Sh.Drop p sh) )
           => DeltaS shaped r sh
           -> (IndexSh shaped sh2
@@ -801,10 +802,12 @@ evalS !s !c = let cShared = sshare c
 
   IndexS @sh1 d ix ->
     gcastWith (unsafeCoerce Refl
-               :: Sh.Drop (X.Rank sh1) (sh1 X.++ sh) :~: sh)
-    $ gcastWith (unsafeCoerce Refl
-                 :: Sh.Take (X.Rank sh1) (sh1 X.++ sh) :~: sh1)
-    $ evalS s (sscatter @shaped @r @'[] @(X.Rank sh1) c (const ix)) d
+               :: Sh.Drop (X.Rank sh1) (sh1 X.++ sh) :~: sh) $
+    gcastWith (unsafeCoerce Refl
+               :: Sh.Take (X.Rank sh1) (sh1 X.++ sh) :~: sh1) $
+    withListSh (Proxy @sh1) $ \(_ :: IShR rankSh1) ->
+    gcastWith (unsafeCoerce Refl :: rankSh1 :~: X.Rank sh1) $
+    evalS s (sscatter @shaped @r @'[] @(X.Rank sh1) c (const ix)) d
     -- equivalent: evalS s (updateNR (replicate0NR sh 0) [(ix, c)]) d
   SumS d -> evalS s (sreplicate c) d
   Sum0S d -> evalS s (sreplicate0N c) d

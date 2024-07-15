@@ -220,11 +220,13 @@ instance (GoodScalar r, KnownNat n, RankedTensor (AstRanked s), AstSpan s)
   toHVector = V.singleton . DynamicRanked
   fromHVector _aInit = fromHVectorR
 
-instance GoodScalar r => DualNumberValue (AstRanked PrimalSpan r n) where
+instance (GoodScalar r, KnownNat n)
+         => DualNumberValue (AstRanked PrimalSpan r n) where
   type DValue (AstRanked PrimalSpan r n) = ORArray r n
   fromDValue t = AstRanked $ fromPrimal $ AstConst $ runFlipR t
 
-instance GoodScalar r => TermValue (AstRanked FullSpan r n) where
+instance (GoodScalar r, KnownNat n)
+         => TermValue (AstRanked FullSpan r n) where
   type Value (AstRanked FullSpan r n) = ORArray r n
   fromValue t = AstRanked $ fromPrimal $ AstConst $ runFlipR t
 
@@ -294,7 +296,8 @@ astLetHVectorInFun a f =
     astLetHVectorIn vars a (f asts)
 
 astLetHFunInFun
-  :: AstHFun -> (AstHFun -> AstTensor s (AstR r n))
+  :: (GoodScalar r, KnownNat n)
+  => AstHFun -> (AstHFun -> AstTensor s (AstR r n))
   -> AstTensor s (AstR r n)
 {-# INLINE astLetHFunInFun #-}
 astLetHFunInFun a f =
@@ -356,12 +359,12 @@ instance (GoodScalar r, KnownShS sh, ShapedTensor (AstShaped s), AstSpan s)
   toHVector = V.singleton . DynamicShaped
   fromHVector _aInit = fromHVectorS
 
-instance GoodScalar r
+instance (GoodScalar r, KnownShS sh)
          => DualNumberValue (AstShaped PrimalSpan r sh) where
   type DValue (AstShaped PrimalSpan r sh) = OSArray r sh
   fromDValue t = AstShaped $ fromPrimalS $ AstConstS $ runFlipS t
 
-instance GoodScalar r
+instance (GoodScalar r, KnownShS sh)
          => TermValue (AstShaped FullSpan r sh) where
   type Value (AstShaped FullSpan r sh) = OSArray r sh
   fromValue t = AstShaped $ fromPrimalS $ AstConstS $ runFlipS t
@@ -426,7 +429,8 @@ astLetHVectorInFunS a f =
     astLetHVectorInS vars a (f asts)
 
 astLetHFunInFunS
-  :: AstHFun -> (AstHFun -> AstTensor s (AstS r sh))
+  :: (GoodScalar r, KnownShS sh)
+  => AstHFun -> (AstHFun -> AstTensor s (AstS r sh))
   -> AstTensor s (AstS r sh)
 {-# INLINE astLetHFunInFunS #-}
 astLetHFunInFunS a f =
@@ -935,7 +939,7 @@ instance AstSpan s => RankedTensor (AstRaw s) where
   rScale s t = AstRaw $ astDualPart
                $ AstConstant (unAstRaw s) * AstD (unAstRanked $ rzero (rshape s)) (unAstRaw t)
 
-astLetFunRaw :: (KnownNat n, KnownNat m, GoodScalar r, AstSpan s)
+astLetFunRaw :: (KnownNat n, KnownNat m, GoodScalar r, GoodScalar r2, AstSpan s)
              => AstTensor s (AstR r n) -> (AstTensor s (AstR r n) -> AstTensor s (AstR r2 m))
              -> AstTensor s (AstR r2 m)
 astLetFunRaw a f | astIsSmall True a = f a  -- too important an optimization
@@ -944,7 +948,7 @@ astLetFunRaw a f =
       (var, ast) = funToAstR sh f
   in AstLet var a ast
 
-astLetFunRawS :: (KnownShS sh, KnownShS sh2, GoodScalar r, AstSpan s)
+astLetFunRawS :: (KnownShS sh, KnownShS sh2, GoodScalar r, GoodScalar r2, AstSpan s)
               => AstTensor s (AstS r sh) -> (AstTensor s (AstS r sh) -> AstTensor s (AstS r2 sh2))
               -> AstTensor s (AstS r2 sh2)
 astLetFunRawS a f | astIsSmallS True a = f a
@@ -969,7 +973,8 @@ astLetHVectorInFunRawS a f =
     AstLetHVectorInS vars a (f asts)
 
 astLetHFunInFunRaw
-  :: AstHFun -> (AstHFun -> AstTensor s (AstR r n))
+  :: (GoodScalar r, KnownNat n)
+  => AstHFun -> (AstHFun -> AstTensor s (AstR r n))
   -> AstTensor s (AstR r n)
 astLetHFunInFunRaw a f =
   let shss = domainShapesAstHFun a
@@ -977,7 +982,8 @@ astLetHFunInFunRaw a f =
   in fun1HToAst shss shs $ \ !var !ast -> AstLetHFunIn var a (f ast)
 
 astLetHFunInFunRawS
-  :: AstHFun -> (AstHFun -> AstTensor s (AstS r sh))
+  :: (GoodScalar r, KnownShS sh)
+  => AstHFun -> (AstHFun -> AstTensor s (AstS r sh))
   -> AstTensor s (AstS r sh)
 astLetHFunInFunRawS a f =
   let shss = domainShapesAstHFun a

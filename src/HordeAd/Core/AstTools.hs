@@ -8,7 +8,7 @@ module HordeAd.Core.AstTools
     shapeAst, lengthAst, shapeAstHVector, shapeAstHFun, domainShapesAstHFun
     -- * Variable occurrence detection
   , varInAst, varInAstBool, varInIndex
-  , varInAstS, varInIndexS
+  , varInIndexS
   , varInAstDynamic, varInAstHVector
   , varNameInAst, varNameInAstS, varNameInAstHVector
   , varInAstBindingsCase
@@ -135,8 +135,8 @@ domainShapesAstHFun = \case
 -- and nobody asks about occurrences of variables that are bound.
 -- This keeps the occurrence checking code simple, because we never need
 -- to compare variables to any variable in the bindings.
-varInAst :: forall s r n. AstSpan s
-         => AstVarId -> AstTensor s (AstR r n) -> Bool
+varInAst :: AstSpan s
+         => AstVarId -> AstTensor s y -> Bool
 varInAst var = \case
   AstVar _ var2 -> fromEnum var == fromEnum var2
   AstLet _var2 u v -> varInAst var u || varInAst var v
@@ -170,55 +170,52 @@ varInAst var = \case
   AstProject l _p -> varInAstHVector var l  -- conservative
   AstLetHVectorIn _vars l v -> varInAstHVector var l || varInAst var v
   AstLetHFunIn _var2 f v -> varInAstHFun var f || varInAst var v
-  AstRFromS v -> varInAstS var v
+  AstRFromS v -> varInAst var v
   AstConstant v -> varInAst var v
   AstPrimalPart a -> varInAst var a
   AstDualPart a -> varInAst var a
   AstD u u' -> varInAst var u || varInAst var u'
 
-varInIndex :: AstVarId -> AstIndex n -> Bool
-varInIndex var = any (varInAst var)
-
-varInAstS :: forall s r sh. AstSpan s
-          => AstVarId -> AstTensor s (AstS r sh) -> Bool
-varInAstS var = \case
   AstVarS var2 -> fromEnum var == fromEnum var2
-  AstLetS _var2 u v -> varInAstS var u || varInAstS var v
-  AstShareS _ v -> varInAstS var v
-  AstCondS b v w -> varInAstBool var b || varInAstS var v || varInAstS var w
-  AstMinIndexS a -> varInAstS var a
-  AstMaxIndexS a -> varInAstS var a
-  AstFloorS a -> varInAstS var a
+  AstLetS _var2 u v -> varInAst var u || varInAst var v
+  AstShareS _ v -> varInAst var v
+  AstCondS b v w -> varInAstBool var b || varInAst var v || varInAst var w
+  AstMinIndexS a -> varInAst var a
+  AstMaxIndexS a -> varInAst var a
+  AstFloorS a -> varInAst var a
   AstIotaS -> False
-  AstN1S _ t -> varInAstS var t
-  AstN2S _ t u -> varInAstS var t || varInAstS var u
-  AstR1S _ t -> varInAstS var t
-  AstR2S _ t u -> varInAstS var t || varInAstS var u
-  AstI2S _ t u -> varInAstS var t || varInAstS var u
-  AstSumOfListS l -> any (varInAstS var) l
-  AstIndexS v ix -> varInAstS var v || varInIndexS var ix
-  AstSumS v -> varInAstS var v
-  AstScatterS v (_vars, ix) -> varInIndexS var ix || varInAstS var v
-  AstFromVectorS vl -> any (varInAstS var) $ V.toList vl
-  AstReplicateS v -> varInAstS var v
-  AstAppendS v u -> varInAstS var v || varInAstS var u
-  AstSliceS v -> varInAstS var v
-  AstReverseS v -> varInAstS var v
-  AstTransposeS _perm v -> varInAstS var v
-  AstReshapeS v -> varInAstS var v
-  AstBuild1S (_var2, v) -> varInAstS var v
-  AstGatherS v (_vars, ix) -> varInIndexS var ix || varInAstS var v
-  AstCastS t -> varInAstS var t
-  AstFromIntegralS a -> varInAstS var a
+  AstN1S _ t -> varInAst var t
+  AstN2S _ t u -> varInAst var t || varInAst var u
+  AstR1S _ t -> varInAst var t
+  AstR2S _ t u -> varInAst var t || varInAst var u
+  AstI2S _ t u -> varInAst var t || varInAst var u
+  AstSumOfListS l -> any (varInAst var) l
+  AstIndexS v ix -> varInAst var v || varInIndexS var ix
+  AstSumS v -> varInAst var v
+  AstScatterS v (_vars, ix) -> varInIndexS var ix || varInAst var v
+  AstFromVectorS vl -> any (varInAst var) $ V.toList vl
+  AstReplicateS v -> varInAst var v
+  AstAppendS v u -> varInAst var v || varInAst var u
+  AstSliceS v -> varInAst var v
+  AstReverseS v -> varInAst var v
+  AstTransposeS _perm v -> varInAst var v
+  AstReshapeS v -> varInAst var v
+  AstBuild1S (_var2, v) -> varInAst var v
+  AstGatherS v (_vars, ix) -> varInIndexS var ix || varInAst var v
+  AstCastS t -> varInAst var t
+  AstFromIntegralS a -> varInAst var a
   AstConstS{} -> False
   AstProjectS l _p -> varInAstHVector var l  -- conservative
-  AstLetHVectorInS _vars l v -> varInAstHVector var l || varInAstS var v
-  AstLetHFunInS _var2 f v -> varInAstHFun var f || varInAstS var v
+  AstLetHVectorInS _vars l v -> varInAstHVector var l || varInAst var v
+  AstLetHFunInS _var2 f v -> varInAstHFun var f || varInAst var v
   AstSFromR v -> varInAst var v
-  AstConstantS v -> varInAstS var v
-  AstPrimalPartS a -> varInAstS var a
-  AstDualPartS a -> varInAstS var a
-  AstDS u u' -> varInAstS var u || varInAstS var u'
+  AstConstantS v -> varInAst var v
+  AstPrimalPartS a -> varInAst var a
+  AstDualPartS a -> varInAst var a
+  AstDS u u' -> varInAst var u || varInAst var u'
+
+varInIndex :: AstVarId -> AstIndex n -> Bool
+varInIndex var = any (varInAst var)
 
 varInIndexS :: AstVarId -> AstIndexS sh -> Bool
 varInIndexS var = any (varInAst var)
@@ -233,7 +230,7 @@ varInAstHVector var = \case
   AstLetHFunInHVector _var2 f v ->
     varInAstHFun var f || varInAstHVector var v
   AstLetInHVector _var2 u v -> varInAst var u || varInAstHVector var v
-  AstLetInHVectorS _var2 u v -> varInAstS var u || varInAstHVector var v
+  AstLetInHVectorS _var2 u v -> varInAst var u || varInAstHVector var v
   AstShareHVector _ v -> varInAstHVector var v
   AstBuildHVector1 _ (_var2, v) -> varInAstHVector var v
   AstMapAccumRDer _k _accShs _bShs _eShs _f _df _rf acc0 es ->
@@ -245,7 +242,7 @@ varInAstDynamic :: AstSpan s
                 => AstVarId -> AstDynamic s -> Bool
 varInAstDynamic var = \case
   DynamicRanked (AstRanked t) -> varInAst var t
-  DynamicShaped (AstShaped t) -> varInAstS var t
+  DynamicShaped (AstShaped t) -> varInAst var t
   DynamicRankedDummy{} -> False
   DynamicShapedDummy{} -> False
 
@@ -260,7 +257,7 @@ varInAstBool var = \case
   AstB2 _ arg1 arg2 -> varInAstBool var arg1 || varInAstBool var arg2
   AstBoolConst{} -> False
   AstRel _ arg1 arg2 -> varInAst var arg1 || varInAst var arg2
-  AstRelS _ arg1 arg2 -> varInAstS var arg1 || varInAstS var arg2
+  AstRelS _ arg1 arg2 -> varInAst var arg1 || varInAst var arg2
 
 varNameInAst :: AstSpan s2
              => AstVarName f y -> AstTensor s2 (AstR r2 n2) -> Bool
@@ -268,7 +265,7 @@ varNameInAst (AstVarName varId) = varInAst varId
 
 varNameInAstS :: AstSpan s2
               => AstVarName f y -> AstTensor s2 (AstS r2 sh2) -> Bool
-varNameInAstS (AstVarName varId) = varInAstS varId
+varNameInAstS (AstVarName varId) = varInAst varId
 
 varNameInAstHVector :: AstSpan s
                     => AstVarName f y -> AstHVector s -> Bool
@@ -357,7 +354,7 @@ bindsToLet = foldl' bindToLet
   bindToLet (AstRanked u) (_, AstBindingsHVector lids d) =
     AstRanked $ AstLetHVectorIn lids d u
 
-bindsToLetS :: forall sh s r. (AstSpan s, KnownShS sh)
+bindsToLetS :: forall sh s r. (AstSpan s, GoodScalar r, KnownShS sh)
             => AstShaped s r sh -> AstBindings s -> AstShaped s r sh
 {-# INLINE bindsToLetS #-}  -- help list fusion
 bindsToLetS = foldl' bindToLetS

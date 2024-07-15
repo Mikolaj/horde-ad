@@ -469,6 +469,8 @@ build1VS (var, v00) =
                  :: Sh.Take (X.Rank sh1) (sh1 X.++ sh) :~: sh1) $
       gcastWith (unsafeCoerce Refl
                  :: Sh.Drop (X.Rank sh1) (sh1 X.++ sh) :~: sh) $
+      withListSh (Proxy @sh1) $ \(_ :: IShR rankSh1) ->
+      gcastWith (unsafeCoerce Refl :: rankSh1 :~: X.Rank sh1) $
       build1VIndexS @k @(X.Rank sh1) (var, v, ix)  -- @var@ is in @v@ or @ix@
     Ast.AstSumS v -> traceRule $
       astSumS $ astTrS $ build1VS (var, v)
@@ -548,7 +550,7 @@ build1VS (var, v00) =
 
 build1VIndexS
   :: forall k p sh s r.
-     ( GoodScalar r, KnownNat k, KnownShS sh, KnownShS (Sh.Take p sh)
+     ( GoodScalar r, KnownNat k, KnownNat p, KnownShS sh, KnownShS (Sh.Take p sh)
      , KnownShS (Sh.Drop p (Sh.Take p sh X.++ Sh.Drop p sh)), AstSpan s )
   => (IntVarName, AstTensor s (AstS r sh), AstIndexS (Sh.Take p sh))
   -> AstTensor s (AstS r (k ': Sh.Drop p sh))
@@ -573,10 +575,12 @@ build1VIndexS (var, v0, ix@(_ :.$ _)) =
                     :: Sh.Drop p sh
                        :~: Sh.Drop (1 + X.Rank sh1)
                                    (k ': sh1 X.++ Sh.Drop p sh)) $
+         withListSh (Proxy @sh1) $ \(_ :: IShR rankSh1Plus1) ->
+         gcastWith (unsafeCoerce Refl :: rankSh1Plus1 :~: 1 + X.Rank sh1) $
          let (varFresh, astVarFresh, ix2) = intBindingRefreshS var ix1
              ruleD = astGatherStepS @'[k] @(1 + X.Rank sh1)
-                       (build1VS @k (var, v1))
-                       (Const varFresh ::$ ZS, astVarFresh :.$ ix2)
+                                    (build1VS @k (var, v1))
+                                    (Const varFresh ::$ ZS, astVarFresh :.$ ix2)
              len = length $ shapeT @sh1
          in if varNameInAstS var v1
             then case v1 of  -- try to avoid ruleD if not a normal form
@@ -999,7 +1003,7 @@ ellipsisString width full = let cropped = take width full
                                then cropped
                                else take (width - 3) cropped ++ "..."
 
-mkTraceRule :: (KnownNat n, KnownNat m, GoodScalar r, AstSpan s)
+mkTraceRule :: (KnownNat n, GoodScalar r, AstSpan s)
             => String -> AstTensor s (AstR r n) -> AstTensor s (AstR r m) -> Int
             -> AstTensor s (AstR r n)
             -> AstTensor s (AstR r n)
@@ -1029,8 +1033,7 @@ mkTraceRule prefix from caseAnalysed nwords to = unsafePerformIO $ do
                     `swith`(shapeAst from, shapeAst to, from, to)) ()
   return $! to
 
-mkTraceRuleS :: forall sh sh2 s r.
-                (GoodScalar r, KnownShS sh, KnownShS sh2, AstSpan s)
+mkTraceRuleS :: forall sh sh2 s r. AstSpan s
              => String -> AstTensor s (AstS r sh) -> AstTensor s (AstS r sh2) -> Int
              -> AstTensor s (AstS r sh) -> AstTensor s (AstS r sh)
 {-# NOINLINE mkTraceRuleS #-}
