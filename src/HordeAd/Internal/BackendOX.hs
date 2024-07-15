@@ -441,7 +441,7 @@ tminIndexS =
       in case someNatVal $ toInteger $ last sh of
         Just (SomeNat @m _proxy) ->
           case someNatVal $ toInteger $ length sh of
-            Just (SomeNat @shRank _proxy) ->
+            Just (SomeNat _proxy) ->
               gcastWith (unsafeCoerce Refl
                          :: Sh.Init (n ': sh) X.++ '[m] :~: n ': sh) $
               gcastWith (unsafeCoerce Refl
@@ -464,7 +464,7 @@ tmaxIndexS =
       in case someNatVal $ toInteger $ last sh of
         Just (SomeNat @m _proxy) ->
           case someNatVal $ toInteger $ length sh of
-            Just (SomeNat @shRank _proxy) ->
+            Just (SomeNat _proxy) ->
               gcastWith (unsafeCoerce Refl
                          :: Sh.Init (n ': sh) X.++ '[m] :~: n ': sh) $
               gcastWith (unsafeCoerce Refl

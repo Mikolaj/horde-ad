@@ -199,7 +199,7 @@ voidFromDynamicF
      (forall r n. (GoodScalar r, KnownNat n) => ranked r n -> [Int])
   -> DynamicTensor ranked -> DynamicTensor VoidTensor
 {-# INLINE voidFromDynamicF #-}
-voidFromDynamicF f (DynamicRanked @r2 @n2 t) =
+voidFromDynamicF f (DynamicRanked @r2 t) =
   let sh = f t
   in withShapeP sh $ \proxySh ->
        DynamicRankedDummy (Proxy @r2) proxySh

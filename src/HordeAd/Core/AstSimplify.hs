@@ -84,12 +84,9 @@ import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 import HordeAd.Core.Ast
   ( AstBool (AstBoolConst)
   , AstHVector
-  , AstRanked (..)
-  , AstShaped (..)
   , AstTensor (AstConst, AstConstS, AstN1, AstN1S, AstN2, AstN2S, AstSumOfList, AstSumOfListS)
   )
-import HordeAd.Core.Ast hiding
-  (AstBool (..), AstHVector (..), AstShaped (..), AstTensor (..))
+import HordeAd.Core.Ast hiding (AstBool (..), AstHVector (..), AstTensor (..))
 import HordeAd.Core.Ast qualified as Ast
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstTools
@@ -784,7 +781,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS shm1)) | Dict <- s
     astLetHVectorInS vars l (astIndexRec v ix)
   Ast.AstLetHFunInS var f v ->
     astLetHFunInS var f (astIndexRec v ix)
-  Ast.AstSFromR @sh t ->
+  Ast.AstSFromR t ->
     withListSh (Proxy @shn) $ \_ ->
     withListSh (Proxy @shm) $ \_ ->
       gcastWith (unsafeCoerce Refl
@@ -1440,7 +1437,7 @@ astSumS t0 = case sameNat (Proxy @n) (Proxy @0) of
       astScatterS @sh2 @(p - 1) @sh v (vars, ix)
     Ast.AstFromVectorS l -> astSumOfListS $ V.toList l
     Ast.AstReplicateS @k v -> v * astReplicate0NS (valueOf @k)
-    Ast.AstSliceS @i @k _v | Just Refl <- sameNat (Proxy @k) (Proxy @0) -> astReplicate0NS 0
+    Ast.AstSliceS @_ @k _v | Just Refl <- sameNat (Proxy @k) (Proxy @0) -> astReplicate0NS 0
     Ast.AstSliceS @i @k v | Just Refl <- sameNat (Proxy @k) (Proxy @1) ->
       astIndexS v (valueOf @i :.$ ZIS)
     Ast.AstReverseS v -> astSumS v
@@ -1782,7 +1779,7 @@ astTransposeS perm t = case perm of
     Ast.AstR1S opCode (astTransposeS perm u)
   Ast.AstR2S opCode u v | not (isVarS u && isVarS v) ->
     Ast.AstR2S opCode (astTransposeS perm u) (astTransposeS perm v)
-  Ast.AstSumS @n @sh1 v ->
+  Ast.AstSumS @n v ->
     let zsuccP :: Permutation.Perm (0 : Permutation.MapSucc perm)
         zsuccP = Permutation.permShift1 perm
     in
@@ -1834,7 +1831,7 @@ astTransposeS perm t = case perm of
                             :: Sh.Drop p (Permutation.PermutePrefix perm sh) :~: Sh.Drop p sh) $
                  astScatterS @sh2 @p @(Permutation.PermutePrefix perm sh) v (vars, ix2)
 -}
-  Ast.AstTransposeS @perm2 @sh2 perm2 u ->  -- TODO: try to perform at type level
+  Ast.AstTransposeS @_ @sh2 perm2 u ->  -- TODO: try to perform at type level
     let permV = Permutation.permToList' perm
         perm2V = Permutation.permToList' perm2
         perm2Matched =
@@ -2165,7 +2162,7 @@ astLetHVectorInHVector vars u v =
       Ast.AstLetInHVector var2 u2 d2 ->
         astLetInHVector var2 u2
         $ astLetHVectorInHVector vars d2 v
-      Ast.AstLetInHVectorS @sh3 var2 u2 d2 ->
+      Ast.AstLetInHVectorS var2 u2 d2 ->
         astLetInHVectorS var2 u2
         $ astLetHVectorInHVector vars d2 v
       _ -> Ast.AstLetHVectorInHVector vars u v

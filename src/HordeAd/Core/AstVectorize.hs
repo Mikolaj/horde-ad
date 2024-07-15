@@ -389,7 +389,7 @@ build1VOccurenceUnknownRefreshS
   :: forall k sh s r. (GoodScalar r, KnownNat k, KnownShS sh, AstSpan s)
   => (IntVarName, AstTensor s (AstS r sh)) -> AstTensor s (AstS r (k ': sh))
 {-# NOINLINE build1VOccurenceUnknownRefreshS #-}
-build1VOccurenceUnknownRefreshS (var@(AstVarName varId), v0) =
+build1VOccurenceUnknownRefreshS ({-var@-}(AstVarName varId), v0) =
   funToAstIntVar $ \ (!varFresh, !astVarFresh) ->
     let !v2 = substituteAstS  -- cheap subst, because only a renaming
                 (SubstitutionPayloadRanked @PrimalSpan @Int64 astVarFresh)
@@ -780,7 +780,7 @@ substProjShaped :: forall n1 r1 sh r s1 s.
                 => Int -> IntVarName -> IShR n1
                 -> AstVarName (AstTensor s1) (AstR r1 n1)
                 -> AstTensor s (AstS r sh) -> AstTensor s (AstS r sh)
-substProjShaped k var sh1 var1@(AstVarName varId) =
+substProjShaped k var sh1 {-var1@-}(AstVarName varId) =
   let var2 = AstVarName varId
       var3 = AstVarName varId
       projection =
@@ -796,7 +796,7 @@ substProjRankedS :: forall k sh1 r1 n r s1 s.
                     , KnownNat n, GoodScalar r, AstSpan s, AstSpan s1 )
                  => IntVarName -> AstVarName (AstTensor s1) (AstS r1 sh1)
                  -> AstTensor s (AstR r n) -> AstTensor s (AstR r n)
-substProjRankedS var var1@(AstVarName varId) =
+substProjRankedS var {-var1@-}(AstVarName varId) =
   let var2 = AstVarName varId
       var3 = AstVarName varId
       projection =

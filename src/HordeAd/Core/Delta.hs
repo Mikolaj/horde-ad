@@ -48,29 +48,28 @@ module HordeAd.Core.Delta
 
 import Prelude
 
-import           Control.Arrow (second)
-import           Control.Exception.Assert.Sugar
-import qualified Data.Array.Shape as Sh
-import qualified Data.EnumMap.Strict as EM
-import           Data.Int (Int64)
-import           Data.Kind (Type)
-import           Data.List (foldl')
-import           Data.Maybe (fromMaybe)
-import           Data.Proxy (Proxy (Proxy))
-import qualified Data.Strict.Vector as Data.Vector
-import           Data.Traversable (mapAccumL)
-import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
-import qualified Data.Vector.Generic as V
-import           Foreign.C (CInt)
-import           GHC.TypeLits (KnownNat, sameNat, type (+), type (<=))
-import           Text.Show.Functions ()
-import           Type.Reflection (typeRep)
-import           Unsafe.Coerce (unsafeCoerce)
+import Control.Arrow (second)
+import Control.Exception.Assert.Sugar
+import Data.Array.Shape qualified as Sh
+import Data.EnumMap.Strict qualified as EM
+import Data.Int (Int64)
+import Data.Kind (Type)
+import Data.Maybe (fromMaybe)
+import Data.Proxy (Proxy (Proxy))
+import Data.Strict.Vector qualified as Data.Vector
+import Data.Traversable (mapAccumL)
+import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
+import Data.Vector.Generic qualified as V
+import Foreign.C (CInt)
+import GHC.TypeLits (KnownNat, sameNat, type (+), type (<=))
+import Text.Show.Functions ()
+import Type.Reflection (typeRep)
+import Unsafe.Coerce (unsafeCoerce)
 
-import qualified Data.Array.Mixed.Permutation as Permutation
-import qualified Data.Array.Mixed.Shape as X
-import qualified Data.Array.Mixed.Types as X
-import qualified Data.Array.Nested.Internal.Shape as Nested.Internal.Shape
+import Data.Array.Mixed.Permutation qualified as Permutation
+import Data.Array.Mixed.Shape qualified as X
+import Data.Array.Mixed.Types qualified as X
+import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
 import HordeAd.Core.HVector
 import HordeAd.Core.HVectorOps
@@ -1143,8 +1142,8 @@ fwdS dimR params s = \case
     in (s3, sappend t u)
   SliceS @_ @i d -> second (sslice (Proxy @i) Proxy) $ fwdS dimR params s d
   ReverseS d -> second sreverse $ fwdS dimR params s d
-  TransposeS @_ @perm perm d -> second (stranspose perm)
-                                $ fwdS dimR params s d
+  TransposeS perm d -> second (stranspose perm)
+                       $ fwdS dimR params s d
   ReshapeS d -> second sreshape $ fwdS dimR params s d
   GatherS d f ->
     let (s2, t) = fwdS dimR params s d

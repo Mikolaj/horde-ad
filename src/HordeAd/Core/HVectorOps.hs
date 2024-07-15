@@ -21,7 +21,7 @@ module HordeAd.Core.HVectorOps
 import Prelude
 
 import Data.Array.Internal (valueOf)
-import Data.List (foldl', transpose)
+import Data.List (transpose)
 import Data.List.NonEmpty qualified as NonEmpty
 import Data.Maybe (isJust)
 import Data.Proxy (Proxy (Proxy))
@@ -289,7 +289,7 @@ unravelDynamic (DynamicRanked @rp @p t) =
       gcastWith (unsafeCoerce Refl :: p :~: 1 + p1 ) $
       map (DynamicRanked @rp @p1) $ runravelToList t
     Nothing -> error "unravelDynamic: rank 0"
-unravelDynamic (DynamicShaped @rp @sh t) = case knownShS @sh of
+unravelDynamic (DynamicShaped @_ @sh t) = case knownShS @sh of
   ZSS -> error "unravelDynamic: rank 0"
   (:$$) SNat tl | Dict <- sshapeKnown tl -> map DynamicShaped $ sunravelToList t
 unravelDynamic (DynamicRankedDummy @rp @sh _ _) =
@@ -398,7 +398,7 @@ mapRanked
       => ranked rq q -> ranked rq q)
   -> DynamicTensor ranked -> DynamicTensor ranked
 mapRanked f (DynamicRanked t) = DynamicRanked $ f t
-mapRanked f (DynamicShaped @r @sh t) =
+mapRanked f (DynamicShaped @_ @sh t) =
   withListSh (Proxy @sh) $ \(_ :: IShR n) ->
     let res = f $ rfromS @_ @_ @sh t
     in withShapeP (shapeToList $ rshape res) $ \(Proxy @shr) ->
@@ -430,7 +430,7 @@ mapRanked01
       => ranked rq q -> ranked rq (1 + q))
   -> DynamicTensor ranked -> DynamicTensor ranked
 mapRanked01 f (DynamicRanked t) = DynamicRanked $ f t
-mapRanked01 f (DynamicShaped @r @sh t) =
+mapRanked01 f (DynamicShaped @_ @sh t) =
   withListSh (Proxy @sh) $ \(_ :: IShR n) ->
     let res = f $ rfromS @_ @_ @sh t
     in withShapeP (shapeToList $ rshape res) $ \(Proxy @shr) ->
@@ -471,7 +471,7 @@ mapRanked10
 mapRanked10 f (DynamicRanked t) = case rshape t of
   ZSR -> error "mapRanked10: rank 0"
   _ :$: _ -> DynamicRanked $ f t
-mapRanked10 f (DynamicShaped @r @sh t) = case knownShS @sh of
+mapRanked10 f (DynamicShaped @_ @sh t) = case knownShS @sh of
   ZSS -> error "mapRanked10: rank 0"
   (:$$) @_ @sh0 _ tl | Dict <- sshapeKnown tl ->
     withListSh (Proxy @sh0) $ \(_ :: IShR n) ->
@@ -510,7 +510,7 @@ mapRanked11
 mapRanked11 f (DynamicRanked t) = case rshape t of
   ZSR -> error "mapRanked11: rank 0"
   _ :$: _ -> DynamicRanked $ f t
-mapRanked11 f (DynamicShaped @r @sh t) = case knownShS @sh of
+mapRanked11 f (DynamicShaped @_ @sh t) = case knownShS @sh of
   ZSS -> error "mapRanked11: rank 0"
   (:$$) @_ @sh0 _ tl | Dict <- sshapeKnown tl ->
     withListSh (Proxy @sh0) $ \(_ :: IShR n) ->
@@ -595,7 +595,7 @@ mapShaped11 f (DynamicRanked @r @n2 t) =
             gcastWith (unsafeCoerce Refl :: n2 :~: 1 + m) $
             DynamicRanked $ rfromS $ f @r @shr $ sfromR t
           Nothing -> error "mapShaped11: wrong width"
-mapShaped11 f (DynamicShaped @r t) = case sshape t of
+mapShaped11 f (DynamicShaped t) = case sshape t of
   ZSS -> error "mapShaped11: rank 0"
   (:$$) @n SNat tl
     | Dict <- sshapeKnown tl -> case sameNat (Proxy @n) (Proxy @k) of
