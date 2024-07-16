@@ -28,18 +28,17 @@ module HordeAd.Core.AstSimplify
   , astTranspose, astTransposeS, astReshape, astReshapeS
   , astCast, astCastS, astFromIntegral, astFromIntegralS
   , astProject, astProjectS, astRFromS, astSFromR
-  , astPrimalPart, astPrimalPartS, astDualPart, astDualPartS
+  , astPrimalPart, astDualPart
   , astLetHVectorIn, astLetHVectorInS, astLetHFunIn, astLetHFunInS, astHApply
   , astLetHVectorInHVector, astLetHFunInHVector
   , astLetInHVector, astLetInHVectorS
     -- * The simplifying bottom-up pass
-  , simplifyAst, simplifyAstHVector, simplifyAstS
+  , simplifyAst, simplifyAstHVector
     -- * The expanding (to gather expressions) bottom-up pass
-  , expandAst, expandAstHVector, expandAstS
+  , expandAst, expandAstHVector
     -- * Substitution payload and adaptors for AstVarName
   , SubstitutionPayload(..)
-  , substituteAst, substitute1Ast, substituteAstIndex
-  , substituteAstS, substitute1AstS, substituteAstIndexS
+  , substituteAst, substitute1Ast, substituteAstIndex, substituteAstIndexS
   , substituteAstHVector, substitute1AstHVector
   ) where
 
@@ -347,8 +346,8 @@ astNonIndexStepS t = case t of
   Ast.AstLetHFunInS var u v -> astLetHFunInS var u v
   Ast.AstSFromR v -> astSFromR v
   Ast.AstConstantS{} -> t
-  Ast.AstPrimalPartS v -> astPrimalPartS v  -- has to be done sooner or later
-  Ast.AstDualPartS v -> astDualPartS v
+  Ast.AstPrimalPartS v -> astPrimalPart v  -- has to be done sooner or later
+  Ast.AstDualPartS v -> astDualPart v
   Ast.AstDS{} -> t
 
 astIndexR
@@ -1307,7 +1306,7 @@ astLet var u v@(Ast.AstPrimalPart (Ast.AstVar _ var2)) =  -- a common noop
   then case sameAstSpan @s @FullSpan of
     Just Refl -> case sameNat (Proxy @n) (Proxy @m) of
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
-        Just Refl -> astPrimalPart @r2 u
+        Just Refl -> astPrimalPart u
         _ -> error "astLet: scalar mismatch"
       _ -> error "astLet: rank mismatch"
     _ -> error "astLet: span mismatch"
@@ -1317,7 +1316,7 @@ astLet var u v@(Ast.AstDualPart (Ast.AstVar _ var2)) =  -- a noop
   then case sameAstSpan @s @FullSpan of
     Just Refl -> case sameNat (Proxy @n) (Proxy @m) of
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
-        Just Refl -> astDualPart @r2 u
+        Just Refl -> astDualPart u
         _ -> error "astLet: scalar mismatch"
       _ -> error "astLet: rank mismatch"
     _ -> error "astLet: span mismatch"
@@ -1341,9 +1340,9 @@ astLetS :: forall sh1 sh2 r r2 s s2.
         => AstVarName (AstTensor s) (AstS r sh1)
         -> AstTensor s (AstS r sh1) -> AstTensor s2 (AstS r2 sh2)
         -> AstTensor s2 (AstS r2 sh2)
-astLetS var u v | astIsSmallS True u =
+astLetS var u v | astIsSmall True u =
   fromMaybe v
-  $ substitute1AstS (SubstitutionPayloadShaped u) (varNameToAstVarId var) v
+  $ substitute1Ast (SubstitutionPayloadShaped u) (varNameToAstVarId var) v
 astLetS var u v@(Ast.AstVarS var2) =
   if fromEnum var2 == fromEnum var
   then case sameAstSpan @s @s2 of
@@ -1369,7 +1368,7 @@ astLetS var u v@(Ast.AstPrimalPartS (Ast.AstVarS var2)) =  -- a common noop
   then case sameAstSpan @s @FullSpan of
     Just Refl -> case sameShape @sh1 @sh2 of
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
-        Just Refl -> astPrimalPartS @r2 u
+        Just Refl -> astPrimalPart u
         _ -> error "astLetS: scalar mismatch"
       _ -> error "astLetS: shape mismatch"
     _ -> error "astLetS: span mismatch"
@@ -1379,7 +1378,7 @@ astLetS var u v@(Ast.AstDualPartS (Ast.AstVarS var2)) =  -- a noop
   then case sameAstSpan @s @FullSpan of
     Just Refl -> case sameShape @sh1 @sh2 of
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
-        Just Refl -> astDualPartS @r2 u
+        Just Refl -> astDualPart u
         _ -> error "astLetS: scalar mismatch"
       _ -> error "astLetS: shape mismatch"
     _ -> error "astLetS: span mismatch"
@@ -2012,9 +2011,8 @@ astSFromR (Ast.AstRFromS @sh1 v) =
     _ -> error "astSFromR: different ranks in SFromR(RFromS)"
 astSFromR v = Ast.AstSFromR v
 
-astPrimalPart :: (GoodScalar r, KnownNat n)
-              => AstTensor FullSpan (AstR r n)
-              -> AstTensor PrimalSpan (AstR r n)
+astPrimalPart :: AstTensor FullSpan y
+              -> AstTensor PrimalSpan y
 astPrimalPart t = case t of
   Ast.AstVar{} -> Ast.AstPrimalPart t  -- the only normal form
   Ast.AstLet var u v -> astLet var u (astPrimalPart v)
@@ -2041,52 +2039,47 @@ astPrimalPart t = case t of
   Ast.AstProject{} -> Ast.AstPrimalPart t  -- should get simplified early
   Ast.AstLetHVectorIn vars l v -> astLetHVectorIn vars l (astPrimalPart v)
   Ast.AstLetHFunIn var f v -> astLetHFunIn var f (astPrimalPart v)
-  Ast.AstRFromS v -> astRFromS $ astPrimalPartS v
+  Ast.AstRFromS v -> astRFromS $ astPrimalPart v
   Ast.AstConstant v -> v
   Ast.AstD u _ -> u
   Ast.AstCond b a2 a3 -> astCond b (astPrimalPart a2) (astPrimalPart a3)
 
-astPrimalPartS :: (GoodScalar r, KnownShS sh)
-               => AstTensor FullSpan (AstS r sh)
-               -> AstTensor PrimalSpan (AstS r sh)
-astPrimalPartS t = case t of
   Ast.AstVarS{} -> Ast.AstPrimalPartS t  -- the only normal form
-  Ast.AstLetS var u v -> astLetS var u (astPrimalPartS v)
-  Ast.AstShareS{} -> error "astPrimalPartS: AstShareS"
-  AstN1S opCode u -> AstN1S opCode (astPrimalPartS u)
-  AstN2S opCode u v -> AstN2S opCode (astPrimalPartS u) (astPrimalPartS v)
-  Ast.AstR1S opCode u -> Ast.AstR1S opCode (astPrimalPartS u)
-  Ast.AstR2S opCode u v -> Ast.AstR2S opCode (astPrimalPartS u)
-                                             (astPrimalPartS v)
-  Ast.AstI2S opCode u v -> Ast.AstI2S opCode (astPrimalPartS u)
-                                             (astPrimalPartS v)
-  AstSumOfListS args -> astSumOfListS (map astPrimalPartS args)
-  Ast.AstIndexS v ix -> Ast.AstIndexS (astPrimalPartS v) ix
-  Ast.AstSumS v -> astSumS (astPrimalPartS v)
-  Ast.AstScatterS v (var, ix) -> astScatterS (astPrimalPartS v) (var, ix)
-  Ast.AstFromVectorS l -> astFromVectorS (V.map astPrimalPartS l)
-  Ast.AstReplicateS v -> astReplicateS (astPrimalPartS v)
-  Ast.AstAppendS x y -> astAppendS (astPrimalPartS x) (astPrimalPartS y)
-  Ast.AstSliceS @i v -> astSliceS @i (astPrimalPartS v)
-  Ast.AstReverseS v -> astReverseS (astPrimalPartS v)
-  Ast.AstTransposeS perm v -> astTransposeS perm (astPrimalPartS v)
-  Ast.AstReshapeS v -> astReshapeS (astPrimalPartS v)
-  Ast.AstBuild1S (var, v) -> Ast.AstBuild1S (var, astPrimalPartS v)
-  Ast.AstGatherS v (vars, ix) -> astGatherS (astPrimalPartS v) (vars, ix)
-  Ast.AstCastS v -> astCastS $ astPrimalPartS v
+  Ast.AstLetS var u v -> astLetS var u (astPrimalPart v)
+  Ast.AstShareS{} -> error "astPrimalPart: AstShareS"
+  AstN1S opCode u -> AstN1S opCode (astPrimalPart u)
+  AstN2S opCode u v -> AstN2S opCode (astPrimalPart u) (astPrimalPart v)
+  Ast.AstR1S opCode u -> Ast.AstR1S opCode (astPrimalPart u)
+  Ast.AstR2S opCode u v -> Ast.AstR2S opCode (astPrimalPart u)
+                                             (astPrimalPart v)
+  Ast.AstI2S opCode u v -> Ast.AstI2S opCode (astPrimalPart u)
+                                             (astPrimalPart v)
+  AstSumOfListS args -> astSumOfListS (map astPrimalPart args)
+  Ast.AstIndexS v ix -> Ast.AstIndexS (astPrimalPart v) ix
+  Ast.AstSumS v -> astSumS (astPrimalPart v)
+  Ast.AstScatterS v (var, ix) -> astScatterS (astPrimalPart v) (var, ix)
+  Ast.AstFromVectorS l -> astFromVectorS (V.map astPrimalPart l)
+  Ast.AstReplicateS v -> astReplicateS (astPrimalPart v)
+  Ast.AstAppendS x y -> astAppendS (astPrimalPart x) (astPrimalPart y)
+  Ast.AstSliceS @i v -> astSliceS @i (astPrimalPart v)
+  Ast.AstReverseS v -> astReverseS (astPrimalPart v)
+  Ast.AstTransposeS perm v -> astTransposeS perm (astPrimalPart v)
+  Ast.AstReshapeS v -> astReshapeS (astPrimalPart v)
+  Ast.AstBuild1S (var, v) -> Ast.AstBuild1S (var, astPrimalPart v)
+  Ast.AstGatherS v (vars, ix) -> astGatherS (astPrimalPart v) (vars, ix)
+  Ast.AstCastS v -> astCastS $ astPrimalPart v
   Ast.AstProjectS{} -> Ast.AstPrimalPartS t
   Ast.AstLetHVectorInS vars l v ->
-    astLetHVectorInS vars l (astPrimalPartS v)
-  Ast.AstLetHFunInS var f v -> astLetHFunInS var f (astPrimalPartS v)
+    astLetHVectorInS vars l (astPrimalPart v)
+  Ast.AstLetHFunInS var f v -> astLetHFunInS var f (astPrimalPart v)
   Ast.AstSFromR v -> astSFromR $ astPrimalPart v
   Ast.AstConstantS v -> v
   Ast.AstDS u _ -> u
-  Ast.AstCondS b a2 a3 -> astCondS b (astPrimalPartS a2) (astPrimalPartS a3)
+  Ast.AstCondS b a2 a3 -> astCondS b (astPrimalPart a2) (astPrimalPart a3)
 
 -- Note how this can't be pushed down, say, multiplication, because it
 -- multiplies the dual part by the primal part. Addition is fine, though.
-astDualPart :: (GoodScalar r, KnownNat n)
-            => AstTensor FullSpan (AstR r n) -> AstTensor DualSpan (AstR r n)
+astDualPart :: AstTensor FullSpan y -> AstTensor DualSpan y
 astDualPart t = case t of
   Ast.AstVar{} -> Ast.AstDualPart t
   Ast.AstLet var u v -> astLet var u (astDualPart v)
@@ -2113,43 +2106,40 @@ astDualPart t = case t of
   Ast.AstProject{} -> Ast.AstDualPart t
   Ast.AstLetHVectorIn vars l v -> astLetHVectorIn vars l (astDualPart v)
   Ast.AstLetHFunIn var f v -> astLetHFunIn var f (astDualPart v)
-  Ast.AstRFromS v -> astRFromS $ astDualPartS v
+  Ast.AstRFromS v -> astRFromS $ astDualPart v
   Ast.AstConstant{}  -> Ast.AstDualPart t  -- this equals nil (not primal 0)
   Ast.AstD _ u' -> u'
   Ast.AstCond b a2 a3 -> astCond b (astDualPart a2) (astDualPart a3)
 
-astDualPartS :: (GoodScalar r, KnownShS sh)
-             => AstTensor FullSpan (AstS r sh) -> AstTensor DualSpan (AstS r sh)
-astDualPartS t = case t of
   Ast.AstVarS{} -> Ast.AstDualPartS t
-  Ast.AstLetS var u v -> astLetS var u (astDualPartS v)
-  Ast.AstShareS{} -> error "astDualPartS: AstShareS"
+  Ast.AstLetS var u v -> astLetS var u (astDualPart v)
+  Ast.AstShareS{} -> error "astDualPart: AstShareS"
   AstN1S{} -> Ast.AstDualPartS t
   AstN2S{} -> Ast.AstDualPartS t
   Ast.AstR1S{} -> Ast.AstDualPartS t
   Ast.AstR2S{} -> Ast.AstDualPartS t
   Ast.AstI2S{} -> Ast.AstDualPartS t
-  AstSumOfListS args -> astSumOfListS (map astDualPartS args)
-  Ast.AstIndexS v ix -> Ast.AstIndexS (astDualPartS v) ix
-  Ast.AstSumS v -> astSumS (astDualPartS v)
-  Ast.AstScatterS v (var, ix) -> astScatterS (astDualPartS v) (var, ix)
-  Ast.AstFromVectorS l -> astFromVectorS (V.map astDualPartS l)
-  Ast.AstReplicateS v -> astReplicateS (astDualPartS v)
-  Ast.AstAppendS x y -> astAppendS (astDualPartS x) (astDualPartS y)
-  Ast.AstSliceS @i v -> astSliceS @i (astDualPartS v)
-  Ast.AstReverseS v -> astReverseS (astDualPartS v)
-  Ast.AstTransposeS perm v -> astTransposeS perm (astDualPartS v)
-  Ast.AstReshapeS v -> astReshapeS (astDualPartS v)
-  Ast.AstBuild1S (var, v) -> Ast.AstBuild1S (var, astDualPartS v)
-  Ast.AstGatherS v (vars, ix) -> astGatherS (astDualPartS v) (vars, ix)
-  Ast.AstCastS v -> astCastS $ astDualPartS v
+  AstSumOfListS args -> astSumOfListS (map astDualPart args)
+  Ast.AstIndexS v ix -> Ast.AstIndexS (astDualPart v) ix
+  Ast.AstSumS v -> astSumS (astDualPart v)
+  Ast.AstScatterS v (var, ix) -> astScatterS (astDualPart v) (var, ix)
+  Ast.AstFromVectorS l -> astFromVectorS (V.map astDualPart l)
+  Ast.AstReplicateS v -> astReplicateS (astDualPart v)
+  Ast.AstAppendS x y -> astAppendS (astDualPart x) (astDualPart y)
+  Ast.AstSliceS @i v -> astSliceS @i (astDualPart v)
+  Ast.AstReverseS v -> astReverseS (astDualPart v)
+  Ast.AstTransposeS perm v -> astTransposeS perm (astDualPart v)
+  Ast.AstReshapeS v -> astReshapeS (astDualPart v)
+  Ast.AstBuild1S (var, v) -> Ast.AstBuild1S (var, astDualPart v)
+  Ast.AstGatherS v (vars, ix) -> astGatherS (astDualPart v) (vars, ix)
+  Ast.AstCastS v -> astCastS $ astDualPart v
   Ast.AstProjectS{} -> Ast.AstDualPartS t
-  Ast.AstLetHVectorInS var f v -> astLetHVectorInS var f (astDualPartS v)
-  Ast.AstLetHFunInS var f v -> astLetHFunInS var f (astDualPartS v)
+  Ast.AstLetHVectorInS var f v -> astLetHVectorInS var f (astDualPart v)
+  Ast.AstLetHFunInS var f v -> astLetHFunInS var f (astDualPart v)
   Ast.AstSFromR v -> astSFromR $ astDualPart v
   Ast.AstConstantS{}  -> Ast.AstDualPartS t  -- this equals nil (not primal 0)
   Ast.AstDS _ u' -> u'
-  Ast.AstCondS b a2 a3 -> astCondS b (astDualPartS a2) (astDualPartS a3)
+  Ast.AstCondS b a2 a3 -> astCondS b (astDualPart a2) (astDualPart a3)
 
 astHApply :: forall s. AstSpan s
           => AstHFun -> [HVector (AstRanked s)] -> AstHVector s
@@ -2240,7 +2230,7 @@ astLetInHVectorS :: forall sh r s s2.
                  => AstVarName (AstTensor s) (AstS r sh) -> AstTensor s (AstS r sh)
                  -> AstHVector s2
                  -> AstHVector s2
-astLetInHVectorS var u v | astIsSmallS True u =
+astLetInHVectorS var u v | astIsSmall True u =
   substituteAstHVector (SubstitutionPayloadShaped u) var v
 astLetInHVectorS var u v = Ast.AstLetInHVectorS var u v
 
@@ -2334,8 +2324,8 @@ simplifyAstIndexS = fmap simplifyAstInt
 -- is visited and each combinator applied. The most exhaustive and costly
 -- variants of each combinator are used, e.g., astIndexR.
 simplifyAst
-  :: forall n s r. (GoodScalar r, KnownNat n, AstSpan s)
-  => AstTensor s (AstR r n) -> AstTensor s (AstR r n)
+  :: forall s y. AstSpan s
+  => AstTensor s y -> AstTensor s y
 simplifyAst t = case t of
   Ast.AstVar{} -> t
   Ast.AstLet var u v -> astLet var (simplifyAst u) (simplifyAst v)
@@ -2387,58 +2377,54 @@ simplifyAst t = case t of
     astLetHVectorIn vars (simplifyAstHVector l) (simplifyAst v)
   Ast.AstLetHFunIn var f v ->
     astLetHFunIn var (simplifyAstHFun f) (simplifyAst v)
-  Ast.AstRFromS v -> astRFromS $ simplifyAstS v
+  Ast.AstRFromS v -> astRFromS $ simplifyAst v
   Ast.AstConstant v -> Ast.AstConstant (simplifyAst v)
   Ast.AstPrimalPart v -> astPrimalPart (simplifyAst v)
   Ast.AstDualPart v -> astDualPart (simplifyAst v)
   Ast.AstD u u' -> Ast.AstD (simplifyAst u) (simplifyAst u')
 
-simplifyAstS
-  :: (KnownShS sh, GoodScalar r, AstSpan s)
-  => AstTensor s (AstS r sh) -> AstTensor s (AstS r sh)
-simplifyAstS t = case t of
   Ast.AstVarS{} -> t
-  Ast.AstLetS var u v -> astLetS var (simplifyAstS u) (simplifyAstS v)
-  Ast.AstShareS{} -> error "simplifyAstS: AstShareS"
+  Ast.AstLetS var u v -> astLetS var (simplifyAst u) (simplifyAst v)
+  Ast.AstShareS{} -> error "simplifyAst: AstShareS"
   Ast.AstCondS b a2 a3 ->
-    astCondS (simplifyAstBool b) (simplifyAstS a2) (simplifyAstS a3)
-  Ast.AstMinIndexS a -> Ast.AstMinIndexS (simplifyAstS a)
-  Ast.AstMaxIndexS a -> Ast.AstMaxIndexS (simplifyAstS a)
-  Ast.AstFloorS a -> Ast.AstFloorS (simplifyAstS a)
+    astCondS (simplifyAstBool b) (simplifyAst a2) (simplifyAst a3)
+  Ast.AstMinIndexS a -> Ast.AstMinIndexS (simplifyAst a)
+  Ast.AstMaxIndexS a -> Ast.AstMaxIndexS (simplifyAst a)
+  Ast.AstFloorS a -> Ast.AstFloorS (simplifyAst a)
   Ast.AstIotaS -> t
-  AstN1S opCode u -> AstN1S opCode (simplifyAstS u)
-  AstN2S opCode u v -> AstN2S opCode (simplifyAstS u) (simplifyAstS v)
-  Ast.AstR1S opCode u -> Ast.AstR1S opCode (simplifyAstS u)
-  Ast.AstR2S opCode u v -> Ast.AstR2S opCode (simplifyAstS u) (simplifyAstS v)
-  Ast.AstI2S opCode u v -> Ast.AstI2S opCode (simplifyAstS u) (simplifyAstS v)
-  AstSumOfListS args -> astSumOfListS (map simplifyAstS args)
-  Ast.AstIndexS v ix -> astIndexS (simplifyAstS v) (simplifyAstIndexS ix)
-  Ast.AstSumS v -> astSumS (simplifyAstS v)
+  AstN1S opCode u -> AstN1S opCode (simplifyAst u)
+  AstN2S opCode u v -> AstN2S opCode (simplifyAst u) (simplifyAst v)
+  Ast.AstR1S opCode u -> Ast.AstR1S opCode (simplifyAst u)
+  Ast.AstR2S opCode u v -> Ast.AstR2S opCode (simplifyAst u) (simplifyAst v)
+  Ast.AstI2S opCode u v -> Ast.AstI2S opCode (simplifyAst u) (simplifyAst v)
+  AstSumOfListS args -> astSumOfListS (map simplifyAst args)
+  Ast.AstIndexS v ix -> astIndexS (simplifyAst v) (simplifyAstIndexS ix)
+  Ast.AstSumS v -> astSumS (simplifyAst v)
   Ast.AstScatterS v (var, ix) ->
-    astScatterS (simplifyAstS v) (var, simplifyAstIndexS ix)
-  Ast.AstFromVectorS l -> astFromVectorS (V.map simplifyAstS l)
-  Ast.AstReplicateS v -> astReplicateS (simplifyAstS v)
-  Ast.AstAppendS x y -> astAppendS (simplifyAstS x) (simplifyAstS y)
-  Ast.AstSliceS @i v -> astSliceS @i (simplifyAstS v)
-  Ast.AstReverseS v -> astReverseS (simplifyAstS v)
-  Ast.AstTransposeS perm v -> astTransposeS perm $ simplifyAstS v
-  Ast.AstReshapeS v -> astReshapeS $ simplifyAstS v
-  Ast.AstBuild1S (var, v) -> Ast.AstBuild1S (var, simplifyAstS v)
+    astScatterS (simplifyAst v) (var, simplifyAstIndexS ix)
+  Ast.AstFromVectorS l -> astFromVectorS (V.map simplifyAst l)
+  Ast.AstReplicateS v -> astReplicateS (simplifyAst v)
+  Ast.AstAppendS x y -> astAppendS (simplifyAst x) (simplifyAst y)
+  Ast.AstSliceS @i v -> astSliceS @i (simplifyAst v)
+  Ast.AstReverseS v -> astReverseS (simplifyAst v)
+  Ast.AstTransposeS perm v -> astTransposeS perm $ simplifyAst v
+  Ast.AstReshapeS v -> astReshapeS $ simplifyAst v
+  Ast.AstBuild1S (var, v) -> Ast.AstBuild1S (var, simplifyAst v)
   Ast.AstGatherS v (vars, ix) ->
-    astGatherS (simplifyAstS v) (vars, simplifyAstIndexS ix)
-  Ast.AstCastS v -> astCastS $ simplifyAstS v
-  Ast.AstFromIntegralS v -> astFromIntegralS $ simplifyAstS v
+    astGatherS (simplifyAst v) (vars, simplifyAstIndexS ix)
+  Ast.AstCastS v -> astCastS $ simplifyAst v
+  Ast.AstFromIntegralS v -> astFromIntegralS $ simplifyAst v
   AstConstS{} -> t
   Ast.AstProjectS l p -> astProjectS (simplifyAstHVector l) p
   Ast.AstLetHVectorInS vars l v ->
-    astLetHVectorInS vars (simplifyAstHVector l) (simplifyAstS v)
+    astLetHVectorInS vars (simplifyAstHVector l) (simplifyAst v)
   Ast.AstLetHFunInS var f v ->
-    astLetHFunInS var (simplifyAstHFun f) (simplifyAstS v)
+    astLetHFunInS var (simplifyAstHFun f) (simplifyAst v)
   Ast.AstSFromR v -> astSFromR $ simplifyAst v
-  Ast.AstConstantS v -> Ast.AstConstantS (simplifyAstS v)
-  Ast.AstPrimalPartS v -> astPrimalPartS (simplifyAstS v)
-  Ast.AstDualPartS v -> astDualPartS (simplifyAstS v)
-  Ast.AstDS u u' -> Ast.AstDS (simplifyAstS u) (simplifyAstS u')
+  Ast.AstConstantS v -> Ast.AstConstantS (simplifyAst v)
+  Ast.AstPrimalPartS v -> astPrimalPart (simplifyAst v)
+  Ast.AstDualPartS v -> astDualPart (simplifyAst v)
+  Ast.AstDS u u' -> Ast.AstDS (simplifyAst u) (simplifyAst u')
 
 simplifyAstDynamic
   :: AstSpan s
@@ -2446,7 +2432,7 @@ simplifyAstDynamic
 simplifyAstDynamic (DynamicRanked (AstRanked u)) =
   DynamicRanked $ AstRanked $ simplifyAst u
 simplifyAstDynamic (DynamicShaped (AstShaped u)) =
-  DynamicShaped $ AstShaped $ simplifyAstS u
+  DynamicShaped $ AstShaped $ simplifyAst u
 simplifyAstDynamic u@DynamicRankedDummy{} = u
 simplifyAstDynamic u@DynamicShapedDummy{} = u
 
@@ -2463,7 +2449,7 @@ simplifyAstHVector = \case
   Ast.AstLetInHVector var u v ->
     astLetInHVector var (simplifyAst u) (simplifyAstHVector v)
   Ast.AstLetInHVectorS var u v ->
-    astLetInHVectorS var (simplifyAstS u) (simplifyAstHVector v)
+    astLetInHVectorS var (simplifyAst u) (simplifyAstHVector v)
   Ast.AstShareHVector{} -> error "simplifyAstHVector: AstShareHVector"
   Ast.AstBuildHVector1 k (var, v) ->
     Ast.AstBuildHVector1 k (var, simplifyAstHVector v)
@@ -2503,7 +2489,7 @@ simplifyAstBool t = case t of
       -- Anyway, because these tensors sometimes represent indexes,
       -- we simplify them a bit more than the shaped ones.
   Ast.AstRelS opCodeRel arg1 arg2 ->
-    Ast.AstRelS opCodeRel (simplifyAstS arg1) (simplifyAstS arg2)
+    Ast.AstRelS opCodeRel (simplifyAst arg1) (simplifyAst arg2)
 
 
 -- * The expanding (to gather expressions) bottom-up pass
@@ -2518,8 +2504,8 @@ expandAstIndexS :: AstIndexS sh -> AstIndexS sh
 expandAstIndexS = fmap expandAstInt
 
 expandAst
-  :: forall n s r. (GoodScalar r, KnownNat n, AstSpan s)
-  => AstTensor s (AstR r n) -> AstTensor s (AstR r n)
+  :: forall s y. AstSpan s
+  => AstTensor s y -> AstTensor s y
 expandAst t = case t of
   Ast.AstVar{} -> t
   Ast.AstLet var u v -> astLet var (expandAst u) (expandAst v)
@@ -2534,7 +2520,7 @@ expandAst t = case t of
     case isRankedInt u of
       Just Refl -> contractAstNumOp1 opCode (expandAst u)
       _ -> AstN1 opCode (expandAst u)
-  AstN2 opCode u v ->
+  AstN2 @_ @n opCode u v ->
     case isRankedInt u of
       Just Refl -> contractAstNumOp2 opCode (expandAst u) (expandAst v)
       _ -> case opCode of
@@ -2609,61 +2595,57 @@ expandAst t = case t of
     astLetHVectorIn vars (expandAstHVector l) (expandAst v)
   Ast.AstLetHFunIn var f v ->
     astLetHFunIn var (expandAstHFun f) (expandAst v)
-  Ast.AstRFromS v -> astRFromS $ expandAstS v
+  Ast.AstRFromS v -> astRFromS $ expandAst v
   Ast.AstConstant v -> Ast.AstConstant (expandAst v)
   Ast.AstPrimalPart v -> astPrimalPart (expandAst v)
   Ast.AstDualPart v -> astDualPart (expandAst v)
   Ast.AstD u u' -> Ast.AstD (expandAst u) (expandAst u')
 
-expandAstS
-  :: (KnownShS sh, GoodScalar r, AstSpan s)
-  => AstTensor s (AstS r sh) -> AstTensor s (AstS r sh)
-expandAstS t = case t of
   Ast.AstVarS{} -> t
-  Ast.AstLetS var u v -> astLetS var (expandAstS u) (expandAstS v)
-  Ast.AstShareS{} -> error "expandAstS: AstShareS"
+  Ast.AstLetS var u v -> astLetS var (expandAst u) (expandAst v)
+  Ast.AstShareS{} -> error "expandAst: AstShareS"
   Ast.AstCondS b a2 a3 ->
-    astCondS (expandAstBool b) (expandAstS a2) (expandAstS a3)
-  Ast.AstMinIndexS a -> Ast.AstMinIndexS (expandAstS a)
-  Ast.AstMaxIndexS a -> Ast.AstMaxIndexS (expandAstS a)
-  Ast.AstFloorS a -> Ast.AstFloorS (expandAstS a)
+    astCondS (expandAstBool b) (expandAst a2) (expandAst a3)
+  Ast.AstMinIndexS a -> Ast.AstMinIndexS (expandAst a)
+  Ast.AstMaxIndexS a -> Ast.AstMaxIndexS (expandAst a)
+  Ast.AstFloorS a -> Ast.AstFloorS (expandAst a)
   Ast.AstIotaS -> t
-  AstN1S opCode u -> AstN1S opCode (expandAstS u)
-  AstN2S opCode u v -> AstN2S opCode (expandAstS u) (expandAstS v)
-  Ast.AstR1S opCode u -> Ast.AstR1S opCode (expandAstS u)
-  Ast.AstR2S opCode u v -> Ast.AstR2S opCode (expandAstS u) (expandAstS v)
-  Ast.AstI2S opCode u v -> Ast.AstI2S opCode (expandAstS u) (expandAstS v)
-  AstSumOfListS args -> astSumOfListS (map expandAstS args)
+  AstN1S opCode u -> AstN1S opCode (expandAst u)
+  AstN2S opCode u v -> AstN2S opCode (expandAst u) (expandAst v)
+  Ast.AstR1S opCode u -> Ast.AstR1S opCode (expandAst u)
+  Ast.AstR2S opCode u v -> Ast.AstR2S opCode (expandAst u) (expandAst v)
+  Ast.AstI2S opCode u v -> Ast.AstI2S opCode (expandAst u) (expandAst v)
+  AstSumOfListS args -> astSumOfListS (map expandAst args)
   Ast.AstIndexS v ix -> astIndexKnobsS (defaultKnobs {knobExpand = True})
-                                       (expandAstS v)
+                                       (expandAst v)
                                        (expandAstIndexS ix)
-  Ast.AstSumS v -> astSumS (expandAstS v)
+  Ast.AstSumS v -> astSumS (expandAst v)
   Ast.AstScatterS v (var, ix) ->
-    astScatterS (expandAstS v) (var, expandAstIndexS ix)
-  Ast.AstFromVectorS l -> astFromVectorS (V.map expandAstS l)
-  Ast.AstReplicateS v -> astReplicateS (expandAstS v)
-  Ast.AstAppendS x y -> astAppendS (expandAstS x) (expandAstS y)
-  Ast.AstSliceS @i v -> astSliceS @i (expandAstS v)
-  Ast.AstReverseS v -> astReverseS (expandAstS v)
-  Ast.AstTransposeS perm v -> astTransposeS perm $ expandAstS v
-  Ast.AstReshapeS v -> astReshapeS $ expandAstS v
-  Ast.AstBuild1S (var, v) -> Ast.AstBuild1S (var, expandAstS v)
+    astScatterS (expandAst v) (var, expandAstIndexS ix)
+  Ast.AstFromVectorS l -> astFromVectorS (V.map expandAst l)
+  Ast.AstReplicateS v -> astReplicateS (expandAst v)
+  Ast.AstAppendS x y -> astAppendS (expandAst x) (expandAst y)
+  Ast.AstSliceS @i v -> astSliceS @i (expandAst v)
+  Ast.AstReverseS v -> astReverseS (expandAst v)
+  Ast.AstTransposeS perm v -> astTransposeS perm $ expandAst v
+  Ast.AstReshapeS v -> astReshapeS $ expandAst v
+  Ast.AstBuild1S (var, v) -> Ast.AstBuild1S (var, expandAst v)
   Ast.AstGatherS v (vars, ix) ->
     astGatherKnobsS (defaultKnobs {knobExpand = True})
-                    (expandAstS v) (vars, expandAstIndexS ix)
-  Ast.AstCastS v -> astCastS $ expandAstS v
-  Ast.AstFromIntegralS v -> astFromIntegralS $ expandAstS v
+                    (expandAst v) (vars, expandAstIndexS ix)
+  Ast.AstCastS v -> astCastS $ expandAst v
+  Ast.AstFromIntegralS v -> astFromIntegralS $ expandAst v
   AstConstS{} -> t
   Ast.AstProjectS l p -> astProjectS (expandAstHVector l) p
   Ast.AstLetHVectorInS vars l v ->
-    astLetHVectorInS vars (expandAstHVector l) (expandAstS v)
+    astLetHVectorInS vars (expandAstHVector l) (expandAst v)
   Ast.AstLetHFunInS var f v ->
-    astLetHFunInS var (expandAstHFun f) (expandAstS v)
+    astLetHFunInS var (expandAstHFun f) (expandAst v)
   Ast.AstSFromR v -> astSFromR $ expandAst v
-  Ast.AstConstantS v -> Ast.AstConstantS (expandAstS v)
-  Ast.AstPrimalPartS v -> astPrimalPartS (expandAstS v)
-  Ast.AstDualPartS v -> astDualPartS (expandAstS v)
-  Ast.AstDS u u' -> Ast.AstDS (expandAstS u) (expandAstS u')
+  Ast.AstConstantS v -> Ast.AstConstantS (expandAst v)
+  Ast.AstPrimalPartS v -> astPrimalPart (expandAst v)
+  Ast.AstDualPartS v -> astDualPart (expandAst v)
+  Ast.AstDS u u' -> Ast.AstDS (expandAst u) (expandAst u')
 
 expandAstDynamic
   :: AstSpan s
@@ -2671,7 +2653,7 @@ expandAstDynamic
 expandAstDynamic (DynamicRanked (AstRanked u)) =
   DynamicRanked $ AstRanked $ expandAst u
 expandAstDynamic (DynamicShaped (AstShaped u)) =
-  DynamicShaped $ AstShaped $ expandAstS u
+  DynamicShaped $ AstShaped $ expandAst u
 expandAstDynamic u@DynamicRankedDummy{} = u
 expandAstDynamic u@DynamicShapedDummy{} = u
 
@@ -2688,7 +2670,7 @@ expandAstHVector = \case
   Ast.AstLetInHVector var u v ->
     astLetInHVector var (expandAst u) (expandAstHVector v)
   Ast.AstLetInHVectorS var u v ->
-    astLetInHVectorS var (expandAstS u) (expandAstHVector v)
+    astLetInHVectorS var (expandAst u) (expandAstHVector v)
   Ast.AstShareHVector{} -> error "expandAstHVector: AstShareHVector"
   Ast.AstBuildHVector1 k (var, v) ->
     Ast.AstBuildHVector1 k (var, expandAstHVector v)
@@ -2728,7 +2710,7 @@ expandAstBool t = case t of
       -- Anyway, because these tensors sometimes represent indexes,
       -- we expand them a bit more than the shaped ones.
   Ast.AstRelS opCodeRel arg1 arg2 ->
-    Ast.AstRelS opCodeRel (expandAstS arg1) (expandAstS arg2)
+    Ast.AstRelS opCodeRel (expandAst arg1) (expandAst arg2)
 
 
 -- * Contraction of arithmetic and boolean operation terms
@@ -2985,14 +2967,13 @@ data SubstitutionPayload :: AstSpanType -> Type -> Type where
 -- and nobody substitutes into variables that are bound.
 -- This keeps the substitution code simple, because we never need to compare
 -- variables to any variable in the bindings.
-substituteAst :: forall n n2 s s2 r r2 f.
-                 ( GoodScalar r, GoodScalar r2, KnownNat n
-                 , AstSpan s, AstSpan s2 )
-              => SubstitutionPayload s2 r2 -> AstVarName (f s2) (AstR r2 n2)
-              -> AstRanked s r n
-              -> AstRanked s r n
-substituteAst i (AstVarName varId) (AstRanked v1) =
-  AstRanked $ fromMaybe v1 $ substitute1Ast i varId v1
+substituteAst :: forall s s2 r2 f y z.
+                 ( GoodScalar r2, AstSpan s, AstSpan s2 )
+              => SubstitutionPayload s2 r2 -> AstVarName (f s2) z
+              -> AstTensor s y
+              -> AstTensor s y
+substituteAst i (AstVarName varId) v1 =
+  fromMaybe v1 $ substitute1Ast i varId v1
 
 substituteAstIndex
   :: (GoodScalar r2, AstSpan s2)
@@ -3001,15 +2982,6 @@ substituteAstIndex
   -> AstIndex n
 substituteAstIndex i (AstVarName varId) ix =
   fromMaybe ix $ substitute1AstIndex i varId ix
-
-substituteAstS :: forall sh sh2 s2 s r r2 f.
-                  ( GoodScalar r, GoodScalar r2, KnownShS sh
-                  , AstSpan s, AstSpan s2 )
-               => SubstitutionPayload s2 r2 -> AstVarName (f s2) (AstS r2 sh2)
-               -> AstShaped s r sh
-               -> AstShaped s r sh
-substituteAstS i (AstVarName varId) (AstShaped v1) =
-  AstShaped $ fromMaybe v1 $ substitute1AstS i varId v1
 
 substituteAstIndexS
   :: (GoodScalar r2, AstSpan s2)
@@ -3041,14 +3013,12 @@ substituteAstBool i (AstVarName varId) v1 =
 -- need to be kept unrelated to anything else (except the existentially bound
 -- parameters in SubstitutionPayload, which would need to be checked
 -- at runtime).
-substitute1Ast :: forall n s s2 r r2.
-                  ( GoodScalar r, GoodScalar r2, KnownNat n
-                  , AstSpan s, AstSpan s2 )
+substitute1Ast :: forall s s2 r2 y. ( GoodScalar r2, AstSpan s, AstSpan s2 )
                => SubstitutionPayload s2 r2 -> AstVarId
-               -> AstTensor s (AstR r n)
-               -> Maybe (AstTensor s (AstR r n))
+               -> AstTensor s y
+               -> Maybe (AstTensor s y)
 substitute1Ast i var v1 = case v1 of
-  Ast.AstVar sh var2 ->
+  Ast.AstVar @r @n sh var2 ->
     if fromEnum var == fromEnum var2
     then case i of
       SubstitutionPayloadRanked @_ @_ @m t -> case sameAstSpan @s @s2 of
@@ -3174,7 +3144,7 @@ substitute1Ast i var v1 = case v1 of
       (Nothing, Nothing) -> Nothing
       (mf, mv) ->
         Just $ astLetHFunIn var2 (fromMaybe f mf) (fromMaybe v mv)
-  Ast.AstRFromS v -> astRFromS <$> substitute1AstS i var v
+  Ast.AstRFromS v -> astRFromS <$> substitute1Ast i var v
   Ast.AstConstant a -> Ast.AstConstant <$> substitute1Ast i var a
   Ast.AstPrimalPart a -> astPrimalPart <$> substitute1Ast i var a
   Ast.AstDualPart a -> astDualPart <$> substitute1Ast i var a
@@ -3182,6 +3152,128 @@ substitute1Ast i var v1 = case v1 of
     case (substitute1Ast i var x, substitute1Ast i var y) of
       (Nothing, Nothing) -> Nothing
       (mx, my) -> Just $ Ast.AstD (fromMaybe x mx) (fromMaybe y my)
+
+  Ast.AstVarS @sh @r var2 ->
+    if fromEnum var == fromEnum var2
+    then case i of
+      SubstitutionPayloadShaped @_ @_ @sh2 t -> case sameAstSpan @s @s2 of
+        Just Refl -> case sameShape @sh2 @sh of
+          Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
+            Just Refl -> Just t
+            _ -> error "substitute1Ast: scalar"
+          _ -> error "substitute1Ast: shape"
+        _ -> error "substitute1Ast: span"
+      -- To impose such checks, we'd need to switch from OD tensors
+      -- to existential OR/OS tensors so that we can inspect
+      -- which it is and then seed Delta evaluation maps with that.
+      -- _ -> error "substitute1Ast: type"
+      SubstitutionPayloadRanked @_ @_ @m t -> case sameAstSpan @s @s2 of
+        Just Refl -> case matchingRank @sh @m of
+          Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
+            Just Refl -> assert (shapeT @sh == shapeToList (shapeAst t))
+                         $ Just $ astSFromR t
+            _ -> error "substitute1Ast: scalar"
+          _ -> error "substitute1Ast: rank"
+        _ -> error "substitute1Ast: span"
+      SubstitutionPayloadHFun{} -> error "substitute1Ast: unexpected lambda"
+    else Nothing
+  Ast.AstLetS var2 u v ->
+    case (substitute1Ast i var u, substitute1Ast i var v) of
+      (Nothing, Nothing) -> Nothing
+      (mu, mv) -> Just $ astLetS var2 (fromMaybe u mu) (fromMaybe v mv)
+  Ast.AstShareS{} -> error "substitute1Ast: AstShareS"
+  Ast.AstCondS b v w ->
+    case ( substitute1AstBool i var b
+         , substitute1Ast i var v
+         , substitute1Ast i var w ) of
+      (Nothing, Nothing, Nothing) -> Nothing
+      (mb, mv, mw) ->
+        Just $ astCondS (fromMaybe b mb) (fromMaybe v mv) (fromMaybe w mw)
+  Ast.AstMinIndexS a -> Ast.AstMinIndexS <$> substitute1Ast i var a
+  Ast.AstMaxIndexS a -> Ast.AstMaxIndexS <$> substitute1Ast i var a
+  Ast.AstFloorS a -> Ast.AstFloorS <$> substitute1Ast i var a
+  Ast.AstIotaS -> Nothing
+  Ast.AstN1S opCode u -> Ast.AstN1S opCode  <$> substitute1Ast i var u
+  Ast.AstN2S opCode u v ->
+    let mu = substitute1Ast i var u
+        mv = substitute1Ast i var v
+    in if isJust mu || isJust mv
+       then Just $ Ast.AstN2S opCode (fromMaybe u mu) (fromMaybe v mv)
+       else Nothing
+  Ast.AstR1S opCode u -> Ast.AstR1S opCode <$> substitute1Ast i var u
+  Ast.AstR2S opCode u v ->
+    let mu = substitute1Ast i var u
+        mv = substitute1Ast i var v
+    in if isJust mu || isJust mv
+       then Just $ Ast.AstR2S opCode (fromMaybe u mu) (fromMaybe v mv)
+       else Nothing
+  Ast.AstI2S opCode u v ->
+    let mu = substitute1Ast i var u
+        mv = substitute1Ast i var v
+    in if isJust mu || isJust mv
+       then Just $ Ast.AstI2S opCode (fromMaybe u mu) (fromMaybe v mv)
+       else Nothing
+  Ast.AstSumOfListS args ->
+    let margs = map (substitute1Ast i var) args
+    in if any isJust margs
+       then Just $ astSumOfListS $ zipWith fromMaybe args margs
+       else Nothing
+  Ast.AstIndexS v ix ->
+    case (substitute1Ast i var v, substitute1AstIndexS i var ix) of
+      (Nothing, Nothing) -> Nothing
+      (mv, mix) -> Just $ astIndexS (fromMaybe v mv) (fromMaybe ix mix)
+  Ast.AstSumS v -> astSumS <$> substitute1Ast i var v
+  Ast.AstScatterS v (vars, ix) ->
+    case (substitute1Ast i var v, substitute1AstIndexS i var ix) of
+      (Nothing, Nothing) -> Nothing
+      (mv, mix) -> Just $ astScatterS (fromMaybe v mv)
+                                      (vars, fromMaybe ix mix)
+  Ast.AstFromVectorS args ->
+    let margs = V.map (substitute1Ast i var) args
+    in if V.any isJust margs
+       then Just $ astFromVectorS $ V.zipWith fromMaybe args margs
+       else Nothing
+  Ast.AstReplicateS v -> astReplicateS <$> substitute1Ast i var v
+  Ast.AstAppendS x y ->
+    case (substitute1Ast i var x, substitute1Ast i var y) of
+      (Nothing, Nothing) -> Nothing
+      (mx, my) -> Just $ astAppendS (fromMaybe x mx) (fromMaybe y my)
+  Ast.AstSliceS @i v -> astSliceS @i <$> substitute1Ast i var v
+  Ast.AstReverseS v -> astReverseS <$> substitute1Ast i var v
+  Ast.AstTransposeS perm v -> astTransposeS perm <$> substitute1Ast i var v
+  Ast.AstReshapeS v -> astReshapeS <$> substitute1Ast i var v
+  Ast.AstBuild1S (var2, v) ->
+    Ast.AstBuild1S . (var2,) <$> substitute1Ast i var v
+  Ast.AstGatherS v (vars, ix) ->
+    case (substitute1Ast i var v, substitute1AstIndexS i var ix) of
+      (Nothing, Nothing) -> Nothing
+      (mv, mix) -> Just $ astGatherS (fromMaybe v mv)
+                                     (vars, fromMaybe ix mix)
+  Ast.AstCastS v -> astCastS <$> substitute1Ast i var v
+  Ast.AstFromIntegralS a -> astFromIntegralS <$> substitute1Ast i var a
+  Ast.AstConstS{} -> Nothing
+  Ast.AstProjectS l p ->
+    case substitute1AstHVector i var l of
+      Nothing -> Nothing
+      ml -> Just $ astProjectS (fromMaybe l ml) p
+  Ast.AstLetHVectorInS vars l v ->
+    case (substitute1AstHVector i var l, substitute1Ast i var v) of
+      (Nothing, Nothing) -> Nothing
+      (ml, mv) ->
+        Just $ astLetHVectorInS vars (fromMaybe l ml) (fromMaybe v mv)
+  Ast.AstLetHFunInS var2 f v ->
+    case (substitute1AstHFun i var f, substitute1Ast i var v) of
+      (Nothing, Nothing) -> Nothing
+      (mf, mv) ->
+        Just $ astLetHFunInS var2 (fromMaybe f mf) (fromMaybe v mv)
+  Ast.AstSFromR v -> astSFromR <$> substitute1Ast i var v
+  Ast.AstConstantS a -> Ast.AstConstantS <$> substitute1Ast i var a
+  Ast.AstPrimalPartS a -> astPrimalPart <$> substitute1Ast i var a
+  Ast.AstDualPartS a -> astDualPart <$> substitute1Ast i var a
+  Ast.AstDS x y ->
+    case (substitute1Ast i var x, substitute1Ast i var y) of
+      (Nothing, Nothing) -> Nothing
+      (mx, my) -> Just $ Ast.AstDS (fromMaybe x mx) (fromMaybe y my)
 
 substitute1AstIndex
   :: (GoodScalar r2, AstSpan s2)
@@ -3192,135 +3284,6 @@ substitute1AstIndex i var ix =
   in if any isJust mix
      then Just $ zipWith_Index fromMaybe ix mix
      else Nothing
-
-substitute1AstS :: forall sh s s2 r r2.
-                   ( GoodScalar r, GoodScalar r2, KnownShS sh
-                   , AstSpan s, AstSpan s2 )
-                => SubstitutionPayload s2 r2 -> AstVarId
-                -> AstTensor s (AstS r sh)
-                -> Maybe (AstTensor s (AstS r sh))
-substitute1AstS i var = \case
-  Ast.AstVarS var2 ->
-    if fromEnum var == fromEnum var2
-    then case i of
-      SubstitutionPayloadShaped @_ @_ @sh2 t -> case sameAstSpan @s @s2 of
-        Just Refl -> case sameShape @sh2 @sh of
-          Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
-            Just Refl -> Just t
-            _ -> error "substitute1AstS: scalar"
-          _ -> error "substitute1AstS: shape"
-        _ -> error "substitute1AstS: span"
-      -- To impose such checks, we'd need to switch from OD tensors
-      -- to existential OR/OS tensors so that we can inspect
-      -- which it is and then seed Delta evaluation maps with that.
-      -- _ -> error "substitute1AstS: type"
-      SubstitutionPayloadRanked @_ @_ @m t -> case sameAstSpan @s @s2 of
-        Just Refl -> case matchingRank @sh @m of
-          Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
-            Just Refl -> assert (shapeT @sh == shapeToList (shapeAst t))
-                         $ Just $ astSFromR t
-            _ -> error "substitute1AstS: scalar"
-          _ -> error "substitute1AstS: rank"
-        _ -> error "substitute1AstS: span"
-      SubstitutionPayloadHFun{} -> error "substitute1AstS: unexpected lambda"
-    else Nothing
-  Ast.AstLetS var2 u v ->
-    case (substitute1AstS i var u, substitute1AstS i var v) of
-      (Nothing, Nothing) -> Nothing
-      (mu, mv) -> Just $ astLetS var2 (fromMaybe u mu) (fromMaybe v mv)
-  Ast.AstShareS{} -> error "substitute1AstS: AstShareS"
-  Ast.AstCondS b v w ->
-    case ( substitute1AstBool i var b
-         , substitute1AstS i var v
-         , substitute1AstS i var w ) of
-      (Nothing, Nothing, Nothing) -> Nothing
-      (mb, mv, mw) ->
-        Just $ astCondS (fromMaybe b mb) (fromMaybe v mv) (fromMaybe w mw)
-  Ast.AstMinIndexS a -> Ast.AstMinIndexS <$> substitute1AstS i var a
-  Ast.AstMaxIndexS a -> Ast.AstMaxIndexS <$> substitute1AstS i var a
-  Ast.AstFloorS a -> Ast.AstFloorS <$> substitute1AstS i var a
-  Ast.AstIotaS -> Nothing
-  Ast.AstN1S opCode u -> Ast.AstN1S opCode  <$> substitute1AstS i var u
-  Ast.AstN2S opCode u v ->
-    let mu = substitute1AstS i var u
-        mv = substitute1AstS i var v
-    in if isJust mu || isJust mv
-       then Just $ Ast.AstN2S opCode (fromMaybe u mu) (fromMaybe v mv)
-       else Nothing
-  Ast.AstR1S opCode u -> Ast.AstR1S opCode <$> substitute1AstS i var u
-  Ast.AstR2S opCode u v ->
-    let mu = substitute1AstS i var u
-        mv = substitute1AstS i var v
-    in if isJust mu || isJust mv
-       then Just $ Ast.AstR2S opCode (fromMaybe u mu) (fromMaybe v mv)
-       else Nothing
-  Ast.AstI2S opCode u v ->
-    let mu = substitute1AstS i var u
-        mv = substitute1AstS i var v
-    in if isJust mu || isJust mv
-       then Just $ Ast.AstI2S opCode (fromMaybe u mu) (fromMaybe v mv)
-       else Nothing
-  Ast.AstSumOfListS args ->
-    let margs = map (substitute1AstS i var) args
-    in if any isJust margs
-       then Just $ astSumOfListS $ zipWith fromMaybe args margs
-       else Nothing
-  Ast.AstIndexS v ix ->
-    case (substitute1AstS i var v, substitute1AstIndexS i var ix) of
-      (Nothing, Nothing) -> Nothing
-      (mv, mix) -> Just $ astIndexS (fromMaybe v mv) (fromMaybe ix mix)
-  Ast.AstSumS v -> astSumS <$> substitute1AstS i var v
-  Ast.AstScatterS v (vars, ix) ->
-    case (substitute1AstS i var v, substitute1AstIndexS i var ix) of
-      (Nothing, Nothing) -> Nothing
-      (mv, mix) -> Just $ astScatterS (fromMaybe v mv)
-                                      (vars, fromMaybe ix mix)
-  Ast.AstFromVectorS args ->
-    let margs = V.map (substitute1AstS i var) args
-    in if V.any isJust margs
-       then Just $ astFromVectorS $ V.zipWith fromMaybe args margs
-       else Nothing
-  Ast.AstReplicateS v -> astReplicateS <$> substitute1AstS i var v
-  Ast.AstAppendS x y ->
-    case (substitute1AstS i var x, substitute1AstS i var y) of
-      (Nothing, Nothing) -> Nothing
-      (mx, my) -> Just $ astAppendS (fromMaybe x mx) (fromMaybe y my)
-  Ast.AstSliceS @i v -> astSliceS @i <$> substitute1AstS i var v
-  Ast.AstReverseS v -> astReverseS <$> substitute1AstS i var v
-  Ast.AstTransposeS perm v -> astTransposeS perm <$> substitute1AstS i var v
-  Ast.AstReshapeS v -> astReshapeS <$> substitute1AstS i var v
-  Ast.AstBuild1S (var2, v) ->
-    Ast.AstBuild1S . (var2,) <$> substitute1AstS i var v
-  Ast.AstGatherS v (vars, ix) ->
-    case (substitute1AstS i var v, substitute1AstIndexS i var ix) of
-      (Nothing, Nothing) -> Nothing
-      (mv, mix) -> Just $ astGatherS (fromMaybe v mv)
-                                     (vars, fromMaybe ix mix)
-  Ast.AstCastS v -> astCastS <$> substitute1AstS i var v
-  Ast.AstFromIntegralS a -> astFromIntegralS <$> substitute1AstS i var a
-  Ast.AstConstS{} -> Nothing
-  Ast.AstProjectS l p ->
-    case substitute1AstHVector i var l of
-      Nothing -> Nothing
-      ml -> Just $ astProjectS (fromMaybe l ml) p
-  Ast.AstLetHVectorInS vars l v ->
-    case (substitute1AstHVector i var l, substitute1AstS i var v) of
-      (Nothing, Nothing) -> Nothing
-      (ml, mv) ->
-        Just $ astLetHVectorInS vars (fromMaybe l ml) (fromMaybe v mv)
-  Ast.AstLetHFunInS var2 f v ->
-    case (substitute1AstHFun i var f, substitute1AstS i var v) of
-      (Nothing, Nothing) -> Nothing
-      (mf, mv) ->
-        Just $ astLetHFunInS var2 (fromMaybe f mf) (fromMaybe v mv)
-  Ast.AstSFromR v -> astSFromR <$> substitute1Ast i var v
-  Ast.AstConstantS a -> Ast.AstConstantS <$> substitute1AstS i var a
-  Ast.AstPrimalPartS a -> astPrimalPartS <$> substitute1AstS i var a
-  Ast.AstDualPartS a -> astDualPartS <$> substitute1AstS i var a
-  Ast.AstDS x y ->
-    case (substitute1AstS i var x, substitute1AstS i var y) of
-      (Nothing, Nothing) -> Nothing
-      (mx, my) -> Just $ Ast.AstDS (fromMaybe x mx) (fromMaybe y my)
 
 substitute1AstIndexS
   :: (GoodScalar r2, AstSpan s2)
@@ -3340,7 +3303,7 @@ substitute1AstDynamic i var = \case
   DynamicRanked (AstRanked t) ->
     (DynamicRanked . AstRanked) <$> substitute1Ast i var t
   DynamicShaped (AstShaped t) ->
-    (DynamicShaped . AstShaped) <$> substitute1AstS i var t
+    (DynamicShaped . AstShaped) <$> substitute1Ast i var t
   DynamicRankedDummy{} -> Nothing
   DynamicShapedDummy{} -> Nothing
 
@@ -3375,7 +3338,7 @@ substitute1AstHVector i var = \case
       (Nothing, Nothing) -> Nothing
       (mu, mv) -> Just $ astLetInHVector var2 (fromMaybe u mu) (fromMaybe v mv)
   Ast.AstLetInHVectorS var2 u v ->
-    case (substitute1AstS i var u, substitute1AstHVector i var v) of
+    case (substitute1Ast i var u, substitute1AstHVector i var v) of
       (Nothing, Nothing) -> Nothing
       (mu, mv) -> Just $ astLetInHVectorS var2 (fromMaybe u mu) (fromMaybe v mv)
   Ast.AstShareHVector{} -> error "substitute1AstHVector: AstShareHVector"
@@ -3443,8 +3406,8 @@ substitute1AstBool i var = \case
                                            (fromMaybe arg2 mr2)
        else Nothing
   Ast.AstRelS opCodeRel arg1 arg2 ->
-    let mr1 = substitute1AstS i var arg1
-        mr2 = substitute1AstS i var arg2
+    let mr1 = substitute1Ast i var arg1
+        mr2 = substitute1Ast i var arg2
     in if isJust mr1 || isJust mr2
        then Just $ Ast.AstRelS opCodeRel (fromMaybe arg1 mr1)
                                          (fromMaybe arg2 mr2)

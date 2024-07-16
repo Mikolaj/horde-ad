@@ -305,7 +305,7 @@ astLetHFunInFun a f =
       shs = shapeAstHFun a
   in fun1HToAst shss shs $ \ !var !ast -> astLetHFunIn var a (f ast)
 
-astSpanPrimal :: forall s r n. (KnownNat n, GoodScalar r, AstSpan s)
+astSpanPrimal :: forall s r n. AstSpan s
               => AstTensor s (AstR r n) -> AstTensor PrimalSpan (AstR r n)
 astSpanPrimal t | Just Refl <- sameAstSpan @s @PrimalSpan = t
 astSpanPrimal _ | Just Refl <- sameAstSpan @s @DualSpan =
@@ -315,7 +315,7 @@ astSpanPrimal _ | Just Refl <- sameAstSpan @s @DualSpan =
 astSpanPrimal t | Just Refl <- sameAstSpan @s @FullSpan = astPrimalPart t
 astSpanPrimal _ = error "a spuriuos case for pattern match coverage"
 
-astSpanDual :: forall s r n. (KnownNat n, GoodScalar r, AstSpan s)
+astSpanDual :: forall s r n. AstSpan s
             => AstTensor s (AstR r n) -> AstTensor DualSpan (AstR r n)
 astSpanDual t | Just Refl <- sameAstSpan @s @PrimalSpan =
   AstDualPart $ AstConstant t  -- this is nil; likely to happen
@@ -410,14 +410,14 @@ instance AstSpan s => ShapedTensor (AstShaped s) where
   sfromR = AstShaped . astSFromR . unAstRanked
 
   sshare a@(AstShaped(AstShareS{})) = a
-  sshare a | astIsSmallS True (unAstShaped a) = a
+  sshare a | astIsSmall True (unAstShaped a) = a
   sshare a = AstShaped $ fun1SToAst $ \ !var -> AstShareS var (unAstShaped a)
 
   sconstant = AstShaped . fromPrimalS . unAstShaped
   sprimalPart = AstShaped . astSpanPrimalS . unAstShaped
   sdualPart = AstShaped . astSpanDualS . unAstShaped
   sD u u' = AstShaped $ astSpanDS (unAstShaped u) (unAstShaped u')
-  sScale s t = AstShaped $ astDualPartS $ AstConstantS (unAstShaped s) * AstDS 0 (unAstShaped t)
+  sScale s t = AstShaped $ astDualPart $ AstConstantS (unAstShaped s) * AstDS 0 (unAstShaped t)
 
 astLetHVectorInFunS
   :: forall sh s r. (KnownShS sh, GoodScalar r, AstSpan s)
@@ -438,22 +438,22 @@ astLetHFunInFunS a f =
       shs = shapeAstHFun a
   in fun1HToAst shss shs $ \ !var !ast -> astLetHFunInS var a (f ast)
 
-astSpanPrimalS :: forall s r sh. (KnownShS sh, GoodScalar r, AstSpan s)
+astSpanPrimalS :: forall s r sh. AstSpan s
                => AstTensor s (AstS r sh) -> AstTensor PrimalSpan (AstS r sh)
 astSpanPrimalS t | Just Refl <- sameAstSpan @s @PrimalSpan = t
 astSpanPrimalS _ | Just Refl <- sameAstSpan @s @DualSpan =
   error "astSpanPrimalS: can't recover primal from dual"
     -- or we could return zero, but this is unlikely to happen
     -- except by user error
-astSpanPrimalS t | Just Refl <- sameAstSpan @s @FullSpan = astPrimalPartS t
+astSpanPrimalS t | Just Refl <- sameAstSpan @s @FullSpan = astPrimalPart t
 astSpanPrimalS _ = error "a spuriuos case for pattern match coverage"
 
-astSpanDualS :: forall s r sh. (KnownShS sh, GoodScalar r, AstSpan s)
+astSpanDualS :: forall s r sh. AstSpan s
              => AstTensor s (AstS r sh) -> AstTensor DualSpan (AstS r sh)
 astSpanDualS t | Just Refl <- sameAstSpan @s @PrimalSpan =
   AstDualPartS $ AstConstantS t  -- this is nil; likely to happen
 astSpanDualS t | Just Refl <- sameAstSpan @s @DualSpan = t
-astSpanDualS t | Just Refl <- sameAstSpan @s @FullSpan = astDualPartS t
+astSpanDualS t | Just Refl <- sameAstSpan @s @FullSpan = astDualPart t
 astSpanDualS _ = error "a spuriuos case for pattern match coverage"
 
 astSpanDS :: forall s r sh. AstSpan s
@@ -468,7 +468,7 @@ astLetFunS :: ( KnownShS sh, KnownShS sh2, GoodScalar r, GoodScalar r2
               , AstSpan s )
           => AstTensor s (AstS r sh) -> (AstTensor s (AstS r sh) -> AstTensor s (AstS r2 sh2))
           -> AstTensor s (AstS r2 sh2)
-astLetFunS a f | astIsSmallS True a = f a
+astLetFunS a f | astIsSmall True a = f a
 astLetFunS a f =
   let (var, ast) = funToAstS f
   in astLetS var a ast  -- safe, because subsitution ruled out above
@@ -673,7 +673,7 @@ astLetInHVectorFunS :: (KnownShS sh, GoodScalar r, AstSpan s)
                     => AstTensor s (AstS r sh) -> (AstTensor s (AstS r sh) -> AstHVector s)
                     -> AstHVector s
 {-# NOINLINE astLetInHVectorFunS #-}
-astLetInHVectorFunS a f | astIsSmallS True a = f a
+astLetInHVectorFunS a f | astIsSmall True a = f a
 astLetInHVectorFunS a f = unsafePerformIO $ do  -- the id causes trouble
   (!var, _, !ast) <- funToAstIOS id
   return $! astLetInHVectorS var a (f ast)
@@ -951,13 +951,13 @@ astLetFunRaw a f =
 astLetFunRawS :: (KnownShS sh, KnownShS sh2, GoodScalar r, GoodScalar r2, AstSpan s)
               => AstTensor s (AstS r sh) -> (AstTensor s (AstS r sh) -> AstTensor s (AstS r2 sh2))
               -> AstTensor s (AstS r2 sh2)
-astLetFunRawS a f | astIsSmallS True a = f a
+astLetFunRawS a f | astIsSmall True a = f a
 astLetFunRawS a f =
   let (var, ast) = funToAstS f
   in AstLetS var a ast
 
 astLetHVectorInFunRaw
-  :: forall n s r. AstSpan s
+  :: forall n s r. (AstSpan s, GoodScalar r, KnownNat n)
   => AstHVector s -> (HVector (AstRanked s) -> AstTensor s (AstR r n))
   -> AstTensor s (AstR r n)
 astLetHVectorInFunRaw a f =
@@ -965,7 +965,7 @@ astLetHVectorInFunRaw a f =
     AstLetHVectorIn vars a (f asts)
 
 astLetHVectorInFunRawS
-  :: forall sh s r. AstSpan s
+  :: forall sh s r. (AstSpan s, KnownShS sh, GoodScalar r)
   => AstHVector s -> (HVector (AstRanked s) -> AstTensor s (AstS r sh))
   -> AstTensor s (AstS r sh)
 astLetHVectorInFunRawS a f =
@@ -1018,7 +1018,7 @@ astLetInHVectorFunRaw a f = unsafePerformIO $ do  -- the id causes trouble
 astLetInHVectorFunRawS :: (KnownShS sh, GoodScalar r, AstSpan s)
                        => AstTensor s (AstS r sh) -> (AstTensor s (AstS r sh) -> AstHVector s)
                        -> AstHVector s
-astLetInHVectorFunRawS a f | astIsSmallS True a = f a
+astLetInHVectorFunRawS a f | astIsSmall True a = f a
 astLetInHVectorFunRawS a f = unsafePerformIO $ do  -- the id causes trouble
   (!var, _, !ast) <- funToAstIOS id
   return $! AstLetInHVectorS var a (f ast)
@@ -1058,14 +1058,14 @@ instance AstSpan s => ShapedTensor (AstRawS s) where
   sfromR = AstRawS . AstSFromR . unAstRaw
 
   sshare a@(AstRawS (AstShareS{})) = a
-  sshare a | astIsSmallS True (unAstRawS a) = a
+  sshare a | astIsSmall True (unAstRawS a) = a
   sshare a = AstRawS $ fun1SToAst $ \ !var -> AstShareS var (unAstRawS a)
 
   sconstant = AstRawS . fromPrimalS . unAstRawS
   sprimalPart = AstRawS . astSpanPrimalS . unAstRawS
   sdualPart = AstRawS . astSpanDualS . unAstRawS
   sD u u' = AstRawS $ astSpanDS (unAstRawS u) (unAstRawS u')
-  sScale s t = AstRawS $ astDualPartS
+  sScale s t = AstRawS $ astDualPart
                $ AstConstantS (unAstRawS s) * AstDS 0 (unAstRawS t)
 
 instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
@@ -1388,11 +1388,11 @@ instance AstSpan s => ShapedTensor (AstNoSimplifyS s) where
   sdualPart = AstNoSimplifyS . astSpanDualS . unAstNoSimplifyS
   sD u u' =
     AstNoSimplifyS $ astSpanDS (unAstNoSimplifyS u) (unAstNoSimplifyS u')
-  sScale :: forall r sh. (GoodScalar r, KnownShS sh)
+  sScale :: forall r sh. GoodScalar r
          => AstNoSimplifyS PrimalSpan r sh -> AstNoSimplifyS DualSpan r sh
          -> AstNoSimplifyS DualSpan r sh
   sScale s t =
-    AstNoSimplifyS $ astDualPartS
+    AstNoSimplifyS $ astDualPart
                    $ AstConstantS (unAstNoSimplifyS s)
                      * AstDS 0 (unAstNoSimplifyS t)
 

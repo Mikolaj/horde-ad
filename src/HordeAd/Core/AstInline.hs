@@ -44,25 +44,25 @@ simplifyArtifact art =
 -- The second simplification is very likely to trigger, because substitution
 -- often reveals redexes.
 simplifyInlineAst
-  :: (GoodScalar r, KnownNat n, AstSpan s)
+  :: forall r n s. AstSpan s
   => AstRanked s r n -> AstRanked s r n
 simplifyInlineAst =
   AstRanked . snd . inlineAst EM.empty
   . simplifyAst . expandAst
   . snd . inlineAst EM.empty . simplifyAst . unAstRanked
 {-# SPECIALIZE simplifyInlineAst
-  :: (KnownNat n, AstSpan s)
+  :: AstSpan s
   => AstRanked s Double n -> AstRanked s Double n #-}
 
 simplifyInlineAstS
-  :: (GoodScalar r, KnownShS sh, AstSpan s)
+  :: forall r sh s. AstSpan s
   => AstShaped s r sh -> AstShaped s r sh
 simplifyInlineAstS =
   AstShaped . snd . inlineAst EM.empty
-  . simplifyAstS . expandAstS
-  . snd . inlineAst EM.empty . simplifyAstS . unAstShaped
+  . simplifyAst . expandAst
+  . snd . inlineAst EM.empty . simplifyAst . unAstShaped
 {-# SPECIALIZE simplifyInlineAstS
-  :: (KnownShS sh, AstSpan s)
+  :: AstSpan s
   => AstShaped s Double sh -> AstShaped s Double sh #-}
 
 simplifyInlineHVector
@@ -102,12 +102,12 @@ inlineAst memo v0 = case v0 of
         (memo2, u2) = inlineAst memo1NoVar u
     in case EM.findWithDefault 0 vv memo1 of
       0 -> (memo1, v2)
-      1 -> (memo2, unAstRanked $ substituteAst (SubstitutionPayloadRanked u2) var (AstRanked v2))
+      1 -> (memo2, substituteAst (SubstitutionPayloadRanked u2) var v2)
       count | astIsSmall (count < 10) u ->
         let (memoU0, u0) = inlineAst EM.empty u
             memo3 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1NoVar memoU0
                       -- u is small, so the union is fast
-        in (memo3, unAstRanked $ substituteAst (SubstitutionPayloadRanked u0) var (AstRanked v2))
+        in (memo3, substituteAst (SubstitutionPayloadRanked u0) var v2)
       _ -> (memo2, Ast.AstLet var u2 v2)
   Ast.AstShare{} -> error "inlineAst: AstShare"
   Ast.AstCond b a2 a3 ->
@@ -226,12 +226,12 @@ inlineAst memo v0 = case v0 of
         (memo2, u2) = inlineAst memo1NoVar u
     in case EM.findWithDefault 0 vv memo1 of
       0 -> (memo1, v2)
-      1 -> (memo2, unAstShaped $ substituteAstS (SubstitutionPayloadShaped u2) var (AstShaped v2))
-      count | astIsSmallS (count < 10) u ->
+      1 -> (memo2, substituteAst (SubstitutionPayloadShaped u2) var v2)
+      count | astIsSmall (count < 10) u ->
         let (memoU0, u0) = inlineAst EM.empty u
             memo3 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1NoVar memoU0
                       -- u is small, so the union is fast
-        in (memo3, unAstShaped $ substituteAstS (SubstitutionPayloadShaped u0) var (AstShaped v2))
+        in (memo3, substituteAst (SubstitutionPayloadShaped u0) var v2)
       _ -> (memo2, Ast.AstLetS var u2 v2)
   Ast.AstShareS{} -> error "inlineAst: AstShareS"
   Ast.AstCondS b a2 a3 ->
@@ -330,7 +330,7 @@ inlineAst memo v0 = case v0 of
         (memo2, f2) = inlineAstHFun memo1 f
     in case EM.findWithDefault 0 var memo2 of
       0 -> (memo1, v2)
-      1 -> (memo2, fromMaybe v2 $ substitute1AstS
+      1 -> (memo2, fromMaybe v2 $ substitute1Ast
                                     (SubstitutionPayloadHFun f2) var v2)
       _ -> (memo2, Ast.AstLetHFunInS var f2 v2)
   Ast.AstSFromR v -> second Ast.AstSFromR $ inlineAst memo v
@@ -404,7 +404,7 @@ inlineAstHVector memo v0 = case v0 of
     in case EM.findWithDefault 0 vv memo1 of
       0 -> (memo1, v2)
       1 -> (memo2, substituteAstHVector (SubstitutionPayloadShaped u2) var v2)
-      count | astIsSmallS (count < 10) u ->
+      count | astIsSmall (count < 10) u ->
         let (memoU0, u0) = inlineAst EM.empty u
         in ( EM.unionWith (\c1 c0 -> c1 + count * c0) memo1NoVar memoU0
                -- u is small, so the union is fast

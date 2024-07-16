@@ -13,7 +13,7 @@ module HordeAd.Core.AstTools
   , varNameInAst, varNameInAstS, varNameInAstHVector
   , varInAstBindingsCase
     -- * Determining if a term is too small to require sharing
-  , astIsSmall, astIsSmallS
+  , astIsSmall
     -- * Odds and ends
   , bindsToLet, bindsToLetS, bindsToHVectorLet
   ) where
@@ -278,8 +278,7 @@ varInAstBindingsCase var (AstBindingsHVector _ t) = varInAstHVector var t
 
 -- * Determining if a term is too small to require sharing
 
-astIsSmall :: forall n s r. (KnownNat n, GoodScalar r)
-           => Bool -> AstTensor s (AstR r n) -> Bool
+astIsSmall :: Bool -> AstTensor s y -> Bool
 astIsSmall relaxed = \case
   AstVar{} -> True
   AstIota -> True
@@ -290,29 +289,26 @@ astIsSmall relaxed = \case
   AstTranspose _ v ->
     relaxed && astIsSmall relaxed v  -- often cheap and often fuses
   AstConst c -> Nested.rsize c <= 1
-  AstRFromS v -> astIsSmallS relaxed v
+  AstRFromS v -> astIsSmall relaxed v
   AstConstant v -> astIsSmall relaxed v
   AstPrimalPart v -> astIsSmall relaxed v
   AstDualPart v -> astIsSmall relaxed v
-  _ -> False
 
-astIsSmallS :: forall sh s r. (KnownShS sh, GoodScalar r)
-            => Bool -> AstTensor s (AstS r sh) -> Bool
-astIsSmallS relaxed = \case
   AstVarS{} -> True
   AstIotaS -> True
   AstReplicateS v ->
-    relaxed && astIsSmallS relaxed v  -- materialized via tricks, so prob. safe
+    relaxed && astIsSmall relaxed v  -- materialized via tricks, so prob. safe
   AstSliceS v ->
-    relaxed && astIsSmallS relaxed v  -- materialized via vector slice; cheap
+    relaxed && astIsSmall relaxed v  -- materialized via vector slice; cheap
   AstTransposeS _perm v ->
-    relaxed && astIsSmallS relaxed v  -- often cheap and often fuses
+    relaxed && astIsSmall relaxed v  -- often cheap and often fuses
   AstConstS c ->
     Nested.ssize c <= 1
   AstSFromR v -> astIsSmall relaxed v
-  AstConstantS v -> astIsSmallS relaxed v
-  AstPrimalPartS v -> astIsSmallS relaxed v
-  AstDualPartS v -> astIsSmallS relaxed v
+  AstConstantS v -> astIsSmall relaxed v
+  AstPrimalPartS v -> astIsSmall relaxed v
+  AstDualPartS v -> astIsSmall relaxed v
+
   _ -> False
 
 

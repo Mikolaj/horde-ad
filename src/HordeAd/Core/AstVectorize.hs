@@ -122,9 +122,8 @@ build1VOccurenceUnknownRefresh
 build1VOccurenceUnknownRefresh k (var, v0) =
   funToAstIntVar $ \ (!varFresh, !astVarFresh) ->
     let !v2 = substituteAst  -- cheap subst, because only a renaming
-                (SubstitutionPayloadRanked @PrimalSpan @Int64 astVarFresh)
-                var (AstRanked v0)
-    in build1VOccurenceUnknown k (varFresh, unAstRanked v2)
+                (SubstitutionPayloadRanked @PrimalSpan @Int64 astVarFresh) var v0
+    in build1VOccurenceUnknown k (varFresh, v2)
 
 intBindingRefresh
   :: IntVarName -> AstIndex n -> (IntVarName, AstInt, AstIndex n)
@@ -166,9 +165,9 @@ build1V k (var, v00) =
           -- because they don't duplicate variables and the added var
           -- is eventually being eliminated instead of substituted for.
           v2 = substituteAst
-                 (SubstitutionPayloadRanked @s1 @r1 projection) var1 (AstRanked v)
+                 (SubstitutionPayloadRanked @s1 @r1 projection) var1 v
       in astLet var2 (build1VOccurenceUnknown k (var, u))
-                     (build1VOccurenceUnknownRefresh k (var, unAstRanked v2))
+                     (build1VOccurenceUnknownRefresh k (var, v2))
                         -- ensure no duplicated bindings, see below
     Ast.AstShare{} -> error "build1V: AstShare"
     Ast.AstCond b (Ast.AstConstant v) (Ast.AstConstant w) ->
@@ -391,10 +390,10 @@ build1VOccurenceUnknownRefreshS
 {-# NOINLINE build1VOccurenceUnknownRefreshS #-}
 build1VOccurenceUnknownRefreshS ({-var@-}(AstVarName varId), v0) =
   funToAstIntVar $ \ (!varFresh, !astVarFresh) ->
-    let !v2 = substituteAstS  -- cheap subst, because only a renaming
+    let !v2 = substituteAst  -- cheap subst, because only a renaming
                 (SubstitutionPayloadRanked @PrimalSpan @Int64 astVarFresh)
-                (AstVarName varId) {-TODO: var-} (AstShaped v0)
-    in build1VOccurenceUnknownS (varFresh, unAstShaped v2)
+                (AstVarName varId) {-TODO: var-} v0
+    in build1VOccurenceUnknownS (varFresh, v2)
 
 intBindingRefreshS
   :: IntVarName -> AstIndexS sh -> (IntVarName, AstInt, AstIndexS sh)
@@ -424,10 +423,10 @@ build1VS (var, v00) =
       let var2 = AstVarName oldVarId  -- changed shape; TODO: shall we rename?
           projection = Ast.AstIndexS (Ast.AstVarS @(k ': sh1) var2)
                                      (Ast.AstIntVar var :.$ ZIS)
-          v2 = substituteAstS
-                 (SubstitutionPayloadShaped @s1 @r1 projection) var1 (AstShaped v)
+          v2 = substituteAst
+                 (SubstitutionPayloadShaped @s1 @r1 projection) var1 v
       in astLetS var2 (build1VOccurenceUnknownS @k (var, u))
-                      (build1VOccurenceUnknownRefreshS (var, unAstShaped v2))
+                      (build1VOccurenceUnknownRefreshS (var, v2))
     Ast.AstShareS{} -> error "build1VS: AstShareS"
     Ast.AstCondS b (Ast.AstConstantS v) (Ast.AstConstantS w) ->
       let t = Ast.AstConstantS
@@ -541,9 +540,9 @@ build1VS (var, v00) =
     Ast.AstConstantS v -> traceRule $
       Ast.AstConstantS $ build1VS (var, v)
     Ast.AstPrimalPartS v -> traceRule $
-      astPrimalPartS $ build1VS (var, v)
+      astPrimalPart $ build1VS (var, v)
     Ast.AstDualPartS v -> traceRule $
-      astDualPartS $ build1VS (var, v)
+      astDualPart $ build1VS (var, v)
     Ast.AstDS u u' -> traceRule $
       Ast.AstDS (build1VOccurenceUnknownS (var, u))
                 (build1VOccurenceUnknownS (var, u'))
@@ -763,8 +762,7 @@ build1VOccurenceUnknownHVectorRefresh k (var, v0) =
 -- * Auxiliary machinery
 
 substProjRanked :: forall n1 r1 n r s1 s.
-                   ( KnownNat n1, GoodScalar r1, KnownNat n, GoodScalar r
-                   , AstSpan s, AstSpan s1 )
+                   ( KnownNat n1, GoodScalar r1, AstSpan s, AstSpan s1 )
                 => Int -> IntVarName -> IShR n1
                 -> AstVarName (AstTensor s1) (AstR r1 n1)
                 -> AstTensor s (AstR r n) -> AstTensor s (AstR r n)
@@ -773,14 +771,11 @@ substProjRanked k var sh1 var1@(AstVarName varId) =
       projection =
         Ast.AstIndex (Ast.AstVar (k :$: sh1) var2)
                      (Ast.AstIntVar var :.: ZIR)
-  in unAstRanked
-     . substituteAst
-         (SubstitutionPayloadRanked @s1 @r1 projection) var1
-     . AstRanked
+  in substituteAst
+       (SubstitutionPayloadRanked @s1 @r1 projection) var1
 
 substProjShaped :: forall n1 r1 sh r s1 s.
-                   ( KnownNat n1, GoodScalar r1, KnownShS sh, GoodScalar r
-                   , AstSpan s, AstSpan s1 )
+                   ( KnownNat n1, GoodScalar r1, AstSpan s, AstSpan s1 )
                 => Int -> IntVarName -> IShR n1
                 -> AstVarName (AstTensor s1) (AstR r1 n1)
                 -> AstTensor s (AstS r sh) -> AstTensor s (AstS r sh)
@@ -790,14 +785,12 @@ substProjShaped k var sh1 {-var1@-}(AstVarName varId) =
       projection =
         Ast.AstIndex (Ast.AstVar (k :$: sh1) var2)
                      (Ast.AstIntVar var :.: ZIR)
-  in unAstShaped
-     . substituteAstS
-         (SubstitutionPayloadRanked @s1 @r1 projection) var3 {-TODO: var1-}
-     . AstShaped
+  in substituteAst
+       (SubstitutionPayloadRanked @s1 @r1 projection) var3 {-TODO: var1-}
 
 substProjRankedS :: forall k sh1 r1 n r s1 s.
                     ( KnownNat k, KnownShS sh1, GoodScalar r1
-                    , KnownNat n, GoodScalar r, AstSpan s, AstSpan s1 )
+                    , AstSpan s, AstSpan s1 )
                  => IntVarName -> AstVarName (AstTensor s1) (AstS r1 sh1)
                  -> AstTensor s (AstR r n) -> AstTensor s (AstR r n)
 substProjRankedS var {-var1@-}(AstVarName varId) =
@@ -806,14 +799,12 @@ substProjRankedS var {-var1@-}(AstVarName varId) =
       projection =
         Ast.AstIndexS (Ast.AstVarS @(k ': sh1) var2)
                       (Ast.AstIntVar var :.$ ZIS)
-  in unAstRanked
-     . substituteAst
-         (SubstitutionPayloadShaped @s1 @r1 projection) var3 {-TODO: var1-}
-     . AstRanked
+  in substituteAst
+       (SubstitutionPayloadShaped @s1 @r1 projection) var3 {-TODO: var1-}
 
 substProjShapedS :: forall k sh1 r1 sh r s1 s.
                     ( KnownNat k, KnownShS sh1, GoodScalar r1
-                    , KnownShS sh, GoodScalar r, AstSpan s, AstSpan s1 )
+                    , AstSpan s, AstSpan s1 )
                  => IntVarName -> AstVarName (AstTensor s1) (AstS r1 sh1)
                  -> AstTensor s (AstS r sh) -> AstTensor s (AstS r sh)
 substProjShapedS var var1@(AstVarName varId) =
@@ -821,10 +812,8 @@ substProjShapedS var var1@(AstVarName varId) =
       projection =
         Ast.AstIndexS (Ast.AstVarS @(k ': sh1) var2)
                       (Ast.AstIntVar var :.$ ZIS)
-  in unAstShaped
-     . substituteAstS
-         (SubstitutionPayloadShaped @s1 @r1 projection) var1
-     . AstShaped
+  in substituteAst
+       (SubstitutionPayloadShaped @s1 @r1 projection) var1
 
 substProjHVector :: forall n1 r1 s1 s.
                     (KnownNat n1, GoodScalar r1, AstSpan s, AstSpan s1)
@@ -852,8 +841,7 @@ substProjHVectorS var var1@(AstVarName varId) =
   in substituteAstHVector
        (SubstitutionPayloadShaped @s1 @r1 projection) var1
 
-substProjDynamic :: forall k n r s.
-                    (KnownNat k, KnownNat n, GoodScalar r, AstSpan s)
+substProjDynamic :: forall k n r s. (KnownNat k, AstSpan s)
                  => IntVarName -> AstTensor s (AstR r n)
                  -> AstDynamicVarName
                  -> (AstTensor s (AstR r n), AstDynamicVarName)
@@ -869,8 +857,7 @@ substProjDynamic var v3 (AstDynamicVarName @ty @r3 @sh3 varId)
     , AstDynamicVarName @ty @r3 @(k ': sh3) varId )
 substProjDynamic _ _ _ = error "substProjDynamic: unexpected type"
 
-substProjDynamicS :: forall k sh r s.
-                     (KnownNat k, KnownShS sh, GoodScalar r, AstSpan s)
+substProjDynamicS :: forall k sh r s. (KnownNat k, AstSpan s)
                   => IntVarName -> AstTensor s (AstS r sh)
                   -> AstDynamicVarName
                   -> (AstTensor s (AstS r sh), AstDynamicVarName)
@@ -886,15 +873,13 @@ substProjDynamicS var v3 (AstDynamicVarName @ty @r3 @sh3 varId)
     , AstDynamicVarName @ty @r3 @(k ': sh3) varId )
 substProjDynamicS _ _ _ = error "substProjDynamicS: unexpected type"
 
-substProjVars :: forall k n r s.
-                 (KnownNat k, KnownNat n, GoodScalar r, AstSpan s)
+substProjVars :: forall k n r s. (KnownNat k, AstSpan s)
               => IntVarName -> [AstDynamicVarName]
               -> AstTensor s (AstR r n)
               -> (AstTensor s (AstR r n), [AstDynamicVarName])
 substProjVars var vars v3 = mapAccumR (substProjDynamic @k var) v3 vars
 
-substProjVarsS :: forall k sh r s.
-                  (KnownNat k, KnownShS sh, GoodScalar r, AstSpan s)
+substProjVarsS :: forall k sh r s. (KnownNat k, AstSpan s)
                => IntVarName -> [AstDynamicVarName]
                -> AstTensor s (AstS r sh)
                -> (AstTensor s (AstS r sh), [AstDynamicVarName])
