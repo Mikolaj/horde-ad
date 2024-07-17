@@ -61,17 +61,18 @@ deriving instance ( CRanked ranked Show, CShaped (ShapedOf ranked) Show
 extendEnvR :: forall ranked r n s. (KnownNat n, GoodScalar r)
            => AstVarName s (AstR r n) -> ranked r n -> AstEnv ranked
            -> AstEnv ranked
-extendEnvR (AstVarName varId) !t !env =
-  EM.insertWithKey (\_ _ _ -> error $ "extendEnvR: duplicate " ++ show varId)
-                   varId (AstEnvElemRanked t) env
+extendEnvR var !t !env =
+  let varId = varNameToAstVarId var
+  in EM.insertWithKey (\_ _ _ -> error $ "extendEnvR: duplicate " ++ show varId)
+                      varId (AstEnvElemRanked t) env
 
 extendEnvS :: forall ranked r sh s. (KnownShS sh, GoodScalar r)
-           => AstVarName s (AstS r sh) -> ShapedOf ranked r sh
+           => AstVarName s (AstS r sh) -> ShapedOf ranked r sh -> AstEnv ranked
            -> AstEnv ranked
-           -> AstEnv ranked
-extendEnvS (AstVarName varId) !t !env =
-  EM.insertWithKey (\_ _ _ -> error $ "extendEnvS: duplicate " ++ show varId)
-                   varId (AstEnvElemShaped t) env
+extendEnvS var !t !env =
+  let varId = varNameToAstVarId var
+  in EM.insertWithKey (\_ _ _ -> error $ "extendEnvS: duplicate " ++ show varId)
+                      varId (AstEnvElemShaped t) env
 
 extendEnvHVector :: forall ranked. ADReady ranked
                  => [AstDynamicVarName] -> HVector ranked -> AstEnv ranked
@@ -94,23 +95,23 @@ extendEnvD vd@(AstDynamicVarName @ty @r @sh varId, d) !env = case d of
     | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat)
     , Just Refl <- matchingRank @sh @n3
     , Just Refl <- testEquality (typeRep @r) (typeRep @r3) ->
-      extendEnvR (AstVarName varId) u env
+      extendEnvR (mkAstVarName varId) u env
   DynamicShaped @r3 @sh3 u
     | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat])
     , Just Refl <- sameShape @sh3 @sh
     , Just Refl <- testEquality (typeRep @r) (typeRep @r3) ->
-      extendEnvS (AstVarName varId) u env
+      extendEnvS (mkAstVarName varId) u env
   DynamicRankedDummy @r3 @sh3 _ _
     | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat)
     , Just Refl <- sameShape @sh3 @sh
     , Just Refl <- testEquality (typeRep @r) (typeRep @r3) ->
       withListSh (Proxy @sh) $ \sh4 ->
-        extendEnvR @ranked @r (AstVarName varId) (rzero sh4) env
+        extendEnvR @ranked @r (mkAstVarName varId) (rzero sh4) env
   DynamicShapedDummy @r3 @sh3 _ _
     | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat])
     , Just Refl <- sameShape @sh3 @sh
     , Just Refl <- testEquality (typeRep @r) (typeRep @r3) ->
-      extendEnvS @ranked @r @sh (AstVarName varId) (srepl 0) env
+      extendEnvS @ranked @r @sh (mkAstVarName varId) (srepl 0) env
   _ -> error $ "extendEnvD: impossible type"
                `showFailure`
                ( vd, typeRep @ty, typeRep @r, shapeT @sh

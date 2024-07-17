@@ -11,7 +11,7 @@ module HordeAd.Core.Ast
     -- * More and less typed variables and related type synonyms
   , AstVarId, intToAstVarId, AstDynamicVarName(..), dynamicVarNameToAstVarId
   , AstInt, IntVarName, pattern AstIntVar, isRankedInt
-  , AstVarName(..), varNameToAstVarId
+  , AstVarName, mkAstVarName, varNameToAstVarId
   , AstArtifact(..), AstIndex, AstVarList, AstIndexS, AstVarListS
     -- * AstBindingsCase and AstBindings
   , AstBindingsCase(..), AstBindings
@@ -143,6 +143,9 @@ newtype AstVarName (s :: AstSpanType) (y :: AstType) =
 instance Show (AstVarName s y) where
   showsPrec d (AstVarName varId) =
     showsPrec d varId  -- less verbose, more readable
+
+mkAstVarName :: AstVarId -> AstVarName s y
+mkAstVarName = AstVarName
 
 varNameToAstVarId :: AstVarName s y -> AstVarId
 varNameToAstVarId (AstVarName varId) = varId

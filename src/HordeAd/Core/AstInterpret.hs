@@ -127,19 +127,19 @@ interpretAst
   => AstEnv ranked
   -> AstTensor s (AstR r n) -> ranked r n
 interpretAst !env = \case
-  AstVar sh (AstVarName varId) -> case EM.lookup varId env of
+  AstVar sh var -> case EM.lookup (varNameToAstVarId var) env of
     Just (AstEnvElemRanked @r2 @n2 t) -> case sameNat (Proxy @n2) (Proxy @n) of
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
         Just Refl -> assert (rshape t == sh
-                             `blame` (sh, rshape t, varId, t, env)) t
+                             `blame` (sh, rshape t, var, t, env)) t
         _ -> error "interpretAst: scalar mismatch"
       _ -> error $ "interpretAst: wrong rank in environment"
                    `showFailure`
-                   (valueOf @n :: Int, valueOf @n2 :: Int, varId, t, env)
+                   (valueOf @n :: Int, valueOf @n2 :: Int, var, t, env)
     Just (AstEnvElemShaped @_ @sh2 t) ->
       error $ "interpretAst: wrong tensor kind in environment"
-              `showFailure` (sh, shapeT @sh2, varId, t, env)
-    _ -> error $ "interpretAst: unknown variable " ++ show varId
+              `showFailure` (sh, shapeT @sh2, var, t, env)
+    _ -> error $ "interpretAst: unknown variable " ++ show var
                  ++ " in environment " ++ show env
   AstLet var u v ->
     -- We assume there are no nested lets with the same variable.
@@ -521,17 +521,17 @@ interpretAstS
   => AstEnv ranked
   -> AstTensor s (AstS r sh) -> shaped r sh
 interpretAstS !env = \case
-  AstVarS (AstVarName varId) -> case EM.lookup varId env of
+  AstVarS var -> case EM.lookup (varNameToAstVarId var) env of
     Just (AstEnvElemShaped @r2 @sh2 t) -> case sameShape @sh2 @sh of
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
         Just Refl -> t
         _ -> error "interpretAstS: scalar mismatch"
       Nothing -> error $ "interpretAstS: wrong shape in environment"
                          `showFailure`
-                         (shapeT @sh, shapeT @sh2, varId, t, env)
+                         (shapeT @sh, shapeT @sh2, var, t, env)
     Just (AstEnvElemRanked _t) ->
       error "interpretAstS: wrong tensor kind in environment"
-    _ -> error $ "interpretAstS: unknown variable " ++ show varId
+    _ -> error $ "interpretAstS: unknown variable " ++ show var
   AstLetS var u v ->
     -- We assume there are no nested lets with the same variable.
     let t = interpretAstSRuntimeSpecialized env u

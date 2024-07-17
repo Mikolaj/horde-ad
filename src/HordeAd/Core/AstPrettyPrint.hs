@@ -122,8 +122,9 @@ printAstVarId prefix cfg var =
     _ -> prefix ++ show n
 
 printAstVarN :: Int -> PrintConfig -> AstVarName s y -> ShowS
-printAstVarN n cfg (AstVarName varId) =
-  let prefix = case n of
+printAstVarN n cfg var =
+  let varId = varNameToAstVarId var
+      prefix = case n of
         0 -> "x"
         1 -> "v"
         2 -> "m"
@@ -141,7 +142,7 @@ printAstVarS :: forall sh s r. KnownShS sh
 printAstVarS = printAstVarN (length (shapeT @sh))
 
 printAstIntVar :: PrintConfig -> IntVarName -> ShowS
-printAstIntVar cfg (AstVarName varId) = printAstVarId "i" cfg varId
+printAstIntVar cfg var = printAstVarId "i" cfg (varNameToAstVarId var)
 
 printAstFunVar :: PrintConfig -> AstVarId -> ShowS
 printAstFunVar = printAstVarId "f"
@@ -176,7 +177,7 @@ printAstVarNameS renames var =
 
 printAstDynamicVarNameBrief :: IntMap String -> AstDynamicVarName -> String
 printAstDynamicVarNameBrief renames (AstDynamicVarName @_ @r @sh varId) =
-  printAstVarNameS renames (AstVarName @_ @(AstS r sh) varId)
+  printAstVarNameS renames (mkAstVarName @_ @(AstS r sh) varId)
 
 printAstDynamicVarName :: IntMap String -> AstDynamicVarName -> String
 printAstDynamicVarName renames var@(AstDynamicVarName @ty @r @sh _varId) =

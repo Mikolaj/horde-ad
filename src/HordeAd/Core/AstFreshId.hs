@@ -65,7 +65,7 @@ unsafeGetFreshAstVarId =
 unsafeGetFreshAstVarName :: IO (AstVarName s y)
 {-# INLINE unsafeGetFreshAstVarName #-}
 unsafeGetFreshAstVarName =
-  AstVarName . intToAstVarId <$> atomicAddCounter_ unsafeAstVarCounter 1
+  mkAstVarName . intToAstVarId <$> atomicAddCounter_ unsafeAstVarCounter 1
 
 funToAstIOR :: forall n m s r r2. (GoodScalar r, KnownNat n)
             => IShR n -> (AstTensor s (AstR r n) -> AstTensor s (AstR r2 m))
@@ -76,9 +76,9 @@ funToAstIOR :: forall n m s r r2. (GoodScalar r, KnownNat n)
 funToAstIOR sh f = do
   freshId <- unsafeGetFreshAstVarId
   return $! withShapeP (shapeToList sh) $ \(Proxy @p_sh) ->
-    let varName = AstVarName freshId
+    let varName = mkAstVarName freshId
         !x = f (AstVar sh varName)
-    in (AstVarName freshId{-TODO: varName-}, AstDynamicVarName @Nat @r @p_sh freshId, x)
+    in (mkAstVarName freshId{-TODO: varName-}, AstDynamicVarName @Nat @r @p_sh freshId, x)
 
 funToAstR :: (GoodScalar r, KnownNat n)
           => IShR n -> (AstTensor s (AstR r n) -> AstTensor s (AstR r2 m))
@@ -96,9 +96,9 @@ funToAstIOS :: forall sh sh2 s r r2. (KnownShS sh, GoodScalar r)
 {-# INLINE funToAstIOS #-}
 funToAstIOS f = do
   freshId <- unsafeGetFreshAstVarId
-  let varName = AstVarName freshId
+  let varName = mkAstVarName freshId
       !x = f (AstVarS varName)
-  return (AstVarName freshId{-TODO: varName-}, AstDynamicVarName @[Nat] @r @sh freshId, x)
+  return (mkAstVarName freshId{-TODO: varName-}, AstDynamicVarName @[Nat] @r @sh freshId, x)
 
 funToAstS :: forall sh sh2 s r r2. (KnownShS sh, GoodScalar r)
           => (AstTensor s (AstS r sh) -> AstTensor s (AstS r2 sh2))
@@ -201,14 +201,14 @@ dynamicToVar (DynamicRankedDummy @r2 @sh2 _ _) = do
   return $! withListSh (Proxy @sh2) $ \sh4 ->
     let !varE = AstDynamicVarName @Nat @r2 @sh2 freshId
         dynE :: AstDynamic s
-        !dynE = DynamicRanked @r2 (AstRanked $ AstVar sh4 (AstVarName freshId))
+        !dynE = DynamicRanked @r2 (AstRanked $ AstVar sh4 (mkAstVarName freshId))
     in (varE, dynE)
 dynamicToVar (DynamicShapedDummy @r2 @sh2 _ _) = do
   freshId <- unsafeGetFreshAstVarId
   return $!
     let !varE = AstDynamicVarName @[Nat] @r2 @sh2 freshId
         dynE :: AstDynamic s
-        !dynE = DynamicShaped @r2 @sh2 (AstShaped $ AstVarS (AstVarName freshId))
+        !dynE = DynamicShaped @r2 @sh2 (AstShaped $ AstVarS (mkAstVarName freshId))
     in (varE, dynE)
 
 funToAstRevIO :: VoidHVector
@@ -226,14 +226,14 @@ funToAstRevIO parameters0 = do
         return $! withListSh (Proxy @sh) $ \sh ->
           let !varE = AstDynamicVarName @Nat @r @sh freshId
               dynE :: AstDynamic s
-              !dynE = DynamicRanked @r (AstRanked $ AstVar sh (AstVarName freshId))
+              !dynE = DynamicRanked @r (AstRanked $ AstVar sh (mkAstVarName freshId))
           in (varE, dynE, varE, dynE)
       f (DynamicShapedDummy @r @sh _ _) = do
         freshId <- unsafeGetFreshAstVarId
         return $!
           let !varE = AstDynamicVarName @[Nat] @r @sh freshId
               dynE :: AstDynamic s
-              !dynE = DynamicShaped @r @sh (AstShaped $ AstVarS (AstVarName freshId))
+              !dynE = DynamicShaped @r @sh (AstShaped $ AstVarS (mkAstVarName freshId))
           in (varE, dynE, varE, dynE)
   (!varsPrimal, !astsPrimal, !vars, !asts)
     <- unzip4 <$> mapM f (V.toList parameters0)
@@ -269,7 +269,7 @@ funToAstFwdIO parameters0 = do
           let varE :: AstVarId -> AstDynamicVarName
               varE = AstDynamicVarName @Nat @r @sh
               dynE :: AstVarId -> AstDynamic s
-              dynE varId = DynamicRanked @r (AstRanked $ AstVar sh (AstVarName varId))
+              dynE varId = DynamicRanked @r (AstRanked $ AstVar sh (mkAstVarName varId))
               !vd = varE freshIdDs
               !dd = dynE freshIdDs
               !vi = varE freshId
@@ -283,7 +283,7 @@ funToAstFwdIO parameters0 = do
           let varE :: AstVarId -> AstDynamicVarName
               varE = AstDynamicVarName @[Nat] @r @sh
               dynE :: AstVarId -> AstDynamic s
-              dynE varId = DynamicShaped @r @sh (AstShaped $ AstVarS (AstVarName varId))
+              dynE varId = DynamicShaped @r @sh (AstShaped $ AstVarS (mkAstVarName varId))
               !vd = varE freshIdDs
               !dd = dynE freshIdDs
               !vi = varE freshId

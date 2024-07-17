@@ -87,10 +87,10 @@ inlineAst
   :: forall s y. AstSpan s
   => AstMemo -> AstTensor s y -> (AstMemo, AstTensor s y)
 inlineAst memo v0 = case v0 of
-  Ast.AstVar _ (AstVarName varId) ->
+  Ast.AstVar _ var ->
     let f Nothing = Just 1
         f (Just count) = Just $ succ count
-    in (EM.alter f varId memo, v0)
+    in (EM.alter f (varNameToAstVarId var) memo, v0)
   Ast.AstLet var u v ->
     -- We assume there are no nested lets with the same variable, hence
     -- the delete and hence var couldn't appear in memo, so we can make
@@ -214,10 +214,10 @@ inlineAst memo v0 = case v0 of
         (memo2, t2) = inlineAst memo1 u'
     in (memo2, Ast.AstD t1 t2)
 
-  Ast.AstVarS (AstVarName varId) ->
+  Ast.AstVarS var ->
     let f Nothing = Just 1
         f (Just count) = Just $ succ count
-    in (EM.alter f varId memo, v0)
+    in (EM.alter f (varNameToAstVarId var) memo, v0)
   Ast.AstLetS var u v ->
     -- We assume there are no nested lets with the same variable.
     let vv = varNameToAstVarId var
@@ -723,8 +723,8 @@ shareAstHVector memo v0 = case v0 of
         f (AstDynamicVarName @ty @rD @shD varIdD) =
           case testEquality (typeRep @ty) (typeRep @Nat) of
             Just Refl -> withListSh (Proxy @shD) $ \sh ->
-              DynamicRanked @rD $ AstRanked $ Ast.AstVar sh (AstVarName varIdD)
-            _ -> DynamicShaped @rD @shD $ AstShaped $ Ast.AstVarS (AstVarName varIdD)
+              DynamicRanked @rD $ AstRanked $ Ast.AstVar sh (mkAstVarName varIdD)
+            _ -> DynamicShaped @rD @shD $ AstShaped $ Ast.AstVarS (mkAstVarName varIdD)
         astVars = Ast.AstMkHVector $ V.fromList $ map f vars
     in if varId `EM.member` memo
        then (memo, astVars)

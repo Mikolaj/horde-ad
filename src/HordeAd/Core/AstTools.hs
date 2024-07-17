@@ -261,15 +261,15 @@ varInAstBool var = \case
 
 varNameInAst :: AstSpan s2
              => AstVarName f y -> AstTensor s2 (AstR r2 n2) -> Bool
-varNameInAst (AstVarName varId) = varInAst varId
+varNameInAst var = varInAst (varNameToAstVarId var)
 
 varNameInAstS :: AstSpan s2
               => AstVarName f y -> AstTensor s2 (AstS r2 sh2) -> Bool
-varNameInAstS (AstVarName varId) = varInAst varId
+varNameInAstS var = varInAst (varNameToAstVarId var)
 
 varNameInAstHVector :: AstSpan s
                     => AstVarName f y -> AstHVector s -> Bool
-varNameInAstHVector (AstVarName varId) = varInAstHVector varId
+varNameInAstHVector var = varInAstHVector (varNameToAstVarId var)
 
 varInAstBindingsCase :: AstSpan s => AstVarId -> AstBindingsCase s -> Bool
 varInAstBindingsCase var (AstBindingsSimple t) = varInAstDynamic var t
@@ -336,17 +336,17 @@ bindsToLet = foldl' bindToLet
         convertShaped (AstShaped t) = AstRanked $
           withShapeP (shapeToList $ shapeAst u) $ \proxy -> case proxy of
             Proxy @sh | Just Refl <- matchingRank @sh @n ->
-              AstRFromS @sh $ AstLetS (AstVarName varId) t (AstSFromR u)
+              AstRFromS @sh $ AstLetS (mkAstVarName varId) t (AstSFromR u)
             _ -> error "bindToLet: wrong rank"
     in case d of
-      DynamicRanked (AstRanked w) -> AstRanked $ AstLet (AstVarName varId) w u
+      DynamicRanked (AstRanked w) -> AstRanked $ AstLet (mkAstVarName varId) w u
       DynamicShaped w -> convertShaped w
       DynamicRankedDummy @r2 @sh2 _ _ -> AstRanked $
           withListSh (Proxy @sh2) $ \sh2 ->
-            AstLet @_ @n @r2 @_ @s (AstVarName varId) (astReplicate0N sh2 0) u
+            AstLet @_ @n @r2 @_ @s (mkAstVarName varId) (astReplicate0N sh2 0) u
       DynamicShapedDummy @r2 @sh2 _ _ -> AstRanked $
            withListSh (Proxy @sh2) $ \sh2 ->
-            AstLet @_ @n @r2 @_ @s (AstVarName varId) (astReplicate0N sh2 0) u
+            AstLet @_ @n @r2 @_ @s (mkAstVarName varId) (astReplicate0N sh2 0) u
   bindToLet (AstRanked u) (_, AstBindingsHVector lids d) =
     AstRanked $ AstLetHVectorIn lids d u
 
@@ -361,18 +361,18 @@ bindsToLetS = foldl' bindToLetS
   bindToLetS !(AstShaped u) (varId, AstBindingsSimple d) = case d of
     DynamicRanked (AstRanked w) -> AstShaped $
       withListSh (Proxy @sh) $ \_ ->
-        AstSFromR $ AstLet (AstVarName varId) w (AstRFromS u)
-    DynamicShaped (AstShaped w) -> AstShaped $ AstLetS (AstVarName varId) w u
+        AstSFromR $ AstLet (mkAstVarName varId) w (AstRFromS u)
+    DynamicShaped (AstShaped w) -> AstShaped $ AstLetS (mkAstVarName varId) w u
     DynamicRankedDummy @r2 @sh2 _ _ -> AstShaped $
         withListSh (Proxy @sh2) $ \sh2 ->
           withListSh (Proxy @sh) $ \_ ->
             AstSFromR
-            $ AstLet (AstVarName varId) (astReplicate0N @_ @s @r2 sh2 0) (AstRFromS u)
+            $ AstLet (mkAstVarName varId) (astReplicate0N @_ @s @r2 sh2 0) (AstRFromS u)
     DynamicShapedDummy @r2 @sh2 _ _ -> AstShaped $
         withListSh (Proxy @sh2) $ \sh2 ->
           withListSh (Proxy @sh) $ \_ ->
             AstSFromR
-            $ AstLet (AstVarName varId) (astReplicate0N @_ @s @r2 sh2 0) (AstRFromS u)
+            $ AstLet (mkAstVarName varId) (astReplicate0N @_ @s @r2 sh2 0) (AstRFromS u)
   bindToLetS (AstShaped u) (_, AstBindingsHVector lids d) =
     AstShaped $ AstLetHVectorInS lids d u
 
@@ -383,13 +383,13 @@ bindsToHVectorLet
 bindsToHVectorLet = foldl' bindToHVectorLet
  where
   bindToHVectorLet !u (varId, AstBindingsSimple d) = case d of
-    DynamicRanked (AstRanked w) -> AstLetInHVector (AstVarName varId) w u
-    DynamicShaped (AstShaped w) -> AstLetInHVectorS (AstVarName varId) w u
+    DynamicRanked (AstRanked w) -> AstLetInHVector (mkAstVarName varId) w u
+    DynamicShaped (AstShaped w) -> AstLetInHVectorS (mkAstVarName varId) w u
     DynamicRankedDummy @r2 @sh2 _ _ ->
         withListSh (Proxy @sh2) $ \sh2 ->
-          AstLetInHVector (AstVarName varId) (astReplicate0N @_ @s @r2 sh2 0) u
+          AstLetInHVector (mkAstVarName varId) (astReplicate0N @_ @s @r2 sh2 0) u
     DynamicShapedDummy @r2 @sh2 _ _ ->
         withListSh (Proxy @sh2) $ \sh2 ->
-          AstLetInHVector (AstVarName varId) (astReplicate0N @_ @s @r2 sh2 0) u
+          AstLetInHVector (mkAstVarName varId) (astReplicate0N @_ @s @r2 sh2 0) u
   bindToHVectorLet u (_, AstBindingsHVector lids d) =
     AstLetHVectorInHVector lids d u

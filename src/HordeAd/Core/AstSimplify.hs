@@ -883,7 +883,7 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
     (sh, (_, ZIR)) -> if knobExpand knobs
                       then Ast.AstGather sh0 v0 (vars0, ix0)
                       else astReplicateN sh v0
-    (k :$: sh', (AstVarName varId ::: vars, i1 :.: rest1)) ->
+    (k :$: sh', (var ::: vars, i1 :.: rest1)) ->
       if | not (any (`varNameInAst` i1) vars0) ->
            astGatherKnobsR knobs sh0 (astIndex v0 (i1 :.: ZIR))
                            (vars0, rest1)
@@ -897,7 +897,7 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
                  _ -> error "impossible pattern needlessly required"
              _ -> False
            -> astGatherKnobsR knobs sh0 v0 (varsN, restN)
-         | varInIndex varId ix0 ->
+         | varInIndex (varNameToAstVarId var) ix0 ->
            astGatherCase sh0 v0 (vars0, ix0)
          | otherwise ->
            if knobExpand knobs
@@ -1023,8 +1023,8 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
         let f v = astGatherRec sh4 v (vars4, rest4)
             -- This subst doesn't currently break sharing because it's a rename.
             subst i =
-              foldr (\(i2, AstVarName var2) v2 ->
-                      fromMaybe v2 $ substitute1Ast i2 var2 v2)
+              foldr (\(i2, var2) v2 ->
+                      fromMaybe v2 $ substitute1Ast i2 (varNameToAstVarId var2) v2)
                     i
                     (zipSized (fmap (SubstitutionPayloadRanked
                                        @PrimalSpan @Int64)
@@ -1139,8 +1139,8 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
       funToVarsIx (valueOf @m') $ \ (!varsFresh, !ixFresh) ->
         -- This subst doesn't currently break sharing, because it's a rename.
         let subst i =
-              foldr (\(i2, AstVarName var2) v2 ->
-                       fromMaybe v2 $ substitute1Ast i2 var2 v2)
+              foldr (\(i2, var2) v2 ->
+                       fromMaybe v2 $ substitute1Ast i2 (varNameToAstVarId var2) v2)
                     i
                     (zipSized (fmap (SubstitutionPayloadRanked
                                        @PrimalSpan @Int64)
@@ -1469,7 +1469,7 @@ astScatter sh@(k :$: _) _v (_vars, AstConst it :.: _ix)
   , not (0 <= i && i < k) =
       astReplicate0N sh 0
 -- else update (rzero sh 0) [AstConst it] (astScatter ...)
-astScatter sh v (AstVarName varId ::: vars, ix) | not $ varId `varInIndex` ix =
+astScatter sh v (var ::: vars, ix) | not $ (varNameToAstVarId var) `varInIndex` ix =
   astScatter sh (astSum v) (vars, ix)
 -- astScatter sh v (ZR, ix) = update (rzero sh 0) ix v
 astScatter sh (Ast.AstConstant v) (vars, ix) =
@@ -1487,8 +1487,8 @@ astScatterS v (ZS, ZIS) =
   gcastWith (unsafeCoerce Refl
              :: Sh.Take p sh X.++ Sh.Drop p sh :~: sh)
   v
-astScatterS v (Const (AstVarName varId) ::$ (vars :: AstVarListS sh3), ix)
-  | not $ varId `varInIndexS` ix
+astScatterS v (Const var ::$ (vars :: AstVarListS sh3), ix)
+  | not $ varNameToAstVarId var `varInIndexS` ix
   , Dict <- slistKnown vars =
     withShapeP (shapeT @sh3
                 ++ (shapeT @(Sh.Drop p sh))) $ \(Proxy @sh4) ->
@@ -1665,7 +1665,7 @@ astSlice i n (Ast.AstGather (_ :$: sh') v (var ::: vars, ix)) =
   let ivar = AstIntVar var + fromIntegral i
       ix2 = substituteAstIndex  -- cheap subst, because ivar is tiny
               (SubstitutionPayloadRanked @PrimalSpan @Int64 ivar)
-              (AstVarName (varNameToAstVarId var) {-TODO: var-}) ix
+              (mkAstVarName (varNameToAstVarId var) {-TODO: var-}) ix
   in astGatherR (n :$: sh') v (var ::: vars, ix2)
 astSlice i n v = Ast.AstSlice i n v
 
@@ -1696,7 +1696,7 @@ astSliceS (Ast.AstGatherS @_ @p @sh4 v ((::$) @_ @sh21 (Const var) vars, ix)) =
   let ivar = AstIntVar var + valueOf @i
       ix2 = substituteAstIndexS  -- cheap subst, because ivar is tiny
               (SubstitutionPayloadRanked @PrimalSpan @Int64 ivar)
-              (AstVarName (varNameToAstVarId var) {-TODO: var-}) ix
+              (mkAstVarName (varNameToAstVarId var) {-TODO: var-}) ix
       vars2 = Const var ::$ vars
   in case slistKnown vars2 of
     Dict -> astGatherS @(n : sh21) @p @sh4 v (vars2, ix2)
@@ -1713,7 +1713,7 @@ astReverse (Ast.AstGather sh@(k :$: _) v (var ::: vars, ix)) =
   let ivar = fromIntegral k - AstIntVar var
       ix2 = substituteAstIndex  -- cheap subst, because ivar is tiny
               (SubstitutionPayloadRanked @PrimalSpan @Int64 ivar)
-              (AstVarName (varNameToAstVarId var) {-TODO: var-}) ix
+              (mkAstVarName (varNameToAstVarId var) {-TODO: var-}) ix
   in astGatherR sh v (var ::: vars, ix2)
 astReverse v = Ast.AstReverse v
 
@@ -1728,7 +1728,7 @@ astReverseS (Ast.AstGatherS v ((::$) @k (Const var) vars, ix)) =
   let ivar = valueOf @k - AstIntVar var
       ix2 = substituteAstIndexS  -- cheap subst, because ivar is tiny
               (SubstitutionPayloadRanked @PrimalSpan @Int64 ivar)
-              (AstVarName (varNameToAstVarId var) {-TODO: var-}) ix
+              (mkAstVarName (varNameToAstVarId var) {-TODO: var-}) ix
   in astGatherS v (Const var ::$ vars, ix2)
 astReverseS v = Ast.AstReverseS v
 
@@ -2190,23 +2190,23 @@ mapRankedShaped fRanked fShaped
     | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat)
     , Just Refl <- matchingRank @sh3 @n4
     , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) ->
-        fRanked (AstVarName varId) v3 acc
+        fRanked (mkAstVarName varId) v3 acc
   DynamicShaped @r4 @sh4 (AstShaped v3)
     | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat])
     , Just Refl <- sameShape @sh3 @sh4
     , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) ->
-        fShaped (AstVarName varId) v3 acc
+        fShaped (mkAstVarName varId) v3 acc
   DynamicRankedDummy @r4 @sh4 _ _
     | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat)
     , Just Refl <- sameShape @sh3 @sh4
     , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) ->
         withListSh (Proxy @sh3) $ \_ ->
-          fRanked (AstVarName varId) (astRFromS @sh3 @_ @r3 (astReplicate0NS 0)) acc
+          fRanked (mkAstVarName varId) (astRFromS @sh3 @_ @r3 (astReplicate0NS 0)) acc
   DynamicShapedDummy @r4 @sh4 _ _
     | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat])
     , Just Refl <- sameShape @sh3 @sh4
     , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) ->
-        fShaped @sh4 @r4 (AstVarName varId) (astReplicate0NS 0) acc
+        fShaped @sh4 @r4 (mkAstVarName varId) (astReplicate0NS 0) acc
   _ -> error $ "mapRankedShaped: corrupted arguments"
                `showFailure`
                ( vd, typeRep @ty, typeRep @r3, shapeT @sh3
@@ -2972,38 +2972,38 @@ substituteAst :: forall s s2 r2 y z.
               => SubstitutionPayload s2 r2 -> AstVarName s2 z
               -> AstTensor s y
               -> AstTensor s y
-substituteAst i (AstVarName varId) v1 =
-  fromMaybe v1 $ substitute1Ast i varId v1
+substituteAst i var v1 =
+  fromMaybe v1 $ substitute1Ast i (varNameToAstVarId var) v1
 
 substituteAstIndex
   :: (GoodScalar r2, AstSpan s2)
   => SubstitutionPayload s2 r2 -> AstVarName s2 (AstR r2 n2)
   -> AstIndex n
   -> AstIndex n
-substituteAstIndex i (AstVarName varId) ix =
-  fromMaybe ix $ substitute1AstIndex i varId ix
+substituteAstIndex i var ix =
+  fromMaybe ix $ substitute1AstIndex i (varNameToAstVarId var) ix
 
 substituteAstIndexS
   :: (GoodScalar r2, AstSpan s2)
   => SubstitutionPayload s2 r2 -> AstVarName s2 (AstR r2 n2)
   -> AstIndexS sh
   -> AstIndexS sh
-substituteAstIndexS i (AstVarName varId) ix =
-  fromMaybe ix $ substitute1AstIndexS i varId ix
+substituteAstIndexS i var  ix =
+  fromMaybe ix $ substitute1AstIndexS i (varNameToAstVarId var) ix
 
 substituteAstHVector
   :: (GoodScalar r2, AstSpan s, AstSpan s2)
   => SubstitutionPayload s2 r2 -> AstVarName s2 {-r2-} y -> AstHVector s
   -> AstHVector s
-substituteAstHVector i (AstVarName varId) v1 =
-  fromMaybe v1 $ substitute1AstHVector i varId v1
+substituteAstHVector i var v1 =
+  fromMaybe v1 $ substitute1AstHVector i (varNameToAstVarId var) v1
 
 substituteAstBool
   :: (GoodScalar r2, AstSpan s2)
   => SubstitutionPayload s2 r2 -> AstVarName s2 {-r2-} y -> AstBool
   -> AstBool
-substituteAstBool i (AstVarName varId) v1 =
-  fromMaybe v1 $ substitute1AstBool i varId v1
+substituteAstBool i var v1 =
+  fromMaybe v1 $ substitute1AstBool i (varNameToAstVarId var) v1
 
 
 -- * Substitution workers
