@@ -121,7 +121,7 @@ printAstVarId prefix cfg var =
     Just name | name /= "" -> name
     _ -> prefix ++ show n
 
-printAstVarN :: Int -> PrintConfig -> AstVarName f y -> ShowS
+printAstVarN :: Int -> PrintConfig -> AstVarName s y -> ShowS
 printAstVarN n cfg (AstVarName varId) =
   let prefix = case n of
         0 -> "x"
@@ -133,11 +133,11 @@ printAstVarN n cfg (AstVarName varId) =
   in printAstVarId prefix cfg varId
 
 printAstVar :: forall n s r. KnownNat n
-            => PrintConfig -> AstVarName (AstTensor s) (AstR r n) -> ShowS
+            => PrintConfig -> AstVarName s (AstR r n) -> ShowS
 printAstVar = printAstVarN (valueOf @n)
 
 printAstVarS :: forall sh s r. KnownShS sh
-             => PrintConfig -> AstVarName (AstTensor s) (AstS r sh) -> ShowS
+             => PrintConfig -> AstVarName s (AstS r sh) -> ShowS
 printAstVarS = printAstVarN (length (shapeT @sh))
 
 printAstIntVar :: PrintConfig -> IntVarName -> ShowS
@@ -148,7 +148,7 @@ printAstFunVar = printAstVarId "f"
 
 printAstVarFromLet
   :: forall n s r. (GoodScalar r, KnownNat n, AstSpan s)
-  => AstTensor s (AstR r n) -> PrintConfig -> AstVarName (AstTensor s) (AstR r n) -> ShowS
+  => AstTensor s (AstR r n) -> PrintConfig -> AstVarName s (AstR r n) -> ShowS
 printAstVarFromLet u cfg var =
   if representsIntIndex cfg && areAllArgsInts u
   then case isRankedInt u of
@@ -163,13 +163,13 @@ printAstIntVarName renames var =
   printAstIntVar (defaulPrintConfig False renames) var ""
 
 printAstVarName :: KnownNat n
-                => IntMap String -> AstVarName (AstTensor s) (AstR r n)
+                => IntMap String -> AstVarName s (AstR r n)
                 -> String
 printAstVarName renames var =
   printAstVar (defaulPrintConfig False renames) var ""
 
 printAstVarNameS :: KnownShS sh
-                 => IntMap String -> AstVarName (AstTensor s) (AstS r sh)
+                 => IntMap String -> AstVarName s (AstS r sh)
                  -> String
 printAstVarNameS renames var =
   printAstVarS (defaulPrintConfig False renames) var ""

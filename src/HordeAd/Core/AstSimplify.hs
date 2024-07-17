@@ -1275,7 +1275,7 @@ astSliceLax i k v =
 astLet :: forall n m r r2 s s2.
           ( KnownNat m, KnownNat n, GoodScalar r, GoodScalar r2
           , AstSpan s, AstSpan s2 )
-       => AstVarName (AstTensor s) (AstR r n)
+       => AstVarName s (AstR r n)
        -> AstTensor s (AstR r n) -> AstTensor s2 (AstR r2 m)
        -> AstTensor s2 (AstR r2 m)
 astLet var u v | astIsSmall True u =
@@ -1337,7 +1337,7 @@ astLetInt _ _ v = v
 astLetS :: forall sh1 sh2 r r2 s s2.
            ( KnownShS sh1, KnownShS sh2, GoodScalar r, GoodScalar r2
            , AstSpan s, AstSpan s2 )
-        => AstVarName (AstTensor s) (AstS r sh1)
+        => AstVarName s (AstS r sh1)
         -> AstTensor s (AstS r sh1) -> AstTensor s2 (AstS r2 sh2)
         -> AstTensor s2 (AstS r2 sh2)
 astLetS var u v | astIsSmall True u =
@@ -2175,10 +2175,10 @@ astLetHVectorInHVector vars u v =
 mapRankedShaped
   :: AstSpan s
   => (forall n r. (KnownNat n, GoodScalar r)
-      => AstVarName (AstTensor s) (AstR r n) -> AstTensor s (AstR r n) -> acc
+      => AstVarName s (AstR r n) -> AstTensor s (AstR r n) -> acc
       -> acc)
   -> (forall sh r. (KnownShS sh, GoodScalar r)
-      => AstVarName (AstTensor s) (AstS r sh) -> AstTensor s (AstS r sh) -> acc
+      => AstVarName s (AstS r sh) -> AstTensor s (AstS r sh) -> acc
       -> acc)
   -> (AstDynamicVarName, AstDynamic s)
   -> acc
@@ -2216,7 +2216,7 @@ mapRankedShaped fRanked fShaped
 -- unlike astLetHVectorIn, etc., so we don't try to eliminate it.
 astLetInHVector :: forall n r s s2.
                    (KnownNat n, GoodScalar r, AstSpan s, AstSpan s2)
-                => AstVarName (AstTensor s) (AstR r n) -> AstTensor s (AstR r n)
+                => AstVarName s (AstR r n) -> AstTensor s (AstR r n)
                 -> AstHVector s2
                 -> AstHVector s2
 astLetInHVector var u v | astIsSmall True u =
@@ -2227,7 +2227,7 @@ astLetInHVector var u v = Ast.AstLetInHVector var u v
 -- unlike astLetHVectorIn, etc., so we don't try to eliminate it.
 astLetInHVectorS :: forall sh r s s2.
                     (GoodScalar r, KnownShS sh, AstSpan s, AstSpan s2)
-                 => AstVarName (AstTensor s) (AstS r sh) -> AstTensor s (AstS r sh)
+                 => AstVarName s (AstS r sh) -> AstTensor s (AstS r sh)
                  -> AstHVector s2
                  -> AstHVector s2
 astLetInHVectorS var u v | astIsSmall True u =
@@ -2247,7 +2247,7 @@ astLetHVectorIn vars l v =
     Proxy @sh | Just Refl <- matchingRank @sh @n -> case l of
       Ast.AstMkHVector l3 ->
         let f :: forall sh1 r1. (KnownShS sh1, GoodScalar r1)
-              => AstVarName (AstTensor s) (AstS r1 sh1) -> AstTensor s (AstS r1 sh1)
+              => AstVarName s (AstS r1 sh1) -> AstTensor s (AstS r1 sh1)
               -> AstTensor s2 (AstR r n)
               -> AstTensor s2 (AstR r n)
             f var t acc = astRFromS @sh $ astLetS var t $ astSFromR acc
@@ -2275,7 +2275,7 @@ astLetHVectorInS vars l v =
   withListSh (Proxy @sh) $ \(_ :: IShR n) -> case l of
     Ast.AstMkHVector l3 ->
       let f :: forall n1 r1. (KnownNat n1, GoodScalar r1)
-            => AstVarName (AstTensor s) (AstR r1 n1) -> AstTensor s (AstR r1 n1)
+            => AstVarName s (AstR r1 n1) -> AstTensor s (AstR r1 n1)
             -> AstTensor s2 (AstS r sh)
             -> AstTensor s2 (AstS r sh)
           f var t acc = astSFromR $ astLet var t $ astRFromS acc
@@ -2967,9 +2967,9 @@ data SubstitutionPayload :: AstSpanType -> Type -> Type where
 -- and nobody substitutes into variables that are bound.
 -- This keeps the substitution code simple, because we never need to compare
 -- variables to any variable in the bindings.
-substituteAst :: forall s s2 r2 f y z.
+substituteAst :: forall s s2 r2 y z.
                  ( GoodScalar r2, AstSpan s, AstSpan s2 )
-              => SubstitutionPayload s2 r2 -> AstVarName (f s2) z
+              => SubstitutionPayload s2 r2 -> AstVarName s2 z
               -> AstTensor s y
               -> AstTensor s y
 substituteAst i (AstVarName varId) v1 =
@@ -2977,7 +2977,7 @@ substituteAst i (AstVarName varId) v1 =
 
 substituteAstIndex
   :: (GoodScalar r2, AstSpan s2)
-  => SubstitutionPayload s2 r2 -> AstVarName (AstTensor s2) (AstR r2 n2)
+  => SubstitutionPayload s2 r2 -> AstVarName s2 (AstR r2 n2)
   -> AstIndex n
   -> AstIndex n
 substituteAstIndex i (AstVarName varId) ix =
@@ -2985,7 +2985,7 @@ substituteAstIndex i (AstVarName varId) ix =
 
 substituteAstIndexS
   :: (GoodScalar r2, AstSpan s2)
-  => SubstitutionPayload s2 r2 -> AstVarName (AstTensor s2) (AstR r2 n2)
+  => SubstitutionPayload s2 r2 -> AstVarName s2 (AstR r2 n2)
   -> AstIndexS sh
   -> AstIndexS sh
 substituteAstIndexS i (AstVarName varId) ix =
@@ -2993,14 +2993,14 @@ substituteAstIndexS i (AstVarName varId) ix =
 
 substituteAstHVector
   :: (GoodScalar r2, AstSpan s, AstSpan s2)
-  => SubstitutionPayload s2 r2 -> AstVarName (f s2) {-r2-} y -> AstHVector s
+  => SubstitutionPayload s2 r2 -> AstVarName s2 {-r2-} y -> AstHVector s
   -> AstHVector s
 substituteAstHVector i (AstVarName varId) v1 =
   fromMaybe v1 $ substitute1AstHVector i varId v1
 
 substituteAstBool
   :: (GoodScalar r2, AstSpan s2)
-  => SubstitutionPayload s2 r2 -> AstVarName (f s2) {-r2-} y -> AstBool
+  => SubstitutionPayload s2 r2 -> AstVarName s2 {-r2-} y -> AstBool
   -> AstBool
 substituteAstBool i (AstVarName varId) v1 =
   fromMaybe v1 $ substitute1AstBool i varId v1

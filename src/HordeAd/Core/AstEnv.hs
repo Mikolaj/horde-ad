@@ -59,14 +59,14 @@ deriving instance ( CRanked ranked Show, CShaped (ShapedOf ranked) Show
 -- and if s is PrimalSpan, ranked is their primal part.
 -- The same for all functions below.
 extendEnvR :: forall ranked r n s. (KnownNat n, GoodScalar r)
-           => AstVarName (AstTensor s) (AstR r n) -> ranked r n -> AstEnv ranked
+           => AstVarName s (AstR r n) -> ranked r n -> AstEnv ranked
            -> AstEnv ranked
 extendEnvR (AstVarName varId) !t !env =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvR: duplicate " ++ show varId)
                    varId (AstEnvElemRanked t) env
 
 extendEnvS :: forall ranked r sh s. (KnownShS sh, GoodScalar r)
-           => AstVarName (AstTensor s) (AstS r sh) -> ShapedOf ranked r sh
+           => AstVarName s (AstS r sh) -> ShapedOf ranked r sh
            -> AstEnv ranked
            -> AstEnv ranked
 extendEnvS (AstVarName varId) !t !env =

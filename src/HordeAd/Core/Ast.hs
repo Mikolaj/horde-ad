@@ -135,16 +135,16 @@ deriving instance Show AstDynamicVarName
 dynamicVarNameToAstVarId :: AstDynamicVarName -> AstVarId
 dynamicVarNameToAstVarId (AstDynamicVarName varId) = varId
 
-type role AstVarName phantom nominal
-newtype AstVarName (f :: AstType -> Type) (y :: AstType) =
+type role AstVarName nominal nominal
+newtype AstVarName (s :: AstSpanType) (y :: AstType) =
   AstVarName AstVarId
  deriving (Eq, Ord, Enum)
 
-instance Show (AstVarName f y) where
+instance Show (AstVarName s y) where
   showsPrec d (AstVarName varId) =
     showsPrec d varId  -- less verbose, more readable
 
-varNameToAstVarId :: AstVarName f y -> AstVarId
+varNameToAstVarId :: AstVarName s y -> AstVarId
 varNameToAstVarId (AstVarName varId) = varId
 
 -- The reverse derivative artifact from step 6) of our full pipeline.
@@ -160,8 +160,8 @@ data AstArtifact = AstArtifact
 -- integers in the indexes of tensor operations.
 type AstInt = AstTensor PrimalSpan (AstR Int64 0)
 
--- TODO: type IntVarNameF = AstVarName (AstTensor PrimalSpan) Int64
-type IntVarName = AstVarName (AstTensor PrimalSpan) (AstR Int64 0)
+-- TODO: type IntVarNameF = AstVarName PrimalSpan Int64
+type IntVarName = AstVarName PrimalSpan (AstR Int64 0)
 
 pattern AstIntVar :: IntVarName -> AstInt
 pattern AstIntVar var = AstVar ZSR var
@@ -228,17 +228,17 @@ data AstTensor :: AstSpanType -> AstType -> Type where
 
   -- Here starts the ranked part.
   AstVar :: (GoodScalar r, KnownNat n)
-         => IShR n -> AstVarName (AstTensor s) (AstR r n)
+         => IShR n -> AstVarName s (AstR r n)
          -> AstTensor s (AstR r n)
   -- The r variable is existential here, so a proper specialization needs
   -- to be picked explicitly at runtime.
   AstLet :: forall n m r r2 s s2.
             (KnownNat n, KnownNat m, GoodScalar r, GoodScalar r2, AstSpan s)
-         => AstVarName (AstTensor s) (AstR r n) -> AstTensor s (AstR r n)
+         => AstVarName s (AstR r n) -> AstTensor s (AstR r n)
          -> AstTensor s2 (AstR r2 m)
          -> AstTensor s2 (AstR r2 m)
   AstShare :: (GoodScalar r, KnownNat n)
-           => AstVarName (AstTensor s) (AstR r n) -> AstTensor s (AstR r n)
+           => AstVarName s (AstR r n) -> AstTensor s (AstR r n)
            -> AstTensor s (AstR r n)
   AstCond :: AstBool
           -> AstTensor s (AstR r n) -> AstTensor s (AstR r n) -> AstTensor s (AstR r n)
@@ -338,15 +338,15 @@ data AstTensor :: AstSpanType -> AstType -> Type where
 
   -- Here starts the shaped part.
   AstVarS :: forall sh r s. (GoodScalar r, KnownShS sh)
-          => AstVarName (AstTensor s) (AstS r sh)
+          => AstVarName s (AstS r sh)
           -> AstTensor s (AstS r sh)
   AstLetS :: forall sh1 sh2 r r2 s s2.
              (KnownShS sh1, KnownShS sh2, GoodScalar r, GoodScalar r2, AstSpan s)
-          => AstVarName (AstTensor s) (AstS r sh1) -> AstTensor s (AstS r sh1)
+          => AstVarName s (AstS r sh1) -> AstTensor s (AstS r sh1)
           -> AstTensor s2 (AstS r2 sh2)
           -> AstTensor s2 (AstS r2 sh2)
   AstShareS :: (KnownShS sh, GoodScalar r)
-            => AstVarName (AstTensor s) (AstS r sh) -> AstTensor s (AstS r sh)
+            => AstVarName s (AstS r sh) -> AstTensor s (AstS r sh)
             -> AstTensor s (AstS r sh)
   AstCondS :: AstBool
            -> AstTensor s (AstS r sh) -> AstTensor s (AstS r sh) -> AstTensor s (AstS r sh)
@@ -474,12 +474,12 @@ data AstHVector :: AstSpanType -> Type where
   -- The r variable is existential here, so a proper specialization needs
   -- to be picked explicitly at runtime.
   AstLetInHVector :: (KnownNat n, GoodScalar r, AstSpan s)
-                  => AstVarName (AstTensor s) (AstR r n)
+                  => AstVarName s (AstR r n)
                   -> AstTensor s (AstR r n)
                   -> AstHVector s2
                   -> AstHVector s2
   AstLetInHVectorS :: (KnownShS sh, GoodScalar r, AstSpan s)
-                   => AstVarName (AstTensor s) (AstS r sh) -> AstTensor s (AstS r sh)
+                   => AstVarName s (AstS r sh) -> AstTensor s (AstS r sh)
                    -> AstHVector s2
                    -> AstHVector s2
   AstShareHVector :: [AstDynamicVarName] -> AstHVector s

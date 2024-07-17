@@ -62,14 +62,14 @@ unsafeGetFreshAstVarId :: IO AstVarId
 unsafeGetFreshAstVarId =
   intToAstVarId <$> atomicAddCounter_ unsafeAstVarCounter 1
 
-unsafeGetFreshAstVarName :: IO (AstVarName f y)
+unsafeGetFreshAstVarName :: IO (AstVarName s y)
 {-# INLINE unsafeGetFreshAstVarName #-}
 unsafeGetFreshAstVarName =
   AstVarName . intToAstVarId <$> atomicAddCounter_ unsafeAstVarCounter 1
 
 funToAstIOR :: forall n m s r r2. (GoodScalar r, KnownNat n)
             => IShR n -> (AstTensor s (AstR r n) -> AstTensor s (AstR r2 m))
-            -> IO ( AstVarName (AstTensor s) (AstR r n)
+            -> IO ( AstVarName s (AstR r n)
                   , AstDynamicVarName
                   , AstTensor s (AstR r2 m) )
 {-# INLINE funToAstIOR #-}
@@ -82,7 +82,7 @@ funToAstIOR sh f = do
 
 funToAstR :: (GoodScalar r, KnownNat n)
           => IShR n -> (AstTensor s (AstR r n) -> AstTensor s (AstR r2 m))
-          -> (AstVarName (AstTensor s) (AstR r n), AstTensor s (AstR r2 m))
+          -> (AstVarName s (AstR r n), AstTensor s (AstR r2 m))
 {-# NOINLINE funToAstR #-}
 funToAstR sh f = unsafePerformIO $ do
   (!var, _, !ast) <- funToAstIOR sh f
@@ -90,7 +90,7 @@ funToAstR sh f = unsafePerformIO $ do
 
 funToAstIOS :: forall sh sh2 s r r2. (KnownShS sh, GoodScalar r)
             => (AstTensor s (AstS r sh) -> AstTensor s (AstS r2 sh2))
-            -> IO ( AstVarName (AstTensor s) (AstS r sh)
+            -> IO ( AstVarName s (AstS r sh)
                   , AstDynamicVarName
                   , AstTensor s (AstS r2 sh2) )
 {-# INLINE funToAstIOS #-}
@@ -102,32 +102,32 @@ funToAstIOS f = do
 
 funToAstS :: forall sh sh2 s r r2. (KnownShS sh, GoodScalar r)
           => (AstTensor s (AstS r sh) -> AstTensor s (AstS r2 sh2))
-          -> (AstVarName (AstTensor s) (AstS r sh), AstTensor s (AstS r2 sh2))
+          -> (AstVarName s (AstS r sh), AstTensor s (AstS r2 sh2))
 {-# NOINLINE funToAstS #-}
 funToAstS f = unsafePerformIO $ do
   (!var, _, !ast) <- funToAstIOS f
   return (var, ast)
 
-fun1RToAstIO :: (AstVarName (AstTensor s) (AstR r n) -> AstTensor s (AstR r n))
+fun1RToAstIO :: (AstVarName s (AstR r n) -> AstTensor s (AstR r n))
              -> IO (AstTensor s (AstR r n))
 {-# INLINE fun1RToAstIO #-}
 fun1RToAstIO f = do
   !freshId <- unsafeGetFreshAstVarName
   return $! f freshId
 
-fun1RToAst :: (AstVarName (AstTensor s) (AstR r n) -> AstTensor s (AstR r n))
+fun1RToAst :: (AstVarName s (AstR r n) -> AstTensor s (AstR r n))
            -> AstTensor s (AstR r n)
 {-# NOINLINE fun1RToAst #-}
 fun1RToAst f = unsafePerformIO $ fun1RToAstIO f
 
-fun1SToAstIO :: (AstVarName (AstTensor s) (AstS r sh) -> AstTensor s (AstS r sh))
+fun1SToAstIO :: (AstVarName s (AstS r sh) -> AstTensor s (AstS r sh))
              -> IO (AstTensor s (AstS r sh))
 {-# INLINE fun1SToAstIO #-}
 fun1SToAstIO f = do
   !freshId <- unsafeGetFreshAstVarName
   return $! f freshId
 
-fun1SToAst :: (AstVarName (AstTensor s) (AstS r sh) -> AstTensor s (AstS r sh))
+fun1SToAst :: (AstVarName s (AstS r sh) -> AstTensor s (AstS r sh))
            -> AstTensor s (AstS r sh)
 {-# NOINLINE fun1SToAst #-}
 fun1SToAst f = unsafePerformIO $ fun1SToAstIO f
