@@ -531,12 +531,12 @@ testReluSimpPP :: Assertion
 testReluSimpPP = do
   resetVarCounter
   let !t1 = barRelu10xSlower @(AstRanked PrimalSpan)
-            $ AstRanked $ AstVar [1,2,2,1,2,2,2,2,2,1] (mkAstVarName . intToAstVarId $ 100000000)
+            $ AstRanked $ AstVar [1,2,2,1,2,2,2,2,2,1] (mkAstVarName 10 . intToAstVarId $ 100000000)
   length (show t1) @?= 11808
   length (show (simplifyInlineAst @Float @10 t1)) @?= 11808
   resetVarCounter
   let !t2 = barRelu @(AstRanked PrimalSpan)
-            $ AstRanked $ AstVar [1,2,2,1,2,2,2,2,2,1] (mkAstVarName . intToAstVarId $ 100000000)
+            $ AstRanked $ AstVar [1,2,2,1,2,2,2,2,2,1] (mkAstVarName 10 . intToAstVarId $ 100000000)
   length (show t2) @?= 9952
   length (show (simplifyInlineAst @Float @10 t2)) @?= 11808
 

@@ -150,14 +150,14 @@ build1V k (var, v00) =
       bv = Ast.AstBuild1 k (var, v0)
       traceRule = mkTraceRule "build1V" bv v0 1
   in case v0 of
-    Ast.AstVar _ var2 | fromEnum var2 == fromEnum var ->
+    Ast.AstVar _ var2 | varNameToAstVarId var2 == varNameToAstVarId var ->
       case isRankedInt v0 of
         Just Refl -> fromPrimal @s @Int64 $ astSlice 0 k Ast.AstIota
         _ -> error "build1V: build variable is not an index variable"
     Ast.AstVar{} ->
       error "build1V: AstVar can't contain other free index variables"
     Ast.AstLet @_ @_ @r1 @_ @s1 var1 u v ->
-      let var2 = mkAstVarName (varNameToAstVarId var1)  -- changed shape; TODO: shall we rename?
+      let var2 = mkAstVarName (varNameToRank var1) (varNameToAstVarId var1)  -- changed shape; TODO: shall we rename?
           sh = shapeAst u
           projection = Ast.AstIndex (Ast.AstVar (k :$: sh) var2)
                                     (Ast.AstIntVar var :.: ZIR)
@@ -392,7 +392,7 @@ build1VOccurenceUnknownRefreshS (var, v0) =
   funToAstIntVar $ \ (!varFresh, !astVarFresh) ->
     let !v2 = substituteAst  -- cheap subst, because only a renaming
                 (SubstitutionPayloadRanked @PrimalSpan @Int64 astVarFresh)
-                (mkAstVarName (varNameToAstVarId var)) {-TODO: var-} v0
+                (mkAstVarName (varNameToRank var) (varNameToAstVarId var)) {-TODO: var-} v0
     in build1VOccurenceUnknownS (varFresh, v2)
 
 intBindingRefreshS
@@ -420,7 +420,7 @@ build1VS (var, v00) =
     Ast.AstVarS{} ->
       error "build1VS: AstVarS can't contain free index variables"
     Ast.AstLetS @sh1 @_ @r1 @_ @s1 var1 u v ->
-      let var2 = mkAstVarName (varNameToAstVarId var1)  -- changed shape; TODO: shall we rename?
+      let var2 = mkAstVarName (varNameToRank var1) (varNameToAstVarId var1)  -- changed shape; TODO: shall we rename?
           projection = Ast.AstIndexS (Ast.AstVarS @(k ': sh1) var2)
                                      (Ast.AstIntVar var :.$ ZIS)
           v2 = substituteAst
@@ -664,7 +664,7 @@ build1VHVector k@SNat (var, v0) =
     astLetHFunInHVector var1 (build1VHFun k (var, f))
                              (build1VHVector k (var, v))
   Ast.AstLetInHVector @_ @r1 @s1 var1 u v ->
-    let var2 = mkAstVarName (varNameToAstVarId var1)  -- changed shape; TODO: shall we rename?
+    let var2 = mkAstVarName (varNameToRank var1) (varNameToAstVarId var1)  -- changed shape; TODO: shall we rename?
         sh = shapeAst u
         projection = Ast.AstIndex (Ast.AstVar (sNatValue k :$: sh) var2)
                                   (Ast.AstIntVar var :.: ZIR)
@@ -674,7 +674,7 @@ build1VHVector k@SNat (var, v0) =
                             (build1VOccurenceUnknownHVectorRefresh
                                k (var, v2))
   Ast.AstLetInHVectorS @sh2 @r1 @s1 var1 u v ->
-      let var2 = mkAstVarName (varNameToAstVarId var1)  -- changed shape; TODO: shall we rename?
+      let var2 = mkAstVarName (varNameToRank var1) (varNameToAstVarId var1)  -- changed shape; TODO: shall we rename?
           projection = Ast.AstIndexS (Ast.AstVarS @(k ': sh2) var2)
                                      (Ast.AstIntVar var :.$ ZIS)
           v2 = substituteAstHVector
@@ -766,7 +766,7 @@ substProjRanked :: forall n1 r1 n r s1 s.
                 -> AstVarName s1 (AstR r1 n1)
                 -> AstTensor s (AstR r n) -> AstTensor s (AstR r n)
 substProjRanked k var sh1 var1 =
-  let var2 = mkAstVarName (varNameToAstVarId var1)
+  let var2 = mkAstVarName (varNameToRank var1) (varNameToAstVarId var1)
       projection =
         Ast.AstIndex (Ast.AstVar (k :$: sh1) var2)
                      (Ast.AstIntVar var :.: ZIR)
@@ -780,8 +780,8 @@ substProjShaped :: forall n1 r1 sh r s1 s.
                 -> AstTensor s (AstS r sh) -> AstTensor s (AstS r sh)
 substProjShaped k var sh1 var1 =
   let varId = varNameToAstVarId var1
-      var2 = mkAstVarName varId
-      var3 = mkAstVarName varId
+      var2 = mkAstVarName (varNameToRank var1) varId
+      var3 = mkAstVarName (varNameToRank var1) varId
       projection =
         Ast.AstIndex (Ast.AstVar (k :$: sh1) var2)
                      (Ast.AstIntVar var :.: ZIR)
@@ -795,8 +795,8 @@ substProjRankedS :: forall k sh1 r1 n r s1 s.
                  -> AstTensor s (AstR r n) -> AstTensor s (AstR r n)
 substProjRankedS var var1 =
   let varId = varNameToAstVarId var1
-      var2 = mkAstVarName varId
-      var3 = mkAstVarName varId
+      var2 = mkAstVarName (varNameToRank var1) varId
+      var3 = mkAstVarName (varNameToRank var1) varId
       projection =
         Ast.AstIndexS (Ast.AstVarS @(k ': sh1) var2)
                       (Ast.AstIntVar var :.$ ZIS)
@@ -810,7 +810,7 @@ substProjShapedS :: forall k sh1 r1 sh r s1 s.
                  -> AstTensor s (AstS r sh) -> AstTensor s (AstS r sh)
 substProjShapedS var var1 =
   let varId = varNameToAstVarId var1
-      var2 = mkAstVarName varId
+      var2 = mkAstVarName (varNameToRank var1) varId
       projection =
         Ast.AstIndexS (Ast.AstVarS @(k ': sh1) var2)
                       (Ast.AstIntVar var :.$ ZIS)
@@ -824,7 +824,7 @@ substProjHVector :: forall n1 r1 s1 s.
                  -> AstHVector s -> AstHVector s
 substProjHVector k var sh1 var1 =
   let varId = varNameToAstVarId var1
-      var2 = mkAstVarName varId
+      var2 = mkAstVarName (varNameToRank var1) varId
       projection =
         Ast.AstIndex (Ast.AstVar (k :$: sh1) var2)
                      (Ast.AstIntVar var :.: ZIR)
@@ -838,7 +838,7 @@ substProjHVectorS :: forall k sh1 r1 s1 s.
                   -> AstHVector s -> AstHVector s
 substProjHVectorS var var1 =
   let varId = varNameToAstVarId var1
-      var2 = mkAstVarName varId
+      var2 = mkAstVarName (varNameToRank var1) varId
       projection =
         Ast.AstIndexS (Ast.AstVarS @(k ': sh1) var2)
                       (Ast.AstIntVar var :.$ ZIS)
@@ -853,11 +853,11 @@ substProjDynamic var v3 (AstDynamicVarName @ty @r3 @sh3 varId)
   | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat) =
     ( withListSh (Proxy @sh3) $ \sh1 ->
         substProjRanked @_ @r3  @_ @_ @s
-                        (valueOf @k) var sh1 (mkAstVarName varId) v3
+                        (valueOf @k) var sh1 (mkAstVarName (length sh1) varId) v3
     , AstDynamicVarName @ty @r3 @(k ': sh3) varId )
 substProjDynamic var v3 (AstDynamicVarName @ty @r3 @sh3 varId)
   | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat]) =
-    ( substProjRankedS @k @sh3 @r3 @_ @_ @s var (mkAstVarName varId) v3
+    ( substProjRankedS @k @sh3 @r3 @_ @_ @s var (mkAstVarName (length (shapeT @sh3)) varId) v3
     , AstDynamicVarName @ty @r3 @(k ': sh3) varId )
 substProjDynamic _ _ _ = error "substProjDynamic: unexpected type"
 
@@ -869,11 +869,11 @@ substProjDynamicS var v3 (AstDynamicVarName @ty @r3 @sh3 varId)
   | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat) =
     ( withListSh (Proxy @sh3) $ \sh1 ->
         substProjShaped @_ @r3 @_ @_ @s
-                        (valueOf @k) var sh1 (mkAstVarName varId) v3
+                        (valueOf @k) var sh1 (mkAstVarName (length sh1) varId) v3
     , AstDynamicVarName @ty @r3 @(k ': sh3) varId )
 substProjDynamicS var v3 (AstDynamicVarName @ty @r3 @sh3 varId)
   | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat]) =
-    ( substProjShapedS @k @sh3 @r3 @_ @_ @s var (mkAstVarName varId) v3
+    ( substProjShapedS @k @sh3 @r3 @_ @_ @s var (mkAstVarName (length (shapeT @sh3)) varId) v3
     , AstDynamicVarName @ty @r3 @(k ': sh3) varId )
 substProjDynamicS _ _ _ = error "substProjDynamicS: unexpected type"
 
@@ -895,11 +895,11 @@ substProjDynamicHVector :: forall k s. (KnownNat k, AstSpan s)
 substProjDynamicHVector var v3 (AstDynamicVarName @ty @r3 @sh3 varId)
   | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat) =
     ( withListSh (Proxy @sh3) $ \sh1 ->
-        substProjHVector @_ @r3 @s (valueOf @k) var sh1 (mkAstVarName varId) v3
+        substProjHVector @_ @r3 @s (valueOf @k) var sh1 (mkAstVarName (length sh1) varId) v3
     , AstDynamicVarName @ty @r3 @(k ': sh3) varId )
 substProjDynamicHVector var v3 (AstDynamicVarName @ty @r3 @sh3 varId)
   | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat]) =
-    ( substProjHVectorS @k @sh3 @r3 @s var (mkAstVarName varId) v3
+    ( substProjHVectorS @k @sh3 @r3 @s var (mkAstVarName (length (shapeT @sh3)) varId) v3
     , AstDynamicVarName @ty @r3 @(k ': sh3) varId )
 substProjDynamicHVector _ _ _ =
   error "substProjDynamicHVector: unexpected type"

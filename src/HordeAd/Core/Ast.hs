@@ -11,7 +11,7 @@ module HordeAd.Core.Ast
     -- * More and less typed variables and related type synonyms
   , AstVarId, intToAstVarId, AstDynamicVarName(..), dynamicVarNameToAstVarId
   , AstInt, IntVarName, pattern AstIntVar, isRankedInt
-  , AstVarName, mkAstVarName, varNameToAstVarId
+  , AstVarName, mkAstVarName, varNameToAstVarId, varNameToRank
   , AstArtifact(..), AstIndex, AstVarList, AstIndexS, AstVarListS
     -- * AstBindingsCase and AstBindings
   , AstBindingsCase(..), AstBindings
@@ -135,20 +135,24 @@ deriving instance Show AstDynamicVarName
 dynamicVarNameToAstVarId :: AstDynamicVarName -> AstVarId
 dynamicVarNameToAstVarId (AstDynamicVarName varId) = varId
 
+-- TODO: remove the rank field once we have AstType singletons
 type role AstVarName nominal nominal
-newtype AstVarName (s :: AstSpanType) (y :: AstType) =
-  AstVarName AstVarId
- deriving (Eq, Ord, Enum)
+data AstVarName (s :: AstSpanType) (y :: AstType) =
+  AstVarName Int AstVarId
+ deriving (Eq, Ord)
 
 instance Show (AstVarName s y) where
-  showsPrec d (AstVarName varId) =
+  showsPrec d (AstVarName _ varId) =
     showsPrec d varId  -- less verbose, more readable
 
-mkAstVarName :: AstVarId -> AstVarName s y
+mkAstVarName :: Int -> AstVarId -> AstVarName s y
 mkAstVarName = AstVarName
 
 varNameToAstVarId :: AstVarName s y -> AstVarId
-varNameToAstVarId (AstVarName varId) = varId
+varNameToAstVarId (AstVarName _ varId) = varId
+
+varNameToRank :: AstVarName s y -> Int
+varNameToRank (AstVarName rank _) = rank
 
 -- The reverse derivative artifact from step 6) of our full pipeline.
 -- The same type can also hold the forward derivative artifact.

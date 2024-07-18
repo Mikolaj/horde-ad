@@ -20,6 +20,7 @@ module HordeAd.Core.AstEnv
 import Prelude
 
 import Control.Exception.Assert.Sugar
+import Data.Array.Internal (valueOf)
 import Data.EnumMap.Strict qualified as EM
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (testEquality, (:~:) (Refl))
@@ -95,23 +96,23 @@ extendEnvD vd@(AstDynamicVarName @ty @r @sh varId, d) !env = case d of
     | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat)
     , Just Refl <- matchingRank @sh @n3
     , Just Refl <- testEquality (typeRep @r) (typeRep @r3) ->
-      extendEnvR (mkAstVarName varId) u env
+      extendEnvR (mkAstVarName (valueOf @n3) varId) u env
   DynamicShaped @r3 @sh3 u
     | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat])
     , Just Refl <- sameShape @sh3 @sh
     , Just Refl <- testEquality (typeRep @r) (typeRep @r3) ->
-      extendEnvS (mkAstVarName varId) u env
+      extendEnvS (mkAstVarName (length (shapeT @sh)) varId) u env
   DynamicRankedDummy @r3 @sh3 _ _
     | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat)
     , Just Refl <- sameShape @sh3 @sh
     , Just Refl <- testEquality (typeRep @r) (typeRep @r3) ->
       withListSh (Proxy @sh) $ \sh4 ->
-        extendEnvR @ranked @r (mkAstVarName varId) (rzero sh4) env
+        extendEnvR @ranked @r (mkAstVarName (length sh4) varId) (rzero sh4) env
   DynamicShapedDummy @r3 @sh3 _ _
     | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat])
     , Just Refl <- sameShape @sh3 @sh
     , Just Refl <- testEquality (typeRep @r) (typeRep @r3) ->
-      extendEnvS @ranked @r @sh (mkAstVarName varId) (srepl 0) env
+      extendEnvS @ranked @r @sh (mkAstVarName (length (shapeT @sh)) varId) (srepl 0) env
   _ -> error $ "extendEnvD: impossible type"
                `showFailure`
                ( vd, typeRep @ty, typeRep @r, shapeT @sh

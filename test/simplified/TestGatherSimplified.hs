@@ -129,10 +129,10 @@ testGatherBuild1 =
 testGatherSimpPP1 :: Assertion
 testGatherSimpPP1 = do
   resetVarCounter
-  let !t1 = gatherNested1 @(AstRanked PrimalSpan) $ AstRanked $ AstVar [7, 2] (mkAstVarName . intToAstVarId $ 100000000)
+  let !t1 = gatherNested1 @(AstRanked PrimalSpan) $ AstRanked $ AstVar [7, 2] (mkAstVarName 2 . intToAstVarId $ 100000000)
   length (show t1) @?= 182
   resetVarCounter
-  let !t2 = gather1 @(AstRanked PrimalSpan) $ AstRanked $ AstVar [7, 2] (mkAstVarName . intToAstVarId $ 100000000)
+  let !t2 = gather1 @(AstRanked PrimalSpan) $ AstRanked $ AstVar [7, 2] (mkAstVarName 2 . intToAstVarId $ 100000000)
   length (show t2) @?= 182
   length (show (simplifyInlineAst @Float t1))
     @?= length (show (simplifyInlineAst @Float t2))
@@ -209,10 +209,10 @@ testGatherBuild2 =
 testGatherSimpPP2 :: Assertion
 testGatherSimpPP2 = do
   resetVarCounter
-  let !t1 = gatherNested2 @(AstRanked PrimalSpan) $ AstRanked $ AstVar [7, 2] (mkAstVarName . intToAstVarId $ 100000000)
+  let !t1 = gatherNested2 @(AstRanked PrimalSpan) $ AstRanked $ AstVar [7, 2] (mkAstVarName 2 . intToAstVarId $ 100000000)
   length (show t1) @?= 343
   resetVarCounter
-  let !t2 = gather2 @(AstRanked PrimalSpan) $ AstRanked $ AstVar [7, 2] (mkAstVarName . intToAstVarId $ 100000000)
+  let !t2 = gather2 @(AstRanked PrimalSpan) $ AstRanked $ AstVar [7, 2] (mkAstVarName 2 . intToAstVarId $ 100000000)
   length (show t2) @?= 265
   length (show (simplifyInlineAst @Float t1)) @?= 265
   length (show (simplifyInlineAst @Float t2)) @?= 265
@@ -276,10 +276,10 @@ testGatherBuild12 =
 testGatherSimpPP12 :: Assertion
 testGatherSimpPP12 = do
   resetVarCounter
-  let !t1 = gatherNested12 @(AstRanked PrimalSpan) $ AstRanked $ AstVar [7, 2] (mkAstVarName . intToAstVarId $ 100000000)
+  let !t1 = gatherNested12 @(AstRanked PrimalSpan) $ AstRanked $ AstVar [7, 2] (mkAstVarName 2 . intToAstVarId $ 100000000)
   length (show t1) @?= 343
   resetVarCounter
-  let !t2 = gather12 @(AstRanked PrimalSpan) $ AstRanked $ AstVar [7, 2] (mkAstVarName . intToAstVarId $ 100000000)
+  let !t2 = gather12 @(AstRanked PrimalSpan) $ AstRanked $ AstVar [7, 2] (mkAstVarName 2 . intToAstVarId $ 100000000)
   length (show t2) @?= 265
   length (show (simplifyInlineAst @Float t1)) @?= 265
   length (show (simplifyInlineAst @Float t2)) @?= 265
@@ -314,12 +314,12 @@ testGatherReshapeBuild22 =
 testGatherSimpPP22 :: Assertion
 testGatherSimpPP22 = do
   resetVarCounter
-  let !t1 = gatherReshape22 @(AstRanked PrimalSpan) $ AstRanked $ AstVar [6, 2] (mkAstVarName . intToAstVarId $ 100000000)
+  let !t1 = gatherReshape22 @(AstRanked PrimalSpan) $ AstRanked $ AstVar [6, 2] (mkAstVarName 2 . intToAstVarId $ 100000000)
   length (show t1) @?= 52
   length (show (simplifyInlineAst @Float t1)) @?= 52
   resetVarCounter
   let !t2 = rreshape @(AstRanked PrimalSpan) @Float @2 @2 [2, 6]
-            $ AstRanked $ AstVar [6, 2] (mkAstVarName . intToAstVarId $ 100000000)
+            $ AstRanked $ AstVar [6, 2] (mkAstVarName 2 . intToAstVarId $ 100000000)
   length (show t2) @?= 52
   length (show (simplifyInlineAst @Float t2)) @?= 52
 
@@ -329,14 +329,14 @@ testGatherSimpPP23 = do
   let !t1 = (\t -> rbuild1 4 (\i ->
               gatherReshape22 @(AstRanked PrimalSpan)
                 (t * rreplicate0N [6, 2] (rfromIndex0 i))))
-            $ AstRanked $ AstVar [6, 2] (mkAstVarName . intToAstVarId $ 100000000)
+            $ AstRanked $ AstVar [6, 2] (mkAstVarName 2 . intToAstVarId $ 100000000)
   length (show t1) @?= 186
   length (show (simplifyInlineAst @Float t1)) @?= 186
   resetVarCounter
   let !t2 = (\t -> rbuild1 4 (\i ->
               rreshape @(AstRanked PrimalSpan) @Float @2 @2 [2, 6]
                 (t * rreplicate0N [6, 2] (rfromIndex0 i))))
-            $ AstRanked $ AstVar [6, 2] (mkAstVarName . intToAstVarId $ 100000000)
+            $ AstRanked $ AstVar [6, 2] (mkAstVarName 2 . intToAstVarId $ 100000000)
   length (show t2) @?= 186
   length (show (simplifyInlineAst @Float t2)) @?= 186
 
@@ -449,13 +449,13 @@ testGatherSimpPP33 :: Assertion
 testGatherSimpPP33 = do
   resetVarCounter
   let !t1 = gatherTranspose33 @(AstRanked PrimalSpan)
-            $ AstRanked $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (mkAstVarName . intToAstVarId $ 100000000)
+            $ AstRanked $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (mkAstVarName 10 . intToAstVarId $ 100000000)
   length (show t1) @?= 555
   length (show (simplifyInlineAst @Float t1)) @?= 555
   resetVarCounter
   let !t2 = (\t -> rmatmul2 (rreshape [6, 8] (rconst $ Nested.rfromOrthotope SNat $ runFlipR t48OR))
                             (rreshape @(AstRanked PrimalSpan) @Float @10 [8, 16] t))
-            $ AstRanked $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (mkAstVarName . intToAstVarId $ 100000000)
+            $ AstRanked $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (mkAstVarName 10 . intToAstVarId $ 100000000)
   length (show t2) @?= 474
   length (show (simplifyInlineAst @Float t2)) @?= 474
 
@@ -464,7 +464,7 @@ testGatherSimpPP34 = do
   resetVarCounter
   let !t1 = (\t -> rbuild1 4 (\i ->
              gatherTranspose33 @(AstRanked PrimalSpan) (t * rreplicate0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (rfromIndex0 i))))
-            $ AstRanked $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (mkAstVarName . intToAstVarId $ 100000000)
+            $ AstRanked $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (mkAstVarName 10 . intToAstVarId $ 100000000)
   length (show t1) @?= 878
   length (show (simplifyInlineAst @Float t1)) @?= 878
   resetVarCounter
@@ -472,7 +472,7 @@ testGatherSimpPP34 = do
               (\t' -> rmatmul2 (rreshape [6, 8] (rconst $ Nested.rfromOrthotope SNat $ runFlipR t48OR))
                                (rreshape @(AstRanked PrimalSpan) @Float @10 [8, 16] t'))
                 (t * rreplicate0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (rfromIndex0 i))))
-            $ AstRanked $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (mkAstVarName . intToAstVarId $ 100000000)
+            $ AstRanked $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (mkAstVarName 10 . intToAstVarId $ 100000000)
   length (show t2) @?= 631
   length (show (simplifyInlineAst @Float t2)) @?= 631
 
@@ -533,10 +533,10 @@ testScatterBuild1 =
 testScatterSimpPP1 :: Assertion
 testScatterSimpPP1 = do
   resetVarCounter
-  let !t1 = scatterNested1 @(AstRanked PrimalSpan) $ AstRanked $ AstVar [7, 2] (mkAstVarName . intToAstVarId $ 100000000)
+  let !t1 = scatterNested1 @(AstRanked PrimalSpan) $ AstRanked $ AstVar [7, 2] (mkAstVarName 2 . intToAstVarId $ 100000000)
   length (show t1) @?= 297
   resetVarCounter
-  let !t2 = scatter1 @(AstRanked PrimalSpan) $ AstRanked $ AstVar [7, 2] (mkAstVarName . intToAstVarId $ 100000000)
+  let !t2 = scatter1 @(AstRanked PrimalSpan) $ AstRanked $ AstVar [7, 2] (mkAstVarName 2 . intToAstVarId $ 100000000)
   length (show t2) @?= 451
   length (show (simplifyInlineAst @Float t1)) @?= 297
   length (show (simplifyInlineAst @Float t2)) @?= 451
@@ -599,10 +599,10 @@ testScatterBuild2 =
 testScatterSimpPP2 :: Assertion
 testScatterSimpPP2 = do
   resetVarCounter
-  let !t1 = scatterNested2 @(AstRanked PrimalSpan) $ AstRanked $ AstVar [7, 2] (mkAstVarName . intToAstVarId $ 100000000)
+  let !t1 = scatterNested2 @(AstRanked PrimalSpan) $ AstRanked $ AstVar [7, 2] (mkAstVarName 2 . intToAstVarId $ 100000000)
   length (show t1) @?= 1171
   resetVarCounter
-  let !t2 = scatter2 @(AstRanked PrimalSpan) $ AstRanked $ AstVar [7, 2] (mkAstVarName . intToAstVarId $ 100000000)
+  let !t2 = scatter2 @(AstRanked PrimalSpan) $ AstRanked $ AstVar [7, 2] (mkAstVarName 2 . intToAstVarId $ 100000000)
   length (show t2) @?= 634
   length (show (simplifyInlineAst @Float t1)) @?= 1171
   length (show (simplifyInlineAst @Float t2)) @?= 634
@@ -667,10 +667,10 @@ testScatterBuild12 =
 testScatterSimpPP12 :: Assertion
 testScatterSimpPP12 = do
   resetVarCounter
-  let !t1 = scatterNested12 @(AstRanked PrimalSpan) $ AstRanked $ AstVar [7, 2] (mkAstVarName . intToAstVarId $ 100000000)
+  let !t1 = scatterNested12 @(AstRanked PrimalSpan) $ AstRanked $ AstVar [7, 2] (mkAstVarName 2 . intToAstVarId $ 100000000)
   length (show t1) @?= 989
   resetVarCounter
-  let !t2 = scatter12 @(AstRanked PrimalSpan) $ AstRanked $ AstVar [7, 2] (mkAstVarName . intToAstVarId $ 100000000)
+  let !t2 = scatter12 @(AstRanked PrimalSpan) $ AstRanked $ AstVar [7, 2] (mkAstVarName 2 . intToAstVarId $ 100000000)
   length (show t2) @?= 634
   length (show (simplifyInlineAst @Float t1)) @?= 989
   length (show (simplifyInlineAst @Float t2)) @?= 634

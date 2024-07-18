@@ -1282,7 +1282,7 @@ astLet var u v | astIsSmall True u =
   fromMaybe v
   $ substitute1Ast (SubstitutionPayloadRanked u) (varNameToAstVarId var) v
 astLet var u v@(Ast.AstVar _ var2) =
-  if fromEnum var2 == fromEnum var
+  if varNameToAstVarId var2 == varNameToAstVarId var
   then case sameAstSpan @s @s2 of
     Just Refl -> case sameNat (Proxy @n) (Proxy @m) of
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
@@ -1292,7 +1292,7 @@ astLet var u v@(Ast.AstVar _ var2) =
     _ -> error "astLet: span mismatch"
   else v
 astLet var u v@(Ast.AstConstant (Ast.AstVar _ var2)) =  -- a common noop
-  if fromEnum var2 == fromEnum var
+  if varNameToAstVarId var2 == varNameToAstVarId var
   then case sameAstSpan @s @PrimalSpan of
     Just Refl -> case sameNat (Proxy @n) (Proxy @m) of
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
@@ -1302,7 +1302,7 @@ astLet var u v@(Ast.AstConstant (Ast.AstVar _ var2)) =  -- a common noop
     _ -> error "astLet: span mismatch"
   else v
 astLet var u v@(Ast.AstPrimalPart (Ast.AstVar _ var2)) =  -- a common noop
-  if fromEnum var2 == fromEnum var
+  if varNameToAstVarId var2 == varNameToAstVarId var
   then case sameAstSpan @s @FullSpan of
     Just Refl -> case sameNat (Proxy @n) (Proxy @m) of
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
@@ -1312,7 +1312,7 @@ astLet var u v@(Ast.AstPrimalPart (Ast.AstVar _ var2)) =  -- a common noop
     _ -> error "astLet: span mismatch"
   else v
 astLet var u v@(Ast.AstDualPart (Ast.AstVar _ var2)) =  -- a noop
-  if fromEnum var2 == fromEnum var
+  if varNameToAstVarId var2 == varNameToAstVarId var
   then case sameAstSpan @s @FullSpan of
     Just Refl -> case sameNat (Proxy @n) (Proxy @m) of
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
@@ -1344,7 +1344,7 @@ astLetS var u v | astIsSmall True u =
   fromMaybe v
   $ substitute1Ast (SubstitutionPayloadShaped u) (varNameToAstVarId var) v
 astLetS var u v@(Ast.AstVarS var2) =
-  if fromEnum var2 == fromEnum var
+  if varNameToAstVarId var2 == varNameToAstVarId var
   then case sameAstSpan @s @s2 of
     Just Refl -> case sameShape @sh1 @sh2 of
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
@@ -1354,7 +1354,7 @@ astLetS var u v@(Ast.AstVarS var2) =
     _ -> error "astLetS: span mismatch"
   else v
 astLetS var u v@(Ast.AstConstantS (Ast.AstVarS var2)) =  -- a common noop
-  if fromEnum var2 == fromEnum var
+  if varNameToAstVarId var2 == varNameToAstVarId var
   then case sameAstSpan @s @PrimalSpan of
     Just Refl -> case sameShape @sh1 @sh2 of
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
@@ -1364,7 +1364,7 @@ astLetS var u v@(Ast.AstConstantS (Ast.AstVarS var2)) =  -- a common noop
     _ -> error "astLetS: span mismatch"
   else v
 astLetS var u v@(Ast.AstPrimalPartS (Ast.AstVarS var2)) =  -- a common noop
-  if fromEnum var2 == fromEnum var
+  if varNameToAstVarId var2 == varNameToAstVarId var
   then case sameAstSpan @s @FullSpan of
     Just Refl -> case sameShape @sh1 @sh2 of
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
@@ -1374,7 +1374,7 @@ astLetS var u v@(Ast.AstPrimalPartS (Ast.AstVarS var2)) =  -- a common noop
     _ -> error "astLetS: span mismatch"
   else v
 astLetS var u v@(Ast.AstDualPartS (Ast.AstVarS var2)) =  -- a noop
-  if fromEnum var2 == fromEnum var
+  if varNameToAstVarId var2 == varNameToAstVarId var
   then case sameAstSpan @s @FullSpan of
     Just Refl -> case sameShape @sh1 @sh2 of
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
@@ -1665,7 +1665,7 @@ astSlice i n (Ast.AstGather (_ :$: sh') v (var ::: vars, ix)) =
   let ivar = AstIntVar var + fromIntegral i
       ix2 = substituteAstIndex  -- cheap subst, because ivar is tiny
               (SubstitutionPayloadRanked @PrimalSpan @Int64 ivar)
-              (mkAstVarName (varNameToAstVarId var) {-TODO: var-}) ix
+              (mkAstVarName (varNameToRank var)  (varNameToAstVarId var) {-TODO: var-}) ix
   in astGatherR (n :$: sh') v (var ::: vars, ix2)
 astSlice i n v = Ast.AstSlice i n v
 
@@ -1696,7 +1696,7 @@ astSliceS (Ast.AstGatherS @_ @p @sh4 v ((::$) @_ @sh21 (Const var) vars, ix)) =
   let ivar = AstIntVar var + valueOf @i
       ix2 = substituteAstIndexS  -- cheap subst, because ivar is tiny
               (SubstitutionPayloadRanked @PrimalSpan @Int64 ivar)
-              (mkAstVarName (varNameToAstVarId var) {-TODO: var-}) ix
+              (mkAstVarName (varNameToRank var) (varNameToAstVarId var) {-TODO: var-}) ix
       vars2 = Const var ::$ vars
   in case slistKnown vars2 of
     Dict -> astGatherS @(n : sh21) @p @sh4 v (vars2, ix2)
@@ -1713,7 +1713,7 @@ astReverse (Ast.AstGather sh@(k :$: _) v (var ::: vars, ix)) =
   let ivar = fromIntegral k - AstIntVar var
       ix2 = substituteAstIndex  -- cheap subst, because ivar is tiny
               (SubstitutionPayloadRanked @PrimalSpan @Int64 ivar)
-              (mkAstVarName (varNameToAstVarId var) {-TODO: var-}) ix
+              (mkAstVarName (varNameToRank var) (varNameToAstVarId var) {-TODO: var-}) ix
   in astGatherR sh v (var ::: vars, ix2)
 astReverse v = Ast.AstReverse v
 
@@ -1728,7 +1728,7 @@ astReverseS (Ast.AstGatherS v ((::$) @k (Const var) vars, ix)) =
   let ivar = valueOf @k - AstIntVar var
       ix2 = substituteAstIndexS  -- cheap subst, because ivar is tiny
               (SubstitutionPayloadRanked @PrimalSpan @Int64 ivar)
-              (mkAstVarName (varNameToAstVarId var) {-TODO: var-}) ix
+              (mkAstVarName (varNameToRank var) (varNameToAstVarId var) {-TODO: var-}) ix
   in astGatherS v (Const var ::$ vars, ix2)
 astReverseS v = Ast.AstReverseS v
 
@@ -2190,23 +2190,23 @@ mapRankedShaped fRanked fShaped
     | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat)
     , Just Refl <- matchingRank @sh3 @n4
     , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) ->
-        fRanked (mkAstVarName varId) v3 acc
+        fRanked (mkAstVarName (length (shapeT @sh3)) varId) v3 acc
   DynamicShaped @r4 @sh4 (AstShaped v3)
     | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat])
     , Just Refl <- sameShape @sh3 @sh4
     , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) ->
-        fShaped (mkAstVarName varId) v3 acc
+        fShaped (mkAstVarName (length (shapeT @sh3)) varId) v3 acc
   DynamicRankedDummy @r4 @sh4 _ _
     | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat)
     , Just Refl <- sameShape @sh3 @sh4
     , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) ->
         withListSh (Proxy @sh3) $ \_ ->
-          fRanked (mkAstVarName varId) (astRFromS @sh3 @_ @r3 (astReplicate0NS 0)) acc
+          fRanked (mkAstVarName (length (shapeT @sh3)) varId) (astRFromS @sh3 @_ @r3 (astReplicate0NS 0)) acc
   DynamicShapedDummy @r4 @sh4 _ _
     | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat])
     , Just Refl <- sameShape @sh3 @sh4
     , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) ->
-        fShaped @sh4 @r4 (mkAstVarName varId) (astReplicate0NS 0) acc
+        fShaped @sh4 @r4 (mkAstVarName (length (shapeT @sh3)) varId) (astReplicate0NS 0) acc
   _ -> error $ "mapRankedShaped: corrupted arguments"
                `showFailure`
                ( vd, typeRep @ty, typeRep @r3, shapeT @sh3
@@ -3019,7 +3019,7 @@ substitute1Ast :: forall s s2 r2 y. ( GoodScalar r2, AstSpan s, AstSpan s2 )
                -> Maybe (AstTensor s y)
 substitute1Ast i var v1 = case v1 of
   Ast.AstVar @r @n sh var2 ->
-    if fromEnum var == fromEnum var2
+    if var == varNameToAstVarId var2
     then case i of
       SubstitutionPayloadRanked @_ @_ @m t -> case sameAstSpan @s @s2 of
         Just Refl -> case sameNat (Proxy @m) (Proxy @n) of
@@ -3154,7 +3154,7 @@ substitute1Ast i var v1 = case v1 of
       (mx, my) -> Just $ Ast.AstD (fromMaybe x mx) (fromMaybe y my)
 
   Ast.AstVarS @sh @r var2 ->
-    if fromEnum var == fromEnum var2
+    if var == varNameToAstVarId var2
     then case i of
       SubstitutionPayloadShaped @_ @_ @sh2 t -> case sameAstSpan @s @s2 of
         Just Refl -> case sameShape @sh2 @sh of
@@ -3375,7 +3375,7 @@ substitute1AstHFun
 substitute1AstHFun i var = \case
   Ast.AstLambda{} -> Nothing  -- no outside free variables
   Ast.AstVarHFun _shss _shs var2 ->
-    if fromEnum var == fromEnum var2
+    if var == var2
     then case i of
       SubstitutionPayloadShaped{} ->
         error "substitute1AstHFun: unexpected tensor"

@@ -1383,9 +1383,9 @@ testFooNoGoAst =
   let f :: (GoodScalar r, Differentiable r)
         => ADVal ORArray r 1 -> ADVal ORArray r 1
       f x = interpretAst (extendEnvR
-                            (mkAstVarName $ intToAstVarId 100000000)
+                            (mkAstVarName 1 $ intToAstVarId 100000000)
                             x EM.empty)
-                         (unAstRanked $ fooNoGoAst (AstRanked $ AstVar [5] (mkAstVarName . intToAstVarId $ 100000000)))
+                         (unAstRanked $ fooNoGoAst (AstRanked $ AstVar [5] (mkAstVarName 1 . intToAstVarId $ 100000000)))
   in assertEqualUpToEpsilon1 1e-6
        (OR.fromList [5] [5.037878787878788,-14.394255484765257,43.23648655081373,-0.8403418295960368,5.037878787878788])
        (crev @Double @1 f
@@ -1585,9 +1585,9 @@ testBarReluAst0 =
   let f :: (GoodScalar r, Differentiable r)
         => ADVal ORArray r 0 -> ADVal ORArray r 0
       f x = interpretAst (extendEnvR
-                            (mkAstVarName $ intToAstVarId 100000000)
+                            (mkAstVarName 0 $ intToAstVarId 100000000)
                             x EM.empty)
-                         (unAstRanked $ barReluAst (AstRanked $ AstVar [] (mkAstVarName . intToAstVarId $ 100000000)))
+                         (unAstRanked $ barReluAst (AstRanked $ AstVar [] (mkAstVarName 0 . intToAstVarId $ 100000000)))
   in assertEqualUpToEpsilon1 1e-10
        (OR.fromList [] [191.20462646925841])
        (crevDt @Double @0 f (rscalar 1.1) (rscalar 42.2))
@@ -1597,9 +1597,9 @@ testBarReluAst1 =
   let f :: (GoodScalar r, Differentiable r)
         => ADVal ORArray r 1 -> ADVal ORArray r 1
       f x = interpretAst (extendEnvR
-                            (mkAstVarName $ intToAstVarId 100000000)
+                            (mkAstVarName 1 $ intToAstVarId 100000000)
                             x EM.empty)
-                         (unAstRanked $ barReluAst (AstRanked $ AstVar [5] (mkAstVarName . intToAstVarId $ 100000000)))
+                         (unAstRanked $ barReluAst (AstRanked $ AstVar [5] (mkAstVarName 1 . intToAstVarId $ 100000000)))
   in assertEqualUpToEpsilon1 1e-10
        (OR.fromList [5] [4.530915319176739,-2.9573428114591314e-2,5.091137576320349,81.14126788127645,2.828924924816215])
        (crev @Double @1 f (rfromList0N [5] [rscalar 1.1, rscalar 2.2, rscalar 3.3, rscalar 4, rscalar 5]))
@@ -1615,9 +1615,9 @@ testReplicateReluAst =
   let f :: (GoodScalar r, Differentiable r)
         => ADVal ORArray r 0 -> ADVal ORArray r 0
       f x = interpretAst (extendEnvR
-                            (mkAstVarName $ intToAstVarId 100000000)
+                            (mkAstVarName 0 $ intToAstVarId 100000000)
                             x EM.empty)
-                         (unAstRanked $ konstReluAst (AstRanked $ AstVar [] (mkAstVarName . intToAstVarId $ 100000000)))
+                         (unAstRanked $ konstReluAst (AstRanked $ AstVar [] (mkAstVarName 0 . intToAstVarId $ 100000000)))
   in assertEqualUpToEpsilon1 1e-10
        (OR.fromList [] [295.4])
        (crevDt @Double @0 f (rscalar 1.1) (rscalar 42.2))

@@ -177,7 +177,7 @@ printAstVarNameS renames var =
 
 printAstDynamicVarNameBrief :: IntMap String -> AstDynamicVarName -> String
 printAstDynamicVarNameBrief renames (AstDynamicVarName @_ @r @sh varId) =
-  printAstVarNameS renames (mkAstVarName @_ @(AstS r sh) varId)
+  printAstVarNameS renames (mkAstVarName @_ @(AstS r sh) (length (shapeT @sh)) varId)
 
 printAstDynamicVarName :: IntMap String -> AstDynamicVarName -> String
 printAstDynamicVarName renames var@(AstDynamicVarName @ty @r @sh _varId) =
