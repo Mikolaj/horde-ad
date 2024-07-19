@@ -4,7 +4,7 @@
 -- almost roundtrip, while others are more readable but less faithful.
 module HordeAd.Core.AstPrettyPrint
   ( -- * Pretty-printing of variables
-    printAstVarName, printAstVarNameS, printAstDynamicVarNameBrief
+    printAstVarName, printAstDynamicVarNameBrief
   , printAstDynamicVarName
   , printAstIntVarName
     -- * Pretty-printing terms in a few useful configurations
@@ -121,9 +121,10 @@ printAstVarId prefix cfg var =
     Just name | name /= "" -> name
     _ -> prefix ++ show n
 
-printAstVarN :: Int -> PrintConfig -> AstVarName s y -> ShowS
-printAstVarN n cfg var =
-  let varId = varNameToAstVarId var
+printAstVar :: PrintConfig -> AstVarName s y -> ShowS
+printAstVar cfg var =
+  let n = varNameToRank var
+      varId = varNameToAstVarId var
       prefix = case n of
         0 -> "x"
         1 -> "v"
@@ -132,14 +133,6 @@ printAstVarN n cfg var =
         4 -> "u"
         _ -> "w"
   in printAstVarId prefix cfg varId
-
-printAstVar :: forall n s r. KnownNat n
-            => PrintConfig -> AstVarName s (AstR r n) -> ShowS
-printAstVar = printAstVarN (valueOf @n)
-
-printAstVarS :: forall sh s r. KnownShS sh
-             => PrintConfig -> AstVarName s (AstS r sh) -> ShowS
-printAstVarS = printAstVarN (length (shapeT @sh))
 
 printAstIntVar :: PrintConfig -> IntVarName -> ShowS
 printAstIntVar cfg var = printAstVarId "i" cfg (varNameToAstVarId var)
@@ -163,21 +156,14 @@ printAstIntVarName :: IntMap String -> IntVarName -> String
 printAstIntVarName renames var =
   printAstIntVar (defaulPrintConfig False renames) var ""
 
-printAstVarName :: KnownNat n
-                => IntMap String -> AstVarName s (AstR r n)
+printAstVarName :: IntMap String -> AstVarName s y
                 -> String
 printAstVarName renames var =
   printAstVar (defaulPrintConfig False renames) var ""
 
-printAstVarNameS :: KnownShS sh
-                 => IntMap String -> AstVarName s (AstS r sh)
-                 -> String
-printAstVarNameS renames var =
-  printAstVarS (defaulPrintConfig False renames) var ""
-
 printAstDynamicVarNameBrief :: IntMap String -> AstDynamicVarName -> String
 printAstDynamicVarNameBrief renames (AstDynamicVarName @_ @r @sh varId) =
-  printAstVarNameS renames (mkAstVarName @_ @(AstS r sh) (length (shapeT @sh)) varId)
+  printAstVarName renames (mkAstVarName @_ @(AstS r sh) (length (shapeT @sh)) varId)
 
 printAstDynamicVarName :: IntMap String -> AstDynamicVarName -> String
 printAstDynamicVarName renames var@(AstDynamicVarName @ty @r @sh _varId) =
@@ -408,12 +394,12 @@ printAstAux cfg d = \case
   AstDualPart a -> printPrefixOp printAst cfg d "rdualPart" [a]
   AstD u u' -> printPrefixBinaryOp printAst printAst cfg d "rD" u u'
 
-  AstVarS var -> printAstVarS cfg var
+  AstVarS var -> printAstVar cfg var
   t@(AstLetS var0 u0 v0) ->
     if loseRoudtrip cfg
     then let collect :: AstTensor s (AstS r sh) -> ([(ShowS, ShowS)], ShowS)
              collect (AstLetS var u v) =
-               let name = printAstVarS cfg var
+               let name = printAstVar cfg var
                    uPP = printAst cfg 0 u
                    (rest, corePP) = collect v
                in ((name, uPP) : rest, corePP)
@@ -432,13 +418,13 @@ printAstAux cfg d = \case
         . showString " "
         . (showParen True
            $ showString "\\"
-             . printAstVarS cfg var0
+             . printAstVar cfg var0
              . showString " -> "
              . printAst cfg 0 v0)
   AstShareS var v ->
     showParen (d > 10)
     $ showString "sshare "
-      . printAstVarS cfg var
+      . printAstVar cfg var
       . showString " "
       . printAst cfg 11 v
   AstCondS b a1 a2 ->
@@ -722,7 +708,7 @@ printAstHVector cfg d = \case
     if loseRoudtrip cfg
     then let collect :: AstHVector s -> ([(ShowS, ShowS)], ShowS)
              collect (AstLetInHVectorS var u v) =
-               let name = printAstVarS cfg var
+               let name = printAstVar cfg var
                    uPP = printAst cfg 0 u
                    (rest, corePP) = collect v
                in ((name, uPP) : rest, corePP)
@@ -741,7 +727,7 @@ printAstHVector cfg d = \case
         . showString " "
         . (showParen True
            $ showString "\\"
-             . printAstVarS cfg var0
+             . printAstVar cfg var0
              . showString " -> "
              . printAstHVector cfg 0 v0)
   AstShareHVector vars l ->
