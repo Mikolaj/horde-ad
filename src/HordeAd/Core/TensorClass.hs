@@ -94,7 +94,7 @@ class ( Num (IntOf ranked), IntegralF (IntOf ranked), CRanked ranked Num
             => ranked r (1 + n) -> ranked r2 n  -- partial
   rfloor :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2, KnownNat n)
          => ranked r n -> ranked r2 n
-  riota :: ranked r 1  -- 0, 1 .. infinity
+  riota :: GoodScalar r => ranked r 1  -- 0, 1 .. infinity
   riota = undefined  -- infinite, hence diverges; don't override
 
   -- Typically scalar (rank 0) codomain or a generalization of such

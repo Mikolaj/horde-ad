@@ -375,7 +375,7 @@ build1VectorizeS
 build1VectorizeS (var, v0) = unsafePerformIO $ do
   enabled <- readIORef traceRuleEnabledRef
   let width = 1000 * traceWidth
-      startTerm = Ast.AstBuild1S @k (var, v0)
+      startTerm = Ast.AstBuild1S @_ @k (var, v0)
       renames = IM.fromList [(1, ""), (2, "")]
   when enabled $ do
     writeIORef traceNestingLevel 0

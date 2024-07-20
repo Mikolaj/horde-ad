@@ -311,7 +311,7 @@ inlineAst memo v0 = case v0 of
   Ast.AstTransposeS perm v ->
     second (Ast.AstTransposeS perm) $ inlineAst memo v
   Ast.AstReshapeS v -> second Ast.AstReshapeS (inlineAst memo v)
-  Ast.AstBuild1S @n (var, v) ->
+  Ast.AstBuild1S @_ @n (var, v) ->
     let (memoV0, v2) = inlineAst EM.empty v
         memo1 = EM.unionWith (\c1 c0 -> c1 + valueOf @n * c0) memo memoV0
     in (memo1, Ast.AstBuild1S (var, v2))

@@ -9,7 +9,7 @@
 -- the instance is a term algebra as well.
 module HordeAd.Core.AstInterpret
   ( interpretAstPrimal, interpretAst
-  , interpretAstPrimalS, interpretAstS
+  , interpretAstPrimalS
   , interpretAstHVector
   -- * Exported only to specialize elsewhere (because transitive specialization may not work, possibly)
   , interpretAstPrimalRuntimeSpecialized, interpretAstPrimalSRuntimeSpecialized
@@ -34,6 +34,7 @@ import Type.Reflection (Typeable, typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Shape qualified as X
+import Data.Array.Mixed.Types qualified as X
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Ranked qualified as Nested.Internal
 import Data.Array.Nested.Internal.Shaped qualified as Nested.Internal
@@ -72,6 +73,22 @@ interpretAstPrimalRuntimeSpecialized !env t =
           Just Refl -> interpretAstPrimal @ranked @n @CInt env t
           _ -> error "an unexpected underlying scalar type"  -- catch absurd
 
+interpretAstPrimalSRuntimeSpecialized
+  :: forall ranked sh r.
+     (KnownShS sh, ADReady ranked, Typeable r)
+  => AstEnv ranked
+  -> AstTensor PrimalSpan (AstS r sh) -> PrimalOf (ShapedOf ranked) r sh
+interpretAstPrimalSRuntimeSpecialized !env t =
+  case testEquality (typeRep @r) (typeRep @Double) of
+    Just Refl -> interpretAstPrimalS @ranked @sh @Double env t
+    _ -> case testEquality (typeRep @r) (typeRep @Float) of
+      Just Refl -> interpretAstPrimalS @ranked @sh @Float env t
+      _ -> case testEquality (typeRep @r) (typeRep @Int64) of
+        Just Refl -> interpretAstPrimalS @ranked @sh @Int64 env t
+        _ -> case testEquality (typeRep @r) (typeRep @CInt) of
+          Just Refl -> interpretAstPrimalS @ranked @sh @CInt env t
+          _ -> error "an unexpected underlying scalar type"
+
 -- Strict environment and strict ADVal and Delta make this is hard to optimize.
 -- Either the environment has to be traversed to remove the dual parts or
 -- the dual part needs to be potentially needlessly computed.
@@ -95,6 +112,22 @@ interpretAstPrimal !env v1 = case v1 of
     in ifF b1 t2 t3  -- this is ifF from PrimalOf ranked
   _ -> rprimalPart $ interpretAst env v1
 
+interpretAstPrimalS
+  :: forall ranked sh r.
+     (KnownShS sh, ADReady ranked, GoodScalar r)
+  => AstEnv ranked
+  -> AstTensor PrimalSpan (AstS r sh) -> PrimalOf (ShapedOf ranked) r sh
+interpretAstPrimalS !env v1 = case v1 of
+  AstPrimalPartS (AstDS u _) -> interpretAstPrimalS env u
+  AstPrimalPartS (AstConstantS u) -> interpretAstPrimalS env u
+  AstPrimalPartS t -> sprimalPart $ interpretAst env t
+  AstCondS b a1 a2 ->  -- this avoids multiple ifF expansions via ifB(ADVal)
+    let b1 = interpretAstBool env b
+        t2 = interpretAstPrimalS env a1
+        t3 = interpretAstPrimalS env a2
+    in ifF b1 t2 t3  -- this is ifF from PrimalOf ranked
+  _ -> sprimalPart $ interpretAst env v1
+
 interpretAstDual
   :: forall ranked n r.
      (KnownNat n, ADReady ranked, GoodScalar r)
@@ -105,28 +138,60 @@ interpretAstDual !env v1 = case v1 of
   AstDualPart t -> rdualPart $ interpretAst env t
   _ -> rdualPart $ interpretAst env v1
 
+interpretAstDualS
+  :: forall ranked sh r.
+     (KnownShS sh, ADReady ranked, GoodScalar r)
+  => AstEnv ranked
+  -> AstTensor DualSpan (AstS r sh) -> DualOf (ShapedOf ranked) r sh
+interpretAstDualS !env v1 = case v1 of
+  AstDualPartS (AstDS _ u') -> interpretAstDualS env u'
+  AstDualPartS t -> sdualPart $ interpretAst env t
+  _ -> sdualPart $ interpretAst env v1
+
 interpretAstRuntimeSpecialized
   :: forall ranked n s r.
-     (KnownNat n, ADReady ranked, Typeable r, AstSpan s)
+     (ADReady ranked, Typeable r, AstSpan s)
   => AstEnv ranked
   -> AstTensor s (AstR r n) -> ranked r n
 interpretAstRuntimeSpecialized !env t =
   case testEquality (typeRep @r) (typeRep @Double) of
-    Just Refl -> interpretAst @ranked @n @s @Double env t
+    Just Refl -> interpretAst @ranked @s @(AstR Double n) env t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
-      Just Refl -> interpretAst @ranked @n @s @Float env t
+      Just Refl -> interpretAst @ranked @s @(AstR Float n) env t
       _ -> case testEquality (typeRep @r) (typeRep @Int64) of
-        Just Refl -> interpretAst @ranked @n @s @Int64 env t
+        Just Refl -> interpretAst @ranked @s @(AstR Int64 n) env t
         _ -> case testEquality (typeRep @r) (typeRep @CInt) of
-          Just Refl -> interpretAst @ranked @n @s @CInt env t
+          Just Refl -> interpretAst @ranked @s @(AstR CInt n) env t
           _ -> error "an unexpected underlying scalar type"
 
-interpretAst
-  :: forall ranked n s r.
-     (KnownNat n, ADReady ranked, GoodScalar r, AstSpan s)
+interpretAstSRuntimeSpecialized
+  :: forall ranked sh s r.
+     (ADReady ranked, Typeable r, AstSpan s)
   => AstEnv ranked
-  -> AstTensor s (AstR r n) -> ranked r n
+  -> AstTensor s (AstS r sh) -> ShapedOf ranked r sh
+interpretAstSRuntimeSpecialized !env t =
+  case testEquality (typeRep @r) (typeRep @Double) of
+    Just Refl -> interpretAst @ranked @s @(AstS Double sh) env t
+    _ -> case testEquality (typeRep @r) (typeRep @Float) of
+      Just Refl -> interpretAst @ranked @s @(AstS Float sh) env t
+      _ -> case testEquality (typeRep @r) (typeRep @Int64) of
+        Just Refl -> interpretAst @ranked @s @(AstS Int64 sh) env t
+        _ -> case testEquality (typeRep @r) (typeRep @CInt) of
+          Just Refl -> interpretAst @ranked @s @(AstS CInt sh) env t
+          _ -> error "an unexpected underlying scalar type"
+
+type family InterpretationTarget ranked y where
+  InterpretationTarget ranked (AstR r n) = ranked r n
+  InterpretationTarget ranked (AstS r sh) = ShapedOf ranked r sh
+  InterpretationTarget ranked (AstProduct y z) =
+    (InterpretationTarget ranked y, InterpretationTarget ranked z)
+
+interpretAst
+  :: forall ranked s y. (ADReady ranked, AstSpan s)
+  => AstEnv ranked
+  -> AstTensor s y -> InterpretationTarget ranked y
 interpretAst !env = \case
+  AstPair t1 t2 -> (interpretAst env t1, interpretAst env t2)
   AstLetPairIn var1 var2 p v -> undefined
 {- TODO
     let pi = interpretAstProduct env p
@@ -139,7 +204,7 @@ interpretAst !env = \case
     in rletHVectorIn lt (\lw -> interpretAst (env2 lw) v)
 -}
 
-  AstVar sh var -> case EM.lookup (varNameToAstVarId var) env of
+  AstVar @r @n sh var -> case EM.lookup (varNameToAstVarId var) env of
     Just (AstEnvElemRanked @r2 @n2 t) -> case sameNat (Proxy @n2) (Proxy @n) of
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
         Just Refl -> assert (rshape t == sh
@@ -255,7 +320,8 @@ interpretAst !env = \case
       (AstLet vart vt (AstLet varu vu
          (AstSum (AstN2 TimesOp (AstTranspose tperm t)
                                 (AstTranspose uperm u)))))
-  AstSum v@(AstN2 TimesOp (AstTranspose tperm (AstReplicate _tk t))
+  AstSum @n
+         v@(AstN2 TimesOp (AstTranspose tperm (AstReplicate _tk t))
                           (AstTranspose uperm (AstReplicate _uk u)))
     | Just Refl <- sameNat (Proxy @n) (Proxy @2) ->
         let interpretMatmul2 t1 u1 =
@@ -298,39 +364,39 @@ interpretAst !env = \case
 --            ttr
 --            $ interpretMatmul2 (AstTranspose [1, 0] u) (AstTranspose [1, 0] t)
           _ -> rsum $ interpretAst env v
-  AstSum (AstN2 TimesOp t u)
+  AstSum @n (AstN2 TimesOp t u)
     | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
         let t1 = interpretAst env t
             t2 = interpretAst env u
         in rdot0 t1 t2
           -- TODO: do as a term rewrite using an extended set of terms?
-  AstSum (AstReshape _sh (AstN2 TimesOp t u))
+  AstSum @n (AstReshape _sh (AstN2 TimesOp t u))
     | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
         let t1 = interpretAst env t
             t2 = interpretAst env u
         in rdot0 t1 t2
-  AstSum (AstTranspose [1, 0] (AstN2 TimesOp t u))  -- TODO: generalize
+  AstSum @n (AstTranspose [1, 0] (AstN2 TimesOp t u))  -- TODO: generalize
     | Just Refl <- sameNat (Proxy @n) (Proxy @1) ->
         let t1 = interpretAst env t
             t2 = interpretAst env u
         in rdot1In t1 t2
-  AstSum (AstReshape sh (AstTranspose _ t))
+  AstSum @n (AstReshape sh (AstTranspose _ t))
     | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
         interpretAst env (AstSum (AstReshape sh t))
-  AstSum (AstReshape sh (AstReverse t))
+  AstSum @n (AstReshape sh (AstReverse t))
     | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
         interpretAst env (AstSum (AstReshape sh t))
-  AstSum (AstReshape _sh (AstSum t))
+  AstSum @n (AstReshape _sh (AstSum t))
     | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
         rsum0 $ interpretAst env t
-  AstSum (AstSum t)
+  AstSum @n (AstSum t)
     | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
         rsum0 $ interpretAst env t
           -- more cases are needed so perhaps we need AstSum0
   AstSum (AstLet var v t) -> interpretAst env (AstLet var v (AstSum t))
   AstSum (AstReshape sh (AstLet var v t)) ->
     interpretAst env (AstLet var v (AstSum (AstReshape sh t)))
-  AstSum (AstReshape _sh t)
+  AstSum @n (AstReshape _sh t)
     | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
         rsum0 $ interpretAst env t
   AstSum v -> rsum $ interpretAst env v
@@ -363,18 +429,20 @@ interpretAst !env = \case
   AstTranspose perm v -> rtranspose perm $ interpretAst env v
   AstReshape sh v -> rreshape sh (interpretAst env v)
   -- These are only needed for tests that don't vectorize Ast.
-  AstBuild1 k (var, AstSum (AstN2 TimesOp t (AstIndex
-                                               u (AstIntVar var2 :.: ZIR))))
-    | Just Refl <- sameNat (Proxy @n) (Proxy @1)
+  AstBuild1 @n
+            k (var, AstSum (AstN2 TimesOp t (AstIndex
+                                                u (AstIntVar var2 :.: ZIR))))
+    | Just Refl <- sameNat (Proxy @n) (Proxy @0)
     , var == var2, k == lengthAst u ->
         let t1 = interpretAst env t
             t2 = interpretAst env u
         in rmatvecmul t2 t1
-  AstBuild1 k (var, AstSum
+  AstBuild1 @n
+            k (var, AstSum
                       (AstReshape @p
                          _sh (AstN2 TimesOp t (AstIndex
                                                  u (AstIntVar var2 :.: ZIR)))))
-    | Just Refl <- sameNat (Proxy @n) (Proxy @1)
+    | Just Refl <- sameNat (Proxy @n) (Proxy @0)
     , Just Refl <- sameNat (Proxy @p) (Proxy @1)
     , var == var2, k == lengthAst u ->
         let t1 = interpretAst env t
@@ -432,7 +500,7 @@ interpretAst !env = \case
     let g = interpretAstHFun env f
         env2 h = extendEnvHFun var h env
     in rletHFunIn g (\h -> interpretAst (env2 h) v)
-  AstRFromS v -> rfromS $ interpretAstS env v
+  AstRFromS v -> rfromS $ interpretAst env v
   AstConstant a -> rconstant $ interpretAstPrimal env a
   AstPrimalPart a -> interpretAst env a
     -- This is correct, because @s@ must be @PrimalSpan@ and so @ranked@ must
@@ -468,94 +536,27 @@ interpretAst !env = \case
         t2 = interpretAstDual env u'
     in rD t1 t2
 
-interpretAstPrimalSRuntimeSpecialized
-  :: forall ranked sh r.
-     (KnownShS sh, ADReady ranked, Typeable r)
-  => AstEnv ranked
-  -> AstTensor PrimalSpan (AstS r sh) -> PrimalOf (ShapedOf ranked) r sh
-interpretAstPrimalSRuntimeSpecialized !env t =
-  case testEquality (typeRep @r) (typeRep @Double) of
-    Just Refl -> interpretAstPrimalS @ranked @sh @Double env t
-    _ -> case testEquality (typeRep @r) (typeRep @Float) of
-      Just Refl -> interpretAstPrimalS @ranked @sh @Float env t
-      _ -> case testEquality (typeRep @r) (typeRep @Int64) of
-        Just Refl -> interpretAstPrimalS @ranked @sh @Int64 env t
-        _ -> case testEquality (typeRep @r) (typeRep @CInt) of
-          Just Refl -> interpretAstPrimalS @ranked @sh @CInt env t
-          _ -> error "an unexpected underlying scalar type"
-
-interpretAstPrimalS
-  :: forall ranked sh r.
-     (KnownShS sh, ADReady ranked, GoodScalar r)
-  => AstEnv ranked
-  -> AstTensor PrimalSpan (AstS r sh) -> PrimalOf (ShapedOf ranked) r sh
-interpretAstPrimalS !env v1 = case v1 of
-  AstPrimalPartS (AstDS u _) -> interpretAstPrimalS env u
-  AstPrimalPartS (AstConstantS u) -> interpretAstPrimalS env u
-  AstPrimalPartS t -> sprimalPart $ interpretAstS env t
-  AstCondS b a1 a2 ->  -- this avoids multiple ifF expansions via ifB(ADVal)
-    let b1 = interpretAstBool env b
-        t2 = interpretAstPrimalS env a1
-        t3 = interpretAstPrimalS env a2
-    in ifF b1 t2 t3  -- this is ifF from PrimalOf ranked
-  _ -> sprimalPart $ interpretAstS env v1
-
-interpretAstDualS
-  :: forall ranked sh r.
-     (KnownShS sh, ADReady ranked, GoodScalar r)
-  => AstEnv ranked
-  -> AstTensor DualSpan (AstS r sh) -> DualOf (ShapedOf ranked) r sh
-interpretAstDualS !env v1 = case v1 of
-  AstDualPartS (AstDS _ u') -> interpretAstDualS env u'
-  AstDualPartS t -> sdualPart $ interpretAstS env t
-  _ -> sdualPart $ interpretAstS env v1
-
-interpretAstSRuntimeSpecialized
-  :: forall ranked sh s r.
-     (KnownShS sh, ADReady ranked, Typeable r, AstSpan s)
-  => AstEnv ranked
-  -> AstTensor s (AstS r sh) -> ShapedOf ranked r sh
-interpretAstSRuntimeSpecialized !env t =
-  case testEquality (typeRep @r) (typeRep @Double) of
-    Just Refl -> interpretAstS @ranked @sh @s @Double env t
-    _ -> case testEquality (typeRep @r) (typeRep @Float) of
-      Just Refl -> interpretAstS @ranked @sh @s @Float env t
-      _ -> case testEquality (typeRep @r) (typeRep @Int64) of
-        Just Refl -> interpretAstS @ranked @sh @s @Int64 env t
-        _ -> case testEquality (typeRep @r) (typeRep @CInt) of
-          Just Refl -> interpretAstS @ranked @sh @s @CInt env t
-          _ -> error "an unexpected underlying scalar type"
-
-interpretAstS
-  :: forall ranked sh s r shaped.
-     ( KnownShS sh, ADReady ranked, GoodScalar r, AstSpan s
-     , shaped ~ ShapedOf ranked )
-  => AstEnv ranked
-  -> AstTensor s (AstS r sh) -> shaped r sh
-interpretAstS !env = \case
-  AstLetPairIn var1 var2 p v -> undefined
-
-  AstVarS var -> case EM.lookup (varNameToAstVarId var) env of
+  AstVarS @sh @r var -> case EM.lookup (varNameToAstVarId var) env of
     Just (AstEnvElemShaped @r2 @sh2 t) -> case sameShape @sh2 @sh of
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
         Just Refl -> t
-        _ -> error "interpretAstS: scalar mismatch"
-      Nothing -> error $ "interpretAstS: wrong shape in environment"
+        _ -> error "interpretAst: scalar mismatch"
+      Nothing -> error $ "interpretAst: wrong shape in environment"
                          `showFailure`
                          (shapeT @sh, shapeT @sh2, var, t, env)
     Just (AstEnvElemRanked _t) ->
-      error "interpretAstS: wrong tensor kind in environment"
-    _ -> error $ "interpretAstS: unknown variable " ++ show var
+      error "interpretAst: wrong tensor kind in environment"
+    _ -> error $ "interpretAst: unknown variable " ++ show var
   AstLetS var u v ->
     -- We assume there are no nested lets with the same variable.
     let t = interpretAstSRuntimeSpecialized env u
         env2 w = extendEnvS var w env
-    in slet t (\w -> interpretAstS (env2 w) v)
-  AstShareS{} -> error "interpretAstS: AstShareS"
+    in slet t (\w -> interpretAst (env2 w) v)
+  AstShareS{} -> error "interpretAst: AstShareS"
   AstCondS b a1 a2 ->
     let b1 = interpretAstBool env b
-        t2 = interpretAstS env a1
-        t3 = interpretAstS env a2
+        t2 = interpretAst env a1
+        t3 = interpretAst env a2
     in ifF b1 t2 t3
   AstMinIndexS v ->
     sminIndex $ sconstant $ interpretAstPrimalSRuntimeSpecialized env v
@@ -585,33 +586,33 @@ interpretAstS !env = \case
           (AstLet var u (AstN2 TimesOp [v, AstReplicate @m k s]))
 -}
   AstN1S opCode u ->
-    let u2 = interpretAstS env u
+    let u2 = interpretAst env u
     in interpretAstN1 opCode u2
   AstN2S opCode u v ->
-    let u2 = interpretAstS env u
-        v2 = interpretAstS env v
+    let u2 = interpretAst env u
+        v2 = interpretAst env v
     in interpretAstN2 opCode u2 v2
   AstR1S opCode u ->
-    let u2 = interpretAstS env u
+    let u2 = interpretAst env u
     in interpretAstR1 opCode u2
   AstR2S opCode u v ->
-    let u2 = interpretAstS env u
-        v2 = interpretAstS env v
+    let u2 = interpretAst env u
+        v2 = interpretAst env v
     in interpretAstR2F opCode u2 v2
   AstI2S opCode u v ->
-    let u2 = interpretAstS env u
-        v2 = interpretAstS env v
+    let u2 = interpretAst env u
+        v2 = interpretAst env v
     in interpretAstI2F opCode u2 v2
   AstSumOfListS args ->
-    let args2 = interpretAstS env <$> args
+    let args2 = interpretAst env <$> args
     in foldl1 (+) (srepl 0 : args2)  -- backward compat vs @sum@
 -- TODO: in foldr1 (+) args2  -- avoid @fromInteger 0@ in @sum@
   AstIndexS AstIotaS (i :.$ ZIS) ->
     sfromIntegral . sconstant . sfromR $ interpretAstPrimal env i
-  AstIndexS @sh1 v ix ->
-    let v2 = interpretAstS env v
+  AstIndexS @sh1 @_ @_ @r v ix ->
+    let v2 = interpretAst env v
         ix3 = interpretAstPrimal env <$> ix
-    in sindex @shaped @r @sh1 v2 ix3
+    in sindex @(ShapedOf ranked) @r @sh1 v2 ix3
       -- if index is out of bounds, the operations returns with an undefined
       -- value of the correct rank and shape; this is needed, because
       -- vectorization can produce out of bound indexing from code where
@@ -700,16 +701,16 @@ interpretAstS !env = \case
     | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
         rsum0 $ interpretAst env t
 -}
-  AstSumS v -> ssum $ interpretAstS env v
+  AstSumS v -> ssum $ interpretAst env v
     -- TODO: recognize when sum0 may be used instead, which is much cheaper
     -- or should I do that in Delta instead? no, because tsum0R
     -- is cheaper, too
   AstScatterS v (vars, ix) ->
-    let t1 = interpretAstS env v
+    let t1 = interpretAst env v
         f2 = interpretLambdaIndexToIndexS interpretAstPrimal env (vars, ix)
     in sscatter t1 f2
   AstFromVectorS l ->
-    let l2 = V.map (interpretAstS env) l
+    let l2 = V.map (interpretAst env) l
     in sfromVector l2
 {- TODO:
   AstReshape sh (AstReplicate @m _ s)
@@ -719,21 +720,21 @@ interpretAstS !env = \case
   AstReshape sh (AstLet var v (AstReplicate k t)) ->
     interpretAst env (AstLet var v (AstReshape sh (AstReplicate k t)))
 -}
-  AstReplicateS v -> sreplicate (interpretAstS env v)
+  AstReplicateS v -> sreplicate (interpretAst env v)
   AstAppendS x y ->
-    let t1 = interpretAstS env x
-        t2 = interpretAstS env y
+    let t1 = interpretAst env x
+        t2 = interpretAst env y
     in sappend t1 t2
   AstSliceS @i @n AstIotaS ->
     let i = valueOf @i
         n = valueOf @n
-    in interpretAstS env
+    in interpretAst env
        $ AstConstS $ Nested.Internal.sfromListPrimLinear Nested.knownShS
        $ map fromIntegral [i :: Int .. i + n - 1]
-  AstSliceS @i v -> sslice (Proxy @i) Proxy (interpretAstS env v)
-  AstReverseS v -> sreverse (interpretAstS env v)
-  AstTransposeS perm v -> stranspose perm $ interpretAstS env v
-  AstReshapeS v -> sreshape (interpretAstS env v)
+  AstSliceS @i v -> sslice (Proxy @i) Proxy (interpretAst env v)
+  AstReverseS v -> sreverse (interpretAst env v)
+  AstTransposeS perm v -> stranspose perm $ interpretAst env v
+  AstReshapeS v -> sreshape (interpretAst env v)
   -- These are only needed for tests that don't vectorize Ast.
 {- TODO:
   AstBuild1 k (var, AstSum (AstN2 TimesOp [t, AstIndex
@@ -765,20 +766,20 @@ interpretAstS !env = \case
   --   $ interpretLambdaI interpretAstPrimal env (var, v)
 -}
   AstBuild1S (var, v) ->
-    sbuild1 (interpretLambdaIS interpretAstS env (var, v))
+    sbuild1 (interpretLambdaIS interpretAst env (var, v))
       -- to be used only in tests
-  AstGatherS @sh2 AstIotaS (vars, i :.$ ZIS) ->
-    gcastWith (unsafeCoerce Refl :: Sh.Take (X.Rank sh) sh :~: sh)
-    $ gcastWith (unsafeCoerce Refl :: Sh.Drop (X.Rank sh) sh :~: '[])
-    $ gcastWith (unsafeCoerce Refl :: sh2 :~: sh)
+  AstGatherS @sh2 @p @sh @r AstIotaS (vars, i :.$ ZIS) ->
+    gcastWith (unsafeCoerce Refl :: Sh.Take (X.Rank sh2) sh2 :~: sh2)
+    $ gcastWith (unsafeCoerce Refl :: Sh.Drop (X.Rank sh2) sh2 :~: '[])
+    $ gcastWith (unsafeCoerce Refl :: sh2 :~: sh2 X.++ Sh.Drop p sh)
         -- transitivity of type equality doesn't work, by design,
         -- so this direct cast is needed instead of more basic laws
-    $ sbuild @shaped @r @(X.Rank sh)
+    $ sbuild @(ShapedOf ranked) @r @(X.Rank sh2)
              (interpretLambdaIndexS
-                interpretAstS env
+                interpretAst env
                 (vars, fromPrimalS @s $ AstFromIntegralS $ AstSFromR i))
   AstGatherS v (vars, ix) ->
-    let t1 = interpretAstS env v
+    let t1 = interpretAst env v
         f2 = interpretLambdaIndexToIndexS interpretAstPrimal env (vars, ix)
     in sgather t1 f2
     -- the operation accepts out of bounds indexes,
@@ -806,15 +807,15 @@ interpretAstS !env = \case
                                   , shapeVoidHVector (shapeAstHVector l)
                                   , shapeVoidHVector (dshape lt) )) $
                   extendEnvHVector vars lw env
-    in sletHVectorIn lt (\lw -> interpretAstS (env2 lw) v)
+    in sletHVectorIn lt (\lw -> interpretAst (env2 lw) v)
   AstLetHFunInS var f v ->
     let g = interpretAstHFun env f
         env2 h = extendEnvHFun var h env
-    in sletHFunIn g (\h -> interpretAstS (env2 h) v)
+    in sletHFunIn g (\h -> interpretAst (env2 h) v)
   AstSFromR v -> sfromR $ interpretAst env v
   AstConstantS a -> sconstant $ interpretAstPrimalS env a
-  AstPrimalPartS a -> interpretAstS env a
-  AstDualPartS a -> interpretAstS env a
+  AstPrimalPartS a -> interpretAst env a
+  AstDualPartS a -> interpretAst env a
   AstDS u u' ->
     let t1 = interpretAstPrimalS env u
         t2 = interpretAstDualS env u'

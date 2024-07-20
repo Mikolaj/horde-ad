@@ -85,8 +85,10 @@ type instance DualOf (AstShaped s) = AstShaped DualSpan
 type data AstSpanType = PrimalSpan | DualSpan | FullSpan
 
 class Typeable s => AstSpan (s :: AstSpanType) where
-  fromPrimal :: AstTensor PrimalSpan (AstR r n) -> AstTensor s (AstR r n)
-  fromPrimalS :: AstTensor PrimalSpan (AstS r sh) -> AstTensor s (AstS r sh)
+  fromPrimal :: (GoodScalar r, KnownNat n)
+             => AstTensor PrimalSpan (AstR r n) -> AstTensor s (AstR r n)
+  fromPrimalS :: (GoodScalar r, KnownShS sh)
+              => AstTensor PrimalSpan (AstS r sh) -> AstTensor s (AstS r sh)
 
 instance AstSpan PrimalSpan where
   fromPrimal = id
@@ -250,17 +252,18 @@ data AstTensor :: AstSpanType -> AstType -> Type where
   AstShare :: (GoodScalar r, KnownNat n)
            => AstVarName s (AstR r n) -> AstTensor s (AstR r n)
            -> AstTensor s (AstR r n)
-  AstCond :: AstBool
+  AstCond :: (GoodScalar r, KnownNat n)
+          => AstBool
           -> AstTensor s (AstR r n) -> AstTensor s (AstR r n) -> AstTensor s (AstR r n)
 
   -- There are existential variables here, as well.
-  AstMinIndex :: (GoodScalar r, KnownNat n)
+  AstMinIndex :: (GoodScalar r, KnownNat n, GoodScalar r2)
               => AstTensor PrimalSpan (AstR r (1 + n))
               -> AstTensor PrimalSpan (AstR r2 n)
-  AstMaxIndex :: (GoodScalar r, KnownNat n)
+  AstMaxIndex :: (GoodScalar r, KnownNat n, GoodScalar r2)
               => AstTensor PrimalSpan (AstR r (1 + n))
               -> AstTensor PrimalSpan (AstR r2 n)
-  AstFloor :: (GoodScalar r, RealFrac r, Integral r2)
+  AstFloor :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2, KnownNat n)
            => AstTensor PrimalSpan (AstR r n) -> AstTensor PrimalSpan (AstR r2 n)
   AstIota :: AstTensor PrimalSpan (AstR r 1)
 
@@ -270,9 +273,9 @@ data AstTensor :: AstSpanType -> AstType -> Type where
   AstN2 :: (GoodScalar r, KnownNat n)
         => OpCodeNum2 -> AstTensor s (AstR r n) -> AstTensor s (AstR r n)
         -> AstTensor s (AstR r n)
-  AstR1 :: Differentiable r
+  AstR1 :: (Differentiable r, GoodScalar r, KnownNat n)
         => OpCode1 -> AstTensor s (AstR r n) -> AstTensor s (AstR r n)
-  AstR2 :: Differentiable r
+  AstR2 :: (Differentiable r, GoodScalar r, KnownNat n)
         => OpCode2 -> AstTensor s (AstR r n) -> AstTensor s (AstR r n)
         -> AstTensor s (AstR r n)
   AstI2 :: (Integral r, GoodScalar r, KnownNat n)
@@ -340,10 +343,12 @@ data AstTensor :: AstSpanType -> AstType -> Type where
             => AstTensor s (AstS r sh) -> AstTensor s (AstR r (X.Rank sh))
 
   -- For the forbidden half of the RankedTensor class:
-  AstConstant :: AstTensor PrimalSpan (AstR r n) -> AstTensor FullSpan (AstR r n)
+  AstConstant :: (GoodScalar r, KnownNat n)
+              => AstTensor PrimalSpan (AstR r n) -> AstTensor FullSpan (AstR r n)
   AstPrimalPart :: AstTensor FullSpan (AstR r n) -> AstTensor PrimalSpan (AstR r n)
   AstDualPart :: AstTensor FullSpan (AstR r n) -> AstTensor DualSpan (AstR r n)
-  AstD :: AstTensor PrimalSpan (AstR r n) -> AstTensor DualSpan (AstR r n)
+  AstD :: (GoodScalar r, KnownNat n)
+       => AstTensor PrimalSpan (AstR r n) -> AstTensor DualSpan (AstR r n)
        -> AstTensor FullSpan (AstR r n)
 
   -- Here starts the shaped part.
@@ -358,32 +363,41 @@ data AstTensor :: AstSpanType -> AstType -> Type where
   AstShareS :: (KnownShS sh, GoodScalar r)
             => AstVarName s (AstS r sh) -> AstTensor s (AstS r sh)
             -> AstTensor s (AstS r sh)
-  AstCondS :: AstBool
-           -> AstTensor s (AstS r sh) -> AstTensor s (AstS r sh) -> AstTensor s (AstS r sh)
+  AstCondS :: (GoodScalar r, KnownShS sh)
+           => AstBool
+           -> AstTensor s (AstS r sh) -> AstTensor s (AstS r sh)
+           -> AstTensor s (AstS r sh)
 
-  AstMinIndexS :: (KnownShS sh, KnownNat n, GoodScalar r, GoodScalar r2)
+  AstMinIndexS :: ( KnownShS sh, KnownNat n, GoodScalar r, GoodScalar r2
+                  , GoodScalar r2, KnownShS (Sh.Init (n ': sh)) )
                => AstTensor PrimalSpan (AstS r (n ': sh))
                -> AstTensor PrimalSpan (AstS r2 (Sh.Init (n ': sh)))
-  AstMaxIndexS :: (KnownShS sh, KnownNat n, GoodScalar r, GoodScalar r2)
+  AstMaxIndexS :: ( KnownShS sh, KnownNat n, GoodScalar r, GoodScalar r2
+                  , GoodScalar r2, KnownShS (Sh.Init (n ': sh)) )
                => AstTensor PrimalSpan (AstS r (n ': sh))
                -> AstTensor PrimalSpan (AstS r2 (Sh.Init (n ': sh)))
-  AstFloorS :: (GoodScalar r, RealFrac r, Integral r2)
-            => AstTensor PrimalSpan (AstS r sh) -> AstTensor PrimalSpan (AstS r2 sh)
-  AstIotaS :: forall n r. KnownNat n => AstTensor PrimalSpan (AstS r '[n])
+  AstFloorS :: ( GoodScalar r, RealFrac r, Integral r2, GoodScalar r2
+               , KnownShS sh )
+            => AstTensor PrimalSpan (AstS r sh)
+            -> AstTensor PrimalSpan (AstS r2 sh)
+  AstIotaS :: forall n r. (GoodScalar r, KnownNat n)
+           => AstTensor PrimalSpan (AstS r '[n])
 
   -- For the numeric classes:
-  AstN1S :: OpCodeNum1 -> AstTensor s (AstS r sh) -> AstTensor s (AstS r sh)
-  AstN2S :: OpCodeNum2 -> AstTensor s (AstS r sh) -> AstTensor s (AstS r sh)
+  AstN1S :: (GoodScalar r, KnownShS sh)
+         => OpCodeNum1 -> AstTensor s (AstS r sh) -> AstTensor s (AstS r sh)
+  AstN2S :: (GoodScalar r, KnownShS sh)
+         => OpCodeNum2 -> AstTensor s (AstS r sh) -> AstTensor s (AstS r sh)
          -> AstTensor s (AstS r sh)
-  AstR1S :: Differentiable r
+  AstR1S :: (Differentiable r, GoodScalar r, KnownShS sh)
          => OpCode1 -> AstTensor s (AstS r sh) -> AstTensor s (AstS r sh)
-  AstR2S :: Differentiable r
+  AstR2S :: (Differentiable r, GoodScalar r, KnownShS sh)
          => OpCode2 -> AstTensor s (AstS r sh) -> AstTensor s (AstS r sh)
          -> AstTensor s (AstS r sh)
-  AstI2S :: Integral r
+  AstI2S :: (Integral r, GoodScalar r, KnownShS sh)
          => OpCodeIntegral2 -> AstTensor s (AstS r sh) -> AstTensor s (AstS r sh)
          -> AstTensor s (AstS r sh)
-  AstSumOfListS :: GoodScalar r
+  AstSumOfListS :: (KnownShS sh, GoodScalar r)
                 => [AstTensor s (AstS r sh)] -> AstTensor s (AstS r sh)
 
   -- For the main part of the ShapedTensor class:
@@ -424,12 +438,13 @@ data AstTensor :: AstSpanType -> AstType -> Type where
               => AstTensor s (AstS r sh) -> AstTensor s (AstS r sh2)
     -- beware that the order of type arguments is different than in orthotope
     -- and than the order of value arguments in the ranked version
-  AstBuild1S :: (KnownNat n, KnownShS sh)
+  AstBuild1S :: (GoodScalar r, KnownNat n, KnownShS sh)
              => (IntVarName, AstTensor s (AstS r sh))
              -> AstTensor s (AstS r (n ': sh))
   AstGatherS :: forall sh2 p sh r s.
-                ( KnownShS sh, KnownShS sh2, KnownNat p
-                , KnownShS (Sh.Take p sh), KnownShS (Sh.Drop p sh) )
+                ( GoodScalar r, KnownShS sh, KnownShS sh2, KnownNat p
+                , KnownShS (Sh.Take p sh), KnownShS (Sh.Drop p sh)
+                , KnownShS (sh2 X.++ Sh.Drop p sh) )
              => AstTensor s (AstS r sh)
              -> (AstVarListS sh2, AstIndexS (Sh.Take p sh))
              -> AstTensor s (AstS r (sh2 X.++ Sh.Drop p sh))
@@ -454,10 +469,12 @@ data AstTensor :: AstSpanType -> AstType -> Type where
             => AstTensor s (AstR r (X.Rank sh)) -> AstTensor s (AstS r sh)
 
   -- For the forbidden half of the ShapedTensor class:
-  AstConstantS :: AstTensor PrimalSpan (AstS r sh) -> AstTensor FullSpan (AstS r sh)
+  AstConstantS :: (GoodScalar r, KnownShS sh)
+               => AstTensor PrimalSpan (AstS r sh) -> AstTensor FullSpan (AstS r sh)
   AstPrimalPartS :: AstTensor FullSpan (AstS r sh) -> AstTensor PrimalSpan (AstS r sh)
   AstDualPartS :: AstTensor FullSpan (AstS r sh) -> AstTensor DualSpan (AstS r sh)
-  AstDS :: AstTensor PrimalSpan (AstS r sh) -> AstTensor DualSpan (AstS r sh)
+  AstDS :: (GoodScalar r, KnownShS sh)
+        => AstTensor PrimalSpan (AstS r sh) -> AstTensor DualSpan (AstS r sh)
         -> AstTensor FullSpan (AstS r sh)
 
 deriving instance GoodScalar r => Show (AstTensor s (AstR r n))
@@ -705,7 +722,7 @@ instance Eq (AstTensor s (AstS r sh)) where
 instance Ord (AstTensor s (AstS r sh)) where
   (<=) = error "AST requires that OrdF be used instead"
 
-instance (GoodScalar r, Num (Nested.Shaped sh r))
+instance (GoodScalar r, Num (Nested.Shaped sh r), KnownShS sh)
          => Num (AstTensor s (AstS r sh)) where
   -- The normal form has AstConst, if any, as the first element of the list.
   -- All lists fully flattened and length >= 2.
@@ -744,11 +761,13 @@ instance (GoodScalar r, Num (Nested.Shaped sh r))
 -- Warning: div and mod operations are very costly (simplifying them
 -- requires constructing conditionals, etc). If this error is removed,
 -- they are going to work, but slowly.
-instance Integral r => IntegralF (AstTensor s (AstS r sh)) where
+instance (Integral r, GoodScalar r, KnownShS sh)
+         => IntegralF (AstTensor s (AstS r sh)) where
   quotF = AstI2S QuotOp
   remF = AstI2S RemOp
 
-instance (GoodScalar r, Differentiable r, Fractional (Nested.Shaped sh r))
+instance ( GoodScalar r, Differentiable r, Fractional (Nested.Shaped sh r)
+         , KnownShS sh )
          => Fractional (AstTensor s (AstS r sh)) where
   u / v = AstR2S DivideOp u v
   recip = AstR1S RecipOp

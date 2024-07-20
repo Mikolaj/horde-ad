@@ -214,7 +214,7 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
                              $ zip vars $ V.toList varInputs
                        envMnist = extendEnvS varGlyph (sconst $ Nested.sfromOrthotope knownShS glyph)
                                   $ extendEnvS varLabel (sconst $ Nested.sfromOrthotope knownShS label) env
-                   in interpretAstS envMnist $ unAstShaped ast
+                   in interpretAst envMnist $ unAstShaped ast
                  chunkS = map packBatch
                           $ filter (\ch -> length ch == miniBatchSize)
                           $ chunksOf miniBatchSize chunk

@@ -315,7 +315,7 @@ astSpanPrimal _ | Just Refl <- sameAstSpan @s @DualSpan =
 astSpanPrimal t | Just Refl <- sameAstSpan @s @FullSpan = astPrimalPart t
 astSpanPrimal _ = error "a spuriuos case for pattern match coverage"
 
-astSpanDual :: forall s r n. AstSpan s
+astSpanDual :: forall s r n. (GoodScalar r, AstSpan s, KnownNat n)
             => AstTensor s (AstR r n) -> AstTensor DualSpan (AstR r n)
 astSpanDual t | Just Refl <- sameAstSpan @s @PrimalSpan =
   AstDualPart $ AstConstant t  -- this is nil; likely to happen
@@ -323,7 +323,7 @@ astSpanDual t | Just Refl <- sameAstSpan @s @DualSpan = t
 astSpanDual t | Just Refl <- sameAstSpan @s @FullSpan = astDualPart t
 astSpanDual _ = error "a spuriuos case for pattern match coverage"
 
-astSpanD :: forall s r n. AstSpan s
+astSpanD :: forall s r n. (GoodScalar r, AstSpan s, KnownNat n)
          => AstTensor PrimalSpan (AstR r n) -> AstTensor DualSpan (AstR r n)
          -> AstTensor s (AstR r n)
 astSpanD u _ | Just Refl <- sameAstSpan @s @PrimalSpan = u
@@ -448,7 +448,7 @@ astSpanPrimalS _ | Just Refl <- sameAstSpan @s @DualSpan =
 astSpanPrimalS t | Just Refl <- sameAstSpan @s @FullSpan = astPrimalPart t
 astSpanPrimalS _ = error "a spuriuos case for pattern match coverage"
 
-astSpanDualS :: forall s r sh. AstSpan s
+astSpanDualS :: forall s r sh. (AstSpan s, GoodScalar r, KnownShS sh)
              => AstTensor s (AstS r sh) -> AstTensor DualSpan (AstS r sh)
 astSpanDualS t | Just Refl <- sameAstSpan @s @PrimalSpan =
   AstDualPartS $ AstConstantS t  -- this is nil; likely to happen
@@ -456,7 +456,7 @@ astSpanDualS t | Just Refl <- sameAstSpan @s @DualSpan = t
 astSpanDualS t | Just Refl <- sameAstSpan @s @FullSpan = astDualPart t
 astSpanDualS _ = error "a spuriuos case for pattern match coverage"
 
-astSpanDS :: forall s r sh. AstSpan s
+astSpanDS :: forall s r sh. (AstSpan s, GoodScalar r, KnownShS sh)
           => AstTensor PrimalSpan (AstS r sh) -> AstTensor DualSpan (AstS r sh)
           -> AstTensor s (AstS r sh)
 astSpanDS u _ | Just Refl <- sameAstSpan @s @PrimalSpan = u
@@ -1388,7 +1388,7 @@ instance AstSpan s => ShapedTensor (AstNoSimplifyS s) where
   sdualPart = AstNoSimplifyS . astSpanDualS . unAstNoSimplifyS
   sD u u' =
     AstNoSimplifyS $ astSpanDS (unAstNoSimplifyS u) (unAstNoSimplifyS u')
-  sScale :: forall r sh. GoodScalar r
+  sScale :: forall r sh. (GoodScalar r, KnownShS sh)
          => AstNoSimplifyS PrimalSpan r sh -> AstNoSimplifyS DualSpan r sh
          -> AstNoSimplifyS DualSpan r sh
   sScale s t =
