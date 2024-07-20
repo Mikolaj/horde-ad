@@ -47,6 +47,8 @@ import HordeAd.Util.SizedList
 shapeAst :: forall n s r. (KnownNat n, GoodScalar r)
          => AstTensor s (AstR r n) -> IShR n
 shapeAst = \case
+  AstLetPairIn _var1 _var2 _p v -> shapeAst v
+
   AstVar sh _var -> sh
   AstLet _ _ v -> shapeAst v
   AstShare _ v-> shapeAst v
@@ -139,6 +141,9 @@ domainShapesAstHFun = \case
 varInAst :: AstSpan s
          => AstVarId -> AstTensor s y -> Bool
 varInAst var = \case
+  AstPair t1 t2 -> varInAst var t1 || varInAst var t2
+  AstLetPairIn _var1 _var2 p v -> varInAst var p || varInAst var v
+
   AstVar _ var2 -> var == varNameToAstVarId var2
   AstLet _var2 u v -> varInAst var u || varInAst var v
   AstShare _ v -> varInAst var v
@@ -281,6 +286,9 @@ varInAstBindingsCase var (AstBindingsHVector _ t) = varInAstHVector var t
 
 astIsSmall :: Bool -> AstTensor s y -> Bool
 astIsSmall relaxed = \case
+  AstPair t1 t2 -> astIsSmall relaxed t1 && astIsSmall relaxed t2
+  AstLetPairIn{} -> False
+
   AstVar{} -> True
   AstIota -> True
   AstReplicate _ v ->

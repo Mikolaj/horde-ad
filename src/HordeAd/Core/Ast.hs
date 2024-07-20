@@ -226,12 +226,15 @@ instance GoodScalar r => Show (AstShaped s r sh) where
 -- | AST for ranked and shaped tensors that are meant to be differentiated.
 type role AstTensor nominal nominal
   -- r has to be nominal, because type class arguments always are
--- data AstRanked :: AstSpanType -> RankedTensorType where
--- data AstRanked :: AstSpanType -> Type -> Nat -> Type where
--- data AstRanked :: Nested.Elt a => AstSpanType -> a -> Nat -> Type where
 data AstTensor :: AstSpanType -> AstType -> Type where
---  AstPair :: AstTensor s t1 n -> AstTensor s t2 m
---          -> AstTensor s (t1, t2) (AstProduct n m)
+  -- Here starts the product of tensors part.
+  AstPair :: AstTensor s y -> AstTensor s z
+          -> AstTensor s (AstProduct y z)
+  AstLetPairIn :: (AstSpan s, Show (AstTensor s (AstProduct y z)))
+               => AstVarName s y -> AstVarName s z
+               -> AstTensor s (AstProduct y z)
+               -> AstTensor s2 x
+               -> AstTensor s2 x
 
   -- Here starts the ranked part.
   AstVar :: (GoodScalar r, KnownNat n)
@@ -459,6 +462,8 @@ data AstTensor :: AstSpanType -> AstType -> Type where
 
 deriving instance GoodScalar r => Show (AstTensor s (AstR r n))
 deriving instance GoodScalar r => Show (AstTensor s (AstS r sh))
+deriving instance (Show (AstTensor s y), Show (AstTensor s z))
+                  => Show (AstTensor s (AstProduct y z))
 
 type AstDynamic (s :: AstSpanType) = DynamicTensor (AstRanked s)
 

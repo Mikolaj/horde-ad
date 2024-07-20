@@ -250,6 +250,8 @@ astNonIndexStep
   :: (KnownNat n, GoodScalar r, AstSpan s)
   => AstTensor s (AstR r n) -> AstTensor s (AstR r n)
 astNonIndexStep t = case t of
+  Ast.AstLetPairIn{} -> t
+
   Ast.AstVar{} -> t
   Ast.AstLet var u v -> astLet var u v
   Ast.AstShare{} -> t  -- TODO: error "astNonIndexStep: AstShare"
@@ -306,6 +308,8 @@ astNonIndexStepS
   :: (KnownShS sh, GoodScalar r, AstSpan s)
   => AstTensor s (AstS r sh) -> AstTensor s (AstS r sh)
 astNonIndexStepS t = case t of
+  Ast.AstLetPairIn{} -> t
+
   Ast.AstVarS{} -> t
   Ast.AstLetS var u v -> astLetS var u v
   Ast.AstShareS{} -> t  -- TODO: error "astNonIndexStepS: AstShareS"
@@ -424,6 +428,9 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIndex m1)) =
                             (vars2, simplifyAstIndex ix2)
        else astGatherKnobsR knobs sh2 v2 (vars2, ix2)
  in case v0 of
+  Ast.AstLetPairIn var1 var2 p v ->
+    Ast.AstLetPairIn var1 var2 p (astIndexRec v ix)
+
   Ast.AstVar{} -> Ast.AstIndex v0 ix
   Ast.AstLet var u v -> astLet var u (astIndexRec v ix)
   Ast.AstShare{} -> Ast.AstIndex v0 ix  -- TODO: error "astIndexKnobsR: AstShare"
@@ -602,6 +609,9 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS shm1)) | Dict <- s
                              (vars2, simplifyAstIndexS ix2)
         else astGatherKnobsS knobs v2 (vars2, ix2)
  in case v0 of
+  Ast.AstLetPairIn var1 var2 p v ->
+    Ast.AstLetPairIn var1 var2 p (astIndexRec v ix)
+
   Ast.AstVarS{} -> Ast.AstIndexS v0 ix
   Ast.AstLetS var u v -> astLetS var u (astIndexRec v ix)
   Ast.AstShareS{} -> Ast.AstIndexS v0 ix  -- TODO: error "astIndexKnobsRS: AstShareS"
@@ -945,6 +955,9 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
   astGatherCase sh4 v4 (_, ZIR) = astReplicateN sh4 v4  -- not really possible
   astGatherCase sh4 v4 ( vars4
                        , ix4@(i4 :.: (rest4 :: AstIndex p1')) ) = case v4 of
+    Ast.AstLetPairIn var1 var2 p v ->
+      Ast.AstLetPairIn var1 var2 p (astGatherCase sh4 v (vars4, ix4))
+
     Ast.AstVar{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstLet var u v -> astLet var u (astGatherCase sh4 v (vars4, ix4))
     Ast.AstShare{} -> error "astGatherCase: AstShare"
@@ -2014,6 +2027,10 @@ astSFromR v = Ast.AstSFromR v
 astPrimalPart :: AstTensor FullSpan y
               -> AstTensor PrimalSpan y
 astPrimalPart t = case t of
+  Ast.AstPair t1 t2 -> Ast.AstPair (astPrimalPart t1) (astPrimalPart t2)
+  Ast.AstLetPairIn var1 var2 p v ->
+    Ast.AstLetPairIn var1 var2 p (astPrimalPart v)
+
   Ast.AstVar{} -> Ast.AstPrimalPart t  -- the only normal form
   Ast.AstLet var u v -> astLet var u (astPrimalPart v)
   Ast.AstShare{} -> error "astPrimalPart: AstShare"
@@ -2081,6 +2098,10 @@ astPrimalPart t = case t of
 -- multiplies the dual part by the primal part. Addition is fine, though.
 astDualPart :: AstTensor FullSpan y -> AstTensor DualSpan y
 astDualPart t = case t of
+  Ast.AstPair t1 t2 -> Ast.AstPair (astDualPart t1) (astDualPart t2)
+  Ast.AstLetPairIn var1 var2 p v ->
+    Ast.AstLetPairIn var1 var2 p (astDualPart v)
+
   Ast.AstVar{} -> Ast.AstDualPart t
   Ast.AstLet var u v -> astLet var u (astDualPart v)
   Ast.AstShare{} -> error "astDualPart: AstShare"
@@ -2327,6 +2348,10 @@ simplifyAst
   :: forall s y. AstSpan s
   => AstTensor s y -> AstTensor s y
 simplifyAst t = case t of
+  Ast.AstPair t1 t2 -> Ast.AstPair (simplifyAst t1) (simplifyAst t2)
+  Ast.AstLetPairIn var1 var2 p v ->
+    Ast.AstLetPairIn var1 var2 (simplifyAst p) (simplifyAst v)
+
   Ast.AstVar{} -> t
   Ast.AstLet var u v -> astLet var (simplifyAst u) (simplifyAst v)
   Ast.AstShare{} -> error "simplifyAst: AstShare"
@@ -2507,6 +2532,10 @@ expandAst
   :: forall s y. AstSpan s
   => AstTensor s y -> AstTensor s y
 expandAst t = case t of
+  Ast.AstPair t1 t2 -> Ast.AstPair (expandAst t1) (expandAst t2)
+  Ast.AstLetPairIn var1 var2 p v ->
+    Ast.AstLetPairIn var1 var2 (expandAst p) (expandAst v)
+
   Ast.AstVar{} -> t
   Ast.AstLet var u v -> astLet var (expandAst u) (expandAst v)
   Ast.AstShare{} -> error "expandAst: AstShare"
@@ -3018,6 +3047,16 @@ substitute1Ast :: forall s s2 r2 y. ( GoodScalar r2, AstSpan s, AstSpan s2 )
                -> AstTensor s y
                -> Maybe (AstTensor s y)
 substitute1Ast i var v1 = case v1 of
+  Ast.AstPair u v ->
+    case (substitute1Ast i var u, substitute1Ast i var v) of
+      (Nothing, Nothing) -> Nothing
+      (mu, mv) -> Just $ Ast.AstPair (fromMaybe u mu) (fromMaybe v mv)
+  Ast.AstLetPairIn var1 var2 u v ->
+    case (substitute1Ast i var u, substitute1Ast i var v) of
+      (Nothing, Nothing) -> Nothing
+      (mu, mv) ->
+        Just $ Ast.AstLetPairIn var1 var2 (fromMaybe u mu) (fromMaybe v mv)
+
   Ast.AstVar @r @n sh var2 ->
     if var == varNameToAstVarId var2
     then case i of

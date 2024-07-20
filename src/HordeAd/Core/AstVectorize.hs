@@ -150,6 +150,25 @@ build1V k (var, v00) =
       bv = Ast.AstBuild1 k (var, v0)
       traceRule = mkTraceRule "build1V" bv v0 1
   in case v0 of
+    Ast.AstLetPairIn var1 var2 p v -> undefined  -- TODO: doable, but complex
+{-
+      -- See the AstLet and AstLetHVectorIn cases for comments.
+      let var1' = mkAstVarName (varNameToRank var1) (varNameToAstVarId var1)
+          var2' = mkAstVarName (varNameToRank var2) (varNameToAstVarId var2)
+          sh = shapeAst u
+          projection = Ast.AstIndex (Ast.AstVar (k :$: sh) var2)
+                                    (Ast.AstIntVar var :.: ZIR)
+          -- The subsitutions of projections don't break sharing,
+          -- because they don't duplicate variables and the added var
+          -- is eventually being eliminated instead of substituted for.
+          v2 = substituteAst
+                 (SubstitutionPayloadRanked @s1 @r1 projection) var1 v
+      in Ast.AstLetPairIn var1 var2
+                          (build1VOccurenceUnknown k (var, u))
+                          (build1VOccurenceUnknownRefresh k (var, v2))
+                            -- ensure no duplicated bindings, see below
+-}
+
     Ast.AstVar _ var2 | varNameToAstVarId var2 == varNameToAstVarId var ->
       case isRankedInt v0 of
         Just Refl -> fromPrimal @s @Int64 $ astSlice 0 k Ast.AstIota
@@ -417,6 +436,8 @@ build1VS (var, v00) =
       bv = Ast.AstBuild1S (var, v0)
       traceRule = mkTraceRuleS "build1VS" bv v0 1
   in case v0 of
+    Ast.AstLetPairIn var1 var2 p v -> undefined  -- TODO: doable, but complex
+
     Ast.AstVarS{} ->
       error "build1VS: AstVarS can't contain free index variables"
     Ast.AstLetS @sh1 @_ @r1 @_ @s1 var1 u v ->

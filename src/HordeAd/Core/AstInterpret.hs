@@ -127,6 +127,18 @@ interpretAst
   => AstEnv ranked
   -> AstTensor s (AstR r n) -> ranked r n
 interpretAst !env = \case
+  AstLetPairIn var1 var2 p v -> undefined
+{- TODO
+    let pi = interpretAstProduct env p
+        env2 lw = assert (voidHVectorMatches (voidFromVars vars) lw
+                          `blame` ( shapeVoidHVector (voidFromVars vars)
+                                  , V.toList $ V.map shapeDynamic lw
+                                  , shapeVoidHVector (shapeAstHVector l)
+                                  , shapeVoidHVector (dshape lt) )) $
+                 extendEnvHVector vars lw env
+    in rletHVectorIn lt (\lw -> interpretAst (env2 lw) v)
+-}
+
   AstVar sh var -> case EM.lookup (varNameToAstVarId var) env of
     Just (AstEnvElemRanked @r2 @n2 t) -> case sameNat (Proxy @n2) (Proxy @n) of
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
@@ -521,6 +533,8 @@ interpretAstS
   => AstEnv ranked
   -> AstTensor s (AstS r sh) -> shaped r sh
 interpretAstS !env = \case
+  AstLetPairIn var1 var2 p v -> undefined
+
   AstVarS var -> case EM.lookup (varNameToAstVarId var) env of
     Just (AstEnvElemShaped @r2 @sh2 t) -> case sameShape @sh2 @sh of
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of

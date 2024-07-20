@@ -17,7 +17,6 @@ module HordeAd.Core.AstPrettyPrint
 
 import Prelude
 
-import Data.Array.Internal (valueOf)
 import Data.IntMap.Strict (IntMap)
 import Data.IntMap.Strict qualified as IM
 import Data.List (intersperse)
@@ -215,6 +214,38 @@ printAst cfgOld d t =
 printAstAux :: forall s y. AstSpan s
             => PrintConfig -> Int -> AstTensor s y -> ShowS
 printAstAux cfg d = \case
+  AstPair t1 t2 ->
+    showParen (d > 10)
+    $ showString "tpair ("
+      . printAst cfg 0 t1
+      . showString ", "
+      . printAst cfg 0 t2
+      . showString ")"
+  AstLetPairIn var1 var2 p v ->
+    if loseRoudtrip cfg
+    then
+      showParen (d > 10)
+      $ showString "let ("
+        . printAstVar cfg var1
+        . showString ", "
+        . printAstVar cfg var2
+        . showString ") = "
+        . printAst cfg 0 p
+        . showString " in "
+        . printAst cfg 0 v
+    else
+      showParen (d > 10)
+      $ showString "tletPairIn "
+        . printAst cfg 11 p
+        . showString " "
+        . (showParen True
+           $ showString "\\"
+             . printAstVar cfg var1
+             . showString " "
+             . printAstVar cfg var2
+             . showString " -> "
+             . printAst cfg 0 v)
+
   AstVar _sh var -> printAstVar cfg var
   t@(AstLet var0 u0 v0) ->
     if loseRoudtrip cfg
