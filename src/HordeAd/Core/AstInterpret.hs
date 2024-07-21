@@ -180,12 +180,6 @@ interpretAstSRuntimeSpecialized !env t =
           Just Refl -> interpretAst @ranked @s @(AstS CInt sh) env t
           _ -> error "an unexpected underlying scalar type"
 
-type family InterpretationTarget ranked y where
-  InterpretationTarget ranked (AstR r n) = ranked r n
-  InterpretationTarget ranked (AstS r sh) = ShapedOf ranked r sh
-  InterpretationTarget ranked (AstProduct y z) =
-    (InterpretationTarget ranked y, InterpretationTarget ranked z)
-
 interpretAst
   :: forall ranked s y. (ADReady ranked, AstSpan s)
   => AstEnv ranked

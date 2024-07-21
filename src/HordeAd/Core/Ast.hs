@@ -16,7 +16,7 @@ module HordeAd.Core.Ast
     -- * AstBindingsCase and AstBindings
   , AstBindingsCase(..), AstBindings
     -- * ASTs
-  , AstType(..), AstRanked(..), AstTensor(..), AstShaped(..)
+  , AstRanked(..), AstTensor(..), AstShaped(..)
   , AstDynamic, AstHVector(..), AstHFun(..)
   , AstBool(..), OpCodeNum1(..), OpCodeNum2(..), OpCode1(..), OpCode2(..)
   , OpCodeIntegral2(..), OpCodeBool(..), OpCodeRel(..)
@@ -36,7 +36,7 @@ import Data.Kind (Type)
 import Data.Proxy (Proxy (Proxy))
 import Data.Strict.Vector qualified as Data.Vector
 import Data.Type.Equality (testEquality, (:~:) (Refl))
-import GHC.TypeLits (KnownNat, Nat, sameNat, type (+), type (<=))
+import GHC.TypeLits (KnownNat, sameNat, type (+), type (<=))
 import Type.Reflection (Typeable, eqTypeRep, typeRep, (:~~:) (HRefl))
 
 import Data.Array.Mixed.Permutation qualified as Permutation
@@ -205,11 +205,6 @@ type AstBindings (s :: AstSpanType) = [(AstVarId, AstBindingsCase s)]
 
 
 -- * ASTs
-
-type data AstType =
-    AstR Type Nat
-  | AstS Type [Nat]
-  | AstProduct AstType AstType
 
 -- The old AstRanked reconstructed:
 type role AstRanked nominal nominal nominal
