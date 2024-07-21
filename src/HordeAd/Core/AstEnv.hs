@@ -60,7 +60,7 @@ deriving instance ( CRanked ranked Show, CShaped (ShapedOf ranked) Show
 -- and if s is PrimalSpan, ranked is their primal part.
 -- The same for all functions below.
 extendEnvR :: forall ranked r n s. (KnownNat n, GoodScalar r)
-           => AstVarName s (AstR r n) -> ranked r n -> AstEnv ranked
+           => AstVarName s (TKR r n) -> ranked r n -> AstEnv ranked
            -> AstEnv ranked
 extendEnvR var !t !env =
   let varId = varNameToAstVarId var
@@ -68,7 +68,7 @@ extendEnvR var !t !env =
                       varId (AstEnvElemRanked t) env
 
 extendEnvS :: forall ranked r sh s. (KnownShS sh, GoodScalar r)
-           => AstVarName s (AstS r sh) -> ShapedOf ranked r sh -> AstEnv ranked
+           => AstVarName s (TKS r sh) -> ShapedOf ranked r sh -> AstEnv ranked
            -> AstEnv ranked
 extendEnvS var !t !env =
   let varId = varNameToAstVarId var
@@ -151,8 +151,8 @@ extendEnvVarsS vars !ix !env =
 interpretLambdaI
   :: forall ranked n s r.
      (RankedTensor ranked, RankedOf (PrimalOf ranked) ~ PrimalOf ranked)
-  => (AstEnv ranked -> AstTensor s (AstR r n) -> ranked r n)
-  -> AstEnv ranked -> (IntVarName, AstTensor s (AstR r n))
+  => (AstEnv ranked -> AstTensor s (TKR r n) -> ranked r n)
+  -> AstEnv ranked -> (IntVarName, AstTensor s (TKR r n))
   -> IntOf ranked
   -> ranked r n
 {-# INLINE interpretLambdaI #-}
@@ -162,8 +162,8 @@ interpretLambdaI f !env (!var, !ast) =
 interpretLambdaIS
   :: forall ranked sh s r.
      (RankedTensor ranked, RankedOf (PrimalOf ranked) ~ PrimalOf ranked)
-  => (AstEnv ranked -> AstTensor s (AstS r sh) -> ShapedOf ranked r sh)
-  -> AstEnv ranked -> (IntVarName, AstTensor s (AstS r sh))
+  => (AstEnv ranked -> AstTensor s (TKS r sh) -> ShapedOf ranked r sh)
+  -> AstEnv ranked -> (IntVarName, AstTensor s (TKS r sh))
   -> IntOf ranked
   -> ShapedOf ranked r sh
 {-# INLINE interpretLambdaIS #-}
@@ -184,8 +184,8 @@ interpretLambdaIHVector f !env (!var, !ast) =
 interpretLambdaIndex
   :: forall ranked s r m n.
      (RankedTensor ranked, RankedOf (PrimalOf ranked) ~ PrimalOf ranked)
-  => (AstEnv ranked -> AstTensor s (AstR r n) -> ranked r n)
-  -> AstEnv ranked -> (AstVarList m, AstTensor s (AstR r n))
+  => (AstEnv ranked -> AstTensor s (TKR r n) -> ranked r n)
+  -> AstEnv ranked -> (AstVarList m, AstTensor s (TKR r n))
   -> IndexOf ranked m
   -> ranked r n
 {-# INLINE interpretLambdaIndex #-}
@@ -195,8 +195,8 @@ interpretLambdaIndex f !env (!vars, !ast) =
 interpretLambdaIndexS
   :: forall sh sh2 ranked s r.
      (RankedTensor ranked, RankedOf (PrimalOf ranked) ~ PrimalOf ranked)
-  => (AstEnv ranked -> AstTensor s (AstS r sh) -> ShapedOf ranked r sh)
-  -> AstEnv ranked -> (AstVarListS sh2, AstTensor s (AstS r sh))
+  => (AstEnv ranked -> AstTensor s (TKS r sh) -> ShapedOf ranked r sh)
+  -> AstEnv ranked -> (AstVarListS sh2, AstTensor s (TKS r sh))
   -> IndexSh ranked sh2
   -> ShapedOf ranked r sh
 {-# INLINE interpretLambdaIndexS #-}

@@ -45,7 +45,7 @@ import HordeAd.Util.SizedList
 -- to determine shape. If we don't switch to @Data.Array.Shaped@
 -- or revert to fully dynamic shapes, we need to redo this with more rigour.
 shapeAst :: forall n s r. (KnownNat n, GoodScalar r)
-         => AstTensor s (AstR r n) -> IShR n
+         => AstTensor s (TKR r n) -> IShR n
 shapeAst = \case
   AstLetPairIn _var1 _var2 _p v -> shapeAst v
 
@@ -100,7 +100,7 @@ shapeAst = \case
   AstD u _ -> shapeAst u
 
 -- Length of the outermost dimension.
-lengthAst :: (KnownNat n, GoodScalar r) => AstTensor s (AstR r (1 + n)) -> Int
+lengthAst :: (KnownNat n, GoodScalar r) => AstTensor s (TKR r (1 + n)) -> Int
 {-# INLINE lengthAst #-}
 lengthAst v1 = case shapeAst v1 of
   ZSR -> error "lengthAst: impossible pattern needlessly required"
@@ -266,11 +266,11 @@ varInAstBool var = \case
   AstRelS _ arg1 arg2 -> varInAst var arg1 || varInAst var arg2
 
 varNameInAst :: AstSpan s2
-             => AstVarName f y -> AstTensor s2 (AstR r2 n2) -> Bool
+             => AstVarName f y -> AstTensor s2 (TKR r2 n2) -> Bool
 varNameInAst var = varInAst (varNameToAstVarId var)
 
 varNameInAstS :: AstSpan s2
-              => AstVarName f y -> AstTensor s2 (AstS r2 sh2) -> Bool
+              => AstVarName f y -> AstTensor s2 (TKS r2 sh2) -> Bool
 varNameInAstS var = varInAst (varNameToAstVarId var)
 
 varNameInAstHVector :: AstSpan s
@@ -324,9 +324,9 @@ astIsSmall relaxed = \case
 -- * Odds and ends
 
 astReplicate0N :: forall n s r. (AstSpan s, GoodScalar r)
-               => IShR n -> r -> AstTensor s (AstR r n)
+               => IShR n -> r -> AstTensor s (TKR r n)
 astReplicate0N sh =
-  let go :: IShR n' -> AstTensor s (AstR r 0) -> AstTensor s (AstR r n')
+  let go :: IShR n' -> AstTensor s (TKR r 0) -> AstTensor s (TKR r n')
       go ZSR v = v
       go (k :$: sh') v | Dict <- knownShR sh' = AstReplicate k $ go sh' v
   in go sh . fromPrimal . AstConst . Nested.rscalar

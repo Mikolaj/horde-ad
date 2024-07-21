@@ -54,7 +54,7 @@ interpretAstPrimalRuntimeSpecialized
   :: forall ranked n r.
      (KnownNat n, ADReady ranked, Typeable r)
   => AstEnv ranked
-  -> AstTensor PrimalSpan (AstR r n) -> PrimalOf ranked r n
+  -> AstTensor PrimalSpan (TKR r n) -> PrimalOf ranked r n
 interpretAstPrimalRuntimeSpecialized !env t =
   -- We dispatch on all expected underyling scalar types, which is
   -- necessary to run the correct specialization when unpacking
@@ -77,7 +77,7 @@ interpretAstPrimalSRuntimeSpecialized
   :: forall ranked sh r.
      (KnownShS sh, ADReady ranked, Typeable r)
   => AstEnv ranked
-  -> AstTensor PrimalSpan (AstS r sh) -> PrimalOf (ShapedOf ranked) r sh
+  -> AstTensor PrimalSpan (TKS r sh) -> PrimalOf (ShapedOf ranked) r sh
 interpretAstPrimalSRuntimeSpecialized !env t =
   case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> interpretAstPrimalS @ranked @sh @Double env t
@@ -100,7 +100,7 @@ interpretAstPrimal
   :: forall ranked n r.
      (KnownNat n, ADReady ranked, GoodScalar r)
   => AstEnv ranked
-  -> AstTensor PrimalSpan (AstR r n) -> PrimalOf ranked r n
+  -> AstTensor PrimalSpan (TKR r n) -> PrimalOf ranked r n
 interpretAstPrimal !env v1 = case v1 of
   AstPrimalPart (AstD u _) -> interpretAstPrimal env u
   AstPrimalPart (AstConstant u) -> interpretAstPrimal env u
@@ -116,7 +116,7 @@ interpretAstPrimalS
   :: forall ranked sh r.
      (KnownShS sh, ADReady ranked, GoodScalar r)
   => AstEnv ranked
-  -> AstTensor PrimalSpan (AstS r sh) -> PrimalOf (ShapedOf ranked) r sh
+  -> AstTensor PrimalSpan (TKS r sh) -> PrimalOf (ShapedOf ranked) r sh
 interpretAstPrimalS !env v1 = case v1 of
   AstPrimalPartS (AstDS u _) -> interpretAstPrimalS env u
   AstPrimalPartS (AstConstantS u) -> interpretAstPrimalS env u
@@ -132,7 +132,7 @@ interpretAstDual
   :: forall ranked n r.
      (KnownNat n, ADReady ranked, GoodScalar r)
   => AstEnv ranked
-  -> AstTensor DualSpan (AstR r n)-> DualOf ranked r n
+  -> AstTensor DualSpan (TKR r n)-> DualOf ranked r n
 interpretAstDual !env v1 = case v1 of
   AstDualPart (AstD _ u') -> interpretAstDual env u'
   AstDualPart t -> rdualPart $ interpretAst env t
@@ -142,7 +142,7 @@ interpretAstDualS
   :: forall ranked sh r.
      (KnownShS sh, ADReady ranked, GoodScalar r)
   => AstEnv ranked
-  -> AstTensor DualSpan (AstS r sh) -> DualOf (ShapedOf ranked) r sh
+  -> AstTensor DualSpan (TKS r sh) -> DualOf (ShapedOf ranked) r sh
 interpretAstDualS !env v1 = case v1 of
   AstDualPartS (AstDS _ u') -> interpretAstDualS env u'
   AstDualPartS t -> sdualPart $ interpretAst env t
@@ -152,32 +152,32 @@ interpretAstRuntimeSpecialized
   :: forall ranked n s r.
      (ADReady ranked, Typeable r, AstSpan s)
   => AstEnv ranked
-  -> AstTensor s (AstR r n) -> ranked r n
+  -> AstTensor s (TKR r n) -> ranked r n
 interpretAstRuntimeSpecialized !env t =
   case testEquality (typeRep @r) (typeRep @Double) of
-    Just Refl -> interpretAst @ranked @s @(AstR Double n) env t
+    Just Refl -> interpretAst @ranked @s @(TKR Double n) env t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
-      Just Refl -> interpretAst @ranked @s @(AstR Float n) env t
+      Just Refl -> interpretAst @ranked @s @(TKR Float n) env t
       _ -> case testEquality (typeRep @r) (typeRep @Int64) of
-        Just Refl -> interpretAst @ranked @s @(AstR Int64 n) env t
+        Just Refl -> interpretAst @ranked @s @(TKR Int64 n) env t
         _ -> case testEquality (typeRep @r) (typeRep @CInt) of
-          Just Refl -> interpretAst @ranked @s @(AstR CInt n) env t
+          Just Refl -> interpretAst @ranked @s @(TKR CInt n) env t
           _ -> error "an unexpected underlying scalar type"
 
 interpretAstSRuntimeSpecialized
   :: forall ranked sh s r.
      (ADReady ranked, Typeable r, AstSpan s)
   => AstEnv ranked
-  -> AstTensor s (AstS r sh) -> ShapedOf ranked r sh
+  -> AstTensor s (TKS r sh) -> ShapedOf ranked r sh
 interpretAstSRuntimeSpecialized !env t =
   case testEquality (typeRep @r) (typeRep @Double) of
-    Just Refl -> interpretAst @ranked @s @(AstS Double sh) env t
+    Just Refl -> interpretAst @ranked @s @(TKS Double sh) env t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
-      Just Refl -> interpretAst @ranked @s @(AstS Float sh) env t
+      Just Refl -> interpretAst @ranked @s @(TKS Float sh) env t
       _ -> case testEquality (typeRep @r) (typeRep @Int64) of
-        Just Refl -> interpretAst @ranked @s @(AstS Int64 sh) env t
+        Just Refl -> interpretAst @ranked @s @(TKS Int64 sh) env t
         _ -> case testEquality (typeRep @r) (typeRep @CInt) of
-          Just Refl -> interpretAst @ranked @s @(AstS CInt sh) env t
+          Just Refl -> interpretAst @ranked @s @(TKS CInt sh) env t
           _ -> error "an unexpected underlying scalar type"
 
 interpretAst
@@ -188,7 +188,7 @@ interpretAst !env = \case
   AstPair t1 t2 -> (interpretAst env t1, interpretAst env t2)
   AstLetPairIn var1 var2 p v -> undefined
 {- TODO
-    let pi = interpretAstProduct env p
+    let pi = interpretTKProduct env p
         env2 lw = assert (voidHVectorMatches (voidFromVars vars) lw
                           `blame` ( shapeVoidHVector (voidFromVars vars)
                                   , V.toList $ V.map shapeDynamic lw

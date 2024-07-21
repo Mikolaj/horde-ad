@@ -489,8 +489,8 @@ type ShareMemo = EM.EnumMap AstVarId (AstBindingsCase PrimalSpan)
 -- the gather/scatter/build variables corresponding to the index.
 shareAstScoped
   :: forall n s r. (GoodScalar r, KnownNat n, AstSpan s)
-  => [IntVarName] -> ShareMemo -> AstTensor s (AstR r n)
-  -> (ShareMemo, AstTensor s (AstR r n))
+  => [IntVarName] -> ShareMemo -> AstTensor s (TKR r n)
+  -> (ShareMemo, AstTensor s (TKR r n))
 shareAstScoped vars0 memo0 v0 =
   let (memo1, v1) = shareAst memo0 v0
       memoDiff = EM.difference memo1 memo0

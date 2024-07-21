@@ -13,7 +13,7 @@ module HordeAd.Core.Types
   , Dict(..), PermC, trustMeThisIsAPermutation
     -- * Kinds of the functors that determine the structure of a tensor type
   , TensorType, RankedTensorType, ShapedTensorType
-  , AstType (..), InterpretationTarget
+  , TensorKindType (..), InterpretationTarget
     -- * Some fundamental constraints
   , GoodScalar, HasSingletonDict, Differentiable, IfDifferentiable(..)
     -- * Type families that tensors will belong to
@@ -136,15 +136,15 @@ type GoodScalarConstraint r =
   ( Show r, Ord r, Numeric r, Num r, Num (Vector r), Typeable r
   , IfDifferentiable r, NFData r, Nested.PrimElt r, Nested.Elt r, Nested.NumElt r, forall sh. Show (Nested.Mixed sh r), forall sh. Eq (Nested.Mixed sh r), forall sh. NFData (Nested.Mixed sh r), forall sh. Ord (Nested.Mixed sh r) )
 
-type data AstType =
-    AstR Type Nat
-  | AstS Type [Nat]
-  | AstProduct AstType AstType
+type data TensorKindType =
+    TKR Type Nat
+  | TKS Type [Nat]
+  | TKProduct TensorKindType TensorKindType
 
 type family InterpretationTarget ranked y where
-  InterpretationTarget ranked (AstR r n) = ranked r n
-  InterpretationTarget ranked (AstS r sh) = ShapedOf ranked r sh
-  InterpretationTarget ranked (AstProduct y z) =
+  InterpretationTarget ranked (TKR r n) = ranked r n
+  InterpretationTarget ranked (TKS r sh) = ShapedOf ranked r sh
+  InterpretationTarget ranked (TKProduct y z) =
     (InterpretationTarget ranked y, InterpretationTarget ranked z)
 
 

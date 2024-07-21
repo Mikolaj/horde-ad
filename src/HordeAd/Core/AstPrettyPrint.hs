@@ -109,7 +109,7 @@ areAllArgsInts = \case
   AstPrimalPart{} -> False
   AstDualPart{} -> False
   AstD{} -> False  -- dual number
-  _ -> False  -- shaped  -- TODO: change type to AstR to catch missing cases
+  _ -> False  -- shaped  -- TODO: change type to TKR to catch missing cases
 
 -- * Pretty-printing of variables
 
@@ -141,7 +141,7 @@ printAstFunVar = printAstVarId "f"
 
 printAstVarFromLet
   :: forall n s r. (GoodScalar r, KnownNat n, AstSpan s)
-  => AstTensor s (AstR r n) -> PrintConfig -> AstVarName s (AstR r n) -> ShowS
+  => AstTensor s (TKR r n) -> PrintConfig -> AstVarName s (TKR r n) -> ShowS
 printAstVarFromLet u cfg var =
   if representsIntIndex cfg && areAllArgsInts u
   then case isRankedInt u of
@@ -162,7 +162,7 @@ printAstVarName renames var =
 
 printAstDynamicVarNameBrief :: IntMap String -> AstDynamicVarName -> String
 printAstDynamicVarNameBrief renames (AstDynamicVarName @_ @r @sh varId) =
-  printAstVarName renames (mkAstVarName @_ @(AstS r sh) (length (shapeT @sh)) varId)
+  printAstVarName renames (mkAstVarName @_ @(TKS r sh) (length (shapeT @sh)) varId)
 
 printAstDynamicVarName :: IntMap String -> AstDynamicVarName -> String
 printAstDynamicVarName renames var@(AstDynamicVarName @ty @r @sh _varId) =
@@ -249,7 +249,7 @@ printAstAux cfg d = \case
   AstVar _sh var -> printAstVar cfg var
   t@(AstLet var0 u0 v0) ->
     if loseRoudtrip cfg
-    then let collect :: AstTensor s (AstR r n) -> ([(ShowS, ShowS)], ShowS)
+    then let collect :: AstTensor s (TKR r n) -> ([(ShowS, ShowS)], ShowS)
              collect (AstLet var u v) =
                let name = printAstVarFromLet u cfg var
                    uPP = printAst cfg 0 u
@@ -428,7 +428,7 @@ printAstAux cfg d = \case
   AstVarS var -> printAstVar cfg var
   t@(AstLetS var0 u0 v0) ->
     if loseRoudtrip cfg
-    then let collect :: AstTensor s (AstS r sh) -> ([(ShowS, ShowS)], ShowS)
+    then let collect :: AstTensor s (TKS r sh) -> ([(ShowS, ShowS)], ShowS)
              collect (AstLetS var u v) =
                let name = printAstVar cfg var
                    uPP = printAst cfg 0 u
