@@ -16,7 +16,6 @@ import Prelude
 
 import Control.Monad (foldM, unless)
 import Data.Array.RankedS qualified as OR
-import Data.EnumMap.Strict qualified as EM
 import Data.IntMap.Strict qualified as IM
 import Data.Vector.Generic qualified as V
 import GHC.TypeLits (SomeNat (..), someNatVal)
@@ -198,7 +197,7 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
              let f :: MnistDataBatchR r -> HVector (ADVal (ORArray))
                    -> ADVal ranked r 0
                  f (glyph, label) varInputs =
-                   let env = foldr extendEnvD EM.empty
+                   let env = foldr extendEnvD emptyEnv
                              $ zip vars $ V.toList varInputs
                        envMnist = extendEnvR varGlyph (rconst $ Nested.rfromOrthotope SNat glyph)
                                   $ extendEnvR varLabel (rconst $ Nested.rfromOrthotope SNat label) env
@@ -296,7 +295,7 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
          funToAstIOR (miniBatchSize :$: sizeMnistLabelInt :$: ZSR) id
        let envInit = extendEnvR varGlyph (rconstant $ AstRaw astGlyph)
                      $ extendEnvR varLabel (rconstant $ AstRaw astLabel)
-                       EM.empty
+                       emptyEnv
            f = MnistRnnRanked2.rnnMnistLossFusedR
                  miniBatchSize (AstRanked astGlyph, AstRanked astLabel)
            (AstArtifact varDtAgain vars1Again gradientRaw primal, _) =

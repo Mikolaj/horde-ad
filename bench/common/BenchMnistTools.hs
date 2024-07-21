@@ -6,7 +6,6 @@ import Prelude
 
 import Criterion.Main
 import Data.Array.RankedS qualified as OR
-import Data.EnumMap.Strict qualified as EM
 import Data.List.Index (imap)
 import Data.Vector.Generic qualified as V
 import GHC.TypeLits (SomeNat (..), someNatVal)
@@ -143,7 +142,7 @@ mnistTrainBench1VTO extraPrefix chunkLength xs widthHidden widthHidden2
       funToAstIOR (singletonShape sizeMnistLabelInt) id
     let envInit = extendEnvR varGlyph (rconstant $ AstRaw astGlyph)
                   $ extendEnvR varLabel (rconstant $ AstRaw astLabel)
-                  EM.empty
+                  emptyEnv
         f = MnistFcnnRanked1.afcnnMnistLoss1TensorData @(AstRanked FullSpan)
               widthHidden widthHidden2
               (rconstant $ AstRanked astGlyph, rconstant $ AstRanked astLabel)
@@ -315,7 +314,7 @@ mnistTrainBench2VTO extraPrefix chunkLength xs widthHidden widthHidden2
       funToAstIOR (singletonShape sizeMnistLabelInt) id
     let envInit = extendEnvR varGlyph (rconstant $ AstRaw astGlyph)
                   $ extendEnvR varLabel (rconstant $ AstRaw astLabel)
-                  EM.empty
+                  emptyEnv
         f = MnistFcnnRanked2.afcnnMnistLoss2TensorData @(AstRanked FullSpan)
               (rconstant $ AstRanked astGlyph, rconstant $ AstRanked astLabel)
         (AstArtifact varDtAgain vars1Again gradientRaw primal, _) =

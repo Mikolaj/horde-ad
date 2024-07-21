@@ -10,7 +10,6 @@ import Control.Exception.Assert.Sugar
 import Control.Monad (foldM, unless)
 import Data.Array.Convert qualified
 import Data.Array.RankedS qualified as OR
-import Data.EnumMap.Strict qualified as EM
 import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat)
 import System.IO (hPutStrLn, stderr)
@@ -210,7 +209,7 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
                    -> HVector (ADVal ORArray)
                    -> ADVal shaped r '[]
                  f (glyph, label) varInputs =
-                   let env = foldr extendEnvD EM.empty
+                   let env = foldr extendEnvD emptyEnv
                              $ zip vars $ V.toList varInputs
                        envMnist = extendEnvS varGlyph (sconst $ Nested.sfromOrthotope knownShS glyph)
                                   $ extendEnvS varLabel (sconst $ Nested.sfromOrthotope knownShS label) env
@@ -314,7 +313,7 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
          funToAstIOS {-@'[batch_size, SizeMnistLabel]-} id
        let envInit = extendEnvS varGlyph (sconstant $ AstRawS astGlyph)
                      $ extendEnvS varLabel (sconstant $ AstRawS astLabel)
-                       EM.empty
+                       emptyEnv
            f = MnistRnnShaped2.rnnMnistLossFusedS
                  width batch_size (AstShaped astGlyph, AstShaped astLabel)
            (AstArtifact varDtAgain vars1Again gradientRaw primal, _) =

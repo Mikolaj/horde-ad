@@ -7,20 +7,20 @@ module TestConvSimplified (testTrees) where
 
 import Prelude
 
-import           Control.Exception (assert)
-import qualified Data.Array.RankedS as OR
-import qualified Data.EnumMap.Strict as EM
-import qualified Data.IntMap.Strict as IM
-import qualified Data.Vector.Generic as V
-import           GHC.Exts (IsList (..))
-import           GHC.TypeLits (KnownNat)
-import           Test.Tasty
-import           Test.Tasty.HUnit hiding (assert)
+import Control.Exception (assert)
+import Data.Array.RankedS qualified as OR
+import Data.IntMap.Strict qualified as IM
+import Data.Vector.Generic qualified as V
+import GHC.Exts (IsList (..))
+import GHC.TypeLits (KnownNat)
+import Test.Tasty
+import Test.Tasty.HUnit hiding (assert)
 
-import qualified Data.Array.Nested as Nested
-import qualified Data.Array.Nested.Internal.Ranked as Nested.Internal
+import Data.Array.Nested qualified as Nested
+import Data.Array.Nested.Internal.Ranked qualified as Nested.Internal
 
 import HordeAd
+import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId (resetVarCounter)
 import HordeAd.Core.TensorAst
 import HordeAd.Internal.BackendOX (ORArray)
@@ -583,7 +583,7 @@ testConv2dUnpadded2PP = do
                        , voidFromSh @Double (2 :$: 2 :$: 2 :$: 2 :$: ZSR) ]
       (artifactRev, _) =
         revArtifactFromForwardPass
-          True (forwardPassByInterpretation f EM.empty) shs
+          True (forwardPassByInterpretation f emptyEnv) shs
   printArtifactPretty IM.empty (simplifyArtifact artifactRev)
     @?= unPaddedPPString
 
@@ -600,7 +600,7 @@ testConv2dUnpadded3PP = do
                        , voidFromSh @Double (2 :$: 2 :$: 2 :$: 2 :$: ZSR) ]
       (artifactRev, _) =
         revArtifactFromForwardPass
-          True (forwardPassByInterpretation f EM.empty) shs
+          True (forwardPassByInterpretation f emptyEnv) shs
   printArtifactPretty IM.empty artifactRev
     @?= "\\u33 u1 u2 -> let w31 = rtranspose [4,1,0,2,3] (rreplicate 2 (rreshape [2,2,2,8] (rgather [2,2,2,1,2,2,2] u2 (\\[i22, i23, i24, i25, i26, i27, i28] -> [i22 + i25, i26, i23 + i27, i24 + i28])))) ; w32 = rtranspose [4,0,3,1,2] (rreplicate 2 (rreplicate 2 (rreplicate 2 (rreshape [2,8] (rgather [2,1,2,2,2] u1 (\\[i29, i30] -> [i29 + i30])))))) in [rscatter [2,2,2,2] (rreshape [2,1,2,2,2] (rsum (rsum (rsum (rtranspose [1,3,4,2,0] (w31 * rreplicate 8 u33)))))) (\\[i34, i35] -> [i34 + i35]), rscatter [2,2,2,2] (rreshape [2,2,2,1,2,2,2] (rsum (rtranspose [2,1,3,4,0] (w32 * rreplicate 8 u33)))) (\\[i36, i37, i38, i39, i40, i41, i42] -> [i36 + i39, i40, i37 + i41, i38 + i42])]"
   printArtifactPretty IM.empty (simplifyArtifact artifactRev)

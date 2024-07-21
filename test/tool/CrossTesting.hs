@@ -15,7 +15,6 @@ import Data.Array.Internal.RankedG qualified as RG
 import Data.Array.Internal.RankedS qualified as RS
 import Data.Array.Ranked qualified as ORB
 import Data.Array.RankedS qualified as OR
-import Data.EnumMap.Strict qualified as EM
 import Data.List.NonEmpty (NonEmpty)
 import Data.List.NonEmpty qualified as NonEmpty
 import Data.Proxy (Proxy (Proxy))
@@ -125,7 +124,7 @@ rev' f valsOR =
         -> fgen r m
       hGeneral fx1 fx2 gx inputs =
         let (var, ast) = funToAstR (rshape vals) (unAstRanked . fx1 . f . fx2 . AstRanked)
-            env = extendEnvR var inputs EM.empty
+            env = extendEnvR var inputs emptyEnv
         in interpretAst env (unAstRanked $ gx $ AstRanked ast)
       h :: ADReady f1
         => (f1 r m -> AstRanked PrimalSpan r m)

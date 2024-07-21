@@ -8,7 +8,6 @@ module TestAdaptorSimplified
 import Prelude
 
 import Data.Array.RankedS qualified as OR
-import Data.EnumMap.Strict qualified as EM
 import Data.Int (Int64)
 import Data.IntMap.Strict qualified as IM
 import Data.List (foldl1')
@@ -1384,7 +1383,7 @@ testFooNoGoAst =
         => ADVal ORArray r 1 -> ADVal ORArray r 1
       f x = interpretAst (extendEnvR
                             (mkAstVarName 1 $ intToAstVarId 100000000)
-                            x EM.empty)
+                            x emptyEnv)
                          (unAstRanked $ fooNoGoAst (AstRanked $ AstVar [5] (mkAstVarName 1 . intToAstVarId $ 100000000)))
   in assertEqualUpToEpsilon1 1e-6
        (OR.fromList [5] [5.037878787878788,-14.394255484765257,43.23648655081373,-0.8403418295960368,5.037878787878788])
@@ -1586,7 +1585,7 @@ testBarReluAst0 =
         => ADVal ORArray r 0 -> ADVal ORArray r 0
       f x = interpretAst (extendEnvR
                             (mkAstVarName 0 $ intToAstVarId 100000000)
-                            x EM.empty)
+                            x emptyEnv)
                          (unAstRanked $ barReluAst (AstRanked $ AstVar [] (mkAstVarName 0 . intToAstVarId $ 100000000)))
   in assertEqualUpToEpsilon1 1e-10
        (OR.fromList [] [191.20462646925841])
@@ -1598,7 +1597,7 @@ testBarReluAst1 =
         => ADVal ORArray r 1 -> ADVal ORArray r 1
       f x = interpretAst (extendEnvR
                             (mkAstVarName 1 $ intToAstVarId 100000000)
-                            x EM.empty)
+                            x emptyEnv)
                          (unAstRanked $ barReluAst (AstRanked $ AstVar [5] (mkAstVarName 1 . intToAstVarId $ 100000000)))
   in assertEqualUpToEpsilon1 1e-10
        (OR.fromList [5] [4.530915319176739,-2.9573428114591314e-2,5.091137576320349,81.14126788127645,2.828924924816215])
@@ -1616,7 +1615,7 @@ testReplicateReluAst =
         => ADVal ORArray r 0 -> ADVal ORArray r 0
       f x = interpretAst (extendEnvR
                             (mkAstVarName 0 $ intToAstVarId 100000000)
-                            x EM.empty)
+                            x emptyEnv)
                          (unAstRanked $ konstReluAst (AstRanked $ AstVar [] (mkAstVarName 0 . intToAstVarId $ 100000000)))
   in assertEqualUpToEpsilon1 1e-10
        (OR.fromList [] [295.4])

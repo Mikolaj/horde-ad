@@ -17,7 +17,6 @@ import Prelude
 
 import Control.Exception.Assert.Sugar
 import Data.Array.Shape qualified as Sh
-import Data.EnumMap.Strict qualified as EM
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, (:~:) (Refl))
 import Data.Vector qualified as Data.NonStrict.Vector
@@ -576,11 +575,11 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     -- for each new @parmeters@, which is much better than computing anew.
     let !(!(AstArtifact _varsDt vars gradient _primal), _delta) =
           revProduceArtifactH @_ @_ @(AstRanked FullSpan)
-                              False f EM.empty
+                              False f emptyEnv
                               (V.map dynamicFromVoid parameters0)
                               parameters0
     in \parameters -> assert (voidHVectorMatches parameters0 parameters) $
-      let env = extendEnvHVector @(AstRanked s) vars parameters EM.empty
+      let env = extendEnvHVector @(AstRanked s) vars parameters emptyEnv
       in simplifyInlineHVector $ interpretAstHVector env $ unAstRawWrap gradient
         -- this interpretation both substitutes parameters for the variables and
         -- reinterprets @PrimalSpan@ terms in @s@ terms;
@@ -598,7 +597,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
           -> HVectorPseudoTensor (AstRanked FullSpan) r y
         g !hv = HVectorPseudoTensor $ unHFun f [hv]
         (AstArtifact varsDt vars gradient _primal, _delta) =
-          revProduceArtifact True g EM.empty shs
+          revProduceArtifact True g emptyEnv shs
      in AstLambda ([varsDt, vars], simplifyInlineHVector $ unAstRawWrap gradient)
   dfwd :: VoidHVector
        -> HFun
@@ -610,7 +609,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
           -> HVectorPseudoTensor (AstRanked FullSpan) r y
         g !hv = HVectorPseudoTensor $ unHFun f [hv]
         (AstArtifact varsDt vars derivative _primal, _delta) =
-          fwdProduceArtifact g EM.empty shs
+          fwdProduceArtifact g emptyEnv shs
      in AstLambda ( [varsDt, vars]
                   , simplifyInlineHVector $ unAstRawWrap derivative )
   dmapAccumRDer

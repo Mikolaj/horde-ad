@@ -8,7 +8,6 @@ import Prelude
 
 import Control.Monad (foldM, unless)
 import Data.Array.RankedS qualified as OR
-import Data.EnumMap.Strict qualified as EM
 import Data.IntMap.Strict qualified as IM
 import Data.List.Index (imap)
 import Data.Vector.Generic qualified as V
@@ -209,7 +208,7 @@ mnistTestCase1VTI prefix epochs maxBatches widthHidden widthHidden2
              let f :: MnistData r -> HVector (ADVal ORArray)
                    -> ADVal ranked r 0
                  f (glyph, label) varInputs =
-                   let env = foldr extendEnvD EM.empty
+                   let env = foldr extendEnvD emptyEnv
                              $ zip vars $ V.toList varInputs
                        envMnist =
                          extendEnvR varGlyph
@@ -309,7 +308,7 @@ mnistTestCase1VTO prefix epochs maxBatches widthHidden widthHidden2
          funToAstIOR (singletonShape sizeMnistLabelInt) id
        let envInit = extendEnvR varGlyph (rconstant $ AstRaw astGlyph)
                      $ extendEnvR varLabel (rconstant $ AstRaw astLabel)
-                     EM.empty
+                     emptyEnv
            f = MnistFcnnRanked1.afcnnMnistLoss1TensorData @(AstRanked FullSpan)
                  widthHidden widthHidden2
                  (rconstant $ AstRanked astGlyph, rconstant $ AstRanked astLabel)
@@ -521,7 +520,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
              let f :: MnistData r -> HVector (ADVal ORArray)
                    -> ADVal ranked r 0
                  f (glyph, label) varInputs =
-                   let env = foldr extendEnvD EM.empty
+                   let env = foldr extendEnvD emptyEnv
                              $ zip vars $ V.toList varInputs
                        envMnist =
                          extendEnvR varGlyph
@@ -620,7 +619,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
          funToAstIOR (singletonShape sizeMnistLabelInt) id
        let envInit = extendEnvR varGlyph (rconstant $ AstRaw astGlyph)
                      $ extendEnvR varLabel (rconstant $ AstRaw astLabel)
-                       EM.empty
+                       emptyEnv
            f = MnistFcnnRanked2.afcnnMnistLoss2TensorData @(AstRanked FullSpan)
                  (rconstant $ AstRanked astGlyph, rconstant $ AstRanked astLabel)
            (AstArtifact varDtAgain vars1Again gradientRaw primal, _) =

@@ -18,7 +18,6 @@ module HordeAd.Core.Engine
 
 import Prelude
 
-import Data.EnumMap.Strict qualified as EM
 import Data.Int (Int64)
 import Data.Maybe (fromMaybe, isJust)
 import Data.Vector.Generic qualified as V
@@ -103,7 +102,7 @@ revDtMaybe f vals mdt =
                   $ toHVectorOf $ f $ parseHVector (fromValue vals) hVector
       valsH = toHVectorOf vals
       voidH = voidFromHVector valsH
-      artifact = fst $ revProduceArtifact (isJust mdt) g EM.empty voidH
+      artifact = fst $ revProduceArtifact (isJust mdt) g emptyEnv voidH
       mdth = toHVectorOf <$> mdt
   in parseHVector vals
      $ fst $ revEvalArtifact artifact valsH mdth
@@ -131,7 +130,7 @@ revArtifactAdapt hasDt f vals =
                   $ toHVectorOf $ f $ parseHVector (fromValue vals) hVector
       valsH = toHVectorOf @ORArray vals
       voidH = voidFromHVector valsH
-  in revProduceArtifact hasDt g EM.empty voidH
+  in revProduceArtifact hasDt g emptyEnv voidH
 {-# SPECIALIZE revArtifactAdapt
   :: ( KnownNat n
      , AdaptableHVector (AstRanked FullSpan) astvals
@@ -181,7 +180,7 @@ revEvalArtifact (AstArtifact varsDt vars
       dts = fromMaybe dt1 mdt
   in if voidHVectorMatches (shapeAstHVector primal) dts
      then
-       let env = extendEnvHVector vars parameters EM.empty
+       let env = extendEnvHVector vars parameters emptyEnv
            envDt = extendEnvHVector varsDt dts env
            gradientHVector = interpretAstHVector envDt gradient
            primalTensor = interpretAstHVector env primal
@@ -214,7 +213,7 @@ fwd f vals ds =
                   $ toHVectorOf $ f $ parseHVector (fromValue vals) hVector
       valsH = toHVectorOf vals
       voidH = voidFromHVector valsH
-      artifact = fst $ fwdProduceArtifact g EM.empty voidH
+      artifact = fst $ fwdProduceArtifact g emptyEnv voidH
       dsH = toHVectorOf ds
       err = error "fwd: codomain of unknown length"
   in parseHVector err $ fst $ fwdEvalArtifact artifact valsH dsH
@@ -233,7 +232,7 @@ fwdArtifactAdapt f vals =
                   $ toHVectorOf $ f $ parseHVector (fromValue vals) hVector
       valsH = toHVectorOf @ORArray vals
       voidH = voidFromHVector valsH
-  in fwdProduceArtifact g EM.empty voidH
+  in fwdProduceArtifact g emptyEnv voidH
 
 fwdEvalArtifact
   :: AstArtifact
@@ -243,7 +242,7 @@ fwdEvalArtifact
 {-# INLINE fwdEvalArtifact #-}
 fwdEvalArtifact (AstArtifact varDs vars derivative primal) parameters ds =
   if hVectorsMatch parameters ds then
-    let env = extendEnvHVector vars parameters EM.empty
+    let env = extendEnvHVector vars parameters emptyEnv
         envDs = extendEnvHVector varDs ds env
         derivativeTensor = interpretAstHVector envDs $ unAstRawWrap derivative
         primalTensor = interpretAstHVector env $ unAstRawWrap primal

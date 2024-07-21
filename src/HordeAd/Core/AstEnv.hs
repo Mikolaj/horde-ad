@@ -4,7 +4,7 @@
 -- | The environment and some helper operations for AST interpretation.
 module HordeAd.Core.AstEnv
   ( -- * The environment and operations for extending it
-    AstEnv, AstEnvElem(..)
+    AstEnv, AstEnvElem(..), emptyEnv
   , extendEnvR, extendEnvS, extendEnvHVector, extendEnvHFun, extendEnvD
     -- * The operations for interpreting bindings
   , interpretLambdaI, interpretLambdaIS, interpretLambdaIHVector
@@ -55,6 +55,9 @@ data AstEnvElem (ranked :: RankedTensorType) where
 deriving instance ( CRanked ranked Show, CShaped (ShapedOf ranked) Show
                   , Show (HFunOf ranked) )
                   => Show (AstEnvElem ranked)
+
+emptyEnv :: AstEnv ranked
+emptyEnv = EM.empty
 
 -- An informal invariant: if s is FullSpan, ranked is dual numbers,
 -- and if s is PrimalSpan, ranked is their primal part.
@@ -234,7 +237,7 @@ interpretLambdaHsH
 {-# INLINE interpretLambdaHsH #-}
 interpretLambdaHsH interpret ~(vvars, ast) =
   HFun $ \ws ->
-    interpret (foldr (uncurry extendEnvHVector) EM.empty $ zip vvars ws) ast
+    interpret (foldr (uncurry extendEnvHVector) emptyEnv $ zip vvars ws) ast
 
 
 -- * Interpretation of arithmetic, boolean and relation operations

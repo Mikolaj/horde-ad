@@ -231,7 +231,6 @@ library benchCommonLibrary
 
       , base
       , criterion
-      , enummapset
       , hmatrix
       , ilist
       , inspection-testing
@@ -369,7 +368,6 @@ library testToolLibrary
       , horde-ad:horde-ad-simplified
 
       , base
-      , enummapset
       , hmatrix
       , orthotope
       , ox-arrays
@@ -401,7 +399,6 @@ library testCommonLibrary
       , assert-failure
       , base
       , containers
-      , enummapset
       , ghc-typelits-knownnat
       , ghc-typelits-natnormalise
       , hmatrix

@@ -9,7 +9,6 @@ module TestMnistCNNR
 import Prelude
 
 import Control.Monad (foldM, unless)
-import Data.EnumMap.Strict qualified as EM
 import Data.IntMap.Strict qualified as IM
 import Data.Vector.Generic qualified as V
 import GHC.TypeLits (SomeNat (..), someNatVal)
@@ -202,7 +201,7 @@ mnistTestCaseCNNI prefix epochs maxBatches kh kw c_out n_hidden
              let f :: MnistDataBatchR r -> HVector (ADVal ORArray)
                    -> ADVal ranked r 0
                  f (glyph, label) varInputs =
-                   let env = foldr extendEnvD EM.empty
+                   let env = foldr extendEnvD emptyEnv
                              $ zip vars $ V.toList varInputs
                        envMnist = extendEnvR varGlyph (rconst $ Nested.rfromOrthotope SNat glyph)
                                   $ extendEnvR varLabel (rconst $ Nested.rfromOrthotope SNat label) env
@@ -306,7 +305,7 @@ mnistTestCaseCNNO prefix epochs maxBatches kh kw c_out n_hidden
          funToAstIOR (miniBatchSize :$: sizeMnistLabelInt :$: ZSR) id
        let envInit = extendEnvR varGlyph (rconstant $ AstRaw astGlyph)
                      $ extendEnvR varLabel (rconstant $ AstRaw astLabel)
-                       EM.empty
+                       emptyEnv
            f = MnistCnnRanked2.convMnistLossFusedR
                  miniBatchSize (AstRanked astGlyph, AstRanked astLabel)
            (AstArtifact varDtAgain vars1Again gradientRaw primal, _) =
