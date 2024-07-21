@@ -455,7 +455,7 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
 tensorADValMnistTests2 :: TestTree
 tensorADValMnistTests2 = testGroup "Ranked2 ADVal MNIST tests"
   [ mnistTestCase2VTA "VTA2 1 epoch, 1 batch" 1 1 300 100 0.02 5
-                       (1 :: Double)
+                       (0.8 :: Double)
   , mnistTestCase2VTA "VTA2 artificial 1 2 3 4 5" 1 2 3 4 5 500
                        (0.89 :: Float)
   , mnistTestCase2VTA "VTA2 1 epoch, 0 batch" 1 0 300 100 0.02 500

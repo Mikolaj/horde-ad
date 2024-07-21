@@ -62,7 +62,7 @@ unsafeGetFreshAstVarId :: IO AstVarId
 unsafeGetFreshAstVarId =
   intToAstVarId <$> atomicAddCounter_ unsafeAstVarCounter 1
 
-unsafeGetFreshAstVarName :: Int -> IO (AstVarName s y)
+unsafeGetFreshAstVarName :: TensorKind y => Int -> IO (AstVarName s y)
 {-# INLINE unsafeGetFreshAstVarName #-}
 unsafeGetFreshAstVarName rank =
   mkAstVarName rank . intToAstVarId <$> atomicAddCounter_ unsafeAstVarCounter 1
@@ -108,7 +108,7 @@ funToAstS f = unsafePerformIO $ do
   (!var, _, !ast) <- funToAstIOS f
   return (var, ast)
 
-fun1RToAstIO :: forall s r n. KnownNat n
+fun1RToAstIO :: forall s r n. (KnownNat n, GoodScalar r)
              => (AstVarName s (TKR r n) -> AstTensor s (TKR r n))
              -> IO (AstTensor s (TKR r n))
 {-# INLINE fun1RToAstIO #-}
@@ -116,13 +116,13 @@ fun1RToAstIO f = do
   !freshId <- unsafeGetFreshAstVarName (valueOf @n)
   return $! f freshId
 
-fun1RToAst :: KnownNat n
+fun1RToAst :: (KnownNat n, GoodScalar r)
            => (AstVarName s (TKR r n) -> AstTensor s (TKR r n))
            -> AstTensor s (TKR r n)
 {-# NOINLINE fun1RToAst #-}
 fun1RToAst f = unsafePerformIO $ fun1RToAstIO f
 
-fun1SToAstIO :: forall s r sh. KnownShS sh
+fun1SToAstIO :: forall s r sh. (KnownShS sh, GoodScalar r)
              => (AstVarName s (TKS r sh) -> AstTensor s (TKS r sh))
              -> IO (AstTensor s (TKS r sh))
 {-# INLINE fun1SToAstIO #-}
@@ -130,7 +130,7 @@ fun1SToAstIO f = do
   !freshId <- unsafeGetFreshAstVarName (length (shapeT @sh))
   return $! f freshId
 
-fun1SToAst :: KnownShS sh
+fun1SToAst :: (KnownShS sh, GoodScalar r)
            => (AstVarName s (TKS r sh) -> AstTensor s (TKS r sh))
            -> AstTensor s (TKS r sh)
 {-# NOINLINE fun1SToAst #-}

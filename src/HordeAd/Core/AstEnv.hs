@@ -21,7 +21,8 @@ import Prelude
 
 import Control.Exception.Assert.Sugar
 import Data.Array.Internal (valueOf)
-import Data.EnumMap.Strict qualified as EM
+import Data.Dependent.Map (DMap)
+import Data.Dependent.Map qualified as DMap
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
@@ -42,22 +43,21 @@ import HordeAd.Util.SizedList
 -- * The environment and operations for extending it
 
 -- | The environment that keeps variables values during interpretation
-type AstEnv ranked = EM.EnumMap AstVarId (AstEnvElem ranked)
+type AstEnv ranked = DMap (AstVarName FullSpan) (AstEnvElem ranked)
+  -- the FullSpan is a lie
 
-type role AstEnvElem nominal
-data AstEnvElem (ranked :: RankedTensorType) where
-  AstEnvElemRanked :: (GoodScalar r, KnownNat n)
-                   => ranked r n -> AstEnvElem ranked
-  AstEnvElemShaped :: (GoodScalar r, KnownShS sh)
-                   => ShapedOf ranked r sh -> AstEnvElem ranked
-  AstEnvElemHFun :: HFunOf ranked -> AstEnvElem ranked
+type role AstEnvElem nominal nominal
+data AstEnvElem (ranked :: RankedTensorType) (y :: TensorKindType) where
+  AstEnvElemTuple :: InterpretationTarget ranked y -> AstEnvElem ranked y
+  AstEnvElemHFun :: HFunOf ranked -> AstEnvElem ranked (TKR () 0)
+    -- the (TKR () 0) is a lie
 
-deriving instance ( CRanked ranked Show, CShaped (ShapedOf ranked) Show
+deriving instance ( Show (InterpretationTarget ranked y)
                   , Show (HFunOf ranked) )
-                  => Show (AstEnvElem ranked)
+                  => Show (AstEnvElem ranked y)
 
 emptyEnv :: AstEnv ranked
-emptyEnv = EM.empty
+emptyEnv = DMap.empty
 
 -- An informal invariant: if s is FullSpan, ranked is dual numbers,
 -- and if s is PrimalSpan, ranked is their primal part.
@@ -66,17 +66,21 @@ extendEnvR :: forall ranked r n s. (KnownNat n, GoodScalar r)
            => AstVarName s (TKR r n) -> ranked r n -> AstEnv ranked
            -> AstEnv ranked
 extendEnvR var !t !env =
-  let varId = varNameToAstVarId var
-  in EM.insertWithKey (\_ _ _ -> error $ "extendEnvR: duplicate " ++ show varId)
-                      varId (AstEnvElemRanked t) env
+  let var2 :: AstVarName FullSpan (TKR r n)
+      var2 = mkAstVarName (varNameToRank var) (varNameToAstVarId var)
+        -- to uphold the lie about FullSpan
+  in DMap.insertWithKey (\_ _ _ -> error $ "extendEnvR: duplicate " ++ show var)
+                        var2 (AstEnvElemTuple t) env
 
 extendEnvS :: forall ranked r sh s. (KnownShS sh, GoodScalar r)
            => AstVarName s (TKS r sh) -> ShapedOf ranked r sh -> AstEnv ranked
            -> AstEnv ranked
 extendEnvS var !t !env =
-  let varId = varNameToAstVarId var
-  in EM.insertWithKey (\_ _ _ -> error $ "extendEnvS: duplicate " ++ show varId)
-                      varId (AstEnvElemShaped t) env
+  let var2 :: AstVarName FullSpan (TKS r sh)
+      var2 = mkAstVarName (varNameToRank var) (varNameToAstVarId var)
+        -- to uphold the lie about FullSpan
+  in DMap.insertWithKey (\_ _ _ -> error $ "extendEnvS: duplicate " ++ show var)
+                        var2 (AstEnvElemTuple t) env
 
 extendEnvHVector :: forall ranked. ADReady ranked
                  => [AstDynamicVarName] -> HVector ranked -> AstEnv ranked
@@ -87,8 +91,12 @@ extendEnvHVector vars !pars !env = assert (length vars == V.length pars) $
 extendEnvHFun :: AstVarId -> HFunOf ranked -> AstEnv ranked
               -> AstEnv ranked
 extendEnvHFun !varId !t !env =
-  EM.insertWithKey (\_ _ _ -> error $ "extendEnvHFun: duplicate " ++ show varId)
-                   varId (AstEnvElemHFun t) env
+  let var2 :: AstVarName FullSpan (TKR () 0)
+      var2 = mkAstVarName 0 varId
+        -- to uphold the lie about (TKR () 0)
+  in DMap.insertWithKey (\_ _ _ -> error
+                                   $ "extendEnvHFun: duplicate " ++ show varId)
+                        var2 (AstEnvElemHFun t) env
 
 extendEnvD :: forall ranked. ADReady ranked
            => (AstDynamicVarName, DynamicTensor ranked)

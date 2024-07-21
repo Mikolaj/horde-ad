@@ -31,6 +31,8 @@ import Prelude hiding (foldl')
 import Data.Array.Internal (valueOf)
 import Data.Array.Shape qualified as Sh
 import Data.Functor.Const
+import Data.GADT.Compare
+import Data.GADT.Show
 import Data.Int (Int64)
 import Data.Kind (Type)
 import Data.Proxy (Proxy (Proxy))
@@ -139,15 +141,38 @@ dynamicVarNameToAstVarId (AstDynamicVarName varId) = varId
 
 -- TODO: remove the rank field once we have TensorKindType singletons
 type role AstVarName nominal nominal
-data AstVarName (s :: AstSpanType) (y :: TensorKindType) =
-  AstVarName Int AstVarId
- deriving (Eq, Ord)
+data AstVarName :: AstSpanType -> TensorKindType -> Type where
+  AstVarName :: forall s y. TensorKind y => Int -> AstVarId -> AstVarName s y
+
+instance Eq (AstVarName s y) where
+  AstVarName _ varId1 == AstVarName _ varId2 = varId1 == varId2
+
+instance Ord (AstVarName s y) where
+  AstVarName _ varId1 <= AstVarName _ varId2 = varId1 <= varId2
 
 instance Show (AstVarName s y) where
   showsPrec d (AstVarName _ varId) =
     showsPrec d varId  -- less verbose, more readable
 
-mkAstVarName :: Int -> AstVarId -> AstVarName s y
+instance GEq (AstVarName s) where
+  geq (AstVarName @_ @y1 _ varId1) (AstVarName @_ @y2 _ varId2) =
+    case varId1 == varId2 of
+      True | Just Refl <- sameTensorKind @y1 @y2 -> Just Refl
+      True -> error "geq: different types of same AstVarName"
+      False -> Nothing
+
+instance GCompare (AstVarName s) where
+  gcompare (AstVarName @_ @y1 _ varId1) (AstVarName @_ @y2 _ varId2) =
+    case compare varId1 varId2 of
+       LT -> GLT
+       EQ | Just Refl <- sameTensorKind @y1 @y2 -> GEQ
+       EQ -> error "gcompare: different types of same AstVarName"
+       GT -> GGT
+
+instance GShow (AstVarName s) where
+  gshowsPrec = defaultGshowsPrec
+
+mkAstVarName :: forall s y. TensorKind y => Int -> AstVarId -> AstVarName s y
 mkAstVarName = AstVarName
 
 varNameToAstVarId :: AstVarName s y -> AstVarId

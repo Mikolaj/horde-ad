@@ -167,6 +167,7 @@ library horde-ad-simplified
       , Boolean
       , containers
       , deepseq
+      , dependent-map
       , enummapset
       , ghc-typelits-knownnat
       , ghc-typelits-natnormalise
@@ -175,6 +176,7 @@ library horde-ad-simplified
       , orthotope >= 0.1.4.0
       , ox-arrays
       , random
+      , some
       , strict-containers
       , unboxed-ref
       , vector

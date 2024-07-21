@@ -411,7 +411,7 @@ build1VOccurenceUnknownRefreshS (var, v0) =
   funToAstIntVar $ \ (!varFresh, !astVarFresh) ->
     let !v2 = substituteAst  -- cheap subst, because only a renaming
                 (SubstitutionPayloadRanked @PrimalSpan @Int64 astVarFresh)
-                (mkAstVarName (varNameToRank var) (varNameToAstVarId var)) {-TODO: var-} v0
+                var v0
     in build1VOccurenceUnknownS (varFresh, v2)
 
 intBindingRefreshS
@@ -800,14 +800,12 @@ substProjShaped :: forall n1 r1 sh r s1 s.
                 -> AstVarName s1 (TKR r1 n1)
                 -> AstTensor s (TKS r sh) -> AstTensor s (TKS r sh)
 substProjShaped k var sh1 var1 =
-  let varId = varNameToAstVarId var1
-      var2 = mkAstVarName (varNameToRank var1) varId
-      var3 = mkAstVarName (varNameToRank var1) varId
+  let var2 = mkAstVarName (varNameToRank var1) (varNameToAstVarId var1)
       projection =
         Ast.AstIndex (Ast.AstVar (k :$: sh1) var2)
                      (Ast.AstIntVar var :.: ZIR)
   in substituteAst
-       (SubstitutionPayloadRanked @s1 @r1 projection) var3 {-TODO: var1-}
+       (SubstitutionPayloadRanked @s1 @r1 projection) var1
 
 substProjRankedS :: forall k sh1 r1 n r s1 s.
                     ( KnownNat k, KnownShS sh1, GoodScalar r1
@@ -815,14 +813,12 @@ substProjRankedS :: forall k sh1 r1 n r s1 s.
                  => IntVarName -> AstVarName s1 (TKS r1 sh1)
                  -> AstTensor s (TKR r n) -> AstTensor s (TKR r n)
 substProjRankedS var var1 =
-  let varId = varNameToAstVarId var1
-      var2 = mkAstVarName (varNameToRank var1) varId
-      var3 = mkAstVarName (varNameToRank var1) varId
+  let var2 = mkAstVarName (varNameToRank var1) (varNameToAstVarId var1)
       projection =
         Ast.AstIndexS (Ast.AstVarS @(k ': sh1) var2)
                       (Ast.AstIntVar var :.$ ZIS)
   in substituteAst
-       (SubstitutionPayloadShaped @s1 @r1 projection) var3 {-TODO: var1-}
+       (SubstitutionPayloadShaped @s1 @r1 projection) var1
 
 substProjShapedS :: forall k sh1 r1 sh r s1 s.
                     ( KnownNat k, KnownShS sh1, GoodScalar r1
@@ -830,8 +826,7 @@ substProjShapedS :: forall k sh1 r1 sh r s1 s.
                  => IntVarName -> AstVarName s1 (TKS r1 sh1)
                  -> AstTensor s (TKS r sh) -> AstTensor s (TKS r sh)
 substProjShapedS var var1 =
-  let varId = varNameToAstVarId var1
-      var2 = mkAstVarName (varNameToRank var1) varId
+  let var2 = mkAstVarName (varNameToRank var1) (varNameToAstVarId var1)
       projection =
         Ast.AstIndexS (Ast.AstVarS @(k ': sh1) var2)
                       (Ast.AstIntVar var :.$ ZIS)
@@ -844,8 +839,7 @@ substProjHVector :: forall n1 r1 s1 s.
                  -> AstVarName s1 (TKR r1 n1)
                  -> AstHVector s -> AstHVector s
 substProjHVector k var sh1 var1 =
-  let varId = varNameToAstVarId var1
-      var2 = mkAstVarName (varNameToRank var1) varId
+  let var2 = mkAstVarName (varNameToRank var1) (varNameToAstVarId var1)
       projection =
         Ast.AstIndex (Ast.AstVar (k :$: sh1) var2)
                      (Ast.AstIntVar var :.: ZIR)
@@ -858,8 +852,7 @@ substProjHVectorS :: forall k sh1 r1 s1 s.
                   => IntVarName -> AstVarName s1 (TKS r1 sh1)
                   -> AstHVector s -> AstHVector s
 substProjHVectorS var var1 =
-  let varId = varNameToAstVarId var1
-      var2 = mkAstVarName (varNameToRank var1) varId
+  let var2 = mkAstVarName (varNameToRank var1) (varNameToAstVarId var1)
       projection =
         Ast.AstIndexS (Ast.AstVarS @(k ': sh1) var2)
                       (Ast.AstIntVar var :.$ ZIS)

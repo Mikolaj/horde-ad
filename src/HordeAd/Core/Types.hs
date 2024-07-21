@@ -145,7 +145,7 @@ class Typeable y => TensorKind (y :: TensorKindType) where
 
 instance (Typeable r, KnownNat n) => TensorKind (TKR r n) where
 
-instance (Typeable r, Typeable {-KnownShS-} sh) => TensorKind (TKS r sh) where
+instance (Typeable r, KnownShS sh) => TensorKind (TKS r sh) where
 
 instance (TensorKind y, TensorKind z) => TensorKind (TKProduct y z) where
 

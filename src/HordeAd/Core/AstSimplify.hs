@@ -1690,8 +1690,7 @@ astSlice i n w@(Ast.AstAppend (u :: AstTensor s (TKR r (1 + k)))
 astSlice i n (Ast.AstGather (_ :$: sh') v (var ::: vars, ix)) =
   let ivar = AstIntVar var + fromIntegral i
       ix2 = substituteAstIndex  -- cheap subst, because ivar is tiny
-              (SubstitutionPayloadRanked @PrimalSpan @Int64 ivar)
-              (mkAstVarName (varNameToRank var)  (varNameToAstVarId var) {-TODO: var-}) ix
+              (SubstitutionPayloadRanked @PrimalSpan @Int64 ivar) var ix
   in astGatherR (n :$: sh') v (var ::: vars, ix2)
 astSlice i n v = Ast.AstSlice i n v
 
@@ -1721,8 +1720,7 @@ astSliceS w@(Ast.AstAppendS (u :: AstTensor s (TKS r (ulen : sh)))
 astSliceS (Ast.AstGatherS @_ @p @sh4 v ((::$) @_ @sh21 (Const var) vars, ix)) =
   let ivar = AstIntVar var + valueOf @i
       ix2 = substituteAstIndexS  -- cheap subst, because ivar is tiny
-              (SubstitutionPayloadRanked @PrimalSpan @Int64 ivar)
-              (mkAstVarName (varNameToRank var) (varNameToAstVarId var) {-TODO: var-}) ix
+              (SubstitutionPayloadRanked @PrimalSpan @Int64 ivar) var ix
       vars2 = Const var ::$ vars
   in case slistKnown vars2 of
     Dict -> astGatherS @(n : sh21) @p @sh4 v (vars2, ix2)
@@ -1738,8 +1736,7 @@ astReverse (Ast.AstReverse v) = v
 astReverse (Ast.AstGather sh@(k :$: _) v (var ::: vars, ix)) =
   let ivar = fromIntegral k - AstIntVar var
       ix2 = substituteAstIndex  -- cheap subst, because ivar is tiny
-              (SubstitutionPayloadRanked @PrimalSpan @Int64 ivar)
-              (mkAstVarName (varNameToRank var) (varNameToAstVarId var) {-TODO: var-}) ix
+              (SubstitutionPayloadRanked @PrimalSpan @Int64 ivar) var ix
   in astGatherR sh v (var ::: vars, ix2)
 astReverse v = Ast.AstReverse v
 
@@ -1753,8 +1750,7 @@ astReverseS (Ast.AstReverseS v) = v
 astReverseS (Ast.AstGatherS v ((::$) @k (Const var) vars, ix)) =
   let ivar = valueOf @k - AstIntVar var
       ix2 = substituteAstIndexS  -- cheap subst, because ivar is tiny
-              (SubstitutionPayloadRanked @PrimalSpan @Int64 ivar)
-              (mkAstVarName (varNameToRank var) (varNameToAstVarId var) {-TODO: var-}) ix
+              (SubstitutionPayloadRanked @PrimalSpan @Int64 ivar) var ix
   in astGatherS v (Const var ::$ vars, ix2)
 astReverseS v = Ast.AstReverseS v
 

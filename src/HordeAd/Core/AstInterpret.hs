@@ -23,7 +23,7 @@ import Prelude
 import Control.Exception.Assert.Sugar
 import Data.Array.Internal (valueOf)
 import Data.Array.Shape qualified as Sh
-import Data.EnumMap.Strict qualified as EM
+import Data.Dependent.Map qualified as DMap
 import Data.Int (Int64)
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
@@ -198,20 +198,21 @@ interpretAst !env = \case
     in rletHVectorIn lt (\lw -> interpretAst (env2 lw) v)
 -}
 
-  AstVar @r @n sh var -> case EM.lookup (varNameToAstVarId var) env of
-    Just (AstEnvElemRanked @r2 @n2 t) -> case sameNat (Proxy @n2) (Proxy @n) of
+  AstVar @r @n sh var ->
+   let var2 = mkAstVarName @FullSpan @(TKR r n) (varNameToRank var) (varNameToAstVarId var)  -- TODO
+   in case DMap.lookup var2 env of
+    Just (AstEnvElemTuple @ranked @y t) {- TODO: @r2 @n2 t) -> case sameNat (Proxy @n2) (Proxy @n) of
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
         Just Refl -> assert (rshape t == sh
                              `blame` (sh, rshape t, var, t, env)) t
         _ -> error "interpretAst: scalar mismatch"
       _ -> error $ "interpretAst: wrong rank in environment"
                    `showFailure`
-                   (valueOf @n :: Int, valueOf @n2 :: Int, var, t, env)
-    Just (AstEnvElemShaped @_ @sh2 t) ->
-      error $ "interpretAst: wrong tensor kind in environment"
-              `showFailure` (sh, shapeT @sh2, var, t, env)
-    _ -> error $ "interpretAst: unknown variable " ++ show var
-                 ++ " in environment " ++ show env
+                   (valueOf @n :: Int, valueOf @n2 :: Int, var, t, env) -}
+      -> t
+    _ -> error $ "interpretAst: unknown AstVar " ++ show var
+      -- this is defeated by 'Undecidable instances and loopy superclasses':
+      -- ++ " in environment " ++ show env
   AstLet var u v ->
     -- We assume there are no nested lets with the same variable.
     let t = interpretAstRuntimeSpecialized env u
@@ -530,17 +531,18 @@ interpretAst !env = \case
         t2 = interpretAstDual env u'
     in rD t1 t2
 
-  AstVarS @sh @r var -> case EM.lookup (varNameToAstVarId var) env of
-    Just (AstEnvElemShaped @r2 @sh2 t) -> case sameShape @sh2 @sh of
+  AstVarS @sh @r var ->
+    let var2 = mkAstVarName @FullSpan @(TKS r sh) (varNameToRank var) (varNameToAstVarId var)  -- TODO
+   in case DMap.lookup var2 env of
+    Just (AstEnvElemTuple @ranked @y t) {- TODO: @r2 @sh2 t) -> case sameShape @sh2 @sh of
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
         Just Refl -> t
         _ -> error "interpretAst: scalar mismatch"
       Nothing -> error $ "interpretAst: wrong shape in environment"
                          `showFailure`
-                         (shapeT @sh, shapeT @sh2, var, t, env)
-    Just (AstEnvElemRanked _t) ->
-      error "interpretAst: wrong tensor kind in environment"
-    _ -> error $ "interpretAst: unknown variable " ++ show var
+                         (shapeT @sh, shapeT @sh2, var, t, env) -}
+      -> t
+    _ -> error $ "interpretAst: unknown AstVarS " ++ show var
   AstLetS var u v ->
     -- We assume there are no nested lets with the same variable.
     let t = interpretAstSRuntimeSpecialized env u
@@ -893,9 +895,9 @@ interpretAstHFun !env = \case
     $ interpretLambdaHsH interpretAstHVector (vvars, l)
       -- interpretation in empty environment; makes sense here, because
       -- there are no free variables outside of those listed
-  AstVarHFun _shss _shs var -> case EM.lookup var env of
+  AstVarHFun _shss _shs varId -> case DMap.lookup (mkAstVarName @_ @(TKR () 0) 0 varId) env of
     Just (AstEnvElemHFun f) -> f
-    _ -> error $ "interpretAstHFun: unknown variable " ++ show var
+    _ -> error $ "interpretAstHFun: unknown variable " ++ show varId
 
 interpretAstBool :: ADReady ranked
                  => AstEnv ranked -> AstBool -> BoolOf ranked
