@@ -13,7 +13,7 @@ module HordeAd.Core.Types
   , Dict(..), PermC, trustMeThisIsAPermutation
     -- * Kinds of the functors that determine the structure of a tensor type
   , TensorType, RankedTensorType, ShapedTensorType
-  , TensorKindType (..), InterpretationTarget
+  , TensorKindType (..), TensorKind, sameTensorKind, InterpretationTarget
     -- * Some fundamental constraints
   , GoodScalar, HasSingletonDict, Differentiable, IfDifferentiable(..)
     -- * Type families that tensors will belong to
@@ -36,7 +36,7 @@ import Data.Type.Equality ((:~:) (Refl))
 import GHC.TypeLits
   (KnownNat, Nat, SNat, fromSNat, pattern SNat, type (+), withSomeSNat)
 import Numeric.LinearAlgebra (Numeric, Vector)
-import Type.Reflection (Typeable)
+import Type.Reflection (Typeable, eqTypeRep, typeRep, (:~~:) (HRefl))
 import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Internal.Arith qualified as Nested.Internal.Arith
@@ -140,6 +140,19 @@ type data TensorKindType =
     TKR Type Nat
   | TKS Type [Nat]
   | TKProduct TensorKindType TensorKindType
+
+class Typeable y => TensorKind (y :: TensorKindType) where
+
+instance (Typeable r, KnownNat n) => TensorKind (TKR r n) where
+
+instance (Typeable r, Typeable {-KnownShS-} sh) => TensorKind (TKS r sh) where
+
+instance (TensorKind y, TensorKind z) => TensorKind (TKProduct y z) where
+
+sameTensorKind :: forall y1 y2. (TensorKind y1, TensorKind y2) => Maybe (y1 :~: y2)
+sameTensorKind = case eqTypeRep (typeRep @y1) (typeRep @y2) of
+                Just HRefl -> Just Refl
+                Nothing -> Nothing
 
 type family InterpretationTarget ranked y where
   InterpretationTarget ranked (TKR r n) = ranked r n
