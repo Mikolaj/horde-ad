@@ -175,7 +175,7 @@ build1V k (var, v00) =
         _ -> error "build1V: build variable is not an index variable"
     Ast.AstVar{} ->
       error "build1V: AstVar can't contain other free index variables"
-    Ast.AstLet @_ @_ @r1 @_ @s1 var1 u v ->
+    Ast.AstLet @_ @_ @_ @_ @s1 var1 u v ->
       let var2 = mkAstVarName (varNameToAstVarId var1)  -- changed shape; TODO: shall we rename?
           sh = shapeAst u
           projection = Ast.AstIndex (Ast.AstVar (k :$: sh) var2)
@@ -781,11 +781,11 @@ build1VOccurenceUnknownHVectorRefresh k (var, v0) =
 
 -- * Auxiliary machinery
 
-substProjRanked :: forall n1 r1 n r s1 s.
+substProjRanked :: forall n1 r1 s1 s y.
                    ( KnownNat n1, GoodScalar r1, AstSpan s, AstSpan s1 )
                 => Int -> IntVarName -> IShR n1
                 -> AstVarName s1 (TKR r1 n1)
-                -> AstTensor s (TKR r n) -> AstTensor s (TKR r n)
+                -> AstTensor s y -> AstTensor s y
 substProjRanked k var sh1 var1 =
   let var2 = mkAstVarName @s1 @(TKR r1 (1 + n1)) (varNameToAstVarId var1)
       projection =
@@ -794,38 +794,12 @@ substProjRanked k var sh1 var1 =
   in substituteAst
        (SubstitutionPayload @s1 projection) var1
 
-substProjShaped :: forall n1 r1 sh r s1 s.
-                   ( KnownNat n1, GoodScalar r1, AstSpan s, AstSpan s1 )
-                => Int -> IntVarName -> IShR n1
-                -> AstVarName s1 (TKR r1 n1)
-                -> AstTensor s (TKS r sh) -> AstTensor s (TKS r sh)
-substProjShaped k var sh1 var1 =
-  let var2 = mkAstVarName @s1 @(TKR r1 (1 + n1)) (varNameToAstVarId var1)
-      projection =
-        Ast.AstIndex (Ast.AstVar (k :$: sh1) var2)
-                     (Ast.AstIntVar var :.: ZIR)
-  in substituteAst
-       (SubstitutionPayload @s1 projection) var1
-
-substProjRankedS :: forall k sh1 r1 n r s1 s.
-                    ( KnownNat k, KnownShS sh1, GoodScalar r1
-                    , AstSpan s, AstSpan s1 )
-                 => IntVarName -> AstVarName s1 (TKS r1 sh1)
-                 -> AstTensor s (TKR r n) -> AstTensor s (TKR r n)
-substProjRankedS var var1 =
-  let var2 = mkAstVarName @s1 @(TKS r1 (k : sh1)) (varNameToAstVarId var1)
-      projection =
-        Ast.AstIndexS (Ast.AstVarS @(k ': sh1) var2)
-                      (Ast.AstIntVar var :.$ ZIS)
-  in substituteAst
-       (SubstitutionPayload @s1 projection) var1
-
-substProjShapedS :: forall k sh1 r1 sh r s1 s.
-                    ( KnownNat k, KnownShS sh1, GoodScalar r1
-                    , AstSpan s, AstSpan s1 )
-                 => IntVarName -> AstVarName s1 (TKS r1 sh1)
-                 -> AstTensor s (TKS r sh) -> AstTensor s (TKS r sh)
-substProjShapedS var var1 =
+substProjShaped :: forall k sh1 r1 s1 s y.
+                   ( KnownNat k, KnownShS sh1, GoodScalar r1
+                   , AstSpan s, AstSpan s1 )
+                => IntVarName -> AstVarName s1 (TKS r1 sh1)
+                -> AstTensor s y -> AstTensor s y
+substProjShaped var var1 =
   let var2 = mkAstVarName @s1 @(TKS r1 (k : sh1)) (varNameToAstVarId var1)
       projection =
         Ast.AstIndexS (Ast.AstVarS @(k ': sh1) var2)
@@ -866,12 +840,12 @@ substProjDynamic :: forall k n r s. (KnownNat k, AstSpan s)
 substProjDynamic var v3 (AstDynamicVarName @ty @r3 @sh3 varId)
   | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat) =
     ( withListSh (Proxy @sh3) $ \sh1 ->
-        substProjRanked @_ @r3  @_ @_ @s
+        substProjRanked @_ @r3 @s
                         (valueOf @k) var sh1 (mkAstVarName varId) v3
     , AstDynamicVarName @ty @r3 @(k ': sh3) varId )
 substProjDynamic var v3 (AstDynamicVarName @ty @r3 @sh3 varId)
   | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat]) =
-    ( substProjRankedS @k @sh3 @r3 @_ @_ @s var (mkAstVarName varId) v3
+    ( substProjShaped @k @sh3 @r3 @s var (mkAstVarName varId) v3
     , AstDynamicVarName @ty @r3 @(k ': sh3) varId )
 substProjDynamic _ _ _ = error "substProjDynamic: unexpected type"
 
@@ -882,12 +856,12 @@ substProjDynamicS :: forall k sh r s. (KnownNat k, AstSpan s)
 substProjDynamicS var v3 (AstDynamicVarName @ty @r3 @sh3 varId)
   | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat) =
     ( withListSh (Proxy @sh3) $ \sh1 ->
-        substProjShaped @_ @r3 @_ @_ @s
+        substProjRanked @_ @r3 @s
                         (valueOf @k) var sh1 (mkAstVarName varId) v3
     , AstDynamicVarName @ty @r3 @(k ': sh3) varId )
 substProjDynamicS var v3 (AstDynamicVarName @ty @r3 @sh3 varId)
   | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat]) =
-    ( substProjShapedS @k @sh3 @r3 @_ @_ @s var (mkAstVarName varId) v3
+    ( substProjShaped @k @sh3 @r3 @s var (mkAstVarName varId) v3
     , AstDynamicVarName @ty @r3 @(k ': sh3) varId )
 substProjDynamicS _ _ _ = error "substProjDynamicS: unexpected type"
 
