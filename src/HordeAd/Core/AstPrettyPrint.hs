@@ -23,10 +23,11 @@ import Data.List (intersperse)
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality ((:~:) (Refl))
 import Data.Vector.Generic qualified as V
-import GHC.TypeLits (KnownNat, sameNat)
+import GHC.TypeLits (KnownNat, fromSNat, sameNat)
 import Type.Reflection (typeRep)
 
 import Data.Array.Nested qualified as Nested
+import Data.Array.Nested.Internal.Shape (shsRank)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.HVector
@@ -122,7 +123,12 @@ printAstVarId prefix cfg var =
 
 printAstVar :: forall s y. TensorKind y => PrintConfig -> AstVarName s y -> ShowS
 printAstVar cfg var =
-  let n = rankTensorKind (Proxy @y)
+  let rankTensorKind :: STensorKindType x -> Int
+      rankTensorKind (STKR _ snat) = fromIntegral $ fromSNat snat
+      rankTensorKind (STKS _ sh) = fromIntegral $ fromSNat $ shsRank sh
+      rankTensorKind (STKProduct @y1 @z1 sy sz) =
+        rankTensorKind @y1 sy `max` rankTensorKind @z1 sz
+      n = rankTensorKind (stensorKind @y)
       varId = varNameToAstVarId var
       prefix = case n of
         0 -> "x"

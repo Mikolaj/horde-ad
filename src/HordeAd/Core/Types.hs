@@ -13,7 +13,8 @@ module HordeAd.Core.Types
   , Dict(..), PermC, trustMeThisIsAPermutation
     -- * Kinds of the functors that determine the structure of a tensor type
   , TensorType, RankedTensorType, ShapedTensorType
-  , TensorKindType (..), TensorKind(..), sameTensorKind, InterpretationTarget
+  , TensorKindType (..), STensorKindType(..), TensorKind(..)
+  , sameTensorKind, InterpretationTarget
     -- * Some fundamental constraints
   , GoodScalar, HasSingletonDict, Differentiable, IfDifferentiable(..)
     -- * Type families that tensors will belong to
@@ -36,7 +37,7 @@ import Data.Type.Equality ((:~:) (Refl))
 import GHC.TypeLits
   (KnownNat, Nat, SNat, fromSNat, pattern SNat, type (+), withSomeSNat)
 import Numeric.LinearAlgebra (Numeric, Vector)
-import Type.Reflection (Typeable, eqTypeRep, typeRep, (:~~:) (HRefl))
+import Type.Reflection (TypeRep, Typeable, eqTypeRep, typeRep, (:~~:) (HRefl))
 import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Internal.Arith qualified as Nested.Internal.Arith
@@ -141,22 +142,29 @@ type data TensorKindType =
   | TKS Type [Nat]
   | TKProduct TensorKindType TensorKindType
 
+type role STensorKindType nominal
+data STensorKindType y where
+  STKR :: TypeRep r -> SNat n -> STensorKindType (TKR r n)
+  STKS :: TypeRep r -> ShS sh -> STensorKindType (TKS r sh)
+  STKProduct :: STensorKindType y -> STensorKindType z
+             -> STensorKindType (TKProduct y z)
+
 class Typeable y => TensorKind (y :: TensorKindType) where
-  rankTensorKind :: Proxy y -> Int
+  stensorKind :: STensorKindType y
 
 instance (Typeable r, KnownNat n) => TensorKind (TKR r n) where
-  rankTensorKind _ = valueOf @n
+  stensorKind = STKR typeRep SNat
 
 instance (Typeable r, KnownShS sh) => TensorKind (TKS r sh) where
-  rankTensorKind _ = length (shapeT @sh)
+  stensorKind = STKS typeRep knownShS
 
 instance (TensorKind y, TensorKind z) => TensorKind (TKProduct y z) where
-  rankTensorKind _ = max (rankTensorKind (Proxy @y)) (rankTensorKind (Proxy @z))
+  stensorKind = STKProduct (stensorKind @y) (stensorKind @z)
 
 sameTensorKind :: forall y1 y2. (TensorKind y1, TensorKind y2) => Maybe (y1 :~: y2)
 sameTensorKind = case eqTypeRep (typeRep @y1) (typeRep @y2) of
-                Just HRefl -> Just Refl
-                Nothing -> Nothing
+                   Just HRefl -> Just Refl
+                   Nothing -> Nothing
 
 type family InterpretationTarget ranked y where
   InterpretationTarget ranked (TKR r n) = ranked r n
