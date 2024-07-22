@@ -142,12 +142,20 @@ type data TensorKindType =
   | TKProduct TensorKindType TensorKindType
 
 class Typeable y => TensorKind (y :: TensorKindType) where
+  rankTensorKind :: Proxy y -> Int
 
 instance (Typeable r, KnownNat n) => TensorKind (TKR r n) where
+  rankTensorKind :: forall r n. KnownNat n => Proxy (TKR r n) -> Int
+  rankTensorKind _ = valueOf @n
 
 instance (Typeable r, KnownShS sh) => TensorKind (TKS r sh) where
+  rankTensorKind :: forall r sh. KnownShS sh => Proxy (TKS r sh) -> Int
+  rankTensorKind _ = length (shapeT @sh)
 
 instance (TensorKind y, TensorKind z) => TensorKind (TKProduct y z) where
+  rankTensorKind :: forall y z. (TensorKind y, TensorKind z)
+                 => Proxy (TKProduct y z) -> Int
+  rankTensorKind _ = max (rankTensorKind (Proxy @y)) (rankTensorKind (Proxy @z))
 
 sameTensorKind :: forall y1 y2. (TensorKind y1, TensorKind y2) => Maybe (y1 :~: y2)
 sameTensorKind = case eqTypeRep (typeRep @y1) (typeRep @y2) of
