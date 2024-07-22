@@ -114,12 +114,12 @@ inlineAst memo v0 = case v0 of
         (memo2, u2) = inlineAst memo1NoVar u
     in case EM.findWithDefault 0 vv memo1 of
       0 -> (memo1, v2)
-      1 -> (memo2, substituteAst (SubstitutionPayloadRanked u2) var v2)
+      1 -> (memo2, substituteAst (SubstitutionPayload u2) var v2)
       count | astIsSmall (count < 10) u ->
         let (memoU0, u0) = inlineAst EM.empty u
             memo3 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1NoVar memoU0
                       -- u is small, so the union is fast
-        in (memo3, substituteAst (SubstitutionPayloadRanked u0) var v2)
+        in (memo3, substituteAst (SubstitutionPayload u0) var v2)
       _ -> (memo2, Ast.AstLet var u2 v2)
   Ast.AstShare{} -> error "inlineAst: AstShare"
   Ast.AstCond b a2 a3 ->
@@ -238,12 +238,12 @@ inlineAst memo v0 = case v0 of
         (memo2, u2) = inlineAst memo1NoVar u
     in case EM.findWithDefault 0 vv memo1 of
       0 -> (memo1, v2)
-      1 -> (memo2, substituteAst (SubstitutionPayloadShaped u2) var v2)
+      1 -> (memo2, substituteAst (SubstitutionPayload u2) var v2)
       count | astIsSmall (count < 10) u ->
         let (memoU0, u0) = inlineAst EM.empty u
             memo3 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1NoVar memoU0
                       -- u is small, so the union is fast
-        in (memo3, substituteAst (SubstitutionPayloadShaped u0) var v2)
+        in (memo3, substituteAst (SubstitutionPayload u0) var v2)
       _ -> (memo2, Ast.AstLetS var u2 v2)
   Ast.AstShareS{} -> error "inlineAst: AstShareS"
   Ast.AstCondS b a2 a3 ->
@@ -400,12 +400,12 @@ inlineAstHVector memo v0 = case v0 of
         (memo2, u2) = inlineAst memo1NoVar u
     in case EM.findWithDefault 0 vv memo1 of
       0 -> (memo1, v2)
-      1 -> (memo2, substituteAstHVector (SubstitutionPayloadRanked u2) var v2)
+      1 -> (memo2, substituteAstHVector (SubstitutionPayload u2) var v2)
       count | astIsSmall (count < 10) u ->
         let (memoU0, u0) = inlineAst EM.empty u
         in ( EM.unionWith (\c1 c0 -> c1 + count * c0) memo1NoVar memoU0
                -- u is small, so the union is fast
-           , substituteAstHVector (SubstitutionPayloadRanked u0) var v2 )
+           , substituteAstHVector (SubstitutionPayload u0) var v2 )
       _ -> (memo2, Ast.AstLetInHVector var u2 v2)
   Ast.AstLetInHVectorS var u v ->
     -- We assume there are no nested lets with the same variable.
@@ -415,12 +415,12 @@ inlineAstHVector memo v0 = case v0 of
         (memo2, u2) = inlineAst memo1NoVar u
     in case EM.findWithDefault 0 vv memo1 of
       0 -> (memo1, v2)
-      1 -> (memo2, substituteAstHVector (SubstitutionPayloadShaped u2) var v2)
+      1 -> (memo2, substituteAstHVector (SubstitutionPayload u2) var v2)
       count | astIsSmall (count < 10) u ->
         let (memoU0, u0) = inlineAst EM.empty u
         in ( EM.unionWith (\c1 c0 -> c1 + count * c0) memo1NoVar memoU0
                -- u is small, so the union is fast
-           , substituteAstHVector (SubstitutionPayloadShaped u0) var v2 )
+           , substituteAstHVector (SubstitutionPayload u0) var v2 )
       _ -> (memo2, Ast.AstLetInHVectorS var u2 v2)
   Ast.AstShareHVector{} -> error "inlineAstHVector: AstShareHVector"
   Ast.AstBuildHVector1 k (var, v) ->

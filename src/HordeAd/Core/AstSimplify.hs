@@ -1049,8 +1049,7 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
               foldr (\(i2, var2) v2 ->
                       fromMaybe v2 $ substitute1Ast i2 (varNameToAstVarId var2) v2)
                     i
-                    (zipSized (fmap (SubstitutionPayloadRanked
-                                       @PrimalSpan @Int64)
+                    (zipSized (fmap (SubstitutionPayload @PrimalSpan)
                                $ indexToSized ixFresh) vars4)
             i5 = subst i4
        in astGather sh4 (astFromVector $ V.map f l) (varsFresh, i5 :.: ixFresh)
@@ -1074,8 +1073,7 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
                 -- This subst doesn't break sharing because it's a rename.
                 subst i =
                   foldr (uncurry substituteAstBool) i
-                        (zipSized (fmap (SubstitutionPayloadRanked
-                                           @PrimalSpan @Int64)
+                        (zipSized (fmap (SubstitutionPayload @PrimalSpan)
                                    $ indexToSized ixFresh) vars4)
                 bExpr5 = subst bExpr
             in astGather sh4 (astFromVector $ V.fromList [u2, v2])
@@ -1165,8 +1163,7 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
               foldr (\(i2, var2) v2 ->
                        fromMaybe v2 $ substitute1Ast i2 (varNameToAstVarId var2) v2)
                     i
-                    (zipSized (fmap (SubstitutionPayloadRanked
-                                       @PrimalSpan @Int64)
+                    (zipSized (fmap (SubstitutionPayload @PrimalSpan)
                                $ indexToSized ixFresh)
                               vars4)
             ix5 = fmap subst ix4
@@ -1304,7 +1301,7 @@ astLet :: forall n m r r2 s s2.
        -> AstTensor s2 (TKR r2 m)
 astLet var u v | astIsSmall True u =
   fromMaybe v
-  $ substitute1Ast (SubstitutionPayloadRanked u) (varNameToAstVarId var) v
+  $ substitute1Ast (SubstitutionPayload u) (varNameToAstVarId var) v
 astLet var u v@(Ast.AstVar _ var2) =
   if varNameToAstVarId var2 == varNameToAstVarId var
   then case sameAstSpan @s @s2 of
@@ -1366,7 +1363,7 @@ astLetS :: forall sh1 sh2 r r2 s s2.
         -> AstTensor s2 (TKS r2 sh2)
 astLetS var u v | astIsSmall True u =
   fromMaybe v
-  $ substitute1Ast (SubstitutionPayloadShaped u) (varNameToAstVarId var) v
+  $ substitute1Ast (SubstitutionPayload u) (varNameToAstVarId var) v
 astLetS var u v@(Ast.AstVarS var2) =
   if varNameToAstVarId var2 == varNameToAstVarId var
   then case sameAstSpan @s @s2 of
@@ -1690,7 +1687,7 @@ astSlice i n w@(Ast.AstAppend (u :: AstTensor s (TKR r (1 + k)))
 astSlice i n (Ast.AstGather (_ :$: sh') v (var ::: vars, ix)) =
   let ivar = AstIntVar var + fromIntegral i
       ix2 = substituteAstIndex  -- cheap subst, because ivar is tiny
-              (SubstitutionPayloadRanked @PrimalSpan @Int64 ivar) var ix
+              (SubstitutionPayload @PrimalSpan ivar) var ix
   in astGatherR (n :$: sh') v (var ::: vars, ix2)
 astSlice i n v = Ast.AstSlice i n v
 
@@ -1720,7 +1717,7 @@ astSliceS w@(Ast.AstAppendS (u :: AstTensor s (TKS r (ulen : sh)))
 astSliceS (Ast.AstGatherS @_ @p @sh4 v ((::$) @_ @sh21 (Const var) vars, ix)) =
   let ivar = AstIntVar var + valueOf @i
       ix2 = substituteAstIndexS  -- cheap subst, because ivar is tiny
-              (SubstitutionPayloadRanked @PrimalSpan @Int64 ivar) var ix
+              (SubstitutionPayload @PrimalSpan ivar) var ix
       vars2 = Const var ::$ vars
   in case slistKnown vars2 of
     Dict -> astGatherS @(n : sh21) @p @sh4 v (vars2, ix2)
@@ -1736,7 +1733,7 @@ astReverse (Ast.AstReverse v) = v
 astReverse (Ast.AstGather sh@(k :$: _) v (var ::: vars, ix)) =
   let ivar = fromIntegral k - AstIntVar var
       ix2 = substituteAstIndex  -- cheap subst, because ivar is tiny
-              (SubstitutionPayloadRanked @PrimalSpan @Int64 ivar) var ix
+              (SubstitutionPayload @PrimalSpan ivar) var ix
   in astGatherR sh v (var ::: vars, ix2)
 astReverse v = Ast.AstReverse v
 
@@ -1750,7 +1747,7 @@ astReverseS (Ast.AstReverseS v) = v
 astReverseS (Ast.AstGatherS v ((::$) @k (Const var) vars, ix)) =
   let ivar = valueOf @k - AstIntVar var
       ix2 = substituteAstIndexS  -- cheap subst, because ivar is tiny
-              (SubstitutionPayloadRanked @PrimalSpan @Int64 ivar) var ix
+              (SubstitutionPayload @PrimalSpan ivar) var ix
   in astGatherS v (Const var ::$ vars, ix2)
 astReverseS v = Ast.AstReverseS v
 
@@ -2273,7 +2270,7 @@ astLetInHVector :: forall n r s s2.
                 -> AstHVector s2
                 -> AstHVector s2
 astLetInHVector var u v | astIsSmall True u =
-  substituteAstHVector (SubstitutionPayloadRanked u) var v
+  substituteAstHVector (SubstitutionPayload u) var v
 astLetInHVector var u v = Ast.AstLetInHVector var u v
 
 -- Inlining works for this let constructor, because it has just one variable,
@@ -2284,7 +2281,7 @@ astLetInHVectorS :: forall sh r s s2.
                  -> AstHVector s2
                  -> AstHVector s2
 astLetInHVectorS var u v | astIsSmall True u =
-  substituteAstHVector (SubstitutionPayloadShaped u) var v
+  substituteAstHVector (SubstitutionPayload u) var v
 astLetInHVectorS var u v = Ast.AstLetInHVectorS var u v
 
 -- Inlining doesn't work for this let constructor, because it has many
@@ -3013,55 +3010,52 @@ contractAstB2 opCodeBool arg1 arg2 = Ast.AstB2 opCodeBool arg1 arg2
 -- * Substitution payload and adaptors for AstVarName
 
 -- | The term to substitute for a variable. Without this variant type,
--- we'd need to duplicate the whole sibstitution code, one copy
+-- we'd need to duplicate the whole substitution code, one copy
 -- for each of the cases.
-type role SubstitutionPayload nominal nominal
+type role SubstitutionPayload nominal
   -- r can't be representational due to AstRanked having it as nominal
-data SubstitutionPayload :: AstSpanType -> Type -> Type where
-  SubstitutionPayloadRanked :: forall s r n. KnownNat n
-                            => AstTensor s (TKR r n) -> SubstitutionPayload s r
-  SubstitutionPayloadShaped :: forall s r sh. KnownShS sh
-                            => AstTensor s (TKS r sh) -> SubstitutionPayload s r
-  SubstitutionPayloadHFun :: AstHFun -> SubstitutionPayload PrimalSpan Float
+data SubstitutionPayload :: AstSpanType -> Type where
+  SubstitutionPayload :: forall s y. TensorKind y
+                      => AstTensor s y -> SubstitutionPayload s
+  SubstitutionPayloadHFun :: AstHFun -> SubstitutionPayload PrimalSpan
 
 -- | We assume no variable is shared between a binding and its nested binding
 -- and nobody substitutes into variables that are bound.
 -- This keeps the substitution code simple, because we never need to compare
 -- variables to any variable in the bindings.
-substituteAst :: forall s s2 r2 y z.
-                 ( GoodScalar r2, AstSpan s, AstSpan s2 )
-              => SubstitutionPayload s2 r2 -> AstVarName s2 z
+substituteAst :: forall s s2 y z. (AstSpan s, AstSpan s2 )
+              => SubstitutionPayload s2 -> AstVarName s2 z
               -> AstTensor s y
               -> AstTensor s y
 substituteAst i var v1 =
   fromMaybe v1 $ substitute1Ast i (varNameToAstVarId var) v1
 
 substituteAstIndex
-  :: (GoodScalar r2, AstSpan s2)
-  => SubstitutionPayload s2 r2 -> AstVarName s2 (TKR r2 n2)
+  :: AstSpan s2
+  => SubstitutionPayload s2 -> AstVarName s2 (TKR r2 n2)
   -> AstIndex n
   -> AstIndex n
 substituteAstIndex i var ix =
   fromMaybe ix $ substitute1AstIndex i (varNameToAstVarId var) ix
 
 substituteAstIndexS
-  :: (GoodScalar r2, AstSpan s2)
-  => SubstitutionPayload s2 r2 -> AstVarName s2 (TKR r2 n2)
+  :: AstSpan s2
+  => SubstitutionPayload s2 -> AstVarName s2 (TKR r2 n2)
   -> AstIndexS sh
   -> AstIndexS sh
 substituteAstIndexS i var  ix =
   fromMaybe ix $ substitute1AstIndexS i (varNameToAstVarId var) ix
 
 substituteAstHVector
-  :: (GoodScalar r2, AstSpan s, AstSpan s2)
-  => SubstitutionPayload s2 r2 -> AstVarName s2 {-r2-} y -> AstHVector s
+  :: (AstSpan s, AstSpan s2)
+  => SubstitutionPayload s2 -> AstVarName s2 y -> AstHVector s
   -> AstHVector s
 substituteAstHVector i var v1 =
   fromMaybe v1 $ substitute1AstHVector i (varNameToAstVarId var) v1
 
 substituteAstBool
-  :: (GoodScalar r2, AstSpan s2)
-  => SubstitutionPayload s2 r2 -> AstVarName s2 {-r2-} y -> AstBool
+  :: AstSpan s2
+  => SubstitutionPayload s2 -> AstVarName s2 y -> AstBool
   -> AstBool
 substituteAstBool i var v1 =
   fromMaybe v1 $ substitute1AstBool i (varNameToAstVarId var) v1
@@ -3074,8 +3068,8 @@ substituteAstBool i var v1 =
 -- need to be kept unrelated to anything else (except the existentially bound
 -- parameters in SubstitutionPayload, which would need to be checked
 -- at runtime).
-substitute1Ast :: forall s s2 r2 y. ( GoodScalar r2, AstSpan s, AstSpan s2 )
-               => SubstitutionPayload s2 r2 -> AstVarId
+substitute1Ast :: forall s s2 y. (AstSpan s, AstSpan s2)
+               => SubstitutionPayload s2 -> AstVarId
                -> AstTensor s y
                -> Maybe (AstTensor s y)
 substitute1Ast i var v1 = case v1 of
@@ -3092,26 +3086,11 @@ substitute1Ast i var v1 = case v1 of
   Ast.AstVar @r @n sh var2 ->
     if var == varNameToAstVarId var2
     then case i of
-      SubstitutionPayloadRanked @_ @_ @m t -> case sameAstSpan @s @s2 of
-        Just Refl -> case sameNat (Proxy @m) (Proxy @n) of
-          Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
-            Just Refl -> assert (shapeAst t == sh `blame` (shapeAst t, sh, t))
-                         $ Just t
-            _ -> error "substitute1Ast: scalar"
-          _ -> error "substitute1Ast: rank"
-        _ -> error "substitute1Ast: span"
-      -- To impose such checks, we'd need to switch from OD tensors
-      -- to existential OR/OS tensors so that we can inspect
-      -- which it is and then seed Delta evaluation maps with that.
-      -- _ -> error "substitute1Ast: type"
-      SubstitutionPayloadShaped @_ @_ @sh2 t -> case sameAstSpan @s @s2 of
-        Just Refl -> case shapeToList sh == shapeT @sh2 of
-          True -> case matchingRank @sh2 @n of
-            Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
-              Just Refl -> Just $ astRFromS t
-              _ -> error "substitute1Ast: scalar"
-            _ -> error "substitute1Ast: rank"
-          False -> error "substitute1Ast: shape"
+      SubstitutionPayload @_ @y2 t -> case sameAstSpan @s @s2 of
+        Just Refl -> case sameTensorKind @y2 @(TKR r n) of
+          Just Refl -> assert (shapeAst t == sh `blame` (shapeAst t, sh, t))
+                       $ Just t
+          _ -> error "substitute1Ast: kind"
         _ -> error "substitute1Ast: span"
       SubstitutionPayloadHFun{} -> error "substitute1Ast: unexpected lambda"
     else Nothing
@@ -3227,24 +3206,10 @@ substitute1Ast i var v1 = case v1 of
   Ast.AstVarS @sh @r var2 ->
     if var == varNameToAstVarId var2
     then case i of
-      SubstitutionPayloadShaped @_ @_ @sh2 t -> case sameAstSpan @s @s2 of
-        Just Refl -> case sameShape @sh2 @sh of
-          Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
-            Just Refl -> Just t
-            _ -> error "substitute1Ast: scalar"
-          _ -> error "substitute1Ast: shape"
-        _ -> error "substitute1Ast: span"
-      -- To impose such checks, we'd need to switch from OD tensors
-      -- to existential OR/OS tensors so that we can inspect
-      -- which it is and then seed Delta evaluation maps with that.
-      -- _ -> error "substitute1Ast: type"
-      SubstitutionPayloadRanked @_ @_ @m t -> case sameAstSpan @s @s2 of
-        Just Refl -> case matchingRank @sh @m of
-          Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
-            Just Refl -> assert (shapeT @sh == shapeToList (shapeAst t))
-                         $ Just $ astSFromR t
-            _ -> error "substitute1Ast: scalar"
-          _ -> error "substitute1Ast: rank"
+      SubstitutionPayload @_ @y2 t -> case sameAstSpan @s @s2 of
+        Just Refl -> case sameTensorKind @y2 @(TKS r sh) of
+          Just Refl -> Just t
+          _ -> error "substitute1Ast: kind"
         _ -> error "substitute1Ast: span"
       SubstitutionPayloadHFun{} -> error "substitute1Ast: unexpected lambda"
     else Nothing
@@ -3347,8 +3312,8 @@ substitute1Ast i var v1 = case v1 of
       (mx, my) -> Just $ Ast.AstDS (fromMaybe x mx) (fromMaybe y my)
 
 substitute1AstIndex
-  :: (GoodScalar r2, AstSpan s2)
-  => SubstitutionPayload s2 r2 -> AstVarId -> AstIndex n
+  :: AstSpan s2
+  => SubstitutionPayload s2 -> AstVarId -> AstIndex n
   -> Maybe (AstIndex n)
 substitute1AstIndex i var ix =
   let mix = fmap (substitute1Ast i var) ix
@@ -3357,8 +3322,8 @@ substitute1AstIndex i var ix =
      else Nothing
 
 substitute1AstIndexS
-  :: (GoodScalar r2, AstSpan s2)
-  => SubstitutionPayload s2 r2 -> AstVarId -> AstIndexS sh
+  :: AstSpan s2
+  => SubstitutionPayload s2 -> AstVarId -> AstIndexS sh
   -> Maybe (AstIndexS sh)
 substitute1AstIndexS i var ix =
   let mix = fmap (substitute1Ast i var) ix
@@ -3367,8 +3332,8 @@ substitute1AstIndexS i var ix =
      else Nothing
 
 substitute1AstDynamic
-  :: (GoodScalar r2, AstSpan s, AstSpan s2)
-  => SubstitutionPayload s2 r2 -> AstVarId -> AstDynamic s
+  :: (AstSpan s, AstSpan s2)
+  => SubstitutionPayload s2 -> AstVarId -> AstDynamic s
   -> Maybe (AstDynamic s)
 substitute1AstDynamic i var = \case
   DynamicRanked (AstRanked t) ->
@@ -3379,8 +3344,8 @@ substitute1AstDynamic i var = \case
   DynamicShapedDummy{} -> Nothing
 
 substitute1AstHVector
-  :: (GoodScalar r2, AstSpan s, AstSpan s2)
-  => SubstitutionPayload s2 r2 -> AstVarId -> AstHVector s
+  :: (AstSpan s, AstSpan s2)
+  => SubstitutionPayload s2 -> AstVarId -> AstHVector s
   -> Maybe (AstHVector s)
 substitute1AstHVector i var = \case
   Ast.AstMkHVector args ->
@@ -3441,22 +3406,20 @@ substitute1AstHVector i var = \case
                                    (fromMaybe es mes)
 
 substitute1AstHFun
-  :: SubstitutionPayload s2 r2 -> AstVarId -> AstHFun
+  :: SubstitutionPayload s2 -> AstVarId -> AstHFun
   -> Maybe AstHFun
 substitute1AstHFun i var = \case
   Ast.AstLambda{} -> Nothing  -- no outside free variables
   Ast.AstVarHFun _shss _shs var2 ->
     if var == var2
     then case i of
-      SubstitutionPayloadShaped{} ->
-        error "substitute1AstHFun: unexpected tensor"
-      SubstitutionPayloadRanked{} ->
+      SubstitutionPayload{} ->
         error "substitute1AstHFun: unexpected tensor"
       SubstitutionPayloadHFun h -> Just h
     else Nothing
 
-substitute1AstBool :: (GoodScalar r2, AstSpan s2)
-                   => SubstitutionPayload s2 r2 -> AstVarId -> AstBool
+substitute1AstBool :: AstSpan s2
+                   => SubstitutionPayload s2 -> AstVarId -> AstBool
                    -> Maybe AstBool
 substitute1AstBool i var = \case
   Ast.AstBoolNot arg -> Ast.AstBoolNot <$> substitute1AstBool i var arg

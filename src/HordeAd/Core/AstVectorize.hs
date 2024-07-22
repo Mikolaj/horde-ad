@@ -122,7 +122,7 @@ build1VOccurenceUnknownRefresh
 build1VOccurenceUnknownRefresh k (var, v0) =
   funToAstIntVar $ \ (!varFresh, !astVarFresh) ->
     let !v2 = substituteAst  -- cheap subst, because only a renaming
-                (SubstitutionPayloadRanked @PrimalSpan @Int64 astVarFresh) var v0
+                (SubstitutionPayload @PrimalSpan astVarFresh) var v0
     in build1VOccurenceUnknown k (varFresh, v2)
 
 intBindingRefresh
@@ -131,7 +131,7 @@ intBindingRefresh
 intBindingRefresh var ix =
   funToAstIntVar $ \ (!varFresh, !astVarFresh) ->
     let !ix2 = substituteAstIndex  -- cheap subst, because only a renaming
-                 (SubstitutionPayloadRanked @PrimalSpan @Int64 astVarFresh)
+                 (SubstitutionPayload @PrimalSpan astVarFresh)
                  var ix
     in (varFresh, astVarFresh, ix2)
 
@@ -162,7 +162,7 @@ build1V k (var, v00) =
           -- because they don't duplicate variables and the added var
           -- is eventually being eliminated instead of substituted for.
           v2 = substituteAst
-                 (SubstitutionPayloadRanked @s1 @r1 projection) var1 v
+                 (SubstitutionPayload @s1 projection) var1 v
       in Ast.AstLetPairIn var1 var2
                           (build1VOccurenceUnknown k (var, u))
                           (build1VOccurenceUnknownRefresh k (var, v2))
@@ -184,7 +184,7 @@ build1V k (var, v00) =
           -- because they don't duplicate variables and the added var
           -- is eventually being eliminated instead of substituted for.
           v2 = substituteAst
-                 (SubstitutionPayloadRanked @s1 @r1 projection) var1 v
+                 (SubstitutionPayload @s1 projection) var1 v
       in astLet var2 (build1VOccurenceUnknown k (var, u))
                      (build1VOccurenceUnknownRefresh k (var, v2))
                         -- ensure no duplicated bindings, see below
@@ -410,7 +410,7 @@ build1VOccurenceUnknownRefreshS
 build1VOccurenceUnknownRefreshS (var, v0) =
   funToAstIntVar $ \ (!varFresh, !astVarFresh) ->
     let !v2 = substituteAst  -- cheap subst, because only a renaming
-                (SubstitutionPayloadRanked @PrimalSpan @Int64 astVarFresh)
+                (SubstitutionPayload @PrimalSpan astVarFresh)
                 var v0
     in build1VOccurenceUnknownS (varFresh, v2)
 
@@ -420,7 +420,7 @@ intBindingRefreshS
 intBindingRefreshS var ix =
   funToAstIntVar $ \ (!varFresh, !astVarFresh) ->
     let !ix2 = substituteAstIndexS  -- cheap subst, because only a renaming
-                 (SubstitutionPayloadRanked @PrimalSpan @Int64 astVarFresh)
+                 (SubstitutionPayload @PrimalSpan astVarFresh)
                  var ix
     in (varFresh, astVarFresh, ix2)
 
@@ -440,12 +440,12 @@ build1VS (var, v00) =
 
     Ast.AstVarS{} ->
       error "build1VS: AstVarS can't contain free index variables"
-    Ast.AstLetS @sh1 @_ @r1 @_ @s1 var1 u v ->
+    Ast.AstLetS @sh1 @_ @_ @_ @s1 var1 u v ->
       let var2 = mkAstVarName (varNameToAstVarId var1)  -- changed shape; TODO: shall we rename?
           projection = Ast.AstIndexS (Ast.AstVarS @(k ': sh1) var2)
                                      (Ast.AstIntVar var :.$ ZIS)
           v2 = substituteAst
-                 (SubstitutionPayloadShaped @s1 @r1 projection) var1 v
+                 (SubstitutionPayload @s1 projection) var1 v
       in astLetS var2 (build1VOccurenceUnknownS @k (var, u))
                       (build1VOccurenceUnknownRefreshS (var, v2))
     Ast.AstShareS{} -> error "build1VS: AstShareS"
@@ -684,22 +684,22 @@ build1VHVector k@SNat (var, v0) =
     -- We take advantage of the fact that f contains no free index vars.
     astLetHFunInHVector var1 (build1VHFun k (var, f))
                              (build1VHVector k (var, v))
-  Ast.AstLetInHVector @_ @r1 @s1 var1 u v ->
+  Ast.AstLetInHVector @_ @_ @s1 var1 u v ->
     let var2 = mkAstVarName (varNameToAstVarId var1)  -- changed shape; TODO: shall we rename?
         sh = shapeAst u
         projection = Ast.AstIndex (Ast.AstVar (sNatValue k :$: sh) var2)
                                   (Ast.AstIntVar var :.: ZIR)
         v2 = substituteAstHVector
-               (SubstitutionPayloadRanked @s1 @r1 projection) var1 v
+               (SubstitutionPayload @s1 projection) var1 v
     in astLetInHVector var2 (build1VOccurenceUnknown (sNatValue k) (var, u))
                             (build1VOccurenceUnknownHVectorRefresh
                                k (var, v2))
-  Ast.AstLetInHVectorS @sh2 @r1 @s1 var1 u v ->
+  Ast.AstLetInHVectorS @sh2 @_ @s1 var1 u v ->
       let var2 = mkAstVarName (varNameToAstVarId var1)  -- changed shape; TODO: shall we rename?
           projection = Ast.AstIndexS (Ast.AstVarS @(k ': sh2) var2)
                                      (Ast.AstIntVar var :.$ ZIS)
           v2 = substituteAstHVector
-                 (SubstitutionPayloadShaped @s1 @r1 projection) var1 v
+                 (SubstitutionPayload @s1 projection) var1 v
       in astLetInHVectorS var2 (build1VOccurenceUnknownS @k (var, u))
                                (build1VOccurenceUnknownHVectorRefresh
                                   k (var, v2))
@@ -774,7 +774,7 @@ build1VOccurenceUnknownHVectorRefresh
 build1VOccurenceUnknownHVectorRefresh k (var, v0) =
   funToAstIntVar $ \ (!varFresh, !astVarFresh) ->
     let !v2 = substituteAstHVector  -- cheap subst, because only a renaming
-                (SubstitutionPayloadRanked @PrimalSpan @Int64 astVarFresh)
+                (SubstitutionPayload @PrimalSpan astVarFresh)
                 var v0
     in build1VOccurenceUnknownHVector k (varFresh, v2)
 
@@ -787,12 +787,12 @@ substProjRanked :: forall n1 r1 n r s1 s.
                 -> AstVarName s1 (TKR r1 n1)
                 -> AstTensor s (TKR r n) -> AstTensor s (TKR r n)
 substProjRanked k var sh1 var1 =
-  let var2 = mkAstVarName (varNameToAstVarId var1)
+  let var2 = mkAstVarName @s1 @(TKR r1 (1 + n1)) (varNameToAstVarId var1)
       projection =
         Ast.AstIndex (Ast.AstVar (k :$: sh1) var2)
                      (Ast.AstIntVar var :.: ZIR)
   in substituteAst
-       (SubstitutionPayloadRanked @s1 @r1 projection) var1
+       (SubstitutionPayload @s1 projection) var1
 
 substProjShaped :: forall n1 r1 sh r s1 s.
                    ( KnownNat n1, GoodScalar r1, AstSpan s, AstSpan s1 )
@@ -800,12 +800,12 @@ substProjShaped :: forall n1 r1 sh r s1 s.
                 -> AstVarName s1 (TKR r1 n1)
                 -> AstTensor s (TKS r sh) -> AstTensor s (TKS r sh)
 substProjShaped k var sh1 var1 =
-  let var2 = mkAstVarName (varNameToAstVarId var1)
+  let var2 = mkAstVarName @s1 @(TKR r1 (1 + n1)) (varNameToAstVarId var1)
       projection =
         Ast.AstIndex (Ast.AstVar (k :$: sh1) var2)
                      (Ast.AstIntVar var :.: ZIR)
   in substituteAst
-       (SubstitutionPayloadRanked @s1 @r1 projection) var1
+       (SubstitutionPayload @s1 projection) var1
 
 substProjRankedS :: forall k sh1 r1 n r s1 s.
                     ( KnownNat k, KnownShS sh1, GoodScalar r1
@@ -813,12 +813,12 @@ substProjRankedS :: forall k sh1 r1 n r s1 s.
                  => IntVarName -> AstVarName s1 (TKS r1 sh1)
                  -> AstTensor s (TKR r n) -> AstTensor s (TKR r n)
 substProjRankedS var var1 =
-  let var2 = mkAstVarName (varNameToAstVarId var1)
+  let var2 = mkAstVarName @s1 @(TKS r1 (k : sh1)) (varNameToAstVarId var1)
       projection =
         Ast.AstIndexS (Ast.AstVarS @(k ': sh1) var2)
                       (Ast.AstIntVar var :.$ ZIS)
   in substituteAst
-       (SubstitutionPayloadShaped @s1 @r1 projection) var1
+       (SubstitutionPayload @s1 projection) var1
 
 substProjShapedS :: forall k sh1 r1 sh r s1 s.
                     ( KnownNat k, KnownShS sh1, GoodScalar r1
@@ -826,12 +826,12 @@ substProjShapedS :: forall k sh1 r1 sh r s1 s.
                  => IntVarName -> AstVarName s1 (TKS r1 sh1)
                  -> AstTensor s (TKS r sh) -> AstTensor s (TKS r sh)
 substProjShapedS var var1 =
-  let var2 = mkAstVarName (varNameToAstVarId var1)
+  let var2 = mkAstVarName @s1 @(TKS r1 (k : sh1)) (varNameToAstVarId var1)
       projection =
         Ast.AstIndexS (Ast.AstVarS @(k ': sh1) var2)
                       (Ast.AstIntVar var :.$ ZIS)
   in substituteAst
-       (SubstitutionPayloadShaped @s1 @r1 projection) var1
+       (SubstitutionPayload @s1 projection) var1
 
 substProjHVector :: forall n1 r1 s1 s.
                     (KnownNat n1, GoodScalar r1, AstSpan s, AstSpan s1)
@@ -839,12 +839,12 @@ substProjHVector :: forall n1 r1 s1 s.
                  -> AstVarName s1 (TKR r1 n1)
                  -> AstHVector s -> AstHVector s
 substProjHVector k var sh1 var1 =
-  let var2 = mkAstVarName (varNameToAstVarId var1)
+  let var2 = mkAstVarName @s1 @(TKR r1 (1 + n1)) (varNameToAstVarId var1)
       projection =
         Ast.AstIndex (Ast.AstVar (k :$: sh1) var2)
                      (Ast.AstIntVar var :.: ZIR)
   in substituteAstHVector
-       (SubstitutionPayloadRanked @s1 @r1 projection) var1
+       (SubstitutionPayload @s1 projection) var1
 
 substProjHVectorS :: forall k sh1 r1 s1 s.
                      ( KnownNat k, KnownShS sh1, GoodScalar r1
@@ -852,12 +852,12 @@ substProjHVectorS :: forall k sh1 r1 s1 s.
                   => IntVarName -> AstVarName s1 (TKS r1 sh1)
                   -> AstHVector s -> AstHVector s
 substProjHVectorS var var1 =
-  let var2 = mkAstVarName (varNameToAstVarId var1)
+  let var2 = mkAstVarName @s1 @(TKS r1 (k : sh1)) (varNameToAstVarId var1)
       projection =
         Ast.AstIndexS (Ast.AstVarS @(k ': sh1) var2)
                       (Ast.AstIntVar var :.$ ZIS)
   in substituteAstHVector
-       (SubstitutionPayloadShaped @s1 @r1 projection) var1
+       (SubstitutionPayload @s1 projection) var1
 
 substProjDynamic :: forall k n r s. (KnownNat k, AstSpan s)
                  => IntVarName -> AstTensor s (TKR r n)
