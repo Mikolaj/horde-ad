@@ -199,7 +199,7 @@ interpretAst !env = \case
 -}
 
   AstVar @r @n sh var ->
-   let var2 = mkAstVarName @FullSpan @(TKR r n) (varNameToRank var) (varNameToAstVarId var)  -- TODO
+   let var2 = mkAstVarName @FullSpan @(TKR r n) (varNameToAstVarId var)  -- TODO
    in case DMap.lookup var2 env of
     Just (AstEnvElemTuple @ranked @y t) {- TODO: @r2 @n2 t) -> case sameNat (Proxy @n2) (Proxy @n) of
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
@@ -532,7 +532,7 @@ interpretAst !env = \case
     in rD t1 t2
 
   AstVarS @sh @r var ->
-    let var2 = mkAstVarName @FullSpan @(TKS r sh) (varNameToRank var) (varNameToAstVarId var)  -- TODO
+    let var2 = mkAstVarName @FullSpan @(TKS r sh) (varNameToAstVarId var)  -- TODO
    in case DMap.lookup var2 env of
     Just (AstEnvElemTuple @ranked @y t) {- TODO: @r2 @sh2 t) -> case sameShape @sh2 @sh of
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
@@ -895,7 +895,7 @@ interpretAstHFun !env = \case
     $ interpretLambdaHsH interpretAstHVector (vvars, l)
       -- interpretation in empty environment; makes sense here, because
       -- there are no free variables outside of those listed
-  AstVarHFun _shss _shs varId -> case DMap.lookup (mkAstVarName @_ @(TKR () 0) 0 varId) env of
+  AstVarHFun _shss _shs varId -> case DMap.lookup (mkAstVarName @_ @(TKR () 0) varId) env of
     Just (AstEnvElemHFun f) -> f
     _ -> error $ "interpretAstHFun: unknown variable " ++ show varId
 

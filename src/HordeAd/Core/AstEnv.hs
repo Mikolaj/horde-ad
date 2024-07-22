@@ -20,7 +20,6 @@ module HordeAd.Core.AstEnv
 import Prelude
 
 import Control.Exception.Assert.Sugar
-import Data.Array.Internal (valueOf)
 import Data.Dependent.Map (DMap)
 import Data.Dependent.Map qualified as DMap
 import Data.Proxy (Proxy (Proxy))
@@ -67,7 +66,7 @@ extendEnvR :: forall ranked r n s. (KnownNat n, GoodScalar r)
            -> AstEnv ranked
 extendEnvR var !t !env =
   let var2 :: AstVarName FullSpan (TKR r n)
-      var2 = mkAstVarName (varNameToRank var) (varNameToAstVarId var)
+      var2 = mkAstVarName (varNameToAstVarId var)
         -- to uphold the lie about FullSpan
   in DMap.insertWithKey (\_ _ _ -> error $ "extendEnvR: duplicate " ++ show var)
                         var2 (AstEnvElemTuple t) env
@@ -77,7 +76,7 @@ extendEnvS :: forall ranked r sh s. (KnownShS sh, GoodScalar r)
            -> AstEnv ranked
 extendEnvS var !t !env =
   let var2 :: AstVarName FullSpan (TKS r sh)
-      var2 = mkAstVarName (varNameToRank var) (varNameToAstVarId var)
+      var2 = mkAstVarName (varNameToAstVarId var)
         -- to uphold the lie about FullSpan
   in DMap.insertWithKey (\_ _ _ -> error $ "extendEnvS: duplicate " ++ show var)
                         var2 (AstEnvElemTuple t) env
@@ -92,7 +91,7 @@ extendEnvHFun :: AstVarId -> HFunOf ranked -> AstEnv ranked
               -> AstEnv ranked
 extendEnvHFun !varId !t !env =
   let var2 :: AstVarName FullSpan (TKR () 0)
-      var2 = mkAstVarName 0 varId
+      var2 = mkAstVarName varId
         -- to uphold the lie about (TKR () 0)
   in DMap.insertWithKey (\_ _ _ -> error
                                    $ "extendEnvHFun: duplicate " ++ show varId)
@@ -107,23 +106,23 @@ extendEnvD vd@(AstDynamicVarName @ty @r @sh varId, d) !env = case d of
     | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat)
     , Just Refl <- matchingRank @sh @n3
     , Just Refl <- testEquality (typeRep @r) (typeRep @r3) ->
-      extendEnvR (mkAstVarName (valueOf @n3) varId) u env
+      extendEnvR (mkAstVarName varId) u env
   DynamicShaped @r3 @sh3 u
     | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat])
     , Just Refl <- sameShape @sh3 @sh
     , Just Refl <- testEquality (typeRep @r) (typeRep @r3) ->
-      extendEnvS (mkAstVarName (length (shapeT @sh)) varId) u env
+      extendEnvS (mkAstVarName varId) u env
   DynamicRankedDummy @r3 @sh3 _ _
     | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat)
     , Just Refl <- sameShape @sh3 @sh
     , Just Refl <- testEquality (typeRep @r) (typeRep @r3) ->
       withListSh (Proxy @sh) $ \sh4 ->
-        extendEnvR @ranked @r (mkAstVarName (length sh4) varId) (rzero sh4) env
+        extendEnvR @ranked @r (mkAstVarName varId) (rzero sh4) env
   DynamicShapedDummy @r3 @sh3 _ _
     | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat])
     , Just Refl <- sameShape @sh3 @sh
     , Just Refl <- testEquality (typeRep @r) (typeRep @r3) ->
-      extendEnvS @ranked @r @sh (mkAstVarName (length (shapeT @sh)) varId) (srepl 0) env
+      extendEnvS @ranked @r @sh (mkAstVarName varId) (srepl 0) env
   _ -> error $ "extendEnvD: impossible type"
                `showFailure`
                ( vd, typeRep @ty, typeRep @r, shapeT @sh

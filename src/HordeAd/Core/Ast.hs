@@ -11,7 +11,7 @@ module HordeAd.Core.Ast
     -- * More and less typed variables and related type synonyms
   , AstVarId, intToAstVarId, AstDynamicVarName(..), dynamicVarNameToAstVarId
   , AstInt, IntVarName, pattern AstIntVar, isRankedInt
-  , AstVarName, mkAstVarName, varNameToAstVarId, varNameToRank
+  , AstVarName, mkAstVarName, varNameToAstVarId
   , AstArtifact(..), AstIndex, AstVarList, AstIndexS, AstVarListS
     -- * AstBindingsCase and AstBindings
   , AstBindingsCase(..), AstBindings
@@ -142,27 +142,24 @@ dynamicVarNameToAstVarId (AstDynamicVarName varId) = varId
 -- TODO: remove the rank field once we have TensorKindType singletons
 type role AstVarName nominal nominal
 data AstVarName :: AstSpanType -> TensorKindType -> Type where
-  AstVarName :: forall s y. TensorKind y => Int -> AstVarId -> AstVarName s y
+  AstVarName :: forall s y. TensorKind y => AstVarId -> AstVarName s y
 
-instance Eq (AstVarName s y) where
-  AstVarName _ varId1 == AstVarName _ varId2 = varId1 == varId2
-
-instance Ord (AstVarName s y) where
-  AstVarName _ varId1 <= AstVarName _ varId2 = varId1 <= varId2
+deriving instance Eq (AstVarName s y)
+deriving instance Ord (AstVarName s y)
 
 instance Show (AstVarName s y) where
-  showsPrec d (AstVarName _ varId) =
+  showsPrec d (AstVarName varId) =
     showsPrec d varId  -- less verbose, more readable
 
 instance GEq (AstVarName s) where
-  geq (AstVarName @_ @y1 _ varId1) (AstVarName @_ @y2 _ varId2) =
+  geq (AstVarName @_ @y1 varId1) (AstVarName @_ @y2 varId2) =
     case varId1 == varId2 of
       True | Just Refl <- sameTensorKind @y1 @y2 -> Just Refl
       True -> error "geq: different types of same AstVarName"
       False -> Nothing
 
 instance GCompare (AstVarName s) where
-  gcompare (AstVarName @_ @y1 _ varId1) (AstVarName @_ @y2 _ varId2) =
+  gcompare (AstVarName @_ @y1 varId1) (AstVarName @_ @y2 varId2) =
     case compare varId1 varId2 of
        LT -> GLT
        EQ | Just Refl <- sameTensorKind @y1 @y2 -> GEQ
@@ -172,14 +169,11 @@ instance GCompare (AstVarName s) where
 instance GShow (AstVarName s) where
   gshowsPrec = defaultGshowsPrec
 
-mkAstVarName :: forall s y. TensorKind y => Int -> AstVarId -> AstVarName s y
+mkAstVarName :: forall s y. TensorKind y => AstVarId -> AstVarName s y
 mkAstVarName = AstVarName
 
 varNameToAstVarId :: AstVarName s y -> AstVarId
-varNameToAstVarId (AstVarName _ varId) = varId
-
-varNameToRank :: AstVarName s y -> Int
-varNameToRank (AstVarName rank _) = rank
+varNameToAstVarId (AstVarName varId) = varId
 
 -- The reverse derivative artifact from step 6) of our full pipeline.
 -- The same type can also hold the forward derivative artifact.
@@ -252,7 +246,8 @@ data AstTensor :: AstSpanType -> TensorKindType -> Type where
   -- Here starts the product of tensors part.
   AstPair :: AstTensor s y -> AstTensor s z
           -> AstTensor s (TKProduct y z)
-  AstLetPairIn :: (AstSpan s, Show (AstTensor s (TKProduct y z)))
+  AstLetPairIn :: ( AstSpan s, Show (AstTensor s (TKProduct y z))
+                  , TensorKind y, TensorKind z )
                => AstVarName s y -> AstVarName s z
                -> AstTensor s (TKProduct y z)
                -> AstTensor s2 x

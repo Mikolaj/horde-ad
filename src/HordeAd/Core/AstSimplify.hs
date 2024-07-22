@@ -2243,23 +2243,23 @@ mapRankedShaped fRanked fShaped
     | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat)
     , Just Refl <- matchingRank @sh3 @n4
     , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) ->
-        fRanked (mkAstVarName (length (shapeT @sh3)) varId) v3 acc
+        fRanked (mkAstVarName varId) v3 acc
   DynamicShaped @r4 @sh4 (AstShaped v3)
     | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat])
     , Just Refl <- sameShape @sh3 @sh4
     , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) ->
-        fShaped (mkAstVarName (length (shapeT @sh3)) varId) v3 acc
+        fShaped (mkAstVarName varId) v3 acc
   DynamicRankedDummy @r4 @sh4 _ _
     | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat)
     , Just Refl <- sameShape @sh3 @sh4
     , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) ->
         withListSh (Proxy @sh3) $ \_ ->
-          fRanked (mkAstVarName (length (shapeT @sh3)) varId) (astRFromS @sh3 @_ @r3 (astReplicate0NS 0)) acc
+          fRanked (mkAstVarName varId) (astRFromS @sh3 @_ @r3 (astReplicate0NS 0)) acc
   DynamicShapedDummy @r4 @sh4 _ _
     | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat])
     , Just Refl <- sameShape @sh3 @sh4
     , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) ->
-        fShaped @sh4 @r4 (mkAstVarName (length (shapeT @sh3)) varId) (astReplicate0NS 0) acc
+        fShaped @sh4 @r4 (mkAstVarName varId) (astReplicate0NS 0) acc
   _ -> error $ "mapRankedShaped: corrupted arguments"
                `showFailure`
                ( vd, typeRep @ty, typeRep @r3, shapeT @sh3

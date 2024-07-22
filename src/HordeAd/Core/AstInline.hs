@@ -742,8 +742,8 @@ shareAstHVector memo v0 = case v0 of
         f (AstDynamicVarName @ty @rD @shD varIdD) =
           case testEquality (typeRep @ty) (typeRep @Nat) of
             Just Refl -> withListSh (Proxy @shD) $ \sh ->
-              DynamicRanked @rD $ AstRanked $ Ast.AstVar sh (mkAstVarName (length sh) varIdD)
-            _ -> DynamicShaped @rD @shD $ AstShaped $ Ast.AstVarS (mkAstVarName (length (shapeT @shD)) varIdD)
+              DynamicRanked @rD $ AstRanked $ Ast.AstVar sh (mkAstVarName varIdD)
+            _ -> DynamicShaped @rD @shD $ AstShaped $ Ast.AstVarS (mkAstVarName varIdD)
         astVars = Ast.AstMkHVector $ V.fromList $ map f vars
     in if varId `EM.member` memo
        then (memo, astVars)

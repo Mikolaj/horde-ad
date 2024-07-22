@@ -20,7 +20,6 @@ module HordeAd.Core.AstTools
 
 import Prelude hiding (foldl')
 
-import Data.Array.Internal (valueOf)
 import Data.List (foldl')
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality ((:~:) (Refl))
@@ -345,17 +344,17 @@ bindsToLet = foldl' bindToLet
         convertShaped (AstShaped t) = AstRanked $
           withShapeP (shapeToList $ shapeAst u) $ \proxy -> case proxy of
             Proxy @sh | Just Refl <- matchingRank @sh @n ->
-              AstRFromS @sh $ AstLetS (mkAstVarName (length (shapeT @sh)) varId) t (AstSFromR u)
+              AstRFromS @sh $ AstLetS (mkAstVarName varId) t (AstSFromR u)
             _ -> error "bindToLet: wrong rank"
     in case d of
-      DynamicRanked @_ @n2 (AstRanked w) -> AstRanked $ AstLet (mkAstVarName (valueOf @n2) varId) w u
+      DynamicRanked (AstRanked w) -> AstRanked $ AstLet (mkAstVarName varId) w u
       DynamicShaped w -> convertShaped w
       DynamicRankedDummy @r2 @sh2 _ _ -> AstRanked $
           withListSh (Proxy @sh2) $ \sh2 ->
-            AstLet @_ @n @r2 @_ @s (mkAstVarName (length sh2) varId) (astReplicate0N sh2 0) u
+            AstLet @_ @n @r2 @_ @s (mkAstVarName varId) (astReplicate0N sh2 0) u
       DynamicShapedDummy @r2 @sh2 _ _ -> AstRanked $
            withListSh (Proxy @sh2) $ \sh2 ->
-            AstLet @_ @n @r2 @_ @s (mkAstVarName (length sh2) varId) (astReplicate0N sh2 0) u
+            AstLet @_ @n @r2 @_ @s (mkAstVarName varId) (astReplicate0N sh2 0) u
   bindToLet (AstRanked u) (_, AstBindingsHVector lids d) =
     AstRanked $ AstLetHVectorIn lids d u
 
@@ -368,20 +367,20 @@ bindsToLetS = foldl' bindToLetS
              -> (AstVarId, AstBindingsCase s)
              -> AstShaped s r sh
   bindToLetS !(AstShaped u) (varId, AstBindingsSimple d) = case d of
-    DynamicRanked @_ @n2 (AstRanked w) -> AstShaped $
+    DynamicRanked (AstRanked w) -> AstShaped $
       withListSh (Proxy @sh) $ \_ ->
-        AstSFromR $ AstLet (mkAstVarName (valueOf @n2) varId) w (AstRFromS u)
-    DynamicShaped @_ @sh2 (AstShaped w) -> AstShaped $ AstLetS (mkAstVarName (length (shapeT @sh2)) varId) w u
+        AstSFromR $ AstLet (mkAstVarName varId) w (AstRFromS u)
+    DynamicShaped (AstShaped w) -> AstShaped $ AstLetS (mkAstVarName varId) w u
     DynamicRankedDummy @r2 @sh2 _ _ -> AstShaped $
         withListSh (Proxy @sh2) $ \sh2 ->
           withListSh (Proxy @sh) $ \_ ->
             AstSFromR
-            $ AstLet (mkAstVarName (length sh2) varId) (astReplicate0N @_ @s @r2 sh2 0) (AstRFromS u)
+            $ AstLet (mkAstVarName varId) (astReplicate0N @_ @s @r2 sh2 0) (AstRFromS u)
     DynamicShapedDummy @r2 @sh2 _ _ -> AstShaped $
         withListSh (Proxy @sh2) $ \sh2 ->
           withListSh (Proxy @sh) $ \_ ->
             AstSFromR
-            $ AstLet (mkAstVarName (length sh2) varId) (astReplicate0N @_ @s @r2 sh2 0) (AstRFromS u)
+            $ AstLet (mkAstVarName varId) (astReplicate0N @_ @s @r2 sh2 0) (AstRFromS u)
   bindToLetS (AstShaped u) (_, AstBindingsHVector lids d) =
     AstShaped $ AstLetHVectorInS lids d u
 
@@ -392,13 +391,13 @@ bindsToHVectorLet
 bindsToHVectorLet = foldl' bindToHVectorLet
  where
   bindToHVectorLet !u (varId, AstBindingsSimple d) = case d of
-    DynamicRanked @_ @n2 (AstRanked w) -> AstLetInHVector (mkAstVarName (valueOf @n2) varId) w u
-    DynamicShaped @_ @sh2 (AstShaped w) -> AstLetInHVectorS (mkAstVarName (length (shapeT @sh2)) varId) w u
+    DynamicRanked (AstRanked w) -> AstLetInHVector (mkAstVarName varId) w u
+    DynamicShaped (AstShaped w) -> AstLetInHVectorS (mkAstVarName varId) w u
     DynamicRankedDummy @r2 @sh2 _ _ ->
         withListSh (Proxy @sh2) $ \sh2 ->
-          AstLetInHVector (mkAstVarName (length sh2) varId) (astReplicate0N @_ @s @r2 sh2 0) u
+          AstLetInHVector (mkAstVarName varId) (astReplicate0N @_ @s @r2 sh2 0) u
     DynamicShapedDummy @r2 @sh2 _ _ ->
         withListSh (Proxy @sh2) $ \sh2 ->
-          AstLetInHVector (mkAstVarName (length sh2) varId) (astReplicate0N @_ @s @r2 sh2 0) u
+          AstLetInHVector (mkAstVarName varId) (astReplicate0N @_ @s @r2 sh2 0) u
   bindToHVectorLet u (_, AstBindingsHVector lids d) =
     AstLetHVectorInHVector lids d u

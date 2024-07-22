@@ -120,9 +120,9 @@ printAstVarId prefix cfg var =
     Just name | name /= "" -> name
     _ -> prefix ++ show n
 
-printAstVar :: PrintConfig -> AstVarName s y -> ShowS
+printAstVar :: forall s y. TensorKind y => PrintConfig -> AstVarName s y -> ShowS
 printAstVar cfg var =
-  let n = varNameToRank var
+  let n = rankTensorKind (Proxy @y)
       varId = varNameToAstVarId var
       prefix = case n of
         0 -> "x"
@@ -155,14 +155,14 @@ printAstIntVarName :: IntMap String -> IntVarName -> String
 printAstIntVarName renames var =
   printAstIntVar (defaulPrintConfig False renames) var ""
 
-printAstVarName :: IntMap String -> AstVarName s y
-                -> String
+printAstVarName :: TensorKind y
+                => IntMap String -> AstVarName s y -> String
 printAstVarName renames var =
   printAstVar (defaulPrintConfig False renames) var ""
 
 printAstDynamicVarNameBrief :: IntMap String -> AstDynamicVarName -> String
 printAstDynamicVarNameBrief renames (AstDynamicVarName @_ @r @sh varId) =
-  printAstVarName renames (mkAstVarName @_ @(TKS r sh) (length (shapeT @sh)) varId)
+  printAstVarName renames (mkAstVarName @_ @(TKS r sh) varId)
 
 printAstDynamicVarName :: IntMap String -> AstDynamicVarName -> String
 printAstDynamicVarName renames var@(AstDynamicVarName @ty @r @sh _varId) =

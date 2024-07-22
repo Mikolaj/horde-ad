@@ -13,7 +13,7 @@ module HordeAd.Core.Types
   , Dict(..), PermC, trustMeThisIsAPermutation
     -- * Kinds of the functors that determine the structure of a tensor type
   , TensorType, RankedTensorType, ShapedTensorType
-  , TensorKindType (..), TensorKind, sameTensorKind, InterpretationTarget
+  , TensorKindType (..), TensorKind(..), sameTensorKind, InterpretationTarget
     -- * Some fundamental constraints
   , GoodScalar, HasSingletonDict, Differentiable, IfDifferentiable(..)
     -- * Type families that tensors will belong to
@@ -145,16 +145,12 @@ class Typeable y => TensorKind (y :: TensorKindType) where
   rankTensorKind :: Proxy y -> Int
 
 instance (Typeable r, KnownNat n) => TensorKind (TKR r n) where
-  rankTensorKind :: forall r n. KnownNat n => Proxy (TKR r n) -> Int
   rankTensorKind _ = valueOf @n
 
 instance (Typeable r, KnownShS sh) => TensorKind (TKS r sh) where
-  rankTensorKind :: forall r sh. KnownShS sh => Proxy (TKS r sh) -> Int
   rankTensorKind _ = length (shapeT @sh)
 
 instance (TensorKind y, TensorKind z) => TensorKind (TKProduct y z) where
-  rankTensorKind :: forall y z. (TensorKind y, TensorKind z)
-                 => Proxy (TKProduct y z) -> Int
   rankTensorKind _ = max (rankTensorKind (Proxy @y)) (rankTensorKind (Proxy @z))
 
 sameTensorKind :: forall y1 y2. (TensorKind y1, TensorKind y2) => Maybe (y1 :~: y2)
