@@ -175,19 +175,13 @@ build1V k (var, v00) =
         _ -> error "build1V: build variable is not an index variable"
     Ast.AstVar{} ->
       error "build1V: AstVar can't contain other free index variables"
-    Ast.AstLet @_ @_ @_ @_ @s1 var1 u v ->
-      let var2 = mkAstVarName (varNameToAstVarId var1)  -- changed shape; TODO: shall we rename?
+    Ast.AstLet var1 u v ->
+      let var2 = mkAstVarName (varNameToAstVarId var1)
           sh = shapeAst u
-          projection = Ast.AstIndex (Ast.AstVar (k :$: sh) var2)
-                                    (Ast.AstIntVar var :.: ZIR)
-          -- The subsitutions of projections don't break sharing,
-          -- because they don't duplicate variables and the added var
-          -- is eventually being eliminated instead of substituted for.
-          v2 = substituteAst
-                 (SubstitutionPayload @s1 projection) var1 v
+          v2 = substProjRanked k var sh var1 v
       in astLet var2 (build1VOccurenceUnknown k (var, u))
                      (build1VOccurenceUnknownRefresh k (var, v2))
-                        -- ensure no duplicated bindings, see below
+                        -- ensures no duplicated bindings, see below
     Ast.AstShare{} -> error "build1V: AstShare"
     Ast.AstCond b (Ast.AstConstant v) (Ast.AstConstant w) ->
       let t = Ast.AstConstant
@@ -440,12 +434,9 @@ build1VS (var, v00) =
 
     Ast.AstVarS{} ->
       error "build1VS: AstVarS can't contain free index variables"
-    Ast.AstLetS @sh1 @_ @_ @_ @s1 var1 u v ->
-      let var2 = mkAstVarName (varNameToAstVarId var1)  -- changed shape; TODO: shall we rename?
-          projection = Ast.AstIndexS (Ast.AstVarS @(k ': sh1) var2)
-                                     (Ast.AstIntVar var :.$ ZIS)
-          v2 = substituteAst
-                 (SubstitutionPayload @s1 projection) var1 v
+    Ast.AstLetS var1 u v ->
+      let var2 = mkAstVarName (varNameToAstVarId var1)
+          v2 = substProjShaped @k var var1 v
       in astLetS var2 (build1VOccurenceUnknownS @k (var, u))
                       (build1VOccurenceUnknownRefreshS (var, v2))
     Ast.AstShareS{} -> error "build1VS: AstShareS"
@@ -787,12 +778,15 @@ substProjRanked :: forall n1 r1 s1 s y.
                 -> AstVarName s1 (TKR r1 n1)
                 -> AstTensor s y -> AstTensor s y
 substProjRanked k var sh1 var1 =
-  let var2 = mkAstVarName @s1 @(TKR r1 (1 + n1)) (varNameToAstVarId var1)
+  let var2 = mkAstVarName @s1 @(TKR r1 (1 + n1)) (varNameToAstVarId var1)  -- changed shape; TODO: shall we rename?
       projection =
         Ast.AstIndex (Ast.AstVar (k :$: sh1) var2)
                      (Ast.AstIntVar var :.: ZIR)
   in substituteAst
        (SubstitutionPayload @s1 projection) var1
+         -- The subsitutions of projections don't break sharing,
+         -- because they don't duplicate variables and the added var
+         -- is eventually being eliminated instead of substituted for.
 
 substProjShaped :: forall k sh1 r1 s1 s y.
                    ( KnownNat k, KnownShS sh1, GoodScalar r1
