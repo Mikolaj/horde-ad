@@ -199,8 +199,8 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
                  f (glyph, label) varInputs =
                    let env = foldr extendEnvD emptyEnv
                              $ zip vars $ V.toList varInputs
-                       envMnist = extendEnvR varGlyph (rconst $ Nested.rfromOrthotope SNat glyph)
-                                  $ extendEnvR varLabel (rconst $ Nested.rfromOrthotope SNat label) env
+                       envMnist = extendEnv varGlyph (rconst $ Nested.rfromOrthotope SNat glyph)
+                                  $ extendEnv varLabel (rconst $ Nested.rfromOrthotope SNat label) env
                    in interpretAst envMnist $ unAstRanked ast
                  chunkR = map packBatchR
                           $ filter (\ch -> length ch == miniBatchSize)
@@ -293,8 +293,8 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
            id
        (varLabel, varLabelD, astLabel) <-
          funToAstIOR (miniBatchSize :$: sizeMnistLabelInt :$: ZSR) id
-       let envInit = extendEnvR varGlyph (rconstant $ AstRaw astGlyph)
-                     $ extendEnvR varLabel (rconstant $ AstRaw astLabel)
+       let envInit = extendEnv varGlyph (rconstant $ AstRaw astGlyph)
+                     $ extendEnv varLabel (rconstant $ AstRaw astLabel)
                        emptyEnv
            f = MnistRnnRanked2.rnnMnistLossFusedR
                  miniBatchSize (AstRanked astGlyph, AstRanked astLabel)

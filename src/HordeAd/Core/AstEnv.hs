@@ -5,7 +5,7 @@
 module HordeAd.Core.AstEnv
   ( -- * The environment and operations for extending it
     AstEnv, AstEnvElem(..), emptyEnv
-  , extendEnvR, extendEnvS, extendEnvHVector, extendEnvHFun, extendEnvD
+  , extendEnv, extendEnvHVector, extendEnvHFun, extendEnvD
     -- * The operations for interpreting bindings
   , interpretLambdaI, interpretLambdaIS, interpretLambdaIHVector
   , interpretLambdaIndex, interpretLambdaIndexS
@@ -25,8 +25,10 @@ import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
-import GHC.TypeLits (KnownNat, Nat)
+import GHC.TypeLits (Nat)
 import Type.Reflection (typeRep)
+
+import Data.Array.Mixed.Shape qualified as X
 
 import HordeAd.Core.Ast
 import HordeAd.Core.HVector
@@ -61,24 +63,14 @@ emptyEnv = DMap.empty
 -- An informal invariant: if s is FullSpan, ranked is dual numbers,
 -- and if s is PrimalSpan, ranked is their primal part.
 -- The same for all functions below.
-extendEnvR :: forall ranked r n s. (KnownNat n, GoodScalar r)
-           => AstVarName s (TKR r n) -> ranked r n -> AstEnv ranked
-           -> AstEnv ranked
-extendEnvR var !t !env =
-  let var2 :: AstVarName FullSpan (TKR r n)
+extendEnv :: forall ranked s y. TensorKind y
+          => AstVarName s y -> InterpretationTarget ranked y -> AstEnv ranked
+          -> AstEnv ranked
+extendEnv var !t !env =
+  let var2 :: AstVarName FullSpan y
       var2 = mkAstVarName (varNameToAstVarId var)
         -- to uphold the lie about FullSpan
-  in DMap.insertWithKey (\_ _ _ -> error $ "extendEnvR: duplicate " ++ show var)
-                        var2 (AstEnvElemTuple t) env
-
-extendEnvS :: forall ranked r sh s. (KnownShS sh, GoodScalar r)
-           => AstVarName s (TKS r sh) -> ShapedOf ranked r sh -> AstEnv ranked
-           -> AstEnv ranked
-extendEnvS var !t !env =
-  let var2 :: AstVarName FullSpan (TKS r sh)
-      var2 = mkAstVarName (varNameToAstVarId var)
-        -- to uphold the lie about FullSpan
-  in DMap.insertWithKey (\_ _ _ -> error $ "extendEnvS: duplicate " ++ show var)
+  in DMap.insertWithKey (\_ _ _ -> error $ "extendEnv: duplicate " ++ show var)
                         var2 (AstEnvElemTuple t) env
 
 extendEnvHVector :: forall ranked. ADReady ranked
@@ -106,23 +98,23 @@ extendEnvD vd@(AstDynamicVarName @ty @r @sh varId, d) !env = case d of
     | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat)
     , Just Refl <- matchingRank @sh @n3
     , Just Refl <- testEquality (typeRep @r) (typeRep @r3) ->
-      extendEnvR (mkAstVarName varId) u env
+      extendEnv @_ @_ @(TKR r n3) (mkAstVarName varId) u env
   DynamicShaped @r3 @sh3 u
     | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat])
     , Just Refl <- sameShape @sh3 @sh
     , Just Refl <- testEquality (typeRep @r) (typeRep @r3) ->
-      extendEnvS (mkAstVarName varId) u env
+      extendEnv @_ @_ @(TKS r sh) (mkAstVarName varId) u env
   DynamicRankedDummy @r3 @sh3 _ _
     | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat)
     , Just Refl <- sameShape @sh3 @sh
     , Just Refl <- testEquality (typeRep @r) (typeRep @r3) ->
       withListSh (Proxy @sh) $ \sh4 ->
-        extendEnvR @ranked @r (mkAstVarName varId) (rzero sh4) env
+        extendEnv @ranked @_ @(TKR r (X.Rank sh)) (mkAstVarName varId) (rzero sh4) env
   DynamicShapedDummy @r3 @sh3 _ _
     | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat])
     , Just Refl <- sameShape @sh3 @sh
     , Just Refl <- testEquality (typeRep @r) (typeRep @r3) ->
-      extendEnvS @ranked @r @sh (mkAstVarName varId) (srepl 0) env
+      extendEnv @ranked @_ @(TKS r sh) (mkAstVarName varId) (srepl 0) env
   _ -> error $ "extendEnvD: impossible type"
                `showFailure`
                ( vd, typeRep @ty, typeRep @r, shapeT @sh
@@ -132,7 +124,7 @@ extendEnvI :: ( RankedTensor ranked
               , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
            => IntVarName -> IntOf ranked -> AstEnv ranked
            -> AstEnv ranked
-extendEnvI var !i !env = extendEnvR var (rconstant i) env
+extendEnvI var !i !env = extendEnv var (rconstant i) env
 
 extendEnvVars :: forall ranked m.
                  ( RankedTensor ranked

@@ -211,8 +211,8 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
                  f (glyph, label) varInputs =
                    let env = foldr extendEnvD emptyEnv
                              $ zip vars $ V.toList varInputs
-                       envMnist = extendEnvS varGlyph (sconst $ Nested.sfromOrthotope knownShS glyph)
-                                  $ extendEnvS varLabel (sconst $ Nested.sfromOrthotope knownShS label) env
+                       envMnist = extendEnv varGlyph (sconst $ Nested.sfromOrthotope knownShS glyph)
+                                  $ extendEnv varLabel (sconst $ Nested.sfromOrthotope knownShS label) env
                    in interpretAst envMnist $ unAstShaped ast
                  chunkS = map packBatch
                           $ filter (\ch -> length ch == miniBatchSize)
@@ -311,8 +311,8 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
          funToAstIOS {-@'[batch_size, SizeMnistHeight, SizeMnistWidth]-} id
        (varLabel, varLabelD, astLabel) <-
          funToAstIOS {-@'[batch_size, SizeMnistLabel]-} id
-       let envInit = extendEnvS varGlyph (sconstant $ AstRawS astGlyph)
-                     $ extendEnvS varLabel (sconstant $ AstRawS astLabel)
+       let envInit = extendEnv varGlyph (sconstant $ AstRawS astGlyph)
+                     $ extendEnv varLabel (sconstant $ AstRawS astLabel)
                        emptyEnv
            f = MnistRnnShaped2.rnnMnistLossFusedS
                  width batch_size (AstShaped astGlyph, AstShaped astLabel)

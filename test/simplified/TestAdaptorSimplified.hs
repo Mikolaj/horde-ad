@@ -1379,9 +1379,9 @@ fooNoGoAst v =
 
 testFooNoGoAst :: Assertion
 testFooNoGoAst =
-  let f :: (GoodScalar r, Differentiable r)
+  let f :: forall r. (GoodScalar r, Differentiable r)
         => ADVal ORArray r 1 -> ADVal ORArray r 1
-      f x = interpretAst (extendEnvR
+      f x = interpretAst (extendEnv @_ @_ @(TKR r 1)
                             (mkAstVarName $ intToAstVarId 100000000)
                             x emptyEnv)
                          (unAstRanked $ fooNoGoAst (AstRanked $ AstVar [5] (mkAstVarName . intToAstVarId $ 100000000)))
@@ -1581,9 +1581,9 @@ barReluAst x = relu $ bar (x, relu x)
 
 testBarReluAst0 :: Assertion
 testBarReluAst0 =
-  let f :: (GoodScalar r, Differentiable r)
+  let f :: forall r. (GoodScalar r, Differentiable r)
         => ADVal ORArray r 0 -> ADVal ORArray r 0
-      f x = interpretAst (extendEnvR
+      f x = interpretAst (extendEnv @_ @_ @(TKR r 0)
                             (mkAstVarName $ intToAstVarId 100000000)
                             x emptyEnv)
                          (unAstRanked $ barReluAst (AstRanked $ AstVar [] (mkAstVarName . intToAstVarId $ 100000000)))
@@ -1593,9 +1593,9 @@ testBarReluAst0 =
 
 testBarReluAst1 :: Assertion
 testBarReluAst1 =
-  let f :: (GoodScalar r, Differentiable r)
+  let f :: forall r. (GoodScalar r, Differentiable r)
         => ADVal ORArray r 1 -> ADVal ORArray r 1
-      f x = interpretAst (extendEnvR
+      f x = interpretAst (extendEnv @_ @_ @(TKR r 1)
                             (mkAstVarName $ intToAstVarId 100000000)
                             x emptyEnv)
                          (unAstRanked $ barReluAst (AstRanked $ AstVar [5] (mkAstVarName . intToAstVarId $ 100000000)))
@@ -1611,9 +1611,9 @@ konstReluAst x = rsum0 $ relu $ rreplicate0N (7 :$: ZSR) x
 
 testReplicateReluAst :: Assertion
 testReplicateReluAst =
-  let f :: (GoodScalar r, Differentiable r)
+  let f :: forall r. (GoodScalar r, Differentiable r)
         => ADVal ORArray r 0 -> ADVal ORArray r 0
-      f x = interpretAst (extendEnvR
+      f x = interpretAst (extendEnv @_ @_ @(TKR r 0)
                             (mkAstVarName $ intToAstVarId 100000000)
                             x emptyEnv)
                          (unAstRanked $ konstReluAst (AstRanked $ AstVar [] (mkAstVarName . intToAstVarId $ 100000000)))

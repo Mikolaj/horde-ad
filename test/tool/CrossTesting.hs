@@ -124,7 +124,7 @@ rev' f valsOR =
         -> fgen r m
       hGeneral fx1 fx2 gx inputs =
         let (var, ast) = funToAstR (rshape vals) (unAstRanked . fx1 . f . fx2 . AstRanked)
-            env = extendEnvR var inputs emptyEnv
+            env = extendEnv var inputs emptyEnv
         in interpretAst env (unAstRanked $ gx $ AstRanked ast)
       h :: ADReady f1
         => (f1 r m -> AstRanked PrimalSpan r m)

@@ -216,7 +216,7 @@ interpretAst !env = \case
   AstLet var u v ->
     -- We assume there are no nested lets with the same variable.
     let t = interpretAstRuntimeSpecialized env u
-        env2 w = extendEnvR var w env
+        env2 w = extendEnv var w env
     in rlet t (\w -> interpretAst (env2 w) v)
   AstShare{} -> error "interpretAst: AstShare"
   AstCond b a1 a2 ->
@@ -546,7 +546,7 @@ interpretAst !env = \case
   AstLetS var u v ->
     -- We assume there are no nested lets with the same variable.
     let t = interpretAstSRuntimeSpecialized env u
-        env2 w = extendEnvS var w env
+        env2 w = extendEnv var w env
     in slet t (\w -> interpretAst (env2 w) v)
   AstShareS{} -> error "interpretAst: AstShareS"
   AstCondS b a1 a2 ->
@@ -861,12 +861,12 @@ interpretAstHVector !env = \case
   AstLetInHVector var u v ->
     -- We assume there are no nested lets with the same variable.
     let t = interpretAstRuntimeSpecialized env u
-        env2 w = extendEnvR var w env
+        env2 w = extendEnv var w env
     in rletInHVector t (\w -> interpretAstHVector (env2 w) v)
   AstLetInHVectorS var u v ->
     -- We assume there are no nested lets with the same variable.
     let t = interpretAstSRuntimeSpecialized env u
-        env2 w = extendEnvS var w env
+        env2 w = extendEnv var w env
     in sletInHVector t (\w -> interpretAstHVector (env2 w) v)
   AstShareHVector{} -> error "interpretAstHVector: AstShareHVector"
   AstBuildHVector1 k (var, v) ->

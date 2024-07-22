@@ -211,9 +211,9 @@ mnistTestCase1VTI prefix epochs maxBatches widthHidden widthHidden2
                    let env = foldr extendEnvD emptyEnv
                              $ zip vars $ V.toList varInputs
                        envMnist =
-                         extendEnvR varGlyph
+                         extendEnv varGlyph
                            (rconst $ Nested.rfromVector (fromList [sizeMnistGlyphInt]) glyph)
-                         $ extendEnvR varLabel
+                         $ extendEnv varLabel
                              (rconst $ Nested.rfromVector (fromList [sizeMnistLabelInt]) label)
                              env
                    in interpretAst envMnist $ unAstRanked ast
@@ -306,8 +306,8 @@ mnistTestCase1VTO prefix epochs maxBatches widthHidden widthHidden2
          funToAstIOR (singletonShape sizeMnistGlyphInt) id
        (varLabel, varLabelD, astLabel) <-
          funToAstIOR (singletonShape sizeMnistLabelInt) id
-       let envInit = extendEnvR varGlyph (rconstant $ AstRaw astGlyph)
-                     $ extendEnvR varLabel (rconstant $ AstRaw astLabel)
+       let envInit = extendEnv varGlyph (rconstant $ AstRaw astGlyph)
+                     $ extendEnv varLabel (rconstant $ AstRaw astLabel)
                      emptyEnv
            f = MnistFcnnRanked1.afcnnMnistLoss1TensorData @(AstRanked FullSpan)
                  widthHidden widthHidden2
@@ -523,9 +523,9 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
                    let env = foldr extendEnvD emptyEnv
                              $ zip vars $ V.toList varInputs
                        envMnist =
-                         extendEnvR varGlyph
+                         extendEnv varGlyph
                            (rconst $ Nested.rfromVector (fromList [sizeMnistGlyphInt]) glyph)
-                         $ extendEnvR varLabel
+                         $ extendEnv varLabel
                              (rconst $ Nested.rfromVector (fromList [sizeMnistLabelInt]) label)
                              env
                    in interpretAst envMnist $ unAstRanked ast
@@ -617,8 +617,8 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
          funToAstIOR (singletonShape sizeMnistGlyphInt) id
        (varLabel, varLabelD, astLabel) <-
          funToAstIOR (singletonShape sizeMnistLabelInt) id
-       let envInit = extendEnvR varGlyph (rconstant $ AstRaw astGlyph)
-                     $ extendEnvR varLabel (rconstant $ AstRaw astLabel)
+       let envInit = extendEnv varGlyph (rconstant $ AstRaw astGlyph)
+                     $ extendEnv varLabel (rconstant $ AstRaw astLabel)
                        emptyEnv
            f = MnistFcnnRanked2.afcnnMnistLoss2TensorData @(AstRanked FullSpan)
                  (rconstant $ AstRanked astGlyph, rconstant $ AstRanked astLabel)
