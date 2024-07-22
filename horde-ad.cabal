@@ -167,7 +167,7 @@ library horde-ad-simplified
       , Boolean
       , containers
       , deepseq
-      , dependent-map
+      , dependent-enummap
       , enummapset
       , ghc-typelits-knownnat
       , ghc-typelits-natnormalise

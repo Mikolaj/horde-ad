@@ -30,12 +30,14 @@ import Prelude hiding (foldl')
 
 import Data.Array.Internal (valueOf)
 import Data.Array.Shape qualified as Sh
+import Data.Dependent.EnumMap.Strict as DMap
 import Data.Functor.Const
 import Data.GADT.Compare
 import Data.GADT.Show
 import Data.Int (Int64)
 import Data.Kind (Type)
 import Data.Proxy (Proxy (Proxy))
+import Data.Some
 import Data.Strict.Vector qualified as Data.Vector
 import Data.Type.Equality (testEquality, (:~:) (Refl))
 import GHC.TypeLits (KnownNat, sameNat, type (+), type (<=))
@@ -168,6 +170,11 @@ instance GCompare (AstVarName s) where
 
 instance GShow (AstVarName s) where
   gshowsPrec = defaultGshowsPrec
+
+instance DMap.Enum1 (AstVarName s) where
+  type Enum1Info (AstVarName s) = Some (Dict TensorKind)
+  fromEnum1 (AstVarName @_ @a varId) = (fromEnum varId, Some @_ @a Dict)
+  toEnum1 varIdInt (Some @_ @a Dict) = Some $ AstVarName @s @a $ toEnum varIdInt
 
 mkAstVarName :: forall s y. TensorKind y => AstVarId -> AstVarName s y
 mkAstVarName = AstVarName

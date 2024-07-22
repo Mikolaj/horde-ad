@@ -20,8 +20,8 @@ module HordeAd.Core.AstEnv
 import Prelude
 
 import Control.Exception.Assert.Sugar
-import Data.Dependent.Map (DMap)
-import Data.Dependent.Map qualified as DMap
+import Data.Dependent.EnumMap.Strict (DEnumMap)
+import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
@@ -42,7 +42,7 @@ import HordeAd.Util.SizedList
 -- * The environment and operations for extending it
 
 -- | The environment that keeps variables values during interpretation
-type AstEnv ranked = DMap (AstVarName FullSpan) (AstEnvElem ranked)
+type AstEnv ranked = DEnumMap (AstVarName FullSpan) (AstEnvElem ranked)
   -- the FullSpan is a lie
 
 type role AstEnvElem nominal nominal

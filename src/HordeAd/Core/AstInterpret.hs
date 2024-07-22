@@ -23,7 +23,7 @@ import Prelude
 import Control.Exception.Assert.Sugar
 import Data.Array.Internal (valueOf)
 import Data.Array.Shape qualified as Sh
-import Data.Dependent.Map qualified as DMap
+import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Int (Int64)
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
