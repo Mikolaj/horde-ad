@@ -895,7 +895,7 @@ interpretAstHFun !env = \case
     $ interpretLambdaHsH interpretAstHVector (vvars, l)
       -- interpretation in empty environment; makes sense here, because
       -- there are no free variables outside of those listed
-  AstVarHFun _shss _shs varId -> case DMap.lookup (mkAstVarName @_ @(TKR () 0) varId) env of
+  AstVarHFun _shss _shs varId -> case DMap.lookup (mkAstVarName @_ @(TKR Float 0) varId) env of
     Just (AstEnvElemHFun f) -> f
     _ -> error $ "interpretAstHFun: unknown variable " ++ show varId
 

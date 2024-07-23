@@ -50,8 +50,8 @@ type AstEnv ranked = DEnumMap (AstVarName FullSpan) (AstEnvElem ranked)
 type role AstEnvElem nominal nominal
 data AstEnvElem (ranked :: RankedTensorType) (y :: TensorKindType) where
   AstEnvElemTuple :: InterpretationTarget ranked y -> AstEnvElem ranked y
-  AstEnvElemHFun :: HFunOf ranked -> AstEnvElem ranked (TKR () 0)
-    -- the (TKR () 0) is a lie
+  AstEnvElemHFun :: HFunOf ranked -> AstEnvElem ranked (TKR Float 0)
+    -- the (TKR Float 0) is a lie
 
 deriving instance ( Show (InterpretationTarget ranked y)
                   , Show (HFunOf ranked) )
@@ -82,9 +82,9 @@ extendEnvHVector vars !pars !env = assert (length vars == V.length pars) $
 extendEnvHFun :: AstVarId -> HFunOf ranked -> AstEnv ranked
               -> AstEnv ranked
 extendEnvHFun !varId !t !env =
-  let var2 :: AstVarName FullSpan (TKR () 0)
+  let var2 :: AstVarName FullSpan (TKR Float 0)
       var2 = mkAstVarName varId
-        -- to uphold the lie about (TKR () 0)
+        -- to uphold the lie about (TKR Float 0)
   in DMap.insertWithKey (\_ _ _ -> error
                                    $ "extendEnvHFun: duplicate " ++ show varId)
                         var2 (AstEnvElemHFun t) env
