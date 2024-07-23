@@ -201,14 +201,16 @@ type IntVarName = AstVarName PrimalSpan (TKR Int64 0)
 pattern AstIntVar :: IntVarName -> AstInt
 pattern AstIntVar var = AstVar ZSR var
 
-isRankedInt :: forall s r n. (AstSpan s, GoodScalar r, KnownNat n)
-            => AstTensor s (TKR r n)
-            -> Maybe (AstTensor s (TKR r n) :~: AstInt)
-isRankedInt _ = case ( sameAstSpan @s @PrimalSpan
-                     , testEquality (typeRep @r) (typeRep @Int64)
-                     , sameNat (Proxy @n) (Proxy @0) ) of
-                  (Just Refl, Just Refl, Just Refl) -> Just Refl
-                  _ -> Nothing
+isRankedInt :: forall s y. (AstSpan s, TensorKind y)
+            => AstTensor s y
+            -> Maybe (AstTensor s y :~: AstInt)
+isRankedInt _ = case stensorKind @y of
+  STKR rep snat -> case ( sameAstSpan @s @PrimalSpan
+                        , eqTypeRep rep (typeRep @Int64)
+                        , testEquality snat (SNat @0) ) of
+                     (Just Refl, Just HRefl, Just Refl) -> Just Refl
+                     _ -> Nothing
+  _ -> Nothing
 
 type AstIndex n = Index n AstInt
 
