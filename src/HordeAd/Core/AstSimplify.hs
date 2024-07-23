@@ -49,6 +49,7 @@ import Control.Monad (mapAndUnzipM)
 import Data.Array.Internal (valueOf)
 import Data.Array.Shape qualified as Sh
 import Data.Functor.Const
+import Data.GADT.Compare
 import Data.Int (Int64)
 import Data.Kind (Type)
 import Data.List (dropWhileEnd)
@@ -1293,55 +1294,39 @@ astSliceLax i k v =
 
 -- Inlining works for this let constructor, because it has just one variable,
 -- unlike astLetHVectorIn, etc., so we don't try to eliminate it.
-astLet :: forall n m r r2 s s2.
-          ( KnownNat m, KnownNat n, GoodScalar r, GoodScalar r2
-          , AstSpan s, AstSpan s2 )
-       => AstVarName s (TKR r n)
-       -> AstTensor s (TKR r n) -> AstTensor s2 (TKR r2 m)
-       -> AstTensor s2 (TKR r2 m)
+astLet :: forall n r y s s2.
+          ( KnownNat n, GoodScalar r, AstSpan s, AstSpan s2, TensorKind y
+          , Show (AstTensor s y) )
+       => AstVarName s y -> AstTensor s y
+       -> AstTensor s2 (TKR r n)
+       -> AstTensor s2 (TKR r n)
 astLet var u v | astIsSmall True u =
   fromMaybe v
   $ substitute1Ast (SubstitutionPayload u) (varNameToAstVarId var) v
 astLet var u v@(Ast.AstVar _ var2) =
-  if varNameToAstVarId var2 == varNameToAstVarId var
-  then case sameAstSpan @s @s2 of
-    Just Refl -> case sameNat (Proxy @n) (Proxy @m) of
-      Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
-        Just Refl -> u
-        _ -> error "astLet: scalar mismatch"
-      _ -> error "astLet: rank mismatch"
-    _ -> error "astLet: span mismatch"
-  else v
+  case sameAstSpan @s @s2 of
+    Just Refl -> case geq var2 var of
+      Just Refl -> u
+      _ -> v
+    _ -> v
 astLet var u v@(Ast.AstConstant (Ast.AstVar _ var2)) =  -- a common noop
-  if varNameToAstVarId var2 == varNameToAstVarId var
-  then case sameAstSpan @s @PrimalSpan of
-    Just Refl -> case sameNat (Proxy @n) (Proxy @m) of
-      Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
-        Just Refl -> Ast.AstConstant u
-        _ -> error "astLet: scalar mismatch"
-      _ -> error "astLet: rank mismatch"
-    _ -> error "astLet: span mismatch"
-  else v
+  case sameAstSpan @s @PrimalSpan of
+    Just Refl -> case geq var2 var of
+      Just Refl -> Ast.AstConstant u
+      _ -> v
+    _ -> v
 astLet var u v@(Ast.AstPrimalPart (Ast.AstVar _ var2)) =  -- a common noop
-  if varNameToAstVarId var2 == varNameToAstVarId var
-  then case sameAstSpan @s @FullSpan of
-    Just Refl -> case sameNat (Proxy @n) (Proxy @m) of
-      Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
-        Just Refl -> astPrimalPart u
-        _ -> error "astLet: scalar mismatch"
-      _ -> error "astLet: rank mismatch"
-    _ -> error "astLet: span mismatch"
-  else v
+  case sameAstSpan @s @FullSpan of
+    Just Refl -> case geq var2 var of
+      Just Refl -> astPrimalPart u
+      _ -> v
+    _ -> v
 astLet var u v@(Ast.AstDualPart (Ast.AstVar _ var2)) =  -- a noop
-  if varNameToAstVarId var2 == varNameToAstVarId var
-  then case sameAstSpan @s @FullSpan of
-    Just Refl -> case sameNat (Proxy @n) (Proxy @m) of
-      Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
-        Just Refl -> astDualPart u
-        _ -> error "astLet: scalar mismatch"
-      _ -> error "astLet: rank mismatch"
-    _ -> error "astLet: span mismatch"
-  else v
+  case sameAstSpan @s @FullSpan of
+    Just Refl -> case geq var2 var of
+      Just Refl -> astDualPart u
+      _ -> v
+    _ -> v
 astLet var u v = Ast.AstLet var u v
 
 -- A special variant to bind integer expressions inside indexes.

@@ -268,11 +268,12 @@ data AstTensor :: AstSpanType -> TensorKindType -> Type where
          -> AstTensor s (TKR r n)
   -- The r variable is existential here, so a proper specialization needs
   -- to be picked explicitly at runtime.
-  AstLet :: forall n m r r2 s s2.
-            (KnownNat n, KnownNat m, GoodScalar r, GoodScalar r2, AstSpan s)
-         => AstVarName s (TKR r n) -> AstTensor s (TKR r n)
-         -> AstTensor s2 (TKR r2 m)
-         -> AstTensor s2 (TKR r2 m)
+  AstLet :: forall n r y s s2.
+            ( KnownNat n, GoodScalar r, AstSpan s, TensorKind y
+            , Show (AstTensor s y) )
+         => AstVarName s y -> AstTensor s y
+         -> AstTensor s2 (TKR r n)
+         -> AstTensor s2 (TKR r n)
   AstShare :: (GoodScalar r, KnownNat n)
            => AstVarName s (TKR r n) -> AstTensor s (TKR r n)
            -> AstTensor s (TKR r n)

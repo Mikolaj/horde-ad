@@ -213,11 +213,13 @@ interpretAst !env = \case
     _ -> error $ "interpretAst: unknown AstVar " ++ show var
       -- this is defeated by 'Undecidable instances and loopy superclasses':
       -- ++ " in environment " ++ show env
-  AstLet var u v ->
+  AstLet @_ @_ @y2 var u v  | STKR{} <- stensorKind @y2->
     -- We assume there are no nested lets with the same variable.
     let t = interpretAstRuntimeSpecialized env u
         env2 w = extendEnv var w env
     in rlet t (\w -> interpretAst (env2 w) v)
+-- TODO:    in rletTKIn @_ @_ @_ @y2 t (\w -> interpretAst (env2 w) v)
+  AstLet{} -> error "TODO"
   AstShare{} -> error "interpretAst: AstShare"
   AstCond b a1 a2 ->
     let b1 = interpretAstBool env b

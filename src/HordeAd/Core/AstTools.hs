@@ -26,6 +26,7 @@ import Data.Type.Equality ((:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat, sameNat, type (+))
 
+import Data.Array.Mixed.Shape qualified as X
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
@@ -351,10 +352,10 @@ bindsToLet = foldl' bindToLet
       DynamicShaped w -> convertShaped w
       DynamicRankedDummy @r2 @sh2 _ _ -> AstRanked $
           withListSh (Proxy @sh2) $ \sh2 ->
-            AstLet @_ @n @r2 @_ @s (mkAstVarName varId) (astReplicate0N sh2 0) u
+            AstLet @n @_ @(TKR r2 (X.Rank sh2)) @s (mkAstVarName varId) (astReplicate0N sh2 0) u
       DynamicShapedDummy @r2 @sh2 _ _ -> AstRanked $
            withListSh (Proxy @sh2) $ \sh2 ->
-            AstLet @_ @n @r2 @_ @s (mkAstVarName varId) (astReplicate0N sh2 0) u
+            AstLet @n @_ @(TKR r2 (X.Rank sh2)) @s (mkAstVarName varId) (astReplicate0N sh2 0) u
   bindToLet (AstRanked u) (_, AstBindingsHVector lids d) =
     AstRanked $ AstLetHVectorIn lids d u
 

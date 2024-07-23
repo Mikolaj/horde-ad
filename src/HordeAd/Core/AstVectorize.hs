@@ -175,13 +175,14 @@ build1V k (var, v00) =
         _ -> error "build1V: build variable is not an index variable"
     Ast.AstVar{} ->
       error "build1V: AstVar can't contain other free index variables"
-    Ast.AstLet var1 u v ->
+    Ast.AstLet @_ @_ @y var1 u v | STKR{} <- stensorKind @y ->
       let var2 = mkAstVarName (varNameToAstVarId var1)
           sh = shapeAst u
           v2 = substProjRanked k var sh var1 v
       in astLet var2 (build1VOccurenceUnknown k (var, u))
                      (build1VOccurenceUnknownRefresh k (var, v2))
                         -- ensures no duplicated bindings, see below
+    Ast.AstLet{} -> error "TODO"
     Ast.AstShare{} -> error "build1V: AstShare"
     Ast.AstCond b (Ast.AstConstant v) (Ast.AstConstant w) ->
       let t = Ast.AstConstant
