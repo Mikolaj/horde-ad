@@ -144,7 +144,8 @@ type data TensorKindType =
 
 type role STensorKindType nominal
 data STensorKindType y where
-  STKR :: TypeRep r -> SNat n -> STensorKindType (TKR r n)
+  STKR :: (GoodScalar r, KnownNat n)
+       => TypeRep r -> SNat n -> STensorKindType (TKR r n)
   STKS :: TypeRep r -> ShS sh -> STensorKindType (TKS r sh)
   STKProduct :: STensorKindType y -> STensorKindType z
              -> STensorKindType (TKProduct y z)
@@ -152,7 +153,7 @@ data STensorKindType y where
 class Typeable y => TensorKind (y :: TensorKindType) where
   stensorKind :: STensorKindType y
 
-instance (Typeable r, KnownNat n) => TensorKind (TKR r n) where
+instance (GoodScalar r, KnownNat n) => TensorKind (TKR r n) where
   stensorKind = STKR typeRep SNat
 
 instance (Typeable r, KnownShS sh) => TensorKind (TKS r sh) where

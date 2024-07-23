@@ -230,6 +230,7 @@ instance (GoodScalar r, KnownNat n)
   fromValue t = AstRanked $ fromPrimal $ AstConst $ runFlipR t
 
 instance AstSpan s => RankedTensor (AstRanked s) where
+  rletTKIn a f = f a  -- TODO
   rlet a f =
     AstRanked
     $ astLetFun (unAstRanked a) (unAstRanked . f . AstRanked)
@@ -892,6 +893,7 @@ deriving instance (RealFloatF (AstTensor s (TKS r sh)))
                   => RealFloatF (AstNoSimplifyS s r sh)
 
 instance AstSpan s => RankedTensor (AstRaw s) where
+  rletTKIn a f = f a  -- TODO
   rlet a f = AstRaw $ astLetFunRaw (unAstRaw a) (unAstRaw . f . AstRaw)
   rshape = shapeAst . unAstRaw
   rminIndex = AstRaw . fromPrimal . AstMinIndex . astSpanPrimal . unAstRaw
@@ -1124,6 +1126,7 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
                                                  (unAstRawWrap es)
 
 instance AstSpan s => RankedTensor (AstNoVectorize s) where
+  rletTKIn a f = f a  -- TODO
   rlet a f =
     astNoVectorize2
     $ rlet (unAstNoVectorize2 a) (unAstNoVectorize2 . f . astNoVectorize2)
@@ -1287,6 +1290,7 @@ noVectorizeHVector =
   in V.map f
 
 instance AstSpan s => RankedTensor (AstNoSimplify s) where
+  rletTKIn a f = f a  -- TODO
   rlet a f =
     AstNoSimplify
     $ astLetFunRaw (unAstNoSimplify a) (unAstNoSimplify . f . AstNoSimplify)

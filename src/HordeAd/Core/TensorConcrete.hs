@@ -73,6 +73,7 @@ type instance PrimalOf ORArray = ORArray
 type instance DualOf ORArray = DummyDual
 
 instance RankedTensor ORArray where
+  rletTKIn a f = f a
   rshape = tshapeR . runFlipR
   rminIndex = FlipR . tminIndexR . runFlipR
   rmaxIndex = FlipR . tmaxIndexR . runFlipR

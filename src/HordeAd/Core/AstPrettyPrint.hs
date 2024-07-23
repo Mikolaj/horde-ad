@@ -23,7 +23,7 @@ import Data.List (intersperse)
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality ((:~:) (Refl))
 import Data.Vector.Generic qualified as V
-import GHC.TypeLits (KnownNat, fromSNat, sameNat)
+import GHC.TypeLits (fromSNat, sameNat)
 import Type.Reflection (typeRep)
 
 import Data.Array.Nested qualified as Nested
@@ -146,8 +146,8 @@ printAstFunVar :: PrintConfig -> AstVarId -> ShowS
 printAstFunVar = printAstVarId "f"
 
 printAstVarFromLet
-  :: forall n s r. (GoodScalar r, KnownNat n, AstSpan s)
-  => AstTensor s (TKR r n) -> PrintConfig -> AstVarName s (TKR r n) -> ShowS
+  :: forall s y. (AstSpan s, TensorKind y)
+  => AstTensor s y -> PrintConfig -> AstVarName s y -> ShowS
 printAstVarFromLet u cfg var =
   if representsIntIndex cfg && areAllArgsInts u
   then case isRankedInt u of
@@ -255,7 +255,7 @@ printAstAux cfg d = \case
   AstVar _sh var -> printAstVar cfg var
   t@(AstLet var0 u0 v0) ->
     if loseRoudtrip cfg
-    then let collect :: AstTensor s (TKR r n) -> ([(ShowS, ShowS)], ShowS)
+    then let collect :: AstTensor s y -> ([(ShowS, ShowS)], ShowS)
              collect (AstLet var u v) =
                let name = printAstVarFromLet u cfg var
                    uPP = printAst cfg 0 u
