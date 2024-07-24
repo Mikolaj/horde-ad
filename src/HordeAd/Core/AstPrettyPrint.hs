@@ -431,7 +431,6 @@ printAstAux cfg d = \case
   AstDualPart a -> printPrefixOp printAst cfg d "rdualPart" [a]
   AstD u u' -> printPrefixBinaryOp printAst printAst cfg d "rD" u u'
 
-  AstVarS var -> printAstVar cfg var
   t@(AstLetS var0 u0 v0) ->
     if loseRoudtrip cfg
     then let collect :: AstTensor s (TKS r sh) -> ([(ShowS, ShowS)], ShowS)

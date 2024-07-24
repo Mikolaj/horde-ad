@@ -14,7 +14,7 @@ module HordeAd.Core.Types
     -- * Kinds of the functors that determine the structure of a tensor type
   , TensorType, RankedTensorType, ShapedTensorType
   , TensorKindType (..), STensorKindType(..), TensorKind(..)
-  , sameTensorKind, InterpretationTarget
+  , sameTensorKind, TensorKindFull(..), InterpretationTarget
     -- * Some fundamental constraints
   , GoodScalar, HasSingletonDict, Differentiable, IfDifferentiable(..)
     -- * Type families that tensors will belong to
@@ -150,6 +150,8 @@ data STensorKindType y where
   STKProduct :: STensorKindType y -> STensorKindType z
              -> STensorKindType (TKProduct y z)
 
+deriving instance Show (STensorKindType y)
+
 class TensorKind (y :: TensorKindType) where
   stensorKind :: STensorKindType y
 
@@ -179,6 +181,15 @@ sameTensorKind = sameTK (stensorKind @y1) (stensorKind @y2)
       (Just Refl, Just Refl) -> Just Refl
       _ -> Nothing
     _ -> Nothing
+
+type role TensorKindFull nominal
+data TensorKindFull y where
+  TKFR :: ShR n Int -> TensorKindFull (TKR r n)
+  TKFS :: TensorKindFull (TKS r sh)
+  TKFProduct :: TensorKindFull y -> TensorKindFull z
+             -> TensorKindFull (TKProduct y z)
+
+deriving instance Show (TensorKindFull y)
 
 type family InterpretationTarget ranked y where
   InterpretationTarget ranked (TKR r n) = ranked r n

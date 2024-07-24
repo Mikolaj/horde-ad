@@ -425,7 +425,7 @@ testPiecewiseLinear2PP = do
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
     @?= "\\x1 -> [ifF (x1 >. 0.0) 2.0 5.0 * x1]"
   show deltas
-    @?= "HToH [DynamicRanked (ShareR 100000005 (ScaleR (AstRaw {unAstRaw = AstShare (AstVarId 100000002) (AstCond (AstRel GtOp (AstVar [] (AstVarId 100000001)) (AstConst (rfromListLinear [] [0.0]))) (AstConst (rfromListLinear [] [2.0])) (AstConst (rfromListLinear [] [5.0])))}) (InputR [] (InputId 0))))]"
+    @?= "HToH [DynamicRanked (ShareR 100000005 (ScaleR (AstRaw {unAstRaw = AstShare (AstVarId 100000002) (AstCond (AstRel GtOp (AstVar (TKFR []) (AstVarId 100000001)) (AstConst (rfromListLinear [] [0.0]))) (AstConst (rfromListLinear [] [2.0])) (AstConst (rfromListLinear [] [5.0])))}) (InputR [] (InputId 0))))]"
 
 overleaf :: forall r ranked. (RankedTensor ranked, GoodScalar r)
          => ranked r 1 -> ranked r 0
@@ -843,7 +843,7 @@ testReluPP = do
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
     @?= "\\m1 -> [rgather [3,4] (rconst (rfromListLinear [2] [0.0,1.0])) (\\[i5, i6] -> [ifF (m1 ! [i5, i6] <=. 0.0) 0 1]) * m1]"
   show deltas
-    @?= "HToH [DynamicRanked (ShareR 100000003 (ScaleR (AstRaw {unAstRaw = AstShare (AstVarId 100000007) (AstGather [3,4] (AstConst (rfromListLinear [2] [0.0,1.0])) ([AstVarId 100000005,AstVarId 100000006],[AstCond (AstRel LeqOp (AstIndex (AstVar [3,4] (AstVarId 100000001)) [AstVar [] (AstVarId 100000005),AstVar [] (AstVarId 100000006)]) (AstConst (rfromListLinear [] [0.0]))) (AstConst (rfromListLinear [] [0])) (AstConst (rfromListLinear [] [1]))]))}) (InputR [3,4] (InputId 0))))]"
+    @?= "HToH [DynamicRanked (ShareR 100000003 (ScaleR (AstRaw {unAstRaw = AstShare (AstVarId 100000007) (AstGather [3,4] (AstConst (rfromListLinear [2] [0.0,1.0])) ([AstVarId 100000005,AstVarId 100000006],[AstCond (AstRel LeqOp (AstIndex (AstVar (TKFR [3,4]) (AstVarId 100000001)) [AstVar (TKFR []) (AstVarId 100000005),AstVar (TKFR []) (AstVarId 100000006)]) (AstConst (rfromListLinear [] [0.0]))) (AstConst (rfromListLinear [] [0])) (AstConst (rfromListLinear [] [1]))]))}) (InputR [3,4] (InputId 0))))]"
 
 testReluPP2 :: Assertion
 testReluPP2 = do
@@ -888,7 +888,7 @@ testReluSimplerPP = do
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
     @?= "\\m1 -> [rgather [3,4] (rconst (rfromListLinear [2] [0.0,1.0])) (\\[i5, i6] -> [ifF (m1 ! [i5, i6] <=. 0.0) 0 1]) * m1]"
   show deltas
-    @?= "HToH [DynamicRanked (ShareR 100000003 (ScaleR (AstRaw {unAstRaw = AstShare (AstVarId 100000007) (AstGather [3,4] (AstConst (rfromListLinear [2] [0.0,1.0])) ([AstVarId 100000005,AstVarId 100000006],[AstCond (AstRel LeqOp (AstIndex (AstVar [3,4] (AstVarId 100000001)) [AstVar [] (AstVarId 100000005),AstVar [] (AstVarId 100000006)]) (AstConst (rfromListLinear [] [0.0]))) (AstConst (rfromListLinear [] [0])) (AstConst (rfromListLinear [] [1]))]))}) (InputR [3,4] (InputId 0))))]"
+    @?= "HToH [DynamicRanked (ShareR 100000003 (ScaleR (AstRaw {unAstRaw = AstShare (AstVarId 100000007) (AstGather [3,4] (AstConst (rfromListLinear [2] [0.0,1.0])) ([AstVarId 100000005,AstVarId 100000006],[AstCond (AstRel LeqOp (AstIndex (AstVar (TKFR [3,4]) (AstVarId 100000001)) [AstVar (TKFR []) (AstVarId 100000005),AstVar (TKFR []) (AstVarId 100000006)]) (AstConst (rfromListLinear [] [0.0]))) (AstConst (rfromListLinear [] [0])) (AstConst (rfromListLinear [] [1]))]))}) (InputR [3,4] (InputId 0))))]"
 
 testReluSimplerPP2 :: Assertion
 testReluSimplerPP2 = do
@@ -1102,7 +1102,7 @@ testDot2PP = do
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
     @?= "\\m1 m2 -> [rsum (rreshape [6] (m1 * m2))]"
   show deltas
-    @?= "HToH [DynamicRanked (ShareR 100000001 (AddR (Dot0R (AstRaw {unAstRaw = AstVar [2,3] (AstVarId 100000002)}) (InputR [2,3] (InputId 0))) (Dot0R (AstRaw {unAstRaw = AstVar [2,3] (AstVarId 100000001)}) (InputR [2,3] (InputId 1)))))]"
+    @?= "HToH [DynamicRanked (ShareR 100000001 (AddR (Dot0R (AstRaw {unAstRaw = AstVar (TKFR [2,3]) (AstVarId 100000002)}) (InputR [2,3] (InputId 0))) (Dot0R (AstRaw {unAstRaw = AstVar (TKFR [2,3]) (AstVarId 100000001)}) (InputR [2,3] (InputId 1)))))]"
 
 testMatvecmulPP :: Assertion
 testMatvecmulPP = do
@@ -1384,7 +1384,7 @@ testFooNoGoAst =
       f x = interpretAst (extendEnv @_ @_ @(TKR r 1)
                             (mkAstVarName $ intToAstVarId 100000000)
                             x emptyEnv)
-                         (unAstRanked $ fooNoGoAst (AstRanked $ AstVar [5] (mkAstVarName . intToAstVarId $ 100000000)))
+                         (unAstRanked $ fooNoGoAst (AstRanked $ AstVar (TKFR [5]) (mkAstVarName . intToAstVarId $ 100000000)))
   in assertEqualUpToEpsilon1 1e-6
        (OR.fromList [5] [5.037878787878788,-14.394255484765257,43.23648655081373,-0.8403418295960368,5.037878787878788])
        (crev @Double @1 f
@@ -1586,7 +1586,7 @@ testBarReluAst0 =
       f x = interpretAst (extendEnv @_ @_ @(TKR r 0)
                             (mkAstVarName $ intToAstVarId 100000000)
                             x emptyEnv)
-                         (unAstRanked $ barReluAst (AstRanked $ AstVar [] (mkAstVarName . intToAstVarId $ 100000000)))
+                         (unAstRanked $ barReluAst (AstRanked $ AstVar (TKFR []) (mkAstVarName . intToAstVarId $ 100000000)))
   in assertEqualUpToEpsilon1 1e-10
        (OR.fromList [] [191.20462646925841])
        (crevDt @Double @0 f (rscalar 1.1) (rscalar 42.2))
@@ -1598,7 +1598,7 @@ testBarReluAst1 =
       f x = interpretAst (extendEnv @_ @_ @(TKR r 1)
                             (mkAstVarName $ intToAstVarId 100000000)
                             x emptyEnv)
-                         (unAstRanked $ barReluAst (AstRanked $ AstVar [5] (mkAstVarName . intToAstVarId $ 100000000)))
+                         (unAstRanked $ barReluAst (AstRanked $ AstVar (TKFR [5]) (mkAstVarName . intToAstVarId $ 100000000)))
   in assertEqualUpToEpsilon1 1e-10
        (OR.fromList [5] [4.530915319176739,-2.9573428114591314e-2,5.091137576320349,81.14126788127645,2.828924924816215])
        (crev @Double @1 f (rfromList0N [5] [rscalar 1.1, rscalar 2.2, rscalar 3.3, rscalar 4, rscalar 5]))
@@ -1616,7 +1616,7 @@ testReplicateReluAst =
       f x = interpretAst (extendEnv @_ @_ @(TKR r 0)
                             (mkAstVarName $ intToAstVarId 100000000)
                             x emptyEnv)
-                         (unAstRanked $ konstReluAst (AstRanked $ AstVar [] (mkAstVarName . intToAstVarId $ 100000000)))
+                         (unAstRanked $ konstReluAst (AstRanked $ AstVar (TKFR []) (mkAstVarName . intToAstVarId $ 100000000)))
   in assertEqualUpToEpsilon1 1e-10
        (OR.fromList [] [295.4])
        (crevDt @Double @0 f (rscalar 1.1) (rscalar 42.2))

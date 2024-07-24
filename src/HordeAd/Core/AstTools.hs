@@ -49,7 +49,7 @@ shapeAst :: forall n s r. (KnownNat n, GoodScalar r)
 shapeAst = \case
   AstLetPairIn _var1 _var2 _p v -> shapeAst v
 
-  AstVar sh _var -> sh
+  AstVar (TKFR sh) _var -> sh
   AstLet _ _ v -> shapeAst v
   AstShare _ v-> shapeAst v
   AstCond _b v _w -> shapeAst v
@@ -182,7 +182,6 @@ varInAst var = \case
   AstDualPart a -> varInAst var a
   AstD u u' -> varInAst var u || varInAst var u'
 
-  AstVarS var2 -> var == varNameToAstVarId var2
   AstLetS _var2 u v -> varInAst var u || varInAst var v
   AstShareS _ v -> varInAst var v
   AstCondS b v w -> varInAstBool var b || varInAst var v || varInAst var w
@@ -288,8 +287,8 @@ astIsSmall :: Bool -> AstTensor s y -> Bool
 astIsSmall relaxed = \case
   AstPair t1 t2 -> astIsSmall relaxed t1 && astIsSmall relaxed t2
   AstLetPairIn{} -> False
-
   AstVar{} -> True
+
   AstIota -> True
   AstReplicate _ v ->
     relaxed && astIsSmall relaxed v  -- materialized via tricks, so prob. safe
@@ -303,7 +302,6 @@ astIsSmall relaxed = \case
   AstPrimalPart v -> astIsSmall relaxed v
   AstDualPart v -> astIsSmall relaxed v
 
-  AstVarS{} -> True
   AstIotaS -> True
   AstReplicateS v ->
     relaxed && astIsSmall relaxed v  -- materialized via tricks, so prob. safe

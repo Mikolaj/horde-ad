@@ -39,7 +39,7 @@ import Data.Kind (Type)
 import Data.Proxy (Proxy (Proxy))
 import Data.Some
 import Data.Strict.Vector qualified as Data.Vector
-import Data.Type.Equality (testEquality, (:~:) (Refl))
+import Data.Type.Equality ((:~:) (Refl))
 import GHC.TypeLits (KnownNat, sameNat, type (+), type (<=))
 import Type.Reflection (Typeable, eqTypeRep, typeRep, (:~~:) (HRefl))
 
@@ -199,18 +199,15 @@ type AstInt = AstTensor PrimalSpan (TKR Int64 0)
 type IntVarName = AstVarName PrimalSpan (TKR Int64 0)
 
 pattern AstIntVar :: IntVarName -> AstInt
-pattern AstIntVar var = AstVar ZSR var
+pattern AstIntVar var = AstVar (TKFR ZSR) var
 
 isRankedInt :: forall s y. (AstSpan s, TensorKind y)
             => AstTensor s y
             -> Maybe (AstTensor s y :~: AstInt)
-isRankedInt _ = case stensorKind @y of
-  STKR rep snat -> case ( sameAstSpan @s @PrimalSpan
-                        , eqTypeRep rep (typeRep @Int64)
-                        , testEquality snat (SNat @0) ) of
-                     (Just Refl, Just HRefl, Just Refl) -> Just Refl
-                     _ -> Nothing
-  _ -> Nothing
+isRankedInt _ = case ( sameAstSpan @s @PrimalSpan
+                     , sameTensorKind @y @(TKR Int64 0) ) of
+                  (Just Refl, Just Refl) -> Just Refl
+                  _ -> Nothing
 
 type AstIndex n = Index n AstInt
 
@@ -261,11 +258,10 @@ data AstTensor :: AstSpanType -> TensorKindType -> Type where
                -> AstTensor s (TKProduct y z)
                -> AstTensor s2 x
                -> AstTensor s2 x
+  AstVar :: TensorKind y
+         => TensorKindFull y -> AstVarName s y -> AstTensor s y
 
   -- Here starts the ranked part.
-  AstVar :: (GoodScalar r, KnownNat n)
-         => IShR n -> AstVarName s (TKR r n)
-         -> AstTensor s (TKR r n)
   -- The r variable is existential here, so a proper specialization needs
   -- to be picked explicitly at runtime.
   AstLet :: forall n r y s s2.
@@ -377,9 +373,6 @@ data AstTensor :: AstSpanType -> TensorKindType -> Type where
        -> AstTensor FullSpan (TKR r n)
 
   -- Here starts the shaped part.
-  AstVarS :: forall sh r s. (GoodScalar r, KnownShS sh)
-          => AstVarName s (TKS r sh)
-          -> AstTensor s (TKS r sh)
   AstLetS :: forall sh1 sh2 r r2 s s2.
              (KnownShS sh1, KnownShS sh2, GoodScalar r, GoodScalar r2, AstSpan s)
           => AstVarName s (TKS r sh1) -> AstTensor s (TKS r sh1)

@@ -197,22 +197,20 @@ interpretAst !env = \case
                  extendEnvHVector vars lw env
     in rletHVectorIn lt (\lw -> interpretAst (env2 lw) v)
 -}
-
-  AstVar @r @n sh var ->
-   let var2 = mkAstVarName @FullSpan @(TKR r n) (varNameToAstVarId var)  -- TODO
+  AstVar @y2 _sh var ->
+   let var2 = mkAstVarName @FullSpan @y2 (varNameToAstVarId var)  -- TODO
    in case DMap.lookup var2 env of
-    Just (AstEnvElemTuple @ranked @y t) {- TODO: @r2 @n2 t) -> case sameNat (Proxy @n2) (Proxy @n) of
-      Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
-        Just Refl -> assert (rshape t == sh
-                             `blame` (sh, rshape t, var, t, env)) t
-        _ -> error "interpretAst: scalar mismatch"
-      _ -> error $ "interpretAst: wrong rank in environment"
+    Just (AstEnvElemTuple @_ranked @y3 t) -> case sameTensorKind @y2 @y3 of
+      Just Refl -> -- TODO: assert (rshape t == sh
+                   --          `blame` (sh, rshape t, var, t, env)) t
+                   t
+      _ -> error $ "interpretAst: wrong kind in environment"
                    `showFailure`
-                   (valueOf @n :: Int, valueOf @n2 :: Int, var, t, env) -}
-      -> t
+                   (stensorKind @y2, stensorKind @y3, var) -- TODO: , t)
     _ -> error $ "interpretAst: unknown AstVar " ++ show var
       -- this is defeated by 'Undecidable instances and loopy superclasses':
       -- ++ " in environment " ++ show env
+
   AstLet @_ @_ @y2 var u v  | STKR{} <- stensorKind @y2->
     -- We assume there are no nested lets with the same variable.
     let t = interpretAstRuntimeSpecialized env u
@@ -533,18 +531,6 @@ interpretAst !env = \case
         t2 = interpretAstDual env u'
     in rD t1 t2
 
-  AstVarS @sh @r var ->
-    let var2 = mkAstVarName @FullSpan @(TKS r sh) (varNameToAstVarId var)  -- TODO
-   in case DMap.lookup var2 env of
-    Just (AstEnvElemTuple @ranked @y t) {- TODO: @r2 @sh2 t) -> case sameShape @sh2 @sh of
-      Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
-        Just Refl -> t
-        _ -> error "interpretAst: scalar mismatch"
-      Nothing -> error $ "interpretAst: wrong shape in environment"
-                         `showFailure`
-                         (shapeT @sh, shapeT @sh2, var, t, env) -}
-      -> t
-    _ -> error $ "interpretAst: unknown AstVarS " ++ show var
   AstLetS var u v ->
     -- We assume there are no nested lets with the same variable.
     let t = interpretAstSRuntimeSpecialized env u
