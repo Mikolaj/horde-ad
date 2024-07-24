@@ -256,9 +256,6 @@ instance AstSpan s => RankedTensor (AstRanked s) where
   rletTKIn stk a f =
     AstRanked
     $ astLetFun @y @s (unRankedY stk a) (unAstRanked . f . rankedY stk)
-  rlet a f =
-    AstRanked
-    $ astLetFun (unAstRanked a) (unAstRanked . f . AstRanked)
 
   rshape = shapeAst . unAstRanked
   rminIndex = AstRanked . fromPrimal . AstMinIndex
@@ -946,7 +943,6 @@ instance AstSpan s => RankedTensor (AstRaw s) where
   rletTKIn stk a f =
     AstRaw
     $ astLetFunRaw @y @s (unRawY stk a) (unAstRaw . f . rawY stk)
-  rlet a f = AstRaw $ astLetFunRaw (unAstRaw a) (unAstRaw . f . AstRaw)
   rshape = shapeAst . unAstRaw
   rminIndex = AstRaw . fromPrimal . AstMinIndex . astSpanPrimal . unAstRaw
   rmaxIndex = AstRaw . fromPrimal . AstMaxIndex . astSpanPrimal . unAstRaw
@@ -1206,9 +1202,6 @@ instance AstSpan s => RankedTensor (AstNoVectorize s) where
   rletTKIn stk a f =
     AstNoVectorize
     $ astLetFun @y @s (unNoVectorizeY stk a) (unAstNoVectorize . f . noVectorizeY stk)
-  rlet a f =
-    astNoVectorize2
-    $ rlet (unAstNoVectorize2 a) (unAstNoVectorize2 . f . astNoVectorize2)
   rshape = rshape . unAstNoVectorize2
   rminIndex = astNoVectorize2 . rminIndex . unAstNoVectorize2
   rmaxIndex = astNoVectorize2 . rmaxIndex . unAstNoVectorize2
@@ -1395,9 +1388,6 @@ instance AstSpan s => RankedTensor (AstNoSimplify s) where
   rletTKIn stk a f =
     AstNoSimplify
     $ astLetFunRaw @y @s (unNoSimplifyY stk a) (unAstNoSimplify . f . noSimplifyY stk)
-  rlet a f =
-    AstNoSimplify
-    $ astLetFunRaw (unAstNoSimplify a) (unAstNoSimplify . f . AstNoSimplify)
   rshape = shapeAst . unAstNoSimplify
   rminIndex = AstNoSimplify . fromPrimal . AstMinIndex
               . astSpanPrimal . unAstNoSimplify
