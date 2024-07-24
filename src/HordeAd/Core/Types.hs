@@ -33,11 +33,11 @@ import Data.Boolean (Boolean (..))
 import Data.Int (Int64)
 import Data.Kind (Constraint, Type)
 import Data.Proxy (Proxy (Proxy))
-import Data.Type.Equality ((:~:) (Refl))
+import Data.Type.Equality (testEquality, (:~:) (Refl))
 import GHC.TypeLits
   (KnownNat, Nat, SNat, fromSNat, pattern SNat, type (+), withSomeSNat)
 import Numeric.LinearAlgebra (Numeric, Vector)
-import Type.Reflection (TypeRep, Typeable, eqTypeRep, typeRep, (:~~:) (HRefl))
+import Type.Reflection (TypeRep, Typeable, typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Internal.Arith qualified as Nested.Internal.Arith
@@ -150,7 +150,7 @@ data STensorKindType y where
   STKProduct :: STensorKindType y -> STensorKindType z
              -> STensorKindType (TKProduct y z)
 
-class Typeable y => TensorKind (y :: TensorKindType) where
+class TensorKind (y :: TensorKindType) where
   stensorKind :: STensorKindType y
 
 instance (GoodScalar r, KnownNat n) => TensorKind (TKR r n) where
@@ -163,9 +163,22 @@ instance (TensorKind y, TensorKind z) => TensorKind (TKProduct y z) where
   stensorKind = STKProduct (stensorKind @y) (stensorKind @z)
 
 sameTensorKind :: forall y1 y2. (TensorKind y1, TensorKind y2) => Maybe (y1 :~: y2)
-sameTensorKind = case eqTypeRep (typeRep @y1) (typeRep @y2) of
-                   Just HRefl -> Just Refl
-                   Nothing -> Nothing
+sameTensorKind = sameTK (stensorKind @y1) (stensorKind @y2)
+ where
+  sameTK :: STensorKindType y1' -> STensorKindType y2' -> Maybe (y1' :~: y2')
+  sameTK y1 y2 = case (y1, y2) of
+    (STKR r1 snat1, STKR r2 snat2) ->
+      case (testEquality r1 r2, testEquality snat1 snat2) of
+        (Just Refl, Just Refl) -> Just Refl
+        _ -> Nothing
+    (STKS r1 shs1, STKS r2 shs2) ->
+      case (testEquality r1 r2, testEquality shs1 shs2) of
+        (Just Refl, Just Refl) -> Just Refl
+        _ -> Nothing
+    (STKProduct x1 z1, STKProduct x2 z2) -> case (sameTK x1 x2, sameTK z1 z2) of
+      (Just Refl, Just Refl) -> Just Refl
+      _ -> Nothing
+    _ -> Nothing
 
 type family InterpretationTarget ranked y where
   InterpretationTarget ranked (TKR r n) = ranked r n
