@@ -73,15 +73,15 @@ class ( Num (IntOf ranked), IntegralF (IntOf ranked), CRanked ranked Num
       , TensorSupports Integral IntegralF ranked )
       => RankedTensor (ranked :: RankedTensorType) where
 
-  rletTKIn :: (KnownNat n, GoodScalar r)
-           => InterpretationTarget ranked y
+  rletTKIn :: (KnownNat n, GoodScalar r, TensorKind y)
+           => STensorKindType y -> InterpretationTarget ranked y
            -> (InterpretationTarget ranked y -> ranked r n)
            -> ranked r n
 
   rlet :: forall n m r r2. (KnownNat n, KnownNat m, GoodScalar r, GoodScalar r2)
        => ranked r n -> (ranked r n -> ranked r2 m)
        -> ranked r2 m
-  rlet a f = rletTKIn @_ @m @r2 @(TKR r n) a f
+  rlet a f = rletTKIn @_ @m @r2 (STKR typeRep SNat) a f
 
   -- Integer codomain
   rshape :: (GoodScalar r, KnownNat n) => ranked r n -> IShR n

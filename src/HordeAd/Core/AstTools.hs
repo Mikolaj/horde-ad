@@ -5,7 +5,8 @@
 -- or resulting from the differentiation.
 module HordeAd.Core.AstTools
   ( -- * Shape calculation
-    shapeAst, lengthAst, shapeAstHVector, shapeAstHFun, domainShapesAstHFun
+    shapeAstFull, shapeAst
+  , lengthAst, shapeAstHVector, shapeAstHFun, domainShapesAstHFun
     -- * Variable occurrence detection
   , varInAst, varInAstBool, varInIndex
   , varInIndexS
@@ -38,6 +39,15 @@ import HordeAd.Core.Types
 import HordeAd.Util.SizedList
 
 -- * Shape calculation
+
+shapeAstFull :: forall s y.
+                STensorKindType y -> AstTensor s y -> TensorKindFull y
+shapeAstFull stk t = case stk of
+  STKR{} -> TKFR $ shapeAst t
+  STKS{} -> TKFS
+  STKProduct stk1 stk2 -> case t of
+    AstPair t1 t2 -> TKFProduct (shapeAstFull stk1 t1) (shapeAstFull stk2 t2)
+    _ -> error "TODO"
 
 -- This is cheap and dirty. We don't shape-check the terms and we don't
 -- unify or produce (partial) results with variables. Instead, we investigate

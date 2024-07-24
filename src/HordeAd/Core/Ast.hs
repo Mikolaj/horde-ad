@@ -252,8 +252,7 @@ data AstTensor :: AstSpanType -> TensorKindType -> Type where
   -- Here starts the product of tensors part.
   AstPair :: AstTensor s y -> AstTensor s z
           -> AstTensor s (TKProduct y z)
-  AstLetPairIn :: ( AstSpan s, Show (AstTensor s (TKProduct y z))
-                  , TensorKind y, TensorKind z )
+  AstLetPairIn :: (AstSpan s, TensorKind y, TensorKind z)
                => AstVarName s y -> AstVarName s z
                -> AstTensor s (TKProduct y z)
                -> AstTensor s2 x
@@ -265,8 +264,7 @@ data AstTensor :: AstSpanType -> TensorKindType -> Type where
   -- The r variable is existential here, so a proper specialization needs
   -- to be picked explicitly at runtime.
   AstLet :: forall n r y s s2.
-            ( KnownNat n, GoodScalar r, AstSpan s, TensorKind y
-            , Show (AstTensor s y) )
+            (KnownNat n, GoodScalar r, AstSpan s, TensorKind y)
          => AstVarName s y -> AstTensor s y
          -> AstTensor s2 (TKR r n)
          -> AstTensor s2 (TKR r n)
@@ -495,10 +493,7 @@ data AstTensor :: AstSpanType -> TensorKindType -> Type where
         => AstTensor PrimalSpan (TKS r sh) -> AstTensor DualSpan (TKS r sh)
         -> AstTensor FullSpan (TKS r sh)
 
-deriving instance GoodScalar r => Show (AstTensor s (TKR r n))
-deriving instance GoodScalar r => Show (AstTensor s (TKS r sh))
-deriving instance (Show (AstTensor s y), Show (AstTensor s z))
-                  => Show (AstTensor s (TKProduct y z))
+deriving instance Show (AstTensor s y)
 
 type AstDynamic (s :: AstSpanType) = DynamicTensor (AstRanked s)
 

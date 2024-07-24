@@ -170,7 +170,7 @@ instance AdaptableHVector ranked a
 -- The ADVal Double and ADVal Float instantiations are only used
 -- in tests. None others are used anywhere.
 instance ADReady ranked => RankedTensor (ADVal ranked) where
-  rletTKIn a f = f a  -- TODO: rshare
+  rletTKIn _ a f = f a  -- TODO: rshare
 
   rlet (D u u') f =
     let !var2 = rshare u

@@ -1,4 +1,4 @@
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE QuantifiedConstraints, UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -229,8 +229,33 @@ instance (GoodScalar r, KnownNat n)
   type Value (AstRanked FullSpan r n) = ORArray r n
   fromValue t = AstRanked $ fromPrimal $ AstConst $ runFlipR t
 
+rankedY :: forall y s.
+           STensorKindType y -> AstTensor s y
+        -> InterpretationTarget (AstRanked s) y
+rankedY stk t = case stk of
+  STKR{} -> AstRanked t
+  STKS{} -> AstShaped t
+  STKProduct stk1 stk2 -> case t of
+    AstPair t1 t2 -> (rankedY stk1 t1, rankedY stk2 t2)
+    _ -> error "TODO"
+
+unRankedY :: forall y s.
+             STensorKindType y -> InterpretationTarget (AstRanked s) y
+          -> AstTensor s y
+unRankedY stk t = case stk of
+  STKR{} -> unAstRanked t
+  STKS{} -> unAstShaped t
+  STKProduct stk1 stk2 -> AstPair (unRankedY stk1 $ fst t)
+                                  (unRankedY stk2 $ snd t)
+
 instance AstSpan s => RankedTensor (AstRanked s) where
-  rletTKIn a f = f a  -- TODO
+  rletTKIn :: forall y n r. (TensorKind y, KnownNat n, GoodScalar r)
+           => STensorKindType y -> InterpretationTarget (AstRanked s) y
+           -> (InterpretationTarget (AstRanked s) y -> AstRanked s r n)
+           -> AstRanked s r n
+  rletTKIn stk a f =
+    AstRanked
+    $ astLetFun @y @s (unRankedY stk a) (unAstRanked . f . rankedY stk)
   rlet a f =
     AstRanked
     $ astLetFun (unAstRanked a) (unAstRanked . f . AstRanked)
@@ -331,12 +356,13 @@ astSpanD _ u' | Just Refl <- sameAstSpan @s @DualSpan = u'
 astSpanD u u' | Just Refl <- sameAstSpan @s @FullSpan = AstD u u'
 astSpanD _ _ = error "a spuriuos case for pattern match coverage"
 
-astLetFun :: (KnownNat n, KnownNat m, GoodScalar r, GoodScalar r2, AstSpan s)
-          => AstTensor s (TKR r n) -> (AstTensor s (TKR r n) -> AstTensor s (TKR r2 m))
+astLetFun :: forall y s r2 m.
+             (TensorKind y, AstSpan s, GoodScalar r2, KnownNat m)
+          => AstTensor s y -> (AstTensor s y -> AstTensor s (TKR r2 m))
           -> AstTensor s (TKR r2 m)
 astLetFun a f | astIsSmall True a = f a
 astLetFun a f =
-  let sh = TKFR $ shapeAst a
+  let sh = shapeAstFull (stensorKind @y) a
       (var, ast) = funToAst sh f
   in astLet var a ast  -- safe, because subsitution ruled out above
 
@@ -892,8 +918,34 @@ deriving instance Floating (AstTensor s (TKS r sh))
 deriving instance (RealFloatF (AstTensor s (TKS r sh)))
                   => RealFloatF (AstNoSimplifyS s r sh)
 
+rawY :: forall y s.
+           STensorKindType y -> AstTensor s y
+        -> InterpretationTarget (AstRaw s) y
+rawY stk t = case stk of
+  STKR{} -> AstRaw t
+  STKS{} -> AstRawS t
+  STKProduct stk1 stk2 -> case t of
+    AstPair t1 t2 -> (rawY stk1 t1, rawY stk2 t2)
+    _ -> error "TODO"
+
+unRawY :: forall y s.
+             STensorKindType y -> InterpretationTarget (AstRaw s) y
+          -> AstTensor s y
+unRawY stk t = case stk of
+  STKR{} -> unAstRaw t
+  STKS{} -> unAstRawS t
+  STKProduct stk1 stk2 -> AstPair (unRawY stk1 $ fst t)
+                                  (unRawY stk2 $ snd t)
+
 instance AstSpan s => RankedTensor (AstRaw s) where
-  rletTKIn a f = f a  -- TODO
+  rletTKIn :: forall y n r.
+              (TensorKind y, KnownNat n, GoodScalar r)
+           => STensorKindType y -> InterpretationTarget (AstRaw s) y
+           -> (InterpretationTarget (AstRaw s) y -> AstRaw s r n)
+           -> AstRaw s r n
+  rletTKIn stk a f =
+    AstRaw
+    $ astLetFunRaw @y @s (unRawY stk a) (unAstRaw . f . rawY stk)
   rlet a f = AstRaw $ astLetFunRaw (unAstRaw a) (unAstRaw . f . AstRaw)
   rshape = shapeAst . unAstRaw
   rminIndex = AstRaw . fromPrimal . AstMinIndex . astSpanPrimal . unAstRaw
@@ -940,14 +992,15 @@ instance AstSpan s => RankedTensor (AstRaw s) where
   rScale s t = AstRaw $ astDualPart
                $ AstConstant (unAstRaw s) * AstD (unAstRanked $ rzero (rshape s)) (unAstRaw t)
 
-astLetFunRaw :: (KnownNat n, KnownNat m, GoodScalar r, GoodScalar r2, AstSpan s)
-             => AstTensor s (TKR r n) -> (AstTensor s (TKR r n) -> AstTensor s (TKR r2 m))
+astLetFunRaw :: forall y s r2 m.
+                (TensorKind y, AstSpan s, GoodScalar r2, KnownNat m)
+             => AstTensor s y -> (AstTensor s y -> AstTensor s (TKR r2 m))
              -> AstTensor s (TKR r2 m)
 astLetFunRaw a f | astIsSmall True a = f a  -- too important an optimization
 astLetFunRaw a f =
-  let sh = TKFR $ shapeAst a
+  let sh = shapeAstFull (stensorKind @y) a
       (var, ast) = funToAst sh f
-  in AstLet var a ast
+  in AstLet var a ast  -- safe, because subsitution ruled out above
 
 astLetFunRawS :: (KnownShS sh, KnownShS sh2, GoodScalar r, GoodScalar r2, AstSpan s)
               => AstTensor s (TKS r sh) -> (AstTensor s (TKS r sh) -> AstTensor s (TKS r2 sh2))
@@ -1125,8 +1178,34 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
     $ AstMapAccumLDer k accShs bShs eShs f df rf (unAstRawWrap acc0)
                                                  (unAstRawWrap es)
 
+noVectorizeY :: forall y s.
+           STensorKindType y -> AstTensor s y
+        -> InterpretationTarget (AstNoVectorize s) y
+noVectorizeY stk t = case stk of
+  STKR{} -> AstNoVectorize t
+  STKS{} -> AstNoVectorizeS t
+  STKProduct stk1 stk2 -> case t of
+    AstPair t1 t2 -> (noVectorizeY stk1 t1, noVectorizeY stk2 t2)
+    _ -> error "TODO"
+
+unNoVectorizeY :: forall y s.
+             STensorKindType y -> InterpretationTarget (AstNoVectorize s) y
+          -> AstTensor s y
+unNoVectorizeY stk t = case stk of
+  STKR{} -> unAstNoVectorize t
+  STKS{} -> unAstNoVectorizeS t
+  STKProduct stk1 stk2 -> AstPair (unNoVectorizeY stk1 $ fst t)
+                                  (unNoVectorizeY stk2 $ snd t)
+
 instance AstSpan s => RankedTensor (AstNoVectorize s) where
-  rletTKIn a f = f a  -- TODO
+  rletTKIn :: forall y n r.
+              (TensorKind y, KnownNat n, GoodScalar r)
+           => STensorKindType y -> InterpretationTarget (AstNoVectorize s) y
+           -> (InterpretationTarget (AstNoVectorize s) y -> AstNoVectorize s r n)
+           -> AstNoVectorize s r n
+  rletTKIn stk a f =
+    AstNoVectorize
+    $ astLetFun @y @s (unNoVectorizeY stk a) (unAstNoVectorize . f . noVectorizeY stk)
   rlet a f =
     astNoVectorize2
     $ rlet (unAstNoVectorize2 a) (unAstNoVectorize2 . f . astNoVectorize2)
@@ -1289,8 +1368,33 @@ noVectorizeHVector =
       f (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
   in V.map f
 
+noSimplifyY :: forall y s.
+           STensorKindType y -> AstTensor s y
+        -> InterpretationTarget (AstNoSimplify s) y
+noSimplifyY stk t = case stk of
+  STKR{} -> AstNoSimplify t
+  STKS{} -> AstNoSimplifyS t
+  STKProduct stk1 stk2 -> case t of
+    AstPair t1 t2 -> (noSimplifyY stk1 t1, noSimplifyY stk2 t2)
+    _ -> error "TODO"
+
+unNoSimplifyY :: forall y s.
+             STensorKindType y -> InterpretationTarget (AstNoSimplify s) y
+          -> AstTensor s y
+unNoSimplifyY stk t = case stk of
+  STKR{} -> unAstNoSimplify t
+  STKS{} -> unAstNoSimplifyS t
+  STKProduct stk1 stk2 -> AstPair (unNoSimplifyY stk1 $ fst t)
+                                  (unNoSimplifyY stk2 $ snd t)
+
 instance AstSpan s => RankedTensor (AstNoSimplify s) where
-  rletTKIn a f = f a  -- TODO
+  rletTKIn :: forall y n r. (TensorKind y, KnownNat n, GoodScalar r)
+           => STensorKindType y -> InterpretationTarget (AstNoSimplify s) y
+           -> (InterpretationTarget (AstNoSimplify s) y -> AstNoSimplify s r n)
+           -> AstNoSimplify s r n
+  rletTKIn stk a f =
+    AstNoSimplify
+    $ astLetFunRaw @y @s (unNoSimplifyY stk a) (unAstNoSimplify . f . noSimplifyY stk)
   rlet a f =
     AstNoSimplify
     $ astLetFunRaw (unAstNoSimplify a) (unAstNoSimplify . f . AstNoSimplify)

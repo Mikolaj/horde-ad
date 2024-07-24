@@ -1295,8 +1295,7 @@ astSliceLax i k v =
 -- Inlining works for this let constructor, because it has just one variable,
 -- unlike astLetHVectorIn, etc., so we don't try to eliminate it.
 astLet :: forall n r y s s2.
-          ( KnownNat n, GoodScalar r, AstSpan s, AstSpan s2, TensorKind y
-          , Show (AstTensor s y) )
+          (KnownNat n, GoodScalar r, AstSpan s, AstSpan s2, TensorKind y)
        => AstVarName s y -> AstTensor s y
        -> AstTensor s2 (TKR r n)
        -> AstTensor s2 (TKR r n)
