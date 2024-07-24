@@ -5,7 +5,7 @@
 -- with @unsafePerformIO@ outside, so some of the impurity escapes.
 module HordeAd.Core.AstFreshId
   ( unRawHVector, rawHVector
-  , funToAstIOR, funToAstR, funToAstIOS, funToAstS
+  , funToAstIO, funToAst
   , fun1RToAst, fun1SToAst, fun1XToAst
   , fun1DToAst, fun1HToAst, fun1LToAst
   , funToAstRevIO, funToAstRev, funToAstFwdIO, funToAstFwd
@@ -67,45 +67,39 @@ unsafeGetFreshAstVarName :: TensorKind y => IO (AstVarName s y)
 unsafeGetFreshAstVarName =
   mkAstVarName . intToAstVarId <$> atomicAddCounter_ unsafeAstVarCounter 1
 
-funToAstIOR :: forall n m s r r2. (GoodScalar r, KnownNat n)
-            => IShR n -> (AstTensor s (TKR r n) -> AstTensor s (TKR r2 m))
-            -> IO ( AstVarName s (TKR r n)
-                  , AstDynamicVarName
-                  , AstTensor s (TKR r2 m) )
-{-# INLINE funToAstIOR #-}
-funToAstIOR sh f = do
+funToAstIO :: forall y z s. TensorKind y
+           => TensorKindFull y
+           -> (AstTensor s y -> AstTensor s z)
+           -> IO ( AstVarName s y
+                 , AstDynamicVarName
+                 , AstTensor s z )
+{-# INLINE funToAstIO #-}
+funToAstIO sh f = do
   freshId <- unsafeGetFreshAstVarId
-  return $! withShapeP (shapeToList sh) $ \(Proxy @p_sh) ->
-    let varName = mkAstVarName freshId
-        !x = f (AstVar (TKFR sh) varName)
-    in (mkAstVarName freshId{-TODO: varName-}, AstDynamicVarName @Nat @r @p_sh freshId, x)
+  case sh of
+    TKFR @r shr ->
+      return $! withShapeP (shapeToList shr) $ \(Proxy @p_sh) ->
+        let varName = mkAstVarName freshId
+            !x = f (AstVar sh varName)
+            dynVar = AstDynamicVarName @Nat @r @p_sh freshId
+        in (mkAstVarName freshId{-TODO: varName-}, dynVar, x)
+    TKFS @r @sh -> do
+      let varName = mkAstVarName freshId
+          !x = f (AstVar sh varName)
+          dynVar = AstDynamicVarName @[Nat] @r @sh freshId
+      return (mkAstVarName freshId{-TODO: varName-}, dynVar, x)
+    TKFProduct{} -> do
+      let varName = mkAstVarName freshId
+          !x = f (AstVar sh varName)
+      return (mkAstVarName freshId{-TODO: varName-}, undefined, x)
 
-funToAstR :: (GoodScalar r, KnownNat n)
-          => IShR n -> (AstTensor s (TKR r n) -> AstTensor s (TKR r2 m))
-          -> (AstVarName s (TKR r n), AstTensor s (TKR r2 m))
-{-# NOINLINE funToAstR #-}
-funToAstR sh f = unsafePerformIO $ do
-  (!var, _, !ast) <- funToAstIOR sh f
-  return (var, ast)
-
-funToAstIOS :: forall sh sh2 s r r2. (KnownShS sh, GoodScalar r)
-            => (AstTensor s (TKS r sh) -> AstTensor s (TKS r2 sh2))
-            -> IO ( AstVarName s (TKS r sh)
-                  , AstDynamicVarName
-                  , AstTensor s (TKS r2 sh2) )
-{-# INLINE funToAstIOS #-}
-funToAstIOS f = do
-  freshId <- unsafeGetFreshAstVarId
-  let varName = mkAstVarName freshId
-      !x = f (AstVar TKFS varName)
-  return (mkAstVarName freshId{-TODO: varName-}, AstDynamicVarName @[Nat] @r @sh freshId, x)
-
-funToAstS :: forall sh sh2 s r r2. (KnownShS sh, GoodScalar r)
-          => (AstTensor s (TKS r sh) -> AstTensor s (TKS r2 sh2))
-          -> (AstVarName s (TKS r sh), AstTensor s (TKS r2 sh2))
-{-# NOINLINE funToAstS #-}
-funToAstS f = unsafePerformIO $ do
-  (!var, _, !ast) <- funToAstIOS f
+funToAst :: TensorKind y
+         => TensorKindFull y
+         -> (AstTensor s y -> AstTensor s z)
+         -> (AstVarName s y, AstTensor s z)
+{-# NOINLINE funToAst #-}
+funToAst sh f = unsafePerformIO $ do
+  (!var, _, !ast) <- funToAstIO sh f
   return (var, ast)
 
 fun1RToAstIO :: forall s r n. (KnownNat n, GoodScalar r)

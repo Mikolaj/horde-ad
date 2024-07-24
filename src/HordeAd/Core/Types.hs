@@ -146,7 +146,8 @@ type role STensorKindType nominal
 data STensorKindType y where
   STKR :: (GoodScalar r, KnownNat n)
        => TypeRep r -> SNat n -> STensorKindType (TKR r n)
-  STKS :: TypeRep r -> ShS sh -> STensorKindType (TKS r sh)
+  STKS :: (GoodScalar r, KnownShS sh)
+       => TypeRep r -> ShS sh -> STensorKindType (TKS r sh)
   STKProduct :: STensorKindType y -> STensorKindType z
              -> STensorKindType (TKProduct y z)
 
@@ -158,7 +159,7 @@ class TensorKind (y :: TensorKindType) where
 instance (GoodScalar r, KnownNat n) => TensorKind (TKR r n) where
   stensorKind = STKR typeRep SNat
 
-instance (Typeable r, KnownShS sh) => TensorKind (TKS r sh) where
+instance (GoodScalar r, KnownShS sh) => TensorKind (TKS r sh) where
   stensorKind = STKS typeRep knownShS
 
 instance (TensorKind y, TensorKind z) => TensorKind (TKProduct y z) where
@@ -182,10 +183,11 @@ sameTensorKind = sameTK (stensorKind @y1) (stensorKind @y2)
       _ -> Nothing
     _ -> Nothing
 
+-- TODO: the constraints should not be necessary
 type role TensorKindFull nominal
 data TensorKindFull y where
-  TKFR :: ShR n Int -> TensorKindFull (TKR r n)
-  TKFS :: TensorKindFull (TKS r sh)
+  TKFR :: GoodScalar r => ShR n Int -> TensorKindFull (TKR r n)
+  TKFS :: (GoodScalar r, KnownShS sh) => TensorKindFull (TKS r sh)
   TKFProduct :: TensorKindFull y -> TensorKindFull z
              -> TensorKindFull (TKProduct y z)
 

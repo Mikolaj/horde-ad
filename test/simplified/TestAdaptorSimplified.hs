@@ -24,7 +24,7 @@ import Data.Array.Nested.Internal.Shaped qualified as Nested.Internal
 
 import HordeAd
 import HordeAd.Core.AstEnv
-import HordeAd.Core.AstFreshId (funToAstR, funToAstS, resetVarCounter)
+import HordeAd.Core.AstFreshId (funToAst, resetVarCounter)
 import HordeAd.Core.IsPrimal (resetIdCounter)
 import HordeAd.Internal.BackendOX (ORArray, OSArray)
 import HordeAd.Internal.OrthotopeOrphanInstances
@@ -484,7 +484,7 @@ testOverleafPP = do
       fT :: AstRanked FullSpan Double 1
          -> AstRanked FullSpan Double 0
       fT = overleaf
-      (var3, ast3) = funToAstR [28] $ unAstRanked . fT . AstRanked
+      (var3, ast3) = funToAst (TKFR [28]) $ unAstRanked . fT . AstRanked
   "\\" ++ printAstVarName renamesNull var3
        ++ " -> " ++ printAstSimple renamesNull (AstRanked ast3)
     @?= "\\v -> rsum (rgather [50] v (\\[i] -> [remF i 28]))"
@@ -557,7 +557,7 @@ testFooPP = do
   let renames = IM.fromList [(2, "x"), (3, "y"), (4, "z")]
       fooT = foo @(AstRanked FullSpan Double 0)
       foo3 x = fooT (x, x, x)
-      (var3, ast3) = funToAstR ZSR $ unAstRanked . foo3 . AstRanked
+      (var3, ast3) = funToAst (TKFR ZSR) $ unAstRanked . foo3 . AstRanked
   "\\" ++ printAstVarName IM.empty var3
        ++ " -> " ++ printAstSimple IM.empty (AstRanked ast3)
     @?= "\\x1 -> atan2F x1 (x1 * sin x1) + x1 * (x1 * sin x1)"
@@ -589,7 +589,7 @@ testFooLetPP = do
       renamesNull = IM.fromList [(1, "x1"), (2, "x2")]
       fooLetT = fooLet @(AstRanked FullSpan) @Double
       fooLet3 x = fooLetT (x, x, x)
-      (var3, ast3) = funToAstR ZSR $ unAstRanked . fooLet3 . AstRanked
+      (var3, ast3) = funToAst (TKFR ZSR) $ unAstRanked . fooLet3 . AstRanked
   "\\" ++ printAstVarName renamesNull var3
        ++ " -> " ++ printAstSimple renamesNull (AstRanked ast3)
     @?= "\\x1 -> rlet (x1 * sin x1) (\\x2 -> atan2F x1 x2 + x1 * x2)"
@@ -832,7 +832,7 @@ testReluPP = do
       renamesNull = IM.fromList [(1, "m1"), (2, "i2")]
       reluT :: AstRanked FullSpan Double 2 -> AstRanked FullSpan Double 2
       reluT = reluPrimal
-      (var3, ast3) = funToAstR [3, 4] $ unAstRanked . reluT . AstRanked
+      (var3, ast3) = funToAst (TKFR [3, 4]) $ unAstRanked . reluT . AstRanked
   "\\" ++ printAstVarName renamesNull var3
        ++ " -> " ++ printAstSimple renamesNull (AstRanked ast3)
     @?= "\\m1 -> rconstant (rgather [3,4] (rconst (rfromListLinear [2] [0.0,1.0])) (\\[i4, i3] -> [ifF (rprimalPart m1 ! [i4, i3] <=. 0.0) 0 1])) * m1"
@@ -853,7 +853,7 @@ testReluPP2 = do
       reluT2 :: (AstRanked FullSpan Double 1, AstRanked FullSpan Double 0)
              -> AstRanked FullSpan Double 1
       reluT2 (t, r) = reluPrimal (t * rreplicate 5 r)
-      (var3, ast3) = funToAstR [5] (\t -> unAstRanked $ reluT2 (AstRanked t, 7))
+      (var3, ast3) = funToAst (TKFR [5]) (\t -> unAstRanked $ reluT2 (AstRanked t, 7))
   "\\" ++ printAstVarName renamesNull var3
        ++ " -> " ++ printAstSimple renamesNull (AstRanked ast3)
     @?= "\\v1 -> rconstant (rgather [5] (rconst (rfromListLinear [2] [0.0,1.0])) (\\[i2] -> [ifF (rprimalPart v1 ! [i2] * 7.0 <=. 0.0) 0 1])) * (v1 * rconstant (rreplicate 5 7.0))"
@@ -877,7 +877,7 @@ testReluSimplerPP = do
       renamesNull = IM.fromList [(1, "m1"), (2, "i2")]
       reluT :: AstRanked FullSpan Double 2 -> AstRanked FullSpan Double 2
       reluT = relu
-      (var3, ast3) = funToAstR [3, 4] $ unAstRanked . reluT . AstRanked
+      (var3, ast3) = funToAst (TKFR [3, 4]) $ unAstRanked . reluT . AstRanked
   "\\" ++ printAstVarName renamesNull var3
        ++ " -> " ++ printAstSimple renamesNull (AstRanked ast3)
     @?= "\\m1 -> rconstant (rgather [3,4] (rconst (rfromListLinear [2] [0.0,1.0])) (\\[i4, i3] -> [ifF (rprimalPart m1 ! [i4, i3] <=. 0.0) 0 1])) * m1"
@@ -898,7 +898,7 @@ testReluSimplerPP2 = do
       reluT2 :: (AstRanked FullSpan Double 1, AstRanked FullSpan Double 0)
              -> AstRanked FullSpan Double 1
       reluT2 (t, r) = relu (t * rreplicate 5 r)
-      (var3, ast3) = funToAstR [5] (\t -> unAstRanked $ reluT2 (AstRanked t, 7))
+      (var3, ast3) = funToAst (TKFR [5]) (\t -> unAstRanked $ reluT2 (AstRanked t, 7))
   "\\" ++ printAstVarName renamesNull var3
        ++ " -> " ++ printAstSimple renamesNull (AstRanked ast3)
     @?= "\\v1 -> rlet (v1 * rconstant (rreplicate 5 7.0)) (\\i2 -> rconstant (rgather [5] (rconst (rfromListLinear [2] [0.0,1.0])) (\\[i3] -> [ifF (rprimalPart i2 ! [i3] <=. 0.0) 0 1])) * i2)"
@@ -917,7 +917,7 @@ testReluSimplerPP3 = do
       reluT2 :: (AstRanked FullSpan Double 2, AstRanked FullSpan Double 0)
              -> AstRanked FullSpan Double 2
       reluT2 (t, r) = relu (t * rreplicate 3 (rreplicate 4 r))
-      (var3, ast3) = funToAstR [3, 4] (\t -> unAstRanked $ reluT2 (AstRanked t, 7))
+      (var3, ast3) = funToAst (TKFR [3, 4]) (\t -> unAstRanked $ reluT2 (AstRanked t, 7))
   "\\" ++ printAstVarName renamesNull var3
        ++ " -> " ++ printAstSimple renamesNull (AstRanked ast3)
     @?= "\\v1 -> rlet (v1 * rconstant (rreplicate 3 (rreplicate 4 7.0))) (\\i2 -> rconstant (rgather [3,4] (rconst (rfromListLinear [2] [0.0,1.0])) (\\[i5, i4] -> [ifF (rprimalPart i2 ! [i5, i4] <=. 0.0) 0 1])) * i2)"
@@ -946,7 +946,7 @@ testReluSimplerPP4 = do
       reluT2 :: (AstRanked FullSpan Double 2, AstRanked FullSpan Double 0)
              -> AstRanked FullSpan Double 2
       reluT2 (t, r) = relu (t * rreplicate0N [3, 4] r)
-      (var3, ast3) = funToAstR [3, 4] (\t -> unAstRanked $ reluT2 (AstRanked t, 7))
+      (var3, ast3) = funToAst (TKFR [3, 4]) (\t -> unAstRanked $ reluT2 (AstRanked t, 7))
   "\\" ++ printAstVarName renamesNull var3
        ++ " -> " ++ printAstSimple renamesNull (AstRanked ast3)
     @?= "\\v1 -> rlet (v1 * rconstant (rreshape [3,4] (rreplicate 12 7.0))) (\\i2 -> rconstant (rgather [3,4] (rconst (rfromListLinear [2] [0.0,1.0])) (\\[i5, i4] -> [ifF (rprimalPart i2 ! [i5, i4] <=. 0.0) 0 1])) * i2)"
@@ -974,7 +974,7 @@ testReluSimplerPP4S = do
       reluT2 :: (AstShaped FullSpan Float '[3, 4], AstShaped FullSpan Float '[])
              -> AstShaped FullSpan Float '[3, 4]
       reluT2 (t, r) = reluS (t * sreplicate0N r)
-      (var3, ast3) = funToAstS (\t -> unAstShaped $ reluT2 (AstShaped t, srepl 7))
+      (var3, ast3) = funToAst TKFS (\t -> unAstShaped $ reluT2 (AstShaped t, srepl 7))
   "\\" ++ printAstVarName renamesNull var3
        ++ " -> " ++ printAstSimpleS renamesNull (AstShaped ast3)
     @?= "\\v1 -> slet (v1 * sconstant (sreshape (sreplicate 7.0))) (\\i2 -> sconstant (sgather (sreplicate (sconst @[2] (sfromListLinear [2] [0.0,1.0]))) (\\[i5, i4] -> [i5, ifF (sprimalPart i2 !$ [i5, i4] <=. 0.0) 0 1])) * i2)"
@@ -1026,7 +1026,7 @@ testReluMaxPP = do
       renamesNull = IM.fromList [(1, "m1"), (2, "i2")]
       reluT :: AstRanked FullSpan Double 2 -> AstRanked FullSpan Double 2
       reluT = reluMax
-      (var3, ast3) = funToAstR [3, 4] $ unAstRanked . reluT . AstRanked
+      (var3, ast3) = funToAst (TKFR [3, 4]) $ unAstRanked . reluT . AstRanked
   "\\" ++ printAstVarName renamesNull var3
        ++ " -> " ++ printAstSimple renamesNull (AstRanked ast3)
     @?= "\\m1 -> rgather [3,4] (rfromVector (fromList [rconstant (rreplicate 3 (rreplicate 4 0.0)), m1])) (\\[i5, i4] -> [ifF (0.0 >=. rprimalPart m1 ! [i5, i4]) 0 1, i5, i4])"
@@ -1047,7 +1047,7 @@ testReluMaxPP2 = do
       reluT2 :: (AstRanked FullSpan Double 1, AstRanked FullSpan Double 0)
              -> AstRanked FullSpan Double 1
       reluT2 (t, r) = reluMax (t * rreplicate 5 r)
-      (var3, ast3) = funToAstR [5] (\t -> unAstRanked $ reluT2 (AstRanked t, 7))
+      (var3, ast3) = funToAst (TKFR [5]) (\t -> unAstRanked $ reluT2 (AstRanked t, 7))
   "\\" ++ printAstVarName renamesNull var3
        ++ " -> " ++ printAstSimple renamesNull (AstRanked ast3)
     @?= "\\v1 -> rgather [5] (rfromVector (fromList [rconstant (rreplicate 5 0.0), v1 * rconstant (rreplicate 5 7.0)])) (\\[i3] -> [ifF (0.0 >=. rprimalPart v1 ! [i3] * 7.0) 0 1, i3])"

@@ -20,7 +20,7 @@ import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 import Data.Array.Nested.Internal.Shaped qualified as Nested.Internal
 
 import HordeAd
-import HordeAd.Core.AstFreshId (funToAstR, resetVarCounter)
+import HordeAd.Core.AstFreshId (funToAst, resetVarCounter)
 import HordeAd.Internal.BackendOX (ORArray, OSArray)
 import HordeAd.Internal.OrthotopeOrphanInstances
   (FlipR (..), IntegralF (..), RealFloatF (..))
@@ -648,7 +648,7 @@ testConcatBuild3PP = do
   resetVarCounter
   let renames = IM.empty
       t = concatBuild3 @(AstRanked FullSpan) @Float
-      (var3, ast3) = funToAstR [3] $ unAstRanked . t . AstRanked
+      (var3, ast3) = funToAst (TKFR [3]) $ unAstRanked . t . AstRanked
   "\\" ++ printAstVarName renames var3
        ++ " -> " ++ printAstSimple renames (AstRanked ast3)
     @?= "\\v1 -> rconstant (rfromIntegral (rgather [5,2] (rfromVector (fromList [rreplicate 5 (rslice 0 2 riota), quotF (rtranspose [1,0] (rreplicate 2 (rslice 0 5 riota))) (rreplicate 5 (rreplicate 2 1 + rslice 0 2 riota))])) (\\[i5, i4] -> [ifF (i4 >=. quotF i5 (1 + i4)) 0 1, i5, i4])))"

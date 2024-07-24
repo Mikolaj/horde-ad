@@ -336,8 +336,8 @@ astLetFun :: (KnownNat n, KnownNat m, GoodScalar r, GoodScalar r2, AstSpan s)
           -> AstTensor s (TKR r2 m)
 astLetFun a f | astIsSmall True a = f a
 astLetFun a f =
-  let sh = shapeAst a
-      (var, ast) = funToAstR sh f
+  let sh = TKFR $ shapeAst a
+      (var, ast) = funToAst sh f
   in astLet var a ast  -- safe, because subsitution ruled out above
 
 -- This is a vectorizing combinator that also simplifies
@@ -470,7 +470,7 @@ astLetFunS :: ( KnownShS sh, KnownShS sh2, GoodScalar r, GoodScalar r2
           -> AstTensor s (TKS r2 sh2)
 astLetFunS a f | astIsSmall True a = f a
 astLetFunS a f =
-  let (var, ast) = funToAstS f
+  let (var, ast) = funToAst TKFS f
   in astLetS var a ast  -- safe, because subsitution ruled out above
 
 astBuild1VectorizeS :: (KnownNat n, KnownShS sh, GoodScalar r, AstSpan s)
@@ -664,8 +664,8 @@ astLetInHVectorFun :: (KnownNat n, GoodScalar r, AstSpan s)
 {-# NOINLINE astLetInHVectorFun #-}
 astLetInHVectorFun a f | astIsSmall True a = f a
 astLetInHVectorFun a f = unsafePerformIO $ do  -- the id causes trouble
-  let sh = shapeAst a
-  (!var, _, !ast) <- funToAstIOR sh id
+  let sh = TKFR $ shapeAst a
+  (!var, _, !ast) <- funToAstIO sh id
   return $! astLetInHVector var a (f ast)
               -- safe because subsitution ruled out above
 
@@ -675,7 +675,7 @@ astLetInHVectorFunS :: (KnownShS sh, GoodScalar r, AstSpan s)
 {-# NOINLINE astLetInHVectorFunS #-}
 astLetInHVectorFunS a f | astIsSmall True a = f a
 astLetInHVectorFunS a f = unsafePerformIO $ do  -- the id causes trouble
-  (!var, _, !ast) <- funToAstIOS id
+  (!var, _, !ast) <- funToAstIO TKFS id
   return $! astLetInHVectorS var a (f ast)
               -- safe because subsitution ruled out above
 
@@ -945,8 +945,8 @@ astLetFunRaw :: (KnownNat n, KnownNat m, GoodScalar r, GoodScalar r2, AstSpan s)
              -> AstTensor s (TKR r2 m)
 astLetFunRaw a f | astIsSmall True a = f a  -- too important an optimization
 astLetFunRaw a f =
-  let sh = shapeAst a
-      (var, ast) = funToAstR sh f
+  let sh = TKFR $ shapeAst a
+      (var, ast) = funToAst sh f
   in AstLet var a ast
 
 astLetFunRawS :: (KnownShS sh, KnownShS sh2, GoodScalar r, GoodScalar r2, AstSpan s)
@@ -954,7 +954,7 @@ astLetFunRawS :: (KnownShS sh, KnownShS sh2, GoodScalar r, GoodScalar r2, AstSpa
               -> AstTensor s (TKS r2 sh2)
 astLetFunRawS a f | astIsSmall True a = f a
 astLetFunRawS a f =
-  let (var, ast) = funToAstS f
+  let (var, ast) = funToAst TKFS f
   in AstLetS var a ast
 
 astLetHVectorInFunRaw
@@ -1012,8 +1012,8 @@ astLetInHVectorFunRaw :: (KnownNat n, GoodScalar r, AstSpan s)
                       -> AstHVector s
 astLetInHVectorFunRaw a f | astIsSmall True a = f a
 astLetInHVectorFunRaw a f = unsafePerformIO $ do  -- the id causes trouble
-  let sh = shapeAst a
-  (!var, _, !ast) <- funToAstIOR sh id
+  let sh = TKFR $ shapeAst a
+  (!var, _, !ast) <- funToAstIO sh id
   return $! AstLetInHVector var a (f ast)
 
 astLetInHVectorFunRawS :: (KnownShS sh, GoodScalar r, AstSpan s)
@@ -1021,7 +1021,7 @@ astLetInHVectorFunRawS :: (KnownShS sh, GoodScalar r, AstSpan s)
                        -> AstHVector s
 astLetInHVectorFunRawS a f | astIsSmall True a = f a
 astLetInHVectorFunRawS a f = unsafePerformIO $ do  -- the id causes trouble
-  (!var, _, !ast) <- funToAstIOS id
+  (!var, _, !ast) <- funToAstIO TKFS id
   return $! AstLetInHVectorS var a (f ast)
 
 instance AstSpan s => ShapedTensor (AstRawS s) where

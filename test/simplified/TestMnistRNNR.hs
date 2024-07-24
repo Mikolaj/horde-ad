@@ -181,11 +181,11 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
          <- funToAstRevIO (voidFromHVector hVectorInit)
        let testDataR = packBatchR testData
        (varGlyph, _, astGlyph) <-
-         funToAstIOR
-           (miniBatchSize :$: sizeMnistHeightInt :$: sizeMnistWidthInt :$: ZSR)
+         funToAstIO
+           (TKFR $ miniBatchSize :$: sizeMnistHeightInt :$: sizeMnistWidthInt :$: ZSR)
            id
        (varLabel, _, astLabel) <-
-         funToAstIOR (miniBatchSize :$: sizeMnistLabelInt :$: ZSR) id
+         funToAstIO (TKFR $ miniBatchSize :$: sizeMnistLabelInt :$: ZSR) id
        let ast :: AstRanked PrimalSpan r 0
            ast = MnistRnnRanked2.rnnMnistLossFusedR
                    miniBatchSize (AstRanked astGlyph, AstRanked astLabel)
@@ -288,11 +288,11 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
                    <$> loadMnistData testGlyphsPath testLabelsPath
        let testDataR = packBatchR testData
        (varGlyph, varGlyphD, astGlyph) <-
-         funToAstIOR
-           (miniBatchSize :$: sizeMnistHeightInt :$: sizeMnistWidthInt :$: ZSR)
+         funToAstIO
+           (TKFR $ miniBatchSize :$: sizeMnistHeightInt :$: sizeMnistWidthInt :$: ZSR)
            id
        (varLabel, varLabelD, astLabel) <-
-         funToAstIOR (miniBatchSize :$: sizeMnistLabelInt :$: ZSR) id
+         funToAstIO (TKFR $ miniBatchSize :$: sizeMnistLabelInt :$: ZSR) id
        let envInit = extendEnv varGlyph (rconstant $ AstRaw astGlyph)
                      $ extendEnv varLabel (rconstant $ AstRaw astLabel)
                        emptyEnv
