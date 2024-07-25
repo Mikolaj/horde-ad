@@ -189,7 +189,7 @@ interpretAst !env = \case
   AstVar @y2 _sh var ->
    let var2 = mkAstVarName @FullSpan @y2 (varNameToAstVarId var)  -- TODO
    in case DMap.lookup var2 env of
-    Just (AstEnvElemTuple @_ranked @y3 t) -> case sameTensorKind @y2 @y3 of
+    Just (AstEnvElemTuple @_ @y3 t) -> case sameTensorKind @y2 @y3 of
       Just Refl -> -- TODO: assert (rshape t == sh
                    --          `blame` (sh, rshape t, var, t, env)) t
                    t
@@ -206,13 +206,20 @@ interpretAst !env = \case
     in rletTKIn (stensorKind @z1) t1 $ \w1 ->
          rletTKIn (stensorKind @z2) t2 $ \w2 ->
            interpretAst (env2 w1 w2) v
-  AstLet @_ @_ @y2 var u v | STKR{} <- stensorKind @y2 ->
-    -- We assume there are no nested lets with the same variable.
-    let t = interpretAstRuntimeSpecialized env u
-        env2 w = extendEnv var w env
-    in rlet t (\w -> interpretAst (env2 w) v)
--- TODO:    in rletTKIn @_ @_ @_ @y2 t (\w -> interpretAst (env2 w) v)
-  AstLet{} -> error "TODO"
+  AstLet @_ @_ @y2 var u v -> case stensorKind @y2 of
+    STKR{} ->
+      -- We assume there are no nested lets with the same variable.
+      let t = interpretAstRuntimeSpecialized env u
+          env2 w = extendEnv var w env
+      in rlet {-TODO, changes test results: rletTKIn stk-} t (\w -> interpretAst (env2 w) v)
+    stk@STKS{} ->
+      let t = interpretAstSRuntimeSpecialized env u
+          env2 w = extendEnv var w env
+      in rletTKIn stk t (\w -> interpretAst (env2 w) v)
+    stk@STKProduct{} ->
+      let t = interpretAst env u
+          env2 w = extendEnv var w env
+      in rletTKIn stk t (\w -> interpretAst (env2 w) v)
   AstShare{} -> error "interpretAst: AstShare"
   AstCond b a1 a2 ->
     let b1 = interpretAstBool env b
@@ -532,12 +539,20 @@ interpretAst !env = \case
     in sletTKIn (stensorKind @z1) t1 $ \w1 ->
          sletTKIn (stensorKind @z2) t2 $ \w2 ->
            interpretAst (env2 w1 w2) v
-  AstLetS @_ @_ @y2 var u v | STKS{} <- stensorKind @y2 ->
-    -- We assume there are no nested lets with the same variable.
-    let t = interpretAstSRuntimeSpecialized env u
-        env2 w = extendEnv var w env
-    in slet t (\w -> interpretAst (env2 w) v)
-  AstLetS{} -> error "TODO"
+  AstLetS @_ @_ @y2 var u v -> case stensorKind @y2 of
+    stk@STKR{} ->
+      -- We assume there are no nested lets with the same variable.
+      let t = interpretAstRuntimeSpecialized env u
+          env2 w = extendEnv var w env
+      in sletTKIn stk t (\w -> interpretAst (env2 w) v)
+    STKS{} ->
+      let t = interpretAstSRuntimeSpecialized env u
+          env2 w = extendEnv var w env
+      in slet {-TODO, changes test results: sletTKIn stk-} t (\w -> interpretAst (env2 w) v)
+    stk@STKProduct{} ->
+      let t = interpretAst env u
+          env2 w = extendEnv var w env
+      in sletTKIn stk t (\w -> interpretAst (env2 w) v)
   AstShareS{} -> error "interpretAst: AstShareS"
   AstCondS b a1 a2 ->
     let b1 = interpretAstBool env b
