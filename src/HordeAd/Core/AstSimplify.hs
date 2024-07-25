@@ -259,8 +259,8 @@ astNonIndexStep
   => AstTensor s (TKR r n) -> AstTensor s (TKR r n)
 astNonIndexStep t = case t of
   Ast.AstLetPairIn{} -> t
-
   Ast.AstVar{} -> t
+
   Ast.AstLet var u v -> astLet var u v
   Ast.AstShare{} -> t  -- TODO: error "astNonIndexStep: AstShare"
   Ast.AstCond a b c -> astCond a b c
@@ -316,9 +316,9 @@ astNonIndexStepS
   :: (KnownShS sh, GoodScalar r, AstSpan s)
   => AstTensor s (TKS r sh) -> AstTensor s (TKS r sh)
 astNonIndexStepS t = case t of
-  Ast.AstLetPairIn{} -> t
-
+  Ast.AstLetPairInS{} -> t
   Ast.AstVar TKFS _var -> t
+
   Ast.AstLetS var u v -> astLetS var u v
   Ast.AstShareS{} -> t  -- TODO: error "astNonIndexStepS: AstShareS"
   Ast.AstCondS a b c -> astCondS a b c
@@ -438,8 +438,8 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIndex m1)) =
  in case v0 of
   Ast.AstLetPairIn var1 var2 p v ->
     Ast.AstLetPairIn var1 var2 p (astIndexRec v ix)
-
   Ast.AstVar{} -> Ast.AstIndex v0 ix
+
   Ast.AstLet var u v -> astLet var u (astIndexRec v ix)
   Ast.AstShare{} -> Ast.AstIndex v0 ix  -- TODO: error "astIndexKnobsR: AstShare"
   Ast.AstCond b v w ->
@@ -618,10 +618,10 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS shm1)) | Dict <- s
                              (vars2, simplifyAstIndexS ix2)
         else astGatherKnobsS knobs v2 (vars2, ix2)
  in case v0 of
-  Ast.AstLetPairIn var1 var2 p v ->
-    Ast.AstLetPairIn var1 var2 p (astIndexRec v ix)
-
+  Ast.AstLetPairInS var1 var2 p v ->
+    Ast.AstLetPairInS var1 var2 p (astIndexRec v ix)
   Ast.AstVar TKFS _var -> Ast.AstIndexS v0 ix
+
   Ast.AstLetS var u v -> astLetS var u (astIndexRec v ix)
   Ast.AstShareS{} -> Ast.AstIndexS v0 ix  -- TODO: error "astIndexKnobsRS: AstShareS"
   Ast.AstCondS b v w ->
@@ -1339,55 +1339,38 @@ astLetInt _ _ v = v
 
 -- Inlining works for this let constructor, because it has just one variable,
 -- unlike astLetHVectorIn, etc., so we don't try to eliminate it.
-astLetS :: forall sh1 sh2 r r2 s s2.
-           ( KnownShS sh1, KnownShS sh2, GoodScalar r, GoodScalar r2
-           , AstSpan s, AstSpan s2 )
-        => AstVarName s (TKS r sh1)
-        -> AstTensor s (TKS r sh1) -> AstTensor s2 (TKS r2 sh2)
-        -> AstTensor s2 (TKS r2 sh2)
+astLetS :: forall sh r y s s2.
+           ( KnownShS sh, GoodScalar r, AstSpan s, AstSpan s2, TensorKind y )
+        => AstVarName s y -> AstTensor s y
+        -> AstTensor s2 (TKS r sh)
+        -> AstTensor s2 (TKS r sh)
 astLetS var u v | astIsSmall True u =
   fromMaybe v
   $ substitute1Ast (SubstitutionPayload u) (varNameToAstVarId var) v
-astLetS var u v@(Ast.AstVar TKFS var2) =
-  if varNameToAstVarId var2 == varNameToAstVarId var
-  then case sameAstSpan @s @s2 of
-    Just Refl -> case sameShape @sh1 @sh2 of
-      Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
-        Just Refl -> u
-        _ -> error "astLetS: scalar mismatch"
-      _ -> error "astLetS: shape mismatch"
-    _ -> error "astLetS: span mismatch"
-  else v
-astLetS var u v@(Ast.AstConstantS (Ast.AstVar TKFS var2)) =  -- a common noop
-  if varNameToAstVarId var2 == varNameToAstVarId var
-  then case sameAstSpan @s @PrimalSpan of
-    Just Refl -> case sameShape @sh1 @sh2 of
-      Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
-        Just Refl -> Ast.AstConstantS u
-        _ -> error "astLetS: scalar mismatch"
-      _ -> error "astLetS: shape mismatch"
-    _ -> error "astLetS: span mismatch"
-  else v
-astLetS var u v@(Ast.AstPrimalPartS (Ast.AstVar TKFS var2)) =  -- a common noop
-  if varNameToAstVarId var2 == varNameToAstVarId var
-  then case sameAstSpan @s @FullSpan of
-    Just Refl -> case sameShape @sh1 @sh2 of
-      Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
-        Just Refl -> astPrimalPart u
-        _ -> error "astLetS: scalar mismatch"
-      _ -> error "astLetS: shape mismatch"
-    _ -> error "astLetS: span mismatch"
-  else v
-astLetS var u v@(Ast.AstDualPartS (Ast.AstVar TKFS var2)) =  -- a noop
-  if varNameToAstVarId var2 == varNameToAstVarId var
-  then case sameAstSpan @s @FullSpan of
-    Just Refl -> case sameShape @sh1 @sh2 of
-      Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
-        Just Refl -> astDualPart u
-        _ -> error "astLetS: scalar mismatch"
-      _ -> error "astLetS: shape mismatch"
-    _ -> error "astLetS: span mismatch"
-  else v
+astLetS var u v@(Ast.AstVar _ var2) =
+  case sameAstSpan @s @s2 of
+    Just Refl -> case geq var2 var of
+      Just Refl -> u
+      _ -> v
+    _ -> v
+astLetS var u v@(Ast.AstConstantS (Ast.AstVar _ var2)) =  -- a common noop
+  case sameAstSpan @s @PrimalSpan of
+    Just Refl -> case geq var2 var of
+      Just Refl -> Ast.AstConstantS u
+      _ -> v
+    _ -> v
+astLetS var u v@(Ast.AstPrimalPartS (Ast.AstVar _ var2)) =  -- a common noop
+  case sameAstSpan @s @FullSpan of
+    Just Refl -> case geq var2 var of
+      Just Refl -> astPrimalPart u
+      _ -> v
+    _ -> v
+astLetS var u v@(Ast.AstDualPartS (Ast.AstVar _ var2)) =  -- a noop
+  case sameAstSpan @s @FullSpan of
+    Just Refl -> case geq var2 var of
+      Just Refl -> astDualPart u
+      _ -> v
+    _ -> v
 astLetS var u v = Ast.AstLetS var u v
 
 astCond :: (GoodScalar r, KnownNat n)
@@ -2043,11 +2026,13 @@ astPrimalPart t = case t of
   Ast.AstPair t1 t2 -> Ast.AstPair (astPrimalPart t1) (astPrimalPart t2)
   Ast.AstLetPairIn var1 var2 p v ->
     Ast.AstLetPairIn var1 var2 p (astPrimalPart v)
-
+  Ast.AstLetPairInS var1 var2 p v ->
+    Ast.AstLetPairInS var1 var2 p (astPrimalPart v)
   Ast.AstVar sh _var -> case sh of
     TKFR{} -> Ast.AstPrimalPart t  -- the only normal form
     TKFS{} -> Ast.AstPrimalPartS t
     TKFProduct{} -> error "TODO"
+
   Ast.AstLet var u v -> astLet var u (astPrimalPart v)
   Ast.AstShare{} -> error "astPrimalPart: AstShare"
   AstN1 opCode u -> AstN1 opCode (astPrimalPart u)
@@ -2116,11 +2101,13 @@ astDualPart t = case t of
   Ast.AstPair t1 t2 -> Ast.AstPair (astDualPart t1) (astDualPart t2)
   Ast.AstLetPairIn var1 var2 p v ->
     Ast.AstLetPairIn var1 var2 p (astDualPart v)
-
+  Ast.AstLetPairInS var1 var2 p v ->
+    Ast.AstLetPairInS var1 var2 p (astDualPart v)
   Ast.AstVar sh _var -> case sh of
     TKFR{} -> Ast.AstDualPart t
     TKFS{} -> Ast.AstDualPartS t
     TKFProduct{} -> error "TODO"
+
   Ast.AstLet var u v -> astLet var u (astDualPart v)
   Ast.AstShare{} -> error "astDualPart: AstShare"
   AstN1{} -> Ast.AstDualPart t  -- stuck; the ops are not defined on dual part
@@ -2368,8 +2355,10 @@ simplifyAst t = case t of
   Ast.AstPair t1 t2 -> Ast.AstPair (simplifyAst t1) (simplifyAst t2)
   Ast.AstLetPairIn var1 var2 p v ->
     Ast.AstLetPairIn var1 var2 (simplifyAst p) (simplifyAst v)
-
+  Ast.AstLetPairInS var1 var2 p v ->
+    Ast.AstLetPairInS var1 var2 (simplifyAst p) (simplifyAst v)
   Ast.AstVar{} -> t
+
   Ast.AstLet var u v -> astLet var (simplifyAst u) (simplifyAst v)
   Ast.AstShare{} -> error "simplifyAst: AstShare"
   Ast.AstCond b a2 a3 ->
@@ -2551,8 +2540,10 @@ expandAst t = case t of
   Ast.AstPair t1 t2 -> Ast.AstPair (expandAst t1) (expandAst t2)
   Ast.AstLetPairIn var1 var2 p v ->
     Ast.AstLetPairIn var1 var2 (expandAst p) (expandAst v)
-
+  Ast.AstLetPairInS var1 var2 p v ->
+    Ast.AstLetPairInS var1 var2 (expandAst p) (expandAst v)
   Ast.AstVar{} -> t
+
   Ast.AstLet var u v -> astLet var (expandAst u) (expandAst v)
   Ast.AstShare{} -> error "expandAst: AstShare"
   Ast.AstCond b a2 a3 ->
@@ -3068,6 +3059,11 @@ substitute1Ast i var v1 = case v1 of
       (Nothing, Nothing) -> Nothing
       (mu, mv) ->
         Just $ Ast.AstLetPairIn var1 var2 (fromMaybe u mu) (fromMaybe v mv)
+  Ast.AstLetPairInS var1 var2 u v ->
+    case (substitute1Ast i var u, substitute1Ast i var v) of
+      (Nothing, Nothing) -> Nothing
+      (mu, mv) ->
+        Just $ Ast.AstLetPairInS var1 var2 (fromMaybe u mu) (fromMaybe v mv)
   Ast.AstVar @y2 _sh var2 ->
     if var == varNameToAstVarId var2
     then case i of

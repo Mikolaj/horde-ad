@@ -151,6 +151,7 @@ type instance PrimalOf OSArray = OSArray
 type instance DualOf OSArray = DummyDual
 
 instance ShapedTensor OSArray where
+  sletTKIn _ a f = f a
   sminIndex = FlipS . tminIndexS . runFlipS
   smaxIndex = FlipS . tmaxIndexS . runFlipS
   sfloor = FlipS . tfloorS . runFlipS

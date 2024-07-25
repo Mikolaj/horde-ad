@@ -252,11 +252,16 @@ data AstTensor :: AstSpanType -> TensorKindType -> Type where
   -- Here starts the product of tensors part.
   AstPair :: AstTensor s y -> AstTensor s z
           -> AstTensor s (TKProduct y z)
-  AstLetPairIn :: (AstSpan s, TensorKind y, TensorKind z)
+  AstLetPairIn :: (AstSpan s, TensorKind y, TensorKind z, GoodScalar r, KnownNat n)
                => AstVarName s y -> AstVarName s z
                -> AstTensor s (TKProduct y z)
-               -> AstTensor s2 x
-               -> AstTensor s2 x
+               -> AstTensor s2 (TKR r n)
+               -> AstTensor s2 (TKR r n)
+  AstLetPairInS :: (AstSpan s, TensorKind y, TensorKind z, GoodScalar r, KnownShS sh)
+                => AstVarName s y -> AstVarName s z
+                -> AstTensor s (TKProduct y z)
+                -> AstTensor s2 (TKS r sh)
+                -> AstTensor s2 (TKS r sh)
   AstVar :: TensorKind y
          => TensorKindFull y -> AstVarName s y -> AstTensor s y
 
@@ -371,11 +376,11 @@ data AstTensor :: AstSpanType -> TensorKindType -> Type where
        -> AstTensor FullSpan (TKR r n)
 
   -- Here starts the shaped part.
-  AstLetS :: forall sh1 sh2 r r2 s s2.
-             (KnownShS sh1, KnownShS sh2, GoodScalar r, GoodScalar r2, AstSpan s)
-          => AstVarName s (TKS r sh1) -> AstTensor s (TKS r sh1)
-          -> AstTensor s2 (TKS r2 sh2)
-          -> AstTensor s2 (TKS r2 sh2)
+  AstLetS :: forall sh r y s s2.
+             (KnownShS sh, GoodScalar r, AstSpan s, TensorKind y)
+          => AstVarName s y -> AstTensor s y
+          -> AstTensor s2 (TKS r sh)
+          -> AstTensor s2 (TKS r sh)
   AstShareS :: (KnownShS sh, GoodScalar r)
             => AstVarName s (TKS r sh) -> AstTensor s (TKS r sh)
             -> AstTensor s (TKS r sh)

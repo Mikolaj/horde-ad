@@ -431,15 +431,16 @@ build1VS (var, v00) =
       bv = Ast.AstBuild1S (var, v0)
       traceRule = mkTraceRuleS "build1VS" bv v0 1
   in case v0 of
-    Ast.AstLetPairIn var1 var2 p v -> undefined  -- TODO: doable, but complex
+    Ast.AstLetPairInS var1 var2 p v -> undefined  -- TODO: doable, but complex
 
     Ast.AstVar{} ->
       error "build1VS: AstVar can't contain free index variables"
-    Ast.AstLetS var1 u v ->
+    Ast.AstLetS @_ @_ @y var1 u v | STKS{} <- stensorKind @y ->
       let var2 = mkAstVarName (varNameToAstVarId var1)
           v2 = substProjShaped @k var var1 v
       in astLetS var2 (build1VOccurenceUnknownS @k (var, u))
                       (build1VOccurenceUnknownRefreshS (var, v2))
+    Ast.AstLetS{} -> error "TODO"
     Ast.AstShareS{} -> error "build1VS: AstShareS"
     Ast.AstCondS b (Ast.AstConstantS v) (Ast.AstConstantS w) ->
       let t = Ast.AstConstantS

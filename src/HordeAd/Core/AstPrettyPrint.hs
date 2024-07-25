@@ -251,7 +251,30 @@ printAstAux cfg d = \case
              . printAstVar cfg var2
              . showString " -> "
              . printAst cfg 0 v)
-
+  AstLetPairInS var1 var2 p v ->
+    if loseRoudtrip cfg
+    then
+      showParen (d > 10)
+      $ showString "let ("
+        . printAstVar cfg var1
+        . showString ", "
+        . printAstVar cfg var2
+        . showString ") = "
+        . printAst cfg 0 p
+        . showString " in "
+        . printAst cfg 0 v
+    else
+      showParen (d > 10)
+      $ showString "tletPairInS "
+        . printAst cfg 11 p
+        . showString " "
+        . (showParen True
+           $ showString "\\"
+             . printAstVar cfg var1
+             . showString " "
+             . printAstVar cfg var2
+             . showString " -> "
+             . printAst cfg 0 v)
   AstVar _sh var -> printAstVar cfg var
   t@(AstLet var0 u0 v0) ->
     if loseRoudtrip cfg
@@ -279,6 +302,7 @@ printAstAux cfg d = \case
              . printAstVarFromLet u0 cfg var0
              . showString " -> "
              . printAst cfg 0 v0)
+
   AstShare var v ->
     showParen (d > 10)
     $ showString "rshare "

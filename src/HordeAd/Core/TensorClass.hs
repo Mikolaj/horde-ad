@@ -73,7 +73,7 @@ class ( Num (IntOf ranked), IntegralF (IntOf ranked), CRanked ranked Num
       , TensorSupports Integral IntegralF ranked )
       => RankedTensor (ranked :: RankedTensorType) where
 
-  rletTKIn :: (KnownNat n, GoodScalar r, TensorKind y)
+  rletTKIn :: (GoodScalar r, KnownNat n, TensorKind y)
            => STensorKindType y -> InterpretationTarget ranked y
            -> (InterpretationTarget ranked y -> ranked r n)
            -> ranked r n
@@ -81,7 +81,7 @@ class ( Num (IntOf ranked), IntegralF (IntOf ranked), CRanked ranked Num
   rlet :: forall n m r r2. (KnownNat n, KnownNat m, GoodScalar r, GoodScalar r2)
        => ranked r n -> (ranked r n -> ranked r2 m)
        -> ranked r2 m
-  rlet a f = rletTKIn @_ @m @r2 (STKR typeRep SNat) a f
+  rlet a f = rletTKIn (STKR typeRep SNat) a f
 
   -- Integer codomain
   rshape :: (GoodScalar r, KnownNat n) => ranked r n -> IShR n
@@ -354,13 +354,20 @@ class ( Num (IntOf ranked), IntegralF (IntOf ranked), CRanked ranked Num
 class ( Num (IntOf shaped), IntegralF (IntOf shaped), CShaped shaped Num
       , TensorSupports RealFloatAndFloatElt Floating shaped
       , TensorSupports RealFloatAndFloatElt RealFloatF shaped
-      , TensorSupports Integral IntegralF shaped )
+      , TensorSupports Integral IntegralF shaped
+      , shaped ~ ShapedOf (RankedOf shaped) )
       => ShapedTensor (shaped :: ShapedTensorType) where
 
-  slet :: (KnownShS sh, KnownShS sh2, GoodScalar r, GoodScalar r2)
+  sletTKIn :: (GoodScalar r, KnownShS sh, TensorKind y)
+           => STensorKindType y -> InterpretationTarget (RankedOf shaped) y
+           -> (InterpretationTarget (RankedOf shaped) y -> shaped r sh)
+           -> shaped r sh
+
+  slet :: forall sh sh2 r r2.
+          (KnownShS sh, KnownShS sh2, GoodScalar r, GoodScalar r2)
        => shaped r sh -> (shaped r sh -> shaped r2 sh2)
        -> shaped r2 sh2
-  slet a f = f a
+  slet a f = sletTKIn (STKS typeRep knownShS) a f
 
   -- Integer codomain
   sshape :: forall sh r. (GoodScalar r, KnownShS sh)

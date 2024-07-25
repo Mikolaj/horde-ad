@@ -186,17 +186,18 @@ interpretAst
   -> AstTensor s y -> InterpretationTarget ranked y
 interpretAst !env = \case
   AstPair t1 t2 -> (interpretAst env t1, interpretAst env t2)
-  AstLetPairIn var1 var2 p v -> undefined
-{- TODO
-    let pi = interpretTKProduct env p
-        env2 lw = assert (voidHVectorMatches (voidFromVars vars) lw
-                          `blame` ( shapeVoidHVector (voidFromVars vars)
-                                  , V.toList $ V.map shapeDynamic lw
-                                  , shapeVoidHVector (shapeAstHVector l)
-                                  , shapeVoidHVector (dshape lt) )) $
-                 extendEnvHVector vars lw env
-    in rletHVectorIn lt (\lw -> interpretAst (env2 lw) v)
--}
+  AstLetPairIn @_ @z1 @z2 var1 var2 p v ->
+    let (t1, t2) = interpretAst env p
+        env2 w1 w2 = extendEnv var2 w2 $ extendEnv var1 w1 env
+    in rletTKIn (stensorKind @z1) t1 $ \w1 ->
+         rletTKIn (stensorKind @z2) t2 $ \w2 ->
+           interpretAst (env2 w1 w2) v
+  AstLetPairInS @_ @z1 @z2 var1 var2 p v ->
+    let (t1, t2) = interpretAst env p
+        env2 w1 w2 = extendEnv var2 w2 $ extendEnv var1 w1 env
+    in sletTKIn (stensorKind @z1) t1 $ \w1 ->
+         sletTKIn (stensorKind @z2) t2 $ \w2 ->
+           interpretAst (env2 w1 w2) v
   AstVar @y2 _sh var ->
    let var2 = mkAstVarName @FullSpan @y2 (varNameToAstVarId var)  -- TODO
    in case DMap.lookup var2 env of
@@ -211,7 +212,7 @@ interpretAst !env = \case
       -- this is defeated by 'Undecidable instances and loopy superclasses':
       -- ++ " in environment " ++ show env
 
-  AstLet @_ @_ @y2 var u v  | STKR{} <- stensorKind @y2->
+  AstLet @_ @_ @y2 var u v | STKR{} <- stensorKind @y2 ->
     -- We assume there are no nested lets with the same variable.
     let t = interpretAstRuntimeSpecialized env u
         env2 w = extendEnv var w env
@@ -531,11 +532,12 @@ interpretAst !env = \case
         t2 = interpretAstDual env u'
     in rD t1 t2
 
-  AstLetS var u v ->
+  AstLetS @_ @_ @y2 var u v | STKS{} <- stensorKind @y2 ->
     -- We assume there are no nested lets with the same variable.
     let t = interpretAstSRuntimeSpecialized env u
         env2 w = extendEnv var w env
     in slet t (\w -> interpretAst (env2 w) v)
+  AstLetS{} -> error "TODO"
   AstShareS{} -> error "interpretAst: AstShareS"
   AstCondS b a1 a2 ->
     let b1 = interpretAstBool env b

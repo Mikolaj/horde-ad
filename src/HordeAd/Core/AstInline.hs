@@ -98,6 +98,10 @@ inlineAst memo v0 = case v0 of
     let (memo1, p2) = inlineAst memo p
         (memo2, v2) = inlineAst memo1 v
     in (memo2, Ast.AstLetPairIn var1 var2 p2 v2)
+  Ast.AstLetPairInS var1 var2 p v ->
+    let (memo1, p2) = inlineAst memo p
+        (memo2, v2) = inlineAst memo1 v
+    in (memo2, Ast.AstLetPairInS var1 var2 p2 v2)
   Ast.AstVar _ var ->
     let f Nothing = Just 1
         f (Just count) = Just $ succ count
@@ -518,6 +522,7 @@ shareAst memo v0 = case v0 of
   Ast.AstLetPairIn{} -> (memo, v0)
     -- delta eval doesn't create lets and no lets
     -- survive instantiating in ADVal
+  Ast.AstLetPairInS{} -> (memo, v0)
 
   Ast.AstVar{} -> (memo, v0)
   Ast.AstLet{} -> (memo, v0)

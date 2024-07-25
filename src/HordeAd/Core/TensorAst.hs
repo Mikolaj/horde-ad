@@ -353,10 +353,10 @@ astSpanD _ u' | Just Refl <- sameAstSpan @s @DualSpan = u'
 astSpanD u u' | Just Refl <- sameAstSpan @s @FullSpan = AstD u u'
 astSpanD _ _ = error "a spuriuos case for pattern match coverage"
 
-astLetFun :: forall y s r2 m.
-             (TensorKind y, AstSpan s, GoodScalar r2, KnownNat m)
-          => AstTensor s y -> (AstTensor s y -> AstTensor s (TKR r2 m))
-          -> AstTensor s (TKR r2 m)
+astLetFun :: forall y s r n.
+             (TensorKind y, AstSpan s, GoodScalar r, KnownNat n)
+          => AstTensor s y -> (AstTensor s y -> AstTensor s (TKR r n))
+          -> AstTensor s (TKR r n)
 astLetFun a f | astIsSmall True a = f a
 astLetFun a f =
   let sh = shapeAstFull (stensorKind @y) a
@@ -393,9 +393,13 @@ instance (GoodScalar r, KnownShS sh)
   fromValue t = AstShaped $ fromPrimalS $ AstConstS $ runFlipS t
 
 instance AstSpan s => ShapedTensor (AstShaped s) where
-  slet a f =
+  sletTKIn :: forall y sh r. (TensorKind y, GoodScalar r, KnownShS sh)
+           => STensorKindType y -> InterpretationTarget (AstRanked s) y
+           -> (InterpretationTarget (AstRanked s) y -> AstShaped s r sh)
+           -> AstShaped s r sh
+  sletTKIn stk a f =
     AstShaped
-    $ astLetFunS (unAstShaped a) (unAstShaped . f . AstShaped)
+    $ astLetFunS @y @s (unRankedY stk a) (unAstShaped . f . rankedY stk)
 
   sminIndex = AstShaped . fromPrimalS . AstMinIndexS . astSpanPrimalS . unAstShaped
   smaxIndex = AstShaped . fromPrimalS . AstMaxIndexS . astSpanPrimalS . unAstShaped
@@ -487,13 +491,14 @@ astSpanDS _ u' | Just Refl <- sameAstSpan @s @DualSpan = u'
 astSpanDS u u' | Just Refl <- sameAstSpan @s @FullSpan = AstDS u u'
 astSpanDS _ _ = error "a spuriuos case for pattern match coverage"
 
-astLetFunS :: ( KnownShS sh, KnownShS sh2, GoodScalar r, GoodScalar r2
-              , AstSpan s )
-          => AstTensor s (TKS r sh) -> (AstTensor s (TKS r sh) -> AstTensor s (TKS r2 sh2))
-          -> AstTensor s (TKS r2 sh2)
+astLetFunS :: forall y s r sh.
+              (TensorKind y, AstSpan s, GoodScalar r, KnownShS sh)
+           => AstTensor s y -> (AstTensor s y -> AstTensor s (TKS r sh))
+           -> AstTensor s (TKS r sh)
 astLetFunS a f | astIsSmall True a = f a
 astLetFunS a f =
-  let (var, ast) = funToAst TKFS f
+  let sh = shapeAstFull (stensorKind @y) a
+      (var, ast) = funToAst sh f
   in astLetS var a ast  -- safe, because subsitution ruled out above
 
 astBuild1VectorizeS :: (KnownNat n, KnownShS sh, GoodScalar r, AstSpan s)
@@ -988,22 +993,24 @@ instance AstSpan s => RankedTensor (AstRaw s) where
   rScale s t = AstRaw $ astDualPart
                $ AstConstant (unAstRaw s) * AstD (unAstRanked $ rzero (rshape s)) (unAstRaw t)
 
-astLetFunRaw :: forall y s r2 m.
-                (TensorKind y, AstSpan s, GoodScalar r2, KnownNat m)
-             => AstTensor s y -> (AstTensor s y -> AstTensor s (TKR r2 m))
-             -> AstTensor s (TKR r2 m)
+astLetFunRaw :: forall y s r n.
+                (TensorKind y, AstSpan s, GoodScalar r, KnownNat n)
+             => AstTensor s y -> (AstTensor s y -> AstTensor s (TKR r n))
+             -> AstTensor s (TKR r n)
 astLetFunRaw a f | astIsSmall True a = f a  -- too important an optimization
 astLetFunRaw a f =
   let sh = shapeAstFull (stensorKind @y) a
       (var, ast) = funToAst sh f
   in AstLet var a ast  -- safe, because subsitution ruled out above
 
-astLetFunRawS :: (KnownShS sh, KnownShS sh2, GoodScalar r, GoodScalar r2, AstSpan s)
-              => AstTensor s (TKS r sh) -> (AstTensor s (TKS r sh) -> AstTensor s (TKS r2 sh2))
-              -> AstTensor s (TKS r2 sh2)
+astLetFunRawS :: forall y s r sh.
+                 (TensorKind y, AstSpan s ,GoodScalar r, KnownShS sh)
+              => AstTensor s y -> (AstTensor s y -> AstTensor s (TKS r sh))
+              -> AstTensor s (TKS r sh)
 astLetFunRawS a f | astIsSmall True a = f a
 astLetFunRawS a f =
-  let (var, ast) = funToAst TKFS f
+  let sh = shapeAstFull (stensorKind @y) a
+      (var, ast) = funToAst sh f
   in AstLetS var a ast
 
 astLetHVectorInFunRaw
@@ -1074,7 +1081,13 @@ astLetInHVectorFunRawS a f = unsafePerformIO $ do  -- the id causes trouble
   return $! AstLetInHVectorS var a (f ast)
 
 instance AstSpan s => ShapedTensor (AstRawS s) where
-  slet a f = AstRawS $ astLetFunRawS (unAstRawS a) (unAstRawS . f . AstRawS)
+  sletTKIn :: forall y sh r. (TensorKind y, GoodScalar r, KnownShS sh)
+           => STensorKindType y -> InterpretationTarget (AstRaw s) y
+           -> (InterpretationTarget (AstRaw s) y -> AstRawS s r sh)
+           -> AstRawS s r sh
+  sletTKIn stk a f =
+    AstRawS
+    $ astLetFunRawS @y @s (unRawY stk a) (unAstRawS . f . rawY stk)
   sminIndex = AstRawS . fromPrimalS . AstMinIndexS . astSpanPrimalS . unAstRawS
   smaxIndex = AstRawS . fromPrimalS . AstMaxIndexS . astSpanPrimalS . unAstRawS
   sfloor = AstRawS . fromPrimalS . AstFloorS . astSpanPrimalS . unAstRawS
@@ -1250,9 +1263,14 @@ astNoVectorize2 :: AstRanked s r n -> AstNoVectorize s r n
 astNoVectorize2 = AstNoVectorize . unAstRanked
 
 instance AstSpan s => ShapedTensor (AstNoVectorizeS s) where
-  slet a f =
-    astNoVectorizeS2
-    $ slet (unAstNoVectorizeS2 a) (unAstNoVectorizeS2 . f . astNoVectorizeS2)
+  sletTKIn :: forall y sh r.
+              (TensorKind y, KnownShS sh, GoodScalar r)
+           => STensorKindType y -> InterpretationTarget (AstNoVectorize s) y
+           -> (InterpretationTarget (AstNoVectorize s) y -> AstNoVectorizeS s r sh)
+           -> AstNoVectorizeS s r sh
+  sletTKIn stk a f =
+    AstNoVectorizeS
+    $ astLetFunS @y @s (unNoVectorizeY stk a) (unAstNoVectorizeS . f . noVectorizeY stk)
   sminIndex = astNoVectorizeS2 . sminIndex . unAstNoVectorizeS2
   smaxIndex = astNoVectorizeS2 . smaxIndex . unAstNoVectorizeS2
   sfloor = astNoVectorizeS2 . sfloor . unAstNoVectorizeS2
@@ -1436,9 +1454,13 @@ instance AstSpan s => RankedTensor (AstNoSimplify s) where
                  * AstD (unAstRanked $ rzero (rshape s)) (unAstNoSimplify t)
 
 instance AstSpan s => ShapedTensor (AstNoSimplifyS s) where
-  slet a f =
+  sletTKIn :: forall y sh r. (TensorKind y, GoodScalar r, KnownShS sh)
+           => STensorKindType y -> InterpretationTarget (AstNoSimplify s) y
+           -> (InterpretationTarget (AstNoSimplify s) y -> AstNoSimplifyS s r sh)
+           -> AstNoSimplifyS s r sh
+  sletTKIn stk a f =
     AstNoSimplifyS
-    $ astLetFunRawS (unAstNoSimplifyS a) (unAstNoSimplifyS . f . AstNoSimplifyS)
+    $ astLetFunRawS @y @s (unNoSimplifyY stk a) (unAstNoSimplifyS . f . noSimplifyY stk)
   sminIndex = AstNoSimplifyS . fromPrimalS . AstMinIndexS
               . astSpanPrimalS . unAstNoSimplifyS
   smaxIndex = AstNoSimplifyS . fromPrimalS . AstMaxIndexS

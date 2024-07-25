@@ -284,6 +284,8 @@ instance (ADReadyS shaped, KnownShS sh, GoodScalar r)
 -- The ADVal Double and ADVal Float instantiations are only used
 -- in tests. None others are used anywhere.
 instance ADReadyS shaped => ShapedTensor (ADVal shaped) where
+  sletTKIn _ a f = f a  -- TODO: sshare
+
   slet (D u u') f =
     let !var2 = sshare u
     in f (dDnotShared var2 u')
