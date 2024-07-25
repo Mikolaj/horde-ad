@@ -680,7 +680,7 @@ build1VHVector k@SNat (var, v0) =
   Ast.AstLetInHVector @_ @_ @s1 var1 u v ->
     let var2 = mkAstVarName (varNameToAstVarId var1)  -- changed shape; TODO: shall we rename?
         sh = shapeAst u
-        projection = Ast.AstIndex (Ast.AstVar (TKFR $ sNatValue k :$: sh) var2)
+        projection = Ast.AstIndex (Ast.AstVar (FTKR $ sNatValue k :$: sh) var2)
                                   (Ast.AstIntVar var :.: ZIR)
         v2 = substituteAstHVector
                (SubstitutionPayload @s1 projection) var1 v
@@ -689,7 +689,7 @@ build1VHVector k@SNat (var, v0) =
                                k (var, v2))
   Ast.AstLetInHVectorS @sh2 @r @s1 var1 u v ->
       let var2 = mkAstVarName (varNameToAstVarId var1)  -- changed shape; TODO: shall we rename?
-          projection = Ast.AstIndexS (Ast.AstVar @(TKS r (k ': sh2)) TKFS var2)
+          projection = Ast.AstIndexS (Ast.AstVar @(TKS r (k ': sh2)) FTKS var2)
                                      (Ast.AstIntVar var :.$ ZIS)
           v2 = substituteAstHVector
                  (SubstitutionPayload @s1 projection) var1 v
@@ -782,7 +782,7 @@ substProjRanked :: forall n1 r1 s1 s y.
 substProjRanked k var sh1 var1 =
   let var2 = mkAstVarName @s1 @(TKR r1 (1 + n1)) (varNameToAstVarId var1)  -- changed shape; TODO: shall we rename?
       projection =
-        Ast.AstIndex (Ast.AstVar (TKFR $ k :$: sh1) var2)
+        Ast.AstIndex (Ast.AstVar (FTKR $ k :$: sh1) var2)
                      (Ast.AstIntVar var :.: ZIR)
   in substituteAst
        (SubstitutionPayload @s1 projection) var1
@@ -798,7 +798,7 @@ substProjShaped :: forall k sh1 r1 s1 s y.
 substProjShaped var var1 =
   let var2 = mkAstVarName @s1 @(TKS r1 (k : sh1)) (varNameToAstVarId var1)
       projection =
-        Ast.AstIndexS (Ast.AstVar @(TKS r1 (k ': sh1)) TKFS var2)
+        Ast.AstIndexS (Ast.AstVar @(TKS r1 (k ': sh1)) FTKS var2)
                       (Ast.AstIntVar var :.$ ZIS)
   in substituteAst
        (SubstitutionPayload @s1 projection) var1
@@ -811,7 +811,7 @@ substProjHVector :: forall n1 r1 s1 s.
 substProjHVector k var sh1 var1 =
   let var2 = mkAstVarName @s1 @(TKR r1 (1 + n1)) (varNameToAstVarId var1)
       projection =
-        Ast.AstIndex (Ast.AstVar (TKFR $ k :$: sh1) var2)
+        Ast.AstIndex (Ast.AstVar (FTKR $ k :$: sh1) var2)
                      (Ast.AstIntVar var :.: ZIR)
   in substituteAstHVector
        (SubstitutionPayload @s1 projection) var1
@@ -824,7 +824,7 @@ substProjHVectorS :: forall k sh1 r1 s1 s.
 substProjHVectorS var var1 =
   let var2 = mkAstVarName @s1 @(TKS r1 (k : sh1)) (varNameToAstVarId var1)
       projection =
-        Ast.AstIndexS (Ast.AstVar @(TKS r1 (k ': sh1)) TKFS var2)
+        Ast.AstIndexS (Ast.AstVar @(TKS r1 (k ': sh1)) FTKS var2)
                       (Ast.AstIntVar var :.$ ZIS)
   in substituteAstHVector
        (SubstitutionPayload @s1 projection) var1

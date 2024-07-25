@@ -317,7 +317,7 @@ astNonIndexStepS
   => AstTensor s (TKS r sh) -> AstTensor s (TKS r sh)
 astNonIndexStepS t = case t of
   Ast.AstLetPairInS{} -> t
-  Ast.AstVar TKFS _var -> t
+  Ast.AstVar FTKS _var -> t
 
   Ast.AstLetS var u v -> astLetS var u v
   Ast.AstShareS{} -> t  -- TODO: error "astNonIndexStepS: AstShareS"
@@ -620,7 +620,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS shm1)) | Dict <- s
  in case v0 of
   Ast.AstLetPairInS var1 var2 p v ->
     Ast.AstLetPairInS var1 var2 p (astIndexRec v ix)
-  Ast.AstVar TKFS _var -> Ast.AstIndexS v0 ix
+  Ast.AstVar FTKS _var -> Ast.AstIndexS v0 ix
 
   Ast.AstLetS var u v -> astLetS var u (astIndexRec v ix)
   Ast.AstShareS{} -> Ast.AstIndexS v0 ix  -- TODO: error "astIndexKnobsRS: AstShareS"
@@ -2029,9 +2029,9 @@ astPrimalPart t = case t of
   Ast.AstLetPairInS var1 var2 p v ->
     Ast.AstLetPairInS var1 var2 p (astPrimalPart v)
   Ast.AstVar sh _var -> case sh of
-    TKFR{} -> Ast.AstPrimalPart t  -- the only normal form
-    TKFS{} -> Ast.AstPrimalPartS t
-    TKFProduct{} -> error "TODO"
+    FTKR{} -> Ast.AstPrimalPart t  -- the only normal form
+    FTKS{} -> Ast.AstPrimalPartS t
+    FTKProduct{} -> error "TODO"
 
   Ast.AstLet var u v -> astLet var u (astPrimalPart v)
   Ast.AstShare{} -> error "astPrimalPart: AstShare"
@@ -2104,9 +2104,9 @@ astDualPart t = case t of
   Ast.AstLetPairInS var1 var2 p v ->
     Ast.AstLetPairInS var1 var2 p (astDualPart v)
   Ast.AstVar sh _var -> case sh of
-    TKFR{} -> Ast.AstDualPart t
-    TKFS{} -> Ast.AstDualPartS t
-    TKFProduct{} -> error "TODO"
+    FTKR{} -> Ast.AstDualPart t
+    FTKS{} -> Ast.AstDualPartS t
+    FTKProduct{} -> error "TODO"
 
   Ast.AstLet var u v -> astLet var u (astDualPart v)
   Ast.AstShare{} -> error "astDualPart: AstShare"

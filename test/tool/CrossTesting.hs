@@ -123,7 +123,7 @@ rev' f valsOR =
         -> fgen r n
         -> fgen r m
       hGeneral fx1 fx2 gx inputs =
-        let (var, ast) = funToAst (TKFR $ rshape vals) (unAstRanked . fx1 . f . fx2 . AstRanked)
+        let (var, ast) = funToAst (FTKR $ rshape vals) (unAstRanked . fx1 . f . fx2 . AstRanked)
             env = extendEnv var inputs emptyEnv
         in interpretAst env (unAstRanked $ gx $ AstRanked ast)
       h :: ADReady f1
@@ -169,10 +169,10 @@ rev' f valsOR =
       gradientRrev5 =
        rrev1 @ORArray @r @n @m @r
               (hGeneral (AstRanked . unAstNoVectorize) (AstNoVectorize . unAstRanked) simplifyInlineAst) vals
-      astVectSimp = simplifyInlineAst $ AstRanked $ snd $ funToAst (TKFR $ rshape vals) (unAstRanked . f . AstRanked)
+      astVectSimp = simplifyInlineAst $ AstRanked $ snd $ funToAst (FTKR $ rshape vals) (unAstRanked . f . AstRanked)
       astSimp =
         simplifyInlineAst $ simplifyInlineAst $ AstRanked $ snd  -- builds simplify with difficulty
-        $ funToAst (TKFR $ rshape vals) (unAstNoVectorize . f . AstNoVectorize)
+        $ funToAst (FTKR $ rshape vals) (unAstNoVectorize . f . AstNoVectorize)
       -- Here comes the part with Ast gradients.
       hAst :: ADReady f1
            => (f1 r m -> AstRanked PrimalSpan r m)

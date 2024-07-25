@@ -529,7 +529,7 @@ shareAst memo v0 = case v0 of
   Ast.AstShare var v | Just Refl <- sameAstSpan @s @PrimalSpan ->
     -- We assume v is the same if var is the same.
     let varId = varNameToAstVarId var
-        astVar = Ast.AstVar (TKFR $ shapeAst v) var
+        astVar = Ast.AstVar (FTKR $ shapeAst v) var
     in if varId `EM.member` memo
        then (memo, astVar)  -- TODO: memo AstVar
        else let (memo1, v2) = shareAst memo v
@@ -622,7 +622,7 @@ shareAst memo v0 = case v0 of
   Ast.AstShareS var v | Just Refl <- sameAstSpan @s @PrimalSpan ->
     -- We assume v is the same if var is the same.
     let varId = varNameToAstVarId var
-        astVar = Ast.AstVar TKFS var
+        astVar = Ast.AstVar FTKS var
     in if varId `EM.member` memo
        then (memo, astVar)
        else let (memo1, v2) = shareAst memo v
@@ -742,8 +742,8 @@ shareAstHVector memo v0 = case v0 of
         f (AstDynamicVarName @ty @rD @shD varIdD) =
           case testEquality (typeRep @ty) (typeRep @Nat) of
             Just Refl -> withListSh (Proxy @shD) $ \sh ->
-              DynamicRanked @rD $ AstRanked $ Ast.AstVar (TKFR sh) (mkAstVarName varIdD)
-            _ -> DynamicShaped @rD @shD $ AstShaped $ Ast.AstVar TKFS (mkAstVarName varIdD)
+              DynamicRanked @rD $ AstRanked $ Ast.AstVar (FTKR sh) (mkAstVarName varIdD)
+            _ -> DynamicShaped @rD @shD $ AstShaped $ Ast.AstVar FTKS (mkAstVarName varIdD)
         astVars = Ast.AstMkHVector $ V.fromList $ map f vars
     in if varId `EM.member` memo
        then (memo, astVars)

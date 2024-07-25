@@ -43,10 +43,10 @@ import HordeAd.Util.SizedList
 shapeAstFull :: forall s y.
                 STensorKindType y -> AstTensor s y -> TensorKindFull y
 shapeAstFull stk t = case stk of
-  STKR{} -> TKFR $ shapeAst t
-  STKS{} -> TKFS
+  STKR{} -> FTKR $ shapeAst t
+  STKS{} -> FTKS
   STKProduct stk1 stk2 -> case t of
-    AstPair t1 t2 -> TKFProduct (shapeAstFull stk1 t1) (shapeAstFull stk2 t2)
+    AstPair t1 t2 -> FTKProduct (shapeAstFull stk1 t1) (shapeAstFull stk2 t2)
     _ -> error "TODO"
 
 -- This is cheap and dirty. We don't shape-check the terms and we don't
@@ -58,7 +58,7 @@ shapeAst :: forall n s r. (KnownNat n, GoodScalar r)
          => AstTensor s (TKR r n) -> IShR n
 shapeAst = \case
   AstLetPairIn _var1 _var2 _p v -> shapeAst v
-  AstVar (TKFR sh) _var -> sh
+  AstVar (FTKR sh) _var -> sh
 
   AstLet _ _ v -> shapeAst v
   AstShare _ v-> shapeAst v

@@ -186,9 +186,9 @@ sameTensorKind = sameTK (stensorKind @y1) (stensorKind @y2)
 -- TODO: the constraints should not be necessary
 type role TensorKindFull nominal
 data TensorKindFull y where
-  TKFR :: GoodScalar r => ShR n Int -> TensorKindFull (TKR r n)
-  TKFS :: (GoodScalar r, KnownShS sh) => TensorKindFull (TKS r sh)
-  TKFProduct :: TensorKindFull y -> TensorKindFull z
+  FTKR :: GoodScalar r => ShR n Int -> TensorKindFull (TKR r n)
+  FTKS :: (GoodScalar r, KnownShS sh) => TensorKindFull (TKS r sh)
+  FTKProduct :: TensorKindFull y -> TensorKindFull z
              -> TensorKindFull (TKProduct y z)
 
 deriving instance Show (TensorKindFull y)

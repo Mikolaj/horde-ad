@@ -193,9 +193,9 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
          <- funToAstRevIO $ voidFromHVector hVectorInit
        let testDataR = packBatchR testData
        (varGlyph, _, astGlyph) <-
-         funToAstIO TKFS {-@'[batch_size, SizeMnistHeight, SizeMnistWidth]-} id
+         funToAstIO FTKS {-@'[batch_size, SizeMnistHeight, SizeMnistWidth]-} id
        (varLabel, _, astLabel) <-
-         funToAstIO TKFS {-@'[batch_size, SizeMnistLabel]-} id
+         funToAstIO FTKS {-@'[batch_size, SizeMnistLabel]-} id
        let ast :: AstShaped PrimalSpan r '[]
            ast = MnistRnnShaped2.rnnMnistLossFusedS
                    width batch_size (AstShaped astGlyph, AstShaped astLabel)
@@ -308,9 +308,9 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
                    <$> loadMnistData testGlyphsPath testLabelsPath
        let testDataR = packBatchR testData
        (varGlyph, varGlyphD, astGlyph) <-
-         funToAstIO TKFS {-@'[batch_size, SizeMnistHeight, SizeMnistWidth]-} id
+         funToAstIO FTKS {-@'[batch_size, SizeMnistHeight, SizeMnistWidth]-} id
        (varLabel, varLabelD, astLabel) <-
-         funToAstIO TKFS {-@'[batch_size, SizeMnistLabel]-} id
+         funToAstIO FTKS {-@'[batch_size, SizeMnistLabel]-} id
        let envInit = extendEnv varGlyph (sconstant $ AstRawS astGlyph)
                      $ extendEnv varLabel (sconstant $ AstRawS astLabel)
                        emptyEnv

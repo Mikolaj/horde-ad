@@ -199,7 +199,7 @@ type AstInt = AstTensor PrimalSpan (TKR Int64 0)
 type IntVarName = AstVarName PrimalSpan (TKR Int64 0)
 
 pattern AstIntVar :: IntVarName -> AstInt
-pattern AstIntVar var = AstVar (TKFR ZSR) var
+pattern AstIntVar var = AstVar (FTKR ZSR) var
 
 isRankedInt :: forall s y. (AstSpan s, TensorKind y)
             => AstTensor s y

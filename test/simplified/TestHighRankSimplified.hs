@@ -531,12 +531,12 @@ testReluSimpPP :: Assertion
 testReluSimpPP = do
   resetVarCounter
   let !t1 = barRelu10xSlower @(AstRanked PrimalSpan)
-            $ AstRanked $ AstVar (TKFR [1,2,2,1,2,2,2,2,2,1]) (mkAstVarName . intToAstVarId $ 100000000)
+            $ AstRanked $ AstVar (FTKR [1,2,2,1,2,2,2,2,2,1]) (mkAstVarName . intToAstVarId $ 100000000)
   length (show t1) @?= 12592
   length (show (simplifyInlineAst @Float @10 t1)) @?= 12592
   resetVarCounter
   let !t2 = barRelu @(AstRanked PrimalSpan)
-            $ AstRanked $ AstVar (TKFR [1,2,2,1,2,2,2,2,2,1]) (mkAstVarName . intToAstVarId $ 100000000)
+            $ AstRanked $ AstVar (FTKR [1,2,2,1,2,2,2,2,2,1]) (mkAstVarName . intToAstVarId $ 100000000)
   length (show t2) @?= 10736
   length (show (simplifyInlineAst @Float @10 t2)) @?= 12592
 
@@ -648,7 +648,7 @@ testConcatBuild3PP = do
   resetVarCounter
   let renames = IM.empty
       t = concatBuild3 @(AstRanked FullSpan) @Float
-      (var3, ast3) = funToAst (TKFR [3]) $ unAstRanked . t . AstRanked
+      (var3, ast3) = funToAst (FTKR [3]) $ unAstRanked . t . AstRanked
   "\\" ++ printAstVarName renames var3
        ++ " -> " ++ printAstSimple renames (AstRanked ast3)
     @?= "\\v1 -> rconstant (rfromIntegral (rgather [5,2] (rfromVector (fromList [rreplicate 5 (rslice 0 2 riota), quotF (rtranspose [1,0] (rreplicate 2 (rslice 0 5 riota))) (rreplicate 5 (rreplicate 2 1 + rslice 0 2 riota))])) (\\[i5, i4] -> [ifF (i4 >=. quotF i5 (1 + i4)) 0 1, i5, i4])))"
