@@ -220,14 +220,14 @@ printAst cfgOld d t =
 printAstAux :: forall s y. AstSpan s
             => PrintConfig -> Int -> AstTensor s y -> ShowS
 printAstAux cfg d = \case
-  AstPair t1 t2 ->
+  AstTuple t1 t2 ->
     showParen (d > 10)
     $ showString "tpair ("
       . printAst cfg 0 t1
       . showString ", "
       . printAst cfg 0 t2
       . showString ")"
-  AstLetPairIn var1 var2 p v ->
+  AstLetTupleIn var1 var2 p v ->
     if loseRoudtrip cfg
     then
       showParen (d > 10)
@@ -241,7 +241,7 @@ printAstAux cfg d = \case
         . printAst cfg 0 v
     else
       showParen (d > 10)
-      $ showString "tletPairIn "
+      $ showString "tletTupleIn "
         . printAst cfg 11 p
         . showString " "
         . (showParen True
@@ -251,7 +251,7 @@ printAstAux cfg d = \case
              . printAstVar cfg var2
              . showString " -> "
              . printAst cfg 0 v)
-  AstLetPairInS var1 var2 p v ->
+  AstLetTupleInS var1 var2 p v ->
     if loseRoudtrip cfg
     then
       showParen (d > 10)
@@ -265,7 +265,7 @@ printAstAux cfg d = \case
         . printAst cfg 0 v
     else
       showParen (d > 10)
-      $ showString "tletPairInS "
+      $ showString "tletTupleInS "
         . printAst cfg 11 p
         . showString " "
         . (showParen True

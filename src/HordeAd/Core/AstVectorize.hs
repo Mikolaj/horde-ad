@@ -150,7 +150,7 @@ build1V k (var, v00) =
       bv = Ast.AstBuild1 k (var, v0)
       traceRule = mkTraceRule "build1V" bv v0 1
   in case v0 of
-    Ast.AstLetPairIn var1 var2 p v -> undefined  -- TODO: doable, but complex
+    Ast.AstLetTupleIn var1 var2 p v -> undefined  -- TODO: doable, but complex
 {-
       -- See the AstLet and AstLetHVectorIn cases for comments.
       let var1' = mkAstVarName (varNameToAstVarId var1)
@@ -163,7 +163,7 @@ build1V k (var, v00) =
           -- is eventually being eliminated instead of substituted for.
           v2 = substituteAst
                  (SubstitutionPayload @s1 projection) var1 v
-      in Ast.AstLetPairIn var1 var2
+      in Ast.AstLetTupleIn var1 var2
                           (build1VOccurenceUnknown k (var, u))
                           (build1VOccurenceUnknownRefresh k (var, v2))
                             -- ensure no duplicated bindings, see below
@@ -431,7 +431,7 @@ build1VS (var, v00) =
       bv = Ast.AstBuild1S (var, v0)
       traceRule = mkTraceRuleS "build1VS" bv v0 1
   in case v0 of
-    Ast.AstLetPairInS var1 var2 p v -> undefined  -- TODO: doable, but complex
+    Ast.AstLetTupleInS var1 var2 p v -> undefined  -- TODO: doable, but complex
 
     Ast.AstVar{} ->
       error "build1VS: AstVar can't contain free index variables"

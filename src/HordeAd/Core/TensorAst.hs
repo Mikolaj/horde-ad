@@ -236,7 +236,7 @@ rankedY stk t = case stk of
   STKR{} -> AstRanked t
   STKS{} -> AstShaped t
   STKProduct stk1 stk2 -> case t of
-    AstPair t1 t2 -> (rankedY stk1 t1, rankedY stk2 t2)
+    AstTuple t1 t2 -> (rankedY stk1 t1, rankedY stk2 t2)
     _ -> error "TODO"
 
 unRankedY :: forall y s.
@@ -245,7 +245,7 @@ unRankedY :: forall y s.
 unRankedY stk t = case stk of
   STKR{} -> unAstRanked t
   STKS{} -> unAstShaped t
-  STKProduct stk1 stk2 -> AstPair (unRankedY stk1 $ fst t)
+  STKProduct stk1 stk2 -> AstTuple (unRankedY stk1 $ fst t)
                                   (unRankedY stk2 $ snd t)
 
 instance AstSpan s => RankedTensor (AstRanked s) where
@@ -927,7 +927,7 @@ rawY stk t = case stk of
   STKR{} -> AstRaw t
   STKS{} -> AstRawS t
   STKProduct stk1 stk2 -> case t of
-    AstPair t1 t2 -> (rawY stk1 t1, rawY stk2 t2)
+    AstTuple t1 t2 -> (rawY stk1 t1, rawY stk2 t2)
     _ -> error "TODO"
 
 unRawY :: forall y s.
@@ -936,7 +936,7 @@ unRawY :: forall y s.
 unRawY stk t = case stk of
   STKR{} -> unAstRaw t
   STKS{} -> unAstRawS t
-  STKProduct stk1 stk2 -> AstPair (unRawY stk1 $ fst t)
+  STKProduct stk1 stk2 -> AstTuple (unRawY stk1 $ fst t)
                                   (unRawY stk2 $ snd t)
 
 instance AstSpan s => RankedTensor (AstRaw s) where
@@ -1194,7 +1194,7 @@ noVectorizeY stk t = case stk of
   STKR{} -> AstNoVectorize t
   STKS{} -> AstNoVectorizeS t
   STKProduct stk1 stk2 -> case t of
-    AstPair t1 t2 -> (noVectorizeY stk1 t1, noVectorizeY stk2 t2)
+    AstTuple t1 t2 -> (noVectorizeY stk1 t1, noVectorizeY stk2 t2)
     _ -> error "TODO"
 
 unNoVectorizeY :: forall y s.
@@ -1203,7 +1203,7 @@ unNoVectorizeY :: forall y s.
 unNoVectorizeY stk t = case stk of
   STKR{} -> unAstNoVectorize t
   STKS{} -> unAstNoVectorizeS t
-  STKProduct stk1 stk2 -> AstPair (unNoVectorizeY stk1 $ fst t)
+  STKProduct stk1 stk2 -> AstTuple (unNoVectorizeY stk1 $ fst t)
                                   (unNoVectorizeY stk2 $ snd t)
 
 instance AstSpan s => RankedTensor (AstNoVectorize s) where
@@ -1386,7 +1386,7 @@ noSimplifyY stk t = case stk of
   STKR{} -> AstNoSimplify t
   STKS{} -> AstNoSimplifyS t
   STKProduct stk1 stk2 -> case t of
-    AstPair t1 t2 -> (noSimplifyY stk1 t1, noSimplifyY stk2 t2)
+    AstTuple t1 t2 -> (noSimplifyY stk1 t1, noSimplifyY stk2 t2)
     _ -> error "TODO"
 
 unNoSimplifyY :: forall y s.
@@ -1395,7 +1395,7 @@ unNoSimplifyY :: forall y s.
 unNoSimplifyY stk t = case stk of
   STKR{} -> unAstNoSimplify t
   STKS{} -> unAstNoSimplifyS t
-  STKProduct stk1 stk2 -> AstPair (unNoSimplifyY stk1 $ fst t)
+  STKProduct stk1 stk2 -> AstTuple (unNoSimplifyY stk1 $ fst t)
                                   (unNoSimplifyY stk2 $ snd t)
 
 instance AstSpan s => RankedTensor (AstNoSimplify s) where

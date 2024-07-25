@@ -87,21 +87,21 @@ inlineAst
   :: forall s y. AstSpan s
   => AstMemo -> AstTensor s y -> (AstMemo, AstTensor s y)
 inlineAst memo v0 = case v0 of
-  Ast.AstPair t1 t2 ->
+  Ast.AstTuple t1 t2 ->
     let (memo2, v1) = inlineAst memo t1
         (memo3, v2) = inlineAst memo2 t2
-    in (memo3, Ast.AstPair v1 v2)
-  Ast.AstLetPairIn var1 var2 p v ->
+    in (memo3, Ast.AstTuple v1 v2)
+  Ast.AstLetTupleIn var1 var2 p v ->
     -- We don't inline, but elsewhere try to reduce to constructors that we do.
-    -- TODO: check if we should do more, e.g., when p is AstPair (but maybe
+    -- TODO: check if we should do more, e.g., when p is AstTuple (but maybe
     -- simplification should rewrite that to normal lets instead?).
     let (memo1, p2) = inlineAst memo p
         (memo2, v2) = inlineAst memo1 v
-    in (memo2, Ast.AstLetPairIn var1 var2 p2 v2)
-  Ast.AstLetPairInS var1 var2 p v ->
+    in (memo2, Ast.AstLetTupleIn var1 var2 p2 v2)
+  Ast.AstLetTupleInS var1 var2 p v ->
     let (memo1, p2) = inlineAst memo p
         (memo2, v2) = inlineAst memo1 v
-    in (memo2, Ast.AstLetPairInS var1 var2 p2 v2)
+    in (memo2, Ast.AstLetTupleInS var1 var2 p2 v2)
   Ast.AstVar _ var ->
     let f Nothing = Just 1
         f (Just count) = Just $ succ count
@@ -515,14 +515,14 @@ shareAst
   :: forall s y. AstSpan s
   => ShareMemo -> AstTensor s y -> (ShareMemo, AstTensor s y)
 shareAst memo v0 = case v0 of
-  Ast.AstPair t1 t2 ->
+  Ast.AstTuple t1 t2 ->
     let (memo1, v1) = shareAst memo t1
         (memo2, v2) = shareAst memo1 t2
-    in (memo2, Ast.AstPair v1 v2)
-  Ast.AstLetPairIn{} -> (memo, v0)
+    in (memo2, Ast.AstTuple v1 v2)
+  Ast.AstLetTupleIn{} -> (memo, v0)
     -- delta eval doesn't create lets and no lets
     -- survive instantiating in ADVal
-  Ast.AstLetPairInS{} -> (memo, v0)
+  Ast.AstLetTupleInS{} -> (memo, v0)
 
   Ast.AstVar{} -> (memo, v0)
   Ast.AstLet{} -> (memo, v0)

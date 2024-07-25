@@ -185,14 +185,14 @@ interpretAst
   => AstEnv ranked
   -> AstTensor s y -> InterpretationTarget ranked y
 interpretAst !env = \case
-  AstPair t1 t2 -> (interpretAst env t1, interpretAst env t2)
-  AstLetPairIn @_ @z1 @z2 var1 var2 p v ->
+  AstTuple t1 t2 -> (interpretAst env t1, interpretAst env t2)
+  AstLetTupleIn @_ @z1 @z2 var1 var2 p v ->
     let (t1, t2) = interpretAst env p
         env2 w1 w2 = extendEnv var2 w2 $ extendEnv var1 w1 env
     in rletTKIn (stensorKind @z1) t1 $ \w1 ->
          rletTKIn (stensorKind @z2) t2 $ \w2 ->
            interpretAst (env2 w1 w2) v
-  AstLetPairInS @_ @z1 @z2 var1 var2 p v ->
+  AstLetTupleInS @_ @z1 @z2 var1 var2 p v ->
     let (t1, t2) = interpretAst env p
         env2 w1 w2 = extendEnv var2 w2 $ extendEnv var1 w1 env
     in sletTKIn (stensorKind @z1) t1 $ \w1 ->

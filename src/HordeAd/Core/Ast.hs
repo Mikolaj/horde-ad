@@ -250,14 +250,14 @@ type role AstTensor nominal nominal
   -- r has to be nominal, because type class arguments always are
 data AstTensor :: AstSpanType -> TensorKindType -> Type where
   -- Here starts the product of tensors part.
-  AstPair :: AstTensor s y -> AstTensor s z
+  AstTuple :: AstTensor s y -> AstTensor s z
           -> AstTensor s (TKProduct y z)
-  AstLetPairIn :: (AstSpan s, TensorKind y, TensorKind z, GoodScalar r, KnownNat n)
+  AstLetTupleIn :: (AstSpan s, TensorKind y, TensorKind z, GoodScalar r, KnownNat n)
                => AstVarName s y -> AstVarName s z
                -> AstTensor s (TKProduct y z)
                -> AstTensor s2 (TKR r n)
                -> AstTensor s2 (TKR r n)
-  AstLetPairInS :: (AstSpan s, TensorKind y, TensorKind z, GoodScalar r, KnownShS sh)
+  AstLetTupleInS :: (AstSpan s, TensorKind y, TensorKind z, GoodScalar r, KnownShS sh)
                 => AstVarName s y -> AstVarName s z
                 -> AstTensor s (TKProduct y z)
                 -> AstTensor s2 (TKS r sh)
