@@ -54,6 +54,7 @@ import Data.Array.Shape qualified as Sh
 import Data.EnumMap.Strict qualified as EM
 import Data.Int (Int64)
 import Data.Kind (Type)
+import Data.List (foldl')
 import Data.Maybe (fromMaybe)
 import Data.Proxy (Proxy (Proxy))
 import Data.Strict.Vector qualified as Data.Vector
