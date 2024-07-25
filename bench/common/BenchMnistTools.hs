@@ -15,7 +15,7 @@ import System.Random
 import HordeAd
 import HordeAd.Core.Adaptor
 import HordeAd.Core.AstEnv
-import HordeAd.Core.AstFreshId (funToAstIOR)
+import HordeAd.Core.AstFreshId (funToAstIO)
 import HordeAd.Core.TensorAst
 import HordeAd.Core.TensorConcrete ()
 import HordeAd.External.OptimizerTools
@@ -137,11 +137,11 @@ mnistTrainBench1VTO extraPrefix chunkLength xs widthHidden widthHidden2
                         , "m0" ++ " =" ++ show (sizeHVector hVectorInit) ]
   bench name $ nfIO $ do
     (varGlyph, varGlyphD, astGlyph) <-
-      funToAstIOR (singletonShape sizeMnistGlyphInt) id
+      funToAstIO (FTKR $ singletonShape sizeMnistGlyphInt) id
     (varLabel, varLabelD, astLabel) <-
-      funToAstIOR (singletonShape sizeMnistLabelInt) id
-    let envInit = extendEnvR varGlyph (rconstant $ AstRaw astGlyph)
-                  $ extendEnvR varLabel (rconstant $ AstRaw astLabel)
+      funToAstIO (FTKR $ singletonShape sizeMnistLabelInt) id
+    let envInit = extendEnv varGlyph (rconstant $ AstRaw astGlyph)
+                  $ extendEnv varLabel (rconstant $ AstRaw astLabel)
                   emptyEnv
         f = MnistFcnnRanked1.afcnnMnistLoss1TensorData @(AstRanked FullSpan)
               widthHidden widthHidden2
@@ -309,11 +309,11 @@ mnistTrainBench2VTO extraPrefix chunkLength xs widthHidden widthHidden2
                         , " =" ++ show (sizeHVector hVectorInit) ]
   bench name $ nfIO $ do
     (varGlyph, varGlyphD, astGlyph) <-
-      funToAstIOR (singletonShape sizeMnistGlyphInt) id
+      funToAstIO (FTKR $ singletonShape sizeMnistGlyphInt) id
     (varLabel, varLabelD, astLabel) <-
-      funToAstIOR (singletonShape sizeMnistLabelInt) id
-    let envInit = extendEnvR varGlyph (rconstant $ AstRaw astGlyph)
-                  $ extendEnvR varLabel (rconstant $ AstRaw astLabel)
+      funToAstIO (FTKR $ singletonShape sizeMnistLabelInt) id
+    let envInit = extendEnv varGlyph (rconstant $ AstRaw astGlyph)
+                  $ extendEnv varLabel (rconstant $ AstRaw astLabel)
                   emptyEnv
         f = MnistFcnnRanked2.afcnnMnistLoss2TensorData @(AstRanked FullSpan)
               (rconstant $ AstRanked astGlyph, rconstant $ AstRanked astLabel)
