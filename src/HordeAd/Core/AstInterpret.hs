@@ -118,9 +118,9 @@ interpretAstPrimalS
   => AstEnv ranked
   -> AstTensor PrimalSpan (TKS r sh) -> PrimalOf (ShapedOf ranked) r sh
 interpretAstPrimalS !env v1 = case v1 of
-  AstPrimalPartS (AstDS u _) -> interpretAstPrimalS env u
-  AstPrimalPartS (AstConstantS u) -> interpretAstPrimalS env u
-  AstPrimalPartS t -> sprimalPart $ interpretAst env t
+  AstPrimalPart (AstD u _) -> interpretAstPrimalS env u
+  AstPrimalPart (AstConstant u) -> interpretAstPrimalS env u
+  AstPrimalPart t -> sprimalPart $ interpretAst env t
   AstCondS b a1 a2 ->  -- this avoids multiple ifF expansions via ifB(ADVal)
     let b1 = interpretAstBool env b
         t2 = interpretAstPrimalS env a1
@@ -144,8 +144,8 @@ interpretAstDualS
   => AstEnv ranked
   -> AstTensor DualSpan (TKS r sh) -> DualOf (ShapedOf ranked) r sh
 interpretAstDualS !env v1 = case v1 of
-  AstDualPartS (AstDS _ u') -> interpretAstDualS env u'
-  AstDualPartS t -> sdualPart $ interpretAst env t
+  AstDualPart (AstD _ u') -> interpretAstDualS env u'
+  AstDualPart t -> sdualPart $ interpretAst env t
   _ -> sdualPart $ interpretAst env v1
 
 interpretAstRuntimeSpecialized
@@ -199,6 +199,53 @@ interpretAst !env = \case
     _ -> error $ "interpretAst: unknown AstVar " ++ show var
       -- this is defeated by 'Undecidable instances and loopy superclasses':
       -- ++ " in environment " ++ show env
+  AstPrimalPart a -> interpretAst env a
+    -- This is correct, because @s@ must be @PrimalSpan@ and so @ranked@ must
+    -- be morally the primal part of a dual numbers type that is the codomain
+    -- of the interpretation of the same AST but marked with @FullSpan@.
+    -- Consequently, the result is a primal part, despite the appearances.
+    -- This whole notation abuse is for user comfort (less @PrimalOf@
+    -- in the tensor classes) and to avoid repeating the @interpretAst@ code
+    -- in @interpretAstPrimal@. TODO: make this sane.
+    --
+    -- For example, if I'm interpreting @AstRanked PrimalSpan@ in
+    -- @AstRanked FullSpan@ (basically doing the forward pass
+    -- via interpretation), then @ranked@ is a primal part
+    -- of @ADVal (AstRanked FullSpan)@, even though @ADVal@ never appears
+    -- and @a@ could even be returned as is (but @AstPrimalPart@ never occurs
+    -- in terms created by AD, I think, so no point optimizing). What happens
+    -- is that the term gets flattened and the @FullSpan@ terms inside
+    -- @AstPrimalPart@ get merged with those created from @PrimalSpan@ terms
+    -- via interpretation. Which is as good as any semantics of forward
+    -- pass of a function that has dual numbers somewhere inside it.
+    -- An alternative semantics would remove the dual parts and use
+    -- the primal parts to reconstruct the dual in the simple way.
+    -- Probably doesn't matter, because none of this can be created by AD.
+    -- If we had an @AstRanked@ variant without the dual number constructors,
+    -- instead of the spans, the mixup would vanish.
+  AstDualPart a -> interpretAst env a
+    -- This is correct, because @s@ must be @DualSpan@ and so @ranked@ must
+    -- be morally the dual part of a dual numbers type that is the codomain
+    -- of the interpretation of the same AST but marked with @FullSpan@.
+    -- Consequently, the result is a dual part, despite the appearances.
+  AstConstant @y2 a -> yconstant (stensorKind @y2) a
+   where
+    yconstant :: STensorKindType y3 -> AstTensor PrimalSpan y3
+              -> InterpretationTarget ranked y3
+    yconstant stk a3 = case stk of
+      STKR{} -> rconstant $ interpretAstPrimal env a3
+      STKS{} -> sconstant $ interpretAstPrimalS env a3
+      STKProduct{} -> error "TODO"
+  AstD @y2 u u' -> case stensorKind @y2 of
+    STKR{} ->
+      let t1 = interpretAstPrimal env u
+          t2 = interpretAstDual env u'
+      in rD t1 t2
+    STKS{} ->
+      let t1 = interpretAstPrimalS env u
+          t2 = interpretAstDualS env u'
+      in sD t1 t2
+    STKProduct{} -> error "TODO"
 
   AstLetTupleIn @_ @z1 @z2 var1 var2 p v ->
     let (t1, t2) = interpretAst env p
@@ -498,40 +545,6 @@ interpretAst !env = \case
         env2 h = extendEnvHFun var h env
     in rletHFunIn g (\h -> interpretAst (env2 h) v)
   AstRFromS v -> rfromS $ interpretAst env v
-  AstConstant a -> rconstant $ interpretAstPrimal env a
-  AstPrimalPart a -> interpretAst env a
-    -- This is correct, because @s@ must be @PrimalSpan@ and so @ranked@ must
-    -- be morally the primal part of a dual numbers type that is the codomain
-    -- of the interpretation of the same AST but marked with @FullSpan@.
-    -- Consequently, the result is a primal part, despite the appearances.
-    -- This whole notation abuse is for user comfort (less @PrimalOf@
-    -- in the tensor classes) and to avoid repeating the @interpretAst@ code
-    -- in @interpretAstPrimal@. TODO: make this sane.
-    --
-    -- For example, if I'm interpreting @AstRanked PrimalSpan@ in
-    -- @AstRanked FullSpan@ (basically doing the forward pass
-    -- via interpretation), then @ranked@ is a primal part
-    -- of @ADVal (AstRanked FullSpan)@, even though @ADVal@ never appears
-    -- and @a@ could even be returned as is (but @AstPrimalPart@ never occurs
-    -- in terms created by AD, I think, so no point optimizing). What happens
-    -- is that the term gets flattened and the @FullSpan@ terms inside
-    -- @AstPrimalPart@ get merged with those created from @PrimalSpan@ terms
-    -- via interpretation. Which is as good as any semantics of forward
-    -- pass of a function that has dual numbers somewhere inside it.
-    -- An alternative semantics would remove the dual parts and use
-    -- the primal parts to reconstruct the dual in the simple way.
-    -- Probably doesn't matter, because none of this can be created by AD.
-    -- If we had an @AstRanked@ variant without the dual number constructors,
-    -- instead of the spans, the mixup would vanish.
-  AstDualPart a -> interpretAst env a
-    -- This is correct, because @s@ must be @DualSpan@ and so @ranked@ must
-    -- be morally the dual part of a dual numbers type that is the codomain
-    -- of the interpretation of the same AST but marked with @FullSpan@.
-    -- Consequently, the result is a dual part, despite the appearances.
-  AstD u u' ->
-    let t1 = interpretAstPrimal env u
-        t2 = interpretAstDual env u'
-    in rD t1 t2
 
   AstLetTupleInS @_ @z1 @z2 var1 var2 p v ->
     let (t1, t2) = interpretAst env p
@@ -814,13 +827,6 @@ interpretAst !env = \case
         env2 h = extendEnvHFun var h env
     in sletHFunIn g (\h -> interpretAst (env2 h) v)
   AstSFromR v -> sfromR $ interpretAst env v
-  AstConstantS a -> sconstant $ interpretAstPrimalS env a
-  AstPrimalPartS a -> interpretAst env a
-  AstDualPartS a -> interpretAst env a
-  AstDS u u' ->
-    let t1 = interpretAstPrimalS env u
-        t2 = interpretAstDualS env u'
-    in sD t1 t2
 
 interpretAstDynamic
   :: forall ranked s. (ADReady ranked, AstSpan s)

@@ -156,6 +156,15 @@ build1V k (var, v00) =
         _ -> error "build1V: build variable is not an index variable"
     Ast.AstVar{} ->
       error "build1V: AstVar can't contain other free index variables"
+    Ast.AstPrimalPart v -> traceRule $
+      astPrimalPart $ build1V k (var, v)
+    Ast.AstDualPart v -> traceRule $
+      astDualPart $ build1V k (var, v)
+    Ast.AstConstant v -> traceRule $
+      Ast.AstConstant $ build1V k (var, v)
+    Ast.AstD u u' -> traceRule $
+      Ast.AstD (build1VOccurenceUnknown k (var, u))
+               (build1VOccurenceUnknown k (var, u'))
 
     Ast.AstLetTupleIn var1 var2 p v -> undefined  -- TODO: doable, but complex
 {-
@@ -287,16 +296,6 @@ build1V k (var, v00) =
         astRFromS @(k ': sh1) $ build1VS (var, v)
       Nothing ->
         error "build1V: impossible someNatVal error"
-
-    Ast.AstConstant v -> traceRule $
-      Ast.AstConstant $ build1V k (var, v)
-    Ast.AstPrimalPart v -> traceRule $
-      astPrimalPart $ build1V k (var, v)
-    Ast.AstDualPart v -> traceRule $
-      astDualPart $ build1V k (var, v)
-    Ast.AstD u u' -> traceRule $
-      Ast.AstD (build1VOccurenceUnknown k (var, u))
-               (build1VOccurenceUnknown k (var, u'))
 
 -- | The application @build1VIndex k (var, v, ix)@ vectorizes
 -- the term @AstBuild1 k (var, AstIndex v ix)@, where it's unknown whether
@@ -433,6 +432,15 @@ build1VS (var, v00) =
   in case v0 of
     Ast.AstVar{} ->
       error "build1VS: AstVar can't contain free index variables"
+    Ast.AstPrimalPart v -> traceRule $
+      astPrimalPart $ build1VS (var, v)
+    Ast.AstDualPart v -> traceRule $
+      astDualPart $ build1VS (var, v)
+    Ast.AstConstant v -> traceRule $
+      Ast.AstConstant $ build1VS (var, v)
+    Ast.AstD u u' -> traceRule $
+      Ast.AstD (build1VOccurenceUnknownS (var, u))
+               (build1VOccurenceUnknownS (var, u'))
 
     Ast.AstLetTupleInS var1 var2 p v -> undefined  -- TODO: doable, but complex
     Ast.AstLetS @_ @_ @y var1 u v | STKS{} <- stensorKind @y ->
@@ -442,8 +450,8 @@ build1VS (var, v00) =
                       (build1VOccurenceUnknownRefreshS (var, v2))
     Ast.AstLetS{} -> error "TODO"
     Ast.AstShareS{} -> error "build1VS: AstShareS"
-    Ast.AstCondS b (Ast.AstConstantS v) (Ast.AstConstantS w) ->
-      let t = Ast.AstConstantS
+    Ast.AstCondS b (Ast.AstConstant v) (Ast.AstConstant w) ->
+      let t = Ast.AstConstant
               $ astIndexStepS @'[2] (astFromVectorS $ V.fromList [v, w])
                                     (astCond b 0 1 :.$ ZIS)
       in build1VS (var, t)
@@ -550,16 +558,6 @@ build1VS (var, v00) =
       -- We take advantage of the fact that f contains no free index vars.
       astLetHFunInS var1 (build1VHFun (SNat @k) (var, f)) (build1VS (var, v))
     Ast.AstSFromR v -> astSFromR $ build1V (valueOf @k) (var, v)
-
-    Ast.AstConstantS v -> traceRule $
-      Ast.AstConstantS $ build1VS (var, v)
-    Ast.AstPrimalPartS v -> traceRule $
-      astPrimalPart $ build1VS (var, v)
-    Ast.AstDualPartS v -> traceRule $
-      astDualPart $ build1VS (var, v)
-    Ast.AstDS u u' -> traceRule $
-      Ast.AstDS (build1VOccurenceUnknownS (var, u))
-                (build1VOccurenceUnknownS (var, u'))
 
 build1VIndexS
   :: forall k p sh s r.

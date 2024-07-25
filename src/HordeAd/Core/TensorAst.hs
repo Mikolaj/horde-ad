@@ -444,7 +444,7 @@ instance AstSpan s => ShapedTensor (AstShaped s) where
   sprimalPart = AstShaped . astSpanPrimalS . unAstShaped
   sdualPart = AstShaped . astSpanDualS . unAstShaped
   sD u u' = AstShaped $ astSpanDS (unAstShaped u) (unAstShaped u')
-  sScale s t = AstShaped $ astDualPart $ AstConstantS (unAstShaped s) * AstDS 0 (unAstShaped t)
+  sScale s t = AstShaped $ astDualPart $ AstConstant (unAstShaped s) * AstD 0 (unAstShaped t)
 
 astLetHVectorInFunS
   :: forall sh s r. (KnownShS sh, GoodScalar r, AstSpan s)
@@ -478,7 +478,7 @@ astSpanPrimalS _ = error "a spuriuos case for pattern match coverage"
 astSpanDualS :: forall s r sh. (AstSpan s, GoodScalar r, KnownShS sh)
              => AstTensor s (TKS r sh) -> AstTensor DualSpan (TKS r sh)
 astSpanDualS t | Just Refl <- sameAstSpan @s @PrimalSpan =
-  AstDualPartS $ AstConstantS t  -- this is nil; likely to happen
+  AstDualPart $ AstConstant t  -- this is nil; likely to happen
 astSpanDualS t | Just Refl <- sameAstSpan @s @DualSpan = t
 astSpanDualS t | Just Refl <- sameAstSpan @s @FullSpan = astDualPart t
 astSpanDualS _ = error "a spuriuos case for pattern match coverage"
@@ -488,7 +488,7 @@ astSpanDS :: forall s r sh. (AstSpan s, GoodScalar r, KnownShS sh)
           -> AstTensor s (TKS r sh)
 astSpanDS u _ | Just Refl <- sameAstSpan @s @PrimalSpan = u
 astSpanDS _ u' | Just Refl <- sameAstSpan @s @DualSpan = u'
-astSpanDS u u' | Just Refl <- sameAstSpan @s @FullSpan = AstDS u u'
+astSpanDS u u' | Just Refl <- sameAstSpan @s @FullSpan = AstD u u'
 astSpanDS _ _ = error "a spuriuos case for pattern match coverage"
 
 astLetFunS :: forall y s r sh.
@@ -1129,7 +1129,7 @@ instance AstSpan s => ShapedTensor (AstRawS s) where
   sdualPart = AstRawS . astSpanDualS . unAstRawS
   sD u u' = AstRawS $ astSpanDS (unAstRawS u) (unAstRawS u')
   sScale s t = AstRawS $ astDualPart
-               $ AstConstantS (unAstRawS s) * AstDS 0 (unAstRawS t)
+               $ AstConstant (unAstRawS s) * AstD 0 (unAstRawS t)
 
 instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
   dshape = shapeAstHVector . unAstRawWrap
@@ -1512,8 +1512,8 @@ instance AstSpan s => ShapedTensor (AstNoSimplifyS s) where
          -> AstNoSimplifyS DualSpan r sh
   sScale s t =
     AstNoSimplifyS $ astDualPart
-                   $ AstConstantS (unAstNoSimplifyS s)
-                     * AstDS 0 (unAstNoSimplifyS t)
+                   $ AstConstant (unAstNoSimplifyS s)
+                     * AstD 0 (unAstNoSimplifyS t)
 
 instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
   dshape = shapeAstHVector . unAstNoSimplifyWrap

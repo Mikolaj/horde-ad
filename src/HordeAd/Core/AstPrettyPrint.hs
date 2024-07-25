@@ -75,6 +75,11 @@ areAllArgsInts = \case
   -- and so also aribtrary choices in resolving it.
   AstTuple{} -> False
   AstVar{} -> True
+  AstPrimalPart{} -> False
+  AstDualPart{} -> False
+  AstConstant{} -> True  -- the argument is emphatically a primal number; fine
+  AstD{} -> False  -- dual number
+
   AstLetTupleIn{} -> True  -- too early to tell, but displays the same
   AstLet{} -> True  -- too early to tell, but displays the same
   AstShare{} -> True  -- too early to tell
@@ -108,10 +113,6 @@ areAllArgsInts = \case
   AstLetHVectorIn{} -> True  -- too early to tell
   AstLetHFunIn{} -> True  -- too early to tell
   AstRFromS{} -> False
-  AstConstant{} -> True  -- the argument is emphatically a primal number; fine
-  AstPrimalPart{} -> False
-  AstDualPart{} -> False
-  AstD{} -> False  -- dual number
   _ -> False  -- shaped  -- TODO: change type to TKR to catch missing cases
 
 -- * Pretty-printing of variables
@@ -230,6 +231,23 @@ printAstAux cfg d = \case
       . printAst cfg 0 t2
       . showString ")"
   AstVar _sh var -> printAstVar cfg var
+  AstPrimalPart a -> case stensorKind @y of
+    STKS{} -> printPrefixOp printAst cfg d "sprimalPart" [a]
+    _      -> printPrefixOp printAst cfg d "rprimalPart" [a]
+  AstDualPart a -> case stensorKind @y of
+    STKS{} -> printPrefixOp printAst cfg d "sdualPart" [a]
+    _      -> printPrefixOp printAst cfg d "rdualPart" [a]
+  AstConstant a -> case stensorKind @y of
+    STKS{} -> if loseRoudtrip cfg
+              then printAst cfg d a
+              else printPrefixOp printAst cfg d "sconstant" [a]
+    _      -> if loseRoudtrip cfg
+              then printAst cfg d a
+              else printPrefixOp printAst cfg d "rconstant" [a]
+  AstD u u' -> case stensorKind @y of
+    STKS{} -> printPrefixBinaryOp printAst printAst cfg d "sD" u u'
+    _      -> printPrefixBinaryOp printAst printAst cfg d "rD" u u'
+
   AstLetTupleIn var1 var2 p v ->
     if loseRoudtrip cfg
     then
@@ -426,12 +444,6 @@ printAstAux cfg d = \case
              . printAst cfg 0 v)
         -- TODO: this does not roundtrip yet
   AstRFromS v -> printPrefixOp printAst cfg d "rfromS" [v]
-  AstConstant a -> if loseRoudtrip cfg
-                   then printAst cfg d a
-                   else printPrefixOp printAst cfg d "rconstant" [a]
-  AstPrimalPart a -> printPrefixOp printAst cfg d "rprimalPart" [a]
-  AstDualPart a -> printPrefixOp printAst cfg d "rdualPart" [a]
-  AstD u u' -> printPrefixBinaryOp printAst printAst cfg d "rD" u u'
 
   AstLetTupleInS var1 var2 p v ->
     if loseRoudtrip cfg
@@ -631,12 +643,6 @@ printAstAux cfg d = \case
              . printAst cfg 0 v)
         -- TODO: this does not roundtrip yet
   AstSFromR v -> printPrefixOp printAst cfg d "sfromR" [v]
-  AstConstantS a -> if loseRoudtrip cfg
-                    then printAst cfg d a
-                    else printPrefixOp printAst cfg d "sconstant" [a]
-  AstPrimalPartS a -> printPrefixOp printAst cfg d "sprimalPart" [a]
-  AstDualPartS a -> printPrefixOp printAst cfg d "sdualPart" [a]
-  AstDS u u' -> printPrefixBinaryOp printAst printAst cfg d "sD" u u'
 
 -- Differs from standard only in the space after comma.
 showListWith :: (a -> ShowS) -> [a] -> ShowS

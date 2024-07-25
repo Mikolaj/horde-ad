@@ -95,6 +95,13 @@ inlineAst memo v0 = case v0 of
     let f Nothing = Just 1
         f (Just count) = Just $ succ count
     in (EM.alter f (varNameToAstVarId var) memo, v0)
+  Ast.AstPrimalPart a -> second Ast.AstPrimalPart $ inlineAst memo a
+  Ast.AstDualPart a -> second Ast.AstDualPart $ inlineAst memo a
+  Ast.AstConstant a -> second Ast.AstConstant $ inlineAst memo a
+  Ast.AstD u u' ->
+    let (memo1, t1) = inlineAst memo u
+        (memo2, t2) = inlineAst memo1 u'
+    in (memo2, Ast.AstD t1 t2)
 
   Ast.AstLetTupleIn var1 var2 p v ->
     -- We don't inline, but elsewhere try to reduce to constructors that we do.
@@ -218,13 +225,6 @@ inlineAst memo v0 = case v0 of
                                     (SubstitutionPayloadHFun f2) var v2)
       _ -> (memo2, Ast.AstLetHFunIn var f2 v2)
   Ast.AstRFromS v -> second Ast.AstRFromS $ inlineAst memo v
-  Ast.AstConstant a -> second Ast.AstConstant $ inlineAst memo a
-  Ast.AstPrimalPart a -> second Ast.AstPrimalPart $ inlineAst memo a
-  Ast.AstDualPart a -> second Ast.AstDualPart $ inlineAst memo a
-  Ast.AstD u u' ->
-    let (memo1, t1) = inlineAst memo u
-        (memo2, t2) = inlineAst memo1 u'
-    in (memo2, Ast.AstD t1 t2)
 
   Ast.AstLetTupleInS var1 var2 p v ->
     let (memo1, p2) = inlineAst memo p
@@ -346,13 +346,6 @@ inlineAst memo v0 = case v0 of
                                     (SubstitutionPayloadHFun f2) var v2)
       _ -> (memo2, Ast.AstLetHFunInS var f2 v2)
   Ast.AstSFromR v -> second Ast.AstSFromR $ inlineAst memo v
-  Ast.AstConstantS a -> second Ast.AstConstantS $ inlineAst memo a
-  Ast.AstPrimalPartS a -> second Ast.AstPrimalPartS $ inlineAst memo a
-  Ast.AstDualPartS a -> second Ast.AstDualPartS $ inlineAst memo a
-  Ast.AstDS u u' ->
-    let (memo1, t1) = inlineAst memo u
-        (memo2, t2) = inlineAst memo1 u'
-    in (memo2, Ast.AstDS t1 t2)
 
 inlineAstDynamic
   :: AstSpan s
@@ -520,6 +513,13 @@ shareAst memo v0 = case v0 of
         (memo2, v2) = shareAst memo1 t2
     in (memo2, Ast.AstTuple v1 v2)
   Ast.AstVar{} -> (memo, v0)
+  Ast.AstPrimalPart a -> second Ast.AstPrimalPart $ shareAst memo a
+  Ast.AstDualPart a -> second Ast.AstDualPart $ shareAst memo a
+  Ast.AstConstant a -> second Ast.AstConstant $ shareAst memo a
+  Ast.AstD u u' ->
+    let (memo1, t1) = shareAst memo u
+        (memo2, t2) = shareAst memo1 u'
+    in (memo2, Ast.AstD t1 t2)
 
   Ast.AstLetTupleIn{} -> (memo, v0)
     -- delta eval doesn't create lets and no lets
@@ -609,13 +609,6 @@ shareAst memo v0 = case v0 of
   Ast.AstLetHVectorIn{} -> (memo, v0)
   Ast.AstLetHFunIn{} -> (memo, v0)
   Ast.AstRFromS v -> second Ast.AstRFromS $ shareAst memo v
-  Ast.AstConstant a -> second Ast.AstConstant $ shareAst memo a
-  Ast.AstPrimalPart a -> second Ast.AstPrimalPart $ shareAst memo a
-  Ast.AstDualPart a -> second Ast.AstDualPart $ shareAst memo a
-  Ast.AstD u u' ->
-    let (memo1, t1) = shareAst memo u
-        (memo2, t2) = shareAst memo1 u'
-    in (memo2, Ast.AstD t1 t2)
 
   Ast.AstLetTupleInS{} -> (memo, v0)
   Ast.AstLetS{} -> (memo, v0)
@@ -700,13 +693,6 @@ shareAst memo v0 = case v0 of
   Ast.AstLetHVectorInS{} -> (memo, v0)
   Ast.AstLetHFunInS{} -> (memo, v0)
   Ast.AstSFromR v -> second Ast.AstSFromR $ shareAst memo v
-  Ast.AstConstantS a -> second Ast.AstConstantS $ shareAst memo a
-  Ast.AstPrimalPartS a -> second Ast.AstPrimalPartS $ shareAst memo a
-  Ast.AstDualPartS a -> second Ast.AstDualPartS $ shareAst memo a
-  Ast.AstDS u u' ->
-    let (memo1, t1) = shareAst memo u
-        (memo2, t2) = shareAst memo1 u'
-    in (memo2, Ast.AstDS t1 t2)
 
 shareAstDynamic
   :: AstSpan s

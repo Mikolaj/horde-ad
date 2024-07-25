@@ -100,11 +100,11 @@ instance AstSpan PrimalSpan where
 
 instance AstSpan DualSpan where
   fromPrimal t = AstDualPart $ AstConstant t  -- this is nil (not primal 0)
-  fromPrimalS t = AstDualPartS $ AstConstantS t
+  fromPrimalS t = AstDualPart $ AstConstant t
 
 instance AstSpan FullSpan where
   fromPrimal = AstConstant
-  fromPrimalS = AstConstantS
+  fromPrimalS = AstConstant
 
 sameAstSpan :: forall s1 s2. (AstSpan s1, AstSpan s2) => Maybe (s1 :~: s2)
 sameAstSpan = case eqTypeRep (typeRep @s1) (typeRep @s2) of
@@ -254,6 +254,15 @@ data AstTensor :: AstSpanType -> TensorKindType -> Type where
            -> AstTensor s (TKProduct y z)
   AstVar :: TensorKind y
          => TensorKindFull y -> AstVarName s y -> AstTensor s y
+  AstPrimalPart :: TensorKind y
+                => AstTensor FullSpan y -> AstTensor PrimalSpan y
+  AstDualPart :: TensorKind y
+              => AstTensor FullSpan y -> AstTensor DualSpan y
+  AstConstant :: TensorKind y
+              => AstTensor PrimalSpan y -> AstTensor FullSpan y
+  AstD :: TensorKind y
+       => AstTensor PrimalSpan y -> AstTensor DualSpan y
+       -> AstTensor FullSpan y
 
   -- Here starts the ranked part.
   -- The r variable is existential here, so a proper specialization needs
@@ -361,15 +370,6 @@ data AstTensor :: AstSpanType -> TensorKindType -> Type where
                -> AstTensor s2 (TKR r n)
   AstRFromS :: (KnownShS sh, GoodScalar r)
             => AstTensor s (TKS r sh) -> AstTensor s (TKR r (X.Rank sh))
-
-  -- For the forbidden half of the RankedTensor class:
-  AstConstant :: (GoodScalar r, KnownNat n)
-              => AstTensor PrimalSpan (TKR r n) -> AstTensor FullSpan (TKR r n)
-  AstPrimalPart :: AstTensor FullSpan (TKR r n) -> AstTensor PrimalSpan (TKR r n)
-  AstDualPart :: AstTensor FullSpan (TKR r n) -> AstTensor DualSpan (TKR r n)
-  AstD :: (GoodScalar r, KnownNat n)
-       => AstTensor PrimalSpan (TKR r n) -> AstTensor DualSpan (TKR r n)
-       -> AstTensor FullSpan (TKR r n)
 
   -- Here starts the shaped part.
   AstLetTupleInS :: ( AstSpan s, TensorKind y, TensorKind z, GoodScalar r
@@ -490,15 +490,6 @@ data AstTensor :: AstSpanType -> TensorKindType -> Type where
                 -> AstTensor s2 (TKS r sh)
   AstSFromR :: (KnownShS sh, KnownNat (X.Rank sh), GoodScalar r)
             => AstTensor s (TKR r (X.Rank sh)) -> AstTensor s (TKS r sh)
-
-  -- For the forbidden half of the ShapedTensor class:
-  AstConstantS :: (GoodScalar r, KnownShS sh)
-               => AstTensor PrimalSpan (TKS r sh) -> AstTensor FullSpan (TKS r sh)
-  AstPrimalPartS :: AstTensor FullSpan (TKS r sh) -> AstTensor PrimalSpan (TKS r sh)
-  AstDualPartS :: AstTensor FullSpan (TKS r sh) -> AstTensor DualSpan (TKS r sh)
-  AstDS :: (GoodScalar r, KnownShS sh)
-        => AstTensor PrimalSpan (TKS r sh) -> AstTensor DualSpan (TKS r sh)
-        -> AstTensor FullSpan (TKS r sh)
 
 deriving instance Show (AstTensor s y)
 

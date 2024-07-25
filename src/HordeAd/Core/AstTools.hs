@@ -58,6 +58,10 @@ shapeAst :: forall n s r. (KnownNat n, GoodScalar r)
          => AstTensor s (TKR r n) -> IShR n
 shapeAst = \case
   AstVar (FTKR sh) _var -> sh
+  AstPrimalPart a -> shapeAst a
+  AstDualPart a -> shapeAst a
+  AstConstant a -> shapeAst a
+  AstD u _ -> shapeAst u
 
   AstLetTupleIn _var1 _var2 _p v -> shapeAst v
   AstLet _ _ v -> shapeAst v
@@ -104,10 +108,6 @@ shapeAst = \case
   AstLetHVectorIn _ _ v -> shapeAst v
   AstLetHFunIn _ _ v -> shapeAst v
   AstRFromS @sh _ -> listToShape $ shapeT @sh
-  AstConstant a -> shapeAst a
-  AstPrimalPart a -> shapeAst a
-  AstDualPart a -> shapeAst a
-  AstD u _ -> shapeAst u
 
 -- Length of the outermost dimension.
 lengthAst :: (KnownNat n, GoodScalar r) => AstTensor s (TKR r (1 + n)) -> Int
@@ -153,6 +153,10 @@ varInAst :: AstSpan s
 varInAst var = \case
   AstTuple t1 t2 -> varInAst var t1 || varInAst var t2
   AstVar _ var2 -> var == varNameToAstVarId var2
+  AstPrimalPart a -> varInAst var a
+  AstDualPart a -> varInAst var a
+  AstConstant v -> varInAst var v
+  AstD u u' -> varInAst var u || varInAst var u'
 
   AstLetTupleIn _var1 _var2 p v -> varInAst var p || varInAst var v
   AstLet _var2 u v -> varInAst var u || varInAst var v
@@ -187,10 +191,6 @@ varInAst var = \case
   AstLetHVectorIn _vars l v -> varInAstHVector var l || varInAst var v
   AstLetHFunIn _var2 f v -> varInAstHFun var f || varInAst var v
   AstRFromS v -> varInAst var v
-  AstConstant v -> varInAst var v
-  AstPrimalPart a -> varInAst var a
-  AstDualPart a -> varInAst var a
-  AstD u u' -> varInAst var u || varInAst var u'
 
   AstLetTupleInS _var1 _var2 p v -> varInAst var p || varInAst var v
   AstLetS _var2 u v -> varInAst var u || varInAst var v
@@ -225,10 +225,6 @@ varInAst var = \case
   AstLetHVectorInS _vars l v -> varInAstHVector var l || varInAst var v
   AstLetHFunInS _var2 f v -> varInAstHFun var f || varInAst var v
   AstSFromR v -> varInAst var v
-  AstConstantS v -> varInAst var v
-  AstPrimalPartS a -> varInAst var a
-  AstDualPartS a -> varInAst var a
-  AstDS u u' -> varInAst var u || varInAst var u'
 
 varInIndex :: AstVarId -> AstIndex n -> Bool
 varInIndex var = any (varInAst var)
@@ -298,6 +294,9 @@ astIsSmall :: Bool -> AstTensor s y -> Bool
 astIsSmall relaxed = \case
   AstTuple t1 t2 -> astIsSmall relaxed t1 && astIsSmall relaxed t2
   AstVar{} -> True
+  AstPrimalPart v -> astIsSmall relaxed v
+  AstDualPart v -> astIsSmall relaxed v
+  AstConstant v -> astIsSmall relaxed v
 
   AstLetTupleIn{} -> False
   AstIota -> True
@@ -309,9 +308,6 @@ astIsSmall relaxed = \case
     relaxed && astIsSmall relaxed v  -- often cheap and often fuses
   AstConst c -> Nested.rsize c <= 1
   AstRFromS v -> astIsSmall relaxed v
-  AstConstant v -> astIsSmall relaxed v
-  AstPrimalPart v -> astIsSmall relaxed v
-  AstDualPart v -> astIsSmall relaxed v
 
   AstLetTupleInS{} -> False
   AstIotaS -> True
@@ -324,9 +320,6 @@ astIsSmall relaxed = \case
   AstConstS c ->
     Nested.ssize c <= 1
   AstSFromR v -> astIsSmall relaxed v
-  AstConstantS v -> astIsSmall relaxed v
-  AstPrimalPartS v -> astIsSmall relaxed v
-  AstDualPartS v -> astIsSmall relaxed v
 
   _ -> False
 
