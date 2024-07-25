@@ -57,9 +57,9 @@ shapeAstFull stk t = case stk of
 shapeAst :: forall n s r. (KnownNat n, GoodScalar r)
          => AstTensor s (TKR r n) -> IShR n
 shapeAst = \case
-  AstLetTupleIn _var1 _var2 _p v -> shapeAst v
   AstVar (FTKR sh) _var -> sh
 
+  AstLetTupleIn _var1 _var2 _p v -> shapeAst v
   AstLet _ _ v -> shapeAst v
   AstShare _ v-> shapeAst v
   AstCond _b v _w -> shapeAst v
@@ -152,10 +152,9 @@ varInAst :: AstSpan s
          => AstVarId -> AstTensor s y -> Bool
 varInAst var = \case
   AstTuple t1 t2 -> varInAst var t1 || varInAst var t2
-  AstLetTupleIn _var1 _var2 p v -> varInAst var p || varInAst var v
-  AstLetTupleInS _var1 _var2 p v -> varInAst var p || varInAst var v
   AstVar _ var2 -> var == varNameToAstVarId var2
 
+  AstLetTupleIn _var1 _var2 p v -> varInAst var p || varInAst var v
   AstLet _var2 u v -> varInAst var u || varInAst var v
   AstShare _ v -> varInAst var v
   AstCond b v w -> varInAstBool var b || varInAst var v || varInAst var w
@@ -193,6 +192,7 @@ varInAst var = \case
   AstDualPart a -> varInAst var a
   AstD u u' -> varInAst var u || varInAst var u'
 
+  AstLetTupleInS _var1 _var2 p v -> varInAst var p || varInAst var v
   AstLetS _var2 u v -> varInAst var u || varInAst var v
   AstShareS _ v -> varInAst var v
   AstCondS b v w -> varInAstBool var b || varInAst var v || varInAst var w
@@ -297,10 +297,9 @@ varInAstBindingsCase var (AstBindingsHVector _ t) = varInAstHVector var t
 astIsSmall :: Bool -> AstTensor s y -> Bool
 astIsSmall relaxed = \case
   AstTuple t1 t2 -> astIsSmall relaxed t1 && astIsSmall relaxed t2
-  AstLetTupleIn{} -> False
-  AstLetTupleInS{} -> False
   AstVar{} -> True
 
+  AstLetTupleIn{} -> False
   AstIota -> True
   AstReplicate _ v ->
     relaxed && astIsSmall relaxed v  -- materialized via tricks, so prob. safe
@@ -314,6 +313,7 @@ astIsSmall relaxed = \case
   AstPrimalPart v -> astIsSmall relaxed v
   AstDualPart v -> astIsSmall relaxed v
 
+  AstLetTupleInS{} -> False
   AstIotaS -> True
   AstReplicateS v ->
     relaxed && astIsSmall relaxed v  -- materialized via tricks, so prob. safe

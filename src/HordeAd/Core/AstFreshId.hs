@@ -82,16 +82,16 @@ funToAstIO sh f = do
         let varName = mkAstVarName freshId
             !x = f (AstVar sh varName)
             dynVar = AstDynamicVarName @Nat @r @p_sh freshId
-        in (mkAstVarName freshId{-TODO: varName-}, dynVar, x)
+        in (varName, dynVar, x)
     FTKS @r @sh -> do
       let varName = mkAstVarName freshId
           !x = f (AstVar sh varName)
           dynVar = AstDynamicVarName @[Nat] @r @sh freshId
-      return (mkAstVarName freshId{-TODO: varName-}, dynVar, x)
+      return (varName, dynVar, x)
     FTKProduct{} -> do
       let varName = mkAstVarName freshId
           !x = f (AstVar sh varName)
-      return (mkAstVarName freshId{-TODO: varName-}, undefined, x)
+      return (varName, undefined, x)
 
 funToAst :: TensorKind y
          => TensorKindFull y

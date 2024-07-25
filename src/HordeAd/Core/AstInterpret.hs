@@ -186,18 +186,6 @@ interpretAst
   -> AstTensor s y -> InterpretationTarget ranked y
 interpretAst !env = \case
   AstTuple t1 t2 -> (interpretAst env t1, interpretAst env t2)
-  AstLetTupleIn @_ @z1 @z2 var1 var2 p v ->
-    let (t1, t2) = interpretAst env p
-        env2 w1 w2 = extendEnv var2 w2 $ extendEnv var1 w1 env
-    in rletTKIn (stensorKind @z1) t1 $ \w1 ->
-         rletTKIn (stensorKind @z2) t2 $ \w2 ->
-           interpretAst (env2 w1 w2) v
-  AstLetTupleInS @_ @z1 @z2 var1 var2 p v ->
-    let (t1, t2) = interpretAst env p
-        env2 w1 w2 = extendEnv var2 w2 $ extendEnv var1 w1 env
-    in sletTKIn (stensorKind @z1) t1 $ \w1 ->
-         sletTKIn (stensorKind @z2) t2 $ \w2 ->
-           interpretAst (env2 w1 w2) v
   AstVar @y2 _sh var ->
    let var2 = mkAstVarName @FullSpan @y2 (varNameToAstVarId var)  -- TODO
    in case DMap.lookup var2 env of
@@ -212,6 +200,12 @@ interpretAst !env = \case
       -- this is defeated by 'Undecidable instances and loopy superclasses':
       -- ++ " in environment " ++ show env
 
+  AstLetTupleIn @_ @z1 @z2 var1 var2 p v ->
+    let (t1, t2) = interpretAst env p
+        env2 w1 w2 = extendEnv var2 w2 $ extendEnv var1 w1 env
+    in rletTKIn (stensorKind @z1) t1 $ \w1 ->
+         rletTKIn (stensorKind @z2) t2 $ \w2 ->
+           interpretAst (env2 w1 w2) v
   AstLet @_ @_ @y2 var u v | STKR{} <- stensorKind @y2 ->
     -- We assume there are no nested lets with the same variable.
     let t = interpretAstRuntimeSpecialized env u
@@ -532,6 +526,12 @@ interpretAst !env = \case
         t2 = interpretAstDual env u'
     in rD t1 t2
 
+  AstLetTupleInS @_ @z1 @z2 var1 var2 p v ->
+    let (t1, t2) = interpretAst env p
+        env2 w1 w2 = extendEnv var2 w2 $ extendEnv var1 w1 env
+    in sletTKIn (stensorKind @z1) t1 $ \w1 ->
+         sletTKIn (stensorKind @z2) t2 $ \w2 ->
+           interpretAst (env2 w1 w2) v
   AstLetS @_ @_ @y2 var u v | STKS{} <- stensorKind @y2 ->
     -- We assume there are no nested lets with the same variable.
     let t = interpretAstSRuntimeSpecialized env u

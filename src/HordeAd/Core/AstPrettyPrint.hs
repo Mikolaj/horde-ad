@@ -73,7 +73,9 @@ areAllArgsInts = \case
   -- rank > 0, but also a likely float, as in the argument of AstFloor,
   -- or a likely dual number. There is an anavoidable ambiguity
   -- and so also aribtrary choices in resolving it.
+  AstTuple{} -> False
   AstVar{} -> True
+  AstLetTupleIn{} -> True  -- too early to tell, but displays the same
   AstLet{} -> True  -- too early to tell, but displays the same
   AstShare{} -> True  -- too early to tell
   AstCond{} -> True  -- too early to tell
@@ -227,6 +229,7 @@ printAstAux cfg d = \case
       . showString ", "
       . printAst cfg 0 t2
       . showString ")"
+  AstVar _sh var -> printAstVar cfg var
   AstLetTupleIn var1 var2 p v ->
     if loseRoudtrip cfg
     then
@@ -251,31 +254,6 @@ printAstAux cfg d = \case
              . printAstVar cfg var2
              . showString " -> "
              . printAst cfg 0 v)
-  AstLetTupleInS var1 var2 p v ->
-    if loseRoudtrip cfg
-    then
-      showParen (d > 10)
-      $ showString "let ("
-        . printAstVar cfg var1
-        . showString ", "
-        . printAstVar cfg var2
-        . showString ") = "
-        . printAst cfg 0 p
-        . showString " in "
-        . printAst cfg 0 v
-    else
-      showParen (d > 10)
-      $ showString "tletTupleInS "
-        . printAst cfg 11 p
-        . showString " "
-        . (showParen True
-           $ showString "\\"
-             . printAstVar cfg var1
-             . showString " "
-             . printAstVar cfg var2
-             . showString " -> "
-             . printAst cfg 0 v)
-  AstVar _sh var -> printAstVar cfg var
   t@(AstLet var0 u0 v0) ->
     if loseRoudtrip cfg
     then let collect :: AstTensor s y -> ([(ShowS, ShowS)], ShowS)
@@ -455,6 +433,30 @@ printAstAux cfg d = \case
   AstDualPart a -> printPrefixOp printAst cfg d "rdualPart" [a]
   AstD u u' -> printPrefixBinaryOp printAst printAst cfg d "rD" u u'
 
+  AstLetTupleInS var1 var2 p v ->
+    if loseRoudtrip cfg
+    then
+      showParen (d > 10)
+      $ showString "let ("
+        . printAstVar cfg var1
+        . showString ", "
+        . printAstVar cfg var2
+        . showString ") = "
+        . printAst cfg 0 p
+        . showString " in "
+        . printAst cfg 0 v
+    else
+      showParen (d > 10)
+      $ showString "tletTupleInS "
+        . printAst cfg 11 p
+        . showString " "
+        . (showParen True
+           $ showString "\\"
+             . printAstVar cfg var1
+             . showString " "
+             . printAstVar cfg var2
+             . showString " -> "
+             . printAst cfg 0 v)
   t@(AstLetS var0 u0 v0) ->
     if loseRoudtrip cfg
     then let collect :: AstTensor s (TKS r sh) -> ([(ShowS, ShowS)], ShowS)

@@ -150,6 +150,13 @@ build1V k (var, v00) =
       bv = Ast.AstBuild1 k (var, v0)
       traceRule = mkTraceRule "build1V" bv v0 1
   in case v0 of
+    Ast.AstVar _ var2 | varNameToAstVarId var2 == varNameToAstVarId var ->
+      case isRankedInt v0 of
+        Just Refl -> fromPrimal @s @Int64 $ astSlice 0 k Ast.AstIota
+        _ -> error "build1V: build variable is not an index variable"
+    Ast.AstVar{} ->
+      error "build1V: AstVar can't contain other free index variables"
+
     Ast.AstLetTupleIn var1 var2 p v -> undefined  -- TODO: doable, but complex
 {-
       -- See the AstLet and AstLetHVectorIn cases for comments.
@@ -168,13 +175,6 @@ build1V k (var, v00) =
                           (build1VOccurenceUnknownRefresh k (var, v2))
                             -- ensure no duplicated bindings, see below
 -}
-
-    Ast.AstVar _ var2 | varNameToAstVarId var2 == varNameToAstVarId var ->
-      case isRankedInt v0 of
-        Just Refl -> fromPrimal @s @Int64 $ astSlice 0 k Ast.AstIota
-        _ -> error "build1V: build variable is not an index variable"
-    Ast.AstVar{} ->
-      error "build1V: AstVar can't contain other free index variables"
     Ast.AstLet @_ @_ @y var1 u v | STKR{} <- stensorKind @y ->
       let var2 = mkAstVarName (varNameToAstVarId var1)
           sh = shapeAst u
@@ -431,10 +431,10 @@ build1VS (var, v00) =
       bv = Ast.AstBuild1S (var, v0)
       traceRule = mkTraceRuleS "build1VS" bv v0 1
   in case v0 of
-    Ast.AstLetTupleInS var1 var2 p v -> undefined  -- TODO: doable, but complex
-
     Ast.AstVar{} ->
       error "build1VS: AstVar can't contain free index variables"
+
+    Ast.AstLetTupleInS var1 var2 p v -> undefined  -- TODO: doable, but complex
     Ast.AstLetS @_ @_ @y var1 u v | STKS{} <- stensorKind @y ->
       let var2 = mkAstVarName (varNameToAstVarId var1)
           v2 = substProjShaped @k var var1 v
