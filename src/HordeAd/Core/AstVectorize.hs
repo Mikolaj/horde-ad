@@ -165,6 +165,15 @@ build1V k (var, v00) =
     Ast.AstD u u' -> traceRule $
       Ast.AstD (build1VOccurenceUnknown k (var, u))
                (build1VOccurenceUnknown k (var, u'))
+    Ast.AstCond b (Ast.AstConstant v) (Ast.AstConstant w) ->
+      let t = Ast.AstConstant
+              $ astIndexStep (astFromVector $ V.fromList [v, w])
+                             (singletonIndex (astCond b 0 1))
+      in build1V k (var, t)
+    Ast.AstCond b v w ->
+      let t = astIndexStep (astFromVector $ V.fromList [v, w])
+                           (singletonIndex (astCond b 0 1))
+      in build1V k (var, t)
 
     Ast.AstLetTupleIn var1 var2 p v -> undefined  -- TODO: doable, but complex
 {-
@@ -193,15 +202,6 @@ build1V k (var, v00) =
                         -- ensures no duplicated bindings, see below
     Ast.AstLet{} -> error "TODO"
     Ast.AstShare{} -> error "build1V: AstShare"
-    Ast.AstCond b (Ast.AstConstant v) (Ast.AstConstant w) ->
-      let t = Ast.AstConstant
-              $ astIndexStep (astFromVector $ V.fromList [v, w])
-                             (singletonIndex (astCond b 0 1))
-      in build1V k (var, t)
-    Ast.AstCond b v w ->
-      let t = astIndexStep (astFromVector $ V.fromList [v, w])
-                           (singletonIndex (astCond b 0 1))
-      in build1V k (var, t)
 
     Ast.AstMinIndex v -> Ast.AstMinIndex $ build1V k (var, v)
     Ast.AstMaxIndex v -> Ast.AstMaxIndex $ build1V k (var, v)
@@ -441,6 +441,15 @@ build1VS (var, v00) =
     Ast.AstD u u' -> traceRule $
       Ast.AstD (build1VOccurenceUnknownS (var, u))
                (build1VOccurenceUnknownS (var, u'))
+    Ast.AstCond b (Ast.AstConstant v) (Ast.AstConstant w) ->
+      let t = Ast.AstConstant
+              $ astIndexStepS @'[2] (astFromVectorS $ V.fromList [v, w])
+                                    (astCond b 0 1 :.$ ZIS)
+      in build1VS (var, t)
+    Ast.AstCond b v w ->
+      let t = astIndexStepS @'[2] (astFromVectorS $ V.fromList [v, w])
+                                  (astCond b 0 1 :.$ ZIS)
+      in build1VS (var, t)
 
     Ast.AstLetTupleInS var1 var2 p v -> undefined  -- TODO: doable, but complex
     Ast.AstLetS @_ @_ @y var1 u v | STKS{} <- stensorKind @y ->
@@ -450,15 +459,6 @@ build1VS (var, v00) =
                       (build1VOccurenceUnknownRefreshS (var, v2))
     Ast.AstLetS{} -> error "TODO"
     Ast.AstShareS{} -> error "build1VS: AstShareS"
-    Ast.AstCondS b (Ast.AstConstant v) (Ast.AstConstant w) ->
-      let t = Ast.AstConstant
-              $ astIndexStepS @'[2] (astFromVectorS $ V.fromList [v, w])
-                                    (astCond b 0 1 :.$ ZIS)
-      in build1VS (var, t)
-    Ast.AstCondS b v w ->
-      let t = astIndexStepS @'[2] (astFromVectorS $ V.fromList [v, w])
-                                  (astCond b 0 1 :.$ ZIS)
-      in build1VS (var, t)
 
     Ast.AstMinIndexS v -> Ast.AstMinIndexS $ build1VS (var, v)
     Ast.AstMaxIndexS v -> Ast.AstMaxIndexS $ build1VS (var, v)

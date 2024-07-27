@@ -79,11 +79,11 @@ areAllArgsInts = \case
   AstDualPart{} -> False
   AstConstant{} -> True  -- the argument is emphatically a primal number; fine
   AstD{} -> False  -- dual number
+  AstCond{} -> True  -- too early to tell
 
   AstLetTupleIn{} -> True  -- too early to tell, but displays the same
   AstLet{} -> True  -- too early to tell, but displays the same
   AstShare{} -> True  -- too early to tell
-  AstCond{} -> True  -- too early to tell
   AstMinIndex{} -> False
   AstMaxIndex{} -> False
   AstFloor{} -> False
@@ -247,6 +247,14 @@ printAstAux cfg d = \case
   AstD u u' -> case stensorKind @y of
     STKS{} -> printPrefixBinaryOp printAst printAst cfg d "sD" u u'
     _      -> printPrefixBinaryOp printAst printAst cfg d "rD" u u'
+  AstCond b a1 a2 ->
+    showParen (d > 10)
+    $ showString "ifF "
+      . printAstBool cfg 11 b
+      . showString " "
+      . printAst cfg 11 a1
+      . showString " "
+      . printAst cfg 11 a2
 
   AstLetTupleIn var1 var2 p v ->
     if loseRoudtrip cfg
@@ -305,14 +313,6 @@ printAstAux cfg d = \case
       . printAstVar cfg var
       . showString " "
       . printAst cfg 11 v
-  AstCond b a1 a2 ->
-    showParen (d > 10)
-    $ showString "ifF "
-      . printAstBool cfg 11 b
-      . showString " "
-      . printAst cfg 11 a1
-      . showString " "
-      . printAst cfg 11 a2
   AstMinIndex a ->
     printPrefixOp printAst cfg d "rminIndex" [a]
   AstMaxIndex a ->
@@ -501,14 +501,6 @@ printAstAux cfg d = \case
       . printAstVar cfg var
       . showString " "
       . printAst cfg 11 v
-  AstCondS b a1 a2 ->
-    showParen (d > 10)
-    $ showString "ifF "
-      . printAstBool cfg 11 b
-      . showString " "
-      . printAst cfg 11 a1
-      . showString " "
-      . printAst cfg 11 a2
   AstMinIndexS a -> printPrefixOp printAst cfg d "sminIndex" [a]
   AstMaxIndexS a -> printPrefixOp printAst cfg d "smaxIndex" [a]
   AstFloorS a ->  printPrefixOp printAst cfg d "sfloor" [a]

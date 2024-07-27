@@ -62,11 +62,11 @@ shapeAst = \case
   AstDualPart a -> shapeAst a
   AstConstant a -> shapeAst a
   AstD u _ -> shapeAst u
+  AstCond _b v _w -> shapeAst v
 
   AstLetTupleIn _var1 _var2 _p v -> shapeAst v
   AstLet _ _ v -> shapeAst v
   AstShare _ v-> shapeAst v
-  AstCond _b v _w -> shapeAst v
   AstMinIndex a -> initShape $ shapeAst a
   AstMaxIndex a -> initShape $ shapeAst a
   AstFloor a -> shapeAst a
@@ -157,11 +157,11 @@ varInAst var = \case
   AstDualPart a -> varInAst var a
   AstConstant v -> varInAst var v
   AstD u u' -> varInAst var u || varInAst var u'
+  AstCond b v w -> varInAstBool var b || varInAst var v || varInAst var w
 
   AstLetTupleIn _var1 _var2 p v -> varInAst var p || varInAst var v
   AstLet _var2 u v -> varInAst var u || varInAst var v
   AstShare _ v -> varInAst var v
-  AstCond b v w -> varInAstBool var b || varInAst var v || varInAst var w
   AstMinIndex a -> varInAst var a
   AstMaxIndex a -> varInAst var a
   AstFloor a -> varInAst var a
@@ -195,7 +195,6 @@ varInAst var = \case
   AstLetTupleInS _var1 _var2 p v -> varInAst var p || varInAst var v
   AstLetS _var2 u v -> varInAst var u || varInAst var v
   AstShareS _ v -> varInAst var v
-  AstCondS b v w -> varInAstBool var b || varInAst var v || varInAst var w
   AstMinIndexS a -> varInAst var a
   AstMaxIndexS a -> varInAst var a
   AstFloorS a -> varInAst var a

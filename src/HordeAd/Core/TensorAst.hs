@@ -206,7 +206,7 @@ instance AstSpan s => OrdF (AstShaped s) where
   v >=. u = AstRelS GeqOp (astSpanPrimalS (unAstShaped v)) (astSpanPrimalS (unAstShaped u))
 
 instance IfF (AstShaped s) where
-  ifF cond a b = AstShaped $ astCondS cond (unAstShaped a) (unAstShaped b)
+  ifF cond a b = AstShaped $ astCond cond (unAstShaped a) (unAstShaped b)
 
 
 -- * Ranked tensor AST instances
@@ -803,7 +803,7 @@ deriving instance (RealFloatF (AstTensor s (TKR r n)))
 type instance BoolOf (AstRawS s) = AstBool
 
 instance IfF (AstRawS s) where
-  ifF cond a b = AstRawS $ AstCondS cond (unAstRawS a) (unAstRawS b)
+  ifF cond a b = AstRawS $ AstCond cond (unAstRawS a) (unAstRawS b)
 instance AstSpan s => EqF (AstRawS s) where
   AstRawS v ==. AstRawS u = AstRelS EqOp (astSpanPrimalS v) (astSpanPrimalS u)
   AstRawS v /=. AstRawS u = AstRelS NeqOp (astSpanPrimalS v) (astSpanPrimalS u)

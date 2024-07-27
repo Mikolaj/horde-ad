@@ -263,6 +263,8 @@ data AstTensor :: AstSpanType -> TensorKindType -> Type where
   AstD :: TensorKind y
        => AstTensor PrimalSpan y -> AstTensor DualSpan y
        -> AstTensor FullSpan y
+  AstCond :: TensorKind y
+          => AstBool -> AstTensor s y -> AstTensor s y -> AstTensor s y
 
   -- Here starts the ranked part.
   -- The r variable is existential here, so a proper specialization needs
@@ -281,9 +283,6 @@ data AstTensor :: AstSpanType -> TensorKindType -> Type where
   AstShare :: (GoodScalar r, KnownNat n)
            => AstVarName s (TKR r n) -> AstTensor s (TKR r n)
            -> AstTensor s (TKR r n)
-  AstCond :: (GoodScalar r, KnownNat n)
-          => AstBool
-          -> AstTensor s (TKR r n) -> AstTensor s (TKR r n) -> AstTensor s (TKR r n)
 
   -- There are existential variables here, as well.
   AstMinIndex :: (GoodScalar r, KnownNat n, GoodScalar r2)
@@ -386,10 +385,6 @@ data AstTensor :: AstSpanType -> TensorKindType -> Type where
   AstShareS :: (KnownShS sh, GoodScalar r)
             => AstVarName s (TKS r sh) -> AstTensor s (TKS r sh)
             -> AstTensor s (TKS r sh)
-  AstCondS :: (GoodScalar r, KnownShS sh)
-           => AstBool
-           -> AstTensor s (TKS r sh) -> AstTensor s (TKS r sh)
-           -> AstTensor s (TKS r sh)
 
   AstMinIndexS :: ( KnownShS sh, KnownNat n, GoodScalar r, GoodScalar r2
                   , GoodScalar r2, KnownShS (Sh.Init (n ': sh)) )

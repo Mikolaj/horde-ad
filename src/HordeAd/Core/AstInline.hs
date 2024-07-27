@@ -102,6 +102,19 @@ inlineAst memo v0 = case v0 of
     let (memo1, t1) = inlineAst memo u
         (memo2, t2) = inlineAst memo1 u'
     in (memo2, Ast.AstD t1 t2)
+  Ast.AstCond b a2 a3 ->
+    -- This is a place where our inlining may increase code size
+    -- by enlarging both branches due to not considering number of syntactic
+    -- occurrences, but only dynamic occurrences. Tensor expressions
+    -- in conditionals are problematic and special enough
+    -- that we can let it be until problems are encountered in the wild.
+    -- See https://github.com/VMatthijs/CHAD/blob/main/src/Count.hs#L88-L152.
+    let (memo1, b1) = inlineAstBool memo b
+        (memoA2, t2) = inlineAst EM.empty a2
+        (memoA3, t3) = inlineAst EM.empty a3
+        memo4 = EM.unionWith max memoA2 memoA3
+        memo5 = EM.unionWith (+) memo1 memo4
+    in (memo5, Ast.AstCond b1 t2 t3)
 
   Ast.AstLetTupleIn var1 var2 p v ->
     -- We don't inline, but elsewhere try to reduce to constructors that we do.
@@ -129,19 +142,6 @@ inlineAst memo v0 = case v0 of
         in (memo3, substituteAst (SubstitutionPayload u0) var v2)
       _ -> (memo2, Ast.AstLet var u2 v2)
   Ast.AstShare{} -> error "inlineAst: AstShare"
-  Ast.AstCond b a2 a3 ->
-    -- This is a place where our inlining may increase code size
-    -- by enlarging both branches due to not considering number of syntactic
-    -- occurrences, but only dynamic occurrences. Tensor expressions
-    -- in conditionals are problematic and special enough
-    -- that we can let it be until problems are encountered in the wild.
-    -- See https://github.com/VMatthijs/CHAD/blob/main/src/Count.hs#L88-L152.
-    let (memo1, b1) = inlineAstBool memo b
-        (memoA2, t2) = inlineAst EM.empty a2
-        (memoA3, t3) = inlineAst EM.empty a3
-        memo4 = EM.unionWith max memoA2 memoA3
-        memo5 = EM.unionWith (+) memo1 memo4
-    in (memo5, Ast.AstCond b1 t2 t3)
   Ast.AstMinIndex a -> second Ast.AstMinIndex $ inlineAst memo a
   Ast.AstMaxIndex a -> second Ast.AstMaxIndex $ inlineAst memo a
   Ast.AstFloor a -> second Ast.AstFloor $ inlineAst memo a
@@ -246,19 +246,6 @@ inlineAst memo v0 = case v0 of
         in (memo3, substituteAst (SubstitutionPayload u0) var v2)
       _ -> (memo2, Ast.AstLetS var u2 v2)
   Ast.AstShareS{} -> error "inlineAst: AstShareS"
-  Ast.AstCondS b a2 a3 ->
-    -- This is a place where our inlining may increase code size
-    -- by enlarging both branches due to not considering number of syntactic
-    -- occurrences, but only dynamic occurrences. Tensor expressions
-    -- in conditionals are problematic and special enough
-    -- that we can let it be until problems are encountered in the wild.
-    -- See https://github.com/VMatthijs/CHAD/blob/main/src/Count.hs#L88-L152.
-    let (memo1, b1) = inlineAstBool memo b
-        (memoA2, t2) = inlineAst EM.empty a2
-        (memoA3, t3) = inlineAst EM.empty a3
-        memo4 = EM.unionWith max memoA2 memoA3
-        memo5 = EM.unionWith (+) memo1 memo4
-    in (memo5, Ast.AstCondS b1 t2 t3)
   Ast.AstMinIndexS a -> second Ast.AstMinIndexS $ inlineAst memo a
   Ast.AstMaxIndexS a -> second Ast.AstMaxIndexS $ inlineAst memo a
   Ast.AstFloorS a -> second Ast.AstFloorS $ inlineAst memo a
@@ -520,6 +507,11 @@ shareAst memo v0 = case v0 of
     let (memo1, t1) = shareAst memo u
         (memo2, t2) = shareAst memo1 u'
     in (memo2, Ast.AstD t1 t2)
+  Ast.AstCond b a2 a3 ->
+    let (memo1, b1) = shareAstBool memo b
+        (memo2, t2) = shareAst memo1 a2
+        (memo3, t3) = shareAst memo2 a3
+    in (memo3, Ast.AstCond b1 t2 t3)
 
   Ast.AstLetTupleIn{} -> error "shareAst: AstLetTupleIn"
     -- delta eval doesn't create lets and no lets
@@ -535,11 +527,6 @@ shareAst memo v0 = case v0 of
                 d = AstBindingsSimple $ DynamicRanked $ AstRanked v2
             in (EM.insert varId d memo1, astVar)
   Ast.AstShare{} -> error "shareAst: AstShare not in PrimalSpan"
-  Ast.AstCond b a2 a3 ->
-    let (memo1, b1) = shareAstBool memo b
-        (memo2, t2) = shareAst memo1 a2
-        (memo3, t3) = shareAst memo2 a3
-    in (memo3, Ast.AstCond b1 t2 t3)
   Ast.AstMinIndex a -> second Ast.AstMinIndex $ shareAst memo a
   Ast.AstMaxIndex a -> second Ast.AstMaxIndex $ shareAst memo a
   Ast.AstFloor a -> second Ast.AstFloor $ shareAst memo a
@@ -622,11 +609,6 @@ shareAst memo v0 = case v0 of
                 d = AstBindingsSimple $ DynamicShaped $ AstShaped v2
             in (EM.insert varId d memo1, astVar)
   Ast.AstShareS{} -> error "shareAst: AstShareS not in PrimalSpan"
-  Ast.AstCondS b a2 a3 ->
-    let (memo1, b1) = shareAstBool memo b
-        (memo2, t2) = shareAst memo1 a2
-        (memo3, t3) = shareAst memo2 a3
-    in (memo3, Ast.AstCondS b1 t2 t3)
   Ast.AstMinIndexS a -> second Ast.AstMinIndexS $ shareAst memo a
   Ast.AstMaxIndexS a -> second Ast.AstMaxIndexS $ shareAst memo a
   Ast.AstFloorS a -> second Ast.AstFloorS $ shareAst memo a

@@ -121,7 +121,7 @@ interpretAstPrimalS !env v1 = case v1 of
   AstPrimalPart (AstD u _) -> interpretAstPrimalS env u
   AstPrimalPart (AstConstant u) -> interpretAstPrimalS env u
   AstPrimalPart t -> sprimalPart $ interpretAst env t
-  AstCondS b a1 a2 ->  -- this avoids multiple ifF expansions via ifB(ADVal)
+  AstCond b a1 a2 ->  -- this avoids multiple ifF expansions via ifB(ADVal)
     let b1 = interpretAstBool env b
         t2 = interpretAstPrimalS env a1
         t3 = interpretAstPrimalS env a2
@@ -246,6 +246,18 @@ interpretAst !env = \case
           t2 = interpretAstDualS env u'
       in sD t1 t2
     STKProduct{} -> error "TODO"
+  AstCond @y2 b a1 a2 -> case stensorKind @y2 of
+    STKR{} ->
+      let b1 = interpretAstBool env b
+          t2 = interpretAst env a1
+          t3 = interpretAst env a2
+      in ifF b1 t2 t3
+    STKS{} ->
+      let b1 = interpretAstBool env b
+          t2 = interpretAst env a1
+          t3 = interpretAst env a2
+      in ifF b1 t2 t3
+    STKProduct{} -> error "TODO"
 
   AstLetTupleIn @_ @z1 @z2 var1 var2 p v ->
     let (t1, t2) = interpretAst env p
@@ -268,11 +280,6 @@ interpretAst !env = \case
           env2 w = extendEnv var w env
       in rletTKIn stk t (\w -> interpretAst (env2 w) v)
   AstShare{} -> error "interpretAst: AstShare"
-  AstCond b a1 a2 ->
-    let b1 = interpretAstBool env b
-        t2 = interpretAst env a1
-        t3 = interpretAst env a2
-    in ifF b1 t2 t3
   AstMinIndex v ->
     rminIndex $ rconstant $ interpretAstPrimalRuntimeSpecialized env v
   AstMaxIndex v ->
@@ -567,11 +574,6 @@ interpretAst !env = \case
           env2 w = extendEnv var w env
       in sletTKIn stk t (\w -> interpretAst (env2 w) v)
   AstShareS{} -> error "interpretAst: AstShareS"
-  AstCondS b a1 a2 ->
-    let b1 = interpretAstBool env b
-        t2 = interpretAst env a1
-        t3 = interpretAst env a2
-    in ifF b1 t2 t3
   AstMinIndexS v ->
     sminIndex $ sconstant $ interpretAstPrimalSRuntimeSpecialized env v
   AstMaxIndexS v ->
