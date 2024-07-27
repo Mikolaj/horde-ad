@@ -521,10 +521,10 @@ shareAst memo v0 = case v0 of
         (memo2, t2) = shareAst memo1 u'
     in (memo2, Ast.AstD t1 t2)
 
-  Ast.AstLetTupleIn{} -> (memo, v0)
+  Ast.AstLetTupleIn{} -> error "shareAst: AstLetTupleIn"
     -- delta eval doesn't create lets and no lets
     -- survive instantiating in ADVal
-  Ast.AstLet{} -> (memo, v0)
+  Ast.AstLet{} -> error "shareAst: AstLet"
   Ast.AstShare var v | Just Refl <- sameAstSpan @s @PrimalSpan ->
     -- We assume v is the same if var is the same.
     let varId = varNameToAstVarId var
@@ -606,12 +606,12 @@ shareAst memo v0 = case v0 of
     -- higher than if simplified.
     let (memo1, l2) = shareAstHVector memo l
     in (memo1, Ast.AstProject l2 p)
-  Ast.AstLetHVectorIn{} -> (memo, v0)
-  Ast.AstLetHFunIn{} -> (memo, v0)
+  Ast.AstLetHVectorIn{} -> error "shareAst: AstLetHVectorIn"
+  Ast.AstLetHFunIn{} -> error "shareAst: AstLetHFunIn"
   Ast.AstRFromS v -> second Ast.AstRFromS $ shareAst memo v
 
-  Ast.AstLetTupleInS{} -> (memo, v0)
-  Ast.AstLetS{} -> (memo, v0)
+  Ast.AstLetTupleInS{} -> error "shareAst: AstLetTupleInS"
+  Ast.AstLetS{} -> error "shareAst: AstLetS"
   Ast.AstShareS var v | Just Refl <- sameAstSpan @s @PrimalSpan ->
     -- We assume v is the same if var is the same.
     let varId = varNameToAstVarId var
@@ -690,8 +690,8 @@ shareAst memo v0 = case v0 of
   Ast.AstProjectS l p ->
     let (memo1, l2) = shareAstHVector memo l
     in (memo1, Ast.AstProjectS l2 p)
-  Ast.AstLetHVectorInS{} -> (memo, v0)
-  Ast.AstLetHFunInS{} -> (memo, v0)
+  Ast.AstLetHVectorInS{} -> error "shareAst: AstLetHVectorInS"
+  Ast.AstLetHFunInS{} -> error "shareAst: AstLetHFunInS"
   Ast.AstSFromR v -> second Ast.AstSFromR $ shareAst memo v
 
 shareAstDynamic
@@ -715,10 +715,10 @@ shareAstHVector memo v0 = case v0 of
     let (memo1, t2) = shareAstHFun memo t
         (memo2, ll2) = mapAccumR (mapAccumR shareAstDynamic) memo1 ll
     in (memo2, Ast.AstHApply t2 ll2)
-  Ast.AstLetHVectorInHVector{} -> (memo, v0)
-  Ast.AstLetHFunInHVector{} -> (memo, v0)
-  Ast.AstLetInHVector{} -> (memo, v0)
-  Ast.AstLetInHVectorS{} -> (memo, v0)
+  Ast.AstLetHVectorInHVector{} -> error "shareAst: AstLetHVectorInHVector"
+  Ast.AstLetHFunInHVector{} -> error "shareAst: AstLetHFunInHVector"
+  Ast.AstLetInHVector{} -> error "shareAst: AstLetInHVector"
+  Ast.AstLetInHVectorS{} -> error "shareAst: AstLetInHVectorS"
   Ast.AstShareHVector [] l -> (memo, l)  -- no need to share an empty HVector
   Ast.AstShareHVector vars l | Just Refl <- sameAstSpan @s @PrimalSpan ->
     -- We assume l is the same if vars are the same.
