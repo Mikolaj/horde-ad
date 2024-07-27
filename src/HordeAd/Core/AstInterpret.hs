@@ -9,11 +9,10 @@
 -- the instance is a term algebra as well.
 module HordeAd.Core.AstInterpret
   ( interpretAstPrimal, interpretAst
-  , interpretAstPrimalS
   , interpretAstHVector
   -- * Exported only to specialize elsewhere (because transitive specialization may not work, possibly)
   , interpretAstPrimalRuntimeSpecialized, interpretAstPrimalSRuntimeSpecialized
-  , interpretAstDual, interpretAstDualS
+  , interpretAstDual
   , interpretAstRuntimeSpecialized, interpretAstSRuntimeSpecialized
   , interpretAstBool
   ) where
@@ -64,13 +63,13 @@ interpretAstPrimalRuntimeSpecialized !env t =
   -- TODO: revisit using TypeRepOf to pattern match
   -- instead of nesting conditionals
   case testEquality (typeRep @r) (typeRep @Double) of
-    Just Refl -> interpretAstPrimal @ranked @n @Double env t
+    Just Refl -> interpretAstPrimal @ranked @(TKR Double n) env t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
-      Just Refl -> interpretAstPrimal @ranked @n @Float env t
+      Just Refl -> interpretAstPrimal @ranked @(TKR Float n) env t
       _ -> case testEquality (typeRep @r) (typeRep @Int64) of
-        Just Refl -> interpretAstPrimal @ranked @n @Int64 env t
+        Just Refl -> interpretAstPrimal @ranked @(TKR Int64 n) env t
         _ -> case testEquality (typeRep @r) (typeRep @CInt) of
-          Just Refl -> interpretAstPrimal @ranked @n @CInt env t
+          Just Refl -> interpretAstPrimal @ranked @(TKR CInt n) env t
           _ -> error "an unexpected underlying scalar type"  -- catch absurd
 
 interpretAstPrimalSRuntimeSpecialized
@@ -80,14 +79,14 @@ interpretAstPrimalSRuntimeSpecialized
   -> AstTensor PrimalSpan (TKS r sh) -> PrimalOf (ShapedOf ranked) r sh
 interpretAstPrimalSRuntimeSpecialized !env t =
   case testEquality (typeRep @r) (typeRep @Double) of
-    Just Refl -> interpretAstPrimalS @ranked @sh @Double env t
+    Just Refl -> interpretAstPrimal @ranked @(TKS Double sh) env t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
-      Just Refl -> interpretAstPrimalS @ranked @sh @Float env t
+      Just Refl -> interpretAstPrimal @ranked @(TKS Float sh) env t
       _ -> case testEquality (typeRep @r) (typeRep @Int64) of
-        Just Refl -> interpretAstPrimalS @ranked @sh @Int64 env t
+        Just Refl -> interpretAstPrimal @ranked @(TKS Int64 sh) env t
         _ -> case testEquality (typeRep @r) (typeRep @CInt) of
-          Just Refl -> interpretAstPrimalS @ranked @sh @CInt env t
-          _ -> error "an unexpected underlying scalar type"
+          Just Refl -> interpretAstPrimal @ranked @(TKS CInt sh) env t
+          _ -> error "an unexpected underlying scalar type"  -- catch absurd
 
 -- Strict environment and strict ADVal and Delta make this is hard to optimize.
 -- Either the environment has to be traversed to remove the dual parts or
@@ -97,56 +96,39 @@ interpretAstPrimalSRuntimeSpecialized !env t =
 -- It helps that usually the dual part is either trivially computed
 -- to be zero or is used elsewhere. It's rarely really lost and forgotten.
 interpretAstPrimal
-  :: forall ranked n r.
-     (KnownNat n, ADReady ranked, GoodScalar r)
+  :: forall ranked y. (ADReady ranked, TensorKind y)
   => AstEnv ranked
-  -> AstTensor PrimalSpan (TKR r n) -> PrimalOf ranked r n
+  -> AstTensor PrimalSpan y -> InterpretationTarget (PrimalOf ranked) y
 interpretAstPrimal !env v1 = case v1 of
   AstPrimalPart (AstD u _) -> interpretAstPrimal env u
   AstPrimalPart (AstConstant u) -> interpretAstPrimal env u
-  AstPrimalPart t -> rprimalPart $ interpretAst env t
-  AstCond b a1 a2 ->  -- this avoids multiple ifF expansions via ifB(ADVal)
-    let b1 = interpretAstBool env b
-        t2 = interpretAstPrimal env a1
-        t3 = interpretAstPrimal env a2
-    in ifF b1 t2 t3  -- this is ifF from PrimalOf ranked
-  _ -> rprimalPart $ interpretAst env v1
-
-interpretAstPrimalS
-  :: forall ranked sh r.
-     (KnownShS sh, ADReady ranked, GoodScalar r)
-  => AstEnv ranked
-  -> AstTensor PrimalSpan (TKS r sh) -> PrimalOf (ShapedOf ranked) r sh
-interpretAstPrimalS !env v1 = case v1 of
-  AstPrimalPart (AstD u _) -> interpretAstPrimalS env u
-  AstPrimalPart (AstConstant u) -> interpretAstPrimalS env u
-  AstPrimalPart t -> sprimalPart $ interpretAst env t
-  AstCond b a1 a2 ->  -- this avoids multiple ifF expansions via ifB(ADVal)
-    let b1 = interpretAstBool env b
-        t2 = interpretAstPrimalS env a1
-        t3 = interpretAstPrimalS env a2
-    in ifF b1 t2 t3  -- this is ifF from PrimalOf ranked
-  _ -> sprimalPart $ interpretAst env v1
+  AstCond @y2 b a1 a2 -> case stensorKind @y2 of
+    STKR{} ->  -- this avoids multiple ifF expansions via ifB(ADVal)
+      let b1 = interpretAstBool env b
+          t2 = interpretAstPrimal env a1
+          t3 = interpretAstPrimal env a2
+      in ifF b1 t2 t3  -- this is ifF from PrimalOf ranked
+    STKS{} ->
+      let b1 = interpretAstBool env b
+          t2 = interpretAstPrimal env a1
+          t3 = interpretAstPrimal env a2
+      in ifF b1 t2 t3
+    STKProduct{} -> error "TODO"
+  _ -> case stensorKind @y of
+    STKR{} -> rprimalPart $ interpretAst env v1
+    STKS{} -> sprimalPart $ interpretAst env v1
+    STKProduct{} -> error "TODO"
 
 interpretAstDual
-  :: forall ranked n r.
-     (KnownNat n, ADReady ranked, GoodScalar r)
+  :: forall ranked y. (ADReady ranked, TensorKind y)
   => AstEnv ranked
-  -> AstTensor DualSpan (TKR r n)-> DualOf ranked r n
+  -> AstTensor DualSpan y -> InterpretationTarget (DualOf ranked) y
 interpretAstDual !env v1 = case v1 of
   AstDualPart (AstD _ u') -> interpretAstDual env u'
-  AstDualPart t -> rdualPart $ interpretAst env t
-  _ -> rdualPart $ interpretAst env v1
-
-interpretAstDualS
-  :: forall ranked sh r.
-     (KnownShS sh, ADReady ranked, GoodScalar r)
-  => AstEnv ranked
-  -> AstTensor DualSpan (TKS r sh) -> DualOf (ShapedOf ranked) r sh
-interpretAstDualS !env v1 = case v1 of
-  AstDualPart (AstD _ u') -> interpretAstDualS env u'
-  AstDualPart t -> sdualPart $ interpretAst env t
-  _ -> sdualPart $ interpretAst env v1
+  _ -> case stensorKind @y of
+    STKR{} -> rdualPart $ interpretAst env v1
+    STKS{} -> sdualPart $ interpretAst env v1
+    STKProduct{} -> error "TODO"
 
 interpretAstRuntimeSpecialized
   :: forall ranked n s r.
@@ -234,7 +216,7 @@ interpretAst !env = \case
               -> InterpretationTarget ranked y3
     yconstant stk a3 = case stk of
       STKR{} -> rconstant $ interpretAstPrimal env a3
-      STKS{} -> sconstant $ interpretAstPrimalS env a3
+      STKS{} -> sconstant $ interpretAstPrimal env a3
       STKProduct{} -> error "TODO"
   AstD @y2 u u' -> case stensorKind @y2 of
     STKR{} ->
@@ -242,8 +224,8 @@ interpretAst !env = \case
           t2 = interpretAstDual env u'
       in rD t1 t2
     STKS{} ->
-      let t1 = interpretAstPrimalS env u
-          t2 = interpretAstDualS env u'
+      let t1 = interpretAstPrimal env u
+          t2 = interpretAstDual env u'
       in sD t1 t2
     STKProduct{} -> error "TODO"
   AstCond @y2 b a1 a2 -> case stensorKind @y2 of

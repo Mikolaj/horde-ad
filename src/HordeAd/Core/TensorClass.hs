@@ -1211,6 +1211,8 @@ type ADReadyBoth ranked shaped =
   , RankedOf (PrimalOf shaped) ~ PrimalOf ranked
   , PrimalOf ranked ~ RankedOf (PrimalOf shaped)
   , ShapedOf (PrimalOf ranked) ~ PrimalOf shaped
+  , DualOf shaped ~ ShapedOf (DualOf ranked)
+  , ShapedOf (DualOf ranked) ~ DualOf shaped
   , PrimalOf shaped ~ ShapedOf (PrimalOf ranked)
   , BoolOf ranked ~ BoolOf shaped
   , BoolOf shaped ~ BoolOf ranked

@@ -268,6 +268,9 @@ type role DummyDual representational nominal
 type DummyDual :: TensorType ty
 data DummyDual r (y :: ty) = DummyDual
 
+type instance RankedOf DummyDual = DummyDual
+type instance ShapedOf DummyDual = DummyDual
+
 
 -- * Generic types of booleans and related class definitions
 
