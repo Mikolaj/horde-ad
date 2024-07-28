@@ -2085,10 +2085,7 @@ astPrimalPart t = case t of
 astDualPart :: AstTensor FullSpan y -> AstTensor DualSpan y
 astDualPart t = case t of
   Ast.AstTuple t1 t2 -> Ast.AstTuple (astDualPart t1) (astDualPart t2)
-  Ast.AstVar sh _var -> case sh of
-    FTKR{} -> Ast.AstDualPart t
-    FTKS{} -> Ast.AstDualPart t
-    FTKProduct{} -> error "TODO"
+  Ast.AstVar{} -> Ast.AstDualPart t
   Ast.AstConstant{}  -> Ast.AstDualPart t  -- this equals nil (not primal 0)
   Ast.AstD _ u' -> u'
   Ast.AstCond b a2 a3 -> astCond b (astDualPart a2) (astDualPart a3)

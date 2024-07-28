@@ -246,7 +246,7 @@ unRankedY stk t = case stk of
   STKR{} -> unAstRanked t
   STKS{} -> unAstShaped t
   STKProduct stk1 stk2 -> AstTuple (unRankedY stk1 $ fst t)
-                                  (unRankedY stk2 $ snd t)
+                                   (unRankedY stk2 $ snd t)
 
 instance AstSpan s => RankedTensor (AstRanked s) where
   rletTKIn :: forall y n r. (TensorKind y, KnownNat n, GoodScalar r)
@@ -911,7 +911,7 @@ unRawY stk t = case stk of
   STKR{} -> unAstRaw t
   STKS{} -> unAstRawS t
   STKProduct stk1 stk2 -> AstTuple (unRawY stk1 $ fst t)
-                                  (unRawY stk2 $ snd t)
+                                   (unRawY stk2 $ snd t)
 
 instance AstSpan s => RankedTensor (AstRaw s) where
   rletTKIn :: forall y n r.
@@ -1178,7 +1178,7 @@ unNoVectorizeY stk t = case stk of
   STKR{} -> unAstNoVectorize t
   STKS{} -> unAstNoVectorizeS t
   STKProduct stk1 stk2 -> AstTuple (unNoVectorizeY stk1 $ fst t)
-                                  (unNoVectorizeY stk2 $ snd t)
+                                   (unNoVectorizeY stk2 $ snd t)
 
 instance AstSpan s => RankedTensor (AstNoVectorize s) where
   rletTKIn :: forall y n r.
@@ -1370,7 +1370,7 @@ unNoSimplifyY stk t = case stk of
   STKR{} -> unAstNoSimplify t
   STKS{} -> unAstNoSimplifyS t
   STKProduct stk1 stk2 -> AstTuple (unNoSimplifyY stk1 $ fst t)
-                                  (unNoSimplifyY stk2 $ snd t)
+                                   (unNoSimplifyY stk2 $ snd t)
 
 instance AstSpan s => RankedTensor (AstNoSimplify s) where
   rletTKIn :: forall y n r. (TensorKind y, KnownNat n, GoodScalar r)

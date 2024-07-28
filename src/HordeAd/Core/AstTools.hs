@@ -47,7 +47,12 @@ shapeAstFull stk t = case stk of
   STKS{} -> FTKS
   STKProduct stk1 stk2 -> case t of
     AstTuple t1 t2 -> FTKProduct (shapeAstFull stk1 t1) (shapeAstFull stk2 t2)
-    _ -> error "TODO"
+    AstVar sh _var -> sh
+    AstPrimalPart a -> shapeAstFull stk a
+    AstDualPart a -> shapeAstFull stk a
+    AstConstant a -> shapeAstFull stk a
+    AstD u _ -> shapeAstFull stk u
+    AstCond _b v _w -> shapeAstFull stk v
 
 -- This is cheap and dirty. We don't shape-check the terms and we don't
 -- unify or produce (partial) results with variables. Instead, we investigate
