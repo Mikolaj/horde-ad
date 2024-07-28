@@ -385,12 +385,12 @@ instance (GoodScalar r, KnownShS sh, ShapedTensor (AstShaped s), AstSpan s)
 instance (GoodScalar r, KnownShS sh)
          => DualNumberValue (AstShaped PrimalSpan r sh) where
   type DValue (AstShaped PrimalSpan r sh) = OSArray r sh
-  fromDValue t = AstShaped $ fromPrimalS $ AstConstS $ runFlipS t
+  fromDValue t = AstShaped $ fromPrimal $ AstConstS $ runFlipS t
 
 instance (GoodScalar r, KnownShS sh)
          => TermValue (AstShaped FullSpan r sh) where
   type Value (AstShaped FullSpan r sh) = OSArray r sh
-  fromValue t = AstShaped $ fromPrimalS $ AstConstS $ runFlipS t
+  fromValue t = AstShaped $ fromPrimal $ AstConstS $ runFlipS t
 
 instance AstSpan s => ShapedTensor (AstShaped s) where
   sletTKIn :: forall y sh r. (TensorKind y, GoodScalar r, KnownShS sh)
@@ -401,11 +401,11 @@ instance AstSpan s => ShapedTensor (AstShaped s) where
     AstShaped
     $ astLetFunS @y @s (unRankedY stk a) (unAstShaped . f . rankedY stk)
 
-  sminIndex = AstShaped . fromPrimalS . AstMinIndexS . astSpanPrimalS . unAstShaped
-  smaxIndex = AstShaped . fromPrimalS . AstMaxIndexS . astSpanPrimalS . unAstShaped
-  sfloor = AstShaped . fromPrimalS . AstFloorS . astSpanPrimalS . unAstShaped
+  sminIndex = AstShaped . fromPrimal . AstMinIndexS . astSpanPrimalS . unAstShaped
+  smaxIndex = AstShaped . fromPrimal . AstMaxIndexS . astSpanPrimalS . unAstShaped
+  sfloor = AstShaped . fromPrimal . AstFloorS . astSpanPrimalS . unAstShaped
 
-  siota = AstShaped . fromPrimalS $ AstIotaS
+  siota = AstShaped . fromPrimal $ AstIotaS
   sindex v ix =
     AstShaped $ astIndexStepS (unAstShaped v) (unAstRanked <$> ix)
   ssum = AstShaped . astSumS . unAstShaped
@@ -428,8 +428,8 @@ instance AstSpan s => ShapedTensor (AstShaped s) where
                     (fmap unAstRanked . f . fmap AstRanked)
                       -- this introduces new variable names
   scast = AstShaped . astCastS . unAstShaped
-  sfromIntegral = AstShaped . fromPrimalS . astFromIntegralS . astSpanPrimalS . unAstShaped
-  sconst = AstShaped . fromPrimalS . AstConstS
+  sfromIntegral = AstShaped . fromPrimal . astFromIntegralS . astSpanPrimalS . unAstShaped
+  sconst = AstShaped . fromPrimal . AstConstS
   sletHVectorIn a f =
     AstShaped
     $ astLetHVectorInFunS a (unAstShaped . f)
@@ -440,7 +440,7 @@ instance AstSpan s => ShapedTensor (AstShaped s) where
   sshare a | astIsSmall True (unAstShaped a) = a
   sshare a = AstShaped $ fun1SToAst $ \ !var -> AstShareS var (unAstShaped a)
 
-  sconstant = AstShaped . fromPrimalS . unAstShaped
+  sconstant = AstShaped . fromPrimal . unAstShaped
   sprimalPart = AstShaped . astSpanPrimalS . unAstShaped
   sdualPart = AstShaped . astSpanDualS . unAstShaped
   sD u u' = AstShaped $ astSpanDS (unAstShaped u) (unAstShaped u')
@@ -517,7 +517,7 @@ instance TermValue (DynamicTensor (AstRanked FullSpan)) where
     DynamicRanked t -> DynamicRanked $ AstRanked $ fromPrimal $ AstConst $ runFlipR t
     DynamicShaped @_ @sh t ->
       gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: X.Rank sh) $
-      DynamicShaped @_ @sh $ AstShaped $ fromPrimalS $ AstConstS $ runFlipS t
+      DynamicShaped @_ @sh $ AstShaped $ fromPrimal $ AstConstS $ runFlipS t
     DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
     DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
 
@@ -1088,10 +1088,10 @@ instance AstSpan s => ShapedTensor (AstRawS s) where
   sletTKIn stk a f =
     AstRawS
     $ astLetFunRawS @y @s (unRawY stk a) (unAstRawS . f . rawY stk)
-  sminIndex = AstRawS . fromPrimalS . AstMinIndexS . astSpanPrimalS . unAstRawS
-  smaxIndex = AstRawS . fromPrimalS . AstMaxIndexS . astSpanPrimalS . unAstRawS
-  sfloor = AstRawS . fromPrimalS . AstFloorS . astSpanPrimalS . unAstRawS
-  siota = AstRawS . fromPrimalS $ AstIotaS
+  sminIndex = AstRawS . fromPrimal . AstMinIndexS . astSpanPrimalS . unAstRawS
+  smaxIndex = AstRawS . fromPrimal . AstMaxIndexS . astSpanPrimalS . unAstRawS
+  sfloor = AstRawS . fromPrimal . AstFloorS . astSpanPrimalS . unAstRawS
+  siota = AstRawS . fromPrimal $ AstIotaS
   sindex v ix = AstRawS $ AstIndexS (unAstRawS v) (unAstRaw <$> ix)
   ssum = AstRawS . AstSumS . unAstRawS
   sscatter t f = AstRawS $ AstScatterS (unAstRawS t)
@@ -1111,9 +1111,9 @@ instance AstSpan s => ShapedTensor (AstRawS s) where
                 $ funToAstIndexS (fmap unAstRaw . f . fmap AstRaw)
                     -- this introduces new variable names
   scast = AstRawS . AstCastS . unAstRawS
-  sfromIntegral = AstRawS . fromPrimalS . AstFromIntegralS
+  sfromIntegral = AstRawS . fromPrimal . AstFromIntegralS
                   . astSpanPrimalS . unAstRawS
-  sconst = AstRawS . fromPrimalS . AstConstS
+  sconst = AstRawS . fromPrimal . AstConstS
   sletHVectorIn a f =
     AstRawS
     $ astLetHVectorInFunRawS (unAstRawWrap a) (unAstRawS . f . rawHVector)
@@ -1124,7 +1124,7 @@ instance AstSpan s => ShapedTensor (AstRawS s) where
   sshare a | astIsSmall True (unAstRawS a) = a
   sshare a = AstRawS $ fun1SToAst $ \ !var -> AstShareS var (unAstRawS a)
 
-  sconstant = AstRawS . fromPrimalS . unAstRawS
+  sconstant = AstRawS . fromPrimal . unAstRawS
   sprimalPart = AstRawS . astSpanPrimalS . unAstRawS
   sdualPart = AstRawS . astSpanDualS . unAstRawS
   sD u u' = AstRawS $ astSpanDS (unAstRawS u) (unAstRawS u')
@@ -1461,13 +1461,13 @@ instance AstSpan s => ShapedTensor (AstNoSimplifyS s) where
   sletTKIn stk a f =
     AstNoSimplifyS
     $ astLetFunRawS @y @s (unNoSimplifyY stk a) (unAstNoSimplifyS . f . noSimplifyY stk)
-  sminIndex = AstNoSimplifyS . fromPrimalS . AstMinIndexS
+  sminIndex = AstNoSimplifyS . fromPrimal . AstMinIndexS
               . astSpanPrimalS . unAstNoSimplifyS
-  smaxIndex = AstNoSimplifyS . fromPrimalS . AstMaxIndexS
+  smaxIndex = AstNoSimplifyS . fromPrimal . AstMaxIndexS
               . astSpanPrimalS . unAstNoSimplifyS
-  sfloor = AstNoSimplifyS . fromPrimalS . AstFloorS
+  sfloor = AstNoSimplifyS . fromPrimal . AstFloorS
            . astSpanPrimalS . unAstNoSimplifyS
-  siota = AstNoSimplifyS . fromPrimalS $ AstIotaS
+  siota = AstNoSimplifyS . fromPrimal $ AstIotaS
   sindex v ix =
     AstNoSimplifyS $ AstIndexS (unAstNoSimplifyS v) (unAstNoSimplify <$> ix)
   ssum = AstNoSimplifyS . AstSumS . unAstNoSimplifyS
@@ -1492,16 +1492,16 @@ instance AstSpan s => ShapedTensor (AstNoSimplifyS s) where
                     (fmap unAstNoSimplify . f . fmap AstNoSimplify)
                       -- this introduces new variable names
   scast = AstNoSimplifyS . AstCastS . unAstNoSimplifyS
-  sfromIntegral = AstNoSimplifyS . fromPrimalS . AstFromIntegralS
+  sfromIntegral = AstNoSimplifyS . fromPrimal . AstFromIntegralS
                   . astSpanPrimalS . unAstNoSimplifyS
-  sconst = AstNoSimplifyS . fromPrimalS . AstConstS
+  sconst = AstNoSimplifyS . fromPrimal . AstConstS
   sletHVectorIn a f =
     AstNoSimplifyS
     $ astLetHVectorInFunRawS (unAstNoSimplifyWrap a)
                              (unAstNoSimplifyS . f . noSimplifyHVector)
   sletHFunIn a f = AstNoSimplifyS $ astLetHFunInFunRawS a (unAstNoSimplifyS . f)
   sfromR = AstNoSimplifyS . AstSFromR . unAstNoSimplify
-  sconstant = AstNoSimplifyS . fromPrimalS . unAstNoSimplifyS
+  sconstant = AstNoSimplifyS . fromPrimal . unAstNoSimplifyS
     -- exceptionally we do simplify AstConstant to avoid long boring chains
   sprimalPart = AstNoSimplifyS . astSpanPrimalS . unAstNoSimplifyS
   sdualPart = AstNoSimplifyS . astSpanDualS . unAstNoSimplifyS

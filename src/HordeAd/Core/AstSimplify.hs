@@ -1593,7 +1593,7 @@ astReplicate0NS =
   let go :: ShS sh' -> AstTensor s (TKS r '[]) -> AstTensor s (TKS r sh')
       go ZSS v = v
       go ((:$$) SNat sh') v | Dict <- sshapeKnown sh' = astReplicateS $ go sh' v
-  in go (knownShS @shn) . fromPrimalS . AstConstS . Nested.sscalar
+  in go (knownShS @shn) . fromPrimal . AstConstS . Nested.sscalar
 
 astReplicate0NT :: forall n s r. (GoodScalar r, AstSpan s)
                 => IShR n -> AstTensor s (TKR r 0) -> AstTensor s (TKR r n)

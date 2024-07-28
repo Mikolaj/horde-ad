@@ -775,7 +775,7 @@ interpretAst !env = \case
     $ sbuild @(ShapedOf ranked) @r @(X.Rank sh2)
              (interpretLambdaIndexS
                 interpretAst env
-                (vars, fromPrimalS @s $ AstFromIntegralS $ AstSFromR i))
+                (vars, fromPrimal @s $ AstFromIntegralS $ AstSFromR i))
   AstGatherS v (vars, ix) ->
     let t1 = interpretAst env v
         f2 = interpretLambdaIndexToIndexS interpretAstPrimal env (vars, ix)

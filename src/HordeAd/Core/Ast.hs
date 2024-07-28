@@ -89,22 +89,16 @@ type instance DualOf (AstShaped s) = AstShaped DualSpan
 type data AstSpanType = PrimalSpan | DualSpan | FullSpan
 
 class Typeable s => AstSpan (s :: AstSpanType) where
-  fromPrimal :: (GoodScalar r, KnownNat n)
-             => AstTensor PrimalSpan (TKR r n) -> AstTensor s (TKR r n)
-  fromPrimalS :: (GoodScalar r, KnownShS sh)
-              => AstTensor PrimalSpan (TKS r sh) -> AstTensor s (TKS r sh)
+  fromPrimal :: TensorKind y => AstTensor PrimalSpan y -> AstTensor s y
 
 instance AstSpan PrimalSpan where
   fromPrimal = id
-  fromPrimalS = id
 
 instance AstSpan DualSpan where
   fromPrimal t = AstDualPart $ AstConstant t  -- this is nil (not primal 0)
-  fromPrimalS t = AstDualPart $ AstConstant t
 
 instance AstSpan FullSpan where
   fromPrimal = AstConstant
-  fromPrimalS = AstConstant
 
 sameAstSpan :: forall s1 s2. (AstSpan s1, AstSpan s2) => Maybe (s1 :~: s2)
 sameAstSpan = case eqTypeRep (typeRep @s1) (typeRep @s2) of
@@ -782,7 +776,7 @@ instance ( GoodScalar r, Differentiable r, Fractional (Nested.Shaped sh r)
 
 instance (GoodScalar r, Differentiable r, KnownShS sh, Floating (Nested.Shaped sh r), AstSpan s)
          => Floating (AstTensor s (TKS r sh)) where
-  pi = fromPrimalS $ AstConstS pi
+  pi = fromPrimal $ AstConstS pi
   exp = AstR1S ExpOp
   log = AstR1S LogOp
   sqrt = AstR1S SqrtOp
