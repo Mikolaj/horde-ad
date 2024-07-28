@@ -188,22 +188,22 @@ instance IfF (AstRanked s) where
 type instance BoolOf (AstShaped s) = AstBool
 
 instance AstSpan s => EqF (AstShaped s) where
-  AstShaped v ==. AstShaped u = AstRelS EqOp (astSpanPrimalS v) (astSpanPrimalS u)
-  AstShaped v /=. AstShaped u = AstRelS NeqOp (astSpanPrimalS v) (astSpanPrimalS u)
+  AstShaped v ==. AstShaped u = AstRelS EqOp (astSpanPrimal v) (astSpanPrimal u)
+  AstShaped v /=. AstShaped u = AstRelS NeqOp (astSpanPrimal v) (astSpanPrimal u)
 
 instance AstSpan s => OrdF (AstShaped s) where
   AstShaped (AstConstS u) <. AstShaped (AstConstS v) = AstBoolConst $ u < v
     -- common in indexing
-  v <. u = AstRelS LsOp (astSpanPrimalS (unAstShaped v)) (astSpanPrimalS (unAstShaped u))
+  v <. u = AstRelS LsOp (astSpanPrimal (unAstShaped v)) (astSpanPrimal (unAstShaped u))
   AstShaped (AstConstS u) <=. AstShaped (AstConstS v) = AstBoolConst $ u <= v
     -- common in indexing
-  v <=. u = AstRelS LeqOp (astSpanPrimalS (unAstShaped v)) (astSpanPrimalS (unAstShaped u))
+  v <=. u = AstRelS LeqOp (astSpanPrimal (unAstShaped v)) (astSpanPrimal (unAstShaped u))
   AstShaped (AstConstS u) >. AstShaped (AstConstS v) = AstBoolConst $ u > v
     -- common in indexing
-  v >. u = AstRelS GtOp (astSpanPrimalS (unAstShaped v)) (astSpanPrimalS (unAstShaped u))
+  v >. u = AstRelS GtOp (astSpanPrimal (unAstShaped v)) (astSpanPrimal (unAstShaped u))
   AstShaped (AstConstS u) >=. AstShaped (AstConstS v) =  AstBoolConst $ u >= v
     -- common in indexing
-  v >=. u = AstRelS GeqOp (astSpanPrimalS (unAstShaped v)) (astSpanPrimalS (unAstShaped u))
+  v >=. u = AstRelS GeqOp (astSpanPrimal (unAstShaped v)) (astSpanPrimal (unAstShaped u))
 
 instance IfF (AstShaped s) where
   ifF cond a b = AstShaped $ astCond cond (unAstShaped a) (unAstShaped b)
@@ -327,8 +327,8 @@ astLetHFunInFun a f =
       shs = shapeAstHFun a
   in fun1HToAst shss shs $ \ !var !ast -> astLetHFunIn var a (f ast)
 
-astSpanPrimal :: forall s r n. AstSpan s
-              => AstTensor s (TKR r n) -> AstTensor PrimalSpan (TKR r n)
+astSpanPrimal :: forall s y. AstSpan s
+              => AstTensor s y -> AstTensor PrimalSpan y
 astSpanPrimal t | Just Refl <- sameAstSpan @s @PrimalSpan = t
 astSpanPrimal _ | Just Refl <- sameAstSpan @s @DualSpan =
   error "astSpanPrimal: can't recover primal from dual"
@@ -337,17 +337,17 @@ astSpanPrimal _ | Just Refl <- sameAstSpan @s @DualSpan =
 astSpanPrimal t | Just Refl <- sameAstSpan @s @FullSpan = astPrimalPart t
 astSpanPrimal _ = error "a spuriuos case for pattern match coverage"
 
-astSpanDual :: forall s r n. (GoodScalar r, AstSpan s, KnownNat n)
-            => AstTensor s (TKR r n) -> AstTensor DualSpan (TKR r n)
+astSpanDual :: forall s y. (AstSpan s, TensorKind y)
+            => AstTensor s y -> AstTensor DualSpan y
 astSpanDual t | Just Refl <- sameAstSpan @s @PrimalSpan =
   AstDualPart $ AstConstant t  -- this is nil; likely to happen
 astSpanDual t | Just Refl <- sameAstSpan @s @DualSpan = t
 astSpanDual t | Just Refl <- sameAstSpan @s @FullSpan = astDualPart t
 astSpanDual _ = error "a spuriuos case for pattern match coverage"
 
-astSpanD :: forall s r n. (GoodScalar r, AstSpan s, KnownNat n)
-         => AstTensor PrimalSpan (TKR r n) -> AstTensor DualSpan (TKR r n)
-         -> AstTensor s (TKR r n)
+astSpanD :: forall s y. (AstSpan s, TensorKind y)
+         => AstTensor PrimalSpan y -> AstTensor DualSpan y
+         -> AstTensor s y
 astSpanD u _ | Just Refl <- sameAstSpan @s @PrimalSpan = u
 astSpanD _ u' | Just Refl <- sameAstSpan @s @DualSpan = u'
 astSpanD u u' | Just Refl <- sameAstSpan @s @FullSpan = AstD u u'
@@ -401,9 +401,9 @@ instance AstSpan s => ShapedTensor (AstShaped s) where
     AstShaped
     $ astLetFunS @y @s (unRankedY stk a) (unAstShaped . f . rankedY stk)
 
-  sminIndex = AstShaped . fromPrimal . AstMinIndexS . astSpanPrimalS . unAstShaped
-  smaxIndex = AstShaped . fromPrimal . AstMaxIndexS . astSpanPrimalS . unAstShaped
-  sfloor = AstShaped . fromPrimal . AstFloorS . astSpanPrimalS . unAstShaped
+  sminIndex = AstShaped . fromPrimal . AstMinIndexS . astSpanPrimal . unAstShaped
+  smaxIndex = AstShaped . fromPrimal . AstMaxIndexS . astSpanPrimal . unAstShaped
+  sfloor = AstShaped . fromPrimal . AstFloorS . astSpanPrimal . unAstShaped
 
   siota = AstShaped . fromPrimal $ AstIotaS
   sindex v ix =
@@ -428,7 +428,7 @@ instance AstSpan s => ShapedTensor (AstShaped s) where
                     (fmap unAstRanked . f . fmap AstRanked)
                       -- this introduces new variable names
   scast = AstShaped . astCastS . unAstShaped
-  sfromIntegral = AstShaped . fromPrimal . astFromIntegralS . astSpanPrimalS . unAstShaped
+  sfromIntegral = AstShaped . fromPrimal . astFromIntegralS . astSpanPrimal . unAstShaped
   sconst = AstShaped . fromPrimal . AstConstS
   sletHVectorIn a f =
     AstShaped
@@ -441,9 +441,9 @@ instance AstSpan s => ShapedTensor (AstShaped s) where
   sshare a = AstShaped $ fun1SToAst $ \ !var -> AstShareS var (unAstShaped a)
 
   sconstant = AstShaped . fromPrimal . unAstShaped
-  sprimalPart = AstShaped . astSpanPrimalS . unAstShaped
-  sdualPart = AstShaped . astSpanDualS . unAstShaped
-  sD u u' = AstShaped $ astSpanDS (unAstShaped u) (unAstShaped u')
+  sprimalPart = AstShaped . astSpanPrimal . unAstShaped
+  sdualPart = AstShaped . astSpanDual . unAstShaped
+  sD u u' = AstShaped $ astSpanD (unAstShaped u) (unAstShaped u')
   sScale s t = AstShaped $ astDualPart $ AstConstant (unAstShaped s) * AstD 0 (unAstShaped t)
 
 astLetHVectorInFunS
@@ -464,32 +464,6 @@ astLetHFunInFunS a f =
   let shss = domainShapesAstHFun a
       shs = shapeAstHFun a
   in fun1HToAst shss shs $ \ !var !ast -> astLetHFunInS var a (f ast)
-
-astSpanPrimalS :: forall s r sh. AstSpan s
-               => AstTensor s (TKS r sh) -> AstTensor PrimalSpan (TKS r sh)
-astSpanPrimalS t | Just Refl <- sameAstSpan @s @PrimalSpan = t
-astSpanPrimalS _ | Just Refl <- sameAstSpan @s @DualSpan =
-  error "astSpanPrimalS: can't recover primal from dual"
-    -- or we could return zero, but this is unlikely to happen
-    -- except by user error
-astSpanPrimalS t | Just Refl <- sameAstSpan @s @FullSpan = astPrimalPart t
-astSpanPrimalS _ = error "a spuriuos case for pattern match coverage"
-
-astSpanDualS :: forall s r sh. (AstSpan s, GoodScalar r, KnownShS sh)
-             => AstTensor s (TKS r sh) -> AstTensor DualSpan (TKS r sh)
-astSpanDualS t | Just Refl <- sameAstSpan @s @PrimalSpan =
-  AstDualPart $ AstConstant t  -- this is nil; likely to happen
-astSpanDualS t | Just Refl <- sameAstSpan @s @DualSpan = t
-astSpanDualS t | Just Refl <- sameAstSpan @s @FullSpan = astDualPart t
-astSpanDualS _ = error "a spuriuos case for pattern match coverage"
-
-astSpanDS :: forall s r sh. (AstSpan s, GoodScalar r, KnownShS sh)
-          => AstTensor PrimalSpan (TKS r sh) -> AstTensor DualSpan (TKS r sh)
-          -> AstTensor s (TKS r sh)
-astSpanDS u _ | Just Refl <- sameAstSpan @s @PrimalSpan = u
-astSpanDS _ u' | Just Refl <- sameAstSpan @s @DualSpan = u'
-astSpanDS u u' | Just Refl <- sameAstSpan @s @FullSpan = AstD u u'
-astSpanDS _ _ = error "a spuriuos case for pattern match coverage"
 
 astLetFunS :: forall y s r sh.
               (TensorKind y, AstSpan s, GoodScalar r, KnownShS sh)
@@ -805,13 +779,13 @@ type instance BoolOf (AstRawS s) = AstBool
 instance IfF (AstRawS s) where
   ifF cond a b = AstRawS $ AstCond cond (unAstRawS a) (unAstRawS b)
 instance AstSpan s => EqF (AstRawS s) where
-  AstRawS v ==. AstRawS u = AstRelS EqOp (astSpanPrimalS v) (astSpanPrimalS u)
-  AstRawS v /=. AstRawS u = AstRelS NeqOp (astSpanPrimalS v) (astSpanPrimalS u)
+  AstRawS v ==. AstRawS u = AstRelS EqOp (astSpanPrimal v) (astSpanPrimal u)
+  AstRawS v /=. AstRawS u = AstRelS NeqOp (astSpanPrimal v) (astSpanPrimal u)
 instance AstSpan s => OrdF (AstRawS s) where
-  v <. u = AstRelS LsOp (astSpanPrimalS (unAstRawS v)) (astSpanPrimalS (unAstRawS u))
-  v <=. u = AstRelS LeqOp (astSpanPrimalS (unAstRawS v)) (astSpanPrimalS (unAstRawS u))
-  v >. u = AstRelS GtOp (astSpanPrimalS (unAstRawS v)) (astSpanPrimalS (unAstRawS u))
-  v >=. u = AstRelS GeqOp (astSpanPrimalS (unAstRawS v)) (astSpanPrimalS (unAstRawS u))
+  v <. u = AstRelS LsOp (astSpanPrimal (unAstRawS v)) (astSpanPrimal (unAstRawS u))
+  v <=. u = AstRelS LeqOp (astSpanPrimal (unAstRawS v)) (astSpanPrimal (unAstRawS u))
+  v >. u = AstRelS GtOp (astSpanPrimal (unAstRawS v)) (astSpanPrimal (unAstRawS u))
+  v >=. u = AstRelS GeqOp (astSpanPrimal (unAstRawS v)) (astSpanPrimal (unAstRawS u))
 deriving instance Eq (AstRawS s r sh)
 deriving instance Ord (AstRawS s r sh)
 deriving instance Num (AstTensor s (TKS r sh)) => Num (AstRawS s r sh)
@@ -1088,9 +1062,9 @@ instance AstSpan s => ShapedTensor (AstRawS s) where
   sletTKIn stk a f =
     AstRawS
     $ astLetFunRawS @y @s (unRawY stk a) (unAstRawS . f . rawY stk)
-  sminIndex = AstRawS . fromPrimal . AstMinIndexS . astSpanPrimalS . unAstRawS
-  smaxIndex = AstRawS . fromPrimal . AstMaxIndexS . astSpanPrimalS . unAstRawS
-  sfloor = AstRawS . fromPrimal . AstFloorS . astSpanPrimalS . unAstRawS
+  sminIndex = AstRawS . fromPrimal . AstMinIndexS . astSpanPrimal . unAstRawS
+  smaxIndex = AstRawS . fromPrimal . AstMaxIndexS . astSpanPrimal . unAstRawS
+  sfloor = AstRawS . fromPrimal . AstFloorS . astSpanPrimal . unAstRawS
   siota = AstRawS . fromPrimal $ AstIotaS
   sindex v ix = AstRawS $ AstIndexS (unAstRawS v) (unAstRaw <$> ix)
   ssum = AstRawS . AstSumS . unAstRawS
@@ -1112,7 +1086,7 @@ instance AstSpan s => ShapedTensor (AstRawS s) where
                     -- this introduces new variable names
   scast = AstRawS . AstCastS . unAstRawS
   sfromIntegral = AstRawS . fromPrimal . AstFromIntegralS
-                  . astSpanPrimalS . unAstRawS
+                  . astSpanPrimal . unAstRawS
   sconst = AstRawS . fromPrimal . AstConstS
   sletHVectorIn a f =
     AstRawS
@@ -1125,9 +1099,9 @@ instance AstSpan s => ShapedTensor (AstRawS s) where
   sshare a = AstRawS $ fun1SToAst $ \ !var -> AstShareS var (unAstRawS a)
 
   sconstant = AstRawS . fromPrimal . unAstRawS
-  sprimalPart = AstRawS . astSpanPrimalS . unAstRawS
-  sdualPart = AstRawS . astSpanDualS . unAstRawS
-  sD u u' = AstRawS $ astSpanDS (unAstRawS u) (unAstRawS u')
+  sprimalPart = AstRawS . astSpanPrimal . unAstRawS
+  sdualPart = AstRawS . astSpanDual . unAstRawS
+  sD u u' = AstRawS $ astSpanD (unAstRawS u) (unAstRawS u')
   sScale s t = AstRawS $ astDualPart
                $ AstConstant (unAstRawS s) * AstD 0 (unAstRawS t)
 
@@ -1462,11 +1436,11 @@ instance AstSpan s => ShapedTensor (AstNoSimplifyS s) where
     AstNoSimplifyS
     $ astLetFunRawS @y @s (unNoSimplifyY stk a) (unAstNoSimplifyS . f . noSimplifyY stk)
   sminIndex = AstNoSimplifyS . fromPrimal . AstMinIndexS
-              . astSpanPrimalS . unAstNoSimplifyS
+              . astSpanPrimal . unAstNoSimplifyS
   smaxIndex = AstNoSimplifyS . fromPrimal . AstMaxIndexS
-              . astSpanPrimalS . unAstNoSimplifyS
+              . astSpanPrimal . unAstNoSimplifyS
   sfloor = AstNoSimplifyS . fromPrimal . AstFloorS
-           . astSpanPrimalS . unAstNoSimplifyS
+           . astSpanPrimal . unAstNoSimplifyS
   siota = AstNoSimplifyS . fromPrimal $ AstIotaS
   sindex v ix =
     AstNoSimplifyS $ AstIndexS (unAstNoSimplifyS v) (unAstNoSimplify <$> ix)
@@ -1493,7 +1467,7 @@ instance AstSpan s => ShapedTensor (AstNoSimplifyS s) where
                       -- this introduces new variable names
   scast = AstNoSimplifyS . AstCastS . unAstNoSimplifyS
   sfromIntegral = AstNoSimplifyS . fromPrimal . AstFromIntegralS
-                  . astSpanPrimalS . unAstNoSimplifyS
+                  . astSpanPrimal . unAstNoSimplifyS
   sconst = AstNoSimplifyS . fromPrimal . AstConstS
   sletHVectorIn a f =
     AstNoSimplifyS
@@ -1503,10 +1477,10 @@ instance AstSpan s => ShapedTensor (AstNoSimplifyS s) where
   sfromR = AstNoSimplifyS . AstSFromR . unAstNoSimplify
   sconstant = AstNoSimplifyS . fromPrimal . unAstNoSimplifyS
     -- exceptionally we do simplify AstConstant to avoid long boring chains
-  sprimalPart = AstNoSimplifyS . astSpanPrimalS . unAstNoSimplifyS
-  sdualPart = AstNoSimplifyS . astSpanDualS . unAstNoSimplifyS
+  sprimalPart = AstNoSimplifyS . astSpanPrimal . unAstNoSimplifyS
+  sdualPart = AstNoSimplifyS . astSpanDual . unAstNoSimplifyS
   sD u u' =
-    AstNoSimplifyS $ astSpanDS (unAstNoSimplifyS u) (unAstNoSimplifyS u')
+    AstNoSimplifyS $ astSpanD (unAstNoSimplifyS u) (unAstNoSimplifyS u')
   sScale :: forall r sh. (GoodScalar r, KnownShS sh)
          => AstNoSimplifyS PrimalSpan r sh -> AstNoSimplifyS DualSpan r sh
          -> AstNoSimplifyS DualSpan r sh
