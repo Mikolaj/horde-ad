@@ -14,7 +14,8 @@ module HordeAd.Core.Types
     -- * Kinds of the functors that determine the structure of a tensor type
   , TensorType, RankedTensorType, ShapedTensorType
   , TensorKindType (..), STensorKindType(..), TensorKind(..)
-  , sameTensorKind, TensorKindFull(..), InterpretationTarget
+  , sameTensorKind, TensorKindFull(..)
+  , InterpretationTarget, mapInterpretationTarget, mapInterpretationTarget2
     -- * Some fundamental constraints
   , GoodScalar, HasSingletonDict, Differentiable, IfDifferentiable(..)
     -- * Type families that tensors will belong to
@@ -198,6 +199,37 @@ type family InterpretationTarget ranked y where
   InterpretationTarget ranked (TKS r sh) = ShapedOf ranked r sh
   InterpretationTarget ranked (TKProduct y z) =
     (InterpretationTarget ranked y, InterpretationTarget ranked z)
+
+mapInterpretationTarget
+  :: forall f g y.
+     (forall r n. (GoodScalar r, KnownNat n)
+      => f r n -> g r n)
+  -> (forall r sh. (GoodScalar r, KnownShS sh)
+      => ShapedOf f r sh -> ShapedOf g r sh)
+  -> STensorKindType y
+  -> InterpretationTarget f y
+  -> InterpretationTarget g y
+mapInterpretationTarget fr fs stk b = case stk of
+  STKR{} -> fr b
+  STKS{} -> fs b
+  STKProduct stk1 stk2 -> ( mapInterpretationTarget fr fs stk1 $ fst b
+                          , mapInterpretationTarget fr fs stk2 $ snd b )
+
+mapInterpretationTarget2
+  :: forall f1 f2 g y.
+     (forall r n. (GoodScalar r, KnownNat n)
+      => f1 r n -> f2 r n -> g r n)
+  -> (forall r sh. (GoodScalar r, KnownShS sh)
+      => ShapedOf f1 r sh -> ShapedOf f2 r sh -> ShapedOf g r sh)
+  -> STensorKindType y
+  -> InterpretationTarget f1 y -> InterpretationTarget f2 y
+  -> InterpretationTarget g y
+mapInterpretationTarget2 fr fs stk b1 b2 = case stk of
+  STKR{} -> fr b1 b2
+  STKS{} -> fs b1 b2
+  STKProduct stk1 stk2 ->
+    ( mapInterpretationTarget2 fr fs stk1 (fst b1) (fst b2)
+    , mapInterpretationTarget2 fr fs stk2 (snd b1) (snd b2) )
 
 
 -- * Some fundamental constraints

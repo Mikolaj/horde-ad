@@ -15,7 +15,6 @@ import Control.Monad (when)
 import Data.Array.Internal (valueOf)
 import Data.Array.Shape qualified as Sh
 import Data.Functor.Const
-import Data.Int (Int64)
 import Data.IntMap.Strict qualified as IM
 import Data.IORef
 import Data.List (mapAccumR)

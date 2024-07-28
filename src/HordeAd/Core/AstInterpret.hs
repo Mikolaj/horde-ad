@@ -102,22 +102,18 @@ interpretAstPrimal
 interpretAstPrimal !env v1 = case v1 of
   AstPrimalPart (AstD u _) -> interpretAstPrimal env u
   AstPrimalPart (AstConstant u) -> interpretAstPrimal env u
-  AstCond @y2 b a1 a2 -> case stensorKind @y2 of
-    STKR{} ->  -- this avoids multiple ifF expansions via ifB(ADVal)
-      let b1 = interpretAstBool env b
-          t2 = interpretAstPrimal env a1
-          t3 = interpretAstPrimal env a2
-      in ifF b1 t2 t3  -- this is ifF from PrimalOf ranked
-    STKS{} ->
-      let b1 = interpretAstBool env b
-          t2 = interpretAstPrimal env a1
-          t3 = interpretAstPrimal env a2
-      in ifF b1 t2 t3
-    STKProduct{} -> error "TODO"
-  _ -> case stensorKind @y of
-    STKR{} -> rprimalPart $ interpretAst env v1
-    STKS{} -> sprimalPart $ interpretAst env v1
-    STKProduct{} -> error "TODO"
+  AstCond @y2 b a1 a2 ->
+    -- This avoids multiple ifF expansions via ifB(ADVal)
+    let c = interpretAstBool env b
+    in mapInterpretationTarget2
+        @(PrimalOf ranked) @(PrimalOf ranked) @(PrimalOf ranked)
+        (ifF c) (ifF c)  -- this is ifF from PrimalOf ranked
+        (stensorKind @y2)
+        (interpretAstPrimal env a1) (interpretAstPrimal env a2)
+  _ ->
+    mapInterpretationTarget @ranked @(PrimalOf ranked)
+      rprimalPart sprimalPart (stensorKind @y)
+      (interpretAst env v1)
 
 interpretAstDual
   :: forall ranked y. (ADReady ranked, TensorKind y)
@@ -125,10 +121,10 @@ interpretAstDual
   -> AstTensor DualSpan y -> InterpretationTarget (DualOf ranked) y
 interpretAstDual !env v1 = case v1 of
   AstDualPart (AstD _ u') -> interpretAstDual env u'
-  _ -> case stensorKind @y of
-    STKR{} -> rdualPart $ interpretAst env v1
-    STKS{} -> sdualPart $ interpretAst env v1
-    STKProduct{} -> error "TODO"
+  _ ->
+    mapInterpretationTarget @ranked @(DualOf ranked)
+      rdualPart sdualPart (stensorKind @y)
+      (interpretAst env v1)
 
 interpretAstRuntimeSpecialized
   :: forall ranked n s r.
@@ -210,37 +206,24 @@ interpretAst !env = \case
     -- be morally the dual part of a dual numbers type that is the codomain
     -- of the interpretation of the same AST but marked with @FullSpan@.
     -- Consequently, the result is a dual part, despite the appearances.
-  AstConstant @y2 a -> yconstant (stensorKind @y2) a
-   where
-    yconstant :: STensorKindType y3 -> AstTensor PrimalSpan y3
-              -> InterpretationTarget ranked y3
-    yconstant stk a3 = case stk of
-      STKR{} -> rconstant $ interpretAstPrimal env a3
-      STKS{} -> sconstant $ interpretAstPrimal env a3
-      STKProduct{} -> error "TODO"
-  AstD @y2 u u' -> case stensorKind @y2 of
-    STKR{} ->
-      let t1 = interpretAstPrimal env u
-          t2 = interpretAstDual env u'
-      in rD t1 t2
-    STKS{} ->
-      let t1 = interpretAstPrimal env u
-          t2 = interpretAstDual env u'
-      in sD t1 t2
-    STKProduct{} -> error "TODO"
-  AstCond @y2 b a1 a2 -> case stensorKind @y2 of
-    STKR{} ->
-      let b1 = interpretAstBool env b
-          t2 = interpretAst env a1
-          t3 = interpretAst env a2
-      in ifF b1 t2 t3
-    STKS{} ->
-      let b1 = interpretAstBool env b
-          t2 = interpretAst env a1
-          t3 = interpretAst env a2
-      in ifF b1 t2 t3
-    STKProduct{} -> error "TODO"
-
+  AstConstant @y2 a ->
+    mapInterpretationTarget @(PrimalOf ranked) @ranked
+      rconstant sconstant (stensorKind @y2)
+      (interpretAstPrimal env a)
+  AstD @y2 u u' ->
+    let t1 = interpretAstPrimal env u
+        t2 = interpretAstDual env u'
+    in mapInterpretationTarget2 @(PrimalOf ranked) @(DualOf ranked) @ranked
+         rD sD
+         (stensorKind @y2)
+         t1 t2
+  AstCond @y2 b a1 a2 ->
+    -- This avoids multiple ifF expansions via ifB(ADVal)
+    let c = interpretAstBool env b
+    in mapInterpretationTarget2 @ranked @ranked @ranked
+         (ifF c) (ifF c)
+         (stensorKind @y2)
+         (interpretAst env a1) (interpretAst env a2)
   AstLetTupleIn @_ @z1 @z2 var1 var2 p v ->
     let (t1, t2) = interpretAst env p
         env2 w1 w2 = extendEnv var2 w2 $ extendEnv var1 w1 env
