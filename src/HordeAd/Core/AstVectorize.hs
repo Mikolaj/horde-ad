@@ -410,7 +410,7 @@ build1VS
   :: forall k sh s r. (GoodScalar r, KnownNat k, KnownShS sh, AstSpan s)
   => (IntVarName, AstTensor s (TKS r sh)) -> AstTensor s (BuildTensorKind k (TKS r sh))
 build1VS (var, v00) =
-  let v0 = astNonIndexStepS v00
+  let v0 = astNonIndexStep v00
         -- Almost surely the term will be transformed, so it can just
         -- as well we one-step simplified first (many steps if redexes
         -- get uncovered and so the simplification requires only constant

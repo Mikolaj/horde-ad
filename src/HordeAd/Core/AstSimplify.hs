@@ -18,7 +18,7 @@ module HordeAd.Core.AstSimplify
   ( -- * Permutation operations
     normalizePermutation
     -- * The combinators for indexing and gather
-  , astNonIndexStep, astNonIndexStepS, astIndexStep, astIndexStepS
+  , astNonIndexStep, astIndexStep, astIndexStepS
   , astGatherStep, astGatherStepS
     -- * The simplifying combinators, one for most AST constructors
   , astLet, astLetS, astCond, astSumOfList, astSumOfListS
@@ -255,9 +255,11 @@ permCycle n = [k `mod` n | k <- [-1, 0 .. n - 2]]
 -- (many steps if guaranteed net beneficial). Terms representing integers
 -- and and AstBool terms are simplified as much as possible.
 astNonIndexStep
-  :: (KnownNat n, GoodScalar r, AstSpan s)
-  => AstTensor s (TKR r n) -> AstTensor s (TKR r n)
+  :: AstSpan s
+  => AstTensor s y -> AstTensor s y
 astNonIndexStep t = case t of
+  Ast.AstTuple t1 t2 -> Ast.AstTuple (astNonIndexStep t1) (astNonIndexStep t2)
+
   Ast.AstVar{} -> t
   Ast.AstPrimalPart v -> astPrimalPart v  -- has to be done sooner or later
   Ast.AstDualPart v -> astDualPart v
@@ -312,20 +314,9 @@ astNonIndexStep t = case t of
   Ast.AstLetHFunIn var u v -> astLetHFunIn var u v
   Ast.AstRFromS v -> astRFromS v
 
-astNonIndexStepS
-  :: (KnownShS sh, GoodScalar r, AstSpan s)
-  => AstTensor s (TKS r sh) -> AstTensor s (TKS r sh)
-astNonIndexStepS t = case t of
-  Ast.AstVar{} -> t
-  Ast.AstPrimalPart v -> astPrimalPart v  -- has to be done sooner or later
-  Ast.AstDualPart v -> astDualPart v
-  Ast.AstConstant{} -> t
-  Ast.AstD{} -> t
-  Ast.AstCond a b c -> astCond a b c
-
   Ast.AstLetTupleInS{} -> t
   Ast.AstLetS var u v -> astLetS var u v
-  Ast.AstShareS{} -> t  -- TODO: error "astNonIndexStepS: AstShareS"
+  Ast.AstShareS{} -> t  -- TODO: error "astNonIndexStep: AstShareS"
   Ast.AstMinIndexS{} -> t
   Ast.AstMaxIndexS{} -> t
   Ast.AstFloorS{} -> t
@@ -391,7 +382,7 @@ astIndexStepS
   => AstTensor s (TKS r (sh1 X.++ sh2)) -> AstIndexS sh1
   -> AstTensor s (TKS r sh2)
 astIndexStepS v ix = astIndexKnobsS (defaultKnobs {knobStepOnly = True})
-                                    (astNonIndexStepS v)
+                                    (astNonIndexStep v)
                                     (simplifyAstIndexS ix)
 
 -- If knobStepOnly is set, we reduce only as long as needed to reveal
@@ -600,7 +591,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS shm1)) | Dict <- s
                            else astIndexKnobsS knobs v2 ix2
       astIndex v2 ix2 = if knobStepOnly knobs
                         then astIndexKnobsS knobs
-                                            (astNonIndexStepS v2)
+                                            (astNonIndexStep v2)
                                             (simplifyAstIndexS ix2)
                         else astIndexKnobsS knobs v2 ix2
       astGather
@@ -614,7 +605,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS shm1)) | Dict <- s
       astGather v2 (vars2, ix2) =
         if knobStepOnly knobs
         then astGatherKnobsS knobs
-                             (astNonIndexStepS v2)
+                             (astNonIndexStep v2)
                              (vars2, simplifyAstIndexS ix2)
         else astGatherKnobsS knobs v2 (vars2, ix2)
  in case v0 of
@@ -879,7 +870,7 @@ astGatherStepS
 --  | varId == varId2 = ...
 astGatherStepS v (vars, ix) =
   astGatherKnobsS (defaultKnobs {knobStepOnly = True})
-                  (astNonIndexStepS v)
+                  (astNonIndexStep v)
                   (vars, simplifyAstIndexS ix)
 
 -- Assumption: vars0 don't not occur in v0. The assumption only holds
