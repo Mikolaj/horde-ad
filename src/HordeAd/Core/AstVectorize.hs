@@ -21,16 +21,7 @@ import Data.List (mapAccumR)
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
-import GHC.TypeLits
-  ( KnownNat
-  , Nat
-  , OrderingI (..)
-  , SomeNat (..)
-  , cmpNat
-  , someNatVal
-  , type (+)
-  , type (-)
-  )
+import GHC.TypeLits (KnownNat, Nat, OrderingI (..), cmpNat, type (+), type (-))
 import System.IO (Handle, hFlush, hPutStrLn, stderr, stdout)
 import System.IO.Unsafe (unsafePerformIO)
 import Type.Reflection (typeRep)
@@ -69,12 +60,13 @@ astTr = astTranspose [1, 0]
 -- If no @AstBuild1@ terms occur in @v@, the resulting term won't
 -- have any, either.
 build1Vectorize
-  :: (KnownNat n, GoodScalar r, AstSpan s)
-  => Int -> (IntVarName, AstTensor s (TKR r n)) -> AstTensor s (TKR r (1 + n))
+  :: (KnownNat n, GoodScalar r, AstSpan s, KnownNat k)
+  => SNat k -> (IntVarName, AstTensor s (TKR r n)) -> AstTensor s (BuildTensorKind k (TKR r n))
 {-# NOINLINE build1Vectorize #-}
-build1Vectorize k (var, v0) = unsafePerformIO $ do
+build1Vectorize snat (var, v0) = unsafePerformIO $ do
   enabled <- readIORef traceRuleEnabledRef
-  let width = 1000 * traceWidth
+  let k = sNatValue snat
+      width = 1000 * traceWidth
       startTerm = Ast.AstBuild1 k (var, v0)
       renames = IM.fromList [(1, ""), (2, "")]
   when enabled $ do
@@ -84,7 +76,7 @@ build1Vectorize k (var, v0) = unsafePerformIO $ do
       ++ "START of vectorization for term "
       ++ ellipsisString width (printAstSimple renames (AstRanked startTerm))
       ++ "\n"
-  let !endTerm = build1VOccurenceUnknown k (var, v0)
+  let !endTerm = build1VOccurenceUnknown snat (var, v0)
   when enabled $ do
     hPutStrLnFlush stderr $
       "\n"
@@ -100,12 +92,13 @@ build1Vectorize k (var, v0) = unsafePerformIO $ do
 -- the term @AstBuild1 k (var, v)@, where it's unknown whether
 -- @var@ occurs in @v@.
 build1VOccurenceUnknown
-  :: (KnownNat n, GoodScalar r, AstSpan s)
-  => Int -> (IntVarName, AstTensor s (TKR r n)) -> AstTensor s (TKR r (1 + n))
-build1VOccurenceUnknown k (var, v0) =
-  let traceRule = mkTraceRule "build1VOcc" (Ast.AstBuild1 k (var, v0)) v0 1
+  :: (KnownNat n, GoodScalar r, AstSpan s, KnownNat k)
+  => SNat k -> (IntVarName, AstTensor s (TKR r n)) -> AstTensor s (BuildTensorKind k (TKR r n))
+build1VOccurenceUnknown snat (var, v0) =
+  let k = sNatValue snat
+      traceRule = mkTraceRule "build1VOcc" (Ast.AstBuild1 k (var, v0)) v0 1
   in if varNameInAst var v0
-     then build1V k (var, v0)
+     then build1V snat (var, v0)
      else traceRule $
        astReplicate k v0
 
@@ -115,14 +108,14 @@ build1VOccurenceUnknown k (var, v0) =
 -- and break our invariants that we need for simplified handling of bindings
 -- when rewriting terms.
 build1VOccurenceUnknownRefresh
-  :: forall n s r. (KnownNat n, GoodScalar r, AstSpan s)
-  => Int -> (IntVarName, AstTensor s (TKR r n)) -> AstTensor s (TKR r (1 + n))
+  :: forall n s r k. (KnownNat n, GoodScalar r, AstSpan s, KnownNat k)
+  => SNat k -> (IntVarName, AstTensor s (TKR r n)) -> AstTensor s (BuildTensorKind k (TKR r n))
 {-# NOINLINE build1VOccurenceUnknownRefresh #-}
-build1VOccurenceUnknownRefresh k (var, v0) =
+build1VOccurenceUnknownRefresh snat (var, v0) =
   funToAstIntVar $ \ (!varFresh, !astVarFresh) ->
     let !v2 = substituteAst  -- cheap subst, because only a renaming
                 (SubstitutionPayload @PrimalSpan astVarFresh) var v0
-    in build1VOccurenceUnknown k (varFresh, v2)
+    in build1VOccurenceUnknown snat (varFresh, v2)
 
 intBindingRefresh
   :: IntVarName -> AstIndex n -> (IntVarName, AstInt, AstIndex n)
@@ -138,10 +131,11 @@ intBindingRefresh var ix =
 -- the term @AstBuild1 k (var, v)@, where it's known that
 -- @var@ occurs in @v@.
 build1V
-  :: forall n s r. (KnownNat n, GoodScalar r, AstSpan s)
-  => Int -> (IntVarName, AstTensor s (TKR r n)) -> AstTensor s (TKR r (1 + n))
-build1V k (var, v00) =
-  let v0 = astNonIndexStep v00
+  :: forall n s r k. (KnownNat n, GoodScalar r, AstSpan s, KnownNat k)
+  => SNat k -> (IntVarName, AstTensor s (TKR r n)) -> AstTensor s (BuildTensorKind k (TKR r n))
+build1V snat (var, v00) =
+  let k = sNatValue snat
+      v0 = astNonIndexStep v00
         -- Almost surely the term will be transformed, so it can just
         -- as well we one-step simplified first (many steps if redexes
         -- get uncovered and so the simplification requires only constant
@@ -156,23 +150,23 @@ build1V k (var, v00) =
     Ast.AstVar{} ->
       error "build1V: AstVar can't contain other free index variables"
     Ast.AstPrimalPart v -> traceRule $
-      astPrimalPart $ build1V k (var, v)
+      astPrimalPart $ build1V snat (var, v)
     Ast.AstDualPart v -> traceRule $
-      astDualPart $ build1V k (var, v)
+      astDualPart $ build1V snat (var, v)
     Ast.AstConstant v -> traceRule $
-      Ast.AstConstant $ build1V k (var, v)
+      Ast.AstConstant $ build1V snat (var, v)
     Ast.AstD u u' -> traceRule $
-      Ast.AstD (build1VOccurenceUnknown k (var, u))
-               (build1VOccurenceUnknown k (var, u'))
+      Ast.AstD (build1VOccurenceUnknown snat (var, u))
+               (build1VOccurenceUnknown snat (var, u'))
     Ast.AstCond b (Ast.AstConstant v) (Ast.AstConstant w) ->
       let t = Ast.AstConstant
               $ astIndexStep (astFromVector $ V.fromList [v, w])
                              (singletonIndex (astCond b 0 1))
-      in build1V k (var, t)
+      in build1V snat (var, t)
     Ast.AstCond b v w ->
       let t = astIndexStep (astFromVector $ V.fromList [v, w])
                            (singletonIndex (astCond b 0 1))
-      in build1V k (var, t)
+      in build1V snat (var, t)
 
     Ast.AstLetTupleIn var1 var2 p v -> undefined  -- TODO: doable, but complex
 {-
@@ -196,108 +190,100 @@ build1V k (var, v00) =
       let var2 = mkAstVarName (varNameToAstVarId var1)
           sh = shapeAst u
           v2 = substProjRanked k var sh var1 v
-      in astLet var2 (build1VOccurenceUnknown k (var, u))
-                     (build1VOccurenceUnknownRefresh k (var, v2))
+      in astLet var2 (build1VOccurenceUnknown snat (var, u))
+                     (build1VOccurenceUnknownRefresh snat (var, v2))
                         -- ensures no duplicated bindings, see below
     Ast.AstLet{} -> error "TODO"
     Ast.AstShare{} -> error "build1V: AstShare"
 
-    Ast.AstMinIndex v -> Ast.AstMinIndex $ build1V k (var, v)
-    Ast.AstMaxIndex v -> Ast.AstMaxIndex $ build1V k (var, v)
-    Ast.AstFloor v -> Ast.AstFloor $ build1V k (var, v)
+    Ast.AstMinIndex v -> Ast.AstMinIndex $ build1V snat (var, v)
+    Ast.AstMaxIndex v -> Ast.AstMaxIndex $ build1V snat (var, v)
+    Ast.AstFloor v -> Ast.AstFloor $ build1V snat (var, v)
     Ast.AstIota ->
       error "build1V: AstIota can't have free index variables"
 
     Ast.AstN1 opCode u -> traceRule $
-      Ast.AstN1 opCode (build1VOccurenceUnknown k (var, u))
+      Ast.AstN1 opCode (build1VOccurenceUnknown snat (var, u))
     Ast.AstN2 opCode u v -> traceRule $
-      Ast.AstN2 opCode (build1VOccurenceUnknown k (var, u))
-                       (build1VOccurenceUnknown k (var, v))
+      Ast.AstN2 opCode (build1VOccurenceUnknown snat (var, u))
+                       (build1VOccurenceUnknown snat (var, v))
         -- we permit duplicated bindings, because they can't easily
         -- be substituted into one another unlike. e.g., inside a let,
         -- which may get inlined
     Ast.AstR1 opCode u -> traceRule $
-      Ast.AstR1 opCode (build1VOccurenceUnknown k (var, u))
+      Ast.AstR1 opCode (build1VOccurenceUnknown snat (var, u))
     Ast.AstR2 opCode u v -> traceRule $
-      Ast.AstR2 opCode (build1VOccurenceUnknown k (var, u))
-                       (build1VOccurenceUnknown k (var, v))
+      Ast.AstR2 opCode (build1VOccurenceUnknown snat (var, u))
+                       (build1VOccurenceUnknown snat (var, v))
     Ast.AstI2 opCode u v -> traceRule $
-      Ast.AstI2 opCode (build1VOccurenceUnknown k (var, u))
-                       (build1VOccurenceUnknown k (var, v))
+      Ast.AstI2 opCode (build1VOccurenceUnknown snat (var, u))
+                       (build1VOccurenceUnknown snat (var, v))
     Ast.AstSumOfList args -> traceRule $
-      astSumOfList $ map (\v -> build1VOccurenceUnknown k (var, v)) args
+      astSumOfList $ map (\v -> build1VOccurenceUnknown snat (var, v)) args
 
     Ast.AstIndex v ix -> traceRule $
-      build1VIndex k (var, v, ix)  -- @var@ is in @v@ or @ix@
+      build1VIndex snat (var, v, ix)  -- @var@ is in @v@ or @ix@
     Ast.AstSum v -> traceRule $
-      astSum $ astTr $ build1V k (var, v)
+      astSum $ astTr $ build1V snat (var, v)
     Ast.AstScatter sh v (vars, ix) -> traceRule $
       -- We use a refreshed var binding in the new scatter expression so as
       -- not to duplicate the var binding from build1VOccurenceUnknown call.
       let (varFresh, astVarFresh, ix2) = intBindingRefresh var ix
       in astScatter (k :$: sh)
-                    (build1VOccurenceUnknown k (var, v))
+                    (build1VOccurenceUnknown snat (var, v))
                     (varFresh ::: vars, astVarFresh :.: ix2)
 
     Ast.AstFromVector l -> traceRule $
-      astTr $ astFromVector (V.map (\v -> build1VOccurenceUnknown k (var, v)) l)
+      astTr $ astFromVector (V.map (\v -> build1VOccurenceUnknown snat (var, v)) l)
     Ast.AstReplicate s v -> traceRule $
-      astTr $ astReplicate s $ build1V k (var, v)
+      astTr $ astReplicate s $ build1V snat (var, v)
     Ast.AstAppend v w -> traceRule $
-      astTr $ astAppend (astTr $ build1VOccurenceUnknown k (var, v))
-                        (astTr $ build1VOccurenceUnknown k (var, w))
+      astTr $ astAppend (astTr $ build1VOccurenceUnknown snat (var, v))
+                        (astTr $ build1VOccurenceUnknown snat (var, w))
     Ast.AstSlice i s v -> traceRule $
-      astTr $ astSlice i s $ astTr $ build1V k (var, v)
+      astTr $ astSlice i s $ astTr $ build1V snat (var, v)
     Ast.AstReverse v -> traceRule $
-      astTr $ astReverse $ astTr $ build1V k (var, v)
+      astTr $ astReverse $ astTr $ build1V snat (var, v)
     Ast.AstTranspose perm v -> traceRule $
       astTranspose (normalizePermutation $ 0 : map succ perm)
-                   (build1V k (var, v))
+                   (build1V snat (var, v))
     Ast.AstReshape sh v -> traceRule $
-      astReshape (k :$: sh) $ build1V k (var, v)
+      astReshape (k :$: sh) $ build1V snat (var, v)
     Ast.AstBuild1{} -> error "build1V: impossible case of AstBuild1"
     Ast.AstGather sh v (vars, ix) -> traceRule $
       let (varFresh, astVarFresh, ix2) = intBindingRefresh var ix
       in astGatherStep (k :$: sh)
-                       (build1VOccurenceUnknown k (var, v))
+                       (build1VOccurenceUnknown snat (var, v))
                        (varFresh ::: vars, astVarFresh :.: ix2)
-    Ast.AstCast v -> astCast $ build1V k (var, v)
-    Ast.AstFromIntegral v -> astFromIntegral $ build1V k (var, v)
+    Ast.AstCast v -> astCast $ build1V snat (var, v)
+    Ast.AstFromIntegral v -> astFromIntegral $ build1V snat (var, v)
     Ast.AstConst{} ->
       error "build1V: AstConst can't have free index variables"
 
-    Ast.AstProject l p -> case someNatVal $ toInteger k of
-      Just (SomeNat @k3 _) ->
-        astProject (build1VOccurenceUnknownHVector (SNat @k3) (var, l)) p
-      _ -> error "build1V: impossible someNatVal"
-    Ast.AstLetHVectorIn vars1 l v -> case someNatVal $ toInteger k of
-      Just (SomeNat @k3 _) ->
-        -- Here substitution traverses @v@ term tree @length vars@ times.
-        --
-        -- We lose the type information surrounding var1 twice: first,
-        -- because we create a variable with one more dimension,
-        -- again, because the original variables might have been marked
-        -- with AstShaped and here we require AstRanked.
-        let (vOut, varsOut) = substProjVars @k3 var vars1 v
-        in astLetHVectorIn
-             varsOut (build1VOccurenceUnknownHVector (SNat @k3) (var, l))
-                     (build1VOccurenceUnknownRefresh k (var, vOut))
-      _ -> error "build1V: impossible someNatVal"
+    Ast.AstProject l p ->
+      astProject (build1VOccurenceUnknownHVector snat (var, l)) p
+    Ast.AstLetHVectorIn vars1 l v ->
+      -- Here substitution traverses @v@ term tree @length vars@ times.
+      --
+      -- We lose the type information surrounding var1 twice: first,
+      -- because we create a variable with one more dimension,
+      -- again, because the original variables might have been marked
+      -- with AstShaped and here we require AstRanked.
+      let (vOut, varsOut) = substProjVars @k var vars1 v
+      in astLetHVectorIn
+           varsOut (build1VOccurenceUnknownHVector snat (var, l))
+                   (build1VOccurenceUnknownRefresh snat (var, vOut))
     Ast.AstLetHFunIn var1 f v ->
       -- We take advantage of the fact that f contains no free index
       -- variables (it may contain function variables, though).
       -- If it could contain index variables, e.g., in a conditional
       -- expression, we might need to add projections as above.
-      withSNat k $ \snat ->
-        astLetHFunIn var1 (build1VHFun snat (var, f)) (build1V k (var, v))
-    Ast.AstRFromS @sh1 v -> case someNatVal $ toInteger k of
-      Just (SomeNat @k _proxy) ->
-        astRFromS @(k ': sh1) $ build1VS (var, v)
-      Nothing ->
-        error "build1V: impossible someNatVal error"
+      astLetHFunIn var1 (build1VHFun snat (var, f)) (build1V snat (var, v))
+    Ast.AstRFromS @sh1 v ->
+      astRFromS @(k ': sh1) $ build1VS (var, v)
 
--- | The application @build1VIndex k (var, v, ix)@ vectorizes
--- the term @AstBuild1 k (var, AstIndex v ix)@, where it's unknown whether
+-- | The application @build1VIndex snat (var, v, ix)@ vectorizes
+-- the term @AstBuild1 snat (var, AstIndex v ix)@, where it's unknown whether
 -- @var@ occurs in any of @v@, @ix@.
 --
 -- We try to push indexing down as far as needed to eliminate any occurrences
@@ -318,32 +304,34 @@ build1V k (var, v00) =
 -- eventually proven unnecessary. The rule changes the index to a gather
 -- and pushes the build down the gather, getting the vectorization unstuck.
 build1VIndex
-  :: forall m n s r. (KnownNat m, KnownNat n, GoodScalar r, AstSpan s)
-  => Int -> (IntVarName, AstTensor s (TKR r (m + n)), AstIndex m)
+  :: forall m n s r k.
+     (KnownNat m, KnownNat n, GoodScalar r, AstSpan s, KnownNat k)
+  => SNat k -> (IntVarName, AstTensor s (TKR r (m + n)), AstIndex m)
   -> AstTensor s (TKR r (1 + n))
-build1VIndex k (var, v0, ZIR) = build1VOccurenceUnknown k (var, v0)
-build1VIndex k (var, v0, ix@(_ :.: _)) =
-  let traceRule = mkTraceRule "build1VIndex"
+build1VIndex snat (var, v0, ZIR) = build1VOccurenceUnknown snat (var, v0)
+build1VIndex snat (var, v0, ix@(_ :.: _)) =
+  let k = sNatValue snat
+      traceRule = mkTraceRule "build1VIndex"
                               (Ast.AstBuild1 k (var, Ast.AstIndex v0 ix))
                               v0 1
   in if varNameInAst var v0
      then case astIndexStep v0 ix of  -- push deeper
        Ast.AstIndex v1 ZIR -> traceRule $
-         build1VOccurenceUnknown k (var, v1)
+         build1VOccurenceUnknown snat (var, v1)
        v@(Ast.AstIndex @p v1 ix1) -> traceRule $
          let (varFresh, astVarFresh, ix2) = intBindingRefresh var ix1
              ruleD = astGatherStep
                        (k :$: dropShape (shapeAst v1))
-                       (build1V k (var, v1))
+                       (build1V snat (var, v1))
                        (varFresh ::: ZR, astVarFresh :.: ix2)
          in if varNameInAst var v1
             then case v1 of  -- try to avoid ruleD if not a normal form
               Ast.AstFromVector{} | valueOf @p == (1 :: Int) -> ruleD
               Ast.AstScatter{} -> ruleD
-              _ -> build1VOccurenceUnknown k (var, v)  -- not a normal form
-            else build1VOccurenceUnknown k (var, v)  -- shortcut
+              _ -> build1VOccurenceUnknown snat (var, v)  -- not a normal form
+            else build1VOccurenceUnknown snat (var, v)  -- shortcut
        v -> traceRule $
-         build1VOccurenceUnknown k (var, v)  -- peel off yet another constructor
+         build1VOccurenceUnknown snat (var, v)  -- peel off yet another constructor
      else traceRule $
             astGatherStep (k :$: dropShape (shapeAst v0)) v0 (var ::: ZR, ix)
 
@@ -557,7 +545,7 @@ build1VS (var, v00) =
     Ast.AstLetHFunInS var1 f v ->
       -- We take advantage of the fact that f contains no free index vars.
       astLetHFunInS var1 (build1VHFun (SNat @k) (var, f)) (build1VS (var, v))
-    Ast.AstSFromR v -> astSFromR $ build1V (valueOf @k) (var, v)
+    Ast.AstSFromR v -> astSFromR $ build1V (SNat @k) (var, v)
 
 build1VIndexS
   :: forall k p sh s r.
@@ -682,7 +670,7 @@ build1VHVector k@SNat (var, v0) =
                                   (Ast.AstIntVar var :.: ZIR)
         v2 = substituteAstHVector
                (SubstitutionPayload @s1 projection) var1 v
-    in astLetInHVector var2 (build1VOccurenceUnknown (sNatValue k) (var, u))
+    in astLetInHVector var2 (build1VOccurenceUnknown (SNat @k) (var, u))
                             (build1VOccurenceUnknownHVectorRefresh
                                k (var, v2))
   Ast.AstLetInHVectorS @sh2 @r @s1 var1 u v ->
@@ -744,9 +732,9 @@ build1VHFun k@SNat (var, v0) = case v0 of
 build1VOccurenceUnknownDynamic
   :: forall k s. AstSpan s
   => SNat k -> (IntVarName, AstDynamic s) -> AstDynamic s
-build1VOccurenceUnknownDynamic k@SNat (var, d) = case d of
+build1VOccurenceUnknownDynamic SNat (var, d) = case d of
   DynamicRanked (AstRanked u) ->
-    DynamicRanked $ AstRanked $ build1VOccurenceUnknown (sNatValue k) (var, u)
+    DynamicRanked $ AstRanked $ build1VOccurenceUnknown (SNat @k) (var, u)
   DynamicShaped (AstShaped u) ->
     DynamicShaped $ AstShaped $ build1VOccurenceUnknownS @k (var, u)
   DynamicRankedDummy @r @sh _ _ -> DynamicRankedDummy @r @(k ': sh) Proxy Proxy

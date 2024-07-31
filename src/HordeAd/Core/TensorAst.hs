@@ -372,7 +372,8 @@ astLetFun a f =
 astBuild1Vectorize :: (KnownNat n, GoodScalar r, AstSpan s)
                    => Int -> (AstInt -> AstTensor s (TKR r n))
                    -> AstTensor s (TKR r (1 + n))
-astBuild1Vectorize k f = build1Vectorize k $ funToAstI f
+astBuild1Vectorize k f = withSNat k $ \snat ->
+  build1Vectorize snat $ funToAstI f
 
 
 -- * Shaped tensor AST instances
