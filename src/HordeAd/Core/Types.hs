@@ -212,8 +212,10 @@ mapInterpretationTarget
 mapInterpretationTarget fr fs stk b = case stk of
   STKR{} -> fr b
   STKS{} -> fs b
-  STKProduct stk1 stk2 -> ( mapInterpretationTarget fr fs stk1 $ fst b
-                          , mapInterpretationTarget fr fs stk2 $ snd b )
+  STKProduct stk1 stk2 ->
+    let !t1 = mapInterpretationTarget fr fs stk1 $ fst b
+        !t2 = mapInterpretationTarget fr fs stk2 $ snd b
+    in (t1, t2)
 
 mapInterpretationTarget2
   :: forall f1 f2 g y.
@@ -228,8 +230,9 @@ mapInterpretationTarget2 fr fs stk b1 b2 = case stk of
   STKR{} -> fr b1 b2
   STKS{} -> fs b1 b2
   STKProduct stk1 stk2 ->
-    ( mapInterpretationTarget2 fr fs stk1 (fst b1) (fst b2)
-    , mapInterpretationTarget2 fr fs stk2 (snd b1) (snd b2) )
+    let !t1 = mapInterpretationTarget2 fr fs stk1 (fst b1) (fst b2)
+        !t2 = mapInterpretationTarget2 fr fs stk2 (snd b1) (snd b2)
+    in (t1, t2)
 
 
 -- * Some fundamental constraints

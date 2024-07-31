@@ -162,6 +162,8 @@ instance AdaptableHVector ranked a
     -- >   let f = swap . flip fromHVector
     -- >   in swap $ mapAccumL f source lInit
 
+
+
 -- Note that these instances don't do vectorization. To enable it,
 -- use the Ast instance and only then interpret in ADVal.
 -- In any case, only the Ast instantiation of this instance
@@ -170,12 +172,21 @@ instance AdaptableHVector ranked a
 -- The ADVal Double and ADVal Float instantiations are only used
 -- in tests. None others are used anywhere.
 instance ADReady ranked => RankedTensor (ADVal ranked) where
-  rletTKIn _ a f = f a  -- TODO: rshare
-
-  rlet (D u u') f =
-    let !var2 = rshare u
-    in f (dDnotShared var2 u')
-      -- u' doesn't need to be shared, because deltas are shared separately
+  rletTKIn stk a f =
+    let rsharePrimal :: (GoodScalar r, KnownNat n)
+                     => ADVal ranked r n
+                     -> ADVal ranked r n
+        rsharePrimal (D u u') =
+          let !var2 = rshare u
+          in dDnotShared var2 u'
+            -- u' doesn't need to be shared, because deltas are shared separately
+        ssharePrimal :: (GoodScalar r, KnownShS sh)
+                     => ADVal (ShapedOf ranked) r sh
+                     -> ADVal (ShapedOf ranked) r sh
+        ssharePrimal (D u u') =
+          let !var2 = sshare u
+          in dDnotShared var2 u'
+    in f $ mapInterpretationTarget @(ADVal ranked) rsharePrimal ssharePrimal stk a
 
   rshape (D u _) = rshape u
   rminIndex (D u _) =
@@ -284,12 +295,22 @@ instance (ADReadyS shaped, KnownShS sh, GoodScalar r)
 -- The ADVal Double and ADVal Float instantiations are only used
 -- in tests. None others are used anywhere.
 instance ADReadyS shaped => ShapedTensor (ADVal shaped) where
-  sletTKIn _ a f = f a  -- TODO: sshare
-
-  slet (D u u') f =
-    let !var2 = sshare u
-    in f (dDnotShared var2 u')
-      -- u' doesn't need to be shared, because deltas are shared separately
+  sletTKIn stk a f =
+    let rsharePrimal :: (GoodScalar r, KnownNat n)
+                     => ADVal (RankedOf shaped) r n
+                     -> ADVal (RankedOf shaped)  r n
+        rsharePrimal (D u u') =
+          let !var2 = rshare u
+          in dDnotShared var2 u'
+            -- u' doesn't need to be shared, because deltas are shared separately
+        ssharePrimal :: (GoodScalar r, KnownShS sh)
+                     => ADVal shaped r sh
+                     -> ADVal shaped r sh
+        ssharePrimal (D u u') =
+          let !var2 = sshare u
+          in dDnotShared var2 u'
+    in f $ mapInterpretationTarget @(ADVal (RankedOf shaped))
+                                   rsharePrimal ssharePrimal stk a
 
   sminIndex (D u _) =
     let v = sminIndex u

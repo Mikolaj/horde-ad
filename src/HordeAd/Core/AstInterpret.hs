@@ -231,11 +231,11 @@ interpretAst !env = \case
          rletTKIn (stensorKind @z2) t2 $ \w2 ->
            interpretAst (env2 w1 w2) v
   AstLet @_ @_ @y2 var u v -> case stensorKind @y2 of
-    STKR{} ->
+    stk@STKR{} ->
       -- We assume there are no nested lets with the same variable.
       let t = interpretAstRuntimeSpecialized env u
           env2 w = extendEnv var w env
-      in rlet {-TODO, changes test results: rletTKIn stk-} t (\w -> interpretAst (env2 w) v)
+      in rletTKIn stk t (\w -> interpretAst (env2 w) v)
     stk@STKS{} ->
       let t = interpretAstSRuntimeSpecialized env u
           env2 w = extendEnv var w env
@@ -530,10 +530,10 @@ interpretAst !env = \case
       let t = interpretAstRuntimeSpecialized env u
           env2 w = extendEnv var w env
       in sletTKIn stk t (\w -> interpretAst (env2 w) v)
-    STKS{} ->
+    stk@STKS{} ->
       let t = interpretAstSRuntimeSpecialized env u
           env2 w = extendEnv var w env
-      in slet {-TODO, changes test results: sletTKIn stk-} t (\w -> interpretAst (env2 w) v)
+      in sletTKIn stk t (\w -> interpretAst (env2 w) v)
     stk@STKProduct{} ->
       let t = interpretAst env u
           env2 w = extendEnv var w env
