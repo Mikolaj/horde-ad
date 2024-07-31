@@ -16,6 +16,7 @@ module HordeAd.Core.Types
   , TensorKindType (..), STensorKindType(..), TensorKind(..)
   , sameTensorKind, TensorKindFull(..)
   , InterpretationTarget, mapInterpretationTarget, mapInterpretationTarget2
+  , BuildTensorKind
     -- * Some fundamental constraints
   , GoodScalar, HasSingletonDict, Differentiable, IfDifferentiable(..)
     -- * Type families that tensors will belong to
@@ -233,6 +234,12 @@ mapInterpretationTarget2 fr fs stk b1 b2 = case stk of
     let !t1 = mapInterpretationTarget2 fr fs stk1 (fst b1) (fst b2)
         !t2 = mapInterpretationTarget2 fr fs stk2 (snd b1) (snd b2)
     in (t1, t2)
+
+type family BuildTensorKind k tks where
+  BuildTensorKind k (TKR r n) = TKR r (1 + n)
+  BuildTensorKind k (TKS r sh) = TKS r (k : sh)
+  BuildTensorKind k (TKProduct y z) =
+    TKProduct (BuildTensorKind k y) (BuildTensorKind k z)
 
 
 -- * Some fundamental constraints

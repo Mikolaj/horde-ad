@@ -363,7 +363,8 @@ astTrS = withListSh (Proxy @sh) $ \_ -> astTransposeS (Permutation.makePerm @'[1
 -- | This works analogously to @build1Vectorize@m.
 build1VectorizeS
   :: forall k sh s r. (GoodScalar r, KnownNat k, KnownShS sh, AstSpan s)
-  => (IntVarName, AstTensor s (TKS r sh)) -> AstTensor s (TKS r (k ': sh))
+  => (IntVarName, AstTensor s (TKS r sh))
+  -> AstTensor s (BuildTensorKind k (TKS r sh))
 {-# NOINLINE build1VectorizeS #-}
 build1VectorizeS (var, v0) = unsafePerformIO $ do
   enabled <- readIORef traceRuleEnabledRef
@@ -388,7 +389,7 @@ build1VectorizeS (var, v0) = unsafePerformIO $ do
 
 build1VOccurenceUnknownS
   :: forall k sh s r. (GoodScalar r, KnownNat k, KnownShS sh, AstSpan s)
-  => (IntVarName, AstTensor s (TKS r sh)) -> AstTensor s (TKS r (k ': sh))
+  => (IntVarName, AstTensor s (TKS r sh)) -> AstTensor s (BuildTensorKind k (TKS r sh))
 build1VOccurenceUnknownS (var, v0) =
   let traceRule = mkTraceRuleS "build1VOccS" (Ast.AstBuild1S (var, v0)) v0 1
   in if varNameInAstS var v0
@@ -398,7 +399,7 @@ build1VOccurenceUnknownS (var, v0) =
 
 build1VOccurenceUnknownRefreshS
   :: forall k sh s r. (GoodScalar r, KnownNat k, KnownShS sh, AstSpan s)
-  => (IntVarName, AstTensor s (TKS r sh)) -> AstTensor s (TKS r (k ': sh))
+  => (IntVarName, AstTensor s (TKS r sh)) -> AstTensor s (BuildTensorKind k (TKS r sh))
 {-# NOINLINE build1VOccurenceUnknownRefreshS #-}
 build1VOccurenceUnknownRefreshS (var, v0) =
   funToAstIntVar $ \ (!varFresh, !astVarFresh) ->
@@ -419,7 +420,7 @@ intBindingRefreshS var ix =
 
 build1VS
   :: forall k sh s r. (GoodScalar r, KnownNat k, KnownShS sh, AstSpan s)
-  => (IntVarName, AstTensor s (TKS r sh)) -> AstTensor s (TKS r (k ': sh))
+  => (IntVarName, AstTensor s (TKS r sh)) -> AstTensor s (BuildTensorKind k (TKS r sh))
 build1VS (var, v00) =
   let v0 = astNonIndexStepS v00
         -- Almost surely the term will be transformed, so it can just
