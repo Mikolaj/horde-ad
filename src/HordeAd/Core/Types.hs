@@ -194,6 +194,7 @@ data TensorKindFull y where
              -> TensorKindFull (TKProduct y z)
 
 deriving instance Show (TensorKindFull y)
+deriving instance Eq (TensorKindFull y)
 
 type family InterpretationTarget ranked y where
   InterpretationTarget ranked (TKR r n) = ranked r n

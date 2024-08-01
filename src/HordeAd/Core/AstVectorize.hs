@@ -378,7 +378,7 @@ build1VOccurenceUnknownS
   :: forall k sh s r. (GoodScalar r, KnownNat k, KnownShS sh, AstSpan s)
   => (IntVarName, AstTensor s (TKS r sh)) -> AstTensor s (BuildTensorKind k (TKS r sh))
 build1VOccurenceUnknownS (var, v0) =
-  let traceRule = mkTraceRuleS "build1VOccS" (Ast.AstBuild1 (SNat @k) (var, v0)) v0 1
+  let traceRule = mkTraceRule "build1VOccS" (Ast.AstBuild1 (SNat @k) (var, v0)) v0 1
   in if varNameInAstS var v0
      then build1VS (var, v0)
      else traceRule $
@@ -415,7 +415,7 @@ build1VS (var, v00) =
         -- get uncovered and so the simplification requires only constant
         -- look-ahead, but has a guaranteed net benefit).
       bv = Ast.AstBuild1 (SNat @k) (var, v0)
-      traceRule = mkTraceRuleS "build1VS" bv v0 1
+      traceRule = mkTraceRule "build1VS" bv v0 1
   in case v0 of
     Ast.AstVar{} ->
       error "build1VS: AstVar can't contain free index variables"
@@ -560,7 +560,7 @@ build1VIndexS (var, v0, ZIS) =
 build1VIndexS (var, v0, ix@(_ :.$ _)) =
   gcastWith (unsafeCoerce Refl :: sh :~: Sh.Take p sh X.++ Sh.Drop p sh) $
   let vTrace = Ast.AstBuild1 (SNat @k) (var, Ast.AstIndexS v0 ix)
-      traceRule = mkTraceRuleS "build1VIndexS" vTrace v0 1
+      traceRule = mkTraceRule "build1VIndexS" vTrace v0 1
   in if varNameInAstS var v0
      then case astIndexStepS v0 ix of  -- push deeper
        Ast.AstIndexS v1 ZIS -> traceRule $
@@ -961,18 +961,19 @@ ellipsisString width full = let cropped = take width full
                                then cropped
                                else take (width - 3) cropped ++ "..."
 
-mkTraceRule :: (KnownNat n, GoodScalar r, AstSpan s)
-            => String -> AstTensor s (TKR r n) -> AstTensor s (TKR r m) -> Int
-            -> AstTensor s (TKR r n)
-            -> AstTensor s (TKR r n)
+mkTraceRule :: forall y z s. (TensorKind y, AstSpan s)
+            => String -> AstTensor s y -> AstTensor s z -> Int
+            -> AstTensor s y
+            -> AstTensor s y
 {-# NOINLINE mkTraceRule #-}
 mkTraceRule prefix from caseAnalysed nwords to = unsafePerformIO $ do
   enabled <- readIORef traceRuleEnabledRef
-  let width = traceWidth
+  let stk = stensorKind @y
+      width = traceWidth
       renames = IM.fromList [(1, ""), (2, "")]
       constructorName =
         unwords $ take nwords $ words $ take 20
-        $ printAstSimple renames (AstRanked caseAnalysed)
+        $ printAstSimpleY renames caseAnalysed
       ruleName = prefix ++ "." ++ constructorName
       ruleNamePadded = take 20 $ ruleName ++ repeat ' '
   when enabled $ do
@@ -980,41 +981,16 @@ mkTraceRule prefix from caseAnalysed nwords to = unsafePerformIO $ do
     modifyIORef' traceNestingLevel succ
     let paddedNesting = take 3 $ show nestingLevel ++ repeat ' '
     -- Force in the correct order:
-    let !stringFrom = printAstSimple renames (AstRanked from)
-    let !stringTo = printAstSimple renames (AstRanked to)
+    let !stringFrom = printAstSimpleY renames from
+    let !stringTo = printAstSimpleY renames to
     hPutStrLnFlush stderr $ paddedNesting ++ "rule " ++ ruleNamePadded
                             ++ " sends " ++ padString width stringFrom
                             ++ " to " ++ padString width stringTo
     modifyIORef' traceNestingLevel pred
-  let !_A = assert (shapeAst from == shapeAst to
+  let !_A = assert (shapeAstFull stk from == shapeAstFull stk to
                     `blame` "mkTraceRule: term shape changed"
-                    `swith`(shapeAst from, shapeAst to, from, to)) ()
-  return $! to
-
-mkTraceRuleS :: forall sh sh2 s r. AstSpan s
-             => String -> AstTensor s (TKS r sh) -> AstTensor s (TKS r sh2) -> Int
-             -> AstTensor s (TKS r sh) -> AstTensor s (TKS r sh)
-{-# NOINLINE mkTraceRuleS #-}
-mkTraceRuleS prefix from caseAnalysed nwords to = unsafePerformIO $ do
-  enabled <- readIORef traceRuleEnabledRef
-  let width = traceWidth
-      renames = IM.fromList [(1, ""), (2, "")]
-      constructorName =
-        unwords $ take nwords $ words $ take 20
-        $ printAstSimpleS renames (AstShaped caseAnalysed)
-      ruleName = prefix ++ "." ++ constructorName
-      ruleNamePadded = take 20 $ ruleName ++ repeat ' '
-  when enabled $ do
-    nestingLevel <- readIORef traceNestingLevel
-    modifyIORef' traceNestingLevel succ
-    let paddedNesting = take 3 $ show nestingLevel ++ repeat ' '
-    -- Force in the correct order:
-    let !stringFrom = printAstSimpleS renames (AstShaped from)
-    let !stringTo = printAstSimpleS renames (AstShaped to)
-    hPutStrLnFlush stderr $ paddedNesting ++ "rule " ++ ruleNamePadded
-                            ++ " sends " ++ padString width stringFrom
-                            ++ " to " ++ padString width stringTo
-    modifyIORef' traceNestingLevel pred
+                    `swith`( shapeAstFull stk from, shapeAstFull stk to
+                           , from, to )) ()
   return $! to
 
 mkTraceRuleHVector :: AstSpan s
