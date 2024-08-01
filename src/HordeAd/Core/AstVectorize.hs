@@ -379,7 +379,7 @@ build1VOccurenceUnknownS
   => (IntVarName, AstTensor s (TKS r sh)) -> AstTensor s (BuildTensorKind k (TKS r sh))
 build1VOccurenceUnknownS (var, v0) =
   let traceRule = mkTraceRule "build1VOccS" (Ast.AstBuild1 (SNat @k) (var, v0)) v0 1
-  in if varNameInAstS var v0
+  in if varNameInAst var v0
      then build1VS (var, v0)
      else traceRule $
        astReplicateS v0
@@ -561,7 +561,7 @@ build1VIndexS (var, v0, ix@(_ :.$ _)) =
   gcastWith (unsafeCoerce Refl :: sh :~: Sh.Take p sh X.++ Sh.Drop p sh) $
   let vTrace = Ast.AstBuild1 (SNat @k) (var, Ast.AstIndexS v0 ix)
       traceRule = mkTraceRule "build1VIndexS" vTrace v0 1
-  in if varNameInAstS var v0
+  in if varNameInAst var v0
      then case astIndexStepS v0 ix of  -- push deeper
        Ast.AstIndexS v1 ZIS -> traceRule $
          build1VOccurenceUnknownS (var, v1)
@@ -580,7 +580,7 @@ build1VIndexS (var, v0, ix@(_ :.$ _)) =
                                     (build1VS @k (var, v1))
                                     (Const varFresh ::$ ZS, astVarFresh :.$ ix2)
              len = length $ shapeT @sh1
-         in if varNameInAstS var v1
+         in if varNameInAst var v1
             then case v1 of  -- try to avoid ruleD if not a normal form
               Ast.AstFromVectorS{} | len == 1 -> ruleD
               Ast.AstScatterS{} -> ruleD

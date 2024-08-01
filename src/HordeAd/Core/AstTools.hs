@@ -11,7 +11,7 @@ module HordeAd.Core.AstTools
   , varInAst, varInAstBool, varInIndex
   , varInIndexS
   , varInAstDynamic, varInAstHVector
-  , varNameInAst, varNameInAstS, varNameInAstHVector
+  , varNameInAst, varNameInAstHVector
   , varInAstBindingsCase
     -- * Determining if a term is too small to require sharing
   , astIsSmall
@@ -277,12 +277,8 @@ varInAstBool var = \case
   AstRelS _ arg1 arg2 -> varInAst var arg1 || varInAst var arg2
 
 varNameInAst :: AstSpan s2
-             => AstVarName f y -> AstTensor s2 (TKR r2 n2) -> Bool
+             => AstVarName f y -> AstTensor s2 y2 -> Bool
 varNameInAst var = varInAst (varNameToAstVarId var)
-
-varNameInAstS :: AstSpan s2
-              => AstVarName f y -> AstTensor s2 (TKS r2 sh2) -> Bool
-varNameInAstS var = varInAst (varNameToAstVarId var)
 
 varNameInAstHVector :: AstSpan s
                     => AstVarName f y -> AstHVector s -> Bool
