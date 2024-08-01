@@ -477,11 +477,12 @@ astLetFunS a f =
       (var, ast) = funToAst sh f
   in astLetS var a ast  -- safe, because subsitution ruled out above
 
-astBuild1VectorizeS :: (KnownNat n, KnownShS sh, GoodScalar r, AstSpan s)
+astBuild1VectorizeS :: forall n sh r s.
+                       (KnownNat n, KnownShS sh, GoodScalar r, AstSpan s)
                     => (AstInt -> AstTensor s (TKS r sh))
                     -> AstTensor s (TKS r (n ': sh))
 astBuild1VectorizeS f =
-  build1VectorizeS $ funToAstI f
+  build1Vectorize (SNat @n) $ funToAstI f
 
 
 -- * HVectorTensor instance

@@ -4,7 +4,7 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Vectorization of the AST, eliminating the build operation.
 module HordeAd.Core.AstVectorize
-  ( build1Vectorize, build1VectorizeS, build1VectorizeHVector
+  ( build1Vectorize, build1VectorizeHVector
   , traceRuleEnabledRef
   ) where
 
@@ -60,12 +60,13 @@ astTr = astTranspose [1, 0]
 -- If no @AstBuild1@ terms occur in @v@, the resulting term won't
 -- have any, either.
 build1Vectorize
-  :: (KnownNat n, GoodScalar r, AstSpan s)
-  => SNat k -> (IntVarName, AstTensor s (TKR r n)) -> AstTensor s (BuildTensorKind k (TKR r n))
+  :: forall k y s. (AstSpan s, TensorKind y, TensorKind (BuildTensorKind k y))
+  => SNat k -> (IntVarName, AstTensor s y) -> AstTensor s (BuildTensorKind k y)
 {-# NOINLINE build1Vectorize #-}
 build1Vectorize snat@SNat (var, v0) = unsafePerformIO $ do
   enabled <- readIORef traceRuleEnabledRef
-  let width = 1000 * traceWidth
+  let stk = stensorKind @(BuildTensorKind k y)
+      width = 1000 * traceWidth
       startTerm = Ast.AstBuild1 snat (var, v0)
       renames = IM.fromList [(1, ""), (2, "")]
   when enabled $ do
@@ -82,9 +83,9 @@ build1Vectorize snat@SNat (var, v0) = unsafePerformIO $ do
       ++ "END of vectorization yields "
       ++ ellipsisString width (printAstSimpleY renames endTerm)
       ++ "\n"
-  let !_A = assert (shapeAst startTerm == shapeAst endTerm
+  let !_A = assert (shapeAstFull stk startTerm == shapeAstFull stk endTerm
                    `blame` "build1Vectorize: term shape changed"
-                   `swith`(shapeAst startTerm, shapeAst endTerm)) ()
+                   `swith`(shapeAstFull stk startTerm, shapeAstFull stk endTerm)) ()
   return endTerm
 
 -- | The application @build1VOccurenceUnknown k (var, v)@ vectorizes
@@ -472,33 +473,6 @@ astTrS :: forall n m sh s r.
           (KnownNat n, KnownNat m, KnownShS sh, GoodScalar r, AstSpan s)
        => AstTensor s (TKS r (n ': m ': sh)) -> AstTensor s (TKS r (m ': n ': sh))
 astTrS = withListSh (Proxy @sh) $ \_ -> astTransposeS (Permutation.makePerm @'[1, 0])
-
--- | This works analogously to @build1Vectorize@m.
-build1VectorizeS
-  :: forall k sh s r. (GoodScalar r, KnownNat k, KnownShS sh, AstSpan s)
-  => (IntVarName, AstTensor s (TKS r sh))
-  -> AstTensor s (BuildTensorKind k (TKS r sh))
-{-# NOINLINE build1VectorizeS #-}
-build1VectorizeS (var, v0) = unsafePerformIO $ do
-  enabled <- readIORef traceRuleEnabledRef
-  let width = 1000 * traceWidth
-      startTerm = Ast.AstBuild1 (SNat @k) (var, v0)
-      renames = IM.fromList [(1, ""), (2, "")]
-  when enabled $ do
-    writeIORef traceNestingLevel 0
-    hPutStrLnFlush stderr $
-      "\n"
-      ++ "START of vectorization for term "
-      ++ ellipsisString width (printAstSimpleS renames (AstShaped startTerm))
-      ++ "\n"
-  let !endTerm = build1VOccurenceUnknown (SNat @k) (var, v0)
-  when enabled $ do
-    hPutStrLnFlush stderr $
-      "\n"
-      ++ "END of vectorization yields "
-      ++ ellipsisString width (printAstSimpleS renames (AstShaped endTerm))
-      ++ "\n"
-  return endTerm
 
 intBindingRefreshS
   :: IntVarName -> AstIndexS sh -> (IntVarName, AstInt, AstIndexS sh)
