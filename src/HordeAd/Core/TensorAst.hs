@@ -275,7 +275,8 @@ instance AstSpan s => RankedTensor (AstRanked s) where
                           -- this introduces new variable names
 
   rfromVector = AstRanked . astFromVector . V.map unAstRanked
-  rreplicate k = AstRanked . astReplicate k . unAstRanked
+  rreplicate k = withSNat k $ \snat ->
+    AstRanked . astReplicate snat . unAstRanked
   rappend u v =
     AstRanked $ astAppend (unAstRanked u) (unAstRanked v)
   rslice i n = AstRanked . astSlice i n . unAstRanked
@@ -416,7 +417,7 @@ instance AstSpan s => ShapedTensor (AstShaped s) where
                        -- this introduces new variable names
 
   sfromVector = AstShaped . astFromVectorS . V.map unAstShaped
-  sreplicate = AstShaped . astReplicateS . unAstShaped
+  sreplicate = AstShaped . astReplicate SNat . unAstShaped
   sappend u v = AstShaped $ astAppendS (unAstShaped u) (unAstShaped v)
   sslice (_ :: Proxy i) Proxy = AstShaped . astSliceS @i . unAstShaped
   sreverse = AstShaped . astReverseS . unAstShaped
@@ -934,7 +935,8 @@ instance AstSpan s => RankedTensor (AstRaw s) where
                     $ funToAstIndex (fmap unAstRaw . f . fmap AstRaw)
                         -- this introduces new variable names
   rfromVector = AstRaw . AstFromVector . V.map unAstRaw
-  rreplicate k = AstRaw . AstReplicate k . unAstRaw
+  rreplicate k = withSNat k $ \snat ->
+    AstRaw . AstReplicate snat . unAstRaw
   rappend u v = AstRaw $ AstAppend (unAstRaw u) (unAstRaw v)
   rslice i n = AstRaw . AstSlice i n . unAstRaw
   rreverse = AstRaw . AstReverse . unAstRaw
@@ -1074,7 +1076,7 @@ instance AstSpan s => ShapedTensor (AstRawS s) where
                  $ funToAstIndexS (fmap unAstRaw . f . fmap AstRaw)
                      -- this introduces new variable names
   sfromVector = AstRawS . AstFromVectorS . V.map unAstRawS
-  sreplicate = AstRawS . AstReplicateS . unAstRawS
+  sreplicate = AstRawS . AstReplicate SNat . unAstRawS
   sappend u v = AstRawS $ AstAppendS (unAstRawS u) (unAstRawS v)
   sslice (_ :: Proxy i) Proxy = AstRawS . AstSliceS @i . unAstRawS
   sreverse = AstRawS . AstReverseS . unAstRawS
@@ -1405,7 +1407,8 @@ instance AstSpan s => RankedTensor (AstNoSimplify s) where
                         (fmap unAstNoSimplify . f . fmap AstNoSimplify)
                           -- this introduces new variable names
   rfromVector = AstNoSimplify . AstFromVector . V.map unAstNoSimplify
-  rreplicate k = AstNoSimplify . AstReplicate k . unAstNoSimplify
+  rreplicate k = withSNat k $ \snat ->
+    AstNoSimplify . AstReplicate snat . unAstNoSimplify
   rappend u v =
     AstNoSimplify $ AstAppend (unAstNoSimplify u) (unAstNoSimplify v)
   rslice i n = AstNoSimplify . AstSlice i n . unAstNoSimplify
@@ -1459,7 +1462,7 @@ instance AstSpan s => ShapedTensor (AstNoSimplifyS s) where
                      (fmap unAstNoSimplify . f . fmap AstNoSimplify)
                        -- this introduces new variable names
   sfromVector = AstNoSimplifyS . AstFromVectorS . V.map unAstNoSimplifyS
-  sreplicate = AstNoSimplifyS . AstReplicateS . unAstNoSimplifyS
+  sreplicate = AstNoSimplifyS . AstReplicate SNat . unAstNoSimplifyS
   sappend u v =
     AstNoSimplifyS $ AstAppendS (unAstNoSimplifyS u) (unAstNoSimplifyS v)
   sslice (_ :: Proxy i) Proxy = AstNoSimplifyS . AstSliceS @i . unAstNoSimplifyS

@@ -224,6 +224,10 @@ interpretAst !env = \case
          (ifF c) (ifF c)
          (stensorKind @y2)
          (interpretAst env a1) (interpretAst env a2)
+  AstReplicate @y2 k@SNat v -> case stensorKind @y2 of
+    STKR{} -> rreplicate (sNatValue k) (interpretAst env v)
+    STKS{} -> sreplicate (interpretAst env v)
+    STKProduct{} -> error "TODO"
   -- These are only needed for tests that don't vectorize Ast.
   AstBuild1 @y2
             snat (var, AstSum (AstN2 TimesOp t (AstIndex
@@ -315,7 +319,7 @@ interpretAst !env = \case
             t2 = interpretAst env s
         in tscaleByScalar0 t2 t1
   -}
-  AstN2 TimesOp v (AstLet var u (AstReshape sh (AstReplicate @m k s)))
+  AstN2 TimesOp v (AstLet var u (AstReshape sh (AstReplicate (SNat @m) s)))
     | Just Refl <- sameNat (Proxy @m) (Proxy @0), not (varNameInAst var v) ->
         -- The varNameInAst check is needed, because although variable
         -- capture is impossible, because we don't create nested lets
@@ -323,16 +327,16 @@ interpretAst !env = \case
         -- if we omitted this check.
         interpretAst env
           (AstLet var u (AstN2 TimesOp v (AstReshape sh
-                                            (AstReplicate @m k s))))
-  AstN2 TimesOp v (AstReshape sh (AstLet var u (AstReplicate @m k s)))
+                                            (AstReplicate (SNat @m) s))))
+  AstN2 TimesOp v (AstReshape sh (AstLet var u (AstReplicate (SNat @m) s)))
     | Just Refl <- sameNat (Proxy @m) (Proxy @0), not (varNameInAst var v) ->
         interpretAst env
           (AstLet var u (AstN2 TimesOp v (AstReshape sh
-                                            (AstReplicate @m k s))))
-  AstN2 TimesOp v (AstLet var u (AstReplicate @m k s))
+                                            (AstReplicate (SNat @m) s))))
+  AstN2 TimesOp v (AstLet var u (AstReplicate (SNat @m) s))
     | Just Refl <- sameNat (Proxy @m) (Proxy @0), not (varNameInAst var v) ->
         interpretAst env
-          (AstLet var u (AstN2 TimesOp v (AstReplicate @m k s)))
+          (AstLet var u (AstN2 TimesOp v (AstReplicate (SNat @m) s)))
   AstN1 opCode u ->
     let u2 = interpretAst env u
     in interpretAstN1 opCode u2
@@ -383,9 +387,11 @@ interpretAst !env = \case
          (AstSum (AstN2 TimesOp (AstTranspose tperm t)
                                 (AstTranspose uperm u)))))
   AstSum @n
-         v@(AstN2 TimesOp (AstTranspose tperm (AstReplicate _tk t))
-                          (AstTranspose uperm (AstReplicate _uk u)))
+         v@(AstN2 TimesOp (AstTranspose tperm (AstReplicate @yt _tk t))
+                          (AstTranspose uperm (AstReplicate @yu _uk u)))
     | Just Refl <- sameNat (Proxy @n) (Proxy @2) ->
+      case (stensorKind @yt, stensorKind @yu) of
+       (STKR{}, STKR{}) ->
         let interpretMatmul2 t1 u1 =
               let t2 = interpretAst env t1
                   u2 = interpretAst env u1
@@ -472,13 +478,6 @@ interpretAst !env = \case
   AstFromVector l ->
     let l2 = V.map (interpretAst env) l
     in rfromVector l2
-  AstReshape sh (AstReplicate @m _ s)
-    | Just Refl <- sameNat (Proxy @m) (Proxy @0) ->
-        let t1 = interpretAst env s
-        in rreplicate0N sh t1
-  AstReshape sh (AstLet var v (AstReplicate k t)) ->
-    interpretAst env (AstLet var v (AstReshape sh (AstReplicate k t)))
-  AstReplicate k v -> rreplicate k (interpretAst env v)
   AstAppend x y ->
     let t1 = interpretAst env x
         t2 = interpretAst env y
@@ -489,6 +488,13 @@ interpretAst !env = \case
   AstSlice i n v -> rslice i n (interpretAst env v)
   AstReverse v -> rreverse (interpretAst env v)
   AstTranspose perm v -> rtranspose perm $ interpretAst env v
+  AstReshape sh v@(AstReplicate @y2 _ s) -> case stensorKind @y2 of
+    STKR @_ @m _ _  | Just Refl <- sameNat (Proxy @m) (Proxy @0) ->
+      let t1 = interpretAst env s
+      in rreplicate0N sh t1
+    _ -> rreshape sh (interpretAst env v)
+  AstReshape sh (AstLet var v (AstReplicate k t)) ->
+    interpretAst env (AstLet var v (AstReshape sh (AstReplicate k t)))
   AstReshape sh v -> rreshape sh (interpretAst env v)
   AstGather sh AstIota (vars, i :.: ZIR) ->
     rbuild sh (interpretLambdaIndex interpretAst env
@@ -714,7 +720,6 @@ interpretAst !env = \case
   AstReshape sh (AstLet var v (AstReplicate k t)) ->
     interpretAst env (AstLet var v (AstReshape sh (AstReplicate k t)))
 -}
-  AstReplicateS v -> sreplicate (interpretAst env v)
   AstAppendS x y ->
     let t1 = interpretAst env x
         t2 = interpretAst env y

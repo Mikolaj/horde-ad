@@ -391,10 +391,11 @@ testCNNOPP = do
       sizeMnistHeightI = 4  -- 4; to make weightsDense empty and so speedup
       blackGlyph :: AstRanked PrimalSpan Double 4
       blackGlyph = AstRanked
-                   $ AstReplicate batch_size
-                   $ AstReplicate 1
-                   $ AstReplicate sizeMnistWidthI
-                   $ AstReplicate sizeMnistHeightI 7
+                   $ AstReplicate (SNat @1)
+                   $ AstReplicate (SNat @1)
+                   $ AstReplicate (SNat @4)
+                   $ AstReplicate (SNat @4)
+                       (7 :: AstTensor PrimalSpan (TKR Double 0))
       valsInit :: MnistCnnRanked2.ADCnnMnistParameters ORArray Double
       valsInit =
         forgetShape $ fst

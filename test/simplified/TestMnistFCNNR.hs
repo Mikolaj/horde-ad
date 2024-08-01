@@ -706,7 +706,8 @@ testVTOPP :: Assertion
 testVTOPP = do
   resetVarCounter
   let renames = IM.empty
-      blackGlyph = AstReplicate sizeMnistGlyphInt 7
+      blackGlyph = AstReplicate (SNat @SizeMnistGlyph)
+                     (7 :: AstTensor FullSpan (TKR Double 0))
       afcnn2T :: MnistFcnnRanked1.ADFcnnMnist1Parameters (AstRanked FullSpan)
                                                          Double
               -> AstRanked FullSpan Double 1
@@ -725,7 +726,8 @@ testVTOPPNonLin :: Assertion
 testVTOPPNonLin = do
   resetVarCounter
   let renames = IM.empty
-      blackGlyph = AstReplicate sizeMnistGlyphInt 7
+      blackGlyph = AstReplicate (SNat @SizeMnistGlyph)
+                     (7 :: AstTensor FullSpan (TKR Double 0))
       afcnn2TnonLin :: MnistFcnnRanked1.ADFcnnMnist1Parameters
                          (AstRanked FullSpan) Double
                     -> AstRanked FullSpan Double 1
@@ -761,7 +763,8 @@ testVT2OPP :: Assertion
 testVT2OPP = do
   resetVarCounter
   let renames = IM.empty
-      blackGlyph = AstReplicate 3 7
+      blackGlyph = AstReplicate (SNat @3)
+                     (7 :: AstTensor FullSpan (TKR Double 0))
       afcnn2T :: MnistFcnnRanked2.ADFcnnMnist2Parameters
                    (AstRanked FullSpan) Double
               -> AstRanked FullSpan Double 1
@@ -780,7 +783,8 @@ testVT2OPPNonLin :: Assertion
 testVT2OPPNonLin = do
   resetVarCounter
   let renames = IM.empty
-      blackGlyph = AstReplicate 3 7
+      blackGlyph = AstReplicate (SNat @3)
+                     (7 :: AstTensor FullSpan (TKR Float 0))
       afcnn2TnonLin :: MnistFcnnRanked2.ADFcnnMnist2Parameters
                          (AstRanked FullSpan) Float
                     -> AstRanked FullSpan Float 1
@@ -795,13 +799,14 @@ testVT2OPPNonLin = do
       (_, ast3) = funToAst (FTKR @Float $ singletonShape 0)
                            (const $ unAstRanked $ afcnn2TnonLin constant)
   "\\dummy" ++ " -> " ++ printAstSimple renames (AstRanked ast3)
-    @?= "\\dummy -> rlet (exp (rsum (rtranspose [1,0] (rreplicate 2 (rlet (rcast (rsum (rtranspose [1,0] (rreplicate 5 (rcast (rlet (rsum (rtranspose [1,0] (rreplicate 4 (rreplicate 3 (rconstant 7.0))) * rconstant (rconst (rfromListLinear [3,4] [1.0,1.0,1.0,1.0,2.0,2.0,2.0,2.0,3.0,3.0,3.0,3.0]))) + rcast (rconstant (rconst (rfromListLinear [4] [1.0,2.0,3.0,4.0])))) (\\v5 -> rlet (rconstant (recip (rreplicate 4 1.0 + exp (negate (rprimalPart v5))))) (\\v6 -> rD (rprimalPart v6) (rdualPart (rconstant (rprimalPart v6 * (rreplicate 4 1.0 - rprimalPart v6)) * rD (rreplicate 4 0.0) (rdualPart v5)))))))) * rconstant (rconst (rfromListLinear [4,5] [1.0,1.0,1.0,1.0,1.0,2.0,2.0,2.0,2.0,2.0,3.0,3.0,3.0,3.0,3.0,4.0,4.0,4.0,4.0,4.0])))) + rconstant (rcast (rconst (rfromListLinear [5] [1.0,2.0,3.0,4.0,5.0])))) (\\v7 -> rlet (rconstant (recip (rreplicate 5 1.0 + exp (negate (rprimalPart v7))))) (\\v8 -> rD (rprimalPart v8) (rdualPart (rconstant (rprimalPart v8 * (rreplicate 5 1.0 - rprimalPart v8)) * rD (rreplicate 5 0.0) (rdualPart v7))))))) * rconstant (rconst (rfromListLinear [5,2] [1.0,1.0,2.0,2.0,3.0,3.0,4.0,4.0,5.0,5.0]))) + rconstant (rcast (rconst (rfromListLinear [2] [1.0,2.0]))))) (\\v9 -> rreplicate 2 (recip (rsum v9)) * v9)"
+    @?= "\\dummy -> rlet (exp (rsum (rtranspose [1,0] (rreplicate 2 (rlet (rcast (rsum (rtranspose [1,0] (rreplicate 5 (rcast (rlet (rsum (rtranspose [1,0] (rreplicate 4 (rreplicate 3 (rconstant 7.0))) * rconstant (rconst (rfromListLinear [3,4] [1.0,1.0,1.0,1.0,2.0,2.0,2.0,2.0,3.0,3.0,3.0,3.0]))) + rcast (rconstant (rconst (rfromListLinear [4] [1.0,2.0,3.0,4.0])))) (\\v3 -> rlet (rconstant (recip (rreplicate 4 1.0 + exp (negate (rprimalPart v3))))) (\\v4 -> rD (rprimalPart v4) (rdualPart (rconstant (rprimalPart v4 * (rreplicate 4 1.0 - rprimalPart v4)) * rD (rreplicate 4 0.0) (rdualPart v3)))))))) * rconstant (rconst (rfromListLinear [4,5] [1.0,1.0,1.0,1.0,1.0,2.0,2.0,2.0,2.0,2.0,3.0,3.0,3.0,3.0,3.0,4.0,4.0,4.0,4.0,4.0])))) + rconstant (rcast (rconst (rfromListLinear [5] [1.0,2.0,3.0,4.0,5.0])))) (\\v6 -> rlet (rconstant (recip (rreplicate 5 1.0 + exp (negate (rprimalPart v6))))) (\\v7 -> rD (rprimalPart v7) (rdualPart (rconstant (rprimalPart v7 * (rreplicate 5 1.0 - rprimalPart v7)) * rD (rreplicate 5 0.0) (rdualPart v6))))))) * rconstant (rconst (rfromListLinear [5,2] [1.0,1.0,2.0,2.0,3.0,3.0,4.0,4.0,5.0,5.0]))) + rconstant (rcast (rconst (rfromListLinear [2] [1.0,2.0]))))) (\\v9 -> rreplicate 2 (recip (rsum v9)) * v9)"
 
 testVT2OPPNonLin2 :: Assertion
 testVT2OPPNonLin2 = do
   resetVarCounter
   let renames = IM.empty
-      blackGlyph = AstReplicate 3 7
+      blackGlyph = AstReplicate (SNat @3)
+                     (7 :: AstTensor FullSpan (TKR Double 0))
       afcnn2TnonLin :: MnistFcnnRanked2.ADFcnnMnist2Parameters
                          (AstRanked FullSpan) Double
                     -> AstRanked FullSpan Double 1

@@ -53,6 +53,7 @@ shapeAstFull stk t = case stk of
     AstConstant a -> shapeAstFull stk a
     AstD u _ -> shapeAstFull stk u
     AstCond _b v _w -> shapeAstFull stk v
+    AstReplicate{} -> error "TODO"
     AstBuild1{} -> error "TODO"
 
 -- This is cheap and dirty. We don't shape-check the terms and we don't
@@ -69,6 +70,8 @@ shapeAst = \case
   AstConstant a -> shapeAst a
   AstD u _ -> shapeAst u
   AstCond _b v _w -> shapeAst v
+  AstReplicate @y2 snat v -> case stensorKind @y2 of
+    STKR{} -> sNatValue snat :$: shapeAst v
   AstBuild1 @y2 k (_var, v) -> case stensorKind @y2 of
     STKR{} -> sNatValue k :$: shapeAst v
 
@@ -95,7 +98,6 @@ shapeAst = \case
       Just Refl -> singletonShape 0
       _ ->  error "shapeAst: AstFromVector with no arguments"
     t : _ -> V.length l :$: shapeAst t
-  AstReplicate s v -> s :$: shapeAst v
   AstAppend x y -> case shapeAst x of
     ZSR -> error "shapeAst: impossible pattern needlessly required"
     xi :$: xsh -> case shapeAst y of
@@ -165,6 +167,7 @@ varInAst var = \case
   AstConstant v -> varInAst var v
   AstD u u' -> varInAst var u || varInAst var u'
   AstCond b v w -> varInAstBool var b || varInAst var v || varInAst var w
+  AstReplicate _ v -> varInAst var v
   AstBuild1 _ (_var2, v) -> varInAst var v
 
   AstLetTupleIn _var1 _var2 p v -> varInAst var p || varInAst var v
@@ -184,7 +187,6 @@ varInAst var = \case
   AstSum v -> varInAst var v
   AstScatter _ v (_vars, ix) -> varInIndex var ix || varInAst var v
   AstFromVector vl -> any (varInAst var) $ V.toList vl
-  AstReplicate _ v -> varInAst var v
   AstAppend v u -> varInAst var v || varInAst var u
   AstSlice _ _ v -> varInAst var v
   AstReverse v -> varInAst var v
@@ -216,7 +218,6 @@ varInAst var = \case
   AstSumS v -> varInAst var v
   AstScatterS v (_vars, ix) -> varInIndexS var ix || varInAst var v
   AstFromVectorS vl -> any (varInAst var) $ V.toList vl
-  AstReplicateS v -> varInAst var v
   AstAppendS v u -> varInAst var v || varInAst var u
   AstSliceS v -> varInAst var v
   AstReverseS v -> varInAst var v
@@ -298,11 +299,11 @@ astIsSmall relaxed = \case
   AstPrimalPart v -> astIsSmall relaxed v
   AstDualPart v -> astIsSmall relaxed v
   AstConstant v -> astIsSmall relaxed v
+  AstReplicate _ v ->
+    relaxed && astIsSmall relaxed v  -- materialized via tricks, so prob. safe
 
   AstLetTupleIn{} -> False
   AstIota -> True
-  AstReplicate _ v ->
-    relaxed && astIsSmall relaxed v  -- materialized via tricks, so prob. safe
   AstSlice _ _ v ->
     relaxed && astIsSmall relaxed v  -- materialized via vector slice; cheap
   AstTranspose _ v ->
@@ -312,8 +313,6 @@ astIsSmall relaxed = \case
 
   AstLetTupleInS{} -> False
   AstIotaS -> True
-  AstReplicateS v ->
-    relaxed && astIsSmall relaxed v  -- materialized via tricks, so prob. safe
   AstSliceS v ->
     relaxed && astIsSmall relaxed v  -- materialized via vector slice; cheap
   AstTransposeS _perm v ->
@@ -327,12 +326,14 @@ astIsSmall relaxed = \case
 
 -- * Odds and ends
 
-astReplicate0N :: forall n s r. (AstSpan s, GoodScalar r)
+astReplicate0N :: forall n s r. (AstSpan s, GoodScalar r, KnownNat n)
                => IShR n -> r -> AstTensor s (TKR r n)
 astReplicate0N sh =
-  let go :: IShR n' -> AstTensor s (TKR r 0) -> AstTensor s (TKR r n')
+  let go :: KnownNat n'
+         => IShR n' -> AstTensor s (TKR r 0) -> AstTensor s (TKR r n')
       go ZSR v = v
-      go (k :$: sh') v | Dict <- knownShR sh' = AstReplicate k $ go sh' v
+      go (k :$: sh') v | Dict <- knownShR sh' = withSNat k $ \snat ->
+        AstReplicate snat $ go sh' v
   in go sh . fromPrimal . AstConst . Nested.rscalar
 
 bindsToLet :: forall n s s2 r. (AstSpan s, AstSpan s2, KnownNat n, GoodScalar r)

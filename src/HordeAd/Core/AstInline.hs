@@ -115,6 +115,7 @@ inlineAst memo v0 = case v0 of
         memo4 = EM.unionWith max memoA2 memoA3
         memo5 = EM.unionWith (+) memo1 memo4
     in (memo5, Ast.AstCond b1 t2 t3)
+  Ast.AstReplicate k v -> second (Ast.AstReplicate k) (inlineAst memo v)
   Ast.AstBuild1 k (var, v) ->
     let (memoV0, v2) = inlineAst EM.empty v
         memo1 = EM.unionWith (\c1 c0 -> c1 + sNatValue k * c0) memo memoV0
@@ -186,7 +187,6 @@ inlineAst memo v0 = case v0 of
     let (memo2, l2) = mapAccumR inlineAst memo (V.toList l)
     in (memo2, Ast.AstFromVector $ V.fromList l2)
       -- TODO: emulate mapAccum using mapM?
-  Ast.AstReplicate k v -> second (Ast.AstReplicate k) (inlineAst memo v)
   Ast.AstAppend x y ->
     let (memo1, t1) = inlineAst memo x
         (memo2, t2) = inlineAst memo1 y
@@ -288,7 +288,6 @@ inlineAst memo v0 = case v0 of
     let (memo2, l2) = mapAccumR inlineAst memo (V.toList l)
     in (memo2, Ast.AstFromVectorS $ V.fromList l2)
       -- TODO: emulate mapAccum using mapM?
-  Ast.AstReplicateS v -> second Ast.AstReplicateS (inlineAst memo v)
   Ast.AstAppendS x y ->
     let (memo1, t1) = inlineAst memo x
         (memo2, t2) = inlineAst memo1 y
@@ -508,6 +507,7 @@ shareAst memo v0 = case v0 of
         (memo2, t2) = shareAst memo1 a2
         (memo3, t3) = shareAst memo2 a3
     in (memo3, Ast.AstCond b1 t2 t3)
+  Ast.AstReplicate k v -> second (Ast.AstReplicate k) (shareAst memo v)
   Ast.AstBuild1 @y2 snat (var, v) -> case stensorKind @y2 of
     STKR{} ->
       let (memo1, v2) = shareAstScoped [var] memo v
@@ -567,7 +567,6 @@ shareAst memo v0 = case v0 of
   Ast.AstFromVector l ->
     let (memo2, l2) = mapAccumR shareAst memo (V.toList l)
     in (memo2, Ast.AstFromVector $ V.fromList l2)
-  Ast.AstReplicate k v -> second (Ast.AstReplicate k) (shareAst memo v)
   Ast.AstAppend x y ->
     let (memo1, t1) = shareAst memo x
         (memo2, t2) = shareAst memo1 y
@@ -647,7 +646,6 @@ shareAst memo v0 = case v0 of
   Ast.AstFromVectorS l ->
     let (memo2, l2) = mapAccumR shareAst memo (V.toList l)
     in (memo2, Ast.AstFromVectorS $ V.fromList l2)
-  Ast.AstReplicateS v -> second Ast.AstReplicateS (shareAst memo v)
   Ast.AstAppendS x y ->
     let (memo1, t1) = shareAst memo x
         (memo2, t2) = shareAst memo1 y

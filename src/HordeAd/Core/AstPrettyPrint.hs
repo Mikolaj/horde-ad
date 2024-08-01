@@ -81,6 +81,7 @@ areAllArgsInts = \case
   AstConstant{} -> True  -- the argument is emphatically a primal number; fine
   AstD{} -> False  -- dual number
   AstCond{} -> True  -- too early to tell
+  AstReplicate{} -> False
   AstBuild1{} -> False
 
   AstLetTupleIn{} -> True  -- too early to tell, but displays the same
@@ -100,7 +101,6 @@ areAllArgsInts = \case
   AstSum{} -> False
   AstScatter{} -> False
   AstFromVector{} -> False
-  AstReplicate{} -> False
   AstAppend{} -> False
   AstSlice{} -> False
   AstReverse{} -> False
@@ -256,6 +256,11 @@ printAstAux cfg d = \case
       . printAst cfg 11 a1
       . showString " "
       . printAst cfg 11 a2
+  AstReplicate @y2 snat v -> case stensorKind @y2 of
+    STKR{} -> printPrefixOp printAst cfg d
+                            ("rreplicate " ++ show (sNatValue snat)) [v]
+    STKS{} -> printPrefixOp printAst cfg d "sreplicate" [v]
+    STKProduct{} -> error "TODO"
   AstBuild1 @y2 k (var, v) -> case stensorKind @y2 of
    STKR{} ->
     showParen (d > 10)
@@ -275,7 +280,7 @@ printAstAux cfg d = \case
            . printAstIntVar cfg var
            . showString " -> "
            . printAst cfg 0 v)
-   _ -> error "TODO"
+   STKProduct{} -> error "TODO"
   AstGather sh v (vars, ix) ->
     showParen (d > 10)
     $ showString ("rgather " ++ show sh ++ " ")
@@ -386,7 +391,6 @@ printAstAux cfg d = \case
       . (showParen True
          $ showString "fromList "
            . showListWith (printAst cfg 0) (V.toList l))
-  AstReplicate k v -> printPrefixOp printAst cfg d ("rreplicate " ++ show k) [v]
   AstAppend x y -> printPrefixOp printAst cfg d "rappend" [x, y]
   AstSlice i n v -> printPrefixOp printAst cfg d
                                   ("rslice " ++ show i ++ " " ++ show n) [v]
@@ -550,7 +554,6 @@ printAstAux cfg d = \case
       . (showParen True
          $ showString "fromList "
            . showListWith (printAst cfg 0) (V.toList l))
-  AstReplicateS v -> printPrefixOp printAst cfg d "sreplicate" [v]
   AstAppendS x y ->
     -- x and y have different types, unlike in AstAppend, so we
     -- have to inline printPrefixOp:

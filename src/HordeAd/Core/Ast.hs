@@ -259,6 +259,8 @@ data AstTensor :: AstSpanType -> TensorKindType -> Type where
        -> AstTensor FullSpan y
   AstCond :: TensorKind y
           => AstBool -> AstTensor s y -> AstTensor s y -> AstTensor s y
+  AstReplicate :: (TensorKind y, TensorKind (BuildTensorKind k y))
+               => SNat k -> AstTensor s y -> AstTensor s (BuildTensorKind k y)
   AstBuild1 :: TensorKind y
             => SNat k -> (IntVarName, AstTensor s y)
             -> AstTensor s (BuildTensorKind k y)
@@ -325,8 +327,6 @@ data AstTensor :: AstSpanType -> TensorKindType -> Type where
 
   AstFromVector :: (KnownNat n, GoodScalar r)
                 => Data.Vector.Vector (AstTensor s (TKR r n)) -> AstTensor s (TKR r (1 + n))
-  AstReplicate :: (KnownNat n, GoodScalar r)
-               => Int -> AstTensor s (TKR r n) -> AstTensor s (TKR r (1 + n))
   AstAppend :: (KnownNat n, GoodScalar r)
             => AstTensor s (TKR r (1 + n)) -> AstTensor s (TKR r (1 + n))
             -> AstTensor s (TKR r (1 + n))
@@ -433,8 +433,6 @@ data AstTensor :: AstSpanType -> TensorKindType -> Type where
   AstFromVectorS :: (KnownNat n, KnownShS sh, GoodScalar r)
                  => Data.Vector.Vector (AstTensor s (TKS r sh))
                  -> AstTensor s (TKS r (n ': sh))
-  AstReplicateS :: (KnownNat n, KnownShS sh, GoodScalar r)
-                => AstTensor s (TKS r sh) -> AstTensor s (TKS r (n ': sh))
   AstAppendS :: (KnownNat n, KnownNat m, KnownShS sh, GoodScalar r)
              => AstTensor s (TKS r (m ': sh)) -> AstTensor s (TKS r (n ': sh))
              -> AstTensor s (TKS r ((m + n) ': sh))

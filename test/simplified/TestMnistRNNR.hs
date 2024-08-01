@@ -411,13 +411,13 @@ testRNNOPP = do
   resetVarCounter
   let renames = IM.empty
       batch_size = 1
-      sizeMnistWidthI = 1
       sizeMnistHeightI = 1
       blackGlyph :: AstRanked PrimalSpan Double 3
       blackGlyph = AstRanked
-                   $ AstReplicate sizeMnistWidthI
-                   $ AstReplicate sizeMnistHeightI
-                   $ AstReplicate batch_size 7
+                   $ AstReplicate (SNat @1)
+                   $ AstReplicate (SNat @1)
+                   $ AstReplicate (SNat @1)
+                       (7 :: AstTensor PrimalSpan (TKR Double 0))
       afcnn2T :: MnistRnnRanked2.ADRnnMnistParameters (AstRanked FullSpan)
                                                       Double
               -> AstRanked FullSpan Double 2
@@ -438,13 +438,13 @@ testRNNOPP2 = do
   resetVarCounter
   let renames = IM.empty
       batch_size = 2
-      sizeMnistWidthI = 2
       sizeMnistHeightI = 2
       blackGlyph :: AstRanked PrimalSpan Double 3
       blackGlyph = AstRanked
-                   $ AstReplicate sizeMnistWidthI
-                   $ AstReplicate sizeMnistHeightI
-                   $ AstReplicate batch_size 7
+                   $ AstReplicate (SNat @2)
+                   $ AstReplicate (SNat @2)
+                   $ AstReplicate (SNat @2)
+                       (7 :: AstTensor PrimalSpan (TKR Double 0))
       afcnn2T :: MnistRnnRanked2.ADRnnMnistParameters (AstRanked FullSpan)
                                                       Double
               -> AstRanked FullSpan Double 2

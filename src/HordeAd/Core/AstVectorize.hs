@@ -94,12 +94,11 @@ build1VOccurenceUnknown
   :: (KnownNat n, GoodScalar r, AstSpan s)
   => SNat k -> (IntVarName, AstTensor s (TKR r n)) -> AstTensor s (BuildTensorKind k (TKR r n))
 build1VOccurenceUnknown snat@SNat (var, v0) =
-  let k = sNatValue snat
-      traceRule = mkTraceRule "build1VOcc" (Ast.AstBuild1 snat (var, v0)) v0 1
+  let traceRule = mkTraceRule "build1VOcc" (Ast.AstBuild1 snat (var, v0)) v0 1
   in if varNameInAst var v0
      then build1V snat (var, v0)
      else traceRule $
-       astReplicate k v0
+       astReplicate snat v0
 
 -- This is used to avoid biding the same variable twice in the code,
 -- (unless in very safe situations, e.g., different branches
@@ -166,6 +165,9 @@ build1V snat@SNat (var, v00) =
       let t = astIndexStep (astFromVector $ V.fromList [v, w])
                            (singletonIndex (astCond b 0 1))
       in build1V snat (var, t)
+    Ast.AstReplicate @y2 s v -> case stensorKind @y2 of
+      STKR{} -> traceRule $
+        astTr $ astReplicate s $ build1V snat (var, v)
     Ast.AstBuild1{} -> error "build1V: impossible case of AstBuild1"
 
     Ast.AstLetTupleIn var1 var2 p v -> undefined  -- TODO: doable, but complex
@@ -235,8 +237,6 @@ build1V snat@SNat (var, v00) =
 
     Ast.AstFromVector l -> traceRule $
       astTr $ astFromVector (V.map (\v -> build1VOccurenceUnknown snat (var, v)) l)
-    Ast.AstReplicate s v -> traceRule $
-      astTr $ astReplicate s $ build1V snat (var, v)
     Ast.AstAppend v w -> traceRule $
       astTr $ astAppend (astTr $ build1VOccurenceUnknown snat (var, v))
                         (astTr $ build1VOccurenceUnknown snat (var, w))
@@ -382,7 +382,7 @@ build1VOccurenceUnknownS (var, v0) =
   in if varNameInAst var v0
      then build1VS (var, v0)
      else traceRule $
-       astReplicateS v0
+       astReplicate SNat v0
 
 build1VOccurenceUnknownRefreshS
   :: forall k sh s r. (GoodScalar r, KnownNat k, KnownShS sh, AstSpan s)
@@ -437,6 +437,9 @@ build1VS (var, v00) =
       let t = astIndexStepS @'[2] (astFromVectorS $ V.fromList [v, w])
                                   (astCond b 0 1 :.$ ZIS)
       in build1VS (var, t)
+    Ast.AstReplicate @y2 s@SNat v -> case stensorKind @y2 of
+      STKS{} -> traceRule $
+        astTrS $ astReplicate s $ build1VS (var, v)
     Ast.AstBuild1{} -> error "build1VS: impossible case of AstBuild1"
 
     Ast.AstLetTupleInS var1 var2 p v -> undefined  -- TODO: doable, but complex
@@ -496,8 +499,6 @@ build1VS (var, v00) =
     Ast.AstFromVectorS l -> traceRule $
       astTrS
       $ astFromVectorS (V.map (\v -> build1VOccurenceUnknownS (var, v)) l)
-    Ast.AstReplicateS v -> traceRule $
-      astTrS $ astReplicateS $ build1VS (var, v)
     Ast.AstAppendS v w -> traceRule $
       astTrS $ astAppendS (astTrS $ build1VOccurenceUnknownS (var, v))
                           (astTrS $ build1VOccurenceUnknownS (var, w))
@@ -637,8 +638,9 @@ build1VOccurenceUnknownHVector k (var, v0) =
         astLetHVectorInHVector
           vars v0 (Ast.AstMkHVector
                    $ replicate1HVectorF
-                       (\n (AstRanked t) -> AstRanked $ astReplicate n t)
-                       (\(AstShaped t) -> AstShaped $ astReplicateS t)
+                       (\n (AstRanked t) -> withSNat n $ \snat ->
+                           AstRanked $ astReplicate snat t)
+                       (\(AstShaped t) -> AstShaped $ astReplicate SNat t)
                        k asts)
 
 build1VHVector

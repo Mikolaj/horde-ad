@@ -330,15 +330,15 @@ testGatherSimpPP23 = do
               gatherReshape22 @(AstRanked PrimalSpan)
                 (t * rreplicate0N [6, 2] (rfromIndex0 i))))
             $ AstRanked $ AstVar (FTKR [6, 2]) (mkAstVarName . intToAstVarId $ 100000000)
-  length (show t1) @?= 193
-  length (show (simplifyInlineAst @Float t1)) @?= 193
+  length (show t1) @?= 209
+  length (show (simplifyInlineAst @Float t1)) @?= 209
   resetVarCounter
   let !t2 = (\t -> rbuild1 4 (\i ->
               rreshape @(AstRanked PrimalSpan) @Float @2 @2 [2, 6]
                 (t * rreplicate0N [6, 2] (rfromIndex0 i))))
             $ AstRanked $ AstVar (FTKR [6, 2]) (mkAstVarName . intToAstVarId $ 100000000)
-  length (show t2) @?= 193
-  length (show (simplifyInlineAst @Float t2)) @?= 193
+  length (show t2) @?= 209
+  length (show (simplifyInlineAst @Float t2)) @?= 209
 
 -- Depending on if and how transpose it desugared, this may or may not result
 -- in dozens of nested gathers that should vanish after simplification.
@@ -450,14 +450,14 @@ testGatherSimpPP33 = do
   resetVarCounter
   let !t1 = gatherTranspose33 @(AstRanked PrimalSpan)
             $ AstRanked $ AstVar (FTKR [1, 2, 2, 1, 2, 2, 2, 2, 2, 1]) (mkAstVarName . intToAstVarId $ 100000000)
-  length (show t1) @?= 562
-  length (show (simplifyInlineAst @Float t1)) @?= 562
+  length (show t1) @?= 578
+  length (show (simplifyInlineAst @Float t1)) @?= 578
   resetVarCounter
   let !t2 = (\t -> rmatmul2 (rreshape [6, 8] (rconst $ Nested.rfromOrthotope SNat $ runFlipR t48OR))
                             (rreshape @(AstRanked PrimalSpan) @Float @10 [8, 16] t))
             $ AstRanked $ AstVar (FTKR [1, 2, 2, 1, 2, 2, 2, 2, 2, 1]) (mkAstVarName . intToAstVarId $ 100000000)
-  length (show t2) @?= 481
-  length (show (simplifyInlineAst @Float t2)) @?= 481
+  length (show t2) @?= 497
+  length (show (simplifyInlineAst @Float t2)) @?= 497
 
 testGatherSimpPP34 :: Assertion
 testGatherSimpPP34 = do
@@ -465,16 +465,16 @@ testGatherSimpPP34 = do
   let !t1 = (\t -> rbuild1 4 (\i ->
              gatherTranspose33 @(AstRanked PrimalSpan) (t * rreplicate0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (rfromIndex0 i))))
             $ AstRanked $ AstVar (FTKR [1, 2, 2, 1, 2, 2, 2, 2, 2, 1]) (mkAstVarName . intToAstVarId $ 100000000)
-  length (show t1) @?= 885
-  length (show (simplifyInlineAst @Float t1)) @?= 885
+  length (show t1) @?= 925
+  length (show (simplifyInlineAst @Float t1)) @?= 925
   resetVarCounter
   let !t2 = (\t -> rbuild1 4 (\i ->
               (\t' -> rmatmul2 (rreshape [6, 8] (rconst $ Nested.rfromOrthotope SNat $ runFlipR t48OR))
                                (rreshape @(AstRanked PrimalSpan) @Float @10 [8, 16] t'))
                 (t * rreplicate0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (rfromIndex0 i))))
             $ AstRanked $ AstVar (FTKR [1, 2, 2, 1, 2, 2, 2, 2, 2, 1]) (mkAstVarName . intToAstVarId $ 100000000)
-  length (show t2) @?= 638
-  length (show (simplifyInlineAst @Float t2)) @?= 638
+  length (show t2) @?= 678
+  length (show (simplifyInlineAst @Float t2)) @?= 678
 
 -- scatters instead of gathers
 
