@@ -80,6 +80,7 @@ areAllArgsInts = \case
   AstConstant{} -> True  -- the argument is emphatically a primal number; fine
   AstD{} -> False  -- dual number
   AstCond{} -> True  -- too early to tell
+  AstBuild1{} -> False
 
   AstLetTupleIn{} -> True  -- too early to tell, but displays the same
   AstLet{} -> True  -- too early to tell, but displays the same
@@ -104,7 +105,6 @@ areAllArgsInts = \case
   AstReverse{} -> False
   AstTranspose{} -> False
   AstReshape{} -> False
-  AstBuild1{} -> False
   AstGather{} -> False
   AstCast{} -> False
   AstFromIntegral{} -> True
@@ -255,6 +255,37 @@ printAstAux cfg d = \case
       . printAst cfg 11 a1
       . showString " "
       . printAst cfg 11 a2
+  AstBuild1 @y2 k (var, v) -> case stensorKind @y2 of
+   STKR{} ->
+    showParen (d > 10)
+    $ showString "rbuild1 "
+      . shows k
+      . showString " "
+      . (showParen True
+         $ showString "\\"
+           . printAstIntVar cfg var
+           . showString " -> "
+           . printAst cfg 0 v)
+   STKS{} ->
+    showParen (d > 10)
+    $ showString "sbuild1 "
+      . (showParen True
+         $ showString "\\"
+           . printAstIntVar cfg var
+           . showString " -> "
+           . printAst cfg 0 v)
+   _ -> error "TODO"
+  AstGather sh v (vars, ix) ->
+    showParen (d > 10)
+    $ showString ("rgather " ++ show sh ++ " ")
+      . printAst cfg 11 v
+      . showString " "
+      . (showParen True
+         $ showString "\\"
+           . showListWith (printAstIntVar cfg)
+                          (sizedToList vars)
+           . showString " -> "
+           . showListWith (printAstInt cfg 0) (indexToList ix))
 
   AstLetTupleIn var1 var2 p v ->
     if loseRoudtrip cfg
@@ -363,27 +394,6 @@ printAstAux cfg d = \case
     printPrefixOp printAst cfg d ("rtranspose " ++ show perm) [v]
   AstReshape sh v ->
     printPrefixOp printAst cfg d ("rreshape " ++ show sh) [v]
-  AstBuild1 k (var, v) ->
-    showParen (d > 10)
-    $ showString "rbuild1 "
-      . shows k
-      . showString " "
-      . (showParen True
-         $ showString "\\"
-           . printAstIntVar cfg var
-           . showString " -> "
-           . printAst cfg 0 v)
-  AstGather sh v (vars, ix) ->
-    showParen (d > 10)
-    $ showString ("rgather " ++ show sh ++ " ")
-      . printAst cfg 11 v
-      . showString " "
-      . (showParen True
-         $ showString "\\"
-           . showListWith (printAstIntVar cfg)
-                          (sizedToList vars)
-           . showString " -> "
-           . showListWith (printAstInt cfg 0) (indexToList ix))
   AstCast v -> printPrefixOp printAst cfg d "rcast" [v]
   AstFromIntegral a ->
     printPrefixOp printAst cfg d "rfromIntegral" [a]
@@ -555,14 +565,6 @@ printAstAux cfg d = \case
 -- TODO:    printPrefixOp printAst cfg d ("stranspose " ++ show (permToList perm)) [v]
   AstReshapeS v ->
     printPrefixOp printAst cfg d "sreshape" [v]
-  AstBuild1S (var, v) ->
-    showParen (d > 10)
-    $ showString "sbuild1 "
-      . (showParen True
-         $ showString "\\"
-           . printAstIntVar cfg var
-           . showString " -> "
-           . printAst cfg 0 v)
   AstGatherS v (vars, ix) ->
     showParen (d > 10)
     $ showString "sgather "

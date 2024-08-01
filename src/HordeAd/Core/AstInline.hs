@@ -115,6 +115,10 @@ inlineAst memo v0 = case v0 of
         memo4 = EM.unionWith max memoA2 memoA3
         memo5 = EM.unionWith (+) memo1 memo4
     in (memo5, Ast.AstCond b1 t2 t3)
+  Ast.AstBuild1 k (var, v) ->
+    let (memoV0, v2) = inlineAst EM.empty v
+        memo1 = EM.unionWith (\c1 c0 -> c1 + sNatValue k * c0) memo memoV0
+    in (memo1, Ast.AstBuild1 k (var, v2))
 
   Ast.AstLetTupleIn var1 var2 p v ->
     -- We don't inline, but elsewhere try to reduce to constructors that we do.
@@ -192,10 +196,6 @@ inlineAst memo v0 = case v0 of
   Ast.AstTranspose perm v ->
     second (Ast.AstTranspose perm) $ inlineAst memo v
   Ast.AstReshape sh v -> second (Ast.AstReshape sh) (inlineAst memo v)
-  Ast.AstBuild1 k (var, v) ->
-    let (memoV0, v2) = inlineAst EM.empty v
-        memo1 = EM.unionWith (\c1 c0 -> c1 + k * c0) memo memoV0
-    in (memo1, Ast.AstBuild1 k (var, v2))
   Ast.AstGather sh v (vars, ix) ->
     let (memo1, v2) = inlineAst memo v
         (memoI0, ix2) = mapAccumR inlineAst EM.empty (indexToList ix)
@@ -298,10 +298,6 @@ inlineAst memo v0 = case v0 of
   Ast.AstTransposeS perm v ->
     second (Ast.AstTransposeS perm) $ inlineAst memo v
   Ast.AstReshapeS v -> second Ast.AstReshapeS (inlineAst memo v)
-  Ast.AstBuild1S @_ @n (var, v) ->
-    let (memoV0, v2) = inlineAst EM.empty v
-        memo1 = EM.unionWith (\c1 c0 -> c1 + valueOf @n * c0) memo memoV0
-    in (memo1, Ast.AstBuild1S (var, v2))
   Ast.AstGatherS @sh2 @p @sh v (vars, ix) ->
     let (memo1, v2) = inlineAst memo v
         (memoI0, ix2) = mapAccumR inlineAst EM.empty
@@ -512,6 +508,12 @@ shareAst memo v0 = case v0 of
         (memo2, t2) = shareAst memo1 a2
         (memo3, t3) = shareAst memo2 a3
     in (memo3, Ast.AstCond b1 t2 t3)
+  Ast.AstBuild1 @y2 snat (var, v) -> case stensorKind @y2 of
+    STKR{} ->
+      let (memo1, v2) = shareAstScoped [var] memo v
+      in (memo1, Ast.AstBuild1 snat (var, v2))
+    STKS{} -> error "TODO"
+    STKProduct{} -> error "TODO"
 
   Ast.AstLetTupleIn{} -> error "shareAst: AstLetTupleIn"
     -- delta eval doesn't create lets and no lets
@@ -575,9 +577,6 @@ shareAst memo v0 = case v0 of
   Ast.AstTranspose perm v ->
     second (Ast.AstTranspose perm) $ shareAst memo v
   Ast.AstReshape sh v -> second (Ast.AstReshape sh) (shareAst memo v)
-  Ast.AstBuild1 k (var, v) ->
-    let (memo1, v2) = shareAstScoped [var] memo v
-    in (memo1, Ast.AstBuild1 k (var, v2))
   Ast.AstGather sh v (vars, ix) ->
     let (memo1, ix2) = mapAccumR (shareAstScoped $ sizedToList vars)
                                  memo (indexToList ix)
@@ -658,7 +657,6 @@ shareAst memo v0 = case v0 of
   Ast.AstTransposeS perm v ->
     second (Ast.AstTransposeS perm) $ shareAst memo v
   Ast.AstReshapeS v -> second Ast.AstReshapeS (shareAst memo v)
-  Ast.AstBuild1S{} -> error "shareAst: AstBuild1S"  -- not hard to add
   Ast.AstGatherS @sh2 @p v (vars, ix) ->
     let (memo1, ix2) =
           mapAccumR (shareAstScoped $ ShapedList.sizedToList vars)
@@ -720,7 +718,7 @@ shareAstHVector memo v0 = case v0 of
             in (EM.insert varId d memo1, astVars)
   Ast.AstShareHVector{} ->
     error "shareAstHVector: AstShareHVector not in PrimalSpan"
-  Ast.AstBuildHVector1{} -> error "shareAst: AstBuild1S"  -- not hard to add
+  Ast.AstBuildHVector1{} -> error "shareAst: AstBuildHVector1"  -- not hard to add
   Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc0 es ->
     let (memo1, acc02) = shareAstHVector memo acc0
         (memo2, es2) = shareAstHVector memo1 es

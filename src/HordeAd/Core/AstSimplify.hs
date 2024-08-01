@@ -266,6 +266,7 @@ astNonIndexStep t = case t of
   Ast.AstConstant{} -> t
   Ast.AstD{} -> t
   Ast.AstCond a b c -> astCond a b c
+  Ast.AstBuild1{} -> t
 
   Ast.AstLetTupleIn{} -> t
   Ast.AstLet var u v -> astLet var u v
@@ -302,7 +303,6 @@ astNonIndexStep t = case t of
   Ast.AstReverse v -> astReverse v
   Ast.AstTranspose perm v -> astTranspose perm v
   Ast.AstReshape sh v -> astReshape sh v
-  Ast.AstBuild1{} -> t
   Ast.AstGather _ v0 (ZR, ix) -> Ast.AstIndex v0 ix
   Ast.AstGather sh v0 (_, ZIR) -> astReplicateN sh v0
   Ast.AstGather{} -> t  -- this is "index" enough
@@ -337,7 +337,6 @@ astNonIndexStep t = case t of
   Ast.AstReverseS v -> astReverseS v
   Ast.AstTransposeS perm v -> astTransposeS perm v
   Ast.AstReshapeS v -> astReshapeS v
-  Ast.AstBuild1S{} -> t
   Ast.AstGatherS @_ @p @sh1 v0 (ZS, ix) ->
     gcastWith (unsafeCoerce Refl :: sh1 :~: Sh.Take p sh1 X.++ Sh.Drop p sh1)
     $ Ast.AstIndexS v0 ix
@@ -435,6 +434,8 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIndex m1)) =
     shareIx ix $ \ix2 -> Ast.AstD (astIndexRec u ix2) (astIndexRec u' ix2)
   Ast.AstCond b v w ->
     shareIx ix $ \ix2 -> astCond b (astIndexRec v ix2) (astIndexRec w ix2)
+  Ast.AstBuild1 @y2 _snat (var2, v) -> case stensorKind @y2 of
+    STKR{} -> astIndex (astLet var2 i1 v) rest1
 
   Ast.AstLetTupleIn var1 var2 p v ->
     Ast.AstLetTupleIn var1 var2 p (astIndexRec v ix)
@@ -530,8 +531,6 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIndex m1)) =
     astIndex (astTransposeAsGather knobs perm v) ix
   Ast.AstReshape sh v ->
     astIndex (astReshapeAsGather knobs sh v) ix
-  Ast.AstBuild1 _n2 (var2, v) ->
-    astIndex (astLet var2 i1 v) rest1
   Ast.AstGather _sh v (ZR, ix2) -> astIndex v (appendIndex ix2 ix)
   Ast.AstGather @_ @n7 (_ :$: sh') v (var2 ::: (vars :: AstVarList m71), ix2) ->
     let w :: AstTensor s (TKR r (m1 + n))
@@ -617,6 +616,12 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS shm1)) | Dict <- s
     shareIxS ix $ \ix2 -> Ast.AstD (astIndexRec u ix2) (astIndexRec u' ix2)
   Ast.AstCond b v w ->
     shareIxS ix $ \ix2 -> astCond b (astIndexRec v ix2) (astIndexRec w ix2)
+  Ast.AstBuild1 @y2 _snat (var2, v) -> case stensorKind @y2 of
+    STKS{} ->
+      withListSh (Proxy @(shm1 X.++ shn)) $ \_ ->
+        astIndex (astSFromR @(shm1 X.++ shn) $ astLet var2 i1 $ astRFromS v)
+                 rest1
+        -- this uses astLet, because the index integers are ranked
 
   Ast.AstLetTupleInS var1 var2 p v ->
     Ast.AstLetTupleInS var1 var2 p (astIndexRec v ix)
@@ -758,11 +763,6 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS shm1)) | Dict <- s
            astIndex @shmPerm v ix2
   Ast.AstReshapeS v ->
     astIndex (astReshapeAsGatherS knobs v) ix
-  Ast.AstBuild1S (var2, v) ->
-    withListSh (Proxy @(shm1 X.++ shn)) $ \_ ->
-      astIndex (astSFromR @(shm1 X.++ shn) $ astLet var2 i1 $ astRFromS v)
-               rest1
-      -- this uses astLet, because the index integers are ranked
   Ast.AstGatherS @_ @p @sh v (ZS, ix2) ->
     withShapeP (shapeT @(Sh.Take p sh) ++ shapeT @shm)
     $ \(Proxy @sh1n) ->
@@ -980,6 +980,7 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
                     (astGatherRec sh4 u' (varsFresh, ix5))
     Ast.AstCond b v w -> astCond b (astGather sh4 v (vars4, ix4))
                                    (astGather sh4 w (vars4, ix4))
+    Ast.AstBuild1{} -> Ast.AstGather sh4 v4 (vars4, ix4)
 
     Ast.AstLetTupleIn var1 var2 p v ->
       Ast.AstLetTupleIn var1 var2 p (astGatherCase sh4 v (vars4, ix4))
@@ -1108,7 +1109,6 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
       if knobExpand knobs
       then astGather sh4 (astReshapeAsGather knobs sh v) (vars4, ix4)
       else Ast.AstGather sh4 v4 (vars4, ix4)
-    Ast.AstBuild1{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstGather @m2 @n2 _sh2 v2 (vars2, ix2) ->
       -- Term ix4 is duplicated without sharing and we can't help it,
       -- because it needs to be in scope of vars4, so we can't use rlet.
@@ -2011,6 +2011,7 @@ astPrimalPart t = case t of
   Ast.AstConstant v -> v
   Ast.AstD u _ -> u
   Ast.AstCond b a2 a3 -> astCond b (astPrimalPart a2) (astPrimalPart a3)
+  Ast.AstBuild1 k (var, v) -> Ast.AstBuild1 k (var, astPrimalPart v)
 
   Ast.AstLetTupleIn var1 var2 p v ->
     Ast.AstLetTupleIn var1 var2 p (astPrimalPart v)
@@ -2032,7 +2033,6 @@ astPrimalPart t = case t of
   Ast.AstReverse v -> astReverse (astPrimalPart v)
   Ast.AstTranspose perm v -> astTranspose perm (astPrimalPart v)
   Ast.AstReshape sh v -> astReshape sh (astPrimalPart v)
-  Ast.AstBuild1 k (var, v) -> Ast.AstBuild1 k (var, astPrimalPart v)
   Ast.AstGather sh v (vars, ix) -> astGatherR sh (astPrimalPart v) (vars, ix)
   Ast.AstCast v -> astCast $ astPrimalPart v
   Ast.AstProject{} -> Ast.AstPrimalPart t  -- should get simplified early
@@ -2062,7 +2062,6 @@ astPrimalPart t = case t of
   Ast.AstReverseS v -> astReverseS (astPrimalPart v)
   Ast.AstTransposeS perm v -> astTransposeS perm (astPrimalPart v)
   Ast.AstReshapeS v -> astReshapeS (astPrimalPart v)
-  Ast.AstBuild1S (var, v) -> Ast.AstBuild1S (var, astPrimalPart v)
   Ast.AstGatherS v (vars, ix) -> astGatherS (astPrimalPart v) (vars, ix)
   Ast.AstCastS v -> astCastS $ astPrimalPart v
   Ast.AstProjectS{} -> Ast.AstPrimalPart t
@@ -2080,6 +2079,7 @@ astDualPart t = case t of
   Ast.AstConstant{}  -> Ast.AstDualPart t  -- this equals nil (not primal 0)
   Ast.AstD _ u' -> u'
   Ast.AstCond b a2 a3 -> astCond b (astDualPart a2) (astDualPart a3)
+  Ast.AstBuild1 k (var, v) -> Ast.AstBuild1 k (var, astDualPart v)
 
   Ast.AstLetTupleIn var1 var2 p v ->
     Ast.AstLetTupleIn var1 var2 p (astDualPart v)
@@ -2101,7 +2101,6 @@ astDualPart t = case t of
   Ast.AstReverse v -> astReverse (astDualPart v)
   Ast.AstTranspose perm v -> astTranspose perm (astDualPart v)
   Ast.AstReshape sh v -> astReshape sh (astDualPart v)
-  Ast.AstBuild1 k (var, v) -> Ast.AstBuild1 k (var, astDualPart v)
   Ast.AstGather sh v (vars, ix) -> astGatherR sh (astDualPart v) (vars, ix)
   Ast.AstCast v -> astCast $ astDualPart v
   Ast.AstProject{} -> Ast.AstDualPart t
@@ -2129,7 +2128,6 @@ astDualPart t = case t of
   Ast.AstReverseS v -> astReverseS (astDualPart v)
   Ast.AstTransposeS perm v -> astTransposeS perm (astDualPart v)
   Ast.AstReshapeS v -> astReshapeS (astDualPart v)
-  Ast.AstBuild1S (var, v) -> Ast.AstBuild1S (var, astDualPart v)
   Ast.AstGatherS v (vars, ix) -> astGatherS (astDualPart v) (vars, ix)
   Ast.AstCastS v -> astCastS $ astDualPart v
   Ast.AstProjectS{} -> Ast.AstDualPart t
@@ -2331,6 +2329,7 @@ simplifyAst t = case t of
   Ast.AstD u u' -> Ast.AstD (simplifyAst u) (simplifyAst u')
   Ast.AstCond b a2 a3 ->
     astCond (simplifyAstBool b) (simplifyAst a2) (simplifyAst a3)
+  Ast.AstBuild1 k (var, v) -> Ast.AstBuild1 k (var, simplifyAst v)
 
   Ast.AstLetTupleIn var1 var2 p v ->
     Ast.AstLetTupleIn var1 var2 (simplifyAst p) (simplifyAst v)
@@ -2370,7 +2369,6 @@ simplifyAst t = case t of
   Ast.AstTranspose perm v ->
     astTranspose (normalizePermutation perm) (simplifyAst v)
   Ast.AstReshape sh v -> astReshape sh (simplifyAst v)
-  Ast.AstBuild1 k (var, v) -> Ast.AstBuild1 k (var, simplifyAst v)
   Ast.AstGather sh v (vars, ix) ->
     astGatherR sh (simplifyAst v) (vars, simplifyAstIndex ix)
   Ast.AstCast v -> astCast $ simplifyAst v
@@ -2408,7 +2406,6 @@ simplifyAst t = case t of
   Ast.AstReverseS v -> astReverseS (simplifyAst v)
   Ast.AstTransposeS perm v -> astTransposeS perm $ simplifyAst v
   Ast.AstReshapeS v -> astReshapeS $ simplifyAst v
-  Ast.AstBuild1S (var, v) -> Ast.AstBuild1S (var, simplifyAst v)
   Ast.AstGatherS v (vars, ix) ->
     astGatherS (simplifyAst v) (vars, simplifyAstIndexS ix)
   Ast.AstCastS v -> astCastS $ simplifyAst v
@@ -2510,6 +2507,7 @@ expandAst t = case t of
   Ast.AstD u u' -> Ast.AstD (expandAst u) (expandAst u')
   Ast.AstCond b a2 a3 ->
     astCond (expandAstBool b) (expandAst a2) (expandAst a3)
+  Ast.AstBuild1 k (var, v) -> Ast.AstBuild1 k (var, expandAst v)
 
   Ast.AstLetTupleIn var1 var2 p v ->
     Ast.AstLetTupleIn var1 var2 (expandAst p) (expandAst v)
@@ -2586,7 +2584,6 @@ expandAst t = case t of
                          sh
                          (expandAst v)
         -- this is expensive but the only way to guarantee full simplification
-  Ast.AstBuild1 k (var, v) -> Ast.AstBuild1 k (var, expandAst v)
   Ast.AstGather sh v (vars, ix) ->
     astGatherKnobsR (defaultKnobs {knobExpand = True})
                     sh (expandAst v) (vars, expandAstIndex ix)
@@ -2627,7 +2624,6 @@ expandAst t = case t of
   Ast.AstReverseS v -> astReverseS (expandAst v)
   Ast.AstTransposeS perm v -> astTransposeS perm $ expandAst v
   Ast.AstReshapeS v -> astReshapeS $ expandAst v
-  Ast.AstBuild1S (var, v) -> Ast.AstBuild1S (var, expandAst v)
   Ast.AstGatherS v (vars, ix) ->
     astGatherKnobsS (defaultKnobs {knobExpand = True})
                     (expandAst v) (vars, expandAstIndexS ix)
@@ -3038,6 +3034,8 @@ substitute1Ast i var v1 = case v1 of
       (Nothing, Nothing, Nothing) -> Nothing
       (mb, mv, mw) ->
         Just $ astCond (fromMaybe b mb) (fromMaybe v mv) (fromMaybe w mw)
+  Ast.AstBuild1 k (var2, v) ->
+    Ast.AstBuild1 k . (var2,) <$> substitute1Ast i var v
 
   Ast.AstLetTupleIn var1 var2 u v ->
     case (substitute1Ast i var u, substitute1Ast i var v) of
@@ -3113,8 +3111,6 @@ substitute1Ast i var v1 = case v1 of
   Ast.AstReverse v -> astReverse <$> substitute1Ast i var v
   Ast.AstTranspose perm v -> astTranspose perm <$> substitute1Ast i var v
   Ast.AstReshape sh v -> astReshape sh <$> substitute1Ast i var v
-  Ast.AstBuild1 k (var2, v) ->
-    Ast.AstBuild1 k . (var2,) <$> substitute1Ast i var v
   Ast.AstGather sh v (vars, ix) ->
     case (substitute1Ast i var v, substitute1AstIndex i var ix) of
       (Nothing, Nothing) -> Nothing
@@ -3202,8 +3198,6 @@ substitute1Ast i var v1 = case v1 of
   Ast.AstReverseS v -> astReverseS <$> substitute1Ast i var v
   Ast.AstTransposeS perm v -> astTransposeS perm <$> substitute1Ast i var v
   Ast.AstReshapeS v -> astReshapeS <$> substitute1Ast i var v
-  Ast.AstBuild1S (var2, v) ->
-    Ast.AstBuild1S . (var2,) <$> substitute1Ast i var v
   Ast.AstGatherS v (vars, ix) ->
     case (substitute1Ast i var v, substitute1AstIndexS i var ix) of
       (Nothing, Nothing) -> Nothing

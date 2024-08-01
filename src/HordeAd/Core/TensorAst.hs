@@ -940,9 +940,10 @@ instance AstSpan s => RankedTensor (AstRaw s) where
   rreverse = AstRaw . AstReverse . unAstRaw
   rtranspose perm = AstRaw . AstTranspose perm . unAstRaw
   rreshape sh = AstRaw . AstReshape sh . unAstRaw
-  rbuild1 k f = AstRaw $ AstBuild1 k
-                $ funToAstI  -- this introduces new variable names
-                $ unAstRaw . f . AstRaw
+  rbuild1 k f = withSNat k $ \snat ->
+    AstRaw $ AstBuild1 snat
+    $ funToAstI  -- this introduces new variable names
+    $ unAstRaw . f . AstRaw
   rgather sh t f = AstRaw $ AstGather sh (unAstRaw t)
                    $ funToAstIndex (fmap unAstRaw . f . fmap AstRaw)
                        -- this introduces new variable names
@@ -1079,7 +1080,10 @@ instance AstSpan s => ShapedTensor (AstRawS s) where
   sreverse = AstRawS . AstReverseS . unAstRawS
   stranspose perm = AstRawS . AstTransposeS perm . unAstRawS
   sreshape = AstRawS . AstReshapeS . unAstRawS
-  sbuild1 f = AstRawS $ AstBuild1S
+  sbuild1 :: forall r n sh. (GoodScalar r, KnownNat n, KnownShS sh)
+          => (IntOf (AstRawS s) -> AstRawS s r sh)
+          -> AstRawS s r (n ': sh)
+  sbuild1 f = AstRawS $ AstBuild1 (SNat @n)
               $ funToAstI  -- this introduces new variable names
               $ unAstRawS . f . AstRaw
   sgather t f = AstRawS $ AstGatherS (unAstRawS t)
@@ -1209,9 +1213,10 @@ instance AstSpan s => RankedTensor (AstNoVectorize s) where
   rreverse = astNoVectorize2 . rreverse . unAstNoVectorize2
   rtranspose perm = astNoVectorize2 . rtranspose perm . unAstNoVectorize2
   rreshape sh = astNoVectorize2 . rreshape sh . unAstNoVectorize2
-  rbuild1 k f = AstNoVectorize $ AstBuild1 k
-                $ funToAstI  -- this introduces new variable names
-                $ unAstNoVectorize . f . AstNoVectorize
+  rbuild1 k f = withSNat k $ \snat ->
+    AstNoVectorize $ AstBuild1 snat
+    $ funToAstI  -- this introduces new variable names
+    $ unAstNoVectorize . f . AstNoVectorize
   rgather sh t f =
     astNoVectorize2 $ rgather sh (unAstNoVectorize2 t)
                    $ fmap unAstNoVectorize2 . f . fmap astNoVectorize2
@@ -1265,7 +1270,10 @@ instance AstSpan s => ShapedTensor (AstNoVectorizeS s) where
   stranspose perm =
     astNoVectorizeS2 . stranspose perm . unAstNoVectorizeS2
   sreshape = astNoVectorizeS2 . sreshape . unAstNoVectorizeS2
-  sbuild1 f = AstNoVectorizeS $ AstBuild1S
+  sbuild1 :: forall r n sh. (GoodScalar r, KnownNat n, KnownShS sh)
+          => (IntOf (AstNoVectorizeS s) -> AstNoVectorizeS s r sh)
+          -> AstNoVectorizeS s r (n ': sh)
+  sbuild1 f = AstNoVectorizeS $ AstBuild1 (SNat @n)
                 $ funToAstI  -- this introduces new variable names
                 $ unAstNoVectorizeS . f . AstNoVectorize
   sgather t f = astNoVectorizeS2 $ sgather (unAstNoVectorizeS2 t)

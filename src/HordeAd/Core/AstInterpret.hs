@@ -224,6 +224,52 @@ interpretAst !env = \case
          (ifF c) (ifF c)
          (stensorKind @y2)
          (interpretAst env a1) (interpretAst env a2)
+  -- These are only needed for tests that don't vectorize Ast.
+  AstBuild1 @y2
+            snat (var, AstSum (AstN2 TimesOp t (AstIndex
+                                                u (AstIntVar var2 :.: ZIR))))
+    | Just Refl <- case stensorKind @y2 of
+        STKR @_ @n _ _ -> sameNat (Proxy @n) (Proxy @0)
+    , var == var2, sNatValue snat == lengthAst u ->
+        let t1 = interpretAst env t
+            t2 = interpretAst env u
+        in rmatvecmul t2 t1
+  AstBuild1 @y2
+            snat (var, AstSum
+                         (AstReshape @p
+                            _sh (AstN2 TimesOp
+                                         t
+                                         (AstIndex
+                                            u (AstIntVar var2 :.: ZIR)))))
+    | Just Refl <- case stensorKind @y2 of
+        STKR @_ @n _ _ -> sameNat (Proxy @n) (Proxy @0)
+    , Just Refl <- sameNat (Proxy @p) (Proxy @1)
+    , var == var2, sNatValue snat == lengthAst u ->
+        let t1 = interpretAst env t
+            t2 = interpretAst env u
+        in rmatvecmul t2 t1
+  AstBuild1 @y2 (SNat @n) (_, v)
+    | Just Refl <- sameNat (Proxy @n) (Proxy @0) -> case stensorKind @y2 of
+      STKR{} -> rfromList0N (0 :$: shapeAst v) []
+      STKS{} -> sfromList0N []
+      STKProduct{} -> error "TODO"
+  -- The following can't be, in general, so partially evaluated, because v
+  -- may contain variables that the evironment sends to terms,
+  -- not to concrete numbers (and so Primal a is not equal to a).
+  -- However, this matters only for POPL AD, not JAX AD and also it matters
+  -- only with no vectorization of, at least, constant (primal-only) terms.
+  -- AstBuild1 k (var, AstConstant v) ->
+  --   tconst
+  --   $ OR.ravel . ORB.fromVector [k] . V.generate k
+  --   $ interpretLambdaI interpretAstPrimal env (var, v)
+  --
+  -- To be used only in tests:
+  AstBuild1 @y2 snat@SNat (var, v) -> case stensorKind @y2 of
+    STKR{} -> rbuild1 (sNatValue snat)
+                      (interpretLambdaI interpretAst env (var, v))
+    STKS{} -> sbuild1 (interpretLambdaIS interpretAst env (var, v))
+    STKProduct{} -> error "TODO"
+
   AstLetTupleIn @_ @z1 @z2 var1 var2 p v ->
     let (t1, t2) = interpretAst env p
         env2 w1 w2 = extendEnv var2 w2 $ extendEnv var1 w1 env
@@ -444,39 +490,6 @@ interpretAst !env = \case
   AstReverse v -> rreverse (interpretAst env v)
   AstTranspose perm v -> rtranspose perm $ interpretAst env v
   AstReshape sh v -> rreshape sh (interpretAst env v)
-  -- These are only needed for tests that don't vectorize Ast.
-  AstBuild1 @n
-            k (var, AstSum (AstN2 TimesOp t (AstIndex
-                                                u (AstIntVar var2 :.: ZIR))))
-    | Just Refl <- sameNat (Proxy @n) (Proxy @0)
-    , var == var2, k == lengthAst u ->
-        let t1 = interpretAst env t
-            t2 = interpretAst env u
-        in rmatvecmul t2 t1
-  AstBuild1 @n
-            k (var, AstSum
-                      (AstReshape @p
-                         _sh (AstN2 TimesOp t (AstIndex
-                                                 u (AstIntVar var2 :.: ZIR)))))
-    | Just Refl <- sameNat (Proxy @n) (Proxy @0)
-    , Just Refl <- sameNat (Proxy @p) (Proxy @1)
-    , var == var2, k == lengthAst u ->
-        let t1 = interpretAst env t
-            t2 = interpretAst env u
-        in rmatvecmul t2 t1
-  AstBuild1 0 (_, v) -> rfromList0N (0 :$: shapeAst v) []
-  -- The following can't be, in general, so partially evaluated, because v
-  -- may contain variables that the evironment sends to terms,
-  -- not to concrete numbers (and so Primal a is not equal to a).
-  -- However, this matters only for POPL AD, not JAX AD and also it matters
-  -- only with no vectorization of, at least, constant (primal-only) terms.
-  -- AstBuild1 k (var, AstConstant v) ->
-  --   tconst
-  --   $ OR.ravel . ORB.fromVector [k] . V.generate k
-  --   $ interpretLambdaI interpretAstPrimal env (var, v)
-  AstBuild1 k (var, v) ->
-    rbuild1 k (interpretLambdaI interpretAst env (var, v))
-      -- to be used only in tests
   AstGather sh AstIota (vars, i :.: ZIR) ->
     rbuild sh (interpretLambdaIndex interpretAst env
                                     (vars, fromPrimal @s $ AstFromIntegral i))
@@ -716,39 +729,6 @@ interpretAst !env = \case
   AstReverseS v -> sreverse (interpretAst env v)
   AstTransposeS perm v -> stranspose perm $ interpretAst env v
   AstReshapeS v -> sreshape (interpretAst env v)
-  -- These are only needed for tests that don't vectorize Ast.
-{- TODO:
-  AstBuild1 k (var, AstSum (AstN2 TimesOp [t, AstIndex
-                                                u (AstIntVar var2 :.: ZIR)]))
-    | Just Refl <- sameNat (Proxy @n) (Proxy @1)
-    , var == var2, k == lengthAst u ->
-        let t1 = interpretAst env t
-            t2 = interpretAst env u
-        in rmatvecmul t2 t1
-  AstBuild1 k (var, AstSum
-                      (AstReshape @p
-                         _sh (AstN2 TimesOp [t, AstIndex
-                                                  u (AstIntVar var2 :.: ZIR)])))
-    | Just Refl <- sameNat (Proxy @n) (Proxy @1)
-    , Just Refl <- sameNat (Proxy @p) (Proxy @1)
-    , var == var2, k == lengthAst u ->
-        let t1 = interpretAst env t
-            t2 = interpretAst env u
-        in rmatvecmul t2 t1
-  AstBuild1 0 (_, v) -> rfromList0N (0 :$: rshape v) []
-  -- The following can't be, in general, so partially evaluated, because v
-  -- may contain variables that the evironment sends to terms,
-  -- not to concrete numbers (and so Primal a is not equal to a).
-  -- However, this matters only for POPL AD, not JAX AD and also it matters
-  -- only with no vectorization of, at least, constant (primal-only) terms.
-  -- AstBuild1 k (var, AstConstant v) ->
-  --   tconst
-  --   $ OR.ravel . ORB.fromVector [k] . V.generate k
-  --   $ interpretLambdaI interpretAstPrimal env (var, v)
--}
-  AstBuild1S (var, v) ->
-    sbuild1 (interpretLambdaIS interpretAst env (var, v))
-      -- to be used only in tests
   AstGatherS @sh2 @p @sh @r AstIotaS (vars, i :.$ ZIS) ->
     gcastWith (unsafeCoerce Refl :: Sh.Take (X.Rank sh2) sh2 :~: sh2)
     $ gcastWith (unsafeCoerce Refl :: Sh.Drop (X.Rank sh2) sh2 :~: '[])

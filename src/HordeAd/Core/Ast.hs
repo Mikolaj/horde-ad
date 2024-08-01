@@ -259,6 +259,9 @@ data AstTensor :: AstSpanType -> TensorKindType -> Type where
        -> AstTensor FullSpan y
   AstCond :: TensorKind y
           => AstBool -> AstTensor s y -> AstTensor s y -> AstTensor s y
+  AstBuild1 :: TensorKind y
+            => SNat k -> (IntVarName, AstTensor s y)
+            -> AstTensor s (BuildTensorKind k y)
 
   -- Here starts the ranked part.
   -- The r variable is existential here, so a proper specialization needs
@@ -336,9 +339,6 @@ data AstTensor :: AstSpanType -> TensorKindType -> Type where
                => Permutation.PermR -> AstTensor s (TKR r n) -> AstTensor s (TKR r n)
   AstReshape :: (KnownNat n, KnownNat m, GoodScalar r)
              => IShR m -> AstTensor s (TKR r n) -> AstTensor s (TKR r m)
-  AstBuild1 :: (KnownNat n, GoodScalar r)
-            => Int -> (IntVarName, AstTensor s (TKR r n))
-            -> AstTensor s (TKR r (1 + n))
   AstGather :: forall m n p r s. (KnownNat m, KnownNat n, KnownNat p, GoodScalar r)
             => IShR (m + n)
             -> AstTensor s (TKR r (p + n)) -> (AstVarList m, AstIndex p)
@@ -450,9 +450,6 @@ data AstTensor :: AstSpanType -> TensorKindType -> Type where
               => AstTensor s (TKS r sh) -> AstTensor s (TKS r sh2)
     -- beware that the order of type arguments is different than in orthotope
     -- and than the order of value arguments in the ranked version
-  AstBuild1S :: (GoodScalar r, KnownNat n, KnownShS sh)
-             => (IntVarName, AstTensor s (TKS r sh))
-             -> AstTensor s (TKS r (n ': sh))
   AstGatherS :: forall sh2 p sh r s.
                 ( GoodScalar r, KnownShS sh, KnownShS sh2, KnownNat p
                 , KnownShS (Sh.Take p sh), KnownShS (Sh.Drop p sh)

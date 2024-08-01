@@ -53,6 +53,7 @@ shapeAstFull stk t = case stk of
     AstConstant a -> shapeAstFull stk a
     AstD u _ -> shapeAstFull stk u
     AstCond _b v _w -> shapeAstFull stk v
+    AstBuild1{} -> error "TODO"
 
 -- This is cheap and dirty. We don't shape-check the terms and we don't
 -- unify or produce (partial) results with variables. Instead, we investigate
@@ -68,6 +69,8 @@ shapeAst = \case
   AstConstant a -> shapeAst a
   AstD u _ -> shapeAst u
   AstCond _b v _w -> shapeAst v
+  AstBuild1 @y2 k (_var, v) -> case stensorKind @y2 of
+    STKR{} -> sNatValue k :$: shapeAst v
 
   AstLetTupleIn _var1 _var2 _p v -> shapeAst v
   AstLet _ _ v -> shapeAst v
@@ -102,7 +105,6 @@ shapeAst = \case
   AstReverse v -> shapeAst v
   AstTranspose perm v -> Nested.Internal.Shape.shrPermutePrefix perm (shapeAst v)
   AstReshape sh _v -> sh
-  AstBuild1 k (_var, v) -> k :$: shapeAst v
   AstGather sh _v (_vars, _ix) -> sh
   AstCast t -> shapeAst t
   AstFromIntegral a -> shapeAst a
@@ -163,6 +165,7 @@ varInAst var = \case
   AstConstant v -> varInAst var v
   AstD u u' -> varInAst var u || varInAst var u'
   AstCond b v w -> varInAstBool var b || varInAst var v || varInAst var w
+  AstBuild1 _ (_var2, v) -> varInAst var v
 
   AstLetTupleIn _var1 _var2 p v -> varInAst var p || varInAst var v
   AstLet _var2 u v -> varInAst var u || varInAst var v
@@ -187,7 +190,6 @@ varInAst var = \case
   AstReverse v -> varInAst var v
   AstTranspose _ v -> varInAst var v
   AstReshape _ v -> varInAst var v
-  AstBuild1 _ (_var2, v) -> varInAst var v
   AstGather _ v (_vars, ix) -> varInIndex var ix || varInAst var v
   AstCast t -> varInAst var t
   AstFromIntegral t -> varInAst var t
@@ -220,7 +222,6 @@ varInAst var = \case
   AstReverseS v -> varInAst var v
   AstTransposeS _perm v -> varInAst var v
   AstReshapeS v -> varInAst var v
-  AstBuild1S (_var2, v) -> varInAst var v
   AstGatherS v (_vars, ix) -> varInIndexS var ix || varInAst var v
   AstCastS t -> varInAst var t
   AstFromIntegralS a -> varInAst var a
