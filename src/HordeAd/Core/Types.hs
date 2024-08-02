@@ -151,7 +151,8 @@ data STensorKindType y where
        => TypeRep r -> SNat n -> STensorKindType (TKR r n)
   STKS :: (GoodScalar r, KnownShS sh)
        => TypeRep r -> ShS sh -> STensorKindType (TKS r sh)
-  STKProduct :: STensorKindType y -> STensorKindType z
+  STKProduct :: (TensorKind y, TensorKind z)
+             => STensorKindType y -> STensorKindType z
              -> STensorKindType (TKProduct y z)
 
 deriving instance Show (STensorKindType y)

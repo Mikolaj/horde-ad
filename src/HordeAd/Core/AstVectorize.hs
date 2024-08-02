@@ -146,7 +146,11 @@ build1V snat@SNat (var, v00) =
       traceRule | Dict <- lemTensorKindOfBuild snat (stensorKind @y) =
         mkTraceRule "build1V" bv v0 1
   in case v0 of
-    Ast.AstTuple{} -> error "TODO"
+    Ast.AstTuple @x @z t1 t2
+      | Dict <- lemTensorKindOfBuild snat (stensorKind @x)
+      , Dict <- lemTensorKindOfBuild snat (stensorKind @z) ->
+        Ast.AstTuple (build1VOccurenceUnknown snat (var, t1))
+                     (build1VOccurenceUnknown snat (var, t2))
     Ast.AstLetTupleIn var1 var2 p v -> undefined  -- TODO: doable, but complex
 {-
       -- See the AstLet and AstLetHVectorIn cases for comments.
