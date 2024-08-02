@@ -164,6 +164,8 @@ interpretAst
   -> AstTensor s y -> InterpretationTarget ranked y
 interpretAst !env = \case
   AstTuple t1 t2 -> (interpretAst env t1, interpretAst env t2)
+  AstProject1 t -> fst $ interpretAst env t
+  AstProject2 t -> snd $ interpretAst env t
   AstLetTupleIn @_ @z1 @z2 @z var1 var2 p v -> case stensorKind @z of
     STKR{} ->
       let (t1, t2) = interpretAst env p

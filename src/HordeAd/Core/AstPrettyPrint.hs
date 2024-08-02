@@ -231,6 +231,14 @@ printAstAux cfg d = \case
       . showString ", "
       . printAst cfg 0 t2
       . showString ")"
+  AstProject1 t ->
+    showParen (d > 10)
+    $ showString "tproject1 "  -- TODO
+      . shows t
+  AstProject2 t ->
+    showParen (d > 10)
+    $ showString "tproject2 "  -- TODO
+      . shows t
   AstLetTupleIn var1 var2 p v ->
     if loseRoudtrip cfg
     then

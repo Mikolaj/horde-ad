@@ -151,6 +151,12 @@ build1V snat@SNat (var, v00) =
       , Dict <- lemTensorKindOfBuild snat (stensorKind @z) ->
         Ast.AstTuple (build1VOccurenceUnknown snat (var, t1))
                      (build1VOccurenceUnknown snat (var, t2))
+    Ast.AstProject1 @z t
+      | Dict <- lemTensorKindOfBuild snat (stensorKind @z) ->
+        Ast.AstProject1 (build1V snat (var, t))
+    Ast.AstProject2 @x t
+      | Dict <- lemTensorKindOfBuild snat (stensorKind @x) ->
+        Ast.AstProject2 (build1V snat (var, t))
     Ast.AstLetTupleIn var1 var2 p v -> undefined  -- TODO: doable, but complex
 {-
       -- See the AstLet and AstLetHVectorIn cases for comments.

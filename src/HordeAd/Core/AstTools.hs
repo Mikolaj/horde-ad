@@ -26,6 +26,7 @@ import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality ((:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat, sameNat, type (+))
+import Type.Reflection (typeRep)
 
 import Data.Array.Mixed.Shape qualified as X
 import Data.Array.Nested qualified as Nested
@@ -49,6 +50,14 @@ shapeAstFull stk t = case stk of
     AstTuple t1 t2 | Dict <- lemTensorKindOfS stk1
                    , Dict <- lemTensorKindOfS stk2 ->
       FTKProduct (shapeAstFull stk1 t1) (shapeAstFull stk2 t2)
+    AstProject1 @z v ->
+      case shapeAstFull (STKProduct stk (stensorKind @z))
+                        v of
+        FTKProduct ftk _ -> ftk
+    AstProject2 @x v ->
+      case shapeAstFull (STKProduct (stensorKind @x) stk)
+                        v of
+        FTKProduct _ ftk -> ftk
     AstLetTupleIn _var1 _var2 _p v -> shapeAstFull stk v
     AstVar sh _var -> sh
     AstPrimalPart a -> shapeAstFull stk a
@@ -68,6 +77,16 @@ shapeAst :: forall n s r. (KnownNat n, GoodScalar r)
          => AstTensor s (TKR r n) -> IShR n
 shapeAst = \case
   AstLetTupleIn _var1 _var2 _p v -> shapeAst v
+  AstProject1 @z t ->
+    case shapeAstFull (STKProduct (STKR (typeRep @r) (SNat @n))
+                                  (stensorKind @z))
+                      t of
+      FTKProduct (FTKR sh) _ -> sh
+  AstProject2 @x t ->
+    case shapeAstFull (STKProduct (stensorKind @x)
+                                  (STKR (typeRep @r) (SNat @n)))
+                      t of
+      FTKProduct _ (FTKR sh) -> sh
   AstVar (FTKR sh) _var -> sh
   AstPrimalPart a -> shapeAst a
   AstDualPart a -> shapeAst a
@@ -164,6 +183,8 @@ varInAst :: AstSpan s
          => AstVarId -> AstTensor s y -> Bool
 varInAst var = \case
   AstTuple t1 t2 -> varInAst var t1 || varInAst var t2
+  AstProject1 t -> varInAst var t
+  AstProject2 t -> varInAst var t
   AstLetTupleIn _var1 _var2 p v -> varInAst var p || varInAst var v
   AstVar _ var2 -> var == varNameToAstVarId var2
   AstPrimalPart a -> varInAst var a

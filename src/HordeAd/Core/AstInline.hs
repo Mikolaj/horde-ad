@@ -91,6 +91,8 @@ inlineAst memo v0 = case v0 of
     let (memo2, v1) = inlineAst memo t1
         (memo3, v2) = inlineAst memo2 t2
     in (memo3, Ast.AstTuple v1 v2)
+  Ast.AstProject1 t -> second Ast.AstProject1 (inlineAst memo t)
+  Ast.AstProject2 t -> second Ast.AstProject2 (inlineAst memo t)
   Ast.AstLetTupleIn var1 var2 p v ->
     -- We don't inline, but elsewhere try to reduce to constructors that we do.
     -- TODO: check if we should do more, e.g., when p is AstTuple (but maybe
@@ -491,6 +493,8 @@ shareAst memo v0 = case v0 of
     let (memo1, v1) = shareAst memo t1
         (memo2, v2) = shareAst memo1 t2
     in (memo2, Ast.AstTuple v1 v2)
+  Ast.AstProject1 t -> second Ast.AstProject1 (shareAst memo t)
+  Ast.AstProject2 t -> second Ast.AstProject2 (shareAst memo t)
   Ast.AstLetTupleIn{} -> error "shareAst: AstLetTupleIn"
 
   Ast.AstVar{} -> (memo, v0)

@@ -260,6 +260,8 @@ astNonIndexStep
   => AstTensor s y -> AstTensor s y
 astNonIndexStep t = case t of
   Ast.AstTuple t1 t2 -> Ast.AstTuple (astNonIndexStep t1) (astNonIndexStep t2)
+  Ast.AstProject1{} -> t
+  Ast.AstProject2{} -> t
   Ast.AstLetTupleIn{} -> t
 
   Ast.AstVar{} -> t
@@ -425,6 +427,9 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIndex m1)) =
                             (vars2, simplifyAstIndex ix2)
        else astGatherKnobsR knobs sh2 v2 (vars2, ix2)
  in case v0 of
+  Ast.AstProject1{} -> Ast.AstIndex v0 ix
+    -- this is normally a variable wrapped in projections, so NF is fine
+  Ast.AstProject2{} -> Ast.AstIndex v0 ix
   Ast.AstLetTupleIn var1 var2 p v ->
     Ast.AstLetTupleIn var1 var2 p (astIndexRec v ix)
 
@@ -609,6 +614,8 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS shm1)) | Dict <- s
                              (vars2, simplifyAstIndexS ix2)
         else astGatherKnobsS knobs v2 (vars2, ix2)
  in case v0 of
+  Ast.AstProject1{} -> Ast.AstIndexS v0 ix
+  Ast.AstProject2{} -> Ast.AstIndexS v0 ix
   Ast.AstLetTupleIn var1 var2 p v ->
     Ast.AstLetTupleIn var1 var2 p (astIndexRec v ix)
 
@@ -960,6 +967,8 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
   astGatherCase sh4 v4 (_, ZIR) = astReplicateN sh4 v4  -- not really possible
   astGatherCase sh4 v4 ( vars4
                        , ix4@(i4 :.: (rest4 :: AstIndex p1')) ) = case v4 of
+    Ast.AstProject1{} -> Ast.AstGather sh4 v4 (vars4, ix4)
+    Ast.AstProject2{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstLetTupleIn var1 var2 p v ->
       Ast.AstLetTupleIn var1 var2 p (astGatherCase sh4 v (vars4, ix4))
 
@@ -2020,6 +2029,8 @@ astPrimalPart :: AstTensor FullSpan y
               -> AstTensor PrimalSpan y
 astPrimalPart t = case t of
   Ast.AstTuple t1 t2 -> Ast.AstTuple (astPrimalPart t1) (astPrimalPart t2)
+  Ast.AstProject1 v -> Ast.AstProject1 (astPrimalPart v)
+  Ast.AstProject2 v -> Ast.AstProject2 (astPrimalPart v)
   Ast.AstLetTupleIn var1 var2 p v ->
     Ast.AstLetTupleIn var1 var2 p (astPrimalPart v)
 
@@ -2086,6 +2097,8 @@ astPrimalPart t = case t of
 astDualPart :: AstTensor FullSpan y -> AstTensor DualSpan y
 astDualPart t = case t of
   Ast.AstTuple t1 t2 -> Ast.AstTuple (astDualPart t1) (astDualPart t2)
+  Ast.AstProject1 v -> Ast.AstProject1 (astDualPart v)
+  Ast.AstProject2 v -> Ast.AstProject2 (astDualPart v)
   Ast.AstLetTupleIn var1 var2 p v ->
     Ast.AstLetTupleIn var1 var2 p (astDualPart v)
 
@@ -2331,6 +2344,8 @@ simplifyAst
   => AstTensor s y -> AstTensor s y
 simplifyAst t = case t of
   Ast.AstTuple t1 t2 -> Ast.AstTuple (simplifyAst t1) (simplifyAst t2)
+  Ast.AstProject1 v -> Ast.AstProject1 (simplifyAst v)
+  Ast.AstProject2 v -> Ast.AstProject2 (simplifyAst v)
   Ast.AstLetTupleIn var1 var2 p v ->
     Ast.AstLetTupleIn var1 var2 (simplifyAst p) (simplifyAst v)
 
@@ -2507,6 +2522,8 @@ expandAst
   => AstTensor s y -> AstTensor s y
 expandAst t = case t of
   Ast.AstTuple t1 t2 -> Ast.AstTuple (expandAst t1) (expandAst t2)
+  Ast.AstProject1 v -> Ast.AstProject1 (expandAst v)
+  Ast.AstProject2 v -> Ast.AstProject2 (expandAst v)
   Ast.AstLetTupleIn var1 var2 p v ->
     Ast.AstLetTupleIn var1 var2 (expandAst p) (expandAst v)
 
@@ -3014,6 +3031,8 @@ substitute1Ast i var v1 = case v1 of
     case (substitute1Ast i var u, substitute1Ast i var v) of
       (Nothing, Nothing) -> Nothing
       (mu, mv) -> Just $ Ast.AstTuple (fromMaybe u mu) (fromMaybe v mv)
+  Ast.AstProject1 a -> Ast.AstProject1 <$> substitute1Ast i var a
+  Ast.AstProject2 a -> Ast.AstProject2 <$> substitute1Ast i var a
   Ast.AstLetTupleIn var1 var2 u v ->
     case (substitute1Ast i var u, substitute1Ast i var v) of
       (Nothing, Nothing) -> Nothing
