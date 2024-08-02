@@ -246,6 +246,11 @@ data AstTensor :: AstSpanType -> TensorKindType -> Type where
   -- Here starts the product of tensors part.
   AstTuple :: AstTensor s y -> AstTensor s z
            -> AstTensor s (TKProduct y z)
+  AstLetTupleIn :: ( AstSpan s, TensorKind x, TensorKind y, TensorKind z)
+                => AstVarName s x -> AstVarName s y
+                -> AstTensor s (TKProduct x y)
+                -> AstTensor s2 z
+                -> AstTensor s2 z
   AstVar :: TensorKind y
          => TensorKindFull y -> AstVarName s y -> AstTensor s y
   AstPrimalPart :: TensorKind y
@@ -268,12 +273,6 @@ data AstTensor :: AstSpanType -> TensorKindType -> Type where
   -- Here starts the ranked part.
   -- The r variable is existential here, so a proper specialization needs
   -- to be picked explicitly at runtime.
-  AstLetTupleIn :: ( AstSpan s, TensorKind y, TensorKind z, GoodScalar r
-                   , KnownNat n )
-               => AstVarName s y -> AstVarName s z
-               -> AstTensor s (TKProduct y z)
-               -> AstTensor s2 (TKR r n)
-               -> AstTensor s2 (TKR r n)
   AstLet :: forall n r y s s2.
             (KnownNat n, GoodScalar r, AstSpan s, TensorKind y)
          => AstVarName s y -> AstTensor s y
@@ -365,12 +364,6 @@ data AstTensor :: AstSpanType -> TensorKindType -> Type where
             => AstTensor s (TKS r sh) -> AstTensor s (TKR r (X.Rank sh))
 
   -- Here starts the shaped part.
-  AstLetTupleInS :: ( AstSpan s, TensorKind y, TensorKind z, GoodScalar r
-                    , KnownShS sh )
-                => AstVarName s y -> AstVarName s z
-                -> AstTensor s (TKProduct y z)
-                -> AstTensor s2 (TKS r sh)
-                -> AstTensor s2 (TKS r sh)
   AstLetS :: forall sh r y s s2.
              (KnownShS sh, GoodScalar r, AstSpan s, TensorKind y)
           => AstVarName s y -> AstTensor s y

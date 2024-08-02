@@ -47,6 +47,7 @@ shapeAstFull stk t = case stk of
   STKS{} -> FTKS
   STKProduct stk1 stk2 -> case t of
     AstTuple t1 t2 -> FTKProduct (shapeAstFull stk1 t1) (shapeAstFull stk2 t2)
+    AstLetTupleIn _var1 _var2 _p v -> shapeAstFull stk v
     AstVar sh _var -> sh
     AstPrimalPart a -> shapeAstFull stk a
     AstDualPart a -> shapeAstFull stk a
@@ -64,6 +65,7 @@ shapeAstFull stk t = case stk of
 shapeAst :: forall n s r. (KnownNat n, GoodScalar r)
          => AstTensor s (TKR r n) -> IShR n
 shapeAst = \case
+  AstLetTupleIn _var1 _var2 _p v -> shapeAst v
   AstVar (FTKR sh) _var -> sh
   AstPrimalPart a -> shapeAst a
   AstDualPart a -> shapeAst a
@@ -75,7 +77,6 @@ shapeAst = \case
   AstBuild1 @y2 k (_var, v) -> case stensorKind @y2 of
     STKR{} -> sNatValue k :$: shapeAst v
 
-  AstLetTupleIn _var1 _var2 _p v -> shapeAst v
   AstLet _ _ v -> shapeAst v
   AstShare _ v-> shapeAst v
   AstMinIndex a -> initShape $ shapeAst a
@@ -161,6 +162,7 @@ varInAst :: AstSpan s
          => AstVarId -> AstTensor s y -> Bool
 varInAst var = \case
   AstTuple t1 t2 -> varInAst var t1 || varInAst var t2
+  AstLetTupleIn _var1 _var2 p v -> varInAst var p || varInAst var v
   AstVar _ var2 -> var == varNameToAstVarId var2
   AstPrimalPart a -> varInAst var a
   AstDualPart a -> varInAst var a
@@ -170,7 +172,6 @@ varInAst var = \case
   AstReplicate _ v -> varInAst var v
   AstBuild1 _ (_var2, v) -> varInAst var v
 
-  AstLetTupleIn _var1 _var2 p v -> varInAst var p || varInAst var v
   AstLet _var2 u v -> varInAst var u || varInAst var v
   AstShare _ v -> varInAst var v
   AstMinIndex a -> varInAst var a
@@ -201,7 +202,6 @@ varInAst var = \case
   AstLetHFunIn _var2 f v -> varInAstHFun var f || varInAst var v
   AstRFromS v -> varInAst var v
 
-  AstLetTupleInS _var1 _var2 p v -> varInAst var p || varInAst var v
   AstLetS _var2 u v -> varInAst var u || varInAst var v
   AstShareS _ v -> varInAst var v
   AstMinIndexS a -> varInAst var a
@@ -295,6 +295,7 @@ varInAstBindingsCase var (AstBindingsHVector _ t) = varInAstHVector var t
 astIsSmall :: Bool -> AstTensor s y -> Bool
 astIsSmall relaxed = \case
   AstTuple t1 t2 -> astIsSmall relaxed t1 && astIsSmall relaxed t2
+  AstLetTupleIn{} -> False
   AstVar{} -> True
   AstPrimalPart v -> astIsSmall relaxed v
   AstDualPart v -> astIsSmall relaxed v
@@ -302,7 +303,6 @@ astIsSmall relaxed = \case
   AstReplicate _ v ->
     relaxed && astIsSmall relaxed v  -- materialized via tricks, so prob. safe
 
-  AstLetTupleIn{} -> False
   AstIota -> True
   AstSlice _ _ v ->
     relaxed && astIsSmall relaxed v  -- materialized via vector slice; cheap
@@ -311,7 +311,6 @@ astIsSmall relaxed = \case
   AstConst c -> Nested.rsize c <= 1
   AstRFromS v -> astIsSmall relaxed v
 
-  AstLetTupleInS{} -> False
   AstIotaS -> True
   AstSliceS v ->
     relaxed && astIsSmall relaxed v  -- materialized via vector slice; cheap

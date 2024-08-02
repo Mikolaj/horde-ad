@@ -91,6 +91,14 @@ inlineAst memo v0 = case v0 of
     let (memo2, v1) = inlineAst memo t1
         (memo3, v2) = inlineAst memo2 t2
     in (memo3, Ast.AstTuple v1 v2)
+  Ast.AstLetTupleIn var1 var2 p v ->
+    -- We don't inline, but elsewhere try to reduce to constructors that we do.
+    -- TODO: check if we should do more, e.g., when p is AstTuple (but maybe
+    -- simplification should rewrite that to normal lets instead?).
+    let (memo1, p2) = inlineAst memo p
+        (memo2, v2) = inlineAst memo1 v
+    in (memo2, Ast.AstLetTupleIn var1 var2 p2 v2)
+
   Ast.AstVar _ var ->
     let f Nothing = Just 1
         f (Just count) = Just $ succ count
@@ -121,13 +129,6 @@ inlineAst memo v0 = case v0 of
         memo1 = EM.unionWith (\c1 c0 -> c1 + sNatValue k * c0) memo memoV0
     in (memo1, Ast.AstBuild1 k (var, v2))
 
-  Ast.AstLetTupleIn var1 var2 p v ->
-    -- We don't inline, but elsewhere try to reduce to constructors that we do.
-    -- TODO: check if we should do more, e.g., when p is AstTuple (but maybe
-    -- simplification should rewrite that to normal lets instead?).
-    let (memo1, p2) = inlineAst memo p
-        (memo2, v2) = inlineAst memo1 v
-    in (memo2, Ast.AstLetTupleIn var1 var2 p2 v2)
   Ast.AstLet var u v ->
     -- We assume there are no nested lets with the same variable, hence
     -- the delete and hence var couldn't appear in memo, so we can make
@@ -226,10 +227,6 @@ inlineAst memo v0 = case v0 of
       _ -> (memo2, Ast.AstLetHFunIn var f2 v2)
   Ast.AstRFromS v -> second Ast.AstRFromS $ inlineAst memo v
 
-  Ast.AstLetTupleInS var1 var2 p v ->
-    let (memo1, p2) = inlineAst memo p
-        (memo2, v2) = inlineAst memo1 v
-    in (memo2, Ast.AstLetTupleInS var1 var2 p2 v2)
   Ast.AstLetS var u v ->
     -- We assume there are no nested lets with the same variable.
     let vv = varNameToAstVarId var
@@ -494,6 +491,8 @@ shareAst memo v0 = case v0 of
     let (memo1, v1) = shareAst memo t1
         (memo2, v2) = shareAst memo1 t2
     in (memo2, Ast.AstTuple v1 v2)
+  Ast.AstLetTupleIn{} -> error "shareAst: AstLetTupleIn"
+
   Ast.AstVar{} -> (memo, v0)
   Ast.AstPrimalPart a -> second Ast.AstPrimalPart $ shareAst memo a
   Ast.AstDualPart a -> second Ast.AstDualPart $ shareAst memo a
@@ -515,10 +514,9 @@ shareAst memo v0 = case v0 of
     STKS{} -> error "TODO"
     STKProduct{} -> error "TODO"
 
-  Ast.AstLetTupleIn{} -> error "shareAst: AstLetTupleIn"
+  Ast.AstLet{} -> error "shareAst: AstLet"
     -- delta eval doesn't create lets and no lets
     -- survive instantiating in ADVal
-  Ast.AstLet{} -> error "shareAst: AstLet"
   Ast.AstShare var v | Just Refl <- sameAstSpan @s @PrimalSpan ->
     -- We assume v is the same if var is the same.
     let varId = varNameToAstVarId var
@@ -595,7 +593,6 @@ shareAst memo v0 = case v0 of
   Ast.AstLetHFunIn{} -> error "shareAst: AstLetHFunIn"
   Ast.AstRFromS v -> second Ast.AstRFromS $ shareAst memo v
 
-  Ast.AstLetTupleInS{} -> error "shareAst: AstLetTupleInS"
   Ast.AstLetS{} -> error "shareAst: AstLetS"
   Ast.AstShareS var v | Just Refl <- sameAstSpan @s @PrimalSpan ->
     -- We assume v is the same if var is the same.

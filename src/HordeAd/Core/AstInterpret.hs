@@ -164,6 +164,21 @@ interpretAst
   -> AstTensor s y -> InterpretationTarget ranked y
 interpretAst !env = \case
   AstTuple t1 t2 -> (interpretAst env t1, interpretAst env t2)
+  AstLetTupleIn @_ @z1 @z2 @z var1 var2 p v -> case stensorKind @z of
+    STKR{} ->
+      let (t1, t2) = interpretAst env p
+          env2 w1 w2 = extendEnv var2 w2 $ extendEnv var1 w1 env
+      in rletTKIn (stensorKind @z1) t1 $ \w1 ->
+           rletTKIn (stensorKind @z2) t2 $ \w2 ->
+             interpretAst (env2 w1 w2) v
+    STKS{} ->
+      let (t1, t2) = interpretAst env p
+          env2 w1 w2 = extendEnv var2 w2 $ extendEnv var1 w1 env
+      in sletTKIn (stensorKind @z1) t1 $ \w1 ->
+           sletTKIn (stensorKind @z2) t2 $ \w2 ->
+             interpretAst (env2 w1 w2) v
+    STKProduct{} -> error "TODO"
+
   AstVar @y2 _sh var ->
    let var2 = mkAstVarName @FullSpan @y2 (varNameToAstVarId var)  -- TODO
    in case DMap.lookup var2 env of
@@ -274,12 +289,6 @@ interpretAst !env = \case
     STKS{} -> sbuild1 (interpretLambdaIS interpretAst env (var, v))
     STKProduct{} -> error "TODO"
 
-  AstLetTupleIn @_ @z1 @z2 var1 var2 p v ->
-    let (t1, t2) = interpretAst env p
-        env2 w1 w2 = extendEnv var2 w2 $ extendEnv var1 w1 env
-    in rletTKIn (stensorKind @z1) t1 $ \w1 ->
-         rletTKIn (stensorKind @z2) t2 $ \w2 ->
-           interpretAst (env2 w1 w2) v
   AstLet @_ @_ @y2 var u v -> case stensorKind @y2 of
     stk@STKR{} ->
       -- We assume there are no nested lets with the same variable.
@@ -537,12 +546,6 @@ interpretAst !env = \case
     in rletHFunIn g (\h -> interpretAst (env2 h) v)
   AstRFromS v -> rfromS $ interpretAst env v
 
-  AstLetTupleInS @_ @z1 @z2 var1 var2 p v ->
-    let (t1, t2) = interpretAst env p
-        env2 w1 w2 = extendEnv var2 w2 $ extendEnv var1 w1 env
-    in sletTKIn (stensorKind @z1) t1 $ \w1 ->
-         sletTKIn (stensorKind @z2) t2 $ \w2 ->
-           interpretAst (env2 w1 w2) v
   AstLetS @_ @_ @y2 var u v -> case stensorKind @y2 of
     stk@STKR{} ->
       -- We assume there are no nested lets with the same variable.

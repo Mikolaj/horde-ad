@@ -260,6 +260,7 @@ astNonIndexStep
   => AstTensor s y -> AstTensor s y
 astNonIndexStep t = case t of
   Ast.AstTuple t1 t2 -> Ast.AstTuple (astNonIndexStep t1) (astNonIndexStep t2)
+  Ast.AstLetTupleIn{} -> t
 
   Ast.AstVar{} -> t
   Ast.AstPrimalPart v -> astPrimalPart v  -- has to be done sooner or later
@@ -270,7 +271,6 @@ astNonIndexStep t = case t of
   Ast.AstReplicate k v -> astReplicate k v
   Ast.AstBuild1{} -> t
 
-  Ast.AstLetTupleIn{} -> t
   Ast.AstLet var u v -> astLet var u v
   Ast.AstShare{} -> t  -- TODO: error "astNonIndexStep: AstShare"
   Ast.AstMinIndex{} -> t
@@ -315,7 +315,6 @@ astNonIndexStep t = case t of
   Ast.AstLetHFunIn var u v -> astLetHFunIn var u v
   Ast.AstRFromS v -> astRFromS v
 
-  Ast.AstLetTupleInS{} -> t
   Ast.AstLetS var u v -> astLetS var u v
   Ast.AstShareS{} -> t  -- TODO: error "astNonIndexStep: AstShareS"
   Ast.AstMinIndexS{} -> t
@@ -426,6 +425,9 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIndex m1)) =
                             (vars2, simplifyAstIndex ix2)
        else astGatherKnobsR knobs sh2 v2 (vars2, ix2)
  in case v0 of
+  Ast.AstLetTupleIn var1 var2 p v ->
+    Ast.AstLetTupleIn var1 var2 p (astIndexRec v ix)
+
   Ast.AstVar{} -> Ast.AstIndex v0 ix
   Ast.AstPrimalPart{} -> Ast.AstIndex v0 ix  -- must be a NF
   Ast.AstDualPart{} -> Ast.AstIndex v0 ix
@@ -454,8 +456,6 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIndex m1)) =
   Ast.AstBuild1 @y2 _snat (var2, v) -> case stensorKind @y2 of
     STKR{} -> astIndex (astLet var2 i1 v) rest1
 
-  Ast.AstLetTupleIn var1 var2 p v ->
-    Ast.AstLetTupleIn var1 var2 p (astIndexRec v ix)
   Ast.AstLet var u v -> astLet var u (astIndexRec v ix)
   Ast.AstShare{} -> Ast.AstIndex v0 ix  -- TODO: error "astIndexKnobsR: AstShare"
   Ast.AstMinIndex v -> Ast.AstMinIndex $ astIndexKnobsR knobs v ix
@@ -609,6 +609,9 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS shm1)) | Dict <- s
                              (vars2, simplifyAstIndexS ix2)
         else astGatherKnobsS knobs v2 (vars2, ix2)
  in case v0 of
+  Ast.AstLetTupleIn var1 var2 p v ->
+    Ast.AstLetTupleIn var1 var2 p (astIndexRec v ix)
+
   Ast.AstVar{} -> Ast.AstIndexS v0 ix
   Ast.AstPrimalPart{} -> Ast.AstIndexS v0 ix  -- must be a NF
   Ast.AstDualPart{} -> Ast.AstIndexS v0 ix
@@ -626,8 +629,6 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS shm1)) | Dict <- s
                  rest1
         -- this uses astLet, because the index integers are ranked
 
-  Ast.AstLetTupleInS var1 var2 p v ->
-    Ast.AstLetTupleInS var1 var2 p (astIndexRec v ix)
   Ast.AstLetS var u v -> astLetS var u (astIndexRec v ix)
   Ast.AstShareS{} -> Ast.AstIndexS v0 ix  -- TODO: error "astIndexKnobsRS: AstShareS"
   Ast.AstMinIndexS @shz @n1 v ->
@@ -959,6 +960,9 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
   astGatherCase sh4 v4 (_, ZIR) = astReplicateN sh4 v4  -- not really possible
   astGatherCase sh4 v4 ( vars4
                        , ix4@(i4 :.: (rest4 :: AstIndex p1')) ) = case v4 of
+    Ast.AstLetTupleIn var1 var2 p v ->
+      Ast.AstLetTupleIn var1 var2 p (astGatherCase sh4 v (vars4, ix4))
+
     Ast.AstVar{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstPrimalPart{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstDualPart{} -> Ast.AstGather sh4 v4 (vars4, ix4)
@@ -992,8 +996,6 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
       STKR{} -> astGather sh4 v (vars4, rest4)
     Ast.AstBuild1{} -> Ast.AstGather sh4 v4 (vars4, ix4)
 
-    Ast.AstLetTupleIn var1 var2 p v ->
-      Ast.AstLetTupleIn var1 var2 p (astGatherCase sh4 v (vars4, ix4))
     Ast.AstLet var u v -> astLet var u (astGatherCase sh4 v (vars4, ix4))
     Ast.AstShare{} -> error "astGatherCase: AstShare"
     Ast.AstMinIndex v ->
@@ -2018,6 +2020,9 @@ astPrimalPart :: AstTensor FullSpan y
               -> AstTensor PrimalSpan y
 astPrimalPart t = case t of
   Ast.AstTuple t1 t2 -> Ast.AstTuple (astPrimalPart t1) (astPrimalPart t2)
+  Ast.AstLetTupleIn var1 var2 p v ->
+    Ast.AstLetTupleIn var1 var2 p (astPrimalPart v)
+
   Ast.AstVar{} -> Ast.AstPrimalPart t  -- the only normal form
   Ast.AstConstant v -> v
   Ast.AstD u _ -> u
@@ -2025,8 +2030,6 @@ astPrimalPart t = case t of
   Ast.AstReplicate k v -> astReplicate k (astPrimalPart v)
   Ast.AstBuild1 k (var, v) -> Ast.AstBuild1 k (var, astPrimalPart v)
 
-  Ast.AstLetTupleIn var1 var2 p v ->
-    Ast.AstLetTupleIn var1 var2 p (astPrimalPart v)
   Ast.AstLet var u v -> astLet var u (astPrimalPart v)
   Ast.AstShare{} -> error "astPrimalPart: AstShare"
   AstN1 opCode u -> AstN1 opCode (astPrimalPart u)
@@ -2051,8 +2054,6 @@ astPrimalPart t = case t of
   Ast.AstLetHFunIn var f v -> astLetHFunIn var f (astPrimalPart v)
   Ast.AstRFromS v -> astRFromS $ astPrimalPart v
 
-  Ast.AstLetTupleInS var1 var2 p v ->
-    Ast.AstLetTupleInS var1 var2 p (astPrimalPart v)
   Ast.AstLetS var u v -> astLetS var u (astPrimalPart v)
   Ast.AstShareS{} -> error "astPrimalPart: AstShareS"
   AstN1S opCode u -> AstN1S opCode (astPrimalPart u)
@@ -2085,6 +2086,9 @@ astPrimalPart t = case t of
 astDualPart :: AstTensor FullSpan y -> AstTensor DualSpan y
 astDualPart t = case t of
   Ast.AstTuple t1 t2 -> Ast.AstTuple (astDualPart t1) (astDualPart t2)
+  Ast.AstLetTupleIn var1 var2 p v ->
+    Ast.AstLetTupleIn var1 var2 p (astDualPart v)
+
   Ast.AstVar{} -> Ast.AstDualPart t
   Ast.AstConstant{}  -> Ast.AstDualPart t  -- this equals nil (not primal 0)
   Ast.AstD _ u' -> u'
@@ -2092,8 +2096,6 @@ astDualPart t = case t of
   Ast.AstReplicate k v -> astReplicate k (astDualPart v)
   Ast.AstBuild1 k (var, v) -> Ast.AstBuild1 k (var, astDualPart v)
 
-  Ast.AstLetTupleIn var1 var2 p v ->
-    Ast.AstLetTupleIn var1 var2 p (astDualPart v)
   Ast.AstLet var u v -> astLet var u (astDualPart v)
   Ast.AstShare{} -> error "astDualPart: AstShare"
   AstN1{} -> Ast.AstDualPart t  -- stuck; the ops are not defined on dual part
@@ -2118,8 +2120,6 @@ astDualPart t = case t of
   Ast.AstLetHFunIn var f v -> astLetHFunIn var f (astDualPart v)
   Ast.AstRFromS v -> astRFromS $ astDualPart v
 
-  Ast.AstLetTupleInS var1 var2 p v ->
-    Ast.AstLetTupleInS var1 var2 p (astDualPart v)
   Ast.AstLetS var u v -> astLetS var u (astDualPart v)
   Ast.AstShareS{} -> error "astDualPart: AstShareS"
   AstN1S{} -> Ast.AstDualPart t
@@ -2331,6 +2331,9 @@ simplifyAst
   => AstTensor s y -> AstTensor s y
 simplifyAst t = case t of
   Ast.AstTuple t1 t2 -> Ast.AstTuple (simplifyAst t1) (simplifyAst t2)
+  Ast.AstLetTupleIn var1 var2 p v ->
+    Ast.AstLetTupleIn var1 var2 (simplifyAst p) (simplifyAst v)
+
   Ast.AstVar{} -> t
   Ast.AstPrimalPart v -> astPrimalPart (simplifyAst v)
   Ast.AstDualPart v -> astDualPart (simplifyAst v)
@@ -2341,8 +2344,6 @@ simplifyAst t = case t of
   Ast.AstReplicate k v -> astReplicate k (simplifyAst v)
   Ast.AstBuild1 k (var, v) -> Ast.AstBuild1 k (var, simplifyAst v)
 
-  Ast.AstLetTupleIn var1 var2 p v ->
-    Ast.AstLetTupleIn var1 var2 (simplifyAst p) (simplifyAst v)
   Ast.AstLet var u v -> astLet var (simplifyAst u) (simplifyAst v)
   Ast.AstShare{} -> error "simplifyAst: AstShare"
   Ast.AstMinIndex a -> Ast.AstMinIndex (simplifyAst a)
@@ -2390,8 +2391,6 @@ simplifyAst t = case t of
     astLetHFunIn var (simplifyAstHFun f) (simplifyAst v)
   Ast.AstRFromS v -> astRFromS $ simplifyAst v
 
-  Ast.AstLetTupleInS var1 var2 p v ->
-    Ast.AstLetTupleInS var1 var2 (simplifyAst p) (simplifyAst v)
   Ast.AstLetS var u v -> astLetS var (simplifyAst u) (simplifyAst v)
   Ast.AstShareS{} -> error "simplifyAst: AstShareS"
   Ast.AstMinIndexS a -> Ast.AstMinIndexS (simplifyAst a)
@@ -2508,6 +2507,9 @@ expandAst
   => AstTensor s y -> AstTensor s y
 expandAst t = case t of
   Ast.AstTuple t1 t2 -> Ast.AstTuple (expandAst t1) (expandAst t2)
+  Ast.AstLetTupleIn var1 var2 p v ->
+    Ast.AstLetTupleIn var1 var2 (expandAst p) (expandAst v)
+
   Ast.AstVar{} -> t
   Ast.AstPrimalPart v -> astPrimalPart (expandAst v)
   Ast.AstDualPart v -> astDualPart (expandAst v)
@@ -2518,8 +2520,6 @@ expandAst t = case t of
   Ast.AstReplicate k v -> astReplicate k (expandAst v)
   Ast.AstBuild1 k (var, v) -> Ast.AstBuild1 k (var, expandAst v)
 
-  Ast.AstLetTupleIn var1 var2 p v ->
-    Ast.AstLetTupleIn var1 var2 (expandAst p) (expandAst v)
   Ast.AstLet var u v -> astLet var (expandAst u) (expandAst v)
   Ast.AstShare{} -> error "expandAst: AstShare"
   Ast.AstMinIndex a -> Ast.AstMinIndex (expandAst a)
@@ -2605,8 +2605,6 @@ expandAst t = case t of
     astLetHFunIn var (expandAstHFun f) (expandAst v)
   Ast.AstRFromS v -> astRFromS $ expandAst v
 
-  Ast.AstLetTupleInS var1 var2 p v ->
-    Ast.AstLetTupleInS var1 var2 (expandAst p) (expandAst v)
   Ast.AstLetS var u v -> astLetS var (expandAst u) (expandAst v)
   Ast.AstShareS{} -> error "expandAst: AstShareS"
   Ast.AstMinIndexS a -> Ast.AstMinIndexS (expandAst a)
@@ -3016,6 +3014,12 @@ substitute1Ast i var v1 = case v1 of
     case (substitute1Ast i var u, substitute1Ast i var v) of
       (Nothing, Nothing) -> Nothing
       (mu, mv) -> Just $ Ast.AstTuple (fromMaybe u mu) (fromMaybe v mv)
+  Ast.AstLetTupleIn var1 var2 u v ->
+    case (substitute1Ast i var u, substitute1Ast i var v) of
+      (Nothing, Nothing) -> Nothing
+      (mu, mv) ->
+        Just $ Ast.AstLetTupleIn var1 var2 (fromMaybe u mu) (fromMaybe v mv)
+
   Ast.AstVar @y2 _sh var2 ->
     if var == varNameToAstVarId var2
     then case i of
@@ -3045,11 +3049,6 @@ substitute1Ast i var v1 = case v1 of
   Ast.AstBuild1 k (var2, v) ->
     Ast.AstBuild1 k . (var2,) <$> substitute1Ast i var v
 
-  Ast.AstLetTupleIn var1 var2 u v ->
-    case (substitute1Ast i var u, substitute1Ast i var v) of
-      (Nothing, Nothing) -> Nothing
-      (mu, mv) ->
-        Just $ Ast.AstLetTupleIn var1 var2 (fromMaybe u mu) (fromMaybe v mv)
   Ast.AstLet var2 u v ->
     case (substitute1Ast i var u, substitute1Ast i var v) of
       (Nothing, Nothing) -> Nothing
@@ -3142,11 +3141,6 @@ substitute1Ast i var v1 = case v1 of
         Just $ astLetHFunIn var2 (fromMaybe f mf) (fromMaybe v mv)
   Ast.AstRFromS v -> astRFromS <$> substitute1Ast i var v
 
-  Ast.AstLetTupleInS var1 var2 u v ->
-    case (substitute1Ast i var u, substitute1Ast i var v) of
-      (Nothing, Nothing) -> Nothing
-      (mu, mv) ->
-        Just $ Ast.AstLetTupleInS var1 var2 (fromMaybe u mu) (fromMaybe v mv)
   Ast.AstLetS var2 u v ->
     case (substitute1Ast i var u, substitute1Ast i var v) of
       (Nothing, Nothing) -> Nothing
