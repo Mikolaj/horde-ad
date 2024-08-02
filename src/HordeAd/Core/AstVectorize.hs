@@ -240,14 +240,8 @@ build1V snat@SNat (var, v00) =
               FTKProduct @z1 @z2 ftk41 ftk42
                 | Dict <- lemTensorKindOfBuild snat (stensorKind @z1)
                 , Dict <- lemTensorKindOfBuild snat (stensorKind @z2) ->
-                  let prVar1 = fun2ToAst (buildTensorKindFull snat ftk41)
-                                         (buildTensorKindFull snat ftk42)
-                               $ \var41 var42 a41 _a42 ->
-                        Ast.AstLetTupleIn var41 var42 prVar a41
-                      prVar2 = fun2ToAst (buildTensorKindFull snat ftk41)
-                                         (buildTensorKindFull snat ftk42)
-                               $ \var41 var42 _a41 a42 ->
-                        Ast.AstLetTupleIn var41 var42 prVar a42
+                  let prVar1 = Ast.AstProject1 prVar
+                      prVar2 = Ast.AstProject2 prVar
                   in Ast.AstTuple (projection prVar1 ftk41)
                                   (projection prVar2 ftk42)
             v2 = substituteAst
@@ -357,14 +351,8 @@ build1V snat@SNat (var, v00) =
               FTKProduct @z1 @z2 ftk41 ftk42
                 | Dict <- lemTensorKindOfBuild snat (stensorKind @z1)
                 , Dict <- lemTensorKindOfBuild snat (stensorKind @z2) ->
-                  let prVar1 = fun2ToAst (buildTensorKindFull snat ftk41)
-                                         (buildTensorKindFull snat ftk42)
-                               $ \var41 var42 a41 _a42 ->
-                        Ast.AstLetTupleIn var41 var42 prVar a41
-                      prVar2 = fun2ToAst (buildTensorKindFull snat ftk41)
-                                         (buildTensorKindFull snat ftk42)
-                               $ \var41 var42 _a41 a42 ->
-                        Ast.AstLetTupleIn var41 var42 prVar a42
+                  let prVar1 = Ast.AstProject1 prVar
+                      prVar2 = Ast.AstProject2 prVar
                   in Ast.AstTuple (projection prVar1 ftk41)
                                   (projection prVar2 ftk42)
             v2 = substituteAst
