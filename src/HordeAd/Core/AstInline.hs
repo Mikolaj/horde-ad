@@ -206,9 +206,9 @@ inlineAst memo v0 = case v0 of
   Ast.AstCast v -> second Ast.AstCast $ inlineAst memo v
   Ast.AstFromIntegral v -> second Ast.AstFromIntegral $ inlineAst memo v
   Ast.AstConst{} -> (memo, v0)
-  Ast.AstProject l p ->
+  Ast.AstProjectR l p ->
     let (memo1, l2) = inlineAstHVector memo l
-    in (memo1, Ast.AstProject l2 p)
+    in (memo1, Ast.AstProjectR l2 p)
   Ast.AstLetHVectorIn vars l v ->
     -- We don't inline, but elsewhere try to reduce to constructors that we do.
     let (memo1, l2) = inlineAstHVector memo l
@@ -582,13 +582,13 @@ shareAst memo v0 = case v0 of
   Ast.AstCast v -> second Ast.AstCast $ shareAst memo v
   Ast.AstFromIntegral v -> second Ast.AstFromIntegral $ shareAst memo v
   Ast.AstConst{} -> (memo, v0)
-  Ast.AstProject l p ->
+  Ast.AstProjectR l p ->
     -- This doesn't get simplified even if l is an HVector of vars freshly
     -- created by shareAstHVector. However, then l is shared, so the cost
-    -- per AstProject is only slightly (2 words? 1 indirection?)
+    -- per AstProjectR is only slightly (2 words? 1 indirection?)
     -- higher than if simplified.
     let (memo1, l2) = shareAstHVector memo l
-    in (memo1, Ast.AstProject l2 p)
+    in (memo1, Ast.AstProjectR l2 p)
   Ast.AstLetHVectorIn{} -> error "shareAst: AstLetHVectorIn"
   Ast.AstLetHFunIn{} -> error "shareAst: AstLetHFunIn"
   Ast.AstRFromS v -> second Ast.AstRFromS $ shareAst memo v

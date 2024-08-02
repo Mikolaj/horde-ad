@@ -110,7 +110,7 @@ areAllArgsInts = \case
   AstCast{} -> False
   AstFromIntegral{} -> True
   AstConst{} -> True
-  AstProject{} -> True  -- too early to tell
+  AstProjectR{} -> True  -- too early to tell
   AstLetHVectorIn{} -> True  -- too early to tell
   AstLetHFunIn{} -> True  -- too early to tell
   AstRFromS{} -> False
@@ -408,7 +408,7 @@ printAstAux cfg d = \case
       _ -> showParen (d > 10)
            $ showString "rconst "
              . showParen True (shows a)
-  AstProject l p ->
+  AstProjectR l p ->
     showParen (d > 10)
     $ showString "rproject "  -- fake, no such surface syntax
       . printAstHVector cfg 0 l

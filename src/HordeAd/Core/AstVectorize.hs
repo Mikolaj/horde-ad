@@ -313,7 +313,7 @@ build1V snat@SNat (var, v00) =
     Ast.AstConst{} ->
       error "build1V: AstConst can't have free index variables"
 
-    Ast.AstProject l p ->
+    Ast.AstProjectR l p ->
       astProject (build1VOccurenceUnknownHVector snat (var, l)) p
     Ast.AstLetHVectorIn vars1 l v ->
       -- Here substitution traverses @v@ term tree @length vars@ times.

@@ -526,7 +526,7 @@ interpretAst !env = \case
   AstFromIntegral v ->
     rfromIntegral $ rconstant $ interpretAstPrimalRuntimeSpecialized env v
   AstConst a -> rconst a
-  AstProject l p ->
+  AstProjectR l p ->
     let lt = interpretAstHVector env l
     in rletHVectorIn lt (\lw -> rfromD $ lw V.! p)
          -- This is weak, but we don't need rproject nor sproject.

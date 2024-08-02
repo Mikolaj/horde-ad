@@ -539,7 +539,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
         f i = \case
           DynamicRankedDummy @r @sh _ _ ->
             withListSh (Proxy @sh) $ \(_ :: IShR n) ->
-              DynamicRanked @r @n $ AstRanked $ AstProject hVectorOf i
+              DynamicRanked @r @n $ AstRanked $ AstProjectR hVectorOf i
           DynamicShapedDummy @r @sh _ _ ->
             DynamicShaped @r @sh $ AstShaped $ AstProjectS hVectorOf i
     in V.imap f $ shapeAstHVector hVectorOf
@@ -1125,7 +1125,7 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
         f i = \case
           DynamicRankedDummy @r @sh _ _ ->
             withListSh (Proxy @sh) $ \(_ :: IShR n) ->
-              DynamicRanked @r @n $ AstRanked $ AstProject hVectorOf i
+              DynamicRanked @r @n $ AstRanked $ AstProjectR hVectorOf i
           DynamicShapedDummy @r @sh _ _ ->
             DynamicShaped @r @sh $ AstShaped $ AstProjectS hVectorOf i
     in rawHVector $ V.imap f $ shapeAstHVector hVectorOf
@@ -1516,7 +1516,7 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
         f i = \case
           DynamicRankedDummy @r @sh _ _ ->
             withListSh (Proxy @sh) $ \(_ :: IShR n) ->
-              DynamicRanked @r @n $ AstRanked $ AstProject hVectorOf i
+              DynamicRanked @r @n $ AstRanked $ AstProjectR hVectorOf i
           DynamicShapedDummy @r @sh _ _ ->
             DynamicShaped @r @sh $ AstShaped $ AstProjectS hVectorOf i
     in noSimplifyHVector

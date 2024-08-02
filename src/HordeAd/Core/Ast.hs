@@ -351,7 +351,7 @@ data AstTensor :: AstSpanType -> TensorKindType -> Type where
                   => AstTensor PrimalSpan (TKR r1 n) -> AstTensor PrimalSpan (TKR r2 n)
   AstConst :: forall n r. (GoodScalar r, KnownNat n)
            => Nested.Ranked n r -> AstTensor PrimalSpan (TKR r n)
-  AstProject :: (GoodScalar r, KnownNat n)
+  AstProjectR :: (GoodScalar r, KnownNat n)
              => AstHVector s -> Int -> AstTensor s (TKR r n)
   AstLetHVectorIn :: (AstSpan s, GoodScalar r, KnownNat n)
                   => [AstDynamicVarName] -> AstHVector s
