@@ -46,7 +46,9 @@ shapeAstFull stk t = case stk of
   STKR{} -> FTKR $ shapeAst t
   STKS{} -> FTKS
   STKProduct stk1 stk2 -> case t of
-    AstTuple t1 t2 -> FTKProduct (shapeAstFull stk1 t1) (shapeAstFull stk2 t2)
+    AstTuple t1 t2 | Dict <- lemTensorKindOfS stk1
+                   , Dict <- lemTensorKindOfS stk2 ->
+      FTKProduct (shapeAstFull stk1 t1) (shapeAstFull stk2 t2)
     AstLetTupleIn _var1 _var2 _p v -> shapeAstFull stk v
     AstVar sh _var -> sh
     AstPrimalPart a -> shapeAstFull stk a

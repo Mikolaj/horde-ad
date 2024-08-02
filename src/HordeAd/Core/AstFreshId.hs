@@ -5,7 +5,7 @@
 -- with @unsafePerformIO@ outside, so some of the impurity escapes.
 module HordeAd.Core.AstFreshId
   ( unRawHVector, rawHVector
-  , funToAstIO, funToAst
+  , funToAstIO, funToAst, fun2ToAst
   , fun1RToAst, fun1SToAst, fun1XToAst
   , fun1DToAst, fun1HToAst, fun1LToAst
   , funToAstRevIO, funToAstRev, funToAstFwdIO, funToAstFwd
@@ -101,6 +101,29 @@ funToAst :: TensorKind y
 funToAst sh f = unsafePerformIO $ do
   (!var, _, !ast) <- funToAstIO sh f
   return (var, ast)
+
+fun2ToAstIO :: (TensorKind x, TensorKind y)
+            => TensorKindFull x -> TensorKindFull y
+            -> (AstVarName s x -> AstVarName s y
+                -> AstTensor s x -> AstTensor s y
+                -> AstTensor s z)
+            -> IO (AstTensor s z )
+{-# INLINE fun2ToAstIO #-}
+fun2ToAstIO shX shY f = do
+  freshIdX <- unsafeGetFreshAstVarId
+  freshIdY <- unsafeGetFreshAstVarId
+  let varNameX = mkAstVarName freshIdX
+      varNameY = mkAstVarName freshIdY
+  return $! f varNameX varNameY (AstVar shX varNameX) (AstVar shY varNameY)
+
+fun2ToAst :: (TensorKind x, TensorKind y)
+          => TensorKindFull x -> TensorKindFull y
+          -> (AstVarName s x -> AstVarName s y
+              -> AstTensor s x -> AstTensor s y
+              -> AstTensor s z)
+          -> AstTensor s z
+{-# NOINLINE fun2ToAst #-}
+fun2ToAst shX shY f = unsafePerformIO $ fun2ToAstIO shX shY f
 
 fun1RToAstIO :: forall s r n. (KnownNat n, GoodScalar r)
              => (AstVarName s (TKR r n) -> AstTensor s (TKR r n))

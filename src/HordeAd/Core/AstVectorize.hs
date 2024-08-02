@@ -221,13 +221,28 @@ build1V snat@SNat (var, v00) =
             ftk2 = shapeAstFull (stensorKind @y2) u
             ftk3 = buildTensorKindFull snat ftk2
             astVar3 = Ast.AstVar ftk3 var3
-            projection :: TensorKindFull y2 -> AstTensor s1 y2
-            projection = \case
-              FTKR{} -> Ast.AstIndex astVar3 (Ast.AstIntVar var :.: ZIR)
-              FTKS{} -> Ast.AstIndexS astVar3 (Ast.AstIntVar var :.$ ZIS)
-              FTKProduct{} -> error "TODO"
-            v2 = substituteAst (SubstitutionPayload @s1 (projection ftk2))
-                               var1 v
+            projection :: AstTensor s1 (BuildTensorKind k y4)
+                       -> TensorKindFull y4
+                       -> AstTensor s1 y4
+            projection prVar = \case
+              FTKR{} -> Ast.AstIndex prVar (Ast.AstIntVar var :.: ZIR)
+              FTKS{} -> Ast.AstIndexS prVar (Ast.AstIntVar var :.$ ZIS)
+              FTKProduct @z1 @z2 ftk41 ftk42
+                | Dict <- lemTensorKindOfBuild snat (stensorKind @z1)
+                , Dict <- lemTensorKindOfBuild snat (stensorKind @z2) ->
+                  let prVar1 = fun2ToAst (buildTensorKindFull snat ftk41)
+                                         (buildTensorKindFull snat ftk42)
+                               $ \var41 var42 a41 _a42 ->
+                        Ast.AstLetTupleIn var41 var42 prVar a41
+                      prVar2 = fun2ToAst (buildTensorKindFull snat ftk41)
+                                         (buildTensorKindFull snat ftk42)
+                               $ \var41 var42 _a41 a42 ->
+                        Ast.AstLetTupleIn var41 var42 prVar a42
+                  in Ast.AstTuple (projection prVar1 ftk41)
+                                  (projection prVar2 ftk42)
+            v2 = substituteAst
+                   (SubstitutionPayload @s1 (projection astVar3 ftk2))
+                   var1 v
         in astLet var3 (build1VOccurenceUnknown snat (var, u))
                        (build1VOccurenceUnknownRefresh snat (var, v2))
              -- ensures no duplicated bindings, see below
@@ -318,20 +333,34 @@ build1V snat@SNat (var, v00) =
 
     Ast.AstLetS @_ @_ @y2 @s1 var1 u v
       | Dict <- lemTensorKindOfBuild snat (stensorKind @y2) ->
-        let var2 :: AstVarName s1 (BuildTensorKind k y2)
-            var2 = mkAstVarName (varNameToAstVarId var1)
-            projection :: AstTensor s1 y2
-            projection = case stensorKind @y2 of
-              STKR{} ->
-                let sh = shapeAst u
-                in Ast.AstIndex (Ast.AstVar (FTKR $ k :$: sh) var2)
-                                (Ast.AstIntVar var :.: ZIR)
-              STKS @r1 @sh1 _ _ ->
-                Ast.AstIndexS (Ast.AstVar @(TKS r1 (k ': sh1)) FTKS var2)
-                              (Ast.AstIntVar var :.$ ZIS)
-              STKProduct{} -> error "TODO"
-            v2 = substituteAst (SubstitutionPayload @s1 projection) var1 v
-        in astLetS var2 (build1VOccurenceUnknown snat (var, u))
+        let var3 :: AstVarName s1 (BuildTensorKind k y2)
+            var3 = mkAstVarName (varNameToAstVarId var1)
+            ftk2 = shapeAstFull (stensorKind @y2) u
+            ftk3 = buildTensorKindFull snat ftk2
+            astVar3 = Ast.AstVar ftk3 var3
+            projection :: AstTensor s1 (BuildTensorKind k y4)
+                       -> TensorKindFull y4
+                       -> AstTensor s1 y4
+            projection prVar = \case
+              FTKR{} -> Ast.AstIndex prVar (Ast.AstIntVar var :.: ZIR)
+              FTKS{} -> Ast.AstIndexS prVar (Ast.AstIntVar var :.$ ZIS)
+              FTKProduct @z1 @z2 ftk41 ftk42
+                | Dict <- lemTensorKindOfBuild snat (stensorKind @z1)
+                , Dict <- lemTensorKindOfBuild snat (stensorKind @z2) ->
+                  let prVar1 = fun2ToAst (buildTensorKindFull snat ftk41)
+                                         (buildTensorKindFull snat ftk42)
+                               $ \var41 var42 a41 _a42 ->
+                        Ast.AstLetTupleIn var41 var42 prVar a41
+                      prVar2 = fun2ToAst (buildTensorKindFull snat ftk41)
+                                         (buildTensorKindFull snat ftk42)
+                               $ \var41 var42 _a41 a42 ->
+                        Ast.AstLetTupleIn var41 var42 prVar a42
+                  in Ast.AstTuple (projection prVar1 ftk41)
+                                  (projection prVar2 ftk42)
+            v2 = substituteAst
+                   (SubstitutionPayload @s1 (projection astVar3 ftk2))
+                   var1 v
+        in astLetS var3 (build1VOccurenceUnknown snat (var, u))
                         (build1VOccurenceUnknownRefresh snat (var, v2))
     Ast.AstShareS{} -> error "build1V: AstShareS"
 

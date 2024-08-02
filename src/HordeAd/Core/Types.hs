@@ -15,7 +15,7 @@ module HordeAd.Core.Types
     -- * Kinds of the functors that determine the structure of a tensor type
   , TensorType, RankedTensorType, ShapedTensorType
   , TensorKindType (..), STensorKindType(..), TensorKind(..)
-  , sameTensorKind, TensorKindFull(..)
+  , lemTensorKindOfS, sameTensorKind, TensorKindFull(..)
   , InterpretationTarget, mapInterpretationTarget, mapInterpretationTarget2
   , BuildTensorKind, buildTensorKindFull, lemTensorKindOfBuild
     -- * Some fundamental constraints
@@ -168,6 +168,13 @@ instance (GoodScalar r, KnownShS sh) => TensorKind (TKS r sh) where
 instance (TensorKind y, TensorKind z) => TensorKind (TKProduct y z) where
   stensorKind = STKProduct (stensorKind @y) (stensorKind @z)
 
+lemTensorKindOfS :: STensorKindType y -> Dict TensorKind y
+lemTensorKindOfS = \case
+  STKR{} -> Dict
+  STKS{} -> Dict
+  STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
+                       , Dict <- lemTensorKindOfS stk2 -> Dict
+
 sameTensorKind :: forall y1 y2. (TensorKind y1, TensorKind y2) => Maybe (y1 :~: y2)
 sameTensorKind = sameTK (stensorKind @y1) (stensorKind @y2)
  where
@@ -191,7 +198,8 @@ type role TensorKindFull nominal
 data TensorKindFull y where
   FTKR :: (GoodScalar r, KnownNat n) => ShR n Int -> TensorKindFull (TKR r n)
   FTKS :: (GoodScalar r, KnownShS sh) => TensorKindFull (TKS r sh)
-  FTKProduct :: TensorKindFull y -> TensorKindFull z
+  FTKProduct :: (TensorKind y, TensorKind z)
+             => TensorKindFull y -> TensorKindFull z
              -> TensorKindFull (TKProduct y z)
 
 deriving instance Show (TensorKindFull y)
@@ -248,12 +256,15 @@ buildTensorKindFull :: SNat k -> TensorKindFull y
 buildTensorKindFull snat@SNat = \case
   FTKR sh -> FTKR $ sNatValue snat :$: sh
   FTKS -> FTKS
-  FTKProduct ftk1 ftk2 -> FTKProduct (buildTensorKindFull snat ftk1)
-                                     (buildTensorKindFull snat ftk2)
+  FTKProduct @z1 @z2 ftk1 ftk2
+    | Dict <- lemTensorKindOfBuild snat (stensorKind @z1)
+    , Dict <- lemTensorKindOfBuild snat (stensorKind @z2) ->
+      FTKProduct (buildTensorKindFull snat ftk1)
+                 (buildTensorKindFull snat ftk2)
 
 lemTensorKindOfBuild :: SNat k -> STensorKindType y
                      -> Dict TensorKind (BuildTensorKind k y)
-lemTensorKindOfBuild snat@SNat stk = case stk of
+lemTensorKindOfBuild snat@SNat = \case
   STKR{} -> Dict
   STKS{} -> Dict
   STKProduct stk1 stk2 | Dict <- lemTensorKindOfBuild snat stk1
