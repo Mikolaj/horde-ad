@@ -85,7 +85,8 @@ build1Vectorize snat@SNat (var, v0) = unsafePerformIO $ do
       ++ "\n"
   let !_A = assert (shapeAstFull stk startTerm == shapeAstFull stk endTerm
                    `blame` "build1Vectorize: term shape changed"
-                   `swith`(shapeAstFull stk startTerm, shapeAstFull stk endTerm)) ()
+                   `swith`( shapeAstFull stk startTerm
+                          , shapeAstFull stk endTerm) ) ()
   return endTerm
 
 -- | The application @build1VOccurenceUnknown k (var, v)@ vectorizes
@@ -208,14 +209,24 @@ build1V snat@SNat (var, v00) =
                           (build1VOccurenceUnknownRefresh k (var, v2))
                             -- ensure no duplicated bindings, see below
 -}
-    Ast.AstLet @_ @_ @y2 var1 u v | STKR{} <- stensorKind @y2 ->
-      let var2 = mkAstVarName (varNameToAstVarId var1)
-          sh = shapeAst u
-          v2 = substProjRanked k var sh var1 v
-      in astLet var2 (build1VOccurenceUnknown snat (var, u))
-                     (build1VOccurenceUnknownRefresh snat (var, v2))
-                        -- ensures no duplicated bindings, see below
-    Ast.AstLet{} -> error "TODO"
+    Ast.AstLet @_ @_ @y2 @s1 var1 u v
+      | Dict <- lemTensorKindOfBuild (SNat @k) (stensorKind @y2) ->
+        let var2 :: AstVarName s1 (BuildTensorKind k y2)
+            var2 = mkAstVarName (varNameToAstVarId var1)
+            projection :: AstTensor s1 y2
+            projection = case stensorKind @y2 of
+              STKR{} ->
+                let sh = shapeAst u
+                in Ast.AstIndex (Ast.AstVar (FTKR $ k :$: sh) var2)
+                                (Ast.AstIntVar var :.: ZIR)
+              STKS @r1 @sh1 _ _ ->
+                Ast.AstIndexS (Ast.AstVar @(TKS r1 (k ': sh1)) FTKS var2)
+                              (Ast.AstIntVar var :.$ ZIS)
+              STKProduct{} -> error "TODO"
+            v2 = substituteAst (SubstitutionPayload @s1 projection) var1 v
+        in astLet var2 (build1VOccurenceUnknown snat (var, u))
+                       (build1VOccurenceUnknownRefresh snat (var, v2))
+             -- ensures no duplicated bindings, see below
     Ast.AstShare{} -> error "build1V: AstShare"
 
     Ast.AstMinIndex v -> Ast.AstMinIndex $ build1V snat (var, v)
@@ -302,12 +313,23 @@ build1V snat@SNat (var, v00) =
       astRFromS @(k ': sh1) $ build1V snat (var, v)
 
     Ast.AstLetTupleInS var1 var2 p v -> undefined  -- TODO: doable, but complex
-    Ast.AstLetS @_ @_ @y2 var1 u v | STKS{} <- stensorKind @y2 ->
-      let var2 = mkAstVarName (varNameToAstVarId var1)
-          v2 = substProjShaped @k var var1 v
-      in astLetS var2 (build1VOccurenceUnknown snat (var, u))
-                      (build1VOccurenceUnknownRefresh snat (var, v2))
-    Ast.AstLetS{} -> error "TODO"
+    Ast.AstLetS @_ @_ @y2 @s1 var1 u v
+      | Dict <- lemTensorKindOfBuild (SNat @k) (stensorKind @y2) ->
+        let var2 :: AstVarName s1 (BuildTensorKind k y2)
+            var2 = mkAstVarName (varNameToAstVarId var1)
+            projection :: AstTensor s1 y2
+            projection = case stensorKind @y2 of
+              STKR{} ->
+                let sh = shapeAst u
+                in Ast.AstIndex (Ast.AstVar (FTKR $ k :$: sh) var2)
+                                (Ast.AstIntVar var :.: ZIR)
+              STKS @r1 @sh1 _ _ ->
+                Ast.AstIndexS (Ast.AstVar @(TKS r1 (k ': sh1)) FTKS var2)
+                              (Ast.AstIntVar var :.$ ZIS)
+              STKProduct{} -> error "TODO"
+            v2 = substituteAst (SubstitutionPayload @s1 projection) var1 v
+        in astLetS var2 (build1VOccurenceUnknown snat (var, u))
+                        (build1VOccurenceUnknownRefresh snat (var, v2))
     Ast.AstShareS{} -> error "build1V: AstShareS"
 
     Ast.AstMinIndexS v -> Ast.AstMinIndexS $ build1V snat (var, v)

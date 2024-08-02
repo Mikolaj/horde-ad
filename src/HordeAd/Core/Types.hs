@@ -16,7 +16,7 @@ module HordeAd.Core.Types
   , TensorKindType (..), STensorKindType(..), TensorKind(..)
   , sameTensorKind, TensorKindFull(..)
   , InterpretationTarget, mapInterpretationTarget, mapInterpretationTarget2
-  , BuildTensorKind
+  , BuildTensorKind, lemTensorKindOfBuild
     -- * Some fundamental constraints
   , GoodScalar, HasSingletonDict, Differentiable, IfDifferentiable(..)
     -- * Type families that tensors will belong to
@@ -241,6 +241,14 @@ type family BuildTensorKind k tks where
   BuildTensorKind k (TKS r sh) = TKS r (k : sh)
   BuildTensorKind k (TKProduct y z) =
     TKProduct (BuildTensorKind k y) (BuildTensorKind k z)
+
+lemTensorKindOfBuild :: SNat k -> STensorKindType y
+                     -> Dict TensorKind (BuildTensorKind k y)
+lemTensorKindOfBuild snat@SNat stk = case stk of
+  STKR{} -> Dict
+  STKS{} -> Dict
+  STKProduct stk1 stk2 | Dict <- lemTensorKindOfBuild snat stk1
+                       , Dict <- lemTensorKindOfBuild snat stk2 -> Dict
 
 
 -- * Some fundamental constraints
