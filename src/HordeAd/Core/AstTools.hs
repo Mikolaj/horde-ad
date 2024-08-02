@@ -326,11 +326,10 @@ astIsSmall relaxed = \case
 
 -- * Odds and ends
 
-astReplicate0N :: forall n s r. (AstSpan s, GoodScalar r, KnownNat n)
+astReplicate0N :: forall n s r. (AstSpan s, GoodScalar r)
                => IShR n -> r -> AstTensor s (TKR r n)
 astReplicate0N sh =
-  let go :: KnownNat n'
-         => IShR n' -> AstTensor s (TKR r 0) -> AstTensor s (TKR r n')
+  let go :: IShR n' -> AstTensor s (TKR r 0) -> AstTensor s (TKR r n')
       go ZSR v = v
       go (k :$: sh') v | Dict <- knownShR sh' = withSNat k $ \snat ->
         AstReplicate snat $ go sh' v

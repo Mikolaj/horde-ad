@@ -259,7 +259,7 @@ data AstTensor :: AstSpanType -> TensorKindType -> Type where
        -> AstTensor FullSpan y
   AstCond :: TensorKind y
           => AstBool -> AstTensor s y -> AstTensor s y -> AstTensor s y
-  AstReplicate :: (TensorKind y, TensorKind (BuildTensorKind k y))
+  AstReplicate :: TensorKind y
                => SNat k -> AstTensor s y -> AstTensor s (BuildTensorKind k y)
   AstBuild1 :: TensorKind y
             => SNat k -> (IntVarName, AstTensor s y)

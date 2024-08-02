@@ -1522,16 +1522,16 @@ astFromVectorS l | Just Refl <- sameAstSpan @s @FullSpan =
     Nothing -> Ast.AstFromVectorS l
 astFromVectorS l = Ast.AstFromVectorS l
 
-astReplicate :: forall k y s.
-                (TensorKind y, TensorKind (BuildTensorKind k y), AstSpan s)
+astReplicate :: forall k y s. (TensorKind y, AstSpan s)
              => SNat k -> AstTensor s y -> AstTensor s (BuildTensorKind k y)
-astReplicate k@SNat = \case
+astReplicate snat@SNat
+ | Dict <- lemTensorKindOfBuild snat (stensorKind @y) = \case
 {- TODO: these may be counterproductive with many gathers and their fusion
          though these let transpose cancel out with each other sometimes
          (instead we should try to cancel out inside replicate and only move
           if they don't) -}
   Ast.AstTranspose perm v ->
-    astTranspose (0 : map succ perm) $ astReplicate k v
+    astTranspose (0 : map succ perm) $ astReplicate snat v
 {- see the previous comment
   Ast.AstReshape sh v ->
     AstReshape (k :$: sh) $ astReplicate k v
@@ -1540,7 +1540,7 @@ astReplicate k@SNat = \case
 -- a projection reduces this away. The cost to AD should not be too high.
 -- This would also hide AstReplicate from hacks that recover tmatmul2, etc.
 --  AstConst t -> AstConst $ treplicateR k t
-  Ast.AstConstant v -> Ast.AstConstant $ astReplicate k v
+  Ast.AstConstant v -> Ast.AstConstant $ astReplicate snat v
 
   Ast.AstTransposeS @perm @sh1 perm v -> case stensorKind @y of
     STKS @_ @sh _ _ ->
@@ -1551,16 +1551,15 @@ astReplicate k@SNat = \case
                    :: Permutation.PermutePrefix (0 : Permutation.MapSucc perm) (k : sh1) :~: k : sh) $
         gcastWith (unsafeCoerce Refl :: X.Rank (0 : Permutation.MapSucc perm) :~: 1 + X.Rank perm) $
         trustMeThisIsAPermutation @(0 : Permutation.MapSucc perm) $
-        astTransposeS zsuccPerm $ astReplicate k v
-  v -> Ast.AstReplicate k v
+        astTransposeS zsuccPerm $ astReplicate snat v
+  v -> Ast.AstReplicate snat v
 
 astReplicateN :: forall n p s r.
                  (KnownNat n, KnownNat p, GoodScalar r, AstSpan s)
               => IShR (n + p) -> AstTensor s (TKR r p)
               -> AstTensor s (TKR r (n + p))
 astReplicateN sh v =
-  let go :: KnownNat n'
-         => IShR n' -> AstTensor s (TKR r (n' + p))
+  let go :: IShR n' -> AstTensor s (TKR r (n' + p))
       go ZSR = v
       go (k :$: sh2) | Dict <- knownShR sh2 = withSNat k $ \snat ->
         astReplicate snat $ go sh2
@@ -1578,7 +1577,7 @@ astReplicateNS v =
           astReplicate (SNat @k) $ go shn2
   in go (knownShS @shn)
 
-astReplicate0N :: forall n s r. (GoodScalar r, AstSpan s, KnownNat n)
+astReplicate0N :: forall n s r. (GoodScalar r, AstSpan s)
                => IShR n -> r -> AstTensor s (TKR r n)
 astReplicate0N sh = astReplicate0NT sh . fromPrimal . AstConst . Nested.rscalar
 
@@ -1590,11 +1589,10 @@ astReplicate0NS =
       go ((:$$) SNat sh') v | Dict <- sshapeKnown sh' = astReplicate SNat $ go sh' v
   in go (knownShS @shn) . fromPrimal . AstConstS . Nested.sscalar
 
-astReplicate0NT :: forall n s r. (GoodScalar r, AstSpan s, KnownNat n)
+astReplicate0NT :: forall n s r. (GoodScalar r, AstSpan s)
                 => IShR n -> AstTensor s (TKR r 0) -> AstTensor s (TKR r n)
 astReplicate0NT sh =
-  let go :: KnownNat n'
-         => IShR n' -> AstTensor s (TKR r 0) -> AstTensor s (TKR r n')
+  let go :: IShR n' -> AstTensor s (TKR r 0) -> AstTensor s (TKR r n')
       go ZSR v = v
       go (k :$: sh') v | Dict <- knownShR sh' = withSNat k $ \snat ->
         astReplicate snat $ go sh' v

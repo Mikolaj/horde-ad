@@ -60,12 +60,13 @@ astTr = astTranspose [1, 0]
 -- If no @AstBuild1@ terms occur in @v@, the resulting term won't
 -- have any, either.
 build1Vectorize
-  :: forall k y s. (AstSpan s, TensorKind y, TensorKind (BuildTensorKind k y))
+  :: forall k y s. (AstSpan s, TensorKind y)
   => SNat k -> (IntVarName, AstTensor s y) -> AstTensor s (BuildTensorKind k y)
 {-# NOINLINE build1Vectorize #-}
 build1Vectorize snat@SNat (var, v0) = unsafePerformIO $ do
   enabled <- readIORef traceRuleEnabledRef
-  let stk = stensorKind @(BuildTensorKind k y)
+  let stk | Dict <- lemTensorKindOfBuild snat (stensorKind @y) =
+        stensorKind @(BuildTensorKind k y)
       width = 1000 * traceWidth
       startTerm = Ast.AstBuild1 snat (var, v0)
       renames = IM.fromList [(1, ""), (2, "")]
@@ -93,14 +94,15 @@ build1Vectorize snat@SNat (var, v0) = unsafePerformIO $ do
 -- the term @AstBuild1 k (var, v)@, where it's unknown whether
 -- @var@ occurs in @v@.
 build1VOccurenceUnknown
-  :: (AstSpan s, TensorKind y, TensorKind (BuildTensorKind k y))
+  :: forall k y s. (AstSpan s, TensorKind y)
   => SNat k -> (IntVarName, AstTensor s y) -> AstTensor s (BuildTensorKind k y)
-build1VOccurenceUnknown snat@SNat (var, v0) =
-  let traceRule = mkTraceRule "build1VOcc" (Ast.AstBuild1 snat (var, v0)) v0 1
-  in if varNameInAst var v0
-     then build1V snat (var, v0)
-     else traceRule $
-       astReplicate snat v0
+build1VOccurenceUnknown snat@SNat (var, v0)
+  | Dict <- lemTensorKindOfBuild snat (stensorKind @y) =
+    let traceRule = mkTraceRule "build1VOcc" (Ast.AstBuild1 snat (var, v0)) v0 1
+    in if varNameInAst var v0
+       then build1V snat (var, v0)
+       else traceRule $
+         astReplicate snat v0
 
 -- This is used to avoid biding the same variable twice in the code,
 -- (unless in very safe situations, e.g., different branches
@@ -108,7 +110,7 @@ build1VOccurenceUnknown snat@SNat (var, v0) =
 -- and break our invariants that we need for simplified handling of bindings
 -- when rewriting terms.
 build1VOccurenceUnknownRefresh
-  :: (AstSpan s, TensorKind y, TensorKind (BuildTensorKind k y))
+  :: (AstSpan s, TensorKind y)
   => SNat k -> (IntVarName, AstTensor s y) -> AstTensor s (BuildTensorKind k y)
 {-# NOINLINE build1VOccurenceUnknownRefresh #-}
 build1VOccurenceUnknownRefresh snat@SNat (var, v0) =
@@ -131,7 +133,7 @@ intBindingRefresh var ix =
 -- the term @AstBuild1 k (var, v)@, where it's known that
 -- @var@ occurs in @v@.
 build1V
-  :: forall k s y. (AstSpan s, TensorKind y, TensorKind (BuildTensorKind k y))
+  :: forall k s y. (AstSpan s, TensorKind y)
   => SNat k -> (IntVarName, AstTensor s y) -> AstTensor s (BuildTensorKind k y)
 build1V snat@SNat (var, v00) =
   let k = sNatValue snat
@@ -141,7 +143,8 @@ build1V snat@SNat (var, v00) =
         -- get uncovered and so the simplification requires only constant
         -- look-ahead, but has a guaranteed net benefit).
       bv = Ast.AstBuild1 snat (var, v0)
-      traceRule = mkTraceRule "build1V" bv v0 1
+      traceRule | Dict <- lemTensorKindOfBuild snat (stensorKind @y) =
+        mkTraceRule "build1V" bv v0 1
   in case v0 of
     Ast.AstTuple{} -> error "TODO"
 
@@ -155,11 +158,13 @@ build1V snat@SNat (var, v00) =
       astPrimalPart $ build1V snat (var, v)
     Ast.AstDualPart v -> traceRule $
       astDualPart $ build1V snat (var, v)
-    Ast.AstConstant v -> traceRule $
-      Ast.AstConstant $ build1V snat (var, v)
-    Ast.AstD u u' -> traceRule $
-      Ast.AstD (build1VOccurenceUnknown snat (var, u))
-               (build1VOccurenceUnknown snat (var, u'))
+    Ast.AstConstant v | Dict <- lemTensorKindOfBuild snat (stensorKind @y) ->
+      traceRule $
+        Ast.AstConstant $ build1V snat (var, v)
+    Ast.AstD u u' | Dict <- lemTensorKindOfBuild snat (stensorKind @y) ->
+      traceRule $
+        Ast.AstD (build1VOccurenceUnknown snat (var, u))
+                 (build1VOccurenceUnknown snat (var, u'))
     Ast.AstCond b (Ast.AstConstant v)
                   (Ast.AstConstant w) -> case stensorKind @y of
       STKR{} ->
