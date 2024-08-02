@@ -1,6 +1,7 @@
 {-# LANGUAGE AllowAmbiguousTypes, ImpredicativeTypes, UndecidableInstances,
              UndecidableSuperClasses #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
+{-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Some fundamental type families and types.
 module HordeAd.Core.Types
   ( -- * Definitions to help express and manipulate type-level natural numbers
@@ -16,7 +17,7 @@ module HordeAd.Core.Types
   , TensorKindType (..), STensorKindType(..), TensorKind(..)
   , sameTensorKind, TensorKindFull(..)
   , InterpretationTarget, mapInterpretationTarget, mapInterpretationTarget2
-  , BuildTensorKind, lemTensorKindOfBuild
+  , BuildTensorKind, buildTensorKindFull, lemTensorKindOfBuild
     -- * Some fundamental constraints
   , GoodScalar, HasSingletonDict, Differentiable, IfDifferentiable(..)
     -- * Type families that tensors will belong to
@@ -188,7 +189,7 @@ sameTensorKind = sameTK (stensorKind @y1) (stensorKind @y2)
 -- TODO: the constraints should not be necessary
 type role TensorKindFull nominal
 data TensorKindFull y where
-  FTKR :: GoodScalar r => ShR n Int -> TensorKindFull (TKR r n)
+  FTKR :: (GoodScalar r, KnownNat n) => ShR n Int -> TensorKindFull (TKR r n)
   FTKS :: (GoodScalar r, KnownShS sh) => TensorKindFull (TKS r sh)
   FTKProduct :: TensorKindFull y -> TensorKindFull z
              -> TensorKindFull (TKProduct y z)
@@ -241,6 +242,14 @@ type family BuildTensorKind k tks where
   BuildTensorKind k (TKS r sh) = TKS r (k : sh)
   BuildTensorKind k (TKProduct y z) =
     TKProduct (BuildTensorKind k y) (BuildTensorKind k z)
+
+buildTensorKindFull :: SNat k -> TensorKindFull y
+                    -> TensorKindFull (BuildTensorKind k y)
+buildTensorKindFull snat@SNat = \case
+  FTKR sh -> FTKR $ sNatValue snat :$: sh
+  FTKS -> FTKS
+  FTKProduct ftk1 ftk2 -> FTKProduct (buildTensorKindFull snat ftk1)
+                                     (buildTensorKindFull snat ftk2)
 
 lemTensorKindOfBuild :: SNat k -> STensorKindType y
                      -> Dict TensorKind (BuildTensorKind k y)
