@@ -215,9 +215,9 @@ type family InterpretationTarget ranked y where
 mapInterpretationTarget
   :: forall f g y.
      (forall r n. (GoodScalar r, KnownNat n)
-      => f r n -> g r n)
+      => InterpretationTarget f (TKR r n) -> InterpretationTarget g (TKR r n))
   -> (forall r sh. (GoodScalar r, KnownShS sh)
-      => ShapedOf f r sh -> ShapedOf g r sh)
+      => InterpretationTarget f (TKS r sh) -> InterpretationTarget g (TKS r sh))
   -> STensorKindType y
   -> InterpretationTarget f y
   -> InterpretationTarget g y
@@ -232,9 +232,11 @@ mapInterpretationTarget fr fs stk b = case stk of
 mapInterpretationTarget2
   :: forall f1 f2 g y.
      (forall r n. (GoodScalar r, KnownNat n)
-      => f1 r n -> f2 r n -> g r n)
+      => InterpretationTarget f1 (TKR r n) -> InterpretationTarget f2 (TKR r n)
+      -> InterpretationTarget g (TKR r n))
   -> (forall r sh. (GoodScalar r, KnownShS sh)
-      => ShapedOf f1 r sh -> ShapedOf f2 r sh -> ShapedOf g r sh)
+      => InterpretationTarget f1 (TKS r sh) -> InterpretationTarget f2 (TKS r sh)
+      -> InterpretationTarget g (TKS r sh))
   -> STensorKindType y
   -> InterpretationTarget f1 y -> InterpretationTarget f2 y
   -> InterpretationTarget g y
