@@ -645,6 +645,8 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     -> AstHVector s
   dmapAccumLDer _ !k !accShs !bShs !eShs = AstMapAccumLDer k accShs bShs eShs
 
+instance ProductTensor (AstRanked s) where
+
 astLetHVectorInHVectorFun
   :: AstSpan s
   => AstHVector s -> (HVector (AstRanked s) -> AstHVector s)
@@ -1169,6 +1171,8 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
     $ AstMapAccumLDer k accShs bShs eShs f df rf (unAstRawWrap acc0)
                                                  (unAstRawWrap es)
 
+instance ProductTensor (AstRaw s) where
+
 noVectorizeY :: forall y s.
            STensorKindType y -> AstTensor s y
         -> InterpretationTarget (AstNoVectorize s) y
@@ -1348,6 +1352,8 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
     $ dmapAccumLDer (Proxy @(AstRanked s))
                     k accShs bShs eShs f df rf (unAstNoVectorizeWrap acc0)
                                                (unAstNoVectorizeWrap es)
+
+instance ProductTensor (AstNoVectorize s) where
 
 unNoVectorizeHVector :: HVector (AstNoVectorize s) -> HVector (AstRanked s)
 unNoVectorizeHVector =
@@ -1552,6 +1558,8 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
     AstNoSimplifyWrap
     $ AstMapAccumLDer k accShs bShs eShs f df rf (unAstNoSimplifyWrap acc0)
                                                  (unAstNoSimplifyWrap es)
+
+instance ProductTensor (AstNoSimplify s) where
 
 unNoSimplifyHVector :: HVector (AstNoSimplify s) -> HVector (AstRanked s)
 unNoSimplifyHVector =

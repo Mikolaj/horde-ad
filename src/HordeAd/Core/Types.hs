@@ -16,7 +16,7 @@ module HordeAd.Core.Types
   , TensorType, RankedTensorType, ShapedTensorType
   , TensorKindType (..), STensorKindType(..), TensorKind(..)
   , lemTensorKindOfS, sameTensorKind, TensorKindFull(..)
-  , InterpretationTarget, mapInterpretationTarget, mapInterpretationTarget2
+  , InterpretationTarget
   , BuildTensorKind, buildTensorKindFull, lemTensorKindOfBuild
     -- * Some fundamental constraints
   , GoodScalar, HasSingletonDict, Differentiable, IfDifferentiable(..)
@@ -211,42 +211,6 @@ type family InterpretationTarget ranked y = result | result -> ranked y where
   InterpretationTarget ranked (TKS r sh) = ShapedOf ranked r sh
   InterpretationTarget ranked (TKProduct y z) =
     (InterpretationTarget ranked y, InterpretationTarget ranked z)
-
-mapInterpretationTarget
-  :: forall f g y.
-     (forall r n. (GoodScalar r, KnownNat n)
-      => InterpretationTarget f (TKR r n) -> InterpretationTarget g (TKR r n))
-  -> (forall r sh. (GoodScalar r, KnownShS sh)
-      => InterpretationTarget f (TKS r sh) -> InterpretationTarget g (TKS r sh))
-  -> STensorKindType y
-  -> InterpretationTarget f y
-  -> InterpretationTarget g y
-mapInterpretationTarget fr fs stk b = case stk of
-  STKR{} -> fr b
-  STKS{} -> fs b
-  STKProduct stk1 stk2 ->
-    let !t1 = mapInterpretationTarget fr fs stk1 $ fst b
-        !t2 = mapInterpretationTarget fr fs stk2 $ snd b
-    in (t1, t2)
-
-mapInterpretationTarget2
-  :: forall f1 f2 g y.
-     (forall r n. (GoodScalar r, KnownNat n)
-      => InterpretationTarget f1 (TKR r n) -> InterpretationTarget f2 (TKR r n)
-      -> InterpretationTarget g (TKR r n))
-  -> (forall r sh. (GoodScalar r, KnownShS sh)
-      => InterpretationTarget f1 (TKS r sh) -> InterpretationTarget f2 (TKS r sh)
-      -> InterpretationTarget g (TKS r sh))
-  -> STensorKindType y
-  -> InterpretationTarget f1 y -> InterpretationTarget f2 y
-  -> InterpretationTarget g y
-mapInterpretationTarget2 fr fs stk b1 b2 = case stk of
-  STKR{} -> fr b1 b2
-  STKS{} -> fs b1 b2
-  STKProduct stk1 stk2 ->
-    let !t1 = mapInterpretationTarget2 fr fs stk1 (fst b1) (fst b2)
-        !t2 = mapInterpretationTarget2 fr fs stk2 (snd b1) (snd b2)
-    in (t1, t2)
 
 type family BuildTensorKind k tks where
   BuildTensorKind k (TKR r n) = TKR r (1 + n)

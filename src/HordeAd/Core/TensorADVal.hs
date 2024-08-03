@@ -615,6 +615,8 @@ instance ADReadyBoth ranked shaped
         dual = wrapDeltaH $ MapAccumL k accShs bShs eShs q (dunHVector es) df rf acc0' es'
     in ahhToHVector primal dual
 
+instance ProductTensor (ADVal ranked) where
+
 ahhToHVector
   :: forall ranked. RankedOf (ShapedOf ranked) ~ ranked
   => HVector ranked -> DeltaH ranked -> HVector (ADVal ranked)

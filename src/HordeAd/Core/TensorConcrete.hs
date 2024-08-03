@@ -147,6 +147,8 @@ type instance PrimalOf OSArray = OSArray
 
 type instance DualOf OSArray = DummyDual
 
+instance ProductTensor DummyDual where
+
 instance ShapedTensor OSArray where
   sletTKIn _ a f = f a
   sminIndex = FlipS . tminIndexS . runFlipS
@@ -281,6 +283,8 @@ instance HVectorTensor ORArray OSArray where
     oRdmapAccumL k accShs bShs _eShs f acc0 es
   dmapAccumLDer _ k accShs bShs eShs f _df _rf acc0 es =
     oRdmapAccumL k accShs bShs eShs (\ !a !b -> f [a, b]) acc0 es
+
+instance ProductTensor ORArray where
 
 oRdmapAccumR
   :: SNat k

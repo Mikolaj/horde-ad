@@ -426,6 +426,8 @@ type instance ShapedOf (DeltaR ranked) = DeltaS (ShapedOf ranked)
 
 type instance HVectorOf (DeltaR ranked) = DeltaH ranked
 
+instance ProductTensor (DeltaR ranked) where
+
 shapeDeltaR :: forall ranked r n.
                ( GoodScalar r, KnownNat n
                , RankedTensor ranked, ShapedTensor (ShapedOf ranked) )

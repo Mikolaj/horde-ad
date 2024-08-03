@@ -12,9 +12,11 @@ module HordeAd.Core.TensorClass
   ( -- * Re-exports
     IShR, ShapeS
     -- * The tensor classes
-  , RankedTensor(..), ShapedTensor(..), HVectorTensor(..), HFun(..)
+  , RankedTensor(..), ShapedTensor(..), HVectorTensor(..), ProductTensor(..)
+  , HFun(..)
   , rfromD, sfromD, rscalar, rrepl, ringestData, ringestData1
   , ingestData, sscalar, srepl
+  , mapInterpretationTarget, mapInterpretationTarget2
     -- * The giga-constraint
   , ADReady, ADReadyBoth, ADReadyR, ADReadyS
   ) where
@@ -733,15 +735,6 @@ class ( Num (IntOf shaped), IntegralF (IntOf shaped), CShaped shaped Num
 class HVectorTensor (ranked :: RankedTensorType)
                     (shaped :: ShapedTensorType)
                     | ranked -> shaped, shaped -> ranked where
-  ttuple :: InterpretationTarget ranked x -> InterpretationTarget ranked z
-         -> InterpretationTarget ranked (TKProduct x z)
-  ttuple u v = (u, v)
-  tproject1 :: InterpretationTarget ranked (TKProduct x z)
-            -> InterpretationTarget ranked x
-  tproject1 = fst
-  tproject2 :: InterpretationTarget ranked (TKProduct x z)
-            -> InterpretationTarget ranked z
-  tproject2 = snd
   dshape :: HVectorOf ranked -> VoidHVector
   dmkHVector :: HVector ranked -> HVectorOf ranked
   dlambda :: [VoidHVector] -> HFun -> HFunOf ranked
@@ -1105,6 +1098,17 @@ class HVectorTensor (ranked :: RankedTensorType)
     -> HVectorOf ranked
     -> HVectorOf ranked
 
+class ProductTensor (ranked :: RankedTensorType) where
+  ttuple :: InterpretationTarget ranked x -> InterpretationTarget ranked z
+         -> InterpretationTarget ranked (TKProduct x z)
+  ttuple u v = (u, v)
+  tproject1 :: InterpretationTarget ranked (TKProduct x z)
+            -> InterpretationTarget ranked x
+  tproject1 = fst
+  tproject2 :: InterpretationTarget ranked (TKProduct x z)
+            -> InterpretationTarget ranked z
+  tproject2 = snd
+
 rfromD :: forall r n ranked.
           (RankedTensor ranked, GoodScalar r, KnownNat n)
        => DynamicTensor ranked -> ranked r n
@@ -1195,6 +1199,42 @@ srepl =
   -- though we could also look at the low level in @isSmall@ and mark
   -- replicated constants as small
 
+mapInterpretationTarget
+  :: forall f g y. (ProductTensor f, ProductTensor g)
+  => (forall r n. (GoodScalar r, KnownNat n)
+      => InterpretationTarget f (TKR r n) -> InterpretationTarget g (TKR r n))
+  -> (forall r sh. (GoodScalar r, KnownShS sh)
+      => InterpretationTarget f (TKS r sh) -> InterpretationTarget g (TKS r sh))
+  -> STensorKindType y
+  -> InterpretationTarget f y
+  -> InterpretationTarget g y
+mapInterpretationTarget fr fs stk b = case stk of
+  STKR{} -> fr b
+  STKS{} -> fs b
+  STKProduct stk1 stk2 ->
+    let !t1 = mapInterpretationTarget fr fs stk1 $ tproject1 b
+        !t2 = mapInterpretationTarget fr fs stk2 $ tproject2 b
+    in ttuple t1 t2
+
+mapInterpretationTarget2
+  :: forall f1 f2 g y. (ProductTensor f1, ProductTensor f2, ProductTensor g)
+  => (forall r n. (GoodScalar r, KnownNat n)
+      => InterpretationTarget f1 (TKR r n) -> InterpretationTarget f2 (TKR r n)
+      -> InterpretationTarget g (TKR r n))
+  -> (forall r sh. (GoodScalar r, KnownShS sh)
+      => InterpretationTarget f1 (TKS r sh) -> InterpretationTarget f2 (TKS r sh)
+      -> InterpretationTarget g (TKS r sh))
+  -> STensorKindType y
+  -> InterpretationTarget f1 y -> InterpretationTarget f2 y
+  -> InterpretationTarget g y
+mapInterpretationTarget2 fr fs stk b1 b2 = case stk of
+  STKR{} -> fr b1 b2
+  STKS{} -> fs b1 b2
+  STKProduct stk1 stk2 ->
+    let !t1 = mapInterpretationTarget2 fr fs stk1 (tproject1 b1) (tproject1 b2)
+        !t2 = mapInterpretationTarget2 fr fs stk2 (tproject2 b1) (tproject2 b2)
+    in ttuple t1 t2
+
 newtype HFun =
   HFun {unHFun :: forall f. ADReady f => [HVector f] -> HVectorOf f}
 
@@ -1236,6 +1276,8 @@ type ADReadyBoth ranked shaped =
   , ShapedTensor shaped, ShapedTensor (PrimalOf shaped)
   , HVectorTensor ranked shaped
   , HVectorTensor (PrimalOf ranked) (PrimalOf shaped)
+  , ProductTensor ranked
+  , ProductTensor (PrimalOf ranked), ProductTensor (DualOf ranked)
   , CRanked ranked Show, CRanked (PrimalOf ranked) Show
   , CShaped shaped Show, CShaped (PrimalOf shaped) Show
   , Show (HFunOf ranked)
