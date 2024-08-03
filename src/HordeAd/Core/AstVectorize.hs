@@ -151,7 +151,7 @@ build1V snat@SNat (var, v00) =
       , Dict <- lemTensorKindOfBuild snat (stensorKind @z) ->
         Ast.AstTuple (build1VOccurenceUnknown snat (var, t1))
                      (build1VOccurenceUnknown snat (var, t2))
-    Ast.AstProject1 @z t
+    Ast.AstProject1 @_ @z t
       | Dict <- lemTensorKindOfBuild snat (stensorKind @z) ->
         Ast.AstProject1 (build1V snat (var, t))
     Ast.AstProject2 @x t

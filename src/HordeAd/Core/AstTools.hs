@@ -50,7 +50,7 @@ shapeAstFull stk t = case stk of
     AstTuple t1 t2 | Dict <- lemTensorKindOfS stk1
                    , Dict <- lemTensorKindOfS stk2 ->
       FTKProduct (shapeAstFull stk1 t1) (shapeAstFull stk2 t2)
-    AstProject1 @z v ->
+    AstProject1 @_ @z v ->
       case shapeAstFull (STKProduct stk (stensorKind @z))
                         v of
         FTKProduct ftk _ -> ftk
@@ -79,7 +79,7 @@ shapeAst :: forall n s r. (KnownNat n, GoodScalar r)
          => AstTensor s (TKR r n) -> IShR n
 shapeAst = \case
   AstLetTupleIn _var1 _var2 _p v -> shapeAst v
-  AstProject1 @z t ->
+  AstProject1 @_ @z t ->
     case shapeAstFull (STKProduct (STKR (typeRep @r) (SNat @n))
                                   (stensorKind @z))
                       t of

@@ -733,6 +733,15 @@ class ( Num (IntOf shaped), IntegralF (IntOf shaped), CShaped shaped Num
 class HVectorTensor (ranked :: RankedTensorType)
                     (shaped :: ShapedTensorType)
                     | ranked -> shaped, shaped -> ranked where
+  ttuple :: InterpretationTarget ranked x -> InterpretationTarget ranked z
+         -> InterpretationTarget ranked (TKProduct x z)
+  ttuple u v = (u, v)
+  tproject1 :: InterpretationTarget ranked (TKProduct x z)
+            -> InterpretationTarget ranked x
+  tproject1 = fst
+  tproject2 :: InterpretationTarget ranked (TKProduct x z)
+            -> InterpretationTarget ranked z
+  tproject2 = snd
   dshape :: HVectorOf ranked -> VoidHVector
   dmkHVector :: HVector ranked -> HVectorOf ranked
   dlambda :: [VoidHVector] -> HFun -> HFunOf ranked
