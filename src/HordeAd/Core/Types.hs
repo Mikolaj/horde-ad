@@ -206,7 +206,7 @@ data TensorKindFull y where
 deriving instance Show (TensorKindFull y)
 deriving instance Eq (TensorKindFull y)
 
-type family InterpretationTarget ranked y where
+type family InterpretationTarget ranked y = result | result -> ranked y where
   InterpretationTarget ranked (TKR r n) = ranked r n
   InterpretationTarget ranked (TKS r sh) = ShapedOf ranked r sh
   InterpretationTarget ranked (TKProduct y z) =
@@ -320,7 +320,8 @@ type IntOf (f :: TensorType ty) = RankedOf (PrimalOf f) Int64 0
 -- ty is intended to be Nat or [Nat] (or nothing, if we support scalars)
 type family RankedOf (f :: TensorType ty) :: RankedTensorType
 
-type family ShapedOf (f :: RankedTensorType) :: ShapedTensorType
+type family ShapedOf (f :: RankedTensorType) = (result :: ShapedTensorType)
+  | result -> f
 
 type HVectorOf :: RankedTensorType -> Type
 type family HVectorOf f = result | result -> f
