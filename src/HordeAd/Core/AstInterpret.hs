@@ -179,7 +179,7 @@ interpretAst !env = \case
       in sletTKIn (stensorKind @z1) t1 $ \w1 ->
            sletTKIn (stensorKind @z2) t2 $ \w2 ->
              interpretAst (env2 w1 w2) v
-    STKProduct{} -> error "TODO"
+    STKProduct{} -> error "WIP"
 
   AstVar @y2 _sh var ->
    let var2 = mkAstVarName @FullSpan @y2 (varNameToAstVarId var)  -- TODO
@@ -241,10 +241,16 @@ interpretAst !env = \case
          (ifF c) (ifF c)
          (stensorKind @y2)
          (interpretAst env a1) (interpretAst env a2)
-  AstReplicate @y2 k@SNat v -> case stensorKind @y2 of
-    STKR{} -> rreplicate (sNatValue k) (interpretAst env v)
-    STKS{} -> sreplicate (interpretAst env v)
-    STKProduct{} -> error "TODO"
+  AstReplicate @y2 k@(SNat @k) v ->
+    let replStk :: STensorKindType z -> InterpretationTarget ranked z
+                -> InterpretationTarget ranked (BuildTensorKind k z)
+        replStk stk u = case stk of
+          STKR{} -> rreplicate (sNatValue k) u
+          STKS{} -> sreplicate u
+          STKProduct stk1 stk2 ->
+            let (t1, t2) = u
+            in (replStk stk1 t1, replStk stk2 t2)
+    in replStk (stensorKind @y2) (interpretAst env v)
   -- These are only needed for tests that don't vectorize Ast.
   AstBuild1 @y2
             snat (var, AstSum (AstN2 TimesOp t (AstIndex
@@ -270,10 +276,14 @@ interpretAst !env = \case
             t2 = interpretAst env u
         in rmatvecmul t2 t1
   AstBuild1 @y2 (SNat @n) (_, v)
-    | Just Refl <- sameNat (Proxy @n) (Proxy @0) -> case stensorKind @y2 of
-      STKR{} -> rfromList0N (0 :$: shapeAst v) []
-      STKS{} -> sfromList0N []
-      STKProduct{} -> error "TODO"
+    | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
+      let emptyFromStk :: TensorKindFull z
+                       -> InterpretationTarget ranked (BuildTensorKind n z)
+          emptyFromStk ftk = case ftk of
+            FTKR sh -> rfromList0N (0 :$: sh) []
+            FTKS{} -> sfromList0N []
+            FTKProduct ftk1 ftk2 -> (emptyFromStk ftk1, emptyFromStk ftk2)
+      in emptyFromStk (shapeAstFull (stensorKind @y2) v)
   -- The following can't be, in general, so partially evaluated, because v
   -- may contain variables that the evironment sends to terms,
   -- not to concrete numbers (and so Primal a is not equal to a).
@@ -283,14 +293,19 @@ interpretAst !env = \case
   --   tconst
   --   $ OR.ravel . ORB.fromVector [k] . V.generate k
   --   $ interpretLambdaI interpretAstPrimal env (var, v)
-  --
-  -- To be used only in tests:
-  AstBuild1 @y2 snat@SNat (var, v) -> case stensorKind @y2 of
-    STKR{} -> rbuild1 (sNatValue snat)
-                      (interpretLambdaI interpretAst env (var, v))
-    STKS{} -> sbuild1 (interpretLambdaIS interpretAst env (var, v))
-    STKProduct{} -> error "TODO"
-
+  AstBuild1 @y2 snat@(SNat @n) (var, v) ->
+    let f i = interpretAst (extendEnvI var i env) v
+        replStk :: STensorKindType z
+                -> (IntOf ranked -> InterpretationTarget ranked z)
+                -> InterpretationTarget ranked (BuildTensorKind n z)
+        replStk stk g = case stk of
+          STKR{} -> rbuild1 (sNatValue snat) g
+          STKS{} -> sbuild1 g
+          STKProduct stk1 stk2 ->
+            let f1 i = fst $ g i  -- looks expensive, but hard to do better,
+                f2 i = snd $ g i  -- so let's hope v is full of variables
+            in (replStk stk1 f1, replStk stk2 f2)
+    in replStk (stensorKind @y2) f
   AstLet @_ @_ @y2 var u v -> case stensorKind @y2 of
     stk@STKR{} ->
       -- We assume there are no nested lets with the same variable.

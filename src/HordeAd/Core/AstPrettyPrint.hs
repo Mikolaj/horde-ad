@@ -292,7 +292,7 @@ printAstAux cfg d = \case
     STKR{} -> printPrefixOp printAst cfg d
                             ("rreplicate " ++ show (sNatValue snat)) [v]
     STKS{} -> printPrefixOp printAst cfg d "sreplicate" [v]
-    STKProduct{} -> error "TODO"
+    STKProduct{} -> error "WIP"
   AstBuild1 @y2 k (var, v) -> case stensorKind @y2 of
    STKR{} ->
     showParen (d > 10)
@@ -312,7 +312,7 @@ printAstAux cfg d = \case
            . printAstIntVar cfg var
            . showString " -> "
            . printAst cfg 0 v)
-   STKProduct{} -> error "TODO"
+   STKProduct{} -> error "WIP"
   AstGather sh v (vars, ix) ->
     showParen (d > 10)
     $ showString ("rgather " ++ show sh ++ " ")

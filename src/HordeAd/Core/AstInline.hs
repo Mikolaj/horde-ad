@@ -515,8 +515,8 @@ shareAst memo v0 = case v0 of
     STKR{} ->
       let (memo1, v2) = shareAstScoped [var] memo v
       in (memo1, Ast.AstBuild1 snat (var, v2))
-    STKS{} -> error "TODO"
-    STKProduct{} -> error "TODO"
+    STKS{} -> error "WIP"
+    STKProduct{} -> error "WIP"
 
   Ast.AstLet{} -> error "shareAst: AstLet"
     -- delta eval doesn't create lets and no lets

@@ -216,12 +216,27 @@ build1V snat@SNat (var, v00) =
                                     (astCond b 0 1 :.$ ZIS)
         in build1V snat (var, t)
       STKProduct{} -> error "TODO"
-    Ast.AstReplicate @y2 snat2@SNat v -> case stensorKind @y2 of
-      STKR{} -> traceRule $
-        astTr $ astReplicate snat2 $ build1V snat (var, v)
-      STKS{} -> traceRule $
-        astTrS $ astReplicate snat2 $ build1V snat (var, v)
-      STKProduct{} -> error "TODO"
+    Ast.AstReplicate @y2 snat2@(SNat @k2) v -> traceRule $
+      let replStk :: forall z.
+                     STensorKindType z -> AstTensor s (BuildTensorKind k z)
+                  -> AstTensor s (BuildTensorKind k (BuildTensorKind k2 z))
+          replStk stk u = case stk of
+            STKR{} -> astTr $ astReplicate snat2 u
+            STKS{} -> astTrS $ astReplicate snat2 u
+            STKProduct @z1 @z2 stk1 stk2
+              | Dict <- lemTensorKindOfBuild snat stk1
+              , Dict <- lemTensorKindOfBuild snat2 stk1
+              , Dict <- lemTensorKindOfBuild
+                          snat (stensorKind @(BuildTensorKind k2 z1))
+              , Dict <- lemTensorKindOfBuild snat stk2
+              , Dict <- lemTensorKindOfBuild snat2 stk2
+              , Dict <- lemTensorKindOfBuild
+                          snat (stensorKind @(BuildTensorKind k2 z2)) ->
+               let (t1, t2) = (Ast.AstProject1 u, Ast.AstProject2 u)
+                      -- looks expensive, but hard to do better,
+                      -- so let's hope u is full of variables
+                in Ast.AstTuple (replStk stk1 t1) (replStk stk2 t2)
+      in replStk (stensorKind @y2) (build1V snat (var, v))
     Ast.AstBuild1{} -> error "build1V: impossible case of AstBuild1"
 
     Ast.AstLet @_ @_ @y2 @s1 var1 u v

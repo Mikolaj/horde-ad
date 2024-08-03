@@ -65,8 +65,10 @@ shapeAstFull stk t = case stk of
     AstConstant a -> shapeAstFull stk a
     AstD u _ -> shapeAstFull stk u
     AstCond _b v _w -> shapeAstFull stk v
-    AstReplicate{} -> error "TODO"
-    AstBuild1{} -> error "TODO"
+    AstReplicate @y2 snat v ->
+      buildTensorKindFull snat $ shapeAstFull (stensorKind @y2) v
+    AstBuild1 @y2 snat (_, v) ->
+      buildTensorKindFull snat $ shapeAstFull (stensorKind @y2) v
 
 -- This is cheap and dirty. We don't shape-check the terms and we don't
 -- unify or produce (partial) results with variables. Instead, we investigate

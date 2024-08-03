@@ -5,7 +5,7 @@
 module HordeAd.Core.AstEnv
   ( -- * The environment and operations for extending it
     AstEnv, AstEnvElem(..), emptyEnv
-  , extendEnv, extendEnvHVector, extendEnvHFun, extendEnvD
+  , extendEnv, extendEnvHVector, extendEnvHFun, extendEnvD, extendEnvI
     -- * The operations for interpreting bindings
   , interpretLambdaI, interpretLambdaIS, interpretLambdaIHVector
   , interpretLambdaIndex, interpretLambdaIndexS
