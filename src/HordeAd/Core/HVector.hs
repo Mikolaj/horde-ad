@@ -114,8 +114,6 @@ deriving instance Show (HVectorOf ranked)
 
 type instance RankedOf (HVectorPseudoTensor ranked) = ranked
 
-type instance ShapedOf (HVectorPseudoTensor ranked) = ShapedOf ranked
-
 type role VoidTensor nominal nominal
 data VoidTensor :: TensorType ty
 

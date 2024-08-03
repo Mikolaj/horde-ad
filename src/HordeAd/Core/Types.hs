@@ -320,7 +320,7 @@ type IntOf (f :: TensorType ty) = RankedOf (PrimalOf f) Int64 0
 -- ty is intended to be Nat or [Nat] (or nothing, if we support scalars)
 type family RankedOf (f :: TensorType ty) :: RankedTensorType
 
-type family ShapedOf (f :: TensorType ty) :: ShapedTensorType
+type family ShapedOf (f :: RankedTensorType) :: ShapedTensorType
 
 type HVectorOf :: RankedTensorType -> Type
 type family HVectorOf f = result | result -> f

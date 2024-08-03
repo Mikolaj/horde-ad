@@ -41,7 +41,6 @@ type instance PrimalOf (FlipR OR.Array) = FlipR OR.Array
 
 type instance BoolOf (FlipS OS.Array) = Bool
 type instance RankedOf (FlipS OS.Array) = FlipR OR.Array
-type instance ShapedOf (FlipS OS.Array) = FlipS OS.Array
 type instance PrimalOf (FlipS OS.Array) = FlipS OS.Array
 
 type instance BoolOf ORArray = Bool
@@ -143,8 +142,6 @@ instance IfF OSArray where
   ifF b v w = if b then v else w
 
 type instance RankedOf OSArray = ORArray
-
-type instance ShapedOf OSArray = OSArray
 
 type instance PrimalOf OSArray = OSArray
 

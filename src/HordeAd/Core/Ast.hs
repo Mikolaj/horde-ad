@@ -75,7 +75,6 @@ type instance HVectorOf (AstRanked s) = AstHVector s
 type instance HFunOf (AstRanked s) = AstHFun
 
 type instance RankedOf (AstShaped s) = AstRanked s
-type instance ShapedOf (AstShaped s) = AstShaped s
 type instance PrimalOf (AstShaped s) = AstShaped PrimalSpan
 type instance DualOf (AstShaped s) = AstShaped DualSpan
 
@@ -811,7 +810,6 @@ type instance DualOf (AstRaw s) = AstRaw DualSpan
 type instance HVectorOf (AstRaw s) = AstRawWrap (AstHVector s)
 type instance HFunOf (AstRaw s) = AstHFun
 type instance RankedOf (AstRawS s) = AstRaw s
-type instance ShapedOf (AstRawS s) = AstRawS s
 type instance PrimalOf (AstRawS s) = AstRawS PrimalSpan
 type instance DualOf (AstRawS s) = AstRawS DualSpan
 
@@ -822,7 +820,6 @@ type instance DualOf (AstNoVectorize s) = AstNoVectorize DualSpan
 type instance HVectorOf (AstNoVectorize s) = AstNoVectorizeWrap (AstHVector s)
 type instance HFunOf (AstNoVectorize s) = AstHFun
 type instance RankedOf (AstNoVectorizeS s) = AstNoVectorize s
-type instance ShapedOf (AstNoVectorizeS s) = AstNoVectorizeS s
 type instance PrimalOf (AstNoVectorizeS s) = AstNoVectorizeS PrimalSpan
 type instance DualOf (AstNoVectorizeS s) = AstNoVectorizeS DualSpan
 
@@ -833,7 +830,6 @@ type instance DualOf (AstNoSimplify s) = AstNoSimplify DualSpan
 type instance HVectorOf (AstNoSimplify s) = AstNoSimplifyWrap (AstHVector s)
 type instance HFunOf (AstNoSimplify s) = AstHFun
 type instance RankedOf (AstNoSimplifyS s) = AstNoSimplify s
-type instance ShapedOf (AstNoSimplifyS s) = AstNoSimplifyS s
 type instance PrimalOf (AstNoSimplifyS s) = AstNoSimplifyS PrimalSpan
 type instance DualOf (AstNoSimplifyS s) = AstNoSimplifyS DualSpan
 
