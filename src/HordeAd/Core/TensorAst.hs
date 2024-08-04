@@ -247,9 +247,8 @@ rankedY :: forall y s.
 rankedY stk t = case stk of
   STKR{} -> AstRanked t
   STKS{} -> AstShaped t
-  STKProduct stk1 stk2 -> case t of
-    AstTuple t1 t2 -> ttuple (rankedY stk1 t1) (rankedY stk2 t2)
-    _ -> error "TODO"
+  STKProduct stk1 stk2 ->
+    ttuple (rankedY stk1 $ AstProject1 t) (rankedY stk2 $ AstProject2 t)
 
 unRankedY :: forall y s.
              STensorKindType y -> InterpretationTarget (AstRanked s) y
@@ -926,9 +925,8 @@ rawY :: forall y s.
 rawY stk t = case stk of
   STKR{} -> AstRaw t
   STKS{} -> AstRawS t
-  STKProduct stk1 stk2 -> case t of
-    AstTuple t1 t2 -> ttuple (rawY stk1 t1) (rawY stk2 t2)
-    _ -> error "TODO"
+  STKProduct stk1 stk2 ->
+    ttuple (rawY stk1 $ AstProject1 t) (rawY stk2 $ AstProject2 t)
 
 unRawY :: forall y s.
              STensorKindType y -> InterpretationTarget (AstRaw s) y
@@ -1209,9 +1207,8 @@ noVectorizeY :: forall y s.
 noVectorizeY stk t = case stk of
   STKR{} -> AstNoVectorize t
   STKS{} -> AstNoVectorizeS t
-  STKProduct stk1 stk2 -> case t of
-    AstTuple t1 t2 -> ttuple (noVectorizeY stk1 t1) (noVectorizeY stk2 t2)
-    _ -> error "TODO"
+  STKProduct stk1 stk2 ->
+    ttuple (noVectorizeY stk1 $ AstProject1 t) (noVectorizeY stk2 $ AstProject2 t)
 
 unNoVectorizeY :: forall y s.
              STensorKindType y -> InterpretationTarget (AstNoVectorize s) y
@@ -1416,9 +1413,8 @@ noSimplifyY :: forall y s.
 noSimplifyY stk t = case stk of
   STKR{} -> AstNoSimplify t
   STKS{} -> AstNoSimplifyS t
-  STKProduct stk1 stk2 -> case t of
-    AstTuple t1 t2 -> ttuple (noSimplifyY stk1 t1) (noSimplifyY stk2 t2)
-    _ -> error "TODO"
+  STKProduct stk1 stk2 ->
+    ttuple (noSimplifyY stk1 $ AstProject1 t) (noSimplifyY stk2 $ AstProject2 t)
 
 unNoSimplifyY :: forall y s.
              STensorKindType y -> InterpretationTarget (AstNoSimplify s) y
