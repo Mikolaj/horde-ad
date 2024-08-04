@@ -168,16 +168,16 @@ interpretAst !env = \case
   AstProject2 t -> tproject2 (interpretAst env t)
   AstLetTupleIn @_ @z1 @z2 @z var1 var2 p v -> case stensorKind @z of
     STKR{} ->
-      let (t1, t2) = interpretAst env p
+      let t12 = interpretAst env p
           env2 w1 w2 = extendEnv var2 w2 $ extendEnv var1 w1 env
-      in rletTKIn (stensorKind @z1) t1 $ \w1 ->
-           rletTKIn (stensorKind @z2) t2 $ \w2 ->
+      in rletTKIn (stensorKind @z1) (tproject1 t12) $ \w1 ->
+           rletTKIn (stensorKind @z2) (tproject2 t12) $ \w2 ->
              interpretAst (env2 w1 w2) v
     STKS{} ->
-      let (t1, t2) = interpretAst env p
+      let t12 = interpretAst env p
           env2 w1 w2 = extendEnv var2 w2 $ extendEnv var1 w1 env
-      in sletTKIn (stensorKind @z1) t1 $ \w1 ->
-           sletTKIn (stensorKind @z2) t2 $ \w2 ->
+      in sletTKIn (stensorKind @z1) (tproject1 t12) $ \w1 ->
+           sletTKIn (stensorKind @z2) (tproject2 t12) $ \w2 ->
              interpretAst (env2 w1 w2) v
     STKProduct{} -> error "WIP"
 
@@ -248,8 +248,7 @@ interpretAst !env = \case
           STKR{} -> rreplicate (sNatValue k) u
           STKS{} -> sreplicate u
           STKProduct stk1 stk2 ->
-            let (t1, t2) = u
-            in (replStk stk1 t1, replStk stk2 t2)
+            ttuple (replStk stk1 (tproject1 u)) (replStk stk2 (tproject2 u))
     in replStk (stensorKind @y2) (interpretAst env v)
   -- These are only needed for tests that don't vectorize Ast.
   AstBuild1 @y2
@@ -282,7 +281,7 @@ interpretAst !env = \case
           emptyFromStk ftk = case ftk of
             FTKR sh -> rfromList0N (0 :$: sh) []
             FTKS{} -> sfromList0N []
-            FTKProduct ftk1 ftk2 -> (emptyFromStk ftk1, emptyFromStk ftk2)
+            FTKProduct ftk1 ftk2 -> ttuple (emptyFromStk ftk1) (emptyFromStk ftk2)
       in emptyFromStk (shapeAstFull (stensorKind @y2) v)
   -- The following can't be, in general, so partially evaluated, because v
   -- may contain variables that the evironment sends to terms,
@@ -302,9 +301,9 @@ interpretAst !env = \case
           STKR{} -> rbuild1 (sNatValue snat) g
           STKS{} -> sbuild1 g
           STKProduct stk1 stk2 ->
-            let f1 i = fst $ g i  -- looks expensive, but hard to do better,
-                f2 i = snd $ g i  -- so let's hope v is full of variables
-            in (replStk stk1 f1, replStk stk2 f2)
+            let f1 i = tproject1 $ g i  -- looks expensive, but hard to do better,
+                f2 i = tproject2 $ g i  -- so let's hope v is full of variables
+            in ttuple (replStk stk1 f1) (replStk stk2 f2)
     in replStk (stensorKind @y2) f
   AstLet @_ @_ @y2 var u v -> case stensorKind @y2 of
     stk@STKR{} ->

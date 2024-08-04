@@ -169,6 +169,7 @@ library horde-ad-simplified
       , deepseq
       , dependent-enummap
       , enummapset
+      , ghc-prim
       , ghc-typelits-knownnat
       , ghc-typelits-natnormalise
       , hmatrix

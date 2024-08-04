@@ -21,7 +21,7 @@ module HordeAd.Core.Types
     -- * Some fundamental constraints
   , GoodScalar, HasSingletonDict, Differentiable, IfDifferentiable(..)
     -- * Type families that tensors will belong to
-  , IntOf, RankedOf, ShapedOf, HVectorOf, HFunOf, PrimalOf, DualOf
+  , IntOf, RankedOf, ShapedOf, ProductOf, HVectorOf, HFunOf, PrimalOf, DualOf
   , DummyDual(..)
     -- * Generic types of booleans and related class definitions
   , BoolOf, Boolean(..)
@@ -209,8 +209,9 @@ deriving instance Eq (TensorKindFull y)
 type family InterpretationTarget ranked y = result | result -> ranked y where
   InterpretationTarget ranked (TKR r n) = ranked r n
   InterpretationTarget ranked (TKS r sh) = ShapedOf ranked r sh
-  InterpretationTarget ranked (TKProduct y z) =
-    (InterpretationTarget ranked y, InterpretationTarget ranked z)
+  InterpretationTarget ranked (TKProduct x z) =
+    ProductOf ranked (InterpretationTarget ranked x)
+                     (InterpretationTarget ranked z)
 
 type family BuildTensorKind k tks where
   BuildTensorKind k (TKR r n) = TKR r (1 + n)
@@ -286,6 +287,10 @@ type family RankedOf (f :: TensorType ty) :: RankedTensorType
 
 type family ShapedOf (f :: RankedTensorType) = (result :: ShapedTensorType)
   | result -> f
+
+type family ProductOf (f :: RankedTensorType) = (result :: Type -> Type -> Type)
+  | result -> f
+
 
 type HVectorOf :: RankedTensorType -> Type
 type family HVectorOf f = result | result -> f

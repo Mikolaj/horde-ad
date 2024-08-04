@@ -17,6 +17,7 @@ import Prelude
 
 import Control.Exception.Assert.Sugar
 import Data.Array.Shape qualified as Sh
+import Data.Kind (Type)
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, (:~:) (Refl))
 import Data.Vector qualified as Data.NonStrict.Vector
@@ -229,6 +230,17 @@ instance (GoodScalar r, KnownNat n)
   type Value (AstRanked FullSpan r n) = ORArray r n
   fromValue t = AstRanked $ fromPrimal $ AstConst $ runFlipR t
 
+type role AstRankedProduct nominal representational representational
+type AstRankedProduct :: AstSpanType -> Type -> Type -> Type
+data AstRankedProduct s vx vy = AstRankedProduct vx vy
+
+type instance ProductOf (AstRanked s) = AstRankedProduct s
+
+instance ProductTensor (AstRanked s) where
+  ttuple = AstRankedProduct  -- TODO: should this be a wrapped (AstTuple vx vz) instead? does it matter? would it just simplify (eliminate?) unRankedY?
+  tproject1 (AstRankedProduct vx _vz) = vx
+  tproject2 (AstRankedProduct _vx vz) = vz
+
 rankedY :: forall y s.
            STensorKindType y -> AstTensor s y
         -> InterpretationTarget (AstRanked s) y
@@ -236,7 +248,7 @@ rankedY stk t = case stk of
   STKR{} -> AstRanked t
   STKS{} -> AstShaped t
   STKProduct stk1 stk2 -> case t of
-    AstTuple t1 t2 -> (rankedY stk1 t1, rankedY stk2 t2)
+    AstTuple t1 t2 -> ttuple (rankedY stk1 t1) (rankedY stk2 t2)
     _ -> error "TODO"
 
 unRankedY :: forall y s.
@@ -245,8 +257,8 @@ unRankedY :: forall y s.
 unRankedY stk t = case stk of
   STKR{} -> unAstRanked t
   STKS{} -> unAstShaped t
-  STKProduct stk1 stk2 -> AstTuple (unRankedY stk1 $ fst t)
-                                   (unRankedY stk2 $ snd t)
+  STKProduct stk1 stk2 -> AstTuple (unRankedY stk1 $ tproject1 t)
+                                   (unRankedY stk2 $ tproject2 t)
 
 instance AstSpan s => RankedTensor (AstRanked s) where
   rletTKIn :: forall y n r. (TensorKind y, KnownNat n, GoodScalar r)
@@ -645,8 +657,6 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     -> AstHVector s
   dmapAccumLDer _ !k !accShs !bShs !eShs = AstMapAccumLDer k accShs bShs eShs
 
-instance ProductTensor (AstRanked s) where
-
 astLetHVectorInHVectorFun
   :: AstSpan s
   => AstHVector s -> (HVector (AstRanked s) -> AstHVector s)
@@ -899,6 +909,17 @@ deriving instance Floating (AstTensor s (TKS r sh))
 deriving instance (RealFloatF (AstTensor s (TKS r sh)))
                   => RealFloatF (AstNoSimplifyS s r sh)
 
+type role AstRawProduct nominal representational representational
+type AstRawProduct :: AstSpanType -> Type -> Type -> Type
+data AstRawProduct s vx vy = AstRawProduct vx vy
+
+type instance ProductOf (AstRaw s) = AstRawProduct s
+
+instance ProductTensor (AstRaw s) where
+  ttuple = AstRawProduct
+  tproject1 (AstRawProduct vx _vz) = vx
+  tproject2 (AstRawProduct _vx vz) = vz
+
 rawY :: forall y s.
            STensorKindType y -> AstTensor s y
         -> InterpretationTarget (AstRaw s) y
@@ -906,7 +927,7 @@ rawY stk t = case stk of
   STKR{} -> AstRaw t
   STKS{} -> AstRawS t
   STKProduct stk1 stk2 -> case t of
-    AstTuple t1 t2 -> (rawY stk1 t1, rawY stk2 t2)
+    AstTuple t1 t2 -> ttuple (rawY stk1 t1) (rawY stk2 t2)
     _ -> error "TODO"
 
 unRawY :: forall y s.
@@ -915,8 +936,8 @@ unRawY :: forall y s.
 unRawY stk t = case stk of
   STKR{} -> unAstRaw t
   STKS{} -> unAstRawS t
-  STKProduct stk1 stk2 -> AstTuple (unRawY stk1 $ fst t)
-                                   (unRawY stk2 $ snd t)
+  STKProduct stk1 stk2 -> AstTuple (unRawY stk1 $ tproject1 t)
+                                   (unRawY stk2 $ tproject2 t)
 
 instance AstSpan s => RankedTensor (AstRaw s) where
   rletTKIn :: forall y n r.
@@ -1171,7 +1192,16 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
     $ AstMapAccumLDer k accShs bShs eShs f df rf (unAstRawWrap acc0)
                                                  (unAstRawWrap es)
 
-instance ProductTensor (AstRaw s) where
+type role AstNoVectorizeProduct nominal representational representational
+type AstNoVectorizeProduct :: AstSpanType -> Type -> Type -> Type
+data AstNoVectorizeProduct s vx vy = AstNoVectorizeProduct vx vy
+
+type instance ProductOf (AstNoVectorize s) = AstNoVectorizeProduct s
+
+instance ProductTensor (AstNoVectorize s) where
+  ttuple = AstNoVectorizeProduct
+  tproject1 (AstNoVectorizeProduct vx _vz) = vx
+  tproject2 (AstNoVectorizeProduct _vx vz) = vz
 
 noVectorizeY :: forall y s.
            STensorKindType y -> AstTensor s y
@@ -1180,7 +1210,7 @@ noVectorizeY stk t = case stk of
   STKR{} -> AstNoVectorize t
   STKS{} -> AstNoVectorizeS t
   STKProduct stk1 stk2 -> case t of
-    AstTuple t1 t2 -> (noVectorizeY stk1 t1, noVectorizeY stk2 t2)
+    AstTuple t1 t2 -> ttuple (noVectorizeY stk1 t1) (noVectorizeY stk2 t2)
     _ -> error "TODO"
 
 unNoVectorizeY :: forall y s.
@@ -1189,8 +1219,8 @@ unNoVectorizeY :: forall y s.
 unNoVectorizeY stk t = case stk of
   STKR{} -> unAstNoVectorize t
   STKS{} -> unAstNoVectorizeS t
-  STKProduct stk1 stk2 -> AstTuple (unNoVectorizeY stk1 $ fst t)
-                                   (unNoVectorizeY stk2 $ snd t)
+  STKProduct stk1 stk2 -> AstTuple (unNoVectorizeY stk1 $ tproject1 t)
+                                   (unNoVectorizeY stk2 $ tproject2 t)
 
 instance AstSpan s => RankedTensor (AstNoVectorize s) where
   rletTKIn :: forall y n r.
@@ -1353,8 +1383,6 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
                     k accShs bShs eShs f df rf (unAstNoVectorizeWrap acc0)
                                                (unAstNoVectorizeWrap es)
 
-instance ProductTensor (AstNoVectorize s) where
-
 unNoVectorizeHVector :: HVector (AstNoVectorize s) -> HVector (AstRanked s)
 unNoVectorizeHVector =
   let f (DynamicRanked (AstNoVectorize t)) = DynamicRanked (AstRanked t)
@@ -1371,6 +1399,17 @@ noVectorizeHVector =
       f (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
   in V.map f
 
+type role AstNoSimplifyProduct nominal representational representational
+type AstNoSimplifyProduct :: AstSpanType -> Type -> Type -> Type
+data AstNoSimplifyProduct s vx vy = AstNoSimplifyProduct vx vy
+
+type instance ProductOf (AstNoSimplify s) = AstNoSimplifyProduct s
+
+instance ProductTensor (AstNoSimplify s) where
+  ttuple = AstNoSimplifyProduct
+  tproject1 (AstNoSimplifyProduct vx _vz) = vx
+  tproject2 (AstNoSimplifyProduct _vx vz) = vz
+
 noSimplifyY :: forall y s.
            STensorKindType y -> AstTensor s y
         -> InterpretationTarget (AstNoSimplify s) y
@@ -1378,7 +1417,7 @@ noSimplifyY stk t = case stk of
   STKR{} -> AstNoSimplify t
   STKS{} -> AstNoSimplifyS t
   STKProduct stk1 stk2 -> case t of
-    AstTuple t1 t2 -> (noSimplifyY stk1 t1, noSimplifyY stk2 t2)
+    AstTuple t1 t2 -> ttuple (noSimplifyY stk1 t1) (noSimplifyY stk2 t2)
     _ -> error "TODO"
 
 unNoSimplifyY :: forall y s.
@@ -1387,8 +1426,8 @@ unNoSimplifyY :: forall y s.
 unNoSimplifyY stk t = case stk of
   STKR{} -> unAstNoSimplify t
   STKS{} -> unAstNoSimplifyS t
-  STKProduct stk1 stk2 -> AstTuple (unNoSimplifyY stk1 $ fst t)
-                                   (unNoSimplifyY stk2 $ snd t)
+  STKProduct stk1 stk2 -> AstTuple (unNoSimplifyY stk1 $ tproject1 t)
+                                   (unNoSimplifyY stk2 $ tproject2 t)
 
 instance AstSpan s => RankedTensor (AstNoSimplify s) where
   rletTKIn :: forall y n r. (TensorKind y, KnownNat n, GoodScalar r)
@@ -1558,8 +1597,6 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
     AstNoSimplifyWrap
     $ AstMapAccumLDer k accShs bShs eShs f df rf (unAstNoSimplifyWrap acc0)
                                                  (unAstNoSimplifyWrap es)
-
-instance ProductTensor (AstNoSimplify s) where
 
 unNoSimplifyHVector :: HVector (AstNoSimplify s) -> HVector (AstRanked s)
 unNoSimplifyHVector =

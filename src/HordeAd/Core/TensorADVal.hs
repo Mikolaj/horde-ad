@@ -19,6 +19,7 @@ import Control.Exception.Assert.Sugar
 import Data.Array.Internal (valueOf)
 import Data.Array.RankedS qualified as OR
 import Data.Function ((&))
+import Data.Kind (Type)
 import Data.List (foldl')
 import Data.List.Index (imap)
 import Data.List.NonEmpty qualified as NonEmpty
@@ -615,7 +616,18 @@ instance ADReadyBoth ranked shaped
         dual = wrapDeltaH $ MapAccumL k accShs bShs eShs q (dunHVector es) df rf acc0' es'
     in ahhToHVector primal dual
 
+type role ADValProduct nominal representational representational
+type ADValProduct :: RankedTensorType -> Type -> Type -> Type
+data ADValProduct ranked vx vy = ADValProduct vx vy
+
+-- TODO: should a product of dual numbers be a dual number instead? but will it
+-- break injectivity?
+type instance ProductOf (ADVal ranked) = ADValProduct ranked
+
 instance ProductTensor (ADVal ranked) where
+  ttuple = ADValProduct
+  tproject1 (ADValProduct vx _vz) = vx
+  tproject2 (ADValProduct _vx vz) = vz
 
 ahhToHVector
   :: forall ranked. RankedOf (ShapedOf ranked) ~ ranked

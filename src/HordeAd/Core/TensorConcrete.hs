@@ -12,10 +12,12 @@ import Data.Array.Internal (valueOf)
 import Data.Array.RankedS qualified as OR
 import Data.Array.ShapedS qualified as OS
 import Data.Function ((&))
+import Data.Kind (Type)
 import Data.List (foldl', mapAccumL, mapAccumR, scanl')
 import Data.List.NonEmpty qualified as NonEmpty
 import Data.Proxy (Proxy (Proxy))
 import Data.Vector.Generic qualified as V
+import GHC.Tuple (Tuple2 (..))
 import GHC.TypeLits (KnownNat)
 import System.Random
 
@@ -147,7 +149,16 @@ type instance PrimalOf OSArray = OSArray
 
 type instance DualOf OSArray = DummyDual
 
+type role DummyProduct representational representational
+type DummyProduct :: Type -> Type -> Type
+data DummyProduct vx vz = DummyProduct vx vz
+
+type instance ProductOf DummyDual = DummyProduct
+
 instance ProductTensor DummyDual where
+  ttuple = DummyProduct
+  tproject1 (DummyProduct vx _vz) = vx
+  tproject2 (DummyProduct _vx vz) = vz
 
 instance ShapedTensor OSArray where
   sletTKIn _ a f = f a
@@ -284,7 +295,12 @@ instance HVectorTensor ORArray OSArray where
   dmapAccumLDer _ k accShs bShs eShs f _df _rf acc0 es =
     oRdmapAccumL k accShs bShs eShs (\ !a !b -> f [a, b]) acc0 es
 
+type instance ProductOf ORArray = Tuple2
+
 instance ProductTensor ORArray where
+  ttuple u v = (u, v)
+  tproject1 = fst
+  tproject2 = snd
 
 oRdmapAccumR
   :: SNat k

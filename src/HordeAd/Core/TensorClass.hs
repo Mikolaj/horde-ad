@@ -1101,13 +1101,10 @@ class HVectorTensor (ranked :: RankedTensorType)
 class ProductTensor (ranked :: RankedTensorType) where
   ttuple :: InterpretationTarget ranked x -> InterpretationTarget ranked z
          -> InterpretationTarget ranked (TKProduct x z)
-  ttuple u v = (u, v)
   tproject1 :: InterpretationTarget ranked (TKProduct x z)
             -> InterpretationTarget ranked x
-  tproject1 = fst
   tproject2 :: InterpretationTarget ranked (TKProduct x z)
             -> InterpretationTarget ranked z
-  tproject2 = snd
 
 rfromD :: forall r n ranked.
           (RankedTensor ranked, GoodScalar r, KnownNat n)
