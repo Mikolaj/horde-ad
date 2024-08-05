@@ -210,14 +210,14 @@ data Delta :: RankedTensorType -> TensorKindType -> Type where
   ZeroR :: IShR n -> Delta ranked (TKR r n)
     -- ^ the shape is required for @shapeDelta@ and forward derivative
   InputR :: forall ranked r n. (GoodScalar r, KnownNat n)
-         => IShR n -> InputId ranked -> Delta ranked (TKR r n)
+         => IShR n -> InputId ranked (TKR Float 0) -> Delta ranked (TKR r n)
   ScaleR :: (KnownNat n, GoodScalar r)
          =>  ranked r n -> Delta ranked (TKR r n) -> Delta ranked (TKR r n)
   AddR :: (GoodScalar r, KnownNat n)
        => Delta ranked (TKR r n) -> Delta ranked (TKR r n)
        -> Delta ranked (TKR r n)
   ShareR :: (GoodScalar r, KnownNat n)
-         => NodeId ranked -> Delta ranked (TKR r n) -> Delta ranked (TKR r n)
+         => NodeId ranked (TKR Float 0) -> Delta ranked (TKR r n) -> Delta ranked (TKR r n)
 
   IndexR :: (GoodScalar r, KnownNat n, KnownNat m)
          => Delta ranked (TKR r (m + n)) -> IndexOf ranked m
@@ -296,7 +296,7 @@ data Delta :: RankedTensorType -> TensorKindType -> Type where
 
   ZeroS :: Delta ranked (TKS r sh)
   InputS :: forall ranked r sh. (GoodScalar r, KnownShS sh)
-         => InputId ranked -> Delta ranked (TKS r sh)
+         => InputId ranked (TKR Float 0) -> Delta ranked (TKS r sh)
   ScaleS :: (KnownShS sh, GoodScalar r)
          => ShapedOf ranked r sh -> Delta ranked (TKS r sh)
          -> Delta ranked (TKS r sh)
@@ -304,7 +304,7 @@ data Delta :: RankedTensorType -> TensorKindType -> Type where
        => Delta ranked (TKS r sh) -> Delta ranked (TKS r sh)
        -> Delta ranked (TKS r sh)
   ShareS :: (GoodScalar r, KnownShS sh)
-         => NodeId ranked -> Delta ranked (TKS r sh) -> Delta ranked (TKS r sh)
+         => NodeId ranked (TKR Float 0) -> Delta ranked (TKS r sh) -> Delta ranked (TKS r sh)
 
   IndexS :: (KnownShS sh1, KnownShS sh2, KnownShS (sh1 X.++ sh2), GoodScalar r)
          => Delta ranked (TKS r (sh1 X.++ sh2))
@@ -409,7 +409,7 @@ deriving instance ( RankedOf (ShapedOf ranked) ~ ranked
 
 type role DeltaH nominal
 data DeltaH :: RankedTensorType -> Type where
-  ShareH :: NodeId ranked -> DeltaH ranked -> DeltaH ranked
+  ShareH :: NodeId ranked (TKR Float 0) -> DeltaH ranked -> DeltaH ranked
   HToH :: HVector (DeltaR ranked) -> DeltaH ranked
   MapAccumR
     :: SNat k
@@ -523,18 +523,18 @@ shapeDeltaH = \case
 
 -- * Delta expression identifiers and evaluation state
 
-type role NodeId phantom
-newtype NodeId (f :: RankedTensorType) = NodeId Int
+type role NodeId nominal nominal
+newtype NodeId (f :: RankedTensorType) (y :: TensorKindType) = NodeId Int
  deriving newtype (Show, Enum)
    -- No Eq instance to limit hacks.
 
-type role InputId phantom
-newtype InputId (f :: RankedTensorType) = InputId Int
+type role InputId nominal nominal
+newtype InputId (f :: RankedTensorType) (y :: TensorKindType) = InputId Int
  deriving (Show, Enum)
    -- No Eq instance to limit hacks outside this module.
 
 -- | Wrap non-negative (only!) integers in the `InputId` newtype.
-toInputId :: Int -> InputId f
+toInputId :: Int -> InputId f (TKR Float 0)
 toInputId i = assert (i >= 0) $ InputId i
 
 -- | The state of evaluation. It consists of several maps.
@@ -548,22 +548,22 @@ toInputId i = assert (i >= 0) $ InputId i
 -- 2. key `member` dMap == nMap!key is DynamicRanked
 type role EvalState nominal
 data EvalState ranked = EvalState
-  { iMap  :: EM.EnumMap (InputId ranked) (DynamicTensor ranked)
+  { iMap  :: EM.EnumMap (InputId ranked (TKR Float 0)) (DynamicTensor ranked)
       -- ^ eventually, cotangents of objective function inputs
       -- (eventually copied to the vector representing the gradient
       -- of the objective function);
       -- the identifiers need to be contiguous and start at 0
-  , dMap  :: EM.EnumMap (NodeId ranked) (DynamicTensor ranked)
+  , dMap  :: EM.EnumMap (NodeId ranked (TKR Float 0)) (DynamicTensor ranked)
       -- ^ eventually, cotangents of non-input subterms indexed
       -- by their node identifiers
-  , nMap  :: EM.EnumMap (NodeId ranked) (DynamicTensor (DeltaR ranked))
+  , nMap  :: EM.EnumMap (NodeId ranked (TKR Float 0)) (DynamicTensor (DeltaR ranked))
       -- ^ nodes left to be evaluated;
       -- we can't evaluate them at once, because their other shared copies
       -- may still not be processed, so we'd not take advantage of the sharing
       -- and not take into account the whole summed context when finally
       -- evaluating
-  , hdMap :: EM.EnumMap (NodeId ranked) (HVector ranked)
-  , hnMap :: EM.EnumMap (NodeId ranked) (DeltaH ranked)
+  , hdMap :: EM.EnumMap (NodeId ranked (TKR Float 0)) (HVector ranked)
+  , hnMap :: EM.EnumMap (NodeId ranked (TKR Float 0)) (DeltaH ranked)
   }
 
 -- | Delta expressions naturally denote forward derivatives, as encoded
