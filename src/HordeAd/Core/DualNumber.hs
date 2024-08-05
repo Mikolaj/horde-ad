@@ -125,7 +125,7 @@ dotParameters (HVector a0 a1) (HVector b0 b1) =
 
 generateDeltaInputs
   :: forall ranked ranked2 shaped2.
-     (RankedTensor ranked, shaped2 ~ ShapedOf ranked2)
+     (RankedTensor ranked, shaped2 ~ ShapedOf ranked2, ranked2 ~ RankedOf shaped2)
   => HVector ranked
   -> HVector (Dual ranked2)
 generateDeltaInputs =
@@ -133,15 +133,15 @@ generateDeltaInputs =
       f i (DynamicRanked @r @n t) =
         case rshape t of
           (sh :: IShR n2) | Just Refl <- sameNat (Proxy @n) (Proxy @n2) ->
-            DynamicRanked $ InputR @ranked2 @r @n sh (toInputId i)
+            DynamicRanked $ DeltaR $ InputR @ranked2 @r @n sh (toInputId i)
           _ -> error "generateDeltaInputs: wrong rank"
       f i (DynamicShaped @r @sh _) =
-        DynamicShaped $ InputS @shaped2 @r @sh (toInputId i)
+        DynamicShaped $ DeltaS $ InputS @ranked2 @r @sh (toInputId i)
       f i (DynamicRankedDummy @r @sh _ _) =
         withListSh (Proxy @sh) $ \sh ->
-          DynamicRanked $ InputR @ranked2 @r sh (toInputId i)
+          DynamicRanked $ DeltaR $ InputR @ranked2 @r sh (toInputId i)
       f i (DynamicShapedDummy @r @sh _ _) =
-        DynamicShaped $ InputS @shaped2 @r @sh (toInputId i)
+        DynamicShaped $ DeltaS $ InputS @ranked2 @r @sh (toInputId i)
   in V.imap f
 {- TODO: this causes a cyclic dependency:
 {-# SPECIALIZE generateDeltaInputs
@@ -184,15 +184,15 @@ instance OrdF f => OrdF (ADVal f) where
 indexPrimal :: (RankedTensor ranked, KnownNat m, KnownNat n, GoodScalar r)
             => ADVal ranked r (m + n) -> IndexOf ranked m
             -> ADVal ranked r n
-indexPrimal (D u u') ix = dD (rindex u ix) (IndexR u' ix)
+indexPrimal (D u u') ix = dD (rindex u ix) (DeltaR $ IndexR (unDeltaR u') ix)
 
 fromVector :: (RankedTensor ranked, KnownNat n, GoodScalar r)
            => Data.Vector.Vector (ADVal ranked r n)
            -> ADVal ranked r (1 + n)
 fromVector lu =
   -- TODO: if lu is empty, crash if n =\ 0 or use List.NonEmpty.
-  dD (rfromVector $ V.map (\(D u _) -> u)  lu)
-     (FromVectorR $ V.map (\(D _ u') -> u') lu)
+  dD (rfromVector $ V.map (\(D u _) -> u) lu)
+     (DeltaR $ FromVectorR $ V.map (\(D _ u') -> unDeltaR u') lu)
 
 instance ( RankedTensor ranked, IfF (RankedOf (PrimalOf ranked))
          , Boolean (BoolOf ranked)
@@ -207,7 +207,7 @@ indexPrimalS :: ( ShapedTensor shaped, GoodScalar r
                 , KnownShS sh1, KnownShS sh2, KnownShS (sh1 X.++ sh2) )
              => ADVal shaped r (sh1 X.++ sh2) -> IndexSh shaped sh1
              -> ADVal shaped r sh2
-indexPrimalS (D u u') ix = dD (sindex u ix) (IndexS u' ix)
+indexPrimalS (D u u') ix = dD (sindex u ix) (DeltaS $ IndexS (unDeltaS u') ix)
 
 fromVectorS :: forall n sh shaped r.
                (ShapedTensor shaped, KnownNat n, KnownShS sh, GoodScalar r)
@@ -215,7 +215,7 @@ fromVectorS :: forall n sh shaped r.
             -> ADVal shaped r (n ': sh)
 fromVectorS lu = assert (length lu == valueOf @n) $
   dD (sfromVector $ V.map (\(D u _) -> u) lu)
-     (FromVectorS $ V.map (\(D _ u') -> u') lu)
+     (DeltaS $ FromVectorS $ V.map (\(D _ u') -> unDeltaS u') lu)
 
 instance ( ShapedTensor shaped, IfF (RankedOf (PrimalOf shaped))
          , Boolean (BoolOf shaped)

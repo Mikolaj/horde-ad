@@ -92,15 +92,15 @@ class IsPrimal f r z where
 -- or library definitions that use it could be made smarter.
 instance (GoodScalar r, KnownNat n, RankedTensor ranked)
          => IsPrimal @Nat ranked r n where
-  dZeroOfShape tsh = ZeroR (rshape tsh)
-  dScale _ (ZeroR sh) = ZeroR sh
-  dScale v u' = ScaleR v u'
-  dAdd ZeroR{} w = w
-  dAdd v ZeroR{} = v
-  dAdd v w = AddR v w
+  dZeroOfShape tsh = DeltaR $ ZeroR (rshape tsh)
+  dScale _ (DeltaR (ZeroR sh)) = DeltaR $ ZeroR sh
+  dScale v (DeltaR u') = DeltaR $ ScaleR v u'
+  dAdd (DeltaR ZeroR{}) w = w
+  dAdd v (DeltaR ZeroR{}) = v
+  dAdd (DeltaR v) (DeltaR w) = DeltaR $ AddR v w
   intOfShape tsh c = rconst $ Nested.rreplicateScal (rshape tsh) (fromIntegral c)
   sharePrimal = rshare
-  shareDual d = case d of
+  shareDual d = case unDeltaR d of
     ZeroR{} -> d
     InputR{} -> d
     RFromS{} -> d
@@ -109,17 +109,17 @@ instance (GoodScalar r, KnownNat n, RankedTensor ranked)
 
 instance (GoodScalar r, KnownShS sh, ShapedTensor shaped)
          => IsPrimal @[Nat] shaped r sh where
-  dZeroOfShape _tsh = ZeroS
-  dScale _ ZeroS = ZeroS
-  dScale v u' = ScaleS v u'
-  dAdd ZeroS w = w
-  dAdd v ZeroS = v
-  dAdd v w = AddS v w
+  dZeroOfShape _tsh = DeltaS ZeroS
+  dScale _ (DeltaS ZeroS) = DeltaS ZeroS
+  dScale v (DeltaS u') = DeltaS $ ScaleS v u'
+  dAdd (DeltaS ZeroS) w = w
+  dAdd v (DeltaS ZeroS) = v
+  dAdd (DeltaS v) (DeltaS w) = DeltaS $ AddS v w
   intOfShape tsh c =  -- not needed for shaped, here, but ranked above needs it,
                       -- so we have to use it for both
     sconst $ Nested.sreplicateScal (sshape tsh) (fromIntegral c)
   sharePrimal = sshare
-  shareDual d = case d of
+  shareDual d = case unDeltaS d of
     ZeroS -> d
     InputS{} -> d
     SFromR{} -> d
@@ -162,15 +162,15 @@ resetIdCounter = writeIORefU unsafeGlobalCounter 100000001
 -- perhaps due to counter gaps that it may introduce.
 wrapDeltaR :: DeltaR ranked r n -> DeltaR ranked r n
 {-# NOINLINE wrapDeltaR #-}
-wrapDeltaR !d = unsafePerformIO $ do
+wrapDeltaR !(DeltaR d) = unsafePerformIO $ do
   n <- unsafeGetFreshId
-  return $! ShareR (NodeId n) d
+  return $! DeltaR $ ShareR (NodeId n) d
 
 wrapDeltaS :: DeltaS shaped r sh -> DeltaS shaped r sh
 {-# NOINLINE wrapDeltaS #-}
-wrapDeltaS !d = unsafePerformIO $ do
+wrapDeltaS !(DeltaS d) = unsafePerformIO $ do
   n <- unsafeGetFreshId
-  return $! ShareS (NodeId n) d
+  return $! DeltaS $ ShareS (NodeId n) d
 
 wrapDeltaH :: DeltaH ranked -> DeltaH ranked
 {-# NOINLINE wrapDeltaH #-}
