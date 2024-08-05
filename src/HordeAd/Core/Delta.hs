@@ -208,7 +208,7 @@ instance ( ranked ~ RankedOf shaped, RankedOf (ShapedOf ranked) ~ ranked
 type role Delta nominal nominal
 data Delta :: RankedTensorType -> TensorKindType -> Type where
   ZeroR :: IShR n -> Delta ranked (TKR r n)
-    -- ^ the shape is required for @shapeDeltaR@ and forward derivative
+    -- ^ the shape is required for @shapeDelta@ and forward derivative
   InputR :: forall ranked r n.
             IShR n -> InputId ranked -> Delta ranked (TKR r n)
   ScaleR :: (KnownNat n, GoodScalar r)
@@ -455,12 +455,6 @@ instance ProductTensor (DeltaR ranked) where
   tproject1 (DeltaProduct vx _vz) = vx
   tproject2 (DeltaProduct _vx vz) = vz
 
-shapeDeltaR :: forall ranked r n.
-               ( GoodScalar r, KnownNat n
-               , RankedTensor ranked, ShapedTensor (ShapedOf ranked) )
-            => DeltaR ranked r n -> IShR n
-shapeDeltaR (DeltaR dr) = shapeDelta dr
-
 shapeDelta :: forall ranked r n.
               ( GoodScalar r, KnownNat n
               , RankedTensor ranked, ShapedTensor (ShapedOf ranked) )
@@ -501,7 +495,7 @@ lengthDelta :: forall ranked r n.
                 , RankedTensor ranked, ShapedTensor (ShapedOf ranked) )
              => Delta ranked (TKR r (1 + n)) -> Int
 lengthDelta d = case shapeDelta d of
-  ZSR -> error "lengthDeltaR: impossible pattern needlessly required"
+  ZSR -> error "lengthDelta: impossible pattern needlessly required"
   k :$: _ -> k
 
 shapeDeltaH :: forall ranked.
@@ -510,7 +504,7 @@ shapeDeltaH :: forall ranked.
 shapeDeltaH = \case
   ShareH _ d -> shapeDeltaH d
   HToH v ->
-    V.map (voidFromDynamicF (shapeToList . shapeDeltaR)) v
+    V.map (voidFromDynamicF (shapeToList . shapeDelta . unDeltaR)) v
   MapAccumR k accShs bShs _eShs _q _es _df _rf _acc0' _es' ->
     accShs V.++ replicate1VoidHVector k bShs
   MapAccumL k accShs bShs _eShs _q _es _df _rf _acc0' _es' ->
@@ -520,12 +514,12 @@ shapeDeltaH = \case
 -- * Delta expression identifiers and evaluation state
 
 type role NodeId phantom
-newtype NodeId (f :: TensorType ty) = NodeId Int
+newtype NodeId (f :: RankedTensorType) = NodeId Int
  deriving newtype (Show, Enum)
    -- No Eq instance to limit hacks.
 
 type role InputId phantom
-newtype InputId (f :: TensorType ty) = InputId Int
+newtype InputId (f :: RankedTensorType) = InputId Int
  deriving (Show, Enum)
    -- No Eq instance to limit hacks outside this module.
 
