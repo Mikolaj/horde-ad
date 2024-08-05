@@ -209,26 +209,28 @@ type role Delta nominal nominal
 data Delta :: RankedTensorType -> TensorKindType -> Type where
   ZeroR :: IShR n -> Delta ranked (TKR r n)
     -- ^ the shape is required for @shapeDelta@ and forward derivative
-  InputR :: forall ranked r n.
-            IShR n -> InputId ranked -> Delta ranked (TKR r n)
+  InputR :: forall ranked r n. (GoodScalar r, KnownNat n)
+         => IShR n -> InputId ranked -> Delta ranked (TKR r n)
   ScaleR :: (KnownNat n, GoodScalar r)
          =>  ranked r n -> Delta ranked (TKR r n) -> Delta ranked (TKR r n)
-  AddR :: Delta ranked (TKR r n) -> Delta ranked (TKR r n)
+  AddR :: (GoodScalar r, KnownNat n)
+       => Delta ranked (TKR r n) -> Delta ranked (TKR r n)
        -> Delta ranked (TKR r n)
-  ShareR :: NodeId ranked -> Delta ranked (TKR r n) -> Delta ranked (TKR r n)
+  ShareR :: (GoodScalar r, KnownNat n)
+         => NodeId ranked -> Delta ranked (TKR r n) -> Delta ranked (TKR r n)
 
-  IndexR :: (KnownNat n, KnownNat m)
+  IndexR :: (GoodScalar r, KnownNat n, KnownNat m)
          => Delta ranked (TKR r (m + n)) -> IndexOf ranked m
          -> Delta ranked (TKR r n)
     -- ^ The sub-tensor at the given index. The given shape is of the
     -- large tensor. If index is out of bounds, the result is defined and is 0.
-  SumR :: KnownNat n
+  SumR :: (GoodScalar r, KnownNat n)
        => Delta ranked (TKR r (1 + n)) -> Delta ranked (TKR r n)
-  Sum0R :: KnownNat n
+  Sum0R :: (GoodScalar r, KnownNat n)
         => Delta ranked (TKR r n) -> Delta ranked (TKR r 0)
   Dot0R :: (KnownNat n, GoodScalar r)
         => ranked r n -> Delta ranked (TKR r n) -> Delta ranked (TKR r 0)
-  ScatterR :: (KnownNat m, KnownNat p, KnownNat n)
+  ScatterR :: (GoodScalar r, KnownNat m, KnownNat p, KnownNat n)
            => IShR (p + n) -> Delta ranked (TKR r (m + n))
            -> (IndexOf ranked m -> IndexOf ranked p)
            -> Delta ranked (TKR r (p + n))
@@ -242,37 +244,37 @@ data Delta :: RankedTensorType -> TensorKindType -> Type where
     -- and then no tensors is added at such an index.
     -- TODO: this is a haddock for Scatter1; fix.
 
-  FromVectorR :: KnownNat n
+  FromVectorR :: (KnownNat n, GoodScalar r)
               => Data.Vector.Vector (Delta ranked (TKR r n))
               -> Delta ranked (TKR r (1 + n))
     -- ^ Create a tensor from a boxed vector treated as the outermost dimension.
-  ReplicateR :: KnownNat n
+  ReplicateR :: (GoodScalar r, KnownNat n)
              => Int -> Delta ranked (TKR r n)
              -> Delta ranked (TKR r (1 + n))
     -- ^ Copy the given tensor along the new, outermost dimension.
-  AppendR :: KnownNat n
+  AppendR :: (GoodScalar r, KnownNat n)
           => Delta ranked (TKR r (1 + n))
           -> Delta ranked (TKR r (1 + n))
           -> Delta ranked (TKR r (1 + n))
     -- ^ Append two arrays along the outermost dimension.
     -- All dimensions, except the outermost, must be the same.
-  SliceR :: KnownNat n
+  SliceR :: (GoodScalar r, KnownNat n)
          => Int -> Int -> Delta ranked (TKR r (1 + n))
          -> Delta ranked (TKR r (1 + n))
     -- ^ Extract a slice of an array along the outermost dimension.
     -- The extracted slice must fall within the dimension.
-  ReverseR :: KnownNat n
+  ReverseR :: (GoodScalar r, KnownNat n)
            => Delta ranked (TKR r (1 + n)) -> Delta ranked (TKR r (1 + n))
     -- ^ Reverse elements of the outermost dimension.
-  TransposeR :: KnownNat n
+  TransposeR :: (GoodScalar r, KnownNat n)
              => Permutation.PermR -> Delta ranked (TKR r n)
              -> Delta ranked (TKR r n)
     -- ^ Transpose according to the permutation.
-  ReshapeR :: (KnownNat n, KnownNat m)
+  ReshapeR :: (GoodScalar r, KnownNat n, KnownNat m)
            => IShR m -> Delta ranked (TKR r n)
            -> Delta ranked (TKR r m)
     -- ^ Change the shape of the tensor to the given one.
-  GatherR :: (KnownNat m, KnownNat p, KnownNat n)
+  GatherR :: (GoodScalar r, KnownNat m, KnownNat p, KnownNat n)
           => IShR (m + n) -> Delta ranked (TKR r (p + n))
           -> (IndexOf ranked m -> IndexOf ranked p)
           -> Delta ranked (TKR r (m + n))
@@ -284,37 +286,41 @@ data Delta :: RankedTensorType -> TensorKindType -> Type where
     -- The semantics of the operation permits index out of bounds
     -- and the result of such indexing is zero.
     -- TODO: this is a haddock for Gather1; fix.
-  CastR :: (GoodScalar r1, RealFrac r1, RealFrac r2)
+  CastR :: (GoodScalar r1, RealFrac r1, GoodScalar r2, RealFrac r2, KnownNat n)
         => Delta ranked (TKR r1 n) -> Delta ranked (TKR r2 n)
-  RFromS :: forall sh r ranked. KnownShS sh
+  RFromS :: forall sh r ranked. (GoodScalar r, KnownShS sh)
          => Delta ranked (TKS r sh)
          -> Delta ranked (TKR r (X.Rank sh))
-  RFromH :: DeltaH ranked -> Int -> Delta ranked (TKR r n)
+  RFromH :: (GoodScalar r, KnownNat n)
+         => DeltaH ranked -> Int -> Delta ranked (TKR r n)
 
   ZeroS :: Delta ranked (TKS r sh)
-  InputS :: InputId ranked -> Delta ranked (TKS r sh)
+  InputS :: forall ranked r sh. (GoodScalar r, KnownShS sh)
+         => InputId ranked -> Delta ranked (TKS r sh)
   ScaleS :: (KnownShS sh, GoodScalar r)
          => ShapedOf ranked r sh -> Delta ranked (TKS r sh)
          -> Delta ranked (TKS r sh)
-  AddS :: Delta ranked (TKS r sh) -> Delta ranked (TKS r sh)
+  AddS :: (GoodScalar r, KnownShS sh)
+       => Delta ranked (TKS r sh) -> Delta ranked (TKS r sh)
        -> Delta ranked (TKS r sh)
-  ShareS :: NodeId ranked -> Delta ranked (TKS r sh) -> Delta ranked (TKS r sh)
+  ShareS :: (GoodScalar r, KnownShS sh)
+         => NodeId ranked -> Delta ranked (TKS r sh) -> Delta ranked (TKS r sh)
 
-  IndexS :: (KnownShS sh1, KnownShS (sh1 X.++ sh2))
+  IndexS :: (KnownShS sh1, KnownShS sh2, KnownShS (sh1 X.++ sh2), GoodScalar r)
          => Delta ranked (TKS r (sh1 X.++ sh2))
          -> IndexSh (ShapedOf ranked) sh1
          -> Delta ranked (TKS r sh2)
     -- ^ The sub-tensor at the given index.
     -- If index is out of bounds, the result is defined and is 0.
-  SumS :: KnownNat n
+  SumS :: (GoodScalar r, KnownNat n, KnownShS sh)
        => Delta ranked (TKS r (n ': sh)) -> Delta ranked (TKS r sh)
-  Sum0S :: (KnownShS sh, KnownNat (Nested.Internal.Shape.Product sh))
+  Sum0S :: (GoodScalar r, KnownShS sh, KnownNat (Nested.Internal.Shape.Product sh))
         => Delta ranked (TKS r sh) -> Delta ranked (TKS r '[])
-  Dot0S :: (KnownShS sh, KnownNat (Nested.Internal.Shape.Product sh), GoodScalar r)
+  Dot0S :: (GoodScalar r, KnownShS sh, KnownNat (Nested.Internal.Shape.Product sh))
         => ShapedOf ranked r sh -> Delta ranked (TKS r sh)
         -> Delta ranked (TKS r '[])
   ScatterS :: forall ranked r sh2 p sh.
-              ( KnownShS sh2, KnownNat p
+              ( GoodScalar r, KnownShS sh2, KnownShS sh, KnownNat p
               , KnownShS (Sh.Take p sh), KnownShS (Sh.Drop p sh)
               , KnownShS (sh2 X.++ Sh.Drop p sh) )
            => Delta ranked (TKS r (sh2 X.++ Sh.Drop p sh))
@@ -331,16 +337,16 @@ data Delta :: RankedTensorType -> TensorKindType -> Type where
     -- and then no tensors is added at such an index.
     -- TODO: this is a haddock for Scatter1; fix.
 
-  FromVectorS :: (KnownShS sh, KnownNat n)
+  FromVectorS :: (GoodScalar r, KnownShS sh, KnownNat n)
               => Data.Vector.Vector (Delta ranked (TKS r sh))
               -> Delta ranked (TKS r (n ': sh))
     -- ^ Create a tensor from a boxed vector treated as the outermost dimension.
   ReplicateS :: forall ranked r n sh.
-                (KnownShS sh, KnownNat n)
+                (GoodScalar r, KnownShS sh, KnownNat n)
              => Delta ranked (TKS r sh) -> Delta ranked (TKS r (n ': sh))
     -- ^ Copy the given tensor along the new, outermost dimension.
   AppendS :: forall ranked r m n sh.
-             (KnownNat m, KnownNat n, KnownShS sh)
+             (GoodScalar r, KnownNat m, KnownNat n, KnownShS sh)
           => Delta ranked (TKS r (m ': sh))
           -> Delta ranked (TKS r (n ': sh))
           -> Delta ranked (TKS r ((m + n) ': sh))
@@ -348,29 +354,32 @@ data Delta :: RankedTensorType -> TensorKindType -> Type where
     -- All dimensions, except the outermost, must be the same.
     -- The integer argument is the outermost size of the first array.
   SliceS :: forall ranked i n k r sh.
-            (KnownNat i, KnownNat n, KnownNat k, KnownShS sh)
+            (GoodScalar r, KnownNat i, KnownNat n, KnownNat k, KnownShS sh)
          => Delta ranked (TKS r (i + n + k ': sh))
          -> Delta ranked (TKS r (n ': sh))
     -- ^ Extract a slice of an array along the outermost dimension.
     -- The extracted slice must fall within the dimension.
     -- The last argument is the outermost size of the argument array.
-  ReverseS :: (KnownShS sh, KnownNat n)
+  ReverseS :: (GoodScalar r, KnownShS sh, KnownNat n)
            => Delta ranked (TKS r (n ': sh))
            -> Delta ranked (TKS r (n ': sh))
     -- ^ Reverse elements of the outermost dimension.
   TransposeS :: forall ranked perm r sh.
-                (PermC perm, KnownShS sh, X.Rank perm <= X.Rank sh)
+                (GoodScalar r, PermC perm, KnownShS sh, X.Rank perm <= X.Rank sh)
              => Permutation.Perm perm
              -> Delta ranked (TKS r sh)
              -> Delta ranked (TKS r (Permutation.PermutePrefix perm sh))
     -- ^ Transpose according to the permutation.
-  ReshapeS :: (KnownShS sh, Nested.Internal.Shape.Product sh ~ Nested.Internal.Shape.Product sh2)
+  ReshapeS :: ( GoodScalar r, KnownShS sh, KnownShS sh2
+              , Nested.Internal.Shape.Product sh
+                ~ Nested.Internal.Shape.Product sh2 )
            => Delta ranked (TKS r sh)
            -> Delta ranked (TKS r sh2)
     -- ^ Change the shape of the tensor from the first to the second.
   GatherS :: forall ranked r sh2 p sh.
-             ( KnownShS sh2, KnownShS sh, KnownNat p
-             , KnownShS (Sh.Take p sh), KnownShS (Sh.Drop p sh) )
+             ( GoodScalar r, KnownShS sh2, KnownShS sh, KnownNat p
+             , KnownShS (Sh.Take p sh), KnownShS (Sh.Drop p sh)
+             , KnownShS (sh2 X.++ Sh.Drop p sh) )
           => Delta ranked (TKS r sh)
           -> (IndexSh (ShapedOf ranked) sh2
               -> IndexSh (ShapedOf ranked) (Sh.Take p sh))
@@ -383,12 +392,13 @@ data Delta :: RankedTensorType -> TensorKindType -> Type where
     -- The semantics of the operation permits index out of bounds
     -- and the result of such indexing is zero.
     -- TODO: this is a haddock for Gather1; fix.
-  CastS :: (GoodScalar r1, RealFrac r1, RealFrac r2)
+  CastS :: (GoodScalar r1, RealFrac r1, GoodScalar r2, RealFrac r2, KnownShS sh)
         => Delta ranked (TKS r1 sh) -> Delta ranked (TKS r2 sh)
-  SFromR :: forall sh r ranked. KnownNat (X.Rank sh)
+  SFromR :: forall sh r ranked. (GoodScalar r, KnownShS sh, KnownNat (X.Rank sh))
          => Delta ranked (TKR r (X.Rank sh))
          -> Delta ranked (TKS r sh)
-  SFromH :: DeltaH ranked -> Int -> Delta ranked (TKS r sh)
+  SFromH :: (GoodScalar r, KnownShS sh)
+         => DeltaH ranked -> Int -> Delta ranked (TKS r sh)
 
 deriving instance ( RankedOf (ShapedOf ranked) ~ ranked
                   , Show (IntOf ranked)
@@ -639,7 +649,7 @@ initEvalState !parameters0 =
 -- and the third argument is the node to evaluate.
 evalRRuntimeSpecialized
   :: forall n r ranked shaped.
-     (KnownNat n, GoodScalar r, ADReady ranked, shaped ~ ShapedOf ranked)
+     (GoodScalar r, ADReady ranked, shaped ~ ShapedOf ranked)
   => EvalState ranked
   -> ranked r n -> Delta ranked (TKR r n)
   -> EvalState ranked
@@ -651,38 +661,35 @@ evalRRuntimeSpecialized !s !c =
   -- If the scalar type is not on the list, performance suffers greatly.
   -- TODO: can I pattern match on (typeRep @r) instead?
   case testEquality (typeRep @r) (typeRep @Double) of
-    Just Refl -> evalR @n @Double s c
+    Just Refl -> evalR @(TKR Double n) s c
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
-      Just Refl -> evalR @n @Float s c
+      Just Refl -> evalR @(TKR Float n) s c
       _ -> case testEquality (typeRep @r) (typeRep @Int64) of
-        Just Refl -> evalR @n @Int64 s c
+        Just Refl -> evalR @(TKR Int64 n) s c
         _ -> case testEquality (typeRep @r) (typeRep @CInt) of
-          Just Refl -> evalR @n @CInt s c
+          Just Refl -> evalR @(TKR CInt n) s c
           _ -> error "evalRRuntimeSpecialized: unexpected scalar"
 
-evalDynamic
-  :: (ADReady ranked, shaped ~ ShapedOf ranked)
-  => EvalState ranked
-  -> (DynamicTensor ranked, DynamicTensor (DeltaR ranked))
+evalSRuntimeSpecialized
+  :: forall sh r ranked shaped.
+     (GoodScalar r, ADReady ranked, shaped ~ ShapedOf ranked)
+  => EvalState ranked -> shaped r sh -> Delta ranked (TKS r sh)
   -> EvalState ranked
-evalDynamic !s3 (t, DynamicRanked d2) = evalR s3 (rfromD t) $ unDeltaR d2
-evalDynamic s3 (t, DynamicShaped d2) = evalS s3 (sfromD t) $ unDeltaS d2
-evalDynamic s3 (t, DynamicRankedDummy @r @sh _ _) =
-  withListSh (Proxy @sh) $ \sh2 ->
-    evalR @_ @r s3 (rfromD t) (ZeroR sh2)
-evalDynamic s3 (t, DynamicShapedDummy @r @sh _ _) =
-  evalS @sh @r s3 (sfromD t) ZeroS
-
-evalHVector
-  :: (ADReady ranked, shaped ~ ShapedOf ranked)
-  => EvalState ranked -> HVector ranked -> HVector (DeltaR ranked)
-  -> EvalState ranked
-evalHVector s as as' = V.foldl' evalDynamic s $ V.zip as as'
+evalSRuntimeSpecialized !s !c =
+  case testEquality (typeRep @r) (typeRep @Double) of
+    Just Refl -> evalR @(TKS Double sh) s c
+    _ -> case testEquality (typeRep @r) (typeRep @Float) of
+      Just Refl -> evalR @(TKS Float sh) s c
+      _ -> case testEquality (typeRep @r) (typeRep @Int64) of
+        Just Refl -> evalR @(TKS Int64 sh) s c
+        _ -> case testEquality (typeRep @r) (typeRep @CInt) of
+          Just Refl -> evalR @(TKS CInt sh) s c
+          _ -> error "evalSRuntimeSpecialized: unexpected scalar"
 
 evalR
-  :: forall n r ranked shaped.
-     (KnownNat n, GoodScalar r, ADReady ranked, shaped ~ ShapedOf ranked)
-  => EvalState ranked -> ranked r n -> Delta ranked (TKR r n)
+  :: forall y ranked shaped.
+     (ADReady ranked, shaped ~ ShapedOf ranked)
+  => EvalState ranked -> InterpretationTarget ranked y -> Delta ranked y
   -> EvalState ranked
 evalR !s !c = \case
   ZeroR{} -> s
@@ -741,7 +748,7 @@ evalR !s !c = \case
                , dMap = EM.insert n cs $ dMap s }
         _ -> error "evalR: corrupted nMap"
 
-  IndexR d ix -> evalR s (rscatter @ranked @r @0
+  IndexR d ix -> evalR s (rscatter @ranked @_ @0
                                    (shapeDelta d) c (const ix)) d
     -- equivalent: evalR s (updateNR (treplicate0NR sh 0) [(ix, c)]) d
   SumR d -> evalR s (rreplicate (lengthDelta d) c) d
@@ -750,7 +757,7 @@ evalR !s !c = \case
                   -- too slow: evalR s (rmap0N (* (tscalar c)) v) vd
   ScatterR _sh d f -> evalR s (rgather (shapeDelta d) c f) d
 
-  FromVectorR @n1 ld ->
+  FromVectorR @n1 @r ld ->
     let cShared = rshare c
         cxs :: [ranked r n1]
         cxs = runravelToList cShared
@@ -781,7 +788,7 @@ evalR !s !c = \case
   CastR d -> evalRRuntimeSpecialized s (rcast c) d
 
   RFromS (SFromR d) -> evalR s c d  -- no information lost, so no checks
-  RFromS d -> evalS s (sfromR c) d
+  RFromS @sh d | Dict <- lemKnownNatRank (knownShS @sh) -> evalR s (sfromR c) d
   RFromH d i ->
     let cs = V.map dynamicFromVoid $ shapeDeltaH d
         ci = DynamicRanked c
@@ -790,34 +797,12 @@ evalR !s !c = \case
         -- should be used only with small vectors or we end up with the same
         -- problem of summing a lot of one-hots as in indexing
 
-evalSRuntimeSpecialized
-  :: forall sh r ranked shaped.
-     (KnownShS sh, GoodScalar r, ADReady ranked, shaped ~ ShapedOf ranked)
-  => EvalState ranked -> shaped r sh -> Delta ranked (TKS r sh)
-  -> EvalState ranked
-evalSRuntimeSpecialized !s !c =
-  case testEquality (typeRep @r) (typeRep @Double) of
-    Just Refl -> evalS @sh @Double s c
-    _ -> case testEquality (typeRep @r) (typeRep @Float) of
-      Just Refl -> evalS @sh @Float s c
-      _ -> case testEquality (typeRep @r) (typeRep @Int64) of
-        Just Refl -> evalS @sh @Int64 s c
-        _ -> case testEquality (typeRep @r) (typeRep @CInt) of
-          Just Refl -> evalS @sh @CInt s c
-          _ -> error "evalSRuntimeSpecialized: unexpected scalar"
-
-evalS
-  :: forall sh r ranked shaped.
-     (KnownShS sh, GoodScalar r, ADReady ranked, shaped ~ ShapedOf ranked)
-  => EvalState ranked -> shaped r sh -> Delta ranked (TKS r sh)
-  -> EvalState ranked
-evalS !s !c = \case
   ZeroS -> s
   InputS i -> s {iMap = EM.adjust (DynamicShaped . saddDynamic c) i
                         $ iMap s}
-  ScaleS k d -> evalS s (k * c) d
+  ScaleS k d -> evalR s (k * c) d
   AddS d e -> let cShared = sshare c
-              in evalS (evalS s cShared d) cShared e
+              in evalR (evalR s cShared d) cShared e
   ShareS n d ->
     assert (case d of
               ZeroS -> False
@@ -830,57 +815,79 @@ evalS !s !c = \case
           let cs = DynamicShaped c
           in s { nMap = EM.insert n (DynamicShaped $ DeltaS d) $ nMap s
                , dMap = EM.insert n cs $ dMap s }
-        _ -> error "evalS: corrupted nMap"
+        _ -> error "evalR: corrupted nMap"
 
-  IndexS @sh1 d ix ->
+  IndexS @sh1 @sh d ix ->
     gcastWith (unsafeCoerce Refl
                :: Sh.Drop (X.Rank sh1) (sh1 X.++ sh) :~: sh) $
     gcastWith (unsafeCoerce Refl
                :: Sh.Take (X.Rank sh1) (sh1 X.++ sh) :~: sh1) $
     withListSh (Proxy @sh1) $ \(_ :: IShR rankSh1) ->
     gcastWith (unsafeCoerce Refl :: rankSh1 :~: X.Rank sh1) $
-    evalS s (sscatter @shaped @r @'[] @(X.Rank sh1) c (const ix)) d
-    -- equivalent: evalS s (updateNR (replicate0NR sh 0) [(ix, c)]) d
-  SumS d -> evalS s (sreplicate c) d
-  Sum0S d -> evalS s (sreplicate0N c) d
-  Dot0S v vd -> evalS s (v * sreplicate0N c) vd
-    -- too slow: evalS s (smap0N (* (sscalar c)) v) vd
-  ScatterS d f -> evalS s (sgather c f) d
+    evalR s (sscatter @shaped @_ @'[] @(X.Rank sh1) c (const ix)) d
+    -- equivalent: evalR s (updateNR (replicate0NR sh 0) [(ix, c)]) d
+  SumS d -> evalR s (sreplicate c) d
+  Sum0S d -> evalR s (sreplicate0N c) d
+  Dot0S v vd -> evalR s (v * sreplicate0N c) vd
+    -- too slow: evalR s (smap0N (* (sscalar c)) v) vd
+  ScatterS d f -> evalR s (sgather c f) d
 
   FromVectorS ld ->
     let cShared = sshare c
     in V.ifoldl' (\ !s2 i d2 ->
-         evalS s2 (cShared !$ (fromIntegral i :.$ ZIS)) d2) s ld
-  ReplicateS d -> evalS s (ssum c) d
+         evalR s2 (cShared !$ (fromIntegral i :.$ ZIS)) d2) s ld
+  ReplicateS d -> evalR s (ssum c) d
   AppendS @_ @_ @m d e ->
     let cShared = sshare c
-        s2 = evalS s (sslice (Proxy @0) Proxy cShared) d
-    in evalS s2 (sslice (Proxy @m) Proxy cShared) e
+        s2 = evalR s (sslice (Proxy @0) Proxy cShared) d
+    in evalR s2 (sslice (Proxy @m) Proxy cShared) e
   SliceS @_ @i d ->
-    evalS s (sappend @shaped @r @i (srepl 0) (sappend c (srepl 0))) d
-  ReverseS d -> evalS s (sreverse c) d
+    evalR s (sappend @shaped @_ @i (srepl 0) (sappend c (srepl 0))) d
+  ReverseS d -> evalR s (sreverse c) d
   TransposeS @_ @perm @_ @sh2 perm d ->
+    withShapeP (backpermutePrefixList (Permutation.permToList' perm)
+                                      (shapeT @sh2)) $ \(Proxy @shp) ->
+    gcastWith (unsafeCoerce Refl :: Permutation.PermutePrefix perm sh2 :~: shp) $
     Permutation.permInverse perm $ \(permRev :: Permutation.Perm permR) _ ->
         gcastWith (unsafeCoerce Refl
-                   :: Permutation.PermutePrefix permR sh :~: sh2)
+                   :: Permutation.PermutePrefix permR (Permutation.PermutePrefix perm sh2) :~: sh2)
         $ gcastWith (unsafeCoerce Refl
-                     :: X.Rank sh :~: X.Rank sh2)
+                     :: X.Rank (Permutation.PermutePrefix perm sh2) :~: X.Rank sh2)
         $ gcastWith (unsafeCoerce Refl
                      :: X.Rank permR :~: X.Rank perm)
-        $ evalS s (stranspose permRev c) d
-  ReshapeS d -> evalS s (sreshape c) d
-  GatherS d f -> evalS s (sscatter c f) d
+        $ evalR s (stranspose permRev c) d
+  ReshapeS d -> evalR s (sreshape c) d
+  GatherS d f -> evalR s (sscatter c f) d
   CastS d -> evalSRuntimeSpecialized s (scast c) d
-  SFromR (RFromS @sh2 d) ->
+  SFromR @sh (RFromS @sh2 d) ->
     case sameShape @sh @sh2 of
-      Just Refl -> evalS s c d
-      _ -> error "evalS: different shapes in SFromR(RFromS)"
+      Just Refl -> evalR s c d
+      _ -> error "evalR: different shapes in SFromR(RFromS)"
   SFromR d -> evalR s (rfromS c) d
   SFromH d i ->
     let cs = V.map dynamicFromVoid $ shapeDeltaH d
         ci = DynamicShaped c
     in assert (dynamicsMatch (cs V.! i) ci) $
        evalH s (cs V.// [(i, ci)]) d
+
+evalDynamic
+  :: (ADReady ranked, shaped ~ ShapedOf ranked)
+  => EvalState ranked
+  -> (DynamicTensor ranked, DynamicTensor (DeltaR ranked))
+  -> EvalState ranked
+evalDynamic !s3 (t, DynamicRanked d2) = evalR s3 (rfromD t) $ unDeltaR d2
+evalDynamic s3 (t, DynamicShaped d2) = evalR s3 (sfromD t) $ unDeltaS d2
+evalDynamic s3 (t, DynamicRankedDummy @r @sh _ _) =
+  withListSh (Proxy @sh) $ \sh2 ->
+    evalR s3 (rfromD @r t) (ZeroR sh2)
+evalDynamic s3 (t, DynamicShapedDummy @r @sh _ _) =
+  evalR @(TKS r sh) s3 (sfromD t) ZeroS
+
+evalHVector
+  :: (ADReady ranked, shaped ~ ShapedOf ranked)
+  => EvalState ranked -> HVector ranked -> HVector (DeltaR ranked)
+  -> EvalState ranked
+evalHVector s as as' = V.foldl' evalDynamic s $ V.zip as as'
 
 evalH
   :: forall ranked shaped. (ADReady ranked, shaped ~ ShapedOf ranked)

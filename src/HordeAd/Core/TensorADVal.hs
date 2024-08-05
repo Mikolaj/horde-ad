@@ -262,10 +262,12 @@ instance ADReady ranked => RankedTensor (ADVal ranked) where
   rletHFunIn = (&)
   rfromS :: forall r sh. (GoodScalar r, KnownShS sh)
          => ADVal (ShapedOf ranked) r sh -> ADVal ranked r (X.Rank sh)
-  rfromS (D u u') = dDnotShared (rfromS u) (DeltaR $ dRFromS u')
+  rfromS (D u u') = dDnotShared (rfromS u) (DeltaR $ dRFromS $ unDeltaS u')
    where
-    dRFromS (DeltaS (SFromR d)) = d  -- no information lost, so no checks
-    dRFromS (DeltaS d) = RFromS d
+    dRFromS :: (GoodScalar r2, KnownShS sh2)
+            => Delta ranked (TKS r2 sh2) -> Delta ranked (TKR r2 (X.Rank sh2))
+    dRFromS (SFromR d) = d  -- no information lost, so no checks
+    dRFromS d = RFromS d
 
   rconstant t = dDnotShared t (dZeroOfShape t)
   rprimalPart (D u _) = u
