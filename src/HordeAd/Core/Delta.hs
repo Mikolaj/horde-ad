@@ -684,8 +684,7 @@ evalR
      (KnownNat n, GoodScalar r, ADReady ranked, shaped ~ ShapedOf ranked)
   => EvalState ranked -> ranked r n -> Delta ranked (TKR r n)
   -> EvalState ranked
-evalR !s !c = let cShared = rshare c
-              in \case
+evalR !s !c = \case
   ZeroR{} -> s
   InputR _ i -> s {iMap = EM.adjust (DynamicRanked . raddDynamic c) i
                           $ iMap s}
@@ -695,7 +694,8 @@ evalR !s !c = let cShared = rshare c
     -- into iMap, because often sharing needs to work across many
     -- iMap keys. That's why global sharing is used.
   ScaleR k d -> evalR s (k * c) d
-  AddR d e -> evalR (evalR s cShared d) cShared e
+  AddR d e -> let cShared = rshare c
+              in evalR (evalR s cShared d) cShared e
   ShareR n d ->
     -- In this context, by construction, @d@ is the dual component
     -- of a dual number term. Let's say that, at this point, evaluation
@@ -751,13 +751,15 @@ evalR !s !c = let cShared = rshare c
   ScatterR _sh d f -> evalR s (rgather (shapeDelta d) c f) d
 
   FromVectorR @n1 ld ->
-    let cxs :: [ranked r n1]
+    let cShared = rshare c
+        cxs :: [ranked r n1]
         cxs = runravelToList cShared
     in foldl' (\ !s2 (cx, d2) -> evalR s2 cx d2) s
        $ zip cxs (V.toList ld)
   ReplicateR _n d -> evalR s (rsum c) d
   AppendR d e -> case rshape c of
-    n :$: _ -> let k = lengthDelta d
+    n :$: _ -> let cShared = rshare c
+                   k = lengthDelta d
                    s2 = evalR s (rslice 0 k cShared) d
                in evalR s2 (rslice k (n - k) cShared) e
     ZSR -> error "evalR: impossible pattern needlessly required"
@@ -809,13 +811,13 @@ evalS
      (KnownShS sh, GoodScalar r, ADReady ranked, shaped ~ ShapedOf ranked)
   => EvalState ranked -> shaped r sh -> Delta ranked (TKS r sh)
   -> EvalState ranked
-evalS !s !c = let cShared = sshare c
-              in \case
+evalS !s !c = \case
   ZeroS -> s
   InputS i -> s {iMap = EM.adjust (DynamicShaped . saddDynamic c) i
                         $ iMap s}
   ScaleS k d -> evalS s (k * c) d
-  AddS d e -> evalS (evalS s cShared d) cShared e
+  AddS d e -> let cShared = sshare c
+              in evalS (evalS s cShared d) cShared e
   ShareS n d ->
     assert (case d of
               ZeroS -> False
@@ -846,11 +848,13 @@ evalS !s !c = let cShared = sshare c
   ScatterS d f -> evalS s (sgather c f) d
 
   FromVectorS ld ->
-    V.ifoldl' (\ !s2 i d2 ->
-      evalS s2 (cShared !$ (fromIntegral i :.$ ZIS)) d2) s ld
+    let cShared = sshare c
+    in V.ifoldl' (\ !s2 i d2 ->
+         evalS s2 (cShared !$ (fromIntegral i :.$ ZIS)) d2) s ld
   ReplicateS d -> evalS s (ssum c) d
   AppendS @_ @_ @m d e ->
-    let s2 = evalS s (sslice (Proxy @0) Proxy cShared) d
+    let cShared = sshare c
+        s2 = evalS s (sslice (Proxy @0) Proxy cShared) d
     in evalS s2 (sslice (Proxy @m) Proxy cShared) e
   SliceS @_ @i d ->
     evalS s (sappend @shaped @r @i (srepl 0) (sappend c (srepl 0))) d
