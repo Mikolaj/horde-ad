@@ -51,12 +51,16 @@ import Prelude
 import Control.Arrow (second)
 import Control.Exception.Assert.Sugar
 import Data.Array.Shape qualified as Sh
+import Data.Dependent.EnumMap.Strict (DEnumMap)
+import Data.Dependent.EnumMap.Strict qualified as DMap
+import Data.Dependent.Sum (DSum (..))
 import Data.EnumMap.Strict qualified as EM
 import Data.Int (Int64)
 import Data.Kind (Type)
 import Data.List (foldl')
 import Data.Maybe (fromMaybe)
 import Data.Proxy (Proxy (Proxy))
+import Data.Some
 import Data.Strict.Vector qualified as Data.Vector
 import Data.Traversable (mapAccumL)
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
@@ -103,7 +107,7 @@ derivativeFromDeltaH
 derivativeFromDeltaH dim deltaTopLevel ds =
   -- EvalState is too complex for the forward derivative, but since
   -- it's already defined, let's use it.
-  let s0 = EvalState EM.empty EM.empty EM.empty EM.empty EM.empty
+  let s0 = EvalState EM.empty EM.empty DMap.empty EM.empty EM.empty
       !(!_s2, !c) = fwdH dim ds s0 deltaTopLevel
   in c
 
@@ -217,7 +221,7 @@ data Delta :: RankedTensorType -> TensorKindType -> Type where
        => Delta ranked (TKR r n) -> Delta ranked (TKR r n)
        -> Delta ranked (TKR r n)
   ShareR :: (GoodScalar r, KnownNat n)
-         => NodeId ranked (TKR Float 0) -> Delta ranked (TKR r n) -> Delta ranked (TKR r n)
+         => NodeId ranked (TKR r n) -> Delta ranked (TKR r n) -> Delta ranked (TKR r n)
 
   IndexR :: (GoodScalar r, KnownNat n, KnownNat m)
          => Delta ranked (TKR r (m + n)) -> IndexOf ranked m
@@ -304,7 +308,7 @@ data Delta :: RankedTensorType -> TensorKindType -> Type where
        => Delta ranked (TKS r sh) -> Delta ranked (TKS r sh)
        -> Delta ranked (TKS r sh)
   ShareS :: (GoodScalar r, KnownShS sh)
-         => NodeId ranked (TKR Float 0) -> Delta ranked (TKS r sh) -> Delta ranked (TKS r sh)
+         => NodeId ranked (TKS r sh) -> Delta ranked (TKS r sh) -> Delta ranked (TKS r sh)
 
   IndexS :: (KnownShS sh1, KnownShS sh2, KnownShS (sh1 X.++ sh2), GoodScalar r)
          => Delta ranked (TKS r (sh1 X.++ sh2))
@@ -524,9 +528,22 @@ shapeDeltaH = \case
 -- * Delta expression identifiers and evaluation state
 
 type role NodeId nominal nominal
-newtype NodeId (f :: RankedTensorType) (y :: TensorKindType) = NodeId Int
- deriving newtype (Show, Enum)
-   -- No Eq instance to limit hacks.
+data NodeId :: RankedTensorType -> TensorKindType -> Type where
+  NodeId :: forall ranked y. TensorKind y => Int -> NodeId ranked y
+
+deriving instance Show (NodeId ranked y)
+  -- No Eq instance to limit hacks outside this module.
+instance TensorKind y => Enum (NodeId ranked y) where
+  toEnum = NodeId
+  fromEnum (NodeId n) = n
+
+instance DMap.Enum1 (NodeId ranked) where
+  type Enum1Info (NodeId ranked) = Some (Dict TensorKind)
+  fromEnum1 (NodeId @_ @a n) = (n, Some @_ @a Dict)
+  toEnum1 n (Some @_ @a Dict) = Some $ NodeId @ranked @a n
+
+tmpNodeId :: NodeId f y -> NodeId f (TKR Float 0)
+tmpNodeId (NodeId n) = NodeId n
 
 type role InputId nominal nominal
 newtype InputId (f :: RankedTensorType) (y :: TensorKindType) = InputId Int
@@ -556,7 +573,7 @@ data EvalState ranked = EvalState
   , dMap  :: EM.EnumMap (NodeId ranked (TKR Float 0)) (DynamicTensor ranked)
       -- ^ eventually, cotangents of non-input subterms indexed
       -- by their node identifiers
-  , nMap  :: EM.EnumMap (NodeId ranked (TKR Float 0)) (DynamicTensor (DeltaR ranked))
+  , nMap  :: DEnumMap (NodeId ranked) (Delta ranked)
       -- ^ nodes left to be evaluated;
       -- we can't evaluate them at once, because their other shared copies
       -- may still not be processed, so we'd not take advantage of the sharing
@@ -635,7 +652,7 @@ initEvalState !parameters0 =
   let iMap = EM.fromDistinctAscList $ zip [toInputId 0 ..]
              $ map dynamicFromVoid $ V.toList parameters0
       dMap = EM.empty
-      nMap = EM.empty
+      nMap = DMap.empty
       hdMap = EM.empty
       hnMap = EM.empty
   in EvalState {..}
@@ -738,15 +755,14 @@ evalR !s !c = \case
               ZeroR{} -> False
               ShareR{} -> False  -- wasteful and nonsensical
               _ -> True)
-    $ case EM.lookup n $ nMap s of
-        Just (DynamicRanked _) ->
+    $ case DMap.lookup n $ nMap s of
+        Just _ ->
           s {dMap = EM.adjust (DynamicRanked
-                               . raddDynamic c) n $ dMap s}
+                               . raddDynamic c) (tmpNodeId n) $ dMap s}
         Nothing ->
           let cs = DynamicRanked c
-          in s { nMap = EM.insert n (DynamicRanked $ DeltaR d) $ nMap s
-               , dMap = EM.insert n cs $ dMap s }
-        _ -> error "evalR: corrupted nMap"
+          in s { nMap = DMap.insert n d $ nMap s
+               , dMap = EM.insert (tmpNodeId n) cs $ dMap s }
 
   IndexR d ix -> evalR s (rscatter @ranked @_ @0
                                    (shapeDelta d) c (const ix)) d
@@ -808,14 +824,13 @@ evalR !s !c = \case
               ZeroS -> False
               ShareS{} -> False  -- wasteful and nonsensical
               _ -> True)
-    $ case EM.lookup n $ nMap s of
-        Just (DynamicShaped _) ->
-          s {dMap = EM.adjust (DynamicShaped . saddDynamic c) n $ dMap s}
+    $ case DMap.lookup n $ nMap s of
+        Just _ ->
+          s {dMap = EM.adjust (DynamicShaped . saddDynamic c) (tmpNodeId n) $ dMap s}
         Nothing ->
           let cs = DynamicShaped c
-          in s { nMap = EM.insert n (DynamicShaped $ DeltaS d) $ nMap s
-               , dMap = EM.insert n cs $ dMap s }
-        _ -> error "evalR: corrupted nMap"
+          in s { nMap = DMap.insert n d $ nMap s
+               , dMap = EM.insert (tmpNodeId n) cs $ dMap s }
 
   IndexS @sh1 @sh d ix ->
     gcastWith (unsafeCoerce Refl
@@ -944,16 +959,16 @@ evalFromnMap s@EvalState{nMap, dMap, hnMap, hdMap} =
   -- We discharge the non-vector cases before the vector ones, because
   -- the latter tend to create and store more cases and so enlarge
   -- the working set of cases.
-  case EM.maxViewWithKey nMap of
-    Just ((n, b), nMap2) ->
+  case DMap.maxViewWithKey nMap of
+    Just (n@(NodeId @_ @y _) :=> d, nMap2) ->
       let s2 = s {nMap = nMap2}
-          s3 = case b of
-            DynamicRanked @r1 @n1 d -> case dMap EM.! n of
+          s3 = case stensorKind @y of
+            STKR @r1 @n1 _ _ -> case dMap EM.! (tmpNodeId n) of
               DynamicRanked @r2 @n2 c -> case sameNat (Proxy @n2)
                                                       (Proxy @n1) of
                 Just Refl -> case testEquality (typeRep @r1)
                                                (typeRep @r2) of
-                  Just Refl -> evalRRuntimeSpecialized s2 c (unDeltaR d)
+                  Just Refl -> evalRRuntimeSpecialized s2 c d
                   _ -> error "evalFromnMap: scalar mismatch"
                 _ -> error "evalFromnMap: rank mismatch"
               DynamicShaped{} ->
@@ -962,20 +977,20 @@ evalFromnMap s@EvalState{nMap, dMap, hnMap, hdMap} =
                 error "evalFromnMap: DynamicRankedDummy"
               DynamicShapedDummy{} ->
                 error "evalFromnMap: DynamicShapedDummy"
-            DynamicShaped @r1 @sh1 d -> case dMap EM.! n of
+            STKS @r1 @sh1 _ _ -> case dMap EM.! (tmpNodeId n) of
               DynamicRanked{} ->
                 error "evalFromnMap: DynamicRanked"
               DynamicShaped @r2 @sh2 c -> case sameShape @sh2 @sh1 of
                 Just Refl -> case testEquality (typeRep @r1)
                                                (typeRep @r2) of
-                  Just Refl -> evalSRuntimeSpecialized s2 c (unDeltaS d)
+                  Just Refl -> evalSRuntimeSpecialized s2 c d
                   _ -> error "evalFromnMap: scalar mismatch"
                 _ -> error "evalFromnMap: shape mismatch"
               DynamicRankedDummy{} ->
                 error "evalFromnMap: DynamicRankedDummy"
               DynamicShapedDummy{} ->
                 error "evalFromnMap: DynamicShapedDummy"
-            _ -> error "evalFromnMap: corrupted nMap"
+            STKProduct{} -> error "evalFromnMap: corrupted nMap"  -- TODO
       in evalFromnMap s3
     Nothing -> case EM.maxViewWithKey hnMap of
       Just ((n, d), hnMap2) ->
@@ -1078,7 +1093,7 @@ fwdR dimR params s = \case
                   (s3, u) = fwdR dimR params s2 e
               in (s3, t + u)
   ShareR n d ->
-    case EM.lookup n $ dMap s of
+    case EM.lookup (tmpNodeId n) $ dMap s of
       Just (DynamicRanked @r2 @n2 e) -> case sameNat (Proxy @n2) (Proxy @n) of
         Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
           Just Refl -> (s, e)
@@ -1088,7 +1103,7 @@ fwdR dimR params s = \case
       Nothing ->
         let (s2, cRaw) = fwdR dimR params s d
             cShared = rshare cRaw
-            s3 = s2 {dMap = EM.insert n (DynamicRanked cShared) (dMap s2)}
+            s3 = s2 {dMap = EM.insert (tmpNodeId n) (DynamicRanked cShared) (dMap s2)}
         in (s3, cShared)
 
   IndexR d ix -> second (`rindex` ix) $ fwdR dimR params s d
@@ -1151,7 +1166,7 @@ fwdS dimR params s = \case
                   (s3, u) = fwdS dimR params s2 e
               in (s3, t + u)
   ShareS n d ->
-    case EM.lookup n $ dMap s of
+    case EM.lookup (tmpNodeId n) $ dMap s of
       Just (DynamicShaped @r2 @sh2 e) -> case sameShape @sh2 @sh of
         Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
           Just Refl -> (s, e)
@@ -1161,7 +1176,7 @@ fwdS dimR params s = \case
       Nothing ->
         let (s2, cRaw) = fwdS dimR params s d
             cShared = sshare cRaw
-            s3 = s2 {dMap = EM.insert n (DynamicShaped cShared) (dMap s2)}
+            s3 = s2 {dMap = EM.insert (tmpNodeId n) (DynamicShaped cShared) (dMap s2)}
         in (s3, cShared)
 
   IndexS d ix -> second (`sindex` ix) $ fwdS dimR params s d
