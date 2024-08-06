@@ -701,8 +701,7 @@ initEvalState !parameters0 =
 -- cotangent contribution when complete (see below for an explanation)
 -- and the third argument is the node to evaluate.
 evalRRuntimeSpecialized
-  :: forall n r ranked shaped.
-     (GoodScalar r, ADReady ranked, shaped ~ ShapedOf ranked)
+  :: forall n r ranked. (GoodScalar r, ADReady ranked)
   => EvalState ranked
   -> ranked r n -> Delta ranked (TKR r n)
   -> EvalState ranked
@@ -724,9 +723,8 @@ evalRRuntimeSpecialized !s !c =
           _ -> error "evalRRuntimeSpecialized: unexpected scalar"
 
 evalSRuntimeSpecialized
-  :: forall sh r ranked shaped.
-     (GoodScalar r, ADReady ranked, shaped ~ ShapedOf ranked)
-  => EvalState ranked -> shaped r sh -> Delta ranked (TKS r sh)
+  :: forall sh r ranked. (GoodScalar r, ADReady ranked)
+  => EvalState ranked -> ShapedOf ranked r sh -> Delta ranked (TKS r sh)
   -> EvalState ranked
 evalSRuntimeSpecialized !s !c =
   case testEquality (typeRep @r) (typeRep @Double) of
@@ -768,8 +766,7 @@ addInterpretationTargetM a b = case (a, b) of
                (addInterpretationTargetM ta2 tb2)
 
 evalR
-  :: forall y ranked shaped.
-     (ADReady ranked, shaped ~ ShapedOf ranked)
+  :: forall y ranked. ADReady ranked
   => EvalState ranked -> InterpretationTarget ranked y -> Delta ranked y
   -> EvalState ranked
 evalR !s !c = \case
@@ -904,7 +901,7 @@ evalR !s !c = \case
                :: Sh.Take (X.Rank sh1) (sh1 X.++ sh) :~: sh1) $
     withListSh (Proxy @sh1) $ \(_ :: IShR rankSh1) ->
     gcastWith (unsafeCoerce Refl :: rankSh1 :~: X.Rank sh1) $
-    evalR s (sscatter @shaped @_ @'[] @(X.Rank sh1) c (const ix)) d
+    evalR s (sscatter @_ @_ @'[] @(X.Rank sh1) c (const ix)) d
     -- equivalent: evalR s (updateNR (replicate0NR sh 0) [(ix, c)]) d
   SumS d -> evalR s (sreplicate c) d
   Sum0S d -> evalR s (sreplicate0N c) d
@@ -922,7 +919,7 @@ evalR !s !c = \case
         s2 = evalR s (sslice (Proxy @0) Proxy cShared) d
     in evalR s2 (sslice (Proxy @m) Proxy cShared) e
   SliceS @_ @i d ->
-    evalR s (sappend @shaped @_ @i (srepl 0) (sappend c (srepl 0))) d
+    evalR s (sappend @_ @_ @i (srepl 0) (sappend c (srepl 0))) d
   ReverseS d -> evalR s (sreverse c) d
   TransposeS @_ @perm @_ @sh2 perm d ->
     withShapeP (backpermutePrefixList (Permutation.permToList' perm)
@@ -951,7 +948,7 @@ evalR !s !c = \case
        evalH s (cs V.// [(i, ci)]) d
 
 evalDynamic
-  :: (ADReady ranked, shaped ~ ShapedOf ranked)
+  :: ADReady ranked
   => EvalState ranked
   -> (DynamicTensor ranked, DynamicTensor (DeltaR ranked))
   -> EvalState ranked
@@ -964,13 +961,13 @@ evalDynamic s3 (t, DynamicShapedDummy @r @sh _ _) =
   evalR @(TKS r sh) s3 (sfromD t) ZeroS
 
 evalHVector
-  :: (ADReady ranked, shaped ~ ShapedOf ranked)
+  :: ADReady ranked
   => EvalState ranked -> HVector ranked -> HVector (DeltaR ranked)
   -> EvalState ranked
 evalHVector s as as' = V.foldl' evalDynamic s $ V.zip as as'
 
 evalH
-  :: forall ranked shaped. (ADReady ranked, shaped ~ ShapedOf ranked)
+  :: forall ranked. ADReady ranked
   => EvalState ranked -> HVector ranked -> DeltaH ranked
   -> EvalState ranked
 evalH !s !c = \case
@@ -1018,7 +1015,7 @@ evalH !s !c = \case
         s2 = evalHVector s dacc acc0'
     in evalHVector s2 des es'
 
-evalFromnMap :: (ADReady ranked, shaped ~ ShapedOf ranked)
+evalFromnMap :: ADReady ranked
              => EvalState ranked -> EvalState ranked
 evalFromnMap s@EvalState{nMap, dMap, hnMap, hdMap} =
   -- We discharge the non-vector cases before the vector ones, because
@@ -1090,7 +1087,7 @@ evalFromnMap s@EvalState{nMap, dMap, hnMap, hdMap} =
 -- and evaluates shared subexpressions repeatedly, so this state-passing
 -- formulation is adopted.
 fwdDynamic
-  :: forall ranked shaped. (ADReady ranked, shaped ~ ShapedOf ranked)
+  :: forall ranked. ADReady ranked
   => Int -> HVector ranked
   -> EvalState ranked
   -> DynamicTensor (DeltaR ranked)
@@ -1106,7 +1103,7 @@ fwdDynamic dimR params s (DynamicShapedDummy @r @sh _ _) =
   second (DynamicShaped @r @sh) $ fwdR dimR params s ZeroS
 
 fwdHVector
-  :: forall ranked shaped. (ADReady ranked, shaped ~ ShapedOf ranked)
+  :: forall ranked. ADReady ranked
   => Int -> HVector ranked
   -> EvalState ranked
   -> HVector (DeltaR ranked)
@@ -1114,7 +1111,7 @@ fwdHVector
 fwdHVector dimR params = mapAccumL (fwdDynamic dimR params)
 
 fwdR
-  :: forall ranked shaped y. (ADReady ranked, shaped ~ ShapedOf ranked)
+  :: forall ranked y. ADReady ranked
   => Int -> HVector ranked -> EvalState ranked -> Delta ranked y
   -> (EvalState ranked, InterpretationTarget ranked y)
 fwdR dimR params s = \case
@@ -1246,7 +1243,7 @@ fwdR dimR params s = \case
                 in (s2, sfromD $ dunHVector v V.! i)
 
 fwdH
-  :: forall ranked shaped. (ADReady ranked, shaped ~ ShapedOf ranked)
+  :: forall ranked. ADReady ranked
   => Int -> HVector ranked -> EvalState ranked -> DeltaH ranked
   -> (EvalState ranked, HVectorOf ranked)
 fwdH dimR params s = \case
