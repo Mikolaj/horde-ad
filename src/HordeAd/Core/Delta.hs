@@ -37,7 +37,8 @@
 -- to understand.
 module HordeAd.Core.Delta
   ( -- * Delta expression evaluation
-    gradientFromDeltaH, derivativeFromDeltaH
+    gradientFromDeltaTK, gradientFromDeltaH
+  , derivativeFromDeltaTK, derivativeFromDeltaH
     -- * Abstract syntax trees of the delta expressions
   , DeltaR (..), DeltaS (..), DeltaH (..), Delta(..)
   , -- * Delta expression identifiers
@@ -85,6 +86,34 @@ import HordeAd.Util.SizedList
 
 -- * Reverse and forward derivative computation for HVectorPseudoTensor
 
+gradientFromDeltaTK
+  :: forall ranked y. (ADReady ranked, TensorKind y)
+  => VoidHVector
+  -> InterpretationTarget ranked y
+  -> Maybe (InterpretationTarget ranked y)
+  -> Delta ranked y
+  -> HVector ranked
+gradientFromDeltaTK !parameters0 value !mdt deltaTopLevel =
+  let ftk = tshapeFull (stensorKind @y) value
+      oneAtF :: TensorKindFull z -> InterpretationTarget ranked z
+      oneAtF = \case
+        FTKR sh -> rzero sh
+        FTKS -> srepl 1
+        FTKProduct ftk1 ftk2 -> ttuple (oneAtF ftk1) (oneAtF ftk2)
+      dt = fromMaybe (oneAtF ftk) mdt
+      s0 = initEvalState parameters0
+      s1 = evalR s0 dt deltaTopLevel
+      s2 = evalFromnMap s1
+      toDynamicTensor :: Some (InterpretationTargetM ranked)
+                      -> DynamicTensor ranked
+      toDynamicTensor (Some b) = case b of
+        MTKR @r @n t -> DynamicRanked @r @n t
+        MTKS @r @sh t -> DynamicShaped @r @sh t
+        MTKRDummy @r @sh -> DynamicRankedDummy @r @sh Proxy Proxy
+        MTKSDummy @r @sh -> DynamicShapedDummy @r @sh Proxy Proxy
+        MTKProduct{} -> error "toDynamicTensor"
+  in V.fromList $ map toDynamicTensor $ DMap.elems $ iMap s2
+
 gradientFromDeltaH
   :: forall ranked. ADReady ranked
   => VoidHVector -> HVectorOf ranked
@@ -106,6 +135,17 @@ gradientFromDeltaH !parameters0 value !mdt deltaTopLevel =
         MTKSDummy @r @sh -> DynamicShapedDummy @r @sh Proxy Proxy
         MTKProduct{} -> error "toDynamicTensor"
   in V.fromList $ map toDynamicTensor $ DMap.elems $ iMap s2
+
+derivativeFromDeltaTK
+  :: forall ranked y. ADReady ranked
+  => Int -> Delta ranked y -> HVector ranked
+  -> InterpretationTarget ranked y
+derivativeFromDeltaTK dim deltaTopLevel ds =
+  -- EvalState is too complex for the forward derivative, but since
+  -- it's already defined, let's use it.
+  let s0 = EvalState DMap.empty DMap.empty DMap.empty EM.empty EM.empty
+      !(!_s2, !c) = fwdR dim ds s0 deltaTopLevel
+  in c
 
 derivativeFromDeltaH
   :: forall ranked. ADReady ranked
