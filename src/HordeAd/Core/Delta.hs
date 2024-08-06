@@ -218,7 +218,7 @@ instance ( ranked ~ RankedOf shaped, RankedOf (ShapedOf ranked) ~ ranked
 
 type role Delta nominal nominal
 data Delta :: RankedTensorType -> TensorKindType -> Type where
-  ZeroR :: IShR n -> Delta ranked (TKR r n)
+  ZeroR :: (KnownNat n, GoodScalar r) => IShR n -> Delta ranked (TKR r n)
     -- ^ the shape is required for @shapeDelta@ and forward derivative
   InputR :: forall ranked r n. (GoodScalar r, KnownNat n)
          => IShR n -> InputId ranked (TKR r n) -> Delta ranked (TKR r n)
@@ -305,7 +305,7 @@ data Delta :: RankedTensorType -> TensorKindType -> Type where
   RFromH :: (GoodScalar r, KnownNat n)
          => DeltaH ranked -> Int -> Delta ranked (TKR r n)
 
-  ZeroS :: Delta ranked (TKS r sh)
+  ZeroS :: (GoodScalar r, KnownShS sh) => Delta ranked (TKS r sh)
   InputS :: forall ranked r sh. (GoodScalar r, KnownShS sh)
          => InputId ranked (TKS r sh) -> Delta ranked (TKS r sh)
   ScaleS :: (KnownShS sh, GoodScalar r)
@@ -1098,12 +1098,12 @@ fwdDynamic
 fwdDynamic dimR params s (DynamicRanked d) =
   second DynamicRanked $ fwdR dimR params s (unDeltaR d)
 fwdDynamic dimR params s (DynamicShaped d) =
-  second DynamicShaped $ fwdS dimR params s (unDeltaS d)
+  second DynamicShaped $ fwdR dimR params s (unDeltaS d)
 fwdDynamic dimR params s (DynamicRankedDummy @r @sh _ _) =
   withListSh (Proxy @sh) $ \sh2 ->
     second (DynamicRanked @r) $ fwdR dimR params s (ZeroR sh2)
 fwdDynamic dimR params s (DynamicShapedDummy @r @sh _ _) =
-  second (DynamicShaped @r @sh) $ fwdS dimR params s ZeroS
+  second (DynamicShaped @r @sh) $ fwdR dimR params s ZeroS
 
 fwdHVector
   :: forall ranked shaped. (ADReady ranked, shaped ~ ShapedOf ranked)
@@ -1114,13 +1114,12 @@ fwdHVector
 fwdHVector dimR params = mapAccumL (fwdDynamic dimR params)
 
 fwdR
-  :: forall n r ranked shaped.
-     (KnownNat n, GoodScalar r, ADReady ranked, shaped ~ ShapedOf ranked)
-  => Int -> HVector ranked -> EvalState ranked -> Delta ranked (TKR r n)
-  -> (EvalState ranked, ranked r n)
+  :: forall ranked shaped y. (ADReady ranked, shaped ~ ShapedOf ranked)
+  => Int -> HVector ranked -> EvalState ranked -> Delta ranked y
+  -> (EvalState ranked, InterpretationTarget ranked y)
 fwdR dimR params s = \case
   ZeroR sh -> (s, rzero sh)
-  InputR _ (InputId i) ->
+  InputR @_ @r @n _ (InputId i) ->
     if i < dimR
     then case params V.! i of
       DynamicRanked @r2 @n2 e -> case sameNat (Proxy @n2) (Proxy @n) of
@@ -1177,77 +1176,71 @@ fwdR dimR params s = \case
 
   RFromS (SFromR d) ->
     fwdR dimR params s d  -- no information lost, so no checks
-  RFromS d -> second rfromS $ fwdS dimR params s d
+  RFromS d -> second rfromS $ fwdR dimR params s d
   RFromH d i -> let (s2, v) = fwdH dimR params s d
                 in (s2, rfromD $ dunHVector v V.! i)
 
-fwdS
-  :: forall sh r ranked shaped.
-     (KnownShS sh, GoodScalar r, ADReady ranked, shaped ~ ShapedOf ranked)
-  => Int -> HVector ranked -> EvalState ranked -> Delta ranked (TKS r sh)
-  -> (EvalState ranked, shaped r sh)
-fwdS dimR params s = \case
   ZeroS -> (s, srepl 0)
-  InputS (InputId i) ->
+  InputS @_ @r @sh (InputId i) ->
     if i < dimR
     then case params V.! i of
-      DynamicRanked{} -> error "fwdS: DynamicRanked"
+      DynamicRanked{} -> error "fwdR: DynamicRanked"
       DynamicShaped @r2 @sh2 e -> case sameShape @sh2 @sh of
         Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
           Just Refl -> (s, e)
-          _ -> error "fwdS: scalar mismatch"
-        _ -> error "fwdS: shape mismatch"
-      DynamicRankedDummy{} -> error "fwdS: DynamicRankedDummy"
-      DynamicShapedDummy{} -> error "fwdS: DynamicShapedDummy"
-    else error "fwdS: wrong index for an input"
-  ScaleS k d -> second (* k) $ fwdS dimR params s d
-  AddS d e -> let (s2, t) = fwdS dimR params s d
-                  (s3, u) = fwdS dimR params s2 e
+          _ -> error "fwdR: scalar mismatch"
+        _ -> error "fwdR: shape mismatch"
+      DynamicRankedDummy{} -> error "fwdR: DynamicRankedDummy"
+      DynamicShapedDummy{} -> error "fwdR: DynamicShapedDummy"
+    else error "fwdR: wrong index for an input"
+  ScaleS k d -> second (* k) $ fwdR dimR params s d
+  AddS d e -> let (s2, t) = fwdR dimR params s d
+                  (s3, u) = fwdR dimR params s2 e
               in (s3, t + u)
   ShareS n d ->
     case DMap.lookup n $ dMap s of
       Just (DTKS e) -> (s, e)
       Nothing ->
-        let (s2, cRaw) = fwdS dimR params s d
+        let (s2, cRaw) = fwdR dimR params s d
             cShared = sshare cRaw
             s3 = s2 {dMap = DMap.insert n (DTKS cShared) (dMap s2)}
         in (s3, cShared)
 
-  IndexS d ix -> second (`sindex` ix) $ fwdS dimR params s d
-  SumS d -> second ssum $ fwdS dimR params s d
+  IndexS d ix -> second (`sindex` ix) $ fwdR dimR params s d
+  SumS d -> second ssum $ fwdR dimR params s d
   Sum0S ZeroS -> (s, srepl 0)
-  Sum0S d -> second ssum0 $ fwdS dimR params s d
+  Sum0S d -> second ssum0 $ fwdR dimR params s d
   Dot0S _ ZeroS -> (s, srepl 0)
-  Dot0S v d -> second (sdot0 v) $ fwdS dimR params s d
+  Dot0S v d -> second (sdot0 v) $ fwdR dimR params s d
   ScatterS d f ->
-    let (s2, t) = fwdS dimR params s d
+    let (s2, t) = fwdR dimR params s d
     in (s2, sscatter t f)
 
   FromVectorS lsd ->
-    let (s2, l) = mapAccumL (fwdS dimR params) s lsd
+    let (s2, l) = mapAccumL (fwdR dimR params) s lsd
     in (s2, sfromVector l)
   ReplicateS d ->
-    let (s2, t) = fwdS dimR params s d
+    let (s2, t) = fwdR dimR params s d
     in (s2, sreplicate t)
   AppendS d e ->
-    let (s2, t) = fwdS dimR params s d
-        (s3, u) = fwdS dimR params s2 e
+    let (s2, t) = fwdR dimR params s d
+        (s3, u) = fwdR dimR params s2 e
     in (s3, sappend t u)
-  SliceS @_ @i d -> second (sslice (Proxy @i) Proxy) $ fwdS dimR params s d
-  ReverseS d -> second sreverse $ fwdS dimR params s d
+  SliceS @_ @i d -> second (sslice (Proxy @i) Proxy) $ fwdR dimR params s d
+  ReverseS d -> second sreverse $ fwdR dimR params s d
   TransposeS perm d -> second (stranspose perm)
-                       $ fwdS dimR params s d
-  ReshapeS d -> second sreshape $ fwdS dimR params s d
+                       $ fwdR dimR params s d
+  ReshapeS d -> second sreshape $ fwdR dimR params s d
   GatherS d f ->
-    let (s2, t) = fwdS dimR params s d
+    let (s2, t) = fwdR dimR params s d
     in (s2, sgather t f)
   CastS d ->
-    second scast $ fwdS dimR params s d
+    second scast $ fwdR dimR params s d
 
-  SFromR (RFromS @sh2 d) ->
+  SFromR @sh (RFromS @sh2 d) ->
     case sameShape @sh @sh2 of
-      Just Refl -> fwdS dimR params s d
-      _ -> error "fwdS: different shapes in SFromR(RFromS)"
+      Just Refl -> fwdR dimR params s d
+      _ -> error "fwdR: different shapes in SFromR(RFromS)"
   SFromR d -> second sfromR $ fwdR dimR params s d
   SFromH d i -> let (s2, v) = fwdH dimR params s d
                 in (s2, sfromD $ dunHVector v V.! i)
