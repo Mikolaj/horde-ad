@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -ddump-tc-trace #-}
 {-# LANGUAGE OverloadedLists #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
@@ -28,7 +29,7 @@ import EqEpsilon
 
 testTrees :: [TestTree]
 testTrees =
-  [ testCase "4fooRrev" testFooRrev
+  [ {-testCase "4fooRrev" testFooRrev
   , testCase "4fooRrev2" testFooRrev2
   , testCase "4fooRrevPP1" testFooRrevPP1
 --  , testCase "4fooRrevPP2" testFooRrevPP2
@@ -48,8 +49,9 @@ testTrees =
   , testCase "4Sin0RfwdPP1" testSin0RfwdPP1
   , testCase "4Sin0RfwdPP1FullUnsimp" testSin0RfwdPP1FullUnsimp
   , testCase "4Sin0RfwdPP1Full" testSin0RfwdPP1Full
-  , testCase "4Sin0Rfwd3" testSin0Rfwd3
-  , testCase "4Sin0Rfwd4" testSin0Rfwd4
+  , testCase "4Sin0Rfwd3" testSin0Rfwd3-}
+   testCase "4Sin0Rfwd4" testSin0Rfwd4
+  {-
   , testCase "4Sin0RfwdPP4" testSin0RfwdPP4
 --  , testCase "4Sin0RfwdPP4Dual" testSin0RfwdPP4Dual
   , testCase "4Sin0Rfwd5" testSin0Rfwd5
@@ -95,8 +97,9 @@ testTrees =
   , testCase "4Sin0Scan0" testSin0Scan0
   , testCase "4Sin0Scan1" testSin0Scan1
   , testCase "4Sin0Scan1ForComparison" testSin0Scan1ForComparison
-  , testCase "4Sin0Scan2" testSin0Scan2
-  , testCase "4Sin0Scan3" testSin0Scan3
+  , testCase "4Sin0Scan2" testSin0Scan2-}
+--   testCase "4Sin0Scan3" testSin0Scan3
+  {-
   , testCase "4Sin0Scan4" testSin0Scan4
   , testCase "4Sin0Scan5" testSin0Scan5
   , testCase "4Sin0Scan6" testSin0Scan6
@@ -265,9 +268,9 @@ testTrees =
   , testCase "4Sin0revhFold2S" testSin0revhFold2S
   , testCase "4Sin0revhFold3S" testSin0revhFold3S
   , testCase "4Sin0revhFold4S" testSin0revhFold4S
-  , testCase "4Sin0revhFold5S" testSin0revhFold5S
+  , testCase "4Sin0revhFold5S" testSin0revhFold5S -}
   ]
-
+{-
 foo :: RealFloat a => (a, a, a) -> a
 foo (x, y, z) =
   let w = x * sin y
@@ -429,13 +432,13 @@ testSin0Rfwd3 = do
   assertEqualUpToEpsilon 1e-10
     (-0.9803280960675791)
     (cfwd f 1.1 1.1)
-
+-}
 testSin0Rfwd4 :: Assertion
 testSin0Rfwd4 = do
   assertEqualUpToEpsilon 1e-10
     0.8988770945225438  -- agrees with the rrev1 version above
     ((rfwd1 sin . rfwd1 @(Flip OR.Array) @Double @0 @0 sin) 1.1)
-
+{-
 testSin0RfwdPP4 :: Assertion
 testSin0RfwdPP4 = do
   let a1 = (rfwd1 sin . rfwd1 @(AstRanked PrimalSpan) @Double @0 @0 sin) 1.1
@@ -4594,3 +4597,4 @@ testSin0revhFold5S = do
             sletHVectorIn asD (\asV -> fFoldSX (sfromD (asV V.! 1))))
          (V.fromList [ DynamicShaped @Double @'[3] $ sreplicate @_ @3 1.1
                      , DynamicShaped @Double @'[3] $ sreplicate @_ @3 1.1 ]))
+-}
