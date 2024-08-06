@@ -16,7 +16,7 @@ module HordeAd.Core.Types
   , TensorType, RankedTensorType, ShapedTensorType
   , TensorKindType (..), STensorKindType(..), TensorKind(..)
   , lemTensorKindOfS, sameTensorKind, TensorKindFull(..)
-  , InterpretationTarget
+  , InterpretationTarget, InterpretationTargetD(..)
   , BuildTensorKind, buildTensorKindFull, lemTensorKindOfBuild
     -- * Some fundamental constraints
   , GoodScalar, HasSingletonDict, Differentiable, IfDifferentiable(..)
@@ -216,6 +216,15 @@ type family InterpretationTarget ranked y = result | result -> ranked y where
   InterpretationTarget ranked (TKProduct x z) =
     ProductOf ranked (InterpretationTarget ranked x)
                      (InterpretationTarget ranked z)
+
+-- Needed because `InterpretationTarget` can't be partially applied.
+type role InterpretationTargetD nominal nominal
+data InterpretationTargetD ranked y where
+  DTKR :: ranked r n -> InterpretationTargetD ranked (TKR r n)
+  DTKS :: ShapedOf ranked r sh  -> InterpretationTargetD ranked (TKS r sh)
+  DTKProduct :: InterpretationTargetD ranked x
+             -> InterpretationTargetD ranked z
+             -> InterpretationTargetD ranked (TKProduct x z)
 
 type family BuildTensorKind k tks where
   BuildTensorKind k (TKR r n) = TKR r (1 + n)

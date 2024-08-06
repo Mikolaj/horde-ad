@@ -107,7 +107,7 @@ derivativeFromDeltaH
 derivativeFromDeltaH dim deltaTopLevel ds =
   -- EvalState is too complex for the forward derivative, but since
   -- it's already defined, let's use it.
-  let s0 = EvalState EM.empty EM.empty DMap.empty EM.empty EM.empty
+  let s0 = EvalState EM.empty DMap.empty DMap.empty EM.empty EM.empty
       !(!_s2, !c) = fwdH dim ds s0 deltaTopLevel
   in c
 
@@ -542,9 +542,6 @@ instance DMap.Enum1 (NodeId ranked) where
   fromEnum1 (NodeId @_ @a n) = (n, Some @_ @a Dict)
   toEnum1 n (Some @_ @a Dict) = Some $ NodeId @ranked @a n
 
-tmpNodeId :: NodeId f y -> NodeId f (TKR Float 0)
-tmpNodeId (NodeId n) = NodeId n
-
 type role InputId nominal nominal
 newtype InputId (f :: RankedTensorType) (y :: TensorKindType) = InputId Int
  deriving (Show, Enum)
@@ -570,7 +567,7 @@ data EvalState ranked = EvalState
       -- (eventually copied to the vector representing the gradient
       -- of the objective function);
       -- the identifiers need to be contiguous and start at 0
-  , dMap  :: EM.EnumMap (NodeId ranked (TKR Float 0)) (DynamicTensor ranked)
+  , dMap  :: DEnumMap (NodeId ranked) (InterpretationTargetD ranked)
       -- ^ eventually, cotangents of non-input subterms indexed
       -- by their node identifiers
   , nMap  :: DEnumMap (NodeId ranked) (Delta ranked)
@@ -651,7 +648,7 @@ initEvalState !parameters0 =
   -- but a shape is not preserved in a dummy, so it's not shape-correct.
   let iMap = EM.fromDistinctAscList $ zip [toInputId 0 ..]
              $ map dynamicFromVoid $ V.toList parameters0
-      dMap = EM.empty
+      dMap = DMap.empty
       nMap = DMap.empty
       hdMap = EM.empty
       hnMap = EM.empty
@@ -702,6 +699,18 @@ evalSRuntimeSpecialized !s !c =
         _ -> case testEquality (typeRep @r) (typeRep @CInt) of
           Just Refl -> evalR @(TKS CInt sh) s c
           _ -> error "evalSRuntimeSpecialized: unexpected scalar"
+
+addInterpretationTargetD ::
+  forall ranked y. (ADReady ranked, TensorKind y)
+  => InterpretationTargetD ranked y
+  -> InterpretationTargetD ranked y
+  -> InterpretationTargetD ranked y
+addInterpretationTargetD a b = case (a, b, stensorKind @y) of
+  (DTKR ta, DTKR tb, STKR{}) -> DTKR $ ta + tb
+  (DTKS ta, DTKS tb, STKS{}) -> DTKS $ ta + tb
+  (DTKProduct ta1 ta2, DTKProduct tb1 tb2, STKProduct{}) ->
+    DTKProduct (addInterpretationTargetD ta1 tb1)
+               (addInterpretationTargetD ta2 tb2)
 
 evalR
   :: forall y ranked shaped.
@@ -755,14 +764,13 @@ evalR !s !c = \case
               ZeroR{} -> False
               ShareR{} -> False  -- wasteful and nonsensical
               _ -> True)
-    $ case DMap.lookup n $ nMap s of
+    $ let cs = DTKR c
+      in case DMap.lookup n $ nMap s of
         Just _ ->
-          s {dMap = EM.adjust (DynamicRanked
-                               . raddDynamic c) (tmpNodeId n) $ dMap s}
+          s {dMap = DMap.adjust (addInterpretationTargetD cs) n $ dMap s}
         Nothing ->
-          let cs = DynamicRanked c
-          in s { nMap = DMap.insert n d $ nMap s
-               , dMap = EM.insert (tmpNodeId n) cs $ dMap s }
+          s { nMap = DMap.insert n d $ nMap s
+            , dMap = DMap.insert n cs $ dMap s }
 
   IndexR d ix -> evalR s (rscatter @ranked @_ @0
                                    (shapeDelta d) c (const ix)) d
@@ -824,13 +832,13 @@ evalR !s !c = \case
               ZeroS -> False
               ShareS{} -> False  -- wasteful and nonsensical
               _ -> True)
-    $ case DMap.lookup n $ nMap s of
+    $ let cs = DTKS c
+      in case DMap.lookup n $ nMap s of
         Just _ ->
-          s {dMap = EM.adjust (DynamicShaped . saddDynamic c) (tmpNodeId n) $ dMap s}
+          s {dMap = DMap.adjust (addInterpretationTargetD cs) n $ dMap s}
         Nothing ->
-          let cs = DynamicShaped c
-          in s { nMap = DMap.insert n d $ nMap s
-               , dMap = EM.insert (tmpNodeId n) cs $ dMap s }
+          s { nMap = DMap.insert n d $ nMap s
+            , dMap = DMap.insert n cs $ dMap s }
 
   IndexS @sh1 @sh d ix ->
     gcastWith (unsafeCoerce Refl
@@ -963,33 +971,12 @@ evalFromnMap s@EvalState{nMap, dMap, hnMap, hdMap} =
     Just (n@(NodeId @_ @y _) :=> d, nMap2) ->
       let s2 = s {nMap = nMap2}
           s3 = case stensorKind @y of
-            STKR @r1 @n1 _ _ -> case dMap EM.! (tmpNodeId n) of
-              DynamicRanked @r2 @n2 c -> case sameNat (Proxy @n2)
-                                                      (Proxy @n1) of
-                Just Refl -> case testEquality (typeRep @r1)
-                                               (typeRep @r2) of
-                  Just Refl -> evalRRuntimeSpecialized s2 c d
-                  _ -> error "evalFromnMap: scalar mismatch"
-                _ -> error "evalFromnMap: rank mismatch"
-              DynamicShaped{} ->
-                error "evalFromnMap: DynamicShaped"
-              DynamicRankedDummy{} ->
-                error "evalFromnMap: DynamicRankedDummy"
-              DynamicShapedDummy{} ->
-                error "evalFromnMap: DynamicShapedDummy"
-            STKS @r1 @sh1 _ _ -> case dMap EM.! (tmpNodeId n) of
-              DynamicRanked{} ->
-                error "evalFromnMap: DynamicRanked"
-              DynamicShaped @r2 @sh2 c -> case sameShape @sh2 @sh1 of
-                Just Refl -> case testEquality (typeRep @r1)
-                                               (typeRep @r2) of
-                  Just Refl -> evalSRuntimeSpecialized s2 c d
-                  _ -> error "evalFromnMap: scalar mismatch"
-                _ -> error "evalFromnMap: shape mismatch"
-              DynamicRankedDummy{} ->
-                error "evalFromnMap: DynamicRankedDummy"
-              DynamicShapedDummy{} ->
-                error "evalFromnMap: DynamicShapedDummy"
+            STKR{} -> case DMap.lookup n dMap of
+              Just (DTKR c) -> evalRRuntimeSpecialized s2 c d
+              Nothing -> error $ "evalFromnMap: missing cotangent " ++ show n
+            STKS{} -> case DMap.lookup n dMap of
+              Just (DTKS c) -> evalSRuntimeSpecialized s2 c d
+              Nothing -> error $ "evalFromnMap: missing cotangent " ++ show n
             STKProduct{} -> error "evalFromnMap: corrupted nMap"  -- TODO
       in evalFromnMap s3
     Nothing -> case EM.maxViewWithKey hnMap of
@@ -1093,17 +1080,12 @@ fwdR dimR params s = \case
                   (s3, u) = fwdR dimR params s2 e
               in (s3, t + u)
   ShareR n d ->
-    case EM.lookup (tmpNodeId n) $ dMap s of
-      Just (DynamicRanked @r2 @n2 e) -> case sameNat (Proxy @n2) (Proxy @n) of
-        Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
-          Just Refl -> (s, e)
-          _ -> error "fwdR: scalar mismatch"
-        _ -> error "fwdR: rank mismatch"
-      Just{} ->error "fwdR: corrupted dMap"
+    case DMap.lookup n $ dMap s of
+      Just (DTKR e) -> (s, e)
       Nothing ->
         let (s2, cRaw) = fwdR dimR params s d
             cShared = rshare cRaw
-            s3 = s2 {dMap = EM.insert (tmpNodeId n) (DynamicRanked cShared) (dMap s2)}
+            s3 = s2 {dMap = DMap.insert n (DTKR cShared) (dMap s2)}
         in (s3, cShared)
 
   IndexR d ix -> second (`rindex` ix) $ fwdR dimR params s d
@@ -1166,17 +1148,12 @@ fwdS dimR params s = \case
                   (s3, u) = fwdS dimR params s2 e
               in (s3, t + u)
   ShareS n d ->
-    case EM.lookup (tmpNodeId n) $ dMap s of
-      Just (DynamicShaped @r2 @sh2 e) -> case sameShape @sh2 @sh of
-        Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
-          Just Refl -> (s, e)
-          _ -> error "fwdS: scalar mismatch"
-        _ -> error "fwdS: shape mismatch"
-      Just{} -> error "fwdS: corrupted dMap"
+    case DMap.lookup n $ dMap s of
+      Just (DTKS e) -> (s, e)
       Nothing ->
         let (s2, cRaw) = fwdS dimR params s d
             cShared = sshare cRaw
-            s3 = s2 {dMap = EM.insert (tmpNodeId n) (DynamicShaped cShared) (dMap s2)}
+            s3 = s2 {dMap = DMap.insert n (DTKS cShared) (dMap s2)}
         in (s3, cShared)
 
   IndexS d ix -> second (`sindex` ix) $ fwdS dimR params s d
