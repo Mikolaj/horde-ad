@@ -471,10 +471,16 @@ data DeltaProduct ranked vx vy = DeltaProduct vx vy
 -- break injectivity?
 type instance ProductOf (DeltaR ranked) = DeltaProduct ranked
 
-instance ProductTensor (DeltaR ranked) where
+instance (RankedTensor ranked, ShapedTensor (ShapedOf ranked))
+         => ProductTensor (DeltaR ranked) where
   ttuple = DeltaProduct
   tproject1 (DeltaProduct vx _vz) = vx
   tproject2 (DeltaProduct _vx vz) = vz
+  tshapeFull stk t = case stk of
+    STKR{} -> FTKR $ shapeDelta $ unDeltaR t
+    STKS{} -> FTKS
+    STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (tproject1 t))
+                                       (tshapeFull stk2 (tproject2 t))
 
 shapeDelta :: forall ranked r n.
               ( GoodScalar r, KnownNat n

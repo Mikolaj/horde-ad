@@ -159,6 +159,11 @@ instance ProductTensor DummyDual where
   ttuple = DummyProduct
   tproject1 (DummyProduct vx _vz) = vx
   tproject2 (DummyProduct _vx vz) = vz
+  tshapeFull stk t = case stk of
+    STKR{} -> error "tshapeFull of DummyDual"
+    STKS{} -> FTKS
+    STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (tproject1 t))
+                                       (tshapeFull stk2 (tproject2 t))
 
 instance ShapedTensor OSArray where
   sletTKIn _ a f = f a
@@ -301,6 +306,11 @@ instance ProductTensor ORArray where
   ttuple u v = (u, v)
   tproject1 = fst
   tproject2 = snd
+  tshapeFull stk t = case stk of
+    STKR{} -> FTKR $ tshapeR $ runFlipR t
+    STKS{} -> FTKS
+    STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (tproject1 t))
+                                       (tshapeFull stk2 (tproject2 t))
 
 oRdmapAccumR
   :: SNat k

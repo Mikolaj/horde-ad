@@ -240,6 +240,11 @@ instance ProductTensor (AstRanked s) where
   ttuple = AstRankedProduct  -- TODO: should this be a wrapped (AstTuple vx vz) instead? does it matter? would it just simplify (eliminate?) unRankedY?
   tproject1 (AstRankedProduct vx _vz) = vx
   tproject2 (AstRankedProduct _vx vz) = vz
+  tshapeFull stk t = case stk of
+    STKR{} -> FTKR $ shapeAst $ unAstRanked t
+    STKS{} -> FTKS
+    STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (tproject1 t))
+                                       (tshapeFull stk2 (tproject2 t))
 
 rankedY :: forall y s.
            STensorKindType y -> AstTensor s y
@@ -918,6 +923,11 @@ instance ProductTensor (AstRaw s) where
   ttuple = AstRawProduct
   tproject1 (AstRawProduct vx _vz) = vx
   tproject2 (AstRawProduct _vx vz) = vz
+  tshapeFull stk t = case stk of
+    STKR{} -> FTKR $ shapeAst $ unAstRaw t
+    STKS{} -> FTKS
+    STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (tproject1 t))
+                                       (tshapeFull stk2 (tproject2 t))
 
 rawY :: forall y s.
            STensorKindType y -> AstTensor s y
@@ -1200,6 +1210,11 @@ instance ProductTensor (AstNoVectorize s) where
   ttuple = AstNoVectorizeProduct
   tproject1 (AstNoVectorizeProduct vx _vz) = vx
   tproject2 (AstNoVectorizeProduct _vx vz) = vz
+  tshapeFull stk t = case stk of
+    STKR{} -> FTKR $ shapeAst $ unAstNoVectorize t
+    STKS{} -> FTKS
+    STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (tproject1 t))
+                                       (tshapeFull stk2 (tproject2 t))
 
 noVectorizeY :: forall y s.
            STensorKindType y -> AstTensor s y
@@ -1406,6 +1421,11 @@ instance ProductTensor (AstNoSimplify s) where
   ttuple = AstNoSimplifyProduct
   tproject1 (AstNoSimplifyProduct vx _vz) = vx
   tproject2 (AstNoSimplifyProduct _vx vz) = vz
+  tshapeFull stk t = case stk of
+    STKR{} -> FTKR $ shapeAst $ unAstNoSimplify t
+    STKS{} -> FTKS
+    STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (tproject1 t))
+                                       (tshapeFull stk2 (tproject2 t))
 
 noSimplifyY :: forall y s.
            STensorKindType y -> AstTensor s y

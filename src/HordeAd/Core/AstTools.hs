@@ -46,29 +46,8 @@ shapeAstFull :: forall s y.
 shapeAstFull stk t = case stk of
   STKR{} -> FTKR $ shapeAst t
   STKS{} -> FTKS
-  STKProduct stk1 stk2 -> case t of
-    AstTuple t1 t2 | Dict <- lemTensorKindOfS stk1
-                   , Dict <- lemTensorKindOfS stk2 ->
-      FTKProduct (shapeAstFull stk1 t1) (shapeAstFull stk2 t2)
-    AstProject1 @_ @z v ->
-      case shapeAstFull (STKProduct stk (stensorKind @z))
-                        v of
-        FTKProduct ftk _ -> ftk
-    AstProject2 @x v ->
-      case shapeAstFull (STKProduct (stensorKind @x) stk)
-                        v of
-        FTKProduct _ ftk -> ftk
-    AstLetTupleIn _var1 _var2 _p v -> shapeAstFull stk v
-    AstVar sh _var -> sh
-    AstPrimalPart a -> shapeAstFull stk a
-    AstDualPart a -> shapeAstFull stk a
-    AstConstant a -> shapeAstFull stk a
-    AstD u _ -> shapeAstFull stk u
-    AstCond _b v _w -> shapeAstFull stk v
-    AstReplicate @y2 snat v ->
-      buildTensorKindFull snat $ shapeAstFull (stensorKind @y2) v
-    AstBuild1 @y2 snat (_, v) ->
-      buildTensorKindFull snat $ shapeAstFull (stensorKind @y2) v
+  STKProduct stk1 stk2 -> FTKProduct (shapeAstFull stk1 (AstProject1 t))
+                                     (shapeAstFull stk2 (AstProject2 t))
 
 -- This is cheap and dirty. We don't shape-check the terms and we don't
 -- unify or produce (partial) results with variables. Instead, we investigate

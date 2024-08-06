@@ -1105,6 +1105,8 @@ class ProductTensor (ranked :: RankedTensorType) where
             -> InterpretationTarget ranked x
   tproject2 :: InterpretationTarget ranked (TKProduct x z)
             -> InterpretationTarget ranked z
+  tshapeFull :: STensorKindType y -> InterpretationTarget ranked y
+             -> TensorKindFull y
 
 rfromD :: forall r n ranked.
           (RankedTensor ranked, GoodScalar r, KnownNat n)
