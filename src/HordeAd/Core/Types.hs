@@ -16,7 +16,7 @@ module HordeAd.Core.Types
   , TensorType, RankedTensorType, ShapedTensorType
   , TensorKindType (..), STensorKindType(..), TensorKind(..)
   , lemTensorKindOfS, sameTensorKind, TensorKindFull(..)
-  , InterpretationTarget, InterpretationTargetD(..)
+  , InterpretationTarget, InterpretationTargetD(..), InterpretationTargetM(..)
   , BuildTensorKind, buildTensorKindFull, lemTensorKindOfBuild
     -- * Some fundamental constraints
   , GoodScalar, HasSingletonDict, Differentiable, IfDifferentiable(..)
@@ -220,11 +220,27 @@ type family InterpretationTarget ranked y = result | result -> ranked y where
 -- Needed because `InterpretationTarget` can't be partially applied.
 type role InterpretationTargetD nominal nominal
 data InterpretationTargetD ranked y where
-  DTKR :: ranked r n -> InterpretationTargetD ranked (TKR r n)
-  DTKS :: ShapedOf ranked r sh  -> InterpretationTargetD ranked (TKS r sh)
+  DTKR :: (GoodScalar r, KnownNat n)
+       => ranked r n -> InterpretationTargetD ranked (TKR r n)
+  DTKS :: (GoodScalar r, KnownShS sh)
+       => ShapedOf ranked r sh -> InterpretationTargetD ranked (TKS r sh)
   DTKProduct :: InterpretationTargetD ranked x
              -> InterpretationTargetD ranked z
              -> InterpretationTargetD ranked (TKProduct x z)
+
+type role InterpretationTargetM nominal nominal
+data InterpretationTargetM ranked y where
+  MTKR :: (GoodScalar r, KnownNat n)
+       => ranked r n -> InterpretationTargetM ranked (TKR r n)
+  MTKS :: (GoodScalar r, KnownShS sh)
+       => ShapedOf ranked r sh -> InterpretationTargetM ranked (TKS r sh)
+  MTKRDummy :: (GoodScalar r, KnownShS sh)
+            => InterpretationTargetM ranked (TKR r (X.Rank sh))
+  MTKSDummy  :: (GoodScalar r, KnownShS sh)
+             => InterpretationTargetM ranked (TKS r sh)
+  MTKProduct :: InterpretationTargetM ranked x
+             -> InterpretationTargetM ranked z
+             -> InterpretationTargetM ranked (TKProduct x z)
 
 type family BuildTensorKind k tks where
   BuildTensorKind k (TKR r n) = TKR r (1 + n)

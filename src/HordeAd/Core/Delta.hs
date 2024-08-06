@@ -41,7 +41,7 @@ module HordeAd.Core.Delta
     -- * Abstract syntax trees of the delta expressions
   , DeltaR (..), DeltaS (..), DeltaH (..), Delta(..)
   , -- * Delta expression identifiers
-    NodeId (..), InputId, toInputId
+    NodeId (..), InputId, toInputIdR, toInputIdS
     -- * Exported to be specialized elsewhere
   , evalFromnMap, EvalState
   ) where
@@ -90,15 +90,22 @@ gradientFromDeltaH
   => VoidHVector -> HVectorOf ranked
   -> Maybe (HVector ranked) -> DeltaH ranked
   -> HVector ranked
-gradientFromDeltaH !parameters0 value
-                   !mdt deltaTopLevel =
+gradientFromDeltaH !parameters0 value !mdt deltaTopLevel =
   let shDt = dshape value
       dt = fromMaybe (mapHVectorShaped (const $ srepl 1)
                       $ V.map dynamicFromVoid shDt) mdt
       s0 = initEvalState parameters0
       s1 = evalH s0 dt deltaTopLevel
       s2 = evalFromnMap s1
-  in V.fromList $ EM.elems $ iMap s2
+      toDynamicTensor :: Some (InterpretationTargetM ranked)
+                      -> DynamicTensor ranked
+      toDynamicTensor (Some b) = case b of
+        MTKR @r @n t -> DynamicRanked @r @n t
+        MTKS @r @sh t -> DynamicShaped @r @sh t
+        MTKRDummy @r @sh -> DynamicRankedDummy @r @sh Proxy Proxy
+        MTKSDummy @r @sh -> DynamicShapedDummy @r @sh Proxy Proxy
+        MTKProduct{} -> error "toDynamicTensor"
+  in V.fromList $ map toDynamicTensor $ DMap.elems $ iMap s2
 
 derivativeFromDeltaH
   :: forall ranked. ADReady ranked
@@ -107,7 +114,7 @@ derivativeFromDeltaH
 derivativeFromDeltaH dim deltaTopLevel ds =
   -- EvalState is too complex for the forward derivative, but since
   -- it's already defined, let's use it.
-  let s0 = EvalState EM.empty DMap.empty DMap.empty EM.empty EM.empty
+  let s0 = EvalState DMap.empty DMap.empty DMap.empty EM.empty EM.empty
       !(!_s2, !c) = fwdH dim ds s0 deltaTopLevel
   in c
 
@@ -214,7 +221,7 @@ data Delta :: RankedTensorType -> TensorKindType -> Type where
   ZeroR :: IShR n -> Delta ranked (TKR r n)
     -- ^ the shape is required for @shapeDelta@ and forward derivative
   InputR :: forall ranked r n. (GoodScalar r, KnownNat n)
-         => IShR n -> InputId ranked (TKR Float 0) -> Delta ranked (TKR r n)
+         => IShR n -> InputId ranked (TKR r n) -> Delta ranked (TKR r n)
   ScaleR :: (KnownNat n, GoodScalar r)
          =>  ranked r n -> Delta ranked (TKR r n) -> Delta ranked (TKR r n)
   AddR :: (GoodScalar r, KnownNat n)
@@ -300,7 +307,7 @@ data Delta :: RankedTensorType -> TensorKindType -> Type where
 
   ZeroS :: Delta ranked (TKS r sh)
   InputS :: forall ranked r sh. (GoodScalar r, KnownShS sh)
-         => InputId ranked (TKR Float 0) -> Delta ranked (TKS r sh)
+         => InputId ranked (TKS r sh) -> Delta ranked (TKS r sh)
   ScaleS :: (KnownShS sh, GoodScalar r)
          => ShapedOf ranked r sh -> Delta ranked (TKS r sh)
          -> Delta ranked (TKS r sh)
@@ -531,7 +538,10 @@ type role NodeId nominal nominal
 data NodeId :: RankedTensorType -> TensorKindType -> Type where
   NodeId :: forall ranked y. TensorKind y => Int -> NodeId ranked y
 
-deriving instance Show (NodeId ranked y)
+instance Show (NodeId ranked y) where
+  showsPrec d (NodeId n) =
+    showsPrec d n  -- less verbose, more readable
+
   -- No Eq instance to limit hacks outside this module.
 instance TensorKind y => Enum (NodeId ranked y) where
   toEnum = NodeId
@@ -543,13 +553,25 @@ instance DMap.Enum1 (NodeId ranked) where
   toEnum1 n (Some @_ @a Dict) = Some $ NodeId @ranked @a n
 
 type role InputId nominal nominal
-newtype InputId (f :: RankedTensorType) (y :: TensorKindType) = InputId Int
- deriving (Show, Enum)
-   -- No Eq instance to limit hacks outside this module.
+data InputId :: RankedTensorType -> TensorKindType -> Type where
+  InputId :: forall ranked y. TensorKind y => Int -> InputId ranked y
+
+deriving instance Show (InputId ranked y)
+instance TensorKind y => Enum (InputId ranked y) where
+  toEnum = InputId
+  fromEnum (InputId n) = n
+
+instance DMap.Enum1 (InputId ranked) where
+  type Enum1Info (InputId ranked) = Some (Dict TensorKind)
+  fromEnum1 (InputId @_ @a n) = (n, Some @_ @a Dict)
+  toEnum1 n (Some @_ @a Dict) = Some $ InputId @ranked @a n
 
 -- | Wrap non-negative (only!) integers in the `InputId` newtype.
-toInputId :: Int -> InputId f (TKR Float 0)
-toInputId i = assert (i >= 0) $ InputId i
+toInputIdR :: (GoodScalar r, KnownNat n) => Int -> InputId f (TKR r n)
+toInputIdR i = assert (i >= 0) $ InputId i
+
+toInputIdS :: (GoodScalar r, KnownShS sh) => Int -> InputId f (TKS r sh)
+toInputIdS i = assert (i >= 0) $ InputId i
 
 -- | The state of evaluation. It consists of several maps.
 -- The maps indexed by input identifiers and node identifiers
@@ -562,7 +584,7 @@ toInputId i = assert (i >= 0) $ InputId i
 -- 2. key `member` dMap == nMap!key is DynamicRanked
 type role EvalState nominal
 data EvalState ranked = EvalState
-  { iMap  :: EM.EnumMap (InputId ranked (TKR Float 0)) (DynamicTensor ranked)
+  { iMap  :: DEnumMap (InputId ranked) (InterpretationTargetM ranked)
       -- ^ eventually, cotangents of objective function inputs
       -- (eventually copied to the vector representing the gradient
       -- of the objective function);
@@ -646,7 +668,18 @@ initEvalState !parameters0 =
   -- and especially using them as cotangent accumulators is wasteful.
   -- We take care to keep the scalar type of the dummy correct,
   -- but a shape is not preserved in a dummy, so it's not shape-correct.
-  let iMap = EM.fromDistinctAscList $ zip [toInputId 0 ..]
+  let fromDynamicTensor
+        :: forall ranked.
+           Int -> DynamicTensor ranked
+        -> DSum (InputId ranked) (InterpretationTargetM ranked)
+      fromDynamicTensor n b = case b of
+        DynamicRanked t -> InputId n :=> MTKR t
+        DynamicShaped t -> InputId n :=> MTKS t
+        DynamicRankedDummy @r @sh _ _ | Dict <- lemKnownNatRank (knownShS @sh) ->
+          InputId n :=> MTKRDummy @r @sh
+        DynamicShapedDummy @r @sh _ _ ->
+          InputId n :=> MTKSDummy @r @sh
+      iMap = DMap.fromDistinctAscList $ zipWith fromDynamicTensor [0 ..]
              $ map dynamicFromVoid $ V.toList parameters0
       dMap = DMap.empty
       nMap = DMap.empty
@@ -701,16 +734,32 @@ evalSRuntimeSpecialized !s !c =
           _ -> error "evalSRuntimeSpecialized: unexpected scalar"
 
 addInterpretationTargetD ::
-  forall ranked y. (ADReady ranked, TensorKind y)
+  ADReady ranked
   => InterpretationTargetD ranked y
   -> InterpretationTargetD ranked y
   -> InterpretationTargetD ranked y
-addInterpretationTargetD a b = case (a, b, stensorKind @y) of
-  (DTKR ta, DTKR tb, STKR{}) -> DTKR $ ta + tb
-  (DTKS ta, DTKS tb, STKS{}) -> DTKS $ ta + tb
-  (DTKProduct ta1 ta2, DTKProduct tb1 tb2, STKProduct{}) ->
+addInterpretationTargetD a b = case (a, b) of
+  (DTKR ta, DTKR tb) -> DTKR $ ta + tb
+  (DTKS ta, DTKS tb) -> DTKS $ ta + tb
+  (DTKProduct ta1 ta2, DTKProduct tb1 tb2) ->
     DTKProduct (addInterpretationTargetD ta1 tb1)
                (addInterpretationTargetD ta2 tb2)
+
+addInterpretationTargetM ::
+  ADReady ranked
+  => InterpretationTargetM ranked y
+  -> InterpretationTargetM ranked y
+  -> InterpretationTargetM ranked y
+addInterpretationTargetM a b = case (a, b) of
+  (MTKR ta, MTKR tb) -> MTKR $ ta + tb
+  (MTKRDummy, _) -> b
+  (_, MTKRDummy) -> a
+  (MTKS ta, MTKS tb) -> MTKS $ ta + tb
+  (MTKSDummy, _) -> b
+  (_, MTKSDummy) -> a
+  (MTKProduct ta1 ta2, MTKProduct tb1 tb2) ->
+    MTKProduct (addInterpretationTargetM ta1 tb1)
+               (addInterpretationTargetM ta2 tb2)
 
 evalR
   :: forall y ranked shaped.
@@ -719,8 +768,9 @@ evalR
   -> EvalState ranked
 evalR !s !c = \case
   ZeroR{} -> s
-  InputR _ i -> s {iMap = EM.adjust (DynamicRanked . raddDynamic c) i
-                          $ iMap s}
+  InputR _ i -> let cs = MTKR c
+                in s {iMap = DMap.adjust (addInterpretationTargetM cs) i
+                             $ iMap s}
     -- This and similar don't need to be runtime-specialized,
     -- because the type of c determines the Num instance for (+).
     -- Note that we can't express sharing by inserting Share constructors
@@ -822,8 +872,9 @@ evalR !s !c = \case
         -- problem of summing a lot of one-hots as in indexing
 
   ZeroS -> s
-  InputS i -> s {iMap = EM.adjust (DynamicShaped . saddDynamic c) i
-                        $ iMap s}
+  InputS i -> let cs = MTKS c
+              in s {iMap = DMap.adjust (addInterpretationTargetM cs) i
+                           $ iMap s}
   ScaleS k d -> evalR s (k * c) d
   AddS d e -> let cShared = sshare c
               in evalR (evalR s cShared d) cShared e

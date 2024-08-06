@@ -133,15 +133,15 @@ generateDeltaInputs =
       f i (DynamicRanked @r @n t) =
         case rshape t of
           (sh :: IShR n2) | Just Refl <- sameNat (Proxy @n) (Proxy @n2) ->
-            DynamicRanked $ DeltaR $ InputR @ranked2 @r @n sh (toInputId i)
+            DynamicRanked $ DeltaR $ InputR @ranked2 @r @n sh (toInputIdR i)
           _ -> error "generateDeltaInputs: wrong rank"
       f i (DynamicShaped @r @sh _) =
-        DynamicShaped $ DeltaS $ InputS @ranked2 @r @sh (toInputId i)
+        DynamicShaped $ DeltaS $ InputS @ranked2 @r @sh (toInputIdS i)
       f i (DynamicRankedDummy @r @sh _ _) =
         withListSh (Proxy @sh) $ \sh ->
-          DynamicRanked $ DeltaR $ InputR @ranked2 @r sh (toInputId i)
+          DynamicRanked $ DeltaR $ InputR @ranked2 @r sh (toInputIdR i)
       f i (DynamicShapedDummy @r @sh _ _) =
-        DynamicShaped $ DeltaS $ InputS @ranked2 @r @sh (toInputId i)
+        DynamicShaped $ DeltaS $ InputS @ranked2 @r @sh (toInputIdS i)
   in V.imap f
 {- TODO: this causes a cyclic dependency:
 {-# SPECIALIZE generateDeltaInputs
