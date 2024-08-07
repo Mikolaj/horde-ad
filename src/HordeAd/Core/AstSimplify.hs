@@ -33,13 +33,13 @@ module HordeAd.Core.AstSimplify
   , astLetHVectorInHVector, astLetHFunInHVector
   , astLetInHVector, astLetInHVectorS
     -- * The simplifying bottom-up pass
-  , simplifyAst, simplifyAstHVector
+  , simplifyAst
     -- * The expanding (to gather expressions) bottom-up pass
-  , expandAst, expandAstHVector
+  , expandAst
     -- * Substitution payload and adaptors for AstVarName
   , SubstitutionPayload(..)
   , substituteAst, substitute1Ast, substituteAstIndex, substituteAstIndexS
-  , substituteAstHVector, substitute1AstHVector
+  , substituteAstHVector
   ) where
 
 import Prelude
@@ -84,10 +84,9 @@ import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
 import HordeAd.Core.Ast
   ( AstBool (AstBoolConst)
-  , AstHVector
   , AstTensor (AstConst, AstConstS, AstN1, AstN1S, AstN2, AstN2S, AstSumOfList, AstSumOfListS)
   )
-import HordeAd.Core.Ast hiding (AstBool (..), AstHVector (..), AstTensor (..))
+import HordeAd.Core.Ast hiding (AstBool (..), AstTensor (..))
 import HordeAd.Core.Ast qualified as Ast
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstTools
@@ -352,6 +351,7 @@ astNonIndexStep t = case t of
   Ast.AstLetHVectorInS vars u v -> astLetHVectorInS vars u v
   Ast.AstLetHFunInS var u v -> astLetHFunInS var u v
   Ast.AstSFromR v -> astSFromR v
+  _ -> t  -- TODO
 
 astIndexR
   :: forall m n s r.
@@ -799,7 +799,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS shm1)) | Dict <- s
                     $ ShapedList.listToIndex @shm $ map Nested.runScalar ixInt
         -- TODO: we'd need mapM for Index to keep this rank-typed
       Nothing -> Ast.AstIndexS v0 ix
-  Ast.AstProjectS{} -> error "astIndexKnobsRS: AstProjectRsS"
+  Ast.AstProjectS{} -> error "astIndexKnobsRS: AstProjectS"
     {- The term should get simplified before this monstrosity kicks in:
     fun1DToAst (shapeAstHVector l) $ \ !vars !asts ->
       let lp = fromDynamicS (asts V.! p)
@@ -1968,7 +1968,7 @@ astFromIntegralS v = Ast.AstFromIntegralS v
 
 astProject
   :: forall n r s. (KnownNat n, GoodScalar r, AstSpan s)
-  => AstHVector s -> Int -> AstTensor s (TKR r n)
+  => AstTensor s TKUntyped -> Int -> AstTensor s (TKR r n)
 astProject l p = case l of
   Ast.AstMkHVector l3 ->
     unAstRanked
@@ -1986,7 +1986,7 @@ astProject l p = case l of
 
 astProjectS
   :: forall sh r s. (KnownShS sh, GoodScalar r, AstSpan s)
-  => AstHVector s -> Int -> AstTensor s (TKS r sh)
+  => AstTensor s TKUntyped -> Int -> AstTensor s (TKS r sh)
 astProjectS l p = case l of
   Ast.AstMkHVector l3 ->
     unAstShaped
@@ -2091,6 +2091,7 @@ astPrimalPart t = case t of
     astLetHVectorInS vars l (astPrimalPart v)
   Ast.AstLetHFunInS var f v -> astLetHFunInS var f (astPrimalPart v)
   Ast.AstSFromR v -> astSFromR $ astPrimalPart v
+  _ -> error "TODO"
 
 -- Note how this can't be pushed down, say, multiplication, because it
 -- multiplies the dual part by the primal part. Addition is fine, though.
@@ -2156,9 +2157,10 @@ astDualPart t = case t of
   Ast.AstLetHVectorInS var f v -> astLetHVectorInS var f (astDualPart v)
   Ast.AstLetHFunInS var f v -> astLetHFunInS var f (astDualPart v)
   Ast.AstSFromR v -> astSFromR $ astDualPart v
+  _ -> error "TODO"
 
 astHApply :: forall s. AstSpan s
-          => AstHFun -> [HVector (AstRanked s)] -> AstHVector s
+          => AstHFun -> [HVector (AstRanked s)] -> AstTensor s TKUntyped
 astHApply t ll = case t of
   Ast.AstLambda ~(vvars, l) -> case sameAstSpan @s @PrimalSpan of
     Just Refl ->
@@ -2171,9 +2173,9 @@ astHApply t ll = case t of
 -- variables, so we try to reduce it to another for which it works.
 astLetHVectorInHVector
   :: forall s s2. (AstSpan s, AstSpan s2)
-  => [AstDynamicVarName] -> AstHVector s
-  -> AstHVector s2
-  -> AstHVector s2
+  => [AstDynamicVarName] -> AstTensor s TKUntyped
+  -> AstTensor s2 TKUntyped
+  -> AstTensor s2 TKUntyped
 astLetHVectorInHVector vars u v =
   case u of
       Ast.AstMkHVector l3 -> assert (length vars == V.length l3) $
@@ -2233,8 +2235,8 @@ mapRankedShaped fRanked fShaped
 astLetInHVector :: forall n r s s2.
                    (KnownNat n, GoodScalar r, AstSpan s, AstSpan s2)
                 => AstVarName s (TKR r n) -> AstTensor s (TKR r n)
-                -> AstHVector s2
-                -> AstHVector s2
+                -> AstTensor s2 TKUntyped
+                -> AstTensor s2 TKUntyped
 astLetInHVector var u v | astIsSmall True u =
   substituteAstHVector (SubstitutionPayload u) var v
 astLetInHVector var u v = Ast.AstLetInHVector var u v
@@ -2244,8 +2246,8 @@ astLetInHVector var u v = Ast.AstLetInHVector var u v
 astLetInHVectorS :: forall sh r s s2.
                     (GoodScalar r, KnownShS sh, AstSpan s, AstSpan s2)
                  => AstVarName s (TKS r sh) -> AstTensor s (TKS r sh)
-                 -> AstHVector s2
-                 -> AstHVector s2
+                 -> AstTensor s2 TKUntyped
+                 -> AstTensor s2 TKUntyped
 astLetInHVectorS var u v | astIsSmall True u =
   substituteAstHVector (SubstitutionPayload u) var v
 astLetInHVectorS var u v = Ast.AstLetInHVectorS var u v
@@ -2254,7 +2256,7 @@ astLetInHVectorS var u v = Ast.AstLetInHVectorS var u v
 -- variables, so we try to reduce it to another for which it works.
 astLetHVectorIn
   :: forall n r s s2. (KnownNat n, GoodScalar r, AstSpan s, AstSpan s2)
-  => [AstDynamicVarName] -> AstHVector s
+  => [AstDynamicVarName] -> AstTensor s TKUntyped
   -> AstTensor s2 (TKR r n)
   -> AstTensor s2 (TKR r n)
 astLetHVectorIn vars l v =
@@ -2284,7 +2286,7 @@ astLetHVectorIn vars l v =
 -- variables, so we try to reduce it to another for which it works.
 astLetHVectorInS
   :: forall sh r s s2. (KnownShS sh, GoodScalar r, AstSpan s, AstSpan s2)
-  => [AstDynamicVarName] -> AstHVector s
+  => [AstDynamicVarName] -> AstTensor s TKUntyped
   -> AstTensor s2 (TKS r sh)
   -> AstTensor s2 (TKS r sh)
 astLetHVectorInS vars l v =
@@ -2321,7 +2323,7 @@ astLetHFunInS
 astLetHFunInS = Ast.AstLetHFunInS
 
 astLetHFunInHVector
-  :: AstVarId -> AstHFun -> AstHVector s -> AstHVector s
+  :: AstVarId -> AstHFun -> AstTensor s TKUntyped -> AstTensor s TKUntyped
 astLetHFunInHVector = Ast.AstLetHFunInHVector
 
 
@@ -2399,9 +2401,9 @@ simplifyAst t = case t of
   Ast.AstCast v -> astCast $ simplifyAst v
   Ast.AstFromIntegral v -> astFromIntegral $ simplifyAst v
   AstConst{} -> t
-  Ast.AstProjectR l p -> astProject (simplifyAstHVector l) p
+  Ast.AstProjectR l p -> astProject (simplifyAst l) p
   Ast.AstLetHVectorIn vars l v ->
-    astLetHVectorIn vars (simplifyAstHVector l) (simplifyAst v)
+    astLetHVectorIn vars (simplifyAst l) (simplifyAst v)
   Ast.AstLetHFunIn var f v ->
     astLetHFunIn var (simplifyAstHFun f) (simplifyAst v)
   Ast.AstRFromS v -> astRFromS $ simplifyAst v
@@ -2433,12 +2435,41 @@ simplifyAst t = case t of
   Ast.AstCastS v -> astCastS $ simplifyAst v
   Ast.AstFromIntegralS v -> astFromIntegralS $ simplifyAst v
   AstConstS{} -> t
-  Ast.AstProjectS l p -> astProjectS (simplifyAstHVector l) p
+  Ast.AstProjectS l p -> astProjectS (simplifyAst l) p
   Ast.AstLetHVectorInS vars l v ->
-    astLetHVectorInS vars (simplifyAstHVector l) (simplifyAst v)
+    astLetHVectorInS vars (simplifyAst l) (simplifyAst v)
   Ast.AstLetHFunInS var f v ->
     astLetHFunInS var (simplifyAstHFun f) (simplifyAst v)
   Ast.AstSFromR v -> astSFromR $ simplifyAst v
+
+  Ast.AstMkHVector l -> Ast.AstMkHVector $ V.map simplifyAstDynamic l
+  Ast.AstHApply v ll -> astHApply (simplifyAstHFun v)
+                                  (map (V.map simplifyAstDynamic) ll)
+  Ast.AstLetHVectorInHVector vars u v ->
+    astLetHVectorInHVector vars (simplifyAst u) (simplifyAst v)
+  Ast.AstLetHFunInHVector var f v ->
+    astLetHFunInHVector var (simplifyAstHFun f) (simplifyAst v)
+  Ast.AstLetInHVector var u v ->
+    astLetInHVector var (simplifyAst u) (simplifyAst v)
+  Ast.AstLetInHVectorS var u v ->
+    astLetInHVectorS var (simplifyAst u) (simplifyAst v)
+  Ast.AstShareHVector{} -> error "simplifyAst: AstShareHVector"
+  Ast.AstBuildHVector1 k (var, v) ->
+    Ast.AstBuildHVector1 k (var, simplifyAst v)
+  Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc0 es ->
+    Ast.AstMapAccumRDer k accShs bShs eShs
+                        (simplifyAstHFun f)
+                        (simplifyAstHFun df)
+                        (simplifyAstHFun rf)
+                        (simplifyAst acc0)
+                        (simplifyAst es)
+  Ast.AstMapAccumLDer k accShs bShs eShs f df rf acc0 es ->
+    Ast.AstMapAccumLDer k accShs bShs eShs
+                        (simplifyAstHFun f)
+                        (simplifyAstHFun df)
+                        (simplifyAstHFun rf)
+                        (simplifyAst acc0)
+                        (simplifyAst es)
 
 simplifyAstDynamic
   :: AstSpan s
@@ -2450,41 +2481,9 @@ simplifyAstDynamic (DynamicShaped (AstShaped u)) =
 simplifyAstDynamic u@DynamicRankedDummy{} = u
 simplifyAstDynamic u@DynamicShapedDummy{} = u
 
-simplifyAstHVector
-  :: AstSpan s => AstHVector s -> AstHVector s
-simplifyAstHVector = \case
-  Ast.AstMkHVector l -> Ast.AstMkHVector $ V.map simplifyAstDynamic l
-  Ast.AstHApply t ll -> astHApply (simplifyAstHFun t)
-                                  (map (V.map simplifyAstDynamic) ll)
-  Ast.AstLetHVectorInHVector vars u v ->
-    astLetHVectorInHVector vars (simplifyAstHVector u) (simplifyAstHVector v)
-  Ast.AstLetHFunInHVector var f v ->
-    astLetHFunInHVector var (simplifyAstHFun f) (simplifyAstHVector v)
-  Ast.AstLetInHVector var u v ->
-    astLetInHVector var (simplifyAst u) (simplifyAstHVector v)
-  Ast.AstLetInHVectorS var u v ->
-    astLetInHVectorS var (simplifyAst u) (simplifyAstHVector v)
-  Ast.AstShareHVector{} -> error "simplifyAstHVector: AstShareHVector"
-  Ast.AstBuildHVector1 k (var, v) ->
-    Ast.AstBuildHVector1 k (var, simplifyAstHVector v)
-  Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc0 es ->
-    Ast.AstMapAccumRDer k accShs bShs eShs
-                        (simplifyAstHFun f)
-                        (simplifyAstHFun df)
-                        (simplifyAstHFun rf)
-                        (simplifyAstHVector acc0)
-                        (simplifyAstHVector es)
-  Ast.AstMapAccumLDer k accShs bShs eShs f df rf acc0 es ->
-    Ast.AstMapAccumLDer k accShs bShs eShs
-                        (simplifyAstHFun f)
-                        (simplifyAstHFun df)
-                        (simplifyAstHFun rf)
-                        (simplifyAstHVector acc0)
-                        (simplifyAstHVector es)
-
 simplifyAstHFun :: AstHFun -> AstHFun
 simplifyAstHFun = \case
-  Ast.AstLambda ~(vvars, l) -> Ast.AstLambda (vvars, simplifyAstHVector l)
+  Ast.AstLambda ~(vvars, l) -> Ast.AstLambda (vvars, simplifyAst l)
   t@(Ast.AstVarHFun{}) -> t
 
 simplifyAstBool :: AstBool -> AstBool
@@ -2615,9 +2614,9 @@ expandAst t = case t of
   Ast.AstCast v -> astCast $ expandAst v
   Ast.AstFromIntegral v -> astFromIntegral $ expandAst v
   AstConst{} -> t
-  Ast.AstProjectR l p -> astProject (expandAstHVector l) p
+  Ast.AstProjectR l p -> astProject (expandAst l) p
   Ast.AstLetHVectorIn vars l v ->
-    astLetHVectorIn vars (expandAstHVector l) (expandAst v)
+    astLetHVectorIn vars (expandAst l) (expandAst v)
   Ast.AstLetHFunIn var f v ->
     astLetHFunIn var (expandAstHFun f) (expandAst v)
   Ast.AstRFromS v -> astRFromS $ expandAst v
@@ -2652,12 +2651,41 @@ expandAst t = case t of
   Ast.AstCastS v -> astCastS $ expandAst v
   Ast.AstFromIntegralS v -> astFromIntegralS $ expandAst v
   AstConstS{} -> t
-  Ast.AstProjectS l p -> astProjectS (expandAstHVector l) p
+  Ast.AstProjectS l p -> astProjectS (expandAst l) p
   Ast.AstLetHVectorInS vars l v ->
-    astLetHVectorInS vars (expandAstHVector l) (expandAst v)
+    astLetHVectorInS vars (expandAst l) (expandAst v)
   Ast.AstLetHFunInS var f v ->
     astLetHFunInS var (expandAstHFun f) (expandAst v)
   Ast.AstSFromR v -> astSFromR $ expandAst v
+
+  Ast.AstMkHVector l -> Ast.AstMkHVector $ V.map expandAstDynamic l
+  Ast.AstHApply v ll -> astHApply (expandAstHFun v)
+                                  (map (V.map expandAstDynamic) ll)
+  Ast.AstLetHVectorInHVector vars u v ->
+    astLetHVectorInHVector vars (expandAst u) (expandAst v)
+  Ast.AstLetHFunInHVector var f v ->
+    astLetHFunInHVector var (expandAstHFun f) (expandAst v)
+  Ast.AstLetInHVector var u v ->
+    astLetInHVector var (expandAst u) (expandAst v)
+  Ast.AstLetInHVectorS var u v ->
+    astLetInHVectorS var (expandAst u) (expandAst v)
+  Ast.AstShareHVector{} -> error "expandAst: AstShareHVector"
+  Ast.AstBuildHVector1 k (var, v) ->
+    Ast.AstBuildHVector1 k (var, expandAst v)
+  Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc0 es ->
+    Ast.AstMapAccumRDer k accShs bShs eShs
+                        (expandAstHFun f)
+                        (expandAstHFun df)
+                        (expandAstHFun rf)
+                        (expandAst acc0)
+                        (expandAst es)
+  Ast.AstMapAccumLDer k accShs bShs eShs f df rf acc0 es ->
+    Ast.AstMapAccumLDer k accShs bShs eShs
+                        (expandAstHFun f)
+                        (expandAstHFun df)
+                        (expandAstHFun rf)
+                        (expandAst acc0)
+                        (expandAst es)
 
 expandAstDynamic
   :: AstSpan s
@@ -2669,41 +2697,9 @@ expandAstDynamic (DynamicShaped (AstShaped u)) =
 expandAstDynamic u@DynamicRankedDummy{} = u
 expandAstDynamic u@DynamicShapedDummy{} = u
 
-expandAstHVector
-  :: AstSpan s => AstHVector s -> AstHVector s
-expandAstHVector = \case
-  Ast.AstMkHVector l -> Ast.AstMkHVector $ V.map expandAstDynamic l
-  Ast.AstHApply t ll -> astHApply (expandAstHFun t)
-                                  (map (V.map expandAstDynamic) ll)
-  Ast.AstLetHVectorInHVector vars u v ->
-    astLetHVectorInHVector vars (expandAstHVector u) (expandAstHVector v)
-  Ast.AstLetHFunInHVector var f v ->
-    astLetHFunInHVector var (expandAstHFun f) (expandAstHVector v)
-  Ast.AstLetInHVector var u v ->
-    astLetInHVector var (expandAst u) (expandAstHVector v)
-  Ast.AstLetInHVectorS var u v ->
-    astLetInHVectorS var (expandAst u) (expandAstHVector v)
-  Ast.AstShareHVector{} -> error "expandAstHVector: AstShareHVector"
-  Ast.AstBuildHVector1 k (var, v) ->
-    Ast.AstBuildHVector1 k (var, expandAstHVector v)
-  Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc0 es ->
-    Ast.AstMapAccumRDer k accShs bShs eShs
-                        (expandAstHFun f)
-                        (expandAstHFun df)
-                        (expandAstHFun rf)
-                        (expandAstHVector acc0)
-                        (expandAstHVector es)
-  Ast.AstMapAccumLDer k accShs bShs eShs f df rf acc0 es ->
-    Ast.AstMapAccumLDer k accShs bShs eShs
-                        (expandAstHFun f)
-                        (expandAstHFun df)
-                        (expandAstHFun rf)
-                        (expandAstHVector acc0)
-                        (expandAstHVector es)
-
 expandAstHFun :: AstHFun -> AstHFun
 expandAstHFun = \case
-  Ast.AstLambda ~(vvars, l) -> Ast.AstLambda (vvars, expandAstHVector l)
+  Ast.AstLambda ~(vvars, l) -> Ast.AstLambda (vvars, expandAst l)
   t@(Ast.AstVarHFun{}) -> t
 
 expandAstBool :: AstBool -> AstBool
@@ -3002,10 +2998,10 @@ substituteAstIndexS i var  ix =
 
 substituteAstHVector
   :: (AstSpan s, AstSpan s2)
-  => SubstitutionPayload s2 -> AstVarName s2 y -> AstHVector s
-  -> AstHVector s
+  => SubstitutionPayload s2 -> AstVarName s2 y -> AstTensor s TKUntyped
+  -> AstTensor s TKUntyped
 substituteAstHVector i var v1 =
-  fromMaybe v1 $ substitute1AstHVector i (varNameToAstVarId var) v1
+  fromMaybe v1 $ substitute1Ast i (varNameToAstVarId var) v1
 
 substituteAstBool
   :: AstSpan s2
@@ -3145,11 +3141,11 @@ substitute1Ast i var v1 = case v1 of
   Ast.AstFromIntegral v -> astFromIntegral <$> substitute1Ast i var v
   Ast.AstConst{} -> Nothing
   Ast.AstProjectR l p ->
-    case substitute1AstHVector i var l of
+    case substitute1Ast i var l of
       Nothing -> Nothing
       ml -> Just $ astProject (fromMaybe l ml) p
   Ast.AstLetHVectorIn vars l v ->
-    case (substitute1AstHVector i var l, substitute1Ast i var v) of
+    case (substitute1Ast i var l, substitute1Ast i var v) of
       (Nothing, Nothing) -> Nothing
       (ml, mv) ->
         Just $ astLetHVectorIn vars (fromMaybe l ml) (fromMaybe v mv)
@@ -3226,11 +3222,11 @@ substitute1Ast i var v1 = case v1 of
   Ast.AstFromIntegralS a -> astFromIntegralS <$> substitute1Ast i var a
   Ast.AstConstS{} -> Nothing
   Ast.AstProjectS l p ->
-    case substitute1AstHVector i var l of
+    case substitute1Ast i var l of
       Nothing -> Nothing
       ml -> Just $ astProjectS (fromMaybe l ml) p
   Ast.AstLetHVectorInS vars l v ->
-    case (substitute1AstHVector i var l, substitute1Ast i var v) of
+    case (substitute1Ast i var l, substitute1Ast i var v) of
       (Nothing, Nothing) -> Nothing
       (ml, mv) ->
         Just $ astLetHVectorInS vars (fromMaybe l ml) (fromMaybe v mv)
@@ -3240,6 +3236,63 @@ substitute1Ast i var v1 = case v1 of
       (mf, mv) ->
         Just $ astLetHFunInS var2 (fromMaybe f mf) (fromMaybe v mv)
   Ast.AstSFromR v -> astSFromR <$> substitute1Ast i var v
+
+  Ast.AstMkHVector args ->
+    let margs = V.map (substitute1AstDynamic i var) args
+    in if V.any isJust margs
+       then Just $ Ast.AstMkHVector $ V.zipWith fromMaybe args margs
+       else Nothing
+  Ast.AstHApply t ll ->
+    case ( substitute1AstHFun i var t
+         , map (V.map (substitute1AstDynamic i var)) ll ) of
+      (Nothing, mll) | all (V.all isNothing) mll -> Nothing
+      (mt, mll) ->
+        Just $ astHApply (fromMaybe t mt) (zipWith (V.zipWith fromMaybe) ll mll)
+  Ast.AstLetHVectorInHVector vars2 u v ->
+    case (substitute1Ast i var u, substitute1Ast i var v) of
+      (Nothing, Nothing) -> Nothing
+      (mu, mv) ->
+        Just $ astLetHVectorInHVector vars2 (fromMaybe u mu) (fromMaybe v mv)
+  Ast.AstLetHFunInHVector var2 f v ->
+    case (substitute1AstHFun i var f, substitute1Ast i var v) of
+      (Nothing, Nothing) -> Nothing
+      (mf, mv) ->
+        Just $ astLetHFunInHVector var2 (fromMaybe f mf) (fromMaybe v mv)
+  Ast.AstLetInHVector var2 u v ->
+    case (substitute1Ast i var u, substitute1Ast i var v) of
+      (Nothing, Nothing) -> Nothing
+      (mu, mv) -> Just $ astLetInHVector var2 (fromMaybe u mu) (fromMaybe v mv)
+  Ast.AstLetInHVectorS var2 u v ->
+    case (substitute1Ast i var u, substitute1Ast i var v) of
+      (Nothing, Nothing) -> Nothing
+      (mu, mv) -> Just $ astLetInHVectorS var2 (fromMaybe u mu) (fromMaybe v mv)
+  Ast.AstShareHVector{} -> error "substitute1Ast: AstShareHVector"
+  Ast.AstBuildHVector1 k (var2, v) ->
+    Ast.AstBuildHVector1 k . (var2,) <$> substitute1Ast i var v
+  Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc0 es ->
+    case ( substitute1AstHFun i var f, substitute1AstHFun i var df
+         , substitute1AstHFun i var rf, substitute1Ast i var acc0
+         , substitute1Ast i var es ) of
+      (Nothing, Nothing, Nothing, Nothing, Nothing) -> Nothing
+      (mf, mdf, mrf, macc0, mes) ->
+        Just $ Ast.AstMapAccumRDer k accShs bShs eShs
+                                   (fromMaybe f mf)
+                                   (fromMaybe df mdf)
+                                   (fromMaybe rf mrf)
+                                   (fromMaybe acc0 macc0)
+                                   (fromMaybe es mes)
+  Ast.AstMapAccumLDer k accShs bShs eShs f df rf acc0 es ->
+    case ( substitute1AstHFun i var f, substitute1AstHFun i var df
+         , substitute1AstHFun i var rf, substitute1Ast i var acc0
+         , substitute1Ast i var es ) of
+      (Nothing, Nothing, Nothing, Nothing, Nothing) -> Nothing
+      (mf, mdf, mrf, macc0, mes) ->
+        Just $ Ast.AstMapAccumLDer k accShs bShs eShs
+                                   (fromMaybe f mf)
+                                   (fromMaybe df mdf)
+                                   (fromMaybe rf mrf)
+                                   (fromMaybe acc0 macc0)
+                                   (fromMaybe es mes)
 
 substitute1AstIndex
   :: AstSpan s2
@@ -3272,68 +3325,6 @@ substitute1AstDynamic i var = \case
     (DynamicShaped . AstShaped) <$> substitute1Ast i var t
   DynamicRankedDummy{} -> Nothing
   DynamicShapedDummy{} -> Nothing
-
-substitute1AstHVector
-  :: (AstSpan s, AstSpan s2)
-  => SubstitutionPayload s2 -> AstVarId -> AstHVector s
-  -> Maybe (AstHVector s)
-substitute1AstHVector i var = \case
-  Ast.AstMkHVector args ->
-    let margs = V.map (substitute1AstDynamic i var) args
-    in if V.any isJust margs
-       then Just $ Ast.AstMkHVector $ V.zipWith fromMaybe args margs
-       else Nothing
-  Ast.AstHApply t ll ->
-    case ( substitute1AstHFun i var t
-         , map (V.map (substitute1AstDynamic i var)) ll ) of
-      (Nothing, mll) | all (V.all isNothing) mll -> Nothing
-      (mt, mll) ->
-        Just $ astHApply (fromMaybe t mt) (zipWith (V.zipWith fromMaybe) ll mll)
-  Ast.AstLetHVectorInHVector vars2 u v ->
-    case (substitute1AstHVector i var u, substitute1AstHVector i var v) of
-      (Nothing, Nothing) -> Nothing
-      (mu, mv) ->
-        Just $ astLetHVectorInHVector vars2 (fromMaybe u mu) (fromMaybe v mv)
-  Ast.AstLetHFunInHVector var2 f v ->
-    case (substitute1AstHFun i var f, substitute1AstHVector i var v) of
-      (Nothing, Nothing) -> Nothing
-      (mf, mv) ->
-        Just $ astLetHFunInHVector var2 (fromMaybe f mf) (fromMaybe v mv)
-  Ast.AstLetInHVector var2 u v ->
-    case (substitute1Ast i var u, substitute1AstHVector i var v) of
-      (Nothing, Nothing) -> Nothing
-      (mu, mv) -> Just $ astLetInHVector var2 (fromMaybe u mu) (fromMaybe v mv)
-  Ast.AstLetInHVectorS var2 u v ->
-    case (substitute1Ast i var u, substitute1AstHVector i var v) of
-      (Nothing, Nothing) -> Nothing
-      (mu, mv) -> Just $ astLetInHVectorS var2 (fromMaybe u mu) (fromMaybe v mv)
-  Ast.AstShareHVector{} -> error "substitute1AstHVector: AstShareHVector"
-  Ast.AstBuildHVector1 k (var2, v) ->
-    Ast.AstBuildHVector1 k . (var2,) <$> substitute1AstHVector i var v
-  Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc0 es ->
-    case ( substitute1AstHFun i var f, substitute1AstHFun i var df
-         , substitute1AstHFun i var rf, substitute1AstHVector i var acc0
-         , substitute1AstHVector i var es ) of
-      (Nothing, Nothing, Nothing, Nothing, Nothing) -> Nothing
-      (mf, mdf, mrf, macc0, mes) ->
-        Just $ Ast.AstMapAccumRDer k accShs bShs eShs
-                                   (fromMaybe f mf)
-                                   (fromMaybe df mdf)
-                                   (fromMaybe rf mrf)
-                                   (fromMaybe acc0 macc0)
-                                   (fromMaybe es mes)
-  Ast.AstMapAccumLDer k accShs bShs eShs f df rf acc0 es ->
-    case ( substitute1AstHFun i var f, substitute1AstHFun i var df
-         , substitute1AstHFun i var rf, substitute1AstHVector i var acc0
-         , substitute1AstHVector i var es ) of
-      (Nothing, Nothing, Nothing, Nothing, Nothing) -> Nothing
-      (mf, mdf, mrf, macc0, mes) ->
-        Just $ Ast.AstMapAccumLDer k accShs bShs eShs
-                                   (fromMaybe f mf)
-                                   (fromMaybe df mdf)
-                                   (fromMaybe rf mrf)
-                                   (fromMaybe acc0 macc0)
-                                   (fromMaybe es mes)
 
 substitute1AstHFun
   :: SubstitutionPayload s2 -> AstVarId -> AstHFun

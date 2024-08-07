@@ -22,8 +22,8 @@ import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat, Nat)
 import Type.Reflection (typeRep)
 
-import HordeAd.Core.Ast hiding (AstBool (..), AstHVector (..), AstTensor (..))
-import HordeAd.Core.Ast (AstBool, AstHVector, AstTensor)
+import HordeAd.Core.Ast (AstBool, AstTensor)
+import HordeAd.Core.Ast hiding (AstBool (..), AstTensor (..))
 import HordeAd.Core.Ast qualified as Ast
 import HordeAd.Core.AstSimplify
 import HordeAd.Core.AstTools
@@ -66,15 +66,15 @@ simplifyInlineAstS =
   => AstShaped s Double sh -> AstShaped s Double sh #-}
 
 simplifyInlineHVector
-  :: AstSpan s => AstHVector s -> AstHVector s
+  :: AstSpan s => AstTensor s TKUntyped -> AstTensor s TKUntyped
 simplifyInlineHVector =
-  snd . inlineAstHVector EM.empty
-  . simplifyAstHVector . expandAstHVector
-  . snd . inlineAstHVector EM.empty . simplifyAstHVector
+  snd . inlineAst EM.empty
+  . simplifyAst . expandAst
+  . snd . inlineAst EM.empty . simplifyAst
     -- no specialization possible except for the tag type s
 
 simplifyInlineHVectorRaw
-  :: AstSpan s => AstRawWrap (AstHVector s) -> AstRawWrap (AstHVector s)
+  :: AstSpan s => AstRawWrap (AstTensor s TKUntyped) -> AstRawWrap (AstTensor s TKUntyped)
 simplifyInlineHVectorRaw =
   AstRawWrap . simplifyInlineHVector . unAstRawWrap
 
@@ -209,11 +209,11 @@ inlineAst memo v0 = case v0 of
   Ast.AstFromIntegral v -> second Ast.AstFromIntegral $ inlineAst memo v
   Ast.AstConst{} -> (memo, v0)
   Ast.AstProjectR l p ->
-    let (memo1, l2) = inlineAstHVector memo l
+    let (memo1, l2) = inlineAst memo l
     in (memo1, Ast.AstProjectR l2 p)
   Ast.AstLetHVectorIn vars l v ->
     -- We don't inline, but elsewhere try to reduce to constructors that we do.
-    let (memo1, l2) = inlineAstHVector memo l
+    let (memo1, l2) = inlineAst memo l
         (memo2, v2) = inlineAst memo1 v
     in (memo2, Ast.AstLetHVectorIn vars l2 v2)
   Ast.AstLetHFunIn var f v ->
@@ -308,11 +308,11 @@ inlineAst memo v0 = case v0 of
     second Ast.AstFromIntegralS $ inlineAst memo v
   Ast.AstConstS{} -> (memo, v0)
   Ast.AstProjectS l p ->
-    let (memo1, l2) = inlineAstHVector memo l
+    let (memo1, l2) = inlineAst memo l
     in (memo1, Ast.AstProjectS l2 p)
   Ast.AstLetHVectorInS vars l v ->
     -- We don't inline, but elsewhere try to reduce to constructors that we do.
-    let (memo1, l2) = inlineAstHVector memo l
+    let (memo1, l2) = inlineAst memo l
         (memo2, v2) = inlineAst memo1 v
     in (memo2, Ast.AstLetHVectorInS vars l2 v2)
   Ast.AstLetHFunInS var f v ->
@@ -328,22 +328,6 @@ inlineAst memo v0 = case v0 of
       _ -> (memo2, Ast.AstLetHFunInS var f2 v2)
   Ast.AstSFromR v -> second Ast.AstSFromR $ inlineAst memo v
 
-inlineAstDynamic
-  :: AstSpan s
-  => AstMemo -> AstDynamic s
-  -> (AstMemo, AstDynamic s)
-inlineAstDynamic memo = \case
-  DynamicRanked (AstRanked w) ->
-    second (DynamicRanked . AstRanked) $ inlineAst memo w
-  DynamicShaped (AstShaped w) ->
-    second (DynamicShaped . AstShaped) $ inlineAst memo w
-  u@DynamicRankedDummy{} -> (memo, u)
-  u@DynamicShapedDummy{} -> (memo, u)
-
-inlineAstHVector
-  :: forall s. AstSpan s
-  => AstMemo -> AstHVector s -> (AstMemo, AstHVector s)
-inlineAstHVector memo v0 = case v0 of
   Ast.AstMkHVector l ->
     second Ast.AstMkHVector $ mapAccumR inlineAstDynamic memo l
   Ast.AstHApply t ll ->
@@ -352,24 +336,24 @@ inlineAstHVector memo v0 = case v0 of
     in (memo2, Ast.AstHApply t2 ll2)
   Ast.AstLetHVectorInHVector vars u v ->
     -- We don't inline, but elsewhere try to reduce to constructors that we do.
-    let (memo1, u2) = inlineAstHVector memo u
-        (memo2, v2) = inlineAstHVector memo1 v
+    let (memo1, u2) = inlineAst memo u
+        (memo2, v2) = inlineAst memo1 v
     in (memo2, Ast.AstLetHVectorInHVector vars u2 v2)
   Ast.AstLetHFunInHVector var f v ->
     -- We assume there are no nested lets with the same variable.
     -- We assume functions are never small enough to justify inlining
     -- into more than one place.
-    let (memo1, v2) = inlineAstHVector memo v
+    let (memo1, v2) = inlineAst memo v
         (memo2, f2) = inlineAstHFun memo1 f
     in case EM.findWithDefault 0 var memo2 of
       0 -> (memo1, v2)
-      1 -> (memo2, fromMaybe v2 $ substitute1AstHVector
+      1 -> (memo2, fromMaybe v2 $ substitute1Ast
                                     (SubstitutionPayloadHFun f2) var v2)
       _ -> (memo2, Ast.AstLetHFunInHVector var f2 v2)
   Ast.AstLetInHVector var u v ->
     -- We assume there are no nested lets with the same variable.
     let vv = varNameToAstVarId var
-        (memo1, v2) = inlineAstHVector memo v
+        (memo1, v2) = inlineAst memo v
         memo1NoVar = EM.delete vv memo1
         (memo2, u2) = inlineAst memo1NoVar u
     in case EM.findWithDefault 0 vv memo1 of
@@ -384,7 +368,7 @@ inlineAstHVector memo v0 = case v0 of
   Ast.AstLetInHVectorS var u v ->
     -- We assume there are no nested lets with the same variable.
     let vv = varNameToAstVarId var
-        (memo1, v2) = inlineAstHVector memo v
+        (memo1, v2) = inlineAst memo v
         memo1NoVar = EM.delete vv memo1
         (memo2, u2) = inlineAst memo1NoVar u
     in case EM.findWithDefault 0 vv memo1 of
@@ -396,25 +380,37 @@ inlineAstHVector memo v0 = case v0 of
                -- u is small, so the union is fast
            , substituteAstHVector (SubstitutionPayload u0) var v2 )
       _ -> (memo2, Ast.AstLetInHVectorS var u2 v2)
-  Ast.AstShareHVector{} -> error "inlineAstHVector: AstShareHVector"
+  Ast.AstShareHVector{} -> error "inlineAst: AstShareHVector"
   Ast.AstBuildHVector1 k (var, v) ->
-    let (memoV0, v2) = inlineAstHVector EM.empty v
+    let (memoV0, v2) = inlineAst EM.empty v
         memo1 = EM.unionWith (\c1 c0 -> c1 + sNatValue k * c0) memo memoV0
     in (memo1, Ast.AstBuildHVector1 k (var, v2))
   Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc0 es ->
     let (memo1, f2) = inlineAstHFun memo f
         (memo2, df2) = inlineAstHFun memo1 df
         (memo3, rf2) = inlineAstHFun memo2 rf
-        (memo4, acc02) = inlineAstHVector memo3 acc0
-        (memo5, es2) = inlineAstHVector memo4 es
+        (memo4, acc02) = inlineAst memo3 acc0
+        (memo5, es2) = inlineAst memo4 es
     in (memo5, Ast.AstMapAccumRDer k accShs bShs eShs f2 df2 rf2 acc02 es2)
   Ast.AstMapAccumLDer k accShs bShs eShs f df rf acc0 es ->
     let (memo1, f2) = inlineAstHFun memo f
         (memo2, df2) = inlineAstHFun memo1 df
         (memo3, rf2) = inlineAstHFun memo2 rf
-        (memo4, acc02) = inlineAstHVector memo3 acc0
-        (memo5, es2) = inlineAstHVector memo4 es
+        (memo4, acc02) = inlineAst memo3 acc0
+        (memo5, es2) = inlineAst memo4 es
     in (memo5, Ast.AstMapAccumLDer k accShs bShs eShs f2 df2 rf2 acc02 es2)
+
+inlineAstDynamic
+  :: AstSpan s
+  => AstMemo -> AstDynamic s
+  -> (AstMemo, AstDynamic s)
+inlineAstDynamic memo = \case
+  DynamicRanked (AstRanked w) ->
+    second (DynamicRanked . AstRanked) $ inlineAst memo w
+  DynamicShaped (AstShaped w) ->
+    second (DynamicShaped . AstShaped) $ inlineAst memo w
+  u@DynamicRankedDummy{} -> (memo, u)
+  u@DynamicShapedDummy{} -> (memo, u)
 
 inlineAstHFun
   :: AstMemo -> AstHFun -> (AstMemo, AstHFun)
@@ -422,7 +418,7 @@ inlineAstHFun memo v0 = case v0 of
   Ast.AstLambda ~(vvars, l) ->
     -- No other free variables in l, so no outside lets can reach there,
     -- so we don't need to pass the information from v upwards.
-    (memo, Ast.AstLambda (vvars, snd $ inlineAstHVector EM.empty l))
+    (memo, Ast.AstLambda (vvars, snd $ inlineAst EM.empty l))
   Ast.AstVarHFun _shss _shs var ->
     let f Nothing = Just 1
         f (Just count) = Just $ succ count
@@ -450,9 +446,9 @@ inlineAstBool memo v0 = case v0 of
 
 -- * The translates global sharing to normal lets
 
-unletAstHVector :: AstHVector PrimalSpan -> AstHVector PrimalSpan
+unletAstHVector :: AstTensor PrimalSpan TKUntyped -> AstTensor PrimalSpan TKUntyped
 unletAstHVector t =
-  let (memoOut, share) = shareAstHVector EM.empty t
+  let (memoOut, share) = shareAst EM.empty t
       bindingsOut = EM.toDescList memoOut
   in bindsToHVectorLet share bindingsOut
 
@@ -517,6 +513,7 @@ shareAst memo v0 = case v0 of
       in (memo1, Ast.AstBuild1 snat (var, v2))
     STKS{} -> error "WIP"
     STKProduct{} -> error "WIP"
+    STKUntyped -> error "WIP"
 
   Ast.AstLet{} -> error "shareAst: AstLet"
     -- delta eval doesn't create lets and no lets
@@ -588,10 +585,10 @@ shareAst memo v0 = case v0 of
   Ast.AstConst{} -> (memo, v0)
   Ast.AstProjectR l p ->
     -- This doesn't get simplified even if l is an HVector of vars freshly
-    -- created by shareAstHVector. However, then l is shared, so the cost
+    -- created by shareAst. However, then l is shared, so the cost
     -- per AstProjectR is only slightly (2 words? 1 indirection?)
     -- higher than if simplified.
-    let (memo1, l2) = shareAstHVector memo l
+    let (memo1, l2) = shareAst memo l
     in (memo1, Ast.AstProjectR l2 p)
   Ast.AstLetHVectorIn{} -> error "shareAst: AstLetHVectorIn"
   Ast.AstLetHFunIn{} -> error "shareAst: AstLetHFunIn"
@@ -667,27 +664,12 @@ shareAst memo v0 = case v0 of
     second Ast.AstFromIntegralS $ shareAst memo v
   Ast.AstConstS{} -> (memo, v0)
   Ast.AstProjectS l p ->
-    let (memo1, l2) = shareAstHVector memo l
+    let (memo1, l2) = shareAst memo l
     in (memo1, Ast.AstProjectS l2 p)
   Ast.AstLetHVectorInS{} -> error "shareAst: AstLetHVectorInS"
   Ast.AstLetHFunInS{} -> error "shareAst: AstLetHFunInS"
   Ast.AstSFromR v -> second Ast.AstSFromR $ shareAst memo v
 
-shareAstDynamic
-  :: AstSpan s
-  => ShareMemo -> AstDynamic s -> (ShareMemo, AstDynamic s)
-shareAstDynamic memo = \case
-  DynamicRanked (AstRanked w) ->
-    second (DynamicRanked . AstRanked) $ shareAst memo w
-  DynamicShaped (AstShaped w) ->
-    second (DynamicShaped . AstShaped) $ shareAst memo w
-  u@DynamicRankedDummy{} -> (memo, u)
-  u@DynamicShapedDummy{} -> (memo, u)
-
-shareAstHVector
-  :: forall s. AstSpan s
-  => ShareMemo -> AstHVector s -> (ShareMemo, AstHVector s)
-shareAstHVector memo v0 = case v0 of
   Ast.AstMkHVector l ->
     second Ast.AstMkHVector $ mapAccumR shareAstDynamic memo l
   Ast.AstHApply t ll ->
@@ -712,20 +694,31 @@ shareAstHVector memo v0 = case v0 of
         astVars = Ast.AstMkHVector $ V.fromList $ map f vars
     in if varId `EM.member` memo
        then (memo, astVars)
-       else let (memo1, l2) = shareAstHVector memo l
+       else let (memo1, l2) = shareAst memo l
                 d = AstBindingsHVector vars l2
             in (EM.insert varId d memo1, astVars)
   Ast.AstShareHVector{} ->
-    error "shareAstHVector: AstShareHVector not in PrimalSpan"
+    error "shareAst: AstShareHVector not in PrimalSpan"
   Ast.AstBuildHVector1{} -> error "shareAst: AstBuildHVector1"  -- not hard to add
   Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc0 es ->
-    let (memo1, acc02) = shareAstHVector memo acc0
-        (memo2, es2) = shareAstHVector memo1 es
+    let (memo1, acc02) = shareAst memo acc0
+        (memo2, es2) = shareAst memo1 es
     in (memo2, Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc02 es2)
   Ast.AstMapAccumLDer k accShs bShs eShs f df rf acc0 es ->
-    let (memo1, acc02) = shareAstHVector memo acc0
-        (memo2, es2) = shareAstHVector memo1 es
+    let (memo1, acc02) = shareAst memo acc0
+        (memo2, es2) = shareAst memo1 es
     in (memo2, Ast.AstMapAccumLDer k accShs bShs eShs f df rf acc02 es2)
+
+shareAstDynamic
+  :: AstSpan s
+  => ShareMemo -> AstDynamic s -> (ShareMemo, AstDynamic s)
+shareAstDynamic memo = \case
+  DynamicRanked (AstRanked w) ->
+    second (DynamicRanked . AstRanked) $ shareAst memo w
+  DynamicShaped (AstShaped w) ->
+    second (DynamicShaped . AstShaped) $ shareAst memo w
+  u@DynamicRankedDummy{} -> (memo, u)
+  u@DynamicShapedDummy{} -> (memo, u)
 
 shareAstHFun
   :: ShareMemo -> AstHFun -> (ShareMemo, AstHFun)

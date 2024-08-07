@@ -100,6 +100,10 @@ gradientFromDeltaTK !parameters0 value !mdt deltaTopLevel =
         FTKR sh -> rzero sh
         FTKS -> srepl 1
         FTKProduct ftk1 ftk2 -> ttuple (oneAtF ftk1) (oneAtF ftk2)
+        FTKUntyped ssh ->
+          HVectorPseudoTensor $ dmkHVector
+          $ mapHVectorShaped (const $ srepl @_ @_ @(ShapedOf ranked) 1)
+          $ V.map dynamicFromVoid ssh
       dt = fromMaybe (oneAtF ftk) mdt
       s0 = initEvalState parameters0
       s1 = evalR s0 dt deltaTopLevel
@@ -112,6 +116,7 @@ gradientFromDeltaTK !parameters0 value !mdt deltaTopLevel =
         MTKRDummy @r @sh -> DynamicRankedDummy @r @sh Proxy Proxy
         MTKSDummy @r @sh -> DynamicShapedDummy @r @sh Proxy Proxy
         MTKProduct{} -> error "toDynamicTensor"
+        MTKUntyped _hv -> error "TODO"
   in V.fromList $ map toDynamicTensor $ DMap.elems $ iMap s2
 
 gradientFromDeltaH
@@ -134,6 +139,7 @@ gradientFromDeltaH !parameters0 value !mdt deltaTopLevel =
         MTKRDummy @r @sh -> DynamicRankedDummy @r @sh Proxy Proxy
         MTKSDummy @r @sh -> DynamicShapedDummy @r @sh Proxy Proxy
         MTKProduct{} -> error "toDynamicTensor"
+        MTKUntyped _hv -> error "TODO"
   in V.fromList $ map toDynamicTensor $ DMap.elems $ iMap s2
 
 derivativeFromDeltaTK
@@ -521,6 +527,7 @@ instance (RankedTensor ranked, ShapedTensor (ShapedOf ranked))
     STKS{} -> FTKS
     STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (tproject1 t))
                                        (tshapeFull stk2 (tproject2 t))
+    STKUntyped -> FTKUntyped $ error "TODO: shapeDeltaH"
 
 shapeDelta :: forall ranked r n.
               ( GoodScalar r, KnownNat n
@@ -788,6 +795,7 @@ addInterpretationTargetD a b = case (a, b) of
   (DTKProduct ta1 ta2, DTKProduct tb1 tb2) ->
     DTKProduct (addInterpretationTargetD ta1 tb1)
                (addInterpretationTargetD ta2 tb2)
+  _ -> error "TODO"
 
 addInterpretationTargetM ::
   ADReady ranked
@@ -804,6 +812,7 @@ addInterpretationTargetM a b = case (a, b) of
   (MTKProduct ta1 ta2, MTKProduct tb1 tb2) ->
     MTKProduct (addInterpretationTargetM ta1 tb1)
                (addInterpretationTargetM ta2 tb2)
+  _ -> error "TODO"
 
 evalR
   :: forall y ranked. ADReady ranked
@@ -1072,6 +1081,7 @@ evalFromnMap s@EvalState{nMap, dMap, hnMap, hdMap} =
               Just (DTKS c) -> evalSRuntimeSpecialized s2 c d
               Nothing -> error $ "evalFromnMap: missing cotangent " ++ show n
             STKProduct{} -> error "evalFromnMap: corrupted nMap"  -- TODO
+            STKUntyped -> error "evalFromnMap: corrupted nMap"  -- TODO
       in evalFromnMap s3
     Nothing -> case EM.maxViewWithKey hnMap of
       Just ((n, d), hnMap2) ->

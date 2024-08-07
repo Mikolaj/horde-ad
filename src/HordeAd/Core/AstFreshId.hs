@@ -92,6 +92,10 @@ funToAstIO sh f = do
       let varName = mkAstVarName freshId
           !x = f (AstVar sh varName)
       return (varName, undefined, x)
+    FTKUntyped{} -> do
+      let varName = mkAstVarName freshId
+          !x = f (AstVar sh varName)
+      return (varName, undefined, x)
 
 funToAst :: TensorKind y
          => TensorKindFull y
@@ -153,8 +157,8 @@ fun1SToAst :: (KnownShS sh, GoodScalar r)
 {-# NOINLINE fun1SToAst #-}
 fun1SToAst f = unsafePerformIO $ fun1SToAstIO f
 
-fun1XToAstIO :: VoidHVector -> ([AstDynamicVarName] -> AstHVector s)
-             -> IO (AstHVector s)
+fun1XToAstIO :: VoidHVector -> ([AstDynamicVarName] -> AstTensor s TKUntyped)
+             -> IO (AstTensor s TKUntyped)
 {-# INLINE fun1XToAstIO #-}
 fun1XToAstIO shs g = do
   let f :: DynamicTensor VoidTensor
@@ -168,8 +172,8 @@ fun1XToAstIO shs g = do
   !vars <- mapM f (V.toList shs)
   return $! g vars
 
-fun1XToAst :: VoidHVector -> ([AstDynamicVarName] -> AstHVector s)
-           -> AstHVector s
+fun1XToAst :: VoidHVector -> ([AstDynamicVarName] -> AstTensor s TKUntyped)
+           -> AstTensor s TKUntyped
 {-# NOINLINE fun1XToAst #-}
 fun1XToAst shs f = unsafePerformIO $ fun1XToAstIO shs f
 

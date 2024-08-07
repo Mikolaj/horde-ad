@@ -8,8 +8,8 @@
 -- that become the codomains of the reverse derivative functions
 -- and also to hangle multiple arguments and results of fold-like operations.
 module HordeAd.Core.HVector
-  ( -- * Fynamic tensors and heterogeneous tensor collections
-    DynamicTensor(..), CRanked, CShaped
+  ( TensorKindFull(..), buildTensorKindFull
+  , DynamicTensor(..), CRanked, CShaped
   , HVector, HVectorPseudoTensor(..)
   , VoidTensor, absurdTensor, VoidHVector, DynamicScalar(..)
   , scalarDynamic, shapeVoidDynamic, shapeVoidHVector, shapeDynamicF
@@ -23,20 +23,48 @@ import Prelude
 import Control.DeepSeq (NFData (..))
 import Data.Array.Internal (valueOf)
 import Data.Kind (Constraint, Type)
+import Data.Maybe (isJust)
 import Data.Proxy (Proxy (Proxy))
 import Data.Strict.Vector qualified as Data.Vector
+import Data.Type.Equality (testEquality)
 import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat, type (+))
 import Type.Reflection (typeRep)
 
 import Data.Array.Mixed.Types qualified as X
+import Data.Array.Nested (ShR (..))
 
 import HordeAd.Core.Types
 import HordeAd.Internal.OrthotopeOrphanInstances ()
 import HordeAd.Util.ShapedList qualified as ShapedList
 import HordeAd.Util.SizedList
 
--- * Type definitions for dynamic tensors and tensor collections
+-- TODO: the constraints should not be necessary
+type role TensorKindFull nominal
+data TensorKindFull y where
+  FTKR :: (GoodScalar r, KnownNat n) => ShR n Int -> TensorKindFull (TKR r n)
+  FTKS :: (GoodScalar r, KnownShS sh) => TensorKindFull (TKS r sh)
+  FTKProduct :: (TensorKind y, TensorKind z)
+             => TensorKindFull y -> TensorKindFull z
+             -> TensorKindFull (TKProduct y z)
+  FTKUntyped :: VoidHVector -> TensorKindFull TKUntyped
+
+deriving instance Show (TensorKindFull y)
+deriving instance Eq (TensorKindFull y)
+
+buildTensorKindFull :: SNat k -> TensorKindFull y
+                    -> TensorKindFull (BuildTensorKind k y)
+buildTensorKindFull snat@SNat = \case
+  FTKR sh -> FTKR $ sNatValue snat :$: sh
+  FTKS -> FTKS
+  FTKProduct @z1 @z2 ftk1 ftk2
+    | Dict <- lemTensorKindOfBuild snat (stensorKind @z1)
+    , Dict <- lemTensorKindOfBuild snat (stensorKind @z2) ->
+      FTKProduct (buildTensorKindFull snat ftk1)
+                 (buildTensorKindFull snat ftk2)
+  FTKUntyped shs ->
+    FTKUntyped
+    $ replicate1HVectorF (\_ -> absurdTensor) absurdTensor snat shs
 
 -- For thousands of tensor parameters, orthotope's dynamic tensors
 -- are faster than the datatype below and the special dummy values are faster
@@ -56,6 +84,17 @@ data DynamicTensor (ranked :: RankedTensorType) where
                      => Proxy r -> Proxy sh -> DynamicTensor ranked
   DynamicShapedDummy :: (GoodScalar r, KnownShS sh)
                      => Proxy r -> Proxy sh -> DynamicTensor ranked
+
+-- Ignores the contents of tensors --- to be used only for VoidHVector.
+instance Eq (DynamicTensor VoidTensor) where
+  (==) = dynamicsMatchVoid
+
+dynamicsMatchVoid :: DynamicTensor VoidTensor -> DynamicTensor VoidTensor -> Bool
+dynamicsMatchVoid t u = case (scalarDynamic t, scalarDynamic u) of
+  (DynamicScalar @ru _, DynamicScalar @rt _) ->
+    isJust (testEquality (typeRep @rt) (typeRep @ru))
+    && shapeVoidDynamic t == shapeVoidDynamic u
+    && isDynamicRanked t == isDynamicRanked u
 
 deriving instance
   (CRanked ranked Show, CShaped (ShapedOf ranked) Show)
@@ -103,16 +142,6 @@ type HVector (ranked :: RankedTensorType) =
     -- the two, preserving sharing whenever possible. The only reason
     -- HVectorOf exists is to express and preserve sharing, which is
     -- not possible with `HVector AstHVector` alone.
-
-type role HVectorPseudoTensor nominal phantom phantom
-type HVectorPseudoTensor :: RankedTensorType -> TensorType ()
-newtype HVectorPseudoTensor ranked r y =
-  HVectorPseudoTensor {unHVectorPseudoTensor :: HVectorOf ranked}
-
-deriving instance Show (HVectorOf ranked)
-                  => Show (HVectorPseudoTensor ranked r y)
-
-type instance RankedOf (HVectorPseudoTensor ranked) = ranked
 
 type role VoidTensor nominal nominal
 data VoidTensor :: TensorType ty

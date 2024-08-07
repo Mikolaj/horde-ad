@@ -626,7 +626,8 @@ data ADValProduct ranked vx vy = ADValProduct vx vy
 -- break injectivity?
 type instance ProductOf (ADVal ranked) = ADValProduct ranked
 
-instance ProductTensor ranked => ProductTensor (ADVal ranked) where
+instance (ProductTensor ranked, HVectorTensor ranked (ShapedOf ranked))
+         => ProductTensor (ADVal ranked) where
   ttuple = ADValProduct
   tproject1 (ADValProduct vx _vz) = vx
   tproject2 (ADValProduct _vx vz) = vz
@@ -636,6 +637,8 @@ instance ProductTensor ranked => ProductTensor (ADVal ranked) where
     STKS{} -> FTKS
     STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (tproject1 t))
                                        (tshapeFull stk2 (tproject2 t))
+    STKUntyped -> let D u _ = hVectorADValToADVal $ unHVectorPseudoTensor t
+                  in tshapeFull stk u
 
 ahhToHVector
   :: forall ranked. RankedOf (ShapedOf ranked) ~ ranked

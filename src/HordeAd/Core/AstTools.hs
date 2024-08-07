@@ -10,7 +10,7 @@ module HordeAd.Core.AstTools
     -- * Variable occurrence detection
   , varInAst, varInAstBool, varInIndex
   , varInIndexS
-  , varInAstDynamic, varInAstHVector
+  , varInAstDynamic
   , varNameInAst, varNameInAstHVector
   , varInAstBindingsCase
     -- * Determining if a term is too small to require sharing
@@ -23,11 +23,12 @@ import Prelude hiding (foldl')
 
 import Data.List (foldl')
 import Data.Proxy (Proxy (Proxy))
-import Data.Type.Equality ((:~:) (Refl))
+import Data.Type.Equality (gcastWith, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat, sameNat, type (+))
-import Type.Reflection (typeRep)
+import Unsafe.Coerce (unsafeCoerce)
 
+import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape qualified as X
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
@@ -41,13 +42,129 @@ import HordeAd.Util.SizedList
 
 -- * Shape calculation
 
-shapeAstFull :: forall s y.
-                STensorKindType y -> AstTensor s y -> TensorKindFull y
-shapeAstFull stk t = case stk of
-  STKR{} -> FTKR $ shapeAst t
-  STKS{} -> FTKS
-  STKProduct stk1 stk2 -> FTKProduct (shapeAstFull stk1 (AstProject1 t))
-                                     (shapeAstFull stk2 (AstProject2 t))
+shapeAstFull :: forall s y. TensorKind y
+             => AstTensor s y -> TensorKindFull y
+shapeAstFull t = case t of
+  AstTuple t1 t2 -> FTKProduct (shapeAstFull t1) (shapeAstFull t2)
+  AstProject1 v -> case shapeAstFull v of
+    FTKProduct ftk1 _ -> ftk1
+  AstProject2 v -> case shapeAstFull v of
+    FTKProduct _ ftk2 -> ftk2
+  AstLetTupleIn _var1 _var2 _p v -> shapeAstFull v
+  AstVar ftk _var -> ftk
+  AstPrimalPart a -> shapeAstFull a
+  AstDualPart a -> shapeAstFull a
+  AstConstant a -> shapeAstFull a
+  AstD u _ -> shapeAstFull u
+  AstCond _b v _w -> shapeAstFull v
+  AstReplicate snat v -> buildTensorKindFull snat (shapeAstFull v)
+  AstBuild1 snat (_var, v) -> buildTensorKindFull snat (shapeAstFull v)
+
+  AstLet _ _ v -> shapeAstFull v
+  AstShare _ v-> shapeAstFull v
+  AstMinIndex a -> case shapeAstFull a of
+    FTKR sh -> FTKR $ initShape sh
+  AstMaxIndex a -> case shapeAstFull a of
+    FTKR sh -> FTKR $ initShape sh
+  AstFloor a -> case shapeAstFull a of
+    FTKR sh -> FTKR sh
+  AstIota -> FTKR $ singletonShape (maxBound :: Int)  -- ought to be enough
+  AstN1 _opCode v -> shapeAstFull v
+  AstN2 _opCode v _ -> shapeAstFull v
+  AstR1 _opCode v -> shapeAstFull v
+  AstR2 _opCode v _ -> shapeAstFull v
+  AstI2 _opCode v _ -> shapeAstFull v
+  AstSumOfList args -> case args of
+    [] -> error "shapeAstFull: AstSumOfList with no arguments"
+    v : _ -> shapeAstFull v
+  AstIndex v _is -> case shapeAstFull v of
+    FTKR sh -> FTKR $ dropShape sh
+  AstSum v -> case shapeAstFull v of
+    FTKR sh -> FTKR $ tailShape sh
+  AstScatter sh _ _ -> FTKR sh
+  AstFromVector l -> case V.toList l of
+    [] ->  case stensorKind @y of
+      STKR @_ @n _ _ -> case sameNat (Proxy @n) (Proxy @1) of
+        Just Refl -> FTKR $ singletonShape 0
+        Nothing -> error "shapeAstFull: AstFromVector with no arguments"
+    v : _ -> case shapeAstFull v of
+      FTKR sh -> FTKR $ V.length l :$: sh
+  AstAppend x y -> case shapeAstFull x of
+    FTKR ZSR -> error "shapeAstFull: impossible pattern needlessly required"
+    FTKR (xi :$: xsh) -> case shapeAstFull y of
+      FTKR ZSR -> error "shapeAstFull: impossible pattern needlessly required"
+      FTKR (yi :$: _) -> FTKR $ xi + yi :$: xsh
+  AstSlice _i n v -> case shapeAstFull v of
+    FTKR sh -> FTKR $ n :$: tailShape  sh
+  AstReverse v -> shapeAstFull v
+  AstTranspose perm v -> case shapeAstFull v of
+    FTKR sh -> FTKR $ Nested.Internal.Shape.shrPermutePrefix perm sh
+  AstReshape sh _v -> FTKR sh
+  AstGather sh _v (_vars, _ix) -> FTKR sh
+  AstCast v -> case shapeAstFull v of
+    FTKR sh -> FTKR sh
+  AstFromIntegral a -> case shapeAstFull a of
+    FTKR sh -> FTKR sh
+  AstConst a -> FTKR $ Nested.rshape a
+  AstProjectR l p -> case shapeAstFull l of
+    FTKUntyped shs -> case shs V.! p of
+      DynamicRankedDummy @_ @sh _ _ -> FTKR $ listToShape $ shapeT @sh
+      DynamicShapedDummy{} -> error "shapeAstFull: DynamicShapedDummy"
+  AstLetHVectorIn _ _ v -> shapeAstFull v
+  AstLetHFunIn _ _ v -> shapeAstFull v
+  AstRFromS @sh _ | Dict <- lemKnownNatRank (knownShS @sh) ->
+    FTKR $ listToShape $ shapeT @sh
+
+  AstLetS{} -> FTKS
+  AstShareS{} -> FTKS
+  AstMinIndexS{} -> FTKS
+  AstMaxIndexS{} -> FTKS
+  AstFloorS{} -> FTKS
+  AstIotaS{} -> FTKS
+  AstN1S{} -> FTKS
+  AstN2S{} -> FTKS
+  AstR1S{} -> FTKS
+  AstR2S{} -> FTKS
+  AstI2S{} -> FTKS
+  AstSumOfListS{} -> FTKS
+  AstIndexS{} -> FTKS
+  AstSumS{} -> FTKS
+  AstScatterS{} -> FTKS
+  AstFromVectorS{} -> FTKS
+  AstAppendS{} -> FTKS
+  AstSliceS{} -> FTKS
+  AstReverseS{} -> FTKS
+  AstTransposeS @perm @sh2 perm _v ->
+    withShapeP
+      (permutePrefixList (Permutation.permToList' perm)
+                         (shapeT @sh2)) $ \(Proxy @sh2Perm) ->
+        gcastWith (unsafeCoerce Refl :: sh2Perm :~: Permutation.PermutePrefix perm sh2)
+        FTKS
+  AstReshapeS{} -> FTKS
+  AstGatherS{} -> FTKS
+  AstCastS{} -> FTKS
+  AstFromIntegralS{} -> FTKS
+  AstConstS{} -> FTKS
+  AstProjectS{} -> FTKS
+  AstLetHVectorInS{} -> FTKS
+  AstLetHFunInS{} -> FTKS
+  AstSFromR{} -> FTKS
+
+  AstMkHVector v ->
+    FTKUntyped
+    $ V.map (voidFromDynamicF (shapeToList . shapeAst . unAstRanked)) v
+  AstHApply v _ll -> FTKUntyped $ shapeAstHFun v
+  AstLetHVectorInHVector _ _ v -> shapeAstFull v
+  AstLetHFunInHVector _ _ v -> shapeAstFull v
+  AstLetInHVector _ _ v -> shapeAstFull v
+  AstLetInHVectorS _ _ v -> shapeAstFull v
+  AstShareHVector _ v -> shapeAstFull v
+  AstBuildHVector1 k (_, v) -> case shapeAstFull v of
+    FTKUntyped shs ->  FTKUntyped $ replicate1VoidHVector k shs
+  AstMapAccumRDer k accShs bShs _eShs _f _df _rf _acc0 _es ->
+    FTKUntyped $ accShs V.++ replicate1VoidHVector k bShs
+  AstMapAccumLDer k accShs bShs _eShs _f _df _rf _acc0 _es ->
+    FTKUntyped $ accShs V.++ replicate1VoidHVector k bShs
 
 -- This is cheap and dirty. We don't shape-check the terms and we don't
 -- unify or produce (partial) results with variables. Instead, we investigate
@@ -56,70 +173,8 @@ shapeAstFull stk t = case stk of
 -- or revert to fully dynamic shapes, we need to redo this with more rigour.
 shapeAst :: forall n s r. (KnownNat n, GoodScalar r)
          => AstTensor s (TKR r n) -> IShR n
-shapeAst = \case
-  AstLetTupleIn _var1 _var2 _p v -> shapeAst v
-  AstProject1 @_ @z t ->
-    case shapeAstFull (STKProduct (STKR (typeRep @r) (SNat @n))
-                                  (stensorKind @z))
-                      t of
-      FTKProduct (FTKR sh) _ -> sh
-  AstProject2 @x t ->
-    case shapeAstFull (STKProduct (stensorKind @x)
-                                  (STKR (typeRep @r) (SNat @n)))
-                      t of
-      FTKProduct _ (FTKR sh) -> sh
-  AstVar (FTKR sh) _var -> sh
-  AstPrimalPart a -> shapeAst a
-  AstDualPart a -> shapeAst a
-  AstConstant a -> shapeAst a
-  AstD u _ -> shapeAst u
-  AstCond _b v _w -> shapeAst v
-  AstReplicate @y2 snat v -> case stensorKind @y2 of
-    STKR{} -> sNatValue snat :$: shapeAst v
-  AstBuild1 @y2 k (_var, v) -> case stensorKind @y2 of
-    STKR{} -> sNatValue k :$: shapeAst v
-
-  AstLet _ _ v -> shapeAst v
-  AstShare _ v-> shapeAst v
-  AstMinIndex a -> initShape $ shapeAst a
-  AstMaxIndex a -> initShape $ shapeAst a
-  AstFloor a -> shapeAst a
-  AstIota -> singletonShape (maxBound :: Int)  -- ought to be enough
-  AstN1 _opCode t -> shapeAst t
-  AstN2 _opCode t _ -> shapeAst t
-  AstR1 _opCode t -> shapeAst t
-  AstR2 _opCode t _ -> shapeAst t
-  AstI2 _opCode t _ -> shapeAst t
-  AstSumOfList args -> case args of
-    [] -> error "shapeAst: AstSumOfList with no arguments"
-    t : _ -> shapeAst t
-  AstIndex v _is -> dropShape (shapeAst v)
-  AstSum v -> tailShape $ shapeAst v
-  AstScatter sh _ _ -> sh
-  AstFromVector l -> case V.toList l of
-    [] -> case sameNat (Proxy @n) (Proxy @1) of
-      Just Refl -> singletonShape 0
-      _ ->  error "shapeAst: AstFromVector with no arguments"
-    t : _ -> V.length l :$: shapeAst t
-  AstAppend x y -> case shapeAst x of
-    ZSR -> error "shapeAst: impossible pattern needlessly required"
-    xi :$: xsh -> case shapeAst y of
-      ZSR -> error "shapeAst: impossible pattern needlessly required"
-      yi :$: _ -> xi + yi :$: xsh
-  AstSlice _i n v -> n :$: tailShape (shapeAst v)
-  AstReverse v -> shapeAst v
-  AstTranspose perm v -> Nested.Internal.Shape.shrPermutePrefix perm (shapeAst v)
-  AstReshape sh _v -> sh
-  AstGather sh _v (_vars, _ix) -> sh
-  AstCast t -> shapeAst t
-  AstFromIntegral a -> shapeAst a
-  AstConst a -> Nested.rshape a
-  AstProjectR l p -> case shapeAstHVector l V.! p of
-    DynamicRankedDummy @_ @sh _ _ -> listToShape $ shapeT @sh
-    DynamicShapedDummy{} -> error "shapeAst: DynamicShapedDummy"
-  AstLetHVectorIn _ _ v -> shapeAst v
-  AstLetHFunIn _ _ v -> shapeAst v
-  AstRFromS @sh _ -> listToShape $ shapeT @sh
+shapeAst t = case shapeAstFull t of
+  FTKR sh -> sh
 
 -- Length of the outermost dimension.
 lengthAst :: (KnownNat n, GoodScalar r) => AstTensor s (TKR r (1 + n)) -> Int
@@ -128,24 +183,14 @@ lengthAst v1 = case shapeAst v1 of
   ZSR -> error "lengthAst: impossible pattern needlessly required"
   k :$: _ -> k
 
-shapeAstHVector :: AstHVector s -> VoidHVector
-shapeAstHVector = \case
-  AstMkHVector v -> V.map (voidFromDynamicF (shapeToList . shapeAst . unAstRanked)) v
-  AstHApply t _ll -> shapeAstHFun t
-  AstLetHVectorInHVector _ _ v -> shapeAstHVector v
-  AstLetHFunInHVector _ _ v -> shapeAstHVector v
-  AstLetInHVector _ _ v -> shapeAstHVector v
-  AstLetInHVectorS _ _ v -> shapeAstHVector v
-  AstShareHVector _ v -> shapeAstHVector v
-  AstBuildHVector1 k (_, v) -> replicate1VoidHVector k $ shapeAstHVector v
-  AstMapAccumRDer k accShs bShs _eShs _f _df _rf _acc0 _es ->
-    accShs V.++ replicate1VoidHVector k bShs
-  AstMapAccumLDer k accShs bShs _eShs _f _df _rf _acc0 _es ->
-    accShs V.++ replicate1VoidHVector k bShs
+shapeAstHVector :: AstTensor s TKUntyped -> VoidHVector
+shapeAstHVector t = case shapeAstFull t of
+  FTKUntyped shs2 -> shs2
 
 shapeAstHFun :: AstHFun -> VoidHVector
 shapeAstHFun = \case
-  AstLambda ~(_vvars, l) -> shapeAstHVector l
+  AstLambda ~(_vvars, l) -> case shapeAstFull l of
+    FTKUntyped shs -> shs
   AstVarHFun _shss shs _var -> shs
 
 domainShapesAstHFun :: AstHFun -> [VoidHVector]
@@ -201,8 +246,8 @@ varInAst var = \case
   AstCast t -> varInAst var t
   AstFromIntegral t -> varInAst var t
   AstConst{} -> False
-  AstProjectR l _p -> varInAstHVector var l  -- conservative
-  AstLetHVectorIn _vars l v -> varInAstHVector var l || varInAst var v
+  AstProjectR l _p -> varInAst var l  -- conservative
+  AstLetHVectorIn _vars l v -> varInAst var l || varInAst var v
   AstLetHFunIn _var2 f v -> varInAstHFun var f || varInAst var v
   AstRFromS v -> varInAst var v
 
@@ -231,34 +276,31 @@ varInAst var = \case
   AstCastS t -> varInAst var t
   AstFromIntegralS a -> varInAst var a
   AstConstS{} -> False
-  AstProjectS l _p -> varInAstHVector var l  -- conservative
-  AstLetHVectorInS _vars l v -> varInAstHVector var l || varInAst var v
+  AstProjectS l _p -> varInAst var l  -- conservative
+  AstLetHVectorInS _vars l v -> varInAst var l || varInAst var v
   AstLetHFunInS _var2 f v -> varInAstHFun var f || varInAst var v
   AstSFromR v -> varInAst var v
+
+  AstMkHVector l -> any (varInAstDynamic var) l
+  AstHApply t ll -> varInAstHFun var t || any (any (varInAstDynamic var)) ll
+  AstLetHVectorInHVector _vars2 u v ->
+    varInAst var u || varInAst var v
+  AstLetHFunInHVector _var2 f v ->
+    varInAstHFun var f || varInAst var v
+  AstLetInHVector _var2 u v -> varInAst var u || varInAst var v
+  AstLetInHVectorS _var2 u v -> varInAst var u || varInAst var v
+  AstShareHVector _ v -> varInAst var v
+  AstBuildHVector1 _ (_var2, v) -> varInAst var v
+  AstMapAccumRDer _k _accShs _bShs _eShs _f _df _rf acc0 es ->
+    varInAst var acc0 || varInAst var es
+  AstMapAccumLDer _k _accShs _bShs _eShs _f _df _rf acc0 es ->
+    varInAst var acc0 || varInAst var es
 
 varInIndex :: AstVarId -> AstIndex n -> Bool
 varInIndex var = any (varInAst var)
 
 varInIndexS :: AstVarId -> AstIndexS sh -> Bool
 varInIndexS var = any (varInAst var)
-
-varInAstHVector :: AstSpan s
-                => AstVarId -> AstHVector s -> Bool
-varInAstHVector var = \case
-  AstMkHVector l -> any (varInAstDynamic var) l
-  AstHApply t ll -> varInAstHFun var t || any (any (varInAstDynamic var)) ll
-  AstLetHVectorInHVector _vars2 u v ->
-    varInAstHVector var u || varInAstHVector var v
-  AstLetHFunInHVector _var2 f v ->
-    varInAstHFun var f || varInAstHVector var v
-  AstLetInHVector _var2 u v -> varInAst var u || varInAstHVector var v
-  AstLetInHVectorS _var2 u v -> varInAst var u || varInAstHVector var v
-  AstShareHVector _ v -> varInAstHVector var v
-  AstBuildHVector1 _ (_var2, v) -> varInAstHVector var v
-  AstMapAccumRDer _k _accShs _bShs _eShs _f _df _rf acc0 es ->
-    varInAstHVector var acc0 || varInAstHVector var es
-  AstMapAccumLDer _k _accShs _bShs _eShs _f _df _rf acc0 es ->
-    varInAstHVector var acc0 || varInAstHVector var es
 
 varInAstDynamic :: AstSpan s
                 => AstVarId -> AstDynamic s -> Bool
@@ -286,12 +328,12 @@ varNameInAst :: AstSpan s2
 varNameInAst var = varInAst (varNameToAstVarId var)
 
 varNameInAstHVector :: AstSpan s
-                    => AstVarName f y -> AstHVector s -> Bool
-varNameInAstHVector var = varInAstHVector (varNameToAstVarId var)
+                    => AstVarName f y -> AstTensor s TKUntyped -> Bool
+varNameInAstHVector var = varInAst (varNameToAstVarId var)
 
 varInAstBindingsCase :: AstSpan s => AstVarId -> AstBindingsCase s -> Bool
 varInAstBindingsCase var (AstBindingsSimple t) = varInAstDynamic var t
-varInAstBindingsCase var (AstBindingsHVector _ t) = varInAstHVector var t
+varInAstBindingsCase var (AstBindingsHVector _ t) = varInAst var t
 
 
 -- * Determining if a term is too small to require sharing
@@ -394,7 +436,7 @@ bindsToLetS = foldl' bindToLetS
 
 bindsToHVectorLet
    :: forall s. AstSpan s
-   => AstHVector s -> AstBindings s -> AstHVector s
+   => AstTensor s TKUntyped -> AstBindings s -> AstTensor s TKUntyped
 {-# INLINE bindsToHVectorLet #-}   -- help list fusion
 bindsToHVectorLet = foldl' bindToHVectorLet
  where

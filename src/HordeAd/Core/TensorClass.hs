@@ -1214,6 +1214,7 @@ mapInterpretationTarget fr fs stk b = case stk of
     let !t1 = mapInterpretationTarget fr fs stk1 $ tproject1 b
         !t2 = mapInterpretationTarget fr fs stk2 $ tproject2 b
     in ttuple t1 t2
+  STKUntyped -> error "TODO"
 
 mapInterpretationTarget2
   :: forall f1 f2 g y. (ProductTensor f1, ProductTensor f2, ProductTensor g)
@@ -1233,6 +1234,7 @@ mapInterpretationTarget2 fr fs stk b1 b2 = case stk of
     let !t1 = mapInterpretationTarget2 fr fs stk1 (tproject1 b1) (tproject1 b2)
         !t2 = mapInterpretationTarget2 fr fs stk2 (tproject2 b1) (tproject2 b2)
     in ttuple t1 t2
+  STKUntyped -> error "TODO"
 
 newtype HFun =
   HFun {unHFun :: forall f. ADReady f => [HVector f] -> HVectorOf f}

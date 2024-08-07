@@ -15,13 +15,14 @@ module HordeAd.Core.Types
     -- * Kinds of the functors that determine the structure of a tensor type
   , TensorType, RankedTensorType, ShapedTensorType
   , TensorKindType (..), STensorKindType(..), TensorKind(..)
-  , lemTensorKindOfS, sameTensorKind, TensorKindFull(..)
+  , lemTensorKindOfS, sameTensorKind
   , InterpretationTarget, InterpretationTargetD(..), InterpretationTargetM(..)
-  , BuildTensorKind, buildTensorKindFull, lemTensorKindOfBuild
+  , BuildTensorKind, lemTensorKindOfBuild
     -- * Some fundamental constraints
   , GoodScalar, HasSingletonDict, Differentiable, IfDifferentiable(..)
     -- * Type families that tensors will belong to
-  , IntOf, RankedOf, ShapedOf, ProductOf, HVectorOf, HFunOf, PrimalOf, DualOf
+  , IntOf, RankedOf, ShapedOf, ProductOf, HVectorOf, HVectorPseudoTensor(..)
+  , HFunOf, PrimalOf, DualOf
   , DummyDual(..)
     -- * Generic types of booleans and related class definitions
   , BoolOf, Boolean(..)
@@ -148,6 +149,7 @@ type data TensorKindType =
     TKR Type Nat
   | TKS Type [Nat]
   | TKProduct TensorKindType TensorKindType
+  | TKUntyped
 
 type role STensorKindType nominal
 data STensorKindType y where
@@ -158,6 +160,7 @@ data STensorKindType y where
   STKProduct :: (TensorKind y, TensorKind z)
              => STensorKindType y -> STensorKindType z
              -> STensorKindType (TKProduct y z)
+  STKUntyped :: STensorKindType TKUntyped
 
 deriving instance Show (STensorKindType y)
 
@@ -173,12 +176,16 @@ instance (GoodScalar r, KnownShS sh) => TensorKind (TKS r sh) where
 instance (TensorKind y, TensorKind z) => TensorKind (TKProduct y z) where
   stensorKind = STKProduct (stensorKind @y) (stensorKind @z)
 
+instance TensorKind TKUntyped where
+  stensorKind = STKUntyped
+
 lemTensorKindOfS :: STensorKindType y -> Dict TensorKind y
 lemTensorKindOfS = \case
   STKR{} -> Dict
   STKS{} -> Dict
   STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
                        , Dict <- lemTensorKindOfS stk2 -> Dict
+  STKUntyped -> Dict
 
 sameTensorKind :: forall y1 y2. (TensorKind y1, TensorKind y2) => Maybe (y1 :~: y2)
 sameTensorKind = sameTK (stensorKind @y1) (stensorKind @y2)
@@ -196,19 +203,8 @@ sameTensorKind = sameTK (stensorKind @y1) (stensorKind @y2)
     (STKProduct x1 z1, STKProduct x2 z2) -> case (sameTK x1 x2, sameTK z1 z2) of
       (Just Refl, Just Refl) -> Just Refl
       _ -> Nothing
+    (STKUntyped, STKUntyped) -> Just Refl
     _ -> Nothing
-
--- TODO: the constraints should not be necessary
-type role TensorKindFull nominal
-data TensorKindFull y where
-  FTKR :: (GoodScalar r, KnownNat n) => ShR n Int -> TensorKindFull (TKR r n)
-  FTKS :: (GoodScalar r, KnownShS sh) => TensorKindFull (TKS r sh)
-  FTKProduct :: (TensorKind y, TensorKind z)
-             => TensorKindFull y -> TensorKindFull z
-             -> TensorKindFull (TKProduct y z)
-
-deriving instance Show (TensorKindFull y)
-deriving instance Eq (TensorKindFull y)
 
 type family InterpretationTarget ranked y = result | result -> ranked y where
   InterpretationTarget ranked (TKR r n) = ranked r n
@@ -216,6 +212,8 @@ type family InterpretationTarget ranked y = result | result -> ranked y where
   InterpretationTarget ranked (TKProduct x z) =
     ProductOf ranked (InterpretationTarget ranked x)
                      (InterpretationTarget ranked z)
+  InterpretationTarget ranked TKUntyped = HVectorPseudoTensor ranked Float '()
+    -- HVectorPseudoTensor instead of HVectorOf required for injectivity
 
 -- Needed because `InterpretationTarget` can't be partially applied.
 type role InterpretationTargetD nominal nominal
@@ -227,6 +225,7 @@ data InterpretationTargetD ranked y where
   DTKProduct :: InterpretationTargetD ranked x
              -> InterpretationTargetD ranked z
              -> InterpretationTargetD ranked (TKProduct x z)
+  DTKUntyped :: HVectorOf ranked -> InterpretationTargetD ranked TKUntyped
 
 type role InterpretationTargetM nominal nominal
 data InterpretationTargetM ranked y where
@@ -241,23 +240,14 @@ data InterpretationTargetM ranked y where
   MTKProduct :: InterpretationTargetM ranked x
              -> InterpretationTargetM ranked z
              -> InterpretationTargetM ranked (TKProduct x z)
+  MTKUntyped :: HVectorOf ranked -> InterpretationTargetM ranked TKUntyped
 
 type family BuildTensorKind k tks where
   BuildTensorKind k (TKR r n) = TKR r (1 + n)
   BuildTensorKind k (TKS r sh) = TKS r (k : sh)
   BuildTensorKind k (TKProduct y z) =
     TKProduct (BuildTensorKind k y) (BuildTensorKind k z)
-
-buildTensorKindFull :: SNat k -> TensorKindFull y
-                    -> TensorKindFull (BuildTensorKind k y)
-buildTensorKindFull snat@SNat = \case
-  FTKR sh -> FTKR $ sNatValue snat :$: sh
-  FTKS -> FTKS
-  FTKProduct @z1 @z2 ftk1 ftk2
-    | Dict <- lemTensorKindOfBuild snat (stensorKind @z1)
-    , Dict <- lemTensorKindOfBuild snat (stensorKind @z2) ->
-      FTKProduct (buildTensorKindFull snat ftk1)
-                 (buildTensorKindFull snat ftk2)
+  BuildTensorKind k TKUntyped = TKUntyped
 
 lemTensorKindOfBuild :: SNat k -> STensorKindType y
                      -> Dict TensorKind (BuildTensorKind k y)
@@ -266,6 +256,7 @@ lemTensorKindOfBuild snat@SNat = \case
   STKS{} -> Dict
   STKProduct stk1 stk2 | Dict <- lemTensorKindOfBuild snat stk1
                        , Dict <- lemTensorKindOfBuild snat stk2 -> Dict
+  STKUntyped -> Dict
 
 
 -- * Some fundamental constraints
@@ -320,9 +311,18 @@ type family ShapedOf (f :: RankedTensorType) = (result :: ShapedTensorType)
 type family ProductOf (f :: RankedTensorType) = (result :: Type -> Type -> Type)
   | result -> f
 
-
 type HVectorOf :: RankedTensorType -> Type
 type family HVectorOf f = result | result -> f
+
+type role HVectorPseudoTensor nominal phantom phantom
+type HVectorPseudoTensor :: RankedTensorType -> TensorType ()
+newtype HVectorPseudoTensor ranked r y =
+  HVectorPseudoTensor {unHVectorPseudoTensor :: HVectorOf ranked}
+
+deriving instance Show (HVectorOf ranked)
+                  => Show (HVectorPseudoTensor ranked r y)
+
+type instance RankedOf (HVectorPseudoTensor ranked) = ranked
 
 -- | The type family is defined in order to give a special instance
 -- for AST that preservs sharing and, even more importantly, keeps

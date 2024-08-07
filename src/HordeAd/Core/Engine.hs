@@ -182,8 +182,8 @@ revEvalArtifact (AstArtifact varsDt vars
      then
        let env = extendEnvHVector vars parameters emptyEnv
            envDt = extendEnvHVector varsDt dts env
-           gradientHVector = interpretAstHVector envDt gradient
-           primalTensor = interpretAstHVector env primal
+           gradientHVector = unHVectorPseudoTensor $ interpretAst envDt gradient
+           primalTensor = unHVectorPseudoTensor $ interpretAst env primal
        in (gradientHVector, primalTensor)
      else error "revEvalArtifact: primal result and the incoming contangent should have same shapes"
 
@@ -244,8 +244,8 @@ fwdEvalArtifact (AstArtifact varDs vars derivative primal) parameters ds =
   if hVectorsMatch parameters ds then
     let env = extendEnvHVector vars parameters emptyEnv
         envDs = extendEnvHVector varDs ds env
-        derivativeTensor = interpretAstHVector envDs $ unAstRawWrap derivative
-        primalTensor = interpretAstHVector env $ unAstRawWrap primal
+        derivativeTensor = unHVectorPseudoTensor $ interpretAst envDs $ unAstRawWrap derivative
+        primalTensor = unHVectorPseudoTensor $ interpretAst env $ unAstRawWrap primal
     in (derivativeTensor, primalTensor)
  else error "fwdEvalArtifact: forward derivative input and sensitivity arguments should have same shapes"
 
@@ -659,26 +659,26 @@ cfwd f vals ds =
 
 -- This is needed for all three AstSpan values, to handle recursive calls
 -- from interpretAstDual, etc.
-{-# SPECIALIZE interpretAstHVector
+{-# SPECIALIZE interpretAst
   :: AstSpan s
   => AstEnv (ADVal ORArray)
-  -> AstHVector s
-  -> HVector (ADVal ORArray) #-}
-{-# SPECIALIZE interpretAstHVector
+  -> AstTensor s TKUntyped
+  -> HVectorPseudoTensor (ADVal ORArray) Float '() #-}
+{-# SPECIALIZE interpretAst
   :: AstSpan s
   => AstEnv (ADVal (AstRanked PrimalSpan))
-  -> AstHVector s
-  -> HVector (ADVal (AstRanked PrimalSpan)) #-}
-{-# SPECIALIZE interpretAstHVector
+  -> AstTensor s TKUntyped
+  -> HVectorPseudoTensor (ADVal (AstRanked PrimalSpan)) Float '() #-}
+{-# SPECIALIZE interpretAst
   :: AstSpan s
   => AstEnv ORArray
-  -> AstHVector s
-  -> HVector ORArray #-}
-{-# SPECIALIZE interpretAstHVector
+  -> AstTensor s TKUntyped
+  -> HVectorPseudoTensor ORArray Float '() #-}
+{-# SPECIALIZE interpretAst
   :: AstSpan s
   => AstEnv ORArray
-  -> AstHVector s
-  -> HVector ORArray #-}
+  -> AstTensor s TKUntyped
+  -> HVectorPseudoTensor ORArray Float '() #-}
 
 {-# SPECIALIZE interpretAstBool
   :: AstEnv (ADVal ORArray)

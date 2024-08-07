@@ -9,7 +9,6 @@
 -- the instance is a term algebra as well.
 module HordeAd.Core.AstInterpret
   ( interpretAstPrimal, interpretAst
-  , interpretAstHVector
   -- * Exported only to specialize elsewhere (because transitive specialization may not work, possibly)
   , interpretAstPrimalRuntimeSpecialized, interpretAstPrimalSRuntimeSpecialized
   , interpretAstDual
@@ -180,6 +179,7 @@ interpretAst !env = \case
            sletTKIn (stensorKind @z2) (tproject2 t12) $ \w2 ->
              interpretAst (env2 w1 w2) v
     STKProduct{} -> error "WIP"
+    STKUntyped -> error "WIP"
 
   AstVar @y2 _sh var ->
    let var2 = mkAstVarName @FullSpan @y2 (varNameToAstVarId var)  -- TODO
@@ -249,6 +249,9 @@ interpretAst !env = \case
           STKS{} -> sreplicate u
           STKProduct stk1 stk2 ->
             ttuple (replStk stk1 (tproject1 u)) (replStk stk2 (tproject2 u))
+          STKUntyped -> HVectorPseudoTensor $
+            dletHVectorInHVector (unHVectorPseudoTensor u) $ \hv ->
+              mkreplicate1HVector k hv
     in replStk (stensorKind @y2) (interpretAst env v)
   -- These are only needed for tests that don't vectorize Ast.
   AstBuild1 @y2
@@ -274,15 +277,18 @@ interpretAst !env = \case
         let t1 = interpretAst env t
             t2 = interpretAst env u
         in rmatvecmul t2 t1
-  AstBuild1 @y2 (SNat @n) (_, v)
+  AstBuild1 (SNat @n) (_, v)
     | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
       let emptyFromStk :: TensorKindFull z
                        -> InterpretationTarget ranked (BuildTensorKind n z)
           emptyFromStk ftk = case ftk of
             FTKR sh -> rfromList0N (0 :$: sh) []
-            FTKS{} -> sfromList0N []
+            FTKS -> sfromList0N []
             FTKProduct ftk1 ftk2 -> ttuple (emptyFromStk ftk1) (emptyFromStk ftk2)
-      in emptyFromStk (shapeAstFull (stensorKind @y2) v)
+            FTKUntyped ssh -> HVectorPseudoTensor
+                              $ mkreplicate1HVector (SNat @0)
+                              $ V.map dynamicFromVoid ssh
+      in emptyFromStk (shapeAstFull v)
   -- The following can't be, in general, so partially evaluated, because v
   -- may contain variables that the evironment sends to terms,
   -- not to concrete numbers (and so Primal a is not equal to a).
@@ -304,6 +310,8 @@ interpretAst !env = \case
             let f1 i = tproject1 $ g i  -- looks expensive, but hard to do better,
                 f2 i = tproject2 $ g i  -- so let's hope v is full of variables
             in ttuple (replStk stk1 f1) (replStk stk2 f2)
+          STKUntyped ->
+            HVectorPseudoTensor $ dbuild1 snat (unHVectorPseudoTensor . g)
     in replStk (stensorKind @y2) f
   AstLet @_ @_ @y2 var u v -> case stensorKind @y2 of
     stk@STKR{} ->
@@ -316,6 +324,10 @@ interpretAst !env = \case
           env2 w = extendEnv var w env
       in rletTKIn stk t (\w -> interpretAst (env2 w) v)
     stk@STKProduct{} ->
+      let t = interpretAst env u
+          env2 w = extendEnv var w env
+      in rletTKIn stk t (\w -> interpretAst (env2 w) v)
+    stk@STKUntyped ->
       let t = interpretAst env u
           env2 w = extendEnv var w env
       in rletTKIn stk t (\w -> interpretAst (env2 w) v)
@@ -543,16 +555,16 @@ interpretAst !env = \case
     rfromIntegral $ rconstant $ interpretAstPrimalRuntimeSpecialized env v
   AstConst a -> rconst a
   AstProjectR l p ->
-    let lt = interpretAstHVector env l
+    let lt = unHVectorPseudoTensor $ interpretAst env l
     in rletHVectorIn lt (\lw -> rfromD $ lw V.! p)
          -- This is weak, but we don't need rproject nor sproject.
          -- Most likely, the term gets simplified before interpretation anyway.
   AstLetHVectorIn vars l v ->
-    let lt = interpretAstHVector env l
+    let lt = unHVectorPseudoTensor $ interpretAst env l
         env2 lw = assert (voidHVectorMatches (voidFromVars vars) lw
                           `blame` ( shapeVoidHVector (voidFromVars vars)
                                   , V.toList $ V.map shapeDynamic lw
-                                  , shapeVoidHVector (shapeAstHVector l)
+                                  , shapeAstFull l
                                   , shapeVoidHVector (dshape lt) )) $
                  extendEnvHVector vars lw env
     in rletHVectorIn lt (\lw -> interpretAst (env2 lw) v)
@@ -573,6 +585,10 @@ interpretAst !env = \case
           env2 w = extendEnv var w env
       in sletTKIn stk t (\w -> interpretAst (env2 w) v)
     stk@STKProduct{} ->
+      let t = interpretAst env u
+          env2 w = extendEnv var w env
+      in sletTKIn stk t (\w -> interpretAst (env2 w) v)
+    stk@STKUntyped ->
       let t = interpretAst env u
           env2 w = extendEnv var w env
       in sletTKIn stk t (\w -> interpretAst (env2 w) v)
@@ -782,14 +798,14 @@ interpretAst !env = \case
     sfromIntegral $ sconstant $ interpretAstPrimalSRuntimeSpecialized env v
   AstConstS a -> sconst a
   AstProjectS l p ->
-    let lt = interpretAstHVector env l
+    let lt = unHVectorPseudoTensor $ interpretAst env l
     in sletHVectorIn lt (\lw -> sfromD $ lw V.! p)
   AstLetHVectorInS vars l v ->
-    let lt = interpretAstHVector env l
+    let lt = unHVectorPseudoTensor $ interpretAst env l
         env2 lw = assert (voidHVectorMatches (voidFromVars vars) lw
                           `blame` ( shapeVoidHVector (voidFromVars vars)
                                   , V.toList $ V.map shapeDynamic lw
-                                  , shapeVoidHVector (shapeAstHVector l)
+                                  , shapeAstFull l
                                   , shapeVoidHVector (dshape lt) )) $
                   extendEnvHVector vars lw env
     in sletHVectorIn lt (\lw -> interpretAst (env2 lw) v)
@@ -798,6 +814,67 @@ interpretAst !env = \case
         env2 h = extendEnvHFun var h env
     in sletHFunIn g (\h -> interpretAst (env2 h) v)
   AstSFromR v -> sfromR $ interpretAst env v
+
+  AstMkHVector l -> HVectorPseudoTensor
+                    $ dmkHVector $ interpretAstDynamic env <$> l
+  AstHApply t ll ->
+    let t2 = interpretAstHFun env t
+          -- this is a bunch of PrimalSpan terms interpreted in, perhaps,
+          -- FullSpan terms
+        ll2 = (interpretAstDynamic env <$>) <$> ll
+          -- these are, perhaps, FullSpan terms, interpreted in the same
+          -- as above so that the mixture becomes compatible; if the spans
+          -- agreed, the AstHApply would likely be simplified before
+          -- getting interpreted
+    in HVectorPseudoTensor
+       $ dHApply t2 ll2
+  AstLetHVectorInHVector vars l v ->
+    let lt = unHVectorPseudoTensor $ interpretAst env l
+        env2 lw = assert (voidHVectorMatches (voidFromVars vars) lw
+                          `blame` ( shapeVoidHVector (voidFromVars vars)
+                                  , V.toList $ V.map shapeDynamic lw
+                                  , shapeAstFull l
+                                  , shapeVoidHVector (dshape lt) )) $
+                  extendEnvHVector vars lw env
+    in HVectorPseudoTensor
+       $ dletHVectorInHVector lt (\lw -> unHVectorPseudoTensor $ interpretAst (env2 lw) v)
+  AstLetHFunInHVector var f v ->
+    let g = interpretAstHFun env f
+        env2 h = extendEnvHFun var h env
+    in HVectorPseudoTensor
+       $ dletHFunInHVector g (\h -> unHVectorPseudoTensor $ interpretAst (env2 h) v)
+  AstLetInHVector var u v ->
+    -- We assume there are no nested lets with the same variable.
+    let t = interpretAstRuntimeSpecialized env u
+        env2 w = extendEnv var w env
+    in HVectorPseudoTensor
+       $ rletInHVector t (\w -> unHVectorPseudoTensor $ interpretAst (env2 w) v)
+  AstLetInHVectorS var u v ->
+    -- We assume there are no nested lets with the same variable.
+    let t = interpretAstSRuntimeSpecialized env u
+        env2 w = extendEnv var w env
+    in HVectorPseudoTensor
+       $ sletInHVector t (\w -> unHVectorPseudoTensor $ interpretAst (env2 w) v)
+  AstShareHVector{} -> error "interpretAst: AstShareHVector"
+  AstBuildHVector1 k (var, v) ->
+    HVectorPseudoTensor
+       $ dbuild1 k (interpretLambdaIHVector interpretAst env (var, v))
+  AstMapAccumRDer k accShs bShs eShs f0 df0 rf0 acc0 es ->
+    let f = interpretAstHFun env f0
+        df = interpretAstHFun env df0
+        rf = interpretAstHFun env rf0
+        acc02 = unHVectorPseudoTensor $ interpretAst env acc0
+        es2 = unHVectorPseudoTensor $ interpretAst env es
+    in HVectorPseudoTensor
+       $ dmapAccumRDer (Proxy @ranked) k accShs bShs eShs f df rf acc02 es2
+  AstMapAccumLDer k accShs bShs eShs f0 df0 rf0 acc0 es ->
+    let f = interpretAstHFun env f0
+        df = interpretAstHFun env df0
+        rf = interpretAstHFun env rf0
+        acc02 = unHVectorPseudoTensor $ interpretAst env acc0
+        es2 = unHVectorPseudoTensor $ interpretAst env es
+    in HVectorPseudoTensor
+       $ dmapAccumLDer (Proxy @ranked) k accShs bShs eShs f df rf acc02 es2
 
 interpretAstDynamic
   :: forall ranked s. (ADReady ranked, AstSpan s)
@@ -812,69 +889,13 @@ interpretAstDynamic !env = \case
   DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
   DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
 
-interpretAstHVector
-  :: forall ranked s. (ADReady ranked, AstSpan s)
-  => AstEnv ranked -> AstHVector s -> HVectorOf ranked
-interpretAstHVector !env = \case
-  AstMkHVector l -> dmkHVector $ interpretAstDynamic env <$> l
-  AstHApply t ll ->
-    let t2 = interpretAstHFun env t
-          -- this is a bunch of PrimalSpan terms interpreted in, perhaps,
-          -- FullSpan terms
-        ll2 = (interpretAstDynamic env <$>) <$> ll
-          -- these are, perhaps, FullSpan terms, interpreted in the same
-          -- as above so that the mixture becomes compatible; if the spans
-          -- agreed, the AstHApply would likely be simplified before
-          -- getting interpreted
-    in dHApply t2 ll2
-  AstLetHVectorInHVector vars l v ->
-    let lt = interpretAstHVector env l
-        env2 lw = assert (voidHVectorMatches (voidFromVars vars) lw
-                          `blame` ( shapeVoidHVector (voidFromVars vars)
-                                  , V.toList $ V.map shapeDynamic lw
-                                  , shapeVoidHVector (shapeAstHVector l)
-                                  , shapeVoidHVector (dshape lt) )) $
-                  extendEnvHVector vars lw env
-    in dletHVectorInHVector lt (\lw -> interpretAstHVector (env2 lw) v)
-  AstLetHFunInHVector var f v ->
-    let g = interpretAstHFun env f
-        env2 h = extendEnvHFun var h env
-    in dletHFunInHVector g (\h -> interpretAstHVector (env2 h) v)
-  AstLetInHVector var u v ->
-    -- We assume there are no nested lets with the same variable.
-    let t = interpretAstRuntimeSpecialized env u
-        env2 w = extendEnv var w env
-    in rletInHVector t (\w -> interpretAstHVector (env2 w) v)
-  AstLetInHVectorS var u v ->
-    -- We assume there are no nested lets with the same variable.
-    let t = interpretAstSRuntimeSpecialized env u
-        env2 w = extendEnv var w env
-    in sletInHVector t (\w -> interpretAstHVector (env2 w) v)
-  AstShareHVector{} -> error "interpretAstHVector: AstShareHVector"
-  AstBuildHVector1 k (var, v) ->
-    dbuild1 k (interpretLambdaIHVector interpretAstHVector env (var, v))
-  AstMapAccumRDer k accShs bShs eShs f0 df0 rf0 acc0 es ->
-    let f = interpretAstHFun env f0
-        df = interpretAstHFun env df0
-        rf = interpretAstHFun env rf0
-        acc02 = interpretAstHVector env acc0
-        es2 = interpretAstHVector env es
-    in dmapAccumRDer (Proxy @ranked) k accShs bShs eShs f df rf acc02 es2
-  AstMapAccumLDer k accShs bShs eShs f0 df0 rf0 acc0 es ->
-    let f = interpretAstHFun env f0
-        df = interpretAstHFun env df0
-        rf = interpretAstHFun env rf0
-        acc02 = interpretAstHVector env acc0
-        es2 = interpretAstHVector env es
-    in dmapAccumLDer (Proxy @ranked) k accShs bShs eShs f df rf acc02 es2
-
 interpretAstHFun
   :: forall ranked. HVectorTensor ranked (ShapedOf ranked)
   => AstEnv ranked -> AstHFun -> HFunOf ranked
 interpretAstHFun !env = \case
   AstLambda ~(vvars, l) ->
     dlambda @ranked (map voidFromVars vvars)
-    $ interpretLambdaHsH interpretAstHVector (vvars, l)
+    $ interpretLambdaHsH interpretAst (vvars, l)
       -- interpretation in empty environment; makes sense here, because
       -- there are no free variables outside of those listed
   AstVarHFun _shss _shs varId -> case DMap.lookup (mkAstVarName @_ @(TKR Float 0) varId) env of

@@ -175,13 +175,14 @@ interpretLambdaIS f !env (!var, ast) =
 interpretLambdaIHVector
   :: forall ranked s.
      (RankedTensor ranked, RankedOf (PrimalOf ranked) ~ PrimalOf ranked)
-  => (AstEnv ranked -> AstHVector s -> HVectorOf ranked)
-  -> AstEnv ranked -> (IntVarName, AstHVector s)
+  => (AstEnv ranked -> AstTensor s TKUntyped
+      -> HVectorPseudoTensor ranked Float '())
+  -> AstEnv ranked -> (IntVarName, AstTensor s TKUntyped)
   -> IntOf ranked
   -> HVectorOf ranked
 {-# INLINE interpretLambdaIHVector #-}
 interpretLambdaIHVector f !env (!var, !ast) =
-  \i -> f (extendEnvI var i env) ast
+  \i -> unHVectorPseudoTensor $ f (extendEnvI var i env) ast
 
 interpretLambdaIndex
   :: forall ranked s r m n.
@@ -229,14 +230,16 @@ interpretLambdaIndexToIndexS f !env (!vars, !asts) =
 
 interpretLambdaHsH
   :: (forall ranked. ADReady ranked
-      => AstEnv ranked -> AstHVector s -> HVectorOf ranked)
+      => AstEnv ranked -> AstTensor s TKUntyped
+      -> HVectorPseudoTensor ranked Float '())
   -> ( [[AstDynamicVarName]]
-     , AstHVector s )
+     , AstTensor s TKUntyped )
   -> HFun
 {-# INLINE interpretLambdaHsH #-}
 interpretLambdaHsH interpret ~(vvars, ast) =
   HFun $ \ws ->
-    interpret (foldr (uncurry extendEnvHVector) emptyEnv $ zip vvars ws) ast
+    unHVectorPseudoTensor
+    $ interpret (foldr (uncurry extendEnvHVector) emptyEnv $ zip vvars ws) ast
 
 
 -- * Interpretation of arithmetic, boolean and relation operations

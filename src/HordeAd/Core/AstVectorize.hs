@@ -4,8 +4,7 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Vectorization of the AST, eliminating the build operation.
 module HordeAd.Core.AstVectorize
-  ( build1Vectorize, build1VectorizeHVector
-  , traceRuleEnabledRef
+  ( build1Vectorize, traceRuleEnabledRef
   ) where
 
 import Prelude
@@ -31,15 +30,14 @@ import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape qualified as X
 import Data.Array.Mixed.Types qualified as X
 
-import HordeAd.Core.Ast hiding (AstBool (..), AstHVector (..), AstTensor (..))
-import HordeAd.Core.Ast (AstHVector, AstTensor)
+import HordeAd.Core.Ast (AstTensor)
+import HordeAd.Core.Ast hiding (AstBool (..), AstTensor (..))
 import HordeAd.Core.Ast qualified as Ast
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstPrettyPrint
 import HordeAd.Core.AstSimplify
 import HordeAd.Core.AstTools
 import HordeAd.Core.HVector
-import HordeAd.Core.HVectorOps
 import HordeAd.Core.Types
 import HordeAd.Util.ShapedList
   (pattern (:.$), pattern (::$), pattern ZIS, pattern ZS)
@@ -63,11 +61,10 @@ build1Vectorize
   :: forall k y s. (AstSpan s, TensorKind y)
   => SNat k -> (IntVarName, AstTensor s y) -> AstTensor s (BuildTensorKind k y)
 {-# NOINLINE build1Vectorize #-}
-build1Vectorize snat@SNat (var, v0) = unsafePerformIO $ do
+build1Vectorize snat@SNat (var, v0)
+ | Dict <- lemTensorKindOfBuild snat (stensorKind @y) = unsafePerformIO $ do
   enabled <- readIORef traceRuleEnabledRef
-  let stk | Dict <- lemTensorKindOfBuild snat (stensorKind @y) =
-        stensorKind @(BuildTensorKind k y)
-      width = 1000 * traceWidth
+  let width = 1000 * traceWidth
       startTerm = Ast.AstBuild1 snat (var, v0)
       renames = IM.fromList [(1, ""), (2, "")]
   when enabled $ do
@@ -84,10 +81,10 @@ build1Vectorize snat@SNat (var, v0) = unsafePerformIO $ do
       ++ "END of vectorization yields "
       ++ ellipsisString width (printAstSimpleY renames endTerm)
       ++ "\n"
-  let !_A = assert (shapeAstFull stk startTerm == shapeAstFull stk endTerm
+  let !_A = assert (shapeAstFull startTerm == shapeAstFull endTerm
                    `blame` "build1Vectorize: term shape changed"
-                   `swith`( shapeAstFull stk startTerm
-                          , shapeAstFull stk endTerm) ) ()
+                   `swith`( shapeAstFull startTerm
+                          , shapeAstFull endTerm) ) ()
   return endTerm
 
 -- | The application @build1VOccurenceUnknown k (var, v)@ vectorizes
@@ -206,6 +203,7 @@ build1V snat@SNat (var, v00) =
                                       (astCond b 0 1 :.$ ZIS)
         in build1V snat (var, t)
       STKProduct{} -> error "TODO"
+      STKUntyped -> error "TODO"
     Ast.AstCond b v w -> case stensorKind @y of
       STKR{} ->
         let t = astIndexStep (astFromVector $ V.fromList [v, w])
@@ -216,11 +214,12 @@ build1V snat@SNat (var, v00) =
                                     (astCond b 0 1 :.$ ZIS)
         in build1V snat (var, t)
       STKProduct{} -> error "TODO"
+      STKUntyped -> error "TODO"
     Ast.AstReplicate @y2 snat2@(SNat @k2) v -> traceRule $
-      let replStk :: forall z.
-                     STensorKindType z -> AstTensor s (BuildTensorKind k z)
-                  -> AstTensor s (BuildTensorKind k (BuildTensorKind k2 z))
-          replStk stk u = case stk of
+      let repl2Stk :: forall z.
+                      STensorKindType z -> AstTensor s (BuildTensorKind k z)
+                   -> AstTensor s (BuildTensorKind k (BuildTensorKind k2 z))
+          repl2Stk stk u = case stk of
             STKR{} -> astTr $ astReplicate snat2 u
             STKS{} -> astTrS $ astReplicate snat2 u
             STKProduct @z1 @z2 stk1 stk2
@@ -235,15 +234,27 @@ build1V snat@SNat (var, v00) =
                let (t1, t2) = (Ast.AstProject1 u, Ast.AstProject2 u)
                       -- looks expensive, but hard to do better,
                       -- so let's hope u is full of variables
-                in Ast.AstTuple (replStk stk1 t1) (replStk stk2 t2)
-      in replStk (stensorKind @y2) (build1V snat (var, v))
+                in Ast.AstTuple (repl2Stk stk1 t1) (repl2Stk stk2 t2)
+            STKUntyped ->
+              astTrAstHVector
+              $ fun1DToAst (shapeAstHVector u) $ \ !vars !asts ->
+                  Ast.AstLetHVectorInHVector
+                    vars
+                    u
+                    (Ast.AstMkHVector
+                     $ replicate1HVectorF
+                         (\k3 -> withSNat k3 $ \snat3 ->
+                             AstRanked . astReplicate snat3 . unAstRanked)
+                         (AstShaped . astReplicate SNat . unAstShaped)
+                         snat2 asts)
+     in repl2Stk (stensorKind @y2) (build1V snat (var, v))
     Ast.AstBuild1{} -> error "build1V: impossible case of AstBuild1"
 
     Ast.AstLet @_ @_ @y2 @s1 var1 u v
       | Dict <- lemTensorKindOfBuild snat (stensorKind @y2) ->
         let var3 :: AstVarName s1 (BuildTensorKind k y2)
             var3 = mkAstVarName (varNameToAstVarId var1)
-            ftk2 = shapeAstFull (stensorKind @y2) u
+            ftk2 = shapeAstFull u
             ftk3 = buildTensorKindFull snat ftk2
             astVar3 = Ast.AstVar ftk3 var3
             projection :: AstTensor s1 (BuildTensorKind k y4)
@@ -251,7 +262,7 @@ build1V snat@SNat (var, v00) =
                        -> AstTensor s1 y4
             projection prVar = \case
               FTKR{} -> Ast.AstIndex prVar (Ast.AstIntVar var :.: ZIR)
-              FTKS{} -> Ast.AstIndexS prVar (Ast.AstIntVar var :.$ ZIS)
+              FTKS -> Ast.AstIndexS prVar (Ast.AstIntVar var :.$ ZIS)
               FTKProduct @z1 @z2 ftk41 ftk42
                 | Dict <- lemTensorKindOfBuild snat (stensorKind @z1)
                 , Dict <- lemTensorKindOfBuild snat (stensorKind @z2) ->
@@ -259,6 +270,7 @@ build1V snat@SNat (var, v00) =
                       prVar2 = Ast.AstProject2 prVar
                   in Ast.AstTuple (projection prVar1 ftk41)
                                   (projection prVar2 ftk42)
+              FTKUntyped _ -> error "TODO"
             v2 = substituteAst
                    (SubstitutionPayload @s1 (projection astVar3 ftk2))
                    var1 v
@@ -329,7 +341,7 @@ build1V snat@SNat (var, v00) =
       error "build1V: AstConst can't have free index variables"
 
     Ast.AstProjectR l p ->
-      astProject (build1VOccurenceUnknownHVector snat (var, l)) p
+      astProject (build1VOccurenceUnknown snat (var, l)) p
     Ast.AstLetHVectorIn vars1 l v ->
       -- Here substitution traverses @v@ term tree @length vars@ times.
       --
@@ -339,7 +351,7 @@ build1V snat@SNat (var, v00) =
       -- with AstShaped and here we require AstRanked.
       let (vOut, varsOut) = substProjVars @k var vars1 v
       in astLetHVectorIn
-           varsOut (build1VOccurenceUnknownHVector snat (var, l))
+           varsOut (build1VOccurenceUnknown snat (var, l))
                    (build1VOccurenceUnknownRefresh snat (var, vOut))
     Ast.AstLetHFunIn var1 f v ->
       -- We take advantage of the fact that f contains no free index
@@ -354,7 +366,7 @@ build1V snat@SNat (var, v00) =
       | Dict <- lemTensorKindOfBuild snat (stensorKind @y2) ->
         let var3 :: AstVarName s1 (BuildTensorKind k y2)
             var3 = mkAstVarName (varNameToAstVarId var1)
-            ftk2 = shapeAstFull (stensorKind @y2) u
+            ftk2 = shapeAstFull u
             ftk3 = buildTensorKindFull snat ftk2
             astVar3 = Ast.AstVar ftk3 var3
             projection :: AstTensor s1 (BuildTensorKind k y4)
@@ -362,7 +374,7 @@ build1V snat@SNat (var, v00) =
                        -> AstTensor s1 y4
             projection prVar = \case
               FTKR{} -> Ast.AstIndex prVar (Ast.AstIntVar var :.: ZIR)
-              FTKS{} -> Ast.AstIndexS prVar (Ast.AstIntVar var :.$ ZIS)
+              FTKS -> Ast.AstIndexS prVar (Ast.AstIntVar var :.$ ZIS)
               FTKProduct @z1 @z2 ftk41 ftk42
                 | Dict <- lemTensorKindOfBuild snat (stensorKind @z1)
                 , Dict <- lemTensorKindOfBuild snat (stensorKind @z2) ->
@@ -370,6 +382,7 @@ build1V snat@SNat (var, v00) =
                       prVar2 = Ast.AstProject2 prVar
                   in Ast.AstTuple (projection prVar1 ftk41)
                                   (projection prVar2 ftk42)
+              FTKUntyped _ -> error "TODO"
             v2 = substituteAst
                    (SubstitutionPayload @s1 (projection astVar3 ftk2))
                    var1 v
@@ -463,17 +476,81 @@ build1V snat@SNat (var, v00) =
       error "build1V: AstConstS can't have free index variables"
 
     Ast.AstProjectS l p ->
-      astProjectS (build1VOccurenceUnknownHVector snat (var, l)) p
+      astProjectS (build1VOccurenceUnknown snat (var, l)) p
     Ast.AstLetHVectorInS vars1 l v ->
       -- See the AstLetHVectorIn case for comments.
       let (vOut, varsOut) = substProjVarsS @k var vars1 v
       in astLetHVectorInS
-           varsOut (build1VOccurenceUnknownHVector snat (var, l))
+           varsOut (build1VOccurenceUnknown snat (var, l))
                    (build1VOccurenceUnknownRefresh snat (var, vOut))
     Ast.AstLetHFunInS var1 f v ->
       -- We take advantage of the fact that f contains no free index vars.
       astLetHFunInS var1 (build1VHFun snat (var, f)) (build1V snat (var, v))
     Ast.AstSFromR v -> astSFromR $ build1V snat (var, v)
+
+    Ast.AstMkHVector l -> traceRule $
+      Ast.AstMkHVector
+      $ V.map (\u -> build1VOccurenceUnknownDynamic snat (var, u)) l
+    Ast.AstHApply t ll -> traceRule $
+      astHApply
+        (build1VHFun snat (var, t))
+        (map (V.map (\u -> build1VOccurenceUnknownDynamic snat (var, u))) ll)
+    Ast.AstLetHVectorInHVector vars1 u v -> traceRule $
+      let (vOut, varsOut) = substProjVarsHVector @k var vars1 v
+      in astLetHVectorInHVector
+           varsOut (build1VOccurenceUnknown snat (var, u))
+                   (build1VOccurenceUnknownRefresh snat (var, vOut))
+    Ast.AstLetHFunInHVector var1 f v -> traceRule $
+      -- We take advantage of the fact that f contains no free index vars.
+      astLetHFunInHVector var1 (build1VHFun snat (var, f))
+                               (build1V snat (var, v))
+    Ast.AstLetInHVector @_ @_ @s1 var1 u v -> traceRule $
+      let var2 = mkAstVarName (varNameToAstVarId var1)  -- changed shape; TODO: shall we rename?
+          sh = shapeAst u
+          projection = Ast.AstIndex (Ast.AstVar (FTKR $ k :$: sh) var2)
+                                    (Ast.AstIntVar var :.: ZIR)
+          v2 = substituteAstHVector
+                 (SubstitutionPayload @s1 projection) var1 v
+      in astLetInHVector var2 (build1VOccurenceUnknown snat (var, u))
+                              (build1VOccurenceUnknownRefresh
+                                 snat (var, v2))
+    Ast.AstLetInHVectorS @sh2 @r @s1 var1 u v -> traceRule $
+        let var2 = mkAstVarName (varNameToAstVarId var1)  -- changed shape; TODO: shall we rename?
+            projection = Ast.AstIndexS (Ast.AstVar @(TKS r (k ': sh2)) FTKS var2)
+                                       (Ast.AstIntVar var :.$ ZIS)
+            v2 = substituteAstHVector
+                   (SubstitutionPayload @s1 projection) var1 v
+        in astLetInHVectorS var2 (build1VOccurenceUnknown snat (var, u))
+                                 (build1VOccurenceUnknownRefresh
+                                    snat (var, v2))
+    Ast.AstShareHVector{} -> traceRule $
+      error "build1V: impossible case of AstShareHVector"
+    Ast.AstBuildHVector1{} -> traceRule $
+      error "build1V: impossible case of AstBuildHVector1"
+    Ast.AstMapAccumRDer k5 accShs bShs eShs f df rf acc0 es -> traceRule $
+      astTrAstHVectorTail (V.length accShs)
+      $ Ast.AstMapAccumRDer
+          k5
+          (replicate1VoidHVector snat accShs)
+          (replicate1VoidHVector snat bShs)
+          (replicate1VoidHVector snat eShs)
+          (build1VHFun snat (var, f))
+          (build1VHFun snat (var, df))
+          (build1VHFun snat (var, rf))
+          (build1VOccurenceUnknown snat (var, acc0))
+          (astTrAstHVector $ build1VOccurenceUnknown snat (var, es))
+    Ast.AstMapAccumLDer k5 accShs bShs eShs f df rf acc0 es -> traceRule $
+      astTrAstHVectorTail (V.length accShs)
+      $ Ast.AstMapAccumLDer
+          k5
+          (replicate1VoidHVector snat accShs)
+          (replicate1VoidHVector snat bShs)
+          (replicate1VoidHVector snat eShs)
+          (build1VHFun snat (var, f))
+          (build1VHFun snat (var, df))
+          (build1VHFun snat (var, rf))
+          (build1VOccurenceUnknown snat (var, acc0))
+          (astTrAstHVector $ build1VOccurenceUnknown snat (var, es))
 
 -- | The application @build1VIndex snat (var, v, ix)@ vectorizes
 -- the term @AstBuild1 snat (var, AstIndex v ix)@, where it's unknown whether
@@ -597,124 +674,7 @@ build1VIndexS (var, v0, ix@(_ :.$ _)) =
             astGatherStepS v0 (Const var ::$ ZS, ix)
 
 
--- * Vectorization of AstHVector
-
-build1VectorizeHVector
-  :: forall k s. AstSpan s
-  => SNat k -> (IntVarName, AstHVector s) -> AstHVector s
-{-# NOINLINE build1VectorizeHVector #-}
-build1VectorizeHVector k (var, v0) = unsafePerformIO $ do
-  enabled <- readIORef traceRuleEnabledRef
-  let width = 1000 * traceWidth
-      startTerm = Ast.AstBuildHVector1 k (var, v0)
-      renames = IM.fromList [(1, ""), (2, "")]
-  when enabled $ do
-    writeIORef traceNestingLevel 0
-    hPutStrLnFlush stderr $
-      "\n"
-      ++ "START of vectorization for term "
-      ++ ellipsisString width (printAstHVectorSimple renames startTerm)
-      ++ "\n"
-  let !endTerm = build1VOccurenceUnknownHVector k (var, v0)
-  when enabled $ do
-    hPutStrLnFlush stderr $
-      "\n"
-      ++ "END of vectorization yields "
-      ++ ellipsisString width (printAstHVectorSimple renames endTerm)
-      ++ "\n"
-  let !_A =
-        assert (voidHVectorsMatch (shapeAstHVector startTerm)
-                                  (shapeAstHVector endTerm)
-                `blame` "build1VectorizeHVector: term shape changed"
-                `swith` ( shapeVoidHVector (shapeAstHVector startTerm)
-                        , shapeVoidHVector (shapeAstHVector endTerm) )) ()
-  return endTerm
-
-build1VOccurenceUnknownHVector
-  :: forall k s. AstSpan s
-  => SNat k -> (IntVarName, AstHVector s) -> AstHVector s
-build1VOccurenceUnknownHVector k (var, v0) =
- let traceRule = mkTraceRuleHVector v0 k var
- in if varNameInAstHVector var v0
-    then build1VHVector k (var, v0)
-    else traceRule $
-      fun1DToAst (shapeAstHVector v0) $ \ !vars !asts ->
-        astLetHVectorInHVector
-          vars v0 (Ast.AstMkHVector
-                   $ replicate1HVectorF
-                       (\n (AstRanked t) -> withSNat n $ \snat ->
-                           AstRanked $ astReplicate snat t)
-                       (\(AstShaped t) -> AstShaped $ astReplicate SNat t)
-                       k asts)
-
-build1VHVector
-  :: forall k s. AstSpan s
-  => SNat k -> (IntVarName, AstHVector s) -> AstHVector s
-build1VHVector k@SNat (var, v0) =
- let traceRule = mkTraceRuleHVector v0 k var
- in traceRule $ case v0 of
-  Ast.AstMkHVector l ->
-    Ast.AstMkHVector $ V.map (\u -> build1VOccurenceUnknownDynamic k (var, u)) l
-  Ast.AstHApply t ll ->
-    astHApply
-      (build1VHFun k (var, t))
-      (map (V.map (\u -> build1VOccurenceUnknownDynamic k (var, u))) ll)
-  Ast.AstLetHVectorInHVector vars1 u v ->
-    let (vOut, varsOut) = substProjVarsHVector @k var vars1 v
-    in astLetHVectorInHVector
-         varsOut (build1VOccurenceUnknownHVector k (var, u))
-                 (build1VOccurenceUnknownHVectorRefresh k (var, vOut))
-  Ast.AstLetHFunInHVector var1 f v ->
-    -- We take advantage of the fact that f contains no free index vars.
-    astLetHFunInHVector var1 (build1VHFun k (var, f))
-                             (build1VHVector k (var, v))
-  Ast.AstLetInHVector @_ @_ @s1 var1 u v ->
-    let var2 = mkAstVarName (varNameToAstVarId var1)  -- changed shape; TODO: shall we rename?
-        sh = shapeAst u
-        projection = Ast.AstIndex (Ast.AstVar (FTKR $ sNatValue k :$: sh) var2)
-                                  (Ast.AstIntVar var :.: ZIR)
-        v2 = substituteAstHVector
-               (SubstitutionPayload @s1 projection) var1 v
-    in astLetInHVector var2 (build1VOccurenceUnknown (SNat @k) (var, u))
-                            (build1VOccurenceUnknownHVectorRefresh
-                               k (var, v2))
-  Ast.AstLetInHVectorS @sh2 @r @s1 var1 u v ->
-      let var2 = mkAstVarName (varNameToAstVarId var1)  -- changed shape; TODO: shall we rename?
-          projection = Ast.AstIndexS (Ast.AstVar @(TKS r (k ': sh2)) FTKS var2)
-                                     (Ast.AstIntVar var :.$ ZIS)
-          v2 = substituteAstHVector
-                 (SubstitutionPayload @s1 projection) var1 v
-      in astLetInHVectorS var2 (build1VOccurenceUnknown (SNat @k) (var, u))
-                               (build1VOccurenceUnknownHVectorRefresh
-                                  k (var, v2))
-  Ast.AstShareHVector{} ->
-    error "build1VHVector: impossible case of AstShareHVector"
-  Ast.AstBuildHVector1{} ->
-    error "build1VHVector: impossible case of AstBuildHVector1"
-  Ast.AstMapAccumRDer k5 accShs bShs eShs f df rf acc0 es ->
-      astTrAstHVectorTail (V.length accShs)
-      $ Ast.AstMapAccumRDer
-          k5
-          (replicate1VoidHVector k accShs)
-          (replicate1VoidHVector k bShs)
-          (replicate1VoidHVector k eShs)
-          (build1VHFun k (var, f))
-          (build1VHFun k (var, df))
-          (build1VHFun k (var, rf))
-          (build1VOccurenceUnknownHVector k (var, acc0))
-          (astTrAstHVector $ build1VOccurenceUnknownHVector k (var, es))
-  Ast.AstMapAccumLDer k5 accShs bShs eShs f df rf acc0 es ->
-      astTrAstHVectorTail (V.length accShs)
-      $ Ast.AstMapAccumLDer
-          k5
-          (replicate1VoidHVector k accShs)
-          (replicate1VoidHVector k bShs)
-          (replicate1VoidHVector k eShs)
-          (build1VHFun k (var, f))
-          (build1VHFun k (var, df))
-          (build1VHFun k (var, rf))
-          (build1VOccurenceUnknownHVector k (var, acc0))
-          (astTrAstHVector $ build1VOccurenceUnknownHVector k (var, es))
+-- * Vectorization of others
 
 build1VHFun
   :: forall k. SNat k -> (IntVarName, AstHFun) -> AstHFun
@@ -723,12 +683,12 @@ build1VHFun k@SNat (var, v0) = case v0 of
     -- This handles the case of l having free variable beyond vvars,
     -- which is not possible for lambdas used in folds, etc.
     -- But note that, due to substProjVarsHVector, l2 has var occurences,
-    -- so build1VOccurenceUnknownHVectorRefresh is neccessary to handle
+    -- so build1VOccurenceUnknownRefresh is neccessary to handle
     -- them and to eliminate them so that the function is closed again.
     let f acc vars = substProjVarsHVector @k var vars acc
         (l2, vvars2) = mapAccumR f l vvars
     in Ast.AstLambda
-         (vvars2, build1VOccurenceUnknownHVectorRefresh k (var, l2))
+         (vvars2, build1VOccurenceUnknownRefresh k (var, l2))
   Ast.AstVarHFun shss shs var2 ->
     Ast.AstVarHFun (map (replicate1VoidHVector k) shss)
                    (replicate1VoidHVector k shs)
@@ -750,17 +710,6 @@ build1VOccurenceUnknownDynamic SNat (var, d) = case d of
       DynamicRanked @r (Ast.AstRFromS @(k ': sh) @s @r 0)
   DynamicShapedDummy @r @sh _ _ -> DynamicShaped @r @(k ': sh) 0
 -}
-
-build1VOccurenceUnknownHVectorRefresh
-  :: forall k s. AstSpan s
-  => SNat k -> (IntVarName, AstHVector s) -> AstHVector s
-{-# NOINLINE build1VOccurenceUnknownHVectorRefresh #-}
-build1VOccurenceUnknownHVectorRefresh k (var, v0) =
-  funToAstIntVar $ \ (!varFresh, !astVarFresh) ->
-    let !v2 = substituteAstHVector  -- cheap subst, because only a renaming
-                (SubstitutionPayload @PrimalSpan astVarFresh)
-                var v0
-    in build1VOccurenceUnknownHVector k (varFresh, v2)
 
 
 -- * Auxiliary machinery
@@ -798,7 +747,7 @@ substProjHVector :: forall n1 r1 s1 s.
                     (KnownNat n1, GoodScalar r1, AstSpan s, AstSpan s1)
                  => Int -> IntVarName -> IShR n1
                  -> AstVarName s1 (TKR r1 n1)
-                 -> AstHVector s -> AstHVector s
+                 -> AstTensor s TKUntyped -> AstTensor s TKUntyped
 substProjHVector k var sh1 var1 =
   let var2 = mkAstVarName @s1 @(TKR r1 (1 + n1)) (varNameToAstVarId var1)
       projection =
@@ -811,7 +760,7 @@ substProjHVectorS :: forall k sh1 r1 s1 s.
                      ( KnownNat k, KnownShS sh1, GoodScalar r1
                      , AstSpan s, AstSpan s1 )
                   => IntVarName -> AstVarName s1 (TKS r1 sh1)
-                  -> AstHVector s -> AstHVector s
+                  -> AstTensor s TKUntyped -> AstTensor s TKUntyped
 substProjHVectorS var var1 =
   let var2 = mkAstVarName @s1 @(TKS r1 (k : sh1)) (varNameToAstVarId var1)
       projection =
@@ -865,8 +814,8 @@ substProjVarsS :: forall k sh r s. (KnownNat k, AstSpan s)
 substProjVarsS var vars v3 = mapAccumR (substProjDynamicS @k var) v3 vars
 
 substProjDynamicHVector :: forall k s. (KnownNat k, AstSpan s)
-                        => IntVarName -> AstHVector s -> AstDynamicVarName
-                        -> (AstHVector s, AstDynamicVarName)
+                        => IntVarName -> AstTensor s TKUntyped -> AstDynamicVarName
+                        -> (AstTensor s TKUntyped, AstDynamicVarName)
 substProjDynamicHVector var v3 (AstDynamicVarName @ty @r3 @sh3 varId)
   | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat) =
     ( withListSh (Proxy @sh3) $ \sh1 ->
@@ -881,8 +830,8 @@ substProjDynamicHVector _ _ _ =
 
 substProjVarsHVector :: forall k s. (KnownNat k, AstSpan s)
                      => IntVarName -> [AstDynamicVarName]
-                     -> AstHVector s
-                     -> (AstHVector s, [AstDynamicVarName])
+                     -> AstTensor s TKUntyped
+                     -> (AstTensor s TKUntyped, [AstDynamicVarName])
 substProjVarsHVector var vars v3 =
   mapAccumR (substProjDynamicHVector @k var) v3 vars
 
@@ -924,21 +873,23 @@ astTrDynamic (DynamicShapedDummy p1 (Proxy @sh1)) =
        DynamicShapedDummy p1 proxy
 
 astTrAstHVector :: forall s. AstSpan s
-                => AstHVector s -> AstHVector s
-astTrAstHVector t = fun1DToAst (shapeAstHVector t) $ \ !vars !asts ->
-  Ast.AstLetHVectorInHVector
-    vars
-    t
-    (Ast.AstMkHVector @s $ V.map astTrDynamic asts)
+                => AstTensor s TKUntyped -> AstTensor s TKUntyped
+astTrAstHVector t =
+  fun1DToAst (shapeAstHVector t) $ \ !vars !asts ->
+    Ast.AstLetHVectorInHVector
+      vars
+      t
+      (Ast.AstMkHVector @s $ V.map astTrDynamic asts)
 
 astTrAstHVectorTail :: forall s. AstSpan s
-                    => Int -> AstHVector s -> AstHVector s
-astTrAstHVectorTail i t = fun1DToAst (shapeAstHVector t) $ \ !vars !asts ->
-  Ast.AstLetHVectorInHVector
-    vars
-    t
-    (Ast.AstMkHVector @s $ V.take i asts
-                           V.++ V.map astTrDynamic (V.drop i asts))
+                    => Int -> AstTensor s TKUntyped -> AstTensor s TKUntyped
+astTrAstHVectorTail i t =
+  fun1DToAst (shapeAstHVector t) $ \ !vars !asts ->
+    Ast.AstLetHVectorInHVector
+      vars
+      t
+      (Ast.AstMkHVector @s $ V.take i asts
+                             V.++ V.map astTrDynamic (V.drop i asts))
 
 
 -- * Rule tracing machinery
@@ -974,8 +925,7 @@ mkTraceRule :: forall y z s. (TensorKind y, AstSpan s)
 {-# NOINLINE mkTraceRule #-}
 mkTraceRule prefix from caseAnalysed nwords to = unsafePerformIO $ do
   enabled <- readIORef traceRuleEnabledRef
-  let stk = stensorKind @y
-      width = traceWidth
+  let width = traceWidth
       renames = IM.fromList [(1, ""), (2, "")]
       constructorName =
         unwords $ take nwords $ words $ take 20
@@ -993,36 +943,10 @@ mkTraceRule prefix from caseAnalysed nwords to = unsafePerformIO $ do
                             ++ " sends " ++ padString width stringFrom
                             ++ " to " ++ padString width stringTo
     modifyIORef' traceNestingLevel pred
-  let !_A = assert (shapeAstFull stk from == shapeAstFull stk to
+  let !_A = assert (shapeAstFull from == shapeAstFull to
                     `blame` "mkTraceRule: term shape changed"
-                    `swith`( shapeAstFull stk from, shapeAstFull stk to
+                    `swith`( shapeAstFull from, shapeAstFull to
                            , from, to )) ()
-  return $! to
-
-mkTraceRuleHVector :: AstSpan s
-                   => AstHVector s -> SNat k -> IntVarName -> AstHVector s
-                   -> AstHVector s
-{-# NOINLINE mkTraceRuleHVector #-}
-mkTraceRuleHVector from k var to = unsafePerformIO $ do
-  enabled <- readIORef traceRuleEnabledRef
-  let width = traceWidth
-      renames = IM.fromList [(1, ""), (2, "")]
-      ruleName = "build1VHVector"
-      ruleNamePadded = take 20 $ ruleName ++ repeat ' '
-  when enabled $ do
-    nestingLevel <- readIORef traceNestingLevel
-    modifyIORef' traceNestingLevel succ
-    let paddedNesting = take 3 $ show nestingLevel ++ repeat ' '
-    let !stringFrom = printAstHVectorSimple renames from
-    let !stringTo = printAstHVectorSimple renames to
-    hPutStrLnFlush stderr $ paddedNesting ++ "rule " ++ ruleNamePadded
-                            ++ " sends "
-                            ++ padString width
-                                 ("build " ++ show (sNatValue k) ++ " ("
-                                  ++ printAstIntVarName renames var ++ ") "
-                                  ++  stringFrom)
-                            ++ " to " ++ padString width stringTo
-  modifyIORef' traceNestingLevel pred
   return $! to
 
 hPutStrLnFlush :: Handle -> String -> IO ()

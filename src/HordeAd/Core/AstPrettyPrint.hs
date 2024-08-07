@@ -132,9 +132,11 @@ printAstVar cfg var =
       rankTensorKind (STKS _ sh) = fromIntegral $ fromSNat $ shsRank sh
       rankTensorKind (STKProduct @y1 @z1 sy sz) =
         rankTensorKind @y1 sy `max` rankTensorKind @z1 sz
+      rankTensorKind STKUntyped = -1
       n = rankTensorKind (stensorKind @y)
       varId = varNameToAstVarId var
       prefix = case n of
+        -1 -> "h"
         0 -> "x"
         1 -> "v"
         2 -> "m"
@@ -293,6 +295,7 @@ printAstAux cfg d = \case
                             ("rreplicate " ++ show (sNatValue snat)) [v]
     STKS{} -> printPrefixOp printAst cfg d "sreplicate" [v]
     STKProduct{} -> error "WIP"
+    STKUntyped -> error "WIP"
   AstBuild1 @y2 k (var, v) -> case stensorKind @y2 of
    STKR{} ->
     showParen (d > 10)
@@ -313,6 +316,7 @@ printAstAux cfg d = \case
            . showString " -> "
            . printAst cfg 0 v)
    STKProduct{} -> error "WIP"
+   STKUntyped -> error "WIP"
   AstGather sh v (vars, ix) ->
     showParen (d > 10)
     $ showString ("rgather " ++ show sh ++ " ")
@@ -419,7 +423,7 @@ printAstAux cfg d = \case
   AstProjectR l p ->
     showParen (d > 10)
     $ showString "rproject "  -- fake, no such surface syntax
-      . printAstHVector cfg 0 l
+      . printAst cfg 0 l
       . showString " "
       . shows p
   AstLetHVectorIn vars l v ->
@@ -430,13 +434,13 @@ printAstAux cfg d = \case
         . showListWith (showString
                         . printAstDynamicVarName (varRenames cfg)) vars
         . showString " = "
-        . printAstHVector cfg 0 l
+        . printAst cfg 0 l
         . showString " in "
         . printAst cfg 0 v
     else
       showParen (d > 10)
       $ showString "rletHVectorIn "
-        . printAstHVector cfg 11 l
+        . printAst cfg 11 l
         . showString " "
         . (showParen True
            $ showString "\\"
@@ -577,7 +581,7 @@ printAstAux cfg d = \case
   AstProjectS l p ->
     showParen (d > 10)
     $ showString "sproject "  -- fake, no such surface syntax
-      . printAstHVector cfg 0 l
+      . printAst cfg 0 l
       . showString " "
       . shows p
   AstLetHVectorInS vars l v ->
@@ -588,13 +592,13 @@ printAstAux cfg d = \case
         . showListWith (showString
                         . printAstDynamicVarName (varRenames cfg)) vars
         . showString " = "
-        . printAstHVector cfg 0 l
+        . printAst cfg 0 l
         . showString " in "
         . printAst cfg 0 v
     else
       showParen (d > 10)
       $ showString "sletHVectorIn "
-        . printAstHVector cfg 11 l
+        . printAst cfg 11 l
         . showString " "
         . (showParen True
            $ showString "\\"
@@ -625,6 +629,163 @@ printAstAux cfg d = \case
              . printAst cfg 0 v)
         -- TODO: this does not roundtrip yet
   AstSFromR v -> printPrefixOp printAst cfg d "sfromR" [v]
+
+  AstMkHVector l ->
+    if loseRoudtrip cfg
+    then printHVectorAst cfg l
+    else showParen (d > 10)
+         $ showString "dmkHVector " . printHVectorAst cfg l
+  AstHApply t ll ->
+    if loseRoudtrip cfg
+    then showParen (d > 9)
+         $ printAstHFunOneUnignore cfg 10 t
+           . showString " "
+           . showListWith (printHVectorAst cfg) ll
+    else showParen (d > 10)
+         $ showString "dHApply "
+           . printAstHFunOneUnignore cfg 10 t
+           . showString " "
+           . showListWith (printHVectorAst cfg) ll
+  AstLetHVectorInHVector vars l v ->
+    if loseRoudtrip cfg
+    then
+      showParen (d > 10)
+      $ showString "let "
+        . showListWith (showString
+                        . printAstDynamicVarName (varRenames cfg)) vars
+        . showString " = "
+        . printAst cfg 0 l
+        . showString " in "
+        . printAst cfg 0 v
+    else
+      showParen (d > 10)
+      $ showString "dletHVectorInHVector "
+        . printAst cfg 11 l
+        . showString " "
+        . (showParen True
+           $ showString "\\"
+             . showListWith (showString
+                             . printAstDynamicVarName (varRenames cfg)) vars
+             . showString " -> "
+             . printAst cfg 0 v)
+  AstLetHFunInHVector var f v ->
+    if loseRoudtrip cfg
+    then
+      showParen (d > 10)
+      $ showString "let "
+        . printAstFunVar cfg var
+        . showString " = "
+        . printAstHFun cfg 0 f
+        . showString " in "
+        . printAst cfg 0 v
+    else
+      showParen (d > 10)
+      $ showString "dletHFunInHVector "
+        . printAstHFun cfg 11 f
+        . showString " "
+        . (showParen True
+           $ showString "\\"
+             . printAstFunVar cfg var
+             . showString " -> "
+             . printAst cfg 0 v)
+        -- TODO: this does not roundtrip yet
+  t@(AstLetInHVector var0 u0 v0) ->
+    if loseRoudtrip cfg
+    then let collect :: AstTensor s TKUntyped -> ([(ShowS, ShowS)], ShowS)
+             collect (AstLetInHVector var u v) =
+               let name = printAstVarFromLet u cfg var
+                   uPP = printAst cfg 0 u
+                   (rest, corePP) = collect v
+               in ((name, uPP) : rest, corePP)
+             collect v = ([], printAst cfg 0 v)
+             (pairs, core) = collect t
+         in showParen (d > 0)
+            $ showString "let "
+              . foldr (.) id (intersperse (showString " ; ")
+                  [name . showString " = " . uPP | (name, uPP) <- pairs])
+              . showString " in "
+              . core
+    else
+      showParen (d > 10)
+      $ showString "rletInHVector "
+        . printAst cfg 11 u0
+        . showString " "
+        . (showParen True
+           $ showString "\\"
+             . printAstVarFromLet u0 cfg var0
+             . showString " -> "
+             . printAst cfg 0 v0)
+  t@(AstLetInHVectorS var0 u0 v0) ->
+    if loseRoudtrip cfg
+    then let collect :: AstTensor s TKUntyped -> ([(ShowS, ShowS)], ShowS)
+             collect (AstLetInHVectorS var u v) =
+               let name = printAstVar cfg var
+                   uPP = printAst cfg 0 u
+                   (rest, corePP) = collect v
+               in ((name, uPP) : rest, corePP)
+             collect v = ([], printAst cfg 0 v)
+             (pairs, core) = collect t
+         in showParen (d > 0)
+            $ showString "let "
+              . foldr (.) id (intersperse (showString " ; ")
+                  [name . showString " = " . uPP | (name, uPP) <- pairs])
+              . showString " in "
+              . core
+    else
+      showParen (d > 10)
+      $ showString "sletInHVector "
+        . printAst cfg 11 u0
+        . showString " "
+        . (showParen True
+           $ showString "\\"
+             . printAstVar cfg var0
+             . showString " -> "
+             . printAst cfg 0 v0)
+  AstShareHVector vars l ->
+    showParen (d > 10)
+    $ showString "dshare "
+      . showListWith (showString
+                      . printAstDynamicVarName (varRenames cfg)) vars
+      . showString " "
+      . printAst cfg 11 l
+  AstBuildHVector1 k (var, v) ->
+    showParen (d > 10)
+    $ showString "dbuild1 "
+      . showParen True (shows k)
+      . showString " "
+      . (showParen True
+         $ showString "\\"
+           . printAstIntVar cfg var
+           . showString " -> "
+           . printAst cfg 0 v)
+  AstMapAccumRDer k _accShs _bShs _eShs f df rf acc0 es ->
+    showParen (d > 10)
+    $ showString "dmapAccumRDer "
+      . showParen True (shows k)
+      . showString " "
+      . printAstHFun cfg 10 f
+      . showString " "
+      . printAstHFun cfg 10 df
+      . showString " "
+      . printAstHFun cfg 01 rf
+      . showString " "
+      . printAst cfg 0 acc0
+      . showString " "
+      . printAst cfg 0 es
+  AstMapAccumLDer k _accShs _bShs _eShs f df rf acc0 es ->
+    showParen (d > 10)
+    $ showString "dmapAccumLDer "
+      . showParen True (shows k)
+      . showString " "
+      . printAstHFun cfg 10 f
+      . showString " "
+      . printAstHFun cfg 10 df
+      . showString " "
+      . printAstHFun cfg 01 rf
+      . showString " "
+      . printAst cfg 0 acc0
+      . showString " "
+      . printAst cfg 0 es
 
 -- Differs from standard only in the space after comma.
 showListWith :: (a -> ShowS) -> [a] -> ShowS
@@ -666,166 +827,6 @@ printHVectorAst cfg l =
       $ showString "fromList "
         . showListWith (printAstDynamic cfg 0) (V.toList l)
 
-printAstHVector :: forall s. AstSpan s
-                => PrintConfig -> Int -> AstHVector s -> ShowS
-printAstHVector cfg d = \case
-  AstMkHVector l ->
-    if loseRoudtrip cfg
-    then printHVectorAst cfg l
-    else showParen (d > 10)
-         $ showString "dmkHVector " . printHVectorAst cfg l
-  AstHApply t ll ->
-    if loseRoudtrip cfg
-    then showParen (d > 9)
-         $ printAstHFunOneUnignore cfg 10 t
-           . showString " "
-           . showListWith (printHVectorAst cfg) ll
-    else showParen (d > 10)
-         $ showString "dHApply "
-           . printAstHFunOneUnignore cfg 10 t
-           . showString " "
-           . showListWith (printHVectorAst cfg) ll
-  AstLetHVectorInHVector vars l v ->
-    if loseRoudtrip cfg
-    then
-      showParen (d > 10)
-      $ showString "let "
-        . showListWith (showString
-                        . printAstDynamicVarName (varRenames cfg)) vars
-        . showString " = "
-        . printAstHVector cfg 0 l
-        . showString " in "
-        . printAstHVector cfg 0 v
-    else
-      showParen (d > 10)
-      $ showString "dletHVectorInHVector "
-        . printAstHVector cfg 11 l
-        . showString " "
-        . (showParen True
-           $ showString "\\"
-             . showListWith (showString
-                             . printAstDynamicVarName (varRenames cfg)) vars
-             . showString " -> "
-             . printAstHVector cfg 0 v)
-  AstLetHFunInHVector var f v ->
-    if loseRoudtrip cfg
-    then
-      showParen (d > 10)
-      $ showString "let "
-        . printAstFunVar cfg var
-        . showString " = "
-        . printAstHFun cfg 0 f
-        . showString " in "
-        . printAstHVector cfg 0 v
-    else
-      showParen (d > 10)
-      $ showString "dletHFunInHVector "
-        . printAstHFun cfg 11 f
-        . showString " "
-        . (showParen True
-           $ showString "\\"
-             . printAstFunVar cfg var
-             . showString " -> "
-             . printAstHVector cfg 0 v)
-        -- TODO: this does not roundtrip yet
-  t@(AstLetInHVector var0 u0 v0) ->
-    if loseRoudtrip cfg
-    then let collect :: AstHVector s -> ([(ShowS, ShowS)], ShowS)
-             collect (AstLetInHVector var u v) =
-               let name = printAstVarFromLet u cfg var
-                   uPP = printAst cfg 0 u
-                   (rest, corePP) = collect v
-               in ((name, uPP) : rest, corePP)
-             collect v = ([], printAstHVector cfg 0 v)
-             (pairs, core) = collect t
-         in showParen (d > 0)
-            $ showString "let "
-              . foldr (.) id (intersperse (showString " ; ")
-                  [name . showString " = " . uPP | (name, uPP) <- pairs])
-              . showString " in "
-              . core
-    else
-      showParen (d > 10)
-      $ showString "rletInHVector "
-        . printAst cfg 11 u0
-        . showString " "
-        . (showParen True
-           $ showString "\\"
-             . printAstVarFromLet u0 cfg var0
-             . showString " -> "
-             . printAstHVector cfg 0 v0)
-  t@(AstLetInHVectorS var0 u0 v0) ->
-    if loseRoudtrip cfg
-    then let collect :: AstHVector s -> ([(ShowS, ShowS)], ShowS)
-             collect (AstLetInHVectorS var u v) =
-               let name = printAstVar cfg var
-                   uPP = printAst cfg 0 u
-                   (rest, corePP) = collect v
-               in ((name, uPP) : rest, corePP)
-             collect v = ([], printAstHVector cfg 0 v)
-             (pairs, core) = collect t
-         in showParen (d > 0)
-            $ showString "let "
-              . foldr (.) id (intersperse (showString " ; ")
-                  [name . showString " = " . uPP | (name, uPP) <- pairs])
-              . showString " in "
-              . core
-    else
-      showParen (d > 10)
-      $ showString "sletInHVector "
-        . printAst cfg 11 u0
-        . showString " "
-        . (showParen True
-           $ showString "\\"
-             . printAstVar cfg var0
-             . showString " -> "
-             . printAstHVector cfg 0 v0)
-  AstShareHVector vars l ->
-    showParen (d > 10)
-    $ showString "dshare "
-      . showListWith (showString
-                      . printAstDynamicVarName (varRenames cfg)) vars
-      . showString " "
-      . printAstHVector cfg 11 l
-  AstBuildHVector1 k (var, v) ->
-    showParen (d > 10)
-    $ showString "dbuild1 "
-      . showParen True (shows k)
-      . showString " "
-      . (showParen True
-         $ showString "\\"
-           . printAstIntVar cfg var
-           . showString " -> "
-           . printAstHVector cfg 0 v)
-  AstMapAccumRDer k _accShs _bShs _eShs f df rf acc0 es ->
-    showParen (d > 10)
-    $ showString "dmapAccumRDer "
-      . showParen True (shows k)
-      . showString " "
-      . printAstHFun cfg 10 f
-      . showString " "
-      . printAstHFun cfg 10 df
-      . showString " "
-      . printAstHFun cfg 01 rf
-      . showString " "
-      . printAstHVector cfg 0 acc0
-      . showString " "
-      . printAstHVector cfg 0 es
-  AstMapAccumLDer k _accShs _bShs _eShs f df rf acc0 es ->
-    showParen (d > 10)
-    $ showString "dmapAccumLDer "
-      . showParen True (shows k)
-      . showString " "
-      . printAstHFun cfg 10 f
-      . showString " "
-      . printAstHFun cfg 10 df
-      . showString " "
-      . printAstHFun cfg 01 rf
-      . showString " "
-      . printAstHVector cfg 0 acc0
-      . showString " "
-      . printAstHVector cfg 0 es
-
 printAstHFun :: PrintConfig -> Int -> AstHFun -> ShowS
 printAstHFun cfg d = \case
   AstLambda (vvars, l) ->
@@ -838,7 +839,7 @@ printAstHFun cfg d = \case
                     (showListWith (showString
                                    . printAstDynamicVarNameCfg cfg)) vvars
                 . showString " -> "
-                . printAstHVector cfg 0 l
+                . printAst cfg 0 l
     else showParen (d > 0)
          $ {- showString "dlambda $ "  -- TODO: enable for full roundtrip
            . -}
@@ -847,7 +848,7 @@ printAstHFun cfg d = \case
                (showListWith (showString
                               . printAstDynamicVarNameCfg cfg)) vvars
            . showString " -> "
-           . printAstHVector cfg 0 l
+           . printAst cfg 0 l
   AstVarHFun _shss _shs var -> printAstFunVar cfg var
 
 printAstHFunOneUnignore :: PrintConfig -> Int -> AstHFun -> ShowS
@@ -860,7 +861,7 @@ printAstHFunOneUnignore cfg d = \case
                (showListWith (showString
                               . printAstDynamicVarNameCfg cfg)) vvars
            . showString " -> "
-           . printAstHVector cfg 0 l
+           . printAst cfg 0 l
     else showParen (d > 0)
          $ {- showString "dlambda $ "  -- TODO: enable for full roundtrip
            . -}
@@ -869,7 +870,7 @@ printAstHFunOneUnignore cfg d = \case
                (showListWith (showString
                               . printAstDynamicVarNameCfg cfg)) vvars
            . showString " -> "
-           . printAstHVector cfg 0 l
+           . printAst cfg 0 l
   AstVarHFun _shss _shs var -> printAstFunVar cfg var
 
 printAstBool :: PrintConfig -> Int -> AstBool -> ShowS
@@ -1009,18 +1010,20 @@ printAstPrettyButNestedS :: AstSpan s
 printAstPrettyButNestedS renames (AstShaped t) =
   printAst (defaulPrintConfig2 True False renames) 0 t ""
 
-printAstHVectorSimple :: AstSpan s => IntMap String -> AstHVector s -> String
+printAstHVectorSimple :: AstSpan s => IntMap String -> AstTensor s TKUntyped
+                      -> String
 printAstHVectorSimple renames t =
-  printAstHVector (defaulPrintConfig False renames) 0 t ""
+  printAst (defaulPrintConfig False renames) 0 t ""
 
-printAstHVectorPretty :: AstSpan s => IntMap String -> AstHVector s -> String
+printAstHVectorPretty :: AstSpan s => IntMap String -> AstTensor s TKUntyped
+                      -> String
 printAstHVectorPretty renames t =
-  printAstHVector (defaulPrintConfig True renames) 0 t ""
+  printAst (defaulPrintConfig True renames) 0 t ""
 
 printAstHVectorPrettyButNested
-  :: AstSpan s => IntMap String -> AstHVector s -> String
+  :: AstSpan s => IntMap String -> AstTensor s TKUntyped -> String
 printAstHVectorPrettyButNested renames t =
-  printAstHVector (defaulPrintConfig2 True False renames) 0 t ""
+  printAst (defaulPrintConfig2 True False renames) 0 t ""
 
 printArtifactSimple
   :: IntMap String
