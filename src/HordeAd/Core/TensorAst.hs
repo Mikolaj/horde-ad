@@ -338,8 +338,8 @@ astLetHVectorInFun a f =
     astLetHVectorIn vars a (f asts)
 
 astLetHFunInFun
-  :: (GoodScalar r, KnownNat n)
-  => AstHFun -> (AstHFun -> AstTensor s (TKR r n))
+  :: (GoodScalar r, KnownNat n, TensorKind y)
+  => AstHFun y -> (AstHFun y -> AstTensor s (TKR r n))
   -> AstTensor s (TKR r n)
 {-# INLINE astLetHFunInFun #-}
 astLetHFunInFun a f =
@@ -477,8 +477,8 @@ astLetHVectorInFunS a f =
     astLetHVectorInS vars a (f asts)
 
 astLetHFunInFunS
-  :: (GoodScalar r, KnownShS sh)
-  => AstHFun -> (AstHFun -> AstTensor s (TKS r sh))
+  :: (GoodScalar r, KnownShS sh, TensorKind y)
+  => AstHFun y -> (AstHFun y -> AstTensor s (TKS r sh))
   -> AstTensor s (TKS r sh)
 {-# INLINE astLetHFunInFunS #-}
 astLetHFunInFunS a f =
@@ -549,9 +549,10 @@ instance TermValue (HVectorPseudoTensor (AstRanked FullSpan) r y) where
 instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   dshape = shapeAstHVector
   dmkHVector = AstMkHVector
-  dlambda shss f = AstLambda
-                   $ fun1LToAst shss $ \ !vvars !ll -> (vvars, unHFun f ll)
-  dHApply = astHApply
+  dlambda @y shss f =
+    AstLambda $ fun1LToAst shss $ \ !vvars !ll ->
+                  (vvars, unRankedY (stensorKind @y) $ unHFun f ll)
+  dHApply @y f l = rankedY (stensorKind @y) $ astHApply f l
   dunHVector (AstMkHVector l) = l
   dunHVector hVectorOf =
     let f :: Int -> DynamicTensor VoidTensor -> AstDynamic s
@@ -614,26 +615,26 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
         -- a faster implementation would be via AstHApply, but this tests
         -- a slightly different code path, so let's keep it
   drevDt :: VoidHVector
-         -> HFun
-         -> AstHFun
+         -> HFun TKUntyped
+         -> AstHFun TKUntyped
   drevDt shs f =
     -- This computes the (AST of) derivative of f once and interprets it again
     -- for each new tensor of arguments, which is better than computing it anew.
     let g :: HVector (AstRanked FullSpan)
-          -> HVectorPseudoTensor (AstRanked FullSpan) r y
-        g !hv = HVectorPseudoTensor $ unHFun f [hv]
+          -> HVectorPseudoTensor (AstRanked FullSpan) Float '()
+        g !hv = unHFun f [hv]
         (AstArtifact varsDt vars gradient _primal, _delta) =
           revProduceArtifact True g emptyEnv shs
      in AstLambda ([varsDt, vars], simplifyInlineHVector $ unAstRawWrap gradient)
   dfwd :: VoidHVector
-       -> HFun
-       -> AstHFun
+       -> HFun TKUntyped
+       -> AstHFun TKUntyped
   dfwd shs f =
     -- This computes the (AST of) derivative of f once and interprets it again
     -- for each new tensor of arguments, which is better than computing it anew.
     let g :: HVector (AstRanked FullSpan)
-          -> HVectorPseudoTensor (AstRanked FullSpan) r y
-        g !hv = HVectorPseudoTensor $ unHFun f [hv]
+          -> HVectorPseudoTensor (AstRanked FullSpan) Float '()
+        g !hv = unHFun f [hv]
         (AstArtifact varsDt vars derivative _primal, _delta) =
           fwdProduceArtifact g emptyEnv shs
      in AstLambda ( [varsDt, vars]
@@ -644,9 +645,9 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     -> VoidHVector
     -> VoidHVector
     -> VoidHVector
-    -> AstHFun
-    -> AstHFun
-    -> AstHFun
+    -> AstHFun TKUntyped
+    -> AstHFun TKUntyped
+    -> AstHFun TKUntyped
     -> AstTensor s TKUntyped
     -> AstTensor s TKUntyped
     -> AstTensor s TKUntyped
@@ -657,9 +658,9 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     -> VoidHVector
     -> VoidHVector
     -> VoidHVector
-    -> AstHFun
-    -> AstHFun
-    -> AstHFun
+    -> AstHFun TKUntyped
+    -> AstHFun TKUntyped
+    -> AstHFun TKUntyped
     -> AstTensor s TKUntyped
     -> AstTensor s TKUntyped
     -> AstTensor s TKUntyped
@@ -675,7 +676,8 @@ astLetHVectorInHVectorFun a f =
     astLetHVectorInHVector vars a (f asts)
 
 astLetHFunInHVectorFun
-  :: AstHFun -> (AstHFun -> AstTensor s TKUntyped)
+  :: TensorKind y
+  => AstHFun y -> (AstHFun y -> AstTensor s TKUntyped)
   -> AstTensor s TKUntyped
 {-# INLINE astLetHFunInHVectorFun #-}
 astLetHFunInHVectorFun a f =
@@ -1047,8 +1049,8 @@ astLetHVectorInFunRawS a f =
     AstLetHVectorInS vars a (f asts)
 
 astLetHFunInFunRaw
-  :: (GoodScalar r, KnownNat n)
-  => AstHFun -> (AstHFun -> AstTensor s (TKR r n))
+  :: (GoodScalar r, KnownNat n, TensorKind y)
+  => AstHFun y -> (AstHFun y -> AstTensor s (TKR r n))
   -> AstTensor s (TKR r n)
 astLetHFunInFunRaw a f =
   let shss = domainShapesAstHFun a
@@ -1056,8 +1058,8 @@ astLetHFunInFunRaw a f =
   in fun1HToAst shss shs $ \ !var !ast -> AstLetHFunIn var a (f ast)
 
 astLetHFunInFunRawS
-  :: (GoodScalar r, KnownShS sh)
-  => AstHFun -> (AstHFun -> AstTensor s (TKS r sh))
+  :: (GoodScalar r, KnownShS sh, TensorKind y)
+  => AstHFun y -> (AstHFun y -> AstTensor s (TKS r sh))
   -> AstTensor s (TKS r sh)
 astLetHFunInFunRawS a f =
   let shss = domainShapesAstHFun a
@@ -1073,7 +1075,8 @@ astLetHVectorInHVectorFunRaw a f =
     AstLetHVectorInHVector vars a (f asts)
 
 astLetHFunInHVectorFunRaw
-  :: AstHFun -> (AstHFun -> AstTensor s TKUntyped)
+  :: TensorKind y
+  => AstHFun y -> (AstHFun y -> AstTensor s TKUntyped)
   -> AstTensor s TKUntyped
 astLetHFunInHVectorFunRaw a f =
   let shss = domainShapesAstHFun a
@@ -1154,9 +1157,12 @@ instance AstSpan s => ShapedTensor (AstRawS s) where
 instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
   dshape = shapeAstHVector . unAstRawWrap
   dmkHVector = AstRawWrap . AstMkHVector . unRawHVector
-  dlambda shss f = AstLambda
-                   $ fun1LToAst shss $ \ !vvars !ll -> (vvars, unHFun f ll)
-  dHApply t ll = AstRawWrap $ AstHApply t (map unRawHVector ll)
+  dlambda @y shss f =
+    AstLambda $ fun1LToAst shss $ \ !vvars !ll ->
+                  (vvars, unRankedY (stensorKind @y) $ unHFun f ll)
+  dHApply @y t ll =
+    let app = AstHApply t (map unRawHVector ll)
+    in rawY (stensorKind @y) app
   dunHVector (AstRawWrap (AstMkHVector l)) = rawHVector l
   dunHVector (AstRawWrap hVectorOf) =
     let f :: Int -> DynamicTensor VoidTensor -> AstDynamic s
@@ -1367,8 +1373,9 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
   dmkHVector =
     AstNoVectorizeWrap . dmkHVector . unNoVectorizeHVector
   dlambda = dlambda @(AstRanked s)
-  dHApply t ll =
-    AstNoVectorizeWrap $ dHApply t (map unNoVectorizeHVector ll)
+  dHApply @y t ll =
+    let app = dHApply t (map unNoVectorizeHVector ll)
+    in noVectorizeY (stensorKind @y) $ unRankedY (stensorKind @y) app
   dunHVector =
     noVectorizeHVector . dunHVector . unAstNoVectorizeWrap
   dletHVectorInHVector a f =
@@ -1580,10 +1587,12 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
   dshape = shapeAstHVector . unAstNoSimplifyWrap
   dmkHVector =
     AstNoSimplifyWrap . AstMkHVector . unNoSimplifyHVector
-  dlambda shss f = AstLambda
-                   $ fun1LToAst shss $ \ !vvars !ll -> (vvars, unHFun f ll)
-  dHApply t ll =
-    AstNoSimplifyWrap $ AstHApply t (map unNoSimplifyHVector ll)
+  dlambda @y shss f =
+    AstLambda $ fun1LToAst shss $ \ !vvars !ll ->
+                  (vvars, unRankedY (stensorKind @y) $ unHFun f ll)
+  dHApply @y t ll =
+    let app = AstHApply t (map unNoSimplifyHVector ll)
+    in noSimplifyY (stensorKind @y) app
   dunHVector (AstNoSimplifyWrap (AstMkHVector l)) = noSimplifyHVector l
   dunHVector (AstNoSimplifyWrap hVectorOf) =
     let f :: Int -> DynamicTensor VoidTensor -> AstDynamic s

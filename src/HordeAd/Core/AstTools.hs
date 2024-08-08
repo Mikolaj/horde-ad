@@ -153,7 +153,7 @@ shapeAstFull t = case t of
   AstMkHVector v ->
     FTKUntyped
     $ V.map (voidFromDynamicF (shapeToList . shapeAst . unAstRanked)) v
-  AstHApply v _ll -> FTKUntyped $ shapeAstHFun v
+  AstHApply v _ll -> shapeAstHFun v
   AstLetHVectorInHVector _ _ v -> shapeAstFull v
   AstLetHFunInHVector _ _ v -> shapeAstFull v
   AstLetInHVector _ _ v -> shapeAstFull v
@@ -187,13 +187,12 @@ shapeAstHVector :: AstTensor s TKUntyped -> VoidHVector
 shapeAstHVector t = case shapeAstFull t of
   FTKUntyped shs2 -> shs2
 
-shapeAstHFun :: AstHFun -> VoidHVector
+shapeAstHFun :: TensorKind y => AstHFun y -> TensorKindFull y
 shapeAstHFun = \case
-  AstLambda ~(_vvars, l) -> case shapeAstFull l of
-    FTKUntyped shs -> shs
+  AstLambda ~(_vvars, l) -> shapeAstFull l
   AstVarHFun _shss shs _var -> shs
 
-domainShapesAstHFun :: AstHFun -> [VoidHVector]
+domainShapesAstHFun :: AstHFun y -> [VoidHVector]
 domainShapesAstHFun = \case
   AstLambda ~(vvars, _l) -> map voidFromVars vvars
   AstVarHFun shss _shs _var -> shss
@@ -310,7 +309,7 @@ varInAstDynamic var = \case
   DynamicRankedDummy{} -> False
   DynamicShapedDummy{} -> False
 
-varInAstHFun :: AstVarId -> AstHFun -> Bool
+varInAstHFun :: AstVarId -> AstHFun y -> Bool
 varInAstHFun var = \case
   AstLambda{} -> False  -- we take advantage of the term being closed
   AstVarHFun _shss _shs var2 -> fromEnum var == fromEnum var2

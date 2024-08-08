@@ -413,7 +413,7 @@ inlineAstDynamic memo = \case
   u@DynamicShapedDummy{} -> (memo, u)
 
 inlineAstHFun
-  :: AstMemo -> AstHFun -> (AstMemo, AstHFun)
+  :: AstMemo -> AstHFun y -> (AstMemo, AstHFun y)
 inlineAstHFun memo v0 = case v0 of
   Ast.AstLambda ~(vvars, l) ->
     -- No other free variables in l, so no outside lets can reach there,
@@ -721,7 +721,7 @@ shareAstDynamic memo = \case
   u@DynamicShapedDummy{} -> (memo, u)
 
 shareAstHFun
-  :: ShareMemo -> AstHFun -> (ShareMemo, AstHFun)
+  :: ShareMemo -> AstHFun y -> (ShareMemo, AstHFun y)
 shareAstHFun memo v0 = case v0 of
   Ast.AstLambda{} ->
     -- No other free variables in l, so no outside lets can reach there,

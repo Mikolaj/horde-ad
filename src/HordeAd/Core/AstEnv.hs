@@ -50,11 +50,11 @@ type AstEnv ranked = DEnumMap (AstVarName FullSpan) (AstEnvElem ranked)
 type role AstEnvElem nominal nominal
 data AstEnvElem (ranked :: RankedTensorType) (y :: TensorKindType) where
   AstEnvElemTuple :: InterpretationTarget ranked y -> AstEnvElem ranked y
-  AstEnvElemHFun :: HFunOf ranked -> AstEnvElem ranked (TKR Float 0)
-    -- the (TKR Float 0) is a lie
+  AstEnvElemHFun :: HFunOf ranked y -> AstEnvElem ranked y
+    -- the "y" is a lie; it should be "foo -> y"
 
 deriving instance ( Show (InterpretationTarget ranked y)
-                  , Show (HFunOf ranked) )
+                  , Show (HFunOf ranked y) )
                   => Show (AstEnvElem ranked y)
 
 emptyEnv :: AstEnv ranked
@@ -79,12 +79,12 @@ extendEnvHVector :: forall ranked. ADReady ranked
 extendEnvHVector vars !pars !env = assert (length vars == V.length pars) $
   foldr extendEnvD env $ zip vars (V.toList pars)
 
-extendEnvHFun :: AstVarId -> HFunOf ranked -> AstEnv ranked
+extendEnvHFun :: forall ranked y. TensorKind y
+              => Proxy y -> AstVarId -> HFunOf ranked y -> AstEnv ranked
               -> AstEnv ranked
-extendEnvHFun !varId !t !env =
-  let var2 :: AstVarName FullSpan (TKR Float 0)
+extendEnvHFun _ !varId !t !env =
+  let var2 :: AstVarName FullSpan y
       var2 = mkAstVarName varId
-        -- to uphold the lie about (TKR Float 0)
   in DMap.insertWithKey (\_ _ _ -> error
                                    $ "extendEnvHFun: duplicate " ++ show varId)
                         var2 (AstEnvElemHFun t) env
@@ -229,17 +229,16 @@ interpretLambdaIndexToIndexS f !env (!vars, !asts) =
   \ix -> f (extendEnvVarsS vars ix env) <$> asts
 
 interpretLambdaHsH
-  :: (forall ranked. ADReady ranked
-      => AstEnv ranked -> AstTensor s TKUntyped
-      -> HVectorPseudoTensor ranked Float '())
+  :: (forall ranked z. ADReady ranked
+      => AstEnv ranked -> AstTensor s z
+      -> InterpretationTarget ranked z)
   -> ( [[AstDynamicVarName]]
-     , AstTensor s TKUntyped )
-  -> HFun
+     , AstTensor s y )
+  -> HFun y
 {-# INLINE interpretLambdaHsH #-}
 interpretLambdaHsH interpret ~(vvars, ast) =
   HFun $ \ws ->
-    unHVectorPseudoTensor
-    $ interpret (foldr (uncurry extendEnvHVector) emptyEnv $ zip vvars ws) ast
+    interpret (foldr (uncurry extendEnvHVector) emptyEnv $ zip vvars ws) ast
 
 
 -- * Interpretation of arithmetic, boolean and relation operations

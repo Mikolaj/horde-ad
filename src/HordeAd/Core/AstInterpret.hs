@@ -568,10 +568,10 @@ interpretAst !env = \case
                                   , shapeVoidHVector (dshape lt) )) $
                  extendEnvHVector vars lw env
     in rletHVectorIn lt (\lw -> interpretAst (env2 lw) v)
-  AstLetHFunIn var f v ->
+  AstLetHFunIn @_ @_ @z var f v ->
     let g = interpretAstHFun env f
-        env2 h = extendEnvHFun var h env
-    in rletHFunIn g (\h -> interpretAst (env2 h) v)
+        env2 h = extendEnvHFun (Proxy @z) var h env
+    in rletHFunIn @_ @_ @_ @z g (\h -> interpretAst (env2 h) v)
   AstRFromS v -> rfromS $ interpretAst env v
 
   AstLetS @_ @_ @y2 var u v -> case stensorKind @y2 of
@@ -809,10 +809,10 @@ interpretAst !env = \case
                                   , shapeVoidHVector (dshape lt) )) $
                   extendEnvHVector vars lw env
     in sletHVectorIn lt (\lw -> interpretAst (env2 lw) v)
-  AstLetHFunInS var f v ->
+  AstLetHFunInS @_ @_ @z var f v ->
     let g = interpretAstHFun env f
-        env2 h = extendEnvHFun var h env
-    in sletHFunIn g (\h -> interpretAst (env2 h) v)
+        env2 h = extendEnvHFun (Proxy @z) var h env
+    in sletHFunIn @_ @_ @_ @z g (\h -> interpretAst (env2 h) v)
   AstSFromR v -> sfromR $ interpretAst env v
 
   AstMkHVector l -> HVectorPseudoTensor
@@ -826,8 +826,7 @@ interpretAst !env = \case
           -- as above so that the mixture becomes compatible; if the spans
           -- agreed, the AstHApply would likely be simplified before
           -- getting interpreted
-    in HVectorPseudoTensor
-       $ dHApply t2 ll2
+    in dHApply t2 ll2
   AstLetHVectorInHVector vars l v ->
     let lt = unHVectorPseudoTensor $ interpretAst env l
         env2 lw = assert (voidHVectorMatches (voidFromVars vars) lw
@@ -838,11 +837,12 @@ interpretAst !env = \case
                   extendEnvHVector vars lw env
     in HVectorPseudoTensor
        $ dletHVectorInHVector lt (\lw -> unHVectorPseudoTensor $ interpretAst (env2 lw) v)
-  AstLetHFunInHVector var f v ->
+  AstLetHFunInHVector @z var f v ->
     let g = interpretAstHFun env f
-        env2 h = extendEnvHFun var h env
+        env2 h = extendEnvHFun (Proxy @z) var h env
     in HVectorPseudoTensor
-       $ dletHFunInHVector g (\h -> unHVectorPseudoTensor $ interpretAst (env2 h) v)
+       $ dletHFunInHVector @_ @_ @z
+           g (\h -> unHVectorPseudoTensor $ interpretAst (env2 h) v)
   AstLetInHVector var u v ->
     -- We assume there are no nested lets with the same variable.
     let t = interpretAstRuntimeSpecialized env u
@@ -890,17 +890,19 @@ interpretAstDynamic !env = \case
   DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
 
 interpretAstHFun
-  :: forall ranked. HVectorTensor ranked (ShapedOf ranked)
-  => AstEnv ranked -> AstHFun -> HFunOf ranked
+  :: forall ranked y. TensorKind y
+  => HVectorTensor ranked (ShapedOf ranked)
+  => AstEnv ranked -> AstHFun y -> HFunOf ranked y
 interpretAstHFun !env = \case
   AstLambda ~(vvars, l) ->
     dlambda @ranked (map voidFromVars vvars)
     $ interpretLambdaHsH interpretAst (vvars, l)
       -- interpretation in empty environment; makes sense here, because
       -- there are no free variables outside of those listed
-  AstVarHFun _shss _shs varId -> case DMap.lookup (mkAstVarName @_ @(TKR Float 0) varId) env of
-    Just (AstEnvElemHFun f) -> f
-    _ -> error $ "interpretAstHFun: unknown variable " ++ show varId
+  AstVarHFun _shss _shs varId ->
+    case DMap.lookup (mkAstVarName @_ @y varId) env of
+      Just (AstEnvElemHFun f) -> f
+      _ -> error $ "interpretAstHFun: unknown variable " ++ show varId
 
 interpretAstBool :: ADReady ranked
                  => AstEnv ranked -> AstBool -> BoolOf ranked

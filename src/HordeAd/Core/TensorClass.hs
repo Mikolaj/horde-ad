@@ -310,9 +310,9 @@ class ( Num (IntOf ranked), IntegralF (IntOf ranked), CRanked ranked Num
                 => HVectorOf ranked
                 -> (HVector ranked -> ranked r n)
                 -> ranked r n
-  rletHFunIn :: (KnownNat n, GoodScalar r)
-             => HFunOf ranked
-             -> (HFunOf ranked -> ranked r n)
+  rletHFunIn :: (KnownNat n, GoodScalar r, TensorKind y)
+             => HFunOf ranked y
+             -> (HFunOf ranked y -> ranked r n)
              -> ranked r n
   rfromS :: (GoodScalar r, KnownShS sh)
          => ShapedOf ranked r sh -> ranked r (X.Rank sh)
@@ -694,9 +694,9 @@ class ( Num (IntOf shaped), IntegralF (IntOf shaped), CShaped shaped Num
                 => HVectorOf (RankedOf shaped)
                 -> (HVector (RankedOf shaped) -> shaped r sh)
                 -> shaped r sh
-  sletHFunIn :: (KnownShS sh, GoodScalar r)
-             => HFunOf (RankedOf shaped)
-             -> (HFunOf (RankedOf shaped) -> shaped r sh)
+  sletHFunIn :: (KnownShS sh, GoodScalar r, TensorKind y)
+             => HFunOf (RankedOf shaped) y
+             -> (HFunOf (RankedOf shaped) y -> shaped r sh)
              -> shaped r sh
   sfromR :: (GoodScalar r, KnownShS sh, KnownNat (X.Rank sh))
          => RankedOf shaped r (X.Rank sh) -> shaped r sh
@@ -737,8 +737,11 @@ class HVectorTensor (ranked :: RankedTensorType)
                     | ranked -> shaped, shaped -> ranked where
   dshape :: HVectorOf ranked -> VoidHVector
   dmkHVector :: HVector ranked -> HVectorOf ranked
-  dlambda :: [VoidHVector] -> HFun -> HFunOf ranked
-  dHApply :: HFunOf ranked -> [HVector ranked] -> HVectorOf ranked
+  dlambda :: TensorKind y
+          => [VoidHVector] -> HFun y -> HFunOf ranked y
+  dHApply :: TensorKind y
+          => HFunOf ranked y -> [HVector ranked]
+          -> InterpretationTarget ranked y
   dunHVector :: HVectorOf ranked -> HVector ranked
     -- ^ Warning: this operation easily breaks sharing.
   dletHVectorInHVector
@@ -757,8 +760,9 @@ class HVectorTensor (ranked :: RankedTensorType)
   -- > let f = ...; df = dfwd f; rf = drev f
   -- > in ... (dmapAccumRDer f df rf ...) ... (dmapAccumRDer f df rf ...)
   dletHFunInHVector
-    :: HFunOf ranked
-    -> (HFunOf ranked -> HVectorOf ranked)
+    :: TensorKind y
+    => HFunOf ranked y
+    -> (HFunOf ranked y -> HVectorOf ranked)
     -> HVectorOf ranked
   rletInHVector :: (GoodScalar r, KnownNat n)
                 => ranked r n
@@ -815,8 +819,9 @@ class HVectorTensor (ranked :: RankedTensorType)
     let g :: forall f. ADReady f => [HVector f] -> HVectorOf f
         g [!x] = dmkHVector $ V.singleton $ DynamicRanked $ f x
         g _ = error "g: wrong number of arguments"
-        h = drevDt @ranked shs (HFun g)
-    in \es dt -> dHApply h [V.singleton $ DynamicRanked dt, es]
+        h = drevDt @ranked shs (HFun $ HVectorPseudoTensor . g)
+    in \es dt -> unHVectorPseudoTensor
+                 $ dHApply @_ @_ @TKUntyped h [V.singleton $ DynamicRanked dt, es]
   rfwd :: (GoodScalar r, KnownNat n, RankedTensor ranked)
        => (forall f. ADReady f => HVector f -> f r n)
        -> VoidHVector
@@ -827,8 +832,9 @@ class HVectorTensor (ranked :: RankedTensorType)
     let g :: forall f. ADReady f => [HVector f] -> HVectorOf f
         g [!x] = dmkHVector $ V.singleton $ DynamicRanked $ f x
         g _ = error "g: wrong number of arguments"
-        h = dfwd @ranked shs (HFun g)
-    in \es ds -> let hv = dHApply h [ds, es]
+        h = dfwd @ranked shs (HFun $ HVectorPseudoTensor . g)
+    in \es ds -> let hv = unHVectorPseudoTensor
+                          $ dHApply @_ @_ @TKUntyped h [ds, es]
                  in rfromD $ dunHVector hv V.! 0
   srev :: ( GoodScalar r, KnownShS sh, shaped ~ ShapedOf ranked
           , ShapedTensor shaped )
@@ -847,8 +853,9 @@ class HVectorTensor (ranked :: RankedTensorType)
     let g :: forall f. ADReady f => [HVector f] -> HVectorOf f
         g [!x] = dmkHVector $ V.singleton $ DynamicShaped $ f x
         g _ = error "g: wrong number of arguments"
-        h = drevDt @ranked shs (HFun g)
-    in \es dt -> dHApply h [V.singleton $ DynamicShaped dt, es]
+        h = drevDt @ranked shs (HFun $ HVectorPseudoTensor . g)
+    in \es dt -> unHVectorPseudoTensor
+                 $ dHApply @_ @_ @TKUntyped h [V.singleton $ DynamicShaped dt, es]
   sfwd :: ( GoodScalar r, KnownShS sh, RankedTensor ranked, ShapedTensor shaped
           , shaped ~ ShapedOf ranked, ranked ~ RankedOf shaped )
        => (forall f. ADReadyS f => HVector (RankedOf f) -> f r sh)
@@ -860,24 +867,25 @@ class HVectorTensor (ranked :: RankedTensorType)
     let g :: forall f. ADReady f => [HVector f] -> HVectorOf f
         g [!x] = dmkHVector $ V.singleton $ DynamicShaped $ f x
         g _ = error "g: wrong number of arguments"
-        h = dfwd @ranked shs (HFun g)
-    in \es ds -> let hv = dHApply h [ds, es]
+        h = dfwd @ranked shs (HFun $ HVectorPseudoTensor . g)
+    in \es ds -> let hv = unHVectorPseudoTensor
+                          $ dHApply @_ @_ @TKUntyped h [ds, es]
                  in sfromD $ dunHVector hv V.! 0
   -- These methods (and dlambda) producing HFunOf is analogous to dmkHVector
   -- producing HVectorOf and it's exactly what is needed as arguments
   -- of dmapAccumRDer
   drevDt
     :: VoidHVector  -- shapes of a and da
-    -> HFun  -- [HVector f] -> HVectorOf f
-             -- a |-> b
-    -> HFunOf ranked  -- [HVector f, HVector f] -> HVectorOf f
-                      -- [db, a] |-> da
+    -> HFun TKUntyped  -- [HVector f] -> HVectorOf f
+               -- a |-> b
+    -> HFunOf ranked TKUntyped  -- [HVector f, HVector f] -> HVectorOf f
+                        -- [db, a] |-> da
   dfwd
     :: VoidHVector  -- shapes of a and da
-    -> HFun  -- [HVector f] -> HVectorOf f
-             -- a |-> b
-    -> HFunOf ranked  -- [HVector f, HVector f] -> HVectorOf f
-                      -- [da, a] |-> db
+    -> HFun TKUntyped  -- [HVector f] -> HVectorOf f
+               -- a |-> b
+    -> HFunOf ranked TKUntyped  -- [HVector f, HVector f] -> HVectorOf f
+                        -- [da, a] |-> db
   -- | A strict left fold.
   rfold
     :: forall rn rm n m.
@@ -1027,9 +1035,10 @@ class HVectorTensor (ranked :: RankedTensorType)
         fs [!acc_e] = uncurry f (V.splitAt accLen acc_e)
         fs _ = error "fs: wrong number of arguments"
     in dmapAccumRDer proxy k accShs bShs eShs
-                     (dlambda @ranked [accShs, eShs] $ HFun fl)
-                     (dfwd @ranked shs $ HFun fs)
-                     (drevDt @ranked shs $ HFun fs)
+                     (dlambda @ranked [accShs, eShs]
+                      $ HFun @TKUntyped $ HVectorPseudoTensor . fl)
+                     (dfwd @ranked shs $ HFun $ HVectorPseudoTensor . fs)
+                     (drevDt @ranked shs $ HFun $ HVectorPseudoTensor . fs)
                      acc0 es
   dmapAccumRDer
     :: Proxy ranked
@@ -1037,19 +1046,19 @@ class HVectorTensor (ranked :: RankedTensorType)
     -> VoidHVector  -- ^ accShs, shapes of acc
     -> VoidHVector  -- ^ bShs, shapes of b
     -> VoidHVector  -- ^ eShs, shapes of e
-    -> HFunOf ranked
+    -> HFunOf ranked TKUntyped
     -- (forall f. ADReady f =>
     --  [ HVector f      -- ^ acc, accumulator :: accShs
     --  , HVector f ]    -- ^ e, element of es :: eShs
     --  -> HVectorOf f)  -- ^ (x, b) :: (accShs, bShs)
-    -> HFunOf ranked
+    -> HFunOf ranked TKUntyped
     -- (forall f. ADReady f =>
     --  [ HVector f      -- ^ dacc :: accShs
     --    ++ HVector f   -- ^ de :: eShs
     --  , HVector f      -- ^ acc :: accShs
     --    ++ HVector f ] -- ^ e :: eShs
     --  -> HVectorOf f)  -- ^ (dx, db) :: (accShs, bShs)
-    -> HFunOf ranked
+    -> HFunOf ranked TKUntyped
     -- (forall f. ADReady f =>
     --  [ HVector f      -- ^ dx :: accShs
     --    ++ HVector f   -- ^ db :: bShs
@@ -1081,9 +1090,10 @@ class HVectorTensor (ranked :: RankedTensorType)
         fs [!acc_e] = uncurry f (V.splitAt accLen acc_e)
         fs _ = error "fs: wrong number of arguments"
     in dmapAccumLDer proxy k accShs bShs eShs
-                     (dlambda @ranked [accShs, eShs] $ HFun fl)
-                     (dfwd @ranked shs $ HFun fs)
-                     (drevDt @ranked shs $ HFun fs)
+                     (dlambda @ranked [accShs, eShs]
+                      $ HFun @TKUntyped $ HVectorPseudoTensor . fl)
+                     (dfwd @ranked shs $ HFun $ HVectorPseudoTensor . fs)
+                     (drevDt @ranked shs $ HFun $ HVectorPseudoTensor . fs)
                      acc0 es
   dmapAccumLDer
     :: Proxy ranked
@@ -1091,9 +1101,9 @@ class HVectorTensor (ranked :: RankedTensorType)
     -> VoidHVector
     -> VoidHVector
     -> VoidHVector
-    -> HFunOf ranked
-    -> HFunOf ranked
-    -> HFunOf ranked
+    -> HFunOf ranked TKUntyped
+    -> HFunOf ranked TKUntyped
+    -> HFunOf ranked TKUntyped
     -> HVectorOf ranked
     -> HVectorOf ranked
     -> HVectorOf ranked
@@ -1236,10 +1246,12 @@ mapInterpretationTarget2 fr fs stk b1 b2 = case stk of
     in ttuple t1 t2
   STKUntyped -> error "TODO"
 
-newtype HFun =
-  HFun {unHFun :: forall f. ADReady f => [HVector f] -> HVectorOf f}
+type role HFun nominal
+newtype HFun (y :: TensorKindType) =
+  HFun {unHFun :: forall f. ADReady f
+               => [HVector f] -> InterpretationTarget f y}
 
-instance Show HFun where
+instance Show (HFun y) where
   show _ = "<lambda>"
 
 
@@ -1281,5 +1293,5 @@ type ADReadyBoth ranked shaped =
   , ProductTensor (PrimalOf ranked), ProductTensor (DualOf ranked)
   , CRanked ranked Show, CRanked (PrimalOf ranked) Show
   , CShaped shaped Show, CShaped (PrimalOf shaped) Show
-  , Show (HFunOf ranked)
+--   , Show (HFunOf ranked y)
   )

@@ -66,8 +66,8 @@ type instance ShapedOf ORArray = OSArray
 
 type instance HVectorOf ORArray = HVector ORArray
 
-type instance HFunOf ORArray =
-  [HVector ORArray] -> HVectorOf ORArray
+type instance HFunOf ORArray y =
+  [HVector ORArray] -> InterpretationTarget ORArray y
 
 type instance PrimalOf ORArray = ORArray
 
@@ -257,34 +257,36 @@ instance HVectorTensor ORArray OSArray where
   -- The code for drevDt and dfwd in this instance is the same as for the
   -- ADVal ranked instance, because the type family instance is the same.
   drevDt :: VoidHVector
-         -> HFun
-         -> HFunOf ORArray
+         -> HFun TKUntyped
+         -> HFunOf ORArray TKUntyped
   drevDt _shs h =
     let g :: ADReady f
           => HVector (ADVal f)
           -> ADVal (HVectorPseudoTensor f) r y
-        g !hv = let (as, as') = unADValHVector $ unHFun h [hv]
+        g !hv = let (as, as') = unADValHVector $ unHVectorPseudoTensor
+                                $ unHFun h [hv]
                 in dDnotShared (HVectorPseudoTensor $ dmkHVector as)
                                (HVectorPseudoTensor $ HToH as')
         rf :: [HVector ORArray] -> HVectorOf ORArray
         rf [!db, !a] =
           fst $ crevOnHVector (Just db) g a
         rf _ = error "rf: wrong number of arguments"
-    in rf
+    in HVectorPseudoTensor . rf
   dfwd :: VoidHVector
-       -> HFun
-       -> HFunOf ORArray
+       -> HFun TKUntyped
+       -> HFunOf ORArray TKUntyped
   dfwd _shs h =
     let g :: ADReady f
           => HVector (ADVal f)
           -> ADVal (HVectorPseudoTensor f) r y
-        g !hv = let (as, as') = unADValHVector $ unHFun h [hv]
+        g !hv = let (as, as') = unADValHVector $ unHVectorPseudoTensor
+                                $ unHFun h [hv]
                 in dDnotShared (HVectorPseudoTensor $ dmkHVector as)
                                (HVectorPseudoTensor $ HToH as')
         df :: [HVector ORArray] -> HVectorOf ORArray
         df [!da, !a] = fst $ cfwdOnHVector a g da
         df _ = error "df: wrong number of arguments"
-    in df
+    in HVectorPseudoTensor . df
   rfold f x0 as = foldl' f x0 (runravelToList as)
   rscan f x0 as =
     rfromList $ NonEmpty.fromList $ scanl' f x0 (runravelToList as)
@@ -295,11 +297,13 @@ instance HVectorTensor ORArray OSArray where
   dmapAccumR _ k accShs bShs _eShs f acc0 es =
     oRdmapAccumR k accShs bShs _eShs f acc0 es
   dmapAccumRDer _ k accShs bShs eShs f _df _rf acc0 es =
-    oRdmapAccumR k accShs bShs eShs (\ !a !b -> f [a, b]) acc0 es
+    oRdmapAccumR k accShs bShs eShs (\ !a !b ->
+      unHVectorPseudoTensor $ f [a, b]) acc0 es
   dmapAccumL _ k accShs bShs _eShs f acc0 es =
     oRdmapAccumL k accShs bShs _eShs f acc0 es
   dmapAccumLDer _ k accShs bShs eShs f _df _rf acc0 es =
-    oRdmapAccumL k accShs bShs eShs (\ !a !b -> f [a, b]) acc0 es
+    oRdmapAccumL k accShs bShs eShs (\ !a !b ->
+      unHVectorPseudoTensor $ f [a, b]) acc0 es
 
 type instance ProductOf ORArray = Tuple2
 

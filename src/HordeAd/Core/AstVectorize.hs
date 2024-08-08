@@ -353,12 +353,13 @@ build1V snat@SNat (var, v00) =
       in astLetHVectorIn
            varsOut (build1VOccurenceUnknown snat (var, l))
                    (build1VOccurenceUnknownRefresh snat (var, vOut))
-    Ast.AstLetHFunIn var1 f v ->
-      -- We take advantage of the fact that f contains no free index
-      -- variables (it may contain function variables, though).
-      -- If it could contain index variables, e.g., in a conditional
-      -- expression, we might need to add projections as above.
-      astLetHFunIn var1 (build1VHFun snat (var, f)) (build1V snat (var, v))
+    Ast.AstLetHFunIn @_ @_ @z var1 f v
+      | Dict <- lemTensorKindOfBuild snat (stensorKind @z) -> traceRule $
+        -- We take advantage of the fact that f contains no free index
+        -- variables (it may contain function variables, though).
+        -- If it could contain index variables, e.g., in a conditional
+        -- expression, we might need to add projections as above.
+        astLetHFunIn var1 (build1VHFun snat (var, f)) (build1V snat (var, v))
     Ast.AstRFromS @sh1 v ->
       astRFromS @(k ': sh1) $ build1V snat (var, v)
 
@@ -483,27 +484,30 @@ build1V snat@SNat (var, v00) =
       in astLetHVectorInS
            varsOut (build1VOccurenceUnknown snat (var, l))
                    (build1VOccurenceUnknownRefresh snat (var, vOut))
-    Ast.AstLetHFunInS var1 f v ->
-      -- We take advantage of the fact that f contains no free index vars.
-      astLetHFunInS var1 (build1VHFun snat (var, f)) (build1V snat (var, v))
+    Ast.AstLetHFunInS @_ @_ @z var1 f v
+      | Dict <- lemTensorKindOfBuild snat (stensorKind @z) -> traceRule $
+        -- We take advantage of the fact that f contains no free index vars.
+        astLetHFunInS var1 (build1VHFun snat (var, f)) (build1V snat (var, v))
     Ast.AstSFromR v -> astSFromR $ build1V snat (var, v)
 
     Ast.AstMkHVector l -> traceRule $
       Ast.AstMkHVector
       $ V.map (\u -> build1VOccurenceUnknownDynamic snat (var, u)) l
-    Ast.AstHApply t ll -> traceRule $
-      astHApply
-        (build1VHFun snat (var, t))
-        (map (V.map (\u -> build1VOccurenceUnknownDynamic snat (var, u))) ll)
+    Ast.AstHApply @z t ll
+      | Dict <- lemTensorKindOfBuild snat (stensorKind @z) -> traceRule $
+        astHApply
+          (build1VHFun snat (var, t))
+          (map (V.map (\u -> build1VOccurenceUnknownDynamic snat (var, u))) ll)
     Ast.AstLetHVectorInHVector vars1 u v -> traceRule $
       let (vOut, varsOut) = substProjVars @k var vars1 v
       in astLetHVectorInHVector
            varsOut (build1VOccurenceUnknown snat (var, u))
                    (build1VOccurenceUnknownRefresh snat (var, vOut))
-    Ast.AstLetHFunInHVector var1 f v -> traceRule $
-      -- We take advantage of the fact that f contains no free index vars.
-      astLetHFunInHVector var1 (build1VHFun snat (var, f))
-                               (build1V snat (var, v))
+    Ast.AstLetHFunInHVector @z var1 f v
+      | Dict <- lemTensorKindOfBuild snat (stensorKind @z) -> traceRule $
+        -- We take advantage of the fact that f contains no free index vars.
+        astLetHFunInHVector var1 (build1VHFun snat (var, f))
+                                 (build1V snat (var, v))
     Ast.AstLetInHVector @_ @_ @s1 var1 u v -> traceRule $
       let var2 = mkAstVarName (varNameToAstVarId var1)  -- changed shape; TODO: shall we rename?
           sh = shapeAst u
@@ -677,7 +681,8 @@ build1VIndexS (var, v0, ix@(_ :.$ _)) =
 -- * Vectorization of others
 
 build1VHFun
-  :: forall k. SNat k -> (IntVarName, AstHFun) -> AstHFun
+  :: forall k y. TensorKind y
+  => SNat k -> (IntVarName, AstHFun y) -> AstHFun (BuildTensorKind k y)
 build1VHFun k@SNat (var, v0) = case v0 of
   Ast.AstLambda ~(vvars, l) ->
     -- This handles the case of l having free variable beyond vvars,
@@ -689,9 +694,9 @@ build1VHFun k@SNat (var, v0) = case v0 of
         (l2, vvars2) = mapAccumR f l vvars
     in Ast.AstLambda
          (vvars2, build1VOccurenceUnknownRefresh k (var, l2))
-  Ast.AstVarHFun shss shs var2 ->
+  Ast.AstVarHFun shss ftk var2 ->
     Ast.AstVarHFun (map (replicate1VoidHVector k) shss)
-                   (replicate1VoidHVector k shs)
+                   (buildTensorKindFull k ftk)
                    var2
 
 build1VOccurenceUnknownDynamic

@@ -475,8 +475,8 @@ data DeltaH :: RankedTensorType -> Type where
     -> VoidHVector
     -> HVector ranked
     -> HVector ranked
-    -> HFun
-    -> HFun
+    -> HFun TKUntyped
+    -> HFun TKUntyped
     -> HVector (DeltaR ranked)
     -> HVector (DeltaR ranked)
     -> DeltaH ranked
@@ -487,8 +487,8 @@ data DeltaH :: RankedTensorType -> Type where
     -> VoidHVector
     -> HVector ranked
     -> HVector ranked
-    -> HFun
-    -> HFun
+    -> HFun TKUntyped
+    -> HFun TKUntyped
     -> HVector (DeltaR ranked)
     -> HVector (DeltaR ranked)
     -> DeltaH ranked
@@ -1040,7 +1040,8 @@ evalH !s !c = \case
                      k accShs eShs (bShs V.++ accShs V.++ eShs)
                      (\dx db_acc_e ->
                         let (db, acc_e) = V.splitAt bLen db_acc_e
-                        in unHFun rf [dx V.++ db, acc_e])
+                        in unHVectorPseudoTensor
+                           $ unHFun rf [dx V.++ db, acc_e])
                      (dmkHVector c0)
                      (dmkHVector $ V.concat [crest, q, es])
         dacc_des = dunHVector $ dshare dacc_desUnshared
@@ -1056,7 +1057,8 @@ evalH !s !c = \case
                      k accShs eShs (bShs V.++ accShs V.++ eShs)
                      (\dx db_acc_e ->
                         let (db, acc_e) = V.splitAt bLen db_acc_e
-                        in unHFun rf [dx V.++ db, acc_e])
+                        in unHVectorPseudoTensor
+                           $ unHFun rf [dx V.++ db, acc_e])
                      (dmkHVector c0)
                      (dmkHVector $ V.concat [crest, q, es])
         dacc_des = dunHVector $ dshare dacc_desUnshared
@@ -1314,7 +1316,8 @@ fwdH dimR params s = \case
                        k accShs bShs (eShs V.++ accShs V.++ eShs)
                        (\dacc de_acc_e ->
                           let (de, acc_e) = V.splitAt eLen de_acc_e
-                          in unHFun df [dacc V.++ de, acc_e])
+                          in unHVectorPseudoTensor
+                             $ unHFun df [dacc V.++ de, acc_e])
                        (dmkHVector cacc0)
                        (dmkHVector $ V.concat [ces, q, es]))
   MapAccumL k accShs bShs eShs q es df _rf acc0' es' ->
@@ -1325,6 +1328,7 @@ fwdH dimR params s = \case
                        k accShs bShs (eShs V.++ accShs V.++ eShs)
                        (\dacc de_acc_e ->
                           let (de, acc_e) = V.splitAt eLen de_acc_e
-                          in unHFun df [dacc V.++ de, acc_e])
+                          in unHVectorPseudoTensor
+                             $ unHFun df [dacc V.++ de, acc_e])
                        (dmkHVector cacc0)
                        (dmkHVector $ V.concat [ces, q, es]))

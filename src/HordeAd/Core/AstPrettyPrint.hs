@@ -827,7 +827,7 @@ printHVectorAst cfg l =
       $ showString "fromList "
         . showListWith (printAstDynamic cfg 0) (V.toList l)
 
-printAstHFun :: PrintConfig -> Int -> AstHFun -> ShowS
+printAstHFun :: PrintConfig -> Int -> AstHFun y -> ShowS
 printAstHFun cfg d = \case
   AstLambda (vvars, l) ->
     if loseRoudtrip cfg
@@ -851,7 +851,7 @@ printAstHFun cfg d = \case
            . printAst cfg 0 l
   AstVarHFun _shss _shs var -> printAstFunVar cfg var
 
-printAstHFunOneUnignore :: PrintConfig -> Int -> AstHFun -> ShowS
+printAstHFunOneUnignore :: PrintConfig -> Int -> AstHFun y -> ShowS
 printAstHFunOneUnignore cfg d = \case
   AstLambda (vvars, l) ->
     if loseRoudtrip cfg

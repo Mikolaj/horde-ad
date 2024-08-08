@@ -2159,14 +2159,15 @@ astDualPart t = case t of
   Ast.AstSFromR v -> astSFromR $ astDualPart v
   _ -> error "TODO"
 
-astHApply :: forall s. AstSpan s
-          => AstHFun -> [HVector (AstRanked s)] -> AstTensor s TKUntyped
+astHApply :: forall s y. (AstSpan s, TensorKind y)
+          => AstHFun y -> [HVector (AstRanked s)] -> AstTensor s y
 astHApply t ll = case t of
-  Ast.AstLambda ~(vvars, l) -> case sameAstSpan @s @PrimalSpan of
-    Just Refl ->
-      foldr (\(vars, l2) -> astLetHVectorInHVector vars (Ast.AstMkHVector l2))
-            l (zip vvars ll)
-    _ -> Ast.AstHApply t ll
+  Ast.AstLambda ~(vvars, l) ->
+    case (sameAstSpan @s @PrimalSpan, sameTensorKind @y @TKUntyped)of
+      (Just Refl, Just Refl) ->
+        foldr (\(vars, l2) -> astLetHVectorInHVector vars (Ast.AstMkHVector l2))
+              l (zip vvars ll)
+      _ -> Ast.AstHApply t ll
   Ast.AstVarHFun{} -> Ast.AstHApply t ll
 
 -- Inlining doesn't work for this let constructor, because it has many
@@ -2313,17 +2314,18 @@ astLetHVectorInS vars l v =
 -- unlike astLetHVectorIn, etc., so we don't try to eliminate it.
 -- We assume functions are never small enough to justify inlining on the spot.
 astLetHFunIn
-  :: forall n r s. (GoodScalar r, KnownNat n)
-  => AstVarId -> AstHFun -> AstTensor s (TKR r n) -> AstTensor s (TKR r n)
+  :: forall n r s y. (GoodScalar r, KnownNat n, TensorKind y)
+  => AstVarId -> AstHFun y -> AstTensor s (TKR r n) -> AstTensor s (TKR r n)
 astLetHFunIn = Ast.AstLetHFunIn
 
 astLetHFunInS
-  :: forall sh r s. (GoodScalar r, KnownShS sh)
-  => AstVarId -> AstHFun -> AstTensor s (TKS r sh) -> AstTensor s (TKS r sh)
+  :: forall sh r s y. (GoodScalar r, KnownShS sh, TensorKind y)
+  => AstVarId -> AstHFun y -> AstTensor s (TKS r sh) -> AstTensor s (TKS r sh)
 astLetHFunInS = Ast.AstLetHFunInS
 
 astLetHFunInHVector
-  :: AstVarId -> AstHFun -> AstTensor s TKUntyped -> AstTensor s TKUntyped
+  :: TensorKind y
+  => AstVarId -> AstHFun y -> AstTensor s TKUntyped -> AstTensor s TKUntyped
 astLetHFunInHVector = Ast.AstLetHFunInHVector
 
 
@@ -2481,7 +2483,7 @@ simplifyAstDynamic (DynamicShaped (AstShaped u)) =
 simplifyAstDynamic u@DynamicRankedDummy{} = u
 simplifyAstDynamic u@DynamicShapedDummy{} = u
 
-simplifyAstHFun :: AstHFun -> AstHFun
+simplifyAstHFun :: AstHFun y -> AstHFun y
 simplifyAstHFun = \case
   Ast.AstLambda ~(vvars, l) -> Ast.AstLambda (vvars, simplifyAst l)
   t@(Ast.AstVarHFun{}) -> t
@@ -2697,7 +2699,7 @@ expandAstDynamic (DynamicShaped (AstShaped u)) =
 expandAstDynamic u@DynamicRankedDummy{} = u
 expandAstDynamic u@DynamicShapedDummy{} = u
 
-expandAstHFun :: AstHFun -> AstHFun
+expandAstHFun :: AstHFun y -> AstHFun y
 expandAstHFun = \case
   Ast.AstLambda ~(vvars, l) -> Ast.AstLambda (vvars, expandAst l)
   t@(Ast.AstVarHFun{}) -> t
@@ -2967,7 +2969,8 @@ type role SubstitutionPayload nominal
 data SubstitutionPayload :: AstSpanType -> Type where
   SubstitutionPayload :: forall s y. TensorKind y
                       => AstTensor s y -> SubstitutionPayload s
-  SubstitutionPayloadHFun :: AstHFun -> SubstitutionPayload PrimalSpan
+  SubstitutionPayloadHFun :: forall y. TensorKind y
+                          => AstHFun y -> SubstitutionPayload PrimalSpan
 
 -- | We assume no variable is shared between a binding and its nested binding
 -- and nobody substitutes into variables that are bound.
@@ -3327,8 +3330,9 @@ substitute1AstDynamic i var = \case
   DynamicShapedDummy{} -> Nothing
 
 substitute1AstHFun
-  :: SubstitutionPayload s2 -> AstVarId -> AstHFun
-  -> Maybe AstHFun
+  :: forall s2 y. TensorKind y
+  => SubstitutionPayload s2 -> AstVarId -> AstHFun y
+  -> Maybe (AstHFun y)
 substitute1AstHFun i var = \case
   Ast.AstLambda{} -> Nothing  -- no outside free variables
   Ast.AstVarHFun _shss _shs var2 ->
@@ -3336,7 +3340,9 @@ substitute1AstHFun i var = \case
     then case i of
       SubstitutionPayload{} ->
         error "substitute1AstHFun: unexpected tensor"
-      SubstitutionPayloadHFun h -> Just h
+      SubstitutionPayloadHFun @y2 h -> case sameTensorKind @y @y2 of
+        Just Refl -> Just h
+        Nothing -> error "substitute1AstHFun: wrong function result"
     else Nothing
 
 substitute1AstBool :: AstSpan s2

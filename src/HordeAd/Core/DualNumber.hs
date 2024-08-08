@@ -241,7 +241,7 @@ type instance ShapedOf (ADVal f) = ADVal (ShapedOf f)
 
 type instance HVectorOf (ADVal f) = HVector (ADVal f)
 
-type instance HFunOf (ADVal f) = HFun
+type instance HFunOf (ADVal f) y = HFun y
 
 type instance PrimalOf (ADVal f) = f
 

@@ -62,9 +62,7 @@ buildTensorKindFull snat@SNat = \case
     , Dict <- lemTensorKindOfBuild snat (stensorKind @z2) ->
       FTKProduct (buildTensorKindFull snat ftk1)
                  (buildTensorKindFull snat ftk2)
-  FTKUntyped shs ->
-    FTKUntyped
-    $ replicate1HVectorF (\_ -> absurdTensor) absurdTensor snat shs
+  FTKUntyped shs -> FTKUntyped $ replicate1VoidHVector snat shs
 
 -- For thousands of tensor parameters, orthotope's dynamic tensors
 -- are faster than the datatype below and the special dummy values are faster
