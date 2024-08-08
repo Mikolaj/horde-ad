@@ -479,7 +479,7 @@ build1V snat@SNat (var, v00) =
       astProjectS (build1VOccurenceUnknown snat (var, l)) p
     Ast.AstLetHVectorInS vars1 l v ->
       -- See the AstLetHVectorIn case for comments.
-      let (vOut, varsOut) = substProjVarsS @k var vars1 v
+      let (vOut, varsOut) = substProjVars @k var vars1 v
       in astLetHVectorInS
            varsOut (build1VOccurenceUnknown snat (var, l))
                    (build1VOccurenceUnknownRefresh snat (var, vOut))
@@ -496,7 +496,7 @@ build1V snat@SNat (var, v00) =
         (build1VHFun snat (var, t))
         (map (V.map (\u -> build1VOccurenceUnknownDynamic snat (var, u))) ll)
     Ast.AstLetHVectorInHVector vars1 u v -> traceRule $
-      let (vOut, varsOut) = substProjVarsHVector @k var vars1 v
+      let (vOut, varsOut) = substProjVars @k var vars1 v
       in astLetHVectorInHVector
            varsOut (build1VOccurenceUnknown snat (var, u))
                    (build1VOccurenceUnknownRefresh snat (var, vOut))
@@ -682,10 +682,10 @@ build1VHFun k@SNat (var, v0) = case v0 of
   Ast.AstLambda ~(vvars, l) ->
     -- This handles the case of l having free variable beyond vvars,
     -- which is not possible for lambdas used in folds, etc.
-    -- But note that, due to substProjVarsHVector, l2 has var occurences,
+    -- But note that, due to substProjVars, l2 has var occurences,
     -- so build1VOccurenceUnknownRefresh is neccessary to handle
     -- them and to eliminate them so that the function is closed again.
-    let f acc vars = substProjVarsHVector @k var vars acc
+    let f acc vars = substProjVars @k var vars acc
         (l2, vvars2) = mapAccumR f l vvars
     in Ast.AstLambda
          (vvars2, build1VOccurenceUnknownRefresh k (var, l2))
@@ -743,36 +743,10 @@ substProjShaped var var1 =
   in substituteAst
        (SubstitutionPayload @s1 projection) var1
 
-substProjHVector :: forall n1 r1 s1 s.
-                    (KnownNat n1, GoodScalar r1, AstSpan s, AstSpan s1)
-                 => Int -> IntVarName -> IShR n1
-                 -> AstVarName s1 (TKR r1 n1)
-                 -> AstTensor s TKUntyped -> AstTensor s TKUntyped
-substProjHVector k var sh1 var1 =
-  let var2 = mkAstVarName @s1 @(TKR r1 (1 + n1)) (varNameToAstVarId var1)
-      projection =
-        Ast.AstIndex (Ast.AstVar (FTKR $ k :$: sh1) var2)
-                     (Ast.AstIntVar var :.: ZIR)
-  in substituteAstHVector
-       (SubstitutionPayload @s1 projection) var1
-
-substProjHVectorS :: forall k sh1 r1 s1 s.
-                     ( KnownNat k, KnownShS sh1, GoodScalar r1
-                     , AstSpan s, AstSpan s1 )
-                  => IntVarName -> AstVarName s1 (TKS r1 sh1)
-                  -> AstTensor s TKUntyped -> AstTensor s TKUntyped
-substProjHVectorS var var1 =
-  let var2 = mkAstVarName @s1 @(TKS r1 (k : sh1)) (varNameToAstVarId var1)
-      projection =
-        Ast.AstIndexS (Ast.AstVar @(TKS r1 (k ': sh1)) FTKS var2)
-                      (Ast.AstIntVar var :.$ ZIS)
-  in substituteAstHVector
-       (SubstitutionPayload @s1 projection) var1
-
-substProjDynamic :: forall k n r s. (KnownNat k, AstSpan s)
-                 => IntVarName -> AstTensor s (TKR r n)
+substProjDynamic :: forall k s y. (KnownNat k, AstSpan s)
+                 => IntVarName -> AstTensor s y
                  -> AstDynamicVarName
-                 -> (AstTensor s (TKR r n), AstDynamicVarName)
+                 -> (AstTensor s y, AstDynamicVarName)
 substProjDynamic var v3 (AstDynamicVarName @ty @r3 @sh3 varId)
   | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat) =
     ( withListSh (Proxy @sh3) $ \sh1 ->
@@ -785,55 +759,11 @@ substProjDynamic var v3 (AstDynamicVarName @ty @r3 @sh3 varId)
     , AstDynamicVarName @ty @r3 @(k ': sh3) varId )
 substProjDynamic _ _ _ = error "substProjDynamic: unexpected type"
 
-substProjDynamicS :: forall k sh r s. (KnownNat k, AstSpan s)
-                  => IntVarName -> AstTensor s (TKS r sh)
-                  -> AstDynamicVarName
-                  -> (AstTensor s (TKS r sh), AstDynamicVarName)
-substProjDynamicS var v3 (AstDynamicVarName @ty @r3 @sh3 varId)
-  | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat) =
-    ( withListSh (Proxy @sh3) $ \sh1 ->
-        substProjRanked @_ @r3 @s
-                        (valueOf @k) var sh1 (mkAstVarName varId) v3
-    , AstDynamicVarName @ty @r3 @(k ': sh3) varId )
-substProjDynamicS var v3 (AstDynamicVarName @ty @r3 @sh3 varId)
-  | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat]) =
-    ( substProjShaped @k @sh3 @r3 @s var (mkAstVarName varId) v3
-    , AstDynamicVarName @ty @r3 @(k ': sh3) varId )
-substProjDynamicS _ _ _ = error "substProjDynamicS: unexpected type"
-
-substProjVars :: forall k n r s. (KnownNat k, AstSpan s)
+substProjVars :: forall k s y. (KnownNat k, AstSpan s)
               => IntVarName -> [AstDynamicVarName]
-              -> AstTensor s (TKR r n)
-              -> (AstTensor s (TKR r n), [AstDynamicVarName])
+              -> AstTensor s y
+              -> (AstTensor s y, [AstDynamicVarName])
 substProjVars var vars v3 = mapAccumR (substProjDynamic @k var) v3 vars
-
-substProjVarsS :: forall k sh r s. (KnownNat k, AstSpan s)
-               => IntVarName -> [AstDynamicVarName]
-               -> AstTensor s (TKS r sh)
-               -> (AstTensor s (TKS r sh), [AstDynamicVarName])
-substProjVarsS var vars v3 = mapAccumR (substProjDynamicS @k var) v3 vars
-
-substProjDynamicHVector :: forall k s. (KnownNat k, AstSpan s)
-                        => IntVarName -> AstTensor s TKUntyped -> AstDynamicVarName
-                        -> (AstTensor s TKUntyped, AstDynamicVarName)
-substProjDynamicHVector var v3 (AstDynamicVarName @ty @r3 @sh3 varId)
-  | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat) =
-    ( withListSh (Proxy @sh3) $ \sh1 ->
-        substProjHVector @_ @r3 @s (valueOf @k) var sh1 (mkAstVarName varId) v3
-    , AstDynamicVarName @ty @r3 @(k ': sh3) varId )
-substProjDynamicHVector var v3 (AstDynamicVarName @ty @r3 @sh3 varId)
-  | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat]) =
-    ( substProjHVectorS @k @sh3 @r3 @s var (mkAstVarName varId) v3
-    , AstDynamicVarName @ty @r3 @(k ': sh3) varId )
-substProjDynamicHVector _ _ _ =
-  error "substProjDynamicHVector: unexpected type"
-
-substProjVarsHVector :: forall k s. (KnownNat k, AstSpan s)
-                     => IntVarName -> [AstDynamicVarName]
-                     -> AstTensor s TKUntyped
-                     -> (AstTensor s TKUntyped, [AstDynamicVarName])
-substProjVarsHVector var vars v3 =
-  mapAccumR (substProjDynamicHVector @k var) v3 vars
 
 astTrDynamic :: AstSpan s
              => DynamicTensor (AstRanked s) -> DynamicTensor (AstRanked s)
