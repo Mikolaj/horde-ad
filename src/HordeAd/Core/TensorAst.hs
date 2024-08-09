@@ -91,7 +91,7 @@ revArtifactFromForwardPass
   -> (HVector (AstRaw PrimalSpan)
       -> [AstDynamicVarName]
       -> HVector (AstRanked FullSpan)
-      -> ADVal (HVectorPseudoTensor (AstRaw PrimalSpan)) r y)
+      -> ADVal (HVectorPseudoTensor (AstRaw PrimalSpan)) Float '())
   -> VoidHVector
   -> (AstArtifact, Delta (AstRaw PrimalSpan) TKUntyped)
 {-# INLINE revArtifactFromForwardPass #-}
@@ -103,23 +103,23 @@ revArtifactFromForwardPass hasDt forwardPass parameters0 =
         funToAstRev parameters0 in
   let -- Evaluate completely after terms constructed, to free memory
       -- before gradientFromDelta allocates new memory and new FFI is started.
-      !(D (HVectorPseudoTensor primalBody) (HVectorPseudoTensor delta)) =
+      !(D primalBody (HVectorPseudoTensor delta)) =
         forwardPass hVectorPrimal vars hVector
-      domsB = shapeAstHVector $ unAstRawWrap primalBody
+      domsB = shapeAstHVector $ unAstRawWrap $ unHVectorPseudoTensor primalBody
   in fun1DToAst domsB $ \ !varsDt !astsDt ->
     let mdt = if hasDt
-              then Just $ rawHVector astsDt
+              then Just $ HVectorPseudoTensor $ dmkHVector $ rawHVector astsDt
               else Nothing
-        !gradient = gradientFromDeltaH parameters0 primalBody mdt delta
+        !gradient = gradientFromDelta parameters0 primalBody mdt delta
         unGradient = dunlet (dmkHVector gradient)
-        unPrimal = dunlet primalBody
+        unPrimal = dunlet $ unHVectorPseudoTensor primalBody
     in ( AstArtifact varsDt varsPrimal unGradient unPrimal
        , delta )
 
 revProduceArtifact
   :: Bool
   -> (HVector (AstRanked FullSpan)
-      -> HVectorPseudoTensor (AstRanked FullSpan) r y)
+      -> HVectorPseudoTensor (AstRanked FullSpan) Float '())
   -> AstEnv (ADVal (AstRaw PrimalSpan))
   -> VoidHVector
   -> (AstArtifact, Delta (AstRaw PrimalSpan) TKUntyped)
@@ -131,7 +131,7 @@ fwdArtifactFromForwardPass
   :: (HVector (AstRaw PrimalSpan)
       -> [AstDynamicVarName]
       -> HVector (AstRanked FullSpan)
-      -> ADVal (HVectorPseudoTensor (AstRaw PrimalSpan)) r y)
+      -> ADVal (HVectorPseudoTensor (AstRaw PrimalSpan)) Float '())
   -> VoidHVector
   -> (AstArtifact, Delta (AstRaw PrimalSpan) TKUntyped)
 {-# INLINE fwdArtifactFromForwardPass #-}
@@ -141,7 +141,8 @@ fwdArtifactFromForwardPass forwardPass parameters0 =
   let !(D (HVectorPseudoTensor primalBody) (HVectorPseudoTensor delta)) =
         forwardPass hVectorPrimal vars hVector in
   let !derivative =
-        derivativeFromDeltaH (V.length parameters0) delta hVectorDs
+        unHVectorPseudoTensor
+        $ derivativeFromDelta (V.length parameters0) delta hVectorDs
       unDerivative = dunlet derivative
       unPrimal = dunlet primalBody
   in ( AstArtifact varsPrimalDs varsPrimal unDerivative unPrimal
@@ -149,7 +150,7 @@ fwdArtifactFromForwardPass forwardPass parameters0 =
 
 fwdProduceArtifact
   :: (HVector (AstRanked FullSpan)
-      -> HVectorPseudoTensor (AstRanked FullSpan) r y)
+      -> HVectorPseudoTensor (AstRanked FullSpan) Float '())
   -> AstEnv (ADVal (AstRaw PrimalSpan))
   -> VoidHVector
   -> (AstArtifact, Delta (AstRaw PrimalSpan) TKUntyped)
@@ -718,10 +719,10 @@ astBuildHVector1Vectorize k f = build1Vectorize k $ funToAstI f
 
 -- This specialization is not possible where the functions are defined,
 -- but is possible here:
-{-# SPECIALIZE gradientFromDeltaH
+{-# SPECIALIZE gradientFromDelta
   :: VoidHVector
-  -> HVectorOf (AstRanked PrimalSpan)
-  -> Maybe (HVector (AstRanked PrimalSpan))
+  -> HVectorPseudoTensor (AstRanked PrimalSpan) Float '()
+  -> Maybe (HVectorPseudoTensor (AstRanked PrimalSpan) Float '())
   -> Delta (AstRanked PrimalSpan) TKUntyped
   -> HVector (AstRanked PrimalSpan) #-}
 {-# SPECIALIZE evalFromnMap

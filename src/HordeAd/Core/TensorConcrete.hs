@@ -401,10 +401,10 @@ instance AdaptableHVector ORArray
 
 -- This specialization is not possible where the functions are defined,
 -- but is possible here:
-{-# SPECIALIZE gradientFromDeltaH
+{-# SPECIALIZE gradientFromDelta
   :: VoidHVector
-  -> HVector ORArray
-  -> Maybe (HVector ORArray)
+  -> HVectorPseudoTensor ORArray Float '()
+  -> Maybe (HVectorPseudoTensor ORArray Float '())
   -> Delta ORArray TKUntyped
   -> HVector ORArray #-}
 {-# SPECIALIZE evalFromnMap

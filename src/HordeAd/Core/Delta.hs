@@ -37,8 +37,7 @@
 -- to understand.
 module HordeAd.Core.Delta
   ( -- * Delta expression evaluation
-    gradientFromDeltaTK, gradientFromDeltaH
-  , derivativeFromDeltaTK, derivativeFromDeltaH
+    gradientFromDelta, derivativeFromDelta
     -- * Abstract syntax trees of the delta expressions
   , DeltaR (..), DeltaS (..), Delta(..)
   , -- * Delta expression identifiers
@@ -86,14 +85,14 @@ import HordeAd.Util.SizedList
 
 -- * Reverse and forward derivative computation for HVectorPseudoTensor
 
-gradientFromDeltaTK
+gradientFromDelta
   :: forall ranked y. (ADReady ranked, TensorKind y)
   => VoidHVector
   -> InterpretationTarget ranked y
   -> Maybe (InterpretationTarget ranked y)
   -> Delta ranked y
   -> HVector ranked
-gradientFromDeltaTK !parameters0 value !mdt deltaTopLevel =
+gradientFromDelta !parameters0 value !mdt deltaTopLevel =
   let oneAtF = interpretationConstant 1 $ tshapeFull (stensorKind @y) value
       dt = fromMaybe oneAtF mdt
       s0 = initEvalState parameters0
@@ -123,50 +122,16 @@ interpretationConstant r = \case
     $ mapHVectorShaped (const $ srepl @_ @_ @(ShapedOf ranked) r)
     $ V.map dynamicFromVoid ssh
 
-gradientFromDeltaH
-  :: forall ranked. ADReady ranked
-  => VoidHVector -> HVectorOf ranked
-  -> Maybe (HVector ranked) -> Delta ranked TKUntyped
-  -> HVector ranked
-gradientFromDeltaH !parameters0 value !mdt deltaTopLevel =
-  let shDt = dshape value
-      dt = fromMaybe (mapHVectorShaped (const $ srepl 1)
-                      $ V.map dynamicFromVoid shDt) mdt
-      s0 = initEvalState parameters0
-      s1 = evalR s0 (HVectorPseudoTensor $ dmkHVector dt) deltaTopLevel
-      s2 = evalFromnMap s1
-      toDynamicTensor :: Some (InterpretationTargetM ranked)
-                      -> DynamicTensor ranked
-      toDynamicTensor (Some b) = case b of
-        MTKR @r @n t -> DynamicRanked @r @n t
-        MTKS @r @sh t -> DynamicShaped @r @sh t
-        MTKRDummy @r @sh -> DynamicRankedDummy @r @sh Proxy Proxy
-        MTKSDummy @r @sh -> DynamicShapedDummy @r @sh Proxy Proxy
-        MTKProduct{} -> error "toDynamicTensor"
-        MTKUntyped _hv -> error "TODO"
-  in V.fromList $ map toDynamicTensor $ DMap.elems $ iMap s2
-
-derivativeFromDeltaTK
+derivativeFromDelta
   :: forall ranked y. ADReady ranked
   => Int -> Delta ranked y -> HVector ranked
   -> InterpretationTarget ranked y
-derivativeFromDeltaTK dim deltaTopLevel ds =
+derivativeFromDelta dim deltaTopLevel ds =
   -- EvalState is too complex for the forward derivative, but since
   -- it's already defined, let's use it.
   let s0 = EvalState DMap.empty DMap.empty DMap.empty
       !(!_s2, !c) = fwdR dim ds s0 deltaTopLevel
   in c
-
-derivativeFromDeltaH
-  :: forall ranked. ADReady ranked
-  => Int -> Delta ranked TKUntyped -> HVector ranked
-  -> HVectorOf ranked
-derivativeFromDeltaH dim deltaTopLevel ds =
-  -- EvalState is too complex for the forward derivative, but since
-  -- it's already defined, let's use it.
-  let s0 = EvalState DMap.empty DMap.empty DMap.empty
-      !(!_s2, !c) = fwdR dim ds s0 deltaTopLevel
-  in unHVectorPseudoTensor c
 
 
 -- * Abstract syntax trees of the delta expressions

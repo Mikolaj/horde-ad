@@ -56,7 +56,7 @@ crevOnADInputs
   :: ADReady ranked
   => Maybe (HVector ranked)
   -> (HVector (ADVal ranked)
-      -> ADVal (HVectorPseudoTensor ranked) r y)
+      -> ADVal (HVectorPseudoTensor ranked) Float '())
   -> HVector (ADVal ranked)
   -> (HVectorOf ranked, HVectorOf ranked)
 -- The functions in which @revOnADInputs@ inlines are not inlined themselves
@@ -65,20 +65,21 @@ crevOnADInputs
 crevOnADInputs mdt f inputs =
   let -- Evaluate completely after terms constructed, to free memory
       -- before evaluation allocates new memory and new FFI is started.
-      !(D (HVectorPseudoTensor v)
-          (HVectorPseudoTensor deltaTopLevel)) = f inputs in
+      !(D v (HVectorPseudoTensor deltaTopLevel)) = f inputs in
   let rshapePrimal :: (GoodScalar r2, KnownNat n, ADReady g)
                    => ADVal g r2 n -> IShR n
       rshapePrimal (D p _) = rshape p
       parameters0 = V.map (voidFromDynamicF (shapeToList . rshapePrimal)) inputs
-      !gradient = gradientFromDeltaH parameters0 v mdt deltaTopLevel
-  in (dunlet (dmkHVector gradient), dunlet v)
+      !gradient = gradientFromDelta parameters0 v
+                                   ((HVectorPseudoTensor . dmkHVector) <$> mdt)
+                                    deltaTopLevel
+  in (dunlet (dmkHVector gradient), dunlet $ unHVectorPseudoTensor v)
 
 crevOnHVector
   :: ADReady ranked
   => Maybe (HVector ranked)
   -> (HVector (ADVal ranked)
-      -> ADVal (HVectorPseudoTensor ranked) r y)
+      -> ADVal (HVectorPseudoTensor ranked) Float '())
   -> HVector ranked
   -> (HVectorOf ranked, HVectorOf ranked)
 crevOnHVector mdt f parameters =
@@ -90,21 +91,22 @@ cfwdOnADInputs
   :: ADReady ranked
   => HVector (ADVal ranked)
   -> (HVector (ADVal ranked)
-      -> ADVal (HVectorPseudoTensor ranked) r y)
+      -> ADVal (HVectorPseudoTensor ranked) Float '())
   -> HVector ranked
   -> (HVectorOf ranked, HVectorOf ranked)
 {-# INLINE cfwdOnADInputs #-}
 cfwdOnADInputs inputs f ds =
   let !(D (HVectorPseudoTensor v)
           (HVectorPseudoTensor deltaTopLevel)) = f inputs in
-  let derivative = derivativeFromDeltaH (V.length inputs) deltaTopLevel ds
+  let derivative = unHVectorPseudoTensor
+                   $ derivativeFromDelta (V.length inputs) deltaTopLevel ds
   in (dunlet derivative, dunlet v)
 
 cfwdOnHVector
   :: ADReady ranked
   => HVector ranked
   -> (HVector (ADVal ranked)
-      -> ADVal (HVectorPseudoTensor ranked) r y)
+      -> ADVal (HVectorPseudoTensor ranked) Float '())
   -> HVector ranked
   -> (HVectorOf ranked, HVectorOf ranked)
 cfwdOnHVector parameters f ds =
