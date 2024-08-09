@@ -268,6 +268,14 @@ instance ( ranked ~ RankedOf shaped, RankedOf (ShapedOf ranked) ~ ranked
 
 type role Delta nominal nominal
 data Delta :: RankedTensorType -> TensorKindType -> Type where
+  TupleG :: (TensorKind y, TensorKind z)
+         => Delta ranked y -> Delta ranked z
+         -> Delta ranked (TKProduct y z)
+  Project1G :: forall x z ranked. TensorKind z
+            => Delta ranked (TKProduct x z) -> Delta ranked x
+  Project2G :: forall x z ranked. TensorKind x
+            => Delta ranked (TKProduct x z) -> Delta ranked z
+
   ZeroR :: (KnownNat n, GoodScalar r) => IShR n -> Delta ranked (TKR r n)
     -- ^ the shape is required for @shapeDelta@ and forward derivative
   InputR :: forall ranked r n. (GoodScalar r, KnownNat n)
@@ -529,6 +537,12 @@ shapeDeltaFull :: forall ranked y.
                   , ShapedTensor (ShapedOf ranked) )
                => Delta ranked y -> TensorKindFull y
 shapeDeltaFull = \case
+  TupleG t1 t2 -> FTKProduct (shapeDeltaFull t1) (shapeDeltaFull t2)
+  Project1G v -> case shapeDeltaFull v of
+    FTKProduct ftk1 _ -> ftk1
+  Project2G v -> case shapeDeltaFull v of
+    FTKProduct _ ftk2 -> ftk2
+
   ZeroR sh -> FTKR sh
   InputR sh _ -> FTKR sh
   ScaleR _ d -> shapeDeltaFull d
@@ -777,7 +791,7 @@ initEvalState !parameters0 =
 -- cotangent contribution when complete (see below for an explanation)
 -- and the third argument is the node to evaluate.
 evalRRuntimeSpecialized
-  :: forall n r ranked. (GoodScalar r, ADReady ranked)
+  :: forall n r ranked. (GoodScalar r, KnownNat n, ADReady ranked)
   => EvalState ranked
   -> ranked r n -> Delta ranked (TKR r n)
   -> EvalState ranked
@@ -799,7 +813,7 @@ evalRRuntimeSpecialized !s !c =
           _ -> error "evalRRuntimeSpecialized: unexpected scalar"
 
 evalSRuntimeSpecialized
-  :: forall sh r ranked. (GoodScalar r, ADReady ranked)
+  :: forall sh r ranked. (GoodScalar r, KnownShS sh, ADReady ranked)
   => EvalState ranked -> ShapedOf ranked r sh -> Delta ranked (TKS r sh)
   -> EvalState ranked
 evalSRuntimeSpecialized !s !c =
@@ -848,10 +862,21 @@ addInterpretationTargetM a b = case (a, b) of
     $ V.zipWith addDynamic (dunHVector hv1) (dunHVector hv2)
 
 evalR
-  :: forall y ranked. ADReady ranked
+  :: forall y ranked. (TensorKind y, ADReady ranked)
   => EvalState ranked -> InterpretationTarget ranked y -> Delta ranked y
   -> EvalState ranked
 evalR !s !c = \case
+  TupleG d1 d2 -> -- TODO: let cShared = rshare c
+                  evalR (evalR s (tproject1 c) d1) (tproject2 c) d2
+  Project1G d -> case shapeDeltaFull d of
+    FTKProduct _ ftk2 ->
+      let zero = interpretationConstant 1 ftk2
+      in evalR s (ttuple c zero) d
+  Project2G d -> case shapeDeltaFull d of
+    FTKProduct ftk1 _ ->
+      let zero = interpretationConstant 1 ftk1
+      in evalR s (ttuple zero c) d
+
   ZeroR{} -> s
   InputR _ i -> let cs = MTKR c
                 in s {iMap = DMap.adjust (addInterpretationTargetM cs) i
@@ -1197,6 +1222,14 @@ fwdR
   => Int -> HVector ranked -> EvalState ranked -> Delta ranked y
   -> (EvalState ranked, InterpretationTarget ranked y)
 fwdR dimR params s = \case
+  TupleG d1 d2 -> let (s2, t) = fwdR dimR params s d1
+                      (s3, u) = fwdR dimR params s2 d2
+                  in (s3, ttuple t u)
+  Project1G d -> let (s2, v) = fwdR dimR params s d
+                 in (s2, tproject1 v)
+  Project2G d -> let (s2, v) = fwdR dimR params s d
+                 in (s2, tproject2 v)
+
   ZeroR sh -> (s, rzero sh)
   InputR @_ @r @n _ (InputId i) ->
     if i < dimR
