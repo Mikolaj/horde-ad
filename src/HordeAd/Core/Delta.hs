@@ -420,7 +420,7 @@ data Delta :: RankedTensorType -> TensorKindType -> Type where
            => Delta ranked (TKS r (n ': sh))
            -> Delta ranked (TKS r (n ': sh))
     -- ^ Reverse elements of the outermost dimension.
-  TransposeS :: forall ranked perm r sh.
+  TransposeS :: forall perm sh r ranked.
                 (GoodScalar r, PermC perm, KnownShS sh, X.Rank perm <= X.Rank sh)
              => Permutation.Perm perm
              -> Delta ranked (TKS r sh)
@@ -519,40 +519,84 @@ instance (RankedTensor ranked, ShapedTensor (ShapedOf ranked))
                                        (tshapeFull stk2 (tproject2 t))
     STKUntyped -> FTKUntyped $ shapeDeltaH $ unHVectorPseudoTensor t
 
+shapeDeltaFull :: forall ranked y.
+                  ( TensorKind y, RankedTensor ranked
+                  , ShapedTensor (ShapedOf ranked) )
+               => Delta ranked y -> TensorKindFull y
+shapeDeltaFull = \case
+  ZeroR sh -> FTKR sh
+  InputR sh _ -> FTKR sh
+  ScaleR _ d -> shapeDeltaFull d
+  AddR d _ -> shapeDeltaFull d
+  ShareR _ d -> shapeDeltaFull d
+  IndexR d _ -> FTKR $ dropShape (shapeDelta d)
+  SumR d -> FTKR $ tailShape (shapeDelta d)
+  Sum0R{} -> FTKR $ ZSR
+  Dot0R{} -> FTKR $ ZSR
+  ScatterR sh _ _ -> FTKR sh
+  FromVectorR l -> case V.toList l of
+    [] -> case stensorKind @y of
+      STKR @_ @n _ _ -> case sameNat (Proxy @n) (Proxy @1) of
+        Just Refl -> FTKR $ singletonShape 0  -- the only case where we can guess sh
+        _ -> error "shapeDeltaFull: FromVectorR with no arguments"
+    d : _ -> FTKR $ length l :$: shapeDelta d
+  ReplicateR n d -> FTKR $ n :$: shapeDelta d
+  AppendR x y -> case shapeDelta x of
+    ZSR -> error "shapeDeltaFull: impossible pattern needlessly required"
+    xi :$: xsh -> case shapeDelta y of
+      ZSR -> error "shapeDeltaFull: impossible pattern needlessly required"
+      yi :$: _ -> FTKR $ xi + yi :$: xsh
+  SliceR _ n d -> FTKR $ n :$: tailShape (shapeDelta d)
+  ReverseR d -> shapeDeltaFull d
+  TransposeR perm d -> FTKR $ Nested.Internal.Shape.shrPermutePrefix perm (shapeDelta d)
+  ReshapeR sh _ -> FTKR sh
+  GatherR sh _ _ -> FTKR sh
+  CastR d -> FTKR $ shapeDelta d
+  RFromS @sh _ | Dict <- lemKnownNatRank (knownShS @sh) ->
+    FTKR $ listToShape $ shapeT @sh
+  RFromH d i -> FTKR $ listToShape $ shapeVoidDynamic (shapeDeltaH d V.! i)
+
+  ZeroS{} -> FTKS
+  InputS{} -> FTKS
+  ScaleS{} -> FTKS
+  AddS{} -> FTKS
+  ShareS{} -> FTKS
+  IndexS{} -> FTKS
+  SumS{} -> FTKS
+  Sum0S{} -> FTKS
+  Dot0S{} -> FTKS
+  ScatterS{} -> FTKS
+  FromVectorS{} -> FTKS
+  ReplicateS{} -> FTKS
+  AppendS{} -> FTKS
+  SliceS{} -> FTKS
+  ReverseS{} -> FTKS
+  TransposeS @perm @sh2 perm _v ->
+    withShapeP
+      (permutePrefixList (Permutation.permToList' perm)
+                         (shapeT @sh2)) $ \(Proxy @sh2Perm) ->
+        gcastWith (unsafeCoerce Refl :: sh2Perm :~: Permutation.PermutePrefix perm sh2)
+        FTKS
+  ReshapeS{} -> FTKS
+  GatherS{} -> FTKS
+  CastS{} -> FTKS
+  SFromR{} -> FTKS
+  SFromH{} -> FTKS
+
+  ShareH _ d -> shapeDeltaFull d
+  HToH v ->
+    FTKUntyped $ V.map (voidFromDynamicF (shapeToList . shapeDelta . unDeltaR)) v
+  MapAccumR k accShs bShs _eShs _q _es _df _rf _acc0' _es' ->
+    FTKUntyped $ accShs V.++ replicate1VoidHVector k bShs
+  MapAccumL k accShs bShs _eShs _q _es _df _rf _acc0' _es' ->
+    FTKUntyped $ accShs V.++ replicate1VoidHVector k bShs
+
 shapeDelta :: forall ranked r n.
               ( GoodScalar r, KnownNat n
               , RankedTensor ranked, ShapedTensor (ShapedOf ranked) )
            => Delta ranked (TKR r n) -> IShR n
-shapeDelta = \case
-  ZeroR sh -> sh
-  InputR sh _ -> sh
-  ScaleR _ d -> shapeDelta d
-  AddR d _ -> shapeDelta d
-  ShareR _ d -> shapeDelta d
-  IndexR d _ -> dropShape (shapeDelta d)
-  SumR d -> tailShape (shapeDelta d)
-  Sum0R{} -> ZSR
-  Dot0R{} -> ZSR
-  ScatterR sh _ _ -> sh
-  FromVectorR l -> case V.toList l of
-    [] -> case sameNat (Proxy @n) (Proxy @1) of
-      Just Refl -> singletonShape 0  -- the only case where we can guess sh
-      _ -> error "shapeDelta: FromVectorR with no arguments"
-    d : _ -> length l :$: shapeDelta d
-  ReplicateR n d -> n :$: shapeDelta d
-  AppendR x y -> case shapeDelta x of
-    ZSR -> error "shapeDelta: impossible pattern needlessly required"
-    xi :$: xsh -> case shapeDelta y of
-      ZSR -> error "shapeDelta: impossible pattern needlessly required"
-      yi :$: _ -> xi + yi :$: xsh
-  SliceR _ n d -> n :$: tailShape (shapeDelta d)
-  ReverseR d -> shapeDelta d
-  TransposeR perm d -> Nested.Internal.Shape.shrPermutePrefix perm (shapeDelta d)
-  ReshapeR sh _ -> sh
-  GatherR sh _ _ -> sh
-  CastR d -> shapeDelta d
-  RFromS @sh _ -> listToShape $ shapeT @sh
-  RFromH d i -> listToShape $ shapeVoidDynamic (shapeDeltaH d V.! i)
+shapeDelta t = case shapeDeltaFull t of
+  FTKR sh -> sh
 
 lengthDelta :: forall ranked r n.
                 ( GoodScalar r, KnownNat n
@@ -565,14 +609,8 @@ lengthDelta d = case shapeDelta d of
 shapeDeltaH :: forall ranked.
                (RankedTensor ranked, ShapedTensor (ShapedOf ranked))
             => Delta ranked TKUntyped -> VoidHVector
-shapeDeltaH = \case
-  ShareH _ d -> shapeDeltaH d
-  HToH v ->
-    V.map (voidFromDynamicF (shapeToList . shapeDelta . unDeltaR)) v
-  MapAccumR k accShs bShs _eShs _q _es _df _rf _acc0' _es' ->
-    accShs V.++ replicate1VoidHVector k bShs
-  MapAccumL k accShs bShs _eShs _q _es _df _rf _acc0' _es' ->
-    accShs V.++ replicate1VoidHVector k bShs
+shapeDeltaH t = case shapeDeltaFull t of
+  FTKUntyped shs -> shs
 
 
 -- * Delta expression identifiers and evaluation state
@@ -960,7 +998,7 @@ evalR !s !c = \case
   SliceS @_ @i d ->
     evalR s (sappend @_ @_ @i (srepl 0) (sappend c (srepl 0))) d
   ReverseS d -> evalR s (sreverse c) d
-  TransposeS @_ @perm @_ @sh2 perm d ->
+  TransposeS @perm @sh2 perm d ->
     withShapeP (backpermutePrefixList (Permutation.permToList' perm)
                                       (shapeT @sh2)) $ \(Proxy @shp) ->
     gcastWith (unsafeCoerce Refl :: Permutation.PermutePrefix perm sh2 :~: shp) $

@@ -62,12 +62,9 @@ shapeAstFull t = case t of
 
   AstLet _ _ v -> shapeAstFull v
   AstShare _ v-> shapeAstFull v
-  AstMinIndex a -> case shapeAstFull a of
-    FTKR sh -> FTKR $ initShape sh
-  AstMaxIndex a -> case shapeAstFull a of
-    FTKR sh -> FTKR $ initShape sh
-  AstFloor a -> case shapeAstFull a of
-    FTKR sh -> FTKR sh
+  AstMinIndex a -> FTKR $ initShape $ shapeAst a
+  AstMaxIndex a -> FTKR $ initShape $ shapeAst a
+  AstFloor a -> FTKR $ shapeAst a
   AstIota -> FTKR $ singletonShape (maxBound :: Int)  -- ought to be enough
   AstN1 _opCode v -> shapeAstFull v
   AstN2 _opCode v _ -> shapeAstFull v
@@ -77,39 +74,32 @@ shapeAstFull t = case t of
   AstSumOfList args -> case args of
     [] -> error "shapeAstFull: AstSumOfList with no arguments"
     v : _ -> shapeAstFull v
-  AstIndex v _is -> case shapeAstFull v of
-    FTKR sh -> FTKR $ dropShape sh
-  AstSum v -> case shapeAstFull v of
-    FTKR sh -> FTKR $ tailShape sh
+  AstIndex v _is -> FTKR $ dropShape $ shapeAst v
+  AstSum v -> FTKR $ tailShape $ shapeAst v
   AstScatter sh _ _ -> FTKR sh
   AstFromVector l -> case V.toList l of
-    [] ->  case stensorKind @y of
+    [] -> case stensorKind @y of
       STKR @_ @n _ _ -> case sameNat (Proxy @n) (Proxy @1) of
         Just Refl -> FTKR $ singletonShape 0
         Nothing -> error "shapeAstFull: AstFromVector with no arguments"
-    v : _ -> case shapeAstFull v of
-      FTKR sh -> FTKR $ V.length l :$: sh
-  AstAppend x y -> case shapeAstFull x of
-    FTKR ZSR -> error "shapeAstFull: impossible pattern needlessly required"
-    FTKR (xi :$: xsh) -> case shapeAstFull y of
-      FTKR ZSR -> error "shapeAstFull: impossible pattern needlessly required"
-      FTKR (yi :$: _) -> FTKR $ xi + yi :$: xsh
-  AstSlice _i n v -> case shapeAstFull v of
-    FTKR sh -> FTKR $ n :$: tailShape  sh
+    v : _ -> FTKR $ V.length l :$: (shapeAst v)
+  AstAppend x y -> case shapeAst x of
+    ZSR -> error "shapeAstFull: impossible pattern needlessly required"
+    xi :$: xsh -> case shapeAst y of
+      ZSR -> error "shapeAstFull: impossible pattern needlessly required"
+      yi :$: _ -> FTKR $ xi + yi :$: xsh
+  AstSlice _i n v -> FTKR $ n :$: tailShape (shapeAst v)
   AstReverse v -> shapeAstFull v
-  AstTranspose perm v -> case shapeAstFull v of
-    FTKR sh -> FTKR $ Nested.Internal.Shape.shrPermutePrefix perm sh
+  AstTranspose perm v ->
+    FTKR $ Nested.Internal.Shape.shrPermutePrefix perm $ shapeAst v
   AstReshape sh _v -> FTKR sh
   AstGather sh _v (_vars, _ix) -> FTKR sh
-  AstCast v -> case shapeAstFull v of
-    FTKR sh -> FTKR sh
-  AstFromIntegral a -> case shapeAstFull a of
-    FTKR sh -> FTKR sh
+  AstCast v -> FTKR $ shapeAst v
+  AstFromIntegral a -> FTKR $ shapeAst a
   AstConst a -> FTKR $ Nested.rshape a
-  AstProjectR l p -> case shapeAstFull l of
-    FTKUntyped shs -> case shs V.! p of
-      DynamicRankedDummy @_ @sh _ _ -> FTKR $ listToShape $ shapeT @sh
-      DynamicShapedDummy{} -> error "shapeAstFull: DynamicShapedDummy"
+  AstProjectR l p -> case shapeAstHVector l V.! p of
+    DynamicRankedDummy @_ @sh _ _ -> FTKR $ listToShape $ shapeT @sh
+    DynamicShapedDummy{} -> error "shapeAstFull: DynamicShapedDummy"
   AstLetHVectorIn _ _ v -> shapeAstFull v
   AstLetHFunIn _ _ v -> shapeAstFull v
   AstRFromS @sh _ | Dict <- lemKnownNatRank (knownShS @sh) ->
@@ -159,8 +149,8 @@ shapeAstFull t = case t of
   AstLetInHVector _ _ v -> shapeAstFull v
   AstLetInHVectorS _ _ v -> shapeAstFull v
   AstShareHVector _ v -> shapeAstFull v
-  AstBuildHVector1 k (_, v) -> case shapeAstFull v of
-    FTKUntyped shs ->  FTKUntyped $ replicate1VoidHVector k shs
+  AstBuildHVector1 k (_, v) ->
+    FTKUntyped $ replicate1VoidHVector k $ shapeAstHVector v
   AstMapAccumRDer k accShs bShs _eShs _f _df _rf _acc0 _es ->
     FTKUntyped $ accShs V.++ replicate1VoidHVector k bShs
   AstMapAccumLDer k accShs bShs _eShs _f _df _rf _acc0 _es ->
@@ -185,7 +175,7 @@ lengthAst v1 = case shapeAst v1 of
 
 shapeAstHVector :: AstTensor s TKUntyped -> VoidHVector
 shapeAstHVector t = case shapeAstFull t of
-  FTKUntyped shs2 -> shs2
+  FTKUntyped shs -> shs
 
 shapeAstHFun :: TensorKind y => AstHFun y -> TensorKindFull y
 shapeAstHFun = \case

@@ -357,7 +357,7 @@ instance ADReadyS shaped => ShapedTensor (ADVal shaped) where
              => Permutation.Perm perm -> ADVal shaped r sh
              -> ADVal shaped r (Permutation.PermutePrefix perm sh)
   stranspose perm (D u (DeltaS u')) | Dict <- Nested.Internal.Shape.shsKnownShS (Nested.Internal.Shape.shsPermutePrefix perm (knownShS @sh)) =
-    dD (stranspose perm u) (DeltaS $ TransposeS @(RankedOf shaped) perm u')
+    dD (stranspose perm u) (DeltaS $ TransposeS @_ @_ @_ @(RankedOf shaped) perm u')
   sreshape :: forall sh sh2 r.
               ( GoodScalar r, KnownShS sh, KnownShS sh2
               , Nested.Internal.Shape.Product sh ~ Nested.Internal.Shape.Product sh2)
