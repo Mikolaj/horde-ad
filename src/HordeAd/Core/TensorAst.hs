@@ -549,10 +549,15 @@ instance TermValue (HVectorPseudoTensor (AstRanked FullSpan) r y) where
 instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   dshape = shapeAstHVector
   dmkHVector = AstMkHVector
-  dlambda @y shss f =
+  dlambda :: forall y. TensorKind y
+          => [VoidHVector] -> HFun y -> HFunOf (AstRanked s) y
+  dlambda shss f =
     AstLambda $ fun1LToAst shss $ \ !vvars !ll ->
                   (vvars, unRankedY (stensorKind @y) $ unHFun f ll)
-  dHApply @y f l = rankedY (stensorKind @y) $ astHApply f l
+  dHApply :: forall y. TensorKind y
+          => HFunOf (AstRanked s) y -> [HVector (AstRanked s)]
+          -> InterpretationTarget (AstRanked s) y
+  dHApply f l = rankedY (stensorKind @y) $ astHApply f l
   dunHVector (AstMkHVector l) = l
   dunHVector hVectorOf =
     let f :: Int -> DynamicTensor VoidTensor -> AstDynamic s
@@ -1157,10 +1162,15 @@ instance AstSpan s => ShapedTensor (AstRawS s) where
 instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
   dshape = shapeAstHVector . unAstRawWrap
   dmkHVector = AstRawWrap . AstMkHVector . unRawHVector
-  dlambda @y shss f =
+  dlambda :: forall y. TensorKind y
+          => [VoidHVector] -> HFun y -> HFunOf (AstRaw s) y
+  dlambda shss f =
     AstLambda $ fun1LToAst shss $ \ !vvars !ll ->
                   (vvars, unRankedY (stensorKind @y) $ unHFun f ll)
-  dHApply @y t ll =
+  dHApply :: forall y. TensorKind y
+          => HFunOf (AstRaw s) y -> [HVector (AstRaw s)]
+          -> InterpretationTarget (AstRaw s) y
+  dHApply t ll =
     let app = AstHApply t (map unRawHVector ll)
     in rawY (stensorKind @y) app
   dunHVector (AstRawWrap (AstMkHVector l)) = rawHVector l
@@ -1373,7 +1383,10 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
   dmkHVector =
     AstNoVectorizeWrap . dmkHVector . unNoVectorizeHVector
   dlambda = dlambda @(AstRanked s)
-  dHApply @y t ll =
+  dHApply :: forall y. TensorKind y
+          => HFunOf (AstNoVectorize s) y -> [HVector (AstNoVectorize s)]
+          -> InterpretationTarget (AstNoVectorize s) y
+  dHApply t ll =
     let app = dHApply t (map unNoVectorizeHVector ll)
     in noVectorizeY (stensorKind @y) $ unRankedY (stensorKind @y) app
   dunHVector =
@@ -1587,10 +1600,15 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
   dshape = shapeAstHVector . unAstNoSimplifyWrap
   dmkHVector =
     AstNoSimplifyWrap . AstMkHVector . unNoSimplifyHVector
-  dlambda @y shss f =
+  dlambda :: forall y. TensorKind y
+          => [VoidHVector] -> HFun y -> HFunOf (AstNoSimplify s) y
+  dlambda shss f =
     AstLambda $ fun1LToAst shss $ \ !vvars !ll ->
                   (vvars, unRankedY (stensorKind @y) $ unHFun f ll)
-  dHApply @y t ll =
+  dHApply :: forall y. TensorKind y
+          => HFunOf (AstNoSimplify s) y -> [HVector (AstNoSimplify s)]
+          -> InterpretationTarget (AstNoSimplify s) y
+  dHApply t ll =
     let app = AstHApply t (map unNoSimplifyHVector ll)
     in noSimplifyY (stensorKind @y) app
   dunHVector (AstNoSimplifyWrap (AstMkHVector l)) = noSimplifyHVector l
