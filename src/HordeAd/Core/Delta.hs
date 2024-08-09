@@ -520,21 +520,20 @@ data DeltaProduct ranked vx vy = DeltaProduct vx vy
 -- break injectivity?
 type instance ProductOf (DeltaR ranked) = DeltaProduct ranked
 
-instance (RankedTensor ranked, ShapedTensor (ShapedOf ranked))
+instance RankedOf (ShapedOf ranked) ~ ranked
          => ProductTensor (DeltaR ranked) where
   ttuple = DeltaProduct
   tproject1 (DeltaProduct vx _vz) = vx
   tproject2 (DeltaProduct _vx vz) = vz
   tshapeFull stk t = case stk of
-    STKR{} -> FTKR $ shapeDelta $ unDeltaR t
+    STKR{} -> shapeDeltaFull $ unDeltaR t
     STKS{} -> FTKS
     STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (tproject1 t))
                                        (tshapeFull stk2 (tproject2 t))
-    STKUntyped -> FTKUntyped $ shapeDeltaH $ unHVectorPseudoTensor t
+    STKUntyped -> shapeDeltaFull $ unHVectorPseudoTensor t
 
 shapeDeltaFull :: forall ranked y.
-                  ( TensorKind y, RankedTensor ranked
-                  , ShapedTensor (ShapedOf ranked) )
+                  (TensorKind y, RankedOf (ShapedOf ranked) ~ ranked)
                => Delta ranked y -> TensorKindFull y
 shapeDeltaFull = \case
   TupleG t1 t2 -> FTKProduct (shapeDeltaFull t1) (shapeDeltaFull t2)
@@ -611,22 +610,19 @@ shapeDeltaFull = \case
     FTKUntyped $ accShs V.++ replicate1VoidHVector k bShs
 
 shapeDelta :: forall ranked r n.
-              ( GoodScalar r, KnownNat n
-              , RankedTensor ranked, ShapedTensor (ShapedOf ranked) )
+              (GoodScalar r, KnownNat n, RankedOf (ShapedOf ranked) ~ ranked)
            => Delta ranked (TKR r n) -> IShR n
 shapeDelta t = case shapeDeltaFull t of
   FTKR sh -> sh
 
 lengthDelta :: forall ranked r n.
-                ( GoodScalar r, KnownNat n
-                , RankedTensor ranked, ShapedTensor (ShapedOf ranked) )
-             => Delta ranked (TKR r (1 + n)) -> Int
+               (GoodScalar r, KnownNat n, RankedOf (ShapedOf ranked) ~ ranked)
+            => Delta ranked (TKR r (1 + n)) -> Int
 lengthDelta d = case shapeDelta d of
   ZSR -> error "lengthDelta: impossible pattern needlessly required"
   k :$: _ -> k
 
-shapeDeltaH :: forall ranked.
-               (RankedTensor ranked, ShapedTensor (ShapedOf ranked))
+shapeDeltaH :: forall ranked. RankedOf (ShapedOf ranked) ~ ranked
             => Delta ranked TKUntyped -> VoidHVector
 shapeDeltaH t = case shapeDeltaFull t of
   FTKUntyped shs -> shs
