@@ -59,7 +59,7 @@ revProduceArtifactH
      , TermValue astvals )
   => Bool -> (astvals -> g r y) -> AstEnv (ADVal (AstRaw PrimalSpan))
   -> Value astvals -> VoidHVector
-  -> (AstArtifact, DeltaH (AstRaw PrimalSpan))
+  -> (AstArtifact, Delta (AstRaw PrimalSpan) TKUntyped)
 {-# INLINE revProduceArtifactH #-}
 revProduceArtifactH hasDt f envInit vals0 =
   let g :: HVector (AstRanked FullSpan)
@@ -93,7 +93,7 @@ revArtifactFromForwardPass
       -> HVector (AstRanked FullSpan)
       -> ADVal (HVectorPseudoTensor (AstRaw PrimalSpan)) r y)
   -> VoidHVector
-  -> (AstArtifact, DeltaH (AstRaw PrimalSpan))
+  -> (AstArtifact, Delta (AstRaw PrimalSpan) TKUntyped)
 {-# INLINE revArtifactFromForwardPass #-}
 revArtifactFromForwardPass hasDt forwardPass parameters0 =
   let -- Bangs and the compound function to fix the numbering of variables
@@ -122,7 +122,7 @@ revProduceArtifact
       -> HVectorPseudoTensor (AstRanked FullSpan) r y)
   -> AstEnv (ADVal (AstRaw PrimalSpan))
   -> VoidHVector
-  -> (AstArtifact, DeltaH (AstRaw PrimalSpan))
+  -> (AstArtifact, Delta (AstRaw PrimalSpan) TKUntyped)
 {-# INLINE revProduceArtifact #-}
 revProduceArtifact hasDt g envInit =
   revArtifactFromForwardPass hasDt (forwardPassByInterpretation g envInit)
@@ -133,7 +133,7 @@ fwdArtifactFromForwardPass
       -> HVector (AstRanked FullSpan)
       -> ADVal (HVectorPseudoTensor (AstRaw PrimalSpan)) r y)
   -> VoidHVector
-  -> (AstArtifact, DeltaH (AstRaw PrimalSpan))
+  -> (AstArtifact, Delta (AstRaw PrimalSpan) TKUntyped)
 {-# INLINE fwdArtifactFromForwardPass #-}
 fwdArtifactFromForwardPass forwardPass parameters0 =
   let !(!varsPrimalDs, hVectorDs, varsPrimal, hVectorPrimal, vars, hVector) =
@@ -152,7 +152,7 @@ fwdProduceArtifact
       -> HVectorPseudoTensor (AstRanked FullSpan) r y)
   -> AstEnv (ADVal (AstRaw PrimalSpan))
   -> VoidHVector
-  -> (AstArtifact, DeltaH (AstRaw PrimalSpan))
+  -> (AstArtifact, Delta (AstRaw PrimalSpan) TKUntyped)
 {-# INLINE fwdProduceArtifact #-}
 fwdProduceArtifact g envInit =
   fwdArtifactFromForwardPass (forwardPassByInterpretation g envInit)
@@ -722,7 +722,7 @@ astBuildHVector1Vectorize k f = build1Vectorize k $ funToAstI f
   :: VoidHVector
   -> HVectorOf (AstRanked PrimalSpan)
   -> Maybe (HVector (AstRanked PrimalSpan))
-  -> DeltaH (AstRanked PrimalSpan)
+  -> Delta (AstRanked PrimalSpan) TKUntyped
   -> HVector (AstRanked PrimalSpan) #-}
 {-# SPECIALIZE evalFromnMap
   :: EvalState (AstRanked PrimalSpan) -> EvalState (AstRanked PrimalSpan) #-}

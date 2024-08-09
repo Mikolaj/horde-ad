@@ -174,7 +174,7 @@ wrapDeltaS !(DeltaS d) = unsafePerformIO $ do
   n <- unsafeGetFreshId
   return $! DeltaS $ ShareS (NodeId n) d
 
-wrapDeltaH :: DeltaH ranked -> DeltaH ranked
+wrapDeltaH :: Delta ranked TKUntyped -> Delta ranked TKUntyped
 {-# NOINLINE wrapDeltaH #-}
 wrapDeltaH !d = unsafePerformIO $ do
   n <- unsafeGetFreshId

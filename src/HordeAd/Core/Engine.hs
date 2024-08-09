@@ -124,7 +124,7 @@ revArtifactAdapt
      , AdaptableHVector ORArray (Value astvals)
      , TermValue astvals )
   => Bool -> (astvals -> tgtAstVals) -> Value astvals
-  -> (AstArtifact, DeltaH (AstRaw PrimalSpan))
+  -> (AstArtifact, Delta (AstRaw PrimalSpan)TKUntyped )
 revArtifactAdapt hasDt f vals =
   let g hVector = HVectorPseudoTensor
                   $ toHVectorOf $ f $ parseHVector (fromValue vals) hVector
@@ -137,7 +137,7 @@ revArtifactAdapt hasDt f vals =
      , AdaptableHVector ORArray (Value astvals)
      , TermValue astvals )
   => Bool -> (astvals -> AstRanked FullSpan Double n) -> Value astvals
-  -> (AstArtifact, DeltaH (AstRaw PrimalSpan)) #-}
+  -> (AstArtifact, Delta (AstRaw PrimalSpan) TKUntyped) #-}
 
 revProduceArtifactWithoutInterpretation
   :: (AdaptableHVector (ADVal (AstRaw PrimalSpan))
@@ -145,7 +145,7 @@ revProduceArtifactWithoutInterpretation
   => Bool
   -> (HVector (ADVal (AstRaw PrimalSpan)) -> ADVal primal_g r y)
   -> VoidHVector
-  -> (AstArtifact, DeltaH (AstRaw PrimalSpan))
+  -> (AstArtifact, Delta (AstRaw PrimalSpan) TKUntyped)
 {-# INLINE revProduceArtifactWithoutInterpretation #-}
 revProduceArtifactWithoutInterpretation hasDt f =
   let g hVectorPrimal vars hVector =
@@ -226,7 +226,7 @@ fwdArtifactAdapt
      , AdaptableHVector ORArray (Value astvals)
      , TermValue astvals )
   => (astvals -> tgtAstVals) -> Value astvals
-  -> (AstArtifact, DeltaH (AstRaw PrimalSpan))
+  -> (AstArtifact, Delta (AstRaw PrimalSpan) TKUntyped)
 fwdArtifactAdapt f vals =
   let g hVector = HVectorPseudoTensor
                   $ toHVectorOf $ f $ parseHVector (fromValue vals) hVector

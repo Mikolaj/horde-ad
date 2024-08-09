@@ -654,7 +654,7 @@ instance (ProductTensor ranked, HVectorTensor ranked (ShapedOf ranked))
 
 ahhToHVector
   :: forall ranked. RankedOf (ShapedOf ranked) ~ ranked
-  => HVector ranked -> DeltaH ranked -> HVector (ADVal ranked)
+  => HVector ranked -> Delta ranked TKUntyped -> HVector (ADVal ranked)
 ahhToHVector h h' =
   let selectDual :: Int -> DynamicTensor ranked -> DynamicTensor (ADVal ranked)
       selectDual i d = case d of

@@ -40,7 +40,7 @@ module HordeAd.Core.Delta
     gradientFromDeltaTK, gradientFromDeltaH
   , derivativeFromDeltaTK, derivativeFromDeltaH
     -- * Abstract syntax trees of the delta expressions
-  , DeltaR (..), DeltaS (..), DeltaH (..), Delta(..)
+  , DeltaR (..), DeltaS (..), Delta(..)
   , -- * Delta expression identifiers
     NodeId (..), InputId, toInputIdR, toInputIdS
     -- * Exported to be specialized elsewhere
@@ -122,7 +122,7 @@ gradientFromDeltaTK !parameters0 value !mdt deltaTopLevel =
 gradientFromDeltaH
   :: forall ranked. ADReady ranked
   => VoidHVector -> HVectorOf ranked
-  -> Maybe (HVector ranked) -> DeltaH ranked
+  -> Maybe (HVector ranked) -> Delta ranked TKUntyped
   -> HVector ranked
 gradientFromDeltaH !parameters0 value !mdt deltaTopLevel =
   let shDt = dshape value
@@ -155,7 +155,7 @@ derivativeFromDeltaTK dim deltaTopLevel ds =
 
 derivativeFromDeltaH
   :: forall ranked. ADReady ranked
-  => Int -> DeltaH ranked -> HVector ranked
+  => Int -> Delta ranked TKUntyped -> HVector ranked
   -> HVectorOf ranked
 derivativeFromDeltaH dim deltaTopLevel ds =
   -- EvalState is too complex for the forward derivative, but since
@@ -349,7 +349,7 @@ data Delta :: RankedTensorType -> TensorKindType -> Type where
          => Delta ranked (TKS r sh)
          -> Delta ranked (TKR r (X.Rank sh))
   RFromH :: (GoodScalar r, KnownNat n)
-         => DeltaH ranked -> Int -> Delta ranked (TKR r n)
+         => Delta ranked TKUntyped -> Int -> Delta ranked (TKR r n)
 
   ZeroS :: (GoodScalar r, KnownShS sh) => Delta ranked (TKS r sh)
   InputS :: forall ranked r sh. (GoodScalar r, KnownShS sh)
@@ -455,19 +455,11 @@ data Delta :: RankedTensorType -> TensorKindType -> Type where
          => Delta ranked (TKR r (X.Rank sh))
          -> Delta ranked (TKS r sh)
   SFromH :: (GoodScalar r, KnownShS sh)
-         => DeltaH ranked -> Int -> Delta ranked (TKS r sh)
+         => Delta ranked TKUntyped -> Int -> Delta ranked (TKS r sh)
 
-deriving instance ( RankedOf (ShapedOf ranked) ~ ranked
-                  , Show (IntOf ranked)
-                  , Show (IntOf (ShapedOf ranked))
-                  , CRanked ranked Show
-                  , CShaped (ShapedOf ranked) Show )
-                  => Show (Delta ranked y)
-
-type role DeltaH nominal
-data DeltaH :: RankedTensorType -> Type where
-  ShareH :: NodeId ranked (TKR Float 0) -> DeltaH ranked -> DeltaH ranked
-  HToH :: HVector (DeltaR ranked) -> DeltaH ranked
+  ShareH :: NodeId ranked (TKR Float 0) -> Delta ranked TKUntyped
+         -> Delta ranked TKUntyped
+  HToH :: HVector (DeltaR ranked) -> Delta ranked TKUntyped
   MapAccumR
     :: SNat k
     -> VoidHVector
@@ -479,7 +471,7 @@ data DeltaH :: RankedTensorType -> Type where
     -> HFun TKUntyped
     -> HVector (DeltaR ranked)
     -> HVector (DeltaR ranked)
-    -> DeltaH ranked
+    -> Delta ranked TKUntyped
   MapAccumL
     :: SNat k
     -> VoidHVector
@@ -491,15 +483,14 @@ data DeltaH :: RankedTensorType -> Type where
     -> HFun TKUntyped
     -> HVector (DeltaR ranked)
     -> HVector (DeltaR ranked)
-    -> DeltaH ranked
+    -> Delta ranked TKUntyped
 
-deriving instance ( Show (IntOf ranked)
+deriving instance ( RankedOf (ShapedOf ranked) ~ ranked
+                  , Show (IntOf ranked)
                   , Show (IntOf (ShapedOf ranked))
                   , CRanked ranked Show
-                  , CShaped (ShapedOf ranked) Show
-                  , CRanked (DeltaR ranked) Show
-                  , CShaped (DeltaS (ShapedOf ranked)) Show )
-                  => Show (DeltaH ranked)
+                  , CShaped (ShapedOf ranked) Show )
+                  => Show (Delta ranked y)
 
 -- This is needed for the Show instances due to HVector (Delta...)
 -- referring to ShapedOf (Delta..).
@@ -507,7 +498,7 @@ type instance RankedOf (DeltaS shaped) = DeltaR (RankedOf shaped)
 
 type instance ShapedOf (DeltaR ranked) = DeltaS (ShapedOf ranked)
 
-type instance HVectorOf (DeltaR ranked) = DeltaH ranked
+type instance HVectorOf (DeltaR ranked) = Delta ranked TKUntyped
 
 type role DeltaProduct nominal representational representational
 type DeltaProduct :: RankedTensorType -> Type -> Type -> Type
@@ -527,7 +518,7 @@ instance (RankedTensor ranked, ShapedTensor (ShapedOf ranked))
     STKS{} -> FTKS
     STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (tproject1 t))
                                        (tshapeFull stk2 (tproject2 t))
-    STKUntyped -> FTKUntyped $ error "TODO: shapeDeltaH"
+    STKUntyped -> FTKUntyped $ shapeDeltaH $ unHVectorPseudoTensor t
 
 shapeDelta :: forall ranked r n.
               ( GoodScalar r, KnownNat n
@@ -574,7 +565,7 @@ lengthDelta d = case shapeDelta d of
 
 shapeDeltaH :: forall ranked.
                (RankedTensor ranked, ShapedTensor (ShapedOf ranked))
-            => DeltaH ranked -> VoidHVector
+            => Delta ranked TKUntyped -> VoidHVector
 shapeDeltaH = \case
   ShareH _ d -> shapeDeltaH d
   HToH v ->
@@ -652,7 +643,7 @@ data EvalState ranked = EvalState
       -- and not take into account the whole summed context when finally
       -- evaluating
   , hdMap :: EM.EnumMap (NodeId ranked (TKR Float 0)) (HVector ranked)
-  , hnMap :: EM.EnumMap (NodeId ranked (TKR Float 0)) (DeltaH ranked)
+  , hnMap :: EM.EnumMap (NodeId ranked (TKR Float 0)) (Delta ranked TKUntyped)
   }
 
 -- | Delta expressions naturally denote forward derivatives, as encoded
@@ -1017,7 +1008,7 @@ evalHVector s as as' = V.foldl' evalDynamic s $ V.zip as as'
 
 evalH
   :: forall ranked. ADReady ranked
-  => EvalState ranked -> HVector ranked -> DeltaH ranked
+  => EvalState ranked -> HVector ranked -> Delta ranked TKUntyped
   -> EvalState ranked
 evalH !s !c = \case
   ShareH n d ->
@@ -1296,7 +1287,7 @@ fwdR dimR params s = \case
 
 fwdH
   :: forall ranked. ADReady ranked
-  => Int -> HVector ranked -> EvalState ranked -> DeltaH ranked
+  => Int -> HVector ranked -> EvalState ranked -> Delta ranked TKUntyped
   -> (EvalState ranked, HVectorOf ranked)
 fwdH dimR params s = \case
   ShareH n d ->

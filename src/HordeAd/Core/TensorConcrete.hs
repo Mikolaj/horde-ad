@@ -405,7 +405,7 @@ instance AdaptableHVector ORArray
   :: VoidHVector
   -> HVector ORArray
   -> Maybe (HVector ORArray)
-  -> DeltaH ORArray
+  -> Delta ORArray TKUntyped
   -> HVector ORArray #-}
 {-# SPECIALIZE evalFromnMap
   :: EvalState ORArray -> EvalState ORArray #-}
