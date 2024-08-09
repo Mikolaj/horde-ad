@@ -653,6 +653,7 @@ instance (ProductTensor ranked, HVectorTensor ranked (ShapedOf ranked))
                                        (tshapeFull stk2 (tproject2 t))
     STKUntyped -> let D u _ = hVectorADValToADVal $ unHVectorPseudoTensor t
                   in tshapeFull stk u
+  tmkHVector = id
 
 ahhToHVector
   :: forall ranked. RankedOf (ShapedOf ranked) ~ ranked

@@ -496,6 +496,7 @@ instance RankedOf (ShapedOf ranked) ~ ranked
     STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (tproject1 t))
                                        (tshapeFull stk2 (tproject2 t))
     STKUntyped -> shapeDeltaFull $ unHVectorPseudoTensor t
+  tmkHVector = HToH
 
 shapeDeltaFull :: forall ranked y.
                   (TensorKind y, RankedOf (ShapedOf ranked) ~ ranked)

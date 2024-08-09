@@ -165,6 +165,7 @@ instance ProductTensor DummyDual where
     STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (tproject1 t))
                                        (tshapeFull stk2 (tproject2 t))
     STKUntyped -> error "tshapeFull of DummyDual"
+  tmkHVector = error "tmkHVector of DummyDual"
 
 instance ShapedTensor OSArray where
   sletTKIn _ a f = f a
@@ -317,6 +318,7 @@ instance ProductTensor ORArray where
     STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (tproject1 t))
                                        (tshapeFull stk2 (tproject2 t))
     STKUntyped -> FTKUntyped $ voidFromHVector $ unHVectorPseudoTensor t
+  tmkHVector = id
 
 oRdmapAccumR
   :: SNat k

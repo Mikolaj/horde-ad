@@ -247,6 +247,7 @@ instance ProductTensor (AstRanked s) where
     STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (tproject1 t))
                                        (tshapeFull stk2 (tproject2 t))
     STKUntyped -> shapeAstFull $ unHVectorPseudoTensor t
+  tmkHVector = AstMkHVector
 
 rankedY :: forall y s.
            STensorKindType y -> AstTensor s y
@@ -941,6 +942,7 @@ instance ProductTensor (AstRaw s) where
     STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (tproject1 t))
                                        (tshapeFull stk2 (tproject2 t))
     STKUntyped -> shapeAstFull $ unAstRawWrap $ unHVectorPseudoTensor t
+  tmkHVector = AstRawWrap . AstMkHVector . unRawHVector
 
 rawY :: forall y s.
            STensorKindType y -> AstTensor s y
@@ -1240,6 +1242,7 @@ instance ProductTensor (AstNoVectorize s) where
     STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (tproject1 t))
                                        (tshapeFull stk2 (tproject2 t))
     STKUntyped -> shapeAstFull $ unAstNoVectorizeWrap $ unHVectorPseudoTensor t
+  tmkHVector = AstNoVectorizeWrap . AstMkHVector . unNoVectorizeHVector
 
 noVectorizeY :: forall y s.
            STensorKindType y -> AstTensor s y
@@ -1382,7 +1385,7 @@ astNoVectorizeS2 = AstNoVectorizeS . unAstShaped
 instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
   dshape = dshape . unAstNoVectorizeWrap
   dmkHVector =
-    AstNoVectorizeWrap . dmkHVector . unNoVectorizeHVector
+    AstNoVectorizeWrap . AstMkHVector . unNoVectorizeHVector
   dlambda = dlambda @(AstRanked s)
   dHApply :: forall y. TensorKind y
           => HFunOf (AstNoVectorize s) y -> [HVector (AstNoVectorize s)]
@@ -1458,6 +1461,7 @@ instance ProductTensor (AstNoSimplify s) where
     STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (tproject1 t))
                                        (tshapeFull stk2 (tproject2 t))
     STKUntyped -> shapeAstFull $ unAstNoSimplifyWrap $ unHVectorPseudoTensor t
+  tmkHVector = AstNoSimplifyWrap . AstMkHVector . unNoSimplifyHVector
 
 noSimplifyY :: forall y s.
            STensorKindType y -> AstTensor s y

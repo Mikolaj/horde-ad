@@ -230,7 +230,7 @@ interpretAst !env = \case
   AstD @y2 u u' ->
     let t1 = interpretAstPrimal env u
         t2 = interpretAstDual env u'
-    in mapInterpretationTarget2 @(PrimalOf ranked) @(DualOf ranked) @ranked
+    in mapInterpretationTarget2Weak @(PrimalOf ranked) @(DualOf ranked) @ranked
          rD sD
          (stensorKind @y2)
          t1 t2
