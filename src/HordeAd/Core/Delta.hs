@@ -66,6 +66,7 @@ import Data.Traversable (mapAccumL)
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import Foreign.C (CInt)
+import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat, sameNat, type (+), type (<=))
 import Text.Show.Functions ()
 import Type.Reflection (typeRep)
@@ -93,17 +94,8 @@ gradientFromDeltaTK
   -> Delta ranked y
   -> HVector ranked
 gradientFromDeltaTK !parameters0 value !mdt deltaTopLevel =
-  let ftk = tshapeFull (stensorKind @y) value
-      oneAtF :: TensorKindFull z -> InterpretationTarget ranked z
-      oneAtF = \case
-        FTKR sh -> rzero sh
-        FTKS -> srepl 1
-        FTKProduct ftk1 ftk2 -> ttuple (oneAtF ftk1) (oneAtF ftk2)
-        FTKUntyped ssh ->
-          HVectorPseudoTensor $ dmkHVector
-          $ mapHVectorShaped (const $ srepl @_ @_ @(ShapedOf ranked) 1)
-          $ V.map dynamicFromVoid ssh
-      dt = fromMaybe (oneAtF ftk) mdt
+  let oneAtF = interpretationConstant 1 $ tshapeFull (stensorKind @y) value
+      dt = fromMaybe oneAtF mdt
       s0 = initEvalState parameters0
       s1 = evalR s0 dt deltaTopLevel
       s2 = evalFromnMap s1
@@ -117,6 +109,19 @@ gradientFromDeltaTK !parameters0 value !mdt deltaTopLevel =
         MTKProduct{} -> error "toDynamicTensor"
         MTKUntyped _hv -> error "TODO"
   in V.fromList $ map toDynamicTensor $ DMap.elems $ iMap s2
+
+interpretationConstant :: forall ranked y. ADReady ranked
+                       => (forall r. GoodScalar r => r)
+                       -> TensorKindFull y -> InterpretationTarget ranked y
+interpretationConstant r = \case
+  FTKR sh -> rrepl (toList sh) r
+  FTKS -> srepl r
+  FTKProduct ftk1 ftk2 -> ttuple (interpretationConstant r ftk1)
+                                 (interpretationConstant r ftk2)
+  FTKUntyped ssh ->  -- TODO: if r is 0, this would be cheaper with Dummy
+    HVectorPseudoTensor $ dmkHVector
+    $ mapHVectorShaped (const $ srepl @_ @_ @(ShapedOf ranked) r)
+    $ V.map dynamicFromVoid ssh
 
 gradientFromDeltaH
   :: forall ranked. ADReady ranked
