@@ -59,7 +59,7 @@ revProduceArtifactH
      , TermValue astvals )
   => Bool -> (astvals -> g r y) -> AstEnv (ADVal (AstRaw PrimalSpan))
   -> Value astvals -> VoidHVector
-  -> (AstArtifact, Delta (AstRaw PrimalSpan) TKUntyped)
+  -> (AstArtifact TKUntyped TKUntyped, Delta (AstRaw PrimalSpan) TKUntyped)
 {-# INLINE revProduceArtifactH #-}
 revProduceArtifactH hasDt f envInit vals0 =
   let g :: HVector (AstRanked FullSpan)
@@ -93,7 +93,7 @@ revArtifactFromForwardPass
       -> HVector (AstRanked FullSpan)
       -> ADVal (HVectorPseudoTensor (AstRaw PrimalSpan)) Float '())
   -> VoidHVector
-  -> (AstArtifact, Delta (AstRaw PrimalSpan) TKUntyped)
+  -> (AstArtifact TKUntyped TKUntyped, Delta (AstRaw PrimalSpan) TKUntyped)
 {-# INLINE revArtifactFromForwardPass #-}
 revArtifactFromForwardPass hasDt forwardPass parameters0 =
   let -- Bangs and the compound function to fix the numbering of variables
@@ -111,8 +111,8 @@ revArtifactFromForwardPass hasDt forwardPass parameters0 =
               then Just $ HVectorPseudoTensor $ dmkHVector $ rawHVector astsDt
               else Nothing
         !gradient = gradientFromDelta parameters0 primalBody mdt delta
-        unGradient = dunlet (dmkHVector gradient)
-        unPrimal = dunlet $ unHVectorPseudoTensor primalBody
+        unGradient = HVectorPseudoTensor $ dunlet (dmkHVector gradient)
+        unPrimal = HVectorPseudoTensor $ dunlet $ unHVectorPseudoTensor primalBody
     in ( AstArtifact varsDt varsPrimal unGradient unPrimal
        , delta )
 
@@ -122,7 +122,7 @@ revProduceArtifact
       -> HVectorPseudoTensor (AstRanked FullSpan) Float '())
   -> AstEnv (ADVal (AstRaw PrimalSpan))
   -> VoidHVector
-  -> (AstArtifact, Delta (AstRaw PrimalSpan) TKUntyped)
+  -> (AstArtifact TKUntyped TKUntyped, Delta (AstRaw PrimalSpan) TKUntyped)
 {-# INLINE revProduceArtifact #-}
 revProduceArtifact hasDt g envInit =
   revArtifactFromForwardPass hasDt (forwardPassByInterpretation g envInit)
@@ -133,7 +133,7 @@ fwdArtifactFromForwardPass
       -> HVector (AstRanked FullSpan)
       -> ADVal (HVectorPseudoTensor (AstRaw PrimalSpan)) Float '())
   -> VoidHVector
-  -> (AstArtifact, Delta (AstRaw PrimalSpan) TKUntyped)
+  -> (AstArtifact TKUntyped TKUntyped, Delta (AstRaw PrimalSpan) TKUntyped)
 {-# INLINE fwdArtifactFromForwardPass #-}
 fwdArtifactFromForwardPass forwardPass parameters0 =
   let !(!varsPrimalDs, hVectorDs, varsPrimal, hVectorPrimal, vars, hVector) =
@@ -143,8 +143,8 @@ fwdArtifactFromForwardPass forwardPass parameters0 =
   let !derivative =
         unHVectorPseudoTensor
         $ derivativeFromDelta (V.length parameters0) delta hVectorDs
-      unDerivative = dunlet derivative
-      unPrimal = dunlet primalBody
+      unDerivative = HVectorPseudoTensor $ dunlet derivative
+      unPrimal = HVectorPseudoTensor $ dunlet primalBody
   in ( AstArtifact varsPrimalDs varsPrimal unDerivative unPrimal
      , delta )
 
@@ -153,7 +153,7 @@ fwdProduceArtifact
       -> HVectorPseudoTensor (AstRanked FullSpan) Float '())
   -> AstEnv (ADVal (AstRaw PrimalSpan))
   -> VoidHVector
-  -> (AstArtifact, Delta (AstRaw PrimalSpan) TKUntyped)
+  -> (AstArtifact TKUntyped TKUntyped, Delta (AstRaw PrimalSpan) TKUntyped)
 {-# INLINE fwdProduceArtifact #-}
 fwdProduceArtifact g envInit =
   fwdArtifactFromForwardPass (forwardPassByInterpretation g envInit)
@@ -614,7 +614,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     in \parameters -> assert (voidHVectorMatches parameters0 parameters) $
       let env = extendEnvHVector @(AstRanked s) vars parameters emptyEnv
       in simplifyInlineHVector $ unHVectorPseudoTensor
-         $ interpretAst env $ unAstRawWrap gradient
+         $ interpretAst env $ unAstRawWrap $ unHVectorPseudoTensor gradient
         -- this interpretation both substitutes parameters for the variables and
         -- reinterprets @PrimalSpan@ terms in @s@ terms;
         -- we could shortcut when @s@ is @PrimalSpan@ and @parameters@
@@ -632,7 +632,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
         g !hv = unHFun f [hv]
         (AstArtifact varsDt vars gradient _primal, _delta) =
           revProduceArtifact True g emptyEnv shs
-     in AstLambda ([varsDt, vars], simplifyInlineHVector $ unAstRawWrap gradient)
+     in AstLambda ([varsDt, vars], simplifyInlineHVector $ unAstRawWrap $ unHVectorPseudoTensor gradient)
   dfwd :: VoidHVector
        -> HFun TKUntyped
        -> AstHFun TKUntyped
@@ -645,7 +645,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
         (AstArtifact varsDt vars derivative _primal, _delta) =
           fwdProduceArtifact g emptyEnv shs
      in AstLambda ( [varsDt, vars]
-                  , simplifyInlineHVector $ unAstRawWrap derivative )
+                  , simplifyInlineHVector $ unAstRawWrap $ unHVectorPseudoTensor derivative )
   dmapAccumRDer
     :: Proxy (AstRanked s)
     -> SNat k
@@ -945,8 +945,8 @@ instance ProductTensor (AstRaw s) where
   tmkHVector = AstRawWrap . AstMkHVector . unRawHVector
 
 rawY :: forall y s.
-           STensorKindType y -> AstTensor s y
-        -> InterpretationTarget (AstRaw s) y
+        STensorKindType y -> AstTensor s y
+     -> InterpretationTarget (AstRaw s) y
 rawY stk t = case stk of
   STKR{} -> AstRaw t
   STKS{} -> AstRawS t
@@ -955,8 +955,8 @@ rawY stk t = case stk of
   STKUntyped -> HVectorPseudoTensor $ AstRawWrap t
 
 unRawY :: forall y s.
-             STensorKindType y -> InterpretationTarget (AstRaw s) y
-          -> AstTensor s y
+          STensorKindType y -> InterpretationTarget (AstRaw s) y
+       -> AstTensor s y
 unRawY stk t = case stk of
   STKR{} -> unAstRaw t
   STKS{} -> unAstRawS t

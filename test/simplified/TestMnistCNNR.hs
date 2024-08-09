@@ -311,7 +311,8 @@ mnistTestCaseCNNO prefix epochs maxBatches kh kw c_out n_hidden
            (AstArtifact varDtAgain vars1Again gradientRaw primal, _) =
              revProduceArtifactH False f envInit valsInit
                                  (voidFromHVector hVectorInit)
-           gradient = simplifyInlineHVectorRaw gradientRaw
+           gradient = HVectorPseudoTensor $ simplifyInlineHVectorRaw
+                      $ unHVectorPseudoTensor gradientRaw
            vars1AndInputAgain = vars1Again ++ [varGlyphD, varLabelD]
            art = AstArtifact varDtAgain vars1AndInputAgain gradient primal
            go :: [MnistDataBatchR r] -> (HVector ORArray, StateAdam)

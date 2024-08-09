@@ -34,10 +34,15 @@ import HordeAd.Util.SizedList
 
 -- * The joint inlining and simplification term transformation
 
-simplifyArtifact :: AstArtifact -> AstArtifact
+simplifyArtifact :: AstArtifact TKUntyped TKUntyped -> AstArtifact TKUntyped TKUntyped
 simplifyArtifact art =
-  art { artDerivative = simplifyInlineHVectorRaw $ artDerivative art
-      , artPrimal = simplifyInlineHVectorRaw $ artPrimal art }
+  art { artDerivative =
+          HVectorPseudoTensor $ simplifyInlineHVectorRaw
+          $ unHVectorPseudoTensor $ artDerivative art
+      , artPrimal =
+          HVectorPseudoTensor $ simplifyInlineHVectorRaw
+          $ unHVectorPseudoTensor $ artPrimal art
+      }
 
 -- Potentially, some more inlining could be triggered after the second
 -- simplification, but it's probably rare, so we don't insisit on a fixpoint.

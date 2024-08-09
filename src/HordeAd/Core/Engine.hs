@@ -124,7 +124,7 @@ revArtifactAdapt
      , AdaptableHVector ORArray (Value astvals)
      , TermValue astvals )
   => Bool -> (astvals -> tgtAstVals) -> Value astvals
-  -> (AstArtifact, Delta (AstRaw PrimalSpan)TKUntyped )
+  -> (AstArtifact TKUntyped TKUntyped, Delta (AstRaw PrimalSpan) TKUntyped )
 revArtifactAdapt hasDt f vals =
   let g hVector = HVectorPseudoTensor
                   $ toHVectorOf $ f $ parseHVector (fromValue vals) hVector
@@ -137,7 +137,7 @@ revArtifactAdapt hasDt f vals =
      , AdaptableHVector ORArray (Value astvals)
      , TermValue astvals )
   => Bool -> (astvals -> AstRanked FullSpan Double n) -> Value astvals
-  -> (AstArtifact, Delta (AstRaw PrimalSpan) TKUntyped) #-}
+  -> (AstArtifact TKUntyped TKUntyped, Delta (AstRaw PrimalSpan) TKUntyped) #-}
 
 revProduceArtifactWithoutInterpretation
   :: (AdaptableHVector (ADVal (AstRaw PrimalSpan))
@@ -145,7 +145,7 @@ revProduceArtifactWithoutInterpretation
   => Bool
   -> (HVector (ADVal (AstRaw PrimalSpan)) -> ADVal primal_g r y)
   -> VoidHVector
-  -> (AstArtifact, Delta (AstRaw PrimalSpan) TKUntyped)
+  -> (AstArtifact TKUntyped TKUntyped, Delta (AstRaw PrimalSpan) TKUntyped)
 {-# INLINE revProduceArtifactWithoutInterpretation #-}
 revProduceArtifactWithoutInterpretation hasDt f =
   let g hVectorPrimal vars hVector =
@@ -167,13 +167,14 @@ forwardPassByApplication g hVectorPrimal _vars _hVector =
   in g varInputs
 
 revEvalArtifact
-  :: AstArtifact
+  :: AstArtifact TKUntyped TKUntyped
   -> HVector ORArray
   -> Maybe (HVector ORArray)
   -> (HVector ORArray, HVector ORArray)
 {-# INLINE revEvalArtifact #-}
 revEvalArtifact (AstArtifact varsDt vars
-                             (AstRawWrap gradient) (AstRawWrap primal))
+                             (HVectorPseudoTensor (AstRawWrap gradient))
+                             (HVectorPseudoTensor (AstRawWrap primal)))
                 parameters mdt =
   let domsB = voidFromVars varsDt
       dt1 = mapHVectorShaped (const $ srepl 1) $ V.map dynamicFromVoid domsB
@@ -226,7 +227,7 @@ fwdArtifactAdapt
      , AdaptableHVector ORArray (Value astvals)
      , TermValue astvals )
   => (astvals -> tgtAstVals) -> Value astvals
-  -> (AstArtifact, Delta (AstRaw PrimalSpan) TKUntyped)
+  -> (AstArtifact TKUntyped TKUntyped, Delta (AstRaw PrimalSpan) TKUntyped)
 fwdArtifactAdapt f vals =
   let g hVector = HVectorPseudoTensor
                   $ toHVectorOf $ f $ parseHVector (fromValue vals) hVector
@@ -235,7 +236,7 @@ fwdArtifactAdapt f vals =
   in fwdProduceArtifact g emptyEnv voidH
 
 fwdEvalArtifact
-  :: AstArtifact
+  :: AstArtifact TKUntyped TKUntyped
   -> HVector ORArray
   -> HVector ORArray
   -> (HVector ORArray, HVector ORArray)
@@ -244,8 +245,8 @@ fwdEvalArtifact (AstArtifact varDs vars derivative primal) parameters ds =
   if hVectorsMatch parameters ds then
     let env = extendEnvHVector vars parameters emptyEnv
         envDs = extendEnvHVector varDs ds env
-        derivativeTensor = unHVectorPseudoTensor $ interpretAst envDs $ unAstRawWrap derivative
-        primalTensor = unHVectorPseudoTensor $ interpretAst env $ unAstRawWrap primal
+        derivativeTensor = unHVectorPseudoTensor $ interpretAst envDs $ unAstRawWrap $ unHVectorPseudoTensor derivative
+        primalTensor = unHVectorPseudoTensor $ interpretAst env $ unAstRawWrap $ unHVectorPseudoTensor primal
     in (derivativeTensor, primalTensor)
  else error "fwdEvalArtifact: forward derivative input and sensitivity arguments should have same shapes"
 

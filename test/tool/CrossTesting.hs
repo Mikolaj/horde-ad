@@ -109,7 +109,7 @@ rev' f valsOR =
         revEvalArtifact7 artifactsGradAst9 parameters
       gradient9 = parseHVector vals advalGrad9
       revEvalArtifact7
-        :: AstArtifact
+        :: AstArtifact TKUntyped TKUntyped
         -> HVector ORArray
         -> (HVector ORArray, FlipR OR.Array r m)
       revEvalArtifact7 a1 a2 =

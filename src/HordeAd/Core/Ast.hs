@@ -177,11 +177,12 @@ varNameToAstVarId (AstVarName varId) = varId
 
 -- The reverse derivative artifact from step 6) of our full pipeline.
 -- The same type can also hold the forward derivative artifact.
-data AstArtifact = AstArtifact
+type role AstArtifact nominal nominal
+data AstArtifact y z = AstArtifact
   { artVarsDt     :: [AstDynamicVarName]
   , artVarsPrimal :: [AstDynamicVarName]
-  , artDerivative :: HVectorOf (AstRaw PrimalSpan)
-  , artPrimal     :: HVectorOf (AstRaw PrimalSpan)
+  , artDerivative :: InterpretationTarget (AstRaw PrimalSpan) y
+  , artPrimal     :: InterpretationTarget (AstRaw PrimalSpan) z
   }
 
 -- | This is the (arbitrarily) chosen representation of terms denoting

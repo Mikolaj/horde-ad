@@ -1027,36 +1027,40 @@ printAstHVectorPrettyButNested renames t =
 
 printArtifactSimple
   :: IntMap String
-  -> AstArtifact
+  -> AstArtifact TKUntyped TKUntyped
   -> String
 printArtifactSimple renames (AstArtifact varsDt vars1 derivative _) =
   let varsPP = map (printAstDynamicVarNameBrief renames) $ varsDt ++ vars1
   in "\\" ++ unwords varsPP
-          ++ " -> " ++ printAstHVectorSimple renames (unAstRawWrap derivative)
+          ++ " -> " ++ printAstHVectorSimple
+                         renames (unAstRawWrap $ unHVectorPseudoTensor derivative)
 
 printArtifactPretty
   :: IntMap String
-  -> AstArtifact
+  -> AstArtifact TKUntyped TKUntyped
   -> String
 printArtifactPretty renames (AstArtifact varsDt vars1 derivative _) =
   let varsPP = map (printAstDynamicVarNameBrief renames) $ varsDt ++ vars1
   in "\\" ++ unwords varsPP
-          ++ " -> " ++ printAstHVectorPretty renames (unAstRawWrap derivative)
+          ++ " -> " ++ printAstHVectorPretty
+                         renames (unAstRawWrap $ unHVectorPseudoTensor derivative)
 
 printArtifactPrimalSimple
   :: IntMap String
-  -> AstArtifact
+  -> AstArtifact TKUntyped TKUntyped
   -> String
 printArtifactPrimalSimple renames (AstArtifact _ vars1 _ primal) =
   let varsPP = map (printAstDynamicVarNameBrief renames) vars1
   in "\\" ++ unwords varsPP
-          ++ " -> " ++ printAstHVectorSimple renames (unAstRawWrap primal)
+          ++ " -> " ++ printAstHVectorSimple
+                         renames (unAstRawWrap $ unHVectorPseudoTensor primal)
 
 printArtifactPrimalPretty
   :: IntMap String
-  -> AstArtifact
+  -> AstArtifact TKUntyped TKUntyped
   -> String
 printArtifactPrimalPretty renames (AstArtifact _ vars1 _ primal) =
   let varsPP = map (printAstDynamicVarNameBrief renames) vars1
   in "\\" ++ unwords varsPP
-          ++ " -> " ++ printAstHVectorPretty renames (unAstRawWrap primal)
+          ++ " -> " ++ printAstHVectorPretty
+                         renames (unAstRawWrap $ unHVectorPseudoTensor primal)
