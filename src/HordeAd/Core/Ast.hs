@@ -531,6 +531,7 @@ deriving instance Show (AstTensor s y)
 
 type AstDynamic (s :: AstSpanType) = DynamicTensor (AstRanked s)
 
+type role AstHFun nominal
 data AstHFun y where
   AstLambda :: ~([[AstDynamicVarName]], AstTensor PrimalSpan y)
             -> AstHFun y

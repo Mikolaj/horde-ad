@@ -55,7 +55,6 @@ import Data.Array.Shape qualified as Sh
 import Data.Dependent.EnumMap.Strict (DEnumMap)
 import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Dependent.Sum (DSum (..))
-import Data.EnumMap.Strict qualified as EM
 import Data.Int (Int64)
 import Data.Kind (Type)
 import Data.List (foldl')
@@ -149,7 +148,7 @@ derivativeFromDeltaTK
 derivativeFromDeltaTK dim deltaTopLevel ds =
   -- EvalState is too complex for the forward derivative, but since
   -- it's already defined, let's use it.
-  let s0 = EvalState DMap.empty DMap.empty DMap.empty EM.empty EM.empty
+  let s0 = EvalState DMap.empty DMap.empty DMap.empty
       !(!_s2, !c) = fwdR dim ds s0 deltaTopLevel
   in c
 
@@ -160,7 +159,7 @@ derivativeFromDeltaH
 derivativeFromDeltaH dim deltaTopLevel ds =
   -- EvalState is too complex for the forward derivative, but since
   -- it's already defined, let's use it.
-  let s0 = EvalState DMap.empty DMap.empty DMap.empty EM.empty EM.empty
+  let s0 = EvalState DMap.empty DMap.empty DMap.empty
       !(!_s2, !c) = fwdR dim ds s0 deltaTopLevel
   in unHVectorPseudoTensor c
 
@@ -457,7 +456,7 @@ data Delta :: RankedTensorType -> TensorKindType -> Type where
   SFromH :: (GoodScalar r, KnownShS sh)
          => Delta ranked TKUntyped -> Int -> Delta ranked (TKS r sh)
 
-  ShareH :: NodeId ranked (TKR Float 0) -> Delta ranked TKUntyped
+  ShareH :: NodeId ranked TKUntyped -> Delta ranked TKUntyped
          -> Delta ranked TKUntyped
   HToH :: HVector (DeltaR ranked) -> Delta ranked TKUntyped
   MapAccumR
@@ -628,22 +627,20 @@ toInputIdS i = assert (i >= 0) $ InputId i
 -- 2. key `member` dMap == nMap!key is DynamicRanked
 type role EvalState nominal
 data EvalState ranked = EvalState
-  { iMap  :: DEnumMap (InputId ranked) (InterpretationTargetM ranked)
+  { iMap :: DEnumMap (InputId ranked) (InterpretationTargetM ranked)
       -- ^ eventually, cotangents of objective function inputs
       -- (eventually copied to the vector representing the gradient
       -- of the objective function);
       -- the identifiers need to be contiguous and start at 0
-  , dMap  :: DEnumMap (NodeId ranked) (InterpretationTargetD ranked)
+  , dMap :: DEnumMap (NodeId ranked) (InterpretationTargetD ranked)
       -- ^ eventually, cotangents of non-input subterms indexed
       -- by their node identifiers
-  , nMap  :: DEnumMap (NodeId ranked) (Delta ranked)
+  , nMap :: DEnumMap (NodeId ranked) (Delta ranked)
       -- ^ nodes left to be evaluated;
       -- we can't evaluate them at once, because their other shared copies
       -- may still not be processed, so we'd not take advantage of the sharing
       -- and not take into account the whole summed context when finally
       -- evaluating
-  , hdMap :: EM.EnumMap (NodeId ranked (TKR Float 0)) (HVector ranked)
-  , hnMap :: EM.EnumMap (NodeId ranked (TKR Float 0)) (Delta ranked TKUntyped)
   }
 
 -- | Delta expressions naturally denote forward derivatives, as encoded
@@ -727,8 +724,6 @@ initEvalState !parameters0 =
              $ map dynamicFromVoid $ V.toList parameters0
       dMap = DMap.empty
       nMap = DMap.empty
-      hdMap = EM.empty
-      hnMap = EM.empty
   in EvalState {..}
 
 
@@ -786,7 +781,9 @@ addInterpretationTargetD a b = case (a, b) of
   (DTKProduct ta1 ta2, DTKProduct tb1 tb2) ->
     DTKProduct (addInterpretationTargetD ta1 tb1)
                (addInterpretationTargetD ta2 tb2)
-  _ -> error "TODO"
+  (DTKUntyped hv1, DTKUntyped hv2) ->
+    DTKUntyped $ dmkHVector
+    $ V.zipWith addDynamic (dunHVector hv1) (dunHVector hv2)
 
 addInterpretationTargetM ::
   ADReady ranked
@@ -803,7 +800,9 @@ addInterpretationTargetM a b = case (a, b) of
   (MTKProduct ta1 ta2, MTKProduct tb1 tb2) ->
     MTKProduct (addInterpretationTargetM ta1 tb1)
                (addInterpretationTargetM ta2 tb2)
-  _ -> error "TODO"
+  (MTKUntyped hv1, MTKUntyped hv2) ->
+    MTKUntyped $ dmkHVector
+    $ V.zipWith addDynamic (dunHVector hv1) (dunHVector hv2)
 
 evalR
   :: forall y ranked. ADReady ranked
@@ -991,12 +990,13 @@ evalR !s !c = \case
     assert (case d of
               ShareH{} -> False  -- wasteful and nonsensical
               _ -> True)
-    $ case EM.lookup n $ hnMap s of
+    $ let cs = DTKUntyped $ unHVectorPseudoTensor c
+      in case DMap.lookup n $ nMap s of
         Just{} ->
-          s {hdMap = EM.adjust (V.zipWith addDynamic (dunHVector $ unHVectorPseudoTensor c)) n $ hdMap s}
+          s {dMap = DMap.adjust (addInterpretationTargetD cs) n $ dMap s}
         Nothing ->
-          s { hnMap = EM.insert n d $ hnMap s
-            , hdMap = EM.insert n (dunHVector $ unHVectorPseudoTensor c) $ hdMap s }
+          s { nMap = DMap.insert n d $ nMap s
+            , dMap = DMap.insert n cs $ dMap s }
   HToH v -> evalHVector s (dunHVector $ unHVectorPseudoTensor c) v
   MapAccumR k accShs bShs eShs q es _df rf acc0' es' ->
     let accLen = V.length accShs
@@ -1054,30 +1054,30 @@ evalHVector s as as' = V.foldl' evalDynamic s $ V.zip as as'
 
 evalFromnMap :: ADReady ranked
              => EvalState ranked -> EvalState ranked
-evalFromnMap s@EvalState{nMap, dMap, hnMap, hdMap} =
+evalFromnMap s@EvalState{nMap, dMap} =
   -- We discharge the non-vector cases before the vector ones, because
   -- the latter tend to create and store more cases and so enlarge
   -- the working set of cases.
   case DMap.maxViewWithKey nMap of
     Just (n@(NodeId @_ @y _) :=> d, nMap2) ->
       let s2 = s {nMap = nMap2}
+          errorMissing :: a
+          errorMissing = error $ "evalFromnMap: missing cotangent " ++ show n
           s3 = case stensorKind @y of
             STKR{} -> case DMap.lookup n dMap of
               Just (DTKR c) -> evalRRuntimeSpecialized s2 c d
-              Nothing -> error $ "evalFromnMap: missing cotangent " ++ show n
+              Nothing -> errorMissing
             STKS{} -> case DMap.lookup n dMap of
               Just (DTKS c) -> evalSRuntimeSpecialized s2 c d
-              Nothing -> error $ "evalFromnMap: missing cotangent " ++ show n
-            STKProduct{} -> error "evalFromnMap: corrupted nMap"  -- TODO
-            STKUntyped -> error "evalFromnMap: corrupted nMap"  -- TODO
+              Nothing -> errorMissing
+            STKProduct{} -> error "TODO" {- case DMap.lookup n dMap of
+              Just (DTKProduct c1 c2) -> evalR s2 (ttuple c1 c2) d
+              Nothing -> errorMissing -}
+            STKUntyped -> case DMap.lookup n dMap of
+              Just (DTKUntyped c) -> evalR s2 (HVectorPseudoTensor c) d
+              Nothing -> errorMissing
       in evalFromnMap s3
-    Nothing -> case EM.maxViewWithKey hnMap of
-      Just ((n, d), hnMap2) ->
-        let s2 = s {hnMap = hnMap2}
-            s3 = evalR s2 (HVectorPseudoTensor $ dmkHVector
-                           $ hdMap EM.! n) d
-        in evalFromnMap s3
-      Nothing -> s  -- loop ends
+    Nothing -> s  -- loop ends
 
 {-
         -- The general case is given as the last one below,
@@ -1090,13 +1090,13 @@ evalFromnMap s@EvalState{nMap, dMap, hnMap, hdMap} =
               f v = if isTensorDummy v
                     then treplicate0ND sh 0 `OD.update` [(ixs, c)]
                     else v `OD.update` [(ixs, v `rindex0D` ixs + c)]
-          in s {iMap = EM.adjust f i $ iMap s}
+          in s {iMap = DMap.adjust f i $ iMap s}
         Index0 (ShareR n d) ixs' sh ->
           let ixs = indexToList ixs'
-          in case EM.lookup n $ nMap s of
+          in case DMap.lookup n $ nMap s of
             Just (DynamicRanked _) ->
               let f v = v `OD.update` [(ixs, v `rindex0D` ixs + c)]
-              in s {dMap = EM.adjust f n $ dMap s}
+              in s {dMap = DMap.adjust f n $ dMap s}
                 -- This would be an asymptotic optimization compared to
                 -- the general case below, if not for the non-mutable update,
                 -- which implies copying the whole @v@ vector,
@@ -1104,8 +1104,8 @@ evalFromnMap s@EvalState{nMap, dMap, hnMap, hdMap} =
                 -- but not adding to each cell of @v@).
             Nothing ->
               let v = treplicate0ND sh 0 `OD.update` [(ixs, c)]
-              in s { nMap = EM.insert n (DynamicRanked d) $ nMap s
-                   , dMap = EM.insert n v $ dMap s }
+              in s { nMap = DMap.insert n (DynamicRanked d) $ nMap s
+                   , dMap = DMap.insert n v $ dMap s }
             _ -> error "evalFromnMap: corrupted nMap"
 -}
 
@@ -1282,13 +1282,13 @@ fwdR dimR params s = \case
                 in (s2, sfromD $ dunHVector (unHVectorPseudoTensor v) V.! i)
 
   ShareH n d ->
-    case EM.lookup n $ hdMap s of
-      Just hv -> (s, HVectorPseudoTensor $ dmkHVector hv)
+    case DMap.lookup n $ dMap s of
+      Just (DTKUntyped hv) -> (s, HVectorPseudoTensor hv)
       Nothing ->
         let (s2, cRaw) = fwdR dimR params s d
-            cShared = dunHVector $ dshare $ unHVectorPseudoTensor cRaw
-            s3 = s2 {hdMap = EM.insert n cShared (hdMap s2)}
-        in (s3, HVectorPseudoTensor $ dmkHVector cShared)
+            cShared = dshare $ unHVectorPseudoTensor cRaw
+            s3 = s2 {dMap = DMap.insert n (DTKUntyped cShared) (dMap s2)}
+        in (s3, HVectorPseudoTensor cShared)
   HToH v -> second (HVectorPseudoTensor . dmkHVector)
             $ fwdHVector dimR params s v
   MapAccumR k accShs bShs eShs q es df _rf acc0' es' ->
