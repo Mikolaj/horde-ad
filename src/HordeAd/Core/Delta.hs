@@ -129,7 +129,7 @@ gradientFromDeltaH !parameters0 value !mdt deltaTopLevel =
       dt = fromMaybe (mapHVectorShaped (const $ srepl 1)
                       $ V.map dynamicFromVoid shDt) mdt
       s0 = initEvalState parameters0
-      s1 = evalH s0 dt deltaTopLevel
+      s1 = evalR s0 (HVectorPseudoTensor $ dmkHVector dt) deltaTopLevel
       s2 = evalFromnMap s1
       toDynamicTensor :: Some (InterpretationTargetM ranked)
                       -> DynamicTensor ranked
@@ -161,8 +161,8 @@ derivativeFromDeltaH dim deltaTopLevel ds =
   -- EvalState is too complex for the forward derivative, but since
   -- it's already defined, let's use it.
   let s0 = EvalState DMap.empty DMap.empty DMap.empty EM.empty EM.empty
-      !(!_s2, !c) = fwdH dim ds s0 deltaTopLevel
-  in c
+      !(!_s2, !c) = fwdR dim ds s0 deltaTopLevel
+  in unHVectorPseudoTensor c
 
 
 -- * Abstract syntax trees of the delta expressions
@@ -910,7 +910,7 @@ evalR !s !c = \case
     let cs = V.map dynamicFromVoid $ shapeDeltaH d
         ci = DynamicRanked c
     in assert (dynamicsMatch (cs V.! i) ci) $
-       evalH s (cs V.// [(i, ci)]) d
+       evalR s (HVectorPseudoTensor $ dmkHVector $ cs V.// [(i, ci)]) d
         -- should be used only with small vectors or we end up with the same
         -- problem of summing a lot of one-hots as in indexing
 
@@ -985,7 +985,53 @@ evalR !s !c = \case
     let cs = V.map dynamicFromVoid $ shapeDeltaH d
         ci = DynamicShaped c
     in assert (dynamicsMatch (cs V.! i) ci) $
-       evalH s (cs V.// [(i, ci)]) d
+       evalR s (HVectorPseudoTensor $ dmkHVector $ cs V.// [(i, ci)]) d
+
+  ShareH n d ->
+    assert (case d of
+              ShareH{} -> False  -- wasteful and nonsensical
+              _ -> True)
+    $ case EM.lookup n $ hnMap s of
+        Just{} ->
+          s {hdMap = EM.adjust (V.zipWith addDynamic (dunHVector $ unHVectorPseudoTensor c)) n $ hdMap s}
+        Nothing ->
+          s { hnMap = EM.insert n d $ hnMap s
+            , hdMap = EM.insert n (dunHVector $ unHVectorPseudoTensor c) $ hdMap s }
+  HToH v -> evalHVector s (dunHVector $ unHVectorPseudoTensor c) v
+  MapAccumR k accShs bShs eShs q es _df rf acc0' es' ->
+    let accLen = V.length accShs
+        bLen = V.length bShs
+        (c0, crest) = V.splitAt accLen $ dunHVector $ unHVectorPseudoTensor c
+        dacc_desUnshared =
+          dmapAccumL (Proxy @ranked)
+                     k accShs eShs (bShs V.++ accShs V.++ eShs)
+                     (\dx db_acc_e ->
+                        let (db, acc_e) = V.splitAt bLen db_acc_e
+                        in unHVectorPseudoTensor
+                           $ unHFun rf [dx V.++ db, acc_e])
+                     (dmkHVector c0)
+                     (dmkHVector $ V.concat [crest, q, es])
+        dacc_des = dunHVector $ dshare dacc_desUnshared
+        (dacc, des) = V.splitAt accLen dacc_des
+        s2 = evalHVector s dacc acc0'
+    in evalHVector s2 des es'
+  MapAccumL k accShs bShs eShs q es _df rf acc0' es' ->
+    let accLen = V.length accShs
+        bLen = V.length bShs
+        (c0, crest) = V.splitAt accLen $ dunHVector $ unHVectorPseudoTensor c
+        dacc_desUnshared =
+          dmapAccumR (Proxy @ranked)
+                     k accShs eShs (bShs V.++ accShs V.++ eShs)
+                     (\dx db_acc_e ->
+                        let (db, acc_e) = V.splitAt bLen db_acc_e
+                        in unHVectorPseudoTensor
+                           $ unHFun rf [dx V.++ db, acc_e])
+                     (dmkHVector c0)
+                     (dmkHVector $ V.concat [crest, q, es])
+        dacc_des = dunHVector $ dshare dacc_desUnshared
+        (dacc, des) = V.splitAt accLen dacc_des
+        s2 = evalHVector s dacc acc0'
+    in evalHVector s2 des es'
 
 evalDynamic
   :: ADReady ranked
@@ -1005,57 +1051,6 @@ evalHVector
   => EvalState ranked -> HVector ranked -> HVector (DeltaR ranked)
   -> EvalState ranked
 evalHVector s as as' = V.foldl' evalDynamic s $ V.zip as as'
-
-evalH
-  :: forall ranked. ADReady ranked
-  => EvalState ranked -> HVector ranked -> Delta ranked TKUntyped
-  -> EvalState ranked
-evalH !s !c = \case
-  ShareH n d ->
-    assert (case d of
-              ShareH{} -> False  -- wasteful and nonsensical
-              _ -> True)
-    $ case EM.lookup n $ hnMap s of
-        Just{} ->
-          s {hdMap = EM.adjust (V.zipWith addDynamic c) n $ hdMap s}
-        Nothing ->
-          s { hnMap = EM.insert n d $ hnMap s
-            , hdMap = EM.insert n c $ hdMap s }
-  HToH v -> evalHVector s c v
-  MapAccumR k accShs bShs eShs q es _df rf acc0' es' ->
-    let accLen = V.length accShs
-        bLen = V.length bShs
-        (c0, crest) = V.splitAt accLen c
-        dacc_desUnshared =
-          dmapAccumL (Proxy @ranked)
-                     k accShs eShs (bShs V.++ accShs V.++ eShs)
-                     (\dx db_acc_e ->
-                        let (db, acc_e) = V.splitAt bLen db_acc_e
-                        in unHVectorPseudoTensor
-                           $ unHFun rf [dx V.++ db, acc_e])
-                     (dmkHVector c0)
-                     (dmkHVector $ V.concat [crest, q, es])
-        dacc_des = dunHVector $ dshare dacc_desUnshared
-        (dacc, des) = V.splitAt accLen dacc_des
-        s2 = evalHVector s dacc acc0'
-    in evalHVector s2 des es'
-  MapAccumL k accShs bShs eShs q es _df rf acc0' es' ->
-    let accLen = V.length accShs
-        bLen = V.length bShs
-        (c0, crest) = V.splitAt accLen c
-        dacc_desUnshared =
-          dmapAccumR (Proxy @ranked)
-                     k accShs eShs (bShs V.++ accShs V.++ eShs)
-                     (\dx db_acc_e ->
-                        let (db, acc_e) = V.splitAt bLen db_acc_e
-                        in unHVectorPseudoTensor
-                           $ unHFun rf [dx V.++ db, acc_e])
-                     (dmkHVector c0)
-                     (dmkHVector $ V.concat [crest, q, es])
-        dacc_des = dunHVector $ dshare dacc_desUnshared
-        (dacc, des) = V.splitAt accLen dacc_des
-        s2 = evalHVector s dacc acc0'
-    in evalHVector s2 des es'
 
 evalFromnMap :: ADReady ranked
              => EvalState ranked -> EvalState ranked
@@ -1079,7 +1074,8 @@ evalFromnMap s@EvalState{nMap, dMap, hnMap, hdMap} =
     Nothing -> case EM.maxViewWithKey hnMap of
       Just ((n, d), hnMap2) ->
         let s2 = s {hnMap = hnMap2}
-            s3 = evalH s2 (hdMap EM.! n) d
+            s3 = evalR s2 (HVectorPseudoTensor $ dmkHVector
+                           $ hdMap EM.! n) d
         in evalFromnMap s3
       Nothing -> s  -- loop ends
 
@@ -1217,8 +1213,8 @@ fwdR dimR params s = \case
   RFromS (SFromR d) ->
     fwdR dimR params s d  -- no information lost, so no checks
   RFromS d -> second rfromS $ fwdR dimR params s d
-  RFromH d i -> let (s2, v) = fwdH dimR params s d
-                in (s2, rfromD $ dunHVector v V.! i)
+  RFromH d i -> let (s2, v) = fwdR dimR params s d
+                in (s2, rfromD $ dunHVector (unHVectorPseudoTensor v) V.! i)
 
   ZeroS -> (s, srepl 0)
   InputS @_ @r @sh (InputId i) ->
@@ -1282,44 +1278,42 @@ fwdR dimR params s = \case
       Just Refl -> fwdR dimR params s d
       _ -> error "fwdR: different shapes in SFromR(RFromS)"
   SFromR d -> second sfromR $ fwdR dimR params s d
-  SFromH d i -> let (s2, v) = fwdH dimR params s d
-                in (s2, sfromD $ dunHVector v V.! i)
+  SFromH d i -> let (s2, v) = fwdR dimR params s d
+                in (s2, sfromD $ dunHVector (unHVectorPseudoTensor v) V.! i)
 
-fwdH
-  :: forall ranked. ADReady ranked
-  => Int -> HVector ranked -> EvalState ranked -> Delta ranked TKUntyped
-  -> (EvalState ranked, HVectorOf ranked)
-fwdH dimR params s = \case
   ShareH n d ->
     case EM.lookup n $ hdMap s of
-      Just hv -> (s, dmkHVector hv)
+      Just hv -> (s, HVectorPseudoTensor $ dmkHVector hv)
       Nothing ->
-        let (s2, cRaw) = fwdH dimR params s d
-            cShared = dunHVector $ dshare cRaw
+        let (s2, cRaw) = fwdR dimR params s d
+            cShared = dunHVector $ dshare $ unHVectorPseudoTensor cRaw
             s3 = s2 {hdMap = EM.insert n cShared (hdMap s2)}
-        in (s3, dmkHVector cShared)
-  HToH v -> second dmkHVector $ fwdHVector dimR params s v
+        in (s3, HVectorPseudoTensor $ dmkHVector cShared)
+  HToH v -> second (HVectorPseudoTensor . dmkHVector)
+            $ fwdHVector dimR params s v
   MapAccumR k accShs bShs eShs q es df _rf acc0' es' ->
     let (s2, cacc0) = fwdHVector dimR params s acc0'
         (s3, ces) = fwdHVector dimR params s2 es'
         eLen = V.length eShs
-    in (s3, dmapAccumR (Proxy @ranked)
-                       k accShs bShs (eShs V.++ accShs V.++ eShs)
-                       (\dacc de_acc_e ->
-                          let (de, acc_e) = V.splitAt eLen de_acc_e
-                          in unHVectorPseudoTensor
-                             $ unHFun df [dacc V.++ de, acc_e])
-                       (dmkHVector cacc0)
-                       (dmkHVector $ V.concat [ces, q, es]))
+    in (s3, HVectorPseudoTensor
+            $ dmapAccumR (Proxy @ranked)
+                          k accShs bShs (eShs V.++ accShs V.++ eShs)
+                          (\dacc de_acc_e ->
+                             let (de, acc_e) = V.splitAt eLen de_acc_e
+                             in unHVectorPseudoTensor
+                                $ unHFun df [dacc V.++ de, acc_e])
+                          (dmkHVector cacc0)
+                          (dmkHVector $ V.concat [ces, q, es]))
   MapAccumL k accShs bShs eShs q es df _rf acc0' es' ->
     let (s2, cacc0) = fwdHVector dimR params s acc0'
         (s3, ces) = fwdHVector dimR params s2 es'
         eLen = V.length eShs
-    in (s3, dmapAccumL (Proxy @ranked)
-                       k accShs bShs (eShs V.++ accShs V.++ eShs)
-                       (\dacc de_acc_e ->
-                          let (de, acc_e) = V.splitAt eLen de_acc_e
-                          in unHVectorPseudoTensor
-                             $ unHFun df [dacc V.++ de, acc_e])
-                       (dmkHVector cacc0)
-                       (dmkHVector $ V.concat [ces, q, es]))
+    in (s3, HVectorPseudoTensor
+            $ dmapAccumL (Proxy @ranked)
+                          k accShs bShs (eShs V.++ accShs V.++ eShs)
+                          (\dacc de_acc_e ->
+                             let (de, acc_e) = V.splitAt eLen de_acc_e
+                             in unHVectorPseudoTensor
+                                $ unHFun df [dacc V.++ de, acc_e])
+                          (dmkHVector cacc0)
+                          (dmkHVector $ V.concat [ces, q, es]))
