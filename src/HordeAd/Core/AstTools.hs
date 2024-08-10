@@ -6,7 +6,8 @@
 module HordeAd.Core.AstTools
   ( -- * Shape calculation
     shapeAstFull, shapeAst
-  , lengthAst, shapeAstHVector, shapeAstHFun, domainShapesAstHFun
+  , lengthAst, shapeAstHVector
+  , shapeAstHFun, shapeAstHFunTKNew, domainShapesAstHFun, domainShapeAstHFunTKNew
     -- * Variable occurrence detection
   , varInAst, varInAstBool, varInIndex
   , varInIndexS
@@ -102,6 +103,7 @@ shapeAstFull t = case t of
     DynamicShapedDummy{} -> error "shapeAstFull: DynamicShapedDummy"
   AstLetHVectorIn _ _ v -> shapeAstFull v
   AstLetHFunIn _ _ v -> shapeAstFull v
+  AstLetHFunInTKNew _ _ v -> shapeAstFull v
   AstRFromS @sh _ | Dict <- lemKnownNatRank (knownShS @sh) ->
     FTKR $ listToShape $ shapeT @sh
 
@@ -138,14 +140,17 @@ shapeAstFull t = case t of
   AstProjectS{} -> FTKS
   AstLetHVectorInS{} -> FTKS
   AstLetHFunInS{} -> FTKS
+  AstLetHFunInSTKNew{} -> FTKS
   AstSFromR{} -> FTKS
 
   AstMkHVector v ->
     FTKUntyped
     $ V.map (voidFromDynamicF (shapeToList . shapeAst . unAstRanked)) v
   AstHApply v _ll -> shapeAstHFun v
+  AstHApplyTKNew v _ll -> shapeAstHFunTKNew v
   AstLetHVectorInHVector _ _ v -> shapeAstFull v
   AstLetHFunInHVector _ _ v -> shapeAstFull v
+  AstLetHFunInHVectorTKNew _ _ v -> shapeAstFull v
   AstLetInHVector _ _ v -> shapeAstFull v
   AstLetInHVectorS _ _ v -> shapeAstFull v
   AstShareHVector _ v -> shapeAstFull v
@@ -154,6 +159,10 @@ shapeAstFull t = case t of
   AstMapAccumRDer k accShs bShs _eShs _f _df _rf _acc0 _es ->
     FTKUntyped $ accShs V.++ replicate1VoidHVector k bShs
   AstMapAccumLDer k accShs bShs _eShs _f _df _rf _acc0 _es ->
+    FTKUntyped $ accShs V.++ replicate1VoidHVector k bShs
+  AstMapAccumRDerTKNew k accShs bShs _eShs _f _df _rf _acc0 _es ->
+    FTKUntyped $ accShs V.++ replicate1VoidHVector k bShs
+  AstMapAccumLDerTKNew k accShs bShs _eShs _f _df _rf _acc0 _es ->
     FTKUntyped $ accShs V.++ replicate1VoidHVector k bShs
 
 -- This is cheap and dirty. We don't shape-check the terms and we don't
@@ -182,10 +191,20 @@ shapeAstHFun = \case
   AstLambda ~(_vvars, l) -> shapeAstFull l
   AstVarHFun _shss shs _var -> shs
 
+shapeAstHFunTKNew :: TensorKind y => AstHFunTKNew y -> TensorKindFull y
+shapeAstHFunTKNew = \case
+  AstLambdaTKNew ~(_vvars, l) -> shapeAstFull l
+  AstVarHFunTKNew _shss shs _var -> shs
+
 domainShapesAstHFun :: AstHFun y -> [VoidHVector]
 domainShapesAstHFun = \case
   AstLambda ~(vvars, _l) -> map voidFromVars vvars
   AstVarHFun shss _shs _var -> shss
+
+domainShapeAstHFunTKNew :: AstHFunTKNew y -> [VoidHVector]
+domainShapeAstHFunTKNew = \case
+  AstLambdaTKNew ~(vvars, _l) -> map voidFromVars vvars
+  AstVarHFunTKNew shss _shs _var -> shss
 
 
 -- * Variable occurrence detection
@@ -238,6 +257,7 @@ varInAst var = \case
   AstProjectR l _p -> varInAst var l  -- conservative
   AstLetHVectorIn _vars l v -> varInAst var l || varInAst var v
   AstLetHFunIn _var2 f v -> varInAstHFun var f || varInAst var v
+  AstLetHFunInTKNew _var2 f v -> varInAstHFunTKNew var f || varInAst var v
   AstRFromS v -> varInAst var v
 
   AstLetS _var2 u v -> varInAst var u || varInAst var v
@@ -268,14 +288,15 @@ varInAst var = \case
   AstProjectS l _p -> varInAst var l  -- conservative
   AstLetHVectorInS _vars l v -> varInAst var l || varInAst var v
   AstLetHFunInS _var2 f v -> varInAstHFun var f || varInAst var v
+  AstLetHFunInSTKNew _var2 f v -> varInAstHFunTKNew var f || varInAst var v
   AstSFromR v -> varInAst var v
 
   AstMkHVector l -> any (varInAstDynamic var) l
   AstHApply t ll -> varInAstHFun var t || any (any (varInAstDynamic var)) ll
-  AstLetHVectorInHVector _vars2 u v ->
-    varInAst var u || varInAst var v
-  AstLetHFunInHVector _var2 f v ->
-    varInAstHFun var f || varInAst var v
+  AstHApplyTKNew t ll -> varInAstHFunTKNew var t || any (any (varInAstDynamic var)) ll
+  AstLetHVectorInHVector _vars2 u v -> varInAst var u || varInAst var v
+  AstLetHFunInHVector _var2 f v -> varInAstHFun var f || varInAst var v
+  AstLetHFunInHVectorTKNew _var2 f v -> varInAstHFunTKNew var f || varInAst var v
   AstLetInHVector _var2 u v -> varInAst var u || varInAst var v
   AstLetInHVectorS _var2 u v -> varInAst var u || varInAst var v
   AstShareHVector _ v -> varInAst var v
@@ -283,6 +304,10 @@ varInAst var = \case
   AstMapAccumRDer _k _accShs _bShs _eShs _f _df _rf acc0 es ->
     varInAst var acc0 || varInAst var es
   AstMapAccumLDer _k _accShs _bShs _eShs _f _df _rf acc0 es ->
+    varInAst var acc0 || varInAst var es
+  AstMapAccumRDerTKNew _k _accShs _bShs _eShs _f _df _rf acc0 es ->
+    varInAst var acc0 || varInAst var es
+  AstMapAccumLDerTKNew _k _accShs _bShs _eShs _f _df _rf acc0 es ->
     varInAst var acc0 || varInAst var es
 
 varInIndex :: AstVarId -> AstIndex n -> Bool
@@ -303,6 +328,11 @@ varInAstHFun :: AstVarId -> AstHFun y -> Bool
 varInAstHFun var = \case
   AstLambda{} -> False  -- we take advantage of the term being closed
   AstVarHFun _shss _shs var2 -> fromEnum var == fromEnum var2
+
+varInAstHFunTKNew :: AstVarId -> AstHFunTKNew y -> Bool
+varInAstHFunTKNew var = \case
+  AstLambdaTKNew{} -> False  -- we take advantage of the term being closed
+  AstVarHFunTKNew _shss _shs var2 -> fromEnum var == fromEnum var2
 
 varInAstBool :: AstVarId -> AstBool -> Bool
 varInAstBool var = \case

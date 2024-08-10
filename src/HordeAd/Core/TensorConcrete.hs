@@ -69,6 +69,9 @@ type instance HVectorOf ORArray = HVector ORArray
 type instance HFunOf ORArray y =
   [HVector ORArray] -> InterpretationTarget ORArray y
 
+type instance HFunOfTKNew ORArray y =
+  [HVector ORArray] -> InterpretationTarget ORArray y
+
 type instance PrimalOf ORArray = ORArray
 
 type instance DualOf ORArray = DummyDual
@@ -116,6 +119,7 @@ instance RankedTensor ORArray where
   rconst = FlipR
   rletHVectorIn = (&)
   rletHFunIn = (&)
+  rletHFunInTKNew = (&)
   rfromS = FlipR . Nested.stoRanked . runFlipS
 
   rscaleByScalar s v =
@@ -214,6 +218,7 @@ instance ShapedTensor OSArray where
   sconst = FlipS
   sletHVectorIn = (&)
   sletHFunIn = (&)
+  sletHFunInTKNew = (&)
   sfromR :: forall r sh. (GoodScalar r, KnownShS sh)
          => ORArray r (X.Rank sh) -> OSArray r sh
   sfromR = FlipS . flip Nested.rcastToShaped knownShS . runFlipR
@@ -232,10 +237,13 @@ instance HVectorTensor ORArray OSArray where
   dshape = voidFromHVector
   dmkHVector = id
   dlambda _ f = unHFun f  -- the eta-expansion is needed for typing
+  dlambdaTKNew _ f = unHFunTKNew f
   dHApply f = f
+  dHApplyTKNew f = f
   dunHVector = id
   dletHVectorInHVector = (&)
   dletHFunInHVector = (&)
+  dletHFunInHVectorTKNew = (&)
   rletInHVector = (&)
   sletInHVector = (&)
   dbuild1 k f =

@@ -29,8 +29,10 @@ module HordeAd.Core.AstSimplify
   , astCast, astCastS, astFromIntegral, astFromIntegralS
   , astProject, astProjectS, astRFromS, astSFromR
   , astPrimalPart, astDualPart
-  , astLetHVectorIn, astLetHVectorInS, astLetHFunIn, astLetHFunInS, astHApply
-  , astLetHVectorInHVector, astLetHFunInHVector
+  , astLetHVectorIn, astLetHVectorInS
+  , astLetHFunIn, astLetHFunInTKNew, astLetHFunInS, astLetHFunInSTKNew
+  , astHApply, astHApplyTKNew, astLetHVectorInHVector
+  , astLetHFunInHVector, astLetHFunInHVectorTKNew
   , astLetInHVector, astLetInHVectorS
     -- * The simplifying bottom-up pass
   , simplifyAst
@@ -314,6 +316,7 @@ astNonIndexStep t = case t of
   Ast.AstProjectR l p -> astProject l p
   Ast.AstLetHVectorIn vars u v -> astLetHVectorIn vars u v
   Ast.AstLetHFunIn var u v -> astLetHFunIn var u v
+  Ast.AstLetHFunInTKNew var u v -> astLetHFunInTKNew var u v
   Ast.AstRFromS v -> astRFromS v
 
   Ast.AstLetS var u v -> astLetS var u v
@@ -350,6 +353,7 @@ astNonIndexStep t = case t of
   Ast.AstProjectS l p -> astProjectS l p
   Ast.AstLetHVectorInS vars u v -> astLetHVectorInS vars u v
   Ast.AstLetHFunInS var u v -> astLetHFunInS var u v
+  Ast.AstLetHFunInSTKNew var u v -> astLetHFunInSTKNew var u v
   Ast.AstSFromR v -> astSFromR v
   _ -> t  -- TODO
 
@@ -566,6 +570,8 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIndex m1)) =
     astLetHVectorIn vars l (astIndexRec v ix)
   Ast.AstLetHFunIn var f v ->
     astLetHFunIn var f (astIndexRec v ix)
+  Ast.AstLetHFunInTKNew var f v ->
+    astLetHFunInTKNew var f (astIndexRec v ix)
   Ast.AstRFromS @sh t ->
     let (takeSh, dropSh) = splitAt (valueOf @m) (shapeT @sh)
     in withShapeP takeSh $ \(Proxy @p_take) ->
@@ -576,6 +582,7 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIndex m1)) =
                                   t (ShapedList.listToIndex $ indexToList ix)
 
   Ast.AstHApply{} -> Ast.AstIndex v0 ix
+  Ast.AstHApplyTKNew{} -> Ast.AstIndex v0 ix
 
 astIndexKnobsS
   :: forall shm shn s r.
@@ -810,6 +817,8 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS shm1)) | Dict <- s
     astLetHVectorInS vars l (astIndexRec v ix)
   Ast.AstLetHFunInS var f v ->
     astLetHFunInS var f (astIndexRec v ix)
+  Ast.AstLetHFunInSTKNew var f v ->
+    astLetHFunInSTKNew var f (astIndexRec v ix)
   Ast.AstSFromR t ->
     withListSh (Proxy @shn) $ \_ ->
     withListSh (Proxy @shm) $ \_ ->
@@ -818,6 +827,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS shm1)) | Dict <- s
       astSFromR $ astIndexKnobsR knobs t (ShapedList.shapedToIndex ix)
 
   Ast.AstHApply{} -> Ast.AstIndexS v0 ix
+  Ast.AstHApplyTKNew{} -> Ast.AstIndexS v0 ix
 
 -- TODO: compared to rletIx, it adds many lets, not one, but does not
 -- create other (and non-simplified!) big terms and also uses astIsSmall,
@@ -1167,6 +1177,8 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
       astLetHVectorIn vars l (astGatherCase sh4 v (vars4, ix4))
     Ast.AstLetHFunIn var f v ->
       astLetHFunIn var f (astGatherCase sh4 v (vars4, ix4))
+    Ast.AstLetHFunInTKNew var f v ->
+      astLetHFunInTKNew var f (astGatherCase sh4 v (vars4, ix4))
     Ast.AstRFromS{} {- @sh v -} -> Ast.AstGather sh4 v4 (vars4, ix4)
       -- TODO: this is broken
       {-
@@ -1182,6 +1194,7 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
                      , ShapedList.listToSized $ indexToList ix4 ) -}
 
     Ast.AstHApply{} -> Ast.AstGather sh4 v4 (vars4, ix4)
+    Ast.AstHApplyTKNew{} -> Ast.AstGather sh4 v4 (vars4, ix4)
 
 gatherFromNF :: forall m p. (KnownNat m, KnownNat p)
              => AstVarList m -> AstIndex (1 + p) -> Bool
@@ -2069,6 +2082,7 @@ astPrimalPart t = case t of
   Ast.AstProjectR{} -> Ast.AstPrimalPart t  -- should get simplified early
   Ast.AstLetHVectorIn vars l v -> astLetHVectorIn vars l (astPrimalPart v)
   Ast.AstLetHFunIn var f v -> astLetHFunIn var f (astPrimalPart v)
+  Ast.AstLetHFunInTKNew var f v -> astLetHFunInTKNew var f (astPrimalPart v)
   Ast.AstRFromS v -> astRFromS $ astPrimalPart v
 
   Ast.AstLetS var u v -> astLetS var u (astPrimalPart v)
@@ -2096,6 +2110,7 @@ astPrimalPart t = case t of
   Ast.AstLetHVectorInS vars l v ->
     astLetHVectorInS vars l (astPrimalPart v)
   Ast.AstLetHFunInS var f v -> astLetHFunInS var f (astPrimalPart v)
+  Ast.AstLetHFunInSTKNew var f v -> astLetHFunInSTKNew var f (astPrimalPart v)
   Ast.AstSFromR v -> astSFromR $ astPrimalPart v
   _ -> error "TODO"
 
@@ -2138,6 +2153,7 @@ astDualPart t = case t of
   Ast.AstProjectR{} -> Ast.AstDualPart t
   Ast.AstLetHVectorIn vars l v -> astLetHVectorIn vars l (astDualPart v)
   Ast.AstLetHFunIn var f v -> astLetHFunIn var f (astDualPart v)
+  Ast.AstLetHFunInTKNew var f v -> astLetHFunInTKNew var f (astDualPart v)
   Ast.AstRFromS v -> astRFromS $ astDualPart v
 
   Ast.AstLetS var u v -> astLetS var u (astDualPart v)
@@ -2162,6 +2178,7 @@ astDualPart t = case t of
   Ast.AstProjectS{} -> Ast.AstDualPart t
   Ast.AstLetHVectorInS var f v -> astLetHVectorInS var f (astDualPart v)
   Ast.AstLetHFunInS var f v -> astLetHFunInS var f (astDualPart v)
+  Ast.AstLetHFunInSTKNew var f v -> astLetHFunInSTKNew var f (astDualPart v)
   Ast.AstSFromR v -> astSFromR $ astDualPart v
   _ -> error "TODO"
 
@@ -2175,6 +2192,17 @@ astHApply t ll = case t of
               l (zip vvars ll)
       _ -> Ast.AstHApply t ll
   Ast.AstVarHFun{} -> Ast.AstHApply t ll
+
+astHApplyTKNew :: forall s y. (AstSpan s, TensorKind y)
+          => AstHFunTKNew y -> [HVector (AstRanked s)] -> AstTensor s y
+astHApplyTKNew t ll = case t of
+  Ast.AstLambdaTKNew ~(vvars, l) ->
+    case (sameAstSpan @s @PrimalSpan, sameTensorKind @y @TKUntyped)of
+      (Just Refl, Just Refl) ->
+        foldr (\(vars, l2) -> astLetHVectorInHVector vars (Ast.AstMkHVector l2))
+              l (zip vvars ll)
+      _ -> Ast.AstHApplyTKNew t ll
+  Ast.AstVarHFunTKNew{} -> Ast.AstHApplyTKNew t ll
 
 -- Inlining doesn't work for this let constructor, because it has many
 -- variables, so we try to reduce it to another for which it works.
@@ -2324,15 +2352,30 @@ astLetHFunIn
   => AstVarId -> AstHFun y -> AstTensor s (TKR r n) -> AstTensor s (TKR r n)
 astLetHFunIn = Ast.AstLetHFunIn
 
+astLetHFunInTKNew
+  :: forall n r s y. (GoodScalar r, KnownNat n, TensorKind y)
+  => AstVarId -> AstHFunTKNew y -> AstTensor s (TKR r n) -> AstTensor s (TKR r n)
+astLetHFunInTKNew = Ast.AstLetHFunInTKNew
+
 astLetHFunInS
   :: forall sh r s y. (GoodScalar r, KnownShS sh, TensorKind y)
   => AstVarId -> AstHFun y -> AstTensor s (TKS r sh) -> AstTensor s (TKS r sh)
 astLetHFunInS = Ast.AstLetHFunInS
 
+astLetHFunInSTKNew
+  :: forall sh r s y. (GoodScalar r, KnownShS sh, TensorKind y)
+  => AstVarId -> AstHFunTKNew y -> AstTensor s (TKS r sh) -> AstTensor s (TKS r sh)
+astLetHFunInSTKNew = Ast.AstLetHFunInSTKNew
+
 astLetHFunInHVector
   :: TensorKind y
   => AstVarId -> AstHFun y -> AstTensor s TKUntyped -> AstTensor s TKUntyped
 astLetHFunInHVector = Ast.AstLetHFunInHVector
+
+astLetHFunInHVectorTKNew
+  :: TensorKind y
+  => AstVarId -> AstHFunTKNew y -> AstTensor s TKUntyped -> AstTensor s TKUntyped
+astLetHFunInHVectorTKNew = Ast.AstLetHFunInHVectorTKNew
 
 
 -- * The simplifying bottom-up pass
@@ -2414,6 +2457,8 @@ simplifyAst t = case t of
     astLetHVectorIn vars (simplifyAst l) (simplifyAst v)
   Ast.AstLetHFunIn var f v ->
     astLetHFunIn var (simplifyAstHFun f) (simplifyAst v)
+  Ast.AstLetHFunInTKNew var f v ->
+    astLetHFunInTKNew var (simplifyAstHFunTKNew f) (simplifyAst v)
   Ast.AstRFromS v -> astRFromS $ simplifyAst v
 
   Ast.AstLetS var u v -> astLetS var (simplifyAst u) (simplifyAst v)
@@ -2448,15 +2493,21 @@ simplifyAst t = case t of
     astLetHVectorInS vars (simplifyAst l) (simplifyAst v)
   Ast.AstLetHFunInS var f v ->
     astLetHFunInS var (simplifyAstHFun f) (simplifyAst v)
+  Ast.AstLetHFunInSTKNew var f v ->
+    astLetHFunInSTKNew var (simplifyAstHFunTKNew f) (simplifyAst v)
   Ast.AstSFromR v -> astSFromR $ simplifyAst v
 
   Ast.AstMkHVector l -> Ast.AstMkHVector $ V.map simplifyAstDynamic l
   Ast.AstHApply v ll -> astHApply (simplifyAstHFun v)
                                   (map (V.map simplifyAstDynamic) ll)
+  Ast.AstHApplyTKNew v ll -> astHApplyTKNew (simplifyAstHFunTKNew v)
+                                  (map (V.map simplifyAstDynamic) ll)
   Ast.AstLetHVectorInHVector vars u v ->
     astLetHVectorInHVector vars (simplifyAst u) (simplifyAst v)
   Ast.AstLetHFunInHVector var f v ->
     astLetHFunInHVector var (simplifyAstHFun f) (simplifyAst v)
+  Ast.AstLetHFunInHVectorTKNew var f v ->
+    astLetHFunInHVectorTKNew var (simplifyAstHFunTKNew f) (simplifyAst v)
   Ast.AstLetInHVector var u v ->
     astLetInHVector var (simplifyAst u) (simplifyAst v)
   Ast.AstLetInHVectorS var u v ->
@@ -2478,6 +2529,20 @@ simplifyAst t = case t of
                         (simplifyAstHFun rf)
                         (simplifyAst acc0)
                         (simplifyAst es)
+  Ast.AstMapAccumRDerTKNew k accShs bShs eShs f df rf acc0 es ->
+    Ast.AstMapAccumRDerTKNew k accShs bShs eShs
+                        (simplifyAstHFunTKNew f)
+                        (simplifyAstHFunTKNew df)
+                        (simplifyAstHFunTKNew rf)
+                        (simplifyAst acc0)
+                        (simplifyAst es)
+  Ast.AstMapAccumLDerTKNew k accShs bShs eShs f df rf acc0 es ->
+    Ast.AstMapAccumLDerTKNew k accShs bShs eShs
+                        (simplifyAstHFunTKNew f)
+                        (simplifyAstHFunTKNew df)
+                        (simplifyAstHFunTKNew rf)
+                        (simplifyAst acc0)
+                        (simplifyAst es)
 
 simplifyAstDynamic
   :: AstSpan s
@@ -2493,6 +2558,11 @@ simplifyAstHFun :: AstHFun y -> AstHFun y
 simplifyAstHFun = \case
   Ast.AstLambda ~(vvars, l) -> Ast.AstLambda (vvars, simplifyAst l)
   t@(Ast.AstVarHFun{}) -> t
+
+simplifyAstHFunTKNew :: AstHFunTKNew y -> AstHFunTKNew y
+simplifyAstHFunTKNew = \case
+  Ast.AstLambdaTKNew ~(vvars, l) -> Ast.AstLambdaTKNew (vvars, simplifyAst l)
+  t@(Ast.AstVarHFunTKNew{}) -> t
 
 simplifyAstBool :: AstBool -> AstBool
 simplifyAstBool t = case t of
@@ -2627,6 +2697,8 @@ expandAst t = case t of
     astLetHVectorIn vars (expandAst l) (expandAst v)
   Ast.AstLetHFunIn var f v ->
     astLetHFunIn var (expandAstHFun f) (expandAst v)
+  Ast.AstLetHFunInTKNew var f v ->
+    astLetHFunInTKNew var (expandAstHFunTKNew f) (expandAst v)
   Ast.AstRFromS v -> astRFromS $ expandAst v
 
   Ast.AstLetS var u v -> astLetS var (expandAst u) (expandAst v)
@@ -2664,15 +2736,21 @@ expandAst t = case t of
     astLetHVectorInS vars (expandAst l) (expandAst v)
   Ast.AstLetHFunInS var f v ->
     astLetHFunInS var (expandAstHFun f) (expandAst v)
+  Ast.AstLetHFunInSTKNew var f v ->
+    astLetHFunInSTKNew var (expandAstHFunTKNew f) (expandAst v)
   Ast.AstSFromR v -> astSFromR $ expandAst v
 
   Ast.AstMkHVector l -> Ast.AstMkHVector $ V.map expandAstDynamic l
   Ast.AstHApply v ll -> astHApply (expandAstHFun v)
                                   (map (V.map expandAstDynamic) ll)
+  Ast.AstHApplyTKNew v ll -> astHApplyTKNew (expandAstHFunTKNew v)
+                                  (map (V.map expandAstDynamic) ll)
   Ast.AstLetHVectorInHVector vars u v ->
     astLetHVectorInHVector vars (expandAst u) (expandAst v)
   Ast.AstLetHFunInHVector var f v ->
     astLetHFunInHVector var (expandAstHFun f) (expandAst v)
+  Ast.AstLetHFunInHVectorTKNew var f v ->
+    astLetHFunInHVectorTKNew var (expandAstHFunTKNew f) (expandAst v)
   Ast.AstLetInHVector var u v ->
     astLetInHVector var (expandAst u) (expandAst v)
   Ast.AstLetInHVectorS var u v ->
@@ -2694,6 +2772,20 @@ expandAst t = case t of
                         (expandAstHFun rf)
                         (expandAst acc0)
                         (expandAst es)
+  Ast.AstMapAccumRDerTKNew k accShs bShs eShs f df rf acc0 es ->
+    Ast.AstMapAccumRDerTKNew k accShs bShs eShs
+                        (expandAstHFunTKNew f)
+                        (expandAstHFunTKNew df)
+                        (expandAstHFunTKNew rf)
+                        (expandAst acc0)
+                        (expandAst es)
+  Ast.AstMapAccumLDerTKNew k accShs bShs eShs f df rf acc0 es ->
+    Ast.AstMapAccumLDerTKNew k accShs bShs eShs
+                        (expandAstHFunTKNew f)
+                        (expandAstHFunTKNew df)
+                        (expandAstHFunTKNew rf)
+                        (expandAst acc0)
+                        (expandAst es)
 
 expandAstDynamic
   :: AstSpan s
@@ -2709,6 +2801,11 @@ expandAstHFun :: AstHFun y -> AstHFun y
 expandAstHFun = \case
   Ast.AstLambda ~(vvars, l) -> Ast.AstLambda (vvars, expandAst l)
   t@(Ast.AstVarHFun{}) -> t
+
+expandAstHFunTKNew :: AstHFunTKNew y -> AstHFunTKNew y
+expandAstHFunTKNew = \case
+  Ast.AstLambdaTKNew ~(vvars, l) -> Ast.AstLambdaTKNew (vvars, expandAst l)
+  t@(Ast.AstVarHFunTKNew{}) -> t
 
 expandAstBool :: AstBool -> AstBool
 expandAstBool t = case t of
@@ -2977,6 +3074,8 @@ data SubstitutionPayload :: AstSpanType -> Type where
                       => AstTensor s y -> SubstitutionPayload s
   SubstitutionPayloadHFun :: forall y. TensorKind y
                           => AstHFun y -> SubstitutionPayload PrimalSpan
+  SubstitutionPayloadHFunTKNew :: forall y. TensorKind y
+                          => AstHFunTKNew y -> SubstitutionPayload PrimalSpan
 
 -- | We assume no variable is shared between a binding and its nested binding
 -- and nobody substitutes into variables that are bound.
@@ -3054,6 +3153,7 @@ substitute1Ast i var v1 = case v1 of
           _ -> error "substitute1Ast: kind"
         _ -> error "substitute1Ast: span"
       SubstitutionPayloadHFun{} -> error "substitute1Ast: unexpected lambda"
+      SubstitutionPayloadHFunTKNew{} -> error "substitute1Ast: unexpected lambda"
     else Nothing
   Ast.AstPrimalPart a -> astPrimalPart <$> substitute1Ast i var a
   Ast.AstDualPart a -> astDualPart <$> substitute1Ast i var a
@@ -3163,6 +3263,11 @@ substitute1Ast i var v1 = case v1 of
       (Nothing, Nothing) -> Nothing
       (mf, mv) ->
         Just $ astLetHFunIn var2 (fromMaybe f mf) (fromMaybe v mv)
+  Ast.AstLetHFunInTKNew var2 f v ->
+    case (substitute1AstHFunTKNew i var f, substitute1Ast i var v) of
+      (Nothing, Nothing) -> Nothing
+      (mf, mv) ->
+        Just $ astLetHFunInTKNew var2 (fromMaybe f mf) (fromMaybe v mv)
   Ast.AstRFromS v -> astRFromS <$> substitute1Ast i var v
 
   Ast.AstLetS var2 u v ->
@@ -3244,6 +3349,11 @@ substitute1Ast i var v1 = case v1 of
       (Nothing, Nothing) -> Nothing
       (mf, mv) ->
         Just $ astLetHFunInS var2 (fromMaybe f mf) (fromMaybe v mv)
+  Ast.AstLetHFunInSTKNew var2 f v ->
+    case (substitute1AstHFunTKNew i var f, substitute1Ast i var v) of
+      (Nothing, Nothing) -> Nothing
+      (mf, mv) ->
+        Just $ astLetHFunInSTKNew var2 (fromMaybe f mf) (fromMaybe v mv)
   Ast.AstSFromR v -> astSFromR <$> substitute1Ast i var v
 
   Ast.AstMkHVector args ->
@@ -3257,6 +3367,12 @@ substitute1Ast i var v1 = case v1 of
       (Nothing, mll) | all (V.all isNothing) mll -> Nothing
       (mt, mll) ->
         Just $ astHApply (fromMaybe t mt) (zipWith (V.zipWith fromMaybe) ll mll)
+  Ast.AstHApplyTKNew t ll ->
+    case ( substitute1AstHFunTKNew i var t
+         , map (V.map (substitute1AstDynamic i var)) ll ) of
+      (Nothing, mll) | all (V.all isNothing) mll -> Nothing
+      (mt, mll) ->
+        Just $ astHApplyTKNew (fromMaybe t mt) (zipWith (V.zipWith fromMaybe) ll mll)
   Ast.AstLetHVectorInHVector vars2 u v ->
     case (substitute1Ast i var u, substitute1Ast i var v) of
       (Nothing, Nothing) -> Nothing
@@ -3267,6 +3383,11 @@ substitute1Ast i var v1 = case v1 of
       (Nothing, Nothing) -> Nothing
       (mf, mv) ->
         Just $ astLetHFunInHVector var2 (fromMaybe f mf) (fromMaybe v mv)
+  Ast.AstLetHFunInHVectorTKNew var2 f v ->
+    case (substitute1AstHFunTKNew i var f, substitute1Ast i var v) of
+      (Nothing, Nothing) -> Nothing
+      (mf, mv) ->
+        Just $ astLetHFunInHVectorTKNew var2 (fromMaybe f mf) (fromMaybe v mv)
   Ast.AstLetInHVector var2 u v ->
     case (substitute1Ast i var u, substitute1Ast i var v) of
       (Nothing, Nothing) -> Nothing
@@ -3297,6 +3418,30 @@ substitute1Ast i var v1 = case v1 of
       (Nothing, Nothing, Nothing, Nothing, Nothing) -> Nothing
       (mf, mdf, mrf, macc0, mes) ->
         Just $ Ast.AstMapAccumLDer k accShs bShs eShs
+                                   (fromMaybe f mf)
+                                   (fromMaybe df mdf)
+                                   (fromMaybe rf mrf)
+                                   (fromMaybe acc0 macc0)
+                                   (fromMaybe es mes)
+  Ast.AstMapAccumRDerTKNew k accShs bShs eShs f df rf acc0 es ->
+    case ( substitute1AstHFunTKNew i var f, substitute1AstHFunTKNew i var df
+         , substitute1AstHFunTKNew i var rf, substitute1Ast i var acc0
+         , substitute1Ast i var es ) of
+      (Nothing, Nothing, Nothing, Nothing, Nothing) -> Nothing
+      (mf, mdf, mrf, macc0, mes) ->
+        Just $ Ast.AstMapAccumRDerTKNew k accShs bShs eShs
+                                   (fromMaybe f mf)
+                                   (fromMaybe df mdf)
+                                   (fromMaybe rf mrf)
+                                   (fromMaybe acc0 macc0)
+                                   (fromMaybe es mes)
+  Ast.AstMapAccumLDerTKNew k accShs bShs eShs f df rf acc0 es ->
+    case ( substitute1AstHFunTKNew i var f, substitute1AstHFunTKNew i var df
+         , substitute1AstHFunTKNew i var rf, substitute1Ast i var acc0
+         , substitute1Ast i var es ) of
+      (Nothing, Nothing, Nothing, Nothing, Nothing) -> Nothing
+      (mf, mdf, mrf, macc0, mes) ->
+        Just $ Ast.AstMapAccumLDerTKNew k accShs bShs eShs
                                    (fromMaybe f mf)
                                    (fromMaybe df mdf)
                                    (fromMaybe rf mrf)
@@ -3347,6 +3492,26 @@ substitute1AstHFun i var = \case
       SubstitutionPayload{} ->
         error "substitute1AstHFun: unexpected tensor"
       SubstitutionPayloadHFun @y2 h -> case sameTensorKind @y @y2 of
+        Just Refl -> Just h
+        Nothing -> error "substitute1AstHFun: wrong function result"
+      SubstitutionPayloadHFunTKNew{} ->
+        error "substitute1AstHFun: wrong lambda"
+    else Nothing
+
+substitute1AstHFunTKNew
+  :: forall s2 y. TensorKind y
+  => SubstitutionPayload s2 -> AstVarId -> AstHFunTKNew y
+  -> Maybe (AstHFunTKNew y)
+substitute1AstHFunTKNew i var = \case
+  Ast.AstLambdaTKNew{} -> Nothing  -- no outside free variables
+  Ast.AstVarHFunTKNew _shss _shs var2 ->
+    if var == var2
+    then case i of
+      SubstitutionPayload{} ->
+        error "substitute1AstHFun: unexpected tensor"
+      SubstitutionPayloadHFun{} ->
+        error "substitute1AstHFun: wrong lambda"
+      SubstitutionPayloadHFunTKNew @y2 h -> case sameTensorKind @y @y2 of
         Just Refl -> Just h
         Nothing -> error "substitute1AstHFun: wrong function result"
     else Nothing

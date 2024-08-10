@@ -22,7 +22,7 @@ module HordeAd.Core.Types
   , GoodScalar, HasSingletonDict, Differentiable, IfDifferentiable(..)
     -- * Type families that tensors will belong to
   , IntOf, RankedOf, ShapedOf, ProductOf, HVectorOf, HVectorPseudoTensor(..)
-  , HFunOf, PrimalOf, DualOf
+  , HFunOf, HFunOfTKNew, PrimalOf, DualOf
   , DummyDual(..)
     -- * Generic types of booleans and related class definitions
   , BoolOf, Boolean(..)
@@ -332,6 +332,8 @@ type instance RankedOf (HVectorPseudoTensor ranked) = ranked
 -- The type family can't easily be made injective, because the @ADVal f@
 -- instance is independent of @f@.
 type family HFunOf (f :: RankedTensorType) (y :: TensorKindType) :: Type
+
+type family HFunOfTKNew (f :: RankedTensorType) (y :: TensorKindType) :: Type
 
 type family PrimalOf (f :: TensorType ty) :: TensorType ty
 

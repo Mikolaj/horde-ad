@@ -262,6 +262,7 @@ instance ADReady ranked => RankedTensor (ADVal ranked) where
         doms = aDValHVector as as'
     in f doms -}
   rletHFunIn = (&)
+  rletHFunInTKNew = (&)
   rfromS :: forall r sh. (GoodScalar r, KnownShS sh)
          => ADVal (ShapedOf ranked) r sh -> ADVal ranked r (X.Rank sh)
   rfromS (D u u') = dDnotShared (rfromS u) (DeltaR $ dRFromS $ unDeltaS u')
@@ -392,6 +393,7 @@ instance ADReadyS shaped => ShapedTensor (ADVal shaped) where
         doms = aDValHVector as as'
     in f doms -}
   sletHFunIn = (&)
+  sletHFunInTKNew = (&)
   sfromR :: forall r sh. (GoodScalar r, KnownShS sh, KnownNat (X.Rank sh))
          => ADVal (RankedOf shaped) r (X.Rank sh) -> ADVal shaped r sh
   sfromR (D u u') = dDnotShared (sfromR u) (DeltaS $ dSFromR u')
@@ -425,7 +427,9 @@ instance ADReadyBoth ranked shaped
   dshape = voidFromHVector
   dmkHVector = id
   dlambda _ = id
+  dlambdaTKNew _ = id
   dHApply (HFun f) = f
+  dHApplyTKNew (HFunTKNew f) = f
   dunHVector = id
   dletHVectorInHVector asD f = f asD
 {- TODO: Try again once we have tests that show this sharing is needed:
@@ -435,6 +439,7 @@ instance ADReadyBoth ranked shaped
         doms = aDValHVector as as'
     in f doms -}
   dletHFunInHVector = (&)
+  dletHFunInHVectorTKNew = (&)
   rletInHVector (D u u') f =
     let !var2 = rshare u
     in f (dDnotShared var2 u')
