@@ -6,7 +6,7 @@ module HordeAd.Core.AstInline
     simplifyArtifact, simplifyInlineAst, simplifyInlineAstS
   , simplifyInlineHVector, simplifyInlineHVectorRaw
     -- * The translates global sharing to normal lets
-  , unletAstHVector
+  , unletAstRanked, unletAstShaped, unletAstHVector
   ) where
 
 import Prelude
@@ -451,6 +451,22 @@ inlineAstBool memo v0 = case v0 of
 
 -- * The translates global sharing to normal lets
 
+unletAstRanked :: (KnownNat n, GoodScalar r)
+               => AstTensor PrimalSpan (TKR r n)
+               -> AstTensor PrimalSpan (TKR r n)
+unletAstRanked t =
+  let (memoOut, share) = shareAst EM.empty t
+      bindingsOut = EM.toDescList memoOut
+  in bindsToLet share bindingsOut
+
+unletAstShaped :: (KnownShS sh, GoodScalar r)
+               => AstTensor PrimalSpan (TKS r sh)
+               -> AstTensor PrimalSpan (TKS r sh)
+unletAstShaped t =
+  let (memoOut, share) = shareAst EM.empty t
+      bindingsOut = EM.toDescList memoOut
+  in bindsToLetS share bindingsOut
+
 unletAstHVector :: AstTensor PrimalSpan TKUntyped -> AstTensor PrimalSpan TKUntyped
 unletAstHVector t =
   let (memoOut, share) = shareAst EM.empty t
@@ -484,7 +500,7 @@ shareAstScoped vars0 memo0 v0 =
       (memoLocal1, memoGlobal1) =
         closeOccurs (map varNameToAstVarId vars0) memoDiff
       bindingsLocal = EM.toDescList memoLocal1
-  in (EM.union memo0 memoGlobal1, unAstRanked $ bindsToLet (AstRanked v1) bindingsLocal)
+  in (EM.union memo0 memoGlobal1, bindsToLet v1 bindingsLocal)
 
 shareAst
   :: forall s y. AstSpan s
