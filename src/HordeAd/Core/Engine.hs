@@ -149,7 +149,7 @@ revProduceArtifactWithoutInterpretation
 {-# INLINE revProduceArtifactWithoutInterpretation #-}
 revProduceArtifactWithoutInterpretation hasDt f =
   let g hVectorPrimal vars hVector =
-        hVectorADValToADVal
+        HVectorPseudoTensor
         $ toHVector
         $ forwardPassByApplication f hVectorPrimal vars hVector
   in revArtifactFromForwardPass hasDt g
