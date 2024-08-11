@@ -6,8 +6,10 @@
 -- high-level API of the horde-ad library. Optimizers are add-ons.
 module HordeAd.Core.Engine
   ( -- * Reverse derivative adaptors
-    rev, revDt, revArtifactAdapt, revProduceArtifactWithoutInterpretation
-  , revEvalArtifact
+    rev, revDt, revArtifactAdapt
+  , revProduceArtifactWithoutInterpretation
+  , revProduceArtifactWithoutInterpretationTKNew
+  , revEvalArtifact, revEvalArtifactTKNew
     -- * Forward derivative adaptors
   , fwd, fwdArtifactAdapt, fwdEvalArtifact
     -- * Old gradient adaptors
@@ -148,11 +150,30 @@ revProduceArtifactWithoutInterpretation
   -> (AstArtifact TKUntyped TKUntyped, Delta (AstRaw PrimalSpan) TKUntyped)
 {-# INLINE revProduceArtifactWithoutInterpretation #-}
 revProduceArtifactWithoutInterpretation hasDt f =
-  let g hVectorPrimal vars hVector =
-        HVectorPseudoTensor
-        $ toHVector
+  let g :: HVector (AstRaw PrimalSpan)
+        -> [AstDynamicVarName]
+        -> HVector (AstRanked FullSpan)
+        -> InterpretationTarget (ADVal (AstRaw PrimalSpan)) TKUntyped
+      g hVectorPrimal vars hVector =
+        HVectorPseudoTensor $ toHVector
         $ forwardPassByApplication f hVectorPrimal vars hVector
   in revArtifactFromForwardPass hasDt g
+
+revProduceArtifactWithoutInterpretationTKNew
+  :: forall z. TensorKind z
+  => Bool
+  -> (HVector (ADVal (AstRaw PrimalSpan))
+      -> InterpretationTarget (ADVal (AstRaw PrimalSpan)) z)
+  -> VoidHVector
+  -> (AstArtifactTKNew TKUntyped TKUntyped z, Delta (AstRaw PrimalSpan) z)
+{-# INLINE revProduceArtifactWithoutInterpretationTKNew #-}
+revProduceArtifactWithoutInterpretationTKNew hasDt f =
+  let g :: HVector (AstRaw PrimalSpan)
+        -> AstVarName FullSpan TKUntyped
+        -> HVector (AstRanked FullSpan)
+        -> InterpretationTarget (ADVal (AstRaw PrimalSpan)) z
+      g hVectorPrimal = forwardPassByApplicationTKNew f hVectorPrimal
+  in revArtifactFromForwardPassTKNew @z hasDt g
 
 forwardPassByApplication
   :: (HVector (ADVal (AstRaw PrimalSpan)) -> ADVal primal_g r y)
@@ -162,6 +183,19 @@ forwardPassByApplication
   -> ADVal primal_g r y
 {-# INLINE forwardPassByApplication #-}
 forwardPassByApplication g hVectorPrimal _vars _hVector =
+  let deltaInputs = generateDeltaInputs hVectorPrimal
+      varInputs = makeADInputs hVectorPrimal deltaInputs
+  in g varInputs
+
+forwardPassByApplicationTKNew
+  :: (HVector (ADVal (AstRaw PrimalSpan))
+      -> InterpretationTarget (ADVal (AstRaw PrimalSpan)) z)
+  -> HVector (AstRaw PrimalSpan)
+  -> AstVarName FullSpan TKUntyped
+  -> HVector (AstRanked FullSpan)
+  -> InterpretationTarget (ADVal (AstRaw PrimalSpan)) z
+{-# INLINE forwardPassByApplicationTKNew #-}
+forwardPassByApplicationTKNew g hVectorPrimal _var _hVector =
   let deltaInputs = generateDeltaInputs hVectorPrimal
       varInputs = makeADInputs hVectorPrimal deltaInputs
   in g varInputs
@@ -187,6 +221,26 @@ revEvalArtifact (AstArtifact varsDt vars
            primalTensor = unHVectorPseudoTensor $ interpretAst env primal
        in (gradientHVector, primalTensor)
      else error "revEvalArtifact: primal result and the incoming contangent should have same shapes"
+
+revEvalArtifactTKNew
+  :: forall y. TensorKind y
+  => AstArtifactTKNew TKUntyped TKUntyped y
+  -> HVector ORArray
+  -> Maybe (InterpretationTarget ORArray y)
+  -> (HVector ORArray, InterpretationTarget ORArray y)
+{-# INLINE revEvalArtifactTKNew #-}
+revEvalArtifactTKNew (AstArtifactTKNew varDt var
+                             (HVectorPseudoTensor (AstRawWrap gradient))
+                             primal)
+                parameters mdt =
+  let oneAtF = interpretationConstant 1 $ tshapeFull (stensorKind @y) primal
+      dt = fromMaybe oneAtF mdt
+      pars = HVectorPseudoTensor $ dmkHVector parameters
+      env = extendEnv var pars emptyEnv
+      envDt = extendEnv varDt dt env
+      gradientHVector = unHVectorPseudoTensor $ interpretAst envDt gradient
+      primalTensor = interpretAst env $ unRawY (stensorKind @y) primal
+  in (gradientHVector, primalTensor)
 
 
 -- * Forward derivative adaptors

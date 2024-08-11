@@ -37,7 +37,7 @@
 -- to understand.
 module HordeAd.Core.Delta
   ( -- * Delta expression evaluation
-    gradientFromDelta, derivativeFromDelta
+    gradientFromDelta, derivativeFromDelta, interpretationConstant
     -- * Abstract syntax trees of the delta expressions
   , DeltaR (..), DeltaS (..), Delta(..)
   , -- * Delta expression identifiers

@@ -12,6 +12,7 @@ module HordeAd.Core.TensorAst
   , revArtifactFromForwardPass, revArtifactFromForwardPassTKNew
   , revProduceArtifact, revProduceArtifactTKNew
   , fwdArtifactFromForwardPass, fwdProduceArtifact
+  , unRawY
   ) where
 
 import Prelude
