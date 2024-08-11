@@ -1,4 +1,5 @@
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE AllowAmbiguousTypes, QuantifiedConstraints,
+             UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | The environment and some helper operations for AST interpretation.
@@ -23,6 +24,7 @@ import Prelude
 import Control.Exception.Assert.Sugar
 import Data.Dependent.EnumMap.Strict (DEnumMap)
 import Data.Dependent.EnumMap.Strict qualified as DMap
+import Data.Kind (Constraint, Type)
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
@@ -52,13 +54,20 @@ type role AstEnvElem nominal nominal
 data AstEnvElem (ranked :: RankedTensorType) (y :: TensorKindType) where
   AstEnvElemTuple :: InterpretationTarget ranked y -> AstEnvElem ranked y
   AstEnvElemHFun :: HFunOf ranked y -> AstEnvElem ranked y
-  AstEnvElemHFunTKNew :: HFunOfTKNew ranked y -> AstEnvElem ranked y
-    -- the "y" is a lie; it should be "foo -> y"
+  AstEnvElemHFunTKNew :: forall ranked x y. TensorKind x
+                      => HFunOfTKNew ranked x y -> AstEnvElem ranked y
+    -- the "y" is a lie; it should be "TKFun x y"; BTW, Proxy would not help
 
 deriving instance ( Show (InterpretationTarget ranked y)
                   , Show (HFunOf ranked y)
-                  , Show (HFunOfTKNew ranked y) )
+                  , CHFun ranked Show y  )
                   => Show (AstEnvElem ranked y)
+
+type CHFun :: RankedTensorType -> (Type -> Constraint) -> TensorKindType
+           -> Constraint
+class (forall x. c (HFunOfTKNew ranked x y)) => CHFun ranked c y where
+instance
+      (forall x. c (HFunOfTKNew ranked x y)) => CHFun ranked c y where
 
 emptyEnv :: AstEnv ranked
 emptyEnv = DMap.empty
@@ -92,15 +101,16 @@ extendEnvHFun _ !varId !t !env =
                                    $ "extendEnvHFun: duplicate " ++ show varId)
                         var2 (AstEnvElemHFun t) env
 
-extendEnvHFunTKNew :: forall ranked y. TensorKind y
-              => Proxy y -> AstVarId -> HFunOfTKNew ranked y -> AstEnv ranked
+extendEnvHFunTKNew :: forall ranked x y. (TensorKind x, TensorKind y)
+              => Proxy x -> Proxy y
+              -> AstVarId -> HFunOfTKNew ranked x y -> AstEnv ranked
               -> AstEnv ranked
-extendEnvHFunTKNew _ !varId !t !env =
+extendEnvHFunTKNew _ _ !varId !t !env =
   let var2 :: AstVarName FullSpan y
       var2 = mkAstVarName varId
   in DMap.insertWithKey (\_ _ _ -> error
                                    $ "extendEnvHFun: duplicate " ++ show varId)
-                        var2 (AstEnvElemHFunTKNew t) env
+                        var2 (AstEnvElemHFunTKNew @_ @x t) env
 
 extendEnvD :: forall ranked. ADReady ranked
            => (AstDynamicVarName, DynamicTensor ranked)
@@ -254,16 +264,15 @@ interpretLambdaHsH interpret ~(vvars, ast) =
     interpret (foldr (uncurry extendEnvHVector) emptyEnv $ zip vvars ws) ast
 
 interpretLambdaHsHTKNew
-  :: (forall ranked z. ADReady ranked
+  :: TensorKind x
+  => (forall ranked z. ADReady ranked
       => AstEnv ranked -> AstTensor s z
       -> InterpretationTarget ranked z)
-  -> ( [[AstDynamicVarName]]
-     , AstTensor s y )
-  -> HFunTKNew y
+  -> (AstVarName s x, AstTensor s y)
+  -> HFunTKNew x y
 {-# INLINE interpretLambdaHsHTKNew #-}
-interpretLambdaHsHTKNew interpret ~(vvars, ast) =
-  HFunTKNew $ \ws ->
-    interpret (foldr (uncurry extendEnvHVector) emptyEnv $ zip vvars ws) ast
+interpretLambdaHsHTKNew interpret ~(var, ast) =
+  HFunTKNew $ \ws -> interpret (extendEnv var ws emptyEnv) ast
 
 
 -- * Interpretation of arithmetic, boolean and relation operations

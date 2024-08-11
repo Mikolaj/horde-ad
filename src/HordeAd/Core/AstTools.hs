@@ -191,9 +191,9 @@ shapeAstHFun = \case
   AstLambda ~(_vvars, l) -> shapeAstFull l
   AstVarHFun _shss shs _var -> shs
 
-shapeAstHFunTKNew :: TensorKind y => AstHFunTKNew y -> TensorKindFull y
+shapeAstHFunTKNew :: TensorKind y => AstHFunTKNew x y -> TensorKindFull y
 shapeAstHFunTKNew = \case
-  AstLambdaTKNew ~(_vvars, l) -> shapeAstFull l
+  AstLambdaTKNew ~(_vvars, _, l) -> shapeAstFull l
   AstVarHFunTKNew _shss shs _var -> shs
 
 domainShapesAstHFun :: AstHFun y -> [VoidHVector]
@@ -201,9 +201,9 @@ domainShapesAstHFun = \case
   AstLambda ~(vvars, _l) -> map voidFromVars vvars
   AstVarHFun shss _shs _var -> shss
 
-domainShapeAstHFunTKNew :: AstHFunTKNew y -> [VoidHVector]
+domainShapeAstHFunTKNew :: AstHFunTKNew x y -> TensorKindFull x
 domainShapeAstHFunTKNew = \case
-  AstLambdaTKNew ~(vvars, _l) -> map voidFromVars vvars
+  AstLambdaTKNew ~(_var, ftk, _l) -> ftk
   AstVarHFunTKNew shss _shs _var -> shss
 
 
@@ -293,7 +293,7 @@ varInAst var = \case
 
   AstMkHVector l -> any (varInAstDynamic var) l
   AstHApply t ll -> varInAstHFun var t || any (any (varInAstDynamic var)) ll
-  AstHApplyTKNew t ll -> varInAstHFunTKNew var t || any (any (varInAstDynamic var)) ll
+  AstHApplyTKNew t ll -> varInAstHFunTKNew var t || varInAst var ll
   AstLetHVectorInHVector _vars2 u v -> varInAst var u || varInAst var v
   AstLetHFunInHVector _var2 f v -> varInAstHFun var f || varInAst var v
   AstLetHFunInHVectorTKNew _var2 f v -> varInAstHFunTKNew var f || varInAst var v
@@ -329,7 +329,7 @@ varInAstHFun var = \case
   AstLambda{} -> False  -- we take advantage of the term being closed
   AstVarHFun _shss _shs var2 -> fromEnum var == fromEnum var2
 
-varInAstHFunTKNew :: AstVarId -> AstHFunTKNew y -> Bool
+varInAstHFunTKNew :: AstVarId -> AstHFunTKNew x y -> Bool
 varInAstHFunTKNew var = \case
   AstLambdaTKNew{} -> False  -- we take advantage of the term being closed
   AstVarHFunTKNew _shss _shs var2 -> fromEnum var == fromEnum var2

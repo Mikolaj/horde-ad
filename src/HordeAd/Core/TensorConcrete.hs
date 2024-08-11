@@ -69,8 +69,8 @@ type instance HVectorOf ORArray = HVector ORArray
 type instance HFunOf ORArray y =
   [HVector ORArray] -> InterpretationTarget ORArray y
 
-type instance HFunOfTKNew ORArray y =
-  [HVector ORArray] -> InterpretationTarget ORArray y
+type instance HFunOfTKNew ORArray x y =
+  InterpretationTarget ORArray x -> InterpretationTarget ORArray y
 
 type instance PrimalOf ORArray = ORArray
 

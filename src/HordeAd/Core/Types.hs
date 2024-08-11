@@ -333,7 +333,8 @@ type instance RankedOf (HVectorPseudoTensor ranked) = ranked
 -- instance is independent of @f@.
 type family HFunOf (f :: RankedTensorType) (y :: TensorKindType) :: Type
 
-type family HFunOfTKNew (f :: RankedTensorType) (y :: TensorKindType) :: Type
+type family HFunOfTKNew (f :: RankedTensorType)
+                        (x :: TensorKindType) (y :: TensorKindType) :: Type
 
 type family PrimalOf (f :: TensorType ty) :: TensorType ty
 

@@ -314,9 +314,9 @@ class ( Num (IntOf ranked), IntegralF (IntOf ranked), CRanked ranked Num
              => HFunOf ranked y
              -> (HFunOf ranked y -> ranked r n)
              -> ranked r n
-  rletHFunInTKNew :: (KnownNat n, GoodScalar r, TensorKind y)
-             => HFunOfTKNew ranked y
-             -> (HFunOfTKNew ranked y -> ranked r n)
+  rletHFunInTKNew :: (KnownNat n, GoodScalar r, TensorKind x, TensorKind y)
+             => HFunOfTKNew ranked x y
+             -> (HFunOfTKNew ranked x y -> ranked r n)
              -> ranked r n
   rfromS :: (GoodScalar r, KnownShS sh)
          => ShapedOf ranked r sh -> ranked r (X.Rank sh)
@@ -702,9 +702,9 @@ class ( Num (IntOf shaped), IntegralF (IntOf shaped), CShaped shaped Num
              => HFunOf (RankedOf shaped) y
              -> (HFunOf (RankedOf shaped) y -> shaped r sh)
              -> shaped r sh
-  sletHFunInTKNew :: (KnownShS sh, GoodScalar r, TensorKind y)
-             => HFunOfTKNew (RankedOf shaped) y
-             -> (HFunOfTKNew (RankedOf shaped) y -> shaped r sh)
+  sletHFunInTKNew :: (KnownShS sh, GoodScalar r, TensorKind x, TensorKind y)
+             => HFunOfTKNew (RankedOf shaped) x y
+             -> (HFunOfTKNew (RankedOf shaped) x y -> shaped r sh)
              -> shaped r sh
   sfromR :: (GoodScalar r, KnownShS sh, KnownNat (X.Rank sh))
          => RankedOf shaped r (X.Rank sh) -> shaped r sh
@@ -747,13 +747,13 @@ class HVectorTensor (ranked :: RankedTensorType)
   dmkHVector :: HVector ranked -> HVectorOf ranked
   dlambda :: TensorKind y
           => [VoidHVector] -> HFun y -> HFunOf ranked y
-  dlambdaTKNew :: TensorKind y
-          => [VoidHVector] -> HFunTKNew y -> HFunOfTKNew ranked y
+  dlambdaTKNew :: (TensorKind x, TensorKind y)
+          => TensorKindFull x -> HFunTKNew x y -> HFunOfTKNew ranked x y
   dHApply :: TensorKind y
           => HFunOf ranked y -> [HVector ranked]
           -> InterpretationTarget ranked y
-  dHApplyTKNew :: TensorKind y
-          => HFunOfTKNew ranked y -> [HVector ranked]
+  dHApplyTKNew :: (TensorKind x, TensorKind y)
+          => HFunOfTKNew ranked x y -> InterpretationTarget ranked x
           -> InterpretationTarget ranked y
   dunHVector :: HVectorOf ranked -> HVector ranked
     -- ^ Warning: this operation easily breaks sharing.
@@ -778,9 +778,9 @@ class HVectorTensor (ranked :: RankedTensorType)
     -> (HFunOf ranked y -> HVectorOf ranked)
     -> HVectorOf ranked
   dletHFunInHVectorTKNew
-    :: TensorKind y
-    => HFunOfTKNew ranked y
-    -> (HFunOfTKNew ranked y -> HVectorOf ranked)
+    :: (TensorKind x, TensorKind y)
+    => HFunOfTKNew ranked x y
+    -> (HFunOfTKNew ranked x y -> HVectorOf ranked)
     -> HVectorOf ranked
   rletInHVector :: (GoodScalar r, KnownNat n)
                 => ranked r n
@@ -1393,12 +1393,12 @@ newtype HFun (y :: TensorKindType) =
 instance Show (HFun y) where
   show _ = "<lambda>"
 
-type role HFunTKNew nominal
-newtype HFunTKNew (y :: TensorKindType) =
+type role HFunTKNew nominal nominal
+newtype HFunTKNew (x :: TensorKindType) (y :: TensorKindType) =
   HFunTKNew {unHFunTKNew :: forall f. ADReady f
-               => [HVector f] -> InterpretationTarget f y}
+               => InterpretationTarget f x -> InterpretationTarget f y}
 
-instance Show (HFunTKNew y) where
+instance Show (HFunTKNew x y) where
   show _ = "<lambda>"
 
 

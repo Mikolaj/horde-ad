@@ -694,12 +694,12 @@ printAstAux cfg d = \case
     then showParen (d > 9)
          $ printAstHFunOneUnignoreTKNew cfg 10 t
            . showString " "
-           . showListWith (printHVectorAst cfg) ll
+           . printAst cfg 11 ll
     else showParen (d > 10)
          $ showString "dHApply "
            . printAstHFunOneUnignoreTKNew cfg 10 t
            . showString " "
-           . showListWith (printHVectorAst cfg) ll
+           . printAst cfg 11 ll
   AstLetHVectorInHVector vars l v ->
     if loseRoudtrip cfg
     then
@@ -954,26 +954,22 @@ printAstHFun cfg d = \case
            . printAst cfg 0 l
   AstVarHFun _shss _shs var -> printAstFunVar cfg var
 
-printAstHFunTKNew :: PrintConfig -> Int -> AstHFunTKNew y -> ShowS
+printAstHFunTKNew :: PrintConfig -> Int -> AstHFunTKNew x y -> ShowS
 printAstHFunTKNew cfg d = \case
-  AstLambdaTKNew (vvars, l) ->
+  AstLambdaTKNew (var, _, l) ->
     if loseRoudtrip cfg
     then if ignoreNestedLambdas cfg
          then showString "<lambda>"
          else showParen (d > 0)
               $ showString "\\"
-                . showCollectionWith "" " " ""
-                    (showListWith (showString
-                                   . printAstDynamicVarNameCfg cfg)) vvars
+                . printAstVar cfg var
                 . showString " -> "
                 . printAst cfg 0 l
     else showParen (d > 0)
          $ {- showString "dlambda $ "  -- TODO: enable for full roundtrip
            . -}
            showString "\\"
-           . showCollectionWith "" " " ""
-               (showListWith (showString
-                              . printAstDynamicVarNameCfg cfg)) vvars
+           . printAstVar cfg var
            . showString " -> "
            . printAst cfg 0 l
   AstVarHFunTKNew _shss _shs var -> printAstFunVar cfg var
@@ -1000,24 +996,20 @@ printAstHFunOneUnignore cfg d = \case
            . printAst cfg 0 l
   AstVarHFun _shss _shs var -> printAstFunVar cfg var
 
-printAstHFunOneUnignoreTKNew :: PrintConfig -> Int -> AstHFunTKNew y -> ShowS
+printAstHFunOneUnignoreTKNew :: PrintConfig -> Int -> AstHFunTKNew x y -> ShowS
 printAstHFunOneUnignoreTKNew cfg d = \case
-  AstLambdaTKNew (vvars, l) ->
+  AstLambdaTKNew (var, _, l) ->
     if loseRoudtrip cfg
     then showParen (d > 0)
          $ showString "\\"
-           . showCollectionWith "" " " ""
-               (showListWith (showString
-                              . printAstDynamicVarNameCfg cfg)) vvars
+           . printAstVar cfg var
            . showString " -> "
            . printAst cfg 0 l
     else showParen (d > 0)
          $ {- showString "dlambda $ "  -- TODO: enable for full roundtrip
            . -}
            showString "\\"
-           . showCollectionWith "" " " ""
-               (showListWith (showString
-                              . printAstDynamicVarNameCfg cfg)) vvars
+           . printAstVar cfg var
            . showString " -> "
            . printAst cfg 0 l
   AstVarHFunTKNew _shss _shs var -> printAstFunVar cfg var

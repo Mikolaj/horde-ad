@@ -572,10 +572,10 @@ interpretAst !env = \case
     let g = interpretAstHFun env f
         env2 h = extendEnvHFun (Proxy @z) var h env
     in rletHFunIn @_ @_ @_ @z g (\h -> interpretAst (env2 h) v)
-  AstLetHFunInTKNew @_ @_ @z var f v ->
+  AstLetHFunInTKNew @_ @_ @x2 @y2 var f v ->
     let g = interpretAstHFunTKNew env f
-        env2 h = extendEnvHFunTKNew (Proxy @z) var h env
-    in rletHFunInTKNew @_ @_ @_ @z g (\h -> interpretAst (env2 h) v)
+        env2 h = extendEnvHFunTKNew (Proxy @x2) (Proxy @y2) var h env
+    in rletHFunInTKNew @_ @_ @_ @x2 @y2 g (\h -> interpretAst (env2 h) v)
   AstRFromS v -> rfromS $ interpretAst env v
 
   AstLetS @_ @_ @y2 var u v -> case stensorKind @y2 of
@@ -817,10 +817,10 @@ interpretAst !env = \case
     let g = interpretAstHFun env f
         env2 h = extendEnvHFun (Proxy @z) var h env
     in sletHFunIn @_ @_ @_ @z g (\h -> interpretAst (env2 h) v)
-  AstLetHFunInSTKNew @_ @_ @z var f v ->
+  AstLetHFunInSTKNew @_ @_ @x2 @y2 var f v ->
     let g = interpretAstHFunTKNew env f
-        env2 h = extendEnvHFunTKNew (Proxy @z) var h env
-    in sletHFunInTKNew @_ @_ @_ @z g (\h -> interpretAst (env2 h) v)
+        env2 h = extendEnvHFunTKNew (Proxy @x2) (Proxy @y2) var h env
+    in sletHFunInTKNew @_ @_ @_ @x2 @y2 g (\h -> interpretAst (env2 h) v)
   AstSFromR v -> sfromR $ interpretAst env v
 
   AstMkHVector l -> HVectorPseudoTensor
@@ -839,7 +839,7 @@ interpretAst !env = \case
     let t2 = interpretAstHFunTKNew env t
           -- this is a bunch of PrimalSpan terms interpreted in, perhaps,
           -- FullSpan terms
-        ll2 = (interpretAstDynamic env <$>) <$> ll
+        ll2 = interpretAst env ll
           -- these are, perhaps, FullSpan terms, interpreted in the same
           -- as above so that the mixture becomes compatible; if the spans
           -- agreed, the AstHApply would likely be simplified before
@@ -855,17 +855,17 @@ interpretAst !env = \case
                   extendEnvHVector vars lw env
     in HVectorPseudoTensor
        $ dletHVectorInHVector lt (\lw -> unHVectorPseudoTensor $ interpretAst (env2 lw) v)
-  AstLetHFunInHVector @z var f v ->
+  AstLetHFunInHVector @y2 var f v ->
     let g = interpretAstHFun env f
-        env2 h = extendEnvHFun (Proxy @z) var h env
+        env2 h = extendEnvHFun (Proxy @y2) var h env
     in HVectorPseudoTensor
-       $ dletHFunInHVector @_ @_ @z
+       $ dletHFunInHVector @_ @_ @y2
            g (\h -> unHVectorPseudoTensor $ interpretAst (env2 h) v)
-  AstLetHFunInHVectorTKNew @z var f v ->
+  AstLetHFunInHVectorTKNew @x2 @y2 var f v ->
     let g = interpretAstHFunTKNew env f
-        env2 h = extendEnvHFunTKNew (Proxy @z) var h env
+        env2 h = extendEnvHFunTKNew (Proxy @x2) (Proxy @y2) var h env
     in HVectorPseudoTensor
-       $ dletHFunInHVectorTKNew @_ @_ @z
+       $ dletHFunInHVectorTKNew @_ @_ @x2 @y2
            g (\h -> unHVectorPseudoTensor $ interpretAst (env2 h) v)
   AstLetInHVector var u v ->
     -- We assume there are no nested lets with the same variable.
@@ -931,18 +931,20 @@ interpretAstHFun !env = \case
       _ -> error $ "interpretAstHFun: unknown variable " ++ show varId
 
 interpretAstHFunTKNew
-  :: forall ranked y. TensorKind y
+  :: forall ranked x y. (TensorKind x, TensorKind y)
   => HVectorTensor ranked (ShapedOf ranked)
-  => AstEnv ranked -> AstHFunTKNew y -> HFunOfTKNew ranked y
+  => AstEnv ranked -> AstHFunTKNew x y -> HFunOfTKNew ranked x y
 interpretAstHFunTKNew !env = \case
-  AstLambdaTKNew ~(vvars, l) ->
-    dlambdaTKNew @ranked (map voidFromVars vvars)
-    $ interpretLambdaHsHTKNew interpretAst (vvars, l)
+  AstLambdaTKNew ~(var, ftk, l) ->
+    dlambdaTKNew @ranked ftk $ interpretLambdaHsHTKNew interpretAst (var, l)
       -- interpretation in empty environment; makes sense here, because
       -- there are no free variables outside of those listed
   AstVarHFunTKNew _shss _shs varId ->
     case DMap.lookup (mkAstVarName @_ @y varId) env of
-      Just (AstEnvElemHFunTKNew f) -> f
+      Just (AstEnvElemHFunTKNew @_ @x2 f) -> case sameTensorKind @x @x2 of
+        Just Refl -> f
+        Nothing -> error $ "interpretAstHFun: wrong type for variable "
+                           ++ show varId
       _ -> error $ "interpretAstHFun: unknown variable " ++ show varId
 
 interpretAstBool :: ADReady ranked

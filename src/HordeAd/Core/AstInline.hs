@@ -363,7 +363,7 @@ inlineAst memo v0 = case v0 of
     in (memo2, Ast.AstHApply t2 ll2)
   Ast.AstHApplyTKNew t ll ->
     let (memo1, t2) = inlineAstHFunTKNew memo t
-        (memo2, ll2) = mapAccumR (mapAccumR inlineAstDynamic) memo1 ll
+        (memo2, ll2) = inlineAst memo1 ll
     in (memo2, Ast.AstHApplyTKNew t2 ll2)
   Ast.AstLetHVectorInHVector vars u v ->
     -- We don't inline, but elsewhere try to reduce to constructors that we do.
@@ -481,12 +481,12 @@ inlineAstHFun memo v0 = case v0 of
     in (EM.alter f var memo, v0)
 
 inlineAstHFunTKNew
-  :: AstMemo -> AstHFunTKNew y -> (AstMemo, AstHFunTKNew y)
+  :: AstMemo -> AstHFunTKNew x y -> (AstMemo, AstHFunTKNew x y)
 inlineAstHFunTKNew memo v0 = case v0 of
-  Ast.AstLambdaTKNew ~(vvars, l) ->
+  Ast.AstLambdaTKNew ~(var, ftk, l) ->
     -- No other free variables in l, so no outside lets can reach there,
     -- so we don't need to pass the information from v upwards.
-    (memo, Ast.AstLambdaTKNew (vvars, snd $ inlineAst EM.empty l))
+    (memo, Ast.AstLambdaTKNew (var, ftk, snd $ inlineAst EM.empty l))
   Ast.AstVarHFunTKNew _shss _shs var ->
     let f Nothing = Just 1
         f (Just count) = Just $ succ count
@@ -764,7 +764,7 @@ shareAst memo v0 = case v0 of
     in (memo2, Ast.AstHApply t2 ll2)
   Ast.AstHApplyTKNew t ll ->
     let (memo1, t2) = shareAstHFunTKNew memo t
-        (memo2, ll2) = mapAccumR (mapAccumR shareAstDynamic) memo1 ll
+        (memo2, ll2) = shareAst memo1 ll
     in (memo2, Ast.AstHApplyTKNew t2 ll2)
   Ast.AstLetHVectorInHVector{} -> error "shareAst: AstLetHVectorInHVector"
   Ast.AstLetHFunInHVector{} -> error "shareAst: AstLetHFunInHVector"
@@ -830,7 +830,7 @@ shareAstHFun memo v0 = case v0 of
   Ast.AstVarHFun{} -> (memo, v0)
 
 shareAstHFunTKNew
-  :: ShareMemo -> AstHFunTKNew y -> (ShareMemo, AstHFunTKNew y)
+  :: ShareMemo -> AstHFunTKNew x y -> (ShareMemo, AstHFunTKNew x y)
 shareAstHFunTKNew memo v0 = case v0 of
   Ast.AstLambdaTKNew{} ->
     -- No other free variables in l, so no outside lets can reach there,

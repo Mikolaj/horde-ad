@@ -250,30 +250,11 @@ build1V snat@SNat (var, v00) =
      in repl2Stk (stensorKind @y2) (build1V snat (var, v))
     Ast.AstBuild1{} -> error "build1V: impossible case of AstBuild1"
 
-    Ast.AstLet @_ @_ @y2 @s1 var1 u v
+    Ast.AstLet @_ @_ @y2 var1 u v
       | Dict <- lemTensorKindOfBuild snat (stensorKind @y2) ->
-        let var3 :: AstVarName s1 (BuildTensorKind k y2)
-            var3 = mkAstVarName (varNameToAstVarId var1)
-            ftk2 = shapeAstFull u
-            ftk3 = buildTensorKindFull snat ftk2
-            astVar3 = Ast.AstVar ftk3 var3
-            projection :: AstTensor s1 (BuildTensorKind k y4)
-                       -> TensorKindFull y4
-                       -> AstTensor s1 y4
-            projection prVar = \case
-              FTKR{} -> Ast.AstIndex prVar (Ast.AstIntVar var :.: ZIR)
-              FTKS -> Ast.AstIndexS prVar (Ast.AstIntVar var :.$ ZIS)
-              FTKProduct @z1 @z2 ftk41 ftk42
-                | Dict <- lemTensorKindOfBuild snat (stensorKind @z1)
-                , Dict <- lemTensorKindOfBuild snat (stensorKind @z2) ->
-                  let prVar1 = Ast.AstProject1 prVar
-                      prVar2 = Ast.AstProject2 prVar
-                  in Ast.AstTuple (projection prVar1 ftk41)
-                                  (projection prVar2 ftk42)
-              FTKUntyped _ -> error "TODO"
-            v2 = substituteAst
-                   (SubstitutionPayload @s1 (projection astVar3 ftk2))
-                   var1 v
+        let ftk2 = shapeAstFull u
+            (var3, _ftk3, v2) =
+              substProjInterpretationTarget snat var ftk2 var1 v
         in astLet var3 (build1VOccurenceUnknown snat (var, u))
                        (build1VOccurenceUnknownRefresh snat (var, v2))
              -- ensures no duplicated bindings, see below
@@ -360,8 +341,9 @@ build1V snat@SNat (var, v00) =
         -- If it could contain index variables, e.g., in a conditional
         -- expression, we might need to add projections as above.
         astLetHFunIn var1 (build1VHFun snat (var, f)) (build1V snat (var, v))
-    Ast.AstLetHFunInTKNew @_ @_ @z var1 f v
-      | Dict <- lemTensorKindOfBuild snat (stensorKind @z) -> traceRule $
+    Ast.AstLetHFunInTKNew @_ @_ @x @z var1 f v
+      | Dict <- lemTensorKindOfBuild snat (stensorKind @x)
+      , Dict <- lemTensorKindOfBuild snat (stensorKind @z) -> traceRule $
         -- We take advantage of the fact that f contains no free index
         -- variables (it may contain function variables, though).
         -- If it could contain index variables, e.g., in a conditional
@@ -370,32 +352,13 @@ build1V snat@SNat (var, v00) =
     Ast.AstRFromS @sh1 v ->
       astRFromS @(k ': sh1) $ build1V snat (var, v)
 
-    Ast.AstLetS @_ @_ @y2 @s1 var1 u v
+    Ast.AstLetS @_ @_ @y2 var1 u v
       | Dict <- lemTensorKindOfBuild snat (stensorKind @y2) ->
-        let var3 :: AstVarName s1 (BuildTensorKind k y2)
-            var3 = mkAstVarName (varNameToAstVarId var1)
-            ftk2 = shapeAstFull u
-            ftk3 = buildTensorKindFull snat ftk2
-            astVar3 = Ast.AstVar ftk3 var3
-            projection :: AstTensor s1 (BuildTensorKind k y4)
-                       -> TensorKindFull y4
-                       -> AstTensor s1 y4
-            projection prVar = \case
-              FTKR{} -> Ast.AstIndex prVar (Ast.AstIntVar var :.: ZIR)
-              FTKS -> Ast.AstIndexS prVar (Ast.AstIntVar var :.$ ZIS)
-              FTKProduct @z1 @z2 ftk41 ftk42
-                | Dict <- lemTensorKindOfBuild snat (stensorKind @z1)
-                , Dict <- lemTensorKindOfBuild snat (stensorKind @z2) ->
-                  let prVar1 = Ast.AstProject1 prVar
-                      prVar2 = Ast.AstProject2 prVar
-                  in Ast.AstTuple (projection prVar1 ftk41)
-                                  (projection prVar2 ftk42)
-              FTKUntyped _ -> error "TODO"
-            v2 = substituteAst
-                   (SubstitutionPayload @s1 (projection astVar3 ftk2))
-                   var1 v
+        let ftk2 = shapeAstFull u
+            (var3, _ftk3, v2) =
+              substProjInterpretationTarget snat var ftk2 var1 v
         in astLetS var3 (build1VOccurenceUnknown snat (var, u))
-                        (build1VOccurenceUnknownRefresh snat (var, v2))
+                       (build1VOccurenceUnknownRefresh snat (var, v2))
     Ast.AstShareS{} -> error "build1V: AstShareS"
 
     Ast.AstMinIndexS v -> Ast.AstMinIndexS $ build1V snat (var, v)
@@ -495,8 +458,9 @@ build1V snat@SNat (var, v00) =
       | Dict <- lemTensorKindOfBuild snat (stensorKind @z) -> traceRule $
         -- We take advantage of the fact that f contains no free index vars.
         astLetHFunInS var1 (build1VHFun snat (var, f)) (build1V snat (var, v))
-    Ast.AstLetHFunInSTKNew @_ @_ @z var1 f v
-      | Dict <- lemTensorKindOfBuild snat (stensorKind @z) -> traceRule $
+    Ast.AstLetHFunInSTKNew @_ @_ @x @z var1 f v
+      | Dict <- lemTensorKindOfBuild snat (stensorKind @x)
+      , Dict <- lemTensorKindOfBuild snat (stensorKind @z) -> traceRule $
         -- We take advantage of the fact that f contains no free index vars.
         astLetHFunInSTKNew var1 (build1VHFunTKNew snat (var, f)) (build1V snat (var, v))
     Ast.AstSFromR v -> astSFromR $ build1V snat (var, v)
@@ -509,11 +473,12 @@ build1V snat@SNat (var, v00) =
         astHApply
           (build1VHFun snat (var, t))
           (map (V.map (\u -> build1VOccurenceUnknownDynamic snat (var, u))) ll)
-    Ast.AstHApplyTKNew @z t ll
-      | Dict <- lemTensorKindOfBuild snat (stensorKind @z) -> traceRule $
+    Ast.AstHApplyTKNew @x @z t ll
+      | Dict <- lemTensorKindOfBuild snat (stensorKind @x)
+      , Dict <- lemTensorKindOfBuild snat (stensorKind @z) -> traceRule $
         astHApplyTKNew
           (build1VHFunTKNew snat (var, t))
-          (map (V.map (\u -> build1VOccurenceUnknownDynamic snat (var, u))) ll)
+          (build1VOccurenceUnknown snat (var, ll))
     Ast.AstLetHVectorInHVector vars1 u v -> traceRule $
       let (vOut, varsOut) = substProjVars @k var vars1 v
       in astLetHVectorInHVector
@@ -524,8 +489,9 @@ build1V snat@SNat (var, v00) =
         -- We take advantage of the fact that f contains no free index vars.
         astLetHFunInHVector var1 (build1VHFun snat (var, f))
                                  (build1V snat (var, v))
-    Ast.AstLetHFunInHVectorTKNew @z var1 f v
-      | Dict <- lemTensorKindOfBuild snat (stensorKind @z) -> traceRule $
+    Ast.AstLetHFunInHVectorTKNew @x @z var1 f v
+      | Dict <- lemTensorKindOfBuild snat (stensorKind @x)
+      , Dict <- lemTensorKindOfBuild snat (stensorKind @z) -> traceRule $
         -- We take advantage of the fact that f contains no free index vars.
         astLetHFunInHVectorTKNew var1 (build1VHFunTKNew snat (var, f))
                                  (build1V snat (var, v))
@@ -730,7 +696,7 @@ build1VHFun
   => SNat k -> (IntVarName, AstHFun y) -> AstHFun (BuildTensorKind k y)
 build1VHFun k@SNat (var, v0) = case v0 of
   Ast.AstLambda ~(vvars, l) ->
-    -- This handles the case of l having free variable beyond vvars,
+    -- This handles the case of l having free variables beyond vvars,
     -- which is not possible for lambdas used in folds, etc.
     -- But note that, due to substProjVars, l2 has var occurences,
     -- so build1VOccurenceUnknownRefresh is neccessary to handle
@@ -745,22 +711,23 @@ build1VHFun k@SNat (var, v0) = case v0 of
                    var2
 
 build1VHFunTKNew
-  :: forall k y. TensorKind y
-  => SNat k -> (IntVarName, AstHFunTKNew y) -> AstHFunTKNew (BuildTensorKind k y)
-build1VHFunTKNew k@SNat (var, v0) = case v0 of
-  Ast.AstLambdaTKNew ~(vvars, l) ->
-    -- This handles the case of l having free variable beyond vvars,
-    -- which is not possible for lambdas used in folds, etc.
-    -- But note that, due to substProjVars, l2 has var occurences,
-    -- so build1VOccurenceUnknownRefresh is neccessary to handle
-    -- them and to eliminate them so that the function is closed again.
-    let f acc vars = substProjVars @k var vars acc
-        (l2, vvars2) = mapAccumR f l vvars
-    in Ast.AstLambdaTKNew
-         (vvars2, build1VOccurenceUnknownRefresh k (var, l2))
-  Ast.AstVarHFunTKNew shss ftk var2 ->
-    Ast.AstVarHFunTKNew (map (replicate1VoidHVector k) shss)
-                   (buildTensorKindFull k ftk)
+  :: forall k x y. (TensorKind x, TensorKind y)
+  => SNat k -> (IntVarName, AstHFunTKNew x y)
+  -> AstHFunTKNew (BuildTensorKind k x) (BuildTensorKind k y)
+build1VHFunTKNew snat@SNat (var, v0) = case v0 of
+  Ast.AstLambdaTKNew ~(var1, ftk, l)
+    | Dict <- lemTensorKindOfBuild snat (stensorKind @x) ->
+      -- This handles the case of l having free variables beyond var1,
+      -- which is not possible for lambdas used in folds, etc.
+      -- But note that, due to substProjVars, l2 has var occurences,
+      -- so build1VOccurenceUnknownRefresh is neccessary to handle
+      -- them and to eliminate them so that the function is closed again.
+      let (var2, ftk2, l2) = substProjInterpretationTarget snat var ftk var1 l
+      in Ast.AstLambdaTKNew
+           (var2, ftk2, build1VOccurenceUnknownRefresh snat (var, l2))
+  Ast.AstVarHFunTKNew ftkx ftky var2 ->
+    Ast.AstVarHFunTKNew (buildTensorKindFull snat ftkx)
+                   (buildTensorKindFull snat ftky)
                    var2
 
 build1VOccurenceUnknownDynamic
@@ -782,6 +749,39 @@ build1VOccurenceUnknownDynamic SNat (var, d) = case d of
 
 
 -- * Auxiliary machinery
+
+substProjInterpretationTarget
+  :: forall k s s2 y2 y.
+     ( AstSpan s, AstSpan s2, TensorKind y2 )
+  => SNat k -> IntVarName
+  -> TensorKindFull y2 -> AstVarName s2 y2 -> AstTensor s y
+  -> ( AstVarName s2 (BuildTensorKind k y2)
+     , TensorKindFull (BuildTensorKind k y2)
+     , AstTensor s y )
+substProjInterpretationTarget snat@SNat var ftk2 var1 v
+  | Dict <- lemTensorKindOfBuild snat (stensorKind @y2) =
+    let var3 :: AstVarName s2 (BuildTensorKind k y2)
+        var3 = mkAstVarName (varNameToAstVarId var1)
+        ftk3 = buildTensorKindFull snat ftk2
+        astVar3 = Ast.AstVar ftk3 var3
+        projection :: AstTensor s2 (BuildTensorKind k y4)
+                   -> TensorKindFull y4
+                   -> AstTensor s2 y4
+        projection prVar = \case
+          FTKR{} -> Ast.AstIndex prVar (Ast.AstIntVar var :.: ZIR)
+          FTKS -> Ast.AstIndexS prVar (Ast.AstIntVar var :.$ ZIS)
+          FTKProduct @z1 @z2 ftk41 ftk42
+            | Dict <- lemTensorKindOfBuild snat (stensorKind @z1)
+            , Dict <- lemTensorKindOfBuild snat (stensorKind @z2) ->
+              let prVar1 = Ast.AstProject1 prVar
+                  prVar2 = Ast.AstProject2 prVar
+              in Ast.AstTuple (projection prVar1 ftk41)
+                              (projection prVar2 ftk42)
+          FTKUntyped _ -> error "TODO"
+        v2 = substituteAst
+               (SubstitutionPayload @s2 (projection astVar3 ftk2))
+               var1 v
+    in (var3, ftk3, v2)
 
 substProjRanked :: forall n1 r1 s1 s y.
                    ( KnownNat n1, GoodScalar r1, AstSpan s, AstSpan s1 )

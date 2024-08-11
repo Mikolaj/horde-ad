@@ -404,8 +404,8 @@ astLetHFunInFun a f =
   in fun1HToAst shss shs $ \ !var !ast -> astLetHFunIn var a (f ast)
 
 astLetHFunInFunTKNew
-  :: (GoodScalar r, KnownNat n, TensorKind y)
-  => AstHFunTKNew y -> (AstHFunTKNew y -> AstTensor s (TKR r n))
+  :: (GoodScalar r, KnownNat n, TensorKind x, TensorKind y)
+  => AstHFunTKNew x y -> (AstHFunTKNew x y -> AstTensor s (TKR r n))
   -> AstTensor s (TKR r n)
 {-# INLINE astLetHFunInFunTKNew #-}
 astLetHFunInFunTKNew a f =
@@ -554,8 +554,8 @@ astLetHFunInFunS a f =
   in fun1HToAst shss shs $ \ !var !ast -> astLetHFunInS var a (f ast)
 
 astLetHFunInFunSTKNew
-  :: (GoodScalar r, KnownShS sh, TensorKind y)
-  => AstHFunTKNew y -> (AstHFunTKNew y -> AstTensor s (TKS r sh))
+  :: (GoodScalar r, KnownShS sh, TensorKind x, TensorKind y)
+  => AstHFunTKNew x y -> (AstHFunTKNew x y -> AstTensor s (TKS r sh))
   -> AstTensor s (TKS r sh)
 {-# INLINE astLetHFunInFunSTKNew #-}
 astLetHFunInFunSTKNew a f =
@@ -631,19 +631,21 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   dlambda shss f =
     AstLambda $ fun1LToAst shss $ \ !vvars !ll ->
                   (vvars, unRankedY (stensorKind @y) $ unHFun f ll)
-  dlambdaTKNew :: forall y. TensorKind y
-          => [VoidHVector] -> HFunTKNew y -> HFunOfTKNew (AstRanked s) y
+  dlambdaTKNew :: forall x y. (TensorKind x, TensorKind y)
+          => TensorKindFull x -> HFunTKNew x y -> HFunOfTKNew (AstRanked s) x y
   dlambdaTKNew shss f =
-    AstLambdaTKNew $ fun1LToAst shss $ \ !vvars !ll ->
-                  (vvars, unRankedY (stensorKind @y) $ unHFunTKNew f ll)
+    let (var, ast) = funToAst shss $ \ !ll ->
+          unRankedY (stensorKind @y) $ unHFunTKNew f $ rankedY (stensorKind @x) ll
+    in AstLambdaTKNew (var, shss, ast)
   dHApply :: forall y. TensorKind y
           => HFunOf (AstRanked s) y -> [HVector (AstRanked s)]
           -> InterpretationTarget (AstRanked s) y
   dHApply f l = rankedY (stensorKind @y) $ astHApply f l
-  dHApplyTKNew :: forall y. TensorKind y
-          => HFunOfTKNew (AstRanked s) y -> [HVector (AstRanked s)]
+  dHApplyTKNew :: forall x y. (TensorKind x, TensorKind y)
+          => HFunOfTKNew (AstRanked s) x y
+          -> InterpretationTarget (AstRanked s) x
           -> InterpretationTarget (AstRanked s) y
-  dHApplyTKNew f l = rankedY (stensorKind @y) $ astHApplyTKNew f l
+  dHApplyTKNew t ll = dHApplyTKNew @(AstRanked s) @_ @x @y t ll
   dunHVector (AstMkHVector l) = l
   dunHVector hVectorOf =
     let f :: Int -> DynamicTensor VoidTensor -> AstDynamic s
@@ -778,8 +780,8 @@ astLetHFunInHVectorFun a f =
   in fun1HToAst shss shs $ \ !var !ast -> astLetHFunInHVector var a (f ast)
 
 astLetHFunInHVectorFunTKNew
-  :: TensorKind y
-  => AstHFunTKNew y -> (AstHFunTKNew y -> AstTensor s TKUntyped)
+  :: (TensorKind x, TensorKind y)
+  => AstHFunTKNew x y -> (AstHFunTKNew x y -> AstTensor s TKUntyped)
   -> AstTensor s TKUntyped
 {-# INLINE astLetHFunInHVectorFunTKNew #-}
 astLetHFunInHVectorFunTKNew a f =
@@ -1162,8 +1164,8 @@ astLetHFunInFunRaw a f =
   in fun1HToAst shss shs $ \ !var !ast -> AstLetHFunIn var a (f ast)
 
 astLetHFunInFunRawTKNew
-  :: (GoodScalar r, KnownNat n, TensorKind y)
-  => AstHFunTKNew y -> (AstHFunTKNew y -> AstTensor s (TKR r n))
+  :: (GoodScalar r, KnownNat n, TensorKind x, TensorKind y)
+  => AstHFunTKNew x y -> (AstHFunTKNew x y -> AstTensor s (TKR r n))
   -> AstTensor s (TKR r n)
 astLetHFunInFunRawTKNew a f =
   let shss = domainShapeAstHFunTKNew a
@@ -1180,8 +1182,8 @@ astLetHFunInFunRawS a f =
   in fun1HToAst shss shs $ \ !var !ast -> AstLetHFunInS var a (f ast)
 
 astLetHFunInFunRawSTKNew
-  :: (GoodScalar r, KnownShS sh, TensorKind y)
-  => AstHFunTKNew y -> (AstHFunTKNew y -> AstTensor s (TKS r sh))
+  :: (GoodScalar r, KnownShS sh, TensorKind x, TensorKind y)
+  => AstHFunTKNew x y -> (AstHFunTKNew x y -> AstTensor s (TKS r sh))
   -> AstTensor s (TKS r sh)
 astLetHFunInFunRawSTKNew a f =
   let shss = domainShapeAstHFunTKNew a
@@ -1206,8 +1208,8 @@ astLetHFunInHVectorFunRaw a f =
   in fun1HToAst shss shs $ \ !var !ast -> AstLetHFunInHVector var a (f ast)
 
 astLetHFunInHVectorFunRawTKNew
-  :: TensorKind y
-  => AstHFunTKNew y -> (AstHFunTKNew y -> AstTensor s TKUntyped)
+  :: (TensorKind x, TensorKind y)
+  => AstHFunTKNew x y -> (AstHFunTKNew x y -> AstTensor s TKUntyped)
   -> AstTensor s TKUntyped
 astLetHFunInHVectorFunRawTKNew a f =
   let shss = domainShapeAstHFunTKNew a
@@ -1294,22 +1296,24 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
   dlambda shss f =
     AstLambda $ fun1LToAst shss $ \ !vvars !ll ->
                   (vvars, unRankedY (stensorKind @y) $ unHFun f ll)
-  dlambdaTKNew :: forall y. TensorKind y
-          => [VoidHVector] -> HFunTKNew y -> HFunOfTKNew (AstRaw s) y
+  dlambdaTKNew :: forall x y. (TensorKind x, TensorKind y)
+          => TensorKindFull x -> HFunTKNew x y -> HFunOfTKNew (AstRaw s) x y
   dlambdaTKNew shss f =
-    AstLambdaTKNew $ fun1LToAst shss $ \ !vvars !ll ->
-                  (vvars, unRankedY (stensorKind @y) $ unHFunTKNew f ll)
+    let (var, ast) = funToAst shss $ \ !ll ->
+          unRankedY (stensorKind @y) $ unHFunTKNew f $ rankedY (stensorKind @x) ll
+    in AstLambdaTKNew (var, shss, ast)
   dHApply :: forall y. TensorKind y
           => HFunOf (AstRaw s) y -> [HVector (AstRaw s)]
           -> InterpretationTarget (AstRaw s) y
   dHApply t ll =
     let app = AstHApply t (map unRawHVector ll)
     in rawY (stensorKind @y) app
-  dHApplyTKNew :: forall y. TensorKind y
-          => HFunOfTKNew (AstRaw s) y -> [HVector (AstRaw s)]
+  dHApplyTKNew :: forall x y. (TensorKind x, TensorKind y)
+          => HFunOfTKNew (AstRaw s) x y
+          -> InterpretationTarget (AstRaw s) x
           -> InterpretationTarget (AstRaw s) y
   dHApplyTKNew t ll =
-    let app = AstHApplyTKNew t (map unRawHVector ll)
+    let app = AstHApplyTKNew t $ unRawY (stensorKind @x) ll
     in rawY (stensorKind @y) app
   dunHVector (AstRawWrap (AstMkHVector l)) = rawHVector l
   dunHVector (AstRawWrap hVectorOf) =
@@ -1534,12 +1538,11 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
   dHApply t ll =
     let app = dHApply t (map unNoVectorizeHVector ll)
     in noVectorizeY (stensorKind @y) $ unRankedY (stensorKind @y) app
-  dHApplyTKNew :: forall y. TensorKind y
-          => HFunOfTKNew (AstNoVectorize s) y -> [HVector (AstNoVectorize s)]
+  dHApplyTKNew :: forall x y. (TensorKind x, TensorKind y)
+          => HFunOfTKNew (AstNoVectorize s) x y
+          -> InterpretationTarget (AstNoVectorize s) x
           -> InterpretationTarget (AstNoVectorize s) y
-  dHApplyTKNew t ll =
-    let app = dHApplyTKNew t (map unNoVectorizeHVector ll)
-    in noVectorizeY (stensorKind @y) $ unRankedY (stensorKind @y) app
+  dHApplyTKNew t ll = dHApplyTKNew @(AstNoVectorize s) @_ @x @y t ll
   dunHVector =
     noVectorizeHVector . dunHVector . unAstNoVectorizeWrap
   dletHVectorInHVector a f =
@@ -1762,22 +1765,24 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
   dlambda shss f =
     AstLambda $ fun1LToAst shss $ \ !vvars !ll ->
                   (vvars, unRankedY (stensorKind @y) $ unHFun f ll)
-  dlambdaTKNew :: forall y. TensorKind y
-          => [VoidHVector] -> HFunTKNew y -> HFunOfTKNew (AstNoSimplify s) y
+  dlambdaTKNew :: forall x y. (TensorKind x, TensorKind y)
+          => TensorKindFull x -> HFunTKNew x y -> HFunOfTKNew (AstNoSimplify s) x y
   dlambdaTKNew shss f =
-    AstLambdaTKNew $ fun1LToAst shss $ \ !vvars !ll ->
-                  (vvars, unRankedY (stensorKind @y) $ unHFunTKNew f ll)
+    let (var, ast) = funToAst shss $ \ !ll ->
+          unRankedY (stensorKind @y) $ unHFunTKNew f $ rankedY (stensorKind @x) ll
+    in AstLambdaTKNew (var, shss, ast)
   dHApply :: forall y. TensorKind y
           => HFunOf (AstNoSimplify s) y -> [HVector (AstNoSimplify s)]
           -> InterpretationTarget (AstNoSimplify s) y
   dHApply t ll =
     let app = AstHApply t (map unNoSimplifyHVector ll)
     in noSimplifyY (stensorKind @y) app
-  dHApplyTKNew :: forall y. TensorKind y
-          => HFunOfTKNew (AstNoSimplify s) y -> [HVector (AstNoSimplify s)]
+  dHApplyTKNew :: forall x y. (TensorKind x, TensorKind y)
+          => HFunOfTKNew (AstNoSimplify s) x y
+          -> InterpretationTarget (AstNoSimplify s) x
           -> InterpretationTarget (AstNoSimplify s) y
   dHApplyTKNew t ll =
-    let app = AstHApplyTKNew t (map unNoSimplifyHVector ll)
+    let app = AstHApplyTKNew t $ unNoSimplifyY (stensorKind @x) ll
     in noSimplifyY (stensorKind @y) app
   dunHVector (AstNoSimplifyWrap (AstMkHVector l)) = noSimplifyHVector l
   dunHVector (AstNoSimplifyWrap hVectorOf) =

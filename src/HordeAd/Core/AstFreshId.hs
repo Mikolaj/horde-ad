@@ -219,16 +219,16 @@ fun1HToAst :: [VoidHVector] -> TensorKindFull y
 {-# NOINLINE fun1HToAst #-}
 fun1HToAst shss shs f = unsafePerformIO $ fun1HToAstIO shss shs f
 
-fun1HToAstIOTKNew :: [VoidHVector] -> TensorKindFull y
-             -> (AstVarId -> AstHFunTKNew y -> a)
+fun1HToAstIOTKNew :: TensorKindFull x -> TensorKindFull y
+             -> (AstVarId -> AstHFunTKNew x y -> a)
              -> IO a
 {-# INLINE fun1HToAstIOTKNew #-}
 fun1HToAstIOTKNew shss shs f = do
   !freshId <- unsafeGetFreshAstVarId
   return $! f freshId (AstVarHFunTKNew shss shs freshId)
 
-fun1HToAstTKNew :: [VoidHVector] -> TensorKindFull y
-           -> (AstVarId -> AstHFunTKNew y -> a)
+fun1HToAstTKNew :: TensorKindFull x -> TensorKindFull y
+           -> (AstVarId -> AstHFunTKNew x y -> a)
            -> a
 {-# NOINLINE fun1HToAstTKNew #-}
 fun1HToAstTKNew shss shs f = unsafePerformIO $ fun1HToAstIOTKNew shss shs f
