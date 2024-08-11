@@ -12,7 +12,8 @@ module HordeAd.Core.Ast
   , AstVarId, intToAstVarId, AstDynamicVarName(..), dynamicVarNameToAstVarId
   , AstInt, IntVarName, pattern AstIntVar, isRankedInt
   , AstVarName, mkAstVarName, varNameToAstVarId
-  , AstArtifact(..), AstIndex, AstVarList, AstIndexS, AstVarListS
+  , AstArtifact(..), AstArtifactTKNew(..)
+  , AstIndex, AstVarList, AstIndexS, AstVarListS
     -- * AstBindingsCase and AstBindings
   , AstBindingsCase(..), AstBindings
     -- * ASTs
@@ -184,6 +185,18 @@ data AstArtifact y z = AstArtifact
   , artVarsPrimal :: [AstDynamicVarName]
   , artDerivative :: InterpretationTarget (AstRaw PrimalSpan) y
   , artPrimal     :: InterpretationTarget (AstRaw PrimalSpan) z
+  }
+
+-- The reverse derivative artifact from step 6) of our full pipeline
+-- (with y equal to x).
+-- The same type can also hold the forward derivative artifact
+-- (with y equal to z).
+type role AstArtifactTKNew nominal nominal nominal
+data AstArtifactTKNew x y z = AstArtifactTKNew
+  { artVarDtTKNew      :: AstVarName PrimalSpan z
+  , artVarPrimalTKNew  :: AstVarName PrimalSpan x
+  , artDerivativeTKNew :: InterpretationTarget (AstRaw PrimalSpan) y
+  , artPrimalTKNew     :: InterpretationTarget (AstRaw PrimalSpan) z
   }
 
 -- | This is the (arbitrarily) chosen representation of terms denoting
