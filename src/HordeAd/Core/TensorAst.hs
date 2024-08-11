@@ -8,8 +8,9 @@
 -- instances defined in "TensorADVal" but may also be used standalone.
 module HordeAd.Core.TensorAst
   ( revProduceArtifactH
-  , forwardPassByInterpretation
-  , revArtifactFromForwardPass, revProduceArtifact
+  , forwardPassByInterpretation, forwardPassByInterpretationTKNew
+  , revArtifactFromForwardPass, revArtifactFromForwardPassTKNew
+  , revProduceArtifact, revProduceArtifactTKNew
   , fwdArtifactFromForwardPass, fwdProduceArtifact
   ) where
 
@@ -86,8 +87,25 @@ forwardPassByInterpretation g envInit hVectorPrimal vars hVector =
       env = foldr extendEnvD envInit $ zip vars $ V.toList varInputs
   in interpretAst env $ unRankedY (stensorKind @y) ast
 
+forwardPassByInterpretationTKNew
+  :: forall y. TensorKind y
+  => (HVector (AstRanked FullSpan)
+      -> InterpretationTarget (AstRanked FullSpan) y)
+  -> AstEnv (ADVal (AstRaw PrimalSpan))
+  -> HVector (AstRaw PrimalSpan)
+  -> AstVarName FullSpan TKUntyped
+  -> HVector (AstRanked FullSpan)
+  -> InterpretationTarget (ADVal (AstRaw PrimalSpan)) y
+{-# INLINE forwardPassByInterpretationTKNew #-}
+forwardPassByInterpretationTKNew g envInit hVectorPrimal var hVector =
+  let deltaInputs = generateDeltaInputs hVectorPrimal
+      varInputs = makeADInputs hVectorPrimal deltaInputs
+      ast = g hVector
+      env = extendEnv var (HVectorPseudoTensor $ dmkHVector varInputs) envInit
+  in interpretAst env $ unRankedY (stensorKind @y) ast
+
 revArtifactFromForwardPass
-  :: forall y. y ~ TKUntyped  -- TensorKind y
+  :: forall y. y ~ TKUntyped
   => Bool
   -> (HVector (AstRaw PrimalSpan)
       -> [AstDynamicVarName]
@@ -125,8 +143,45 @@ revArtifactFromForwardPass hasDt forwardPass parameters0 =
     in ( AstArtifact varsDt varsPrimal unGradient unPrimal
        , delta )
 
+revArtifactFromForwardPassTKNew
+  :: forall y. TensorKind y
+  => Bool
+  -> (HVector (AstRaw PrimalSpan)
+      -> AstVarName FullSpan TKUntyped
+      -> HVector (AstRanked FullSpan)
+      -> InterpretationTarget (ADVal (AstRaw PrimalSpan)) y)
+  -> VoidHVector
+  -> (AstArtifactTKNew TKUntyped TKUntyped y, Delta (AstRaw PrimalSpan) y)
+{-# INLINE revArtifactFromForwardPassTKNew #-}
+revArtifactFromForwardPassTKNew hasDt forwardPass parameters0 =
+  let -- Bangs and the compound function to fix the numbering of variables
+      -- for pretty-printing and prevent sharing the impure values/effects
+      -- in tests that reset the impure counters.
+      !(!varPrimal, hVectorPrimal, var, hVector) =
+        funToAstRevTKNew parameters0 in
+  let -- Evaluate completely after terms constructed, to free memory
+      -- before gradientFromDelta allocates new memory and new FFI is started.
+      !(!primalBody, !deltaIT) =
+        unADValRawY (stensorKind @y)
+        $ forwardPass hVectorPrimal var hVector
+      delta = unDeltaRY (stensorKind @y) deltaIT in
+  let (!varDt, !astDt) =
+        funToAst (shapeAstFull $ unRawY (stensorKind @y) primalBody) id in
+  let mdt = if hasDt then Just $ rawY (stensorKind @y) astDt else Nothing
+      !gradient = gradientFromDelta parameters0 primalBody mdt delta
+      unGradient = gunlet (stensorKind @TKUntyped)
+                   $ HVectorPseudoTensor $ dmkHVector gradient
+      unPrimal = gunlet (stensorKind @y) primalBody
+{- too expensive currently, so inlined as above:
+      unGradient =
+        mapInterpretationTarget unletRaw unletRawS (stensorKind @TKUntyped)
+        $ HVectorPseudoTensor $ dmkHVector gradient
+-}
+  in ( AstArtifactTKNew varDt varPrimal unGradient unPrimal
+     , delta )
+
 revProduceArtifact
-  :: forall y. y ~ TKUntyped  -- TensorKind y
+  :: y ~ TKUntyped
   => Bool
   -> (HVector (AstRanked FullSpan)
       -> HVectorPseudoTensor (AstRanked FullSpan) Float '())
@@ -136,6 +191,19 @@ revProduceArtifact
 {-# INLINE revProduceArtifact #-}
 revProduceArtifact hasDt g envInit =
   revArtifactFromForwardPass hasDt (forwardPassByInterpretation g envInit)
+
+revProduceArtifactTKNew
+  :: TensorKind y
+  => Bool
+  -> (HVector (AstRanked FullSpan)
+      -> InterpretationTarget (AstRanked FullSpan) y)
+  -> AstEnv (ADVal (AstRaw PrimalSpan))
+  -> VoidHVector
+  -> (AstArtifactTKNew TKUntyped TKUntyped y, Delta (AstRaw PrimalSpan) y)
+{-# INLINE revProduceArtifactTKNew #-}
+revProduceArtifactTKNew hasDt g envInit =
+  revArtifactFromForwardPassTKNew
+    hasDt (forwardPassByInterpretationTKNew g envInit)
 
 unADValRawY :: forall y.
                STensorKindType y

@@ -8,7 +8,8 @@ module HordeAd.Core.AstFreshId
   , funToAstIO, funToAst, fun2ToAst
   , fun1RToAst, fun1SToAst, fun1XToAst
   , fun1DToAst, fun1HToAst, fun1HToAstTKNew, fun1LToAst
-  , funToAstRevIO, funToAstRev, funToAstFwdIO, funToAstFwd
+  , funToAstRevIO, funToAstRev, funToAstRevIOTKNew, funToAstRevTKNew
+  , funToAstFwdIO, funToAstFwd
   , funToAstIOI, funToAstI, funToAstIntVarIO, funToAstIntVar
   , funToVarsIx, funToAstIndex, funToVarsIxS, funToAstIndexS
   , resetVarCounter
@@ -20,10 +21,13 @@ import Control.Monad (mapAndUnzipM, replicateM)
 import Data.Array.Internal (valueOf)
 import Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter, writeIORefU)
 import Data.List (unzip4, unzip6)
+import Data.List.Index (imapM)
 import Data.Proxy (Proxy (Proxy))
 import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat, Nat)
 import System.IO.Unsafe (unsafePerformIO)
+
+import Data.Array.Mixed.Shape qualified as X
 
 import HordeAd.Core.Ast
 import HordeAd.Core.HVector
@@ -287,6 +291,44 @@ funToAstRev :: VoidHVector
                , HVector (AstRanked FullSpan) )
 {-# NOINLINE funToAstRev #-}
 funToAstRev parameters0 = unsafePerformIO $ funToAstRevIO parameters0
+
+funToAstRevIOTKNew :: VoidHVector
+              -> IO ( AstVarName PrimalSpan TKUntyped
+                    , HVector (AstRaw PrimalSpan)
+                    , AstVarName FullSpan TKUntyped
+                    , HVector (AstRanked FullSpan) )
+{-# INLINE funToAstRevIOTKNew #-}
+funToAstRevIOTKNew parameters0 = do
+  freshId <- unsafeGetFreshAstVarId
+  let varPrimal = mkAstVarName freshId
+      var = mkAstVarName freshId
+      !astVarPrimal = AstVar (FTKUntyped parameters0) varPrimal
+      !astVar = AstVar (FTKUntyped parameters0) var
+  let f :: Int -> DynamicTensor VoidTensor
+        -> IO (AstDynamic PrimalSpan, AstDynamic FullSpan)
+      f i (DynamicRankedDummy @r @sh _ _)
+        | Dict <- lemKnownNatRank (knownShS @sh) = do
+          return $!
+            ( DynamicRanked @r @(X.Rank sh)
+                            (AstRanked $ AstProjectR astVarPrimal i)
+            , DynamicRanked @r @(X.Rank sh)
+                            (AstRanked $ AstProjectR astVar i) )
+      f i (DynamicShapedDummy @r @sh _ _) = do
+        return $!
+          ( DynamicShaped @r @sh (AstShaped $ AstProjectS astVarPrimal i)
+          , DynamicShaped @r @sh (AstShaped $ AstProjectS astVar i) )
+  (!astsPrimal, !asts) <- unzip <$> imapM f (V.toList parameters0)
+  let !vp = V.fromList astsPrimal
+      !va = V.fromList asts
+  return (varPrimal, rawHVector vp, var, va)
+
+funToAstRevTKNew :: VoidHVector
+            -> ( AstVarName PrimalSpan TKUntyped
+               , HVector (AstRaw PrimalSpan)
+               , AstVarName FullSpan TKUntyped
+               , HVector (AstRanked FullSpan) )
+{-# NOINLINE funToAstRevTKNew #-}
+funToAstRevTKNew parameters0 = unsafePerformIO $ funToAstRevIOTKNew parameters0
 
 funToAstFwdIO :: VoidHVector
               -> IO ( [AstDynamicVarName]
