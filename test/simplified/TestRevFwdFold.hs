@@ -117,7 +117,6 @@ testTrees =
   , testCase "4Sin0Scan1Rev2PP1" testSin0Scan1Rev2PP1
   , testCase "4Sin0Scan1Rev2PPA" testSin0Scan1Rev2PPA
   , testCase "4Sin0Scan1Rev2PPForComparison" testSin0Scan1Rev2PPForComparison
-  , testCase "4Sin0Scan1Fwd2PP" testSin0Scan1Fwd2PP
   , testCase "4Sin0Scan1Rev2" testSin0Scan1Rev2
   , testCase "4Sin0Scan1Rev2ForComparison" testSin0Scan1Rev2ForComparison
   , testCase "4Sin0Scan1Rev3PP" testSin0Scan1Rev3PP
@@ -1061,16 +1060,6 @@ testSin0Scan1Rev2PPForComparison = do
                  (rscalar 1.1)
   printArtifactPretty IM.empty (simplifyArtifact art)
     @?= "\\v3 x1 -> [cos x1 * (cos (sin x1 - 5.0) * v3 ! [0]) + cos x1 * v3 ! [1] + v3 ! [2]]"
-
-testSin0Scan1Fwd2PP :: Assertion
-testSin0Scan1Fwd2PP = do
-  resetVarCounter
-  let (art, _) =
-        fwdArtifactAdapt @Double @1 @(AstRanked FullSpan)
-                 (\x0 -> rscan (\x a -> sin x - a) x0
-                           (rconst (Nested.Internal.rfromListPrimLinear @Double @1 (fromList [2]) [5, 7]))) (rscalar 1.1)
-  printArtifactPretty IM.empty (simplifyArtifact art)
-    @?= "\\x1 x2 -> let v5 = rconst (rfromListLinear [2] [5.0,7.0]) in let [x6 @Natural @Double @[], v7 @Natural @Double @[2], v8 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [x2] [v5] in let [x9 @Natural @Double @[], v10 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [x1] [rreplicate 2 0.0, v7, v5] in [rappend (rreplicate 1 x1) v10]"
 
 testSin0Scan1Rev2 :: Assertion
 testSin0Scan1Rev2 = do

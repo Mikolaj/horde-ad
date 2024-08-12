@@ -11,7 +11,6 @@ module HordeAd.Core.TensorAst
   , forwardPassByInterpretation, forwardPassByInterpretationTKNew
   , revArtifactFromForwardPass, revArtifactFromForwardPassTKNew
   , revProduceArtifact, revProduceArtifactTKNew
-  , fwdArtifactFromForwardPass, fwdProduceArtifact
   , fwdArtifactFromForwardPassTKNew, fwdProduceArtifactTKNew
   , unRawY
   ) where

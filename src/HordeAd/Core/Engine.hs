@@ -11,7 +11,7 @@ module HordeAd.Core.Engine
   , revProduceArtifactWithoutInterpretationTKNew
   , revEvalArtifact, revEvalArtifactTKNew
     -- * Forward derivative adaptors
-  , fwd, fwdArtifactAdapt, fwdEvalArtifact
+  , fwd, fwdEvalArtifact
     -- * Old gradient adaptors
   , crev, crevDt
     -- * Old derivative adaptors
@@ -273,22 +273,6 @@ fwd f vals ds =
       err = error "fwd: codomain of unknown length"
   in parseHVector err $ unHVectorPseudoTensor
      $ fst $ fwdEvalArtifact @TKUntyped @TKUntyped artifact valsH dsH
-
-fwdArtifactAdapt
-  :: forall r y g tgtAstVals astvals.
-     ( tgtAstVals ~ g r y
-     , AdaptableHVector (AstRanked FullSpan) astvals
-     , AdaptableHVector (AstRanked FullSpan) tgtAstVals
-     , AdaptableHVector ORArray (Value astvals)
-     , TermValue astvals )
-  => (astvals -> tgtAstVals) -> Value astvals
-  -> (AstArtifact TKUntyped TKUntyped, Delta (AstRaw PrimalSpan) TKUntyped)
-fwdArtifactAdapt f vals =
-  let g hVector = HVectorPseudoTensor
-                  $ toHVectorOf $ f $ parseHVector (fromValue vals) hVector
-      valsH = toHVectorOf @ORArray vals
-      voidH = voidFromHVector valsH
-  in fwdProduceArtifact g emptyEnv voidH
 
 fwdEvalArtifact
   :: forall x z. (x ~ TKUntyped, TensorKind z)
