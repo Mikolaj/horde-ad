@@ -11,7 +11,7 @@ module HordeAd.Core.Engine
   , revProduceArtifactWithoutInterpretationTKNew
   , revEvalArtifact, revEvalArtifactTKNew
     -- * Forward derivative adaptors
-  , fwd, fwdArtifactAdapt, fwdEvalArtifact
+  , fwd, fwdArtifactAdapt, fwdEvalArtifact, fwdEvalArtifactTKNew
     -- * Old gradient adaptors
   , crev, crevDt
     -- * Old derivative adaptors
@@ -301,6 +301,26 @@ fwdEvalArtifact (AstArtifact varDs vars derivative primal) parameters ds =
         envDs = extendEnvHVector varDs ds env
         derivativeTensor = unHVectorPseudoTensor $ interpretAst envDs $ unAstRawWrap $ unHVectorPseudoTensor derivative
         primalTensor = unHVectorPseudoTensor $ interpretAst env $ unAstRawWrap $ unHVectorPseudoTensor primal
+    in (derivativeTensor, primalTensor)
+ else error "fwdEvalArtifact: forward derivative input and sensitivity arguments should have same shapes"
+
+fwdEvalArtifactTKNew
+  :: forall x z. (x ~ TKUntyped, z ~ TKUntyped)
+  => AstArtifactFwd x z
+  -> HVector ORArray
+  -> HVector ORArray
+  -> (HVector ORArray, HVector ORArray)
+{-# INLINE fwdEvalArtifactTKNew #-}
+fwdEvalArtifactTKNew (AstArtifactFwd varD var derivative primal) parameters ds =
+  if hVectorsMatch parameters ds then
+    let env = extendEnv var (HVectorPseudoTensor $ dmkHVector parameters) emptyEnv
+        envD = extendEnv varD (HVectorPseudoTensor $ dmkHVector ds) env
+        derivativeTensor =
+          unHVectorPseudoTensor
+          $ interpretAst envD $ unRawY (stensorKind @z) derivative
+        primalTensor =
+          unHVectorPseudoTensor
+          $ interpretAst env $ unRawY (stensorKind @z) primal
     in (derivativeTensor, primalTensor)
  else error "fwdEvalArtifact: forward derivative input and sensitivity arguments should have same shapes"
 

@@ -12,6 +12,7 @@ module HordeAd.Core.TensorAst
   , revArtifactFromForwardPass, revArtifactFromForwardPassTKNew
   , revProduceArtifact, revProduceArtifactTKNew
   , fwdArtifactFromForwardPass, fwdProduceArtifact
+  , fwdArtifactFromForwardPassTKNew, fwdProduceArtifactTKNew
   , unRawY
   ) where
 
@@ -278,6 +279,39 @@ fwdProduceArtifact
 {-# INLINE fwdProduceArtifact #-}
 fwdProduceArtifact g envInit =
   fwdArtifactFromForwardPass (forwardPassByInterpretation g envInit)
+
+fwdArtifactFromForwardPassTKNew
+  :: forall x z. (x ~ TKUntyped, TensorKind z)
+  => (HVector (AstRaw PrimalSpan)
+      -> AstVarName FullSpan x
+      -> HVector (AstRanked FullSpan)
+      -> InterpretationTarget (ADVal (AstRaw PrimalSpan)) z)
+  -> VoidHVector
+  -> (AstArtifactFwd x z, Delta (AstRaw PrimalSpan) z)
+{-# INLINE fwdArtifactFromForwardPassTKNew #-}
+fwdArtifactFromForwardPassTKNew forwardPass parameters0 =
+  let !(!varPrimalD, hVectorD, varPrimal, hVectorPrimal, var, hVector) =
+        funToAstFwdTKNew parameters0 in
+  let !(!primalBody, !deltaIT) =
+        unADValRawY (stensorKind @z)
+        $ forwardPass hVectorPrimal var hVector
+      delta = unDeltaRY (stensorKind @z) deltaIT in
+  let !derivative = derivativeFromDelta (V.length parameters0) delta hVectorD
+      unDerivative = gunlet (stensorKind @z) derivative
+      unPrimal = gunlet (stensorKind @z) primalBody
+  in ( AstArtifactFwd varPrimalD varPrimal unDerivative unPrimal
+     , delta )
+
+fwdProduceArtifactTKNew
+  :: forall x z. (x ~ TKUntyped, TensorKind z)
+  => (HVector (AstRanked FullSpan)
+      -> InterpretationTarget (AstRanked FullSpan) z)
+  -> AstEnv (ADVal (AstRaw PrimalSpan))
+  -> VoidHVector
+  -> (AstArtifactFwd x z, Delta (AstRaw PrimalSpan) z)
+{-# INLINE fwdProduceArtifactTKNew #-}
+fwdProduceArtifactTKNew g envInit =
+  fwdArtifactFromForwardPassTKNew (forwardPassByInterpretationTKNew g envInit)
 
 
 -- * Unlawful boolean instances of ranked AST; they are lawful modulo evaluation
