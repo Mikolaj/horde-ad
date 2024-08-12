@@ -128,7 +128,7 @@ rev' f valsOR =
         let (grad, v) = revEvalArtifact a1 a2 Nothing
         in (grad, toORArray $ rfromD (v V.! 0))
       revEvalArtifact7TKNew
-        :: AstArtifactTKNew TKUntyped TKUntyped (TKR r m)
+        :: AstArtifactRev TKUntyped (TKR r m)
         -> HVector ORArray
         -> (HVector ORArray, FlipR OR.Array r m)
       revEvalArtifact7TKNew a1 a2 =

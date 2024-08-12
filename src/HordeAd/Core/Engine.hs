@@ -160,20 +160,20 @@ revProduceArtifactWithoutInterpretation hasDt f =
   in revArtifactFromForwardPass hasDt g
 
 revProduceArtifactWithoutInterpretationTKNew
-  :: forall z. TensorKind z
+  :: forall x z. (x ~ TKUntyped, TensorKind z)
   => Bool
   -> (HVector (ADVal (AstRaw PrimalSpan))
       -> InterpretationTarget (ADVal (AstRaw PrimalSpan)) z)
   -> VoidHVector
-  -> (AstArtifactTKNew TKUntyped TKUntyped z, Delta (AstRaw PrimalSpan) z)
+  -> (AstArtifactRev x z, Delta (AstRaw PrimalSpan) z)
 {-# INLINE revProduceArtifactWithoutInterpretationTKNew #-}
 revProduceArtifactWithoutInterpretationTKNew hasDt f =
   let g :: HVector (AstRaw PrimalSpan)
-        -> AstVarName FullSpan TKUntyped
+        -> AstVarName FullSpan x
         -> HVector (AstRanked FullSpan)
         -> InterpretationTarget (ADVal (AstRaw PrimalSpan)) z
       g hVectorPrimal = forwardPassByApplicationTKNew f hVectorPrimal
-  in revArtifactFromForwardPassTKNew @z hasDt g
+  in revArtifactFromForwardPassTKNew @x @z hasDt g
 
 forwardPassByApplication
   :: (HVector (ADVal (AstRaw PrimalSpan)) -> ADVal primal_g r y)
@@ -223,23 +223,23 @@ revEvalArtifact (AstArtifact varsDt vars
      else error "revEvalArtifact: primal result and the incoming contangent should have same shapes"
 
 revEvalArtifactTKNew
-  :: forall y. TensorKind y
-  => AstArtifactTKNew TKUntyped TKUntyped y
+  :: forall x z. (x ~ TKUntyped, TensorKind z)
+  => AstArtifactRev x z
   -> HVector ORArray
-  -> Maybe (InterpretationTarget ORArray y)
-  -> (HVector ORArray, InterpretationTarget ORArray y)
+  -> Maybe (InterpretationTarget ORArray z)
+  -> (HVector ORArray, InterpretationTarget ORArray z)
 {-# INLINE revEvalArtifactTKNew #-}
-revEvalArtifactTKNew (AstArtifactTKNew varDt var
+revEvalArtifactTKNew (AstArtifactRev varDt var
                              (HVectorPseudoTensor (AstRawWrap gradient))
                              primal)
                 parameters mdt =
-  let oneAtF = interpretationConstant 1 $ tshapeFull (stensorKind @y) primal
+  let oneAtF = interpretationConstant 1 $ tshapeFull (stensorKind @z) primal
       dt = fromMaybe oneAtF mdt
       pars = HVectorPseudoTensor $ dmkHVector parameters
       env = extendEnv var pars emptyEnv
       envDt = extendEnv varDt dt env
       gradientHVector = unHVectorPseudoTensor $ interpretAst envDt gradient
-      primalTensor = interpretAst env $ unRawY (stensorKind @y) primal
+      primalTensor = interpretAst env $ unRawY (stensorKind @z) primal
   in (gradientHVector, primalTensor)
 
 
