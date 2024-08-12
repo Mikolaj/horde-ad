@@ -558,6 +558,7 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIndex m1)) =
                     $ map Nested.runScalar ixInt
         -- TODO: we'd need mapM for Index to keep this rank-typed
       Nothing -> Ast.AstIndex v0 ix
+  Ast.AstProjectR Ast.AstVar{} _ -> Ast.AstIndex v0 ix
   Ast.AstProjectR{} -> error "astIndexKnobsR: AstProjectR"
     {- The term should get simplified before this monstrosity kicks in:
     fun1DToAst (shapeAstHVector l) $ \ !vars !asts ->
@@ -805,6 +806,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS shm1)) | Dict <- s
                     $ ShapedList.listToIndex @shm $ map Nested.runScalar ixInt
         -- TODO: we'd need mapM for Index to keep this rank-typed
       Nothing -> Ast.AstIndexS v0 ix
+  Ast.AstProjectS Ast.AstVar{} _ -> Ast.AstIndexS v0 ix
   Ast.AstProjectS{} -> error "astIndexKnobsRS: AstProjectS"
     {- The term should get simplified before this monstrosity kicks in:
     fun1DToAst (shapeAstHVector l) $ \ !vars !asts ->

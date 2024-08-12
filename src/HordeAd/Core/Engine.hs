@@ -11,7 +11,7 @@ module HordeAd.Core.Engine
   , revProduceArtifactWithoutInterpretationTKNew
   , revEvalArtifact, revEvalArtifactTKNew
     -- * Forward derivative adaptors
-  , fwd, fwdArtifactAdapt, fwdEvalArtifact, fwdEvalArtifactTKNew
+  , fwd, fwdArtifactAdapt, fwdEvalArtifact
     -- * Old gradient adaptors
   , crev, crevDt
     -- * Old derivative adaptors
@@ -268,10 +268,11 @@ fwd f vals ds =
                   $ toHVectorOf $ f $ parseHVector (fromValue vals) hVector
       valsH = toHVectorOf vals
       voidH = voidFromHVector valsH
-      artifact = fst $ fwdProduceArtifact g emptyEnv voidH
+      artifact = fst $ fwdProduceArtifactTKNew g emptyEnv voidH
       dsH = toHVectorOf ds
       err = error "fwd: codomain of unknown length"
-  in parseHVector err $ fst $ fwdEvalArtifact artifact valsH dsH
+  in parseHVector err $ unHVectorPseudoTensor
+     $ fst $ fwdEvalArtifact @TKUntyped @TKUntyped artifact valsH dsH
 
 fwdArtifactAdapt
   :: forall r y g tgtAstVals astvals.
@@ -290,37 +291,18 @@ fwdArtifactAdapt f vals =
   in fwdProduceArtifact g emptyEnv voidH
 
 fwdEvalArtifact
-  :: AstArtifact TKUntyped TKUntyped
-  -> HVector ORArray
-  -> HVector ORArray
-  -> (HVector ORArray, HVector ORArray)
-{-# INLINE fwdEvalArtifact #-}
-fwdEvalArtifact (AstArtifact varDs vars derivative primal) parameters ds =
-  if hVectorsMatch parameters ds then
-    let env = extendEnvHVector vars parameters emptyEnv
-        envDs = extendEnvHVector varDs ds env
-        derivativeTensor = unHVectorPseudoTensor $ interpretAst envDs $ unAstRawWrap $ unHVectorPseudoTensor derivative
-        primalTensor = unHVectorPseudoTensor $ interpretAst env $ unAstRawWrap $ unHVectorPseudoTensor primal
-    in (derivativeTensor, primalTensor)
- else error "fwdEvalArtifact: forward derivative input and sensitivity arguments should have same shapes"
-
-fwdEvalArtifactTKNew
-  :: forall x z. (x ~ TKUntyped, z ~ TKUntyped)
+  :: forall x z. (x ~ TKUntyped, TensorKind z)
   => AstArtifactFwd x z
   -> HVector ORArray
   -> HVector ORArray
-  -> (HVector ORArray, HVector ORArray)
-{-# INLINE fwdEvalArtifactTKNew #-}
-fwdEvalArtifactTKNew (AstArtifactFwd varD var derivative primal) parameters ds =
+  -> (InterpretationTarget ORArray z, InterpretationTarget ORArray z)
+{-# INLINE fwdEvalArtifact #-}
+fwdEvalArtifact (AstArtifactFwd varD var derivative primal) parameters ds =
   if hVectorsMatch parameters ds then
     let env = extendEnv var (HVectorPseudoTensor $ dmkHVector parameters) emptyEnv
         envD = extendEnv varD (HVectorPseudoTensor $ dmkHVector ds) env
-        derivativeTensor =
-          unHVectorPseudoTensor
-          $ interpretAst envD $ unRawY (stensorKind @z) derivative
-        primalTensor =
-          unHVectorPseudoTensor
-          $ interpretAst env $ unRawY (stensorKind @z) primal
+        derivativeTensor = interpretAst envD $ unRawY (stensorKind @z) derivative
+        primalTensor = interpretAst env $ unRawY (stensorKind @z) primal
     in (derivativeTensor, primalTensor)
  else error "fwdEvalArtifact: forward derivative input and sensitivity arguments should have same shapes"
 
