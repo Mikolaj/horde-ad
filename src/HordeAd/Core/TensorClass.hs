@@ -782,14 +782,10 @@ class HVectorTensor (ranked :: RankedTensorType)
     => HFunOfTKNew ranked x y
     -> (HFunOfTKNew ranked x y -> HVectorOf ranked)
     -> HVectorOf ranked
-  rletInHVector :: (GoodScalar r, KnownNat n)
-                => ranked r n
-                -> (ranked r n -> HVectorOf ranked)
-                -> HVectorOf ranked
-  sletInHVector :: (GoodScalar r, KnownShS sh)
-                => shaped r sh
-                -> (shaped r sh -> HVectorOf ranked)
-                -> HVectorOf ranked
+  dlet :: TensorKind y
+       => InterpretationTarget ranked y
+       -> (InterpretationTarget ranked y -> HVectorOf ranked)
+       -> HVectorOf ranked
   dunlet :: HVectorOf ranked -> HVectorOf ranked
   dunlet = id
   dshare :: HVectorOf ranked -> HVectorOf ranked
@@ -929,7 +925,7 @@ class HVectorTensor (ranked :: RankedTensorType)
            (let g :: forall f. ADReady f
                   => HVector f -> HVector f -> HVectorOf f
                 g !acc !e =
-                  rletInHVector
+                  dlet
                     (f (rfromD $ acc V.! 0) (rfromD $ e V.! 0))
                     (dmkHVector . V.singleton . DynamicRanked)
             in g)
@@ -961,7 +957,7 @@ class HVectorTensor (ranked :: RankedTensorType)
            (let g :: forall f. ADReady f
                   => HVector f -> HVector f -> HVectorOf f
                 g !acc !e =
-                  rletInHVector
+                  dlet
                     (f (rfromD $ acc V.! 0) (rfromD $ e V.! 0))
                     (\res -> dmkHVector
                              $ V.fromList [ DynamicRanked res
@@ -990,7 +986,7 @@ class HVectorTensor (ranked :: RankedTensorType)
          (let g :: forall f. ADReady f
                 => HVector f -> HVector f -> HVectorOf f
               g !acc !e =
-                sletInHVector
+                dlet
                   (f (sfromD $ acc V.! 0) (sfromD $ e V.! 0))
                   (dmkHVector . V.singleton . DynamicShaped)
           in g)
@@ -1016,7 +1012,7 @@ class HVectorTensor (ranked :: RankedTensorType)
          (let g :: forall f. ADReady f
                 => HVector f -> HVector f -> HVectorOf f
               g !acc !e =
-                sletInHVector
+                dlet
                   (f (sfromD $ acc V.! 0) (sfromD $ e V.! 0))
                   (\res -> dmkHVector
                            $ V.fromList [ DynamicShaped res

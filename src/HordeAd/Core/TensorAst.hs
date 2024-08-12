@@ -717,9 +717,16 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   dletHVectorInHVector = astLetHVectorInHVectorFun
   dletHFunInHVector = astLetHFunInHVectorFun
   dletHFunInHVectorTKNew = astLetHFunInHVectorFunTKNew
-  rletInHVector u f = astLetFun (unAstRanked u) (f . AstRanked)
-  sletInHVector u f = astLetFun (unAstShaped u) (f . AstShaped)
- -- For convenience and simplicity we define this for all spans,
+  dlet :: forall y. TensorKind y
+       => InterpretationTarget (AstRanked s) y
+       -> (InterpretationTarget (AstRanked s) y -> HVectorOf (AstRanked s))
+       -> HVectorOf (AstRanked s)
+  dlet u f = case stensorKind @y of
+    STKR{} -> astLetFun (unAstRanked u) (f . AstRanked)
+    STKS{} -> astLetFun (unAstShaped u) (f . AstShaped)
+    STKProduct{} -> error "TODO"
+    STKUntyped{} -> error "TODO"
+  -- For convenience and simplicity we define this for all spans,
   -- but it can only ever be used for PrimalSpan.
   -- In this instance, these three ops are only used for some rare tests that
   -- use the non-symbolic pipeline to compute a symbolic
@@ -1341,10 +1348,15 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
   dletHFunInHVectorTKNew t f =
     AstRawWrap
     $ astLetHFunInHVectorFunRawTKNew t (unAstRawWrap . f)
-  rletInHVector u f =
-    AstRawWrap $ astLetFunRaw (unAstRaw u) (unAstRawWrap . f . AstRaw)
-  sletInHVector u f =
-    AstRawWrap $ astLetFunRaw (unAstRawS u) (unAstRawWrap . f . AstRawS)
+  dlet :: forall y. TensorKind y
+       => InterpretationTarget (AstRaw s) y
+       -> (InterpretationTarget (AstRaw s) y -> HVectorOf (AstRaw s))
+       -> HVectorOf (AstRaw s)
+  dlet u f = case stensorKind @y of
+    STKR{} -> AstRawWrap $ astLetFunRaw (unAstRaw u) (unAstRawWrap . f . AstRaw)
+    STKS{} -> AstRawWrap $ astLetFunRaw (unAstRawS u) (unAstRawWrap . f . AstRawS)
+    STKProduct{} -> error "TODO"
+    STKUntyped{} -> error "TODO"
   dunlet =
     case sameAstSpan @s @PrimalSpan of
       Just Refl -> AstRawWrap . unletAstHVector . unAstRawWrap
@@ -1559,14 +1571,20 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
   dletHFunInHVectorTKNew t f =
     AstNoVectorizeWrap
     $ dletHFunInHVectorTKNew t (unAstNoVectorizeWrap . f)
-  rletInHVector u f =
-    AstNoVectorizeWrap
-    $ rletInHVector (unAstNoVectorize2 u)
-                    (unAstNoVectorizeWrap . f . astNoVectorize2)
-  sletInHVector u f =
-    AstNoVectorizeWrap
-    $ sletInHVector (unAstNoVectorizeS2 u)
-                    (unAstNoVectorizeWrap . f . astNoVectorizeS2)
+  dlet :: forall y. TensorKind y
+       => InterpretationTarget (AstNoVectorize s) y
+       -> (InterpretationTarget (AstNoVectorize s) y
+           -> HVectorOf (AstNoVectorize s))
+       -> HVectorOf (AstNoVectorize s)
+  dlet u f = case stensorKind @y of
+    STKR{} -> AstNoVectorizeWrap
+              $ dlet (unAstNoVectorize2 u)
+                     (unAstNoVectorizeWrap . f . astNoVectorize2)
+    STKS{} -> AstNoVectorizeWrap
+              $ dlet (unAstNoVectorizeS2 u)
+                     (unAstNoVectorizeWrap . f . astNoVectorizeS2)
+    STKProduct{} -> error "TODO"
+    STKUntyped{} -> error "TODO"
   dbuild1 k f =
     AstNoVectorizeWrap
     $ AstBuildHVector1 k $ funToAstI (unAstNoVectorizeWrap . f . AstNoVectorize)
@@ -1809,14 +1827,19 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
   dletHFunInHVectorTKNew t f =
     AstNoSimplifyWrap
     $ astLetHFunInHVectorFunRawTKNew t (unAstNoSimplifyWrap . f)
-  rletInHVector u f =
-    AstNoSimplifyWrap
-    $ astLetFunRaw (unAstNoSimplify u)
-                     (unAstNoSimplifyWrap . f . AstNoSimplify)
-  sletInHVector u f =
-    AstNoSimplifyWrap
-    $ astLetFunRaw (unAstNoSimplifyS u)
-                   (unAstNoSimplifyWrap . f . AstNoSimplifyS)
+  dlet :: forall y. TensorKind y
+       => InterpretationTarget (AstNoSimplify s) y
+       -> (InterpretationTarget (AstNoSimplify s) y -> HVectorOf (AstNoSimplify s))
+       -> HVectorOf (AstNoSimplify s)
+  dlet u f = case stensorKind @y of
+    STKR{} -> AstNoSimplifyWrap
+              $ astLetFunRaw (unAstNoSimplify u)
+                             (unAstNoSimplifyWrap . f . AstNoSimplify)
+    STKS{} -> AstNoSimplifyWrap
+              $ astLetFunRaw (unAstNoSimplifyS u)
+                             (unAstNoSimplifyWrap . f . AstNoSimplifyS)
+    STKProduct{} -> error "TODO"
+    STKUntyped{} -> error "TODO"
   dbuild1 k f = AstNoSimplifyWrap
                 $ astBuildHVector1Vectorize
                     k (unAstNoSimplifyWrap . f . AstNoSimplify)

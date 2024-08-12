@@ -1243,7 +1243,7 @@ rscanZip f eShs acc0 es =
          (let g :: forall f. ADReady f
                 => HVector f -> HVector f -> HVectorOf f
               g acc e =
-                rletInHVector
+                dlet
                   (f (rfromD $ acc V.! 0) e)
                   (\res -> dmkHVector
                            $ V.fromList
@@ -1274,7 +1274,7 @@ sscanZip f eShs acc0 es =
        (let g :: forall f. ADReady f
               => HVector f -> HVector f -> HVectorOf f
             g acc e =
-              sletInHVector
+              dlet
                 (f (sfromD $ acc V.! 0) e)
                 (\res -> dmkHVector
                          $ V.fromList

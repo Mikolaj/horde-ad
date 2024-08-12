@@ -440,12 +440,21 @@ instance ADReadyBoth ranked shaped
     in f doms -}
   dletHFunInHVector = (&)
   dletHFunInHVectorTKNew = (&)
-  rletInHVector (D u u') f =
-    let !var2 = rshare u
-    in f (dDnotShared var2 u')
-  sletInHVector (D u u') f =
-    let !var2 = sshare u
-    in f (dDnotShared var2 u')
+  dlet :: forall y. TensorKind y
+       => InterpretationTarget (ADVal ranked) y
+       -> (InterpretationTarget (ADVal ranked) y -> HVectorOf (ADVal ranked))
+       -> HVectorOf (ADVal ranked)
+  dlet a f = case stensorKind @y of
+    STKR{} ->
+      let (D u u') = a
+          !var2 = rshare u
+      in f (dDnotShared var2 u')
+    STKS{} ->
+      let (D u u') = a
+          !var2 = sshare u
+      in f (dDnotShared var2 u')
+    STKProduct{} -> error "TODO"
+    STKUntyped{} -> error "TODO"
   dbuild1 k f =
     ravelHVector $ map (f . fromIntegral) [0 .. sNatValue k - 1]
   rrev :: (GoodScalar r, KnownNat n)
