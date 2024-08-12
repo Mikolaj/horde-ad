@@ -288,20 +288,14 @@ data AstTensor :: AstSpanType -> TensorKindType -> Type where
   AstBuild1 :: TensorKind y
             => SNat k -> (IntVarName, AstTensor s y)
             -> AstTensor s (BuildTensorKind k y)
+  AstLet :: forall y z s s2. (AstSpan s, TensorKind y, TensorKind z)
+         => AstVarName s y -> AstTensor s y -> AstTensor s2 z -> AstTensor s2 z
+  AstShare :: TensorKind y
+           => AstVarName s y -> AstTensor s y -> AstTensor s y
 
   -- Here starts the ranked part.
-  -- The r variable is existential here, so a proper specialization needs
+  -- The r variable is often existential here, so a proper specialization needs
   -- to be picked explicitly at runtime.
-  AstLet :: forall n r y s s2.
-            (KnownNat n, GoodScalar r, AstSpan s, TensorKind y)
-         => AstVarName s y -> AstTensor s y
-         -> AstTensor s2 (TKR r n)
-         -> AstTensor s2 (TKR r n)
-  AstShare :: (GoodScalar r, KnownNat n)
-           => AstVarName s (TKR r n) -> AstTensor s (TKR r n)
-           -> AstTensor s (TKR r n)
-
-  -- There are existential variables here, as well.
   AstMinIndex :: (GoodScalar r, KnownNat n, GoodScalar r2)
               => AstTensor PrimalSpan (TKR r (1 + n))
               -> AstTensor PrimalSpan (TKR r2 n)
@@ -387,15 +381,6 @@ data AstTensor :: AstSpanType -> TensorKindType -> Type where
             => AstTensor s (TKS r sh) -> AstTensor s (TKR r (X.Rank sh))
 
   -- Here starts the shaped part.
-  AstLetS :: forall sh r y s s2.
-             (KnownShS sh, GoodScalar r, AstSpan s, TensorKind y)
-          => AstVarName s y -> AstTensor s y
-          -> AstTensor s2 (TKS r sh)
-          -> AstTensor s2 (TKS r sh)
-  AstShareS :: (KnownShS sh, GoodScalar r)
-            => AstVarName s (TKS r sh) -> AstTensor s (TKS r sh)
-            -> AstTensor s (TKS r sh)
-
   AstMinIndexS :: ( KnownShS sh, KnownNat n, GoodScalar r, GoodScalar r2
                   , GoodScalar r2, KnownShS (Sh.Init (n ': sh)) )
                => AstTensor PrimalSpan (TKS r (n ': sh))
@@ -518,17 +503,6 @@ data AstTensor :: AstSpanType -> TensorKindType -> Type where
                       => AstVarId -> AstHFunTKNew x y
                       -> AstTensor s2 TKUntyped
                       -> AstTensor s2 TKUntyped
-  -- The r variable is existential here, so a proper specialization needs
-  -- to be picked explicitly at runtime.
-  AstLetInHVector :: (KnownNat n, GoodScalar r, AstSpan s)
-                  => AstVarName s (TKR r n)
-                  -> AstTensor s (TKR r n)
-                  -> AstTensor s2 TKUntyped
-                  -> AstTensor s2 TKUntyped
-  AstLetInHVectorS :: (KnownShS sh, GoodScalar r, AstSpan s)
-                   => AstVarName s (TKS r sh) -> AstTensor s (TKS r sh)
-                   -> AstTensor s2 TKUntyped
-                   -> AstTensor s2 TKUntyped
   AstShareHVector :: [AstDynamicVarName] -> AstTensor s TKUntyped
                   -> AstTensor s TKUntyped
   AstBuildHVector1 :: SNat k -> (IntVarName, AstTensor s TKUntyped)

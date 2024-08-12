@@ -249,9 +249,9 @@ build1V snat@SNat (var, v00) =
                          snat2 asts)
      in repl2Stk (stensorKind @y2) (build1V snat (var, v))
     Ast.AstBuild1{} -> error "build1V: impossible case of AstBuild1"
-
-    Ast.AstLet @_ @_ @y2 var1 u v
-      | Dict <- lemTensorKindOfBuild snat (stensorKind @y2) ->
+    Ast.AstLet @y2 var1 u v
+      | Dict <- lemTensorKindOfBuild snat (stensorKind @y2)
+      , Dict <- lemTensorKindOfBuild snat (stensorKind @y) ->
         let ftk2 = shapeAstFull u
             (var3, _ftk3, v2) =
               substProjInterpretationTarget snat var ftk2 var1 v
@@ -351,15 +351,6 @@ build1V snat@SNat (var, v00) =
         astLetHFunInTKNew var1 (build1VHFunTKNew snat (var, f)) (build1V snat (var, v))
     Ast.AstRFromS @sh1 v ->
       astRFromS @(k ': sh1) $ build1V snat (var, v)
-
-    Ast.AstLetS @_ @_ @y2 var1 u v
-      | Dict <- lemTensorKindOfBuild snat (stensorKind @y2) ->
-        let ftk2 = shapeAstFull u
-            (var3, _ftk3, v2) =
-              substProjInterpretationTarget snat var ftk2 var1 v
-        in astLetS var3 (build1VOccurenceUnknown snat (var, u))
-                       (build1VOccurenceUnknownRefresh snat (var, v2))
-    Ast.AstShareS{} -> error "build1V: AstShareS"
 
     Ast.AstMinIndexS v -> Ast.AstMinIndexS $ build1V snat (var, v)
     Ast.AstMaxIndexS v -> Ast.AstMaxIndexS $ build1V snat (var, v)
@@ -495,25 +486,6 @@ build1V snat@SNat (var, v00) =
         -- We take advantage of the fact that f contains no free index vars.
         astLetHFunInHVectorTKNew var1 (build1VHFunTKNew snat (var, f))
                                  (build1V snat (var, v))
-    Ast.AstLetInHVector @_ @_ @s1 var1 u v -> traceRule $
-      let var2 = mkAstVarName (varNameToAstVarId var1)  -- changed shape; TODO: shall we rename?
-          sh = shapeAst u
-          projection = Ast.AstIndex (Ast.AstVar (FTKR $ k :$: sh) var2)
-                                    (Ast.AstIntVar var :.: ZIR)
-          v2 = substituteAstHVector
-                 (SubstitutionPayload @s1 projection) var1 v
-      in astLetInHVector var2 (build1VOccurenceUnknown snat (var, u))
-                              (build1VOccurenceUnknownRefresh
-                                 snat (var, v2))
-    Ast.AstLetInHVectorS @sh2 @r @s1 var1 u v -> traceRule $
-        let var2 = mkAstVarName (varNameToAstVarId var1)  -- changed shape; TODO: shall we rename?
-            projection = Ast.AstIndexS (Ast.AstVar @(TKS r (k ': sh2)) FTKS var2)
-                                       (Ast.AstIntVar var :.$ ZIS)
-            v2 = substituteAstHVector
-                   (SubstitutionPayload @s1 projection) var1 v
-        in astLetInHVectorS var2 (build1VOccurenceUnknown snat (var, u))
-                                 (build1VOccurenceUnknownRefresh
-                                    snat (var, v2))
     Ast.AstShareHVector{} -> traceRule $
       error "build1V: impossible case of AstShareHVector"
     Ast.AstBuildHVector1{} -> traceRule $

@@ -21,7 +21,7 @@ module HordeAd.Core.AstSimplify
   , astNonIndexStep, astIndexStep, astIndexStepS
   , astGatherStep, astGatherStepS
     -- * The simplifying combinators, one for most AST constructors
-  , astLet, astLetS, astCond, astSumOfList, astSumOfListS
+  , astLet, astCond, astSumOfList, astSumOfListS
   , astSum, astSumS, astScatter, astScatterS, astFromVector, astFromVectorS
   , astReplicate, astAppend, astAppendS, astSlice, astSliceS
   , astReverse, astReverseS
@@ -33,7 +33,6 @@ module HordeAd.Core.AstSimplify
   , astLetHFunIn, astLetHFunInTKNew, astLetHFunInS, astLetHFunInSTKNew
   , astHApply, astHApplyTKNew, astLetHVectorInHVector
   , astLetHFunInHVector, astLetHFunInHVectorTKNew
-  , astLetInHVector, astLetInHVectorS
     -- * The simplifying bottom-up pass
   , simplifyAst
     -- * The expanding (to gather expressions) bottom-up pass
@@ -273,9 +272,9 @@ astNonIndexStep t = case t of
   Ast.AstCond a b c -> astCond a b c
   Ast.AstReplicate k v -> astReplicate k v
   Ast.AstBuild1{} -> t
-
   Ast.AstLet var u v -> astLet var u v
   Ast.AstShare{} -> t  -- TODO: error "astNonIndexStep: AstShare"
+
   Ast.AstMinIndex{} -> t
   Ast.AstMaxIndex{} -> t
   Ast.AstFloor{} -> t
@@ -319,8 +318,6 @@ astNonIndexStep t = case t of
   Ast.AstLetHFunInTKNew var u v -> astLetHFunInTKNew var u v
   Ast.AstRFromS v -> astRFromS v
 
-  Ast.AstLetS var u v -> astLetS var u v
-  Ast.AstShareS{} -> t  -- TODO: error "astNonIndexStep: AstShareS"
   Ast.AstMinIndexS{} -> t
   Ast.AstMaxIndexS{} -> t
   Ast.AstFloorS{} -> t
@@ -464,9 +461,9 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIndex m1)) =
     STKR{} -> astIndex v rest1
   Ast.AstBuild1 @y2 _snat (var2, v) -> case stensorKind @y2 of
     STKR{} -> astIndex (astLet var2 i1 v) rest1
-
   Ast.AstLet var u v -> astLet var u (astIndexRec v ix)
   Ast.AstShare{} -> Ast.AstIndex v0 ix  -- TODO: error "astIndexKnobsR: AstShare"
+
   Ast.AstMinIndex v -> Ast.AstMinIndex $ astIndexKnobsR knobs v ix
   Ast.AstMaxIndex v -> Ast.AstMaxIndex $ astIndexKnobsR knobs v ix
   Ast.AstFloor v -> Ast.AstFloor $ astIndexKnobsR knobs v ix
@@ -644,9 +641,9 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS shm1)) | Dict <- s
         astIndex (astSFromR @(shm1 X.++ shn) $ astLet var2 i1 $ astRFromS v)
                  rest1
         -- this uses astLet, because the index integers are ranked
+  Ast.AstLet var u v -> astLet var u (astIndexRec v ix)
+  Ast.AstShare{} -> Ast.AstIndexS v0 ix  -- TODO: error "astIndexKnobsRS: AstShareS"
 
-  Ast.AstLetS var u v -> astLetS var u (astIndexRec v ix)
-  Ast.AstShareS{} -> Ast.AstIndexS v0 ix  -- TODO: error "astIndexKnobsRS: AstShareS"
   Ast.AstMinIndexS @shz @n1 v ->
     withShapeP (drop 1 (shapeT @shn)
                    ++ [last (shapeT @shz)]) $ \(Proxy @shd) ->
@@ -833,7 +830,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS shm1)) | Dict <- s
 -- create other (and non-simplified!) big terms and also uses astIsSmall,
 -- so it's probably more efficient. Use this instead of rletIx/sletIx
 -- or design something even better.
-shareIx :: (KnownNat n, KnownNat m, GoodScalar r)
+shareIx :: (KnownNat n, GoodScalar r, KnownNat m)
         => AstIndex n -> (AstIndex n -> AstTensor s (TKR r m))
         -> AstTensor s (TKR r m)
 {-# NOINLINE shareIx #-}
@@ -850,8 +847,7 @@ shareIxS :: -- (KnownShS shn, KnownShS shm)
             AstIndexS shn -> (AstIndexS shn -> AstTensor s (TKS r shm))
          -> AstTensor s (TKS r shm)
 {-# NOINLINE shareIxS #-}
-shareIxS ix f = f ix
-  -- TODO (Ast.AstLetS is not general enough, we'd need to convert)
+shareIxS ix f = f ix  -- TODO
 
 astGatherR
   :: forall m n p s r.
@@ -1018,9 +1014,9 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
     Ast.AstReplicate @y2 _ v -> case stensorKind @y2 of
       STKR{} -> astGather sh4 v (vars4, rest4)
     Ast.AstBuild1{} -> Ast.AstGather sh4 v4 (vars4, ix4)
-
     Ast.AstLet var u v -> astLet var u (astGatherCase sh4 v (vars4, ix4))
     Ast.AstShare{} -> error "astGatherCase: AstShare"
+
     Ast.AstMinIndex v ->
       Ast.AstMinIndex
       $ astGatherKnobsR knobs
@@ -1319,11 +1315,10 @@ astSliceLax i k v =
 
 -- Inlining works for this let constructor, because it has just one variable,
 -- unlike astLetHVectorIn, etc., so we don't try to eliminate it.
-astLet :: forall n r y s s2.
-          (KnownNat n, GoodScalar r, AstSpan s, AstSpan s2, TensorKind y)
+astLet :: forall y z s s2. (AstSpan s, AstSpan s2, TensorKind y, TensorKind z)
        => AstVarName s y -> AstTensor s y
-       -> AstTensor s2 (TKR r n)
-       -> AstTensor s2 (TKR r n)
+       -> AstTensor s2 z
+       -> AstTensor s2 z
 astLet var u v | astIsSmall True u =
   fromMaybe v
   $ substitute1Ast (SubstitutionPayload u) (varNameToAstVarId var) v
@@ -1361,42 +1356,6 @@ astLet var u v = Ast.AstLet var u v
 astLetInt :: IntVarName -> AstInt -> AstInt -> AstInt
 astLetInt var u v | var `varNameInAst` v = astLet var u v
 astLetInt _ _ v = v
-
--- Inlining works for this let constructor, because it has just one variable,
--- unlike astLetHVectorIn, etc., so we don't try to eliminate it.
-astLetS :: forall sh r y s s2.
-           ( KnownShS sh, GoodScalar r, AstSpan s, AstSpan s2, TensorKind y )
-        => AstVarName s y -> AstTensor s y
-        -> AstTensor s2 (TKS r sh)
-        -> AstTensor s2 (TKS r sh)
-astLetS var u v | astIsSmall True u =
-  fromMaybe v
-  $ substitute1Ast (SubstitutionPayload u) (varNameToAstVarId var) v
-astLetS var u v@(Ast.AstVar _ var2) =
-  case sameAstSpan @s @s2 of
-    Just Refl -> case geq var2 var of
-      Just Refl -> u
-      _ -> v
-    _ -> v
-astLetS var u v@(Ast.AstConstant (Ast.AstVar _ var2)) =  -- a common noop
-  case sameAstSpan @s @PrimalSpan of
-    Just Refl -> case geq var2 var of
-      Just Refl -> Ast.AstConstant u
-      _ -> v
-    _ -> v
-astLetS var u v@(Ast.AstPrimalPart (Ast.AstVar _ var2)) =  -- a common noop
-  case sameAstSpan @s @FullSpan of
-    Just Refl -> case geq var2 var of
-      Just Refl -> astPrimalPart u
-      _ -> v
-    _ -> v
-astLetS var u v@(Ast.AstDualPart (Ast.AstVar _ var2)) =  -- a noop
-  case sameAstSpan @s @FullSpan of
-    Just Refl -> case geq var2 var of
-      Just Refl -> astDualPart u
-      _ -> v
-    _ -> v
-astLetS var u v = Ast.AstLetS var u v
 
 astCond :: TensorKind y
         => AstBool -> AstTensor s y -> AstTensor s y -> AstTensor s y
@@ -1439,7 +1398,7 @@ astSumS t0 = case sameNat (Proxy @n) (Proxy @0) of
  _ -> case sameNat (Proxy @n) (Proxy @1) of
   Just Refl -> astReshapeS t0
   _ -> case t0 of
-    -- Ast.AstLetS var u v -> astLetS var u (astSumS v)
+    -- Ast.AstLet var u v -> astLet var u (astSumS v)
     Ast.AstReplicate @y2 k v -> case stensorKind @y2 of
       STKS{} -> v * astReplicate0NS (fromInteger $ fromSNat k)
     Ast.AstScatterS @sh2 @p v (vars, _ :.$ ix) | Dict <- sixKnown ix ->
@@ -1784,11 +1743,11 @@ astTransposeS :: forall perm sh s r.
 astTransposeS perm t = case perm of
  Permutation.PNil -> t
  _ -> case t of
-  Ast.AstLetS var u v ->
+  Ast.AstLet var u v ->
     withShapeP (backpermutePrefixList (Permutation.permToList' perm)
                                       (shapeT @sh)) $ \(Proxy @shp) ->
     gcastWith (unsafeCoerce Refl :: Permutation.PermutePrefix perm sh :~: shp) $
-    astLetS var u (astTransposeS perm v)
+    astLet var u (astTransposeS perm v)
   AstN1S opCode u | not (isVarS u) ->
     withShapeP (backpermutePrefixList (Permutation.permToList' perm)
                                       (shapeT @sh)) $ \(Proxy @shp) ->
@@ -1937,7 +1896,7 @@ astReshapeS = \case
     | Just Refl <- sameNat (Proxy @k) (Proxy @1) ->
       case stensorKind @y2 of
         STKS{} -> astReshapeS x
-  Ast.AstLetS var u v -> astLetS var u (astReshapeS @_ @sh2 v)
+  Ast.AstLet var u v -> astLet var u (astReshapeS @_ @sh2 v)
   AstN1S opCode u | not (isVarS u) -> AstN1S opCode (astReshapeS @_ @sh2 u)
   AstN2S opCode u v | not (isVarS u && isVarS v) ->
     AstN2S opCode (astReshapeS @_ @sh2 u) (astReshapeS @_ @sh2 v)
@@ -1994,13 +1953,8 @@ astProject l p = case l of
     $ fromDynamicR (\sh -> AstRanked $ astReplicate0N sh 0) (l3 V.! p)
   Ast.AstLetHVectorInHVector vars d1 d2 ->
     astLetHVectorIn vars d1 (astProject d2 p)
-  Ast.AstLetInHVector var u2 d2 ->
+  Ast.AstLet var u2 d2 ->
     astLet var u2 (astProject d2 p)
-  Ast.AstLetInHVectorS var u2 d2 ->
-    case shapeAstHVector d2 V.! p of
-      DynamicRankedDummy @_ @sh _ _ | Just Refl <- matchingRank @sh @n ->
-        astRFromS @sh $ astLetS var u2 $ astSFromR @sh (astProject d2 p)
-      _ -> error "astProject: wrong shape"
   _ -> Ast.AstProjectR l p
 
 astProjectS
@@ -2012,11 +1966,8 @@ astProjectS l p = case l of
     $ fromDynamicS (AstShaped $ astReplicate0NS 0) (l3 V.! p)
   Ast.AstLetHVectorInHVector vars d1 d2 ->
     astLetHVectorInS vars d1 (astProjectS d2 p)
-  Ast.AstLetInHVector var u2 d2 ->
-    withListSh (Proxy @sh) $ \_ ->
-      astSFromR $ astLet var u2 $ astRFromS @sh (astProjectS d2 p)
-  Ast.AstLetInHVectorS var u2 d2 ->
-    astLetS var u2 (astProjectS d2 p)
+  Ast.AstLet var u2 d2 ->
+    astLet var u2 (astProjectS d2 p)
   _ -> Ast.AstProjectS l p
 
 astRFromS :: forall sh s r. (GoodScalar r, KnownShS sh)
@@ -2059,9 +2010,9 @@ astPrimalPart t = case t of
   Ast.AstCond b a2 a3 -> astCond b (astPrimalPart a2) (astPrimalPart a3)
   Ast.AstReplicate k v -> astReplicate k (astPrimalPart v)
   Ast.AstBuild1 k (var, v) -> Ast.AstBuild1 k (var, astPrimalPart v)
-
   Ast.AstLet var u v -> astLet var u (astPrimalPart v)
   Ast.AstShare{} -> error "astPrimalPart: AstShare"
+
   AstN1 opCode u -> AstN1 opCode (astPrimalPart u)
   AstN2 opCode u v -> AstN2 opCode (astPrimalPart u) (astPrimalPart v)
   Ast.AstR1 opCode u -> Ast.AstR1 opCode (astPrimalPart u)
@@ -2085,8 +2036,6 @@ astPrimalPart t = case t of
   Ast.AstLetHFunInTKNew var f v -> astLetHFunInTKNew var f (astPrimalPart v)
   Ast.AstRFromS v -> astRFromS $ astPrimalPart v
 
-  Ast.AstLetS var u v -> astLetS var u (astPrimalPart v)
-  Ast.AstShareS{} -> error "astPrimalPart: AstShareS"
   AstN1S opCode u -> AstN1S opCode (astPrimalPart u)
   AstN2S opCode u v -> AstN2S opCode (astPrimalPart u) (astPrimalPart v)
   Ast.AstR1S opCode u -> Ast.AstR1S opCode (astPrimalPart u)
@@ -2130,9 +2079,9 @@ astDualPart t = case t of
   Ast.AstCond b a2 a3 -> astCond b (astDualPart a2) (astDualPart a3)
   Ast.AstReplicate k v -> astReplicate k (astDualPart v)
   Ast.AstBuild1 k (var, v) -> Ast.AstBuild1 k (var, astDualPart v)
-
   Ast.AstLet var u v -> astLet var u (astDualPart v)
   Ast.AstShare{} -> error "astDualPart: AstShare"
+
   AstN1{} -> Ast.AstDualPart t  -- stuck; the ops are not defined on dual part
   AstN2{} -> Ast.AstDualPart t  -- stuck; the ops are not defined on dual part
   Ast.AstR1{} -> Ast.AstDualPart t
@@ -2156,8 +2105,6 @@ astDualPart t = case t of
   Ast.AstLetHFunInTKNew var f v -> astLetHFunInTKNew var f (astDualPart v)
   Ast.AstRFromS v -> astRFromS $ astDualPart v
 
-  Ast.AstLetS var u v -> astLetS var u (astDualPart v)
-  Ast.AstShareS{} -> error "astDualPart: AstShareS"
   AstN1S{} -> Ast.AstDualPart t
   AstN2S{} -> Ast.AstDualPart t
   Ast.AstR1S{} -> Ast.AstDualPart t
@@ -2200,7 +2147,7 @@ astHApplyTKNew t ll = case t of
     {- TODO: we need a fully general let to express this in a sane way:
     case sameAstSpan @s @PrimalSpan of
       Just Refl <- case sameTensorKind @y @TKUntyped of
-        Just Refl -> astLetInHVector var ll l
+        Just Refl -> astLet var ll l
       _ -> Ast.AstHApplyTKNew t ll -}
   Ast.AstVarHFunTKNew{} -> Ast.AstHApplyTKNew t ll
 
@@ -2214,14 +2161,11 @@ astLetHVectorInHVector
 astLetHVectorInHVector vars u v =
   case u of
       Ast.AstMkHVector l3 -> assert (length vars == V.length l3) $
-        foldr (mapRankedShaped astLetInHVector astLetInHVectorS)
+        foldr (mapRankedShaped astLet astLet)
               v (zip vars (V.toList l3))
       Ast.AstLetHVectorInHVector{} -> Ast.AstLetHVectorInHVector vars u v
-      Ast.AstLetInHVector var2 u2 d2 ->
-        astLetInHVector var2 u2
-        $ astLetHVectorInHVector vars d2 v
-      Ast.AstLetInHVectorS var2 u2 d2 ->
-        astLetInHVectorS var2 u2
+      Ast.AstLet var2 u2 d2 ->
+        astLet var2 u2
         $ astLetHVectorInHVector vars d2 v
       _ -> Ast.AstLetHVectorInHVector vars u v
 
@@ -2265,28 +2209,6 @@ mapRankedShaped fRanked fShaped
                ( vd, typeRep @ty, typeRep @r3, shapeT @sh3
                , scalarDynamic d, rankDynamic d )
 
--- Inlining works for this let constructor, because it has just one variable,
--- unlike astLetHVectorIn, etc., so we don't try to eliminate it.
-astLetInHVector :: forall n r s s2.
-                   (KnownNat n, GoodScalar r, AstSpan s, AstSpan s2)
-                => AstVarName s (TKR r n) -> AstTensor s (TKR r n)
-                -> AstTensor s2 TKUntyped
-                -> AstTensor s2 TKUntyped
-astLetInHVector var u v | astIsSmall True u =
-  substituteAstHVector (SubstitutionPayload u) var v
-astLetInHVector var u v = Ast.AstLetInHVector var u v
-
--- Inlining works for this let constructor, because it has just one variable,
--- unlike astLetHVectorIn, etc., so we don't try to eliminate it.
-astLetInHVectorS :: forall sh r s s2.
-                    (GoodScalar r, KnownShS sh, AstSpan s, AstSpan s2)
-                 => AstVarName s (TKS r sh) -> AstTensor s (TKS r sh)
-                 -> AstTensor s2 TKUntyped
-                 -> AstTensor s2 TKUntyped
-astLetInHVectorS var u v | astIsSmall True u =
-  substituteAstHVector (SubstitutionPayload u) var v
-astLetInHVectorS var u v = Ast.AstLetInHVectorS var u v
-
 -- Inlining doesn't work for this let constructor, because it has many
 -- variables, so we try to reduce it to another for which it works.
 astLetHVectorIn
@@ -2303,16 +2225,13 @@ astLetHVectorIn vars l v =
               => AstVarName s (TKS r1 sh1) -> AstTensor s (TKS r1 sh1)
               -> AstTensor s2 (TKR r n)
               -> AstTensor s2 (TKR r n)
-            f var t acc = astRFromS @sh $ astLetS var t $ astSFromR acc
+            f var t acc = astRFromS @sh $ astLet var t $ astSFromR acc
         in foldr (mapRankedShaped astLet f) v (zip vars (V.toList l3))
       Ast.AstLetHVectorInHVector vars2 d1 d2 ->
         astLetHVectorIn vars2 d1
         $ astLetHVectorIn vars d2 v
-      Ast.AstLetInHVector var2 u2 d2 ->
+      Ast.AstLet var2 u2 d2 ->
         astLet var2 u2
-        $ astLetHVectorIn vars d2 v
-      Ast.AstLetInHVectorS var2 u2 d2 ->
-        astRFromS $ astLetS var2 u2 $ astSFromR @sh
         $ astLetHVectorIn vars d2 v
       _ -> Ast.AstLetHVectorIn vars l v
     _ -> error "astLetHVectorIn: wrong rank of the argument"
@@ -2332,15 +2251,12 @@ astLetHVectorInS vars l v =
             -> AstTensor s2 (TKS r sh)
             -> AstTensor s2 (TKS r sh)
           f var t acc = astSFromR $ astLet var t $ astRFromS acc
-      in foldr (mapRankedShaped f astLetS) v (zip vars (V.toList l3))
+      in foldr (mapRankedShaped f astLet) v (zip vars (V.toList l3))
     Ast.AstLetHVectorInHVector vars2 d1 d2 ->
       astLetHVectorInS vars2 d1
       $ astLetHVectorInS vars d2 v
-    Ast.AstLetInHVector var2 u2 d2 ->
-      astSFromR $ astLet var2 u2 $ astRFromS
-      $ astLetHVectorInS vars d2 v
-    Ast.AstLetInHVectorS var2 u2 d2 ->
-      astLetS var2 u2
+    Ast.AstLet var2 u2 d2 ->
+      astLet var2 u2
       $ astLetHVectorInS vars d2 v
     _ -> Ast.AstLetHVectorInS vars l v
 
@@ -2411,9 +2327,9 @@ simplifyAst t = case t of
     astCond (simplifyAstBool b) (simplifyAst a2) (simplifyAst a3)
   Ast.AstReplicate k v -> astReplicate k (simplifyAst v)
   Ast.AstBuild1 k (var, v) -> Ast.AstBuild1 k (var, simplifyAst v)
-
   Ast.AstLet var u v -> astLet var (simplifyAst u) (simplifyAst v)
   Ast.AstShare{} -> error "simplifyAst: AstShare"
+
   Ast.AstMinIndex a -> Ast.AstMinIndex (simplifyAst a)
   Ast.AstMaxIndex a -> Ast.AstMaxIndex (simplifyAst a)
   Ast.AstFloor a -> Ast.AstFloor (simplifyAst a)
@@ -2461,8 +2377,6 @@ simplifyAst t = case t of
     astLetHFunInTKNew var (simplifyAstHFunTKNew f) (simplifyAst v)
   Ast.AstRFromS v -> astRFromS $ simplifyAst v
 
-  Ast.AstLetS var u v -> astLetS var (simplifyAst u) (simplifyAst v)
-  Ast.AstShareS{} -> error "simplifyAst: AstShareS"
   Ast.AstMinIndexS a -> Ast.AstMinIndexS (simplifyAst a)
   Ast.AstMaxIndexS a -> Ast.AstMaxIndexS (simplifyAst a)
   Ast.AstFloorS a -> Ast.AstFloorS (simplifyAst a)
@@ -2508,10 +2422,6 @@ simplifyAst t = case t of
     astLetHFunInHVector var (simplifyAstHFun f) (simplifyAst v)
   Ast.AstLetHFunInHVectorTKNew var f v ->
     astLetHFunInHVectorTKNew var (simplifyAstHFunTKNew f) (simplifyAst v)
-  Ast.AstLetInHVector var u v ->
-    astLetInHVector var (simplifyAst u) (simplifyAst v)
-  Ast.AstLetInHVectorS var u v ->
-    astLetInHVectorS var (simplifyAst u) (simplifyAst v)
   Ast.AstShareHVector{} -> error "simplifyAst: AstShareHVector"
   Ast.AstBuildHVector1 k (var, v) ->
     Ast.AstBuildHVector1 k (var, simplifyAst v)
@@ -2614,9 +2524,9 @@ expandAst t = case t of
     astCond (expandAstBool b) (expandAst a2) (expandAst a3)
   Ast.AstReplicate k v -> astReplicate k (expandAst v)
   Ast.AstBuild1 k (var, v) -> Ast.AstBuild1 k (var, expandAst v)
-
   Ast.AstLet var u v -> astLet var (expandAst u) (expandAst v)
   Ast.AstShare{} -> error "expandAst: AstShare"
+
   Ast.AstMinIndex a -> Ast.AstMinIndex (expandAst a)
   Ast.AstMaxIndex a -> Ast.AstMaxIndex (expandAst a)
   Ast.AstFloor a -> Ast.AstFloor (expandAst a)
@@ -2702,8 +2612,6 @@ expandAst t = case t of
     astLetHFunInTKNew var (expandAstHFunTKNew f) (expandAst v)
   Ast.AstRFromS v -> astRFromS $ expandAst v
 
-  Ast.AstLetS var u v -> astLetS var (expandAst u) (expandAst v)
-  Ast.AstShareS{} -> error "expandAst: AstShareS"
   Ast.AstMinIndexS a -> Ast.AstMinIndexS (expandAst a)
   Ast.AstMaxIndexS a -> Ast.AstMaxIndexS (expandAst a)
   Ast.AstFloorS a -> Ast.AstFloorS (expandAst a)
@@ -2752,10 +2660,6 @@ expandAst t = case t of
     astLetHFunInHVector var (expandAstHFun f) (expandAst v)
   Ast.AstLetHFunInHVectorTKNew var f v ->
     astLetHFunInHVectorTKNew var (expandAstHFunTKNew f) (expandAst v)
-  Ast.AstLetInHVector var u v ->
-    astLetInHVector var (expandAst u) (expandAst v)
-  Ast.AstLetInHVectorS var u v ->
-    astLetInHVectorS var (expandAst u) (expandAst v)
   Ast.AstShareHVector{} -> error "expandAst: AstShareHVector"
   Ast.AstBuildHVector1 k (var, v) ->
     Ast.AstBuildHVector1 k (var, expandAst v)
@@ -3174,12 +3078,12 @@ substitute1Ast i var v1 = case v1 of
   Ast.AstReplicate k v -> astReplicate k <$> substitute1Ast i var v
   Ast.AstBuild1 k (var2, v) ->
     Ast.AstBuild1 k . (var2,) <$> substitute1Ast i var v
-
   Ast.AstLet var2 u v ->
     case (substitute1Ast i var u, substitute1Ast i var v) of
       (Nothing, Nothing) -> Nothing
       (mu, mv) -> Just $ astLet var2 (fromMaybe u mu) (fromMaybe v mv)
   Ast.AstShare{} -> error "substitute1Ast: AstShare"
+
   Ast.AstMinIndex a -> Ast.AstMinIndex <$> substitute1Ast i var a
   Ast.AstMaxIndex a -> Ast.AstMaxIndex <$> substitute1Ast i var a
   Ast.AstFloor a -> Ast.AstFloor <$> substitute1Ast i var a
@@ -3272,11 +3176,6 @@ substitute1Ast i var v1 = case v1 of
         Just $ astLetHFunInTKNew var2 (fromMaybe f mf) (fromMaybe v mv)
   Ast.AstRFromS v -> astRFromS <$> substitute1Ast i var v
 
-  Ast.AstLetS var2 u v ->
-    case (substitute1Ast i var u, substitute1Ast i var v) of
-      (Nothing, Nothing) -> Nothing
-      (mu, mv) -> Just $ astLetS var2 (fromMaybe u mu) (fromMaybe v mv)
-  Ast.AstShareS{} -> error "substitute1Ast: AstShareS"
   Ast.AstMinIndexS a -> Ast.AstMinIndexS <$> substitute1Ast i var a
   Ast.AstMaxIndexS a -> Ast.AstMaxIndexS <$> substitute1Ast i var a
   Ast.AstFloorS a -> Ast.AstFloorS <$> substitute1Ast i var a
@@ -3389,14 +3288,6 @@ substitute1Ast i var v1 = case v1 of
       (Nothing, Nothing) -> Nothing
       (mf, mv) ->
         Just $ astLetHFunInHVectorTKNew var2 (fromMaybe f mf) (fromMaybe v mv)
-  Ast.AstLetInHVector var2 u v ->
-    case (substitute1Ast i var u, substitute1Ast i var v) of
-      (Nothing, Nothing) -> Nothing
-      (mu, mv) -> Just $ astLetInHVector var2 (fromMaybe u mu) (fromMaybe v mv)
-  Ast.AstLetInHVectorS var2 u v ->
-    case (substitute1Ast i var u, substitute1Ast i var v) of
-      (Nothing, Nothing) -> Nothing
-      (mu, mv) -> Just $ astLetInHVectorS var2 (fromMaybe u mu) (fromMaybe v mv)
   Ast.AstShareHVector{} -> error "substitute1Ast: AstShareHVector"
   Ast.AstBuildHVector1 k (var2, v) ->
     Ast.AstBuildHVector1 k . (var2,) <$> substitute1Ast i var v

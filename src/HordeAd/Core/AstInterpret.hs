@@ -313,7 +313,8 @@ interpretAst !env = \case
           STKUntyped ->
             HVectorPseudoTensor $ dbuild1 snat (unHVectorPseudoTensor . g)
     in replStk (stensorKind @y2) f
-  AstLet @_ @_ @y2 var u v -> case stensorKind @y2 of
+  AstLet @y2 @z2 var u v -> case stensorKind @z2 of
+   STKR{} -> case stensorKind @y2 of
     stk@STKR{} ->
       -- We assume there are no nested lets with the same variable.
       let t = interpretAstRuntimeSpecialized env u
@@ -331,7 +332,42 @@ interpretAst !env = \case
       let t = interpretAst env u
           env2 w = extendEnv var w env
       in rletTKIn stk t (\w -> interpretAst (env2 w) v)
+   STKS{} -> case stensorKind @y2 of
+    stk@STKR{} ->
+      -- We assume there are no nested lets with the same variable.
+      let t = interpretAstRuntimeSpecialized env u
+          env2 w = extendEnv var w env
+      in sletTKIn stk t (\w -> interpretAst (env2 w) v)
+    stk@STKS{} ->
+      let t = interpretAstSRuntimeSpecialized env u
+          env2 w = extendEnv var w env
+      in sletTKIn stk t (\w -> interpretAst (env2 w) v)
+    stk@STKProduct{} ->
+      let t = interpretAst env u
+          env2 w = extendEnv var w env
+      in sletTKIn stk t (\w -> interpretAst (env2 w) v)
+    stk@STKUntyped ->
+      let t = interpretAst env u
+          env2 w = extendEnv var w env
+      in sletTKIn stk t (\w -> interpretAst (env2 w) v)
+   STKProduct{} -> error "TODO"
+   STKUntyped{} -> case stensorKind @y2 of
+    STKR{} ->
+      -- We assume there are no nested lets with the same variable.
+      let t = interpretAstRuntimeSpecialized env u
+          env2 w = extendEnv var w env
+      in HVectorPseudoTensor
+         $ rletInHVector t (\w -> unHVectorPseudoTensor $ interpretAst (env2 w) v)
+    STKS{} ->
+      -- We assume there are no nested lets with the same variable.
+      let t = interpretAstSRuntimeSpecialized env u
+          env2 w = extendEnv var w env
+      in HVectorPseudoTensor
+         $ sletInHVector t (\w -> unHVectorPseudoTensor $ interpretAst (env2 w) v)
+    STKProduct{} -> error "TODO"
+    STKUntyped{} -> error "TODO"
   AstShare{} -> error "interpretAst: AstShare"
+
   AstMinIndex v ->
     rminIndex $ rconstant $ interpretAstPrimalRuntimeSpecialized env v
   AstMaxIndex v ->
@@ -578,25 +614,6 @@ interpretAst !env = \case
     in rletHFunInTKNew @_ @_ @_ @x2 @y2 g (\h -> interpretAst (env2 h) v)
   AstRFromS v -> rfromS $ interpretAst env v
 
-  AstLetS @_ @_ @y2 var u v -> case stensorKind @y2 of
-    stk@STKR{} ->
-      -- We assume there are no nested lets with the same variable.
-      let t = interpretAstRuntimeSpecialized env u
-          env2 w = extendEnv var w env
-      in sletTKIn stk t (\w -> interpretAst (env2 w) v)
-    stk@STKS{} ->
-      let t = interpretAstSRuntimeSpecialized env u
-          env2 w = extendEnv var w env
-      in sletTKIn stk t (\w -> interpretAst (env2 w) v)
-    stk@STKProduct{} ->
-      let t = interpretAst env u
-          env2 w = extendEnv var w env
-      in sletTKIn stk t (\w -> interpretAst (env2 w) v)
-    stk@STKUntyped ->
-      let t = interpretAst env u
-          env2 w = extendEnv var w env
-      in sletTKIn stk t (\w -> interpretAst (env2 w) v)
-  AstShareS{} -> error "interpretAst: AstShareS"
   AstMinIndexS v ->
     sminIndex $ sconstant $ interpretAstPrimalSRuntimeSpecialized env v
   AstMaxIndexS v ->
@@ -867,18 +884,6 @@ interpretAst !env = \case
     in HVectorPseudoTensor
        $ dletHFunInHVectorTKNew @_ @_ @x2 @y2
            g (\h -> unHVectorPseudoTensor $ interpretAst (env2 h) v)
-  AstLetInHVector var u v ->
-    -- We assume there are no nested lets with the same variable.
-    let t = interpretAstRuntimeSpecialized env u
-        env2 w = extendEnv var w env
-    in HVectorPseudoTensor
-       $ rletInHVector t (\w -> unHVectorPseudoTensor $ interpretAst (env2 w) v)
-  AstLetInHVectorS var u v ->
-    -- We assume there are no nested lets with the same variable.
-    let t = interpretAstSRuntimeSpecialized env u
-        env2 w = extendEnv var w env
-    in HVectorPseudoTensor
-       $ sletInHVector t (\w -> unHVectorPseudoTensor $ interpretAst (env2 w) v)
   AstShareHVector{} -> error "interpretAst: AstShareHVector"
   AstBuildHVector1 k (var, v) ->
     HVectorPseudoTensor

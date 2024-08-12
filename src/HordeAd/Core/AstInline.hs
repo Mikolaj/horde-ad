@@ -245,22 +245,6 @@ inlineAst memo v0 = case v0 of
       _ -> (memo2, Ast.AstLetHFunInTKNew var f2 v2)
   Ast.AstRFromS v -> second Ast.AstRFromS $ inlineAst memo v
 
-  Ast.AstLetS var u v ->
-    -- We assume there are no nested lets with the same variable.
-    let vv = varNameToAstVarId var
-        (memo1, v2) = inlineAst memo v
-        memo1NoVar = EM.delete vv memo1
-        (memo2, u2) = inlineAst memo1NoVar u
-    in case EM.findWithDefault 0 vv memo1 of
-      0 -> (memo1, v2)
-      1 -> (memo2, substituteAst (SubstitutionPayload u2) var v2)
-      count | astIsSmall (count < 10) u ->
-        let (memoU0, u0) = inlineAst EM.empty u
-            memo3 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1NoVar memoU0
-                      -- u is small, so the union is fast
-        in (memo3, substituteAst (SubstitutionPayload u0) var v2)
-      _ -> (memo2, Ast.AstLetS var u2 v2)
-  Ast.AstShareS{} -> error "inlineAst: AstShareS"
   Ast.AstMinIndexS a -> second Ast.AstMinIndexS $ inlineAst memo a
   Ast.AstMaxIndexS a -> second Ast.AstMaxIndexS $ inlineAst memo a
   Ast.AstFloorS a -> second Ast.AstFloorS $ inlineAst memo a
@@ -392,36 +376,6 @@ inlineAst memo v0 = case v0 of
       1 -> (memo2, fromMaybe v2 $ substitute1Ast
                                     (SubstitutionPayloadHFunTKNew f2) var v2)
       _ -> (memo2, Ast.AstLetHFunInHVectorTKNew var f2 v2)
-  Ast.AstLetInHVector var u v ->
-    -- We assume there are no nested lets with the same variable.
-    let vv = varNameToAstVarId var
-        (memo1, v2) = inlineAst memo v
-        memo1NoVar = EM.delete vv memo1
-        (memo2, u2) = inlineAst memo1NoVar u
-    in case EM.findWithDefault 0 vv memo1 of
-      0 -> (memo1, v2)
-      1 -> (memo2, substituteAstHVector (SubstitutionPayload u2) var v2)
-      count | astIsSmall (count < 10) u ->
-        let (memoU0, u0) = inlineAst EM.empty u
-        in ( EM.unionWith (\c1 c0 -> c1 + count * c0) memo1NoVar memoU0
-               -- u is small, so the union is fast
-           , substituteAstHVector (SubstitutionPayload u0) var v2 )
-      _ -> (memo2, Ast.AstLetInHVector var u2 v2)
-  Ast.AstLetInHVectorS var u v ->
-    -- We assume there are no nested lets with the same variable.
-    let vv = varNameToAstVarId var
-        (memo1, v2) = inlineAst memo v
-        memo1NoVar = EM.delete vv memo1
-        (memo2, u2) = inlineAst memo1NoVar u
-    in case EM.findWithDefault 0 vv memo1 of
-      0 -> (memo1, v2)
-      1 -> (memo2, substituteAstHVector (SubstitutionPayload u2) var v2)
-      count | astIsSmall (count < 10) u ->
-        let (memoU0, u0) = inlineAst EM.empty u
-        in ( EM.unionWith (\c1 c0 -> c1 + count * c0) memo1NoVar memoU0
-               -- u is small, so the union is fast
-           , substituteAstHVector (SubstitutionPayload u0) var v2 )
-      _ -> (memo2, Ast.AstLetInHVectorS var u2 v2)
   Ast.AstShareHVector{} -> error "inlineAst: AstShareHVector"
   Ast.AstBuildHVector1 k (var, v) ->
     let (memoV0, v2) = inlineAst EM.empty v
@@ -598,19 +552,23 @@ shareAst memo v0 = case v0 of
     STKS{} -> error "WIP"
     STKProduct{} -> error "WIP"
     STKUntyped -> error "WIP"
-
   Ast.AstLet{} -> error "shareAst: AstLet"
     -- delta eval doesn't create lets and no lets
     -- survive instantiating in ADVal
-  Ast.AstShare var v | Just Refl <- sameAstSpan @s @PrimalSpan ->
+  Ast.AstShare @y2 var v | Just Refl <- sameAstSpan @s @PrimalSpan ->
     -- We assume v is the same if var is the same.
     let varId = varNameToAstVarId var
-        astVar = Ast.AstVar (FTKR $ shapeAst v) var
+        astVar = Ast.AstVar (shapeAstFull v) var
     in if varId `EM.member` memo
-       then (memo, astVar)  -- TODO: memo AstVar
+       then (memo, astVar)  -- TODO: memoize AstVar itself
        else let (memo1, v2) = shareAst memo v
-                d = AstBindingsSimple $ DynamicRanked $ AstRanked v2
+                d = case stensorKind @y2 of
+                  STKR{} -> AstBindingsSimple $ DynamicRanked $ AstRanked v2
+                  STKS{} -> AstBindingsSimple $ DynamicShaped $ AstShaped v2
+                  STKProduct{} -> error "TODO"
+                  STKUntyped{} -> error "TODO"
             in (EM.insert varId d memo1, astVar)
+
   Ast.AstShare{} -> error "shareAst: AstShare not in PrimalSpan"
   Ast.AstMinIndex a -> second Ast.AstMinIndex $ shareAst memo a
   Ast.AstMaxIndex a -> second Ast.AstMaxIndex $ shareAst memo a
@@ -679,17 +637,6 @@ shareAst memo v0 = case v0 of
   Ast.AstLetHFunInTKNew{} -> error "shareAst: AstLetHFunIn"
   Ast.AstRFromS v -> second Ast.AstRFromS $ shareAst memo v
 
-  Ast.AstLetS{} -> error "shareAst: AstLetS"
-  Ast.AstShareS var v | Just Refl <- sameAstSpan @s @PrimalSpan ->
-    -- We assume v is the same if var is the same.
-    let varId = varNameToAstVarId var
-        astVar = Ast.AstVar FTKS var
-    in if varId `EM.member` memo
-       then (memo, astVar)
-       else let (memo1, v2) = shareAst memo v
-                d = AstBindingsSimple $ DynamicShaped $ AstShaped v2
-            in (EM.insert varId d memo1, astVar)
-  Ast.AstShareS{} -> error "shareAst: AstShareS not in PrimalSpan"
   Ast.AstMinIndexS a -> second Ast.AstMinIndexS $ shareAst memo a
   Ast.AstMaxIndexS a -> second Ast.AstMaxIndexS $ shareAst memo a
   Ast.AstFloorS a -> second Ast.AstFloorS $ shareAst memo a
@@ -769,8 +716,6 @@ shareAst memo v0 = case v0 of
   Ast.AstLetHVectorInHVector{} -> error "shareAst: AstLetHVectorInHVector"
   Ast.AstLetHFunInHVector{} -> error "shareAst: AstLetHFunInHVector"
   Ast.AstLetHFunInHVectorTKNew{} -> error "shareAst: AstLetHFunInHVector"
-  Ast.AstLetInHVector{} -> error "shareAst: AstLetInHVector"
-  Ast.AstLetInHVectorS{} -> error "shareAst: AstLetInHVectorS"
   Ast.AstShareHVector [] l -> (memo, l)  -- no need to share an empty HVector
   Ast.AstShareHVector vars l | Just Refl <- sameAstSpan @s @PrimalSpan ->
     -- We assume l is the same if vars are the same.

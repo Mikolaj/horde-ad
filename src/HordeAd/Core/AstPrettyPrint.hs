@@ -329,8 +329,7 @@ printAstAux cfg d = \case
                           (sizedToList vars)
            . showString " -> "
            . showListWith (printAstInt cfg 0) (indexToList ix))
-
-  t@(AstLet var0 u0 v0) ->
+  t@(AstLet @_ @z2 var0 u0 v0) ->
     if loseRoudtrip cfg
     then let collect :: AstTensor s y -> ([(ShowS, ShowS)], ShowS)
              collect (AstLet var u v) =
@@ -348,7 +347,11 @@ printAstAux cfg d = \case
               . core
     else
       showParen (d > 10)
-      $ showString "rlet "
+      $ showString (case stensorKind @z2 of
+          STKR{} -> "rlet "
+          STKS{} -> "slet "
+          STKProduct{} -> "let "  -- TODO
+          STKUntyped{} -> "dlet ")
         . printAst cfg 11 u0
         . showString " "
         . (showParen True
@@ -356,13 +359,13 @@ printAstAux cfg d = \case
              . printAstVarFromLet u0 cfg var0
              . showString " -> "
              . printAst cfg 0 v0)
-
   AstShare var v ->
     showParen (d > 10)
     $ showString "rshare "
       . printAstVar cfg var
       . showString " "
       . printAst cfg 11 v
+
   AstMinIndex a ->
     printPrefixOp printAst cfg d "rminIndex" [a]
   AstMaxIndex a ->
@@ -494,38 +497,6 @@ printAstAux cfg d = \case
         -- TODO: this does not roundtrip yet
   AstRFromS v -> printPrefixOp printAst cfg d "rfromS" [v]
 
-  t@(AstLetS var0 u0 v0) ->
-    if loseRoudtrip cfg
-    then let collect :: AstTensor s (TKS r sh) -> ([(ShowS, ShowS)], ShowS)
-             collect (AstLetS var u v) =
-               let name = printAstVar cfg var
-                   uPP = printAst cfg 0 u
-                   (rest, corePP) = collect v
-               in ((name, uPP) : rest, corePP)
-             collect v = ([], printAst cfg 0 v)
-             (pairs, core) = collect t
-         in showParen (d > 0)
-            $ showString "let "
-              . foldr (.) id (intersperse (showString " ; ")
-                  [name . showString " = " . uPP | (name, uPP) <- pairs])
-              . showString " in "
-              . core
-    else
-      showParen (d > 10)
-      $ showString "slet "
-        . printAst cfg 11 u0
-        . showString " "
-        . (showParen True
-           $ showString "\\"
-             . printAstVar cfg var0
-             . showString " -> "
-             . printAst cfg 0 v0)
-  AstShareS var v ->
-    showParen (d > 10)
-    $ showString "sshare "
-      . printAstVar cfg var
-      . showString " "
-      . printAst cfg 11 v
   AstMinIndexS a -> printPrefixOp printAst cfg d "sminIndex" [a]
   AstMaxIndexS a -> printPrefixOp printAst cfg d "smaxIndex" [a]
   AstFloorS a ->  printPrefixOp printAst cfg d "sfloor" [a]
@@ -764,58 +735,6 @@ printAstAux cfg d = \case
              . showString " -> "
              . printAst cfg 0 v)
         -- TODO: this does not roundtrip yet
-  t@(AstLetInHVector var0 u0 v0) ->
-    if loseRoudtrip cfg
-    then let collect :: AstTensor s TKUntyped -> ([(ShowS, ShowS)], ShowS)
-             collect (AstLetInHVector var u v) =
-               let name = printAstVarFromLet u cfg var
-                   uPP = printAst cfg 0 u
-                   (rest, corePP) = collect v
-               in ((name, uPP) : rest, corePP)
-             collect v = ([], printAst cfg 0 v)
-             (pairs, core) = collect t
-         in showParen (d > 0)
-            $ showString "let "
-              . foldr (.) id (intersperse (showString " ; ")
-                  [name . showString " = " . uPP | (name, uPP) <- pairs])
-              . showString " in "
-              . core
-    else
-      showParen (d > 10)
-      $ showString "rletInHVector "
-        . printAst cfg 11 u0
-        . showString " "
-        . (showParen True
-           $ showString "\\"
-             . printAstVarFromLet u0 cfg var0
-             . showString " -> "
-             . printAst cfg 0 v0)
-  t@(AstLetInHVectorS var0 u0 v0) ->
-    if loseRoudtrip cfg
-    then let collect :: AstTensor s TKUntyped -> ([(ShowS, ShowS)], ShowS)
-             collect (AstLetInHVectorS var u v) =
-               let name = printAstVar cfg var
-                   uPP = printAst cfg 0 u
-                   (rest, corePP) = collect v
-               in ((name, uPP) : rest, corePP)
-             collect v = ([], printAst cfg 0 v)
-             (pairs, core) = collect t
-         in showParen (d > 0)
-            $ showString "let "
-              . foldr (.) id (intersperse (showString " ; ")
-                  [name . showString " = " . uPP | (name, uPP) <- pairs])
-              . showString " in "
-              . core
-    else
-      showParen (d > 10)
-      $ showString "sletInHVector "
-        . printAst cfg 11 u0
-        . showString " "
-        . (showParen True
-           $ showString "\\"
-             . printAstVar cfg var0
-             . showString " -> "
-             . printAst cfg 0 v0)
   AstShareHVector vars l ->
     showParen (d > 10)
     $ showString "dshare "

@@ -3138,7 +3138,7 @@ testSin0ScanD1Rev3PP = do
                             $ rscan (\x a -> a * x) x0
                                     (rfromList [x0 * 5, x0]))) (rscalar 1.1)
   length (printAstSimple IM.empty (simplifyInlineAst a1))
-    @?= 4452
+    @?= 4326
 
 testSin0ScanDFwd3PP :: Assertion
 testSin0ScanDFwd3PP = do
@@ -3336,7 +3336,7 @@ testSin0FoldNestedR0LengthPPs = do
       IM.empty
       (simplifyInlineHVector
        $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1))))
-    @?= 2_209
+    @?= 2_128
 
 testSin0FoldNestedR1LengthPPs :: Assertion
 testSin0FoldNestedR1LengthPPs = do
@@ -3355,7 +3355,7 @@ testSin0FoldNestedR1LengthPPs = do
       IM.empty
       (simplifyInlineHVector
        $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1))))
-    @?= 23_019
+    @?= 22_038
 
 testSin0FoldNestedR2LengthPPs :: Assertion
 testSin0FoldNestedR2LengthPPs = do
@@ -3376,7 +3376,7 @@ testSin0FoldNestedR2LengthPPs = do
        IM.empty
        (simplifyInlineHVector
         $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1))))
-    @?= 281_404
+    @?= 267_895
 
 testSin0FoldNestedR3LengthPPs :: Assertion
 testSin0FoldNestedR3LengthPPs = do
@@ -3399,7 +3399,7 @@ testSin0FoldNestedR3LengthPPs = do
        IM.empty
        (simplifyInlineHVector
         $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1))))
-    @?= 4_089_282
+    @?= 3_880_167
 
 -- Takes 45s.
 _testSin0FoldNestedR4LengthPPs :: Assertion
@@ -3514,7 +3514,7 @@ testSin0MapAccumNestedR3LengthPP = do
        IM.empty
        (simplifyInlineHVector
         $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1))))
-    @?= 4092587
+    @?= 3883472
 
 testSin0MapAccumNestedR4 :: Assertion
 testSin0MapAccumNestedR4 = do
@@ -4234,7 +4234,7 @@ testSin0FoldNestedR21PP = do
                             a0 (rreplicate 2 a0)
            in f) (rscalar 1.1)
   length (printAstSimple IM.empty (simplifyInlineAst a1))
-    @?= 52355
+    @?= 51680
 
 testSin0revhV :: Assertion
 testSin0revhV = do

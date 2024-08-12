@@ -25,7 +25,6 @@ import Data.Type.Equality (gcastWith, (:~:) (Refl))
 import Data.Vector qualified as Data.NonStrict.Vector
 import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat, type (+))
-import System.IO.Unsafe (unsafePerformIO)
 import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Shape qualified as X
@@ -398,7 +397,7 @@ instance AstSpan s => RankedTensor (AstRanked s) where
            -> AstRanked s r n
   rletTKIn stk a f =
     AstRanked
-    $ astLetFun @y @s (unRankedY stk a) (unAstRanked . f . rankedY stk)
+    $ astLetFun @y @_ @s (unRankedY stk a) (unAstRanked . f . rankedY stk)
 
   rshape = shapeAst . unAstRanked
   rminIndex = AstRanked . fromPrimal . AstMinIndex
@@ -508,10 +507,10 @@ astSpanD _ u' | Just Refl <- sameAstSpan @s @DualSpan = u'
 astSpanD u u' | Just Refl <- sameAstSpan @s @FullSpan = AstD u u'
 astSpanD _ _ = error "a spuriuos case for pattern match coverage"
 
-astLetFun :: forall y s r n.
-             (TensorKind y, AstSpan s, GoodScalar r, KnownNat n)
-          => AstTensor s y -> (AstTensor s y -> AstTensor s (TKR r n))
-          -> AstTensor s (TKR r n)
+astLetFun :: forall y z s.
+             (TensorKind y, TensorKind z, AstSpan s)
+          => AstTensor s y -> (AstTensor s y -> AstTensor s z)
+          -> AstTensor s z
 astLetFun a f | astIsSmall True a = f a
 astLetFun a f =
   let sh = shapeAstFull a
@@ -555,7 +554,7 @@ instance AstSpan s => ShapedTensor (AstShaped s) where
            -> AstShaped s r sh
   sletTKIn stk a f =
     AstShaped
-    $ astLetFunS @y @s (unRankedY stk a) (unAstShaped . f . rankedY stk)
+    $ astLetFun @y @_ @s (unRankedY stk a) (unAstShaped . f . rankedY stk)
 
   sminIndex = AstShaped . fromPrimal . AstMinIndexS . astSpanPrimal . unAstShaped
   smaxIndex = AstShaped . fromPrimal . AstMaxIndexS . astSpanPrimal . unAstShaped
@@ -593,9 +592,9 @@ instance AstSpan s => ShapedTensor (AstShaped s) where
   sletHFunInTKNew a f = AstShaped $ astLetHFunInFunSTKNew a (unAstShaped . f)
   sfromR = AstShaped . astSFromR . unAstRanked
 
-  sshare a@(AstShaped(AstShareS{})) = a
+  sshare a@(AstShaped(AstShare{})) = a
   sshare a | astIsSmall True (unAstShaped a) = a
-  sshare a = AstShaped $ fun1SToAst $ \ !var -> AstShareS var (unAstShaped a)
+  sshare a = AstShaped $ fun1SToAst $ \ !var -> AstShare var (unAstShaped a)
 
   sconstant = AstShaped . fromPrimal . unAstShaped
   sprimalPart = AstShaped . astSpanPrimal . unAstShaped
@@ -631,16 +630,6 @@ astLetHFunInFunSTKNew a f =
   let shss = domainShapeAstHFunTKNew a
       shs = shapeAstHFunTKNew a
   in fun1HToAstTKNew shss shs $ \ !var !ast -> astLetHFunInSTKNew var a (f ast)
-
-astLetFunS :: forall y s r sh.
-              (TensorKind y, AstSpan s, GoodScalar r, KnownShS sh)
-           => AstTensor s y -> (AstTensor s y -> AstTensor s (TKS r sh))
-           -> AstTensor s (TKS r sh)
-astLetFunS a f | astIsSmall True a = f a
-astLetFunS a f =
-  let sh = shapeAstFull a
-      (var, ast) = funToAst sh f
-  in astLetS var a ast  -- safe, because subsitution ruled out above
 
 astBuild1VectorizeS :: forall n sh r s.
                        (KnownNat n, KnownShS sh, GoodScalar r, AstSpan s)
@@ -728,12 +717,8 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   dletHVectorInHVector = astLetHVectorInHVectorFun
   dletHFunInHVector = astLetHFunInHVectorFun
   dletHFunInHVectorTKNew = astLetHFunInHVectorFunTKNew
-  rletInHVector u f =
-    astLetInHVectorFun (unAstRanked u)
-                       (f . AstRanked)
-  sletInHVector u f =
-    astLetInHVectorFunS (unAstShaped u)
-                        (f . AstShaped)
+  rletInHVector u f = astLetFun (unAstRanked u) (f . AstRanked)
+  sletInHVector u f = astLetFun (unAstShaped u) (f . AstShaped)
  -- For convenience and simplicity we define this for all spans,
   -- but it can only ever be used for PrimalSpan.
   -- In this instance, these three ops are only used for some rare tests that
@@ -857,27 +842,6 @@ astLetHFunInHVectorFunTKNew a f =
   let shss = domainShapeAstHFunTKNew a
       shs = shapeAstHFunTKNew a
   in fun1HToAstTKNew shss shs $ \ !var !ast -> astLetHFunInHVectorTKNew var a (f ast)
-
-astLetInHVectorFun :: (KnownNat n, GoodScalar r, AstSpan s)
-                   => AstTensor s (TKR r n) -> (AstTensor s (TKR r n) -> AstTensor s TKUntyped)
-                   -> AstTensor s TKUntyped
-{-# NOINLINE astLetInHVectorFun #-}
-astLetInHVectorFun a f | astIsSmall True a = f a
-astLetInHVectorFun a f = unsafePerformIO $ do  -- the id causes trouble
-  let sh = FTKR $ shapeAst a
-  (!var, _, !ast) <- funToAstIO sh id
-  return $! astLetInHVector var a (f ast)
-              -- safe because subsitution ruled out above
-
-astLetInHVectorFunS :: (KnownShS sh, GoodScalar r, AstSpan s)
-                    => AstTensor s (TKS r sh) -> (AstTensor s (TKS r sh) -> AstTensor s TKUntyped)
-                    -> AstTensor s TKUntyped
-{-# NOINLINE astLetInHVectorFunS #-}
-astLetInHVectorFunS a f | astIsSmall True a = f a
-astLetInHVectorFunS a f = unsafePerformIO $ do  -- the id causes trouble
-  (!var, _, !ast) <- funToAstIO FTKS id
-  return $! astLetInHVectorS var a (f ast)
-              -- safe because subsitution ruled out above
 
 astBuildHVector1Vectorize
   :: AstSpan s
@@ -1138,7 +1102,7 @@ instance AstSpan s => RankedTensor (AstRaw s) where
            -> AstRaw s r n
   rletTKIn stk a f =
     AstRaw
-    $ astLetFunRaw @y @s (unRawY stk a) (unAstRaw . f . rawY stk)
+    $ astLetFunRaw @y @_ @s (unRawY stk a) (unAstRaw . f . rawY stk)
   rshape = shapeAst . unAstRaw
   rminIndex = AstRaw . fromPrimal . AstMinIndex . astSpanPrimal . unAstRaw
   rmaxIndex = AstRaw . fromPrimal . AstMaxIndex . astSpanPrimal . unAstRaw
@@ -1187,25 +1151,15 @@ instance AstSpan s => RankedTensor (AstRaw s) where
   rScale s t = AstRaw $ astDualPart
                $ AstConstant (unAstRaw s) * AstD (unAstRanked $ rzero (rshape s)) (unAstRaw t)
 
-astLetFunRaw :: forall y s r n.
-                (TensorKind y, AstSpan s, GoodScalar r, KnownNat n)
-             => AstTensor s y -> (AstTensor s y -> AstTensor s (TKR r n))
-             -> AstTensor s (TKR r n)
+astLetFunRaw :: forall y z s.
+                (TensorKind y, TensorKind z, AstSpan s)
+             => AstTensor s y -> (AstTensor s y -> AstTensor s z)
+             -> AstTensor s z
 astLetFunRaw a f | astIsSmall True a = f a  -- too important an optimization
 astLetFunRaw a f =
   let sh = shapeAstFull a
       (var, ast) = funToAst sh f
   in AstLet var a ast  -- safe, because subsitution ruled out above
-
-astLetFunRawS :: forall y s r sh.
-                 (TensorKind y, AstSpan s ,GoodScalar r, KnownShS sh)
-              => AstTensor s y -> (AstTensor s y -> AstTensor s (TKS r sh))
-              -> AstTensor s (TKS r sh)
-astLetFunRawS a f | astIsSmall True a = f a
-astLetFunRawS a f =
-  let sh = shapeAstFull a
-      (var, ast) = funToAst sh f
-  in AstLetS var a ast
 
 astLetHVectorInFunRaw
   :: forall n s r. (AstSpan s, GoodScalar r, KnownNat n)
@@ -1285,23 +1239,6 @@ astLetHFunInHVectorFunRawTKNew a f =
       shs = shapeAstHFunTKNew a
   in fun1HToAstTKNew shss shs $ \ !var !ast -> AstLetHFunInHVectorTKNew var a (f ast)
 
-astLetInHVectorFunRaw :: (KnownNat n, GoodScalar r, AstSpan s)
-                      => AstTensor s (TKR r n) -> (AstTensor s (TKR r n) -> AstTensor s TKUntyped)
-                      -> AstTensor s TKUntyped
-astLetInHVectorFunRaw a f | astIsSmall True a = f a
-astLetInHVectorFunRaw a f = unsafePerformIO $ do  -- the id causes trouble
-  let sh = FTKR $ shapeAst a
-  (!var, _, !ast) <- funToAstIO sh id
-  return $! AstLetInHVector var a (f ast)
-
-astLetInHVectorFunRawS :: (KnownShS sh, GoodScalar r, AstSpan s)
-                       => AstTensor s (TKS r sh) -> (AstTensor s (TKS r sh) -> AstTensor s TKUntyped)
-                       -> AstTensor s TKUntyped
-astLetInHVectorFunRawS a f | astIsSmall True a = f a
-astLetInHVectorFunRawS a f = unsafePerformIO $ do  -- the id causes trouble
-  (!var, _, !ast) <- funToAstIO FTKS id
-  return $! AstLetInHVectorS var a (f ast)
-
 instance AstSpan s => ShapedTensor (AstRawS s) where
   sletTKIn :: forall y sh r. (TensorKind y, GoodScalar r, KnownShS sh)
            => STensorKindType y -> InterpretationTarget (AstRaw s) y
@@ -1309,7 +1246,7 @@ instance AstSpan s => ShapedTensor (AstRawS s) where
            -> AstRawS s r sh
   sletTKIn stk a f =
     AstRawS
-    $ astLetFunRawS @y @s (unRawY stk a) (unAstRawS . f . rawY stk)
+    $ astLetFunRaw @y @_ @s (unRawY stk a) (unAstRawS . f . rawY stk)
   sminIndex = AstRawS . fromPrimal . AstMinIndexS . astSpanPrimal . unAstRawS
   smaxIndex = AstRawS . fromPrimal . AstMaxIndexS . astSpanPrimal . unAstRawS
   sfloor = AstRawS . fromPrimal . AstFloorS . astSpanPrimal . unAstRawS
@@ -1346,9 +1283,9 @@ instance AstSpan s => ShapedTensor (AstRawS s) where
   sletHFunInTKNew a f = AstRawS $ astLetHFunInFunRawSTKNew a (unAstRawS . f)
   sfromR = AstRawS . AstSFromR . unAstRaw
 
-  sshare a@(AstRawS (AstShareS{})) = a
+  sshare a@(AstRawS (AstShare{})) = a
   sshare a | astIsSmall True (unAstRawS a) = a
-  sshare a = AstRawS $ fun1SToAst $ \ !var -> AstShareS var (unAstRawS a)
+  sshare a = AstRawS $ fun1SToAst $ \ !var -> AstShare var (unAstRawS a)
 
   sconstant = AstRawS . fromPrimal . unAstRawS
   sprimalPart = AstRawS . astSpanPrimal . unAstRawS
@@ -1405,11 +1342,9 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
     AstRawWrap
     $ astLetHFunInHVectorFunRawTKNew t (unAstRawWrap . f)
   rletInHVector u f =
-    AstRawWrap
-    $ astLetInHVectorFunRaw (unAstRaw u) (unAstRawWrap . f . AstRaw)
+    AstRawWrap $ astLetFunRaw (unAstRaw u) (unAstRawWrap . f . AstRaw)
   sletInHVector u f =
-    AstRawWrap
-    $ astLetInHVectorFunRawS (unAstRawS u) (unAstRawWrap . f . AstRawS)
+    AstRawWrap $ astLetFunRaw (unAstRawS u) (unAstRawWrap . f . AstRawS)
   dunlet =
     case sameAstSpan @s @PrimalSpan of
       Just Refl -> AstRawWrap . unletAstHVector . unAstRawWrap
@@ -1483,7 +1418,7 @@ instance AstSpan s => RankedTensor (AstNoVectorize s) where
            -> AstNoVectorize s r n
   rletTKIn stk a f =
     AstNoVectorize
-    $ astLetFun @y @s (unNoVectorizeY stk a) (unAstNoVectorize . f . noVectorizeY stk)
+    $ astLetFun @y @_ @s (unNoVectorizeY stk a) (unAstNoVectorize . f . noVectorizeY stk)
   rshape = rshape . unAstNoVectorize2
   rminIndex = astNoVectorize2 . rminIndex . unAstNoVectorize2
   rmaxIndex = astNoVectorize2 . rmaxIndex . unAstNoVectorize2
@@ -1541,7 +1476,7 @@ instance AstSpan s => ShapedTensor (AstNoVectorizeS s) where
            -> AstNoVectorizeS s r sh
   sletTKIn stk a f =
     AstNoVectorizeS
-    $ astLetFunS @y @s (unNoVectorizeY stk a) (unAstNoVectorizeS . f . noVectorizeY stk)
+    $ astLetFun @y @_ @s (unNoVectorizeY stk a) (unAstNoVectorizeS . f . noVectorizeY stk)
   sminIndex = astNoVectorizeS2 . sminIndex . unAstNoVectorizeS2
   smaxIndex = astNoVectorizeS2 . smaxIndex . unAstNoVectorizeS2
   sfloor = astNoVectorizeS2 . sfloor . unAstNoVectorizeS2
@@ -1712,7 +1647,7 @@ instance AstSpan s => RankedTensor (AstNoSimplify s) where
            -> AstNoSimplify s r n
   rletTKIn stk a f =
     AstNoSimplify
-    $ astLetFunRaw @y @s (unNoSimplifyY stk a) (unAstNoSimplify . f . noSimplifyY stk)
+    $ astLetFunRaw @y @_ @s (unNoSimplifyY stk a) (unAstNoSimplify . f . noSimplifyY stk)
   rshape = shapeAst . unAstNoSimplify
   rminIndex = AstNoSimplify . fromPrimal . AstMinIndex
               . astSpanPrimal . unAstNoSimplify
@@ -1769,7 +1704,7 @@ instance AstSpan s => ShapedTensor (AstNoSimplifyS s) where
            -> AstNoSimplifyS s r sh
   sletTKIn stk a f =
     AstNoSimplifyS
-    $ astLetFunRawS @y @s (unNoSimplifyY stk a) (unAstNoSimplifyS . f . noSimplifyY stk)
+    $ astLetFunRaw @y @_ @s (unNoSimplifyY stk a) (unAstNoSimplifyS . f . noSimplifyY stk)
   sminIndex = AstNoSimplifyS . fromPrimal . AstMinIndexS
               . astSpanPrimal . unAstNoSimplifyS
   smaxIndex = AstNoSimplifyS . fromPrimal . AstMaxIndexS
@@ -1876,12 +1811,12 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
     $ astLetHFunInHVectorFunRawTKNew t (unAstNoSimplifyWrap . f)
   rletInHVector u f =
     AstNoSimplifyWrap
-    $ astLetInHVectorFunRaw (unAstNoSimplify u)
-                            (unAstNoSimplifyWrap . f . AstNoSimplify)
+    $ astLetFunRaw (unAstNoSimplify u)
+                     (unAstNoSimplifyWrap . f . AstNoSimplify)
   sletInHVector u f =
     AstNoSimplifyWrap
-    $ astLetInHVectorFunRawS (unAstNoSimplifyS u)
-                             (unAstNoSimplifyWrap . f . AstNoSimplifyS)
+    $ astLetFunRaw (unAstNoSimplifyS u)
+                   (unAstNoSimplifyWrap . f . AstNoSimplifyS)
   dbuild1 k f = AstNoSimplifyWrap
                 $ astBuildHVector1Vectorize
                     k (unAstNoSimplifyWrap . f . AstNoSimplify)

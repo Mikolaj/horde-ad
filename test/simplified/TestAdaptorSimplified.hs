@@ -564,9 +564,9 @@ testFooPP = do
   resetVarCounter
   let (artifactRev, _) = revArtifactAdapt True fooT (4, 5, 6)
   printArtifactSimple renames artifactRev
-    @?= "\\x9 x1 x y -> rletInHVector (sin x) (\\z -> rletInHVector (x1 * z) (\\x5 -> rletInHVector (recip (y * y + x5 * x5)) (\\x6 -> rletInHVector (sin x) (\\x7 -> rletInHVector (x1 * x7) (\\x8 -> rletInHVector (y * x9) (\\x10 -> rletInHVector ((negate y * x6) * x9) (\\x11 -> dmkHVector (fromList [DynamicRanked (z * x11 + x7 * x10), DynamicRanked (cos x * (x1 * x11) + cos x * (x1 * x10)), DynamicRanked ((x5 * x6) * x9 + x8 * x9)]))))))))"
+    @?= "\\x9 x1 x y -> dlet (sin x) (\\z -> dlet (x1 * z) (\\x5 -> dlet (recip (y * y + x5 * x5)) (\\x6 -> dlet (sin x) (\\x7 -> dlet (x1 * x7) (\\x8 -> dlet (y * x9) (\\x10 -> dlet ((negate y * x6) * x9) (\\x11 -> dmkHVector (fromList [DynamicRanked (z * x11 + x7 * x10), DynamicRanked (cos x * (x1 * x11) + cos x * (x1 * x10)), DynamicRanked ((x5 * x6) * x9 + x8 * x9)]))))))))"
   printArtifactPrimalSimple renames artifactRev
-    @?= "\\x1 x y -> rletInHVector (sin x) (\\z -> rletInHVector (x1 * z) (\\x5 -> rletInHVector (sin x) (\\x7 -> rletInHVector (x1 * x7) (\\x8 -> dmkHVector (fromList [DynamicRanked (atan2F y x5 + y * x8)])))))"
+    @?= "\\x1 x y -> dlet (sin x) (\\z -> dlet (x1 * z) (\\x5 -> dlet (sin x) (\\x7 -> dlet (x1 * x7) (\\x8 -> dmkHVector (fromList [DynamicRanked (atan2F y x5 + y * x8)])))))"
 
 fooLet :: forall ranked r n.
           (RealFloatF (ranked r n), RankedTensor ranked, KnownNat n, GoodScalar r)
@@ -612,9 +612,9 @@ testListProdPP = do
       fT = shapedListProd
   let (artifactRev, _deltas)= revArtifactAdapt True fT [srepl 1, srepl 2, srepl 3, srepl 4]
   printArtifactSimple renames artifactRev
-    @?= "\\x7 x1 x2 x3 x4 -> sletInHVector (x1 * x2) (\\x5 -> sletInHVector (x5 * x3) (\\x6 -> sletInHVector (x4 * x7) (\\x8 -> sletInHVector (x3 * x8) (\\x9 -> dmkHVector (fromList [DynamicShaped (x2 * x9), DynamicShaped (x1 * x9), DynamicShaped (x5 * x8), DynamicShaped (x6 * x7)])))))"
+    @?= "\\x7 x1 x2 x3 x4 -> dlet (x1 * x2) (\\x5 -> dlet (x5 * x3) (\\x6 -> dlet (x4 * x7) (\\x8 -> dlet (x3 * x8) (\\x9 -> dmkHVector (fromList [DynamicShaped (x2 * x9), DynamicShaped (x1 * x9), DynamicShaped (x5 * x8), DynamicShaped (x6 * x7)])))))"
   printArtifactPrimalSimple renames artifactRev
-    @?= "\\x1 x2 x3 x4 -> sletInHVector (x1 * x2) (\\x5 -> sletInHVector (x5 * x3) (\\x6 -> dmkHVector (fromList [DynamicShaped (x6 * x4)])))"
+    @?= "\\x1 x2 x3 x4 -> dlet (x1 * x2) (\\x5 -> dlet (x5 * x3) (\\x6 -> dmkHVector (fromList [DynamicShaped (x6 * x4)])))"
   printArtifactPretty renames (simplifyArtifact artifactRev)
     @?= "\\x7 x1 x2 x3 x4 -> let x5 = x1 * x2 ; x8 = x4 * x7 ; x9 = x3 * x8 in [x2 * x9, x1 * x9, x5 * x8, (x5 * x3) * x7]"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
@@ -645,9 +645,9 @@ testListProdrLongPP = do
   let (artifactRev, _)=
         revArtifactAdapt True fT [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
   printArtifactSimple renames artifactRev
-    @?= "\\x25 x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 -> rletInHVector (x12 * x13) (\\x14 -> rletInHVector (x11 * x14) (\\x15 -> rletInHVector (x10 * x15) (\\x16 -> rletInHVector (x9 * x16) (\\x17 -> rletInHVector (x8 * x17) (\\x18 -> rletInHVector (x7 * x18) (\\x19 -> rletInHVector (x6 * x19) (\\x20 -> rletInHVector (x5 * x20) (\\x21 -> rletInHVector (x4 * x21) (\\x22 -> rletInHVector (x3 * x22) (\\x23 -> rletInHVector (x2 * x23) (\\x24 -> rletInHVector (x1 * x25) (\\x26 -> rletInHVector (x2 * x26) (\\x27 -> rletInHVector (x3 * x27) (\\x28 -> rletInHVector (x4 * x28) (\\x29 -> rletInHVector (x5 * x29) (\\x30 -> rletInHVector (x6 * x30) (\\x31 -> rletInHVector (x7 * x31) (\\x32 -> rletInHVector (x8 * x32) (\\x33 -> rletInHVector (x9 * x33) (\\x34 -> rletInHVector (x10 * x34) (\\x35 -> rletInHVector (x11 * x35) (\\x36 -> dmkHVector (fromList [DynamicRanked (x24 * x25), DynamicRanked (x23 * x26), DynamicRanked (x22 * x27), DynamicRanked (x21 * x28), DynamicRanked (x20 * x29), DynamicRanked (x19 * x30), DynamicRanked (x18 * x31), DynamicRanked (x17 * x32), DynamicRanked (x16 * x33), DynamicRanked (x15 * x34), DynamicRanked (x14 * x35), DynamicRanked (x13 * x36), DynamicRanked (x12 * x36)])))))))))))))))))))))))"
+    @?= "\\x25 x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 -> dlet (x12 * x13) (\\x14 -> dlet (x11 * x14) (\\x15 -> dlet (x10 * x15) (\\x16 -> dlet (x9 * x16) (\\x17 -> dlet (x8 * x17) (\\x18 -> dlet (x7 * x18) (\\x19 -> dlet (x6 * x19) (\\x20 -> dlet (x5 * x20) (\\x21 -> dlet (x4 * x21) (\\x22 -> dlet (x3 * x22) (\\x23 -> dlet (x2 * x23) (\\x24 -> dlet (x1 * x25) (\\x26 -> dlet (x2 * x26) (\\x27 -> dlet (x3 * x27) (\\x28 -> dlet (x4 * x28) (\\x29 -> dlet (x5 * x29) (\\x30 -> dlet (x6 * x30) (\\x31 -> dlet (x7 * x31) (\\x32 -> dlet (x8 * x32) (\\x33 -> dlet (x9 * x33) (\\x34 -> dlet (x10 * x34) (\\x35 -> dlet (x11 * x35) (\\x36 -> dmkHVector (fromList [DynamicRanked (x24 * x25), DynamicRanked (x23 * x26), DynamicRanked (x22 * x27), DynamicRanked (x21 * x28), DynamicRanked (x20 * x29), DynamicRanked (x19 * x30), DynamicRanked (x18 * x31), DynamicRanked (x17 * x32), DynamicRanked (x16 * x33), DynamicRanked (x15 * x34), DynamicRanked (x14 * x35), DynamicRanked (x13 * x36), DynamicRanked (x12 * x36)])))))))))))))))))))))))"
   printArtifactPrimalSimple renames artifactRev
-    @?= "\\x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 -> rletInHVector (x12 * x13) (\\x14 -> rletInHVector (x11 * x14) (\\x15 -> rletInHVector (x10 * x15) (\\x16 -> rletInHVector (x9 * x16) (\\x17 -> rletInHVector (x8 * x17) (\\x18 -> rletInHVector (x7 * x18) (\\x19 -> rletInHVector (x6 * x19) (\\x20 -> rletInHVector (x5 * x20) (\\x21 -> rletInHVector (x4 * x21) (\\x22 -> rletInHVector (x3 * x22) (\\x23 -> rletInHVector (x2 * x23) (\\x24 -> dmkHVector (fromList [DynamicRanked (x1 * x24)]))))))))))))"
+    @?= "\\x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 -> dlet (x12 * x13) (\\x14 -> dlet (x11 * x14) (\\x15 -> dlet (x10 * x15) (\\x16 -> dlet (x9 * x16) (\\x17 -> dlet (x8 * x17) (\\x18 -> dlet (x7 * x18) (\\x19 -> dlet (x6 * x19) (\\x20 -> dlet (x5 * x20) (\\x21 -> dlet (x4 * x21) (\\x22 -> dlet (x3 * x22) (\\x23 -> dlet (x2 * x23) (\\x24 -> dmkHVector (fromList [DynamicRanked (x1 * x24)]))))))))))))"
   printArtifactPretty renames (simplifyArtifact artifactRev)
     @?= "\\x25 x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 -> let x14 = x12 * x13 ; x15 = x11 * x14 ; x16 = x10 * x15 ; x17 = x9 * x16 ; x18 = x8 * x17 ; x19 = x7 * x18 ; x20 = x6 * x19 ; x21 = x5 * x20 ; x22 = x4 * x21 ; x23 = x3 * x22 ; x26 = x1 * x25 ; x27 = x2 * x26 ; x28 = x3 * x27 ; x29 = x4 * x28 ; x30 = x5 * x29 ; x31 = x6 * x30 ; x32 = x7 * x31 ; x33 = x8 * x32 ; x34 = x9 * x33 ; x35 = x10 * x34 ; x36 = x11 * x35 in [(x2 * x23) * x25, x23 * x26, x22 * x27, x21 * x28, x20 * x29, x19 * x30, x18 * x31, x17 * x32, x16 * x33, x15 * x34, x14 * x35, x13 * x36, x12 * x36]"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
@@ -1983,9 +1983,9 @@ fblowupPP = do
       fblowupT = fblowup @(AstRanked FullSpan) @Double 1
   let (artifactRev, _) = revArtifactAdapt True fblowupT (rreplicate0N [4] (rscalar 4))
   printArtifactSimple renames artifactRev
-    @?= "\\x7 v1 -> rletInHVector (v1 ! [0]) (\\x2 -> rletInHVector (v1 ! [1]) (\\x3 -> rletInHVector (v1 ! [0]) (\\x4 -> rletInHVector (v1 ! [1]) (\\x5 -> rletInHVector (0.499999985 * x7) (\\x8 -> dmkHVector (fromList [DynamicRanked (rscatter [4] (recip x3 * x8) (\\[] -> [0]) + rscatter [4] ((negate x2 / (x3 * x3)) * x8) (\\[] -> [1]) + rscatter [4] (recip x5 * x8) (\\[] -> [0]) + rscatter [4] ((negate x4 / (x5 * x5)) * x8) (\\[] -> [1]))]))))))"
+    @?= "\\x7 v1 -> dlet (v1 ! [0]) (\\x2 -> dlet (v1 ! [1]) (\\x3 -> dlet (v1 ! [0]) (\\x4 -> dlet (v1 ! [1]) (\\x5 -> dlet (0.499999985 * x7) (\\x8 -> dmkHVector (fromList [DynamicRanked (rscatter [4] (recip x3 * x8) (\\[] -> [0]) + rscatter [4] ((negate x2 / (x3 * x3)) * x8) (\\[] -> [1]) + rscatter [4] (recip x5 * x8) (\\[] -> [0]) + rscatter [4] ((negate x4 / (x5 * x5)) * x8) (\\[] -> [1]))]))))))"
   printArtifactPrimalSimple renames artifactRev
-    @?= "\\v1 -> rletInHVector (v1 ! [0]) (\\x2 -> rletInHVector (v1 ! [1]) (\\x3 -> rletInHVector (v1 ! [0]) (\\x4 -> rletInHVector (v1 ! [1]) (\\x5 -> rletInHVector ((x2 / x3 + x4 / x5) - 0.0) (\\x6 -> dmkHVector (fromList [DynamicRanked (0.499999985 * x6 - 0.0)]))))))"
+    @?= "\\v1 -> dlet (v1 ! [0]) (\\x2 -> dlet (v1 ! [1]) (\\x3 -> dlet (v1 ! [0]) (\\x4 -> dlet (v1 ! [1]) (\\x5 -> dlet ((x2 / x3 + x4 / x5) - 0.0) (\\x6 -> dmkHVector (fromList [DynamicRanked (0.499999985 * x6 - 0.0)]))))))"
 
 fblowupLetPP :: Assertion
 fblowupLetPP = do
@@ -1994,9 +1994,9 @@ fblowupLetPP = do
       fblowupLetT = fblowupLet @(AstRanked FullSpan) @Double 0 1
   let (artifactRev, _) = revArtifactAdapt True fblowupLetT (rreplicate0N [4] (rscalar 4))
   printArtifactSimple renames artifactRev
-    @?= "\\x7 v1 -> rletInHVector (v1 ! [0]) (\\x3 -> rletInHVector (v1 ! [1]) (\\x4 -> rletInHVector (0.499999985 * x7) (\\x8 -> rletInHVector (x8 + x8) (\\x9 -> dmkHVector (fromList [DynamicRanked (rscatter [4] (recip x4 * x9) (\\[] -> [0]) + rscatter [4] ((negate x3 / (x4 * x4)) * x9) (\\[] -> [1]))])))))"
+    @?= "\\x7 v1 -> dlet (v1 ! [0]) (\\x3 -> dlet (v1 ! [1]) (\\x4 -> dlet (0.499999985 * x7) (\\x8 -> dlet (x8 + x8) (\\x9 -> dmkHVector (fromList [DynamicRanked (rscatter [4] (recip x4 * x9) (\\[] -> [0]) + rscatter [4] ((negate x3 / (x4 * x4)) * x9) (\\[] -> [1]))])))))"
   printArtifactPrimalSimple renames artifactRev
-    @?= "\\v1 -> rletInHVector (v1 ! [0]) (\\x3 -> rletInHVector (v1 ! [1]) (\\x4 -> rletInHVector (x3 / x4) (\\x5 -> rletInHVector ((x5 + x5) - 0.0) (\\x6 -> dmkHVector (fromList [DynamicRanked (0.499999985 * x6 - 0.0)])))))"
+    @?= "\\v1 -> dlet (v1 ! [0]) (\\x3 -> dlet (v1 ! [1]) (\\x4 -> dlet (x3 / x4) (\\x5 -> dlet ((x5 + x5) - 0.0) (\\x6 -> dmkHVector (fromList [DynamicRanked (0.499999985 * x6 - 0.0)])))))"
 
 -- TODO: should do 1000000 in a few seconds
 blowupTests :: TestTree
