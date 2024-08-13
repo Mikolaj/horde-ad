@@ -503,6 +503,23 @@ instance ADReadyBoth ranked shaped
           -- This computes the derivative of g again for each new da and a.
         df _ = error "df: wrong number of arguments"
     in HFun $ HVectorPseudoTensor . df
+  dfwdTKNew :: forall x z. (x ~ TKUntyped, TensorKind z)
+            => TensorKindFull x
+            -> HFunTKNew x z
+            -> HFunTKNew (TKProduct x x) z
+  dfwdTKNew _shs h =
+    let g :: ADReady f
+          => HVector (ADVal f) -> InterpretationTarget (ADVal f) z
+        g !hv = unHFunTKNew h (HVectorPseudoTensor hv)
+        df :: forall f. ADReady f
+           => InterpretationTarget f (TKProduct x x)
+           -> InterpretationTarget f z
+        df !da_a = fst $ cfwdOnHVector
+                           (dunHVector $ unHVectorPseudoTensor $ tproject2 da_a)
+                              -- TODO: slow!
+                           g
+                           (dunHVector $ unHVectorPseudoTensor $ tproject1 da_a)
+    in HFunTKNew df
   dmapAccumRDer
     :: Proxy (ADVal ranked)
     -> SNat k

@@ -70,16 +70,18 @@ simplifyInlineAstS =
   :: AstSpan s
   => AstShaped s Double sh -> AstShaped s Double sh #-}
 
+-- TODO: rename, not longer just for HVector
 simplifyInlineHVector
-  :: AstSpan s => AstTensor s TKUntyped -> AstTensor s TKUntyped
+  :: AstSpan s => AstTensor s z -> AstTensor s z
 simplifyInlineHVector =
   snd . inlineAst EM.empty
   . simplifyAst . expandAst
   . snd . inlineAst EM.empty . simplifyAst
     -- no specialization possible except for the tag type s
 
+-- TODO: rename, not longer just for HVector
 simplifyInlineHVectorRaw
-  :: AstSpan s => AstRawWrap (AstTensor s TKUntyped) -> AstRawWrap (AstTensor s TKUntyped)
+  :: AstSpan s => AstRawWrap (AstTensor s z) -> AstRawWrap (AstTensor s z)
 simplifyInlineHVectorRaw =
   AstRawWrap . simplifyInlineHVector . unAstRawWrap
 

@@ -898,9 +898,14 @@ class HVectorTensor (ranked :: RankedTensorType)
   dfwd
     :: VoidHVector  -- shapes of a and da
     -> HFun TKUntyped  -- [HVector f] -> HVectorOf f
-               -- a |-> b
+                       -- a |-> b
     -> HFunOf ranked TKUntyped  -- [HVector f, HVector f] -> HVectorOf f
                         -- [da, a] |-> db
+  dfwdTKNew
+    :: (x ~ TKUntyped, TensorKind z)
+    => TensorKindFull x  -- shape of a and da
+    -> HFunTKNew x z  -- a |-> b
+    -> HFunOfTKNew ranked (TKProduct x x) z  -- [da, a] |-> db
   -- | A strict left fold.
   rfold
     :: forall rn rm n m.

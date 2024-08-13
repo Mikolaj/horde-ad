@@ -292,6 +292,20 @@ instance HVectorTensor ORArray OSArray where
         df [!da, !a] = unHVectorPseudoTensor $ fst $ cfwdOnHVector a g da
         df _ = error "df: wrong number of arguments"
     in HVectorPseudoTensor . df
+  dfwdTKNew :: forall x z. (x ~ TKUntyped, TensorKind z)
+            => TensorKindFull x
+            -> HFunTKNew x z
+            -> HFunOfTKNew ORArray (TKProduct x x) z
+  dfwdTKNew _shs h =
+    let g :: ADReady f
+          => HVector (ADVal f) -> InterpretationTarget (ADVal f) z
+        g !hv = unHFunTKNew h (HVectorPseudoTensor hv)
+        df :: InterpretationTarget ORArray (TKProduct x x)
+           -> InterpretationTarget ORArray z
+        df !da_a = fst $ cfwdOnHVector (unHVectorPseudoTensor $ tproject2 da_a)
+                                       g
+                                       (unHVectorPseudoTensor $ tproject1 da_a)
+    in df
   rfold f x0 as = foldl' f x0 (runravelToList as)
   rscan f x0 as =
     rfromList $ NonEmpty.fromList $ scanl' f x0 (runravelToList as)

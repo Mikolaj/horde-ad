@@ -818,6 +818,24 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
           fwdProduceArtifact g emptyEnv shs
      in AstLambda ( [varsDt, vars]
                   , simplifyInlineHVector $ unAstRawWrap $ unHVectorPseudoTensor derivative )
+  dfwdTKNew :: forall x z. (x ~ TKUntyped, TensorKind z)
+            => TensorKindFull x
+            -> HFunTKNew x z
+            -> AstHFunTKNew (TKProduct x x) z
+  dfwdTKNew ftk@(FTKUntyped shs) h =
+    -- This computes the (AST of) derivative of f once and interprets it again
+    -- for each new tensor of arguments, which is better than computing it anew.
+    let g :: HVector (AstRanked FullSpan)
+          -> InterpretationTarget (AstRanked FullSpan) z
+        g !hv = unHFunTKNew h (HVectorPseudoTensor $ AstMkHVector hv)
+        (AstArtifactFwd varDs var derivative _primal, _delta) =
+          fwdProduceArtifactTKNew g emptyEnv shs
+        ftk2 = FTKProduct ftk ftk
+        (varP, ast) = funToAst ftk2 $ \ !astP ->
+          AstLet varDs (AstProject1 astP)
+            $ AstLet var (AstProject2 astP)
+              $ simplifyInlineHVector $ unRawY (stensorKind @z) derivative
+    in AstLambdaTKNew (varP, ftk2, ast)
   dmapAccumRDer
     :: Proxy (AstRanked s)
     -> SNat k
@@ -1409,6 +1427,7 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
     $ rrev f parameters0 (unRawHVector hVector)
   drevDt = drevDt @(AstRanked s)
   dfwd = dfwd @(AstRanked s)
+  dfwdTKNew = dfwdTKNew @(AstRanked s)
   dmapAccumRDer _ k accShs bShs eShs f df rf acc0 es =
     AstRawWrap
     $ AstMapAccumRDer k accShs bShs eShs f df rf (unAstRawWrap acc0)
@@ -1627,6 +1646,7 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
     $ rrev f parameters0 (unNoVectorizeHVector hVector)
   drevDt = drevDt @(AstRanked s)
   dfwd = dfwd @(AstRanked s)
+  dfwdTKNew = dfwdTKNew @(AstRanked s)
   dmapAccumRDer _ k accShs bShs eShs f df rf acc0 es =
     AstNoVectorizeWrap
     $ dmapAccumRDer (Proxy @(AstRanked s))
@@ -1882,6 +1902,7 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
     $ rrev f parameters0 (unNoSimplifyHVector hVector)
   drevDt = drevDt @(AstRanked s)
   dfwd = dfwd @(AstRanked s)
+  dfwdTKNew = dfwdTKNew @(AstRanked s)
   dmapAccumRDer _ k accShs bShs eShs f df rf acc0 es =
     AstNoSimplifyWrap
     $ AstMapAccumRDer k accShs bShs eShs f df rf (unAstNoSimplifyWrap acc0)
