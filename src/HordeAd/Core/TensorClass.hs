@@ -786,8 +786,9 @@ class HVectorTensor (ranked :: RankedTensorType)
        => InterpretationTarget ranked y
        -> (InterpretationTarget ranked y -> HVectorOf ranked)
        -> HVectorOf ranked
-  dunlet :: HVectorOf ranked -> HVectorOf ranked
-  dunlet = id
+  tunlet :: TensorKind y
+         => InterpretationTarget ranked y -> InterpretationTarget ranked y
+  tunlet = error "tunlet: this instance should never be used"
   dshare :: HVectorOf ranked -> HVectorOf ranked
   dshare = id
   dbuild1 :: SNat k

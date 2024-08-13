@@ -246,6 +246,21 @@ gunlet stk b = case stk of
   STKUntyped -> HVectorPseudoTensor $ AstRawWrap $ unletAstHVector
                 $ unAstRawWrap $ unHVectorPseudoTensor b
 
+gunletRanked
+  :: forall y.
+     STensorKindType y
+  -> InterpretationTarget (AstRanked PrimalSpan) y
+  -> InterpretationTarget (AstRanked PrimalSpan) y
+gunletRanked stk b = case stk of
+  STKR{} -> AstRanked $ unletAstRanked $ unAstRanked b
+  STKS{} -> AstShaped $ unletAstShaped $ unAstShaped b
+  STKProduct stk1 stk2 ->
+    let !t1 = gunletRanked stk1 $ tproject1 b
+        !t2 = gunletRanked stk2 $ tproject2 b
+    in ttuple t1 t2
+  STKUntyped -> HVectorPseudoTensor $ unletAstHVector
+                $ unHVectorPseudoTensor b
+
 fwdArtifactFromForwardPass
   :: forall y. TensorKind y
   => (HVector (AstRaw PrimalSpan)
@@ -766,10 +781,13 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   -- value of the derivative at a particular fixed input.
   -- The limitation of AstRaw as a newtype make it impossible
   -- to switch the tests from AstRanked to AstRaw.
-  dunlet =
+  tunlet :: forall y. TensorKind y
+         => InterpretationTarget (AstRanked s) y
+         -> InterpretationTarget (AstRanked s) y
+  tunlet =
     case sameAstSpan @s @PrimalSpan of
-      Just Refl -> unletAstHVector
-      _ -> error "dunlet: used not at PrimalSpan"
+      Just Refl -> gunletRanked (stensorKind @y)
+      _ -> error "tunlet: used not at PrimalSpan"
   -- These and many similar bangs are necessary to ensure variable IDs
   -- are generated in the expected order, resulting in nesting of lets
   -- occuring in the correct order and so no scoping errors.
@@ -1390,10 +1408,19 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
     STKS{} -> AstRawWrap $ astLetFunRaw (unAstRawS u) (unAstRawWrap . f . AstRawS)
     STKProduct{} -> error "TODO"
     STKUntyped{} -> error "TODO"
-  dunlet =
+  -- For convenience and simplicity we define this for all spans,
+  -- but it can only ever be used for PrimalSpan.
+  -- In this instance, these three ops are only used for some rare tests that
+  -- use the non-symbolic pipeline to compute a symbolic
+  -- value of the derivative at a particular fixed input.
+  -- The limitation of AstRaw as a newtype make it impossible
+  -- to switch the tests from AstRanked to AstRaw.
+  tunlet :: forall y. TensorKind y
+         => InterpretationTarget (AstRaw s) y -> InterpretationTarget (AstRaw s) y
+  tunlet =
     case sameAstSpan @s @PrimalSpan of
-      Just Refl -> AstRawWrap . unletAstHVector . unAstRawWrap
-      _ -> error "dunlet: used not at PrimalSpan"
+      Just Refl -> gunlet (stensorKind @y)
+      _ -> error "tunlet: used not at PrimalSpan"
   dshare a@(AstRawWrap (AstShareHVector{})) = a
   dshare (AstRawWrap a) =
     let shs = shapeAstHVector a

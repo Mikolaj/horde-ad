@@ -245,6 +245,7 @@ instance HVectorTensor ORArray OSArray where
   dletHFunInHVector = (&)
   dletHFunInHVectorTKNew = (&)
   dlet = (&)
+  tunlet = id
   dbuild1 k f =
     ravelHVector $ map (f . fromIntegral) [0 .. sNatValue k - 1]
   rrev :: (GoodScalar r, KnownNat n)
