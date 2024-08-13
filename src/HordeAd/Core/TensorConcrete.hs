@@ -286,12 +286,8 @@ instance HVectorTensor ORArray OSArray where
        -> HFunOf ORArray TKUntyped
   dfwd _shs h =
     let g :: ADReady f
-          => HVector (ADVal f)
-          -> ADVal (HVectorPseudoTensor f) r y
-        g !hv = let (as, as') = unADValHVector $ unHVectorPseudoTensor
-                                $ unHFun h [hv]
-                in dDnotShared (HVectorPseudoTensor $ dmkHVector as)
-                               (HVectorPseudoTensor $ HToH as')
+          => HVector (ADVal f) -> InterpretationTarget (ADVal f) TKUntyped
+        g !hv = unHFun h [hv]
         df :: [HVector ORArray] -> HVectorOf ORArray
         df [!da, !a] = unHVectorPseudoTensor $ fst $ cfwdOnHVector a g da
         df _ = error "df: wrong number of arguments"

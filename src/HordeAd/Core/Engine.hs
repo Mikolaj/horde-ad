@@ -367,13 +367,14 @@ cfwd
      , DualNumberValue advals, vals ~ DValue advals )
   => (advals -> ADVal f r y) -> vals -> vals -> f r y
 cfwd f vals ds =
-  let g hVector = hVectorADValToADVal
+  let g hVector = HVectorPseudoTensor
                   $ toHVectorOf @(ADVal ORArray)
                   $ f $ parseHVector (fromDValue vals) hVector
       valsH = toHVectorOf vals
       dsH = toHVectorOf ds
       err = error "fwd: codomain of unknown length"
-  in parseHVector err $ unHVectorPseudoTensor $ fst $ cfwdOnHVector valsH g dsH
+  in parseHVector err $ unHVectorPseudoTensor $ fst
+     $ cfwdOnHVector @TKUntyped valsH g dsH
 
 
 

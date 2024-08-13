@@ -90,23 +90,24 @@ crevOnHVector mdt f parameters =
   in crevOnADInputs mdt f inputs
 
 cfwdOnADInputs
-  :: (y ~ TKUntyped, ADReady ranked)
+  :: forall y ranked. (TensorKind y, ADReady ranked)
   => HVector (ADVal ranked)
   -> (HVector (ADVal ranked)
-      -> ADVal (HVectorPseudoTensor ranked) Float '())
+      -> InterpretationTarget (ADVal ranked) y)
   -> HVector ranked
   -> (InterpretationTarget ranked y, InterpretationTarget ranked y)
 {-# INLINE cfwdOnADInputs #-}
 cfwdOnADInputs inputs f ds =
-  let !(D v (HVectorPseudoTensor deltaTopLevel)) = f inputs in
-  let derivative = derivativeFromDelta (V.length inputs) deltaTopLevel ds
-  in (tunshare @_ @_ @TKUntyped derivative, tunshare v)
+  let !(!v, !deltaIT) = unADValInterpretation (stensorKind @y) $ f inputs
+      delta = unDeltaRY (stensorKind @y) deltaIT in
+  let derivative = derivativeFromDelta (V.length inputs) delta ds
+  in (tunshare derivative, tunshare v)
 
 cfwdOnHVector
-  :: (y ~ TKUntyped, ADReady ranked)
+  :: (TensorKind y, ADReady ranked)
   => HVector ranked
   -> (HVector (ADVal ranked)
-      -> ADVal (HVectorPseudoTensor ranked) Float '())
+      -> InterpretationTarget (ADVal ranked) y)
   -> HVector ranked
   -> (InterpretationTarget ranked y, InterpretationTarget ranked y)
 cfwdOnHVector parameters f ds =
@@ -495,12 +496,8 @@ instance ADReadyBoth ranked shaped
        -> HFun TKUntyped
   dfwd _shs h =
     let g :: ADReady f
-          => HVector (ADVal f)
-          -> ADVal (HVectorPseudoTensor f) r y
-        g !hv = let (as, as') = unADValHVector $ unHVectorPseudoTensor
-                                $ unHFun h [hv]
-                in dDnotShared (HVectorPseudoTensor $ dmkHVector as)
-                               (HVectorPseudoTensor $ HToH as')
+          => HVector (ADVal f) -> InterpretationTarget (ADVal f) TKUntyped
+        g !hv = unHFun h [hv]
         df :: forall f. ADReady f => [HVector f] -> HVectorOf f
         df [!da, !a] = unHVectorPseudoTensor $ fst $ cfwdOnHVector a g da
           -- This computes the derivative of g again for each new da and a.
