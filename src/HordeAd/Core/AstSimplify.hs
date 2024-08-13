@@ -2142,16 +2142,14 @@ astHApply t ll = case t of
       _ -> Ast.AstHApply t ll
   Ast.AstVarHFun{} -> Ast.AstHApply t ll
 
-astHApplyTKNew :: forall s x y. (TensorKind x, TensorKind y)
+astHApplyTKNew :: forall s x y. (AstSpan s, TensorKind x, TensorKind y)
           => AstHFunTKNew x y -> AstTensor s x -> AstTensor s y
-astHApplyTKNew t ll = case t of
-  Ast.AstLambdaTKNew ~(_var, _, _l) -> Ast.AstHApplyTKNew t ll
-    {- TODO: we need a fully general let to express this in a sane way:
+astHApplyTKNew t u = case t of
+  Ast.AstLambdaTKNew ~(var, _ftk, v) ->
     case sameAstSpan @s @PrimalSpan of
-      Just Refl <- case sameTensorKind @y @TKUntyped of
-        Just Refl -> astLet var ll l
-      _ -> Ast.AstHApplyTKNew t ll -}
-  Ast.AstVarHFunTKNew{} -> Ast.AstHApplyTKNew t ll
+      Just Refl -> astLet var u v
+      _ -> Ast.AstHApplyTKNew t u
+  Ast.AstVarHFunTKNew{} -> Ast.AstHApplyTKNew t u
 
 -- Inlining doesn't work for this let constructor, because it has many
 -- variables, so we try to reduce it to another for which it works.
