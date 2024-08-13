@@ -49,30 +49,30 @@ simplifyArtifact art =
 -- The second simplification is very likely to trigger, because substitution
 -- often reveals redexes.
 simplifyInlineAst
-  :: forall r n s. AstSpan s
+  :: forall r n s. (KnownNat n, GoodScalar r, AstSpan s)
   => AstRanked s r n -> AstRanked s r n
 simplifyInlineAst =
   AstRanked . snd . inlineAst EM.empty
   . simplifyAst . expandAst
   . snd . inlineAst EM.empty . simplifyAst . unAstRanked
 {-# SPECIALIZE simplifyInlineAst
-  :: AstSpan s
+  :: (KnownNat n, AstSpan s)
   => AstRanked s Double n -> AstRanked s Double n #-}
 
 simplifyInlineAstS
-  :: forall r sh s. AstSpan s
+  :: forall r sh s. (GoodScalar r, KnownShS sh, AstSpan s)
   => AstShaped s r sh -> AstShaped s r sh
 simplifyInlineAstS =
   AstShaped . snd . inlineAst EM.empty
   . simplifyAst . expandAst
   . snd . inlineAst EM.empty . simplifyAst . unAstShaped
 {-# SPECIALIZE simplifyInlineAstS
-  :: AstSpan s
+  :: (KnownShS sh, AstSpan s)
   => AstShaped s Double sh -> AstShaped s Double sh #-}
 
 -- TODO: rename, not longer just for HVector
 simplifyInlineHVector
-  :: AstSpan s => AstTensor s z -> AstTensor s z
+  :: (AstSpan s, TensorKind z) => AstTensor s z -> AstTensor s z
 simplifyInlineHVector =
   snd . inlineAst EM.empty
   . simplifyAst . expandAst
@@ -81,7 +81,8 @@ simplifyInlineHVector =
 
 -- TODO: rename, not longer just for HVector
 simplifyInlineHVectorRaw
-  :: AstSpan s => AstRawWrap (AstTensor s z) -> AstRawWrap (AstTensor s z)
+  :: (AstSpan s, TensorKind z)
+  => AstRawWrap (AstTensor s z) -> AstRawWrap (AstTensor s z)
 simplifyInlineHVectorRaw =
   AstRawWrap . simplifyInlineHVector . unAstRawWrap
 

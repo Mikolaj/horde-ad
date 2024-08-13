@@ -398,7 +398,7 @@ rankedY stk t = case stk of
   STKR{} -> AstRanked t
   STKS{} -> AstShaped t
   STKProduct stk1 stk2 ->
-    ttuple (rankedY stk1 $ AstProject1 t) (rankedY stk2 $ AstProject2 t)
+    ttuple (rankedY stk1 $ astProject1 t) (rankedY stk2 $ astProject2 t)
   STKUntyped -> HVectorPseudoTensor t
 
 unRankedY :: forall y s.
@@ -502,7 +502,7 @@ astLetHFunInFunTKNew a f =
       shs = shapeAstHFunTKNew a
   in fun1HToAstTKNew shss shs $ \ !var !ast -> astLetHFunInTKNew var a (f ast)
 
-astSpanPrimal :: forall s y. AstSpan s
+astSpanPrimal :: forall s y. (AstSpan s, TensorKind y)
               => AstTensor s y -> AstTensor PrimalSpan y
 astSpanPrimal t | Just Refl <- sameAstSpan @s @PrimalSpan = t
 astSpanPrimal _ | Just Refl <- sameAstSpan @s @DualSpan =
@@ -833,8 +833,8 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
           fwdProduceArtifactTKNew g emptyEnv shs
         ftk2 = FTKProduct ftk ftk
         (varP, ast) = funToAst ftk2 $ \ !astP ->
-          AstLet varDs (AstProject1 astP)
-            $ AstLet var (AstProject2 astP)
+          AstLet varDs (astProject1 astP)
+            $ AstLet var (astProject2 astP)
               $ simplifyInlineHVector $ unRawY (stensorKind @z) derivative
     in AstLambdaTKNew (varP, ftk2, ast)
   dmapAccumRDer
@@ -1463,7 +1463,7 @@ noVectorizeY stk t = case stk of
   STKR{} -> AstNoVectorize t
   STKS{} -> AstNoVectorizeS t
   STKProduct stk1 stk2 ->
-    ttuple (noVectorizeY stk1 $ AstProject1 t) (noVectorizeY stk2 $ AstProject2 t)
+    ttuple (noVectorizeY stk1 $ astProject1 t) (noVectorizeY stk2 $ astProject2 t)
   STKUntyped -> HVectorPseudoTensor $ AstNoVectorizeWrap t
 
 unNoVectorizeY :: forall y s.

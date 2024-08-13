@@ -300,7 +300,7 @@ assertEqualUpToEpsilon'
     :: ( v ~ FlipR OR.Array r m, a ~ FlipR OR.Array r n
        , AssertEqualUpToEpsilon a, AssertEqualUpToEpsilon v
        , AssertEqualUpToEpsilon r
-       , GoodScalar r, HasCallStack)
+       , GoodScalar r, KnownNat m, HasCallStack)
     => Rational  -- ^ error margin (i.e., the epsilon)
     -> OR.Array n r  -- ^ expected reverse derivative value
     -> ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a, a, a, a, a, a
@@ -445,7 +445,7 @@ assertEqualUpToEpsilonShort
     :: ( v ~ FlipR OR.Array r m, a ~ FlipR OR.Array r n
        , AssertEqualUpToEpsilon a, AssertEqualUpToEpsilon v
        , AssertEqualUpToEpsilon r
-       , GoodScalar r, HasCallStack)
+       , GoodScalar r, KnownNat m, HasCallStack)
     => Rational  -- ^ error margin (i.e., the epsilon)
     -> OR.Array n r  -- ^ expected reverse derivative value
     -> ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a, a, a, a, a, a

@@ -27,7 +27,7 @@ module HordeAd.Core.AstSimplify
   , astReverse, astReverseS
   , astTranspose, astTransposeS, astReshape, astReshapeS
   , astCast, astCastS, astFromIntegral, astFromIntegralS
-  , astProjectR, astProjectS, astRFromS, astSFromR
+  , astProject1, astProject2, astProjectR, astProjectS, astRFromS, astSFromR
   , astPrimalPart, astDualPart
   , astLetHVectorIn, astLetHVectorInS
   , astLetHFunIn, astLetHFunInTKNew, astLetHFunInS, astLetHFunInSTKNew
@@ -256,12 +256,12 @@ permCycle n = [k `mod` n | k <- [-1, 0 .. n - 2]]
 -- (many steps if guaranteed net beneficial). Terms representing integers
 -- and and AstBool terms are simplified as much as possible.
 astNonIndexStep
-  :: AstSpan s
+  :: (AstSpan s, TensorKind y)
   => AstTensor s y -> AstTensor s y
 astNonIndexStep t = case t of
   Ast.AstTuple t1 t2 -> Ast.AstTuple (astNonIndexStep t1) (astNonIndexStep t2)
-  Ast.AstProject1{} -> t
-  Ast.AstProject2{} -> t
+  Ast.AstProject1 u -> astProject1 u
+  Ast.AstProject2 u -> astProject2 u
   Ast.AstLetTupleIn{} -> t
 
   Ast.AstVar{} -> t
@@ -429,7 +429,8 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIndex m1)) =
        else astGatherKnobsR knobs sh2 v2 (vars2, ix2)
  in case v0 of
   Ast.AstProject1{} -> Ast.AstIndex v0 ix
-    -- this is normally a variable wrapped in projections, so NF is fine
+    -- TODO: no idea what to do here; if the arg is a variable, nothing
+    -- can be done; what about the other cases?
   Ast.AstProject2{} -> Ast.AstIndex v0 ix
   Ast.AstLetTupleIn var1 var2 p v ->
     Ast.AstLetTupleIn var1 var2 p (astIndexRec v ix)
@@ -622,6 +623,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS shm1)) | Dict <- s
         else astGatherKnobsS knobs v2 (vars2, ix2)
  in case v0 of
   Ast.AstProject1{} -> Ast.AstIndexS v0 ix
+    -- TODO: no idea what to do here
   Ast.AstProject2{} -> Ast.AstIndexS v0 ix
   Ast.AstLetTupleIn var1 var2 p v ->
     Ast.AstLetTupleIn var1 var2 p (astIndexRec v ix)
@@ -980,6 +982,7 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
   astGatherCase sh4 v4 ( vars4
                        , ix4@(i4 :.: (rest4 :: AstIndex p1')) ) = case v4 of
     Ast.AstProject1{} -> Ast.AstGather sh4 v4 (vars4, ix4)
+      -- TODO: no idea what to do here
     Ast.AstProject2{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstLetTupleIn var1 var2 p v ->
       Ast.AstLetTupleIn var1 var2 p (astGatherCase sh4 v (vars4, ix4))
@@ -1946,6 +1949,22 @@ astFromIntegralS (AstConstS t) = AstConstS $ tfromIntegralS t
 astFromIntegralS (Ast.AstFromIntegralS v) = astFromIntegralS v
 astFromIntegralS v = Ast.AstFromIntegralS v
 
+astProject1
+  :: forall x z s. (TensorKind x, TensorKind z)
+  => AstTensor s (TKProduct x z) -> AstTensor s x
+astProject1 u = case u of
+  Ast.AstTuple x _z -> x
+  Ast.AstLet vars t v -> Ast.AstLet vars t (astProject1 v)
+  _ -> Ast.AstProject1 u
+
+astProject2
+  :: forall x z s. (TensorKind x, TensorKind z)
+  => AstTensor s (TKProduct x z) -> AstTensor s z
+astProject2 u = case u of
+  Ast.AstTuple _x z -> z
+  Ast.AstLet vars t v -> Ast.AstLet vars t (astProject2 v)
+  _ -> Ast.AstProject2 u
+
 astProjectR
   :: forall n r s. (KnownNat n, GoodScalar r, AstSpan s)
   => AstTensor s TKUntyped -> Int -> AstTensor s (TKR r n)
@@ -1997,12 +2016,12 @@ astSFromR (Ast.AstRFromS @sh1 v) =
     _ -> error "astSFromR: different ranks in SFromR(RFromS)"
 astSFromR v = Ast.AstSFromR v
 
-astPrimalPart :: AstTensor FullSpan y
-              -> AstTensor PrimalSpan y
+astPrimalPart :: TensorKind y
+              => AstTensor FullSpan y -> AstTensor PrimalSpan y
 astPrimalPart t = case t of
   Ast.AstTuple t1 t2 -> Ast.AstTuple (astPrimalPart t1) (astPrimalPart t2)
-  Ast.AstProject1 v -> Ast.AstProject1 (astPrimalPart v)
-  Ast.AstProject2 v -> Ast.AstProject2 (astPrimalPart v)
+  Ast.AstProject1 v -> astProject1 (astPrimalPart v)
+  Ast.AstProject2 v -> astProject2 (astPrimalPart v)
   Ast.AstLetTupleIn var1 var2 p v ->
     Ast.AstLetTupleIn var1 var2 p (astPrimalPart v)
 
@@ -2067,11 +2086,11 @@ astPrimalPart t = case t of
 
 -- Note how this can't be pushed down, say, multiplication, because it
 -- multiplies the dual part by the primal part. Addition is fine, though.
-astDualPart :: AstTensor FullSpan y -> AstTensor DualSpan y
+astDualPart :: TensorKind y => AstTensor FullSpan y -> AstTensor DualSpan y
 astDualPart t = case t of
   Ast.AstTuple t1 t2 -> Ast.AstTuple (astDualPart t1) (astDualPart t2)
-  Ast.AstProject1 v -> Ast.AstProject1 (astDualPart v)
-  Ast.AstProject2 v -> Ast.AstProject2 (astDualPart v)
+  Ast.AstProject1 v -> astProject1 (astDualPart v)
+  Ast.AstProject2 v -> astProject2 (astDualPart v)
   Ast.AstLetTupleIn var1 var2 p v ->
     Ast.AstLetTupleIn var1 var2 p (astDualPart v)
 
@@ -2309,12 +2328,12 @@ simplifyAstIndexS = fmap simplifyAstInt
 -- is visited and each combinator applied. The most exhaustive and costly
 -- variants of each combinator are used, e.g., astIndexR.
 simplifyAst
-  :: forall s y. AstSpan s
+  :: forall s y. (AstSpan s, TensorKind y)
   => AstTensor s y -> AstTensor s y
 simplifyAst t = case t of
   Ast.AstTuple t1 t2 -> Ast.AstTuple (simplifyAst t1) (simplifyAst t2)
-  Ast.AstProject1 v -> Ast.AstProject1 (simplifyAst v)
-  Ast.AstProject2 v -> Ast.AstProject2 (simplifyAst v)
+  Ast.AstProject1 v -> astProject1 (simplifyAst v)
+  Ast.AstProject2 v -> astProject2 (simplifyAst v)
   Ast.AstLetTupleIn var1 var2 p v ->
     Ast.AstLetTupleIn var1 var2 (simplifyAst p) (simplifyAst v)
 
@@ -2464,12 +2483,12 @@ simplifyAstDynamic (DynamicShaped (AstShaped u)) =
 simplifyAstDynamic u@DynamicRankedDummy{} = u
 simplifyAstDynamic u@DynamicShapedDummy{} = u
 
-simplifyAstHFun :: AstHFun y -> AstHFun y
+simplifyAstHFun :: TensorKind y => AstHFun y -> AstHFun y
 simplifyAstHFun = \case
   Ast.AstLambda ~(vvars, l) -> Ast.AstLambda (vvars, simplifyAst l)
   t@(Ast.AstVarHFun{}) -> t
 
-simplifyAstHFunTKNew :: AstHFunTKNew x y -> AstHFunTKNew x y
+simplifyAstHFunTKNew :: TensorKind y => AstHFunTKNew x y -> AstHFunTKNew x y
 simplifyAstHFunTKNew = \case
   Ast.AstLambdaTKNew ~(vvars, ftk, l) ->
     Ast.AstLambdaTKNew (vvars, ftk, simplifyAst l)
@@ -2506,12 +2525,12 @@ expandAstIndexS :: AstIndexS sh -> AstIndexS sh
 expandAstIndexS = fmap expandAstInt
 
 expandAst
-  :: forall s y. AstSpan s
+  :: forall s y. (AstSpan s, TensorKind y)
   => AstTensor s y -> AstTensor s y
 expandAst t = case t of
   Ast.AstTuple t1 t2 -> Ast.AstTuple (expandAst t1) (expandAst t2)
-  Ast.AstProject1 v -> Ast.AstProject1 (expandAst v)
-  Ast.AstProject2 v -> Ast.AstProject2 (expandAst v)
+  Ast.AstProject1 v -> astProject1 (expandAst v)
+  Ast.AstProject2 v -> astProject2 (expandAst v)
   Ast.AstLetTupleIn var1 var2 p v ->
     Ast.AstLetTupleIn var1 var2 (expandAst p) (expandAst v)
 
@@ -2702,12 +2721,12 @@ expandAstDynamic (DynamicShaped (AstShaped u)) =
 expandAstDynamic u@DynamicRankedDummy{} = u
 expandAstDynamic u@DynamicShapedDummy{} = u
 
-expandAstHFun :: AstHFun y -> AstHFun y
+expandAstHFun :: TensorKind y => AstHFun y -> AstHFun y
 expandAstHFun = \case
   Ast.AstLambda ~(vvars, l) -> Ast.AstLambda (vvars, expandAst l)
   t@(Ast.AstVarHFun{}) -> t
 
-expandAstHFunTKNew :: AstHFunTKNew x y -> AstHFunTKNew x y
+expandAstHFunTKNew :: TensorKind y => AstHFunTKNew x y -> AstHFunTKNew x y
 expandAstHFunTKNew = \case
   Ast.AstLambdaTKNew ~(vvars, ftk, l) ->
     Ast.AstLambdaTKNew (vvars, ftk, expandAst l)
@@ -2987,7 +3006,7 @@ data SubstitutionPayload :: AstSpanType -> Type where
 -- and nobody substitutes into variables that are bound.
 -- This keeps the substitution code simple, because we never need to compare
 -- variables to any variable in the bindings.
-substituteAst :: forall s s2 y z. (AstSpan s, AstSpan s2 )
+substituteAst :: forall s s2 y z. (AstSpan s, AstSpan s2, TensorKind y)
               => SubstitutionPayload s2 -> AstVarName s2 z
               -> AstTensor s y
               -> AstTensor s y
@@ -3032,7 +3051,7 @@ substituteAstBool i var v1 =
 -- need to be kept unrelated to anything else (except the existentially bound
 -- parameters in SubstitutionPayload, which would need to be checked
 -- at runtime).
-substitute1Ast :: forall s s2 y. (AstSpan s, AstSpan s2)
+substitute1Ast :: forall s s2 y. (AstSpan s, AstSpan s2, TensorKind y)
                => SubstitutionPayload s2 -> AstVarId
                -> AstTensor s y
                -> Maybe (AstTensor s y)
@@ -3041,8 +3060,8 @@ substitute1Ast i var v1 = case v1 of
     case (substitute1Ast i var u, substitute1Ast i var v) of
       (Nothing, Nothing) -> Nothing
       (mu, mv) -> Just $ Ast.AstTuple (fromMaybe u mu) (fromMaybe v mv)
-  Ast.AstProject1 a -> Ast.AstProject1 <$> substitute1Ast i var a
-  Ast.AstProject2 a -> Ast.AstProject2 <$> substitute1Ast i var a
+  Ast.AstProject1 a -> astProject1 <$> substitute1Ast i var a
+  Ast.AstProject2 a -> astProject2 <$> substitute1Ast i var a
   Ast.AstLetTupleIn var1 var2 u v ->
     case (substitute1Ast i var u, substitute1Ast i var v) of
       (Nothing, Nothing) -> Nothing

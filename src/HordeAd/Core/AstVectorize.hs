@@ -149,11 +149,13 @@ build1V snat@SNat (var, v00) =
         Ast.AstTuple (build1VOccurenceUnknown snat (var, t1))
                      (build1VOccurenceUnknown snat (var, t2))
     Ast.AstProject1 @_ @z t
-      | Dict <- lemTensorKindOfBuild snat (stensorKind @z) ->
-        Ast.AstProject1 (build1V snat (var, t))
+      | Dict <- lemTensorKindOfBuild snat (stensorKind @z)
+      , Dict <- lemTensorKindOfBuild snat (stensorKind @y) ->
+        astProject1 (build1V snat (var, t))
     Ast.AstProject2 @x t
-      | Dict <- lemTensorKindOfBuild snat (stensorKind @x) ->
-        Ast.AstProject2 (build1V snat (var, t))
+      | Dict <- lemTensorKindOfBuild snat (stensorKind @x)
+      , Dict <- lemTensorKindOfBuild snat (stensorKind @y) ->
+        astProject2 (build1V snat (var, t))
     Ast.AstLetTupleIn var1 var2 p v -> undefined  -- TODO: doable, but complex
 {-
       -- See the AstLet and AstLetHVectorIn cases for comments.
@@ -179,10 +181,12 @@ build1V snat@SNat (var, v00) =
         _ -> error "build1V: build variable is not an index variable"
     Ast.AstVar{} ->
       error "build1V: AstVar can't contain other free index variables"
-    Ast.AstPrimalPart v -> traceRule $
-      astPrimalPart $ build1V snat (var, v)
-    Ast.AstDualPart v -> traceRule $
-      astDualPart $ build1V snat (var, v)
+    Ast.AstPrimalPart v
+      | Dict <- lemTensorKindOfBuild snat (stensorKind @y) -> traceRule $
+        astPrimalPart $ build1V snat (var, v)
+    Ast.AstDualPart v
+      | Dict <- lemTensorKindOfBuild snat (stensorKind @y) -> traceRule $
+        astDualPart $ build1V snat (var, v)
     Ast.AstConstant v | Dict <- lemTensorKindOfBuild snat (stensorKind @y) ->
       traceRule $
         Ast.AstConstant $ build1V snat (var, v)
@@ -231,7 +235,7 @@ build1V snat@SNat (var, v00) =
               , Dict <- lemTensorKindOfBuild snat2 stk2
               , Dict <- lemTensorKindOfBuild
                           snat (stensorKind @(BuildTensorKind k2 z2)) ->
-               let (t1, t2) = (Ast.AstProject1 u, Ast.AstProject2 u)
+               let (t1, t2) = (astProject1 u, astProject2 u)
                       -- looks expensive, but hard to do better,
                       -- so let's hope u is full of variables
                 in Ast.AstTuple (repl2Stk stk1 t1) (repl2Stk stk2 t2)
@@ -724,7 +728,7 @@ build1VOccurenceUnknownDynamic SNat (var, d) = case d of
 
 substProjInterpretationTarget
   :: forall k s s2 y2 y.
-     ( AstSpan s, AstSpan s2, TensorKind y2 )
+     ( AstSpan s, AstSpan s2, TensorKind y2, TensorKind y )
   => SNat k -> IntVarName
   -> TensorKindFull y2 -> AstVarName s2 y2 -> AstTensor s y
   -> ( AstVarName s2 (BuildTensorKind k y2)
@@ -745,8 +749,8 @@ substProjInterpretationTarget snat@SNat var ftk2 var1 v
           FTKProduct @z1 @z2 ftk41 ftk42
             | Dict <- lemTensorKindOfBuild snat (stensorKind @z1)
             , Dict <- lemTensorKindOfBuild snat (stensorKind @z2) ->
-              let prVar1 = Ast.AstProject1 prVar
-                  prVar2 = Ast.AstProject2 prVar
+              let prVar1 = astProject1 prVar
+                  prVar2 = astProject2 prVar
               in Ast.AstTuple (projection prVar1 ftk41)
                               (projection prVar2 ftk42)
           FTKUntyped _ -> error "TODO"
@@ -756,7 +760,8 @@ substProjInterpretationTarget snat@SNat var ftk2 var1 v
     in (var3, ftk3, v2)
 
 substProjRanked :: forall n1 r1 s1 s y.
-                   ( KnownNat n1, GoodScalar r1, AstSpan s, AstSpan s1 )
+                   ( KnownNat n1, GoodScalar r1, AstSpan s, AstSpan s1
+                   , TensorKind y )
                 => Int -> IntVarName -> IShR n1
                 -> AstVarName s1 (TKR r1 n1)
                 -> AstTensor s y -> AstTensor s y
@@ -773,7 +778,7 @@ substProjRanked k var sh1 var1 =
 
 substProjShaped :: forall k sh1 r1 s1 s y.
                    ( KnownNat k, KnownShS sh1, GoodScalar r1
-                   , AstSpan s, AstSpan s1 )
+                   , AstSpan s, AstSpan s1, TensorKind y )
                 => IntVarName -> AstVarName s1 (TKS r1 sh1)
                 -> AstTensor s y -> AstTensor s y
 substProjShaped var var1 =
@@ -784,7 +789,7 @@ substProjShaped var var1 =
   in substituteAst
        (SubstitutionPayload @s1 projection) var1
 
-substProjDynamic :: forall k s y. (KnownNat k, AstSpan s)
+substProjDynamic :: forall k s y. (KnownNat k, AstSpan s, TensorKind y)
                  => IntVarName -> AstTensor s y
                  -> AstDynamicVarName
                  -> (AstTensor s y, AstDynamicVarName)
@@ -800,7 +805,7 @@ substProjDynamic var v3 (AstDynamicVarName @ty @r3 @sh3 varId)
     , AstDynamicVarName @ty @r3 @(k ': sh3) varId )
 substProjDynamic _ _ _ = error "substProjDynamic: unexpected type"
 
-substProjVars :: forall k s y. (KnownNat k, AstSpan s)
+substProjVars :: forall k s y. (KnownNat k, AstSpan s, TensorKind y)
               => IntVarName -> [AstDynamicVarName]
               -> AstTensor s y
               -> (AstTensor s y, [AstDynamicVarName])
