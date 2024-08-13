@@ -146,12 +146,12 @@ mnistTrainBench1VTO extraPrefix chunkLength xs widthHidden widthHidden2
         f = MnistFcnnRanked1.afcnnMnistLoss1TensorData @(AstRanked FullSpan)
               widthHidden widthHidden2
               (rconstant $ AstRanked astGlyph, rconstant $ AstRanked astLabel)
-        (AstArtifact varDtAgain vars1Again gradientRaw primal, _) =
+        (AstArtifact varDtAgain vars1Again (HVectorPseudoTensor gradientRaw) primal, _) =
            revProduceArtifactH False f envInit valsInit
                                (voidFromHVector hVectorInit)
         gradient = simplifyInlineHVectorRaw gradientRaw
         vars1AndInputAgain = vars1Again ++ [varGlyphD, varLabelD]
-        art = AstArtifact varDtAgain vars1AndInputAgain gradient primal
+        art = AstArtifact varDtAgain vars1AndInputAgain (HVectorPseudoTensor gradient) primal
         go :: [MnistData r] -> HVector (ORArray) -> HVector (ORArray)
         go [] parameters = parameters
         go ((glyph, label) : rest) !parameters =
@@ -317,12 +317,12 @@ mnistTrainBench2VTO extraPrefix chunkLength xs widthHidden widthHidden2
                   emptyEnv
         f = MnistFcnnRanked2.afcnnMnistLoss2TensorData @(AstRanked FullSpan)
               (rconstant $ AstRanked astGlyph, rconstant $ AstRanked astLabel)
-        (AstArtifact varDtAgain vars1Again gradientRaw primal, _) =
+        (AstArtifact varDtAgain vars1Again (HVectorPseudoTensor gradientRaw) primal, _) =
            revProduceArtifactH False f envInit valsInit
                                (voidFromHVector hVectorInit)
         gradient = simplifyInlineHVectorRaw gradientRaw
         vars1AndInputAgain = vars1Again ++ [varGlyphD, varLabelD]
-        art = AstArtifact varDtAgain vars1AndInputAgain gradient primal
+        art = AstArtifact varDtAgain vars1AndInputAgain (HVectorPseudoTensor gradient) primal
         go :: [MnistData r] -> HVector (ORArray) -> HVector (ORArray)
         go [] parameters = parameters
         go ((glyph, label) : rest) !parameters =
