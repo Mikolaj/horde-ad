@@ -132,12 +132,12 @@ revArtifactFromForwardPass hasDt forwardPass parameters0 =
               then Just $ HVectorPseudoTensor $ dmkHVector $ rawHVector astsDt
               else Nothing
         !gradient = gradientFromDelta parameters0 primalBody mdt delta
-        unGradient = gunlet (stensorKind @TKUntyped)
+        unGradient = gunshare (stensorKind @TKUntyped)
                      $ HVectorPseudoTensor $ dmkHVector gradient
-        unPrimal = gunlet (stensorKind @y) primalBody
+        unPrimal = gunshare (stensorKind @y) primalBody
 {- too expensive currently, so inlined as above:
         unGradient =
-          mapInterpretationTarget unletRaw unletRawS (stensorKind @TKUntyped)
+          mapInterpretationTarget unshareRaw unshareRawS (stensorKind @TKUntyped)
           $ HVectorPseudoTensor $ dmkHVector gradient
 -}
     in ( AstArtifact varsDt varsPrimal unGradient unPrimal
@@ -169,12 +169,12 @@ revArtifactFromForwardPassTKNew hasDt forwardPass parameters0 =
         funToAst (shapeAstFull $ unRawY (stensorKind @z) primalBody) id in
   let mdt = if hasDt then Just $ rawY (stensorKind @z) astDt else Nothing
       !gradient = gradientFromDelta parameters0 primalBody mdt delta
-      unGradient = gunlet (stensorKind @x)
+      unGradient = gunshare (stensorKind @x)
                    $ HVectorPseudoTensor $ dmkHVector gradient
-      unPrimal = gunlet (stensorKind @z) primalBody
+      unPrimal = gunshare (stensorKind @z) primalBody
 {- too expensive currently, so inlined as above:
       unGradient =
-        mapInterpretationTarget unletRaw unletRawS (stensorKind @x)
+        mapInterpretationTarget unshareRaw unshareRawS (stensorKind @x)
         $ HVectorPseudoTensor $ dmkHVector gradient
 -}
   in ( AstArtifactRev varDt varPrimal unGradient unPrimal
@@ -231,34 +231,34 @@ unDeltaRY stk t = case stk of
                                  (unDeltaRY stk2 $ tproject2 t)
   STKUntyped -> unHVectorPseudoTensor t
 
-gunlet
+gunshare
   :: forall y.
      STensorKindType y
   -> InterpretationTarget (AstRaw PrimalSpan) y
   -> InterpretationTarget (AstRaw PrimalSpan) y
-gunlet stk b = case stk of
-  STKR{} -> AstRaw $ unletAstRanked $ unAstRaw b
-  STKS{} -> AstRawS $ unletAstShaped $ unAstRawS b
+gunshare stk b = case stk of
+  STKR{} -> AstRaw $ unshareAstRanked $ unAstRaw b
+  STKS{} -> AstRawS $ unshareAstShaped $ unAstRawS b
   STKProduct stk1 stk2 ->
-    let !t1 = gunlet stk1 $ tproject1 b
-        !t2 = gunlet stk2 $ tproject2 b
+    let !t1 = gunshare stk1 $ tproject1 b
+        !t2 = gunshare stk2 $ tproject2 b
     in ttuple t1 t2
-  STKUntyped -> HVectorPseudoTensor $ AstRawWrap $ unletAstHVector
+  STKUntyped -> HVectorPseudoTensor $ AstRawWrap $ unshareAstHVector
                 $ unAstRawWrap $ unHVectorPseudoTensor b
 
-gunletRanked
+gunshareRanked
   :: forall y.
      STensorKindType y
   -> InterpretationTarget (AstRanked PrimalSpan) y
   -> InterpretationTarget (AstRanked PrimalSpan) y
-gunletRanked stk b = case stk of
-  STKR{} -> AstRanked $ unletAstRanked $ unAstRanked b
-  STKS{} -> AstShaped $ unletAstShaped $ unAstShaped b
+gunshareRanked stk b = case stk of
+  STKR{} -> AstRanked $ unshareAstRanked $ unAstRanked b
+  STKS{} -> AstShaped $ unshareAstShaped $ unAstShaped b
   STKProduct stk1 stk2 ->
-    let !t1 = gunletRanked stk1 $ tproject1 b
-        !t2 = gunletRanked stk2 $ tproject2 b
+    let !t1 = gunshareRanked stk1 $ tproject1 b
+        !t2 = gunshareRanked stk2 $ tproject2 b
     in ttuple t1 t2
-  STKUntyped -> HVectorPseudoTensor $ unletAstHVector
+  STKUntyped -> HVectorPseudoTensor $ unshareAstHVector
                 $ unHVectorPseudoTensor b
 
 fwdArtifactFromForwardPass
@@ -278,8 +278,8 @@ fwdArtifactFromForwardPass forwardPass parameters0 =
         $ forwardPass hVectorPrimal vars hVector
       delta = unDeltaRY (stensorKind @y) deltaIT in
   let !derivative = derivativeFromDelta (V.length parameters0) delta hVectorDs
-      unDerivative = gunlet (stensorKind @y) derivative
-      unPrimal = gunlet (stensorKind @y) primalBody
+      unDerivative = gunshare (stensorKind @y) derivative
+      unPrimal = gunshare (stensorKind @y) primalBody
   in ( AstArtifact varsPrimalDs varsPrimal unDerivative unPrimal
      , delta )
 
@@ -311,8 +311,8 @@ fwdArtifactFromForwardPassTKNew forwardPass parameters0 =
         $ forwardPass hVectorPrimal var hVector
       delta = unDeltaRY (stensorKind @z) deltaIT in
   let !derivative = derivativeFromDelta (V.length parameters0) delta hVectorD
-      unDerivative = gunlet (stensorKind @z) derivative
-      unPrimal = gunlet (stensorKind @z) primalBody
+      unDerivative = gunshare (stensorKind @z) derivative
+      unPrimal = gunshare (stensorKind @z) primalBody
   in ( AstArtifactFwd varPrimalD varPrimal unDerivative unPrimal
      , delta )
 
@@ -781,13 +781,13 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   -- value of the derivative at a particular fixed input.
   -- The limitation of AstRaw as a newtype make it impossible
   -- to switch the tests from AstRanked to AstRaw.
-  tunlet :: forall y. TensorKind y
-         => InterpretationTarget (AstRanked s) y
-         -> InterpretationTarget (AstRanked s) y
-  tunlet =
+  tunshare :: forall y. TensorKind y
+           => InterpretationTarget (AstRanked s) y
+           -> InterpretationTarget (AstRanked s) y
+  tunshare =
     case sameAstSpan @s @PrimalSpan of
-      Just Refl -> gunletRanked (stensorKind @y)
-      _ -> error "tunlet: used not at PrimalSpan"
+      Just Refl -> gunshareRanked (stensorKind @y)
+      _ -> error "tunshare: used not at PrimalSpan"
   -- These and many similar bangs are necessary to ensure variable IDs
   -- are generated in the expected order, resulting in nesting of lets
   -- occuring in the correct order and so no scoping errors.
@@ -1415,12 +1415,13 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
   -- value of the derivative at a particular fixed input.
   -- The limitation of AstRaw as a newtype make it impossible
   -- to switch the tests from AstRanked to AstRaw.
-  tunlet :: forall y. TensorKind y
-         => InterpretationTarget (AstRaw s) y -> InterpretationTarget (AstRaw s) y
-  tunlet =
+  tunshare :: forall y. TensorKind y
+           => InterpretationTarget (AstRaw s) y
+           -> InterpretationTarget (AstRaw s) y
+  tunshare =
     case sameAstSpan @s @PrimalSpan of
-      Just Refl -> gunlet (stensorKind @y)
-      _ -> error "tunlet: used not at PrimalSpan"
+      Just Refl -> gunshare (stensorKind @y)
+      _ -> error "tunshare: used not at PrimalSpan"
   dshare a@(AstRawWrap (AstShareHVector{})) = a
   dshare (AstRawWrap a) =
     let shs = shapeAstHVector a

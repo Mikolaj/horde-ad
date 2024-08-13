@@ -6,7 +6,7 @@ module HordeAd.Core.AstInline
     simplifyArtifact, simplifyInlineAst, simplifyInlineAstS
   , simplifyInlineHVector, simplifyInlineHVectorRaw
     -- * The translates global sharing to normal lets
-  , unletAstRanked, unletAstShaped, unletAstHVector
+  , unshareAstRanked, unshareAstShaped, unshareAstHVector
   ) where
 
 import Prelude
@@ -468,24 +468,24 @@ inlineAstBool memo v0 = case v0 of
 
 -- * The translates global sharing to normal lets
 
-unletAstRanked :: (KnownNat n, GoodScalar r)
+unshareAstRanked :: (KnownNat n, GoodScalar r)
                => AstTensor PrimalSpan (TKR r n)
                -> AstTensor PrimalSpan (TKR r n)
-unletAstRanked t =
+unshareAstRanked t =
   let (memoOut, share) = shareAst EM.empty t
       bindingsOut = EM.toDescList memoOut
   in bindsToLet share bindingsOut
 
-unletAstShaped :: (KnownShS sh, GoodScalar r)
+unshareAstShaped :: (KnownShS sh, GoodScalar r)
                => AstTensor PrimalSpan (TKS r sh)
                -> AstTensor PrimalSpan (TKS r sh)
-unletAstShaped t =
+unshareAstShaped t =
   let (memoOut, share) = shareAst EM.empty t
       bindingsOut = EM.toDescList memoOut
   in bindsToLetS share bindingsOut
 
-unletAstHVector :: AstTensor PrimalSpan TKUntyped -> AstTensor PrimalSpan TKUntyped
-unletAstHVector t =
+unshareAstHVector :: AstTensor PrimalSpan TKUntyped -> AstTensor PrimalSpan TKUntyped
+unshareAstHVector t =
   let (memoOut, share) = shareAst EM.empty t
       bindingsOut = EM.toDescList memoOut
   in bindsToHVectorLet share bindingsOut

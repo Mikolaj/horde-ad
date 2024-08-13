@@ -73,9 +73,9 @@ crevOnADInputs mdt f inputs =
       !gradient = gradientFromDelta parameters0 v
                                     ((HVectorPseudoTensor . dmkHVector) <$> mdt)
                                     deltaTopLevel
-  in ( unHVectorPseudoTensor $ tunlet @_ @_ @TKUntyped
+  in ( unHVectorPseudoTensor $ tunshare @_ @_ @TKUntyped
        $ HVectorPseudoTensor (dmkHVector gradient)
-     , unHVectorPseudoTensor $ tunlet v )
+     , unHVectorPseudoTensor $ tunshare v )
 
 crevOnHVector
   :: ADReady ranked
@@ -100,8 +100,8 @@ cfwdOnADInputs
 cfwdOnADInputs inputs f ds =
   let !(D v (HVectorPseudoTensor deltaTopLevel)) = f inputs in
   let derivative = derivativeFromDelta (V.length inputs) deltaTopLevel ds
-  in ( unHVectorPseudoTensor $ tunlet @_ @_ @TKUntyped derivative
-     , unHVectorPseudoTensor $ tunlet v )
+  in ( unHVectorPseudoTensor $ tunshare @_ @_ @TKUntyped derivative
+     , unHVectorPseudoTensor $ tunshare v )
 
 cfwdOnHVector
   :: ADReady ranked
@@ -456,7 +456,7 @@ instance ADReadyBoth ranked shaped
       in f (dDnotShared var2 u')
     STKProduct{} -> error "TODO"
     STKUntyped{} -> error "TODO"
-  tunlet = id
+  tunshare = id
   dbuild1 k f =
     ravelHVector $ map (f . fromIntegral) [0 .. sNatValue k - 1]
   rrev :: (GoodScalar r, KnownNat n)
