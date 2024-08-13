@@ -19,7 +19,7 @@ import Data.Maybe (fromMaybe)
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
-import GHC.TypeLits (KnownNat, Nat)
+import GHC.TypeLits (KnownNat, Nat, fromSNat)
 import Type.Reflection (typeRep)
 
 import HordeAd.Core.Ast (AstBool, AstTensor)
@@ -88,7 +88,7 @@ simplifyInlineHVectorRaw =
 
 -- * The pass that inlines lets with the bottom-up strategy
 
-type AstMemo = EM.EnumMap AstVarId Int
+type AstMemo = EM.EnumMap AstVarId Double
 
 inlineAst
   :: forall s y. AstSpan s
@@ -98,6 +98,19 @@ inlineAst memo v0 = case v0 of
     let (memo2, v1) = inlineAst memo t1
         (memo3, v2) = inlineAst memo2 t2
     in (memo3, Ast.AstTuple v1 v2)
+  -- TODO: these are correct only if each component appears once,
+  -- as opposed to one appearing twice and ther other not at all
+  -- (or if both components are similar enough)
+  -- but without this we miss many other simplifications and simple
+  -- examples become unreadable
+  Ast.AstProject1 (Ast.AstVar _ var) ->
+    let f Nothing = Just 0.5
+        f (Just count) = Just $ count + 0.5
+    in (EM.alter f (varNameToAstVarId var) memo, v0)
+  Ast.AstProject2 (Ast.AstVar _ var) ->
+    let f Nothing = Just 0.5
+        f (Just count) = Just $ count + 0.5
+    in (EM.alter f (varNameToAstVarId var) memo, v0)
   Ast.AstProject1 t -> second Ast.AstProject1 (inlineAst memo t)
   Ast.AstProject2 t -> second Ast.AstProject2 (inlineAst memo t)
   Ast.AstLetTupleIn var1 var2 p v ->
@@ -110,7 +123,7 @@ inlineAst memo v0 = case v0 of
 
   Ast.AstVar _ var ->
     let f Nothing = Just 1
-        f (Just count) = Just $ succ count
+        f (Just count) = Just $ count + 1
     in (EM.alter f (varNameToAstVarId var) memo, v0)
   Ast.AstPrimalPart a -> second Ast.AstPrimalPart $ inlineAst memo a
   Ast.AstDualPart a -> second Ast.AstDualPart $ inlineAst memo a
@@ -135,7 +148,8 @@ inlineAst memo v0 = case v0 of
   Ast.AstReplicate k v -> second (Ast.AstReplicate k) (inlineAst memo v)
   Ast.AstBuild1 k (var, v) ->
     let (memoV0, v2) = inlineAst EM.empty v
-        memo1 = EM.unionWith (\c1 c0 -> c1 + sNatValue k * c0) memo memoV0
+        memo1 = EM.unionWith
+                  (\c1 c0 -> c1 + fromInteger (fromSNat k) * c0) memo memoV0
     in (memo1, Ast.AstBuild1 k (var, v2))
 
   Ast.AstLet var u v ->
@@ -190,7 +204,7 @@ inlineAst memo v0 = case v0 of
   Ast.AstScatter sh v (vars, ix) ->
     let (memo1, v2) = inlineAst memo v
         (memoI0, ix2) = mapAccumR inlineAst EM.empty (indexToList ix)
-        count = sizeShape sh
+        count = fromIntegral $ sizeShape sh
         memo2 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1 memoI0
     in (memo2, Ast.AstScatter sh v2 (vars, listToIndex ix2))
   Ast.AstFromVector l ->
@@ -209,7 +223,7 @@ inlineAst memo v0 = case v0 of
   Ast.AstGather sh v (vars, ix) ->
     let (memo1, v2) = inlineAst memo v
         (memoI0, ix2) = mapAccumR inlineAst EM.empty (indexToList ix)
-        count = sizeShape sh
+        count = fromIntegral $ sizeShape sh
         memo2 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1 memoI0
     in (memo2, Ast.AstGather sh v2 (vars, listToIndex ix2))
   Ast.AstCast v -> second Ast.AstCast $ inlineAst memo v
@@ -282,7 +296,7 @@ inlineAst memo v0 = case v0 of
     let (memo1, v2) = inlineAst memo v
         (memoI0, ix2) = mapAccumR inlineAst EM.empty
                                   (ShapedList.indexToList ix)
-        count = sizeT @sh
+        count = fromIntegral $ sizeT @sh
         memo2 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1 memoI0
     in (memo2, Ast.AstScatterS @sh2 @p v2 (vars, ShapedList.listToIndex ix2))
   Ast.AstFromVectorS l ->
@@ -302,7 +316,7 @@ inlineAst memo v0 = case v0 of
     let (memo1, v2) = inlineAst memo v
         (memoI0, ix2) = mapAccumR inlineAst EM.empty
                                   (ShapedList.indexToList ix)
-        count = sizeT @sh2 + sizeT @sh - valueOf @p
+        count = fromIntegral $ sizeT @sh2 + sizeT @sh - valueOf @p
         memo2 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1 memoI0
     in (memo2, Ast.AstGatherS @sh2 @p v2 (vars, ShapedList.listToIndex ix2))
   Ast.AstCastS v -> second Ast.AstCastS $ inlineAst memo v
@@ -381,7 +395,8 @@ inlineAst memo v0 = case v0 of
   Ast.AstShareHVector{} -> error "inlineAst: AstShareHVector"
   Ast.AstBuildHVector1 k (var, v) ->
     let (memoV0, v2) = inlineAst EM.empty v
-        memo1 = EM.unionWith (\c1 c0 -> c1 + sNatValue k * c0) memo memoV0
+        memo1 = EM.unionWith
+                  (\c1 c0 -> c1 + fromInteger (fromSNat k) * c0) memo memoV0
     in (memo1, Ast.AstBuildHVector1 k (var, v2))
   Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc0 es ->
     let (memo1, f2) = inlineAstHFun memo f
@@ -433,7 +448,7 @@ inlineAstHFun memo v0 = case v0 of
     (memo, Ast.AstLambda (vvars, snd $ inlineAst EM.empty l))
   Ast.AstVarHFun _shss _shs var ->
     let f Nothing = Just 1
-        f (Just count) = Just $ succ count
+        f (Just count) = Just $ count + 1
     in (EM.alter f var memo, v0)
 
 inlineAstHFunTKNew
@@ -445,7 +460,7 @@ inlineAstHFunTKNew memo v0 = case v0 of
     (memo, Ast.AstLambdaTKNew (var, ftk, snd $ inlineAst EM.empty l))
   Ast.AstVarHFunTKNew _shss _shs var ->
     let f Nothing = Just 1
-        f (Just count) = Just $ succ count
+        f (Just count) = Just $ count + 1
     in (EM.alter f var memo, v0)
 
 inlineAstBool :: AstMemo -> AstBool -> (AstMemo, AstBool)
