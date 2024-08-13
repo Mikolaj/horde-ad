@@ -90,26 +90,25 @@ crevOnHVector mdt f parameters =
   in crevOnADInputs mdt f inputs
 
 cfwdOnADInputs
-  :: ADReady ranked
+  :: (y ~ TKUntyped, ADReady ranked)
   => HVector (ADVal ranked)
   -> (HVector (ADVal ranked)
       -> ADVal (HVectorPseudoTensor ranked) Float '())
   -> HVector ranked
-  -> (HVectorOf ranked, HVectorOf ranked)
+  -> (InterpretationTarget ranked y, InterpretationTarget ranked y)
 {-# INLINE cfwdOnADInputs #-}
 cfwdOnADInputs inputs f ds =
   let !(D v (HVectorPseudoTensor deltaTopLevel)) = f inputs in
   let derivative = derivativeFromDelta (V.length inputs) deltaTopLevel ds
-  in ( unHVectorPseudoTensor $ tunshare @_ @_ @TKUntyped derivative
-     , unHVectorPseudoTensor $ tunshare v )
+  in (tunshare @_ @_ @TKUntyped derivative, tunshare v)
 
 cfwdOnHVector
-  :: ADReady ranked
+  :: (y ~ TKUntyped, ADReady ranked)
   => HVector ranked
   -> (HVector (ADVal ranked)
       -> ADVal (HVectorPseudoTensor ranked) Float '())
   -> HVector ranked
-  -> (HVectorOf ranked, HVectorOf ranked)
+  -> (InterpretationTarget ranked y, InterpretationTarget ranked y)
 cfwdOnHVector parameters f ds =
   let deltaInputs = generateDeltaInputs parameters
       inputs = makeADInputs parameters deltaInputs
@@ -503,7 +502,7 @@ instance ADReadyBoth ranked shaped
                 in dDnotShared (HVectorPseudoTensor $ dmkHVector as)
                                (HVectorPseudoTensor $ HToH as')
         df :: forall f. ADReady f => [HVector f] -> HVectorOf f
-        df [!da, !a] = fst $ cfwdOnHVector a g da
+        df [!da, !a] = unHVectorPseudoTensor $ fst $ cfwdOnHVector a g da
           -- This computes the derivative of g again for each new da and a.
         df _ = error "df: wrong number of arguments"
     in HFun $ HVectorPseudoTensor . df

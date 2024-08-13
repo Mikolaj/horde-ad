@@ -373,7 +373,7 @@ cfwd f vals ds =
       valsH = toHVectorOf vals
       dsH = toHVectorOf ds
       err = error "fwd: codomain of unknown length"
-  in parseHVector err $ fst $ cfwdOnHVector valsH g dsH
+  in parseHVector err $ unHVectorPseudoTensor $ fst $ cfwdOnHVector valsH g dsH
 
 
 

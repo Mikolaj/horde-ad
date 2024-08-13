@@ -293,7 +293,7 @@ instance HVectorTensor ORArray OSArray where
                 in dDnotShared (HVectorPseudoTensor $ dmkHVector as)
                                (HVectorPseudoTensor $ HToH as')
         df :: [HVector ORArray] -> HVectorOf ORArray
-        df [!da, !a] = fst $ cfwdOnHVector a g da
+        df [!da, !a] = unHVectorPseudoTensor $ fst $ cfwdOnHVector a g da
         df _ = error "df: wrong number of arguments"
     in HVectorPseudoTensor . df
   rfold f x0 as = foldl' f x0 (runravelToList as)
