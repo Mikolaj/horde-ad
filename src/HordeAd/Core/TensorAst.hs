@@ -724,7 +724,8 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
           => HFunOfTKNew (AstRanked s) x y
           -> InterpretationTarget (AstRanked s) x
           -> InterpretationTarget (AstRanked s) y
-  dHApplyTKNew t ll = dHApplyTKNew @(AstRanked s) @_ @x @y t ll
+  dHApplyTKNew t ll = rankedY (stensorKind @y) $ astHApplyTKNew t
+                      $ unRankedY (stensorKind @x) $ ll
   dunHVector (AstMkHVector l) = l
   dunHVector hVectorOf =
     let f :: Int -> DynamicTensor VoidTensor -> AstDynamic s
@@ -1611,7 +1612,8 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
           => HFunOfTKNew (AstNoVectorize s) x y
           -> InterpretationTarget (AstNoVectorize s) x
           -> InterpretationTarget (AstNoVectorize s) y
-  dHApplyTKNew t ll = dHApplyTKNew @(AstNoVectorize s) @_ @x @y t ll
+  dHApplyTKNew t ll = noVectorizeY (stensorKind @y) $ astHApplyTKNew t
+                      $ unNoVectorizeY (stensorKind @x) $ ll
   dunHVector =
     noVectorizeHVector . dunHVector . unAstNoVectorizeWrap
   dletHVectorInHVector a f =

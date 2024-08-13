@@ -27,7 +27,7 @@ module HordeAd.Core.AstSimplify
   , astReverse, astReverseS
   , astTranspose, astTransposeS, astReshape, astReshapeS
   , astCast, astCastS, astFromIntegral, astFromIntegralS
-  , astProject, astProjectS, astRFromS, astSFromR
+  , astProjectR, astProjectS, astRFromS, astSFromR
   , astPrimalPart, astDualPart
   , astLetHVectorIn, astLetHVectorInS
   , astLetHFunIn, astLetHFunInTKNew, astLetHFunInS, astLetHFunInSTKNew
@@ -312,7 +312,7 @@ astNonIndexStep t = case t of
   Ast.AstCast v -> astCast v
   Ast.AstFromIntegral v -> astFromIntegral v
   AstConst{} -> t
-  Ast.AstProjectR l p -> astProject l p
+  Ast.AstProjectR l p -> astProjectR l p
   Ast.AstLetHVectorIn vars u v -> astLetHVectorIn vars u v
   Ast.AstLetHFunIn var u v -> astLetHFunIn var u v
   Ast.AstLetHFunInTKNew var u v -> astLetHFunInTKNew var u v
@@ -1946,17 +1946,17 @@ astFromIntegralS (AstConstS t) = AstConstS $ tfromIntegralS t
 astFromIntegralS (Ast.AstFromIntegralS v) = astFromIntegralS v
 astFromIntegralS v = Ast.AstFromIntegralS v
 
-astProject
+astProjectR
   :: forall n r s. (KnownNat n, GoodScalar r, AstSpan s)
   => AstTensor s TKUntyped -> Int -> AstTensor s (TKR r n)
-astProject l p = case l of
+astProjectR l p = case l of
   Ast.AstMkHVector l3 ->
     unAstRanked
     $ fromDynamicR (\sh -> AstRanked $ astReplicate0N sh 0) (l3 V.! p)
   Ast.AstLetHVectorInHVector vars d1 d2 ->
-    astLetHVectorIn vars d1 (astProject d2 p)
+    astLetHVectorIn vars d1 (astProjectR d2 p)
   Ast.AstLet var u2 d2 ->
-    astLet var u2 (astProject d2 p)
+    astLet var u2 (astProjectR d2 p)
   _ -> Ast.AstProjectR l p
 
 astProjectS
@@ -2370,7 +2370,7 @@ simplifyAst t = case t of
   Ast.AstCast v -> astCast $ simplifyAst v
   Ast.AstFromIntegral v -> astFromIntegral $ simplifyAst v
   AstConst{} -> t
-  Ast.AstProjectR l p -> astProject (simplifyAst l) p
+  Ast.AstProjectR l p -> astProjectR (simplifyAst l) p
   Ast.AstLetHVectorIn vars l v ->
     astLetHVectorIn vars (simplifyAst l) (simplifyAst v)
   Ast.AstLetHFunIn var f v ->
@@ -2605,7 +2605,7 @@ expandAst t = case t of
   Ast.AstCast v -> astCast $ expandAst v
   Ast.AstFromIntegral v -> astFromIntegral $ expandAst v
   AstConst{} -> t
-  Ast.AstProjectR l p -> astProject (expandAst l) p
+  Ast.AstProjectR l p -> astProjectR (expandAst l) p
   Ast.AstLetHVectorIn vars l v ->
     astLetHVectorIn vars (expandAst l) (expandAst v)
   Ast.AstLetHFunIn var f v ->
@@ -3160,7 +3160,7 @@ substitute1Ast i var v1 = case v1 of
   Ast.AstProjectR l p ->
     case substitute1Ast i var l of
       Nothing -> Nothing
-      ml -> Just $ astProject (fromMaybe l ml) p
+      ml -> Just $ astProjectR (fromMaybe l ml) p
   Ast.AstLetHVectorIn vars l v ->
     case (substitute1Ast i var l, substitute1Ast i var v) of
       (Nothing, Nothing) -> Nothing

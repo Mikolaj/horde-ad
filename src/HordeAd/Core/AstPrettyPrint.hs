@@ -234,14 +234,8 @@ printAstAux cfg d = \case
       . showString ", "
       . printAst cfg 0 t2
       . showString ")"
-  AstProject1 t ->
-    showParen (d > 10)
-    $ showString "tproject1 "  -- TODO
-      . shows t
-  AstProject2 t ->
-    showParen (d > 10)
-    $ showString "tproject2 "  -- TODO
-      . shows t
+  AstProject1 t -> printPrefixOp printAst cfg d "tproject1" [t]
+  AstProject2 t -> printPrefixOp printAst cfg d "tproject2" [t]
   AstLetTupleIn var1 var2 p v ->
     if loseRoudtrip cfg
     then
@@ -427,7 +421,7 @@ printAstAux cfg d = \case
   AstProjectR l p ->
     showParen (d > 10)
     $ showString "rproject "  -- fake, no such surface syntax
-      . printAst cfg 0 l
+      . printAst cfg 11 l
       . showString " "
       . shows p
   AstLetHVectorIn vars l v ->
@@ -574,7 +568,7 @@ printAstAux cfg d = \case
   AstProjectS l p ->
     showParen (d > 10)
     $ showString "sproject "  -- fake, no such surface syntax
-      . printAst cfg 0 l
+      . printAst cfg 11 l
       . showString " "
       . shows p
   AstLetHVectorInS vars l v ->

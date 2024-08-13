@@ -419,14 +419,14 @@ testSin0RfwdPP1FullUnsimp = do
   resetVarCounter
   let a1 = rfwd1 @(AstRanked FullSpan) @Double @0 @0 sin (rscalar 1.1)
   printAstPretty IM.empty a1
-    @?= "rproject (\\[x1] [x2] -> [x1 * cos x2]) [[1.0], [1.1]] 0"
+    @?= "rproject ((\\[x1] [x2] -> [x1 * cos x2]) [[1.0], [1.1]]) 0"
 
 testSin0RfwdPP1Full :: Assertion
 testSin0RfwdPP1Full = do
   resetVarCounter
   let a1 = rfwd1 @(AstRanked FullSpan) @Double @0 @0 sin (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineAst a1)
-    @?= "rproject (\\[x1] [x2] -> [x1 * cos x2]) [[1.0], [1.1]] 0"
+    @?= "rproject ((\\[x1] [x2] -> [x1 * cos x2]) [[1.0], [1.1]]) 0"
 
 testSin0Rfwd3 :: Assertion
 testSin0Rfwd3 = do
@@ -1027,7 +1027,7 @@ testSin0ScanFwdPPFull = do
                  (\x0 -> rscan (\x _a -> sin x) x0
                            ((rrepl @Double @1 [2] 42))) (rscalar 1.1)
   printAstPrettyButNested IM.empty (simplifyInlineAst a1)
-    @?= "rproject (\\[x1] [x2] -> let v5 = rconst (rfromListLinear [2] [42.0,42.0]) in let [x6 @Natural @Double @[], v7 @Natural @Double @[2], v8 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) (\\[x12] [x13] -> let x17 = sin x12 in [x17, x12, x17]) (\\[x20, x21] [x22, x23] -> let x31 = x20 * cos x22 in [x31, x20, x31]) (\\[x34, x35, x36] [x37, x38] -> [cos x37 * (x36 + x34) + x35, 0.0]) [x2] [v5] in let [x9 @Natural @Double @[], v10 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) (\\[x47] [x48, x49, x50] -> let x51 = x47 * cos x49 in [x51, x51]) (\\[x52, x54, x56, x58] [x53, x55, x57, x59] -> let x64 = x52 * cos x57 + (x56 * negate (sin x57)) * x53 in [x64, x64]) (\\[x72, x73] [x65, x66, x67, x68] -> let x74 = x73 + x72 in [cos x67 * x74, 0, negate (sin x67) * (x65 * x74), 0]) [x1] [rreplicate 2 0.0, v7, v5] in [rappend (rreplicate 1 x1) v10]) [[1.0], [1.1]] 0"
+    @?= "rproject ((\\[x1] [x2] -> let v5 = rconst (rfromListLinear [2] [42.0,42.0]) in let [x6 @Natural @Double @[], v7 @Natural @Double @[2], v8 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) (\\[x12] [x13] -> let x17 = sin x12 in [x17, x12, x17]) (\\[x20, x21] [x22, x23] -> let x31 = x20 * cos x22 in [x31, x20, x31]) (\\[x34, x35, x36] [x37, x38] -> [cos x37 * (x36 + x34) + x35, 0.0]) [x2] [v5] in let [x9 @Natural @Double @[], v10 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) (\\[x47] [x48, x49, x50] -> let x51 = x47 * cos x49 in [x51, x51]) (\\[x52, x54, x56, x58] [x53, x55, x57, x59] -> let x64 = x52 * cos x57 + (x56 * negate (sin x57)) * x53 in [x64, x64]) (\\[x72, x73] [x65, x66, x67, x68] -> let x74 = x73 + x72 in [cos x67 * x74, 0, negate (sin x67) * (x65 * x74), 0]) [x1] [rreplicate 2 0.0, v7, v5] in [rappend (rreplicate 1 x1) v10]) [[1.0], [1.1]]) 0"
 
 testSin0Scan1Rev2PP1 :: Assertion
 testSin0Scan1Rev2PP1 = do
