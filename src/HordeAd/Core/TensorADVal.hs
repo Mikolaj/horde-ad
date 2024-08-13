@@ -9,7 +9,7 @@
 -- for ranked tensors and shaped tensors.
 module HordeAd.Core.TensorADVal
   ( aDValToHVector, hVectorADValToADVal, unADValHVector, unADValDynamicTensor
-  , aDValHVector
+  , aDValHVector, unADValInterpretation, unDeltaRY
   , crevOnADInputs, crevOnHVector, cfwdOnADInputs, cfwdOnHVector
   ) where
 
@@ -716,6 +716,32 @@ unADValDynamicTensor (DynamicRankedDummy p1 p2) =
   (DynamicRankedDummy p1 p2, DynamicRankedDummy p1 p2)
 unADValDynamicTensor (DynamicShapedDummy p1 p2) =
   (DynamicShapedDummy p1 p2, DynamicShapedDummy p1 p2)
+
+unADValInterpretation :: forall y ranked. ADReady ranked
+                      => STensorKindType y
+                      -> InterpretationTarget (ADVal ranked) y
+                      -> ( InterpretationTarget ranked y
+                         , InterpretationTarget (Dual ranked) y )
+unADValInterpretation stk t = case stk of
+  STKR{} -> let D u u' = t in (u, u')
+  STKS{} -> let D u u' = t in (u, u')
+  STKProduct stk1 stk2 ->
+    let (u, u') = unADValInterpretation stk1 $ tproject1 t
+        (v, v') = unADValInterpretation stk2 $ tproject2 t
+    in (ttuple u v, ttuple u' v')
+  STKUntyped ->
+    let (u, v) = unADValHVector $ unHVectorPseudoTensor t
+    in (HVectorPseudoTensor $ dmkHVector u, HVectorPseudoTensor $ HToH v)
+
+unDeltaRY :: forall y ranked. RankedOf (ShapedOf ranked) ~ ranked
+          => STensorKindType y -> InterpretationTarget (DeltaR ranked) y
+          -> Delta ranked y
+unDeltaRY stk t = case stk of
+  STKR{} -> unDeltaR t
+  STKS{} -> unDeltaS t
+  STKProduct stk1 stk2 -> TupleG (unDeltaRY stk1 $ tproject1 t)
+                                 (unDeltaRY stk2 $ tproject2 t)
+  STKUntyped -> unHVectorPseudoTensor t
 
 -- TODO: not dead code: will be used in dletHVectorInHVector.
 aDValHVector :: (RankedTensor f, ShapedTensor (ShapedOf f))

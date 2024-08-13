@@ -42,8 +42,7 @@ import HordeAd.Core.Delta
 import HordeAd.Core.DualNumber
 import HordeAd.Core.HVector
 import HordeAd.Core.HVectorOps
-import HordeAd.Core.IsPrimal
-import HordeAd.Core.TensorADVal (unADValHVector)
+import HordeAd.Core.TensorADVal (unADValInterpretation, unDeltaRY)
 import HordeAd.Core.TensorClass
 import HordeAd.Core.TensorConcrete ()
 import HordeAd.Core.Types
@@ -123,7 +122,7 @@ revArtifactFromForwardPass hasDt forwardPass parameters0 =
   let -- Evaluate completely after terms constructed, to free memory
       -- before gradientFromDelta allocates new memory and new FFI is started.
       !(!primalBody, !deltaIT) =
-        unADValRawY (stensorKind @y)
+        unADValInterpretation (stensorKind @y)
         $ forwardPass hVectorPrimal vars hVector
       delta = unDeltaRY (stensorKind @y) deltaIT
       domsB = shapeAstHVector $ unAstRawWrap $ unHVectorPseudoTensor primalBody
@@ -162,7 +161,7 @@ revArtifactFromForwardPassTKNew hasDt forwardPass parameters0 =
   let -- Evaluate completely after terms constructed, to free memory
       -- before gradientFromDelta allocates new memory and new FFI is started.
       !(!primalBody, !deltaIT) =
-        unADValRawY (stensorKind @z)
+        unADValInterpretation (stensorKind @z)
         $ forwardPass hVectorPrimal var hVector
       delta = unDeltaRY (stensorKind @z) deltaIT in
   let (!varDt, !astDt) =
@@ -204,32 +203,6 @@ revProduceArtifactTKNew
 revProduceArtifactTKNew hasDt g envInit =
   revArtifactFromForwardPassTKNew
     hasDt (forwardPassByInterpretationTKNew g envInit)
-
-unADValRawY :: forall y.
-               STensorKindType y
-            -> InterpretationTarget (ADVal (AstRaw PrimalSpan)) y
-            -> ( InterpretationTarget (AstRaw PrimalSpan) y
-               , InterpretationTarget (Dual (AstRaw PrimalSpan)) y )
-unADValRawY stk t = case stk of
-  STKR{} -> let D u u' = t in (u, u')
-  STKS{} -> let D u u' = t in (u, u')
-  STKProduct stk1 stk2 ->
-    let (u, u') = unADValRawY stk1 $ tproject1 t
-        (v, v') = unADValRawY stk2 $ tproject2 t
-    in (ttuple u v, ttuple u' v')
-  STKUntyped ->
-    let (u, v) = unADValHVector $ unHVectorPseudoTensor t
-    in (HVectorPseudoTensor $ dmkHVector u, HVectorPseudoTensor $ HToH v)
-
-unDeltaRY :: forall y ranked. RankedOf (ShapedOf ranked) ~ ranked
-          => STensorKindType y -> InterpretationTarget (DeltaR ranked) y
-          -> Delta ranked y
-unDeltaRY stk t = case stk of
-  STKR{} -> unDeltaR t
-  STKS{} -> unDeltaS t
-  STKProduct stk1 stk2 -> TupleG (unDeltaRY stk1 $ tproject1 t)
-                                 (unDeltaRY stk2 $ tproject2 t)
-  STKUntyped -> unHVectorPseudoTensor t
 
 gunshare
   :: forall y.
@@ -274,7 +247,7 @@ fwdArtifactFromForwardPass forwardPass parameters0 =
   let !(!varsPrimalDs, hVectorDs, varsPrimal, hVectorPrimal, vars, hVector) =
         funToAstFwd parameters0 in
   let !(!primalBody, !deltaIT) =
-        unADValRawY (stensorKind @y)
+        unADValInterpretation (stensorKind @y)
         $ forwardPass hVectorPrimal vars hVector
       delta = unDeltaRY (stensorKind @y) deltaIT in
   let !derivative = derivativeFromDelta (V.length parameters0) delta hVectorDs
@@ -307,7 +280,7 @@ fwdArtifactFromForwardPassTKNew forwardPass parameters0 =
   let !(!varPrimalD, hVectorD, varPrimal, hVectorPrimal, var, hVector) =
         funToAstFwdTKNew parameters0 in
   let !(!primalBody, !deltaIT) =
-        unADValRawY (stensorKind @z)
+        unADValInterpretation (stensorKind @z)
         $ forwardPass hVectorPrimal var hVector
       delta = unDeltaRY (stensorKind @z) deltaIT in
   let !derivative = derivativeFromDelta (V.length parameters0) delta hVectorD
