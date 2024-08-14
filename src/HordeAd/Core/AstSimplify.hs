@@ -440,9 +440,9 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIndex m1)) =
   Ast.AstDualPart{} -> Ast.AstIndex v0 ix
   Ast.AstConstant v -> Ast.AstConstant $ astIndex v ix
   Ast.AstD u u' ->
-    shareIx ix $ \ix2 -> Ast.AstD (astIndexRec u ix2) (astIndexRec u' ix2)
+    shareIx ix $ \ !ix2 -> Ast.AstD (astIndexRec u ix2) (astIndexRec u' ix2)
   Ast.AstCond b v w ->
-    shareIx ix $ \ix2 -> astCond b (astIndexRec v ix2) (astIndexRec w ix2)
+    shareIx ix $ \ !ix2 -> astCond b (astIndexRec v ix2) (astIndexRec w ix2)
   Ast.AstReplicate @y2 k v | AstConst it <- i1 -> case stensorKind @y2 of
     STKR{} ->
       let i = fromIntegral $ Nested.runScalar it
@@ -473,20 +473,20 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIndex m1)) =
     _ -> error "astIndexKnobsR: rank not 0"
   Ast.AstIota -> Ast.AstIndex v0 ix
   AstN1 opCode u ->
-    shareIx ix $ \ix2 -> AstN1 opCode (astIndexRec u ix2)
+    shareIx ix $ \ !ix2 -> AstN1 opCode (astIndexRec u ix2)
   AstN2 opCode u v ->
-    shareIx ix $ \ix2 -> AstN2 opCode (astIndexRec u ix2) (astIndexRec v ix2)
+    shareIx ix $ \ !ix2 -> AstN2 opCode (astIndexRec u ix2) (astIndexRec v ix2)
   Ast.AstR1 opCode u ->
     shareIx ix
-    $ \ix2 -> Ast.AstR1 opCode (astIndexRec u ix2)
+    $ \ !ix2 -> Ast.AstR1 opCode (astIndexRec u ix2)
   Ast.AstR2 opCode u v ->
     shareIx ix
-    $ \ix2 -> Ast.AstR2 opCode (astIndexRec u ix2) (astIndexRec v ix2)
+    $ \ !ix2 -> Ast.AstR2 opCode (astIndexRec u ix2) (astIndexRec v ix2)
   Ast.AstI2 opCode u v ->
     shareIx ix
-    $ \ix2 -> Ast.AstI2 opCode (astIndexRec u ix2) (astIndexRec v ix2)
+    $ \ !ix2 -> Ast.AstI2 opCode (astIndexRec u ix2) (astIndexRec v ix2)
   AstSumOfList args ->
-    shareIx ix $ \ix2 -> astSumOfList (map (`astIndexRec` ix2) args)
+    shareIx ix $ \ !ix2 -> astSumOfList (map (`astIndexRec` ix2) args)
   Ast.AstIndex v ix2 ->
     astIndex v (appendIndex ix2 ix)
   Ast.AstSum v ->  -- almost neutral; transposition is likely to fuse away
@@ -516,7 +516,7 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIndex m1)) =
   Ast.AstFromVector{} | ZIR <- rest1 ->  -- normal form
     Ast.AstIndex v0 ix
   Ast.AstFromVector l ->
-    shareIx rest1 $ \ix2 ->
+    shareIx rest1 $ \ !ix2 ->
       Ast.AstIndex (astFromVector $ V.map (`astIndexRec` ix2) l)
                    (singletonIndex i1)
   Ast.AstAppend u v ->
@@ -633,9 +633,9 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS shm1)) | Dict <- s
   Ast.AstDualPart{} -> Ast.AstIndexS v0 ix
   Ast.AstConstant v -> Ast.AstConstant $ astIndex v ix
   Ast.AstD u u' ->
-    shareIxS ix $ \ix2 -> Ast.AstD (astIndexRec u ix2) (astIndexRec u' ix2)
+    shareIxS ix $ \ !ix2 -> Ast.AstD (astIndexRec u ix2) (astIndexRec u' ix2)
   Ast.AstCond b v w ->
-    shareIxS ix $ \ix2 -> astCond b (astIndexRec v ix2) (astIndexRec w ix2)
+    shareIxS ix $ \ !ix2 -> astCond b (astIndexRec v ix2) (astIndexRec w ix2)
   Ast.AstReplicate @y2 _snat v -> case stensorKind @y2 of
     STKS{} -> astIndex v rest1
   Ast.AstBuild1 @y2 _snat (var2, v) -> case stensorKind @y2 of
@@ -683,20 +683,20 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS shm1)) | Dict <- s
     _ -> error "astIndexKnobsS: shape not []"
   Ast.AstIotaS -> Ast.AstIndexS v0 ix
   AstN1S opCode u ->
-    shareIxS ix $ \ix2 -> AstN1S opCode (astIndexRec u ix2)
+    shareIxS ix $ \ !ix2 -> AstN1S opCode (astIndexRec u ix2)
   AstN2S opCode u v ->
-    shareIxS ix $ \ix2 -> AstN2S opCode (astIndexRec u ix2) (astIndexRec v ix2)
+    shareIxS ix $ \ !ix2 -> AstN2S opCode (astIndexRec u ix2) (astIndexRec v ix2)
   Ast.AstR1S opCode u ->
     shareIxS ix
-    $ \ix2 -> Ast.AstR1S opCode (astIndexRec u ix2)
+    $ \ !ix2 -> Ast.AstR1S opCode (astIndexRec u ix2)
   Ast.AstR2S opCode u v ->
     shareIxS ix
-    $ \ix2 -> Ast.AstR2S opCode (astIndexRec u ix2) (astIndexRec v ix2)
+    $ \ !ix2 -> Ast.AstR2S opCode (astIndexRec u ix2) (astIndexRec v ix2)
   Ast.AstI2S opCode u v ->
     shareIxS ix
-    $ \ix2 -> Ast.AstI2S opCode (astIndexRec u ix2) (astIndexRec v ix2)
+    $ \ !ix2 -> Ast.AstI2S opCode (astIndexRec u ix2) (astIndexRec v ix2)
   AstSumOfListS args ->
-    shareIxS ix $ \ix2 -> astSumOfListS (map (`astIndexRec` ix2) args)
+    shareIxS ix $ \ !ix2 -> astSumOfListS (map (`astIndexRec` ix2) args)
   Ast.AstIndexS v (ix2 :: AstIndexS sh4) ->
     gcastWith (unsafeCoerce Refl
                :: (sh4 X.++ shm) X.++ shn :~: sh4 X.++ (shm X.++ shn)) $
@@ -748,7 +748,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS shm1)) | Dict <- s
   Ast.AstFromVectorS{} | ZIS <- rest1 ->  -- normal form
     Ast.AstIndexS v0 ix
   Ast.AstFromVectorS l ->
-    shareIxS rest1 $ \ix2 ->
+    shareIxS rest1 $ \ !ix2 ->
       Ast.AstIndexS @'[in1] @shn (astFromVectorS $ V.map (`astIndexRec` ix2) l)
                     (ShapedList.singletonIndex i1)
   Ast.AstAppendS @_ @m u v ->

@@ -832,16 +832,17 @@ class HVectorTensor (ranked :: RankedTensorType)
          -> HVectorOf ranked
   rrevDt f shs =
     let g :: forall f. ADReady f => HVectorOf f -> HVectorOf f
-        g !xOf = dletHVectorInHVector xOf $ \x ->
+        g !xOf = dletHVectorInHVector xOf $ \ !x ->
           dmkHVector $ V.singleton $ DynamicRanked $ f x
         h = drevDtTKNew @ranked (FTKUntyped shs)
               (HFunTKNew @_ @TKUntyped
                $ HVectorPseudoTensor . g . unHVectorPseudoTensor)
-    in \es dt -> unHVectorPseudoTensor
-                 $ dHApplyTKNew @_ @_ @(TKProduct TKUntyped TKUntyped) @TKUntyped h
-                 $ ttuple (HVectorPseudoTensor $ dmkHVector
-                           $ V.singleton $ DynamicRanked dt)
-                          (HVectorPseudoTensor $ dmkHVector es)
+    in \ !es !dt ->
+         unHVectorPseudoTensor
+         $ dHApplyTKNew @_ @_ @(TKProduct TKUntyped TKUntyped) @TKUntyped h
+         $ ttuple (HVectorPseudoTensor $ dmkHVector
+                   $ V.singleton $ DynamicRanked dt)
+                  (HVectorPseudoTensor $ dmkHVector es)
   rfwd :: (GoodScalar r, KnownNat n, RankedTensor ranked, ProductTensor ranked)
        => (forall f. ADReady f => HVector f -> f r n)
        -> VoidHVector
@@ -850,17 +851,18 @@ class HVectorTensor (ranked :: RankedTensorType)
        -> ranked r n
   rfwd f shs =
     let g :: forall f. ADReady f => HVectorOf f -> HVectorOf f
-        g !xOf = dletHVectorInHVector xOf $ \x ->
+        g !xOf = dletHVectorInHVector xOf $ \ !x ->
           dmkHVector $ V.singleton $ DynamicRanked $ f x
         h = dfwdTKNew @ranked (FTKUntyped shs)
               (HFunTKNew @_ @TKUntyped
                $ HVectorPseudoTensor . g . unHVectorPseudoTensor)
-    in \es ds -> let hv = unHVectorPseudoTensor
-                          $ dHApplyTKNew
-                              @_ @_ @(TKProduct TKUntyped TKUntyped) @TKUntyped h
-                          $ ttuple (HVectorPseudoTensor $ dmkHVector ds)
-                                   (HVectorPseudoTensor $ dmkHVector es)
-                 in rfromD $ dunHVector hv V.! 0
+    in \ !es !ds ->
+         let hv = unHVectorPseudoTensor
+                  $ dHApplyTKNew
+                      @_ @_ @(TKProduct TKUntyped TKUntyped) @TKUntyped h
+                      $ ttuple (HVectorPseudoTensor $ dmkHVector ds)
+                               (HVectorPseudoTensor $ dmkHVector es)
+         in rfromD $ dunHVector hv V.! 0
   srev :: ( GoodScalar r, KnownShS sh, ProductTensor ranked
           , shaped ~ ShapedOf ranked, ShapedTensor shaped )
        => (forall f. ADReadyS f => HVector (RankedOf f) -> f r sh)
@@ -877,16 +879,17 @@ class HVectorTensor (ranked :: RankedTensorType)
          -> HVectorOf ranked
   srevDt f shs =
     let g :: forall f. ADReady f => HVectorOf f -> HVectorOf f
-        g !xOf = dletHVectorInHVector xOf $ \x ->
+        g !xOf = dletHVectorInHVector xOf $ \ !x ->
           dmkHVector $ V.singleton $ DynamicShaped $ f x
         h = drevDtTKNew @ranked (FTKUntyped shs)
               (HFunTKNew @_ @TKUntyped
                $ HVectorPseudoTensor . g . unHVectorPseudoTensor)
-    in \es dt -> unHVectorPseudoTensor
-                 $ dHApplyTKNew @_ @_ @(TKProduct TKUntyped TKUntyped) @TKUntyped h
-                 $ ttuple (HVectorPseudoTensor $ dmkHVector
-                           $ V.singleton $ DynamicShaped dt)
-                          (HVectorPseudoTensor $ dmkHVector es)
+    in \ !es !dt ->
+         unHVectorPseudoTensor
+         $ dHApplyTKNew @_ @_ @(TKProduct TKUntyped TKUntyped) @TKUntyped h
+         $ ttuple (HVectorPseudoTensor $ dmkHVector
+                   $ V.singleton $ DynamicShaped dt)
+                  (HVectorPseudoTensor $ dmkHVector es)
   sfwd :: ( GoodScalar r, KnownShS sh, RankedTensor ranked, ShapedTensor shaped
           , ProductTensor ranked, shaped ~ ShapedOf ranked
           , ranked ~ RankedOf shaped )
@@ -897,17 +900,18 @@ class HVectorTensor (ranked :: RankedTensorType)
        -> shaped r sh
   sfwd f shs =
     let g :: forall f. ADReady f => HVectorOf f -> HVectorOf f
-        g !xOf = dletHVectorInHVector xOf $ \x ->
+        g !xOf = dletHVectorInHVector xOf $ \ !x ->
           dmkHVector $ V.singleton $ DynamicShaped $ f x
         h = dfwdTKNew @ranked (FTKUntyped shs)
               (HFunTKNew @_ @TKUntyped
                $ HVectorPseudoTensor . g . unHVectorPseudoTensor)
-    in \es ds -> let hv = unHVectorPseudoTensor
-                          $ dHApplyTKNew
-                              @_ @_ @(TKProduct TKUntyped TKUntyped) @TKUntyped h
-                          $ ttuple (HVectorPseudoTensor $ dmkHVector ds)
-                                   (HVectorPseudoTensor $ dmkHVector es)
-                 in sfromD $ dunHVector hv V.! 0
+    in \ !es !ds ->
+         let hv = unHVectorPseudoTensor
+                  $ dHApplyTKNew
+                      @_ @_ @(TKProduct TKUntyped TKUntyped) @TKUntyped h
+                      $ ttuple (HVectorPseudoTensor $ dmkHVector ds)
+                               (HVectorPseudoTensor $ dmkHVector es)
+         in sfromD $ dunHVector hv V.! 0
   -- These methods (and dlambda) producing HFunOf is analogous to dmkHVector
   -- producing HVectorOf and it's exactly what is needed as arguments
   -- of dmapAccumRDer

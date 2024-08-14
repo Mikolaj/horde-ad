@@ -169,14 +169,14 @@ interpretAst !env = \case
     STKR{} ->
       let t12 = interpretAst env p
           env2 w1 w2 = extendEnv var2 w2 $ extendEnv var1 w1 env
-      in rletTKIn (stensorKind @z1) (tproject1 t12) $ \w1 ->
-           rletTKIn (stensorKind @z2) (tproject2 t12) $ \w2 ->
+      in rletTKIn (stensorKind @z1) (tproject1 t12) $ \ !w1 ->
+           rletTKIn (stensorKind @z2) (tproject2 t12) $ \ !w2 ->
              interpretAst (env2 w1 w2) v
     STKS{} ->
       let t12 = interpretAst env p
           env2 w1 w2 = extendEnv var2 w2 $ extendEnv var1 w1 env
-      in sletTKIn (stensorKind @z1) (tproject1 t12) $ \w1 ->
-           sletTKIn (stensorKind @z2) (tproject2 t12) $ \w2 ->
+      in sletTKIn (stensorKind @z1) (tproject1 t12) $ \ !w1 ->
+           sletTKIn (stensorKind @z2) (tproject2 t12) $ \ !w2 ->
              interpretAst (env2 w1 w2) v
     STKProduct{} -> error "WIP"
     STKUntyped -> error "WIP"
@@ -250,7 +250,7 @@ interpretAst !env = \case
           STKProduct stk1 stk2 ->
             ttuple (replStk stk1 (tproject1 u)) (replStk stk2 (tproject2 u))
           STKUntyped -> HVectorPseudoTensor $
-            dletHVectorInHVector (unHVectorPseudoTensor u) $ \hv ->
+            dletHVectorInHVector (unHVectorPseudoTensor u) $ \ !hv ->
               mkreplicate1HVector k hv
     in replStk (stensorKind @y2) (interpretAst env v)
   -- These are only needed for tests that don't vectorize Ast.

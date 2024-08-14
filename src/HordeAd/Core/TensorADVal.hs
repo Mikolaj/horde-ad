@@ -65,7 +65,7 @@ crevOnADInputs mdt f inputs =
   let -- Evaluate completely after terms constructed, to free memory
       -- before evaluation allocates new memory and new FFI is started.
       !(!v, !deltaIT) = unADValInterpretation (stensorKind @z) $ f inputs
-      delta = unDeltaRY (stensorKind @z) deltaIT in
+      !delta = unDeltaRY (stensorKind @z) deltaIT in
   let rshapePrimal :: (GoodScalar r2, KnownNat n, ADReady g)
                    => ADVal g r2 n -> IShR n
       rshapePrimal (D p _) = rshape p
@@ -77,7 +77,6 @@ crevOnADInputs mdt f inputs =
 
 crevOnHVector
   :: (x ~ TKUntyped, TensorKind z, ADReady ranked)
---  :: (x ~ TKUntyped, TensorKind z, ADReady ranked)
   => Maybe (InterpretationTarget ranked z)
   -> (HVector (ADVal ranked) -> InterpretationTarget (ADVal ranked) z)
   -> HVector ranked
@@ -96,8 +95,8 @@ cfwdOnADInputs
 {-# INLINE cfwdOnADInputs #-}
 cfwdOnADInputs inputs f ds =
   let !(!v, !deltaIT) = unADValInterpretation (stensorKind @z) $ f inputs
-      delta = unDeltaRY (stensorKind @z) deltaIT in
-  let derivative = derivativeFromDelta (V.length inputs) delta ds
+      !delta = unDeltaRY (stensorKind @z) deltaIT in
+  let !derivative = derivativeFromDelta (V.length inputs) delta ds
   in (tunshare derivative, tunshare v)
 
 cfwdOnHVector
@@ -453,8 +452,8 @@ instance ADReadyBoth ranked shaped
     STKProduct{} ->
       -- TODO: seems wrong: a gets computed twice unless the projection
       -- gets simplified early enough, which maybe it does?
-      dlet (tproject1 a) $ \a1 ->
-        dlet (tproject2 a) $ \a2 -> f (ttuple a1 a2)
+      dlet (tproject1 a) $ \ !a1 ->
+        dlet (tproject2 a) $ \ !a2 -> f (ttuple a1 a2)
     STKUntyped{} ->
       let (!u, !u') = unADValHVector $ unHVectorPseudoTensor a
           !var2 = dunHVector $ dshare $ dmkHVector u  -- TODO: slow
@@ -560,6 +559,9 @@ instance ADReadyBoth ranked shaped
         g [!acc, !e] =
           dletHVectorInHVector (unHVectorPseudoTensor
                                 $ unHFun f [acc, e]) $ \res ->
+            -- TODO: adding a bang before the `res` causes
+            -- `error "tunshare: used not at PrimalSpan"` to fire;
+            -- understand and document
             let (accRes, bRes) = hvToPair res
             in dmkHVector $ V.concat [accRes, acc, bRes]
         g _ = error "g: wrong number of arguments"
@@ -724,7 +726,7 @@ hVectorADValToADVal
   :: forall ranked. HVectorTensor ranked (ShapedOf ranked)
   => HVector (ADVal ranked) -> ADVal (HVectorPseudoTensor ranked) Float '()
 hVectorADValToADVal hv =
-  let (as, as') = unADValHVector hv
+  let (!as, !as') = unADValHVector hv
   in dDnotShared (HVectorPseudoTensor $ dmkHVector as)
                  (HVectorPseudoTensor $ HToH as')
 
@@ -754,11 +756,11 @@ unADValInterpretation stk t = case stk of
   STKR{} -> let D u u' = t in (u, u')
   STKS{} -> let D u u' = t in (u, u')
   STKProduct stk1 stk2 ->
-    let (u, u') = unADValInterpretation stk1 $ tproject1 t
-        (v, v') = unADValInterpretation stk2 $ tproject2 t
+    let (!u, !u') = unADValInterpretation stk1 $ tproject1 t in
+    let (!v, !v') = unADValInterpretation stk2 $ tproject2 t
     in (ttuple u v, ttuple u' v')
   STKUntyped ->
-    let (u, v) = unADValHVector $ unHVectorPseudoTensor t
+    let (!u, !v) = unADValHVector $ unHVectorPseudoTensor t
     in (HVectorPseudoTensor $ dmkHVector u, HVectorPseudoTensor $ HToH v)
 
 unDeltaRY :: forall y ranked. RankedOf (ShapedOf ranked) ~ ranked

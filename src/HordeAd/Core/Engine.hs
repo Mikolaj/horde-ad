@@ -206,9 +206,9 @@ revEvalArtifact
   -> Maybe (HVector ORArray)
   -> (HVector ORArray, HVector ORArray)
 {-# INLINE revEvalArtifact #-}
-revEvalArtifact (AstArtifact varsDt vars
-                             (HVectorPseudoTensor (AstRawWrap gradient))
-                             (HVectorPseudoTensor (AstRawWrap primal)))
+revEvalArtifact !(AstArtifact varsDt vars
+                              (HVectorPseudoTensor (AstRawWrap gradient))
+                              (HVectorPseudoTensor (AstRawWrap primal)))
                 parameters mdt =
   let domsB = voidFromVars varsDt
       dt1 = mapHVectorShaped (const $ srepl 1) $ V.map dynamicFromVoid domsB
@@ -229,9 +229,9 @@ revEvalArtifactTKNew
   -> Maybe (InterpretationTarget ORArray z)
   -> (HVector ORArray, InterpretationTarget ORArray z)
 {-# INLINE revEvalArtifactTKNew #-}
-revEvalArtifactTKNew (AstArtifactRev varDt var
-                             (HVectorPseudoTensor (AstRawWrap gradient))
-                             primal)
+revEvalArtifactTKNew !(AstArtifactRev varDt var
+                              (HVectorPseudoTensor (AstRawWrap gradient))
+                              primal)
                 parameters mdt =
   let oneAtF = interpretationConstant 1 $ tshapeFull (stensorKind @z) primal
       dt = fromMaybe oneAtF mdt
@@ -281,7 +281,7 @@ fwdEvalArtifact
   -> HVector ORArray
   -> (InterpretationTarget ORArray z, InterpretationTarget ORArray z)
 {-# INLINE fwdEvalArtifact #-}
-fwdEvalArtifact (AstArtifactFwd varD var derivative primal) parameters ds =
+fwdEvalArtifact !(AstArtifactFwd varD var derivative primal) parameters ds =
   if hVectorsMatch parameters ds then
     let env = extendEnv var (HVectorPseudoTensor $ dmkHVector parameters) emptyEnv
         envD = extendEnv varD (HVectorPseudoTensor $ dmkHVector ds) env

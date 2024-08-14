@@ -124,16 +124,16 @@ revArtifactFromForwardPass hasDt forwardPass parameters0 =
       !(!primalBody, !deltaIT) =
         unADValInterpretation (stensorKind @y)
         $ forwardPass hVectorPrimal vars hVector
-      delta = unDeltaRY (stensorKind @y) deltaIT
-      domsB = shapeAstHVector $ unAstRawWrap $ unHVectorPseudoTensor primalBody
+      !delta = unDeltaRY (stensorKind @y) deltaIT
+      !domsB = shapeAstHVector $ unAstRawWrap $ unHVectorPseudoTensor primalBody
   in fun1DToAst domsB $ \ !varsDt !astsDt ->
     let mdt = if hasDt
               then Just $ HVectorPseudoTensor $ dmkHVector $ rawHVector astsDt
               else Nothing
         !gradient = gradientFromDelta parameters0 primalBody mdt delta
-        unGradient = gunshare (stensorKind @TKUntyped)
-                     $ HVectorPseudoTensor $ dmkHVector gradient
-        unPrimal = gunshare (stensorKind @y) primalBody
+        !unGradient = gunshare (stensorKind @TKUntyped)
+                      $ HVectorPseudoTensor $ dmkHVector gradient
+        !unPrimal = gunshare (stensorKind @y) primalBody
 {- too expensive currently, so inlined as above:
         unGradient =
           mapInterpretationTarget unshareRaw unshareRawS (stensorKind @TKUntyped)
@@ -163,14 +163,14 @@ revArtifactFromForwardPassTKNew hasDt forwardPass parameters0 =
       !(!primalBody, !deltaIT) =
         unADValInterpretation (stensorKind @z)
         $ forwardPass hVectorPrimal var hVector
-      delta = unDeltaRY (stensorKind @z) deltaIT in
+      !delta = unDeltaRY (stensorKind @z) deltaIT in
   let (!varDt, !astDt) =
         funToAst (shapeAstFull $ unRawY (stensorKind @z) primalBody) id in
   let mdt = if hasDt then Just $ rawY (stensorKind @z) astDt else Nothing
       !gradient = gradientFromDelta parameters0 primalBody mdt delta
-      unGradient = gunshare (stensorKind @x)
+      !unGradient = gunshare (stensorKind @x)
                    $ HVectorPseudoTensor $ dmkHVector gradient
-      unPrimal = gunshare (stensorKind @z) primalBody
+      !unPrimal = gunshare (stensorKind @z) primalBody
 {- too expensive currently, so inlined as above:
       unGradient =
         mapInterpretationTarget unshareRaw unshareRawS (stensorKind @x)
@@ -249,10 +249,10 @@ fwdArtifactFromForwardPass forwardPass parameters0 =
   let !(!primalBody, !deltaIT) =
         unADValInterpretation (stensorKind @y)
         $ forwardPass hVectorPrimal vars hVector
-      delta = unDeltaRY (stensorKind @y) deltaIT in
+      !delta = unDeltaRY (stensorKind @y) deltaIT in
   let !derivative = derivativeFromDelta (V.length parameters0) delta hVectorDs
-      unDerivative = gunshare (stensorKind @y) derivative
-      unPrimal = gunshare (stensorKind @y) primalBody
+      !unDerivative = gunshare (stensorKind @y) derivative
+      !unPrimal = gunshare (stensorKind @y) primalBody
   in ( AstArtifact varsPrimalDs varsPrimal unDerivative unPrimal
      , delta )
 
@@ -282,10 +282,10 @@ fwdArtifactFromForwardPassTKNew forwardPass parameters0 =
   let !(!primalBody, !deltaIT) =
         unADValInterpretation (stensorKind @z)
         $ forwardPass hVectorPrimal var hVector
-      delta = unDeltaRY (stensorKind @z) deltaIT in
+      !delta = unDeltaRY (stensorKind @z) deltaIT in
   let !derivative = derivativeFromDelta (V.length parameters0) delta hVectorD
-      unDerivative = gunshare (stensorKind @z) derivative
-      unPrimal = gunshare (stensorKind @z) primalBody
+      !unDerivative = gunshare (stensorKind @z) derivative
+      !unPrimal = gunshare (stensorKind @z) primalBody
   in ( AstArtifactFwd varPrimalD varPrimal unDerivative unPrimal
      , delta )
 
@@ -807,6 +807,10 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     let g :: HVector (AstRanked FullSpan)
           -> HVectorPseudoTensor (AstRanked FullSpan) Float '()
         g !hv = unHFun f [hv]
+        -- No bangs here, because this goes under lambda and may be unneeded
+        -- or even incorrect (and so, e.g., trigger
+        -- `error "tunshare: used not at PrimalSpan"`, because no derivative
+        -- should be taken of spans other than PrimalSpan)
         (AstArtifact varsDt vars gradient _primal, _delta) =
           revProduceArtifact True g emptyEnv shs
      in AstLambda ([varsDt, vars], simplifyInlineHVector $ unAstRawWrap $ unHVectorPseudoTensor gradient)

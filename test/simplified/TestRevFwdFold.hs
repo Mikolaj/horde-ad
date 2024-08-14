@@ -2121,7 +2121,7 @@ testSin0rmapAccumRD01SN531b0 = do
                                         $ sfromR x0 ])
                           (dmkHVector $ V.fromList [ DynamicRanked @Double @1
                                         $ rconst $ Nested.Internal.rfromListPrimLinear (fromList [0]) [] ]))))
-                        $ \d -> rfromD $ d V.! 0
+                        $ \ !d -> rfromD $ d V.! 0
            in f) 1.1)
 
 testSin0rmapAccumRD01SN531bS :: Assertion
@@ -2144,7 +2144,7 @@ testSin0rmapAccumRD01SN531bS = do
                            in g)
                           (dmkHVector $ V.fromList [ DynamicShaped x0 ])
                           (dmkHVector $ V.fromList [ DynamicShaped @Double @'[1] (srepl 0) ]))))
-                        $ \d -> sfromD $ d V.! 0
+                        $ \ !d -> sfromD $ d V.! 0
            in rfromS . f . sfromR) 1.1)
 
 testSin0rmapAccumRD01SN531bR :: Assertion
@@ -2168,7 +2168,7 @@ testSin0rmapAccumRD01SN531bR = do
                           (dmkHVector $ V.fromList [ DynamicRanked x0 ])
                           (dmkHVector $ V.fromList [ DynamicRanked @Double @1
                                         $ rconst $ Nested.Internal.rfromListPrimLinear (fromList [1]) [0] ]))))
-                        $ \d -> rfromD $ d V.! 0
+                        $ \ !d -> rfromD $ d V.! 0
            in f) 1.1)
 
 testSin0rmapAccumRD01SN531b0PP :: Assertion
@@ -2192,7 +2192,7 @@ testSin0rmapAccumRD01SN531b0PP = do
                                         $ sfromD (x0 V.! 0) ])
                           (dmkHVector $ V.fromList [ DynamicRanked @Double @1
                                         $ rconst $ Nested.Internal.rfromListPrimLinear (fromList [0]) [] ]))))
-                        $ \d -> rfromD $ d V.! 0
+                        $ \ !d -> rfromD $ d V.! 0
       g :: forall g. HVectorTensor g (ShapedOf g) => HVector g -> HVectorOf g
       g = rrev f (V.singleton (voidFromSh @Double ZSR))
   printAstHVectorPrettyButNested
@@ -2220,7 +2220,7 @@ testSin0rmapAccumRD01SN531bSPP = do
                            in h)
                           (dmkHVector x0)
                           (dmkHVector $ V.fromList [ DynamicShaped @Double @'[1] (srepl 0) ]))))
-                        $ \d -> sfromD $ d V.! 0
+                        $ \ !d -> sfromD $ d V.! 0
       g :: forall g. ADReady g => HVector g -> HVectorOf g
       g = srev f (V.singleton (voidFromShS @Double @'[]))
   printAstHVectorPretty
@@ -2248,7 +2248,7 @@ testSin0rmapAccumRD01SN531bSPPFull = do
                            in h)
                           (dmkHVector x0)
                           (dmkHVector $ V.fromList [ DynamicShaped @Double @'[1] (srepl 0) ]))))
-                        $ \d -> sfromD $ d V.! 0
+                        $ \ !d -> sfromD $ d V.! 0
       g :: forall g. ADReady g => HVector g -> HVectorOf g
       g = srev f (V.singleton (voidFromShS @Double @'[]))
   printAstHVectorPretty
@@ -2277,7 +2277,7 @@ testSin0rmapAccumRD01SN531bRPP = do
                           (dmkHVector x0)
                           (dmkHVector $ V.fromList [ DynamicRanked @Double @1
                                         $ rconst $ Nested.Internal.rfromListPrimLinear (fromList [1]) [0] ]))))
-                        $ \d -> rfromD $ d V.! 0
+                        $ \ !d -> rfromD $ d V.! 0
       g :: forall g. HVectorTensor g (ShapedOf g) => HVector g -> HVectorOf g
       g = rrev f (V.singleton (voidFromSh @Double ZSR))
   printAstHVectorSimple
@@ -2309,7 +2309,7 @@ testSin0rmapAccumRD01SN531b0PPj = do
                                  + sfromD (x0 V.! 0) ])
                           (dmkHVector $ V.fromList [ DynamicRanked @Double @1
                                         $ rconst $ Nested.Internal.rfromListPrimLinear (fromList [0]) [] ]))))
-                        $ \d -> rfromD $ d V.! 0
+                        $ \ !d -> rfromD $ d V.! 0
       g :: forall g. HVectorTensor g (ShapedOf g) => HVector g -> HVectorOf g
       g = rrev f (V.singleton (voidFromSh @Double ZSR))
   printAstHVectorPretty
@@ -2340,7 +2340,7 @@ testSin0rmapAccumRD01SN531bSPPj = do
                                $ sfromIntegral (sconstant (sfromR (i + j)))
                                  + sfromD (x0 V.! 0) ])
                           (dmkHVector $ V.fromList [ DynamicShaped @Double @'[1] (srepl 0) ]))))
-                        $ \d -> sfromD $ d V.! 0
+                        $ \ !d -> sfromD $ d V.! 0
       g :: forall g. ADReady g => HVector g -> HVectorOf g
       g = srev f (V.singleton (voidFromShS @Double @'[]))
   printAstHVectorPretty
@@ -2372,7 +2372,7 @@ testSin0rmapAccumRD01SN531bRPPj = do
                                  + rfromD (x0 V.! 0) ])
                           (dmkHVector $ V.fromList [ DynamicRanked @Double @1
                                         $ rconst $ Nested.Internal.rfromListPrimLinear (fromList [1]) [0] ]))))
-                        $ \d -> rfromD $ d V.! 0
+                        $ \ !d -> rfromD $ d V.! 0
       g :: forall g. HVectorTensor g (ShapedOf g) => HVector g -> HVectorOf g
       g = rrev f (V.singleton (voidFromSh @Double ZSR))
   printAstHVectorPretty
@@ -4426,7 +4426,7 @@ fFoldZipR domsOD p as rf shn cShared =
         rscanZip
           (\cr doms ->
               let (x, a) = domsToPair doms
-              in rletHVectorIn (rf cr x a) $ \rfRes ->
+              in rletHVectorIn (rf cr x a) $ \ !rfRes ->
                    fst (domsToPair rfRes))
           domsF
           cShared
@@ -4440,7 +4440,7 @@ fFoldZipR domsOD p as rf shn cShared =
                   (\doms ->
                      let (cr, x, a) = domsTo3 doms
                      in dletHVectorInHVector
-                          (rf cr x a) $ \rfRes ->
+                          (rf cr x a) $ \ !rfRes ->
                             dmkHVector $ snd $ domsToPair rfRes)
                   (V.cons (DynamicRanked cr2)
                    $ V.cons (DynamicRanked x2) a2)
@@ -4513,7 +4513,7 @@ fFoldS p as rf cShared =
         sscanZip (\cr doms ->
                     let (x, a) = domsToPair doms
                     in sletHVectorIn
-                         (rf cr x a) $ \rfRes ->
+                         (rf cr x a) $ \ !rfRes ->
                            fst (domsToPair rfRes))
                domsF
                cShared
@@ -4527,7 +4527,7 @@ fFoldS p as rf cShared =
          -> shaped rm (k ': shm)
          -> shaped rm (k ': shm)
       rg = szipWith31 (\cr x a ->
-                         sletHVectorIn (rf cr x a) $ \rfRes ->
+                         sletHVectorIn (rf cr x a) $ \ !rfRes ->
                            snd $ domsToPair rfRes)
       cas = rg (sslice @_ @_ @_ @_ @0
                        (Proxy @1) (Proxy @k) crs)
