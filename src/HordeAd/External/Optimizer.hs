@@ -42,7 +42,7 @@ sgd gamma f trainingData parameters0 = go trainingData parameters0 where
   go (a : rest) !parameters =
     let inputs = makeADInputs parameters deltaInputs
         (gradients, valueNew) =
-          crevOnADInputs Nothing (g a) inputs
+          crevOnADInputs @_ @TKUntyped Nothing (g a) inputs
         parametersNew = updateWithGradient gamma parameters
                         $ unHVectorPseudoTensor gradients
     in if null rest
@@ -91,7 +91,7 @@ sgdAdamArgs updateWith argsAdam f trainingData !parameters0 !stateAdam0 =
   go (a : rest) !parameters !stateAdam =
     let inputs = makeADInputs parameters deltaInputs
         gradients = unHVectorPseudoTensor $ fst
-                    $ crevOnADInputs Nothing (g a) inputs
+                    $ crevOnADInputs @_ @TKUntyped Nothing (g a) inputs
         (parametersNew, stateAdamNew) =
           updateWith argsAdam stateAdam parameters gradients
     in go rest parametersNew stateAdamNew

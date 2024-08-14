@@ -344,7 +344,8 @@ crevDtMaybe f vals mdt =
       valsH = toHVectorOf vals
       mdth = toHVector @ORArray <$> mdt
   in parseHVector vals $ unHVectorPseudoTensor $ fst
-     $ crevOnHVector ((HVectorPseudoTensor . dmkHVector) <$> mdth) g valsH
+     $ crevOnHVector @_ @TKUntyped
+                     ((HVectorPseudoTensor . dmkHVector) <$> mdth) g valsH
 
 {-# SPECIALIZE crevOnHVector
   :: Maybe (HVector ORArray)

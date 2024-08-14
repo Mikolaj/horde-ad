@@ -53,7 +53,7 @@ import HordeAd.Util.SizedList
 -- * Non-symbolic reverse and forward derivative computation
 
 crevOnADInputs
-  :: forall x z ranked. (x ~ TKUntyped, z ~ TKUntyped, ADReady ranked)
+  :: forall x z ranked. (x ~ TKUntyped, TensorKind z, ADReady ranked)
   => Maybe (InterpretationTarget ranked z)
   -> (HVector (ADVal ranked) -> InterpretationTarget (ADVal ranked) z)
   -> HVector (ADVal ranked)
@@ -76,7 +76,7 @@ crevOnADInputs mdt f inputs =
      , tunshare v )
 
 crevOnHVector
-  :: (x ~ TKUntyped, z ~ TKUntyped, ADReady ranked)
+  :: (x ~ TKUntyped, TensorKind z, ADReady ranked)
 --  :: (x ~ TKUntyped, TensorKind z, ADReady ranked)
   => Maybe (InterpretationTarget ranked z)
   -> (HVector (ADVal ranked) -> InterpretationTarget (ADVal ranked) z)

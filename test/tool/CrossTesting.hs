@@ -80,7 +80,8 @@ crevDtMaybeBoth mdt f vals =
       valsH = toHVectorOf vals
       mdth = toHVector <$> mdt
       (grad, res) =
-        crevOnHVector ((HVectorPseudoTensor . dmkHVector) <$> mdth) g valsH
+        crevOnHVector @_ @TKUntyped
+                      ((HVectorPseudoTensor . dmkHVector) <$> mdth) g valsH
   in ( parseHVector vals $ unHVectorPseudoTensor grad
      , rfromD $ unHVectorPseudoTensor res V.! 0 )
 
