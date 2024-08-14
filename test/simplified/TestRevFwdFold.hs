@@ -51,6 +51,7 @@ testTrees =
   , testCase "4Sin0Rrev4'" testSin0Rrev4'
   , testCase "4Sin0Rrev5'" testSin0Rrev5'
   , testCase "4Sin0Rfwd" testSin0Rfwd
+  , testCase "4Sin0RfwdPP0" testSin0RfwdPP0
   , testCase "4Sin0RfwdPP1" testSin0RfwdPP1
   , testCase "4Sin0RfwdPP1FullUnsimp" testSin0RfwdPP1FullUnsimp
   , testCase "4Sin0RfwdPP1Full" testSin0RfwdPP1Full
@@ -407,11 +408,18 @@ testSin0Rfwd = do
     (rscalar 0.4535961214255773)  -- agrees with the rrev1 version above
     (rfwd1 @ORArray @Double @0 @0 sin (rscalar 1.1))
 
+testSin0RfwdPP0 :: Assertion
+testSin0RfwdPP0 = do
+  resetVarCounter
+  let a1 = rfwd1 @(AstRanked PrimalSpan) @Double @0 @0 sin (rscalar 1.1)
+  printAstPretty IM.empty a1
+    @?= "1.0 * cos 1.1"
+
 testSin0RfwdPP1 :: Assertion
 testSin0RfwdPP1 = do
   resetVarCounter
   let a1 = rfwd1 @(AstRanked PrimalSpan) @Double @0 @0 sin (rscalar 1.1)
-  printAstPretty IM.empty a1
+  printAstPretty IM.empty (simplifyInlineAst a1)
     @?= "1.0 * cos 1.1"  -- agrees with the rrev1 version above
 
 testSin0RfwdPP1FullUnsimp :: Assertion
@@ -419,14 +427,14 @@ testSin0RfwdPP1FullUnsimp = do
   resetVarCounter
   let a1 = rfwd1 @(AstRanked FullSpan) @Double @0 @0 sin (rscalar 1.1)
   printAstPretty IM.empty a1
-    @?= "rproject ((\\[x1] [x2] -> [x1 * cos x2]) [[1.0], [1.1]]) 0"
+    @?= "rproject ((\\h1 -> let h2 = tproject1 h1 ; h3 = tproject2 h1 in [rproject h2 0 * cos (rproject h3 0)]) (ttuple ([1.0], [1.1]))) 0"
 
 testSin0RfwdPP1Full :: Assertion
 testSin0RfwdPP1Full = do
   resetVarCounter
   let a1 = rfwd1 @(AstRanked FullSpan) @Double @0 @0 sin (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineAst a1)
-    @?= "rproject ((\\[x1] [x2] -> [x1 * cos x2]) [[1.0], [1.1]]) 0"
+    @?= "rproject ((\\h1 -> [rproject (tproject1 h1) 0 * cos (rproject (tproject2 h1) 0)]) (ttuple ([1.0], [1.1]))) 0"
 
 testSin0Rfwd3 :: Assertion
 testSin0Rfwd3 = do
@@ -1018,7 +1026,7 @@ testSin0ScanFwdPP = do
                  (\x0 -> rscan (\x _a -> sin x) x0
                            ((rrepl @Double @1 [2] 42))) (rscalar 1.1)
   printAstPrettyButNested IM.empty (simplifyInlineAst a1)
-    @?= "let v5 = rconst (rfromListLinear [2] [42.0,42.0]) in let [x6 @Natural @Double @[], v7 @Natural @Double @[2], v8 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) (\\[x12] [x13] -> let x17 = sin x12 in [x17, x12, x17]) (\\[x20, x21] [x22, x23] -> let x31 = x20 * cos x22 in [x31, x20, x31]) (\\[x34, x35, x36] [x37, x38] -> [cos x37 * (x36 + x34) + x35, 0.0]) [1.1] [v5] in let [x9 @Natural @Double @[], v10 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) (\\[x47] [x48, x49, x50] -> let x51 = x47 * cos x49 in [x51, x51]) (\\[x52, x54, x56, x58] [x53, x55, x57, x59] -> let x64 = x52 * cos x57 + (x56 * negate (sin x57)) * x53 in [x64, x64]) (\\[x72, x73] [x65, x66, x67, x68] -> let x74 = x73 + x72 in [cos x67 * x74, 0, negate (sin x67) * (x65 * x74), 0]) [1.0] [rreplicate 2 0.0, v7, v5] in rappend (rreplicate 1 1.0) v10"
+    @?= "let v7 = rconst (rfromListLinear [2] [42.0,42.0]) in let [x8 @Natural @Double @[], v9 @Natural @Double @[2], v10 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) (\\[x14] [x15] -> let x19 = sin x14 in [x19, x14, x19]) (\\[x22, x23] [x24, x25] -> let x33 = x22 * cos x24 in [x33, x22, x33]) (\\[x36, x37, x38] [x39, x40] -> [cos x39 * (x38 + x36) + x37, 0.0]) [1.1] [v7] in let [x11 @Natural @Double @[], v12 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) (\\[x49] [x50, x51, x52] -> let x53 = x49 * cos x51 in [x53, x53]) (\\[x54, x56, x58, x60] [x55, x57, x59, x61] -> let x66 = x54 * cos x59 + (x58 * negate (sin x59)) * x55 in [x66, x66]) (\\[x74, x75] [x67, x68, x69, x70] -> let x76 = x75 + x74 in [cos x69 * x76, 0, negate (sin x69) * (x67 * x76), 0]) [1.0] [rreplicate 2 0.0, v9, v7] in rappend (rreplicate 1 1.0) v12"
 
 testSin0ScanFwdPPFull :: Assertion
 testSin0ScanFwdPPFull = do
@@ -1027,7 +1035,7 @@ testSin0ScanFwdPPFull = do
                  (\x0 -> rscan (\x _a -> sin x) x0
                            ((rrepl @Double @1 [2] 42))) (rscalar 1.1)
   printAstPrettyButNested IM.empty (simplifyInlineAst a1)
-    @?= "rproject ((\\[x1] [x2] -> let v5 = rconst (rfromListLinear [2] [42.0,42.0]) in let [x6 @Natural @Double @[], v7 @Natural @Double @[2], v8 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) (\\[x12] [x13] -> let x17 = sin x12 in [x17, x12, x17]) (\\[x20, x21] [x22, x23] -> let x31 = x20 * cos x22 in [x31, x20, x31]) (\\[x34, x35, x36] [x37, x38] -> [cos x37 * (x36 + x34) + x35, 0.0]) [x2] [v5] in let [x9 @Natural @Double @[], v10 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) (\\[x47] [x48, x49, x50] -> let x51 = x47 * cos x49 in [x51, x51]) (\\[x52, x54, x56, x58] [x53, x55, x57, x59] -> let x64 = x52 * cos x57 + (x56 * negate (sin x57)) * x53 in [x64, x64]) (\\[x72, x73] [x65, x66, x67, x68] -> let x74 = x73 + x72 in [cos x67 * x74, 0, negate (sin x67) * (x65 * x74), 0]) [x1] [rreplicate 2 0.0, v7, v5] in [rappend (rreplicate 1 x1) v10]) [[1.0], [1.1]]) 0"
+    @?= "rproject ((\\h1 -> let v7 = rconst (rfromListLinear [2] [42.0,42.0]) in let [x8 @Natural @Double @[], v9 @Natural @Double @[2], v10 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) (\\[x14] [x15] -> let x19 = sin x14 in [x19, x14, x19]) (\\[x22, x23] [x24, x25] -> let x33 = x22 * cos x24 in [x33, x22, x33]) (\\[x36, x37, x38] [x39, x40] -> [cos x39 * (x38 + x36) + x37, 0.0]) [rproject (tproject2 h1) 0] [v7] in let [x11 @Natural @Double @[], v12 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) (\\[x49] [x50, x51, x52] -> let x53 = x49 * cos x51 in [x53, x53]) (\\[x54, x56, x58, x60] [x55, x57, x59, x61] -> let x66 = x54 * cos x59 + (x58 * negate (sin x59)) * x55 in [x66, x66]) (\\[x74, x75] [x67, x68, x69, x70] -> let x76 = x75 + x74 in [cos x69 * x76, 0, negate (sin x69) * (x67 * x76), 0]) [rproject (tproject1 h1) 0] [rreplicate 2 0.0, v9, v7] in [rappend (rreplicate 1 (rproject (tproject1 h1) 0)) v12]) (ttuple ([1.0], [1.1]))) 0"
 
 testSin0Scan1Rev2PP1 :: Assertion
 testSin0Scan1Rev2PP1 = do
@@ -1098,7 +1106,7 @@ testSin0ScanFwd3PP = do
                  (\x0 -> rscan (\x a -> sin x - a) x0
                            (rfromList [x0 * 5, x0 * 7])) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineAst a1)
-    @?= "let v5 = rfromVector (fromList [1.1 * 5.0, 1.1 * 7.0]) in let [x6 @Natural @Double @[], v7 @Natural @Double @[2], v8 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.1] [v5] in let [x12 @Natural @Double @[], v13 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.0] [rfromVector (fromList [1.0 * 5.0, 1.0 * 7.0]), v7, v5] in rappend (rreplicate 1 1.0) v13"
+    @?= "let v7 = rfromVector (fromList [1.1 * 5.0, 1.1 * 7.0]) in let [x8 @Natural @Double @[], v9 @Natural @Double @[2], v10 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.1] [v7] in let [x14 @Natural @Double @[], v15 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.0] [rfromVector (fromList [1.0 * 5.0, 1.0 * 7.0]), v9, v7] in rappend (rreplicate 1 1.0) v15"
 
 testSin0Scan1Rev3 :: Assertion
 testSin0Scan1Rev3 = do
@@ -3069,7 +3077,7 @@ testSin0ScanDFwdPP = do
                            x0 (V.singleton $ DynamicRanked
                                $ (rrepl @Double @1 [2] 42))) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineAst a1)
-    @?= "let v5 = rconst (rfromListLinear [2] [42.0,42.0]) in let [x6 @Natural @Double @[], v7 @Natural @Double @[2], v8 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.1] [v5] in let [x9 @Natural @Double @[], v10 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.0] [rreplicate 2 0.0, v7, v5] in rappend (rreplicate 1 1.0) v10"
+    @?= "let v7 = rconst (rfromListLinear [2] [42.0,42.0]) in let [x8 @Natural @Double @[], v9 @Natural @Double @[2], v10 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.1] [v7] in let [x11 @Natural @Double @[], v12 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.0] [rreplicate 2 0.0, v9, v7] in rappend (rreplicate 1 1.0) v12"
 
 testSin0ScanD1Rev2PP :: Assertion
 testSin0ScanD1Rev2PP = do
@@ -3091,7 +3099,7 @@ testSin0ScanDFwd2PP = do
                          x0 (V.singleton $ DynamicRanked
                          $ rconst (Nested.Internal.rfromListPrimLinear @Double @1 (fromList [2]) [5, 7]))) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineAst a1)
-    @?= "let v5 = rconst (rfromListLinear [2] [5.0,7.0]) in let [x6 @Natural @Double @[], v7 @Natural @Double @[2], v8 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.1] [v5] in let [x9 @Natural @Double @[], v10 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.0] [rreplicate 2 0.0, v7, v5] in rappend (rreplicate 1 1.0) v10"
+    @?= "let v7 = rconst (rfromListLinear [2] [5.0,7.0]) in let [x8 @Natural @Double @[], v9 @Natural @Double @[2], v10 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.1] [v7] in let [x11 @Natural @Double @[], v12 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.0] [rreplicate 2 0.0, v9, v7] in rappend (rreplicate 1 1.0) v12"
 
 testSin0ScanD1Rev2 :: Assertion
 testSin0ScanD1Rev2 = do
@@ -3138,7 +3146,7 @@ testSin0ScanDFwd3PP = do
                                 x0 (V.singleton $ DynamicRanked
                                     $ rfromList [x0 * 5, x0 * 7])) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineAst a1)
-    @?= "let v5 = rfromVector (fromList [1.1 * 5.0, 1.1 * 7.0]) in let [x6 @Natural @Double @[], v7 @Natural @Double @[2], v8 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.1] [v5] in let [x12 @Natural @Double @[], v13 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.0] [rfromVector (fromList [1.0 * 5.0, 1.0 * 7.0]), v7, v5] in rappend (rreplicate 1 1.0) v13"
+    @?= "let v7 = rfromVector (fromList [1.1 * 5.0, 1.1 * 7.0]) in let [x8 @Natural @Double @[], v9 @Natural @Double @[2], v10 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.1] [v7] in let [x14 @Natural @Double @[], v15 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.0] [rfromVector (fromList [1.0 * 5.0, 1.0 * 7.0]), v9, v7] in rappend (rreplicate 1 1.0) v15"
 
 testSin0ScanD0fwd :: Assertion
 testSin0ScanD0fwd = do

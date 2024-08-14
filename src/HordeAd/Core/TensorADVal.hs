@@ -454,8 +454,15 @@ instance ADReadyBoth ranked shaped
       let (D u u') = a
           !var2 = sshare u
       in f (dDnotShared var2 u')
-    STKProduct{} -> error "TODO"
-    STKUntyped{} -> error "TODO"
+    STKProduct{} ->
+      -- TODO: seems wrong: a gets computed twice unless the projection
+      -- gets simplified early enough, which maybe it does?
+      dlet (tproject1 a) $ \a1 ->
+        dlet (tproject2 a) $ \a2 -> f (ttuple a1 a2)
+    STKUntyped{} ->
+      let (!u, !u') = unADValHVector $ unHVectorPseudoTensor a
+          !var2 = dunHVector $ dshare $ dmkHVector u  -- TODO: slow
+      in f (HVectorPseudoTensor $ aDValHVector var2 u')
   tunshare = id
   dbuild1 k f =
     ravelHVector $ map (f . fromIntegral) [0 .. sNatValue k - 1]

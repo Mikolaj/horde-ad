@@ -746,8 +746,12 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   dlet u f = case stensorKind @y of
     STKR{} -> astLetFun (unAstRanked u) (f . AstRanked)
     STKS{} -> astLetFun (unAstShaped u) (f . AstShaped)
-    STKProduct{} -> error "TODO"
-    STKUntyped{} -> error "TODO"
+    STKProduct{} ->
+      -- TODO: seems wrong: a gets computed twice unless the projection
+      -- gets simplified early enough, which maybe it does?
+      dlet (tproject1 u) $ \a1 ->
+        dlet (tproject2 u) $ \a2 -> f (ttuple a1 a2)
+    STKUntyped{} -> astLetFun (unHVectorPseudoTensor u) (f . HVectorPseudoTensor)
   -- For convenience and simplicity we define this for all spans,
   -- but it can only ever be used for PrimalSpan.
   -- In this instance, these three ops are only used for some rare tests that

@@ -837,19 +837,24 @@ class HVectorTensor (ranked :: RankedTensorType)
         h = drevDt @ranked shs (HFun $ HVectorPseudoTensor . g)
     in \es dt -> unHVectorPseudoTensor
                  $ dHApply @_ @_ @TKUntyped h [V.singleton $ DynamicRanked dt, es]
-  rfwd :: (GoodScalar r, KnownNat n, RankedTensor ranked)
+  rfwd :: (GoodScalar r, KnownNat n, RankedTensor ranked, ProductTensor ranked)
        => (forall f. ADReady f => HVector f -> f r n)
        -> VoidHVector
        -> HVector ranked
        -> HVector ranked  -- ^ incoming tangent (ds)
        -> ranked r n
   rfwd f shs =
-    let g :: forall f. ADReady f => [HVector f] -> HVectorOf f
-        g [!x] = dmkHVector $ V.singleton $ DynamicRanked $ f x
-        g _ = error "g: wrong number of arguments"
-        h = dfwd @ranked shs (HFun $ HVectorPseudoTensor . g)
+    let g :: forall f. ADReady f => HVectorOf f -> HVectorOf f
+        g !xOf = dletHVectorInHVector xOf $ \x ->
+          dmkHVector $ V.singleton $ DynamicRanked $ f x
+        h = dfwdTKNew @ranked (FTKUntyped shs)
+              (HFunTKNew @_ @TKUntyped
+               $ HVectorPseudoTensor . g . unHVectorPseudoTensor)
     in \es ds -> let hv = unHVectorPseudoTensor
-                          $ dHApply @_ @_ @TKUntyped h [ds, es]
+                          $ dHApplyTKNew
+                              @_ @_ @(TKProduct TKUntyped TKUntyped) @TKUntyped h
+                          $ ttuple (HVectorPseudoTensor $ dmkHVector ds)
+                                   (HVectorPseudoTensor $ dmkHVector es)
                  in rfromD $ dunHVector hv V.! 0
   srev :: ( GoodScalar r, KnownShS sh, shaped ~ ShapedOf ranked
           , ShapedTensor shaped )
@@ -872,19 +877,25 @@ class HVectorTensor (ranked :: RankedTensorType)
     in \es dt -> unHVectorPseudoTensor
                  $ dHApply @_ @_ @TKUntyped h [V.singleton $ DynamicShaped dt, es]
   sfwd :: ( GoodScalar r, KnownShS sh, RankedTensor ranked, ShapedTensor shaped
-          , shaped ~ ShapedOf ranked, ranked ~ RankedOf shaped )
+          , ProductTensor ranked, shaped ~ ShapedOf ranked
+          , ranked ~ RankedOf shaped )
        => (forall f. ADReadyS f => HVector (RankedOf f) -> f r sh)
        -> VoidHVector
        -> HVector ranked
        -> HVector ranked
        -> shaped r sh
   sfwd f shs =
-    let g :: forall f. ADReady f => [HVector f] -> HVectorOf f
-        g [!x] = dmkHVector $ V.singleton $ DynamicShaped $ f x
-        g _ = error "g: wrong number of arguments"
-        h = dfwd @ranked shs (HFun $ HVectorPseudoTensor . g)
+    let g :: forall f. ADReady f => HVectorOf f -> HVectorOf f
+        g !xOf = dletHVectorInHVector xOf $ \x ->
+          dmkHVector $ V.singleton $ DynamicShaped $ f x
+        h = dfwdTKNew @ranked (FTKUntyped shs)
+              (HFunTKNew @_ @TKUntyped
+               $ HVectorPseudoTensor . g . unHVectorPseudoTensor)
     in \es ds -> let hv = unHVectorPseudoTensor
-                          $ dHApply @_ @_ @TKUntyped h [ds, es]
+                          $ dHApplyTKNew
+                              @_ @_ @(TKProduct TKUntyped TKUntyped) @TKUntyped h
+                          $ ttuple (HVectorPseudoTensor $ dmkHVector ds)
+                                   (HVectorPseudoTensor $ dmkHVector es)
                  in sfromD $ dunHVector hv V.! 0
   -- These methods (and dlambda) producing HFunOf is analogous to dmkHVector
   -- producing HVectorOf and it's exactly what is needed as arguments
