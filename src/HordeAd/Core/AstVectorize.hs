@@ -753,7 +753,25 @@ substProjInterpretationTarget snat@SNat var ftk2 var1 v
                   prVar2 = astProject2 prVar
               in Ast.AstTuple (projection prVar1 ftk41)
                               (projection prVar2 ftk42)
-          FTKUntyped _ -> error "TODO"
+          ftk@(FTKUntyped shs0) -> case buildTensorKindFull snat ftk of
+            FTKUntyped shs -> fun1DToAst shs $ \ !vars !asts ->
+              let projDyn :: DynamicTensor (AstRanked s2)
+                          -> DynamicTensor VoidTensor
+                          -> DynamicTensor (AstRanked s2)
+                  projDyn (DynamicRanked @_ @n2 (AstRanked t))
+                          (DynamicRankedDummy @_ @sh3 _ _)
+                    | Just Refl <- matchingRank @(k ': sh3) @n2 =
+                      withListSh (Proxy @sh3) $ \sh1 ->
+                        DynamicRanked $ AstRanked $ projection t (FTKR sh1)
+                  projDyn (DynamicShaped @_ @sh2 (AstShaped t))
+                          (DynamicShapedDummy @_ @sh3 _ _)
+                    | Just Refl <- sameShape @sh2 @(k ': sh3) =
+                      DynamicShaped $ AstShaped $ projection t (FTKS @_ @sh3)
+                  projDyn _ _ = error "projDyn: impossible DynamicTensor cases"
+              in Ast.AstLetHVectorInHVector
+                   vars
+                   prVar
+                   (Ast.AstMkHVector $ V.zipWith projDyn asts shs0)
         v2 = substituteAst
                (SubstitutionPayload @s2 (projection astVar3 ftk2))
                var1 v

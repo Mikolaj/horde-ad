@@ -348,11 +348,10 @@ crevDtMaybe f vals mdt =
                      ((HVectorPseudoTensor . dmkHVector) <$> mdth) g valsH
 
 {-# SPECIALIZE crevOnHVector
-  :: Maybe (HVector ORArray)
-  -> (HVector (ADVal ORArray)
-  -> ADVal (HVectorPseudoTensor ORArray) Float '())
+  :: Maybe (InterpretationTarget ORArray TKUntyped)
+  -> (HVector (ADVal ORArray) -> InterpretationTarget (ADVal ORArray) TKUntyped)
   -> HVector ORArray
-  -> (HVector ORArray, HVector ORArray) #-}
+  -> (InterpretationTarget ORArray TKUntyped, InterpretationTarget ORArray TKUntyped) #-}
 
 
 -- * Old derivative adaptors, with constant and fixed inputs

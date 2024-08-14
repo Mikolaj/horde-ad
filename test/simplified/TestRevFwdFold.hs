@@ -2227,7 +2227,7 @@ testSin0rmapAccumRD01SN531bSPP = do
     IM.empty
     (simplifyInlineHVector
      $ g @(AstRanked PrimalSpan) (V.singleton $ DynamicShaped @Double @'[] (sscalar 1.1)))
-    @?= "let [x6 @[Natural] @Double @[], v7 @[Natural] @Double @[1]] = dmapAccumRDer (SNat @1) <lambda> <lambda> <lambda> [1.1] [sconst @[1] (sfromListLinear [1] [0.0])] in let [x9 @[Natural] @Double @[], v10 @[Natural] @Double @[1]] = dmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> [4.0] [v7, sconst @[1] (sfromListLinear [1] [0.0])] in [x9]"
+    @?= "let [x8 @[Natural] @Double @[], v9 @[Natural] @Double @[1]] = dmapAccumRDer (SNat @1) <lambda> <lambda> <lambda> [1.1] [sconst @[1] (sfromListLinear [1] [0.0])] in let [x11 @[Natural] @Double @[], v12 @[Natural] @Double @[1]] = dmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> [4.0] [v9, sconst @[1] (sfromListLinear [1] [0.0])] in [x11]"
 
 testSin0rmapAccumRD01SN531bSPPFull :: Assertion
 testSin0rmapAccumRD01SN531bSPPFull = do
@@ -2255,7 +2255,7 @@ testSin0rmapAccumRD01SN531bSPPFull = do
     IM.empty
     (simplifyInlineHVector
      $ g @(AstRanked FullSpan) (V.singleton $ DynamicShaped @Double @'[] (sscalar 1.1)))
-    @?= "(\\[m8] [x1] -> let [x6 @[Natural] @Double @[], v7 @[Natural] @Double @[1]] = dmapAccumRDer (SNat @1) <lambda> <lambda> <lambda> [x1] [sconst @[1] (sfromListLinear [1] [0.0])] in let [x9 @[Natural] @Double @[], v10 @[Natural] @Double @[1]] = dmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> [ssum (ssum m8)] [v7, sconst @[1] (sfromListLinear [1] [0.0])] in [x9]) [[sconst @[2,2] (sfromListLinear [2,2] [1.0,1.0,1.0,1.0])], [1.1]]"
+    @?= "(\\h1 -> let [x8 @[Natural] @Double @[], v9 @[Natural] @Double @[1]] = dmapAccumRDer (SNat @1) <lambda> <lambda> <lambda> [sproject (tproject2 h1) 0] [sconst @[1] (sfromListLinear [1] [0.0])] in let [x11 @[Natural] @Double @[], v12 @[Natural] @Double @[1]] = dmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> [ssum (ssum (sproject (tproject1 h1) 0))] [v9, sconst @[1] (sfromListLinear [1] [0.0])] in [x11]) (ttuple ([sconst @[2,2] (sfromListLinear [2,2] [1.0,1.0,1.0,1.0])], [1.1]))"
 
 testSin0rmapAccumRD01SN531bRPP :: Assertion
 testSin0rmapAccumRD01SN531bRPP = do
@@ -2347,7 +2347,7 @@ testSin0rmapAccumRD01SN531bSPPj = do
     IM.empty
     (simplifyInlineHVector
      $ g @(AstRanked PrimalSpan) (V.singleton $ DynamicShaped @Double @'[] (sscalar 1.1)))
-    @?= "let [m11 @[Natural] @Double @[2,2], t12 @[Natural] @Double @[1,2,2]] = dmapAccumRDer (SNat @1) <lambda> <lambda> <lambda> [sconst @[2,2] (sfromListLinear [2,2] [0.0,0.0,0.0,0.0]) + sreplicate (sreplicate 1.1) + sfromIntegral (sfromR (rtranspose [1,0] (rreplicate 2 (rconst (rfromListLinear [2] [0,1]))) + rreplicate 2 (rconst (rfromListLinear [2] [0,1]))))] [stranspose (sreplicate (sreplicate (sconst @[1] (sfromListLinear [1] [0.0]))))] in let [m16 @[Natural] @Double @[2,2], t17 @[Natural] @Double @[1,2,2]] = dmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> [sscatter (sconst @[2,2] (sfromListLinear [2,2] [1.0,1.0,1.0,1.0])) (\\[i15] -> [i15])] [t12, stranspose (sreplicate (sreplicate (sconst @[1] (sfromListLinear [1] [0.0]))))] in [ssum (ssum m16)]"
+    @?= "let [m13 @[Natural] @Double @[2,2], t14 @[Natural] @Double @[1,2,2]] = dmapAccumRDer (SNat @1) <lambda> <lambda> <lambda> [sconst @[2,2] (sfromListLinear [2,2] [0.0,0.0,0.0,0.0]) + sreplicate (sreplicate 1.1) + sfromIntegral (sfromR (rtranspose [1,0] (rreplicate 2 (rconst (rfromListLinear [2] [0,1]))) + rreplicate 2 (rconst (rfromListLinear [2] [0,1]))))] [stranspose (sreplicate (sreplicate (sconst @[1] (sfromListLinear [1] [0.0]))))] in let [m18 @[Natural] @Double @[2,2], t19 @[Natural] @Double @[1,2,2]] = dmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> [sscatter (sconst @[2,2] (sfromListLinear [2,2] [1.0,1.0,1.0,1.0])) (\\[i17] -> [i17])] [t14, stranspose (sreplicate (sreplicate (sconst @[1] (sfromListLinear [1] [0.0]))))] in [ssum (ssum m18)]"
 
 testSin0rmapAccumRD01SN531bRPPj :: Assertion
 testSin0rmapAccumRD01SN531bRPPj = do
@@ -3263,7 +3263,7 @@ testSin0FoldNestedS1PP = do
   printAstHVectorPretty
     IM.empty
     (g @(AstRanked PrimalSpan) (V.singleton $ DynamicShaped @Double @'[] (sscalar 1.1)))
-    @?= "let [x4 @[Natural] @Double @[], v5 @[Natural] @Double @[11]] = dmapAccumLDer (SNat @11) <lambda> <lambda> <lambda> [1.1] [sreplicate 1.1] in let [x7 @[Natural] @Double @[], v8 @[Natural] @Double @[11]] = dmapAccumRDer (SNat @11) <lambda> <lambda> <lambda> [1.0] [v5, sreplicate 1.1] in [ssum v8 + x7]"
+    @?= "let [x6 @[Natural] @Double @[], v7 @[Natural] @Double @[11]] = dmapAccumLDer (SNat @11) <lambda> <lambda> <lambda> [1.1] [sreplicate 1.1] in let [x9 @[Natural] @Double @[], v10 @[Natural] @Double @[11]] = dmapAccumRDer (SNat @11) <lambda> <lambda> <lambda> [1.0] [v7, sreplicate 1.1] in [ssum v10 + x9]"
 
 testSin0FoldNestedR1PP :: Assertion
 testSin0FoldNestedR1PP = do
@@ -4295,7 +4295,8 @@ testSin0revhV4 :: Assertion
 testSin0revhV4 = do
   let doms = V.singleton (voidFromSh @Double ZSR)
       doms3 = V.singleton (voidFromSh @Double (3 :$: ZSR))
-      f :: forall g. (HVectorTensor g (ShapedOf g), RankedTensor g)
+      f :: forall g.
+           (HVectorTensor g (ShapedOf g), RankedTensor g, ProductTensor g)
         => HVector g -> HVectorOf g
       f x =
         rrevDt @g @_ @Double @1 (rscanZip const doms 5)
@@ -4313,7 +4314,9 @@ testSin0revhV5 :: Assertion
 testSin0revhV5 = do
   let doms = V.singleton (voidFromShS @Double @'[])
       doms3 = V.singleton (voidFromShS @Double @'[3])
-      f :: forall g. (HVectorTensor g (ShapedOf g), ShapedTensor (ShapedOf g))
+      f :: forall g.
+           ( HVectorTensor g (ShapedOf g), ShapedTensor (ShapedOf g)
+           , ProductTensor g )
         => HVector g -> HVectorOf g
       f x =
         srevDt @g @_ @Double @'[4] (sscanZip const doms (srepl 5))
@@ -4331,7 +4334,8 @@ testSin0revhV6 :: Assertion
 testSin0revhV6 = do
   let doms = V.singleton (voidFromSh @Double ZSR)
       doms3 = V.singleton (voidFromSh @Double (3 :$: ZSR))
-      f :: forall g. (HVectorTensor g (ShapedOf g), RankedTensor g)
+      f :: forall g.
+           (HVectorTensor g (ShapedOf g), RankedTensor g, ProductTensor g)
         => HVector g -> HVectorOf g
       f x =
         rrevDt @g @_ @Double @1
@@ -4351,7 +4355,9 @@ testSin0revhV7 :: Assertion
 testSin0revhV7 = do
   let doms = V.singleton (voidFromShS @Double @'[])
       doms3 = V.singleton (voidFromShS @Double @'[3])
-      f :: forall g. (HVectorTensor g (ShapedOf g), ShapedTensor (ShapedOf g))
+      f :: forall g.
+           ( HVectorTensor g (ShapedOf g), ShapedTensor (ShapedOf g)
+           , ProductTensor g )
         => HVector g -> HVectorOf g
       f x =
         srevDt @g @_ @Double @'[4]
