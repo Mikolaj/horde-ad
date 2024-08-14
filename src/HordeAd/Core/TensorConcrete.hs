@@ -273,6 +273,22 @@ instance HVectorTensor ORArray OSArray where
           fst $ crevOnHVector (Just $ HVectorPseudoTensor $ dmkHVector db) g a
         rf _ = error "rf: wrong number of arguments"
     in rf
+  drevDtTKNew :: forall x z. (x ~ TKUntyped, TensorKind z)
+              => TensorKindFull x
+              -> HFunTKNew x z
+              -> HFunOfTKNew ORArray (TKProduct z x) x
+  drevDtTKNew _ftk h =
+    let g :: ADReady f
+          => HVector (ADVal f) -> InterpretationTarget (ADVal f) z
+        g !hv = unHFunTKNew h (HVectorPseudoTensor hv)
+        rf :: InterpretationTarget ORArray (TKProduct z x)
+           -> InterpretationTarget ORArray x
+        rf !db_a =
+          fst $ crevOnHVector
+                  (Just $ tproject1 db_a)
+                  g
+                  (dunHVector $ unHVectorPseudoTensor $ tproject2 db_a)
+    in rf
   dfwd :: VoidHVector
        -> HFun TKUntyped
        -> HFunOf ORArray TKUntyped

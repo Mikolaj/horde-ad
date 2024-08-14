@@ -906,6 +906,11 @@ class HVectorTensor (ranked :: RankedTensorType)
                -- a |-> b
     -> HFunOf ranked TKUntyped  -- [HVector f, HVector f] -> HVectorOf f
                         -- [db, a] |-> da
+  drevDtTKNew
+    :: (x ~ TKUntyped, TensorKind z)
+    => TensorKindFull x  -- shape of a and da
+    -> HFunTKNew x z  -- a |-> b
+    -> HFunOfTKNew ranked (TKProduct z x) x  -- [db, a] |-> da
   dfwd
     :: VoidHVector  -- shapes of a and da
     -> HFun TKUntyped  -- [HVector f] -> HVectorOf f

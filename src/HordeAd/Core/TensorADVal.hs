@@ -487,6 +487,23 @@ instance ADReadyBoth ranked shaped
           fst $ crevOnHVector (Just $ HVectorPseudoTensor $ dmkHVector db) g a
         rf _ = error "rf: wrong number of arguments"
     in HFun rf
+  drevDtTKNew :: forall x z. (x ~ TKUntyped, TensorKind z)
+              => TensorKindFull x
+              -> HFunTKNew x z
+              -> HFunTKNew (TKProduct z x) x
+  drevDtTKNew _ftk h =
+    let g :: ADReady f
+          => HVector (ADVal f) -> InterpretationTarget (ADVal f) z
+        g !hv = unHFunTKNew h (HVectorPseudoTensor hv)
+        rf :: forall f. ADReady f
+           => InterpretationTarget f (TKProduct z x)
+           -> InterpretationTarget f x
+        rf !db_a =
+          fst $ crevOnHVector
+                  (Just $ tproject1 db_a)
+                  g
+                  (dunHVector $ unHVectorPseudoTensor $ tproject2 db_a)
+    in HFunTKNew rf
   dfwd :: VoidHVector
        -> HFun TKUntyped
        -> HFun TKUntyped
@@ -504,7 +521,7 @@ instance ADReadyBoth ranked shaped
             => TensorKindFull x
             -> HFunTKNew x z
             -> HFunTKNew (TKProduct x x) z
-  dfwdTKNew _shs h =
+  dfwdTKNew _ftk h =
     let g :: ADReady f
           => HVector (ADVal f) -> InterpretationTarget (ADVal f) z
         g !hv = unHFunTKNew h (HVectorPseudoTensor hv)

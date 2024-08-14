@@ -810,6 +810,25 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
         (AstArtifact varsDt vars gradient _primal, _delta) =
           revProduceArtifact True g emptyEnv shs
      in AstLambda ([varsDt, vars], simplifyInlineHVector $ unAstRawWrap $ unHVectorPseudoTensor gradient)
+  drevDtTKNew :: forall x z. (x ~ TKUntyped, TensorKind z)
+              => TensorKindFull x
+              -> HFunTKNew x z
+              -> AstHFunTKNew (TKProduct z x) x
+  drevDtTKNew ftkx@(FTKUntyped shs) f =
+    -- This computes the (AST of) derivative of f once and interprets it again
+    -- for each new tensor of arguments, which is better than computing it anew.
+    let g :: HVector (AstRanked FullSpan)
+          -> InterpretationTarget (AstRanked FullSpan) z
+        g !hv = unHFunTKNew f (HVectorPseudoTensor $ AstMkHVector hv)
+        (AstArtifactRev varDt var gradient primal, _delta) =
+          revProduceArtifactTKNew True g emptyEnv shs
+        ftkz = shapeAstFull $ unRawY (stensorKind @z) primal
+        ftk2 = FTKProduct ftkz ftkx
+        (varP, ast) = funToAst ftk2 $ \ !astP ->
+          AstLet varDt (astProject1 astP)
+            $ AstLet var (astProject2 astP)
+              $ simplifyInlineHVector $ unRawY (stensorKind @x) gradient
+    in AstLambdaTKNew (varP, ftk2, ast)
   dfwd :: VoidHVector
        -> HFun TKUntyped
        -> AstHFun TKUntyped
@@ -827,15 +846,15 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
             => TensorKindFull x
             -> HFunTKNew x z
             -> AstHFunTKNew (TKProduct x x) z
-  dfwdTKNew ftk@(FTKUntyped shs) h =
+  dfwdTKNew ftkx@(FTKUntyped shs) f =
     -- This computes the (AST of) derivative of f once and interprets it again
     -- for each new tensor of arguments, which is better than computing it anew.
     let g :: HVector (AstRanked FullSpan)
           -> InterpretationTarget (AstRanked FullSpan) z
-        g !hv = unHFunTKNew h (HVectorPseudoTensor $ AstMkHVector hv)
+        g !hv = unHFunTKNew f (HVectorPseudoTensor $ AstMkHVector hv)
         (AstArtifactFwd varDs var derivative _primal, _delta) =
           fwdProduceArtifactTKNew g emptyEnv shs
-        ftk2 = FTKProduct ftk ftk
+        ftk2 = FTKProduct ftkx ftkx
         (varP, ast) = funToAst ftk2 $ \ !astP ->
           AstLet varDs (astProject1 astP)
             $ AstLet var (astProject2 astP)
@@ -1431,6 +1450,7 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
     AstRawWrap
     $ rrev f parameters0 (unRawHVector hVector)
   drevDt = drevDt @(AstRanked s)
+  drevDtTKNew = drevDtTKNew @(AstRanked s)
   dfwd = dfwd @(AstRanked s)
   dfwdTKNew = dfwdTKNew @(AstRanked s)
   dmapAccumRDer _ k accShs bShs eShs f df rf acc0 es =
@@ -1651,6 +1671,7 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
     AstNoVectorizeWrap
     $ rrev f parameters0 (unNoVectorizeHVector hVector)
   drevDt = drevDt @(AstRanked s)
+  drevDtTKNew = drevDtTKNew @(AstRanked s)
   dfwd = dfwd @(AstRanked s)
   dfwdTKNew = dfwdTKNew @(AstRanked s)
   dmapAccumRDer _ k accShs bShs eShs f df rf acc0 es =
@@ -1907,6 +1928,7 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
     AstNoSimplifyWrap
     $ rrev f parameters0 (unNoSimplifyHVector hVector)
   drevDt = drevDt @(AstRanked s)
+  drevDtTKNew = drevDtTKNew @(AstRanked s)
   dfwd = dfwd @(AstRanked s)
   dfwdTKNew = dfwdTKNew @(AstRanked s)
   dmapAccumRDer _ k accShs bShs eShs f df rf acc0 es =
