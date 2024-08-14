@@ -352,6 +352,8 @@ varInAstBindingsCase var (AstBindingsHVector _ t) = varInAst var t
 astIsSmall :: Bool -> AstTensor s y -> Bool
 astIsSmall relaxed = \case
   AstTuple t1 t2 -> astIsSmall relaxed t1 && astIsSmall relaxed t2
+  AstProject1 t -> astIsSmall relaxed t
+  AstProject2 t -> astIsSmall relaxed t
   AstLetTupleIn{} -> False
   AstVar{} -> True
   AstPrimalPart v -> astIsSmall relaxed v
@@ -361,21 +363,31 @@ astIsSmall relaxed = \case
     relaxed && astIsSmall relaxed v  -- materialized via tricks, so prob. safe
 
   AstIota -> True
+  AstFromVector v | V.length v == 1 -> astIsSmall relaxed $ v V.! 0
   AstSlice _ _ v ->
     relaxed && astIsSmall relaxed v  -- materialized via vector slice; cheap
   AstTranspose _ v ->
     relaxed && astIsSmall relaxed v  -- often cheap and often fuses
   AstConst c -> Nested.rsize c <= 1
+  AstProjectR t _ -> astIsSmall relaxed t
   AstRFromS v -> astIsSmall relaxed v
 
   AstIotaS -> True
+  AstFromVectorS v | V.length v == 1 -> astIsSmall relaxed $ v V.! 0
   AstSliceS v ->
     relaxed && astIsSmall relaxed v  -- materialized via vector slice; cheap
   AstTransposeS _perm v ->
     relaxed && astIsSmall relaxed v  -- often cheap and often fuses
   AstConstS c ->
     Nested.ssize c <= 1
+  AstProjectS t _ -> astIsSmall relaxed t
   AstSFromR v -> astIsSmall relaxed v
+
+  AstMkHVector v | V.length v == 1 -> case v V.! 0 of
+    DynamicRanked (AstRanked t) -> astIsSmall relaxed t
+    DynamicShaped (AstShaped t) -> astIsSmall relaxed t
+    DynamicRankedDummy{} -> True
+    DynamicShapedDummy{} -> True
 
   _ -> False
 
