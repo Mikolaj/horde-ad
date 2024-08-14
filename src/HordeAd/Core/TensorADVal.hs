@@ -54,7 +54,7 @@ import HordeAd.Util.SizedList
 
 crevOnADInputs
   :: forall x z ranked. (x ~ TKUntyped, z ~ TKUntyped, ADReady ranked)
-  => Maybe (HVector ranked)
+  => Maybe (InterpretationTarget ranked z)
   -> (HVector (ADVal ranked) -> InterpretationTarget (ADVal ranked) z)
   -> HVector (ADVal ranked)
   -> (InterpretationTarget ranked x, InterpretationTarget ranked z)
@@ -70,9 +70,7 @@ crevOnADInputs mdt f inputs =
                    => ADVal g r2 n -> IShR n
       rshapePrimal (D p _) = rshape p
       parameters0 = V.map (voidFromDynamicF (shapeToList . rshapePrimal)) inputs
-      !gradient = gradientFromDelta parameters0 v
-                                    ((HVectorPseudoTensor . dmkHVector) <$> mdt)
-                                    delta
+      !gradient = gradientFromDelta parameters0 v mdt delta
   in ( tunshare @_ @_ @TKUntyped
        $ HVectorPseudoTensor (dmkHVector gradient)
      , tunshare v )
@@ -80,7 +78,7 @@ crevOnADInputs mdt f inputs =
 crevOnHVector
   :: (x ~ TKUntyped, z ~ TKUntyped, ADReady ranked)
 --  :: (x ~ TKUntyped, TensorKind z, ADReady ranked)
-  => Maybe (HVector ranked)
+  => Maybe (InterpretationTarget ranked z)
   -> (HVector (ADVal ranked) -> InterpretationTarget (ADVal ranked) z)
   -> HVector ranked
   -> (InterpretationTarget ranked x, InterpretationTarget ranked z)
@@ -486,7 +484,7 @@ instance ADReadyBoth ranked shaped
            => [HVector f] -> InterpretationTarget f TKUntyped
         rf [!db, !a] =
           -- This computes the derivative of g again for each new db and a.
-          fst $ crevOnHVector (Just db) g a
+          fst $ crevOnHVector (Just $ HVectorPseudoTensor $ dmkHVector db) g a
         rf _ = error "rf: wrong number of arguments"
     in HFun rf
   dfwd :: VoidHVector

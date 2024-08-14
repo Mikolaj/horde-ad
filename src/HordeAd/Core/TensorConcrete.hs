@@ -270,7 +270,7 @@ instance HVectorTensor ORArray OSArray where
         g !hv = unHFun h [hv]
         rf :: [HVector ORArray] -> InterpretationTarget ORArray TKUntyped
         rf [!db, !a] =
-          fst $ crevOnHVector (Just db) g a
+          fst $ crevOnHVector (Just $ HVectorPseudoTensor $ dmkHVector db) g a
         rf _ = error "rf: wrong number of arguments"
     in rf
   dfwd :: VoidHVector
