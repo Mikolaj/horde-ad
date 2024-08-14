@@ -74,13 +74,14 @@ crevDtMaybeBoth
   => Maybe (f r y) -> (advals -> ADVal f r y) -> vals -> (vals, RankedOf f r y)
 {-# INLINE crevDtMaybeBoth #-}
 crevDtMaybeBoth mdt f vals =
-  let g hVector = hVectorADValToADVal
+  let g hVector = HVectorPseudoTensor
                   $ toHVector
                   $ f $ parseHVector (fromDValue vals) hVector
       valsH = toHVectorOf vals
       mdth = toHVector <$> mdt
       (grad, res) = crevOnHVector mdth g valsH
-  in (parseHVector vals grad, rfromD $ res V.! 0)
+  in ( parseHVector vals $ unHVectorPseudoTensor grad
+     , rfromD $ unHVectorPseudoTensor res V.! 0 )
 
 rev' :: forall r m n v a.
         ( KnownNat n, KnownNat m, GoodScalar r

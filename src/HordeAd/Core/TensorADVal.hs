@@ -53,63 +53,61 @@ import HordeAd.Util.SizedList
 -- * Non-symbolic reverse and forward derivative computation
 
 crevOnADInputs
-  :: ADReady ranked
+  :: forall x z ranked. (x ~ TKUntyped, z ~ TKUntyped, ADReady ranked)
   => Maybe (HVector ranked)
-  -> (HVector (ADVal ranked)
-      -> ADVal (HVectorPseudoTensor ranked) Float '())
+  -> (HVector (ADVal ranked) -> InterpretationTarget (ADVal ranked) z)
   -> HVector (ADVal ranked)
-  -> (HVectorOf ranked, HVectorOf ranked)
+  -> (InterpretationTarget ranked x, InterpretationTarget ranked z)
 -- The functions in which @revOnADInputs@ inlines are not inlined themselves
 -- in client code, so the bloat is limited.
 {-# INLINE crevOnADInputs #-}
 crevOnADInputs mdt f inputs =
   let -- Evaluate completely after terms constructed, to free memory
       -- before evaluation allocates new memory and new FFI is started.
-      !(D v (HVectorPseudoTensor deltaTopLevel)) = f inputs in
+      !(!v, !deltaIT) = unADValInterpretation (stensorKind @z) $ f inputs
+      delta = unDeltaRY (stensorKind @z) deltaIT in
   let rshapePrimal :: (GoodScalar r2, KnownNat n, ADReady g)
                    => ADVal g r2 n -> IShR n
       rshapePrimal (D p _) = rshape p
       parameters0 = V.map (voidFromDynamicF (shapeToList . rshapePrimal)) inputs
       !gradient = gradientFromDelta parameters0 v
                                     ((HVectorPseudoTensor . dmkHVector) <$> mdt)
-                                    deltaTopLevel
-  in ( unHVectorPseudoTensor $ tunshare @_ @_ @TKUntyped
+                                    delta
+  in ( tunshare @_ @_ @TKUntyped
        $ HVectorPseudoTensor (dmkHVector gradient)
-     , unHVectorPseudoTensor $ tunshare v )
+     , tunshare v )
 
 crevOnHVector
-  :: ADReady ranked
+  :: (x ~ TKUntyped, z ~ TKUntyped, ADReady ranked)
+--  :: (x ~ TKUntyped, TensorKind z, ADReady ranked)
   => Maybe (HVector ranked)
-  -> (HVector (ADVal ranked)
-      -> ADVal (HVectorPseudoTensor ranked) Float '())
+  -> (HVector (ADVal ranked) -> InterpretationTarget (ADVal ranked) z)
   -> HVector ranked
-  -> (HVectorOf ranked, HVectorOf ranked)
+  -> (InterpretationTarget ranked x, InterpretationTarget ranked z)
 crevOnHVector mdt f parameters =
   let deltaInputs = generateDeltaInputs parameters
       inputs = makeADInputs parameters deltaInputs
   in crevOnADInputs mdt f inputs
 
 cfwdOnADInputs
-  :: forall y ranked. (TensorKind y, ADReady ranked)
+  :: forall z ranked. (TensorKind z, ADReady ranked)
   => HVector (ADVal ranked)
-  -> (HVector (ADVal ranked)
-      -> InterpretationTarget (ADVal ranked) y)
+  -> (HVector (ADVal ranked) -> InterpretationTarget (ADVal ranked) z)
   -> HVector ranked
-  -> (InterpretationTarget ranked y, InterpretationTarget ranked y)
+  -> (InterpretationTarget ranked z, InterpretationTarget ranked z)
 {-# INLINE cfwdOnADInputs #-}
 cfwdOnADInputs inputs f ds =
-  let !(!v, !deltaIT) = unADValInterpretation (stensorKind @y) $ f inputs
-      delta = unDeltaRY (stensorKind @y) deltaIT in
+  let !(!v, !deltaIT) = unADValInterpretation (stensorKind @z) $ f inputs
+      delta = unDeltaRY (stensorKind @z) deltaIT in
   let derivative = derivativeFromDelta (V.length inputs) delta ds
   in (tunshare derivative, tunshare v)
 
 cfwdOnHVector
-  :: (TensorKind y, ADReady ranked)
+  :: (TensorKind z, ADReady ranked)
   => HVector ranked
-  -> (HVector (ADVal ranked)
-      -> InterpretationTarget (ADVal ranked) y)
+  -> (HVector (ADVal ranked) -> InterpretationTarget (ADVal ranked) z)
   -> HVector ranked
-  -> (InterpretationTarget ranked y, InterpretationTarget ranked y)
+  -> (InterpretationTarget ranked z, InterpretationTarget ranked z)
 cfwdOnHVector parameters f ds =
   let deltaInputs = generateDeltaInputs parameters
       inputs = makeADInputs parameters deltaInputs
@@ -474,30 +472,23 @@ instance ADReadyBoth ranked shaped
   rrev f _parameters0 parameters =
     -- This computes the derivative of g again for each new @parmeters@.
     let g :: HVector (ADVal (ADVal ranked))
-          -> ADVal (HVectorPseudoTensor (ADVal ranked)) r y
-        g !hv = let D a a' = f hv
-                in dDnotShared (HVectorPseudoTensor $ dmkHVector
-                                $ V.singleton $ DynamicRanked a)
-                               (HVectorPseudoTensor $ HToH
-                                $ V.singleton $ DynamicRanked a')
-    in fst $ crevOnHVector Nothing g parameters
+          -> InterpretationTarget (ADVal (ADVal ranked)) TKUntyped
+        g !hv = HVectorPseudoTensor $ V.singleton $ DynamicRanked $ f hv
+    in unHVectorPseudoTensor $ fst $ crevOnHVector Nothing g parameters
   drevDt :: VoidHVector
          -> HFun TKUntyped
          -> HFun TKUntyped
   drevDt _shs h =
     let g :: ADReady f
-          => HVector (ADVal f)
-          -> ADVal (HVectorPseudoTensor f) r y
-        g !hv = let (as, as') = unADValHVector $ unHVectorPseudoTensor
-                                $ unHFun h [hv]
-                in dDnotShared (HVectorPseudoTensor $ dmkHVector as)
-                               (HVectorPseudoTensor $ HToH as')
-        rf :: forall f. ADReady f => [HVector f] -> HVectorOf f
+          => HVector (ADVal f) -> InterpretationTarget (ADVal f) TKUntyped
+        g !hv = unHFun h [hv]
+        rf :: forall f. ADReady f
+           => [HVector f] -> InterpretationTarget f TKUntyped
         rf [!db, !a] =
           -- This computes the derivative of g again for each new db and a.
           fst $ crevOnHVector (Just db) g a
         rf _ = error "rf: wrong number of arguments"
-    in HFun $ HVectorPseudoTensor . rf
+    in HFun rf
   dfwd :: VoidHVector
        -> HFun TKUntyped
        -> HFun TKUntyped
@@ -505,11 +496,12 @@ instance ADReadyBoth ranked shaped
     let g :: ADReady f
           => HVector (ADVal f) -> InterpretationTarget (ADVal f) TKUntyped
         g !hv = unHFun h [hv]
-        df :: forall f. ADReady f => [HVector f] -> HVectorOf f
-        df [!da, !a] = unHVectorPseudoTensor $ fst $ cfwdOnHVector a g da
+        df :: forall f. ADReady f
+           => [HVector f] -> InterpretationTarget f TKUntyped
+        df [!da, !a] = fst $ cfwdOnHVector a g da
           -- This computes the derivative of g again for each new da and a.
         df _ = error "df: wrong number of arguments"
-    in HFun $ HVectorPseudoTensor . df
+    in HFun df
   dfwdTKNew :: forall x z. (x ~ TKUntyped, TensorKind z)
             => TensorKindFull x
             -> HFunTKNew x z

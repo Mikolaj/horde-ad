@@ -256,13 +256,9 @@ instance HVectorTensor ORArray OSArray where
   rrev f _parameters0 parameters =
     -- This computes the derivative of g again for each new @parmeters@.
     let g :: HVector (ADVal ORArray)
-          -> ADVal (HVectorPseudoTensor ORArray) r y
-        g !hv = let D a a' = f hv
-                in dDnotShared (HVectorPseudoTensor $ dmkHVector
-                                $ V.singleton $ DynamicRanked a)
-                               (HVectorPseudoTensor $ HToH
-                                $ V.singleton $ DynamicRanked a')
-    in fst $ crevOnHVector Nothing g parameters
+          -> InterpretationTarget (ADVal ORArray) TKUntyped
+        g !hv = HVectorPseudoTensor $ V.singleton $ DynamicRanked $ f hv
+    in unHVectorPseudoTensor $ fst $ crevOnHVector Nothing g parameters
   -- The code for drevDt and dfwd in this instance is the same as for the
   -- ADVal ranked instance, because the type family instance is the same.
   drevDt :: VoidHVector
@@ -270,17 +266,13 @@ instance HVectorTensor ORArray OSArray where
          -> HFunOf ORArray TKUntyped
   drevDt _shs h =
     let g :: ADReady f
-          => HVector (ADVal f)
-          -> ADVal (HVectorPseudoTensor f) r y
-        g !hv = let (as, as') = unADValHVector $ unHVectorPseudoTensor
-                                $ unHFun h [hv]
-                in dDnotShared (HVectorPseudoTensor $ dmkHVector as)
-                               (HVectorPseudoTensor $ HToH as')
-        rf :: [HVector ORArray] -> HVectorOf ORArray
+          => HVector (ADVal f) -> InterpretationTarget (ADVal f) TKUntyped
+        g !hv = unHFun h [hv]
+        rf :: [HVector ORArray] -> InterpretationTarget ORArray TKUntyped
         rf [!db, !a] =
           fst $ crevOnHVector (Just db) g a
         rf _ = error "rf: wrong number of arguments"
-    in HVectorPseudoTensor . rf
+    in rf
   dfwd :: VoidHVector
        -> HFun TKUntyped
        -> HFunOf ORArray TKUntyped

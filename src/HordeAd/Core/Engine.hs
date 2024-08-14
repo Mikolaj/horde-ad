@@ -339,12 +339,12 @@ crevDtMaybe
   => (advals -> ADVal f r y) -> vals -> Maybe (f r y) -> vals
 {-# INLINE crevDtMaybe #-}
 crevDtMaybe f vals mdt =
-  let g hVector = hVectorADValToADVal
+  let g hVector = HVectorPseudoTensor
                   $ toHVectorOf $ f $ parseHVector (fromDValue vals) hVector
       valsH = toHVectorOf vals
       mdth = toHVector @ORArray <$> mdt
-  in parseHVector vals
-     $ fst $ crevOnHVector mdth g valsH
+  in parseHVector vals $ unHVectorPseudoTensor $ fst
+     $ crevOnHVector mdth g valsH
 
 {-# SPECIALIZE crevOnHVector
   :: Maybe (HVector ORArray)
