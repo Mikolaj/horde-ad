@@ -7,8 +7,7 @@
 -- The AST term instances can be used as building blocks for 'ADVal'
 -- instances defined in "TensorADVal" but may also be used standalone.
 module HordeAd.Core.TensorAst
-  ( revProduceArtifactH
-  , forwardPassByInterpretation, forwardPassByInterpretationTKNew
+  ( forwardPassByInterpretation, forwardPassByInterpretationTKNew
   , revArtifactFromForwardPass, revArtifactFromForwardPassTKNew
   , revProduceArtifact, revProduceArtifactTKNew
   , fwdArtifactFromForwardPassTKNew, fwdProduceArtifactTKNew
@@ -52,22 +51,6 @@ import HordeAd.Internal.OrthotopeOrphanInstances
 import HordeAd.Util.SizedList
 
 -- * Symbolic reverse and forward derivative computation
-
-revProduceArtifactH
-  :: forall r y g astvals.
-     ( AdaptableHVector (AstRanked FullSpan) (g r y)
-     , AdaptableHVector (AstRanked FullSpan) astvals
-     , TermValue astvals )
-  => Bool -> (astvals -> g r y) -> AstEnv (ADVal (AstRaw PrimalSpan))
-  -> Value astvals -> VoidHVector
-  -> (AstArtifact TKUntyped TKUntyped, Delta (AstRaw PrimalSpan) TKUntyped)
-{-# INLINE revProduceArtifactH #-}
-revProduceArtifactH hasDt f envInit vals0 =
-  let g :: HVector (AstRanked FullSpan)
-        -> HVectorPseudoTensor (AstRanked FullSpan) Float '()
-      g !hv = HVectorPseudoTensor
-              $ toHVectorOf $ f $ parseHVector (fromValue vals0) hv
-  in revArtifactFromForwardPass hasDt (forwardPassByInterpretation g envInit)
 
 forwardPassByInterpretation
   :: forall y. TensorKind y

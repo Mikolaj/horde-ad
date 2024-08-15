@@ -26,7 +26,6 @@ import HordeAd
 import HordeAd.Core.Adaptor
 import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId
-import HordeAd.Core.TensorAst
 import HordeAd.External.OptimizerTools
 import HordeAd.Internal.BackendOX (ORArray, OSArray)
 import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..))

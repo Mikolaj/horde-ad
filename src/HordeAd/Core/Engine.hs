@@ -6,7 +6,7 @@
 -- high-level API of the horde-ad library. Optimizers are add-ons.
 module HordeAd.Core.Engine
   ( -- * Reverse derivative adaptors
-    rev, revDt, revArtifactAdapt
+    rev, revDt, revArtifactAdapt, revProduceArtifactH
   , revProduceArtifactWithoutInterpretation
   , revProduceArtifactWithoutInterpretationTKNew
   , revEvalArtifact, revEvalArtifactTKNew
@@ -140,6 +140,25 @@ revArtifactAdapt hasDt f vals =
      , TermValue astvals )
   => Bool -> (astvals -> AstRanked FullSpan Double n) -> Value astvals
   -> (AstArtifact TKUntyped TKUntyped, Delta (AstRaw PrimalSpan) TKUntyped) #-}
+
+revProduceArtifactH
+  :: forall r y g astvals.
+     ( AdaptableHVector (AstRanked FullSpan) (g r y)
+     , AdaptableHVector (AstRanked FullSpan) astvals
+     , TermValue astvals )
+  => Bool
+  -> (astvals -> g r y)
+  -> AstEnv (ADVal (AstRaw PrimalSpan))
+  -> Value astvals
+  -> VoidHVector
+  -> (AstArtifact TKUntyped TKUntyped, Delta (AstRaw PrimalSpan) TKUntyped)
+{-# INLINE revProduceArtifactH #-}
+revProduceArtifactH hasDt f envInit vals0 =
+  let g :: HVector (AstRanked FullSpan)
+        -> HVectorPseudoTensor (AstRanked FullSpan) Float '()
+      g !hv = HVectorPseudoTensor
+              $ toHVectorOf $ f $ parseHVector (fromValue vals0) hv
+  in revArtifactFromForwardPass hasDt (forwardPassByInterpretation g envInit)
 
 revProduceArtifactWithoutInterpretation
   :: (AdaptableHVector (ADVal (AstRaw PrimalSpan))
