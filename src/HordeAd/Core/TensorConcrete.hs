@@ -255,9 +255,10 @@ instance HVectorTensor ORArray OSArray where
        -> HVector ORArray
   rrev f _parameters0 parameters =
     -- This computes the derivative of g again for each new @parmeters@.
-    let g :: HVector (ADVal ORArray)
+    let g :: InterpretationTarget (ADVal ORArray) TKUntyped
           -> InterpretationTarget (ADVal ORArray) TKUntyped
-        g !hv = HVectorPseudoTensor $ V.singleton $ DynamicRanked $ f hv
+        g !hv = HVectorPseudoTensor $ V.singleton $ DynamicRanked
+                $ f $ unHVectorPseudoTensor hv
     in unHVectorPseudoTensor $ fst $ crevOnHVector Nothing g parameters
   -- The code for drevDt and dfwd in this instance is the same as for the
   -- ADVal ranked instance, because the type family instance is the same.
@@ -266,8 +267,9 @@ instance HVectorTensor ORArray OSArray where
          -> HFunOf ORArray TKUntyped
   drevDt _shs h =
     let g :: ADReady f
-          => HVector (ADVal f) -> InterpretationTarget (ADVal f) TKUntyped
-        g !hv = unHFun h [hv]
+          => InterpretationTarget (ADVal f) TKUntyped
+          -> InterpretationTarget (ADVal f) TKUntyped
+        g !hv = unHFun h [unHVectorPseudoTensor hv]
         rf :: [HVector ORArray] -> InterpretationTarget ORArray TKUntyped
         rf [!db, !a] =
           fst $ crevOnHVector (Just $ HVectorPseudoTensor $ dmkHVector db) g a
@@ -279,8 +281,9 @@ instance HVectorTensor ORArray OSArray where
               -> HFunOfTKNew ORArray (TKProduct z x) x
   drevDtTKNew _ftk h =
     let g :: ADReady f
-          => HVector (ADVal f) -> InterpretationTarget (ADVal f) z
-        g !hv = unHFunTKNew h (HVectorPseudoTensor hv)
+          => InterpretationTarget (ADVal f) x
+          -> InterpretationTarget (ADVal f) z
+        g !hv = unHFunTKNew h hv
         rf :: InterpretationTarget ORArray (TKProduct z x)
            -> InterpretationTarget ORArray x
         rf !db_a =

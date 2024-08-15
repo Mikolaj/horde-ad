@@ -76,7 +76,8 @@ crevDtMaybeBoth
 crevDtMaybeBoth mdt f vals =
   let g hVector = HVectorPseudoTensor
                   $ toHVector
-                  $ f $ parseHVector (fromDValue vals) hVector
+                  $ f $ parseHVector (fromDValue vals)
+                  $ unHVectorPseudoTensor hVector
       valsH = toHVectorOf vals
       mdth = toHVector <$> mdt
       !(!grad, !res) =

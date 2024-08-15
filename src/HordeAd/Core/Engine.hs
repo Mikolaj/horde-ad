@@ -340,7 +340,8 @@ crevDtMaybe
 {-# INLINE crevDtMaybe #-}
 crevDtMaybe f vals mdt =
   let g hVector = HVectorPseudoTensor
-                  $ toHVectorOf $ f $ parseHVector (fromDValue vals) hVector
+                  $ toHVectorOf $ f $ parseHVector (fromDValue vals)
+                  $ unHVectorPseudoTensor hVector
       valsH = toHVectorOf vals
       mdth = toHVector @ORArray <$> mdt
   in parseHVector vals $ unHVectorPseudoTensor $ fst

@@ -55,8 +55,9 @@ import HordeAd.Util.SizedList
 crevOnADInputs
   :: forall x z ranked. (x ~ TKUntyped, TensorKind z, ADReady ranked)
   => Maybe (InterpretationTarget ranked z)
-  -> (HVector (ADVal ranked) -> InterpretationTarget (ADVal ranked) z)
-  -> HVector (ADVal ranked)
+  -> (InterpretationTarget (ADVal ranked) x
+      -> InterpretationTarget (ADVal ranked) z)
+  -> InterpretationTarget (ADVal ranked) x
   -> (InterpretationTarget ranked x, InterpretationTarget ranked z)
 -- The functions in which @revOnADInputs@ inlines are not inlined themselves
 -- in client code, so the bloat is limited.
@@ -69,7 +70,8 @@ crevOnADInputs mdt f inputs =
   let rshapePrimal :: (GoodScalar r2, KnownNat n, ADReady g)
                    => ADVal g r2 n -> IShR n
       rshapePrimal (D p _) = rshape p
-      parameters0 = V.map (voidFromDynamicF (shapeToList . rshapePrimal)) inputs
+      parameters0 = V.map (voidFromDynamicF (shapeToList . rshapePrimal))
+                    $ unHVectorPseudoTensor inputs
       !gradient = gradientFromDelta parameters0 v mdt delta
   in ( tunshare @_ @_ @TKUntyped
        $ HVectorPseudoTensor (dmkHVector gradient)
@@ -78,13 +80,14 @@ crevOnADInputs mdt f inputs =
 crevOnHVector
   :: (x ~ TKUntyped, TensorKind z, ADReady ranked)
   => Maybe (InterpretationTarget ranked z)
-  -> (HVector (ADVal ranked) -> InterpretationTarget (ADVal ranked) z)
+  -> (InterpretationTarget (ADVal ranked) x
+      -> InterpretationTarget (ADVal ranked) z)
   -> HVector ranked
   -> (InterpretationTarget ranked x, InterpretationTarget ranked z)
 crevOnHVector mdt f parameters =
   let deltaInputs = generateDeltaInputs parameters
       inputs = makeADInputs parameters deltaInputs
-  in crevOnADInputs mdt f inputs
+  in crevOnADInputs mdt f $ HVectorPseudoTensor inputs
 
 cfwdOnADInputs
   :: forall z ranked. (TensorKind z, ADReady ranked)
@@ -468,17 +471,19 @@ instance ADReadyBoth ranked shaped
        -> HVectorOf (ADVal ranked)
   rrev f _parameters0 parameters =
     -- This computes the derivative of g again for each new @parmeters@.
-    let g :: HVector (ADVal (ADVal ranked))
+    let g :: InterpretationTarget (ADVal (ADVal ranked)) TKUntyped
           -> InterpretationTarget (ADVal (ADVal ranked)) TKUntyped
-        g !hv = HVectorPseudoTensor $ V.singleton $ DynamicRanked $ f hv
+        g !hv = HVectorPseudoTensor $ V.singleton $ DynamicRanked
+                $ f $ unHVectorPseudoTensor hv
     in unHVectorPseudoTensor $ fst $ crevOnHVector Nothing g parameters
   drevDt :: VoidHVector
          -> HFun TKUntyped
          -> HFun TKUntyped
   drevDt _shs h =
     let g :: ADReady f
-          => HVector (ADVal f) -> InterpretationTarget (ADVal f) TKUntyped
-        g !hv = unHFun h [hv]
+          => InterpretationTarget (ADVal f) TKUntyped
+          -> InterpretationTarget (ADVal f) TKUntyped
+        g !hv = unHFun h [unHVectorPseudoTensor hv]
         rf :: forall f. ADReady f
            => [HVector f] -> InterpretationTarget f TKUntyped
         rf [!db, !a] =
@@ -492,8 +497,9 @@ instance ADReadyBoth ranked shaped
               -> HFunTKNew (TKProduct z x) x
   drevDtTKNew _ftk h =
     let g :: ADReady f
-          => HVector (ADVal f) -> InterpretationTarget (ADVal f) z
-        g !hv = unHFunTKNew h (HVectorPseudoTensor hv)
+          => InterpretationTarget (ADVal f) x
+          -> InterpretationTarget (ADVal f) z
+        g !hv = unHFunTKNew h hv
         rf :: forall f. ADReady f
            => InterpretationTarget f (TKProduct z x)
            -> InterpretationTarget f x
