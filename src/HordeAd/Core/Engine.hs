@@ -350,7 +350,8 @@ crevDtMaybe f vals mdt =
 
 {-# SPECIALIZE crevOnHVector
   :: Maybe (InterpretationTarget ORArray TKUntyped)
-  -> (HVector (ADVal ORArray) -> InterpretationTarget (ADVal ORArray) TKUntyped)
+  -> (InterpretationTarget (ADVal ORArray) TKUntyped
+      -> InterpretationTarget (ADVal ORArray) TKUntyped)
   -> HVector ORArray
   -> (InterpretationTarget ORArray TKUntyped, InterpretationTarget ORArray TKUntyped) #-}
 

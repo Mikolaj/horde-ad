@@ -775,7 +775,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     in fun1XToAst shs $ \ !vars -> AstShareHVector vars a
   dbuild1 k f = astBuildHVector1Vectorize
                   k (f . AstRanked)
-  rrev :: (GoodScalar r, KnownNat n)
+  rrev :: forall r n. (GoodScalar r, KnownNat n)
        => (forall f. ADReady f => HVector f -> f r n)
        -> VoidHVector
        -> HVector (AstRanked s)
@@ -783,13 +783,14 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   rrev f parameters0 =
     -- This computes the (AST of) derivative of f once and interprets it again
     -- for each new @parmeters@, which is much better than computing anew.
-    let !(!(AstArtifact _varsDt vars gradient _primal), _delta) =
-          revProduceArtifactH @_ @_ @(AstRanked FullSpan)
-                              False f emptyEnv
-                              (V.map dynamicFromVoid parameters0)
-                              parameters0
-    in \parameters -> assert (voidHVectorMatches parameters0 parameters) $
-      let env = extendEnvHVector @(AstRanked s) vars parameters emptyEnv
+    let g :: HVector (AstRanked FullSpan)
+          -> InterpretationTarget (AstRanked FullSpan) (TKR r n)
+        g !hv = f hv
+        !(!(AstArtifactRev _varDt var gradient _primal), _delta) =
+          revProduceArtifactTKNew False g emptyEnv (FTKUntyped parameters0)
+    in \ !parameters -> assert (voidHVectorMatches parameters0 parameters) $
+      let env = extendEnv
+                  var (HVectorPseudoTensor $ AstMkHVector parameters) emptyEnv
       in simplifyInlineHVector $ unHVectorPseudoTensor
          $ interpretAst env $ unAstRawWrap $ unHVectorPseudoTensor gradient
         -- this interpretation both substitutes parameters for the variables and
