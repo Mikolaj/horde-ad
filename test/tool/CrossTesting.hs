@@ -120,7 +120,8 @@ rev' f valsOR =
         revEvalArtifact7 artifactsGradAst9 parameters
       gradient9 = parseHVector vals advalGrad9
       artifactsGradAst9TKNew =
-        fst $ revProduceArtifactWithoutInterpretationTKNew False g9 parameters0
+        fst $ revProduceArtifactWithoutInterpretationTKNew
+                False g9 (FTKUntyped parameters0)
       (advalGrad9TKNew, value9TKNew) =
         revEvalArtifact7TKNew artifactsGradAst9TKNew parameters
       gradient9TKNew = parseHVector vals advalGrad9TKNew
@@ -215,7 +216,7 @@ rev' f valsOR =
 
       artifactsGradAstTKNew =
         fst $ revProduceArtifactWithoutInterpretationTKNew
-                False (hAst id id id) parameters0
+                False (hAst id id id) (FTKUntyped parameters0)
       (astGradAstTKNew, value2AstTKNew) =
         revEvalArtifact7TKNew artifactsGradAstTKNew parameters
       gradient2AstTKNew = parseHVector vals astGradAstTKNew

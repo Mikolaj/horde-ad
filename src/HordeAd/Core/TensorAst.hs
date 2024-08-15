@@ -149,15 +149,15 @@ revArtifactFromForwardPassTKNew
       -> AstVarName FullSpan x
       -> HVector (AstRanked FullSpan)
       -> InterpretationTarget (ADVal (AstRaw PrimalSpan)) z)
-  -> VoidHVector
+  -> TensorKindFull x
   -> (AstArtifactRev x z, Delta (AstRaw PrimalSpan) z)
 {-# INLINE revArtifactFromForwardPassTKNew #-}
-revArtifactFromForwardPassTKNew hasDt forwardPass parameters0 =
+revArtifactFromForwardPassTKNew hasDt forwardPass
+                                ftk@(FTKUntyped parameters0) =
   let -- Bangs and the compound function to fix the numbering of variables
       -- for pretty-printing and prevent sharing the impure values/effects
       -- in tests that reset the impure counters.
-      !(!varPrimal, hVectorPrimal, var, hVector) =
-        funToAstRevTKNew parameters0 in
+      !(!varPrimal, hVectorPrimal, var, hVector) = funToAstRevTKNew ftk in
   let -- Evaluate completely after terms constructed, to free memory
       -- before gradientFromDelta allocates new memory and new FFI is started.
       !(!primalBody, !deltaIT) =
@@ -197,7 +197,7 @@ revProduceArtifactTKNew
   -> (HVector (AstRanked FullSpan)
       -> InterpretationTarget (AstRanked FullSpan) z)
   -> AstEnv (ADVal (AstRaw PrimalSpan))
-  -> VoidHVector
+  -> TensorKindFull x
   -> (AstArtifactRev x z, Delta (AstRaw PrimalSpan) z)
 {-# INLINE revProduceArtifactTKNew #-}
 revProduceArtifactTKNew hasDt g envInit =
@@ -273,12 +273,12 @@ fwdArtifactFromForwardPassTKNew
       -> AstVarName FullSpan x
       -> HVector (AstRanked FullSpan)
       -> InterpretationTarget (ADVal (AstRaw PrimalSpan)) z)
-  -> VoidHVector
+  -> TensorKindFull x
   -> (AstArtifactFwd x z, Delta (AstRaw PrimalSpan) z)
 {-# INLINE fwdArtifactFromForwardPassTKNew #-}
-fwdArtifactFromForwardPassTKNew forwardPass parameters0 =
+fwdArtifactFromForwardPassTKNew forwardPass ftk@(FTKUntyped parameters0) =
   let !(!varPrimalD, hVectorD, varPrimal, hVectorPrimal, var, hVector) =
-        funToAstFwdTKNew parameters0 in
+        funToAstFwdTKNew ftk in
   let !(!primalBody, !deltaIT) =
         unADValInterpretation (stensorKind @z)
         $ forwardPass hVectorPrimal var hVector
@@ -294,7 +294,7 @@ fwdProduceArtifactTKNew
   => (HVector (AstRanked FullSpan)
       -> InterpretationTarget (AstRanked FullSpan) z)
   -> AstEnv (ADVal (AstRaw PrimalSpan))
-  -> VoidHVector
+  -> TensorKindFull x
   -> (AstArtifactFwd x z, Delta (AstRaw PrimalSpan) z)
 {-# INLINE fwdProduceArtifactTKNew #-}
 fwdProduceArtifactTKNew g envInit =
@@ -818,14 +818,14 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
               => TensorKindFull x
               -> HFunTKNew x z
               -> AstHFunTKNew (TKProduct z x) x
-  drevDtTKNew ftkx@(FTKUntyped shs) f =
+  drevDtTKNew ftkx f =
     -- This computes the (AST of) derivative of f once and interprets it again
     -- for each new tensor of arguments, which is better than computing it anew.
     let g :: HVector (AstRanked FullSpan)
           -> InterpretationTarget (AstRanked FullSpan) z
         g !hv = unHFunTKNew f (HVectorPseudoTensor $ AstMkHVector hv)
         (AstArtifactRev varDt var gradient primal, _delta) =
-          revProduceArtifactTKNew True g emptyEnv shs
+          revProduceArtifactTKNew True g emptyEnv ftkx
         ftkz = shapeAstFull $ unRawY (stensorKind @z) primal
         ftk2 = FTKProduct ftkz ftkx
         (varP, ast) = funToAst ftk2 $ \ !astP ->
@@ -850,14 +850,14 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
             => TensorKindFull x
             -> HFunTKNew x z
             -> AstHFunTKNew (TKProduct x x) z
-  dfwdTKNew ftkx@(FTKUntyped shs) f =
+  dfwdTKNew ftkx f =
     -- This computes the (AST of) derivative of f once and interprets it again
     -- for each new tensor of arguments, which is better than computing it anew.
     let g :: HVector (AstRanked FullSpan)
           -> InterpretationTarget (AstRanked FullSpan) z
         g !hv = unHFunTKNew f (HVectorPseudoTensor $ AstMkHVector hv)
         (AstArtifactFwd varDs var derivative _primal, _delta) =
-          fwdProduceArtifactTKNew g emptyEnv shs
+          fwdProduceArtifactTKNew g emptyEnv ftkx
         ftk2 = FTKProduct ftkx ftkx
         (varP, ast) = funToAst ftk2 $ \ !astP ->
           AstLet varDs (astProject1 astP)

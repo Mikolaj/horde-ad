@@ -164,7 +164,7 @@ revProduceArtifactWithoutInterpretationTKNew
   => Bool
   -> (HVector (ADVal (AstRaw PrimalSpan))
       -> InterpretationTarget (ADVal (AstRaw PrimalSpan)) z)
-  -> VoidHVector
+  -> TensorKindFull x
   -> (AstArtifactRev x z, Delta (AstRaw PrimalSpan) z)
 {-# INLINE revProduceArtifactWithoutInterpretationTKNew #-}
 revProduceArtifactWithoutInterpretationTKNew hasDt f =
@@ -267,7 +267,7 @@ fwd f vals ds =
   let g hVector = HVectorPseudoTensor
                   $ toHVectorOf $ f $ parseHVector (fromValue vals) hVector
       valsH = toHVectorOf vals
-      voidH = voidFromHVector valsH
+      voidH = FTKUntyped $ voidFromHVector valsH
       artifact = fst $ fwdProduceArtifactTKNew g emptyEnv voidH
       dsH = toHVectorOf ds
       err = error "fwd: codomain of unknown length"

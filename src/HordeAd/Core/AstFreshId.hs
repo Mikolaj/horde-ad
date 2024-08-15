@@ -292,18 +292,18 @@ funToAstRev :: VoidHVector
 {-# NOINLINE funToAstRev #-}
 funToAstRev parameters0 = unsafePerformIO $ funToAstRevIO parameters0
 
-funToAstRevIOTKNew :: VoidHVector
+funToAstRevIOTKNew :: TensorKindFull TKUntyped
               -> IO ( AstVarName PrimalSpan TKUntyped
                     , HVector (AstRaw PrimalSpan)
                     , AstVarName FullSpan TKUntyped
                     , HVector (AstRanked FullSpan) )
 {-# INLINE funToAstRevIOTKNew #-}
-funToAstRevIOTKNew parameters0 = do
+funToAstRevIOTKNew ftk@(FTKUntyped parameters0) = do
   freshId <- unsafeGetFreshAstVarId
   let varPrimal = mkAstVarName freshId
       var = mkAstVarName freshId
-      !astVarPrimal = AstVar (FTKUntyped parameters0) varPrimal
-      !astVar = AstVar (FTKUntyped parameters0) var
+      !astVarPrimal = AstVar ftk varPrimal
+      !astVar = AstVar ftk var
   let f :: Int -> DynamicTensor VoidTensor
         -> IO (AstDynamic PrimalSpan, AstDynamic FullSpan)
       f i (DynamicRankedDummy @r @sh _ _)
@@ -322,13 +322,13 @@ funToAstRevIOTKNew parameters0 = do
       !va = V.fromList asts
   return (varPrimal, rawHVector vp, var, va)
 
-funToAstRevTKNew :: VoidHVector
+funToAstRevTKNew :: TensorKindFull TKUntyped
             -> ( AstVarName PrimalSpan TKUntyped
                , HVector (AstRaw PrimalSpan)
                , AstVarName FullSpan TKUntyped
                , HVector (AstRanked FullSpan) )
 {-# NOINLINE funToAstRevTKNew #-}
-funToAstRevTKNew parameters0 = unsafePerformIO $ funToAstRevIOTKNew parameters0
+funToAstRevTKNew = unsafePerformIO . funToAstRevIOTKNew
 
 funToAstFwdIO :: VoidHVector
               -> IO ( [AstDynamicVarName]
@@ -388,7 +388,7 @@ funToAstFwd :: VoidHVector
 {-# NOINLINE funToAstFwd #-}
 funToAstFwd parameters0 = unsafePerformIO $ funToAstFwdIO parameters0
 
-funToAstFwdIOTKNew :: VoidHVector
+funToAstFwdIOTKNew :: TensorKindFull TKUntyped
               -> IO ( AstVarName PrimalSpan TKUntyped
                     , HVector (AstRaw PrimalSpan)
                     , AstVarName PrimalSpan TKUntyped
@@ -396,14 +396,14 @@ funToAstFwdIOTKNew :: VoidHVector
                     , AstVarName FullSpan TKUntyped
                     , HVector (AstRanked FullSpan) )
 {-# INLINE funToAstFwdIOTKNew #-}
-funToAstFwdIOTKNew parameters0 = do
+funToAstFwdIOTKNew ftk@(FTKUntyped parameters0) = do
   freshIdDs <- unsafeGetFreshAstVarId
   freshId <- unsafeGetFreshAstVarId
   let varPrimalD = mkAstVarName freshIdDs
       varPrimal = mkAstVarName freshId
       var = mkAstVarName freshId
-      !astVarPrimalD = AstVar (FTKUntyped parameters0) varPrimalD
-      !astVarPrimal = AstVar (FTKUntyped parameters0) varPrimal
+      !astVarPrimalD = AstVar ftk varPrimalD
+      !astVarPrimal = AstVar ftk varPrimal
       !astVar = AstVar (FTKUntyped parameters0) var
   let f :: Int -> DynamicTensor VoidTensor
         -> IO (AstDynamic PrimalSpan, AstDynamic PrimalSpan, AstDynamic FullSpan)
@@ -427,7 +427,7 @@ funToAstFwdIOTKNew parameters0 = do
       !va = V.fromList asts
   return (varPrimalD, rawHVector vD, varPrimal, rawHVector vp, var, va)
 
-funToAstFwdTKNew :: VoidHVector
+funToAstFwdTKNew :: TensorKindFull TKUntyped
             -> ( AstVarName PrimalSpan TKUntyped
                , HVector (AstRaw PrimalSpan)
                , AstVarName PrimalSpan TKUntyped
@@ -435,7 +435,7 @@ funToAstFwdTKNew :: VoidHVector
                , AstVarName FullSpan TKUntyped
                , HVector (AstRanked FullSpan) )
 {-# NOINLINE funToAstFwdTKNew #-}
-funToAstFwdTKNew parameters0 = unsafePerformIO $ funToAstFwdIOTKNew parameters0
+funToAstFwdTKNew = unsafePerformIO . funToAstFwdIOTKNew
 
 funToAstIOI :: (AstInt -> t) -> IO (IntVarName, t)
 {-# INLINE funToAstIOI #-}
