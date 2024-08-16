@@ -101,15 +101,15 @@ revDtMaybe
 {-# INLINE revDtMaybe #-}
 revDtMaybe f vals0 mdt =
   let g :: HVector (AstRanked FullSpan)
-        -> HVectorPseudoTensor (AstRanked FullSpan) Float '()
+        -> InterpretationTarget (AstRanked FullSpan) TKUntyped
       g !hv = HVectorPseudoTensor
               $ toHVectorOf $ f $ parseHVector (fromValue vals0) hv
       valsH = toHVectorOf vals0
-      voidH = voidFromHVector valsH
-      artifact = fst $ revProduceArtifact (isJust mdt) g emptyEnv voidH
-      mdth = toHVectorOf <$> mdt
+      voidH = FTKUntyped $ voidFromHVector valsH
+      artifact = fst $ revProduceArtifactTKNew (isJust mdt) g emptyEnv voidH
+      mdth = (HVectorPseudoTensor . toHVectorOf) <$> mdt
   in parseHVector vals0
-     $ fst $ revEvalArtifact artifact valsH mdth
+     $ fst $ revEvalArtifactTKNew artifact valsH mdth
 {-# SPECIALIZE revDtMaybe
   :: ( KnownNat n
      , AdaptableHVector (AstRanked FullSpan) astvals
