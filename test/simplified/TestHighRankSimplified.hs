@@ -661,8 +661,8 @@ testConcatBuild3PP2 = do
   let (artifactRev, _) =
         revArtifactAdapt True t (FlipR $ Nested.rfromOrthotope SNat $ OR.fromList [3] [0.651,0.14,0.3414])
   printArtifactSimple renames artifactRev
-    @?= "\\m8 v1 -> dmkHVector (fromList [DynamicRankedDummy])"
+    @?= "\\m9 v10 -> dmkHVector (fromList [DynamicRankedDummy])"
   printArtifactPrimalSimple renames artifactRev
-    @?= "\\v1 -> dmkHVector (fromList [DynamicRanked (rfromIntegral (rgather [5,2] (rfromVector (fromList [rreplicate 5 (rconst (rfromListLinear [2] [0,1])), quotF (rtranspose [1,0] (rreplicate 2 (rconst (rfromListLinear [5] [0,1,2,3,4])))) (rreplicate 5 (rconst (rfromListLinear [2] [0,1]) + rreplicate 2 1))])) (\\[i6, i7] -> [ifF (i7 >=. quotF i6 (1 + i7)) 0 1, i6, i7])))])"
+    @?= "\\v12 -> dmkHVector (fromList [DynamicRanked (rfromIntegral (rgather [5,2] (rfromVector (fromList [rreplicate 5 (rconst (rfromListLinear [2] [0,1])), quotF (rtranspose [1,0] (rreplicate 2 (rconst (rfromListLinear [5] [0,1,2,3,4])))) (rreplicate 5 (rconst (rfromListLinear [2] [0,1]) + rreplicate 2 1))])) (\\[i6, i7] -> [ifF (i7 >=. quotF i6 (1 + i7)) 0 1, i6, i7])))])"
   printArtifactPrimalSimple renames (simplifyArtifact artifactRev)
-    @?= "\\v1 -> dmkHVector (fromList [DynamicRanked (rfromIntegral (rgather [5,2] (rfromVector (fromList [rreplicate 5 (rconst (rfromListLinear [2] [0,1])), quotF (rtranspose [1,0] (rreplicate 2 (rconst (rfromListLinear [5] [0,1,2,3,4])))) (rreplicate 5 (rconst (rfromListLinear [2] [0,1]) + rreplicate 2 1))])) (\\[i6, i7] -> [ifF (i7 >=. quotF i6 (1 + i7)) 0 1, i6, i7])))])"
+    @?= "\\v14 -> dmkHVector (fromList [DynamicRanked (rfromIntegral (rgather [5,2] (rfromVector (fromList [rreplicate 5 (rconst (rfromListLinear [2] [0,1])), quotF (rtranspose [1,0] (rreplicate 2 (rconst (rfromListLinear [5] [0,1,2,3,4])))) (rreplicate 5 (rconst (rfromListLinear [2] [0,1]) + rreplicate 2 1))])) (\\[i6, i7] -> [ifF (i7 >=. quotF i6 (1 + i7)) 0 1, i6, i7])))])"

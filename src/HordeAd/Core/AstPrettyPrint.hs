@@ -12,8 +12,6 @@ module HordeAd.Core.AstPrettyPrint
   , printAstSimple, printAstPretty, printAstPrettyButNested
   , printAstSimpleS, printAstPrettyS, printAstPrettyButNestedS
   , printAstHVectorSimple, printAstHVectorPretty, printAstHVectorPrettyButNested
-  , printArtifactSimple, printArtifactPretty
-  , printArtifactPrimalSimple, printArtifactPrimalPretty
   ) where
 
 import Prelude
@@ -1078,43 +1076,3 @@ printAstHVectorPrettyButNested
   :: AstSpan s => IntMap String -> AstTensor s TKUntyped -> String
 printAstHVectorPrettyButNested renames t =
   printAst (defaulPrintConfig2 True False renames) 0 t ""
-
-printArtifactSimple
-  :: IntMap String
-  -> AstArtifact TKUntyped TKUntyped
-  -> String
-printArtifactSimple renames (AstArtifact varsDt vars1 derivative _) =
-  let varsPP = map (printAstDynamicVarNameBrief renames) $ varsDt ++ vars1
-  in "\\" ++ unwords varsPP
-          ++ " -> " ++ printAstHVectorSimple
-                         renames (unAstRawWrap $ unHVectorPseudoTensor derivative)
-
-printArtifactPretty
-  :: IntMap String
-  -> AstArtifact TKUntyped TKUntyped
-  -> String
-printArtifactPretty renames (AstArtifact varsDt vars1 derivative _) =
-  let varsPP = map (printAstDynamicVarNameBrief renames) $ varsDt ++ vars1
-  in "\\" ++ unwords varsPP
-          ++ " -> " ++ printAstHVectorPretty
-                         renames (unAstRawWrap $ unHVectorPseudoTensor derivative)
-
-printArtifactPrimalSimple
-  :: IntMap String
-  -> AstArtifact TKUntyped TKUntyped
-  -> String
-printArtifactPrimalSimple renames (AstArtifact _ vars1 _ primal) =
-  let varsPP = map (printAstDynamicVarNameBrief renames) vars1
-  in "\\" ++ unwords varsPP
-          ++ " -> " ++ printAstHVectorSimple
-                         renames (unAstRawWrap $ unHVectorPseudoTensor primal)
-
-printArtifactPrimalPretty
-  :: IntMap String
-  -> AstArtifact TKUntyped TKUntyped
-  -> String
-printArtifactPrimalPretty renames (AstArtifact _ vars1 _ primal) =
-  let varsPP = map (printAstDynamicVarNameBrief renames) vars1
-  in "\\" ++ unwords varsPP
-          ++ " -> " ++ printAstHVectorPretty
-                         renames (unAstRawWrap $ unHVectorPseudoTensor primal)

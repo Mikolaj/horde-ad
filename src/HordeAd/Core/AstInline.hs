@@ -5,6 +5,8 @@ module HordeAd.Core.AstInline
   ( -- * The joint inlining and simplification term transformation
     simplifyArtifact, simplifyInlineAst, simplifyInlineAstS
   , simplifyInlineHVector, simplifyInlineHVectorRaw
+  , printArtifactSimple, printArtifactPretty
+  , printArtifactPrimalSimple, printArtifactPrimalPretty
     -- * The translates global sharing to normal lets
   , unshareAstRanked, unshareAstShaped, unshareAstHVector
   ) where
@@ -14,6 +16,7 @@ import Prelude
 import Control.Arrow (second)
 import Data.Array.Internal (valueOf)
 import Data.EnumMap.Strict qualified as EM
+import Data.IntMap.Strict (IntMap)
 import Data.List (mapAccumR)
 import Data.Maybe (fromMaybe)
 import Data.Proxy (Proxy (Proxy))
@@ -25,6 +28,8 @@ import Type.Reflection (typeRep)
 import HordeAd.Core.Ast (AstBool, AstTensor)
 import HordeAd.Core.Ast hiding (AstBool (..), AstTensor (..))
 import HordeAd.Core.Ast qualified as Ast
+import HordeAd.Core.AstFreshId
+import HordeAd.Core.AstPrettyPrint
 import HordeAd.Core.AstSimplify
 import HordeAd.Core.AstTools
 import HordeAd.Core.HVector
@@ -34,14 +39,14 @@ import HordeAd.Util.SizedList
 
 -- * The joint inlining and simplification term transformation
 
-simplifyArtifact :: AstArtifact TKUntyped TKUntyped -> AstArtifact TKUntyped TKUntyped
+simplifyArtifact :: AstArtifactRev TKUntyped TKUntyped -> AstArtifactRev TKUntyped TKUntyped
 simplifyArtifact art =
-  art { artDerivative =
+  art { artDerivativeRev =
           HVectorPseudoTensor $ simplifyInlineHVectorRaw
-          $ unHVectorPseudoTensor $ artDerivative art
-      , artPrimal =
+          $ unHVectorPseudoTensor $ artDerivativeRev art
+      , artPrimalRev =
           HVectorPseudoTensor $ simplifyInlineHVectorRaw
-          $ unHVectorPseudoTensor $ artPrimal art
+          $ unHVectorPseudoTensor $ artPrimalRev art
       }
 
 -- Potentially, some more inlining could be triggered after the second
@@ -85,6 +90,71 @@ simplifyInlineHVectorRaw
   => AstRawWrap (AstTensor s z) -> AstRawWrap (AstTensor s z)
 simplifyInlineHVectorRaw =
   AstRawWrap . simplifyInlineHVector . unAstRawWrap
+
+prettifyArtifactRev
+  :: AstArtifactRev TKUntyped TKUntyped
+  -> ( [AstDynamicVarName]
+     , [AstDynamicVarName]
+     , InterpretationTarget (AstRaw PrimalSpan) TKUntyped
+     , InterpretationTarget (AstRaw PrimalSpan) TKUntyped )
+prettifyArtifactRev AstArtifactRev{..} =
+  let der = unAstRawWrap (unHVectorPseudoTensor artDerivativeRev)
+      prim = unAstRawWrap (unHVectorPseudoTensor artPrimalRev)
+  in fun1DToAst (shapeAstHVector prim) $ \ !varsDt !astsDt ->
+       fun1DToAst (shapeAstHVector der) $ \ !vars1 !asts1 ->
+       let idt = SubstitutionPayload $ Ast.AstMkHVector astsDt
+           idom = SubstitutionPayload $ Ast.AstMkHVector asts1
+           derivative = substituteAst idt artVarDtRev
+                        $ substituteAst idom artVarDomainRev der
+           primal = substituteAst idom artVarDomainRev prim
+       in ( varsDt
+          , vars1
+          , HVectorPseudoTensor $ AstRawWrap derivative
+          , HVectorPseudoTensor $ AstRawWrap primal )
+
+printArtifactSimple
+  :: IntMap String
+  -> AstArtifactRev TKUntyped TKUntyped
+  -> String
+printArtifactSimple renames art =
+  let (varsDt, vars1, derivative, _) = prettifyArtifactRev art
+      varsPP = map (printAstDynamicVarNameBrief renames) $ varsDt ++ vars1
+  in "\\" ++ unwords varsPP
+          ++ " -> " ++ printAstHVectorSimple
+                         renames (unAstRawWrap $ unHVectorPseudoTensor derivative)
+
+printArtifactPretty
+  :: IntMap String
+  -> AstArtifactRev TKUntyped TKUntyped
+  -> String
+printArtifactPretty renames art =
+  let (varsDt, vars1, derivative, _) = prettifyArtifactRev art
+      varsPP = map (printAstDynamicVarNameBrief renames) $ varsDt ++ vars1
+  in "\\" ++ unwords varsPP
+          ++ " -> " ++ printAstHVectorPretty
+                         renames (unAstRawWrap $ unHVectorPseudoTensor derivative)
+
+printArtifactPrimalSimple
+  :: IntMap String
+  -> AstArtifactRev TKUntyped TKUntyped
+  -> String
+printArtifactPrimalSimple renames art =
+  let (_, vars1, _, primal) = prettifyArtifactRev art
+      varsPP = map (printAstDynamicVarNameBrief renames) vars1
+  in "\\" ++ unwords varsPP
+          ++ " -> " ++ printAstHVectorSimple
+                         renames (unAstRawWrap $ unHVectorPseudoTensor primal)
+
+printArtifactPrimalPretty
+  :: IntMap String
+  -> AstArtifactRev TKUntyped TKUntyped
+  -> String
+printArtifactPrimalPretty renames art =
+  let (_, vars1, _, primal) = prettifyArtifactRev art
+      varsPP = map (printAstDynamicVarNameBrief renames) vars1
+  in "\\" ++ unwords varsPP
+          ++ " -> " ++ printAstHVectorPretty
+                         renames (unAstRawWrap $ unHVectorPseudoTensor primal)
 
 
 -- * The pass that inlines lets with the bottom-up strategy

@@ -316,7 +316,7 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
            f = MnistRnnShaped2.rnnMnistLossFusedS
                  width batch_size (AstShaped astGlyph, AstShaped astLabel)
            (AstArtifact varDtAgain vars1Again gradientRaw primal, _) =
-             revProduceArtifactH False f envInit valsInit
+             revProduceArtifactHOld False f envInit valsInit
                                  (voidFromHVector hVectorInit)
            gradient = HVectorPseudoTensor $ simplifyInlineHVectorRaw
                       $ unHVectorPseudoTensor gradientRaw

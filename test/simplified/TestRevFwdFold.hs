@@ -1056,7 +1056,7 @@ testSin0Scan1Rev2PPA = do
                            (rconst (Nested.Internal.rfromListPrimLinear @Double @1 (fromList [2]) [5, 7])))
                  (rscalar 1.1)
   printArtifactPretty IM.empty (simplifyArtifact art)
-    @?= "\\v8 x1 -> let v4 = rconst (rfromListLinear [2] [5.0,7.0]) in let [x5 @Natural @Double @[], v6 @Natural @Double @[2], v7 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [x1] [v4] in let [x9 @Natural @Double @[], v10 @Natural @Double @[2]] = dmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> [0] [rslice 1 2 v8, v6, v4] in [x9 + v8 ! [0]]"
+    @?= "\\v11 x12 -> let v4 = rconst (rfromListLinear [2] [5.0,7.0]) in let [x5 @Natural @Double @[], v6 @Natural @Double @[2], v7 @Natural @Double @[2]] = dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [x12] [v4] in let [x9 @Natural @Double @[], v10 @Natural @Double @[2]] = dmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> [0] [rslice 1 2 v11, v6, v4] in [x9 + v11 ! [0]]"
 
 testSin0Scan1Rev2PPForComparison :: Assertion
 testSin0Scan1Rev2PPForComparison = do
@@ -1067,7 +1067,7 @@ testSin0Scan1Rev2PPForComparison = do
                  (\x0 -> rfromList [sin (sin x0 - 5) - 7, sin x0 - 5, x0])
                  (rscalar 1.1)
   printArtifactPretty IM.empty (simplifyArtifact art)
-    @?= "\\v3 x1 -> [cos x1 * (cos (sin x1 - 5.0) * v3 ! [0]) + cos x1 * v3 ! [1] + v3 ! [2]]"
+    @?= "\\v4 x5 -> [cos x5 * (cos (sin x5 - 5.0) * v4 ! [0]) + cos x5 * v4 ! [1] + v4 ! [2]]"
 
 testSin0Scan1Rev2 :: Assertion
 testSin0Scan1Rev2 = do
