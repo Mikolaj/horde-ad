@@ -26,6 +26,7 @@ import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId
 import HordeAd.External.OptimizerTools
 import HordeAd.Internal.BackendOX (ORArray, OSArray)
+import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..))
 
 import EqEpsilon
 
@@ -296,24 +297,16 @@ mnistTestCaseCNNO prefix epochs maxBatches kh kw c_out n_hidden
        testData <- map rankBatch . take (totalBatchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
        let testDataR = packBatchR testData
-       (varGlyph, varGlyphD, astGlyph) <-
-         funToAstIO
-           (FTKR $ miniBatchSize :$: sizeMnistHeightInt :$: sizeMnistWidthInt :$: ZSR)
-           id
-       (varLabel, varLabelD, astLabel) <-
-         funToAstIO (FTKR $ miniBatchSize :$: sizeMnistLabelInt :$: ZSR) id
-       let envInit = extendEnv varGlyph (rconstant $ AstRaw astGlyph)
-                     $ extendEnv varLabel (rconstant $ AstRaw astLabel)
-                       emptyEnv
-           f = MnistCnnRanked2.convMnistLossFusedR
-                 miniBatchSize (AstRanked astGlyph, AstRanked astLabel)
-           (AstArtifact varDtAgain vars1Again gradientRaw primal, _) =
-             revProduceArtifactHOld False f envInit valsInit
-                                 (voidFromHVector hVectorInit)
-           gradient = HVectorPseudoTensor $ simplifyInlineHVectorRaw
-                      $ unHVectorPseudoTensor gradientRaw
-           vars1AndInputAgain = vars1Again ++ [varGlyphD, varLabelD]
-           art = AstArtifact varDtAgain vars1AndInputAgain gradient primal
+           dataInit = case chunksOf miniBatchSize testData of
+             d : _ -> let (dglyph, dlabel) = packBatchR d
+                      in ( FlipR $ Nested.rfromOrthotope SNat dglyph
+                         , FlipR $ Nested.rfromOrthotope SNat dlabel )
+             [] -> error "empty test data"
+           f = \ (pars, (glyphR, labelR)) ->
+             MnistCnnRanked2.convMnistLossFusedR
+               miniBatchSize (rprimalPart glyphR, rprimalPart labelR) pars
+           (artRaw, _) = revArtifactAdapt False f (valsInit, dataInit)
+           art = simplifyArtifactGradient artRaw
            go :: [MnistDataBatchR r] -> (HVector ORArray, StateAdam)
               -> (HVector ORArray, StateAdam)
            go [] (parameters, stateAdam) = (parameters, stateAdam)
@@ -323,7 +316,7 @@ mnistTestCaseCNNO prefix epochs maxBatches kh kw c_out n_hidden
                  parametersAndInput =
                    V.concat [parameters, V.fromList [glyphD, labelD]]
                  gradientHVector =
-                   fst $ revEvalArtifact art parametersAndInput Nothing
+                   fst $ revEvalArtifactTKNew art parametersAndInput Nothing
              in go rest (updateWithGradientAdam defaultArgsAdam stateAdam
                                                 parameters gradientHVector)
            runBatch :: (HVector ORArray, StateAdam) -> (Int, [MnistDataR r])

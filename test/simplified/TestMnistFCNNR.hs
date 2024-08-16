@@ -26,6 +26,7 @@ import HordeAd
 import HordeAd.Core.Adaptor
 import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId
+import HordeAd.Core.TensorAst (revProduceArtifactTKNew)
 import HordeAd.External.OptimizerTools
 import HordeAd.Internal.BackendOX (ORArray, OSArray)
 import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..))
@@ -301,34 +302,43 @@ mnistTestCase1VTO prefix epochs maxBatches widthHidden widthHidden2
        trainData <- loadMnistData trainGlyphsPath trainLabelsPath
        testData <- take (batchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
-       (varGlyph, varGlyphD, astGlyph) <-
-         funToAstIO (FTKR $ singletonShape sizeMnistGlyphInt) id
-       (varLabel, varLabelD, astLabel) <-
-         funToAstIO (FTKR $ singletonShape sizeMnistLabelInt) id
-       let envInit = extendEnv varGlyph (rconstant $ AstRaw astGlyph)
-                     $ extendEnv varLabel (rconstant $ AstRaw astLabel)
-                     emptyEnv
-           f = MnistFcnnRanked1.afcnnMnistLoss1TensorData @(AstRanked FullSpan)
-                 widthHidden widthHidden2
-                 (rconstant $ AstRanked astGlyph, rconstant $ AstRanked astLabel)
-           (AstArtifact varDtAgain vars1Again gradientRaw primal, _) =
-             revProduceArtifactHOld False f envInit valsInit
-                                 (voidFromHVector hVectorInit)
-           gradient = HVectorPseudoTensor $ simplifyInlineHVectorRaw
-                      $ unHVectorPseudoTensor gradientRaw
-           vars1AndInputAgain = vars1Again ++ [varGlyphD, varLabelD]
-           art = AstArtifact varDtAgain vars1AndInputAgain gradient primal
+       let dataInit = case testData of
+             d : _ -> let (dglyph, dlabel) = d
+                      in ( FlipR $ Nested.rfromOrthotope SNat
+                           $ OR.fromVector [sizeMnistGlyphInt] dglyph
+                         , FlipR $ Nested.rfromOrthotope SNat
+                           $ OR.fromVector [sizeMnistLabelInt] dlabel )
+             [] -> error "empty test data"
+           f = \ (pars, (glyphR, labelR)) ->
+             MnistFcnnRanked1.afcnnMnistLoss1TensorData
+               widthHidden widthHidden2
+               (glyphR, labelR) pars
+           g :: HVector (AstRanked FullSpan)
+             -> InterpretationTarget (AstRanked FullSpan) TKUntyped
+           g !hv = HVectorPseudoTensor
+                   $ toHVectorOf $ f
+                   $ parseHVector (fromValue (valsInit, dataInit)) hv
+           (artRaw, _) = revProduceArtifactTKNew False g emptyEnv
+                           (FTKUntyped $ voidFromHVector
+                            $ hVectorInit
+                              V.++ V.fromList [ DynamicRanked @r @1
+                                                $ fst dataInit
+                                              , DynamicRanked @r @1
+                                                $ snd dataInit ])
+           art = simplifyArtifactGradient artRaw
            go :: [MnistData r] -> HVector ORArray -> HVector ORArray
            go [] parameters = parameters
            go ((glyph, label) : rest) !parameters =
              let glyphD = DynamicRanked @r @1
-                          $ FlipR $ Nested.rfromOrthotope SNat $ OR.fromVector [sizeMnistGlyphInt] glyph
+                          $ FlipR $ Nested.rfromOrthotope SNat
+                          $ OR.fromVector [sizeMnistGlyphInt] glyph
                  labelD = DynamicRanked @r @1
-                          $ FlipR $ Nested.rfromOrthotope SNat $ OR.fromVector [sizeMnistLabelInt] label
+                          $ FlipR $ Nested.rfromOrthotope SNat
+                          $ OR.fromVector [sizeMnistLabelInt] label
                  parametersAndInput =
                    V.concat [parameters, V.fromList [glyphD, labelD]]
                  gradientHVector =
-                   fst $ revEvalArtifact art parametersAndInput Nothing
+                   fst $ revEvalArtifactTKNew art parametersAndInput Nothing
              in go rest (updateWithGradient gamma parameters gradientHVector)
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
@@ -613,33 +623,31 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
        trainData <- loadMnistData trainGlyphsPath trainLabelsPath
        testData <- take (batchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
-       (varGlyph, varGlyphD, astGlyph) <-
-         funToAstIO (FTKR $ singletonShape sizeMnistGlyphInt) id
-       (varLabel, varLabelD, astLabel) <-
-         funToAstIO (FTKR $ singletonShape sizeMnistLabelInt) id
-       let envInit = extendEnv varGlyph (rconstant $ AstRaw astGlyph)
-                     $ extendEnv varLabel (rconstant $ AstRaw astLabel)
-                       emptyEnv
-           f = MnistFcnnRanked2.afcnnMnistLoss2TensorData @(AstRanked FullSpan)
-                 (rconstant $ AstRanked astGlyph, rconstant $ AstRanked astLabel)
-           (AstArtifact varDtAgain vars1Again gradientRaw primal, _) =
-             revProduceArtifactHOld False f envInit valsInit
-                                 (voidFromHVector hVectorInit)
-           gradient = HVectorPseudoTensor $ simplifyInlineHVectorRaw
-                      $ unHVectorPseudoTensor gradientRaw
-           vars1AndInputAgain = vars1Again ++ [varGlyphD, varLabelD]
-           art = AstArtifact varDtAgain vars1AndInputAgain gradient primal
+       let dataInit = case testData of
+             d : _ -> let (dglyph, dlabel) = d
+                      in ( FlipR $ Nested.rfromOrthotope SNat
+                           $ OR.fromVector [sizeMnistGlyphInt] dglyph
+                         , FlipR $ Nested.rfromOrthotope SNat
+                           $ OR.fromVector [sizeMnistLabelInt] dlabel )
+             [] -> error "empty test data"
+           f = \ (pars, (glyphR, labelR)) ->
+             MnistFcnnRanked2.afcnnMnistLoss2TensorData
+               (glyphR, labelR) pars
+           (artRaw, _) = revArtifactAdapt False f (valsInit, dataInit)
+           art = simplifyArtifactGradient artRaw
            go :: [MnistData r] -> HVector ORArray -> HVector ORArray
            go [] parameters = parameters
            go ((glyph, label) : rest) !parameters =
              let glyphD = DynamicRanked @r @1
-                          $ FlipR $ Nested.rfromOrthotope SNat $ OR.fromVector [sizeMnistGlyphInt] glyph
+                          $ FlipR $ Nested.rfromOrthotope SNat
+                          $ OR.fromVector [sizeMnistGlyphInt] glyph
                  labelD = DynamicRanked @r @1
-                          $ FlipR $ Nested.rfromOrthotope SNat $ OR.fromVector [sizeMnistLabelInt] label
+                          $ FlipR $ Nested.rfromOrthotope SNat
+                          $ OR.fromVector [sizeMnistLabelInt] label
                  parametersAndInput =
                    V.concat [parameters, V.fromList [glyphD, labelD]]
                  gradientHVector =
-                   fst $ revEvalArtifact art parametersAndInput Nothing
+                   fst $ revEvalArtifactTKNew art parametersAndInput Nothing
              in go rest (updateWithGradient gamma parameters gradientHVector)
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.

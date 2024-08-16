@@ -3,7 +3,8 @@
 -- | Inlining and global sharing elimination.
 module HordeAd.Core.AstInline
   ( -- * The joint inlining and simplification term transformation
-    simplifyArtifact, simplifyInlineAst, simplifyInlineAstS
+    simplifyArtifact, simplifyArtifactGradient
+  , simplifyInlineAst, simplifyInlineAstS
   , simplifyInlineHVector, simplifyInlineHVectorRaw
   , printArtifactSimple, printArtifactPretty
   , printArtifactPrimalSimple, printArtifactPrimalPretty
@@ -47,6 +48,13 @@ simplifyArtifact art =
       , artPrimalRev =
           HVectorPseudoTensor $ simplifyInlineHVectorRaw
           $ unHVectorPseudoTensor $ artPrimalRev art
+      }
+
+simplifyArtifactGradient :: AstArtifactRev TKUntyped TKUntyped -> AstArtifactRev TKUntyped TKUntyped
+simplifyArtifactGradient art =
+  art { artDerivativeRev =
+          HVectorPseudoTensor $ simplifyInlineHVectorRaw
+          $ unHVectorPseudoTensor $ artDerivativeRev art
       }
 
 -- Potentially, some more inlining could be triggered after the second

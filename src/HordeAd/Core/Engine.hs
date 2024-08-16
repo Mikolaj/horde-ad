@@ -6,7 +6,7 @@
 -- high-level API of the horde-ad library. Optimizers are add-ons.
 module HordeAd.Core.Engine
   ( -- * Reverse derivative adaptors
-    rev, revDt, revArtifactAdapt, revProduceArtifactH, revProduceArtifactHOld
+    rev, revDt, revArtifactAdapt
   , revProduceArtifactWithoutInterpretation
   , revProduceArtifactWithoutInterpretationTKNew
   , revEvalArtifact, revEvalArtifactTKNew
@@ -131,9 +131,13 @@ revArtifactAdapt
   -> Value astvals
   -> (AstArtifactRev TKUntyped TKUntyped, Delta (AstRaw PrimalSpan) TKUntyped )
 revArtifactAdapt hasDt f vals0 =
-  let valsH = toHVectorOf @ORArray vals0
+  let g :: HVector (AstRanked FullSpan)
+        -> InterpretationTarget (AstRanked FullSpan) TKUntyped
+      g !hv = HVectorPseudoTensor
+              $ toHVectorOf $ f $ parseHVector (fromValue vals0) hv
+      valsH = toHVectorOf @ORArray vals0
       voidH = voidFromHVector valsH
-  in revProduceArtifactH hasDt f emptyEnv vals0 (FTKUntyped voidH)
+  in revProduceArtifactTKNew hasDt g emptyEnv (FTKUntyped voidH)
 {-# SPECIALIZE revArtifactAdapt
   :: ( KnownNat n
      , AdaptableHVector (AstRanked FullSpan) astvals
@@ -141,44 +145,6 @@ revArtifactAdapt hasDt f vals0 =
      , TermValue astvals )
   => Bool -> (astvals -> AstRanked FullSpan Double n) -> Value astvals
   -> (AstArtifactRev TKUntyped TKUntyped, Delta (AstRaw PrimalSpan) TKUntyped) #-}
-
-revProduceArtifactH
-  :: forall r y g astvals.
-     ( AdaptableHVector (AstRanked FullSpan) astvals
-     , AdaptableHVector (AstRanked FullSpan) (g r y)
-     , TermValue astvals )
-  => Bool
-  -> (astvals -> g r y)
-  -> AstEnv (ADVal (AstRaw PrimalSpan))
-  -> Value astvals
-  -> TensorKindFull TKUntyped
-  -> (AstArtifactRev TKUntyped TKUntyped, Delta (AstRaw PrimalSpan) TKUntyped)
-{-# INLINE revProduceArtifactH #-}
-revProduceArtifactH hasDt f envInit vals0 =
-  let g :: HVector (AstRanked FullSpan)
-        -> InterpretationTarget (AstRanked FullSpan) TKUntyped
-      g !hv = HVectorPseudoTensor
-              $ toHVectorOf $ f $ parseHVector (fromValue vals0) hv
-  in revProduceArtifactTKNew hasDt g envInit
-
-revProduceArtifactHOld
-  :: forall r y g astvals.
-     ( AdaptableHVector (AstRanked FullSpan) astvals
-     , AdaptableHVector (AstRanked FullSpan) (g r y)
-     , TermValue astvals )
-  => Bool
-  -> (astvals -> g r y)
-  -> AstEnv (ADVal (AstRaw PrimalSpan))
-  -> Value astvals
-  -> VoidHVector
-  -> (AstArtifact TKUntyped TKUntyped, Delta (AstRaw PrimalSpan) TKUntyped)
-{-# INLINE revProduceArtifactHOld #-}
-revProduceArtifactHOld hasDt f envInit vals0 =
-  let g :: HVector (AstRanked FullSpan)
-        -> InterpretationTarget (AstRanked FullSpan) TKUntyped
-      g !hv = HVectorPseudoTensor
-              $ toHVectorOf $ f $ parseHVector (fromValue vals0) hv
-  in revProduceArtifact hasDt g envInit
 
 revProduceArtifactWithoutInterpretation
   :: (AdaptableHVector (ADVal (AstRaw PrimalSpan))
