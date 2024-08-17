@@ -1216,19 +1216,12 @@ gatherFromNF vars (i :.: rest) = case cmpNat (Proxy @p) (Proxy @m) of
 flipCompare :: forall (a :: Nat) b. Compare a b ~ GT => Compare b a :~: LT
 flipCompare = unsafeCoerce Refl
 
-isVar :: AstTensor s (TKR r n) -> Bool
+isVar :: AstTensor s y -> Bool
 isVar Ast.AstVar{} = True
 isVar (Ast.AstConstant (Ast.AstVar{})) = True
 isVar (Ast.AstPrimalPart (Ast.AstVar{})) = True
 isVar (Ast.AstDualPart (Ast.AstVar{})) = True
 isVar _ = False
-
-isVarS :: AstTensor s (TKS r sh) -> Bool
-isVarS Ast.AstVar{} = True
-isVarS (Ast.AstConstant (Ast.AstVar{})) = True
-isVarS (Ast.AstPrimalPart (Ast.AstVar{})) = True
-isVarS (Ast.AstDualPart (Ast.AstVar{})) = True
-isVarS _ = False
 
 astGatherKnobsS
   :: forall sh2 p sh s r.
@@ -1753,22 +1746,22 @@ astTransposeS perm t = case perm of
                                       (shapeT @sh)) $ \(Proxy @shp) ->
     gcastWith (unsafeCoerce Refl :: Permutation.PermutePrefix perm sh :~: shp) $
     astLet var u (astTransposeS perm v)
-  AstN1S opCode u | not (isVarS u) ->
+  AstN1S opCode u | not (isVar u) ->
     withShapeP (backpermutePrefixList (Permutation.permToList' perm)
                                       (shapeT @sh)) $ \(Proxy @shp) ->
     gcastWith (unsafeCoerce Refl :: Permutation.PermutePrefix perm sh :~: shp) $
     AstN1S opCode (astTransposeS perm u)
-  AstN2S opCode u v | not (isVarS u && isVarS v) ->
+  AstN2S opCode u v | not (isVar u && isVar v) ->
     withShapeP (backpermutePrefixList (Permutation.permToList' perm)
                                       (shapeT @sh)) $ \(Proxy @shp) ->
     gcastWith (unsafeCoerce Refl :: Permutation.PermutePrefix perm sh :~: shp) $
     AstN2S opCode (astTransposeS perm u) (astTransposeS perm v)
-  Ast.AstR1S opCode u | not (isVarS u) ->
+  Ast.AstR1S opCode u | not (isVar u) ->
     withShapeP (backpermutePrefixList (Permutation.permToList' perm)
                                       (shapeT @sh)) $ \(Proxy @shp) ->
     gcastWith (unsafeCoerce Refl :: Permutation.PermutePrefix perm sh :~: shp) $
    Ast.AstR1S opCode (astTransposeS perm u)
-  Ast.AstR2S opCode u v | not (isVarS u && isVarS v) ->
+  Ast.AstR2S opCode u v | not (isVar u && isVar v) ->
     withShapeP (backpermutePrefixList (Permutation.permToList' perm)
                                       (shapeT @sh)) $ \(Proxy @shp) ->
     gcastWith (unsafeCoerce Refl :: Permutation.PermutePrefix perm sh :~: shp) $
@@ -1902,12 +1895,12 @@ astReshapeS = \case
       case stensorKind @y2 of
         STKS{} -> astReshapeS x
   Ast.AstLet var u v -> astLet var u (astReshapeS @_ @sh2 v)
-  AstN1S opCode u | not (isVarS u) -> AstN1S opCode (astReshapeS @_ @sh2 u)
-  AstN2S opCode u v | not (isVarS u && isVarS v) ->
+  AstN1S opCode u | not (isVar u) -> AstN1S opCode (astReshapeS @_ @sh2 u)
+  AstN2S opCode u v | not (isVar u && isVar v) ->
     AstN2S opCode (astReshapeS @_ @sh2 u) (astReshapeS @_ @sh2 v)
-  Ast.AstR1S opCode u | not (isVarS u) ->
+  Ast.AstR1S opCode u | not (isVar u) ->
     Ast.AstR1S opCode (astReshapeS @_ @sh2 u)
-  Ast.AstR2S opCode u v | not (isVarS u && isVarS v) ->
+  Ast.AstR2S opCode u v | not (isVar u && isVar v) ->
     Ast.AstR2S opCode (astReshapeS @_ @sh2 u) (astReshapeS @_ @sh2 v)
   Ast.AstFromVectorS @n l | Just Refl <- sameNat (Proxy @n) (Proxy @1) ->
     astReshapeS $ l V.! 0
