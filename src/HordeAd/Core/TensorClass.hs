@@ -747,8 +747,8 @@ class HVectorTensor (ranked :: RankedTensorType)
   dmkHVector :: HVector ranked -> HVectorOf ranked
   dlambda :: TensorKind y
           => [VoidHVector] -> HFun y -> HFunOf ranked y
-  dlambdaTKNew :: (TensorKind x, TensorKind y)
-          => TensorKindFull x -> HFunTKNew x y -> HFunOfTKNew ranked x y
+  dlambdaTKNew :: (TensorKind x, TensorKind z)
+          => TensorKindFull x -> HFunTKNew x z -> HFunOfTKNew ranked x z
   dHApply :: TensorKind y
           => HFunOf ranked y -> [HVector ranked]
           -> InterpretationTarget ranked y
@@ -1155,6 +1155,121 @@ class HVectorTensor (ranked :: RankedTensorType)
     -> HFunOf ranked TKUntyped
     -> HFunOf ranked TKUntyped
     -> HFunOf ranked TKUntyped
+    -> HVectorOf ranked
+    -> HVectorOf ranked
+    -> HVectorOf ranked
+  dmapAccumRTKNew
+    :: Proxy ranked
+    -> SNat k
+    -> VoidHVector
+    -> VoidHVector
+    -> VoidHVector
+    -> (forall f. ADReady f
+        => HVector f -> HVector f -> HVectorOf f)
+    -> HVectorOf ranked
+    -> HVectorOf ranked
+    -> HVectorOf ranked
+  dmapAccumRTKNew proxy !k !accShs !bShs !eShs f acc0 es =
+    let shs = accShs V.++ eShs
+        fl :: forall f. ADReady f
+           => InterpretationTarget f (TKProduct TKUntyped TKUntyped)
+           -> InterpretationTarget f TKUntyped
+        fl !acc_e = HVectorPseudoTensor $
+          dletHVectorInHVector
+            (unHVectorPseudoTensor $ tproject1 acc_e) $ \ !acc ->
+            dletHVectorInHVector
+              (unHVectorPseudoTensor $ tproject2 acc_e) $ \ !e ->
+              f acc e
+        accLen = V.length accShs
+        fs :: forall f. ADReady f
+           => InterpretationTarget f TKUntyped
+           -> InterpretationTarget f TKUntyped
+        fs !(HVectorPseudoTensor acc_eOf) = HVectorPseudoTensor $
+          dletHVectorInHVector acc_eOf $ \ !acc_e ->
+            uncurry f (V.splitAt accLen acc_e)
+    in dmapAccumRDerTKNew
+                     proxy k accShs bShs eShs
+                     (dlambdaTKNew @ranked
+                        (FTKProduct (FTKUntyped accShs) (FTKUntyped eShs))
+                        (HFunTKNew fl))
+                     (dfwdTKNew @ranked (FTKUntyped shs) $ HFunTKNew fs)
+                     (drevDtTKNew @ranked (FTKUntyped shs) $ HFunTKNew fs)
+                     acc0 es
+  dmapAccumRDerTKNew
+    :: Proxy ranked
+    -> SNat k
+    -> VoidHVector  -- ^ accShs, shapes of acc
+    -> VoidHVector  -- ^ bShs, shapes of b
+    -> VoidHVector  -- ^ eShs, shapes of e
+    -> HFunOfTKNew ranked (TKProduct TKUntyped TKUntyped) TKUntyped
+    -- (forall f. ADReady f =>
+    --  [ HVector f      -- ^ acc, accumulator :: accShs
+    --  , HVector f ]    -- ^ e, element of es :: eShs
+    --  -> HVectorOf f)  -- ^ (x, b) :: (accShs, bShs)
+    -> HFunOfTKNew ranked (TKProduct TKUntyped TKUntyped) TKUntyped
+    -- (forall f. ADReady f =>
+    --  [ HVector f      -- ^ dacc :: accShs
+    --    ++ HVector f   -- ^ de :: eShs
+    --  , HVector f      -- ^ acc :: accShs
+    --    ++ HVector f ] -- ^ e :: eShs
+    --  -> HVectorOf f)  -- ^ (dx, db) :: (accShs, bShs)
+    -> HFunOfTKNew ranked (TKProduct TKUntyped TKUntyped) TKUntyped
+    -- (forall f. ADReady f =>
+    --  [ HVector f      -- ^ dx :: accShs
+    --    ++ HVector f   -- ^ db :: bShs
+    --  , HVector f      -- ^ acc :: accShs
+    --    ++ HVector f ] -- ^ e :: eShs
+    --  -> HVectorOf f)  -- ^ (dacc, de) :: (accShs, eShs)
+    -> HVectorOf ranked  -- ^ acc0 :: accShs
+    -> HVectorOf ranked  -- ^ es :: k ': eShs
+    -> HVectorOf ranked  -- ^ (x, bs) :: (accShs, k ': bShs)
+  -- | A strict left macAccum.
+  dmapAccumLTKNew
+    :: Proxy ranked
+    -> SNat k
+    -> VoidHVector
+    -> VoidHVector
+    -> VoidHVector
+    -> (forall f. ADReady f
+        => HVector f -> HVector f -> HVectorOf f)
+    -> HVectorOf ranked
+    -> HVectorOf ranked
+    -> HVectorOf ranked
+  dmapAccumLTKNew proxy !k !accShs !bShs !eShs f acc0 es =
+    let shs = accShs V.++ eShs
+        fl :: forall f. ADReady f
+           => InterpretationTarget f (TKProduct TKUntyped TKUntyped)
+           -> InterpretationTarget f TKUntyped
+        fl !acc_e = HVectorPseudoTensor $
+          dletHVectorInHVector
+            (unHVectorPseudoTensor $ tproject1 acc_e) $ \ !acc ->
+            dletHVectorInHVector
+              (unHVectorPseudoTensor $ tproject2 acc_e) $ \ !e ->
+              f acc e
+        accLen = V.length accShs
+        fs :: forall f. ADReady f
+           => InterpretationTarget f TKUntyped
+           -> InterpretationTarget f TKUntyped
+        fs !(HVectorPseudoTensor acc_eOf) = HVectorPseudoTensor $
+          dletHVectorInHVector acc_eOf $ \ !acc_e ->
+            uncurry f (V.splitAt accLen acc_e)
+    in dmapAccumLDerTKNew
+                     proxy k accShs bShs eShs
+                     (dlambdaTKNew @ranked
+                        (FTKProduct (FTKUntyped accShs) (FTKUntyped eShs))
+                        (HFunTKNew fl))
+                     (dfwdTKNew @ranked (FTKUntyped shs) $ HFunTKNew fs)
+                     (drevDtTKNew @ranked (FTKUntyped shs) $ HFunTKNew fs)
+                     acc0 es
+  dmapAccumLDerTKNew
+    :: Proxy ranked
+    -> SNat k
+    -> VoidHVector
+    -> VoidHVector
+    -> VoidHVector
+    -> HFunOfTKNew ranked (TKProduct TKUntyped TKUntyped) TKUntyped
+    -> HFunOfTKNew ranked (TKProduct TKUntyped TKUntyped) TKUntyped
+    -> HFunOfTKNew ranked (TKProduct TKUntyped TKUntyped) TKUntyped
     -> HVectorOf ranked
     -> HVectorOf ranked
     -> HVectorOf ranked

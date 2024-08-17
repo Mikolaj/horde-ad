@@ -874,6 +874,10 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     -> AstTensor s TKUntyped
     -> AstTensor s TKUntyped
   dmapAccumLDer _ !k !accShs !bShs !eShs = AstMapAccumLDer k accShs bShs eShs
+  dmapAccumRDerTKNew _ !k !accShs !bShs !eShs =
+    AstMapAccumRDerTKNew k accShs bShs eShs
+  dmapAccumLDerTKNew _ !k !accShs !bShs !eShs =
+    AstMapAccumLDerTKNew k accShs bShs eShs
 
 astLetHVectorInHVectorFun
   :: AstSpan s
@@ -1449,6 +1453,14 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
     AstRawWrap
     $ AstMapAccumLDer k accShs bShs eShs f df rf (unAstRawWrap acc0)
                                                  (unAstRawWrap es)
+  dmapAccumRDerTKNew _ k accShs bShs eShs f df rf acc0 es =
+    AstRawWrap
+    $ AstMapAccumRDerTKNew k accShs bShs eShs f df rf (unAstRawWrap acc0)
+                                                 (unAstRawWrap es)
+  dmapAccumLDerTKNew _ k accShs bShs eShs f df rf acc0 es =
+    AstRawWrap
+    $ AstMapAccumLDerTKNew k accShs bShs eShs f df rf (unAstRawWrap acc0)
+                                                 (unAstRawWrap es)
 
 type role AstNoVectorizeProduct nominal representational representational
 type AstNoVectorizeProduct :: AstSpanType -> Type -> Type -> Type
@@ -1670,6 +1682,16 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
   dmapAccumLDer _ k accShs bShs eShs f df rf acc0 es =
     AstNoVectorizeWrap
     $ dmapAccumLDer (Proxy @(AstRanked s))
+                    k accShs bShs eShs f df rf (unAstNoVectorizeWrap acc0)
+                                               (unAstNoVectorizeWrap es)
+  dmapAccumRDerTKNew _ k accShs bShs eShs f df rf acc0 es =
+    AstNoVectorizeWrap
+    $ dmapAccumRDerTKNew (Proxy @(AstRanked s))
+                    k accShs bShs eShs f df rf (unAstNoVectorizeWrap acc0)
+                                               (unAstNoVectorizeWrap es)
+  dmapAccumLDerTKNew _ k accShs bShs eShs f df rf acc0 es =
+    AstNoVectorizeWrap
+    $ dmapAccumLDerTKNew (Proxy @(AstRanked s))
                     k accShs bShs eShs f df rf (unAstNoVectorizeWrap acc0)
                                                (unAstNoVectorizeWrap es)
 
@@ -1926,6 +1948,14 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
   dmapAccumLDer _ k accShs bShs eShs f df rf acc0 es =
     AstNoSimplifyWrap
     $ AstMapAccumLDer k accShs bShs eShs f df rf (unAstNoSimplifyWrap acc0)
+                                                 (unAstNoSimplifyWrap es)
+  dmapAccumRDerTKNew _ k accShs bShs eShs f df rf acc0 es =
+    AstNoSimplifyWrap
+    $ AstMapAccumRDerTKNew k accShs bShs eShs f df rf (unAstNoSimplifyWrap acc0)
+                                                 (unAstNoSimplifyWrap es)
+  dmapAccumLDerTKNew _ k accShs bShs eShs f df rf acc0 es =
+    AstNoSimplifyWrap
+    $ AstMapAccumLDerTKNew k accShs bShs eShs f df rf (unAstNoSimplifyWrap acc0)
                                                  (unAstNoSimplifyWrap es)
 
 unNoSimplifyHVector :: HVector (AstNoSimplify s) -> HVector (AstRanked s)

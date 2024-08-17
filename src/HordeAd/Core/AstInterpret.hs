@@ -911,8 +911,22 @@ interpretAst !env = \case
         es2 = unHVectorPseudoTensor $ interpretAst env es
     in HVectorPseudoTensor
        $ dmapAccumLDer (Proxy @ranked) k accShs bShs eShs f df rf acc02 es2
-  AstMapAccumRDerTKNew{} -> error "TODO"
-  AstMapAccumLDerTKNew{} -> error "TODO"
+  AstMapAccumRDerTKNew k accShs bShs eShs f0 df0 rf0 acc0 es ->
+    let f = interpretAstHFunTKNew env f0
+        df = interpretAstHFunTKNew env df0
+        rf = interpretAstHFunTKNew env rf0
+        acc02 = unHVectorPseudoTensor $ interpretAst env acc0
+        es2 = unHVectorPseudoTensor $ interpretAst env es
+    in HVectorPseudoTensor
+       $ dmapAccumRDerTKNew (Proxy @ranked) k accShs bShs eShs f df rf acc02 es2
+  AstMapAccumLDerTKNew k accShs bShs eShs f0 df0 rf0 acc0 es ->
+    let f = interpretAstHFunTKNew env f0
+        df = interpretAstHFunTKNew env df0
+        rf = interpretAstHFunTKNew env rf0
+        acc02 = unHVectorPseudoTensor $ interpretAst env acc0
+        es2 = unHVectorPseudoTensor $ interpretAst env es
+    in HVectorPseudoTensor
+       $ dmapAccumLDerTKNew (Proxy @ranked) k accShs bShs eShs f df rf acc02 es2
 
 interpretAstDynamic
   :: forall ranked s. (ADReady ranked, AstSpan s)
