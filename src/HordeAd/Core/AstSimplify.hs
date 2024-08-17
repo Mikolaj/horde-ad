@@ -1218,9 +1218,9 @@ flipCompare = unsafeCoerce Refl
 
 isVar :: AstTensor s y -> Bool
 isVar Ast.AstVar{} = True
-isVar (Ast.AstConstant (Ast.AstVar{})) = True
-isVar (Ast.AstPrimalPart (Ast.AstVar{})) = True
-isVar (Ast.AstDualPart (Ast.AstVar{})) = True
+isVar (Ast.AstConstant Ast.AstVar{}) = True
+isVar (Ast.AstPrimalPart Ast.AstVar{}) = True
+isVar (Ast.AstDualPart Ast.AstVar{}) = True
 isVar _ = False
 
 astGatherKnobsS
@@ -2578,6 +2578,12 @@ expandAst t = case t of
   Ast.AstReverse v -> astReverse (expandAst v)
   Ast.AstTranspose perm v -> case v of
     Ast.AstVar{} -> t  -- normal form
+    Ast.AstConstant Ast.AstVar{} -> t  -- normal form
+    Ast.AstPrimalPart Ast.AstVar{} -> t  -- normal form
+    Ast.AstDualPart Ast.AstVar{} -> t  -- normal form
+    Ast.AstProject1 Ast.AstVar{} -> t  -- normal form
+    Ast.AstProject2 Ast.AstVar{} -> t  -- normal form
+    Ast.AstProjectR Ast.AstVar{} _ -> t  -- normal form
     Ast.AstReplicate{} -> t  -- normal form
       -- TODO: this nf is silly, but right now transposes of replicates
       -- are small OR.Arrays and equivalent gathers are large OR.Arrays,
@@ -2598,6 +2604,12 @@ expandAst t = case t of
         -- this is expensive but the only way to guarantee full simplification
   Ast.AstReshape sh v -> case v of
     Ast.AstVar{} -> t  -- normal form
+    Ast.AstConstant Ast.AstVar{} -> t  -- normal form
+    Ast.AstPrimalPart Ast.AstVar{} -> t  -- normal form
+    Ast.AstDualPart Ast.AstVar{} -> t  -- normal form
+    Ast.AstProject1 Ast.AstVar{} -> t  -- normal form
+    Ast.AstProject2 Ast.AstVar{} -> t  -- normal form
+    Ast.AstProjectR Ast.AstVar{} _ -> t  -- normal form
     AstN1 _ w | isVar w -> t  -- normal form
     AstN2 _ x y | isVar x && isVar y -> t  -- normal form
     Ast.AstR1 _ w | isVar w -> t  -- normal form

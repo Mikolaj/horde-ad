@@ -152,7 +152,7 @@ revArtifactFromForwardPassTKNew hasDt forwardPass
   let mdt = if hasDt then Just $ rawY (stensorKind @z) astDt else Nothing
       !gradient = gradientFromDelta parameters0 primalBody mdt delta
       !unGradient = gunshare (stensorKind @x)
-                   $ HVectorPseudoTensor $ dmkHVector gradient
+                    $ HVectorPseudoTensor $ dmkHVector gradient
       !unPrimal = gunshare (stensorKind @z) primalBody
 {- too expensive currently, so inlined as above:
       unGradient =
