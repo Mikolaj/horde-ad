@@ -848,35 +848,9 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
             $ AstLet var (astProject2 astP)
               $ simplifyInlineHVector $ unRawY (stensorKind @z) derivative
     in AstLambdaTKNew (varP, ftk2, ast)
-  dmapAccumRDer
-    :: Proxy (AstRanked s)
-    -> SNat k
-    -> VoidHVector
-    -> VoidHVector
-    -> VoidHVector
-    -> AstHFun TKUntyped
-    -> AstHFun TKUntyped
-    -> AstHFun TKUntyped
-    -> AstTensor s TKUntyped
-    -> AstTensor s TKUntyped
-    -> AstTensor s TKUntyped
-  dmapAccumRDer _ !k !accShs !bShs !eShs = AstMapAccumRDer k accShs bShs eShs
-  dmapAccumLDer
-    :: Proxy (AstRanked s)
-    -> SNat k
-    -> VoidHVector
-    -> VoidHVector
-    -> VoidHVector
-    -> AstHFun TKUntyped
-    -> AstHFun TKUntyped
-    -> AstHFun TKUntyped
-    -> AstTensor s TKUntyped
-    -> AstTensor s TKUntyped
-    -> AstTensor s TKUntyped
-  dmapAccumLDer _ !k !accShs !bShs !eShs = AstMapAccumLDer k accShs bShs eShs
-  dmapAccumRDerTKNew _ !k !accShs !bShs !eShs =
+  dmapAccumRDer _ !k !accShs !bShs !eShs =
     AstMapAccumRDerTKNew k accShs bShs eShs
-  dmapAccumLDerTKNew _ !k !accShs !bShs !eShs =
+  dmapAccumLDer _ !k !accShs !bShs !eShs =
     AstMapAccumLDerTKNew k accShs bShs eShs
 
 astLetHVectorInHVectorFun
@@ -1447,17 +1421,9 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
   dfwdTKNew = dfwdTKNew @(AstRanked s)
   dmapAccumRDer _ k accShs bShs eShs f df rf acc0 es =
     AstRawWrap
-    $ AstMapAccumRDer k accShs bShs eShs f df rf (unAstRawWrap acc0)
-                                                 (unAstRawWrap es)
-  dmapAccumLDer _ k accShs bShs eShs f df rf acc0 es =
-    AstRawWrap
-    $ AstMapAccumLDer k accShs bShs eShs f df rf (unAstRawWrap acc0)
-                                                 (unAstRawWrap es)
-  dmapAccumRDerTKNew _ k accShs bShs eShs f df rf acc0 es =
-    AstRawWrap
     $ AstMapAccumRDerTKNew k accShs bShs eShs f df rf (unAstRawWrap acc0)
                                                  (unAstRawWrap es)
-  dmapAccumLDerTKNew _ k accShs bShs eShs f df rf acc0 es =
+  dmapAccumLDer _ k accShs bShs eShs f df rf acc0 es =
     AstRawWrap
     $ AstMapAccumLDerTKNew k accShs bShs eShs f df rf (unAstRawWrap acc0)
                                                  (unAstRawWrap es)
@@ -1682,16 +1648,6 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
   dmapAccumLDer _ k accShs bShs eShs f df rf acc0 es =
     AstNoVectorizeWrap
     $ dmapAccumLDer (Proxy @(AstRanked s))
-                    k accShs bShs eShs f df rf (unAstNoVectorizeWrap acc0)
-                                               (unAstNoVectorizeWrap es)
-  dmapAccumRDerTKNew _ k accShs bShs eShs f df rf acc0 es =
-    AstNoVectorizeWrap
-    $ dmapAccumRDerTKNew (Proxy @(AstRanked s))
-                    k accShs bShs eShs f df rf (unAstNoVectorizeWrap acc0)
-                                               (unAstNoVectorizeWrap es)
-  dmapAccumLDerTKNew _ k accShs bShs eShs f df rf acc0 es =
-    AstNoVectorizeWrap
-    $ dmapAccumLDerTKNew (Proxy @(AstRanked s))
                     k accShs bShs eShs f df rf (unAstNoVectorizeWrap acc0)
                                                (unAstNoVectorizeWrap es)
 
@@ -1943,17 +1899,9 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
   dfwdTKNew = dfwdTKNew @(AstRanked s)
   dmapAccumRDer _ k accShs bShs eShs f df rf acc0 es =
     AstNoSimplifyWrap
-    $ AstMapAccumRDer k accShs bShs eShs f df rf (unAstNoSimplifyWrap acc0)
-                                                 (unAstNoSimplifyWrap es)
-  dmapAccumLDer _ k accShs bShs eShs f df rf acc0 es =
-    AstNoSimplifyWrap
-    $ AstMapAccumLDer k accShs bShs eShs f df rf (unAstNoSimplifyWrap acc0)
-                                                 (unAstNoSimplifyWrap es)
-  dmapAccumRDerTKNew _ k accShs bShs eShs f df rf acc0 es =
-    AstNoSimplifyWrap
     $ AstMapAccumRDerTKNew k accShs bShs eShs f df rf (unAstNoSimplifyWrap acc0)
                                                  (unAstNoSimplifyWrap es)
-  dmapAccumLDerTKNew _ k accShs bShs eShs f df rf acc0 es =
+  dmapAccumLDer _ k accShs bShs eShs f df rf acc0 es =
     AstNoSimplifyWrap
     $ AstMapAccumLDerTKNew k accShs bShs eShs f df rf (unAstNoSimplifyWrap acc0)
                                                  (unAstNoSimplifyWrap es)

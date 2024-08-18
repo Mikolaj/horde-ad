@@ -545,192 +545,13 @@ instance ADReadyBoth ranked shaped
     -> VoidHVector
     -> VoidHVector
     -> VoidHVector
-    -> HFun TKUntyped
-    -> HFun TKUntyped
-    -> HFun TKUntyped
+    -> HFunTKNew (TKProduct TKUntyped TKUntyped) TKUntyped
+    -> HFunTKNew (TKProduct TKUntyped TKUntyped) TKUntyped
+    -> HFunTKNew (TKProduct TKUntyped TKUntyped) TKUntyped
     -> HVectorOf (ADVal ranked)
     -> HVectorOf (ADVal ranked)
     -> HVectorOf (ADVal ranked)
   dmapAccumRDer _ !k !accShs !bShs !eShs f df rf acc0D esD =
-    assert (voidHVectorMatches (replicate1VoidHVector k eShs) esD
-            && voidHVectorMatches accShs acc0D) $
-    let (acc0, acc0') = unADValHVector acc0D
-        (esUnshared, es') = unADValHVector esD
-        es = dshare (dmkHVector esUnshared)
-        codomainShs = accShs V.++ bShs
-        accLen = V.length accShs
-        hvToPair :: forall f. HVector f -> (HVector f, HVector f)
-        hvToPair = V.splitAt accLen
-        g :: forall f. ADReady f => [HVector f] -> HVectorOf f
-        g [!acc, !e] =
-          dletHVectorInHVector (unHVectorPseudoTensor
-                                $ unHFun f [acc, e]) $ \res ->
-            -- TODO: adding a bang before the `res` causes
-            -- `error "tunshare: used not at PrimalSpan"` to fire;
-            -- understand and document
-            let (accRes, bRes) = hvToPair res
-            in dmkHVector $ V.concat [accRes, acc, bRes]
-        g _ = error "g: wrong number of arguments"
-        dg :: forall f. ADReady f => [HVector f] -> HVectorOf f
-        dg [!dacc_de, !acc_e] =
-          dletHVectorInHVector (unHVectorPseudoTensor
-                                $ unHFun df [dacc_de, acc_e]) $ \res ->
-            let (accRes, bRes) = hvToPair res
-            in dmkHVector $ V.concat [accRes, V.take accLen dacc_de, bRes]
-        dg _ = error "dg: wrong number of arguments"
-        rg :: forall f. ADReady f => [HVector f] -> HVectorOf f
-        rg [!dx_db, !acc_e] =
-          let (dx, db) = hvToPair dx_db
-              (dbacc, dbRes) = hvToPair db
-          in dletHVectorInHVector (unHVectorPseudoTensor
-                                   $ unHFun rf [dx V.++ dbRes, acc_e]) $ \res ->
-            let (dacc, de) = hvToPair res
-            in dmkHVector $ V.concat [V.zipWith addDynamic dacc dbacc, de]
-        rg _ = error "rg: wrong number of arguments"
-        pUnshared :: HVectorOf ranked
-        pUnshared = dmapAccumRDer (Proxy @ranked)
-                                  k accShs codomainShs eShs
-                                  (dlambda @ranked @_ @TKUntyped
-                                           [accShs, eShs]
-                                   $ HFun $ HVectorPseudoTensor . g)
-                                  (dlambda @ranked @_ @TKUntyped
-                                           [accShs V.++ eShs, accShs V.++ eShs]
-                                   $ HFun $ HVectorPseudoTensor . dg)
-                                  (dlambda @ranked @_ @TKUntyped
-                                           [ accShs V.++ codomainShs
-                                           , accShs V.++ eShs ]
-                                   $ HFun $ HVectorPseudoTensor . rg)
-                                  (dmkHVector acc0) es
-        pShared = dunHVector $ dshare pUnshared
-        -- This code makes sense only thanks to HVector being a representation
-        -- of tuples in the struct of arrays format.
-        accFin = V.take accLen pShared
-        q = V.slice accLen accLen pShared
-        bs = V.drop (2 * accLen) pShared
-        !_A = assert (voidHVectorMatches (replicate1VoidHVector k bShs) bs) ()
-        primal = accFin V.++ bs
-        df' :: forall f. ADReady f
-           => InterpretationTarget f (TKProduct TKUntyped TKUntyped)
-           -> InterpretationTarget f TKUntyped
-        df' !acc_e = HVectorPseudoTensor $
-          dletHVectorInHVector
-            (unHVectorPseudoTensor $ tproject1 acc_e) $ \ !acc ->
-            dletHVectorInHVector
-              (unHVectorPseudoTensor $ tproject2 acc_e) $ \ !e ->
-              unHVectorPseudoTensor $ unHFun df [acc, e]
-        rf' :: forall f. ADReady f
-           => InterpretationTarget f (TKProduct TKUntyped TKUntyped)
-           -> InterpretationTarget f TKUntyped
-        rf' !acc_e = HVectorPseudoTensor $
-          dletHVectorInHVector
-            (unHVectorPseudoTensor $ tproject1 acc_e) $ \ !acc ->
-            dletHVectorInHVector
-              (unHVectorPseudoTensor $ tproject2 acc_e) $ \ !e ->
-              unHVectorPseudoTensor $ unHFun rf [acc, e]
-        dual = wrapDeltaH $ MapAccumR k accShs bShs eShs q (dunHVector es) (HFunTKNew df') (HFunTKNew rf') acc0' es'
-    in ahhToHVector primal dual
-  dmapAccumLDer
-    :: Proxy (ADVal ranked)
-    -> SNat k
-    -> VoidHVector
-    -> VoidHVector
-    -> VoidHVector
-    -> HFun TKUntyped
-    -> HFun TKUntyped
-    -> HFun TKUntyped
-    -> HVectorOf (ADVal ranked)
-    -> HVectorOf (ADVal ranked)
-    -> HVectorOf (ADVal ranked)
-  dmapAccumLDer _ !k !accShs !bShs !eShs f df rf acc0D esD =
-    assert (voidHVectorMatches (replicate1VoidHVector k eShs) esD
-            && voidHVectorMatches accShs acc0D
-            `blame` ( shapeVoidHVector (replicate1VoidHVector k eShs)
-                    , shapeVoidHVector (voidFromHVector esD)
-                    , shapeVoidHVector accShs
-                    , shapeVoidHVector (voidFromHVector acc0D) )) $
-    let (acc0, acc0') = unADValHVector acc0D
-        (esUnshared, es') = unADValHVector esD
-        es = dshare (dmkHVector esUnshared)
-        codomainShs = accShs V.++ bShs
-        accLen = V.length accShs
-        hvToPair :: forall f. HVector f -> (HVector f, HVector f)
-        hvToPair = V.splitAt accLen
-        g :: forall f. ADReady f => [HVector f] -> HVectorOf f
-        g [!acc, !e] =
-          dletHVectorInHVector (unHVectorPseudoTensor
-                                $ unHFun f [acc, e]) $ \res ->
-            let (accRes, bRes) = hvToPair res
-            in dmkHVector $ V.concat [accRes, acc, bRes]
-        g _ = error "g: wrong number of arguments"
-        dg :: forall f. ADReady f => [HVector f] -> HVectorOf f
-        dg [!dacc_de, !acc_e] =
-          dletHVectorInHVector (unHVectorPseudoTensor
-                                $ unHFun df [dacc_de, acc_e]) $ \res ->
-            let (accRes, bRes) = hvToPair res
-            in dmkHVector $ V.concat [accRes, V.take accLen dacc_de, bRes]
-        dg _ = error "dg: wrong number of arguments"
-        rg :: forall f. ADReady f => [HVector f] -> HVectorOf f
-        rg [!dx_db, !acc_e] =
-          let (dx, db) = hvToPair dx_db
-              (dbacc, dbRes) = hvToPair db
-          in dletHVectorInHVector (unHVectorPseudoTensor
-                                   $ unHFun rf [dx V.++ dbRes, acc_e]) $ \res ->
-            let (dacc, de) = hvToPair res
-            in dmkHVector $ V.concat [V.zipWith addDynamic dacc dbacc, de]
-        rg _ = error "rg: wrong number of arguments"
-        pUnshared :: HVectorOf ranked
-        pUnshared = dmapAccumLDer (Proxy @ranked)
-                                  k accShs codomainShs eShs
-                                  (dlambda @ranked @_ @TKUntyped
-                                           [accShs, eShs]
-                                   $ HFun $ HVectorPseudoTensor . g)
-                                  (dlambda @ranked @_ @TKUntyped
-                                           [accShs V.++ eShs, accShs V.++ eShs]
-                                   $ HFun $ HVectorPseudoTensor . dg)
-                                  (dlambda @ranked @_ @TKUntyped
-                                           [ accShs V.++ codomainShs
-                                           , accShs V.++ eShs ]
-                                   $ HFun $ HVectorPseudoTensor . rg)
-                                  (dmkHVector acc0) es
-        pShared = dunHVector $ dshare pUnshared
-        accFin = V.take accLen pShared
-        q = V.slice accLen accLen pShared
-        bs = V.drop (2 * accLen) pShared
-        !_A = assert (voidHVectorMatches (replicate1VoidHVector k bShs) bs) ()
-        primal = accFin V.++ bs
-        df' :: forall f. ADReady f
-           => InterpretationTarget f (TKProduct TKUntyped TKUntyped)
-           -> InterpretationTarget f TKUntyped
-        df' !acc_e = HVectorPseudoTensor $
-          dletHVectorInHVector
-            (unHVectorPseudoTensor $ tproject1 acc_e) $ \ !acc ->
-            dletHVectorInHVector
-              (unHVectorPseudoTensor $ tproject2 acc_e) $ \ !e ->
-              unHVectorPseudoTensor $ unHFun df [acc, e]
-        rf' :: forall f. ADReady f
-           => InterpretationTarget f (TKProduct TKUntyped TKUntyped)
-           -> InterpretationTarget f TKUntyped
-        rf' !acc_e = HVectorPseudoTensor $
-          dletHVectorInHVector
-            (unHVectorPseudoTensor $ tproject1 acc_e) $ \ !acc ->
-            dletHVectorInHVector
-              (unHVectorPseudoTensor $ tproject2 acc_e) $ \ !e ->
-              unHVectorPseudoTensor $ unHFun rf [acc, e]
-        dual = wrapDeltaH $ MapAccumL k accShs bShs eShs q (dunHVector es) (HFunTKNew df') (HFunTKNew rf') acc0' es'
-    in ahhToHVector primal dual
-  dmapAccumRDerTKNew
-    :: Proxy (ADVal ranked)
-    -> SNat k
-    -> VoidHVector
-    -> VoidHVector
-    -> VoidHVector
-    -> HFunTKNew (TKProduct TKUntyped TKUntyped) TKUntyped
-    -> HFunTKNew (TKProduct TKUntyped TKUntyped) TKUntyped
-    -> HFunTKNew (TKProduct TKUntyped TKUntyped) TKUntyped
-    -> HVectorOf (ADVal ranked)
-    -> HVectorOf (ADVal ranked)
-    -> HVectorOf (ADVal ranked)
-  dmapAccumRDerTKNew _ !k !accShs !bShs !eShs f df rf acc0D esD =
     assert (voidHVectorMatches (replicate1VoidHVector k eShs) esD
             && voidHVectorMatches accShs acc0D) $
     let (acc0, acc0') = unADValHVector acc0D
@@ -786,8 +607,7 @@ instance ADReadyBoth ranked shaped
                  in dmkHVector
                     $ V.concat [V.zipWith addDynamic dacc dbacc, de]
         pUnshared :: HVectorOf ranked
-        pUnshared = dmapAccumRDerTKNew
-                                  (Proxy @ranked)
+        pUnshared = dmapAccumRDer (Proxy @ranked)
                                   k accShs codomainShs eShs
                                   (dlambdaTKNew @ranked
                                      (FTKProduct (FTKUntyped accShs) (
@@ -812,7 +632,7 @@ instance ADReadyBoth ranked shaped
         primal = accFin V.++ bs
         dual = wrapDeltaH $ MapAccumR k accShs bShs eShs q (dunHVector es) df rf acc0' es'
     in ahhToHVector primal dual
-  dmapAccumLDerTKNew
+  dmapAccumLDer
     :: Proxy (ADVal ranked)
     -> SNat k
     -> VoidHVector
@@ -824,7 +644,7 @@ instance ADReadyBoth ranked shaped
     -> HVectorOf (ADVal ranked)
     -> HVectorOf (ADVal ranked)
     -> HVectorOf (ADVal ranked)
-  dmapAccumLDerTKNew _ !k !accShs !bShs !eShs f df rf acc0D esD =
+  dmapAccumLDer _ !k !accShs !bShs !eShs f df rf acc0D esD =
     assert (voidHVectorMatches (replicate1VoidHVector k eShs) esD
             && voidHVectorMatches accShs acc0D) $
     let (acc0, acc0') = unADValHVector acc0D
@@ -880,8 +700,7 @@ instance ADReadyBoth ranked shaped
                  in dmkHVector
                     $ V.concat [V.zipWith addDynamic dacc dbacc, de]
         pUnshared :: HVectorOf ranked
-        pUnshared = dmapAccumLDerTKNew
-                                  (Proxy @ranked)
+        pUnshared = dmapAccumLDer (Proxy @ranked)
                                   k accShs codomainShs eShs
                                   (dlambdaTKNew @ranked
                                      (FTKProduct (FTKUntyped accShs) (

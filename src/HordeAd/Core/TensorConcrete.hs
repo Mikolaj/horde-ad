@@ -328,20 +328,10 @@ instance HVectorTensor ORArray OSArray where
     oRdmapAccumR k accShs bShs _eShs f acc0 es
   dmapAccumRDer _ k accShs bShs eShs f _df _rf acc0 es =
     oRdmapAccumR k accShs bShs eShs (\ !a !b ->
-      unHVectorPseudoTensor $ f [a, b]) acc0 es
+      unHVectorPseudoTensor $ f (ttuple (HVectorPseudoTensor a) (HVectorPseudoTensor b))) acc0 es
   dmapAccumL _ k accShs bShs _eShs f acc0 es =
     oRdmapAccumL k accShs bShs _eShs f acc0 es
   dmapAccumLDer _ k accShs bShs eShs f _df _rf acc0 es =
-    oRdmapAccumL k accShs bShs eShs (\ !a !b ->
-      unHVectorPseudoTensor $ f [a, b]) acc0 es
-  dmapAccumRTKNew _ k accShs bShs _eShs f acc0 es =
-    oRdmapAccumR k accShs bShs _eShs f acc0 es
-  dmapAccumRDerTKNew _ k accShs bShs eShs f _df _rf acc0 es =
-    oRdmapAccumR k accShs bShs eShs (\ !a !b ->
-      unHVectorPseudoTensor $ f (ttuple (HVectorPseudoTensor a) (HVectorPseudoTensor b))) acc0 es
-  dmapAccumLTKNew _ k accShs bShs _eShs f acc0 es =
-    oRdmapAccumL k accShs bShs _eShs f acc0 es
-  dmapAccumLDerTKNew _ k accShs bShs eShs f _df _rf acc0 es =
     oRdmapAccumL k accShs bShs eShs (\ !a !b ->
       unHVectorPseudoTensor $ f (ttuple (HVectorPseudoTensor a) (HVectorPseudoTensor b))) acc0 es
 
