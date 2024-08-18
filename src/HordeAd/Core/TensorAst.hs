@@ -217,39 +217,6 @@ gunshareRanked stk b = case stk of
   STKUntyped -> HVectorPseudoTensor $ unshareAstHVector
                 $ unHVectorPseudoTensor b
 
-fwdArtifactFromForwardPass
-  :: forall y. TensorKind y
-  => (HVector (AstRaw PrimalSpan)
-      -> [AstDynamicVarName]
-      -> HVector (AstRanked FullSpan)
-      -> InterpretationTarget (ADVal (AstRaw PrimalSpan)) y)
-  -> VoidHVector
-  -> (AstArtifact y y, Delta (AstRaw PrimalSpan) y)
-{-# INLINE fwdArtifactFromForwardPass #-}
-fwdArtifactFromForwardPass forwardPass parameters0 =
-  let !(!varsPrimalDs, hVectorDs, varsPrimal, hVectorPrimal, vars, hVector) =
-        funToAstFwd parameters0 in
-  let !(!primalBody, !deltaIT) =
-        unADValInterpretation (stensorKind @y)
-        $ forwardPass hVectorPrimal vars hVector
-      !delta = unDeltaRY (stensorKind @y) deltaIT in
-  let !derivative = derivativeFromDelta (V.length parameters0) delta hVectorDs
-      !unDerivative = gunshare (stensorKind @y) derivative
-      !unPrimal = gunshare (stensorKind @y) primalBody
-  in ( AstArtifact varsPrimalDs varsPrimal unDerivative unPrimal
-     , delta )
-
-fwdProduceArtifact
-  :: TensorKind y
-  => (HVector (AstRanked FullSpan)
-      -> InterpretationTarget (AstRanked FullSpan) y)
-  -> AstEnv (ADVal (AstRaw PrimalSpan))
-  -> VoidHVector
-  -> (AstArtifact y y, Delta (AstRaw PrimalSpan) y)
-{-# INLINE fwdProduceArtifact #-}
-fwdProduceArtifact g envInit =
-  fwdArtifactFromForwardPass (forwardPassByInterpretation g envInit)
-
 fwdArtifactFromForwardPassTKNew
   :: forall x z. (x ~ TKUntyped, TensorKind z)
   => (HVector (AstRaw PrimalSpan)
@@ -782,22 +749,6 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
         -- are the same variables, but it's a very special case;
         -- a faster implementation would be via AstHApply, but this tests
         -- a slightly different code path, so let's keep it
-  drevDt :: VoidHVector
-         -> HFun TKUntyped
-         -> AstHFun TKUntyped
-  drevDt shs f =
-    -- This computes the (AST of) derivative of f once and interprets it again
-    -- for each new tensor of arguments, which is better than computing it anew.
-    let g :: HVector (AstRanked FullSpan)
-          -> HVectorPseudoTensor (AstRanked FullSpan) Float '()
-        g !hv = unHFun f [hv]
-        -- No bangs here, because this goes under lambda and may be unneeded
-        -- or even incorrect (and so, e.g., trigger
-        -- `error "tunshare: used not at PrimalSpan"`, because no derivative
-        -- should be taken of spans other than PrimalSpan)
-        (AstArtifact varsDt vars gradient _primal, _delta) =
-          revProduceArtifact True g emptyEnv shs
-     in AstLambda ([varsDt, vars], simplifyInlineHVector $ unAstRawWrap $ unHVectorPseudoTensor gradient)
   drevDtTKNew :: forall x z. (x ~ TKUntyped, TensorKind z)
               => TensorKindFull x
               -> HFunTKNew x z
@@ -808,6 +759,10 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     let g :: HVector (AstRanked FullSpan)
           -> InterpretationTarget (AstRanked FullSpan) z
         g !hv = unHFunTKNew f (HVectorPseudoTensor $ AstMkHVector hv)
+        -- No bangs here, because this goes under lambda and may be unneeded
+        -- or even incorrect (and so, e.g., trigger
+        -- `error "tunshare: used not at PrimalSpan"`, because no derivative
+        -- should be taken of spans other than PrimalSpan)
         (AstArtifactRev varDt var gradient primal, _delta) =
           revProduceArtifactTKNew True g emptyEnv ftkx
         ftkz = shapeAstFull $ unRawY (stensorKind @z) primal
@@ -817,19 +772,6 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
             $ AstLet var (astProject2 astP)
               $ simplifyInlineHVector $ unRawY (stensorKind @x) gradient
     in AstLambdaTKNew (varP, ftk2, ast)
-  dfwd :: VoidHVector
-       -> HFun TKUntyped
-       -> AstHFun TKUntyped
-  dfwd shs f =
-    -- This computes the (AST of) derivative of f once and interprets it again
-    -- for each new tensor of arguments, which is better than computing it anew.
-    let g :: HVector (AstRanked FullSpan)
-          -> HVectorPseudoTensor (AstRanked FullSpan) Float '()
-        g !hv = unHFun f [hv]
-        (AstArtifact varsDt vars derivative _primal, _delta) =
-          fwdProduceArtifact g emptyEnv shs
-     in AstLambda ( [varsDt, vars]
-                  , simplifyInlineHVector $ unAstRawWrap $ unHVectorPseudoTensor derivative )
   dfwdTKNew :: forall x z. (x ~ TKUntyped, TensorKind z)
             => TensorKindFull x
             -> HFunTKNew x z
@@ -1415,9 +1357,7 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
   rrev f parameters0 hVector =  -- we don't have an AST constructor to hold it
     AstRawWrap
     $ rrev f parameters0 (unRawHVector hVector)
-  drevDt = drevDt @(AstRanked s)
   drevDtTKNew = drevDtTKNew @(AstRanked s)
-  dfwd = dfwd @(AstRanked s)
   dfwdTKNew = dfwdTKNew @(AstRanked s)
   dmapAccumRDer _ k accShs bShs eShs f df rf acc0 es =
     AstRawWrap
@@ -1636,9 +1576,7 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
   rrev f parameters0 hVector =
     AstNoVectorizeWrap
     $ rrev f parameters0 (unNoVectorizeHVector hVector)
-  drevDt = drevDt @(AstRanked s)
   drevDtTKNew = drevDtTKNew @(AstRanked s)
-  dfwd = dfwd @(AstRanked s)
   dfwdTKNew = dfwdTKNew @(AstRanked s)
   dmapAccumRDer _ k accShs bShs eShs f df rf acc0 es =
     AstNoVectorizeWrap
@@ -1893,9 +1831,7 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
   rrev f parameters0 hVector =  -- we don't have an AST constructor to hold it
     AstNoSimplifyWrap
     $ rrev f parameters0 (unNoSimplifyHVector hVector)
-  drevDt = drevDt @(AstRanked s)
   drevDtTKNew = drevDtTKNew @(AstRanked s)
-  dfwd = dfwd @(AstRanked s)
   dfwdTKNew = dfwdTKNew @(AstRanked s)
   dmapAccumRDer _ k accShs bShs eShs f df rf acc0 es =
     AstNoSimplifyWrap

@@ -476,21 +476,6 @@ instance ADReadyBoth ranked shaped
         g !hv = HVectorPseudoTensor $ V.singleton $ DynamicRanked
                 $ f $ unHVectorPseudoTensor hv
     in unHVectorPseudoTensor $ fst $ crevOnHVector Nothing g parameters
-  drevDt :: VoidHVector
-         -> HFun TKUntyped
-         -> HFun TKUntyped
-  drevDt _shs h =
-    let g :: ADReady f
-          => InterpretationTarget (ADVal f) TKUntyped
-          -> InterpretationTarget (ADVal f) TKUntyped
-        g !hv = unHFun h [unHVectorPseudoTensor hv]
-        rf :: forall f. ADReady f
-           => [HVector f] -> InterpretationTarget f TKUntyped
-        rf [!db, !a] =
-          -- This computes the derivative of g again for each new db and a.
-          fst $ crevOnHVector (Just $ HVectorPseudoTensor $ dmkHVector db) g a
-        rf _ = error "rf: wrong number of arguments"
-    in HFun rf
   drevDtTKNew :: forall x z. (x ~ TKUntyped, TensorKind z)
               => TensorKindFull x
               -> HFunTKNew x z
@@ -504,24 +489,12 @@ instance ADReadyBoth ranked shaped
            => InterpretationTarget f (TKProduct z x)
            -> InterpretationTarget f x
         rf !db_a =
+          -- This computes the derivative of g again for each new db and a.
           fst $ crevOnHVector
                   (Just $ tproject1 db_a)
                   g
                   (dunHVector $ unHVectorPseudoTensor $ tproject2 db_a)
     in HFunTKNew rf
-  dfwd :: VoidHVector
-       -> HFun TKUntyped
-       -> HFun TKUntyped
-  dfwd _shs h =
-    let g :: ADReady f
-          => HVector (ADVal f) -> InterpretationTarget (ADVal f) TKUntyped
-        g !hv = unHFun h [hv]
-        df :: forall f. ADReady f
-           => [HVector f] -> InterpretationTarget f TKUntyped
-        df [!da, !a] = fst $ cfwdOnHVector a g da
-          -- This computes the derivative of g again for each new da and a.
-        df _ = error "df: wrong number of arguments"
-    in HFun df
   dfwdTKNew :: forall x z. (x ~ TKUntyped, TensorKind z)
             => TensorKindFull x
             -> HFunTKNew x z
@@ -533,6 +506,7 @@ instance ADReadyBoth ranked shaped
         df :: forall f. ADReady f
            => InterpretationTarget f (TKProduct x x)
            -> InterpretationTarget f z
+          -- This computes the derivative of g again for each new da and a.
         df !da_a = fst $ cfwdOnHVector
                            (dunHVector $ unHVectorPseudoTensor $ tproject2 da_a)
                               -- TODO: slow!

@@ -915,23 +915,11 @@ class HVectorTensor (ranked :: RankedTensorType)
   -- These methods (and dlambda) producing HFunOf is analogous to dmkHVector
   -- producing HVectorOf and it's exactly what is needed as arguments
   -- of dmapAccumRDer
-  drevDt
-    :: VoidHVector  -- shapes of a and da
-    -> HFun TKUntyped  -- [HVector f] -> HVectorOf f
-               -- a |-> b
-    -> HFunOf ranked TKUntyped  -- [HVector f, HVector f] -> HVectorOf f
-                        -- [db, a] |-> da
   drevDtTKNew
     :: (x ~ TKUntyped, TensorKind z)
     => TensorKindFull x  -- shape of a and da
     -> HFunTKNew x z  -- a |-> b
     -> HFunOfTKNew ranked (TKProduct z x) x  -- [db, a] |-> da
-  dfwd
-    :: VoidHVector  -- shapes of a and da
-    -> HFun TKUntyped  -- [HVector f] -> HVectorOf f
-                       -- a |-> b
-    -> HFunOf ranked TKUntyped  -- [HVector f, HVector f] -> HVectorOf f
-                        -- [da, a] |-> db
   dfwdTKNew
     :: (x ~ TKUntyped, TensorKind z)
     => TensorKindFull x  -- shape of a and da

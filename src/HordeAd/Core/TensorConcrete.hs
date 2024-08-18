@@ -262,19 +262,6 @@ instance HVectorTensor ORArray OSArray where
     in unHVectorPseudoTensor $ fst $ crevOnHVector Nothing g parameters
   -- The code for drevDt and dfwd in this instance is the same as for the
   -- ADVal ranked instance, because the type family instance is the same.
-  drevDt :: VoidHVector
-         -> HFun TKUntyped
-         -> HFunOf ORArray TKUntyped
-  drevDt _shs h =
-    let g :: ADReady f
-          => InterpretationTarget (ADVal f) TKUntyped
-          -> InterpretationTarget (ADVal f) TKUntyped
-        g !hv = unHFun h [unHVectorPseudoTensor hv]
-        rf :: [HVector ORArray] -> InterpretationTarget ORArray TKUntyped
-        rf [!db, !a] =
-          fst $ crevOnHVector (Just $ HVectorPseudoTensor $ dmkHVector db) g a
-        rf _ = error "rf: wrong number of arguments"
-    in rf
   drevDtTKNew :: forall x z. (x ~ TKUntyped, TensorKind z)
               => TensorKindFull x
               -> HFunTKNew x z
@@ -292,17 +279,6 @@ instance HVectorTensor ORArray OSArray where
                   g
                   (dunHVector $ unHVectorPseudoTensor $ tproject2 db_a)
     in rf
-  dfwd :: VoidHVector
-       -> HFun TKUntyped
-       -> HFunOf ORArray TKUntyped
-  dfwd _shs h =
-    let g :: ADReady f
-          => HVector (ADVal f) -> InterpretationTarget (ADVal f) TKUntyped
-        g !hv = unHFun h [hv]
-        df :: [HVector ORArray] -> HVectorOf ORArray
-        df [!da, !a] = unHVectorPseudoTensor $ fst $ cfwdOnHVector a g da
-        df _ = error "df: wrong number of arguments"
-    in HVectorPseudoTensor . df
   dfwdTKNew :: forall x z. (x ~ TKUntyped, TensorKind z)
             => TensorKindFull x
             -> HFunTKNew x z
