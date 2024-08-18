@@ -429,10 +429,10 @@ assertEqualUpToEpsilon'
   assertEqualUpToEpsilonWithMark "Reverse vs forward"
                                  1e-5 (tdot0R (runFlipR expected) (runFlipR vals)) (tsum0R $ runFlipR derivative)
   -- No Eq instance, so let's compare the text.
-  assertEqual "Idempotence of primal simplification"
+  assertEqual "Idempotence of simplification of non-vectorized AST"
               (show astSimp)
               (show (simplifyInlineAst astSimp))
-  assertEqual "Idempotence of gradient simplification"
+  assertEqual "Idempotence of simplification of vectorized AST"
               (show astVectSimp)
               (show (simplifyInlineAst astVectSimp))
 
