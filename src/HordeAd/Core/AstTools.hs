@@ -152,9 +152,9 @@ shapeAstFull t = case t of
   AstShareHVector _ v -> shapeAstFull v
   AstBuildHVector1 k (_, v) ->
     FTKUntyped $ replicate1VoidHVector k $ shapeAstHVector v
-  AstMapAccumRDerTKNew k accShs bShs _eShs _f _df _rf _acc0 _es ->
+  AstMapAccumRDer k accShs bShs _eShs _f _df _rf _acc0 _es ->
     FTKUntyped $ accShs V.++ replicate1VoidHVector k bShs
-  AstMapAccumLDerTKNew k accShs bShs _eShs _f _df _rf _acc0 _es ->
+  AstMapAccumLDer k accShs bShs _eShs _f _df _rf _acc0 _es ->
     FTKUntyped $ accShs V.++ replicate1VoidHVector k bShs
 
 -- This is cheap and dirty. We don't shape-check the terms and we don't
@@ -289,9 +289,9 @@ varInAst var = \case
   AstLetHFunInHVectorTKNew _var2 f v -> varInAstHFunTKNew var f || varInAst var v
   AstShareHVector _ v -> varInAst var v
   AstBuildHVector1 _ (_var2, v) -> varInAst var v
-  AstMapAccumRDerTKNew _k _accShs _bShs _eShs _f _df _rf acc0 es ->
+  AstMapAccumRDer _k _accShs _bShs _eShs _f _df _rf acc0 es ->
     varInAst var acc0 || varInAst var es
-  AstMapAccumLDerTKNew _k _accShs _bShs _eShs _f _df _rf acc0 es ->
+  AstMapAccumLDer _k _accShs _bShs _eShs _f _df _rf acc0 es ->
     varInAst var acc0 || varInAst var es
 
 varInIndex :: AstVarId -> AstIndex n -> Bool

@@ -744,7 +744,7 @@ printAstAux cfg d = \case
            . printAstIntVar cfg var
            . showString " -> "
            . printAst cfg 0 v)
-  AstMapAccumRDerTKNew k _accShs _bShs _eShs f df rf acc0 es ->
+  AstMapAccumRDer k _accShs _bShs _eShs f df rf acc0 es ->
     showParen (d > 10)
     $ showString "dmapAccumRDer "
       . showParen True (shows k)
@@ -758,7 +758,7 @@ printAstAux cfg d = \case
       . printAst cfg 0 acc0
       . showString " "
       . printAst cfg 0 es
-  AstMapAccumLDerTKNew k _accShs _bShs _eShs f df rf acc0 es ->
+  AstMapAccumLDer k _accShs _bShs _eShs f df rf acc0 es ->
     showParen (d > 10)
     $ showString "dmapAccumLDer "
       . showParen True (shows k)

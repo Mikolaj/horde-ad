@@ -849,9 +849,9 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
               $ simplifyInlineHVector $ unRawY (stensorKind @z) derivative
     in AstLambdaTKNew (varP, ftk2, ast)
   dmapAccumRDer _ !k !accShs !bShs !eShs =
-    AstMapAccumRDerTKNew k accShs bShs eShs
+    AstMapAccumRDer k accShs bShs eShs
   dmapAccumLDer _ !k !accShs !bShs !eShs =
-    AstMapAccumLDerTKNew k accShs bShs eShs
+    AstMapAccumLDer k accShs bShs eShs
 
 astLetHVectorInHVectorFun
   :: AstSpan s
@@ -1421,11 +1421,11 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
   dfwdTKNew = dfwdTKNew @(AstRanked s)
   dmapAccumRDer _ k accShs bShs eShs f df rf acc0 es =
     AstRawWrap
-    $ AstMapAccumRDerTKNew k accShs bShs eShs f df rf (unAstRawWrap acc0)
+    $ AstMapAccumRDer k accShs bShs eShs f df rf (unAstRawWrap acc0)
                                                  (unAstRawWrap es)
   dmapAccumLDer _ k accShs bShs eShs f df rf acc0 es =
     AstRawWrap
-    $ AstMapAccumLDerTKNew k accShs bShs eShs f df rf (unAstRawWrap acc0)
+    $ AstMapAccumLDer k accShs bShs eShs f df rf (unAstRawWrap acc0)
                                                  (unAstRawWrap es)
 
 type role AstNoVectorizeProduct nominal representational representational
@@ -1899,11 +1899,11 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
   dfwdTKNew = dfwdTKNew @(AstRanked s)
   dmapAccumRDer _ k accShs bShs eShs f df rf acc0 es =
     AstNoSimplifyWrap
-    $ AstMapAccumRDerTKNew k accShs bShs eShs f df rf (unAstNoSimplifyWrap acc0)
+    $ AstMapAccumRDer k accShs bShs eShs f df rf (unAstNoSimplifyWrap acc0)
                                                  (unAstNoSimplifyWrap es)
   dmapAccumLDer _ k accShs bShs eShs f df rf acc0 es =
     AstNoSimplifyWrap
-    $ AstMapAccumLDerTKNew k accShs bShs eShs f df rf (unAstNoSimplifyWrap acc0)
+    $ AstMapAccumLDer k accShs bShs eShs f df rf (unAstNoSimplifyWrap acc0)
                                                  (unAstNoSimplifyWrap es)
 
 unNoSimplifyHVector :: HVector (AstNoSimplify s) -> HVector (AstRanked s)

@@ -895,7 +895,7 @@ interpretAst !env = \case
   AstBuildHVector1 k (var, v) ->
     HVectorPseudoTensor
        $ dbuild1 k (interpretLambdaIHVector interpretAst env (var, v))
-  AstMapAccumRDerTKNew k accShs bShs eShs f0 df0 rf0 acc0 es ->
+  AstMapAccumRDer k accShs bShs eShs f0 df0 rf0 acc0 es ->
     let f = interpretAstHFunTKNew env f0
         df = interpretAstHFunTKNew env df0
         rf = interpretAstHFunTKNew env rf0
@@ -903,7 +903,7 @@ interpretAst !env = \case
         es2 = unHVectorPseudoTensor $ interpretAst env es
     in HVectorPseudoTensor
        $ dmapAccumRDer (Proxy @ranked) k accShs bShs eShs f df rf acc02 es2
-  AstMapAccumLDerTKNew k accShs bShs eShs f0 df0 rf0 acc0 es ->
+  AstMapAccumLDer k accShs bShs eShs f0 df0 rf0 acc0 es ->
     let f = interpretAstHFunTKNew env f0
         df = interpretAstHFunTKNew env df0
         rf = interpretAstHFunTKNew env rf0

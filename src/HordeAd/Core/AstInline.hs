@@ -477,20 +477,20 @@ inlineAst memo v0 = case v0 of
         memo1 = EM.unionWith
                   (\c1 c0 -> c1 + fromInteger (fromSNat k) * c0) memo memoV0
     in (memo1, Ast.AstBuildHVector1 k (var, v2))
-  Ast.AstMapAccumRDerTKNew k accShs bShs eShs f df rf acc0 es ->
+  Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc0 es ->
     let (memo1, f2) = inlineAstHFunTKNew memo f
         (memo2, df2) = inlineAstHFunTKNew memo1 df
         (memo3, rf2) = inlineAstHFunTKNew memo2 rf
         (memo4, acc02) = inlineAst memo3 acc0
         (memo5, es2) = inlineAst memo4 es
-    in (memo5, Ast.AstMapAccumRDerTKNew k accShs bShs eShs f2 df2 rf2 acc02 es2)
-  Ast.AstMapAccumLDerTKNew k accShs bShs eShs f df rf acc0 es ->
+    in (memo5, Ast.AstMapAccumRDer k accShs bShs eShs f2 df2 rf2 acc02 es2)
+  Ast.AstMapAccumLDer k accShs bShs eShs f df rf acc0 es ->
     let (memo1, f2) = inlineAstHFunTKNew memo f
         (memo2, df2) = inlineAstHFunTKNew memo1 df
         (memo3, rf2) = inlineAstHFunTKNew memo2 rf
         (memo4, acc02) = inlineAst memo3 acc0
         (memo5, es2) = inlineAst memo4 es
-    in (memo5, Ast.AstMapAccumLDerTKNew k accShs bShs eShs f2 df2 rf2 acc02 es2)
+    in (memo5, Ast.AstMapAccumLDer k accShs bShs eShs f2 df2 rf2 acc02 es2)
 
 inlineAstDynamic
   :: AstSpan s
@@ -818,14 +818,14 @@ shareAst memo v0 = case v0 of
   Ast.AstShareHVector{} ->
     error "shareAst: AstShareHVector not in PrimalSpan"
   Ast.AstBuildHVector1{} -> error "shareAst: AstBuildHVector1"  -- not hard to add
-  Ast.AstMapAccumRDerTKNew k accShs bShs eShs f df rf acc0 es ->
+  Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc0 es ->
     let (memo1, acc02) = shareAst memo acc0
         (memo2, es2) = shareAst memo1 es
-    in (memo2, Ast.AstMapAccumRDerTKNew k accShs bShs eShs f df rf acc02 es2)
-  Ast.AstMapAccumLDerTKNew k accShs bShs eShs f df rf acc0 es ->
+    in (memo2, Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc02 es2)
+  Ast.AstMapAccumLDer k accShs bShs eShs f df rf acc0 es ->
     let (memo1, acc02) = shareAst memo acc0
         (memo2, es2) = shareAst memo1 es
-    in (memo2, Ast.AstMapAccumLDerTKNew k accShs bShs eShs f df rf acc02 es2)
+    in (memo2, Ast.AstMapAccumLDer k accShs bShs eShs f df rf acc02 es2)
 
 shareAstDynamic
   :: AstSpan s
