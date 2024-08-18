@@ -333,7 +333,7 @@ assertEqualUpToEpsilon'
     , gradient2UnSimp, gradientRrev2UnSimp
     , gradient3UnSimp, gradientRrev3UnSimp
     , gradient4, gradientRrev4, gradient5, gradientRrev5
-    , astVectSimp, astSimp
+    , _astVectSimp, _astSimp
     , value9, value9TKNew, value2Ast, value2AstTKNew, value2AstS, value2AstST, value3Ast, value3AstS
     , value2AstUnSimp, value2AstSUnSimp, value3AstUnSimp, value3AstSUnSimp
     , value4Ast, value4AstS, value5Ast, value5AstS
@@ -428,6 +428,10 @@ assertEqualUpToEpsilon'
   -- https://www.microsoft.com/en-us/research/uploads/prod/2021/08/higher-order-ad.pdf
   assertEqualUpToEpsilonWithMark "Reverse vs forward"
                                  1e-5 (tdot0R (runFlipR expected) (runFlipR vals)) (tsum0R $ runFlipR derivative)
+  {- TODO: this most probably leaks gigabytes of strings from one test case
+  -- to another in -O0 mode, leading to OOMs, so it's disabled for now.
+  -- We could also try to stream the strings and compare on the fly.
+  --
   -- No Eq instance, so let's compare the text.
   assertEqual "Idempotence of simplification of non-vectorized AST"
               (show astSimp)
@@ -435,6 +439,7 @@ assertEqualUpToEpsilon'
   assertEqual "Idempotence of simplification of vectorized AST"
               (show astVectSimp)
               (show (simplifyInlineAst astVectSimp))
+  -}
 
 -- TODO: optimize and clean up these or maybe just switch away from OR
 tsum0R
@@ -478,7 +483,7 @@ assertEqualUpToEpsilonShort
     , gradient2UnSimp, gradientRrev2UnSimp
     , gradient3UnSimp, gradientRrev3UnSimp
     , _gradient4, _gradientRrev4, gradient5, gradientRrev5
-    , astVectSimp, astSimp
+    , _astVectSimp, _astSimp
     , _value9, _value9TKNew, value2Ast, value2AstTKNew, value2AstS, value2AstST, value3Ast, value3AstS
     , value2AstUnSimp, value2AstSUnSimp, value3AstUnSimp, value3AstSUnSimp
     , _value4Ast, _value4AstS, _value5Ast, _value5AstS
@@ -549,6 +554,7 @@ assertEqualUpToEpsilonShort
                                  errMargin cderivative derivativeRfwd1
   assertEqualUpToEpsilonWithMark "Forward vs reverse"
                                  1e-5 (tsum0R $ runFlipR derivative) (tdot0R (runFlipR expected) (runFlipR vals))
+  {- disabled, see above
   -- No Eq instance, so let's compare the text.
   assertEqual "Idempotence of primal simplification"
               (show astSimp)
@@ -556,6 +562,7 @@ assertEqualUpToEpsilonShort
   assertEqual "Idempotence of gradient simplification"
               (show astVectSimp)
               (show (simplifyInlineAst astVectSimp))
+  -}
 
 t16 :: (Fractional r, Nested.PrimElt r) => ORArray r 5
 t16 = FlipR $ Nested.rfromOrthotope SNat $ OR.fromList [2, 2, 1, 2, 2] [5, 2, 6, 1, -2, 0.000001, 0.1, -0.2, 13.1, 9, 8, -4, 34, 2.99432, -33, 26]
