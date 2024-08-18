@@ -560,7 +560,9 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIndex m1)) =
         -- TODO: we'd need mapM for Index to keep this rank-typed
       Nothing -> Ast.AstIndex v0 ix
   Ast.AstProjectR Ast.AstVar{} _ -> Ast.AstIndex v0 ix
-  Ast.AstProjectR{} -> error "astIndexKnobsR: AstProjectR"
+  Ast.AstProjectR Ast.AstProject1{} _ -> Ast.AstIndex v0 ix
+  Ast.AstProjectR Ast.AstProject2{} _ -> Ast.AstIndex v0 ix
+  Ast.AstProjectR{} -> error $ "astIndexKnobsRS: AstProjectR: " ++ show v0
     {- The term should get simplified before this monstrosity kicks in:
     fun1DToAst (shapeAstHVector l) $ \ !vars !asts ->
       let lp = fromDynamicR (\sh -> astReplicate0N sh 0) (asts V.! p)
@@ -809,7 +811,9 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS shm1)) | Dict <- s
         -- TODO: we'd need mapM for Index to keep this rank-typed
       Nothing -> Ast.AstIndexS v0 ix
   Ast.AstProjectS Ast.AstVar{} _ -> Ast.AstIndexS v0 ix
-  Ast.AstProjectS{} -> error "astIndexKnobsRS: AstProjectS"
+  Ast.AstProjectS Ast.AstProject1{} _ -> Ast.AstIndexS v0 ix
+  Ast.AstProjectS Ast.AstProject2{} _ -> Ast.AstIndexS v0 ix
+  Ast.AstProjectS{} -> error $ "astIndexKnobsRS: AstProjectS: " ++ show v0
     {- The term should get simplified before this monstrosity kicks in:
     fun1DToAst (shapeAstHVector l) $ \ !vars !asts ->
       let lp = fromDynamicS (asts V.! p)
