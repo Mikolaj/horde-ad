@@ -744,34 +744,6 @@ printAstAux cfg d = \case
            . printAstIntVar cfg var
            . showString " -> "
            . printAst cfg 0 v)
-  AstMapAccumRDer k _accShs _bShs _eShs f df rf acc0 es ->
-    showParen (d > 10)
-    $ showString "dmapAccumRDer "
-      . showParen True (shows k)
-      . showString " "
-      . printAstHFun cfg 10 f
-      . showString " "
-      . printAstHFun cfg 10 df
-      . showString " "
-      . printAstHFun cfg 01 rf
-      . showString " "
-      . printAst cfg 0 acc0
-      . showString " "
-      . printAst cfg 0 es
-  AstMapAccumLDer k _accShs _bShs _eShs f df rf acc0 es ->
-    showParen (d > 10)
-    $ showString "dmapAccumLDer "
-      . showParen True (shows k)
-      . showString " "
-      . printAstHFun cfg 10 f
-      . showString " "
-      . printAstHFun cfg 10 df
-      . showString " "
-      . printAstHFun cfg 01 rf
-      . showString " "
-      . printAst cfg 0 acc0
-      . showString " "
-      . printAst cfg 0 es
   AstMapAccumRDerTKNew k _accShs _bShs _eShs f df rf acc0 es ->
     showParen (d > 10)
     $ showString "dmapAccumRDer "

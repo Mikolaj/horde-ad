@@ -2441,20 +2441,6 @@ simplifyAst t = case t of
   Ast.AstShareHVector{} -> error "simplifyAst: AstShareHVector"
   Ast.AstBuildHVector1 k (var, v) ->
     Ast.AstBuildHVector1 k (var, simplifyAst v)
-  Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc0 es ->
-    Ast.AstMapAccumRDer k accShs bShs eShs
-                        (simplifyAstHFun f)
-                        (simplifyAstHFun df)
-                        (simplifyAstHFun rf)
-                        (simplifyAst acc0)
-                        (simplifyAst es)
-  Ast.AstMapAccumLDer k accShs bShs eShs f df rf acc0 es ->
-    Ast.AstMapAccumLDer k accShs bShs eShs
-                        (simplifyAstHFun f)
-                        (simplifyAstHFun df)
-                        (simplifyAstHFun rf)
-                        (simplifyAst acc0)
-                        (simplifyAst es)
   Ast.AstMapAccumRDerTKNew k accShs bShs eShs f df rf acc0 es ->
     Ast.AstMapAccumRDerTKNew k accShs bShs eShs
                         (simplifyAstHFunTKNew f)
@@ -2691,20 +2677,6 @@ expandAst t = case t of
   Ast.AstShareHVector{} -> error "expandAst: AstShareHVector"
   Ast.AstBuildHVector1 k (var, v) ->
     Ast.AstBuildHVector1 k (var, expandAst v)
-  Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc0 es ->
-    Ast.AstMapAccumRDer k accShs bShs eShs
-                        (expandAstHFun f)
-                        (expandAstHFun df)
-                        (expandAstHFun rf)
-                        (expandAst acc0)
-                        (expandAst es)
-  Ast.AstMapAccumLDer k accShs bShs eShs f df rf acc0 es ->
-    Ast.AstMapAccumLDer k accShs bShs eShs
-                        (expandAstHFun f)
-                        (expandAstHFun df)
-                        (expandAstHFun rf)
-                        (expandAst acc0)
-                        (expandAst es)
   Ast.AstMapAccumRDerTKNew k accShs bShs eShs f df rf acc0 es ->
     Ast.AstMapAccumRDerTKNew k accShs bShs eShs
                         (expandAstHFunTKNew f)
@@ -3319,30 +3291,6 @@ substitute1Ast i var v1 = case v1 of
   Ast.AstShareHVector{} -> error "substitute1Ast: AstShareHVector"
   Ast.AstBuildHVector1 k (var2, v) ->
     Ast.AstBuildHVector1 k . (var2,) <$> substitute1Ast i var v
-  Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc0 es ->
-    case ( substitute1AstHFun i var f, substitute1AstHFun i var df
-         , substitute1AstHFun i var rf, substitute1Ast i var acc0
-         , substitute1Ast i var es ) of
-      (Nothing, Nothing, Nothing, Nothing, Nothing) -> Nothing
-      (mf, mdf, mrf, macc0, mes) ->
-        Just $ Ast.AstMapAccumRDer k accShs bShs eShs
-                                   (fromMaybe f mf)
-                                   (fromMaybe df mdf)
-                                   (fromMaybe rf mrf)
-                                   (fromMaybe acc0 macc0)
-                                   (fromMaybe es mes)
-  Ast.AstMapAccumLDer k accShs bShs eShs f df rf acc0 es ->
-    case ( substitute1AstHFun i var f, substitute1AstHFun i var df
-         , substitute1AstHFun i var rf, substitute1Ast i var acc0
-         , substitute1Ast i var es ) of
-      (Nothing, Nothing, Nothing, Nothing, Nothing) -> Nothing
-      (mf, mdf, mrf, macc0, mes) ->
-        Just $ Ast.AstMapAccumLDer k accShs bShs eShs
-                                   (fromMaybe f mf)
-                                   (fromMaybe df mdf)
-                                   (fromMaybe rf mrf)
-                                   (fromMaybe acc0 macc0)
-                                   (fromMaybe es mes)
   Ast.AstMapAccumRDerTKNew k accShs bShs eShs f df rf acc0 es ->
     case ( substitute1AstHFunTKNew i var f, substitute1AstHFunTKNew i var df
          , substitute1AstHFunTKNew i var rf, substitute1Ast i var acc0

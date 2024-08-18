@@ -513,28 +513,6 @@ data AstTensor :: AstSpanType -> TensorKindType -> Type where
                   -> AstTensor s TKUntyped
   AstBuildHVector1 :: SNat k -> (IntVarName, AstTensor s TKUntyped)
                    -> AstTensor s TKUntyped
-  AstMapAccumRDer
-    :: SNat k
-    -> VoidHVector
-    -> VoidHVector
-    -> VoidHVector
-    -> AstHFun TKUntyped
-    -> AstHFun TKUntyped
-    -> AstHFun TKUntyped
-    -> AstTensor s TKUntyped
-    -> AstTensor s TKUntyped
-    -> AstTensor s TKUntyped
-  AstMapAccumLDer
-    :: SNat k
-    -> VoidHVector
-    -> VoidHVector
-    -> VoidHVector
-    -> AstHFun TKUntyped
-    -> AstHFun TKUntyped
-    -> AstHFun TKUntyped
-    -> AstTensor s TKUntyped
-    -> AstTensor s TKUntyped
-    -> AstTensor s TKUntyped
   AstMapAccumRDerTKNew
     :: SNat k
     -> VoidHVector

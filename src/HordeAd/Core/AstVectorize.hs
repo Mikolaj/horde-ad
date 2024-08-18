@@ -494,30 +494,6 @@ build1V snat@SNat (var, v00) =
       error "build1V: impossible case of AstShareHVector"
     Ast.AstBuildHVector1{} -> traceRule $
       error "build1V: impossible case of AstBuildHVector1"
-    Ast.AstMapAccumRDer k5 accShs bShs eShs f df rf acc0 es -> traceRule $
-      astTrAstHVectorTail (V.length accShs)
-      $ Ast.AstMapAccumRDer
-          k5
-          (replicate1VoidHVector snat accShs)
-          (replicate1VoidHVector snat bShs)
-          (replicate1VoidHVector snat eShs)
-          (build1VHFun snat (var, f))
-          (build1VHFun snat (var, df))
-          (build1VHFun snat (var, rf))
-          (build1VOccurenceUnknown snat (var, acc0))
-          (astTrAstHVector $ build1VOccurenceUnknown snat (var, es))
-    Ast.AstMapAccumLDer k5 accShs bShs eShs f df rf acc0 es -> traceRule $
-      astTrAstHVectorTail (V.length accShs)
-      $ Ast.AstMapAccumLDer
-          k5
-          (replicate1VoidHVector snat accShs)
-          (replicate1VoidHVector snat bShs)
-          (replicate1VoidHVector snat eShs)
-          (build1VHFun snat (var, f))
-          (build1VHFun snat (var, df))
-          (build1VHFun snat (var, rf))
-          (build1VOccurenceUnknown snat (var, acc0))
-          (astTrAstHVector $ build1VOccurenceUnknown snat (var, es))
     Ast.AstMapAccumRDerTKNew k5 accShs bShs eShs f df rf acc0 es -> traceRule $
       astTrAstHVectorTail (V.length accShs)
       $ Ast.AstMapAccumRDerTKNew

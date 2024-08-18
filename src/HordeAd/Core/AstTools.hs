@@ -152,10 +152,6 @@ shapeAstFull t = case t of
   AstShareHVector _ v -> shapeAstFull v
   AstBuildHVector1 k (_, v) ->
     FTKUntyped $ replicate1VoidHVector k $ shapeAstHVector v
-  AstMapAccumRDer k accShs bShs _eShs _f _df _rf _acc0 _es ->
-    FTKUntyped $ accShs V.++ replicate1VoidHVector k bShs
-  AstMapAccumLDer k accShs bShs _eShs _f _df _rf _acc0 _es ->
-    FTKUntyped $ accShs V.++ replicate1VoidHVector k bShs
   AstMapAccumRDerTKNew k accShs bShs _eShs _f _df _rf _acc0 _es ->
     FTKUntyped $ accShs V.++ replicate1VoidHVector k bShs
   AstMapAccumLDerTKNew k accShs bShs _eShs _f _df _rf _acc0 _es ->
@@ -293,10 +289,6 @@ varInAst var = \case
   AstLetHFunInHVectorTKNew _var2 f v -> varInAstHFunTKNew var f || varInAst var v
   AstShareHVector _ v -> varInAst var v
   AstBuildHVector1 _ (_var2, v) -> varInAst var v
-  AstMapAccumRDer _k _accShs _bShs _eShs _f _df _rf acc0 es ->
-    varInAst var acc0 || varInAst var es
-  AstMapAccumLDer _k _accShs _bShs _eShs _f _df _rf acc0 es ->
-    varInAst var acc0 || varInAst var es
   AstMapAccumRDerTKNew _k _accShs _bShs _eShs _f _df _rf acc0 es ->
     varInAst var acc0 || varInAst var es
   AstMapAccumLDerTKNew _k _accShs _bShs _eShs _f _df _rf acc0 es ->
