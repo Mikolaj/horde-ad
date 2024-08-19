@@ -469,8 +469,6 @@ build1V snat@SNat (var, v00) =
         -- We take advantage of the fact that f contains no free index vars.
         astLetHFunInHVector var1 (build1VHFun snat (var, f))
                                  (build1V snat (var, v))
-    Ast.AstShareHVector{} -> traceRule $
-      error "build1V: impossible case of AstShareHVector"
     Ast.AstBuildHVector1{} -> traceRule $
       error "build1V: impossible case of AstBuildHVector1"
     Ast.AstMapAccumRDer k5 accShs bShs eShs f df rf acc0 es -> traceRule $

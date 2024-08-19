@@ -5,8 +5,7 @@
 -- with @unsafePerformIO@ outside, so some of the impurity escapes.
 module HordeAd.Core.AstFreshId
   ( unRawHVector, rawHVector
-  , funToAstIO, funToAst, fun2ToAst
-  , fun1ToAst, fun1XToAst
+  , funToAstIO, funToAst, fun2ToAst, fun1ToAst
   , fun1DToAst, fun1HToAst, fun1LToAst
   , funToAstRevIO, funToAstRev
   , funToAstFwdIO, funToAstFwd
@@ -145,26 +144,6 @@ fun1ToAst :: TensorKind y
           -> AstTensor s y
 {-# NOINLINE fun1ToAst #-}
 fun1ToAst f = unsafePerformIO $ fun1ToAstIO f
-
-fun1XToAstIO :: VoidHVector -> ([AstDynamicVarName] -> AstTensor s TKUntyped)
-             -> IO (AstTensor s TKUntyped)
-{-# INLINE fun1XToAstIO #-}
-fun1XToAstIO shs g = do
-  let f :: DynamicTensor VoidTensor
-        -> IO AstDynamicVarName
-      f (DynamicRankedDummy @r @sh _ _) = do
-        freshId <- unsafeGetFreshAstVarId
-        return $! AstDynamicVarName @Nat @r @sh freshId
-      f (DynamicShapedDummy @r @sh _ _) = do
-        freshId <- unsafeGetFreshAstVarId
-        return $! AstDynamicVarName @[Nat] @r @sh freshId
-  !vars <- mapM f (V.toList shs)
-  return $! g vars
-
-fun1XToAst :: VoidHVector -> ([AstDynamicVarName] -> AstTensor s TKUntyped)
-           -> AstTensor s TKUntyped
-{-# NOINLINE fun1XToAst #-}
-fun1XToAst shs f = unsafePerformIO $ fun1XToAstIO shs f
 
 fun1LToAstIO :: [VoidHVector]
              -> ([[AstDynamicVarName]] -> [HVector (AstRanked s)] -> a)

@@ -867,7 +867,6 @@ interpretAst !env = \case
     in HVectorPseudoTensor
        $ dletHFunInHVector @_ @_ @x2 @y2
            g (\h -> unHVectorPseudoTensor $ interpretAst (env2 h) v)
-  AstShareHVector{} -> error "interpretAst: AstShareHVector"
   AstBuildHVector1 k (var, v) ->
     HVectorPseudoTensor
        $ dbuild1 k (interpretLambdaIHVector interpretAst env (var, v))

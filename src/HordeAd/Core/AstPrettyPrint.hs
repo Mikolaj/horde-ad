@@ -646,13 +646,6 @@ printAstAux cfg d = \case
              . showString " -> "
              . printAst cfg 0 v)
         -- TODO: this does not roundtrip yet
-  AstShareHVector vars l ->
-    showParen (d > 10)
-    $ showString "dshare "
-      . showListWith (showString
-                      . printAstDynamicVarName (varRenames cfg)) vars
-      . showString " "
-      . printAst cfg 11 l
   AstBuildHVector1 k (var, v) ->
     showParen (d > 10)
     $ showString "dbuild1 "

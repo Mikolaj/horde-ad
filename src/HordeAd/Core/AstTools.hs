@@ -144,7 +144,6 @@ shapeAstFull t = case t of
   AstHApply v _ll -> shapeAstHFun v
   AstLetHVectorInHVector _ _ v -> shapeAstFull v
   AstLetHFunInHVector _ _ v -> shapeAstFull v
-  AstShareHVector _ v -> shapeAstFull v
   AstBuildHVector1 k (_, v) ->
     FTKUntyped $ replicate1VoidHVector k $ shapeAstHVector v
   AstMapAccumRDer k accShs bShs _eShs _f _df _rf _acc0 _es ->
@@ -268,7 +267,6 @@ varInAst var = \case
   AstHApply t ll -> varInAstHFun var t || varInAst var ll
   AstLetHVectorInHVector _vars2 u v -> varInAst var u || varInAst var v
   AstLetHFunInHVector _var2 f v -> varInAstHFun var f || varInAst var v
-  AstShareHVector _ v -> varInAst var v
   AstBuildHVector1 _ (_var2, v) -> varInAst var v
   AstMapAccumRDer _k _accShs _bShs _eShs _f _df _rf acc0 es ->
     varInAst var acc0 || varInAst var es
@@ -312,7 +310,7 @@ varNameInAstHVector var = varInAst (varNameToAstVarId var)
 
 varInAstBindingsCase :: AstSpan s => AstVarId -> AstBindingsCase s -> Bool
 varInAstBindingsCase var (AstBindingsSimple t) = varInAstDynamic var t
-varInAstBindingsCase var (AstBindingsHVector _ t) = varInAst var t
+varInAstBindingsCase var (AstBindingsHVector t) = varInAst var t
 
 
 -- * Determining if a term is too small to require sharing
@@ -396,7 +394,8 @@ bindsToLet = foldl' bindToLet
       DynamicShapedDummy @r2 @sh2 _ _ ->
            withListSh (Proxy @sh2) $ \sh2 ->
             AstLet @(TKR r2 (X.Rank sh2)) @_ @s (mkAstVarName varId) (astReplicate0N sh2 0) u
-  bindToLet u (_, AstBindingsHVector lids d) = AstLetHVectorIn lids d u
+  bindToLet u (varId, AstBindingsHVector d) =
+    AstLet (mkAstVarName varId) d u
 
 bindsToLetS :: forall sh s r. (AstSpan s, GoodScalar r, KnownShS sh)
             => AstTensor s (TKS r sh) -> AstBindings s
@@ -422,7 +421,8 @@ bindsToLetS = foldl' bindToLetS
           withListSh (Proxy @sh) $ \_ ->
             AstSFromR
             $ AstLet (mkAstVarName varId) (astReplicate0N @_ @s @r2 sh2 0) (AstRFromS u)
-  bindToLetS u (_, AstBindingsHVector lids d) = AstLetHVectorInS lids d u
+  bindToLetS u (varId, AstBindingsHVector d) =
+    AstLet (mkAstVarName varId) d u
 
 bindsToHVectorLet
    :: forall s. AstSpan s
@@ -439,5 +439,5 @@ bindsToHVectorLet = foldl' bindToHVectorLet
     DynamicShapedDummy @r2 @sh2 _ _ ->
         withListSh (Proxy @sh2) $ \sh2 ->
           AstLet (mkAstVarName varId) (astReplicate0N @_ @s @r2 sh2 0) u
-  bindToHVectorLet u (_, AstBindingsHVector lids d) =
-    AstLetHVectorInHVector lids d u
+  bindToHVectorLet u (varId, AstBindingsHVector d) =
+    AstLet (mkAstVarName varId) d u

@@ -236,7 +236,7 @@ type AstVarListS sh = SizedListS sh (Const IntVarName)
 type role AstBindingsCase nominal
 data AstBindingsCase (s :: AstSpanType) =
     AstBindingsSimple (DynamicTensor (AstRanked s))
-  | AstBindingsHVector [AstDynamicVarName] (HVectorOf (AstRanked s))
+  | AstBindingsHVector (HVectorOf (AstRanked s))
 deriving instance Show (AstBindingsCase s)
 
 type AstBindings (s :: AstSpanType) = [(AstVarId, AstBindingsCase s)]
@@ -494,8 +494,6 @@ data AstTensor :: AstSpanType -> TensorKindType -> Type where
                       => AstVarId -> AstHFun x y
                       -> AstTensor s2 TKUntyped
                       -> AstTensor s2 TKUntyped
-  AstShareHVector :: [AstDynamicVarName] -> AstTensor s TKUntyped
-                  -> AstTensor s TKUntyped
   AstBuildHVector1 :: SNat k -> (IntVarName, AstTensor s TKUntyped)
                    -> AstTensor s TKUntyped
   AstMapAccumRDer

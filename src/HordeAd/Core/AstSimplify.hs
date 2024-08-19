@@ -557,14 +557,15 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIndex m1)) =
                     $ map Nested.runScalar ixInt
         -- TODO: we'd need mapM for Index to keep this rank-typed
       Nothing -> Ast.AstIndex v0 ix
+  Ast.AstProjectR{} -> Ast.AstIndex v0 ix
+  {- TODO: this is not really helping:
   Ast.AstProjectR Ast.AstVar{} _ -> Ast.AstIndex v0 ix
-  Ast.AstProjectR Ast.AstProject1{} _ -> Ast.AstIndex v0 ix
-  Ast.AstProjectR Ast.AstProject2{} _ -> Ast.AstIndex v0 ix
-  Ast.AstProjectR{} -> error $ "astIndexKnobsRS: AstProjectR: " ++ show v0
-    {- The term should get simplified before this monstrosity kicks in:
+  Ast.AstProjectR (Ast.AstProject1 Ast.AstVar{}) _ -> Ast.AstIndex v0 ix
+  Ast.AstProjectR (Ast.AstProject2 Ast.AstVar{}) _ -> Ast.AstIndex v0 ix
+  Ast.AstProjectR l p ->
     fun1DToAst (shapeAstHVector l) $ \ !vars !asts ->
-      let lp = fromDynamicR (\sh -> astReplicate0N sh 0) (asts V.! p)
-      in astLetHVectorIn vars l (astIndexRec lp ix) -}
+      let lp = fromDynamicR (\sh -> AstRanked $ astReplicate0N sh 0) (asts V.! p)
+      in astLetHVectorIn vars l (astIndexRec (unAstRanked lp) ix) -}
   Ast.AstLetHVectorIn vars l v ->
     astLetHVectorIn vars l (astIndexRec v ix)
   Ast.AstLetHFunIn var f v ->
@@ -805,14 +806,15 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS shm1)) | Dict <- s
                     $ ShapedList.listToIndex @shm $ map Nested.runScalar ixInt
         -- TODO: we'd need mapM for Index to keep this rank-typed
       Nothing -> Ast.AstIndexS v0 ix
+  Ast.AstProjectS{} -> Ast.AstIndexS v0 ix
+  {- TODO: this is not really helping:
   Ast.AstProjectS Ast.AstVar{} _ -> Ast.AstIndexS v0 ix
-  Ast.AstProjectS Ast.AstProject1{} _ -> Ast.AstIndexS v0 ix
-  Ast.AstProjectS Ast.AstProject2{} _ -> Ast.AstIndexS v0 ix
-  Ast.AstProjectS{} -> error $ "astIndexKnobsRS: AstProjectS: " ++ show v0
-    {- The term should get simplified before this monstrosity kicks in:
+  Ast.AstProjectS (Ast.AstProject1 Ast.AstVar{}) _ -> Ast.AstIndexS v0 ix
+  Ast.AstProjectS (Ast.AstProject2 Ast.AstVar{}) _ -> Ast.AstIndexS v0 ix
+  Ast.AstProjectS l p ->
     fun1DToAst (shapeAstHVector l) $ \ !vars !asts ->
-      let lp = fromDynamicS (asts V.! p)
-      in astLetHVectorInS vars l (astIndexRec lp ix) -}
+      let lp = fromDynamicS (AstShaped $ astReplicate0NS 0) (asts V.! p)
+      in astLetHVectorInS vars l (astIndexRec (unAstShaped lp) ix) -}
   Ast.AstLetHVectorInS vars l v ->
     astLetHVectorInS vars l (astIndexRec v ix)
   Ast.AstLetHFunInS var f v ->
@@ -2389,7 +2391,6 @@ simplifyAst t = case t of
     astLetHVectorInHVector vars (simplifyAst u) (simplifyAst v)
   Ast.AstLetHFunInHVector var f v ->
     astLetHFunInHVector var (simplifyAstHFun f) (simplifyAst v)
-  Ast.AstShareHVector{} -> error "simplifyAst: AstShareHVector"
   Ast.AstBuildHVector1 k (var, v) ->
     Ast.AstBuildHVector1 k (var, simplifyAst v)
   Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc0 es ->
@@ -2612,7 +2613,6 @@ expandAst t = case t of
     astLetHVectorInHVector vars (expandAst u) (expandAst v)
   Ast.AstLetHFunInHVector var f v ->
     astLetHFunInHVector var (expandAstHFun f) (expandAst v)
-  Ast.AstShareHVector{} -> error "expandAst: AstShareHVector"
   Ast.AstBuildHVector1 k (var, v) ->
     Ast.AstBuildHVector1 k (var, expandAst v)
   Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc0 es ->
@@ -3197,7 +3197,6 @@ substitute1Ast i var v1 = case v1 of
       (Nothing, Nothing) -> Nothing
       (mf, mv) ->
         Just $ astLetHFunInHVector var2 (fromMaybe f mf) (fromMaybe v mv)
-  Ast.AstShareHVector{} -> error "substitute1Ast: AstShareHVector"
   Ast.AstBuildHVector1 k (var2, v) ->
     Ast.AstBuildHVector1 k . (var2,) <$> substitute1Ast i var v
   Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc0 es ->

@@ -619,12 +619,10 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   -- These and many similar bangs are necessary to ensure variable IDs
   -- are generated in the expected order, resulting in nesting of lets
   -- occuring in the correct order and so no scoping errors.
-  dshare a@(AstShareHVector{}) = a
-  dshare a =
-    let shs = shapeAstHVector a
-    in fun1XToAst shs $ \ !vars -> AstShareHVector vars a
-  dbuild1 k f = astBuildHVector1Vectorize
-                  k (f . AstRanked)
+  dshare a@(AstShare{}) = a
+  dshare a | astIsSmall True a = a
+  dshare a = fun1ToAst $ \ !var -> AstShare var a
+  dbuild1 k f = astBuildHVector1Vectorize k (f . AstRanked)
   rrev :: forall r n. (GoodScalar r, KnownNat n)
        => (forall f. ADReady f => HVector f -> f r n)
        -> VoidHVector
@@ -1192,10 +1190,9 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
     case sameAstSpan @s @PrimalSpan of
       Just Refl -> gunshare (stensorKind @y)
       _ -> error "tunshare: used not at PrimalSpan"
-  dshare a@(AstRawWrap (AstShareHVector{})) = a
-  dshare (AstRawWrap a) =
-    let shs = shapeAstHVector a
-    in AstRawWrap $ fun1XToAst shs $ \ !vars -> AstShareHVector vars a
+  dshare a@(AstRawWrap (AstShare{})) = a
+  dshare a | astIsSmall True (unAstRawWrap a) = a
+  dshare a = AstRawWrap $ fun1ToAst $ \ !var -> AstShare var (unAstRawWrap a)
   dbuild1 k f = AstRawWrap
                 $ AstBuildHVector1 k $ funToAstI (unAstRawWrap . f . AstRaw)
   -- These three methods are called at this type in delta evaluation via

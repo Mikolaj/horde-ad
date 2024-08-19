@@ -20,11 +20,9 @@ import Data.EnumMap.Strict qualified as EM
 import Data.IntMap.Strict (IntMap)
 import Data.List (mapAccumR)
 import Data.Maybe (fromMaybe)
-import Data.Proxy (Proxy (Proxy))
-import Data.Type.Equality (testEquality, (:~:) (Refl))
+import Data.Type.Equality ((:~:) (Refl))
 import Data.Vector.Generic qualified as V
-import GHC.TypeLits (KnownNat, Nat, fromSNat)
-import Type.Reflection (typeRep)
+import GHC.TypeLits (KnownNat, fromSNat)
 
 import HordeAd.Core.Ast (AstBool, AstTensor)
 import HordeAd.Core.Ast hiding (AstBool (..), AstTensor (..))
@@ -434,7 +432,6 @@ inlineAst memo v0 = case v0 of
       1 -> (memo2, fromMaybe v2 $ substitute1Ast
                                     (SubstitutionPayloadHFun f2) var v2)
       _ -> (memo2, Ast.AstLetHFunInHVector var f2 v2)
-  Ast.AstShareHVector{} -> error "inlineAst: AstShareHVector"
   Ast.AstBuildHVector1 k (var, v) ->
     let (memoV0, v2) = inlineAst EM.empty v
         memo1 = EM.unionWith
@@ -599,9 +596,8 @@ shareAst memo v0 = case v0 of
                   STKR{} -> AstBindingsSimple $ DynamicRanked $ AstRanked v2
                   STKS{} -> AstBindingsSimple $ DynamicShaped $ AstShaped v2
                   STKProduct{} -> error "TODO"
-                  STKUntyped{} -> error "TODO"
+                  STKUntyped{} -> AstBindingsHVector v2
             in (EM.insert varId d memo1, astVar)
-
   Ast.AstShare{} -> error "shareAst: AstShare not in PrimalSpan"
   Ast.AstMinIndex a -> second Ast.AstMinIndex $ shareAst memo a
   Ast.AstMaxIndex a -> second Ast.AstMaxIndex $ shareAst memo a
@@ -742,25 +738,6 @@ shareAst memo v0 = case v0 of
     in (memo2, Ast.AstHApply t2 ll2)
   Ast.AstLetHVectorInHVector{} -> error "shareAst: AstLetHVectorInHVector"
   Ast.AstLetHFunInHVector{} -> error "shareAst: AstLetHFunInHVector"
-  Ast.AstShareHVector [] l -> (memo, l)  -- no need to share an empty HVector
-  Ast.AstShareHVector vars l | Just Refl <- sameAstSpan @s @PrimalSpan ->
-    -- We assume l is the same if vars are the same.
-    let var = vars !! 0  -- vars are fresh, so var uniquely represents vars
-        varId = dynamicVarNameToAstVarId var
-        f :: AstDynamicVarName -> DynamicTensor (AstRanked PrimalSpan)
-        f (AstDynamicVarName @ty @rD @shD varIdD) =
-          case testEquality (typeRep @ty) (typeRep @Nat) of
-            Just Refl -> withListSh (Proxy @shD) $ \sh ->
-              DynamicRanked @rD $ AstRanked $ Ast.AstVar (FTKR sh) (mkAstVarName varIdD)
-            _ -> DynamicShaped @rD @shD $ AstShaped $ Ast.AstVar FTKS (mkAstVarName varIdD)
-        astVars = Ast.AstMkHVector $ V.fromList $ map f vars
-    in if varId `EM.member` memo
-       then (memo, astVars)
-       else let (memo1, l2) = shareAst memo l
-                d = AstBindingsHVector vars l2
-            in (EM.insert varId d memo1, astVars)
-  Ast.AstShareHVector{} ->
-    error "shareAst: AstShareHVector not in PrimalSpan"
   Ast.AstBuildHVector1{} -> error "shareAst: AstBuildHVector1"  -- not hard to add
   Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc0 es ->
     let (memo1, acc02) = shareAst memo acc0
