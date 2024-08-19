@@ -1350,11 +1350,13 @@ mapInterpretationTarget fr fs stk b = case stk of
         !t2 = mapInterpretationTarget fr fs stk2 $ tproject2 b
     in ttuple t1 t2
   STKUntyped ->
+    -- Here @dletHVectorInHVector@ wouldn't work, because f and g differ.
+    -- TODO: verify that @dshare@ works or rewrite differently.
     let fd :: DynamicTensor f -> DynamicTensor g
         fd = mapBoth fr fs
     in HVectorPseudoTensor $ tmkHVector
        $ V.map fd
-       $ dunHVector $ unHVectorPseudoTensor b  -- TODO: expensive
+       $ dunHVector $ dshare $ unHVectorPseudoTensor b
 
 mapInterpretationTarget2
   :: forall f1 f2 g y.
@@ -1384,8 +1386,8 @@ mapInterpretationTarget2 fr fs stk b1 b2 = case stk of
         fd = mapBoth2 fr fs
     in HVectorPseudoTensor $ tmkHVector
        $ V.zipWith fd
-           (dunHVector $ unHVectorPseudoTensor b1)
-           (dunHVector $ unHVectorPseudoTensor b2)
+           (dunHVector $ dshare $ unHVectorPseudoTensor b1)
+           (dunHVector $ dshare $ unHVectorPseudoTensor b2)
 
 mapInterpretationTarget2Weak
   :: forall f1 f2 g y.
