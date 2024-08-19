@@ -346,7 +346,7 @@ instance AstSpan s => RankedTensor (AstRanked s) where
 
   rshare a@(AstRanked(AstShare{})) = a
   rshare a | astIsSmall True (unAstRanked a) = a
-  rshare a = AstRanked $ fun1RToAst $ \ !var -> AstShare var (unAstRanked a)
+  rshare a = AstRanked $ fun1ToAst $ \ !var -> AstShare var (unAstRanked a)
 
   rconstant = AstRanked . fromPrimal . unAstRanked
   rprimalPart = AstRanked . astSpanPrimal . unAstRanked
@@ -485,7 +485,7 @@ instance AstSpan s => ShapedTensor (AstShaped s) where
 
   sshare a@(AstShaped(AstShare{})) = a
   sshare a | astIsSmall True (unAstShaped a) = a
-  sshare a = AstShaped $ fun1SToAst $ \ !var -> AstShare var (unAstShaped a)
+  sshare a = AstShaped $ fun1ToAst $ \ !var -> AstShare var (unAstShaped a)
 
   sconstant = AstShaped . fromPrimal . unAstShaped
   sprimalPart = AstShaped . astSpanPrimal . unAstShaped
@@ -1012,7 +1012,7 @@ instance AstSpan s => RankedTensor (AstRaw s) where
   -- but it can only ever be used for PrimalSpan.
   rshare a@(AstRaw (AstShare{})) = a
   rshare a | astIsSmall True (unAstRaw a) = a
-  rshare a = AstRaw $ fun1RToAst $ \ !var -> AstShare var (unAstRaw a)
+  rshare a = AstRaw $ fun1ToAst $ \ !var -> AstShare var (unAstRaw a)
 
   rconstant = AstRaw . fromPrimal . unAstRaw
   rprimalPart = AstRaw . astSpanPrimal . unAstRaw
@@ -1127,7 +1127,7 @@ instance AstSpan s => ShapedTensor (AstRawS s) where
 
   sshare a@(AstRawS (AstShare{})) = a
   sshare a | astIsSmall True (unAstRawS a) = a
-  sshare a = AstRawS $ fun1SToAst $ \ !var -> AstShare var (unAstRawS a)
+  sshare a = AstRawS $ fun1ToAst $ \ !var -> AstShare var (unAstRawS a)
 
   sconstant = AstRawS . fromPrimal . unAstRawS
   sprimalPart = AstRawS . astSpanPrimal . unAstRawS

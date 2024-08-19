@@ -6,7 +6,7 @@
 module HordeAd.Core.AstFreshId
   ( unRawHVector, rawHVector
   , funToAstIO, funToAst, fun2ToAst
-  , fun1RToAst, fun1SToAst, fun1XToAst
+  , fun1ToAst, fun1XToAst
   , fun1DToAst, fun1HToAst, fun1LToAst
   , funToAstRevIO, funToAstRev
   , funToAstFwdIO, funToAstFwd
@@ -132,33 +132,19 @@ fun2ToAst :: (TensorKind x, TensorKind y)
 {-# NOINLINE fun2ToAst #-}
 fun2ToAst shX shY f = unsafePerformIO $ fun2ToAstIO shX shY f
 
-fun1RToAstIO :: forall s r n. (KnownNat n, GoodScalar r)
-             => (AstVarName s (TKR r n) -> AstTensor s (TKR r n))
-             -> IO (AstTensor s (TKR r n))
-{-# INLINE fun1RToAstIO #-}
-fun1RToAstIO f = do
+fun1ToAstIO :: TensorKind y
+            => (AstVarName s y -> AstTensor s y)
+            -> IO (AstTensor s y)
+{-# INLINE fun1ToAstIO #-}
+fun1ToAstIO f = do
   !freshId <- unsafeGetFreshAstVarName
   return $! f freshId
 
-fun1RToAst :: (KnownNat n, GoodScalar r)
-           => (AstVarName s (TKR r n) -> AstTensor s (TKR r n))
-           -> AstTensor s (TKR r n)
-{-# NOINLINE fun1RToAst #-}
-fun1RToAst f = unsafePerformIO $ fun1RToAstIO f
-
-fun1SToAstIO :: forall s r sh. (KnownShS sh, GoodScalar r)
-             => (AstVarName s (TKS r sh) -> AstTensor s (TKS r sh))
-             -> IO (AstTensor s (TKS r sh))
-{-# INLINE fun1SToAstIO #-}
-fun1SToAstIO f = do
-  !freshId <- unsafeGetFreshAstVarName
-  return $! f freshId
-
-fun1SToAst :: (KnownShS sh, GoodScalar r)
-           => (AstVarName s (TKS r sh) -> AstTensor s (TKS r sh))
-           -> AstTensor s (TKS r sh)
-{-# NOINLINE fun1SToAst #-}
-fun1SToAst f = unsafePerformIO $ fun1SToAstIO f
+fun1ToAst :: TensorKind y
+          => (AstVarName s y -> AstTensor s y)
+          -> AstTensor s y
+{-# NOINLINE fun1ToAst #-}
+fun1ToAst f = unsafePerformIO $ fun1ToAstIO f
 
 fun1XToAstIO :: VoidHVector -> ([AstDynamicVarName] -> AstTensor s TKUntyped)
              -> IO (AstTensor s TKUntyped)
