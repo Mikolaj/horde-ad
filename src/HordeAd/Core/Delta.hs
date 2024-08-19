@@ -105,8 +105,8 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
         MTKS @r @sh t -> DynamicShaped @r @sh t
         MTKRDummy @r @sh -> DynamicRankedDummy @r @sh Proxy Proxy
         MTKSDummy @r @sh -> DynamicShapedDummy @r @sh Proxy Proxy
-        MTKProduct{} -> error "toDynamicTensor"
-        MTKUntyped _hv -> error "TODO"
+        MTKProduct{} -> error "toDynamicTensor: currently impossible"
+        MTKUntyped{} -> error "toDynamicTensor: currently impossible"
   in V.fromList $ map toDynamicTensor $ DMap.elems $ iMap s2
 
 interpretationConstant :: forall ranked y. ADReady ranked
@@ -803,6 +803,8 @@ addInterpretationTargetD a b = case (a, b) of
   (DTKUntyped hv1, DTKUntyped hv2) ->
     DTKUntyped $ dmkHVector
     $ V.zipWith addDynamic (dunHVector hv1) (dunHVector hv2)
+      -- dunHVector is fine, because anything inside DTKUntyped either
+      -- already a packed HVector or is shared (e.g., a shared variable)
 
 addInterpretationTargetM ::
   ADReady ranked
@@ -1020,7 +1022,8 @@ evalR !s !c = \case
     assert (case d of
               ShareH{} -> False  -- wasteful and nonsensical
               _ -> True)
-    $ let cs = DTKUntyped $ unHVectorPseudoTensor c
+    $ let cShared = dshare $ unHVectorPseudoTensor c
+          cs = DTKUntyped cShared
       in case DMap.lookup n $ nMap s of
         Just{} ->
           s {dMap = DMap.adjust (addInterpretationTargetD cs) n $ dMap s}

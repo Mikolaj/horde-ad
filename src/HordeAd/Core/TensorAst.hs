@@ -619,7 +619,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   -- These and many similar bangs are necessary to ensure variable IDs
   -- are generated in the expected order, resulting in nesting of lets
   -- occuring in the correct order and so no scoping errors.
-  dshare a@(AstShare{}) = a
+  dshare a@AstShare{} = a
   dshare a | astIsSmall True a = a
   dshare a = fun1ToAst $ \ !var -> AstShare var a
   dbuild1 k f = astBuildHVector1Vectorize k (f . AstRanked)
@@ -1190,7 +1190,7 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
     case sameAstSpan @s @PrimalSpan of
       Just Refl -> gunshare (stensorKind @y)
       _ -> error "tunshare: used not at PrimalSpan"
-  dshare a@(AstRawWrap (AstShare{})) = a
+  dshare a@(AstRawWrap AstShare{}) = a
   dshare a | astIsSmall True (unAstRawWrap a) = a
   dshare a = AstRawWrap $ fun1ToAst $ \ !var -> AstShare var (unAstRawWrap a)
   dbuild1 k f = AstRawWrap

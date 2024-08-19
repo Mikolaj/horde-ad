@@ -9,7 +9,7 @@
 -- for ranked tensors and shaped tensors.
 module HordeAd.Core.TensorADVal
   ( aDValToHVector, hVectorADValToADVal, unADValHVector, unADValDynamicTensor
-  , aDValHVector, unADValInterpretation, unDeltaRY
+  , unADValInterpretation, unDeltaRY
   , crevOnADInputs, crevOnHVector, cfwdOnADInputs, cfwdOnHVector
   ) where
 
@@ -454,7 +454,10 @@ instance ADReadyBoth ranked shaped
         dlet (tproject2 a) $ \ !a2 -> f (ttuple a1 a2)
     STKUntyped{} ->
       let (!u, !u') = unADValHVector $ unHVectorPseudoTensor a
-          !var2 = dunHVector $ dshare $ dmkHVector u  -- TODO: slow
+          !var2 = dunHVector $ dshare $ dmkHVector u
+            -- dunHVector is fine, because its argument is shared
+            -- (and even without that, it comes from an explicit HVector)
+            -- and dshare needed due to f possibly using the argument many times
       in f (HVectorPseudoTensor $ aDValHVector var2 u')
   tunshare = id
   dbuild1 k f =
@@ -792,12 +795,12 @@ unDeltaRY stk t = case stk of
   STKUntyped -> unHVectorPseudoTensor t
 
 -- TODO: not dead code: will be used in dletHVectorInHVector.
-aDValHVector :: (RankedTensor f, ShapedTensor (ShapedOf f))
+aDValHVector :: ADReady f
              => HVector f -> HVector (Dual f) -> HVector (ADVal f)
 aDValHVector = V.zipWith aDValDynamicTensor
 
 -- TODO: Apparently other combinations occur in dletHVectorInHVector. Why?
-aDValDynamicTensor :: (RankedTensor f, ShapedTensor (ShapedOf f))
+aDValDynamicTensor :: ADReady f
                    => DynamicTensor f -> DynamicTensor (Dual f)
                    -> DynamicTensor (ADVal f)
 aDValDynamicTensor (DynamicRanked @r1 @n1 t) (DynamicRanked @r2 @n2 t')
@@ -820,4 +823,28 @@ aDValDynamicTensor (DynamicShapedDummy @r1 @sh1 _ _)
   | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
   , Just Refl <- sameShape @sh1 @sh2 =
     DynamicShaped (dDnotShared (srepl 0) t')
-aDValDynamicTensor _ _ = error "aDValDynamicTensor: wrong arguments"
+-- TODO: explain how these remaining cases arise (maybe ADVal (ADVal)?)
+aDValDynamicTensor (DynamicRanked @r1 @n1 t')
+                   (DynamicRankedDummy @r2 @sh2 _ _)
+  | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
+  , Just Refl <- matchingRank @sh2 @n1 =
+    withListShape (shapeT @sh2) $ \(sh4 :: IShR n4) ->
+      gcastWith (unsafeCoerce Refl :: n4 :~: X.Rank sh2) $
+      DynamicRanked (dDnotShared t' (DeltaR $ ZeroR sh4))
+aDValDynamicTensor (DynamicShaped @r1 @sh1 t')
+                   (DynamicShapedDummy @r2 @sh2 _ _)
+  | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
+  , Just Refl <- sameShape @sh1 @sh2 =
+    DynamicShaped (dDnotShared t' (DeltaS ZeroS))
+aDValDynamicTensor (DynamicRankedDummy @r1 @sh1 _ _)
+                   (DynamicRankedDummy @r2 @sh2 _ _)
+  | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
+  , Just Refl <- sameShape @sh1 @sh2 =
+     DynamicRankedDummy @r1 @sh1 Proxy Proxy
+aDValDynamicTensor (DynamicShapedDummy @r1 @sh1 _ _)
+                   (DynamicShapedDummy @r2 @sh2 _ _)
+  | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
+  , Just Refl <- sameShape @sh1 @sh2 =
+    DynamicShapedDummy @r1 @sh1 Proxy Proxy
+aDValDynamicTensor u v = error $ "aDValDynamicTensor: wrong arguments: ("
+                                 ++ show u ++ ", " ++ show v ++ ")"
