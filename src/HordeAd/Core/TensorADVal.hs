@@ -491,7 +491,7 @@ instance ADReadyBoth ranked shaped
           fst $ crevOnHVector
                   (Just $ tproject1 db_a)
                   g
-                  (dunHVector $ unHVectorPseudoTensor $ tproject2 db_a)
+                  (dunHVector $ dshare $ unHVectorPseudoTensor $ tproject2 db_a)
     in HFun rf
   dfwd :: forall x z. (x ~ TKUntyped, TensorKind z)
             => TensorKindFull x
@@ -506,10 +506,9 @@ instance ADReadyBoth ranked shaped
            -> InterpretationTarget f z
           -- This computes the derivative of g again for each new da and a.
         df !da_a = fst $ cfwdOnHVector
-                           (dunHVector $ unHVectorPseudoTensor $ tproject2 da_a)
-                              -- TODO: slow!
+                           (dunHVector $ dshare $ unHVectorPseudoTensor $ tproject2 da_a)
                            g
-                           (dunHVector $ unHVectorPseudoTensor $ tproject1 da_a)
+                           (dunHVector $ dshare $ unHVectorPseudoTensor $ tproject1 da_a)
     in HFun df
   dmapAccumRDer
     :: Proxy (ADVal ranked)
