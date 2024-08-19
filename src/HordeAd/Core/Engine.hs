@@ -7,9 +7,7 @@
 module HordeAd.Core.Engine
   ( -- * Reverse derivative adaptors
     rev, revDt, revArtifactAdapt
-  , revProduceArtifactWithoutInterpretation
-  , revProduceArtifactWithoutInterpretationTKNew
-  , revEvalArtifact, revEvalArtifactTKNew
+  , revProduceArtifactWithoutInterpretationTKNew, revEvalArtifactTKNew
     -- * Forward derivative adaptors
   , fwd, fwdEvalArtifact
     -- * Old gradient adaptors
@@ -22,7 +20,6 @@ import Prelude
 
 import Data.Int (Int64)
 import Data.Maybe (fromMaybe, isJust)
-import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat)
 import Type.Reflection (Typeable)
 
@@ -30,7 +27,6 @@ import HordeAd.Core.Adaptor
 import HordeAd.Core.Ast
 import HordeAd.Core.AstEnv
 import HordeAd.Core.AstInterpret
-import HordeAd.Core.AstTools
 import HordeAd.Core.Delta
 import HordeAd.Core.DualNumber
 import HordeAd.Core.HVector
@@ -146,24 +142,6 @@ revArtifactAdapt hasDt f vals0 =
   => Bool -> (astvals -> AstRanked FullSpan Double n) -> Value astvals
   -> (AstArtifactRev TKUntyped TKUntyped, Delta (AstRaw PrimalSpan) TKUntyped) #-}
 
-revProduceArtifactWithoutInterpretation
-  :: (AdaptableHVector (ADVal (AstRaw PrimalSpan))
-                       (ADVal primal_g r y))
-  => Bool
-  -> (HVector (ADVal (AstRaw PrimalSpan)) -> ADVal primal_g r y)
-  -> VoidHVector
-  -> (AstArtifact TKUntyped TKUntyped, Delta (AstRaw PrimalSpan) TKUntyped)
-{-# INLINE revProduceArtifactWithoutInterpretation #-}
-revProduceArtifactWithoutInterpretation hasDt f =
-  let g :: HVector (AstRaw PrimalSpan)
-        -> [AstDynamicVarName]
-        -> HVector (AstRanked FullSpan)
-        -> InterpretationTarget (ADVal (AstRaw PrimalSpan)) TKUntyped
-      g hVectorPrimal vars hVector =
-        HVectorPseudoTensor $ toHVector
-        $ forwardPassByApplication f hVectorPrimal vars hVector
-  in revArtifactFromForwardPass hasDt g
-
 revProduceArtifactWithoutInterpretationTKNew
   :: forall x z. (x ~ TKUntyped, TensorKind z)
   => Bool
@@ -180,18 +158,6 @@ revProduceArtifactWithoutInterpretationTKNew hasDt f =
       g hVectorPrimal = forwardPassByApplicationTKNew f hVectorPrimal
   in revArtifactFromForwardPassTKNew @x @z hasDt g
 
-forwardPassByApplication
-  :: (HVector (ADVal (AstRaw PrimalSpan)) -> ADVal primal_g r y)
-  -> HVector (AstRaw PrimalSpan)
-  -> [AstDynamicVarName]
-  -> HVector (AstRanked FullSpan)
-  -> ADVal primal_g r y
-{-# INLINE forwardPassByApplication #-}
-forwardPassByApplication g hVectorPrimal _vars _hVector =
-  let deltaInputs = generateDeltaInputs hVectorPrimal
-      varInputs = makeADInputs hVectorPrimal deltaInputs
-  in g varInputs
-
 forwardPassByApplicationTKNew
   :: (HVector (ADVal (AstRaw PrimalSpan))
       -> InterpretationTarget (ADVal (AstRaw PrimalSpan)) z)
@@ -204,28 +170,6 @@ forwardPassByApplicationTKNew g hVectorPrimal _var _hVector =
   let deltaInputs = generateDeltaInputs hVectorPrimal
       varInputs = makeADInputs hVectorPrimal deltaInputs
   in g varInputs
-
-revEvalArtifact
-  :: AstArtifact TKUntyped TKUntyped
-  -> HVector ORArray
-  -> Maybe (HVector ORArray)
-  -> (HVector ORArray, HVector ORArray)
-{-# INLINE revEvalArtifact #-}
-revEvalArtifact !(AstArtifact varsDt vars
-                              (HVectorPseudoTensor (AstRawWrap gradient))
-                              (HVectorPseudoTensor (AstRawWrap primal)))
-                parameters mdt =
-  let domsB = voidFromVars varsDt
-      dt1 = mapHVectorShaped (const $ srepl 1) $ V.map dynamicFromVoid domsB
-      dts = fromMaybe dt1 mdt
-  in if voidHVectorMatches (shapeAstHVector primal) dts
-     then
-       let env = extendEnvHVector vars parameters emptyEnv
-           envDt = extendEnvHVector varsDt dts env
-           gradientHVector = unHVectorPseudoTensor $ interpretAst envDt gradient
-           primalTensor = unHVectorPseudoTensor $ interpretAst env primal
-       in (gradientHVector, primalTensor)
-     else error "revEvalArtifact: primal result and the incoming contangent should have same shapes"
 
 revEvalArtifactTKNew
   :: forall x z. (x ~ TKUntyped, TensorKind z)

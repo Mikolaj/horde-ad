@@ -37,9 +37,7 @@ import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
   ( cfwd
   , fwd
-  , revEvalArtifact
   , revEvalArtifactTKNew
-  , revProduceArtifactWithoutInterpretation
   , revProduceArtifactWithoutInterpretationTKNew
   )
 import HordeAd.Core.HVector
@@ -93,8 +91,8 @@ rev' :: forall r m n v a.
      -> a
      -> ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a, a, a, a, a, a
         , AstRanked PrimalSpan r m, AstRanked PrimalSpan r m
-        , v, v, v, v, v, v, v, v, v, v, v, v, v, v, v, v
-        , a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a
+        , v, v, v, v, v, v, v, v, v, v, v, v, v, v
+        , a, a, a, a, a, a, a, a, a, a, a, a, a, a
         , a, v, v, v )
 rev' f valsOR =
   let vals :: FlipR Nested.Ranked r n
@@ -104,15 +102,15 @@ rev' f valsOR =
       parameters0 = voidFromHVector parameters
       dt = Nothing
       valsFrom = fromDValue vals
-      simplifyArtifactOld :: AstArtifact TKUntyped TKUntyped
-                          -> AstArtifact TKUntyped TKUntyped
-      simplifyArtifactOld art =
-        art { artDerivative =
+      simplifyArtifactTKR :: AstArtifactRev TKUntyped (TKR r m)
+                          -> AstArtifactRev TKUntyped (TKR r m)
+      simplifyArtifactTKR art =
+        art { artDerivativeRev =
               HVectorPseudoTensor $ simplifyInlineHVectorRaw
-              $ unHVectorPseudoTensor $ artDerivative art
-            , artPrimal =
-              HVectorPseudoTensor $ simplifyInlineHVectorRaw
-              $ unHVectorPseudoTensor $ artPrimal art
+              $ unHVectorPseudoTensor $ artDerivativeRev art
+            , artPrimalRev =
+              AstRaw . unAstRanked . simplifyInlineAst . AstRanked . unAstRaw
+              $ artPrimalRev art
             }
       g :: HVector (ADVal ORArray)
         -> ADVal ORArray r m
@@ -125,28 +123,16 @@ rev' f valsOR =
       g9 inputs = f @(ADVal (AstRaw PrimalSpan))
                   $ parseHVector (fromDValue vals) inputs
       artifactsGradAst9 =
-        fst $ revProduceArtifactWithoutInterpretation False g9 parameters0
+        fst $ revProduceArtifactWithoutInterpretationTKNew
+                False g9 (FTKUntyped parameters0)
       (advalGrad9, value9) =
         revEvalArtifact7 artifactsGradAst9 parameters
       gradient9 = parseHVector vals advalGrad9
-      artifactsGradAst9TKNew =
-        fst $ revProduceArtifactWithoutInterpretationTKNew
-                False g9 (FTKUntyped parameters0)
-      (advalGrad9TKNew, value9TKNew) =
-        revEvalArtifact7TKNew artifactsGradAst9TKNew parameters
-      gradient9TKNew = parseHVector vals advalGrad9TKNew
       revEvalArtifact7
-        :: AstArtifact TKUntyped TKUntyped
-        -> HVector ORArray
-        -> (HVector ORArray, FlipR OR.Array r m)
-      revEvalArtifact7 a1 a2 =
-        let (grad, v) = revEvalArtifact a1 a2 Nothing
-        in (grad, toORArray $ rfromD (v V.! 0))
-      revEvalArtifact7TKNew
         :: AstArtifactRev TKUntyped (TKR r m)
         -> HVector ORArray
         -> (HVector ORArray, FlipR OR.Array r m)
-      revEvalArtifact7TKNew a1 a2 =
+      revEvalArtifact7 a1 a2 =
         let (grad, v) = revEvalArtifactTKNew a1 a2 Nothing
         in (grad, toORArray v)
       hGeneral
@@ -218,76 +204,68 @@ rev' f valsOR =
         = hGeneral @(ADVal (AstRaw PrimalSpan))
                    fx1 fx2 gx (parseHVector (fromDValue vals) inputs)
       artifactsGradAst =
-        fst $ revProduceArtifactWithoutInterpretation
-                False (hAst id id id) parameters0
+        fst $ revProduceArtifactWithoutInterpretationTKNew
+                False (hAst id id id) (FTKUntyped parameters0)
       (astGradAst, value2Ast) =
         revEvalArtifact7 artifactsGradAst parameters
       gradient2Ast = parseHVector vals astGradAst
-
-      artifactsGradAstTKNew =
-        fst $ revProduceArtifactWithoutInterpretationTKNew
-                False (hAst id id id) (FTKUntyped parameters0)
-      (astGradAstTKNew, value2AstTKNew) =
-        revEvalArtifact7TKNew artifactsGradAstTKNew parameters
-      gradient2AstTKNew = parseHVector vals astGradAstTKNew
-
       (astGradAstS, value2AstS) =
-        revEvalArtifact7 (simplifyArtifactOld artifactsGradAst) parameters
+        revEvalArtifact7 (simplifyArtifactTKR artifactsGradAst) parameters
       gradient2AstS = parseHVector vals astGradAstS
       artifactsGradAstT =
-        fst $ revProduceArtifactWithoutInterpretation
-                True (hAst id id id) parameters0
+        fst $ revProduceArtifactWithoutInterpretationTKNew
+                True (hAst id id id) (FTKUntyped parameters0)
       (astGradAstST, value2AstST) =
-        revEvalArtifact7 (simplifyArtifactOld artifactsGradAstT) parameters
+        revEvalArtifact7 (simplifyArtifactTKR artifactsGradAstT) parameters
       gradient2AstST = parseHVector vals astGradAstST
       artifactsSimpleAst =
-        fst $ revProduceArtifactWithoutInterpretation
-                False (hAst id id simplifyInlineAst) parameters0
+        fst $ revProduceArtifactWithoutInterpretationTKNew
+                False (hAst id id simplifyInlineAst) (FTKUntyped parameters0)
       (astSimpleAst, value3Ast) =
         revEvalArtifact7 artifactsSimpleAst parameters
       gradient3Ast = parseHVector vals astSimpleAst
       (astSimpleAstS, value3AstS) =
-        revEvalArtifact7 (simplifyArtifactOld artifactsSimpleAst) parameters
+        revEvalArtifact7 (simplifyArtifactTKR artifactsSimpleAst) parameters
       gradient3AstS = parseHVector vals astSimpleAstS
       artifactsGradAstUnSimp =
-        fst $ revProduceArtifactWithoutInterpretation
-                False (hAst (AstRanked . unAstNoSimplify) (AstNoSimplify . unAstRanked) id) parameters0
+        fst $ revProduceArtifactWithoutInterpretationTKNew
+                False (hAst (AstRanked . unAstNoSimplify) (AstNoSimplify . unAstRanked) id) (FTKUntyped parameters0)
       (astGradAstUnSimp, value2AstUnSimp) =
         revEvalArtifact7 artifactsGradAstUnSimp parameters
       gradient2AstUnSimp = parseHVector vals astGradAstUnSimp
       (astGradAstSUnSimp, value2AstSUnSimp) =
-        revEvalArtifact7 (simplifyArtifactOld artifactsGradAstUnSimp)
+        revEvalArtifact7 (simplifyArtifactTKR artifactsGradAstUnSimp)
                         parameters
       gradient2AstSUnSimp = parseHVector vals astGradAstSUnSimp
       artifactsSimpleAstUnSimp =
-        fst $ revProduceArtifactWithoutInterpretation
+        fst $ revProduceArtifactWithoutInterpretationTKNew
                 False (hAst (AstRanked . unAstNoSimplify) (AstNoSimplify . unAstRanked) simplifyInlineAst)
-                parameters0
+                (FTKUntyped parameters0)
       (astSimpleAstUnSimp, value3AstUnSimp) =
         revEvalArtifact7 artifactsSimpleAstUnSimp parameters
       gradient3AstUnSimp = parseHVector vals astSimpleAstUnSimp
       (astSimpleAstSUnSimp, value3AstSUnSimp) =
-        revEvalArtifact7 (simplifyArtifactOld artifactsSimpleAstUnSimp)
+        revEvalArtifact7 (simplifyArtifactTKR artifactsSimpleAstUnSimp)
                         parameters
       gradient3AstSUnSimp = parseHVector vals astSimpleAstSUnSimp
       artifactsPrimalAst =
-        fst $ revProduceArtifactWithoutInterpretation
-                False (hAst (AstRanked . unAstNoVectorize) (AstNoVectorize . unAstRanked) id) parameters0
+        fst $ revProduceArtifactWithoutInterpretationTKNew
+                False (hAst (AstRanked . unAstNoVectorize) (AstNoVectorize . unAstRanked) id) (FTKUntyped parameters0)
       (astPrimalAst, value4Ast) =
         revEvalArtifact7 artifactsPrimalAst parameters
       gradient4Ast = parseHVector vals astPrimalAst
       (astPrimalAstS, value4AstS) =
-        revEvalArtifact7 (simplifyArtifactOld artifactsPrimalAst) parameters
+        revEvalArtifact7 (simplifyArtifactTKR artifactsPrimalAst) parameters
       gradient4AstS = parseHVector vals astPrimalAstS
       artifactsPSimpleAst =
-        fst $ revProduceArtifactWithoutInterpretation
+        fst $ revProduceArtifactWithoutInterpretationTKNew
                 False (hAst (AstRanked . unAstNoVectorize) (AstNoVectorize . unAstRanked) simplifyInlineAst)
-                parameters0
+                (FTKUntyped parameters0)
       (astPSimpleAst, value5Ast) =
         revEvalArtifact7 artifactsPSimpleAst parameters
       gradient5Ast = parseHVector vals astPSimpleAst
       (astPSimpleAstS, value5AstS) =
-        revEvalArtifact7 (simplifyArtifactOld artifactsPSimpleAst) parameters
+        revEvalArtifact7 (simplifyArtifactTKR artifactsPSimpleAst) parameters
       gradient5AstS = parseHVector vals astPSimpleAstS
       cderivative = cfwd f vals vals
       derivative = fwd @(AstRanked FullSpan r m) f vals vals
@@ -301,10 +279,10 @@ rev' f valsOR =
      , toORArray gradient3UnSimp, toORArray gradientRrev3UnSimp
      , toORArray gradient4, toORArray gradientRrev4, toORArray gradient5, toORArray gradientRrev5
      , astVectSimp, astSimp
-     , value9, value9TKNew, value2Ast, value2AstTKNew, value2AstS, value2AstST, value3Ast, value3AstS
+     , value9, value2Ast, value2AstS, value2AstST, value3Ast, value3AstS
      , value2AstUnSimp, value2AstSUnSimp, value3AstUnSimp, value3AstSUnSimp
      , value4Ast, value4AstS, value5Ast, value5AstS
-     , toORArray gradient9, toORArray gradient9TKNew, toORArray gradient2Ast, toORArray gradient2AstTKNew, toORArray gradient2AstS, toORArray gradient2AstST
+     , toORArray gradient9, toORArray gradient2Ast, toORArray gradient2AstS, toORArray gradient2AstST
      , toORArray gradient3Ast, toORArray gradient3AstS
      , toORArray gradient2AstUnSimp, toORArray gradient2AstSUnSimp
      , toORArray gradient3AstUnSimp, toORArray gradient3AstSUnSimp
@@ -315,13 +293,13 @@ assertEqualUpToEpsilon'
     :: ( v ~ FlipR OR.Array r m, a ~ FlipR OR.Array r n
        , AssertEqualUpToEpsilon a, AssertEqualUpToEpsilon v
        , AssertEqualUpToEpsilon r
-       , GoodScalar r, KnownNat m, HasCallStack)
+       , GoodScalar r, HasCallStack)
     => Rational  -- ^ error margin (i.e., the epsilon)
     -> OR.Array n r  -- ^ expected reverse derivative value
     -> ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a, a, a, a, a, a
        , AstRanked PrimalSpan r m, AstRanked PrimalSpan r m
-       , v, v, v, v, v, v, v, v, v, v, v, v, v, v, v, v
-       , a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a
+       , v, v, v, v, v, v, v, v, v, v, v, v, v, v
+       , a, a, a, a, a, a, a, a, a, a, a, a, a, a
        , a, v, v, v )
          -- ^ actual values
     -> Assertion
@@ -334,10 +312,10 @@ assertEqualUpToEpsilon'
     , gradient3UnSimp, gradientRrev3UnSimp
     , gradient4, gradientRrev4, gradient5, gradientRrev5
     , _astVectSimp, _astSimp
-    , value9, value9TKNew, value2Ast, value2AstTKNew, value2AstS, value2AstST, value3Ast, value3AstS
+    , value9, value2Ast, value2AstS, value2AstST, value3Ast, value3AstS
     , value2AstUnSimp, value2AstSUnSimp, value3AstUnSimp, value3AstSUnSimp
     , value4Ast, value4AstS, value5Ast, value5AstS
-    , gradient9, gradient9TKNew, gradient2Ast, gradient2AstTKNew, gradient2AstS, gradient2AstST
+    , gradient9, gradient2Ast, gradient2AstS, gradient2AstST
     , gradient3Ast, gradient3AstS
     , gradient2AstUnSimp, gradient2AstSUnSimp
     , gradient3AstUnSimp, gradient3AstSUnSimp
@@ -370,7 +348,6 @@ assertEqualUpToEpsilon'
   assertEqualUpToEpsilonWithMark "Grad Simplified rrev"
                                  errMargin expected gradientRrev5
   assertEqualUpToEpsilonWithMark "Val Ast Vectorized" errMargin value0 value2Ast
-  assertEqualUpToEpsilonWithMark "Val Ast Vectorized TKNew" errMargin value0 value2AstTKNew
   assertEqualUpToEpsilonWithMark "Val Ast V S" errMargin value0 value2AstS
   assertEqualUpToEpsilonWithMark "Val Ast V ST" errMargin value0 value2AstST
   assertEqualUpToEpsilonWithMark "Val Ast Vect+Simp" errMargin value0 value3Ast
@@ -389,8 +366,6 @@ assertEqualUpToEpsilon'
   assertEqualUpToEpsilonWithMark "Val Ast S S" errMargin value0 value5AstS
   assertEqualUpToEpsilonWithMark "Grad Ast Vectorized"
                                  errMargin expected gradient2Ast
-  assertEqualUpToEpsilonWithMark "Grad Ast Vectorized TKNew"
-                                 errMargin expected gradient2AstTKNew
   assertEqualUpToEpsilonWithMark "Grad Ast Vectorized S"
                                  errMargin expected gradient2AstS
   assertEqualUpToEpsilonWithMark "Grad Ast Vectorized ST"
@@ -416,9 +391,7 @@ assertEqualUpToEpsilon'
   assertEqualUpToEpsilonWithMark "Grad Ast Simplified S"
                                  errMargin expected gradient5AstS
   assertEqualUpToEpsilonWithMark "Val ADVal Ast" errMargin value0 value9
-  assertEqualUpToEpsilonWithMark "Val ADVal Ast TKNew" errMargin value0 value9TKNew
   assertEqualUpToEpsilonWithMark "Grad ADVal Ast" errMargin expected gradient9
-  assertEqualUpToEpsilonWithMark "Grad ADVal Ast TKNew" errMargin expected gradient9TKNew
   assertEqualUpToEpsilonWithMark "Derivatives" errMargin cderivative derivative
   assertEqualUpToEpsilonWithMark "Derivatives rfwd"
                                  errMargin cderivative derivativeRfwd1
@@ -465,13 +438,13 @@ assertEqualUpToEpsilonShort
     :: ( v ~ FlipR OR.Array r m, a ~ FlipR OR.Array r n
        , AssertEqualUpToEpsilon a, AssertEqualUpToEpsilon v
        , AssertEqualUpToEpsilon r
-       , GoodScalar r, KnownNat m, HasCallStack)
+       , GoodScalar r, HasCallStack)
     => Rational  -- ^ error margin (i.e., the epsilon)
     -> OR.Array n r  -- ^ expected reverse derivative value
     -> ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a, a, a, a, a, a
        , AstRanked PrimalSpan r m, AstRanked PrimalSpan r m
-       , v, v, v, v, v, v, v, v, v, v, v, v, v, v, v, v
-       , a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a
+       , v, v, v, v, v, v, v, v, v, v, v, v, v, v
+       , a, a, a, a, a, a, a, a, a, a, a, a, a, a
        , a, v, v, v )
          -- ^ actual values
     -> Assertion
@@ -484,10 +457,10 @@ assertEqualUpToEpsilonShort
     , gradient3UnSimp, gradientRrev3UnSimp
     , _gradient4, _gradientRrev4, gradient5, gradientRrev5
     , _astVectSimp, _astSimp
-    , _value9, _value9TKNew, value2Ast, value2AstTKNew, value2AstS, value2AstST, value3Ast, value3AstS
+    , _value9, value2Ast, value2AstS, value2AstST, value3Ast, value3AstS
     , value2AstUnSimp, value2AstSUnSimp, value3AstUnSimp, value3AstSUnSimp
     , _value4Ast, _value4AstS, _value5Ast, _value5AstS
-    , _gradient9, _gradient9TKNew, gradient2Ast, gradient2AstTKNew, gradient2AstS, gradient2AstST
+    , _gradient9, gradient2Ast, gradient2AstS, gradient2AstST
     , gradient3Ast, gradient3AstS
     , gradient2AstUnSimp, gradient2AstSUnSimp
     , gradient3AstUnSimp, gradient3AstSUnSimp
@@ -516,7 +489,6 @@ assertEqualUpToEpsilonShort
   assertEqualUpToEpsilonWithMark "Grad Simplified rrev"
                                  errMargin expected gradientRrev5
   assertEqualUpToEpsilonWithMark "Val Ast Vectorized" errMargin value0 value2Ast
-  assertEqualUpToEpsilonWithMark "Val Ast Vectorized TKNew" errMargin value0 value2AstTKNew
   assertEqualUpToEpsilonWithMark "Val Ast V S" errMargin value0 value2AstS
   assertEqualUpToEpsilonWithMark "Val Ast V ST" errMargin value0 value2AstST
   assertEqualUpToEpsilonWithMark "Val Ast Vect+Simp" errMargin value0 value3Ast
@@ -531,8 +503,6 @@ assertEqualUpToEpsilonShort
                                                      value3AstSUnSimp
   assertEqualUpToEpsilonWithMark "Grad Ast Vectorized"
                                  errMargin expected gradient2Ast
-  assertEqualUpToEpsilonWithMark "Grad Ast VectorizedTKNew "
-                                 errMargin expected gradient2AstTKNew
   assertEqualUpToEpsilonWithMark "Grad Ast Vectorized S"
                                  errMargin expected gradient2AstS
   assertEqualUpToEpsilonWithMark "Grad Ast Vectorized ST"
