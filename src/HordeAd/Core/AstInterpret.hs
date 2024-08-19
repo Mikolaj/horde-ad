@@ -611,10 +611,6 @@ interpretAst !env = \case
                                   , shapeVoidHVector (dshape lt) )) $
                  extendEnvHVector vars lw env
     in rletHVectorIn lt (\lw -> interpretAst (env2 lw) v)
-  AstLetHFunIn @_ @_ @z var f v ->
-    let g = interpretAstHFun env f
-        env2 h = extendEnvHFun (Proxy @z) var h env
-    in rletHFunIn @_ @_ @_ @z g (\h -> interpretAst (env2 h) v)
   AstLetHFunInTKNew @_ @_ @x2 @y2 var f v ->
     let g = interpretAstHFunTKNew env f
         env2 h = extendEnvHFunTKNew (Proxy @x2) (Proxy @y2) var h env
@@ -837,10 +833,6 @@ interpretAst !env = \case
                                   , shapeVoidHVector (dshape lt) )) $
                   extendEnvHVector vars lw env
     in sletHVectorIn lt (\lw -> interpretAst (env2 lw) v)
-  AstLetHFunInS @_ @_ @z var f v ->
-    let g = interpretAstHFun env f
-        env2 h = extendEnvHFun (Proxy @z) var h env
-    in sletHFunIn @_ @_ @_ @z g (\h -> interpretAst (env2 h) v)
   AstLetHFunInSTKNew @_ @_ @x2 @y2 var f v ->
     let g = interpretAstHFunTKNew env f
         env2 h = extendEnvHFunTKNew (Proxy @x2) (Proxy @y2) var h env
@@ -849,16 +841,6 @@ interpretAst !env = \case
 
   AstMkHVector l -> HVectorPseudoTensor
                     $ dmkHVector $ interpretAstDynamic env <$> l
-  AstHApply t ll ->
-    let t2 = interpretAstHFun env t
-          -- this is a bunch of PrimalSpan terms interpreted in, perhaps,
-          -- FullSpan terms
-        ll2 = (interpretAstDynamic env <$>) <$> ll
-          -- these are, perhaps, FullSpan terms, interpreted in the same
-          -- as above so that the mixture becomes compatible; if the spans
-          -- agreed, the AstHApply would likely be simplified before
-          -- getting interpreted
-    in dHApply t2 ll2
   AstHApplyTKNew t ll ->
     let t2 = interpretAstHFunTKNew env t
           -- this is a bunch of PrimalSpan terms interpreted in, perhaps,
@@ -879,12 +861,6 @@ interpretAst !env = \case
                   extendEnvHVector vars lw env
     in HVectorPseudoTensor
        $ dletHVectorInHVector lt (\lw -> unHVectorPseudoTensor $ interpretAst (env2 lw) v)
-  AstLetHFunInHVector @y2 var f v ->
-    let g = interpretAstHFun env f
-        env2 h = extendEnvHFun (Proxy @y2) var h env
-    in HVectorPseudoTensor
-       $ dletHFunInHVector @_ @_ @y2
-           g (\h -> unHVectorPseudoTensor $ interpretAst (env2 h) v)
   AstLetHFunInHVectorTKNew @x2 @y2 var f v ->
     let g = interpretAstHFunTKNew env f
         env2 h = extendEnvHFunTKNew (Proxy @x2) (Proxy @y2) var h env
@@ -924,21 +900,6 @@ interpretAstDynamic !env = \case
     DynamicShaped $ interpretAstSRuntimeSpecialized env w
   DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
   DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
-
-interpretAstHFun
-  :: forall ranked y. TensorKind y
-  => HVectorTensor ranked (ShapedOf ranked)
-  => AstEnv ranked -> AstHFun y -> HFunOf ranked y
-interpretAstHFun !env = \case
-  AstLambda ~(vvars, l) ->
-    dlambda @ranked (map voidFromVars vvars)
-    $ interpretLambdaHsH interpretAst (vvars, l)
-      -- interpretation in empty environment; makes sense here, because
-      -- there are no free variables outside of those listed
-  AstVarHFun _shss _shs varId ->
-    case DMap.lookup (mkAstVarName @_ @y varId) env of
-      Just (AstEnvElemHFun f) -> f
-      _ -> error $ "interpretAstHFun: unknown variable " ++ show varId
 
 interpretAstHFunTKNew
   :: forall ranked x y. (TensorKind x, TensorKind y)

@@ -6,13 +6,13 @@
 module HordeAd.Core.AstEnv
   ( -- * The environment and operations for extending it
     AstEnv, AstEnvElem(..), emptyEnv
-  , extendEnv, extendEnvHVector, extendEnvHFun, extendEnvHFunTKNew
+  , extendEnv, extendEnvHVector, extendEnvHFunTKNew
   , extendEnvD, extendEnvI
     -- * The operations for interpreting bindings
   , interpretLambdaI, interpretLambdaIS, interpretLambdaIHVector
   , interpretLambdaIndex, interpretLambdaIndexS
   , interpretLambdaIndexToIndex, interpretLambdaIndexToIndexS
-  , interpretLambdaHsH, interpretLambdaHsHTKNew
+  , interpretLambdaHsHTKNew
     -- * Interpretation of arithmetic, boolean and relation operations
   , interpretAstN1, interpretAstN2, interpretAstR1, interpretAstR2
   , interpretAstR2F
@@ -53,13 +53,11 @@ type AstEnv ranked = DEnumMap (AstVarName FullSpan) (AstEnvElem ranked)
 type role AstEnvElem nominal nominal
 data AstEnvElem (ranked :: RankedTensorType) (y :: TensorKindType) where
   AstEnvElemTuple :: InterpretationTarget ranked y -> AstEnvElem ranked y
-  AstEnvElemHFun :: HFunOf ranked y -> AstEnvElem ranked y
   AstEnvElemHFunTKNew :: forall ranked x y. TensorKind x
                       => HFunOfTKNew ranked x y -> AstEnvElem ranked y
     -- the "y" is a lie; it should be "TKFun x y"; BTW, Proxy would not help
 
 deriving instance ( Show (InterpretationTarget ranked y)
-                  , Show (HFunOf ranked y)
                   , CHFun ranked Show y  )
                   => Show (AstEnvElem ranked y)
 
@@ -90,16 +88,6 @@ extendEnvHVector :: forall ranked. ADReady ranked
                  -> AstEnv ranked
 extendEnvHVector vars !pars !env = assert (length vars == V.length pars) $
   foldr extendEnvD env $ zip vars (V.toList pars)
-
-extendEnvHFun :: forall ranked y. TensorKind y
-              => Proxy y -> AstVarId -> HFunOf ranked y -> AstEnv ranked
-              -> AstEnv ranked
-extendEnvHFun _ !varId !t !env =
-  let var2 :: AstVarName FullSpan y
-      var2 = mkAstVarName varId
-  in DMap.insertWithKey (\_ _ _ -> error
-                                   $ "extendEnvHFun: duplicate " ++ show varId)
-                        var2 (AstEnvElemHFun t) env
 
 extendEnvHFunTKNew :: forall ranked x y. (TensorKind x, TensorKind y)
               => Proxy x -> Proxy y
@@ -250,18 +238,6 @@ interpretLambdaIndexToIndexS
 {-# INLINE interpretLambdaIndexToIndexS #-}
 interpretLambdaIndexToIndexS f !env (!vars, !asts) =
   \ix -> f (extendEnvVarsS vars ix env) <$> asts
-
-interpretLambdaHsH
-  :: (forall ranked z. ADReady ranked
-      => AstEnv ranked -> AstTensor s z
-      -> InterpretationTarget ranked z)
-  -> ( [[AstDynamicVarName]]
-     , AstTensor s y )
-  -> HFun y
-{-# INLINE interpretLambdaHsH #-}
-interpretLambdaHsH interpret ~(vvars, ast) =
-  HFun $ \ws ->
-    interpret (foldr (uncurry extendEnvHVector) emptyEnv $ zip vvars ws) ast
 
 interpretLambdaHsHTKNew
   :: TensorKind x

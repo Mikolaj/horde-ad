@@ -66,9 +66,6 @@ type instance ShapedOf ORArray = OSArray
 
 type instance HVectorOf ORArray = HVector ORArray
 
-type instance HFunOf ORArray y =
-  [HVector ORArray] -> InterpretationTarget ORArray y
-
 type instance HFunOfTKNew ORArray x y =
   InterpretationTarget ORArray x -> InterpretationTarget ORArray y
 
@@ -118,7 +115,6 @@ instance RankedTensor ORArray where
   rfromIntegral = FlipR . tfromIntegralR . runFlipR
   rconst = FlipR
   rletHVectorIn = (&)
-  rletHFunIn = (&)
   rletHFunInTKNew = (&)
   rfromS = FlipR . Nested.stoRanked . runFlipS
 
@@ -217,7 +213,6 @@ instance ShapedTensor OSArray where
   sfromIntegral = FlipS . tfromIntegralS . runFlipS
   sconst = FlipS
   sletHVectorIn = (&)
-  sletHFunIn = (&)
   sletHFunInTKNew = (&)
   sfromR :: forall r sh. (GoodScalar r, KnownShS sh)
          => ORArray r (X.Rank sh) -> OSArray r sh
@@ -236,13 +231,10 @@ instance ShapedTensor OSArray where
 instance HVectorTensor ORArray OSArray where
   dshape = voidFromHVector
   dmkHVector = id
-  dlambda _ f = unHFun f  -- the eta-expansion is needed for typing
-  dlambdaTKNew _ f = unHFunTKNew f
-  dHApply f = f
+  dlambdaTKNew _ f = unHFunTKNew f  -- the eta-expansion is needed for typing
   dHApplyTKNew f = f
   dunHVector = id
   dletHVectorInHVector = (&)
-  dletHFunInHVector = (&)
   dletHFunInHVectorTKNew = (&)
   dlet = (&)
   tunshare = id

@@ -13,7 +13,7 @@ module HordeAd.Core.TensorClass
     IShR, ShapeS
     -- * The tensor classes
   , RankedTensor(..), ShapedTensor(..), HVectorTensor(..), ProductTensor(..)
-  , HFun(..), HFunTKNew(..)
+  , HFunTKNew(..)
   , rfromD, sfromD, rscalar, rrepl, ringestData, ringestData1
   , ingestData, sscalar, srepl
   , mapInterpretationTarget, mapInterpretationTarget2, mapInterpretationTarget2Weak
@@ -310,10 +310,6 @@ class ( Num (IntOf ranked), IntegralF (IntOf ranked), CRanked ranked Num
                 => HVectorOf ranked
                 -> (HVector ranked -> ranked r n)
                 -> ranked r n
-  rletHFunIn :: (KnownNat n, GoodScalar r, TensorKind y)
-             => HFunOf ranked y
-             -> (HFunOf ranked y -> ranked r n)
-             -> ranked r n
   rletHFunInTKNew :: (KnownNat n, GoodScalar r, TensorKind x, TensorKind y)
              => HFunOfTKNew ranked x y
              -> (HFunOfTKNew ranked x y -> ranked r n)
@@ -698,10 +694,6 @@ class ( Num (IntOf shaped), IntegralF (IntOf shaped), CShaped shaped Num
                 => HVectorOf (RankedOf shaped)
                 -> (HVector (RankedOf shaped) -> shaped r sh)
                 -> shaped r sh
-  sletHFunIn :: (KnownShS sh, GoodScalar r, TensorKind y)
-             => HFunOf (RankedOf shaped) y
-             -> (HFunOf (RankedOf shaped) y -> shaped r sh)
-             -> shaped r sh
   sletHFunInTKNew :: (KnownShS sh, GoodScalar r, TensorKind x, TensorKind y)
              => HFunOfTKNew (RankedOf shaped) x y
              -> (HFunOfTKNew (RankedOf shaped) x y -> shaped r sh)
@@ -745,13 +737,8 @@ class HVectorTensor (ranked :: RankedTensorType)
                     | ranked -> shaped, shaped -> ranked where
   dshape :: HVectorOf ranked -> VoidHVector
   dmkHVector :: HVector ranked -> HVectorOf ranked
-  dlambda :: TensorKind y
-          => [VoidHVector] -> HFun y -> HFunOf ranked y
   dlambdaTKNew :: (TensorKind x, TensorKind z)
           => TensorKindFull x -> HFunTKNew x z -> HFunOfTKNew ranked x z
-  dHApply :: TensorKind y
-          => HFunOf ranked y -> [HVector ranked]
-          -> InterpretationTarget ranked y
   dHApplyTKNew :: (TensorKind x, TensorKind y)
           => HFunOfTKNew ranked x y -> InterpretationTarget ranked x
           -> InterpretationTarget ranked y
@@ -772,11 +759,6 @@ class HVectorTensor (ranked :: RankedTensorType)
   -- one needs to use dmapAccumRDer manually as in (simplified)
   -- > let f = ...; df = dfwd f; rf = drev f
   -- > in ... (dmapAccumRDer f df rf ...) ... (dmapAccumRDer f df rf ...)
-  dletHFunInHVector
-    :: TensorKind y
-    => HFunOf ranked y
-    -> (HFunOf ranked y -> HVectorOf ranked)
-    -> HVectorOf ranked
   dletHFunInHVectorTKNew
     :: (TensorKind x, TensorKind y)
     => HFunOfTKNew ranked x y
@@ -1425,14 +1407,6 @@ mapInterpretationTarget2Weak fr fs stk b1 b2 = case stk of
         !t2 = mapInterpretationTarget2Weak fr fs stk2 (tproject2 b1) (tproject2 b2)
     in ttuple t1 t2
   STKUntyped -> error "TODO: mapInterpretationTarget2Weak is weak"
-
-type role HFun nominal
-newtype HFun (y :: TensorKindType) =
-  HFun {unHFun :: forall f. ADReady f
-               => [HVector f] -> InterpretationTarget f y}
-
-instance Show (HFun y) where
-  show _ = "<lambda>"
 
 type role HFunTKNew nominal nominal
 newtype HFunTKNew (x :: TensorKindType) (y :: TensorKindType) =

@@ -189,8 +189,8 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
                     <$> loadMnistData trainGlyphsPath trainLabelsPath
        testData <- map rankBatch . take (totalBatchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
-       (_, hVectorPrimal, vars, _)
-         <- funToAstRevIO $ voidFromHVector hVectorInit
+       (_, hVectorPrimal, var, _)
+         <- funToAstRevIOTKNew $ FTKUntyped $ voidFromHVector hVectorInit
        let testDataR = packBatchR testData
        (varGlyph, _, astGlyph) <-
          funToAstIO FTKS {-@'[batch_size, SizeMnistHeight, SizeMnistWidth]-} id
@@ -209,8 +209,7 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
                    -> HVector (ADVal ORArray)
                    -> ADVal shaped r '[]
                  f (glyph, label) varInputs =
-                   let env = foldr extendEnvD emptyEnv
-                             $ zip vars $ V.toList varInputs
+                   let env = extendEnv var (HVectorPseudoTensor varInputs) emptyEnv
                        envMnist = extendEnv varGlyph (sconst $ Nested.sfromOrthotope knownShS glyph)
                                   $ extendEnv varLabel (sconst $ Nested.sfromOrthotope knownShS label) env
                    in interpretAst envMnist $ unAstShaped ast

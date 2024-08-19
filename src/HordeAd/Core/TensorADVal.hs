@@ -260,7 +260,6 @@ instance ADReady ranked => RankedTensor (ADVal ranked) where
           -- TODO: could this be done with rshare? Would it be better?
         doms = aDValHVector as as'
     in f doms -}
-  rletHFunIn = (&)
   rletHFunInTKNew = (&)
   rfromS :: forall r sh. (GoodScalar r, KnownShS sh)
          => ADVal (ShapedOf ranked) r sh -> ADVal ranked r (X.Rank sh)
@@ -391,7 +390,6 @@ instance ADReadyS shaped => ShapedTensor (ADVal shaped) where
           -- TODO: could this be done with rshare? Would it be better?
         doms = aDValHVector as as'
     in f doms -}
-  sletHFunIn = (&)
   sletHFunInTKNew = (&)
   sfromR :: forall r sh. (GoodScalar r, KnownShS sh, KnownNat (X.Rank sh))
          => ADVal (RankedOf shaped) r (X.Rank sh) -> ADVal shaped r sh
@@ -425,9 +423,7 @@ instance ADReadyBoth ranked shaped
          => HVectorTensor (ADVal ranked) (ADVal shaped) where
   dshape = voidFromHVector
   dmkHVector = id
-  dlambda _ = id
   dlambdaTKNew _ = id
-  dHApply (HFun f) = f
   dHApplyTKNew (HFunTKNew f) = f
   dunHVector = id
   dletHVectorInHVector asD f = f asD
@@ -437,7 +433,6 @@ instance ADReadyBoth ranked shaped
           -- TODO: could this be done with rshare? Would it be better?
         doms = aDValHVector as as'
     in f doms -}
-  dletHFunInHVector = (&)
   dletHFunInHVectorTKNew = (&)
   dlet :: forall y. TensorKind y
        => InterpretationTarget (ADVal ranked) y

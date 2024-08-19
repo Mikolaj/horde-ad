@@ -7,7 +7,7 @@ module HordeAd.Core.AstTools
   ( -- * Shape calculation
     shapeAstFull, shapeAst
   , lengthAst, shapeAstHVector
-  , shapeAstHFun, shapeAstHFunTKNew, domainShapesAstHFun, domainShapeAstHFunTKNew
+  , shapeAstHFunTKNew, domainShapeAstHFunTKNew
     -- * Variable occurrence detection
   , varInAst, varInAstBool, varInIndex
   , varInIndexS
@@ -36,7 +36,6 @@ import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
 import HordeAd.Core.Ast
 import HordeAd.Core.HVector
-import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.Util.SizedList
@@ -102,7 +101,6 @@ shapeAstFull t = case t of
     DynamicRankedDummy @_ @sh _ _ -> FTKR $ listToShape $ shapeT @sh
     DynamicShapedDummy{} -> error "shapeAstFull: DynamicShapedDummy"
   AstLetHVectorIn _ _ v -> shapeAstFull v
-  AstLetHFunIn _ _ v -> shapeAstFull v
   AstLetHFunInTKNew _ _ v -> shapeAstFull v
   AstRFromS @sh _ | Dict <- lemKnownNatRank (knownShS @sh) ->
     FTKR $ listToShape $ shapeT @sh
@@ -137,17 +135,14 @@ shapeAstFull t = case t of
   AstConstS{} -> FTKS
   AstProjectS{} -> FTKS
   AstLetHVectorInS{} -> FTKS
-  AstLetHFunInS{} -> FTKS
   AstLetHFunInSTKNew{} -> FTKS
   AstSFromR{} -> FTKS
 
   AstMkHVector v ->
     FTKUntyped
     $ V.map (voidFromDynamicF (shapeToList . shapeAst . unAstRanked)) v
-  AstHApply v _ll -> shapeAstHFun v
   AstHApplyTKNew v _ll -> shapeAstHFunTKNew v
   AstLetHVectorInHVector _ _ v -> shapeAstFull v
-  AstLetHFunInHVector _ _ v -> shapeAstFull v
   AstLetHFunInHVectorTKNew _ _ v -> shapeAstFull v
   AstShareHVector _ v -> shapeAstFull v
   AstBuildHVector1 k (_, v) ->
@@ -178,20 +173,10 @@ shapeAstHVector :: AstTensor s TKUntyped -> VoidHVector
 shapeAstHVector t = case shapeAstFull t of
   FTKUntyped shs -> shs
 
-shapeAstHFun :: TensorKind y => AstHFun y -> TensorKindFull y
-shapeAstHFun = \case
-  AstLambda ~(_vvars, l) -> shapeAstFull l
-  AstVarHFun _shss shs _var -> shs
-
 shapeAstHFunTKNew :: TensorKind y => AstHFunTKNew x y -> TensorKindFull y
 shapeAstHFunTKNew = \case
   AstLambdaTKNew ~(_vvars, _, l) -> shapeAstFull l
   AstVarHFunTKNew _shss shs _var -> shs
-
-domainShapesAstHFun :: AstHFun y -> [VoidHVector]
-domainShapesAstHFun = \case
-  AstLambda ~(vvars, _l) -> map voidFromVars vvars
-  AstVarHFun shss _shs _var -> shss
 
 domainShapeAstHFunTKNew :: AstHFunTKNew x y -> TensorKindFull x
 domainShapeAstHFunTKNew = \case
@@ -248,7 +233,6 @@ varInAst var = \case
   AstConst{} -> False
   AstProjectR l _p -> varInAst var l  -- conservative
   AstLetHVectorIn _vars l v -> varInAst var l || varInAst var v
-  AstLetHFunIn _var2 f v -> varInAstHFun var f || varInAst var v
   AstLetHFunInTKNew _var2 f v -> varInAstHFunTKNew var f || varInAst var v
   AstRFromS v -> varInAst var v
 
@@ -277,15 +261,12 @@ varInAst var = \case
   AstConstS{} -> False
   AstProjectS l _p -> varInAst var l  -- conservative
   AstLetHVectorInS _vars l v -> varInAst var l || varInAst var v
-  AstLetHFunInS _var2 f v -> varInAstHFun var f || varInAst var v
   AstLetHFunInSTKNew _var2 f v -> varInAstHFunTKNew var f || varInAst var v
   AstSFromR v -> varInAst var v
 
   AstMkHVector l -> any (varInAstDynamic var) l
-  AstHApply t ll -> varInAstHFun var t || any (any (varInAstDynamic var)) ll
   AstHApplyTKNew t ll -> varInAstHFunTKNew var t || varInAst var ll
   AstLetHVectorInHVector _vars2 u v -> varInAst var u || varInAst var v
-  AstLetHFunInHVector _var2 f v -> varInAstHFun var f || varInAst var v
   AstLetHFunInHVectorTKNew _var2 f v -> varInAstHFunTKNew var f || varInAst var v
   AstShareHVector _ v -> varInAst var v
   AstBuildHVector1 _ (_var2, v) -> varInAst var v
@@ -307,11 +288,6 @@ varInAstDynamic var = \case
   DynamicShaped (AstShaped t) -> varInAst var t
   DynamicRankedDummy{} -> False
   DynamicShapedDummy{} -> False
-
-varInAstHFun :: AstVarId -> AstHFun y -> Bool
-varInAstHFun var = \case
-  AstLambda{} -> False  -- we take advantage of the term being closed
-  AstVarHFun _shss _shs var2 -> fromEnum var == fromEnum var2
 
 varInAstHFunTKNew :: AstVarId -> AstHFunTKNew x y -> Bool
 varInAstHFunTKNew var = \case

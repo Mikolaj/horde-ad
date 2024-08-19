@@ -190,8 +190,8 @@ mnistTestCase1VTI prefix epochs maxBatches widthHidden widthHidden2
        trainData <- loadMnistData trainGlyphsPath trainLabelsPath
        testData <- take (batchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
-       (_, hVectorPrimal, vars, _)
-         <- funToAstRevIO (voidFromHVector hVectorInit)
+       (_, hVectorPrimal, var, _)
+         <- funToAstRevIOTKNew $ FTKUntyped $ voidFromHVector hVectorInit
        (varGlyph, _, astGlyph) <-
          funToAstIO (FTKR $ singletonShape sizeMnistGlyphInt) id
        (varLabel, _, astLabel) <-
@@ -208,8 +208,7 @@ mnistTestCase1VTI prefix epochs maxBatches widthHidden widthHidden2
              let f :: MnistData r -> HVector (ADVal ORArray)
                    -> ADVal ranked r 0
                  f (glyph, label) varInputs =
-                   let env = foldr extendEnvD emptyEnv
-                             $ zip vars $ V.toList varInputs
+                   let env = extendEnv var (HVectorPseudoTensor varInputs) emptyEnv
                        envMnist =
                          extendEnv varGlyph
                            (rconst $ Nested.rfromVector (fromList [sizeMnistGlyphInt]) glyph)
@@ -512,8 +511,8 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
        trainData <- loadMnistData trainGlyphsPath trainLabelsPath
        testData <- take (batchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
-       (_, hVectorPrimal, vars, _)
-         <- funToAstRevIO (voidFromHVector hVectorInit)
+       (_, hVectorPrimal, var, _)
+         <- funToAstRevIOTKNew $ FTKUntyped $ voidFromHVector hVectorInit
        (varGlyph, _, astGlyph) <-
          funToAstIO (FTKR $ singletonShape sizeMnistGlyphInt) id
        (varLabel, _, astLabel) <-
@@ -530,8 +529,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
              let f :: MnistData r -> HVector (ADVal ORArray)
                    -> ADVal ranked r 0
                  f (glyph, label) varInputs =
-                   let env = foldr extendEnvD emptyEnv
-                             $ zip vars $ V.toList varInputs
+                   let env = extendEnv var (HVectorPseudoTensor varInputs) emptyEnv
                        envMnist =
                          extendEnv varGlyph
                            (rconst $ Nested.rfromVector (fromList [sizeMnistGlyphInt]) glyph)
