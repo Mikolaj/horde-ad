@@ -182,7 +182,7 @@ mnistTestCaseCNNI prefix epochs maxBatches kh kw c_out n_hidden
        testData <- map rankBatch . take (totalBatchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
        (_, hVectorPrimal, var, _)
-         <- funToAstRevIOTKNew $ FTKUntyped $ voidFromHVector hVectorInit
+         <- funToAstRevIO $ FTKUntyped $ voidFromHVector hVectorInit
        let testDataR = packBatchR testData
        (varGlyph, _, astGlyph) <-
          funToAstIO
@@ -315,7 +315,7 @@ mnistTestCaseCNNO prefix epochs maxBatches kh kw c_out n_hidden
                  parametersAndInput =
                    V.concat [parameters, V.fromList [glyphD, labelD]]
                  gradientHVector =
-                   fst $ revEvalArtifactTKNew art parametersAndInput Nothing
+                   fst $ revEvalArtifact art parametersAndInput Nothing
              in go rest (updateWithGradientAdam defaultArgsAdam stateAdam
                                                 parameters gradientHVector)
            runBatch :: (HVector ORArray, StateAdam) -> (Int, [MnistDataR r])

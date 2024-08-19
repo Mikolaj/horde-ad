@@ -7,7 +7,7 @@
 module HordeAd.Core.Engine
   ( -- * Reverse derivative adaptors
     rev, revDt, revArtifactAdapt
-  , revProduceArtifactWithoutInterpretationTKNew, revEvalArtifactTKNew
+  , revProduceArtifactWithoutInterpretation, revEvalArtifact
     -- * Forward derivative adaptors
   , fwd, fwdEvalArtifact
     -- * Old gradient adaptors
@@ -102,10 +102,10 @@ revDtMaybe f vals0 mdt =
               $ toHVectorOf $ f $ parseHVector (fromValue vals0) hv
       valsH = toHVectorOf vals0
       voidH = FTKUntyped $ voidFromHVector valsH
-      artifact = fst $ revProduceArtifactTKNew (isJust mdt) g emptyEnv voidH
+      artifact = fst $ revProduceArtifact (isJust mdt) g emptyEnv voidH
       mdth = (HVectorPseudoTensor . toHVectorOf) <$> mdt
   in parseHVector vals0
-     $ fst $ revEvalArtifactTKNew artifact valsH mdth
+     $ fst $ revEvalArtifact artifact valsH mdth
 {-# SPECIALIZE revDtMaybe
   :: ( KnownNat n
      , AdaptableHVector (AstRanked FullSpan) astvals
@@ -133,7 +133,7 @@ revArtifactAdapt hasDt f vals0 =
               $ toHVectorOf $ f $ parseHVector (fromValue vals0) hv
       valsH = toHVectorOf @ORArray vals0
       voidH = voidFromHVector valsH
-  in revProduceArtifactTKNew hasDt g emptyEnv (FTKUntyped voidH)
+  in revProduceArtifact hasDt g emptyEnv (FTKUntyped voidH)
 {-# SPECIALIZE revArtifactAdapt
   :: ( KnownNat n
      , AdaptableHVector (AstRanked FullSpan) astvals
@@ -142,43 +142,43 @@ revArtifactAdapt hasDt f vals0 =
   => Bool -> (astvals -> AstRanked FullSpan Double n) -> Value astvals
   -> (AstArtifactRev TKUntyped TKUntyped, Delta (AstRaw PrimalSpan) TKUntyped) #-}
 
-revProduceArtifactWithoutInterpretationTKNew
+revProduceArtifactWithoutInterpretation
   :: forall x z. (x ~ TKUntyped, TensorKind z)
   => Bool
   -> (HVector (ADVal (AstRaw PrimalSpan))
       -> InterpretationTarget (ADVal (AstRaw PrimalSpan)) z)
   -> TensorKindFull x
   -> (AstArtifactRev x z, Delta (AstRaw PrimalSpan) z)
-{-# INLINE revProduceArtifactWithoutInterpretationTKNew #-}
-revProduceArtifactWithoutInterpretationTKNew hasDt f =
+{-# INLINE revProduceArtifactWithoutInterpretation #-}
+revProduceArtifactWithoutInterpretation hasDt f =
   let g :: HVector (AstRaw PrimalSpan)
         -> AstVarName FullSpan x
         -> HVector (AstRanked FullSpan)
         -> InterpretationTarget (ADVal (AstRaw PrimalSpan)) z
-      g hVectorPrimal = forwardPassByApplicationTKNew f hVectorPrimal
-  in revArtifactFromForwardPassTKNew @x @z hasDt g
+      g hVectorPrimal = forwardPassByApplication f hVectorPrimal
+  in revArtifactFromForwardPass @x @z hasDt g
 
-forwardPassByApplicationTKNew
+forwardPassByApplication
   :: (HVector (ADVal (AstRaw PrimalSpan))
       -> InterpretationTarget (ADVal (AstRaw PrimalSpan)) z)
   -> HVector (AstRaw PrimalSpan)
   -> AstVarName FullSpan TKUntyped
   -> HVector (AstRanked FullSpan)
   -> InterpretationTarget (ADVal (AstRaw PrimalSpan)) z
-{-# INLINE forwardPassByApplicationTKNew #-}
-forwardPassByApplicationTKNew g hVectorPrimal _var _hVector =
+{-# INLINE forwardPassByApplication #-}
+forwardPassByApplication g hVectorPrimal _var _hVector =
   let deltaInputs = generateDeltaInputs hVectorPrimal
       varInputs = makeADInputs hVectorPrimal deltaInputs
   in g varInputs
 
-revEvalArtifactTKNew
+revEvalArtifact
   :: forall x z. (x ~ TKUntyped, TensorKind z)
   => AstArtifactRev x z
   -> HVector ORArray
   -> Maybe (InterpretationTarget ORArray z)
   -> (HVector ORArray, InterpretationTarget ORArray z)
-{-# INLINE revEvalArtifactTKNew #-}
-revEvalArtifactTKNew !(AstArtifactRev varDt var
+{-# INLINE revEvalArtifact #-}
+revEvalArtifact !(AstArtifactRev varDt var
                               (HVectorPseudoTensor (AstRawWrap gradient))
                               primal)
                 parameters mdt =
@@ -217,7 +217,7 @@ fwd f vals ds =
                   $ toHVectorOf $ f $ parseHVector (fromValue vals) hVector
       valsH = toHVectorOf vals
       voidH = FTKUntyped $ voidFromHVector valsH
-      artifact = fst $ fwdProduceArtifactTKNew g emptyEnv voidH
+      artifact = fst $ fwdProduceArtifact g emptyEnv voidH
       dsH = toHVectorOf ds
       err = error "fwd: codomain of unknown length"
   in parseHVector err $ unHVectorPseudoTensor

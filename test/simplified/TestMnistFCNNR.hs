@@ -26,7 +26,7 @@ import HordeAd
 import HordeAd.Core.Adaptor
 import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId
-import HordeAd.Core.TensorAst (revProduceArtifactTKNew)
+import HordeAd.Core.TensorAst (revProduceArtifact)
 import HordeAd.External.OptimizerTools
 import HordeAd.Internal.BackendOX (ORArray, OSArray)
 import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..))
@@ -191,7 +191,7 @@ mnistTestCase1VTI prefix epochs maxBatches widthHidden widthHidden2
        testData <- take (batchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
        (_, hVectorPrimal, var, _)
-         <- funToAstRevIOTKNew $ FTKUntyped $ voidFromHVector hVectorInit
+         <- funToAstRevIO $ FTKUntyped $ voidFromHVector hVectorInit
        (varGlyph, _, astGlyph) <-
          funToAstIO (FTKR $ singletonShape sizeMnistGlyphInt) id
        (varLabel, _, astLabel) <-
@@ -317,7 +317,7 @@ mnistTestCase1VTO prefix epochs maxBatches widthHidden widthHidden2
            g !hv = HVectorPseudoTensor
                    $ toHVectorOf $ f
                    $ parseHVector (fromValue (valsInit, dataInit)) hv
-           (artRaw, _) = revProduceArtifactTKNew False g emptyEnv
+           (artRaw, _) = revProduceArtifact False g emptyEnv
                            (FTKUntyped $ voidFromHVector
                             $ hVectorInit
                               V.++ V.fromList [ DynamicRanked @r @1
@@ -337,7 +337,7 @@ mnistTestCase1VTO prefix epochs maxBatches widthHidden widthHidden2
                  parametersAndInput =
                    V.concat [parameters, V.fromList [glyphD, labelD]]
                  gradientHVector =
-                   fst $ revEvalArtifactTKNew art parametersAndInput Nothing
+                   fst $ revEvalArtifact art parametersAndInput Nothing
              in go rest (updateWithGradient gamma parameters gradientHVector)
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
@@ -512,7 +512,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
        testData <- take (batchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
        (_, hVectorPrimal, var, _)
-         <- funToAstRevIOTKNew $ FTKUntyped $ voidFromHVector hVectorInit
+         <- funToAstRevIO $ FTKUntyped $ voidFromHVector hVectorInit
        (varGlyph, _, astGlyph) <-
          funToAstIO (FTKR $ singletonShape sizeMnistGlyphInt) id
        (varLabel, _, astLabel) <-
@@ -645,7 +645,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                  parametersAndInput =
                    V.concat [parameters, V.fromList [glyphD, labelD]]
                  gradientHVector =
-                   fst $ revEvalArtifactTKNew art parametersAndInput Nothing
+                   fst $ revEvalArtifact art parametersAndInput Nothing
              in go rest (updateWithGradient gamma parameters gradientHVector)
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.

@@ -316,17 +316,17 @@ inlineAst memo v0 = case v0 of
     let (memo1, l2) = inlineAst memo l
         (memo2, v2) = inlineAst memo1 v
     in (memo2, Ast.AstLetHVectorIn vars l2 v2)
-  Ast.AstLetHFunInTKNew var f v ->
+  Ast.AstLetHFunIn var f v ->
     -- We assume there are no nested lets with the same variable.
     -- We assume functions are never small enough to justify inlining
     -- into more than one place.
     let (memo1, v2) = inlineAst memo v
-        (memo2, f2) = inlineAstHFunTKNew memo1 f
+        (memo2, f2) = inlineAstHFun memo1 f
     in case EM.findWithDefault 0 var memo2 of
       0 -> (memo1, v2)
       1 -> (memo2, fromMaybe v2 $ substitute1Ast
-                                    (SubstitutionPayloadHFunTKNew f2) var v2)
-      _ -> (memo2, Ast.AstLetHFunInTKNew var f2 v2)
+                                    (SubstitutionPayloadHFun f2) var v2)
+      _ -> (memo2, Ast.AstLetHFunIn var f2 v2)
   Ast.AstRFromS v -> second Ast.AstRFromS $ inlineAst memo v
 
   Ast.AstMinIndexS a -> second Ast.AstMinIndexS $ inlineAst memo a
@@ -399,41 +399,41 @@ inlineAst memo v0 = case v0 of
     let (memo1, l2) = inlineAst memo l
         (memo2, v2) = inlineAst memo1 v
     in (memo2, Ast.AstLetHVectorInS vars l2 v2)
-  Ast.AstLetHFunInSTKNew var f v ->
+  Ast.AstLetHFunInS var f v ->
     -- We assume there are no nested lets with the same variable.
     -- We assume functions are never small enough to justify inlining
     -- into more than one place.
     let (memo1, v2) = inlineAst memo v
-        (memo2, f2) = inlineAstHFunTKNew memo1 f
+        (memo2, f2) = inlineAstHFun memo1 f
     in case EM.findWithDefault 0 var memo2 of
       0 -> (memo1, v2)
       1 -> (memo2, fromMaybe v2 $ substitute1Ast
-                                    (SubstitutionPayloadHFunTKNew f2) var v2)
-      _ -> (memo2, Ast.AstLetHFunInSTKNew var f2 v2)
+                                    (SubstitutionPayloadHFun f2) var v2)
+      _ -> (memo2, Ast.AstLetHFunInS var f2 v2)
   Ast.AstSFromR v -> second Ast.AstSFromR $ inlineAst memo v
 
   Ast.AstMkHVector l ->
     second Ast.AstMkHVector $ mapAccumR inlineAstDynamic memo l
-  Ast.AstHApplyTKNew t ll ->
-    let (memo1, t2) = inlineAstHFunTKNew memo t
+  Ast.AstHApply t ll ->
+    let (memo1, t2) = inlineAstHFun memo t
         (memo2, ll2) = inlineAst memo1 ll
-    in (memo2, Ast.AstHApplyTKNew t2 ll2)
+    in (memo2, Ast.AstHApply t2 ll2)
   Ast.AstLetHVectorInHVector vars u v ->
     -- We don't inline, but elsewhere try to reduce to constructors that we do.
     let (memo1, u2) = inlineAst memo u
         (memo2, v2) = inlineAst memo1 v
     in (memo2, Ast.AstLetHVectorInHVector vars u2 v2)
-  Ast.AstLetHFunInHVectorTKNew var f v ->
+  Ast.AstLetHFunInHVector var f v ->
     -- We assume there are no nested lets with the same variable.
     -- We assume functions are never small enough to justify inlining
     -- into more than one place.
     let (memo1, v2) = inlineAst memo v
-        (memo2, f2) = inlineAstHFunTKNew memo1 f
+        (memo2, f2) = inlineAstHFun memo1 f
     in case EM.findWithDefault 0 var memo2 of
       0 -> (memo1, v2)
       1 -> (memo2, fromMaybe v2 $ substitute1Ast
-                                    (SubstitutionPayloadHFunTKNew f2) var v2)
-      _ -> (memo2, Ast.AstLetHFunInHVectorTKNew var f2 v2)
+                                    (SubstitutionPayloadHFun f2) var v2)
+      _ -> (memo2, Ast.AstLetHFunInHVector var f2 v2)
   Ast.AstShareHVector{} -> error "inlineAst: AstShareHVector"
   Ast.AstBuildHVector1 k (var, v) ->
     let (memoV0, v2) = inlineAst EM.empty v
@@ -441,16 +441,16 @@ inlineAst memo v0 = case v0 of
                   (\c1 c0 -> c1 + fromInteger (fromSNat k) * c0) memo memoV0
     in (memo1, Ast.AstBuildHVector1 k (var, v2))
   Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc0 es ->
-    let (memo1, f2) = inlineAstHFunTKNew memo f
-        (memo2, df2) = inlineAstHFunTKNew memo1 df
-        (memo3, rf2) = inlineAstHFunTKNew memo2 rf
+    let (memo1, f2) = inlineAstHFun memo f
+        (memo2, df2) = inlineAstHFun memo1 df
+        (memo3, rf2) = inlineAstHFun memo2 rf
         (memo4, acc02) = inlineAst memo3 acc0
         (memo5, es2) = inlineAst memo4 es
     in (memo5, Ast.AstMapAccumRDer k accShs bShs eShs f2 df2 rf2 acc02 es2)
   Ast.AstMapAccumLDer k accShs bShs eShs f df rf acc0 es ->
-    let (memo1, f2) = inlineAstHFunTKNew memo f
-        (memo2, df2) = inlineAstHFunTKNew memo1 df
-        (memo3, rf2) = inlineAstHFunTKNew memo2 rf
+    let (memo1, f2) = inlineAstHFun memo f
+        (memo2, df2) = inlineAstHFun memo1 df
+        (memo3, rf2) = inlineAstHFun memo2 rf
         (memo4, acc02) = inlineAst memo3 acc0
         (memo5, es2) = inlineAst memo4 es
     in (memo5, Ast.AstMapAccumLDer k accShs bShs eShs f2 df2 rf2 acc02 es2)
@@ -467,14 +467,14 @@ inlineAstDynamic memo = \case
   u@DynamicRankedDummy{} -> (memo, u)
   u@DynamicShapedDummy{} -> (memo, u)
 
-inlineAstHFunTKNew
-  :: AstMemo -> AstHFunTKNew x y -> (AstMemo, AstHFunTKNew x y)
-inlineAstHFunTKNew memo v0 = case v0 of
-  Ast.AstLambdaTKNew ~(var, ftk, l) ->
+inlineAstHFun
+  :: AstMemo -> AstHFun x y -> (AstMemo, AstHFun x y)
+inlineAstHFun memo v0 = case v0 of
+  Ast.AstLambda ~(var, ftk, l) ->
     -- No other free variables in l, so no outside lets can reach there,
     -- so we don't need to pass the information from v upwards.
-    (memo, Ast.AstLambdaTKNew (var, ftk, snd $ inlineAst EM.empty l))
-  Ast.AstVarHFunTKNew _shss _shs var ->
+    (memo, Ast.AstLambda (var, ftk, snd $ inlineAst EM.empty l))
+  Ast.AstVarHFun _shss _shs var ->
     let f Nothing = Just 1
         f (Just count) = Just $ count + 1
     in (EM.alter f var memo, v0)
@@ -666,7 +666,7 @@ shareAst memo v0 = case v0 of
     let (memo1, l2) = shareAst memo l
     in (memo1, Ast.AstProjectR l2 p)
   Ast.AstLetHVectorIn{} -> error "shareAst: AstLetHVectorIn"
-  Ast.AstLetHFunInTKNew{} -> error "shareAst: AstLetHFunIn"
+  Ast.AstLetHFunIn{} -> error "shareAst: AstLetHFunIn"
   Ast.AstRFromS v -> second Ast.AstRFromS $ shareAst memo v
 
   Ast.AstMinIndexS a -> second Ast.AstMinIndexS $ shareAst memo a
@@ -731,17 +731,17 @@ shareAst memo v0 = case v0 of
     let (memo1, l2) = shareAst memo l
     in (memo1, Ast.AstProjectS l2 p)
   Ast.AstLetHVectorInS{} -> error "shareAst: AstLetHVectorInS"
-  Ast.AstLetHFunInSTKNew{} -> error "shareAst: AstLetHFunInS"
+  Ast.AstLetHFunInS{} -> error "shareAst: AstLetHFunInS"
   Ast.AstSFromR v -> second Ast.AstSFromR $ shareAst memo v
 
   Ast.AstMkHVector l ->
     second Ast.AstMkHVector $ mapAccumR shareAstDynamic memo l
-  Ast.AstHApplyTKNew t ll ->
-    let (memo1, t2) = shareAstHFunTKNew memo t
+  Ast.AstHApply t ll ->
+    let (memo1, t2) = shareAstHFun memo t
         (memo2, ll2) = shareAst memo1 ll
-    in (memo2, Ast.AstHApplyTKNew t2 ll2)
+    in (memo2, Ast.AstHApply t2 ll2)
   Ast.AstLetHVectorInHVector{} -> error "shareAst: AstLetHVectorInHVector"
-  Ast.AstLetHFunInHVectorTKNew{} -> error "shareAst: AstLetHFunInHVector"
+  Ast.AstLetHFunInHVector{} -> error "shareAst: AstLetHFunInHVector"
   Ast.AstShareHVector [] l -> (memo, l)  -- no need to share an empty HVector
   Ast.AstShareHVector vars l | Just Refl <- sameAstSpan @s @PrimalSpan ->
     -- We assume l is the same if vars are the same.
@@ -782,15 +782,15 @@ shareAstDynamic memo = \case
   u@DynamicRankedDummy{} -> (memo, u)
   u@DynamicShapedDummy{} -> (memo, u)
 
-shareAstHFunTKNew
-  :: ShareMemo -> AstHFunTKNew x y -> (ShareMemo, AstHFunTKNew x y)
-shareAstHFunTKNew memo v0 = case v0 of
-  Ast.AstLambdaTKNew{} ->
+shareAstHFun
+  :: ShareMemo -> AstHFun x y -> (ShareMemo, AstHFun x y)
+shareAstHFun memo v0 = case v0 of
+  Ast.AstLambda{} ->
     -- No other free variables in l, so no outside lets can reach there,
     -- so we don't need to pass the information from v upwards
     -- nor remove the Share constructors.
     (memo, v0)
-  Ast.AstVarHFunTKNew{} -> (memo, v0)
+  Ast.AstVarHFun{} -> (memo, v0)
 
 shareAstBool :: ShareMemo -> AstBool -> (ShareMemo, AstBool)
 shareAstBool memo v0 = case v0 of

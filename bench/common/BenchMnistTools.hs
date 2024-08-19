@@ -15,7 +15,7 @@ import System.Random
 import HordeAd
 import HordeAd.Core.Adaptor
 import HordeAd.Core.AstEnv
-import HordeAd.Core.TensorAst (revProduceArtifactTKNew)
+import HordeAd.Core.TensorAst (revProduceArtifact)
 import HordeAd.Core.TensorConcrete ()
 import HordeAd.External.OptimizerTools
 import HordeAd.Internal.BackendOX (ORArray, OSArray)
@@ -150,7 +150,7 @@ mnistTrainBench1VTO extraPrefix chunkLength xs widthHidden widthHidden2
         g !hv = HVectorPseudoTensor
                 $ toHVectorOf $ f
                 $ parseHVector (fromValue (valsInit, dataInit)) hv
-        (artRaw, _) = revProduceArtifactTKNew False g emptyEnv
+        (artRaw, _) = revProduceArtifact False g emptyEnv
                         (FTKUntyped $ voidFromHVector
                          $ hVectorInit
                            V.++ V.fromList [ DynamicRanked @r @1
@@ -170,7 +170,7 @@ mnistTrainBench1VTO extraPrefix chunkLength xs widthHidden widthHidden2
               parametersAndInput =
                 V.concat [parameters, V.fromList [glyphD, labelD]]
               gradientHVector =
-                fst $ revEvalArtifactTKNew art parametersAndInput Nothing
+                fst $ revEvalArtifact art parametersAndInput Nothing
           in go rest (updateWithGradient gamma parameters gradientHVector)
         chunk = take chunkLength xs
         grad c = go c hVectorInit
@@ -340,7 +340,7 @@ mnistTrainBench2VTO extraPrefix chunkLength xs widthHidden widthHidden2
               parametersAndInput =
                 V.concat [parameters, V.fromList [glyphD, labelD]]
               gradientHVector =
-                fst $ revEvalArtifactTKNew art parametersAndInput Nothing
+                fst $ revEvalArtifact art parametersAndInput Nothing
           in go rest (updateWithGradient gamma parameters gradientHVector)
         chunk = take chunkLength xs
         grad c = go c hVectorInit

@@ -260,7 +260,7 @@ instance ADReady ranked => RankedTensor (ADVal ranked) where
           -- TODO: could this be done with rshare? Would it be better?
         doms = aDValHVector as as'
     in f doms -}
-  rletHFunInTKNew = (&)
+  rletHFunIn = (&)
   rfromS :: forall r sh. (GoodScalar r, KnownShS sh)
          => ADVal (ShapedOf ranked) r sh -> ADVal ranked r (X.Rank sh)
   rfromS (D u u') = dDnotShared (rfromS u) (DeltaR $ dRFromS $ unDeltaS u')
@@ -390,7 +390,7 @@ instance ADReadyS shaped => ShapedTensor (ADVal shaped) where
           -- TODO: could this be done with rshare? Would it be better?
         doms = aDValHVector as as'
     in f doms -}
-  sletHFunInTKNew = (&)
+  sletHFunIn = (&)
   sfromR :: forall r sh. (GoodScalar r, KnownShS sh, KnownNat (X.Rank sh))
          => ADVal (RankedOf shaped) r (X.Rank sh) -> ADVal shaped r sh
   sfromR (D u u') = dDnotShared (sfromR u) (DeltaS $ dSFromR u')
@@ -423,8 +423,8 @@ instance ADReadyBoth ranked shaped
          => HVectorTensor (ADVal ranked) (ADVal shaped) where
   dshape = voidFromHVector
   dmkHVector = id
-  dlambdaTKNew _ = id
-  dHApplyTKNew (HFunTKNew f) = f
+  dlambda _ = id
+  dHApply (HFun f) = f
   dunHVector = id
   dletHVectorInHVector asD f = f asD
 {- TODO: Try again once we have tests that show this sharing is needed:
@@ -433,7 +433,7 @@ instance ADReadyBoth ranked shaped
           -- TODO: could this be done with rshare? Would it be better?
         doms = aDValHVector as as'
     in f doms -}
-  dletHFunInHVectorTKNew = (&)
+  dletHFunInHVector = (&)
   dlet :: forall y. TensorKind y
        => InterpretationTarget (ADVal ranked) y
        -> (InterpretationTarget (ADVal ranked) y -> HVectorOf (ADVal ranked))
@@ -471,15 +471,15 @@ instance ADReadyBoth ranked shaped
         g !hv = HVectorPseudoTensor $ V.singleton $ DynamicRanked
                 $ f $ unHVectorPseudoTensor hv
     in unHVectorPseudoTensor $ fst $ crevOnHVector Nothing g parameters
-  drevDtTKNew :: forall x z. (x ~ TKUntyped, TensorKind z)
+  drevDt :: forall x z. (x ~ TKUntyped, TensorKind z)
               => TensorKindFull x
-              -> HFunTKNew x z
-              -> HFunTKNew (TKProduct z x) x
-  drevDtTKNew _ftk h =
+              -> HFun x z
+              -> HFun (TKProduct z x) x
+  drevDt _ftk h =
     let g :: ADReady f
           => InterpretationTarget (ADVal f) x
           -> InterpretationTarget (ADVal f) z
-        g !hv = unHFunTKNew h hv
+        g !hv = unHFun h hv
         rf :: forall f. ADReady f
            => InterpretationTarget f (TKProduct z x)
            -> InterpretationTarget f x
@@ -489,15 +489,15 @@ instance ADReadyBoth ranked shaped
                   (Just $ tproject1 db_a)
                   g
                   (dunHVector $ unHVectorPseudoTensor $ tproject2 db_a)
-    in HFunTKNew rf
-  dfwdTKNew :: forall x z. (x ~ TKUntyped, TensorKind z)
+    in HFun rf
+  dfwd :: forall x z. (x ~ TKUntyped, TensorKind z)
             => TensorKindFull x
-            -> HFunTKNew x z
-            -> HFunTKNew (TKProduct x x) z
-  dfwdTKNew _ftk h =
+            -> HFun x z
+            -> HFun (TKProduct x x) z
+  dfwd _ftk h =
     let g :: ADReady f
           => HVector (ADVal f) -> InterpretationTarget (ADVal f) z
-        g !hv = unHFunTKNew h (HVectorPseudoTensor hv)
+        g !hv = unHFun h (HVectorPseudoTensor hv)
         df :: forall f. ADReady f
            => InterpretationTarget f (TKProduct x x)
            -> InterpretationTarget f z
@@ -507,16 +507,16 @@ instance ADReadyBoth ranked shaped
                               -- TODO: slow!
                            g
                            (dunHVector $ unHVectorPseudoTensor $ tproject1 da_a)
-    in HFunTKNew df
+    in HFun df
   dmapAccumRDer
     :: Proxy (ADVal ranked)
     -> SNat k
     -> VoidHVector
     -> VoidHVector
     -> VoidHVector
-    -> HFunTKNew (TKProduct TKUntyped TKUntyped) TKUntyped
-    -> HFunTKNew (TKProduct TKUntyped TKUntyped) TKUntyped
-    -> HFunTKNew (TKProduct TKUntyped TKUntyped) TKUntyped
+    -> HFun (TKProduct TKUntyped TKUntyped) TKUntyped
+    -> HFun (TKProduct TKUntyped TKUntyped) TKUntyped
+    -> HFun (TKProduct TKUntyped TKUntyped) TKUntyped
     -> HVectorOf (ADVal ranked)
     -> HVectorOf (ADVal ranked)
     -> HVectorOf (ADVal ranked)
@@ -538,7 +538,7 @@ instance ADReadyBoth ranked shaped
             (unHVectorPseudoTensor $ tproject1 acc_e)
           $ \ !acc ->
             dletHVectorInHVector (unHVectorPseudoTensor
-                                  $ unHFunTKNew f acc_e) $ \res ->
+                                  $ unHFun f acc_e) $ \res ->
               -- TODO: adding a bang before the `res` was causing
               -- `error "tunshare: used not at PrimalSpan"` to fire;
               -- understand and document
@@ -553,7 +553,7 @@ instance ADReadyBoth ranked shaped
           $ \ !dacc_de ->
             dletHVectorInHVector
               (unHVectorPseudoTensor
-               $ unHFunTKNew df dacc_de_acc_e)
+               $ unHFun df dacc_de_acc_e)
             $ \res ->
               let (accRes, bRes) = hvToPair res
                   dacc = V.take accLen dacc_de
@@ -570,7 +570,7 @@ instance ADReadyBoth ranked shaped
                 dx_dbRes = HVectorPseudoTensor $ dmkHVector $ dx V.++ dbRes
             in dletHVectorInHVector
                  (unHVectorPseudoTensor
-                  $ unHFunTKNew rf (ttuple dx_dbRes (tproject2 dx_db_acc_e)))
+                  $ unHFun rf (ttuple dx_dbRes (tproject2 dx_db_acc_e)))
                $ \res ->
                  let (dacc, de) = hvToPair res
                  in dmkHVector
@@ -578,18 +578,18 @@ instance ADReadyBoth ranked shaped
         pUnshared :: HVectorOf ranked
         pUnshared = dmapAccumRDer (Proxy @ranked)
                                   k accShs codomainShs eShs
-                                  (dlambdaTKNew @ranked
+                                  (dlambda @ranked
                                      (FTKProduct (FTKUntyped accShs) (
                                                  FTKUntyped eShs))
-                                   $ HFunTKNew g)
-                                  (dlambdaTKNew @ranked
+                                   $ HFun g)
+                                  (dlambda @ranked
                                      (FTKProduct (FTKUntyped $ accShs V.++ eShs)
                                                  (FTKUntyped $ accShs V.++ eShs))
-                                   $ HFunTKNew dg)
-                                  (dlambdaTKNew @ranked
+                                   $ HFun dg)
+                                  (dlambda @ranked
                                      (FTKProduct (FTKUntyped $ accShs V.++ codomainShs)
                                                  (FTKUntyped $ accShs V.++ eShs))
-                                   $ HFunTKNew rg)
+                                   $ HFun rg)
                                   (dmkHVector acc0) es
         pShared = dunHVector $ dshare pUnshared
         -- This code makes sense only thanks to HVector being a representation
@@ -607,9 +607,9 @@ instance ADReadyBoth ranked shaped
     -> VoidHVector
     -> VoidHVector
     -> VoidHVector
-    -> HFunTKNew (TKProduct TKUntyped TKUntyped) TKUntyped
-    -> HFunTKNew (TKProduct TKUntyped TKUntyped) TKUntyped
-    -> HFunTKNew (TKProduct TKUntyped TKUntyped) TKUntyped
+    -> HFun (TKProduct TKUntyped TKUntyped) TKUntyped
+    -> HFun (TKProduct TKUntyped TKUntyped) TKUntyped
+    -> HFun (TKProduct TKUntyped TKUntyped) TKUntyped
     -> HVectorOf (ADVal ranked)
     -> HVectorOf (ADVal ranked)
     -> HVectorOf (ADVal ranked)
@@ -631,7 +631,7 @@ instance ADReadyBoth ranked shaped
             (unHVectorPseudoTensor $ tproject1 acc_e)
           $ \ !acc ->
             dletHVectorInHVector (unHVectorPseudoTensor
-                                  $ unHFunTKNew f acc_e) $ \res ->
+                                  $ unHFun f acc_e) $ \res ->
               -- TODO: adding a bang before the `res` was causing
               -- `error "tunshare: used not at PrimalSpan"` to fire;
               -- understand and document
@@ -646,7 +646,7 @@ instance ADReadyBoth ranked shaped
           $ \ !dacc_de ->
             dletHVectorInHVector
               (unHVectorPseudoTensor
-               $ unHFunTKNew df dacc_de_acc_e)
+               $ unHFun df dacc_de_acc_e)
             $ \res ->
               let (accRes, bRes) = hvToPair res
                   dacc = V.take accLen dacc_de
@@ -663,7 +663,7 @@ instance ADReadyBoth ranked shaped
                 dx_dbRes = HVectorPseudoTensor $ dmkHVector $ dx V.++ dbRes
             in dletHVectorInHVector
                  (unHVectorPseudoTensor
-                  $ unHFunTKNew rf (ttuple dx_dbRes (tproject2 dx_db_acc_e)))
+                  $ unHFun rf (ttuple dx_dbRes (tproject2 dx_db_acc_e)))
                $ \res ->
                  let (dacc, de) = hvToPair res
                  in dmkHVector
@@ -671,18 +671,18 @@ instance ADReadyBoth ranked shaped
         pUnshared :: HVectorOf ranked
         pUnshared = dmapAccumLDer (Proxy @ranked)
                                   k accShs codomainShs eShs
-                                  (dlambdaTKNew @ranked
+                                  (dlambda @ranked
                                      (FTKProduct (FTKUntyped accShs) (
                                                  FTKUntyped eShs))
-                                   $ HFunTKNew g)
-                                  (dlambdaTKNew @ranked
+                                   $ HFun g)
+                                  (dlambda @ranked
                                      (FTKProduct (FTKUntyped $ accShs V.++ eShs)
                                                  (FTKUntyped $ accShs V.++ eShs))
-                                   $ HFunTKNew dg)
-                                  (dlambdaTKNew @ranked
+                                   $ HFun dg)
+                                  (dlambda @ranked
                                      (FTKProduct (FTKUntyped $ accShs V.++ codomainShs)
                                                  (FTKUntyped $ accShs V.++ eShs))
-                                   $ HFunTKNew rg)
+                                   $ HFun rg)
                                   (dmkHVector acc0) es
         pShared = dunHVector $ dshare pUnshared
         -- This code makes sense only thanks to HVector being a representation

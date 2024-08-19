@@ -582,8 +582,8 @@ testConv2dUnpadded2PP = do
       shs = V.fromList [ voidFromSh @Double (2 :$: 2 :$: 2 :$: 2 :$: ZSR)
                        , voidFromSh @Double (2 :$: 2 :$: 2 :$: 2 :$: ZSR) ]
       (artifactRev, _) =
-        revArtifactFromForwardPassTKNew
-          True (forwardPassByInterpretationTKNew f emptyEnv) (FTKUntyped shs)
+        revArtifactFromForwardPass
+          True (forwardPassByInterpretation f emptyEnv) (FTKUntyped shs)
   printArtifactPretty IM.empty (simplifyArtifact artifactRev)
     @?= unPaddedPPString
 
@@ -599,8 +599,8 @@ testConv2dUnpadded3PP = do
       shs = V.fromList [ voidFromSh @Double (2 :$: 2 :$: 2 :$: 2 :$: ZSR)
                        , voidFromSh @Double (2 :$: 2 :$: 2 :$: 2 :$: ZSR) ]
       (artifactRev, _) =
-        revArtifactFromForwardPassTKNew
-          True (forwardPassByInterpretationTKNew f emptyEnv) (FTKUntyped shs)
+        revArtifactFromForwardPass
+          True (forwardPassByInterpretation f emptyEnv) (FTKUntyped shs)
   printArtifactPretty IM.empty artifactRev
     @?= "\\u42 u43 u44 -> let w30 = rtranspose [4,1,0,2,3] (rreplicate 2 (rreshape [2,2,2,8] (rgather [2,2,2,1,2,2,2] u44 (\\[i21, i22, i23, i24, i25, i26, i27] -> [i21 + i24, i25, i22 + i26, i23 + i27])))) ; w31 = rtranspose [4,0,3,1,2] (rreplicate 2 (rreplicate 2 (rreplicate 2 (rreshape [2,8] (rgather [2,1,2,2,2] u43 (\\[i28, i29] -> [i28 + i29])))))) in [rscatter [2,2,2,2] (rreshape [2,1,2,2,2] (rsum (rsum (rsum (rtranspose [1,3,4,2,0] w30 * rtranspose [1,3,4,2,0] (rreplicate 8 u42)))))) (\\[i33, i34] -> [i33 + i34]), rscatter [2,2,2,2] (rreshape [2,2,2,1,2,2,2] (rsum (rtranspose [2,1,3,4,0] w31 * rtranspose [2,1,3,4,0] (rreplicate 8 u42)))) (\\[i35, i36, i37, i38, i39, i40, i41] -> [i35 + i38, i39, i36 + i40, i37 + i41])]"
   printArtifactPretty IM.empty (simplifyArtifact artifactRev)

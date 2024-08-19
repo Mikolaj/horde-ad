@@ -66,7 +66,7 @@ type instance ShapedOf ORArray = OSArray
 
 type instance HVectorOf ORArray = HVector ORArray
 
-type instance HFunOfTKNew ORArray x y =
+type instance HFunOf ORArray x y =
   InterpretationTarget ORArray x -> InterpretationTarget ORArray y
 
 type instance PrimalOf ORArray = ORArray
@@ -115,7 +115,7 @@ instance RankedTensor ORArray where
   rfromIntegral = FlipR . tfromIntegralR . runFlipR
   rconst = FlipR
   rletHVectorIn = (&)
-  rletHFunInTKNew = (&)
+  rletHFunIn = (&)
   rfromS = FlipR . Nested.stoRanked . runFlipS
 
   rscaleByScalar s v =
@@ -213,7 +213,7 @@ instance ShapedTensor OSArray where
   sfromIntegral = FlipS . tfromIntegralS . runFlipS
   sconst = FlipS
   sletHVectorIn = (&)
-  sletHFunInTKNew = (&)
+  sletHFunIn = (&)
   sfromR :: forall r sh. (GoodScalar r, KnownShS sh)
          => ORArray r (X.Rank sh) -> OSArray r sh
   sfromR = FlipS . flip Nested.rcastToShaped knownShS . runFlipR
@@ -231,11 +231,11 @@ instance ShapedTensor OSArray where
 instance HVectorTensor ORArray OSArray where
   dshape = voidFromHVector
   dmkHVector = id
-  dlambdaTKNew _ f = unHFunTKNew f  -- the eta-expansion is needed for typing
-  dHApplyTKNew f = f
+  dlambda _ f = unHFun f  -- the eta-expansion is needed for typing
+  dHApply f = f
   dunHVector = id
   dletHVectorInHVector = (&)
-  dletHFunInHVectorTKNew = (&)
+  dletHFunInHVector = (&)
   dlet = (&)
   tunshare = id
   dbuild1 k f =
@@ -254,15 +254,15 @@ instance HVectorTensor ORArray OSArray where
     in unHVectorPseudoTensor $ fst $ crevOnHVector Nothing g parameters
   -- The code for drevDt and dfwd in this instance is the same as for the
   -- ADVal ranked instance, because the type family instance is the same.
-  drevDtTKNew :: forall x z. (x ~ TKUntyped, TensorKind z)
+  drevDt :: forall x z. (x ~ TKUntyped, TensorKind z)
               => TensorKindFull x
-              -> HFunTKNew x z
-              -> HFunOfTKNew ORArray (TKProduct z x) x
-  drevDtTKNew _ftk h =
+              -> HFun x z
+              -> HFunOf ORArray (TKProduct z x) x
+  drevDt _ftk h =
     let g :: ADReady f
           => InterpretationTarget (ADVal f) x
           -> InterpretationTarget (ADVal f) z
-        g !hv = unHFunTKNew h hv
+        g !hv = unHFun h hv
         rf :: InterpretationTarget ORArray (TKProduct z x)
            -> InterpretationTarget ORArray x
         rf !db_a =
@@ -271,14 +271,14 @@ instance HVectorTensor ORArray OSArray where
                   g
                   (dunHVector $ unHVectorPseudoTensor $ tproject2 db_a)
     in rf
-  dfwdTKNew :: forall x z. (x ~ TKUntyped, TensorKind z)
+  dfwd :: forall x z. (x ~ TKUntyped, TensorKind z)
             => TensorKindFull x
-            -> HFunTKNew x z
-            -> HFunOfTKNew ORArray (TKProduct x x) z
-  dfwdTKNew _shs h =
+            -> HFun x z
+            -> HFunOf ORArray (TKProduct x x) z
+  dfwd _shs h =
     let g :: ADReady f
           => HVector (ADVal f) -> InterpretationTarget (ADVal f) z
-        g !hv = unHFunTKNew h (HVectorPseudoTensor hv)
+        g !hv = unHFun h (HVectorPseudoTensor hv)
         df :: InterpretationTarget ORArray (TKProduct x x)
            -> InterpretationTarget ORArray z
         df !da_a = fst $ cfwdOnHVector (unHVectorPseudoTensor $ tproject2 da_a)

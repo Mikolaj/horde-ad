@@ -37,8 +37,8 @@ import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
   ( cfwd
   , fwd
-  , revEvalArtifactTKNew
-  , revProduceArtifactWithoutInterpretationTKNew
+  , revEvalArtifact
+  , revProduceArtifactWithoutInterpretation
   )
 import HordeAd.Core.HVector
 import HordeAd.Core.HVectorOps
@@ -123,7 +123,7 @@ rev' f valsOR =
       g9 inputs = f @(ADVal (AstRaw PrimalSpan))
                   $ parseHVector (fromDValue vals) inputs
       artifactsGradAst9 =
-        fst $ revProduceArtifactWithoutInterpretationTKNew
+        fst $ revProduceArtifactWithoutInterpretation
                 False g9 (FTKUntyped parameters0)
       (advalGrad9, value9) =
         revEvalArtifact7 artifactsGradAst9 parameters
@@ -133,7 +133,7 @@ rev' f valsOR =
         -> HVector ORArray
         -> (HVector ORArray, FlipR OR.Array r m)
       revEvalArtifact7 a1 a2 =
-        let (grad, v) = revEvalArtifactTKNew a1 a2 Nothing
+        let (grad, v) = revEvalArtifact a1 a2 Nothing
         in (grad, toORArray v)
       hGeneral
         :: (ADReady fgen, ADReady f1)
@@ -204,7 +204,7 @@ rev' f valsOR =
         = hGeneral @(ADVal (AstRaw PrimalSpan))
                    fx1 fx2 gx (parseHVector (fromDValue vals) inputs)
       artifactsGradAst =
-        fst $ revProduceArtifactWithoutInterpretationTKNew
+        fst $ revProduceArtifactWithoutInterpretation
                 False (hAst id id id) (FTKUntyped parameters0)
       (astGradAst, value2Ast) =
         revEvalArtifact7 artifactsGradAst parameters
@@ -213,13 +213,13 @@ rev' f valsOR =
         revEvalArtifact7 (simplifyArtifactTKR artifactsGradAst) parameters
       gradient2AstS = parseHVector vals astGradAstS
       artifactsGradAstT =
-        fst $ revProduceArtifactWithoutInterpretationTKNew
+        fst $ revProduceArtifactWithoutInterpretation
                 True (hAst id id id) (FTKUntyped parameters0)
       (astGradAstST, value2AstST) =
         revEvalArtifact7 (simplifyArtifactTKR artifactsGradAstT) parameters
       gradient2AstST = parseHVector vals astGradAstST
       artifactsSimpleAst =
-        fst $ revProduceArtifactWithoutInterpretationTKNew
+        fst $ revProduceArtifactWithoutInterpretation
                 False (hAst id id simplifyInlineAst) (FTKUntyped parameters0)
       (astSimpleAst, value3Ast) =
         revEvalArtifact7 artifactsSimpleAst parameters
@@ -228,7 +228,7 @@ rev' f valsOR =
         revEvalArtifact7 (simplifyArtifactTKR artifactsSimpleAst) parameters
       gradient3AstS = parseHVector vals astSimpleAstS
       artifactsGradAstUnSimp =
-        fst $ revProduceArtifactWithoutInterpretationTKNew
+        fst $ revProduceArtifactWithoutInterpretation
                 False (hAst (AstRanked . unAstNoSimplify) (AstNoSimplify . unAstRanked) id) (FTKUntyped parameters0)
       (astGradAstUnSimp, value2AstUnSimp) =
         revEvalArtifact7 artifactsGradAstUnSimp parameters
@@ -238,7 +238,7 @@ rev' f valsOR =
                         parameters
       gradient2AstSUnSimp = parseHVector vals astGradAstSUnSimp
       artifactsSimpleAstUnSimp =
-        fst $ revProduceArtifactWithoutInterpretationTKNew
+        fst $ revProduceArtifactWithoutInterpretation
                 False (hAst (AstRanked . unAstNoSimplify) (AstNoSimplify . unAstRanked) simplifyInlineAst)
                 (FTKUntyped parameters0)
       (astSimpleAstUnSimp, value3AstUnSimp) =
@@ -249,7 +249,7 @@ rev' f valsOR =
                         parameters
       gradient3AstSUnSimp = parseHVector vals astSimpleAstSUnSimp
       artifactsPrimalAst =
-        fst $ revProduceArtifactWithoutInterpretationTKNew
+        fst $ revProduceArtifactWithoutInterpretation
                 False (hAst (AstRanked . unAstNoVectorize) (AstNoVectorize . unAstRanked) id) (FTKUntyped parameters0)
       (astPrimalAst, value4Ast) =
         revEvalArtifact7 artifactsPrimalAst parameters
@@ -258,7 +258,7 @@ rev' f valsOR =
         revEvalArtifact7 (simplifyArtifactTKR artifactsPrimalAst) parameters
       gradient4AstS = parseHVector vals astPrimalAstS
       artifactsPSimpleAst =
-        fst $ revProduceArtifactWithoutInterpretationTKNew
+        fst $ revProduceArtifactWithoutInterpretation
                 False (hAst (AstRanked . unAstNoVectorize) (AstNoVectorize . unAstRanked) simplifyInlineAst)
                 (FTKUntyped parameters0)
       (astPSimpleAst, value5Ast) =

@@ -110,7 +110,7 @@ areAllArgsInts = \case
   AstConst{} -> True
   AstProjectR{} -> True  -- too early to tell
   AstLetHVectorIn{} -> True  -- too early to tell
-  AstLetHFunInTKNew{} -> True  -- too early to tell
+  AstLetHFunIn{} -> True  -- too early to tell
   AstRFromS{} -> False
   _ -> False  -- shaped  -- TODO: change type to TKR to catch missing cases
 
@@ -438,20 +438,20 @@ printAstAux cfg d = \case
              . showString " -> "
              . printAst cfg 0 v)
         -- TODO: this does not roundtrip yet
-  AstLetHFunInTKNew var f v ->
+  AstLetHFunIn var f v ->
     if loseRoudtrip cfg
     then
       showParen (d > 10)
       $ showString "let "
         . printAstFunVar cfg var
         . showString " = "
-        . printAstHFunTKNew cfg 0 f
+        . printAstHFun cfg 0 f
         . showString " in "
         . printAst cfg 0 v
     else
       showParen (d > 10)
       $ showString "rletHFunIn "
-        . printAstHFunTKNew cfg 11 f
+        . printAstHFun cfg 11 f
         . showString " "
         . (showParen True
            $ showString "\\"
@@ -564,20 +564,20 @@ printAstAux cfg d = \case
              . showString " -> "
              . printAst cfg 0 v)
         -- TODO: this does not roundtrip yet
-  AstLetHFunInSTKNew var f v ->
+  AstLetHFunInS var f v ->
     if loseRoudtrip cfg
     then
       showParen (d > 10)
       $ showString "let "
         . printAstFunVar cfg var
         . showString " = "
-        . printAstHFunTKNew cfg 0 f
+        . printAstHFun cfg 0 f
         . showString " in "
         . printAst cfg 0 v
     else
       showParen (d > 10)
       $ showString "sletHFunIn "
-        . printAstHFunTKNew cfg 11 f
+        . printAstHFun cfg 11 f
         . showString " "
         . (showParen True
            $ showString "\\"
@@ -592,15 +592,15 @@ printAstAux cfg d = \case
     then printHVectorAst cfg l
     else showParen (d > 10)
          $ showString "dmkHVector " . printHVectorAst cfg l
-  AstHApplyTKNew t ll ->
+  AstHApply t ll ->
     if loseRoudtrip cfg
     then showParen (d > 9)
-         $ printAstHFunOneUnignoreTKNew cfg 10 t
+         $ printAstHFunOneUnignore cfg 10 t
            . showString " "
            . printAst cfg 11 ll
     else showParen (d > 10)
          $ showString "dHApply "
-           . printAstHFunOneUnignoreTKNew cfg 10 t
+           . printAstHFunOneUnignore cfg 10 t
            . showString " "
            . printAst cfg 11 ll
   AstLetHVectorInHVector vars l v ->
@@ -625,20 +625,20 @@ printAstAux cfg d = \case
                              . printAstDynamicVarName (varRenames cfg)) vars
              . showString " -> "
              . printAst cfg 0 v)
-  AstLetHFunInHVectorTKNew var f v ->
+  AstLetHFunInHVector var f v ->
     if loseRoudtrip cfg
     then
       showParen (d > 10)
       $ showString "let "
         . printAstFunVar cfg var
         . showString " = "
-        . printAstHFunTKNew cfg 0 f
+        . printAstHFun cfg 0 f
         . showString " in "
         . printAst cfg 0 v
     else
       showParen (d > 10)
       $ showString "dletHFunInHVector "
-        . printAstHFunTKNew cfg 11 f
+        . printAstHFun cfg 11 f
         . showString " "
         . (showParen True
            $ showString "\\"
@@ -668,11 +668,11 @@ printAstAux cfg d = \case
     $ showString "dmapAccumRDer "
       . showParen True (shows k)
       . showString " "
-      . printAstHFunTKNew cfg 10 f
+      . printAstHFun cfg 10 f
       . showString " "
-      . printAstHFunTKNew cfg 10 df
+      . printAstHFun cfg 10 df
       . showString " "
-      . printAstHFunTKNew cfg 01 rf
+      . printAstHFun cfg 01 rf
       . showString " "
       . printAst cfg 0 acc0
       . showString " "
@@ -682,11 +682,11 @@ printAstAux cfg d = \case
     $ showString "dmapAccumLDer "
       . showParen True (shows k)
       . showString " "
-      . printAstHFunTKNew cfg 10 f
+      . printAstHFun cfg 10 f
       . showString " "
-      . printAstHFunTKNew cfg 10 df
+      . printAstHFun cfg 10 df
       . showString " "
-      . printAstHFunTKNew cfg 01 rf
+      . printAstHFun cfg 01 rf
       . showString " "
       . printAst cfg 0 acc0
       . showString " "
@@ -732,9 +732,9 @@ printHVectorAst cfg l =
       $ showString "fromList "
         . showListWith (printAstDynamic cfg 0) (V.toList l)
 
-printAstHFunTKNew :: PrintConfig -> Int -> AstHFunTKNew x y -> ShowS
-printAstHFunTKNew cfg d = \case
-  AstLambdaTKNew (var, _, l) ->
+printAstHFun :: PrintConfig -> Int -> AstHFun x y -> ShowS
+printAstHFun cfg d = \case
+  AstLambda (var, _, l) ->
     if loseRoudtrip cfg
     then if ignoreNestedLambdas cfg
          then showString "<lambda>"
@@ -750,11 +750,11 @@ printAstHFunTKNew cfg d = \case
            . printAstVar cfg var
            . showString " -> "
            . printAst cfg 0 l
-  AstVarHFunTKNew _shss _shs var -> printAstFunVar cfg var
+  AstVarHFun _shss _shs var -> printAstFunVar cfg var
 
-printAstHFunOneUnignoreTKNew :: PrintConfig -> Int -> AstHFunTKNew x y -> ShowS
-printAstHFunOneUnignoreTKNew cfg d = \case
-  AstLambdaTKNew (var, _, l) ->
+printAstHFunOneUnignore :: PrintConfig -> Int -> AstHFun x y -> ShowS
+printAstHFunOneUnignore cfg d = \case
+  AstLambda (var, _, l) ->
     if loseRoudtrip cfg
     then showParen (d > 0)
          $ showString "\\"
@@ -768,7 +768,7 @@ printAstHFunOneUnignoreTKNew cfg d = \case
            . printAstVar cfg var
            . showString " -> "
            . printAst cfg 0 l
-  AstVarHFunTKNew _shss _shs var -> printAstFunVar cfg var
+  AstVarHFun _shss _shs var -> printAstFunVar cfg var
 
 printAstBool :: PrintConfig -> Int -> AstBool -> ShowS
 printAstBool cfg d = \case

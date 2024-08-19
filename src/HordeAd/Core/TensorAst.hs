@@ -7,10 +7,10 @@
 -- The AST term instances can be used as building blocks for 'ADVal'
 -- instances defined in "TensorADVal" but may also be used standalone.
 module HordeAd.Core.TensorAst
-  ( forwardPassByInterpretationTKNew
-  , revArtifactFromForwardPassTKNew
-  , revProduceArtifactTKNew
-  , fwdArtifactFromForwardPassTKNew, fwdProduceArtifactTKNew
+  ( forwardPassByInterpretation
+  , revArtifactFromForwardPass
+  , revProduceArtifact
+  , fwdArtifactFromForwardPass, fwdProduceArtifact
   , unRawY
   ) where
 
@@ -52,7 +52,7 @@ import HordeAd.Util.SizedList
 
 -- * Symbolic reverse and forward derivative computation
 
-forwardPassByInterpretationTKNew
+forwardPassByInterpretation
   :: forall y. TensorKind y
   => (HVector (AstRanked FullSpan)
       -> InterpretationTarget (AstRanked FullSpan) y)
@@ -61,15 +61,15 @@ forwardPassByInterpretationTKNew
   -> AstVarName FullSpan TKUntyped
   -> HVector (AstRanked FullSpan)
   -> InterpretationTarget (ADVal (AstRaw PrimalSpan)) y
-{-# INLINE forwardPassByInterpretationTKNew #-}
-forwardPassByInterpretationTKNew g envInit hVectorPrimal var hVector =
+{-# INLINE forwardPassByInterpretation #-}
+forwardPassByInterpretation g envInit hVectorPrimal var hVector =
   let deltaInputs = generateDeltaInputs hVectorPrimal
       varInputs = makeADInputs hVectorPrimal deltaInputs
       ast = g hVector
       env = extendEnv var (HVectorPseudoTensor $ dmkHVector varInputs) envInit
   in interpretAst env $ unRankedY (stensorKind @y) ast
 
-revArtifactFromForwardPassTKNew
+revArtifactFromForwardPass
   :: forall x z. (x ~ TKUntyped, TensorKind z)
   => Bool
   -> (HVector (AstRaw PrimalSpan)
@@ -78,13 +78,13 @@ revArtifactFromForwardPassTKNew
       -> InterpretationTarget (ADVal (AstRaw PrimalSpan)) z)
   -> TensorKindFull x
   -> (AstArtifactRev x z, Delta (AstRaw PrimalSpan) z)
-{-# INLINE revArtifactFromForwardPassTKNew #-}
-revArtifactFromForwardPassTKNew hasDt forwardPass
+{-# INLINE revArtifactFromForwardPass #-}
+revArtifactFromForwardPass hasDt forwardPass
                                 ftk@(FTKUntyped parameters0) =
   let -- Bangs and the compound function to fix the numbering of variables
       -- for pretty-printing and prevent sharing the impure values/effects
       -- in tests that reset the impure counters.
-      !(!varPrimal, hVectorPrimal, var, hVector) = funToAstRevTKNew ftk in
+      !(!varPrimal, hVectorPrimal, var, hVector) = funToAstRev ftk in
   let -- Evaluate completely after terms constructed, to free memory
       -- before gradientFromDelta allocates new memory and new FFI is started.
       !(!primalBody, !deltaIT) =
@@ -106,7 +106,7 @@ revArtifactFromForwardPassTKNew hasDt forwardPass
   in ( AstArtifactRev varDt varPrimal unGradient unPrimal
      , delta )
 
-revProduceArtifactTKNew
+revProduceArtifact
   :: forall x z. (x ~ TKUntyped, TensorKind z)
   => Bool
   -> (HVector (AstRanked FullSpan)
@@ -114,10 +114,10 @@ revProduceArtifactTKNew
   -> AstEnv (ADVal (AstRaw PrimalSpan))
   -> TensorKindFull x
   -> (AstArtifactRev x z, Delta (AstRaw PrimalSpan) z)
-{-# INLINE revProduceArtifactTKNew #-}
-revProduceArtifactTKNew hasDt g envInit =
-  revArtifactFromForwardPassTKNew
-    hasDt (forwardPassByInterpretationTKNew g envInit)
+{-# INLINE revProduceArtifact #-}
+revProduceArtifact hasDt g envInit =
+  revArtifactFromForwardPass
+    hasDt (forwardPassByInterpretation g envInit)
 
 gunshare
   :: forall y.
@@ -149,7 +149,7 @@ gunshareRanked stk b = case stk of
   STKUntyped -> HVectorPseudoTensor $ unshareAstHVector
                 $ unHVectorPseudoTensor b
 
-fwdArtifactFromForwardPassTKNew
+fwdArtifactFromForwardPass
   :: forall x z. (x ~ TKUntyped, TensorKind z)
   => (HVector (AstRaw PrimalSpan)
       -> AstVarName FullSpan x
@@ -157,10 +157,10 @@ fwdArtifactFromForwardPassTKNew
       -> InterpretationTarget (ADVal (AstRaw PrimalSpan)) z)
   -> TensorKindFull x
   -> (AstArtifactFwd x z, Delta (AstRaw PrimalSpan) z)
-{-# INLINE fwdArtifactFromForwardPassTKNew #-}
-fwdArtifactFromForwardPassTKNew forwardPass ftk@(FTKUntyped parameters0) =
+{-# INLINE fwdArtifactFromForwardPass #-}
+fwdArtifactFromForwardPass forwardPass ftk@(FTKUntyped parameters0) =
   let !(!varPrimalD, hVectorD, varPrimal, hVectorPrimal, var, hVector) =
-        funToAstFwdTKNew ftk in
+        funToAstFwd ftk in
   let !(!primalBody, !deltaIT) =
         unADValInterpretation (stensorKind @z)
         $ forwardPass hVectorPrimal var hVector
@@ -171,16 +171,16 @@ fwdArtifactFromForwardPassTKNew forwardPass ftk@(FTKUntyped parameters0) =
   in ( AstArtifactFwd varPrimalD varPrimal unDerivative unPrimal
      , delta )
 
-fwdProduceArtifactTKNew
+fwdProduceArtifact
   :: forall x z. (x ~ TKUntyped, TensorKind z)
   => (HVector (AstRanked FullSpan)
       -> InterpretationTarget (AstRanked FullSpan) z)
   -> AstEnv (ADVal (AstRaw PrimalSpan))
   -> TensorKindFull x
   -> (AstArtifactFwd x z, Delta (AstRaw PrimalSpan) z)
-{-# INLINE fwdProduceArtifactTKNew #-}
-fwdProduceArtifactTKNew g envInit =
-  fwdArtifactFromForwardPassTKNew (forwardPassByInterpretationTKNew g envInit)
+{-# INLINE fwdProduceArtifact #-}
+fwdProduceArtifact g envInit =
+  fwdArtifactFromForwardPass (forwardPassByInterpretation g envInit)
 
 
 -- * Unlawful boolean instances of ranked AST; they are lawful modulo evaluation
@@ -341,7 +341,7 @@ instance AstSpan s => RankedTensor (AstRanked s) where
   rletHVectorIn a f =
     AstRanked
     $ astLetHVectorInFun a (unAstRanked . f)
-  rletHFunInTKNew a f = AstRanked $ astLetHFunInFunTKNew a (unAstRanked . f)
+  rletHFunIn a f = AstRanked $ astLetHFunInFun a (unAstRanked . f)
   rfromS = AstRanked . astRFromS . unAstShaped
 
   rshare a@(AstRanked(AstShare{})) = a
@@ -363,15 +363,15 @@ astLetHVectorInFun a f =
   fun1DToAst (shapeAstHVector a) $ \ !vars !asts ->
     astLetHVectorIn vars a (f asts)
 
-astLetHFunInFunTKNew
+astLetHFunInFun
   :: (GoodScalar r, KnownNat n, TensorKind x, TensorKind y)
-  => AstHFunTKNew x y -> (AstHFunTKNew x y -> AstTensor s (TKR r n))
+  => AstHFun x y -> (AstHFun x y -> AstTensor s (TKR r n))
   -> AstTensor s (TKR r n)
-{-# INLINE astLetHFunInFunTKNew #-}
-astLetHFunInFunTKNew a f =
-  let shss = domainShapeAstHFunTKNew a
-      shs = shapeAstHFunTKNew a
-  in fun1HToAstTKNew shss shs $ \ !var !ast -> astLetHFunInTKNew var a (f ast)
+{-# INLINE astLetHFunInFun #-}
+astLetHFunInFun a f =
+  let shss = domainShapeAstHFun a
+      shs = shapeAstHFun a
+  in fun1HToAst shss shs $ \ !var !ast -> astLetHFunIn var a (f ast)
 
 astSpanPrimal :: forall s y. (AstSpan s, TensorKind y)
               => AstTensor s y -> AstTensor PrimalSpan y
@@ -480,7 +480,7 @@ instance AstSpan s => ShapedTensor (AstShaped s) where
   sletHVectorIn a f =
     AstShaped
     $ astLetHVectorInFunS a (unAstShaped . f)
-  sletHFunInTKNew a f = AstShaped $ astLetHFunInFunSTKNew a (unAstShaped . f)
+  sletHFunIn a f = AstShaped $ astLetHFunInFunS a (unAstShaped . f)
   sfromR = AstShaped . astSFromR . unAstRanked
 
   sshare a@(AstShaped(AstShare{})) = a
@@ -502,15 +502,15 @@ astLetHVectorInFunS a f =
   fun1DToAst (shapeAstHVector a) $ \ !vars !asts ->
     astLetHVectorInS vars a (f asts)
 
-astLetHFunInFunSTKNew
+astLetHFunInFunS
   :: (GoodScalar r, KnownShS sh, TensorKind x, TensorKind y)
-  => AstHFunTKNew x y -> (AstHFunTKNew x y -> AstTensor s (TKS r sh))
+  => AstHFun x y -> (AstHFun x y -> AstTensor s (TKS r sh))
   -> AstTensor s (TKS r sh)
-{-# INLINE astLetHFunInFunSTKNew #-}
-astLetHFunInFunSTKNew a f =
-  let shss = domainShapeAstHFunTKNew a
-      shs = shapeAstHFunTKNew a
-  in fun1HToAstTKNew shss shs $ \ !var !ast -> astLetHFunInSTKNew var a (f ast)
+{-# INLINE astLetHFunInFunS #-}
+astLetHFunInFunS a f =
+  let shss = domainShapeAstHFun a
+      shs = shapeAstHFun a
+  in fun1HToAst shss shs $ \ !var !ast -> astLetHFunInS var a (f ast)
 
 astBuild1VectorizeS :: forall n sh r s.
                        (KnownNat n, KnownShS sh, GoodScalar r, AstSpan s)
@@ -565,17 +565,17 @@ instance TermValue (HVectorPseudoTensor (AstRanked FullSpan) r y) where
 instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   dshape = shapeAstHVector
   dmkHVector = AstMkHVector
-  dlambdaTKNew :: forall x y. (TensorKind x, TensorKind y)
-          => TensorKindFull x -> HFunTKNew x y -> HFunOfTKNew (AstRanked s) x y
-  dlambdaTKNew shss f =
+  dlambda :: forall x y. (TensorKind x, TensorKind y)
+          => TensorKindFull x -> HFun x y -> HFunOf (AstRanked s) x y
+  dlambda shss f =
     let (var, ast) = funToAst shss $ \ !ll ->
-          unRankedY (stensorKind @y) $ unHFunTKNew f $ rankedY (stensorKind @x) ll
-    in AstLambdaTKNew (var, shss, ast)
-  dHApplyTKNew :: forall x y. (TensorKind x, TensorKind y)
-          => HFunOfTKNew (AstRanked s) x y
+          unRankedY (stensorKind @y) $ unHFun f $ rankedY (stensorKind @x) ll
+    in AstLambda (var, shss, ast)
+  dHApply :: forall x y. (TensorKind x, TensorKind y)
+          => HFunOf (AstRanked s) x y
           -> InterpretationTarget (AstRanked s) x
           -> InterpretationTarget (AstRanked s) y
-  dHApplyTKNew t ll = rankedY (stensorKind @y) $ astHApplyTKNew t
+  dHApply t ll = rankedY (stensorKind @y) $ astHApply t
                       $ unRankedY (stensorKind @x) $ ll
   dunHVector (AstMkHVector l) = l
   dunHVector hVectorOf =
@@ -588,7 +588,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
             DynamicShaped @r @sh $ AstShaped $ AstProjectS hVectorOf i
     in V.imap f $ shapeAstHVector hVectorOf
   dletHVectorInHVector = astLetHVectorInHVectorFun
-  dletHFunInHVectorTKNew = astLetHFunInHVectorFunTKNew
+  dletHFunInHVector = astLetHFunInHVectorFun
   dlet :: forall y. TensorKind y
        => InterpretationTarget (AstRanked s) y
        -> (InterpretationTarget (AstRanked s) y -> HVectorOf (AstRanked s))
@@ -637,7 +637,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
           -> InterpretationTarget (AstRanked FullSpan) (TKR r n)
         g !hv = f hv
         !(!(AstArtifactRev _varDt var gradient _primal), _delta) =
-          revProduceArtifactTKNew False g emptyEnv (FTKUntyped parameters0)
+          revProduceArtifact False g emptyEnv (FTKUntyped parameters0)
     in \ !parameters -> assert (voidHVectorMatches parameters0 parameters) $
       let env = extendEnv
                   var (HVectorPseudoTensor $ AstMkHVector parameters) emptyEnv
@@ -649,47 +649,47 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
         -- are the same variables, but it's a very special case;
         -- a faster implementation would be via AstHApply, but this tests
         -- a slightly different code path, so let's keep it
-  drevDtTKNew :: forall x z. (x ~ TKUntyped, TensorKind z)
+  drevDt :: forall x z. (x ~ TKUntyped, TensorKind z)
               => TensorKindFull x
-              -> HFunTKNew x z
-              -> AstHFunTKNew (TKProduct z x) x
-  drevDtTKNew ftkx f =
+              -> HFun x z
+              -> AstHFun (TKProduct z x) x
+  drevDt ftkx f =
     -- This computes the (AST of) derivative of f once and interprets it again
     -- for each new tensor of arguments, which is better than computing it anew.
     let g :: HVector (AstRanked FullSpan)
           -> InterpretationTarget (AstRanked FullSpan) z
-        g !hv = unHFunTKNew f (HVectorPseudoTensor $ AstMkHVector hv)
+        g !hv = unHFun f (HVectorPseudoTensor $ AstMkHVector hv)
         -- No bangs here, because this goes under lambda and may be unneeded
         -- or even incorrect (and so, e.g., trigger
         -- `error "tunshare: used not at PrimalSpan"`, because no derivative
         -- should be taken of spans other than PrimalSpan)
         (AstArtifactRev varDt var gradient primal, _delta) =
-          revProduceArtifactTKNew True g emptyEnv ftkx
+          revProduceArtifact True g emptyEnv ftkx
         ftkz = shapeAstFull $ unRawY (stensorKind @z) primal
         ftk2 = FTKProduct ftkz ftkx
         (varP, ast) = funToAst ftk2 $ \ !astP ->
           AstLet varDt (astProject1 astP)
             $ AstLet var (astProject2 astP)
               $ simplifyInlineHVector $ unRawY (stensorKind @x) gradient
-    in AstLambdaTKNew (varP, ftk2, ast)
-  dfwdTKNew :: forall x z. (x ~ TKUntyped, TensorKind z)
+    in AstLambda (varP, ftk2, ast)
+  dfwd :: forall x z. (x ~ TKUntyped, TensorKind z)
             => TensorKindFull x
-            -> HFunTKNew x z
-            -> AstHFunTKNew (TKProduct x x) z
-  dfwdTKNew ftkx f =
+            -> HFun x z
+            -> AstHFun (TKProduct x x) z
+  dfwd ftkx f =
     -- This computes the (AST of) derivative of f once and interprets it again
     -- for each new tensor of arguments, which is better than computing it anew.
     let g :: HVector (AstRanked FullSpan)
           -> InterpretationTarget (AstRanked FullSpan) z
-        g !hv = unHFunTKNew f (HVectorPseudoTensor $ AstMkHVector hv)
+        g !hv = unHFun f (HVectorPseudoTensor $ AstMkHVector hv)
         (AstArtifactFwd varDs var derivative _primal, _delta) =
-          fwdProduceArtifactTKNew g emptyEnv ftkx
+          fwdProduceArtifact g emptyEnv ftkx
         ftk2 = FTKProduct ftkx ftkx
         (varP, ast) = funToAst ftk2 $ \ !astP ->
           AstLet varDs (astProject1 astP)
             $ AstLet var (astProject2 astP)
               $ simplifyInlineHVector $ unRawY (stensorKind @z) derivative
-    in AstLambdaTKNew (varP, ftk2, ast)
+    in AstLambda (varP, ftk2, ast)
   dmapAccumRDer _ !k !accShs !bShs !eShs =
     AstMapAccumRDer k accShs bShs eShs
   dmapAccumLDer _ !k !accShs !bShs !eShs =
@@ -704,15 +704,15 @@ astLetHVectorInHVectorFun a f =
   fun1DToAst (shapeAstHVector a) $ \ !vars !asts ->
     astLetHVectorInHVector vars a (f asts)
 
-astLetHFunInHVectorFunTKNew
+astLetHFunInHVectorFun
   :: (TensorKind x, TensorKind y)
-  => AstHFunTKNew x y -> (AstHFunTKNew x y -> AstTensor s TKUntyped)
+  => AstHFun x y -> (AstHFun x y -> AstTensor s TKUntyped)
   -> AstTensor s TKUntyped
-{-# INLINE astLetHFunInHVectorFunTKNew #-}
-astLetHFunInHVectorFunTKNew a f =
-  let shss = domainShapeAstHFunTKNew a
-      shs = shapeAstHFunTKNew a
-  in fun1HToAstTKNew shss shs $ \ !var !ast -> astLetHFunInHVectorTKNew var a (f ast)
+{-# INLINE astLetHFunInHVectorFun #-}
+astLetHFunInHVectorFun a f =
+  let shss = domainShapeAstHFun a
+      shs = shapeAstHFun a
+  in fun1HToAst shss shs $ \ !var !ast -> astLetHFunInHVector var a (f ast)
 
 astBuildHVector1Vectorize
   :: AstSpan s
@@ -1005,7 +1005,7 @@ instance AstSpan s => RankedTensor (AstRaw s) where
   rconst = AstRaw . fromPrimal . AstConst
   rletHVectorIn a f =
     AstRaw $ astLetHVectorInFunRaw (unAstRawWrap a) (unAstRaw . f . rawHVector)
-  rletHFunInTKNew a f = AstRaw $ astLetHFunInFunRawTKNew a (unAstRaw . f)
+  rletHFunIn a f = AstRaw $ astLetHFunInFunRaw a (unAstRaw . f)
   rfromS = AstRaw . AstRFromS . unAstRawS
 
   -- For convenience and simplicity we define this for all spans,
@@ -1047,23 +1047,23 @@ astLetHVectorInFunRawS a f =
   fun1DToAst (shapeAstHVector a) $ \ !vars !asts ->
     AstLetHVectorInS vars a (f asts)
 
-astLetHFunInFunRawTKNew
+astLetHFunInFunRaw
   :: (GoodScalar r, KnownNat n, TensorKind x, TensorKind y)
-  => AstHFunTKNew x y -> (AstHFunTKNew x y -> AstTensor s (TKR r n))
+  => AstHFun x y -> (AstHFun x y -> AstTensor s (TKR r n))
   -> AstTensor s (TKR r n)
-astLetHFunInFunRawTKNew a f =
-  let shss = domainShapeAstHFunTKNew a
-      shs = shapeAstHFunTKNew a
-  in fun1HToAstTKNew shss shs $ \ !var !ast -> AstLetHFunInTKNew var a (f ast)
+astLetHFunInFunRaw a f =
+  let shss = domainShapeAstHFun a
+      shs = shapeAstHFun a
+  in fun1HToAst shss shs $ \ !var !ast -> AstLetHFunIn var a (f ast)
 
-astLetHFunInFunRawSTKNew
+astLetHFunInFunRawS
   :: (GoodScalar r, KnownShS sh, TensorKind x, TensorKind y)
-  => AstHFunTKNew x y -> (AstHFunTKNew x y -> AstTensor s (TKS r sh))
+  => AstHFun x y -> (AstHFun x y -> AstTensor s (TKS r sh))
   -> AstTensor s (TKS r sh)
-astLetHFunInFunRawSTKNew a f =
-  let shss = domainShapeAstHFunTKNew a
-      shs = shapeAstHFunTKNew a
-  in fun1HToAstTKNew shss shs $ \ !var !ast -> AstLetHFunInSTKNew var a (f ast)
+astLetHFunInFunRawS a f =
+  let shss = domainShapeAstHFun a
+      shs = shapeAstHFun a
+  in fun1HToAst shss shs $ \ !var !ast -> AstLetHFunInS var a (f ast)
 
 astLetHVectorInHVectorFunRaw
   :: AstSpan s
@@ -1073,14 +1073,14 @@ astLetHVectorInHVectorFunRaw a f =
   fun1DToAst (shapeAstHVector a) $ \ !vars !asts ->
     AstLetHVectorInHVector vars a (f asts)
 
-astLetHFunInHVectorFunRawTKNew
+astLetHFunInHVectorFunRaw
   :: (TensorKind x, TensorKind y)
-  => AstHFunTKNew x y -> (AstHFunTKNew x y -> AstTensor s TKUntyped)
+  => AstHFun x y -> (AstHFun x y -> AstTensor s TKUntyped)
   -> AstTensor s TKUntyped
-astLetHFunInHVectorFunRawTKNew a f =
-  let shss = domainShapeAstHFunTKNew a
-      shs = shapeAstHFunTKNew a
-  in fun1HToAstTKNew shss shs $ \ !var !ast -> AstLetHFunInHVectorTKNew var a (f ast)
+astLetHFunInHVectorFunRaw a f =
+  let shss = domainShapeAstHFun a
+      shs = shapeAstHFun a
+  in fun1HToAst shss shs $ \ !var !ast -> AstLetHFunInHVector var a (f ast)
 
 instance AstSpan s => ShapedTensor (AstRawS s) where
   sletTKIn :: forall y sh r. (TensorKind y, GoodScalar r, KnownShS sh)
@@ -1122,7 +1122,7 @@ instance AstSpan s => ShapedTensor (AstRawS s) where
   sletHVectorIn a f =
     AstRawS
     $ astLetHVectorInFunRawS (unAstRawWrap a) (unAstRawS . f . rawHVector)
-  sletHFunInTKNew a f = AstRawS $ astLetHFunInFunRawSTKNew a (unAstRawS . f)
+  sletHFunIn a f = AstRawS $ astLetHFunInFunRawS a (unAstRawS . f)
   sfromR = AstRawS . AstSFromR . unAstRaw
 
   sshare a@(AstRawS (AstShare{})) = a
@@ -1139,18 +1139,18 @@ instance AstSpan s => ShapedTensor (AstRawS s) where
 instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
   dshape = shapeAstHVector . unAstRawWrap
   dmkHVector = AstRawWrap . AstMkHVector . unRawHVector
-  dlambdaTKNew :: forall x y. (TensorKind x, TensorKind y)
-          => TensorKindFull x -> HFunTKNew x y -> HFunOfTKNew (AstRaw s) x y
-  dlambdaTKNew shss f =
+  dlambda :: forall x y. (TensorKind x, TensorKind y)
+          => TensorKindFull x -> HFun x y -> HFunOf (AstRaw s) x y
+  dlambda shss f =
     let (var, ast) = funToAst shss $ \ !ll ->
-          unRankedY (stensorKind @y) $ unHFunTKNew f $ rankedY (stensorKind @x) ll
-    in AstLambdaTKNew (var, shss, ast)
-  dHApplyTKNew :: forall x y. (TensorKind x, TensorKind y)
-          => HFunOfTKNew (AstRaw s) x y
+          unRankedY (stensorKind @y) $ unHFun f $ rankedY (stensorKind @x) ll
+    in AstLambda (var, shss, ast)
+  dHApply :: forall x y. (TensorKind x, TensorKind y)
+          => HFunOf (AstRaw s) x y
           -> InterpretationTarget (AstRaw s) x
           -> InterpretationTarget (AstRaw s) y
-  dHApplyTKNew t ll =
-    let app = AstHApplyTKNew t $ unRawY (stensorKind @x) ll
+  dHApply t ll =
+    let app = AstHApply t $ unRawY (stensorKind @x) ll
     in rawY (stensorKind @y) app
   dunHVector (AstRawWrap (AstMkHVector l)) = rawHVector l
   dunHVector (AstRawWrap hVectorOf) =
@@ -1166,9 +1166,9 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
     AstRawWrap
     $ astLetHVectorInHVectorFunRaw (unAstRawWrap a)
                                    (unAstRawWrap . f . rawHVector)
-  dletHFunInHVectorTKNew t f =
+  dletHFunInHVector t f =
     AstRawWrap
-    $ astLetHFunInHVectorFunRawTKNew t (unAstRawWrap . f)
+    $ astLetHFunInHVectorFunRaw t (unAstRawWrap . f)
   dlet :: forall y. TensorKind y
        => InterpretationTarget (AstRaw s) y
        -> (InterpretationTarget (AstRaw s) y -> HVectorOf (AstRaw s))
@@ -1204,8 +1204,8 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
   rrev f parameters0 hVector =  -- we don't have an AST constructor to hold it
     AstRawWrap
     $ rrev f parameters0 (unRawHVector hVector)
-  drevDtTKNew = drevDtTKNew @(AstRanked s)
-  dfwdTKNew = dfwdTKNew @(AstRanked s)
+  drevDt = drevDt @(AstRanked s)
+  dfwd = dfwd @(AstRanked s)
   dmapAccumRDer _ k accShs bShs eShs f df rf acc0 es =
     AstRawWrap
     $ AstMapAccumRDer k accShs bShs eShs f df rf (unAstRawWrap acc0)
@@ -1295,7 +1295,7 @@ instance AstSpan s => RankedTensor (AstNoVectorize s) where
     AstNoVectorize $ unAstRanked
     $ rletHVectorIn (unAstNoVectorizeWrap a)
                     (unAstNoVectorize2 . f . noVectorizeHVector)
-  rletHFunInTKNew a f = astNoVectorize2 $ rletHFunInTKNew a (unAstNoVectorize2 . f)
+  rletHFunIn a f = astNoVectorize2 $ rletHFunIn a (unAstNoVectorize2 . f)
   rfromS = astNoVectorize2 . rfromS . unAstNoVectorizeS2
   rconstant = astNoVectorize2 . rconstant . unAstNoVectorize2
   rprimalPart = astNoVectorize2 . rprimalPart . unAstNoVectorize2
@@ -1353,7 +1353,7 @@ instance AstSpan s => ShapedTensor (AstNoVectorizeS s) where
     astNoVectorizeS2
     $ sletHVectorIn (unAstNoVectorizeWrap a)
                     (unAstNoVectorizeS2 . f . noVectorizeHVector)
-  sletHFunInTKNew a f = astNoVectorizeS2 $ sletHFunInTKNew a (unAstNoVectorizeS2 . f)
+  sletHFunIn a f = astNoVectorizeS2 $ sletHFunIn a (unAstNoVectorizeS2 . f)
   sfromR = astNoVectorizeS2 . sfromR . AstRanked . unAstNoVectorize
   sconstant = astNoVectorizeS2 . sconstant . unAstNoVectorizeS2
     -- exceptionally we do simplify AstConstant to avoid long boring chains
@@ -1375,12 +1375,12 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
   dshape = dshape . unAstNoVectorizeWrap
   dmkHVector =
     AstNoVectorizeWrap . AstMkHVector . unNoVectorizeHVector
-  dlambdaTKNew = dlambdaTKNew @(AstRanked s)
-  dHApplyTKNew :: forall x y. (TensorKind x, TensorKind y)
-          => HFunOfTKNew (AstNoVectorize s) x y
+  dlambda = dlambda @(AstRanked s)
+  dHApply :: forall x y. (TensorKind x, TensorKind y)
+          => HFunOf (AstNoVectorize s) x y
           -> InterpretationTarget (AstNoVectorize s) x
           -> InterpretationTarget (AstNoVectorize s) y
-  dHApplyTKNew t ll = noVectorizeY (stensorKind @y) $ astHApplyTKNew t
+  dHApply t ll = noVectorizeY (stensorKind @y) $ astHApply t
                       $ unNoVectorizeY (stensorKind @x) $ ll
   dunHVector =
     noVectorizeHVector . dunHVector . unAstNoVectorizeWrap
@@ -1388,9 +1388,9 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
     AstNoVectorizeWrap
     $ dletHVectorInHVector (unAstNoVectorizeWrap a)
                            (unAstNoVectorizeWrap . f . noVectorizeHVector)
-  dletHFunInHVectorTKNew t f =
+  dletHFunInHVector t f =
     AstNoVectorizeWrap
-    $ dletHFunInHVectorTKNew t (unAstNoVectorizeWrap . f)
+    $ dletHFunInHVector t (unAstNoVectorizeWrap . f)
   dlet :: forall y. TensorKind y
        => InterpretationTarget (AstNoVectorize s) y
        -> (InterpretationTarget (AstNoVectorize s) y
@@ -1411,8 +1411,8 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
   rrev f parameters0 hVector =
     AstNoVectorizeWrap
     $ rrev f parameters0 (unNoVectorizeHVector hVector)
-  drevDtTKNew = drevDtTKNew @(AstRanked s)
-  dfwdTKNew = dfwdTKNew @(AstRanked s)
+  drevDt = drevDt @(AstRanked s)
+  dfwd = dfwd @(AstRanked s)
   dmapAccumRDer _ k accShs bShs eShs f df rf acc0 es =
     AstNoVectorizeWrap
     $ dmapAccumRDer (Proxy @(AstRanked s))
@@ -1524,7 +1524,7 @@ instance AstSpan s => RankedTensor (AstNoSimplify s) where
     AstNoSimplify
     $ astLetHVectorInFunRaw (unAstNoSimplifyWrap a)
                             (unAstNoSimplify . f . noSimplifyHVector)
-  rletHFunInTKNew a f = AstNoSimplify $ astLetHFunInFunRawTKNew a (unAstNoSimplify . f)
+  rletHFunIn a f = AstNoSimplify $ astLetHFunInFunRaw a (unAstNoSimplify . f)
   rfromS = AstNoSimplify . AstRFromS . unAstNoSimplifyS
   rconstant = AstNoSimplify . fromPrimal . unAstNoSimplify
   rprimalPart = AstNoSimplify . astSpanPrimal . unAstNoSimplify
@@ -1580,7 +1580,7 @@ instance AstSpan s => ShapedTensor (AstNoSimplifyS s) where
     AstNoSimplifyS
     $ astLetHVectorInFunRawS (unAstNoSimplifyWrap a)
                              (unAstNoSimplifyS . f . noSimplifyHVector)
-  sletHFunInTKNew a f = AstNoSimplifyS $ astLetHFunInFunRawSTKNew a (unAstNoSimplifyS . f)
+  sletHFunIn a f = AstNoSimplifyS $ astLetHFunInFunRawS a (unAstNoSimplifyS . f)
   sfromR = AstNoSimplifyS . AstSFromR . unAstNoSimplify
   sconstant = AstNoSimplifyS . fromPrimal . unAstNoSimplifyS
     -- exceptionally we do simplify AstConstant to avoid long boring chains
@@ -1600,18 +1600,18 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
   dshape = shapeAstHVector . unAstNoSimplifyWrap
   dmkHVector =
     AstNoSimplifyWrap . AstMkHVector . unNoSimplifyHVector
-  dlambdaTKNew :: forall x y. (TensorKind x, TensorKind y)
-          => TensorKindFull x -> HFunTKNew x y -> HFunOfTKNew (AstNoSimplify s) x y
-  dlambdaTKNew shss f =
+  dlambda :: forall x y. (TensorKind x, TensorKind y)
+          => TensorKindFull x -> HFun x y -> HFunOf (AstNoSimplify s) x y
+  dlambda shss f =
     let (var, ast) = funToAst shss $ \ !ll ->
-          unRankedY (stensorKind @y) $ unHFunTKNew f $ rankedY (stensorKind @x) ll
-    in AstLambdaTKNew (var, shss, ast)
-  dHApplyTKNew :: forall x y. (TensorKind x, TensorKind y)
-          => HFunOfTKNew (AstNoSimplify s) x y
+          unRankedY (stensorKind @y) $ unHFun f $ rankedY (stensorKind @x) ll
+    in AstLambda (var, shss, ast)
+  dHApply :: forall x y. (TensorKind x, TensorKind y)
+          => HFunOf (AstNoSimplify s) x y
           -> InterpretationTarget (AstNoSimplify s) x
           -> InterpretationTarget (AstNoSimplify s) y
-  dHApplyTKNew t ll =
-    let app = AstHApplyTKNew t $ unNoSimplifyY (stensorKind @x) ll
+  dHApply t ll =
+    let app = AstHApply t $ unNoSimplifyY (stensorKind @x) ll
     in noSimplifyY (stensorKind @y) app
   dunHVector (AstNoSimplifyWrap (AstMkHVector l)) = noSimplifyHVector l
   dunHVector (AstNoSimplifyWrap hVectorOf) =
@@ -1628,9 +1628,9 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
     AstNoSimplifyWrap
     $ astLetHVectorInHVectorFunRaw (unAstNoSimplifyWrap a)
                                    (unAstNoSimplifyWrap . f . noSimplifyHVector)
-  dletHFunInHVectorTKNew t f =
+  dletHFunInHVector t f =
     AstNoSimplifyWrap
-    $ astLetHFunInHVectorFunRawTKNew t (unAstNoSimplifyWrap . f)
+    $ astLetHFunInHVectorFunRaw t (unAstNoSimplifyWrap . f)
   dlet :: forall y. TensorKind y
        => InterpretationTarget (AstNoSimplify s) y
        -> (InterpretationTarget (AstNoSimplify s) y -> HVectorOf (AstNoSimplify s))
@@ -1650,8 +1650,8 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
   rrev f parameters0 hVector =  -- we don't have an AST constructor to hold it
     AstNoSimplifyWrap
     $ rrev f parameters0 (unNoSimplifyHVector hVector)
-  drevDtTKNew = drevDtTKNew @(AstRanked s)
-  dfwdTKNew = dfwdTKNew @(AstRanked s)
+  drevDt = drevDt @(AstRanked s)
+  dfwd = dfwd @(AstRanked s)
   dmapAccumRDer _ k accShs bShs eShs f df rf acc0 es =
     AstNoSimplifyWrap
     $ AstMapAccumRDer k accShs bShs eShs f df rf (unAstNoSimplifyWrap acc0)

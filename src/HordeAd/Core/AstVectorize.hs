@@ -338,14 +338,14 @@ build1V snat@SNat (var, v00) =
       in astLetHVectorIn
            varsOut (build1VOccurenceUnknown snat (var, l))
                    (build1VOccurenceUnknownRefresh snat (var, vOut))
-    Ast.AstLetHFunInTKNew @_ @_ @x @z var1 f v
+    Ast.AstLetHFunIn @_ @_ @x @z var1 f v
       | Dict <- lemTensorKindOfBuild snat (stensorKind @x)
       , Dict <- lemTensorKindOfBuild snat (stensorKind @z) -> traceRule $
         -- We take advantage of the fact that f contains no free index
         -- variables (it may contain function variables, though).
         -- If it could contain index variables, e.g., in a conditional
         -- expression, we might need to add projections as above.
-        astLetHFunInTKNew var1 (build1VHFunTKNew snat (var, f)) (build1V snat (var, v))
+        astLetHFunIn var1 (build1VHFun snat (var, f)) (build1V snat (var, v))
     Ast.AstRFromS @sh1 v ->
       astRFromS @(k ': sh1) $ build1V snat (var, v)
 
@@ -442,32 +442,32 @@ build1V snat@SNat (var, v00) =
       in astLetHVectorInS
            varsOut (build1VOccurenceUnknown snat (var, l))
                    (build1VOccurenceUnknownRefresh snat (var, vOut))
-    Ast.AstLetHFunInSTKNew @_ @_ @x @z var1 f v
+    Ast.AstLetHFunInS @_ @_ @x @z var1 f v
       | Dict <- lemTensorKindOfBuild snat (stensorKind @x)
       , Dict <- lemTensorKindOfBuild snat (stensorKind @z) -> traceRule $
         -- We take advantage of the fact that f contains no free index vars.
-        astLetHFunInSTKNew var1 (build1VHFunTKNew snat (var, f)) (build1V snat (var, v))
+        astLetHFunInS var1 (build1VHFun snat (var, f)) (build1V snat (var, v))
     Ast.AstSFromR v -> astSFromR $ build1V snat (var, v)
 
     Ast.AstMkHVector l -> traceRule $
       Ast.AstMkHVector
       $ V.map (\u -> build1VOccurenceUnknownDynamic snat (var, u)) l
-    Ast.AstHApplyTKNew @x @z t ll
+    Ast.AstHApply @x @z t ll
       | Dict <- lemTensorKindOfBuild snat (stensorKind @x)
       , Dict <- lemTensorKindOfBuild snat (stensorKind @z) -> traceRule $
-        astHApplyTKNew
-          (build1VHFunTKNew snat (var, t))
+        astHApply
+          (build1VHFun snat (var, t))
           (build1VOccurenceUnknown snat (var, ll))
     Ast.AstLetHVectorInHVector vars1 u v -> traceRule $
       let (vOut, varsOut) = substProjVars @k var vars1 v
       in astLetHVectorInHVector
            varsOut (build1VOccurenceUnknown snat (var, u))
                    (build1VOccurenceUnknownRefresh snat (var, vOut))
-    Ast.AstLetHFunInHVectorTKNew @x @z var1 f v
+    Ast.AstLetHFunInHVector @x @z var1 f v
       | Dict <- lemTensorKindOfBuild snat (stensorKind @x)
       , Dict <- lemTensorKindOfBuild snat (stensorKind @z) -> traceRule $
         -- We take advantage of the fact that f contains no free index vars.
-        astLetHFunInHVectorTKNew var1 (build1VHFunTKNew snat (var, f))
+        astLetHFunInHVector var1 (build1VHFun snat (var, f))
                                  (build1V snat (var, v))
     Ast.AstShareHVector{} -> traceRule $
       error "build1V: impossible case of AstShareHVector"
@@ -480,9 +480,9 @@ build1V snat@SNat (var, v00) =
           (replicate1VoidHVector snat accShs)
           (replicate1VoidHVector snat bShs)
           (replicate1VoidHVector snat eShs)
-          (build1VHFunTKNew snat (var, f))
-          (build1VHFunTKNew snat (var, df))
-          (build1VHFunTKNew snat (var, rf))
+          (build1VHFun snat (var, f))
+          (build1VHFun snat (var, df))
+          (build1VHFun snat (var, rf))
           (build1VOccurenceUnknown snat (var, acc0))
           (astTrAstHVector $ build1VOccurenceUnknown snat (var, es))
     Ast.AstMapAccumLDer k5 accShs bShs eShs f df rf acc0 es -> traceRule $
@@ -492,9 +492,9 @@ build1V snat@SNat (var, v00) =
           (replicate1VoidHVector snat accShs)
           (replicate1VoidHVector snat bShs)
           (replicate1VoidHVector snat eShs)
-          (build1VHFunTKNew snat (var, f))
-          (build1VHFunTKNew snat (var, df))
-          (build1VHFunTKNew snat (var, rf))
+          (build1VHFun snat (var, f))
+          (build1VHFun snat (var, df))
+          (build1VHFun snat (var, rf))
           (build1VOccurenceUnknown snat (var, acc0))
           (astTrAstHVector $ build1VOccurenceUnknown snat (var, es))
 
@@ -622,12 +622,12 @@ build1VIndexS (var, v0, ix@(_ :.$ _)) =
 
 -- * Vectorization of others
 
-build1VHFunTKNew
+build1VHFun
   :: forall k x y. (TensorKind x, TensorKind y)
-  => SNat k -> (IntVarName, AstHFunTKNew x y)
-  -> AstHFunTKNew (BuildTensorKind k x) (BuildTensorKind k y)
-build1VHFunTKNew snat@SNat (var, v0) = case v0 of
-  Ast.AstLambdaTKNew ~(var1, ftk, l)
+  => SNat k -> (IntVarName, AstHFun x y)
+  -> AstHFun (BuildTensorKind k x) (BuildTensorKind k y)
+build1VHFun snat@SNat (var, v0) = case v0 of
+  Ast.AstLambda ~(var1, ftk, l)
     | Dict <- lemTensorKindOfBuild snat (stensorKind @x) ->
       -- This handles the case of l having free variables beyond var1,
       -- which is not possible for lambdas used in folds, etc.
@@ -635,10 +635,10 @@ build1VHFunTKNew snat@SNat (var, v0) = case v0 of
       -- so build1VOccurenceUnknownRefresh is neccessary to handle
       -- them and to eliminate them so that the function is closed again.
       let (var2, ftk2, l2) = substProjInterpretationTarget snat var ftk var1 l
-      in Ast.AstLambdaTKNew
+      in Ast.AstLambda
            (var2, ftk2, build1VOccurenceUnknownRefresh snat (var, l2))
-  Ast.AstVarHFunTKNew ftkx ftky var2 ->
-    Ast.AstVarHFunTKNew (buildTensorKindFull snat ftkx)
+  Ast.AstVarHFun ftkx ftky var2 ->
+    Ast.AstVarHFun (buildTensorKindFull snat ftkx)
                    (buildTensorKindFull snat ftky)
                    var2
 

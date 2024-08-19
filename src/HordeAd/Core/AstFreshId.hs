@@ -7,9 +7,9 @@ module HordeAd.Core.AstFreshId
   ( unRawHVector, rawHVector
   , funToAstIO, funToAst, fun2ToAst
   , fun1RToAst, fun1SToAst, fun1XToAst
-  , fun1DToAst, fun1HToAstTKNew, fun1LToAst
-  , funToAstRevIOTKNew, funToAstRevTKNew
-  , funToAstFwdIOTKNew, funToAstFwdTKNew
+  , fun1DToAst, fun1HToAst, fun1LToAst
+  , funToAstRevIO, funToAstRev
+  , funToAstFwdIO, funToAstFwd
   , funToAstIOI, funToAstI, funToAstIntVarIO, funToAstIntVar
   , funToVarsIx, funToAstIndex, funToVarsIxS, funToAstIndexS
   , resetVarCounter
@@ -208,19 +208,19 @@ fun1DToAst :: VoidHVector
 {-# NOINLINE fun1DToAst #-}
 fun1DToAst od f = unsafePerformIO $ fun1DToAstIO od f
 
-fun1HToAstIOTKNew :: TensorKindFull x -> TensorKindFull y
-             -> (AstVarId -> AstHFunTKNew x y -> a)
+fun1HToAstIO :: TensorKindFull x -> TensorKindFull y
+             -> (AstVarId -> AstHFun x y -> a)
              -> IO a
-{-# INLINE fun1HToAstIOTKNew #-}
-fun1HToAstIOTKNew shss shs f = do
+{-# INLINE fun1HToAstIO #-}
+fun1HToAstIO shss shs f = do
   !freshId <- unsafeGetFreshAstVarId
-  return $! f freshId (AstVarHFunTKNew shss shs freshId)
+  return $! f freshId (AstVarHFun shss shs freshId)
 
-fun1HToAstTKNew :: TensorKindFull x -> TensorKindFull y
-           -> (AstVarId -> AstHFunTKNew x y -> a)
+fun1HToAst :: TensorKindFull x -> TensorKindFull y
+           -> (AstVarId -> AstHFun x y -> a)
            -> a
-{-# NOINLINE fun1HToAstTKNew #-}
-fun1HToAstTKNew shss shs f = unsafePerformIO $ fun1HToAstIOTKNew shss shs f
+{-# NOINLINE fun1HToAst #-}
+fun1HToAst shss shs f = unsafePerformIO $ fun1HToAstIO shss shs f
 
 dynamicToVar :: DynamicTensor VoidTensor
              -> IO (AstDynamicVarName, DynamicTensor (AstRanked s))
@@ -239,13 +239,13 @@ dynamicToVar (DynamicShapedDummy @r2 @sh2 _ _) = do
         !dynE = DynamicShaped @r2 @sh2 (AstShaped $ AstVar FTKS (mkAstVarName freshId))
     in (varE, dynE)
 
-funToAstRevIOTKNew :: TensorKindFull TKUntyped
+funToAstRevIO :: TensorKindFull TKUntyped
               -> IO ( AstVarName PrimalSpan TKUntyped
                     , HVector (AstRaw PrimalSpan)
                     , AstVarName FullSpan TKUntyped
                     , HVector (AstRanked FullSpan) )
-{-# INLINE funToAstRevIOTKNew #-}
-funToAstRevIOTKNew ftk@(FTKUntyped parameters0) = do
+{-# INLINE funToAstRevIO #-}
+funToAstRevIO ftk@(FTKUntyped parameters0) = do
   freshId <- unsafeGetFreshAstVarId
   let varPrimal = mkAstVarName freshId
       var = mkAstVarName freshId
@@ -269,23 +269,23 @@ funToAstRevIOTKNew ftk@(FTKUntyped parameters0) = do
       !va = V.fromList asts
   return (varPrimal, rawHVector vp, var, va)
 
-funToAstRevTKNew :: TensorKindFull TKUntyped
+funToAstRev :: TensorKindFull TKUntyped
             -> ( AstVarName PrimalSpan TKUntyped
                , HVector (AstRaw PrimalSpan)
                , AstVarName FullSpan TKUntyped
                , HVector (AstRanked FullSpan) )
-{-# NOINLINE funToAstRevTKNew #-}
-funToAstRevTKNew = unsafePerformIO . funToAstRevIOTKNew
+{-# NOINLINE funToAstRev #-}
+funToAstRev = unsafePerformIO . funToAstRevIO
 
-funToAstFwdIOTKNew :: TensorKindFull TKUntyped
+funToAstFwdIO :: TensorKindFull TKUntyped
               -> IO ( AstVarName PrimalSpan TKUntyped
                     , HVector (AstRaw PrimalSpan)
                     , AstVarName PrimalSpan TKUntyped
                     , HVector (AstRaw PrimalSpan)
                     , AstVarName FullSpan TKUntyped
                     , HVector (AstRanked FullSpan) )
-{-# INLINE funToAstFwdIOTKNew #-}
-funToAstFwdIOTKNew ftk@(FTKUntyped parameters0) = do
+{-# INLINE funToAstFwdIO #-}
+funToAstFwdIO ftk@(FTKUntyped parameters0) = do
   freshIdDs <- unsafeGetFreshAstVarId
   freshId <- unsafeGetFreshAstVarId
   let varPrimalD = mkAstVarName freshIdDs
@@ -316,15 +316,15 @@ funToAstFwdIOTKNew ftk@(FTKUntyped parameters0) = do
       !va = V.fromList asts
   return (varPrimalD, rawHVector vD, varPrimal, rawHVector vp, var, va)
 
-funToAstFwdTKNew :: TensorKindFull TKUntyped
+funToAstFwd :: TensorKindFull TKUntyped
             -> ( AstVarName PrimalSpan TKUntyped
                , HVector (AstRaw PrimalSpan)
                , AstVarName PrimalSpan TKUntyped
                , HVector (AstRaw PrimalSpan)
                , AstVarName FullSpan TKUntyped
                , HVector (AstRanked FullSpan) )
-{-# NOINLINE funToAstFwdTKNew #-}
-funToAstFwdTKNew = unsafePerformIO . funToAstFwdIOTKNew
+{-# NOINLINE funToAstFwd #-}
+funToAstFwd = unsafePerformIO . funToAstFwdIO
 
 funToAstIOI :: (AstInt -> t) -> IO (IntVarName, t)
 {-# INLINE funToAstIOI #-}

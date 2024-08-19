@@ -18,7 +18,7 @@ module HordeAd.Core.Ast
   , AstBindingsCase(..), AstBindings
     -- * ASTs
   , AstRanked(..), AstTensor(..), AstShaped(..)
-  , AstDynamic, AstHFunTKNew(..)
+  , AstDynamic, AstHFun(..)
   , AstBool(..), OpCodeNum1(..), OpCodeNum2(..), OpCode1(..), OpCode2(..)
   , OpCodeIntegral2(..), OpCodeBool(..), OpCodeRel(..)
     -- * The AstRaw, AstNoVectorize and AstNoSimplify definitions
@@ -73,7 +73,7 @@ type instance HVectorOf (AstRanked s) = AstTensor s TKUntyped
 -- would not eliminate the variable and also would likely results
 -- in more costly computations. Also, that would prevent simplification
 -- of the instances, especially after applied to arguments that are terms.
-type instance HFunOfTKNew (AstRanked s) x y = AstHFunTKNew x y
+type instance HFunOf (AstRanked s) x y = AstHFun x y
 
 type instance RankedOf (AstShaped s) = AstRanked s
 type instance PrimalOf (AstShaped s) = AstShaped PrimalSpan
@@ -374,8 +374,8 @@ data AstTensor :: AstSpanType -> TensorKindType -> Type where
                   => [AstDynamicVarName] -> AstTensor s TKUntyped
                   -> AstTensor s2 (TKR r n)
                   -> AstTensor s2 (TKR r n)
-  AstLetHFunInTKNew :: (GoodScalar r, KnownNat n, TensorKind x, TensorKind y)
-               => AstVarId -> AstHFunTKNew x y
+  AstLetHFunIn :: (GoodScalar r, KnownNat n, TensorKind x, TensorKind y)
+               => AstVarId -> AstHFun x y
                -> AstTensor s2 (TKR r n)
                -> AstTensor s2 (TKR r n)
   AstRFromS :: (KnownShS sh, GoodScalar r)
@@ -471,8 +471,8 @@ data AstTensor :: AstSpanType -> TensorKindType -> Type where
                    => [AstDynamicVarName] -> AstTensor s TKUntyped
                    -> AstTensor s2 (TKS r sh)
                    -> AstTensor s2 (TKS r sh)
-  AstLetHFunInSTKNew :: (GoodScalar r, KnownShS sh, TensorKind x, TensorKind y)
-                => AstVarId -> AstHFunTKNew x y
+  AstLetHFunInS :: (GoodScalar r, KnownShS sh, TensorKind x, TensorKind y)
+                => AstVarId -> AstHFun x y
                 -> AstTensor s2 (TKS r sh)
                 -> AstTensor s2 (TKS r sh)
   AstSFromR :: (KnownShS sh, KnownNat (X.Rank sh), GoodScalar r)
@@ -480,8 +480,8 @@ data AstTensor :: AstSpanType -> TensorKindType -> Type where
 
   -- There are existential variables inside DynamicTensor here.
   AstMkHVector :: HVector (AstRanked s) -> AstTensor s TKUntyped
-  AstHApplyTKNew :: (TensorKind x, TensorKind y)
-            => AstHFunTKNew x y -> AstTensor s x -> AstTensor s y
+  AstHApply :: (TensorKind x, TensorKind y)
+            => AstHFun x y -> AstTensor s x -> AstTensor s y
   -- The operations below is why we need AstTensor s TKUntyped and so HVectorOf.
   -- If we kept a vector of terms instead, we'd need to let-bind in each
   -- of the terms separately, duplicating the let-bound term.
@@ -490,8 +490,8 @@ data AstTensor :: AstSpanType -> TensorKindType -> Type where
     => [AstDynamicVarName] -> AstTensor s TKUntyped
     -> AstTensor s2 TKUntyped
     -> AstTensor s2 TKUntyped
-  AstLetHFunInHVectorTKNew :: (TensorKind x, TensorKind y)
-                      => AstVarId -> AstHFunTKNew x y
+  AstLetHFunInHVector :: (TensorKind x, TensorKind y)
+                      => AstVarId -> AstHFun x y
                       -> AstTensor s2 TKUntyped
                       -> AstTensor s2 TKUntyped
   AstShareHVector :: [AstDynamicVarName] -> AstTensor s TKUntyped
@@ -503,9 +503,9 @@ data AstTensor :: AstSpanType -> TensorKindType -> Type where
     -> VoidHVector
     -> VoidHVector
     -> VoidHVector
-    -> AstHFunTKNew (TKProduct TKUntyped TKUntyped) TKUntyped
-    -> AstHFunTKNew (TKProduct TKUntyped TKUntyped) TKUntyped
-    -> AstHFunTKNew (TKProduct TKUntyped TKUntyped) TKUntyped
+    -> AstHFun (TKProduct TKUntyped TKUntyped) TKUntyped
+    -> AstHFun (TKProduct TKUntyped TKUntyped) TKUntyped
+    -> AstHFun (TKProduct TKUntyped TKUntyped) TKUntyped
     -> AstTensor s TKUntyped
     -> AstTensor s TKUntyped
     -> AstTensor s TKUntyped
@@ -514,9 +514,9 @@ data AstTensor :: AstSpanType -> TensorKindType -> Type where
     -> VoidHVector
     -> VoidHVector
     -> VoidHVector
-    -> AstHFunTKNew (TKProduct TKUntyped TKUntyped) TKUntyped
-    -> AstHFunTKNew (TKProduct TKUntyped TKUntyped) TKUntyped
-    -> AstHFunTKNew (TKProduct TKUntyped TKUntyped) TKUntyped
+    -> AstHFun (TKProduct TKUntyped TKUntyped) TKUntyped
+    -> AstHFun (TKProduct TKUntyped TKUntyped) TKUntyped
+    -> AstHFun (TKProduct TKUntyped TKUntyped) TKUntyped
     -> AstTensor s TKUntyped
     -> AstTensor s TKUntyped
     -> AstTensor s TKUntyped
@@ -525,12 +525,12 @@ deriving instance Show (AstTensor s y)
 
 type AstDynamic (s :: AstSpanType) = DynamicTensor (AstRanked s)
 
-type role AstHFunTKNew nominal nominal
-data AstHFunTKNew x y where
-  AstLambdaTKNew :: TensorKind x
+type role AstHFun nominal nominal
+data AstHFun x y where
+  AstLambda :: TensorKind x
             => ~( AstVarName PrimalSpan x, TensorKindFull x
                 , AstTensor PrimalSpan y )
-            -> AstHFunTKNew x y
+            -> AstHFun x y
     -- ^ The function body can't have any free variables outside those
     -- listed in the first component of the pair; this reflects
     -- the quantification in 'rrev' and prevents cotangent confusion.
@@ -546,9 +546,9 @@ data AstHFunTKNew x y where
     -- to under 2^n (TODO: determine the exact cost). Note, however,
     -- that if the n-th forward and reverse derivative is taken,
     -- the laziness is defeated.
-  AstVarHFunTKNew :: TensorKindFull x -> TensorKindFull y -> AstVarId -> AstHFunTKNew x y
+  AstVarHFun :: TensorKindFull x -> TensorKindFull y -> AstVarId -> AstHFun x y
 
-deriving instance Show (AstHFunTKNew x y)
+deriving instance Show (AstHFun x y)
 
 data AstBool where
   AstBoolNot :: AstBool -> AstBool
@@ -808,7 +808,7 @@ type instance ShapedOf (AstRaw s) = AstRawS s
 type instance PrimalOf (AstRaw s) = AstRaw PrimalSpan
 type instance DualOf (AstRaw s) = AstRaw DualSpan
 type instance HVectorOf (AstRaw s) = AstRawWrap (AstTensor s TKUntyped)
-type instance HFunOfTKNew (AstRaw s) x y = AstHFunTKNew x y
+type instance HFunOf (AstRaw s) x y = AstHFun x y
 type instance RankedOf (AstRawS s) = AstRaw s
 type instance PrimalOf (AstRawS s) = AstRawS PrimalSpan
 type instance DualOf (AstRawS s) = AstRawS DualSpan
@@ -819,7 +819,7 @@ type instance PrimalOf (AstNoVectorize s) = AstNoVectorize PrimalSpan
 type instance DualOf (AstNoVectorize s) = AstNoVectorize DualSpan
 type instance HVectorOf (AstNoVectorize s) =
   AstNoVectorizeWrap (AstTensor s TKUntyped)
-type instance HFunOfTKNew (AstNoVectorize s) x y = AstHFunTKNew x y
+type instance HFunOf (AstNoVectorize s) x y = AstHFun x y
 type instance RankedOf (AstNoVectorizeS s) = AstNoVectorize s
 type instance PrimalOf (AstNoVectorizeS s) = AstNoVectorizeS PrimalSpan
 type instance DualOf (AstNoVectorizeS s) = AstNoVectorizeS DualSpan
@@ -830,7 +830,7 @@ type instance PrimalOf (AstNoSimplify s) = AstNoSimplify PrimalSpan
 type instance DualOf (AstNoSimplify s) = AstNoSimplify DualSpan
 type instance HVectorOf (AstNoSimplify s) =
   AstNoSimplifyWrap (AstTensor s TKUntyped)
-type instance HFunOfTKNew (AstNoSimplify s) x y = AstHFunTKNew x y
+type instance HFunOf (AstNoSimplify s) x y = AstHFun x y
 type instance RankedOf (AstNoSimplifyS s) = AstNoSimplify s
 type instance PrimalOf (AstNoSimplifyS s) = AstNoSimplifyS PrimalSpan
 type instance DualOf (AstNoSimplifyS s) = AstNoSimplifyS DualSpan
