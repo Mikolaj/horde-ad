@@ -1030,11 +1030,12 @@ evalR !s !c = \case
         Nothing ->
           s { nMap = DMap.insert n d $ nMap s
             , dMap = DMap.insert n cs $ dMap s }
-  HToH v -> evalHVector s (dunHVector $ unHVectorPseudoTensor c) v
+  HToH v -> evalHVector s (dunHVector $ dshare $ unHVectorPseudoTensor c) v
   MapAccumR k accShs bShs eShs q es _df rf acc0' es' ->
     let accLen = V.length accShs
         bLen = V.length bShs
-        (c0, crest) = V.splitAt accLen $ dunHVector $ unHVectorPseudoTensor c
+        (c0, crest) = V.splitAt accLen $ dunHVector
+                      $ dshare $ unHVectorPseudoTensor c
         dacc_desUnshared =
           dmapAccumL (Proxy @ranked)
                      k accShs eShs (bShs V.++ accShs V.++ eShs)
@@ -1054,7 +1055,8 @@ evalR !s !c = \case
   MapAccumL k accShs bShs eShs q es _df rf acc0' es' ->
     let accLen = V.length accShs
         bLen = V.length bShs
-        (c0, crest) = V.splitAt accLen $ dunHVector $ unHVectorPseudoTensor c
+        (c0, crest) = V.splitAt accLen $ dunHVector
+                      $ dshare $ unHVectorPseudoTensor c
         dacc_desUnshared =
           dmapAccumR (Proxy @ranked)
                      k accShs eShs (bShs V.++ accShs V.++ eShs)
