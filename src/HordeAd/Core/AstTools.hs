@@ -50,7 +50,6 @@ shapeAstFull t = case t of
     FTKProduct ftk1 _ -> ftk1
   AstProject2 v -> case shapeAstFull v of
     FTKProduct _ ftk2 -> ftk2
-  AstLetTupleIn _var1 _var2 _p v -> shapeAstFull v
   AstVar ftk _var -> ftk
   AstPrimalPart a -> shapeAstFull a
   AstDualPart a -> shapeAstFull a
@@ -195,7 +194,6 @@ varInAst var = \case
   AstTuple t1 t2 -> varInAst var t1 || varInAst var t2
   AstProject1 t -> varInAst var t
   AstProject2 t -> varInAst var t
-  AstLetTupleIn _var1 _var2 p v -> varInAst var p || varInAst var v
   AstVar _ var2 -> var == varNameToAstVarId var2
   AstPrimalPart a -> varInAst var a
   AstDualPart a -> varInAst var a
@@ -320,7 +318,6 @@ astIsSmall relaxed = \case
   AstTuple t1 t2 -> astIsSmall relaxed t1 && astIsSmall relaxed t2
   AstProject1 t -> astIsSmall relaxed t
   AstProject2 t -> astIsSmall relaxed t
-  AstLetTupleIn{} -> False
   AstVar{} -> True
   AstPrimalPart v -> astIsSmall relaxed v
   AstDualPart v -> astIsSmall relaxed v

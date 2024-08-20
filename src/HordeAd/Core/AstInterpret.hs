@@ -165,22 +165,6 @@ interpretAst !env = \case
   AstTuple t1 t2 -> ttuple (interpretAst env t1) (interpretAst env t2)
   AstProject1 t -> tproject1 (interpretAst env t)
   AstProject2 t -> tproject2 (interpretAst env t)
-  AstLetTupleIn @_ @z1 @z2 @z var1 var2 p v -> case stensorKind @z of
-    STKR{} ->
-      let t12 = interpretAst env p
-          env2 w1 w2 = extendEnv var2 w2 $ extendEnv var1 w1 env
-      in rletTKIn (stensorKind @z1) (tproject1 t12) $ \ !w1 ->
-           rletTKIn (stensorKind @z2) (tproject2 t12) $ \ !w2 ->
-             interpretAst (env2 w1 w2) v
-    STKS{} ->
-      let t12 = interpretAst env p
-          env2 w1 w2 = extendEnv var2 w2 $ extendEnv var1 w1 env
-      in sletTKIn (stensorKind @z1) (tproject1 t12) $ \ !w1 ->
-           sletTKIn (stensorKind @z2) (tproject2 t12) $ \ !w2 ->
-             interpretAst (env2 w1 w2) v
-    STKProduct{} -> error "WIP"
-    STKUntyped -> error "WIP"
-
   AstVar @y2 _sh var ->
    let var2 = mkAstVarName @FullSpan @y2 (varNameToAstVarId var)  -- TODO
    in case DMap.lookup var2 env of

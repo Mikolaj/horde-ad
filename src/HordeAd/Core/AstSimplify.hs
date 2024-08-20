@@ -262,8 +262,6 @@ astNonIndexStep t = case t of
   Ast.AstTuple t1 t2 -> Ast.AstTuple (astNonIndexStep t1) (astNonIndexStep t2)
   Ast.AstProject1 u -> astProject1 u
   Ast.AstProject2 u -> astProject2 u
-  Ast.AstLetTupleIn{} -> t
-
   Ast.AstVar{} -> t
   Ast.AstPrimalPart v -> astPrimalPart v  -- has to be done sooner or later
   Ast.AstDualPart v -> astDualPart v
@@ -430,9 +428,6 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIndex m1)) =
     -- TODO: no idea what to do here; if the arg is a variable, nothing
     -- can be done; what about the other cases?
   Ast.AstProject2{} -> Ast.AstIndex v0 ix
-  Ast.AstLetTupleIn var1 var2 p v ->
-    Ast.AstLetTupleIn var1 var2 p (astIndexRec v ix)
-
   Ast.AstVar{} -> Ast.AstIndex v0 ix
   Ast.AstPrimalPart{} -> Ast.AstIndex v0 ix  -- must be a NF
   Ast.AstDualPart{} -> Ast.AstIndex v0 ix
@@ -623,9 +618,6 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS shm1)) | Dict <- s
   Ast.AstProject1{} -> Ast.AstIndexS v0 ix
     -- TODO: no idea what to do here
   Ast.AstProject2{} -> Ast.AstIndexS v0 ix
-  Ast.AstLetTupleIn var1 var2 p v ->
-    Ast.AstLetTupleIn var1 var2 p (astIndexRec v ix)
-
   Ast.AstVar{} -> Ast.AstIndexS v0 ix
   Ast.AstPrimalPart{} -> Ast.AstIndexS v0 ix  -- must be a NF
   Ast.AstDualPart{} -> Ast.AstIndexS v0 ix
@@ -982,9 +974,6 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
     Ast.AstProject1{} -> Ast.AstGather sh4 v4 (vars4, ix4)
       -- TODO: no idea what to do here
     Ast.AstProject2{} -> Ast.AstGather sh4 v4 (vars4, ix4)
-    Ast.AstLetTupleIn var1 var2 p v ->
-      Ast.AstLetTupleIn var1 var2 p (astGatherCase sh4 v (vars4, ix4))
-
     Ast.AstVar{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstPrimalPart{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstDualPart{} -> Ast.AstGather sh4 v4 (vars4, ix4)
@@ -2010,9 +1999,6 @@ astPrimalPart t = case t of
   Ast.AstTuple t1 t2 -> Ast.AstTuple (astPrimalPart t1) (astPrimalPart t2)
   Ast.AstProject1 v -> astProject1 (astPrimalPart v)
   Ast.AstProject2 v -> astProject2 (astPrimalPart v)
-  Ast.AstLetTupleIn var1 var2 p v ->
-    Ast.AstLetTupleIn var1 var2 p (astPrimalPart v)
-
   Ast.AstVar{} -> Ast.AstPrimalPart t  -- the only normal form
   Ast.AstConstant v -> v
   Ast.AstD u _ -> u
@@ -2077,9 +2063,6 @@ astDualPart t = case t of
   Ast.AstTuple t1 t2 -> Ast.AstTuple (astDualPart t1) (astDualPart t2)
   Ast.AstProject1 v -> astProject1 (astDualPart v)
   Ast.AstProject2 v -> astProject2 (astDualPart v)
-  Ast.AstLetTupleIn var1 var2 p v ->
-    Ast.AstLetTupleIn var1 var2 p (astDualPart v)
-
   Ast.AstVar{} -> Ast.AstDualPart t
   Ast.AstConstant{}  -> Ast.AstDualPart t  -- this equals nil (not primal 0)
   Ast.AstD _ u' -> u'
@@ -2292,9 +2275,6 @@ simplifyAst t = case t of
   Ast.AstTuple t1 t2 -> Ast.AstTuple (simplifyAst t1) (simplifyAst t2)
   Ast.AstProject1 v -> astProject1 (simplifyAst v)
   Ast.AstProject2 v -> astProject2 (simplifyAst v)
-  Ast.AstLetTupleIn var1 var2 p v ->
-    Ast.AstLetTupleIn var1 var2 (simplifyAst p) (simplifyAst v)
-
   Ast.AstVar{} -> t
   Ast.AstPrimalPart v -> astPrimalPart (simplifyAst v)
   Ast.AstDualPart v -> astDualPart (simplifyAst v)
@@ -2461,9 +2441,6 @@ expandAst t = case t of
   Ast.AstTuple t1 t2 -> Ast.AstTuple (expandAst t1) (expandAst t2)
   Ast.AstProject1 v -> astProject1 (expandAst v)
   Ast.AstProject2 v -> astProject2 (expandAst v)
-  Ast.AstLetTupleIn var1 var2 p v ->
-    Ast.AstLetTupleIn var1 var2 (expandAst p) (expandAst v)
-
   Ast.AstVar{} -> t
   Ast.AstPrimalPart v -> astPrimalPart (expandAst v)
   Ast.AstDualPart v -> astDualPart (expandAst v)
@@ -2974,12 +2951,6 @@ substitute1Ast i var v1 = case v1 of
       (mu, mv) -> Just $ Ast.AstTuple (fromMaybe u mu) (fromMaybe v mv)
   Ast.AstProject1 a -> astProject1 <$> substitute1Ast i var a
   Ast.AstProject2 a -> astProject2 <$> substitute1Ast i var a
-  Ast.AstLetTupleIn var1 var2 u v ->
-    case (substitute1Ast i var u, substitute1Ast i var v) of
-      (Nothing, Nothing) -> Nothing
-      (mu, mv) ->
-        Just $ Ast.AstLetTupleIn var1 var2 (fromMaybe u mu) (fromMaybe v mv)
-
   Ast.AstVar @y2 _sh var2 ->
     if var == varNameToAstVarId var2
     then case i of

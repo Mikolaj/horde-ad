@@ -73,7 +73,6 @@ areAllArgsInts = \case
   -- or a likely dual number. There is an anavoidable ambiguity
   -- and so also aribtrary choices in resolving it.
   AstTuple{} -> False
-  AstLetTupleIn{} -> True  -- too early to tell, but displays the same
   AstVar{} -> True
   AstPrimalPart{} -> False
   AstDualPart{} -> False
@@ -227,30 +226,6 @@ printAstAux cfg d = \case
       . showString ")"
   AstProject1 t -> printPrefixOp printAst cfg d "tproject1" [t]
   AstProject2 t -> printPrefixOp printAst cfg d "tproject2" [t]
-  AstLetTupleIn var1 var2 p v ->
-    if loseRoudtrip cfg
-    then
-      showParen (d > 10)
-      $ showString "let ("
-        . printAstVar cfg var1
-        . showString ", "
-        . printAstVar cfg var2
-        . showString ") = "
-        . printAst cfg 0 p
-        . showString " in "
-        . printAst cfg 0 v
-    else
-      showParen (d > 10)
-      $ showString "tletTupleIn "  -- TODO
-        . printAst cfg 11 p
-        . showString " "
-        . (showParen True
-           $ showString "\\"
-             . printAstVar cfg var1
-             . showString " "
-             . printAstVar cfg var2
-             . showString " -> "
-             . printAst cfg 0 v)
   AstVar _sh var -> printAstVar cfg var
   AstPrimalPart a -> case stensorKind @y of
     STKS{} -> printPrefixOp printAst cfg d "sprimalPart" [a]

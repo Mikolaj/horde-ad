@@ -156,25 +156,6 @@ build1V snat@SNat (var, v00) =
       | Dict <- lemTensorKindOfBuild snat (stensorKind @x)
       , Dict <- lemTensorKindOfBuild snat (stensorKind @y) ->
         astProject2 (build1V snat (var, t))
-    Ast.AstLetTupleIn var1 var2 p v -> undefined  -- TODO: doable, but complex
-{-
-      -- See the AstLet and AstLetHVectorIn cases for comments.
-      let var1' = mkAstVarName (varNameToAstVarId var1)
-          var2' = mkAstVarName (varNameToAstVarId var2)
-          sh = shapeAst u
-          projection = Ast.AstIndex (Ast.AstVar (k :$: sh) var2)
-                                    (Ast.AstIntVar var :.: ZIR)
-          -- The subsitutions of projections don't break sharing,
-          -- because they don't duplicate variables and the added var
-          -- is eventually being eliminated instead of substituted for.
-          v2 = substituteAst
-                 (SubstitutionPayload @s1 projection) var1 v
-      in Ast.AstLetTupleIn var1 var2
-                          (build1VOccurenceUnknown k (var, u))
-                          (build1VOccurenceUnknownRefresh k (var, v2))
-                            -- ensure no duplicated bindings, see below
--}
-
     Ast.AstVar _ var2 | varNameToAstVarId var2 == varNameToAstVarId var ->
       case isRankedInt v0 of
         Just Refl -> fromPrimal @s $ astSlice 0 k Ast.AstIota

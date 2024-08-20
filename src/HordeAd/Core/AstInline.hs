@@ -190,14 +190,6 @@ inlineAst memo v0 = case v0 of
     in (EM.alter f (varNameToAstVarId var) memo, v0)
   Ast.AstProject1 t -> second Ast.AstProject1 (inlineAst memo t)
   Ast.AstProject2 t -> second Ast.AstProject2 (inlineAst memo t)
-  Ast.AstLetTupleIn var1 var2 p v ->
-    -- We don't inline, but elsewhere try to reduce to constructors that we do.
-    -- TODO: check if we should do more, e.g., when p is AstTuple (but maybe
-    -- simplification should rewrite that to normal lets instead?).
-    let (memo1, p2) = inlineAst memo p
-        (memo2, v2) = inlineAst memo1 v
-    in (memo2, Ast.AstLetTupleIn var1 var2 p2 v2)
-
   Ast.AstVar _ var ->
     let f Nothing = Just 1
         f (Just count) = Just $ count + 1
@@ -559,8 +551,6 @@ shareAst memo v0 = case v0 of
     in (memo2, Ast.AstTuple v1 v2)
   Ast.AstProject1 t -> second Ast.AstProject1 (shareAst memo t)
   Ast.AstProject2 t -> second Ast.AstProject2 (shareAst memo t)
-  Ast.AstLetTupleIn{} -> error "shareAst: AstLetTupleIn"
-
   Ast.AstVar{} -> (memo, v0)
   Ast.AstPrimalPart a -> second Ast.AstPrimalPart $ shareAst memo a
   Ast.AstDualPart a -> second Ast.AstDualPart $ shareAst memo a
