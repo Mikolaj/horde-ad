@@ -477,19 +477,8 @@ type instance ShapedOf (DeltaR ranked) = DeltaS (ShapedOf ranked)
 
 type instance HVectorOf (DeltaR ranked) = Delta ranked TKUntyped
 
-type role DeltaProduct nominal representational representational
-type DeltaProduct :: RankedTensorType -> Type -> Type -> Type
-data DeltaProduct ranked vx vy = DeltaProduct vx vy
-
--- TODO: should a product of deltas be a delta instead? but will it
--- break injectivity?
-type instance ProductOf (DeltaR ranked) = DeltaProduct ranked
-
 instance RankedOf (ShapedOf ranked) ~ ranked
          => ProductTensor (DeltaR ranked) where
-  ttuple = DeltaProduct
-  tproject1 (DeltaProduct vx _vz) = vx
-  tproject2 (DeltaProduct _vx vz) = vz
   tshapeFull stk t = case stk of
     STKR{} -> shapeDeltaFull $ unDeltaR t
     STKS{} -> FTKS

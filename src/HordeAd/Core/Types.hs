@@ -21,7 +21,7 @@ module HordeAd.Core.Types
     -- * Some fundamental constraints
   , GoodScalar, HasSingletonDict, Differentiable, IfDifferentiable(..)
     -- * Type families that tensors will belong to
-  , IntOf, RankedOf, ShapedOf, ProductOf, HVectorOf, HVectorPseudoTensor(..)
+  , IntOf, RankedOf, ShapedOf, HVectorOf, HVectorPseudoTensor(..)
   , HFunOf, PrimalOf, DualOf
   , DummyDual(..)
     -- * Generic types of booleans and related class definitions
@@ -210,8 +210,7 @@ type family InterpretationTarget ranked y = result | result -> ranked y where
   InterpretationTarget ranked (TKR r n) = ranked r n
   InterpretationTarget ranked (TKS r sh) = ShapedOf ranked r sh
   InterpretationTarget ranked (TKProduct x z) =
-    ProductOf ranked (InterpretationTarget ranked x)
-                     (InterpretationTarget ranked z)
+    (InterpretationTarget ranked x, InterpretationTarget ranked z)
   InterpretationTarget ranked TKUntyped = HVectorPseudoTensor ranked Float '()
     -- HVectorPseudoTensor instead of HVectorOf required for injectivity
 
@@ -306,9 +305,6 @@ type IntOf (f :: TensorType ty) = RankedOf (PrimalOf f) Int64 0
 type family RankedOf (f :: TensorType ty) :: RankedTensorType
 
 type family ShapedOf (f :: RankedTensorType) = (result :: ShapedTensorType)
-  | result -> f
-
-type family ProductOf (f :: RankedTensorType) = (result :: Type -> Type -> Type)
   | result -> f
 
 type HVectorOf :: RankedTensorType -> Type

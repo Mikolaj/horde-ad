@@ -170,7 +170,6 @@ library horde-ad-simplified
       , dependent-enummap
       , dependent-sum
       , enummapset
-      , ghc-prim
       , ghc-typelits-knownnat
       , ghc-typelits-natnormalise
       , hmatrix

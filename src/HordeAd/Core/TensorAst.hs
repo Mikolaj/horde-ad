@@ -18,7 +18,6 @@ import Prelude
 
 import Control.Exception.Assert.Sugar
 import Data.Array.Shape qualified as Sh
-import Data.Kind (Type)
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, (:~:) (Refl))
 import Data.Vector qualified as Data.NonStrict.Vector
@@ -255,16 +254,7 @@ instance (GoodScalar r, KnownNat n)
   type Value (AstRanked FullSpan r n) = ORArray r n
   fromValue t = AstRanked $ fromPrimal $ AstConst $ runFlipR t
 
-type role AstRankedProduct nominal representational representational
-type AstRankedProduct :: AstSpanType -> Type -> Type -> Type
-data AstRankedProduct s vx vy = AstRankedProduct vx vy
-
-type instance ProductOf (AstRanked s) = AstRankedProduct s
-
 instance ProductTensor (AstRanked s) where
-  ttuple = AstRankedProduct  -- TODO: should this be a wrapped (AstTuple vx vz) instead? does it matter? would it just simplify (eliminate?) unRankedY?
-  tproject1 (AstRankedProduct vx _vz) = vx
-  tproject2 (AstRankedProduct _vx vz) = vz
   tshapeFull stk t = case stk of
     STKR{} -> shapeAstFull $ unAstRanked t
     STKS{} -> FTKS
@@ -925,16 +915,7 @@ deriving instance Floating (AstTensor s (TKS r sh))
 deriving instance (RealFloatF (AstTensor s (TKS r sh)))
                   => RealFloatF (AstNoSimplifyS s r sh)
 
-type role AstRawProduct nominal representational representational
-type AstRawProduct :: AstSpanType -> Type -> Type -> Type
-data AstRawProduct s vx vy = AstRawProduct vx vy
-
-type instance ProductOf (AstRaw s) = AstRawProduct s
-
 instance ProductTensor (AstRaw s) where
-  ttuple = AstRawProduct
-  tproject1 (AstRawProduct vx _vz) = vx
-  tproject2 (AstRawProduct _vx vz) = vz
   tshapeFull stk t = case stk of
     STKR{} -> shapeAstFull $ unAstRaw t
     STKS{} -> FTKS
@@ -1212,16 +1193,7 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
     $ AstMapAccumLDer k accShs bShs eShs f df rf (unAstRawWrap acc0)
                                                  (unAstRawWrap es)
 
-type role AstNoVectorizeProduct nominal representational representational
-type AstNoVectorizeProduct :: AstSpanType -> Type -> Type -> Type
-data AstNoVectorizeProduct s vx vy = AstNoVectorizeProduct vx vy
-
-type instance ProductOf (AstNoVectorize s) = AstNoVectorizeProduct s
-
 instance ProductTensor (AstNoVectorize s) where
-  ttuple = AstNoVectorizeProduct
-  tproject1 (AstNoVectorizeProduct vx _vz) = vx
-  tproject2 (AstNoVectorizeProduct _vx vz) = vz
   tshapeFull stk t = case stk of
     STKR{} -> shapeAstFull $ unAstNoVectorize t
     STKS{} -> FTKS
@@ -1439,16 +1411,7 @@ noVectorizeHVector =
       f (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
   in V.map f
 
-type role AstNoSimplifyProduct nominal representational representational
-type AstNoSimplifyProduct :: AstSpanType -> Type -> Type -> Type
-data AstNoSimplifyProduct s vx vy = AstNoSimplifyProduct vx vy
-
-type instance ProductOf (AstNoSimplify s) = AstNoSimplifyProduct s
-
 instance ProductTensor (AstNoSimplify s) where
-  ttuple = AstNoSimplifyProduct
-  tproject1 (AstNoSimplifyProduct vx _vz) = vx
-  tproject2 (AstNoSimplifyProduct _vx vz) = vz
   tshapeFull stk t = case stk of
     STKR{} -> shapeAstFull $ unAstNoSimplify t
     STKS{} -> FTKS

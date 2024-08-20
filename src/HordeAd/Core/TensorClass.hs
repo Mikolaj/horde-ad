@@ -1152,10 +1152,13 @@ class HVectorTensor (ranked :: RankedTensorType)
 class ProductTensor (ranked :: RankedTensorType) where
   ttuple :: InterpretationTarget ranked x -> InterpretationTarget ranked z
          -> InterpretationTarget ranked (TKProduct x z)
+  ttuple a b = (a, b)
   tproject1 :: InterpretationTarget ranked (TKProduct x z)
             -> InterpretationTarget ranked x
+  tproject1 (a, _b) = a
   tproject2 :: InterpretationTarget ranked (TKProduct x z)
             -> InterpretationTarget ranked z
+  tproject2 (_a, b) = b
   tshapeFull :: STensorKindType y -> InterpretationTarget ranked y
              -> TensorKindFull y
   tmkHVector :: HVector ranked -> HVectorOf ranked
