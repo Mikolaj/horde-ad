@@ -179,8 +179,8 @@ revEvalArtifact
   -> (HVector ORArray, InterpretationTarget ORArray z)
 {-# INLINE revEvalArtifact #-}
 revEvalArtifact !(AstArtifactRev varDt var
-                              (HVectorPseudoTensor (AstRawWrap gradient))
-                              primal)
+                                 (HVectorPseudoTensor (AstRawWrap gradient))
+                                 primal)
                 parameters mdt =
   let oneAtF = interpretationConstant 1 $ tshapeFull (stensorKind @z) primal
       dt = fromMaybe oneAtF mdt

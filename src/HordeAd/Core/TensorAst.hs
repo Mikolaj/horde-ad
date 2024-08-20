@@ -53,21 +53,21 @@ import HordeAd.Util.SizedList
 -- * Symbolic reverse and forward derivative computation
 
 forwardPassByInterpretation
-  :: forall y. TensorKind y
+  :: forall z. TensorKind z
   => (HVector (AstRanked FullSpan)
-      -> InterpretationTarget (AstRanked FullSpan) y)
+      -> InterpretationTarget (AstRanked FullSpan) z)
   -> AstEnv (ADVal (AstRaw PrimalSpan))
   -> HVector (AstRaw PrimalSpan)
   -> AstVarName FullSpan TKUntyped
   -> HVector (AstRanked FullSpan)
-  -> InterpretationTarget (ADVal (AstRaw PrimalSpan)) y
+  -> InterpretationTarget (ADVal (AstRaw PrimalSpan)) z
 {-# INLINE forwardPassByInterpretation #-}
 forwardPassByInterpretation g envInit hVectorPrimal var hVector =
   let deltaInputs = generateDeltaInputs hVectorPrimal
       varInputs = makeADInputs hVectorPrimal deltaInputs
       ast = g hVector
       env = extendEnv var (HVectorPseudoTensor $ dmkHVector varInputs) envInit
-  in interpretAst env $ unRankedY (stensorKind @y) ast
+  in interpretAst env $ unRankedY (stensorKind @z) ast
 
 revArtifactFromForwardPass
   :: forall x z. (x ~ TKUntyped, TensorKind z)
@@ -80,7 +80,7 @@ revArtifactFromForwardPass
   -> (AstArtifactRev x z, Delta (AstRaw PrimalSpan) z)
 {-# INLINE revArtifactFromForwardPass #-}
 revArtifactFromForwardPass hasDt forwardPass
-                                ftk@(FTKUntyped parameters0) =
+                                 ftk@(FTKUntyped parameters0) =
   let -- Bangs and the compound function to fix the numbering of variables
       -- for pretty-printing and prevent sharing the impure values/effects
       -- in tests that reset the impure counters.
@@ -576,7 +576,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
           -> InterpretationTarget (AstRanked s) x
           -> InterpretationTarget (AstRanked s) y
   dHApply t ll = rankedY (stensorKind @y) $ astHApply t
-                      $ unRankedY (stensorKind @x) $ ll
+                 $ unRankedY (stensorKind @x) $ ll
   dunHVector (AstMkHVector l) = l
   dunHVector hVectorOf =
     let f :: Int -> DynamicTensor VoidTensor -> AstDynamic s
@@ -1258,7 +1258,8 @@ instance AstSpan s => RankedTensor (AstNoVectorize s) where
            -> AstNoVectorize s r n
   rletTKIn stk a f =
     AstNoVectorize
-    $ astLetFun @y @_ @s (unNoVectorizeY stk a) (unAstNoVectorize . f . noVectorizeY stk)
+    $ astLetFun @y @_ @s
+                (unNoVectorizeY stk a) (unAstNoVectorize . f . noVectorizeY stk)
   rshape = rshape . unAstNoVectorize2
   rminIndex = astNoVectorize2 . rminIndex . unAstNoVectorize2
   rmaxIndex = astNoVectorize2 . rmaxIndex . unAstNoVectorize2
@@ -1315,7 +1316,8 @@ instance AstSpan s => ShapedTensor (AstNoVectorizeS s) where
            -> AstNoVectorizeS s r sh
   sletTKIn stk a f =
     AstNoVectorizeS
-    $ astLetFun @y @_ @s (unNoVectorizeY stk a) (unAstNoVectorizeS . f . noVectorizeY stk)
+    $ astLetFun @y @_ @s
+                (unNoVectorizeY stk a) (unAstNoVectorizeS . f . noVectorizeY stk)
   sminIndex = astNoVectorizeS2 . sminIndex . unAstNoVectorizeS2
   smaxIndex = astNoVectorizeS2 . smaxIndex . unAstNoVectorizeS2
   sfloor = astNoVectorizeS2 . sfloor . unAstNoVectorizeS2
@@ -1378,7 +1380,7 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
           -> InterpretationTarget (AstNoVectorize s) x
           -> InterpretationTarget (AstNoVectorize s) y
   dHApply t ll = noVectorizeY (stensorKind @y) $ astHApply t
-                      $ unNoVectorizeY (stensorKind @x) $ ll
+                 $ unNoVectorizeY (stensorKind @x) $ ll
   dunHVector =
     noVectorizeHVector . dunHVector . unAstNoVectorizeWrap
   dletHVectorInHVector a f =
@@ -1482,7 +1484,8 @@ instance AstSpan s => RankedTensor (AstNoSimplify s) where
            -> AstNoSimplify s r n
   rletTKIn stk a f =
     AstNoSimplify
-    $ astLetFunRaw @y @_ @s (unNoSimplifyY stk a) (unAstNoSimplify . f . noSimplifyY stk)
+    $ astLetFunRaw @y @_ @s
+                   (unNoSimplifyY stk a) (unAstNoSimplify . f . noSimplifyY stk)
   rshape = shapeAst . unAstNoSimplify
   rminIndex = AstNoSimplify . fromPrimal . AstMinIndex
               . astSpanPrimal . unAstNoSimplify
@@ -1538,7 +1541,8 @@ instance AstSpan s => ShapedTensor (AstNoSimplifyS s) where
            -> AstNoSimplifyS s r sh
   sletTKIn stk a f =
     AstNoSimplifyS
-    $ astLetFunRaw @y @_ @s (unNoSimplifyY stk a) (unAstNoSimplifyS . f . noSimplifyY stk)
+    $ astLetFunRaw @y @_ @s
+                   (unNoSimplifyY stk a) (unAstNoSimplifyS . f . noSimplifyY stk)
   sminIndex = AstNoSimplifyS . fromPrimal . AstMinIndexS
               . astSpanPrimal . unAstNoSimplifyS
   smaxIndex = AstNoSimplifyS . fromPrimal . AstMaxIndexS
