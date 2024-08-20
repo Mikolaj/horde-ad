@@ -12,7 +12,7 @@ module HordeAd.Core.Ast
   , AstVarId, intToAstVarId, AstDynamicVarName(..), dynamicVarNameToAstVarId
   , AstInt, IntVarName, pattern AstIntVar, isRankedInt
   , AstVarName, mkAstVarName, varNameToAstVarId
-  , AstArtifact(..), AstArtifactRev(..), AstArtifactFwd(..)
+  , AstArtifactRev(..), AstArtifactFwd(..)
   , AstIndex, AstVarList, AstIndexS, AstVarListS
     -- * AstBindingsCase and AstBindings
   , AstBindingsCase(..), AstBindings
@@ -175,16 +175,6 @@ mkAstVarName = AstVarName
 
 varNameToAstVarId :: AstVarName s y -> AstVarId
 varNameToAstVarId (AstVarName varId) = varId
-
--- The reverse derivative artifact from step 6) of our full pipeline.
--- The same type can also hold the forward derivative artifact.
-type role AstArtifact nominal nominal
-data AstArtifact y z = AstArtifact
-  { artVarsDt     :: [AstDynamicVarName]
-  , artVarsPrimal :: [AstDynamicVarName]
-  , artDerivative :: InterpretationTarget (AstRaw PrimalSpan) y
-  , artPrimal     :: InterpretationTarget (AstRaw PrimalSpan) z
-  }
 
 -- The reverse derivative artifact from step 6) of our full pipeline.
 type role AstArtifactRev nominal nominal
