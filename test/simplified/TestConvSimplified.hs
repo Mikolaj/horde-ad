@@ -129,7 +129,7 @@ testKonstG0Rev :: Assertion
 testKonstG0Rev =
   assertEqualUpToEpsilon1 1e-4
     (OR.fromList [2, 2, 2, 2] [18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001,18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001])
-    (rev @Double @4 @(AstRanked FullSpan) conv2dB (rzero [2, 2, 2, 2]))
+    (rev @_ @(TKR Double 4) conv2dB (rzero [2, 2, 2, 2]))
 
 testKonstG0Tiny1 :: Assertion
 testKonstG0Tiny1 =
@@ -210,7 +210,7 @@ testReplicate0RevLaborious :: Assertion
 testReplicate0RevLaborious =
   assertEqualUpToEpsilon1 1e-4
     (OR.fromList [2, 2, 2, 2] [18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001,18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001])
-    (rev @Double @4 @(AstRanked FullSpan) conv2dBLaborious (rzero [2, 2, 2, 2]))
+    (rev @_ @(TKR Double 4) conv2dBLaborious (rzero [2, 2, 2, 2]))
 
 testReplicate0Tiny1Laborious :: Assertion
 testReplicate0Tiny1Laborious =

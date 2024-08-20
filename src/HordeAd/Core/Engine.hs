@@ -54,14 +54,14 @@ import HordeAd.Internal.BackendOX (ORArray, OSArray)
 -- down to concrete arrays and so there's no risk of confusion of cotangents
 -- from different levels of differentiation if it's done multiple times.
 rev
-  :: forall r y g tgtAstVals astvals.
-     ( tgtAstVals ~ g r y
+  :: forall astvals z.
+     ( TensorKind z
      , AdaptableHVector (AstRanked FullSpan) astvals
-     , AdaptableHVector (AstRanked FullSpan) tgtAstVals
      , AdaptableHVector ORArray (Value astvals)
-     , AdaptableHVector ORArray (Value tgtAstVals)
      , TermValue astvals )
-  => (astvals -> tgtAstVals) -> Value astvals -> Value astvals
+  => (astvals -> InterpretationTarget (AstRanked FullSpan) z)
+  -> Value astvals
+  -> Value astvals
 {-# INLINE rev #-}
 rev f vals = revDtMaybe f vals Nothing
 
@@ -74,38 +74,38 @@ rev f vals = revDtMaybe f vals Nothing
 -- only the rank or shape and/or the base scalar type of a single
 -- tensor codomain.
 revDt
-  :: forall tgtAstVals astvals.
-     ( AdaptableHVector (AstRanked FullSpan) astvals
-     , AdaptableHVector (AstRanked FullSpan) tgtAstVals
+  :: forall astvals z.
+     ( TensorKind z
+     , AdaptableHVector (AstRanked FullSpan) astvals
      , AdaptableHVector ORArray (Value astvals)
-     , AdaptableHVector ORArray (Value tgtAstVals)
      , TermValue astvals )
-  => (astvals -> tgtAstVals) -> Value astvals -> Value tgtAstVals
+  => (astvals -> InterpretationTarget (AstRanked FullSpan) z)
+  -> Value astvals
+  -> InterpretationTarget ORArray z
   -> Value astvals
 {-# INLINE revDt #-}
 revDt f vals dt = revDtMaybe f vals (Just dt)
 
 revDtMaybe
-  :: forall tgtAstVals astvals.
-     ( AdaptableHVector (AstRanked FullSpan) astvals
-     , AdaptableHVector (AstRanked FullSpan) tgtAstVals
+  :: forall astvals z.
+     ( TensorKind z
+     , AdaptableHVector (AstRanked FullSpan) astvals
      , AdaptableHVector ORArray (Value astvals)
-     , AdaptableHVector ORArray (Value tgtAstVals)
      , TermValue astvals )
-  => (astvals -> tgtAstVals) -> Value astvals -> Maybe (Value tgtAstVals)
+  => (astvals -> InterpretationTarget (AstRanked FullSpan) z)
+  -> Value astvals
+  -> Maybe (InterpretationTarget ORArray z)
   -> Value astvals
 {-# INLINE revDtMaybe #-}
 revDtMaybe f vals0 mdt =
   let g :: HVector (AstRanked FullSpan)
-        -> InterpretationTarget (AstRanked FullSpan) TKUntyped
-      g !hv = HVectorPseudoTensor
-              $ toHVectorOf $ f $ parseHVector (fromValue vals0) hv
+        -> InterpretationTarget (AstRanked FullSpan) z
+      g !hv = f $ parseHVector (fromValue vals0) hv
       valsH = toHVectorOf vals0
       voidH = FTKUntyped $ voidFromHVector valsH
       artifact = fst $ revProduceArtifact (isJust mdt) g emptyEnv voidH
-      mdth = (HVectorPseudoTensor . toHVectorOf) <$> mdt
   in parseHVector vals0
-     $ fst $ revEvalArtifact artifact valsH mdth
+     $ fst $ revEvalArtifact artifact valsH mdt
 {-# SPECIALIZE revDtMaybe
   :: ( KnownNat n
      , AdaptableHVector (AstRanked FullSpan) astvals

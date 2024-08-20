@@ -6,15 +6,15 @@ module BenchProdTools where
 
 import Prelude
 
-import           Criterion.Main
-import qualified Data.Array.RankedS as OR
-import           Data.List (foldl1')
-import qualified Data.Strict.Vector as Data.Vector
-import           Data.Type.Equality (gcastWith, (:~:) (Refl))
-import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat)
-import           Test.Inspection
-import           Unsafe.Coerce (unsafeCoerce)
+import Criterion.Main
+import Data.Array.RankedS qualified as OR
+import Data.List (foldl1')
+import Data.Strict.Vector qualified as Data.Vector
+import Data.Type.Equality (gcastWith, (:~:) (Refl))
+import Data.Vector.Generic qualified as V
+import GHC.TypeLits (KnownNat)
+import Test.Inspection
+import Unsafe.Coerce (unsafeCoerce)
 
 --import qualified Data.Array.ShapedS as OS
 --import           HordeAd.Internal.TensorFFI (RowSum)
@@ -24,7 +24,7 @@ import           Unsafe.Coerce (unsafeCoerce)
 
 --import HordeAd.Core.Adaptor
 
-import qualified Data.Array.Nested as Nested
+import Data.Array.Nested qualified as Nested
 
 import HordeAd
 import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..))
@@ -104,7 +104,7 @@ crevRankedListProd = map (FlipR . Nested.rtoOrthotope . runFlipR)
 
 revRankedListProd :: [FlipR OR.Array Double 0] -> [FlipR OR.Array Double 0]
 revRankedListProd = map (FlipR . Nested.rtoOrthotope . runFlipR)
-                    . rev @Double @0 @(AstRanked FullSpan) rankedListProd
+                    . rev rankedListProd
                     . map (FlipR . Nested.rfromOrthotope SNat . runFlipR)
 
 rankedListProdr :: (RankedTensor ranked, GoodScalar r)
@@ -118,7 +118,7 @@ crevRankedListProdr = map (FlipR . Nested.rtoOrthotope . runFlipR)
 
 revRankedListProdr :: [FlipR OR.Array Double 0] -> [FlipR OR.Array Double 0]
 revRankedListProdr = map (FlipR . Nested.rtoOrthotope . runFlipR)
-                     . rev @Double @0 @(AstRanked FullSpan) rankedListProdr
+                     . rev rankedListProdr
                      . map (FlipR . Nested.rfromOrthotope SNat . runFlipR)
 
 crevRankedNoShareListProd :: [FlipR OR.Array Double 0] -> [FlipR OR.Array Double 0]

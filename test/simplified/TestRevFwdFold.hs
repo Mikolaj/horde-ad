@@ -1322,8 +1322,7 @@ testSin0rmapAccumRD0S :: Assertion
 testSin0rmapAccumRD0S = do
   assertEqualUpToEpsilon 1e-10
     (srepl 1)
-    (rev @_ @_ @(AstShaped FullSpan)
-         (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
+    (rev (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
               f x0 = (sfromD . (V.! 0))
                       $ dunHVector
                       $ dmapAccumR (Proxy @(RankedOf f)) (SNat @0)
@@ -1373,8 +1372,7 @@ testSin0rmapAccumRD00S0 :: Assertion
 testSin0rmapAccumRD00S0 = do
   assertEqualUpToEpsilon 1e-10
     (srepl 1)
-    (rev @_ @_ @(AstShaped FullSpan)
-         (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
+    (rev (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
               f x0 = (sfromD . (V.! 0))
                       $ dunHVector
                       $ dmapAccumR (Proxy @(RankedOf f)) (SNat @0)
@@ -1400,8 +1398,7 @@ _testSin0rmapAccumRD00S :: Assertion
 _testSin0rmapAccumRD00S = do
   assertEqualUpToEpsilon 1e-10
     (srepl 1)
-    (rev @_ @_ @(AstShaped FullSpan)
-         (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
+    (rev (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
               f x0 = (sfromD . (V.! 0))
                       $ dunHVector
                       $ dmapAccumR (Proxy @(RankedOf f)) (SNat @7)
@@ -1427,8 +1424,7 @@ _testSin0rmapAccumRD00S7 :: Assertion
 _testSin0rmapAccumRD00S7 = do
   assertEqualUpToEpsilon 1e-10
     (srepl 1)
-    (rev @_ @_ @(AstShaped FullSpan)
-         (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[7]
+    (rev (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[7]
               f x0 = (sfromD . (V.! 1))
                       $ dunHVector
                       $ dmapAccumR (Proxy @(RankedOf f)) (SNat @7)
@@ -1494,8 +1490,7 @@ testSin0rmapAccumRD00Sacc0 :: Assertion
 testSin0rmapAccumRD00Sacc0 = do
   assertEqualUpToEpsilon 1e-10
     (srepl 0)
-    (rev @_ @_ @(AstShaped FullSpan)
-         (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
+    (rev (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
               f _x0 = sletHVectorIn
                       (dmapAccumR (Proxy @(RankedOf f)) (SNat @0)
                           (V.fromList [])
@@ -1515,8 +1510,7 @@ testSin0rmapAccumRD00Sacc :: Assertion
 testSin0rmapAccumRD00Sacc = do
   assertEqualUpToEpsilon 1e-10
     (srepl 0)
-    (rev @_ @_ @(AstShaped FullSpan)
-         (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
+    (rev (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
               f x0 = sletHVectorIn
                       (dmapAccumR (Proxy @(RankedOf f)) (SNat @7)
                           (V.fromList [])
@@ -1575,8 +1569,7 @@ testSin0rmapAccumRD00Sall0 :: Assertion
 testSin0rmapAccumRD00Sall0 = do
   assertEqualUpToEpsilon 1e-10
     (srepl 0)
-    (rev @_ @_ @(AstShaped FullSpan)
-         (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
+    (rev (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
               f _x0 = sletHVectorIn
                       (dmapAccumR (Proxy @(RankedOf f)) (SNat @0)
                           (V.fromList [])
@@ -1595,8 +1588,7 @@ testSin0rmapAccumRD00Sall :: Assertion
 testSin0rmapAccumRD00Sall = do
   assertEqualUpToEpsilon 1e-10
     (srepl 0)
-    (rev @_ @_ @(AstShaped FullSpan)
-         (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
+    (rev (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
               f _x0 = sletHVectorIn
                       (dmapAccumR (Proxy @(RankedOf f)) (SNat @7)
                           (V.fromList [])
@@ -3583,7 +3575,7 @@ testSin0MapAccumNestedR5r :: Assertion
 testSin0MapAccumNestedR5r = do
  assertEqualUpToEpsilon 1e-10
   (rscalar 1.0837278549794862 :: ORArray Double 0)
-  (rev @_ @_ @(AstRanked FullSpan)
+  (rev
    (let
       sh1 = voidFromSh @Double ZSR
       shs1 = V.singleton sh1
@@ -3617,7 +3609,7 @@ testSin0MapAccumNestedR10r :: Assertion
 testSin0MapAccumNestedR10r = do
  assertEqualUpToEpsilon 1e-10
   (rscalar 1.379370673816781 :: ORArray Double 0)
-  (rev @_ @_ @(AstRanked FullSpan)
+  (rev
    (let
       sh1 = voidFromSh @Double ZSR
       shs1 = V.singleton sh1
@@ -3774,7 +3766,7 @@ testSin0MapAccumNestedR10rf :: Assertion
 testSin0MapAccumNestedR10rf = do
  assertEqualUpToEpsilon 1e-10
   (rscalar 1.2264611684496617e-2 :: ORArray Double 0)
-  (rev @_ @_ @(AstRanked FullSpan)
+  (rev
    (let
       sh1 = voidFromSh @Double ZSR
       shs1 = V.singleton sh1
@@ -3825,7 +3817,7 @@ testSin0MapAccumNestedR10rr :: Assertion
 testSin0MapAccumNestedR10rr = do
  assertEqualUpToEpsilon 1e-10
   (rscalar 1.2264611684496617e-2 :: ORArray Double 0)
-  (rev @_ @_ @(AstRanked FullSpan)
+  (rev
    (let
       sh1 = voidFromSh @Double ZSR
       shs1 = V.singleton sh1
@@ -4598,8 +4590,7 @@ testSin0revhFold5S = do
     (V.fromList [ DynamicShaped @Double @'[3] $ ingestData [0, 0, 0]
                 , DynamicShaped @Double @'[3]
                   $ srepl (-7.313585321642452e-2) ])
-    (rev @_ @_ @(AstShaped FullSpan)
-         (\(asD :: AstTensor FullSpan TKUntyped) ->
+    (rev (\(asD :: AstTensor FullSpan TKUntyped) ->
             sletHVectorIn asD (\asV -> fFoldSX (sfromD (asV V.! 1))))
          (V.fromList [ DynamicShaped @Double @'[3] $ sreplicate @_ @3 (sscalar 1.1)
                      , DynamicShaped @Double @'[3] $ sreplicate @_ @3 (sscalar 1.1) ]))

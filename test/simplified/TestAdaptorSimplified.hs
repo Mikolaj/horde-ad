@@ -260,7 +260,7 @@ testZero4S :: Assertion
 testZero4S =
   assertEqualUpToEpsilon 1e-9
     (sconst $ Nested.Internal.sfromListPrimLinear @_ @'[] knownShS [0])
-    (rev @Double @'[] @(AstShaped FullSpan) @_ @(AstShaped FullSpan Double '[])
+    (rev @(AstShaped FullSpan Double '[]) @(TKS Double '[])
          (let f = const (srepl 3)
           in f) (srepl 42))
 
@@ -276,8 +276,8 @@ testZero6S :: Assertion
 testZero6S =
   assertEqualUpToEpsilon 1e-9
     (sconst $ Nested.Internal.sfromListPrimLinear @_ @'[2, 2, 2, 2, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 2, 2, 2, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,11,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,111,1,1,1,1, 2, 2, 2, 2] knownShS (replicate (product ([2, 2, 2, 2, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 2, 2, 2, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,11,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,111,1,1,1,1, 2, 2, 2, 2] :: [Int])) 3.6174114266850617))
-    (rev @Double @'[2, 2, 2, 2, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 2, 2, 2, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,11,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,111,1,1,1,1, 2, 2, 2, 2]
-         @(AstShaped FullSpan) (\x -> barF (x, x)) (srepl 1))
+    (rev @_ @(TKS Double '[2, 2, 2, 2, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 2, 2, 2, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,11,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,111,1,1,1,1, 2, 2, 2, 2])
+         (\x -> barF (x, x)) (srepl 1))
 
 testZero7S :: Assertion
 testZero7S =
@@ -448,13 +448,15 @@ testOverleafCInt :: Assertion
 testOverleafCInt =
   assertEqualUpToEpsilon 1e-10
     (ringestData [28] (map round [2.0 :: Double,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,1.0,1.0,1.0,1.0,1.0,1.0]))
-    (rev @CInt @0 @(AstRanked FullSpan) overleaf (ringestData [28] [0 .. 27]))
+    (rev @_ @(TKR CInt 0)
+         overleaf (ringestData [28] [0 .. 27]))
 
 testOverleafCIntToFloatn :: Assertion
 testOverleafCIntToFloatn =
   assertEqualUpToEpsilon 1e-10
     (rfromList0N [28] (replicate 28 (rscalar 0.0)))
-    (rev @Float @0 @(AstRanked FullSpan) (rfromIntegral . overleaf @CInt . rfloor) (ringestData @_ @Float [28] [0 .. 27]))
+    (rev @_ @(TKR Float 0)
+         (rfromIntegral . overleaf @CInt . rfloor) (ringestData @_ @Float [28] [0 .. 27]))
 
 testOverleafInt64p :: Assertion
 testOverleafInt64p =
@@ -515,19 +517,21 @@ testFoo :: Assertion
 testFoo = do
   assertEqualUpToEpsilon 1e-10
     (rscalar 2.4396285219055063, rscalar (-1.953374825727421), rscalar 0.9654825811012627)
-    (rev @Double @0 @(AstRanked FullSpan) foo (rscalar 1.1, rscalar 2.2, rscalar 3.3))
+    (rev @_ @(TKR Double 0)
+         foo (rscalar 1.1, rscalar 2.2, rscalar 3.3))
 
 testFooS :: Assertion
 testFooS = do
   assertEqualUpToEpsilon 1e-10
     (srepl 2.4396285219055063, srepl (-1.953374825727421), srepl 0.9654825811012627)
-    (rev @Double @'[3, 534, 3] @(AstShaped FullSpan) fooF (srepl 1.1, srepl 2.2, srepl 3.3))
+    (rev @_ @(TKS Double '[3, 534, 3])
+         fooF (srepl 1.1, srepl 2.2, srepl 3.3))
 
 testFooSToFloat :: Assertion
 testFooSToFloat = do
   assertEqualUpToEpsilon 1e-10
     (srepl 2.4396285219055063, srepl (-1.953374825727421), srepl 0.9654825811012627)
-    (rev @Float @'[3, 534, 3] @(AstShaped FullSpan)
+    (rev @_ @(TKS Float '[3, 534, 3])
          (scast . fooF)
          (srepl 1.1 :: OSArray Double '[3, 534, 3], srepl 2.2, srepl 3.3))
 
@@ -535,7 +539,7 @@ testFooSBoth :: Assertion
 testFooSBoth = do
   assertEqualUpToEpsilon 1e-10
     (srepl 2.439628436155373, srepl (-1.9533749), srepl 0.9654825479484146)
-    (rev @Float @'[3, 534, 3] @(AstShaped FullSpan)
+    (rev @_ @(TKS Float '[3, 534, 3])
          (scast . fooF . (\(d, f, d2) -> (d, scast f, d2)))
          ( srepl 1.1 :: OSArray Double '[3, 534, 3]
          , srepl 2.2 :: OSArray Float '[3, 534, 3]
@@ -545,7 +549,7 @@ testFooBoth :: Assertion
 testFooBoth = do
   assertEqualUpToEpsilon 1e-10
     (rscalar 2.439628436155373, rscalar (-1.9533749), rscalar 0.9654825479484146)
-    (rev @Float @0 @(AstRanked FullSpan)
+    (rev @_ @(TKR Float 0)
          (rcast . foo . (\(d, f, d2) -> (d, rcast f, d2)))
          ( rscalar 1.1 :: ORArray Double 0
          , rscalar 2.2 :: ORArray Float 0
@@ -580,7 +584,8 @@ testFooLet :: Assertion
 testFooLet = do
   assertEqualUpToEpsilon 1e-10
     (rscalar 2.4396285219055063, rscalar (-1.953374825727421), rscalar 0.9654825811012627)
-    (rev @Double @0 @(AstRanked FullSpan) fooLet (rscalar 1.1, rscalar 2.2, rscalar 3.3))
+    (rev @_ @(TKR Double 0)
+         fooLet (rscalar 1.1, rscalar 2.2, rscalar 3.3))
 
 testFooLetPP :: Assertion
 testFooLetPP = do
@@ -657,13 +662,15 @@ testListProd :: Assertion
 testListProd = do
   assertEqualUpToEpsilon 1e-10
     [srepl 24, srepl 12, srepl 8, srepl 6]
-    (rev @Double @'[] @(AstShaped FullSpan) shapedListProd [srepl 1, srepl 2, srepl 3, srepl 4])
+    (rev @_ @(TKS Double '[])
+         shapedListProd [srepl 1, srepl 2, srepl 3, srepl 4])
 
 testListProdr :: Assertion
 testListProdr = do
   assertEqualUpToEpsilon 1e-10
     [24, 12, 8, 6]
-    (rev @Double @0 @(AstRanked FullSpan) rankedListProdr [1, 2, 3, 4])
+    (rev @_ @(TKR Double 0)
+         rankedListProdr [1, 2, 3, 4])
 
 rankedListSumr :: (RankedTensor ranked, GoodScalar r)
                 => [ranked r 0] -> ranked r 0
@@ -936,7 +943,7 @@ testReluSimpler3 = do
   assertEqualUpToEpsilon 1e-10
     ( ringestData [3, 4] [7.0,0.0,0.0,7.0,7.0,7.0,7.0,7.0,0.0,0.0,7.0,7.0]
     , rscalar 57.1 )
-    (rev @Double @2 reluT2 (ringestData [3, 4] [1.1, -2.2, 0, 4.4, 5.5, 6.6, 7.7, 8.8, -9.9, -10, 11, 12], rscalar 7))
+    (rev reluT2 (ringestData [3, 4] [1.1, -2.2, 0, 4.4, 5.5, 6.6, 7.7, 8.8, -9.9, -10, 11, 12], rscalar 7))
 
 testReluSimplerPP4 :: Assertion
 testReluSimplerPP4 = do
@@ -965,7 +972,7 @@ testReluSimpler4 = do
   assertEqualUpToEpsilon 1e-10
     ( ringestData [3, 4] [7.0,0.0,0.0,7.0,7.0,7.0,7.0,7.0,0.0,0.0,7.0,7.0]
     , rscalar 57.1 )
-    (rev @Double @2 reluT2 (ringestData [3, 4] [1.1, -2.2, 0, 4.4, 5.5, 6.6, 7.7, 8.8, -9.9, -10, 11, 12], rscalar 7))
+    (rev reluT2 (ringestData [3, 4] [1.1, -2.2, 0, 4.4, 5.5, 6.6, 7.7, 8.8, -9.9, -10, 11, 12], rscalar 7))
 
 testReluSimplerPP4S :: Assertion
 testReluSimplerPP4S = do
@@ -1007,7 +1014,7 @@ testReluSimpler4S = do
     ( sconst
       $ Nested.Internal.sfromListPrimLinear @_ @'[3, 4] knownShS [7.0,0.0,0.0,7.0,7.0,7.0,7.0,7.0,0.0,0.0,7.0,7.0]
     , srepl 57.1 )
-    (rev @Double @'[3, 4] reluT2 (sconst $ Nested.Internal.sfromListPrimLinear @_ @'[3, 4] knownShS [1.1, -2.2, 0, 4.4, 5.5, 6.6, 7.7, 8.8, -9.9, -10, 11, 12], srepl 7))
+    (rev reluT2 (sconst $ Nested.Internal.sfromListPrimLinear @_ @'[3, 4] knownShS [1.1, -2.2, 0, 4.4, 5.5, 6.6, 7.7, 8.8, -9.9, -10, 11, 12], srepl 7))
 
 reluMax :: forall ranked n r. (ADReady ranked, GoodScalar r, KnownNat n)
         => ranked r n -> ranked r n
@@ -1070,7 +1077,7 @@ testReluMax3 = do
   assertEqualUpToEpsilon 1e-10
     ( ringestData [3, 4] [7.0,0.0,0.0,7.0,7.0,7.0,7.0,7.0,0.0,0.0,7.0,7.0]
     , rscalar 57.1 )
-    (rev @Double @2 reluT2 (ringestData [3, 4] [1.1, -2.2, 0, 4.4, 5.5, 6.6, 7.7, 8.8, -9.9, -10, 11, 12], rscalar 7))
+    (rev reluT2 (ringestData [3, 4] [1.1, -2.2, 0, 4.4, 5.5, 6.6, 7.7, 8.8, -9.9, -10, 11, 12], rscalar 7))
 
 testDot1PP :: Assertion
 testDot1PP = do
@@ -1319,7 +1326,8 @@ testFooBuildDt :: Assertion
 testFooBuildDt =
   assertEqualUpToEpsilon1 1e-5
     (OR.fromList [4] [-189890.46351219364,-233886.08744601303,-222532.22669716467,-206108.68889329425])
-    (revDt @(AstRanked FullSpan Double 1) fooBuild1 (ringestData1 [1.1, 2.2, 3.3, 4]) (rreplicate0N [3] (rscalar 42)))
+    (revDt @_ @(TKR Double 1)
+           fooBuild1 (ringestData1 [1.1, 2.2, 3.3, 4]) (rreplicate0N [3] (rscalar 42)))
 
 testFooBuildCFwd :: Assertion
 testFooBuildCFwd =
@@ -1470,7 +1478,8 @@ testBarReluDt :: Assertion
 testBarReluDt =
   assertEqualUpToEpsilon1 1e-10
     (OR.fromList [] [191.20462646925841])
-    (revDt @(AstRanked FullSpan Double 0) barRelu (rscalar 1.1) (rscalar 42.2))
+    (revDt @_ @(TKR Double 0)
+           barRelu (rscalar 1.1) (rscalar 42.2))
 
 testBarRelu :: Assertion
 testBarRelu =
@@ -1498,7 +1507,8 @@ testBarReluMaxDt :: Assertion
 testBarReluMaxDt =
   assertEqualUpToEpsilon1 1e-10
     (OR.fromList [] [191.20462646925841])
-    (revDt @(AstRanked FullSpan Double 0) barReluMax (rfromList0N [] [rscalar 1.1]) (rscalar 42.2))
+    (revDt @_ @(TKR Double 0)
+           barReluMax (rfromList0N [] [rscalar 1.1]) (rscalar 42.2))
 
 testBarReluMax :: Assertion
 testBarReluMax =
@@ -1622,7 +1632,7 @@ testF1 :: Assertion
 testF1 =
   assertEqualUpToEpsilon 1e-10
     (rscalar 45.0)
-    (rev @Double @0 @(AstRanked FullSpan) f1 (rscalar 1.1))
+    (rev @_ @(TKR Double 0) f1 (rscalar 1.1))
 
 testF11 :: Assertion
 testF11 =
@@ -1645,7 +1655,7 @@ testF2 :: Assertion
 testF2 =
   assertEqualUpToEpsilon 1e-10
     (rscalar 470)
-    (rev @Double @0 @(AstRanked FullSpan) f2 (rscalar 1.1))
+    (rev @_ @(TKR Double 0) f2 (rscalar 1.1))
 
 testF21 :: Assertion
 testF21 =
