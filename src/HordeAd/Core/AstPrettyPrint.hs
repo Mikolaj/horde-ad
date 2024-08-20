@@ -8,8 +8,8 @@ module HordeAd.Core.AstPrettyPrint
   , printAstDynamicVarName
   , printAstIntVarName
     -- * Pretty-printing terms in a few useful configurations
-  , printAstSimpleY
-  , printAstSimple, printAstPretty, printAstPrettyButNested
+  , printAstSimpleY, printAstSimple, printAstPrettyY, printAstPretty
+  , printAstPrettyButNested
   , printAstSimpleS, printAstPrettyS, printAstPrettyButNestedS
   , printAstHVectorSimple, printAstHVectorPretty, printAstHVectorPrettyButNested
   ) where
@@ -852,6 +852,10 @@ printAstSimpleY renames t = printAst (defaulPrintConfig False renames) 0 t ""
 printAstSimple :: AstSpan s
                => IntMap String -> AstRanked s r n -> String
 printAstSimple renames (AstRanked t) = printAst (defaulPrintConfig False renames) 0 t ""
+
+printAstPrettyY :: AstSpan s
+                => IntMap String -> AstTensor s y -> String
+printAstPrettyY renames t = printAst (defaulPrintConfig True renames) 0 t ""
 
 printAstPretty :: AstSpan s
                => IntMap String -> AstRanked s r n -> String

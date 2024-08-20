@@ -263,26 +263,6 @@ instance ProductTensor (AstRanked s) where
     STKUntyped -> shapeAstFull $ unHVectorPseudoTensor t
   tmkHVector = AstMkHVector
 
-rankedY :: forall y s.
-           STensorKindType y -> AstTensor s y
-        -> InterpretationTarget (AstRanked s) y
-rankedY stk t = case stk of
-  STKR{} -> AstRanked t
-  STKS{} -> AstShaped t
-  STKProduct stk1 stk2 ->
-    ttuple (rankedY stk1 $ astProject1 t) (rankedY stk2 $ astProject2 t)
-  STKUntyped -> HVectorPseudoTensor t
-
-unRankedY :: forall y s.
-             STensorKindType y -> InterpretationTarget (AstRanked s) y
-          -> AstTensor s y
-unRankedY stk t = case stk of
-  STKR{} -> unAstRanked t
-  STKS{} -> unAstShaped t
-  STKProduct stk1 stk2 -> AstTuple (unRankedY stk1 $ tproject1 t)
-                                   (unRankedY stk2 $ tproject2 t)
-  STKUntyped -> unHVectorPseudoTensor t
-
 instance AstSpan s => RankedTensor (AstRanked s) where
   rletTKIn :: forall y n r. (TensorKind y, KnownNat n, GoodScalar r)
            => STensorKindType y -> InterpretationTarget (AstRanked s) y
@@ -629,7 +609,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     in \ !parameters -> assert (voidHVectorMatches parameters0 parameters) $
       let env = extendEnv
                   var (HVectorPseudoTensor $ AstMkHVector parameters) emptyEnv
-      in simplifyInlineHVector $ unHVectorPseudoTensor
+      in simplifyInline $ unHVectorPseudoTensor
          $ interpretAst env $ unAstRawWrap $ unHVectorPseudoTensor gradient
         -- this interpretation both substitutes parameters for the variables and
         -- reinterprets @PrimalSpan@ terms in @s@ terms;
@@ -658,7 +638,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
         (varP, ast) = funToAst ftk2 $ \ !astP ->
           AstLet varDt (astProject1 astP)
             $ AstLet var (astProject2 astP)
-              $ simplifyInlineHVector $ unRawY (stensorKind @x) gradient
+              $ simplifyInline $ unRawY (stensorKind @x) gradient
     in AstLambda (varP, ftk2, ast)
   dfwd :: forall x z. (x ~ TKUntyped, TensorKind z)
             => TensorKindFull x
@@ -676,7 +656,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
         (varP, ast) = funToAst ftk2 $ \ !astP ->
           AstLet varDs (astProject1 astP)
             $ AstLet var (astProject2 astP)
-              $ simplifyInlineHVector $ unRawY (stensorKind @z) derivative
+              $ simplifyInline $ unRawY (stensorKind @z) derivative
     in AstLambda (varP, ftk2, ast)
   dmapAccumRDer _ !k !accShs !bShs !eShs =
     AstMapAccumRDer k accShs bShs eShs
@@ -923,26 +903,6 @@ instance ProductTensor (AstRaw s) where
                                        (tshapeFull stk2 (tproject2 t))
     STKUntyped -> shapeAstFull $ unAstRawWrap $ unHVectorPseudoTensor t
   tmkHVector = AstRawWrap . AstMkHVector . unRawHVector
-
-rawY :: forall y s.
-        STensorKindType y -> AstTensor s y
-     -> InterpretationTarget (AstRaw s) y
-rawY stk t = case stk of
-  STKR{} -> AstRaw t
-  STKS{} -> AstRawS t
-  STKProduct stk1 stk2 ->
-    ttuple (rawY stk1 $ AstProject1 t) (rawY stk2 $ AstProject2 t)
-  STKUntyped -> HVectorPseudoTensor $ AstRawWrap t
-
-unRawY :: forall y s.
-          STensorKindType y -> InterpretationTarget (AstRaw s) y
-       -> AstTensor s y
-unRawY stk t = case stk of
-  STKR{} -> unAstRaw t
-  STKS{} -> unAstRawS t
-  STKProduct stk1 stk2 -> AstTuple (unRawY stk1 $ tproject1 t)
-                                   (unRawY stk2 $ tproject2 t)
-  STKUntyped -> unAstRawWrap $ unHVectorPseudoTensor t
 
 instance AstSpan s => RankedTensor (AstRaw s) where
   rletTKIn :: forall y n r.

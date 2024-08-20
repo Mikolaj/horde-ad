@@ -35,11 +35,7 @@ import HordeAd.Core.AstInline
 import HordeAd.Core.AstInterpret
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
-  ( cfwd
-  , fwd
-  , revEvalArtifact
-  , revProduceArtifactWithoutInterpretation
-  )
+  (cfwd, fwd, revEvalArtifact, revProduceArtifactWithoutInterpretation)
 import HordeAd.Core.HVector
 import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorADVal
@@ -102,16 +98,6 @@ rev' f valsOR =
       parameters0 = voidFromHVector parameters
       dt = Nothing
       valsFrom = fromDValue vals
-      simplifyArtifactTKR :: AstArtifactRev TKUntyped (TKR r m)
-                          -> AstArtifactRev TKUntyped (TKR r m)
-      simplifyArtifactTKR art =
-        art { artDerivativeRev =
-              HVectorPseudoTensor $ simplifyInlineHVectorRaw
-              $ unHVectorPseudoTensor $ artDerivativeRev art
-            , artPrimalRev =
-              AstRaw . unAstRanked . simplifyInlineAst . AstRanked . unAstRaw
-              $ artPrimalRev art
-            }
       g :: HVector (ADVal ORArray)
         -> ADVal ORArray r m
       g inputs = f $ parseHVector valsFrom  inputs
@@ -210,13 +196,13 @@ rev' f valsOR =
         revEvalArtifact7 artifactsGradAst parameters
       gradient2Ast = parseHVector vals astGradAst
       (astGradAstS, value2AstS) =
-        revEvalArtifact7 (simplifyArtifactTKR artifactsGradAst) parameters
+        revEvalArtifact7 (simplifyArtifact artifactsGradAst) parameters
       gradient2AstS = parseHVector vals astGradAstS
       artifactsGradAstT =
         fst $ revProduceArtifactWithoutInterpretation
                 True (hAst id id id) (FTKUntyped parameters0)
       (astGradAstST, value2AstST) =
-        revEvalArtifact7 (simplifyArtifactTKR artifactsGradAstT) parameters
+        revEvalArtifact7 (simplifyArtifact artifactsGradAstT) parameters
       gradient2AstST = parseHVector vals astGradAstST
       artifactsSimpleAst =
         fst $ revProduceArtifactWithoutInterpretation
@@ -225,7 +211,7 @@ rev' f valsOR =
         revEvalArtifact7 artifactsSimpleAst parameters
       gradient3Ast = parseHVector vals astSimpleAst
       (astSimpleAstS, value3AstS) =
-        revEvalArtifact7 (simplifyArtifactTKR artifactsSimpleAst) parameters
+        revEvalArtifact7 (simplifyArtifact artifactsSimpleAst) parameters
       gradient3AstS = parseHVector vals astSimpleAstS
       artifactsGradAstUnSimp =
         fst $ revProduceArtifactWithoutInterpretation
@@ -234,7 +220,7 @@ rev' f valsOR =
         revEvalArtifact7 artifactsGradAstUnSimp parameters
       gradient2AstUnSimp = parseHVector vals astGradAstUnSimp
       (astGradAstSUnSimp, value2AstSUnSimp) =
-        revEvalArtifact7 (simplifyArtifactTKR artifactsGradAstUnSimp)
+        revEvalArtifact7 (simplifyArtifact artifactsGradAstUnSimp)
                         parameters
       gradient2AstSUnSimp = parseHVector vals astGradAstSUnSimp
       artifactsSimpleAstUnSimp =
@@ -245,7 +231,7 @@ rev' f valsOR =
         revEvalArtifact7 artifactsSimpleAstUnSimp parameters
       gradient3AstUnSimp = parseHVector vals astSimpleAstUnSimp
       (astSimpleAstSUnSimp, value3AstSUnSimp) =
-        revEvalArtifact7 (simplifyArtifactTKR artifactsSimpleAstUnSimp)
+        revEvalArtifact7 (simplifyArtifact artifactsSimpleAstUnSimp)
                         parameters
       gradient3AstSUnSimp = parseHVector vals astSimpleAstSUnSimp
       artifactsPrimalAst =
@@ -255,7 +241,7 @@ rev' f valsOR =
         revEvalArtifact7 artifactsPrimalAst parameters
       gradient4Ast = parseHVector vals astPrimalAst
       (astPrimalAstS, value4AstS) =
-        revEvalArtifact7 (simplifyArtifactTKR artifactsPrimalAst) parameters
+        revEvalArtifact7 (simplifyArtifact artifactsPrimalAst) parameters
       gradient4AstS = parseHVector vals astPrimalAstS
       artifactsPSimpleAst =
         fst $ revProduceArtifactWithoutInterpretation
@@ -265,7 +251,7 @@ rev' f valsOR =
         revEvalArtifact7 artifactsPSimpleAst parameters
       gradient5Ast = parseHVector vals astPSimpleAst
       (astPSimpleAstS, value5AstS) =
-        revEvalArtifact7 (simplifyArtifactTKR artifactsPSimpleAst) parameters
+        revEvalArtifact7 (simplifyArtifact artifactsPSimpleAst) parameters
       gradient5AstS = parseHVector vals astPSimpleAstS
       cderivative = cfwd f vals vals
       derivative = fwd @(AstRanked FullSpan r m) f vals vals

@@ -5,7 +5,7 @@ module HordeAd.Core.AstInline
   ( -- * The joint inlining and simplification term transformation
     simplifyArtifact, simplifyArtifactGradient
   , simplifyInlineAst, simplifyInlineAstS
-  , simplifyInlineHVector, simplifyInlineHVectorRaw
+  , simplifyInline
   , printArtifactSimple, printArtifactPretty
   , printArtifactPrimalSimple, printArtifactPrimalPretty
     -- * The translates global sharing to normal lets
@@ -38,34 +38,41 @@ import HordeAd.Util.SizedList
 
 -- * The joint inlining and simplification term transformation
 
-simplifyArtifact :: AstArtifactRev TKUntyped TKUntyped -> AstArtifactRev TKUntyped TKUntyped
+simplifyArtifact :: TensorKind z
+                 => AstArtifactRev TKUntyped z -> AstArtifactRev TKUntyped z
 simplifyArtifact art =
-  art { artDerivativeRev =
-          HVectorPseudoTensor $ simplifyInlineHVectorRaw
-          $ unHVectorPseudoTensor $ artDerivativeRev art
-      , artPrimalRev =
-          HVectorPseudoTensor $ simplifyInlineHVectorRaw
-          $ unHVectorPseudoTensor $ artPrimalRev art
-      }
+  let !der =
+        HVectorPseudoTensor $ AstRawWrap $ simplifyInline $ unAstRawWrap
+        $ unHVectorPseudoTensor $ artDerivativeRev art in
+  let !prim = simplifyInlineInterpretationTarget $ artPrimalRev art
+  in art {artDerivativeRev = der, artPrimalRev = prim}
 
-simplifyArtifactGradient :: AstArtifactRev TKUntyped TKUntyped -> AstArtifactRev TKUntyped TKUntyped
+simplifyArtifactGradient :: AstArtifactRev TKUntyped z
+                         -> AstArtifactRev TKUntyped z
 simplifyArtifactGradient art =
   art { artDerivativeRev =
-          HVectorPseudoTensor $ simplifyInlineHVectorRaw
+          HVectorPseudoTensor $ AstRawWrap $ simplifyInline $ unAstRawWrap
           $ unHVectorPseudoTensor $ artDerivativeRev art
       }
 
--- Potentially, some more inlining could be triggered after the second
--- simplification, but it's probably rare, so we don't insisit on a fixpoint.
--- The second simplification is very likely to trigger, because substitution
--- often reveals redexes.
+-- TODO: is going via rawY and unRawY better?
+simplifyInlineInterpretationTarget
+  :: forall s z. (AstSpan s, TensorKind z)
+  => InterpretationTarget (AstRaw s) z -> InterpretationTarget (AstRaw s) z
+simplifyInlineInterpretationTarget = case stensorKind @z of
+  STKR{} -> AstRaw . simplifyInline . unAstRaw
+  STKS{} -> AstRawS . simplifyInline . unAstRawS
+  STKProduct{} -> \(t1, t2) ->
+    let !s1 = simplifyInlineInterpretationTarget t1 in
+    let !s2 = simplifyInlineInterpretationTarget t2
+    in (s1, s2)
+  STKUntyped -> HVectorPseudoTensor . AstRawWrap . simplifyInline
+                . unAstRawWrap . unHVectorPseudoTensor
+
 simplifyInlineAst
   :: forall r n s. (KnownNat n, GoodScalar r, AstSpan s)
   => AstRanked s r n -> AstRanked s r n
-simplifyInlineAst =
-  AstRanked . snd . inlineAst EM.empty
-  . simplifyAst . expandAst
-  . snd . inlineAst EM.empty . simplifyAst . unAstRanked
+simplifyInlineAst = AstRanked . simplifyInline . unAstRanked
 {-# SPECIALIZE simplifyInlineAst
   :: (KnownNat n, AstSpan s)
   => AstRanked s Double n -> AstRanked s Double n #-}
@@ -73,94 +80,87 @@ simplifyInlineAst =
 simplifyInlineAstS
   :: forall r sh s. (GoodScalar r, KnownShS sh, AstSpan s)
   => AstShaped s r sh -> AstShaped s r sh
-simplifyInlineAstS =
-  AstShaped . snd . inlineAst EM.empty
-  . simplifyAst . expandAst
-  . snd . inlineAst EM.empty . simplifyAst . unAstShaped
+simplifyInlineAstS = AstShaped . simplifyInline . unAstShaped
 {-# SPECIALIZE simplifyInlineAstS
   :: (KnownShS sh, AstSpan s)
   => AstShaped s Double sh -> AstShaped s Double sh #-}
 
--- TODO: rename, not longer just for HVector
-simplifyInlineHVector
+-- Potentially, some more inlining could be triggered after the second
+-- simplification, but it's probably rare, so we don't insisit on a fixpoint.
+-- The second simplification is very likely to trigger, because substitution
+-- often reveals redexes.
+simplifyInline
   :: (AstSpan s, TensorKind z) => AstTensor s z -> AstTensor s z
-simplifyInlineHVector =
+simplifyInline =
   snd . inlineAst EM.empty
   . simplifyAst . expandAst
   . snd . inlineAst EM.empty . simplifyAst
     -- no specialization possible except for the tag type s
 
--- TODO: rename, not longer just for HVector
-simplifyInlineHVectorRaw
-  :: (AstSpan s, TensorKind z)
-  => AstRawWrap (AstTensor s z) -> AstRawWrap (AstTensor s z)
-simplifyInlineHVectorRaw =
-  AstRawWrap . simplifyInlineHVector . unAstRawWrap
-
 prettifyArtifactRev
-  :: AstArtifactRev TKUntyped TKUntyped
-  -> ( [AstDynamicVarName]
+  :: TensorKind z
+  => AstArtifactRev TKUntyped z
+  -> ( AstVarName PrimalSpan z
      , [AstDynamicVarName]
      , InterpretationTarget (AstRaw PrimalSpan) TKUntyped
-     , InterpretationTarget (AstRaw PrimalSpan) TKUntyped )
+     , InterpretationTarget (AstRaw PrimalSpan) z )
 prettifyArtifactRev AstArtifactRev{..} =
-  let der = unAstRawWrap (unHVectorPseudoTensor artDerivativeRev)
-      prim = unAstRawWrap (unHVectorPseudoTensor artPrimalRev)
-  in fun1DToAst (shapeAstHVector prim) $ \ !varsDt !astsDt ->
-       fun1DToAst (shapeAstHVector der) $ \ !vars1 !asts1 ->
-       let idt = SubstitutionPayload $ Ast.AstMkHVector astsDt
-           idom = SubstitutionPayload $ Ast.AstMkHVector asts1
-           derivative = substituteAst idt artVarDtRev
-                        $ substituteAst idom artVarDomainRev der
-           primal = substituteAst idom artVarDomainRev prim
-       in ( varsDt
-          , vars1
-          , HVectorPseudoTensor $ AstRawWrap derivative
-          , HVectorPseudoTensor $ AstRawWrap primal )
+  fun1DToAst (shapeAstHVector $ unAstRawWrap
+              $ unHVectorPseudoTensor artDerivativeRev) $ \ !vars1 !asts1 ->
+    let idom = SubstitutionPayload $ Ast.AstMkHVector asts1
+        !derivative = substituteAstInInterpretationTargetRaw
+                        idom artVarDomainRev artDerivativeRev in
+    let !primal = substituteAstInInterpretationTargetRaw
+                    idom artVarDomainRev artPrimalRev
+    in (artVarDtRev, vars1, derivative, primal)
 
 printArtifactSimple
-  :: IntMap String
-  -> AstArtifactRev TKUntyped TKUntyped
+  :: TensorKind z
+  => IntMap String
+  -> AstArtifactRev TKUntyped z
   -> String
 printArtifactSimple renames art =
-  let (varsDt, vars1, derivative, _) = prettifyArtifactRev art
-      varsPP = map (printAstDynamicVarNameBrief renames) $ varsDt ++ vars1
+  let !(!varDt, !vars1, !derivative, _) = prettifyArtifactRev art in
+  let !varsPP = printAstVarName renames varDt
+                : map (printAstDynamicVarNameBrief renames) vars1
   in "\\" ++ unwords varsPP
           ++ " -> " ++ printAstHVectorSimple
                          renames (unAstRawWrap $ unHVectorPseudoTensor derivative)
 
 printArtifactPretty
-  :: IntMap String
-  -> AstArtifactRev TKUntyped TKUntyped
+  :: TensorKind z
+  => IntMap String
+  -> AstArtifactRev TKUntyped z
   -> String
 printArtifactPretty renames art =
-  let (varsDt, vars1, derivative, _) = prettifyArtifactRev art
-      varsPP = map (printAstDynamicVarNameBrief renames) $ varsDt ++ vars1
+  let !(!varDt, !vars1, !derivative, _) = prettifyArtifactRev art in
+  let varsPP = printAstVarName renames varDt
+               : map (printAstDynamicVarNameBrief renames) vars1
   in "\\" ++ unwords varsPP
           ++ " -> " ++ printAstHVectorPretty
                          renames (unAstRawWrap $ unHVectorPseudoTensor derivative)
 
 printArtifactPrimalSimple
-  :: IntMap String
-  -> AstArtifactRev TKUntyped TKUntyped
+  :: forall z. TensorKind z
+  => IntMap String
+  -> AstArtifactRev TKUntyped z
   -> String
 printArtifactPrimalSimple renames art =
-  let (_, vars1, _, primal) = prettifyArtifactRev art
-      varsPP = map (printAstDynamicVarNameBrief renames) vars1
+  let !(_, !vars1, _, !primal) = prettifyArtifactRev art in
+  let !varsPP = map (printAstDynamicVarNameBrief renames) vars1
   in "\\" ++ unwords varsPP
-          ++ " -> " ++ printAstHVectorSimple
-                         renames (unAstRawWrap $ unHVectorPseudoTensor primal)
+          ++ " -> " ++ printAstSimpleY renames (unRawY (stensorKind @z) primal)
 
 printArtifactPrimalPretty
-  :: IntMap String
-  -> AstArtifactRev TKUntyped TKUntyped
+  :: forall z. TensorKind z
+  => IntMap String
+  -> AstArtifactRev TKUntyped z
   -> String
 printArtifactPrimalPretty renames art =
-  let (_, vars1, _, primal) = prettifyArtifactRev art
-      varsPP = map (printAstDynamicVarNameBrief renames) vars1
+  let !(_, !vars1, _, !primal) = prettifyArtifactRev art in
+  let !varsPP = map (printAstDynamicVarNameBrief renames) vars1
   in "\\" ++ unwords varsPP
-          ++ " -> " ++ printAstHVectorPretty
-                         renames (unAstRawWrap $ unHVectorPseudoTensor primal)
+          ++ " -> " ++ printAstPrettyY renames (unRawY (stensorKind @z) primal)
 
 
 -- * The pass that inlines lets with the bottom-up strategy

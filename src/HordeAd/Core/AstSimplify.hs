@@ -41,6 +41,7 @@ module HordeAd.Core.AstSimplify
   , SubstitutionPayload(..)
   , substituteAst, substitute1Ast, substituteAstIndex, substituteAstIndexS
   , substituteAstHVector
+  , substituteAstInInterpretationTarget, substituteAstInInterpretationTargetRaw
   ) where
 
 import Prelude
@@ -2931,6 +2932,33 @@ substituteAstBool
   -> AstBool
 substituteAstBool i var v1 =
   fromMaybe v1 $ substitute1AstBool i (varNameToAstVarId var) v1
+
+-- TODO: is going via rawY and unRawY better?
+substituteAstInInterpretationTarget
+  :: forall s s2 y z. (AstSpan s, AstSpan s2, TensorKind y)
+              => SubstitutionPayload s2 -> AstVarName s2 z
+              -> InterpretationTarget (AstRanked s) y
+              -> InterpretationTarget (AstRanked s) y
+substituteAstInInterpretationTarget i var v1 = case stensorKind @y of
+  STKR{} -> AstRanked . substituteAst i var . unAstRanked $ v1
+  STKS{} -> AstShaped . substituteAst i var . unAstShaped $ v1
+  STKProduct{} -> ( substituteAstInInterpretationTarget i var $ fst v1
+                  , substituteAstInInterpretationTarget i var $ snd v1)
+  STKUntyped -> HVectorPseudoTensor . substituteAstHVector i var
+                . unHVectorPseudoTensor $ v1
+
+substituteAstInInterpretationTargetRaw
+  :: forall s s2 y z. (AstSpan s, AstSpan s2, TensorKind y)
+              => SubstitutionPayload s2 -> AstVarName s2 z
+              -> InterpretationTarget (AstRaw s) y
+              -> InterpretationTarget (AstRaw s) y
+substituteAstInInterpretationTargetRaw i var v1 = case stensorKind @y of
+  STKR{} -> AstRaw . substituteAst i var . unAstRaw $ v1
+  STKS{} -> AstRawS . substituteAst i var . unAstRawS $ v1
+  STKProduct{} -> ( substituteAstInInterpretationTargetRaw i var $ fst v1
+                  , substituteAstInInterpretationTargetRaw i var $ snd v1)
+  STKUntyped -> HVectorPseudoTensor . AstRawWrap . substituteAstHVector i var
+                . unAstRawWrap . unHVectorPseudoTensor $ v1
 
 
 -- * Substitution workers

@@ -25,6 +25,7 @@ module HordeAd.Core.Ast
   , AstRaw(..), AstRawS(..), AstRawWrap(..)
   , AstNoVectorize(..), AstNoVectorizeS(..), AstNoVectorizeWrap(..)
   , AstNoSimplify(..), AstNoSimplifyS(..), AstNoSimplifyWrap(..)
+  , rankedY, unRankedY, rawY, unRawY
   ) where
 
 import Prelude hiding (foldl')
@@ -859,3 +860,43 @@ deriving instance (GoodScalar r, KnownShS sh) => Show (AstNoSimplifyS s r sh)
 type role AstNoSimplifyWrap nominal
 newtype AstNoSimplifyWrap t = AstNoSimplifyWrap {unAstNoSimplifyWrap :: t}
  deriving Show
+
+rankedY :: forall y s.
+           STensorKindType y -> AstTensor s y
+        -> InterpretationTarget (AstRanked s) y
+rankedY stk t = case stk of
+  STKR{} -> AstRanked t
+  STKS{} -> AstShaped t
+  STKProduct stk1 stk2 ->
+    (rankedY stk1 $ AstProject1 t, rankedY stk2 $ AstProject2 t)
+  STKUntyped -> HVectorPseudoTensor t
+
+unRankedY :: forall y s.
+             STensorKindType y -> InterpretationTarget (AstRanked s) y
+          -> AstTensor s y
+unRankedY stk t = case stk of
+  STKR{} -> unAstRanked t
+  STKS{} -> unAstShaped t
+  STKProduct stk1 stk2 -> AstTuple (unRankedY stk1 $ fst t)
+                                   (unRankedY stk2 $ snd t)
+  STKUntyped -> unHVectorPseudoTensor t
+
+rawY :: forall y s.
+        STensorKindType y -> AstTensor s y
+     -> InterpretationTarget (AstRaw s) y
+rawY stk t = case stk of
+  STKR{} -> AstRaw t
+  STKS{} -> AstRawS t
+  STKProduct stk1 stk2 ->
+    (rawY stk1 $ AstProject1 t, rawY stk2 $ AstProject2 t)
+  STKUntyped -> HVectorPseudoTensor $ AstRawWrap t
+
+unRawY :: forall y s.
+          STensorKindType y -> InterpretationTarget (AstRaw s) y
+       -> AstTensor s y
+unRawY stk t = case stk of
+  STKR{} -> unAstRaw t
+  STKS{} -> unAstRawS t
+  STKProduct stk1 stk2 -> AstTuple (unRawY stk1 $ fst t)
+                                   (unRawY stk2 $ snd t)
+  STKUntyped -> unAstRawWrap $ unHVectorPseudoTensor t
