@@ -3660,7 +3660,7 @@ testSin0MapAccumNestedR10f :: Assertion
 testSin0MapAccumNestedR10f = do
  assertEqualUpToEpsilon 1e-10
   (rscalar 1.379370673816781e-4 :: ORArray Double 0)
-  (fwd @(AstRanked FullSpan Double 0)
+  (fwd
    (let
       sh1 = voidFromSh @Double ZSR
       shs1 = V.singleton sh1
@@ -3712,7 +3712,7 @@ testSin0MapAccumNestedR10fN = do
  assertEqualUpToEpsilon 1e-10
   ( srepl 1.379370673816781e-4 :: OSArray Float '[1]
   , rscalar 1.379370673816781e-4 :: ORArray Double 0)
-  (fwd @(AstShaped FullSpan Float '[1], AstRanked FullSpan Double 0)
+  (fwd
    (let
       sh1 = voidFromSh @Double ZSR
       shs1 = V.singleton sh1

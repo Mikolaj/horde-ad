@@ -254,7 +254,7 @@ rev' f valsOR =
         revEvalArtifact7 (simplifyArtifact artifactsPSimpleAst) parameters
       gradient5AstS = parseHVector vals astPSimpleAstS
       cderivative = cfwd f vals vals
-      derivative = fwd @(AstRanked FullSpan r m) f vals vals
+      derivative = fwd f vals vals
       derivativeRfwd1 = rfwd1ds @ORArray @r @n @m f vals vals
       toORArray (FlipR t) = FlipR $ Nested.rtoOrthotope t
       fromORArray (FlipR t) = FlipR $ Nested.rfromOrthotope SNat t

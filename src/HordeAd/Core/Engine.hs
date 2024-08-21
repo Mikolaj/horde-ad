@@ -203,24 +203,22 @@ revEvalArtifact !(AstArtifactRev varDt var
 -- Shaped tensors work fine. Similarly, the complex codomain resolution
 -- may fail at runtime if it contains lists or vectors of tensors, etc.
 fwd
-  :: forall tgtAstVals astvals.
-     ( AdaptableHVector (AstRanked FullSpan) astvals
-     , AdaptableHVector (AstRanked FullSpan) tgtAstVals
+  :: forall astvals z.
+     ( TensorKind z
+     , AdaptableHVector (AstRanked FullSpan) astvals
      , AdaptableHVector ORArray (Value astvals)
-     , AdaptableHVector ORArray (Value tgtAstVals)
      , TermValue astvals )
-  => (astvals -> tgtAstVals) -> Value astvals -> Value astvals
-  -> Value tgtAstVals
+  => (astvals -> InterpretationTarget (AstRanked FullSpan) z)
+  -> Value astvals
+  -> Value astvals
+  -> InterpretationTarget ORArray z
 fwd f vals ds =
-  let g hVector = HVectorPseudoTensor
-                  $ toHVectorOf $ f $ parseHVector (fromValue vals) hVector
+  let g hVector = f $ parseHVector (fromValue vals) hVector
       valsH = toHVectorOf vals
       voidH = FTKUntyped $ voidFromHVector valsH
       artifact = fst $ fwdProduceArtifact g emptyEnv voidH
       dsH = toHVectorOf ds
-      err = error "fwd: codomain of unknown length"
-  in parseHVector err $ unHVectorPseudoTensor
-     $ fst $ fwdEvalArtifact @TKUntyped @TKUntyped artifact valsH dsH
+  in fst $ fwdEvalArtifact @TKUntyped @z artifact valsH dsH
 
 fwdEvalArtifact
   :: forall x z. (x ~ TKUntyped, TensorKind z)

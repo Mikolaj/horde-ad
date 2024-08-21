@@ -236,7 +236,7 @@ testFwdZero2S :: Assertion
 testFwdZero2S =
   assertEqualUpToEpsilon 1e-9
     (sconst $ Nested.Internal.sfromListPrimLinear @_ @'[] knownShS [41])
-    (fwd @(AstShaped FullSpan Double '[])
+    (fwd @_ @(TKS Double '[])
           (let f :: a -> a
                f = id
            in f) (srepl 42) (srepl 41))
@@ -1246,7 +1246,8 @@ testBarFwd :: Assertion
 testBarFwd =
   assertEqualUpToEpsilon 1e-9
     (rscalar 9.327500345189534e-2)
-    (fwd @(AstRanked FullSpan Double 0) bar (rscalar 1.1, rscalar 2.2) (rscalar 0.1, rscalar 0.2))
+    (fwd @_ @(TKR Double 0)
+         bar (rscalar 1.1, rscalar 2.2) (rscalar 0.1, rscalar 0.2))
 
 barADVal2 :: forall a. RealFloatF a
           => (a, a, a) -> a
@@ -1342,7 +1343,8 @@ testFooBuildFwd :: Assertion
 testFooBuildFwd =
   assertEqualUpToEpsilon1 1e-5
     (OR.fromList [3] [-296584.8166864211,-290062.472288043,-265770.1775742018])
-    (fwd @(AstRanked FullSpan Double 1) fooBuild1 (ringestData1 [1.1, 2.2, 3.3, 4]) (rreplicate0N [4] (rscalar 42)))
+    (fwd @_ @(TKR Double 1)
+         fooBuild1 (ringestData1 [1.1, 2.2, 3.3, 4]) (rreplicate0N [4] (rscalar 42)))
 
 testFooBuild :: Assertion
 testFooBuild =
@@ -1556,7 +1558,7 @@ testBarReluMax3FwdS :: Assertion
 testBarReluMax3FwdS =
   assertEqualUpToEpsilon 1e-10
     (sconst $ Nested.Internal.sfromListPrimLinear @_ @'[2, 1, 2] knownShS [0.45309153191767404,0.9060427799711201,-2.8186426018387007,40.02498898648793])
-    (fwd @(AstShaped FullSpan Double '[2, 1, 2])
+    (fwd @_ @(TKS Double '[2, 1, 2])
          barReluMaxS
          (sconst $ Nested.Internal.sfromListPrimLinear @_ @'[2, 1, 2] knownShS [1.1, 2, 3, 4.2])
          (sconst $ Nested.Internal.sfromListPrimLinear @_ @'[2, 1, 2] knownShS [0.1, 0.2, 0.3, 0.42]))
@@ -1565,7 +1567,7 @@ testBarReluMax3FwdFrom :: Assertion
 testBarReluMax3FwdFrom =
   assertEqualUpToEpsilon 1e-10
     (sconst $ Nested.Internal.sfromListPrimLinear @_ @'[2, 1, 2] knownShS [0.45309153191767404,0.9060427799711201,-2.8186426018387007,40.02498898648793])
-    (fwd @(AstShaped FullSpan Double '[2, 1, 2])
+    (fwd @_ @(TKS Double '[2, 1, 2])
          (sfromR . barReluMax . rfromS)
          (sconst $ Nested.Internal.sfromListPrimLinear @_ @'[2, 1, 2] knownShS [1.1, 2, 3, 4.2])
          (sconst $ Nested.Internal.sfromListPrimLinear @_ @'[2, 1, 2] knownShS [0.1, 0.2, 0.3, 0.42]))
@@ -1574,7 +1576,7 @@ testBarReluMax3FwdR :: Assertion
 testBarReluMax3FwdR =
   assertEqualUpToEpsilon1 1e-10
     (OR.fromList [2, 1, 2] [0.45309153191767404,0.9060427799711201,-2.8186426018387007,40.02498898648793])
-    (fwd @(AstRanked FullSpan Double 3)
+    (fwd @_ @(TKR Double 3)
          barReluMax
          (ringestData [2, 1, 2] [1.1, 2, 3, 4.2])
          (ringestData [2, 1, 2] [0.1, 0.2, 0.3, 0.42]))
@@ -1676,7 +1678,8 @@ testF2Fwd :: Assertion
 testF2Fwd =
   assertEqualUpToEpsilon 1e-10
     (rscalar 47)
-    (fwd @(AstRanked FullSpan Double 0) f2 (rscalar 1.1) (rscalar 0.1))
+    (fwd @_ @(TKR Double 0)
+         f2 (rscalar 1.1) (rscalar 0.1))
 
 braidedBuilds :: forall ranked r.
                  (ADReady ranked, GoodScalar r, Differentiable r)
