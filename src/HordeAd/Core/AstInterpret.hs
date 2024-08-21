@@ -162,9 +162,9 @@ interpretAst
   => AstEnv ranked
   -> AstTensor s y -> InterpretationTarget ranked y
 interpretAst !env = \case
-  AstTuple t1 t2 -> ttuple (interpretAst env t1) (interpretAst env t2)
-  AstProject1 t -> tproject1 (interpretAst env t)
-  AstProject2 t -> tproject2 (interpretAst env t)
+  AstTuple t1 t2 -> (interpretAst env t1, interpretAst env t2)
+  AstProject1 t -> fst (interpretAst env t)
+  AstProject2 t -> snd (interpretAst env t)
   AstVar @y2 _sh var ->
    let var2 = mkAstVarName @FullSpan @y2 (varNameToAstVarId var)  -- TODO
    in case DMap.lookup var2 env of
@@ -232,7 +232,7 @@ interpretAst !env = \case
           STKR{} -> rreplicate (sNatValue k) u
           STKS{} -> sreplicate u
           STKProduct stk1 stk2 ->
-            ttuple (replStk stk1 (tproject1 u)) (replStk stk2 (tproject2 u))
+            (replStk stk1 (fst u), replStk stk2 (snd u))
           STKUntyped -> HVectorPseudoTensor $
             dletHVectorInHVector (unHVectorPseudoTensor u) $ \ !hv ->
               mkreplicate1HVector k hv
@@ -268,7 +268,7 @@ interpretAst !env = \case
           emptyFromStk ftk = case ftk of
             FTKR sh -> rfromList0N (0 :$: sh) []
             FTKS -> sfromList0N []
-            FTKProduct ftk1 ftk2 -> ttuple (emptyFromStk ftk1) (emptyFromStk ftk2)
+            FTKProduct ftk1 ftk2 -> (emptyFromStk ftk1, emptyFromStk ftk2)
             FTKUntyped ssh -> HVectorPseudoTensor
                               $ mkreplicate1HVector (SNat @0)
                               $ V.map dynamicFromVoid ssh
@@ -291,9 +291,9 @@ interpretAst !env = \case
           STKR{} -> rbuild1 (sNatValue snat) g
           STKS{} -> sbuild1 g
           STKProduct stk1 stk2 ->
-            let f1 i = tproject1 $ g i  -- looks expensive, but hard to do better,
-                f2 i = tproject2 $ g i  -- so let's hope v is full of variables
-            in ttuple (replStk stk1 f1) (replStk stk2 f2)
+            let f1 i = fst $ g i  -- looks expensive, but hard to do better,
+                f2 i = snd $ g i  -- so let's hope v is full of variables
+            in (replStk stk1 f1, replStk stk2 f2)
           STKUntyped ->
             HVectorPseudoTensor $ dbuild1 snat (unHVectorPseudoTensor . g)
     in replStk (stensorKind @y2) f

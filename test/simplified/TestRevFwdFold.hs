@@ -4289,8 +4289,7 @@ testSin0revhV4 :: Assertion
 testSin0revhV4 = do
   let doms = V.singleton (voidFromSh @Double ZSR)
       doms3 = V.singleton (voidFromSh @Double (3 :$: ZSR))
-      f :: forall g.
-           (HVectorTensor g (ShapedOf g), RankedTensor g, ProductTensor g)
+      f :: forall g. (HVectorTensor g (ShapedOf g), RankedTensor g)
         => HVector g -> HVectorOf g
       f x =
         rrevDt @g @_ @Double @1 (rscanZip const doms 5)
@@ -4308,9 +4307,7 @@ testSin0revhV5 :: Assertion
 testSin0revhV5 = do
   let doms = V.singleton (voidFromShS @Double @'[])
       doms3 = V.singleton (voidFromShS @Double @'[3])
-      f :: forall g.
-           ( HVectorTensor g (ShapedOf g), ShapedTensor (ShapedOf g)
-           , ProductTensor g )
+      f :: forall g. (HVectorTensor g (ShapedOf g), ShapedTensor (ShapedOf g))
         => HVector g -> HVectorOf g
       f x =
         srevDt @g @_ @Double @'[4] (sscanZip const doms (srepl 5))
@@ -4328,8 +4325,7 @@ testSin0revhV6 :: Assertion
 testSin0revhV6 = do
   let doms = V.singleton (voidFromSh @Double ZSR)
       doms3 = V.singleton (voidFromSh @Double (3 :$: ZSR))
-      f :: forall g.
-           (HVectorTensor g (ShapedOf g), RankedTensor g, ProductTensor g)
+      f :: forall g. (HVectorTensor g (ShapedOf g), RankedTensor g)
         => HVector g -> HVectorOf g
       f x =
         rrevDt @g @_ @Double @1
@@ -4349,9 +4345,7 @@ testSin0revhV7 :: Assertion
 testSin0revhV7 = do
   let doms = V.singleton (voidFromShS @Double @'[])
       doms3 = V.singleton (voidFromShS @Double @'[3])
-      f :: forall g.
-           ( HVectorTensor g (ShapedOf g), ShapedTensor (ShapedOf g)
-           , ProductTensor g )
+      f :: forall g. (HVectorTensor g (ShapedOf g), ShapedTensor (ShapedOf g))
         => HVector g -> HVectorOf g
       f x =
         srevDt @g @_ @Double @'[4]

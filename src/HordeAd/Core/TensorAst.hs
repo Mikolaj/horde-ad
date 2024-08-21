@@ -127,9 +127,9 @@ gunshare stk b = case stk of
   STKR{} -> AstRaw $ unshareAstRanked $ unAstRaw b
   STKS{} -> AstRawS $ unshareAstShaped $ unAstRawS b
   STKProduct stk1 stk2 ->
-    let !t1 = gunshare stk1 $ tproject1 b
-        !t2 = gunshare stk2 $ tproject2 b
-    in ttuple t1 t2
+    let !t1 = gunshare stk1 $ fst b
+        !t2 = gunshare stk2 $ snd b
+    in (t1, t2)
   STKUntyped -> HVectorPseudoTensor $ AstRawWrap $ unshareAstHVector
                 $ unAstRawWrap $ unHVectorPseudoTensor b
 
@@ -142,9 +142,9 @@ gunshareRanked stk b = case stk of
   STKR{} -> AstRanked $ unshareAstRanked $ unAstRanked b
   STKS{} -> AstShaped $ unshareAstShaped $ unAstShaped b
   STKProduct stk1 stk2 ->
-    let !t1 = gunshareRanked stk1 $ tproject1 b
-        !t2 = gunshareRanked stk2 $ tproject2 b
-    in ttuple t1 t2
+    let !t1 = gunshareRanked stk1 $ fst b
+        !t2 = gunshareRanked stk2 $ snd b
+    in (t1, t2)
   STKUntyped -> HVectorPseudoTensor $ unshareAstHVector
                 $ unHVectorPseudoTensor b
 
@@ -531,8 +531,8 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   tshapeFull stk t = case stk of
     STKR{} -> shapeAstFull $ unAstRanked t
     STKS{} -> FTKS
-    STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (tproject1 t))
-                                       (tshapeFull stk2 (tproject2 t))
+    STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (fst t))
+                                       (tshapeFull stk2 (snd t))
     STKUntyped -> shapeAstFull $ unHVectorPseudoTensor t
   dmkHVector = AstMkHVector
   dlambda :: forall x y. (TensorKind x, TensorKind y)
@@ -569,8 +569,8 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     STKProduct{} ->
       -- TODO: seems wrong: a gets computed twice unless the projection
       -- gets simplified early enough, which maybe it does?
-      dlet (tproject1 u) $ \a1 ->
-        dlet (tproject2 u) $ \a2 -> f (ttuple a1 a2)
+      dlet (fst u) $ \a1 ->
+        dlet (snd u) $ \a2 -> f (a1, a2)
     STKUntyped{} -> astLetFun (unHVectorPseudoTensor u) (f . HVectorPseudoTensor)
   -- For convenience and simplicity we define this for all spans,
   -- but it can only ever be used for PrimalSpan.
@@ -1074,8 +1074,8 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
   tshapeFull stk t = case stk of
     STKR{} -> shapeAstFull $ unAstRaw t
     STKS{} -> FTKS
-    STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (tproject1 t))
-                                       (tshapeFull stk2 (tproject2 t))
+    STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (fst t))
+                                       (tshapeFull stk2 (snd t))
     STKUntyped -> shapeAstFull $ unAstRawWrap $ unHVectorPseudoTensor t
   dmkHVector = AstRawWrap . AstMkHVector . unRawHVector
   dlambda :: forall x y. (TensorKind x, TensorKind y)
@@ -1163,7 +1163,7 @@ noVectorizeY stk t = case stk of
   STKR{} -> AstNoVectorize t
   STKS{} -> AstNoVectorizeS t
   STKProduct stk1 stk2 ->
-    ttuple (noVectorizeY stk1 $ astProject1 t) (noVectorizeY stk2 $ astProject2 t)
+    (noVectorizeY stk1 $ astProject1 t, noVectorizeY stk2 $ astProject2 t)
   STKUntyped -> HVectorPseudoTensor $ AstNoVectorizeWrap t
 
 unNoVectorizeY :: forall y s.
@@ -1172,8 +1172,8 @@ unNoVectorizeY :: forall y s.
 unNoVectorizeY stk t = case stk of
   STKR{} -> unAstNoVectorize t
   STKS{} -> unAstNoVectorizeS t
-  STKProduct stk1 stk2 -> AstTuple (unNoVectorizeY stk1 $ tproject1 t)
-                                   (unNoVectorizeY stk2 $ tproject2 t)
+  STKProduct stk1 stk2 -> AstTuple (unNoVectorizeY stk1 $ fst t)
+                                   (unNoVectorizeY stk2 $ snd t)
   STKUntyped -> unAstNoVectorizeWrap $ unHVectorPseudoTensor t
 
 instance AstSpan s => RankedTensor (AstNoVectorize s) where
@@ -1301,8 +1301,8 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
   tshapeFull stk t = case stk of
     STKR{} -> shapeAstFull $ unAstNoVectorize t
     STKS{} -> FTKS
-    STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (tproject1 t))
-                                       (tshapeFull stk2 (tproject2 t))
+    STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (fst t))
+                                       (tshapeFull stk2 (snd t))
     STKUntyped -> shapeAstFull $ unAstNoVectorizeWrap $ unHVectorPseudoTensor t
   dmkHVector =
     AstNoVectorizeWrap . AstMkHVector . unNoVectorizeHVector
@@ -1381,7 +1381,7 @@ noSimplifyY stk t = case stk of
   STKR{} -> AstNoSimplify t
   STKS{} -> AstNoSimplifyS t
   STKProduct stk1 stk2 ->
-    ttuple (noSimplifyY stk1 $ AstProject1 t) (noSimplifyY stk2 $ AstProject2 t)
+    (noSimplifyY stk1 $ AstProject1 t, noSimplifyY stk2 $ AstProject2 t)
   STKUntyped -> HVectorPseudoTensor $ AstNoSimplifyWrap t
 
 unNoSimplifyY :: forall y s.
@@ -1390,8 +1390,8 @@ unNoSimplifyY :: forall y s.
 unNoSimplifyY stk t = case stk of
   STKR{} -> unAstNoSimplify t
   STKS{} -> unAstNoSimplifyS t
-  STKProduct stk1 stk2 -> AstTuple (unNoSimplifyY stk1 $ tproject1 t)
-                                   (unNoSimplifyY stk2 $ tproject2 t)
+  STKProduct stk1 stk2 -> AstTuple (unNoSimplifyY stk1 $ fst t)
+                                   (unNoSimplifyY stk2 $ snd t)
   STKUntyped -> unAstNoSimplifyWrap $ unHVectorPseudoTensor t
 
 instance AstSpan s => RankedTensor (AstNoSimplify s) where
@@ -1519,8 +1519,8 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
   tshapeFull stk t = case stk of
     STKR{} -> shapeAstFull $ unAstNoSimplify t
     STKS{} -> FTKS
-    STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (tproject1 t))
-                                       (tshapeFull stk2 (tproject2 t))
+    STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (fst t))
+                                       (tshapeFull stk2 (snd t))
     STKUntyped -> shapeAstFull $ unAstNoSimplifyWrap $ unHVectorPseudoTensor t
   dmkHVector =
     AstNoSimplifyWrap . AstMkHVector . unNoSimplifyHVector

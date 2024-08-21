@@ -115,8 +115,8 @@ interpretationConstant :: forall ranked y. ADReady ranked
 interpretationConstant r = \case
   FTKR sh -> rrepl (toList sh) r
   FTKS -> srepl r
-  FTKProduct ftk1 ftk2 -> ttuple (interpretationConstant r ftk1)
-                                 (interpretationConstant r ftk2)
+  FTKProduct ftk1 ftk2 -> ( interpretationConstant r ftk1
+                          , interpretationConstant r ftk2 )
   FTKUntyped ssh ->  -- TODO: if r is 0, this would be cheaper with Dummy
     HVectorPseudoTensor $ dmkHVector
     $ mapHVectorShaped (const $ srepl @_ @_ @(ShapedOf ranked) r)
@@ -477,8 +477,7 @@ type instance ShapedOf (DeltaR ranked) = DeltaS (ShapedOf ranked)
 
 type instance HVectorOf (DeltaR ranked) = Delta ranked TKUntyped
 
-instance RankedOf (ShapedOf ranked) ~ ranked
-         => ProductTensor (DeltaR ranked) where
+instance ProductTensor (DeltaR ranked) where
   tmkHVector = HToH
 
 shapeDeltaFull :: forall ranked y.
@@ -814,15 +813,15 @@ evalR
   -> EvalState ranked
 evalR !s !c = \case
   TupleG d1 d2 -> -- TODO: let cShared = rshare c
-                  evalR (evalR s (tproject1 c) d1) (tproject2 c) d2
+                  evalR (evalR s (fst c) d1) (snd c) d2
   Project1G d -> case shapeDeltaFull d of
     FTKProduct _ ftk2 ->
       let zero = interpretationConstant 1 ftk2
-      in evalR s (ttuple c zero) d
+      in evalR s (c, zero) d
   Project2G d -> case shapeDeltaFull d of
     FTKProduct ftk1 _ ->
       let zero = interpretationConstant 1 ftk1
-      in evalR s (ttuple zero c) d
+      in evalR s (zero, c) d
 
   ZeroR{} -> s
   InputR _ i -> let cs = MTKR c
@@ -1028,7 +1027,7 @@ evalR !s !c = \case
                                     $ dx V.++ db
                             acc_e = HVectorPseudoTensor $ dmkHVector acc_eH
                         in unHVectorPseudoTensor
-                           $ unHFun rf (ttuple dx_db acc_e))
+                           $ unHFun rf (dx_db, acc_e))
                      (dmkHVector c0)
                      (dmkHVector $ V.concat [crest, q, es])
         dacc_des = dunHVector $ dshare dacc_desUnshared
@@ -1049,7 +1048,7 @@ evalR !s !c = \case
                                     $ dx V.++ db
                             acc_e = HVectorPseudoTensor $ dmkHVector acc_eH
                         in unHVectorPseudoTensor
-                           $ unHFun rf (ttuple dx_db acc_e))
+                           $ unHFun rf (dx_db, acc_e))
                      (dmkHVector c0)
                      (dmkHVector $ V.concat [crest, q, es])
         dacc_des = dunHVector $ dshare dacc_desUnshared
@@ -1095,7 +1094,7 @@ evalFromnMap s@EvalState{nMap, dMap} =
               Just (DTKS c) -> evalSRuntimeSpecialized s2 c d
               Nothing -> errorMissing
             STKProduct{} -> error "TODO" {- case DMap.lookup n dMap of
-              Just (DTKProduct c1 c2) -> evalR s2 (ttuple c1 c2) d
+              Just (DTKProduct c1 c2) -> evalR s2 (c1, c2) d
               Nothing -> errorMissing -}
             STKUntyped -> case DMap.lookup n dMap of
               Just (DTKUntyped c) -> evalR s2 (HVectorPseudoTensor c) d
@@ -1180,11 +1179,11 @@ fwdR
 fwdR dimR params s = \case
   TupleG d1 d2 -> let (s2, t) = fwdR dimR params s d1
                       (s3, u) = fwdR dimR params s2 d2
-                  in (s3, ttuple t u)
+                  in (s3, (t, u))
   Project1G d -> let (s2, v) = fwdR dimR params s d
-                 in (s2, tproject1 v)
+                 in (s2, fst v)
   Project2G d -> let (s2, v) = fwdR dimR params s d
-                 in (s2, tproject2 v)
+                 in (s2, snd v)
 
   ZeroR sh -> (s, rzero sh)
   InputR @_ @r @n _ (InputId i) ->
@@ -1336,7 +1335,7 @@ fwdR dimR params s = \case
                                  dacc_de = HVectorPseudoTensor $ dmkHVector
                                            $ dacc V.++ de
                              in unHVectorPseudoTensor
-                                $ unHFun df (ttuple dacc_de acc_e))
+                                $ unHFun df (dacc_de, acc_e))
                           (dmkHVector cacc0)
                           (dmkHVector $ V.concat [ces, q, es]))
   MapAccumL k accShs bShs eShs q es df _rf acc0' es' ->
@@ -1352,6 +1351,6 @@ fwdR dimR params s = \case
                                  dacc_de = HVectorPseudoTensor $ dmkHVector
                                            $ dacc V.++ de
                              in unHVectorPseudoTensor
-                                $ unHFun df (ttuple dacc_de acc_e))
+                                $ unHFun df (dacc_de, acc_e))
                           (dmkHVector cacc0)
                           (dmkHVector $ V.concat [ces, q, es]))

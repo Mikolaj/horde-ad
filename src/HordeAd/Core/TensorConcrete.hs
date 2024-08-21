@@ -216,8 +216,8 @@ instance HVectorTensor ORArray OSArray where
   tshapeFull stk t = case stk of
     STKR{} -> FTKR $ tshapeR $ runFlipR t
     STKS{} -> FTKS
-    STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (tproject1 t))
-                                       (tshapeFull stk2 (tproject2 t))
+    STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (fst t))
+                                       (tshapeFull stk2 (snd t))
     STKUntyped -> FTKUntyped $ voidFromHVector $ unHVectorPseudoTensor t
   dmkHVector = id
   dlambda _ f = unHFun f  -- the eta-expansion is needed for typing
@@ -256,9 +256,9 @@ instance HVectorTensor ORArray OSArray where
            -> InterpretationTarget ORArray x
         rf !db_a =
           fst $ crevOnHVector
-                  (Just $ tproject1 db_a)
+                  (Just $ fst db_a)
                   g
-                  (dunHVector $ unHVectorPseudoTensor $ tproject2 db_a)
+                  (dunHVector $ unHVectorPseudoTensor $ snd db_a)
     in rf
   dfwd :: forall x z. (x ~ TKUntyped, TensorKind z)
             => TensorKindFull x
@@ -270,9 +270,9 @@ instance HVectorTensor ORArray OSArray where
         g !hv = unHFun h (HVectorPseudoTensor hv)
         df :: InterpretationTarget ORArray (TKProduct x x)
            -> InterpretationTarget ORArray z
-        df !da_a = fst $ cfwdOnHVector (unHVectorPseudoTensor $ tproject2 da_a)
+        df !da_a = fst $ cfwdOnHVector (unHVectorPseudoTensor $ snd da_a)
                                        g
-                                       (unHVectorPseudoTensor $ tproject1 da_a)
+                                       (unHVectorPseudoTensor $ fst da_a)
     in df
   rfold f x0 as = foldl' f x0 (runravelToList as)
   rscan f x0 as =
@@ -285,12 +285,12 @@ instance HVectorTensor ORArray OSArray where
     oRdmapAccumR k accShs bShs _eShs f acc0 es
   dmapAccumRDer _ k accShs bShs eShs f _df _rf acc0 es =
     oRdmapAccumR k accShs bShs eShs (\ !a !b ->
-      unHVectorPseudoTensor $ f (ttuple (HVectorPseudoTensor a) (HVectorPseudoTensor b))) acc0 es
+      unHVectorPseudoTensor $ f (HVectorPseudoTensor a, HVectorPseudoTensor b)) acc0 es
   dmapAccumL _ k accShs bShs _eShs f acc0 es =
     oRdmapAccumL k accShs bShs _eShs f acc0 es
   dmapAccumLDer _ k accShs bShs eShs f _df _rf acc0 es =
     oRdmapAccumL k accShs bShs eShs (\ !a !b ->
-      unHVectorPseudoTensor $ f (ttuple (HVectorPseudoTensor a) (HVectorPseudoTensor b))) acc0 es
+      unHVectorPseudoTensor $ f (HVectorPseudoTensor a, HVectorPseudoTensor b)) acc0 es
 
 instance ProductTensor ORArray where
   tmkHVector = id

@@ -425,8 +425,8 @@ instance ADReadyBoth ranked shaped
     STKR{} -> let D u _ = t
               in tshapeFull stk u
     STKS{} -> FTKS
-    STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (tproject1 t))
-                                       (tshapeFull stk2 (tproject2 t))
+    STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (fst t))
+                                       (tshapeFull stk2 (snd t))
     STKUntyped -> let D u _ = hVectorADValToADVal $ unHVectorPseudoTensor t
                   in tshapeFull stk u
   dmkHVector = id
@@ -457,8 +457,8 @@ instance ADReadyBoth ranked shaped
     STKProduct{} ->
       -- TODO: seems wrong: a gets computed twice unless the projection
       -- gets simplified early enough, which maybe it does?
-      dlet (tproject1 a) $ \ !a1 ->
-        dlet (tproject2 a) $ \ !a2 -> f (ttuple a1 a2)
+      dlet (fst a) $ \ !a1 ->
+        dlet (snd a) $ \ !a2 -> f (a1, a2)
     STKUntyped{} ->
       let (!u, !u') = unADValHVector $ unHVectorPseudoTensor a
           !var2 = dunHVector $ dshare $ dmkHVector u
@@ -496,9 +496,9 @@ instance ADReadyBoth ranked shaped
         rf !db_a =
           -- This computes the derivative of g again for each new db and a.
           fst $ crevOnHVector
-                  (Just $ tproject1 db_a)
+                  (Just $ fst db_a)
                   g
-                  (dunHVector $ dshare $ unHVectorPseudoTensor $ tproject2 db_a)
+                  (dunHVector $ dshare $ unHVectorPseudoTensor $ snd db_a)
     in HFun rf
   dfwd :: forall x z. (x ~ TKUntyped, TensorKind z)
             => TensorKindFull x
@@ -513,9 +513,9 @@ instance ADReadyBoth ranked shaped
            -> InterpretationTarget f z
           -- This computes the derivative of g again for each new da and a.
         df !da_a = fst $ cfwdOnHVector
-                           (dunHVector $ dshare $ unHVectorPseudoTensor $ tproject2 da_a)
+                           (dunHVector $ dshare $ unHVectorPseudoTensor $ snd da_a)
                            g
-                           (dunHVector $ dshare $ unHVectorPseudoTensor $ tproject1 da_a)
+                           (dunHVector $ dshare $ unHVectorPseudoTensor $ fst da_a)
     in HFun df
   dmapAccumRDer
     :: Proxy (ADVal ranked)
@@ -544,7 +544,7 @@ instance ADReadyBoth ranked shaped
           -> InterpretationTarget f TKUntyped
         g !acc_e = HVectorPseudoTensor $
           dletHVectorInHVector
-            (unHVectorPseudoTensor $ tproject1 acc_e)
+            (unHVectorPseudoTensor $ fst acc_e)
           $ \ !acc ->
             dletHVectorInHVector (unHVectorPseudoTensor
                                   $ unHFun f acc_e) $ \res ->
@@ -558,7 +558,7 @@ instance ADReadyBoth ranked shaped
            -> InterpretationTarget f TKUntyped
         dg !dacc_de_acc_e = HVectorPseudoTensor $
           dletHVectorInHVector
-            (unHVectorPseudoTensor $ tproject1 dacc_de_acc_e)
+            (unHVectorPseudoTensor $ fst dacc_de_acc_e)
           $ \ !dacc_de ->
             dletHVectorInHVector
               (unHVectorPseudoTensor
@@ -573,13 +573,13 @@ instance ADReadyBoth ranked shaped
            -> InterpretationTarget f TKUntyped
         rg !dx_db_acc_e = HVectorPseudoTensor $
           dletHVectorInHVector
-            (unHVectorPseudoTensor $ tproject1 dx_db_acc_e) $ \ !dx_db ->
+            (unHVectorPseudoTensor $ fst dx_db_acc_e) $ \ !dx_db ->
             let (dx, db) = hvToPair dx_db
                 (dbacc, dbRes) = hvToPair db
                 dx_dbRes = HVectorPseudoTensor $ dmkHVector $ dx V.++ dbRes
             in dletHVectorInHVector
                  (unHVectorPseudoTensor
-                  $ unHFun rf (ttuple dx_dbRes (tproject2 dx_db_acc_e)))
+                  $ unHFun rf (dx_dbRes, snd dx_db_acc_e))
                $ \res ->
                  let (dacc, de) = hvToPair res
                  in dmkHVector
@@ -637,7 +637,7 @@ instance ADReadyBoth ranked shaped
           -> InterpretationTarget f TKUntyped
         g !acc_e = HVectorPseudoTensor $
           dletHVectorInHVector
-            (unHVectorPseudoTensor $ tproject1 acc_e)
+            (unHVectorPseudoTensor $ fst acc_e)
           $ \ !acc ->
             dletHVectorInHVector (unHVectorPseudoTensor
                                   $ unHFun f acc_e) $ \res ->
@@ -651,7 +651,7 @@ instance ADReadyBoth ranked shaped
            -> InterpretationTarget f TKUntyped
         dg !dacc_de_acc_e = HVectorPseudoTensor $
           dletHVectorInHVector
-            (unHVectorPseudoTensor $ tproject1 dacc_de_acc_e)
+            (unHVectorPseudoTensor $ fst dacc_de_acc_e)
           $ \ !dacc_de ->
             dletHVectorInHVector
               (unHVectorPseudoTensor
@@ -666,13 +666,13 @@ instance ADReadyBoth ranked shaped
            -> InterpretationTarget f TKUntyped
         rg !dx_db_acc_e = HVectorPseudoTensor $
           dletHVectorInHVector
-            (unHVectorPseudoTensor $ tproject1 dx_db_acc_e) $ \ !dx_db ->
+            (unHVectorPseudoTensor $ fst dx_db_acc_e) $ \ !dx_db ->
             let (dx, db) = hvToPair dx_db
                 (dbacc, dbRes) = hvToPair db
                 dx_dbRes = HVectorPseudoTensor $ dmkHVector $ dx V.++ dbRes
             in dletHVectorInHVector
                  (unHVectorPseudoTensor
-                  $ unHFun rf (ttuple dx_dbRes (tproject2 dx_db_acc_e)))
+                  $ unHFun rf (dx_dbRes, snd dx_db_acc_e))
                $ \res ->
                  let (dacc, de) = hvToPair res
                  in dmkHVector
@@ -704,8 +704,7 @@ instance ADReadyBoth ranked shaped
         dual = wrapDeltaH $ MapAccumL k accShs bShs eShs q (dunHVector es) df rf acc0' es'
     in ahhToHVector primal dual
 
-instance (ProductTensor ranked, HVectorTensor ranked (ShapedOf ranked))
-         => ProductTensor (ADVal ranked) where
+instance ProductTensor (ADVal ranked) where
   tmkHVector = id
 
 ahhToHVector
@@ -764,9 +763,9 @@ unADValInterpretation stk t = case stk of
   STKR{} -> let D u u' = t in (u, u')
   STKS{} -> let D u u' = t in (u, u')
   STKProduct stk1 stk2 ->
-    let (!u, !u') = unADValInterpretation stk1 $ tproject1 t in
-    let (!v, !v') = unADValInterpretation stk2 $ tproject2 t
-    in (ttuple u v, ttuple u' v')
+    let (!u, !u') = unADValInterpretation stk1 $ fst t in
+    let (!v, !v') = unADValInterpretation stk2 $ snd t
+    in ((u, v), (u', v'))
   STKUntyped ->
     let (!u, !v) = unADValHVector $ unHVectorPseudoTensor t
     in (HVectorPseudoTensor $ dmkHVector u, HVectorPseudoTensor $ HToH v)
@@ -777,8 +776,8 @@ unDeltaRY :: forall y ranked. RankedOf (ShapedOf ranked) ~ ranked
 unDeltaRY stk t = case stk of
   STKR{} -> unDeltaR t
   STKS{} -> unDeltaS t
-  STKProduct stk1 stk2 -> TupleG (unDeltaRY stk1 $ tproject1 t)
-                                 (unDeltaRY stk2 $ tproject2 t)
+  STKProduct stk1 stk2 -> TupleG (unDeltaRY stk1 $ fst t)
+                                 (unDeltaRY stk2 $ snd t)
   STKUntyped -> unHVectorPseudoTensor t
 
 -- TODO: not dead code: will be used in dletHVectorInHVector.
