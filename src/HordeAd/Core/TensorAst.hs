@@ -255,12 +255,6 @@ instance (GoodScalar r, KnownNat n)
   fromValue t = AstRanked $ fromPrimal $ AstConst $ runFlipR t
 
 instance ProductTensor (AstRanked s) where
-  tshapeFull stk t = case stk of
-    STKR{} -> shapeAstFull $ unAstRanked t
-    STKS{} -> FTKS
-    STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (tproject1 t))
-                                       (tshapeFull stk2 (tproject2 t))
-    STKUntyped -> shapeAstFull $ unHVectorPseudoTensor t
   tmkHVector = AstMkHVector
 
 instance AstSpan s => RankedTensor (AstRanked s) where
@@ -534,6 +528,12 @@ instance TermValue (HVectorPseudoTensor (AstRanked FullSpan) r y) where
 
 instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   dshape = shapeAstHVector
+  tshapeFull stk t = case stk of
+    STKR{} -> shapeAstFull $ unAstRanked t
+    STKS{} -> FTKS
+    STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (tproject1 t))
+                                       (tshapeFull stk2 (tproject2 t))
+    STKUntyped -> shapeAstFull $ unHVectorPseudoTensor t
   dmkHVector = AstMkHVector
   dlambda :: forall x y. (TensorKind x, TensorKind y)
           => TensorKindFull x -> HFun x y -> HFunOf (AstRanked s) x y
@@ -896,12 +896,6 @@ deriving instance (RealFloatF (AstTensor s (TKS r sh)))
                   => RealFloatF (AstNoSimplifyS s r sh)
 
 instance ProductTensor (AstRaw s) where
-  tshapeFull stk t = case stk of
-    STKR{} -> shapeAstFull $ unAstRaw t
-    STKS{} -> FTKS
-    STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (tproject1 t))
-                                       (tshapeFull stk2 (tproject2 t))
-    STKUntyped -> shapeAstFull $ unAstRawWrap $ unHVectorPseudoTensor t
   tmkHVector = AstRawWrap . AstMkHVector . unRawHVector
 
 instance AstSpan s => RankedTensor (AstRaw s) where
@@ -1077,6 +1071,12 @@ instance AstSpan s => ShapedTensor (AstRawS s) where
 
 instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
   dshape = shapeAstHVector . unAstRawWrap
+  tshapeFull stk t = case stk of
+    STKR{} -> shapeAstFull $ unAstRaw t
+    STKS{} -> FTKS
+    STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (tproject1 t))
+                                       (tshapeFull stk2 (tproject2 t))
+    STKUntyped -> shapeAstFull $ unAstRawWrap $ unHVectorPseudoTensor t
   dmkHVector = AstRawWrap . AstMkHVector . unRawHVector
   dlambda :: forall x y. (TensorKind x, TensorKind y)
           => TensorKindFull x -> HFun x y -> HFunOf (AstRaw s) x y
@@ -1154,12 +1154,6 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
                                                  (unAstRawWrap es)
 
 instance ProductTensor (AstNoVectorize s) where
-  tshapeFull stk t = case stk of
-    STKR{} -> shapeAstFull $ unAstNoVectorize t
-    STKS{} -> FTKS
-    STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (tproject1 t))
-                                       (tshapeFull stk2 (tproject2 t))
-    STKUntyped -> shapeAstFull $ unAstNoVectorizeWrap $ unHVectorPseudoTensor t
   tmkHVector = AstNoVectorizeWrap . AstMkHVector . unNoVectorizeHVector
 
 noVectorizeY :: forall y s.
@@ -1304,6 +1298,12 @@ astNoVectorizeS2 = AstNoVectorizeS . unAstShaped
 
 instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
   dshape = dshape . unAstNoVectorizeWrap
+  tshapeFull stk t = case stk of
+    STKR{} -> shapeAstFull $ unAstNoVectorize t
+    STKS{} -> FTKS
+    STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (tproject1 t))
+                                       (tshapeFull stk2 (tproject2 t))
+    STKUntyped -> shapeAstFull $ unAstNoVectorizeWrap $ unHVectorPseudoTensor t
   dmkHVector =
     AstNoVectorizeWrap . AstMkHVector . unNoVectorizeHVector
   dlambda = dlambda @(AstRanked s)
@@ -1372,12 +1372,6 @@ noVectorizeHVector =
   in V.map f
 
 instance ProductTensor (AstNoSimplify s) where
-  tshapeFull stk t = case stk of
-    STKR{} -> shapeAstFull $ unAstNoSimplify t
-    STKS{} -> FTKS
-    STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (tproject1 t))
-                                       (tshapeFull stk2 (tproject2 t))
-    STKUntyped -> shapeAstFull $ unAstNoSimplifyWrap $ unHVectorPseudoTensor t
   tmkHVector = AstNoSimplifyWrap . AstMkHVector . unNoSimplifyHVector
 
 noSimplifyY :: forall y s.
@@ -1522,6 +1516,12 @@ instance AstSpan s => ShapedTensor (AstNoSimplifyS s) where
 
 instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
   dshape = shapeAstHVector . unAstNoSimplifyWrap
+  tshapeFull stk t = case stk of
+    STKR{} -> shapeAstFull $ unAstNoSimplify t
+    STKS{} -> FTKS
+    STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (tproject1 t))
+                                       (tshapeFull stk2 (tproject2 t))
+    STKUntyped -> shapeAstFull $ unAstNoSimplifyWrap $ unHVectorPseudoTensor t
   dmkHVector =
     AstNoSimplifyWrap . AstMkHVector . unNoSimplifyHVector
   dlambda :: forall x y. (TensorKind x, TensorKind y)

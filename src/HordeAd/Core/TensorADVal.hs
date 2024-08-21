@@ -421,6 +421,14 @@ instance (ADReady ranked, HVectorOf ranked ~ HVector ranked)
 instance ADReadyBoth ranked shaped
          => HVectorTensor (ADVal ranked) (ADVal shaped) where
   dshape = voidFromHVector
+  tshapeFull stk t = case stk of
+    STKR{} -> let D u _ = t
+              in tshapeFull stk u
+    STKS{} -> FTKS
+    STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (tproject1 t))
+                                       (tshapeFull stk2 (tproject2 t))
+    STKUntyped -> let D u _ = hVectorADValToADVal $ unHVectorPseudoTensor t
+                  in tshapeFull stk u
   dmkHVector = id
   dlambda _ = id
   dHApply (HFun f) = f
@@ -698,14 +706,6 @@ instance ADReadyBoth ranked shaped
 
 instance (ProductTensor ranked, HVectorTensor ranked (ShapedOf ranked))
          => ProductTensor (ADVal ranked) where
-  tshapeFull stk t = case stk of
-    STKR{} -> let D u _ = t
-              in tshapeFull stk u
-    STKS{} -> FTKS
-    STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (tproject1 t))
-                                       (tshapeFull stk2 (tproject2 t))
-    STKUntyped -> let D u _ = hVectorADValToADVal $ unHVectorPseudoTensor t
-                  in tshapeFull stk u
   tmkHVector = id
 
 ahhToHVector

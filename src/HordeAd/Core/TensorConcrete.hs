@@ -148,12 +148,6 @@ type instance PrimalOf OSArray = OSArray
 type instance DualOf OSArray = DummyDual
 
 instance ProductTensor DummyDual where
-  tshapeFull stk t = case stk of
-    STKR{} -> error "tshapeFull of DummyDual"
-    STKS{} -> FTKS
-    STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (tproject1 t))
-                                       (tshapeFull stk2 (tproject2 t))
-    STKUntyped -> error "tshapeFull of DummyDual"
   tmkHVector = error "tmkHVector of DummyDual"
 
 instance ShapedTensor OSArray where
@@ -219,6 +213,12 @@ instance ShapedTensor OSArray where
 
 instance HVectorTensor ORArray OSArray where
   dshape = voidFromHVector
+  tshapeFull stk t = case stk of
+    STKR{} -> FTKR $ tshapeR $ runFlipR t
+    STKS{} -> FTKS
+    STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (tproject1 t))
+                                       (tshapeFull stk2 (tproject2 t))
+    STKUntyped -> FTKUntyped $ voidFromHVector $ unHVectorPseudoTensor t
   dmkHVector = id
   dlambda _ f = unHFun f  -- the eta-expansion is needed for typing
   dHApply f = f
@@ -293,12 +293,6 @@ instance HVectorTensor ORArray OSArray where
       unHVectorPseudoTensor $ f (ttuple (HVectorPseudoTensor a) (HVectorPseudoTensor b))) acc0 es
 
 instance ProductTensor ORArray where
-  tshapeFull stk t = case stk of
-    STKR{} -> FTKR $ tshapeR $ runFlipR t
-    STKS{} -> FTKS
-    STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (tproject1 t))
-                                       (tshapeFull stk2 (tproject2 t))
-    STKUntyped -> FTKUntyped $ voidFromHVector $ unHVectorPseudoTensor t
   tmkHVector = id
 
 oRdmapAccumR

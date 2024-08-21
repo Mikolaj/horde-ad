@@ -736,6 +736,8 @@ class HVectorTensor (ranked :: RankedTensorType)
                     (shaped :: ShapedTensorType)
                     | ranked -> shaped, shaped -> ranked where
   dshape :: HVectorOf ranked -> VoidHVector
+  tshapeFull :: STensorKindType y -> InterpretationTarget ranked y
+             -> TensorKindFull y
   dmkHVector :: HVector ranked -> HVectorOf ranked
   dlambda :: (TensorKind x, TensorKind z)
           => TensorKindFull x -> HFun x z -> HFunOf ranked x z
@@ -1159,8 +1161,6 @@ class ProductTensor (ranked :: RankedTensorType) where
   tproject2 :: InterpretationTarget ranked (TKProduct x z)
             -> InterpretationTarget ranked z
   tproject2 (_a, b) = b
-  tshapeFull :: STensorKindType y -> InterpretationTarget ranked y
-             -> TensorKindFull y
   tmkHVector :: HVector ranked -> HVectorOf ranked
 
 rfromD :: forall r n ranked.

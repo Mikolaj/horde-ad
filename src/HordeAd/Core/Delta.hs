@@ -479,12 +479,6 @@ type instance HVectorOf (DeltaR ranked) = Delta ranked TKUntyped
 
 instance RankedOf (ShapedOf ranked) ~ ranked
          => ProductTensor (DeltaR ranked) where
-  tshapeFull stk t = case stk of
-    STKR{} -> shapeDeltaFull $ unDeltaR t
-    STKS{} -> FTKS
-    STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (tproject1 t))
-                                       (tshapeFull stk2 (tproject2 t))
-    STKUntyped -> shapeDeltaFull $ unHVectorPseudoTensor t
   tmkHVector = HToH
 
 shapeDeltaFull :: forall ranked y.
