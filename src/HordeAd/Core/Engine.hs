@@ -304,23 +304,20 @@ crevDtMaybe f vals mdt =
 
 -- | This takes the sensitivity parameter, by convention.
 cfwd
-  :: forall r y f vals advals.
-     ( RankedOf f ~ ORArray
+  :: forall advals z.
+     ( TensorKind z
      , AdaptableHVector (ADVal ORArray) advals
-     , AdaptableHVector (ADVal ORArray) (ADVal f r y)
-     , AdaptableHVector ORArray vals
-     , AdaptableHVector ORArray (f r y)
-     , DualNumberValue advals, vals ~ DValue advals )
-  => (advals -> ADVal f r y) -> vals -> vals -> f r y
+     , AdaptableHVector ORArray (DValue advals)
+     , DualNumberValue advals )
+  => (advals -> InterpretationTarget (ADVal ORArray) z)
+  -> DValue advals
+  -> DValue advals
+  -> InterpretationTarget ORArray z
 cfwd f vals ds =
-  let g hVector = HVectorPseudoTensor
-                  $ toHVectorOf @(ADVal ORArray)
-                  $ f $ parseHVector (fromDValue vals) hVector
+  let g hVector = f $ parseHVector (fromDValue vals) hVector
       valsH = toHVectorOf vals
       dsH = toHVectorOf ds
-      err = error "fwd: codomain of unknown length"
-  in parseHVector err $ unHVectorPseudoTensor $ fst
-     $ cfwdOnHVector @TKUntyped valsH g dsH
+  in fst $ cfwdOnHVector valsH g dsH
 
 
 

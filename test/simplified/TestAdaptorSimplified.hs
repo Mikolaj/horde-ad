@@ -227,7 +227,7 @@ testCFwdZero2S :: Assertion
 testCFwdZero2S =
   assertEqualUpToEpsilon 1e-9
     (sconst $ Nested.Internal.sfromListPrimLinear @_ @'[] knownShS [41])
-    (cfwd @Double @'[] @OSArray
+    (cfwd @_ @(TKS Double '[])
           (let f :: a -> a
                f = id
            in f) (srepl 42) (srepl 41))
@@ -1338,7 +1338,8 @@ testFooBuildCFwd :: Assertion
 testFooBuildCFwd =
   assertEqualUpToEpsilon1 1e-5
     (OR.fromList [3] [-296584.8166864211,-290062.472288043,-265770.1775742018])
-    (cfwd @Double @1 fooBuild1 (ringestData1 [1.1, 2.2, 3.3, 4]) (rreplicate0N [4] (rscalar 42)))
+    (cfwd @_ @(TKR Double 1)
+          fooBuild1 (ringestData1 [1.1, 2.2, 3.3, 4]) (rreplicate0N [4] (rscalar 42)))
 
 testFooBuildFwd :: Assertion
 testFooBuildFwd =
@@ -1539,7 +1540,8 @@ testBarReluMax3CFwd :: Assertion
 testBarReluMax3CFwd =
   assertEqualUpToEpsilon1 1e-10
     (OR.fromList [2, 1, 2] [0.45309153191767404,0.9060427799711201,-2.8186426018387007,40.02498898648793])
-    (cfwd @Double @3 barReluMax
+    (cfwd @_ @(TKR Double 3)
+          barReluMax
                      (rconst $ Nested.Internal.rfromListPrimLinear (fromList [2, 1, 2]) [1.1, 2, 3, 4.2])
                      (ringestData [2, 1, 2] [0.1, 0.2, 0.3, 0.42]))
 
@@ -1677,7 +1679,8 @@ testF2CFwd :: Assertion
 testF2CFwd =
   assertEqualUpToEpsilon 1e-10
     (rscalar 47)
-    (cfwd @Double @0 f2 (rscalar 1.1) (rscalar 0.1))
+    (cfwd @_ @(TKR Double 0)
+          f2 (rscalar 1.1) (rscalar 0.1))
 
 testF2Fwd :: Assertion
 testF2Fwd =
