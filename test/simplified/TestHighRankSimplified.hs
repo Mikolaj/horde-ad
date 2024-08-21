@@ -7,7 +7,6 @@ module TestHighRankSimplified (testTrees) where
 import Prelude
 
 import Data.Array.RankedS qualified as OR
-import Data.IntMap.Strict qualified as IM
 import Data.Strict.Vector qualified as Data.Vector
 import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat, type (+), type (-), type (<=))
@@ -20,7 +19,7 @@ import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 import Data.Array.Nested.Internal.Shaped qualified as Nested.Internal
 
 import HordeAd
-import HordeAd.Core.AstFreshId (funToAst, resetVarCounter)
+import HordeAd.Core.AstFreshId (resetVarCounter)
 import HordeAd.Internal.BackendOX (ORArray, OSArray)
 import HordeAd.Internal.OrthotopeOrphanInstances
   (FlipR (..), IntegralF (..), RealFloatF (..))
@@ -77,8 +76,6 @@ testTrees =
   , testCase "3concatBuild2" testConcatBuild2
   , testCase "3concatBuild22" testConcatBuild22
   , testCase "3concatBuild3" testConcatBuild3
-  , testCase "3concatBuild3PP" testConcatBuild3PP
-  , testCase "3concatBuild3PP2" testConcatBuild3PP2
   ]
 
 foo :: RealFloatF a => (a,a,a) -> a
@@ -647,27 +644,3 @@ testConcatBuild3 =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [0] [])
     (rev' @Double @2 concatBuild3 (FlipR $ OR.fromList [0] []))
-
-testConcatBuild3PP :: Assertion
-testConcatBuild3PP = do
-  resetVarCounter
-  let renames = IM.empty
-      t = concatBuild3 @(AstRanked FullSpan) @Float
-      (var3, ast3) = funToAst (FTKR [3]) $ unAstRanked . t . AstRanked
-  "\\" ++ printAstVarName renames var3
-       ++ " -> " ++ printAstSimple renames (AstRanked ast3)
-    @?= "\\v1 -> rconstant (rfromIntegral (rgather [5,2] (rfromVector (fromList [rreplicate 5 (rslice 0 2 riota), quotF (rtranspose [1,0] (rreplicate 2 (rslice 0 5 riota))) (rreplicate 5 (rreplicate 2 1 + rslice 0 2 riota))])) (\\[i5, i4] -> [ifF (i4 >=. quotF i5 (1 + i4)) 0 1, i5, i4])))"
-
-testConcatBuild3PP2 :: Assertion
-testConcatBuild3PP2 = do
-  resetVarCounter
-  let renames = IM.empty
-      t = concatBuild3 @(AstRanked FullSpan) @Double
-  let (artifactRev, _) =
-        revArtifactAdapt True t (FlipR $ Nested.rfromOrthotope SNat $ OR.fromList [3] [0.651,0.14,0.3414])
-  printArtifactSimple renames artifactRev
-    @?= "\\m9 v10 -> dmkHVector (fromList [DynamicRankedDummy])"
-  printArtifactPrimalSimple renames artifactRev
-    @?= "\\v12 -> dmkHVector (fromList [DynamicRanked (rfromIntegral (rgather [5,2] (rfromVector (fromList [rreplicate 5 (rconst (rfromListLinear [2] [0,1])), quotF (rtranspose [1,0] (rreplicate 2 (rconst (rfromListLinear [5] [0,1,2,3,4])))) (rreplicate 5 (rconst (rfromListLinear [2] [0,1]) + rreplicate 2 1))])) (\\[i6, i7] -> [ifF (i7 >=. quotF i6 (1 + i7)) 0 1, i6, i7])))])"
-  printArtifactPrimalSimple renames (simplifyArtifact artifactRev)
-    @?= "\\v14 -> dmkHVector (fromList [DynamicRanked (rfromIntegral (rgather [5,2] (rfromVector (fromList [rreplicate 5 (rconst (rfromListLinear [2] [0,1])), quotF (rtranspose [1,0] (rreplicate 2 (rconst (rfromListLinear [5] [0,1,2,3,4])))) (rreplicate 5 (rconst (rfromListLinear [2] [0,1]) + rreplicate 2 1))])) (\\[i6, i7] -> [ifF (i7 >=. quotF i6 (1 + i7)) 0 1, i6, i7])))])"

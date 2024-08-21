@@ -117,30 +117,29 @@ revDtMaybe f vals0 mdt =
   -> Value astvals #-}
 
 revArtifactAdapt
-  :: forall r y g astvals.
-     ( AdaptableHVector (AstRanked FullSpan) astvals
-     , AdaptableHVector (AstRanked FullSpan) (g r y)
+  :: forall astvals z.
+     ( TensorKind z
+     , AdaptableHVector (AstRanked FullSpan) astvals
      , AdaptableHVector ORArray (Value astvals)
      , TermValue astvals )
   => Bool
-  -> (astvals -> g r y)
+  -> (astvals -> InterpretationTarget (AstRanked FullSpan) z)
   -> Value astvals
-  -> (AstArtifactRev TKUntyped TKUntyped, Delta (AstRaw PrimalSpan) TKUntyped )
+  -> (AstArtifactRev TKUntyped z, Delta (AstRaw PrimalSpan) z )
 revArtifactAdapt hasDt f vals0 =
   let g :: HVector (AstRanked FullSpan)
-        -> InterpretationTarget (AstRanked FullSpan) TKUntyped
-      g !hv = HVectorPseudoTensor
-              $ toHVectorOf $ f $ parseHVector (fromValue vals0) hv
+        -> InterpretationTarget (AstRanked FullSpan) z
+      g !hv = f $ parseHVector (fromValue vals0) hv
       valsH = toHVectorOf @ORArray vals0
-      voidH = voidFromHVector valsH
-  in revProduceArtifact hasDt g emptyEnv (FTKUntyped voidH)
+      voidH = FTKUntyped $ voidFromHVector valsH
+  in revProduceArtifact hasDt g emptyEnv voidH
 {-# SPECIALIZE revArtifactAdapt
   :: ( KnownNat n
      , AdaptableHVector (AstRanked FullSpan) astvals
      , AdaptableHVector ORArray (Value astvals)
      , TermValue astvals )
   => Bool -> (astvals -> AstRanked FullSpan Double n) -> Value astvals
-  -> (AstArtifactRev TKUntyped TKUntyped, Delta (AstRaw PrimalSpan) TKUntyped) #-}
+  -> (AstArtifactRev TKUntyped (TKR Double n), Delta (AstRaw PrimalSpan) (TKR Double n)) #-}
 
 revProduceArtifactWithoutInterpretation
   :: forall x z. (x ~ TKUntyped, TensorKind z)

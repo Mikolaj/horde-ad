@@ -1050,24 +1050,24 @@ testSin0Scan1Rev2PPA :: Assertion
 testSin0Scan1Rev2PPA = do
   resetVarCounter
   let (art, _) =
-        revArtifactAdapt @Double @1 @(AstRanked FullSpan)
+        revArtifactAdapt
                  True
                  (\x0 -> rscan (\x a -> sin x - a) x0
                            (rconst (Nested.Internal.rfromListPrimLinear @Double @1 (fromList [2]) [5, 7])))
                  (rscalar 1.1)
   printArtifactPretty IM.empty (simplifyArtifact art)
-    @?= "\\v9 x10 -> let h4 = [rconst (rfromListLinear [2] [5.0,7.0])] ; h7 = [0, rslice 1 2 v9] in [rproject (dmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> [rproject h7 0] [rproject h7 1, rproject (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [x10] h4) 1, rproject h4 0]) 0 + v9 ! [0]]"
+    @?= "\\v6 x9 -> let h4 = [rconst (rfromListLinear [2] [5.0,7.0])] ; h7 = [0, rslice 1 2 v6] in [rproject (dmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> [rproject h7 0] [rproject h7 1, rproject (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [x9] h4) 1, rproject h4 0]) 0 + v6 ! [0]]"
 
 testSin0Scan1Rev2PPForComparison :: Assertion
 testSin0Scan1Rev2PPForComparison = do
   resetVarCounter
   let (art, _) =
-        revArtifactAdapt @Double @1 @(AstRanked FullSpan)
+        revArtifactAdapt
                  True
                  (\x0 -> rfromList [sin (sin x0 - 5) - 7, sin x0 - 5, x0])
                  (rscalar 1.1)
-  printArtifactPretty IM.empty (simplifyArtifact art)
-    @?= "\\v4 x5 -> [cos x5 * (cos (sin x5 - 5.0) * v4 ! [0]) + cos x5 * v4 ! [1] + v4 ! [2]]"
+  printArtifactPretty @(TKR Double 1) IM.empty (simplifyArtifact art)
+    @?= "\\v3 x4 -> [cos x4 * (cos (sin x4 - 5.0) * v3 ! [0]) + cos x4 * v3 ! [1] + v3 ! [2]]"
 
 testSin0Scan1Rev2 :: Assertion
 testSin0Scan1Rev2 = do
