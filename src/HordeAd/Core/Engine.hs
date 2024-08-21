@@ -250,49 +250,47 @@ fwdEvalArtifact !(AstArtifactFwd varD var derivative primal) parameters ds =
 --
 -- These work for @f@ both ranked and shaped.
 crev
-  :: forall r y f vals advals.
-     ( RankedOf f ~ ORArray
+  :: forall advals z.
+     ( TensorKind z
      , AdaptableHVector (ADVal ORArray) advals
-     , AdaptableHVector (ADVal ORArray) (ADVal f r y)
-     , AdaptableHVector ORArray vals
-     , AdaptableHVector ORArray (f r y)
-     , DualNumberValue advals, vals ~ DValue advals )
-  => (advals -> ADVal f r y) -> vals -> vals
+     , AdaptableHVector ORArray (DValue advals)
+     , DualNumberValue advals)
+  => (advals -> InterpretationTarget (ADVal ORArray) z)
+  -> DValue advals
+  -> DValue advals
 {-# INLINE crev #-}
 crev f vals = crevDtMaybe f vals Nothing
 
 -- | This version additionally takes the sensitivity parameter.
 crevDt
-  :: forall r y f vals advals.
-     ( RankedOf f ~ ORArray
+  :: forall advals z.
+     ( TensorKind z
      , AdaptableHVector (ADVal ORArray) advals
-     , AdaptableHVector (ADVal ORArray) (ADVal f r y)
-     , AdaptableHVector ORArray vals
-     , AdaptableHVector ORArray (f r y)
-     , DualNumberValue advals, vals ~ DValue advals )
-  => (advals -> ADVal f r y) -> vals -> f r y -> vals
+     , AdaptableHVector ORArray (DValue advals)
+     , DualNumberValue advals)
+  => (advals -> InterpretationTarget (ADVal ORArray) z)
+  -> DValue advals
+  -> InterpretationTarget ORArray z
+  -> DValue advals
 {-# INLINE crevDt #-}
 crevDt f vals dt = crevDtMaybe f vals (Just dt)
 
 crevDtMaybe
-  :: forall r y f vals advals.
-     ( RankedOf f ~ ORArray
+  :: forall advals z.
+     ( TensorKind z
      , AdaptableHVector (ADVal ORArray) advals
-     , AdaptableHVector (ADVal ORArray) (ADVal f r y)
-     , AdaptableHVector ORArray vals
-     , AdaptableHVector ORArray (f r y)
-     , DualNumberValue advals, vals ~ DValue advals )
-  => (advals -> ADVal f r y) -> vals -> Maybe (f r y) -> vals
+     , AdaptableHVector ORArray (DValue advals)
+     , DualNumberValue advals)
+  => (advals -> InterpretationTarget (ADVal ORArray) z)
+  -> DValue advals
+  -> Maybe (InterpretationTarget ORArray z)
+  -> DValue advals
 {-# INLINE crevDtMaybe #-}
 crevDtMaybe f vals mdt =
-  let g hVector = HVectorPseudoTensor
-                  $ toHVectorOf $ f $ parseHVector (fromDValue vals)
-                  $ unHVectorPseudoTensor hVector
+  let g !hv = f $ parseHVector (fromDValue vals) $ unHVectorPseudoTensor hv
       valsH = toHVectorOf vals
-      mdth = toHVector @ORArray <$> mdt
-  in parseHVector vals $ unHVectorPseudoTensor $ fst
-     $ crevOnHVector @_ @TKUntyped
-                     ((HVectorPseudoTensor . dmkHVector) <$> mdth) g valsH
+  in parseHVector vals $ unHVectorPseudoTensor
+     $ fst $ crevOnHVector @_ @z mdt g valsH
 
 {-# SPECIALIZE crevOnHVector
   :: Maybe (InterpretationTarget ORArray TKUntyped)

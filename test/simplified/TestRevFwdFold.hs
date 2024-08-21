@@ -2693,7 +2693,8 @@ testSin0rmapAccumRD01SN6 :: Assertion
 testSin0rmapAccumRD01SN6 = do
   assertEqualUpToEpsilon 1e-10
     (srepl 0.4535961214255773)
-    (crev (let f :: forall f. ADReadyS f => f Double '[] -> HVector (RankedOf f)
+    (crev @_ @TKUntyped
+          (let f :: forall f. ADReadyS f => f Double '[] -> HVector (RankedOf f)
                f x0 = dunHVector
                       $ dmapAccumR (Proxy @(RankedOf f)) (SNat @1)
                           (V.fromList [voidFromShS @Double @'[]])
@@ -2730,13 +2731,14 @@ testSin0rmapAccumRD01SN6 = do
                                          , DynamicShaped @Double @'[1, 2] (sreplicate0N $ sscalar 0)
                                          , DynamicShaped @Double @'[1, 2] (sreplicate0N $ sscalar 0)
                                          , DynamicShaped @Double @'[1, 2] (sreplicate0N $ sscalar 0) ])
-           in hVectorADValToADVal . f) (sscalar 1.1))
+           in HVectorPseudoTensor . f) (sscalar 1.1))
 
 testSin0rmapAccumRD01SN7 :: Assertion
 testSin0rmapAccumRD01SN7 = do
   assertEqualUpToEpsilon 1e-10
     (srepl 0.4535961214255773)
-    (crev (let f :: forall f. ADReadyS f
+    (crev @_ @TKUntyped
+          (let f :: forall f. ADReadyS f
                  => f Double '[] -> HVectorOf (RankedOf f)
                f x0 = dmapAccumR (Proxy @(RankedOf f)) (SNat @1)
                           (V.fromList [voidFromShS @Double @'[]])
@@ -2774,7 +2776,7 @@ testSin0rmapAccumRD01SN7 = do
                                          , DynamicShaped @Double @'[1, 2] (sreplicate0N $ sscalar 0)
                                          , DynamicShaped @Double @'[1, 2] (sreplicate0N $ sscalar 0)
                                          , DynamicShaped @Double @'[1, 2] (sreplicate0N $ sscalar 0) ])
-           in hVectorADValToADVal . f @(ADVal OSArray)) (sscalar 1.1))
+           in HVectorPseudoTensor . f @(ADVal OSArray)) (sscalar 1.1))
 
 testSin0ScanD1 :: Assertion
 testSin0ScanD1 = do
@@ -4261,8 +4263,8 @@ testSin0revhV2 = do
              x
       h :: forall g. ADReady g
         => HVector (ADVal g)
-        -> ADVal (HVectorPseudoTensor g) Float '()
-      h = hVectorADValToADVal . f
+        -> HVectorPseudoTensor (ADVal g) Float '()
+      h = HVectorPseudoTensor . f
   assertEqualUpToEpsilon 1e-10
     (V.singleton $ DynamicRanked @Double @0 (rscalar (-0.8912073600614354)))
     (crev (h @ORArray) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1)))
@@ -4277,8 +4279,8 @@ testSin0revhV3 = do
              x
       h :: forall g. ADReady g
         => HVector (ADVal g)
-        -> ADVal (HVectorPseudoTensor g) Float '()
-      h = hVectorADValToADVal . f
+        -> HVectorPseudoTensor (ADVal g) Float '()
+      h = HVectorPseudoTensor . f
   assertEqualUpToEpsilon 1e-10
     (V.singleton $ DynamicShaped @Double @'[] (sscalar $ -0.8912073600614354))
     (crev (h @ORArray) (V.singleton $ DynamicShaped @Double @'[] (srepl 1.1)))
@@ -4295,8 +4297,8 @@ testSin0revhV4 = do
                doms3 x (ringestData1 [1, 2, 3, 4])
       h :: forall g. ADReady g
         => HVector (ADVal g)
-        -> ADVal (HVectorPseudoTensor g) Float '()
-      h = hVectorADValToADVal . f
+        -> HVectorPseudoTensor (ADVal g) Float '()
+      h = HVectorPseudoTensor . f
   assertEqualUpToEpsilon 1e-10
     (V.singleton $ DynamicRanked @Double @1 $ rfromList [rscalar 0, rscalar 0, rscalar 0])
     (crev (h @ORArray)
@@ -4315,8 +4317,8 @@ testSin0revhV5 = do
                doms3 x (ingestData [1, 2, 3, 4])
       h :: forall g. ADReady g
         => HVector (ADVal g)
-        -> ADVal (HVectorPseudoTensor g) Float '()
-      h = hVectorADValToADVal . f
+        -> HVectorPseudoTensor (ADVal g) Float '()
+      h = HVectorPseudoTensor . f
   assertEqualUpToEpsilon 1e-10
     (V.singleton $ DynamicShaped @Double @'[3] $ ingestData [0, 0, 0])
     (crev (h @ORArray)
@@ -4336,8 +4338,8 @@ testSin0revhV6 = do
                 doms3 x (ringestData1 [1, 2, 3, 4])
       h :: forall g. ADReady g
         => HVector (ADVal g)
-        -> ADVal (HVectorPseudoTensor g) Float '()
-      h = hVectorADValToADVal . f
+        -> HVectorPseudoTensor (ADVal g) Float '()
+      h = HVectorPseudoTensor . f
   assertEqualUpToEpsilon 1e-10
     (V.singleton $ DynamicRanked @Double @1 $ ringestData1 [4.0,6.0,8.0])
     (crev (h @ORArray)
@@ -4358,8 +4360,8 @@ testSin0revhV7 = do
                doms3 x (ingestData [1, 2, 3, 4])
       h :: forall g. ADReady g
         => HVector (ADVal g)
-        -> ADVal (HVectorPseudoTensor g) Float '()
-      h = hVectorADValToADVal . f
+        -> HVectorPseudoTensor (ADVal g) Float '()
+      h = HVectorPseudoTensor . f
   assertEqualUpToEpsilon 1e-10
     (V.singleton $ DynamicShaped @Double @'[3] $ ingestData [4.0,6.0,8.0])
     (crev (h @ORArray)
@@ -4372,11 +4374,12 @@ testSin0revhV8 = do
       f = dmkHVector
       h :: forall g. ADReady g
         => HVector (ADVal g)
-        -> ADVal (HVectorPseudoTensor g) Float '()
-      h = hVectorADValToADVal . f
+        -> HVectorPseudoTensor (ADVal g) Float '()
+      h = HVectorPseudoTensor . f
   assertEqualUpToEpsilon 1e-10
     (V.singleton $ DynamicShaped @Double @'[3] $ ingestData [1, 1, 1])
-    (crev (h @ORArray)
+    (crev @_ @TKUntyped
+          (h @ORArray)
           (V.singleton $ DynamicShaped @Double @'[3]
            $ sreplicate @OSArray @3 (sscalar 1.1)))
 
@@ -4460,8 +4463,8 @@ testSin0revhFoldZipR :: Assertion
 testSin0revhFoldZipR = do
   let h :: ranked ~ ORArray
         => HVector (ADVal ranked)
-        -> ADVal (HVectorPseudoTensor ranked) Float '()
-      h = hVectorADValToADVal . fFoldZipRX @(ADVal ORArray)
+        -> HVectorPseudoTensor (ADVal ranked) Float '()
+      h = HVectorPseudoTensor . fFoldZipRX @(ADVal ORArray)
   assertEqualUpToEpsilon 1e-10
     (V.fromList [ DynamicRanked @Double @1 $ rfromList [rscalar 0, rscalar 0, rscalar 0]
                 , DynamicRanked @Double @1

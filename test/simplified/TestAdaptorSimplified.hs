@@ -218,7 +218,7 @@ testZero2S :: Assertion
 testZero2S =
   assertEqualUpToEpsilon 1e-9
     (sconst $ Nested.Internal.sfromListPrimLinear @_ @'[] knownShS [1])
-    (crev @Double @'[] @OSArray
+    (crev @_ @(TKS Double '[])
           (let f :: a -> a
                f = id
            in f) (srepl 42))
@@ -445,7 +445,8 @@ testOverleafInt64 :: Assertion
 testOverleafInt64 =
   assertEqualUpToEpsilon 1e-10
     (ringestData [28] (map round [2.0 :: Double,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,1.0,1.0,1.0,1.0,1.0,1.0]))
-    (crev @Int64 @0 overleaf (ringestData [28] [0 .. 27]))
+    (crev @_ @(TKR Int64 0)
+          overleaf (ringestData [28] [0 .. 27]))
 
 testOverleafCInt :: Assertion
 testOverleafCInt =
@@ -1394,7 +1395,8 @@ testFooNoGoAst =
                          (unAstRanked $ fooNoGoAst (AstRanked $ AstVar (FTKR [5]) (mkAstVarName . intToAstVarId $ 100000000)))
   in assertEqualUpToEpsilon1 1e-6
        (OR.fromList [5] [5.037878787878788,-14.394255484765257,43.23648655081373,-0.8403418295960368,5.037878787878788])
-       (crev @Double @1 f
+       (crev @_ @(TKR Double 1)
+             f
              (ringestData1 [1.1, 2.2, 3.3, 4, 5]))
 
 fooNoGo :: forall ranked r. (ADReady ranked, GoodScalar r, Differentiable r)
@@ -1598,7 +1600,8 @@ testBarReluAst0 =
                          (unAstRanked $ barReluAst (AstRanked $ AstVar (FTKR []) (mkAstVarName . intToAstVarId $ 100000000)))
   in assertEqualUpToEpsilon1 1e-10
        (OR.fromList [] [191.20462646925841])
-       (crevDt @Double @0 f (rscalar 1.1) (rscalar 42.2))
+       (crevDt @_ @(TKR Double 0)
+               f (rscalar 1.1) (rscalar 42.2))
 
 testBarReluAst1 :: Assertion
 testBarReluAst1 =
@@ -1610,7 +1613,8 @@ testBarReluAst1 =
                          (unAstRanked $ barReluAst (AstRanked $ AstVar (FTKR [5]) (mkAstVarName . intToAstVarId $ 100000000)))
   in assertEqualUpToEpsilon1 1e-10
        (OR.fromList [5] [4.530915319176739,-2.9573428114591314e-2,5.091137576320349,81.14126788127645,2.828924924816215])
-       (crev @Double @1 f (rfromList0N [5] [rscalar 1.1, rscalar 2.2, rscalar 3.3, rscalar 4, rscalar 5]))
+       (crev @_ @(TKR Double 1)
+             f (rfromList0N [5] [rscalar 1.1, rscalar 2.2, rscalar 3.3, rscalar 4, rscalar 5]))
 
 konstReluAst
   :: forall r.
@@ -1628,7 +1632,8 @@ testReplicateReluAst =
                          (unAstRanked $ konstReluAst (AstRanked $ AstVar (FTKR []) (mkAstVarName . intToAstVarId $ 100000000)))
   in assertEqualUpToEpsilon1 1e-10
        (OR.fromList [] [295.4])
-       (crevDt @Double @0 f (rscalar 1.1) (rscalar 42.2))
+       (crevDt @_ @(TKR Double 0)
+               f (rscalar 1.1) (rscalar 42.2))
 
 f1 :: (ADReady ranked, GoodScalar r) => ranked r 0 -> ranked r 0
 f1 = \arg -> rsum0 (rbuild1 10 (\i -> arg * rfromIndex0 i))
