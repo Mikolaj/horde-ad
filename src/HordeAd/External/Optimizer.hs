@@ -36,15 +36,14 @@ sgd gamma f trainingData parameters0 = go trainingData parameters0 where
                 $ toHVector
                 $ f a $ parseHVector (fromDValue parameters0)
                 $ unHVectorPseudoTensor hVector
-  deltaInputs = generateDeltaInputs @ORArray parameters0
+  deltaInputs = generateDeltaInputs @TKUntyped @ORArray (HVectorPseudoTensor $ dmkHVector parameters0)
   go :: [a] -> HVector ORArray
      -> (HVector ORArray, ORArray r n)
   go [] parameters = (parameters, 0)
   go (a : rest) !parameters =
-    let inputs = makeADInputs parameters deltaInputs
+    let inputs = makeADInputs (HVectorPseudoTensor $ dmkHVector parameters) deltaInputs
         (gradients, valueNew) =
-          crevOnADInputs @_ @TKUntyped Nothing (g a)
-          $ HVectorPseudoTensor inputs
+          crevOnADInputs @_ @TKUntyped Nothing (g a) inputs
         parametersNew = updateWithGradient gamma parameters
                         $ unHVectorPseudoTensor gradients
     in if null rest
@@ -88,15 +87,14 @@ sgdAdamArgs updateWith argsAdam f trainingData !parameters0 !stateAdam0 =
                 $ f a
                 $ parseHVector (fromDValue parameters0)
                 $ unHVectorPseudoTensor hVector
-  deltaInputs = generateDeltaInputs parameters0
+  deltaInputs = generateDeltaInputs (HVectorPseudoTensor $ dmkHVector parameters0)
   go :: [a] -> HVector (RankedOf f) -> StateAdam
      -> (HVector (RankedOf f), StateAdam)
   go [] parameters stateAdam = (parameters, stateAdam)
   go (a : rest) !parameters !stateAdam =
-    let inputs = makeADInputs parameters deltaInputs
+    let inputs = makeADInputs (HVectorPseudoTensor $ dmkHVector parameters) deltaInputs
         gradients = unHVectorPseudoTensor $ fst
-                    $ crevOnADInputs @_ @TKUntyped Nothing (g a)
-                    $ HVectorPseudoTensor inputs
+                    $ crevOnADInputs @_ @TKUntyped Nothing (g a) inputs
         (parametersNew, stateAdamNew) =
           updateWith argsAdam stateAdam parameters gradients
     in go rest parametersNew stateAdamNew

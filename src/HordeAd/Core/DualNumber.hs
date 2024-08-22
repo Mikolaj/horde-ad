@@ -10,7 +10,7 @@ module HordeAd.Core.DualNumber
   , indexPrimal, fromVector, indexPrimalS, fromVectorS
   , ensureToplevelSharing, scaleNotShared, addNotShared, multNotShared
 --  , addParameters, dotParameters
-  , generateDeltaInputs, makeADInputs
+  , generateDeltaInputs, makeADInputs, ahhToHVector
   ) where
 
 import Prelude
@@ -20,10 +20,9 @@ import Data.Array.Internal (valueOf)
 import Data.Kind (Type)
 import Data.Proxy (Proxy (Proxy))
 import Data.Strict.Vector qualified as Data.Vector
-import Data.Type.Equality (testEquality, (:~:) (Refl))
+import Data.Type.Equality ((:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat, sameNat, type (+))
-import Type.Reflection (typeRep)
 
 import Data.Array.Mixed.Types qualified as X
 
@@ -124,10 +123,11 @@ dotParameters (HVector a0 a1) (HVector b0 b1) =
 -}
 
 generateDeltaInputs
-  :: forall ranked ranked2 shaped2.
-     (RankedTensor ranked, shaped2 ~ ShapedOf ranked2, ranked2 ~ RankedOf shaped2)
-  => HVector ranked
-  -> HVector (Dual ranked2)
+  :: forall x ranked ranked2.
+     ( x ~ TKUntyped, RankedTensor ranked, HVectorTensor ranked (ShapedOf ranked)
+     , RankedOf (ShapedOf ranked2) ~ ranked2 )
+  => InterpretationTarget ranked x
+  -> InterpretationTarget (Dual ranked2) x
 generateDeltaInputs =
   let f :: Int -> DynamicTensor ranked -> DynamicTensor (Dual ranked2)
       f i (DynamicRanked @r @n t) =
@@ -142,29 +142,46 @@ generateDeltaInputs =
           DynamicRanked $ DeltaR $ InputR @ranked2 @r sh (toInputIdR i)
       f i (DynamicShapedDummy @r @sh _ _) =
         DynamicShaped $ DeltaS $ InputS @ranked2 @r @sh (toInputIdS i)
-  in V.imap f
+  in HVectorPseudoTensor . HToH . V.imap f . dunHVector . unHVectorPseudoTensor
+       -- dunHVector is fine, because p is made with dmkHVector
 {- TODO: this causes a cyclic dependency:
 {-# SPECIALIZE generateDeltaInputs
   :: HVector (FlipR OR.Array) -> HVector (Dual (FlipR OR.Array)) #-}
 -}
 
--- Not specialized, because not overloaded (HVector is a type synonym).
 makeADInputs
-  :: HVector ranked -> HVector (Dual ranked)
-  -> HVector (ADVal ranked)
-makeADInputs =
-  let f :: DynamicTensor ranked -> DynamicTensor (Dual ranked)
-        -> DynamicTensor (ADVal ranked)
-      f (DynamicRanked @r @n t) (DynamicRanked @r2 @n2 d)
-        | Just Refl <- sameNat (Proxy @n) (Proxy @n2)
-        , Just Refl <- testEquality (typeRep @r) (typeRep @r2) =
-          DynamicRanked $ dDnotShared t d
-      f (DynamicShaped @r @sh t) (DynamicShaped @r2 @sh2 d)
-        | Just Refl <- sameShape @sh @sh2
-        , Just Refl <- testEquality (typeRep @r) (typeRep @r2) =
-          DynamicShaped $ dDnotShared t d
-      f _ _ = error "makeADInputs: non-matching arguments"
-  in V.zipWith f
+  :: forall x ranked.
+     ( TensorKind x, HVectorTensor ranked (ShapedOf ranked)
+     , RankedOf (ShapedOf ranked) ~ ranked )
+  => InterpretationTarget ranked x -> InterpretationTarget (Dual ranked) x
+  -> InterpretationTarget (ADVal ranked) x
+makeADInputs p0 d0 =
+  let g :: STensorKindType y
+        -> InterpretationTarget ranked y -> InterpretationTarget (Dual ranked) y
+        -> InterpretationTarget (ADVal ranked) y
+      g STKR{} p d = dDnotShared p d
+      g STKS{} p d = dDnotShared p d
+      g (STKProduct stk1 stk2) p d =
+        (g stk1 (fst p) (fst d), g stk2 (snd p) (snd d))
+      g STKUntyped p d =
+        HVectorPseudoTensor
+        $ ahhToHVector (dunHVector $ unHVectorPseudoTensor p)
+                       (unHVectorPseudoTensor d)
+            -- dunHVector is fine, because p is made with dmkHVector
+  in g (stensorKind @x) p0 d0
+
+ahhToHVector
+  :: forall ranked. RankedOf (ShapedOf ranked) ~ ranked
+  => HVector ranked -> Delta ranked TKUntyped -> HVector (ADVal ranked)
+ahhToHVector h h' =
+  let selectDual :: Int -> DynamicTensor ranked -> DynamicTensor (ADVal ranked)
+      selectDual i d = case d of
+        DynamicRanked t -> DynamicRanked $ dDnotShared t (DeltaR $ RFromH h' i)
+        DynamicShaped t -> DynamicShaped $ dDnotShared t (DeltaS $ SFromH h' i)
+        DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
+        DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
+  in V.imap selectDual h
+       -- TODO: write why these projections don't break any sharing
 
 
 -- * Assorted instances

@@ -150,7 +150,7 @@ revProduceArtifactWithoutInterpretation
   -> (AstArtifactRev x z, Delta (AstRaw PrimalSpan) z)
 {-# INLINE revProduceArtifactWithoutInterpretation #-}
 revProduceArtifactWithoutInterpretation hasDt f =
-  let g :: HVector (AstRaw PrimalSpan)
+  let g :: InterpretationTarget (AstRaw PrimalSpan) TKUntyped
         -> AstVarName FullSpan x
         -> HVector (AstRanked FullSpan)
         -> InterpretationTarget (ADVal (AstRaw PrimalSpan)) z
@@ -160,14 +160,14 @@ revProduceArtifactWithoutInterpretation hasDt f =
 forwardPassByApplication
   :: (HVector (ADVal (AstRaw PrimalSpan))
       -> InterpretationTarget (ADVal (AstRaw PrimalSpan)) z)
-  -> HVector (AstRaw PrimalSpan)
+  -> InterpretationTarget (AstRaw PrimalSpan) TKUntyped
   -> AstVarName FullSpan TKUntyped
   -> HVector (AstRanked FullSpan)
   -> InterpretationTarget (ADVal (AstRaw PrimalSpan)) z
 {-# INLINE forwardPassByApplication #-}
 forwardPassByApplication g hVectorPrimal _var _hVector =
   let deltaInputs = generateDeltaInputs hVectorPrimal
-      varInputs = makeADInputs hVectorPrimal deltaInputs
+      HVectorPseudoTensor varInputs = makeADInputs hVectorPrimal deltaInputs
   in g varInputs
 
 revEvalArtifact
@@ -288,7 +288,7 @@ crevDtMaybe
 {-# INLINE crevDtMaybe #-}
 crevDtMaybe f vals mdt =
   let g !hv = f $ parseHVector (fromDValue vals) $ unHVectorPseudoTensor hv
-      valsH = toHVectorOf vals
+      valsH = HVectorPseudoTensor $ toHVectorOf vals
   in parseHVector vals $ unHVectorPseudoTensor
      $ fst $ crevOnHVector @_ @z mdt g valsH
 
@@ -315,7 +315,7 @@ cfwd
   -> InterpretationTarget ORArray z
 cfwd f vals ds =
   let g hVector = f $ parseHVector (fromDValue vals) hVector
-      valsH = toHVectorOf vals
+      valsH = HVectorPseudoTensor $ toHVectorOf vals
       dsH = toHVectorOf ds
   in fst $ cfwdOnHVector valsH g dsH
 

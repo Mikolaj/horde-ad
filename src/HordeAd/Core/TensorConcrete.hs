@@ -240,7 +240,8 @@ instance HVectorTensor ORArray OSArray where
           -> InterpretationTarget (ADVal ORArray) TKUntyped
         g !hv = HVectorPseudoTensor $ V.singleton $ DynamicRanked
                 $ f $ unHVectorPseudoTensor hv
-    in unHVectorPseudoTensor $ fst $ crevOnHVector Nothing g parameters
+    in unHVectorPseudoTensor $ fst $ crevOnHVector Nothing g
+       $ HVectorPseudoTensor $ dmkHVector parameters
   -- The code for drevDt and dfwd in this instance is the same as for the
   -- ADVal ranked instance, because the type family instance is the same.
   drevDt :: forall x z. (x ~ TKUntyped, TensorKind z)
@@ -258,7 +259,7 @@ instance HVectorTensor ORArray OSArray where
           fst $ crevOnHVector
                   (Just $ fst db_a)
                   g
-                  (dunHVector $ unHVectorPseudoTensor $ snd db_a)
+                  (snd db_a)
     in rf
   dfwd :: forall x z. (x ~ TKUntyped, TensorKind z)
             => TensorKindFull x
@@ -270,7 +271,7 @@ instance HVectorTensor ORArray OSArray where
         g !hv = unHFun h (HVectorPseudoTensor hv)
         df :: InterpretationTarget ORArray (TKProduct x x)
            -> InterpretationTarget ORArray z
-        df !da_a = fst $ cfwdOnHVector (unHVectorPseudoTensor $ snd da_a)
+        df !da_a = fst $ cfwdOnHVector (snd da_a)
                                        g
                                        (unHVectorPseudoTensor $ fst da_a)
     in df

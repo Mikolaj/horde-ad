@@ -72,38 +72,38 @@ crevOnADInputs mdt f inputs =
       parameters0 = V.map (voidFromDynamicF (shapeToList . rshapePrimal))
                     $ unHVectorPseudoTensor inputs
       !gradient = gradientFromDelta parameters0 v mdt delta
-  in ( tunshare @_ @_ @TKUntyped
+  in ( tunshare @_ @_ @x
        $ HVectorPseudoTensor (dmkHVector gradient)
      , tunshare v )
 
 crevOnHVector
-  :: (x ~ TKUntyped, TensorKind z, ADReady ranked)
+  :: forall x z ranked. (x ~ TKUntyped, TensorKind z, ADReady ranked)
   => Maybe (InterpretationTarget ranked z)
   -> (InterpretationTarget (ADVal ranked) x
       -> InterpretationTarget (ADVal ranked) z)
-  -> HVector ranked
+  -> InterpretationTarget ranked x
   -> (InterpretationTarget ranked x, InterpretationTarget ranked z)
 crevOnHVector mdt f parameters =
   let deltaInputs = generateDeltaInputs parameters
       inputs = makeADInputs parameters deltaInputs
-  in crevOnADInputs mdt f $ HVectorPseudoTensor inputs
+  in crevOnADInputs mdt f inputs
 
 cfwdOnADInputs
-  :: forall z ranked. (TensorKind z, ADReady ranked)
-  => HVector (ADVal ranked)
+  :: forall x z ranked. (x ~ TKUntyped, TensorKind z, ADReady ranked)
+  => InterpretationTarget (ADVal ranked) x
   -> (HVector (ADVal ranked) -> InterpretationTarget (ADVal ranked) z)
   -> HVector ranked
   -> (InterpretationTarget ranked z, InterpretationTarget ranked z)
 {-# INLINE cfwdOnADInputs #-}
-cfwdOnADInputs inputs f ds =
+cfwdOnADInputs (HVectorPseudoTensor inputs) f ds =
   let !(!v, !deltaIT) = unADValInterpretation (stensorKind @z) $ f inputs
       !delta = unDeltaRY (stensorKind @z) deltaIT in
   let !derivative = derivativeFromDelta (V.length inputs) delta ds
   in (tunshare derivative, tunshare v)
 
 cfwdOnHVector
-  :: (TensorKind z, ADReady ranked)
-  => HVector ranked
+  :: forall x z ranked. (x ~ TKUntyped, TensorKind z, ADReady ranked)
+  => InterpretationTarget ranked x
   -> (HVector (ADVal ranked) -> InterpretationTarget (ADVal ranked) z)
   -> HVector ranked
   -> (InterpretationTarget ranked z, InterpretationTarget ranked z)
@@ -480,7 +480,8 @@ instance ADReadyBoth ranked shaped
           -> InterpretationTarget (ADVal (ADVal ranked)) TKUntyped
         g !hv = HVectorPseudoTensor $ V.singleton $ DynamicRanked
                 $ f $ unHVectorPseudoTensor hv
-    in unHVectorPseudoTensor $ fst $ crevOnHVector Nothing g parameters
+    in unHVectorPseudoTensor $ fst $ crevOnHVector Nothing g
+       $ HVectorPseudoTensor $ dmkHVector parameters
   drevDt :: forall x z. (x ~ TKUntyped, TensorKind z)
               => TensorKindFull x
               -> HFun x z
@@ -498,7 +499,7 @@ instance ADReadyBoth ranked shaped
           fst $ crevOnHVector
                   (Just $ fst db_a)
                   g
-                  (dunHVector $ dshare $ unHVectorPseudoTensor $ snd db_a)
+                  (HVectorPseudoTensor $ dshare $ unHVectorPseudoTensor $ snd db_a)
     in HFun rf
   dfwd :: forall x z. (x ~ TKUntyped, TensorKind z)
             => TensorKindFull x
@@ -513,7 +514,7 @@ instance ADReadyBoth ranked shaped
            -> InterpretationTarget f z
           -- This computes the derivative of g again for each new da and a.
         df !da_a = fst $ cfwdOnHVector
-                           (dunHVector $ dshare $ unHVectorPseudoTensor $ snd da_a)
+                           (HVectorPseudoTensor $ dshare $ unHVectorPseudoTensor $ snd da_a)
                            g
                            (dunHVector $ dshare $ unHVectorPseudoTensor $ fst da_a)
     in HFun df
@@ -706,19 +707,6 @@ instance ADReadyBoth ranked shaped
 
 instance ProductTensor (ADVal ranked) where
   tmkHVector = id
-
-ahhToHVector
-  :: forall ranked. RankedOf (ShapedOf ranked) ~ ranked
-  => HVector ranked -> Delta ranked TKUntyped -> HVector (ADVal ranked)
-ahhToHVector h h' =
-  let selectDual :: Int -> DynamicTensor ranked -> DynamicTensor (ADVal ranked)
-      selectDual i d = case d of
-        DynamicRanked t -> DynamicRanked $ dDnotShared t (DeltaR $ RFromH h' i)
-        DynamicShaped t -> DynamicShaped $ dDnotShared t (DeltaS $ SFromH h' i)
-        DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
-        DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
-  in V.imap selectDual h
-       -- TODO: write why these projections don't break any sharing
 
 aDValToHVector
   :: (HVectorOf ranked ~ HVector ranked, RankedOf (ShapedOf ranked) ~ ranked)

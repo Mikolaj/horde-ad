@@ -56,7 +56,7 @@ forwardPassByInterpretation
   => (HVector (AstRanked FullSpan)
       -> InterpretationTarget (AstRanked FullSpan) z)
   -> AstEnv (ADVal (AstRaw PrimalSpan))
-  -> HVector (AstRaw PrimalSpan)
+  -> InterpretationTarget (AstRaw PrimalSpan) TKUntyped
   -> AstVarName FullSpan TKUntyped
   -> HVector (AstRanked FullSpan)
   -> InterpretationTarget (ADVal (AstRaw PrimalSpan)) z
@@ -65,13 +65,13 @@ forwardPassByInterpretation g envInit hVectorPrimal var hVector =
   let deltaInputs = generateDeltaInputs hVectorPrimal
       varInputs = makeADInputs hVectorPrimal deltaInputs
       ast = g hVector
-      env = extendEnv var (HVectorPseudoTensor $ dmkHVector varInputs) envInit
+      env = extendEnv var varInputs envInit
   in interpretAst env $ unRankedY (stensorKind @z) ast
 
 revArtifactFromForwardPass
   :: forall x z. (x ~ TKUntyped, TensorKind z)
   => Bool
-  -> (HVector (AstRaw PrimalSpan)
+  -> (InterpretationTarget (AstRaw PrimalSpan) TKUntyped
       -> AstVarName FullSpan x
       -> HVector (AstRanked FullSpan)
       -> InterpretationTarget (ADVal (AstRaw PrimalSpan)) z)
@@ -88,7 +88,7 @@ revArtifactFromForwardPass hasDt forwardPass
       -- before gradientFromDelta allocates new memory and new FFI is started.
       !(!primalBody, !deltaIT) =
         unADValInterpretation (stensorKind @z)
-        $ forwardPass hVectorPrimal var hVector
+        $ forwardPass (HVectorPseudoTensor $ dmkHVector hVectorPrimal) var hVector
       !delta = unDeltaRY (stensorKind @z) deltaIT in
   let (!varDt, !astDt) =
         funToAst (shapeAstFull $ unRawY (stensorKind @z) primalBody) id in
@@ -150,7 +150,7 @@ gunshareRanked stk b = case stk of
 
 fwdArtifactFromForwardPass
   :: forall x z. (x ~ TKUntyped, TensorKind z)
-  => (HVector (AstRaw PrimalSpan)
+  => (InterpretationTarget (AstRaw PrimalSpan) TKUntyped
       -> AstVarName FullSpan x
       -> HVector (AstRanked FullSpan)
       -> InterpretationTarget (ADVal (AstRaw PrimalSpan)) z)
@@ -162,7 +162,7 @@ fwdArtifactFromForwardPass forwardPass ftk@(FTKUntyped parameters0) =
         funToAstFwd ftk in
   let !(!primalBody, !deltaIT) =
         unADValInterpretation (stensorKind @z)
-        $ forwardPass hVectorPrimal var hVector
+        $ forwardPass (HVectorPseudoTensor $ dmkHVector hVectorPrimal) var hVector
       !delta = unDeltaRY (stensorKind @z) deltaIT in
   let !derivative = derivativeFromDelta (V.length parameters0) delta hVectorD
       !unDerivative = gunshare (stensorKind @z) derivative
