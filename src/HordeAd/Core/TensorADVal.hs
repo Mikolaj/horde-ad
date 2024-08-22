@@ -98,7 +98,7 @@ cfwdOnADInputs
 cfwdOnADInputs (HVectorPseudoTensor inputs) f ds =
   let !(!v, !deltaIT) = unADValInterpretation (stensorKind @z) $ f inputs
       !delta = unDeltaRY (stensorKind @z) deltaIT in
-  let !derivative = derivativeFromDelta (V.length inputs) delta ds
+  let !derivative = derivativeFromDelta delta ds
   in (tunshare derivative, tunshare v)
 
 cfwdOnHVector

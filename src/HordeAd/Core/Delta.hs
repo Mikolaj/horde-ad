@@ -124,13 +124,13 @@ interpretationConstant r = \case
 
 derivativeFromDelta
   :: forall ranked y. ADReady ranked
-  => Int -> Delta ranked y -> HVector ranked
+  => Delta ranked y -> HVector ranked
   -> InterpretationTarget ranked y
-derivativeFromDelta dim deltaTopLevel ds =
+derivativeFromDelta deltaTopLevel ds =
   -- EvalState is too complex for the forward derivative, but since
   -- it's already defined, let's use it.
   let s0 = EvalState DMap.empty DMap.empty DMap.empty
-      !(!_s2, !c) = fwdR dim ds s0 deltaTopLevel
+      !(!_s2, !c) = fwdR ds s0 deltaTopLevel
   in c
 
 
@@ -1154,44 +1154,44 @@ evalFromnMap s@EvalState{nMap, dMap} =
 -- formulation is adopted.
 fwdDynamic
   :: forall ranked. ADReady ranked
-  => Int -> HVector ranked
+  => HVector ranked
   -> EvalState ranked
   -> DynamicTensor (DeltaR ranked)
   -> (EvalState ranked, DynamicTensor ranked)
-fwdDynamic dimR params s (DynamicRanked d) =
-  second DynamicRanked $ fwdR dimR params s (unDeltaR d)
-fwdDynamic dimR params s (DynamicShaped d) =
-  second DynamicShaped $ fwdR dimR params s (unDeltaS d)
-fwdDynamic dimR params s (DynamicRankedDummy @r @sh _ _) =
+fwdDynamic params s (DynamicRanked d) =
+  second DynamicRanked $ fwdR params s (unDeltaR d)
+fwdDynamic params s (DynamicShaped d) =
+  second DynamicShaped $ fwdR params s (unDeltaS d)
+fwdDynamic params s (DynamicRankedDummy @r @sh _ _) =
   withListSh (Proxy @sh) $ \sh2 ->
-    second (DynamicRanked @r) $ fwdR dimR params s (ZeroR sh2)
-fwdDynamic dimR params s (DynamicShapedDummy @r @sh _ _) =
-  second (DynamicShaped @r @sh) $ fwdR dimR params s ZeroS
+    second (DynamicRanked @r) $ fwdR params s (ZeroR sh2)
+fwdDynamic params s (DynamicShapedDummy @r @sh _ _) =
+  second (DynamicShaped @r @sh) $ fwdR params s ZeroS
 
 fwdHVector
   :: forall ranked. ADReady ranked
-  => Int -> HVector ranked
+  => HVector ranked
   -> EvalState ranked
   -> HVector (DeltaR ranked)
   -> (EvalState ranked, HVector ranked)
-fwdHVector dimR params = mapAccumL (fwdDynamic dimR params)
+fwdHVector params = mapAccumL (fwdDynamic params)
 
 fwdR
   :: forall ranked y. ADReady ranked
-  => Int -> HVector ranked -> EvalState ranked -> Delta ranked y
+  => HVector ranked -> EvalState ranked -> Delta ranked y
   -> (EvalState ranked, InterpretationTarget ranked y)
-fwdR dimR params s = \case
-  TupleG d1 d2 -> let (s2, t) = fwdR dimR params s d1
-                      (s3, u) = fwdR dimR params s2 d2
+fwdR params s = \case
+  TupleG d1 d2 -> let (s2, t) = fwdR params s d1
+                      (s3, u) = fwdR params s2 d2
                   in (s3, (t, u))
-  Project1G d -> let (s2, v) = fwdR dimR params s d
+  Project1G d -> let (s2, v) = fwdR params s d
                  in (s2, fst v)
-  Project2G d -> let (s2, v) = fwdR dimR params s d
+  Project2G d -> let (s2, v) = fwdR params s d
                  in (s2, snd v)
 
   ZeroR sh -> (s, rzero sh)
   InputR @_ @r @n _ (InputId i) ->
-    if i < dimR
+    if i < V.length params
     then case params V.! i of
       DynamicRanked @r2 @n2 e -> case sameNat (Proxy @n2) (Proxy @n) of
         Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
@@ -1202,58 +1202,58 @@ fwdR dimR params s = \case
       DynamicRankedDummy{} -> error "fwdR: DynamicRankedDummy"
       DynamicShapedDummy{} -> error "fwdR: DynamicShapedDummy"
     else error "fwdR': wrong index for an input"
-  ScaleR k d -> second (* k) $ fwdR dimR params s d
-  AddR d e -> let (s2, t) = fwdR dimR params s d
-                  (s3, u) = fwdR dimR params s2 e
+  ScaleR k d -> second (* k) $ fwdR params s d
+  AddR d e -> let (s2, t) = fwdR params s d
+                  (s3, u) = fwdR params s2 e
               in (s3, t + u)
   ShareR n d ->
     case DMap.lookup n $ dMap s of
       Just (DTKR e) -> (s, e)
       Nothing ->
-        let (s2, cRaw) = fwdR dimR params s d
+        let (s2, cRaw) = fwdR params s d
             cShared = rshare cRaw
             s3 = s2 {dMap = DMap.insert n (DTKR cShared) (dMap s2)}
         in (s3, cShared)
 
-  IndexR d ix -> second (`rindex` ix) $ fwdR dimR params s d
-  SumR d -> second rsum $ fwdR dimR params s d
+  IndexR d ix -> second (`rindex` ix) $ fwdR params s d
+  SumR d -> second rsum $ fwdR params s d
   Sum0R ZeroR{} -> (s, 0)
-  Sum0R d -> second rsum0 $ fwdR dimR params s d
+  Sum0R d -> second rsum0 $ fwdR params s d
   Dot0R _ ZeroR{} -> (s, 0)
-  Dot0R v d -> second (rdot0 v) $ fwdR dimR params s d
+  Dot0R v d -> second (rdot0 v) $ fwdR params s d
   ScatterR sh d f ->
-    let (s2, t) = fwdR dimR params s d
+    let (s2, t) = fwdR params s d
     in (s2, rscatter sh t f)
 
   FromVectorR lsd ->
-    let (s2, l) = mapAccumL (fwdR dimR params) s lsd
+    let (s2, l) = mapAccumL (fwdR params) s lsd
     in (s2, rfromVector l)
   ReplicateR n d ->
-    let (s2, t) = fwdR dimR params s d
+    let (s2, t) = fwdR params s d
     in (s2, rreplicate n t)
   AppendR d e ->
-    let (s2, t) = fwdR dimR params s d
-        (s3, u) = fwdR dimR params s2 e
+    let (s2, t) = fwdR params s d
+        (s3, u) = fwdR params s2 e
     in (s3, rappend t u)
-  SliceR i n d -> second (rslice i n) $ fwdR dimR params s d
-  ReverseR d -> second rreverse $ fwdR dimR params s d
-  TransposeR perm d -> second (rtranspose perm) $ fwdR dimR params s d
-  ReshapeR sh d -> second (rreshape sh) $ fwdR dimR params s d
+  SliceR i n d -> second (rslice i n) $ fwdR params s d
+  ReverseR d -> second rreverse $ fwdR params s d
+  TransposeR perm d -> second (rtranspose perm) $ fwdR params s d
+  ReshapeR sh d -> second (rreshape sh) $ fwdR params s d
   GatherR sh d f ->
-    let (s2, t) = fwdR dimR params s d
+    let (s2, t) = fwdR params s d
     in (s2, rgather sh t f)
   CastR d ->
-    second rcast $ fwdR dimR params s d
+    second rcast $ fwdR params s d
 
   RFromS (SFromR d) ->
-    fwdR dimR params s d  -- no information lost, so no checks
-  RFromS d -> second rfromS $ fwdR dimR params s d
-  RFromH d i -> let (s2, v) = fwdR dimR params s d
+    fwdR params s d  -- no information lost, so no checks
+  RFromS d -> second rfromS $ fwdR params s d
+  RFromH d i -> let (s2, v) = fwdR params s d
                 in (s2, rfromD $ dunHVector (unHVectorPseudoTensor v) V.! i)
 
   ZeroS -> (s, srepl 0)
   InputS @_ @r @sh (InputId i) ->
-    if i < dimR
+    if i < V.length params
     then case params V.! i of
       DynamicRanked{} -> error "fwdR: DynamicRanked"
       DynamicShaped @r2 @sh2 e -> case sameShape @sh2 @sh of
@@ -1264,71 +1264,71 @@ fwdR dimR params s = \case
       DynamicRankedDummy{} -> error "fwdR: DynamicRankedDummy"
       DynamicShapedDummy{} -> error "fwdR: DynamicShapedDummy"
     else error "fwdR: wrong index for an input"
-  ScaleS k d -> second (* k) $ fwdR dimR params s d
-  AddS d e -> let (s2, t) = fwdR dimR params s d
-                  (s3, u) = fwdR dimR params s2 e
+  ScaleS k d -> second (* k) $ fwdR params s d
+  AddS d e -> let (s2, t) = fwdR params s d
+                  (s3, u) = fwdR params s2 e
               in (s3, t + u)
   ShareS n d ->
     case DMap.lookup n $ dMap s of
       Just (DTKS e) -> (s, e)
       Nothing ->
-        let (s2, cRaw) = fwdR dimR params s d
+        let (s2, cRaw) = fwdR params s d
             cShared = sshare cRaw
             s3 = s2 {dMap = DMap.insert n (DTKS cShared) (dMap s2)}
         in (s3, cShared)
 
-  IndexS d ix -> second (`sindex` ix) $ fwdR dimR params s d
-  SumS d -> second ssum $ fwdR dimR params s d
+  IndexS d ix -> second (`sindex` ix) $ fwdR params s d
+  SumS d -> second ssum $ fwdR params s d
   Sum0S ZeroS -> (s, srepl 0)
-  Sum0S d -> second ssum0 $ fwdR dimR params s d
+  Sum0S d -> second ssum0 $ fwdR params s d
   Dot0S _ ZeroS -> (s, srepl 0)
-  Dot0S v d -> second (sdot0 v) $ fwdR dimR params s d
+  Dot0S v d -> second (sdot0 v) $ fwdR params s d
   ScatterS d f ->
-    let (s2, t) = fwdR dimR params s d
+    let (s2, t) = fwdR params s d
     in (s2, sscatter t f)
 
   FromVectorS lsd ->
-    let (s2, l) = mapAccumL (fwdR dimR params) s lsd
+    let (s2, l) = mapAccumL (fwdR params) s lsd
     in (s2, sfromVector l)
   ReplicateS d ->
-    let (s2, t) = fwdR dimR params s d
+    let (s2, t) = fwdR params s d
     in (s2, sreplicate t)
   AppendS d e ->
-    let (s2, t) = fwdR dimR params s d
-        (s3, u) = fwdR dimR params s2 e
+    let (s2, t) = fwdR params s d
+        (s3, u) = fwdR params s2 e
     in (s3, sappend t u)
-  SliceS @_ @i d -> second (sslice (Proxy @i) Proxy) $ fwdR dimR params s d
-  ReverseS d -> second sreverse $ fwdR dimR params s d
+  SliceS @_ @i d -> second (sslice (Proxy @i) Proxy) $ fwdR params s d
+  ReverseS d -> second sreverse $ fwdR params s d
   TransposeS perm d -> second (stranspose perm)
-                       $ fwdR dimR params s d
-  ReshapeS d -> second sreshape $ fwdR dimR params s d
+                       $ fwdR params s d
+  ReshapeS d -> second sreshape $ fwdR params s d
   GatherS d f ->
-    let (s2, t) = fwdR dimR params s d
+    let (s2, t) = fwdR params s d
     in (s2, sgather t f)
   CastS d ->
-    second scast $ fwdR dimR params s d
+    second scast $ fwdR params s d
 
   SFromR @sh (RFromS @sh2 d) ->
     case sameShape @sh @sh2 of
-      Just Refl -> fwdR dimR params s d
+      Just Refl -> fwdR params s d
       _ -> error "fwdR: different shapes in SFromR(RFromS)"
-  SFromR d -> second sfromR $ fwdR dimR params s d
-  SFromH d i -> let (s2, v) = fwdR dimR params s d
+  SFromR d -> second sfromR $ fwdR params s d
+  SFromH d i -> let (s2, v) = fwdR params s d
                 in (s2, sfromD $ dunHVector (unHVectorPseudoTensor v) V.! i)
 
   ShareH n d ->
     case DMap.lookup n $ dMap s of
       Just (DTKUntyped hv) -> (s, HVectorPseudoTensor hv)
       Nothing ->
-        let (s2, cRaw) = fwdR dimR params s d
+        let (s2, cRaw) = fwdR params s d
             cShared = dshare $ unHVectorPseudoTensor cRaw
             s3 = s2 {dMap = DMap.insert n (DTKUntyped cShared) (dMap s2)}
         in (s3, HVectorPseudoTensor cShared)
   HToH v -> second (HVectorPseudoTensor . dmkHVector)
-            $ fwdHVector dimR params s v
+            $ fwdHVector params s v
   MapAccumR k accShs bShs eShs q es df _rf acc0' es' ->
-    let (s2, cacc0) = fwdHVector dimR params s acc0'
-        (s3, ces) = fwdHVector dimR params s2 es'
+    let (s2, cacc0) = fwdHVector params s acc0'
+        (s3, ces) = fwdHVector params s2 es'
         eLen = V.length eShs
     in (s3, HVectorPseudoTensor
             $ dmapAccumR (Proxy @ranked)
@@ -1343,8 +1343,8 @@ fwdR dimR params s = \case
                           (dmkHVector cacc0)
                           (dmkHVector $ V.concat [ces, q, es]))
   MapAccumL k accShs bShs eShs q es df _rf acc0' es' ->
-    let (s2, cacc0) = fwdHVector dimR params s acc0'
-        (s3, ces) = fwdHVector dimR params s2 es'
+    let (s2, cacc0) = fwdHVector params s acc0'
+        (s3, ces) = fwdHVector params s2 es'
         eLen = V.length eShs
     in (s3, HVectorPseudoTensor
             $ dmapAccumL (Proxy @ranked)

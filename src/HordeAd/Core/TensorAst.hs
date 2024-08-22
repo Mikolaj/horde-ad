@@ -157,14 +157,14 @@ fwdArtifactFromForwardPass
   -> TensorKindFull x
   -> (AstArtifactFwd x z, Delta (AstRaw PrimalSpan) z)
 {-# INLINE fwdArtifactFromForwardPass #-}
-fwdArtifactFromForwardPass forwardPass ftk@(FTKUntyped parameters0) =
+fwdArtifactFromForwardPass forwardPass ftk =
   let !(!varPrimalD, hVectorD, varPrimal, hVectorPrimal, var, hVector) =
         funToAstFwd ftk in
   let !(!primalBody, !deltaIT) =
         unADValInterpretation (stensorKind @z)
         $ forwardPass (HVectorPseudoTensor $ dmkHVector hVectorPrimal) var hVector
       !delta = unDeltaRY (stensorKind @z) deltaIT in
-  let !derivative = derivativeFromDelta (V.length parameters0) delta hVectorD
+  let !derivative = derivativeFromDelta delta hVectorD
       !unDerivative = gunshare (stensorKind @z) derivative
       !unPrimal = gunshare (stensorKind @z) primalBody
   in ( AstArtifactFwd varPrimalD varPrimal unDerivative unPrimal
