@@ -66,15 +66,9 @@ crevOnADInputs mdt f inputs =
       -- before evaluation allocates new memory and new FFI is started.
       !(!v, !deltaIT) = unADValInterpretation (stensorKind @z) $ f inputs
       !delta = unDeltaRY (stensorKind @z) deltaIT in
-  let rshapePrimal :: (GoodScalar r2, KnownNat n, ADReady g)
-                   => ADVal g r2 n -> IShR n
-      rshapePrimal (D p _) = rshape p
-      parameters0 = V.map (voidFromDynamicF (shapeToList . rshapePrimal))
-                    $ unHVectorPseudoTensor inputs
+  let parameters0 = tshapeFull (stensorKind @x) inputs
       !gradient = gradientFromDelta parameters0 v mdt delta
-  in ( tunshare @_ @_ @x
-       $ HVectorPseudoTensor (dmkHVector gradient)
-     , tunshare v )
+  in (tunshare @_ @_ @x gradient, tunshare v)
 
 crevOnHVector
   :: forall x z ranked. (x ~ TKUntyped, TensorKind z, ADReady ranked)

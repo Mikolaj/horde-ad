@@ -377,11 +377,11 @@ instance AdaptableHVector ORArray
 -- This specialization is not possible where the functions are defined,
 -- but is possible here:
 {-# SPECIALIZE gradientFromDelta
-  :: VoidHVector
+  :: TensorKindFull TKUntyped
   -> HVectorPseudoTensor ORArray Float '()
   -> Maybe (HVectorPseudoTensor ORArray Float '())
   -> Delta ORArray TKUntyped
-  -> HVector ORArray #-}
+  -> InterpretationTarget ORArray TKUntyped #-}
 {-# SPECIALIZE evalFromnMap
   :: EvalState ORArray -> EvalState ORArray #-}
 

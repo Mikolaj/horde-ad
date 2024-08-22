@@ -86,14 +86,14 @@ import HordeAd.Util.SizedList
 -- * Reverse and forward derivative computation for HVectorPseudoTensor
 
 gradientFromDelta
-  :: forall ranked y. (ADReady ranked, TensorKind y)
-  => VoidHVector
-  -> InterpretationTarget ranked y
-  -> Maybe (InterpretationTarget ranked y)
-  -> Delta ranked y
-  -> HVector ranked
-gradientFromDelta !parameters0 value !mdt deltaTopLevel =
-  let oneAtF = interpretationConstant 1 $ tshapeFull (stensorKind @y) value
+  :: forall ranked x z. (x ~ TKUntyped, ADReady ranked, TensorKind z)
+  => TensorKindFull x
+  -> InterpretationTarget ranked z
+  -> Maybe (InterpretationTarget ranked z)
+  -> Delta ranked z
+  -> InterpretationTarget ranked x
+gradientFromDelta !(FTKUntyped parameters0) value !mdt deltaTopLevel =
+  let oneAtF = interpretationConstant 1 $ tshapeFull (stensorKind @z) value
       dt = fromMaybe oneAtF mdt
       s0 = initEvalState parameters0
       s1 = evalR s0 dt deltaTopLevel
@@ -107,7 +107,8 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
         MTKSDummy @r @sh -> DynamicShapedDummy @r @sh Proxy Proxy
         MTKProduct{} -> error "toDynamicTensor: currently impossible"
         MTKUntyped{} -> error "toDynamicTensor: currently impossible"
-  in V.fromList $ map toDynamicTensor $ DMap.elems $ iMap s2
+  in HVectorPseudoTensor $ dmkHVector
+     $ V.fromList $ map toDynamicTensor $ DMap.elems $ iMap s2
 
 interpretationConstant :: forall ranked y. ADReady ranked
                        => (forall r. GoodScalar r => r)
@@ -123,9 +124,9 @@ interpretationConstant r = \case
     $ V.map dynamicFromVoid ssh
 
 derivativeFromDelta
-  :: forall ranked y. ADReady ranked
-  => Delta ranked y -> HVector ranked
-  -> InterpretationTarget ranked y
+  :: forall ranked z. ADReady ranked
+  => Delta ranked z -> HVector ranked
+  -> InterpretationTarget ranked z
 derivativeFromDelta deltaTopLevel ds =
   -- EvalState is too complex for the forward derivative, but since
   -- it's already defined, let's use it.

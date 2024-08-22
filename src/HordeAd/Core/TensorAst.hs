@@ -78,8 +78,7 @@ revArtifactFromForwardPass
   -> TensorKindFull x
   -> (AstArtifactRev x z, Delta (AstRaw PrimalSpan) z)
 {-# INLINE revArtifactFromForwardPass #-}
-revArtifactFromForwardPass hasDt forwardPass
-                                 ftk@(FTKUntyped parameters0) =
+revArtifactFromForwardPass hasDt forwardPass ftk =
   let -- Bangs and the compound function to fix the numbering of variables
       -- for pretty-printing and prevent sharing the impure values/effects
       -- in tests that reset the impure counters.
@@ -93,9 +92,8 @@ revArtifactFromForwardPass hasDt forwardPass
   let (!varDt, !astDt) =
         funToAst (shapeAstFull $ unRawY (stensorKind @z) primalBody) id in
   let mdt = if hasDt then Just $ rawY (stensorKind @z) astDt else Nothing
-      !gradient = gradientFromDelta parameters0 primalBody mdt delta
-      !unGradient = gunshare (stensorKind @x)
-                    $ HVectorPseudoTensor $ dmkHVector gradient
+      !gradient = gradientFromDelta ftk primalBody mdt delta
+      !unGradient = gunshare (stensorKind @x) gradient
       !unPrimal = gunshare (stensorKind @z) primalBody
 {- too expensive currently, so inlined as above:
       unGradient =
@@ -690,11 +688,11 @@ astBuildHVector1Vectorize k f = build1Vectorize k $ funToAstI f
 -- This specialization is not possible where the functions are defined,
 -- but is possible here:
 {-# SPECIALIZE gradientFromDelta
-  :: VoidHVector
+  :: TensorKindFull TKUntyped
   -> HVectorPseudoTensor (AstRanked PrimalSpan) Float '()
   -> Maybe (HVectorPseudoTensor (AstRanked PrimalSpan) Float '())
   -> Delta (AstRanked PrimalSpan) TKUntyped
-  -> HVector (AstRanked PrimalSpan) #-}
+  -> InterpretationTarget (AstRanked PrimalSpan) TKUntyped #-}
 {-# SPECIALIZE evalFromnMap
   :: EvalState (AstRanked PrimalSpan) -> EvalState (AstRanked PrimalSpan) #-}
 
