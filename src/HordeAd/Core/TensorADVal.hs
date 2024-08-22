@@ -89,22 +89,24 @@ crevOnHVector mdt f parameters =
   in crevOnADInputs mdt f inputs
 
 cfwdOnADInputs
-  :: forall x z ranked. (x ~ TKUntyped, TensorKind z, ADReady ranked)
+  :: forall x z ranked. (TensorKind z, ADReady ranked)
   => InterpretationTarget (ADVal ranked) x
-  -> (HVector (ADVal ranked) -> InterpretationTarget (ADVal ranked) z)
+  -> (InterpretationTarget (ADVal ranked) x
+      -> InterpretationTarget (ADVal ranked) z)
   -> HVector ranked
   -> (InterpretationTarget ranked z, InterpretationTarget ranked z)
 {-# INLINE cfwdOnADInputs #-}
-cfwdOnADInputs (HVectorPseudoTensor inputs) f ds =
+cfwdOnADInputs inputs f ds =
   let !(!v, !deltaIT) = unADValInterpretation (stensorKind @z) $ f inputs
       !delta = unDeltaRY (stensorKind @z) deltaIT in
   let !derivative = derivativeFromDelta delta ds
   in (tunshare derivative, tunshare v)
 
 cfwdOnHVector
-  :: forall x z ranked. (x ~ TKUntyped, TensorKind z, ADReady ranked)
+  :: forall x z ranked. (TensorKind x, TensorKind z, ADReady ranked)
   => InterpretationTarget ranked x
-  -> (HVector (ADVal ranked) -> InterpretationTarget (ADVal ranked) z)
+  -> (InterpretationTarget (ADVal ranked) x
+      -> InterpretationTarget (ADVal ranked) z)
   -> HVector ranked
   -> (InterpretationTarget ranked z, InterpretationTarget ranked z)
 cfwdOnHVector parameters f ds =
@@ -506,16 +508,13 @@ instance ADReadyBoth ranked shaped
             -> HFun x z
             -> HFun (TKProduct x x) z
   dfwd _ftk h =
-    let g :: ADReady f
-          => HVector (ADVal f) -> InterpretationTarget (ADVal f) z
-        g !hv = unHFun h (HVectorPseudoTensor hv)
-        df :: forall f. ADReady f
+    let df :: forall f. ADReady f
            => InterpretationTarget f (TKProduct x x)
            -> InterpretationTarget f z
           -- This computes the derivative of g again for each new da and a.
         df !da_a = fst $ cfwdOnHVector
                            (HVectorPseudoTensor $ dshare $ unHVectorPseudoTensor $ snd da_a)
-                           g
+                           (unHFun h)
                            (dunHVector $ dshare $ unHVectorPseudoTensor $ fst da_a)
     in HFun df
   dmapAccumRDer

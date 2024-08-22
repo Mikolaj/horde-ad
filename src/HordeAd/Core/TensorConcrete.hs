@@ -266,13 +266,10 @@ instance HVectorTensor ORArray OSArray where
             -> HFun x z
             -> HFunOf ORArray (TKProduct x x) z
   dfwd _shs h =
-    let g :: ADReady f
-          => HVector (ADVal f) -> InterpretationTarget (ADVal f) z
-        g !hv = unHFun h (HVectorPseudoTensor hv)
-        df :: InterpretationTarget ORArray (TKProduct x x)
+    let df :: InterpretationTarget ORArray (TKProduct x x)
            -> InterpretationTarget ORArray z
         df !da_a = fst $ cfwdOnHVector (snd da_a)
-                                       g
+                                       (unHFun h)
                                        (unHVectorPseudoTensor $ fst da_a)
     in df
   rfold f x0 as = foldl' f x0 (runravelToList as)

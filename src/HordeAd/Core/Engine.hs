@@ -314,10 +314,11 @@ cfwd
   -> DValue advals
   -> InterpretationTarget ORArray z
 cfwd f vals ds =
-  let g hVector = f $ parseHVector (fromDValue vals) hVector
+  let g hVector = f $ parseHVector (fromDValue vals)
+        $ unHVectorPseudoTensor hVector
       valsH = HVectorPseudoTensor $ toHVectorOf vals
       dsH = toHVectorOf ds
-  in fst $ cfwdOnHVector valsH g dsH
+  in fst $ cfwdOnHVector @TKUntyped valsH g dsH
 
 
 
