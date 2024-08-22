@@ -86,29 +86,43 @@ import HordeAd.Util.SizedList
 -- * Reverse and forward derivative computation for HVectorPseudoTensor
 
 gradientFromDelta
-  :: forall ranked x z. (x ~ TKUntyped, ADReady ranked, TensorKind z)
+  :: forall ranked x z. (ADReady ranked, TensorKind z)
   => TensorKindFull x
   -> InterpretationTarget ranked z
   -> Maybe (InterpretationTarget ranked z)
   -> Delta ranked z
   -> InterpretationTarget ranked x
-gradientFromDelta !(FTKUntyped parameters0) value !mdt deltaTopLevel =
+gradientFromDelta !parameters0 value !mdt deltaTopLevel =
   let oneAtF = interpretationConstant 1 $ tshapeFull (stensorKind @z) value
       dt = fromMaybe oneAtF mdt
       s0 = initEvalState parameters0
       s1 = evalR s0 dt deltaTopLevel
       s2 = evalFromnMap s1
-      toDynamicTensor :: Some (InterpretationTargetM ranked)
-                      -> DynamicTensor ranked
-      toDynamicTensor (Some b) = case b of
-        MTKR @r @n t -> DynamicRanked @r @n t
-        MTKS @r @sh t -> DynamicShaped @r @sh t
-        MTKRDummy @r @sh -> DynamicRankedDummy @r @sh Proxy Proxy
-        MTKSDummy @r @sh -> DynamicShapedDummy @r @sh Proxy Proxy
-        MTKProduct{} -> error "toDynamicTensor: currently impossible"
-        MTKUntyped{} -> error "toDynamicTensor: currently impossible"
-  in HVectorPseudoTensor $ dmkHVector
-     $ V.fromList $ map toDynamicTensor $ DMap.elems $ iMap s2
+      result = DMap.elems $ iMap s2
+  in case parameters0 of
+    FTKR @r @n _ -> case result of
+      [Some (MTKR @r2 @n2 t)]
+        | Just Refl <- sameNat (Proxy @n) (Proxy @n2)
+        , Just Refl <- testEquality (typeRep @r) (typeRep @r2) -> t
+      _ -> error "gradientFromDelta: illegal result"
+    FTKS @r @sh -> case result of
+      [Some (MTKS @r2 @sh2 t)]
+        | Just Refl <- sameShape @sh @sh2
+        , Just Refl <- testEquality (typeRep @r) (typeRep @r2) -> t
+      _ -> error "gradientFromDelta: illegal result"
+    FTKProduct{} -> error "TODO"
+    FTKUntyped{} ->
+      let toDynamicTensor :: Some (InterpretationTargetM ranked)
+                          -> DynamicTensor ranked
+          toDynamicTensor (Some b) = case b of
+            MTKR @r @n t -> DynamicRanked @r @n t
+            MTKS @r @sh t -> DynamicShaped @r @sh t
+            MTKRDummy @r @sh -> DynamicRankedDummy @r @sh Proxy Proxy
+            MTKSDummy @r @sh -> DynamicShapedDummy @r @sh Proxy Proxy
+            MTKProduct{} -> error "toDynamicTensor: non-flattened cell"
+            MTKUntyped{} -> error "toDynamicTensor: non-flattened cell"
+      in HVectorPseudoTensor $ dmkHVector
+         $ V.fromList $ map toDynamicTensor result
 
 interpretationConstant :: forall ranked y. ADReady ranked
                        => (forall r. GoodScalar r => r)
@@ -700,33 +714,47 @@ data EvalState ranked = EvalState
 -- The delta expression to be evaluated, together with the @dt@ perturbation
 -- value (usually set to @1@) are given as arguments.
 initEvalState
-  :: VoidHVector -> EvalState ranked
-initEvalState !parameters0 =
-  -- Create finite maps that hold values associated with inputs
-  -- and with (possibly shared) term tree nodes.
-  -- The former are usually initialized with dummy values so that it's cheap
-  -- to check if any update has already been performed to a cell
-  -- (allocating big vectors filled with zeros is too costly,
-  -- especially if never used in an iteration, and adding to such vectors
-  -- and especially using them as cotangent accumulators is wasteful.
-  -- We take care to keep the scalar type of the dummy correct,
-  -- but a shape is not preserved in a dummy, so it's not shape-correct.
-  let fromDynamicTensor
-        :: forall ranked.
-           Int -> DynamicTensor ranked
-        -> DSum (InputId ranked) (InterpretationTargetM ranked)
-      fromDynamicTensor n b = case b of
-        DynamicRanked t -> InputId n :=> MTKR t
-        DynamicShaped t -> InputId n :=> MTKS t
-        DynamicRankedDummy @r @sh _ _ | Dict <- lemKnownNatRank (knownShS @sh) ->
-          InputId n :=> MTKRDummy @r @sh
-        DynamicShapedDummy @r @sh _ _ ->
-          InputId n :=> MTKSDummy @r @sh
-      iMap = DMap.fromDistinctAscList $ zipWith fromDynamicTensor [0 ..]
-             $ map dynamicFromVoid $ V.toList parameters0
-      dMap = DMap.empty
-      nMap = DMap.empty
-  in EvalState {..}
+  :: TensorKindFull x -> EvalState ranked
+initEvalState = \case
+  FTKR @r sh -> withShapeP (shapeToList sh) $ \(Proxy @sh) ->
+    case lemKnownNatRank (knownShS @sh) of
+      Dict ->
+        let iMap = DMap.fromDistinctAscList [InputId 0 :=> MTKRDummy @r @sh]
+            dMap = DMap.empty
+            nMap = DMap.empty
+        in EvalState {..}
+  FTKS @r @sh ->
+    let iMap = DMap.fromDistinctAscList [InputId 0 :=> MTKSDummy @r @sh]
+        dMap = DMap.empty
+        nMap = DMap.empty
+    in EvalState {..}
+  FTKProduct{} -> error "TODO"  -- flatten into FTKUntyped or use MTKProduct?
+  FTKUntyped parameters0 ->
+    -- Create finite maps that hold values associated with inputs
+    -- and with (possibly shared) term tree nodes.
+    -- The former are usually initialized with dummy values so that it's cheap
+    -- to check if any update has already been performed to a cell
+    -- (allocating big vectors filled with zeros is too costly,
+    -- especially if never used in an iteration, and adding to such vectors
+    -- and especially using them as cotangent accumulators is wasteful.
+    -- We take care to keep the scalar type of the dummy correct,
+    -- but a shape is not preserved in a dummy, so it's not shape-correct.
+    let fromDynamicTensor
+          :: forall ranked.
+             Int -> DynamicTensor ranked
+          -> DSum (InputId ranked) (InterpretationTargetM ranked)
+        fromDynamicTensor n b = case b of
+          DynamicRanked{} -> error "fromDynamicTensor: impossible case"
+          DynamicShaped{} -> error "fromDynamicTensor: impossible case"
+          DynamicRankedDummy @r @sh _ _ | Dict <- lemKnownNatRank (knownShS @sh) ->
+            InputId n :=> MTKRDummy @r @sh
+          DynamicShapedDummy @r @sh _ _ ->
+            InputId n :=> MTKSDummy @r @sh
+        iMap = DMap.fromDistinctAscList $ zipWith fromDynamicTensor [0 ..]
+               $ map dynamicFromVoid $ V.toList parameters0
+        dMap = DMap.empty
+        nMap = DMap.empty
+    in EvalState {..}
 
 
 -- * Reverse pass, transpose/evaluation of the delta expressions
