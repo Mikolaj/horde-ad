@@ -20,9 +20,10 @@ import Data.Array.Internal (valueOf)
 import Data.Kind (Type)
 import Data.Proxy (Proxy (Proxy))
 import Data.Strict.Vector qualified as Data.Vector
-import Data.Type.Equality ((:~:) (Refl))
+import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat, sameNat, type (+))
+import Type.Reflection (typeRep)
 
 import Data.Array.Mixed.Types qualified as X
 
@@ -176,12 +177,31 @@ ahhToHVector
 ahhToHVector h h' =
   let selectDual :: Int -> DynamicTensor ranked -> DynamicTensor (ADVal ranked)
       selectDual i d = case d of
-        DynamicRanked t -> DynamicRanked $ dDnotShared t (DeltaR $ RFromH h' i)
-        DynamicShaped t -> DynamicShaped $ dDnotShared t (DeltaS $ SFromH h' i)
+        DynamicRanked t -> DynamicRanked $ dDnotShared t (DeltaR $ rFromH h' i)
+        DynamicShaped t -> DynamicShaped $ dDnotShared t (DeltaS $ sFromH h' i)
         DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
         DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
   in V.imap selectDual h
        -- TODO: write why these projections don't break any sharing
+
+rFromH :: forall r n ranked. (GoodScalar r, KnownNat n)
+       => Delta ranked TKUntyped -> Int -> Delta ranked (TKR r n)
+rFromH (HToH hv) i = case hv V.! i of
+  DynamicRanked @r2 @n2 d
+    | Just Refl <- sameNat (Proxy @n) (Proxy @n2)
+    , Just Refl <- testEquality (typeRep @r) (typeRep @r2) -> unDeltaR d
+  _ -> error "rFromH: impossible case"
+rFromH d i = RFromH d i
+
+sFromH :: forall r sh ranked.
+          (GoodScalar r, KnownShS sh, RankedOf (ShapedOf ranked) ~ ranked)
+       => Delta ranked TKUntyped -> Int -> Delta ranked (TKS r sh)
+sFromH (HToH hv) i = case hv V.! i of
+  DynamicShaped @r2 @sh2 d
+    | Just Refl <- sameShape @sh @sh2
+    , Just Refl <- testEquality (typeRep @r) (typeRep @r2) -> unDeltaS d
+  _ -> error "sFromH: impossible case"
+sFromH d i = SFromH d i
 
 
 -- * Assorted instances

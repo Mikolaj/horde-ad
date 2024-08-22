@@ -296,7 +296,7 @@ crevDtMaybe f vals mdt =
   :: Maybe (InterpretationTarget ORArray TKUntyped)
   -> (InterpretationTarget (ADVal ORArray) TKUntyped
       -> InterpretationTarget (ADVal ORArray) TKUntyped)
-  -> HVector ORArray
+  -> InterpretationTarget ORArray TKUntyped
   -> (InterpretationTarget ORArray TKUntyped, InterpretationTarget ORArray TKUntyped) #-}
 
 
