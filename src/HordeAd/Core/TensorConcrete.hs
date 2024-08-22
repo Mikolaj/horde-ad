@@ -244,10 +244,10 @@ instance HVectorTensor ORArray OSArray where
        $ HVectorPseudoTensor $ dmkHVector parameters
   -- The code for drevDt and dfwd in this instance is the same as for the
   -- ADVal ranked instance, because the type family instance is the same.
-  drevDt :: forall x z. (x ~ TKUntyped, TensorKind z)
-              => TensorKindFull x
-              -> HFun x z
-              -> HFunOf ORArray (TKProduct z x) x
+  drevDt :: forall x z. (TensorKind x, TensorKind z)
+         => TensorKindFull x
+         -> HFun x z
+         -> HFunOf ORArray (TKProduct z x) x
   drevDt _ftk h =
     let g :: ADReady f
           => InterpretationTarget (ADVal f) x

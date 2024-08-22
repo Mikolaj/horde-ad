@@ -10,7 +10,7 @@
 module HordeAd.Core.TensorADVal
   ( aDValToHVector, hVectorADValToADVal, unADValHVector, unADValDynamicTensor
   , unADValInterpretation, unDeltaRY
-  , crevOnADInputs, crevOnHVector, cfwdOnADInputs, cfwdOnHVector
+  , crevOnADInputs, crevOnHVector, cfwdOnHVector
   ) where
 
 import Prelude hiding (foldl')
@@ -52,7 +52,7 @@ import HordeAd.Util.SizedList
 -- * Non-symbolic reverse and forward derivative computation
 
 crevOnADInputs
-  :: forall x z ranked. (x ~ TKUntyped, TensorKind z, ADReady ranked)
+  :: forall x z ranked. (TensorKind x, TensorKind z, ADReady ranked)
   => Maybe (InterpretationTarget ranked z)
   -> (InterpretationTarget (ADVal ranked) x
       -> InterpretationTarget (ADVal ranked) z)
@@ -71,7 +71,7 @@ crevOnADInputs mdt f inputs =
   in (tunshare @_ @_ @x gradient, tunshare v)
 
 crevOnHVector
-  :: forall x z ranked. (x ~ TKUntyped, TensorKind z, ADReady ranked)
+  :: forall x z ranked. (TensorKind x, TensorKind z, ADReady ranked)
   => Maybe (InterpretationTarget ranked z)
   -> (InterpretationTarget (ADVal ranked) x
       -> InterpretationTarget (ADVal ranked) z)
@@ -479,9 +479,9 @@ instance ADReadyBoth ranked shaped
     in unHVectorPseudoTensor $ fst $ crevOnHVector Nothing g
        $ HVectorPseudoTensor $ dmkHVector parameters
   drevDt :: forall x z. (x ~ TKUntyped, TensorKind z)
-              => TensorKindFull x
-              -> HFun x z
-              -> HFun (TKProduct z x) x
+         => TensorKindFull x
+         -> HFun x z
+         -> HFun (TKProduct z x) x
   drevDt _ftk h =
     let g :: ADReady f
           => InterpretationTarget (ADVal f) x

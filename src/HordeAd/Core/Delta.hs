@@ -86,7 +86,7 @@ import HordeAd.Util.SizedList
 -- * Reverse and forward derivative computation for HVectorPseudoTensor
 
 gradientFromDelta
-  :: forall ranked x z. (ADReady ranked, TensorKind z)
+  :: forall x z ranked. (ADReady ranked, TensorKind z)
   => TensorKindFull x
   -> InterpretationTarget ranked z
   -> Maybe (InterpretationTarget ranked z)
@@ -124,7 +124,7 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
       in HVectorPseudoTensor $ dmkHVector
          $ V.fromList $ map toDynamicTensor result
 
-interpretationConstant :: forall ranked y. ADReady ranked
+interpretationConstant :: forall y ranked. ADReady ranked
                        => (forall r. GoodScalar r => r)
                        -> TensorKindFull y -> InterpretationTarget ranked y
 interpretationConstant r = \case
@@ -138,7 +138,7 @@ interpretationConstant r = \case
     $ V.map dynamicFromVoid ssh
 
 derivativeFromDelta
-  :: forall ranked z. ADReady ranked
+  :: forall z ranked. ADReady ranked
   => Delta ranked z -> HVector ranked
   -> InterpretationTarget ranked z
 derivativeFromDelta deltaTopLevel ds =

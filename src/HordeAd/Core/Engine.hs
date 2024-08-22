@@ -290,7 +290,7 @@ crevDtMaybe f vals mdt =
   let g !hv = f $ parseHVector (fromDValue vals) $ unHVectorPseudoTensor hv
       valsH = HVectorPseudoTensor $ toHVectorOf vals
   in parseHVector vals $ unHVectorPseudoTensor
-     $ fst $ crevOnHVector @_ @z mdt g valsH
+     $ fst $ crevOnHVector @TKUntyped @z mdt g valsH
 
 {-# SPECIALIZE crevOnHVector
   :: Maybe (InterpretationTarget ORArray TKUntyped)
