@@ -84,7 +84,7 @@ crevOnHVector
   -> InterpretationTarget ranked x
   -> (InterpretationTarget ranked x, InterpretationTarget ranked z)
 crevOnHVector mdt f parameters =
-  let deltaInputs = generateDeltaInputs parameters
+  let deltaInputs = generateDeltaInputs $ tshapeFull (stensorKind @x) parameters
       inputs = makeADInputs parameters deltaInputs
   in crevOnADInputs mdt f inputs
 
@@ -108,7 +108,7 @@ cfwdOnHVector
   -> HVector ranked
   -> (InterpretationTarget ranked z, InterpretationTarget ranked z)
 cfwdOnHVector parameters f ds =
-  let deltaInputs = generateDeltaInputs parameters
+  let deltaInputs = generateDeltaInputs $ tshapeFull (stensorKind @x) parameters
       inputs = makeADInputs parameters deltaInputs
   in cfwdOnADInputs inputs f ds
 

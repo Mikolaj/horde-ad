@@ -62,7 +62,7 @@ forwardPassByInterpretation
   -> InterpretationTarget (ADVal (AstRaw PrimalSpan)) z
 {-# INLINE forwardPassByInterpretation #-}
 forwardPassByInterpretation g envInit hVectorPrimal var hVector =
-  let deltaInputs = generateDeltaInputs hVectorPrimal
+  let deltaInputs = generateDeltaInputs $ tshapeFull (stensorKind @TKUntyped) hVectorPrimal
       varInputs = makeADInputs hVectorPrimal deltaInputs
       ast = g hVector
       env = extendEnv var varInputs envInit

@@ -36,7 +36,7 @@ sgd gamma f trainingData parameters0 = go trainingData parameters0 where
                 $ toHVector
                 $ f a $ parseHVector (fromDValue parameters0)
                 $ unHVectorPseudoTensor hVector
-  deltaInputs = generateDeltaInputs @TKUntyped @ORArray (HVectorPseudoTensor $ dmkHVector parameters0)
+  deltaInputs = generateDeltaInputs @TKUntyped @ORArray (tshapeFull (stensorKind @TKUntyped) $ HVectorPseudoTensor $ dmkHVector parameters0)
   go :: [a] -> HVector ORArray
      -> (HVector ORArray, ORArray r n)
   go [] parameters = (parameters, 0)
@@ -87,7 +87,7 @@ sgdAdamArgs updateWith argsAdam f trainingData !parameters0 !stateAdam0 =
                 $ f a
                 $ parseHVector (fromDValue parameters0)
                 $ unHVectorPseudoTensor hVector
-  deltaInputs = generateDeltaInputs (HVectorPseudoTensor $ dmkHVector parameters0)
+  deltaInputs = generateDeltaInputs (tshapeFull (stensorKind @TKUntyped) $ HVectorPseudoTensor $ dmkHVector parameters0)
   go :: [a] -> HVector (RankedOf f) -> StateAdam
      -> (HVector (RankedOf f), StateAdam)
   go [] parameters stateAdam = (parameters, stateAdam)

@@ -166,7 +166,7 @@ forwardPassByApplication
   -> InterpretationTarget (ADVal (AstRaw PrimalSpan)) z
 {-# INLINE forwardPassByApplication #-}
 forwardPassByApplication g hVectorPrimal _var _hVector =
-  let deltaInputs = generateDeltaInputs hVectorPrimal
+  let deltaInputs = generateDeltaInputs $ tshapeFull (stensorKind @TKUntyped) hVectorPrimal
       HVectorPseudoTensor varInputs = makeADInputs hVectorPrimal deltaInputs
   in g varInputs
 

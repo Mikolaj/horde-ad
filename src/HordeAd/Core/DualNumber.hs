@@ -124,27 +124,21 @@ dotParameters (HVector a0 a1) (HVector b0 b1) =
 -}
 
 generateDeltaInputs
-  :: forall x ranked ranked2.
-     ( x ~ TKUntyped, RankedTensor ranked, HVectorTensor ranked (ShapedOf ranked)
-     , RankedOf (ShapedOf ranked2) ~ ranked2 )
-  => InterpretationTarget ranked x
-  -> InterpretationTarget (Dual ranked2) x
-generateDeltaInputs =
-  let f :: Int -> DynamicTensor ranked -> DynamicTensor (Dual ranked2)
-      f i (DynamicRanked @r @n t) =
-        case rshape t of
-          (sh :: IShR n2) | Just Refl <- sameNat (Proxy @n) (Proxy @n2) ->
-            DynamicRanked $ DeltaR $ InputR @ranked2 @r @n sh (toInputIdR i)
-          _ -> error "generateDeltaInputs: wrong rank"
-      f i (DynamicShaped @r @sh _) =
-        DynamicShaped $ DeltaS $ InputS @ranked2 @r @sh (toInputIdS i)
-      f i (DynamicRankedDummy @r @sh _ _) =
-        withListSh (Proxy @sh) $ \sh ->
-          DynamicRanked $ DeltaR $ InputR @ranked2 @r sh (toInputIdR i)
-      f i (DynamicShapedDummy @r @sh _ _) =
-        DynamicShaped $ DeltaS $ InputS @ranked2 @r @sh (toInputIdS i)
-  in HVectorPseudoTensor . HToH . V.imap f . dunHVector . unHVectorPseudoTensor
-       -- dunHVector is fine, because p is made with dmkHVector
+  :: forall x ranked. RankedOf (ShapedOf ranked) ~ ranked
+  => TensorKindFull x
+  -> InterpretationTarget (Dual ranked) x
+generateDeltaInputs = \case
+  FTKR @r @n sh -> DeltaR $ InputR @ranked @r @n sh (toInputIdR 0)
+  FTKS @r @sh -> DeltaS $ InputS @ranked @r @sh (toInputIdS 0)
+  FTKProduct ftk1 ftk2 -> (generateDeltaInputs ftk1, generateDeltaInputs ftk2)
+  FTKUntyped shs ->
+    let f :: Int -> DynamicTensor VoidTensor -> DynamicTensor (Dual ranked)
+        f i (DynamicRankedDummy @r @sh _ _) =
+          withListSh (Proxy @sh) $ \sh ->
+            DynamicRanked $ DeltaR $ InputR @ranked @r sh (toInputIdR i)
+        f i (DynamicShapedDummy @r @sh _ _) =
+          DynamicShaped $ DeltaS $ InputS @ranked @r @sh (toInputIdS i)
+    in HVectorPseudoTensor $ HToH $ V.imap f shs
 {- TODO: this causes a cyclic dependency:
 {-# SPECIALIZE generateDeltaInputs
   :: HVector (FlipR OR.Array) -> HVector (Dual (FlipR OR.Array)) #-}
