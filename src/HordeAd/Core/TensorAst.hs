@@ -52,28 +52,28 @@ import HordeAd.Util.SizedList
 -- * Symbolic reverse and forward derivative computation
 
 forwardPassByInterpretation
-  :: forall z. TensorKind z
-  => (HVector (AstRanked FullSpan)
+  :: forall x z. (TensorKind x, TensorKind z)
+  => (InterpretationTarget (AstRanked FullSpan) x
       -> InterpretationTarget (AstRanked FullSpan) z)
   -> AstEnv (ADVal (AstRaw PrimalSpan))
-  -> InterpretationTarget (AstRaw PrimalSpan) TKUntyped
-  -> AstVarName FullSpan TKUntyped
-  -> HVector (AstRanked FullSpan)
+  -> InterpretationTarget (AstRaw PrimalSpan) x
+  -> AstVarName FullSpan x
+  -> InterpretationTarget (AstRanked FullSpan) x
   -> InterpretationTarget (ADVal (AstRaw PrimalSpan)) z
 {-# INLINE forwardPassByInterpretation #-}
 forwardPassByInterpretation g envInit hVectorPrimal var hVector =
-  let deltaInputs = generateDeltaInputs $ tshapeFull (stensorKind @TKUntyped) hVectorPrimal
+  let deltaInputs = generateDeltaInputs $ tshapeFull (stensorKind @x) hVectorPrimal
       varInputs = makeADInputs hVectorPrimal deltaInputs
       ast = g hVector
       env = extendEnv var varInputs envInit
   in interpretAst env $ unRankedY (stensorKind @z) ast
 
 revArtifactFromForwardPass
-  :: forall x z. (x ~ TKUntyped, TensorKind z)
+  :: forall x z. (TensorKind x, TensorKind z)
   => Bool
-  -> (InterpretationTarget (AstRaw PrimalSpan) TKUntyped
+  -> (InterpretationTarget (AstRaw PrimalSpan) x
       -> AstVarName FullSpan x
-      -> HVector (AstRanked FullSpan)
+      -> InterpretationTarget (AstRanked FullSpan) x
       -> InterpretationTarget (ADVal (AstRaw PrimalSpan)) z)
   -> TensorKindFull x
   -> (AstArtifactRev x z, Delta (AstRaw PrimalSpan) z)
@@ -87,8 +87,7 @@ revArtifactFromForwardPass hasDt forwardPass ftk =
       -- before gradientFromDelta allocates new memory and new FFI is started.
       !(!primalBody, !deltaIT) =
         unADValInterpretation (stensorKind @z)
-        $ forwardPass hVectorPrimal var
-                      (dunHVector $ unHVectorPseudoTensor hVector)
+        $ forwardPass hVectorPrimal var hVector
       !delta = unDeltaRY (stensorKind @z) deltaIT in
   let (!varDt, !astDt) =
         funToAst (shapeAstFull $ unRawY (stensorKind @z) primalBody) id in
@@ -105,9 +104,9 @@ revArtifactFromForwardPass hasDt forwardPass ftk =
      , delta )
 
 revProduceArtifact
-  :: forall x z. (x ~ TKUntyped, TensorKind z)
+  :: forall x z. (TensorKind x, TensorKind z)
   => Bool
-  -> (HVector (AstRanked FullSpan)
+  -> (InterpretationTarget (AstRanked FullSpan) x
       -> InterpretationTarget (AstRanked FullSpan) z)
   -> AstEnv (ADVal (AstRaw PrimalSpan))
   -> TensorKindFull x
@@ -151,7 +150,7 @@ fwdArtifactFromForwardPass
   :: forall x z. (x ~ TKUntyped, TensorKind z)
   => (InterpretationTarget (AstRaw PrimalSpan) TKUntyped
       -> AstVarName FullSpan x
-      -> HVector (AstRanked FullSpan)
+      -> InterpretationTarget (AstRanked FullSpan) x
       -> InterpretationTarget (ADVal (AstRaw PrimalSpan)) z)
   -> TensorKindFull x
   -> (AstArtifactFwd x z, Delta (AstRaw PrimalSpan) z)
@@ -161,7 +160,7 @@ fwdArtifactFromForwardPass forwardPass ftk =
         funToAstFwd ftk in
   let !(!primalBody, !deltaIT) =
         unADValInterpretation (stensorKind @z)
-        $ forwardPass (HVectorPseudoTensor $ dmkHVector hVectorPrimal) var hVector
+        $ forwardPass (HVectorPseudoTensor $ dmkHVector hVectorPrimal) var (HVectorPseudoTensor $ dmkHVector hVector)
       !delta = unDeltaRY (stensorKind @z) deltaIT in
   let !derivative = derivativeFromDelta delta hVectorD
       !unDerivative = gunshare (stensorKind @z) derivative
@@ -177,8 +176,11 @@ fwdProduceArtifact
   -> TensorKindFull x
   -> (AstArtifactFwd x z, Delta (AstRaw PrimalSpan) z)
 {-# INLINE fwdProduceArtifact #-}
-fwdProduceArtifact g envInit =
-  fwdArtifactFromForwardPass (forwardPassByInterpretation g envInit)
+fwdProduceArtifact f envInit =
+  let g :: InterpretationTarget (AstRanked FullSpan) TKUntyped
+        -> InterpretationTarget (AstRanked FullSpan) z
+      g !hv = f $ dunHVector $ unHVectorPseudoTensor hv
+  in fwdArtifactFromForwardPass (forwardPassByInterpretation g envInit)
 
 
 -- * Unlawful boolean instances of ranked AST; they are lawful modulo evaluation
@@ -600,9 +602,9 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   rrev f parameters0 =
     -- This computes the (AST of) derivative of f once and interprets it again
     -- for each new @parmeters@, which is much better than computing anew.
-    let g :: HVector (AstRanked FullSpan)
+    let g :: InterpretationTarget (AstRanked FullSpan) TKUntyped
           -> InterpretationTarget (AstRanked FullSpan) (TKR r n)
-        g !hv = f hv
+        g !hv = f $ dunHVector $ unHVectorPseudoTensor hv
         !(!(AstArtifactRev _varDt var gradient _primal), _delta) =
           revProduceArtifact False g emptyEnv (FTKUntyped parameters0)
     in \ !parameters -> assert (voidHVectorMatches parameters0 parameters) $
@@ -623,15 +625,12 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   drevDt ftkx f =
     -- This computes the (AST of) derivative of f once and interprets it again
     -- for each new tensor of arguments, which is better than computing it anew.
-    let g :: HVector (AstRanked FullSpan)
-          -> InterpretationTarget (AstRanked FullSpan) z
-        g !hv = unHFun f (HVectorPseudoTensor $ AstMkHVector hv)
-        -- No bangs here, because this goes under lambda and may be unneeded
+    let -- No bangs here, because this goes under lambda and may be unneeded
         -- or even incorrect (and so, e.g., trigger
         -- `error "tunshare: used not at PrimalSpan"`, because no derivative
         -- should be taken of spans other than PrimalSpan)
         (AstArtifactRev varDt var gradient primal, _delta) =
-          revProduceArtifact True g emptyEnv ftkx
+          revProduceArtifact True (unHFun f) emptyEnv ftkx
         ftkz = shapeAstFull $ unRawY (stensorKind @z) primal
         ftk2 = FTKProduct ftkz ftkx
         (varP, ast) = funToAst ftk2 $ \ !astP ->

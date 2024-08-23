@@ -98,9 +98,9 @@ revDtMaybe
   -> Value astvals
 {-# INLINE revDtMaybe #-}
 revDtMaybe f vals0 mdt =
-  let g :: HVector (AstRanked FullSpan)
+  let g :: InterpretationTarget (AstRanked FullSpan) TKUntyped
         -> InterpretationTarget (AstRanked FullSpan) z
-      g !hv = f $ parseHVector (fromValue vals0) hv
+      g !hv = f $ parseHVector (fromValue vals0) $ dunHVector $ unHVectorPseudoTensor hv
       valsH = toHVectorOf vals0
       voidH = FTKUntyped $ voidFromHVector valsH
       artifact = fst $ revProduceArtifact (isJust mdt) g emptyEnv voidH
@@ -127,9 +127,9 @@ revArtifactAdapt
   -> Value astvals
   -> (AstArtifactRev TKUntyped z, Delta (AstRaw PrimalSpan) z )
 revArtifactAdapt hasDt f vals0 =
-  let g :: HVector (AstRanked FullSpan)
+  let g :: InterpretationTarget (AstRanked FullSpan) TKUntyped
         -> InterpretationTarget (AstRanked FullSpan) z
-      g !hv = f $ parseHVector (fromValue vals0) hv
+      g !hv = f $ parseHVector (fromValue vals0) $ dunHVector $ unHVectorPseudoTensor hv
       valsH = toHVectorOf @ORArray vals0
       voidH = FTKUntyped $ voidFromHVector valsH
   in revProduceArtifact hasDt g emptyEnv voidH
@@ -152,7 +152,7 @@ revProduceArtifactWithoutInterpretation
 revProduceArtifactWithoutInterpretation hasDt f =
   let g :: InterpretationTarget (AstRaw PrimalSpan) TKUntyped
         -> AstVarName FullSpan x
-        -> HVector (AstRanked FullSpan)
+        -> InterpretationTarget (AstRanked FullSpan) x
         -> InterpretationTarget (ADVal (AstRaw PrimalSpan)) z
       g hVectorPrimal = forwardPassByApplication f hVectorPrimal
   in revArtifactFromForwardPass @x @z hasDt g
@@ -162,7 +162,7 @@ forwardPassByApplication
       -> InterpretationTarget (ADVal (AstRaw PrimalSpan)) z)
   -> InterpretationTarget (AstRaw PrimalSpan) TKUntyped
   -> AstVarName FullSpan TKUntyped
-  -> HVector (AstRanked FullSpan)
+  -> InterpretationTarget (AstRanked FullSpan) TKUntyped
   -> InterpretationTarget (ADVal (AstRaw PrimalSpan)) z
 {-# INLINE forwardPassByApplication #-}
 forwardPassByApplication g hVectorPrimal _var _hVector =

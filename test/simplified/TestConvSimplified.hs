@@ -574,11 +574,12 @@ testConv2dUnpaddedPP = do
 testConv2dUnpadded2PP :: Assertion
 testConv2dUnpadded2PP = do
   resetVarCounter
-  let f :: HVector (AstRanked FullSpan)
+  let f :: InterpretationTarget (AstRanked FullSpan) TKUntyped
         -> HVectorPseudoTensor (AstRanked FullSpan) Float '()
-      f v = HVectorPseudoTensor $ dmkHVector
-            $ V.singleton $ DynamicRanked @Double @4
-            $ conv2dUnpadded (rfromD $ v V.! 0) (rfromD $ v V.! 1)
+      f hv = let v = dunHVector $ unHVectorPseudoTensor hv
+             in HVectorPseudoTensor $ dmkHVector
+                $ V.singleton $ DynamicRanked @Double @4
+                $ conv2dUnpadded (rfromD $ v V.! 0) (rfromD $ v V.! 1)
       shs = V.fromList [ voidFromSh @Double (2 :$: 2 :$: 2 :$: 2 :$: ZSR)
                        , voidFromSh @Double (2 :$: 2 :$: 2 :$: 2 :$: ZSR) ]
       (artifactRev, _) =
@@ -591,11 +592,12 @@ testConv2dUnpadded2PP = do
 testConv2dUnpadded3PP :: Assertion
 testConv2dUnpadded3PP = do
   resetVarCounter
-  let f :: HVector (AstRanked FullSpan)
+  let f :: InterpretationTarget (AstRanked FullSpan) TKUntyped
         -> HVectorPseudoTensor (AstRanked FullSpan) Float '()
-      f v = HVectorPseudoTensor $ dmkHVector
-            $ V.singleton $ DynamicRanked @Double @4
-            $ conv2d (rfromD $ v V.! 0) (rfromD $ v V.! 1)
+      f hv = let v = dunHVector $ unHVectorPseudoTensor hv
+             in HVectorPseudoTensor $ dmkHVector
+                $ V.singleton $ DynamicRanked @Double @4
+                $ conv2d (rfromD $ v V.! 0) (rfromD $ v V.! 1)
       shs = V.fromList [ voidFromSh @Double (2 :$: 2 :$: 2 :$: 2 :$: ZSR)
                        , voidFromSh @Double (2 :$: 2 :$: 2 :$: 2 :$: ZSR) ]
       (artifactRev, _) =
