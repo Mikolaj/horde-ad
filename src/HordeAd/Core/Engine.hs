@@ -30,7 +30,6 @@ import HordeAd.Core.AstInterpret
 import HordeAd.Core.Delta
 import HordeAd.Core.DualNumber
 import HordeAd.Core.HVector
-import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorADVal
 import HordeAd.Core.TensorAst
 import HordeAd.Core.TensorClass
@@ -132,8 +131,8 @@ revArtifactAdapt hasDt f vals0 =
         -> InterpretationTarget (AstRanked FullSpan) z
       g !hv = f $ parseHVector (fromValue vals0)
               $ dunHVector $ unHVectorPseudoTensor hv
-      valsH = toHVectorOf @ORArray vals0
-      voidH = FTKUntyped $ voidFromHVector valsH
+      valsH = HVectorPseudoTensor $ toHVectorOf @ORArray vals0
+      voidH = tshapeFull (stensorKind @TKUntyped) valsH
   in revProduceArtifact hasDt g emptyEnv voidH
 {-# SPECIALIZE revArtifactAdapt
   :: ( KnownNat n
@@ -152,24 +151,27 @@ revProduceArtifactWithoutInterpretation
   -> (AstArtifactRev x z, Delta (AstRaw PrimalSpan) z)
 {-# INLINE revProduceArtifactWithoutInterpretation #-}
 revProduceArtifactWithoutInterpretation hasDt f =
-  let g :: InterpretationTarget (AstRaw PrimalSpan) TKUntyped
+  let g :: InterpretationTarget (AstRaw PrimalSpan) x
         -> AstVarName FullSpan x
         -> InterpretationTarget (AstRanked FullSpan) x
         -> InterpretationTarget (ADVal (AstRaw PrimalSpan)) z
-      g hVectorPrimal = forwardPassByApplication f hVectorPrimal
+      g hVectorPrimal =
+        forwardPassByApplication (f . unHVectorPseudoTensor) hVectorPrimal
   in revArtifactFromForwardPass @x @z hasDt g
 
 forwardPassByApplication
-  :: (HVector (ADVal (AstRaw PrimalSpan))
+  :: forall x z. x ~ TKUntyped
+  => (InterpretationTarget (ADVal (AstRaw PrimalSpan)) x
       -> InterpretationTarget (ADVal (AstRaw PrimalSpan)) z)
-  -> InterpretationTarget (AstRaw PrimalSpan) TKUntyped
-  -> AstVarName FullSpan TKUntyped
-  -> InterpretationTarget (AstRanked FullSpan) TKUntyped
+  -> InterpretationTarget (AstRaw PrimalSpan) x
+  -> AstVarName FullSpan x
+  -> InterpretationTarget (AstRanked FullSpan) x
   -> InterpretationTarget (ADVal (AstRaw PrimalSpan)) z
 {-# INLINE forwardPassByApplication #-}
 forwardPassByApplication g hVectorPrimal _var _hVector =
-  let deltaInputs = generateDeltaInputs $ tshapeFull (stensorKind @TKUntyped) hVectorPrimal
-      HVectorPseudoTensor varInputs = makeADInputs hVectorPrimal deltaInputs
+  let deltaInputs =
+        generateDeltaInputs $ tshapeFull (stensorKind @x) hVectorPrimal
+      varInputs = makeADInputs hVectorPrimal deltaInputs
   in g varInputs
 
 revEvalArtifact
