@@ -8,7 +8,7 @@
 -- that become the codomains of the reverse derivative functions
 -- and also to hangle multiple arguments and results of fold-like operations.
 module HordeAd.Core.HVector
-  ( TensorKindFull(..), buildTensorKindFull
+  ( TensorKindFull(..), lemTensorKindOfF, buildTensorKindFull
   , DynamicTensor(..), CRanked, CShaped
   , HVector, HVectorPseudoTensor(..)
   , VoidTensor, absurdTensor, VoidHVector, DynamicScalar(..)
@@ -51,6 +51,14 @@ data TensorKindFull y where
 
 deriving instance Show (TensorKindFull y)
 deriving instance Eq (TensorKindFull y)
+
+lemTensorKindOfF :: TensorKindFull y -> Dict TensorKind y
+lemTensorKindOfF = \case
+  FTKR{} -> Dict
+  FTKS{} -> Dict
+  FTKProduct stk1 stk2 | Dict <- lemTensorKindOfF stk1
+                       , Dict <- lemTensorKindOfF stk2 -> Dict
+  FTKUntyped{} -> Dict
 
 buildTensorKindFull :: SNat k -> TensorKindFull y
                     -> TensorKindFull (BuildTensorKind k y)

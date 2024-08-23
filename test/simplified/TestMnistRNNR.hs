@@ -189,7 +189,7 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
            ast = MnistRnnRanked2.rnnMnistLossFusedR
                    miniBatchSize (AstRanked astGlyph, AstRanked astLabel)
                    (parseHVector (fromDValue valsInit)
-                                 (unRawHVector hVectorPrimal))
+                                 (unRawHVector (dunHVector $ unHVectorPseudoTensor hVectorPrimal)))
            runBatch :: (HVector (ORArray), StateAdam) -> (Int, [MnistDataR r])
                     -> IO (HVector (ORArray), StateAdam)
            runBatch (!parameters, !stateAdam) (k, chunk) = do

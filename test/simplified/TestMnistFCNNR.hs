@@ -200,7 +200,7 @@ mnistTestCase1VTI prefix epochs maxBatches widthHidden widthHidden2
            ast = MnistFcnnRanked1.afcnnMnistLoss1TensorData
                    widthHidden widthHidden2 (AstRanked $ astGlyph, AstRanked $ astLabel)
                    (parseHVector (fromDValue valsInit)
-                                 (unRawHVector hVectorPrimal))
+                                 (unRawHVector (dunHVector $ unHVectorPseudoTensor hVectorPrimal)))
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
        let runBatch :: HVector ORArray -> (Int, [MnistData r]) -> IO (HVector ORArray)
@@ -521,7 +521,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
            ast = MnistFcnnRanked2.afcnnMnistLoss2TensorData
                    (AstRanked astGlyph, AstRanked astLabel)
                    (parseHVector (fromDValue valsInit)
-                                 (unRawHVector hVectorPrimal))
+                                 (unRawHVector (dunHVector $ unHVectorPseudoTensor hVectorPrimal)))
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
        let runBatch :: HVector ORArray -> (Int, [MnistData r]) -> IO (HVector ORArray)

@@ -204,41 +204,51 @@ dynamicToVar (DynamicShapedDummy @r2 @sh2 _ _) = do
         !dynE = DynamicShaped @r2 @sh2 (AstShaped $ AstVar FTKS (mkAstVarName freshId))
     in (varE, dynE)
 
-funToAstRevIO :: TensorKindFull TKUntyped
-              -> IO ( AstVarName PrimalSpan TKUntyped
-                    , HVector (AstRaw PrimalSpan)
-                    , AstVarName FullSpan TKUntyped
-                    , HVector (AstRanked FullSpan) )
+funToAstRevIO :: forall x. TensorKindFull x
+              -> IO ( AstVarName PrimalSpan x
+                    , InterpretationTarget (AstRaw PrimalSpan) x
+                    , AstVarName FullSpan x
+                    , InterpretationTarget (AstRanked FullSpan) x )
 {-# INLINE funToAstRevIO #-}
-funToAstRevIO ftk@(FTKUntyped parameters0) = do
+funToAstRevIO ftk | Dict <- lemTensorKindOfF ftk = do
   freshId <- unsafeGetFreshAstVarId
-  let varPrimal = mkAstVarName freshId
+  let varPrimal :: AstVarName PrimalSpan x
+      varPrimal = mkAstVarName freshId
+      var :: AstVarName FullSpan x
       var = mkAstVarName freshId
       !astVarPrimal = AstVar ftk varPrimal
       !astVar = AstVar ftk var
-  let f :: Int -> DynamicTensor VoidTensor
-        -> IO (AstDynamic PrimalSpan, AstDynamic FullSpan)
-      f i (DynamicRankedDummy @r @sh _ _)
-        | Dict <- lemKnownNatRank (knownShS @sh) = do
-          return $!
-            ( DynamicRanked @r @(X.Rank sh)
-                            (AstRanked $ AstProjectR astVarPrimal i)
-            , DynamicRanked @r @(X.Rank sh)
-                            (AstRanked $ AstProjectR astVar i) )
-      f i (DynamicShapedDummy @r @sh _ _) = do
-        return $!
-          ( DynamicShaped @r @sh (AstShaped $ AstProjectS astVarPrimal i)
-          , DynamicShaped @r @sh (AstShaped $ AstProjectS astVar i) )
-  (!astsPrimal, !asts) <- unzip <$> imapM f (V.toList parameters0)
-  let !vp = V.fromList astsPrimal
-      !va = V.fromList asts
-  return (varPrimal, rawHVector vp, var, va)
+  case ftk of
+    FTKR{} -> return ( varPrimal, rawY (stensorKind @x) astVarPrimal
+                     , var, rankedY (stensorKind @x) astVar )
+    FTKS -> return ( varPrimal, rawY (stensorKind @x) astVarPrimal
+                   , var, rankedY (stensorKind @x) astVar )
+    FTKProduct{} -> return ( varPrimal, rawY (stensorKind @x) astVarPrimal
+                           , var, rankedY (stensorKind @x) astVar )
+    FTKUntyped parameters0 -> do
+      let f :: Int -> DynamicTensor VoidTensor
+            -> IO (AstDynamic PrimalSpan, AstDynamic FullSpan)
+          f i (DynamicRankedDummy @r @sh _ _)
+            | Dict <- lemKnownNatRank (knownShS @sh) = do
+              return $!
+                ( DynamicRanked @r @(X.Rank sh)
+                                (AstRanked $ AstProjectR astVarPrimal i)
+                , DynamicRanked @r @(X.Rank sh)
+                                (AstRanked $ AstProjectR astVar i) )
+          f i (DynamicShapedDummy @r @sh _ _) = do
+            return $!
+              ( DynamicShaped @r @sh (AstShaped $ AstProjectS astVarPrimal i)
+              , DynamicShaped @r @sh (AstShaped $ AstProjectS astVar i) )
+      (!astsPrimal, !asts) <- unzip <$> imapM f (V.toList parameters0)
+      let !vp = rawY (stensorKind @x) $ AstMkHVector $ V.fromList astsPrimal
+          !va = rankedY (stensorKind @x) $ AstMkHVector $ V.fromList asts
+      return (varPrimal, vp, var, va)
 
-funToAstRev :: TensorKindFull TKUntyped
-            -> ( AstVarName PrimalSpan TKUntyped
-               , HVector (AstRaw PrimalSpan)
-               , AstVarName FullSpan TKUntyped
-               , HVector (AstRanked FullSpan) )
+funToAstRev :: TensorKindFull x
+            -> ( AstVarName PrimalSpan x
+               , InterpretationTarget (AstRaw PrimalSpan) x
+               , AstVarName FullSpan x
+               , InterpretationTarget (AstRanked FullSpan) x )
 {-# NOINLINE funToAstRev #-}
 funToAstRev = unsafePerformIO . funToAstRevIO
 

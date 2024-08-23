@@ -87,7 +87,8 @@ revArtifactFromForwardPass hasDt forwardPass ftk =
       -- before gradientFromDelta allocates new memory and new FFI is started.
       !(!primalBody, !deltaIT) =
         unADValInterpretation (stensorKind @z)
-        $ forwardPass (HVectorPseudoTensor $ dmkHVector hVectorPrimal) var hVector
+        $ forwardPass hVectorPrimal var
+                      (dunHVector $ unHVectorPseudoTensor hVector)
       !delta = unDeltaRY (stensorKind @z) deltaIT in
   let (!varDt, !astDt) =
         funToAst (shapeAstFull $ unRawY (stensorKind @z) primalBody) id in
