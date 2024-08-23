@@ -452,25 +452,27 @@ build1V snat@SNat (var, v00) =
                                  (build1V snat (var, v))
     Ast.AstBuildHVector1{} -> traceRule $
       error "build1V: impossible case of AstBuildHVector1"
-    Ast.AstMapAccumRDer k5 accShs bShs eShs f df rf acc0 es -> traceRule $
+    Ast.AstMapAccumRDer k5 (FTKUntyped accShs) (FTKUntyped bShs) (FTKUntyped eShs)
+                        f df rf acc0 es -> traceRule $
       astTrAstHVectorTail (V.length accShs)
       $ Ast.AstMapAccumRDer
           k5
-          (replicate1VoidHVector snat accShs)
-          (replicate1VoidHVector snat bShs)
-          (replicate1VoidHVector snat eShs)
+          (FTKUntyped $ replicate1VoidHVector snat accShs)
+          (FTKUntyped $ replicate1VoidHVector snat bShs)
+          (FTKUntyped $ replicate1VoidHVector snat eShs)
           (build1VHFun snat (var, f))
           (build1VHFun snat (var, df))
           (build1VHFun snat (var, rf))
           (build1VOccurenceUnknown snat (var, acc0))
           (astTrAstHVector $ build1VOccurenceUnknown snat (var, es))
-    Ast.AstMapAccumLDer k5 accShs bShs eShs f df rf acc0 es -> traceRule $
+    Ast.AstMapAccumLDer k5 (FTKUntyped accShs) (FTKUntyped bShs) (FTKUntyped eShs)
+                        f df rf acc0 es -> traceRule $
       astTrAstHVectorTail (V.length accShs)
       $ Ast.AstMapAccumLDer
           k5
-          (replicate1VoidHVector snat accShs)
-          (replicate1VoidHVector snat bShs)
-          (replicate1VoidHVector snat eShs)
+          (FTKUntyped $ replicate1VoidHVector snat accShs)
+          (FTKUntyped $ replicate1VoidHVector snat bShs)
+          (FTKUntyped $ replicate1VoidHVector snat eShs)
           (build1VHFun snat (var, f))
           (build1VHFun snat (var, df))
           (build1VHFun snat (var, rf))

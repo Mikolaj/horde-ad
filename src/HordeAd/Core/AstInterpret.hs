@@ -858,18 +858,16 @@ interpretAst !env = \case
     let f = interpretAstHFun env f0
         df = interpretAstHFun env df0
         rf = interpretAstHFun env rf0
-        acc02 = unHVectorPseudoTensor $ interpretAst env acc0
-        es2 = unHVectorPseudoTensor $ interpretAst env es
-    in HVectorPseudoTensor
-       $ dmapAccumRDer (Proxy @ranked) k accShs bShs eShs f df rf acc02 es2
+        acc02 = interpretAst env acc0
+        es2 = interpretAst env es
+    in dmapAccumRDer (Proxy @ranked) k accShs bShs eShs f df rf acc02 es2
   AstMapAccumLDer k accShs bShs eShs f0 df0 rf0 acc0 es ->
     let f = interpretAstHFun env f0
         df = interpretAstHFun env df0
         rf = interpretAstHFun env rf0
-        acc02 = unHVectorPseudoTensor $ interpretAst env acc0
-        es2 = unHVectorPseudoTensor $ interpretAst env es
-    in HVectorPseudoTensor
-       $ dmapAccumLDer (Proxy @ranked) k accShs bShs eShs f df rf acc02 es2
+        acc02 = interpretAst env acc0
+        es2 = interpretAst env es
+    in dmapAccumLDer (Proxy @ranked) k accShs bShs eShs f df rf acc02 es2
 
 interpretAstDynamic
   :: forall ranked s. (ADReady ranked, AstSpan s)

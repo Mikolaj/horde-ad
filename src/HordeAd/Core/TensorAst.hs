@@ -649,10 +649,16 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
             $ AstLet var (astProject2 astP)
               $ simplifyInline $ unRawY (stensorKind @z) derivative
     in AstLambda (varP, ftk2, ast)
-  dmapAccumRDer _ !k !accShs !bShs !eShs =
-    AstMapAccumRDer k accShs bShs eShs
-  dmapAccumLDer _ !k !accShs !bShs !eShs =
-    AstMapAccumLDer k accShs bShs eShs
+  dmapAccumRDer _ !k !accShs !bShs !eShs f df rf acc0 es =
+    rankedY (stensorKind @TKUntyped)
+    $ AstMapAccumRDer k accShs bShs eShs f df rf
+                      (unRankedY (stensorKind @TKUntyped) acc0)
+                      (unRankedY (stensorKind @TKUntyped) es)
+  dmapAccumLDer _ !k !accShs !bShs !eShs f df rf acc0 es =
+    rankedY (stensorKind @TKUntyped)
+    $ AstMapAccumLDer k accShs bShs eShs f df rf
+                      (unRankedY (stensorKind @TKUntyped) acc0)
+                      (unRankedY (stensorKind @TKUntyped) es)
 
 astLetHVectorInHVectorFun
   :: AstSpan s
@@ -1136,13 +1142,15 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
   drevDt = drevDt @(AstRanked s)
   dfwd = dfwd @(AstRanked s)
   dmapAccumRDer _ k accShs bShs eShs f df rf acc0 es =
-    AstRawWrap
-    $ AstMapAccumRDer k accShs bShs eShs f df rf (unAstRawWrap acc0)
-                                                 (unAstRawWrap es)
+    rawY (stensorKind @TKUntyped)
+    $ AstMapAccumRDer k accShs bShs eShs f df rf
+                      (unRawY (stensorKind @TKUntyped) acc0)
+                      (unRawY (stensorKind @TKUntyped) es)
   dmapAccumLDer _ k accShs bShs eShs f df rf acc0 es =
-    AstRawWrap
-    $ AstMapAccumLDer k accShs bShs eShs f df rf (unAstRawWrap acc0)
-                                                 (unAstRawWrap es)
+    rawY (stensorKind @TKUntyped)
+    $ AstMapAccumLDer k accShs bShs eShs f df rf
+                      (unRawY (stensorKind @TKUntyped) acc0)
+                      (unRawY (stensorKind @TKUntyped) es)
 
 instance ProductTensor (AstNoVectorize s) where
   tmkHVector = AstNoVectorizeWrap . AstMkHVector . unNoVectorizeHVector
@@ -1336,15 +1344,23 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
   drevDt = drevDt @(AstRanked s)
   dfwd = dfwd @(AstRanked s)
   dmapAccumRDer _ k accShs bShs eShs f df rf acc0 es =
-    AstNoVectorizeWrap
+    noVectorizeY (stensorKind @TKUntyped)
+    $ unRankedY (stensorKind @TKUntyped)
     $ dmapAccumRDer (Proxy @(AstRanked s))
-                    k accShs bShs eShs f df rf (unAstNoVectorizeWrap acc0)
-                                               (unAstNoVectorizeWrap es)
+                    k accShs bShs eShs f df rf
+                    (rankedY (stensorKind @TKUntyped)
+                     $ unNoVectorizeY (stensorKind @TKUntyped) acc0)
+                    (rankedY (stensorKind @TKUntyped)
+                     $ unNoVectorizeY (stensorKind @TKUntyped) es)
   dmapAccumLDer _ k accShs bShs eShs f df rf acc0 es =
-    AstNoVectorizeWrap
+    noVectorizeY (stensorKind @TKUntyped)
+    $ unRankedY (stensorKind @TKUntyped)
     $ dmapAccumLDer (Proxy @(AstRanked s))
-                    k accShs bShs eShs f df rf (unAstNoVectorizeWrap acc0)
-                                               (unAstNoVectorizeWrap es)
+                    k accShs bShs eShs f df rf
+                    (rankedY (stensorKind @TKUntyped)
+                     $ unNoVectorizeY (stensorKind @TKUntyped) acc0)
+                    (rankedY (stensorKind @TKUntyped)
+                     $ unNoVectorizeY (stensorKind @TKUntyped) es)
 
 unNoVectorizeHVector :: HVector (AstNoVectorize s) -> HVector (AstRanked s)
 unNoVectorizeHVector =
@@ -1366,8 +1382,8 @@ instance ProductTensor (AstNoSimplify s) where
   tmkHVector = AstNoSimplifyWrap . AstMkHVector . unNoSimplifyHVector
 
 noSimplifyY :: forall y s.
-           STensorKindType y -> AstTensor s y
-        -> InterpretationTarget (AstNoSimplify s) y
+               STensorKindType y -> AstTensor s y
+            -> InterpretationTarget (AstNoSimplify s) y
 noSimplifyY stk t = case stk of
   STKR{} -> AstNoSimplify t
   STKS{} -> AstNoSimplifyS t
@@ -1376,8 +1392,8 @@ noSimplifyY stk t = case stk of
   STKUntyped -> HVectorPseudoTensor $ AstNoSimplifyWrap t
 
 unNoSimplifyY :: forall y s.
-             STensorKindType y -> InterpretationTarget (AstNoSimplify s) y
-          -> AstTensor s y
+                 STensorKindType y -> InterpretationTarget (AstNoSimplify s) y
+              -> AstTensor s y
 unNoSimplifyY stk t = case stk of
   STKR{} -> unAstNoSimplify t
   STKS{} -> unAstNoSimplifyS t
@@ -1568,13 +1584,15 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
   drevDt = drevDt @(AstRanked s)
   dfwd = dfwd @(AstRanked s)
   dmapAccumRDer _ k accShs bShs eShs f df rf acc0 es =
-    AstNoSimplifyWrap
-    $ AstMapAccumRDer k accShs bShs eShs f df rf (unAstNoSimplifyWrap acc0)
-                                                 (unAstNoSimplifyWrap es)
+    noSimplifyY (stensorKind @TKUntyped)
+    $ AstMapAccumRDer k accShs bShs eShs f df rf
+                      (unNoSimplifyY (stensorKind @TKUntyped) acc0)
+                      (unNoSimplifyY (stensorKind @TKUntyped) es)
   dmapAccumLDer _ k accShs bShs eShs f df rf acc0 es =
-    AstNoSimplifyWrap
-    $ AstMapAccumLDer k accShs bShs eShs f df rf (unAstNoSimplifyWrap acc0)
-                                                 (unAstNoSimplifyWrap es)
+    noSimplifyY (stensorKind @TKUntyped)
+    $ AstMapAccumLDer k accShs bShs eShs f df rf
+                      (unNoSimplifyY (stensorKind @TKUntyped) acc0)
+                      (unNoSimplifyY (stensorKind @TKUntyped) es)
 
 unNoSimplifyHVector :: HVector (AstNoSimplify s) -> HVector (AstRanked s)
 unNoSimplifyHVector =

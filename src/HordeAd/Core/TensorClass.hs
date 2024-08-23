@@ -933,11 +933,11 @@ class HVectorTensor (ranked :: RankedTensorType)
         sh = rshape acc0
     in withSNat width $ \snat ->
       rletHVectorIn
-        (dmapAccumL (Proxy @ranked)
+        (unHVectorPseudoTensor $ dmapAccumL (Proxy @ranked)
            snat
-           (V.singleton $ voidFromSh @rn sh)
-           V.empty
-           (V.singleton $ voidFromSh @rm shm)
+           (FTKUntyped $ V.singleton $ voidFromSh @rn sh)
+           (FTKUntyped V.empty)
+           (FTKUntyped $ V.singleton $ voidFromSh @rm shm)
            (let g :: forall f. ADReady f
                   => HVector f -> HVector f -> HVectorOf f
                 g !acc !e =
@@ -945,8 +945,8 @@ class HVectorTensor (ranked :: RankedTensorType)
                     (f (rfromD $ acc V.! 0) (rfromD $ e V.! 0))
                     (dmkHVector . V.singleton . DynamicRanked)
             in g)
-           (dmkHVector $ V.singleton $ DynamicRanked acc0)
-           (dmkHVector $ V.singleton $ DynamicRanked es))
+           (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked acc0)
+           (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked es))
         (\res -> rfromD $ res V.! 0)
   -- | A strict left scan.
   rscan
@@ -965,11 +965,11 @@ class HVectorTensor (ranked :: RankedTensorType)
         sh = rshape acc0
     in withSNat width $ \snat ->
       rletHVectorIn
-        (dmapAccumL (Proxy @ranked)
+        (unHVectorPseudoTensor $ dmapAccumL (Proxy @ranked)
            snat
-           (V.singleton $ voidFromSh @rn sh)
-           (V.singleton $ voidFromSh @rn sh)
-           (V.singleton $ voidFromSh @rm shm)
+           (FTKUntyped $ V.singleton $ voidFromSh @rn sh)
+           (FTKUntyped $ V.singleton $ voidFromSh @rn sh)
+           (FTKUntyped $ V.singleton $ voidFromSh @rm shm)
            (let g :: forall f. ADReady f
                   => HVector f -> HVector f -> HVectorOf f
                 g !acc !e =
@@ -979,8 +979,8 @@ class HVectorTensor (ranked :: RankedTensorType)
                              $ V.fromList [ DynamicRanked res
                                           , DynamicRanked res ])
             in g)
-           (dmkHVector $ V.singleton $ DynamicRanked acc0)
-           (dmkHVector $ V.singleton $ DynamicRanked es))
+           (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked acc0)
+           (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked es))
         (\res -> rappend (rfromList [acc0]) (rfromD $ res V.! 1))
   -- | A strict left fold.
   sfold
@@ -994,11 +994,11 @@ class HVectorTensor (ranked :: RankedTensorType)
     -> shaped rn sh
   sfold f acc0 es =
     sletHVectorIn
-      (dmapAccumL (Proxy @ranked)
+      (unHVectorPseudoTensor $ dmapAccumL (Proxy @ranked)
          (SNat @k)
-         (V.singleton $ voidFromShS @rn @sh)
-         V.empty
-         (V.singleton $ voidFromShS @rm @shm)
+         (FTKUntyped $ V.singleton $ voidFromShS @rn @sh)
+         (FTKUntyped V.empty)
+         (FTKUntyped $ V.singleton $ voidFromShS @rm @shm)
          (let g :: forall f. ADReady f
                 => HVector f -> HVector f -> HVectorOf f
               g !acc !e =
@@ -1006,8 +1006,8 @@ class HVectorTensor (ranked :: RankedTensorType)
                   (f (sfromD $ acc V.! 0) (sfromD $ e V.! 0))
                   (dmkHVector . V.singleton . DynamicShaped)
           in g)
-         (dmkHVector $ V.singleton $ DynamicShaped acc0)
-         (dmkHVector $ V.singleton $ DynamicShaped es))
+         (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicShaped acc0)
+         (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicShaped es))
       (\res -> sfromD $ res V.! 0)
   sscan
     :: forall rn rm sh shm k.
@@ -1020,11 +1020,11 @@ class HVectorTensor (ranked :: RankedTensorType)
     -> shaped rn (1 + k ': sh)
   sscan f acc0 es =
     sletHVectorIn
-      (dmapAccumL (Proxy @ranked)
+      (unHVectorPseudoTensor $ dmapAccumL (Proxy @ranked)
          (SNat @k)
-         (V.singleton $ voidFromShS @rn @sh)
-         (V.singleton $ voidFromShS @rn @sh)
-         (V.singleton $ voidFromShS @rm @shm)
+         (FTKUntyped $ V.singleton $ voidFromShS @rn @sh)
+         (FTKUntyped $ V.singleton $ voidFromShS @rn @sh)
+         (FTKUntyped $ V.singleton $ voidFromShS @rm @shm)
          (let g :: forall f. ADReady f
                 => HVector f -> HVector f -> HVectorOf f
               g !acc !e =
@@ -1034,8 +1034,8 @@ class HVectorTensor (ranked :: RankedTensorType)
                            $ V.fromList [ DynamicShaped res
                                         , DynamicShaped res ])
           in g)
-         (dmkHVector $ V.singleton $ DynamicShaped acc0)
-         (dmkHVector $ V.singleton $ DynamicShaped es))
+         (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicShaped acc0)
+         (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicShaped es))
       (\res -> sappend @_ @_ @1 (sfromList [acc0]) (sfromD $ res V.! 1))
   -- | A strict right macAccum.
   --
@@ -1045,18 +1045,20 @@ class HVectorTensor (ranked :: RankedTensorType)
   -- the computation is unnneeded, so the AST instance uses a non-strict
   -- constructor 'AstLambda' for it's instance of 'HFunOf'.
   dmapAccumR
-    :: Proxy ranked
+    :: (accShs ~ TKUntyped, bShs ~ TKUntyped, eShs ~ TKUntyped)
+    => Proxy ranked
     -> SNat k
-    -> VoidHVector
-    -> VoidHVector
-    -> VoidHVector
+    -> TensorKindFull accShs
+    -> TensorKindFull bShs
+    -> TensorKindFull eShs
     -> (forall f. ADReady f
         => HVector f -> HVector f -> HVectorOf f)
-    -> HVectorOf ranked
-    -> HVectorOf ranked
-    -> HVectorOf ranked
-  dmapAccumR proxy !k !accShs !bShs !eShs f acc0 es =
-    let shs = accShs V.++ eShs
+    -> InterpretationTarget ranked accShs
+    -> InterpretationTarget ranked TKUntyped
+    -> InterpretationTarget ranked TKUntyped
+  dmapAccumR proxy !k !accShs@(FTKUntyped accShsH) !bShs !eShs@(FTKUntyped eShsH)
+             f acc0 es =
+    let shs = FTKUntyped $ accShsH V.++ eShsH
         fl :: forall f. ADReady f
            => InterpretationTarget f (TKProduct TKUntyped TKUntyped)
            -> InterpretationTarget f TKUntyped
@@ -1066,7 +1068,7 @@ class HVectorTensor (ranked :: RankedTensorType)
             dletHVectorInHVector
               (unHVectorPseudoTensor $ snd acc_e) $ \ !e ->
               f acc e
-        accLen = V.length accShs
+        accLen = V.length accShsH
         fs :: forall f. ADReady f
            => InterpretationTarget f TKUntyped
            -> InterpretationTarget f TKUntyped
@@ -1074,19 +1076,18 @@ class HVectorTensor (ranked :: RankedTensorType)
           dletHVectorInHVector acc_eOf $ \ !acc_e ->
             uncurry f (V.splitAt accLen acc_e)
     in dmapAccumRDer proxy k accShs bShs eShs
-                     (dlambda @ranked
-                        (FTKProduct (FTKUntyped accShs) (FTKUntyped eShs))
-                        (HFun fl))
-                     (dfwd @ranked (FTKUntyped shs) $ HFun fs)
-                     (drevDt @ranked (FTKUntyped shs) $ HFun fs)
+                     (dlambda @ranked (FTKProduct accShs eShs) (HFun fl))
+                     (dfwd @ranked shs $ HFun fs)
+                     (drevDt @ranked shs $ HFun fs)
                      acc0 es
   dmapAccumRDer
-    :: Proxy ranked
+    :: (accShs ~ TKUntyped, bShs ~ TKUntyped, eShs ~ TKUntyped)
+    => Proxy ranked
     -> SNat k
-    -> VoidHVector  -- ^ accShs, shapes of acc
-    -> VoidHVector  -- ^ bShs, shapes of b
-    -> VoidHVector  -- ^ eShs, shapes of e
-    -> HFunOf ranked (TKProduct TKUntyped TKUntyped) TKUntyped
+    -> TensorKindFull accShs  -- ^ shapes of acc
+    -> TensorKindFull bShs -- ^ shapes of b
+    -> TensorKindFull eShs -- ^ shapes of e
+    -> HFunOf ranked (TKProduct accShs eShs) TKUntyped
     -- (forall f. ADReady f =>
     --  [ HVector f      -- ^ acc, accumulator :: accShs
     --  , HVector f ]    -- ^ e, element of es :: eShs
@@ -1105,23 +1106,25 @@ class HVectorTensor (ranked :: RankedTensorType)
     --  , HVector f      -- ^ acc :: accShs
     --    ++ HVector f ] -- ^ e :: eShs
     --  -> HVectorOf f)  -- ^ (dacc, de) :: (accShs, eShs)
-    -> HVectorOf ranked  -- ^ acc0 :: accShs
-    -> HVectorOf ranked  -- ^ es :: k ': eShs
-    -> HVectorOf ranked  -- ^ (x, bs) :: (accShs, k ': bShs)
+    -> InterpretationTarget ranked accShs  -- ^ acc0 :: accShs
+    -> InterpretationTarget ranked TKUntyped  -- ^ es :: k ': eShs
+    -> InterpretationTarget ranked TKUntyped  -- ^ (x, bs) :: (accShs, k ': bShs)
   -- | A strict left macAccum.
   dmapAccumL
-    :: Proxy ranked
+    :: (accShs ~ TKUntyped, bShs ~ TKUntyped, eShs ~ TKUntyped)
+    => Proxy ranked
     -> SNat k
-    -> VoidHVector
-    -> VoidHVector
-    -> VoidHVector
+    -> TensorKindFull accShs
+    -> TensorKindFull bShs
+    -> TensorKindFull eShs
     -> (forall f. ADReady f
         => HVector f -> HVector f -> HVectorOf f)
-    -> HVectorOf ranked
-    -> HVectorOf ranked
-    -> HVectorOf ranked
-  dmapAccumL proxy !k !accShs !bShs !eShs f acc0 es =
-    let shs = accShs V.++ eShs
+    -> InterpretationTarget ranked accShs
+    -> InterpretationTarget ranked TKUntyped
+    -> InterpretationTarget ranked TKUntyped
+  dmapAccumL proxy !k !accShs@(FTKUntyped accShsH) !bShs !eShs@(FTKUntyped eShsH)
+             f acc0 es =
+    let shs = FTKUntyped $ accShsH V.++ eShsH
         fl :: forall f. ADReady f
            => InterpretationTarget f (TKProduct TKUntyped TKUntyped)
            -> InterpretationTarget f TKUntyped
@@ -1131,7 +1134,7 @@ class HVectorTensor (ranked :: RankedTensorType)
             dletHVectorInHVector
               (unHVectorPseudoTensor $ snd acc_e) $ \ !e ->
               f acc e
-        accLen = V.length accShs
+        accLen = V.length accShsH
         fs :: forall f. ADReady f
            => InterpretationTarget f TKUntyped
            -> InterpretationTarget f TKUntyped
@@ -1139,24 +1142,23 @@ class HVectorTensor (ranked :: RankedTensorType)
           dletHVectorInHVector acc_eOf $ \ !acc_e ->
             uncurry f (V.splitAt accLen acc_e)
     in dmapAccumLDer proxy k accShs bShs eShs
-                     (dlambda @ranked
-                        (FTKProduct (FTKUntyped accShs) (FTKUntyped eShs))
-                        (HFun fl))
-                     (dfwd @ranked (FTKUntyped shs) $ HFun fs)
-                     (drevDt @ranked (FTKUntyped shs) $ HFun fs)
+                     (dlambda @ranked (FTKProduct accShs eShs) (HFun fl))
+                     (dfwd @ranked shs $ HFun fs)
+                     (drevDt @ranked shs $ HFun fs)
                      acc0 es
   dmapAccumLDer
-    :: Proxy ranked
+    :: (accShs ~ TKUntyped, bShs ~ TKUntyped, eShs ~ TKUntyped)
+    => Proxy ranked
     -> SNat k
-    -> VoidHVector
-    -> VoidHVector
-    -> VoidHVector
+    -> TensorKindFull accShs
+    -> TensorKindFull bShs
+    -> TensorKindFull eShs
+    -> HFunOf ranked (TKProduct accShs eShs) TKUntyped
     -> HFunOf ranked (TKProduct TKUntyped TKUntyped) TKUntyped
     -> HFunOf ranked (TKProduct TKUntyped TKUntyped) TKUntyped
-    -> HFunOf ranked (TKProduct TKUntyped TKUntyped) TKUntyped
-    -> HVectorOf ranked
-    -> HVectorOf ranked
-    -> HVectorOf ranked
+    -> InterpretationTarget ranked accShs
+    -> InterpretationTarget ranked TKUntyped
+    -> InterpretationTarget ranked TKUntyped
 
 -- TODO: a misnomer, but ideally we'd remove this altogether, however,
 -- the Delta instance needed in interpreter makes this difficult.

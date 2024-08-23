@@ -483,25 +483,27 @@ data AstTensor :: AstSpanType -> TensorKindType -> Type where
   AstBuildHVector1 :: SNat k -> (IntVarName, AstTensor s TKUntyped)
                    -> AstTensor s TKUntyped
   AstMapAccumRDer
-    :: SNat k
-    -> VoidHVector
-    -> VoidHVector
-    -> VoidHVector
+    :: (accShs ~ TKUntyped, bShs ~ TKUntyped, eShs ~ TKUntyped)
+    => SNat k
+    -> TensorKindFull accShs
+    -> TensorKindFull bShs
+    -> TensorKindFull eShs
+    -> AstHFun (TKProduct accShs eShs) TKUntyped
     -> AstHFun (TKProduct TKUntyped TKUntyped) TKUntyped
     -> AstHFun (TKProduct TKUntyped TKUntyped) TKUntyped
-    -> AstHFun (TKProduct TKUntyped TKUntyped) TKUntyped
-    -> AstTensor s TKUntyped
+    -> AstTensor s accShs
     -> AstTensor s TKUntyped
     -> AstTensor s TKUntyped
   AstMapAccumLDer
-    :: SNat k
-    -> VoidHVector
-    -> VoidHVector
-    -> VoidHVector
+    :: (accShs ~ TKUntyped, bShs ~ TKUntyped, eShs ~ TKUntyped)
+    => SNat k
+    -> TensorKindFull accShs
+    -> TensorKindFull bShs
+    -> TensorKindFull eShs
+    -> AstHFun (TKProduct accShs eShs) TKUntyped
     -> AstHFun (TKProduct TKUntyped TKUntyped) TKUntyped
     -> AstHFun (TKProduct TKUntyped TKUntyped) TKUntyped
-    -> AstHFun (TKProduct TKUntyped TKUntyped) TKUntyped
-    -> AstTensor s TKUntyped
+    -> AstTensor s accShs
     -> AstTensor s TKUntyped
     -> AstTensor s TKUntyped
 

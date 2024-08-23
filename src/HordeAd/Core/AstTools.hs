@@ -145,9 +145,11 @@ shapeAstFull t = case t of
   AstLetHFunInHVector _ _ v -> shapeAstFull v
   AstBuildHVector1 k (_, v) ->
     FTKUntyped $ replicate1VoidHVector k $ shapeAstHVector v
-  AstMapAccumRDer k accShs bShs _eShs _f _df _rf _acc0 _es ->
+  AstMapAccumRDer k (FTKUntyped accShs) (FTKUntyped bShs)
+                  _eShs _f _df _rf _acc0 _es ->
     FTKUntyped $ accShs V.++ replicate1VoidHVector k bShs
-  AstMapAccumLDer k accShs bShs _eShs _f _df _rf _acc0 _es ->
+  AstMapAccumLDer k (FTKUntyped accShs) (FTKUntyped bShs)
+                  _eShs _f _df _rf _acc0 _es ->
     FTKUntyped $ accShs V.++ replicate1VoidHVector k bShs
 
 -- This is cheap and dirty. We don't shape-check the terms and we don't

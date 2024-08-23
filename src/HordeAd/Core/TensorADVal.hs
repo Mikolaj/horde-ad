@@ -505,26 +505,16 @@ instance ADReadyBoth ranked shaped
         df !da_a = fst $ cfwdOnHVector
                            (tshare $ snd da_a) (unHFun h) (tshare $ fst da_a)
     in HFun df
-  dmapAccumRDer
-    :: Proxy (ADVal ranked)
-    -> SNat k
-    -> VoidHVector
-    -> VoidHVector
-    -> VoidHVector
-    -> HFun (TKProduct TKUntyped TKUntyped) TKUntyped
-    -> HFun (TKProduct TKUntyped TKUntyped) TKUntyped
-    -> HFun (TKProduct TKUntyped TKUntyped) TKUntyped
-    -> HVectorOf (ADVal ranked)
-    -> HVectorOf (ADVal ranked)
-    -> HVectorOf (ADVal ranked)
-  dmapAccumRDer _ !k !accShs !bShs !eShs f df rf acc0D esD =
-    assert (voidHVectorMatches (replicate1VoidHVector k eShs) esD
-            && voidHVectorMatches accShs acc0D) $
-    let (acc0, acc0') = unADValHVector acc0D
-        (esUnshared, es') = unADValHVector esD
+  dmapAccumRDer _ !k !accShs@(FTKUntyped accShsH) !bShs@(FTKUntyped bShsH)
+                !eShs@(FTKUntyped eShsH) f df rf acc0D esD =
+    assert (voidHVectorMatches (replicate1VoidHVector k eShsH)
+                               (unHVectorPseudoTensor esD)
+            && voidHVectorMatches accShsH (unHVectorPseudoTensor acc0D)) $
+    let (acc0, acc0') = unADValHVector $ unHVectorPseudoTensor acc0D
+        (esUnshared, es') = unADValHVector $ unHVectorPseudoTensor esD
         es = dshare (dmkHVector esUnshared)
-        codomainShs = accShs V.++ bShs
-        accLen = V.length accShs
+        codomainShs = accShsH V.++ bShsH
+        accLen = V.length accShsH
         hvToPair :: forall f. HVector f -> (HVector f, HVector f)
         hvToPair = V.splitAt accLen
         g :: forall f. ADReady f
@@ -572,52 +562,40 @@ instance ADReadyBoth ranked shaped
                  let (dacc, de) = hvToPair res
                  in dmkHVector
                     $ V.concat [V.zipWith addDynamic dacc dbacc, de]
-        pUnshared :: HVectorOf ranked
+        -- pUnshared :: HVectorOf ranked
         pUnshared = dmapAccumRDer (Proxy @ranked)
-                                  k accShs codomainShs eShs
-                                  (dlambda @ranked
-                                     (FTKProduct (FTKUntyped accShs) (
-                                                 FTKUntyped eShs))
+                                  k accShs (FTKUntyped codomainShs) eShs
+                                  (dlambda @ranked (FTKProduct accShs eShs)
                                    $ HFun g)
                                   (dlambda @ranked
-                                     (FTKProduct (FTKUntyped $ accShs V.++ eShs)
-                                                 (FTKUntyped $ accShs V.++ eShs))
+                                     (FTKProduct (FTKUntyped $ accShsH V.++ eShsH)
+                                                 (FTKUntyped $ accShsH V.++ eShsH))
                                    $ HFun dg)
                                   (dlambda @ranked
-                                     (FTKProduct (FTKUntyped $ accShs V.++ codomainShs)
-                                                 (FTKUntyped $ accShs V.++ eShs))
+                                     (FTKProduct (FTKUntyped $ accShsH V.++ codomainShs)
+                                                 (FTKUntyped $ accShsH V.++ eShsH))
                                    $ HFun rg)
-                                  (dmkHVector acc0) es
-        pShared = dunHVector $ dshare pUnshared
+                                  (HVectorPseudoTensor $ dmkHVector acc0) (HVectorPseudoTensor es)
+        pShared = dunHVector $ unHVectorPseudoTensor $ tshare pUnshared
         -- This code makes sense only thanks to HVector being a representation
         -- of tuples in the struct of arrays format.
         accFin = V.take accLen pShared
         q = V.slice accLen accLen pShared
         bs = V.drop (2 * accLen) pShared
-        !_A = assert (voidHVectorMatches (replicate1VoidHVector k bShs) bs) ()
+        !_A = assert (voidHVectorMatches (replicate1VoidHVector k bShsH) bs) ()
         primal = accFin V.++ bs
         dual = wrapDeltaH $ MapAccumR k accShs bShs eShs q (dunHVector es) df rf acc0' es'
-    in ahhToHVector primal dual
-  dmapAccumLDer
-    :: Proxy (ADVal ranked)
-    -> SNat k
-    -> VoidHVector
-    -> VoidHVector
-    -> VoidHVector
-    -> HFun (TKProduct TKUntyped TKUntyped) TKUntyped
-    -> HFun (TKProduct TKUntyped TKUntyped) TKUntyped
-    -> HFun (TKProduct TKUntyped TKUntyped) TKUntyped
-    -> HVectorOf (ADVal ranked)
-    -> HVectorOf (ADVal ranked)
-    -> HVectorOf (ADVal ranked)
-  dmapAccumLDer _ !k !accShs !bShs !eShs f df rf acc0D esD =
-    assert (voidHVectorMatches (replicate1VoidHVector k eShs) esD
-            && voidHVectorMatches accShs acc0D) $
-    let (acc0, acc0') = unADValHVector acc0D
-        (esUnshared, es') = unADValHVector esD
+    in HVectorPseudoTensor $ ahhToHVector primal dual
+  dmapAccumLDer _ !k !accShs@(FTKUntyped accShsH) !bShs@(FTKUntyped bShsH)
+                !eShs@(FTKUntyped eShsH) f df rf acc0D esD =
+    assert (voidHVectorMatches (replicate1VoidHVector k eShsH)
+                               (unHVectorPseudoTensor esD)
+            && voidHVectorMatches accShsH (unHVectorPseudoTensor acc0D)) $
+    let (acc0, acc0') = unADValHVector $ unHVectorPseudoTensor acc0D
+        (esUnshared, es') = unADValHVector $ unHVectorPseudoTensor esD
         es = dshare (dmkHVector esUnshared)
-        codomainShs = accShs V.++ bShs
-        accLen = V.length accShs
+        codomainShs = accShsH V.++ bShsH
+        accLen = V.length accShsH
         hvToPair :: forall f. HVector f -> (HVector f, HVector f)
         hvToPair = V.splitAt accLen
         g :: forall f. ADReady f
@@ -665,32 +643,30 @@ instance ADReadyBoth ranked shaped
                  let (dacc, de) = hvToPair res
                  in dmkHVector
                     $ V.concat [V.zipWith addDynamic dacc dbacc, de]
-        pUnshared :: HVectorOf ranked
+        -- pUnshared :: HVectorOf ranked
         pUnshared = dmapAccumLDer (Proxy @ranked)
-                                  k accShs codomainShs eShs
-                                  (dlambda @ranked
-                                     (FTKProduct (FTKUntyped accShs) (
-                                                 FTKUntyped eShs))
+                                  k accShs (FTKUntyped codomainShs) eShs
+                                  (dlambda @ranked (FTKProduct accShs eShs)
                                    $ HFun g)
                                   (dlambda @ranked
-                                     (FTKProduct (FTKUntyped $ accShs V.++ eShs)
-                                                 (FTKUntyped $ accShs V.++ eShs))
+                                     (FTKProduct (FTKUntyped $ accShsH V.++ eShsH)
+                                                 (FTKUntyped $ accShsH V.++ eShsH))
                                    $ HFun dg)
                                   (dlambda @ranked
-                                     (FTKProduct (FTKUntyped $ accShs V.++ codomainShs)
-                                                 (FTKUntyped $ accShs V.++ eShs))
+                                     (FTKProduct (FTKUntyped $ accShsH V.++ codomainShs)
+                                                 (FTKUntyped $ accShsH V.++ eShsH))
                                    $ HFun rg)
-                                  (dmkHVector acc0) es
-        pShared = dunHVector $ dshare pUnshared
+                                  (HVectorPseudoTensor $ dmkHVector acc0) (HVectorPseudoTensor es)
+        pShared = dunHVector $ unHVectorPseudoTensor $ tshare pUnshared
         -- This code makes sense only thanks to HVector being a representation
         -- of tuples in the struct of arrays format.
         accFin = V.take accLen pShared
         q = V.slice accLen accLen pShared
         bs = V.drop (2 * accLen) pShared
-        !_A = assert (voidHVectorMatches (replicate1VoidHVector k bShs) bs) ()
+        !_A = assert (voidHVectorMatches (replicate1VoidHVector k bShsH) bs) ()
         primal = accFin V.++ bs
         dual = wrapDeltaH $ MapAccumL k accShs bShs eShs q (dunHVector es) df rf acc0' es'
-    in ahhToHVector primal dual
+    in HVectorPseudoTensor $ ahhToHVector primal dual
 
 instance ProductTensor (ADVal ranked) where
   tmkHVector = id
