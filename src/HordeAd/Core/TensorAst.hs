@@ -569,6 +569,12 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
       dlet (fst u) $ \a1 ->
         dlet (snd u) $ \a2 -> f (a1, a2)
     STKUntyped{} -> astLetFun (unHVectorPseudoTensor u) (f . HVectorPseudoTensor)
+  -- These and many similar bangs are necessary to ensure variable IDs
+  -- are generated in the expected order, resulting in nesting of lets
+  -- occuring in the correct order and so no scoping errors.
+  dshare a@AstShare{} = a
+  dshare a | astIsSmall True a = a
+  dshare a = fun1ToAst $ \ !var -> AstShare var a
   -- For convenience and simplicity we define this for all spans,
   -- but it can only ever be used for PrimalSpan.
   -- In this instance, these three ops are only used for some rare tests that
@@ -583,12 +589,6 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     case sameAstSpan @s @PrimalSpan of
       Just Refl -> gunshareRanked (stensorKind @y)
       _ -> error "tunshare: used not at PrimalSpan"
-  -- These and many similar bangs are necessary to ensure variable IDs
-  -- are generated in the expected order, resulting in nesting of lets
-  -- occuring in the correct order and so no scoping errors.
-  dshare a@AstShare{} = a
-  dshare a | astIsSmall True a = a
-  dshare a = fun1ToAst $ \ !var -> AstShare var a
   dbuild1 k f = astBuildHVector1Vectorize k (f . AstRanked)
   rrev :: forall r n. (GoodScalar r, KnownNat n)
        => (forall f. ADReady f => HVector f -> f r n)
@@ -614,10 +614,10 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
         -- are the same variables, but it's a very special case;
         -- a faster implementation would be via AstHApply, but this tests
         -- a slightly different code path, so let's keep it
-  drevDt :: forall x z. (x ~ TKUntyped, TensorKind z)
-              => TensorKindFull x
-              -> HFun x z
-              -> AstHFun (TKProduct z x) x
+  drevDt :: forall x z. (TensorKind x, TensorKind z)
+         => TensorKindFull x
+         -> HFun x z
+         -> AstHFun (TKProduct z x) x
   drevDt ftkx f =
     -- This computes the (AST of) derivative of f once and interprets it again
     -- for each new tensor of arguments, which is better than computing it anew.
@@ -634,10 +634,10 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
             $ AstLet var (astProject2 astP)
               $ simplifyInline $ unRawY (stensorKind @x) gradient
     in AstLambda (varP, ftk2, ast)
-  dfwd :: forall x z. (x ~ TKUntyped, TensorKind z)
-            => TensorKindFull x
-            -> HFun x z
-            -> AstHFun (TKProduct x x) z
+  dfwd :: forall x z. (TensorKind x, TensorKind z)
+       => TensorKindFull x
+       -> HFun x z
+       -> AstHFun (TKProduct x x) z
   dfwd ftkx f =
     -- This computes the (AST of) derivative of f once and interprets it again
     -- for each new tensor of arguments, which is better than computing it anew.
@@ -1108,6 +1108,9 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
     STKS{} -> AstRawWrap $ astLetFunRaw (unAstRawS u) (unAstRawWrap . f . AstRawS)
     STKProduct{} -> error "TODO"
     STKUntyped{} -> error "TODO"
+  dshare a@(AstRawWrap AstShare{}) = a
+  dshare a | astIsSmall True (unAstRawWrap a) = a
+  dshare a = AstRawWrap $ fun1ToAst $ \ !var -> AstShare var (unAstRawWrap a)
   -- For convenience and simplicity we define this for all spans,
   -- but it can only ever be used for PrimalSpan.
   -- In this instance, these three ops are only used for some rare tests that
@@ -1122,9 +1125,6 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
     case sameAstSpan @s @PrimalSpan of
       Just Refl -> gunshare (stensorKind @y)
       _ -> error "tunshare: used not at PrimalSpan"
-  dshare a@(AstRawWrap AstShare{}) = a
-  dshare a | astIsSmall True (unAstRawWrap a) = a
-  dshare a = AstRawWrap $ fun1ToAst $ \ !var -> AstShare var (unAstRawWrap a)
   dbuild1 k f = AstRawWrap
                 $ AstBuildHVector1 k $ funToAstI (unAstRawWrap . f . AstRaw)
   -- These three methods are called at this type in delta evaluation via

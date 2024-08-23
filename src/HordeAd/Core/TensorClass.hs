@@ -770,11 +770,20 @@ class HVectorTensor (ranked :: RankedTensorType)
        => InterpretationTarget ranked y
        -> (InterpretationTarget ranked y -> HVectorOf ranked)
        -> HVectorOf ranked
+  dshare :: HVectorOf ranked -> HVectorOf ranked
+  dshare = id
+  tshare :: forall y.
+            ( TensorKind y, RankedTensor ranked, ShapedTensor shaped
+            , shaped ~ ShapedOf ranked, ranked ~ RankedOf shaped )
+         => InterpretationTarget ranked y -> InterpretationTarget ranked y
+  tshare t = case stensorKind @y of
+    STKR @r @n _ _ -> rshare @_ @r @n t
+    STKS{} -> sshare t
+    STKProduct{} -> (tshare $ fst t, tshare $ snd t)
+    STKUntyped{} -> HVectorPseudoTensor $ dshare $ unHVectorPseudoTensor t
   tunshare :: TensorKind y
            => InterpretationTarget ranked y -> InterpretationTarget ranked y
   tunshare = error "tunshare: this instance should never be used"
-  dshare :: HVectorOf ranked -> HVectorOf ranked
-  dshare = id
   dbuild1 :: SNat k
           -> (IntOf ranked -> HVectorOf ranked)  -- sh_i
           -> HVectorOf ranked  -- k ': sh_i
@@ -898,12 +907,12 @@ class HVectorTensor (ranked :: RankedTensorType)
   -- producing HVectorOf and it's exactly what is needed as arguments
   -- of dmapAccumRDer
   drevDt
-    :: (x ~ TKUntyped, TensorKind z)
+    :: (TensorKind x, TensorKind z)
     => TensorKindFull x  -- shape of a and da
     -> HFun x z  -- a |-> b
     -> HFunOf ranked (TKProduct z x) x  -- [db, a] |-> da
   dfwd
-    :: (x ~ TKUntyped, TensorKind z)
+    :: (TensorKind x, TensorKind z)
     => TensorKindFull x  -- shape of a and da
     -> HFun x z  -- a |-> b
     -> HFunOf ranked (TKProduct x x) z  -- [da, a] |-> db

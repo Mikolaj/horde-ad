@@ -255,13 +255,9 @@ instance HVectorTensor ORArray OSArray where
         g !hv = unHFun h hv
         rf :: InterpretationTarget ORArray (TKProduct z x)
            -> InterpretationTarget ORArray x
-        rf !db_a =
-          fst $ crevOnHVector
-                  (Just $ fst db_a)
-                  g
-                  (snd db_a)
+        rf !db_a = fst $ crevOnHVector (Just $ fst db_a) g (snd db_a)
     in rf
-  dfwd :: forall x z. (x ~ TKUntyped, TensorKind z)
+  dfwd :: forall x z. (TensorKind x, TensorKind z)
             => TensorKindFull x
             -> HFun x z
             -> HFunOf ORArray (TKProduct x x) z

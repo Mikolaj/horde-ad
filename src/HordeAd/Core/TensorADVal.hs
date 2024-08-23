@@ -478,7 +478,7 @@ instance ADReadyBoth ranked shaped
                 $ f $ unHVectorPseudoTensor hv
     in unHVectorPseudoTensor $ fst $ crevOnHVector Nothing g
        $ HVectorPseudoTensor parameters
-  drevDt :: forall x z. (x ~ TKUntyped, TensorKind z)
+  drevDt :: forall x z. (TensorKind x, TensorKind z)
          => TensorKindFull x
          -> HFun x z
          -> HFun (TKProduct z x) x
@@ -490,26 +490,20 @@ instance ADReadyBoth ranked shaped
         rf :: forall f. ADReady f
            => InterpretationTarget f (TKProduct z x)
            -> InterpretationTarget f x
-        rf !db_a =
+        rf !db_a = fst $ crevOnHVector (Just $ fst db_a) g (tshare $ snd db_a)
           -- This computes the derivative of g again for each new db and a.
-          fst $ crevOnHVector
-                  (Just $ fst db_a)
-                  g
-                  (HVectorPseudoTensor $ dshare $ unHVectorPseudoTensor $ snd db_a)
     in HFun rf
-  dfwd :: forall x z. (x ~ TKUntyped, TensorKind z)
-            => TensorKindFull x
-            -> HFun x z
-            -> HFun (TKProduct x x) z
+  dfwd :: forall x z. (TensorKind x, TensorKind z)
+       => TensorKindFull x
+       -> HFun x z
+       -> HFun (TKProduct x x) z
   dfwd _ftk h =
     let df :: forall f. ADReady f
            => InterpretationTarget f (TKProduct x x)
            -> InterpretationTarget f z
           -- This computes the derivative of g again for each new da and a.
         df !da_a = fst $ cfwdOnHVector
-                           (HVectorPseudoTensor $ dshare $ unHVectorPseudoTensor $ snd da_a)
-                           (unHFun h)
-                           (HVectorPseudoTensor $ dshare $ unHVectorPseudoTensor $ fst da_a)
+                           (tshare $ snd da_a) (unHFun h) (tshare $ fst da_a)
     in HFun df
   dmapAccumRDer
     :: Proxy (ADVal ranked)
