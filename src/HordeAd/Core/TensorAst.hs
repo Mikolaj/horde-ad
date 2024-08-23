@@ -160,9 +160,9 @@ fwdArtifactFromForwardPass forwardPass ftk =
         funToAstFwd ftk in
   let !(!primalBody, !deltaIT) =
         unADValInterpretation (stensorKind @z)
-        $ forwardPass (HVectorPseudoTensor $ dmkHVector hVectorPrimal) var (HVectorPseudoTensor $ dmkHVector hVector)
+        $ forwardPass hVectorPrimal var hVector
       !delta = unDeltaRY (stensorKind @z) deltaIT in
-  let !derivative = derivativeFromDelta delta hVectorD
+  let !derivative = derivativeFromDelta delta (dunHVector $ unHVectorPseudoTensor hVectorD)
       !unDerivative = gunshare (stensorKind @z) derivative
       !unPrimal = gunshare (stensorKind @z) primalBody
   in ( AstArtifactFwd varPrimalD varPrimal unDerivative unPrimal
