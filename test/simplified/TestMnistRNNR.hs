@@ -302,9 +302,11 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
              let glyphD = DynamicRanked $ rconst $ Nested.rfromOrthotope SNat glyph
                  labelD = DynamicRanked $ rconst $ Nested.rfromOrthotope SNat label
                  parametersAndInput =
-                   V.concat [parameters, V.fromList [glyphD, labelD]]
+                   HVectorPseudoTensor
+                   $ V.concat [parameters, V.fromList [glyphD, labelD]]
                  gradientHVector =
-                   fst $ revEvalArtifact art parametersAndInput Nothing
+                   unHVectorPseudoTensor
+                   $ fst $ revEvalArtifact art parametersAndInput Nothing
              in go rest (updateWithGradientAdam defaultArgsAdam stateAdam
                                                 parameters gradientHVector)
            runBatch :: (HVector (ORArray), StateAdam) -> (Int, [MnistDataR r])

@@ -102,10 +102,10 @@ revDtMaybe f vals0 mdt =
         -> InterpretationTarget (AstRanked FullSpan) z
       g !hv = f $ parseHVector (fromValue vals0)
               $ dunHVector $ unHVectorPseudoTensor hv
-      valsH = toHVectorOf vals0
-      voidH = FTKUntyped $ voidFromHVector valsH
+      valsH = HVectorPseudoTensor $ toHVectorOf vals0
+      voidH = tshapeFull (stensorKind @TKUntyped) valsH
       artifact = fst $ revProduceArtifact (isJust mdt) g emptyEnv voidH
-  in parseHVector vals0
+  in parseHVector vals0 $ unHVectorPseudoTensor
      $ fst $ revEvalArtifact artifact valsH mdt
 {-# SPECIALIZE revDtMaybe
   :: ( KnownNat n
@@ -173,24 +173,20 @@ forwardPassByApplication g hVectorPrimal _var _hVector =
   in g varInputs
 
 revEvalArtifact
-  :: forall x z. (x ~ TKUntyped, TensorKind z)
+  :: forall x z. (TensorKind x, TensorKind z)
   => AstArtifactRev x z
-  -> HVector ORArray
+  -> InterpretationTarget ORArray x
   -> Maybe (InterpretationTarget ORArray z)
-  -> (HVector ORArray, InterpretationTarget ORArray z)
+  -> (InterpretationTarget ORArray x, InterpretationTarget ORArray z)
 {-# INLINE revEvalArtifact #-}
-revEvalArtifact !(AstArtifactRev varDt var
-                                 (HVectorPseudoTensor (AstRawWrap gradient))
-                                 primal)
-                parameters mdt =
-  let oneAtF = interpretationConstant 1 $ tshapeFull (stensorKind @z) primal
+revEvalArtifact !AstArtifactRev{..} parameters mdt =
+  let oneAtF = interpretationConstant 1 $ tshapeFull (stensorKind @z) artPrimalRev
       dt = fromMaybe oneAtF mdt
-      pars = HVectorPseudoTensor parameters
-      env = extendEnv var pars emptyEnv
-      envDt = extendEnv varDt dt env
-      gradientHVector = unHVectorPseudoTensor $ interpretAst envDt gradient
-      primalTensor = interpretAst env $ unRawY (stensorKind @z) primal
-  in (gradientHVector, primalTensor)
+      env = extendEnv artVarDomainRev parameters emptyEnv
+      envDt = extendEnv artVarDtRev dt env
+      gradient = interpretAst envDt $ unRawY (stensorKind @x) artDerivativeRev
+      primal = interpretAst env $ unRawY (stensorKind @z) artPrimalRev
+  in (gradient, primal)
 
 
 -- * Forward derivative adaptors
@@ -217,26 +213,26 @@ fwd
 fwd f vals ds =
   let g hVector = f $ parseHVector (fromValue vals)
                   $ dunHVector $ unHVectorPseudoTensor hVector
-      valsH = toHVectorOf vals
-      voidH = FTKUntyped $ voidFromHVector valsH
+      valsH = HVectorPseudoTensor $ toHVectorOf vals
+      voidH = tshapeFull (stensorKind @TKUntyped) valsH
       artifact = fst $ fwdProduceArtifact g emptyEnv voidH
-      dsH = toHVectorOf ds
+      dsH = HVectorPseudoTensor $ toHVectorOf ds
   in fst $ fwdEvalArtifact @TKUntyped @z artifact valsH dsH
 
 fwdEvalArtifact
-  :: forall x z. (x ~ TKUntyped, TensorKind z)
+  :: forall x z. (TensorKind x, TensorKind z)
   => AstArtifactFwd x z
-  -> HVector ORArray
-  -> HVector ORArray
+  -> InterpretationTarget ORArray x
+  -> InterpretationTarget ORArray x
   -> (InterpretationTarget ORArray z, InterpretationTarget ORArray z)
 {-# INLINE fwdEvalArtifact #-}
-fwdEvalArtifact !(AstArtifactFwd varD var derivative primal) parameters ds =
-  if hVectorsMatch parameters ds then
-    let env = extendEnv var (HVectorPseudoTensor parameters) emptyEnv
-        envD = extendEnv varD (HVectorPseudoTensor ds) env
-        derivativeTensor = interpretAst envD $ unRawY (stensorKind @z) derivative
-        primalTensor = interpretAst env $ unRawY (stensorKind @z) primal
-    in (derivativeTensor, primalTensor)
+fwdEvalArtifact !AstArtifactFwd{..} parameters ds =
+  if tshapeFull (stensorKind @x) parameters == tshapeFull (stensorKind @x) ds then
+    let env = extendEnv artVarDomainFwd parameters emptyEnv
+        envD = extendEnv artVarDsFwd ds env
+        derivative = interpretAst envD $ unRawY (stensorKind @z) artDerivativeFwd
+        primal = interpretAst env $ unRawY (stensorKind @z) artPrimalFwd
+    in (derivative, primal)
  else error "fwdEvalArtifact: forward derivative input and sensitivity arguments should have same shapes"
 
 

@@ -119,8 +119,8 @@ rev' f valsOR =
         -> HVector ORArray
         -> (HVector ORArray, FlipR OR.Array r m)
       revEvalArtifact7 a1 a2 =
-        let (grad, v) = revEvalArtifact a1 a2 Nothing
-        in (grad, toORArray v)
+        let (grad, v) = revEvalArtifact a1 (HVectorPseudoTensor a2) Nothing
+        in (unHVectorPseudoTensor grad, toORArray v)
       hGeneral
         :: (ADReady fgen, ADReady f1)
         => (f1 r m -> AstRanked PrimalSpan r m)

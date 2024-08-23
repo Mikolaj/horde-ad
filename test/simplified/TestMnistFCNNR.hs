@@ -335,9 +335,11 @@ mnistTestCase1VTO prefix epochs maxBatches widthHidden widthHidden2
                           $ FlipR $ Nested.rfromOrthotope SNat
                           $ OR.fromVector [sizeMnistLabelInt] label
                  parametersAndInput =
-                   V.concat [parameters, V.fromList [glyphD, labelD]]
+                   HVectorPseudoTensor
+                   $ V.concat [parameters, V.fromList [glyphD, labelD]]
                  gradientHVector =
-                   fst $ revEvalArtifact art parametersAndInput Nothing
+                   unHVectorPseudoTensor
+                   $ fst $ revEvalArtifact art parametersAndInput Nothing
              in go rest (updateWithGradient gamma parameters gradientHVector)
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
@@ -643,9 +645,11 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                           $ FlipR $ Nested.rfromOrthotope SNat
                           $ OR.fromVector [sizeMnistLabelInt] label
                  parametersAndInput =
-                   V.concat [parameters, V.fromList [glyphD, labelD]]
+                   HVectorPseudoTensor
+                   $ V.concat [parameters, V.fromList [glyphD, labelD]]
                  gradientHVector =
-                   fst $ revEvalArtifact art parametersAndInput Nothing
+                   unHVectorPseudoTensor
+                   $ fst $ revEvalArtifact art parametersAndInput Nothing
              in go rest (updateWithGradient gamma parameters gradientHVector)
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
