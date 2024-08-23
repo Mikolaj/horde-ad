@@ -83,11 +83,11 @@ crevOnHVector mdt f parameters =
   in crevOnADInputs mdt f inputs
 
 cfwdOnADInputs
-  :: forall x z ranked. (TensorKind z, ADReady ranked)
+  :: forall x z ranked. (TensorKind x, TensorKind z, ADReady ranked)
   => InterpretationTarget (ADVal ranked) x
   -> (InterpretationTarget (ADVal ranked) x
       -> InterpretationTarget (ADVal ranked) z)
-  -> HVector ranked
+  -> InterpretationTarget ranked x
   -> (InterpretationTarget ranked z, InterpretationTarget ranked z)
 {-# INLINE cfwdOnADInputs #-}
 cfwdOnADInputs inputs f ds =
@@ -101,7 +101,7 @@ cfwdOnHVector
   => InterpretationTarget ranked x
   -> (InterpretationTarget (ADVal ranked) x
       -> InterpretationTarget (ADVal ranked) z)
-  -> HVector ranked
+  -> InterpretationTarget ranked x
   -> (InterpretationTarget ranked z, InterpretationTarget ranked z)
 cfwdOnHVector parameters f ds =
   let deltaInputs = generateDeltaInputs $ tshapeFull (stensorKind @x) parameters
@@ -477,7 +477,7 @@ instance ADReadyBoth ranked shaped
         g !hv = HVectorPseudoTensor $ V.singleton $ DynamicRanked
                 $ f $ unHVectorPseudoTensor hv
     in unHVectorPseudoTensor $ fst $ crevOnHVector Nothing g
-       $ HVectorPseudoTensor $ dmkHVector parameters
+       $ HVectorPseudoTensor parameters
   drevDt :: forall x z. (x ~ TKUntyped, TensorKind z)
          => TensorKindFull x
          -> HFun x z
@@ -509,7 +509,7 @@ instance ADReadyBoth ranked shaped
         df !da_a = fst $ cfwdOnHVector
                            (HVectorPseudoTensor $ dshare $ unHVectorPseudoTensor $ snd da_a)
                            (unHFun h)
-                           (dunHVector $ dshare $ unHVectorPseudoTensor $ fst da_a)
+                           (HVectorPseudoTensor $ dshare $ unHVectorPseudoTensor $ fst da_a)
     in HFun df
   dmapAccumRDer
     :: Proxy (ADVal ranked)

@@ -241,7 +241,7 @@ instance HVectorTensor ORArray OSArray where
         g !hv = HVectorPseudoTensor $ V.singleton $ DynamicRanked
                 $ f $ unHVectorPseudoTensor hv
     in unHVectorPseudoTensor $ fst $ crevOnHVector Nothing g
-       $ HVectorPseudoTensor $ dmkHVector parameters
+       $ HVectorPseudoTensor parameters
   -- The code for drevDt and dfwd in this instance is the same as for the
   -- ADVal ranked instance, because the type family instance is the same.
   drevDt :: forall x z. (TensorKind x, TensorKind z)
@@ -268,9 +268,7 @@ instance HVectorTensor ORArray OSArray where
   dfwd _shs h =
     let df :: InterpretationTarget ORArray (TKProduct x x)
            -> InterpretationTarget ORArray z
-        df !da_a = fst $ cfwdOnHVector (snd da_a)
-                                       (unHFun h)
-                                       (unHVectorPseudoTensor $ fst da_a)
+        df !da_a = fst $ cfwdOnHVector (snd da_a) (unHFun h) (fst da_a)
     in df
   rfold f x0 as = foldl' f x0 (runravelToList as)
   rscan f x0 as =

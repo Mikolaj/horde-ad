@@ -100,7 +100,8 @@ revDtMaybe
 revDtMaybe f vals0 mdt =
   let g :: InterpretationTarget (AstRanked FullSpan) TKUntyped
         -> InterpretationTarget (AstRanked FullSpan) z
-      g !hv = f $ parseHVector (fromValue vals0) $ dunHVector $ unHVectorPseudoTensor hv
+      g !hv = f $ parseHVector (fromValue vals0)
+              $ dunHVector $ unHVectorPseudoTensor hv
       valsH = toHVectorOf vals0
       voidH = FTKUntyped $ voidFromHVector valsH
       artifact = fst $ revProduceArtifact (isJust mdt) g emptyEnv voidH
@@ -129,7 +130,8 @@ revArtifactAdapt
 revArtifactAdapt hasDt f vals0 =
   let g :: InterpretationTarget (AstRanked FullSpan) TKUntyped
         -> InterpretationTarget (AstRanked FullSpan) z
-      g !hv = f $ parseHVector (fromValue vals0) $ dunHVector $ unHVectorPseudoTensor hv
+      g !hv = f $ parseHVector (fromValue vals0)
+              $ dunHVector $ unHVectorPseudoTensor hv
       valsH = toHVectorOf @ORArray vals0
       voidH = FTKUntyped $ voidFromHVector valsH
   in revProduceArtifact hasDt g emptyEnv voidH
@@ -183,7 +185,7 @@ revEvalArtifact !(AstArtifactRev varDt var
                 parameters mdt =
   let oneAtF = interpretationConstant 1 $ tshapeFull (stensorKind @z) primal
       dt = fromMaybe oneAtF mdt
-      pars = HVectorPseudoTensor $ dmkHVector parameters
+      pars = HVectorPseudoTensor parameters
       env = extendEnv var pars emptyEnv
       envDt = extendEnv varDt dt env
       gradientHVector = unHVectorPseudoTensor $ interpretAst envDt gradient
@@ -213,7 +215,8 @@ fwd
   -> Value astvals
   -> InterpretationTarget ORArray z
 fwd f vals ds =
-  let g hVector = f $ parseHVector (fromValue vals) hVector
+  let g hVector = f $ parseHVector (fromValue vals)
+                  $ dunHVector $ unHVectorPseudoTensor hVector
       valsH = toHVectorOf vals
       voidH = FTKUntyped $ voidFromHVector valsH
       artifact = fst $ fwdProduceArtifact g emptyEnv voidH
@@ -229,8 +232,8 @@ fwdEvalArtifact
 {-# INLINE fwdEvalArtifact #-}
 fwdEvalArtifact !(AstArtifactFwd varD var derivative primal) parameters ds =
   if hVectorsMatch parameters ds then
-    let env = extendEnv var (HVectorPseudoTensor $ dmkHVector parameters) emptyEnv
-        envD = extendEnv varD (HVectorPseudoTensor $ dmkHVector ds) env
+    let env = extendEnv var (HVectorPseudoTensor parameters) emptyEnv
+        envD = extendEnv varD (HVectorPseudoTensor ds) env
         derivativeTensor = interpretAst envD $ unRawY (stensorKind @z) derivative
         primalTensor = interpretAst env $ unRawY (stensorKind @z) primal
     in (derivativeTensor, primalTensor)
@@ -317,7 +320,7 @@ cfwd f vals ds =
   let g hVector = f $ parseHVector (fromDValue vals)
         $ unHVectorPseudoTensor hVector
       valsH = HVectorPseudoTensor $ toHVectorOf vals
-      dsH = toHVectorOf ds
+      dsH = HVectorPseudoTensor $ toHVectorOf ds
   in fst $ cfwdOnHVector @TKUntyped valsH g dsH
 
 

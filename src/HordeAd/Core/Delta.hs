@@ -138,14 +138,19 @@ interpretationConstant r = \case
     $ V.map dynamicFromVoid ssh
 
 derivativeFromDelta
-  :: forall z ranked. ADReady ranked
-  => Delta ranked z -> HVector ranked
+  :: forall x z ranked. (ADReady ranked, TensorKind x)
+  => Delta ranked z -> InterpretationTarget ranked x
   -> InterpretationTarget ranked z
 derivativeFromDelta deltaTopLevel ds =
-  -- EvalState is too complex for the forward derivative, but since
-  -- it's already defined, let's use it.
-  let s0 = EvalState DMap.empty DMap.empty DMap.empty
-      !(!_s2, !c) = fwdR ds s0 deltaTopLevel
+  let params = case stensorKind @x of
+        STKR{} -> V.singleton $ DynamicRanked ds
+        STKS{} -> V.singleton $ DynamicShaped ds
+        STKProduct{} -> error "TODO"  -- flatten into HVector?
+        STKUntyped{} -> dunHVector $ unHVectorPseudoTensor ds
+      -- EvalState is too complex for the forward derivative, but since
+      -- it's already defined, let's use it.
+      s0 = EvalState DMap.empty DMap.empty DMap.empty
+      !(!_s2, !c) = fwdR params s0 deltaTopLevel
   in c
 
 

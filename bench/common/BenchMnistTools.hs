@@ -145,11 +145,12 @@ mnistTrainBench1VTO extraPrefix chunkLength xs widthHidden widthHidden2
         f = \ (pars, (glyphR, labelR)) ->
           MnistFcnnRanked1.afcnnMnistLoss1TensorData
             widthHidden widthHidden2 (glyphR, labelR) pars
-        g :: HVector (AstRanked FullSpan)
+        g :: InterpretationTarget (AstRanked FullSpan) TKUntyped
           -> InterpretationTarget (AstRanked FullSpan) TKUntyped
         g !hv = HVectorPseudoTensor
                 $ toHVectorOf $ f
-                $ parseHVector (fromValue (valsInit, dataInit)) hv
+                $ parseHVector (fromValue (valsInit, dataInit))
+                $ dunHVector $ unHVectorPseudoTensor hv
         (artRaw, _) = revProduceArtifact False g emptyEnv
                         (FTKUntyped $ voidFromHVector
                          $ hVectorInit
