@@ -98,31 +98,46 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
       s0 = initEvalState parameters0
       s1 = evalR s0 dt deltaTopLevel
       s2 = evalFromnMap s1
-      result = DMap.elems $ iMap s2
-  in case parameters0 of
-    FTKR @r @n _ -> case result of
-      [Some (MTKR @r2 @n2 t)]
-        | Just Refl <- sameNat (Proxy @n) (Proxy @n2)
-        , Just Refl <- testEquality (typeRep @r) (typeRep @r2) -> t
-      _ -> error "gradientFromDelta: illegal result"
-    FTKS @r @sh -> case result of
-      [Some (MTKS @r2 @sh2 t)]
-        | Just Refl <- sameShape @sh @sh2
-        , Just Refl <- testEquality (typeRep @r) (typeRep @r2) -> t
-      _ -> error "gradientFromDelta: illegal result"
-    FTKProduct{} -> error "TODO"
-    FTKUntyped{} ->
-      let toDynamicTensor :: Some (InterpretationTargetM ranked)
-                          -> DynamicTensor ranked
-          toDynamicTensor (Some b) = case b of
-            MTKR @r @n t -> DynamicRanked @r @n t
-            MTKS @r @sh t -> DynamicShaped @r @sh t
-            MTKRDummy @r @sh -> DynamicRankedDummy @r @sh Proxy Proxy
-            MTKSDummy @r @sh -> DynamicShapedDummy @r @sh Proxy Proxy
-            MTKProduct{} -> error "toDynamicTensor: non-flattened cell"
-            MTKUntyped{} -> error "toDynamicTensor: non-flattened cell"
-      in HVectorPseudoTensor $ dmkHVector
-         $ V.fromList $ map toDynamicTensor result
+      elems = DMap.elems $ iMap s2
+      itm :: InterpretationTargetM ranked x
+      itm = case parameters0 of
+        FTKR @r @n _ -> case elems of
+          [Some mt@(MTKR @r2 @n2 _)]
+            | Just Refl <- sameNat (Proxy @n) (Proxy @n2)
+            , Just Refl <- testEquality (typeRep @r) (typeRep @r2) -> mt
+          _ -> error "gradientFromDelta: illegal InterpretationTargetM"
+        FTKS @r @sh -> case elems of
+          [Some mt@(MTKS @r2 @sh2 _)]
+            | Just Refl <- sameShape @sh @sh2
+            , Just Refl <- testEquality (typeRep @r) (typeRep @r2) -> mt
+          _ -> error "gradientFromDelta: illegal InterpretationTargetM"
+        FTKProduct @x3 @z3 _ _ -> case elems of
+          [Some mt@(MTKProduct @x2 @z2 _ _)]
+            | Just Refl <- sameTensorKind @x2 @x3
+            , Just Refl <- sameTensorKind @z2 @z3 -> mt
+          _ -> error "gradientFromDelta: illegal InterpretationTargetM"
+        FTKUntyped{} ->
+          let toDynamicTensor :: Some (InterpretationTargetM ranked)
+                              -> DynamicTensor ranked
+              toDynamicTensor (Some b) = case b of
+                MTKR @r @n t -> DynamicRanked @r @n t
+                MTKS @r @sh t -> DynamicShaped @r @sh t
+                MTKRDummy @r @sh -> DynamicRankedDummy @r @sh Proxy Proxy
+                MTKSDummy @r @sh -> DynamicShapedDummy @r @sh Proxy Proxy
+                MTKProduct{} -> error "toDynamicTensor: non-flattened cell"
+                MTKUntyped{} -> error "toDynamicTensor: non-flattened cell"
+          in MTKUntyped $ dmkHVector $ V.fromList $ map toDynamicTensor elems
+  in evalInterpretationTargetM itm
+
+evalInterpretationTargetM :: InterpretationTargetM ranked x1
+                          -> InterpretationTarget ranked x1
+evalInterpretationTargetM = \case
+  MTKR t -> t
+  MTKS t -> t
+  MTKProduct t1 t2 ->
+    (evalInterpretationTargetM t1, evalInterpretationTargetM t2)
+  MTKUntyped ele -> HVectorPseudoTensor ele
+  _ -> error "TODO"
 
 interpretationConstant :: forall y ranked. ADReady ranked
                        => (forall r. GoodScalar r => r)

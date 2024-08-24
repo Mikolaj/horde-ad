@@ -236,7 +236,8 @@ data InterpretationTargetM ranked y where
             => InterpretationTargetM ranked (TKR r (X.Rank sh))
   MTKSDummy  :: (GoodScalar r, KnownShS sh)
              => InterpretationTargetM ranked (TKS r sh)
-  MTKProduct :: InterpretationTargetM ranked x
+  MTKProduct :: forall x z ranked. (TensorKind x, TensorKind z)
+             => InterpretationTargetM ranked x
              -> InterpretationTargetM ranked z
              -> InterpretationTargetM ranked (TKProduct x z)
   MTKUntyped :: HVectorOf ranked -> InterpretationTargetM ranked TKUntyped
