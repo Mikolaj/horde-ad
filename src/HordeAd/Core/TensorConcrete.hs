@@ -225,7 +225,7 @@ instance HVectorTensor ORArray OSArray where
   dunHVector = id
   dletHVectorInHVector = (&)
   dletHFunInHVector = (&)
-  dlet = (&)
+  tlet = (&)
   tunshare = id
   dbuild1 k f =
     ravelHVector $ map (f . fromIntegral) [0 .. sNatValue k - 1]

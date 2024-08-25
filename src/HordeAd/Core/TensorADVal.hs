@@ -437,11 +437,12 @@ instance ADReadyBoth ranked shaped
         doms = aDValHVector as as'
     in f doms -}
   dletHFunInHVector = (&)
-  dlet :: forall y. TensorKind y
-       => InterpretationTarget (ADVal ranked) y
-       -> (InterpretationTarget (ADVal ranked) y -> HVectorOf (ADVal ranked))
-       -> HVectorOf (ADVal ranked)
-  dlet a f = case stensorKind @y of
+  tlet :: forall x z. (TensorKind x, TensorKind z)
+       => InterpretationTarget (ADVal ranked) x
+       -> (InterpretationTarget (ADVal ranked) x
+           -> InterpretationTarget (ADVal ranked) z)
+       -> InterpretationTarget (ADVal ranked) z
+  tlet a f = case stensorKind @x of
     STKR{} ->
       let (D u u') = a
           !var2 = rshare u
@@ -453,8 +454,8 @@ instance ADReadyBoth ranked shaped
     STKProduct{} ->
       -- TODO: seems wrong: a gets computed twice unless the projection
       -- gets simplified early enough, which maybe it does?
-      dlet (fst a) $ \ !a1 ->
-        dlet (snd a) $ \ !a2 -> f (a1, a2)
+      tlet (fst a) $ \ !a1 ->
+        tlet (snd a) $ \ !a2 -> f (a1, a2)
     STKUntyped{} ->
       let (!u, !u') = unADValHVector $ unHVectorPseudoTensor a
           !var2 = dunHVector $ dshare $ dmkHVector u

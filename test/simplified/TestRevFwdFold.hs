@@ -1240,9 +1240,10 @@ rscanZip f eShs acc0 es =
          (let g :: forall f. ADReady f
                 => HVector f -> HVector f -> HVectorOf f
               g acc e =
-                dlet
+               unHVectorPseudoTensor
+               $ tlet @_ @_ @_ @TKUntyped
                   (f (rfromD $ acc V.! 0) e)
-                  (\res -> dmkHVector
+                  (\res -> HVectorPseudoTensor $ dmkHVector
                            $ V.fromList
                                [ DynamicRanked @rn @n @f res
                                , DynamicRanked @rn @n @f res ])
@@ -1271,9 +1272,10 @@ sscanZip f eShs acc0 es =
        (let g :: forall f. ADReady f
               => HVector f -> HVector f -> HVectorOf f
             g acc e =
-              dlet
+             unHVectorPseudoTensor
+             $ tlet @_ @_ @_ @TKUntyped
                 (f (sfromD $ acc V.! 0) e)
-                (\res -> dmkHVector
+                (\res -> HVectorPseudoTensor $ dmkHVector
                          $ V.fromList
                              [ DynamicShaped @rn @sh @f res
                              , DynamicShaped @rn @sh @f res ])

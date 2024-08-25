@@ -556,19 +556,25 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     in V.imap f $ shapeAstHVector hVectorOf
   dletHVectorInHVector = astLetHVectorInHVectorFun
   dletHFunInHVector = astLetHFunInHVectorFun
-  dlet :: forall y. TensorKind y
-       => InterpretationTarget (AstRanked s) y
-       -> (InterpretationTarget (AstRanked s) y -> HVectorOf (AstRanked s))
-       -> HVectorOf (AstRanked s)
-  dlet u f = case stensorKind @y of
-    STKR{} -> astLetFun (unAstRanked u) (f . AstRanked)
-    STKS{} -> astLetFun (unAstShaped u) (f . AstShaped)
+  tlet :: forall x z. (TensorKind x, TensorKind z)
+       => InterpretationTarget (AstRanked s) x
+       -> (InterpretationTarget (AstRanked s) x
+           -> InterpretationTarget (AstRanked s) z)
+       -> InterpretationTarget (AstRanked s) z
+  tlet u f = case stensorKind @x of
+    STKR{} -> rankedY (stensorKind @z)
+              $ astLetFun (unAstRanked u) (unRankedY (stensorKind @z) . f . AstRanked)
+    STKS{} -> rankedY (stensorKind @z)
+              $ astLetFun (unAstShaped u) (unRankedY (stensorKind @z) . f . AstShaped)
     STKProduct{} ->
-      -- TODO: seems wrong: a gets computed twice unless the projection
-      -- gets simplified early enough, which maybe it does?
-      dlet (fst u) $ \a1 ->
-        dlet (snd u) $ \a2 -> f (a1, a2)
-    STKUntyped{} -> astLetFun (unHVectorPseudoTensor u) (f . HVectorPseudoTensor)
+      -- TODO: seems wrong: u gets computed twice unless the projection
+      -- gets simplified early enough, which maybe it does. since it's
+      -- a Haskell projection?
+      tlet (fst u) $ \a1 ->
+        tlet (snd u) $ \a2 -> f (a1, a2)
+    STKUntyped{} -> rankedY (stensorKind @z)
+                    $ astLetFun (unHVectorPseudoTensor u)
+                                (unRankedY (stensorKind @z) . f . HVectorPseudoTensor)
   -- These and many similar bangs are necessary to ensure variable IDs
   -- are generated in the expected order, resulting in nesting of lets
   -- occuring in the correct order and so no scoping errors.
@@ -1105,13 +1111,18 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
   dletHFunInHVector t f =
     AstRawWrap
     $ astLetHFunInHVectorFunRaw t (unAstRawWrap . f)
-  dlet :: forall y. TensorKind y
-       => InterpretationTarget (AstRaw s) y
-       -> (InterpretationTarget (AstRaw s) y -> HVectorOf (AstRaw s))
-       -> HVectorOf (AstRaw s)
-  dlet u f = case stensorKind @y of
-    STKR{} -> AstRawWrap $ astLetFunRaw (unAstRaw u) (unAstRawWrap . f . AstRaw)
-    STKS{} -> AstRawWrap $ astLetFunRaw (unAstRawS u) (unAstRawWrap . f . AstRawS)
+  tlet :: forall x z. (TensorKind x, TensorKind z)
+       => InterpretationTarget (AstRaw s) x
+       -> (InterpretationTarget (AstRaw s) x
+           -> InterpretationTarget (AstRaw s) z)
+       -> InterpretationTarget (AstRaw s) z
+  tlet u f = case stensorKind @x of
+    STKR{} -> rawY (stensorKind @z)
+              $ astLetFunRaw (unAstRaw u)
+                             (unRawY (stensorKind @z) . f . AstRaw)
+    STKS{} -> rawY (stensorKind @z)
+              $ astLetFunRaw (unAstRawS u)
+                             (unRawY (stensorKind @z) . f . AstRawS)
     STKProduct{} -> error "TODO"
     STKUntyped{} -> error "TODO"
   dshare a@(AstRawWrap AstShare{}) = a
@@ -1321,18 +1332,20 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
   dletHFunInHVector t f =
     AstNoVectorizeWrap
     $ dletHFunInHVector t (unAstNoVectorizeWrap . f)
-  dlet :: forall y. TensorKind y
-       => InterpretationTarget (AstNoVectorize s) y
-       -> (InterpretationTarget (AstNoVectorize s) y
-           -> HVectorOf (AstNoVectorize s))
-       -> HVectorOf (AstNoVectorize s)
-  dlet u f = case stensorKind @y of
-    STKR{} -> AstNoVectorizeWrap
-              $ dlet (unAstNoVectorize2 u)
-                     (unAstNoVectorizeWrap . f . astNoVectorize2)
-    STKS{} -> AstNoVectorizeWrap
-              $ dlet (unAstNoVectorizeS2 u)
-                     (unAstNoVectorizeWrap . f . astNoVectorizeS2)
+  tlet :: forall x z. (TensorKind x, TensorKind z)
+       => InterpretationTarget (AstNoVectorize s) x
+       -> (InterpretationTarget (AstNoVectorize s) x
+           -> InterpretationTarget (AstNoVectorize s) z)
+       -> InterpretationTarget (AstNoVectorize s) z
+  tlet u f = case stensorKind @x of
+    STKR{} -> noVectorizeY (stensorKind @z)
+              $ astLetFun
+                     (unAstNoVectorize u)
+                     (unNoVectorizeY (stensorKind @z) . f . AstNoVectorize)
+    STKS{} -> noVectorizeY (stensorKind @z)
+              $ astLetFun
+                     (unAstNoVectorizeS u)
+                     (unNoVectorizeY (stensorKind @z) . f . AstNoVectorizeS)
     STKProduct{} -> error "TODO"
     STKUntyped{} -> error "TODO"
   dbuild1 k f =
@@ -1562,17 +1575,20 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
   dletHFunInHVector t f =
     AstNoSimplifyWrap
     $ astLetHFunInHVectorFunRaw t (unAstNoSimplifyWrap . f)
-  dlet :: forall y. TensorKind y
-       => InterpretationTarget (AstNoSimplify s) y
-       -> (InterpretationTarget (AstNoSimplify s) y -> HVectorOf (AstNoSimplify s))
-       -> HVectorOf (AstNoSimplify s)
-  dlet u f = case stensorKind @y of
-    STKR{} -> AstNoSimplifyWrap
+  tlet :: forall x z. (TensorKind x, TensorKind z)
+       => InterpretationTarget (AstNoSimplify s) x
+       -> (InterpretationTarget (AstNoSimplify s) x
+           -> InterpretationTarget (AstNoSimplify s) z)
+       -> InterpretationTarget (AstNoSimplify s)  z
+  tlet u f = case stensorKind @x of
+    STKR{} -> noSimplifyY (stensorKind @z)
               $ astLetFunRaw (unAstNoSimplify u)
-                             (unAstNoSimplifyWrap . f . AstNoSimplify)
-    STKS{} -> AstNoSimplifyWrap
+                             (unNoSimplifyY (stensorKind @z)
+                              . f . AstNoSimplify)
+    STKS{} -> noSimplifyY (stensorKind @z)
               $ astLetFunRaw (unAstNoSimplifyS u)
-                             (unAstNoSimplifyWrap . f . AstNoSimplifyS)
+                             (unNoSimplifyY (stensorKind @z)
+                              . f . AstNoSimplifyS)
     STKProduct{} -> error "TODO"
     STKUntyped{} -> error "TODO"
   dbuild1 k f = AstNoSimplifyWrap

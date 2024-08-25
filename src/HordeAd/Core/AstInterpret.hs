@@ -340,23 +340,19 @@ interpretAst !env = \case
       -- We assume there are no nested lets with the same variable.
       let t = interpretAstRuntimeSpecialized env u
           env2 w = extendEnv var w env
-      in HVectorPseudoTensor
-         $ dlet t (\w -> unHVectorPseudoTensor $ interpretAst (env2 w) v)
+      in tlet t (\w -> interpretAst (env2 w) v)
     STKS{} ->
       let t = interpretAstSRuntimeSpecialized env u
           env2 w = extendEnv var w env
-      in HVectorPseudoTensor
-         $ dlet t (\w -> unHVectorPseudoTensor $ interpretAst (env2 w) v)
+      in tlet t (\w -> interpretAst (env2 w) v)
     STKProduct{} ->
       let t = interpretAst env u
           env2 w = extendEnv var w env
-      in HVectorPseudoTensor
-         $ dlet t (\w -> unHVectorPseudoTensor $ interpretAst (env2 w) v)
+      in tlet t (\w -> interpretAst (env2 w) v)
     STKUntyped{} ->
       let t = interpretAst env u
           env2 w = extendEnv var w env
-      in HVectorPseudoTensor
-         $ dlet t (\w -> unHVectorPseudoTensor $ interpretAst (env2 w) v)
+      in tlet t (\w -> interpretAst (env2 w) v)
   AstShare{} -> error "interpretAst: AstShare"
 
   AstMinIndex v ->

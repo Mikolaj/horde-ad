@@ -766,10 +766,10 @@ class HVectorTensor (ranked :: RankedTensorType)
     => HFunOf ranked x y
     -> (HFunOf ranked x y -> HVectorOf ranked)
     -> HVectorOf ranked
-  dlet :: TensorKind y
-       => InterpretationTarget ranked y
-       -> (InterpretationTarget ranked y -> HVectorOf ranked)
-       -> HVectorOf ranked
+  tlet :: forall x z. (TensorKind x, TensorKind z)
+       => InterpretationTarget ranked x
+       -> (InterpretationTarget ranked x -> InterpretationTarget ranked z)
+       -> InterpretationTarget ranked z
   dshare :: HVectorOf ranked -> HVectorOf ranked
   dshare = id
   tshare :: forall y.
@@ -941,9 +941,11 @@ class HVectorTensor (ranked :: RankedTensorType)
            (let g :: forall f. ADReady f
                   => HVector f -> HVector f -> HVectorOf f
                 g !acc !e =
-                  dlet
-                    (f (rfromD $ acc V.! 0) (rfromD $ e V.! 0))
-                    (dmkHVector . V.singleton . DynamicRanked)
+                  unHVectorPseudoTensor
+                  $ tlet @_ @_ @_ @TKUntyped
+                      (f (rfromD $ acc V.! 0) (rfromD $ e V.! 0))
+                      (HVectorPseudoTensor . dmkHVector
+                       . V.singleton . DynamicRanked)
             in g)
            (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked acc0)
            (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked es))
@@ -973,11 +975,12 @@ class HVectorTensor (ranked :: RankedTensorType)
            (let g :: forall f. ADReady f
                   => HVector f -> HVector f -> HVectorOf f
                 g !acc !e =
-                  dlet
-                    (f (rfromD $ acc V.! 0) (rfromD $ e V.! 0))
-                    (\res -> dmkHVector
-                             $ V.fromList [ DynamicRanked res
-                                          , DynamicRanked res ])
+                  unHVectorPseudoTensor
+                  $ tlet @_ @_ @_ @TKUntyped
+                      (f (rfromD $ acc V.! 0) (rfromD $ e V.! 0))
+                      (\res -> HVectorPseudoTensor $ dmkHVector
+                               $ V.fromList [ DynamicRanked res
+                                            , DynamicRanked res ])
             in g)
            (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked acc0)
            (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked es))
@@ -1002,9 +1005,11 @@ class HVectorTensor (ranked :: RankedTensorType)
          (let g :: forall f. ADReady f
                 => HVector f -> HVector f -> HVectorOf f
               g !acc !e =
-                dlet
-                  (f (sfromD $ acc V.! 0) (sfromD $ e V.! 0))
-                  (dmkHVector . V.singleton . DynamicShaped)
+                unHVectorPseudoTensor
+                $ tlet @_ @_ @_ @TKUntyped
+                    (f (sfromD $ acc V.! 0) (sfromD $ e V.! 0))
+                    (HVectorPseudoTensor . dmkHVector
+                     . V.singleton . DynamicShaped)
           in g)
          (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicShaped acc0)
          (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicShaped es))
@@ -1028,11 +1033,12 @@ class HVectorTensor (ranked :: RankedTensorType)
          (let g :: forall f. ADReady f
                 => HVector f -> HVector f -> HVectorOf f
               g !acc !e =
-                dlet
-                  (f (sfromD $ acc V.! 0) (sfromD $ e V.! 0))
-                  (\res -> dmkHVector
-                           $ V.fromList [ DynamicShaped res
-                                        , DynamicShaped res ])
+                unHVectorPseudoTensor
+                $ tlet @_ @_ @_ @TKUntyped
+                    (f (sfromD $ acc V.! 0) (sfromD $ e V.! 0))
+                    (\res -> HVectorPseudoTensor $ dmkHVector
+                             $ V.fromList [ DynamicShaped res
+                                          , DynamicShaped res ])
           in g)
          (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicShaped acc0)
          (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicShaped es))
