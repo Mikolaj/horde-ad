@@ -297,45 +297,7 @@ interpretAst !env = \case
           STKUntyped ->
             HVectorPseudoTensor $ dbuild1 snat (unHVectorPseudoTensor . g)
     in replStk (stensorKind @y2) f
-  AstLet @y2 @z2 var u v -> case stensorKind @z2 of
-   STKR{} -> case stensorKind @y2 of
-    stk@STKR{} ->
-      -- We assume there are no nested lets with the same variable.
-      let t = interpretAstRuntimeSpecialized env u
-          env2 w = extendEnv var w env
-      in rletTKIn stk t (\w -> interpretAst (env2 w) v)
-    stk@STKS{} ->
-      let t = interpretAstSRuntimeSpecialized env u
-          env2 w = extendEnv var w env
-      in rletTKIn stk t (\w -> interpretAst (env2 w) v)
-    stk@STKProduct{} ->
-      let t = interpretAst env u
-          env2 w = extendEnv var w env
-      in rletTKIn stk t (\w -> interpretAst (env2 w) v)
-    stk@STKUntyped ->
-      let t = interpretAst env u
-          env2 w = extendEnv var w env
-      in rletTKIn stk t (\w -> interpretAst (env2 w) v)
-   STKS{} -> case stensorKind @y2 of
-    stk@STKR{} ->
-      -- We assume there are no nested lets with the same variable.
-      let t = interpretAstRuntimeSpecialized env u
-          env2 w = extendEnv var w env
-      in sletTKIn stk t (\w -> interpretAst (env2 w) v)
-    stk@STKS{} ->
-      let t = interpretAstSRuntimeSpecialized env u
-          env2 w = extendEnv var w env
-      in sletTKIn stk t (\w -> interpretAst (env2 w) v)
-    stk@STKProduct{} ->
-      let t = interpretAst env u
-          env2 w = extendEnv var w env
-      in sletTKIn stk t (\w -> interpretAst (env2 w) v)
-    stk@STKUntyped ->
-      let t = interpretAst env u
-          env2 w = extendEnv var w env
-      in sletTKIn stk t (\w -> interpretAst (env2 w) v)
-   STKProduct{} -> error "TODO"
-   STKUntyped{} -> case stensorKind @y2 of
+  AstLet @y2 var u v -> case stensorKind @y2 of
     STKR{} ->
       -- We assume there are no nested lets with the same variable.
       let t = interpretAstRuntimeSpecialized env u
