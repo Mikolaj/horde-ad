@@ -158,16 +158,45 @@ derivativeFromDelta
   -> InterpretationTarget ranked z
 derivativeFromDelta deltaTopLevel ds =
   let params = case stensorKind @x of
-        STKR{} -> V.singleton $ DynamicRanked ds
-        STKS{} -> V.singleton $ DynamicShaped ds
-        STKProduct{} -> error "TODO"  -- flatten into HVector?
-        STKUntyped{} -> dunHVector $ unHVectorPseudoTensor ds
+        STKUntyped{} -> V.map dynamicTensorToInterpretationTargetD
+                        $ dunHVector $ unHVectorPseudoTensor ds
+        stk -> V.singleton $ Some $ interpretationTargetToD stk ds
       -- EvalState is too complex for the forward derivative, but since
       -- it's already defined, let's use it.
       s0 = EvalState DMap.empty DMap.empty DMap.empty
       !(!_s2, !c) = fwdR params s0 deltaTopLevel
   in c
 
+evalInterpretationTargetD :: InterpretationTargetD ranked x1
+                          -> InterpretationTarget ranked x1
+evalInterpretationTargetD = \case
+  DTKR t -> t
+  DTKS t -> t
+  DTKProduct t1 t2 ->
+    (evalInterpretationTargetD t1, evalInterpretationTargetD t2)
+  DTKUntyped ele -> HVectorPseudoTensor ele
+
+dynamicTensorToInterpretationTargetD
+  :: DynamicTensor ranked -> Some (InterpretationTargetD ranked)
+dynamicTensorToInterpretationTargetD = \case
+  DynamicRanked t -> Some (DTKR t)
+  DynamicShaped t -> Some (DTKS t)
+  DynamicRankedDummy{} ->
+    error "dynamicTensorToInterpretationTargetD: unexpected DynamicRankedDummy"
+  DynamicShapedDummy{} ->
+    error "dynamicTensorToInterpretationTargetD: unexpected DynamicShapedDummy"
+
+interpretationTargetToD
+  :: STensorKindType x -> InterpretationTarget ranked x
+  -> InterpretationTargetD ranked x
+interpretationTargetToD stk t = case stk of
+  STKR{} -> DTKR t
+  STKS{} -> DTKS t
+  STKProduct stk1 stk2 -> DTKProduct (interpretationTargetToD stk1 (fst t))
+                                     (interpretationTargetToD stk2 (snd t))
+  STKUntyped{} -> DTKUntyped $ unHVectorPseudoTensor t
+
+type HDVector ranked = Data.Vector.Vector (Some (InterpretationTargetD ranked))
 
 -- * Abstract syntax trees of the delta expressions
 
@@ -1211,7 +1240,7 @@ evalFromnMap s@EvalState{nMap, dMap} =
 -- formulation is adopted.
 fwdDynamic
   :: forall ranked. ADReady ranked
-  => HVector ranked
+  => HDVector ranked
   -> EvalState ranked
   -> DynamicTensor (DeltaR ranked)
   -> (EvalState ranked, DynamicTensor ranked)
@@ -1227,7 +1256,7 @@ fwdDynamic params s (DynamicShapedDummy @r @sh _ _) =
 
 fwdHVector
   :: forall ranked. ADReady ranked
-  => HVector ranked
+  => HDVector ranked
   -> EvalState ranked
   -> HVector (DeltaR ranked)
   -> (EvalState ranked, HVector ranked)
@@ -1235,7 +1264,7 @@ fwdHVector params = mapAccumL (fwdDynamic params)
 
 fwdR
   :: forall ranked y. ADReady ranked
-  => HVector ranked -> EvalState ranked -> Delta ranked y
+  => HDVector ranked -> EvalState ranked -> Delta ranked y
   -> (EvalState ranked, InterpretationTarget ranked y)
 fwdR params s = \case
   TupleG d1 d2 -> let (s2, t) = fwdR params s d1
@@ -1247,17 +1276,15 @@ fwdR params s = \case
                  in (s2, snd v)
 
   ZeroR sh -> (s, rzero sh)
-  InputR @_ @r @n _ (InputId i) ->
+  InputR @_ @r @n _ (InputId i) ->  -- TODO: generalize to any y
     if i < V.length params
     then case params V.! i of
-      DynamicRanked @r2 @n2 e -> case sameNat (Proxy @n2) (Proxy @n) of
+      Some dtk@(DTKR @r2 @n2 _) -> case sameNat (Proxy @n2) (Proxy @n) of
         Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
-          Just Refl -> (s, e)
+          Just Refl -> (s, evalInterpretationTargetD dtk)
           _ -> error "fwdR: scalar mismatch"
         _ -> error "fwdR: rank mismatch"
-      DynamicShaped{} -> error "fwdR: DynamicShaped"
-      DynamicRankedDummy{} -> error "fwdR: DynamicRankedDummy"
-      DynamicShapedDummy{} -> error "fwdR: DynamicShapedDummy"
+      _ -> error "fwdR: wrong case"
     else error "fwdR': wrong index for an input"
   ScaleR k d -> second (* k) $ fwdR params s d
   AddR d e -> let (s2, t) = fwdR params s d
@@ -1312,14 +1339,12 @@ fwdR params s = \case
   InputS @_ @r @sh (InputId i) ->
     if i < V.length params
     then case params V.! i of
-      DynamicRanked{} -> error "fwdR: DynamicRanked"
-      DynamicShaped @r2 @sh2 e -> case sameShape @sh2 @sh of
+      Some dtk@(DTKS @r2 @sh2 _) -> case sameShape @sh2 @sh of
         Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
-          Just Refl -> (s, e)
+          Just Refl -> (s, evalInterpretationTargetD dtk)
           _ -> error "fwdR: scalar mismatch"
         _ -> error "fwdR: shape mismatch"
-      DynamicRankedDummy{} -> error "fwdR: DynamicRankedDummy"
-      DynamicShapedDummy{} -> error "fwdR: DynamicShapedDummy"
+      _ -> error "fwdR: wrong case"
     else error "fwdR: wrong index for an input"
   ScaleS k d -> second (* k) $ fwdR params s d
   AddS d e -> let (s2, t) = fwdR params s d
