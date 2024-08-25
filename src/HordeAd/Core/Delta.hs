@@ -122,9 +122,10 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
               toDynamicTensor (Some b) = case b of
                 MTKR @r @n t -> DynamicRanked @r @n t
                 MTKS @r @sh t -> DynamicShaped @r @sh t
+                MTKProduct{} -> error "toDynamicTensor: non-flattened cell"
                 MTKRDummy @r @sh -> DynamicRankedDummy @r @sh Proxy Proxy
                 MTKSDummy @r @sh -> DynamicShapedDummy @r @sh Proxy Proxy
-                MTKProduct{} -> error "toDynamicTensor: non-flattened cell"
+                MTKProductDummy{} -> error "toDynamicTensor: non-flattened cell"
                 MTKUntyped{} -> error "toDynamicTensor: non-flattened cell"
           in MTKUntyped $ dmkHVector $ V.fromList $ map toDynamicTensor elems
   in evalInterpretationTargetM itm
@@ -793,7 +794,11 @@ initEvalState = \case
         dMap = DMap.empty
         nMap = DMap.empty
     in EvalState {..}
-  FTKProduct{} -> error "TODO"  -- flatten into FTKUntyped or use MTKProduct?
+  FTKProduct @x @z _ _ ->
+    let iMap = DMap.fromDistinctAscList [InputId 0 :=> MTKProductDummy @x @z]
+        dMap = DMap.empty
+        nMap = DMap.empty
+    in EvalState {..}
   FTKUntyped parameters0 ->
     -- Create finite maps that hold values associated with inputs
     -- and with (possibly shared) term tree nodes.
@@ -897,6 +902,8 @@ addInterpretationTargetM a b = case (a, b) of
   (MTKProduct ta1 ta2, MTKProduct tb1 tb2) ->
     MTKProduct (addInterpretationTargetM ta1 tb1)
                (addInterpretationTargetM ta2 tb2)
+  (MTKProductDummy, _) -> b
+  (_, MTKProductDummy) -> a
   (MTKUntyped hv1, MTKUntyped hv2) ->
     MTKUntyped $ dmkHVector
     $ V.zipWith addDynamic (dunHVector hv1) (dunHVector hv2)

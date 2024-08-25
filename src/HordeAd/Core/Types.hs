@@ -233,14 +233,16 @@ data InterpretationTargetM ranked y where
        => ranked r n -> InterpretationTargetM ranked (TKR r n)
   MTKS :: (GoodScalar r, KnownShS sh)
        => ShapedOf ranked r sh -> InterpretationTargetM ranked (TKS r sh)
-  MTKRDummy :: (GoodScalar r, KnownShS sh)
-            => InterpretationTargetM ranked (TKR r (X.Rank sh))
-  MTKSDummy  :: (GoodScalar r, KnownShS sh)
-             => InterpretationTargetM ranked (TKS r sh)
   MTKProduct :: forall x z ranked. (TensorKind x, TensorKind z)
              => InterpretationTargetM ranked x
              -> InterpretationTargetM ranked z
              -> InterpretationTargetM ranked (TKProduct x z)
+  MTKRDummy :: (GoodScalar r, KnownShS sh)
+            => InterpretationTargetM ranked (TKR r (X.Rank sh))
+  MTKSDummy  :: (GoodScalar r, KnownShS sh)
+             => InterpretationTargetM ranked (TKS r sh)
+  MTKProductDummy :: forall x z ranked. (TensorKind x, TensorKind z)
+                  => InterpretationTargetM ranked (TKProduct x z)
   MTKUntyped :: HVectorOf ranked -> InterpretationTargetM ranked TKUntyped
 
 type family BuildTensorKind k tks where
