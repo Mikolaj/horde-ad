@@ -125,20 +125,19 @@ dotParameters (HVector a0 a1) (HVector b0 b1) =
 
 generateDeltaInputs
   :: forall x ranked. RankedOf (ShapedOf ranked) ~ ranked
-  => TensorKindFull x
-  -> InterpretationTarget (Dual ranked) x
-generateDeltaInputs = \case
-  FTKR @r @n sh -> DeltaR $ InputR @ranked @r @n sh (toInputIdR 0)
-  FTKS @r @sh -> DeltaS $ InputS @ranked @r @sh (toInputIdS 0)
-  FTKProduct ftk1 ftk2 -> (generateDeltaInputs ftk1, generateDeltaInputs ftk2)
+  => TensorKindFull x -> Delta ranked x
+generateDeltaInputs ftk = case ftk of
+  FTKR{} -> InputG ftk (toInputId 0)
+  FTKS -> InputG ftk (toInputId 0)
+  FTKProduct{} -> InputG ftk (toInputId 0)
   FTKUntyped shs ->
     let f :: Int -> DynamicTensor VoidTensor -> DynamicTensor (Dual ranked)
         f i (DynamicRankedDummy @r @sh _ _) =
           withListSh (Proxy @sh) $ \sh ->
-            DynamicRanked $ DeltaR $ InputR @ranked @r sh (toInputIdR i)
+            DynamicRanked $ DeltaR $ InputG (FTKR @r sh) (toInputId i)
         f i (DynamicShapedDummy @r @sh _ _) =
-          DynamicShaped $ DeltaS $ InputS @ranked @r @sh (toInputIdS i)
-    in HVectorPseudoTensor $ HToH $ V.imap f shs
+          DynamicShaped $ DeltaS $ InputG (FTKS @r @sh) (toInputId i)
+    in HToH $ V.imap f shs
 {- TODO: this causes a cyclic dependency:
 {-# SPECIALIZE generateDeltaInputs
   :: HVector (FlipR OR.Array) -> HVector (Dual (FlipR OR.Array)) #-}
@@ -148,20 +147,19 @@ makeADInputs
   :: forall x ranked.
      ( TensorKind x, HVectorTensor ranked (ShapedOf ranked)
      , RankedOf (ShapedOf ranked) ~ ranked )
-  => InterpretationTarget ranked x -> InterpretationTarget (Dual ranked) x
+  => InterpretationTarget ranked x -> Delta ranked x
   -> InterpretationTarget (ADVal ranked) x
 makeADInputs p0 d0 =
   let g :: STensorKindType y
-        -> InterpretationTarget ranked y -> InterpretationTarget (Dual ranked) y
+        -> InterpretationTarget ranked y -> Delta ranked y
         -> InterpretationTarget (ADVal ranked) y
-      g STKR{} p d = dDnotShared p d
-      g STKS{} p d = dDnotShared p d
+      g STKR{} p d = dDnotShared p (DeltaR d)
+      g STKS{} p d = dDnotShared p (DeltaS d)
       g (STKProduct stk1 stk2) p d =
-        (g stk1 (fst p) (fst d), g stk2 (snd p) (snd d))
+        (g stk1 (fst p) (Project1G d), g stk2 (snd p) (Project2G d))
       g STKUntyped p d =
         HVectorPseudoTensor
-        $ ahhToHVector (dunHVector $ unHVectorPseudoTensor p)
-                       (unHVectorPseudoTensor d)
+        $ ahhToHVector (dunHVector $ unHVectorPseudoTensor p) d
             -- dunHVector is fine, because p is made with dmkHVector
   in g (stensorKind @x) p0 d0
 

@@ -55,7 +55,7 @@ deriving instance Eq (TensorKindFull y)
 lemTensorKindOfF :: TensorKindFull y -> Dict TensorKind y
 lemTensorKindOfF = \case
   FTKR{} -> Dict
-  FTKS{} -> Dict
+  FTKS -> Dict
   FTKProduct stk1 stk2 | Dict <- lemTensorKindOfF stk1
                        , Dict <- lemTensorKindOfF stk2 -> Dict
   FTKUntyped{} -> Dict

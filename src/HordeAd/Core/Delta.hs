@@ -41,7 +41,7 @@ module HordeAd.Core.Delta
     -- * Abstract syntax trees of the delta expressions
   , DeltaR (..), DeltaS (..), Delta(..)
   , -- * Delta expression identifiers
-    NodeId (..), InputId, toInputIdR, toInputIdS
+    NodeId (..), InputId, toInputId
     -- * Exported to be specialized elsewhere
   , evalFromnMap, EvalState
   ) where
@@ -700,11 +700,8 @@ instance DMap.Enum1 (InputId ranked) where
   toEnum1 n (Some @_ @a Dict) = Some $ InputId @ranked @a n
 
 -- | Wrap non-negative (only!) integers in the `InputId` newtype.
-toInputIdR :: (GoodScalar r, KnownNat n) => Int -> InputId f (TKR r n)
-toInputIdR i = assert (i >= 0) $ InputId i
-
-toInputIdS :: (GoodScalar r, KnownShS sh) => Int -> InputId f (TKS r sh)
-toInputIdS i = assert (i >= 0) $ InputId i
+toInputId :: TensorKind y => Int -> InputId f y
+toInputId i = assert (i >= 0) $ InputId i
 
 -- | The state of evaluation. It consists of several maps.
 -- The maps indexed by input identifiers and node identifiers
