@@ -129,8 +129,8 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
           in MTKUntyped $ dmkHVector $ V.fromList $ map toDynamicTensor elems
   in evalInterpretationTargetM itm
 
-evalInterpretationTargetM :: InterpretationTargetM ranked x1
-                          -> InterpretationTarget ranked x1
+evalInterpretationTargetM :: InterpretationTargetM ranked x
+                          -> InterpretationTarget ranked x
 evalInterpretationTargetM = \case
   MTKR t -> t
   MTKS t -> t
@@ -138,6 +138,13 @@ evalInterpretationTargetM = \case
     (evalInterpretationTargetM t1, evalInterpretationTargetM t2)
   MTKUntyped ele -> HVectorPseudoTensor ele
   _ -> error "TODO"
+
+shapeD :: InterpretationTargetD ranked x -> STensorKindType x
+shapeD = \case
+  DTKR{} -> STKR typeRep SNat
+  DTKS{} -> STKS typeRep knownShS
+  DTKProduct t1 t2 -> STKProduct (shapeD t1) (shapeD t2)
+  DTKUntyped{} -> STKUntyped
 
 interpretationConstant :: forall y ranked. ADReady ranked
                        => (forall r. GoodScalar r => r)
@@ -197,6 +204,17 @@ interpretationTargetToD stk t = case stk of
   STKUntyped{} -> DTKUntyped $ unHVectorPseudoTensor t
 
 type HDVector ranked = Data.Vector.Vector (Some (InterpretationTargetD ranked))
+
+interpretationTargetToM
+  :: STensorKindType x -> InterpretationTarget ranked x
+  -> InterpretationTargetM ranked x
+interpretationTargetToM stk t = case stk of
+  STKR{} -> MTKR t
+  STKS{} -> MTKS t
+  STKProduct stk1 stk2 -> MTKProduct (interpretationTargetToM stk1 (fst t))
+                                     (interpretationTargetToM stk2 (snd t))
+  STKUntyped{} -> MTKUntyped $ unHVectorPseudoTensor t
+
 
 -- * Abstract syntax trees of the delta expressions
 
@@ -304,6 +322,8 @@ data Delta :: RankedTensorType -> TensorKindType -> Type where
             => Delta ranked (TKProduct x z) -> Delta ranked x
   Project2G :: forall x z ranked. TensorKind x
             => Delta ranked (TKProduct x z) -> Delta ranked z
+  InputG :: forall ranked y.
+            TensorKindFull y -> InputId ranked y -> Delta ranked y
 
   ZeroR :: (KnownNat n, GoodScalar r) => IShR n -> Delta ranked (TKR r n)
     -- ^ the shape is required for @shapeDelta@ and forward derivative
@@ -555,6 +575,7 @@ shapeDeltaFull = \case
     FTKProduct ftk1 _ -> ftk1
   Project2G v -> case shapeDeltaFull v of
     FTKProduct _ ftk2 -> ftk2
+  InputG ftk _ -> ftk
 
   ZeroR sh -> FTKR sh
   InputR sh _ -> FTKR sh
@@ -904,6 +925,9 @@ evalR !s !c = \case
     FTKProduct ftk1 _ ->
       let zero = interpretationConstant 1 ftk1
       in evalR s (zero, c) d
+  InputG _ftk i -> let cs = interpretationTargetToM (stensorKind @y) c
+                   in s {iMap = DMap.adjust (addInterpretationTargetM cs) i
+                                $ iMap s}
 
   ZeroR{} -> s
   InputR _ i -> let cs = MTKR c
@@ -1274,6 +1298,14 @@ fwdR params s = \case
                  in (s2, fst v)
   Project2G d -> let (s2, v) = fwdR params s d
                  in (s2, snd v)
+  InputG _ftk (InputId i) ->
+    if i < V.length params
+    then case params V.! i of
+      Some @_ @z dtk | Dict <- lemTensorKindOfS (shapeD dtk) ->
+        case sameTensorKind @y @z of
+          Just Refl -> (s, evalInterpretationTargetD dtk)
+          _ -> error "fwdR: kind mismatch"
+    else error "fwdR': wrong index for an input"
 
   ZeroR sh -> (s, rzero sh)
   InputR @_ @r @n _ (InputId i) ->  -- TODO: generalize to any y

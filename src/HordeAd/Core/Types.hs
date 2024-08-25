@@ -221,7 +221,8 @@ data InterpretationTargetD ranked y where
        => ranked r n -> InterpretationTargetD ranked (TKR r n)
   DTKS :: (GoodScalar r, KnownShS sh)
        => ShapedOf ranked r sh -> InterpretationTargetD ranked (TKS r sh)
-  DTKProduct :: InterpretationTargetD ranked x
+  DTKProduct :: forall x z ranked. (TensorKind x, TensorKind z)
+             => InterpretationTargetD ranked x
              -> InterpretationTargetD ranked z
              -> InterpretationTargetD ranked (TKProduct x z)
   DTKUntyped :: HVectorOf ranked -> InterpretationTargetD ranked TKUntyped
