@@ -102,7 +102,7 @@ instance (GoodScalar r, KnownNat n, RankedTensor ranked)
   sharePrimal = rshare
   shareDual d = case unDeltaR d of
     ZeroR{} -> d
-    InputR{} -> d
+    InputG{} -> d
     RFromS{} -> d
     ShareR{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDeltaR d
@@ -121,7 +121,7 @@ instance (GoodScalar r, KnownShS sh, ShapedTensor shaped)
   sharePrimal = sshare
   shareDual d = case unDeltaS d of
     ZeroS -> d
-    InputS{} -> d
+    InputG{} -> d
     SFromR{} -> d
     ShareS{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDeltaS d

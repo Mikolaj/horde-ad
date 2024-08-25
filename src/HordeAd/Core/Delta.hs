@@ -327,8 +327,6 @@ data Delta :: RankedTensorType -> TensorKindType -> Type where
 
   ZeroR :: (KnownNat n, GoodScalar r) => IShR n -> Delta ranked (TKR r n)
     -- ^ the shape is required for @shapeDelta@ and forward derivative
-  InputR :: forall ranked r n. (GoodScalar r, KnownNat n)
-         => IShR n -> InputId ranked (TKR r n) -> Delta ranked (TKR r n)
   ScaleR :: (KnownNat n, GoodScalar r)
          =>  ranked r n -> Delta ranked (TKR r n) -> Delta ranked (TKR r n)
   AddR :: (GoodScalar r, KnownNat n)
@@ -413,8 +411,6 @@ data Delta :: RankedTensorType -> TensorKindType -> Type where
          => Delta ranked TKUntyped -> Int -> Delta ranked (TKR r n)
 
   ZeroS :: (GoodScalar r, KnownShS sh) => Delta ranked (TKS r sh)
-  InputS :: forall ranked r sh. (GoodScalar r, KnownShS sh)
-         => InputId ranked (TKS r sh) -> Delta ranked (TKS r sh)
   ScaleS :: (KnownShS sh, GoodScalar r)
          => ShapedOf ranked r sh -> Delta ranked (TKS r sh)
          -> Delta ranked (TKS r sh)
@@ -578,7 +574,6 @@ shapeDeltaFull = \case
   InputG ftk _ -> ftk
 
   ZeroR sh -> FTKR sh
-  InputR sh _ -> FTKR sh
   ScaleR _ d -> shapeDeltaFull d
   AddR d _ -> shapeDeltaFull d
   ShareR _ d -> shapeDeltaFull d
@@ -610,7 +605,6 @@ shapeDeltaFull = \case
   RFromH d i -> FTKR $ listToShape $ shapeVoidDynamic (shapeDeltaH d V.! i)
 
   ZeroS{} -> FTKS
-  InputS{} -> FTKS
   ScaleS{} -> FTKS
   AddS{} -> FTKS
   ShareS{} -> FTKS
@@ -925,16 +919,13 @@ evalR !s !c = \case
   InputG _ftk i -> let cs = interpretationTargetToM (stensorKind @y) c
                    in s {iMap = DMap.adjust (addInterpretationTargetM cs) i
                                 $ iMap s}
-
-  ZeroR{} -> s
-  InputR _ i -> let cs = MTKR c
-                in s {iMap = DMap.adjust (addInterpretationTargetM cs) i
-                             $ iMap s}
     -- This and similar don't need to be runtime-specialized,
     -- because the type of c determines the Num instance for (+).
     -- Note that we can't express sharing by inserting Share constructors
     -- into iMap, because often sharing needs to work across many
     -- iMap keys. That's why global sharing is used.
+
+  ZeroR{} -> s
   ScaleR k d -> evalR s (k * c) d
   AddR d e -> let cShared = rshare c
               in evalR (evalR s cShared d) cShared e
@@ -1034,9 +1025,6 @@ evalR !s !c = \case
         -- problem of summing a lot of one-hots as in indexing
 
   ZeroS -> s
-  InputS i -> let cs = MTKS c
-              in s {iMap = DMap.adjust (addInterpretationTargetM cs) i
-                           $ iMap s}
   ScaleS k d -> evalR s (k * c) d
   AddS d e -> let cShared = sshare c
               in evalR (evalR s cShared d) cShared e
@@ -1305,16 +1293,6 @@ fwdR params s = \case
     else error "fwdR': wrong index for an input"
 
   ZeroR sh -> (s, rzero sh)
-  InputR @_ @r @n _ (InputId i) ->  -- TODO: generalize to any y
-    if i < V.length params
-    then case params V.! i of
-      Some dtk@(DTKR @r2 @n2 _) -> case sameNat (Proxy @n2) (Proxy @n) of
-        Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
-          Just Refl -> (s, evalInterpretationTargetD dtk)
-          _ -> error "fwdR: scalar mismatch"
-        _ -> error "fwdR: rank mismatch"
-      _ -> error "fwdR: wrong case"
-    else error "fwdR': wrong index for an input"
   ScaleR k d -> second (* k) $ fwdR params s d
   AddR d e -> let (s2, t) = fwdR params s d
                   (s3, u) = fwdR params s2 e
@@ -1365,16 +1343,6 @@ fwdR params s = \case
                 in (s2, rfromD $ dunHVector (unHVectorPseudoTensor v) V.! i)
 
   ZeroS -> (s, srepl 0)
-  InputS @_ @r @sh (InputId i) ->
-    if i < V.length params
-    then case params V.! i of
-      Some dtk@(DTKS @r2 @sh2 _) -> case sameShape @sh2 @sh of
-        Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
-          Just Refl -> (s, evalInterpretationTargetD dtk)
-          _ -> error "fwdR: scalar mismatch"
-        _ -> error "fwdR: shape mismatch"
-      _ -> error "fwdR: wrong case"
-    else error "fwdR: wrong index for an input"
   ScaleS k d -> second (* k) $ fwdR params s d
   AddS d e -> let (s2, t) = fwdR params s d
                   (s3, u) = fwdR params s2 e
