@@ -773,13 +773,13 @@ class HVectorTensor (ranked :: RankedTensorType)
   dshare :: HVectorOf ranked -> HVectorOf ranked
   dshare = id
   tshare :: forall y.
-            ( TensorKind y, RankedTensor ranked, ShapedTensor shaped
-            , shaped ~ ShapedOf ranked, ranked ~ RankedOf shaped )
+            (TensorKind y, RankedTensor ranked, ShapedTensor (ShapedOf ranked))
          => InterpretationTarget ranked y -> InterpretationTarget ranked y
   tshare t = case stensorKind @y of
-    STKR @r @n _ _ -> rshare @_ @r @n t
+    STKR{} -> rshare t
     STKS{} -> sshare t
     STKProduct{} -> (tshare $ fst t, tshare $ snd t)
+      -- this is fine, because t is not duplicated
     STKUntyped{} -> HVectorPseudoTensor $ dshare $ unHVectorPseudoTensor t
   tunshare :: TensorKind y
            => InterpretationTarget ranked y -> InterpretationTarget ranked y
