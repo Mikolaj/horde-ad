@@ -428,7 +428,7 @@ testPiecewiseLinear2PP = do
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
     @?= "\\x7 -> ifF (x7 >. 0.0) 2.0 5.0 * x7"
   show deltas
-    @?= "ShareR 100000005 (ScaleR (AstRaw {unAstRaw = AstShare (AstVarId 100000002) (AstCond (AstRel GtOp (AstProjectR (AstVar (FTKUntyped [DynamicRankedDummy Proxy Proxy]) (AstVarId 100000001)) 0) (AstConst (rfromListLinear [] [0.0]))) (AstConst (rfromListLinear [] [2.0])) (AstConst (rfromListLinear [] [5.0])))}) (InputR [] (InputId 0)))"
+    @?= "ShareR 100000005 (ScaleR (AstRaw {unAstRaw = AstShare (AstVarId 100000002) (AstCond (AstRel GtOp (AstProjectR (AstVar (FTKUntyped [DynamicRankedDummy Proxy Proxy]) (AstVarId 100000001)) 0) (AstConst (rfromListLinear [] [0.0]))) (AstConst (rfromListLinear [] [2.0])) (AstConst (rfromListLinear [] [5.0])))}) (InputG (FTKR []) (InputId 0)))"
 
 overleaf :: forall r ranked. (RankedTensor ranked, GoodScalar r)
          => ranked r 1 -> ranked r 0
@@ -505,7 +505,7 @@ testOverleafPP = do
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
     @?= "\\v9 -> rsum (rgather [50] v9 (\\[i3] -> [remF i3 28]))"
   show deltas
-    @?= "ShareR 100000002 (SumR (ShareR 100000001 (GatherR [50] (InputR [28] (InputId 0)) <function>)))"
+    @?= "ShareR 100000002 (SumR (ShareR 100000001 (GatherR [50] (InputG (FTKR [28]) (InputId 0)) <function>)))"
 
 foo :: RealFloatF a => (a, a, a) -> a
 foo (x, y, z) =
@@ -692,7 +692,7 @@ testListSumrPP = do
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
     @?= "\\x7 x8 x9 x10 -> x7 + x8 + x9 + x10"
   show deltas
-    @?= "ShareR 100000003 (AddR (InputR [] (InputId 0)) (ShareR 100000002 (AddR (InputR [] (InputId 1)) (ShareR 100000001 (AddR (InputR [] (InputId 2)) (InputR [] (InputId 3)))))))"
+    @?= "ShareR 100000003 (AddR (InputG (FTKR []) (InputId 0)) (ShareR 100000002 (AddR (InputG (FTKR []) (InputId 1)) (ShareR 100000001 (AddR (InputG (FTKR []) (InputId 2)) (InputG (FTKR []) (InputId 3)))))))"
 
 -- Note that the function is not associative, so foldr vs foldl matters.
 rankedListSum2r :: (RankedTensor ranked, GoodScalar r)
@@ -854,7 +854,7 @@ testReluPP = do
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
     @?= "\\m10 -> rgather [3,4] (rconst (rfromListLinear [2] [0.0,1.0])) (\\[i5, i6] -> [ifF (m10 ! [i5, i6] <=. 0.0) 0 1]) * m10"
   show deltas
-    @?= "ShareR 100000003 (ScaleR (AstRaw {unAstRaw = AstShare (AstVarId 100000007) (AstGather [3,4] (AstConst (rfromListLinear [2] [0.0,1.0])) ([AstVarId 100000005,AstVarId 100000006],[AstCond (AstRel LeqOp (AstIndex (AstProjectR (AstVar (FTKUntyped [DynamicRankedDummy Proxy Proxy]) (AstVarId 100000001)) 0) [AstVar (FTKR []) (AstVarId 100000005),AstVar (FTKR []) (AstVarId 100000006)]) (AstConst (rfromListLinear [] [0.0]))) (AstConst (rfromListLinear [] [0])) (AstConst (rfromListLinear [] [1]))]))}) (InputR [3,4] (InputId 0)))"
+    @?= "ShareR 100000003 (ScaleR (AstRaw {unAstRaw = AstShare (AstVarId 100000007) (AstGather [3,4] (AstConst (rfromListLinear [2] [0.0,1.0])) ([AstVarId 100000005,AstVarId 100000006],[AstCond (AstRel LeqOp (AstIndex (AstProjectR (AstVar (FTKUntyped [DynamicRankedDummy Proxy Proxy]) (AstVarId 100000001)) 0) [AstVar (FTKR []) (AstVarId 100000005),AstVar (FTKR []) (AstVarId 100000006)]) (AstConst (rfromListLinear [] [0.0]))) (AstConst (rfromListLinear [] [0])) (AstConst (rfromListLinear [] [1]))]))}) (InputG (FTKR [3,4]) (InputId 0)))"
 
 testReluPP2 :: Assertion
 testReluPP2 = do
@@ -899,7 +899,7 @@ testReluSimplerPP = do
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
     @?= "\\m10 -> rgather [3,4] (rconst (rfromListLinear [2] [0.0,1.0])) (\\[i5, i6] -> [ifF (m10 ! [i5, i6] <=. 0.0) 0 1]) * m10"
   show deltas
-    @?= "ShareR 100000003 (ScaleR (AstRaw {unAstRaw = AstShare (AstVarId 100000007) (AstGather [3,4] (AstConst (rfromListLinear [2] [0.0,1.0])) ([AstVarId 100000005,AstVarId 100000006],[AstCond (AstRel LeqOp (AstIndex (AstProjectR (AstVar (FTKUntyped [DynamicRankedDummy Proxy Proxy]) (AstVarId 100000001)) 0) [AstVar (FTKR []) (AstVarId 100000005),AstVar (FTKR []) (AstVarId 100000006)]) (AstConst (rfromListLinear [] [0.0]))) (AstConst (rfromListLinear [] [0])) (AstConst (rfromListLinear [] [1]))]))}) (InputR [3,4] (InputId 0)))"
+    @?= "ShareR 100000003 (ScaleR (AstRaw {unAstRaw = AstShare (AstVarId 100000007) (AstGather [3,4] (AstConst (rfromListLinear [2] [0.0,1.0])) ([AstVarId 100000005,AstVarId 100000006],[AstCond (AstRel LeqOp (AstIndex (AstProjectR (AstVar (FTKUntyped [DynamicRankedDummy Proxy Proxy]) (AstVarId 100000001)) 0) [AstVar (FTKR []) (AstVarId 100000005),AstVar (FTKR []) (AstVarId 100000006)]) (AstConst (rfromListLinear [] [0.0]))) (AstConst (rfromListLinear [] [0])) (AstConst (rfromListLinear [] [1]))]))}) (InputG (FTKR [3,4]) (InputId 0)))"
 
 testReluSimplerPP2 :: Assertion
 testReluSimplerPP2 = do
@@ -1048,7 +1048,7 @@ testReluMaxPP = do
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
     @?= "\\m13 -> rgather [3,4] (rfromVector (fromList [rreplicate 3 (rreplicate 4 0.0), m13])) (\\[i6, i7] -> [ifF (0.0 >=. m13 ! [i6, i7]) 0 1, i6, i7])"
   show deltas
-    @?= "ShareR 100000005 (GatherR [3,4] (ShareR 100000003 (FromVectorR [ZeroR [3,4],InputR [3,4] (InputId 0)])) <function>)"
+    @?= "ShareR 100000005 (GatherR [3,4] (ShareR 100000003 (FromVectorR [ZeroR [3,4],InputG (FTKR [3,4]) (InputId 0)])) <function>)"
 
 testReluMaxPP2 :: Assertion
 testReluMaxPP2 = do
@@ -1113,7 +1113,7 @@ testDot2PP = do
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
     @?= "\\m19 m20 -> rsum (rreshape [6] m19 * rreshape [6] m20)"
   show deltas
-    @?= "ShareR 100000003 (AddR (Dot0R (AstRaw {unAstRaw = AstShare (AstVarId 100000003) (AstReshape [6] (AstProjectR (AstVar (FTKUntyped [DynamicRankedDummy Proxy Proxy,DynamicRankedDummy Proxy Proxy]) (AstVarId 100000001)) 1))}) (ShareR 100000001 (ReshapeR [6] (InputR [2,3] (InputId 0))))) (Dot0R (AstRaw {unAstRaw = AstShare (AstVarId 100000002) (AstReshape [6] (AstProjectR (AstVar (FTKUntyped [DynamicRankedDummy Proxy Proxy,DynamicRankedDummy Proxy Proxy]) (AstVarId 100000001)) 0))}) (ShareR 100000002 (ReshapeR [6] (InputR [2,3] (InputId 1))))))"
+    @?= "ShareR 100000003 (AddR (Dot0R (AstRaw {unAstRaw = AstShare (AstVarId 100000003) (AstReshape [6] (AstProjectR (AstVar (FTKUntyped [DynamicRankedDummy Proxy Proxy,DynamicRankedDummy Proxy Proxy]) (AstVarId 100000001)) 1))}) (ShareR 100000001 (ReshapeR [6] (InputG (FTKR [2,3]) (InputId 0))))) (Dot0R (AstRaw {unAstRaw = AstShare (AstVarId 100000002) (AstReshape [6] (AstProjectR (AstVar (FTKUntyped [DynamicRankedDummy Proxy Proxy,DynamicRankedDummy Proxy Proxy]) (AstVarId 100000001)) 0))}) (ShareR 100000002 (ReshapeR [6] (InputG (FTKR [2,3]) (InputId 1))))))"
 
 testMatvecmulPP :: Assertion
 testMatvecmulPP = do
