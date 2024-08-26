@@ -917,11 +917,11 @@ evalR !s !c = \case
                   evalR (evalR s (fst c) d1) (snd c) d2
   Project1G d -> case shapeDeltaFull d of
     FTKProduct _ ftk2 ->
-      let zero = interpretationConstant 1 ftk2
+      let zero = interpretationConstant 0 ftk2
       in evalR s (c, zero) d
   Project2G d -> case shapeDeltaFull d of
     FTKProduct ftk1 _ ->
-      let zero = interpretationConstant 1 ftk1
+      let zero = interpretationConstant 0 ftk1
       in evalR s (zero, c) d
   InputG _ftk i -> let cs = interpretationTargetToM (stensorKind @y) c
                    in s {iMap = DMap.adjust (addInterpretationTargetM cs) i
