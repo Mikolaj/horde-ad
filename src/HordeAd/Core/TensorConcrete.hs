@@ -279,14 +279,20 @@ instance HVectorTensor ORArray OSArray where
   dmapAccumRDer _ k (FTKUntyped accShs) (FTKUntyped bShs) (FTKUntyped eShs) f _df _rf acc0 es =
     HVectorPseudoTensor
     $ oRdmapAccumR k accShs bShs eShs (\ !a !b ->
-        unHVectorPseudoTensor $ f (HVectorPseudoTensor a, HVectorPseudoTensor b)) (unHVectorPseudoTensor acc0) (unHVectorPseudoTensor es)
+        let (a1, b1) = f (HVectorPseudoTensor a, HVectorPseudoTensor b)
+        in dmkHVector
+           $ dunHVector (unHVectorPseudoTensor a1)
+             V.++ dunHVector (unHVectorPseudoTensor b1)) (unHVectorPseudoTensor acc0) (unHVectorPseudoTensor es)
   dmapAccumL _ k (FTKUntyped accShs) (FTKUntyped bShs) (FTKUntyped eShs) f acc0 es =
     HVectorPseudoTensor
     $ oRdmapAccumL k accShs bShs eShs f (unHVectorPseudoTensor acc0) (unHVectorPseudoTensor es)
   dmapAccumLDer _ k (FTKUntyped accShs) (FTKUntyped bShs) (FTKUntyped eShs) f _df _rf acc0 es =
     HVectorPseudoTensor
     $ oRdmapAccumL k accShs bShs eShs (\ !a !b ->
-        unHVectorPseudoTensor $ f (HVectorPseudoTensor a, HVectorPseudoTensor b)) (unHVectorPseudoTensor acc0) (unHVectorPseudoTensor es)
+        let (a1, b1) = f (HVectorPseudoTensor a, HVectorPseudoTensor b)
+        in dmkHVector
+           $ dunHVector (unHVectorPseudoTensor a1)
+             V.++ dunHVector (unHVectorPseudoTensor b1)) (unHVectorPseudoTensor acc0) (unHVectorPseudoTensor es)
 
 instance ProductTensor ORArray where
   tmkHVector = id

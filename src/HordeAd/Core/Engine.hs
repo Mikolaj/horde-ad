@@ -99,8 +99,12 @@ revDtMaybe
 revDtMaybe f vals0 mdt =
   let g :: InterpretationTarget (AstRanked FullSpan) TKUntyped
         -> InterpretationTarget (AstRanked FullSpan) z
-      g !hv = f $ parseHVector (fromValue vals0)
-              $ dunHVector $ unHVectorPseudoTensor hv
+-- TODO: test, deduce and comment whether this suffices:
+--      g !hv = f $ parseHVector (fromValue vals0)
+--              $ dunHVector $ unHVectorPseudoTensor hv
+      g !hv0 = tlet hv0 $ \ !hv ->
+                 f $ parseHVector (fromValue vals0)
+                 $ dunHVector $ unHVectorPseudoTensor hv
       valsH = HVectorPseudoTensor $ toHVectorOf vals0
       voidH = tshapeFull (stensorKind @TKUntyped) valsH
       artifact = fst $ revProduceArtifact (isJust mdt) g emptyEnv voidH
@@ -129,8 +133,12 @@ revArtifactAdapt
 revArtifactAdapt hasDt f vals0 =
   let g :: InterpretationTarget (AstRanked FullSpan) TKUntyped
         -> InterpretationTarget (AstRanked FullSpan) z
-      g !hv = f $ parseHVector (fromValue vals0)
-              $ dunHVector $ unHVectorPseudoTensor hv
+-- TODO: test, deduce and comment whether this suffices:
+--      g !hv = f $ parseHVector (fromValue vals0)
+--              $ dunHVector $ unHVectorPseudoTensor hv
+      g !hv0 = tlet hv0 $ \ !hv ->
+                 f $ parseHVector (fromValue vals0)
+                 $ dunHVector $ unHVectorPseudoTensor hv
       valsH = HVectorPseudoTensor $ toHVectorOf @ORArray vals0
       voidH = tshapeFull (stensorKind @TKUntyped) valsH
   in revProduceArtifact hasDt g emptyEnv voidH
@@ -213,8 +221,12 @@ fwd
   -> Value astvals
   -> InterpretationTarget ORArray z
 fwd f vals ds =
-  let g hVector = f $ parseHVector (fromValue vals)
-                  $ dunHVector $ unHVectorPseudoTensor hVector
+-- TODO: test, deduce and comment whether this suffices:
+--  let g hVector = f $ parseHVector (fromValue vals)
+--                  $ dunHVector $ unHVectorPseudoTensor hVector
+  let g !hv0 = tlet hv0 $ \ !hv ->
+                 f $ parseHVector (fromValue vals)
+                 $ dunHVector $ unHVectorPseudoTensor hv
       valsH = HVectorPseudoTensor $ toHVectorOf vals
       voidH = tshapeFull (stensorKind @TKUntyped) valsH
       artifact = fst $ fwdProduceArtifact g emptyEnv voidH
