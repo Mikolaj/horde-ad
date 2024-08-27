@@ -5,7 +5,7 @@
 -- with @unsafePerformIO@ outside, so some of the impurity escapes.
 module HordeAd.Core.AstFreshId
   ( unRawHVector, rawHVector
-  , funToAstIO, funToAst, fun2ToAst, fun1ToAst
+  , funToAstIO, funToAst, fun2ToAst, fun1ToAst, fun1ToX
   , fun1DToAst, fun1HToAst, fun1LToAst
   , funToAstRevIO, funToAstRev
   , funToAstFwdIO, funToAstFwd
@@ -144,6 +144,20 @@ fun1ToAst :: TensorKind y
           -> AstTensor s y
 {-# NOINLINE fun1ToAst #-}
 fun1ToAst f = unsafePerformIO $ fun1ToAstIO f
+
+fun1ToXIO :: TensorKind y
+          => (AstVarName s y -> x)
+          -> IO x
+{-# INLINE fun1ToXIO #-}
+fun1ToXIO f = do
+  !freshId <- unsafeGetFreshAstVarName
+  return $! f freshId
+
+fun1ToX :: TensorKind y
+        => (AstVarName s y -> x)
+        -> x
+{-# NOINLINE fun1ToX #-}
+fun1ToX f = unsafePerformIO $ fun1ToXIO f
 
 fun1LToAstIO :: [VoidHVector]
              -> ([[AstDynamicVarName]] -> [HVector (AstRanked s)] -> a)
