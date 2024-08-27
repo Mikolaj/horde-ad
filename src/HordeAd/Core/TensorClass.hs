@@ -1043,7 +1043,7 @@ class HVectorTensor (ranked :: RankedTensorType)
          (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicShaped acc0)
          (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicShaped es))
       (\res -> sappend @_ @_ @1 (sfromList [acc0]) (sfromD $ res V.! 1))
-  -- | A strict right macAccum.
+  -- | A strict right mapAccum.
   --
   -- The applications of 'dfwd' and 'drevDt' performed already at this point
   -- ensure that the computation of a derivative is not repeated
@@ -1115,7 +1115,7 @@ class HVectorTensor (ranked :: RankedTensorType)
     -> InterpretationTarget ranked accShs  -- ^ acc0 :: accShs
     -> InterpretationTarget ranked TKUntyped  -- ^ es :: k ': eShs
     -> InterpretationTarget ranked TKUntyped  -- ^ (x, bs) :: (accShs, k ': bShs)
-  -- | A strict left macAccum.
+  -- | A strict left mapAccum.
   dmapAccumL
     :: (accShs ~ TKUntyped, bShs ~ TKUntyped, eShs ~ TKUntyped)
     => Proxy ranked
