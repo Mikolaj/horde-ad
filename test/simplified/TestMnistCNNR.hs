@@ -194,7 +194,7 @@ mnistTestCaseCNNI prefix epochs maxBatches kh kw c_out n_hidden
            ast = MnistCnnRanked2.convMnistLossFusedR
                    miniBatchSize (AstRanked astGlyph, AstRanked astLabel)
                    (parseHVector (fromDValue valsInit)
-                                 (unRawHVector (dunHVector $ unHVectorPseudoTensor hVectorPrimal)))
+                                 (unRawHVector (dunHVector $ unHVectorPseudoTensor (rawY (stensorKind @TKUntyped) hVectorPrimal))))
            runBatch :: (HVector ORArray, StateAdam) -> (Int, [MnistDataR r])
                     -> IO (HVector ORArray, StateAdam)
            runBatch (!parameters, !stateAdam) (k, chunk) = do

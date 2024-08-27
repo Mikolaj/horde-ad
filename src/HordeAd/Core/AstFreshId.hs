@@ -206,9 +206,9 @@ dynamicToVar (DynamicShapedDummy @r2 @sh2 _ _) = do
 
 funToAstRevIO :: forall x. TensorKindFull x
               -> IO ( AstVarName PrimalSpan x
-                    , InterpretationTarget (AstRaw PrimalSpan) x
+                    , AstTensor PrimalSpan x
                     , AstVarName FullSpan x
-                    , InterpretationTarget (AstRanked FullSpan) x )
+                    , AstTensor FullSpan x )
 {-# INLINE funToAstRevIO #-}
 funToAstRevIO ftk | Dict <- lemTensorKindOfF ftk = do
   freshId <- unsafeGetFreshAstVarId
@@ -220,14 +220,11 @@ funToAstRevIO ftk | Dict <- lemTensorKindOfF ftk = do
       !astVar = AstVar ftk var
   case ftk of
     FTKR{} ->
-      return ( varPrimal, rawY (stensorKind @x) astVarPrimal
-             , var, rankedY (stensorKind @x) astVar )
+      return (varPrimal, astVarPrimal, var, astVar)
     FTKS ->
-      return ( varPrimal, rawY (stensorKind @x) astVarPrimal
-             , var, rankedY (stensorKind @x) astVar )
+      return (varPrimal, astVarPrimal, var, astVar)
     FTKProduct{} ->
-      return ( varPrimal, rawY (stensorKind @x) astVarPrimal
-             , var, rankedY (stensorKind @x) astVar )
+      return (varPrimal, astVarPrimal, var, astVar)
     FTKUntyped parameters0 -> do
       let f :: Int -> DynamicTensor VoidTensor
             -> IO (AstDynamic PrimalSpan, AstDynamic FullSpan)
@@ -243,25 +240,25 @@ funToAstRevIO ftk | Dict <- lemTensorKindOfF ftk = do
               ( DynamicShaped @r @sh (AstShaped $ AstProjectS astVarPrimal i)
               , DynamicShaped @r @sh (AstShaped $ AstProjectS astVar i) )
       (!astsPrimal, !asts) <- unzip <$> imapM f (V.toList parameters0)
-      let !vp = rawY (stensorKind @x) $ AstMkHVector $ V.fromList astsPrimal
-          !va = rankedY (stensorKind @x) $ AstMkHVector $ V.fromList asts
+      let !vp = AstMkHVector $ V.fromList astsPrimal
+          !va = AstMkHVector $ V.fromList asts
       return (varPrimal, vp, var, va)
 
 funToAstRev :: TensorKindFull x
             -> ( AstVarName PrimalSpan x
-               , InterpretationTarget (AstRaw PrimalSpan) x
+               , AstTensor PrimalSpan x
                , AstVarName FullSpan x
-               , InterpretationTarget (AstRanked FullSpan) x )
+               , AstTensor FullSpan x )
 {-# NOINLINE funToAstRev #-}
 funToAstRev = unsafePerformIO . funToAstRevIO
 
 funToAstFwdIO :: forall x. TensorKindFull x
               -> IO ( AstVarName PrimalSpan x
-                    , InterpretationTarget (AstRaw PrimalSpan) x
+                    , AstTensor PrimalSpan x
                     , AstVarName PrimalSpan x
-                    , InterpretationTarget (AstRaw PrimalSpan) x
+                    , AstTensor PrimalSpan x
                     , AstVarName FullSpan x
-                    , InterpretationTarget (AstRanked FullSpan) x )
+                    , AstTensor FullSpan x )
 {-# INLINE funToAstFwdIO #-}
 funToAstFwdIO ftk | Dict <- lemTensorKindOfF ftk = do
   freshIdDs <- unsafeGetFreshAstVarId
@@ -277,17 +274,11 @@ funToAstFwdIO ftk | Dict <- lemTensorKindOfF ftk = do
       !astVar = AstVar ftk var
   case ftk of
     FTKR{} ->
-      return ( varPrimalD, rawY (stensorKind @x) astVarPrimalD
-             , varPrimal, rawY (stensorKind @x) astVarPrimal
-             , var, rankedY (stensorKind @x) astVar )
+      return (varPrimalD, astVarPrimalD, varPrimal, astVarPrimal, var, astVar)
     FTKS ->
-      return ( varPrimalD, rawY (stensorKind @x) astVarPrimalD
-             , varPrimal, rawY (stensorKind @x) astVarPrimal
-             , var, rankedY (stensorKind @x) astVar )
+      return (varPrimalD, astVarPrimalD, varPrimal, astVarPrimal, var, astVar)
     FTKProduct{} ->
-      return ( varPrimalD, rawY (stensorKind @x) astVarPrimalD
-             , varPrimal, rawY (stensorKind @x) astVarPrimal
-             , var, rankedY (stensorKind @x) astVar )
+      return (varPrimalD, astVarPrimalD, varPrimal, astVarPrimal, var, astVar)
     FTKUntyped parameters0 -> do
       let f :: Int -> DynamicTensor VoidTensor
             -> IO ( AstDynamic PrimalSpan
@@ -309,18 +300,18 @@ funToAstFwdIO ftk | Dict <- lemTensorKindOfF ftk = do
               , DynamicShaped @r @sh (AstShaped $ AstProjectS astVar i) )
       (!astsPrimalD, !astsPrimal, !asts)
         <- unzip3 <$> imapM f (V.toList parameters0)
-      let !vD = rawY (stensorKind @x) $ AstMkHVector $ V.fromList astsPrimalD
-          !vp = rawY (stensorKind @x) $ AstMkHVector $ V.fromList astsPrimal
-          !va = rankedY (stensorKind @x) $ AstMkHVector $ V.fromList asts
+      let !vD = AstMkHVector $ V.fromList astsPrimalD
+          !vp = AstMkHVector $ V.fromList astsPrimal
+          !va = AstMkHVector $ V.fromList asts
       return (varPrimalD, vD, varPrimal, vp, var, va)
 
 funToAstFwd :: TensorKindFull x
             -> ( AstVarName PrimalSpan x
-               , InterpretationTarget (AstRaw PrimalSpan) x
+               , AstTensor PrimalSpan x
                , AstVarName PrimalSpan x
-               , InterpretationTarget (AstRaw PrimalSpan) x
+               , AstTensor PrimalSpan x
                , AstVarName FullSpan x
-               , InterpretationTarget (AstRanked FullSpan) x )
+               , AstTensor FullSpan x )
 {-# NOINLINE funToAstFwd #-}
 funToAstFwd = unsafePerformIO . funToAstFwdIO
 
