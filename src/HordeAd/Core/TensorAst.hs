@@ -11,13 +11,15 @@ module HordeAd.Core.TensorAst
   , revArtifactFromForwardPass
   , revProduceArtifact
   , fwdArtifactFromForwardPass, fwdProduceArtifact
-  , unRawY
+  , printArtifactSimple, printArtifactPretty
+  , printArtifactPrimalSimple, printArtifactPrimalPretty
   ) where
 
 import Prelude
 
 import Control.Exception.Assert.Sugar
 import Data.Array.Shape qualified as Sh
+import Data.IntMap.Strict (IntMap)
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, (:~:) (Refl))
 import Data.Vector qualified as Data.NonStrict.Vector
@@ -33,6 +35,7 @@ import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstInline
 import HordeAd.Core.AstInterpret
+import HordeAd.Core.AstPrettyPrint
 import HordeAd.Core.AstSimplify
 import HordeAd.Core.AstTools
 import HordeAd.Core.AstVectorize
@@ -1619,3 +1622,71 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
     $ AstMapAccumLDer k accShs bShs eShs f df rf
                       (unNoSimplifyY (stensorKind @TKUntyped) acc0)
                       (unNoSimplifyY (stensorKind @TKUntyped) es)
+
+
+-- TODO: move to a better home:
+
+prettifyArtifactRev
+  :: TensorKind z
+  => AstArtifactRev TKUntyped z
+  -> ( AstVarName PrimalSpan z
+     , [AstDynamicVarName]
+     , InterpretationTarget (AstRaw PrimalSpan) TKUntyped
+     , InterpretationTarget (AstRaw PrimalSpan) z )
+prettifyArtifactRev AstArtifactRev{..} =
+  fun1DToAst (shapeAstHVector $ unAstRawWrap
+              $ unHVectorPseudoTensor artDerivativeRev) $ \ !vars1 !asts1 ->
+    let idom = SubstitutionPayload $ AstMkHVector asts1
+        !derivative = substituteAstInInterpretationTargetRaw
+                        idom artVarDomainRev artDerivativeRev in
+    let !primal = substituteAstInInterpretationTargetRaw
+                    idom artVarDomainRev artPrimalRev
+    in (artVarDtRev, vars1, derivative, primal)
+
+printArtifactSimple
+  :: TensorKind z
+  => IntMap String
+  -> AstArtifactRev TKUntyped z
+  -> String
+printArtifactSimple renames art =
+  let !(!varDt, !vars1, !derivative, _) = prettifyArtifactRev art in
+  let !varsPP = printAstVarName renames varDt
+                : map (printAstDynamicVarNameBrief renames) vars1
+  in "\\" ++ unwords varsPP
+          ++ " -> " ++ printAstHVectorSimple
+                         renames (unAstRawWrap $ unHVectorPseudoTensor derivative)
+
+printArtifactPretty
+  :: TensorKind z
+  => IntMap String
+  -> AstArtifactRev TKUntyped z
+  -> String
+printArtifactPretty renames art =
+  let !(!varDt, !vars1, !derivative, _) = prettifyArtifactRev art in
+  let varsPP = printAstVarName renames varDt
+               : map (printAstDynamicVarNameBrief renames) vars1
+  in "\\" ++ unwords varsPP
+          ++ " -> " ++ printAstHVectorPretty
+                         renames (unAstRawWrap $ unHVectorPseudoTensor derivative)
+
+printArtifactPrimalSimple
+  :: forall z. TensorKind z
+  => IntMap String
+  -> AstArtifactRev TKUntyped z
+  -> String
+printArtifactPrimalSimple renames art =
+  let !(_, !vars1, _, !primal) = prettifyArtifactRev art in
+  let !varsPP = map (printAstDynamicVarNameBrief renames) vars1
+  in "\\" ++ unwords varsPP
+          ++ " -> " ++ printAstSimpleY renames (unRawY (stensorKind @z) primal)
+
+printArtifactPrimalPretty
+  :: forall z. TensorKind z
+  => IntMap String
+  -> AstArtifactRev TKUntyped z
+  -> String
+printArtifactPrimalPretty renames art =
+  let !(_, !vars1, _, !primal) = prettifyArtifactRev art in
+  let !varsPP = map (printAstDynamicVarNameBrief renames) vars1
+  in "\\" ++ unwords varsPP
+          ++ " -> " ++ printAstPrettyY renames (unRawY (stensorKind @z) primal)
