@@ -11,6 +11,7 @@ module HordeAd.Core.TensorAst
   , revArtifactFromForwardPass
   , revProduceArtifact
   , fwdArtifactFromForwardPass, fwdProduceArtifact
+  , rankedY, unRankedY, rawY, unRawY
   , printArtifactSimple, printArtifactPretty
   , printArtifactPrimalSimple, printArtifactPrimalPretty
   ) where
@@ -309,6 +310,26 @@ instance TermValue (DynamicTensor (AstRanked FullSpan)) where
 
 instance ProductTensor (AstRanked s) where
   tmkHVector = AstMkHVector
+
+rankedY :: forall y s.
+           STensorKindType y -> AstTensor s y
+        -> InterpretationTarget (AstRanked s) y
+rankedY stk t = case stk of
+  STKR{} -> AstRanked t
+  STKS{} -> AstShaped t
+  STKProduct stk1 stk2 ->
+    (rankedY stk1 $ AstProject1 t, rankedY stk2 $ AstProject2 t)
+  STKUntyped -> HVectorPseudoTensor t
+
+unRankedY :: forall y s.
+             STensorKindType y -> InterpretationTarget (AstRanked s) y
+          -> AstTensor s y
+unRankedY stk t = case stk of
+  STKR{} -> unAstRanked t
+  STKS{} -> unAstShaped t
+  STKProduct stk1 stk2 -> AstTuple (unRankedY stk1 $ fst t)
+                                   (unRankedY stk2 $ snd t)
+  STKUntyped -> unHVectorPseudoTensor t
 
 astLetHVectorInFun
   :: forall n s r. (KnownNat n, GoodScalar r, AstSpan s)
@@ -897,6 +918,26 @@ deriving instance (RealFloatF (AstTensor s (TKS r sh)))
 
 instance ProductTensor (AstRaw s) where
   tmkHVector = AstRawWrap . AstMkHVector . unRawHVector
+
+rawY :: forall y s.
+        STensorKindType y -> AstTensor s y
+     -> InterpretationTarget (AstRaw s) y
+rawY stk t = case stk of
+  STKR{} -> AstRaw t
+  STKS{} -> AstRawS t
+  STKProduct stk1 stk2 ->
+    (rawY stk1 $ AstProject1 t, rawY stk2 $ AstProject2 t)
+  STKUntyped -> HVectorPseudoTensor $ AstRawWrap t
+
+unRawY :: forall y s.
+          STensorKindType y -> InterpretationTarget (AstRaw s) y
+       -> AstTensor s y
+unRawY stk t = case stk of
+  STKR{} -> unAstRaw t
+  STKS{} -> unAstRawS t
+  STKProduct stk1 stk2 -> AstTuple (unRawY stk1 $ fst t)
+                                   (unRawY stk2 $ snd t)
+  STKUntyped -> unAstRawWrap $ unHVectorPseudoTensor t
 
 astLetFunRaw :: forall y z s.
                 (TensorKind y, TensorKind z, AstSpan s)
