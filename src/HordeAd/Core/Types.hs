@@ -16,12 +16,11 @@ module HordeAd.Core.Types
   , TensorType, RankedTensorType, ShapedTensorType
   , TensorKindType (..), STensorKindType(..), TensorKind(..)
   , lemTensorKindOfS, sameTensorKind
-  , InterpretationTarget, InterpretationTargetD(..), InterpretationTargetM(..)
   , BuildTensorKind, lemTensorKindOfBuild
     -- * Some fundamental constraints
   , GoodScalar, HasSingletonDict, Differentiable, IfDifferentiable(..)
     -- * Type families that tensors will belong to
-  , IntOf, RankedOf, ShapedOf, HVectorOf, HVectorPseudoTensor(..)
+  , IntOf, RankedOf, ShapedOf
   , HFunOf, PrimalOf, DualOf
   , DummyDual(..)
     -- * Generic types of booleans and related class definitions
@@ -206,45 +205,6 @@ sameTensorKind = sameTK (stensorKind @y1) (stensorKind @y2)
     (STKUntyped, STKUntyped) -> Just Refl
     _ -> Nothing
 
-type family InterpretationTarget ranked y = result | result -> ranked y where
-  InterpretationTarget ranked (TKR r n) = ranked r n
-  InterpretationTarget ranked (TKS r sh) = ShapedOf ranked r sh
-  InterpretationTarget ranked (TKProduct x z) =
-    (InterpretationTarget ranked x, InterpretationTarget ranked z)
-  InterpretationTarget ranked TKUntyped = HVectorPseudoTensor ranked Float '()
-    -- HVectorPseudoTensor instead of HVectorOf required for injectivity
-
--- Needed because `InterpretationTarget` can't be partially applied.
-type role InterpretationTargetD nominal nominal
-data InterpretationTargetD ranked y where
-  DTKR :: (GoodScalar r, KnownNat n)
-       => ranked r n -> InterpretationTargetD ranked (TKR r n)
-  DTKS :: (GoodScalar r, KnownShS sh)
-       => ShapedOf ranked r sh -> InterpretationTargetD ranked (TKS r sh)
-  DTKProduct :: forall x z ranked. (TensorKind x, TensorKind z)
-             => InterpretationTargetD ranked x
-             -> InterpretationTargetD ranked z
-             -> InterpretationTargetD ranked (TKProduct x z)
-  DTKUntyped :: HVectorOf ranked -> InterpretationTargetD ranked TKUntyped
-
-type role InterpretationTargetM nominal nominal
-data InterpretationTargetM ranked y where
-  MTKR :: (GoodScalar r, KnownNat n)
-       => ranked r n -> InterpretationTargetM ranked (TKR r n)
-  MTKS :: (GoodScalar r, KnownShS sh)
-       => ShapedOf ranked r sh -> InterpretationTargetM ranked (TKS r sh)
-  MTKProduct :: forall x z ranked. (TensorKind x, TensorKind z)
-             => InterpretationTargetM ranked x
-             -> InterpretationTargetM ranked z
-             -> InterpretationTargetM ranked (TKProduct x z)
-  MTKRDummy :: (GoodScalar r, KnownShS sh)
-            => InterpretationTargetM ranked (TKR r (X.Rank sh))
-  MTKSDummy  :: (GoodScalar r, KnownShS sh)
-             => InterpretationTargetM ranked (TKS r sh)
-  MTKProductDummy :: forall x z ranked. (TensorKind x, TensorKind z)
-                  => InterpretationTargetM ranked (TKProduct x z)
-  MTKUntyped :: HVectorOf ranked -> InterpretationTargetM ranked TKUntyped
-
 type family BuildTensorKind k tks where
   BuildTensorKind k (TKR r n) = TKR r (1 + n)
   BuildTensorKind k (TKS r sh) = TKS r (k : sh)
@@ -310,19 +270,6 @@ type family RankedOf (f :: TensorType ty) :: RankedTensorType
 
 type family ShapedOf (f :: RankedTensorType) = (result :: ShapedTensorType)
   | result -> f
-
-type HVectorOf :: RankedTensorType -> Type
-type family HVectorOf f = result | result -> f
-
-type role HVectorPseudoTensor nominal phantom phantom
-type HVectorPseudoTensor :: RankedTensorType -> TensorType ()
-newtype HVectorPseudoTensor ranked r y =
-  HVectorPseudoTensor {unHVectorPseudoTensor :: HVectorOf ranked}
-
-deriving instance Show (HVectorOf ranked)
-                  => Show (HVectorPseudoTensor ranked r y)
-
-type instance RankedOf (HVectorPseudoTensor ranked) = ranked
 
 -- | The type family is defined in order to give a special instance
 -- for AST that preservs sharing and, even more importantly, keeps
