@@ -9,7 +9,8 @@
 -- and also to hangle multiple arguments and results of fold-like operations.
 module HordeAd.Core.HVector
   ( HVectorOf, HVectorPseudoTensor(..)
-  , InterpretationTarget, InterpretationTargetD(..), InterpretationTargetM(..)
+  , InterpretationTarget, ConcreteTarget
+  , InterpretationTargetD(..), InterpretationTargetM(..)
   , TensorKindFull(..), lemTensorKindOfF, buildTensorKindFull
   , DynamicTensor(..), CRanked, CShaped
   , HVector
@@ -62,6 +63,13 @@ type family InterpretationTarget ranked y = result | result -> ranked y where
     (InterpretationTarget ranked x, InterpretationTarget ranked z)
   InterpretationTarget ranked TKUntyped = HVectorPseudoTensor ranked Float '()
     -- HVectorPseudoTensor instead of HVectorOf required for injectivity
+
+type family ConcreteTarget ranked y = result | result -> ranked y where
+  ConcreteTarget ranked (TKR r n) = ranked r n
+  ConcreteTarget ranked (TKS r sh) = ShapedOf ranked r sh
+  ConcreteTarget ranked (TKProduct x z) =
+    (ConcreteTarget ranked x, ConcreteTarget ranked z)
+  ConcreteTarget ranked TKUntyped = HVector ranked
 
 -- Needed because `InterpretationTarget` can't be partially applied.
 type role InterpretationTargetD nominal nominal
