@@ -766,7 +766,13 @@ class HVectorTensor (ranked :: RankedTensorType)
     => HFunOf ranked x y
     -> (HFunOf ranked x y -> HVectorOf ranked)
     -> HVectorOf ranked
+  -- This type signature generalizes dletHVectorInHVector and is easier
+  -- for the user to work with, giving him access to concrete vectors and tuples.
   tlet :: forall x z. (TensorKind x, TensorKind z)
+       => InterpretationTarget ranked x
+       -> (ConcreteTarget ranked x -> InterpretationTarget ranked z)
+       -> InterpretationTarget ranked z
+  blet :: forall x z. (TensorKind x, TensorKind z)
        => InterpretationTarget ranked x
        -> (InterpretationTarget ranked x -> InterpretationTarget ranked z)
        -> InterpretationTarget ranked z

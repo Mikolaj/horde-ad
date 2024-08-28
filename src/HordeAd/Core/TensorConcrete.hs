@@ -225,7 +225,19 @@ instance HVectorTensor ORArray OSArray where
   dunHVector = id
   dletHVectorInHVector = (&)
   dletHFunInHVector = (&)
-  tlet = (&)
+  tlet :: forall x z. (TensorKind x, TensorKind z)
+       => InterpretationTarget ORArray x
+       -> (ConcreteTarget ORArray x
+           -> InterpretationTarget ORArray z)
+       -> InterpretationTarget ORArray z
+  tlet a f = case stensorKind @x of
+    STKR{} -> f a
+    STKS{} -> f a
+    STKProduct{} ->
+      tlet (fst a) $ \ !a1 ->
+        tlet (snd a) $ \ !a2 -> f (a1, a2)
+    STKUntyped{} -> f $ unHVectorPseudoTensor a
+  blet = (&)
   tunshare = id
   dbuild1 k f =
     ravelHVector $ map (f . fromIntegral) [0 .. sNatValue k - 1]

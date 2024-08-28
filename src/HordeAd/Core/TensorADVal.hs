@@ -439,7 +439,7 @@ instance ADReadyBoth ranked shaped
   dletHFunInHVector = (&)
   tlet :: forall x z. (TensorKind x, TensorKind z)
        => InterpretationTarget (ADVal ranked) x
-       -> (InterpretationTarget (ADVal ranked) x
+       -> (ConcreteTarget (ADVal ranked) x
            -> InterpretationTarget (ADVal ranked) z)
        -> InterpretationTarget (ADVal ranked) z
   tlet a f = case stensorKind @x of
@@ -456,6 +456,32 @@ instance ADReadyBoth ranked shaped
       -- gets simplified early enough, which maybe it does?
       tlet (fst a) $ \ !a1 ->
         tlet (snd a) $ \ !a2 -> f (a1, a2)
+    STKUntyped{} ->
+      let (!u, !u') = unADValHVector $ unHVectorPseudoTensor a
+          !var2 = dunHVector $ dshare $ dmkHVector u
+            -- dunHVector is fine, because its argument is shared
+            -- (and even without that, it comes from an explicit HVector)
+            -- and dshare needed due to f possibly using the argument many times
+      in f (aDValHVector var2 u')
+  blet :: forall x z. (TensorKind x, TensorKind z)
+       => InterpretationTarget (ADVal ranked) x
+       -> (InterpretationTarget (ADVal ranked) x
+           -> InterpretationTarget (ADVal ranked) z)
+       -> InterpretationTarget (ADVal ranked) z
+  blet a f = case stensorKind @x of
+    STKR{} ->
+      let (D u u') = a
+          !var2 = rshare u
+      in f (dDnotShared var2 u')
+    STKS{} ->
+      let (D u u') = a
+          !var2 = sshare u
+      in f (dDnotShared var2 u')
+    STKProduct{} ->
+      -- TODO: seems wrong: a gets computed twice unless the projection
+      -- gets simplified early enough, which maybe it does?
+      blet (fst a) $ \ !a1 ->
+        blet (snd a) $ \ !a2 -> f (a1, a2)
     STKUntyped{} ->
       let (!u, !u') = unADValHVector $ unHVectorPseudoTensor a
           !var2 = dunHVector $ dshare $ dmkHVector u
