@@ -11,7 +11,7 @@ module HordeAd.Core.TensorAst
   , revArtifactFromForwardPass
   , revProduceArtifact
   , fwdArtifactFromForwardPass, fwdProduceArtifact
-  , rankedY, unRankedY, rawY, unRawY
+  , rawY, unRawY
   , printArtifactSimple, printArtifactPretty
   , printArtifactPrimalSimple, printArtifactPrimalPretty
   ) where
