@@ -526,8 +526,12 @@ data Delta :: RankedTensorType -> TensorKindType -> Type where
     -> TensorKindFull eShs
     -> HVector ranked
     -> HVector ranked
-    -> HFun (TKProduct TKUntyped TKUntyped) TKUntyped
-    -> HFun (TKProduct TKUntyped TKUntyped) TKUntyped
+    -> HFun (TKProduct (TKProduct accShs eShs)
+                       (TKProduct accShs eShs))
+            (TKProduct accShs bShs)
+    -> HFun (TKProduct (TKProduct accShs eShs)
+                       (TKProduct accShs eShs))
+            (TKProduct accShs bShs)
     -> HVector (DeltaR ranked)
     -> HVector (DeltaR ranked)
     -> Delta ranked TKUntyped
@@ -539,8 +543,12 @@ data Delta :: RankedTensorType -> TensorKindType -> Type where
     -> TensorKindFull eShs
     -> HVector ranked
     -> HVector ranked
-    -> HFun (TKProduct TKUntyped TKUntyped) TKUntyped
-    -> HFun (TKProduct TKUntyped TKUntyped) TKUntyped
+    -> HFun (TKProduct (TKProduct accShs eShs)
+                       (TKProduct accShs eShs))
+            (TKProduct accShs bShs)
+    -> HFun (TKProduct (TKProduct accShs eShs)
+                       (TKProduct accShs eShs))
+            (TKProduct accShs bShs)
     -> HVector (DeltaR ranked)
     -> HVector (DeltaR ranked)
     -> Delta ranked TKUntyped
@@ -1127,11 +1135,21 @@ evalR !s !c = \case
                      k accShs eShs (FTKUntyped $ bShsH V.++ accShsH V.++ eShsH)
                      (\dx db_acc_e ->
                         let (db, acc_eH) = V.splitAt bLen db_acc_e
-                            dx_db = HVectorPseudoTensor $ dmkHVector
-                                    $ dx V.++ db
-                            acc_e = HVectorPseudoTensor $ dmkHVector acc_eH
+                            (acc, e) = V.splitAt accLen acc_eH
+                            dx1 = HVectorPseudoTensor $ dmkHVector dx
+                            db1 = HVectorPseudoTensor $ dmkHVector db
+                            acc1 = HVectorPseudoTensor $ dmkHVector acc
+                            e1 = HVectorPseudoTensor $ dmkHVector e
                         in unHVectorPseudoTensor
-                           $ unHFun rf (dx_db, acc_e))
+                           $ tlet @_ @_ @_ @TKUntyped
+                                  (unHFun rf ((dx1, db1), (acc1, e1)))
+                           $ \(accRes, eRes) ->
+                               HVectorPseudoTensor $ dmkHVector
+                               $ accRes V.++ eRes)
+                                   -- no dshare possible here, because it's
+                                   -- interpreted without applying unshare,
+                                   -- so tlet is used to expose concrete vectors
+                                   -- without duplicating the non-concrete one
                      (HVectorPseudoTensor $ dmkHVector c0)
                      (HVectorPseudoTensor $ dmkHVector $ V.concat [crest, q, es])
         dacc_des = dunHVector $ unHVectorPseudoTensor $ tshare dacc_desUnshared
@@ -1150,11 +1168,17 @@ evalR !s !c = \case
                      k accShs eShs (FTKUntyped $ bShsH V.++ accShsH V.++ eShsH)
                      (\dx db_acc_e ->
                         let (db, acc_eH) = V.splitAt bLen db_acc_e
-                            dx_db = HVectorPseudoTensor $ dmkHVector
-                                    $ dx V.++ db
-                            acc_e = HVectorPseudoTensor $ dmkHVector acc_eH
+                            (acc, e) = V.splitAt accLen acc_eH
+                            dx1 = HVectorPseudoTensor $ dmkHVector dx
+                            db1 = HVectorPseudoTensor $ dmkHVector db
+                            acc1 = HVectorPseudoTensor $ dmkHVector acc
+                            e1 = HVectorPseudoTensor $ dmkHVector e
                         in unHVectorPseudoTensor
-                           $ unHFun rf (dx_db, acc_e))
+                           $ tlet @_ @_ @_ @TKUntyped
+                                  (unHFun rf ((dx1, db1), (acc1, e1)))
+                           $ \(accRes, eRes) ->
+                               HVectorPseudoTensor $ dmkHVector
+                               $ accRes V.++ eRes)
                      (HVectorPseudoTensor $ dmkHVector c0)
                      (HVectorPseudoTensor $ dmkHVector $ V.concat [crest, q, es])
         dacc_des = dunHVector $ unHVectorPseudoTensor $ tshare dacc_desUnshared
@@ -1416,31 +1440,45 @@ fwdR params s = \case
             q es df _rf acc0' es' ->
     let (s2, cacc0) = fwdHVector params s acc0'
         (s3, ces) = fwdHVector params s2 es'
+        accLen = V.length accShsH
         eLen = V.length eShsH
     in (s3, dmapAccumR (Proxy @ranked)
                           k accShs bShs (FTKUntyped $ eShsH V.++ accShsH V.++ eShsH)
                           (\dacc de_acc_e ->
                              let (de, acc_eH) = V.splitAt eLen de_acc_e
-                                 acc_e = HVectorPseudoTensor $ dmkHVector acc_eH
-                                 dacc_de = HVectorPseudoTensor $ dmkHVector
-                                           $ dacc V.++ de
+                                 (acc, e) = V.splitAt accLen acc_eH
+                                 dacc1 = HVectorPseudoTensor $ dmkHVector dacc
+                                 de1 = HVectorPseudoTensor $ dmkHVector de
+                                 acc1 = HVectorPseudoTensor $ dmkHVector acc
+                                 e1 = HVectorPseudoTensor $ dmkHVector e
                              in unHVectorPseudoTensor
-                                $ unHFun df (dacc_de, acc_e))
+                                $ tlet @_ @_ @_ @TKUntyped
+                                       (unHFun df ((dacc1, de1), (acc1, e1)))
+                                $ \(accRes, bRes) ->
+                                    HVectorPseudoTensor $ dmkHVector
+                                    $ accRes V.++ bRes)
                           (HVectorPseudoTensor $ dmkHVector cacc0)
                           (HVectorPseudoTensor $ dmkHVector $ V.concat [ces, q, es]))
   MapAccumL k accShs@(FTKUntyped accShsH) bShs (FTKUntyped eShsH)
             q es df _rf acc0' es' ->
     let (s2, cacc0) = fwdHVector params s acc0'
         (s3, ces) = fwdHVector params s2 es'
+        accLen = V.length accShsH
         eLen = V.length eShsH
     in (s3, dmapAccumL (Proxy @ranked)
                           k accShs bShs (FTKUntyped $ eShsH V.++ accShsH V.++ eShsH)
                           (\dacc de_acc_e ->
                              let (de, acc_eH) = V.splitAt eLen de_acc_e
-                                 acc_e = HVectorPseudoTensor $ dmkHVector acc_eH
-                                 dacc_de = HVectorPseudoTensor $ dmkHVector
-                                           $ dacc V.++ de
+                                 (acc, e) = V.splitAt accLen acc_eH
+                                 dacc1 = HVectorPseudoTensor $ dmkHVector dacc
+                                 de1 = HVectorPseudoTensor $ dmkHVector de
+                                 acc1 = HVectorPseudoTensor $ dmkHVector acc
+                                 e1 = HVectorPseudoTensor $ dmkHVector e
                              in unHVectorPseudoTensor
-                                $ unHFun df (dacc_de, acc_e))
+                                $ tlet @_ @_ @_ @TKUntyped
+                                       (unHFun df ((dacc1, de1), (acc1, e1)))
+                                $ \(accRes, bRes) ->
+                                    HVectorPseudoTensor $ dmkHVector
+                                    $ accRes V.++ bRes)
                           (HVectorPseudoTensor $ dmkHVector cacc0)
                           (HVectorPseudoTensor $ dmkHVector $ V.concat [ces, q, es]))

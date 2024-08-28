@@ -487,9 +487,13 @@ data AstTensor :: AstSpanType -> TensorKindType -> Type where
     -> TensorKindFull accShs
     -> TensorKindFull bShs
     -> TensorKindFull eShs
-    -> AstHFun (TKProduct accShs eShs) TKUntyped
-    -> AstHFun (TKProduct TKUntyped TKUntyped) TKUntyped
-    -> AstHFun (TKProduct TKUntyped TKUntyped) TKUntyped
+    -> AstHFun (TKProduct accShs eShs) (TKProduct accShs bShs)
+    -> AstHFun (TKProduct (TKProduct accShs eShs)
+                          (TKProduct accShs eShs))
+               (TKProduct accShs bShs)
+    -> AstHFun (TKProduct (TKProduct accShs bShs)
+                          (TKProduct accShs eShs))
+               (TKProduct accShs eShs)
     -> AstTensor s accShs
     -> AstTensor s TKUntyped
     -> AstTensor s TKUntyped
@@ -499,9 +503,13 @@ data AstTensor :: AstSpanType -> TensorKindType -> Type where
     -> TensorKindFull accShs
     -> TensorKindFull bShs
     -> TensorKindFull eShs
-    -> AstHFun (TKProduct accShs eShs) TKUntyped
-    -> AstHFun (TKProduct TKUntyped TKUntyped) TKUntyped
-    -> AstHFun (TKProduct TKUntyped TKUntyped) TKUntyped
+    -> AstHFun (TKProduct accShs eShs) (TKProduct accShs bShs)
+    -> AstHFun (TKProduct (TKProduct accShs eShs)
+                          (TKProduct accShs eShs))
+               (TKProduct accShs bShs)
+    -> AstHFun (TKProduct (TKProduct accShs bShs)
+                          (TKProduct accShs eShs))
+               (TKProduct accShs eShs)
     -> AstTensor s accShs
     -> AstTensor s TKUntyped
     -> AstTensor s TKUntyped
