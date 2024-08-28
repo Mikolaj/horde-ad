@@ -766,7 +766,13 @@ class HVectorTensor (ranked :: RankedTensorType)
     => HFunOf ranked x y
     -> (HFunOf ranked x y -> HVectorOf ranked)
     -> HVectorOf ranked
+  -- This type signature generalizes dletHVectorInHVector and is easier
+  -- for the user to work with, giving him access to concrete vectors and tuples.
   tlet :: forall x z. (TensorKind x, TensorKind z)
+       => InterpretationTarget ranked x
+       -> (ConcreteTarget ranked x -> InterpretationTarget ranked z)
+       -> InterpretationTarget ranked z
+  blet :: forall x z. (TensorKind x, TensorKind z)
        => InterpretationTarget ranked x
        -> (InterpretationTarget ranked x -> InterpretationTarget ranked z)
        -> InterpretationTarget ranked z
@@ -1071,14 +1077,11 @@ class HVectorTensor (ranked :: RankedTensorType)
         fl :: forall f. ADReady f
            => InterpretationTarget f (TKProduct accShs eShs)
            -> InterpretationTarget f (TKProduct accShs bShs)
-        fl !args = tlet args $ \ !(!acc1, !e1) ->
-          let !acc = dunHVector $ unHVectorPseudoTensor acc1 in
-          let !e = dunHVector $ unHVectorPseudoTensor e1
-          in tlet @_ @_ @TKUntyped (HVectorPseudoTensor $ f acc e) $ \ !res ->
-               let !(!acc2, !b2) = V.splitAt accLen $ dunHVector
-                                   $ unHVectorPseudoTensor res
-               in ( HVectorPseudoTensor $ dmkHVector acc2
-                  , HVectorPseudoTensor $ dmkHVector b2 )
+        fl !args = tlet args $ \ !(!acc, !e) ->
+          tlet @_ @_ @TKUntyped (HVectorPseudoTensor $ f acc e) $ \ !res ->
+            let !(!acc2, !b2) = V.splitAt accLen res
+            in ( HVectorPseudoTensor $ dmkHVector acc2
+               , HVectorPseudoTensor $ dmkHVector b2 )
     in dmapAccumRDer proxy k accShs bShs eShs
                      (dlambda @ranked shs (HFun fl))
                      (dfwd @ranked shs $ HFun fl)
@@ -1123,14 +1126,11 @@ class HVectorTensor (ranked :: RankedTensorType)
         fl :: forall f. ADReady f
            => InterpretationTarget f (TKProduct accShs eShs)
            -> InterpretationTarget f (TKProduct accShs bShs)
-        fl !args = tlet args $ \ !(!acc1, !e1) ->
-          let !acc = dunHVector $ unHVectorPseudoTensor acc1 in
-          let !e = dunHVector $ unHVectorPseudoTensor e1
-          in tlet @_ @_ @TKUntyped (HVectorPseudoTensor $ f acc e) $ \ !res ->
-               let !(!acc2, !b2) = V.splitAt accLen $ dunHVector
-                                   $ unHVectorPseudoTensor res
-               in ( HVectorPseudoTensor $ dmkHVector acc2
-                  , HVectorPseudoTensor $ dmkHVector b2 )
+        fl !args = tlet args $ \ !(!acc, !e) ->
+          tlet @_ @_ @TKUntyped (HVectorPseudoTensor $ f acc e) $ \ !res ->
+            let !(!acc2, !b2) = V.splitAt accLen res
+            in ( HVectorPseudoTensor $ dmkHVector acc2
+               , HVectorPseudoTensor $ dmkHVector b2 )
     in dmapAccumLDer proxy k accShs bShs eShs
                      (dlambda @ranked shs (HFun fl))
                      (dfwd @ranked shs $ HFun fl)

@@ -609,7 +609,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   dletHFunInHVector = astLetHFunInHVectorFun
   tlet :: forall x z. (TensorKind x, TensorKind z)
        => InterpretationTarget (AstRanked s) x
-       -> (InterpretationTarget (AstRanked s) x
+       -> (ConcreteTarget (AstRanked s) x
            -> InterpretationTarget (AstRanked s) z)
        -> InterpretationTarget (AstRanked s) z
   tlet u f = case stensorKind @x of
@@ -624,6 +624,41 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
       -- simplified early enough.
       tlet (fst u) $ \a1 ->
         tlet (snd u) $ \a2 -> f (a1, a2)
+    STKUntyped{} -> case stensorKind @z of
+      STKR{} ->
+        AstRanked
+        $ astLetHVectorInFun (unHVectorPseudoTensor u)
+                             (unAstRanked . f)
+      STKS{} ->
+        AstShaped
+        $ astLetHVectorInFunS (unHVectorPseudoTensor u)
+                              (unAstShaped . f)
+      STKProduct{} ->
+        rankedY (stensorKind @z)
+        $ astLetFun (unHVectorPseudoTensor u)
+                    (unRankedY (stensorKind @z) . f . dunHVector)
+          -- TODO: the dunHVector here breaks sharing
+      STKUntyped{} ->
+        HVectorPseudoTensor
+        $ astLetHVectorInHVectorFun (unHVectorPseudoTensor u)
+                                    (unHVectorPseudoTensor . f)
+  blet :: forall x z. (TensorKind x, TensorKind z)
+       => InterpretationTarget (AstRanked s) x
+       -> (InterpretationTarget (AstRanked s) x
+           -> InterpretationTarget (AstRanked s) z)
+       -> InterpretationTarget (AstRanked s) z
+  blet u f = case stensorKind @x of
+    STKR{} -> rankedY (stensorKind @z)
+              $ astLetFun (unAstRanked u)
+                          (unRankedY (stensorKind @z) . f . AstRanked)
+    STKS{} -> rankedY (stensorKind @z)
+              $ astLetFun (unAstShaped u)
+                          (unRankedY (stensorKind @z) . f . AstShaped)
+    STKProduct{} ->
+      -- The duplicated `u` is fine, since the Haskell projections are
+      -- simplified early enough.
+      blet (fst u) $ \a1 ->
+        blet (snd u) $ \a2 -> f (a1, a2)
     STKUntyped{} ->
       rankedY (stensorKind @z)
       $ astLetFun (unHVectorPseudoTensor u)
@@ -659,8 +694,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     -- for each new @parmeters@, which is much better than computing anew.
     let g :: InterpretationTarget (AstRanked FullSpan) TKUntyped
           -> InterpretationTarget (AstRanked FullSpan) (TKR r n)
-        g !hv0 = tlet hv0 $ \ !hv ->
-                   f $ dunHVector $ unHVectorPseudoTensor hv
+        g !hv0 = tlet hv0 $ \ !hv -> f hv
         !(!(AstArtifactRev _varDt var gradient _primal), _delta) =
           revProduceArtifact False g emptyEnv (FTKUntyped parameters0)
     in \ !parameters -> assert (voidHVectorMatches parameters0 parameters) $
@@ -1152,10 +1186,24 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
     $ astLetHFunInHVectorFunRaw t (unAstRawWrap . f)
   tlet :: forall x z. (TensorKind x, TensorKind z)
        => InterpretationTarget (AstRaw s) x
-       -> (InterpretationTarget (AstRaw s) x
+       -> (ConcreteTarget (AstRaw s) x
            -> InterpretationTarget (AstRaw s) z)
        -> InterpretationTarget (AstRaw s) z
   tlet u f = case stensorKind @x of
+    STKR{} -> rawY (stensorKind @z)
+              $ astLetFunRaw (unAstRaw u)
+                             (unRawY (stensorKind @z) . f . AstRaw)
+    STKS{} -> rawY (stensorKind @z)
+              $ astLetFunRaw (unAstRawS u)
+                             (unRawY (stensorKind @z) . f . AstRawS)
+    STKProduct{} -> error "TODO"
+    STKUntyped{} -> error "TODO"
+  blet :: forall x z. (TensorKind x, TensorKind z)
+       => InterpretationTarget (AstRaw s) x
+       -> (InterpretationTarget (AstRaw s) x
+           -> InterpretationTarget (AstRaw s) z)
+       -> InterpretationTarget (AstRaw s) z
+  blet u f = case stensorKind @x of
     STKR{} -> rawY (stensorKind @z)
               $ astLetFunRaw (unAstRaw u)
                              (unRawY (stensorKind @z) . f . AstRaw)
@@ -1389,10 +1437,26 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
     $ dletHFunInHVector t (unAstNoVectorizeWrap . f)
   tlet :: forall x z. (TensorKind x, TensorKind z)
        => InterpretationTarget (AstNoVectorize s) x
-       -> (InterpretationTarget (AstNoVectorize s) x
+       -> (ConcreteTarget (AstNoVectorize s) x
            -> InterpretationTarget (AstNoVectorize s) z)
        -> InterpretationTarget (AstNoVectorize s) z
   tlet u f = case stensorKind @x of
+    STKR{} -> noVectorizeY (stensorKind @z)
+              $ astLetFun
+                  (unAstNoVectorize u)
+                  (unNoVectorizeY (stensorKind @z) . f . AstNoVectorize)
+    STKS{} -> noVectorizeY (stensorKind @z)
+              $ astLetFun
+                  (unAstNoVectorizeS u)
+                  (unNoVectorizeY (stensorKind @z) . f . AstNoVectorizeS)
+    STKProduct{} -> error "TODO"
+    STKUntyped{} -> error "TODO"
+  blet :: forall x z. (TensorKind x, TensorKind z)
+       => InterpretationTarget (AstNoVectorize s) x
+       -> (InterpretationTarget (AstNoVectorize s) x
+           -> InterpretationTarget (AstNoVectorize s) z)
+       -> InterpretationTarget (AstNoVectorize s) z
+  blet u f = case stensorKind @x of
     STKR{} -> noVectorizeY (stensorKind @z)
               $ astLetFun
                   (unAstNoVectorize u)
@@ -1632,10 +1696,26 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
     $ astLetHFunInHVectorFunRaw t (unAstNoSimplifyWrap . f)
   tlet :: forall x z. (TensorKind x, TensorKind z)
        => InterpretationTarget (AstNoSimplify s) x
-       -> (InterpretationTarget (AstNoSimplify s) x
+       -> (ConcreteTarget (AstNoSimplify s) x
            -> InterpretationTarget (AstNoSimplify s) z)
        -> InterpretationTarget (AstNoSimplify s)  z
   tlet u f = case stensorKind @x of
+    STKR{} -> noSimplifyY (stensorKind @z)
+              $ astLetFunRaw
+                  (unAstNoSimplify u)
+                  (unNoSimplifyY (stensorKind @z) . f . AstNoSimplify)
+    STKS{} -> noSimplifyY (stensorKind @z)
+              $ astLetFunRaw
+                  (unAstNoSimplifyS u)
+                  (unNoSimplifyY (stensorKind @z) . f . AstNoSimplifyS)
+    STKProduct{} -> error "TODO"
+    STKUntyped{} -> error "TODO"
+  blet :: forall x z. (TensorKind x, TensorKind z)
+       => InterpretationTarget (AstNoSimplify s) x
+       -> (InterpretationTarget (AstNoSimplify s) x
+           -> InterpretationTarget (AstNoSimplify s) z)
+       -> InterpretationTarget (AstNoSimplify s)  z
+  blet u f = case stensorKind @x of
     STKR{} -> noSimplifyY (stensorKind @z)
               $ astLetFunRaw
                   (unAstNoSimplify u)

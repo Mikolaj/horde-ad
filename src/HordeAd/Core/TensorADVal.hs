@@ -439,7 +439,7 @@ instance ADReadyBoth ranked shaped
   dletHFunInHVector = (&)
   tlet :: forall x z. (TensorKind x, TensorKind z)
        => InterpretationTarget (ADVal ranked) x
-       -> (InterpretationTarget (ADVal ranked) x
+       -> (ConcreteTarget (ADVal ranked) x
            -> InterpretationTarget (ADVal ranked) z)
        -> InterpretationTarget (ADVal ranked) z
   tlet a f = case stensorKind @x of
@@ -456,6 +456,32 @@ instance ADReadyBoth ranked shaped
       -- gets simplified early enough, which maybe it does?
       tlet (fst a) $ \ !a1 ->
         tlet (snd a) $ \ !a2 -> f (a1, a2)
+    STKUntyped{} ->
+      let (!u, !u') = unADValHVector $ unHVectorPseudoTensor a
+          !var2 = dunHVector $ dshare $ dmkHVector u
+            -- dunHVector is fine, because its argument is shared
+            -- (and even without that, it comes from an explicit HVector)
+            -- and dshare needed due to f possibly using the argument many times
+      in f (aDValHVector var2 u')
+  blet :: forall x z. (TensorKind x, TensorKind z)
+       => InterpretationTarget (ADVal ranked) x
+       -> (InterpretationTarget (ADVal ranked) x
+           -> InterpretationTarget (ADVal ranked) z)
+       -> InterpretationTarget (ADVal ranked) z
+  blet a f = case stensorKind @x of
+    STKR{} ->
+      let (D u u') = a
+          !var2 = rshare u
+      in f (dDnotShared var2 u')
+    STKS{} ->
+      let (D u u') = a
+          !var2 = sshare u
+      in f (dDnotShared var2 u')
+    STKProduct{} ->
+      -- TODO: seems wrong: a gets computed twice unless the projection
+      -- gets simplified early enough, which maybe it does?
+      blet (fst a) $ \ !a1 ->
+        blet (snd a) $ \ !a2 -> f (a1, a2)
     STKUntyped{} ->
       let (!u, !u') = unADValHVector $ unHVectorPseudoTensor a
           !var2 = dunHVector $ dshare $ dmkHVector u
@@ -521,40 +547,34 @@ instance ADReadyBoth ranked shaped
         g :: forall f. ADReady f
           => InterpretationTarget f (TKProduct TKUntyped TKUntyped)
           -> InterpretationTarget f (TKProduct TKUntyped TKUntyped)
-        g !acc_e = tlet acc_e $ \(!acc1, !_e1) ->
-          let !acc = dunHVector $ unHVectorPseudoTensor acc1
-          in tlet (unHFun f acc_e) $ \(accRes1, bRes1) ->
-               -- TODO: adding a bang before accRes and bRes was causing
-               -- `error "tunshare: used not at PrimalSpan"` to fire;
-               -- check again, understand and document
-               let bRes = dunHVector $ unHVectorPseudoTensor bRes1
-               in ( accRes1
-                  , HVectorPseudoTensor $ dmkHVector $ acc V.++ bRes )
+        g !acc_e = tlet acc_e $ \(!acc, !_e) ->
+          tlet (unHFun f acc_e) $ \(accRes, bRes) ->
+            -- TODO: adding a bang before accRes and bRes was causing
+            -- `error "tunshare: used not at PrimalSpan"` to fire;
+            -- check again, understand and document
+            ( HVectorPseudoTensor $ dmkHVector accRes
+            , HVectorPseudoTensor $ dmkHVector $ acc V.++ bRes )
         dg :: forall f. ADReady f
            => InterpretationTarget f (TKProduct (TKProduct TKUntyped TKUntyped)
                                                 (TKProduct TKUntyped TKUntyped))
            -> InterpretationTarget f (TKProduct TKUntyped TKUntyped)
         dg !dacc_de_acc_e = tlet dacc_de_acc_e
-                            $ \(!(dacc1, !_de1), !(!_acc1, !_e1)) ->
-          let !dacc = dunHVector $ unHVectorPseudoTensor dacc1
-          in tlet (unHFun df dacc_de_acc_e) $ \ !(!accRes1, !bRes1) ->
-               let bRes = dunHVector $ unHVectorPseudoTensor bRes1
-               in ( accRes1
-                  , HVectorPseudoTensor $ dmkHVector $ dacc V.++ bRes )
+                            $ \(!(dacc, !_de), !(!_acc, !_e)) ->
+          tlet (unHFun df dacc_de_acc_e) $ \ !(!accRes, !bRes) ->
+            ( HVectorPseudoTensor $ dmkHVector accRes
+            , HVectorPseudoTensor $ dmkHVector $ dacc V.++ bRes )
         rg :: forall f. ADReady f
            => InterpretationTarget f (TKProduct (TKProduct TKUntyped TKUntyped)
                                                 (TKProduct TKUntyped TKUntyped))
            -> InterpretationTarget f (TKProduct TKUntyped TKUntyped)
-        rg !args = tlet args $ \ !(!(dx1, !db1), !(!acc1, !e1)) ->
-          let !db = dunHVector $ unHVectorPseudoTensor db1 in
+        rg !args = tlet args $ \ !(!(dx, !db), !(!acc, !e)) ->
           let (dbacc, dbRes) = hvToPair db
-              dx_dbRes = (dx1, HVectorPseudoTensor $ dmkHVector dbRes)
-          in tlet (unHFun rf (dx_dbRes, (acc1, e1)))
-             $ \ !(!daccRes1, !deRes1) ->
-               let !daccRes = dunHVector $ unHVectorPseudoTensor daccRes1
-               in ( HVectorPseudoTensor $ dmkHVector
-                    $ V.zipWith addDynamic daccRes dbacc
-                  , deRes1 )
+              dx_dbRes = (HVectorPseudoTensor $ dmkHVector dx, HVectorPseudoTensor $ dmkHVector dbRes)
+          in tlet (unHFun rf (dx_dbRes, (HVectorPseudoTensor $ dmkHVector acc, HVectorPseudoTensor $ dmkHVector e)))
+             $ \ !(!daccRes, !deRes) ->
+               ( HVectorPseudoTensor $ dmkHVector
+                 $ V.zipWith addDynamic daccRes dbacc
+               , HVectorPseudoTensor $ dmkHVector deRes )
         -- pUnshared :: HVectorOf ranked
         pUnshared = dmapAccumRDer (Proxy @ranked)
                                   k accShs codomainShs eShs
@@ -594,40 +614,34 @@ instance ADReadyBoth ranked shaped
         g :: forall f. ADReady f
           => InterpretationTarget f (TKProduct TKUntyped TKUntyped)
           -> InterpretationTarget f (TKProduct TKUntyped TKUntyped)
-        g !acc_e = tlet acc_e $ \(!acc1, !_e1) ->
-          let !acc = dunHVector $ unHVectorPseudoTensor acc1
-          in tlet (unHFun f acc_e) $ \(accRes1, bRes1) ->
-               -- TODO: adding a bang before accRes and bRes was causing
-               -- `error "tunshare: used not at PrimalSpan"` to fire;
-               -- check again, understand and document
-               let bRes = dunHVector $ unHVectorPseudoTensor bRes1
-               in ( accRes1
-                  , HVectorPseudoTensor $ dmkHVector $ acc V.++ bRes )
+        g !acc_e = tlet acc_e $ \(!acc, !_e) ->
+          tlet (unHFun f acc_e) $ \(accRes, bRes) ->
+            -- TODO: adding a bang before accRes and bRes was causing
+            -- `error "tunshare: used not at PrimalSpan"` to fire;
+            -- check again, understand and document
+            ( HVectorPseudoTensor $ dmkHVector accRes
+            , HVectorPseudoTensor $ dmkHVector $ acc V.++ bRes )
         dg :: forall f. ADReady f
            => InterpretationTarget f (TKProduct (TKProduct TKUntyped TKUntyped)
                                                 (TKProduct TKUntyped TKUntyped))
            -> InterpretationTarget f (TKProduct TKUntyped TKUntyped)
         dg !dacc_de_acc_e = tlet dacc_de_acc_e
-                            $ \(!(dacc1, !_de1), !(!_acc1, !_e1)) ->
-          let !dacc = dunHVector $ unHVectorPseudoTensor dacc1
-          in tlet (unHFun df dacc_de_acc_e) $ \ !(!accRes1, !bRes1) ->
-               let bRes = dunHVector $ unHVectorPseudoTensor bRes1
-               in ( accRes1
-                  , HVectorPseudoTensor $ dmkHVector $ dacc V.++ bRes )
+                            $ \(!(dacc, !_de), !(!_acc, !_e)) ->
+          tlet (unHFun df dacc_de_acc_e) $ \ !(!accRes, !bRes) ->
+            ( HVectorPseudoTensor $ dmkHVector accRes
+            , HVectorPseudoTensor $ dmkHVector $ dacc V.++ bRes )
         rg :: forall f. ADReady f
            => InterpretationTarget f (TKProduct (TKProduct TKUntyped TKUntyped)
                                                 (TKProduct TKUntyped TKUntyped))
            -> InterpretationTarget f (TKProduct TKUntyped TKUntyped)
-        rg !args = tlet args $ \ !(!(dx1, !db1), !(!acc1, !e1)) ->
-          let !db = dunHVector $ unHVectorPseudoTensor db1 in
+        rg !args = tlet args $ \ !(!(dx, !db), !(!acc, !e)) ->
           let (dbacc, dbRes) = hvToPair db
-              dx_dbRes = (dx1, HVectorPseudoTensor $ dmkHVector dbRes)
-          in tlet (unHFun rf (dx_dbRes, (acc1, e1)))
-             $ \ !(!daccRes1, !deRes1) ->
-               let !daccRes = dunHVector $ unHVectorPseudoTensor daccRes1
-               in ( HVectorPseudoTensor $ dmkHVector
-                    $ V.zipWith addDynamic daccRes dbacc
-                  , deRes1 )
+              dx_dbRes = (HVectorPseudoTensor $ dmkHVector dx, HVectorPseudoTensor $ dmkHVector dbRes)
+          in tlet (unHFun rf (dx_dbRes, (HVectorPseudoTensor $ dmkHVector acc, HVectorPseudoTensor $ dmkHVector e)))
+             $ \ !(!daccRes, !deRes) ->
+               ( HVectorPseudoTensor $ dmkHVector
+                 $ V.zipWith addDynamic daccRes dbacc
+               , HVectorPseudoTensor $ dmkHVector deRes )
         -- pUnshared :: HVectorOf ranked
         pUnshared = dmapAccumLDer (Proxy @ranked)
                                   k accShs codomainShs eShs

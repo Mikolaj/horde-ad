@@ -1145,11 +1145,11 @@ evalR !s !c = \case
                                   (unHFun rf ((dx1, db1), (acc1, e1)))
                            $ \(accRes, eRes) ->
                                HVectorPseudoTensor $ dmkHVector
-                               $ dunHVector (unHVectorPseudoTensor accRes)
-                                 V.++ dunHVector (unHVectorPseudoTensor eRes))
+                               $ accRes V.++ eRes)
                                    -- no dshare possible here, because it's
                                    -- interpreted without applying unshare,
-                                   -- so tlet is used instead
+                                   -- so tlet is used to expose concrete vectors
+                                   -- without duplicating the non-concrete one
                      (HVectorPseudoTensor $ dmkHVector c0)
                      (HVectorPseudoTensor $ dmkHVector $ V.concat [crest, q, es])
         dacc_des = dunHVector $ dshare $ unHVectorPseudoTensor dacc_desUnshared
@@ -1178,8 +1178,7 @@ evalR !s !c = \case
                                   (unHFun rf ((dx1, db1), (acc1, e1)))
                            $ \(accRes, eRes) ->
                                HVectorPseudoTensor $ dmkHVector
-                               $ dunHVector (unHVectorPseudoTensor accRes)
-                                 V.++ dunHVector (unHVectorPseudoTensor eRes))
+                               $ accRes V.++ eRes)
                      (HVectorPseudoTensor $ dmkHVector c0)
                      (HVectorPseudoTensor $ dmkHVector $ V.concat [crest, q, es])
         dacc_des = dunHVector $ dshare $ unHVectorPseudoTensor $ dacc_desUnshared
@@ -1457,9 +1456,7 @@ fwdR params s = \case
                                        (unHFun df ((dacc1, de1), (acc1, e1)))
                                 $ \(accRes, bRes) ->
                                     HVectorPseudoTensor $ dmkHVector
-                                    $ dunHVector (unHVectorPseudoTensor accRes)
-                                      V.++
-                                      dunHVector (unHVectorPseudoTensor bRes))
+                                    $ accRes V.++ bRes)
                           (HVectorPseudoTensor $ dmkHVector cacc0)
                           (HVectorPseudoTensor $ dmkHVector $ V.concat [ces, q, es]))
   MapAccumL k accShs@(FTKUntyped accShsH) bShs (FTKUntyped eShsH)
@@ -1482,8 +1479,6 @@ fwdR params s = \case
                                        (unHFun df ((dacc1, de1), (acc1, e1)))
                                 $ \(accRes, bRes) ->
                                     HVectorPseudoTensor $ dmkHVector
-                                    $ dunHVector (unHVectorPseudoTensor accRes)
-                                      V.++
-                                      dunHVector (unHVectorPseudoTensor bRes))
+                                    $ accRes V.++ bRes)
                           (HVectorPseudoTensor $ dmkHVector cacc0)
                           (HVectorPseudoTensor $ dmkHVector $ V.concat [ces, q, es]))

@@ -103,8 +103,7 @@ revDtMaybe f vals0 mdt =
 --      g !hv = f $ parseHVector (fromValue vals0)
 --              $ dunHVector $ unHVectorPseudoTensor hv
       g !hv0 = tlet hv0 $ \ !hv ->
-                 f $ parseHVector (fromValue vals0)
-                 $ dunHVector $ unHVectorPseudoTensor hv
+                 f $ parseHVector (fromValue vals0) hv
       valsH = HVectorPseudoTensor $ toHVectorOf vals0
       voidH = tshapeFull (stensorKind @TKUntyped) valsH
       artifact = fst $ revProduceArtifact (isJust mdt) g emptyEnv voidH
@@ -137,8 +136,7 @@ revArtifactAdapt hasDt f vals0 =
 --      g !hv = f $ parseHVector (fromValue vals0)
 --              $ dunHVector $ unHVectorPseudoTensor hv
       g !hv0 = tlet hv0 $ \ !hv ->
-                 f $ parseHVector (fromValue vals0)
-                 $ dunHVector $ unHVectorPseudoTensor hv
+                 f $ parseHVector (fromValue vals0) hv
       valsH = HVectorPseudoTensor $ toHVectorOf @ORArray vals0
       voidH = tshapeFull (stensorKind @TKUntyped) valsH
   in revProduceArtifact hasDt g emptyEnv voidH
@@ -225,8 +223,7 @@ fwd f vals ds =
 --  let g hVector = f $ parseHVector (fromValue vals)
 --                  $ dunHVector $ unHVectorPseudoTensor hVector
   let g !hv0 = tlet hv0 $ \ !hv ->
-                 f $ parseHVector (fromValue vals)
-                 $ dunHVector $ unHVectorPseudoTensor hv
+                 f $ parseHVector (fromValue vals) hv
       valsH = HVectorPseudoTensor $ toHVectorOf vals
       voidH = tshapeFull (stensorKind @TKUntyped) valsH
       artifact = fst $ fwdProduceArtifact g emptyEnv voidH
