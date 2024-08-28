@@ -167,7 +167,7 @@ derivativeFromDelta
 derivativeFromDelta deltaTopLevel ds =
   let params = case stensorKind @x of
         STKUntyped{} -> V.map dynamicTensorToInterpretationTargetD
-                        $ dunHVector $ unHVectorPseudoTensor ds
+                        $ dunHVector $ dshare $ unHVectorPseudoTensor ds
         stk -> V.singleton $ Some $ interpretationTargetToD stk ds
       -- EvalState is too complex for the forward derivative, but since
       -- it's already defined, let's use it.
@@ -1134,7 +1134,7 @@ evalR !s !c = \case
                            $ unHFun rf (dx_db, acc_e))
                      (HVectorPseudoTensor $ dmkHVector c0)
                      (HVectorPseudoTensor $ dmkHVector $ V.concat [crest, q, es])
-        dacc_des = dunHVector $ unHVectorPseudoTensor $ tshare dacc_desUnshared
+        dacc_des = dunHVector $ dshare $ unHVectorPseudoTensor dacc_desUnshared
         (dacc, des) = V.splitAt accLen dacc_des
         s2 = evalHVector s dacc acc0'
     in evalHVector s2 des es'
@@ -1157,7 +1157,7 @@ evalR !s !c = \case
                            $ unHFun rf (dx_db, acc_e))
                      (HVectorPseudoTensor $ dmkHVector c0)
                      (HVectorPseudoTensor $ dmkHVector $ V.concat [crest, q, es])
-        dacc_des = dunHVector $ unHVectorPseudoTensor $ tshare dacc_desUnshared
+        dacc_des = dunHVector $ dshare $ unHVectorPseudoTensor dacc_desUnshared
         (dacc, des) = V.splitAt accLen dacc_des
         s2 = evalHVector s dacc acc0'
     in evalHVector s2 des es'
@@ -1347,7 +1347,7 @@ fwdR params s = \case
     fwdR params s d  -- no information lost, so no checks
   RFromS d -> second rfromS $ fwdR params s d
   RFromH d i -> let (s2, v) = fwdR params s d
-                in (s2, rfromD $ dunHVector (unHVectorPseudoTensor v) V.! i)
+                in (s2, rfromD $ dunHVector (dshare $ unHVectorPseudoTensor v) V.! i)
 
   ZeroS -> (s, srepl 0)
   ScaleS k d -> second (* k) $ fwdR params s d
@@ -1400,7 +1400,7 @@ fwdR params s = \case
       _ -> error "fwdR: different shapes in SFromR(RFromS)"
   SFromR d -> second sfromR $ fwdR params s d
   SFromH d i -> let (s2, v) = fwdR params s d
-                in (s2, sfromD $ dunHVector (unHVectorPseudoTensor v) V.! i)
+                in (s2, sfromD $ dunHVector (dshare $ unHVectorPseudoTensor v) V.! i)
 
   ShareH n d ->
     case DMap.lookup n $ dMap s of

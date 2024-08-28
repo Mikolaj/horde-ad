@@ -159,8 +159,11 @@ makeADInputs p0 d0 =
         (g stk1 (fst p) (Project1G d), g stk2 (snd p) (Project2G d))
       g STKUntyped p d =
         HVectorPseudoTensor
-        $ ahhToHVector (dunHVector $ unHVectorPseudoTensor p) d
-            -- dunHVector is fine, because p is made with dmkHVector
+        $ ahhToHVector (dunHVector $ dshare $ unHVectorPseudoTensor p) d
+-- TODO: if the comment below still holds true, use this:
+--      g STKUntyped p d =
+--        HVectorPseudoTensor
+--        $ ahhToHVector (dunHVector $ unHVectorPseudoTensor p) d
   in g (stensorKind @x) p0 d0
 
 ahhToHVector
