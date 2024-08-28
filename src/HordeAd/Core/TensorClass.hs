@@ -1154,9 +1154,18 @@ class HVectorTensor (ranked :: RankedTensorType)
     -> InterpretationTarget ranked TKUntyped
     -> InterpretationTarget ranked TKUntyped
 
--- TODO: a misnomer, but ideally we'd remove this altogether, however,
--- the Delta instance needed in interpreter makes this difficult.
+-- TODO: tmkHVector should be removed, but the Delta instance needed
+-- in interpreter makes this difficult.
 class ProductTensor (ranked :: RankedTensorType) where
+  ttuple :: InterpretationTarget ranked x -> InterpretationTarget ranked z
+         -> InterpretationTarget ranked (TKProduct x z)
+  ttuple a b = (a, b)
+  tproject1 :: InterpretationTarget ranked (TKProduct x z)
+            -> InterpretationTarget ranked x
+  tproject1 (a, _b) = a
+  tproject2 :: InterpretationTarget ranked (TKProduct x z)
+            -> InterpretationTarget ranked z
+  tproject2 (_a, b) = b
   tmkHVector :: HVector ranked -> HVectorOf ranked
 
 rfromD :: forall r n ranked.
