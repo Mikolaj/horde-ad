@@ -112,7 +112,7 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
             , Just Refl <- testEquality (typeRep @r) (typeRep @r2) -> mt
           _ -> error "gradientFromDelta: illegal InterpretationTargetM"
         FTKProduct @x3 @z3 _ _ -> case elems of
-          [Some mt@(MTKProduct @x2 @z2 _ _)]
+          [Some mt@(MTKProduct @x2 @z2 _)]
             | Just Refl <- sameTensorKind @x2 @x3
             , Just Refl <- sameTensorKind @z2 @z3 -> mt
           _ -> error "gradientFromDelta: illegal InterpretationTargetM"
@@ -127,25 +127,24 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
                 MTKSDummy @r @sh -> DynamicShapedDummy @r @sh Proxy Proxy
                 MTKProductDummy{} -> error "toDynamicTensor: non-flattened cell"
                 MTKUntyped{} -> error "toDynamicTensor: non-flattened cell"
-          in MTKUntyped $ dmkHVector $ V.fromList $ map toDynamicTensor elems
+          in MTKUntyped $ HVectorPseudoTensor $ dmkHVector
+             $ V.fromList $ map toDynamicTensor elems
   in evalInterpretationTargetM itm
 
-evalInterpretationTargetM :: ProductTensor ranked
-                          => InterpretationTargetM ranked x
+evalInterpretationTargetM :: InterpretationTargetM ranked x
                           -> InterpretationTarget ranked x
 evalInterpretationTargetM = \case
   MTKR t -> t
   MTKS t -> t
-  MTKProduct t1 t2 -> ttuple (evalInterpretationTargetM t1)
-                             (evalInterpretationTargetM t2)
-  MTKUntyped ele -> HVectorPseudoTensor ele
+  MTKProduct t -> t
+  MTKUntyped t -> t
   _ -> error "TODO"
 
 shapeD :: InterpretationTargetD ranked x -> STensorKindType x
 shapeD = \case
   DTKR{} -> STKR typeRep SNat
   DTKS{} -> STKS typeRep knownShS
-  DTKProduct t1 t2 -> STKProduct (shapeD t1) (shapeD t2)
+  DTKProduct @x @z _ -> STKProduct (stensorKind @x) (stensorKind @z)
   DTKUntyped{} -> STKUntyped
 
 interpretationConstant :: forall y ranked. ADReady ranked
@@ -176,15 +175,13 @@ derivativeFromDelta deltaTopLevel ds =
       !(!_s2, !c) = fwdR params s0 deltaTopLevel
   in c
 
-evalInterpretationTargetD :: ProductTensor ranked
-                          => InterpretationTargetD ranked x1
-                          -> InterpretationTarget ranked x1
+evalInterpretationTargetD :: InterpretationTargetD ranked y
+                          -> InterpretationTarget ranked y
 evalInterpretationTargetD = \case
   DTKR t -> t
   DTKS t -> t
-  DTKProduct t1 t2 ->
-    ttuple (evalInterpretationTargetD t1) (evalInterpretationTargetD t2)
-  DTKUntyped ele -> HVectorPseudoTensor ele
+  DTKProduct t -> t
+  DTKUntyped t -> t
 
 dynamicTensorToInterpretationTargetD
   :: DynamicTensor ranked -> Some (InterpretationTargetD ranked)
@@ -197,28 +194,24 @@ dynamicTensorToInterpretationTargetD = \case
     error "dynamicTensorToInterpretationTargetD: unexpected DynamicShapedDummy"
 
 interpretationTargetToD
-  :: ProductTensor ranked
-  => STensorKindType x -> InterpretationTarget ranked x
+  :: STensorKindType x -> InterpretationTarget ranked x
   -> InterpretationTargetD ranked x
 interpretationTargetToD stk t = case stk of
   STKR{} -> DTKR t
   STKS{} -> DTKS t
-  STKProduct stk1 stk2 -> DTKProduct (interpretationTargetToD stk1 (tproject1 t))
-                                     (interpretationTargetToD stk2 (tproject2 t))
-  STKUntyped{} -> DTKUntyped $ unHVectorPseudoTensor t
+  STKProduct{} -> DTKProduct t
+  STKUntyped{} -> DTKUntyped t
 
 type HDVector ranked = Data.Vector.Vector (Some (InterpretationTargetD ranked))
 
 interpretationTargetToM
-  :: ProductTensor ranked
-  => STensorKindType x -> InterpretationTarget ranked x
+  :: STensorKindType x -> InterpretationTarget ranked x
   -> InterpretationTargetM ranked x
 interpretationTargetToM stk t = case stk of
   STKR{} -> MTKR t
   STKS{} -> MTKS t
-  STKProduct stk1 stk2 -> MTKProduct (interpretationTargetToM stk1 (tproject1 t))
-                                     (interpretationTargetToM stk2 (tproject2 t))
-  STKUntyped{} -> MTKUntyped $ unHVectorPseudoTensor t
+  STKProduct{} -> MTKProduct t
+  STKUntyped{} -> MTKUntyped t
 
 
 -- * Abstract syntax trees of the delta expressions
@@ -908,12 +901,10 @@ addInterpretationTargetD ::
 addInterpretationTargetD a b = case (a, b) of
   (DTKR ta, DTKR tb) -> DTKR $ ta + tb
   (DTKS ta, DTKS tb) -> DTKS $ ta + tb
-  (DTKProduct ta1 ta2, DTKProduct tb1 tb2) ->
-    DTKProduct (addInterpretationTargetD ta1 tb1)
-               (addInterpretationTargetD ta2 tb2)
+  (DTKProduct _ta, DTKProduct _tb) -> error "TODO"  -- DTKProduct $ ta + tb
   (DTKUntyped hv1, DTKUntyped hv2) ->
-    DTKUntyped $ dmkHVector
-    $ V.zipWith addDynamic (dunHVector hv1) (dunHVector hv2)
+    DTKUntyped $ HVectorPseudoTensor $ dmkHVector
+    $ V.zipWith addDynamic (dunHVector $ unHVectorPseudoTensor hv1) (dunHVector $ unHVectorPseudoTensor hv2)
       -- dunHVector is fine, because anything inside DTKUntyped either
       -- already a packed HVector or is shared (e.g., a shared variable)
 
@@ -929,14 +920,12 @@ addInterpretationTargetM a b = case (a, b) of
   (MTKS ta, MTKS tb) -> MTKS $ ta + tb
   (MTKSDummy, _) -> b
   (_, MTKSDummy) -> a
-  (MTKProduct ta1 ta2, MTKProduct tb1 tb2) ->
-    MTKProduct (addInterpretationTargetM ta1 tb1)
-               (addInterpretationTargetM ta2 tb2)
+  (MTKProduct _ta, MTKProduct _tb) -> error "TODO"  -- MTKProduct $ ta + tb
   (MTKProductDummy, _) -> b
   (_, MTKProductDummy) -> a
   (MTKUntyped hv1, MTKUntyped hv2) ->
-    MTKUntyped $ dmkHVector
-    $ V.zipWith addDynamic (dunHVector hv1) (dunHVector hv2)
+    MTKUntyped $ HVectorPseudoTensor $ dmkHVector
+    $ V.zipWith addDynamic (dunHVector $ unHVectorPseudoTensor hv1) (dunHVector $ unHVectorPseudoTensor hv2)
 
 evalR
   :: forall y ranked. (TensorKind y, ADReady ranked)
@@ -1137,7 +1126,7 @@ evalR !s !c = \case
               ShareH{} -> False  -- wasteful and nonsensical
               _ -> True)
     $ let cShared = dshare $ unHVectorPseudoTensor c
-          cs = DTKUntyped cShared
+          cs = DTKUntyped $ HVectorPseudoTensor cShared
             -- c is shared, because it's looked up whenever a term `ShareH n`
             -- appears and so would get duplicated
       in case DMap.lookup n $ nMap s of
@@ -1231,11 +1220,11 @@ evalFromnMap s@EvalState{nMap, dMap} =
             STKS{} -> case DMap.lookup n dMap of
               Just (DTKS c) -> evalSRuntimeSpecialized s2 c d
               Nothing -> errorMissing
-            STKProduct{} -> error "TODO" {- case DMap.lookup n dMap of
-              Just (DTKProduct c1 c2) -> evalR s2 (c1, c2) d
-              Nothing -> errorMissing -}
+            STKProduct{} -> case DMap.lookup n dMap of
+              Just (DTKProduct c) -> evalR s2 c d
+              Nothing -> errorMissing
             STKUntyped -> case DMap.lookup n dMap of
-              Just (DTKUntyped c) -> evalR s2 (HVectorPseudoTensor c) d
+              Just (DTKUntyped c) -> evalR s2 c d
               Nothing -> errorMissing
       in evalFromnMap s3
     Nothing -> s  -- loop ends
@@ -1436,13 +1425,13 @@ fwdR params s = \case
 
   ShareH n d ->
     case DMap.lookup n $ dMap s of
-      Just (DTKUntyped hv) -> (s, HVectorPseudoTensor hv)
+      Just (DTKUntyped hv) -> (s, hv)
       Nothing ->
         let (s2, cRaw) = fwdR params s d
             cShared = dshare $ unHVectorPseudoTensor cRaw
               -- cRaw is shared, because it's put into the map and then
               -- potentially looked up many times, so it'd get duplicated
-            s3 = s2 {dMap = DMap.insert n (DTKUntyped cShared) (dMap s2)}
+            s3 = s2 {dMap = DMap.insert n (DTKUntyped $ HVectorPseudoTensor cShared) (dMap s2)}
         in (s3, HVectorPseudoTensor cShared)
   HToH v -> second (HVectorPseudoTensor . dmkHVector)
             $ fwdHVector params s v

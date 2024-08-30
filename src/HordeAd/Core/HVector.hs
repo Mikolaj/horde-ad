@@ -79,32 +79,36 @@ type family ConcreteTarget ranked y = result | result -> ranked y where
 type role InterpretationTargetD nominal nominal
 data InterpretationTargetD ranked y where
   DTKR :: (GoodScalar r, KnownNat n)
-       => ranked r n -> InterpretationTargetD ranked (TKR r n)
+       => InterpretationTarget ranked (TKR r n)
+       -> InterpretationTargetD ranked (TKR r n)
   DTKS :: (GoodScalar r, KnownShS sh)
-       => ShapedOf ranked r sh -> InterpretationTargetD ranked (TKS r sh)
+       => InterpretationTarget ranked (TKS r sh)
+       -> InterpretationTargetD ranked (TKS r sh)
   DTKProduct :: forall x z ranked. (TensorKind x, TensorKind z)
-             => InterpretationTargetD ranked x
-             -> InterpretationTargetD ranked z
+             => InterpretationTarget ranked (TKProduct x z)
              -> InterpretationTargetD ranked (TKProduct x z)
-  DTKUntyped :: HVectorOf ranked -> InterpretationTargetD ranked TKUntyped
+  DTKUntyped :: InterpretationTarget ranked TKUntyped
+             -> InterpretationTargetD ranked TKUntyped
 
 type role InterpretationTargetM nominal nominal
 data InterpretationTargetM ranked y where
   MTKR :: (GoodScalar r, KnownNat n)
-       => ranked r n -> InterpretationTargetM ranked (TKR r n)
+       => InterpretationTarget ranked (TKR r n)
+       -> InterpretationTargetM ranked (TKR r n)
   MTKS :: (GoodScalar r, KnownShS sh)
-       => ShapedOf ranked r sh -> InterpretationTargetM ranked (TKS r sh)
+       => InterpretationTarget ranked (TKS r sh)
+       -> InterpretationTargetM ranked (TKS r sh)
   MTKProduct :: forall x z ranked. (TensorKind x, TensorKind z)
-             => InterpretationTargetM ranked x
-             -> InterpretationTargetM ranked z
+             => InterpretationTarget ranked (TKProduct x z)
              -> InterpretationTargetM ranked (TKProduct x z)
+  MTKUntyped :: InterpretationTarget ranked TKUntyped
+             -> InterpretationTargetM ranked TKUntyped
   MTKRDummy :: (GoodScalar r, KnownShS sh)
             => InterpretationTargetM ranked (TKR r (X.Rank sh))
   MTKSDummy  :: (GoodScalar r, KnownShS sh)
              => InterpretationTargetM ranked (TKS r sh)
   MTKProductDummy :: forall x z ranked. (TensorKind x, TensorKind z)
                   => InterpretationTargetM ranked (TKProduct x z)
-  MTKUntyped :: HVectorOf ranked -> InterpretationTargetM ranked TKUntyped
 
 -- TODO: the constraints should not be necessary
 type role TensorKindFull nominal
