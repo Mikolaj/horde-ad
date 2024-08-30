@@ -223,12 +223,11 @@ type AstVarListS sh = SizedListS sh (Const IntVarName)
 
 -- * AstBindingsCase and AstBindings
 
-type role AstBindingsCase nominal
-data AstBindingsCase (s :: AstSpanType) =
-    AstBindingsSimple (DynamicTensor (AstRanked s))
-  | AstBindingsHVector (HVectorOf (AstRanked s))
+data AstBindingsCase  =
+    AstBindingsSimple (DynamicTensor (AstRanked PrimalSpan))
+  | AstBindingsHVector (HVectorOf (AstRanked PrimalSpan))
 
-type AstBindings (s :: AstSpanType) = [(AstVarId, AstBindingsCase s)]
+type AstBindings = [(AstVarId, AstBindingsCase)]
 
 
 -- * ASTs

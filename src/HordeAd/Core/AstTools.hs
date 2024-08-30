@@ -308,7 +308,7 @@ varNameInAstHVector :: AstSpan s
                     => AstVarName f y -> AstTensor s TKUntyped -> Bool
 varNameInAstHVector var = varInAst (varNameToAstVarId var)
 
-varInAstBindingsCase :: AstSpan s => AstVarId -> AstBindingsCase s -> Bool
+varInAstBindingsCase :: AstVarId -> AstBindingsCase -> Bool
 varInAstBindingsCase var (AstBindingsSimple t) = varInAstDynamic var t
 varInAstBindingsCase var (AstBindingsHVector t) = varInAst var t
 
@@ -368,17 +368,17 @@ astReplicate0N sh =
         AstReplicate snat $ go sh' v
   in go sh . fromPrimal . AstConst . Nested.rscalar
 
-bindsToLet :: forall n s s2 r. (AstSpan s, AstSpan s2, KnownNat n, GoodScalar r)
-           => AstTensor s (TKR r n) -> AstBindings s2 -> AstTensor s (TKR r n)
+bindsToLet :: forall n s r. (KnownNat n, GoodScalar r)
+           => AstTensor s (TKR r n) -> AstBindings -> AstTensor s (TKR r n)
 {-# INLINE bindsToLet #-}  -- help list fusion
 bindsToLet = foldl' bindToLet
  where
   bindToLet :: AstTensor s (TKR r n)
-            -> (AstVarId, AstBindingsCase s2)
+            -> (AstVarId, AstBindingsCase)
             -> AstTensor s (TKR r n)
   bindToLet !u (varId, AstBindingsSimple d) =
     let convertShaped :: (GoodScalar r2, KnownShS sh2)
-                      => AstShaped s2 r2 sh2 -> AstTensor s (TKR r n)
+                      => AstShaped PrimalSpan r2 sh2 -> AstTensor s (TKR r n)
         convertShaped (AstShaped t) =
           withShapeP (shapeToList $ shapeAst u) $ \proxy -> case proxy of
             Proxy @sh | Just Refl <- matchingRank @sh @n ->
@@ -389,22 +389,22 @@ bindsToLet = foldl' bindToLet
       DynamicShaped w -> convertShaped w
       DynamicRankedDummy @r2 @sh2 _ _ ->
           withListSh (Proxy @sh2) $ \sh2 ->
-            AstLet @(TKR r2 (X.Rank sh2)) @_ @s (mkAstVarName varId) (astReplicate0N sh2 0) u
+            AstLet @(TKR r2 (X.Rank sh2)) @_ @PrimalSpan (mkAstVarName varId) (astReplicate0N sh2 0) u
       DynamicShapedDummy @r2 @sh2 _ _ ->
            withListSh (Proxy @sh2) $ \sh2 ->
-            AstLet @(TKR r2 (X.Rank sh2)) @_ @s (mkAstVarName varId) (astReplicate0N sh2 0) u
+            AstLet @(TKR r2 (X.Rank sh2)) @_ @PrimalSpan (mkAstVarName varId) (astReplicate0N sh2 0) u
   bindToLet u (varId, AstBindingsHVector d) =
     AstLet (mkAstVarName varId) d u
 
-bindsToLetS :: forall sh s r. (AstSpan s, GoodScalar r, KnownShS sh)
-            => AstTensor s (TKS r sh) -> AstBindings s
-            -> AstTensor s (TKS r sh)
+bindsToLetS :: forall sh r. (GoodScalar r, KnownShS sh)
+            => AstTensor PrimalSpan (TKS r sh) -> AstBindings
+            -> AstTensor PrimalSpan (TKS r sh)
 {-# INLINE bindsToLetS #-}  -- help list fusion
 bindsToLetS = foldl' bindToLetS
  where
-  bindToLetS :: AstTensor s (TKS r sh)
-             -> (AstVarId, AstBindingsCase s)
-             -> AstTensor s (TKS r sh)
+  bindToLetS :: AstTensor PrimalSpan (TKS r sh)
+             -> (AstVarId, AstBindingsCase)
+             -> AstTensor PrimalSpan (TKS r sh)
   bindToLetS !u (varId, AstBindingsSimple d) = case d of
     DynamicRanked (AstRanked w) ->
       withListSh (Proxy @sh) $ \_ ->
@@ -414,18 +414,17 @@ bindsToLetS = foldl' bindToLetS
         withListSh (Proxy @sh2) $ \sh2 ->
           withListSh (Proxy @sh) $ \_ ->
             AstSFromR
-            $ AstLet (mkAstVarName varId) (astReplicate0N @_ @s @r2 sh2 0) (AstRFromS u)
+            $ AstLet (mkAstVarName varId) (astReplicate0N @_ @PrimalSpan @r2 sh2 0) (AstRFromS u)
     DynamicShapedDummy @r2 @sh2 _ _ ->
         withListSh (Proxy @sh2) $ \sh2 ->
           withListSh (Proxy @sh) $ \_ ->
             AstSFromR
-            $ AstLet (mkAstVarName varId) (astReplicate0N @_ @s @r2 sh2 0) (AstRFromS u)
+            $ AstLet (mkAstVarName varId) (astReplicate0N @_ @PrimalSpan @r2 sh2 0) (AstRFromS u)
   bindToLetS u (varId, AstBindingsHVector d) =
     AstLet (mkAstVarName varId) d u
 
 bindsToHVectorLet
-   :: forall s. AstSpan s
-   => AstTensor s TKUntyped -> AstBindings s -> AstTensor s TKUntyped
+   :: AstTensor PrimalSpan TKUntyped -> AstBindings -> AstTensor PrimalSpan TKUntyped
 {-# INLINE bindsToHVectorLet #-}   -- help list fusion
 bindsToHVectorLet = foldl' bindToHVectorLet
  where
@@ -434,9 +433,9 @@ bindsToHVectorLet = foldl' bindToHVectorLet
     DynamicShaped (AstShaped w) -> AstLet (mkAstVarName varId) w u
     DynamicRankedDummy @r2 @sh2 _ _ ->
         withListSh (Proxy @sh2) $ \sh2 ->
-          AstLet (mkAstVarName varId) (astReplicate0N @_ @s @r2 sh2 0) u
+          AstLet (mkAstVarName varId) (astReplicate0N @_ @PrimalSpan @r2 sh2 0) u
     DynamicShapedDummy @r2 @sh2 _ _ ->
         withListSh (Proxy @sh2) $ \sh2 ->
-          AstLet (mkAstVarName varId) (astReplicate0N @_ @s @r2 sh2 0) u
+          AstLet (mkAstVarName varId) (astReplicate0N @_ @PrimalSpan @r2 sh2 0) u
   bindToHVectorLet u (varId, AstBindingsHVector d) =
     AstLet (mkAstVarName varId) d u
