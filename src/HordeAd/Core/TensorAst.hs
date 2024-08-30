@@ -126,30 +126,16 @@ gunshare
      STensorKindType y
   -> InterpretationTarget (AstRaw PrimalSpan) y
   -> InterpretationTarget (AstRaw PrimalSpan) y
-gunshare stk b = case stk of
-  STKR{} -> AstRaw $ unshareAstRanked $ unAstRaw b
-  STKS{} -> AstRawS $ unshareAstShaped $ unAstRawS b
-  STKProduct stk1 stk2 ->
-    let !t1 = gunshare stk1 $ tproject1 b
-        !t2 = gunshare stk2 $ tproject2 b
-    in (ttuple t1 t2)
-  STKUntyped -> HVectorPseudoTensor $ AstRawWrap $ unshareAstHVector
-                $ unAstRawWrap $ unHVectorPseudoTensor b
+gunshare stk b | Dict <- lemTensorKindOfS stk =
+  rawY stk $ unshareAstTensor $ unRawY stk b
 
 gunshareRanked
   :: forall y.
      STensorKindType y
   -> InterpretationTarget (AstRanked PrimalSpan) y
   -> InterpretationTarget (AstRanked PrimalSpan) y
-gunshareRanked stk b = case stk of
-  STKR{} -> AstRanked $ unshareAstRanked $ unAstRanked b
-  STKS{} -> AstShaped $ unshareAstShaped $ unAstShaped b
-  STKProduct stk1 stk2 ->
-    let !t1 = gunshareRanked stk1 $ tproject1 b
-        !t2 = gunshareRanked stk2 $ tproject2 b
-    in (ttuple t1 t2)
-  STKUntyped -> HVectorPseudoTensor $ unshareAstHVector
-                $ unHVectorPseudoTensor b
+gunshareRanked stk b | Dict <- lemTensorKindOfS stk =
+  rankedY stk $ unshareAstTensor $ unRankedY stk b
 
 fwdArtifactFromForwardPass
   :: forall x z. (TensorKind x, TensorKind z)

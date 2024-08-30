@@ -7,7 +7,7 @@ module HordeAd.Core.AstInline
   , simplifyInlineAst, simplifyInlineAstS
   , simplifyInline
     -- * The translates global sharing to normal lets
-  , unshareAstRanked, unshareAstShaped, unshareAstHVector
+  , unshareAstTensor
   ) where
 
 import Prelude
@@ -399,23 +399,9 @@ inlineAstBool memo v0 = case v0 of
 
 -- * The translates global sharing to normal lets
 
-unshareAstRanked :: (KnownNat n, GoodScalar r)
-                 => AstTensor PrimalSpan (TKR r n)
-                 -> AstTensor PrimalSpan (TKR r n)
-unshareAstRanked t =
-  let (memoOut, share) = shareAst DMap.empty t
-  in bindsToLet share memoOut
-
-unshareAstShaped :: (KnownShS sh, GoodScalar r)
-                 => AstTensor PrimalSpan (TKS r sh)
-                 -> AstTensor PrimalSpan (TKS r sh)
-unshareAstShaped t =
-  let (memoOut, share) = shareAst DMap.empty t
-  in bindsToLet share memoOut
-
-unshareAstHVector :: AstTensor PrimalSpan TKUntyped
-                  -> AstTensor PrimalSpan TKUntyped
-unshareAstHVector t =
+unshareAstTensor :: TensorKind y
+                 => AstTensor PrimalSpan y -> AstTensor PrimalSpan y
+unshareAstTensor t =
   let (memoOut, share) = shareAst DMap.empty t
   in bindsToLet share memoOut
 
