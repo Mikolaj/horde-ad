@@ -3759,7 +3759,7 @@ testSin0MapAccumNestedR10fN = do
                                               w = rfromD @Double @0 $ a11 V.! 0
                                           in dmkHVector $ V.singleton
                                              $ DynamicRanked
-                                             $ rscalar  0.01 * y + tan w)
+                                             $ rscalar 0.01 * y + tan w)
                                        (HVectorPseudoTensor $ dmkHVector a10) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x10))
                                      (HVectorPseudoTensor $ dmkHVector a9) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x9))
                                    (HVectorPseudoTensor $ dmkHVector a8) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x8))

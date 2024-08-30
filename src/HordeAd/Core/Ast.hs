@@ -227,7 +227,6 @@ type role AstBindingsCase nominal
 data AstBindingsCase (s :: AstSpanType) =
     AstBindingsSimple (DynamicTensor (AstRanked s))
   | AstBindingsHVector (HVectorOf (AstRanked s))
-deriving instance Show (AstBindingsCase s)
 
 type AstBindings (s :: AstSpanType) = [(AstVarId, AstBindingsCase s)]
 
