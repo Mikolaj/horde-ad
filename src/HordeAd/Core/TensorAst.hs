@@ -977,9 +977,10 @@ rawY stk t = case stk of
   STKR{} -> AstRaw t
   STKS{} -> AstRawS t
   STKProduct stk1 stk2 ->
-    AstRawWrap $ astLetFunRaw t $ \ !tShared ->
-      ttuple (rankedY stk1 $ AstProject1 tShared)
-             (rankedY stk2 $ AstProject2 tShared)
+    let !tShared = fun1ToAst $ \ !var -> AstShare var t
+    in AstRawWrap
+       $ ttuple (rankedY stk1 $ AstProject1 tShared)
+                (rankedY stk2 $ AstProject2 tShared)
   STKUntyped -> HVectorPseudoTensor $ AstRawWrap t
 
 unRawY :: forall y s. AstSpan s
@@ -989,71 +990,10 @@ unRawY stk t = case stk of
   STKR{} -> unAstRaw t
   STKS{} -> unAstRawS t
   STKProduct stk1 stk2 ->
-    astLetFunRaw (unAstRawWrap t) $ \ !tShared ->
-      AstTuple (unRankedY stk1 $ tproject1 tShared)
-               (unRankedY stk2 $ tproject2 tShared)
+    let !tShared = fun1ToAst $ \ !var -> AstShare var $ unAstRawWrap t
+    in AstTuple (unRankedY stk1 $ tproject1 tShared)
+                (unRankedY stk2 $ tproject2 tShared)
   STKUntyped -> unAstRawWrap $ unHVectorPseudoTensor t
-
-astLetFunRaw :: forall y z s.
-                (TensorKind y, TensorKind z, AstSpan s)
-             => AstTensor s y -> (AstTensor s y -> AstTensor s z)
-             -> AstTensor s z
-astLetFunRaw a f | astIsSmall True a = f a  -- too important an optimization
-astLetFunRaw a f =
-  let sh = shapeAstFull a
-      (var, ast) = funToAst sh f
-  in AstLet var a ast  -- safe, because subsitution ruled out above
-
-astLetHVectorInFunRaw
-  :: forall n s r. (AstSpan s, GoodScalar r, KnownNat n)
-  => AstTensor s TKUntyped -> (HVector (AstRanked s) -> AstTensor s (TKR r n))
-  -> AstTensor s (TKR r n)
-astLetHVectorInFunRaw a f =
-  fun1DToAst (shapeAstHVector a) $ \ !vars !asts ->
-    AstLetHVectorIn vars a (f asts)
-
-astLetHVectorInFunRawS
-  :: forall sh s r. (AstSpan s, KnownShS sh, GoodScalar r)
-  => AstTensor s TKUntyped -> (HVector (AstRanked s) -> AstTensor s (TKS r sh))
-  -> AstTensor s (TKS r sh)
-astLetHVectorInFunRawS a f =
-  fun1DToAst (shapeAstHVector a) $ \ !vars !asts ->
-    AstLetHVectorInS vars a (f asts)
-
-astLetHFunInFunRaw
-  :: (GoodScalar r, KnownNat n, TensorKind x, TensorKind y)
-  => AstHFun x y -> (AstHFun x y -> AstTensor s (TKR r n))
-  -> AstTensor s (TKR r n)
-astLetHFunInFunRaw a f =
-  let shss = domainShapeAstHFun a
-      shs = shapeAstHFun a
-  in fun1HToAst shss shs $ \ !var !ast -> AstLetHFunIn var a (f ast)
-
-astLetHFunInFunRawS
-  :: (GoodScalar r, KnownShS sh, TensorKind x, TensorKind y)
-  => AstHFun x y -> (AstHFun x y -> AstTensor s (TKS r sh))
-  -> AstTensor s (TKS r sh)
-astLetHFunInFunRawS a f =
-  let shss = domainShapeAstHFun a
-      shs = shapeAstHFun a
-  in fun1HToAst shss shs $ \ !var !ast -> AstLetHFunInS var a (f ast)
-
-astLetHVectorInHVectorFunRaw
-  :: AstSpan s
-  => AstTensor s TKUntyped -> (HVector (AstRanked s) -> AstTensor s TKUntyped)
-  -> AstTensor s TKUntyped
-astLetHVectorInHVectorFunRaw a f =
-  fun1DToAst (shapeAstHVector a) $ \ !vars !asts ->
-    AstLetHVectorInHVector vars a (f asts)
-
-astLetHFunInHVectorFunRaw
-  :: (TensorKind x, TensorKind y)
-  => AstHFun x y -> (AstHFun x y -> AstTensor s TKUntyped)
-  -> AstTensor s TKUntyped
-astLetHFunInHVectorFunRaw a f =
-  let shss = domainShapeAstHFun a
-      shs = shapeAstHFun a
-  in fun1HToAst shss shs $ \ !var !ast -> AstLetHFunInHVector var a (f ast)
 
 instance AstSpan s => RankedTensor (AstRaw s) where
   rletTKIn = error "lets are not supported by AstRaw"
@@ -1240,7 +1180,7 @@ noVectorizeY stk t = case stk of
   STKR{} -> AstNoVectorize t
   STKS{} -> AstNoVectorizeS t
   STKProduct stk1 stk2 ->
-    AstNoVectorizeWrap $ astLetFun t $ \ !tShared ->
+    AstNoVectorizeWrap $ astLetFunNoSimplify t $ \ !tShared ->
       ttuple (rankedY stk1 $ astProject1 tShared)
              (rankedY stk2 $ astProject2 tShared)
   STKUntyped -> HVectorPseudoTensor $ AstNoVectorizeWrap t
@@ -1252,10 +1192,71 @@ unNoVectorizeY stk t = case stk of
   STKR{} -> unAstNoVectorize t
   STKS{} -> unAstNoVectorizeS t
   STKProduct stk1 stk2 ->
-    astLetFun (unAstNoVectorizeWrap t) $ \ !tShared ->
+    astLetFunNoSimplify (unAstNoVectorizeWrap t) $ \ !tShared ->
       AstTuple (unRankedY stk1 $ tproject1 tShared)
                (unRankedY stk2 $ tproject2 tShared)
   STKUntyped -> unAstNoVectorizeWrap $ unHVectorPseudoTensor t
+
+astLetFunNoSimplify :: forall y z s.
+                       (TensorKind y, TensorKind z, AstSpan s)
+                    => AstTensor s y -> (AstTensor s y -> AstTensor s z)
+                    -> AstTensor s z
+astLetFunNoSimplify a f | astIsSmall True a = f a  -- too important an optimization
+astLetFunNoSimplify a f =
+  let sh = shapeAstFull a
+      (var, ast) = funToAst sh f
+  in AstLet var a ast  -- safe, because subsitution ruled out above
+
+astLetHVectorInFunNoSimplify
+  :: forall n s r. (AstSpan s, GoodScalar r, KnownNat n)
+  => AstTensor s TKUntyped -> (HVector (AstRanked s) -> AstTensor s (TKR r n))
+  -> AstTensor s (TKR r n)
+astLetHVectorInFunNoSimplify a f =
+  fun1DToAst (shapeAstHVector a) $ \ !vars !asts ->
+    AstLetHVectorIn vars a (f asts)
+
+astLetHVectorInFunNoSimplifyS
+  :: forall sh s r. (AstSpan s, KnownShS sh, GoodScalar r)
+  => AstTensor s TKUntyped -> (HVector (AstRanked s) -> AstTensor s (TKS r sh))
+  -> AstTensor s (TKS r sh)
+astLetHVectorInFunNoSimplifyS a f =
+  fun1DToAst (shapeAstHVector a) $ \ !vars !asts ->
+    AstLetHVectorInS vars a (f asts)
+
+astLetHFunInFunNoSimplify
+  :: (GoodScalar r, KnownNat n, TensorKind x, TensorKind y)
+  => AstHFun x y -> (AstHFun x y -> AstTensor s (TKR r n))
+  -> AstTensor s (TKR r n)
+astLetHFunInFunNoSimplify a f =
+  let shss = domainShapeAstHFun a
+      shs = shapeAstHFun a
+  in fun1HToAst shss shs $ \ !var !ast -> AstLetHFunIn var a (f ast)
+
+astLetHFunInFunNoSimplifyS
+  :: (GoodScalar r, KnownShS sh, TensorKind x, TensorKind y)
+  => AstHFun x y -> (AstHFun x y -> AstTensor s (TKS r sh))
+  -> AstTensor s (TKS r sh)
+astLetHFunInFunNoSimplifyS a f =
+  let shss = domainShapeAstHFun a
+      shs = shapeAstHFun a
+  in fun1HToAst shss shs $ \ !var !ast -> AstLetHFunInS var a (f ast)
+
+astLetHVectorInHVectorFunNoSimplify
+  :: AstSpan s
+  => AstTensor s TKUntyped -> (HVector (AstRanked s) -> AstTensor s TKUntyped)
+  -> AstTensor s TKUntyped
+astLetHVectorInHVectorFunNoSimplify a f =
+  fun1DToAst (shapeAstHVector a) $ \ !vars !asts ->
+    AstLetHVectorInHVector vars a (f asts)
+
+astLetHFunInHVectorFunNoSimplify
+  :: (TensorKind x, TensorKind y)
+  => AstHFun x y -> (AstHFun x y -> AstTensor s TKUntyped)
+  -> AstTensor s TKUntyped
+astLetHFunInHVectorFunNoSimplify a f =
+  let shss = domainShapeAstHFun a
+      shs = shapeAstHFun a
+  in fun1HToAst shss shs $ \ !var !ast -> AstLetHFunInHVector var a (f ast)
 
 unAstNoVectorize2 :: AstNoVectorize s r n -> AstRanked s r n
 unAstNoVectorize2 = AstRanked . unAstNoVectorize
@@ -1495,7 +1496,7 @@ noSimplifyY stk t = case stk of
   STKR{} -> AstNoSimplify t
   STKS{} -> AstNoSimplifyS t
   STKProduct stk1 stk2 ->
-    AstNoSimplifyWrap $ astLetFunRaw t $ \ !tShared ->
+    AstNoSimplifyWrap $ astLetFunNoSimplify t $ \ !tShared ->
       ttuple (rankedY stk1 $ AstProject1 tShared)
              (rankedY stk2 $ AstProject2 tShared)
   STKUntyped -> HVectorPseudoTensor $ AstNoSimplifyWrap t
@@ -1507,7 +1508,7 @@ unNoSimplifyY stk t = case stk of
   STKR{} -> unAstNoSimplify t
   STKS{} -> unAstNoSimplifyS t
   STKProduct stk1 stk2 ->
-    astLetFunRaw (unAstNoSimplifyWrap t) $ \ !tShared ->
+    astLetFunNoSimplify (unAstNoSimplifyWrap t) $ \ !tShared ->
       AstTuple (unRankedY stk1 $ tproject1 tShared)
                (unRankedY stk2 $ tproject2 tShared)
   STKUntyped -> unAstNoSimplifyWrap $ unHVectorPseudoTensor t
@@ -1535,8 +1536,8 @@ instance AstSpan s => RankedTensor (AstNoSimplify s) where
            -> AstNoSimplify s r n
   rletTKIn stk a f =
     AstNoSimplify
-    $ astLetFunRaw @y @_ @s
-                   (unNoSimplifyY stk a) (unAstNoSimplify . f . noSimplifyY stk)
+    $ astLetFunNoSimplify @y @_ @s
+        (unNoSimplifyY stk a) (unAstNoSimplify . f . noSimplifyY stk)
   rshape = shapeAst . unAstNoSimplify
   rminIndex = AstNoSimplify . fromPrimal . AstMinIndex
               . astSpanPrimal . unAstNoSimplify
@@ -1573,9 +1574,9 @@ instance AstSpan s => RankedTensor (AstNoSimplify s) where
   rconst = AstNoSimplify . fromPrimal . AstConst
   rletHVectorIn a f =
     AstNoSimplify
-    $ astLetHVectorInFunRaw (unAstNoSimplifyWrap a)
-                            (unAstNoSimplify . f . noSimplifyHVector)
-  rletHFunIn a f = AstNoSimplify $ astLetHFunInFunRaw a (unAstNoSimplify . f)
+    $ astLetHVectorInFunNoSimplify (unAstNoSimplifyWrap a)
+                                   (unAstNoSimplify . f . noSimplifyHVector)
+  rletHFunIn a f = AstNoSimplify $ astLetHFunInFunNoSimplify a (unAstNoSimplify . f)
   rfromS = AstNoSimplify . AstRFromS . unAstNoSimplifyS
   rconstant = AstNoSimplify . fromPrimal . unAstNoSimplify
   rprimalPart = AstNoSimplify . astSpanPrimal . unAstNoSimplify
@@ -1592,8 +1593,8 @@ instance AstSpan s => ShapedTensor (AstNoSimplifyS s) where
            -> AstNoSimplifyS s r sh
   sletTKIn stk a f =
     AstNoSimplifyS
-    $ astLetFunRaw @y @_ @s
-                   (unNoSimplifyY stk a) (unAstNoSimplifyS . f . noSimplifyY stk)
+    $ astLetFunNoSimplify @y @_ @s
+        (unNoSimplifyY stk a) (unAstNoSimplifyS . f . noSimplifyY stk)
   sminIndex = AstNoSimplifyS . fromPrimal . AstMinIndexS
               . astSpanPrimal . unAstNoSimplifyS
   smaxIndex = AstNoSimplifyS . fromPrimal . AstMaxIndexS
@@ -1630,9 +1631,9 @@ instance AstSpan s => ShapedTensor (AstNoSimplifyS s) where
   sconst = AstNoSimplifyS . fromPrimal . AstConstS
   sletHVectorIn a f =
     AstNoSimplifyS
-    $ astLetHVectorInFunRawS (unAstNoSimplifyWrap a)
-                             (unAstNoSimplifyS . f . noSimplifyHVector)
-  sletHFunIn a f = AstNoSimplifyS $ astLetHFunInFunRawS a (unAstNoSimplifyS . f)
+    $ astLetHVectorInFunNoSimplifyS (unAstNoSimplifyWrap a)
+                                    (unAstNoSimplifyS . f . noSimplifyHVector)
+  sletHFunIn a f = AstNoSimplifyS $ astLetHFunInFunNoSimplifyS a (unAstNoSimplifyS . f)
   sfromR = AstNoSimplifyS . AstSFromR . unAstNoSimplify
   sconstant = AstNoSimplifyS . fromPrimal . unAstNoSimplifyS
     -- exceptionally we do simplify AstConstant to avoid long boring chains
@@ -1684,11 +1685,11 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
        $ V.imap f $ shapeAstHVector hVectorOf
   dletHVectorInHVector a f =
     AstNoSimplifyWrap
-    $ astLetHVectorInHVectorFunRaw (unAstNoSimplifyWrap a)
-                                   (unAstNoSimplifyWrap . f . noSimplifyHVector)
+    $ astLetHVectorInHVectorFunNoSimplify (unAstNoSimplifyWrap a)
+                                          (unAstNoSimplifyWrap . f . noSimplifyHVector)
   dletHFunInHVector t f =
     AstNoSimplifyWrap
-    $ astLetHFunInHVectorFunRaw t (unAstNoSimplifyWrap . f)
+    $ astLetHFunInHVectorFunNoSimplify t (unAstNoSimplifyWrap . f)
   tlet :: forall x z. (TensorKind x, TensorKind z)
        => InterpretationTarget (AstNoSimplify s) x
        -> (ConcreteTarget (AstNoSimplify s) x
@@ -1696,11 +1697,11 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
        -> InterpretationTarget (AstNoSimplify s)  z
   tlet u f = case stensorKind @x of
     STKR{} -> noSimplifyY (stensorKind @z)
-              $ astLetFunRaw
+              $ astLetFunNoSimplify
                   (unAstNoSimplify u)
                   (unNoSimplifyY (stensorKind @z) . f . AstNoSimplify)
     STKS{} -> noSimplifyY (stensorKind @z)
-              $ astLetFunRaw
+              $ astLetFunNoSimplify
                   (unAstNoSimplifyS u)
                   (unNoSimplifyY (stensorKind @z) . f . AstNoSimplifyS)
     STKProduct{} -> error "TODO"
@@ -1712,11 +1713,11 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
        -> InterpretationTarget (AstNoSimplify s)  z
   blet u f = case stensorKind @x of
     STKR{} -> noSimplifyY (stensorKind @z)
-              $ astLetFunRaw
+              $ astLetFunNoSimplify
                   (unAstNoSimplify u)
                   (unNoSimplifyY (stensorKind @z) . f . AstNoSimplify)
     STKS{} -> noSimplifyY (stensorKind @z)
-              $ astLetFunRaw
+              $ astLetFunNoSimplify
                   (unAstNoSimplifyS u)
                   (unNoSimplifyY (stensorKind @z) . f . AstNoSimplifyS)
     STKProduct{} -> error "TODO"
