@@ -246,8 +246,8 @@ instance HVectorTensor ORArray OSArray where
     STKR{} -> f a
     STKS{} -> f a
     STKProduct{} ->
-      tlet (fst a) $ \ !a1 ->
-        tlet (snd a) $ \ !a2 -> f (a1, a2)
+      blet (fst a) $ \ !a1 ->
+        blet (snd a) $ \ !a2 -> f (a1, a2)
     STKUntyped{} -> f $ unHVectorPseudoTensor a
   blet = (&)
   tunshare = id

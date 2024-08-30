@@ -452,16 +452,19 @@ instance ADReadyBoth ranked shaped
           !var2 = sshare u
       in f (dDnotShared var2 u')
     STKProduct{} ->
-      -- TODO: seems wrong: a gets computed twice unless the projection
-      -- gets simplified early enough, which maybe it does?
-      tlet (fst a) $ \ !a1 ->
-        tlet (snd a) $ \ !a2 -> f (a1, a2)
+      -- Sharing is preserved despite `a` being repeated, because
+      -- each repetition concerns a disjoint portion of `a` and so the whole `a`
+      -- is computed only once.
+      blet (fst a) $ \ !a1 ->
+        blet (snd a) $ \ !a2 -> f (a1, a2)
     STKUntyped{} ->
       let (!u, !u') = unADValHVector $ unHVectorPseudoTensor a
           !var2 = dunHVector $ dshare $ dmkHVector u
             -- dunHVector is fine, because its argument is shared
             -- (and even without that, it comes from an explicit HVector)
-            -- and dshare needed due to f possibly using the argument many times
+            -- and dshare is needed due to f possibly using the argument many times
+            -- and while the Haskell computation would be performed only once,
+            -- a term could get duplicated and then interpreted many times
       in f (aDValHVector var2 u')
   blet :: forall x z. (TensorKind x, TensorKind z)
        => InterpretationTarget (ADVal ranked) x
@@ -478,16 +481,11 @@ instance ADReadyBoth ranked shaped
           !var2 = sshare u
       in f (dDnotShared var2 u')
     STKProduct{} ->
-      -- TODO: seems wrong: a gets computed twice unless the projection
-      -- gets simplified early enough, which maybe it does?
       blet (fst a) $ \ !a1 ->
         blet (snd a) $ \ !a2 -> f (a1, a2)
     STKUntyped{} ->
       let (!u, !u') = unADValHVector $ unHVectorPseudoTensor a
           !var2 = dunHVector $ dshare $ dmkHVector u
-            -- dunHVector is fine, because its argument is shared
-            -- (and even without that, it comes from an explicit HVector)
-            -- and dshare needed due to f possibly using the argument many times
       in f (HVectorPseudoTensor $ aDValHVector var2 u')
   tunshare = id
   dbuild1 k f =

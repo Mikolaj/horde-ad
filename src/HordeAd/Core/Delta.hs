@@ -1138,6 +1138,8 @@ evalR !s !c = \case
               _ -> True)
     $ let cShared = dshare $ unHVectorPseudoTensor c
           cs = DTKUntyped cShared
+            -- c is shared, because it's looked up whenever a term `ShareH n`
+            -- appears and so would get duplicated
       in case DMap.lookup n $ nMap s of
         Just{} ->
           s {dMap = DMap.adjust (addInterpretationTargetD cs) n $ dMap s}
@@ -1438,6 +1440,8 @@ fwdR params s = \case
       Nothing ->
         let (s2, cRaw) = fwdR params s d
             cShared = dshare $ unHVectorPseudoTensor cRaw
+              -- cRaw is shared, because it's put into the map and then
+              -- potentially looked up many times, so it'd get duplicated
             s3 = s2 {dMap = DMap.insert n (DTKUntyped cShared) (dMap s2)}
         in (s3, HVectorPseudoTensor cShared)
   HToH v -> second (HVectorPseudoTensor . dmkHVector)

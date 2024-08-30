@@ -67,11 +67,12 @@ type instance InterpretationTarget ranked TKUntyped =
   HVectorPseudoTensor ranked Float '()
     -- HVectorPseudoTensor instead of HVectorOf required for injectivity
 
+-- This is concrete only in the outermost layer.
 type family ConcreteTarget ranked y = result | result -> ranked y where
   ConcreteTarget ranked (TKR r n) = ranked r n
   ConcreteTarget ranked (TKS r sh) = ShapedOf ranked r sh
   ConcreteTarget ranked (TKProduct x z) =
-    (ConcreteTarget ranked x, ConcreteTarget ranked z)
+    (InterpretationTarget ranked x, InterpretationTarget ranked z)
   ConcreteTarget ranked TKUntyped = HVector ranked
 
 -- Needed because `InterpretationTarget` can't be partially applied.

@@ -634,9 +634,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
       $ astLetFun (unAstShaped u)
                   (unRankedY (stensorKind @z) . f . AstShaped)
     STKProduct{} ->
-      -- TODO: the duplicated `u` breaks sharing
-      tlet (tproject1 u) $ \a1 ->
-        tlet (tproject2 u) $ \a2 -> f (a1, a2)
+      blet u $ \ !uShared -> f (tproject1 uShared, tproject2 uShared)
     STKUntyped{} -> case stensorKind @z of
       STKR{} ->
         AstRanked
@@ -647,10 +645,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
         $ astLetHVectorInFunS (unHVectorPseudoTensor u)
                               (unAstShaped . f)
       STKProduct{} ->
-        rankedY (stensorKind @z)
-        $ astLetFun (unHVectorPseudoTensor u)
-                    (unRankedY (stensorKind @z) . f . dunHVector)
-          -- TODO: the dunHVector breaks sharing
+        blet u $ \ !uShared -> f $ dunHVector $ unHVectorPseudoTensor uShared
       STKUntyped{} ->
         HVectorPseudoTensor
         $ astLetHVectorInHVectorFun (unHVectorPseudoTensor u)
