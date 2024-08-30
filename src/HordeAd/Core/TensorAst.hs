@@ -309,9 +309,6 @@ instance TermValue (DynamicTensor (AstRanked FullSpan)) where
     DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
     DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
 
-type instance InterpretationTarget (AstRanked s) (TKProduct x z) =
-  AstTensor s (TKProduct x z)
-
 instance AstSpan s => ProductTensor (AstRanked s) where
   ttuple t1 t2 = AstTuple (unRankedY stensorKind t1)
                           (unRankedY stensorKind t2)

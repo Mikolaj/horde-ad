@@ -17,11 +17,13 @@ module HordeAd.Core.AstTools
     -- * Determining if a term is too small to require sharing
   , astIsSmall
     -- * Odds and ends
-  , bindsToLet, bindsToLetS, bindsToHVectorLet
+  , bindsToLet
   ) where
 
 import Prelude hiding (foldl')
 
+import Data.Dependent.EnumMap.Strict qualified as DMap
+import Data.Dependent.Sum (DSum (..))
 import Data.List (foldl')
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, (:~:) (Refl))
@@ -30,7 +32,6 @@ import GHC.TypeLits (KnownNat, sameNat, type (+))
 import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Mixed.Shape qualified as X
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
@@ -308,9 +309,11 @@ varNameInAstHVector :: AstSpan s
                     => AstVarName f y -> AstTensor s TKUntyped -> Bool
 varNameInAstHVector var = varInAst (varNameToAstVarId var)
 
-varInAstBindingsCase :: AstVarId -> AstBindingsCase -> Bool
-varInAstBindingsCase var (AstBindingsSimple t) = varInAstDynamic var t
-varInAstBindingsCase var (AstBindingsHVector t) = varInAst var t
+varInAstBindingsCase :: AstVarId -> AstBindingsCase y -> Bool
+varInAstBindingsCase var (DTKR t) = varInAst var $ unAstRanked t
+varInAstBindingsCase var (DTKS t) = varInAst var $ unAstShaped t
+varInAstBindingsCase var (DTKProduct t) = varInAst var t
+varInAstBindingsCase var (DTKUntyped t) = varInAst var $ unHVectorPseudoTensor t
 
 
 -- * Determining if a term is too small to require sharing
@@ -359,83 +362,16 @@ astIsSmall relaxed = \case
 
 -- * Odds and ends
 
-astReplicate0N :: forall n s r. (AstSpan s, GoodScalar r)
-               => IShR n -> r -> AstTensor s (TKR r n)
-astReplicate0N sh =
-  let go :: IShR n' -> AstTensor s (TKR r 0) -> AstTensor s (TKR r n')
-      go ZSR v = v
-      go (k :$: sh') v | Dict <- knownShR sh' = withSNat k $ \snat ->
-        AstReplicate snat $ go sh' v
-  in go sh . fromPrimal . AstConst . Nested.rscalar
-
-bindsToLet :: forall n s r. (KnownNat n, GoodScalar r)
-           => AstTensor s (TKR r n) -> AstBindings -> AstTensor s (TKR r n)
+bindsToLet :: forall s y. TensorKind y
+           => AstTensor s y -> AstBindings -> AstTensor s y
 {-# INLINE bindsToLet #-}  -- help list fusion
-bindsToLet = foldl' bindToLet
+bindsToLet u0 bs = foldl' bindToLet u0 (DMap.toDescList bs)
  where
-  bindToLet :: AstTensor s (TKR r n)
-            -> (AstVarId, AstBindingsCase)
-            -> AstTensor s (TKR r n)
-  bindToLet !u (varId, AstBindingsSimple d) =
-    let convertShaped :: (GoodScalar r2, KnownShS sh2)
-                      => AstShaped PrimalSpan r2 sh2 -> AstTensor s (TKR r n)
-        convertShaped (AstShaped t) =
-          withShapeP (shapeToList $ shapeAst u) $ \proxy -> case proxy of
-            Proxy @sh | Just Refl <- matchingRank @sh @n ->
-              AstRFromS @sh $ AstLet (mkAstVarName varId) t (AstSFromR u)
-            _ -> error "bindToLet: wrong rank"
-    in case d of
-      DynamicRanked (AstRanked w) -> AstLet (mkAstVarName varId) w u
-      DynamicShaped w -> convertShaped w
-      DynamicRankedDummy @r2 @sh2 _ _ ->
-          withListSh (Proxy @sh2) $ \sh2 ->
-            AstLet @(TKR r2 (X.Rank sh2)) @_ @PrimalSpan (mkAstVarName varId) (astReplicate0N sh2 0) u
-      DynamicShapedDummy @r2 @sh2 _ _ ->
-           withListSh (Proxy @sh2) $ \sh2 ->
-            AstLet @(TKR r2 (X.Rank sh2)) @_ @PrimalSpan (mkAstVarName varId) (astReplicate0N sh2 0) u
-  bindToLet u (varId, AstBindingsHVector d) =
-    AstLet (mkAstVarName varId) d u
-
-bindsToLetS :: forall sh r. (GoodScalar r, KnownShS sh)
-            => AstTensor PrimalSpan (TKS r sh) -> AstBindings
-            -> AstTensor PrimalSpan (TKS r sh)
-{-# INLINE bindsToLetS #-}  -- help list fusion
-bindsToLetS = foldl' bindToLetS
- where
-  bindToLetS :: AstTensor PrimalSpan (TKS r sh)
-             -> (AstVarId, AstBindingsCase)
-             -> AstTensor PrimalSpan (TKS r sh)
-  bindToLetS !u (varId, AstBindingsSimple d) = case d of
-    DynamicRanked (AstRanked w) ->
-      withListSh (Proxy @sh) $ \_ ->
-        AstSFromR $ AstLet (mkAstVarName varId) w (AstRFromS u)
-    DynamicShaped (AstShaped w) -> AstLet (mkAstVarName varId) w u
-    DynamicRankedDummy @r2 @sh2 _ _ ->
-        withListSh (Proxy @sh2) $ \sh2 ->
-          withListSh (Proxy @sh) $ \_ ->
-            AstSFromR
-            $ AstLet (mkAstVarName varId) (astReplicate0N @_ @PrimalSpan @r2 sh2 0) (AstRFromS u)
-    DynamicShapedDummy @r2 @sh2 _ _ ->
-        withListSh (Proxy @sh2) $ \sh2 ->
-          withListSh (Proxy @sh) $ \_ ->
-            AstSFromR
-            $ AstLet (mkAstVarName varId) (astReplicate0N @_ @PrimalSpan @r2 sh2 0) (AstRFromS u)
-  bindToLetS u (varId, AstBindingsHVector d) =
-    AstLet (mkAstVarName varId) d u
-
-bindsToHVectorLet
-   :: AstTensor PrimalSpan TKUntyped -> AstBindings -> AstTensor PrimalSpan TKUntyped
-{-# INLINE bindsToHVectorLet #-}   -- help list fusion
-bindsToHVectorLet = foldl' bindToHVectorLet
- where
-  bindToHVectorLet !u (varId, AstBindingsSimple d) = case d of
-    DynamicRanked (AstRanked w) -> AstLet (mkAstVarName varId) w u
-    DynamicShaped (AstShaped w) -> AstLet (mkAstVarName varId) w u
-    DynamicRankedDummy @r2 @sh2 _ _ ->
-        withListSh (Proxy @sh2) $ \sh2 ->
-          AstLet (mkAstVarName varId) (astReplicate0N @_ @PrimalSpan @r2 sh2 0) u
-    DynamicShapedDummy @r2 @sh2 _ _ ->
-        withListSh (Proxy @sh2) $ \sh2 ->
-          AstLet (mkAstVarName varId) (astReplicate0N @_ @PrimalSpan @r2 sh2 0) u
-  bindToHVectorLet u (varId, AstBindingsHVector d) =
-    AstLet (mkAstVarName varId) d u
+  bindToLet :: AstTensor s y
+            -> DSum (AstVarName PrimalSpan)
+                    (InterpretationTargetD (AstRanked PrimalSpan))
+            -> AstTensor s y
+  bindToLet !u (var :=> DTKR w) = AstLet var (unAstRanked w) u
+  bindToLet u (var :=> DTKS w) = AstLet var (unAstShaped w) u
+  bindToLet u (var :=> DTKProduct w) = AstLet var w u
+  bindToLet u (var :=> DTKUntyped w) = AstLet var (unHVectorPseudoTensor w) u

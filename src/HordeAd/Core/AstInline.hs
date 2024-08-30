@@ -14,9 +14,11 @@ import Prelude
 
 import Control.Arrow (second)
 import Data.Array.Internal (valueOf)
+import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.EnumMap.Strict qualified as EM
 import Data.List (mapAccumR)
 import Data.Maybe (fromMaybe)
+import Data.Some
 import Data.Type.Equality ((:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat, fromSNat)
@@ -398,59 +400,55 @@ inlineAstBool memo v0 = case v0 of
 -- * The translates global sharing to normal lets
 
 unshareAstRanked :: (KnownNat n, GoodScalar r)
-               => AstTensor PrimalSpan (TKR r n)
-               -> AstTensor PrimalSpan (TKR r n)
+                 => AstTensor PrimalSpan (TKR r n)
+                 -> AstTensor PrimalSpan (TKR r n)
 unshareAstRanked t =
-  let (memoOut, share) = shareAst EM.empty t
-      bindingsOut = EM.toDescList memoOut
-  in bindsToLet share bindingsOut
+  let (memoOut, share) = shareAst DMap.empty t
+  in bindsToLet share memoOut
 
 unshareAstShaped :: (KnownShS sh, GoodScalar r)
-               => AstTensor PrimalSpan (TKS r sh)
-               -> AstTensor PrimalSpan (TKS r sh)
+                 => AstTensor PrimalSpan (TKS r sh)
+                 -> AstTensor PrimalSpan (TKS r sh)
 unshareAstShaped t =
-  let (memoOut, share) = shareAst EM.empty t
-      bindingsOut = EM.toDescList memoOut
-  in bindsToLetS share bindingsOut
+  let (memoOut, share) = shareAst DMap.empty t
+  in bindsToLet share memoOut
 
-unshareAstHVector :: AstTensor PrimalSpan TKUntyped -> AstTensor PrimalSpan TKUntyped
+unshareAstHVector :: AstTensor PrimalSpan TKUntyped
+                  -> AstTensor PrimalSpan TKUntyped
 unshareAstHVector t =
-  let (memoOut, share) = shareAst EM.empty t
-      bindingsOut = EM.toDescList memoOut
-  in bindsToHVectorLet share bindingsOut
-
-type ShareMemo = EM.EnumMap AstVarId AstBindingsCase
+  let (memoOut, share) = shareAst DMap.empty t
+  in bindsToLet share memoOut
 
 -- This works only because the other code never inserts the same rshare
 -- into more than one index element, with the share containing
 -- the gather/scatter/build variables corresponding to the index.
 shareAstScoped
   :: forall n s r. (GoodScalar r, KnownNat n, AstSpan s)
-  => [IntVarName] -> ShareMemo -> AstTensor s (TKR r n)
-  -> (ShareMemo, AstTensor s (TKR r n))
+  => [IntVarName] -> AstBindings -> AstTensor s (TKR r n)
+  -> (AstBindings, AstTensor s (TKR r n))
 shareAstScoped vars0 memo0 v0 =
   let (memo1, v1) = shareAst memo0 v0
-      memoDiff = EM.difference memo1 memo0
+      memoDiff = DMap.difference memo1 memo0
       varsOccur vs d = any (`varInAstBindingsCase` d) vs
-      closeOccurs :: [AstVarId] -> ShareMemo -> (ShareMemo, ShareMemo)
+      closeOccurs :: [AstVarId] -> AstBindings -> (AstBindings, AstBindings)
       closeOccurs vars memo =
-        let (memoLocal, memoGlobal) = EM.partition (varsOccur vars) memo
-        in if EM.null memoLocal
+        let (memoLocal, memoGlobal) = DMap.partition (varsOccur vars) memo
+        in if DMap.null memoLocal
            then (memoLocal, memoGlobal)
            else -- TODO: we probably need to include all variables from
                 -- the HVector case, not only the first variable
                 -- that represents them
-                let vars2 = EM.keys memoLocal
+                let vars2 = map (\(Some var) -> varNameToAstVarId var)
+                                (DMap.keys memoLocal)
                     (memoLocal2, memoGlobal2) = closeOccurs vars2 memoGlobal
-                in (EM.union memoLocal memoLocal2, memoGlobal2)
+                in (DMap.union memoLocal memoLocal2, memoGlobal2)
       (memoLocal1, memoGlobal1) =
         closeOccurs (map varNameToAstVarId vars0) memoDiff
-      bindingsLocal = EM.toDescList memoLocal1
-  in (EM.union memo0 memoGlobal1, bindsToLet v1 bindingsLocal)
+  in (DMap.union memo0 memoGlobal1, bindsToLet v1 memoLocal1)
 
 shareAst
   :: forall s y. AstSpan s
-  => ShareMemo -> AstTensor s y -> (ShareMemo, AstTensor s y)
+  => AstBindings -> AstTensor s y -> (AstBindings, AstTensor s y)
 shareAst memo v0 = case v0 of
   Ast.AstTuple t1 t2 ->
     let (memo1, v1) = shareAst memo t1
@@ -486,17 +484,16 @@ shareAst memo v0 = case v0 of
     -- delta eval now creates lets (where?)
   Ast.AstShare @y2 var v | Just Refl <- sameAstSpan @s @PrimalSpan ->
     -- We assume v is the same if var is the same.
-    let varId = varNameToAstVarId var
-        astVar = Ast.AstVar (shapeAstFull v) var
-    in if varId `EM.member` memo
+    let astVar = Ast.AstVar (shapeAstFull v) var
+    in if var `DMap.member` memo
        then (memo, astVar)  -- TODO: memoize AstVar itself
        else let (memo1, v2) = shareAst memo v
                 d = case stensorKind @y2 of
-                  STKR{} -> AstBindingsSimple $ DynamicRanked $ AstRanked v2
-                  STKS{} -> AstBindingsSimple $ DynamicShaped $ AstShaped v2
-                  STKProduct{} -> error "TODO"
-                  STKUntyped{} -> AstBindingsHVector v2
-            in (EM.insert varId d memo1, astVar)
+                  STKR{} -> DTKR $ AstRanked v2
+                  STKS{} -> DTKS $ AstShaped v2
+                  STKProduct{} -> DTKProduct v2
+                  STKUntyped{} -> DTKUntyped $ HVectorPseudoTensor v2
+            in (DMap.insert var d memo1, astVar)
   Ast.AstShare{} -> error "shareAst: AstShare not in PrimalSpan"
   Ast.AstMinIndex a -> second Ast.AstMinIndex $ shareAst memo a
   Ast.AstMaxIndex a -> second Ast.AstMaxIndex $ shareAst memo a
@@ -649,7 +646,7 @@ shareAst memo v0 = case v0 of
 
 shareAstDynamic
   :: AstSpan s
-  => ShareMemo -> AstDynamic s -> (ShareMemo, AstDynamic s)
+  => AstBindings -> AstDynamic s -> (AstBindings, AstDynamic s)
 shareAstDynamic memo = \case
   DynamicRanked (AstRanked w) ->
     second (DynamicRanked . AstRanked) $ shareAst memo w
@@ -659,7 +656,7 @@ shareAstDynamic memo = \case
   u@DynamicShapedDummy{} -> (memo, u)
 
 shareAstHFun
-  :: ShareMemo -> AstHFun x y -> (ShareMemo, AstHFun x y)
+  :: AstBindings -> AstHFun x y -> (AstBindings, AstHFun x y)
 shareAstHFun memo v0 = case v0 of
   Ast.AstLambda{} ->
     -- No other free variables in l, so no outside lets can reach there,
@@ -668,7 +665,7 @@ shareAstHFun memo v0 = case v0 of
     (memo, v0)
   Ast.AstVarHFun{} -> (memo, v0)
 
-shareAstBool :: ShareMemo -> AstBool -> (ShareMemo, AstBool)
+shareAstBool :: AstBindings -> AstBool -> (AstBindings, AstBool)
 shareAstBool memo v0 = case v0 of
   Ast.AstBoolNot arg ->
     let (memo2, arg2) = shareAstBool memo arg

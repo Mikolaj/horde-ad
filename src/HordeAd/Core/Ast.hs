@@ -15,7 +15,7 @@ module HordeAd.Core.Ast
   , AstArtifactRev(..), AstArtifactFwd(..)
   , AstIndex, AstVarList, AstIndexS, AstVarListS
     -- * AstBindingsCase and AstBindings
-  , AstBindingsCase(..), AstBindings
+  , AstBindingsCase, AstBindings
     -- * ASTs
   , AstRanked(..), AstTensor(..), AstShaped(..)
   , AstDynamic, AstHFun(..)
@@ -31,7 +31,8 @@ import Prelude hiding (foldl')
 
 import Data.Array.Internal (valueOf)
 import Data.Array.Shape qualified as Sh
-import Data.Dependent.EnumMap.Strict as DMap
+import Data.Dependent.EnumMap.Strict (DEnumMap)
+import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Functor.Const
 import Data.GADT.Compare
 import Data.GADT.Show
@@ -59,6 +60,8 @@ import HordeAd.Util.SizedList
 
 -- * Basic type family instances
 
+type instance InterpretationTarget (AstRanked s) (TKProduct x z) =
+  AstTensor s (TKProduct x z)
 type instance RankedOf (AstRanked s) = AstRanked s
 type instance ShapedOf (AstRanked s) = AstShaped s
 type instance PrimalOf (AstRanked s) = AstRanked PrimalSpan
@@ -223,11 +226,10 @@ type AstVarListS sh = SizedListS sh (Const IntVarName)
 
 -- * AstBindingsCase and AstBindings
 
-data AstBindingsCase  =
-    AstBindingsSimple (DynamicTensor (AstRanked PrimalSpan))
-  | AstBindingsHVector (HVectorOf (AstRanked PrimalSpan))
+type AstBindingsCase y = InterpretationTargetD (AstRanked PrimalSpan) y
 
-type AstBindings = [(AstVarId, AstBindingsCase)]
+type AstBindings = DEnumMap (AstVarName PrimalSpan)
+                            (InterpretationTargetD (AstRanked PrimalSpan))
 
 
 -- * ASTs
