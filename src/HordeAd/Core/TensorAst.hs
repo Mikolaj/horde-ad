@@ -1056,14 +1056,7 @@ astLetHFunInHVectorFunRaw a f =
   in fun1HToAst shss shs $ \ !var !ast -> AstLetHFunInHVector var a (f ast)
 
 instance AstSpan s => RankedTensor (AstRaw s) where
-  rletTKIn :: forall y n r.
-              (TensorKind y, KnownNat n, GoodScalar r)
-           => STensorKindType y -> InterpretationTarget (AstRaw s) y
-           -> (InterpretationTarget (AstRaw s) y -> AstRaw s r n)
-           -> AstRaw s r n
-  rletTKIn stk a f =
-    AstRaw
-    $ astLetFunRaw @y @_ @s (unRawY stk a) (unAstRaw . f . rawY stk)
+  rletTKIn = error "lets are not supported by AstRaw"
   rshape = shapeAst . unAstRaw
   rminIndex = AstRaw . fromPrimal . AstMinIndex . astSpanPrimal . unAstRaw
   rmaxIndex = AstRaw . fromPrimal . AstMaxIndex . astSpanPrimal . unAstRaw
@@ -1093,9 +1086,8 @@ instance AstSpan s => RankedTensor (AstRaw s) where
   rfromIntegral =
     AstRaw . fromPrimal . AstFromIntegral . astSpanPrimal . unAstRaw
   rconst = AstRaw . fromPrimal . AstConst
-  rletHVectorIn a f =
-    AstRaw $ astLetHVectorInFunRaw (unAstRawWrap a) (unAstRaw . f . rawHVector)
-  rletHFunIn a f = AstRaw $ astLetHFunInFunRaw a (unAstRaw . f)
+  rletHVectorIn = error "lets are not supported by AstRaw"
+  rletHFunIn = error "lets are not supported by AstRaw"
   rfromS = AstRaw . AstRFromS . unAstRawS
 
   -- For convenience and simplicity we define this for all spans,
@@ -1112,13 +1104,7 @@ instance AstSpan s => RankedTensor (AstRaw s) where
                $ AstConstant (unAstRaw s) * AstD (unAstRanked $ rzero (rshape s)) (unAstRaw t)
 
 instance AstSpan s => ShapedTensor (AstRawS s) where
-  sletTKIn :: forall y sh r. (TensorKind y, GoodScalar r, KnownShS sh)
-           => STensorKindType y -> InterpretationTarget (AstRaw s) y
-           -> (InterpretationTarget (AstRaw s) y -> AstRawS s r sh)
-           -> AstRawS s r sh
-  sletTKIn stk a f =
-    AstRawS
-    $ astLetFunRaw @y @_ @s (unRawY stk a) (unAstRawS . f . rawY stk)
+  sletTKIn = error "lets are not supported by AstRaw"
   sminIndex = AstRawS . fromPrimal . AstMinIndexS . astSpanPrimal . unAstRawS
   smaxIndex = AstRawS . fromPrimal . AstMaxIndexS . astSpanPrimal . unAstRawS
   sfloor = AstRawS . fromPrimal . AstFloorS . astSpanPrimal . unAstRawS
@@ -1148,10 +1134,8 @@ instance AstSpan s => ShapedTensor (AstRawS s) where
   sfromIntegral = AstRawS . fromPrimal . AstFromIntegralS
                   . astSpanPrimal . unAstRawS
   sconst = AstRawS . fromPrimal . AstConstS
-  sletHVectorIn a f =
-    AstRawS
-    $ astLetHVectorInFunRawS (unAstRawWrap a) (unAstRawS . f . rawHVector)
-  sletHFunIn a f = AstRawS $ astLetHFunInFunRawS a (unAstRawS . f)
+  sletHVectorIn = error "lets are not supported by AstRaw"
+  sletHFunIn = error "lets are not supported by AstRaw"
   sfromR = AstRawS . AstSFromR . unAstRaw
 
   sshare a@(AstRawS (AstShare{})) = a
@@ -1197,41 +1181,10 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
           DynamicShapedDummy @r @sh _ _ ->
             DynamicShaped @r @sh $ AstShaped $ AstProjectS hVectorOf i
     in rawHVector $ V.imap f $ shapeAstHVector hVectorOf
-  dletHVectorInHVector a f =
-    AstRawWrap
-    $ astLetHVectorInHVectorFunRaw (unAstRawWrap a)
-                                   (unAstRawWrap . f . rawHVector)
-  dletHFunInHVector t f =
-    AstRawWrap
-    $ astLetHFunInHVectorFunRaw t (unAstRawWrap . f)
-  tlet :: forall x z. (TensorKind x, TensorKind z)
-       => InterpretationTarget (AstRaw s) x
-       -> (ConcreteTarget (AstRaw s) x
-           -> InterpretationTarget (AstRaw s) z)
-       -> InterpretationTarget (AstRaw s) z
-  tlet u f = case stensorKind @x of
-    STKR{} -> rawY (stensorKind @z)
-              $ astLetFunRaw (unAstRaw u)
-                             (unRawY (stensorKind @z) . f . AstRaw)
-    STKS{} -> rawY (stensorKind @z)
-              $ astLetFunRaw (unAstRawS u)
-                             (unRawY (stensorKind @z) . f . AstRawS)
-    STKProduct{} -> error "TODO"
-    STKUntyped{} -> error "TODO"
-  blet :: forall x z. (TensorKind x, TensorKind z)
-       => InterpretationTarget (AstRaw s) x
-       -> (InterpretationTarget (AstRaw s) x
-           -> InterpretationTarget (AstRaw s) z)
-       -> InterpretationTarget (AstRaw s) z
-  blet u f = case stensorKind @x of
-    STKR{} -> rawY (stensorKind @z)
-              $ astLetFunRaw (unAstRaw u)
-                             (unRawY (stensorKind @z) . f . AstRaw)
-    STKS{} -> rawY (stensorKind @z)
-              $ astLetFunRaw (unAstRawS u)
-                             (unRawY (stensorKind @z) . f . AstRawS)
-    STKProduct{} -> error "TODO"
-    STKUntyped{} -> error "TODO"
+  dletHVectorInHVector = error "lets are not supported by AstRaw"
+  dletHFunInHVector = error "lets are not supported by AstRaw"
+  tlet = error "lets are not supported by AstRaw"
+  blet = error "lets are not supported by AstRaw"
   dshare a@(AstRawWrap AstShare{}) = a
   dshare a | astIsSmall True (unAstRawWrap a) = a
   dshare a = AstRawWrap $ fun1ToAst $ \ !var -> AstShare var (unAstRawWrap a)
