@@ -256,9 +256,9 @@ data AstTensor :: AstSpanType -> TensorKindType -> Type where
   AstTuple :: (TensorKind y, TensorKind z)
            => AstTensor s y -> AstTensor s z
            -> AstTensor s (TKProduct y z)
-  AstProject1 :: forall x z s. TensorKind z
+  AstProject1 :: forall x z s. (TensorKind x, TensorKind z)
               => AstTensor s (TKProduct x z) -> AstTensor s x
-  AstProject2 :: forall x z s. TensorKind x
+  AstProject2 :: forall x z s. (TensorKind x, TensorKind z)
               => AstTensor s (TKProduct x z) -> AstTensor s z
   AstVar :: TensorKind y
          => TensorKindFull y -> AstVarName s y -> AstTensor s y

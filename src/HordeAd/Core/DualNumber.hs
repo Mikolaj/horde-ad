@@ -145,7 +145,7 @@ generateDeltaInputs ftk = case ftk of
 
 makeADInputs
   :: forall x ranked.
-     ( TensorKind x, HVectorTensor ranked (ShapedOf ranked)
+     ( TensorKind x, ProductTensor ranked, HVectorTensor ranked (ShapedOf ranked)
      , RankedOf (ShapedOf ranked) ~ ranked )
   => InterpretationTarget ranked x -> Delta ranked x
   -> InterpretationTarget (ADVal ranked) x
@@ -156,7 +156,7 @@ makeADInputs p0 d0 =
       g STKR{} p d = dDnotShared p (DeltaR d)
       g STKS{} p d = dDnotShared p (DeltaS d)
       g (STKProduct stk1 stk2) p d =
-        (g stk1 (fst p) (Project1G d), g stk2 (snd p) (Project2G d))
+        (g stk1 (tproject1 p) (Project1G d), g stk2 (tproject2 p) (Project2G d))
       g STKUntyped p d =
         HVectorPseudoTensor
         $ ahhToHVector (dunHVector $ unHVectorPseudoTensor p) d
@@ -275,6 +275,15 @@ type instance HFunOf (ADVal f) x y = HFun x y
 type instance PrimalOf (ADVal f) = f
 
 type instance DualOf (ADVal f) = Dual f
+
+type instance InterpretationTarget (ADVal ranked) (TKProduct x z) =
+  (InterpretationTarget (ADVal ranked) x, InterpretationTarget (ADVal ranked) z)
+
+instance ProductTensor (ADVal ranked) where
+  ttuple u v = (u, v)
+  tproject1 = fst
+  tproject2 = snd
+  tmkHVector = id
 
 
 -- * Numeric instances

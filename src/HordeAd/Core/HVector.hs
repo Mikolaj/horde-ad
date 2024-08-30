@@ -56,12 +56,15 @@ deriving instance Show (HVectorOf ranked)
 
 type instance RankedOf (HVectorPseudoTensor ranked) = ranked
 
-type family InterpretationTarget ranked y = result | result -> ranked y where
-  InterpretationTarget ranked (TKR r n) = ranked r n
-  InterpretationTarget ranked (TKS r sh) = ShapedOf ranked r sh
-  InterpretationTarget ranked (TKProduct x z) =
-    (InterpretationTarget ranked x, InterpretationTarget ranked z)
-  InterpretationTarget ranked TKUntyped = HVectorPseudoTensor ranked Float '()
+type family InterpretationTarget (ranked :: RankedTensorType)
+                                 (y :: TensorKindType)
+  = result | result -> ranked y
+
+type instance InterpretationTarget ranked (TKR r n) = ranked r n
+type instance InterpretationTarget ranked (TKS r sh) = ShapedOf ranked r sh
+-- The TKProduct case is defined separately for each ranked argument.
+type instance InterpretationTarget ranked TKUntyped =
+  HVectorPseudoTensor ranked Float '()
     -- HVectorPseudoTensor instead of HVectorOf required for injectivity
 
 type family ConcreteTarget ranked y = result | result -> ranked y where

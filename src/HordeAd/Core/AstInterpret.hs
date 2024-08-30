@@ -162,9 +162,9 @@ interpretAst
   => AstEnv ranked
   -> AstTensor s y -> InterpretationTarget ranked y
 interpretAst !env = \case
-  AstTuple t1 t2 -> (interpretAst env t1, interpretAst env t2)
-  AstProject1 t -> fst (interpretAst env t)
-  AstProject2 t -> snd (interpretAst env t)
+  AstTuple t1 t2 -> ttuple (interpretAst env t1) (interpretAst env t2)
+  AstProject1 t -> tproject1 (interpretAst env t)
+  AstProject2 t -> tproject2 (interpretAst env t)
   AstVar @y2 _sh var ->
    let var2 = mkAstVarName @FullSpan @y2 (varNameToAstVarId var)  -- TODO
    in case DMap.lookup var2 env of
@@ -225,17 +225,19 @@ interpretAst !env = \case
          (ifF c) (ifF c)
          (stensorKind @y2)
          (interpretAst env a1) (interpretAst env a2)
-  AstReplicate @y2 k@(SNat @k) v ->
+  AstReplicate @y2 snat@(SNat @k) v ->
     let replStk :: STensorKindType z -> InterpretationTarget ranked z
                 -> InterpretationTarget ranked (BuildTensorKind k z)
         replStk stk u = case stk of
-          STKR{} -> rreplicate (sNatValue k) u
+          STKR{} -> rreplicate (sNatValue snat) u
           STKS{} -> sreplicate u
-          STKProduct stk1 stk2 ->
-            (replStk stk1 (fst u), replStk stk2 (snd u))
+          STKProduct @z1 @z2 stk1 stk2
+            | Dict <- lemTensorKindOfBuild snat (stensorKind @z1)
+            , Dict <- lemTensorKindOfBuild snat (stensorKind @z2) ->
+              ttuple (replStk stk1 (tproject1 u)) (replStk stk2 (tproject2 u))
           STKUntyped -> HVectorPseudoTensor $
             dletHVectorInHVector (unHVectorPseudoTensor u) $ \ !hv ->
-              mkreplicate1HVector k hv
+              mkreplicate1HVector snat hv
     in replStk (stensorKind @y2) (interpretAst env v)
   -- These are only needed for tests that don't vectorize Ast.
   AstBuild1 @y2
@@ -261,14 +263,17 @@ interpretAst !env = \case
         let t1 = interpretAst env t
             t2 = interpretAst env u
         in rmatvecmul t2 t1
-  AstBuild1 (SNat @n) (_, v)
+  AstBuild1 snat@(SNat @n) (_, v)
     | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
       let emptyFromStk :: TensorKindFull z
                        -> InterpretationTarget ranked (BuildTensorKind n z)
           emptyFromStk ftk = case ftk of
             FTKR sh -> rfromList0N (0 :$: sh) []
             FTKS -> sfromList0N []
-            FTKProduct ftk1 ftk2 -> (emptyFromStk ftk1, emptyFromStk ftk2)
+            FTKProduct @z1 @z2 ftk1 ftk2
+              | Dict <- lemTensorKindOfBuild snat (stensorKind @z1)
+              , Dict <- lemTensorKindOfBuild snat (stensorKind @z2) ->
+                ttuple (emptyFromStk ftk1) (emptyFromStk ftk2)
             FTKUntyped ssh -> HVectorPseudoTensor
                               $ mkreplicate1HVector (SNat @0)
                               $ V.map dynamicFromVoid ssh
@@ -284,16 +289,21 @@ interpretAst !env = \case
   --   $ interpretLambdaI interpretAstPrimal env (var, v)
   AstBuild1 @y2 snat@(SNat @n) (var, v) ->
     let f i = interpretAst (extendEnvI var i env) v
-        replStk :: STensorKindType z
+        replStk :: forall z.
+                   STensorKindType z
                 -> (IntOf ranked -> InterpretationTarget ranked z)
                 -> InterpretationTarget ranked (BuildTensorKind n z)
         replStk stk g = case stk of
           STKR{} -> rbuild1 (sNatValue snat) g
           STKS{} -> sbuild1 g
-          STKProduct stk1 stk2 ->
-            let f1 i = fst $ g i  -- looks expensive, but hard to do better,
-                f2 i = snd $ g i  -- so let's hope v is full of variables
-            in (replStk stk1 f1, replStk stk2 f2)
+          STKProduct @z1 @z2 stk1 stk2
+            | Dict <- lemTensorKindOfBuild snat (stensorKind @z1)
+            , Dict <- lemTensorKindOfBuild snat (stensorKind @z2) ->
+              let f1 i = tproject1 $ g i
+                  f2 i = tproject2 $ g i
+                    -- looks expensive, but hard to do better,
+                    -- so let's hope v is full of variables
+              in ttuple (replStk stk1 f1) (replStk stk2 f2)
           STKUntyped ->
             HVectorPseudoTensor $ dbuild1 snat (unHVectorPseudoTensor . g)
     in replStk (stensorKind @y2) f

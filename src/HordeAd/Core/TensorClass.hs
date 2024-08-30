@@ -779,12 +779,13 @@ class HVectorTensor (ranked :: RankedTensorType)
   dshare :: HVectorOf ranked -> HVectorOf ranked
   dshare = id
   tshare :: forall y.
-            (TensorKind y, RankedTensor ranked, ShapedTensor (ShapedOf ranked))
+            ( TensorKind y, RankedTensor ranked, ProductTensor ranked
+            , ShapedTensor (ShapedOf ranked) )
          => InterpretationTarget ranked y -> InterpretationTarget ranked y
   tshare t = case stensorKind @y of
     STKR{} -> rshare t
     STKS{} -> sshare t
-    STKProduct{} -> (tshare $ fst t, tshare $ snd t)
+    STKProduct{} -> ttuple (tshare $ tproject1 t) (tshare $ tproject2 t)
       -- this is fine, because t is not duplicated
     STKUntyped{} -> HVectorPseudoTensor $ dshare $ unHVectorPseudoTensor t
   tunshare :: TensorKind y
@@ -823,7 +824,7 @@ class HVectorTensor (ranked :: RankedTensorType)
        -> HVectorOf ranked
   -- We can't get sh from anywhere, so this is not possible:
   -- rrev f shs es = rrevDt f shs es (rreplicate0N sh 1)
-  rrevDt :: (GoodScalar r, KnownNat n)
+  rrevDt :: (GoodScalar r, KnownNat n, ProductTensor ranked)
          => (forall f. ADReady f => HVector f -> f r n)
          -> VoidHVector
          -> HVector ranked
@@ -839,10 +840,10 @@ class HVectorTensor (ranked :: RankedTensorType)
     in \ !es !dt ->
          unHVectorPseudoTensor
          $ dHApply @_ @_ @(TKProduct TKUntyped TKUntyped) @TKUntyped h
-         $ ( HVectorPseudoTensor $ dmkHVector
-             $ V.singleton $ DynamicRanked dt
-           , HVectorPseudoTensor $ dmkHVector es )
-  rfwd :: (GoodScalar r, KnownNat n, RankedTensor ranked)
+         $ ttuple (HVectorPseudoTensor $ dmkHVector
+                   $ V.singleton $ DynamicRanked dt)
+                  (HVectorPseudoTensor $ dmkHVector es)
+  rfwd :: (GoodScalar r, KnownNat n, ProductTensor ranked, RankedTensor ranked)
        => (forall f. ADReady f => HVector f -> f r n)
        -> VoidHVector
        -> HVector ranked
@@ -859,17 +860,19 @@ class HVectorTensor (ranked :: RankedTensorType)
          let hv = unHVectorPseudoTensor
                   $ dHApply
                       @_ @_ @(TKProduct TKUntyped TKUntyped) @TKUntyped h
-                      $ ( HVectorPseudoTensor $ dmkHVector ds
-                        , HVectorPseudoTensor $ dmkHVector es )
+                      $ ttuple (HVectorPseudoTensor $ dmkHVector ds)
+                               (HVectorPseudoTensor $ dmkHVector es)
          in rfromD $ dunHVector hv V.! 0
-  srev :: ( GoodScalar r, KnownShS sh, shaped ~ ShapedOf ranked
+  srev :: ( GoodScalar r, KnownShS sh, ProductTensor ranked
+          , shaped ~ ShapedOf ranked
           , ShapedTensor shaped )
        => (forall f. ADReadyS f => HVector (RankedOf f) -> f r sh)
        -> VoidHVector
        -> HVector ranked
        -> HVectorOf ranked
   srev f shs es = srevDt f shs es (srepl 1)
-  srevDt :: ( GoodScalar r, KnownShS sh, shaped ~ ShapedOf ranked )
+  srevDt :: ( GoodScalar r, KnownShS sh, ProductTensor ranked
+            , shaped ~ ShapedOf ranked )
          => (forall f. ADReadyS f => HVector (RankedOf f) -> f r sh)
          -> VoidHVector
          -> HVector ranked
@@ -885,10 +888,11 @@ class HVectorTensor (ranked :: RankedTensorType)
     in \ !es !dt ->
          unHVectorPseudoTensor
          $ dHApply @_ @_ @(TKProduct TKUntyped TKUntyped) @TKUntyped h
-         $ ( HVectorPseudoTensor $ dmkHVector
-             $ V.singleton $ DynamicShaped dt
-           , HVectorPseudoTensor $ dmkHVector es )
+         $ ttuple (HVectorPseudoTensor $ dmkHVector
+                   $ V.singleton $ DynamicShaped dt)
+                  (HVectorPseudoTensor $ dmkHVector es)
   sfwd :: ( GoodScalar r, KnownShS sh, RankedTensor ranked, ShapedTensor shaped
+          , ProductTensor ranked
           , shaped ~ ShapedOf ranked, ranked ~ RankedOf shaped )
        => (forall f. ADReadyS f => HVector (RankedOf f) -> f r sh)
        -> VoidHVector
@@ -906,8 +910,8 @@ class HVectorTensor (ranked :: RankedTensorType)
          let hv = unHVectorPseudoTensor
                   $ dHApply
                       @_ @_ @(TKProduct TKUntyped TKUntyped) @TKUntyped h
-                      $ ( HVectorPseudoTensor $ dmkHVector ds
-                        , HVectorPseudoTensor $ dmkHVector es )
+                      $ ttuple (HVectorPseudoTensor $ dmkHVector ds)
+                               (HVectorPseudoTensor $ dmkHVector es)
          in sfromD $ dunHVector hv V.! 0
   -- These methods (and dlambda) producing HFunOf is analogous to dmkHVector
   -- producing HVectorOf and it's exactly what is needed as arguments
@@ -1076,9 +1080,9 @@ class HVectorTensor (ranked :: RankedTensorType)
            -> InterpretationTarget f TKUntyped
         fl !acc_e = HVectorPseudoTensor $
           dletHVectorInHVector
-            (unHVectorPseudoTensor $ fst acc_e) $ \ !acc ->
+            (unHVectorPseudoTensor $ tproject1 acc_e) $ \ !acc ->
             dletHVectorInHVector
-              (unHVectorPseudoTensor $ snd acc_e) $ \ !e ->
+              (unHVectorPseudoTensor $ tproject2 acc_e) $ \ !e ->
               f acc e
         accLen = V.length accShsH
         fs :: forall f. ADReady f
@@ -1142,9 +1146,9 @@ class HVectorTensor (ranked :: RankedTensorType)
            -> InterpretationTarget f TKUntyped
         fl !acc_e = HVectorPseudoTensor $
           dletHVectorInHVector
-            (unHVectorPseudoTensor $ fst acc_e) $ \ !acc ->
+            (unHVectorPseudoTensor $ tproject1 acc_e) $ \ !acc ->
             dletHVectorInHVector
-              (unHVectorPseudoTensor $ snd acc_e) $ \ !e ->
+              (unHVectorPseudoTensor $ tproject2 acc_e) $ \ !e ->
               f acc e
         accLen = V.length accShsH
         fs :: forall f. ADReady f
@@ -1175,15 +1179,15 @@ class HVectorTensor (ranked :: RankedTensorType)
 -- TODO: tmkHVector should be removed, but the Delta instance needed
 -- in interpreter makes this difficult.
 class ProductTensor (ranked :: RankedTensorType) where
-  ttuple :: InterpretationTarget ranked x -> InterpretationTarget ranked z
+  ttuple :: (TensorKind x, TensorKind z)
+         => InterpretationTarget ranked x -> InterpretationTarget ranked z
          -> InterpretationTarget ranked (TKProduct x z)
-  ttuple a b = (a, b)
-  tproject1 :: InterpretationTarget ranked (TKProduct x z)
+  tproject1 :: (TensorKind x, TensorKind z)
+            => InterpretationTarget ranked (TKProduct x z)
             -> InterpretationTarget ranked x
-  tproject1 (a, _b) = a
-  tproject2 :: InterpretationTarget ranked (TKProduct x z)
+  tproject2 :: (TensorKind x, TensorKind z)
+            => InterpretationTarget ranked (TKProduct x z)
             -> InterpretationTarget ranked z
-  tproject2 (_a, b) = b
   tmkHVector :: HVector ranked -> HVectorOf ranked
 
 rfromD :: forall r n ranked.
@@ -1358,7 +1362,7 @@ mapBoth2 _ _ _ _ = error "mapBoth2: unexpected arguments"
 
 mapInterpretationTarget
   :: forall f g y.
-     ( ProductTensor g
+     ( ProductTensor f, ProductTensor g
      , RankedTensor f, ShapedTensor (ShapedOf f)
      , HVectorTensor f (ShapedOf f) )
   => (forall r n. (GoodScalar r, KnownNat n)
@@ -1372,9 +1376,9 @@ mapInterpretationTarget fr fs stk b = case stk of
   STKR{} -> fr b
   STKS{} -> fs b
   STKProduct stk1 stk2 ->
-    let !t1 = mapInterpretationTarget fr fs stk1 $ fst b
-        !t2 = mapInterpretationTarget fr fs stk2 $ snd b
-    in (t1, t2)
+    let !t1 = mapInterpretationTarget fr fs stk1 $ tproject1 b
+        !t2 = mapInterpretationTarget fr fs stk2 $ tproject2 b
+    in ttuple t1 t2
   STKUntyped ->
     -- Here @dletHVectorInHVector@ wouldn't work, because f and g differ.
     -- TODO: verify that @dshare@ works or rewrite differently.
@@ -1386,7 +1390,7 @@ mapInterpretationTarget fr fs stk b = case stk of
 
 mapInterpretationTarget2
   :: forall f1 f2 g y.
-     ( ProductTensor g
+     ( ProductTensor f1, ProductTensor f2, ProductTensor g
      , RankedTensor f1, ShapedTensor (ShapedOf f1)
      , RankedTensor f2, ShapedTensor (ShapedOf f2)
      , HVectorTensor f1 (ShapedOf f1)
@@ -1404,9 +1408,9 @@ mapInterpretationTarget2 fr fs stk b1 b2 = case stk of
   STKR{} -> fr b1 b2
   STKS{} -> fs b1 b2
   STKProduct stk1 stk2 ->
-    let !t1 = mapInterpretationTarget2 fr fs stk1 (fst b1) (fst b2)
-        !t2 = mapInterpretationTarget2 fr fs stk2 (snd b1) (snd b2)
-    in (t1, t2)
+    let !t1 = mapInterpretationTarget2 fr fs stk1 (tproject1 b1) (tproject1 b2)
+        !t2 = mapInterpretationTarget2 fr fs stk2 (tproject2 b1) (tproject2 b2)
+    in ttuple t1 t2
   STKUntyped ->
     let fd :: DynamicTensor f1 -> DynamicTensor f2 -> DynamicTensor g
         fd = mapBoth2 fr fs
@@ -1416,7 +1420,7 @@ mapInterpretationTarget2 fr fs stk b1 b2 = case stk of
            (dunHVector $ dshare $ unHVectorPseudoTensor b2)
 
 mapInterpretationTarget2Weak
-  :: forall f1 f2 g y. ProductTensor g
+  :: forall f1 f2 g y. (ProductTensor f1, ProductTensor f2, ProductTensor g)
   => (forall r n. (GoodScalar r, KnownNat n)
       => InterpretationTarget f1 (TKR r n) -> InterpretationTarget f2 (TKR r n)
       -> InterpretationTarget g (TKR r n))
@@ -1430,9 +1434,9 @@ mapInterpretationTarget2Weak fr fs stk b1 b2 = case stk of
   STKR{} -> fr b1 b2
   STKS{} -> fs b1 b2
   STKProduct stk1 stk2 ->
-    let !t1 = mapInterpretationTarget2Weak fr fs stk1 (fst b1) (fst b2)
-        !t2 = mapInterpretationTarget2Weak fr fs stk2 (snd b1) (snd b2)
-    in (t1, t2)
+    let !t1 = mapInterpretationTarget2Weak fr fs stk1 (tproject1 b1) (tproject1 b2)
+        !t2 = mapInterpretationTarget2Weak fr fs stk2 (tproject2 b1) (tproject2 b2)
+    in ttuple t1 t2
   STKUntyped -> error "TODO: mapInterpretationTarget2Weak is weak"
 
 type role HFun nominal nominal

@@ -25,6 +25,7 @@ import Data.Array.Nested.Internal.Shaped qualified as Nested.Internal
 import HordeAd
 import HordeAd.Core.AstFreshId (resetVarCounter)
 import HordeAd.Core.TensorAst
+import HordeAd.Core.TensorConcrete ()
 import HordeAd.Internal.BackendOX (ORArray, OSArray)
 import HordeAd.Internal.OrthotopeOrphanInstances
   (FlipR (..), FlipS (..), RealFloatF (..))
@@ -3772,8 +3773,8 @@ testSin0MapAccumNestedR10fN = do
                    (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked z)
                    (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked $ rreplicate 2 z)
       f :: forall f. ADReady f => f Double 0
-        -> (ShapedOf f Float '[1], f Double 0)
-      f x = (sfromList [scast $ sfromR $ g x], g x + rscalar  0.2)
+        -> InterpretationTarget f (TKProduct (TKS Float '[1]) (TKR Double 0))
+      f x = ttuple (sfromList [scast $ sfromR $ g x]) (g x + rscalar 0.2)
     in f) (rscalar 0.0001) (rscalar 0.0001))
 
 testSin0MapAccumNestedR10rf :: Assertion
@@ -4303,7 +4304,7 @@ testSin0revhV4 :: Assertion
 testSin0revhV4 = do
   let doms = V.singleton (voidFromSh @Double ZSR)
       doms3 = V.singleton (voidFromSh @Double (3 :$: ZSR))
-      f :: forall g. (HVectorTensor g (ShapedOf g), RankedTensor g)
+      f :: forall g. (HVectorTensor g (ShapedOf g), RankedTensor g, ProductTensor g)
         => HVector g -> HVectorOf g
       f x =
         rrevDt @g @_ @Double @1 (rscanZip const doms 5)
@@ -4321,7 +4322,7 @@ testSin0revhV5 :: Assertion
 testSin0revhV5 = do
   let doms = V.singleton (voidFromShS @Double @'[])
       doms3 = V.singleton (voidFromShS @Double @'[3])
-      f :: forall g. (HVectorTensor g (ShapedOf g), ShapedTensor (ShapedOf g))
+      f :: forall g. (HVectorTensor g (ShapedOf g), ShapedTensor (ShapedOf g), ProductTensor g)
         => HVector g -> HVectorOf g
       f x =
         srevDt @g @_ @Double @'[4] (sscanZip const doms (srepl 5))
@@ -4339,7 +4340,7 @@ testSin0revhV6 :: Assertion
 testSin0revhV6 = do
   let doms = V.singleton (voidFromSh @Double ZSR)
       doms3 = V.singleton (voidFromSh @Double (3 :$: ZSR))
-      f :: forall g. (HVectorTensor g (ShapedOf g), RankedTensor g)
+      f :: forall g. (HVectorTensor g (ShapedOf g), RankedTensor g, ProductTensor g)
         => HVector g -> HVectorOf g
       f x =
         rrevDt @g @_ @Double @1
@@ -4359,7 +4360,7 @@ testSin0revhV7 :: Assertion
 testSin0revhV7 = do
   let doms = V.singleton (voidFromShS @Double @'[])
       doms3 = V.singleton (voidFromShS @Double @'[3])
-      f :: forall g. (HVectorTensor g (ShapedOf g), ShapedTensor (ShapedOf g))
+      f :: forall g. (HVectorTensor g (ShapedOf g), ShapedTensor (ShapedOf g), ProductTensor g)
         => HVector g -> HVectorOf g
       f x =
         srevDt @g @_ @Double @'[4]

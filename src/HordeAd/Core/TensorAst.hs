@@ -12,6 +12,7 @@ module HordeAd.Core.TensorAst
   , revProduceArtifact
   , fwdArtifactFromForwardPass, fwdProduceArtifact
   , rawY, unRawY
+  , simplifyArtifact
   , printArtifactSimple, printArtifactPretty
   , printArtifactPrimalSimple, printArtifactPrimalPretty
   ) where
@@ -44,7 +45,7 @@ import HordeAd.Core.Delta
 import HordeAd.Core.DualNumber
 import HordeAd.Core.HVector
 import HordeAd.Core.HVectorOps
-import HordeAd.Core.TensorADVal (unADValInterpretation, unDeltaRY)
+import HordeAd.Core.TensorADVal (unADValInterpretation)
 import HordeAd.Core.TensorClass
 import HordeAd.Core.TensorConcrete ()
 import HordeAd.Core.Types
@@ -129,9 +130,9 @@ gunshare stk b = case stk of
   STKR{} -> AstRaw $ unshareAstRanked $ unAstRaw b
   STKS{} -> AstRawS $ unshareAstShaped $ unAstRawS b
   STKProduct stk1 stk2 ->
-    let !t1 = gunshare stk1 $ fst b
-        !t2 = gunshare stk2 $ snd b
-    in (t1, t2)
+    let !t1 = gunshare stk1 $ tproject1 b
+        !t2 = gunshare stk2 $ tproject2 b
+    in (ttuple t1 t2)
   STKUntyped -> HVectorPseudoTensor $ AstRawWrap $ unshareAstHVector
                 $ unAstRawWrap $ unHVectorPseudoTensor b
 
@@ -144,9 +145,9 @@ gunshareRanked stk b = case stk of
   STKR{} -> AstRanked $ unshareAstRanked $ unAstRanked b
   STKS{} -> AstShaped $ unshareAstShaped $ unAstShaped b
   STKProduct stk1 stk2 ->
-    let !t1 = gunshareRanked stk1 $ fst b
-        !t2 = gunshareRanked stk2 $ snd b
-    in (t1, t2)
+    let !t1 = gunshareRanked stk1 $ tproject1 b
+        !t2 = gunshareRanked stk2 $ tproject2 b
+    in (ttuple t1 t2)
   STKUntyped -> HVectorPseudoTensor $ unshareAstHVector
                 $ unHVectorPseudoTensor b
 
@@ -308,7 +309,14 @@ instance TermValue (DynamicTensor (AstRanked FullSpan)) where
     DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
     DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
 
+type instance InterpretationTarget (AstRanked s) (TKProduct x z) =
+  AstTensor s (TKProduct x z)
+
 instance ProductTensor (AstRanked s) where
+  ttuple t1 t2 = AstTuple (unRankedY stensorKind t1)
+                          (unRankedY stensorKind t2)
+  tproject1 = rankedY stensorKind . astProject1
+  tproject2 = rankedY stensorKind . astProject2
   tmkHVector = AstMkHVector
 
 rankedY :: forall y s.
@@ -318,7 +326,9 @@ rankedY stk t = case stk of
   STKR{} -> AstRanked t
   STKS{} -> AstShaped t
   STKProduct stk1 stk2 ->
-    (rankedY stk1 $ AstProject1 t, rankedY stk2 $ AstProject2 t)
+    ttuple (rankedY stk1 $ astProject1 t)
+           (rankedY stk2 $ astProject2 t)
+      -- TODO: the duplicated `t` breaks sharing
   STKUntyped -> HVectorPseudoTensor t
 
 unRankedY :: forall y s.
@@ -327,8 +337,10 @@ unRankedY :: forall y s.
 unRankedY stk t = case stk of
   STKR{} -> unAstRanked t
   STKS{} -> unAstShaped t
-  STKProduct stk1 stk2 -> AstTuple (unRankedY stk1 $ fst t)
-                                   (unRankedY stk2 $ snd t)
+  STKProduct stk1 stk2 ->
+    AstTuple (unRankedY stk1 $ tproject1 t)
+             (unRankedY stk2 $ tproject2 t)
+      -- TODO: the duplicated `t` breaks sharing
   STKUntyped -> unHVectorPseudoTensor t
 
 astLetHVectorInFun
@@ -579,8 +591,8 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   tshapeFull stk t = case stk of
     STKR{} -> shapeAstFull $ unAstRanked t
     STKS{} -> FTKS
-    STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (fst t))
-                                       (tshapeFull stk2 (snd t))
+    STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (tproject1 t))
+                                       (tshapeFull stk2 (tproject2 t))
     STKUntyped -> shapeAstFull $ unHVectorPseudoTensor t
   dmkHVector = AstMkHVector
   dlambda :: forall x y. (TensorKind x, TensorKind y)
@@ -620,10 +632,9 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
               $ astLetFun (unAstShaped u)
                           (unRankedY (stensorKind @z) . f . AstShaped)
     STKProduct{} ->
-      -- The duplicated `u` is fine, since the Haskell projections are
-      -- simplified early enough.
-      tlet (fst u) $ \a1 ->
-        tlet (snd u) $ \a2 -> f (a1, a2)
+      -- TODO: the duplicated `u` breaks sharing
+      tlet (tproject1 u) $ \a1 ->
+        tlet (tproject2 u) $ \a2 -> f (a1, a2)
     STKUntyped{} -> case stensorKind @z of
       STKR{} ->
         AstRanked
@@ -637,7 +648,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
         rankedY (stensorKind @z)
         $ astLetFun (unHVectorPseudoTensor u)
                     (unRankedY (stensorKind @z) . f . dunHVector)
-          -- TODO: the dunHVector here breaks sharing
+          -- TODO: the dunHVector breaks sharing
       STKUntyped{} ->
         HVectorPseudoTensor
         $ astLetHVectorInHVectorFun (unHVectorPseudoTensor u)
@@ -655,10 +666,9 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
               $ astLetFun (unAstShaped u)
                           (unRankedY (stensorKind @z) . f . AstShaped)
     STKProduct{} ->
-      -- The duplicated `u` is fine, since the Haskell projections are
-      -- simplified early enough.
-      blet (fst u) $ \a1 ->
-        blet (snd u) $ \a2 -> f (a1, a2)
+      -- TODO: the duplicated `u` breaks sharing
+      blet (tproject1 u) $ \a1 ->
+        blet (tproject2 u) $ \a2 -> f (ttuple a1 a2)
     STKUntyped{} ->
       rankedY (stensorKind @z)
       $ astLetFun (unHVectorPseudoTensor u)
@@ -951,7 +961,14 @@ deriving instance Floating (AstTensor s (TKS r sh))
 deriving instance (RealFloatF (AstTensor s (TKS r sh)))
                   => RealFloatF (AstNoSimplifyS s r sh)
 
+type instance InterpretationTarget (AstRaw s) (TKProduct x z) =
+  AstRawWrap (AstTensor s (TKProduct x z))
+
 instance ProductTensor (AstRaw s) where
+  ttuple t1 t2 = AstRawWrap $ AstTuple (unRawY stensorKind t1)
+                                       (unRawY stensorKind t2)
+  tproject1 t = rawY stensorKind $ astProject1 $ unAstRawWrap t
+  tproject2 t = rawY stensorKind $ astProject2 $ unAstRawWrap t
   tmkHVector = AstRawWrap . AstMkHVector . unRawHVector
 
 rawY :: forall y s.
@@ -961,7 +978,8 @@ rawY stk t = case stk of
   STKR{} -> AstRaw t
   STKS{} -> AstRawS t
   STKProduct stk1 stk2 ->
-    (rawY stk1 $ AstProject1 t, rawY stk2 $ AstProject2 t)
+    ttuple (rawY stk1 $ astProject1 t)
+           (rawY stk2 $ astProject2 t)
   STKUntyped -> HVectorPseudoTensor $ AstRawWrap t
 
 unRawY :: forall y s.
@@ -970,8 +988,9 @@ unRawY :: forall y s.
 unRawY stk t = case stk of
   STKR{} -> unAstRaw t
   STKS{} -> unAstRawS t
-  STKProduct stk1 stk2 -> AstTuple (unRawY stk1 $ fst t)
-                                   (unRawY stk2 $ snd t)
+  STKProduct stk1 stk2 ->
+    AstTuple (unRawY stk1 $ tproject1 t)
+             (unRawY stk2 $ tproject2 t)
   STKUntyped -> unAstRawWrap $ unHVectorPseudoTensor t
 
 astLetFunRaw :: forall y z s.
@@ -1150,8 +1169,8 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
   tshapeFull stk t = case stk of
     STKR{} -> shapeAstFull $ unAstRaw t
     STKS{} -> FTKS
-    STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (fst t))
-                                       (tshapeFull stk2 (snd t))
+    STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (tproject1 t))
+                                       (tshapeFull stk2 (tproject2 t))
     STKUntyped -> shapeAstFull $ unAstRawWrap $ unHVectorPseudoTensor t
   dmkHVector = AstRawWrap . AstMkHVector . unRawHVector
   dlambda :: forall x y. (TensorKind x, TensorKind y)
@@ -1250,7 +1269,14 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
                       (unRawY (stensorKind @TKUntyped) acc0)
                       (unRawY (stensorKind @TKUntyped) es)
 
+type instance InterpretationTarget (AstNoVectorize s) (TKProduct x z) =
+  AstNoVectorizeWrap (AstTensor s (TKProduct x z))
+
 instance ProductTensor (AstNoVectorize s) where
+  ttuple t1 t2 = AstNoVectorizeWrap $ AstTuple (unNoVectorizeY stensorKind t1)
+                                               (unNoVectorizeY stensorKind t2)
+  tproject1 t = noVectorizeY stensorKind $ astProject1 $ unAstNoVectorizeWrap t
+  tproject2 t = noVectorizeY stensorKind $ astProject2 $ unAstNoVectorizeWrap t
   tmkHVector = AstNoVectorizeWrap . AstMkHVector . unNoVectorizeHVector
 
 noVectorizeY :: forall y s.
@@ -1260,7 +1286,8 @@ noVectorizeY stk t = case stk of
   STKR{} -> AstNoVectorize t
   STKS{} -> AstNoVectorizeS t
   STKProduct stk1 stk2 ->
-    (noVectorizeY stk1 $ astProject1 t, noVectorizeY stk2 $ astProject2 t)
+    ttuple (noVectorizeY stk1 $ astProject1 t)
+           (noVectorizeY stk2 $ astProject2 t)
   STKUntyped -> HVectorPseudoTensor $ AstNoVectorizeWrap t
 
 unNoVectorizeY :: forall y s.
@@ -1269,8 +1296,9 @@ unNoVectorizeY :: forall y s.
 unNoVectorizeY stk t = case stk of
   STKR{} -> unAstNoVectorize t
   STKS{} -> unAstNoVectorizeS t
-  STKProduct stk1 stk2 -> AstTuple (unNoVectorizeY stk1 $ fst t)
-                                   (unNoVectorizeY stk2 $ snd t)
+  STKProduct stk1 stk2 ->
+    AstTuple (unNoVectorizeY stk1 $ tproject1 t)
+             (unNoVectorizeY stk2 $ tproject2 t)
   STKUntyped -> unAstNoVectorizeWrap $ unHVectorPseudoTensor t
 
 unAstNoVectorize2 :: AstNoVectorize s r n -> AstRanked s r n
@@ -1414,8 +1442,8 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
   tshapeFull stk t = case stk of
     STKR{} -> shapeAstFull $ unAstNoVectorize t
     STKS{} -> FTKS
-    STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (fst t))
-                                       (tshapeFull stk2 (snd t))
+    STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (tproject1 t))
+                                       (tshapeFull stk2 (tproject2 t))
     STKUntyped -> shapeAstFull $ unAstNoVectorizeWrap $ unHVectorPseudoTensor t
   dmkHVector =
     AstNoVectorizeWrap . AstMkHVector . unNoVectorizeHVector
@@ -1494,7 +1522,14 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
                     (rankedY (stensorKind @TKUntyped)
                      $ unNoVectorizeY (stensorKind @TKUntyped) es)
 
+type instance InterpretationTarget (AstNoSimplify s) (TKProduct x z) =
+  AstNoSimplifyWrap (AstTensor s (TKProduct x z))
+
 instance ProductTensor (AstNoSimplify s) where
+  ttuple t1 t2 = AstNoSimplifyWrap $ AstTuple (unNoSimplifyY stensorKind t1)
+                                              (unNoSimplifyY stensorKind t2)
+  tproject1 t = noSimplifyY stensorKind $ astProject1 $ unAstNoSimplifyWrap t
+  tproject2 t = noSimplifyY stensorKind $ astProject2 $ unAstNoSimplifyWrap t
   tmkHVector = AstNoSimplifyWrap . AstMkHVector . unNoSimplifyHVector
 
 noSimplifyY :: forall y s.
@@ -1504,7 +1539,8 @@ noSimplifyY stk t = case stk of
   STKR{} -> AstNoSimplify t
   STKS{} -> AstNoSimplifyS t
   STKProduct stk1 stk2 ->
-    (noSimplifyY stk1 $ AstProject1 t, noSimplifyY stk2 $ AstProject2 t)
+    ttuple (noSimplifyY stk1 $ astProject1 t)
+           (noSimplifyY stk2 $ astProject2 t)
   STKUntyped -> HVectorPseudoTensor $ AstNoSimplifyWrap t
 
 unNoSimplifyY :: forall y s.
@@ -1513,8 +1549,9 @@ unNoSimplifyY :: forall y s.
 unNoSimplifyY stk t = case stk of
   STKR{} -> unAstNoSimplify t
   STKS{} -> unAstNoSimplifyS t
-  STKProduct stk1 stk2 -> AstTuple (unNoSimplifyY stk1 $ fst t)
-                                   (unNoSimplifyY stk2 $ snd t)
+  STKProduct stk1 stk2 ->
+    AstTuple (unNoSimplifyY stk1 $ tproject1 t)
+             (unNoSimplifyY stk2 $ tproject2 t)
   STKUntyped -> unAstNoSimplifyWrap $ unHVectorPseudoTensor t
 
 unNoSimplifyHVector :: HVector (AstNoSimplify s) -> HVector (AstRanked s)
@@ -1658,8 +1695,8 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
   tshapeFull stk t = case stk of
     STKR{} -> shapeAstFull $ unAstNoSimplify t
     STKS{} -> FTKS
-    STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (fst t))
-                                       (tshapeFull stk2 (snd t))
+    STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (tproject1 t))
+                                       (tshapeFull stk2 (tproject2 t))
     STKUntyped -> shapeAstFull $ unAstNoSimplifyWrap $ unHVectorPseudoTensor t
   dmkHVector =
     AstNoSimplifyWrap . AstMkHVector . unNoSimplifyHVector
@@ -1747,6 +1784,64 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
 
 
 -- TODO: move to a better home:
+
+-- TODO: these can't easily be in AstSimplify, because they need to ProductTensor
+-- instances for AST
+
+-- TODO: is going via rawY and unRawY better?
+simplifyInlineInterpretationTarget
+  :: forall s z. (AstSpan s, TensorKind z)
+  => InterpretationTarget (AstRaw s) z -> InterpretationTarget (AstRaw s) z
+simplifyInlineInterpretationTarget = case stensorKind @z of
+  STKR{} -> AstRaw . simplifyInline . unAstRaw
+  STKS{} -> AstRawS . simplifyInline . unAstRawS
+  STKProduct{} -> \t ->
+    let !s1 = simplifyInlineInterpretationTarget $ tproject1 t in
+    let !s2 = simplifyInlineInterpretationTarget $ tproject2 t
+    in ttuple s1 s2
+  STKUntyped -> HVectorPseudoTensor . AstRawWrap . simplifyInline
+                . unAstRawWrap . unHVectorPseudoTensor
+
+simplifyArtifact :: TensorKind z
+                 => AstArtifactRev TKUntyped z -> AstArtifactRev TKUntyped z
+simplifyArtifact art =
+  let !der =
+        HVectorPseudoTensor $ AstRawWrap $ simplifyInline $ unAstRawWrap
+        $ unHVectorPseudoTensor $ artDerivativeRev art in
+  let !prim = simplifyInlineInterpretationTarget $ artPrimalRev art
+  in art {artDerivativeRev = der, artPrimalRev = prim}
+
+{- TODO: remove if really not needed
+substituteAstInInterpretationTarget
+  :: forall s s2 y z. (AstSpan s, AstSpan s2, TensorKind y)
+              => SubstitutionPayload s2 -> AstVarName s2 z
+              -> InterpretationTarget (AstRanked s) y
+              -> InterpretationTarget (AstRanked s) y
+substituteAstInInterpretationTarget i var v1 = case stensorKind @y of
+  STKR{} -> AstRanked . substituteAst i var . unAstRanked $ v1
+  STKS{} -> AstShaped . substituteAst i var . unAstShaped $ v1
+  STKProduct{} ->
+    ttuple (substituteAstInInterpretationTarget i var $ tproject1 v1)
+           (substituteAstInInterpretationTarget i var $ tproject2 v1)
+  STKUntyped -> HVectorPseudoTensor . substituteAstHVector i var
+                . unHVectorPseudoTensor $ v1
+-}
+
+-- TODO: is going via rawY and unRawY better?
+substituteAstInInterpretationTargetRaw
+  :: forall s s2 y z. (AstSpan s, AstSpan s2, TensorKind y)
+              => SubstitutionPayload s2 -> AstVarName s2 z
+              -> InterpretationTarget (AstRaw s) y
+              -> InterpretationTarget (AstRaw s) y
+substituteAstInInterpretationTargetRaw i var v1 = case stensorKind @y of
+  STKR{} -> AstRaw . substituteAst i var . unAstRaw $ v1
+  STKS{} -> AstRawS . substituteAst i var . unAstRawS $ v1
+  STKProduct{} -> ttuple (substituteAstInInterpretationTargetRaw i var
+                          $ tproject1 v1)
+                         (substituteAstInInterpretationTargetRaw i var
+                          $ tproject2 v1)
+  STKUntyped -> HVectorPseudoTensor . AstRawWrap . substituteAstHVector i var
+                . unAstRawWrap . unHVectorPseudoTensor $ v1
 
 prettifyArtifactRev
   :: TensorKind z

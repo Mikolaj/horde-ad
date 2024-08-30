@@ -12,6 +12,7 @@ import Data.Array.Internal (valueOf)
 import Data.Array.RankedS qualified as OR
 import Data.Array.ShapedS qualified as OS
 import Data.Function ((&))
+import Data.Kind (Type)
 import Data.List (foldl', mapAccumL, mapAccumR, scanl')
 import Data.List.NonEmpty qualified as NonEmpty
 import Data.Proxy (Proxy (Proxy))
@@ -147,7 +148,18 @@ type instance PrimalOf OSArray = OSArray
 
 type instance DualOf OSArray = DummyDual
 
+type role DummyProduct representational representational
+type DummyProduct :: Type -> Type -> Type
+data DummyProduct vx vz = DummyProduct vx vz
+
+type instance InterpretationTarget DummyDual (TKProduct x z) =
+  DummyProduct (InterpretationTarget DummyDual x)
+               (InterpretationTarget DummyDual z)
+
 instance ProductTensor DummyDual where
+  ttuple = DummyProduct
+  tproject1 (DummyProduct vx _vz) = vx
+  tproject2 (DummyProduct _vx vz) = vz
   tmkHVector = error "tmkHVector of DummyDual"
 
 instance ShapedTensor OSArray where
@@ -300,7 +312,13 @@ instance HVectorTensor ORArray OSArray where
     $ oRdmapAccumL k accShs bShs eShs (\ !a !b ->
         unHVectorPseudoTensor $ f (HVectorPseudoTensor a, HVectorPseudoTensor b)) (unHVectorPseudoTensor acc0) (unHVectorPseudoTensor es)
 
+type instance InterpretationTarget ORArray (TKProduct x z) =
+  (InterpretationTarget ORArray x, InterpretationTarget ORArray z)
+
 instance ProductTensor ORArray where
+  ttuple u v = (u, v)
+  tproject1 = fst
+  tproject2 = snd
   tmkHVector = id
 
 oRdmapAccumR

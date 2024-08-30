@@ -39,7 +39,7 @@ module HordeAd.Core.Delta
   ( -- * Delta expression evaluation
     gradientFromDelta, derivativeFromDelta, interpretationConstant
     -- * Abstract syntax trees of the delta expressions
-  , DeltaR (..), DeltaS (..), Delta(..)
+  , DeltaR (..), DeltaS (..), Delta(..), unDeltaRY
   , -- * Delta expression identifiers
     NodeId (..), InputId, toInputId
     -- * Exported to be specialized elsewhere
@@ -130,13 +130,14 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
           in MTKUntyped $ dmkHVector $ V.fromList $ map toDynamicTensor elems
   in evalInterpretationTargetM itm
 
-evalInterpretationTargetM :: InterpretationTargetM ranked x
+evalInterpretationTargetM :: ProductTensor ranked
+                          => InterpretationTargetM ranked x
                           -> InterpretationTarget ranked x
 evalInterpretationTargetM = \case
   MTKR t -> t
   MTKS t -> t
-  MTKProduct t1 t2 ->
-    (evalInterpretationTargetM t1, evalInterpretationTargetM t2)
+  MTKProduct t1 t2 -> ttuple (evalInterpretationTargetM t1)
+                             (evalInterpretationTargetM t2)
   MTKUntyped ele -> HVectorPseudoTensor ele
   _ -> error "TODO"
 
@@ -153,15 +154,15 @@ interpretationConstant :: forall y ranked. ADReady ranked
 interpretationConstant r = \case
   FTKR sh -> rrepl (toList sh) r
   FTKS -> srepl r
-  FTKProduct ftk1 ftk2 -> ( interpretationConstant r ftk1
-                          , interpretationConstant r ftk2 )
+  FTKProduct ftk1 ftk2 -> ttuple (interpretationConstant r ftk1)
+                                 (interpretationConstant r ftk2)
   FTKUntyped ssh ->  -- TODO: if r is 0, this would be cheaper with Dummy
     HVectorPseudoTensor $ dmkHVector
     $ mapHVectorShaped (const $ srepl @_ @_ @(ShapedOf ranked) r)
     $ V.map dynamicFromVoid ssh
 
 derivativeFromDelta
-  :: forall x z ranked. (ADReady ranked, TensorKind x)
+  :: forall x z ranked. (ADReady ranked, TensorKind x, TensorKind z)
   => Delta ranked z -> InterpretationTarget ranked x
   -> InterpretationTarget ranked z
 derivativeFromDelta deltaTopLevel ds =
@@ -175,13 +176,14 @@ derivativeFromDelta deltaTopLevel ds =
       !(!_s2, !c) = fwdR params s0 deltaTopLevel
   in c
 
-evalInterpretationTargetD :: InterpretationTargetD ranked x1
+evalInterpretationTargetD :: ProductTensor ranked
+                          => InterpretationTargetD ranked x1
                           -> InterpretationTarget ranked x1
 evalInterpretationTargetD = \case
   DTKR t -> t
   DTKS t -> t
   DTKProduct t1 t2 ->
-    (evalInterpretationTargetD t1, evalInterpretationTargetD t2)
+    ttuple (evalInterpretationTargetD t1) (evalInterpretationTargetD t2)
   DTKUntyped ele -> HVectorPseudoTensor ele
 
 dynamicTensorToInterpretationTargetD
@@ -195,25 +197,27 @@ dynamicTensorToInterpretationTargetD = \case
     error "dynamicTensorToInterpretationTargetD: unexpected DynamicShapedDummy"
 
 interpretationTargetToD
-  :: STensorKindType x -> InterpretationTarget ranked x
+  :: ProductTensor ranked
+  => STensorKindType x -> InterpretationTarget ranked x
   -> InterpretationTargetD ranked x
 interpretationTargetToD stk t = case stk of
   STKR{} -> DTKR t
   STKS{} -> DTKS t
-  STKProduct stk1 stk2 -> DTKProduct (interpretationTargetToD stk1 (fst t))
-                                     (interpretationTargetToD stk2 (snd t))
+  STKProduct stk1 stk2 -> DTKProduct (interpretationTargetToD stk1 (tproject1 t))
+                                     (interpretationTargetToD stk2 (tproject2 t))
   STKUntyped{} -> DTKUntyped $ unHVectorPseudoTensor t
 
 type HDVector ranked = Data.Vector.Vector (Some (InterpretationTargetD ranked))
 
 interpretationTargetToM
-  :: STensorKindType x -> InterpretationTarget ranked x
+  :: ProductTensor ranked
+  => STensorKindType x -> InterpretationTarget ranked x
   -> InterpretationTargetM ranked x
 interpretationTargetToM stk t = case stk of
   STKR{} -> MTKR t
   STKS{} -> MTKS t
-  STKProduct stk1 stk2 -> MTKProduct (interpretationTargetToM stk1 (fst t))
-                                     (interpretationTargetToM stk2 (snd t))
+  STKProduct stk1 stk2 -> MTKProduct (interpretationTargetToM stk1 (tproject1 t))
+                                     (interpretationTargetToM stk2 (tproject2 t))
   STKUntyped{} -> MTKUntyped $ unHVectorPseudoTensor t
 
 
@@ -560,8 +564,34 @@ type instance ShapedOf (DeltaR ranked) = DeltaS (ShapedOf ranked)
 
 type instance HVectorOf (DeltaR ranked) = Delta ranked TKUntyped
 
-instance ProductTensor (DeltaR ranked) where
+type instance InterpretationTarget (DeltaR ranked) (TKProduct x z) =
+  Delta ranked (TKProduct x z)
+
+instance RankedOf (ShapedOf ranked) ~ ranked
+         => ProductTensor (DeltaR ranked) where
+  ttuple t1 t2 = TupleG (unDeltaRY stensorKind t1)
+                        (unDeltaRY stensorKind t2)
+  tproject1 = deltaRY stensorKind . Project1G
+  tproject2 = deltaRY stensorKind . Project2G
   tmkHVector = HToH
+
+deltaRY :: forall y ranked. RankedOf (ShapedOf ranked) ~ ranked
+        => STensorKindType y -> Delta ranked y
+        -> InterpretationTarget (DeltaR ranked) y
+deltaRY stk t = case stk of
+  STKR{} -> DeltaR t
+  STKS{} -> DeltaS t
+  STKProduct{} -> t
+  STKUntyped -> HVectorPseudoTensor t
+
+unDeltaRY :: forall y ranked. RankedOf (ShapedOf ranked) ~ ranked
+          => STensorKindType y -> InterpretationTarget (DeltaR ranked) y
+          -> Delta ranked y
+unDeltaRY stk t = case stk of
+  STKR{} -> unDeltaR t
+  STKS{} -> unDeltaS t
+  STKProduct{} -> t
+  STKUntyped -> unHVectorPseudoTensor t
 
 shapeDeltaFull :: forall ranked y.
                   (TensorKind y, RankedOf (ShapedOf ranked) ~ ranked)
@@ -914,15 +944,15 @@ evalR
   -> EvalState ranked
 evalR !s !c = \case
   TupleG d1 d2 -> -- TODO: let cShared = rshare c
-                  evalR (evalR s (fst c) d1) (snd c) d2
+                  evalR (evalR s (tproject1 c) d1) (tproject2 c) d2
   Project1G d -> case shapeDeltaFull d of
     FTKProduct _ ftk2 ->
       let zero = interpretationConstant 0 ftk2
-      in evalR s (c, zero) d
+      in evalR s (ttuple c zero) d
   Project2G d -> case shapeDeltaFull d of
     FTKProduct ftk1 _ ->
       let zero = interpretationConstant 0 ftk1
-      in evalR s (zero, c) d
+      in evalR s (ttuple zero c) d
   InputG _ftk i -> let cs = interpretationTargetToM (stensorKind @y) c
                    in s {iMap = DMap.adjust (addInterpretationTargetM cs) i
                                 $ iMap s}
@@ -1131,7 +1161,7 @@ evalR !s !c = \case
                                     $ dx V.++ db
                             acc_e = HVectorPseudoTensor $ dmkHVector acc_eH
                         in unHVectorPseudoTensor
-                           $ unHFun rf (dx_db, acc_e))
+                           $ unHFun rf (ttuple dx_db acc_e))
                      (HVectorPseudoTensor $ dmkHVector c0)
                      (HVectorPseudoTensor $ dmkHVector $ V.concat [crest, q, es])
         dacc_des = dunHVector $ unHVectorPseudoTensor $ tshare dacc_desUnshared
@@ -1154,7 +1184,7 @@ evalR !s !c = \case
                                     $ dx V.++ db
                             acc_e = HVectorPseudoTensor $ dmkHVector acc_eH
                         in unHVectorPseudoTensor
-                           $ unHFun rf (dx_db, acc_e))
+                           $ unHFun rf (ttuple dx_db acc_e))
                      (HVectorPseudoTensor $ dmkHVector c0)
                      (HVectorPseudoTensor $ dmkHVector $ V.concat [crest, q, es])
         dacc_des = dunHVector $ unHVectorPseudoTensor $ tshare dacc_desUnshared
@@ -1279,17 +1309,17 @@ fwdHVector
 fwdHVector params = mapAccumL (fwdDynamic params)
 
 fwdR
-  :: forall ranked y. ADReady ranked
+  :: forall ranked y. (ADReady ranked, TensorKind y)
   => HDVector ranked -> EvalState ranked -> Delta ranked y
   -> (EvalState ranked, InterpretationTarget ranked y)
 fwdR params s = \case
   TupleG d1 d2 -> let (s2, t) = fwdR params s d1
                       (s3, u) = fwdR params s2 d2
-                  in (s3, (t, u))
+                  in (s3, ttuple t u)
   Project1G d -> let (s2, v) = fwdR params s d
-                 in (s2, fst v)
+                 in (s2, tproject1 v)
   Project2G d -> let (s2, v) = fwdR params s d
-                 in (s2, snd v)
+                 in (s2, tproject2 v)
   InputG _ftk (InputId i) ->
     if i < V.length params
     then case params V.! i of
@@ -1425,7 +1455,7 @@ fwdR params s = \case
                                  dacc_de = HVectorPseudoTensor $ dmkHVector
                                            $ dacc V.++ de
                              in unHVectorPseudoTensor
-                                $ unHFun df (dacc_de, acc_e))
+                                $ unHFun df (ttuple dacc_de acc_e))
                           (HVectorPseudoTensor $ dmkHVector cacc0)
                           (HVectorPseudoTensor $ dmkHVector $ V.concat [ces, q, es]))
   MapAccumL k accShs@(FTKUntyped accShsH) bShs (FTKUntyped eShsH)
@@ -1441,6 +1471,6 @@ fwdR params s = \case
                                  dacc_de = HVectorPseudoTensor $ dmkHVector
                                            $ dacc V.++ de
                              in unHVectorPseudoTensor
-                                $ unHFun df (dacc_de, acc_e))
+                                $ unHFun df (ttuple dacc_de acc_e))
                           (HVectorPseudoTensor $ dmkHVector cacc0)
                           (HVectorPseudoTensor $ dmkHVector $ V.concat [ces, q, es]))

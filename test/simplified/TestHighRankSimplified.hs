@@ -304,7 +304,7 @@ testFooBuildDt2 =
   assertEqualUpToEpsilon1 1e-5
     (OR.fromList [2,2,1,2,2] [2.206713605648901e7,148548.45667978778,-1.0646476553002307e7,506148.0678803204,8.294896080825263e7,485287.9750115657,-3.844743184175473e7,5.460549007669466e7,2.271418850409362e7,13848.390132505112,-1.0690008160055092e7,511359.0281220066,7.774196371340603e7,483621.8424293669,-3.876191146034207e7,5.754048643554987e7])
     (revDt @_ @(TKProduct (TKR Double 5) (TKR Double 5))
-           (\x -> let y = fooBuild5 x in (y, y)) t16 (let dt = FlipR $ Nested.rfromOrthotope SNat $ OR.constant [2, 2, 1, 2, 2] 42 in (dt, dt)))
+           (\x -> let y = fooBuild5 x in (ttuple y y)) t16 (let dt = FlipR $ Nested.rfromOrthotope SNat $ OR.constant [2, 2, 1, 2, 2] 42 in (dt, dt)))
 
 testFooBuild5 :: Assertion
 testFooBuild5 =
@@ -509,7 +509,7 @@ testBarReluADValDt2 =
                   (TKR Double 4)
                   (TKProduct (TKR Float 5)
                              (TKS Double [2,2,1,2,2])))
-           (\x -> (rsum x, (rcast $ barRelu x, sfromR $ barRelu x))) t16
+           (\x -> ttuple (rsum x) (ttuple (rcast $ barRelu x) (sfromR $ barRelu x))) t16
                   (let dt = FlipR $ Nested.rfromOrthotope SNat $ OR.constant [ 2 , 2 , 1 , 2 , 2 ] 42.2
                    in (rsum dt, (rcast dt, sfromR dt))))
 

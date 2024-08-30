@@ -3,7 +3,7 @@
 -- | Inlining and global sharing elimination.
 module HordeAd.Core.AstInline
   ( -- * The joint inlining and simplification term transformation
-    simplifyArtifact, simplifyArtifactGradient
+    simplifyArtifactGradient
   , simplifyInlineAst, simplifyInlineAstS
   , simplifyInline
     -- * The translates global sharing to normal lets
@@ -33,15 +33,6 @@ import HordeAd.Util.SizedList
 
 -- * The joint inlining and simplification term transformation
 
-simplifyArtifact :: TensorKind z
-                 => AstArtifactRev TKUntyped z -> AstArtifactRev TKUntyped z
-simplifyArtifact art =
-  let !der =
-        HVectorPseudoTensor $ AstRawWrap $ simplifyInline $ unAstRawWrap
-        $ unHVectorPseudoTensor $ artDerivativeRev art in
-  let !prim = simplifyInlineInterpretationTarget $ artPrimalRev art
-  in art {artDerivativeRev = der, artPrimalRev = prim}
-
 simplifyArtifactGradient :: AstArtifactRev TKUntyped z
                          -> AstArtifactRev TKUntyped z
 simplifyArtifactGradient art =
@@ -49,20 +40,6 @@ simplifyArtifactGradient art =
           HVectorPseudoTensor $ AstRawWrap $ simplifyInline $ unAstRawWrap
           $ unHVectorPseudoTensor $ artDerivativeRev art
       }
-
--- TODO: is going via rawY and unRawY better?
-simplifyInlineInterpretationTarget
-  :: forall s z. (AstSpan s, TensorKind z)
-  => InterpretationTarget (AstRaw s) z -> InterpretationTarget (AstRaw s) z
-simplifyInlineInterpretationTarget = case stensorKind @z of
-  STKR{} -> AstRaw . simplifyInline . unAstRaw
-  STKS{} -> AstRawS . simplifyInline . unAstRawS
-  STKProduct{} -> \(t1, t2) ->
-    let !s1 = simplifyInlineInterpretationTarget t1 in
-    let !s2 = simplifyInlineInterpretationTarget t2
-    in (s1, s2)
-  STKUntyped -> HVectorPseudoTensor . AstRawWrap . simplifyInline
-                . unAstRawWrap . unHVectorPseudoTensor
 
 simplifyInlineAst
   :: forall r n s. (KnownNat n, GoodScalar r, AstSpan s)
