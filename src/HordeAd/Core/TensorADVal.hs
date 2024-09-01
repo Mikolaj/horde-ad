@@ -52,7 +52,10 @@ import HordeAd.Util.SizedList
 -- * Non-symbolic reverse and forward derivative computation
 
 crevOnADInputs
-  :: forall x z ranked. (TensorKind x, TensorKind z, ADReady ranked)
+  :: forall x z ranked.
+     ( TensorKind x, TensorKind z, ADReady ranked
+     , ShareTensor ranked (ShapedOf ranked)
+     , ShareTensor (PrimalOf ranked) (ShapedOf (PrimalOf ranked)) )
   => Maybe (InterpretationTarget ranked z)
   -> (InterpretationTarget (ADVal ranked) x
       -> InterpretationTarget (ADVal ranked) z)
@@ -71,7 +74,10 @@ crevOnADInputs mdt f inputs =
   in (tunshare @_ @_ @x gradient, tunshare v)
 
 crevOnHVector
-  :: forall x z ranked. (TensorKind x, TensorKind z, ADReady ranked)
+  :: forall x z ranked.
+     ( TensorKind x, TensorKind z, ADReady ranked
+     , ShareTensor ranked (ShapedOf ranked)
+     , ShareTensor (PrimalOf ranked) (ShapedOf (PrimalOf ranked)) )
   => Maybe (InterpretationTarget ranked z)
   -> (InterpretationTarget (ADVal ranked) x
       -> InterpretationTarget (ADVal ranked) z)
@@ -83,7 +89,9 @@ crevOnHVector mdt f parameters =
   in crevOnADInputs mdt f inputs
 
 cfwdOnADInputs
-  :: forall x z ranked. (TensorKind x, TensorKind z, ADReady ranked)
+  :: forall x z ranked.
+     ( TensorKind x, TensorKind z, ADReady ranked
+     , ShareTensor ranked (ShapedOf ranked) )
   => InterpretationTarget (ADVal ranked) x
   -> (InterpretationTarget (ADVal ranked) x
       -> InterpretationTarget (ADVal ranked) z)
@@ -97,7 +105,9 @@ cfwdOnADInputs inputs f ds =
   in (tunshare derivative, tunshare v)
 
 cfwdOnHVector
-  :: forall x z ranked. (TensorKind x, TensorKind z, ADReady ranked)
+  :: forall x z ranked.
+     ( TensorKind x, TensorKind z, ADReady ranked
+     , ShareTensor ranked (ShapedOf ranked) )
   => InterpretationTarget ranked x
   -> (InterpretationTarget (ADVal ranked) x
       -> InterpretationTarget (ADVal ranked) z)
@@ -109,69 +119,20 @@ cfwdOnHVector parameters f ds =
   in cfwdOnADInputs inputs f ds
 
 
--- * Ranked tensor instances
+-- * Misc instances
 
-instance (KnownNat n, GoodScalar r, ADReady ranked)
-         => AdaptableHVector (ADVal ranked)
-                             (ADVal ranked r n) where
-{- TODO: RULE left-hand side too complicated to desugar in GHC 9.6.4
-    with -O0, but not -O1
-  {-# SPECIALIZE instance
-      (KnownNat n, ADReady ORArray)
-      => AdaptableHVector (ADVal ORArray)
-                          (ADVal ORArray Double n) #-}
-  {-# SPECIALIZE instance
-      (KnownNat n, ADReady (AstRanked PrimalSpan))
-      => AdaptableHVector (ADVal (AstRanked PrimalSpan))
-                          (ADVal (AstRanked PrimalSpan) Double n) #-}
--}
-  toHVector = V.singleton . DynamicRanked
-  fromHVector _aInit = fromHVectorR
-
-instance (KnownNat n, GoodScalar r, ADReady ranked)
-         => DualNumberValue (ADVal ranked r n) where
-  type DValue (ADVal ranked r n) = ORArray r n  -- ! not Value(ranked)
-  fromDValue t = constantADVal $ rconst $ runFlipR t
-
--- This is temporarily moved from Adaptor in order to specialize manually
-instance AdaptableHVector ranked a
-         => AdaptableHVector ranked [a] where
-  {-# SPECIALIZE instance
-      AdaptableHVector ORArray (OR.Array n Double)
-      => AdaptableHVector ORArray
-                          [OR.Array n Double] #-}
-  {-# SPECIALIZE instance
-      AdaptableHVector (AstRanked s)
-                       (AstRanked s Double n)
-      => AdaptableHVector (AstRanked s)
-                          [AstRanked s Double n] #-}
-  toHVector = V.concat . map toHVector
-  fromHVector lInit source =
-    let f (!lAcc, !restAcc) !aInit =
-          case fromHVector aInit restAcc of
-            Just (a, rest) -> (a : lAcc, rest)
-            Nothing -> error "fromHVector: Nothing"
-        (l, !restAll) = foldl' f ([], source) lInit
-        !rl = reverse l
-    in Just (rl, restAll)
-    -- is the following as performant? benchmark:
-    -- > fromHVector lInit source =
-    -- >   let f = swap . flip fromHVector
-    -- >   in swap $ mapAccumL f source lInit
-
-instance ADReadyBoth ranked shaped
+instance ( ADReadyBoth ranked shaped, ShareTensor ranked shaped
+         , ShareTensor (PrimalOf ranked) (PrimalOf shaped) )
          => LetTensor (ADVal ranked) (ADVal shaped) where
   rletTKIn stk a f =
     let rsharePrimal :: (GoodScalar r, KnownNat n)
-                     => ADVal ranked r n
-                     -> ADVal ranked r n
+                     => ADVal ranked r n -> ADVal ranked r n
         rsharePrimal (D u u') =
           let !var2 = rshare u
           in dDnotShared var2 u'
             -- u' doesn't need to be shared, because deltas are shared separately
         ssharePrimal :: (GoodScalar r, KnownShS sh)
-                     => ADVal (ShapedOf ranked) r sh
-                     -> ADVal (ShapedOf ranked) r sh
+                     => ADVal shaped r sh -> ADVal shaped r sh
         ssharePrimal (D u u') =
           let !var2 = sshare u
           in dDnotShared var2 u'
@@ -269,6 +230,67 @@ instance ADReadyBoth ranked shaped
           !var2 = dunHVector $ dshare $ dmkHVector u
       in f (HVectorPseudoTensor $ aDValHVector var2 u')
 
+-- The constraint is needed only for "liberal coverage condition".
+instance (ranked ~ RankedOf shaped, ShapedOf ranked ~ shaped)
+         => ShareTensor (ADVal ranked) (ADVal shaped) where
+  rshare = id
+  sshare = id
+  dshare = id
+
+-- * Ranked tensor instance
+
+instance ( KnownNat n, GoodScalar r, ADReady ranked
+         , ShareTensor ranked (ShapedOf ranked)
+         , ShareTensor (PrimalOf ranked) (ShapedOf (PrimalOf ranked)) )
+         => AdaptableHVector (ADVal ranked)
+                             (ADVal ranked r n) where
+{- TODO: RULE left-hand side too complicated to desugar in GHC 9.6.4
+    with -O0, but not -O1
+  {-# SPECIALIZE instance
+      (KnownNat n, ADReady ORArray)
+      => AdaptableHVector (ADVal ORArray)
+                          (ADVal ORArray Double n) #-}
+  {-# SPECIALIZE instance
+      (KnownNat n, ADReady (AstRanked PrimalSpan))
+      => AdaptableHVector (ADVal (AstRanked PrimalSpan))
+                          (ADVal (AstRanked PrimalSpan) Double n) #-}
+-}
+  toHVector = V.singleton . DynamicRanked
+  fromHVector _aInit = fromHVectorR
+
+instance ( KnownNat n, GoodScalar r, ADReady ranked
+         , ShareTensor ranked (ShapedOf ranked)
+         , ShareTensor (PrimalOf ranked) (ShapedOf (PrimalOf ranked)) )
+         => DualNumberValue (ADVal ranked r n) where
+  type DValue (ADVal ranked r n) = ORArray r n  -- ! not Value(ranked)
+  fromDValue t = constantADVal $ rconst $ runFlipR t
+
+-- This is temporarily moved from Adaptor in order to specialize manually
+instance AdaptableHVector ranked a
+         => AdaptableHVector ranked [a] where
+  {-# SPECIALIZE instance
+      AdaptableHVector ORArray (OR.Array n Double)
+      => AdaptableHVector ORArray
+                          [OR.Array n Double] #-}
+  {-# SPECIALIZE instance
+      AdaptableHVector (AstRanked s)
+                       (AstRanked s Double n)
+      => AdaptableHVector (AstRanked s)
+                          [AstRanked s Double n] #-}
+  toHVector = V.concat . map toHVector
+  fromHVector lInit source =
+    let f (!lAcc, !restAcc) !aInit =
+          case fromHVector aInit restAcc of
+            Just (a, rest) -> (a : lAcc, rest)
+            Nothing -> error "fromHVector: Nothing"
+        (l, !restAll) = foldl' f ([], source) lInit
+        !rl = reverse l
+    in Just (rl, restAll)
+    -- is the following as performant? benchmark:
+    -- > fromHVector lInit source =
+    -- >   let f = swap . flip fromHVector
+    -- >   in swap $ mapAccumL f source lInit
+
 -- Note that these instances don't do vectorization. To enable it,
 -- use the Ast instance and only then interpret in ADVal.
 -- In any case, only the Ast instantiation of this instance
@@ -276,7 +298,9 @@ instance ADReadyBoth ranked shaped
 -- needed for the interpretation of Ast in ADVal.
 -- The ADVal Double and ADVal Float instantiations are only used
 -- in tests. None others are used anywhere.
-instance ADReady ranked => RankedTensor (ADVal ranked) where
+instance ( ADReady ranked, ShareTensor ranked (ShapedOf ranked)
+         , ShareTensor (PrimalOf ranked) (ShapedOf (PrimalOf ranked)) )
+         => RankedTensor (ADVal ranked) where
   rshape (D u _) = rshape u
   rminIndex (D u _) =
     let v = rminIndex u
@@ -356,16 +380,20 @@ instance ADReady ranked => RankedTensor (ADVal ranked) where
   rScale = dScale
 
 
--- * Shaped tensor instances
+-- * Shaped tensor instance
 
-instance ( ADReadyS shaped, KnownShS sh, GoodScalar r
+instance ( ADReadyS shaped, ShareTensor ranked shaped
+         , ShareTensor (PrimalOf ranked) (PrimalOf shaped)
+         , KnownShS sh, GoodScalar r
          , ranked ~ RankedOf shaped )
          => AdaptableHVector (ADVal ranked)
                              (ADVal shaped r sh) where
   toHVector = V.singleton . DynamicShaped
   fromHVector _aInit = fromHVectorS
 
-instance (ADReadyS shaped, KnownShS sh, GoodScalar r)
+instance ( ADReadyS shaped, ShareTensor (RankedOf shaped) shaped
+         , ShareTensor (PrimalOf (RankedOf shaped)) (PrimalOf shaped)
+         , KnownShS sh, GoodScalar r )
          => DualNumberValue (ADVal shaped r sh) where
   type DValue (ADVal shaped r sh) = OSArray r sh   -- ! not Value(shaped)
   fromDValue t = constantADVal $ sconst $ runFlipS t
@@ -377,7 +405,9 @@ instance (ADReadyS shaped, KnownShS sh, GoodScalar r)
 -- needed for the interpretation of Ast in ADVal.
 -- The ADVal Double and ADVal Float instantiations are only used
 -- in tests. None others are used anywhere.
-instance ADReadyS shaped => ShapedTensor (ADVal shaped) where
+instance (ADReadyS shaped, ShareTensor (RankedOf shaped) shaped
+         , ShareTensor (PrimalOf (RankedOf shaped)) (PrimalOf shaped) )
+         => ShapedTensor (ADVal shaped) where
   sminIndex (D u _) =
     let v = sminIndex u
     in dDnotShared v (dZeroOfShape v)
@@ -473,7 +503,9 @@ instance (ADReady ranked, HVectorOf ranked ~ HVector ranked)
     let (portion, rest) = V.splitAt (V.length h) params
     in Just (hVectorADValToADVal portion, rest)
 
-instance ADReadyBoth ranked shaped
+instance ( ADReadyBoth ranked shaped
+         , ShareTensor ranked shaped
+         , ShareTensor (PrimalOf ranked) (PrimalOf shaped) )
          => HVectorTensor (ADVal ranked) (ADVal shaped) where
   dshape = voidFromHVector
   tshapeFull stk t = case stk of
@@ -509,14 +541,10 @@ instance ADReadyBoth ranked shaped
          -> HFun x z
          -> HFun (TKProduct z x) x
   drevDt _ftk h =
-    let g :: ADReady f
-          => InterpretationTarget (ADVal f) x
-          -> InterpretationTarget (ADVal f) z
-        g !hv = unHFun h hv
-        rf :: forall f. ADReady f
+    let rf :: forall f. (ADReady f, ShareTensor f (ShapedOf f), ShareTensor (PrimalOf f) (ShapedOf (PrimalOf f)))
            => InterpretationTarget f (TKProduct z x)
            -> InterpretationTarget f x
-        rf !db_a = fst $ crevOnHVector (Just $ tproject1 db_a) g (tshare $ tproject2 db_a)
+        rf !db_a = fst $ crevOnHVector (Just $ tproject1 db_a) (unHFun h) (tshare $ tproject2 db_a)
           -- This computes the derivative of g again for each new db and a.
     in HFun rf
   dfwd :: forall x z. (TensorKind x, TensorKind z)
@@ -524,7 +552,7 @@ instance ADReadyBoth ranked shaped
        -> HFun x z
        -> HFun (TKProduct x x) z
   dfwd _ftk h =
-    let df :: forall f. ADReady f
+    let df :: forall f. (ADReady f, ShareTensor f (ShapedOf f), ShareTensor (PrimalOf f) (ShapedOf (PrimalOf f)))
            => InterpretationTarget f (TKProduct x x)
            -> InterpretationTarget f z
           -- This computes the derivative of g again for each new da and a.
@@ -543,7 +571,7 @@ instance ADReadyBoth ranked shaped
         accLen = V.length accShsH
         hvToPair :: forall f. HVector f -> (HVector f, HVector f)
         hvToPair = V.splitAt accLen
-        g :: forall f. ADReady f
+        g :: forall f. (ADReady f, ShareTensor f (ShapedOf f), ShareTensor (PrimalOf f) (ShapedOf (PrimalOf f)))
           => InterpretationTarget f (TKProduct TKUntyped TKUntyped)
           -> InterpretationTarget f TKUntyped
         g !acc_e = HVectorPseudoTensor $
@@ -557,7 +585,7 @@ instance ADReadyBoth ranked shaped
               -- understand and document
               let (accRes, bRes) = hvToPair res
               in dmkHVector $ V.concat [accRes, acc, bRes]
-        dg :: forall f. ADReady f
+        dg :: forall f. (ADReady f, ShareTensor f (ShapedOf f), ShareTensor (PrimalOf f) (ShapedOf (PrimalOf f)))
            => InterpretationTarget f (TKProduct TKUntyped TKUntyped)
            -> InterpretationTarget f TKUntyped
         dg !dacc_de_acc_e = HVectorPseudoTensor $
@@ -572,7 +600,7 @@ instance ADReadyBoth ranked shaped
                   dacc = V.take accLen dacc_de
               in dmkHVector
                  $ V.concat [accRes, dacc, bRes]
-        rg :: forall f. ADReady f
+        rg :: forall f. (ADReady f, ShareTensor f (ShapedOf f), ShareTensor (PrimalOf f) (ShapedOf (PrimalOf f)))
            => InterpretationTarget f (TKProduct TKUntyped TKUntyped)
            -> InterpretationTarget f TKUntyped
         rg !dx_db_acc_e = HVectorPseudoTensor $
@@ -624,7 +652,7 @@ instance ADReadyBoth ranked shaped
         accLen = V.length accShsH
         hvToPair :: forall f. HVector f -> (HVector f, HVector f)
         hvToPair = V.splitAt accLen
-        g :: forall f. ADReady f
+        g :: forall f. (ADReady f, ShareTensor f (ShapedOf f), ShareTensor (PrimalOf f) (ShapedOf (PrimalOf f)))
           => InterpretationTarget f (TKProduct TKUntyped TKUntyped)
           -> InterpretationTarget f TKUntyped
         g !acc_e = HVectorPseudoTensor $
@@ -638,7 +666,7 @@ instance ADReadyBoth ranked shaped
               -- understand and document
               let (accRes, bRes) = hvToPair res
               in dmkHVector $ V.concat [accRes, acc, bRes]
-        dg :: forall f. ADReady f
+        dg :: forall f. (ADReady f, ShareTensor f (ShapedOf f), ShareTensor (PrimalOf f) (ShapedOf (PrimalOf f)))
            => InterpretationTarget f (TKProduct TKUntyped TKUntyped)
            -> InterpretationTarget f TKUntyped
         dg !dacc_de_acc_e = HVectorPseudoTensor $
@@ -653,7 +681,7 @@ instance ADReadyBoth ranked shaped
                   dacc = V.take accLen dacc_de
               in dmkHVector
                  $ V.concat [accRes, dacc, bRes]
-        rg :: forall f. ADReady f
+        rg :: forall f. (ADReady f, ShareTensor f (ShapedOf f), ShareTensor (PrimalOf f) (ShapedOf (PrimalOf f)))
            => InterpretationTarget f (TKProduct TKUntyped TKUntyped)
            -> InterpretationTarget f TKUntyped
         rg !dx_db_acc_e = HVectorPseudoTensor $

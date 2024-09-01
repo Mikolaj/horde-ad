@@ -210,12 +210,14 @@ instance OrdF f => OrdF (ADVal f) where
   D u _ >. D v _ = u >. v
   D u _ >=. D v _ = u >=. v
 
-indexPrimal :: (RankedTensor ranked, KnownNat m, KnownNat n, GoodScalar r)
+indexPrimal :: ( RankedTensor ranked, ShareTensor ranked (ShapedOf ranked)
+               , KnownNat m, KnownNat n, GoodScalar r )
             => ADVal ranked r (m + n) -> IndexOf ranked m
             -> ADVal ranked r n
 indexPrimal (D u u') ix = dD (rindex u ix) (DeltaR $ IndexR (unDeltaR u') ix)
 
-fromVector :: (RankedTensor ranked, KnownNat n, GoodScalar r)
+fromVector :: ( RankedTensor ranked, ShareTensor ranked (ShapedOf ranked)
+              , KnownNat n, GoodScalar r )
            => Data.Vector.Vector (ADVal ranked r n)
            -> ADVal ranked r (1 + n)
 fromVector lu =
@@ -223,7 +225,8 @@ fromVector lu =
   dD (rfromVector $ V.map (\(D u _) -> u) lu)
      (DeltaR $ FromVectorR $ V.map (\(D _ u') -> unDeltaR u') lu)
 
-instance ( RankedTensor ranked, IfF (RankedOf (PrimalOf ranked))
+instance ( RankedTensor ranked, ShareTensor ranked (ShapedOf ranked)
+         , IfF (RankedOf (PrimalOf ranked))
          , Boolean (BoolOf ranked)
          , BoolOf (RankedOf (PrimalOf ranked)) ~ BoolOf ranked )
          => IfF (ADVal ranked) where
@@ -232,21 +235,24 @@ instance ( RankedTensor ranked, IfF (RankedOf (PrimalOf ranked))
                              (singletonIndex $ ifF b 0 1)
     in dDnotShared u u'
 
-indexPrimalS :: ( ShapedTensor shaped, GoodScalar r
-                , KnownShS sh1, KnownShS sh2, KnownShS (sh1 X.++ sh2) )
+indexPrimalS :: ( ShapedTensor shaped, ShareTensor (RankedOf shaped) shaped
+                , GoodScalar r, KnownShS sh1, KnownShS sh2
+                , KnownShS (sh1 X.++ sh2) )
              => ADVal shaped r (sh1 X.++ sh2) -> IndexSh shaped sh1
              -> ADVal shaped r sh2
 indexPrimalS (D u u') ix = dD (sindex u ix) (DeltaS $ IndexS (unDeltaS u') ix)
 
 fromVectorS :: forall n sh shaped r.
-               (ShapedTensor shaped, KnownNat n, KnownShS sh, GoodScalar r)
+               ( ShapedTensor shaped, ShareTensor (RankedOf shaped) shaped
+               , KnownNat n, KnownShS sh, GoodScalar r )
             => Data.Vector.Vector (ADVal shaped r sh)
             -> ADVal shaped r (n ': sh)
 fromVectorS lu = assert (length lu == valueOf @n) $
   dD (sfromVector $ V.map (\(D u _) -> u) lu)
      (DeltaS $ FromVectorS $ V.map (\(D _ u') -> unDeltaS u') lu)
 
-instance ( ShapedTensor shaped, IfF (RankedOf (PrimalOf shaped))
+instance ( ShapedTensor shaped, ShareTensor (RankedOf shaped) shaped
+         , IfF (RankedOf (PrimalOf shaped))
          , Boolean (BoolOf shaped)
          , BoolOf (RankedOf (PrimalOf shaped)) ~ BoolOf shaped )
          => IfF (ADVal shaped) where

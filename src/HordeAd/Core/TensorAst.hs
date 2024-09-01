@@ -573,6 +573,21 @@ instance AstSpan s => LetTensor (AstRanked s) (AstShaped s) where
       $ astLetFun (unHVectorPseudoTensor u)
                   (unRankedY (stensorKind @z) . f . HVectorPseudoTensor)
 
+-- TODO: remove this instance and probable the NoSimp and NoVect as well
+instance ShareTensor (AstRanked s) (AstShaped s) where
+  -- These and many similar bangs are necessary to ensure variable IDs
+  -- are generated in the expected order, resulting in nesting of lets
+  -- occuring in the correct order and so no scoping errors.
+  rshare a@(AstRanked(AstShare{})) = a
+  rshare a | astIsSmall True (unAstRanked a) = a
+  rshare a = AstRanked $ fun1ToAst $ \ !var -> AstShare var (unAstRanked a)
+  sshare a@(AstShaped(AstShare{})) = a
+  sshare a | astIsSmall True (unAstShaped a) = a
+  sshare a = AstShaped $ fun1ToAst $ \ !var -> AstShare var (unAstShaped a)
+  dshare a@AstShare{} = a
+  dshare a | astIsSmall True a = a
+  dshare a = fun1ToAst $ \ !var -> AstShare var a
+
 instance AstSpan s => RankedTensor (AstRanked s) where
   rshape = shapeAst . unAstRanked
   rminIndex = AstRanked . fromPrimal . AstMinIndex
@@ -612,10 +627,6 @@ instance AstSpan s => RankedTensor (AstRanked s) where
   rconst = AstRanked . fromPrimal . AstConst
   rfromS = AstRanked . astRFromS . unAstShaped
 
-  rshare a@(AstRanked(AstShare{})) = a
-  rshare a | astIsSmall True (unAstRanked a) = a
-  rshare a = AstRanked $ fun1ToAst $ \ !var -> AstShare var (unAstRanked a)
-
   rconstant = AstRanked . fromPrimal . unAstRanked
   rprimalPart = AstRanked . astSpanPrimal . unAstRanked
   rdualPart = AstRanked . astSpanDual . unAstRanked
@@ -654,10 +665,6 @@ instance AstSpan s => ShapedTensor (AstShaped s) where
   sconst = AstShaped . fromPrimal . AstConstS
   sfromR = AstShaped . astSFromR . unAstRanked
 
-  sshare a@(AstShaped(AstShare{})) = a
-  sshare a | astIsSmall True (unAstShaped a) = a
-  sshare a = AstShaped $ fun1ToAst $ \ !var -> AstShare var (unAstShaped a)
-
   sconstant = AstShaped . fromPrimal . unAstShaped
   sprimalPart = AstShaped . astSpanPrimal . unAstShaped
   sdualPart = AstShaped . astSpanDual . unAstShaped
@@ -695,19 +702,8 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
           DynamicShapedDummy @r @sh _ _ ->
             DynamicShaped @r @sh $ AstShaped $ AstProjectS hVectorOf i
     in V.imap f $ shapeAstHVector hVectorOf
-  -- These and many similar bangs are necessary to ensure variable IDs
-  -- are generated in the expected order, resulting in nesting of lets
-  -- occuring in the correct order and so no scoping errors.
-  dshare a@AstShare{} = a
-  dshare a | astIsSmall True a = a
-  dshare a = fun1ToAst $ \ !var -> AstShare var a
   -- For convenience and simplicity we define this for all spans,
   -- but it can only ever be used for PrimalSpan.
-  -- In this instance, these three ops are only used for some rare tests that
-  -- use the non-symbolic pipeline to compute a symbolic
-  -- value of the derivative at a particular fixed input.
-  -- The limitation of AstRaw as a newtype make it impossible
-  -- to switch the tests from AstRanked to AstRaw.
   tunshare :: forall y. TensorKind y
            => InterpretationTarget (AstRanked s) y
            -> InterpretationTarget (AstRanked s) y
@@ -716,6 +712,12 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
       Just Refl -> gunshareRanked (stensorKind @y)
       _ -> error "tunshare: used not at PrimalSpan"
   dbuild1 k f = astBuildHVector1Vectorize k (f . AstRanked)
+  -- TODO: (still) relevant?
+  -- In this instance, these three ops are only used for some rare tests that
+  -- use the non-symbolic pipeline to compute a symbolic
+  -- value of the derivative at a particular fixed input.
+  -- The limitation of AstRaw as a newtype make it impossible
+  -- to switch the tests from AstRanked to AstRaw.
   rrev :: forall r n. (GoodScalar r, KnownNat n)
        => (forall f. ADReady f => HVector f -> f r n)
        -> VoidHVector
@@ -893,6 +895,19 @@ instance AstSpan s => LetTensor (AstRaw s) (AstRawS s) where
   tlet = error "lets are not supported by AstRaw"
   blet = error "lets are not supported by AstRaw"
 
+instance ShareTensor (AstRaw s) (AstRawS s) where
+  -- For convenience and simplicity we define this for all spans,
+  -- but it can only ever be used for PrimalSpan.
+  rshare a@(AstRaw (AstShare{})) = a
+  rshare a | astIsSmall True (unAstRaw a) = a
+  rshare a = AstRaw $ fun1ToAst $ \ !var -> AstShare var (unAstRaw a)
+  sshare a@(AstRawS (AstShare{})) = a
+  sshare a | astIsSmall True (unAstRawS a) = a
+  sshare a = AstRawS $ fun1ToAst $ \ !var -> AstShare var (unAstRawS a)
+  dshare a@(AstRawWrap AstShare{}) = a
+  dshare a | astIsSmall True (unAstRawWrap a) = a
+  dshare a = AstRawWrap $ fun1ToAst $ \ !var -> AstShare var (unAstRawWrap a)
+
 instance AstSpan s => RankedTensor (AstRaw s) where
   rshape = shapeAst . unAstRaw
   rminIndex = AstRaw . fromPrimal . AstMinIndex . astSpanPrimal . unAstRaw
@@ -924,12 +939,6 @@ instance AstSpan s => RankedTensor (AstRaw s) where
     AstRaw . fromPrimal . AstFromIntegral . astSpanPrimal . unAstRaw
   rconst = AstRaw . fromPrimal . AstConst
   rfromS = AstRaw . AstRFromS . unAstRawS
-
-  -- For convenience and simplicity we define this for all spans,
-  -- but it can only ever be used for PrimalSpan.
-  rshare a@(AstRaw (AstShare{})) = a
-  rshare a | astIsSmall True (unAstRaw a) = a
-  rshare a = AstRaw $ fun1ToAst $ \ !var -> AstShare var (unAstRaw a)
 
   rconstant = AstRaw . fromPrimal . unAstRaw
   rprimalPart = AstRaw . astSpanPrimal . unAstRaw
@@ -970,10 +979,6 @@ instance AstSpan s => ShapedTensor (AstRawS s) where
   sconst = AstRawS . fromPrimal . AstConstS
   sfromR = AstRawS . AstSFromR . unAstRaw
 
-  sshare a@(AstRawS (AstShare{})) = a
-  sshare a | astIsSmall True (unAstRawS a) = a
-  sshare a = AstRawS $ fun1ToAst $ \ !var -> AstShare var (unAstRawS a)
-
   sconstant = AstRawS . fromPrimal . unAstRawS
   sprimalPart = AstRawS . astSpanPrimal . unAstRawS
   sdualPart = AstRawS . astSpanDual . unAstRawS
@@ -1008,16 +1013,6 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
           DynamicShapedDummy @r @sh _ _ ->
             DynamicShaped @r @sh $ AstShaped $ AstProjectS hVectorOf i
     in rawHVector $ V.imap f $ shapeAstHVector hVectorOf
-  dshare a@(AstRawWrap AstShare{}) = a
-  dshare a | astIsSmall True (unAstRawWrap a) = a
-  dshare a = AstRawWrap $ fun1ToAst $ \ !var -> AstShare var (unAstRawWrap a)
-  -- For convenience and simplicity we define this for all spans,
-  -- but it can only ever be used for PrimalSpan.
-  -- In this instance, these three ops are only used for some rare tests that
-  -- use the non-symbolic pipeline to compute a symbolic
-  -- value of the derivative at a particular fixed input.
-  -- The limitation of AstRaw as a newtype make it impossible
-  -- to switch the tests from AstRanked to AstRaw.
   tunshare :: forall y. TensorKind y
            => InterpretationTarget (AstRaw s) y
            -> InterpretationTarget (AstRaw s) y
@@ -1027,6 +1022,14 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
       _ -> error "tunshare: used not at PrimalSpan"
   dbuild1 k f = AstRawWrap
                 $ AstBuildHVector1 k $ funToAstI (unAstRawWrap . f . AstRaw)
+  -- TODO: (still) relevant?
+  -- In this instance, these three ops are only used for some rare tests that
+  -- use the non-symbolic pipeline to compute a symbolic
+  -- value of the derivative at a particular fixed input.
+  -- The limitation of AstRaw as a newtype make it impossible
+  -- to switch the tests from AstRanked to AstRaw.
+  --
+  -- TODO: dupe?
   -- These three methods are called at this type in delta evaluation via
   -- dmapAccumR and dmapAccumL, they have to work. We could refrain from
   -- simplifying the resulting terms, but it's not clear that's more consistent.
@@ -1290,6 +1293,11 @@ instance AstSpan s => LetTensor (AstNoVectorize s) (AstNoVectorizeS s) where
                   (unNoVectorizeY (stensorKind @z) . f . AstNoVectorizeS)
     STKProduct{} -> error "TODO"
     STKUntyped{} -> error "TODO"
+
+instance ShareTensor (AstNoVectorize s) (AstNoVectorizeS s) where
+  rshare = id
+  sshare = id
+  dshare = id
 
 instance AstSpan s => RankedTensor (AstNoVectorize s) where
   rshape = rshape . unAstNoVectorize2
@@ -1578,6 +1586,11 @@ instance AstSpan s => LetTensor (AstNoSimplify s) (AstNoSimplifyS s) where
                   (unNoSimplifyY (stensorKind @z) . f . AstNoSimplifyS)
     STKProduct{} -> error "TODO"
     STKUntyped{} -> error "TODO"
+
+instance ShareTensor (AstNoSimplify s) (AstNoSimplifyS s) where
+  rshare = id
+  sshare = id
+  dshare = id
 
 instance AstSpan s => RankedTensor (AstNoSimplify s) where
   rshape = shapeAst . unAstNoSimplify

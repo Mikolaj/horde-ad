@@ -4277,7 +4277,9 @@ testSin0revhV2 = do
         rrev @g @_ @Double @0 (\v -> sin (rfromD $ v V.! 0))
              (V.singleton (voidFromSh @Double ZSR))
              x
-      h :: forall g. ADReady g
+      h :: forall g.
+           ( ADReady g, ShareTensor g (ShapedOf g)
+           , ShareTensor (PrimalOf g) (ShapedOf (PrimalOf g)) )
         => HVector (ADVal g)
         -> HVectorPseudoTensor (ADVal g) Float '()
       h = HVectorPseudoTensor . f
@@ -4293,7 +4295,9 @@ testSin0revhV3 = do
         srev @g @_ @Double @'[] (\v -> sin (sfromD $ v V.! 0))
              (V.singleton (voidFromShS @Double @'[]))
              x
-      h :: forall g. ADReady g
+      h :: forall g.
+           ( ADReady g, ShareTensor g (ShapedOf g)
+           , ShareTensor (PrimalOf g) (ShapedOf (PrimalOf g)) )
         => HVector (ADVal g)
         -> HVectorPseudoTensor (ADVal g) Float '()
       h = HVectorPseudoTensor . f
@@ -4310,7 +4314,9 @@ testSin0revhV4 = do
       f x =
         rrevDt @g @_ @Double @1 (rscanZip const doms 5)
                doms3 x (ringestData1 [1, 2, 3, 4])
-      h :: forall g. ADReady g
+      h :: forall g.
+           ( ADReady g, ShareTensor g (ShapedOf g)
+           , ShareTensor (PrimalOf g) (ShapedOf (PrimalOf g)) )
         => HVector (ADVal g)
         -> HVectorPseudoTensor (ADVal g) Float '()
       h = HVectorPseudoTensor . f
@@ -4328,7 +4334,9 @@ testSin0revhV5 = do
       f x =
         srevDt @g @_ @Double @'[4] (sscanZip const doms (srepl 5))
                doms3 x (ingestData [1, 2, 3, 4])
-      h :: forall g. ADReady g
+      h :: forall g.
+           ( ADReady g, ShareTensor g (ShapedOf g)
+           , ShareTensor (PrimalOf g) (ShapedOf (PrimalOf g)) )
         => HVector (ADVal g)
         -> HVectorPseudoTensor (ADVal g) Float '()
       h = HVectorPseudoTensor . f
@@ -4348,7 +4356,9 @@ testSin0revhV6 = do
                (\v -> rscanZip (\_ w -> let z = rfromD $ w V.! 0
                                         in z * z) doms 5 v)
                 doms3 x (ringestData1 [1, 2, 3, 4])
-      h :: forall g. ADReady g
+      h :: forall g.
+           ( ADReady g, ShareTensor g (ShapedOf g)
+           , ShareTensor (PrimalOf g) (ShapedOf (PrimalOf g)) )
         => HVector (ADVal g)
         -> HVectorPseudoTensor (ADVal g) Float '()
       h = HVectorPseudoTensor . f
@@ -4368,7 +4378,9 @@ testSin0revhV7 = do
                (\v -> sscanZip (\_ w -> let z = sfromD $ w V.! 0
                                         in z * z) doms (srepl 5) v)
                doms3 x (ingestData [1, 2, 3, 4])
-      h :: forall g. ADReady g
+      h :: forall g.
+           ( ADReady g, ShareTensor g (ShapedOf g)
+           , ShareTensor (PrimalOf g) (ShapedOf (PrimalOf g)) )
         => HVector (ADVal g)
         -> HVectorPseudoTensor (ADVal g) Float '()
       h = HVectorPseudoTensor . f
@@ -4382,7 +4394,9 @@ testSin0revhV8 = do
   let f :: forall g. HVectorTensor g (ShapedOf g)
         => HVector g -> HVectorOf g
       f = dmkHVector
-      h :: forall g. ADReady g
+      h :: forall g.
+           ( ADReady g, ShareTensor g (ShapedOf g)
+           , ShareTensor (PrimalOf g) (ShapedOf (PrimalOf g)) )
         => HVector (ADVal g)
         -> HVectorPseudoTensor (ADVal g) Float '()
       h = HVectorPseudoTensor . f

@@ -95,6 +95,11 @@ instance LetTensor ORArray OSArray where
     STKUntyped{} -> f $ unHVectorPseudoTensor a
   blet = (&)
 
+instance ShareTensor ORArray OSArray where
+  rshare = id
+  sshare = id
+  dshare = id
+
 instance RankedTensor ORArray where
   rshape = tshapeR . runFlipR
   rminIndex = FlipR . tminIndexR . runFlipR
@@ -275,13 +280,9 @@ instance HVectorTensor ORArray OSArray where
          -> HFun x z
          -> HFunOf ORArray (TKProduct z x) x
   drevDt _ftk h =
-    let g :: ADReady f
-          => InterpretationTarget (ADVal f) x
-          -> InterpretationTarget (ADVal f) z
-        g !hv = unHFun h hv
-        rf :: InterpretationTarget ORArray (TKProduct z x)
+    let rf :: InterpretationTarget ORArray (TKProduct z x)
            -> InterpretationTarget ORArray x
-        rf !db_a = fst $ crevOnHVector (Just $ fst db_a) g (snd db_a)
+        rf !db_a = fst $ crevOnHVector (Just $ fst db_a) (unHFun h) (snd db_a)
     in rf
   dfwd :: forall x z. (TensorKind x, TensorKind z)
             => TensorKindFull x
@@ -415,7 +416,10 @@ instance AdaptableHVector ORArray
 {-# SPECIALIZE evalFromnMap
   :: EvalState ORArray -> EvalState ORArray #-}
 
-instance (RankedTensor ranked, ShapedTensor (ShapedOf ranked))
+instance ( RankedTensor ranked, ShapedTensor (ShapedOf ranked)
+         , ShareTensor ranked (ShapedOf ranked)
+         , ShareTensor (PrimalOf ranked) (ShapedOf (PrimalOf ranked))
+         , RankedOf (ShapedOf ranked) ~ ranked )
          => DualNumberValue (DynamicTensor (ADVal ranked)) where
   type DValue (DynamicTensor (ADVal ranked)) = DynamicTensor ORArray
   fromDValue = \case

@@ -1,3 +1,4 @@
+{-# LANGUAGE UndecidableInstances #-}
 -- | The class relating the primal datatype to its dual counterpart
 -- and the instances of the class for all kinds it's going to be use at
 -- (@Nat@ and @[Nat]@). This class abstract over some of the operations
@@ -90,7 +91,8 @@ class IsPrimal f r z where
 -- and it could, presumably, be extended to further limit which
 -- terms get an identifier. Alternatively, 'HordeAd.Core.DualNumber.dD'
 -- or library definitions that use it could be made smarter.
-instance (GoodScalar r, KnownNat n, RankedTensor ranked)
+instance ( GoodScalar r, KnownNat n, RankedTensor ranked
+         , ShareTensor ranked (ShapedOf ranked) )
          => IsPrimal @Nat ranked r n where
   dZeroOfShape tsh = DeltaR $ ZeroR (rshape tsh)
   dScale _ (DeltaR (ZeroR sh)) = DeltaR $ ZeroR sh
@@ -107,7 +109,8 @@ instance (GoodScalar r, KnownNat n, RankedTensor ranked)
     ShareR{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDeltaR d
 
-instance (GoodScalar r, KnownShS sh, ShapedTensor shaped)
+instance ( GoodScalar r, KnownShS sh, ShapedTensor shaped
+         , ShareTensor (RankedOf shaped) shaped )
          => IsPrimal @[Nat] shaped r sh where
   dZeroOfShape _tsh = DeltaS ZeroS
   dScale _ (DeltaS ZeroS) = DeltaS ZeroS
