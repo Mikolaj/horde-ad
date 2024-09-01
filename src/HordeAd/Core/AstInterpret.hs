@@ -566,7 +566,7 @@ interpretAst !env = \case
   AstLetHFunIn @_ @_ @x2 @y2 var f v ->
     let g = interpretAstHFun env f
         env2 h = extendEnvHFun (Proxy @x2) (Proxy @y2) var h env
-    in rletHFunIn @_ @_ @_ @x2 @y2 g (\h -> interpretAst (env2 h) v)
+    in rletHFunIn @_ @_ @_ @_ @x2 @y2 g (\h -> interpretAst (env2 h) v)
   AstRFromS v -> rfromS $ interpretAst env v
 
   AstMinIndexS v ->
@@ -788,7 +788,7 @@ interpretAst !env = \case
   AstLetHFunInS @_ @_ @x2 @y2 var f v ->
     let g = interpretAstHFun env f
         env2 h = extendEnvHFun (Proxy @x2) (Proxy @y2) var h env
-    in sletHFunIn @_ @_ @_ @x2 @y2 g (\h -> interpretAst (env2 h) v)
+    in sletHFunIn @_ @_ @_ @_ @x2 @y2 g (\h -> interpretAst (env2 h) v)
   AstSFromR v -> sfromR $ interpretAst env v
 
   AstMkHVector l -> HVectorPseudoTensor

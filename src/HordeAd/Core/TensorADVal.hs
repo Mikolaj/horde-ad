@@ -159,16 +159,8 @@ instance AdaptableHVector ranked a
     -- >   let f = swap . flip fromHVector
     -- >   in swap $ mapAccumL f source lInit
 
-
-
--- Note that these instances don't do vectorization. To enable it,
--- use the Ast instance and only then interpret in ADVal.
--- In any case, only the Ast instantiation of this instance
--- is used in the codebase, in particular, to satisfy the constraints
--- needed for the interpretation of Ast in ADVal.
--- The ADVal Double and ADVal Float instantiations are only used
--- in tests. None others are used anywhere.
-instance ADReady ranked => RankedTensor (ADVal ranked) where
+instance ADReadyBoth ranked shaped
+         => LetTensor (ADVal ranked) (ADVal shaped) where
   rletTKIn stk a f =
     let rsharePrimal :: (GoodScalar r, KnownNat n)
                      => ADVal ranked r n
@@ -184,7 +176,107 @@ instance ADReady ranked => RankedTensor (ADVal ranked) where
           let !var2 = sshare u
           in dDnotShared var2 u'
     in f $ mapInterpretationTarget @(ADVal ranked) rsharePrimal ssharePrimal stk a
+  rletHVectorIn asD f = f asD
+{- TODO: Try again once we have tests that show this sharing is needed:
+    let !(!asUnshared, as') = unADValHVector asD
+        !as = dunHVector $ dshare $ dmkHVector asUnshared
+          -- TODO: could this be done with rshare? Would it be better?
+        doms = aDValHVector as as'
+    in f doms -}
+  rletHFunIn = (&)
 
+  sletTKIn stk a f =
+    let rsharePrimal :: (GoodScalar r, KnownNat n)
+                     => ADVal (RankedOf shaped) r n
+                     -> ADVal (RankedOf shaped)  r n
+        rsharePrimal (D u u') =
+          let !var2 = rshare u
+          in dDnotShared var2 u'
+            -- u' doesn't need to be shared, because deltas are shared separately
+        ssharePrimal :: (GoodScalar r, KnownShS sh)
+                     => ADVal shaped r sh
+                     -> ADVal shaped r sh
+        ssharePrimal (D u u') =
+          let !var2 = sshare u
+          in dDnotShared var2 u'
+    in f $ mapInterpretationTarget @(ADVal (RankedOf shaped))
+                                   rsharePrimal ssharePrimal stk a
+  sletHVectorIn asD f = f asD
+{- TODO: Try again once we have tests that show this sharing is needed:
+    let !(!asUnshared, as') = unADValHVector asD
+        !as = dunHVector $ dshare $ dmkHVector asUnshared
+          -- TODO: could this be done with rshare? Would it be better?
+        doms = aDValHVector as as'
+    in f doms -}
+  sletHFunIn = (&)
+
+  dletHVectorInHVector asD f = f asD
+{- TODO: Try again once we have tests that show this sharing is needed:
+    let !(!asUnshared, as') = unADValHVector asD
+        !as = dunHVector $ dshare $ dmkHVector asUnshared
+          -- TODO: could this be done with rshare? Would it be better?
+        doms = aDValHVector as as'
+    in f doms -}
+  dletHFunInHVector = (&)
+  tlet :: forall x z. (TensorKind x, TensorKind z)
+       => InterpretationTarget (ADVal ranked) x
+       -> (ConcreteTarget (ADVal ranked) x
+           -> InterpretationTarget (ADVal ranked) z)
+       -> InterpretationTarget (ADVal ranked) z
+  tlet a f = case stensorKind @x of
+    STKR{} ->
+      let (D u u') = a
+          !var2 = rshare u
+      in f (dDnotShared var2 u')
+    STKS{} ->
+      let (D u u') = a
+          !var2 = sshare u
+      in f (dDnotShared var2 u')
+    STKProduct{} ->
+      -- Sharing is preserved despite `a` being repeated, because
+      -- each repetition concerns a disjoint portion of `a` and so the whole `a`
+      -- is computed only once.
+      blet (fst a) $ \ !a1 ->
+        blet (snd a) $ \ !a2 -> f (a1, a2)
+    STKUntyped{} ->
+      let (!u, !u') = unADValHVector $ unHVectorPseudoTensor a
+          !var2 = dunHVector $ dshare $ dmkHVector u
+            -- dunHVector is fine, because its argument is shared
+            -- (and even without that, it comes from an explicit HVector)
+            -- and dshare is needed due to f possibly using the argument many times
+            -- and while the Haskell computation would be performed only once,
+            -- a term could get duplicated and then interpreted many times
+      in f (aDValHVector var2 u')
+  blet :: forall x z. (TensorKind x, TensorKind z)
+       => InterpretationTarget (ADVal ranked) x
+       -> (InterpretationTarget (ADVal ranked) x
+           -> InterpretationTarget (ADVal ranked) z)
+       -> InterpretationTarget (ADVal ranked) z
+  blet a f = case stensorKind @x of
+    STKR{} ->
+      let (D u u') = a
+          !var2 = rshare u
+      in f (dDnotShared var2 u')
+    STKS{} ->
+      let (D u u') = a
+          !var2 = sshare u
+      in f (dDnotShared var2 u')
+    STKProduct{} ->
+      blet (fst a) $ \ !a1 ->
+        blet (snd a) $ \ !a2 -> f (a1, a2)
+    STKUntyped{} ->
+      let (!u, !u') = unADValHVector $ unHVectorPseudoTensor a
+          !var2 = dunHVector $ dshare $ dmkHVector u
+      in f (HVectorPseudoTensor $ aDValHVector var2 u')
+
+-- Note that these instances don't do vectorization. To enable it,
+-- use the Ast instance and only then interpret in ADVal.
+-- In any case, only the Ast instantiation of this instance
+-- is used in the codebase, in particular, to satisfy the constraints
+-- needed for the interpretation of Ast in ADVal.
+-- The ADVal Double and ADVal Float instantiations are only used
+-- in tests. None others are used anywhere.
+instance ADReady ranked => RankedTensor (ADVal ranked) where
   rshape (D u _) = rshape u
   rminIndex (D u _) =
     let v = rminIndex u
@@ -248,14 +340,6 @@ instance ADReady ranked => RankedTensor (ADVal ranked) where
     let v = rfromIntegral u
     in dDnotShared v (dZeroOfShape v)
   rconst t = constantADVal (rconst t)
-  rletHVectorIn asD f = f asD
-{- TODO: Try again once we have tests that show this sharing is needed:
-    let !(!asUnshared, as') = unADValHVector asD
-        !as = dunHVector $ dshare $ dmkHVector asUnshared
-          -- TODO: could this be done with rshare? Would it be better?
-        doms = aDValHVector as as'
-    in f doms -}
-  rletHFunIn = (&)
   rfromS :: forall r sh. (GoodScalar r, KnownShS sh)
          => ADVal (ShapedOf ranked) r sh -> ADVal ranked r (X.Rank sh)
   rfromS (D u u') = dDnotShared (rfromS u) (DeltaR $ dRFromS $ unDeltaS u')
@@ -294,23 +378,6 @@ instance (ADReadyS shaped, KnownShS sh, GoodScalar r)
 -- The ADVal Double and ADVal Float instantiations are only used
 -- in tests. None others are used anywhere.
 instance ADReadyS shaped => ShapedTensor (ADVal shaped) where
-  sletTKIn stk a f =
-    let rsharePrimal :: (GoodScalar r, KnownNat n)
-                     => ADVal (RankedOf shaped) r n
-                     -> ADVal (RankedOf shaped)  r n
-        rsharePrimal (D u u') =
-          let !var2 = rshare u
-          in dDnotShared var2 u'
-            -- u' doesn't need to be shared, because deltas are shared separately
-        ssharePrimal :: (GoodScalar r, KnownShS sh)
-                     => ADVal shaped r sh
-                     -> ADVal shaped r sh
-        ssharePrimal (D u u') =
-          let !var2 = sshare u
-          in dDnotShared var2 u'
-    in f $ mapInterpretationTarget @(ADVal (RankedOf shaped))
-                                   rsharePrimal ssharePrimal stk a
-
   sminIndex (D u _) =
     let v = sminIndex u
     in dDnotShared v (dZeroOfShape v)
@@ -378,14 +445,6 @@ instance ADReadyS shaped => ShapedTensor (ADVal shaped) where
     let v = sfromIntegral u
     in dDnotShared v (dZeroOfShape v)
   sconst t = constantADVal (sconst t)
-  sletHVectorIn asD f = f asD
-{- TODO: Try again once we have tests that show this sharing is needed:
-    let !(!asUnshared, as') = unADValHVector asD
-        !as = dunHVector $ dshare $ dmkHVector asUnshared
-          -- TODO: could this be done with rshare? Would it be better?
-        doms = aDValHVector as as'
-    in f doms -}
-  sletHFunIn = (&)
   sfromR :: forall r sh. (GoodScalar r, KnownShS sh, KnownNat (X.Rank sh))
          => ADVal (RankedOf shaped) r (X.Rank sh) -> ADVal shaped r sh
   sfromR (D u u') = dDnotShared (sfromR u) (DeltaS $ dSFromR u')
@@ -429,64 +488,6 @@ instance ADReadyBoth ranked shaped
   dlambda _ = id
   dHApply (HFun f) = f
   dunHVector = id
-  dletHVectorInHVector asD f = f asD
-{- TODO: Try again once we have tests that show this sharing is needed:
-    let !(!asUnshared, as') = unADValHVector asD
-        !as = dunHVector $ dshare $ dmkHVector asUnshared
-          -- TODO: could this be done with rshare? Would it be better?
-        doms = aDValHVector as as'
-    in f doms -}
-  dletHFunInHVector = (&)
-  tlet :: forall x z. (TensorKind x, TensorKind z)
-       => InterpretationTarget (ADVal ranked) x
-       -> (ConcreteTarget (ADVal ranked) x
-           -> InterpretationTarget (ADVal ranked) z)
-       -> InterpretationTarget (ADVal ranked) z
-  tlet a f = case stensorKind @x of
-    STKR{} ->
-      let (D u u') = a
-          !var2 = rshare u
-      in f (dDnotShared var2 u')
-    STKS{} ->
-      let (D u u') = a
-          !var2 = sshare u
-      in f (dDnotShared var2 u')
-    STKProduct{} ->
-      -- Sharing is preserved despite `a` being repeated, because
-      -- each repetition concerns a disjoint portion of `a` and so the whole `a`
-      -- is computed only once.
-      blet (fst a) $ \ !a1 ->
-        blet (snd a) $ \ !a2 -> f (a1, a2)
-    STKUntyped{} ->
-      let (!u, !u') = unADValHVector $ unHVectorPseudoTensor a
-          !var2 = dunHVector $ dshare $ dmkHVector u
-            -- dunHVector is fine, because its argument is shared
-            -- (and even without that, it comes from an explicit HVector)
-            -- and dshare is needed due to f possibly using the argument many times
-            -- and while the Haskell computation would be performed only once,
-            -- a term could get duplicated and then interpreted many times
-      in f (aDValHVector var2 u')
-  blet :: forall x z. (TensorKind x, TensorKind z)
-       => InterpretationTarget (ADVal ranked) x
-       -> (InterpretationTarget (ADVal ranked) x
-           -> InterpretationTarget (ADVal ranked) z)
-       -> InterpretationTarget (ADVal ranked) z
-  blet a f = case stensorKind @x of
-    STKR{} ->
-      let (D u u') = a
-          !var2 = rshare u
-      in f (dDnotShared var2 u')
-    STKS{} ->
-      let (D u u') = a
-          !var2 = sshare u
-      in f (dDnotShared var2 u')
-    STKProduct{} ->
-      blet (fst a) $ \ !a1 ->
-        blet (snd a) $ \ !a2 -> f (a1, a2)
-    STKUntyped{} ->
-      let (!u, !u') = unADValHVector $ unHVectorPseudoTensor a
-          !var2 = dunHVector $ dshare $ dmkHVector u
-      in f (HVectorPseudoTensor $ aDValHVector var2 u')
   tunshare = id
   dbuild1 k f =
     ravelHVector $ map (f . fromIntegral) [0 .. sNatValue k - 1]

@@ -72,8 +72,30 @@ type instance PrimalOf ORArray = ORArray
 
 type instance DualOf ORArray = DummyDual
 
-instance RankedTensor ORArray where
+instance LetTensor ORArray OSArray where
   rletTKIn _ a f = f a
+  rletHVectorIn = (&)
+  rletHFunIn = (&)
+  sletTKIn _ a f = f a
+  sletHVectorIn = (&)
+  sletHFunIn = (&)
+  dletHVectorInHVector = (&)
+  dletHFunInHVector = (&)
+  tlet :: forall x z. (TensorKind x, TensorKind z)
+       => InterpretationTarget ORArray x
+       -> (ConcreteTarget ORArray x
+           -> InterpretationTarget ORArray z)
+       -> InterpretationTarget ORArray z
+  tlet a f = case stensorKind @x of
+    STKR{} -> f a
+    STKS{} -> f a
+    STKProduct{} ->
+      blet (fst a) $ \ !a1 ->
+        blet (snd a) $ \ !a2 -> f (a1, a2)
+    STKUntyped{} -> f $ unHVectorPseudoTensor a
+  blet = (&)
+
+instance RankedTensor ORArray where
   rshape = tshapeR . runFlipR
   rminIndex = FlipR . tminIndexR . runFlipR
   rmaxIndex = FlipR . tmaxIndexR . runFlipR
@@ -113,8 +135,6 @@ instance RankedTensor ORArray where
   rcast = FlipR . tcastR . runFlipR
   rfromIntegral = FlipR . tfromIntegralR . runFlipR
   rconst = FlipR
-  rletHVectorIn = (&)
-  rletHFunIn = (&)
   rfromS = FlipR . Nested.stoRanked . runFlipS
 
   rscaleByScalar s v =
@@ -163,7 +183,6 @@ instance ProductTensor DummyDual where
   tmkHVector = error "tmkHVector of DummyDual"
 
 instance ShapedTensor OSArray where
-  sletTKIn _ a f = f a
   sminIndex = FlipS . tminIndexS . runFlipS
   smaxIndex = FlipS . tmaxIndexS . runFlipS
   sfloor = FlipS . tfloorS . runFlipS
@@ -207,8 +226,6 @@ instance ShapedTensor OSArray where
   scast = FlipS . tcastS . runFlipS
   sfromIntegral = FlipS . tfromIntegralS . runFlipS
   sconst = FlipS
-  sletHVectorIn = (&)
-  sletHFunIn = (&)
   sfromR :: forall r sh. (GoodScalar r, KnownShS sh)
          => ORArray r (X.Rank sh) -> OSArray r sh
   sfromR = FlipS . flip Nested.rcastToShaped knownShS . runFlipR
@@ -235,21 +252,6 @@ instance HVectorTensor ORArray OSArray where
   dlambda _ f = unHFun f  -- the eta-expansion is needed for typing
   dHApply f = f
   dunHVector = id
-  dletHVectorInHVector = (&)
-  dletHFunInHVector = (&)
-  tlet :: forall x z. (TensorKind x, TensorKind z)
-       => InterpretationTarget ORArray x
-       -> (ConcreteTarget ORArray x
-           -> InterpretationTarget ORArray z)
-       -> InterpretationTarget ORArray z
-  tlet a f = case stensorKind @x of
-    STKR{} -> f a
-    STKS{} -> f a
-    STKProduct{} ->
-      blet (fst a) $ \ !a1 ->
-        blet (snd a) $ \ !a2 -> f (a1, a2)
-    STKUntyped{} -> f $ unHVectorPseudoTensor a
-  blet = (&)
   tunshare = id
   dbuild1 k f =
     ravelHVector $ map (f . fromIntegral) [0 .. sNatValue k - 1]

@@ -6,13 +6,13 @@ module MnistFcnnRanked1 where
 
 import Prelude
 
-import           Control.Exception (assert)
-import qualified Data.Array.RankedS as OR
-import qualified Data.List.NonEmpty as NonEmpty
-import qualified Data.Vector.Generic as V
-import           GHC.Exts (IsList (..), inline)
+import Control.Exception (assert)
+import Data.Array.RankedS qualified as OR
+import Data.List.NonEmpty qualified as NonEmpty
+import Data.Vector.Generic qualified as V
+import GHC.Exts (IsList (..), inline)
 
-import qualified Data.Array.Nested as Nested
+import Data.Array.Nested qualified as Nested
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.HVector
@@ -40,7 +40,8 @@ type ADFcnnMnist1Parameters (ranked :: RankedTensorType) r =
   )
 
 listMatmul1
-  :: forall ranked r. (RankedTensor ranked, GoodScalar r)
+  :: forall ranked r.
+     (RankedTensor ranked, LetTensor ranked (ShapedOf ranked), GoodScalar r)
   => ranked r 1 -> [ranked r 1]
   -> ranked r 1
 listMatmul1 x0 weights = rlet x0 $ \x ->

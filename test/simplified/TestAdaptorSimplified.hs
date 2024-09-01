@@ -578,7 +578,9 @@ testFooPP = do
     @?= "\\x13 x14 x15 -> rlet (sin x14) (\\x -> rlet (x13 * x) (\\y -> rlet (sin x14) (\\x5 -> rlet (x13 * x5) (\\x6 -> atan2F x15 y + x15 * x6))))"
 
 fooLet :: forall ranked r n.
-          (RealFloatF (ranked r n), RankedTensor ranked, KnownNat n, GoodScalar r)
+          ( RealFloatF (ranked r n)
+          , LetTensor ranked (ShapedOf ranked)
+          , KnownNat n, GoodScalar r )
        => (ranked r n, ranked r n, ranked r n) -> ranked r n
 fooLet (x, y, z) =
   let w0 = x * sin y
@@ -729,7 +731,8 @@ testListSum22rPP = do
     @?= "\\x11 x12 x13 x14 -> 2.0 * x11 + 2.0 * (2.0 * x12 + 2.0 * (2.0 * x13 + 2.0 * x14))"
 
 -- Note how this rlet did not change anything, in particular the sharing.
-rankedListSumk22r :: (RankedTensor ranked, GoodScalar r)
+rankedListSumk22r :: ( RankedTensor ranked, LetTensor ranked (ShapedOf ranked)
+                     , GoodScalar r )
                  => [ranked r 0] -> ranked r 0
 rankedListSumk22r = foldr1 (\x y -> rlet 2 (\k -> k * x + k * y))
 

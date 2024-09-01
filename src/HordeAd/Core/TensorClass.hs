@@ -12,7 +12,8 @@ module HordeAd.Core.TensorClass
   ( -- * Re-exports
     IShR, ShapeS
     -- * The tensor classes
-  , RankedTensor(..), ShapedTensor(..), HVectorTensor(..), ProductTensor(..)
+  , LetTensor(..), RankedTensor(..), ShapedTensor(..)
+  , HVectorTensor(..), ProductTensor(..)
   , HFun(..)
   , rfromD, sfromD, rscalar, rrepl, ringestData, ringestData1
   , ingestData, sscalar, srepl
@@ -67,14 +68,9 @@ class (RealFloat r, Nested.Internal.Arith.FloatElt r)
 instance (RealFloat r, Nested.Internal.Arith.FloatElt r)
          => RealFloatAndFloatElt r
 
--- | The superclasses indicate that it's not only a container array,
--- but also a mathematical tensor, sporting numeric operations.
-class ( Num (IntOf ranked), IntegralF (IntOf ranked), CRanked ranked Num
-      , TensorSupports RealFloatAndFloatElt Floating ranked
-      , TensorSupports RealFloatAndFloatElt RealFloatF ranked
-      , TensorSupports Integral IntegralF ranked )
-      => RankedTensor (ranked :: RankedTensorType) where
-
+class LetTensor (ranked :: RankedTensorType)
+                (shaped :: ShapedTensorType)
+                | ranked -> shaped, shaped -> ranked where
   rletTKIn :: (GoodScalar r, KnownNat n, TensorKind y)
            => STensorKindType y -> InterpretationTarget ranked y
            -> (InterpretationTarget ranked y -> ranked r n)
@@ -84,6 +80,73 @@ class ( Num (IntOf ranked), IntegralF (IntOf ranked), CRanked ranked Num
        => ranked r n -> (ranked r n -> ranked r2 m)
        -> ranked r2 m
   rlet a f = rletTKIn (STKR typeRep SNat) a f
+  rletHVectorIn :: (KnownNat n, GoodScalar r)
+                => HVectorOf ranked
+                -> (HVector ranked -> ranked r n)
+                -> ranked r n
+  rletHFunIn :: (KnownNat n, GoodScalar r, TensorKind x, TensorKind y)
+             => HFunOf ranked x y
+             -> (HFunOf ranked x y -> ranked r n)
+             -> ranked r n
+
+  sletTKIn :: (GoodScalar r, KnownShS sh, TensorKind y)
+           => STensorKindType y -> InterpretationTarget (RankedOf shaped) y
+           -> (InterpretationTarget (RankedOf shaped) y -> shaped r sh)
+           -> shaped r sh
+
+  slet :: forall sh sh2 r r2.
+          ( KnownShS sh, KnownShS sh2, GoodScalar r, GoodScalar r2
+          , shaped ~ ShapedOf ranked, RankedOf shaped ~ ranked )
+       => shaped r sh -> (shaped r sh -> shaped r2 sh2)
+       -> shaped r2 sh2
+  slet a f = sletTKIn (STKS typeRep knownShS) a f
+  sletHVectorIn :: (KnownShS sh, GoodScalar r)
+                => HVectorOf (RankedOf shaped)
+                -> (HVector (RankedOf shaped) -> shaped r sh)
+                -> shaped r sh
+  sletHFunIn :: (KnownShS sh, GoodScalar r, TensorKind x, TensorKind y)
+             => HFunOf (RankedOf shaped) x y
+             -> (HFunOf (RankedOf shaped) x y -> shaped r sh)
+             -> shaped r sh
+
+  dletHVectorInHVector
+    :: HVectorOf ranked
+    -> (HVector ranked -> HVectorOf ranked)
+    -> HVectorOf ranked
+  -- When the programmer uses the same closed function many times, the HFun
+  -- makes it possible to prevent multiple simplification, inlining, etc.,
+  -- once for each copy (shared on the Haskell heap) of the function
+  -- representation. However, the engine code itself never uses closed
+  -- functions in a way that would benefit from the HFun lets.
+  --
+  -- To prevent double derivative computation in
+  -- > let f = ... in ... (dmapAccumR ... f ...) ... (dmapAccumR ... f ...)
+  -- one needs to use dmapAccumRDer manually as in (simplified)
+  -- > let f = ...; df = dfwd f; rf = drev f
+  -- > in ... (dmapAccumRDer f df rf ...) ... (dmapAccumRDer f df rf ...)
+  dletHFunInHVector
+    :: (TensorKind x, TensorKind y)
+    => HFunOf ranked x y
+    -> (HFunOf ranked x y -> HVectorOf ranked)
+    -> HVectorOf ranked
+  -- This type signature generalizes dletHVectorInHVector and is easier
+  -- for the user to work with, giving him access to concrete vectors and tuples.
+  tlet :: forall x z. (TensorKind x, TensorKind z)
+       => InterpretationTarget ranked x
+       -> (ConcreteTarget ranked x -> InterpretationTarget ranked z)
+       -> InterpretationTarget ranked z
+  blet :: forall x z. (TensorKind x, TensorKind z)
+       => InterpretationTarget ranked x
+       -> (InterpretationTarget ranked x -> InterpretationTarget ranked z)
+       -> InterpretationTarget ranked z
+
+-- | The superclasses indicate that it's not only a container array,
+-- but also a mathematical tensor, sporting numeric operations.
+class ( Num (IntOf ranked), IntegralF (IntOf ranked), CRanked ranked Num
+      , TensorSupports RealFloatAndFloatElt Floating ranked
+      , TensorSupports RealFloatAndFloatElt RealFloatF ranked
+      , TensorSupports Integral IntegralF ranked )
+      => RankedTensor (ranked :: RankedTensorType) where
 
   -- Integer codomain
   rshape :: (GoodScalar r, KnownNat n) => ranked r n -> IShR n
@@ -306,14 +369,6 @@ class ( Num (IntOf ranked), IntegralF (IntOf ranked), CRanked ranked Num
   rfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2, KnownNat n)
                 => ranked r1 n -> ranked r2 n
   rconst :: (GoodScalar r, KnownNat n) => Nested.Ranked n r -> ranked r n
-  rletHVectorIn :: (KnownNat n, GoodScalar r)
-                => HVectorOf ranked
-                -> (HVector ranked -> ranked r n)
-                -> ranked r n
-  rletHFunIn :: (KnownNat n, GoodScalar r, TensorKind x, TensorKind y)
-             => HFunOf ranked x y
-             -> (HFunOf ranked x y -> ranked r n)
-             -> ranked r n
   rfromS :: (GoodScalar r, KnownShS sh)
          => ShapedOf ranked r sh -> ranked r (X.Rank sh)
   -- Prevents wrong shape in @0@ with ranked (but not shaped) tensors
@@ -359,17 +414,6 @@ class ( Num (IntOf shaped), IntegralF (IntOf shaped), CShaped shaped Num
       , TensorSupports Integral IntegralF shaped
       , shaped ~ ShapedOf (RankedOf shaped) )
       => ShapedTensor (shaped :: ShapedTensorType) where
-
-  sletTKIn :: (GoodScalar r, KnownShS sh, TensorKind y)
-           => STensorKindType y -> InterpretationTarget (RankedOf shaped) y
-           -> (InterpretationTarget (RankedOf shaped) y -> shaped r sh)
-           -> shaped r sh
-
-  slet :: forall sh sh2 r r2.
-          (KnownShS sh, KnownShS sh2, GoodScalar r, GoodScalar r2)
-       => shaped r sh -> (shaped r sh -> shaped r2 sh2)
-       -> shaped r2 sh2
-  slet a f = sletTKIn (STKS typeRep knownShS) a f
 
   -- Integer codomain
   sshape :: forall sh r. (GoodScalar r, KnownShS sh)
@@ -690,14 +734,6 @@ class ( Num (IntOf shaped), IntegralF (IntOf shaped), CShaped shaped Num
   sfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2, KnownShS sh)
                 => shaped r1 sh -> shaped r2 sh
   sconst :: (GoodScalar r, KnownShS sh) => Nested.Shaped sh r -> shaped r sh
-  sletHVectorIn :: (KnownShS sh, GoodScalar r)
-                => HVectorOf (RankedOf shaped)
-                -> (HVector (RankedOf shaped) -> shaped r sh)
-                -> shaped r sh
-  sletHFunIn :: (KnownShS sh, GoodScalar r, TensorKind x, TensorKind y)
-             => HFunOf (RankedOf shaped) x y
-             -> (HFunOf (RankedOf shaped) x y -> shaped r sh)
-             -> shaped r sh
   sfromR :: (GoodScalar r, KnownShS sh, KnownNat (X.Rank sh))
          => RankedOf shaped r (X.Rank sh) -> shaped r sh
 
@@ -746,36 +782,6 @@ class HVectorTensor (ranked :: RankedTensorType)
           -> InterpretationTarget ranked y
   dunHVector :: HVectorOf ranked -> HVector ranked
     -- ^ Warning: this operation easily breaks sharing.
-  dletHVectorInHVector
-    :: HVectorOf ranked
-    -> (HVector ranked -> HVectorOf ranked)
-    -> HVectorOf ranked
-  -- When the programmer uses the same closed function many times, the HFun
-  -- makes it possible to prevent multiple simplification, inlining, etc.,
-  -- once for each copy (shared on the Haskell heap) of the function
-  -- representation. However, the engine code itself never uses closed
-  -- functions in a way that would benefit from the HFun lets.
-  --
-  -- To prevent double derivative computation in
-  -- > let f = ... in ... (dmapAccumR ... f ...) ... (dmapAccumR ... f ...)
-  -- one needs to use dmapAccumRDer manually as in (simplified)
-  -- > let f = ...; df = dfwd f; rf = drev f
-  -- > in ... (dmapAccumRDer f df rf ...) ... (dmapAccumRDer f df rf ...)
-  dletHFunInHVector
-    :: (TensorKind x, TensorKind y)
-    => HFunOf ranked x y
-    -> (HFunOf ranked x y -> HVectorOf ranked)
-    -> HVectorOf ranked
-  -- This type signature generalizes dletHVectorInHVector and is easier
-  -- for the user to work with, giving him access to concrete vectors and tuples.
-  tlet :: forall x z. (TensorKind x, TensorKind z)
-       => InterpretationTarget ranked x
-       -> (ConcreteTarget ranked x -> InterpretationTarget ranked z)
-       -> InterpretationTarget ranked z
-  blet :: forall x z. (TensorKind x, TensorKind z)
-       => InterpretationTarget ranked x
-       -> (InterpretationTarget ranked x -> InterpretationTarget ranked z)
-       -> InterpretationTarget ranked z
   dshare :: HVectorOf ranked -> HVectorOf ranked
   dshare = id
   tshare :: forall y.
@@ -930,7 +936,7 @@ class HVectorTensor (ranked :: RankedTensorType)
   rfold
     :: forall rn rm n m.
        ( GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m
-       , RankedTensor ranked )
+       , RankedTensor ranked, LetTensor ranked shaped )
     => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
     -> ranked rn n  -- ^ initial value
     -> ranked rm (1 + m)  -- ^ iteration is over the outermost dimension
@@ -964,7 +970,7 @@ class HVectorTensor (ranked :: RankedTensorType)
   rscan
     :: forall rn rm n m.
        ( GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m
-       , RankedTensor ranked )
+       , RankedTensor ranked, LetTensor ranked shaped )
     => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
     -> ranked rn n
     -> ranked rm (1 + m)
@@ -999,7 +1005,7 @@ class HVectorTensor (ranked :: RankedTensorType)
   sfold
     :: forall rn rm sh shm k.
        ( GoodScalar rn, GoodScalar rm, KnownShS sh, KnownShS shm, KnownNat k
-       , ShapedTensor shaped
+       , ShapedTensor shaped, LetTensor ranked shaped
        , shaped ~ ShapedOf ranked, ranked ~ RankedOf shaped )
     => (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh)
     -> shaped rn sh
@@ -1027,7 +1033,7 @@ class HVectorTensor (ranked :: RankedTensorType)
   sscan
     :: forall rn rm sh shm k.
        ( GoodScalar rn, GoodScalar rm, KnownShS sh, KnownShS shm, KnownNat k
-       , ShapedTensor shaped
+       , ShapedTensor shaped, LetTensor ranked shaped
        , shaped ~ ShapedOf ranked, ranked ~ RankedOf shaped )
     => (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh)
     -> shaped rn sh
@@ -1478,6 +1484,7 @@ type ADReadyBoth ranked shaped =
   , IfF ranked, IfF shaped, IfF (PrimalOf ranked), IfF (PrimalOf shaped)
   , EqF ranked, EqF shaped, EqF (PrimalOf ranked), EqF (PrimalOf shaped)
   , OrdF ranked, OrdF shaped, OrdF (PrimalOf ranked), OrdF (PrimalOf shaped)
+  , LetTensor ranked shaped
   , RankedTensor ranked, RankedTensor (PrimalOf ranked)
   , ShapedTensor shaped, ShapedTensor (PrimalOf shaped)
   , HVectorTensor ranked shaped

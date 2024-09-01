@@ -1219,6 +1219,7 @@ testUnitriangular2PP = do
 
 rscanZip :: forall rn n ranked.
             ( GoodScalar rn, KnownNat n, RankedTensor ranked
+            , LetTensor ranked (ShapedOf ranked)
             , HVectorTensor ranked (ShapedOf ranked) )
          => (forall f. ADReady f => f rn n -> HVector f -> f rn n)
          -> VoidHVector  -- shapes of the HVector above, not below
@@ -1256,7 +1257,7 @@ rscanZip f eShs acc0 es =
 
 sscanZip :: forall rn sh k ranked shaped.
             ( GoodScalar rn, KnownShS sh, KnownNat k, ShapedTensor shaped
-            , HVectorTensor ranked shaped
+            , LetTensor ranked shaped, HVectorTensor ranked shaped
             , shaped ~ ShapedOf ranked, ranked ~ RankedOf shaped )
        => (forall f. ADReadyS f
            => f rn sh -> HVector (RankedOf f) -> f rn sh)
