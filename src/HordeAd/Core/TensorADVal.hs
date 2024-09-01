@@ -728,11 +728,14 @@ unADValDynamicTensor (DynamicRankedDummy p1 p2) =
 unADValDynamicTensor (DynamicShapedDummy p1 p2) =
   (DynamicShapedDummy p1 p2, DynamicShapedDummy p1 p2)
 
-unADValInterpretation :: forall y ranked. ADReady ranked
-                      => STensorKindType y
-                      -> InterpretationTarget (ADVal ranked) y
-                      -> ( InterpretationTarget ranked y
-                         , InterpretationTarget (Dual ranked) y )
+unADValInterpretation
+  :: forall y ranked.
+     ( HVectorTensor ranked (ShapedOf ranked), ProductTensor ranked
+     , RankedOf (ShapedOf ranked) ~ ranked )
+  => STensorKindType y
+  -> InterpretationTarget (ADVal ranked) y
+  -> ( InterpretationTarget ranked y
+     , InterpretationTarget (Dual ranked) y )
 unADValInterpretation stk t = case stk of
   STKR{} -> let D u u' = t in (u, u')
   STKS{} -> let D u u' = t in (u, u')

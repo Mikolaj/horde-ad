@@ -86,7 +86,7 @@ import HordeAd.Util.SizedList
 -- * Reverse and forward derivative computation for HVectorPseudoTensor
 
 gradientFromDelta
-  :: forall x z ranked. (ADReady ranked, TensorKind z)
+  :: forall x z ranked. (ADReadyNoLet ranked, TensorKind z)
   => TensorKindFull x
   -> InterpretationTarget ranked z
   -> Maybe (InterpretationTarget ranked z)
@@ -147,7 +147,7 @@ shapeD = \case
   DTKProduct @x @z _ -> STKProduct (stensorKind @x) (stensorKind @z)
   DTKUntyped{} -> STKUntyped
 
-interpretationConstant :: forall y ranked. ADReady ranked
+interpretationConstant :: forall y ranked. ADReadyNoLet ranked
                        => (forall r. GoodScalar r => r)
                        -> TensorKindFull y -> InterpretationTarget ranked y
 interpretationConstant r = \case
@@ -161,7 +161,7 @@ interpretationConstant r = \case
     $ V.map dynamicFromVoid ssh
 
 derivativeFromDelta
-  :: forall x z ranked. (ADReady ranked, TensorKind x, TensorKind z)
+  :: forall x z ranked. (ADReadyNoLet ranked, TensorKind x, TensorKind z)
   => Delta ranked z -> InterpretationTarget ranked x
   -> InterpretationTarget ranked z
 derivativeFromDelta deltaTopLevel ds =
@@ -857,7 +857,7 @@ initEvalState = \case
 -- cotangent contribution when complete (see below for an explanation)
 -- and the third argument is the node to evaluate.
 evalRRuntimeSpecialized
-  :: forall n r ranked. (GoodScalar r, KnownNat n, ADReady ranked)
+  :: forall n r ranked. (GoodScalar r, KnownNat n, ADReadyNoLet ranked)
   => EvalState ranked
   -> ranked r n -> Delta ranked (TKR r n)
   -> EvalState ranked
@@ -879,7 +879,7 @@ evalRRuntimeSpecialized !s !c =
           _ -> error "evalRRuntimeSpecialized: unexpected scalar"
 
 evalSRuntimeSpecialized
-  :: forall sh r ranked. (GoodScalar r, KnownShS sh, ADReady ranked)
+  :: forall sh r ranked. (GoodScalar r, KnownShS sh, ADReadyNoLet ranked)
   => EvalState ranked -> ShapedOf ranked r sh -> Delta ranked (TKS r sh)
   -> EvalState ranked
 evalSRuntimeSpecialized !s !c =
@@ -894,7 +894,7 @@ evalSRuntimeSpecialized !s !c =
           _ -> error "evalSRuntimeSpecialized: unexpected scalar"
 
 addInterpretationTargetD ::
-  ADReady ranked
+  ADReadyNoLet ranked
   => InterpretationTargetD ranked y
   -> InterpretationTargetD ranked y
   -> InterpretationTargetD ranked y
@@ -909,7 +909,7 @@ addInterpretationTargetD a b = case (a, b) of
       -- already a packed HVector or is shared (e.g., a shared variable)
 
 addInterpretationTargetM ::
-  ADReady ranked
+  ADReadyNoLet ranked
   => InterpretationTargetM ranked y
   -> InterpretationTargetM ranked y
   -> InterpretationTargetM ranked y
@@ -928,7 +928,7 @@ addInterpretationTargetM a b = case (a, b) of
     $ V.zipWith addDynamic (dunHVector $ unHVectorPseudoTensor hv1) (dunHVector $ unHVectorPseudoTensor hv2)
 
 evalR
-  :: forall y ranked. (TensorKind y, ADReady ranked)
+  :: forall y ranked. (TensorKind y, ADReadyNoLet ranked)
   => EvalState ranked -> InterpretationTarget ranked y -> Delta ranked y
   -> EvalState ranked
 evalR !s !c = \case
@@ -1184,7 +1184,7 @@ evalR !s !c = \case
     in evalHVector s2 des es'
 
 evalDynamic
-  :: ADReady ranked
+  :: ADReadyNoLet ranked
   => EvalState ranked
   -> (DynamicTensor ranked, DynamicTensor (DeltaR ranked))
   -> EvalState ranked
@@ -1197,12 +1197,12 @@ evalDynamic s3 (t, DynamicShapedDummy @r @sh _ _) =
   evalR @(TKS r sh) s3 (sfromD t) ZeroS
 
 evalHVector
-  :: ADReady ranked
+  :: ADReadyNoLet ranked
   => EvalState ranked -> HVector ranked -> HVector (DeltaR ranked)
   -> EvalState ranked
 evalHVector s as as' = V.foldl' evalDynamic s $ V.zip as as'
 
-evalFromnMap :: ADReady ranked
+evalFromnMap :: ADReadyNoLet ranked
              => EvalState ranked -> EvalState ranked
 evalFromnMap s@EvalState{nMap, dMap} =
   -- We discharge the non-vector cases before the vector ones, because
@@ -1276,7 +1276,7 @@ evalFromnMap s@EvalState{nMap, dMap} =
 -- and evaluates shared subexpressions repeatedly, so this state-passing
 -- formulation is adopted.
 fwdDynamic
-  :: forall ranked. ADReady ranked
+  :: forall ranked. ADReadyNoLet ranked
   => HDVector ranked
   -> EvalState ranked
   -> DynamicTensor (DeltaR ranked)
@@ -1292,7 +1292,7 @@ fwdDynamic params s (DynamicShapedDummy @r @sh _ _) =
   second (DynamicShaped @r @sh) $ fwdR params s ZeroS
 
 fwdHVector
-  :: forall ranked. ADReady ranked
+  :: forall ranked. ADReadyNoLet ranked
   => HDVector ranked
   -> EvalState ranked
   -> HVector (DeltaR ranked)
@@ -1300,7 +1300,7 @@ fwdHVector
 fwdHVector params = mapAccumL (fwdDynamic params)
 
 fwdR
-  :: forall ranked y. (ADReady ranked, TensorKind y)
+  :: forall ranked y. (ADReadyNoLet ranked, TensorKind y)
   => HDVector ranked -> EvalState ranked -> Delta ranked y
   -> (EvalState ranked, InterpretationTarget ranked y)
 fwdR params s = \case

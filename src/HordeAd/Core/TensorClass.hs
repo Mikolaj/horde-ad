@@ -19,7 +19,7 @@ module HordeAd.Core.TensorClass
   , ingestData, sscalar, srepl
   , mapInterpretationTarget, mapInterpretationTarget2, mapInterpretationTarget2Weak
     -- * The giga-constraint
-  , ADReady, ADReadyBoth, ADReadyR, ADReadyS
+  , ADReady, ADReadyBoth, ADReadyR, ADReadyS, ADReadyBothNoLet, ADReadyNoLet
   ) where
 
 import Prelude
@@ -1462,9 +1462,14 @@ type ADReadyR ranked = ADReadyBoth ranked (ShapedOf ranked)
 
 type ADReadyS shaped = ADReadyBoth (RankedOf shaped) shaped
 
+type ADReadyBoth ranked shaped =
+  (LetTensor ranked shaped, ADReadyBothNoLet ranked shaped)
+
+type ADReadyNoLet ranked = ADReadyBothNoLet ranked (ShapedOf ranked)
+
 -- Here is in other places reflexive closure of type equalities is created
 -- manually (and not for all equalities) due to #23333. TODO: fixed in GHC; remove.
-type ADReadyBoth ranked shaped =
+type ADReadyBothNoLet ranked shaped =
   ( ranked ~ RankedOf shaped, RankedOf ranked ~ ranked
   , RankedOf (PrimalOf ranked) ~ PrimalOf ranked
   , PrimalOf ranked ~ RankedOf (PrimalOf ranked)
@@ -1484,7 +1489,6 @@ type ADReadyBoth ranked shaped =
   , IfF ranked, IfF shaped, IfF (PrimalOf ranked), IfF (PrimalOf shaped)
   , EqF ranked, EqF shaped, EqF (PrimalOf ranked), EqF (PrimalOf shaped)
   , OrdF ranked, OrdF shaped, OrdF (PrimalOf ranked), OrdF (PrimalOf shaped)
-  , LetTensor ranked shaped
   , RankedTensor ranked, RankedTensor (PrimalOf ranked)
   , ShapedTensor shaped, ShapedTensor (PrimalOf shaped)
   , HVectorTensor ranked shaped
