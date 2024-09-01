@@ -168,9 +168,9 @@ mnistTrainBench1VTO extraPrefix chunkLength xs widthHidden widthHidden2
               labelD = DynamicRanked @r @1
                        $ FlipR $ Nested.rfromOrthotope SNat
                        $ OR.fromVector [sizeMnistLabelInt] label
-              parametersAndInput =
+              parametersAndInput = HVectorPseudoTensor $
                 V.concat [parameters, V.fromList [glyphD, labelD]]
-              gradientHVector =
+              gradientHVector = unHVectorPseudoTensor $
                 fst $ revEvalArtifact art parametersAndInput Nothing
           in go rest (updateWithGradient gamma parameters gradientHVector)
         chunk = take chunkLength xs
@@ -338,9 +338,9 @@ mnistTrainBench2VTO extraPrefix chunkLength xs widthHidden widthHidden2
               labelD = DynamicRanked @r @1
                        $ FlipR $ Nested.rfromOrthotope SNat
                        $ OR.fromVector [sizeMnistLabelInt] label
-              parametersAndInput =
+              parametersAndInput = HVectorPseudoTensor $
                 V.concat [parameters, V.fromList [glyphD, labelD]]
-              gradientHVector =
+              gradientHVector = unHVectorPseudoTensor $
                 fst $ revEvalArtifact art parametersAndInput Nothing
           in go rest (updateWithGradient gamma parameters gradientHVector)
         chunk = take chunkLength xs
