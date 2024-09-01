@@ -172,7 +172,7 @@ fwdProduceArtifact f envInit =
   fwdArtifactFromForwardPass (forwardPassByInterpretation f envInit)
 
 
--- * AstRanked tensor AST instances
+-- * AstRanked instances
 
 -- These boolean instances are unlawful; they are lawful modulo evaluation.
 
@@ -1081,12 +1081,7 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
                                        (tshapeFull stk2 (tproject2 t))
     STKUntyped -> shapeAstFull $ unAstRawWrap $ unHVectorPseudoTensor t
   dmkHVector = AstRawWrap . AstMkHVector . unRawHVector
-  dlambda :: forall x y. (TensorKind x, TensorKind y)
-          => TensorKindFull x -> HFun x y -> HFunOf (AstRaw s) x y
-  dlambda shss f =
-    let (var, ast) = funToAst shss $ \ !ll ->
-          unRankedY (stensorKind @y) $ unHFun f $ rankedY (stensorKind @x) ll
-    in AstLambda (var, shss, ast)
+  dlambda = dlambda @(AstRanked s)
   dHApply :: forall x y. (TensorKind x, TensorKind y)
           => HFunOf (AstRaw s) x y
           -> InterpretationTarget (AstRaw s) x
@@ -1135,12 +1130,12 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
     $ rrev f parameters0 (unRawHVector hVector)
   drevDt = drevDt @(AstRanked s)
   dfwd = dfwd @(AstRanked s)
-  dmapAccumRDer _ k accShs bShs eShs f df rf acc0 es =
+  dmapAccumRDer _ !k !accShs !bShs !eShs f df rf acc0 es =
     rawY (stensorKind @TKUntyped)
     $ AstMapAccumRDer k accShs bShs eShs f df rf
                       (unRawY (stensorKind @TKUntyped) acc0)
                       (unRawY (stensorKind @TKUntyped) es)
-  dmapAccumLDer _ k accShs bShs eShs f df rf acc0 es =
+  dmapAccumLDer _ !k !accShs !bShs !eShs f df rf acc0 es =
     rawY (stensorKind @TKUntyped)
     $ AstMapAccumLDer k accShs bShs eShs f df rf
                       (unRawY (stensorKind @TKUntyped) acc0)
@@ -1443,24 +1438,16 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
     $ rrev f parameters0 (unNoVectorizeHVector hVector)
   drevDt = drevDt @(AstRanked s)
   dfwd = dfwd @(AstRanked s)
-  dmapAccumRDer _ k accShs bShs eShs f df rf acc0 es =
+  dmapAccumRDer _ !k !accShs !bShs !eShs f df rf acc0 es =
     noVectorizeY (stensorKind @TKUntyped)
-    $ unRankedY (stensorKind @TKUntyped)
-    $ dmapAccumRDer (Proxy @(AstRanked s))
-                    k accShs bShs eShs f df rf
-                    (rankedY (stensorKind @TKUntyped)
-                     $ unNoVectorizeY (stensorKind @TKUntyped) acc0)
-                    (rankedY (stensorKind @TKUntyped)
-                     $ unNoVectorizeY (stensorKind @TKUntyped) es)
-  dmapAccumLDer _ k accShs bShs eShs f df rf acc0 es =
+    $ AstMapAccumRDer k accShs bShs eShs f df rf
+                      (unNoVectorizeY (stensorKind @TKUntyped) acc0)
+                      (unNoVectorizeY (stensorKind @TKUntyped) es)
+  dmapAccumLDer _ !k !accShs !bShs !eShs f df rf acc0 es =
     noVectorizeY (stensorKind @TKUntyped)
-    $ unRankedY (stensorKind @TKUntyped)
-    $ dmapAccumLDer (Proxy @(AstRanked s))
-                    k accShs bShs eShs f df rf
-                    (rankedY (stensorKind @TKUntyped)
-                     $ unNoVectorizeY (stensorKind @TKUntyped) acc0)
-                    (rankedY (stensorKind @TKUntyped)
-                     $ unNoVectorizeY (stensorKind @TKUntyped) es)
+    $ AstMapAccumLDer k accShs bShs eShs f df rf
+                      (unNoVectorizeY (stensorKind @TKUntyped) acc0)
+                      (unNoVectorizeY (stensorKind @TKUntyped) es)
 
 type instance InterpretationTarget (AstNoSimplify s) (TKProduct x z) =
   AstNoSimplifyWrap (AstTensor s (TKProduct x z))
@@ -1642,12 +1629,7 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
     STKUntyped -> shapeAstFull $ unAstNoSimplifyWrap $ unHVectorPseudoTensor t
   dmkHVector =
     AstNoSimplifyWrap . AstMkHVector . unNoSimplifyHVector
-  dlambda :: forall x y. (TensorKind x, TensorKind y)
-          => TensorKindFull x -> HFun x y -> HFunOf (AstNoSimplify s) x y
-  dlambda shss f =
-    let (var, ast) = funToAst shss $ \ !ll ->
-          unRankedY (stensorKind @y) $ unHFun f $ rankedY (stensorKind @x) ll
-    in AstLambda (var, shss, ast)
+  dlambda = dlambda @(AstRanked s)
   dHApply :: forall x y. (TensorKind x, TensorKind y)
           => HFunOf (AstNoSimplify s) x y
           -> InterpretationTarget (AstNoSimplify s) x
@@ -1713,12 +1695,12 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
     $ rrev f parameters0 (unNoSimplifyHVector hVector)
   drevDt = drevDt @(AstRanked s)
   dfwd = dfwd @(AstRanked s)
-  dmapAccumRDer _ k accShs bShs eShs f df rf acc0 es =
+  dmapAccumRDer _ !k !accShs !bShs !eShs f df rf acc0 es =
     noSimplifyY (stensorKind @TKUntyped)
     $ AstMapAccumRDer k accShs bShs eShs f df rf
                       (unNoSimplifyY (stensorKind @TKUntyped) acc0)
                       (unNoSimplifyY (stensorKind @TKUntyped) es)
-  dmapAccumLDer _ k accShs bShs eShs f df rf acc0 es =
+  dmapAccumLDer _ !k !accShs !bShs !eShs f df rf acc0 es =
     noSimplifyY (stensorKind @TKUntyped)
     $ AstMapAccumLDer k accShs bShs eShs f df rf
                       (unNoSimplifyY (stensorKind @TKUntyped) acc0)

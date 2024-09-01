@@ -617,7 +617,7 @@ testSin0Fold1S = do
                                    -> f2 Double '[]
                                   g x _a = sin x
                               in g)
-                        x0 ((srepl @'[1] 42))
+                        x0 (srepl @'[1] 42)
             in rfromS . f . sfromR)) 1.1)
 
 testSin0Fold2S :: Assertion
@@ -626,7 +626,7 @@ testSin0Fold2S = do
     (0.12389721944941383 :: OR.Array 0 Double)
     (rev' (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
                f x0 = sfold (\x _a -> sin x)
-                        x0 ((srepl @'[5] @Double 42))
+                        x0 (srepl @'[5] @Double 42)
            in rfromS . f . sfromR) 1.1)
 
 testSin0FoldForComparisonS :: Assertion
