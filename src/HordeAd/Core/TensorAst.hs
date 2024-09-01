@@ -573,7 +573,7 @@ instance AstSpan s => LetTensor (AstRanked s) (AstShaped s) where
       $ astLetFun (unHVectorPseudoTensor u)
                   (unRankedY (stensorKind @z) . f . HVectorPseudoTensor)
 
--- TODO: remove this instance and probable the NoSimp and NoVect as well
+-- TODO: remove this instance
 instance ShareTensor (AstRanked s) (AstShaped s) where
   -- These and many similar bangs are necessary to ensure variable IDs
   -- are generated in the expected order, resulting in nesting of lets
@@ -881,19 +881,6 @@ unRawY stk t = case stk of
     in AstTuple (unRankedY stk1 $ tproject1 tShared)
                 (unRankedY stk2 $ tproject2 tShared)
   STKUntyped -> unAstRawWrap $ unHVectorPseudoTensor t
-
--- TODO: remove the instance
-instance AstSpan s => LetTensor (AstRaw s) (AstRawS s) where
-  rletTKIn = error "lets are not supported by AstRaw"
-  rletHVectorIn = error "lets are not supported by AstRaw"
-  rletHFunIn = error "lets are not supported by AstRaw"
-  sletTKIn = error "lets are not supported by AstRaw"
-  sletHVectorIn = error "lets are not supported by AstRaw"
-  sletHFunIn = error "lets are not supported by AstRaw"
-  dletHVectorInHVector = error "lets are not supported by AstRaw"
-  dletHFunInHVector = error "lets are not supported by AstRaw"
-  tlet = error "lets are not supported by AstRaw"
-  blet = error "lets are not supported by AstRaw"
 
 instance ShareTensor (AstRaw s) (AstRawS s) where
   -- For convenience and simplicity we define this for all spans,
@@ -1294,11 +1281,6 @@ instance AstSpan s => LetTensor (AstNoVectorize s) (AstNoVectorizeS s) where
     STKProduct{} -> error "TODO"
     STKUntyped{} -> error "TODO"
 
-instance ShareTensor (AstNoVectorize s) (AstNoVectorizeS s) where
-  rshare = id
-  sshare = id
-  dshare = id
-
 instance AstSpan s => RankedTensor (AstNoVectorize s) where
   rshape = rshape . unAstNoVectorize2
   rminIndex = astNoVectorize2 . rminIndex . unAstNoVectorize2
@@ -1586,11 +1568,6 @@ instance AstSpan s => LetTensor (AstNoSimplify s) (AstNoSimplifyS s) where
                   (unNoSimplifyY (stensorKind @z) . f . AstNoSimplifyS)
     STKProduct{} -> error "TODO"
     STKUntyped{} -> error "TODO"
-
-instance ShareTensor (AstNoSimplify s) (AstNoSimplifyS s) where
-  rshare = id
-  sshare = id
-  dshare = id
 
 instance AstSpan s => RankedTensor (AstNoSimplify s) where
   rshape = shapeAst . unAstNoSimplify

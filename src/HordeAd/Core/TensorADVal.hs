@@ -53,7 +53,7 @@ import HordeAd.Util.SizedList
 
 crevOnADInputs
   :: forall x z ranked.
-     ( TensorKind x, TensorKind z, ADReady ranked
+     ( TensorKind x, TensorKind z, ADReadyNoLet ranked
      , ShareTensor ranked (ShapedOf ranked)
      , ShareTensor (PrimalOf ranked) (ShapedOf (PrimalOf ranked)) )
   => Maybe (InterpretationTarget ranked z)
@@ -75,7 +75,7 @@ crevOnADInputs mdt f inputs =
 
 crevOnHVector
   :: forall x z ranked.
-     ( TensorKind x, TensorKind z, ADReady ranked
+     ( TensorKind x, TensorKind z, ADReadyNoLet ranked
      , ShareTensor ranked (ShapedOf ranked)
      , ShareTensor (PrimalOf ranked) (ShapedOf (PrimalOf ranked)) )
   => Maybe (InterpretationTarget ranked z)
@@ -90,7 +90,7 @@ crevOnHVector mdt f parameters =
 
 cfwdOnADInputs
   :: forall x z ranked.
-     ( TensorKind x, TensorKind z, ADReady ranked
+     ( TensorKind x, TensorKind z, ADReadyNoLet ranked
      , ShareTensor ranked (ShapedOf ranked) )
   => InterpretationTarget (ADVal ranked) x
   -> (InterpretationTarget (ADVal ranked) x
@@ -106,7 +106,7 @@ cfwdOnADInputs inputs f ds =
 
 cfwdOnHVector
   :: forall x z ranked.
-     ( TensorKind x, TensorKind z, ADReady ranked
+     ( TensorKind x, TensorKind z, ADReadyNoLet ranked
      , ShareTensor ranked (ShapedOf ranked) )
   => InterpretationTarget ranked x
   -> (InterpretationTarget (ADVal ranked) x
@@ -121,7 +121,7 @@ cfwdOnHVector parameters f ds =
 
 -- * Misc instances
 
-instance ( ADReadyBoth ranked shaped, ShareTensor ranked shaped
+instance ( ADReadyBothNoLet ranked shaped, ShareTensor ranked shaped
          , ShareTensor (PrimalOf ranked) (PrimalOf shaped) )
          => LetTensor (ADVal ranked) (ADVal shaped) where
   rletTKIn stk a f =
@@ -239,7 +239,7 @@ instance (ranked ~ RankedOf shaped, ShapedOf ranked ~ shaped)
 
 -- * Ranked tensor instance
 
-instance ( KnownNat n, GoodScalar r, ADReady ranked
+instance ( KnownNat n, GoodScalar r, ADReadyNoLet ranked
          , ShareTensor ranked (ShapedOf ranked)
          , ShareTensor (PrimalOf ranked) (ShapedOf (PrimalOf ranked)) )
          => AdaptableHVector (ADVal ranked)
@@ -247,18 +247,18 @@ instance ( KnownNat n, GoodScalar r, ADReady ranked
 {- TODO: RULE left-hand side too complicated to desugar in GHC 9.6.4
     with -O0, but not -O1
   {-# SPECIALIZE instance
-      (KnownNat n, ADReady ORArray)
+      (KnownNat n, ADReadyNoLet ORArray)
       => AdaptableHVector (ADVal ORArray)
                           (ADVal ORArray Double n) #-}
   {-# SPECIALIZE instance
-      (KnownNat n, ADReady (AstRanked PrimalSpan))
+      (KnownNat n, ADReadyNoLet (AstRanked PrimalSpan))
       => AdaptableHVector (ADVal (AstRanked PrimalSpan))
                           (ADVal (AstRanked PrimalSpan) Double n) #-}
 -}
   toHVector = V.singleton . DynamicRanked
   fromHVector _aInit = fromHVectorR
 
-instance ( KnownNat n, GoodScalar r, ADReady ranked
+instance ( KnownNat n, GoodScalar r, ADReadyNoLet ranked
          , ShareTensor ranked (ShapedOf ranked)
          , ShareTensor (PrimalOf ranked) (ShapedOf (PrimalOf ranked)) )
          => DualNumberValue (ADVal ranked r n) where
@@ -298,7 +298,7 @@ instance AdaptableHVector ranked a
 -- needed for the interpretation of Ast in ADVal.
 -- The ADVal Double and ADVal Float instantiations are only used
 -- in tests. None others are used anywhere.
-instance ( ADReady ranked, ShareTensor ranked (ShapedOf ranked)
+instance ( ADReadyNoLet ranked, ShareTensor ranked (ShapedOf ranked)
          , ShareTensor (PrimalOf ranked) (ShapedOf (PrimalOf ranked)) )
          => RankedTensor (ADVal ranked) where
   rshape (D u _) = rshape u
@@ -382,7 +382,7 @@ instance ( ADReady ranked, ShareTensor ranked (ShapedOf ranked)
 
 -- * Shaped tensor instance
 
-instance ( ADReadyS shaped, ShareTensor ranked shaped
+instance ( ADReadyNoLetS shaped, ShareTensor ranked shaped
          , ShareTensor (PrimalOf ranked) (PrimalOf shaped)
          , KnownShS sh, GoodScalar r
          , ranked ~ RankedOf shaped )
@@ -391,7 +391,7 @@ instance ( ADReadyS shaped, ShareTensor ranked shaped
   toHVector = V.singleton . DynamicShaped
   fromHVector _aInit = fromHVectorS
 
-instance ( ADReadyS shaped, ShareTensor (RankedOf shaped) shaped
+instance ( ADReadyNoLetS shaped, ShareTensor (RankedOf shaped) shaped
          , ShareTensor (PrimalOf (RankedOf shaped)) (PrimalOf shaped)
          , KnownShS sh, GoodScalar r )
          => DualNumberValue (ADVal shaped r sh) where
@@ -405,7 +405,7 @@ instance ( ADReadyS shaped, ShareTensor (RankedOf shaped) shaped
 -- needed for the interpretation of Ast in ADVal.
 -- The ADVal Double and ADVal Float instantiations are only used
 -- in tests. None others are used anywhere.
-instance (ADReadyS shaped, ShareTensor (RankedOf shaped) shaped
+instance (ADReadyNoLetS shaped, ShareTensor (RankedOf shaped) shaped
          , ShareTensor (PrimalOf (RankedOf shaped)) (PrimalOf shaped) )
          => ShapedTensor (ADVal shaped) where
   sminIndex (D u _) =
@@ -494,7 +494,7 @@ instance (ADReadyS shaped, ShareTensor (RankedOf shaped) shaped
 
 -- * HVectorTensor instance
 
-instance (ADReady ranked, HVectorOf ranked ~ HVector ranked)
+instance (ADReadyNoLet ranked, HVectorOf ranked ~ HVector ranked)
          => AdaptableHVector (ADVal ranked)
                              (ADVal (HVectorPseudoTensor ranked)
                                     Float '()) where
@@ -503,7 +503,7 @@ instance (ADReady ranked, HVectorOf ranked ~ HVector ranked)
     let (portion, rest) = V.splitAt (V.length h) params
     in Just (hVectorADValToADVal portion, rest)
 
-instance ( ADReadyBoth ranked shaped
+instance ( ADReadyBothNoLet ranked shaped
          , ShareTensor ranked shaped
          , ShareTensor (PrimalOf ranked) (PrimalOf shaped) )
          => HVectorTensor (ADVal ranked) (ADVal shaped) where
@@ -776,12 +776,12 @@ unADValInterpretation stk t = case stk of
     in (HVectorPseudoTensor $ dmkHVector u, HVectorPseudoTensor $ HToH v)
 
 -- TODO: not dead code: will be used in dletHVectorInHVector.
-aDValHVector :: ADReady f
+aDValHVector :: ADReadyNoLet f
              => HVector f -> HVector (Dual f) -> HVector (ADVal f)
 aDValHVector = V.zipWith aDValDynamicTensor
 
 -- TODO: Apparently other combinations occur in dletHVectorInHVector. Why?
-aDValDynamicTensor :: ADReady f
+aDValDynamicTensor :: ADReadyNoLet f
                    => DynamicTensor f -> DynamicTensor (Dual f)
                    -> DynamicTensor (ADVal f)
 aDValDynamicTensor (DynamicRanked @r1 @n1 t) (DynamicRanked @r2 @n2 t')

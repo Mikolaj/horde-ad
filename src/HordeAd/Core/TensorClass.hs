@@ -19,7 +19,8 @@ module HordeAd.Core.TensorClass
   , ingestData, sscalar, srepl
   , mapInterpretationTarget, mapInterpretationTarget2, mapInterpretationTarget2Weak
     -- * The giga-constraint
-  , ADReady, ADReadyBoth, ADReadyR, ADReadyS, ADReadyBothNoLet, ADReadyNoLet
+  , ADReady, ADReadyNoLet, ADReadyR, ADReadyNoLetR, ADReadyS, ADReadyNoLetS
+  , ADReadyBoth, ADReadyBothNoLet
   ) where
 
 import Prelude
@@ -1468,14 +1469,18 @@ instance Show (HFun x y) where
 
 type ADReady ranked = ADReadyR ranked  -- implies both
 
+type ADReadyNoLet ranked = ADReadyNoLetR ranked
+
 type ADReadyR ranked = ADReadyBoth ranked (ShapedOf ranked)
+
+type ADReadyNoLetR ranked = ADReadyBothNoLet ranked (ShapedOf ranked)
 
 type ADReadyS shaped = ADReadyBoth (RankedOf shaped) shaped
 
+type ADReadyNoLetS shaped = ADReadyBothNoLet (RankedOf shaped) shaped
+
 type ADReadyBoth ranked shaped =
   (LetTensor ranked shaped, ADReadyBothNoLet ranked shaped)
-
-type ADReadyNoLet ranked = ADReadyBothNoLet ranked (ShapedOf ranked)
 
 -- Here is in other places reflexive closure of type equalities is created
 -- manually (and not for all equalities) due to #23333. TODO: fixed in GHC; remove.
