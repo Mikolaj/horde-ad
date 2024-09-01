@@ -199,6 +199,25 @@ instance AstSpan s => OrdF (AstRanked s) where
 instance IfF (AstRanked s) where
   ifF cond a b = AstRanked $ astCond cond (unAstRanked a) (unAstRanked b)
 
+{-deriving instance IfF (AstRanked s)
+deriving instance AstSpan s => EqF (AstRanked s)
+deriving instance AstSpan s => OrdF (AstRanked s)-}
+deriving instance Eq (AstRanked s r n)
+deriving instance Ord (AstRanked s r n)
+deriving instance Num (AstTensor s (TKR r n)) => Num (AstRanked s r n)
+deriving instance (Real (AstTensor s (TKR r n)))
+                   => Real (AstRanked s r n)
+deriving instance (IntegralF (AstTensor s (TKR r n)))
+                  => IntegralF (AstRanked s r n)
+deriving instance Fractional (AstTensor s (TKR r n))
+                  => Fractional (AstRanked s r n)
+deriving instance Floating (AstTensor s (TKR r n))
+                  => Floating (AstRanked s r n)
+deriving instance (RealFrac (AstTensor s (TKR r n)))
+                  => RealFrac (AstRanked s r n)
+deriving instance (RealFloatF (AstTensor s (TKR r n)))
+                  => RealFloatF (AstRanked s r n)
+
 type instance BoolOf (AstShaped s) = AstBool
 
 instance AstSpan s => EqF (AstShaped s) where
@@ -221,6 +240,25 @@ instance AstSpan s => OrdF (AstShaped s) where
 
 instance IfF (AstShaped s) where
   ifF cond a b = AstShaped $ astCond cond (unAstShaped a) (unAstShaped b)
+
+{-deriving instance IfF (AstShaped s)
+deriving instance AstSpan s => EqF (AstShaped s)
+deriving instance AstSpan s => OrdF (AstShaped s)-}
+deriving instance Eq (AstShaped s r sh)
+deriving instance Ord (AstShaped s r sh)
+deriving instance Num (AstTensor s (TKS r sh)) => Num (AstShaped s r sh)
+deriving instance (Real (AstTensor s (TKS r sh)))
+                   => Real (AstShaped s r sh)
+deriving instance (IntegralF (AstTensor s (TKS r sh)))
+                  => IntegralF (AstShaped s r sh)
+deriving instance Fractional (AstTensor s (TKS r sh))
+                  => Fractional (AstShaped s r sh)
+deriving instance Floating (AstTensor s (TKS r sh))
+                  => Floating (AstShaped s r sh)
+deriving instance (RealFrac (AstTensor s (TKS r sh)))
+                  => RealFrac (AstShaped s r sh)
+deriving instance (RealFloatF (AstTensor s (TKS r sh)))
+                  => RealFloatF (AstShaped s r sh)
 
 instance (GoodScalar r, KnownNat n, RankedTensor (AstRanked s), AstSpan s)
          => AdaptableHVector (AstRanked s) (AstRanked s r n) where
@@ -747,49 +785,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
                       (unRankedY (stensorKind @TKUntyped) es)
 
 
--- * The AstRaw, AstNoVectorize and AstNoSimplify instances
-
-type instance BoolOf (AstRanked s) = AstBool
-
-{-deriving instance IfF (AstRanked s)
-deriving instance AstSpan s => EqF (AstRanked s)
-deriving instance AstSpan s => OrdF (AstRanked s)-}
-deriving instance Eq (AstRanked s r n)
-deriving instance Ord (AstRanked s r n)
-deriving instance Num (AstTensor s (TKR r n)) => Num (AstRanked s r n)
-deriving instance (Real (AstTensor s (TKR r n)))
-                   => Real (AstRanked s r n)
-deriving instance (IntegralF (AstTensor s (TKR r n)))
-                  => IntegralF (AstRanked s r n)
-deriving instance Fractional (AstTensor s (TKR r n))
-                  => Fractional (AstRanked s r n)
-deriving instance Floating (AstTensor s (TKR r n))
-                  => Floating (AstRanked s r n)
-deriving instance (RealFrac (AstTensor s (TKR r n)))
-                  => RealFrac (AstRanked s r n)
-deriving instance (RealFloatF (AstTensor s (TKR r n)))
-                  => RealFloatF (AstRanked s r n)
-
-type instance BoolOf (AstShaped s) = AstBool
-
-{-deriving instance IfF (AstShaped s)
-deriving instance AstSpan s => EqF (AstShaped s)
-deriving instance AstSpan s => OrdF (AstShaped s)-}
-deriving instance Eq (AstShaped s r sh)
-deriving instance Ord (AstShaped s r sh)
-deriving instance Num (AstTensor s (TKS r sh)) => Num (AstShaped s r sh)
-deriving instance (Real (AstTensor s (TKS r sh)))
-                   => Real (AstShaped s r sh)
-deriving instance (IntegralF (AstTensor s (TKS r sh)))
-                  => IntegralF (AstShaped s r sh)
-deriving instance Fractional (AstTensor s (TKS r sh))
-                  => Fractional (AstShaped s r sh)
-deriving instance Floating (AstTensor s (TKS r sh))
-                  => Floating (AstShaped s r sh)
-deriving instance (RealFrac (AstTensor s (TKS r sh)))
-                  => RealFrac (AstShaped s r sh)
-deriving instance (RealFloatF (AstTensor s (TKS r sh)))
-                  => RealFloatF (AstShaped s r sh)
+-- * The AstRaw instances
 
 type instance BoolOf (AstRaw s) = AstBool
 
@@ -846,102 +842,6 @@ deriving instance Floating (AstTensor s (TKS r sh))
                   => Floating (AstRawS s r sh)
 deriving instance (RealFloatF (AstTensor s (TKS r sh)))
                   => RealFloatF (AstRawS s r sh)
-
-type instance BoolOf (AstNoVectorize s) = AstBool
-
-instance IfF (AstNoVectorize s) where
-  ifF b v1 v2 =
-    AstNoVectorize $ unAstRanked
-    $ ifF b (AstRanked $ unAstNoVectorize v1) (AstRanked $ unAstNoVectorize v2)
-instance AstSpan s => EqF (AstNoVectorize s) where
-  v1 ==. v2 = AstRanked (unAstNoVectorize v1) ==. AstRanked (unAstNoVectorize v2)
-instance AstSpan s => OrdF (AstNoVectorize s) where
-  v1 <. v2 = AstRanked (unAstNoVectorize v1) <. AstRanked (unAstNoVectorize v2)
-deriving instance Eq (AstNoVectorize s r n)
-deriving instance Ord (AstNoVectorize s r n)
-deriving instance Num (AstTensor s (TKR r n)) => Num (AstNoVectorize s r n)
-deriving instance (Real (AstTensor s (TKR r n)))
-                   => Real (AstNoVectorize s r n)
-deriving instance (IntegralF (AstTensor s (TKR r n)))
-                  => IntegralF (AstNoVectorize s r n)
-deriving instance Fractional (AstTensor s (TKR r n))
-                  => Fractional (AstNoVectorize s r n)
-deriving instance Floating (AstTensor s (TKR r n))
-                  => Floating (AstNoVectorize s r n)
-deriving instance (RealFrac (AstTensor s (TKR r n)))
-                  => RealFrac (AstNoVectorize s r n)
-deriving instance (RealFloatF (AstTensor s (TKR r n)))
-                  => RealFloatF (AstNoVectorize s r n)
-
-type instance BoolOf (AstNoVectorizeS s) = AstBool
-
-instance IfF (AstNoVectorizeS s) where
-  ifF b v1 v2 =
-    AstNoVectorizeS $ unAstShaped
-    $ ifF b (AstShaped $ unAstNoVectorizeS v1) (AstShaped $ unAstNoVectorizeS v2)
-instance AstSpan s => EqF (AstNoVectorizeS s) where
-  v1 ==. v2 = AstShaped (unAstNoVectorizeS v1) ==. AstShaped (unAstNoVectorizeS v2)
-instance AstSpan s => OrdF (AstNoVectorizeS s) where
-  v1 <. v2 = AstShaped (unAstNoVectorizeS v1) <. AstShaped (unAstNoVectorizeS v2)
-deriving instance Eq ((AstNoVectorizeS s) r sh)
-deriving instance Ord ((AstNoVectorizeS s) r sh)
-deriving instance Num (AstTensor s (TKS r sh)) => Num (AstNoVectorizeS s r sh)
-deriving instance (IntegralF (AstTensor s (TKS r sh)))
-                  => IntegralF (AstNoVectorizeS s r sh)
-deriving instance Fractional (AstTensor s (TKS r sh))
-                  => Fractional (AstNoVectorizeS s r sh)
-deriving instance Floating (AstTensor s (TKS r sh))
-                  => Floating (AstNoVectorizeS s r sh)
-deriving instance (RealFloatF (AstTensor s (TKS r sh)))
-                  => RealFloatF (AstNoVectorizeS s r sh)
-
-type instance BoolOf (AstNoSimplify s) = AstBool
-
-instance IfF (AstNoSimplify s) where
-  ifF b v1 v2 =
-    AstNoSimplify $ unAstRanked
-    $ ifF b (AstRanked $ unAstNoSimplify v1) (AstRanked $ unAstNoSimplify v2)
-instance AstSpan s => EqF (AstNoSimplify s) where
-  v1 ==. v2 = AstRanked (unAstNoSimplify v1) ==. AstRanked (unAstNoSimplify v2)
-instance AstSpan s => OrdF (AstNoSimplify s) where
-  v1 <. v2 = AstRanked (unAstNoSimplify v1) <. AstRanked (unAstNoSimplify v2)
-deriving instance Eq (AstNoSimplify s r n)
-deriving instance Ord (AstNoSimplify s r n)
-deriving instance Num (AstTensor s (TKR r n)) => Num (AstNoSimplify s r n)
-deriving instance (Real (AstTensor s (TKR r n)))
-                  => Real (AstNoSimplify s r n)
-deriving instance (IntegralF (AstTensor s (TKR r n)))
-                  => IntegralF (AstNoSimplify s r n)
-deriving instance Fractional (AstTensor s (TKR r n))
-                  => Fractional (AstNoSimplify s r n)
-deriving instance Floating (AstTensor s (TKR r n))
-                  => Floating (AstNoSimplify s r n)
-deriving instance (RealFrac (AstTensor s (TKR r n)))
-                  => RealFrac (AstNoSimplify s r n)
-deriving instance (RealFloatF (AstTensor s (TKR r n)))
-                  => RealFloatF (AstNoSimplify s r n)
-
-type instance BoolOf (AstNoSimplifyS s) = AstBool
-
-instance IfF (AstNoSimplifyS s) where
-  ifF b v1 v2 =
-    AstNoSimplifyS $ unAstShaped
-    $ ifF b (AstShaped $ unAstNoSimplifyS v1) (AstShaped $ unAstNoSimplifyS v2)
-instance AstSpan s => EqF (AstNoSimplifyS s) where
-  v1 ==. v2 = AstShaped (unAstNoSimplifyS v1) ==. AstShaped (unAstNoSimplifyS v2)
-instance AstSpan s => OrdF (AstNoSimplifyS s) where
-  v1 <. v2 = AstShaped (unAstNoSimplifyS v1) <. AstShaped (unAstNoSimplifyS v2)
-deriving instance Eq (AstNoSimplifyS s r sh)
-deriving instance Ord (AstNoSimplifyS s r sh)
-deriving instance Num (AstTensor s (TKS r sh)) => Num (AstNoSimplifyS s r sh)
-deriving instance (IntegralF (AstTensor s (TKS r sh)))
-                  => IntegralF (AstNoSimplifyS s r sh)
-deriving instance Fractional (AstTensor s (TKS r sh))
-                  => Fractional (AstNoSimplifyS s r sh)
-deriving instance Floating (AstTensor s (TKS r sh))
-                  => Floating (AstNoSimplifyS s r sh)
-deriving instance (RealFloatF (AstTensor s (TKS r sh)))
-                  => RealFloatF (AstNoSimplifyS s r sh)
 
 type instance InterpretationTarget (AstRaw s) (TKProduct x z) =
   AstRawWrap (AstTensor s (TKProduct x z))
@@ -1140,6 +1040,57 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
     $ AstMapAccumLDer k accShs bShs eShs f df rf
                       (unRawY (stensorKind @TKUntyped) acc0)
                       (unRawY (stensorKind @TKUntyped) es)
+
+
+-- * The AstNoVectorize
+
+type instance BoolOf (AstNoVectorize s) = AstBool
+
+instance IfF (AstNoVectorize s) where
+  ifF b v1 v2 =
+    AstNoVectorize $ unAstRanked
+    $ ifF b (AstRanked $ unAstNoVectorize v1) (AstRanked $ unAstNoVectorize v2)
+instance AstSpan s => EqF (AstNoVectorize s) where
+  v1 ==. v2 = AstRanked (unAstNoVectorize v1) ==. AstRanked (unAstNoVectorize v2)
+instance AstSpan s => OrdF (AstNoVectorize s) where
+  v1 <. v2 = AstRanked (unAstNoVectorize v1) <. AstRanked (unAstNoVectorize v2)
+deriving instance Eq (AstNoVectorize s r n)
+deriving instance Ord (AstNoVectorize s r n)
+deriving instance Num (AstTensor s (TKR r n)) => Num (AstNoVectorize s r n)
+deriving instance (Real (AstTensor s (TKR r n)))
+                   => Real (AstNoVectorize s r n)
+deriving instance (IntegralF (AstTensor s (TKR r n)))
+                  => IntegralF (AstNoVectorize s r n)
+deriving instance Fractional (AstTensor s (TKR r n))
+                  => Fractional (AstNoVectorize s r n)
+deriving instance Floating (AstTensor s (TKR r n))
+                  => Floating (AstNoVectorize s r n)
+deriving instance (RealFrac (AstTensor s (TKR r n)))
+                  => RealFrac (AstNoVectorize s r n)
+deriving instance (RealFloatF (AstTensor s (TKR r n)))
+                  => RealFloatF (AstNoVectorize s r n)
+
+type instance BoolOf (AstNoVectorizeS s) = AstBool
+
+instance IfF (AstNoVectorizeS s) where
+  ifF b v1 v2 =
+    AstNoVectorizeS $ unAstShaped
+    $ ifF b (AstShaped $ unAstNoVectorizeS v1) (AstShaped $ unAstNoVectorizeS v2)
+instance AstSpan s => EqF (AstNoVectorizeS s) where
+  v1 ==. v2 = AstShaped (unAstNoVectorizeS v1) ==. AstShaped (unAstNoVectorizeS v2)
+instance AstSpan s => OrdF (AstNoVectorizeS s) where
+  v1 <. v2 = AstShaped (unAstNoVectorizeS v1) <. AstShaped (unAstNoVectorizeS v2)
+deriving instance Eq ((AstNoVectorizeS s) r sh)
+deriving instance Ord ((AstNoVectorizeS s) r sh)
+deriving instance Num (AstTensor s (TKS r sh)) => Num (AstNoVectorizeS s r sh)
+deriving instance (IntegralF (AstTensor s (TKS r sh)))
+                  => IntegralF (AstNoVectorizeS s r sh)
+deriving instance Fractional (AstTensor s (TKS r sh))
+                  => Fractional (AstNoVectorizeS s r sh)
+deriving instance Floating (AstTensor s (TKS r sh))
+                  => Floating (AstNoVectorizeS s r sh)
+deriving instance (RealFloatF (AstTensor s (TKS r sh)))
+                  => RealFloatF (AstNoVectorizeS s r sh)
 
 type instance InterpretationTarget (AstNoVectorize s) (TKProduct x z) =
   AstNoVectorizeWrap (AstTensor s (TKProduct x z))
@@ -1448,6 +1399,57 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
     $ AstMapAccumLDer k accShs bShs eShs f df rf
                       (unNoVectorizeY (stensorKind @TKUntyped) acc0)
                       (unNoVectorizeY (stensorKind @TKUntyped) es)
+
+
+-- * The AstNoSimplify instances
+
+type instance BoolOf (AstNoSimplify s) = AstBool
+
+instance IfF (AstNoSimplify s) where
+  ifF b v1 v2 =
+    AstNoSimplify $ unAstRanked
+    $ ifF b (AstRanked $ unAstNoSimplify v1) (AstRanked $ unAstNoSimplify v2)
+instance AstSpan s => EqF (AstNoSimplify s) where
+  v1 ==. v2 = AstRanked (unAstNoSimplify v1) ==. AstRanked (unAstNoSimplify v2)
+instance AstSpan s => OrdF (AstNoSimplify s) where
+  v1 <. v2 = AstRanked (unAstNoSimplify v1) <. AstRanked (unAstNoSimplify v2)
+deriving instance Eq (AstNoSimplify s r n)
+deriving instance Ord (AstNoSimplify s r n)
+deriving instance Num (AstTensor s (TKR r n)) => Num (AstNoSimplify s r n)
+deriving instance (Real (AstTensor s (TKR r n)))
+                  => Real (AstNoSimplify s r n)
+deriving instance (IntegralF (AstTensor s (TKR r n)))
+                  => IntegralF (AstNoSimplify s r n)
+deriving instance Fractional (AstTensor s (TKR r n))
+                  => Fractional (AstNoSimplify s r n)
+deriving instance Floating (AstTensor s (TKR r n))
+                  => Floating (AstNoSimplify s r n)
+deriving instance (RealFrac (AstTensor s (TKR r n)))
+                  => RealFrac (AstNoSimplify s r n)
+deriving instance (RealFloatF (AstTensor s (TKR r n)))
+                  => RealFloatF (AstNoSimplify s r n)
+
+type instance BoolOf (AstNoSimplifyS s) = AstBool
+
+instance IfF (AstNoSimplifyS s) where
+  ifF b v1 v2 =
+    AstNoSimplifyS $ unAstShaped
+    $ ifF b (AstShaped $ unAstNoSimplifyS v1) (AstShaped $ unAstNoSimplifyS v2)
+instance AstSpan s => EqF (AstNoSimplifyS s) where
+  v1 ==. v2 = AstShaped (unAstNoSimplifyS v1) ==. AstShaped (unAstNoSimplifyS v2)
+instance AstSpan s => OrdF (AstNoSimplifyS s) where
+  v1 <. v2 = AstShaped (unAstNoSimplifyS v1) <. AstShaped (unAstNoSimplifyS v2)
+deriving instance Eq (AstNoSimplifyS s r sh)
+deriving instance Ord (AstNoSimplifyS s r sh)
+deriving instance Num (AstTensor s (TKS r sh)) => Num (AstNoSimplifyS s r sh)
+deriving instance (IntegralF (AstTensor s (TKS r sh)))
+                  => IntegralF (AstNoSimplifyS s r sh)
+deriving instance Fractional (AstTensor s (TKS r sh))
+                  => Fractional (AstNoSimplifyS s r sh)
+deriving instance Floating (AstTensor s (TKS r sh))
+                  => Floating (AstNoSimplifyS s r sh)
+deriving instance (RealFloatF (AstTensor s (TKS r sh)))
+                  => RealFloatF (AstNoSimplifyS s r sh)
 
 type instance InterpretationTarget (AstNoSimplify s) (TKProduct x z) =
   AstNoSimplifyWrap (AstTensor s (TKProduct x z))
