@@ -11,7 +11,7 @@ module HordeAd.Core.TensorAst
   , revArtifactFromForwardPass
   , revProduceArtifact
   , fwdArtifactFromForwardPass, fwdProduceArtifact
-  , rawY, unRawY
+  , rankedY, unRankedY
   , simplifyArtifact
   , printArtifactSimple, printArtifactPretty
   , printArtifactPrimalSimple, printArtifactPrimalPretty
@@ -125,10 +125,20 @@ gunshare
   :: forall y.
      STensorKindType y
   -> InterpretationTarget (AstRaw PrimalSpan) y
-  -> InterpretationTarget (AstRaw PrimalSpan) y
+  -> InterpretationTarget (AstRanked PrimalSpan) y
 gunshare stk b | Dict <- lemTensorKindOfS stk =
+  rankedY stk $ unshareAstTensor $ unRawY stk b
+
+-- TODO: delete
+gunshareRaw
+  :: forall y.
+     STensorKindType y
+  -> InterpretationTarget (AstRaw PrimalSpan) y
+  -> InterpretationTarget (AstRaw PrimalSpan) y
+gunshareRaw stk b | Dict <- lemTensorKindOfS stk =
   rawY stk $ unshareAstTensor $ unRawY stk b
 
+-- TODO: delete
 gunshareRanked
   :: forall y.
      STensorKindType y
@@ -735,7 +745,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
       let env = extendEnv
                   var (HVectorPseudoTensor $ AstMkHVector parameters) emptyEnv
       in simplifyInline $ unHVectorPseudoTensor
-         $ interpretAst env $ unAstRawWrap $ unHVectorPseudoTensor gradient
+         $ interpretAst env $ unHVectorPseudoTensor gradient
         -- this interpretation both substitutes parameters for the variables and
         -- reinterprets @PrimalSpan@ terms in @s@ terms;
         -- we could shortcut when @s@ is @PrimalSpan@ and @parameters@
@@ -755,12 +765,12 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
         -- should be taken of spans other than PrimalSpan)
         (AstArtifactRev varDt var gradient primal, _delta) =
           revProduceArtifact True (unHFun f) emptyEnv ftkx
-        ftkz = shapeAstFull $ unRawY (stensorKind @z) primal
+        ftkz = shapeAstFull $ unRankedY (stensorKind @z) primal
         ftk2 = FTKProduct ftkz ftkx
         (varP, ast) = funToAst ftk2 $ \ !astP ->
           AstLet varDt (astProject1 astP)
             $ AstLet var (astProject2 astP)
-              $ simplifyInline $ unRawY (stensorKind @x) gradient
+              $ simplifyInline $ unRankedY (stensorKind @x) gradient
     in AstLambda (varP, ftk2, ast)
   dfwd :: forall x z. (TensorKind x, TensorKind z)
        => TensorKindFull x
@@ -775,7 +785,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
         (varP, ast) = funToAst ftk2 $ \ !astP ->
           AstLet varDs (astProject1 astP)
             $ AstLet var (astProject2 astP)
-              $ simplifyInline $ unRawY (stensorKind @z) derivative
+              $ simplifyInline $ unRankedY (stensorKind @z) derivative
     in AstLambda (varP, ftk2, ast)
   dmapAccumRDer _ !k !accShs !bShs !eShs f df rf acc0 es =
     rankedY (stensorKind @TKUntyped)
@@ -1005,7 +1015,7 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
            -> InterpretationTarget (AstRaw s) y
   tunshare =
     case sameAstSpan @s @PrimalSpan of
-      Just Refl -> gunshare (stensorKind @y)
+      Just Refl -> gunshareRaw (stensorKind @y)
       _ -> error "tunshare: used not at PrimalSpan"
   dbuild1 k f = AstRawWrap
                 $ AstBuildHVector1 k $ funToAstI (unAstRawWrap . f . AstRaw)
@@ -1717,30 +1727,29 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
 -- TODO: these can't easily be in AstSimplify, because they need to ProductTensor
 -- instances for AST
 
--- TODO: is going via rawY and unRawY better?
+-- TODO: is going via rankedY and unRankedY better?
 simplifyInlineInterpretationTarget
   :: forall s z. (AstSpan s, TensorKind z)
-  => InterpretationTarget (AstRaw s) z -> InterpretationTarget (AstRaw s) z
+  => InterpretationTarget (AstRanked s) z -> InterpretationTarget (AstRanked s) z
 simplifyInlineInterpretationTarget = case stensorKind @z of
-  STKR{} -> AstRaw . simplifyInline . unAstRaw
-  STKS{} -> AstRawS . simplifyInline . unAstRawS
+  STKR{} -> AstRanked . simplifyInline . unAstRanked
+  STKS{} -> AstShaped . simplifyInline . unAstShaped
   STKProduct{} -> \t ->
     let !s1 = simplifyInlineInterpretationTarget $ tproject1 t in
     let !s2 = simplifyInlineInterpretationTarget $ tproject2 t
     in ttuple s1 s2
-  STKUntyped -> HVectorPseudoTensor . AstRawWrap . simplifyInline
-                . unAstRawWrap . unHVectorPseudoTensor
+  STKUntyped -> HVectorPseudoTensor . simplifyInline . unHVectorPseudoTensor
 
 simplifyArtifact :: TensorKind z
                  => AstArtifactRev TKUntyped z -> AstArtifactRev TKUntyped z
 simplifyArtifact art =
   let !der =
-        HVectorPseudoTensor $ AstRawWrap $ simplifyInline $ unAstRawWrap
+        HVectorPseudoTensor $ simplifyInline
         $ unHVectorPseudoTensor $ artDerivativeRev art in
   let !prim = simplifyInlineInterpretationTarget $ artPrimalRev art
   in art {artDerivativeRev = der, artPrimalRev = prim}
 
-{- TODO: remove if really not needed
+-- TODO: is going via rankedY and unRankedY better?
 substituteAstInInterpretationTarget
   :: forall s s2 y z. (AstSpan s, AstSpan s2, TensorKind y)
               => SubstitutionPayload s2 -> AstVarName s2 z
@@ -1754,38 +1763,21 @@ substituteAstInInterpretationTarget i var v1 = case stensorKind @y of
            (substituteAstInInterpretationTarget i var $ tproject2 v1)
   STKUntyped -> HVectorPseudoTensor . substituteAstHVector i var
                 . unHVectorPseudoTensor $ v1
--}
-
--- TODO: is going via rawY and unRawY better?
-substituteAstInInterpretationTargetRaw
-  :: forall s s2 y z. (AstSpan s, AstSpan s2, TensorKind y)
-              => SubstitutionPayload s2 -> AstVarName s2 z
-              -> InterpretationTarget (AstRaw s) y
-              -> InterpretationTarget (AstRaw s) y
-substituteAstInInterpretationTargetRaw i var v1 = case stensorKind @y of
-  STKR{} -> AstRaw . substituteAst i var . unAstRaw $ v1
-  STKS{} -> AstRawS . substituteAst i var . unAstRawS $ v1
-  STKProduct{} -> ttuple (substituteAstInInterpretationTargetRaw i var
-                          $ tproject1 v1)
-                         (substituteAstInInterpretationTargetRaw i var
-                          $ tproject2 v1)
-  STKUntyped -> HVectorPseudoTensor . AstRawWrap . substituteAstHVector i var
-                . unAstRawWrap . unHVectorPseudoTensor $ v1
 
 prettifyArtifactRev
   :: TensorKind z
   => AstArtifactRev TKUntyped z
   -> ( AstVarName PrimalSpan z
      , [AstDynamicVarName]
-     , InterpretationTarget (AstRaw PrimalSpan) TKUntyped
-     , InterpretationTarget (AstRaw PrimalSpan) z )
+     , InterpretationTarget (AstRanked PrimalSpan) TKUntyped
+     , InterpretationTarget (AstRanked PrimalSpan) z )
 prettifyArtifactRev AstArtifactRev{..} =
-  fun1DToAst (shapeAstHVector $ unAstRawWrap
+  fun1DToAst (shapeAstHVector
               $ unHVectorPseudoTensor artDerivativeRev) $ \ !vars1 !asts1 ->
     let idom = SubstitutionPayload $ AstMkHVector asts1
-        !derivative = substituteAstInInterpretationTargetRaw
+        !derivative = substituteAstInInterpretationTarget
                         idom artVarDomainRev artDerivativeRev in
-    let !primal = substituteAstInInterpretationTargetRaw
+    let !primal = substituteAstInInterpretationTarget
                     idom artVarDomainRev artPrimalRev
     in (artVarDtRev, vars1, derivative, primal)
 
@@ -1800,7 +1792,7 @@ printArtifactSimple renames art =
                 : map (printAstDynamicVarNameBrief renames) vars1
   in "\\" ++ unwords varsPP
           ++ " -> " ++ printAstHVectorSimple
-                         renames (unAstRawWrap $ unHVectorPseudoTensor derivative)
+                         renames (unHVectorPseudoTensor derivative)
 
 printArtifactPretty
   :: TensorKind z
@@ -1813,7 +1805,7 @@ printArtifactPretty renames art =
                : map (printAstDynamicVarNameBrief renames) vars1
   in "\\" ++ unwords varsPP
           ++ " -> " ++ printAstHVectorPretty
-                         renames (unAstRawWrap $ unHVectorPseudoTensor derivative)
+                         renames (unHVectorPseudoTensor derivative)
 
 printArtifactPrimalSimple
   :: forall z. TensorKind z
@@ -1824,7 +1816,7 @@ printArtifactPrimalSimple renames art =
   let !(_, !vars1, _, !primal) = prettifyArtifactRev art in
   let !varsPP = map (printAstDynamicVarNameBrief renames) vars1
   in "\\" ++ unwords varsPP
-          ++ " -> " ++ printAstSimpleY renames (unRawY (stensorKind @z) primal)
+          ++ " -> " ++ printAstSimpleY renames (unRankedY (stensorKind @z) primal)
 
 printArtifactPrimalPretty
   :: forall z. TensorKind z
@@ -1835,4 +1827,4 @@ printArtifactPrimalPretty renames art =
   let !(_, !vars1, _, !primal) = prettifyArtifactRev art in
   let !varsPP = map (printAstDynamicVarNameBrief renames) vars1
   in "\\" ++ unwords varsPP
-          ++ " -> " ++ printAstPrettyY renames (unRawY (stensorKind @z) primal)
+          ++ " -> " ++ printAstPrettyY renames (unRankedY (stensorKind @z) primal)

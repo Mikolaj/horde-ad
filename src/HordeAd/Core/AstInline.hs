@@ -39,7 +39,7 @@ simplifyArtifactGradient :: AstArtifactRev TKUntyped z
                          -> AstArtifactRev TKUntyped z
 simplifyArtifactGradient art =
   art { artDerivativeRev =
-          HVectorPseudoTensor $ AstRawWrap $ simplifyInline $ unAstRawWrap
+          HVectorPseudoTensor $ simplifyInline
           $ unHVectorPseudoTensor $ artDerivativeRev art
       }
 

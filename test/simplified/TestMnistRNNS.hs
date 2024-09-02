@@ -201,7 +201,7 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
            ast = MnistRnnShaped2.rnnMnistLossFusedS
                    width batch_size (AstShaped astGlyph, AstShaped astLabel)
                    (parseHVector (fromDValue valsInit)
-                                 (unRawHVector (dunHVector $ unHVectorPseudoTensor (rawY (stensorKind @TKUntyped) hVectorPrimal))))
+                                 (dunHVector $ unHVectorPseudoTensor (rankedY (stensorKind @TKUntyped) hVectorPrimal)))
            runBatch :: (HVector ORArray, StateAdam)
                     -> (Int, [MnistDataS r])
                     -> IO (HVector ORArray, StateAdam)

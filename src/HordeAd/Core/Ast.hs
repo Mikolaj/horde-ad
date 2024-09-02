@@ -184,8 +184,8 @@ type role AstArtifactRev nominal nominal
 data AstArtifactRev x z = AstArtifactRev
   { artVarDtRev      :: AstVarName PrimalSpan z
   , artVarDomainRev  :: AstVarName PrimalSpan x
-  , artDerivativeRev :: InterpretationTarget (AstRaw PrimalSpan) x
-  , artPrimalRev     :: InterpretationTarget (AstRaw PrimalSpan) z
+  , artDerivativeRev :: InterpretationTarget (AstRanked PrimalSpan) x
+  , artPrimalRev     :: InterpretationTarget (AstRanked PrimalSpan) z
   }
 
 -- The forward derivative artifact.
@@ -193,8 +193,8 @@ type role AstArtifactFwd nominal nominal
 data AstArtifactFwd x z = AstArtifactFwd
   { artVarDsFwd      :: AstVarName PrimalSpan x
   , artVarDomainFwd  :: AstVarName PrimalSpan x
-  , artDerivativeFwd :: InterpretationTarget (AstRaw PrimalSpan) z
-  , artPrimalFwd     :: InterpretationTarget (AstRaw PrimalSpan) z
+  , artDerivativeFwd :: InterpretationTarget (AstRanked PrimalSpan) z
+  , artPrimalFwd     :: InterpretationTarget (AstRanked PrimalSpan) z
   }
 
 -- | This is the (arbitrarily) chosen representation of terms denoting

@@ -186,8 +186,8 @@ revEvalArtifact !AstArtifactRev{..} parameters mdt =
       dt = fromMaybe oneAtF mdt
       env = extendEnv artVarDomainRev parameters emptyEnv
       envDt = extendEnv artVarDtRev dt env
-      gradient = interpretAst envDt $ unRawY (stensorKind @x) artDerivativeRev
-      primal = interpretAst env $ unRawY (stensorKind @z) artPrimalRev
+      gradient = interpretAst envDt $ unRankedY (stensorKind @x) artDerivativeRev
+      primal = interpretAst env $ unRankedY (stensorKind @z) artPrimalRev
   in (gradient, primal)
 
 
@@ -232,8 +232,8 @@ fwdEvalArtifact !AstArtifactFwd{..} parameters ds =
   if tshapeFull (stensorKind @x) parameters == tshapeFull (stensorKind @x) ds then
     let env = extendEnv artVarDomainFwd parameters emptyEnv
         envD = extendEnv artVarDsFwd ds env
-        derivative = interpretAst envD $ unRawY (stensorKind @z) artDerivativeFwd
-        primal = interpretAst env $ unRawY (stensorKind @z) artPrimalFwd
+        derivative = interpretAst envD $ unRankedY (stensorKind @z) artDerivativeFwd
+        primal = interpretAst env $ unRankedY (stensorKind @z) artPrimalFwd
     in (derivative, primal)
  else error "fwdEvalArtifact: forward derivative input and sensitivity arguments should have same shapes"
 
