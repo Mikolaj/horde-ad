@@ -529,9 +529,9 @@ instance ( ADReadyBothNoLet ranked shaped
        -> HVector (ADVal ranked)
        -> HVectorOf (ADVal ranked)
   rrev f _parameters0 parameters =
-    -- This computes the derivative of g again for each new @parmeters@.
     let g :: InterpretationTarget (ADVal (ADVal ranked)) TKUntyped
           -> InterpretationTarget (ADVal (ADVal ranked)) TKUntyped
+        -- This computes the derivative of g again for each new @parmeters@.
         g !hv = HVectorPseudoTensor $ V.singleton $ DynamicRanked
                 $ f $ unHVectorPseudoTensor hv
     in unHVectorPseudoTensor $ fst $ crevOnHVector Nothing g
@@ -544,8 +544,8 @@ instance ( ADReadyBothNoLet ranked shaped
     let rf :: forall f. (ADReady f, ShareTensor f (ShapedOf f), ShareTensor (PrimalOf f) (ShapedOf (PrimalOf f)))
            => InterpretationTarget f (TKProduct z x)
            -> InterpretationTarget f x
+        -- This computes the derivative of g again for each new db and a.
         rf !db_a = fst $ crevOnHVector (Just $ tproject1 db_a) (unHFun h) (tshare $ tproject2 db_a)
-          -- This computes the derivative of g again for each new db and a.
     in HFun rf
   dfwd :: forall x z. (TensorKind x, TensorKind z)
        => TensorKindFull x
@@ -555,9 +555,10 @@ instance ( ADReadyBothNoLet ranked shaped
     let df :: forall f. (ADReady f, ShareTensor f (ShapedOf f), ShareTensor (PrimalOf f) (ShapedOf (PrimalOf f)))
            => InterpretationTarget f (TKProduct x x)
            -> InterpretationTarget f z
-          -- This computes the derivative of g again for each new da and a.
+        -- This computes the derivative of g again for each new da and a.
         df !da_a = fst $ cfwdOnHVector
                            (tshare $ tproject2 da_a) (unHFun h) (tshare $ tproject1 da_a)
+          -- TODO: explain why tshare is needed
     in HFun df
   dmapAccumRDer _ !k !accShs@(FTKUntyped accShsH) !bShs@(FTKUntyped bShsH)
                 !eShs@(FTKUntyped eShsH) f df rf acc0D esD =

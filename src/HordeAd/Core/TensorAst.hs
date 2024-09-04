@@ -103,8 +103,7 @@ revArtifactFromForwardPass hasDt forwardPass ftk =
       !unPrimal = gunshare (stensorKind @z) primalBody
 {- too expensive currently, so inlined as above:
       unGradient =
-        mapInterpretationTarget unshareRaw unshareRawS (stensorKind @x)
-        $ HVectorPseudoTensor $ dmkHVector gradient
+        mapInterpretationTarget unshareRaw unshareRawS (stensorKind @x) gradient
 -}
   in ( AstArtifactRev varDt varPrimal unGradient unPrimal
      , delta )

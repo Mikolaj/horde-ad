@@ -14,11 +14,11 @@ module HordeAd.Core.Adaptor
 
 import Prelude
 
-import           Control.Exception (assert)
-import qualified Data.Strict.Vector as Data.Vector
-import qualified Data.Vector as Data.NonStrict.Vector
-import qualified Data.Vector.Generic as V
-import           System.Random
+import Control.Exception (assert)
+import Data.Strict.Vector qualified as Data.Vector
+import Data.Vector qualified as Data.NonStrict.Vector
+import Data.Vector.Generic qualified as V
+import System.Random
 
 -- import qualified Data.Array.RankedS as OR
 -- import           Data.List (foldl')
