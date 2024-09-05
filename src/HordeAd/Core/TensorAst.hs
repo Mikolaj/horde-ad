@@ -128,24 +128,6 @@ gunshare
 gunshare stk b | Dict <- lemTensorKindOfS stk =
   rankedY stk $ unshareAstTensor $ unRawY stk b
 
--- TODO: delete
-gunshareRaw
-  :: forall y.
-     STensorKindType y
-  -> InterpretationTarget (AstRaw PrimalSpan) y
-  -> InterpretationTarget (AstRaw PrimalSpan) y
-gunshareRaw stk b | Dict <- lemTensorKindOfS stk =
-  rawY stk $ unshareAstTensor $ unRawY stk b
-
--- TODO: delete
-gunshareRanked
-  :: forall y.
-     STensorKindType y
-  -> InterpretationTarget (AstRanked PrimalSpan) y
-  -> InterpretationTarget (AstRanked PrimalSpan) y
-gunshareRanked stk b | Dict <- lemTensorKindOfS stk =
-  rankedY stk $ unshareAstTensor $ unRankedY stk b
-
 fwdArtifactFromForwardPass
   :: forall x z. (TensorKind x, TensorKind z)
   => (InterpretationTarget (AstRaw PrimalSpan) x
@@ -494,12 +476,12 @@ astBuildHVector1Vectorize k f = build1Vectorize k $ funToAstI f
 -- but is possible here:
 {-# SPECIALIZE gradientFromDelta
   :: TensorKindFull TKUntyped
-  -> HVectorPseudoTensor (AstRanked PrimalSpan) Float '()
-  -> Maybe (HVectorPseudoTensor (AstRanked PrimalSpan) Float '())
-  -> Delta (AstRanked PrimalSpan) TKUntyped
-  -> InterpretationTarget (AstRanked PrimalSpan) TKUntyped #-}
+  -> HVectorPseudoTensor (AstRaw PrimalSpan) Float '()
+  -> Maybe (HVectorPseudoTensor (AstRaw PrimalSpan) Float '())
+  -> Delta (AstRaw PrimalSpan) TKUntyped
+  -> InterpretationTarget (AstRaw PrimalSpan) TKUntyped #-}
 {-# SPECIALIZE evalFromnMap
-  :: EvalState (AstRanked PrimalSpan) -> EvalState (AstRanked PrimalSpan) #-}
+  :: EvalState (AstRaw PrimalSpan) -> EvalState (AstRaw PrimalSpan) #-}
 
 instance AstSpan s => LetTensor (AstRanked s) (AstShaped s) where
   rletTKIn :: forall y n r. (TensorKind y, KnownNat n, GoodScalar r)
@@ -581,21 +563,23 @@ instance AstSpan s => LetTensor (AstRanked s) (AstShaped s) where
       rankedY (stensorKind @z)
       $ astLetFun (unHVectorPseudoTensor u)
                   (unRankedY (stensorKind @z) . f . HVectorPseudoTensor)
-
--- TODO: remove this instance
-instance ShareTensor (AstRanked s) where
-  -- These and many similar bangs are necessary to ensure variable IDs
-  -- are generated in the expected order, resulting in nesting of lets
-  -- occuring in the correct order and so no scoping errors.
-  rshare a@(AstRanked(AstShare{})) = a
-  rshare a | astIsSmall True (unAstRanked a) = a
-  rshare a = AstRanked $ fun1ToAst $ \ !var -> AstShare var (unAstRanked a)
-  sshare a@(AstShaped(AstShare{})) = a
-  sshare a | astIsSmall True (unAstShaped a) = a
-  sshare a = AstShaped $ fun1ToAst $ \ !var -> AstShare var (unAstShaped a)
-  dshare a@AstShare{} = a
-  dshare a | astIsSmall True a = a
-  dshare a = fun1ToAst $ \ !var -> AstShare var a
+  toShare :: forall y. TensorKind y
+          => InterpretationTarget (AstRanked s) y
+          -> InterpretationTarget (AstRaw s) y
+  toShare t = case (stensorKind @y) of
+    STKR{} -> AstRaw $ unAstRanked t
+    STKS{} -> AstRawS $ unAstShaped t
+    STKProduct{} -> AstRawWrap t
+    STKUntyped -> HVectorPseudoTensor $ AstRawWrap $ unHVectorPseudoTensor t
+  -- For convenience and simplicity we define this for all spans,
+  -- but it can only ever be used for PrimalSpan.
+  tunshare :: forall y. TensorKind y
+           => InterpretationTarget (AstRaw s) y
+           -> InterpretationTarget (AstRanked s) y
+  tunshare =
+    case sameAstSpan @s @PrimalSpan of
+      Just Refl -> gunshare (stensorKind @y)
+      _ -> error "tunshare: used not at PrimalSpan"
 
 instance AstSpan s => RankedTensor (AstRanked s) where
   rshape = shapeAst . unAstRanked
@@ -711,15 +695,6 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
           DynamicShapedDummy @r @sh _ _ ->
             DynamicShaped @r @sh $ AstShaped $ AstProjectS hVectorOf i
     in V.imap f $ shapeAstHVector hVectorOf
-  -- For convenience and simplicity we define this for all spans,
-  -- but it can only ever be used for PrimalSpan.
-  tunshare :: forall y. TensorKind y
-           => InterpretationTarget (AstRanked s) y
-           -> InterpretationTarget (AstRanked s) y
-  tunshare =
-    case sameAstSpan @s @PrimalSpan of
-      Just Refl -> gunshareRanked (stensorKind @y)
-      _ -> error "tunshare: used not at PrimalSpan"
   dbuild1 k f = astBuildHVector1Vectorize k (f . AstRanked)
   -- TODO: (still) relevant?
   -- In this instance, these three ops are only used for some rare tests that
@@ -1009,13 +984,6 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
           DynamicShapedDummy @r @sh _ _ ->
             DynamicShaped @r @sh $ AstShaped $ AstProjectS hVectorOf i
     in rawHVector $ V.imap f $ shapeAstHVector hVectorOf
-  tunshare :: forall y. TensorKind y
-           => InterpretationTarget (AstRaw s) y
-           -> InterpretationTarget (AstRaw s) y
-  tunshare =
-    case sameAstSpan @s @PrimalSpan of
-      Just Refl -> gunshareRaw (stensorKind @y)
-      _ -> error "tunshare: used not at PrimalSpan"
   dbuild1 k f = AstRawWrap
                 $ AstBuildHVector1 k $ funToAstI (unAstRawWrap . f . AstRaw)
   -- TODO: (still) relevant?
@@ -1289,6 +1257,15 @@ instance AstSpan s => LetTensor (AstNoVectorize s) (AstNoVectorizeS s) where
                   (unNoVectorizeY (stensorKind @z) . f . AstNoVectorizeS)
     STKProduct{} -> error "TODO"
     STKUntyped{} -> error "TODO"
+  toShare :: forall y. TensorKind y
+          => InterpretationTarget (AstNoVectorize s) y
+          -> InterpretationTarget (AstRaw s) y
+  toShare t = case (stensorKind @y) of
+    STKR{} -> AstRaw $ unAstNoVectorize t
+    STKS{} -> AstRawS $ unAstNoVectorizeS t
+    STKProduct{} -> AstRawWrap $ unAstNoVectorizeWrap t
+    STKUntyped -> HVectorPseudoTensor $ AstRawWrap
+                  $ unAstNoVectorizeWrap $ unHVectorPseudoTensor t
 
 instance AstSpan s => RankedTensor (AstNoVectorize s) where
   rshape = rshape . unAstNoVectorize2
@@ -1577,6 +1554,15 @@ instance AstSpan s => LetTensor (AstNoSimplify s) (AstNoSimplifyS s) where
                   (unNoSimplifyY (stensorKind @z) . f . AstNoSimplifyS)
     STKProduct{} -> error "TODO"
     STKUntyped{} -> error "TODO"
+  toShare :: forall y. TensorKind y
+          => InterpretationTarget (AstNoSimplify s) y
+          -> InterpretationTarget (AstRaw s) y
+  toShare t = case (stensorKind @y) of
+    STKR{} -> AstRaw $ unAstNoSimplify t
+    STKS{} -> AstRawS $ unAstNoSimplifyS t
+    STKProduct{} -> AstRawWrap $ unAstNoSimplifyWrap t
+    STKUntyped -> HVectorPseudoTensor $ AstRawWrap
+                  $ unAstNoSimplifyWrap $ unHVectorPseudoTensor t
 
 instance AstSpan s => RankedTensor (AstNoSimplify s) where
   rshape = shapeAst . unAstNoSimplify

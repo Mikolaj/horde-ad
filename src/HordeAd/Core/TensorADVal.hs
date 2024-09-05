@@ -70,7 +70,7 @@ crevOnADInputs mdt f inputs =
       !delta = unDeltaRY (stensorKind @z) deltaIT in
   let parameters0 = tshapeFull (stensorKind @x) inputs
       !gradient = gradientFromDelta parameters0 v mdt delta
-  in (tunshare @_ @_ @x gradient, tunshare v)
+  in (gradient, v)
 
 crevOnHVector
   :: forall x z ranked.
@@ -99,7 +99,7 @@ cfwdOnADInputs inputs f ds =
   let !(!v, !deltaIT) = unADValInterpretation (stensorKind @z) $ f inputs
       !delta = unDeltaRY (stensorKind @z) deltaIT in
   let !derivative = derivativeFromDelta delta ds
-  in (tunshare derivative, tunshare v)
+  in (derivative, v)
 
 cfwdOnHVector
   :: forall x z ranked.
@@ -225,8 +225,9 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
       let (!u, !u') = unADValHVector $ unHVectorPseudoTensor a
           !var2 = dunHVector $ dshare $ dmkHVector u
       in f (HVectorPseudoTensor $ aDValHVector var2 u')
+  toShare = id
+  tunshare = id
 
--- The constraint is needed only for "liberal coverage condition".
 instance ShareTensor (ADVal ranked) where
   rshare = id
   sshare = id
@@ -510,7 +511,6 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
   dlambda _ = id
   dHApply (HFun f) = f
   dunHVector = id
-  tunshare = id
   dbuild1 k f =
     ravelHVector $ map (f . fromIntegral) [0 .. sNatValue k - 1]
   rrev :: (GoodScalar r, KnownNat n)
@@ -531,23 +531,31 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
          -> HFun x z
          -> HFun (TKProduct z x) x
   drevDt _ftk h =
-    let rf :: forall f. (ADReady f, ShareTensor f, ShareTensor (PrimalOf f))
+    let rf :: forall f. ADReady f
            => InterpretationTarget f (TKProduct z x)
            -> InterpretationTarget f x
         -- This computes the derivative of g again for each new db and a.
-        rf !db_a = fst $ crevOnHVector (Just $ tproject1 db_a) (unHFun h) (tshare $ tproject2 db_a)
+        rf !db_a = tunshare
+                   $ fst $ crevOnHVector
+                             (Just $ toShare $ tproject1 db_a)
+                             (unHFun h @(ADVal (ShareOf f)))
+                             (tshare $ toShare $ tproject2 db_a)
+          -- TODO: explain why tshare is needed
     in HFun rf
   dfwd :: forall x z. (TensorKind x, TensorKind z)
        => TensorKindFull x
        -> HFun x z
        -> HFun (TKProduct x x) z
   dfwd _ftk h =
-    let df :: forall f. (ADReady f, ShareTensor f, ShareTensor (PrimalOf f))
+    let df :: forall f. ADReady f
            => InterpretationTarget f (TKProduct x x)
            -> InterpretationTarget f z
         -- This computes the derivative of g again for each new da and a.
-        df !da_a = fst $ cfwdOnHVector
-                           (tshare $ tproject2 da_a) (unHFun h) (tshare $ tproject1 da_a)
+        df !da_a = tunshare
+                   $ fst $ cfwdOnHVector @x @z @(ShareOf f)
+                             (tshare $ toShare $ tproject2 da_a)
+                             (unHFun h @(ADVal (ShareOf f)))
+                             (tshare $ toShare $ tproject1 da_a)
           -- TODO: explain why tshare is needed
     in HFun df
   dmapAccumRDer _ !k !accShs@(FTKUntyped accShsH) !bShs@(FTKUntyped bShsH)
@@ -562,7 +570,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
         accLen = V.length accShsH
         hvToPair :: forall f. HVector f -> (HVector f, HVector f)
         hvToPair = V.splitAt accLen
-        g :: forall f. (ADReady f, ShareTensor f, ShareTensor (PrimalOf f))
+        g :: forall f. ADReady f
           => InterpretationTarget f (TKProduct TKUntyped TKUntyped)
           -> InterpretationTarget f TKUntyped
         g !acc_e = HVectorPseudoTensor $
@@ -576,7 +584,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
               -- understand and document
               let (accRes, bRes) = hvToPair res
               in dmkHVector $ V.concat [accRes, acc, bRes]
-        dg :: forall f. (ADReady f, ShareTensor f, ShareTensor (PrimalOf f))
+        dg :: forall f. ADReady f
            => InterpretationTarget f (TKProduct TKUntyped TKUntyped)
            -> InterpretationTarget f TKUntyped
         dg !dacc_de_acc_e = HVectorPseudoTensor $
@@ -591,7 +599,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
                   dacc = V.take accLen dacc_de
               in dmkHVector
                  $ V.concat [accRes, dacc, bRes]
-        rg :: forall f. (ADReady f, ShareTensor f, ShareTensor (PrimalOf f))
+        rg :: forall f. ADReady f
            => InterpretationTarget f (TKProduct TKUntyped TKUntyped)
            -> InterpretationTarget f TKUntyped
         rg !dx_db_acc_e = HVectorPseudoTensor $
@@ -643,7 +651,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
         accLen = V.length accShsH
         hvToPair :: forall f. HVector f -> (HVector f, HVector f)
         hvToPair = V.splitAt accLen
-        g :: forall f. (ADReady f, ShareTensor f, ShareTensor (PrimalOf f))
+        g :: forall f. ADReady f
           => InterpretationTarget f (TKProduct TKUntyped TKUntyped)
           -> InterpretationTarget f TKUntyped
         g !acc_e = HVectorPseudoTensor $
@@ -657,7 +665,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
               -- understand and document
               let (accRes, bRes) = hvToPair res
               in dmkHVector $ V.concat [accRes, acc, bRes]
-        dg :: forall f. (ADReady f, ShareTensor f, ShareTensor (PrimalOf f))
+        dg :: forall f. ADReady f
            => InterpretationTarget f (TKProduct TKUntyped TKUntyped)
            -> InterpretationTarget f TKUntyped
         dg !dacc_de_acc_e = HVectorPseudoTensor $
@@ -672,7 +680,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
                   dacc = V.take accLen dacc_de
               in dmkHVector
                  $ V.concat [accRes, dacc, bRes]
-        rg :: forall f. (ADReady f, ShareTensor f, ShareTensor (PrimalOf f))
+        rg :: forall f. ADReady f
            => InterpretationTarget f (TKProduct TKUntyped TKUntyped)
            -> InterpretationTarget f TKUntyped
         rg !dx_db_acc_e = HVectorPseudoTensor $

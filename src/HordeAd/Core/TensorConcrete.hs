@@ -96,6 +96,8 @@ instance LetTensor ORArray OSArray where
         blet (snd a) $ \ !a2 -> f (a1, a2)
     STKUntyped{} -> f $ unHVectorPseudoTensor a
   blet = (&)
+  toShare = id
+  tunshare = id
 
 instance ShareTensor ORArray where
   rshare = id
@@ -259,7 +261,6 @@ instance HVectorTensor ORArray OSArray where
   dlambda _ f = unHFun f  -- the eta-expansion is needed for typing
   dHApply f = f
   dunHVector = id
-  tunshare = id
   dbuild1 k f =
     ravelHVector $ map (f . fromIntegral) [0 .. sNatValue k - 1]
   rrev :: (GoodScalar r, KnownNat n)
