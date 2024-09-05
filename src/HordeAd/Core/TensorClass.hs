@@ -19,8 +19,7 @@ module HordeAd.Core.TensorClass
   , ingestData, sscalar, srepl
   , mapInterpretationTarget, mapInterpretationTarget2, mapInterpretationTarget2Weak
     -- * The giga-constraint
-  , ADReady, ADReadyNoLet, ADReadyR, ADReadyNoLetR, ADReadyS, ADReadyNoLetS
-  , ADReadyBoth, ADReadyBothNoLet
+  , ADReady, ADReadyNoLet, ADReadyS, ADReadyNoLetS
   ) where
 
 import Prelude
@@ -1466,13 +1465,9 @@ instance Show (HFun x y) where
 
 -- * The giga-constraint
 
-type ADReady ranked = ADReadyR ranked  -- implies both
+type ADReady ranked = ADReadyBoth ranked (ShapedOf ranked)
 
-type ADReadyNoLet ranked = ADReadyNoLetR ranked
-
-type ADReadyR ranked = ADReadyBoth ranked (ShapedOf ranked)
-
-type ADReadyNoLetR ranked = ADReadyBothNoLet ranked (ShapedOf ranked)
+type ADReadyNoLet ranked = ADReadyBothNoLet ranked (ShapedOf ranked)
 
 type ADReadyS shaped = ADReadyBoth (RankedOf shaped) shaped
 

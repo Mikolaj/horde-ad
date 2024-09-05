@@ -117,7 +117,7 @@ cfwdOnHVector parameters f ds =
 
 -- * Misc instances
 
-instance ( ADReadyBothNoLet ranked shaped, ShareTensor ranked
+instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
          , ShareTensor (PrimalOf ranked) )
          => LetTensor (ADVal ranked) (ADVal shaped) where
   rletTKIn stk a f =
@@ -493,7 +493,7 @@ instance (ADReadyNoLet ranked, HVectorOf ranked ~ HVector ranked)
     let (portion, rest) = V.splitAt (V.length h) params
     in Just (hVectorADValToADVal portion, rest)
 
-instance ( ADReadyBothNoLet ranked shaped
+instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
          , ShareTensor ranked
          , ShareTensor (PrimalOf ranked) )
          => HVectorTensor (ADVal ranked) (ADVal shaped) where
