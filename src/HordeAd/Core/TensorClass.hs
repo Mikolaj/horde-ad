@@ -1479,6 +1479,14 @@ type ADReadyBoth ranked shaped =
   )
 
 type ADReadyBothNoLet ranked shaped =
+  ( ADReadyEqsClasses ranked shaped
+  , ADReadyEqsClasses (ShareOf ranked) (ShapedOf (ShareOf ranked))
+  , ShareTensor (ShareOf ranked)
+  , ShareTensor (PrimalOf (ShareOf ranked))
+  , ShareOf (ShareOf ranked) ~ ShareOf ranked
+  )
+
+type ADReadyEqsClasses ranked shaped =
   ( ADReadyEqs ranked shaped
   , ADReadyClasses ranked shaped
   , ADReadyClasses (PrimalOf ranked) (PrimalOf shaped)
