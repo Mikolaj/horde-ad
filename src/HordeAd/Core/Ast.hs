@@ -66,6 +66,7 @@ type instance RankedOf (AstRanked s) = AstRanked s
 type instance ShapedOf (AstRanked s) = AstShaped s
 type instance PrimalOf (AstRanked s) = AstRanked PrimalSpan
 type instance DualOf (AstRanked s) = AstRanked DualSpan
+type instance ShareOf (AstRanked s) = AstRaw s
 
 type instance HVectorOf (AstRanked s) = AstTensor s TKUntyped
 -- This can't be just HFun, because they need to be vectorized
@@ -792,6 +793,7 @@ type instance RankedOf (AstRaw s) = AstRaw s
 type instance ShapedOf (AstRaw s) = AstRawS s
 type instance PrimalOf (AstRaw s) = AstRaw PrimalSpan
 type instance DualOf (AstRaw s) = AstRaw DualSpan
+type instance ShareOf (AstRaw s) = AstRaw s
 type instance HVectorOf (AstRaw s) = AstRawWrap (AstTensor s TKUntyped)
 type instance HFunOf (AstRaw s) x y = AstHFun x y
 type instance RankedOf (AstRawS s) = AstRaw s
@@ -802,6 +804,7 @@ type instance RankedOf (AstNoVectorize s) = AstNoVectorize s
 type instance ShapedOf (AstNoVectorize s) = AstNoVectorizeS s
 type instance PrimalOf (AstNoVectorize s) = AstNoVectorize PrimalSpan
 type instance DualOf (AstNoVectorize s) = AstNoVectorize DualSpan
+type instance ShareOf (AstNoVectorize s) = AstRaw s
 type instance HVectorOf (AstNoVectorize s) =
   AstNoVectorizeWrap (AstTensor s TKUntyped)
 type instance HFunOf (AstNoVectorize s) x y = AstHFun x y
@@ -813,6 +816,7 @@ type instance RankedOf (AstNoSimplify s) = AstNoSimplify s
 type instance ShapedOf (AstNoSimplify s) = AstNoSimplifyS s
 type instance PrimalOf (AstNoSimplify s) = AstNoSimplify PrimalSpan
 type instance DualOf (AstNoSimplify s) = AstNoSimplify DualSpan
+type instance ShareOf (AstNoSimplify s) = AstRaw s
 type instance HVectorOf (AstNoSimplify s) =
   AstNoSimplifyWrap (AstTensor s TKUntyped)
 type instance HFunOf (AstNoSimplify s) x y = AstHFun x y

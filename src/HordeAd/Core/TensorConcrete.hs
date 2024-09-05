@@ -72,6 +72,8 @@ type instance PrimalOf ORArray = ORArray
 
 type instance DualOf ORArray = DummyDual
 
+type instance ShareOf ORArray = ORArray
+
 instance LetTensor ORArray OSArray where
   rletTKIn _ a f = f a
   rletHVectorIn = (&)

@@ -282,6 +282,8 @@ type instance PrimalOf (ADVal f) = f
 
 type instance DualOf (ADVal f) = Dual f
 
+type instance ShareOf (ADVal f) = ADVal f
+
 type instance InterpretationTarget (ADVal ranked) (TKProduct x z) =
   (InterpretationTarget (ADVal ranked) x, InterpretationTarget (ADVal ranked) z)
 

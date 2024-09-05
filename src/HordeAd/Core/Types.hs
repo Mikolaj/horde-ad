@@ -21,7 +21,7 @@ module HordeAd.Core.Types
   , GoodScalar, HasSingletonDict, Differentiable, IfDifferentiable(..)
     -- * Type families that tensors will belong to
   , IntOf, RankedOf, ShapedOf
-  , HFunOf, PrimalOf, DualOf
+  , HFunOf, PrimalOf, DualOf, ShareOf
   , DummyDual(..)
     -- * Generic types of booleans and related class definitions
   , BoolOf, Boolean(..)
@@ -291,6 +291,8 @@ data DummyDual r (y :: ty) = DummyDual
 
 type instance RankedOf DummyDual = DummyDual
 type instance ShapedOf DummyDual = DummyDual
+
+type family ShareOf (f :: RankedTensorType) :: RankedTensorType
 
 
 -- * Generic types of booleans and related class definitions
