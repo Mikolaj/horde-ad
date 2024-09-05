@@ -65,8 +65,8 @@ type instance ShapedOf ORArray = OSArray
 
 type instance HVectorOf ORArray = HVector ORArray
 
-type instance HFunOf ORArray x y =
-  InterpretationTarget ORArray x -> InterpretationTarget ORArray y
+type instance HFunOf ORArray x z =
+  InterpretationTarget ORArray x -> InterpretationTarget ORArray z
 
 type instance PrimalOf ORArray = ORArray
 

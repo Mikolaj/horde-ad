@@ -84,9 +84,9 @@ class LetTensor (ranked :: RankedTensorType)
                 => HVectorOf ranked
                 -> (HVector ranked -> ranked r n)
                 -> ranked r n
-  rletHFunIn :: (KnownNat n, GoodScalar r, TensorKind x, TensorKind y)
-             => HFunOf ranked x y
-             -> (HFunOf ranked x y -> ranked r n)
+  rletHFunIn :: (KnownNat n, GoodScalar r, TensorKind x, TensorKind z)
+             => HFunOf ranked x z
+             -> (HFunOf ranked x z -> ranked r n)
              -> ranked r n
 
   sletTKIn :: (GoodScalar r, KnownShS sh, TensorKind y)
@@ -104,9 +104,9 @@ class LetTensor (ranked :: RankedTensorType)
                 => HVectorOf (RankedOf shaped)
                 -> (HVector (RankedOf shaped) -> shaped r sh)
                 -> shaped r sh
-  sletHFunIn :: (KnownShS sh, GoodScalar r, TensorKind x, TensorKind y)
-             => HFunOf (RankedOf shaped) x y
-             -> (HFunOf (RankedOf shaped) x y -> shaped r sh)
+  sletHFunIn :: (KnownShS sh, GoodScalar r, TensorKind x, TensorKind z)
+             => HFunOf (RankedOf shaped) x z
+             -> (HFunOf (RankedOf shaped) x z -> shaped r sh)
              -> shaped r sh
 
   dletHVectorInHVector
@@ -125,9 +125,9 @@ class LetTensor (ranked :: RankedTensorType)
   -- > let f = ...; df = dfwd f; rf = drev f
   -- > in ... (dmapAccumRDer f df rf ...) ... (dmapAccumRDer f df rf ...)
   dletHFunInHVector
-    :: (TensorKind x, TensorKind y)
-    => HFunOf ranked x y
-    -> (HFunOf ranked x y -> HVectorOf ranked)
+    :: (TensorKind x, TensorKind z)
+    => HFunOf ranked x z
+    -> (HFunOf ranked x z -> HVectorOf ranked)
     -> HVectorOf ranked
   -- This type signature generalizes dletHVectorInHVector and is easier
   -- for the user to work with, giving him access to concrete vectors and tuples.
@@ -795,9 +795,9 @@ class HVectorTensor (ranked :: RankedTensorType)
   dmkHVector :: HVector ranked -> HVectorOf ranked
   dlambda :: (TensorKind x, TensorKind z)
           => TensorKindFull x -> HFun x z -> HFunOf ranked x z
-  dHApply :: (TensorKind x, TensorKind y)
-          => HFunOf ranked x y -> InterpretationTarget ranked x
-          -> InterpretationTarget ranked y
+  dHApply :: (TensorKind x, TensorKind z)
+          => HFunOf ranked x z -> InterpretationTarget ranked x
+          -> InterpretationTarget ranked z
   dunHVector :: HVectorOf ranked -> HVector ranked
     -- ^ Warning: this operation easily breaks sharing.
   dbuild1 :: SNat k
@@ -1452,9 +1452,9 @@ mapInterpretationTarget2Weak fr fs stk b1 b2 = case stk of
   STKUntyped -> error "TODO: mapInterpretationTarget2Weak is weak"
 
 type role HFun nominal nominal
-newtype HFun (x :: TensorKindType) (y :: TensorKindType) =
+newtype HFun (x :: TensorKindType) (z :: TensorKindType) =
   HFun {unHFun :: forall f. ADReady f
-               => InterpretationTarget f x -> InterpretationTarget f y}
+               => InterpretationTarget f x -> InterpretationTarget f z}
 
 instance Show (HFun x y) where
   show _ = "<lambda>"

@@ -279,7 +279,7 @@ type family ShapedOf (f :: RankedTensorType) = (result :: ShapedTensorType)
 -- The type family can't easily be made injective, because the @ADVal f@
 -- instance is independent of @f@.
 type family HFunOf (f :: RankedTensorType)
-                        (x :: TensorKindType) (y :: TensorKindType) :: Type
+                   (x :: TensorKindType) (z :: TensorKindType) :: Type
 
 type family PrimalOf (f :: TensorType ty) :: TensorType ty
 
