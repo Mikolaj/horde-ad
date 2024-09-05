@@ -1479,37 +1479,39 @@ type ADReadyS shaped = ADReadyBoth (RankedOf shaped) shaped
 type ADReadyNoLetS shaped = ADReadyBothNoLet (RankedOf shaped) shaped
 
 type ADReadyBoth ranked shaped =
-  (LetTensor ranked shaped, ADReadyBothNoLet ranked shaped)
+  ( ADReadyBothNoLet ranked shaped
+  , LetTensor ranked shaped
+  )
 
--- Here is in other places reflexive closure of type equalities is created
--- manually (and not for all equalities) due to #23333. TODO: fixed in GHC; remove.
 type ADReadyBothNoLet ranked shaped =
-  ( ranked ~ RankedOf shaped, RankedOf ranked ~ ranked
-  , RankedOf (PrimalOf ranked) ~ PrimalOf ranked
-  , PrimalOf ranked ~ RankedOf (PrimalOf ranked)
+  ( ADReadyEqs ranked shaped
+  , ADReadyClasses ranked shaped
+  , ADReadyClasses (PrimalOf ranked) (PrimalOf shaped)
+  , ProductTensor (DualOf ranked)
+  )
+
+type ADReadyEqs ranked shaped =
+  ( RankedOf shaped ~ ranked
+  , RankedOf ranked ~ ranked
   , RankedOf (PrimalOf shaped) ~ PrimalOf ranked
-  , PrimalOf ranked ~ RankedOf (PrimalOf shaped)
+  , RankedOf (PrimalOf ranked) ~ PrimalOf ranked
   , ShapedOf (PrimalOf ranked) ~ PrimalOf shaped
-  , DualOf shaped ~ ShapedOf (DualOf ranked)
   , ShapedOf (DualOf ranked) ~ DualOf shaped
-  , PrimalOf shaped ~ ShapedOf (PrimalOf ranked)
+  , ShapedOf (PrimalOf ranked) ~ PrimalOf shaped
   , BoolOf ranked ~ BoolOf shaped
-  , BoolOf shaped ~ BoolOf ranked
-  , BoolOf ranked ~ BoolOf (PrimalOf ranked)
   , BoolOf (PrimalOf ranked) ~ BoolOf ranked
-  , BoolOf shaped ~ BoolOf (PrimalOf shaped)
-  , BoolOf (PrimalOf shaped) ~ BoolOf shaped
-  , Boolean (BoolOf ranked)
-  , IfF ranked, IfF shaped, IfF (PrimalOf ranked), IfF (PrimalOf shaped)
-  , EqF ranked, EqF shaped, EqF (PrimalOf ranked), EqF (PrimalOf shaped)
-  , OrdF ranked, OrdF shaped, OrdF (PrimalOf ranked), OrdF (PrimalOf shaped)
-  , RankedTensor ranked, RankedTensor (PrimalOf ranked)
-  , ShapedTensor shaped, ShapedTensor (PrimalOf shaped)
+  , BoolOf (PrimalOf shaped) ~ BoolOf ranked
+  )
+
+type ADReadyClasses ranked shaped =
+  ( Boolean (BoolOf ranked)
+  , IfF ranked, IfF shaped
+  , EqF ranked, EqF shaped
+  , OrdF ranked, OrdF shaped
+  , RankedTensor ranked
+  , ShapedTensor shaped
   , HVectorTensor ranked shaped
-  , HVectorTensor (PrimalOf ranked) (PrimalOf shaped)
   , ProductTensor ranked
-  , ProductTensor (PrimalOf ranked), ProductTensor (DualOf ranked)
-  , CRanked ranked Show, CRanked (PrimalOf ranked) Show
-  , CShaped shaped Show, CShaped (PrimalOf shaped) Show
---   , Show (HFunOf ranked y)
+  , CRanked ranked Show
+  , CShaped shaped Show
   )
