@@ -87,7 +87,7 @@ import HordeAd.Util.SizedList
 
 gradientFromDelta
   :: forall x z ranked.
-     (ADReadyNoLet ranked, ShareTensor ranked (ShapedOf ranked), TensorKind z)
+     (ADReadyNoLet ranked, ShareTensor ranked, TensorKind z)
   => TensorKindFull x
   -> InterpretationTarget ranked z
   -> Maybe (InterpretationTarget ranked z)
@@ -163,8 +163,7 @@ interpretationConstant r = \case
 
 derivativeFromDelta
   :: forall x z ranked.
-     ( ADReadyNoLet ranked, ShareTensor ranked (ShapedOf ranked)
-     , TensorKind x, TensorKind z )
+     (ADReadyNoLet ranked, ShareTensor ranked, TensorKind x, TensorKind z)
   => Delta ranked z -> InterpretationTarget ranked x
   -> InterpretationTarget ranked z
 derivativeFromDelta deltaTopLevel ds =
@@ -861,8 +860,7 @@ initEvalState = \case
 -- and the third argument is the node to evaluate.
 evalRRuntimeSpecialized
   :: forall n r ranked.
-     ( GoodScalar r, KnownNat n
-     , ADReadyNoLet ranked, ShareTensor ranked (ShapedOf ranked) )
+     (GoodScalar r, KnownNat n, ADReadyNoLet ranked, ShareTensor ranked)
   => EvalState ranked
   -> ranked r n -> Delta ranked (TKR r n)
   -> EvalState ranked
@@ -885,8 +883,7 @@ evalRRuntimeSpecialized !s !c =
 
 evalSRuntimeSpecialized
   :: forall sh r ranked.
-     ( GoodScalar r, KnownShS sh
-     , ADReadyNoLet ranked, ShareTensor ranked (ShapedOf ranked) )
+     (GoodScalar r, KnownShS sh, ADReadyNoLet ranked, ShareTensor ranked)
   => EvalState ranked -> ShapedOf ranked r sh -> Delta ranked (TKS r sh)
   -> EvalState ranked
 evalSRuntimeSpecialized !s !c =
@@ -936,7 +933,7 @@ addInterpretationTargetM a b = case (a, b) of
 
 evalR
   :: forall y ranked.
-     (TensorKind y, ADReadyNoLet ranked, ShareTensor ranked (ShapedOf ranked))
+     (TensorKind y, ADReadyNoLet ranked, ShareTensor ranked)
   => EvalState ranked -> InterpretationTarget ranked y -> Delta ranked y
   -> EvalState ranked
 evalR !s !c = \case
@@ -1192,7 +1189,7 @@ evalR !s !c = \case
     in evalHVector s2 des es'
 
 evalDynamic
-  :: (ADReadyNoLet ranked, ShareTensor ranked (ShapedOf ranked))
+  :: (ADReadyNoLet ranked, ShareTensor ranked)
   => EvalState ranked
   -> (DynamicTensor ranked, DynamicTensor (DeltaR ranked))
   -> EvalState ranked
@@ -1205,12 +1202,12 @@ evalDynamic s3 (t, DynamicShapedDummy @r @sh _ _) =
   evalR @(TKS r sh) s3 (sfromD t) ZeroS
 
 evalHVector
-  :: (ADReadyNoLet ranked, ShareTensor ranked (ShapedOf ranked))
+  :: (ADReadyNoLet ranked, ShareTensor ranked)
   => EvalState ranked -> HVector ranked -> HVector (DeltaR ranked)
   -> EvalState ranked
 evalHVector s as as' = V.foldl' evalDynamic s $ V.zip as as'
 
-evalFromnMap :: (ADReadyNoLet ranked, ShareTensor ranked (ShapedOf ranked))
+evalFromnMap :: (ADReadyNoLet ranked, ShareTensor ranked)
              => EvalState ranked -> EvalState ranked
 evalFromnMap s@EvalState{nMap, dMap} =
   -- We discharge the non-vector cases before the vector ones, because
@@ -1284,7 +1281,7 @@ evalFromnMap s@EvalState{nMap, dMap} =
 -- and evaluates shared subexpressions repeatedly, so this state-passing
 -- formulation is adopted.
 fwdDynamic
-  :: forall ranked. (ADReadyNoLet ranked, ShareTensor ranked (ShapedOf ranked))
+  :: forall ranked. (ADReadyNoLet ranked, ShareTensor ranked)
   => HDVector ranked
   -> EvalState ranked
   -> DynamicTensor (DeltaR ranked)
@@ -1300,7 +1297,7 @@ fwdDynamic params s (DynamicShapedDummy @r @sh _ _) =
   second (DynamicShaped @r @sh) $ fwdR params s ZeroS
 
 fwdHVector
-  :: forall ranked. (ADReadyNoLet ranked, ShareTensor ranked (ShapedOf ranked))
+  :: forall ranked. (ADReadyNoLet ranked, ShareTensor ranked)
   => HDVector ranked
   -> EvalState ranked
   -> HVector (DeltaR ranked)
@@ -1309,7 +1306,7 @@ fwdHVector params = mapAccumL (fwdDynamic params)
 
 fwdR
   :: forall ranked y.
-     (ADReadyNoLet ranked, ShareTensor ranked (ShapedOf ranked), TensorKind y)
+     (ADReadyNoLet ranked, ShareTensor ranked, TensorKind y)
   => HDVector ranked -> EvalState ranked -> Delta ranked y
   -> (EvalState ranked, InterpretationTarget ranked y)
 fwdR params s = \case

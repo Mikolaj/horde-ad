@@ -91,8 +91,7 @@ class IsPrimal f r z where
 -- and it could, presumably, be extended to further limit which
 -- terms get an identifier. Alternatively, 'HordeAd.Core.DualNumber.dD'
 -- or library definitions that use it could be made smarter.
-instance ( GoodScalar r, KnownNat n, RankedTensor ranked
-         , ShareTensor ranked (ShapedOf ranked) )
+instance (GoodScalar r, KnownNat n, RankedTensor ranked, ShareTensor ranked)
          => IsPrimal @Nat ranked r n where
   dZeroOfShape tsh = DeltaR $ ZeroR (rshape tsh)
   dScale _ (DeltaR (ZeroR sh)) = DeltaR $ ZeroR sh
@@ -110,7 +109,7 @@ instance ( GoodScalar r, KnownNat n, RankedTensor ranked
     _ -> wrapDeltaR d
 
 instance ( GoodScalar r, KnownShS sh, ShapedTensor shaped
-         , ShareTensor (RankedOf shaped) shaped )
+         , ShareTensor (RankedOf shaped) )
          => IsPrimal @[Nat] shaped r sh where
   dZeroOfShape _tsh = DeltaS ZeroS
   dScale _ (DeltaS ZeroS) = DeltaS ZeroS

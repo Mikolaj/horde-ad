@@ -141,14 +141,13 @@ class LetTensor (ranked :: RankedTensorType)
        -> (InterpretationTarget ranked x -> InterpretationTarget ranked z)
        -> InterpretationTarget ranked z
 
-class ShareTensor (ranked :: RankedTensorType)
-                  (shaped :: ShapedTensorType)
-                  | ranked -> shaped, shaped -> ranked where
-  rshare :: (GoodScalar r, KnownNat n) => ranked r n -> ranked r n
-  sshare :: (GoodScalar r, KnownShS sh) => shaped r sh -> shaped r sh
+class ShareTensor (ranked :: RankedTensorType) where
+  rshare :: (GoodScalar r, KnownNat n)
+         => ranked r n -> ranked r n
+  sshare :: (GoodScalar r, KnownShS sh)
+         => ShapedOf ranked r sh -> ShapedOf ranked r sh
   dshare :: HVectorOf ranked -> HVectorOf ranked
-  tshare :: forall y.
-            (TensorKind y, ProductTensor ranked, ShapedOf ranked ~ shaped)
+  tshare :: forall y. (TensorKind y, ProductTensor ranked)
          => InterpretationTarget ranked y -> InterpretationTarget ranked y
   tshare t = case stensorKind @y of
     STKR{} -> rshare t
@@ -1074,7 +1073,7 @@ class HVectorTensor (ranked :: RankedTensorType)
     -> TensorKindFull accShs
     -> TensorKindFull bShs
     -> TensorKindFull eShs
-    -> (forall f. (ADReady f, ShareTensor f (ShapedOf f), ShareTensor (PrimalOf f) (ShapedOf (PrimalOf f)))
+    -> (forall f. (ADReady f, ShareTensor f, ShareTensor (PrimalOf f))
                      -- TODO: remove ShareTensor
         => HVector f -> HVector f -> HVectorOf f)
     -> InterpretationTarget ranked accShs
@@ -1083,7 +1082,7 @@ class HVectorTensor (ranked :: RankedTensorType)
   dmapAccumR proxy !k !accShs@(FTKUntyped accShsH) !bShs !eShs@(FTKUntyped eShsH)
              f acc0 es =
     let shs = FTKUntyped $ accShsH V.++ eShsH
-        fl :: forall f. (ADReady f, ShareTensor f (ShapedOf f), ShareTensor (PrimalOf f) (ShapedOf (PrimalOf f)))
+        fl :: forall f. (ADReady f, ShareTensor f, ShareTensor (PrimalOf f))
            => InterpretationTarget f (TKProduct TKUntyped TKUntyped)
            -> InterpretationTarget f TKUntyped
         fl !acc_e = HVectorPseudoTensor $
@@ -1093,7 +1092,7 @@ class HVectorTensor (ranked :: RankedTensorType)
               (unHVectorPseudoTensor $ tproject2 acc_e) $ \ !e ->
               f acc e
         accLen = V.length accShsH
-        fs :: forall f. (ADReady f, ShareTensor f (ShapedOf f), ShareTensor (PrimalOf f) (ShapedOf (PrimalOf f)))
+        fs :: forall f. (ADReady f, ShareTensor f, ShareTensor (PrimalOf f))
            => InterpretationTarget f TKUntyped
            -> InterpretationTarget f TKUntyped
         fs !(HVectorPseudoTensor acc_eOf) = HVectorPseudoTensor $
@@ -1141,7 +1140,7 @@ class HVectorTensor (ranked :: RankedTensorType)
     -> TensorKindFull accShs
     -> TensorKindFull bShs
     -> TensorKindFull eShs
-    -> (forall f. (ADReady f, ShareTensor f (ShapedOf f), ShareTensor (PrimalOf f) (ShapedOf (PrimalOf f)))
+    -> (forall f. (ADReady f, ShareTensor f, ShareTensor (PrimalOf f))
                      -- TODO: remove ShareTensor
         => HVector f -> HVector f -> HVectorOf f)
     -> InterpretationTarget ranked accShs
@@ -1150,7 +1149,7 @@ class HVectorTensor (ranked :: RankedTensorType)
   dmapAccumL proxy !k !accShs@(FTKUntyped accShsH) !bShs !eShs@(FTKUntyped eShsH)
              f acc0 es =
     let shs = FTKUntyped $ accShsH V.++ eShsH
-        fl :: forall f. (ADReady f, ShareTensor f (ShapedOf f), ShareTensor (PrimalOf f) (ShapedOf (PrimalOf f)))
+        fl :: forall f. (ADReady f, ShareTensor f, ShareTensor (PrimalOf f))
            => InterpretationTarget f (TKProduct TKUntyped TKUntyped)
            -> InterpretationTarget f TKUntyped
         fl !acc_e = HVectorPseudoTensor $
@@ -1160,7 +1159,7 @@ class HVectorTensor (ranked :: RankedTensorType)
               (unHVectorPseudoTensor $ tproject2 acc_e) $ \ !e ->
               f acc e
         accLen = V.length accShsH
-        fs :: forall f. (ADReady f, ShareTensor f (ShapedOf f), ShareTensor (PrimalOf f) (ShapedOf (PrimalOf f)))
+        fs :: forall f. (ADReady f, ShareTensor f, ShareTensor (PrimalOf f))
            => InterpretationTarget f TKUntyped
            -> InterpretationTarget f TKUntyped
         fs !(HVectorPseudoTensor acc_eOf) = HVectorPseudoTensor $
@@ -1456,8 +1455,8 @@ mapInterpretationTarget2Weak fr fs stk b1 b2 = case stk of
 type role HFun nominal nominal
 newtype HFun (x :: TensorKindType) (y :: TensorKindType) =
   HFun {unHFun :: forall f.
-                  ( ADReady f, ShareTensor f (ShapedOf f)
-                  , ShareTensor (PrimalOf f) (ShapedOf (PrimalOf f)) )
+                  ( ADReady f, ShareTensor f
+                  , ShareTensor (PrimalOf f) )
                     -- TODO: remove ShareTensor
                => InterpretationTarget f x -> InterpretationTarget f y}
 

@@ -583,7 +583,7 @@ instance AstSpan s => LetTensor (AstRanked s) (AstShaped s) where
                   (unRankedY (stensorKind @z) . f . HVectorPseudoTensor)
 
 -- TODO: remove this instance
-instance ShareTensor (AstRanked s) (AstShaped s) where
+instance ShareTensor (AstRanked s) where
   -- These and many similar bangs are necessary to ensure variable IDs
   -- are generated in the expected order, resulting in nesting of lets
   -- occuring in the correct order and so no scoping errors.
@@ -891,7 +891,7 @@ unRawY stk t = case stk of
                 (unRankedY stk2 $ tproject2 tShared)
   STKUntyped -> unAstRawWrap $ unHVectorPseudoTensor t
 
-instance ShareTensor (AstRaw s) (AstRawS s) where
+instance ShareTensor (AstRaw s) where
   -- For convenience and simplicity we define this for all spans,
   -- but it can only ever be used for PrimalSpan.
   rshare a@(AstRaw (AstShare{})) = a

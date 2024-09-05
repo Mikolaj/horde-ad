@@ -95,7 +95,7 @@ instance LetTensor ORArray OSArray where
     STKUntyped{} -> f $ unHVectorPseudoTensor a
   blet = (&)
 
-instance ShareTensor ORArray OSArray where
+instance ShareTensor ORArray where
   rshare = id
   sshare = id
   dshare = id
@@ -417,8 +417,7 @@ instance AdaptableHVector ORArray
   :: EvalState ORArray -> EvalState ORArray #-}
 
 instance ( RankedTensor ranked, ShapedTensor (ShapedOf ranked)
-         , ShareTensor ranked (ShapedOf ranked)
-         , ShareTensor (PrimalOf ranked) (ShapedOf (PrimalOf ranked))
+         , ShareTensor ranked
          , RankedOf (ShapedOf ranked) ~ ranked )
          => DualNumberValue (DynamicTensor (ADVal ranked)) where
   type DValue (DynamicTensor (ADVal ranked)) = DynamicTensor ORArray
