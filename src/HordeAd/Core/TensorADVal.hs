@@ -535,12 +535,11 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
            => InterpretationTarget f (TKProduct z x)
            -> InterpretationTarget f x
         -- This computes the derivative of g again for each new db and a.
-        rf !db_a = tunshare
-                   $ fst $ crevOnHVector
-                             (Just $ toShare $ tproject1 db_a)
+        rf !db_a = blet db_a $ \ !db_aShared ->
+          tunshare $ fst $ crevOnHVector
+                             (Just $ toShare $ tproject1 db_aShared)
                              (unHFun h @(ADVal (ShareOf f)))
-                             (tshare $ toShare $ tproject2 db_a)
-          -- TODO: explain why tshare is needed
+                             (toShare $ tproject2 db_aShared)
     in HFun rf
   dfwd :: forall x z. (TensorKind x, TensorKind z)
        => TensorKindFull x
@@ -551,12 +550,11 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
            => InterpretationTarget f (TKProduct x x)
            -> InterpretationTarget f z
         -- This computes the derivative of g again for each new da and a.
-        df !da_a = tunshare
-                   $ fst $ cfwdOnHVector @x @z @(ShareOf f)
-                             (tshare $ toShare $ tproject2 da_a)
+        df !da_a = blet da_a $ \ !da_aShared ->
+          tunshare $ fst $ cfwdOnHVector
+                             (toShare $ tproject2 da_aShared)
                              (unHFun h @(ADVal (ShareOf f)))
-                             (tshare $ toShare $ tproject1 da_a)
-          -- TODO: explain why tshare is needed
+                             (toShare $ tproject1 da_aShared)
     in HFun df
   dmapAccumRDer _ !k !accShs@(FTKUntyped accShsH) !bShs@(FTKUntyped bShsH)
                 !eShs@(FTKUntyped eShsH) f df rf acc0D esD =
