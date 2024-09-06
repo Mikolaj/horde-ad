@@ -466,8 +466,7 @@ shareAst memo v0 = case v0 of
   Ast.AstLet{} -> error "shareAst: AstLet"
     -- delta eval doesn't create lets and no lets
     -- survive instantiating in ADVal
-    -- TODO: this now fails in test 3barReluADValDt2, probably because
-    -- delta eval now creates lets (where?)
+    -- TODO: we need more tests like 3barReluADValDt2 to verify this is OK
   Ast.AstShare @y2 var v | Just Refl <- sameAstSpan @s @PrimalSpan ->
     -- We assume v is the same if var is the same.
     let astVar = Ast.AstVar (shapeAstFull v) var

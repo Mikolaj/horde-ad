@@ -1451,6 +1451,8 @@ mapInterpretationTarget2Weak fr fs stk b1 b2 = case stk of
     in ttuple t1 t2
   STKUntyped -> error "TODO: mapInterpretationTarget2Weak is weak"
 
+-- These are user-accessible, so the constraint is `ADReady`, which means
+-- lets, but no shares.
 type role HFun nominal nominal
 newtype HFun (x :: TensorKindType) (z :: TensorKindType) =
   HFun {unHFun :: forall f. ADReady f
