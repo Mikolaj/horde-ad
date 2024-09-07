@@ -937,8 +937,8 @@ evalR
   => EvalState ranked -> InterpretationTarget ranked y -> Delta ranked y
   -> EvalState ranked
 evalR !s !c = \case
-  TupleG d1 d2 -> -- TODO: let cShared = rshare c
-                  evalR (evalR s (tproject1 c) d1) (tproject2 c) d2
+  TupleG d1 d2 -> let cShared = tshare c
+                  in evalR (evalR s (tproject1 cShared) d1) (tproject2 cShared) d2
   Project1G d -> case shapeDeltaFull d of
     FTKProduct _ ftk2 ->
       let zero = interpretationConstant 0 ftk2
