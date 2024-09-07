@@ -570,6 +570,7 @@ instance AstSpan s => LetTensor (AstRanked s) (AstShaped s) where
       rankedY (stensorKind @z)
       $ astLetFun (unHVectorPseudoTensor u)
                   (unRankedY (stensorKind @z) . f . HVectorPseudoTensor)
+
   toShare :: forall y. TensorKind y
           => InterpretationTarget (AstRanked s) y
           -> InterpretationTarget (AstRaw s) y
@@ -587,6 +588,31 @@ instance AstSpan s => LetTensor (AstRanked s) (AstShaped s) where
     case sameAstSpan @s @PrimalSpan of
       Just Refl -> gunshare (stensorKind @y)
       _ -> error "tunshare: used not at PrimalSpan"
+
+  rrev :: forall r n. (GoodScalar r, KnownNat n)
+       => (forall f. ADReady f => HVector f -> f r n)
+       -> VoidHVector
+       -> HVector (AstRanked s)
+       -> AstTensor s TKUntyped
+  rrev f parameters0 =  -- we don't have an AST constructor to hold it
+    -- This computes the (AST of) derivative of f once and interprets it again
+    -- for each new @parmeters@, which is much better than computing anew.
+    let g :: InterpretationTarget (AstRanked FullSpan) TKUntyped
+          -> InterpretationTarget (AstRanked FullSpan) (TKR r n)
+        g !hv = f $ dunHVector $ unHVectorPseudoTensor hv
+        !(!(AstArtifactRev _varDt var gradient _primal), _delta) =
+          revProduceArtifact False g emptyEnv (FTKUntyped parameters0)
+    in \ !parameters -> assert (voidHVectorMatches parameters0 parameters) $
+      let env = extendEnv
+                  var (HVectorPseudoTensor $ AstMkHVector (unRankedHVector parameters)) emptyEnv
+      in simplifyInline $ unHVectorPseudoTensor
+         $ interpretAst env $ unHVectorPseudoTensor gradient
+        -- this interpretation both substitutes parameters for the variables and
+        -- reinterprets @PrimalSpan@ terms in @s@ terms;
+        -- we could shortcut when @s@ is @PrimalSpan@ and @parameters@
+        -- are the same variables, but it's a very special case;
+        -- a faster implementation would be via AstHApply, but this tests
+        -- a slightly different code path, so let's keep it
 
 instance AstSpan s => RankedTensor (AstRanked s) where
   rshape = shapeAst . unAstRanked
@@ -704,35 +730,11 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     in rankedHVector $ V.imap f $ shapeAstHVector hVectorOf
   dbuild1 k f = astBuildHVector1Vectorize k (f . AstRanked)
   -- TODO: (still) relevant?
-  -- In this instance, these three ops are only used for some rare tests that
+  -- In this instance, these two ops are only used for some rare tests that
   -- use the non-symbolic pipeline to compute a symbolic
   -- value of the derivative at a particular fixed input.
   -- The limitation of AstRaw as a newtype make it impossible
   -- to switch the tests from AstRanked to AstRaw.
-  rrev :: forall r n. (GoodScalar r, KnownNat n)
-       => (forall f. ADReady f => HVector f -> f r n)
-       -> VoidHVector
-       -> HVector (AstRanked s)
-       -> AstTensor s TKUntyped
-  rrev f parameters0 =  -- we don't have an AST constructor to hold it
-    -- This computes the (AST of) derivative of f once and interprets it again
-    -- for each new @parmeters@, which is much better than computing anew.
-    let g :: InterpretationTarget (AstRanked FullSpan) TKUntyped
-          -> InterpretationTarget (AstRanked FullSpan) (TKR r n)
-        g !hv = f $ dunHVector $ unHVectorPseudoTensor hv
-        !(!(AstArtifactRev _varDt var gradient _primal), _delta) =
-          revProduceArtifact False g emptyEnv (FTKUntyped parameters0)
-    in \ !parameters -> assert (voidHVectorMatches parameters0 parameters) $
-      let env = extendEnv
-                  var (HVectorPseudoTensor $ AstMkHVector (unRankedHVector parameters)) emptyEnv
-      in simplifyInline $ unHVectorPseudoTensor
-         $ interpretAst env $ unHVectorPseudoTensor gradient
-        -- this interpretation both substitutes parameters for the variables and
-        -- reinterprets @PrimalSpan@ terms in @s@ terms;
-        -- we could shortcut when @s@ is @PrimalSpan@ and @parameters@
-        -- are the same variables, but it's a very special case;
-        -- a faster implementation would be via AstHApply, but this tests
-        -- a slightly different code path, so let's keep it
   drevDt :: forall x z. (TensorKind x, TensorKind z)
          => TensorKindFull x
          -> HFun x z
@@ -985,7 +987,7 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
   dbuild1 k f = AstRawWrap
                 $ AstBuildHVector1 k $ funToAstI (unAstRawWrap . f . AstRaw)
   -- TODO: (still) relevant?
-  -- In this instance, these three ops are only used for some rare tests that
+  -- In this instance, these two ops are only used for some rare tests that
   -- use the non-symbolic pipeline to compute a symbolic
   -- value of the derivative at a particular fixed input.
   -- The limitation of AstRaw as a newtype make it impossible
@@ -995,22 +997,6 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
   -- These three methods are called at this type in delta evaluation via
   -- dmapAccumR and dmapAccumL, they have to work. We could refrain from
   -- simplifying the resulting terms, but it's not clear that's more consistent.
-  rrev :: forall r n. (GoodScalar r, KnownNat n)
-       => (forall f. ADReady f => HVector f -> f r n)
-       -> VoidHVector
-       -> HVector (AstRaw s)
-       -> AstRawWrap (AstTensor s TKUntyped)
-  rrev f parameters0 =
-    let g :: InterpretationTarget (AstRanked FullSpan) TKUntyped
-          -> InterpretationTarget (AstRanked FullSpan) (TKR r n)
-        g !hv = f $ dunHVector $ unHVectorPseudoTensor hv
-        !(!(AstArtifactRev _varDt var gradient _primal), _delta) =
-          revProduceArtifact False g emptyEnv (FTKUntyped parameters0)
-    in \ !parameters -> assert (voidHVectorMatches parameters0 parameters) $
-      let env = extendEnv
-                  var (HVectorPseudoTensor $ AstMkHVector (unRawHVector parameters)) emptyEnv
-      in AstRawWrap $ simplifyInline $ unHVectorPseudoTensor
-         $ interpretAst env $ unHVectorPseudoTensor gradient
   drevDt = drevDt @(AstRanked s)
   dfwd = dfwd @(AstRanked s)
   dmapAccumRDer _ !k !accShs !bShs !eShs f df rf acc0 es =
@@ -1268,6 +1254,7 @@ instance AstSpan s => LetTensor (AstNoVectorize s) (AstNoVectorizeS s) where
                   (unNoVectorizeY (stensorKind @z) . f . AstNoVectorizeS)
     STKProduct{} -> error "TODO"
     STKUntyped{} -> error "TODO"
+
   toShare :: forall y. TensorKind y
           => InterpretationTarget (AstNoVectorize s) y
           -> InterpretationTarget (AstRaw s) y
@@ -1277,6 +1264,10 @@ instance AstSpan s => LetTensor (AstNoVectorize s) (AstNoVectorizeS s) where
     STKProduct{} -> AstRawWrap $ unAstNoVectorizeWrap t
     STKUntyped -> HVectorPseudoTensor $ AstRawWrap
                   $ unAstNoVectorizeWrap $ unHVectorPseudoTensor t
+
+  rrev f parameters0 hVector =
+    AstNoVectorizeWrap
+    $ rrev f parameters0 (unNoVectorizeHVectorR hVector)
 
 instance AstSpan s => RankedTensor (AstNoVectorize s) where
   rshape = rshape . unAstNoVectorize2
@@ -1380,9 +1371,6 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
   dbuild1 k f =
     AstNoVectorizeWrap
     $ AstBuildHVector1 k $ funToAstI (unAstNoVectorizeWrap . f . AstNoVectorize)
-  rrev f parameters0 hVector =
-    AstNoVectorizeWrap
-    $ rrev f parameters0 (unNoVectorizeHVectorR hVector)
   drevDt = drevDt @(AstRanked s)
   dfwd = dfwd @(AstRanked s)
   dmapAccumRDer _ !k !accShs !bShs !eShs f df rf acc0 es =
@@ -1565,6 +1553,7 @@ instance AstSpan s => LetTensor (AstNoSimplify s) (AstNoSimplifyS s) where
                   (unNoSimplifyY (stensorKind @z) . f . AstNoSimplifyS)
     STKProduct{} -> error "TODO"
     STKUntyped{} -> error "TODO"
+
   toShare :: forall y. TensorKind y
           => InterpretationTarget (AstNoSimplify s) y
           -> InterpretationTarget (AstRaw s) y
@@ -1574,6 +1563,10 @@ instance AstSpan s => LetTensor (AstNoSimplify s) (AstNoSimplifyS s) where
     STKProduct{} -> AstRawWrap $ unAstNoSimplifyWrap t
     STKUntyped -> HVectorPseudoTensor $ AstRawWrap
                   $ unAstNoSimplifyWrap $ unHVectorPseudoTensor t
+
+  rrev f parameters0 hVector =  -- we don't have an AST constructor to hold it
+    AstNoSimplifyWrap
+    $ rrev f parameters0 (unNoSimplifyHVectorR hVector)
 
 instance AstSpan s => RankedTensor (AstNoSimplify s) where
   rshape = shapeAst . unAstNoSimplify
@@ -1701,9 +1694,6 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
   dbuild1 k f = AstNoSimplifyWrap
                 $ astBuildHVector1Vectorize
                     k (unAstNoSimplifyWrap . f . AstNoSimplify)
-  rrev f parameters0 hVector =  -- we don't have an AST constructor to hold it
-    AstNoSimplifyWrap
-    $ rrev f parameters0 (unNoSimplifyHVectorR hVector)
   drevDt = drevDt @(AstRanked s)
   dfwd = dfwd @(AstRanked s)
   dmapAccumRDer _ !k !accShs !bShs !eShs f df rf acc0 es =

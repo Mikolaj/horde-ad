@@ -98,6 +98,19 @@ instance LetTensor ORArray OSArray where
   blet = (&)
   toShare = id
   tunshare = id
+  rrev :: (GoodScalar r, KnownNat n)
+       => (forall f. ADReady f => HVector f -> f r n)
+       -> VoidHVector
+       -> HVector ORArray
+       -> HVector ORArray
+  rrev f _parameters0 parameters =
+    -- This computes the derivative of g again for each new @parmeters@.
+    let g :: InterpretationTarget (ADVal ORArray) TKUntyped
+          -> InterpretationTarget (ADVal ORArray) TKUntyped
+        g !hv = HVectorPseudoTensor $ V.singleton $ DynamicRanked
+                $ f $ unHVectorPseudoTensor hv
+    in unHVectorPseudoTensor $ fst $ crevOnHVector Nothing g
+       $ HVectorPseudoTensor parameters
 
 instance ShareTensor ORArray where
   rshare = id
@@ -263,19 +276,6 @@ instance HVectorTensor ORArray OSArray where
   dunHVector = id
   dbuild1 k f =
     ravelHVector $ map (f . fromIntegral) [0 .. sNatValue k - 1]
-  rrev :: (GoodScalar r, KnownNat n)
-       => (forall f. ADReady f => HVector f -> f r n)
-       -> VoidHVector
-       -> HVector ORArray
-       -> HVector ORArray
-  rrev f _parameters0 parameters =
-    -- This computes the derivative of g again for each new @parmeters@.
-    let g :: InterpretationTarget (ADVal ORArray) TKUntyped
-          -> InterpretationTarget (ADVal ORArray) TKUntyped
-        g !hv = HVectorPseudoTensor $ V.singleton $ DynamicRanked
-                $ f $ unHVectorPseudoTensor hv
-    in unHVectorPseudoTensor $ fst $ crevOnHVector Nothing g
-       $ HVectorPseudoTensor parameters
   -- The code for drevDt and dfwd in this instance is the same as for the
   -- ADVal ranked instance, because the type family instance is the same.
   drevDt :: forall x z. (TensorKind x, TensorKind z)

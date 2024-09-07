@@ -1219,8 +1219,7 @@ testUnitriangular2PP = do
 
 rscanZip :: forall rn n ranked.
             ( GoodScalar rn, KnownNat n, RankedTensor ranked
-            , LetTensor ranked (ShapedOf ranked)
-            , HVectorTensor ranked (ShapedOf ranked) )
+            , LetTensor ranked (ShapedOf ranked) )
          => (forall f. ADReady f => f rn n -> HVector f -> f rn n)
          -> VoidHVector  -- shapes of the HVector above, not below
          -> ranked rn n
@@ -1257,7 +1256,7 @@ rscanZip f eShs acc0 es =
 
 sscanZip :: forall rn sh k ranked shaped.
             ( GoodScalar rn, KnownShS sh, KnownNat k, ShapedTensor shaped
-            , LetTensor ranked shaped, HVectorTensor ranked shaped
+            , LetTensor ranked shaped
             , shaped ~ ShapedOf ranked, ranked ~ RankedOf shaped )
        => (forall f. ADReadyS f
            => f rn sh -> HVector (RankedOf f) -> f rn sh)
@@ -2190,7 +2189,8 @@ testSin0rmapAccumRD01SN531b0PP = do
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [ DynamicRanked @Double @1
                                         $ rconst $ Nested.Internal.rfromListPrimLinear (fromList [0]) [] ]))))
                         $ \ !d -> rfromD $ d V.! 0
-      g :: forall g. HVectorTensor g (ShapedOf g) => HVector g -> HVectorOf g
+      g :: forall g. (LetTensor g (ShapedOf g))
+        => HVector g -> HVectorOf g
       g = rrev f (V.singleton (voidFromSh @Double ZSR))
   printAstHVectorPrettyButNested
     IM.empty
@@ -2275,7 +2275,8 @@ testSin0rmapAccumRD01SN531bRPP = do
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [ DynamicRanked @Double @1
                                         $ rconst $ Nested.Internal.rfromListPrimLinear (fromList [1]) [0] ]))))
                         $ \ !d -> rfromD $ d V.! 0
-      g :: forall g. HVectorTensor g (ShapedOf g) => HVector g -> HVectorOf g
+      g :: forall g. (LetTensor g (ShapedOf g))
+        => HVector g -> HVectorOf g
       g = rrev f (V.singleton (voidFromSh @Double ZSR))
   printAstHVectorSimple
     IM.empty
@@ -2307,7 +2308,8 @@ testSin0rmapAccumRD01SN531b0PPj = do
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [ DynamicRanked @Double @1
                                         $ rconst $ Nested.Internal.rfromListPrimLinear (fromList [0]) [] ]))))
                         $ \ !d -> rfromD $ d V.! 0
-      g :: forall g. HVectorTensor g (ShapedOf g) => HVector g -> HVectorOf g
+      g :: forall g. (LetTensor g (ShapedOf g))
+        => HVector g -> HVectorOf g
       g = rrev f (V.singleton (voidFromSh @Double ZSR))
   printAstHVectorPretty
     IM.empty
@@ -2370,7 +2372,8 @@ testSin0rmapAccumRD01SN531bRPPj = do
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [ DynamicRanked @Double @1
                                         $ rconst $ Nested.Internal.rfromListPrimLinear (fromList [1]) [0] ]))))
                         $ \ !d -> rfromD $ d V.! 0
-      g :: forall g. HVectorTensor g (ShapedOf g) => HVector g -> HVectorOf g
+      g :: forall g. (LetTensor g (ShapedOf g))
+        => HVector g -> HVectorOf g
       g = rrev f (V.singleton (voidFromSh @Double ZSR))
   printAstHVectorPretty
     IM.empty
@@ -3273,7 +3276,8 @@ testSin0FoldNestedR1PP = do
                rfold (\x2 a2 -> x2 + tan a2)
                      a (rreplicate 22 x))
                   z (rreplicate 11 z)
-      g :: forall g. HVectorTensor g (ShapedOf g) => HVector g -> HVectorOf g
+      g :: forall g. (LetTensor g (ShapedOf g))
+        => HVector g -> HVectorOf g
       g x = rrev (\v -> f (rfromD $ v V.! 0))
                  (V.singleton (voidFromSh @Double ZSR))
                  x
@@ -3290,7 +3294,8 @@ testSin0FoldNestedR1SimpPP = do
                rfold (\x2 a2 -> x2 + tan a2)
                      a (rreplicate 22 x))
                   z (rreplicate 11 z)
-      g :: forall g. HVectorTensor g (ShapedOf g) => HVector g -> HVectorOf g
+      g :: forall g. (LetTensor g (ShapedOf g))
+        => HVector g -> HVectorOf g
       g x = rrev (\v -> f (rfromD $ v V.! 0))
                  (V.singleton (voidFromSh @Double ZSR))
                  x
@@ -3308,7 +3313,8 @@ testSin0FoldNestedR1SimpNestedPP = do
                rfold (\x2 a2 -> x2 + tan a2)
                      a (rreplicate 22 x))
                   z (rreplicate 11 z)
-      g :: forall g. HVectorTensor g (ShapedOf g) => HVector g -> HVectorOf g
+      g :: forall g. (LetTensor g (ShapedOf g))
+        => HVector g -> HVectorOf g
       g x = rrev (\v -> f (rfromD $ v V.! 0))
                  (V.singleton (voidFromSh @Double ZSR))
                  x
@@ -3324,7 +3330,8 @@ testSin0FoldNestedR0LengthPPs = do
   let f :: forall f. ADReady f => f Double 0 -> f Double 0
       f z = rfold (\x a -> x + tan a)
                   z (rreplicate 2 z)
-      g :: forall g. HVectorTensor g (ShapedOf g) => HVector g -> HVectorOf g
+      g :: forall g. (LetTensor g (ShapedOf g))
+        => HVector g -> HVectorOf g
       g x = rrev (\v -> f (rfromD $ v V.! 0))
                  (V.singleton (voidFromSh @Double ZSR))
                  x
@@ -3343,7 +3350,8 @@ testSin0FoldNestedR1LengthPPs = do
                rfold (\x2 a2 -> x2 + tan a2)
                      a (rreplicate 2 x))
                   z (rreplicate 2 z)
-      g :: forall g. HVectorTensor g (ShapedOf g) => HVector g -> HVectorOf g
+      g :: forall g. (LetTensor g (ShapedOf g))
+        => HVector g -> HVectorOf g
       g x = rrev (\v -> f (rfromD $ v V.! 0))
                  (V.singleton (voidFromSh @Double ZSR))
                  x
@@ -3364,7 +3372,8 @@ testSin0FoldNestedR2LengthPPs = do
                        a2 (rreplicate 2 x2))
                      a (rreplicate 2 x))
                   z (rreplicate 2 z)
-      g :: forall g. HVectorTensor g (ShapedOf g) => HVector g -> HVectorOf g
+      g :: forall g. (LetTensor g (ShapedOf g))
+        => HVector g -> HVectorOf g
       g x = rrev (\v -> f (rfromD $ v V.! 0))
                  (V.singleton (voidFromSh @Double ZSR))
                  x
@@ -3387,7 +3396,8 @@ testSin0FoldNestedR3LengthPPs = do
                        a2 (rreplicate 2 x2))
                      a (rreplicate 2 x))
                   z (rreplicate 2 z)
-      g :: forall g. HVectorTensor g (ShapedOf g) => HVector g -> HVectorOf g
+      g :: forall g. (LetTensor g (ShapedOf g))
+        => HVector g -> HVectorOf g
       g x = rrev (\v -> f (rfromD $ v V.! 0))
                  (V.singleton (voidFromSh @Double ZSR))
                  x
@@ -3413,7 +3423,8 @@ _testSin0FoldNestedR4LengthPPs = do
                        a2 (rreplicate 2 x2))
                      a (rreplicate 2 x))
                   z (rreplicate 2 z)
-      g :: forall g. HVectorTensor g (ShapedOf g) => HVector g -> HVectorOf g
+      g :: forall g. (LetTensor g (ShapedOf g))
+        => HVector g -> HVectorOf g
       g x = rrev (\v -> f (rfromD $ v V.! 0))
                  (V.singleton (voidFromSh @Double ZSR))
                  x
@@ -3441,7 +3452,8 @@ _testSin0FoldNestedR5LengthPPs = do
                        a2 (rreplicate 2 x2))
                      a (rreplicate 2 x))
                   z (rreplicate 2 z)
-      g :: forall g. HVectorTensor g (ShapedOf g) => HVector g -> HVectorOf g
+      g :: forall g. (LetTensor g (ShapedOf g))
+        => HVector g -> HVectorOf g
       g x = rrev (\v -> f (rfromD $ v V.! 0))
                  (V.singleton (voidFromSh @Double ZSR))
                  x
@@ -3470,7 +3482,8 @@ testSin0MapAccumNestedR1PP = do
                      (HVectorPseudoTensor $ dmkHVector a) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x))
                    (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked z)
                    (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked $ rreplicate 2 z)
-      g :: forall g. HVectorTensor g (ShapedOf g) => HVector g -> HVectorOf g
+      g :: forall g. (LetTensor g (ShapedOf g))
+        => HVector g -> HVectorOf g
       g x = rrev (\v -> f (rfromD $ v V.! 0))
                  (V.singleton (voidFromSh @Double ZSR))
                  x
@@ -3504,7 +3517,8 @@ testSin0MapAccumNestedR3LengthPP = do
                      (HVectorPseudoTensor $ dmkHVector a) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x))
                    (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked z)
                    (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked $ rreplicate 2 z)
-      g :: forall g. HVectorTensor g (ShapedOf g) => HVector g -> HVectorOf g
+      g :: forall g. (LetTensor g (ShapedOf g))
+        => HVector g -> HVectorOf g
       g x = rrev (\v -> f (rfromD $ v V.! 0))
                  (V.singleton (voidFromSh @Double ZSR))
                  x
@@ -4245,7 +4259,7 @@ testSin0FoldNestedR21PP = do
 
 testSin0revhV :: Assertion
 testSin0revhV = do
-  let f :: forall g. HVectorTensor g (ShapedOf g)
+  let f :: forall g. (LetTensor g (ShapedOf g))
         => HVector g -> HVectorOf g
       f x =
         rrev @g @_ @Double @0 (\v -> sin (rfromD $ v V.! 0))
@@ -4258,7 +4272,7 @@ testSin0revhV = do
 testSin0revhVPP :: Assertion
 testSin0revhVPP = do
   resetVarCounter
-  let f :: forall g. HVectorTensor g (ShapedOf g)
+  let f :: forall g. (LetTensor g (ShapedOf g))
         => HVector g -> HVectorOf g
       f x =
         rrev @g @_ @Double @0 (\v -> sin (rfromD $ v V.! 0))
@@ -4271,7 +4285,7 @@ testSin0revhVPP = do
 
 testSin0revhV2 :: Assertion
 testSin0revhV2 = do
-  let f :: forall g. HVectorTensor g (ShapedOf g)
+  let f :: forall g. (LetTensor g (ShapedOf g))
         => HVector g -> HVectorOf g
       f x =
         rrev @g @_ @Double @0 (\v -> sin (rfromD $ v V.! 0))
@@ -4307,7 +4321,7 @@ testSin0revhV4 :: Assertion
 testSin0revhV4 = do
   let doms = V.singleton (voidFromSh @Double ZSR)
       doms3 = V.singleton (voidFromSh @Double (3 :$: ZSR))
-      f :: forall g. (HVectorTensor g (ShapedOf g), RankedTensor g, ProductTensor g)
+      f :: forall g. (LetTensor g (ShapedOf g), RankedTensor g, ProductTensor g)
         => HVector g -> HVectorOf g
       f x =
         rrevDt @g @_ @Double @1 (rscanZip const doms 5)
@@ -4326,7 +4340,7 @@ testSin0revhV5 :: Assertion
 testSin0revhV5 = do
   let doms = V.singleton (voidFromShS @Double @'[])
       doms3 = V.singleton (voidFromShS @Double @'[3])
-      f :: forall g. (HVectorTensor g (ShapedOf g), ShapedTensor (ShapedOf g), ProductTensor g)
+      f :: forall g. (LetTensor g (ShapedOf g), ShapedTensor (ShapedOf g), ProductTensor g)
         => HVector g -> HVectorOf g
       f x =
         srevDt @g @_ @Double @'[4] (sscanZip const doms (srepl 5))
@@ -4345,7 +4359,7 @@ testSin0revhV6 :: Assertion
 testSin0revhV6 = do
   let doms = V.singleton (voidFromSh @Double ZSR)
       doms3 = V.singleton (voidFromSh @Double (3 :$: ZSR))
-      f :: forall g. (HVectorTensor g (ShapedOf g), RankedTensor g, ProductTensor g)
+      f :: forall g. (LetTensor g (ShapedOf g), RankedTensor g, ProductTensor g)
         => HVector g -> HVectorOf g
       f x =
         rrevDt @g @_ @Double @1
@@ -4366,7 +4380,7 @@ testSin0revhV7 :: Assertion
 testSin0revhV7 = do
   let doms = V.singleton (voidFromShS @Double @'[])
       doms3 = V.singleton (voidFromShS @Double @'[3])
-      f :: forall g. (HVectorTensor g (ShapedOf g), ShapedTensor (ShapedOf g), ProductTensor g)
+      f :: forall g. (LetTensor g (ShapedOf g), ShapedTensor (ShapedOf g), ProductTensor g)
         => HVector g -> HVectorOf g
       f x =
         srevDt @g @_ @Double @'[4]
