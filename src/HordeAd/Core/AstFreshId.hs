@@ -5,6 +5,7 @@
 -- with @unsafePerformIO@ outside, so some of the impurity escapes.
 module HordeAd.Core.AstFreshId
   ( unRawHVector, rawHVector
+  , unRankedHVector, rankedHVector
   , funToAstIO, funToAst, fun2ToAst, fun1ToAst, fun1ToX
   , fun1DToAst, fun1HToAst, fun1LToAst
   , funToAstRevIO, funToAstRev
@@ -33,18 +34,34 @@ import HordeAd.Core.Types
 import HordeAd.Util.ShapedList qualified as ShapedList
 import HordeAd.Util.SizedList
 
-unRawHVector :: HVector (AstRaw s) -> HVector (AstRanked s)
+unRawHVector :: HVector (AstRaw s) -> HVector (AstGeneric s)
 unRawHVector =
-  let f (DynamicRanked (AstRaw t)) = DynamicRanked (AstRanked t)
-      f (DynamicShaped (AstRawS t)) = DynamicShaped (AstShaped t)
+  let f (DynamicRanked (AstRaw t)) = DynamicRanked (AstGeneric t)
+      f (DynamicShaped (AstRawS t)) = DynamicShaped (AstGenericS t)
       f (DynamicRankedDummy p1 p2) = DynamicRankedDummy p1 p2
       f (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
   in V.map f
 
-rawHVector :: HVector (AstRanked s) -> HVector (AstRaw s)
+rawHVector :: HVector (AstGeneric s) -> HVector (AstRaw s)
 rawHVector =
-  let f (DynamicRanked (AstRanked t)) = DynamicRanked $ AstRaw t
-      f (DynamicShaped (AstShaped t)) = DynamicShaped $ AstRawS t
+  let f (DynamicRanked (AstGeneric t)) = DynamicRanked $ AstRaw t
+      f (DynamicShaped (AstGenericS t)) = DynamicShaped $ AstRawS t
+      f (DynamicRankedDummy p1 p2) = DynamicRankedDummy p1 p2
+      f (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
+  in V.map f
+
+unRankedHVector :: HVector (AstRanked s) -> HVector (AstGeneric s)
+unRankedHVector =
+  let f (DynamicRanked (AstRanked t)) = DynamicRanked (AstGeneric t)
+      f (DynamicShaped (AstShaped t)) = DynamicShaped (AstGenericS t)
+      f (DynamicRankedDummy p1 p2) = DynamicRankedDummy p1 p2
+      f (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
+  in V.map f
+
+rankedHVector :: HVector (AstGeneric s) -> HVector (AstRanked s)
+rankedHVector =
+  let f (DynamicRanked (AstGeneric t)) = DynamicRanked $ AstRanked t
+      f (DynamicShaped (AstGenericS t)) = DynamicShaped $ AstShaped t
       f (DynamicRankedDummy p1 p2) = DynamicRankedDummy p1 p2
       f (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
   in V.map f
@@ -160,7 +177,7 @@ fun1ToX :: TensorKind y
 fun1ToX f = unsafePerformIO $ fun1ToXIO f
 
 fun1LToAstIO :: [VoidHVector]
-             -> ([[AstDynamicVarName]] -> [HVector (AstRanked s)] -> a)
+             -> ([[AstDynamicVarName]] -> [HVector (AstGeneric s)] -> a)
              -> IO a
 {-# INLINE fun1LToAstIO #-}
 fun1LToAstIO shss f = do
@@ -168,13 +185,13 @@ fun1LToAstIO shss f = do
   return $! f (map V.toList vars) asts
 
 fun1LToAst :: [VoidHVector]
-           -> ([[AstDynamicVarName]] -> [HVector (AstRanked s)] -> a)
+           -> ([[AstDynamicVarName]] -> [HVector (AstGeneric s)] -> a)
            -> a
 {-# NOINLINE fun1LToAst #-}
 fun1LToAst shss f = unsafePerformIO $ fun1LToAstIO shss f
 
 fun1DToAstIO :: VoidHVector
-             -> ([AstDynamicVarName] -> HVector (AstRanked s) -> a)
+             -> ([AstDynamicVarName] -> HVector (AstGeneric s) -> a)
              -> IO a
 {-# INLINE fun1DToAstIO #-}
 fun1DToAstIO od f = do
@@ -182,7 +199,7 @@ fun1DToAstIO od f = do
   return $! f (V.toList vars) asts
 
 fun1DToAst :: VoidHVector
-           -> ([AstDynamicVarName] -> HVector (AstRanked s) -> a)
+           -> ([AstDynamicVarName] -> HVector (AstGeneric s) -> a)
            -> a
 {-# NOINLINE fun1DToAst #-}
 fun1DToAst od f = unsafePerformIO $ fun1DToAstIO od f
@@ -202,20 +219,20 @@ fun1HToAst :: TensorKindFull x -> TensorKindFull y
 fun1HToAst shss shs f = unsafePerformIO $ fun1HToAstIO shss shs f
 
 dynamicToVar :: DynamicTensor VoidTensor
-             -> IO (AstDynamicVarName, DynamicTensor (AstRanked s))
+             -> IO (AstDynamicVarName, DynamicTensor (AstGeneric s))
 dynamicToVar (DynamicRankedDummy @r2 @sh2 _ _) = do
   freshId <- unsafeGetFreshAstVarId
   return $! withListSh (Proxy @sh2) $ \sh4 ->
     let !varE = AstDynamicVarName @Nat @r2 @sh2 freshId
         dynE :: AstDynamic s
-        !dynE = DynamicRanked @r2 (AstRanked $ AstVar (FTKR sh4) (mkAstVarName freshId))
+        !dynE = DynamicRanked @r2 (AstGeneric $ AstVar (FTKR sh4) (mkAstVarName freshId))
     in (varE, dynE)
 dynamicToVar (DynamicShapedDummy @r2 @sh2 _ _) = do
   freshId <- unsafeGetFreshAstVarId
   return $!
     let !varE = AstDynamicVarName @[Nat] @r2 @sh2 freshId
         dynE :: AstDynamic s
-        !dynE = DynamicShaped @r2 @sh2 (AstShaped $ AstVar FTKS (mkAstVarName freshId))
+        !dynE = DynamicShaped @r2 @sh2 (AstGenericS $ AstVar FTKS (mkAstVarName freshId))
     in (varE, dynE)
 
 funToAstRevIO :: forall x. TensorKindFull x
@@ -246,13 +263,13 @@ funToAstRevIO ftk | Dict <- lemTensorKindOfF ftk = do
             | Dict <- lemKnownNatRank (knownShS @sh) = do
               return $!
                 ( DynamicRanked @r @(X.Rank sh)
-                                (AstRanked $ AstProjectR astVarPrimal i)
+                                (AstGeneric $ AstProjectR astVarPrimal i)
                 , DynamicRanked @r @(X.Rank sh)
-                                (AstRanked $ AstProjectR astVar i) )
+                                (AstGeneric $ AstProjectR astVar i) )
           f i (DynamicShapedDummy @r @sh _ _) = do
             return $!
-              ( DynamicShaped @r @sh (AstShaped $ AstProjectS astVarPrimal i)
-              , DynamicShaped @r @sh (AstShaped $ AstProjectS astVar i) )
+              ( DynamicShaped @r @sh (AstGenericS $ AstProjectS astVarPrimal i)
+              , DynamicShaped @r @sh (AstGenericS $ AstProjectS astVar i) )
       (!astsPrimal, !asts) <- unzip <$> imapM f (V.toList parameters0)
       let !vp = AstMkHVector $ V.fromList astsPrimal
           !va = AstMkHVector $ V.fromList asts
@@ -302,16 +319,16 @@ funToAstFwdIO ftk | Dict <- lemTensorKindOfF ftk = do
             | Dict <- lemKnownNatRank (knownShS @sh) = do
               return $!
                 ( DynamicRanked @r @(X.Rank sh)
-                                (AstRanked $ AstProjectR astVarPrimalD i)
+                                (AstGeneric $ AstProjectR astVarPrimalD i)
                 , DynamicRanked @r @(X.Rank sh)
-                                (AstRanked $ AstProjectR astVarPrimal i)
+                                (AstGeneric $ AstProjectR astVarPrimal i)
                 , DynamicRanked @r @(X.Rank sh)
-                                (AstRanked $ AstProjectR astVar i) )
+                                (AstGeneric $ AstProjectR astVar i) )
           f i (DynamicShapedDummy @r @sh _ _) = do
             return $!
-              ( DynamicShaped @r @sh (AstShaped $ AstProjectS astVarPrimalD i)
-              , DynamicShaped @r @sh (AstShaped $ AstProjectS astVarPrimal i)
-              , DynamicShaped @r @sh (AstShaped $ AstProjectS astVar i) )
+              ( DynamicShaped @r @sh (AstGenericS $ AstProjectS astVarPrimalD i)
+              , DynamicShaped @r @sh (AstGenericS $ AstProjectS astVarPrimal i)
+              , DynamicShaped @r @sh (AstGenericS $ AstProjectS astVar i) )
       (!astsPrimalD, !astsPrimal, !asts)
         <- unzip3 <$> imapM f (V.toList parameters0)
       let !vD = AstMkHVector $ V.fromList astsPrimalD

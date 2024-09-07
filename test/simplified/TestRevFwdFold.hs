@@ -23,7 +23,7 @@ import Data.Array.Nested.Internal.Ranked qualified as Nested.Internal
 import Data.Array.Nested.Internal.Shaped qualified as Nested.Internal
 
 import HordeAd
-import HordeAd.Core.AstFreshId (resetVarCounter)
+import HordeAd.Core.AstFreshId (rankedHVector, resetVarCounter)
 import HordeAd.Core.TensorAst
 import HordeAd.Core.TensorConcrete ()
 import HordeAd.Internal.BackendOX (ORArray, OSArray)
@@ -4495,9 +4495,9 @@ testSin0revhFoldZip4R = do
         => HVector ranked
         -> HVectorPseudoTensor ranked Float '()
       g = HVectorPseudoTensor . fFoldZipRX
-      h :: HVector (AstRanked FullSpan)
+      h :: HVector (AstGeneric FullSpan)
         -> HVectorPseudoTensor (AstRanked FullSpan) Float '()
-      h = g @(AstRanked FullSpan)
+      h = g @(AstRanked FullSpan) . rankedHVector
   assertEqualUpToEpsilon 1e-10
     (V.fromList [ DynamicRanked @Double @1 $ rfromList [rscalar 0, rscalar 0, rscalar 0]
                 , DynamicRanked @Double @1
@@ -4599,8 +4599,8 @@ testSin0revhFold4S = do
     (V.fromList [ DynamicShaped @Double @'[3] $ ingestData [0, 0, 0]
                 , DynamicShaped @Double @'[3]
                   $ srepl (-7.313585321642452e-2) ])
-    (rev (\(asD :: HVector (AstRanked FullSpan)) ->
-             fFoldSX (sfromD (asD V.! 1)))
+    (rev (\(asD :: HVector (AstGeneric FullSpan)) ->
+             fFoldSX (sfromD (rankedHVector asD V.! 1)))
          (V.fromList [ DynamicShaped @Double @'[3] $ sreplicate @_ @3 (sscalar 1.1)
                      , DynamicShaped @Double @'[3] $ sreplicate @_ @3 (sscalar 1.1) ]))
 

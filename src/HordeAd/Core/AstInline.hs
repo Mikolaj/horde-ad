@@ -358,10 +358,10 @@ inlineAstDynamic
   => AstMemo -> AstDynamic s
   -> (AstMemo, AstDynamic s)
 inlineAstDynamic memo = \case
-  DynamicRanked (AstRanked w) ->
-    second (DynamicRanked . AstRanked) $ inlineAst memo w
-  DynamicShaped (AstShaped w) ->
-    second (DynamicShaped . AstShaped) $ inlineAst memo w
+  DynamicRanked (AstGeneric w) ->
+    second (DynamicRanked . AstGeneric) $ inlineAst memo w
+  DynamicShaped (AstGenericS w) ->
+    second (DynamicShaped . AstGenericS) $ inlineAst memo w
   u@DynamicRankedDummy{} -> (memo, u)
   u@DynamicShapedDummy{} -> (memo, u)
 
@@ -633,10 +633,10 @@ shareAstDynamic
   :: AstSpan s
   => AstBindings -> AstDynamic s -> (AstBindings, AstDynamic s)
 shareAstDynamic memo = \case
-  DynamicRanked (AstRanked w) ->
-    second (DynamicRanked . AstRanked) $ shareAst memo w
-  DynamicShaped (AstShaped w) ->
-    second (DynamicShaped . AstShaped) $ shareAst memo w
+  DynamicRanked (AstGeneric w) ->
+    second (DynamicRanked . AstGeneric) $ shareAst memo w
+  DynamicShaped (AstGenericS w) ->
+    second (DynamicShaped . AstGenericS) $ shareAst memo w
   u@DynamicRankedDummy{} -> (memo, u)
   u@DynamicShapedDummy{} -> (memo, u)
 

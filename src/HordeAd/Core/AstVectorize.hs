@@ -229,8 +229,8 @@ build1V snat@SNat (var, v00) =
                     (Ast.AstMkHVector
                      $ replicate1HVectorF
                          (\k3 -> withSNat k3 $ \snat3 ->
-                             AstRanked . astReplicate snat3 . unAstRanked)
-                         (AstShaped . astReplicate SNat . unAstShaped)
+                             AstGeneric . astReplicate snat3 . unAstGeneric)
+                         (AstGenericS . astReplicate SNat . unAstGenericS)
                          snat2 asts)
      in repl2Stk (stensorKind @y2) (build1V snat (var, v))
     Ast.AstBuild1{} -> error "build1V: impossible case of AstBuild1"
@@ -627,10 +627,10 @@ build1VOccurenceUnknownDynamic
   :: forall k s. AstSpan s
   => SNat k -> (IntVarName, AstDynamic s) -> AstDynamic s
 build1VOccurenceUnknownDynamic SNat (var, d) = case d of
-  DynamicRanked (AstRanked u) ->
-    DynamicRanked $ AstRanked $ build1VOccurenceUnknown (SNat @k) (var, u)
-  DynamicShaped (AstShaped u) ->
-    DynamicShaped $ AstShaped $ build1VOccurenceUnknown (SNat @k) (var, u)
+  DynamicRanked (AstGeneric u) ->
+    DynamicRanked $ AstGeneric $ build1VOccurenceUnknown (SNat @k) (var, u)
+  DynamicShaped (AstGenericS u) ->
+    DynamicShaped $ AstGenericS $ build1VOccurenceUnknown (SNat @k) (var, u)
   DynamicRankedDummy @r @sh _ _ -> DynamicRankedDummy @r @(k ': sh) Proxy Proxy
   DynamicShapedDummy @r @sh _ _ -> DynamicShapedDummy @r @(k ': sh) Proxy Proxy
 {- TODO: is this faster? but fromInteger has to be avoided
@@ -672,18 +672,18 @@ substProjInterpretationTarget snat@SNat var ftk2 var1 v
                               (projection prVar2 ftk42)
           ftk@(FTKUntyped shs0) -> case buildTensorKindFull snat ftk of
             FTKUntyped shs -> fun1DToAst shs $ \ !vars !asts ->
-              let projDyn :: DynamicTensor (AstRanked s2)
+              let projDyn :: DynamicTensor (AstGeneric s2)
                           -> DynamicTensor VoidTensor
-                          -> DynamicTensor (AstRanked s2)
-                  projDyn (DynamicRanked @_ @n2 (AstRanked t))
+                          -> DynamicTensor (AstGeneric s2)
+                  projDyn (DynamicRanked @_ @n2 (AstGeneric t))
                           (DynamicRankedDummy @_ @sh3 _ _)
                     | Just Refl <- matchingRank @(k ': sh3) @n2 =
                       withListSh (Proxy @sh3) $ \sh1 ->
-                        DynamicRanked $ AstRanked $ projection t (FTKR sh1)
-                  projDyn (DynamicShaped @_ @sh2 (AstShaped t))
+                        DynamicRanked $ AstGeneric $ projection t (FTKR sh1)
+                  projDyn (DynamicShaped @_ @sh2 (AstGenericS t))
                           (DynamicShapedDummy @_ @sh3 _ _)
                     | Just Refl <- sameShape @sh2 @(k ': sh3) =
-                      DynamicShaped $ AstShaped $ projection t (FTKS @_ @sh3)
+                      DynamicShaped $ AstGenericS $ projection t (FTKS @_ @sh3)
                   projDyn _ _ = error "projDyn: impossible DynamicTensor cases"
               in Ast.AstLetHVectorInHVector
                    vars
@@ -747,13 +747,13 @@ substProjVars :: forall k s y. (KnownNat k, AstSpan s, TensorKind y)
 substProjVars var vars v3 = mapAccumR (substProjDynamic @k var) v3 vars
 
 astTrDynamic :: AstSpan s
-             => DynamicTensor (AstRanked s) -> DynamicTensor (AstRanked s)
-astTrDynamic t@(DynamicRanked @_ @n1 (AstRanked u)) =
+             => DynamicTensor (AstGeneric s) -> DynamicTensor (AstGeneric s)
+astTrDynamic t@(DynamicRanked @_ @n1 (AstGeneric u)) =
   case cmpNat (Proxy @2) (Proxy @n1) of
-    EQI -> DynamicRanked $ AstRanked $ astTr @(n1 - 2) u
-    LTI -> DynamicRanked $ AstRanked $ astTr @(n1 - 2) u
+    EQI -> DynamicRanked $ AstGeneric $ astTr @(n1 - 2) u
+    LTI -> DynamicRanked $ AstGeneric $ astTr @(n1 - 2) u
     _ -> t
-astTrDynamic t@(DynamicShaped @_ @sh (AstShaped u)) =
+astTrDynamic t@(DynamicShaped @_ @sh (AstGenericS u)) =
   let sh1 = shapeT @sh
       permute10 (m0 : m1 : ms) = m1 : m0 : ms
       permute10 ms = ms
@@ -764,11 +764,11 @@ astTrDynamic t@(DynamicShaped @_ @sh (AstShaped u)) =
            EQI -> case astTransposeS (Permutation.makePerm @'[1, 0]) u of
              (w :: AstTensor s4 (TKS r4 sh4)) ->
                gcastWith (unsafeCoerce Refl :: sh4 :~: shPermuted) $
-               DynamicShaped $ AstShaped w
+               DynamicShaped $ AstGenericS w
            LTI -> case astTransposeS (Permutation.makePerm @'[1, 0]) u of
              (w :: AstTensor s4 (TKS r4 sh4)) ->
                gcastWith (unsafeCoerce Refl :: sh4 :~: shPermuted) $
-               DynamicShaped $ AstShaped w
+               DynamicShaped $ AstGenericS w
            _ -> t
 astTrDynamic (DynamicRankedDummy p1 (Proxy @sh1)) =
   let permute10 (m0 : m1 : ms) = m1 : m0 : ms

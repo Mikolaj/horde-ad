@@ -18,6 +18,7 @@ module HordeAd.Core.Ast
   , AstBindingsCase, AstBindings
     -- * ASTs
   , AstRanked(..), AstTensor(..), AstShaped(..)
+  , AstGeneric(..), AstGenericS(..), AstGenericWrap(..)
   , AstDynamic, AstHFun(..)
   , AstBool(..), OpCodeNum1(..), OpCodeNum2(..), OpCode1(..), OpCode2(..)
   , OpCodeIntegral2(..), OpCodeBool(..), OpCodeRel(..)
@@ -59,6 +60,25 @@ import HordeAd.Util.ShapedList (IndexS, SizedListS)
 import HordeAd.Util.SizedList
 
 -- * Basic type family instances
+
+type role AstGenericWrap nominal
+newtype AstGenericWrap t = AstGenericWrap {unAstGenericWrap :: t}
+ deriving Show
+
+type instance InterpretationTarget (AstGeneric s) (TKProduct x z) =
+  AstGenericWrap (AstTensor s (TKProduct x z))
+type instance RankedOf (AstGeneric s) = AstGeneric s
+type instance ShapedOf (AstGeneric s) = AstGenericS s
+type instance PrimalOf (AstGeneric s) = AstGeneric PrimalSpan
+type instance DualOf (AstGeneric s) = AstGeneric DualSpan
+type instance ShareOf (AstGeneric s) = AstRaw s
+
+type instance HVectorOf (AstGeneric s) = AstGenericWrap (AstTensor s TKUntyped)
+type instance HFunOf (AstGeneric s) x z = AstHFun x z
+
+type instance RankedOf (AstGenericS s) = AstGeneric s
+type instance PrimalOf (AstGenericS s) = AstGenericS PrimalSpan
+type instance DualOf (AstGenericS s) = AstGenericS DualSpan
 
 type instance InterpretationTarget (AstRanked s) (TKProduct x z) =
   AstTensor s (TKProduct x z)
@@ -235,14 +255,24 @@ type AstBindings = DEnumMap (AstVarName PrimalSpan)
 
 -- * ASTs
 
--- The old AstRanked reconstructed:
+type role AstGeneric nominal nominal nominal
+newtype AstGeneric s r n = AstGeneric {unAstGeneric :: AstTensor s (TKR r n)}
+instance GoodScalar r => Show (AstGeneric s r n) where
+  showsPrec k (AstGeneric t) = showsPrec k t
+    -- to keep PP tests passing regardless of what wrappers we currently use
+
+type role AstGenericS nominal nominal nominal
+newtype AstGenericS s r sh = AstGenericS {unAstGenericS :: AstTensor s (TKS r sh)}
+instance GoodScalar r => Show (AstGenericS s r sh) where
+  showsPrec k (AstGenericS t) = showsPrec k t
+    -- to keep PP tests passing regardless of what wrappers we currently use
+
 type role AstRanked nominal nominal nominal
 newtype AstRanked s r n = AstRanked {unAstRanked :: AstTensor s (TKR r n)}
 instance GoodScalar r => Show (AstRanked s r n) where
   showsPrec k (AstRanked t) = showsPrec k t
     -- to keep PP tests passing regardless of what wrappers we currently use
 
--- The old AstShaped reconstructed:
 type role AstShaped nominal nominal nominal
 newtype AstShaped s r sh = AstShaped {unAstShaped :: AstTensor s (TKS r sh)}
 instance GoodScalar r => Show (AstShaped s r sh) where
@@ -465,7 +495,7 @@ data AstTensor :: AstSpanType -> TensorKindType -> Type where
             => AstTensor s (TKR r (X.Rank sh)) -> AstTensor s (TKS r sh)
 
   -- There are existential variables inside DynamicTensor here.
-  AstMkHVector :: HVector (AstRanked s) -> AstTensor s TKUntyped
+  AstMkHVector :: HVector (AstGeneric s) -> AstTensor s TKUntyped
   AstHApply :: (TensorKind x, TensorKind z)
             => AstHFun x z -> AstTensor s x -> AstTensor s z
   -- The operations below is why we need AstTensor s TKUntyped and so HVectorOf.
@@ -509,7 +539,7 @@ data AstTensor :: AstSpanType -> TensorKindType -> Type where
 
 deriving instance Show (AstTensor s y)
 
-type AstDynamic (s :: AstSpanType) = DynamicTensor (AstRanked s)
+type AstDynamic (s :: AstSpanType) = DynamicTensor (AstGeneric s)
 
 type role AstHFun nominal nominal
 data AstHFun x z where

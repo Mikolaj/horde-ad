@@ -843,9 +843,9 @@ interpretAstDynamic
   -> AstDynamic s -> DynamicTensor ranked
 {-# INLINE interpretAstDynamic #-}
 interpretAstDynamic !env = \case
-  DynamicRanked (AstRanked w) ->
+  DynamicRanked (AstGeneric w) ->
     DynamicRanked $ interpretAstRuntimeSpecialized env w
-  DynamicShaped (AstShaped w) ->
+  DynamicShaped (AstGenericS w) ->
     DynamicShaped $ interpretAstSRuntimeSpecialized env w
   DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
   DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
