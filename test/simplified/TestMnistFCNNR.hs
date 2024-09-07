@@ -190,17 +190,17 @@ mnistTestCase1VTI prefix epochs maxBatches widthHidden widthHidden2
        trainData <- loadMnistData trainGlyphsPath trainLabelsPath
        testData <- take (batchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
-       (_, hVectorPrimal, var, _)
+       (_, _, var, hVector2)
          <- funToAstRevIO $ FTKUntyped $ voidFromHVector hVectorInit
        (varGlyph, _, astGlyph) <-
          funToAstIO (FTKR $ singletonShape sizeMnistGlyphInt) id
        (varLabel, _, astLabel) <-
          funToAstIO (FTKR $ singletonShape sizeMnistLabelInt) id
-       let ast :: AstRanked PrimalSpan r 0
+       let ast :: AstRanked FullSpan r 0
            ast = MnistFcnnRanked1.afcnnMnistLoss1TensorData
                    widthHidden widthHidden2 (AstRanked $ astGlyph, AstRanked $ astLabel)
                    (parseHVector (fromDValue valsInit)
-                                 (dunHVector $ unHVectorPseudoTensor (rankedY (stensorKind @TKUntyped) hVectorPrimal)))
+                                 (dunHVector $ unHVectorPseudoTensor (rankedY (stensorKind @TKUntyped) hVector2)))
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
        let runBatch :: HVector ORArray -> (Int, [MnistData r]) -> IO (HVector ORArray)
@@ -249,7 +249,7 @@ tensorIntermediateMnistTests = testGroup "Ranked Intermediate MNIST tests"
   [ mnistTestCase1VTI "VTI 1 epoch, 1 batch" 1 1 300 100 0.02 5000
                       (0.16479999999999995 :: Double)
   , mnistTestCase1VTI "VTI artificial 1 2 3 4 5" 1 2 3 4 5 5000
-                      (0.902 :: Float)
+                      (0.9108 :: Float)
   , mnistTestCase1VTI "VTI 1 epoch, 0 batch" 1 0 300 100 0.02 5000
                       (1 :: Float)
   ]
@@ -513,17 +513,17 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
        trainData <- loadMnistData trainGlyphsPath trainLabelsPath
        testData <- take (batchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
-       (_, hVectorPrimal, var, _)
+       (_, _, var, hVector2)
          <- funToAstRevIO $ FTKUntyped $ voidFromHVector hVectorInit
        (varGlyph, _, astGlyph) <-
          funToAstIO (FTKR $ singletonShape sizeMnistGlyphInt) id
        (varLabel, _, astLabel) <-
          funToAstIO (FTKR $ singletonShape sizeMnistLabelInt) id
-       let ast :: AstRanked PrimalSpan r 0
+       let ast :: AstRanked FullSpan r 0
            ast = MnistFcnnRanked2.afcnnMnistLoss2TensorData
                    (AstRanked astGlyph, AstRanked astLabel)
                    (parseHVector (fromDValue valsInit)
-                                 (dunHVector $ unHVectorPseudoTensor (rankedY (stensorKind @TKUntyped) hVectorPrimal)))
+                                 (dunHVector $ unHVectorPseudoTensor (rankedY (stensorKind @TKUntyped) hVector2)))
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
        let runBatch :: HVector ORArray -> (Int, [MnistData r]) -> IO (HVector ORArray)
@@ -574,7 +574,7 @@ tensorIntermediateMnistTests2 = testGroup "Ranked2 Intermediate MNIST tests"
   , mnistTestCase2VTI "VTI2 artificial 1 2 3 4 5" 1 2 3 4 5 500
                        (0.884 :: Float)
   , mnistTestCase2VTI "VTI2 artificial 5 4 3 2 1" 5 4 3 2 1 499
-                       (0.7464929859719439 :: Double)
+                       (0.7945891783567134 :: Double)
   , mnistTestCase2VTI "VTI2 1 epoch, 0 batch" 1 0 300 100 0.02 500
                        (1 :: Float)
   ]
@@ -718,7 +718,7 @@ testVTOPP = do
   resetVarCounter
   let renames = IM.empty
       blackGlyph = AstReplicate (SNat @SizeMnistGlyph)
-                     (7 :: AstTensor FullSpan (TKR Double 0))
+                     (7 :: AstTensor AstMethodLet FullSpan (TKR Double 0))
       afcnn2T :: MnistFcnnRanked1.ADFcnnMnist1Parameters (AstRanked FullSpan)
                                                          Double
               -> AstRanked FullSpan Double 1
@@ -738,7 +738,7 @@ testVTOPPNonLin = do
   resetVarCounter
   let renames = IM.empty
       blackGlyph = AstReplicate (SNat @SizeMnistGlyph)
-                     (7 :: AstTensor FullSpan (TKR Double 0))
+                     (7 :: AstTensor AstMethodLet FullSpan (TKR Double 0))
       afcnn2TnonLin :: MnistFcnnRanked1.ADFcnnMnist1Parameters
                          (AstRanked FullSpan) Double
                     -> AstRanked FullSpan Double 1
@@ -775,7 +775,7 @@ testVT2OPP = do
   resetVarCounter
   let renames = IM.empty
       blackGlyph = AstReplicate (SNat @3)
-                     (7 :: AstTensor FullSpan (TKR Double 0))
+                     (7 :: AstTensor AstMethodLet FullSpan (TKR Double 0))
       afcnn2T :: MnistFcnnRanked2.ADFcnnMnist2Parameters
                    (AstRanked FullSpan) Double
               -> AstRanked FullSpan Double 1
@@ -795,7 +795,7 @@ testVT2OPPNonLin = do
   resetVarCounter
   let renames = IM.empty
       blackGlyph = AstReplicate (SNat @3)
-                     (7 :: AstTensor FullSpan (TKR Float 0))
+                     (7 :: AstTensor AstMethodLet FullSpan (TKR Float 0))
       afcnn2TnonLin :: MnistFcnnRanked2.ADFcnnMnist2Parameters
                          (AstRanked FullSpan) Float
                     -> AstRanked FullSpan Float 1
@@ -817,7 +817,7 @@ testVT2OPPNonLin2 = do
   resetVarCounter
   let renames = IM.empty
       blackGlyph = AstReplicate (SNat @3)
-                     (7 :: AstTensor FullSpan (TKR Double 0))
+                     (7 :: AstTensor AstMethodLet FullSpan (TKR Double 0))
       afcnn2TnonLin :: MnistFcnnRanked2.ADFcnnMnist2Parameters
                          (AstRanked FullSpan) Double
                     -> AstRanked FullSpan Double 1

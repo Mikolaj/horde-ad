@@ -64,7 +64,7 @@ simplifyInlineAstS = AstShaped . simplifyInline . unAstShaped
 -- The second simplification is very likely to trigger, because substitution
 -- often reveals redexes.
 simplifyInline
-  :: (AstSpan s, TensorKind z) => AstTensor s z -> AstTensor s z
+  :: (AstSpan s, TensorKind z) => AstTensor AstMethodLet s z -> AstTensor AstMethodLet s z
 simplifyInline =
   snd . inlineAst EM.empty
   . simplifyAst . expandAst
@@ -78,7 +78,7 @@ type AstMemo = EM.EnumMap AstVarId Double
 
 inlineAst
   :: forall s y. AstSpan s
-  => AstMemo -> AstTensor s y -> (AstMemo, AstTensor s y)
+  => AstMemo -> AstTensor AstMethodLet s y -> (AstMemo, AstTensor AstMethodLet s y)
 inlineAst memo v0 = case v0 of
   Ast.AstTuple t1 t2 ->
     let (memo2, v1) = inlineAst memo t1
@@ -148,7 +148,6 @@ inlineAst memo v0 = case v0 of
                       -- u is small, so the union is fast
         in (memo3, substituteAst (SubstitutionPayload u0) var v2)
       _ -> (memo2, Ast.AstLet var u2 v2)
-  Ast.AstShare{} -> error "inlineAst: AstShare"
   Ast.AstMinIndex a -> second Ast.AstMinIndex $ inlineAst memo a
   Ast.AstMaxIndex a -> second Ast.AstMaxIndex $ inlineAst memo a
   Ast.AstFloor a -> second Ast.AstFloor $ inlineAst memo a
@@ -355,8 +354,8 @@ inlineAst memo v0 = case v0 of
 
 inlineAstDynamic
   :: AstSpan s
-  => AstMemo -> AstDynamic s
-  -> (AstMemo, AstDynamic s)
+  => AstMemo -> AstDynamic AstMethodLet s
+  -> (AstMemo, AstDynamic AstMethodLet s)
 inlineAstDynamic memo = \case
   DynamicRanked (AstGeneric w) ->
     second (DynamicRanked . AstGeneric) $ inlineAst memo w
@@ -377,7 +376,7 @@ inlineAstHFun memo v0 = case v0 of
         f (Just count) = Just $ count + 1
     in (EM.alter f var memo, v0)
 
-inlineAstBool :: AstMemo -> AstBool -> (AstMemo, AstBool)
+inlineAstBool :: AstMemo -> AstBool AstMethodLet -> (AstMemo, AstBool AstMethodLet)
 inlineAstBool memo v0 = case v0 of
   Ast.AstBoolNot arg ->
     let (memo2, arg2) = inlineAstBool memo arg
@@ -400,7 +399,8 @@ inlineAstBool memo v0 = case v0 of
 -- * The translates global sharing to normal lets
 
 unshareAstTensor :: TensorKind y
-                 => AstTensor PrimalSpan y -> AstTensor PrimalSpan y
+                 => AstTensor AstMethodShare PrimalSpan y
+                 -> AstTensor AstMethodLet PrimalSpan y
 unshareAstTensor t =
   let (memoOut, share) = shareAst DMap.empty t
   in bindsToLet share memoOut
@@ -410,8 +410,8 @@ unshareAstTensor t =
 -- the gather/scatter/build variables corresponding to the index.
 shareAstScoped
   :: forall n s r. (GoodScalar r, KnownNat n, AstSpan s)
-  => [IntVarName] -> AstBindings -> AstTensor s (TKR r n)
-  -> (AstBindings, AstTensor s (TKR r n))
+  => [IntVarName] -> AstBindings -> AstTensor AstMethodShare s (TKR r n)
+  -> (AstBindings, AstTensor AstMethodLet s (TKR r n))
 shareAstScoped vars0 memo0 v0 =
   let (memo1, v1) = shareAst memo0 v0
       memoDiff = DMap.difference memo1 memo0
@@ -432,17 +432,21 @@ shareAstScoped vars0 memo0 v0 =
         closeOccurs (map varNameToAstVarId vars0) memoDiff
   in (DMap.union memo0 memoGlobal1, bindsToLet v1 memoLocal1)
 
+-- So far, there are no lets in the resulting term, but we mark it as potentially
+-- containing lets, because in the future we may optimize this by inserting
+-- some lets not at the top-level.
 shareAst
   :: forall s y. AstSpan s
-  => AstBindings -> AstTensor s y -> (AstBindings, AstTensor s y)
-shareAst memo v0 = case v0 of
+  => AstBindings -> AstTensor AstMethodShare s y
+  -> (AstBindings, AstTensor AstMethodLet s y)
+shareAst memo = \case
   Ast.AstTuple t1 t2 ->
     let (memo1, v1) = shareAst memo t1
         (memo2, v2) = shareAst memo1 t2
     in (memo2, Ast.AstTuple v1 v2)
   Ast.AstProject1 t -> second Ast.AstProject1 (shareAst memo t)
   Ast.AstProject2 t -> second Ast.AstProject2 (shareAst memo t)
-  Ast.AstVar{} -> (memo, v0)
+  Ast.AstVar sh v -> (memo, Ast.AstVar sh v)
   Ast.AstPrimalPart a -> second Ast.AstPrimalPart $ shareAst memo a
   Ast.AstDualPart a -> second Ast.AstDualPart $ shareAst memo a
   Ast.AstConstant a -> second Ast.AstConstant $ shareAst memo a
@@ -463,10 +467,6 @@ shareAst memo v0 = case v0 of
     STKS{} -> error "WIP"
     STKProduct{} -> error "WIP"
     STKUntyped -> error "WIP"
-  Ast.AstLet{} -> error "shareAst: AstLet"
-    -- delta eval doesn't create lets and no lets
-    -- survive instantiating in ADVal
-    -- TODO: we need more tests like 3barReluADValDt2 to verify this is OK
   Ast.AstShare @y2 var v | Just Refl <- sameAstSpan @s @PrimalSpan ->
     -- We assume v is the same if var is the same.
     let astVar = Ast.AstVar (shapeAstFull v) var
@@ -483,7 +483,7 @@ shareAst memo v0 = case v0 of
   Ast.AstMinIndex a -> second Ast.AstMinIndex $ shareAst memo a
   Ast.AstMaxIndex a -> second Ast.AstMaxIndex $ shareAst memo a
   Ast.AstFloor a -> second Ast.AstFloor $ shareAst memo a
-  Ast.AstIota -> (memo, v0)
+  Ast.AstIota -> (memo, Ast.AstIota)
   Ast.AstN1 opCode u ->
     let (memo2, u2) = shareAst memo u
     in (memo2, Ast.AstN1 opCode u2)
@@ -534,7 +534,7 @@ shareAst memo v0 = case v0 of
     in (memo2, Ast.AstGather sh v2 (vars, listToIndex ix2))
   Ast.AstCast v -> second Ast.AstCast $ shareAst memo v
   Ast.AstFromIntegral v -> second Ast.AstFromIntegral $ shareAst memo v
-  Ast.AstConst{} -> (memo, v0)
+  Ast.AstConst t -> (memo, Ast.AstConst t)
   Ast.AstProjectR l p ->
     -- This doesn't get simplified even if l is an HVector of vars freshly
     -- created by shareAst. However, then l is shared, so the cost
@@ -542,14 +542,12 @@ shareAst memo v0 = case v0 of
     -- higher than if simplified.
     let (memo1, l2) = shareAst memo l
     in (memo1, Ast.AstProjectR l2 p)
-  Ast.AstLetHVectorIn{} -> error "shareAst: AstLetHVectorIn"
-  Ast.AstLetHFunIn{} -> error "shareAst: AstLetHFunIn"
   Ast.AstRFromS v -> second Ast.AstRFromS $ shareAst memo v
 
   Ast.AstMinIndexS a -> second Ast.AstMinIndexS $ shareAst memo a
   Ast.AstMaxIndexS a -> second Ast.AstMaxIndexS $ shareAst memo a
   Ast.AstFloorS a -> second Ast.AstFloorS $ shareAst memo a
-  Ast.AstIotaS -> (memo, v0)
+  Ast.AstIotaS -> (memo, Ast.AstIotaS)
   Ast.AstN1S opCode u ->
     let (memo2, u2) = shareAst memo u
     in (memo2, Ast.AstN1S opCode u2)
@@ -603,12 +601,10 @@ shareAst memo v0 = case v0 of
   Ast.AstCastS v -> second Ast.AstCastS $ shareAst memo v
   Ast.AstFromIntegralS v ->
     second Ast.AstFromIntegralS $ shareAst memo v
-  Ast.AstConstS{} -> (memo, v0)
+  Ast.AstConstS t -> (memo, Ast.AstConstS t)
   Ast.AstProjectS l p ->
     let (memo1, l2) = shareAst memo l
     in (memo1, Ast.AstProjectS l2 p)
-  Ast.AstLetHVectorInS{} -> error "shareAst: AstLetHVectorInS"
-  Ast.AstLetHFunInS{} -> error "shareAst: AstLetHFunInS"
   Ast.AstSFromR v -> second Ast.AstSFromR $ shareAst memo v
 
   Ast.AstMkHVector l ->
@@ -617,8 +613,6 @@ shareAst memo v0 = case v0 of
     let (memo1, t2) = shareAstHFun memo t
         (memo2, ll2) = shareAst memo1 ll
     in (memo2, Ast.AstHApply t2 ll2)
-  Ast.AstLetHVectorInHVector{} -> error "shareAst: AstLetHVectorInHVector"
-  Ast.AstLetHFunInHVector{} -> error "shareAst: AstLetHFunInHVector"
   Ast.AstBuildHVector1{} -> error "shareAst: AstBuildHVector1"  -- not hard to add
   Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc0 es ->
     let (memo1, acc02) = shareAst memo acc0
@@ -631,14 +625,15 @@ shareAst memo v0 = case v0 of
 
 shareAstDynamic
   :: AstSpan s
-  => AstBindings -> AstDynamic s -> (AstBindings, AstDynamic s)
+  => AstBindings -> AstDynamic AstMethodShare s
+  -> (AstBindings, AstDynamic AstMethodLet s)
 shareAstDynamic memo = \case
   DynamicRanked (AstGeneric w) ->
     second (DynamicRanked . AstGeneric) $ shareAst memo w
   DynamicShaped (AstGenericS w) ->
     second (DynamicShaped . AstGenericS) $ shareAst memo w
-  u@DynamicRankedDummy{} -> (memo, u)
-  u@DynamicShapedDummy{} -> (memo, u)
+  DynamicRankedDummy p1 p2 -> (memo, DynamicRankedDummy p1 p2)
+  DynamicShapedDummy p1 p2 -> (memo, DynamicShapedDummy p1 p2)
 
 shareAstHFun
   :: AstBindings -> AstHFun x y -> (AstBindings, AstHFun x y)
@@ -650,8 +645,9 @@ shareAstHFun memo v0 = case v0 of
     (memo, v0)
   Ast.AstVarHFun{} -> (memo, v0)
 
-shareAstBool :: AstBindings -> AstBool -> (AstBindings, AstBool)
-shareAstBool memo v0 = case v0 of
+shareAstBool :: AstBindings -> AstBool AstMethodShare
+             -> (AstBindings, AstBool AstMethodLet)
+shareAstBool memo = \case
   Ast.AstBoolNot arg ->
     let (memo2, arg2) = shareAstBool memo arg
     in (memo2, Ast.AstBoolNot arg2)
@@ -659,7 +655,7 @@ shareAstBool memo v0 = case v0 of
     let (memo1, b1) = shareAstBool memo arg1
         (memo2, b2) = shareAstBool memo1 arg2
     in (memo2, Ast.AstB2 opCodeBool b1 b2)
-  Ast.AstBoolConst{} -> (memo, v0)
+  Ast.AstBoolConst t -> (memo, Ast.AstBoolConst t)
   Ast.AstRel opCodeRel arg1 arg2 ->
     let (memo1, r1) = shareAst memo arg1
         (memo2, r2) = shareAst memo1 arg2

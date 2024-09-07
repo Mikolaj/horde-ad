@@ -65,7 +65,7 @@ defaulPrintConfig2 loseRoudtrip ignoreNestedLambdas renames =
       representsIntIndex = False
   in PrintConfig {..}
 
-areAllArgsInts :: AstTensor s y -> Bool
+areAllArgsInts :: AstTensor ms s y -> Bool
 areAllArgsInts = \case
   -- A heuristics for whether all the arguments are still Int64 rank 0 tensors
   -- morally representing integer indexes. This mostly just rules out
@@ -149,8 +149,8 @@ printAstFunVar :: PrintConfig -> AstVarId -> ShowS
 printAstFunVar = printAstVarId "f"
 
 printAstVarFromLet
-  :: forall s y. (AstSpan s, TensorKind y)
-  => AstTensor s y -> PrintConfig -> AstVarName s y -> ShowS
+  :: forall s y ms. (AstSpan s, TensorKind y)
+  => AstTensor ms s y -> PrintConfig -> AstVarName s y -> ShowS
 printAstVarFromLet u cfg var =
   if representsIntIndex cfg && areAllArgsInts u
   then case isRankedInt u of
@@ -183,13 +183,13 @@ printAstDynamicVarName renames var@(AstDynamicVarName @ty @r @sh _varId) =
 
 -- * General pretty-printing of AST terms
 
-printAstInt :: PrintConfig -> Int -> AstInt -> ShowS
+printAstInt :: PrintConfig -> Int -> AstInt ms -> ShowS
 printAstInt cfgOld d t =
   let cfg = cfgOld {representsIntIndex = True}
   in printAst cfg d t
 
-printAst :: forall s y. AstSpan s
-         => PrintConfig -> Int -> AstTensor s y -> ShowS
+printAst :: forall s y ms. AstSpan s
+         => PrintConfig -> Int -> AstTensor ms s y -> ShowS
 printAst cfgOld d t =
   if representsIntIndex cfgOld
   then case t of
@@ -214,8 +214,8 @@ printAst cfgOld d t =
   else printAstAux cfgOld d t
 
 -- Precedences used are as in Haskell.
-printAstAux :: forall s y. AstSpan s
-            => PrintConfig -> Int -> AstTensor s y -> ShowS
+printAstAux :: forall s y ms. AstSpan s
+            => PrintConfig -> Int -> AstTensor ms s y -> ShowS
 printAstAux cfg d = \case
   AstTuple t1 t2 ->
     showParen (d > 10)
@@ -291,7 +291,7 @@ printAstAux cfg d = \case
            . showListWith (printAstInt cfg 0) (indexToList ix))
   t@(AstLet @_ @z2 var0 u0 v0) ->
     if loseRoudtrip cfg
-    then let collect :: AstTensor s y -> ([(ShowS, ShowS)], ShowS)
+    then let collect :: AstTensor AstMethodLet s y -> ([(ShowS, ShowS)], ShowS)
              collect (AstLet var u v) =
                let name = printAstVarFromLet u cfg var
                    uPP = printAst cfg 0 u
@@ -674,7 +674,7 @@ showCollectionWith start sep end showx (x:xs) s = start ++ showx x (showl xs)
   showl (y:ys) = sep ++ showx y (showl ys)
 
 printAstDynamic :: AstSpan s
-                => PrintConfig -> Int -> AstDynamic s -> ShowS
+                => PrintConfig -> Int -> AstDynamic ms s -> ShowS
 printAstDynamic cfg d = \case
   DynamicRanked (AstGeneric v) -> printPrefixOp printAst cfg d "DynamicRanked" [v]
   DynamicShaped (AstGenericS v) -> printPrefixOp printAst cfg d "DynamicShaped" [v]
@@ -682,15 +682,15 @@ printAstDynamic cfg d = \case
   DynamicShapedDummy{} -> showString "DynamicShapedDummy"
 
 printAstUnDynamic :: AstSpan s
-                  => PrintConfig -> Int -> AstDynamic s -> ShowS
+                  => PrintConfig -> Int -> AstDynamic ms s -> ShowS
 printAstUnDynamic cfg d = \case
   DynamicRanked (AstGeneric v) -> printAst cfg d v
   DynamicShaped (AstGenericS v) -> printAst cfg d v
   DynamicRankedDummy{} -> showString "0"
   DynamicShapedDummy{} -> showString "0"
 
-printHVectorAst :: forall s. AstSpan s
-                => PrintConfig -> HVector (AstGeneric s) -> ShowS
+printHVectorAst :: forall s ms. AstSpan s
+                => PrintConfig -> HVector (AstGeneric ms s) -> ShowS
 printHVectorAst cfg l =
   if loseRoudtrip cfg
   then
@@ -738,7 +738,7 @@ printAstHFunOneUnignore cfg d = \case
            . printAst cfg 0 l
   AstVarHFun _shss _shs var -> printAstFunVar cfg var
 
-printAstBool :: PrintConfig -> Int -> AstBool -> ShowS
+printAstBool :: PrintConfig -> Int -> AstBool ms -> ShowS
 printAstBool cfg d = \case
   AstBoolNot u -> printPrefixOp printAstBool cfg d "notB" [u]
   AstB2 opCode arg1 arg2 -> printAstB2 cfg d opCode arg1 arg2
@@ -825,7 +825,7 @@ printBinaryOp pr cfg d left (prec, opstr) right =
     . pr cfg (prec + 1) right
 
 printAstB2
-  :: PrintConfig -> Int -> OpCodeBool -> AstBool -> AstBool -> ShowS
+  :: PrintConfig -> Int -> OpCodeBool -> AstBool ms -> AstBool ms -> ShowS
 printAstB2 cfg d opCode arg1 arg2 = case opCode of
   AndOp -> printBinaryOp printAstBool cfg d arg1 (3, " &&* ") arg2
   OrOp -> printBinaryOp printAstBool cfg d arg1 (2, " ||* ") arg2
@@ -846,7 +846,7 @@ printAstRelOp pr cfg d opCode u v = case opCode of
 -- * Pretty-printing terms in a few useful configurations
 
 printAstSimpleY :: AstSpan s
-                => IntMap String -> AstTensor s y -> String
+                => IntMap String -> AstTensor ms s y -> String
 printAstSimpleY renames t = printAst (defaulPrintConfig False renames) 0 t ""
 
 printAstSimple :: AstSpan s
@@ -854,7 +854,7 @@ printAstSimple :: AstSpan s
 printAstSimple renames (AstRanked t) = printAst (defaulPrintConfig False renames) 0 t ""
 
 printAstPrettyY :: AstSpan s
-                => IntMap String -> AstTensor s y -> String
+                => IntMap String -> AstTensor ms s y -> String
 printAstPrettyY renames t = printAst (defaulPrintConfig True renames) 0 t ""
 
 printAstPretty :: AstSpan s
@@ -879,17 +879,17 @@ printAstPrettyButNestedS :: AstSpan s
 printAstPrettyButNestedS renames (AstShaped t) =
   printAst (defaulPrintConfig2 True False renames) 0 t ""
 
-printAstHVectorSimple :: AstSpan s => IntMap String -> AstTensor s TKUntyped
+printAstHVectorSimple :: AstSpan s => IntMap String -> AstTensor ms s TKUntyped
                       -> String
 printAstHVectorSimple renames t =
   printAst (defaulPrintConfig False renames) 0 t ""
 
-printAstHVectorPretty :: AstSpan s => IntMap String -> AstTensor s TKUntyped
+printAstHVectorPretty :: AstSpan s => IntMap String -> AstTensor ms s TKUntyped
                       -> String
 printAstHVectorPretty renames t =
   printAst (defaulPrintConfig True renames) 0 t ""
 
 printAstHVectorPrettyButNested
-  :: AstSpan s => IntMap String -> AstTensor s TKUntyped -> String
+  :: AstSpan s => IntMap String -> AstTensor ms s TKUntyped -> String
 printAstHVectorPrettyButNested renames t =
   printAst (defaulPrintConfig2 True False renames) 0 t ""

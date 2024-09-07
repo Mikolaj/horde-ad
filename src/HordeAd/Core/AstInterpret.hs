@@ -52,7 +52,7 @@ interpretAstPrimalRuntimeSpecialized
   :: forall ranked n r.
      (KnownNat n, ADReady ranked, Typeable r)
   => AstEnv ranked
-  -> AstTensor PrimalSpan (TKR r n) -> PrimalOf ranked r n
+  -> AstTensor AstMethodLet PrimalSpan (TKR r n) -> PrimalOf ranked r n
 interpretAstPrimalRuntimeSpecialized !env t =
   -- We dispatch on all expected underyling scalar types, which is
   -- necessary to run the correct specialization when unpacking
@@ -75,7 +75,7 @@ interpretAstPrimalSRuntimeSpecialized
   :: forall ranked sh r.
      (KnownShS sh, ADReady ranked, Typeable r)
   => AstEnv ranked
-  -> AstTensor PrimalSpan (TKS r sh) -> PrimalOf (ShapedOf ranked) r sh
+  -> AstTensor AstMethodLet PrimalSpan (TKS r sh) -> PrimalOf (ShapedOf ranked) r sh
 interpretAstPrimalSRuntimeSpecialized !env t =
   case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> interpretAstPrimal @ranked @(TKS Double sh) env t
@@ -97,7 +97,7 @@ interpretAstPrimalSRuntimeSpecialized !env t =
 interpretAstPrimal
   :: forall ranked y. (ADReady ranked, TensorKind y)
   => AstEnv ranked
-  -> AstTensor PrimalSpan y -> InterpretationTarget (PrimalOf ranked) y
+  -> AstTensor AstMethodLet PrimalSpan y -> InterpretationTarget (PrimalOf ranked) y
 interpretAstPrimal !env v1 = case v1 of
   AstPrimalPart (AstD u _) -> interpretAstPrimal env u
   AstPrimalPart (AstConstant u) -> interpretAstPrimal env u
@@ -117,7 +117,7 @@ interpretAstPrimal !env v1 = case v1 of
 interpretAstDual
   :: forall ranked y. (ADReady ranked, TensorKind y)
   => AstEnv ranked
-  -> AstTensor DualSpan y -> InterpretationTarget (DualOf ranked) y
+  -> AstTensor AstMethodLet DualSpan y -> InterpretationTarget (DualOf ranked) y
 interpretAstDual !env v1 = case v1 of
   AstDualPart (AstD _ u') -> interpretAstDual env u'
   _ ->
@@ -129,7 +129,7 @@ interpretAstRuntimeSpecialized
   :: forall ranked n s r.
      (ADReady ranked, Typeable r, AstSpan s)
   => AstEnv ranked
-  -> AstTensor s (TKR r n) -> ranked r n
+  -> AstTensor AstMethodLet s (TKR r n) -> ranked r n
 interpretAstRuntimeSpecialized !env t =
   case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> interpretAst @ranked @s @(TKR Double n) env t
@@ -145,7 +145,7 @@ interpretAstSRuntimeSpecialized
   :: forall ranked sh s r.
      (ADReady ranked, Typeable r, AstSpan s)
   => AstEnv ranked
-  -> AstTensor s (TKS r sh) -> ShapedOf ranked r sh
+  -> AstTensor AstMethodLet s (TKS r sh) -> ShapedOf ranked r sh
 interpretAstSRuntimeSpecialized !env t =
   case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> interpretAst @ranked @s @(TKS Double sh) env t
@@ -160,7 +160,7 @@ interpretAstSRuntimeSpecialized !env t =
 interpretAst
   :: forall ranked s y. (ADReady ranked, AstSpan s)
   => AstEnv ranked
-  -> AstTensor s y -> InterpretationTarget ranked y
+  -> AstTensor AstMethodLet s y -> InterpretationTarget ranked y
 interpretAst !env = \case
   AstTuple t1 t2 -> ttuple (interpretAst env t1) (interpretAst env t2)
   AstProject1 t -> tproject1 (interpretAst env t)
@@ -325,7 +325,6 @@ interpretAst !env = \case
       let t = interpretAst env u
           env2 w = extendEnv var w env
       in blet t (\w -> interpretAst (env2 w) v)
-  AstShare{} -> error "interpretAst: AstShare"
 
   AstMinIndex v ->
     rminIndex $ rconstant $ interpretAstPrimalRuntimeSpecialized env v
@@ -840,7 +839,7 @@ interpretAst !env = \case
 interpretAstDynamic
   :: forall ranked s. (ADReady ranked, AstSpan s)
   => AstEnv ranked
-  -> AstDynamic s -> DynamicTensor ranked
+  -> AstDynamic AstMethodLet s -> DynamicTensor ranked
 {-# INLINE interpretAstDynamic #-}
 interpretAstDynamic !env = \case
   DynamicRanked (AstGeneric w) ->
@@ -868,7 +867,7 @@ interpretAstHFun !env = \case
       _ -> error $ "interpretAstHFun: unknown variable " ++ show varId
 
 interpretAstBool :: ADReady ranked
-                 => AstEnv ranked -> AstBool -> BoolOf ranked
+                 => AstEnv ranked -> AstBool AstMethodLet -> BoolOf ranked
 interpretAstBool !env = \case
   AstBoolNot arg -> notB $ interpretAstBool env arg
   AstB2 opCodeBool arg1 arg2 ->

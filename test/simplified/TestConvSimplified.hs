@@ -558,7 +558,7 @@ unPaddedPPString3 = "\\h32 u126 u127 -> [rscatter [2,2,2,2] (rsum (rsum (rsum (r
 testConv2dUnpaddedPP :: Assertion
 testConv2dUnpaddedPP = do
   resetVarCounter
-  let f :: HVector (AstGeneric FullSpan) -> AstRanked FullSpan Double 4
+  let f :: HVector (AstGeneric AstMethodLet FullSpan) -> AstRanked FullSpan Double 4
       f v = conv2dUnpadded (rfromD $ rankedHVector v V.! 0) (rfromD $ rankedHVector v V.! 1)
       g :: Double -> ORArray Double 4
       g x = FlipR $ Nested.rfromOrthotope SNat $ OR.fromList [2,2,2,2] $ replicate 16 x

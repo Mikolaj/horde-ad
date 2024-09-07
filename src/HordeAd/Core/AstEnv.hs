@@ -162,10 +162,10 @@ extendEnvVarsS vars !ix !env =
 -- * The operations for interpreting bindings
 
 interpretLambdaI
-  :: forall ranked n s r.
+  :: forall ranked n s r ms.
      (RankedTensor ranked, RankedOf (PrimalOf ranked) ~ PrimalOf ranked)
-  => (AstEnv ranked -> AstTensor s (TKR r n) -> ranked r n)
-  -> AstEnv ranked -> (IntVarName, AstTensor s (TKR r n))
+  => (AstEnv ranked -> AstTensor ms s (TKR r n) -> ranked r n)
+  -> AstEnv ranked -> (IntVarName, AstTensor ms s (TKR r n))
   -> IntOf ranked
   -> ranked r n
 {-# INLINE interpretLambdaI #-}
@@ -173,10 +173,10 @@ interpretLambdaI f !env (!var, !ast) =
   \i -> f (extendEnvI var i env) ast
 
 interpretLambdaIS
-  :: forall ranked sh s r.
+  :: forall ranked sh s r ms.
      (RankedTensor ranked, RankedOf (PrimalOf ranked) ~ PrimalOf ranked)
-  => (AstEnv ranked -> AstTensor s (TKS r sh) -> ShapedOf ranked r sh)
-  -> AstEnv ranked -> (IntVarName, AstTensor s (TKS r sh))
+  => (AstEnv ranked -> AstTensor ms s (TKS r sh) -> ShapedOf ranked r sh)
+  -> AstEnv ranked -> (IntVarName, AstTensor ms s (TKS r sh))
   -> IntOf ranked
   -> ShapedOf ranked r sh
 {-# INLINE interpretLambdaIS #-}
@@ -184,11 +184,11 @@ interpretLambdaIS f !env (!var, ast) =
   \i -> f (extendEnvI var i env) ast
 
 interpretLambdaIHVector
-  :: forall ranked s.
+  :: forall ranked s ms.
      (RankedTensor ranked, RankedOf (PrimalOf ranked) ~ PrimalOf ranked)
-  => (AstEnv ranked -> AstTensor s TKUntyped
+  => (AstEnv ranked -> AstTensor ms s TKUntyped
       -> HVectorPseudoTensor ranked Float '())
-  -> AstEnv ranked -> (IntVarName, AstTensor s TKUntyped)
+  -> AstEnv ranked -> (IntVarName, AstTensor ms s TKUntyped)
   -> IntOf ranked
   -> HVectorOf ranked
 {-# INLINE interpretLambdaIHVector #-}
@@ -196,10 +196,10 @@ interpretLambdaIHVector f !env (!var, !ast) =
   \i -> unHVectorPseudoTensor $ f (extendEnvI var i env) ast
 
 interpretLambdaIndex
-  :: forall ranked s r m n.
+  :: forall ranked s r m n ms.
      (RankedTensor ranked, RankedOf (PrimalOf ranked) ~ PrimalOf ranked)
-  => (AstEnv ranked -> AstTensor s (TKR r n) -> ranked r n)
-  -> AstEnv ranked -> (AstVarList m, AstTensor s (TKR r n))
+  => (AstEnv ranked -> AstTensor ms s (TKR r n) -> ranked r n)
+  -> AstEnv ranked -> (AstVarList m, AstTensor ms s (TKR r n))
   -> IndexOf ranked m
   -> ranked r n
 {-# INLINE interpretLambdaIndex #-}
@@ -207,10 +207,10 @@ interpretLambdaIndex f !env (!vars, !ast) =
   \ix -> f (extendEnvVars vars ix env) ast
 
 interpretLambdaIndexS
-  :: forall sh sh2 ranked s r.
+  :: forall sh sh2 ranked s r ms.
      (RankedTensor ranked, RankedOf (PrimalOf ranked) ~ PrimalOf ranked)
-  => (AstEnv ranked -> AstTensor s (TKS r sh) -> ShapedOf ranked r sh)
-  -> AstEnv ranked -> (AstVarListS sh2, AstTensor s (TKS r sh))
+  => (AstEnv ranked -> AstTensor ms s (TKS r sh) -> ShapedOf ranked r sh)
+  -> AstEnv ranked -> (AstVarListS sh2, AstTensor ms s (TKS r sh))
   -> IndexSh ranked sh2
   -> ShapedOf ranked r sh
 {-# INLINE interpretLambdaIndexS #-}
@@ -218,10 +218,10 @@ interpretLambdaIndexS f !env (!vars, !ast) =
   \ix -> f (extendEnvVarsS vars ix env) ast
 
 interpretLambdaIndexToIndex
-  :: forall ranked m n.
+  :: forall ranked m n ms.
      (RankedTensor ranked, RankedOf (PrimalOf ranked) ~ PrimalOf ranked)
-  => (AstEnv ranked -> AstInt -> IntOf ranked)
-  -> AstEnv ranked -> (AstVarList m, AstIndex n)
+  => (AstEnv ranked -> AstInt ms -> IntOf ranked)
+  -> AstEnv ranked -> (AstVarList m, AstIndex ms n)
   -> IndexOf ranked m
   -> IndexOf ranked n
 {-# INLINE interpretLambdaIndexToIndex #-}
@@ -229,10 +229,10 @@ interpretLambdaIndexToIndex f !env (!vars, !asts) =
   \ix -> f (extendEnvVars vars ix env) <$> asts
 
 interpretLambdaIndexToIndexS
-  :: forall ranked sh sh2.
+  :: forall ranked sh sh2 ms.
      (RankedTensor ranked, RankedOf (PrimalOf ranked) ~ PrimalOf ranked)
-  => (AstEnv ranked -> AstInt -> IntOf ranked)
-  -> AstEnv ranked -> (AstVarListS sh, AstIndexS sh2)
+  => (AstEnv ranked -> AstInt ms -> IntOf ranked)
+  -> AstEnv ranked -> (AstVarListS sh, AstIndexS ms sh2)
   -> IndexSh ranked sh
   -> IndexSh ranked sh2
 {-# INLINE interpretLambdaIndexToIndexS #-}
@@ -242,9 +242,9 @@ interpretLambdaIndexToIndexS f !env (!vars, !asts) =
 interpretLambdaHsH
   :: TensorKind x
   => (forall ranked z. ADReady ranked
-      => AstEnv ranked -> AstTensor s z
+      => AstEnv ranked -> AstTensor ms s z
       -> InterpretationTarget ranked z)
-  -> (AstVarName s x, AstTensor s y)
+  -> (AstVarName s x, AstTensor ms s y)
   -> HFun x y
 {-# INLINE interpretLambdaHsH #-}
 interpretLambdaHsH interpret ~(var, ast) =

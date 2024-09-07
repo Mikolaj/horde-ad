@@ -177,7 +177,7 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
                     <$> loadMnistData trainGlyphsPath trainLabelsPath
        testData <- map rankBatch . take (totalBatchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
-       (_, hVectorPrimal, var, _)
+       (_, _, var, hVector)
          <- funToAstRevIO $ FTKUntyped $ voidFromHVector hVectorInit
        let testDataR = packBatchR testData
        (varGlyph, _, astGlyph) <-
@@ -186,11 +186,11 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
            id
        (varLabel, _, astLabel) <-
          funToAstIO (FTKR $ miniBatchSize :$: sizeMnistLabelInt :$: ZSR) id
-       let ast :: AstRanked PrimalSpan r 0
+       let ast :: AstRanked FullSpan r 0
            ast = MnistRnnRanked2.rnnMnistLossFusedR
                    miniBatchSize (AstRanked astGlyph, AstRanked astLabel)
                    (parseHVector (fromDValue valsInit)
-                                 (dunHVector $ unHVectorPseudoTensor (rankedY (stensorKind @TKUntyped) hVectorPrimal)))
+                                 (dunHVector $ unHVectorPseudoTensor (rankedY (stensorKind @TKUntyped) hVector)))
            runBatch :: (HVector (ORArray), StateAdam) -> (Int, [MnistDataR r])
                     -> IO (HVector (ORArray), StateAdam)
            runBatch (!parameters, !stateAdam) (k, chunk) = do
@@ -411,7 +411,7 @@ testRNNOPP = do
                    $ AstReplicate (SNat @1)
                    $ AstReplicate (SNat @1)
                    $ AstReplicate (SNat @1)
-                       (7 :: AstTensor PrimalSpan (TKR Double 0))
+                       (7 :: AstTensor AstMethodLet PrimalSpan (TKR Double 0))
       afcnn2T :: MnistRnnRanked2.ADRnnMnistParameters (AstRanked FullSpan)
                                                       Double
               -> AstRanked FullSpan Double 2
@@ -438,7 +438,7 @@ testRNNOPP2 = do
                    $ AstReplicate (SNat @2)
                    $ AstReplicate (SNat @2)
                    $ AstReplicate (SNat @2)
-                       (7 :: AstTensor PrimalSpan (TKR Double 0))
+                       (7 :: AstTensor AstMethodLet PrimalSpan (TKR Double 0))
       afcnn2T :: MnistRnnRanked2.ADRnnMnistParameters (AstRanked FullSpan)
                                                       Double
               -> AstRanked FullSpan Double 2

@@ -182,7 +182,7 @@ mnistTestCaseCNNI prefix epochs maxBatches kh kw c_out n_hidden
                     <$> loadMnistData trainGlyphsPath trainLabelsPath
        testData <- map rankBatch . take (totalBatchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
-       (_, hVectorPrimal, var, _)
+       (_, _, var, hVector2)
          <- funToAstRevIO $ FTKUntyped $ voidFromHVector hVectorInit
        let testDataR = packBatchR testData
        (varGlyph, _, astGlyph) <-
@@ -191,11 +191,11 @@ mnistTestCaseCNNI prefix epochs maxBatches kh kw c_out n_hidden
            id
        (varLabel, _, astLabel) <-
          funToAstIO (FTKR $ miniBatchSize :$: sizeMnistLabelInt :$: ZSR) id
-       let ast :: AstRanked PrimalSpan r 0
+       let ast :: AstRanked FullSpan r 0
            ast = MnistCnnRanked2.convMnistLossFusedR
                    miniBatchSize (AstRanked astGlyph, AstRanked astLabel)
                    (parseHVector (fromDValue valsInit)
-                                 (dunHVector $ unHVectorPseudoTensor (rankedY (stensorKind @TKUntyped) hVectorPrimal)))
+                                 (dunHVector $ unHVectorPseudoTensor (rankedY (stensorKind @TKUntyped) hVector2)))
            runBatch :: (HVector ORArray, StateAdam) -> (Int, [MnistDataR r])
                     -> IO (HVector ORArray, StateAdam)
            runBatch (!parameters, !stateAdam) (k, chunk) = do
@@ -390,7 +390,7 @@ testCNNOPP = do
                    $ AstReplicate (SNat @1)
                    $ AstReplicate (SNat @4)
                    $ AstReplicate (SNat @4)
-                       (7 :: AstTensor PrimalSpan (TKR Double 0))
+                       (7 :: AstTensor AstMethodLet PrimalSpan (TKR Double 0))
       valsInit :: MnistCnnRanked2.ADCnnMnistParameters ORArray Double
       valsInit =
         forgetShape $ fst

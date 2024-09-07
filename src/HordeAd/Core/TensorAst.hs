@@ -167,7 +167,7 @@ fwdProduceArtifact f envInit =
 
 -- These boolean instances are unlawful; they are lawful modulo evaluation.
 
-type instance BoolOf (AstRanked s) = AstBool
+type instance BoolOf (AstRanked s) = AstBool AstMethodLet
 
 instance AstSpan s => EqF (AstRanked s) where
   AstRanked v ==. AstRanked u = AstRel EqOp (astSpanPrimal v) (astSpanPrimal u)
@@ -195,21 +195,21 @@ deriving instance AstSpan s => EqF (AstRanked s)
 deriving instance AstSpan s => OrdF (AstRanked s)-}
 deriving instance Eq (AstRanked s r n)
 deriving instance Ord (AstRanked s r n)
-deriving instance Num (AstTensor s (TKR r n)) => Num (AstRanked s r n)
-deriving instance (Real (AstTensor s (TKR r n)))
+deriving instance Num (AstTensor AstMethodLet s (TKR r n)) => Num (AstRanked s r n)
+deriving instance (Real (AstTensor AstMethodLet s (TKR r n)))
                    => Real (AstRanked s r n)
-deriving instance (IntegralF (AstTensor s (TKR r n)))
+deriving instance (IntegralF (AstTensor AstMethodLet s (TKR r n)))
                   => IntegralF (AstRanked s r n)
-deriving instance Fractional (AstTensor s (TKR r n))
+deriving instance Fractional (AstTensor AstMethodLet s (TKR r n))
                   => Fractional (AstRanked s r n)
-deriving instance Floating (AstTensor s (TKR r n))
+deriving instance Floating (AstTensor AstMethodLet s (TKR r n))
                   => Floating (AstRanked s r n)
-deriving instance (RealFrac (AstTensor s (TKR r n)))
+deriving instance (RealFrac (AstTensor AstMethodLet s (TKR r n)))
                   => RealFrac (AstRanked s r n)
-deriving instance (RealFloatF (AstTensor s (TKR r n)))
+deriving instance (RealFloatF (AstTensor AstMethodLet s (TKR r n)))
                   => RealFloatF (AstRanked s r n)
 
-type instance BoolOf (AstShaped s) = AstBool
+type instance BoolOf (AstShaped s) = AstBool AstMethodLet
 
 instance AstSpan s => EqF (AstShaped s) where
   AstShaped v ==. AstShaped u = AstRelS EqOp (astSpanPrimal v) (astSpanPrimal u)
@@ -237,18 +237,18 @@ deriving instance AstSpan s => EqF (AstShaped s)
 deriving instance AstSpan s => OrdF (AstShaped s)-}
 deriving instance Eq (AstShaped s r sh)
 deriving instance Ord (AstShaped s r sh)
-deriving instance Num (AstTensor s (TKS r sh)) => Num (AstShaped s r sh)
-deriving instance (Real (AstTensor s (TKS r sh)))
+deriving instance Num (AstTensor AstMethodLet s (TKS r sh)) => Num (AstShaped s r sh)
+deriving instance (Real (AstTensor AstMethodLet s (TKS r sh)))
                    => Real (AstShaped s r sh)
-deriving instance (IntegralF (AstTensor s (TKS r sh)))
+deriving instance (IntegralF (AstTensor AstMethodLet s (TKS r sh)))
                   => IntegralF (AstShaped s r sh)
-deriving instance Fractional (AstTensor s (TKS r sh))
+deriving instance Fractional (AstTensor AstMethodLet s (TKS r sh))
                   => Fractional (AstShaped s r sh)
-deriving instance Floating (AstTensor s (TKS r sh))
+deriving instance Floating (AstTensor AstMethodLet s (TKS r sh))
                   => Floating (AstShaped s r sh)
-deriving instance (RealFrac (AstTensor s (TKS r sh)))
+deriving instance (RealFrac (AstTensor AstMethodLet s (TKS r sh)))
                   => RealFrac (AstShaped s r sh)
-deriving instance (RealFloatF (AstTensor s (TKS r sh)))
+deriving instance (RealFloatF (AstTensor AstMethodLet s (TKS r sh)))
                   => RealFloatF (AstShaped s r sh)
 
 instance (GoodScalar r, KnownNat n, RankedTensor (AstRanked s), AstSpan s)
@@ -260,23 +260,23 @@ instance (GoodScalar r, KnownNat n, RankedTensor (AstRanked s), AstSpan s)
   fromHVector _aInit = fromHVectorR
 
 instance (GoodScalar r, KnownNat n, RankedTensor (AstRanked s), AstSpan s)
-         => AdaptableHVector (AstRanked s) (AstGeneric s r n) where
+         => AdaptableHVector (AstRanked s) (AstGeneric AstMethodLet s r n) where
   toHVector = rankedHVector . V.singleton . DynamicRanked
   fromHVector _aInit hv = case fromHVectorR hv of
     Nothing -> Nothing
     Just (ranked, rest) -> Just (AstGeneric $ unAstRanked ranked, rest)
 
 instance (RankedTensor (AstRanked s), AstSpan s)
-         => AdaptableHVector (AstRanked s) (DynamicTensor (AstGeneric s)) where
+         => AdaptableHVector (AstRanked s) (DynamicTensor (AstGeneric AstMethodLet s)) where
   toHVector = rankedHVector . V.singleton
   fromHVector _aInit hv = case V.uncons $ unRankedHVector hv of
     Nothing -> Nothing
     Just (generic, rest) ->
       Just (generic, rankedHVector rest)
 
-instance (GoodScalar r, KnownNat n)
-         => DualNumberValue (AstRanked PrimalSpan r n) where
-  type DValue (AstRanked PrimalSpan r n) = ORArray r n
+instance (GoodScalar r, KnownNat n, AstSpan s)
+         => DualNumberValue (AstRanked s r n) where
+  type DValue (AstRanked s r n) = ORArray r n
   fromDValue t = AstRanked $ fromPrimal $ AstConst $ runFlipR t
 
 instance (GoodScalar r, KnownNat n)
@@ -289,9 +289,9 @@ instance (GoodScalar r, KnownShS sh, ShapedTensor (AstShaped s), AstSpan s)
   toHVector = V.singleton . DynamicShaped
   fromHVector _aInit = fromHVectorS
 
-instance (GoodScalar r, KnownShS sh)
-         => DualNumberValue (AstShaped PrimalSpan r sh) where
-  type DValue (AstShaped PrimalSpan r sh) = OSArray r sh
+instance (GoodScalar r, KnownShS sh, AstSpan s)
+         => DualNumberValue (AstShaped s r sh) where
+  type DValue (AstShaped s r sh) = OSArray r sh
   fromDValue t = AstShaped $ fromPrimal $ AstConstS $ runFlipS t
 
 instance (GoodScalar r, KnownShS sh)
@@ -299,7 +299,7 @@ instance (GoodScalar r, KnownShS sh)
   type Value (AstShaped FullSpan r sh) = OSArray r sh
   fromValue t = AstShaped $ fromPrimal $ AstConstS $ runFlipS t
 
-instance AdaptableHVector (AstRanked s) (AstTensor s TKUntyped) where
+instance AdaptableHVector (AstRanked s) (AstTensor AstMethodLet s TKUntyped) where
   toHVector = undefined  -- impossible without losing sharing
   toHVectorOf = id  -- but this is possible
   fromHVector aInit params =
@@ -309,8 +309,8 @@ instance AdaptableHVector (AstRanked s) (AstTensor s TKUntyped) where
 -- HVector causes overlap and violation of injectivity,
 -- hence Data.NonStrict.Vector. Injectivity is crucial to limit the number
 -- of type applications the library user has to supply.
-instance TermValue (AstTensor FullSpan TKUntyped) where
-  type Value (AstTensor FullSpan TKUntyped) =
+instance TermValue (AstTensor AstMethodLet FullSpan TKUntyped) where
+  type Value (AstTensor AstMethodLet FullSpan TKUntyped) =
     Data.NonStrict.Vector.Vector (DynamicTensor ORArray)
   fromValue t = AstMkHVector $ V.convert $ V.map fromValue t
 
@@ -328,8 +328,8 @@ instance TermValue (HVectorPseudoTensor (AstRanked FullSpan) r y) where
   fromValue (HVectorPseudoTensor t) =
     HVectorPseudoTensor $ AstMkHVector $ V.map fromValue t
 
-instance TermValue (DynamicTensor (AstGeneric FullSpan)) where
-  type Value (DynamicTensor (AstGeneric FullSpan)) =
+instance TermValue (DynamicTensor (AstGeneric AstMethodLet FullSpan)) where
+  type Value (DynamicTensor (AstGeneric AstMethodLet FullSpan)) =
     DynamicTensor ORArray
   fromValue = \case
     DynamicRanked t -> DynamicRanked $ AstGeneric $ fromPrimal $ AstConst $ runFlipR t
@@ -346,7 +346,7 @@ instance ProductTensor (AstRanked s) where
   tproject2 = rankedY stensorKind . astProject2
   tmkHVector = AstMkHVector . unRankedHVector
 
-rankedY :: STensorKindType y -> AstTensor s y
+rankedY :: STensorKindType y -> AstTensor AstMethodLet s y
         -> InterpretationTarget (AstRanked s) y
 rankedY stk t = case stk of
   STKR{} -> AstRanked t
@@ -355,7 +355,7 @@ rankedY stk t = case stk of
   STKUntyped -> HVectorPseudoTensor t
 
 unRankedY :: STensorKindType y -> InterpretationTarget (AstRanked s) y
-          -> AstTensor s y
+          -> AstTensor AstMethodLet s y
 unRankedY stk t = case stk of
   STKR{} -> unAstRanked t
   STKS{} -> unAstShaped t
@@ -364,8 +364,8 @@ unRankedY stk t = case stk of
 
 astLetHVectorInFun
   :: forall n s r. (KnownNat n, GoodScalar r, AstSpan s)
-  => AstTensor s TKUntyped -> (HVector (AstGeneric s) -> AstTensor s (TKR r n))
-  -> AstTensor s (TKR r n)
+  => AstTensor AstMethodLet s TKUntyped -> (HVector (AstGeneric AstMethodLet s) -> AstTensor AstMethodLet s (TKR r n))
+  -> AstTensor AstMethodLet s (TKR r n)
 {-# INLINE astLetHVectorInFun #-}
 astLetHVectorInFun a f =
   fun1DToAst (shapeAstHVector a) $ \ !vars !asts ->
@@ -373,8 +373,8 @@ astLetHVectorInFun a f =
 
 astLetHFunInFun
   :: (GoodScalar r, KnownNat n, TensorKind x, TensorKind z)
-  => AstHFun x z -> (AstHFun x z -> AstTensor s (TKR r n))
-  -> AstTensor s (TKR r n)
+  => AstHFun x z -> (AstHFun x z -> AstTensor AstMethodLet s (TKR r n))
+  -> AstTensor AstMethodLet s (TKR r n)
 {-# INLINE astLetHFunInFun #-}
 astLetHFunInFun a f =
   let shss = domainShapeAstHFun a
@@ -382,7 +382,7 @@ astLetHFunInFun a f =
   in fun1HToAst shss shs $ \ !var !ast -> astLetHFunIn var a (f ast)
 
 astSpanPrimal :: forall s y. (AstSpan s, TensorKind y)
-              => AstTensor s y -> AstTensor PrimalSpan y
+              => AstTensor AstMethodLet s y -> AstTensor AstMethodLet PrimalSpan y
 astSpanPrimal t | Just Refl <- sameAstSpan @s @PrimalSpan = t
 astSpanPrimal _ | Just Refl <- sameAstSpan @s @DualSpan =
   error "astSpanPrimal: can't recover primal from dual"
@@ -392,16 +392,16 @@ astSpanPrimal t | Just Refl <- sameAstSpan @s @FullSpan = astPrimalPart t
 astSpanPrimal _ = error "a spuriuos case for pattern match coverage"
 
 astSpanDual :: forall s y. (AstSpan s, TensorKind y)
-            => AstTensor s y -> AstTensor DualSpan y
+            => AstTensor AstMethodLet s y -> AstTensor AstMethodLet DualSpan y
 astSpanDual t | Just Refl <- sameAstSpan @s @PrimalSpan =
   AstDualPart $ AstConstant t  -- this is nil; likely to happen
 astSpanDual t | Just Refl <- sameAstSpan @s @DualSpan = t
 astSpanDual t | Just Refl <- sameAstSpan @s @FullSpan = astDualPart t
 astSpanDual _ = error "a spuriuos case for pattern match coverage"
 
-astSpanD :: forall s y. (AstSpan s, TensorKind y)
-         => AstTensor PrimalSpan y -> AstTensor DualSpan y
-         -> AstTensor s y
+astSpanD :: forall s y ms. (AstSpan s, TensorKind y)
+         => AstTensor ms PrimalSpan y -> AstTensor ms DualSpan y
+         -> AstTensor ms s y
 astSpanD u _ | Just Refl <- sameAstSpan @s @PrimalSpan = u
 astSpanD _ u' | Just Refl <- sameAstSpan @s @DualSpan = u'
 astSpanD u u' | Just Refl <- sameAstSpan @s @FullSpan = AstD u u'
@@ -409,8 +409,8 @@ astSpanD _ _ = error "a spuriuos case for pattern match coverage"
 
 astLetFun :: forall y z s.
              (TensorKind y, TensorKind z, AstSpan s)
-          => AstTensor s y -> (AstTensor s y -> AstTensor s z)
-          -> AstTensor s z
+          => AstTensor AstMethodLet s y -> (AstTensor AstMethodLet s y -> AstTensor AstMethodLet s z)
+          -> AstTensor AstMethodLet s z
 astLetFun a f | astIsSmall True a = f a
 astLetFun a f =
   let sh = shapeAstFull a
@@ -424,15 +424,15 @@ astLetFun a f =
 -- pass or repeat until a fixed point is reached.
 -- This combinator also introduces new variable names.
 astBuild1Vectorize :: (KnownNat n, GoodScalar r, AstSpan s)
-                   => Int -> (AstInt -> AstTensor s (TKR r n))
-                   -> AstTensor s (TKR r (1 + n))
+                   => Int -> (AstInt AstMethodLet -> AstTensor AstMethodLet s (TKR r n))
+                   -> AstTensor AstMethodLet s (TKR r (1 + n))
 astBuild1Vectorize k f = withSNat k $ \snat ->
   build1Vectorize snat $ funToAstI f
 
 astLetHVectorInFunS
   :: forall sh s r. (KnownShS sh, GoodScalar r, AstSpan s)
-  => AstTensor s TKUntyped -> (HVector (AstGeneric s) -> AstTensor s (TKS r sh))
-  -> AstTensor s (TKS r sh)
+  => AstTensor AstMethodLet s TKUntyped -> (HVector (AstGeneric AstMethodLet s) -> AstTensor AstMethodLet s (TKS r sh))
+  -> AstTensor AstMethodLet s (TKS r sh)
 {-# INLINE astLetHVectorInFunS #-}
 astLetHVectorInFunS a f =
   fun1DToAst (shapeAstHVector a) $ \ !vars !asts ->
@@ -440,8 +440,8 @@ astLetHVectorInFunS a f =
 
 astLetHFunInFunS
   :: (GoodScalar r, KnownShS sh, TensorKind x, TensorKind z)
-  => AstHFun x z -> (AstHFun x z -> AstTensor s (TKS r sh))
-  -> AstTensor s (TKS r sh)
+  => AstHFun x z -> (AstHFun x z -> AstTensor AstMethodLet s (TKS r sh))
+  -> AstTensor AstMethodLet s (TKS r sh)
 {-# INLINE astLetHFunInFunS #-}
 astLetHFunInFunS a f =
   let shss = domainShapeAstHFun a
@@ -450,15 +450,15 @@ astLetHFunInFunS a f =
 
 astBuild1VectorizeS :: forall n sh r s.
                        (KnownNat n, KnownShS sh, GoodScalar r, AstSpan s)
-                    => (AstInt -> AstTensor s (TKS r sh))
-                    -> AstTensor s (TKS r (n ': sh))
+                    => (AstInt AstMethodLet -> AstTensor AstMethodLet s (TKS r sh))
+                    -> AstTensor AstMethodLet s (TKS r (n ': sh))
 astBuild1VectorizeS f =
   build1Vectorize (SNat @n) $ funToAstI f
 
 astLetHVectorInHVectorFun
   :: AstSpan s
-  => AstTensor s TKUntyped -> (HVector (AstGeneric s) -> AstTensor s TKUntyped)
-  -> AstTensor s TKUntyped
+  => AstTensor AstMethodLet s TKUntyped -> (HVector (AstGeneric AstMethodLet s) -> AstTensor AstMethodLet s TKUntyped)
+  -> AstTensor AstMethodLet s TKUntyped
 {-# INLINE astLetHVectorInHVectorFun #-}
 astLetHVectorInHVectorFun a f =
   fun1DToAst (shapeAstHVector a) $ \ !vars !asts ->
@@ -466,8 +466,8 @@ astLetHVectorInHVectorFun a f =
 
 astLetHFunInHVectorFun
   :: (TensorKind x, TensorKind z)
-  => AstHFun x z -> (AstHFun x z -> AstTensor s TKUntyped)
-  -> AstTensor s TKUntyped
+  => AstHFun x z -> (AstHFun x z -> AstTensor AstMethodLet s TKUntyped)
+  -> AstTensor AstMethodLet s TKUntyped
 {-# INLINE astLetHFunInHVectorFun #-}
 astLetHFunInHVectorFun a f =
   let shss = domainShapeAstHFun a
@@ -476,7 +476,7 @@ astLetHFunInHVectorFun a f =
 
 astBuildHVector1Vectorize
   :: AstSpan s
-  => SNat k -> (AstInt -> AstTensor s TKUntyped) -> AstTensor s TKUntyped
+  => SNat k -> (AstInt AstMethodLet -> AstTensor AstMethodLet s TKUntyped) -> AstTensor AstMethodLet s TKUntyped
 astBuildHVector1Vectorize k f = build1Vectorize k $ funToAstI f
 
 -- This specialization is not possible where the functions are defined,
@@ -571,14 +571,16 @@ instance AstSpan s => LetTensor (AstRanked s) (AstShaped s) where
       $ astLetFun (unHVectorPseudoTensor u)
                   (unRankedY (stensorKind @z) . f . HVectorPseudoTensor)
 
+  -- TODO: remove unsafeCoerce here and below
   toShare :: forall y. TensorKind y
           => InterpretationTarget (AstRanked s) y
           -> InterpretationTarget (AstRaw s) y
   toShare t = case (stensorKind @y) of
-    STKR{} -> AstRaw $ unAstRanked t
-    STKS{} -> AstRawS $ unAstShaped t
-    STKProduct{} -> AstRawWrap t
-    STKUntyped -> HVectorPseudoTensor $ AstRawWrap $ unHVectorPseudoTensor t
+    STKR{} -> AstRaw $ unsafeCoerce $ unAstRanked t
+    STKS{} -> AstRawS $ unsafeCoerce $ unAstShaped t
+    STKProduct{} -> AstRawWrap $ unsafeCoerce t
+    STKUntyped -> HVectorPseudoTensor $ AstRawWrap $ unsafeCoerce
+                  $ unHVectorPseudoTensor t
   -- For convenience and simplicity we define this for all spans,
   -- but it can only ever be used for PrimalSpan.
   tunshare :: forall y. TensorKind y
@@ -593,7 +595,7 @@ instance AstSpan s => LetTensor (AstRanked s) (AstShaped s) where
        => (forall f. ADReady f => HVector f -> f r n)
        -> VoidHVector
        -> HVector (AstRanked s)
-       -> AstTensor s TKUntyped
+       -> AstTensor AstMethodLet s TKUntyped
   rrev f parameters0 =  -- we don't have an AST constructor to hold it
     -- This computes the (AST of) derivative of f once and interprets it again
     -- for each new @parmeters@, which is much better than computing anew.
@@ -720,7 +722,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
                  $ unRankedY (stensorKind @x) $ ll
   dunHVector (AstMkHVector l) = rankedHVector l
   dunHVector hVectorOf =
-    let f :: Int -> DynamicTensor VoidTensor -> AstDynamic s
+    let f :: Int -> DynamicTensor VoidTensor -> AstDynamic AstMethodLet s
         f i = \case
           DynamicRankedDummy @r @sh _ _ ->
             withListSh (Proxy @sh) $ \(_ :: IShR n) ->
@@ -784,73 +786,91 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
 
 -- * The AstRaw instances
 
-type instance BoolOf (AstRaw s) = AstBool
+type instance BoolOf (AstRaw s) = AstBool AstMethodShare
 
 {-deriving instance IfF (AstRaw s)
 deriving instance AstSpan s => EqF (AstRaw s)
 deriving instance AstSpan s => OrdF (AstRaw s)-}
 
+astSpanPrimalRaw :: forall s y. (AstSpan s, TensorKind y)
+                 => AstTensor AstMethodShare s y -> AstTensor AstMethodShare PrimalSpan y
+astSpanPrimalRaw t | Just Refl <- sameAstSpan @s @PrimalSpan = t
+astSpanPrimalRaw _ | Just Refl <- sameAstSpan @s @DualSpan =
+  error "astSpanPrimal: can't recover primal from dual"
+    -- or we could return zero, but this is unlikely to happen
+    -- except by user error
+astSpanPrimalRaw t | Just Refl <- sameAstSpan @s @FullSpan = AstPrimalPart t
+astSpanPrimalRaw _ = error "a spuriuos case for pattern match coverage"
+
+astSpanDualRaw :: forall s y. (AstSpan s, TensorKind y)
+               => AstTensor AstMethodShare s y -> AstTensor AstMethodShare DualSpan y
+astSpanDualRaw t | Just Refl <- sameAstSpan @s @PrimalSpan =
+  AstDualPart $ AstConstant t  -- this is nil; likely to happen
+astSpanDualRaw t | Just Refl <- sameAstSpan @s @DualSpan = t
+astSpanDualRaw t | Just Refl <- sameAstSpan @s @FullSpan = AstDualPart t
+astSpanDualRaw _ = error "a spuriuos case for pattern match coverage"
+
 instance IfF (AstRaw s) where
   ifF cond a b = AstRaw $ AstCond cond (unAstRaw a) (unAstRaw b)
 instance AstSpan s => EqF (AstRaw s) where
-  AstRaw v ==. AstRaw u = AstRel EqOp (astSpanPrimal v) (astSpanPrimal u)
-  AstRaw v /=. AstRaw u = AstRel NeqOp (astSpanPrimal v) (astSpanPrimal u)
+  AstRaw v ==. AstRaw u = AstRel EqOp (astSpanPrimalRaw v) (astSpanPrimalRaw u)
+  AstRaw v /=. AstRaw u = AstRel NeqOp (astSpanPrimalRaw v) (astSpanPrimalRaw u)
 instance AstSpan s => OrdF (AstRaw s) where
-  v <. u = AstRel LsOp (astSpanPrimal (unAstRaw v)) (astSpanPrimal (unAstRaw u))
-  v <=. u = AstRel LeqOp (astSpanPrimal (unAstRaw v)) (astSpanPrimal (unAstRaw u))
-  v >. u = AstRel GtOp (astSpanPrimal (unAstRaw v)) (astSpanPrimal (unAstRaw u))
-  v >=. u = AstRel GeqOp (astSpanPrimal (unAstRaw v)) (astSpanPrimal (unAstRaw u))
+  v <. u = AstRel LsOp (astSpanPrimalRaw (unAstRaw v)) (astSpanPrimalRaw (unAstRaw u))
+  v <=. u = AstRel LeqOp (astSpanPrimalRaw (unAstRaw v)) (astSpanPrimalRaw (unAstRaw u))
+  v >. u = AstRel GtOp (astSpanPrimalRaw (unAstRaw v)) (astSpanPrimalRaw (unAstRaw u))
+  v >=. u = AstRel GeqOp (astSpanPrimalRaw (unAstRaw v)) (astSpanPrimalRaw (unAstRaw u))
 deriving instance Eq (AstRaw s r n)
 deriving instance Ord (AstRaw s r n)
-deriving instance Num (AstTensor s (TKR r n)) => Num (AstRaw s r n)
-deriving instance (Real (AstTensor s (TKR r n)))
+deriving instance Num (AstTensor AstMethodShare s (TKR r n)) => Num (AstRaw s r n)
+deriving instance (Real (AstTensor AstMethodShare s (TKR r n)))
                    => Real (AstRaw s r n)
-deriving instance (IntegralF (AstTensor s (TKR r n)))
+deriving instance (IntegralF (AstTensor AstMethodShare s (TKR r n)))
                   => IntegralF (AstRaw s r n)
-deriving instance Fractional (AstTensor s (TKR r n))
+deriving instance Fractional (AstTensor AstMethodShare s (TKR r n))
                   => Fractional (AstRaw s r n)
-deriving instance Floating (AstTensor s (TKR r n))
+deriving instance Floating (AstTensor AstMethodShare s (TKR r n))
                   => Floating (AstRaw s r n)
-deriving instance (RealFrac (AstTensor s (TKR r n)))
+deriving instance (RealFrac (AstTensor AstMethodShare s (TKR r n)))
                   => RealFrac (AstRaw s r n)
-deriving instance (RealFloatF (AstTensor s (TKR r n)))
+deriving instance (RealFloatF (AstTensor AstMethodShare s (TKR r n)))
                   => RealFloatF (AstRaw s r n)
 
-type instance BoolOf (AstRawS s) = AstBool
+type instance BoolOf (AstRawS s) = AstBool AstMethodShare
 
 instance IfF (AstRawS s) where
   ifF cond a b = AstRawS $ AstCond cond (unAstRawS a) (unAstRawS b)
 instance AstSpan s => EqF (AstRawS s) where
-  AstRawS v ==. AstRawS u = AstRelS EqOp (astSpanPrimal v) (astSpanPrimal u)
-  AstRawS v /=. AstRawS u = AstRelS NeqOp (astSpanPrimal v) (astSpanPrimal u)
+  AstRawS v ==. AstRawS u = AstRelS EqOp (astSpanPrimalRaw v) (astSpanPrimalRaw u)
+  AstRawS v /=. AstRawS u = AstRelS NeqOp (astSpanPrimalRaw v) (astSpanPrimalRaw u)
 instance AstSpan s => OrdF (AstRawS s) where
-  v <. u = AstRelS LsOp (astSpanPrimal (unAstRawS v)) (astSpanPrimal (unAstRawS u))
-  v <=. u = AstRelS LeqOp (astSpanPrimal (unAstRawS v)) (astSpanPrimal (unAstRawS u))
-  v >. u = AstRelS GtOp (astSpanPrimal (unAstRawS v)) (astSpanPrimal (unAstRawS u))
-  v >=. u = AstRelS GeqOp (astSpanPrimal (unAstRawS v)) (astSpanPrimal (unAstRawS u))
+  v <. u = AstRelS LsOp (astSpanPrimalRaw (unAstRawS v)) (astSpanPrimalRaw (unAstRawS u))
+  v <=. u = AstRelS LeqOp (astSpanPrimalRaw (unAstRawS v)) (astSpanPrimalRaw (unAstRawS u))
+  v >. u = AstRelS GtOp (astSpanPrimalRaw (unAstRawS v)) (astSpanPrimalRaw (unAstRawS u))
+  v >=. u = AstRelS GeqOp (astSpanPrimalRaw (unAstRawS v)) (astSpanPrimalRaw (unAstRawS u))
 deriving instance Eq (AstRawS s r sh)
 deriving instance Ord (AstRawS s r sh)
-deriving instance Num (AstTensor s (TKS r sh)) => Num (AstRawS s r sh)
-deriving instance (IntegralF (AstTensor s (TKS r sh)))
+deriving instance Num (AstTensor AstMethodShare s (TKS r sh)) => Num (AstRawS s r sh)
+deriving instance (IntegralF (AstTensor AstMethodShare s (TKS r sh)))
                   => IntegralF (AstRawS s r sh)
-deriving instance Fractional (AstTensor s (TKS r sh))
+deriving instance Fractional (AstTensor AstMethodShare s (TKS r sh))
                   => Fractional (AstRawS s r sh)
-deriving instance Floating (AstTensor s (TKS r sh))
+deriving instance Floating (AstTensor AstMethodShare s (TKS r sh))
                   => Floating (AstRawS s r sh)
-deriving instance (RealFloatF (AstTensor s (TKS r sh)))
+deriving instance (RealFloatF (AstTensor AstMethodShare s (TKS r sh)))
                   => RealFloatF (AstRawS s r sh)
 
 type instance InterpretationTarget (AstRaw s) (TKProduct x z) =
-  AstRawWrap (AstTensor s (TKProduct x z))
+  AstRawWrap (AstTensor AstMethodShare s (TKProduct x z))
 
 instance ProductTensor (AstRaw s) where
   ttuple t1 t2 = AstRawWrap $ AstTuple (unRawY stensorKind t1)
                                        (unRawY stensorKind t2)
-  tproject1 t = rawY stensorKind $ astProject1 $ unAstRawWrap t
-  tproject2 t = rawY stensorKind $ astProject2 $ unAstRawWrap t
+  tproject1 t = rawY stensorKind $ AstProject1 $ unAstRawWrap t
+  tproject2 t = rawY stensorKind $ AstProject2 $ unAstRawWrap t
   tmkHVector = AstRawWrap . AstMkHVector . unRawHVector
 
-rawY :: STensorKindType y -> AstTensor s y
+rawY :: STensorKindType y -> AstTensor AstMethodShare s y
      -> InterpretationTarget (AstRaw s) y
 rawY stk t = case stk of
   STKR{} -> AstRaw t
@@ -859,7 +879,7 @@ rawY stk t = case stk of
   STKUntyped -> HVectorPseudoTensor $ AstRawWrap t
 
 unRawY :: STensorKindType y -> InterpretationTarget (AstRaw s) y
-       -> AstTensor s y
+       -> AstTensor AstMethodShare s y
 unRawY stk t = case stk of
   STKR{} -> unAstRaw t
   STKS{} -> unAstRawS t
@@ -881,9 +901,9 @@ instance ShareTensor (AstRaw s) where
 
 instance AstSpan s => RankedTensor (AstRaw s) where
   rshape = shapeAst . unAstRaw
-  rminIndex = AstRaw . fromPrimal . AstMinIndex . astSpanPrimal . unAstRaw
-  rmaxIndex = AstRaw . fromPrimal . AstMaxIndex . astSpanPrimal . unAstRaw
-  rfloor = AstRaw . fromPrimal . AstFloor . astSpanPrimal . unAstRaw
+  rminIndex = AstRaw . fromPrimal . AstMinIndex . astSpanPrimalRaw . unAstRaw
+  rmaxIndex = AstRaw . fromPrimal . AstMaxIndex . astSpanPrimalRaw . unAstRaw
+  rfloor = AstRaw . fromPrimal . AstFloor . astSpanPrimalRaw . unAstRaw
   riota = AstRaw . fromPrimal $ AstIota
   rindex v ix = AstRaw $ AstIndex (unAstRaw v) (unAstRaw <$> ix)
   rsum = AstRaw . AstSum . unAstRaw
@@ -907,21 +927,22 @@ instance AstSpan s => RankedTensor (AstRaw s) where
                        -- this introduces new variable names
   rcast = AstRaw . AstCast . unAstRaw
   rfromIntegral =
-    AstRaw . fromPrimal . AstFromIntegral . astSpanPrimal . unAstRaw
+    AstRaw . fromPrimal . AstFromIntegral . astSpanPrimalRaw . unAstRaw
   rconst = AstRaw . fromPrimal . AstConst
   rfromS = AstRaw . AstRFromS . unAstRawS
 
   rconstant = AstRaw . fromPrimal . unAstRaw
-  rprimalPart = AstRaw . astSpanPrimal . unAstRaw
-  rdualPart = AstRaw . astSpanDual . unAstRaw
+  rprimalPart = AstRaw . astSpanPrimalRaw . unAstRaw
+  rdualPart = AstRaw . astSpanDualRaw . unAstRaw
   rD u u' = AstRaw $ astSpanD (unAstRaw u) (unAstRaw u')
-  rScale s t = AstRaw $ astDualPart
-               $ AstConstant (unAstRaw s) * AstD (unAstRanked $ rzero (rshape s)) (unAstRaw t)
+  rScale s t = AstRaw $ AstDualPart
+               $ AstConstant (unAstRaw s)
+                 * AstD (unAstRaw $ rzero (rshape s)) (unAstRaw t)
 
 instance AstSpan s => ShapedTensor (AstRawS s) where
-  sminIndex = AstRawS . fromPrimal . AstMinIndexS . astSpanPrimal . unAstRawS
-  smaxIndex = AstRawS . fromPrimal . AstMaxIndexS . astSpanPrimal . unAstRawS
-  sfloor = AstRawS . fromPrimal . AstFloorS . astSpanPrimal . unAstRawS
+  sminIndex = AstRawS . fromPrimal . AstMinIndexS . astSpanPrimalRaw . unAstRawS
+  smaxIndex = AstRawS . fromPrimal . AstMaxIndexS . astSpanPrimalRaw . unAstRawS
+  sfloor = AstRawS . fromPrimal . AstFloorS . astSpanPrimalRaw . unAstRawS
   siota = AstRawS . fromPrimal $ AstIotaS
   sindex v ix = AstRawS $ AstIndexS (unAstRawS v) (unAstRaw <$> ix)
   ssum = AstRawS . AstSumS . unAstRawS
@@ -946,15 +967,15 @@ instance AstSpan s => ShapedTensor (AstRawS s) where
                     -- this introduces new variable names
   scast = AstRawS . AstCastS . unAstRawS
   sfromIntegral = AstRawS . fromPrimal . AstFromIntegralS
-                  . astSpanPrimal . unAstRawS
+                  . astSpanPrimalRaw . unAstRawS
   sconst = AstRawS . fromPrimal . AstConstS
   sfromR = AstRawS . AstSFromR . unAstRaw
 
   sconstant = AstRawS . fromPrimal . unAstRawS
-  sprimalPart = AstRawS . astSpanPrimal . unAstRawS
-  sdualPart = AstRawS . astSpanDual . unAstRawS
+  sprimalPart = AstRawS . astSpanPrimalRaw . unAstRawS
+  sdualPart = AstRawS . astSpanDualRaw . unAstRawS
   sD u u' = AstRawS $ astSpanD (unAstRawS u) (unAstRawS u')
-  sScale s t = AstRawS $ astDualPart
+  sScale s t = AstRawS $ AstDualPart
                $ AstConstant (unAstRawS s) * AstD 0 (unAstRawS t)
 
 instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
@@ -976,7 +997,7 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
     in rawY (stensorKind @z) app
   dunHVector (AstRawWrap (AstMkHVector l)) = rawHVector l
   dunHVector (AstRawWrap hVectorOf) =
-    let f :: Int -> DynamicTensor VoidTensor -> AstDynamic s
+    let f :: Int -> DynamicTensor VoidTensor -> AstDynamic AstMethodShare s
         f i = \case
           DynamicRankedDummy @r @sh _ _ ->
             withListSh (Proxy @sh) $ \(_ :: IShR n) ->
@@ -1013,7 +1034,7 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
 
 -- * The AstNoVectorize
 
-type instance BoolOf (AstNoVectorize s) = AstBool
+type instance BoolOf (AstNoVectorize s) = AstBool AstMethodLet
 
 instance IfF (AstNoVectorize s) where
   ifF b v1 v2 =
@@ -1025,21 +1046,21 @@ instance AstSpan s => OrdF (AstNoVectorize s) where
   v1 <. v2 = AstRanked (unAstNoVectorize v1) <. AstRanked (unAstNoVectorize v2)
 deriving instance Eq (AstNoVectorize s r n)
 deriving instance Ord (AstNoVectorize s r n)
-deriving instance Num (AstTensor s (TKR r n)) => Num (AstNoVectorize s r n)
-deriving instance (Real (AstTensor s (TKR r n)))
+deriving instance Num (AstTensor AstMethodLet s (TKR r n)) => Num (AstNoVectorize s r n)
+deriving instance (Real (AstTensor AstMethodLet s (TKR r n)))
                    => Real (AstNoVectorize s r n)
-deriving instance (IntegralF (AstTensor s (TKR r n)))
+deriving instance (IntegralF (AstTensor AstMethodLet s (TKR r n)))
                   => IntegralF (AstNoVectorize s r n)
-deriving instance Fractional (AstTensor s (TKR r n))
+deriving instance Fractional (AstTensor AstMethodLet s (TKR r n))
                   => Fractional (AstNoVectorize s r n)
-deriving instance Floating (AstTensor s (TKR r n))
+deriving instance Floating (AstTensor AstMethodLet s (TKR r n))
                   => Floating (AstNoVectorize s r n)
-deriving instance (RealFrac (AstTensor s (TKR r n)))
+deriving instance (RealFrac (AstTensor AstMethodLet s (TKR r n)))
                   => RealFrac (AstNoVectorize s r n)
-deriving instance (RealFloatF (AstTensor s (TKR r n)))
+deriving instance (RealFloatF (AstTensor AstMethodLet s (TKR r n)))
                   => RealFloatF (AstNoVectorize s r n)
 
-type instance BoolOf (AstNoVectorizeS s) = AstBool
+type instance BoolOf (AstNoVectorizeS s) = AstBool AstMethodLet
 
 instance IfF (AstNoVectorizeS s) where
   ifF b v1 v2 =
@@ -1051,18 +1072,18 @@ instance AstSpan s => OrdF (AstNoVectorizeS s) where
   v1 <. v2 = AstShaped (unAstNoVectorizeS v1) <. AstShaped (unAstNoVectorizeS v2)
 deriving instance Eq ((AstNoVectorizeS s) r sh)
 deriving instance Ord ((AstNoVectorizeS s) r sh)
-deriving instance Num (AstTensor s (TKS r sh)) => Num (AstNoVectorizeS s r sh)
-deriving instance (IntegralF (AstTensor s (TKS r sh)))
+deriving instance Num (AstTensor AstMethodLet s (TKS r sh)) => Num (AstNoVectorizeS s r sh)
+deriving instance (IntegralF (AstTensor AstMethodLet s (TKS r sh)))
                   => IntegralF (AstNoVectorizeS s r sh)
-deriving instance Fractional (AstTensor s (TKS r sh))
+deriving instance Fractional (AstTensor AstMethodLet s (TKS r sh))
                   => Fractional (AstNoVectorizeS s r sh)
-deriving instance Floating (AstTensor s (TKS r sh))
+deriving instance Floating (AstTensor AstMethodLet s (TKS r sh))
                   => Floating (AstNoVectorizeS s r sh)
-deriving instance (RealFloatF (AstTensor s (TKS r sh)))
+deriving instance (RealFloatF (AstTensor AstMethodLet s (TKS r sh)))
                   => RealFloatF (AstNoVectorizeS s r sh)
 
 type instance InterpretationTarget (AstNoVectorize s) (TKProduct x z) =
-  AstNoVectorizeWrap (AstTensor s (TKProduct x z))
+  AstNoVectorizeWrap (AstTensor AstMethodLet s (TKProduct x z))
 
 instance ProductTensor (AstNoVectorize s) where
   ttuple t1 t2 = AstNoVectorizeWrap $ AstTuple (unNoVectorizeY stensorKind t1)
@@ -1071,7 +1092,7 @@ instance ProductTensor (AstNoVectorize s) where
   tproject2 t = noVectorizeY stensorKind $ astProject2 $ unAstNoVectorizeWrap t
   tmkHVector = AstNoVectorizeWrap . AstMkHVector . unNoVectorizeHVector
 
-noVectorizeY :: STensorKindType y -> AstTensor s y
+noVectorizeY :: STensorKindType y -> AstTensor AstMethodLet s y
              -> InterpretationTarget (AstNoVectorize s) y
 noVectorizeY stk t = case stk of
   STKR{} -> AstNoVectorize t
@@ -1080,7 +1101,7 @@ noVectorizeY stk t = case stk of
   STKUntyped -> HVectorPseudoTensor $ AstNoVectorizeWrap t
 
 unNoVectorizeY :: STensorKindType y -> InterpretationTarget (AstNoVectorize s) y
-               -> AstTensor s y
+               -> AstTensor AstMethodLet s y
 unNoVectorizeY stk t = case stk of
   STKR{} -> unAstNoVectorize t
   STKS{} -> unAstNoVectorizeS t
@@ -1089,8 +1110,8 @@ unNoVectorizeY stk t = case stk of
 
 astLetFunNoSimplify :: forall y z s.
                        (TensorKind y, TensorKind z, AstSpan s)
-                    => AstTensor s y -> (AstTensor s y -> AstTensor s z)
-                    -> AstTensor s z
+                    => AstTensor AstMethodLet s y -> (AstTensor AstMethodLet s y -> AstTensor AstMethodLet s z)
+                    -> AstTensor AstMethodLet s z
 astLetFunNoSimplify a f | astIsSmall True a = f a  -- too important an optimization
 astLetFunNoSimplify a f =
   let sh = shapeAstFull a
@@ -1099,24 +1120,24 @@ astLetFunNoSimplify a f =
 
 astLetHVectorInFunNoSimplify
   :: forall n s r. (AstSpan s, GoodScalar r, KnownNat n)
-  => AstTensor s TKUntyped -> (HVector (AstGeneric s) -> AstTensor s (TKR r n))
-  -> AstTensor s (TKR r n)
+  => AstTensor AstMethodLet s TKUntyped -> (HVector (AstGeneric AstMethodLet s) -> AstTensor AstMethodLet s (TKR r n))
+  -> AstTensor AstMethodLet s (TKR r n)
 astLetHVectorInFunNoSimplify a f =
   fun1DToAst (shapeAstHVector a) $ \ !vars !asts ->
     AstLetHVectorIn vars a (f asts)
 
 astLetHVectorInFunNoSimplifyS
   :: forall sh s r. (AstSpan s, KnownShS sh, GoodScalar r)
-  => AstTensor s TKUntyped -> (HVector (AstGeneric s) -> AstTensor s (TKS r sh))
-  -> AstTensor s (TKS r sh)
+  => AstTensor AstMethodLet s TKUntyped -> (HVector (AstGeneric AstMethodLet s) -> AstTensor AstMethodLet s (TKS r sh))
+  -> AstTensor AstMethodLet s (TKS r sh)
 astLetHVectorInFunNoSimplifyS a f =
   fun1DToAst (shapeAstHVector a) $ \ !vars !asts ->
     AstLetHVectorInS vars a (f asts)
 
 astLetHFunInFunNoSimplify
   :: (GoodScalar r, KnownNat n, TensorKind x, TensorKind y)
-  => AstHFun x y -> (AstHFun x y -> AstTensor s (TKR r n))
-  -> AstTensor s (TKR r n)
+  => AstHFun x y -> (AstHFun x y -> AstTensor AstMethodLet s (TKR r n))
+  -> AstTensor AstMethodLet s (TKR r n)
 astLetHFunInFunNoSimplify a f =
   let shss = domainShapeAstHFun a
       shs = shapeAstHFun a
@@ -1124,8 +1145,8 @@ astLetHFunInFunNoSimplify a f =
 
 astLetHFunInFunNoSimplifyS
   :: (GoodScalar r, KnownShS sh, TensorKind x, TensorKind y)
-  => AstHFun x y -> (AstHFun x y -> AstTensor s (TKS r sh))
-  -> AstTensor s (TKS r sh)
+  => AstHFun x y -> (AstHFun x y -> AstTensor AstMethodLet s (TKS r sh))
+  -> AstTensor AstMethodLet s (TKS r sh)
 astLetHFunInFunNoSimplifyS a f =
   let shss = domainShapeAstHFun a
       shs = shapeAstHFun a
@@ -1133,16 +1154,16 @@ astLetHFunInFunNoSimplifyS a f =
 
 astLetHVectorInHVectorFunNoSimplify
   :: AstSpan s
-  => AstTensor s TKUntyped -> (HVector (AstGeneric s) -> AstTensor s TKUntyped)
-  -> AstTensor s TKUntyped
+  => AstTensor AstMethodLet s TKUntyped -> (HVector (AstGeneric AstMethodLet s) -> AstTensor AstMethodLet s TKUntyped)
+  -> AstTensor AstMethodLet s TKUntyped
 astLetHVectorInHVectorFunNoSimplify a f =
   fun1DToAst (shapeAstHVector a) $ \ !vars !asts ->
     AstLetHVectorInHVector vars a (f asts)
 
 astLetHFunInHVectorFunNoSimplify
   :: (TensorKind x, TensorKind y)
-  => AstHFun x y -> (AstHFun x y -> AstTensor s TKUntyped)
-  -> AstTensor s TKUntyped
+  => AstHFun x y -> (AstHFun x y -> AstTensor AstMethodLet s TKUntyped)
+  -> AstTensor AstMethodLet s TKUntyped
 astLetHFunInHVectorFunNoSimplify a f =
   let shss = domainShapeAstHFun a
       shs = shapeAstHFun a
@@ -1160,7 +1181,7 @@ unAstNoVectorizeS2 = AstShaped . unAstNoVectorizeS
 astNoVectorizeS2 :: AstShaped s r sh -> AstNoVectorizeS s r sh
 astNoVectorizeS2 = AstNoVectorizeS . unAstShaped
 
-unNoVectorizeHVector :: HVector (AstNoVectorize s) -> HVector (AstGeneric s)
+unNoVectorizeHVector :: HVector (AstNoVectorize s) -> HVector (AstGeneric AstMethodLet s)
 unNoVectorizeHVector =
   let f (DynamicRanked (AstNoVectorize t)) = DynamicRanked (AstGeneric t)
       f (DynamicShaped (AstNoVectorizeS t)) = DynamicShaped (AstGenericS t)
@@ -1259,10 +1280,10 @@ instance AstSpan s => LetTensor (AstNoVectorize s) (AstNoVectorizeS s) where
           => InterpretationTarget (AstNoVectorize s) y
           -> InterpretationTarget (AstRaw s) y
   toShare t = case (stensorKind @y) of
-    STKR{} -> AstRaw $ unAstNoVectorize t
-    STKS{} -> AstRawS $ unAstNoVectorizeS t
-    STKProduct{} -> AstRawWrap $ unAstNoVectorizeWrap t
-    STKUntyped -> HVectorPseudoTensor $ AstRawWrap
+    STKR{} -> AstRaw $ unsafeCoerce $ unAstNoVectorize t
+    STKS{} -> AstRawS $ unsafeCoerce $ unAstNoVectorizeS t
+    STKProduct{} -> AstRawWrap $ unsafeCoerce $ unAstNoVectorizeWrap t
+    STKUntyped -> HVectorPseudoTensor $ AstRawWrap $ unsafeCoerce
                   $ unAstNoVectorizeWrap $ unHVectorPseudoTensor t
 
   rrev f parameters0 hVector =
@@ -1387,7 +1408,7 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
 
 -- * The AstNoSimplify instances
 
-type instance BoolOf (AstNoSimplify s) = AstBool
+type instance BoolOf (AstNoSimplify s) = AstBool AstMethodLet
 
 instance IfF (AstNoSimplify s) where
   ifF b v1 v2 =
@@ -1399,21 +1420,21 @@ instance AstSpan s => OrdF (AstNoSimplify s) where
   v1 <. v2 = AstRanked (unAstNoSimplify v1) <. AstRanked (unAstNoSimplify v2)
 deriving instance Eq (AstNoSimplify s r n)
 deriving instance Ord (AstNoSimplify s r n)
-deriving instance Num (AstTensor s (TKR r n)) => Num (AstNoSimplify s r n)
-deriving instance (Real (AstTensor s (TKR r n)))
+deriving instance Num (AstTensor AstMethodLet s (TKR r n)) => Num (AstNoSimplify s r n)
+deriving instance (Real (AstTensor AstMethodLet s (TKR r n)))
                   => Real (AstNoSimplify s r n)
-deriving instance (IntegralF (AstTensor s (TKR r n)))
+deriving instance (IntegralF (AstTensor AstMethodLet s (TKR r n)))
                   => IntegralF (AstNoSimplify s r n)
-deriving instance Fractional (AstTensor s (TKR r n))
+deriving instance Fractional (AstTensor AstMethodLet s (TKR r n))
                   => Fractional (AstNoSimplify s r n)
-deriving instance Floating (AstTensor s (TKR r n))
+deriving instance Floating (AstTensor AstMethodLet s (TKR r n))
                   => Floating (AstNoSimplify s r n)
-deriving instance (RealFrac (AstTensor s (TKR r n)))
+deriving instance (RealFrac (AstTensor AstMethodLet s (TKR r n)))
                   => RealFrac (AstNoSimplify s r n)
-deriving instance (RealFloatF (AstTensor s (TKR r n)))
+deriving instance (RealFloatF (AstTensor AstMethodLet s (TKR r n)))
                   => RealFloatF (AstNoSimplify s r n)
 
-type instance BoolOf (AstNoSimplifyS s) = AstBool
+type instance BoolOf (AstNoSimplifyS s) = AstBool AstMethodLet
 
 instance IfF (AstNoSimplifyS s) where
   ifF b v1 v2 =
@@ -1425,18 +1446,18 @@ instance AstSpan s => OrdF (AstNoSimplifyS s) where
   v1 <. v2 = AstShaped (unAstNoSimplifyS v1) <. AstShaped (unAstNoSimplifyS v2)
 deriving instance Eq (AstNoSimplifyS s r sh)
 deriving instance Ord (AstNoSimplifyS s r sh)
-deriving instance Num (AstTensor s (TKS r sh)) => Num (AstNoSimplifyS s r sh)
-deriving instance (IntegralF (AstTensor s (TKS r sh)))
+deriving instance Num (AstTensor AstMethodLet s (TKS r sh)) => Num (AstNoSimplifyS s r sh)
+deriving instance (IntegralF (AstTensor AstMethodLet s (TKS r sh)))
                   => IntegralF (AstNoSimplifyS s r sh)
-deriving instance Fractional (AstTensor s (TKS r sh))
+deriving instance Fractional (AstTensor AstMethodLet s (TKS r sh))
                   => Fractional (AstNoSimplifyS s r sh)
-deriving instance Floating (AstTensor s (TKS r sh))
+deriving instance Floating (AstTensor AstMethodLet s (TKS r sh))
                   => Floating (AstNoSimplifyS s r sh)
-deriving instance (RealFloatF (AstTensor s (TKS r sh)))
+deriving instance (RealFloatF (AstTensor AstMethodLet s (TKS r sh)))
                   => RealFloatF (AstNoSimplifyS s r sh)
 
 type instance InterpretationTarget (AstNoSimplify s) (TKProduct x z) =
-  AstNoSimplifyWrap (AstTensor s (TKProduct x z))
+  AstNoSimplifyWrap (AstTensor AstMethodLet s (TKProduct x z))
 
 instance ProductTensor (AstNoSimplify s) where
   ttuple t1 t2 = AstNoSimplifyWrap $ AstTuple (unNoSimplifyY stensorKind t1)
@@ -1445,7 +1466,7 @@ instance ProductTensor (AstNoSimplify s) where
   tproject2 t = noSimplifyY stensorKind $ astProject2 $ unAstNoSimplifyWrap t
   tmkHVector = AstNoSimplifyWrap . AstMkHVector . unNoSimplifyHVector
 
-noSimplifyY :: STensorKindType y -> AstTensor s y
+noSimplifyY :: STensorKindType y -> AstTensor AstMethodLet s y
             -> InterpretationTarget (AstNoSimplify s) y
 noSimplifyY stk t = case stk of
   STKR{} -> AstNoSimplify t
@@ -1454,14 +1475,14 @@ noSimplifyY stk t = case stk of
   STKUntyped -> HVectorPseudoTensor $ AstNoSimplifyWrap t
 
 unNoSimplifyY :: STensorKindType y -> InterpretationTarget (AstNoSimplify s) y
-              -> AstTensor s y
+              -> AstTensor AstMethodLet s y
 unNoSimplifyY stk t = case stk of
   STKR{} -> unAstNoSimplify t
   STKS{} -> unAstNoSimplifyS t
   STKProduct{} -> unAstNoSimplifyWrap t
   STKUntyped -> unAstNoSimplifyWrap $ unHVectorPseudoTensor t
 
-unNoSimplifyHVector :: HVector (AstNoSimplify s) -> HVector (AstGeneric s)
+unNoSimplifyHVector :: HVector (AstNoSimplify s) -> HVector (AstGeneric AstMethodLet s)
 unNoSimplifyHVector =
   let f (DynamicRanked (AstNoSimplify t)) = DynamicRanked $ AstGeneric t
       f (DynamicShaped (AstNoSimplifyS t)) = DynamicShaped (AstGenericS t)
@@ -1477,7 +1498,7 @@ unNoSimplifyHVectorR =
       f (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
   in V.map f
 
-noSimplifyHVector :: HVector (AstGeneric s) -> HVector (AstNoSimplify s)
+noSimplifyHVector :: HVector (AstGeneric AstMethodLet s) -> HVector (AstNoSimplify s)
 noSimplifyHVector =
   let f (DynamicRanked (AstGeneric t)) = DynamicRanked $ AstNoSimplify t
       f (DynamicShaped (AstGenericS t)) = DynamicShaped $ AstNoSimplifyS t
@@ -1558,10 +1579,10 @@ instance AstSpan s => LetTensor (AstNoSimplify s) (AstNoSimplifyS s) where
           => InterpretationTarget (AstNoSimplify s) y
           -> InterpretationTarget (AstRaw s) y
   toShare t = case (stensorKind @y) of
-    STKR{} -> AstRaw $ unAstNoSimplify t
-    STKS{} -> AstRawS $ unAstNoSimplifyS t
-    STKProduct{} -> AstRawWrap $ unAstNoSimplifyWrap t
-    STKUntyped -> HVectorPseudoTensor $ AstRawWrap
+    STKR{} -> AstRaw $ unsafeCoerce $ unAstNoSimplify t
+    STKS{} -> AstRawS $ unsafeCoerce $ unAstNoSimplifyS t
+    STKProduct{} -> AstRawWrap $ unsafeCoerce $ unAstNoSimplifyWrap t
+    STKUntyped -> HVectorPseudoTensor $ AstRawWrap $ unsafeCoerce
                   $ unAstNoSimplifyWrap $ unHVectorPseudoTensor t
 
   rrev f parameters0 hVector =  -- we don't have an AST constructor to hold it
@@ -1682,7 +1703,7 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
     in noSimplifyY (stensorKind @y) app
   dunHVector (AstNoSimplifyWrap (AstMkHVector l)) = noSimplifyHVector l
   dunHVector (AstNoSimplifyWrap hVectorOf) =
-    let f :: Int -> DynamicTensor VoidTensor -> AstDynamic s
+    let f :: Int -> DynamicTensor VoidTensor -> AstDynamic AstMethodLet s
         f i = \case
           DynamicRankedDummy @r @sh _ _ ->
             withListSh (Proxy @sh) $ \(_ :: IShR n) ->

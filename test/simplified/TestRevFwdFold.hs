@@ -4509,7 +4509,7 @@ testSin0revhFoldZip4R = do
         => HVector ranked
         -> HVectorPseudoTensor ranked Float '()
       g = HVectorPseudoTensor . fFoldZipRX
-      h :: HVector (AstGeneric FullSpan)
+      h :: HVector (AstGeneric AstMethodLet FullSpan)
         -> HVectorPseudoTensor (AstRanked FullSpan) Float '()
       h = g @(AstRanked FullSpan) . rankedHVector
   assertEqualUpToEpsilon 1e-10
@@ -4613,7 +4613,7 @@ testSin0revhFold4S = do
     (V.fromList [ DynamicShaped @Double @'[3] $ ingestData [0, 0, 0]
                 , DynamicShaped @Double @'[3]
                   $ srepl (-7.313585321642452e-2) ])
-    (rev (\(asD :: HVector (AstGeneric FullSpan)) ->
+    (rev (\(asD :: HVector (AstGeneric AstMethodLet FullSpan)) ->
              fFoldSX (sfromD (rankedHVector asD V.! 1)))
          (V.fromList [ DynamicShaped @Double @'[3] $ sreplicate @_ @3 (sscalar 1.1)
                      , DynamicShaped @Double @'[3] $ sreplicate @_ @3 (sscalar 1.1) ]))
@@ -4624,7 +4624,7 @@ testSin0revhFold5S = do
     (V.fromList [ DynamicShaped @Double @'[3] $ ingestData [0, 0, 0]
                 , DynamicShaped @Double @'[3]
                   $ srepl (-7.313585321642452e-2) ])
-    (rev (\(asD :: AstTensor FullSpan TKUntyped) ->
+    (rev (\(asD :: AstTensor AstMethodLet FullSpan TKUntyped) ->
             sletHVectorIn asD (\asV -> fFoldSX (sfromD (asV V.! 1))))
          (V.fromList [ DynamicShaped @Double @'[3] $ sreplicate @_ @3 (sscalar 1.1)
                      , DynamicShaped @Double @'[3] $ sreplicate @_ @3 (sscalar 1.1) ]))

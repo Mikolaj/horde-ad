@@ -43,8 +43,8 @@ import HordeAd.Util.SizedList
 
 -- * Shape calculation
 
-shapeAstFull :: forall s y. TensorKind y
-             => AstTensor s y -> TensorKindFull y
+shapeAstFull :: forall s y ms. TensorKind y
+             => AstTensor ms s y -> TensorKindFull y
 shapeAstFull t = case t of
   AstTuple t1 t2 -> FTKProduct (shapeAstFull t1) (shapeAstFull t2)
   AstProject1 v -> case shapeAstFull v of
@@ -158,19 +158,19 @@ shapeAstFull t = case t of
 -- only one path and fail if it doesn't contain enough information
 -- to determine shape. If we don't switch to @Data.Array.Shaped@
 -- or revert to fully dynamic shapes, we need to redo this with more rigour.
-shapeAst :: forall n s r. (KnownNat n, GoodScalar r)
-         => AstTensor s (TKR r n) -> IShR n
+shapeAst :: forall n s r ms. (KnownNat n, GoodScalar r)
+         => AstTensor ms s (TKR r n) -> IShR n
 shapeAst t = case shapeAstFull t of
   FTKR sh -> sh
 
 -- Length of the outermost dimension.
-lengthAst :: (KnownNat n, GoodScalar r) => AstTensor s (TKR r (1 + n)) -> Int
+lengthAst :: (KnownNat n, GoodScalar r) => AstTensor ms s (TKR r (1 + n)) -> Int
 {-# INLINE lengthAst #-}
 lengthAst v1 = case shapeAst v1 of
   ZSR -> error "lengthAst: impossible pattern needlessly required"
   k :$: _ -> k
 
-shapeAstHVector :: AstTensor s TKUntyped -> VoidHVector
+shapeAstHVector :: AstTensor ms s TKUntyped -> VoidHVector
 shapeAstHVector t = case shapeAstFull t of
   FTKUntyped shs -> shs
 
@@ -192,7 +192,7 @@ domainShapeAstHFun = \case
 -- This keeps the occurrence checking code simple, because we never need
 -- to compare variables to any variable in the bindings.
 varInAst :: AstSpan s
-         => AstVarId -> AstTensor s y -> Bool
+         => AstVarId -> AstTensor ms s y -> Bool
 varInAst var = \case
   AstTuple t1 t2 -> varInAst var t1 || varInAst var t2
   AstProject1 t -> varInAst var t
@@ -274,14 +274,14 @@ varInAst var = \case
   AstMapAccumLDer _k _accShs _bShs _eShs _f _df _rf acc0 es ->
     varInAst var acc0 || varInAst var es
 
-varInIndex :: AstVarId -> AstIndex n -> Bool
+varInIndex :: AstVarId -> AstIndex ms n -> Bool
 varInIndex var = any (varInAst var)
 
-varInIndexS :: AstVarId -> AstIndexS sh -> Bool
+varInIndexS :: AstVarId -> AstIndexS ms sh -> Bool
 varInIndexS var = any (varInAst var)
 
 varInAstDynamic :: AstSpan s
-                => AstVarId -> AstDynamic s -> Bool
+                => AstVarId -> AstDynamic ms s -> Bool
 varInAstDynamic var = \case
   DynamicRanked (AstGeneric t) -> varInAst var t
   DynamicShaped (AstGenericS t) -> varInAst var t
@@ -293,7 +293,7 @@ varInAstHFun var = \case
   AstLambda{} -> False  -- we take advantage of the term being closed
   AstVarHFun _shss _shs var2 -> fromEnum var == fromEnum var2
 
-varInAstBool :: AstVarId -> AstBool -> Bool
+varInAstBool :: AstVarId -> AstBool ms -> Bool
 varInAstBool var = \case
   AstBoolNot b -> varInAstBool var b
   AstB2 _ arg1 arg2 -> varInAstBool var arg1 || varInAstBool var arg2
@@ -302,11 +302,11 @@ varInAstBool var = \case
   AstRelS _ arg1 arg2 -> varInAst var arg1 || varInAst var arg2
 
 varNameInAst :: AstSpan s2
-             => AstVarName f y -> AstTensor s2 y2 -> Bool
+             => AstVarName f y -> AstTensor ms s2 y2 -> Bool
 varNameInAst var = varInAst (varNameToAstVarId var)
 
 varNameInAstHVector :: AstSpan s
-                    => AstVarName f y -> AstTensor s TKUntyped -> Bool
+                    => AstVarName f y -> AstTensor ms s TKUntyped -> Bool
 varNameInAstHVector var = varInAst (varNameToAstVarId var)
 
 varInAstBindingsCase :: AstVarId -> AstBindingsCase y -> Bool
@@ -318,7 +318,7 @@ varInAstBindingsCase var (DTKUntyped t) = varInAst var $ unHVectorPseudoTensor t
 
 -- * Determining if a term is too small to require sharing
 
-astIsSmall :: Bool -> AstTensor s y -> Bool
+astIsSmall :: Bool -> AstTensor ms s y -> Bool
 astIsSmall relaxed = \case
   AstTuple t1 t2 -> astIsSmall relaxed t1 && astIsSmall relaxed t2
   AstProject1 t -> astIsSmall relaxed t
@@ -363,14 +363,15 @@ astIsSmall relaxed = \case
 -- * Odds and ends
 
 bindsToLet :: forall s y. TensorKind y
-           => AstTensor s y -> AstBindings -> AstTensor s y
+           => AstTensor AstMethodLet s y -> AstBindings
+           -> AstTensor AstMethodLet s y
 {-# INLINE bindsToLet #-}  -- help list fusion
 bindsToLet u0 bs = foldl' bindToLet u0 (DMap.toDescList bs)
  where
-  bindToLet :: AstTensor s y
+  bindToLet :: AstTensor AstMethodLet s y
             -> DSum (AstVarName PrimalSpan)
                     (InterpretationTargetD (AstRanked PrimalSpan))
-            -> AstTensor s y
+            -> AstTensor AstMethodLet s y
   bindToLet !u (var :=> DTKR w) = AstLet var (unAstRanked w) u
   bindToLet u (var :=> DTKS w) = AstLet var (unAstShaped w) u
   bindToLet u (var :=> DTKProduct w) = AstLet var w u

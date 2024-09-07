@@ -190,18 +190,18 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
                     <$> loadMnistData trainGlyphsPath trainLabelsPath
        testData <- map rankBatch . take (totalBatchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
-       (_, hVectorPrimal, var, _)
+       (_, _, var, hVector)
          <- funToAstRevIO $ FTKUntyped $ voidFromHVector hVectorInit
        let testDataR = packBatchR testData
        (varGlyph, _, astGlyph) <-
          funToAstIO FTKS {-@'[batch_size, SizeMnistHeight, SizeMnistWidth]-} id
        (varLabel, _, astLabel) <-
          funToAstIO FTKS {-@'[batch_size, SizeMnistLabel]-} id
-       let ast :: AstShaped PrimalSpan r '[]
+       let ast :: AstShaped FullSpan r '[]
            ast = MnistRnnShaped2.rnnMnistLossFusedS
                    width batch_size (AstShaped astGlyph, AstShaped astLabel)
                    (parseHVector (fromDValue valsInit)
-                                 (dunHVector $ unHVectorPseudoTensor (rankedY (stensorKind @TKUntyped) hVectorPrimal)))
+                                 (dunHVector $ unHVectorPseudoTensor (rankedY (stensorKind @TKUntyped) hVector)))
            runBatch :: (HVector ORArray, StateAdam)
                     -> (Int, [MnistDataS r])
                     -> IO (HVector ORArray, StateAdam)
