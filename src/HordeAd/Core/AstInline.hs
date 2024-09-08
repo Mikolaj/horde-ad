@@ -3,7 +3,7 @@
 -- | Inlining and global sharing elimination.
 module HordeAd.Core.AstInline
   ( -- * The joint inlining and simplification term transformation
-    simplifyArtifactGradient
+    simplifyArtifact, simplifyArtifactGradient
   , simplifyInlineAst, simplifyInlineAstS
   , simplifyInline
     -- * The translates global sharing to normal lets
@@ -35,13 +35,27 @@ import HordeAd.Util.SizedList
 
 -- * The joint inlining and simplification term transformation
 
-simplifyArtifactGradient :: AstArtifactRev TKUntyped z
-                         -> AstArtifactRev TKUntyped z
+simplifyArtifact :: (TensorKind x, TensorKind z)
+                 => AstArtifactRev x z -> AstArtifactRev x z
+simplifyArtifact art =
+  let !der = simplifyInlineInterpretationTarget $ artDerivativeRev art in
+  let !prim = simplifyInlineInterpretationTarget $ artPrimalRev art
+  in art {artDerivativeRev = der, artPrimalRev = prim}
+
+simplifyArtifactGradient :: TensorKind x
+                         => AstArtifactRev x z -> AstArtifactRev x z
 simplifyArtifactGradient art =
   art { artDerivativeRev =
-          HVectorPseudoTensor $ simplifyInline
-          $ unHVectorPseudoTensor $ artDerivativeRev art
-      }
+        simplifyInlineInterpretationTarget $ artDerivativeRev art }
+
+simplifyInlineInterpretationTarget
+  :: forall s z. (AstSpan s, TensorKind z)
+  => InterpretationTarget (AstRanked s) z -> InterpretationTarget (AstRanked s) z
+simplifyInlineInterpretationTarget = case stensorKind @z of
+  STKR{} -> AstRanked . simplifyInline . unAstRanked
+  STKS{} -> AstShaped . simplifyInline . unAstShaped
+  STKProduct{} -> simplifyInline
+  STKUntyped -> HVectorPseudoTensor . simplifyInline . unHVectorPseudoTensor
 
 simplifyInlineAst
   :: forall r n s. (KnownNat n, GoodScalar r, AstSpan s)

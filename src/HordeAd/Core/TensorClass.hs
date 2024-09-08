@@ -1374,6 +1374,7 @@ mapInterpretationTarget fr fs stk b = case stk of
     let !t1 = mapInterpretationTarget fr fs stk1 $ tproject1 b
         !t2 = mapInterpretationTarget fr fs stk2 $ tproject2 b
     in ttuple t1 t2
+      -- this shares properly only when the product instance for f is (,)
   STKUntyped ->
     -- Here @dletHVectorInHVector@ wouldn't work, because f and g differ.
     -- TODO: verify that @dshare@ works or rewrite differently.
@@ -1408,6 +1409,7 @@ mapInterpretationTarget2 fr fs stk b1 b2 = case stk of
     let !t1 = mapInterpretationTarget2 fr fs stk1 (tproject1 b1) (tproject1 b2)
         !t2 = mapInterpretationTarget2 fr fs stk2 (tproject2 b1) (tproject2 b2)
     in ttuple t1 t2
+      -- this shares properly only when the product instance for f1 and f2 is (,)
   STKUntyped ->
     let fd :: DynamicTensor f1 -> DynamicTensor f2 -> DynamicTensor g
         fd = mapBoth2 fr fs
@@ -1437,6 +1439,7 @@ mapInterpretationTarget2Weak fr fs stk b1 b2 = case stk of
     let !t1 = mapInterpretationTarget2Weak fr fs stk1 (tproject1 b1) (tproject1 b2)
         !t2 = mapInterpretationTarget2Weak fr fs stk2 (tproject2 b1) (tproject2 b2)
     in ttuple t1 t2
+      -- this shares properly only when the product instance for f1 and f2 is (,)
   STKUntyped -> error "TODO: mapInterpretationTarget2Weak is weak"
 
 -- These are user-accessible, so the constraint is `ADReady`, which means

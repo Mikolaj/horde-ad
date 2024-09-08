@@ -12,7 +12,6 @@ module HordeAd.Core.TensorAst
   , revProduceArtifact
   , fwdArtifactFromForwardPass, fwdProduceArtifact
   , rankedY, unRankedY
-  , simplifyArtifact
   , printArtifactSimple, printArtifactPretty
   , printArtifactPrimalSimple, printArtifactPrimalPretty
   ) where
@@ -101,10 +100,6 @@ revArtifactFromForwardPass hasDt forwardPass ftk =
       !gradient = gradientFromDelta ftk primalBody mdt delta
       !unGradient = gunshare (stensorKind @x) gradient
       !unPrimal = gunshare (stensorKind @z) primalBody
-{- too expensive currently, so inlined as above:
-      unGradient =
-        mapInterpretationTarget unshareRaw unshareRawS (stensorKind @x) gradient
--}
   in ( AstArtifactRev varDt varPrimal unGradient unPrimal
      , delta )
 
@@ -1744,45 +1739,7 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
 
 -- TODO: move to a better home:
 
--- TODO: these can't easily be in AstSimplify, because they need to ProductTensor
--- instances for AST
-
--- TODO: is going via rankedY and unRankedY better?
-simplifyInlineInterpretationTarget
-  :: forall s z. (AstSpan s, TensorKind z)
-  => InterpretationTarget (AstRanked s) z -> InterpretationTarget (AstRanked s) z
-simplifyInlineInterpretationTarget = case stensorKind @z of
-  STKR{} -> AstRanked . simplifyInline . unAstRanked
-  STKS{} -> AstShaped . simplifyInline . unAstShaped
-  STKProduct{} -> \t ->
-    let !s1 = simplifyInlineInterpretationTarget $ tproject1 t in
-    let !s2 = simplifyInlineInterpretationTarget $ tproject2 t
-    in ttuple s1 s2
-  STKUntyped -> HVectorPseudoTensor . simplifyInline . unHVectorPseudoTensor
-
-simplifyArtifact :: TensorKind z
-                 => AstArtifactRev TKUntyped z -> AstArtifactRev TKUntyped z
-simplifyArtifact art =
-  let !der =
-        HVectorPseudoTensor $ simplifyInline
-        $ unHVectorPseudoTensor $ artDerivativeRev art in
-  let !prim = simplifyInlineInterpretationTarget $ artPrimalRev art
-  in art {artDerivativeRev = der, artPrimalRev = prim}
-
--- TODO: is going via rankedY and unRankedY better?
-substituteAstInInterpretationTarget
-  :: forall s s2 y z. (AstSpan s, AstSpan s2, TensorKind y)
-              => SubstitutionPayload s2 -> AstVarName s2 z
-              -> InterpretationTarget (AstRanked s) y
-              -> InterpretationTarget (AstRanked s) y
-substituteAstInInterpretationTarget i var v1 = case stensorKind @y of
-  STKR{} -> AstRanked . substituteAst i var . unAstRanked $ v1
-  STKS{} -> AstShaped . substituteAst i var . unAstShaped $ v1
-  STKProduct{} ->
-    ttuple (substituteAstInInterpretationTarget i var $ tproject1 v1)
-           (substituteAstInInterpretationTarget i var $ tproject2 v1)
-  STKUntyped -> HVectorPseudoTensor . substituteAstHVector i var
-                . unHVectorPseudoTensor $ v1
+-- TODO: these can't easily be in AstSimplify, because of unRankedY
 
 prettifyArtifactRev
   :: TensorKind z
