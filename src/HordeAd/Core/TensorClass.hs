@@ -17,7 +17,8 @@ module HordeAd.Core.TensorClass
   , HFun(..)
   , rfromD, sfromD, rscalar, rrepl, ringestData, ringestData1
   , ingestData, sscalar, srepl
-  , mapInterpretationTarget, mapInterpretationTarget2, mapInterpretationTarget2Weak
+  , mapDynamic, mapInterpretationTarget
+  , mapInterpretationTarget2, mapInterpretationTarget2Weak
     -- * The giga-constraint
   , ADReady, ADReadyNoLet, ADReadyS, ADReadyNoLetS
   ) where
@@ -1275,22 +1276,22 @@ srepl =
   -- though we could also look at the low level in @isSmall@ and mark
   -- replicated constants as small
 
-mapBoth
+mapDynamic
   :: (RankedTensor f, ShapedTensor (ShapedOf f))
   => (forall r n. (GoodScalar r, KnownNat n)
       => InterpretationTarget f (TKR r n) -> InterpretationTarget g (TKR r n))
   -> (forall r sh. (GoodScalar r, KnownShS sh)
       => InterpretationTarget f (TKS r sh) -> InterpretationTarget g (TKS r sh))
   -> DynamicTensor f -> DynamicTensor g
-mapBoth fr _fs (DynamicRanked t) = DynamicRanked $ fr t
-mapBoth _fr fs (DynamicShaped t) = DynamicShaped $ fs t
-mapBoth fr _fs (DynamicRankedDummy @r @sh _ _) =
+mapDynamic fr _fs (DynamicRanked t) = DynamicRanked $ fr t
+mapDynamic _fr fs (DynamicShaped t) = DynamicShaped $ fs t
+mapDynamic fr _fs (DynamicRankedDummy @r @sh _ _) =
   withListSh (Proxy @sh) $ \sh1 ->
     DynamicRanked @r $ fr (rzero sh1)
-mapBoth _fr fs (DynamicShapedDummy @r @sh _ _) =
+mapDynamic _fr fs (DynamicShapedDummy @r @sh _ _) =
   DynamicShaped $ fs @r @sh (srepl 0)
 
-mapBoth2
+mapDynamic2
   :: ( RankedTensor f1, ShapedTensor (ShapedOf f1)
      , RankedTensor f2, ShapedTensor (ShapedOf f2) )
   => (forall r n. (GoodScalar r, KnownNat n)
@@ -1300,60 +1301,60 @@ mapBoth2
       => InterpretationTarget f1 (TKS r sh) -> InterpretationTarget f2 (TKS r sh)
       -> InterpretationTarget g (TKS r sh))
   -> DynamicTensor f1 -> DynamicTensor f2 -> DynamicTensor g
-mapBoth2 fr _fs (DynamicRanked @r1 @n1 t1) (DynamicRanked @r2 @n2 t2) =
+mapDynamic2 fr _fs (DynamicRanked @r1 @n1 t1) (DynamicRanked @r2 @n2 t2) =
   case testEquality (typeRep @r1) (typeRep @r2) of
     Just Refl -> case sameNat (Proxy @n1) (Proxy @n2) of
       Just Refl -> DynamicRanked $ fr t1 t2
-      Nothing -> error "mapBoth2: n mismatch"
-    Nothing -> error "mapBoth2: r mismatch"
-mapBoth2 fr _fs (DynamicRanked @r1 @n1 t1) (DynamicRankedDummy @r2 @sh2 _ _) =
+      Nothing -> error "mapDynamic2: n mismatch"
+    Nothing -> error "mapDynamic2: r mismatch"
+mapDynamic2 fr _fs (DynamicRanked @r1 @n1 t1) (DynamicRankedDummy @r2 @sh2 _ _) =
   case testEquality (typeRep @r1) (typeRep @r2) of
     Just Refl -> case matchingRank @sh2 @n1 of
       Just Refl -> withListSh (Proxy @sh2) $ \shp ->
         DynamicRanked @r1 $ fr t1 (rzero shp)
-      Nothing -> error "mapBoth2: n mismatch"
-    Nothing -> error "mapBoth2: r mismatch"
-mapBoth2 fr _fs (DynamicRankedDummy @r1 @sh1 _ _) (DynamicRanked @r2 @n2 t2) =
+      Nothing -> error "mapDynamic2: n mismatch"
+    Nothing -> error "mapDynamic2: r mismatch"
+mapDynamic2 fr _fs (DynamicRankedDummy @r1 @sh1 _ _) (DynamicRanked @r2 @n2 t2) =
   case testEquality (typeRep @r1) (typeRep @r2) of
     Just Refl -> case matchingRank @sh1 @n2 of
       Just Refl -> withListSh (Proxy @sh1) $ \shp ->
         DynamicRanked @r1 $ fr (rzero shp) t2
-      Nothing -> error "mapBoth2: n mismatch"
-    Nothing -> error "mapBoth2: r mismatch"
-mapBoth2 fr _fs (DynamicRankedDummy @r1 @sh1 _ _)
+      Nothing -> error "mapDynamic2: n mismatch"
+    Nothing -> error "mapDynamic2: r mismatch"
+mapDynamic2 fr _fs (DynamicRankedDummy @r1 @sh1 _ _)
                 (DynamicRankedDummy @r2 @sh2 _ _) =
   case testEquality (typeRep @r1) (typeRep @r2) of
     Just Refl -> case sameShape @sh1 @sh2 of
       Just Refl -> withListSh (Proxy @sh1) $ \shp ->
         DynamicRanked @r1 $ fr (rzero shp) (rzero shp)
-      Nothing -> error "mapBoth2: n mismatch"
-    Nothing -> error "mapBoth2: r mismatch"
-mapBoth2 _fr fs (DynamicShaped @r1 @sh1 t1) (DynamicShaped @r2 @sh2 t2) =
+      Nothing -> error "mapDynamic2: n mismatch"
+    Nothing -> error "mapDynamic2: r mismatch"
+mapDynamic2 _fr fs (DynamicShaped @r1 @sh1 t1) (DynamicShaped @r2 @sh2 t2) =
   case testEquality (typeRep @r1) (typeRep @r2) of
     Just Refl -> case sameShape @sh1 @sh2 of
       Just Refl -> DynamicShaped $ fs t1 t2
-      Nothing -> error "mapBoth2: n mismatch"
-    Nothing -> error "mapBoth2: r mismatch"
-mapBoth2 _fr fs (DynamicShaped @r1 @sh1 t1) (DynamicShapedDummy @r2 @sh2 _ _) =
+      Nothing -> error "mapDynamic2: n mismatch"
+    Nothing -> error "mapDynamic2: r mismatch"
+mapDynamic2 _fr fs (DynamicShaped @r1 @sh1 t1) (DynamicShapedDummy @r2 @sh2 _ _) =
   case testEquality (typeRep @r1) (typeRep @r2) of
     Just Refl -> case sameShape @sh1 @sh2 of
       Just Refl -> DynamicShaped $ fs t1 (srepl 0)
-      Nothing -> error "mapBoth2: n mismatch"
-    Nothing -> error "mapBoth2: r mismatch"
-mapBoth2 _fr fs (DynamicShapedDummy @r1 @sh1 _ _) (DynamicShaped @r2 @sh2 t2) =
+      Nothing -> error "mapDynamic2: n mismatch"
+    Nothing -> error "mapDynamic2: r mismatch"
+mapDynamic2 _fr fs (DynamicShapedDummy @r1 @sh1 _ _) (DynamicShaped @r2 @sh2 t2) =
   case testEquality (typeRep @r1) (typeRep @r2) of
     Just Refl -> case sameShape @sh1 @sh2 of
       Just Refl -> DynamicShaped $ fs (srepl 0) t2
-      Nothing -> error "mapBoth2: n mismatch"
-    Nothing -> error "mapBoth2: r mismatch"
-mapBoth2 _fr fs (DynamicShapedDummy @r1 @sh1 _ _)
+      Nothing -> error "mapDynamic2: n mismatch"
+    Nothing -> error "mapDynamic2: r mismatch"
+mapDynamic2 _fr fs (DynamicShapedDummy @r1 @sh1 _ _)
                 (DynamicShapedDummy @r2 @sh2 _ _) =
   case testEquality (typeRep @r1) (typeRep @r2) of
     Just Refl -> case sameShape @sh1 @sh2 of
       Just Refl -> DynamicShaped @_ @sh1 $ fs (srepl @_ @r1 0) (srepl @_ @r1 0)
-      Nothing -> error "mapBoth2: n mismatch"
-    Nothing -> error "mapBoth2: r mismatch"
-mapBoth2 _ _ _ _ = error "mapBoth2: unexpected arguments"
+      Nothing -> error "mapDynamic2: n mismatch"
+    Nothing -> error "mapDynamic2: r mismatch"
+mapDynamic2 _ _ _ _ = error "mapDynamic2: unexpected arguments"
 
 mapInterpretationTarget
   :: forall f g y.
@@ -1379,7 +1380,7 @@ mapInterpretationTarget fr fs stk b = case stk of
     -- Here @dletHVectorInHVector@ wouldn't work, because f and g differ.
     -- TODO: verify that @dshare@ works or rewrite differently.
     let fd :: DynamicTensor f -> DynamicTensor g
-        fd = mapBoth fr fs
+        fd = mapDynamic fr fs
     in HVectorPseudoTensor $ tmkHVector
        $ V.map fd
        $ dunHVector $ unHVectorPseudoTensor b
@@ -1412,7 +1413,7 @@ mapInterpretationTarget2 fr fs stk b1 b2 = case stk of
       -- this shares properly only when the product instance for f1 and f2 is (,)
   STKUntyped ->
     let fd :: DynamicTensor f1 -> DynamicTensor f2 -> DynamicTensor g
-        fd = mapBoth2 fr fs
+        fd = mapDynamic2 fr fs
     in HVectorPseudoTensor $ tmkHVector
        $ V.zipWith fd
            (dunHVector $ unHVectorPseudoTensor b1)
