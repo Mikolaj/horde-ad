@@ -257,11 +257,6 @@ class HVectorTensor ranked shaped
          in sfromD $ dunHVector hv V.! 0
 
 class ShareTensor (ranked :: RankedTensorType) where
-  rshare :: (GoodScalar r, KnownNat n)
-         => ranked r n -> ranked r n
-  sshare :: (GoodScalar r, KnownShS sh)
-         => ShapedOf ranked r sh -> ShapedOf ranked r sh
-  dshare :: HVectorOf ranked -> HVectorOf ranked
   tshare :: forall y. (TensorKind y, ProductTensor ranked)
          => InterpretationTarget ranked y -> InterpretationTarget ranked y
 

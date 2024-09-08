@@ -91,7 +91,8 @@ class IsPrimal f r z where
 -- and it could, presumably, be extended to further limit which
 -- terms get an identifier. Alternatively, 'HordeAd.Core.DualNumber.dD'
 -- or library definitions that use it could be made smarter.
-instance (GoodScalar r, KnownNat n, RankedTensor ranked, ShareTensor ranked)
+instance ( GoodScalar r, KnownNat n, RankedTensor ranked, ShareTensor ranked
+         , ProductTensor ranked )
          => IsPrimal @Nat ranked r n where
   dZeroOfShape tsh = DeltaR $ ZeroR (rshape tsh)
   dScale _ (DeltaR (ZeroR sh)) = DeltaR $ ZeroR sh
@@ -100,7 +101,7 @@ instance (GoodScalar r, KnownNat n, RankedTensor ranked, ShareTensor ranked)
   dAdd v (DeltaR ZeroR{}) = v
   dAdd (DeltaR v) (DeltaR w) = DeltaR $ AddR v w
   intOfShape tsh c = rconst $ Nested.rreplicateScal (rshape tsh) (fromIntegral c)
-  sharePrimal = rshare
+  sharePrimal = tshare
   shareDual d = case unDeltaR d of
     ZeroR{} -> d
     InputG{} -> d
@@ -109,7 +110,7 @@ instance (GoodScalar r, KnownNat n, RankedTensor ranked, ShareTensor ranked)
     _ -> wrapDeltaR d
 
 instance ( GoodScalar r, KnownShS sh, ShapedTensor shaped
-         , ShareTensor (RankedOf shaped) )
+         , ShareTensor (RankedOf shaped), ProductTensor (RankedOf shaped) )
          => IsPrimal @[Nat] shaped r sh where
   dZeroOfShape _tsh = DeltaS ZeroS
   dScale _ (DeltaS ZeroS) = DeltaS ZeroS
@@ -120,7 +121,7 @@ instance ( GoodScalar r, KnownShS sh, ShapedTensor shaped
   intOfShape tsh c =  -- not needed for shaped, here, but ranked above needs it,
                       -- so we have to use it for both
     sconst $ Nested.sreplicateScal (sshape tsh) (fromIntegral c)
-  sharePrimal = sshare
+  sharePrimal = tshare
   shareDual d = case unDeltaS d of
     ZeroS -> d
     InputG{} -> d

@@ -958,7 +958,7 @@ evalR !s !c = \case
 
   ZeroR{} -> s
   ScaleR k d -> evalR s (k * c) d
-  AddR d e -> let cShared = rshare c
+  AddR d e -> let cShared = tshare c
               in evalR (evalR s cShared d) cShared e
   ShareR n d ->
     -- In this context, by construction, @d@ is the dual component
@@ -1013,14 +1013,14 @@ evalR !s !c = \case
   ScatterR _sh d f -> evalR s (rgather (shapeDelta d) c f) d
 
   FromVectorR @n1 @r ld ->
-    let cShared = rshare c
+    let cShared = tshare c
         cxs :: [ranked r n1]
         cxs = runravelToList cShared
     in foldl' (\ !s2 (cx, d2) -> evalR s2 cx d2) s
        $ zip cxs (V.toList ld)
   ReplicateR _n d -> evalR s (rsum c) d
   AppendR d e -> case rshape c of
-    n :$: _ -> let cShared = rshare c
+    n :$: _ -> let cShared = tshare c
                    k = lengthDelta d
                    s2 = evalR s (rslice 0 k cShared) d
                in evalR s2 (rslice k (n - k) cShared) e
@@ -1057,7 +1057,7 @@ evalR !s !c = \case
 
   ZeroS -> s
   ScaleS k d -> evalR s (k * c) d
-  AddS d e -> let cShared = sshare c
+  AddS d e -> let cShared = tshare c
               in evalR (evalR s cShared d) cShared e
   ShareS n d ->
     assert (case d of
@@ -1088,12 +1088,12 @@ evalR !s !c = \case
   ScatterS d f -> evalR s (sgather c f) d
 
   FromVectorS ld ->
-    let cShared = sshare c
+    let cShared = tshare c
     in V.ifoldl' (\ !s2 i d2 ->
          evalR s2 (cShared !$ (fromIntegral i :.$ ZIS)) d2) s ld
   ReplicateS d -> evalR s (ssum c) d
   AppendS @_ @_ @m d e ->
-    let cShared = sshare c
+    let cShared = tshare c
         s2 = evalR s (sslice (Proxy @0) Proxy cShared) d
     in evalR s2 (sslice (Proxy @m) Proxy cShared) e
   SliceS @_ @i d ->
@@ -1130,8 +1130,8 @@ evalR !s !c = \case
     assert (case d of
               ShareH{} -> False  -- wasteful and nonsensical
               _ -> True)
-    $ let cShared = dshare $ unHVectorPseudoTensor c
-          cs = DTKUntyped $ HVectorPseudoTensor cShared
+    $ let cShared = tshare c
+          cs = DTKUntyped cShared
             -- c is shared, because it's looked up whenever a term `ShareH n`
             -- appears and so would get duplicated
       in case DMap.lookup n $ nMap s of
@@ -1140,14 +1140,14 @@ evalR !s !c = \case
         Nothing ->
           s { nMap = DMap.insert n d $ nMap s
             , dMap = DMap.insert n cs $ dMap s }
-  HToH v -> evalHVector s (dunHVector $ dshare $ unHVectorPseudoTensor c) v
+  HToH v -> evalHVector s (dunHVector $ unHVectorPseudoTensor $ tshare c) v
   MapAccumR k accShs@(FTKUntyped accShsH) (FTKUntyped bShsH)
             eShs@(FTKUntyped eShsH)
             q es _df rf acc0' es' ->
     let accLen = V.length accShsH
         bLen = V.length bShsH
         (c0, crest) = V.splitAt accLen $ dunHVector
-                      $ dshare $ unHVectorPseudoTensor c
+                      $ unHVectorPseudoTensor $ tshare c
         dacc_desUnshared =
           dmapAccumL (Proxy @ranked)
                      k accShs eShs (FTKUntyped $ bShsH V.++ accShsH V.++ eShsH)
@@ -1170,7 +1170,7 @@ evalR !s !c = \case
     let accLen = V.length accShsH
         bLen = V.length bShsH
         (c0, crest) = V.splitAt accLen $ dunHVector
-                      $ dshare $ unHVectorPseudoTensor c
+                      $ unHVectorPseudoTensor $ tshare c
         dacc_desUnshared =
           dmapAccumR (Proxy @ranked)
                      k accShs eShs (FTKUntyped $ bShsH V.++ accShsH V.++ eShsH)
@@ -1336,7 +1336,7 @@ fwdR params s = \case
       Just (DTKR e) -> (s, e)
       Nothing ->
         let (s2, cRaw) = fwdR params s d
-            cShared = rshare cRaw
+            cShared = tshare cRaw
             s3 = s2 {dMap = DMap.insert n (DTKR cShared) (dMap s2)}
         in (s3, cShared)
 
@@ -1386,7 +1386,7 @@ fwdR params s = \case
       Just (DTKS e) -> (s, e)
       Nothing ->
         let (s2, cRaw) = fwdR params s d
-            cShared = sshare cRaw
+            cShared = tshare cRaw
             s3 = s2 {dMap = DMap.insert n (DTKS cShared) (dMap s2)}
         in (s3, cShared)
 
@@ -1434,11 +1434,11 @@ fwdR params s = \case
       Just (DTKUntyped hv) -> (s, hv)
       Nothing ->
         let (s2, cRaw) = fwdR params s d
-            cShared = dshare $ unHVectorPseudoTensor cRaw
+            cShared = tshare cRaw
               -- cRaw is shared, because it's put into the map and then
               -- potentially looked up many times, so it'd get duplicated
-            s3 = s2 {dMap = DMap.insert n (DTKUntyped $ HVectorPseudoTensor cShared) (dMap s2)}
-        in (s3, HVectorPseudoTensor cShared)
+            s3 = s2 {dMap = DMap.insert n (DTKUntyped cShared) (dMap s2)}
+        in (s3, cShared)
   HToH v -> second (HVectorPseudoTensor . dmkHVector)
             $ fwdHVector params s v
   MapAccumR k accShs@(FTKUntyped accShsH) bShs (FTKUntyped eShsH)

@@ -211,13 +211,14 @@ instance OrdF f => OrdF (ADVal f) where
   D u _ >=. D v _ = u >=. v
 
 indexPrimal :: ( RankedTensor ranked, ShareTensor ranked
+               , ProductTensor ranked
                , KnownNat m, KnownNat n, GoodScalar r )
             => ADVal ranked r (m + n) -> IndexOf ranked m
             -> ADVal ranked r n
 indexPrimal (D u u') ix = dD (rindex u ix) (DeltaR $ IndexR (unDeltaR u') ix)
 
 fromVector :: ( RankedTensor ranked, ShareTensor ranked
-              , KnownNat n, GoodScalar r )
+              , ProductTensor ranked, KnownNat n, GoodScalar r )
            => Data.Vector.Vector (ADVal ranked r n)
            -> ADVal ranked r (1 + n)
 fromVector lu =
@@ -226,7 +227,7 @@ fromVector lu =
      (DeltaR $ FromVectorR $ V.map (\(D _ u') -> unDeltaR u') lu)
 
 instance ( RankedTensor ranked, ShareTensor ranked
-         , IfF (RankedOf (PrimalOf ranked))
+         , ProductTensor ranked, IfF (RankedOf (PrimalOf ranked))
          , Boolean (BoolOf ranked)
          , BoolOf (RankedOf (PrimalOf ranked)) ~ BoolOf ranked )
          => IfF (ADVal ranked) where
@@ -236,6 +237,7 @@ instance ( RankedTensor ranked, ShareTensor ranked
     in dDnotShared u u'
 
 indexPrimalS :: ( ShapedTensor shaped, ShareTensor (RankedOf shaped)
+                , ProductTensor (RankedOf shaped)
                 , GoodScalar r, KnownShS sh1, KnownShS sh2
                 , KnownShS (sh1 X.++ sh2) )
              => ADVal shaped r (sh1 X.++ sh2) -> IndexSh shaped sh1
@@ -244,6 +246,7 @@ indexPrimalS (D u u') ix = dD (sindex u ix) (DeltaS $ IndexS (unDeltaS u') ix)
 
 fromVectorS :: forall n sh shaped r.
                ( ShapedTensor shaped, ShareTensor (RankedOf shaped)
+               , ProductTensor (RankedOf shaped)
                , KnownNat n, KnownShS sh, GoodScalar r )
             => Data.Vector.Vector (ADVal shaped r sh)
             -> ADVal shaped r (n ': sh)
@@ -252,7 +255,7 @@ fromVectorS lu = assert (length lu == valueOf @n) $
      (DeltaS $ FromVectorS $ V.map (\(D _ u') -> unDeltaS u') lu)
 
 instance ( ShapedTensor shaped, ShareTensor (RankedOf shaped)
-         , IfF (RankedOf (PrimalOf shaped))
+         , ProductTensor (RankedOf shaped), IfF (RankedOf (PrimalOf shaped))
          , Boolean (BoolOf shaped)
          , BoolOf (RankedOf (PrimalOf shaped)) ~ BoolOf shaped )
          => IfF (ADVal shaped) where

@@ -889,15 +889,6 @@ unRawY stk t = case stk of
 instance ShareTensor (AstRaw s) where
   -- For convenience and simplicity we define this for all spans,
   -- but it can only ever be used for PrimalSpan.
-  rshare a@(AstRaw (AstShare{})) = a
-  rshare a | astIsSmall True (unAstRaw a) = a
-  rshare a = AstRaw $ fun1ToAst $ \ !var -> AstShare var (unAstRaw a)
-  sshare a@(AstRawS (AstShare{})) = a
-  sshare a | astIsSmall True (unAstRawS a) = a
-  sshare a = AstRawS $ fun1ToAst $ \ !var -> AstShare var (unAstRawS a)
-  dshare a@(AstRawWrap AstShare{}) = a
-  dshare a | astIsSmall True (unAstRawWrap a) = a
-  dshare a = AstRawWrap $ fun1ToAst $ \ !var -> AstShare var (unAstRawWrap a)
   tshare :: forall y. TensorKind y
          => InterpretationTarget (AstRaw s) y -> InterpretationTarget (AstRaw s) y
   tshare t = case stensorKind @y of

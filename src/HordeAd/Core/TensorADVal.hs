@@ -124,13 +124,13 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
     let rsharePrimal :: (GoodScalar r, KnownNat n)
                      => ADVal ranked r n -> ADVal ranked r n
         rsharePrimal (D u u') =
-          let !var2 = rshare u
+          let !var2 = tshare u
           in dDnotShared var2 u'
             -- u' doesn't need to be shared, because deltas are shared separately
         ssharePrimal :: (GoodScalar r, KnownShS sh)
                      => ADVal shaped r sh -> ADVal shaped r sh
         ssharePrimal (D u u') =
-          let !var2 = sshare u
+          let !var2 = tshare u
           in dDnotShared var2 u'
     in f $ mapInterpretationTarget @(ADVal ranked) rsharePrimal ssharePrimal stk a
   rletHVectorIn asD f = f asD
@@ -147,14 +147,14 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
                      => ADVal (RankedOf shaped) r n
                      -> ADVal (RankedOf shaped)  r n
         rsharePrimal (D u u') =
-          let !var2 = rshare u
+          let !var2 = tshare u
           in dDnotShared var2 u'
             -- u' doesn't need to be shared, because deltas are shared separately
         ssharePrimal :: (GoodScalar r, KnownShS sh)
                      => ADVal shaped r sh
                      -> ADVal shaped r sh
         ssharePrimal (D u u') =
-          let !var2 = sshare u
+          let !var2 = tshare u
           in dDnotShared var2 u'
     in f $ mapInterpretationTarget @(ADVal (RankedOf shaped))
                                    rsharePrimal ssharePrimal stk a
@@ -183,11 +183,11 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
   tlet a f = case stensorKind @x of
     STKR{} ->
       let (D u u') = a
-          !var2 = rshare u
+          !var2 = tshare u
       in f (dDnotShared var2 u')
     STKS{} ->
       let (D u u') = a
-          !var2 = sshare u
+          !var2 = tshare u
       in f (dDnotShared var2 u')
     STKProduct{} ->
       -- Sharing is preserved despite `a` being repeated, because
@@ -197,7 +197,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
         blet (snd a) $ \ !a2 -> f (a1, a2)
     STKUntyped{} ->
       let (!u, !u') = unADValHVector $ unHVectorPseudoTensor a
-          !var2 = dunHVector $ dshare $ dmkHVector u
+          !var2 = dunHVector $ unHVectorPseudoTensor $ tshare @_ @TKUntyped $ HVectorPseudoTensor $ dmkHVector u
             -- dunHVector is fine, because its argument is shared
             -- (and even without that, it comes from an explicit HVector)
             -- and dshare is needed due to f possibly using the argument many times
@@ -212,18 +212,18 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
   blet a f = case stensorKind @x of
     STKR{} ->
       let (D u u') = a
-          !var2 = rshare u
+          !var2 = tshare u
       in f (dDnotShared var2 u')
     STKS{} ->
       let (D u u') = a
-          !var2 = sshare u
+          !var2 = tshare u
       in f (dDnotShared var2 u')
     STKProduct{} ->
       blet (fst a) $ \ !a1 ->
         blet (snd a) $ \ !a2 -> f (a1, a2)
     STKUntyped{} ->
       let (!u, !u') = unADValHVector $ unHVectorPseudoTensor a
-          !var2 = dunHVector $ dshare $ dmkHVector u
+          !var2 = dunHVector $ unHVectorPseudoTensor $ tshare @_ @TKUntyped $ HVectorPseudoTensor $ dmkHVector u
       in f (HVectorPseudoTensor $ aDValHVector var2 u')
 
   toShare = id
@@ -244,9 +244,6 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
        $ HVectorPseudoTensor parameters
 
 instance ShareTensor (ADVal ranked) where
-  rshare = id
-  sshare = id
-  dshare = id
   tshare = id
 
 -- * Ranked tensor instance
@@ -328,8 +325,8 @@ instance (ADReadyNoLet ranked, ShareTensor ranked, ShareTensor (PrimalOf ranked)
   rsum0 (D u (DeltaR u')) = dD (rsum0 u) (DeltaR $ Sum0R u')
   rdot0 (D ue (DeltaR u')) (D ve (DeltaR v')) =
     -- The bangs below are neccessary for GHC 9.2.7 test results to match 9.4.
-    let !u = rshare ue in
-    let !v = rshare ve
+    let !u = tshare ue in
+    let !v = tshare ve
     in dD (rdot0 u v) (dAdd (DeltaR $ Dot0R v u') (DeltaR $ Dot0R u v'))
   rscatter sh (D u (DeltaR u')) f =
     let g x = rprimalPart <$> f (rconstant <$> x)
@@ -431,8 +428,8 @@ instance (ADReadyNoLetS shaped, ShareTensor (RankedOf shaped)
   ssum0 (D u (DeltaS u')) = dD (ssum0 u) (DeltaS $ Sum0S u')
   sdot0 (D ue (DeltaS u')) (D ve (DeltaS v')) =
     -- The bangs below are neccessary for GHC 9.2.7 test results to match 9.4.
-    let !u = sshare ue in
-    let !v = sshare ve
+    let !u = tshare ue in
+    let !v = tshare ve
     in dD (sdot0 u v) (dAdd (DeltaS $ Dot0S v u') (DeltaS $ Dot0S u v'))
   sscatter (D u (DeltaS u')) f =
     let g x = rprimalPart <$> f (rconstant <$> x)
@@ -566,7 +563,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
             && voidHVectorMatches accShsH (unHVectorPseudoTensor acc0D)) $
     let (acc0, acc0') = unADValHVector $ unHVectorPseudoTensor acc0D
         (esUnshared, es') = unADValHVector $ unHVectorPseudoTensor esD
-        es = dshare (dmkHVector esUnshared)
+        es = tshare $ HVectorPseudoTensor $ dmkHVector esUnshared
         codomainShs = accShsH V.++ bShsH
         accLen = V.length accShsH
         hvToPair :: forall f. HVector f -> (HVector f, HVector f)
@@ -629,7 +626,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
                                      (FTKProduct (FTKUntyped $ accShsH V.++ codomainShs)
                                                  (FTKUntyped $ accShsH V.++ eShsH))
                                    $ HFun rg)
-                                  (HVectorPseudoTensor $ dmkHVector acc0) (HVectorPseudoTensor es)
+                                  (HVectorPseudoTensor $ dmkHVector acc0) es
         pShared = dunHVector $ unHVectorPseudoTensor $ tshare pUnshared
         -- This code makes sense only thanks to HVector being a representation
         -- of tuples in the struct of arrays format.
@@ -638,7 +635,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
         bs = V.drop (2 * accLen) pShared
         !_A = assert (voidHVectorMatches (replicate1VoidHVector k bShsH) bs) ()
         primal = accFin V.++ bs
-        dual = wrapDeltaH $ MapAccumR k accShs bShs eShs q (dunHVector es) df rf acc0' es'
+        dual = wrapDeltaH $ MapAccumR k accShs bShs eShs q (dunHVector $ unHVectorPseudoTensor es) df rf acc0' es'
     in HVectorPseudoTensor $ ahhToHVector primal dual
   dmapAccumLDer _ !k !accShs@(FTKUntyped accShsH) !bShs@(FTKUntyped bShsH)
                 !eShs@(FTKUntyped eShsH) f df rf acc0D esD =
@@ -647,7 +644,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
             && voidHVectorMatches accShsH (unHVectorPseudoTensor acc0D)) $
     let (acc0, acc0') = unADValHVector $ unHVectorPseudoTensor acc0D
         (esUnshared, es') = unADValHVector $ unHVectorPseudoTensor esD
-        es = dshare (dmkHVector esUnshared)
+        es = tshare $ HVectorPseudoTensor $ dmkHVector esUnshared
         codomainShs = accShsH V.++ bShsH
         accLen = V.length accShsH
         hvToPair :: forall f. HVector f -> (HVector f, HVector f)
@@ -710,7 +707,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
                                      (FTKProduct (FTKUntyped $ accShsH V.++ codomainShs)
                                                  (FTKUntyped $ accShsH V.++ eShsH))
                                    $ HFun rg)
-                                  (HVectorPseudoTensor $ dmkHVector acc0) (HVectorPseudoTensor es)
+                                  (HVectorPseudoTensor $ dmkHVector acc0) es
         pShared = dunHVector $ unHVectorPseudoTensor $ tshare pUnshared
         -- This code makes sense only thanks to HVector being a representation
         -- of tuples in the struct of arrays format.
@@ -719,7 +716,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
         bs = V.drop (2 * accLen) pShared
         !_A = assert (voidHVectorMatches (replicate1VoidHVector k bShsH) bs) ()
         primal = accFin V.++ bs
-        dual = wrapDeltaH $ MapAccumL k accShs bShs eShs q (dunHVector es) df rf acc0' es'
+        dual = wrapDeltaH $ MapAccumL k accShs bShs eShs q (dunHVector $ unHVectorPseudoTensor es) df rf acc0' es'
     in HVectorPseudoTensor $ ahhToHVector primal dual
 
 aDValToHVector

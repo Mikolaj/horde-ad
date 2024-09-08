@@ -113,9 +113,6 @@ instance LetTensor ORArray OSArray where
        $ HVectorPseudoTensor parameters
 
 instance ShareTensor ORArray where
-  rshare = id
-  sshare = id
-  dshare = id
   tshare = id
 
 instance RankedTensor ORArray where
@@ -421,7 +418,7 @@ instance AdaptableHVector ORArray
   :: EvalState ORArray -> EvalState ORArray #-}
 
 instance ( RankedTensor ranked, ShapedTensor (ShapedOf ranked)
-         , ShareTensor ranked
+         , ProductTensor ranked, ShareTensor ranked
          , RankedOf (ShapedOf ranked) ~ ranked )
          => DualNumberValue (DynamicTensor (ADVal ranked)) where
   type DValue (DynamicTensor (ADVal ranked)) = DynamicTensor ORArray
