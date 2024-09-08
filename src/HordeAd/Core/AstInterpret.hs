@@ -231,7 +231,7 @@ interpretAst !env = \case
           STKProduct @z1 @z2 stk1 stk2
             | Dict <- lemTensorKindOfBuild snat (stensorKind @z1)
             , Dict <- lemTensorKindOfBuild snat (stensorKind @z2) ->
-              ttuple (replStk stk1 (tproject1 u)) (replStk stk2 (tproject2 u))
+              tlet u $ \ !(!u1, !u2) -> ttuple (replStk stk1 u1) (replStk stk2 u2)
           STKUntyped -> HVectorPseudoTensor $
             dletHVectorInHVector (unHVectorPseudoTensor u) $ \ !hv ->
               mkreplicate1HVector snat hv
@@ -298,8 +298,8 @@ interpretAst !env = \case
             , Dict <- lemTensorKindOfBuild snat (stensorKind @z2) ->
               let f1 i = tproject1 $ g i
                   f2 i = tproject2 $ g i
-                    -- looks expensive, but hard to do better,
-                    -- so let's hope v is full of variables
+                    -- TODO: looks expensive, but hard to do better,
+                    -- so let's hope g is full of variables
               in ttuple (replStk stk1 f1) (replStk stk2 f2)
           STKUntyped ->
             HVectorPseudoTensor $ dbuild1 snat (unHVectorPseudoTensor . g)
