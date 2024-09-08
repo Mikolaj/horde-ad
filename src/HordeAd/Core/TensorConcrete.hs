@@ -267,6 +267,7 @@ instance HVectorTensor ORArray OSArray where
     STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (fst t))
                                        (tshapeFull stk2 (snd t))
     STKUntyped -> FTKUntyped $ voidFromHVector $ unHVectorPseudoTensor t
+  tcond _ b u v = if b then u else v
   dmkHVector = id
   dlambda _ f = unHFun f  -- the eta-expansion is needed for typing
   dHApply f = f

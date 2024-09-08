@@ -97,19 +97,18 @@ interpretAstPrimalSRuntimeSpecialized !env t =
 interpretAstPrimal
   :: forall ranked y. (ADReady ranked, TensorKind y)
   => AstEnv ranked
-  -> AstTensor AstMethodLet PrimalSpan y -> InterpretationTarget (PrimalOf ranked) y
+  -> AstTensor AstMethodLet PrimalSpan y
+  -> InterpretationTarget (PrimalOf ranked) y
 interpretAstPrimal !env v1 = case v1 of
   AstPrimalPart (AstD u _) -> interpretAstPrimal env u
   AstPrimalPart (AstConstant u) -> interpretAstPrimal env u
   AstCond @y2 b a1 a2 ->
-    -- This avoids multiple ifF expansions via ifB(ADVal)
+    -- This avoids multiple ifF expansions in ADVal.
     let c = interpretAstBool env b
-    in mapInterpretationTarget2
-        @(PrimalOf ranked) @(PrimalOf ranked) @(PrimalOf ranked)
-        (ifF c) (ifF c)  -- this is ifF from PrimalOf ranked
-        (stensorKind @y2)
-        (interpretAstPrimal env a1) (interpretAstPrimal env a2)
+    in tcond (stensorKind @y2) c
+             (interpretAstPrimal env a1) (interpretAstPrimal env a2)
   _ ->
+    -- TODO: get rid of mapInterpretationTarget similarly as for AstCond and AstConstant
     mapInterpretationTarget @ranked @(PrimalOf ranked)
       rprimalPart sprimalPart (stensorKind @y)
       (interpretAst env v1)
@@ -121,6 +120,7 @@ interpretAstDual
 interpretAstDual !env v1 = case v1 of
   AstDualPart (AstD _ u') -> interpretAstDual env u'
   _ ->
+    -- TODO: get rid of mapInterpretationTarget similarly as for AstCond and AstConstant
     mapInterpretationTarget @ranked @(DualOf ranked)
       rdualPart sdualPart (stensorKind @y)
       (interpretAst env v1)
@@ -209,6 +209,7 @@ interpretAst !env = \case
     -- Consequently, the result is a dual part, despite the appearances.
   AstConstant @y2 a -> tconstant (stensorKind @y2) (interpretAstPrimal env a)
   AstD @y2 u u' ->
+    -- TODO: get rid of mapInterpretationTarget2 similarly as for AstConstant and AstCond
     let t1 = interpretAstPrimal env u
         t2 = interpretAstDual env u'
     in mapInterpretationTarget2Weak @(PrimalOf ranked) @(DualOf ranked) @ranked
@@ -216,12 +217,9 @@ interpretAst !env = \case
          (stensorKind @y2)
          t1 t2
   AstCond @y2 b a1 a2 ->
-    -- This avoids multiple ifF expansions via ifB(ADVal)
+    -- This avoids multiple ifF expansions in ADVal.
     let c = interpretAstBool env b
-    in mapInterpretationTarget2 @ranked @ranked @ranked
-         (ifF c) (ifF c)
-         (stensorKind @y2)
-         (interpretAst env a1) (interpretAst env a2)
+    in tcond (stensorKind @y2) c (interpretAst env a1) (interpretAst env a2)
   AstReplicate @y2 snat@(SNat @k) v ->
     let replStk :: STensorKindType z -> InterpretationTarget ranked z
                 -> InterpretationTarget ranked (BuildTensorKind k z)

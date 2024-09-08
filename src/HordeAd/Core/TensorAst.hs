@@ -707,6 +707,13 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (tproject1 t))
                                        (tshapeFull stk2 (tproject2 t))
     STKUntyped -> shapeAstFull $ unHVectorPseudoTensor t
+  tcond stk b u v = case stk of
+    STKR{} -> ifF b u v
+    STKS{} -> ifF b u v
+    STKProduct{} -> AstCond b u v
+    STKUntyped -> HVectorPseudoTensor
+                  $ AstCond b (unHVectorPseudoTensor u)
+                              (unHVectorPseudoTensor v)
   dmkHVector = AstMkHVector . unRankedHVector
   dlambda :: forall x z. (TensorKind x, TensorKind z)
           => TensorKindFull x -> HFun x z -> HFunOf (AstRanked s) x z
@@ -999,6 +1006,14 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
     STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (tproject1 t))
                                        (tshapeFull stk2 (tproject2 t))
     STKUntyped -> shapeAstFull $ unAstRawWrap $ unHVectorPseudoTensor t
+  tcond stk b u v = case stk of
+    STKR{} -> ifF b u v
+    STKS{} -> ifF b u v
+    STKProduct{} -> AstRawWrap
+                    $ AstCond b (unAstRawWrap u) (unAstRawWrap v)
+    STKUntyped -> HVectorPseudoTensor $ AstRawWrap
+                  $ AstCond b (unAstRawWrap $ unHVectorPseudoTensor u)
+                              (unAstRawWrap $ unHVectorPseudoTensor v)
   dmkHVector = AstRawWrap . AstMkHVector . unRawHVector
   dlambda = dlambda @(AstRanked s)
   dHApply :: forall x z. (TensorKind x, TensorKind z)
@@ -1397,6 +1412,14 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
     STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (tproject1 t))
                                        (tshapeFull stk2 (tproject2 t))
     STKUntyped -> shapeAstFull $ unAstNoVectorizeWrap $ unHVectorPseudoTensor t
+  tcond stk b u v = case stk of
+    STKR{} -> ifF b u v
+    STKS{} -> ifF b u v
+    STKProduct{} -> AstNoVectorizeWrap
+                    $ AstCond b (unAstNoVectorizeWrap u) (unAstNoVectorizeWrap v)
+    STKUntyped -> HVectorPseudoTensor $ AstNoVectorizeWrap
+                  $ AstCond b (unAstNoVectorizeWrap $ unHVectorPseudoTensor u)
+                              (unAstNoVectorizeWrap $ unHVectorPseudoTensor v)
   dmkHVector =
     AstNoVectorizeWrap . AstMkHVector . unNoVectorizeHVector
   dlambda = dlambda @(AstRanked s)
@@ -1716,6 +1739,14 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
     STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (tproject1 t))
                                        (tshapeFull stk2 (tproject2 t))
     STKUntyped -> shapeAstFull $ unAstNoSimplifyWrap $ unHVectorPseudoTensor t
+  tcond stk b u v = case stk of
+    STKR{} -> ifF b u v
+    STKS{} -> ifF b u v
+    STKProduct{} -> AstNoSimplifyWrap
+                    $ AstCond b (unAstNoSimplifyWrap u) (unAstNoSimplifyWrap v)
+    STKUntyped -> HVectorPseudoTensor $ AstNoSimplifyWrap
+                  $ AstCond b (unAstNoSimplifyWrap $ unHVectorPseudoTensor u)
+                              (unAstNoSimplifyWrap $ unHVectorPseudoTensor v)
   dmkHVector =
     AstNoSimplifyWrap . AstMkHVector . unNoSimplifyHVector
   dlambda = dlambda @(AstRanked s)

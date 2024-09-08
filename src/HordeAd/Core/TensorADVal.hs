@@ -569,6 +569,22 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
                                        (tshapeFull stk2 (snd t))
     STKUntyped -> let D u _ = hVectorADValToADVal $ unHVectorPseudoTensor t
                   in tshapeFull stk u
+  tcond stk b u v = case stk of
+    STKR{} -> ifF b u v
+    STKS{} -> ifF b u v
+    STKProduct stk1 stk2 ->
+      let uShared = tshare u
+          vShared = tshare v
+          !t1 = tcond stk1 b (tproject1 uShared) (tproject1 vShared)
+          !t2 = tcond stk2 b (tproject2 uShared) (tproject2 vShared)
+      in (t1, t2)
+    STKUntyped ->
+      let fd = mapDynamic2 (ifF b) (ifF b)
+          uShared = tshare u
+          vShared = tshare v
+      in HVectorPseudoTensor
+         $ V.zipWith fd (dunHVector $ unHVectorPseudoTensor uShared)
+                        (dunHVector $ unHVectorPseudoTensor vShared)
   dmkHVector = id
   dlambda _ = id
   dHApply (HFun f) = f

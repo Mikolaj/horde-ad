@@ -17,7 +17,7 @@ module HordeAd.Core.TensorClass
   , HFun(..)
   , rfromD, sfromD, rscalar, rrepl, ringestData, ringestData1
   , ingestData, sscalar, srepl
-  , mapDynamic, mapInterpretationTarget
+  , mapDynamic, mapDynamic2, mapInterpretationTarget
   , mapInterpretationTarget2, mapInterpretationTarget2Weak
     -- * The giga-constraint
   , ADReady, ADReadyNoLet, ADReadyS, ADReadyNoLetS
@@ -894,6 +894,11 @@ class HVectorTensor (ranked :: RankedTensorType)
   dshape :: HVectorOf ranked -> VoidHVector
   tshapeFull :: STensorKindType y -> InterpretationTarget ranked y
              -> TensorKindFull y
+  tcond :: IfF ranked
+        => STensorKindType y
+        -> BoolOf ranked
+        -> InterpretationTarget ranked y -> InterpretationTarget ranked y
+        -> InterpretationTarget ranked y
   dmkHVector :: HVector ranked -> HVectorOf ranked
   dlambda :: (TensorKind x, TensorKind z)
           => TensorKindFull x -> HFun x z -> HFunOf ranked x z
@@ -1472,6 +1477,9 @@ type ADReadyNoLetS shaped = ADReadyBothNoLet (RankedOf shaped) shaped
 type ADReadyBoth ranked shaped =
   ( ADReadyBothNoLet ranked shaped
   , LetTensor ranked shaped
+-- The following can't be added, because we have instances like ADVal (AstRaw),
+-- so AstRaw would need to have a LetTensor instance:
+--  , LetTensor (PrimalOf ranked) (PrimalOf shaped)
   )
 
 type ADReadyBothNoLet ranked shaped =
