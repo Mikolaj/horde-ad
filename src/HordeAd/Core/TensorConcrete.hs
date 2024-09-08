@@ -83,7 +83,7 @@ instance LetTensor ORArray OSArray where
   sletHFunIn = (&)
   dletHVectorInHVector = (&)
   dletHFunInHVector = (&)
-  tlet :: forall x z. (TensorKind x, TensorKind z)
+  tlet :: forall x z. TensorKind x
        => InterpretationTarget ORArray x
        -> (ConcreteTarget ORArray x
            -> InterpretationTarget ORArray z)
@@ -91,9 +91,7 @@ instance LetTensor ORArray OSArray where
   tlet a f = case stensorKind @x of
     STKR{} -> f a
     STKS{} -> f a
-    STKProduct{} ->
-      blet (fst a) $ \ !a1 ->
-        blet (snd a) $ \ !a2 -> f (a1, a2)
+    STKProduct{} -> f a
     STKUntyped{} -> f $ unHVectorPseudoTensor a
   blet = (&)
   toShare = id

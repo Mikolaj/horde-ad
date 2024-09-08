@@ -202,7 +202,10 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
             -- (and even without that, it comes from an explicit HVector)
             -- and dshare is needed due to f possibly using the argument many times
             -- and while the Haskell computation would be performed only once,
-            -- a term could get duplicated and then interpreted many times
+            -- a term could get duplicated and then interpreted many times.
+            -- Normally it would be the reponsibility of f to share its argument
+            -- but this is a let expression, so here we ensure what is passed
+            -- to f is properly shared.
       in f (aDValHVector var2 u')
   blet :: forall x z. (TensorKind x, TensorKind z)
        => InterpretationTarget (ADVal ranked) x

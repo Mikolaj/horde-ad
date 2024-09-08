@@ -898,6 +898,9 @@ class HVectorTensor (ranked :: RankedTensorType)
           -> InterpretationTarget ranked z
   dunHVector :: HVectorOf ranked -> HVector ranked
     -- ^ Warning: this operation easily breaks sharing.
+    -- The operation can't usually be implemented to preserve
+    -- sharing, because it's type signature doesn't fit the let
+    -- and share operations available.
   dbuild1 :: SNat k
           -> (IntOf ranked -> HVectorOf ranked)  -- sh_i
           -> HVectorOf ranked  -- k ': sh_i
@@ -951,11 +954,8 @@ class HVectorTensor (ranked :: RankedTensorType)
            (let g :: forall f. ADReady f
                   => HVector f -> HVector f -> HVectorOf f
                 g !acc !e =
-                  unHVectorPseudoTensor
-                  $ tlet @_ @_ @_ @TKUntyped
-                      (f (rfromD $ acc V.! 0) (rfromD $ e V.! 0))
-                      (HVectorPseudoTensor . dmkHVector
-                       . V.singleton . DynamicRanked)
+                  dmkHVector $ V.singleton $ DynamicRanked
+                  $ f (rfromD $ acc V.! 0) (rfromD $ e V.! 0)
             in g)
            (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked acc0)
            (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked es))
@@ -1015,11 +1015,8 @@ class HVectorTensor (ranked :: RankedTensorType)
          (let g :: forall f. ADReady f
                 => HVector f -> HVector f -> HVectorOf f
               g !acc !e =
-                unHVectorPseudoTensor
-                $ tlet @_ @_ @_ @TKUntyped
-                    (f (sfromD $ acc V.! 0) (sfromD $ e V.! 0))
-                    (HVectorPseudoTensor . dmkHVector
-                     . V.singleton . DynamicShaped)
+                dmkHVector $ V.singleton $ DynamicShaped
+                $ f (sfromD $ acc V.! 0) (sfromD $ e V.! 0)
           in g)
          (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicShaped acc0)
          (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicShaped es))
