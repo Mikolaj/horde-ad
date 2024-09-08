@@ -649,15 +649,16 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
         rg :: forall f. ADReady f
            => InterpretationTarget f (TKProduct TKUntyped TKUntyped)
            -> InterpretationTarget f TKUntyped
-        rg !dx_db_acc_e = HVectorPseudoTensor $
+        rg !dx_db_acc_e = blet dx_db_acc_e
+                          $ \ !dx_db_acc_eShared -> HVectorPseudoTensor $
           dletHVectorInHVector
-            (unHVectorPseudoTensor $ tproject1 dx_db_acc_e) $ \ !dx_db ->
+            (unHVectorPseudoTensor $ tproject1 dx_db_acc_eShared) $ \ !dx_db ->
             let (dx, db) = hvToPair dx_db
                 (dbacc, dbRes) = hvToPair db
                 dx_dbRes = HVectorPseudoTensor $ dmkHVector $ dx V.++ dbRes
             in dletHVectorInHVector
                  (unHVectorPseudoTensor
-                  $ unHFun rf (ttuple dx_dbRes (tproject2 dx_db_acc_e)))
+                  $ unHFun rf (ttuple dx_dbRes (tproject2 dx_db_acc_eShared)))
                $ \res ->
                  let (dacc, de) = hvToPair res
                  in dmkHVector
@@ -730,15 +731,16 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
         rg :: forall f. ADReady f
            => InterpretationTarget f (TKProduct TKUntyped TKUntyped)
            -> InterpretationTarget f TKUntyped
-        rg !dx_db_acc_e = HVectorPseudoTensor $
+        rg !dx_db_acc_e = blet dx_db_acc_e
+                          $ \ !dx_db_acc_eShared -> HVectorPseudoTensor $
           dletHVectorInHVector
-            (unHVectorPseudoTensor $ tproject1 dx_db_acc_e) $ \ !dx_db ->
+            (unHVectorPseudoTensor $ tproject1 dx_db_acc_eShared) $ \ !dx_db ->
             let (dx, db) = hvToPair dx_db
                 (dbacc, dbRes) = hvToPair db
                 dx_dbRes = HVectorPseudoTensor $ dmkHVector $ dx V.++ dbRes
             in dletHVectorInHVector
                  (unHVectorPseudoTensor
-                  $ unHFun rf (ttuple dx_dbRes (tproject2 dx_db_acc_e)))
+                  $ unHFun rf (ttuple dx_dbRes (tproject2 dx_db_acc_eShared)))
                $ \res ->
                  let (dacc, de) = hvToPair res
                  in dmkHVector
