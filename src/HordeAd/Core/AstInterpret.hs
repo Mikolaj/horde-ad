@@ -207,10 +207,7 @@ interpretAst !env = \case
     -- be morally the dual part of a dual numbers type that is the codomain
     -- of the interpretation of the same AST but marked with @FullSpan@.
     -- Consequently, the result is a dual part, despite the appearances.
-  AstConstant @y2 a ->
-    mapInterpretationTarget @(PrimalOf ranked) @ranked
-      rconstant sconstant (stensorKind @y2)
-      (interpretAstPrimal env a)
+  AstConstant @y2 a -> tconstant (stensorKind @y2) (interpretAstPrimal env a)
   AstD @y2 u u' ->
     let t1 = interpretAstPrimal env u
         t2 = interpretAstDual env u'

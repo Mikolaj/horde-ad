@@ -224,7 +224,8 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
         blet (snd a) $ \ !a2 -> f (a1, a2)
     STKUntyped{} ->
       let (!u, !u') = unADValHVector $ unHVectorPseudoTensor a
-          !var2 = dunHVector $ unHVectorPseudoTensor $ tshare @_ @TKUntyped $ HVectorPseudoTensor $ dmkHVector u
+          !var2 = dunHVector $ unHVectorPseudoTensor $ tshare @_ @TKUntyped
+                  $ HVectorPseudoTensor $ dmkHVector u
             -- dunHVector is fine, because its argument is shared
             -- (and even without that, it comes from an explicit HVector)
             -- and dshare is needed due to f possibly using the argument many times
@@ -253,11 +254,29 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
         blet (snd a) $ \ !a2 -> f (a1, a2)
     STKUntyped{} ->
       let (!u, !u') = unADValHVector $ unHVectorPseudoTensor a
-          !var2 = dunHVector $ unHVectorPseudoTensor $ tshare @_ @TKUntyped $ HVectorPseudoTensor $ dmkHVector u
+          !var2 = dunHVector $ unHVectorPseudoTensor $ tshare @_ @TKUntyped
+                  $ HVectorPseudoTensor $ dmkHVector u
       in f (HVectorPseudoTensor $ aDValHVector var2 u')
 
   toShare = id
   tunshare = id
+  tconstant :: STensorKindType y
+            -> InterpretationTarget ranked y
+            -> InterpretationTarget (ADVal ranked) y
+  tconstant stk t = case stk of
+    STKR{} -> rconstant t
+    STKS{} -> sconstant t
+    STKProduct stk1 stk2 ->
+      let tShared = tshare t
+          !t1 = tconstant stk1 $ tproject1 tShared
+          !t2 = tconstant stk2 $ tproject2 tShared
+      in (t1, t2)
+    STKUntyped ->
+      let fd :: DynamicTensor ranked -> DynamicTensor (ADVal ranked)
+          fd = mapDynamic rconstant sconstant
+          tShared = tshare t
+      in HVectorPseudoTensor
+         $ V.map fd $ dunHVector $ unHVectorPseudoTensor tShared
 
   rrev :: (GoodScalar r, KnownNat n)
        => (forall f. ADReady f => HVector f -> f r n)

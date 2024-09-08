@@ -96,6 +96,7 @@ instance LetTensor ORArray OSArray where
   blet = (&)
   toShare = id
   tunshare = id
+  tconstant _ t = t
   rrev :: (GoodScalar r, KnownNat n)
        => (forall f. ADReady f => HVector f -> f r n)
        -> VoidHVector

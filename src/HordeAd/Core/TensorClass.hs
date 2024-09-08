@@ -148,6 +148,9 @@ class HVectorTensor ranked shaped
            => InterpretationTarget (ShareOf ranked) y
            -> InterpretationTarget ranked y
   tunshare = error "tunshare: this instance should never be used"
+  tconstant :: STensorKindType y
+            -> InterpretationTarget (PrimalOf ranked) y
+            -> InterpretationTarget ranked y
 
   -- The second argument is only used to determine tensor shapes
   -- and the third has to have the same shapes as the second.

@@ -570,7 +570,7 @@ instance AstSpan s => LetTensor (AstRanked s) (AstShaped s) where
   toShare :: forall y. TensorKind y
           => InterpretationTarget (AstRanked s) y
           -> InterpretationTarget (AstRaw s) y
-  toShare t = case (stensorKind @y) of
+  toShare t = case stensorKind @y of
     STKR{} -> AstRaw $ unsafeCoerce $ unAstRanked t
     STKS{} -> AstRawS $ unsafeCoerce $ unAstShaped t
     STKProduct{} -> AstRawWrap $ unsafeCoerce t
@@ -585,6 +585,11 @@ instance AstSpan s => LetTensor (AstRanked s) (AstShaped s) where
     case sameAstSpan @s @PrimalSpan of
       Just Refl -> gunshare (stensorKind @y)
       _ -> error "tunshare: used not at PrimalSpan"
+  tconstant stk t = case stk of
+    STKR{} -> rconstant t
+    STKS{} -> sconstant t
+    STKProduct{} -> fromPrimal t
+    STKUntyped -> HVectorPseudoTensor $ fromPrimal $ unHVectorPseudoTensor t
 
   rrev :: forall r n. (GoodScalar r, KnownNat n)
        => (forall f. ADReady f => HVector f -> f r n)
@@ -1293,6 +1298,12 @@ instance AstSpan s => LetTensor (AstNoVectorize s) (AstNoVectorizeS s) where
     STKProduct{} -> AstRawWrap $ unsafeCoerce $ unAstNoVectorizeWrap t
     STKUntyped -> HVectorPseudoTensor $ AstRawWrap $ unsafeCoerce
                   $ unAstNoVectorizeWrap $ unHVectorPseudoTensor t
+  tconstant stk t = case stk of
+    STKR{} -> rconstant t
+    STKS{} -> sconstant t
+    STKProduct{} -> AstNoVectorizeWrap $ fromPrimal $ unAstNoVectorizeWrap t
+    STKUntyped -> HVectorPseudoTensor $ AstNoVectorizeWrap $ fromPrimal
+                  $ unAstNoVectorizeWrap $ unHVectorPseudoTensor t
 
   rrev f parameters0 hVector =
     AstNoVectorizeWrap
@@ -1591,6 +1602,12 @@ instance AstSpan s => LetTensor (AstNoSimplify s) (AstNoSimplifyS s) where
     STKS{} -> AstRawS $ unsafeCoerce $ unAstNoSimplifyS t
     STKProduct{} -> AstRawWrap $ unsafeCoerce $ unAstNoSimplifyWrap t
     STKUntyped -> HVectorPseudoTensor $ AstRawWrap $ unsafeCoerce
+                  $ unAstNoSimplifyWrap $ unHVectorPseudoTensor t
+  tconstant stk t = case stk of
+    STKR{} -> rconstant t
+    STKS{} -> sconstant t
+    STKProduct{} -> AstNoSimplifyWrap $ fromPrimal $ unAstNoSimplifyWrap t
+    STKUntyped -> HVectorPseudoTensor $ AstNoSimplifyWrap $ fromPrimal
                   $ unAstNoSimplifyWrap $ unHVectorPseudoTensor t
 
   rrev f parameters0 hVector =  -- we don't have an AST constructor to hold it
