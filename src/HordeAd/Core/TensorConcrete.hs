@@ -116,6 +116,7 @@ instance ShareTensor ORArray where
   rshare = id
   sshare = id
   dshare = id
+  tshare = id
 
 instance RankedTensor ORArray where
   rshape = tshapeR . runFlipR

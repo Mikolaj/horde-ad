@@ -898,6 +898,28 @@ instance ShareTensor (AstRaw s) where
   dshare a@(AstRawWrap AstShare{}) = a
   dshare a | astIsSmall True (unAstRawWrap a) = a
   dshare a = AstRawWrap $ fun1ToAst $ \ !var -> AstShare var (unAstRawWrap a)
+  tshare :: forall y. TensorKind y
+         => InterpretationTarget (AstRaw s) y -> InterpretationTarget (AstRaw s) y
+  tshare t = case stensorKind @y of
+    STKR{} | astIsSmall True (unAstRaw t) -> t
+    STKR{} -> case t of
+      AstRaw (AstShare{}) -> t
+      _ -> AstRaw $ fun1ToAst $ \ !var -> AstShare var (unAstRaw t)
+    STKS{} | astIsSmall True (unAstRawS t) -> t
+    STKS{} -> case t of
+      AstRawS (AstShare{}) -> t
+      _ -> AstRawS $ fun1ToAst $ \ !var -> AstShare var (unAstRawS t)
+    STKProduct{} | astIsSmall True (unAstRawWrap t) -> t
+    STKProduct{} -> case t of
+      AstRawWrap (AstShare{}) -> t
+      _ -> let tShared = AstRawWrap $ fun1ToAst $ \ !var ->
+                 AstShare var (unAstRawWrap t)
+           in ttuple (tproject1 tShared) (tproject2 tShared)
+    STKUntyped{} | astIsSmall True (unAstRawWrap $ unHVectorPseudoTensor t) -> t
+    STKUntyped{} -> case unHVectorPseudoTensor t of
+      AstRawWrap (AstShare{}) -> t
+      _ -> HVectorPseudoTensor $ AstRawWrap $ fun1ToAst $ \ !var ->
+             AstShare var $ unAstRawWrap $ unHVectorPseudoTensor t
 
 instance AstSpan s => RankedTensor (AstRaw s) where
   rshape = shapeAst . unAstRaw

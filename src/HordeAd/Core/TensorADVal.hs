@@ -247,6 +247,7 @@ instance ShareTensor (ADVal ranked) where
   rshare = id
   sshare = id
   dshare = id
+  tshare = id
 
 -- * Ranked tensor instance
 

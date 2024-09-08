@@ -264,12 +264,6 @@ class ShareTensor (ranked :: RankedTensorType) where
   dshare :: HVectorOf ranked -> HVectorOf ranked
   tshare :: forall y. (TensorKind y, ProductTensor ranked)
          => InterpretationTarget ranked y -> InterpretationTarget ranked y
-  tshare t = case stensorKind @y of
-    STKR{} -> rshare t
-    STKS{} -> sshare t
-    STKProduct{} -> ttuple (tshare $ tproject1 t) (tshare $ tproject2 t)
-      -- TODO: this duplicates t; we need an op and AST term for this instead
-    STKUntyped{} -> HVectorPseudoTensor $ dshare $ unHVectorPseudoTensor t
 
 -- | The superclasses indicate that it's not only a container array,
 -- but also a mathematical tensor, sporting numeric operations.
