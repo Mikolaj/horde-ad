@@ -1078,11 +1078,12 @@ class HVectorTensor (ranked :: RankedTensorType)
         fl :: forall f. ADReady f
            => InterpretationTarget f (TKProduct TKUntyped TKUntyped)
            -> InterpretationTarget f TKUntyped
-        fl !acc_e = HVectorPseudoTensor $
+        fl !acc_e = blet acc_e
+                    $ \ !acc_eShared -> HVectorPseudoTensor $
           dletHVectorInHVector
-            (unHVectorPseudoTensor $ tproject1 acc_e) $ \ !acc ->
+            (unHVectorPseudoTensor $ tproject1 acc_eShared) $ \ !acc ->
             dletHVectorInHVector
-              (unHVectorPseudoTensor $ tproject2 acc_e) $ \ !e ->
+              (unHVectorPseudoTensor $ tproject2 acc_eShared) $ \ !e ->
               f acc e
         accLen = V.length accShsH
         fs :: forall f. ADReady f
@@ -1143,11 +1144,12 @@ class HVectorTensor (ranked :: RankedTensorType)
         fl :: forall f. ADReady f
            => InterpretationTarget f (TKProduct TKUntyped TKUntyped)
            -> InterpretationTarget f TKUntyped
-        fl !acc_e = HVectorPseudoTensor $
+        fl !acc_e = blet acc_e
+                    $ \ !acc_eShared -> HVectorPseudoTensor $
           dletHVectorInHVector
-            (unHVectorPseudoTensor $ tproject1 acc_e) $ \ !acc ->
+            (unHVectorPseudoTensor $ tproject1 acc_eShared) $ \ !acc ->
             dletHVectorInHVector
-              (unHVectorPseudoTensor $ tproject2 acc_e) $ \ !e ->
+              (unHVectorPseudoTensor $ tproject2 acc_eShared) $ \ !e ->
               f acc e
         accLen = V.length accShsH
         fs :: forall f. ADReady f
