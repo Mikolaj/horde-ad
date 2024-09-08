@@ -377,7 +377,8 @@ astLetHFunInFun a f =
   in fun1HToAst shss shs $ \ !var !ast -> astLetHFunIn var a (f ast)
 
 astSpanPrimal :: forall s y. (AstSpan s, TensorKind y)
-              => AstTensor AstMethodLet s y -> AstTensor AstMethodLet PrimalSpan y
+              => AstTensor AstMethodLet s y
+              -> AstTensor AstMethodLet PrimalSpan y
 astSpanPrimal t | Just Refl <- sameAstSpan @s @PrimalSpan = t
 astSpanPrimal _ | Just Refl <- sameAstSpan @s @DualSpan =
   error "astSpanPrimal: can't recover primal from dual"
@@ -714,6 +715,11 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     STKUntyped -> HVectorPseudoTensor
                   $ AstCond b (unHVectorPseudoTensor u)
                               (unHVectorPseudoTensor v)
+  tprimalPart stk t = case stk of
+    STKR{} -> rprimalPart t
+    STKS{} -> sprimalPart t
+    STKProduct{} -> astSpanPrimal t
+    STKUntyped -> HVectorPseudoTensor $ astSpanPrimal $ unHVectorPseudoTensor t
   dmkHVector = AstMkHVector . unRankedHVector
   dlambda :: forall x z. (TensorKind x, TensorKind z)
           => TensorKindFull x -> HFun x z -> HFunOf (AstRanked s) x z
@@ -803,7 +809,7 @@ astSpanPrimalRaw :: forall s y. (AstSpan s, TensorKind y)
                  => AstTensor AstMethodShare s y -> AstTensor AstMethodShare PrimalSpan y
 astSpanPrimalRaw t | Just Refl <- sameAstSpan @s @PrimalSpan = t
 astSpanPrimalRaw _ | Just Refl <- sameAstSpan @s @DualSpan =
-  error "astSpanPrimal: can't recover primal from dual"
+  error "astSpanPrimalRaw: can't recover primal from dual"
     -- or we could return zero, but this is unlikely to happen
     -- except by user error
 astSpanPrimalRaw t | Just Refl <- sameAstSpan @s @FullSpan = AstPrimalPart t
@@ -1014,6 +1020,12 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
     STKUntyped -> HVectorPseudoTensor $ AstRawWrap
                   $ AstCond b (unAstRawWrap $ unHVectorPseudoTensor u)
                               (unAstRawWrap $ unHVectorPseudoTensor v)
+  tprimalPart stk t = case stk of
+    STKR{} -> rprimalPart t
+    STKS{} -> sprimalPart t
+    STKProduct{} -> AstRawWrap $ astSpanPrimalRaw $ unAstRawWrap t
+    STKUntyped -> HVectorPseudoTensor $ AstRawWrap
+                  $ astSpanPrimalRaw $ unAstRawWrap $ unHVectorPseudoTensor t
   dmkHVector = AstRawWrap . AstMkHVector . unRawHVector
   dlambda = dlambda @(AstRanked s)
   dHApply :: forall x z. (TensorKind x, TensorKind z)
@@ -1420,6 +1432,12 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
     STKUntyped -> HVectorPseudoTensor $ AstNoVectorizeWrap
                   $ AstCond b (unAstNoVectorizeWrap $ unHVectorPseudoTensor u)
                               (unAstNoVectorizeWrap $ unHVectorPseudoTensor v)
+  tprimalPart stk t = case stk of
+    STKR{} -> rprimalPart t
+    STKS{} -> sprimalPart t
+    STKProduct{} -> AstNoVectorizeWrap $ astSpanPrimal $ unAstNoVectorizeWrap t
+    STKUntyped -> HVectorPseudoTensor $ AstNoVectorizeWrap
+                  $ astSpanPrimal $ unAstNoVectorizeWrap $ unHVectorPseudoTensor t
   dmkHVector =
     AstNoVectorizeWrap . AstMkHVector . unNoVectorizeHVector
   dlambda = dlambda @(AstRanked s)
@@ -1747,6 +1765,12 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
     STKUntyped -> HVectorPseudoTensor $ AstNoSimplifyWrap
                   $ AstCond b (unAstNoSimplifyWrap $ unHVectorPseudoTensor u)
                               (unAstNoSimplifyWrap $ unHVectorPseudoTensor v)
+  tprimalPart stk t = case stk of
+    STKR{} -> rprimalPart t
+    STKS{} -> sprimalPart t
+    STKProduct{} -> AstNoSimplifyWrap $ astSpanPrimal $ unAstNoSimplifyWrap t
+    STKUntyped -> HVectorPseudoTensor $ AstNoSimplifyWrap
+                  $ astSpanPrimal $ unAstNoSimplifyWrap $ unHVectorPseudoTensor t
   dmkHVector =
     AstNoSimplifyWrap . AstMkHVector . unNoSimplifyHVector
   dlambda = dlambda @(AstRanked s)

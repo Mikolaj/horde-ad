@@ -108,10 +108,7 @@ interpretAstPrimal !env v1 = case v1 of
     in tcond (stensorKind @y2) c
              (interpretAstPrimal env a1) (interpretAstPrimal env a2)
   _ ->
-    -- TODO: get rid of mapInterpretationTarget similarly as for AstCond and AstConstant
-    mapInterpretationTarget @ranked @(PrimalOf ranked)
-      rprimalPart sprimalPart (stensorKind @y)
-      (interpretAst env v1)
+    tprimalPart (stensorKind @y) (interpretAst env v1)
 
 interpretAstDual
   :: forall ranked y. (ADReady ranked, TensorKind y)
@@ -120,7 +117,7 @@ interpretAstDual
 interpretAstDual !env v1 = case v1 of
   AstDualPart (AstD _ u') -> interpretAstDual env u'
   _ ->
-    -- TODO: get rid of mapInterpretationTarget similarly as for AstCond and AstConstant
+    -- TODO: get rid of mapInterpretationTarget similarly as with tprimalPart
     mapInterpretationTarget @ranked @(DualOf ranked)
       rdualPart sdualPart (stensorKind @y)
       (interpretAst env v1)

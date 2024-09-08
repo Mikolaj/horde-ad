@@ -573,18 +573,28 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
     STKR{} -> ifF b u v
     STKS{} -> ifF b u v
     STKProduct stk1 stk2 ->
-      let uShared = tshare u
-          vShared = tshare v
-          !t1 = tcond stk1 b (tproject1 uShared) (tproject1 vShared)
-          !t2 = tcond stk2 b (tproject2 uShared) (tproject2 vShared)
+      let !t1 = tcond stk1 b (fst u) (fst v)
+          !t2 = tcond stk2 b (snd u) (snd v)
       in (t1, t2)
     STKUntyped ->
       let fd = mapDynamic2 (ifF b) (ifF b)
-          uShared = tshare u
-          vShared = tshare v
       in HVectorPseudoTensor
-         $ V.zipWith fd (dunHVector $ unHVectorPseudoTensor uShared)
-                        (dunHVector $ unHVectorPseudoTensor vShared)
+         $ V.zipWith fd (unHVectorPseudoTensor u) (unHVectorPseudoTensor v)
+  tprimalPart :: STensorKindType y
+              -> InterpretationTarget (ADVal ranked) y
+              -> InterpretationTarget ranked y
+  tprimalPart stk t = case stk of
+    STKR{} -> rprimalPart t
+    STKS{} -> sprimalPart t
+    STKProduct stk1 stk2 ->
+      let !t1 = tprimalPart stk1 $ fst t
+          !t2 = tprimalPart stk2 $ snd t
+      in ttuple t1 t2
+    STKUntyped ->
+      let fd :: DynamicTensor (ADVal ranked) -> DynamicTensor ranked
+          fd = mapDynamic rprimalPart sprimalPart
+      in HVectorPseudoTensor $ tmkHVector
+         $ V.map fd $ unHVectorPseudoTensor t
   dmkHVector = id
   dlambda _ = id
   dHApply (HFun f) = f
