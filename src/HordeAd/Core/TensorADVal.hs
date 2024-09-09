@@ -164,7 +164,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
   rletHVectorIn asD f = f asD
 {- TODO: Try again once we have tests that show this sharing is needed:
     let !(!asUnshared, as') = unADValHVector asD
-        !as = dunHVector $ dshare $ dmkHVector asUnshared
+        !as = dunHVector $ tshare $ dmkHVector asUnshared
           -- TODO: could this be done with rshare? Would it be better?
         doms = aDValHVector as as'
     in f doms -}
@@ -188,7 +188,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
   sletHVectorIn asD f = f asD
 {- TODO: Try again once we have tests that show this sharing is needed:
     let !(!asUnshared, as') = unADValHVector asD
-        !as = dunHVector $ dshare $ dmkHVector asUnshared
+        !as = dunHVector $ tshare $ dmkHVector asUnshared
           -- TODO: could this be done with rshare? Would it be better?
         doms = aDValHVector as as'
     in f doms -}
@@ -197,7 +197,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
   dletHVectorInHVector asD f = f asD
 {- TODO: Try again once we have tests that show this sharing is needed:
     let !(!asUnshared, as') = unADValHVector asD
-        !as = dunHVector $ dshare $ dmkHVector asUnshared
+        !as = dunHVector $ tshare $ dmkHVector asUnshared
           -- TODO: could this be done with rshare? Would it be better?
         doms = aDValHVector as as'
     in f doms -}
@@ -228,7 +228,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
                   $ HVectorPseudoTensor $ dmkHVector u
             -- dunHVector is fine, because its argument is shared
             -- (and even without that, it comes from an explicit HVector)
-            -- and dshare is needed due to f possibly using the argument many times
+            -- and tshare is needed due to f possibly using the argument many times
             -- and while the Haskell computation would be performed only once,
             -- a term could get duplicated and then interpreted many times.
             -- Normally it would be the reponsibility of f to share its argument

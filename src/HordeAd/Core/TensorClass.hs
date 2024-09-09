@@ -1391,14 +1391,14 @@ mapInterpretationTarget fr fs stk b = case stk of
       -- this shares properly only when the product instance for f is (,)
   STKUntyped ->
     -- Here @dletHVectorInHVector@ wouldn't work, because f and g differ.
-    -- TODO: verify that @dshare@ works or rewrite differently.
+    -- TODO: verify that @tshare@ works or rewrite differently.
     let fd :: DynamicTensor f -> DynamicTensor g
         fd = mapDynamic fr fs
     in HVectorPseudoTensor $ tmkHVector
        $ V.map fd
        $ dunHVector $ unHVectorPseudoTensor b
 -- TODO: we probably need two versions, one with let, one with share
---       $ dunHVector $ dshare $ unHVectorPseudoTensor b
+--       $ dunHVector $ tshare $ unHVectorPseudoTensor b
 
 mapInterpretationTarget2
   :: forall f1 f2 g y.
@@ -1432,8 +1432,8 @@ mapInterpretationTarget2 fr fs stk b1 b2 = case stk of
            (dunHVector $ unHVectorPseudoTensor b1)
            (dunHVector $ unHVectorPseudoTensor b2)
 -- TODO: we probably need two versions, one with let, one with share
---           (dunHVector $ dshare $ unHVectorPseudoTensor b1)
---           (dunHVector $ dshare $ unHVectorPseudoTensor b2)
+--           (dunHVector $ tshare $ unHVectorPseudoTensor b1)
+--           (dunHVector $ tshare $ unHVectorPseudoTensor b2)
 
 mapInterpretationTarget2Weak
   :: forall f1 f2 g y. (ProductTensor f1, ProductTensor f2, ProductTensor g)
