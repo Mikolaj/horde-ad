@@ -154,9 +154,11 @@ revProduceArtifactWithoutInterpretation hasDt f =
         -> InterpretationTarget (AstRanked FullSpan) x
         -> InterpretationTarget (ADVal (AstRaw PrimalSpan)) z
       g hVectorPrimal =
+        -- The second argument is duplicable (a variable), as required.
         forwardPassByApplication (f . unHVectorPseudoTensor) hVectorPrimal
   in revArtifactFromForwardPass @x @z hasDt g
 
+-- | The second argument (@hVectorPrimal0@) must be duplicable.
 forwardPassByApplication
   :: forall x z. x ~ TKUntyped
   => (InterpretationTarget (ADVal (AstRaw PrimalSpan)) x
@@ -287,7 +289,8 @@ crevDtMaybe
 crevDtMaybe f vals mdt =
   let g !hv = f $ parseHVector (fromDValue vals) $ unHVectorPseudoTensor hv
       valsH = HVectorPseudoTensor $ toHVectorOf vals
-  in parseHVector vals $ unHVectorPseudoTensor
+  in -- The third argument is duplicable (concrete), as required.
+     parseHVector vals $ unHVectorPseudoTensor
      $ fst $ crevOnHVector @TKUntyped @z mdt g valsH
 
 {-# SPECIALIZE crevOnHVector
@@ -316,7 +319,7 @@ cfwd f vals ds =
         $ unHVectorPseudoTensor hVector
       valsH = HVectorPseudoTensor $ toHVectorOf vals
       dsH = HVectorPseudoTensor $ toHVectorOf ds
-  in -- The third argument is duplicable (concrete), as required.
+  in -- The first and third arguments are duplicable (concrete), as required.
      fst $ cfwdOnHVector @TKUntyped valsH g dsH
 
 

@@ -55,6 +55,7 @@ import HordeAd.Util.SizedList
 
 -- * Symbolic reverse and forward derivative computation
 
+-- | The third argument (@hVectorPrimal0@) must be duplicable.
 forwardPassByInterpretation
   :: forall x z. (TensorKind x, TensorKind z)
   => (InterpretationTarget (AstRanked FullSpan) x

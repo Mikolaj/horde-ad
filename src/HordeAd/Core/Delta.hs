@@ -171,7 +171,7 @@ derivativeFromDelta deltaTopLevel ds =
   let params = case stensorKind @x of
         STKUntyped{} -> V.map dynamicTensorToInterpretationTargetD
                         $ dunHVector $ unHVectorPseudoTensor ds
--- not needed (and blows up terms by 50%), because ds is assumed to be duplicable:
+-- not needed (and blows up terms by 40%), because ds is assumed to be duplicable:
 --                      $ dunHVector $ unHVectorPseudoTensor $ tshare ds
         stk -> V.singleton $ Some $ interpretationTargetToD stk ds
       -- EvalState is too complex for the forward derivative, but since

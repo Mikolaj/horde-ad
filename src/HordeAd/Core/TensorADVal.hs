@@ -72,6 +72,7 @@ crevOnADInputs mdt f inputs =
       !gradient = gradientFromDelta parameters0 v mdt delta
   in (gradient, v)
 
+-- | The third argument (@parameters@) must be duplicable.
 crevOnHVector
   :: forall x z ranked.
      ( TensorKind x, TensorKind z, ADReadyNoLet ranked
@@ -102,7 +103,7 @@ cfwdOnADInputs inputs f ds =
   let !derivative = derivativeFromDelta delta ds
   in (derivative, v)
 
--- | The third argument (@ds@) must be duplicable.
+-- | The first and third argument (@ds@) must be duplicable.
 cfwdOnHVector
   :: forall x z ranked.
      (TensorKind x, TensorKind z, ADReadyNoLet ranked, ShareTensor ranked)
@@ -291,6 +292,8 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
         -- This computes the derivative of g again for each new @parmeters@.
         g !hv = HVectorPseudoTensor $ V.singleton $ DynamicRanked
                 $ f $ unHVectorPseudoTensor hv
+    -- The third argument is duplicable
+    -- (a concrete vector), as required.
     in unHVectorPseudoTensor $ fst $ crevOnHVector Nothing g
        $ HVectorPseudoTensor parameters
 
@@ -613,6 +616,8 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
            -> InterpretationTarget f x
         -- This computes the derivative of g again for each new db and a.
         rf !db_a = blet db_a $ \ !db_aShared ->
+          -- The third argument is duplicable
+          -- (projections of a variable), as required.
           tunshare $ fst $ crevOnHVector
                              (Just $ toShare $ tproject1 db_aShared)
                              (unHFun h @(ADVal (ShareOf f)))
@@ -629,8 +634,8 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
         -- This computes the derivative of g again for each new da and a.
 
         df !da_a = blet da_a $ \ !da_aShared ->
-          -- The third argument is duplicable (projection of a variable),
-          -- as required.
+          -- The first and third arguments are duplicable
+          -- (projections of a variable), as required.
           tunshare $ fst $ cfwdOnHVector
                              (toShare $ tproject2 da_aShared)
                              (unHFun h @(ADVal (ShareOf f)))
