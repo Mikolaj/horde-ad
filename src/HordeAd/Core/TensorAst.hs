@@ -592,7 +592,7 @@ instance AstSpan s => LetTensor (AstRanked s) (AstShaped s) where
     -- for each new @parmeters@, which is much better than computing anew.
     let g :: InterpretationTarget (AstRanked FullSpan) TKUntyped
           -> InterpretationTarget (AstRanked FullSpan) (TKR r n)
-        g !hv = f $ dunHVector $ unHVectorPseudoTensor hv
+        g !hv = tlet hv $ \ !hvShared -> f hvShared
         !(!(AstArtifactRev _varDt var gradient _primal), _delta) =
           revProduceArtifact False g emptyEnv (FTKUntyped parameters0)
     in \ !parameters -> assert (voidHVectorMatches parameters0 parameters) $
