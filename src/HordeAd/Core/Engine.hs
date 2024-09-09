@@ -316,7 +316,8 @@ cfwd f vals ds =
         $ unHVectorPseudoTensor hVector
       valsH = HVectorPseudoTensor $ toHVectorOf vals
       dsH = HVectorPseudoTensor $ toHVectorOf ds
-  in fst $ cfwdOnHVector @TKUntyped valsH g dsH
+  in -- The third argument is duplicable (concrete), as required.
+     fst $ cfwdOnHVector @TKUntyped valsH g dsH
 
 
 

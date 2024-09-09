@@ -86,6 +86,7 @@ crevOnHVector mdt f parameters =
       inputs = makeADInputs parameters deltaInputs
   in crevOnADInputs mdt f inputs
 
+-- | The third argument (@ds@) must be duplicable.
 cfwdOnADInputs
   :: forall x z ranked.
      (TensorKind x, TensorKind z, ADReadyNoLet ranked, ShareTensor ranked)
@@ -101,6 +102,7 @@ cfwdOnADInputs inputs f ds =
   let !derivative = derivativeFromDelta delta ds
   in (derivative, v)
 
+-- | The third argument (@ds@) must be duplicable.
 cfwdOnHVector
   :: forall x z ranked.
      (TensorKind x, TensorKind z, ADReadyNoLet ranked, ShareTensor ranked)
@@ -625,7 +627,10 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
            => InterpretationTarget f (TKProduct x x)
            -> InterpretationTarget f z
         -- This computes the derivative of g again for each new da and a.
+
         df !da_a = blet da_a $ \ !da_aShared ->
+          -- The third argument is duplicable (projection of a variable),
+          -- as required.
           tunshare $ fst $ cfwdOnHVector
                              (toShare $ tproject2 da_aShared)
                              (unHFun h @(ADVal (ShareOf f)))

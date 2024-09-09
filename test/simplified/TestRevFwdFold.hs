@@ -273,7 +273,7 @@ testTrees =
   , testCase "4Sin0revhFold2S" testSin0revhFold2S
   , testCase "4Sin0revhFold3S" testSin0revhFold3S
   , testCase "4Sin0revhFold4S" testSin0revhFold4S
-  , testCase "4Sin0revhFold5S" testSin0revhFold5S
+-- TODO: see instance AdaptableHVector (AstRanked s) (AstTensor AstMethodLet s TKUntyped):  , testCase "4Sin0revhFold5S" testSin0revhFold5S
   ]
 
 foo :: RealFloatF a => (a, a, a) -> a
@@ -4618,6 +4618,7 @@ testSin0revhFold4S = do
          (V.fromList [ DynamicShaped @Double @'[3] $ sreplicate @_ @3 (sscalar 1.1)
                      , DynamicShaped @Double @'[3] $ sreplicate @_ @3 (sscalar 1.1) ]))
 
+{-
 testSin0revhFold5S :: Assertion
 testSin0revhFold5S = do
   assertEqualUpToEpsilon 1e-10
@@ -4628,3 +4629,4 @@ testSin0revhFold5S = do
             sletHVectorIn asD (\asV -> fFoldSX (sfromD (asV V.! 1))))
          (V.fromList [ DynamicShaped @Double @'[3] $ sreplicate @_ @3 (sscalar 1.1)
                      , DynamicShaped @Double @'[3] $ sreplicate @_ @3 (sscalar 1.1) ]))
+-}

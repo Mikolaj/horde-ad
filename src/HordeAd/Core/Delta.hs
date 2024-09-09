@@ -161,6 +161,7 @@ interpretationConstant r = \case
     $ mapHVectorShaped (const $ srepl @_ @_ @(ShapedOf ranked) r)
     $ V.map dynamicFromVoid ssh
 
+-- | The second argument (@ds@) must be duplicable.
 derivativeFromDelta
   :: forall x z ranked.
      (ADReadyNoLet ranked, ShareTensor ranked, TensorKind x, TensorKind z)
@@ -170,6 +171,8 @@ derivativeFromDelta deltaTopLevel ds =
   let params = case stensorKind @x of
         STKUntyped{} -> V.map dynamicTensorToInterpretationTargetD
                         $ dunHVector $ unHVectorPseudoTensor ds
+-- not needed (and blows up terms by 50%), because ds is assumed to be duplicable:
+--                      $ dunHVector $ unHVectorPseudoTensor $ tshare ds
         stk -> V.singleton $ Some $ interpretationTargetToD stk ds
       -- EvalState is too complex for the forward derivative, but since
       -- it's already defined, let's use it.
@@ -1373,8 +1376,12 @@ fwdR params s = \case
   RFromS (SFromR d) ->
     fwdR params s d  -- no information lost, so no checks
   RFromS d -> second rfromS $ fwdR params s d
-  RFromH d i -> let (s2, v) = fwdR params s d
-                in (s2, rfromD $ dunHVector (unHVectorPseudoTensor v) V.! i)
+  RFromH d i ->
+    let (s2, v) = fwdR params s d
+    in (s2, rfromD $ dunHVector (unHVectorPseudoTensor v) V.! i)
+-- Not needed, because we take only the i-th component of the vector,
+-- so v is not copied.
+--  in (s2, rfromD $ dunHVector (unHVectorPseudoTensor $ tshare v) V.! i)
 
   ZeroS -> (s, srepl 0)
   ScaleS k d -> second (* k) $ fwdR params s d
@@ -1426,8 +1433,12 @@ fwdR params s = \case
       Just Refl -> fwdR params s d
       _ -> error "fwdR: different shapes in SFromR(RFromS)"
   SFromR d -> second sfromR $ fwdR params s d
-  SFromH d i -> let (s2, v) = fwdR params s d
-                in (s2, sfromD $ dunHVector (unHVectorPseudoTensor v) V.! i)
+  SFromH d i ->
+    let (s2, v) = fwdR params s d
+    in (s2, sfromD $ dunHVector (unHVectorPseudoTensor v) V.! i)
+-- Not needed, because we take only the i-th component of the vector,
+-- so v is not copied.
+--  in (s2, sfromD $ dunHVector (unHVectorPseudoTensor $ tshare v) V.! i)
 
   ShareH n d ->
     case DMap.lookup n $ dMap s of

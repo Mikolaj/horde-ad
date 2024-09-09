@@ -140,7 +140,8 @@ fwdArtifactFromForwardPass forwardPass ftk =
         $ forwardPass (rawY (stensorKind @x) hVectorPrimal) var
                       (rankedY (stensorKind @x) hVector)
       !delta = unDeltaRY (stensorKind @z) deltaIT in
-  let !derivative = derivativeFromDelta delta (rawY (stensorKind @x) hVectorD)
+  let -- The second argument is duplicable (a variable), as required.
+      !derivative = derivativeFromDelta delta (rawY (stensorKind @x) hVectorD)
       !unDerivative = gunshare (stensorKind @z) derivative
       !unPrimal = gunshare (stensorKind @z) primalBody
   in ( AstArtifactFwd varPrimalD varPrimal unDerivative unPrimal
@@ -294,12 +295,16 @@ instance (GoodScalar r, KnownShS sh)
   type Value (AstShaped FullSpan r sh) = OSArray r sh
   fromValue t = AstShaped $ fromPrimal $ AstConstS $ runFlipS t
 
+{- This is needed by only one test, testSin0revhFold5S, now disabled
+and this possibly breaks the cfwdOnHVector duplicability invariant in cfwd.
+Analyze and, if possible, remove together with toHVectorOf.
 instance AdaptableHVector (AstRanked s) (AstTensor AstMethodLet s TKUntyped) where
   toHVector = undefined  -- impossible without losing sharing
   toHVectorOf = id  -- but this is possible
   fromHVector aInit params =
     let (portion, rest) = V.splitAt (V.length $ shapeAstHVector aInit) params
     in Just (AstMkHVector $ unRankedHVector portion, rest)
+-}
 
 -- HVector causes overlap and violation of injectivity,
 -- hence Data.NonStrict.Vector. Injectivity is crucial to limit the number
@@ -308,14 +313,6 @@ instance TermValue (AstTensor AstMethodLet FullSpan TKUntyped) where
   type Value (AstTensor AstMethodLet FullSpan TKUntyped) =
     Data.NonStrict.Vector.Vector (DynamicTensor ORArray)
   fromValue t = AstMkHVector $ V.convert $ V.map fromValue t
-
-instance AdaptableHVector (AstRanked FullSpan)
-                          (HVectorPseudoTensor (AstRanked FullSpan) r y) where
-  toHVector = undefined  -- impossible without losing sharing
-  toHVectorOf = unHVectorPseudoTensor  -- but this is possible
-  fromHVector (HVectorPseudoTensor aInit) params =
-    let (portion, rest) = V.splitAt (V.length $ shapeAstHVector aInit) params
-    in Just (HVectorPseudoTensor $ AstMkHVector $ unRankedHVector portion, rest)
 
 instance TermValue (HVectorPseudoTensor (AstRanked FullSpan) r y) where
   type Value (HVectorPseudoTensor (AstRanked FullSpan) r y) =
