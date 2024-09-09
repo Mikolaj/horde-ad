@@ -403,16 +403,6 @@ astSpanD _ u' | Just Refl <- sameAstSpan @s @DualSpan = u'
 astSpanD u u' | Just Refl <- sameAstSpan @s @FullSpan = AstD u u'
 astSpanD _ _ = error "a spuriuos case for pattern match coverage"
 
-astLetFun :: forall y z s.
-             (TensorKind y, TensorKind z, AstSpan s)
-          => AstTensor AstMethodLet s y -> (AstTensor AstMethodLet s y -> AstTensor AstMethodLet s z)
-          -> AstTensor AstMethodLet s z
-astLetFun a f | astIsSmall True a = f a
-astLetFun a f =
-  let sh = shapeAstFull a
-      (var, ast) = funToAst sh f
-  in astLet var a ast  -- safe, because subsitution ruled out above
-
 -- This is a vectorizing combinator that also simplifies
 -- the terms touched during vectorization, but not any others.
 -- Due to how the Ast instance of Tensor is defined above, vectorization

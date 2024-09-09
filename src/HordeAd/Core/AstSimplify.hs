@@ -31,8 +31,8 @@ module HordeAd.Core.AstSimplify
   , astPrimalPart, astDualPart
   , astLetHVectorIn, astLetHVectorInS
   , astLetHFunIn, astLetHFunInS
-  , astHApply, astLetHVectorInHVector
-  , astLetHFunInHVector
+  , astHApply, astLetHVectorInHVector, astLetHFunInHVector
+  , astLetFun
     -- * The simplifying bottom-up pass
   , simplifyAst
     -- * The expanding (to gather expressions) bottom-up pass
@@ -2246,6 +2246,17 @@ astLetHFunInHVector
   :: (TensorKind x, TensorKind y)
   => AstVarId -> AstHFun x y -> AstTensor AstMethodLet s TKUntyped -> AstTensor AstMethodLet s TKUntyped
 astLetHFunInHVector = Ast.AstLetHFunInHVector
+
+-- TODO: a new section for this one?
+astLetFun :: forall y z s.
+             (TensorKind y, TensorKind z, AstSpan s)
+          => AstTensor AstMethodLet s y -> (AstTensor AstMethodLet s y -> AstTensor AstMethodLet s z)
+          -> AstTensor AstMethodLet s z
+astLetFun a f | astIsSmall True a = f a
+astLetFun a f =
+  let sh = shapeAstFull a
+      (var, ast) = funToAst sh f
+  in astLet var a ast  -- safe, because subsitution ruled out above
 
 
 -- * The simplifying bottom-up pass

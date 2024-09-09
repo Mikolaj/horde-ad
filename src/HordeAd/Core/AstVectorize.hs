@@ -202,8 +202,10 @@ build1V snat@SNat (var, v00) =
       STKUntyped -> error "TODO"
     Ast.AstReplicate @y2 snat2@(SNat @k2) v -> traceRule $
       let repl2Stk :: forall z.
-                      STensorKindType z -> AstTensor AstMethodLet s (BuildTensorKind k z)
-                   -> AstTensor AstMethodLet s (BuildTensorKind k (BuildTensorKind k2 z))
+                      STensorKindType z
+                   -> AstTensor AstMethodLet s (BuildTensorKind k z)
+                   -> AstTensor AstMethodLet s (BuildTensorKind k
+                                                  (BuildTensorKind k2 z))
           repl2Stk stk u = case stk of
             STKR{} -> astTr $ astReplicate snat2 u
             STKS{} -> astTrS $ astReplicate snat2 u
@@ -216,10 +218,9 @@ build1V snat@SNat (var, v00) =
               , Dict <- lemTensorKindOfBuild snat2 stk2
               , Dict <- lemTensorKindOfBuild
                           snat (stensorKind @(BuildTensorKind k2 z2)) ->
-               let (t1, t2) = (astProject1 u, astProject2 u)
-                      -- looks expensive, but hard to do better,
-                      -- so let's hope u is full of variables
-                in Ast.AstTuple (repl2Stk stk1 t1) (repl2Stk stk2 t2)
+                astLetFun u $ \ !uShared ->
+                  let (u1, u2) = (astProject1 u, astProject2 uShared)
+                  in Ast.AstTuple (repl2Stk stk1 u1) (repl2Stk stk2 u2)
             STKUntyped ->
               astTrAstHVector
               $ fun1DToAst (shapeAstHVector u) $ \ !vars !asts ->
