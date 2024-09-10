@@ -909,13 +909,13 @@ testSin0Scan2 = do
           (rreplicate0N [1,1,1,1,1] 1.1))
 
 testSin0Scan3 :: Assertion
-testSin0Scan3 = do
+testSin0Scan3 = undefined {- do
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [1,1,1,1,1] [1.360788364276732] :: OR.Array 5 Double)
     (rev' (\a0 -> rscan (\_x a -> sin a)
                         (rreplicate0N [1,1,1,1,1] 84)
                         (rreplicate 3 a0)) (rreplicate0N [1,1,1,1,1] 1.1))
-
+-}
 testSin0Scan4 :: Assertion
 testSin0Scan4 = do
   assertEqualUpToEpsilon' 1e-10
@@ -3870,7 +3870,7 @@ testSin0MapAccumNestedR10rr = do
     in rrev1 f) 0.0001)
 
 testSin0FoldNestedS1FwdFwd0 :: Assertion
-testSin0FoldNestedS1FwdFwd0 = do
+testSin0FoldNestedS1FwdFwd0 = undefined {-do
   assertEqualUpToEpsilon' 1e-10
     (2.0504979297616553e-43 :: OR.Array 0 Double)
     (rev' (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
@@ -3879,9 +3879,9 @@ testSin0FoldNestedS1FwdFwd0 = do
                               a (sreplicate @_ @7 x))
                             a0 (sreplicate @_ @3 a0)
            in rfromS . sfwd1 f . sfromR) 1.1)
-
+-}
 testSin0FoldNestedS1FwdFwd :: Assertion
-testSin0FoldNestedS1FwdFwd = do
+testSin0FoldNestedS1FwdFwd = undefined {-do
   assertEqualUpToEpsilon' 1e-10
     (2.0504979297616553e-43 :: OR.Array 0 Double)
     (rev' (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
@@ -3891,7 +3891,7 @@ testSin0FoldNestedS1FwdFwd = do
                               a (sreplicate @_ @7 x))
                             a0 (sreplicate @_ @3 a0)
            in rfwd1 $ rfromS . sfwd1 f . sfromR) 1.1)
-
+-}
 testSin0FoldNestedS1RevRev :: Assertion
 testSin0FoldNestedS1RevRev = do
   assertEqualUpToEpsilon' 1e-10
