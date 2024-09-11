@@ -9,10 +9,11 @@
 -- and also to hangle multiple arguments and results of fold-like operations.
 module HordeAd.Core.HVector
   ( HVectorOf, HVectorPseudoTensor(..)
-  , InterpretationTarget, ConcreteTarget
+  , InterpretationTarget, Cheese(..), ConcreteTarget
   , InterpretationTargetD(..), InterpretationTargetM(..)
   , TensorKindFull(..), lemTensorKindOfF, buildTensorKindFull
-  , DynamicTensor(..), CRanked, CShaped
+  , DynamicTensor(..), CRanked, CShaped, CHFun, CHFun2
+  , CInterpretationTarget, CInterpretationTargetProduct
   , HVector
   , VoidTensor, absurdTensor, VoidHVector, DynamicScalar(..)
   , scalarDynamic, shapeVoidDynamic, shapeVoidHVector, shapeDynamicF
@@ -66,6 +67,19 @@ type instance InterpretationTarget ranked (TKS r sh) = ShapedOf ranked r sh
 type instance InterpretationTarget ranked TKUntyped =
   HVectorPseudoTensor ranked Float '()
     -- HVectorPseudoTensor instead of HVectorOf required for injectivity
+
+type role Cheese nominal nominal
+newtype Cheese ranked y = Cheese (InterpretationTarget ranked y)
+
+instance ( CRanked ranked Show, CShaped (ShapedOf ranked) Show
+         , Show (HVectorOf ranked), CInterpretationTargetProduct ranked Show
+         , TensorKind y )
+         => Show (Cheese ranked y) where
+  showsPrec d t = case stensorKind @y of
+    STKR{} -> showsPrec d t
+    STKS{} -> showsPrec d t
+    STKProduct{} -> showsPrec d t
+    STKUntyped -> showsPrec d t
 
 -- This is concrete only in the outermost layer.
 type family ConcreteTarget ranked y = result | result -> ranked y where
@@ -197,6 +211,51 @@ instance
       (forall r30 y30. (KnownShS y30, GoodScalar r30) => c (shaped r30 y30))
       => CShaped shaped c where
 
+type CHFun :: RankedTensorType -> (Type -> Constraint) -> TensorKindType
+           -> Constraint
+class (TensorKind y, forall x. TensorKind x => c (HFunOf ranked x y)) => CHFun ranked c y where
+instance
+      (TensorKind y, forall x. TensorKind x => c (HFunOf ranked x y)) => CHFun ranked c y where
+
+type CHFun2 :: RankedTensorType -> (Type -> Constraint)
+            -> Constraint
+class (forall x y. (TensorKind x, TensorKind y) => c (HFunOf ranked x y)) => CHFun2 ranked c where
+instance
+      (forall x y. (TensorKind x, TensorKind y) => c (HFunOf ranked x y)) => CHFun2 ranked c where
+
+type CInterpretationTarget :: RankedTensorType -> (Type -> Constraint)
+                           -> Constraint
+class (forall y. TensorKind y => c (Cheese ranked y))
+       => CInterpretationTarget ranked c where
+instance
+      (forall y. TensorKind y => c (Cheese ranked y))
+       => CInterpretationTarget ranked c where
+
+class (forall x y.
+       ( TensorKind x, TensorKind y
+       , c (InterpretationTarget ranked x), c (InterpretationTarget ranked y) )
+       => c (InterpretationTarget ranked (TKProduct x y)))
+       => CInterpretationTargetProduct ranked c where
+instance
+      (forall x y.
+       ( TensorKind x, TensorKind y
+       , c (InterpretationTarget ranked x), c (InterpretationTarget ranked y) )
+       => c (InterpretationTarget ranked (TKProduct x y)))
+       => CInterpretationTargetProduct ranked c where
+
+{-
+type CInterpretationTargetProduct :: RankedTensorType -> (Type -> Constraint)
+                                  -> Constraint
+class (forall x y.
+       (c (InterpretationTarget ranked x), c (InterpretationTarget ranked y))
+       => c (InterpretationTarget ranked (TKProduct x y)))
+       => CInterpretationTargetProduct ranked c where
+instance
+      (forall x y.
+       (c (InterpretationTarget ranked x), c (InterpretationTarget ranked y))
+       => c (InterpretationTarget ranked (TKProduct x y)))
+       => CInterpretationTargetProduct ranked c where
+-}
 -- | This is a heterogeneous vector, used as represenation of tuples
 -- of tensors that need to have the same Haskell type regardless
 -- of their arity and component types/shapes. This is a struct of arrays

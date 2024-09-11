@@ -165,7 +165,7 @@ interpretAst !env = \case
   AstVar @y2 _sh var ->
    let var2 = mkAstVarName @FullSpan @y2 (varNameToAstVarId var)  -- TODO
    in case DMap.lookup var2 env of
-    Just (AstEnvElemTuple @_ @y3 t) -> case sameTensorKind @y2 @y3 of
+    Just (AstEnvElemTuple @_ @y3 (Cheese t)) -> case sameTensorKind @y2 @y3 of
       Just Refl -> -- TODO: assert (rshape t == sh
                    --          `blame` (sh, rshape t, var, t, env)) t
                    t
@@ -173,8 +173,7 @@ interpretAst !env = \case
                    `showFailure`
                    (stensorKind @y2, stensorKind @y3, var) -- TODO: , t)
     _ -> error $ "interpretAst: unknown AstVar " ++ show var
-      -- this is defeated by 'Undecidable instances and loopy superclasses':
-      -- ++ " in environment " ++ show env
+                 ++ " in environment " ++ show env
   AstPrimalPart a -> interpretAst env a
     -- This is correct, because @s@ must be @PrimalSpan@ and so @ranked@ must
     -- be morally the primal part of a dual numbers type that is the codomain
