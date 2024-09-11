@@ -50,7 +50,7 @@ testTrees =
   , testCase "4Sin0RfwdPP1FullUnsimp" testSin0RfwdPP1FullUnsimp
   , testCase "4Sin0RfwdPP1Full" testSin0RfwdPP1Full
   , testCase "4Sin0Rfwd3" testSin0Rfwd3-}
-   testCase "4Sin0Rfwd4" testSin0Rfwd4
+--   testCase "4Sin0Rfwd4" testSin0Rfwd4
   {-
   , testCase "4Sin0RfwdPP4" testSin0RfwdPP4
 --  , testCase "4Sin0RfwdPP4Dual" testSin0RfwdPP4Dual
@@ -97,8 +97,8 @@ testTrees =
   , testCase "4Sin0Scan0" testSin0Scan0
   , testCase "4Sin0Scan1" testSin0Scan1
   , testCase "4Sin0Scan1ForComparison" testSin0Scan1ForComparison
-  , testCase "4Sin0Scan2" testSin0Scan2-}
---   testCase "4Sin0Scan3" testSin0Scan3
+  , testCase "4Sin0Scan2" testSin0Scan2 -}
+   testCase "4Sin0Scan3" testSin0Scan3
   {-
   , testCase "4Sin0Scan4" testSin0Scan4
   , testCase "4Sin0Scan5" testSin0Scan5
@@ -432,13 +432,13 @@ testSin0Rfwd3 = do
   assertEqualUpToEpsilon 1e-10
     (-0.9803280960675791)
     (cfwd f 1.1 1.1)
--}
+
 testSin0Rfwd4 :: Assertion
 testSin0Rfwd4 = do
   assertEqualUpToEpsilon 1e-10
     0.8988770945225438  -- agrees with the rrev1 version above
     ((rfwd1 sin . rfwd1 @(Flip OR.Array) @Double @0 @0 sin) 1.1)
-{-
+
 testSin0RfwdPP4 :: Assertion
 testSin0RfwdPP4 = do
   let a1 = (rfwd1 sin . rfwd1 @(AstRanked PrimalSpan) @Double @0 @0 sin) 1.1
@@ -910,7 +910,7 @@ testSin0Scan2 = do
     (rev' (\x0 -> rscan (\x _a -> sin x)
                         x0 (rconst (OR.constant @Double @1 [5] 42)))
           (rreplicate0N [1,1,1,1,1] 1.1))
-
+-}
 testSin0Scan3 :: Assertion
 testSin0Scan3 = do
   assertEqualUpToEpsilon' 1e-10
@@ -918,7 +918,7 @@ testSin0Scan3 = do
     (rev' (\a0 -> rscan (\_x a -> sin a)
                         (rreplicate0N [1,1,1,1,1] 84)
                         (rreplicate 3 a0)) (rreplicate0N [1,1,1,1,1] 1.1))
-
+{-
 testSin0Scan4 :: Assertion
 testSin0Scan4 = do
   assertEqualUpToEpsilon' 1e-10
