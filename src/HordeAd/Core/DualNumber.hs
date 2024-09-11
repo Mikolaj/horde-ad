@@ -143,7 +143,9 @@ generateDeltaInputs ftk = case ftk of
   :: HVector (FlipR OR.Array) -> HVector (Dual (FlipR OR.Array)) #-}
 -}
 
--- | The first argument (@p0@) must be duplicable.
+-- | The first argument (@p0@) must be shallowly duplicable (that is, either
+-- duplicable (e.g., a variable or concrete) or starting with
+-- a tuple constructor).
 makeADInputs
   :: forall x ranked.
      ( TensorKind x, ProductTensor ranked, HVectorTensor ranked (ShapedOf ranked)
@@ -157,12 +159,14 @@ makeADInputs p0 d0 =
       g STKR{} p d = dDnotShared p (DeltaR d)
       g STKS{} p d = dDnotShared p (DeltaS d)
       g (STKProduct stk1 stk2) p d =
-        -- No explicit sharing for p needed here, because it's duplicable.
+        -- No explicit sharing for p needed here, because
+        -- it's shallowly duplicable.
         (g stk1 (tproject1 p) (Project1G d), g stk2 (tproject2 p) (Project2G d))
       g STKUntyped p d =
         HVectorPseudoTensor
         $ ahhToHVector (dunHVector $ unHVectorPseudoTensor p) d
--- not needed (and blows up terms by 30%), because p is assumed to be duplicable:
+-- not needed (and blows up terms by 30%), because p is assumed
+-- to be shallowly duplicable:
 --        $ ahhToHVector (dunHVector $ unHVectorPseudoTensor $ tshare p) d
   in g (stensorKind @x) p0 d0
 

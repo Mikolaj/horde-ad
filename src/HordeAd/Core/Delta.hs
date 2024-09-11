@@ -161,7 +161,9 @@ interpretationConstant r = \case
     $ mapHVectorShaped (const $ srepl @_ @_ @(ShapedOf ranked) r)
     $ V.map dynamicFromVoid ssh
 
--- | The second argument (@ds@) must be duplicable.
+-- | The second argument (@ds@) must be shallowly duplicable (that is, either
+-- duplicable (e.g., a variable or concrete) or starting with
+-- a tuple constructor).
 derivativeFromDelta
   :: forall x z ranked.
      (ADReadyNoLet ranked, ShareTensor ranked, TensorKind x, TensorKind z)
@@ -171,7 +173,8 @@ derivativeFromDelta deltaTopLevel ds =
   let params = case stensorKind @x of
         STKUntyped{} -> V.map dynamicTensorToInterpretationTargetD
                         $ dunHVector $ unHVectorPseudoTensor ds
--- not needed (and blows up terms by 40%), because ds is assumed to be duplicable:
+-- not needed (and blows up terms by 40%), because ds is assumed
+-- to be shallowly duplicable:
 --                      $ dunHVector $ unHVectorPseudoTensor $ tshare ds
         stk -> V.singleton $ Some $ interpretationTargetToD stk ds
       -- EvalState is too complex for the forward derivative, but since
@@ -198,7 +201,9 @@ dynamicTensorToInterpretationTargetD = \case
   DynamicShapedDummy{} ->
     error "dynamicTensorToInterpretationTargetD: unexpected DynamicShapedDummy"
 
--- | Assumption: the argument is duplicable.
+-- | Assumption: the argument is shallowly duplicable (that is, either
+-- duplicable (e.g., a variable or concrete) or starting with
+-- a tuple constructor).
 interpretationTargetToD
   :: STensorKindType x -> InterpretationTarget ranked x
   -> InterpretationTargetD ranked x
@@ -211,7 +216,7 @@ interpretationTargetToD stk t = case stk of
 type HDVector ranked = Data.Vector.Vector (Some (InterpretationTargetD ranked))
 
 -- | Assumption: in the STKProduct and STKUntyped cases, the argument
--- is duplicable.
+-- is shallowly duplicable.
 interpretationTargetToM
   :: STensorKindType x -> InterpretationTarget ranked x
   -> InterpretationTargetM ranked x
@@ -922,13 +927,12 @@ addInterpretationTargetD a b = case (a, b) of
                   (interpretationTargetToD stensorKind (tproject2 ta))
                   (interpretationTargetToD stensorKind (tproject2 tb)))
         -- the duplication is fine, because anything inside DTKProduct
-        -- is duplicable, i.e., already a packed HVector or an explicitly
-        -- shared term
+        -- is shallowly duplicable
   (DTKUntyped hv1, DTKUntyped hv2) ->
     DTKUntyped $ HVectorPseudoTensor $ dmkHVector
     $ V.zipWith addDynamic (dunHVector $ unHVectorPseudoTensor hv1) (dunHVector $ unHVectorPseudoTensor hv2)
-      -- dunHVector is fine, because anything inside DTKUntyped is duplicable,
-      -- i.e., already a packed HVector or an explicitly shared term
+      -- dunHVector is fine, because anything inside DTKUntyped
+      -- is shallowly duplicable,
 
 addInterpretationTargetM ::
   ADReadyNoLet ranked
@@ -952,16 +956,15 @@ addInterpretationTargetM a b = case (a, b) of
               $ addInterpretationTargetM
                   (interpretationTargetToM stensorKind (tproject2 ta))
                   (interpretationTargetToM stensorKind (tproject2 tb)))
-        -- the duplication is fine, because anything inside DTKProduct
-        -- is duplicable, i.e., already a packed HVector or an explicitly
-        -- shared term
+        -- the duplication is fine, because anything inside MTKProduct
+        -- is shallowly duplicable
   (MTKProductDummy, _) -> b
   (_, MTKProductDummy) -> a
   (MTKUntyped hv1, MTKUntyped hv2) ->
     MTKUntyped $ HVectorPseudoTensor $ dmkHVector
     $ V.zipWith addDynamic (dunHVector $ unHVectorPseudoTensor hv1) (dunHVector $ unHVectorPseudoTensor hv2)
-      -- dunHVector is fine, because anything inside MTKUntyped is duplicable,
-      -- i.e., already a packed HVector or an explicitly shared term
+      -- dunHVector is fine, because anything inside MTKUntyped
+      -- is shallowly duplicable,
 
 evalR
   :: forall y ranked.

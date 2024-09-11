@@ -158,7 +158,9 @@ revProduceArtifactWithoutInterpretation hasDt f =
         forwardPassByApplication (f . unHVectorPseudoTensor) hVectorPrimal
   in revArtifactFromForwardPass @x @z hasDt g
 
--- | The second argument (@hVectorPrimal0@) must be duplicable.
+-- | The second argument (@hVectorPrimal0@) must be shallowly duplicable
+-- (that is, either duplicable (e.g., a variable or concrete) or starting with
+-- a tuple constructor).
 forwardPassByApplication
   :: forall x z. x ~ TKUntyped
   => (InterpretationTarget (ADVal (AstRaw PrimalSpan)) x
