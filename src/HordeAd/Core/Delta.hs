@@ -198,6 +198,7 @@ dynamicTensorToInterpretationTargetD = \case
   DynamicShapedDummy{} ->
     error "dynamicTensorToInterpretationTargetD: unexpected DynamicShapedDummy"
 
+-- Assumption: the argument is duplicable.
 interpretationTargetToD
   :: STensorKindType x -> InterpretationTarget ranked x
   -> InterpretationTargetD ranked x
@@ -908,12 +909,24 @@ addInterpretationTargetD ::
 addInterpretationTargetD a b = case (a, b) of
   (DTKR ta, DTKR tb) -> DTKR $ ta + tb
   (DTKS ta, DTKS tb) -> DTKS $ ta + tb
-  (DTKProduct _ta, DTKProduct _tb) -> error "TODO"  -- DTKProduct $ ta + tb
+  (DTKProduct ta, DTKProduct tb) ->
+    DTKProduct
+    $ ttuple (evalInterpretationTargetD
+              $ addInterpretationTargetD
+                  (interpretationTargetToD stensorKind (tproject1 ta))
+                  (interpretationTargetToD stensorKind (tproject1 tb)))
+             (evalInterpretationTargetD
+              $ addInterpretationTargetD
+                  (interpretationTargetToD stensorKind (tproject2 ta))
+                  (interpretationTargetToD stensorKind (tproject2 tb)))
+        -- the duplication is fine, because anything inside DTKProduct
+        -- is duplicable, i.e., already a packed HVector or an explicitly
+        -- shared term
   (DTKUntyped hv1, DTKUntyped hv2) ->
     DTKUntyped $ HVectorPseudoTensor $ dmkHVector
     $ V.zipWith addDynamic (dunHVector $ unHVectorPseudoTensor hv1) (dunHVector $ unHVectorPseudoTensor hv2)
-      -- dunHVector is fine, because anything inside DTKUntyped either
-      -- already a packed HVector or is shared (e.g., a shared variable)
+      -- dunHVector is fine, because anything inside DTKUntyped is duplicable,
+      -- i.e., already a packed HVector or an explicitly shared term
 
 addInterpretationTargetM ::
   ADReadyNoLet ranked
