@@ -139,7 +139,7 @@ evalInterpretationTargetM = \case
   MTKS t -> t
   MTKProduct t -> t
   MTKUntyped t -> t
-  _ -> error "TODO"
+  _ -> error "evalInterpretationTargetM: impossible case"
 
 shapeD :: InterpretationTargetD ranked x -> STensorKindType x
 shapeD = \case
@@ -198,7 +198,7 @@ dynamicTensorToInterpretationTargetD = \case
   DynamicShapedDummy{} ->
     error "dynamicTensorToInterpretationTargetD: unexpected DynamicShapedDummy"
 
--- Assumption: the argument is duplicable.
+-- | Assumption: the argument is duplicable.
 interpretationTargetToD
   :: STensorKindType x -> InterpretationTarget ranked x
   -> InterpretationTargetD ranked x
@@ -210,6 +210,8 @@ interpretationTargetToD stk t = case stk of
 
 type HDVector ranked = Data.Vector.Vector (Some (InterpretationTargetD ranked))
 
+-- | Assumption: in the STKProduct and STKUntyped cases, the argument
+-- is duplicable.
 interpretationTargetToM
   :: STensorKindType x -> InterpretationTarget ranked x
   -> InterpretationTargetM ranked x
@@ -940,12 +942,26 @@ addInterpretationTargetM a b = case (a, b) of
   (MTKS ta, MTKS tb) -> MTKS $ ta + tb
   (MTKSDummy, _) -> b
   (_, MTKSDummy) -> a
-  (MTKProduct _ta, MTKProduct _tb) -> error "TODO"  -- MTKProduct $ ta + tb
+  (MTKProduct ta, MTKProduct tb) ->
+    MTKProduct
+    $ ttuple (evalInterpretationTargetM
+              $ addInterpretationTargetM
+                  (interpretationTargetToM stensorKind (tproject1 ta))
+                  (interpretationTargetToM stensorKind (tproject1 tb)))
+             (evalInterpretationTargetM
+              $ addInterpretationTargetM
+                  (interpretationTargetToM stensorKind (tproject2 ta))
+                  (interpretationTargetToM stensorKind (tproject2 tb)))
+        -- the duplication is fine, because anything inside DTKProduct
+        -- is duplicable, i.e., already a packed HVector or an explicitly
+        -- shared term
   (MTKProductDummy, _) -> b
   (_, MTKProductDummy) -> a
   (MTKUntyped hv1, MTKUntyped hv2) ->
     MTKUntyped $ HVectorPseudoTensor $ dmkHVector
     $ V.zipWith addDynamic (dunHVector $ unHVectorPseudoTensor hv1) (dunHVector $ unHVectorPseudoTensor hv2)
+      -- dunHVector is fine, because anything inside MTKUntyped is duplicable,
+      -- i.e., already a packed HVector or an explicitly shared term
 
 evalR
   :: forall y ranked.
@@ -954,7 +970,9 @@ evalR
   -> EvalState ranked
 evalR !s !c = \case
   TupleG d1 d2 -> let cShared = tshare c
-                  in evalR (evalR s (tproject1 cShared) d1) (tproject2 cShared) d2
+                  in evalR (evalR s (tproject1 cShared) d1)
+                           (tproject2 cShared)
+                           d2
   Project1G d -> case shapeDeltaFull d of
     FTKProduct _ ftk2 ->
       let zero = interpretationConstant 0 ftk2
@@ -963,9 +981,16 @@ evalR !s !c = \case
     FTKProduct ftk1 _ ->
       let zero = interpretationConstant 0 ftk1
       in evalR s (ttuple zero c) d
-  InputG _ftk i -> let cs = interpretationTargetToM (stensorKind @y) c
-                   in s {iMap = DMap.adjust (addInterpretationTargetM cs) i
-                                $ iMap s}
+  InputG ftk i ->
+    let shareRequired = case ftk of
+          FTKR{} -> false
+          FTKS{} -> false
+          FTKProduct{} -> true
+          FTKUntyped{} -> true
+        cShared = if shareRequired then tshare c else c
+        cs = interpretationTargetToM stensorKind cShared
+    in s {iMap = DMap.adjust (addInterpretationTargetM cs) i
+                 $ iMap s}
     -- This and similar don't need to be runtime-specialized,
     -- because the type of c determines the Num instance for (+).
     -- Note that we can't express sharing by inserting Share constructors
