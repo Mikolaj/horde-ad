@@ -53,12 +53,12 @@ type AstEnv ranked = DEnumMap (AstVarName FullSpan) (AstEnvElem ranked)
 
 type role AstEnvElem nominal nominal
 data AstEnvElem (ranked :: RankedTensorType) (y :: TensorKindType) where
-  AstEnvElemTuple :: Cheese ranked y -> AstEnvElem ranked y
+  AstEnvElemTuple :: InterpretationTargetN ranked y -> AstEnvElem ranked y
   AstEnvElemHFun :: forall ranked x y. TensorKind x
                  => HFunOf ranked x y -> AstEnvElem ranked y
     -- the "y" is a lie; it should be "TKFun x y"; BTW, Proxy would not help
 
-deriving instance ( Show (Cheese ranked y)
+deriving instance ( Show (InterpretationTargetN ranked y)
                   , CHFun ranked Show y )
                   => Show (AstEnvElem ranked y)
 
@@ -66,7 +66,7 @@ emptyEnv :: AstEnv ranked
 emptyEnv = DMap.empty
 
 showsPrecAstEnv
-  :: ( forall y. TensorKind y => Show (Cheese ranked y)
+  :: ( forall y. TensorKind y => Show (InterpretationTargetN ranked y)
      , forall y. CHFun ranked Show y )
   => Int -> AstEnv ranked -> ShowS
 showsPrecAstEnv d demap =
@@ -89,7 +89,7 @@ extendEnv var !t !env =
       var2 = mkAstVarName (varNameToAstVarId var)
         -- to uphold the lie about FullSpan
   in DMap.insertWithKey (\_ _ _ -> error $ "extendEnv: duplicate " ++ show var)
-                        var2 (AstEnvElemTuple $ Cheese t) env
+                        var2 (AstEnvElemTuple $ InterpretationTargetN t) env
 
 extendEnvHVector :: forall ranked. ADReady ranked
                  => [AstDynamicVarName] -> HVector ranked -> AstEnv ranked

@@ -62,9 +62,9 @@ pattern D t u <- ADVal t u  -- enforces only pattern matching
 deriving instance (Show (f r z), Show (Dual f r z))
                   => Show (ADVal f r z)
 
-instance (Show (Cheese (ADVal f) x), Show (Cheese (ADVal f) y))
+instance (Show (InterpretationTargetN (ADVal f) x), Show (InterpretationTargetN (ADVal f) y))
          => Show (Cheese2 (ADVal f) x y) where
-  showsPrec d (Cheese2 (t1, t2)) = showsPrec d (Cheese t1, Cheese t2)
+  showsPrec d (Cheese2 (t1, t2)) = showsPrec d (InterpretationTargetN t1, InterpretationTargetN t2)
 
 -- | Smart constructor for 'D' of 'ADVal' that additionally records delta
 -- expression sharing information (regardless if the basic value

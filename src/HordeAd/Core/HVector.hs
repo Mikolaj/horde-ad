@@ -9,7 +9,7 @@
 -- and also to hangle multiple arguments and results of fold-like operations.
 module HordeAd.Core.HVector
   ( HVectorOf, HVectorPseudoTensor(..)
-  , InterpretationTarget, Cheese(..), Cheese2(..), ConcreteTarget
+  , InterpretationTarget, InterpretationTargetN(..), Cheese2(..), ConcreteTarget
   , InterpretationTargetD(..), InterpretationTargetM(..)
   , TensorKindFull(..), lemTensorKindOfF, buildTensorKindFull
   , DynamicTensor(..)
@@ -72,14 +72,14 @@ type instance InterpretationTarget ranked TKUntyped =
 -- This type lets us work around the woes with defining Show
 -- for the InterpretationTarget type family. It gives us a concrete thing
 -- to attach a Show instance to.
-type role Cheese nominal nominal
-newtype Cheese ranked y = Cheese (InterpretationTarget ranked y)
+type role InterpretationTargetN nominal nominal
+newtype InterpretationTargetN ranked y = InterpretationTargetN (InterpretationTarget ranked y)
 
 instance ( CRanked ranked Show, CShaped (ShapedOf ranked) Show
          , Show (HVectorOf ranked), CInterpretationTargetProduct ranked Show
          , TensorKind y )
-         => Show (Cheese ranked y) where
-  showsPrec d (Cheese t) = case stensorKind @y of
+         => Show (InterpretationTargetN ranked y) where
+  showsPrec d (InterpretationTargetN t) = case stensorKind @y of
     STKR{} -> showsPrec d t
     STKS{} -> showsPrec d t
     STKProduct{} -> showsPrec d (Cheese2 t)

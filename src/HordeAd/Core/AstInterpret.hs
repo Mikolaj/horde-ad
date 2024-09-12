@@ -165,7 +165,7 @@ interpretAst !env = \case
   AstVar @y2 _sh var ->
    let var2 = mkAstVarName @FullSpan @y2 (varNameToAstVarId var)  -- TODO
    in case DMap.lookup var2 env of
-    Just (AstEnvElemTuple (Cheese t)) ->
+    Just (AstEnvElemTuple (InterpretationTargetN t)) ->
       -- TODO: assert (rshape t == sh
       --         `blame` (sh, rshape t, var, t, env)) t
       t
