@@ -11,7 +11,7 @@ module HordeAd.Core.Ast
     -- * More and less typed variables and related type synonyms
   , AstVarId, intToAstVarId, AstDynamicVarName(..), dynamicVarNameToAstVarId
   , AstInt, IntVarName, pattern AstIntVar, isRankedInt
-  , AstVarName, mkAstVarName, varNameToAstVarId
+  , AstVarName, mkAstVarName, varNameToAstVarId, tensorKindFromAstVarName
   , AstArtifactRev(..), AstArtifactFwd(..)
   , AstIndex, AstVarList, AstIndexS, AstVarListS
     -- * AstBindingsCase and AstBindings
@@ -84,6 +84,10 @@ type instance DualOf (AstGenericS ms s) = AstGenericS ms DualSpan
 
 type instance InterpretationTarget (AstRanked s) (TKProduct x z) =
   AstTensor AstMethodLet s (TKProduct x z)
+
+instance Show (Cheese2 (AstRanked s) x y) where
+  showsPrec d (Cheese2 t) = showsPrec d t
+
 type instance RankedOf (AstRanked s) = AstRanked s
 type instance ShapedOf (AstRanked s) = AstShaped s
 type instance PrimalOf (AstRanked s) = AstRanked PrimalSpan
@@ -201,6 +205,9 @@ mkAstVarName = AstVarName
 
 varNameToAstVarId :: AstVarName s y -> AstVarId
 varNameToAstVarId (AstVarName varId) = varId
+
+tensorKindFromAstVarName :: AstVarName s y -> Dict TensorKind y
+tensorKindFromAstVarName AstVarName{} = Dict
 
 -- The reverse derivative artifact from step 6) of our full pipeline.
 type role AstArtifactRev nominal nominal

@@ -9,10 +9,11 @@
 -- and also to hangle multiple arguments and results of fold-like operations.
 module HordeAd.Core.HVector
   ( HVectorOf, HVectorPseudoTensor(..)
-  , InterpretationTarget, ConcreteTarget
+  , InterpretationTarget, Cheese(..), Cheese2(..), ConcreteTarget
   , InterpretationTargetD(..), InterpretationTargetM(..)
   , TensorKindFull(..), lemTensorKindOfF, buildTensorKindFull
-  , DynamicTensor(..), CRanked, CShaped
+  , DynamicTensor(..)
+  , CRanked, CShaped, CHFun, CHFun2, CInterpretationTargetProduct
   , HVector
   , VoidTensor, absurdTensor, VoidHVector, DynamicScalar(..)
   , scalarDynamic, shapeVoidDynamic, shapeVoidHVector, shapeDynamicF
@@ -66,6 +67,26 @@ type instance InterpretationTarget ranked (TKS r sh) = ShapedOf ranked r sh
 type instance InterpretationTarget ranked TKUntyped =
   HVectorPseudoTensor ranked Float '()
     -- HVectorPseudoTensor instead of HVectorOf required for injectivity
+
+-- TODO: can also InterpretationTargetD be replaced by cheese?
+-- This type lets us work around the woes with defining Show
+-- for the InterpretationTarget type family. It gives us a concrete thing
+-- to attach a Show instance to.
+type role Cheese nominal nominal
+newtype Cheese ranked y = Cheese (InterpretationTarget ranked y)
+
+instance ( CRanked ranked Show, CShaped (ShapedOf ranked) Show
+         , Show (HVectorOf ranked), CInterpretationTargetProduct ranked Show
+         , TensorKind y )
+         => Show (Cheese ranked y) where
+  showsPrec d (Cheese t) = case stensorKind @y of
+    STKR{} -> showsPrec d t
+    STKS{} -> showsPrec d t
+    STKProduct{} -> showsPrec d (Cheese2 t)
+    STKUntyped -> showsPrec d t
+
+type role Cheese2 nominal nominal nominal
+newtype Cheese2 ranked x y = Cheese2 (InterpretationTarget ranked (TKProduct x y))
 
 -- This is concrete only in the outermost layer.
 type family ConcreteTarget ranked y = result | result -> ranked y where
@@ -196,6 +217,26 @@ class (forall r30 y30. (KnownShS y30, GoodScalar r30) => c (shaped r30 y30))
 instance
       (forall r30 y30. (KnownShS y30, GoodScalar r30) => c (shaped r30 y30))
       => CShaped shaped c where
+
+type CHFun :: RankedTensorType -> (Type -> Constraint) -> TensorKindType
+           -> Constraint
+class (forall x. c (HFunOf ranked x y)) => CHFun ranked c y where
+instance
+      (forall x. c (HFunOf ranked x y)) => CHFun ranked c y where
+
+type CHFun2 :: RankedTensorType -> (Type -> Constraint)
+            -> Constraint
+class (forall x y. c (HFunOf ranked x y)) => CHFun2 ranked c where
+instance
+      (forall x y. c (HFunOf ranked x y)) => CHFun2 ranked c where
+
+type CInterpretationTargetProduct :: RankedTensorType -> (Type -> Constraint)
+                                  -> Constraint
+class (forall x y. (TensorKind x, TensorKind y) => c (Cheese2 ranked x y))
+       => CInterpretationTargetProduct ranked c where
+instance
+      (forall x y. (TensorKind x, TensorKind y) => c (Cheese2 ranked x y))
+       => CInterpretationTargetProduct ranked c where
 
 -- | This is a heterogeneous vector, used as represenation of tuples
 -- of tensors that need to have the same Haskell type regardless

@@ -1524,4 +1524,7 @@ type ADReadyClasses ranked shaped =
   , ProductTensor ranked
   , CRanked ranked Show
   , CShaped shaped Show
+  , Show (HVectorOf ranked)
+  , CInterpretationTargetProduct ranked Show
+  , CHFun2 ranked Show
   )

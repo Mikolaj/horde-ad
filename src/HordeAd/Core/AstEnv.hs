@@ -5,7 +5,7 @@
 -- | The environment and some helper operations for AST interpretation.
 module HordeAd.Core.AstEnv
   ( -- * The environment and operations for extending it
-    AstEnv, AstEnvElem(..), emptyEnv
+    AstEnv, AstEnvElem(..), emptyEnv, showsPrecAstEnv
   , extendEnv, extendEnvHVector, extendEnvHFun
   , extendEnvD, extendEnvI
     -- * The operations for interpreting bindings
@@ -24,11 +24,12 @@ import Prelude
 import Control.Exception.Assert.Sugar
 import Data.Dependent.EnumMap.Strict (DEnumMap)
 import Data.Dependent.EnumMap.Strict qualified as DMap
-import Data.Kind (Constraint, Type)
+import Data.Dependent.Sum
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import GHC.TypeLits (Nat)
+import Text.Show (showListWith)
 import Type.Reflection (typeRep)
 
 import Data.Array.Mixed.Shape qualified as X
@@ -52,23 +53,30 @@ type AstEnv ranked = DEnumMap (AstVarName FullSpan) (AstEnvElem ranked)
 
 type role AstEnvElem nominal nominal
 data AstEnvElem (ranked :: RankedTensorType) (y :: TensorKindType) where
-  AstEnvElemTuple :: InterpretationTarget ranked y -> AstEnvElem ranked y
+  AstEnvElemTuple :: Cheese ranked y -> AstEnvElem ranked y
   AstEnvElemHFun :: forall ranked x y. TensorKind x
-                      => HFunOf ranked x y -> AstEnvElem ranked y
+                 => HFunOf ranked x y -> AstEnvElem ranked y
     -- the "y" is a lie; it should be "TKFun x y"; BTW, Proxy would not help
 
-deriving instance ( Show (InterpretationTarget ranked y)
-                  , CHFun ranked Show y  )
+deriving instance ( Show (Cheese ranked y)
+                  , CHFun ranked Show y )
                   => Show (AstEnvElem ranked y)
-
-type CHFun :: RankedTensorType -> (Type -> Constraint) -> TensorKindType
-           -> Constraint
-class (forall x. c (HFunOf ranked x y)) => CHFun ranked c y where
-instance
-      (forall x. c (HFunOf ranked x y)) => CHFun ranked c y where
 
 emptyEnv :: AstEnv ranked
 emptyEnv = DMap.empty
+
+showsPrecAstEnv
+  :: ( forall y. TensorKind y => Show (Cheese ranked y)
+     , forall y. CHFun ranked Show y )
+  => Int -> AstEnv ranked -> ShowS
+showsPrecAstEnv d demap =
+  showParen (d > 10) $
+    showString "fromList "
+    . showListWith
+        (\(k :=> target) ->
+          case tensorKindFromAstVarName k of
+            Dict -> showsPrec 2 k . showString " :=> " . showsPrec 1 target)
+        (DMap.toList demap)
 
 -- An informal invariant: if s is FullSpan, ranked is dual numbers,
 -- and if s is PrimalSpan, ranked is their primal part.
@@ -81,7 +89,7 @@ extendEnv var !t !env =
       var2 = mkAstVarName (varNameToAstVarId var)
         -- to uphold the lie about FullSpan
   in DMap.insertWithKey (\_ _ _ -> error $ "extendEnv: duplicate " ++ show var)
-                        var2 (AstEnvElemTuple t) env
+                        var2 (AstEnvElemTuple $ Cheese t) env
 
 extendEnvHVector :: forall ranked. ADReady ranked
                  => [AstDynamicVarName] -> HVector ranked -> AstEnv ranked

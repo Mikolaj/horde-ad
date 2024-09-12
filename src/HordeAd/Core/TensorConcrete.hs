@@ -320,6 +320,10 @@ instance HVectorTensor ORArray OSArray where
 type instance InterpretationTarget ORArray (TKProduct x z) =
   (InterpretationTarget ORArray x, InterpretationTarget ORArray z)
 
+instance (Show (Cheese ORArray x), Show (Cheese ORArray y))
+         => Show (Cheese2 ORArray x y) where
+  showsPrec d (Cheese2 (t1, t2)) = showsPrec d (Cheese t1, Cheese t2)
+
 instance ProductTensor ORArray where
   ttuple u v = (u, v)
   tproject1 = fst

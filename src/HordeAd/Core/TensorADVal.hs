@@ -633,7 +633,6 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
            => InterpretationTarget f (TKProduct x x)
            -> InterpretationTarget f z
         -- This computes the derivative of g again for each new da and a.
-
         df !da_a = blet da_a $ \ !da_aShared ->
           -- The first and third arguments are duplicable
           -- (projections of a variable), as required.

@@ -866,6 +866,9 @@ deriving instance (RealFloatF (AstTensor AstMethodShare s (TKS r sh)))
 type instance InterpretationTarget (AstRaw s) (TKProduct x z) =
   AstRawWrap (AstTensor AstMethodShare s (TKProduct x z))
 
+instance Show (Cheese2 (AstRaw s) x y) where
+  showsPrec d (Cheese2 t) = showsPrec d t
+
 instance ProductTensor (AstRaw s) where
   ttuple t1 t2 = AstRawWrap $ AstTuple (unRawY stensorKind t1)
                                        (unRawY stensorKind t2)
@@ -1114,6 +1117,9 @@ deriving instance (RealFloatF (AstTensor AstMethodLet s (TKS r sh)))
 
 type instance InterpretationTarget (AstNoVectorize s) (TKProduct x z) =
   AstNoVectorizeWrap (AstTensor AstMethodLet s (TKProduct x z))
+
+instance Show (Cheese2 (AstNoVectorize s) x y) where
+  showsPrec d (Cheese2 t) = showsPrec d t
 
 instance ProductTensor (AstNoVectorize s) where
   ttuple t1 t2 = AstNoVectorizeWrap $ AstTuple (unNoVectorizeY stensorKind t1)
@@ -1508,6 +1514,9 @@ deriving instance (RealFloatF (AstTensor AstMethodLet s (TKS r sh)))
 
 type instance InterpretationTarget (AstNoSimplify s) (TKProduct x z) =
   AstNoSimplifyWrap (AstTensor AstMethodLet s (TKProduct x z))
+
+instance Show (Cheese2 (AstNoSimplify s) x y) where
+  showsPrec d (Cheese2 t) = showsPrec d t
 
 instance ProductTensor (AstNoSimplify s) where
   ttuple t1 t2 = AstNoSimplifyWrap $ AstTuple (unNoSimplifyY stensorKind t1)
