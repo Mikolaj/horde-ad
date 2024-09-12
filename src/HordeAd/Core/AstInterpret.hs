@@ -165,13 +165,10 @@ interpretAst !env = \case
   AstVar @y2 _sh var ->
    let var2 = mkAstVarName @FullSpan @y2 (varNameToAstVarId var)  -- TODO
    in case DMap.lookup var2 env of
-    Just (AstEnvElemTuple @_ @y3 (Cheese t)) -> case sameTensorKind @y2 @y3 of
-      Just Refl -> -- TODO: assert (rshape t == sh
-                   --          `blame` (sh, rshape t, var, t, env)) t
-                   t
-      _ -> error $ "interpretAst: wrong kind in environment"
-                   `showFailure`
-                   (stensorKind @y2, stensorKind @y3, var) -- TODO: , t)
+    Just (AstEnvElemTuple (Cheese t)) ->
+      -- TODO: assert (rshape t == sh
+      --         `blame` (sh, rshape t, var, t, env)) t
+      t
     _ -> error $ "interpretAst: unknown AstVar " ++ show var
                  ++ " in environment " ++ showsPrecAstEnv 0 env ""
   AstPrimalPart a -> interpretAst env a
