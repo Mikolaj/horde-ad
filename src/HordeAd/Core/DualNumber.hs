@@ -63,8 +63,8 @@ deriving instance (Show (f r z), Show (Dual f r z))
                   => Show (ADVal f r z)
 
 instance (Show (InterpretationTargetN (ADVal f) x), Show (InterpretationTargetN (ADVal f) y))
-         => Show (Cheese2 (ADVal f) x y) where
-  showsPrec d (Cheese2 (t1, t2)) = showsPrec d (InterpretationTargetN t1, InterpretationTargetN t2)
+         => Show (InterpretationTargetProductN (ADVal f) x y) where
+  showsPrec d (InterpretationTargetProductN (t1, t2)) = showsPrec d (InterpretationTargetN t1, InterpretationTargetN t2)
 
 -- | Smart constructor for 'D' of 'ADVal' that additionally records delta
 -- expression sharing information (regardless if the basic value

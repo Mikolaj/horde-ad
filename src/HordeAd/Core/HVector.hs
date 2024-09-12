@@ -9,7 +9,7 @@
 -- and also to hangle multiple arguments and results of fold-like operations.
 module HordeAd.Core.HVector
   ( HVectorOf, HVectorPseudoTensor(..)
-  , InterpretationTarget, InterpretationTargetN(..), Cheese2(..), ConcreteTarget
+  , InterpretationTarget, InterpretationTargetN(..), InterpretationTargetProductN(..), ConcreteTarget
   , InterpretationTargetD(..), InterpretationTargetM(..)
   , TensorKindFull(..), lemTensorKindOfF, buildTensorKindFull
   , DynamicTensor(..)
@@ -82,11 +82,11 @@ instance ( CRanked ranked Show, CShaped (ShapedOf ranked) Show
   showsPrec d (InterpretationTargetN t) = case stensorKind @y of
     STKR{} -> showsPrec d t
     STKS{} -> showsPrec d t
-    STKProduct{} -> showsPrec d (Cheese2 t)
+    STKProduct{} -> showsPrec d (InterpretationTargetProductN t)
     STKUntyped -> showsPrec d t
 
-type role Cheese2 nominal nominal nominal
-newtype Cheese2 ranked x y = Cheese2 (InterpretationTarget ranked (TKProduct x y))
+type role InterpretationTargetProductN nominal nominal nominal
+newtype InterpretationTargetProductN ranked x y = InterpretationTargetProductN (InterpretationTarget ranked (TKProduct x y))
 
 -- This is concrete only in the outermost layer.
 type family ConcreteTarget ranked y = result | result -> ranked y where
@@ -232,10 +232,10 @@ instance
 
 type CInterpretationTargetProduct :: RankedTensorType -> (Type -> Constraint)
                                   -> Constraint
-class (forall x y. (TensorKind x, TensorKind y) => c (Cheese2 ranked x y))
+class (forall x y. (TensorKind x, TensorKind y) => c (InterpretationTargetProductN ranked x y))
        => CInterpretationTargetProduct ranked c where
 instance
-      (forall x y. (TensorKind x, TensorKind y) => c (Cheese2 ranked x y))
+      (forall x y. (TensorKind x, TensorKind y) => c (InterpretationTargetProductN ranked x y))
        => CInterpretationTargetProduct ranked c where
 
 -- | This is a heterogeneous vector, used as represenation of tuples

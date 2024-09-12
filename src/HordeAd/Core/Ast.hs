@@ -85,8 +85,8 @@ type instance DualOf (AstGenericS ms s) = AstGenericS ms DualSpan
 type instance InterpretationTarget (AstRanked s) (TKProduct x z) =
   AstTensor AstMethodLet s (TKProduct x z)
 
-instance Show (Cheese2 (AstRanked s) x y) where
-  showsPrec d (Cheese2 t) = showsPrec d t
+instance Show (InterpretationTargetProductN (AstRanked s) x y) where
+  showsPrec d (InterpretationTargetProductN t) = showsPrec d t
 
 type instance RankedOf (AstRanked s) = AstRanked s
 type instance ShapedOf (AstRanked s) = AstShaped s
