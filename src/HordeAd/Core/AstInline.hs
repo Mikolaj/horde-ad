@@ -103,6 +103,8 @@ inlineAst memo v0 = case v0 of
   -- (or if both components are similar enough)
   -- but without this we miss many other simplifications and simple
   -- examples become unreadable
+  -- TODO: these trigger variable capture and real duplication
+{-
   Ast.AstProject1 (Ast.AstVar _ var) ->
     let f Nothing = Just 0.5
         f (Just count) = Just $ count + 0.5
@@ -111,6 +113,7 @@ inlineAst memo v0 = case v0 of
     let f Nothing = Just 0.5
         f (Just count) = Just $ count + 0.5
     in (EM.alter f (varNameToAstVarId var) memo, v0)
+-}
   Ast.AstProject1 t -> second Ast.AstProject1 (inlineAst memo t)
   Ast.AstProject2 t -> second Ast.AstProject2 (inlineAst memo t)
   Ast.AstVar _ var ->
