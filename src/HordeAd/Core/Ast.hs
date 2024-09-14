@@ -515,9 +515,13 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType -> Type wh
     -> TensorKindFull accShs
     -> TensorKindFull bShs
     -> TensorKindFull eShs
-    -> AstHFun (TKProduct accShs eShs) TKUntyped
-    -> AstHFun (TKProduct TKUntyped TKUntyped) TKUntyped
-    -> AstHFun (TKProduct TKUntyped TKUntyped) TKUntyped
+    -> AstHFun (TKProduct accShs eShs) (TKProduct accShs bShs)
+    -> AstHFun (TKProduct (TKProduct accShs eShs)
+                          (TKProduct accShs eShs))
+               (TKProduct accShs bShs)
+    -> AstHFun (TKProduct (TKProduct accShs bShs)
+                          (TKProduct accShs eShs))
+               (TKProduct accShs eShs)
     -> AstTensor ms s accShs
     -> AstTensor ms s TKUntyped
     -> AstTensor ms s TKUntyped
@@ -527,9 +531,13 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType -> Type wh
     -> TensorKindFull accShs
     -> TensorKindFull bShs
     -> TensorKindFull eShs
-    -> AstHFun (TKProduct accShs eShs) TKUntyped
-    -> AstHFun (TKProduct TKUntyped TKUntyped) TKUntyped
-    -> AstHFun (TKProduct TKUntyped TKUntyped) TKUntyped
+    -> AstHFun (TKProduct accShs eShs) (TKProduct accShs bShs)
+    -> AstHFun (TKProduct (TKProduct accShs eShs)
+                          (TKProduct accShs eShs))
+               (TKProduct accShs bShs)
+    -> AstHFun (TKProduct (TKProduct accShs bShs)
+                          (TKProduct accShs eShs))
+               (TKProduct accShs eShs)
     -> AstTensor ms s accShs
     -> AstTensor ms s TKUntyped
     -> AstTensor ms s TKUntyped
