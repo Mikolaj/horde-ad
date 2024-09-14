@@ -198,7 +198,7 @@ mnistTestCase1VTI prefix epochs maxBatches widthHidden widthHidden2
          funToAstIO (FTKR $ singletonShape sizeMnistLabelInt) id
        let ast :: AstRanked FullSpan r 0
            ast = MnistFcnnRanked1.afcnnMnistLoss1TensorData
-                   widthHidden widthHidden2 (AstRanked $ astGlyph, AstRanked $ astLabel)
+                   widthHidden widthHidden2 (AstRanked astGlyph, AstRanked astLabel)
                    (parseHVector (fromDValue valsInit)
                                  (dunHVector $ unHVectorPseudoTensor (rankedY (stensorKind @TKUntyped) hVector2)))
        -- Mimic how backprop tests and display it, even though tests
@@ -755,7 +755,7 @@ testVTOPPNonLin = do
   printArtifactPrimalPretty renames (simplifyArtifact artifactRevnonLin)
     @?= "\\v100 v101 v102 v103 v104 v105 v106 v107 v108 v109 v110 v111 v112 v113 v114 -> let v27 = recip (rreplicate 3 1.0 + exp (negate (rfromVector (fromList [rsum (v100 * rreplicate 3 7.0), rsum (v101 * rreplicate 3 7.0), rsum (v102 * rreplicate 3 7.0)]) + v103))) ; v33 = recip (rreplicate 4 1.0 + exp (negate (rfromVector (fromList [rsum (v104 * rreshape [4] v27), rsum (v105 * rreshape [4] v27), rsum (v106 * rreshape [4] v27), rsum (v107 * rreshape [4] v27)]) + v108))) ; v36 = exp (rfromVector (fromList [rsum (v109 * rreshape [5] v33), rsum (v110 * rreshape [5] v33), rsum (v111 * rreshape [5] v33), rsum (v112 * rreshape [5] v33), rsum (v113 * rreshape [5] v33)]) + v114) in rreplicate 5 (recip (rsum v36)) * v36"
 
-valsInitVT2OPP :: MnistFcnnRanked2.ADFcnnMnist2Parameters (ORArray) Double
+valsInitVT2OPP :: MnistFcnnRanked2.ADFcnnMnist2Parameters ORArray Double
 valsInitVT2OPP =
   ( ( FlipR $ Nested.rfromOrthotope SNat
       $ OR.fromList [4, 3] (concat $ replicate 4 [1, 2, 3])

@@ -616,8 +616,8 @@ shapeDeltaFull = \case
   ShareR _ d -> shapeDeltaFull d
   IndexR d _ -> FTKR $ dropShape (shapeDelta d)
   SumR d -> FTKR $ tailShape (shapeDelta d)
-  Sum0R{} -> FTKR $ ZSR
-  Dot0R{} -> FTKR $ ZSR
+  Sum0R{} -> FTKR ZSR
+  Dot0R{} -> FTKR ZSR
   ScatterR sh _ _ -> FTKR sh
   FromVectorR l -> case V.toList l of
     [] -> case stensorKind @y of

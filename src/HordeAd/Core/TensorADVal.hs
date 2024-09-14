@@ -641,8 +641,8 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
                              (unHFun h @(ADVal (ShareOf f)))
                              (toShare $ tproject1 da_aShared)
     in HFun df
-  dmapAccumRDer _ !k !accShs@(FTKUntyped accShsH) !bShs@(FTKUntyped bShsH)
-                !eShs@(FTKUntyped eShsH) f df rf acc0D esD =
+  dmapAccumRDer _ !k accShs@(FTKUntyped accShsH) bShs@(FTKUntyped bShsH)
+                eShs@(FTKUntyped eShsH) f df rf acc0D esD =
     assert (voidHVectorMatches (replicate1VoidHVector k eShsH)
                                (unHVectorPseudoTensor esD)
             && voidHVectorMatches accShsH (unHVectorPseudoTensor acc0D)) $
@@ -723,8 +723,8 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
         primal = accFin V.++ bs
         dual = wrapDeltaH $ MapAccumR k accShs bShs eShs q (dunHVector $ unHVectorPseudoTensor es) df rf acc0' es'
     in HVectorPseudoTensor $ ahhToHVector primal dual
-  dmapAccumLDer _ !k !accShs@(FTKUntyped accShsH) !bShs@(FTKUntyped bShsH)
-                !eShs@(FTKUntyped eShsH) f df rf acc0D esD =
+  dmapAccumLDer _ !k accShs@(FTKUntyped accShsH) bShs@(FTKUntyped bShsH)
+                eShs@(FTKUntyped eShsH) f df rf acc0D esD =
     assert (voidHVectorMatches (replicate1VoidHVector k eShsH)
                                (unHVectorPseudoTensor esD)
             && voidHVectorMatches accShsH (unHVectorPseudoTensor acc0D)) $

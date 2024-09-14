@@ -722,7 +722,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
           -> InterpretationTarget (AstRanked s) x
           -> InterpretationTarget (AstRanked s) z
   dHApply t ll = rankedY (stensorKind @z) $ astHApply t
-                 $ unRankedY (stensorKind @x) $ ll
+                 $ unRankedY (stensorKind @x) ll
   dunHVector (AstMkHVector l) = rankedHVector l
   dunHVector hVectorOf =
     let f :: Int -> DynamicTensor VoidTensor -> AstDynamic AstMethodLet s
@@ -1376,7 +1376,7 @@ instance AstSpan s => ShapedTensor (AstNoVectorizeS s) where
   sfloor = astNoVectorizeS2 . sfloor . unAstNoVectorizeS2
   siota = astNoVectorizeS2 siota
   sindex v ix =
-    astNoVectorizeS2 $ sindex (unAstNoVectorizeS2 v) ((AstRanked . unAstNoVectorize) <$> ix)
+    astNoVectorizeS2 $ sindex (unAstNoVectorizeS2 v) (AstRanked . unAstNoVectorize <$> ix)
   ssum = astNoVectorizeS2 . ssum . unAstNoVectorizeS2
   sscatter t f = astNoVectorizeS2 $ sscatter (unAstNoVectorizeS2 t)
                  $ fmap (AstRanked . unAstNoVectorize) . f . fmap astNoVectorize2
@@ -1442,7 +1442,7 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
           -> InterpretationTarget (AstNoVectorize s) x
           -> InterpretationTarget (AstNoVectorize s) y
   dHApply t ll = noVectorizeY (stensorKind @y) $ astHApply t
-                 $ unNoVectorizeY (stensorKind @x) $ ll
+                 $ unNoVectorizeY (stensorKind @x) ll
   dunHVector =
     noVectorizeHVectorR . dunHVector . unAstNoVectorizeWrap
   dbuild1 k f =

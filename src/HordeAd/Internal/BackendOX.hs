@@ -116,7 +116,7 @@ liftVR
 liftVR f =
   Nested.Internal.arithPromoteRanked
     (Nested.Internal.Mixed.mliftNumElt1
-       (flip Mixed.Internal.Arith.liftVEltwise1 f))
+       (`Mixed.Internal.Arith.liftVEltwise1` f))
 
 ixInBounds :: [Int64] -> [Int] -> Bool
 ixInBounds ix sh =
@@ -274,7 +274,7 @@ tfromListR = Nested.rfromListOuter  -- TODO: make this strict
 tfromList0NR
   :: NumAndShow r
   => IShR n -> [r] -> Nested.Ranked n r
-tfromList0NR sh = Nested.Internal.rfromListPrimLinear sh
+tfromList0NR = Nested.Internal.rfromListPrimLinear
   -- TODO: make this strict
 
 tfromVectorR
@@ -336,9 +336,8 @@ tmap0NR
   => (Nested.Ranked 0 r1 -> Nested.Ranked 0 r) -> Nested.Ranked n r1 -> Nested.Ranked n r
 tmap0NR f =
   Nested.Internal.arithPromoteRanked
-    (Nested.Internal.Mixed.mliftPrim
-       (\x -> Nested.runScalar $ f (Nested.rscalar x)))
-          -- too slow: tbuildNR (tshapeR v) (\ix -> f $ v `tindexNR` ix)
+    (Nested.Internal.Mixed.mliftPrim (Nested.runScalar . f . Nested.rscalar ))
+      -- too slow: tbuildNR (tshapeR v) (\ix -> f $ v `tindexNR` ix)
 
 tzipWith0NR
   :: (Nested.PrimElt r, Nested.PrimElt r1, Nested.PrimElt r2)
@@ -485,7 +484,7 @@ liftVS
 liftVS f =
   Nested.Internal.arithPromoteShaped
     (Nested.Internal.Mixed.mliftNumElt1
-       (flip Mixed.Internal.Arith.liftVEltwise1 f))
+       (`Mixed.Internal.Arith.liftVEltwise1` f))
 
 tindexNS
   :: forall sh1 sh2 r. NumAndShow r
@@ -700,9 +699,8 @@ tmap0NS
   => (Nested.Shaped '[] r1 -> Nested.Shaped '[] r) -> Nested.Shaped sh r1 -> Nested.Shaped sh r
 tmap0NS f =
   Nested.Internal.arithPromoteShaped
-    (Nested.Internal.Mixed.mliftPrim
-       (\x -> Nested.sunScalar $ f (Nested.sscalar x)))
-          -- too slow: tbuildNS (tshapeS v) (\ix -> f $ v `tindexNS` ix)
+    (Nested.Internal.Mixed.mliftPrim (Nested.sunScalar . f . Nested.sscalar))
+      -- too slow: tbuildNS (tshapeS v) (\ix -> f $ v `tindexNS` ix)
 
 tzipWith0NS
   :: forall r1 r2 r sh. (Nested.PrimElt r, Nested.PrimElt r1, Nested.PrimElt r2)

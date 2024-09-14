@@ -55,7 +55,7 @@ import Data.Array.Nested.Internal.Shape (shsToList)
 -- * Definitions to help express and manipulate type-level natural numbers
 
 withSNat :: Int -> (forall n. KnownNat n => (SNat n -> r)) -> r
-withSNat i f = withSomeSNat (fromIntegral i) $ \msnat -> case msnat of
+withSNat i f = withSomeSNat (fromIntegral i) $ \case
   Just snat@SNat -> f snat
   Nothing -> error "withSNat: negative argument"
 
@@ -106,9 +106,9 @@ withShapeP (n : ns) f = withSNat n $ \(SNat @n) ->
 
 sameShape :: forall sh1 sh2. (KnownShS sh1, KnownShS sh2)
           => Maybe (sh1 :~: sh2)
-sameShape = case shapeT @sh1 == shapeT @sh2 of
-              True -> Just (unsafeCoerce Refl :: sh1 :~: sh2)
-              False -> Nothing
+sameShape = if shapeT @sh1 == shapeT @sh2
+            then Just (unsafeCoerce Refl :: sh1 :~: sh2)
+            else Nothing
 
 matchingRank :: forall sh1 n2. (KnownShS sh1, KnownNat n2)
              => Maybe (X.Rank sh1 :~: n2)

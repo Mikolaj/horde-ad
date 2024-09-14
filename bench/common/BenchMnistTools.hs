@@ -80,7 +80,7 @@ mnistTestBench1VTA extraPrefix chunkLength xs widthHidden widthHidden2 = do
       valsInit = ( (replicate widthHidden emptyR, emptyR)
                  , (replicate widthHidden2 emptyR, emptyR)
                  , (replicate sizeMnistLabelInt emptyR, emptyR) )
-      ftest :: [MnistData r] -> HVector (ORArray) -> r
+      ftest :: [MnistData r] -> HVector ORArray -> r
       ftest = MnistFcnnRanked1.afcnnMnistTest1 valsInit widthHidden widthHidden2
       chunk = take chunkLength xs
       score c = ftest c hVectorInit
@@ -159,7 +159,7 @@ mnistTrainBench1VTO extraPrefix chunkLength xs widthHidden widthHidden2
                                            , DynamicRanked @r @1
                                              $ snd dataInit ])
         art = simplifyArtifactGradient artRaw
-        go :: [MnistData r] -> HVector (ORArray) -> HVector (ORArray)
+        go :: [MnistData r] -> HVector ORArray -> HVector ORArray
         go [] parameters = parameters
         go ((glyph, label) : rest) !parameters =
           let glyphD = DynamicRanked @r @1
@@ -222,7 +222,7 @@ mnistTrainBench2VTA extraPrefix chunkLength xs widthHidden widthHidden2
                 forgetShape $ fst
                 $ randomVals
                     @(MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
-                        (OSArray) widthHidden widthHidden2 r)
+                        OSArray widthHidden widthHidden2 r)
                     1 (mkStdGen 44)
               Nothing -> error "valsInit: impossible someNatVal error"
           Nothing -> error "valsInit: impossible someNatVal error"
@@ -252,12 +252,12 @@ mnistTestBench2VTA extraPrefix chunkLength xs widthHidden widthHidden2 = do
                 forgetShape $ fst
                 $ randomVals
                     @(MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
-                        (OSArray) widthHidden widthHidden2 r)
+                        OSArray widthHidden widthHidden2 r)
                     1 (mkStdGen 44)
               Nothing -> error "valsInit: impossible someNatVal error"
           Nothing -> error "valsInit: impossible someNatVal error"
       hVectorInit = toHVectorOf valsInit
-      ftest :: [MnistData r] -> HVector (ORArray) -> r
+      ftest :: [MnistData r] -> HVector ORArray -> r
       ftest = MnistFcnnRanked2.afcnnMnistTest2 valsInit
       chunk = take chunkLength xs
       score c = ftest c hVectorInit
@@ -308,7 +308,7 @@ mnistTrainBench2VTO extraPrefix chunkLength xs widthHidden widthHidden2
                 forgetShape $ fst
                 $ randomVals
                     @(MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
-                        (OSArray) widthHidden widthHidden2 r)
+                        OSArray widthHidden widthHidden2 r)
                     1 (mkStdGen 44)
               Nothing -> error "valsInit: impossible someNatVal error"
           Nothing -> error "valsInit: impossible someNatVal error"
@@ -329,7 +329,7 @@ mnistTrainBench2VTO extraPrefix chunkLength xs widthHidden widthHidden2
             (glyphR, labelR) pars
         (artRaw, _) = revArtifactAdapt False f (valsInit, dataInit)
         art = simplifyArtifactGradient artRaw
-        go :: [MnistData r] -> HVector (ORArray) -> HVector (ORArray)
+        go :: [MnistData r] -> HVector ORArray -> HVector ORArray
         go [] parameters = parameters
         go ((glyph, label) : rest) !parameters =
           let glyphD = DynamicRanked @r @1

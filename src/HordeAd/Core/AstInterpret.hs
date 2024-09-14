@@ -222,7 +222,7 @@ interpretAst !env = \case
           STKProduct @z1 @z2 stk1 stk2
             | Dict <- lemTensorKindOfBuild snat (stensorKind @z1)
             , Dict <- lemTensorKindOfBuild snat (stensorKind @z2) ->
-              tlet u $ \ !(!u1, !u2) -> ttuple (replStk stk1 u1) (replStk stk2 u2)
+              tlet u $ \ (!u1, !u2) -> ttuple (replStk stk1 u1) (replStk stk2 u2)
           STKUntyped -> HVectorPseudoTensor $
             dletHVectorInHVector (unHVectorPseudoTensor u) $ \ !hv ->
               mkreplicate1HVector snat hv

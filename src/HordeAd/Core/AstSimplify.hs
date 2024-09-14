@@ -987,8 +987,8 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
               foldr (\(i2, var2) v2 ->
                        fromMaybe v2 $ substitute1Ast i2 (varNameToAstVarId var2) v2)
                     i
-                    (zipSized (fmap (SubstitutionPayload @PrimalSpan)
-                               $ indexToSized ixFresh)
+                    (zipSized ((SubstitutionPayload @PrimalSpan)
+                               <$> indexToSized ixFresh)
                               vars4)
             ix5 = fmap subst ix4
         in Ast.AstD (astGatherRec sh4 u (vars4, ix4))
@@ -1082,8 +1082,8 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
               foldr (\(i2, var2) v2 ->
                       fromMaybe v2 $ substitute1Ast i2 (varNameToAstVarId var2) v2)
                     i
-                    (zipSized (fmap (SubstitutionPayload @PrimalSpan)
-                               $ indexToSized ixFresh) vars4)
+                    (zipSized ((SubstitutionPayload @PrimalSpan)
+                               <$> indexToSized ixFresh) vars4)
             i5 = subst i4
        in astGather sh4 (astFromVector $ V.map f l) (varsFresh, i5 :.: ixFresh)
     Ast.AstAppend u v ->
@@ -1100,8 +1100,8 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
                 -- This subst doesn't break sharing because it's a rename.
                 subst i =
                   foldr (uncurry substituteAstBool) i
-                        (zipSized (fmap (SubstitutionPayload @PrimalSpan)
-                                   $ indexToSized ixFresh) vars4)
+                        (zipSized ((SubstitutionPayload @PrimalSpan)
+                                   <$> indexToSized ixFresh) vars4)
                 bExpr5 = subst bExpr
             in astGather sh4 (astFromVector $ V.fromList [u2, v2])
                              (varsFresh, astCond bExpr5 0 1 :.: ixFresh)
@@ -1448,7 +1448,7 @@ astScatter sh@(k :$: _) _v (_vars, AstConst it :.: _ix)
   , not (0 <= i && i < k) =
       astReplicate0N sh 0
 -- else update (rzero sh 0) [AstConst it] (astScatter ...)
-astScatter sh v (var ::: vars, ix) | not $ (varNameToAstVarId var) `varInIndex` ix =
+astScatter sh v (var ::: vars, ix) | not $ varNameToAstVarId var `varInIndex` ix =
   astScatter sh (astSum v) (vars, ix)
 -- astScatter sh v (ZR, ix) = update (rzero sh 0) ix v
 astScatter sh (Ast.AstConstant v) (vars, ix) =
@@ -3348,9 +3348,9 @@ substitute1AstDynamic
   -> Maybe (AstDynamic AstMethodLet s)
 substitute1AstDynamic i var = \case
   DynamicRanked (AstGeneric t) ->
-    (DynamicRanked . AstGeneric) <$> substitute1Ast i var t
+    DynamicRanked . AstGeneric <$> substitute1Ast i var t
   DynamicShaped (AstGenericS t) ->
-    (DynamicShaped . AstGenericS) <$> substitute1Ast i var t
+    DynamicShaped . AstGenericS <$> substitute1Ast i var t
   DynamicRankedDummy{} -> Nothing
   DynamicShapedDummy{} -> Nothing
 

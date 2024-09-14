@@ -411,7 +411,7 @@ testGatherTransposeBuild333 =
     (OR.fromList [2] [1,1])
     (rev' @Double @2
           (\t -> rbuild1 2 (\i ->
-             (t * rreplicate0N [2] (rfromIndex0 i))))
+             t * rreplicate0N [2] (rfromIndex0 i)))
           (FlipR $ OR.fromList [2] [0,0]))
 
 testGatherTransposeBuild334 :: Assertion

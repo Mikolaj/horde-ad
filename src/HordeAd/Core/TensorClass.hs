@@ -80,7 +80,7 @@ class HVectorTensor ranked shaped
   rlet :: forall n m r r2. (KnownNat n, KnownNat m, GoodScalar r, GoodScalar r2)
        => ranked r n -> (ranked r n -> ranked r2 m)
        -> ranked r2 m
-  rlet a f = rletTKIn (STKR typeRep SNat) a f
+  rlet = rletTKIn (STKR typeRep SNat)
   rletHVectorIn :: (KnownNat n, GoodScalar r)
                 => HVectorOf ranked
                 -> (HVector ranked -> ranked r n)
@@ -100,7 +100,7 @@ class HVectorTensor ranked shaped
           , shaped ~ ShapedOf ranked, RankedOf shaped ~ ranked )
        => shaped r sh -> (shaped r sh -> shaped r2 sh2)
        -> shaped r2 sh2
-  slet a f = sletTKIn (STKS typeRep knownShS) a f
+  slet = sletTKIn (STKS typeRep knownShS)
   sletHVectorIn :: (KnownShS sh, GoodScalar r)
                 => HVectorOf (RankedOf shaped)
                 -> (HVector (RankedOf shaped) -> shaped r sh)

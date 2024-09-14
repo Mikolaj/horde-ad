@@ -529,14 +529,14 @@ testSin0Fold1 = do
   assertEqualUpToEpsilon' 1e-10
     (0.4535961214255773 :: OR.Array 0 Double)
     (rev' (\x0 -> rfold (\x _a -> sin x)
-                        x0 ((rrepl @Double @1 [1] 42))) 1.1)
+                        x0 (rrepl @Double @1 [1] 42)) 1.1)
 
 testSin0Fold2 :: Assertion
 testSin0Fold2 = do
   assertEqualUpToEpsilon' 1e-10
     (0.12389721944941383 :: OR.Array 0 Double)
     (rev' (\x0 -> rfold (\x _a -> sin x)
-                        x0 ((rrepl @Double @1 [5] 42))) 1.1)
+                        x0 (rrepl @Double @1 [5] 42)) 1.1)
 
 testSin0FoldForComparison :: Assertion
 testSin0FoldForComparison = do
@@ -905,7 +905,7 @@ testSin0Scan1 = do
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [1,1,1,1,1] [1.4535961214255773] :: OR.Array 5 Double)
     (rev' (\x0 -> rscan (\x _a -> sin x)
-                        x0 ((rrepl @Double @1 [1] 42)))
+                        x0 (rrepl @Double @1 [1] 42))
           (FlipR $ OR.constant [1,1,1,1,1] 1.1))
 
 testSin0Scan1ForComparison :: Assertion
@@ -920,7 +920,7 @@ testSin0Scan2 = do
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [1,1,1,1,1] [2.2207726343670955] :: OR.Array 5 Double)
     (rev' (\x0 -> rscan (\x _a -> sin x)
-                        x0 ((rrepl @Double @1 [5] 42)))
+                        x0 (rrepl @Double @1 [5] 42))
           (FlipR $ OR.constant [1,1,1,1,1] 1.1))
 
 testSin0Scan3 :: Assertion
@@ -1009,7 +1009,7 @@ testSin0Scan1RevPP1 = do
   resetVarCounter
   let a1 = rrev1 @(AstRanked FullSpan) @Double @0 @1
                  (\x0 -> rscan (\x _a -> sin x) x0
-                           ((rrepl @Double @1 [2] 42))) (rscalar 1.1)
+                           (rrepl @Double @1 [2] 42)) (rscalar 1.1)
   printAstPrettyButNested IM.empty (simplifyInlineAst a1)
     @?= "let v29 = rconst (rfromListLinear [2] [42.0,42.0]) ; v14 = rconst (rfromListLinear [3] [1.0,1.0,1.0]) in rproject (dmapAccumRDer (SNat @2) (\\h31 -> [cos (rproject (tproject2 h31) 1) * (rproject (tproject2 h31) 0 + rproject (tproject1 h31) 0), 0]) (\\h63 -> [(rproject (tproject1 h63) 2 * negate (sin (rproject (tproject2 h63) 2))) * (rproject (tproject2 h63) 1 + rproject (tproject2 h63) 0) + (rproject (tproject1 h63) 1 + rproject (tproject1 h63) 0) * cos (rproject (tproject2 h63) 2), 0.0]) (\\h116 -> let x145 = cos (rproject (tproject2 h116) 2) * rproject (tproject1 h116) 0 in [x145, x145, negate (sin (rproject (tproject2 h116) 2)) * ((rproject (tproject2 h116) 1 + rproject (tproject2 h116) 0) * rproject (tproject1 h116) 0), 0]) [0.0] [rslice 1 2 v14, rproject (dmapAccumLDer (SNat @2) (\\h160 -> let x172 = sin (rproject (tproject1 h160) 0) in [x172, rproject (tproject1 h160) 0, x172]) (\\h174 -> let x197 = rproject (tproject1 h174) 0 * cos (rproject (tproject2 h174) 0) in [x197, rproject (tproject1 h174) 0, x197]) (\\h200 -> [cos (rproject (tproject2 h200) 0) * (rproject (tproject1 h200) 2 + rproject (tproject1 h200) 0) + rproject (tproject1 h200) 1, 0.0]) [1.1] [v29]) 1, v29]) 0 + v14 ! [0]"
 
@@ -1026,7 +1026,7 @@ testSin0ScanFwdPP = do
   resetVarCounter
   let a1 = rfwd1 @(AstRanked PrimalSpan) @Double @0 @1
                  (\x0 -> rscan (\x _a -> sin x) x0
-                           ((rrepl @Double @1 [2] 42))) (rscalar 1.1)
+                           (rrepl @Double @1 [2] 42)) (rscalar 1.1)
   printAstPrettyButNested IM.empty (simplifyInlineAst a1)
     @?= "let v11 = rconst (rfromListLinear [2] [42.0,42.0]) in rappend (rreplicate 1 1.0) (rproject (dmapAccumLDer (SNat @2) (\\h12 -> let x31 = rproject (tproject1 h12) 0 * cos (rproject (tproject2 h12) 1) in [x31, x31]) (\\h36 -> let x57 = rproject (tproject1 h36) 0 * cos (rproject (tproject2 h36) 2) + (rproject (tproject1 h36) 2 * negate (sin (rproject (tproject2 h36) 2))) * rproject (tproject2 h36) 0 in [x57, x57]) (\\h58 -> let x78 = rproject (tproject1 h58) 1 + rproject (tproject1 h58) 0 in [cos (rproject (tproject2 h58) 2) * x78, 0, negate (sin (rproject (tproject2 h58) 2)) * (rproject (tproject2 h58) 0 * x78), 0]) [1.0] [rreplicate 2 0.0, rproject (dmapAccumLDer (SNat @2) (\\h79 -> let x86 = sin (rproject (tproject1 h79) 0) in [x86, rproject (tproject1 h79) 0, x86]) (\\h89 -> let x96 = rproject (tproject1 h89) 0 * cos (rproject (tproject2 h89) 0) in [x96, rproject (tproject1 h89) 0, x96]) (\\h99 -> [cos (rproject (tproject2 h99) 0) * (rproject (tproject1 h99) 2 + rproject (tproject1 h99) 0) + rproject (tproject1 h99) 1, 0.0]) [1.1] [v11]) 1, v11]) 1)"
 
@@ -1035,7 +1035,7 @@ testSin0ScanFwdPPFull = do
   resetVarCounter
   let a1 = rfwd1 @(AstRanked FullSpan) @Double @0 @1
                  (\x0 -> rscan (\x _a -> sin x) x0
-                           ((rrepl @Double @1 [2] 42))) (rscalar 1.1)
+                           (rrepl @Double @1 [2] 42)) (rscalar 1.1)
   printAstPrettyButNested IM.empty (simplifyInlineAst a1)
     @?= "rproject ((\\h1 -> let v11 = rconst (rfromListLinear [2] [42.0,42.0]) in [rappend (rreplicate 1 (rproject (tproject1 h1) 0)) (rproject (dmapAccumLDer (SNat @2) (\\h12 -> let x31 = rproject (tproject1 h12) 0 * cos (rproject (tproject2 h12) 1) in [x31, x31]) (\\h36 -> let x57 = rproject (tproject1 h36) 0 * cos (rproject (tproject2 h36) 2) + (rproject (tproject1 h36) 2 * negate (sin (rproject (tproject2 h36) 2))) * rproject (tproject2 h36) 0 in [x57, x57]) (\\h58 -> let x78 = rproject (tproject1 h58) 1 + rproject (tproject1 h58) 0 in [cos (rproject (tproject2 h58) 2) * x78, 0, negate (sin (rproject (tproject2 h58) 2)) * (rproject (tproject2 h58) 0 * x78), 0]) [rproject (tproject1 h1) 0] [rreplicate 2 0.0, rproject (dmapAccumLDer (SNat @2) (\\h79 -> let x86 = sin (rproject (tproject1 h79) 0) in [x86, rproject (tproject1 h79) 0, x86]) (\\h89 -> let x96 = rproject (tproject1 h89) 0 * cos (rproject (tproject2 h89) 0) in [x96, rproject (tproject1 h89) 0, x96]) (\\h99 -> [cos (rproject (tproject2 h99) 0) * (rproject (tproject1 h99) 2 + rproject (tproject1 h99) 0) + rproject (tproject1 h99) 1, 0.0]) [rproject (tproject2 h1) 0] [v11]) 1, v11]) 1)]) (ttuple ([1.0], [1.1]))) 0"
 
@@ -1139,7 +1139,7 @@ testSin0Scan1fwd = do
     (OR.fromList [2] [1.0,0.4535961214255773])
     (rfwd1 @ORArray @Double @0 @1
     (\x0 -> rscan (\x _a -> sin x)
-                  x0 ((rrepl @Double @1 [1] 42)))
+                  x0 (rrepl @Double @1 [1] 42))
           (rscalar 1.1))
 
 testSin0Scan1FwdForComparison :: Assertion
@@ -2445,7 +2445,7 @@ testSin0rmapAccumRD01SN531d = do
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [ DynamicShaped @Double @'[2]
                                          (sfromList0N
                                            [sscalar 0.4, sfromIntegral (sconstant (sfromR i))]) ])))
-      in f . sfromR) ((rscalar 1.1) :: ORArray Double 0))
+      in f . sfromR) (rscalar 1.1 :: ORArray Double 0))
 
 -- TODO: empty tensor/heterogeneous vector of tensors ambiguity breaks things
 _testSin0rmapAccumRD01SN531Slice :: Assertion
@@ -2587,7 +2587,7 @@ testSin0rmapAccumRD01SN55acc = do
                                                        (sfromD (a V.! 1)) [1]
                                              - smaxIndex
                                                  @_ @Double @Double @'[] @3
-                                                 (sin x / (sreplicate0N (sscalar 3)))) ]
+                                                 (sin x / sreplicate0N (sscalar 3))) ]
                            in g)
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [])
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [ DynamicShaped @Double @'[2, 1]
@@ -2794,7 +2794,7 @@ testSin0ScanD1 = do
     (rev' (\x0 -> rscanZip (\x _a -> sin x)
                          (V.fromList [voidFromSh @Double ZSR])
                          x0 (V.singleton $ DynamicRanked
-                             $ (rrepl @Double @1 [1] 42)))
+                             (rrepl @Double @1 [1] 42)))
           (FlipR $ OR.constant [1,1,1,1,1] 1.1))
 
 testSin0ScanD2 :: Assertion
@@ -2804,7 +2804,7 @@ testSin0ScanD2 = do
     (rev' (\x0 -> rscanZip (\x _a -> sin x)
                          (V.fromList [voidFromSh @Double ZSR])
                          x0 (V.singleton $ DynamicRanked
-                             $ (rrepl @Double @1 [5] 42)))
+                             (rrepl @Double @1 [5] 42)))
           (FlipR $ OR.constant [1,1,1,1,1] 1.1))
 
 testSin0ScanD3 :: Assertion
@@ -2821,7 +2821,7 @@ testSin0ScanD3 = do
                             [ DynamicRanked
                               $ rreplicate 3 a0
                             , DynamicRanked
-                              $ (rrepl @Double @6
+                              (rrepl @Double @6
                                           [3, 4, 5, 6, 7, 8] 32) ]))
                          (FlipR $ OR.constant [1,1,1,1,1] 1.1))
 
@@ -3067,7 +3067,7 @@ testSin0ScanD1RevPP = do
                  (\x0 -> rscanZip (\x _a -> sin x)
                            (V.fromList [voidFromSh @Double ZSR])
                            x0 (V.singleton $ DynamicRanked
-                               $ (rrepl @Double @1 [2] 42))) (rscalar 1.1)
+                               (rrepl @Double @1 [2] 42))) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineAst a1)
     @?= "let v29 = rconst (rfromListLinear [2] [42.0,42.0]) ; v14 = rconst (rfromListLinear [3] [1.0,1.0,1.0]) in rproject (dmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> [0.0] [rslice 1 2 v14, rproject (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.1] [v29]) 1, v29]) 0 + v14 ! [0]"
 
@@ -3078,7 +3078,7 @@ testSin0ScanDFwdPP = do
                  (\x0 -> rscanZip (\x _a -> sin x)
                            (V.fromList [voidFromSh @Double ZSR])
                            x0 (V.singleton $ DynamicRanked
-                               $ (rrepl @Double @1 [2] 42))) (rscalar 1.1)
+                               (rrepl @Double @1 [2] 42))) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineAst a1)
     @?= "let v11 = rconst (rfromListLinear [2] [42.0,42.0]) in rappend (rreplicate 1 1.0) (rproject (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.0] [rreplicate 2 0.0, rproject (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.1] [v11]) 1, v11]) 1)"
 
@@ -3173,9 +3173,9 @@ testSin0ScanD1fwd = do
                                , voidFromSh @Double (3 :$: 4 :$: ZSR)])
                    x0 (V.fromList
                          [ DynamicRanked
-                           $ (rrepl @Double @1 [1] 42)
+                           (rrepl @Double @1 [1] 42)
                          , DynamicRanked
-                           $ (rrepl @Double @3 [1, 3, 4] 32) ]))
+                           (rrepl @Double @3 [1, 3, 4] 32) ]))
           (rscalar 1.1))
 
 testSin0ScanD8fwd :: Assertion

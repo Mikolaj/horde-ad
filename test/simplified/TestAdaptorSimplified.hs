@@ -334,7 +334,7 @@ testZero10S =
            in f :: ( ADVal ORArray Double 5
                    , ADVal OSArray Double '[0, 2, 4, 0, 1] )
                    -> ADVal OSArray Double '[0, 2, 4, 0, 1])
-          (rreplicate0N [0, 2, 4, 0, 1] 42, (srepl 21)))
+          (rreplicate0N [0, 2, 4, 0, 1] 42, srepl 21))
 
 testCFwdZero10S :: Assertion
 testCFwdZero10S =
@@ -371,7 +371,7 @@ testZero11S =
            in f :: ( ADVal ORArray Double 5
                    , ADVal OSArray Double '[0, 2, 4, 0, 1] )
                    -> ADVal ORArray Double 5)
-          (rreplicate0N [0, 2, 4, 0, 1] 42, (srepl 21)))
+          (rreplicate0N [0, 2, 4, 0, 1] 42, srepl 21))
 
 testCFwdZero11S :: Assertion
 testCFwdZero11S =

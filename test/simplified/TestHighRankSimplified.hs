@@ -304,7 +304,7 @@ testFooBuildDt2 =
   assertEqualUpToEpsilon1 1e-5
     (OR.fromList [2,2,1,2,2] [2.206713605648901e7,148548.45667978778,-1.0646476553002307e7,506148.0678803204,8.294896080825263e7,485287.9750115657,-3.844743184175473e7,5.460549007669466e7,2.271418850409362e7,13848.390132505112,-1.0690008160055092e7,511359.0281220066,7.774196371340603e7,483621.8424293669,-3.876191146034207e7,5.754048643554987e7])
     (revDt @_ @(TKProduct (TKR Double 5) (TKR Double 5))
-           (\x -> let y = fooBuild5 x in (ttuple y y)) t16 (let dt = FlipR $ Nested.rfromOrthotope SNat $ OR.constant [2, 2, 1, 2, 2] 42 in (dt, dt)))
+           (\x -> let y = fooBuild5 x in ttuple y y) t16 (let dt = FlipR $ Nested.rfromOrthotope SNat $ OR.constant [2, 2, 1, 2, 2] 42 in (dt, dt)))
 
 testFooBuild5 :: Assertion
 testFooBuild5 =
@@ -362,7 +362,7 @@ fooNoGo v =
        bar ( rreplicate0N shTail (rscalar 3.14)
            , bar ( rrepl (shapeToList shTail) 3.14
                  , rindex v [ix]) )
-       + ifF (rindex v (ix * 2 :.: ZIR) <=. rreplicate0N shTail (rscalar 0) &&* (rscalar 6) >. abs ix)
+       + ifF (rindex v (ix * 2 :.: ZIR) <=. rreplicate0N shTail (rscalar 0) &&* rscalar 6 >. abs ix)
                r (rreplicate0N shTail (rscalar 5) * r))
      / rslice 1 3 (rmap0N (\x -> ifF (x >. r0) r0 x) v)
      * rbuild1 3 (const $ rrepl (shapeToList shTail) 1)

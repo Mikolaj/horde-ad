@@ -166,14 +166,14 @@ resetIdCounter = writeIORefU unsafeGlobalCounter 100000001
 wrapDeltaR :: (GoodScalar r, KnownNat n)
            => DeltaR ranked r n -> DeltaR ranked r n
 {-# NOINLINE wrapDeltaR #-}
-wrapDeltaR !(DeltaR d) = unsafePerformIO $ do
+wrapDeltaR (DeltaR d) = unsafePerformIO $ do
   n <- unsafeGetFreshId
   return $! DeltaR $ ShareR (NodeId n) d
 
 wrapDeltaS :: (GoodScalar r, KnownShS sh)
            => DeltaS shaped r sh -> DeltaS shaped r sh
 {-# NOINLINE wrapDeltaS #-}
-wrapDeltaS !(DeltaS d) = unsafePerformIO $ do
+wrapDeltaS (DeltaS d) = unsafePerformIO $ do
   n <- unsafeGetFreshId
   return $! DeltaS $ ShareS (NodeId n) d
 

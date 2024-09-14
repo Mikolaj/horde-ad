@@ -538,13 +538,13 @@ test_disparitySmall = do
    arrDR
   assertEqualUpToEpsilon' 1e-7
     (OR.fromList [1,2,3,2] [-1.0,0.0,-1.0,0.0,-1.0,0.0,1.0,0.0,-1.0,0.0,1.0,0.0])
-    (rev' @Double @4 (costVolume 1 4 arrL) (FlipR $ Nested.rtoOrthotope $ runFlipR $ arrR))
+    (rev' @Double @4 (costVolume 1 4 arrL) (FlipR $ Nested.rtoOrthotope $ runFlipR arrR))
   assertEqualUpToEpsilon' 1e-7
     (OR.fromList [1,2,3,2] [2.0,2.0,-2.0,2.0,2.0,2.0,-2.0,2.0,-2.0,-2.0,-2.0,-2.0])
-    (rev' @Double @4 (\aL -> costVolume 2 2 aL arrR) (FlipR $ Nested.rtoOrthotope $ runFlipR $ arrL))
+    (rev' @Double @4 (\aL -> costVolume 2 2 aL arrR) (FlipR $ Nested.rtoOrthotope $ runFlipR arrL))
   assertEqualUpToEpsilon' 1e-7
     (OR.fromList [1,2,3,2] [-1.0,0.0,-1.0,0.0,-1.0,0.0,1.0,0.0,-1.0,0.0,1.0,0.0])
-    (rev' @Double @4 (costVolume 1 2 arrL) (FlipR $ Nested.rtoOrthotope $ runFlipR $ arrR))
+    (rev' @Double @4 (costVolume 1 2 arrL) (FlipR $ Nested.rtoOrthotope $ runFlipR arrR))
 
 
 -- * PP Tests

@@ -264,13 +264,13 @@ funToAstRevIO ftk | Dict <- lemTensorKindOfF ftk = do
                   , AstDynamic AstMethodLet FullSpan )
           f i (DynamicRankedDummy @r @sh _ _)
             | Dict <- lemKnownNatRank (knownShS @sh) = do
-              return $!
+              return
                 ( DynamicRanked @r @(X.Rank sh)
                                 (AstGeneric $ AstProjectR astVarPrimal i)
                 , DynamicRanked @r @(X.Rank sh)
                                 (AstGeneric $ AstProjectR astVar i) )
           f i (DynamicShapedDummy @r @sh _ _) = do
-            return $!
+            return
               ( DynamicShaped @r @sh (AstGenericS $ AstProjectS astVarPrimal i)
               , DynamicShaped @r @sh (AstGenericS $ AstProjectS astVar i) )
       (!astsPrimal, !asts) <- unzip <$> imapM f (V.toList parameters0)
@@ -323,7 +323,7 @@ funToAstFwdIO ftk | Dict <- lemTensorKindOfF ftk = do
                   , AstDynamic AstMethodLet FullSpan )
           f i (DynamicRankedDummy @r @sh _ _)
             | Dict <- lemKnownNatRank (knownShS @sh) = do
-              return $!
+              return
                 ( DynamicRanked @r @(X.Rank sh)
                                 (AstGeneric $ AstProjectR astVarPrimalD i)
                 , DynamicRanked @r @(X.Rank sh)
@@ -331,7 +331,7 @@ funToAstFwdIO ftk | Dict <- lemTensorKindOfF ftk = do
                 , DynamicRanked @r @(X.Rank sh)
                                 (AstGeneric $ AstProjectR astVar i) )
           f i (DynamicShapedDummy @r @sh _ _) = do
-            return $!
+            return
               ( DynamicShaped @r @sh (AstGenericS $ AstProjectS astVarPrimalD i)
               , DynamicShaped @r @sh (AstGenericS $ AstProjectS astVarPrimal i)
               , DynamicShaped @r @sh (AstGenericS $ AstProjectS astVar i) )

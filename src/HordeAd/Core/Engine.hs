@@ -153,9 +153,8 @@ revProduceArtifactWithoutInterpretation hasDt f =
         -> AstVarName FullSpan x
         -> InterpretationTarget (AstRanked FullSpan) x
         -> InterpretationTarget (ADVal (AstRaw PrimalSpan)) z
-      g hVectorPrimal =
-        -- The second argument is duplicable (a variable), as required.
-        forwardPassByApplication (f . unHVectorPseudoTensor) hVectorPrimal
+      g = -- The second argument is duplicable (a variable), as required.
+          forwardPassByApplication (f . unHVectorPseudoTensor)
   in revArtifactFromForwardPass @x @z hasDt g
 
 -- | The second argument (@hVectorPrimal0@) must be shallowly duplicable
@@ -183,7 +182,7 @@ revEvalArtifact
   -> Maybe (InterpretationTarget ORArray z)
   -> (InterpretationTarget ORArray x, InterpretationTarget ORArray z)
 {-# INLINE revEvalArtifact #-}
-revEvalArtifact !AstArtifactRev{..} parameters mdt =
+revEvalArtifact AstArtifactRev{..} parameters mdt =
   let oneAtF = interpretationConstant 1 $ tshapeFull (stensorKind @z) artPrimalRev
       dt = fromMaybe oneAtF mdt
       env = extendEnv artVarDomainRev parameters emptyEnv
@@ -229,7 +228,7 @@ fwdEvalArtifact
   -> InterpretationTarget ORArray x
   -> (InterpretationTarget ORArray z, InterpretationTarget ORArray z)
 {-# INLINE fwdEvalArtifact #-}
-fwdEvalArtifact !AstArtifactFwd{..} parameters ds =
+fwdEvalArtifact AstArtifactFwd{..} parameters ds =
   if tshapeFull (stensorKind @x) parameters == tshapeFull (stensorKind @x) ds then
     let env = extendEnv artVarDomainFwd parameters emptyEnv
         envD = extendEnv artVarDsFwd ds env

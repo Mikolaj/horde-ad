@@ -82,7 +82,7 @@ shapeAstFull t = case t of
       STKR @_ @n _ _ -> case sameNat (Proxy @n) (Proxy @1) of
         Just Refl -> FTKR $ singletonShape 0
         Nothing -> error "shapeAstFull: AstFromVector with no arguments"
-    v : _ -> FTKR $ V.length l :$: (shapeAst v)
+    v : _ -> FTKR $ V.length l :$: shapeAst v
   AstAppend x y -> case shapeAst x of
     ZSR -> error "shapeAstFull: impossible pattern needlessly required"
     xi :$: xsh -> case shapeAst y of
