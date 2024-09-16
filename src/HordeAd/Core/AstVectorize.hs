@@ -146,8 +146,8 @@ build1V snat@SNat (var, v00) =
     Ast.AstTuple @x @z t1 t2
       | Dict <- lemTensorKindOfBuild snat (stensorKind @x)
       , Dict <- lemTensorKindOfBuild snat (stensorKind @z) ->
-        Ast.AstTuple (build1VOccurenceUnknown snat (var, t1))
-                     (build1VOccurenceUnknown snat (var, t2))
+        astTuple (build1VOccurenceUnknown snat (var, t1))
+                 (build1VOccurenceUnknown snat (var, t2))
     Ast.AstProject1 @_ @z t
       | Dict <- lemTensorKindOfBuild snat (stensorKind @z)
       , Dict <- lemTensorKindOfBuild snat (stensorKind @y) ->
@@ -220,7 +220,7 @@ build1V snat@SNat (var, v00) =
                           snat (stensorKind @(BuildTensorKind k2 z2)) ->
                 astLetFun u $ \ !uShared ->
                   let (u1, u2) = (astProject1 u, astProject2 uShared)
-                  in Ast.AstTuple (repl2Stk stk1 u1) (repl2Stk stk2 u2)
+                  in astTuple (repl2Stk stk1 u1) (repl2Stk stk2 u2)
             STKUntyped ->
               astTrAstHVector
               $ fun1DToAst (shapeAstHVector u) $ \ !vars !asts ->
@@ -668,8 +668,8 @@ substProjInterpretationTarget snat@SNat var ftk2 var1 v
             , Dict <- lemTensorKindOfBuild snat (stensorKind @z2) ->
               let prVar1 = astProject1 prVar
                   prVar2 = astProject2 prVar
-              in Ast.AstTuple (projection prVar1 ftk41)
-                              (projection prVar2 ftk42)
+              in astTuple (projection prVar1 ftk41)
+                          (projection prVar2 ftk42)
           ftk@(FTKUntyped shs0) -> case buildTensorKindFull snat ftk of
             FTKUntyped shs -> fun1DToAst shs $ \ !vars !asts ->
               let projDyn :: DynamicTensor (AstGeneric AstMethodLet s2)

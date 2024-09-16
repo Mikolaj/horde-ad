@@ -21,7 +21,7 @@ module HordeAd.Core.AstSimplify
   , astNonIndexStep, astIndexStep, astIndexStepS
   , astGatherStep, astGatherStepS
     -- * The simplifying combinators, one for most AST constructors
-  , astLet, astCond, astSumOfList, astSumOfListS
+  , astTuple, astLet, astCond, astSumOfList, astSumOfListS
   , astSum, astSumS, astScatter, astScatterS, astFromVector, astFromVectorS
   , astReplicate, astAppend, astAppendS, astSlice, astSliceS
   , astReverse, astReverseS
@@ -259,7 +259,7 @@ astNonIndexStep
   :: (AstSpan s, TensorKind y)
   => AstTensor AstMethodLet s y -> AstTensor AstMethodLet s y
 astNonIndexStep t = case t of
-  Ast.AstTuple t1 t2 -> Ast.AstTuple (astNonIndexStep t1) (astNonIndexStep t2)
+  Ast.AstTuple t1 t2 -> astTuple (astNonIndexStep t1) (astNonIndexStep t2)
   Ast.AstProject1 u -> astProject1 u
   Ast.AstProject2 u -> astProject2 u
   Ast.AstVar{} -> t
@@ -1291,6 +1291,16 @@ astSliceLax i k v =
 
 -- * The simplifying combinators, one for each AST constructor
 
+astTuple :: (TensorKind x, TensorKind y)
+         => AstTensor AstMethodLet s x -> AstTensor AstMethodLet s y
+         -> AstTensor AstMethodLet s (TKProduct x y)
+-- TODO:
+-- astTuple (Ast.AstConst v1) (Ast.AstConst v2) =
+--   Ast.AstConst (v1, v2)
+astTuple (Ast.AstConstant v1) (Ast.AstConstant v2) =
+  Ast.AstConstant $ astTuple v1 v2
+astTuple v1 v2 = Ast.AstTuple v1 v2
+
 -- Inlining works for this let constructor, because it has just one variable,
 -- unlike astLetHVectorIn, etc., so we don't try to eliminate it.
 astLet :: forall y z s s2. (AstSpan s, AstSpan s2, TensorKind y, TensorKind z)
@@ -1992,7 +2002,7 @@ astSFromR v = Ast.AstSFromR v
 astPrimalPart :: TensorKind y
               => AstTensor AstMethodLet FullSpan y -> AstTensor AstMethodLet PrimalSpan y
 astPrimalPart t = case t of
-  Ast.AstTuple t1 t2 -> Ast.AstTuple (astPrimalPart t1) (astPrimalPart t2)
+  Ast.AstTuple t1 t2 -> astTuple (astPrimalPart t1) (astPrimalPart t2)
   Ast.AstProject1 v -> astProject1 (astPrimalPart v)
   Ast.AstProject2 v -> astProject2 (astPrimalPart v)
   Ast.AstVar{} -> Ast.AstPrimalPart t  -- the only normal form
@@ -2055,7 +2065,7 @@ astPrimalPart t = case t of
 -- multiplies the dual part by the primal part. Addition is fine, though.
 astDualPart :: TensorKind y => AstTensor AstMethodLet FullSpan y -> AstTensor AstMethodLet DualSpan y
 astDualPart t = case t of
-  Ast.AstTuple t1 t2 -> Ast.AstTuple (astDualPart t1) (astDualPart t2)
+  Ast.AstTuple t1 t2 -> astTuple (astDualPart t1) (astDualPart t2)
   Ast.AstProject1 v -> astProject1 (astDualPart v)
   Ast.AstProject2 v -> astProject2 (astDualPart v)
   Ast.AstVar{} -> Ast.AstDualPart t
@@ -2277,7 +2287,7 @@ simplifyAst
   :: forall s y. (AstSpan s, TensorKind y)
   => AstTensor AstMethodLet s y -> AstTensor AstMethodLet s y
 simplifyAst t = case t of
-  Ast.AstTuple t1 t2 -> Ast.AstTuple (simplifyAst t1) (simplifyAst t2)
+  Ast.AstTuple t1 t2 -> astTuple (simplifyAst t1) (simplifyAst t2)
   Ast.AstProject1 v -> astProject1 (simplifyAst v)
   Ast.AstProject2 v -> astProject2 (simplifyAst v)
   Ast.AstVar{} -> t
@@ -2442,7 +2452,7 @@ expandAst
   :: forall s y. (AstSpan s, TensorKind y)
   => AstTensor AstMethodLet s y -> AstTensor AstMethodLet s y
 expandAst t = case t of
-  Ast.AstTuple t1 t2 -> Ast.AstTuple (expandAst t1) (expandAst t2)
+  Ast.AstTuple t1 t2 -> astTuple (expandAst t1) (expandAst t2)
   Ast.AstProject1 v -> astProject1 (expandAst v)
   Ast.AstProject2 v -> astProject2 (expandAst v)
   Ast.AstVar{} -> t
@@ -2951,7 +2961,7 @@ substitute1Ast i var v1 = case v1 of
   Ast.AstTuple u v ->
     case (substitute1Ast i var u, substitute1Ast i var v) of
       (Nothing, Nothing) -> Nothing
-      (mu, mv) -> Just $ Ast.AstTuple (fromMaybe u mu) (fromMaybe v mv)
+      (mu, mv) -> Just $ astTuple (fromMaybe u mu) (fromMaybe v mv)
   Ast.AstProject1 a -> astProject1 <$> substitute1Ast i var a
   Ast.AstProject2 a -> astProject2 <$> substitute1Ast i var a
   Ast.AstVar @y2 _sh var2 ->

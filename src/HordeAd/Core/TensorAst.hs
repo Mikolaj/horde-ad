@@ -335,7 +335,7 @@ instance TermValue (DynamicTensor (AstGeneric AstMethodLet FullSpan)) where
     DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
 
 instance ProductTensor (AstRanked s) where
-  ttuple t1 t2 = AstTuple (unRankedY stensorKind t1)
+  ttuple t1 t2 = astTuple (unRankedY stensorKind t1)
                           (unRankedY stensorKind t2)
   tproject1 = rankedY stensorKind . astProject1
   tproject2 = rankedY stensorKind . astProject2
@@ -1122,7 +1122,7 @@ instance Show (InterpretationTargetProductN (AstNoVectorize s) x y) where
   showsPrec d (InterpretationTargetProductN t) = showsPrec d t
 
 instance ProductTensor (AstNoVectorize s) where
-  ttuple t1 t2 = AstNoVectorizeWrap $ AstTuple (unNoVectorizeY stensorKind t1)
+  ttuple t1 t2 = AstNoVectorizeWrap $ astTuple (unNoVectorizeY stensorKind t1)
                                                (unNoVectorizeY stensorKind t2)
   tproject1 t = noVectorizeY stensorKind $ astProject1 $ unAstNoVectorizeWrap t
   tproject2 t = noVectorizeY stensorKind $ astProject2 $ unAstNoVectorizeWrap t
@@ -1519,7 +1519,7 @@ instance Show (InterpretationTargetProductN (AstNoSimplify s) x y) where
   showsPrec d (InterpretationTargetProductN t) = showsPrec d t
 
 instance ProductTensor (AstNoSimplify s) where
-  ttuple t1 t2 = AstNoSimplifyWrap $ AstTuple (unNoSimplifyY stensorKind t1)
+  ttuple t1 t2 = AstNoSimplifyWrap $ astTuple (unNoSimplifyY stensorKind t1)
                                               (unNoSimplifyY stensorKind t2)
   tproject1 t = noSimplifyY stensorKind $ astProject1 $ unAstNoSimplifyWrap t
   tproject2 t = noSimplifyY stensorKind $ astProject2 $ unAstNoSimplifyWrap t
