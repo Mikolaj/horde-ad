@@ -53,7 +53,7 @@ import Data.Functor.Const
 import Data.GADT.Compare
 import Data.Int (Int64)
 import Data.Kind (Type)
-import Data.List (dropWhileEnd)
+import Data.List (dropWhileEnd, elemIndex)
 import Data.Maybe (catMaybes, fromMaybe, isJust)
 import Data.Proxy (Proxy (Proxy))
 import Data.Strict.Vector qualified as Data.Vector
@@ -2204,25 +2204,45 @@ astLetHVectorIn
   => [AstDynamicVarName] -> AstTensor AstMethodLet s TKUntyped
   -> AstTensor AstMethodLet s2 (TKR r n)
   -> AstTensor AstMethodLet s2 (TKR r n)
-astLetHVectorIn vars l v =
-  let sh = shapeAst v
-  in withShapeP (shapeToList sh) $ \proxy -> case proxy of
-    Proxy @sh | Just Refl <- matchingRank @sh @n -> case l of
-      Ast.AstMkHVector l3 ->
-        let f :: forall sh1 r1. (KnownShS sh1, GoodScalar r1)
-              => AstVarName s (TKS r1 sh1) -> AstTensor AstMethodLet s (TKS r1 sh1)
-              -> AstTensor AstMethodLet s2 (TKR r n)
-              -> AstTensor AstMethodLet s2 (TKR r n)
-            f var t acc = astRFromS @sh $ astLet var t $ astSFromR acc
-        in foldr (mapRankedShaped astLet f) v (zip vars (V.toList l3))
-      Ast.AstLetHVectorInHVector vars2 d1 d2 ->
-        astLetHVectorIn vars2 d1
-        $ astLetHVectorIn vars d2 v
-      Ast.AstLet var2 u2 d2 ->
-        astLet var2 u2
-        $ astLetHVectorIn vars d2 v
-      _ -> Ast.AstLetHVectorIn vars l v
-    _ -> error "astLetHVectorIn: wrong rank of the argument"
+astLetHVectorIn vars l v = case v of
+  Ast.AstConstant v0 -> Ast.AstConstant $ astLetHVectorIn vars l v0
+  Ast.AstVar _ var2 ->
+    case elemIndex (varNameToAstVarId var2)
+                   (map dynamicVarNameToAstVarId vars) of
+      Just i | Just Refl <- sameAstSpan @s @s2 ->
+        astProjectR l i
+      _ -> v
+  Ast.AstPrimalPart (Ast.AstVar _ var2) ->
+    case elemIndex (varNameToAstVarId var2)
+         (map dynamicVarNameToAstVarId vars) of
+      Just i | Just Refl <- sameAstSpan @s @FullSpan ->
+        astPrimalPart $ astProjectR l i
+      _ -> v
+  Ast.AstDualPart (Ast.AstVar _ var2) ->
+    case elemIndex (varNameToAstVarId var2)
+         (map dynamicVarNameToAstVarId vars) of
+      Just i | Just Refl <- sameAstSpan @s @FullSpan ->
+        astDualPart $ astProjectR l i
+      _ -> v
+  _ ->
+    let sh = shapeAst v
+    in withShapeP (shapeToList sh) $ \case
+      Proxy @sh | Just Refl <- matchingRank @sh @n -> case l of
+        Ast.AstMkHVector l3 ->
+          let f :: forall sh1 r1. (KnownShS sh1, GoodScalar r1)
+                => AstVarName s (TKS r1 sh1) -> AstTensor AstMethodLet s (TKS r1 sh1)
+                -> AstTensor AstMethodLet s2 (TKR r n)
+                -> AstTensor AstMethodLet s2 (TKR r n)
+              f var t acc = astRFromS @sh $ astLet var t $ astSFromR acc
+          in foldr (mapRankedShaped astLet f) v (zip vars (V.toList l3))
+        Ast.AstLetHVectorInHVector vars2 d1 d2 ->
+          astLetHVectorIn vars2 d1
+          $ astLetHVectorIn vars d2 v
+        Ast.AstLet var2 u2 d2 ->
+          astLet var2 u2
+          $ astLetHVectorIn vars d2 v
+        _ -> Ast.AstLetHVectorIn vars l v
+      _ -> error "astLetHVectorIn: wrong rank of the argument"
 
 -- Inlining doesn't work for this let constructor, because it has many
 -- variables, so we try to reduce it to another for which it works.
@@ -2231,22 +2251,42 @@ astLetHVectorInS
   => [AstDynamicVarName] -> AstTensor AstMethodLet s TKUntyped
   -> AstTensor AstMethodLet s2 (TKS r sh)
   -> AstTensor AstMethodLet s2 (TKS r sh)
-astLetHVectorInS vars l v =
-  withListSh (Proxy @sh) $ \(_ :: IShR n) -> case l of
-    Ast.AstMkHVector l3 ->
-      let f :: forall n1 r1. (KnownNat n1, GoodScalar r1)
-            => AstVarName s (TKR r1 n1) -> AstTensor AstMethodLet s (TKR r1 n1)
-            -> AstTensor AstMethodLet s2 (TKS r sh)
-            -> AstTensor AstMethodLet s2 (TKS r sh)
-          f var t acc = astSFromR $ astLet var t $ astRFromS acc
-      in foldr (mapRankedShaped f astLet) v (zip vars (V.toList l3))
-    Ast.AstLetHVectorInHVector vars2 d1 d2 ->
-      astLetHVectorInS vars2 d1
-      $ astLetHVectorInS vars d2 v
-    Ast.AstLet var2 u2 d2 ->
-      astLet var2 u2
-      $ astLetHVectorInS vars d2 v
-    _ -> Ast.AstLetHVectorInS vars l v
+astLetHVectorInS vars l v = case v of
+  Ast.AstConstant v0 -> Ast.AstConstant $ astLetHVectorInS vars l v0
+  Ast.AstVar _ var2 ->
+    case elemIndex (varNameToAstVarId var2)
+                   (map dynamicVarNameToAstVarId vars) of
+      Just i | Just Refl <- sameAstSpan @s @s2 ->
+        astProjectS l i
+      _ -> v
+  Ast.AstPrimalPart (Ast.AstVar _ var2) ->
+    case elemIndex (varNameToAstVarId var2)
+         (map dynamicVarNameToAstVarId vars) of
+      Just i | Just Refl <- sameAstSpan @s @FullSpan ->
+        astPrimalPart $ astProjectS l i
+      _ -> v
+  Ast.AstDualPart (Ast.AstVar _ var2) ->
+    case elemIndex (varNameToAstVarId var2)
+         (map dynamicVarNameToAstVarId vars) of
+      Just i | Just Refl <- sameAstSpan @s @FullSpan ->
+        astDualPart $ astProjectS l i
+      _ -> v
+  _ ->
+    withListSh (Proxy @sh) $ \(_ :: IShR n) -> case l of
+      Ast.AstMkHVector l3 ->
+        let f :: forall n1 r1. (KnownNat n1, GoodScalar r1)
+              => AstVarName s (TKR r1 n1) -> AstTensor AstMethodLet s (TKR r1 n1)
+              -> AstTensor AstMethodLet s2 (TKS r sh)
+              -> AstTensor AstMethodLet s2 (TKS r sh)
+            f var t acc = astSFromR $ astLet var t $ astRFromS acc
+        in foldr (mapRankedShaped f astLet) v (zip vars (V.toList l3))
+      Ast.AstLetHVectorInHVector vars2 d1 d2 ->
+        astLetHVectorInS vars2 d1
+        $ astLetHVectorInS vars d2 v
+      Ast.AstLet var2 u2 d2 ->
+        astLet var2 u2
+        $ astLetHVectorInS vars d2 v
+      _ -> Ast.AstLetHVectorInS vars l v
 
 -- Inlining works for this let constructor, because it has just one variable,
 -- unlike astLetHVectorIn, etc., so we don't try to eliminate it.
