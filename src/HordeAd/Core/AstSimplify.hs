@@ -54,6 +54,7 @@ import Data.GADT.Compare
 import Data.Int (Int64)
 import Data.Kind (Type)
 import Data.List (dropWhileEnd, elemIndex)
+import Data.List.Index (ifoldr)
 import Data.Maybe (catMaybes, fromMaybe, isJust)
 import Data.Proxy (Proxy (Proxy))
 import Data.Strict.Vector qualified as Data.Vector
@@ -2148,14 +2149,29 @@ astLetHVectorInHVector
   -> AstTensor AstMethodLet s2 TKUntyped
 astLetHVectorInHVector vars u v =
   case u of
-      Ast.AstMkHVector l3 -> assert (length vars == V.length l3) $
-        foldr (mapRankedShaped astLet astLet)
-              v (zip vars (V.toList l3))
-      Ast.AstLetHVectorInHVector{} -> Ast.AstLetHVectorInHVector vars u v
-      Ast.AstLet var2 u2 d2 ->
-        astLet var2 u2
-        $ astLetHVectorInHVector vars d2 v
-      _ -> Ast.AstLetHVectorInHVector vars u v
+    Ast.AstMkHVector l3 -> assert (length vars == V.length l3) $
+      foldr (mapRankedShaped astLet astLet)
+            v (zip vars (V.toList l3))
+    Ast.AstLetHVectorInHVector{} -> Ast.AstLetHVectorInHVector vars u v
+    Ast.AstLet var2 u2 d2 ->
+      astLet var2 u2
+      $ astLetHVectorInHVector vars d2 v
+    _ ->
+      if astIsSmall True u || length vars == 1
+      then let mkLet :: Int
+                     -> AstDynamicVarName
+                     -> AstTensor AstMethodLet s2 TKUntyped
+                     -> AstTensor AstMethodLet s2 TKUntyped
+               mkLet i (AstDynamicVarName @ty @r3 @sh3 varId)
+                 | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat)
+                 , Dict <- lemKnownNatRank (knownShS @sh3) =
+                   astLet (mkAstVarName @s @(TKR r3 (X.Rank sh3)) varId)
+                          (astProjectR u i)
+                 | otherwise =
+                   astLet (mkAstVarName @s @(TKS r3 sh3) varId)
+                          (astProjectS u i)
+           in ifoldr mkLet v vars
+      else Ast.AstLetHVectorInHVector vars u v
 
 mapRankedShaped
   :: AstSpan s
@@ -2241,7 +2257,22 @@ astLetHVectorIn vars l v = case v of
         Ast.AstLet var2 u2 d2 ->
           astLet var2 u2
           $ astLetHVectorIn vars d2 v
-        _ -> Ast.AstLetHVectorIn vars l v
+        _ ->
+          if astIsSmall True l || length vars == 1
+          then let mkLet :: Int
+                         -> AstDynamicVarName
+                         -> AstTensor AstMethodLet s2 (TKR r n)
+                         -> AstTensor AstMethodLet s2 (TKR r n)
+                   mkLet i (AstDynamicVarName @ty @r3 @sh3 varId)
+                     | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat)
+                     , Dict <- lemKnownNatRank (knownShS @sh3) =
+                       astLet (mkAstVarName @s @(TKR r3 (X.Rank sh3)) varId)
+                              (astProjectR l i)
+                     | otherwise =
+                       astLet (mkAstVarName @s @(TKS r3 sh3) varId)
+                              (astProjectS l i)
+               in ifoldr mkLet v vars
+          else Ast.AstLetHVectorIn vars l v
       _ -> error "astLetHVectorIn: wrong rank of the argument"
 
 -- Inlining doesn't work for this let constructor, because it has many
@@ -2286,7 +2317,22 @@ astLetHVectorInS vars l v = case v of
       Ast.AstLet var2 u2 d2 ->
         astLet var2 u2
         $ astLetHVectorInS vars d2 v
-      _ -> Ast.AstLetHVectorInS vars l v
+      _ ->
+        if astIsSmall True l || length vars == 1
+        then let mkLet :: Int
+                       -> AstDynamicVarName
+                       -> AstTensor AstMethodLet s2 (TKS r sh)
+                       -> AstTensor AstMethodLet s2 (TKS r sh)
+                 mkLet i (AstDynamicVarName @ty @r3 @sh3 varId)
+                   | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat)
+                   , Dict <- lemKnownNatRank (knownShS @sh3) =
+                     astLet (mkAstVarName @s @(TKR r3 (X.Rank sh3)) varId)
+                            (astProjectR l i)
+                   | otherwise =
+                     astLet (mkAstVarName @s @(TKS r3 sh3) varId)
+                            (astProjectS l i)
+             in ifoldr mkLet v vars
+        else Ast.AstLetHVectorInS vars l v
 
 -- Inlining works for this let constructor, because it has just one variable,
 -- unlike astLetHVectorIn, etc., so we don't try to eliminate it.
