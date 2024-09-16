@@ -1310,16 +1310,11 @@ astLet :: forall y z s s2. (AstSpan s, AstSpan s2, TensorKind y, TensorKind z)
 astLet var u v | astIsSmall True u =
   fromMaybe v
   $ substitute1Ast (SubstitutionPayload u) (varNameToAstVarId var) v
+astLet var u (Ast.AstConstant v0) = Ast.AstConstant $ astLet var u v0
 astLet var u v@(Ast.AstVar _ var2) =
   case sameAstSpan @s @s2 of
     Just Refl -> case geq var2 var of
       Just Refl -> u
-      _ -> v
-    _ -> v
-astLet var u v@(Ast.AstConstant (Ast.AstVar _ var2)) =  -- a common noop
-  case sameAstSpan @s @PrimalSpan of
-    Just Refl -> case geq var2 var of
-      Just Refl -> Ast.AstConstant u
       _ -> v
     _ -> v
 astLet var u v@(Ast.AstPrimalPart (Ast.AstVar _ var2)) =  -- a common noop
@@ -1334,6 +1329,13 @@ astLet var u v@(Ast.AstDualPart (Ast.AstVar _ var2)) =  -- a noop
       Just Refl -> astDualPart u
       _ -> v
     _ -> v
+astLet var (Ast.AstTuple u1 u2) v =
+  astLetFun u1 $ \ !ast1 -> astLetFun u2 $ \ !ast2 ->
+    substituteAst (SubstitutionPayload $ Ast.AstTuple ast1 ast2) var v
+astLet var (Ast.AstConstant (Ast.AstTuple u1 u2)) v =
+  astLetFun u1 $ \ !ast1 -> astLetFun u2 $ \ !ast2 ->
+    substituteAst (SubstitutionPayload
+                   $ Ast.AstConstant (Ast.AstTuple ast1 ast2)) var v
 astLet var u v = Ast.AstLet var u v
 
 -- A special variant to bind integer expressions inside indexes.
@@ -1938,6 +1940,8 @@ astProject1
 astProject1 u = case u of
   Ast.AstTuple x _z -> x
   Ast.AstLet vars t v -> Ast.AstLet vars t (astProject1 v)
+-- TODO: generalize AstConst:  Ast.AstConst u1 -> Ast.AstConst $ tproject1 u1
+  Ast.AstConstant u1 -> Ast.AstConstant $ astProject1 u1
   _ -> Ast.AstProject1 u
 
 astProject2
@@ -1946,11 +1950,13 @@ astProject2
 astProject2 u = case u of
   Ast.AstTuple _x z -> z
   Ast.AstLet vars t v -> Ast.AstLet vars t (astProject2 v)
+  Ast.AstConstant u1 -> Ast.AstConstant $ astProject2 u1
   _ -> Ast.AstProject2 u
 
 astProjectR
   :: forall n r s. (KnownNat n, GoodScalar r, AstSpan s)
-  => AstTensor AstMethodLet s TKUntyped -> Int -> AstTensor AstMethodLet s (TKR r n)
+  => AstTensor AstMethodLet s TKUntyped -> Int
+  -> AstTensor AstMethodLet s (TKR r n)
 astProjectR l p = case l of
   Ast.AstMkHVector l3 ->
     unAstGeneric
@@ -1959,11 +1965,13 @@ astProjectR l p = case l of
     astLetHVectorIn vars d1 (astProjectR d2 p)
   Ast.AstLet var u2 d2 ->
     astLet var u2 (astProjectR d2 p)
+  Ast.AstConstant l1 -> Ast.AstConstant $ astProjectR l1 p
   _ -> Ast.AstProjectR l p
 
 astProjectS
   :: forall sh r s. (KnownShS sh, GoodScalar r, AstSpan s)
-  => AstTensor AstMethodLet s TKUntyped -> Int -> AstTensor AstMethodLet s (TKS r sh)
+  => AstTensor AstMethodLet s TKUntyped -> Int
+  -> AstTensor AstMethodLet s (TKS r sh)
 astProjectS l p = case l of
   Ast.AstMkHVector l3 ->
     unAstGenericS
@@ -1972,6 +1980,7 @@ astProjectS l p = case l of
     astLetHVectorInS vars d1 (astProjectS d2 p)
   Ast.AstLet var u2 d2 ->
     astLet var u2 (astProjectS d2 p)
+  Ast.AstConstant l1 -> Ast.AstConstant $ astProjectS l1 p
   _ -> Ast.AstProjectS l p
 
 astRFromS :: forall sh s r. (GoodScalar r, KnownShS sh)
@@ -2258,10 +2267,10 @@ astLetHFunInHVector
 astLetHFunInHVector = Ast.AstLetHFunInHVector
 
 -- TODO: a new section for this one?
-astLetFun :: forall y z s.
-             (TensorKind y, TensorKind z, AstSpan s)
-          => AstTensor AstMethodLet s y -> (AstTensor AstMethodLet s y -> AstTensor AstMethodLet s z)
-          -> AstTensor AstMethodLet s z
+astLetFun :: forall y z s s2.
+             (TensorKind y, TensorKind z, AstSpan s, AstSpan s2)
+          => AstTensor AstMethodLet s y -> (AstTensor AstMethodLet s y -> AstTensor AstMethodLet s2 z)
+          -> AstTensor AstMethodLet s2 z
 astLetFun a f | astIsSmall True a = f a
 astLetFun a f =
   let sh = shapeAstFull a

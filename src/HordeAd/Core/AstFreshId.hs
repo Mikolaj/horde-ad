@@ -86,12 +86,12 @@ unsafeGetFreshAstVarName :: TensorKind y => IO (AstVarName s y)
 unsafeGetFreshAstVarName =
   mkAstVarName . intToAstVarId <$> atomicAddCounter_ unsafeAstVarCounter 1
 
-funToAstIO :: forall y z s ms. TensorKind y
+funToAstIO :: forall y z s s2 ms. TensorKind y
            => TensorKindFull y
-           -> (AstTensor ms s y -> AstTensor ms s z)
+           -> (AstTensor ms s y -> AstTensor ms s2 z)
            -> IO ( AstVarName s y
                  , AstDynamicVarName
-                 , AstTensor ms s z )
+                 , AstTensor ms s2 z )
 {-# INLINE funToAstIO #-}
 funToAstIO sh f = do
   freshId <- unsafeGetFreshAstVarId
@@ -118,8 +118,8 @@ funToAstIO sh f = do
 
 funToAst :: TensorKind y
          => TensorKindFull y
-         -> (AstTensor ms s y -> AstTensor ms s z)
-         -> (AstVarName s y, AstTensor ms s z)
+         -> (AstTensor ms s y -> AstTensor ms s2 z)
+         -> (AstVarName s y, AstTensor ms s2 z)
 {-# NOINLINE funToAst #-}
 funToAst sh f = unsafePerformIO $ do
   (!var, _, !ast) <- funToAstIO sh f
