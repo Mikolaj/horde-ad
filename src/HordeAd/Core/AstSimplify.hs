@@ -1337,13 +1337,26 @@ astLet var (Ast.AstConstant (Ast.AstTuple u1 u2)) v =
   astLetFun u1 $ \ !ast1 -> astLetFun u2 $ \ !ast2 ->
     substituteAst (SubstitutionPayload
                    $ Ast.AstConstant (Ast.AstTuple ast1 ast2)) var v
+astLet var (Ast.AstLet varN uN (Ast.AstTuple u1 u2)) v =
+  astLet varN uN
+  $ astLetFun u1 $ \ !ast1 -> astLetFun u2 $ \ !ast2 ->
+      substituteAst (SubstitutionPayload $ Ast.AstTuple ast1 ast2) var v
 astLet var u@(Ast.AstMkHVector l3) v =
   let shs = shapeAstHVector u
       f !vars !asts =
-        let v2 = substituteAst (SubstitutionPayload $ Ast.AstMkHVector asts) var v
+        let v2 = substituteAst (SubstitutionPayload $ Ast.AstMkHVector asts)
+                               var v
         in foldr (mapRankedShaped astLet astLet)
                  v2 (zip vars (V.toList l3))
   in fun1DToAst shs f
+astLet var (Ast.AstLet varN uN u@(Ast.AstMkHVector l3)) v =
+  let shs = shapeAstHVector u
+      f !vars !asts =
+        let v2 = substituteAst (SubstitutionPayload $ Ast.AstMkHVector asts)
+                               var v
+        in foldr (mapRankedShaped astLet astLet)
+                 v2 (zip vars (V.toList l3))
+  in astLet varN uN $ fun1DToAst shs f
 astLet var u v = Ast.AstLet var u v
 
 -- A special variant to bind integer expressions inside indexes.
