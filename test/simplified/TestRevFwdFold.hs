@@ -2282,7 +2282,7 @@ testSin0rmapAccumRD01SN531bRPP = do
     IM.empty
     (simplifyInline
      $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1)))
-    @?= "dmkHVector (fromList [DynamicRanked (rproject (dmapAccumLDer (SNat @1) (\\h18 -> dmkHVector (fromList [DynamicRanked (rproject (tproject1 h18) 0), DynamicRankedDummy])) (\\h33 -> dmkHVector (fromList [DynamicRanked (rproject (tproject1 h33) 0), DynamicRanked 0.0])) (\\h47 -> dmkHVector (fromList [DynamicRanked (rproject (tproject1 h47) 0), DynamicRankedDummy, DynamicRankedDummy])) dmkHVector (fromList [DynamicRanked (rconstant 4.0)]) dmkHVector (fromList [DynamicRanked (rproject (dmapAccumRDer (SNat @1) (\\h60 -> dmkHVector (fromList [DynamicRanked (rproject (tproject1 h60) 0), DynamicRanked (rproject (tproject1 h60) 0)])) (\\h70 -> dmkHVector (fromList [DynamicRanked (rproject (tproject1 h70) 0), DynamicRanked (rproject (tproject1 h70) 0)])) (\\h86 -> dmkHVector (fromList [DynamicRanked (rproject (tproject1 h86) 0 + rproject (tproject1 h86) 1), DynamicRanked 0.0])) dmkHVector (fromList [DynamicRanked (rconstant 1.1)]) dmkHVector (fromList [DynamicRanked (rconstant (rconst (rfromListLinear [1] [0.0])))])) 1), DynamicRanked (rconstant (rconst (rfromListLinear [1] [0.0])))])) 0)])"
+    @?= "dmkHVector (fromList [DynamicRanked (rproject (dmapAccumLDer (SNat @1) (\\h18 -> dmkHVector (fromList [DynamicRanked (rproject (tproject1 h18) 0), DynamicRankedDummy])) (\\h33 -> dmkHVector (fromList [DynamicRanked (rproject (tproject1 h33) 0), DynamicRanked 0.0])) (\\h47 -> dmkHVector (fromList [DynamicRanked (rproject (tproject1 h47) 0), DynamicRankedDummy, DynamicRankedDummy])) (dmkHVector (fromList [DynamicRanked (rconstant 4.0)])) (dmkHVector (fromList [DynamicRanked (rproject (dmapAccumRDer (SNat @1) (\\h60 -> dmkHVector (fromList [DynamicRanked (rproject (tproject1 h60) 0), DynamicRanked (rproject (tproject1 h60) 0)])) (\\h70 -> dmkHVector (fromList [DynamicRanked (rproject (tproject1 h70) 0), DynamicRanked (rproject (tproject1 h70) 0)])) (\\h86 -> dmkHVector (fromList [DynamicRanked (rproject (tproject1 h86) 0 + rproject (tproject1 h86) 1), DynamicRanked 0.0])) (dmkHVector (fromList [DynamicRanked (rconstant 1.1)])) (dmkHVector (fromList [DynamicRanked (rconstant (rconst (rfromListLinear [1] [0.0])))]))) 1), DynamicRanked (rconstant (rconst (rfromListLinear [1] [0.0])))]))) 0)])"
 
 testSin0rmapAccumRD01SN531b0PPj :: Assertion
 testSin0rmapAccumRD01SN531b0PPj = do
@@ -3138,7 +3138,7 @@ testSin0ScanD1Rev3PP = do
                             $ rscan (\x a -> a * x) x0
                                     (rfromList [x0 * 5, x0]))) (rscalar 1.1)
   length (printAstSimple IM.empty (simplifyInlineAst a1))
-    @?= 3745
+    @?= 3761
 
 testSin0ScanDFwd3PP :: Assertion
 testSin0ScanDFwd3PP = do
@@ -3340,7 +3340,7 @@ testSin0FoldNestedR0LengthPPs = do
       IM.empty
       (simplifyInline
        $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1))))
-    @?= 2026
+    @?= 2034
 
 testSin0FoldNestedR1LengthPPs :: Assertion
 testSin0FoldNestedR1LengthPPs = do
@@ -3360,7 +3360,7 @@ testSin0FoldNestedR1LengthPPs = do
       IM.empty
       (simplifyInline
        $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1))))
-    @?= 21559
+    @?= 21627
 
 testSin0FoldNestedR2LengthPPs :: Assertion
 testSin0FoldNestedR2LengthPPs = do
@@ -3382,7 +3382,7 @@ testSin0FoldNestedR2LengthPPs = do
        IM.empty
        (simplifyInline
         $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1))))
-    @?= 267320
+    @?= 267948
 
 testSin0FoldNestedR3LengthPPs :: Assertion
 testSin0FoldNestedR3LengthPPs = do
@@ -3406,7 +3406,7 @@ testSin0FoldNestedR3LengthPPs = do
        IM.empty
        (simplifyInline
         $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1))))
-    @?= 3916804
+    @?= 3923732
 
 -- Takes 45s.
 _testSin0FoldNestedR4LengthPPs :: Assertion
@@ -3527,7 +3527,7 @@ testSin0MapAccumNestedR3LengthPP = do
        IM.empty
        (simplifyInline
         $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1))))
-    @?= 3916415
+    @?= 3923343
 
 testSin0MapAccumNestedR4 :: Assertion
 testSin0MapAccumNestedR4 = do
@@ -4255,7 +4255,7 @@ testSin0FoldNestedR21PP = do
                             a0 (rreplicate 2 a0)
            in f) (rscalar 1.1)
   length (printAstSimple IM.empty (simplifyInlineAst a1))
-    @?= 47599
+    @?= 47787
 
 testSin0revhV :: Assertion
 testSin0revhV = do

@@ -640,11 +640,11 @@ printAstAux cfg d = \case
       . showString " "
       . printAstHFun cfg 10 df
       . showString " "
-      . printAstHFun cfg 01 rf
+      . printAstHFun cfg 10 rf
       . showString " "
-      . printAst cfg 0 acc0
+      . printAst cfg 11 acc0
       . showString " "
-      . printAst cfg 0 es
+      . printAst cfg 11 es
   AstMapAccumLDer k _accShs _bShs _eShs f df rf acc0 es ->
     showParen (d > 10)
     $ showString "dmapAccumLDer "
@@ -654,11 +654,11 @@ printAstAux cfg d = \case
       . showString " "
       . printAstHFun cfg 10 df
       . showString " "
-      . printAstHFun cfg 01 rf
+      . printAstHFun cfg 10 rf
       . showString " "
-      . printAst cfg 0 acc0
+      . printAst cfg 11 acc0
       . showString " "
-      . printAst cfg 0 es
+      . printAst cfg 11 es
 
 -- Differs from standard only in the space after comma.
 showListWith :: (a -> ShowS) -> [a] -> ShowS
