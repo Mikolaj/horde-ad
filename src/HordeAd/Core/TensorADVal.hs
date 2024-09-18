@@ -122,51 +122,10 @@ cfwdOnHVector parameters f ds =
 
 -- * Misc instances
 
-mapInterpretationTargetADVal
-  :: forall f g y ranked. f ~ ADVal ranked
-  => ( ProductTensor f, ProductTensor g
-     , RankedTensor f, ShapedTensor (ShapedOf f)
-     , HVectorTensor f (ShapedOf f) )
-  => (forall r n. (GoodScalar r, KnownNat n)
-      => InterpretationTarget f (TKR r n) -> InterpretationTarget g (TKR r n))
-  -> (forall r sh. (GoodScalar r, KnownShS sh)
-      => InterpretationTarget f (TKS r sh) -> InterpretationTarget g (TKS r sh))
-  -> STensorKindType y
-  -> InterpretationTarget f y
-  -> InterpretationTarget g y
-mapInterpretationTargetADVal fr fs stk b = case stk of
-  STKR{} -> fr b
-  STKS{} -> fs b
-  STKProduct stk1 stk2 ->
-    let !t1 = mapInterpretationTargetADVal fr fs stk1 $ tproject1 b
-        !t2 = mapInterpretationTargetADVal fr fs stk2 $ tproject2 b
-    in ttuple t1 t2
-      -- this shares properly, because the product instance is (,)
-  STKUntyped ->
-    let fd :: DynamicTensor f -> DynamicTensor g
-        fd = mapDynamic fr fs
-    in HVectorPseudoTensor $ tmkHVector
-       $ V.map fd
-       $ dunHVector $ unHVectorPseudoTensor b
-      -- this shares properly, because the HVectorOf instance is just HVector
-
 instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
          , ShareTensor (PrimalOf ranked) )
          => LetTensor (ADVal ranked) (ADVal shaped) where
-  rletTKIn a f =
-    let rsharePrimal :: (GoodScalar r, KnownNat n)
-                     => ADVal ranked r n -> ADVal ranked r n
-        rsharePrimal (D u u') =
-          let !var2 = tshare u
-          in dDnotShared var2 u'
-            -- u' doesn't need to be shared, because deltas are shared separately
-        ssharePrimal :: (GoodScalar r, KnownShS sh)
-                     => ADVal shaped r sh -> ADVal shaped r sh
-        ssharePrimal (D u u') =
-          let !var2 = tshare u
-          in dDnotShared var2 u'
-    in f $ mapInterpretationTargetADVal rsharePrimal ssharePrimal stensorKind a
-  rletHVectorIn asD f = f asD
+  rletHVectorIn = (&)
 {- TODO: Try again once we have tests that show this sharing is needed:
     let !(!asUnshared, as') = unADValHVector asD
         !as = dunHVector $ tshare $ dmkHVector asUnshared
@@ -174,23 +133,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
         doms = aDValHVector as as'
     in f doms -}
   rletHFunIn = (&)
-
-  sletTKIn a f =
-    let rsharePrimal :: (GoodScalar r, KnownNat n)
-                     => ADVal (RankedOf shaped) r n
-                     -> ADVal (RankedOf shaped)  r n
-        rsharePrimal (D u u') =
-          let !var2 = tshare u
-          in dDnotShared var2 u'
-            -- u' doesn't need to be shared, because deltas are shared separately
-        ssharePrimal :: (GoodScalar r, KnownShS sh)
-                     => ADVal shaped r sh
-                     -> ADVal shaped r sh
-        ssharePrimal (D u u') =
-          let !var2 = tshare u
-          in dDnotShared var2 u'
-    in f $ mapInterpretationTargetADVal rsharePrimal ssharePrimal stensorKind a
-  sletHVectorIn asD f = f asD
+  sletHVectorIn = (&)
 {- TODO: Try again once we have tests that show this sharing is needed:
     let !(!asUnshared, as') = unADValHVector asD
         !as = dunHVector $ tshare $ dmkHVector asUnshared
@@ -198,8 +141,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
         doms = aDValHVector as as'
     in f doms -}
   sletHFunIn = (&)
-
-  dletHVectorInHVector asD f = f asD
+  dletHVectorInHVector = (&)
 {- TODO: Try again once we have tests that show this sharing is needed:
     let !(!asUnshared, as') = unADValHVector asD
         !as = dunHVector $ tshare $ dmkHVector asUnshared

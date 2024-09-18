@@ -477,33 +477,14 @@ astBuildHVector1Vectorize k f = build1Vectorize k $ funToAstI f
   :: EvalState (AstRaw PrimalSpan) -> EvalState (AstRaw PrimalSpan) #-}
 
 instance AstSpan s => LetTensor (AstRanked s) (AstShaped s) where
-  rletTKIn :: forall x z. (TensorKind x, TensorKind z)
-           => InterpretationTarget (AstRanked s) x
-           -> (InterpretationTarget (AstRanked s) x
-               -> InterpretationTarget (AstRanked s) z)
-           -> InterpretationTarget (AstRanked s) z
-  rletTKIn a f =
-    rankedY stensorKind
-    $ astLetFun @x @z (unRankedY (stensorKind @x) a)
-                      (unRankedY stensorKind . f . rankedY (stensorKind @x))
   rletHVectorIn a f =
     AstRanked
     $ astLetHVectorInFun a (unAstRanked . f . rankedHVector)
   rletHFunIn a f = AstRanked $ astLetHFunInFun a (unAstRanked . f)
-
-  sletTKIn :: forall x sh r. (TensorKind x, GoodScalar r, KnownShS sh)
-           => InterpretationTarget (AstRanked s) x
-           -> (InterpretationTarget (AstRanked s) x -> AstShaped s r sh)
-           -> AstShaped s r sh
-  sletTKIn a f =
-    AstShaped
-    $ astLetFun @x @_ @s (unRankedY (stensorKind @x) a)
-                         (unAstShaped . f . rankedY (stensorKind @x))
   sletHVectorIn a f =
     AstShaped
     $ astLetHVectorInFunS a (unAstShaped . f . rankedHVector)
   sletHFunIn a f = AstShaped $ astLetHFunInFunS a (unAstShaped . f)
-
   dletHVectorInHVector u f = astLetHVectorInHVectorFun u (f . rankedHVector)
   dletHFunInHVector = astLetHFunInHVectorFun
   tlet :: forall x z. (TensorKind x, TensorKind z)
@@ -1247,38 +1228,16 @@ noVectorizeHVectorR =
   in V.map f
 
 instance AstSpan s => LetTensor (AstNoVectorize s) (AstNoVectorizeS s) where
-  rletTKIn :: forall x z. (TensorKind x, TensorKind z)
-           => InterpretationTarget (AstNoVectorize s) x
-           -> (InterpretationTarget (AstNoVectorize s) x
-               -> InterpretationTarget (AstNoVectorize s) z)
-           -> InterpretationTarget (AstNoVectorize s) z
-  rletTKIn a f =
-    noVectorizeY stensorKind
-    $ astLetFun @x @z
-                (unNoVectorizeY stensorKind a)
-                (unNoVectorizeY stensorKind . f . noVectorizeY stensorKind)
   rletHVectorIn a f =
     AstNoVectorize $ unAstRanked
     $ rletHVectorIn (unAstNoVectorizeWrap a)
                     (unAstNoVectorize2 . f . noVectorizeHVectorR)
   rletHFunIn a f = astNoVectorize2 $ rletHFunIn a (unAstNoVectorize2 . f)
-
-  sletTKIn :: forall x sh r.
-              (TensorKind x, KnownShS sh, GoodScalar r)
-           => InterpretationTarget (AstNoVectorize s) x
-           -> (InterpretationTarget (AstNoVectorize s) x -> AstNoVectorizeS s r sh)
-           -> AstNoVectorizeS s r sh
-  sletTKIn a f =
-    AstNoVectorizeS
-    $ astLetFun @x @_ @s
-                (unNoVectorizeY stensorKind a)
-                (unAstNoVectorizeS . f . noVectorizeY stensorKind)
   sletHVectorIn a f =
     astNoVectorizeS2
     $ sletHVectorIn (unAstNoVectorizeWrap a)
                     (unAstNoVectorizeS2 . f . noVectorizeHVectorR)
   sletHFunIn a f = astNoVectorizeS2 $ sletHFunIn a (unAstNoVectorizeS2 . f)
-
   dletHVectorInHVector a f =
     AstNoVectorizeWrap
     $ dletHVectorInHVector (unAstNoVectorizeWrap a)
@@ -1573,37 +1532,16 @@ noSimplifyHVector =
   in V.map f
 
 instance AstSpan s => LetTensor (AstNoSimplify s) (AstNoSimplifyS s) where
-  rletTKIn :: forall x z. (TensorKind x, TensorKind z)
-           => InterpretationTarget (AstNoSimplify s) x
-           -> (InterpretationTarget (AstNoSimplify s) x
-               -> InterpretationTarget (AstNoSimplify s) z)
-           -> InterpretationTarget (AstNoSimplify s) z
-  rletTKIn a f =
-    noSimplifyY stensorKind
-    $ astLetFunNoSimplify @x @z @s
-        (unNoSimplifyY stensorKind a)
-        (unNoSimplifyY stensorKind . f . noSimplifyY stensorKind)
   rletHVectorIn a f =
     AstNoSimplify
     $ astLetHVectorInFunNoSimplify (unAstNoSimplifyWrap a)
                                    (unAstNoSimplify . f . noSimplifyHVector)
   rletHFunIn a f = AstNoSimplify $ astLetHFunInFunNoSimplify a (unAstNoSimplify . f)
-
-  sletTKIn :: forall x sh r. (TensorKind x, GoodScalar r, KnownShS sh)
-           => InterpretationTarget (AstNoSimplify s) x
-           -> (InterpretationTarget (AstNoSimplify s) x -> AstNoSimplifyS s r sh)
-           -> AstNoSimplifyS s r sh
-  sletTKIn a f =
-    AstNoSimplifyS
-    $ astLetFunNoSimplify @x @_ @s
-        (unNoSimplifyY stensorKind a)
-        (unAstNoSimplifyS . f . noSimplifyY stensorKind)
   sletHVectorIn a f =
     AstNoSimplifyS
     $ astLetHVectorInFunNoSimplifyS (unAstNoSimplifyWrap a)
                                     (unAstNoSimplifyS . f . noSimplifyHVector)
   sletHFunIn a f = AstNoSimplifyS $ astLetHFunInFunNoSimplifyS a (unAstNoSimplifyS . f)
-
   dletHVectorInHVector a f =
     AstNoSimplifyWrap
     $ astLetHVectorInHVectorFunNoSimplify (unAstNoSimplifyWrap a)
