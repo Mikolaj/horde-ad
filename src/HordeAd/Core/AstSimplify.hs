@@ -1337,12 +1337,36 @@ astLet var (Ast.AstLet varN uN (Ast.AstTuple u1 u2)) v =
   astLet varN uN
   $ astLetFun u1 $ \ !ast1 -> astLetFun u2 $ \ !ast2 ->
       substituteAst (SubstitutionPayload $ Ast.AstTuple ast1 ast2) var v
+astLet var (Ast.AstLetHVectorIn varsN lN (Ast.AstTuple u1 u2)) v =
+  astLetHVectorIn varsN lN
+  $ astLetFun u1 $ \ !ast1 -> astLetFun u2 $ \ !ast2 ->
+      substituteAst (SubstitutionPayload $ Ast.AstTuple ast1 ast2) var v
+astLet var (Ast.AstConstant (Ast.AstLet varN uN (Ast.AstTuple u1 u2))) v =
+  astLet varN uN
+  $ astLetFun u1 $ \ !ast1 -> astLetFun u2 $ \ !ast2 ->
+      substituteAst (SubstitutionPayload
+                     $ Ast.AstConstant (Ast.AstTuple ast1 ast2)) var v
+astLet var (Ast.AstConstant (Ast.AstLetHVectorIn
+                               varsN lN (Ast.AstTuple u1 u2))) v =
+  astLetHVectorIn varsN lN
+  $ astLetFun u1 $ \ !ast1 -> astLetFun u2 $ \ !ast2 ->
+      substituteAst (SubstitutionPayload
+                     $ Ast.AstConstant (Ast.AstTuple ast1 ast2)) var v
 astLet var u@(Ast.AstMkHVector l3) v =
   let shs = shapeAstHVector u
       f !vars !asts =
         let v2 = substituteAst (SubstitutionPayload $ Ast.AstMkHVector asts)
                                var v
         in foldr (mapRankedShaped astLet astLet)
+                 v2 (zip vars (V.toList l3))
+  in fun1DToAst shs f
+astLet var u@(Ast.AstConstant (Ast.AstMkHVector l3)) v =
+  let shs = shapeAstHVector u
+      f !vars !asts =
+        let v2 = substituteAst (SubstitutionPayload $ Ast.AstMkHVector asts)
+                               var v
+            clet varC uC vC = astLet varC (Ast.AstConstant uC) vC
+        in foldr (mapRankedShaped clet clet)
                  v2 (zip vars (V.toList l3))
   in fun1DToAst shs f
 astLet var (Ast.AstLet varN uN u@(Ast.AstMkHVector l3)) v =
@@ -1353,6 +1377,33 @@ astLet var (Ast.AstLet varN uN u@(Ast.AstMkHVector l3)) v =
         in foldr (mapRankedShaped astLet astLet)
                  v2 (zip vars (V.toList l3))
   in astLet varN uN $ fun1DToAst shs f
+astLet var (Ast.AstLetHVectorIn varsN lN u@(Ast.AstMkHVector l3)) v =
+  let shs = shapeAstHVector u
+      f !vars !asts =
+        let v2 = substituteAst (SubstitutionPayload $ Ast.AstMkHVector asts)
+                               var v
+        in foldr (mapRankedShaped astLet astLet)
+                 v2 (zip vars (V.toList l3))
+  in astLetHVectorIn varsN lN $ fun1DToAst shs f
+astLet var (Ast.AstConstant (Ast.AstLet varN uN u@(Ast.AstMkHVector l3))) v =
+  let shs = shapeAstHVector u
+      f !vars !asts =
+        let v2 = substituteAst (SubstitutionPayload $ Ast.AstMkHVector asts)
+                               var v
+            clet varC uC vC = astLet varC (Ast.AstConstant uC) vC
+        in foldr (mapRankedShaped clet clet)
+                 v2 (zip vars (V.toList l3))
+  in astLet varN uN $ fun1DToAst shs f
+astLet var (Ast.AstConstant (Ast.AstLetHVectorIn
+                               varsN lN u@(Ast.AstMkHVector l3))) v =
+  let shs = shapeAstHVector u
+      f !vars !asts =
+        let v2 = substituteAst (SubstitutionPayload $ Ast.AstMkHVector asts)
+                               var v
+            clet varC uC vC = astLet varC (Ast.AstConstant uC) vC
+        in foldr (mapRankedShaped clet clet)
+                 v2 (zip vars (V.toList l3))
+  in astLetHVectorIn varsN lN $ fun1DToAst shs f
 astLet var u v = Ast.AstLet var u v
 
 -- A special variant to bind integer expressions inside indexes.
@@ -2152,14 +2203,14 @@ astHApply t u = case t of
   Ast.AstVarHFun{} -> Ast.AstHApply t u
 
 mapRankedShaped
-  :: AstSpan s
+  :: AstSpan s2
   => (forall n r. (KnownNat n, GoodScalar r)
-      => AstVarName s (TKR r n) -> AstTensor AstMethodLet s (TKR r n) -> acc
+      => AstVarName s (TKR r n) -> AstTensor AstMethodLet s2 (TKR r n) -> acc
       -> acc)
   -> (forall sh r. (KnownShS sh, GoodScalar r)
-      => AstVarName s (TKS r sh) -> AstTensor AstMethodLet s (TKS r sh) -> acc
+      => AstVarName s (TKS r sh) -> AstTensor AstMethodLet s2 (TKS r sh) -> acc
       -> acc)
-  -> (AstDynamicVarName, AstDynamic AstMethodLet s)
+  -> (AstDynamicVarName, AstDynamic AstMethodLet s2)
   -> acc
   -> acc
 {-# INLINE mapRankedShaped #-}
@@ -2230,9 +2281,27 @@ astLetHVectorIn vars l v = case v of
   _ -> case l of
         Ast.AstMkHVector l3 ->
           foldr (mapRankedShaped astLet astLet) v (zip vars (V.toList l3))
+        Ast.AstConstant (Ast.AstMkHVector l3) ->
+          let clet varC uC vC = astLet varC (Ast.AstConstant uC) vC
+          in foldr (mapRankedShaped clet clet)
+                   v (zip vars (V.toList l3))
+        Ast.AstLetHVectorIn varsN lN (Ast.AstMkHVector l3) ->
+          astLetHVectorIn varsN lN
+          $ foldr (mapRankedShaped astLet astLet) v (zip vars (V.toList l3))
+        Ast.AstConstant (Ast.AstLetHVectorIn
+                           varsN lN (Ast.AstMkHVector l3)) ->
+          let clet varC uC vC = astLet varC (Ast.AstConstant uC) vC
+          in astLetHVectorIn varsN lN
+             $ foldr (mapRankedShaped clet clet)
+                     v (zip vars (V.toList l3))
         Ast.AstLet var2 u2 d2 ->
           astLet var2 u2
           $ astLetHVectorIn vars d2 v
+{- TODO: convert vars? do more generally?
+        Ast.AstConstant (Ast.AstLet var2 u2 d2) ->
+          astLet var2 (Ast.AstConstant u2)
+          $ astLetHVectorIn vars (Ast.AstConstant d2) v
+-}
         _ ->
           if astIsSmall True l || length vars == 1
           then let mkLet :: Int
