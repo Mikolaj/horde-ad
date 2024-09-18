@@ -77,10 +77,12 @@ class HVectorTensor ranked shaped
        => ranked r n -> (ranked r n -> ranked r2 m)
        -> ranked r2 m
   rlet = blet @_ @_ @(TKR r n) @(TKR r2 m)
-  rletHVectorIn :: (KnownNat n, GoodScalar r)
+  rletHVectorIn :: forall n r. (KnownNat n, GoodScalar r)
                 => HVectorOf ranked
                 -> (HVector ranked -> ranked r n)
                 -> ranked r n
+  rletHVectorIn a f =
+    tlet @_ @_ @TKUntyped @(TKR r n) (HVectorPseudoTensor a) f
   rletHFunIn :: (KnownNat n, GoodScalar r, TensorKind x, TensorKind z)
              => HFunOf ranked x z
              -> (HFunOf ranked x z -> ranked r n)
@@ -91,10 +93,14 @@ class HVectorTensor ranked shaped
        => shaped r sh -> (shaped r sh -> shaped r2 sh2)
        -> shaped r2 sh2
   slet = blet @_ @_ @(TKS r sh) @(TKS r2 sh2)
-  sletHVectorIn :: (KnownShS sh, GoodScalar r)
+  sletHVectorIn :: forall sh r.
+                   ( KnownShS sh, GoodScalar r
+                   , shaped ~ ShapedOf ranked, ranked ~ RankedOf shaped )
                 => HVectorOf (RankedOf shaped)
                 -> (HVector (RankedOf shaped) -> shaped r sh)
                 -> shaped r sh
+  sletHVectorIn a f =
+    tlet @_ @_ @TKUntyped @(TKS r sh) (HVectorPseudoTensor a) f
   sletHFunIn :: (KnownShS sh, GoodScalar r, TensorKind x, TensorKind z)
              => HFunOf (RankedOf shaped) x z
              -> (HFunOf (RankedOf shaped) x z -> shaped r sh)
@@ -103,6 +109,10 @@ class HVectorTensor ranked shaped
     :: HVectorOf ranked
     -> (HVector ranked -> HVectorOf ranked)
     -> HVectorOf ranked
+  dletHVectorInHVector a f =
+    unHVectorPseudoTensor
+    $ tlet @_ @_ @TKUntyped @TKUntyped (HVectorPseudoTensor a)
+                                       (HVectorPseudoTensor . f)
   -- When the programmer uses the same closed function many times, the HFun
   -- makes it possible to prevent multiple simplification, inlining, etc.,
   -- once for each copy (shared on the Haskell heap) of the function

@@ -75,11 +75,8 @@ type instance DualOf ORArray = DummyDual
 type instance ShareOf ORArray = ORArray
 
 instance LetTensor ORArray OSArray where
-  rletHVectorIn = (&)
   rletHFunIn = (&)
-  sletHVectorIn = (&)
   sletHFunIn = (&)
-  dletHVectorInHVector = (&)
   dletHFunInHVector = (&)
   tlet :: forall x z. TensorKind x
        => InterpretationTarget ORArray x

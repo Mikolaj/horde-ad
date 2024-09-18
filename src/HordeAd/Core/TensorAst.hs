@@ -477,15 +477,8 @@ astBuildHVector1Vectorize k f = build1Vectorize k $ funToAstI f
   :: EvalState (AstRaw PrimalSpan) -> EvalState (AstRaw PrimalSpan) #-}
 
 instance AstSpan s => LetTensor (AstRanked s) (AstShaped s) where
-  rletHVectorIn a f =
-    AstRanked
-    $ astLetHVectorInFun a (unAstRanked . f . rankedHVector)
   rletHFunIn a f = AstRanked $ astLetHFunInFun a (unAstRanked . f)
-  sletHVectorIn a f =
-    AstShaped
-    $ astLetHVectorInFunS a (unAstShaped . f . rankedHVector)
   sletHFunIn a f = AstShaped $ astLetHFunInFunS a (unAstShaped . f)
-  dletHVectorInHVector u f = astLetHVectorInHVectorFun u (f . rankedHVector)
   dletHFunInHVector = astLetHFunInHVectorFun
   tlet :: forall x z. (TensorKind x, TensorKind z)
        => InterpretationTarget (AstRanked s) x
@@ -1219,6 +1212,14 @@ unNoVectorizeHVectorR =
       f (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
   in V.map f
 
+noVectorizeHVector :: HVector (AstGeneric AstMethodLet s) -> HVector (AstNoVectorize s)
+noVectorizeHVector =
+  let f (DynamicRanked (AstGeneric t)) = DynamicRanked $ AstNoVectorize t
+      f (DynamicShaped (AstGenericS t)) = DynamicShaped $ AstNoVectorizeS t
+      f (DynamicRankedDummy p1 p2) = DynamicRankedDummy p1 p2
+      f (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
+  in V.map f
+
 noVectorizeHVectorR :: HVector (AstRanked s) -> HVector (AstNoVectorize s)
 noVectorizeHVectorR =
   let f (DynamicRanked (AstRanked t)) = DynamicRanked $ AstNoVectorize t
@@ -1228,20 +1229,8 @@ noVectorizeHVectorR =
   in V.map f
 
 instance AstSpan s => LetTensor (AstNoVectorize s) (AstNoVectorizeS s) where
-  rletHVectorIn a f =
-    AstNoVectorize $ unAstRanked
-    $ rletHVectorIn (unAstNoVectorizeWrap a)
-                    (unAstNoVectorize2 . f . noVectorizeHVectorR)
   rletHFunIn a f = astNoVectorize2 $ rletHFunIn a (unAstNoVectorize2 . f)
-  sletHVectorIn a f =
-    astNoVectorizeS2
-    $ sletHVectorIn (unAstNoVectorizeWrap a)
-                    (unAstNoVectorizeS2 . f . noVectorizeHVectorR)
   sletHFunIn a f = astNoVectorizeS2 $ sletHFunIn a (unAstNoVectorizeS2 . f)
-  dletHVectorInHVector a f =
-    AstNoVectorizeWrap
-    $ dletHVectorInHVector (unAstNoVectorizeWrap a)
-                           (unAstNoVectorizeWrap . f . noVectorizeHVectorR)
   dletHFunInHVector t f =
     AstNoVectorizeWrap
     $ dletHFunInHVector t (unAstNoVectorizeWrap . f)
@@ -1259,8 +1248,27 @@ instance AstSpan s => LetTensor (AstNoVectorize s) (AstNoVectorizeS s) where
               $ astLetFun
                   (unAstNoVectorizeS u)
                   (unNoVectorizeY (stensorKind @z) . f . AstNoVectorizeS)
-    STKProduct{} -> error "TODO"
-    STKUntyped{} -> error "TODO"
+    STKProduct{} ->
+      blet u $ \ !uShared -> f (tproject1 uShared, tproject2 uShared)
+    STKUntyped{} -> case stensorKind @z of
+      STKR{} ->
+        AstNoVectorize
+        $ astLetHVectorInFun
+            (unAstNoVectorizeWrap $ unHVectorPseudoTensor u)
+            (unAstNoVectorize . f . noVectorizeHVector)
+      STKS{} ->
+        AstNoVectorizeS
+        $ astLetHVectorInFunS
+            (unAstNoVectorizeWrap $ unHVectorPseudoTensor u)
+            (unAstNoVectorizeS . f . noVectorizeHVector)
+      STKProduct{} ->
+        blet u $ \ !uShared -> f $ dunHVector $ unHVectorPseudoTensor uShared
+      STKUntyped{} ->
+        HVectorPseudoTensor $ AstNoVectorizeWrap
+        $ astLetHVectorInHVectorFun
+            (unAstNoVectorizeWrap $ unHVectorPseudoTensor u)
+            (unAstNoVectorizeWrap . unHVectorPseudoTensor
+             . f . noVectorizeHVector)
   blet :: forall x z. (TensorKind x, TensorKind z)
        => InterpretationTarget (AstNoVectorize s) x
        -> (InterpretationTarget (AstNoVectorize s) x
@@ -1275,8 +1283,17 @@ instance AstSpan s => LetTensor (AstNoVectorize s) (AstNoVectorizeS s) where
               $ astLetFun
                   (unAstNoVectorizeS u)
                   (unNoVectorizeY (stensorKind @z) . f . AstNoVectorizeS)
-    STKProduct{} -> error "TODO"
-    STKUntyped{} -> error "TODO"
+    STKProduct{} ->
+      noVectorizeY (stensorKind @z)
+      $ astLetFun
+          (unAstNoVectorizeWrap u)
+          (unNoVectorizeY (stensorKind @z) . f . AstNoVectorizeWrap)
+    STKUntyped{} ->
+      noVectorizeY (stensorKind @z)
+      $ astLetFun
+          (unAstNoVectorizeWrap $ unHVectorPseudoTensor u)
+          (unNoVectorizeY (stensorKind @z)
+           . f . HVectorPseudoTensor . AstNoVectorizeWrap)
 
   toShare :: forall y. TensorKind y
           => InterpretationTarget (AstNoVectorize s) y
@@ -1532,20 +1549,8 @@ noSimplifyHVector =
   in V.map f
 
 instance AstSpan s => LetTensor (AstNoSimplify s) (AstNoSimplifyS s) where
-  rletHVectorIn a f =
-    AstNoSimplify
-    $ astLetHVectorInFunNoSimplify (unAstNoSimplifyWrap a)
-                                   (unAstNoSimplify . f . noSimplifyHVector)
   rletHFunIn a f = AstNoSimplify $ astLetHFunInFunNoSimplify a (unAstNoSimplify . f)
-  sletHVectorIn a f =
-    AstNoSimplifyS
-    $ astLetHVectorInFunNoSimplifyS (unAstNoSimplifyWrap a)
-                                    (unAstNoSimplifyS . f . noSimplifyHVector)
   sletHFunIn a f = AstNoSimplifyS $ astLetHFunInFunNoSimplifyS a (unAstNoSimplifyS . f)
-  dletHVectorInHVector a f =
-    AstNoSimplifyWrap
-    $ astLetHVectorInHVectorFunNoSimplify (unAstNoSimplifyWrap a)
-                                          (unAstNoSimplifyWrap . f . noSimplifyHVector)
   dletHFunInHVector t f =
     AstNoSimplifyWrap
     $ astLetHFunInHVectorFunNoSimplify t (unAstNoSimplifyWrap . f)
@@ -1563,8 +1568,27 @@ instance AstSpan s => LetTensor (AstNoSimplify s) (AstNoSimplifyS s) where
               $ astLetFunNoSimplify
                   (unAstNoSimplifyS u)
                   (unNoSimplifyY (stensorKind @z) . f . AstNoSimplifyS)
-    STKProduct{} -> error "TODO"
-    STKUntyped{} -> error "TODO"
+    STKProduct{} ->
+      blet u $ \ !uShared -> f (tproject1 uShared, tproject2 uShared)
+    STKUntyped{} -> case stensorKind @z of
+      STKR{} ->
+        AstNoSimplify
+        $ astLetHVectorInFunNoSimplify
+            (unAstNoSimplifyWrap $ unHVectorPseudoTensor u)
+            (unAstNoSimplify . f . noSimplifyHVector)
+      STKS{} ->
+        AstNoSimplifyS
+        $ astLetHVectorInFunNoSimplifyS
+            (unAstNoSimplifyWrap $ unHVectorPseudoTensor u)
+            (unAstNoSimplifyS . f . noSimplifyHVector)
+      STKProduct{} ->
+        blet u $ \ !uShared -> f $ dunHVector $ unHVectorPseudoTensor uShared
+      STKUntyped{} ->
+        HVectorPseudoTensor $ AstNoSimplifyWrap
+        $ astLetHVectorInHVectorFunNoSimplify
+            (unAstNoSimplifyWrap $ unHVectorPseudoTensor u)
+            (unAstNoSimplifyWrap . unHVectorPseudoTensor
+             . f . noSimplifyHVector)
   blet :: forall x z. (TensorKind x, TensorKind z)
        => InterpretationTarget (AstNoSimplify s) x
        -> (InterpretationTarget (AstNoSimplify s) x
@@ -1579,8 +1603,17 @@ instance AstSpan s => LetTensor (AstNoSimplify s) (AstNoSimplifyS s) where
               $ astLetFunNoSimplify
                   (unAstNoSimplifyS u)
                   (unNoSimplifyY (stensorKind @z) . f . AstNoSimplifyS)
-    STKProduct{} -> error "TODO"
-    STKUntyped{} -> error "TODO"
+    STKProduct{} ->
+      noSimplifyY (stensorKind @z)
+      $ astLetFunNoSimplify
+          (unAstNoSimplifyWrap u)
+          (unNoSimplifyY (stensorKind @z) . f . AstNoSimplifyWrap)
+    STKUntyped{} ->
+      noSimplifyY (stensorKind @z)
+      $ astLetFunNoSimplify
+          (unAstNoSimplifyWrap $ unHVectorPseudoTensor u)
+          (unNoSimplifyY (stensorKind @z)
+           . f . HVectorPseudoTensor . AstNoSimplifyWrap)
 
   toShare :: forall y. TensorKind y
           => InterpretationTarget (AstNoSimplify s) y
