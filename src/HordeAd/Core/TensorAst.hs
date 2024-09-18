@@ -477,14 +477,15 @@ astBuildHVector1Vectorize k f = build1Vectorize k $ funToAstI f
   :: EvalState (AstRaw PrimalSpan) -> EvalState (AstRaw PrimalSpan) #-}
 
 instance AstSpan s => LetTensor (AstRanked s) (AstShaped s) where
-  rletTKIn :: forall x n r. (TensorKind x, KnownNat n, GoodScalar r)
+  rletTKIn :: forall x z. (TensorKind x, TensorKind z)
            => InterpretationTarget (AstRanked s) x
-           -> (InterpretationTarget (AstRanked s) x -> AstRanked s r n)
-           -> AstRanked s r n
+           -> (InterpretationTarget (AstRanked s) x
+               -> InterpretationTarget (AstRanked s) z)
+           -> InterpretationTarget (AstRanked s) z
   rletTKIn a f =
-    AstRanked
-    $ astLetFun @x @_ @s (unRankedY (stensorKind @x) a)
-                         (unAstRanked . f . rankedY (stensorKind @x))
+    rankedY stensorKind
+    $ astLetFun @x @z (unRankedY (stensorKind @x) a)
+                      (unRankedY stensorKind . f . rankedY (stensorKind @x))
   rletHVectorIn a f =
     AstRanked
     $ astLetHVectorInFun a (unAstRanked . f . rankedHVector)
@@ -1146,11 +1147,13 @@ unNoVectorizeY stk t = case stk of
   STKProduct{} -> unAstNoVectorizeWrap t
   STKUntyped -> unAstNoVectorizeWrap $ unHVectorPseudoTensor t
 
-astLetFunNoSimplify :: forall y z s.
-                       (TensorKind y, TensorKind z, AstSpan s)
-                    => AstTensor AstMethodLet s y -> (AstTensor AstMethodLet s y -> AstTensor AstMethodLet s z)
-                    -> AstTensor AstMethodLet s z
-astLetFunNoSimplify a f | astIsSmall True a = f a  -- too important an optimization
+astLetFunNoSimplify
+  :: forall x z s. (TensorKind x, TensorKind z, AstSpan s)
+  => AstTensor AstMethodLet s x
+  -> (AstTensor AstMethodLet s x -> AstTensor AstMethodLet s z)
+  -> AstTensor AstMethodLet s z
+astLetFunNoSimplify a f | astIsSmall True a = f a
+                            -- too important an optimization to skip
 astLetFunNoSimplify a f =
   let sh = shapeAstFull a
       (var, ast) = funToAst sh f
@@ -1244,16 +1247,16 @@ noVectorizeHVectorR =
   in V.map f
 
 instance AstSpan s => LetTensor (AstNoVectorize s) (AstNoVectorizeS s) where
-  rletTKIn :: forall x n r.
-              (TensorKind x, KnownNat n, GoodScalar r)
+  rletTKIn :: forall x z. (TensorKind x, TensorKind z)
            => InterpretationTarget (AstNoVectorize s) x
-           -> (InterpretationTarget (AstNoVectorize s) x -> AstNoVectorize s r n)
-           -> AstNoVectorize s r n
+           -> (InterpretationTarget (AstNoVectorize s) x
+               -> InterpretationTarget (AstNoVectorize s) z)
+           -> InterpretationTarget (AstNoVectorize s) z
   rletTKIn a f =
-    AstNoVectorize
-    $ astLetFun @x @_ @s
+    noVectorizeY stensorKind
+    $ astLetFun @x @z
                 (unNoVectorizeY stensorKind a)
-                (unAstNoVectorize . f . noVectorizeY stensorKind)
+                (unNoVectorizeY stensorKind . f . noVectorizeY stensorKind)
   rletHVectorIn a f =
     AstNoVectorize $ unAstRanked
     $ rletHVectorIn (unAstNoVectorizeWrap a)
@@ -1570,15 +1573,16 @@ noSimplifyHVector =
   in V.map f
 
 instance AstSpan s => LetTensor (AstNoSimplify s) (AstNoSimplifyS s) where
-  rletTKIn :: forall x n r. (TensorKind x, KnownNat n, GoodScalar r)
+  rletTKIn :: forall x z. (TensorKind x, TensorKind z)
            => InterpretationTarget (AstNoSimplify s) x
-           -> (InterpretationTarget (AstNoSimplify s) x -> AstNoSimplify s r n)
-           -> AstNoSimplify s r n
+           -> (InterpretationTarget (AstNoSimplify s) x
+               -> InterpretationTarget (AstNoSimplify s) z)
+           -> InterpretationTarget (AstNoSimplify s) z
   rletTKIn a f =
-    AstNoSimplify
-    $ astLetFunNoSimplify @x @_ @s
+    noSimplifyY stensorKind
+    $ astLetFunNoSimplify @x @z @s
         (unNoSimplifyY stensorKind a)
-        (unAstNoSimplify . f . noSimplifyY stensorKind)
+        (unNoSimplifyY stensorKind . f . noSimplifyY stensorKind)
   rletHVectorIn a f =
     AstNoSimplify
     $ astLetHVectorInFunNoSimplify (unAstNoSimplifyWrap a)
