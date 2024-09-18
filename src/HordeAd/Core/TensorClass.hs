@@ -73,14 +73,14 @@ class HVectorTensor ranked shaped
       => LetTensor (ranked :: RankedTensorType)
                    (shaped :: ShapedTensorType)
                    | ranked -> shaped, shaped -> ranked where
-  rletTKIn :: (GoodScalar r, KnownNat n, TensorKind y)
-           => STensorKindType y -> InterpretationTarget ranked y
-           -> (InterpretationTarget ranked y -> ranked r n)
+  rletTKIn :: (GoodScalar r, KnownNat n, TensorKind x)
+           => InterpretationTarget ranked x
+           -> (InterpretationTarget ranked x -> ranked r n)
            -> ranked r n
   rlet :: forall n m r r2. (KnownNat n, KnownNat m, GoodScalar r, GoodScalar r2)
        => ranked r n -> (ranked r n -> ranked r2 m)
        -> ranked r2 m
-  rlet = rletTKIn (STKR typeRep SNat)
+  rlet = rletTKIn @_ @_ @_ @_ @(TKR r n)
   rletHVectorIn :: (KnownNat n, GoodScalar r)
                 => HVectorOf ranked
                 -> (HVector ranked -> ranked r n)
@@ -90,17 +90,16 @@ class HVectorTensor ranked shaped
              -> (HFunOf ranked x z -> ranked r n)
              -> ranked r n
 
-  sletTKIn :: (GoodScalar r, KnownShS sh, TensorKind y)
-           => STensorKindType y -> InterpretationTarget (RankedOf shaped) y
-           -> (InterpretationTarget (RankedOf shaped) y -> shaped r sh)
+  sletTKIn :: (GoodScalar r, KnownShS sh, TensorKind x)
+           => InterpretationTarget (RankedOf shaped) x
+           -> (InterpretationTarget (RankedOf shaped) x -> shaped r sh)
            -> shaped r sh
-
   slet :: forall sh sh2 r r2.
           ( KnownShS sh, KnownShS sh2, GoodScalar r, GoodScalar r2
           , shaped ~ ShapedOf ranked, RankedOf shaped ~ ranked )
        => shaped r sh -> (shaped r sh -> shaped r2 sh2)
        -> shaped r2 sh2
-  slet = sletTKIn (STKS typeRep knownShS)
+  slet = sletTKIn @_ @_ @_ @_ @(TKS r sh)
   sletHVectorIn :: (KnownShS sh, GoodScalar r)
                 => HVectorOf (RankedOf shaped)
                 -> (HVector (RankedOf shaped) -> shaped r sh)

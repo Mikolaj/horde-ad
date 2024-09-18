@@ -75,10 +75,10 @@ type instance DualOf ORArray = DummyDual
 type instance ShareOf ORArray = ORArray
 
 instance LetTensor ORArray OSArray where
-  rletTKIn _ a f = f a
+  rletTKIn a f = f a
   rletHVectorIn = (&)
   rletHFunIn = (&)
-  sletTKIn _ a f = f a
+  sletTKIn a f = f a
   sletHVectorIn = (&)
   sletHFunIn = (&)
   dletHVectorInHVector = (&)

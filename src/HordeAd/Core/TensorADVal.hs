@@ -153,7 +153,7 @@ mapInterpretationTargetADVal fr fs stk b = case stk of
 instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
          , ShareTensor (PrimalOf ranked) )
          => LetTensor (ADVal ranked) (ADVal shaped) where
-  rletTKIn stk a f =
+  rletTKIn a f =
     let rsharePrimal :: (GoodScalar r, KnownNat n)
                      => ADVal ranked r n -> ADVal ranked r n
         rsharePrimal (D u u') =
@@ -165,7 +165,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
         ssharePrimal (D u u') =
           let !var2 = tshare u
           in dDnotShared var2 u'
-    in f $ mapInterpretationTargetADVal rsharePrimal ssharePrimal stk a
+    in f $ mapInterpretationTargetADVal rsharePrimal ssharePrimal stensorKind a
   rletHVectorIn asD f = f asD
 {- TODO: Try again once we have tests that show this sharing is needed:
     let !(!asUnshared, as') = unADValHVector asD
@@ -175,7 +175,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
     in f doms -}
   rletHFunIn = (&)
 
-  sletTKIn stk a f =
+  sletTKIn a f =
     let rsharePrimal :: (GoodScalar r, KnownNat n)
                      => ADVal (RankedOf shaped) r n
                      -> ADVal (RankedOf shaped)  r n
@@ -189,7 +189,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
         ssharePrimal (D u u') =
           let !var2 = tshare u
           in dDnotShared var2 u'
-    in f $ mapInterpretationTargetADVal rsharePrimal ssharePrimal stk a
+    in f $ mapInterpretationTargetADVal rsharePrimal ssharePrimal stensorKind a
   sletHVectorIn asD f = f asD
 {- TODO: Try again once we have tests that show this sharing is needed:
     let !(!asUnshared, as') = unADValHVector asD
