@@ -317,22 +317,6 @@ inlineAst memo v0 = case v0 of
     let (memo1, t2) = inlineAstHFun memo t
         (memo2, ll2) = inlineAst memo1 ll
     in (memo2, Ast.AstHApply t2 ll2)
-  Ast.AstLetHVectorInHVector vars u v ->
-    -- We don't inline, but elsewhere try to reduce to constructors that we do.
-    let (memo1, u2) = inlineAst memo u
-        (memo2, v2) = inlineAst memo1 v
-    in (memo2, Ast.AstLetHVectorInHVector vars u2 v2)
-  Ast.AstLetHFunInHVector var f v ->
-    -- We assume there are no nested lets with the same variable.
-    -- We assume functions are never small enough to justify inlining
-    -- into more than one place.
-    let (memo1, v2) = inlineAst memo v
-        (memo2, f2) = inlineAstHFun memo1 f
-    in case EM.findWithDefault 0 var memo2 of
-      0 -> (memo1, v2)
-      1 -> (memo2, fromMaybe v2 $ substitute1Ast
-                                    (SubstitutionPayloadHFun f2) var v2)
-      _ -> (memo2, Ast.AstLetHFunInHVector var f2 v2)
   Ast.AstBuildHVector1 k (var, v) ->
     let (memoV0, v2) = inlineAst EM.empty v
         memo1 = EM.unionWith

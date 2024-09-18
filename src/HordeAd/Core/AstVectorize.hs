@@ -224,7 +224,7 @@ build1V snat@SNat (var, v00) =
             STKUntyped ->
               astTrAstHVector
               $ fun1DToAst (shapeAstHVector u) $ \ !vars !asts ->
-                  Ast.AstLetHVectorInHVector
+                  Ast.AstLetHVectorIn
                     vars
                     u
                     (Ast.AstMkHVector
@@ -430,17 +430,6 @@ build1V snat@SNat (var, v00) =
         astHApply
           (build1VHFun snat (var, t))
           (build1VOccurenceUnknown snat (var, ll))
-    Ast.AstLetHVectorInHVector vars1 u v -> traceRule $
-      let (vOut, varsOut) = substProjVars @k var vars1 v
-      in astLetHVectorInHVector
-           varsOut (build1VOccurenceUnknown snat (var, u))
-                   (build1VOccurenceUnknownRefresh snat (var, vOut))
-    Ast.AstLetHFunInHVector @x @z var1 f v
-      | Dict <- lemTensorKindOfBuild snat (stensorKind @x)
-      , Dict <- lemTensorKindOfBuild snat (stensorKind @z) -> traceRule $
-        -- We take advantage of the fact that f contains no free index vars.
-        astLetHFunInHVector var1 (build1VHFun snat (var, f))
-                                 (build1V snat (var, v))
     Ast.AstBuildHVector1{} -> traceRule $
       error "build1V: impossible case of AstBuildHVector1"
     Ast.AstMapAccumRDer k5 (FTKUntyped accShs) (FTKUntyped bShs) (FTKUntyped eShs)
@@ -676,7 +665,7 @@ substProjInterpretationTarget snat@SNat var ftk2 var1 v
                     | Just Refl <- sameShape @sh2 @(k ': sh3) =
                       DynamicShaped $ AstGenericS $ projection t (FTKS @_ @sh3)
                   projDyn _ _ = error "projDyn: impossible DynamicTensor cases"
-              in Ast.AstLetHVectorInHVector
+              in Ast.AstLetHVectorIn
                    vars
                    prVar
                    (Ast.AstMkHVector $ V.zipWith projDyn asts shs0)
@@ -778,7 +767,7 @@ astTrAstHVector :: forall s. AstSpan s
                 => AstTensor AstMethodLet s TKUntyped -> AstTensor AstMethodLet s TKUntyped
 astTrAstHVector t =
   fun1DToAst (shapeAstHVector t) $ \ !vars !asts ->
-    Ast.AstLetHVectorInHVector
+    Ast.AstLetHVectorIn
       vars
       t
       (Ast.AstMkHVector @_ @s $ V.map astTrDynamic asts)
@@ -787,7 +776,7 @@ astTrAstHVectorTail :: forall s. AstSpan s
                     => Int -> AstTensor AstMethodLet s TKUntyped -> AstTensor AstMethodLet s TKUntyped
 astTrAstHVectorTail i t =
   fun1DToAst (shapeAstHVector t) $ \ !vars !asts ->
-    Ast.AstLetHVectorInHVector
+    Ast.AstLetHVectorIn
       vars
       t
       (Ast.AstMkHVector @_ @s $ V.take i asts

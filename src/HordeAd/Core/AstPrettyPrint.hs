@@ -534,49 +534,6 @@ printAstAux cfg d = \case
            . printAstHFunOneUnignore cfg 10 t
            . showString " "
            . printAst cfg 11 ll
-  AstLetHVectorInHVector vars l v ->
-    if loseRoudtrip cfg
-    then
-      showParen (d > 10)
-      $ showString "let "
-        . showListWith (showString
-                        . printAstDynamicVarName (varRenames cfg)) vars
-        . showString " = "
-        . printAst cfg 0 l
-        . showString " in "
-        . printAst cfg 0 v
-    else
-      showParen (d > 10)
-      $ showString "dletHVectorInHVector "
-        . printAst cfg 11 l
-        . showString " "
-        . (showParen True
-           $ showString "\\"
-             . showListWith (showString
-                             . printAstDynamicVarName (varRenames cfg)) vars
-             . showString " -> "
-             . printAst cfg 0 v)
-  AstLetHFunInHVector var f v ->
-    if loseRoudtrip cfg
-    then
-      showParen (d > 10)
-      $ showString "let "
-        . printAstFunVar cfg var
-        . showString " = "
-        . printAstHFun cfg 0 f
-        . showString " in "
-        . printAst cfg 0 v
-    else
-      showParen (d > 10)
-      $ showString "dletHFunInHVector "
-        . printAstHFun cfg 11 f
-        . showString " "
-        . (showParen True
-           $ showString "\\"
-             . printAstFunVar cfg var
-             . showString " -> "
-             . printAst cfg 0 v)
-        -- TODO: this does not roundtrip yet
   AstBuildHVector1 k (var, v) ->
     showParen (d > 10)
     $ showString "dbuild1 "

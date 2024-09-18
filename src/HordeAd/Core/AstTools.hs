@@ -140,8 +140,6 @@ shapeAstFull t = case t of
     FTKUntyped
     $ V.map (voidFromDynamicF (shapeToList . shapeAst . unAstGeneric)) v
   AstHApply v _ll -> shapeAstHFun v
-  AstLetHVectorInHVector _ _ v -> shapeAstFull v
-  AstLetHFunInHVector _ _ v -> shapeAstFull v
   AstBuildHVector1 k (_, v) ->
     FTKUntyped $ replicate1VoidHVector k $ shapeAstHVector v
   AstMapAccumRDer k (FTKUntyped accShs) (FTKUntyped bShs)
@@ -262,8 +260,6 @@ varInAst var = \case
 
   AstMkHVector l -> any (varInAstDynamic var) l
   AstHApply t ll -> varInAstHFun var t || varInAst var ll
-  AstLetHVectorInHVector _vars2 u v -> varInAst var u || varInAst var v
-  AstLetHFunInHVector _var2 f v -> varInAstHFun var f || varInAst var v
   AstBuildHVector1 _ (_var2, v) -> varInAst var v
   AstMapAccumRDer _k _accShs _bShs _eShs _f _df _rf acc0 es ->
     varInAst var acc0 || varInAst var es

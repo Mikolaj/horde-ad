@@ -448,7 +448,7 @@ astLetHVectorInHVectorFun
 {-# INLINE astLetHVectorInHVectorFun #-}
 astLetHVectorInHVectorFun a f =
   fun1DToAst (shapeAstHVector a) $ \ !vars !asts ->
-    astLetHVectorInHVector vars a (f asts)
+    astLetHVectorIn vars a (f asts)
 
 astLetHFunInHVectorFun
   :: (TensorKind x, TensorKind z)
@@ -458,7 +458,7 @@ astLetHFunInHVectorFun
 astLetHFunInHVectorFun a f =
   let shss = domainShapeAstHFun a
       shs = shapeAstHFun a
-  in fun1HToAst shss shs $ \ !var !ast -> astLetHFunInHVector var a (f ast)
+  in fun1HToAst shss shs $ \ !var !ast -> astLetHFunIn var a (f ast)
 
 astBuildHVector1Vectorize
   :: AstSpan s
@@ -1194,7 +1194,7 @@ astLetHVectorInHVectorFunNoSimplify
   -> AstTensor AstMethodLet s TKUntyped
 astLetHVectorInHVectorFunNoSimplify a f =
   fun1DToAst (shapeAstHVector a) $ \ !vars !asts ->
-    AstLetHVectorInHVector vars a (f asts)
+    AstLetHVectorIn vars a (f asts)
 
 astLetHFunInHVectorFunNoSimplify
   :: (TensorKind x, TensorKind y)
@@ -1203,7 +1203,7 @@ astLetHFunInHVectorFunNoSimplify
 astLetHFunInHVectorFunNoSimplify a f =
   let shss = domainShapeAstHFun a
       shs = shapeAstHFun a
-  in fun1HToAst shss shs $ \ !var !ast -> AstLetHFunInHVector var a (f ast)
+  in fun1HToAst shss shs $ \ !var !ast -> AstLetHFunIn var a (f ast)
 
 unAstNoVectorize2 :: AstNoVectorize s r n -> AstRanked s r n
 unAstNoVectorize2 = AstRanked . unAstNoVectorize

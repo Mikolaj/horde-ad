@@ -561,7 +561,17 @@ interpretAst !env = \case
                     extendEnvHVector vars lw env
       in sletHVectorIn lt (\lw -> interpretAst (env2 lw) v)
     STKProduct{} -> error "interpretAst: STKProduct"
-    STKUntyped -> error "interpretAst: STKUntyped"
+    STKUntyped ->
+      let lt = unHVectorPseudoTensor $ interpretAst env l
+          env2 lw = assert (voidHVectorMatches (voidFromVars vars) lw
+                            `blame` ( shapeVoidHVector (voidFromVars vars)
+                                    , V.toList $ V.map shapeDynamic lw
+                                    , shapeAstFull l
+                                    , shapeVoidHVector (dshape lt) )) $
+                    extendEnvHVector vars lw env
+      in HVectorPseudoTensor
+         $ dletHVectorInHVector lt (\lw -> unHVectorPseudoTensor
+                                           $ interpretAst (env2 lw) v)
   AstLetHFunIn @_ @x2 @y2 @z2 var f v -> case stensorKind @y2 of
     STKR{} ->
       let g = interpretAstHFun env f
@@ -572,7 +582,12 @@ interpretAst !env = \case
           env2 h = extendEnvHFun (Proxy @x2) (Proxy @z2) var h env
       in sletHFunIn @_ @_ @_ @_ @x2 @z2 g (\h -> interpretAst (env2 h) v)
     STKProduct{} -> error "interpretAst: STKProduct"
-    STKUntyped -> error "interpretAst: STKUntyped"
+    STKUntyped ->
+      let g = interpretAstHFun env f
+          env2 h = extendEnvHFun (Proxy @x2) (Proxy @z2) var h env
+      in HVectorPseudoTensor
+         $ dletHFunInHVector @_ @_ @x2 @z2
+             g (\h -> unHVectorPseudoTensor $ interpretAst (env2 h) v)
   AstRFromS v -> rfromS $ interpretAst env v
 
   AstMinIndexS v ->
@@ -796,22 +811,6 @@ interpretAst !env = \case
           -- agreed, the AstHApply would likely be simplified before
           -- getting interpreted
     in dHApply t2 ll2
-  AstLetHVectorInHVector vars l v ->
-    let lt = unHVectorPseudoTensor $ interpretAst env l
-        env2 lw = assert (voidHVectorMatches (voidFromVars vars) lw
-                          `blame` ( shapeVoidHVector (voidFromVars vars)
-                                  , V.toList $ V.map shapeDynamic lw
-                                  , shapeAstFull l
-                                  , shapeVoidHVector (dshape lt) )) $
-                  extendEnvHVector vars lw env
-    in HVectorPseudoTensor
-       $ dletHVectorInHVector lt (\lw -> unHVectorPseudoTensor $ interpretAst (env2 lw) v)
-  AstLetHFunInHVector @x2 @y2 var f v ->
-    let g = interpretAstHFun env f
-        env2 h = extendEnvHFun (Proxy @x2) (Proxy @y2) var h env
-    in HVectorPseudoTensor
-       $ dletHFunInHVector @_ @_ @x2 @y2
-           g (\h -> unHVectorPseudoTensor $ interpretAst (env2 h) v)
   AstBuildHVector1 k (var, v) ->
     HVectorPseudoTensor
        $ dbuild1 k (interpretLambdaIHVector interpretAst env (var, v))

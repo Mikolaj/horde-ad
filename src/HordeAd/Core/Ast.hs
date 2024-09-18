@@ -507,15 +507,6 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType -> Type wh
   -- The operations below is why we need AstTensor ms s TKUntyped and so HVectorOf.
   -- If we kept a vector of terms instead, we'd need to let-bind in each
   -- of the terms separately, duplicating the let-bound term.
-  AstLetHVectorInHVector
-    :: AstSpan s
-    => [AstDynamicVarName] -> AstTensor AstMethodLet s TKUntyped
-    -> AstTensor AstMethodLet s2 TKUntyped
-    -> AstTensor AstMethodLet s2 TKUntyped
-  AstLetHFunInHVector :: (TensorKind x, TensorKind z)
-                      => AstVarId -> AstHFun x z
-                      -> AstTensor AstMethodLet s2 TKUntyped
-                      -> AstTensor AstMethodLet s2 TKUntyped
   AstBuildHVector1 :: SNat k -> (IntVarName, AstTensor ms s TKUntyped)
                    -> AstTensor ms s TKUntyped
   AstMapAccumRDer
