@@ -486,14 +486,8 @@ instance AstSpan s => LetTensor (AstRanked s) (AstShaped s) where
            -> InterpretationTarget (AstRanked s) z)
        -> InterpretationTarget (AstRanked s) z
   tlet u f = case stensorKind @x of
-    STKR{} ->
-      rankedY (stensorKind @z)
-      $ astLetFun (unAstRanked u)
-                  (unRankedY (stensorKind @z) . f . AstRanked)
-    STKS{} ->
-      rankedY (stensorKind @z)
-      $ astLetFun (unAstShaped u)
-                  (unRankedY (stensorKind @z) . f . AstShaped)
+    STKR{} -> blet u f
+    STKS{} -> blet u f
     STKProduct{} ->
       blet u $ \ !uShared -> f (tproject1 uShared, tproject2 uShared)
     STKUntyped{} -> case stensorKind @z of
@@ -1240,14 +1234,8 @@ instance AstSpan s => LetTensor (AstNoVectorize s) (AstNoVectorizeS s) where
            -> InterpretationTarget (AstNoVectorize s) z)
        -> InterpretationTarget (AstNoVectorize s) z
   tlet u f = case stensorKind @x of
-    STKR{} -> noVectorizeY (stensorKind @z)
-              $ astLetFun
-                  (unAstNoVectorize u)
-                  (unNoVectorizeY (stensorKind @z) . f . AstNoVectorize)
-    STKS{} -> noVectorizeY (stensorKind @z)
-              $ astLetFun
-                  (unAstNoVectorizeS u)
-                  (unNoVectorizeY (stensorKind @z) . f . AstNoVectorizeS)
+    STKR{} -> blet u f
+    STKS{} -> blet u f
     STKProduct{} ->
       blet u $ \ !uShared -> f (tproject1 uShared, tproject2 uShared)
     STKUntyped{} -> case stensorKind @z of
@@ -1560,14 +1548,8 @@ instance AstSpan s => LetTensor (AstNoSimplify s) (AstNoSimplifyS s) where
            -> InterpretationTarget (AstNoSimplify s) z)
        -> InterpretationTarget (AstNoSimplify s)  z
   tlet u f = case stensorKind @x of
-    STKR{} -> noSimplifyY (stensorKind @z)
-              $ astLetFunNoSimplify
-                  (unAstNoSimplify u)
-                  (unNoSimplifyY (stensorKind @z) . f . AstNoSimplify)
-    STKS{} -> noSimplifyY (stensorKind @z)
-              $ astLetFunNoSimplify
-                  (unAstNoSimplifyS u)
-                  (unNoSimplifyY (stensorKind @z) . f . AstNoSimplifyS)
+    STKR{} -> blet u f
+    STKS{} -> blet u f
     STKProduct{} ->
       blet u $ \ !uShared -> f (tproject1 uShared, tproject2 uShared)
     STKUntyped{} -> case stensorKind @z of

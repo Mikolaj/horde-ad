@@ -125,29 +125,9 @@ cfwdOnHVector parameters f ds =
 instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
          , ShareTensor (PrimalOf ranked) )
          => LetTensor (ADVal ranked) (ADVal shaped) where
-  rletHVectorIn = (&)
-{- TODO: Try again once we have tests that show this sharing is needed:
-    let !(!asUnshared, as') = unADValHVector asD
-        !as = dunHVector $ tshare $ dmkHVector asUnshared
-          -- TODO: could this be done with rshare? Would it be better?
-        doms = aDValHVector as as'
-    in f doms -}
+-- TODO: is the sharing needed or can we just do:  rletHVectorIn = (&)
   rletHFunIn = (&)
-  sletHVectorIn = (&)
-{- TODO: Try again once we have tests that show this sharing is needed:
-    let !(!asUnshared, as') = unADValHVector asD
-        !as = dunHVector $ tshare $ dmkHVector asUnshared
-          -- TODO: could this be done with rshare? Would it be better?
-        doms = aDValHVector as as'
-    in f doms -}
   sletHFunIn = (&)
-  dletHVectorInHVector = (&)
-{- TODO: Try again once we have tests that show this sharing is needed:
-    let !(!asUnshared, as') = unADValHVector asD
-        !as = dunHVector $ tshare $ dmkHVector asUnshared
-          -- TODO: could this be done with rshare? Would it be better?
-        doms = aDValHVector as as'
-    in f doms -}
   dletHFunInHVector = (&)
   tlet :: forall x z. (TensorKind x, TensorKind z)
        => InterpretationTarget (ADVal ranked) x
@@ -155,20 +135,9 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
            -> InterpretationTarget (ADVal ranked) z)
        -> InterpretationTarget (ADVal ranked) z
   tlet a f = case stensorKind @x of
-    STKR{} ->
-      let (D u u') = a
-          !var2 = tshare u
-      in f (dDnotShared var2 u')
-    STKS{} ->
-      let (D u u') = a
-          !var2 = tshare u
-      in f (dDnotShared var2 u')
-    STKProduct{} ->
-      -- Sharing is preserved despite `a` being repeated, because
-      -- each repetition concerns a disjoint portion of `a` and so the whole `a`
-      -- is computed only once.
-      blet (fst a) $ \ !a1 ->
-        blet (snd a) $ \ !a2 -> f (a1, a2)
+    STKR{} -> blet a f
+    STKS{} -> blet a f
+    STKProduct{} -> blet a f
     STKUntyped{} ->
       let (!u, !u') = unADValHVector $ unHVectorPseudoTensor a
           !var2 = dunHVector $ unHVectorPseudoTensor $ tshare @_ @TKUntyped
@@ -197,6 +166,9 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
           !var2 = tshare u
       in f (dDnotShared var2 u')
     STKProduct{} ->
+      -- Sharing is preserved despite `a` being repeated, because
+      -- each repetition concerns a disjoint portion of `a` and so the whole `a`
+      -- is computed only once.
       blet (fst a) $ \ !a1 ->
         blet (snd a) $ \ !a2 -> f (a1, a2)
     STKUntyped{} ->

@@ -172,6 +172,8 @@ chunksOf n = go where
   -> HVector ORArray
   -> (HVector ORArray, ORArray Double y) #-}
 
+{- TODO: RULE left-hand side too complicated to desugar
+
 {-# SPECIALIZE sgdAdam
   :: KnownNat y
   => (MnistDataBatchR Double -> HVector (ADVal ORArray)
@@ -180,3 +182,5 @@ chunksOf n = go where
   -> HVector ORArray
   -> StateAdam
   -> (HVector ORArray, StateAdam) #-}
+
+-}
