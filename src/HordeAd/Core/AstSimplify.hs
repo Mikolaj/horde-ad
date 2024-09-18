@@ -2236,41 +2236,42 @@ mapRankedShaped fRanked fShaped
 -- Inlining doesn't work for this let constructor, because it has many
 -- variables, so we try to reduce it to another for which it works.
 astLetHVectorIn
-  :: forall n r s s2. (KnownNat n, GoodScalar r, AstSpan s, AstSpan s2)
+  :: forall s s2 z. (AstSpan s, AstSpan s2, TensorKind z)
   => [AstDynamicVarName] -> AstTensor AstMethodLet s TKUntyped
-  -> AstTensor AstMethodLet s2 (TKR r n)
-  -> AstTensor AstMethodLet s2 (TKR r n)
+  -> AstTensor AstMethodLet s2 z
+  -> AstTensor AstMethodLet s2 z
 astLetHVectorIn vars l v = case v of
   Ast.AstConstant v0 -> Ast.AstConstant $ astLetHVectorIn vars l v0
   Ast.AstVar _ var2 ->
     case elemIndex (varNameToAstVarId var2)
                    (map dynamicVarNameToAstVarId vars) of
-      Just i | Just Refl <- sameAstSpan @s @s2 ->
-        astProjectR l i
+      Just i | Just Refl <- sameAstSpan @s @s2 -> case stensorKind @z of
+        STKR{} -> astProjectR l i
+        STKS{} -> astProjectS l i
+        STKProduct{} -> error "astLetHVectorIn: STKProduct"
+        STKUntyped -> error "astLetHVectorIn: STKUntyped"
       _ -> v
   Ast.AstPrimalPart (Ast.AstVar _ var2) ->
     case elemIndex (varNameToAstVarId var2)
          (map dynamicVarNameToAstVarId vars) of
-      Just i | Just Refl <- sameAstSpan @s @FullSpan ->
-        astPrimalPart $ astProjectR l i
+      Just i | Just Refl <- sameAstSpan @s @FullSpan -> case stensorKind @z of
+        STKR{} -> astPrimalPart $ astProjectR l i
+        STKS{} -> astPrimalPart $ astProjectS l i
+        STKProduct{} -> error "astLetHVectorIn: STKProduct"
+        STKUntyped -> error "astLetHVectorIn: STKUntyped"
       _ -> v
   Ast.AstDualPart (Ast.AstVar _ var2) ->
     case elemIndex (varNameToAstVarId var2)
          (map dynamicVarNameToAstVarId vars) of
-      Just i | Just Refl <- sameAstSpan @s @FullSpan ->
-        astDualPart $ astProjectR l i
+      Just i | Just Refl <- sameAstSpan @s @FullSpan -> case stensorKind @z of
+        STKR{} -> astDualPart $ astProjectR l i
+        STKS{} -> astDualPart $ astProjectS l i
+        STKProduct{} -> error "astLetHVectorIn: STKProduct"
+        STKUntyped -> error "astLetHVectorIn: STKUntyped"
       _ -> v
-  _ ->
-    let sh = shapeAst v
-    in withShapeP (shapeToList sh) $ \case
-      Proxy @sh | Just Refl <- matchingRank @sh @n -> case l of
+  _ -> case l of
         Ast.AstMkHVector l3 ->
-          let f :: forall sh1 r1. (KnownShS sh1, GoodScalar r1)
-                => AstVarName s (TKS r1 sh1) -> AstTensor AstMethodLet s (TKS r1 sh1)
-                -> AstTensor AstMethodLet s2 (TKR r n)
-                -> AstTensor AstMethodLet s2 (TKR r n)
-              f var t acc = astRFromS @sh $ astLet var t $ astSFromR acc
-          in foldr (mapRankedShaped astLet f) v (zip vars (V.toList l3))
+          foldr (mapRankedShaped astLet astLet) v (zip vars (V.toList l3))
         Ast.AstLetHVectorInHVector vars2 d1 d2 ->
           astLetHVectorIn vars2 d1
           $ astLetHVectorIn vars d2 v
@@ -2281,8 +2282,8 @@ astLetHVectorIn vars l v = case v of
           if astIsSmall True l || length vars == 1
           then let mkLet :: Int
                          -> AstDynamicVarName
-                         -> AstTensor AstMethodLet s2 (TKR r n)
-                         -> AstTensor AstMethodLet s2 (TKR r n)
+                         -> AstTensor AstMethodLet s2 z
+                         -> AstTensor AstMethodLet s2 z
                    mkLet i (AstDynamicVarName @ty @r3 @sh3 varId)
                      | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat)
                      , Dict <- lemKnownNatRank (knownShS @sh3) =
@@ -2293,7 +2294,6 @@ astLetHVectorIn vars l v = case v of
                               (astProjectS l i)
                in ifoldr mkLet v vars
           else Ast.AstLetHVectorIn vars l v
-      _ -> error "astLetHVectorIn: wrong rank of the argument"
 
 -- Inlining doesn't work for this let constructor, because it has many
 -- variables, so we try to reduce it to another for which it works.
@@ -2358,8 +2358,9 @@ astLetHVectorInS vars l v = case v of
 -- unlike astLetHVectorIn, etc., so we don't try to eliminate it.
 -- We assume functions are never small enough to justify inlining on the spot.
 astLetHFunIn
-  :: forall n r s x y. (GoodScalar r, KnownNat n, TensorKind x, TensorKind y)
-  => AstVarId -> AstHFun x y -> AstTensor AstMethodLet s (TKR r n) -> AstTensor AstMethodLet s (TKR r n)
+  :: forall s2 x y z. (TensorKind x, TensorKind y, TensorKind z)
+  => AstVarId -> AstHFun x z -> AstTensor AstMethodLet s2 y
+  -> AstTensor AstMethodLet s2 y
 astLetHFunIn = Ast.AstLetHFunIn
 
 astLetHFunInS

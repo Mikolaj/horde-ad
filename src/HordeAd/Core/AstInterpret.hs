@@ -541,19 +541,38 @@ interpretAst !env = \case
     in rletHVectorIn lt (\lw -> rfromD $ lw V.! p)
          -- This is weak, but we don't need rproject nor sproject.
          -- Most likely, the term gets simplified before interpretation anyway.
-  AstLetHVectorIn vars l v ->
-    let lt = unHVectorPseudoTensor $ interpretAst env l
-        env2 lw = assert (voidHVectorMatches (voidFromVars vars) lw
-                          `blame` ( shapeVoidHVector (voidFromVars vars)
-                                  , V.toList $ V.map shapeDynamic lw
-                                  , shapeAstFull l
-                                  , shapeVoidHVector (dshape lt) )) $
-                 extendEnvHVector vars lw env
-    in rletHVectorIn lt (\lw -> interpretAst (env2 lw) v)
-  AstLetHFunIn @_ @_ @x2 @y2 var f v ->
-    let g = interpretAstHFun env f
-        env2 h = extendEnvHFun (Proxy @x2) (Proxy @y2) var h env
-    in rletHFunIn @_ @_ @_ @_ @x2 @y2 g (\h -> interpretAst (env2 h) v)
+  AstLetHVectorIn @_ @_ @z2 vars l v -> case stensorKind @z2 of
+    STKR{} ->
+      let lt = unHVectorPseudoTensor $ interpretAst env l
+          env2 lw = assert (voidHVectorMatches (voidFromVars vars) lw
+                            `blame` ( shapeVoidHVector (voidFromVars vars)
+                                    , V.toList $ V.map shapeDynamic lw
+                                    , shapeAstFull l
+                                    , shapeVoidHVector (dshape lt) )) $
+                   extendEnvHVector vars lw env
+      in rletHVectorIn lt (\lw -> interpretAst (env2 lw) v)
+    STKS{} ->
+      let lt = unHVectorPseudoTensor $ interpretAst env l
+          env2 lw = assert (voidHVectorMatches (voidFromVars vars) lw
+                            `blame` ( shapeVoidHVector (voidFromVars vars)
+                                    , V.toList $ V.map shapeDynamic lw
+                                    , shapeAstFull l
+                                    , shapeVoidHVector (dshape lt) )) $
+                    extendEnvHVector vars lw env
+      in sletHVectorIn lt (\lw -> interpretAst (env2 lw) v)
+    STKProduct{} -> error "interpretAst: STKProduct"
+    STKUntyped -> error "interpretAst: STKUntyped"
+  AstLetHFunIn @_ @x2 @y2 @z2 var f v -> case stensorKind @y2 of
+    STKR{} ->
+      let g = interpretAstHFun env f
+          env2 h = extendEnvHFun (Proxy @x2) (Proxy @z2) var h env
+      in rletHFunIn @_ @_ @_ @_ @x2 @z2 g (\h -> interpretAst (env2 h) v)
+    STKS{} ->
+      let g = interpretAstHFun env f
+          env2 h = extendEnvHFun (Proxy @x2) (Proxy @z2) var h env
+      in sletHFunIn @_ @_ @_ @_ @x2 @z2 g (\h -> interpretAst (env2 h) v)
+    STKProduct{} -> error "interpretAst: STKProduct"
+    STKUntyped -> error "interpretAst: STKUntyped"
   AstRFromS v -> rfromS $ interpretAst env v
 
   AstMinIndexS v ->

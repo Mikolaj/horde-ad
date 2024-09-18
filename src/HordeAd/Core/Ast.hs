@@ -400,14 +400,14 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType -> Type wh
            => Nested.Ranked n r -> AstTensor ms PrimalSpan (TKR r n)
   AstProjectR :: (GoodScalar r, KnownNat n)
              => AstTensor ms s TKUntyped -> Int -> AstTensor ms s (TKR r n)
-  AstLetHVectorIn :: (AstSpan s, GoodScalar r, KnownNat n)
+  AstLetHVectorIn :: forall s s2 z. (AstSpan s, TensorKind z)
                   => [AstDynamicVarName] -> AstTensor AstMethodLet s TKUntyped
-                  -> AstTensor AstMethodLet s2 (TKR r n)
-                  -> AstTensor AstMethodLet s2 (TKR r n)
-  AstLetHFunIn :: (GoodScalar r, KnownNat n, TensorKind x, TensorKind z)
+                  -> AstTensor AstMethodLet s2 z
+                  -> AstTensor AstMethodLet s2 z
+  AstLetHFunIn :: forall s2 x y z. (TensorKind x, TensorKind y, TensorKind z)
                => AstVarId -> AstHFun x z
-               -> AstTensor AstMethodLet s2 (TKR r n)
-               -> AstTensor AstMethodLet s2 (TKR r n)
+               -> AstTensor AstMethodLet s2 y
+               -> AstTensor AstMethodLet s2 y
   AstRFromS :: (KnownShS sh, GoodScalar r)
             => AstTensor ms s (TKS r sh) -> AstTensor ms s (TKR r (X.Rank sh))
 

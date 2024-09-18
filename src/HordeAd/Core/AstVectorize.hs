@@ -308,7 +308,8 @@ build1V snat@SNat (var, v00) =
 
     Ast.AstProjectR l p ->
       astProjectR (build1VOccurenceUnknown snat (var, l)) p
-    Ast.AstLetHVectorIn vars1 l v ->
+    Ast.AstLetHVectorIn @_ @_ @z vars1 l v
+     | Dict <- lemTensorKindOfBuild snat (stensorKind @z) ->
       -- Here substitution traverses @v@ term tree @length vars@ times.
       --
       -- We lose the type information surrounding var1 twice: first,
@@ -319,8 +320,9 @@ build1V snat@SNat (var, v00) =
       in astLetHVectorIn
            varsOut (build1VOccurenceUnknown snat (var, l))
                    (build1VOccurenceUnknownRefresh snat (var, vOut))
-    Ast.AstLetHFunIn @_ @_ @x @z var1 f v
+    Ast.AstLetHFunIn @_ @x @y2 @z var1 f v
       | Dict <- lemTensorKindOfBuild snat (stensorKind @x)
+      , Dict <- lemTensorKindOfBuild snat (stensorKind @y2)
       , Dict <- lemTensorKindOfBuild snat (stensorKind @z) -> traceRule $
         -- We take advantage of the fact that f contains no free index
         -- variables (it may contain function variables, though).
