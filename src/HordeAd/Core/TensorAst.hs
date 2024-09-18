@@ -422,7 +422,7 @@ astLetHVectorInFunS
 {-# INLINE astLetHVectorInFunS #-}
 astLetHVectorInFunS a f =
   fun1DToAst (shapeAstHVector a) $ \ !vars !asts ->
-    astLetHVectorInS vars a (f asts)
+    astLetHVectorIn vars a (f asts)
 
 astLetHFunInFunS
   :: (GoodScalar r, KnownShS sh, TensorKind x, TensorKind z)
@@ -432,7 +432,7 @@ astLetHFunInFunS
 astLetHFunInFunS a f =
   let shss = domainShapeAstHFun a
       shs = shapeAstHFun a
-  in fun1HToAst shss shs $ \ !var !ast -> astLetHFunInS var a (f ast)
+  in fun1HToAst shss shs $ \ !var !ast -> astLetHFunIn var a (f ast)
 
 astBuild1VectorizeS :: forall n sh r s.
                        (KnownNat n, KnownShS sh, GoodScalar r, AstSpan s)
@@ -1168,7 +1168,7 @@ astLetHVectorInFunNoSimplifyS
   -> AstTensor AstMethodLet s (TKS r sh)
 astLetHVectorInFunNoSimplifyS a f =
   fun1DToAst (shapeAstHVector a) $ \ !vars !asts ->
-    AstLetHVectorInS vars a (f asts)
+    AstLetHVectorIn vars a (f asts)
 
 astLetHFunInFunNoSimplify
   :: (GoodScalar r, KnownNat n, TensorKind x, TensorKind y)
@@ -1186,7 +1186,7 @@ astLetHFunInFunNoSimplifyS
 astLetHFunInFunNoSimplifyS a f =
   let shss = domainShapeAstHFun a
       shs = shapeAstHFun a
-  in fun1HToAst shss shs $ \ !var !ast -> AstLetHFunInS var a (f ast)
+  in fun1HToAst shss shs $ \ !var !ast -> AstLetHFunIn var a (f ast)
 
 astLetHVectorInHVectorFunNoSimplify
   :: AstSpan s

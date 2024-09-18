@@ -419,17 +419,6 @@ build1V snat@SNat (var, v00) =
 
     Ast.AstProjectS l p ->
       astProjectS (build1VOccurenceUnknown snat (var, l)) p
-    Ast.AstLetHVectorInS vars1 l v ->
-      -- See the AstLetHVectorIn case for comments.
-      let (vOut, varsOut) = substProjVars @k var vars1 v
-      in astLetHVectorInS
-           varsOut (build1VOccurenceUnknown snat (var, l))
-                   (build1VOccurenceUnknownRefresh snat (var, vOut))
-    Ast.AstLetHFunInS @_ @_ @x @z var1 f v
-      | Dict <- lemTensorKindOfBuild snat (stensorKind @x)
-      , Dict <- lemTensorKindOfBuild snat (stensorKind @z) -> traceRule $
-        -- We take advantage of the fact that f contains no free index vars.
-        astLetHFunInS var1 (build1VHFun snat (var, f)) (build1V snat (var, v))
     Ast.AstSFromR v -> astSFromR $ build1V snat (var, v)
 
     Ast.AstMkHVector l -> traceRule $

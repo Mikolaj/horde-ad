@@ -134,8 +134,6 @@ shapeAstFull t = case t of
   AstFromIntegralS{} -> FTKS
   AstConstS{} -> FTKS
   AstProjectS{} -> FTKS
-  AstLetHVectorInS{} -> FTKS
-  AstLetHFunInS{} -> FTKS
   AstSFromR{} -> FTKS
 
   AstMkHVector v ->
@@ -260,8 +258,6 @@ varInAst var = \case
   AstFromIntegralS a -> varInAst var a
   AstConstS{} -> False
   AstProjectS l _p -> varInAst var l  -- conservative
-  AstLetHVectorInS _vars l v -> varInAst var l || varInAst var v
-  AstLetHFunInS _var2 f v -> varInAstHFun var f || varInAst var v
   AstSFromR v -> varInAst var v
 
   AstMkHVector l -> any (varInAstDynamic var) l

@@ -403,7 +403,7 @@ printAstAux cfg d = \case
         . printAst cfg 0 v
     else
       showParen (d > 10)
-      $ showString "rletHVectorIn "
+      $ showString "rletHVectorIn "  -- TODO
         . printAst cfg 11 l
         . showString " "
         . (showParen True
@@ -425,7 +425,7 @@ printAstAux cfg d = \case
         . printAst cfg 0 v
     else
       showParen (d > 10)
-      $ showString "rletHFunIn "
+      $ showString "rletHFunIn "  -- TODO
         . printAstHFun cfg 11 f
         . showString " "
         . (showParen True
@@ -516,50 +516,6 @@ printAstAux cfg d = \case
       . printAst cfg 11 l
       . showString " "
       . shows p
-  AstLetHVectorInS vars l v ->
-    if loseRoudtrip cfg
-    then
-      showParen (d > 10)
-      $ showString "let "
-        . showListWith (showString
-                        . printAstDynamicVarName (varRenames cfg)) vars
-        . showString " = "
-        . printAst cfg 0 l
-        . showString " in "
-        . printAst cfg 0 v
-    else
-      showParen (d > 10)
-      $ showString "sletHVectorIn "
-        . printAst cfg 11 l
-        . showString " "
-        . (showParen True
-           $ showString "\\"
-             . showListWith (showString
-                             . printAstDynamicVarName (varRenames cfg)) vars
-             . showString " -> "
-             . printAst cfg 0 v)
-        -- TODO: this does not roundtrip yet
-  AstLetHFunInS var f v ->
-    if loseRoudtrip cfg
-    then
-      showParen (d > 10)
-      $ showString "let "
-        . printAstFunVar cfg var
-        . showString " = "
-        . printAstHFun cfg 0 f
-        . showString " in "
-        . printAst cfg 0 v
-    else
-      showParen (d > 10)
-      $ showString "sletHFunIn "
-        . printAstHFun cfg 11 f
-        . showString " "
-        . (showParen True
-           $ showString "\\"
-             . printAstFunVar cfg var
-             . showString " -> "
-             . printAst cfg 0 v)
-        -- TODO: this does not roundtrip yet
   AstSFromR v -> printPrefixOp printAst cfg d "sfromR" [v]
 
   AstMkHVector l ->

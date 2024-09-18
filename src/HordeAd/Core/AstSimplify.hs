@@ -29,8 +29,7 @@ module HordeAd.Core.AstSimplify
   , astCast, astCastS, astFromIntegral, astFromIntegralS
   , astProject1, astProject2, astProjectR, astProjectS, astRFromS, astSFromR
   , astPrimalPart, astDualPart
-  , astLetHVectorIn, astLetHVectorInS
-  , astLetHFunIn, astLetHFunInS
+  , astLetHVectorIn, astLetHFunIn
   , astHApply, astLetHVectorInHVector, astLetHFunInHVector
   , astLetFun
     -- * The simplifying bottom-up pass
@@ -345,8 +344,6 @@ astNonIndexStep t = case t of
   Ast.AstFromIntegralS v -> astFromIntegralS v
   AstConstS{} -> t
   Ast.AstProjectS l p -> astProjectS l p
-  Ast.AstLetHVectorInS vars u v -> astLetHVectorInS vars u v
-  Ast.AstLetHFunInS var u v -> astLetHFunInS var u v
   Ast.AstSFromR v -> astSFromR v
   _ -> t  -- TODO
 
@@ -805,10 +802,10 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS AstMethodLet shm1)
     fun1DToAst (shapeAstHVector l) $ \ !vars !asts ->
       let lp = fromDynamicS (AstShaped $ astReplicate0NS 0) (asts V.! p)
       in astLetHVectorInS vars l (astIndexRec (unAstShaped lp) ix) -}
-  Ast.AstLetHVectorInS vars l v ->
-    astLetHVectorInS vars l (astIndexRec v ix)
-  Ast.AstLetHFunInS var f v ->
-    astLetHFunInS var f (astIndexRec v ix)
+  Ast.AstLetHVectorIn vars l v ->
+    astLetHVectorIn vars l (astIndexRec v ix)
+  Ast.AstLetHFunIn var f v ->
+    astLetHFunIn var f (astIndexRec v ix)
   Ast.AstSFromR t ->
     withListSh (Proxy @shn) $ \_ ->
     withListSh (Proxy @shm) $ \_ ->
@@ -1998,7 +1995,7 @@ astProjectS l p = case l of
     unAstGenericS
     $ fromDynamicS (AstGenericS $ astReplicate0NS 0) (l3 V.! p)
   Ast.AstLetHVectorInHVector vars d1 d2 ->
-    astLetHVectorInS vars d1 (astProjectS d2 p)
+    astLetHVectorIn vars d1 (astProjectS d2 p)
   Ast.AstLet var u2 d2 ->
     astLet var u2 (astProjectS d2 p)
   Ast.AstConstant l1 -> Ast.AstConstant $ astProjectS l1 p
@@ -2085,9 +2082,6 @@ astPrimalPart t = case t of
   Ast.AstGatherS v (vars, ix) -> astGatherS (astPrimalPart v) (vars, ix)
   Ast.AstCastS v -> astCastS $ astPrimalPart v
   Ast.AstProjectS{} -> Ast.AstPrimalPart t
-  Ast.AstLetHVectorInS vars l v ->
-    astLetHVectorInS vars l (astPrimalPart v)
-  Ast.AstLetHFunInS var f v -> astLetHFunInS var f (astPrimalPart v)
   Ast.AstSFromR v -> astSFromR $ astPrimalPart v
   _ -> error "TODO"
 
@@ -2146,8 +2140,6 @@ astDualPart t = case t of
   Ast.AstGatherS v (vars, ix) -> astGatherS (astDualPart v) (vars, ix)
   Ast.AstCastS v -> astCastS $ astDualPart v
   Ast.AstProjectS{} -> Ast.AstDualPart t
-  Ast.AstLetHVectorInS var f v -> astLetHVectorInS var f (astDualPart v)
-  Ast.AstLetHFunInS var f v -> astLetHFunInS var f (astDualPart v)
   Ast.AstSFromR v -> astSFromR $ astDualPart v
   _ -> error "TODO"
 
@@ -2295,65 +2287,6 @@ astLetHVectorIn vars l v = case v of
                in ifoldr mkLet v vars
           else Ast.AstLetHVectorIn vars l v
 
--- Inlining doesn't work for this let constructor, because it has many
--- variables, so we try to reduce it to another for which it works.
-astLetHVectorInS
-  :: forall sh r s s2. (KnownShS sh, GoodScalar r, AstSpan s, AstSpan s2)
-  => [AstDynamicVarName] -> AstTensor AstMethodLet s TKUntyped
-  -> AstTensor AstMethodLet s2 (TKS r sh)
-  -> AstTensor AstMethodLet s2 (TKS r sh)
-astLetHVectorInS vars l v = case v of
-  Ast.AstConstant v0 -> Ast.AstConstant $ astLetHVectorInS vars l v0
-  Ast.AstVar _ var2 ->
-    case elemIndex (varNameToAstVarId var2)
-                   (map dynamicVarNameToAstVarId vars) of
-      Just i | Just Refl <- sameAstSpan @s @s2 ->
-        astProjectS l i
-      _ -> v
-  Ast.AstPrimalPart (Ast.AstVar _ var2) ->
-    case elemIndex (varNameToAstVarId var2)
-         (map dynamicVarNameToAstVarId vars) of
-      Just i | Just Refl <- sameAstSpan @s @FullSpan ->
-        astPrimalPart $ astProjectS l i
-      _ -> v
-  Ast.AstDualPart (Ast.AstVar _ var2) ->
-    case elemIndex (varNameToAstVarId var2)
-         (map dynamicVarNameToAstVarId vars) of
-      Just i | Just Refl <- sameAstSpan @s @FullSpan ->
-        astDualPart $ astProjectS l i
-      _ -> v
-  _ ->
-    withListSh (Proxy @sh) $ \(_ :: IShR n) -> case l of
-      Ast.AstMkHVector l3 ->
-        let f :: forall n1 r1. (KnownNat n1, GoodScalar r1)
-              => AstVarName s (TKR r1 n1) -> AstTensor AstMethodLet s (TKR r1 n1)
-              -> AstTensor AstMethodLet s2 (TKS r sh)
-              -> AstTensor AstMethodLet s2 (TKS r sh)
-            f var t acc = astSFromR $ astLet var t $ astRFromS acc
-        in foldr (mapRankedShaped f astLet) v (zip vars (V.toList l3))
-      Ast.AstLetHVectorInHVector vars2 d1 d2 ->
-        astLetHVectorInS vars2 d1
-        $ astLetHVectorInS vars d2 v
-      Ast.AstLet var2 u2 d2 ->
-        astLet var2 u2
-        $ astLetHVectorInS vars d2 v
-      _ ->
-        if astIsSmall True l || length vars == 1
-        then let mkLet :: Int
-                       -> AstDynamicVarName
-                       -> AstTensor AstMethodLet s2 (TKS r sh)
-                       -> AstTensor AstMethodLet s2 (TKS r sh)
-                 mkLet i (AstDynamicVarName @ty @r3 @sh3 varId)
-                   | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat)
-                   , Dict <- lemKnownNatRank (knownShS @sh3) =
-                     astLet (mkAstVarName @s @(TKR r3 (X.Rank sh3)) varId)
-                            (astProjectR l i)
-                   | otherwise =
-                     astLet (mkAstVarName @s @(TKS r3 sh3) varId)
-                            (astProjectS l i)
-             in ifoldr mkLet v vars
-        else Ast.AstLetHVectorInS vars l v
-
 -- Inlining works for this let constructor, because it has just one variable,
 -- unlike astLetHVectorIn, etc., so we don't try to eliminate it.
 -- We assume functions are never small enough to justify inlining on the spot.
@@ -2362,11 +2295,6 @@ astLetHFunIn
   => AstVarId -> AstHFun x z -> AstTensor AstMethodLet s2 y
   -> AstTensor AstMethodLet s2 y
 astLetHFunIn = Ast.AstLetHFunIn
-
-astLetHFunInS
-  :: forall sh r s x y. (GoodScalar r, KnownShS sh, TensorKind x, TensorKind y)
-  => AstVarId -> AstHFun x y -> AstTensor AstMethodLet s (TKS r sh) -> AstTensor AstMethodLet s (TKS r sh)
-astLetHFunInS = Ast.AstLetHFunInS
 
 astLetHFunInHVector
   :: (TensorKind x, TensorKind y)
@@ -2488,10 +2416,6 @@ simplifyAst t = case t of
   Ast.AstFromIntegralS v -> astFromIntegralS $ simplifyAst v
   AstConstS{} -> t
   Ast.AstProjectS l p -> astProjectS (simplifyAst l) p
-  Ast.AstLetHVectorInS vars l v ->
-    astLetHVectorInS vars (simplifyAst l) (simplifyAst v)
-  Ast.AstLetHFunInS var f v ->
-    astLetHFunInS var (simplifyAstHFun f) (simplifyAst v)
   Ast.AstSFromR v -> astSFromR $ simplifyAst v
 
   Ast.AstMkHVector l -> Ast.AstMkHVector $ V.map simplifyAstDynamic l
@@ -2706,10 +2630,6 @@ expandAst t = case t of
   Ast.AstFromIntegralS v -> astFromIntegralS $ expandAst v
   AstConstS{} -> t
   Ast.AstProjectS l p -> astProjectS (expandAst l) p
-  Ast.AstLetHVectorInS vars l v ->
-    astLetHVectorInS vars (expandAst l) (expandAst v)
-  Ast.AstLetHFunInS var f v ->
-    astLetHFunInS var (expandAstHFun f) (expandAst v)
   Ast.AstSFromR v -> astSFromR $ expandAst v
 
   Ast.AstMkHVector l -> Ast.AstMkHVector $ V.map expandAstDynamic l
@@ -3264,16 +3184,6 @@ substitute1Ast i var v1 = case v1 of
     case substitute1Ast i var l of
       Nothing -> Nothing
       ml -> Just $ astProjectS (fromMaybe l ml) p
-  Ast.AstLetHVectorInS vars l v ->
-    case (substitute1Ast i var l, substitute1Ast i var v) of
-      (Nothing, Nothing) -> Nothing
-      (ml, mv) ->
-        Just $ astLetHVectorInS vars (fromMaybe l ml) (fromMaybe v mv)
-  Ast.AstLetHFunInS var2 f v ->
-    case (substitute1AstHFun i var f, substitute1Ast i var v) of
-      (Nothing, Nothing) -> Nothing
-      (mf, mv) ->
-        Just $ astLetHFunInS var2 (fromMaybe f mf) (fromMaybe v mv)
   Ast.AstSFromR v -> astSFromR <$> substitute1Ast i var v
 
   Ast.AstMkHVector args ->

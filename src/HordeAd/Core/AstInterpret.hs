@@ -782,19 +782,6 @@ interpretAst !env = \case
   AstProjectS l p ->
     let lt = unHVectorPseudoTensor $ interpretAst env l
     in sletHVectorIn lt (\lw -> sfromD $ lw V.! p)
-  AstLetHVectorInS vars l v ->
-    let lt = unHVectorPseudoTensor $ interpretAst env l
-        env2 lw = assert (voidHVectorMatches (voidFromVars vars) lw
-                          `blame` ( shapeVoidHVector (voidFromVars vars)
-                                  , V.toList $ V.map shapeDynamic lw
-                                  , shapeAstFull l
-                                  , shapeVoidHVector (dshape lt) )) $
-                  extendEnvHVector vars lw env
-    in sletHVectorIn lt (\lw -> interpretAst (env2 lw) v)
-  AstLetHFunInS @_ @_ @x2 @y2 var f v ->
-    let g = interpretAstHFun env f
-        env2 h = extendEnvHFun (Proxy @x2) (Proxy @y2) var h env
-    in sletHFunIn @_ @_ @_ @_ @x2 @y2 g (\h -> interpretAst (env2 h) v)
   AstSFromR v -> sfromR $ interpretAst env v
 
   AstMkHVector l -> HVectorPseudoTensor
