@@ -3471,7 +3471,7 @@ testSin0FoldNestedR2LengthPPsDummy7 = do
   let f :: forall f. ADReady f => f Double 0 -> f Double 0
       f z = rfold (\x a ->
                rfold (\x2 a2 ->
-                 rfold (\x3 a3 -> 7)
+                 rfold (\_x3 _a3 -> 7)
                    -- the 7 causes Dummy InterpretationTargetM values
                    -- with the more precise typing of folds
                        a2 (rreplicate 2 x2))

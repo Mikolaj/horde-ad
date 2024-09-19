@@ -108,19 +108,29 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
           [Some mt@(MTKR @r2 @n2 _)]
             | Just Refl <- sameNat (Proxy @n) (Proxy @n2)
             , Just Refl <- testEquality (typeRep @r) (typeRep @r2) -> mt
-          _ -> error $ "gradientFromDelta: illegal InterpretationTargetM"
+          [Some mt@(MTKRDummy @r2 @sh2)]
+            | Dict <- lemKnownNatRank (knownShS @sh2)
+            , Just Refl <- sameNat (Proxy @n) (Proxy @(X.Rank sh2))
+            , Just Refl <- testEquality (typeRep @r) (typeRep @r2) -> mt
+          _ -> error $ "gradientFromDelta: illegal InterpretationTargetM: "
                        ++ show_iMap (iMap s2)
         FTKS @r @sh -> case elems of
           [Some mt@(MTKS @r2 @sh2 _)]
             | Just Refl <- sameShape @sh @sh2
             , Just Refl <- testEquality (typeRep @r) (typeRep @r2) -> mt
-          _ -> error $ "gradientFromDelta: illegal InterpretationTargetM"
+          [Some mt@(MTKSDummy @r2 @sh2)]
+            | Just Refl <- sameShape @sh @sh2
+            , Just Refl <- testEquality (typeRep @r) (typeRep @r2) -> mt
+          _ -> error $ "gradientFromDelta: illegal InterpretationTargetM: "
                        ++ show_iMap (iMap s2)
         FTKProduct @x3 @z3 _ _ -> case elems of
           [Some mt@(MTKProduct @x2 @z2 _)]
             | Just Refl <- sameTensorKind @x2 @x3
             , Just Refl <- sameTensorKind @z2 @z3 -> mt
-          _ -> error $ "gradientFromDelta: illegal InterpretationTargetM"
+          [Some mt@(MTKProductDummy @x2 @z2 _)]
+            | Just Refl <- sameTensorKind @x2 @x3
+            , Just Refl <- sameTensorKind @z2 @z3 -> mt
+          _ -> error $ "gradientFromDelta: illegal InterpretationTargetM: "
                        ++ show_iMap (iMap s2)
         FTKUntyped{} ->
           let toDynamicTensor :: Some (InterpretationTargetM ranked)
@@ -131,7 +141,8 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
                 MTKProduct{} -> error "toDynamicTensor: non-flattened cell"
                 MTKRDummy @r @sh -> DynamicRankedDummy @r @sh Proxy Proxy
                 MTKSDummy @r @sh -> DynamicShapedDummy @r @sh Proxy Proxy
-                MTKProductDummy{} -> error "toDynamicTensor: non-flattened cell"
+                MTKProductDummy{} ->
+                  error "toDynamicTensor: non-flattened cell"
                 MTKUntyped{} -> error "toDynamicTensor: non-flattened cell"
           in MTKUntyped $ HVectorPseudoTensor $ dmkHVector
              $ V.fromList $ map toDynamicTensor elems
@@ -154,14 +165,17 @@ show_iMap
   => DEnumMap (InputId ranked) (InterpretationTargetM ranked) -> String
 show_iMap iMap = showsPrec_iMap 0 iMap ""
 
-evalInterpretationTargetM :: InterpretationTargetM ranked x
+evalInterpretationTargetM :: ADReadyNoLet ranked
+                          => InterpretationTargetM ranked x
                           -> InterpretationTarget ranked x
 evalInterpretationTargetM = \case
   MTKR t -> t
   MTKS t -> t
   MTKProduct t -> t
   MTKUntyped t -> t
-  _ -> error "evalInterpretationTargetM: impossible case"
+  MTKRDummy @_ @sh -> withListSh (Proxy @sh) $ \sh4 -> rzero sh4
+  MTKSDummy -> srepl 0
+  MTKProductDummy ftk -> interpretationConstant 0 ftk
 
 shapeD :: InterpretationTargetD ranked x -> STensorKindType x
 shapeD = \case
@@ -855,8 +869,9 @@ initEvalState = \case
         dMap = DMap.empty
         nMap = DMap.empty
     in EvalState {..}
-  FTKProduct @x @z _ _ ->
-    let iMap = DMap.fromDistinctAscList [InputId 0 :=> MTKProductDummy @x @z]
+  ftk@(FTKProduct @x @z _ _) ->
+    let iMap = DMap.fromDistinctAscList
+                 [InputId 0 :=> MTKProductDummy @x @z ftk]
         dMap = DMap.empty
         nMap = DMap.empty
     in EvalState {..}
@@ -983,8 +998,8 @@ addInterpretationTargetM a b = case (a, b) of
                   (interpretationTargetToM stensorKind (tproject2 tb)))
         -- the duplication is fine, because anything inside MTKProduct
         -- is shallowly duplicable
-  (MTKProductDummy, _) -> b
-  (_, MTKProductDummy) -> a
+  (MTKProductDummy{}, _) -> b
+  (_, MTKProductDummy{}) -> a
   (MTKUntyped hv1, MTKUntyped hv2) ->
     MTKUntyped $ HVectorPseudoTensor $ dmkHVector
     $ V.zipWith addDynamic (dunHVector $ unHVectorPseudoTensor hv1) (dunHVector $ unHVectorPseudoTensor hv2)
