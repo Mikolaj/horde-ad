@@ -131,6 +131,19 @@ data InterpretationTargetM ranked y where
   MTKProductDummy :: forall x z ranked. (TensorKind x, TensorKind z)
                   => InterpretationTargetM ranked (TKProduct x z)
 
+instance ( CRanked ranked Show, CShaped (ShapedOf ranked) Show
+         , Show (HVectorOf ranked), CInterpretationTargetProduct ranked Show
+         , TensorKind y )
+         => Show (InterpretationTargetM ranked y) where
+  showsPrec d = \case
+    MTKR t -> showsPrec d t
+    MTKS t -> showsPrec d t
+    MTKProduct t -> showsPrec d (InterpretationTargetProductN t)
+    MTKUntyped t -> showsPrec d t
+    MTKRDummy -> showString "MTKRDummy"
+    MTKSDummy -> showString "MTKSDummy"
+    MTKProductDummy -> showString "MTKProductDummy"
+
 -- TODO: the constraints should not be necessary
 type role TensorKindFull nominal
 data TensorKindFull y where

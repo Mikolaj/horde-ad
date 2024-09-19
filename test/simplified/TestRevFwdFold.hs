@@ -225,6 +225,7 @@ testTrees =
   , testCase "4Sin0FoldNestedR3LengthPPs" testSin0FoldNestedR3LengthPPs
 --  , testCase "4Sin0FoldNestedR4LengthPPs" testSin0FoldNestedR4LengthPPs
 --  , testCase "4Sin0FoldNestedR5LengthPPs" testSin0FoldNestedR5LengthPPs
+  , testCase "4Sin0FoldNestedR2LengthPPsDummy7" testSin0FoldNestedR2LengthPPsDummy7
   , testCase "4Sin0MapAccumNestedR1PP" testSin0MapAccumNestedR1PP
   , testCase "4Sin0MapAccumNestedR3LengthPP" testSin0MapAccumNestedR3LengthPP
   , testCase "4Sin0MapAccumNestedR4" testSin0MapAccumNestedR4
@@ -3463,6 +3464,30 @@ _testSin0FoldNestedR5LengthPPs = do
        (simplifyInline
         $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1))))
     @?= 0
+
+testSin0FoldNestedR2LengthPPsDummy7 :: Assertion
+testSin0FoldNestedR2LengthPPsDummy7 = do
+  resetVarCounter
+  let f :: forall f. ADReady f => f Double 0 -> f Double 0
+      f z = rfold (\x a ->
+               rfold (\x2 a2 ->
+                 rfold (\x3 a3 -> 7)
+                   -- the 7 causes Dummy InterpretationTargetM values
+                   -- with the more precise typing of folds
+                       a2 (rreplicate 2 x2))
+                     a (rreplicate 2 x))
+                  z (rreplicate 2 z)
+      g :: forall g. (LetTensor g (ShapedOf g))
+        => HVector g -> HVectorOf g
+      g x = rrev (\v -> f (rfromD $ v V.! 0))
+                 (V.singleton (voidFromSh @Double ZSR))
+                 x
+  length
+    (printAstHVectorSimple
+       IM.empty
+       (simplifyInline
+        $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1))))
+    @?= 97270
 
 testSin0MapAccumNestedR1PP :: Assertion
 testSin0MapAccumNestedR1PP = do

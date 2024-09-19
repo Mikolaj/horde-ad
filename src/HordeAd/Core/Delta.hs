@@ -1,4 +1,5 @@
-{-# LANGUAGE AllowAmbiguousTypes, DerivingStrategies, UndecidableInstances #-}
+{-# LANGUAGE AllowAmbiguousTypes, DerivingStrategies, QuantifiedConstraints,
+             UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -fconstraint-solver-iterations=10000 #-}
@@ -67,6 +68,7 @@ import Data.Vector.Generic qualified as V
 import Foreign.C (CInt)
 import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat, sameNat, type (+), type (<=))
+import Text.Show (showListWith)
 import Text.Show.Functions ()
 import Type.Reflection (typeRep)
 import Unsafe.Coerce (unsafeCoerce)
@@ -106,17 +108,20 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
           [Some mt@(MTKR @r2 @n2 _)]
             | Just Refl <- sameNat (Proxy @n) (Proxy @n2)
             , Just Refl <- testEquality (typeRep @r) (typeRep @r2) -> mt
-          _ -> error "gradientFromDelta: illegal InterpretationTargetM"
+          _ -> error $ "gradientFromDelta: illegal InterpretationTargetM"
+                       ++ show_iMap (iMap s2)
         FTKS @r @sh -> case elems of
           [Some mt@(MTKS @r2 @sh2 _)]
             | Just Refl <- sameShape @sh @sh2
             , Just Refl <- testEquality (typeRep @r) (typeRep @r2) -> mt
-          _ -> error "gradientFromDelta: illegal InterpretationTargetM"
+          _ -> error $ "gradientFromDelta: illegal InterpretationTargetM"
+                       ++ show_iMap (iMap s2)
         FTKProduct @x3 @z3 _ _ -> case elems of
           [Some mt@(MTKProduct @x2 @z2 _)]
             | Just Refl <- sameTensorKind @x2 @x3
             , Just Refl <- sameTensorKind @z2 @z3 -> mt
-          _ -> error "gradientFromDelta: illegal InterpretationTargetM"
+          _ -> error $ "gradientFromDelta: illegal InterpretationTargetM"
+                       ++ show_iMap (iMap s2)
         FTKUntyped{} ->
           let toDynamicTensor :: Some (InterpretationTargetM ranked)
                               -> DynamicTensor ranked
@@ -131,6 +136,23 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
           in MTKUntyped $ HVectorPseudoTensor $ dmkHVector
              $ V.fromList $ map toDynamicTensor elems
   in evalInterpretationTargetM itm
+
+showsPrec_iMap
+  :: (forall y. TensorKind y => Show (InterpretationTargetM ranked y))
+  => Int -> DEnumMap (InputId ranked) (InterpretationTargetM ranked) -> ShowS
+showsPrec_iMap d demap =
+  showParen (d > 10) $
+    showString "fromList "
+    . showListWith
+        (\(k :=> target) ->
+          case tensorKindFromInputId k of
+            Dict -> showsPrec 2 k . showString " :=> " . showsPrec 1 target)
+        (DMap.toList demap)
+
+show_iMap
+  :: (forall y. TensorKind y => Show (InterpretationTargetM ranked y))
+  => DEnumMap (InputId ranked) (InterpretationTargetM ranked) -> String
+show_iMap iMap = showsPrec_iMap 0 iMap ""
 
 evalInterpretationTargetM :: InterpretationTargetM ranked x
                           -> InterpretationTarget ranked x
@@ -733,6 +755,9 @@ instance DMap.Enum1 (InputId ranked) where
 -- | Wrap non-negative (only!) integers in the `InputId` newtype.
 toInputId :: TensorKind y => Int -> InputId f y
 toInputId i = assert (i >= 0) $ InputId i
+
+tensorKindFromInputId :: InputId f y -> Dict TensorKind y
+tensorKindFromInputId InputId{} = Dict
 
 -- | The state of evaluation. It consists of several maps.
 -- The maps indexed by input identifiers and node identifiers
