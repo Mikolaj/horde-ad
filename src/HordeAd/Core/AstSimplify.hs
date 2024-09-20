@@ -421,8 +421,6 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIndex AstMethodLet m1)) =
        else astGatherKnobsR knobs sh2 v2 (vars2, ix2)
  in case v0 of
   Ast.AstProject1{} -> Ast.AstIndex v0 ix
-    -- TODO: no idea what to do here; if the arg is a variable, nothing
-    -- can be done; what about the other cases?
   Ast.AstProject2{} -> Ast.AstIndex v0 ix
   Ast.AstVar{} -> Ast.AstIndex v0 ix
   Ast.AstPrimalPart{} -> Ast.AstIndex v0 ix  -- must be a NF
@@ -611,7 +609,6 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS AstMethodLet shm1)
         else astGatherKnobsS knobs v2 (vars2, ix2)
  in case v0 of
   Ast.AstProject1{} -> Ast.AstIndexS v0 ix
-    -- TODO: no idea what to do here
   Ast.AstProject2{} -> Ast.AstIndexS v0 ix
   Ast.AstVar{} -> Ast.AstIndexS v0 ix
   Ast.AstPrimalPart{} -> Ast.AstIndexS v0 ix  -- must be a NF
@@ -793,14 +790,6 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS AstMethodLet shm1)
         -- TODO: we'd need mapM for Index to keep this rank-typed
       Nothing -> Ast.AstIndexS v0 ix
   Ast.AstProjectS{} -> Ast.AstIndexS v0 ix
-  {- TODO: this is not really helping:
-  Ast.AstProjectS Ast.AstVar{} _ -> Ast.AstIndexS v0 ix
-  Ast.AstProjectS (Ast.AstProject1 Ast.AstVar{}) _ -> Ast.AstIndexS v0 ix
-  Ast.AstProjectS (Ast.AstProject2 Ast.AstVar{}) _ -> Ast.AstIndexS v0 ix
-  Ast.AstProjectS l p ->
-    fun1DToAst (shapeAstHVector l) $ \ !vars !asts ->
-      let lp = fromDynamicS (AstShaped $ astReplicate0NS 0) (asts V.! p)
-      in astLetHVectorInS vars l (astIndexRec (unAstShaped lp) ix) -}
   Ast.AstLetHVectorIn vars l v ->
     astLetHVectorIn vars l (astIndexRec v ix)
   Ast.AstLetHFunIn var f v ->
@@ -966,7 +955,6 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
   astGatherCase sh4 v4 ( vars4
                        , ix4@(i4 :.: (rest4 :: AstIndex AstMethodLet p1')) ) = case v4 of
     Ast.AstProject1{} -> Ast.AstGather sh4 v4 (vars4, ix4)
-      -- TODO: no idea what to do here
     Ast.AstProject2{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstVar{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstPrimalPart{} -> Ast.AstGather sh4 v4 (vars4, ix4)
@@ -1152,7 +1140,7 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
     Ast.AstFromIntegral v -> astFromIntegral $ astGather sh4 v (vars4, ix4)
     AstConst{} ->  -- free variables possible, so can't compute the tensor
       Ast.AstGather sh4 v4 (vars4, ix4)
-    Ast.AstProjectR{} ->  -- most likely reduced before it gets there
+    Ast.AstProjectR{} ->  -- TODO, but most likely reduced before it gets here
       Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstLetHVectorIn vars l v ->
       astLetHVectorIn vars l (astGatherCase sh4 v (vars4, ix4))
@@ -1404,6 +1392,9 @@ astLet var (Ast.AstConstant (Ast.AstLetHVectorIn
         in foldr (mapRankedShaped clet clet)
                  v2 (zip vars (V.toList l3))
   in astLetHVectorIn varsN lN $ fun1DToAst shs f
+astLet var (Ast.AstLetHFunIn varN uN vN) v =
+  astLetHFunIn varN uN
+  $ astLet var vN v
 astLet var u v = Ast.AstLet var u v
 
 -- A special variant to bind integer expressions inside indexes.
@@ -2003,22 +1994,32 @@ astFromIntegralS (Ast.AstFromIntegralS v) = astFromIntegralS v
 astFromIntegralS v = Ast.AstFromIntegralS v
 
 astProject1
-  :: forall x z s. (TensorKind x, TensorKind z)
+  :: forall x z s. (TensorKind x, TensorKind z, AstSpan s)
   => AstTensor AstMethodLet s (TKProduct x z) -> AstTensor AstMethodLet s x
 astProject1 u = case u of
   Ast.AstTuple x _z -> x
-  Ast.AstLet vars t v -> Ast.AstLet vars t (astProject1 v)
+  Ast.AstLet var t v -> Ast.AstLet var t (astProject1 v)
+  Ast.AstLetHVectorIn vars l v -> astLetHVectorIn vars l (astProject1 v)
+  Ast.AstLetHFunIn vars l v -> astLetHFunIn vars l (astProject1 v)
 -- TODO: generalize AstConst:  Ast.AstConst u1 -> Ast.AstConst $ tproject1 u1
+  Ast.AstPrimalPart u1 -> astPrimalPart $ astProject1 u1
+  Ast.AstDualPart u1 -> astDualPart $ astProject1 u1
   Ast.AstConstant u1 -> Ast.AstConstant $ astProject1 u1
+  Ast.AstCond b v1 v2 -> Ast.AstCond b (astProject1 v1) (astProject1 v2)
   _ -> Ast.AstProject1 u
 
 astProject2
-  :: forall x z s. (TensorKind x, TensorKind z)
+  :: forall x z s. (TensorKind x, TensorKind z, AstSpan s)
   => AstTensor AstMethodLet s (TKProduct x z) -> AstTensor AstMethodLet s z
 astProject2 u = case u of
   Ast.AstTuple _x z -> z
-  Ast.AstLet vars t v -> Ast.AstLet vars t (astProject2 v)
+  Ast.AstLet var t v -> Ast.AstLet var t (astProject2 v)
+  Ast.AstLetHVectorIn vars l v -> astLetHVectorIn vars l (astProject2 v)
+  Ast.AstLetHFunIn vars l v -> astLetHFunIn vars l (astProject2 v)
+  Ast.AstPrimalPart u1 -> astPrimalPart $ astProject2 u1
+  Ast.AstDualPart u1 -> astDualPart $ astProject2 u1
   Ast.AstConstant u1 -> Ast.AstConstant $ astProject2 u1
+  Ast.AstCond b v1 v2 -> Ast.AstCond b (astProject2 v1) (astProject2 v2)
   _ -> Ast.AstProject2 u
 
 astProjectR
@@ -2029,11 +2030,16 @@ astProjectR l p = case l of
   Ast.AstMkHVector l3 ->
     unAstGeneric
     $ fromDynamicR (\sh -> AstGeneric $ astReplicate0N sh 0) (l3 V.! p)
-  Ast.AstLetHVectorIn vars d1 d2 ->
-    astLetHVectorIn vars d1 (astProjectR d2 p)
   Ast.AstLet var u2 d2 ->
     astLet var u2 (astProjectR d2 p)
+  Ast.AstLetHVectorIn vars d1 d2 ->
+    astLetHVectorIn vars d1 (astProjectR d2 p)
+  Ast.AstLetHFunIn vars d1 d2 ->
+    astLetHFunIn vars d1 (astProjectR d2 p)
+  Ast.AstPrimalPart l1 -> astPrimalPart $ astProjectR l1 p
+  Ast.AstDualPart l1 -> astDualPart $ astProjectR l1 p
   Ast.AstConstant l1 -> Ast.AstConstant $ astProjectR l1 p
+  Ast.AstCond b v1 v2 -> Ast.AstCond b (astProjectR v1 p) (astProjectR v2 p)
   _ -> Ast.AstProjectR l p
 
 astProjectS
@@ -2044,11 +2050,16 @@ astProjectS l p = case l of
   Ast.AstMkHVector l3 ->
     unAstGenericS
     $ fromDynamicS (AstGenericS $ astReplicate0NS 0) (l3 V.! p)
-  Ast.AstLetHVectorIn vars d1 d2 ->
-    astLetHVectorIn vars d1 (astProjectS d2 p)
   Ast.AstLet var u2 d2 ->
     astLet var u2 (astProjectS d2 p)
+  Ast.AstLetHVectorIn vars d1 d2 ->
+    astLetHVectorIn vars d1 (astProjectS d2 p)
+  Ast.AstLetHFunIn vars d1 d2 ->
+    astLetHFunIn vars d1 (astProjectS d2 p)
+  Ast.AstPrimalPart l1 -> astPrimalPart $ astProjectS l1 p
+  Ast.AstDualPart l1 -> astDualPart $ astProjectS l1 p
   Ast.AstConstant l1 -> Ast.AstConstant $ astProjectS l1 p
+  Ast.AstCond b v1 v2 -> Ast.AstCond b (astProjectS v1 p) (astProjectS v2 p)
   _ -> Ast.AstProjectS l p
 
 astRFromS :: forall sh s r. (GoodScalar r, KnownShS sh)
@@ -2296,6 +2307,9 @@ astLetHVectorIn vars l v = case v of
                      v (zip vars (V.toList l3))
         Ast.AstLet var2 u2 d2 ->
           astLet var2 u2
+          $ astLetHVectorIn vars d2 v
+        Ast.AstLetHFunIn var2 u2 d2 ->
+          astLetHFunIn var2 u2
           $ astLetHVectorIn vars d2 v
 {- TODO: convert vars? do more generally?
         Ast.AstConstant (Ast.AstLet var2 u2 d2) ->
