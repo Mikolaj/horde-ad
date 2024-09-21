@@ -1009,10 +1009,8 @@ evalR
   => EvalState ranked -> InterpretationTarget ranked y -> Delta ranked y
   -> EvalState ranked
 evalR !s !c = \case
-  TupleG d1 d2 -> let cShared = tshare c  -- tunpair is not enough
-                  in evalR (evalR s (tproject1 cShared) d1)
-                           (tproject2 cShared)
-                           d2
+  TupleG d1 d2 -> let (c1, c2) = tunpair c
+                  in evalR (evalR s c1 d1) c2 d2
   Project1G d -> case shapeDeltaFull d of
     FTKProduct _ ftk2 ->
       let zero = interpretationConstant 0 ftk2
