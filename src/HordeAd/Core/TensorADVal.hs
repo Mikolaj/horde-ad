@@ -627,7 +627,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
         bs = V.drop (2 * accLen) pShared
         !_A = assert (voidHVectorMatches (replicate1VoidHVector k bShsH) bs) ()
         primal = accFin V.++ bs
-        dual = wrapDeltaH $ MapAccumR k accShs bShs eShs q (dunHVector $ unHVectorPseudoTensor es) df rf acc0' es'
+        dual = wrapDelta $ MapAccumR k accShs bShs eShs q (dunHVector $ unHVectorPseudoTensor es) df rf acc0' es'
     in HVectorPseudoTensor $ ahhToHVector primal dual
   dmapAccumLDer _ !k accShs@(FTKUntyped accShsH) bShs@(FTKUntyped bShsH)
                 eShs@(FTKUntyped eShsH) f df rf acc0D esD =
@@ -701,7 +701,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
         bs = V.drop (2 * accLen) pShared
         !_A = assert (voidHVectorMatches (replicate1VoidHVector k bShsH) bs) ()
         primal = accFin V.++ bs
-        dual = wrapDeltaH $ MapAccumL k accShs bShs eShs q (dunHVector $ unHVectorPseudoTensor es) df rf acc0' es'
+        dual = wrapDelta $ MapAccumL k accShs bShs eShs q (dunHVector $ unHVectorPseudoTensor es) df rf acc0' es'
     in HVectorPseudoTensor $ ahhToHVector primal dual
 
 aDValToHVector

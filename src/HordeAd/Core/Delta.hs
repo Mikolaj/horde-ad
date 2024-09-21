@@ -282,9 +282,9 @@ interpretationTargetToM stk t = case stk of
 -- have analogues at the level of vectors, matrices and arbitrary tensors,
 -- but the other operations are specific to the rank.
 --
--- The `NodeId` identifier that appears in a @ShareR n d@ expression
+-- The `NodeId` identifier that appears in a @ShareG n d@ expression
 -- is the unique identity stamp of subterm @d@, that is, there is
--- no different term @e@ such that @ShareR n e@ appears in any delta
+-- no different term @e@ such that @ShareG n e@ appears in any delta
 -- expression term in memory during the same run of an executable.
 -- The subterm identity is used to avoid evaluating shared
 -- subterms repeatedly in gradient and derivative computations.
@@ -371,6 +371,7 @@ data Delta :: RankedTensorType -> TensorKindType -> Type where
             => Delta ranked (TKProduct x z) -> Delta ranked z
   InputG :: forall ranked y.
             TensorKindFull y -> InputId ranked y -> Delta ranked y
+  ShareG :: NodeId ranked y -> Delta ranked y -> Delta ranked y
 
   ZeroR :: (KnownNat n, GoodScalar r) => IShR n -> Delta ranked (TKR r n)
     -- ^ the shape is required for @shapeDelta@ and forward derivative
@@ -379,8 +380,6 @@ data Delta :: RankedTensorType -> TensorKindType -> Type where
   AddR :: (GoodScalar r, KnownNat n)
        => Delta ranked (TKR r n) -> Delta ranked (TKR r n)
        -> Delta ranked (TKR r n)
-  ShareR :: (GoodScalar r, KnownNat n)
-         => NodeId ranked (TKR r n) -> Delta ranked (TKR r n) -> Delta ranked (TKR r n)
 
   IndexR :: (GoodScalar r, KnownNat n, KnownNat m)
          => Delta ranked (TKR r (m + n)) -> IndexOf ranked m
@@ -464,8 +463,6 @@ data Delta :: RankedTensorType -> TensorKindType -> Type where
   AddS :: (GoodScalar r, KnownShS sh)
        => Delta ranked (TKS r sh) -> Delta ranked (TKS r sh)
        -> Delta ranked (TKS r sh)
-  ShareS :: (GoodScalar r, KnownShS sh)
-         => NodeId ranked (TKS r sh) -> Delta ranked (TKS r sh) -> Delta ranked (TKS r sh)
 
   IndexS :: (KnownShS sh1, KnownShS sh2, KnownShS (sh1 X.++ sh2), GoodScalar r)
          => Delta ranked (TKS r (sh1 X.++ sh2))
@@ -561,8 +558,6 @@ data Delta :: RankedTensorType -> TensorKindType -> Type where
   SFromH :: (GoodScalar r, KnownShS sh)
          => Delta ranked TKUntyped -> Int -> Delta ranked (TKS r sh)
 
-  ShareH :: NodeId ranked TKUntyped -> Delta ranked TKUntyped
-         -> Delta ranked TKUntyped
   HToH :: HVector (DeltaR ranked) -> Delta ranked TKUntyped
   MapAccumR
     :: (accShs ~ TKUntyped, bShs ~ TKUntyped, eShs ~ TKUntyped)
@@ -653,11 +648,11 @@ shapeDeltaFull = \case
   Project2G v -> case shapeDeltaFull v of
     FTKProduct _ ftk2 -> ftk2
   InputG ftk _ -> ftk
+  ShareG _ d -> shapeDeltaFull d
 
   ZeroR sh -> FTKR sh
   ScaleR _ d -> shapeDeltaFull d
   AddR d _ -> shapeDeltaFull d
-  ShareR _ d -> shapeDeltaFull d
   IndexR d _ -> FTKR $ dropShape (shapeDelta d)
   SumR d -> FTKR $ tailShape (shapeDelta d)
   Sum0R{} -> FTKR ZSR
@@ -688,7 +683,6 @@ shapeDeltaFull = \case
   ZeroS{} -> FTKS
   ScaleS{} -> FTKS
   AddS{} -> FTKS
-  ShareS{} -> FTKS
   IndexS{} -> FTKS
   SumS{} -> FTKS
   Sum0S{} -> FTKS
@@ -711,7 +705,6 @@ shapeDeltaFull = \case
   SFromR{} -> FTKS
   SFromH{} -> FTKS
 
-  ShareH _ d -> shapeDeltaFull d
   HToH v ->
     FTKUntyped $ V.map (voidFromDynamicF (shapeToList . shapeDelta . unDeltaR)) v
   MapAccumR k (FTKUntyped accShs) (FTKUntyped bShs)
@@ -1034,15 +1027,10 @@ evalR !s !c = \case
                  $ iMap s}
     -- This and similar don't need to be runtime-specialized,
     -- because the type of c determines the Num instance for (+).
-    -- Note that we can't express sharing by inserting Share constructors
+    -- Note that we can't express sharing by inserting ShareG constructors
     -- into iMap, because often sharing needs to work across many
     -- iMap keys. That's why global sharing is used.
-
-  ZeroR{} -> s
-  ScaleR k d -> evalR s (k * c) d
-  AddR d e -> let cShared = tshare c
-              in evalR (evalR s cShared d) cShared e
-  ShareR n d ->
+  ShareG n d ->
     -- In this context, by construction, @d@ is the dual component
     -- of a dual number term. Let's say that, at this point, evaluation
     -- considers position (node) p out of possibly multiple positions
@@ -1060,7 +1048,7 @@ evalR !s !c = \case
     -- maps and eventually their total sum represents the total
     -- influence of the objective function's subcomputation
     -- (more precisely, subgraph of the data flow graph in question)
-    -- corresponding to the shared term @ShareR n d@. This total
+    -- corresponding to the shared term @ShareG n d@. This total
     -- influence over the objective function's behaviour is called
     -- in short the cotangent of the node identifier @n@.
     -- In other words, the cotangent of @n@ is the sum,
@@ -1075,15 +1063,21 @@ evalR !s !c = \case
     -- result of the evaluation.
     assert (case d of
               ZeroR{} -> False
-              ShareR{} -> False  -- wasteful and nonsensical
+              ShareG{} -> False  -- wasteful and nonsensical
+              ZeroS -> False
               _ -> True)
-    $ let cs = DTKR c
+    $ let cd = interpretationTargetToD stensorKind c
       in case DMap.lookup n $ nMap s of
         Just _ ->
-          s {dMap = DMap.adjust (addInterpretationTargetD cs) n $ dMap s}
+          s {dMap = DMap.adjust (addInterpretationTargetD cd) n $ dMap s}
         Nothing ->
           s { nMap = DMap.insert n d $ nMap s
-            , dMap = DMap.insert n cs $ dMap s }
+            , dMap = DMap.insert n cd $ dMap s }
+
+  ZeroR{} -> s
+  ScaleR k d -> evalR s (k * c) d
+  AddR d e -> let cShared = tshare c
+              in evalR (evalR s cShared d) cShared e
 
   IndexR d ix -> evalR s (rscatter @ranked @_ @0
                                    (shapeDelta d) c (const ix)) d
@@ -1141,18 +1135,6 @@ evalR !s !c = \case
   ScaleS k d -> evalR s (k * c) d
   AddS d e -> let cShared = tshare c
               in evalR (evalR s cShared d) cShared e
-  ShareS n d ->
-    assert (case d of
-              ZeroS -> False
-              ShareS{} -> False  -- wasteful and nonsensical
-              _ -> True)
-    $ let cs = DTKS c
-      in case DMap.lookup n $ nMap s of
-        Just _ ->
-          s {dMap = DMap.adjust (addInterpretationTargetD cs) n $ dMap s}
-        Nothing ->
-          s { nMap = DMap.insert n d $ nMap s
-            , dMap = DMap.insert n cs $ dMap s }
 
   IndexS @sh1 @sh d ix ->
     gcastWith (unsafeCoerce Refl
@@ -1208,17 +1190,6 @@ evalR !s !c = \case
     in assert (dynamicsMatch (cs V.! i) ci) $
        evalR s (HVectorPseudoTensor $ dmkHVector $ cs V.// [(i, ci)]) d
 
-  ShareH n d ->
-    assert (case d of
-              ShareH{} -> False  -- wasteful and nonsensical
-              _ -> True)
-    $ let cs = DTKUntyped c
-      in case DMap.lookup n $ nMap s of
-        Just{} ->
-          s {dMap = DMap.adjust (addInterpretationTargetD cs) n $ dMap s}
-        Nothing ->
-          s { nMap = DMap.insert n d $ nMap s
-            , dMap = DMap.insert n cs $ dMap s }
   HToH v -> evalHVector s (tunvector c) v
   MapAccumR k accShs@(FTKUntyped accShsH) (FTKUntyped bShsH)
             eShs@(FTKUntyped eShsH)
@@ -1418,20 +1389,23 @@ fwdR params s = \case
           Just Refl -> (s, evalInterpretationTargetD dtk)
           _ -> error "fwdR: kind mismatch"
     else error "fwdR': wrong index for an input"
+  ShareG n d ->
+    case DMap.lookup n $ dMap s of
+      Just e1 -> (s, evalInterpretationTargetD e1)
+      Nothing ->
+        let (s2, cRaw) = fwdR params s d
+            cShared = tshare cRaw
+            cd = interpretationTargetToD stensorKind cShared
+              -- cRaw is shared, because it's put into the map and then
+              -- potentially looked up many times, so it'd get duplicated
+            s3 = s2 {dMap = DMap.insert n cd (dMap s2)}
+        in (s3, cShared)
 
   ZeroR sh -> (s, rzero sh)
   ScaleR k d -> second (* k) $ fwdR params s d
   AddR d e -> let (s2, t) = fwdR params s d
                   (s3, u) = fwdR params s2 e
               in (s3, t + u)
-  ShareR n d ->
-    case DMap.lookup n $ dMap s of
-      Just (DTKR e) -> (s, e)
-      Nothing ->
-        let (s2, cRaw) = fwdR params s d
-            cShared = tshare cRaw
-            s3 = s2 {dMap = DMap.insert n (DTKR cShared) (dMap s2)}
-        in (s3, cShared)
 
   IndexR d ix -> second (`rindex` ix) $ fwdR params s d
   SumR d -> second rsum $ fwdR params s d
@@ -1478,14 +1452,6 @@ fwdR params s = \case
   AddS d e -> let (s2, t) = fwdR params s d
                   (s3, u) = fwdR params s2 e
               in (s3, t + u)
-  ShareS n d ->
-    case DMap.lookup n $ dMap s of
-      Just (DTKS e) -> (s, e)
-      Nothing ->
-        let (s2, cRaw) = fwdR params s d
-            cShared = tshare cRaw
-            s3 = s2 {dMap = DMap.insert n (DTKS cShared) (dMap s2)}
-        in (s3, cShared)
 
   IndexS d ix -> second (`sindex` ix) $ fwdR params s d
   SumS d -> second ssum $ fwdR params s d
@@ -1530,16 +1496,6 @@ fwdR params s = \case
 -- so v is not copied.
 --  in (s2, sfromD $ dunHVector (unHVectorPseudoTensor $ tshare v) V.! i)
 
-  ShareH n d ->
-    case DMap.lookup n $ dMap s of
-      Just (DTKUntyped hv) -> (s, hv)
-      Nothing ->
-        let (s2, cRaw) = fwdR params s d
-            cShared = tshare cRaw
-              -- cRaw is shared, because it's put into the map and then
-              -- potentially looked up many times, so it'd get duplicated
-            s3 = s2 {dMap = DMap.insert n (DTKUntyped cShared) (dMap s2)}
-        in (s3, cShared)
   HToH v -> second (HVectorPseudoTensor . dmkHVector)
             $ fwdHVector params s v
   MapAccumR k accShs@(FTKUntyped accShsH) bShs (FTKUntyped eShsH)

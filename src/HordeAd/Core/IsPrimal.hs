@@ -17,7 +17,7 @@
 -- and operations for reading or reseting the impure counter.
 module HordeAd.Core.IsPrimal
   ( Dual, IsPrimal(..)
-  , unsafeGetFreshId, resetIdCounter, wrapDeltaH
+  , unsafeGetFreshId, resetIdCounter, wrapDelta
   ) where
 
 import Prelude
@@ -105,9 +105,9 @@ instance ( GoodScalar r, KnownNat n, RankedTensor ranked, ShareTensor ranked
   shareDual d = case unDeltaR d of
     ZeroR{} -> d
     InputG{} -> d
+    ShareG{} -> d  -- should not happen, but older/lower id is safer anyway
     RFromS{} -> d
-    ShareR{} -> d  -- should not happen, but older/lower id is safer anyway
-    _ -> wrapDeltaR d
+    d1 -> DeltaR $ wrapDelta d1
 
 instance ( GoodScalar r, KnownShS sh, ShapedTensor shaped
          , ShareTensor (RankedOf shaped), ProductTensor (RankedOf shaped) )
@@ -125,9 +125,9 @@ instance ( GoodScalar r, KnownShS sh, ShapedTensor shaped
   shareDual d = case unDeltaS d of
     ZeroS -> d
     InputG{} -> d
+    ShareG{} -> d  -- should not happen, but older/lower id is safer anyway
     SFromR{} -> d
-    ShareS{} -> d  -- should not happen, but older/lower id is safer anyway
-    _ -> wrapDeltaS d
+    d1 -> DeltaS $ wrapDelta d1
 
 
 -- * Counter handling
@@ -163,22 +163,8 @@ resetIdCounter = writeIORefU unsafeGlobalCounter 100000001
 
 -- Tests don't show a speedup from `unsafeDupablePerformIO`,
 -- perhaps due to counter gaps that it may introduce.
-wrapDeltaR :: (GoodScalar r, KnownNat n)
-           => DeltaR ranked r n -> DeltaR ranked r n
-{-# NOINLINE wrapDeltaR #-}
-wrapDeltaR (DeltaR d) = unsafePerformIO $ do
+wrapDelta :: TensorKind y => Delta ranked y -> Delta ranked y
+{-# NOINLINE wrapDelta #-}
+wrapDelta d = unsafePerformIO $ do
   n <- unsafeGetFreshId
-  return $! DeltaR $ ShareR (NodeId n) d
-
-wrapDeltaS :: (GoodScalar r, KnownShS sh)
-           => DeltaS shaped r sh -> DeltaS shaped r sh
-{-# NOINLINE wrapDeltaS #-}
-wrapDeltaS (DeltaS d) = unsafePerformIO $ do
-  n <- unsafeGetFreshId
-  return $! DeltaS $ ShareS (NodeId n) d
-
-wrapDeltaH :: Delta ranked TKUntyped -> Delta ranked TKUntyped
-{-# NOINLINE wrapDeltaH #-}
-wrapDeltaH !d = unsafePerformIO $ do
-  n <- unsafeGetFreshId
-  return $! ShareH (NodeId n) d
+  return $! ShareG (NodeId n) d
