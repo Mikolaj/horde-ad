@@ -108,6 +108,8 @@ instance LetTensor ORArray OSArray where
 
 instance ShareTensor ORArray where
   tshare = id
+  tunpair = id
+  tunvector = unHVectorPseudoTensor
 
 instance RankedTensor ORArray where
   rshape = tshapeR . runFlipR

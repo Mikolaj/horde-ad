@@ -863,7 +863,7 @@ unRawY stk t = case stk of
   STKProduct{} -> unAstRawWrap t
   STKUntyped -> unAstRawWrap $ unHVectorPseudoTensor t
 
-instance ShareTensor (AstRaw s) where
+instance AstSpan s => ShareTensor (AstRaw s) where
   -- For convenience and simplicity we define this for all spans,
   -- but it can only ever be used for PrimalSpan.
   tshare :: forall y. TensorKind y
@@ -888,6 +888,12 @@ instance ShareTensor (AstRaw s) where
       AstRawWrap (AstShare{}) -> t
       _ -> HVectorPseudoTensor $ AstRawWrap $ fun1ToAst $ \ !var ->
              AstShare var $ unAstRawWrap $ unHVectorPseudoTensor t
+  tunpair (AstRawWrap (AstTuple t1 t2)) =
+     (rawY stensorKind t1, rawY stensorKind t2)
+  tunpair t = let tShared = tshare t
+              in (tproject1 tShared, tproject2 tShared)
+  tunvector (HVectorPseudoTensor (AstRawWrap (AstMkHVector l))) = rawHVector l
+  tunvector t = dunHVector $ unHVectorPseudoTensor $ tshare t
 
 instance AstSpan s => RankedTensor (AstRaw s) where
   rshape = shapeAst . unAstRaw

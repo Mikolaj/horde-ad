@@ -262,6 +262,11 @@ class HVectorTensor ranked shaped
 class ShareTensor (ranked :: RankedTensorType) where
   tshare :: forall y. (TensorKind y, ProductTensor ranked)
          => InterpretationTarget ranked y -> InterpretationTarget ranked y
+  tunpair :: (TensorKind x, TensorKind z)
+          => InterpretationTarget ranked (TKProduct x z)
+          -> ConcreteTarget ranked (TKProduct x z)
+  tunvector :: InterpretationTarget ranked TKUntyped
+            -> ConcreteTarget ranked TKUntyped
 
 -- | The superclasses indicate that it's not only a container array,
 -- but also a mathematical tensor, sporting numeric operations.

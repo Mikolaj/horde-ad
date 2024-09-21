@@ -957,7 +957,7 @@ evalSRuntimeSpecialized !s !c =
           _ -> error "evalSRuntimeSpecialized: unexpected scalar"
 
 addInterpretationTargetD ::
-  ADReadyNoLet ranked
+  (ADReadyNoLet ranked, ShareTensor ranked)
   => InterpretationTargetD ranked y
   -> InterpretationTargetD ranked y
   -> InterpretationTargetD ranked y
@@ -965,25 +965,23 @@ addInterpretationTargetD a b = case (a, b) of
   (DTKR ta, DTKR tb) -> DTKR $ ta + tb
   (DTKS ta, DTKS tb) -> DTKS $ ta + tb
   (DTKProduct ta, DTKProduct tb) ->
-    DTKProduct
-    $ ttuple (evalInterpretationTargetD
-              $ addInterpretationTargetD
-                  (interpretationTargetToD stensorKind (tproject1 ta))
-                  (interpretationTargetToD stensorKind (tproject1 tb)))
-             (evalInterpretationTargetD
-              $ addInterpretationTargetD
-                  (interpretationTargetToD stensorKind (tproject2 ta))
-                  (interpretationTargetToD stensorKind (tproject2 tb)))
-        -- the duplication is fine, because anything inside DTKProduct
-        -- is shallowly duplicable
+    let (ta1, ta2) = tunpair ta
+        (tb1, tb2) = tunpair tb
+    in DTKProduct
+       $ ttuple (evalInterpretationTargetD
+                 $ addInterpretationTargetD
+                     (interpretationTargetToD stensorKind ta1)
+                     (interpretationTargetToD stensorKind tb1))
+                (evalInterpretationTargetD
+                 $ addInterpretationTargetD
+                     (interpretationTargetToD stensorKind ta2)
+                     (interpretationTargetToD stensorKind tb2))
   (DTKUntyped hv1, DTKUntyped hv2) ->
     DTKUntyped $ HVectorPseudoTensor $ dmkHVector
-    $ V.zipWith addDynamic (dunHVector $ unHVectorPseudoTensor hv1) (dunHVector $ unHVectorPseudoTensor hv2)
-      -- dunHVector is fine, because anything inside DTKUntyped
-      -- is shallowly duplicable,
+    $ V.zipWith addDynamic (tunvector hv1) (tunvector hv2)
 
 addInterpretationTargetM ::
-  ADReadyNoLet ranked
+  (ADReadyNoLet ranked, ShareTensor ranked)
   => InterpretationTargetM ranked y
   -> InterpretationTargetM ranked y
   -> InterpretationTargetM ranked y
@@ -995,24 +993,22 @@ addInterpretationTargetM a b = case (a, b) of
   (MTKSDummy, _) -> b
   (_, MTKSDummy) -> a
   (MTKProduct ta, MTKProduct tb) ->
-    MTKProduct
-    $ ttuple (evalInterpretationTargetM
-              $ addInterpretationTargetM
-                  (interpretationTargetToM stensorKind (tproject1 ta))
-                  (interpretationTargetToM stensorKind (tproject1 tb)))
-             (evalInterpretationTargetM
-              $ addInterpretationTargetM
-                  (interpretationTargetToM stensorKind (tproject2 ta))
-                  (interpretationTargetToM stensorKind (tproject2 tb)))
-        -- the duplication is fine, because anything inside MTKProduct
-        -- is shallowly duplicable
+    let (ta1, ta2) = tunpair ta
+        (tb1, tb2) = tunpair tb
+    in MTKProduct
+       $ ttuple (evalInterpretationTargetM
+                 $ addInterpretationTargetM
+                     (interpretationTargetToM stensorKind ta1)
+                     (interpretationTargetToM stensorKind tb1))
+                (evalInterpretationTargetM
+                 $ addInterpretationTargetM
+                     (interpretationTargetToM stensorKind ta2)
+                     (interpretationTargetToM stensorKind tb2))
   (MTKProductDummy{}, _) -> b
   (_, MTKProductDummy{}) -> a
   (MTKUntyped hv1, MTKUntyped hv2) ->
     MTKUntyped $ HVectorPseudoTensor $ dmkHVector
-    $ V.zipWith addDynamic (dunHVector $ unHVectorPseudoTensor hv1) (dunHVector $ unHVectorPseudoTensor hv2)
-      -- dunHVector is fine, because anything inside MTKUntyped
-      -- is shallowly duplicable,
+    $ V.zipWith addDynamic (tunvector hv1) (tunvector hv2)
 
 evalR
   :: forall y ranked.
@@ -1020,7 +1016,7 @@ evalR
   => EvalState ranked -> InterpretationTarget ranked y -> Delta ranked y
   -> EvalState ranked
 evalR !s !c = \case
-  TupleG d1 d2 -> let cShared = tshare c
+  TupleG d1 d2 -> let cShared = tshare c  -- tunpair is not enough
                   in evalR (evalR s (tproject1 cShared) d1)
                            (tproject2 cShared)
                            d2
@@ -1032,14 +1028,8 @@ evalR !s !c = \case
     FTKProduct ftk1 _ ->
       let zero = interpretationConstant 0 ftk1
       in evalR s (ttuple zero c) d
-  InputG ftk i ->
-    let shareRequired = case ftk of
-          FTKR{} -> false
-          FTKS{} -> false
-          FTKProduct{} -> true
-          FTKUntyped{} -> true
-        cShared = if shareRequired then tshare c else c
-        cs = interpretationTargetToM stensorKind cShared
+  InputG _ftk i ->
+    let cs = interpretationTargetToM stensorKind c
     in s {iMap = DMap.adjust (addInterpretationTargetM cs) i
                  $ iMap s}
     -- This and similar don't need to be runtime-specialized,
@@ -1222,24 +1212,20 @@ evalR !s !c = \case
     assert (case d of
               ShareH{} -> False  -- wasteful and nonsensical
               _ -> True)
-    $ let cShared = tshare c
-          cs = DTKUntyped cShared
-            -- c is shared, because it's looked up whenever a term `ShareH n`
-            -- appears and so would get duplicated
+    $ let cs = DTKUntyped c
       in case DMap.lookup n $ nMap s of
         Just{} ->
           s {dMap = DMap.adjust (addInterpretationTargetD cs) n $ dMap s}
         Nothing ->
           s { nMap = DMap.insert n d $ nMap s
             , dMap = DMap.insert n cs $ dMap s }
-  HToH v -> evalHVector s (dunHVector $ unHVectorPseudoTensor $ tshare c) v
+  HToH v -> evalHVector s (tunvector c) v
   MapAccumR k accShs@(FTKUntyped accShsH) (FTKUntyped bShsH)
             eShs@(FTKUntyped eShsH)
             q es _df rf acc0' es' ->
     let accLen = V.length accShsH
         bLen = V.length bShsH
-        (c0, crest) = V.splitAt accLen $ dunHVector
-                      $ unHVectorPseudoTensor $ tshare c
+        (c0, crest) = V.splitAt accLen $ tunvector c
         dacc_desUnshared =
           dmapAccumL (Proxy @ranked)
                      k accShs eShs (FTKUntyped $ bShsH V.++ accShsH V.++ eShsH)
@@ -1260,7 +1246,7 @@ evalR !s !c = \case
                                  $ accRes V.++ bRes)
                      (HVectorPseudoTensor $ dmkHVector c0)
                      (HVectorPseudoTensor $ dmkHVector $ V.concat [crest, q, es])
-        dacc_des = dunHVector $ unHVectorPseudoTensor $ tshare dacc_desUnshared
+        dacc_des = tunvector dacc_desUnshared
         (dacc, des) = V.splitAt accLen dacc_des
         s2 = evalHVector s dacc acc0'
     in evalHVector s2 des es'
@@ -1269,8 +1255,7 @@ evalR !s !c = \case
             q es _df rf acc0' es' ->
     let accLen = V.length accShsH
         bLen = V.length bShsH
-        (c0, crest) = V.splitAt accLen $ dunHVector
-                      $ unHVectorPseudoTensor $ tshare c
+        (c0, crest) = V.splitAt accLen $ tunvector c
         dacc_desUnshared =
           dmapAccumR (Proxy @ranked)
                      k accShs eShs (FTKUntyped $ bShsH V.++ accShsH V.++ eShsH)
@@ -1291,7 +1276,7 @@ evalR !s !c = \case
                                  $ accRes V.++ bRes)
                      (HVectorPseudoTensor $ dmkHVector c0)
                      (HVectorPseudoTensor $ dmkHVector $ V.concat [crest, q, es])
-        dacc_des = dunHVector $ unHVectorPseudoTensor $ tshare dacc_desUnshared
+        dacc_des = tunvector dacc_desUnshared
         (dacc, des) = V.splitAt accLen dacc_des
         s2 = evalHVector s dacc acc0'
     in evalHVector s2 des es'

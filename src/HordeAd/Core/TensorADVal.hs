@@ -186,16 +186,14 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
     STKR{} -> rconstant t
     STKS{} -> sconstant t
     STKProduct stk1 stk2 ->
-      let tShared = tshare t
-          !t1 = tconstant stk1 $ tproject1 tShared
-          !t2 = tconstant stk2 $ tproject2 tShared
-      in (t1, t2)
+      let (t1, t2) = tunpair t
+          !c1 = tconstant stk1 t1
+          !c2 = tconstant stk2 t2
+      in (c1, c2)
     STKUntyped ->
       let fd :: DynamicTensor ranked -> DynamicTensor (ADVal ranked)
           fd = mapDynamic rconstant sconstant
-          tShared = tshare t
-      in HVectorPseudoTensor
-         $ V.map fd $ dunHVector $ unHVectorPseudoTensor tShared
+      in HVectorPseudoTensor $ V.map fd $ tunvector t
 
   rrev :: (GoodScalar r, KnownNat n)
        => (forall f. ADReady f => HVector f -> f r n)
@@ -214,6 +212,8 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
 
 instance ShareTensor (ADVal ranked) where
   tshare = id
+  tunpair = id
+  tunvector = unHVectorPseudoTensor
 
 -- * Ranked tensor instance
 
@@ -619,7 +619,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
                                                  (FTKProduct accShs eShs))
                                    $ HFun rg)
                                   (HVectorPseudoTensor $ dmkHVector acc0) es
-        pShared = dunHVector $ unHVectorPseudoTensor $ tshare pUnshared
+        pShared = tunvector pUnshared
         -- This code makes sense only thanks to HVector being a representation
         -- of tuples in the struct of arrays format.
         accFin = V.take accLen pShared
@@ -693,7 +693,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
                                                  (FTKProduct accShs eShs))
                                    $ HFun rg)
                                   (HVectorPseudoTensor $ dmkHVector acc0) es
-        pShared = dunHVector $ unHVectorPseudoTensor $ tshare pUnshared
+        pShared = tunvector pUnshared
         -- This code makes sense only thanks to HVector being a representation
         -- of tuples in the struct of arrays format.
         accFin = V.take accLen pShared
