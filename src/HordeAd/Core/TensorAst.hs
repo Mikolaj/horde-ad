@@ -867,7 +867,8 @@ instance ShareTensor (AstRaw s) where
   -- For convenience and simplicity we define this for all spans,
   -- but it can only ever be used for PrimalSpan.
   tshare :: forall y. TensorKind y
-         => InterpretationTarget (AstRaw s) y -> InterpretationTarget (AstRaw s) y
+         => InterpretationTarget (AstRaw s) y
+         -> InterpretationTarget (AstRaw s) y
   tshare t = case stensorKind @y of
     STKR{} | astIsSmall True (unAstRaw t) -> t
     STKR{} -> case t of
@@ -880,10 +881,9 @@ instance ShareTensor (AstRaw s) where
     STKProduct{} | astIsSmall True (unAstRawWrap t) -> t
     STKProduct{} -> case t of
       AstRawWrap (AstShare{}) -> t
-      _ -> let tShared = AstRawWrap $ fun1ToAst $ \ !var ->
-                 AstShare var (unAstRawWrap t)
-           in ttuple (tproject1 tShared) (tproject2 tShared)
-    STKUntyped{} | astIsSmall True (unAstRawWrap $ unHVectorPseudoTensor t) -> t
+      _ -> AstRawWrap $ fun1ToAst $ \ !var -> AstShare var (unAstRawWrap t)
+    STKUntyped{}
+      | astIsSmall True (unAstRawWrap $ unHVectorPseudoTensor t) -> t
     STKUntyped{} -> case unHVectorPseudoTensor t of
       AstRawWrap (AstShare{}) -> t
       _ -> HVectorPseudoTensor $ AstRawWrap $ fun1ToAst $ \ !var ->
