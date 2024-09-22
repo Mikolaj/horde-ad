@@ -25,7 +25,7 @@ import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, (:~:) (Refl))
 import Data.Vector qualified as Data.NonStrict.Vector
 import Data.Vector.Generic qualified as V
-import GHC.TypeLits (KnownNat, type (+))
+import GHC.TypeLits (KnownNat)
 import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Shape qualified as X
@@ -357,25 +357,6 @@ unRankedY stk t = case stk of
   STKProduct{} -> t
   STKUntyped -> unHVectorPseudoTensor t
 
-astLetHVectorInFun
-  :: forall n s r. (KnownNat n, GoodScalar r, AstSpan s)
-  => AstTensor AstMethodLet s TKUntyped -> (HVector (AstGeneric AstMethodLet s) -> AstTensor AstMethodLet s (TKR r n))
-  -> AstTensor AstMethodLet s (TKR r n)
-{-# INLINE astLetHVectorInFun #-}
-astLetHVectorInFun a f =
-  fun1DToAst (shapeAstHVector a) $ \ !vars !asts ->
-    astLetHVectorIn vars a (f asts)
-
-astLetHFunInFun
-  :: (GoodScalar r, KnownNat n, TensorKind x, TensorKind z)
-  => AstHFun x z -> (AstHFun x z -> AstTensor AstMethodLet s (TKR r n))
-  -> AstTensor AstMethodLet s (TKR r n)
-{-# INLINE astLetHFunInFun #-}
-astLetHFunInFun a f =
-  let shss = domainShapeAstHFun a
-      shs = shapeAstHFun a
-  in fun1HToAst shss shs $ \ !var !ast -> astLetHFunIn var a (f ast)
-
 astSpanPrimal :: forall s y. (AstSpan s, TensorKind y)
               => AstTensor AstMethodLet s y
               -> AstTensor AstMethodLet PrimalSpan y
@@ -403,67 +384,36 @@ astSpanD _ u' | Just Refl <- sameAstSpan @s @DualSpan = u'
 astSpanD u u' | Just Refl <- sameAstSpan @s @FullSpan = AstD u u'
 astSpanD _ _ = error "a spuriuos case for pattern match coverage"
 
+astLetHVectorInFun
+  :: (AstSpan s, TensorKind z)
+  => AstTensor AstMethodLet s TKUntyped -> (HVector (AstGeneric AstMethodLet s) -> AstTensor AstMethodLet s z)
+  -> AstTensor AstMethodLet s z
+{-# INLINE astLetHVectorInFun #-}
+astLetHVectorInFun a f =
+  fun1DToAst (shapeAstHVector a) $ \ !vars !asts ->
+    astLetHVectorIn vars a (f asts)
+
+astLetHFunInFun
+  :: (TensorKind x, TensorKind y, TensorKind z)
+  => AstHFun x z -> (AstHFun x z -> AstTensor AstMethodLet s y)
+  -> AstTensor AstMethodLet s y
+{-# INLINE astLetHFunInFun #-}
+astLetHFunInFun a f =
+  let shss = domainShapeAstHFun a
+      shs = shapeAstHFun a
+  in fun1HToAst shss shs $ \ !var !ast -> astLetHFunIn var a (f ast)
+
 -- This is a vectorizing combinator that also simplifies
 -- the terms touched during vectorization, but not any others.
 -- Due to how the Ast instance of Tensor is defined above, vectorization
 -- works bottom-up, which removes the need to backtrack in the vectorization
 -- pass or repeat until a fixed point is reached.
 -- This combinator also introduces new variable names.
-astBuild1Vectorize :: (KnownNat n, GoodScalar r, AstSpan s)
-                   => Int -> (AstInt AstMethodLet -> AstTensor AstMethodLet s (TKR r n))
-                   -> AstTensor AstMethodLet s (TKR r (1 + n))
-astBuild1Vectorize k f = withSNat k $ \snat ->
-  build1Vectorize snat $ funToAstI f
-
-astLetHVectorInFunS
-  :: forall sh s r. (KnownShS sh, GoodScalar r, AstSpan s)
-  => AstTensor AstMethodLet s TKUntyped -> (HVector (AstGeneric AstMethodLet s) -> AstTensor AstMethodLet s (TKS r sh))
-  -> AstTensor AstMethodLet s (TKS r sh)
-{-# INLINE astLetHVectorInFunS #-}
-astLetHVectorInFunS a f =
-  fun1DToAst (shapeAstHVector a) $ \ !vars !asts ->
-    astLetHVectorIn vars a (f asts)
-
-astLetHFunInFunS
-  :: (GoodScalar r, KnownShS sh, TensorKind x, TensorKind z)
-  => AstHFun x z -> (AstHFun x z -> AstTensor AstMethodLet s (TKS r sh))
-  -> AstTensor AstMethodLet s (TKS r sh)
-{-# INLINE astLetHFunInFunS #-}
-astLetHFunInFunS a f =
-  let shss = domainShapeAstHFun a
-      shs = shapeAstHFun a
-  in fun1HToAst shss shs $ \ !var !ast -> astLetHFunIn var a (f ast)
-
-astBuild1VectorizeS :: forall n sh r s.
-                       (KnownNat n, KnownShS sh, GoodScalar r, AstSpan s)
-                    => (AstInt AstMethodLet -> AstTensor AstMethodLet s (TKS r sh))
-                    -> AstTensor AstMethodLet s (TKS r (n ': sh))
-astBuild1VectorizeS f =
-  build1Vectorize (SNat @n) $ funToAstI f
-
-astLetHVectorInHVectorFun
-  :: AstSpan s
-  => AstTensor AstMethodLet s TKUntyped -> (HVector (AstGeneric AstMethodLet s) -> AstTensor AstMethodLet s TKUntyped)
-  -> AstTensor AstMethodLet s TKUntyped
-{-# INLINE astLetHVectorInHVectorFun #-}
-astLetHVectorInHVectorFun a f =
-  fun1DToAst (shapeAstHVector a) $ \ !vars !asts ->
-    astLetHVectorIn vars a (f asts)
-
-astLetHFunInHVectorFun
-  :: (TensorKind x, TensorKind z)
-  => AstHFun x z -> (AstHFun x z -> AstTensor AstMethodLet s TKUntyped)
-  -> AstTensor AstMethodLet s TKUntyped
-{-# INLINE astLetHFunInHVectorFun #-}
-astLetHFunInHVectorFun a f =
-  let shss = domainShapeAstHFun a
-      shs = shapeAstHFun a
-  in fun1HToAst shss shs $ \ !var !ast -> astLetHFunIn var a (f ast)
-
-astBuildHVector1Vectorize
-  :: AstSpan s
-  => SNat k -> (AstInt AstMethodLet -> AstTensor AstMethodLet s TKUntyped) -> AstTensor AstMethodLet s TKUntyped
-astBuildHVector1Vectorize k f = build1Vectorize k $ funToAstI f
+astBuild1Vectorize
+  :: (AstSpan s, TensorKind z)
+  => SNat k -> (AstInt AstMethodLet -> AstTensor AstMethodLet s z)
+  -> AstTensor AstMethodLet s (BuildTensorKind k z)
+astBuild1Vectorize k f = build1Vectorize k $ funToAstI f
 
 -- This specialization is not possible where the functions are defined,
 -- but is possible here:
@@ -478,8 +428,8 @@ astBuildHVector1Vectorize k f = build1Vectorize k $ funToAstI f
 
 instance AstSpan s => LetTensor (AstRanked s) (AstShaped s) where
   rletHFunIn a f = AstRanked $ astLetHFunInFun a (unAstRanked . f)
-  sletHFunIn a f = AstShaped $ astLetHFunInFunS a (unAstShaped . f)
-  dletHFunInHVector = astLetHFunInHVectorFun
+  sletHFunIn a f = AstShaped $ astLetHFunInFun a (unAstShaped . f)
+  dletHFunInHVector = astLetHFunInFun
   tlet :: forall x z. (TensorKind x, TensorKind z)
        => InterpretationTarget (AstRanked s) x
        -> (ConcreteTarget (AstRanked s) x
@@ -497,13 +447,13 @@ instance AstSpan s => LetTensor (AstRanked s) (AstShaped s) where
                              (unAstRanked . f . rankedHVector)
       STKS{} ->
         AstShaped
-        $ astLetHVectorInFunS (unHVectorPseudoTensor u)
+        $ astLetHVectorInFun (unHVectorPseudoTensor u)
                               (unAstShaped . f . rankedHVector)
       STKProduct{} ->
         blet u $ \ !uShared -> f $ dunHVector $ unHVectorPseudoTensor uShared
       STKUntyped{} ->
         HVectorPseudoTensor
-        $ astLetHVectorInHVectorFun (unHVectorPseudoTensor u)
+        $ astLetHVectorInFun (unHVectorPseudoTensor u)
                                     (unHVectorPseudoTensor . f . rankedHVector)
   blet :: forall x z. (TensorKind x, TensorKind z)
        => InterpretationTarget (AstRanked s) x
@@ -605,8 +555,8 @@ instance AstSpan s => RankedTensor (AstRanked s) where
   rreverse = AstRanked . astReverse . unAstRanked
   rtranspose perm = AstRanked . astTranspose perm . unAstRanked
   rreshape sh = AstRanked . astReshape sh . unAstRanked
-  rbuild1 k f =
-    AstRanked $ astBuild1Vectorize k (unAstRanked . f . AstRanked)
+  rbuild1 k f = withSNat k $ \snat ->
+    AstRanked $ astBuild1Vectorize snat (unAstRanked . f . AstRanked)
   rgather sh t f = AstRanked $ astGatherStep sh (unAstRanked t)
                    $ funToAstIndex
                        (fmap unAstRanked . f . fmap AstRanked)
@@ -644,8 +594,11 @@ instance AstSpan s => ShapedTensor (AstShaped s) where
   sreverse = AstShaped . astReverseS . unAstShaped
   stranspose perm = AstShaped . astTransposeS perm . unAstShaped
   sreshape = AstShaped . astReshapeS . unAstShaped
+  sbuild1 :: forall r n sh. (GoodScalar r, KnownNat n, KnownShS sh)
+          => (IntOf (AstShaped s) -> AstShaped s r sh)
+          -> AstShaped s r (n ': sh)
   sbuild1 f =
-    AstShaped $ astBuild1VectorizeS (unAstShaped . f . AstRanked)
+    AstShaped $ astBuild1Vectorize (SNat @n) (unAstShaped . f . AstRanked)
   sgather t f = AstShaped $ astGatherStepS (unAstShaped t)
                 $ funToAstIndexS
                     (fmap unAstRanked . f . fmap AstRanked)
@@ -704,7 +657,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
           DynamicShapedDummy @r @sh _ _ ->
             DynamicShaped @r @sh $ AstGenericS $ AstProjectS hVectorOf i
     in rankedHVector $ V.imap f $ shapeAstHVector hVectorOf
-  dbuild1 k f = astBuildHVector1Vectorize k (f . AstRanked)
+  dbuild1 k f = astBuild1Vectorize k (f . AstRanked)
   -- TODO: (still) relevant?
   -- In this instance, these two ops are only used for some rare tests that
   -- use the non-symbolic pipeline to compute a symbolic
@@ -1121,69 +1074,6 @@ unNoVectorizeY stk t = case stk of
   STKProduct{} -> unAstNoVectorizeWrap t
   STKUntyped -> unAstNoVectorizeWrap $ unHVectorPseudoTensor t
 
-astLetFunNoSimplify
-  :: forall x z s. (TensorKind x, TensorKind z, AstSpan s)
-  => AstTensor AstMethodLet s x
-  -> (AstTensor AstMethodLet s x -> AstTensor AstMethodLet s z)
-  -> AstTensor AstMethodLet s z
-astLetFunNoSimplify a f | astIsSmall True a = f a
-                            -- too important an optimization to skip
-astLetFunNoSimplify a f =
-  let sh = shapeAstFull a
-      (var, ast) = funToAst sh f
-  in AstLet var a ast  -- safe, because subsitution ruled out above
-
-astLetHVectorInFunNoSimplify
-  :: forall n s r. (AstSpan s, GoodScalar r, KnownNat n)
-  => AstTensor AstMethodLet s TKUntyped -> (HVector (AstGeneric AstMethodLet s) -> AstTensor AstMethodLet s (TKR r n))
-  -> AstTensor AstMethodLet s (TKR r n)
-astLetHVectorInFunNoSimplify a f =
-  fun1DToAst (shapeAstHVector a) $ \ !vars !asts ->
-    AstLetHVectorIn vars a (f asts)
-
-astLetHVectorInFunNoSimplifyS
-  :: forall sh s r. (AstSpan s, KnownShS sh, GoodScalar r)
-  => AstTensor AstMethodLet s TKUntyped -> (HVector (AstGeneric AstMethodLet s) -> AstTensor AstMethodLet s (TKS r sh))
-  -> AstTensor AstMethodLet s (TKS r sh)
-astLetHVectorInFunNoSimplifyS a f =
-  fun1DToAst (shapeAstHVector a) $ \ !vars !asts ->
-    AstLetHVectorIn vars a (f asts)
-
-astLetHFunInFunNoSimplify
-  :: (GoodScalar r, KnownNat n, TensorKind x, TensorKind y)
-  => AstHFun x y -> (AstHFun x y -> AstTensor AstMethodLet s (TKR r n))
-  -> AstTensor AstMethodLet s (TKR r n)
-astLetHFunInFunNoSimplify a f =
-  let shss = domainShapeAstHFun a
-      shs = shapeAstHFun a
-  in fun1HToAst shss shs $ \ !var !ast -> AstLetHFunIn var a (f ast)
-
-astLetHFunInFunNoSimplifyS
-  :: (GoodScalar r, KnownShS sh, TensorKind x, TensorKind y)
-  => AstHFun x y -> (AstHFun x y -> AstTensor AstMethodLet s (TKS r sh))
-  -> AstTensor AstMethodLet s (TKS r sh)
-astLetHFunInFunNoSimplifyS a f =
-  let shss = domainShapeAstHFun a
-      shs = shapeAstHFun a
-  in fun1HToAst shss shs $ \ !var !ast -> AstLetHFunIn var a (f ast)
-
-astLetHVectorInHVectorFunNoSimplify
-  :: AstSpan s
-  => AstTensor AstMethodLet s TKUntyped -> (HVector (AstGeneric AstMethodLet s) -> AstTensor AstMethodLet s TKUntyped)
-  -> AstTensor AstMethodLet s TKUntyped
-astLetHVectorInHVectorFunNoSimplify a f =
-  fun1DToAst (shapeAstHVector a) $ \ !vars !asts ->
-    AstLetHVectorIn vars a (f asts)
-
-astLetHFunInHVectorFunNoSimplify
-  :: (TensorKind x, TensorKind y)
-  => AstHFun x y -> (AstHFun x y -> AstTensor AstMethodLet s TKUntyped)
-  -> AstTensor AstMethodLet s TKUntyped
-astLetHFunInHVectorFunNoSimplify a f =
-  let shss = domainShapeAstHFun a
-      shs = shapeAstHFun a
-  in fun1HToAst shss shs $ \ !var !ast -> AstLetHFunIn var a (f ast)
-
 unAstNoVectorize2 :: AstNoVectorize s r n -> AstRanked s r n
 unAstNoVectorize2 = AstRanked . unAstNoVectorize
 
@@ -1252,14 +1142,14 @@ instance AstSpan s => LetTensor (AstNoVectorize s) (AstNoVectorizeS s) where
             (unAstNoVectorize . f . noVectorizeHVector)
       STKS{} ->
         AstNoVectorizeS
-        $ astLetHVectorInFunS
+        $ astLetHVectorInFun
             (unAstNoVectorizeWrap $ unHVectorPseudoTensor u)
             (unAstNoVectorizeS . f . noVectorizeHVector)
       STKProduct{} ->
         blet u $ \ !uShared -> f $ dunHVector $ unHVectorPseudoTensor uShared
       STKUntyped{} ->
         HVectorPseudoTensor $ AstNoVectorizeWrap
-        $ astLetHVectorInHVectorFun
+        $ astLetHVectorInFun
             (unAstNoVectorizeWrap $ unHVectorPseudoTensor u)
             (unAstNoVectorizeWrap . unHVectorPseudoTensor
              . f . noVectorizeHVector)
@@ -1502,6 +1392,36 @@ instance AstSpan s => ProductTensor (AstNoSimplify s) where
   tproject2 t = noSimplifyY stensorKind $ astProject2 $ unAstNoSimplifyWrap t
   tmkHVector = AstNoSimplifyWrap . AstMkHVector . unNoSimplifyHVector
 
+astLetFunNoSimplify
+  :: forall x z s. (TensorKind x, TensorKind z, AstSpan s)
+  => AstTensor AstMethodLet s x
+  -> (AstTensor AstMethodLet s x -> AstTensor AstMethodLet s z)
+  -> AstTensor AstMethodLet s z
+astLetFunNoSimplify a f | astIsSmall True a = f a
+                            -- too important an optimization to skip
+astLetFunNoSimplify a f =
+  let sh = shapeAstFull a
+      (var, ast) = funToAst sh f
+  in AstLet var a ast  -- safe, because subsitution ruled out above
+
+astLetHVectorInFunNoSimplify
+  :: (AstSpan s, TensorKind z)
+  => AstTensor AstMethodLet s TKUntyped
+  -> (HVector (AstGeneric AstMethodLet s) -> AstTensor AstMethodLet s z)
+  -> AstTensor AstMethodLet s z
+astLetHVectorInFunNoSimplify a f =
+  fun1DToAst (shapeAstHVector a) $ \ !vars !asts ->
+    AstLetHVectorIn vars a (f asts)
+
+astLetHFunInFunNoSimplify
+  :: (TensorKind x, TensorKind y, TensorKind z)
+  => AstHFun x y -> (AstHFun x y -> AstTensor AstMethodLet s z)
+  -> AstTensor AstMethodLet s z
+astLetHFunInFunNoSimplify a f =
+  let shss = domainShapeAstHFun a
+      shs = shapeAstHFun a
+  in fun1HToAst shss shs $ \ !var !ast -> AstLetHFunIn var a (f ast)
+
 noSimplifyY :: STensorKindType y -> AstTensor AstMethodLet s y
             -> InterpretationTarget (AstNoSimplify s) y
 noSimplifyY stk t = case stk of
@@ -1544,10 +1464,10 @@ noSimplifyHVector =
 
 instance AstSpan s => LetTensor (AstNoSimplify s) (AstNoSimplifyS s) where
   rletHFunIn a f = AstNoSimplify $ astLetHFunInFunNoSimplify a (unAstNoSimplify . f)
-  sletHFunIn a f = AstNoSimplifyS $ astLetHFunInFunNoSimplifyS a (unAstNoSimplifyS . f)
+  sletHFunIn a f = AstNoSimplifyS $ astLetHFunInFunNoSimplify a (unAstNoSimplifyS . f)
   dletHFunInHVector t f =
     AstNoSimplifyWrap
-    $ astLetHFunInHVectorFunNoSimplify t (unAstNoSimplifyWrap . f)
+    $ astLetHFunInFunNoSimplify t (unAstNoSimplifyWrap . f)
   tlet :: forall x z. (TensorKind x, TensorKind z)
        => InterpretationTarget (AstNoSimplify s) x
        -> (ConcreteTarget (AstNoSimplify s) x
@@ -1566,14 +1486,14 @@ instance AstSpan s => LetTensor (AstNoSimplify s) (AstNoSimplifyS s) where
             (unAstNoSimplify . f . noSimplifyHVector)
       STKS{} ->
         AstNoSimplifyS
-        $ astLetHVectorInFunNoSimplifyS
+        $ astLetHVectorInFunNoSimplify
             (unAstNoSimplifyWrap $ unHVectorPseudoTensor u)
             (unAstNoSimplifyS . f . noSimplifyHVector)
       STKProduct{} ->
         blet u $ \ !uShared -> f $ dunHVector $ unHVectorPseudoTensor uShared
       STKUntyped{} ->
         HVectorPseudoTensor $ AstNoSimplifyWrap
-        $ astLetHVectorInHVectorFunNoSimplify
+        $ astLetHVectorInFunNoSimplify
             (unAstNoSimplifyWrap $ unHVectorPseudoTensor u)
             (unAstNoSimplifyWrap . unHVectorPseudoTensor
              . f . noSimplifyHVector)
@@ -1648,8 +1568,8 @@ instance AstSpan s => RankedTensor (AstNoSimplify s) where
   rreverse = AstNoSimplify . AstReverse . unAstNoSimplify
   rtranspose perm = AstNoSimplify . AstTranspose perm . unAstNoSimplify
   rreshape sh = AstNoSimplify . AstReshape sh . unAstNoSimplify
-  rbuild1 k f =
-    AstNoSimplify $ astBuild1Vectorize k (unAstNoSimplify . f . AstNoSimplify)
+  rbuild1 k f = withSNat k $ \snat ->
+    AstNoSimplify $ astBuild1Vectorize snat (unAstNoSimplify . f . AstNoSimplify)
   rgather sh t f = AstNoSimplify $ AstGather sh (unAstNoSimplify t)
                    $ funToAstIndex
                        (fmap unAstNoSimplify . f . fmap AstNoSimplify)
@@ -1691,9 +1611,12 @@ instance AstSpan s => ShapedTensor (AstNoSimplifyS s) where
   stranspose perm =
     AstNoSimplifyS . AstTransposeS perm . unAstNoSimplifyS
   sreshape = AstNoSimplifyS . AstReshapeS . unAstNoSimplifyS
+  sbuild1 :: forall r n sh. (GoodScalar r, KnownNat n, KnownShS sh)
+          => (IntOf (AstNoSimplifyS s) -> AstNoSimplifyS s r sh)
+          -> AstNoSimplifyS s r (n ': sh)
   sbuild1 f =
     AstNoSimplifyS
-    $ astBuild1VectorizeS (unAstNoSimplifyS . f . AstNoSimplify)
+    $ astBuild1Vectorize (SNat @n) (unAstNoSimplifyS . f . AstNoSimplify)
   sgather t f = AstNoSimplifyS $ AstGatherS (unAstNoSimplifyS t)
                 $ funToAstIndexS
                     (fmap unAstNoSimplify . f . fmap AstNoSimplify)
@@ -1761,7 +1684,7 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
     in noSimplifyHVector
        $ V.imap f $ shapeAstHVector hVectorOf
   dbuild1 k f = AstNoSimplifyWrap
-                $ astBuildHVector1Vectorize
+                $ astBuild1Vectorize
                     k (unAstNoSimplifyWrap . f . AstNoSimplify)
   drevDt = drevDt @(AstRanked s)
   dfwd = dfwd @(AstRanked s)
