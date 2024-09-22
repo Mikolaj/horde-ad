@@ -224,7 +224,7 @@ build1V snat@SNat (var, v00) =
             STKUntyped ->
               astTrAstHVector
               $ fun1DToAst (shapeAstHVector u) $ \ !vars !asts ->
-                  Ast.AstLetHVectorIn
+                  astLetHVectorIn
                     vars
                     u
                     (Ast.AstMkHVector
@@ -665,7 +665,7 @@ substProjInterpretationTarget snat@SNat var ftk2 var1 v
                     | Just Refl <- sameShape @sh2 @(k ': sh3) =
                       DynamicShaped $ AstGenericS $ projection t (FTKS @_ @sh3)
                   projDyn _ _ = error "projDyn: impossible DynamicTensor cases"
-              in Ast.AstLetHVectorIn
+              in astLetHVectorIn
                    vars
                    prVar
                    (Ast.AstMkHVector $ V.zipWith projDyn asts shs0)
@@ -767,7 +767,7 @@ astTrAstHVector :: forall s. AstSpan s
                 => AstTensor AstMethodLet s TKUntyped -> AstTensor AstMethodLet s TKUntyped
 astTrAstHVector t =
   fun1DToAst (shapeAstHVector t) $ \ !vars !asts ->
-    Ast.AstLetHVectorIn
+    astLetHVectorIn
       vars
       t
       (Ast.AstMkHVector @_ @s $ V.map astTrDynamic asts)
@@ -776,7 +776,7 @@ astTrAstHVectorTail :: forall s. AstSpan s
                     => Int -> AstTensor AstMethodLet s TKUntyped -> AstTensor AstMethodLet s TKUntyped
 astTrAstHVectorTail i t =
   fun1DToAst (shapeAstHVector t) $ \ !vars !asts ->
-    Ast.AstLetHVectorIn
+    astLetHVectorIn
       vars
       t
       (Ast.AstMkHVector @_ @s $ V.take i asts
