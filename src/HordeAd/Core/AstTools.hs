@@ -142,12 +142,10 @@ shapeAstFull t = case t of
   AstHApply v _ll -> shapeAstHFun v
   AstBuildHVector1 k (_, v) ->
     FTKUntyped $ replicate1VoidHVector k $ shapeAstHVector v
-  AstMapAccumRDer k (FTKUntyped accShs) (FTKUntyped bShs)
-                  _eShs _f _df _rf _acc0 _es ->
-    FTKUntyped $ accShs V.++ replicate1VoidHVector k bShs
-  AstMapAccumLDer k (FTKUntyped accShs) (FTKUntyped bShs)
-                  _eShs _f _df _rf _acc0 _es ->
-    FTKUntyped $ accShs V.++ replicate1VoidHVector k bShs
+  AstMapAccumRDer k accShs bShs _eShs _f _df _rf _acc0 _es ->
+    FTKProduct accShs (buildTensorKindFull k bShs)
+  AstMapAccumLDer k accShs bShs _eShs _f _df _rf _acc0 _es ->
+    FTKProduct accShs (buildTensorKindFull k bShs)
 
 -- This is cheap and dirty. We don't shape-check the terms and we don't
 -- unify or produce (partial) results with variables. Instead, we investigate

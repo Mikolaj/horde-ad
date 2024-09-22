@@ -961,21 +961,25 @@ class HVectorTensor (ranked :: RankedTensorType)
           ZSR -> error "rscan: impossible pattern needlessly required"
         sh = rshape acc0
     in withSNat width $ \snat ->
-      rletHVectorIn
-        (unHVectorPseudoTensor $ dmapAccumL (Proxy @ranked)
+      tlet
+        (dmapAccumL (Proxy @ranked)
            snat
            (FTKUntyped $ V.singleton $ voidFromSh @rn sh)
            (FTKUntyped V.empty)
            (FTKUntyped $ V.singleton $ voidFromSh @rm shm)
            (let g :: forall f. ADReady f
-                  => HVector f -> HVector f -> HVectorOf f
+                  => HVector f -> HVector f
+                  -> InterpretationTarget f (TKProduct TKUntyped TKUntyped)
                 g !acc !e =
-                  dmkHVector $ V.singleton $ DynamicRanked
-                  $ f (rfromD $ acc V.! 0) (rfromD $ e V.! 0)
+                  ttuple (HVectorPseudoTensor $ dmkHVector
+                          $ V.singleton $ DynamicRanked
+                          $ f (rfromD $ acc V.! 0) (rfromD $ e V.! 0))
+                         (HVectorPseudoTensor $ dmkHVector V.empty)
             in g)
            (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked acc0)
            (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked es))
-        (\res -> rfromD $ res V.! 0)
+        (\(x1, _bs1) -> tlet x1 $ \ !x ->
+           rfromD $ x V.! 0)
   -- | A strict left scan.
   rscan
     :: forall rn rm n m.
@@ -992,25 +996,25 @@ class HVectorTensor (ranked :: RankedTensorType)
           ZSR -> error "rscan: impossible pattern needlessly required"
         sh = rshape acc0
     in withSNat width $ \snat ->
-      rletHVectorIn
-        (unHVectorPseudoTensor $ dmapAccumL (Proxy @ranked)
+      tlet
+        (dmapAccumL (Proxy @ranked)
            snat
            (FTKUntyped $ V.singleton $ voidFromSh @rn sh)
            (FTKUntyped $ V.singleton $ voidFromSh @rn sh)
            (FTKUntyped $ V.singleton $ voidFromSh @rm shm)
            (let g :: forall f. ADReady f
-                  => HVector f -> HVector f -> HVectorOf f
+                  => HVector f -> HVector f
+                  -> InterpretationTarget f (TKProduct TKUntyped TKUntyped)
                 g !acc !e =
-                  unHVectorPseudoTensor
-                  $ tlet @_ @_ @_ @TKUntyped
-                      (f (rfromD $ acc V.! 0) (rfromD $ e V.! 0))
-                      (\res -> HVectorPseudoTensor $ dmkHVector
-                               $ V.fromList [ DynamicRanked res
-                                            , DynamicRanked res ])
+                  tlet (f (rfromD $ acc V.! 0) (rfromD $ e V.! 0)) $ \ !res ->
+                    let singRes = HVectorPseudoTensor $ dmkHVector
+                                  $ V.singleton (DynamicRanked res)
+                    in ttuple singRes singRes
             in g)
            (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked acc0)
            (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked es))
-        (\res -> rappend (rfromList [acc0]) (rfromD $ res V.! 1))
+        (\(_x1, bs1) -> tlet bs1 $ \ !bs ->
+           rappend (rfromList [acc0]) (rfromD $ bs V.! 0))
   -- | A strict left fold.
   sfold
     :: forall rn rm sh shm k.
@@ -1022,21 +1026,25 @@ class HVectorTensor (ranked :: RankedTensorType)
     -> shaped rm (k ': shm)
     -> shaped rn sh
   sfold f acc0 es =
-    sletHVectorIn
-      (unHVectorPseudoTensor $ dmapAccumL (Proxy @ranked)
+    tlet
+      (dmapAccumL (Proxy @ranked)
          (SNat @k)
          (FTKUntyped $ V.singleton $ voidFromShS @rn @sh)
          (FTKUntyped V.empty)
          (FTKUntyped $ V.singleton $ voidFromShS @rm @shm)
          (let g :: forall f. ADReady f
-                => HVector f -> HVector f -> HVectorOf f
+                => HVector f -> HVector f
+                -> InterpretationTarget f (TKProduct TKUntyped TKUntyped)
               g !acc !e =
-                dmkHVector $ V.singleton $ DynamicShaped
-                $ f (sfromD $ acc V.! 0) (sfromD $ e V.! 0)
+                ttuple (HVectorPseudoTensor $ dmkHVector
+                        $ V.singleton $ DynamicShaped
+                        $ f (sfromD $ acc V.! 0) (sfromD $ e V.! 0))
+                       (HVectorPseudoTensor $ dmkHVector V.empty)
           in g)
          (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicShaped acc0)
          (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicShaped es))
-      (\res -> sfromD $ res V.! 0)
+      (\(x1, _bs1) -> tlet x1 $ \ !x ->
+         sfromD $ x V.! 0)
   sscan
     :: forall rn rm sh shm k.
        ( GoodScalar rn, GoodScalar rm, KnownShS sh, KnownShS shm, KnownNat k
@@ -1047,25 +1055,25 @@ class HVectorTensor (ranked :: RankedTensorType)
     -> shaped rm (k ': shm)
     -> shaped rn (1 + k ': sh)
   sscan f acc0 es =
-    sletHVectorIn
-      (unHVectorPseudoTensor $ dmapAccumL (Proxy @ranked)
+    tlet
+      (dmapAccumL (Proxy @ranked)
          (SNat @k)
          (FTKUntyped $ V.singleton $ voidFromShS @rn @sh)
          (FTKUntyped $ V.singleton $ voidFromShS @rn @sh)
          (FTKUntyped $ V.singleton $ voidFromShS @rm @shm)
          (let g :: forall f. ADReady f
-                => HVector f -> HVector f -> HVectorOf f
+                => HVector f -> HVector f
+                -> InterpretationTarget f (TKProduct TKUntyped TKUntyped)
               g !acc !e =
-                unHVectorPseudoTensor
-                $ tlet @_ @_ @_ @TKUntyped
-                    (f (sfromD $ acc V.! 0) (sfromD $ e V.! 0))
-                    (\res -> HVectorPseudoTensor $ dmkHVector
-                             $ V.fromList [ DynamicShaped res
-                                          , DynamicShaped res ])
+                tlet (f (sfromD $ acc V.! 0) (sfromD $ e V.! 0)) $ \ !res ->
+                  let singRes = HVectorPseudoTensor $ dmkHVector
+                                $ V.singleton (DynamicShaped res)
+                  in ttuple singRes singRes
           in g)
          (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicShaped acc0)
          (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicShaped es))
-      (\res -> sappend @_ @_ @1 (sfromList [acc0]) (sfromD $ res V.! 1))
+      (\(_x1, bs1) -> tlet bs1 $ \ !bs ->
+         sappend @_ @_ @1 (sfromList [acc0]) (sfromD $ bs V.! 0))
   -- | A strict right mapAccum.
   --
   -- The applications of 'dfwd' and 'drevDt' performed already at this point
@@ -1081,24 +1089,21 @@ class HVectorTensor (ranked :: RankedTensorType)
     -> TensorKindFull accShs
     -> TensorKindFull bShs
     -> TensorKindFull eShs
-    -> (forall f. ADReady f => HVector f -> HVector f -> HVectorOf f)
+    -> (forall f. ADReady f
+        => HVector f -> HVector f
+        -> InterpretationTarget f (TKProduct accShs bShs))
     -> InterpretationTarget ranked accShs
-    -> InterpretationTarget ranked TKUntyped
-    -> InterpretationTarget ranked TKUntyped
-  dmapAccumR proxy !k accShs@(FTKUntyped accShsH) !bShs !eShs
-             f acc0 es =
-    let accLen = V.length accShsH
-        shs = FTKProduct accShs eShs
+    -> InterpretationTarget ranked (BuildTensorKind k eShs)
+    -> InterpretationTarget ranked (TKProduct accShs (BuildTensorKind k bShs))
+  dmapAccumR proxy !k !accShs !bShs !eShs f acc0 es =
+    let shs = FTKProduct accShs eShs
         fl :: forall f. ADReady f
            => InterpretationTarget f (TKProduct accShs eShs)
            -> InterpretationTarget f (TKProduct accShs bShs)
         fl !args = tlet args $ \ (!acc1, !e1) ->
           tlet acc1 $ \ !acc ->
             tlet e1 $ \ !e ->
-              tlet @_ @_ @TKUntyped (HVectorPseudoTensor $ f acc e) $ \ !res ->
-                let !(!acc2, !b2) = V.splitAt accLen res
-                in ttuple (HVectorPseudoTensor $ dmkHVector acc2)
-                          (HVectorPseudoTensor $ dmkHVector b2)
+              f acc e
     in dmapAccumRDer proxy k accShs bShs eShs
                      (dlambda @ranked shs (HFun fl))
                      (dfwd @ranked shs $ HFun fl)
@@ -1119,8 +1124,10 @@ class HVectorTensor (ranked :: RankedTensorType)
                                 (TKProduct accShs eShs))
                      (TKProduct accShs eShs)
     -> InterpretationTarget ranked accShs  -- ^ acc0 :: accShs
-    -> InterpretationTarget ranked TKUntyped  -- ^ es :: k ': eShs
-    -> InterpretationTarget ranked TKUntyped  -- ^ (x, bs) :: (accShs, k ': bShs)
+    -> InterpretationTarget ranked (BuildTensorKind k eShs)
+         -- ^ es :: k ': eShs
+    -> InterpretationTarget ranked (TKProduct accShs (BuildTensorKind k bShs))
+         -- ^ (x, bs) :: (accShs, k ': bShs)
   -- | A strict left mapAccum.
   dmapAccumL
     :: forall k accShs bShs eShs.
@@ -1130,24 +1137,21 @@ class HVectorTensor (ranked :: RankedTensorType)
     -> TensorKindFull accShs
     -> TensorKindFull bShs
     -> TensorKindFull eShs
-    -> (forall f. ADReady f => HVector f -> HVector f -> HVectorOf f)
+    -> (forall f. ADReady f
+        => HVector f -> HVector f
+        -> InterpretationTarget f (TKProduct accShs bShs))
     -> InterpretationTarget ranked accShs
-    -> InterpretationTarget ranked TKUntyped
-    -> InterpretationTarget ranked TKUntyped
-  dmapAccumL proxy !k accShs@(FTKUntyped accShsH) !bShs !eShs
-             f acc0 es =
-    let accLen = V.length accShsH
-        shs = FTKProduct accShs eShs
+    -> InterpretationTarget ranked (BuildTensorKind k eShs)
+    -> InterpretationTarget ranked (TKProduct accShs (BuildTensorKind k bShs))
+  dmapAccumL proxy !k !accShs !bShs !eShs f acc0 es =
+    let shs = FTKProduct accShs eShs
         fl :: forall f. ADReady f
            => InterpretationTarget f (TKProduct accShs eShs)
            -> InterpretationTarget f (TKProduct accShs bShs)
         fl !args = tlet args $ \ (!acc1, !e1) ->
           tlet acc1 $ \ !acc ->
             tlet e1 $ \ !e ->
-              tlet @_ @_ @TKUntyped (HVectorPseudoTensor $ f acc e) $ \ !res ->
-                let !(!acc2, !b2) = V.splitAt accLen res
-                in ttuple (HVectorPseudoTensor $ dmkHVector acc2)
-                          (HVectorPseudoTensor $ dmkHVector b2)
+              f acc e
     in dmapAccumLDer proxy k accShs bShs eShs
                      (dlambda @ranked shs (HFun fl))
                      (dfwd @ranked shs $ HFun fl)
@@ -1168,8 +1172,8 @@ class HVectorTensor (ranked :: RankedTensorType)
                                 (TKProduct accShs eShs))
                      (TKProduct accShs eShs)
     -> InterpretationTarget ranked accShs
-    -> InterpretationTarget ranked TKUntyped
-    -> InterpretationTarget ranked TKUntyped
+    -> InterpretationTarget ranked (BuildTensorKind k eShs)
+    -> InterpretationTarget ranked (TKProduct accShs (BuildTensorKind k bShs))
 
 -- TODO: tmkHVector should be removed, but the Delta instance needed
 -- in interpreter makes this difficult.

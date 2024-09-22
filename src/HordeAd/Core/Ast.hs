@@ -523,8 +523,8 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType -> Type wh
                           (TKProduct accShs eShs))
                (TKProduct accShs eShs)
     -> AstTensor ms s accShs
-    -> AstTensor ms s TKUntyped
-    -> AstTensor ms s TKUntyped
+    -> AstTensor ms s (BuildTensorKind k eShs)
+    -> AstTensor ms s (TKProduct accShs (BuildTensorKind k bShs))
   AstMapAccumLDer
     :: (accShs ~ TKUntyped, bShs ~ TKUntyped, eShs ~ TKUntyped)
     => SNat k
@@ -539,8 +539,8 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType -> Type wh
                           (TKProduct accShs eShs))
                (TKProduct accShs eShs)
     -> AstTensor ms s accShs
-    -> AstTensor ms s TKUntyped
-    -> AstTensor ms s TKUntyped
+    -> AstTensor ms s (BuildTensorKind k eShs)
+    -> AstTensor ms s (TKProduct accShs (BuildTensorKind k bShs))
 
 deriving instance Show (AstTensor ms s y)
 

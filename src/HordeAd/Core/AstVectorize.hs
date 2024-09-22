@@ -434,30 +434,34 @@ build1V snat@SNat (var, v00) =
       error "build1V: impossible case of AstBuildHVector1"
     Ast.AstMapAccumRDer k5 (FTKUntyped accShs) (FTKUntyped bShs) (FTKUntyped eShs)
                         f df rf acc0 es -> traceRule $
-      astTrAstHVectorTail (V.length accShs)
-      $ Ast.AstMapAccumRDer
-          k5
-          (FTKUntyped $ replicate1VoidHVector snat accShs)
-          (FTKUntyped $ replicate1VoidHVector snat bShs)
-          (FTKUntyped $ replicate1VoidHVector snat eShs)
-          (build1VHFun snat (var, f))
-          (build1VHFun snat (var, df))
-          (build1VHFun snat (var, rf))
-          (build1VOccurenceUnknown snat (var, acc0))
-          (astTrAstHVector $ build1VOccurenceUnknown snat (var, es))
+      astLetFun
+        (Ast.AstMapAccumRDer
+           k5
+           (FTKUntyped $ replicate1VoidHVector snat accShs)
+           (FTKUntyped $ replicate1VoidHVector snat bShs)
+           (FTKUntyped $ replicate1VoidHVector snat eShs)
+           (build1VHFun snat (var, f))
+           (build1VHFun snat (var, df))
+           (build1VHFun snat (var, rf))
+           (build1VOccurenceUnknown snat (var, acc0))
+           (astTrAstHVector $ build1VOccurenceUnknown snat (var, es)))
+        (\x1bs1 -> astTuple (astProject1 x1bs1)
+                            (astTrAstHVector (astProject2 x1bs1)))
     Ast.AstMapAccumLDer k5 (FTKUntyped accShs) (FTKUntyped bShs) (FTKUntyped eShs)
                         f df rf acc0 es -> traceRule $
-      astTrAstHVectorTail (V.length accShs)
-      $ Ast.AstMapAccumLDer
-          k5
-          (FTKUntyped $ replicate1VoidHVector snat accShs)
-          (FTKUntyped $ replicate1VoidHVector snat bShs)
-          (FTKUntyped $ replicate1VoidHVector snat eShs)
-          (build1VHFun snat (var, f))
-          (build1VHFun snat (var, df))
-          (build1VHFun snat (var, rf))
-          (build1VOccurenceUnknown snat (var, acc0))
-          (astTrAstHVector $ build1VOccurenceUnknown snat (var, es))
+      astLetFun
+        (Ast.AstMapAccumLDer
+           k5
+           (FTKUntyped $ replicate1VoidHVector snat accShs)
+           (FTKUntyped $ replicate1VoidHVector snat bShs)
+           (FTKUntyped $ replicate1VoidHVector snat eShs)
+           (build1VHFun snat (var, f))
+           (build1VHFun snat (var, df))
+           (build1VHFun snat (var, rf))
+           (build1VOccurenceUnknown snat (var, acc0))
+           (astTrAstHVector $ build1VOccurenceUnknown snat (var, es)))
+        (\x1bs1 -> astTuple (astProject1 x1bs1)
+                            (astTrAstHVector (astProject2 x1bs1)))
 
 -- | The application @build1VIndex snat (var, v, ix)@ vectorizes
 -- the term @AstBuild1 snat (var, AstIndex v ix)@, where it's unknown whether
@@ -771,17 +775,6 @@ astTrAstHVector t =
       vars
       t
       (Ast.AstMkHVector @_ @s $ V.map astTrDynamic asts)
-
-astTrAstHVectorTail :: forall s. AstSpan s
-                    => Int -> AstTensor AstMethodLet s TKUntyped -> AstTensor AstMethodLet s TKUntyped
-astTrAstHVectorTail i t =
-  fun1DToAst (shapeAstHVector t) $ \ !vars !asts ->
-    astLetHVectorIn
-      vars
-      t
-      (Ast.AstMkHVector @_ @s $ V.take i asts
-                             V.++ V.map astTrDynamic (V.drop i asts))
-
 
 -- * Rule tracing machinery
 

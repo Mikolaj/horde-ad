@@ -605,7 +605,6 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
                    ttuple (HVectorPseudoTensor $ dmkHVector
                            $ V.zipWith addDynamic daccRes dbacc)
                           deRes1
-        -- pUnshared :: HVectorOf ranked
         pUnshared = dmapAccumRDer (Proxy @ranked)
                                   k accShs codomainShs eShs
                                   (dlambda @ranked (FTKProduct accShs eShs)
@@ -619,16 +618,17 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
                                                  (FTKProduct accShs eShs))
                                    $ HFun rg)
                                   (HVectorPseudoTensor $ dmkHVector acc0) es
-        pShared = tunvector pUnshared
+        (accFin1, qbs1) = tunpair pUnshared
         -- This code makes sense only thanks to HVector being a representation
         -- of tuples in the struct of arrays format.
-        accFin = V.take accLen pShared
-        q = V.slice accLen accLen pShared
-        bs = V.drop (2 * accLen) pShared
+        accFin = dunHVector $ unHVectorPseudoTensor accFin1
+        qbs = dunHVector $ unHVectorPseudoTensor qbs1
+        q = V.take accLen qbs
+        bs = V.drop accLen qbs
         !_A = assert (voidHVectorMatches (replicate1VoidHVector k bShsH) bs) ()
-        primal = accFin V.++ bs
         dual = wrapDelta $ MapAccumR k accShs bShs eShs q (dunHVector $ unHVectorPseudoTensor es) df rf acc0' es'
-    in HVectorPseudoTensor $ ahhToHVector primal dual
+    in ( HVectorPseudoTensor $ ahhToHVector accFin (Project1G dual)
+       , HVectorPseudoTensor $ ahhToHVector bs (Project2G dual) )
   dmapAccumLDer _ !k accShs@(FTKUntyped accShsH) bShs@(FTKUntyped bShsH)
                 eShs@(FTKUntyped eShsH) f df rf acc0D esD =
     assert (voidHVectorMatches (replicate1VoidHVector k eShsH)
@@ -679,7 +679,6 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
                    ttuple (HVectorPseudoTensor $ dmkHVector
                            $ V.zipWith addDynamic daccRes dbacc)
                           deRes1
-        -- pUnshared :: HVectorOf ranked
         pUnshared = dmapAccumLDer (Proxy @ranked)
                                   k accShs codomainShs eShs
                                   (dlambda @ranked (FTKProduct accShs eShs)
@@ -693,16 +692,17 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
                                                  (FTKProduct accShs eShs))
                                    $ HFun rg)
                                   (HVectorPseudoTensor $ dmkHVector acc0) es
-        pShared = tunvector pUnshared
+        (accFin1, qbs1) = tunpair pUnshared
         -- This code makes sense only thanks to HVector being a representation
         -- of tuples in the struct of arrays format.
-        accFin = V.take accLen pShared
-        q = V.slice accLen accLen pShared
-        bs = V.drop (2 * accLen) pShared
+        accFin = dunHVector $ unHVectorPseudoTensor accFin1
+        qbs = dunHVector $ unHVectorPseudoTensor qbs1
+        q = V.take accLen qbs
+        bs = V.drop accLen qbs
         !_A = assert (voidHVectorMatches (replicate1VoidHVector k bShsH) bs) ()
-        primal = accFin V.++ bs
         dual = wrapDelta $ MapAccumL k accShs bShs eShs q (dunHVector $ unHVectorPseudoTensor es) df rf acc0' es'
-    in HVectorPseudoTensor $ ahhToHVector primal dual
+    in ( HVectorPseudoTensor $ ahhToHVector accFin (Project1G dual)
+       , HVectorPseudoTensor $ ahhToHVector bs (Project2G dual) )
 
 aDValToHVector
   :: (HVectorOf ranked ~ HVector ranked, RankedOf (ShapedOf ranked) ~ ranked)
