@@ -36,7 +36,6 @@ import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 import Data.Array.Nested.Internal.Shaped qualified as Nested.Internal
 
 import HordeAd.Core.Adaptor
-import HordeAd.Core.Ast
 import HordeAd.Core.Delta
 import HordeAd.Core.DualNumber
 import HordeAd.Core.HVector
@@ -247,11 +246,13 @@ instance AdaptableHVector ranked a
       AdaptableHVector ORArray (OR.Array n Double)
       => AdaptableHVector ORArray
                           [OR.Array n Double] #-}
+{- TODO: import loop:
   {-# SPECIALIZE instance
       AdaptableHVector (AstRanked s)
                        (AstRanked s Double n)
       => AdaptableHVector (AstRanked s)
                           [AstRanked s Double n] #-}
+-}
   toHVector = V.concat . map toHVector
   fromHVector lInit source =
     let f (!lAcc, !restAcc) !aInit =

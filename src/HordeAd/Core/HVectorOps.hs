@@ -8,7 +8,6 @@ module HordeAd.Core.HVectorOps
   ( raddDynamic, saddDynamic, sumDynamicRanked, sumDynamicShaped, addDynamic
   , sizeHVector, shapeDynamic
   , dynamicsMatch, hVectorsMatch, voidHVectorMatches, voidHVectorsMatch
-  , voidFromVar, voidFromVars
   , voidFromDynamic, voidFromHVector, dynamicFromVoid
   , fromDynamicR, fromDynamicS, fromHVectorR, fromHVectorS
   , unravelHVector, ravelHVector
@@ -27,13 +26,12 @@ import Data.Maybe (isJust)
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
-import GHC.TypeLits (KnownNat, Nat, SomeNat (..), sameNat, someNatVal, type (+))
+import GHC.TypeLits (KnownNat, SomeNat (..), sameNat, someNatVal, type (+))
 import Type.Reflection (typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Shape qualified as X
 
-import HordeAd.Core.Ast
 import HordeAd.Core.HVector
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
@@ -199,15 +197,6 @@ voidHVectorsMatch v1 v2 =
           && isDynamicRanked t == isDynamicRanked u
   in V.length v1 == V.length v2
      && and (V.zipWith voidDynamicsMatch v1 v2)
-
-voidFromVar :: AstDynamicVarName -> DynamicTensor VoidTensor
-voidFromVar (AstDynamicVarName @ty @rD @shD _) =
-  case testEquality (typeRep @ty) (typeRep @Nat) of
-    Just Refl -> DynamicRankedDummy @rD @shD Proxy Proxy
-    _ -> DynamicShapedDummy @rD @shD Proxy Proxy
-
-voidFromVars :: [AstDynamicVarName] -> VoidHVector
-voidFromVars = V.fromList . map voidFromVar
 
 -- This is useful for when the normal main parameters to an objective
 -- function are used to generate the parameter template

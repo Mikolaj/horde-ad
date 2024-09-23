@@ -9,7 +9,8 @@ module HordeAd.Core.Ast
   ( -- * The AstSpan kind
     AstSpanType(..), AstSpan(..), sameAstSpan
     -- * More and less typed variables and related type synonyms
-  , AstVarId, intToAstVarId, AstDynamicVarName(..), dynamicVarNameToAstVarId
+  , AstVarId, intToAstVarId
+  , AstDynamicVarName(..), dynamicVarNameToAstVarId, voidFromVar, voidFromVars
   , AstInt, IntVarName, pattern AstIntVar, isRankedInt
   , AstVarName, mkAstVarName, varNameToAstVarId, tensorKindFromAstVarName
   , AstArtifactRev(..), AstArtifactFwd(..)
@@ -43,8 +44,9 @@ import Data.Kind (Type)
 import Data.Proxy (Proxy (Proxy))
 import Data.Some
 import Data.Strict.Vector qualified as Data.Vector
-import Data.Type.Equality ((:~:) (Refl))
-import GHC.TypeLits (KnownNat, sameNat, type (+), type (<=))
+import Data.Type.Equality (testEquality, (:~:) (Refl))
+import Data.Vector.Generic qualified as V
+import GHC.TypeLits (KnownNat, Nat, sameNat, type (+), type (<=))
 import Type.Reflection (Typeable, eqTypeRep, typeRep, (:~~:) (HRefl))
 
 import Data.Array.Mixed.Permutation qualified as Permutation
@@ -164,6 +166,15 @@ deriving instance Show AstDynamicVarName
 
 dynamicVarNameToAstVarId :: AstDynamicVarName -> AstVarId
 dynamicVarNameToAstVarId (AstDynamicVarName varId) = varId
+
+voidFromVar :: AstDynamicVarName -> DynamicTensor VoidTensor
+voidFromVar (AstDynamicVarName @ty @rD @shD _) =
+  case testEquality (typeRep @ty) (typeRep @Nat) of
+    Just Refl -> DynamicRankedDummy @rD @shD Proxy Proxy
+    _ -> DynamicShapedDummy @rD @shD Proxy Proxy
+
+voidFromVars :: [AstDynamicVarName] -> VoidHVector
+voidFromVars = V.fromList . map voidFromVar
 
 -- TODO: remove the rank field once we have TensorKindType singletons
 type role AstVarName nominal nominal
