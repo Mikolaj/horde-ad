@@ -169,7 +169,11 @@ fwdProduceArtifact f envInit =
 type instance BoolOf (AstRanked s) = AstBool AstMethodLet
 
 instance AstSpan s => EqF (AstRanked s) where
+  AstRanked (AstConst u) ==. AstRanked (AstConst v) = AstBoolConst $ u == v
+    -- common in indexing
   AstRanked v ==. AstRanked u = AstRel EqOp (astSpanPrimal v) (astSpanPrimal u)
+  AstRanked (AstConst u) /=. AstRanked (AstConst v) = AstBoolConst $ u /= v
+    -- common in indexing
   AstRanked v /=. AstRanked u = AstRel NeqOp (astSpanPrimal v) (astSpanPrimal u)
 
 instance AstSpan s => OrdF (AstRanked s) where
@@ -211,7 +215,11 @@ deriving instance (RealFloatF (AstTensor AstMethodLet s (TKR r n)))
 type instance BoolOf (AstShaped s) = AstBool AstMethodLet
 
 instance AstSpan s => EqF (AstShaped s) where
+  AstShaped (AstConstS u) ==. AstShaped (AstConstS v) = AstBoolConst $ u == v
+    -- common in indexing
   AstShaped v ==. AstShaped u = AstRelS EqOp (astSpanPrimal v) (astSpanPrimal u)
+  AstShaped (AstConstS u) /=. AstShaped (AstConstS v) = AstBoolConst $ u /= v
+    -- common in indexing
   AstShaped v /=. AstShaped u = AstRelS NeqOp (astSpanPrimal v) (astSpanPrimal u)
 
 instance AstSpan s => OrdF (AstShaped s) where

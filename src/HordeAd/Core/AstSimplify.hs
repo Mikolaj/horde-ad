@@ -1279,7 +1279,7 @@ astSliceLax i k v =
 astTuple :: (TensorKind x, TensorKind y)
          => AstTensor AstMethodLet s x -> AstTensor AstMethodLet s y
          -> AstTensor AstMethodLet s (TKProduct x y)
--- TODO:
+-- TODO, but maybe not the best idea?:
 -- astTuple (Ast.AstConst v1) (Ast.AstConst v2) =
 --   Ast.AstConst (v1, v2)
 astTuple (Ast.AstConstant v1) (Ast.AstConstant v2) =
@@ -1292,6 +1292,7 @@ astLet :: forall y z s s2. (AstSpan s, AstSpan s2, TensorKind y, TensorKind z)
        => AstVarName s y -> AstTensor AstMethodLet s y
        -> AstTensor AstMethodLet s2 z
        -> AstTensor AstMethodLet s2 z
+astLet _var _u v@Ast.AstConst{} = v
 astLet var u v | astIsSmall True u =
   fromMaybe v
   $ substitute1Ast (SubstitutionPayload u) (varNameToAstVarId var) v
@@ -2001,7 +2002,7 @@ astProject1 u = case u of
   Ast.AstLet var t v -> Ast.AstLet var t (astProject1 v)
   Ast.AstLetHVectorIn vars l v -> astLetHVectorIn vars l (astProject1 v)
   Ast.AstLetHFunIn vars l v -> astLetHFunIn vars l (astProject1 v)
--- TODO: generalize AstConst:  Ast.AstConst u1 -> Ast.AstConst $ tproject1 u1
+-- TODO: generalize AstConst, unless it's not the best idea? currently these must be explicit AstTuple, so the other rule works fine:  Ast.AstConst u1 -> Ast.AstConst $ tproject1 u1
   Ast.AstPrimalPart u1 -> astPrimalPart $ astProject1 u1
   Ast.AstDualPart u1 -> astDualPart $ astProject1 u1
   Ast.AstConstant u1 -> Ast.AstConstant $ astProject1 u1
@@ -2261,6 +2262,7 @@ astLetHVectorIn
   -> AstTensor AstMethodLet s2 z
   -> AstTensor AstMethodLet s2 z
 astLetHVectorIn vars l v = case v of
+  Ast.AstConst{} -> v
   Ast.AstConstant v0 -> Ast.AstConstant $ astLetHVectorIn vars l v0
   Ast.AstVar _ var2 ->
     case elemIndex (varNameToAstVarId var2)
@@ -2347,7 +2349,7 @@ astLetFun :: forall y z s s2.
              (TensorKind y, TensorKind z, AstSpan s, AstSpan s2)
           => AstTensor AstMethodLet s y -> (AstTensor AstMethodLet s y -> AstTensor AstMethodLet s2 z)
           -> AstTensor AstMethodLet s2 z
-astLetFun a f | astIsSmall True a = f a
+astLetFun a f | astIsSmall True a = f a  -- TODO: since astLetFun is now called recursively a lot, ensure astIsSmall is constant, at least except for a constant number of the recursive calls
 astLetFun a f =
   let sh = shapeAstFull a
       (var, ast) = funToAst sh f
