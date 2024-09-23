@@ -834,19 +834,35 @@ instance AstSpan s => ShareTensor (AstRaw s) where
     STKR{} | astIsSmall True (unAstRaw t) -> t
     STKR{} -> case t of
       AstRaw (AstShare{}) -> t
+      AstRaw (AstVar{}) -> t
+      AstRaw (AstConstant(AstVar{})) -> t
+      AstRaw (AstPrimalPart(AstVar{})) -> t
+      AstRaw (AstDualPart(AstVar{})) -> t
       _ -> AstRaw $ fun1ToAst $ \ !var -> AstShare var (unAstRaw t)
     STKS{} | astIsSmall True (unAstRawS t) -> t
     STKS{} -> case t of
       AstRawS (AstShare{}) -> t
+      AstRawS (AstVar{}) -> t
+      AstRawS (AstConstant(AstVar{})) -> t
+      AstRawS (AstPrimalPart(AstVar{})) -> t
+      AstRawS (AstDualPart(AstVar{})) -> t
       _ -> AstRawS $ fun1ToAst $ \ !var -> AstShare var (unAstRawS t)
     STKProduct{} | astIsSmall True (unAstRawWrap t) -> t
     STKProduct{} -> case t of
       AstRawWrap (AstShare{}) -> t
+      AstRawWrap (AstVar{}) -> t
+      AstRawWrap (AstConstant(AstVar{})) -> t
+      AstRawWrap (AstPrimalPart(AstVar{})) -> t
+      AstRawWrap (AstDualPart(AstVar{})) -> t
       _ -> AstRawWrap $ fun1ToAst $ \ !var -> AstShare var (unAstRawWrap t)
     STKUntyped{}
       | astIsSmall True (unAstRawWrap $ unHVectorPseudoTensor t) -> t
     STKUntyped{} -> case unHVectorPseudoTensor t of
       AstRawWrap (AstShare{}) -> t
+      AstRawWrap (AstVar{}) -> t
+      AstRawWrap (AstConstant(AstVar{})) -> t
+      AstRawWrap (AstPrimalPart(AstVar{})) -> t
+      AstRawWrap (AstDualPart(AstVar{})) -> t
       _ -> HVectorPseudoTensor $ AstRawWrap $ fun1ToAst $ \ !var ->
              AstShare var $ unAstRawWrap $ unHVectorPseudoTensor t
   tunpair (AstRawWrap (AstTuple t1 t2)) =
