@@ -55,9 +55,6 @@ import HordeAd.Util.SizedList
 
 -- * Symbolic reverse and forward derivative computation
 
--- | The third argument (@hVectorPrimal0@) must be shallowly duplicable
--- (that is, either duplicable (e.g., a variable or concrete) or starting with
--- a tuple constructor).
 forwardPassByInterpretation
   :: forall x z. (TensorKind x, TensorKind z)
   => (InterpretationTarget (AstRanked FullSpan) x
@@ -69,7 +66,8 @@ forwardPassByInterpretation
   -> InterpretationTarget (ADVal (AstRaw PrimalSpan)) z
 {-# INLINE forwardPassByInterpretation #-}
 forwardPassByInterpretation g envInit hVectorPrimal var hVector =
-  let deltaInputs = generateDeltaInputs $ tshapeFull (stensorKind @x) hVectorPrimal
+  let deltaInputs = generateDeltaInputs
+                    $ tshapeFull (stensorKind @x) hVectorPrimal
       varInputs = makeADInputs hVectorPrimal deltaInputs
       ast = g hVector
       env = extendEnv var varInputs envInit
@@ -143,8 +141,7 @@ fwdArtifactFromForwardPass forwardPass ftk =
         $ forwardPass (rawY (stensorKind @x) hVectorPrimal) var
                       (rankedY (stensorKind @x) hVector)
       !delta = unDeltaRY (stensorKind @z) deltaIT in
-  let -- The second argument is duplicable (a variable), as required.
-      !derivative = derivativeFromDelta delta (rawY (stensorKind @x) hVectorD)
+  let !derivative = derivativeFromDelta delta (rawY (stensorKind @x) hVectorD)
       !unDerivative = gunshare (stensorKind @z) derivative
       !unPrimal = gunshare (stensorKind @z) primalBody
   in ( AstArtifactFwd varPrimalD varPrimal unDerivative unPrimal

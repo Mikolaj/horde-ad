@@ -197,9 +197,6 @@ interpretationConstant r = \case
     $ mapHVectorShaped (const $ srepl @_ @_ @(ShapedOf ranked) r)
     $ V.map dynamicFromVoid ssh
 
--- | The second argument (@ds@) must be shallowly duplicable (that is, either
--- duplicable (e.g., a variable or concrete) or starting with
--- a tuple constructor).
 derivativeFromDelta
   :: forall x z ranked.
      (ADReadyNoLet ranked, ShareTensor ranked, TensorKind x, TensorKind z)
@@ -207,11 +204,9 @@ derivativeFromDelta
   -> InterpretationTarget ranked z
 derivativeFromDelta deltaTopLevel ds =
   let params = case stensorKind @x of
-        STKUntyped{} -> V.map dynamicTensorToInterpretationTargetD
-                        $ dunHVector $ unHVectorPseudoTensor ds
--- not needed (and blows up terms by 40%), because ds is assumed
--- to be shallowly duplicable:
---                      $ dunHVector $ unHVectorPseudoTensor $ tshare ds
+        STKUntyped{} ->
+          let dsv = tunvector ds
+          in V.map dynamicTensorToInterpretationTargetD dsv
         stk -> V.singleton $ Some $ interpretationTargetToD stk ds
       -- EvalState is too complex for the forward derivative, but since
       -- it's already defined, let's use it.
@@ -237,9 +232,6 @@ dynamicTensorToInterpretationTargetD = \case
   DynamicShapedDummy{} ->
     error "dynamicTensorToInterpretationTargetD: unexpected DynamicShapedDummy"
 
--- | Assumption: the argument is shallowly duplicable (that is, either
--- duplicable (e.g., a variable or concrete) or starting with
--- a tuple constructor).
 interpretationTargetToD
   :: STensorKindType x -> InterpretationTarget ranked x
   -> InterpretationTargetD ranked x
@@ -251,8 +243,6 @@ interpretationTargetToD stk t = case stk of
 
 type HDVector ranked = Data.Vector.Vector (Some (InterpretationTargetD ranked))
 
--- | Assumption: in the STKProduct and STKUntyped cases, the argument
--- is shallowly duplicable.
 interpretationTargetToM
   :: STensorKindType x -> InterpretationTarget ranked x
   -> InterpretationTargetM ranked x

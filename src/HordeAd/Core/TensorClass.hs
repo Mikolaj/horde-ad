@@ -18,7 +18,7 @@ module HordeAd.Core.TensorClass
   , rfromD, sfromD, rscalar, rrepl, ringestData, ringestData1
   , ingestData, sscalar, srepl
   , mapDynamic, mapDynamic2, mapInterpretationTarget
-  , mapInterpretationTarget2, mapInterpretationTarget2Weak
+  , mapInterpretationTarget2Weak
     -- * The giga-constraint
   , ADReady, ADReadyNoLet, ADReadyS, ADReadyNoLetS
   ) where
@@ -1379,17 +1379,17 @@ mapInterpretationTarget fr fs stk b = case stk of
         !t2 = mapInterpretationTarget fr fs stk2 $ tproject2 b
     in ttuple t1 t2
       -- this shares properly only when the product instance for f is (,)
+      -- and tlet wouldn't work because f and g differ
   STKUntyped ->
-    -- Here @dletHVectorInHVector@ wouldn't work, because f and g differ.
-    -- TODO: verify that @tshare@ works or rewrite differently.
+    -- Here @dletHVectorInHVector@ or @tlet@ wouldn't work
+    -- because f and g differ.
     let fd :: DynamicTensor f -> DynamicTensor g
         fd = mapDynamic fr fs
     in HVectorPseudoTensor $ tmkHVector
        $ V.map fd
        $ dunHVector $ unHVectorPseudoTensor b
--- TODO: we probably need two versions, one with let, one with share
---       $ dunHVector $ tshare $ unHVectorPseudoTensor b
 
+{- Not needed ATM and quite broken.
 mapInterpretationTarget2
   :: forall f1 f2 g y.
      ( ProductTensor f1, ProductTensor f2, ProductTensor g
@@ -1424,6 +1424,7 @@ mapInterpretationTarget2 fr fs stk b1 b2 = case stk of
 -- TODO: we probably need two versions, one with let, one with share
 --           (dunHVector $ tshare $ unHVectorPseudoTensor b1)
 --           (dunHVector $ tshare $ unHVectorPseudoTensor b2)
+-}
 
 mapInterpretationTarget2Weak
   :: forall f1 f2 g y. (ProductTensor f1, ProductTensor f2, ProductTensor g)

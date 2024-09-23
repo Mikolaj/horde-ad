@@ -147,13 +147,9 @@ generateDeltaInputs ftk = case ftk of
   :: HVector (FlipR OR.Array) -> HVector (Dual (FlipR OR.Array)) #-}
 -}
 
--- | The first argument (@p0@) must be shallowly duplicable (that is, either
--- duplicable (e.g., a variable or concrete) or starting with
--- a tuple constructor).
 makeADInputs
   :: forall x ranked.
-     ( TensorKind x, ProductTensor ranked, HVectorTensor ranked (ShapedOf ranked)
-     , RankedOf (ShapedOf ranked) ~ ranked )
+     (TensorKind x, ShareTensor ranked, RankedOf (ShapedOf ranked) ~ ranked)
   => InterpretationTarget ranked x -> Delta ranked x
   -> InterpretationTarget (ADVal ranked) x
 makeADInputs p0 d0 =
@@ -163,15 +159,12 @@ makeADInputs p0 d0 =
       g STKR{} p d = dDnotShared p (DeltaR d)
       g STKS{} p d = dDnotShared p (DeltaS d)
       g (STKProduct stk1 stk2) p d =
-        -- No explicit sharing for p needed here, because
-        -- it's shallowly duplicable.
-        (g stk1 (tproject1 p) (Project1G d), g stk2 (tproject2 p) (Project2G d))
+        let (p1, p2) = tunpair p
+        in (g stk1 p1 (Project1G d), g stk2 p2 (Project2G d))
+          -- d is shared densely enough elsewhere, so can be duplicated here
       g STKUntyped p d =
-        HVectorPseudoTensor
-        $ ahhToHVector (dunHVector $ unHVectorPseudoTensor p) d
--- not needed (and blows up terms by 30%), because p is assumed
--- to be shallowly duplicable:
---        $ ahhToHVector (dunHVector $ unHVectorPseudoTensor $ tshare p) d
+        let pv = tunvector p
+        in HVectorPseudoTensor $ ahhToHVector pv d
   in g (stensorKind @x) p0 d0
 
 ahhToHVector
@@ -181,11 +174,11 @@ ahhToHVector h h' =
   let selectDual :: Int -> DynamicTensor ranked -> DynamicTensor (ADVal ranked)
       selectDual i d = case d of
         DynamicRanked t -> DynamicRanked $ dDnotShared t (DeltaR $ rFromH h' i)
+          -- h' is shared densely enough elsewhere, so can be duplicated here
         DynamicShaped t -> DynamicShaped $ dDnotShared t (DeltaS $ sFromH h' i)
         DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
         DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
   in V.imap selectDual h
-       -- TODO: write why these projections don't break any sharing
 
 rFromH :: forall r n ranked. (GoodScalar r, KnownNat n)
        => Delta ranked TKUntyped -> Int -> Delta ranked (TKR r n)
