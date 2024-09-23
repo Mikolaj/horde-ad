@@ -106,7 +106,8 @@ instance ( GoodScalar r, KnownNat n, RankedTensor ranked, ShareTensor ranked
     ZeroR{} -> d
     InputG{} -> d
     ShareG{} -> d  -- should not happen, but older/lower id is safer anyway
-    RFromS{} -> d
+    -- SFromR{} -> d
+    -- the term inside SFromR is most likely shared already, but are we sure?
     d1 -> DeltaR $ wrapDelta d1
 
 instance ( GoodScalar r, KnownShS sh, ShapedTensor shaped
@@ -126,7 +127,6 @@ instance ( GoodScalar r, KnownShS sh, ShapedTensor shaped
     ZeroS -> d
     InputG{} -> d
     ShareG{} -> d  -- should not happen, but older/lower id is safer anyway
-    SFromR{} -> d
     d1 -> DeltaS $ wrapDelta d1
 
 
