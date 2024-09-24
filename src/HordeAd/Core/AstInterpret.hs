@@ -213,20 +213,8 @@ interpretAst !env = \case
     -- This avoids multiple ifF expansions in ADVal.
     let c = interpretAstBool env b
     in tcond (stensorKind @y2) c (interpretAst env a1) (interpretAst env a2)
-  AstReplicate @y2 snat@(SNat @k) v ->
-    let replStk :: STensorKindType z -> InterpretationTarget ranked z
-                -> InterpretationTarget ranked (BuildTensorKind k z)
-        replStk stk u = case stk of
-          STKR{} -> rreplicate (sNatValue snat) u
-          STKS{} -> sreplicate u
-          STKProduct @z1 @z2 stk1 stk2
-            | Dict <- lemTensorKindOfBuild snat (stensorKind @z1)
-            , Dict <- lemTensorKindOfBuild snat (stensorKind @z2) ->
-              tlet u $ \ (!u1, !u2) -> ttuple (replStk stk1 u1) (replStk stk2 u2)
-          STKUntyped -> HVectorPseudoTensor $
-            dletHVectorInHVector (unHVectorPseudoTensor u) $ \ !hv ->
-              mkreplicate1HVector snat hv
-    in replStk (stensorKind @y2) (interpretAst env v)
+  AstReplicate @y2 snat v ->
+    treplicate snat (stensorKind @y2) (interpretAst env v)
   -- These are only needed for tests that don't vectorize Ast.
   AstBuild1 @y2
             snat (var, AstSum (AstN2 TimesOp t (AstIndex

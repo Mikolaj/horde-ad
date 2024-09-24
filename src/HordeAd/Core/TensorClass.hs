@@ -139,6 +139,23 @@ class HVectorTensor ranked shaped
        => InterpretationTarget ranked x
        -> (InterpretationTarget ranked x -> InterpretationTarget ranked z)
        -> InterpretationTarget ranked z
+  treplicate :: ( RankedTensor ranked, ShapedTensor shaped, ProductTensor ranked
+                , shaped ~ ShapedOf ranked, RankedOf shaped ~ ranked )
+             => SNat k -> STensorKindType z
+             -> InterpretationTarget ranked z
+             -> InterpretationTarget ranked (BuildTensorKind k z)
+  treplicate snat@SNat stk u = case stk of
+    STKR{} -> rreplicate (sNatValue snat) u
+    STKS{} -> sreplicate u
+    STKProduct @z1 @z2 stk1 stk2
+      | Dict <- lemTensorKindOfBuild snat (stensorKind @z1)
+      , Dict <- lemTensorKindOfBuild snat (stensorKind @z2) ->
+        tlet u $ \ (!u1, !u2) ->
+          ttuple (treplicate snat stk1 u1) (treplicate snat  stk2 u2)
+    STKUntyped ->
+      tlet u $ \ !hv ->
+        HVectorPseudoTensor $ dmkHVector
+        $ replicate1HVectorF rreplicate sreplicate snat hv
 
   toShare :: TensorKind y
           => InterpretationTarget ranked y
