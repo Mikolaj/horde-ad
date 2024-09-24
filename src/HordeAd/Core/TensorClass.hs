@@ -1090,7 +1090,7 @@ class HVectorTensor (ranked :: RankedTensorType)
     -> TensorKindFull bShs
     -> TensorKindFull eShs
     -> (forall f. ADReady f
-        => HVector f -> HVector f
+        => ConcreteTarget f accShs -> ConcreteTarget f eShs
         -> InterpretationTarget f (TKProduct accShs bShs))
     -> InterpretationTarget ranked accShs
     -> InterpretationTarget ranked (BuildTensorKind k eShs)
@@ -1138,7 +1138,7 @@ class HVectorTensor (ranked :: RankedTensorType)
     -> TensorKindFull bShs
     -> TensorKindFull eShs
     -> (forall f. ADReady f
-        => HVector f -> HVector f
+        => ConcreteTarget f accShs -> ConcreteTarget f eShs
         -> InterpretationTarget f (TKProduct accShs bShs))
     -> InterpretationTarget ranked accShs
     -> InterpretationTarget ranked (BuildTensorKind k eShs)
