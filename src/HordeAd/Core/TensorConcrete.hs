@@ -321,9 +321,51 @@ instance ProductTensor ORArray where
   tproject2 = snd
   tmkHVector = id
 
+ravel :: forall k y. TensorKind y
+      => SNat k -> [InterpretationTarget ORArray y]
+      -> InterpretationTarget ORArray (BuildTensorKind k y)
+ravel k@SNat t = case stensorKind @y of
+  STKR{} -> rfromList $ NonEmpty.fromList t
+  STKS{} -> sfromList $ NonEmpty.fromList t
+  STKProduct{} ->
+    let (lt1, lt2) = unzip t
+    in (ravel k lt1, ravel k lt2)
+  STKUntyped -> HVectorPseudoTensor $ ravelHVector $ map unHVectorPseudoTensor t
+
+unravel :: forall k y. TensorKind y
+        => SNat k -> InterpretationTarget ORArray (BuildTensorKind k y)
+        -> [InterpretationTarget ORArray y]
+unravel k@SNat t = case stensorKind @y of
+  STKR{} -> runravelToList t
+  STKS{} -> sunravelToList t
+  STKProduct{} ->
+    let lt1 = unravel k $ fst t
+        lt2 = unravel k $ snd t
+    in zip lt1 lt2
+  STKUntyped ->
+    map HVectorPseudoTensor $ unravelHVector $ unHVectorPseudoTensor t
+
+concreteTarget :: forall y. TensorKind y
+               => InterpretationTarget ORArray y
+               -> ConcreteTarget ORArray y
+concreteTarget t = case stensorKind @y of
+  STKR{} -> t
+  STKS{} -> t
+  STKProduct{} -> t
+  STKUntyped -> unHVectorPseudoTensor t
+
+unconcreteTarget :: forall y. TensorKind y
+                 => ConcreteTarget ORArray y
+                 -> InterpretationTarget ORArray y
+unconcreteTarget t = case stensorKind @y of
+  STKR{} -> t
+  STKS{} -> t
+  STKProduct{} -> t
+  STKUntyped -> HVectorPseudoTensor t
+
 oRdmapAccumR
   :: forall k accShs bShs eShs.
-     (accShs ~ TKUntyped, bShs ~ TKUntyped, eShs ~ TKUntyped)
+     (TensorKind accShs, TensorKind bShs, TensorKind eShs)
   => SNat k
   -> TensorKindFull bShs
   -> (ConcreteTarget ORArray accShs -> ConcreteTarget ORArray eShs
@@ -333,20 +375,21 @@ oRdmapAccumR
   -> InterpretationTarget ORArray (TKProduct accShs (BuildTensorKind k bShs))
 oRdmapAccumR k bShs f acc0 es = case sNatValue k of
   0 -> (acc0, treplicate k (stensorKind @bShs) (interpretationConstant 0 bShs))
-  _ -> let g :: ConcreteTarget ORArray accShs -> ConcreteTarget ORArray eShs
-             -> ( ConcreteTarget ORArray accShs
-                , ConcreteTarget ORArray bShs )
-           g !x !a = let (a1, b1) = f x a
-                     in (unHVectorPseudoTensor a1, unHVectorPseudoTensor b1)
-           (xout, lout) = mapAccumR g (unHVectorPseudoTensor acc0)
-                                      (unravelHVector $ unHVectorPseudoTensor es)
-       in ( HVectorPseudoTensor xout
-          , HVectorPseudoTensor $ ravelHVector lout )
-         -- TODO: reimplement not with Haskell's mapAccumR to avoid the ravels
+  _ ->
+    let g :: ConcreteTarget ORArray accShs -> ConcreteTarget ORArray eShs
+          -> ( ConcreteTarget ORArray accShs
+             , ConcreteTarget ORArray bShs )
+        g !x !a = let (a1, b1) = f x a
+                  in (concreteTarget a1, concreteTarget b1)
+        (xout, lout) = mapAccumR g (concreteTarget acc0)
+                                   (map concreteTarget $ unravel k es)
+    in ( unconcreteTarget xout
+       , ravel k $ map unconcreteTarget lout )
+      -- TODO: reimplement not with Haskell's mapAccumR to avoid the ravels
 
 oRdmapAccumL
   :: forall k accShs bShs eShs.
-     (accShs ~ TKUntyped, bShs ~ TKUntyped, eShs ~ TKUntyped)
+     (TensorKind accShs, TensorKind bShs, TensorKind eShs)
   => SNat k
   -> TensorKindFull bShs
   -> (ConcreteTarget ORArray accShs -> ConcreteTarget ORArray eShs
@@ -356,15 +399,16 @@ oRdmapAccumL
   -> InterpretationTarget ORArray (TKProduct accShs (BuildTensorKind k bShs))
 oRdmapAccumL k bShs f acc0 es = case sNatValue k of
   0 -> (acc0, treplicate k (stensorKind @bShs) (interpretationConstant 0 bShs))
-  _ -> let g :: ConcreteTarget ORArray accShs -> ConcreteTarget ORArray eShs
-             -> ( ConcreteTarget ORArray accShs
-                , ConcreteTarget ORArray bShs )
-           g !x !a = let (a1, b1) = f x a
-                     in (unHVectorPseudoTensor a1, unHVectorPseudoTensor b1)
-           (xout, lout) = mapAccumL g (unHVectorPseudoTensor acc0)
-                                      (unravelHVector $ unHVectorPseudoTensor es)
-       in ( HVectorPseudoTensor xout
-          , HVectorPseudoTensor $ ravelHVector lout )
+  _ ->
+    let g :: ConcreteTarget ORArray accShs -> ConcreteTarget ORArray eShs
+          -> ( ConcreteTarget ORArray accShs
+             , ConcreteTarget ORArray bShs )
+        g !x !a = let (a1, b1) = f x a
+                  in (concreteTarget a1, concreteTarget b1)
+        (xout, lout) = mapAccumL g (concreteTarget acc0)
+                                   (map concreteTarget $ unravel k es)
+    in ( unconcreteTarget xout
+       , ravel k $ map unconcreteTarget lout )
 
 instance (GoodScalar r, KnownNat n)
          => AdaptableHVector ORArray (ORArray r n) where
