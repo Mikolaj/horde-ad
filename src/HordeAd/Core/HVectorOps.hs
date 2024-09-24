@@ -15,6 +15,7 @@ module HordeAd.Core.HVectorOps
   , mapHVectorShaped11, mapHVectorShaped
   , mapRanked, mapRanked01, mapRanked10, mapRanked11
   , index1HVector, replicate1HVector, mkreplicate1HVector
+  , interpretationConstant
   ) where
 
 import Prelude
@@ -26,6 +27,7 @@ import Data.Maybe (isJust)
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
+import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat, SomeNat (..), sameNat, someNatVal, type (+))
 import Type.Reflection (typeRep)
 import Unsafe.Coerce (unsafeCoerce)
@@ -619,3 +621,16 @@ replicate1HVector = replicate1HVectorF rreplicate sreplicate
 mkreplicate1HVector :: ADReady ranked
                     => SNat k -> HVector ranked -> HVectorOf ranked
 mkreplicate1HVector k = dmkHVector . replicate1HVector k
+
+interpretationConstant :: forall y ranked. ADReadyNoLet ranked
+                       => (forall r. GoodScalar r => r)
+                       -> TensorKindFull y -> InterpretationTarget ranked y
+interpretationConstant r = \case
+  FTKR sh -> rrepl (toList sh) r
+  FTKS -> srepl r
+  FTKProduct ftk1 ftk2 -> ttuple (interpretationConstant r ftk1)
+                                 (interpretationConstant r ftk2)
+  FTKUntyped ssh ->  -- TODO: if r is 0, this would be cheaper with Dummy
+    HVectorPseudoTensor $ dmkHVector
+    $ mapHVectorShaped (const $ srepl @_ @_ @(ShapedOf ranked) r)
+    $ V.map dynamicFromVoid ssh

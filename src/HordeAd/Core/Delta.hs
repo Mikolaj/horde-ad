@@ -38,7 +38,7 @@
 -- to understand.
 module HordeAd.Core.Delta
   ( -- * Delta expression evaluation
-    gradientFromDelta, derivativeFromDelta, interpretationConstant
+    gradientFromDelta, derivativeFromDelta
     -- * Abstract syntax trees of the delta expressions
   , DeltaR (..), DeltaS (..), Delta(..), unDeltaRY
   , -- * Delta expression identifiers
@@ -183,19 +183,6 @@ shapeD = \case
   DTKS{} -> STKS typeRep knownShS
   DTKProduct @x @z _ -> STKProduct (stensorKind @x) (stensorKind @z)
   DTKUntyped{} -> STKUntyped
-
-interpretationConstant :: forall y ranked. ADReadyNoLet ranked
-                       => (forall r. GoodScalar r => r)
-                       -> TensorKindFull y -> InterpretationTarget ranked y
-interpretationConstant r = \case
-  FTKR sh -> rrepl (toList sh) r
-  FTKS -> srepl r
-  FTKProduct ftk1 ftk2 -> ttuple (interpretationConstant r ftk1)
-                                 (interpretationConstant r ftk2)
-  FTKUntyped ssh ->  -- TODO: if r is 0, this would be cheaper with Dummy
-    HVectorPseudoTensor $ dmkHVector
-    $ mapHVectorShaped (const $ srepl @_ @_ @(ShapedOf ranked) r)
-    $ V.map dynamicFromVoid ssh
 
 derivativeFromDelta
   :: forall x z ranked.
