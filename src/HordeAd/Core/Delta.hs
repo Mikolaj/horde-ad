@@ -66,7 +66,6 @@ import Data.Traversable (mapAccumL)
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import Foreign.C (CInt)
-import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat, sameNat, type (+), type (<=))
 import Text.Show (showListWith)
 import Text.Show.Functions ()
@@ -316,6 +315,7 @@ newtype DeltaR ranked r n =
   DeltaR {unDeltaR :: Delta ranked (TKR r n)}
 instance ( RankedOf (ShapedOf ranked) ~ ranked
          , GoodScalar r, Show (IntOf ranked)
+         , Show (HVectorOf ranked)
          , Show (IntOf (ShapedOf ranked))
          , CRanked ranked Show
          , CShaped (ShapedOf ranked) Show )
@@ -330,6 +330,7 @@ newtype DeltaS shaped r sh =
   DeltaS {unDeltaS :: Delta (RankedOf shaped) (TKS r sh)}
 instance ( ranked ~ RankedOf shaped, RankedOf (ShapedOf ranked) ~ ranked
          , GoodScalar r, Show (IntOf ranked)
+         , Show (HVectorOf ranked)
          , Show (IntOf (ShapedOf ranked))
          , CRanked ranked Show
          , CShaped (ShapedOf ranked) Show )
@@ -542,16 +543,16 @@ data Delta :: RankedTensorType -> TensorKindType -> Type where
     -> TensorKindFull accShs
     -> TensorKindFull bShs
     -> TensorKindFull eShs
-    -> HVector ranked
-    -> HVector ranked
+    -> InterpretationTargetN ranked (BuildTensorKind k accShs)
+    -> InterpretationTargetN ranked (BuildTensorKind k eShs)
     -> HFun (TKProduct (TKProduct accShs eShs)
                        (TKProduct accShs eShs))
             (TKProduct accShs bShs)
-    -> HFun (TKProduct (TKProduct accShs eShs)
+    -> HFun (TKProduct (TKProduct accShs bShs)
                        (TKProduct accShs eShs))
-            (TKProduct accShs bShs)
-    -> HVector (DeltaR ranked)
-    -> HVector (DeltaR ranked)
+            (TKProduct accShs eShs)
+    -> Delta ranked accShs
+    -> Delta ranked (BuildTensorKind k eShs)
     -> Delta ranked (TKProduct accShs (BuildTensorKind k bShs))
   MapAccumL
     :: (accShs ~ TKUntyped, bShs ~ TKUntyped, eShs ~ TKUntyped)
@@ -559,19 +560,20 @@ data Delta :: RankedTensorType -> TensorKindType -> Type where
     -> TensorKindFull accShs
     -> TensorKindFull bShs
     -> TensorKindFull eShs
-    -> HVector ranked
-    -> HVector ranked
+    -> InterpretationTargetN ranked (BuildTensorKind k accShs)
+    -> InterpretationTargetN ranked (BuildTensorKind k eShs)
     -> HFun (TKProduct (TKProduct accShs eShs)
                        (TKProduct accShs eShs))
             (TKProduct accShs bShs)
-    -> HFun (TKProduct (TKProduct accShs eShs)
+    -> HFun (TKProduct (TKProduct accShs bShs)
                        (TKProduct accShs eShs))
-            (TKProduct accShs bShs)
-    -> HVector (DeltaR ranked)
-    -> HVector (DeltaR ranked)
+            (TKProduct accShs eShs)
+    -> Delta ranked accShs
+    -> Delta ranked (BuildTensorKind k eShs)
     -> Delta ranked (TKProduct accShs (BuildTensorKind k bShs))
 
 deriving instance ( RankedOf (ShapedOf ranked) ~ ranked
+                  , Show (HVectorOf ranked)
                   , Show (IntOf ranked)
                   , Show (IntOf (ShapedOf ranked))
                   , CRanked ranked Show
@@ -1170,7 +1172,7 @@ evalR !s !c = \case
     let accLen = V.length accShsH
         bLen = V.length bShsH
         (c0, crest1) = tunpair c
-        crest = dunHVector $ unHVectorPseudoTensor crest1
+        crest = tunvector crest1
         dacc_desUnshared =
           dmapAccumL (Proxy @ranked)
                      k accShs eShs (FTKUntyped $ bShsH V.++ accShsH V.++ eShsH)
@@ -1184,19 +1186,17 @@ evalR !s !c = \case
                         in unHFun rf (ttuple (ttuple dx1 db1)
                                              (ttuple acc1 e1)))
                      c0
-                     (HVectorPseudoTensor $ dmkHVector $ V.concat [crest, q, es])
-        (dacc1, des1) = tunpair dacc_desUnshared
-        dacc = dunHVector $ unHVectorPseudoTensor dacc1
-        des = dunHVector $ unHVectorPseudoTensor des1
-        s2 = evalHVector s dacc acc0'
-    in evalHVector s2 des es'
+                     (HVectorPseudoTensor $ dmkHVector $ V.concat [crest, tunvector q, tunvector es])
+        (dacc, des) = tunpair dacc_desUnshared
+        s2 = evalR s dacc acc0'
+    in evalR s2 des es'
   MapAccumL k accShs@(FTKUntyped accShsH) (FTKUntyped bShsH)
             eShs@(FTKUntyped eShsH)
             q es _df rf acc0' es' ->
     let accLen = V.length accShsH
         bLen = V.length bShsH
         (c0, crest1) = tunpair c
-        crest = dunHVector $ unHVectorPseudoTensor crest1
+        crest = tunvector crest1
         dacc_desUnshared =
           dmapAccumR (Proxy @ranked)
                      k accShs eShs (FTKUntyped $ bShsH V.++ accShsH V.++ eShsH)
@@ -1210,12 +1210,10 @@ evalR !s !c = \case
                         in unHFun rf (ttuple (ttuple dx1 db1)
                                              (ttuple acc1 e1)))
                      c0
-                     (HVectorPseudoTensor $ dmkHVector $ V.concat [crest, q, es])
-        (dacc1, des1) = tunpair dacc_desUnshared
-        dacc = dunHVector $ unHVectorPseudoTensor dacc1
-        des = dunHVector $ unHVectorPseudoTensor des1
-        s2 = evalHVector s dacc acc0'
-    in evalHVector s2 des es'
+                     (HVectorPseudoTensor $ dmkHVector $ V.concat [crest, tunvector q, tunvector es])
+        (dacc, des) = tunpair dacc_desUnshared
+        s2 = evalR s dacc acc0'
+    in evalR s2 des es'
 
 evalDynamic
   :: (ADReadyNoLet ranked, ShareTensor ranked)
@@ -1465,8 +1463,8 @@ fwdR params s = \case
             $ fwdHVector params s v
   MapAccumR k accShs@(FTKUntyped accShsH) bShs (FTKUntyped eShsH)
             q es df _rf acc0' es' ->
-    let (s2, cacc0) = fwdHVector params s acc0'
-        (s3, ces) = fwdHVector params s2 es'
+    let (s2, cacc0) = fwdR params s acc0'
+        (s3, ces) = fwdR params s2 es'
         accLen = V.length accShsH
         eLen = V.length eShsH
     in (s3, dmapAccumR (Proxy @ranked)
@@ -1480,12 +1478,12 @@ fwdR params s = \case
                                  e1 = HVectorPseudoTensor $ dmkHVector e
                              in unHFun df (ttuple (ttuple dacc1 de1)
                                                   (ttuple acc1 e1)))
-                          (HVectorPseudoTensor $ dmkHVector cacc0)
-                          (HVectorPseudoTensor $ dmkHVector $ V.concat [ces, q, es]))
+                          cacc0
+                          (HVectorPseudoTensor $ dmkHVector $ V.concat [tunvector ces, tunvector q, tunvector es]))
   MapAccumL k accShs@(FTKUntyped accShsH) bShs (FTKUntyped eShsH)
             q es df _rf acc0' es' ->
-    let (s2, cacc0) = fwdHVector params s acc0'
-        (s3, ces) = fwdHVector params s2 es'
+    let (s2, cacc0) = fwdR params s acc0'
+        (s3, ces) = fwdR params s2 es'
         accLen = V.length accShsH
         eLen = V.length eShsH
     in (s3, dmapAccumL (Proxy @ranked)
@@ -1499,5 +1497,5 @@ fwdR params s = \case
                                  e1 = HVectorPseudoTensor $ dmkHVector e
                              in unHFun df (ttuple (ttuple dacc1 de1)
                                                   (ttuple acc1 e1)))
-                          (HVectorPseudoTensor $ dmkHVector cacc0)
-                          (HVectorPseudoTensor $ dmkHVector $ V.concat [ces, q, es]))
+                          cacc0
+                          (HVectorPseudoTensor $ dmkHVector $ V.concat [tunvector ces, tunvector q, tunvector es]))

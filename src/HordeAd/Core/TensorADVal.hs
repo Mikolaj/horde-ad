@@ -616,10 +616,11 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
         -- of tuples in the struct of arrays format.
         accFin = dunHVector $ unHVectorPseudoTensor accFin1
         qbs = dunHVector $ unHVectorPseudoTensor qbs1
-        q = V.take accLen qbs
+        q = HVectorPseudoTensor $ dmkHVector $ V.take accLen qbs
         bs = V.drop accLen qbs
         !_A = assert (voidHVectorMatches (replicate1VoidHVector k bShsH) bs) ()
-        dual = wrapDelta $ MapAccumR k accShs bShs eShs q (dunHVector $ unHVectorPseudoTensor es) df rf acc0' es'
+        dual = wrapDelta $ MapAccumR k accShs bShs eShs q es df rf
+                                     (HToH acc0') (HToH es')
     in ( HVectorPseudoTensor $ ahhToHVector accFin (Project1G dual)
        , HVectorPseudoTensor $ ahhToHVector bs (Project2G dual) )
   dmapAccumLDer _ !k accShs@(FTKUntyped accShsH) bShs@(FTKUntyped bShsH)
@@ -690,10 +691,11 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
         -- of tuples in the struct of arrays format.
         accFin = dunHVector $ unHVectorPseudoTensor accFin1
         qbs = dunHVector $ unHVectorPseudoTensor qbs1
-        q = V.take accLen qbs
+        q = HVectorPseudoTensor $ dmkHVector $ V.take accLen qbs
         bs = V.drop accLen qbs
         !_A = assert (voidHVectorMatches (replicate1VoidHVector k bShsH) bs) ()
-        dual = wrapDelta $ MapAccumL k accShs bShs eShs q (dunHVector $ unHVectorPseudoTensor es) df rf acc0' es'
+        dual = wrapDelta $ MapAccumL k accShs bShs eShs q es df rf
+                                     (HToH acc0') (HToH es')
     in ( HVectorPseudoTensor $ ahhToHVector accFin (Project1G dual)
        , HVectorPseudoTensor $ ahhToHVector bs (Project2G dual) )
 
