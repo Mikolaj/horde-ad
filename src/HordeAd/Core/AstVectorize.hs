@@ -219,7 +219,7 @@ build1V snat@SNat (var, v00) =
               , Dict <- lemTensorKindOfBuild
                           snat (stensorKind @(BuildTensorKind k2 z2)) ->
                 astLetFun u $ \ !uShared ->
-                  let (u1, u2) = (astProject1 u, astProject2 uShared)
+                  let (u1, u2) = (astProject1 uShared, astProject2 uShared)
                   in astTuple (repl2Stk stk1 u1) (repl2Stk stk2 u2)
             STKUntyped ->
               astTrAstHVector
