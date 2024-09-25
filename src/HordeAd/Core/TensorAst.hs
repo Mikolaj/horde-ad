@@ -90,11 +90,10 @@ revArtifactFromForwardPass hasDt forwardPass ftk =
       !(!varPrimal, hVectorPrimal, var, hVector) = funToAstRev ftk in
   let -- Evaluate completely after terms constructed, to free memory
       -- before gradientFromDelta allocates new memory and new FFI is started.
-      !(!primalBody, !deltaIT) =
+      !(!primalBody, !delta) =
         unADValInterpretation (stensorKind @z)
         $ forwardPass (rawY (stensorKind @x) hVectorPrimal) var
-                      (rankedY (stensorKind @x) hVector)
-      !delta = unDeltaRY (stensorKind @z) deltaIT in
+                      (rankedY (stensorKind @x) hVector) in
   let (!varDt, !astDt) =
         funToAst (shapeAstFull $ unRawY (stensorKind @z) primalBody) id in
   let mdt = if hasDt then Just $ rawY (stensorKind @z) astDt else Nothing
@@ -136,11 +135,10 @@ fwdArtifactFromForwardPass
 fwdArtifactFromForwardPass forwardPass ftk =
   let !(!varPrimalD, hVectorD, varPrimal, hVectorPrimal, var, hVector) =
         funToAstFwd ftk in
-  let !(!primalBody, !deltaIT) =
+  let !(!primalBody, !delta) =
         unADValInterpretation (stensorKind @z)
         $ forwardPass (rawY (stensorKind @x) hVectorPrimal) var
-                      (rankedY (stensorKind @x) hVector)
-      !delta = unDeltaRY (stensorKind @z) deltaIT in
+                      (rankedY (stensorKind @x) hVector) in
   let !derivative = derivativeFromDelta delta (rawY (stensorKind @x) hVectorD)
       !unDerivative = gunshare (stensorKind @z) derivative
       !unPrimal = gunshare (stensorKind @z) primalBody

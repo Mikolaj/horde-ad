@@ -65,8 +65,7 @@ crevOnADInputs
 crevOnADInputs mdt f inputs =
   let -- Evaluate completely after terms constructed, to free memory
       -- before evaluation allocates new memory and new FFI is started.
-      !(!v, !deltaIT) = unADValInterpretation (stensorKind @z) $ f inputs
-      !delta = unDeltaRY (stensorKind @z) deltaIT in
+      !(!v, !delta) = unADValInterpretation (stensorKind @z) $ f inputs in
   let parameters0 = tshapeFull (stensorKind @x) inputs
       !gradient = gradientFromDelta parameters0 v mdt delta
   in (gradient, v)
@@ -96,8 +95,7 @@ cfwdOnADInputs
   -> (InterpretationTarget ranked z, InterpretationTarget ranked z)
 {-# INLINE cfwdOnADInputs #-}
 cfwdOnADInputs inputs f ds =
-  let !(!v, !deltaIT) = unADValInterpretation (stensorKind @z) $ f inputs
-      !delta = unDeltaRY (stensorKind @z) deltaIT in
+  let !(!v, !delta) = unADValInterpretation (stensorKind @z) $ f inputs in
   let !derivative = derivativeFromDelta delta ds
   in (derivative, v)
 
@@ -740,17 +738,17 @@ unADValInterpretation
   => STensorKindType y
   -> InterpretationTarget (ADVal ranked) y
   -> ( InterpretationTarget ranked y
-     , InterpretationTarget (Dual ranked) y )
-unADValInterpretation stk t = case stk of
-  STKR{} -> let D u u' = t in (u, u')
-  STKS{} -> let D u u' = t in (u, u')
-  STKProduct stk1 stk2 ->
-    let (!u, !u') = unADValInterpretation stk1 $ fst t in
-    let (!v, !v') = unADValInterpretation stk2 $ snd t
-    in (ttuple u v, ttuple u' v')
-  STKUntyped ->
-    let (!u, !v) = unADValHVector $ unHVectorPseudoTensor t
-    in (HVectorPseudoTensor $ dmkHVector u, HVectorPseudoTensor $ HToH v)
+     , Delta ranked y )
+unADValInterpretation stk t = case (stk, t) of
+  (STKR{}, D p (DeltaR d)) -> (p, d)
+  (STKS{}, D p (DeltaS d)) -> (p, d)
+  (STKProduct stk1 stk2, (t1, t2)) ->
+    let (!p1, !d1) = unADValInterpretation stk1 t1 in
+    let (!p2, !d2) = unADValInterpretation stk2 t2
+    in (ttuple p1 p2, TupleG d1 d2)
+  (STKUntyped, HVectorPseudoTensor u) ->
+    let (!p, !d) = unADValHVector u
+    in (HVectorPseudoTensor $ dmkHVector p, HToH d)
 
 -- TODO: not dead code: will be used in dletHVectorInHVector.
 aDValHVector :: ADReadyNoLet f

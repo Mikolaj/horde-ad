@@ -40,7 +40,7 @@ module HordeAd.Core.Delta
   ( -- * Delta expression evaluation
     gradientFromDelta, derivativeFromDelta
     -- * Abstract syntax trees of the delta expressions
-  , DeltaR (..), DeltaS (..), Delta(..), unDeltaRY
+  , DeltaR (..), DeltaS (..), Delta(..)
   , -- * Delta expression identifiers
     NodeId (..), InputId, toInputId
     -- * Exported to be specialized elsewhere
@@ -543,8 +543,8 @@ data Delta :: RankedTensorType -> TensorKindType -> Type where
     -> TensorKindFull accShs
     -> TensorKindFull bShs
     -> TensorKindFull eShs
-    -> InterpretationTargetN ranked (BuildTensorKind k accShs)
-    -> InterpretationTargetN ranked (BuildTensorKind k eShs)
+    -> InterpretationTarget ranked (BuildTensorKind k accShs)
+    -> InterpretationTarget ranked (BuildTensorKind k eShs)
     -> HFun (TKProduct (TKProduct accShs eShs)
                        (TKProduct accShs eShs))
             (TKProduct accShs bShs)
@@ -560,8 +560,8 @@ data Delta :: RankedTensorType -> TensorKindType -> Type where
     -> TensorKindFull accShs
     -> TensorKindFull bShs
     -> TensorKindFull eShs
-    -> InterpretationTargetN ranked (BuildTensorKind k accShs)
-    -> InterpretationTargetN ranked (BuildTensorKind k eShs)
+    -> InterpretationTarget ranked (BuildTensorKind k accShs)
+    -> InterpretationTarget ranked (BuildTensorKind k eShs)
     -> HFun (TKProduct (TKProduct accShs eShs)
                        (TKProduct accShs eShs))
             (TKProduct accShs bShs)
