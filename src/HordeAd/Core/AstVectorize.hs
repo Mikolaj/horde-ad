@@ -432,36 +432,58 @@ build1V snat@SNat (var, v00) =
           (build1VOccurenceUnknown snat (var, ll))
     Ast.AstBuildHVector1{} -> traceRule $
       error "build1V: impossible case of AstBuildHVector1"
-    Ast.AstMapAccumRDer k5 (FTKUntyped accShs) (FTKUntyped bShs) (FTKUntyped eShs)
-                        f df rf acc0 es -> traceRule $
+    Ast.AstMapAccumRDer @accShs @bShs @eShs @k5
+                        k5@SNat accShs bShs eShs f df rf acc0 es
+     | Dict <- lemTensorKindOfBuild snat (stensorKind @accShs)
+     , Dict <- lemTensorKindOfBuild snat (stensorKind @eShs)
+     , Dict <- lemTensorKindOfBuild (SNat @k5) (stensorKind @eShs)
+     , Dict <- lemTensorKindOfBuild snat (stensorKind @bShs)
+     , Dict <- lemTensorKindOfBuild (SNat @k5) (stensorKind @bShs)
+     , Dict <- lemTensorKindOfBuild
+                 snat (stensorKind @(BuildTensorKind k5 bShs))
+     , Dict <- lemTensorKindOfBuild
+                 (SNat @k5) (stensorKind @(BuildTensorKind k bShs)) -> traceRule $
       astLetFun
         (Ast.AstMapAccumRDer
            k5
-           (FTKUntyped $ replicate1VoidHVector snat accShs)
-           (FTKUntyped $ replicate1VoidHVector snat bShs)
-           (FTKUntyped $ replicate1VoidHVector snat eShs)
+           (buildTensorKindFull snat accShs)
+           (buildTensorKindFull snat bShs)
+           (buildTensorKindFull snat eShs)
            (build1VHFun snat (var, f))
            (build1VHFun snat (var, df))
            (build1VHFun snat (var, rf))
            (build1VOccurenceUnknown snat (var, acc0))
-           (astTrAstHVector $ build1VOccurenceUnknown snat (var, es)))
+           (astTrGeneral @k @k5 (stensorKind @eShs)
+            $ build1VOccurenceUnknown snat (var, es)))
         (\x1bs1 -> astTuple (astProject1 x1bs1)
-                            (astTrAstHVector (astProject2 x1bs1)))
-    Ast.AstMapAccumLDer k5 (FTKUntyped accShs) (FTKUntyped bShs) (FTKUntyped eShs)
-                        f df rf acc0 es -> traceRule $
+                            (astTrGeneral @k5 @k
+                                          (stensorKind @bShs) (astProject2 x1bs1)))
+    Ast.AstMapAccumLDer @accShs @bShs @eShs @k5
+                        k5@SNat accShs bShs eShs f df rf acc0 es
+     | Dict <- lemTensorKindOfBuild snat (stensorKind @accShs)
+     , Dict <- lemTensorKindOfBuild snat (stensorKind @eShs)
+     , Dict <- lemTensorKindOfBuild (SNat @k5) (stensorKind @eShs)
+     , Dict <- lemTensorKindOfBuild snat (stensorKind @bShs)
+     , Dict <- lemTensorKindOfBuild (SNat @k5) (stensorKind @bShs)
+     , Dict <- lemTensorKindOfBuild
+                 snat (stensorKind @(BuildTensorKind k5 bShs))
+     , Dict <- lemTensorKindOfBuild
+                 (SNat @k5) (stensorKind @(BuildTensorKind k bShs)) -> traceRule $
       astLetFun
         (Ast.AstMapAccumLDer
            k5
-           (FTKUntyped $ replicate1VoidHVector snat accShs)
-           (FTKUntyped $ replicate1VoidHVector snat bShs)
-           (FTKUntyped $ replicate1VoidHVector snat eShs)
+           (buildTensorKindFull snat accShs)
+           (buildTensorKindFull snat bShs)
+           (buildTensorKindFull snat eShs)
            (build1VHFun snat (var, f))
            (build1VHFun snat (var, df))
            (build1VHFun snat (var, rf))
            (build1VOccurenceUnknown snat (var, acc0))
-           (astTrAstHVector $ build1VOccurenceUnknown snat (var, es)))
+           (astTrGeneral @k @k5 (stensorKind @eShs)
+            $ build1VOccurenceUnknown snat (var, es)))
         (\x1bs1 -> astTuple (astProject1 x1bs1)
-                            (astTrAstHVector (astProject2 x1bs1)))
+                            (astTrGeneral @k5 @k
+                                          (stensorKind @bShs) (astProject2 x1bs1)))
 
 -- | The application @build1VIndex snat (var, v, ix)@ vectorizes
 -- the term @AstBuild1 snat (var, AstIndex v ix)@, where it's unknown whether
@@ -775,6 +797,34 @@ astTrAstHVector t =
       vars
       t
       (Ast.AstMkHVector @_ @s $ V.map astTrDynamic asts)
+
+astTrGeneral
+  :: forall k1 k2 s y. (AstSpan s, KnownNat k1, KnownNat k2)
+  => STensorKindType y
+  -> AstTensor AstMethodLet s (BuildTensorKind k1 (BuildTensorKind k2 y))
+  -> AstTensor AstMethodLet s (BuildTensorKind k2 (BuildTensorKind k1 y))
+astTrGeneral stk t = case stk of
+  STKR{} -> astTr t
+  STKS{} -> astTrS t
+  STKProduct @z1 @z2 stk1 stk2
+    | Dict <- lemTensorKindOfBuild (SNat @k1) stk
+    , Dict <- lemTensorKindOfBuild (SNat @k1) stk1
+    , Dict <- lemTensorKindOfBuild (SNat @k2) stk1
+    , Dict <- lemTensorKindOfBuild
+                (SNat @k1) (stensorKind @(BuildTensorKind k2 z1))
+    , Dict <- lemTensorKindOfBuild
+                (SNat @k2) (stensorKind @(BuildTensorKind k1 z1))
+    , Dict <- lemTensorKindOfBuild (SNat @k1) stk2
+    , Dict <- lemTensorKindOfBuild (SNat @k2) stk2
+    , Dict <- lemTensorKindOfBuild
+                (SNat @k1) (stensorKind @(BuildTensorKind k2 z2))
+    , Dict <- lemTensorKindOfBuild
+                (SNat @k2) (stensorKind @(BuildTensorKind k1 z2)) ->
+      astLetFun t $ \ !tShared ->
+        let (u1, u2) = (astProject1 tShared, astProject2 tShared)
+        in astTuple (astTrGeneral @k1 @k2 stk1 u1) (astTrGeneral @k1 @k2 stk2 u2)
+  STKUntyped -> astTrAstHVector t
+
 
 -- * Rule tracing machinery
 

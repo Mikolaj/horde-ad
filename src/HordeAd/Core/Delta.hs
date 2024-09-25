@@ -315,6 +315,7 @@ newtype DeltaR ranked r n =
   DeltaR {unDeltaR :: Delta ranked (TKR r n)}
 instance ( RankedOf (ShapedOf ranked) ~ ranked
          , GoodScalar r, Show (IntOf ranked)
+         , CInterpretationTargetProduct ranked Show
          , Show (HVectorOf ranked)
          , Show (IntOf (ShapedOf ranked))
          , CRanked ranked Show
@@ -330,6 +331,7 @@ newtype DeltaS shaped r sh =
   DeltaS {unDeltaS :: Delta (RankedOf shaped) (TKS r sh)}
 instance ( ranked ~ RankedOf shaped, RankedOf (ShapedOf ranked) ~ ranked
          , GoodScalar r, Show (IntOf ranked)
+         , CInterpretationTargetProduct ranked Show
          , Show (HVectorOf ranked)
          , Show (IntOf (ShapedOf ranked))
          , CRanked ranked Show
@@ -538,13 +540,16 @@ data Delta :: RankedTensorType -> TensorKindType -> Type where
 
   HToH :: HVector (DeltaR ranked) -> Delta ranked TKUntyped
   MapAccumR
-    :: (accShs ~ TKUntyped, bShs ~ TKUntyped, eShs ~ TKUntyped)
+    :: forall ranked k accShs bShs eShs.
+       ( TensorKind accShs, TensorKind bShs, TensorKind eShs
+       , TensorKind (BuildTensorKind k eShs)
+       , TensorKind (BuildTensorKind k accShs) )
     => SNat k
     -> TensorKindFull accShs
     -> TensorKindFull bShs
     -> TensorKindFull eShs
-    -> InterpretationTarget ranked (BuildTensorKind k accShs)
-    -> InterpretationTarget ranked (BuildTensorKind k eShs)
+    -> InterpretationTargetN ranked (BuildTensorKind k accShs)
+    -> InterpretationTargetN ranked (BuildTensorKind k eShs)
     -> HFun (TKProduct (TKProduct accShs eShs)
                        (TKProduct accShs eShs))
             (TKProduct accShs bShs)
@@ -555,13 +560,16 @@ data Delta :: RankedTensorType -> TensorKindType -> Type where
     -> Delta ranked (BuildTensorKind k eShs)
     -> Delta ranked (TKProduct accShs (BuildTensorKind k bShs))
   MapAccumL
-    :: (accShs ~ TKUntyped, bShs ~ TKUntyped, eShs ~ TKUntyped)
+    :: forall ranked k accShs bShs eShs.
+       ( TensorKind accShs, TensorKind bShs, TensorKind eShs
+       , TensorKind (BuildTensorKind k eShs)
+       , TensorKind (BuildTensorKind k accShs) )
     => SNat k
     -> TensorKindFull accShs
     -> TensorKindFull bShs
     -> TensorKindFull eShs
-    -> InterpretationTarget ranked (BuildTensorKind k accShs)
-    -> InterpretationTarget ranked (BuildTensorKind k eShs)
+    -> InterpretationTargetN ranked (BuildTensorKind k accShs)
+    -> InterpretationTargetN ranked (BuildTensorKind k eShs)
     -> HFun (TKProduct (TKProduct accShs eShs)
                        (TKProduct accShs eShs))
             (TKProduct accShs bShs)
@@ -573,6 +581,7 @@ data Delta :: RankedTensorType -> TensorKindType -> Type where
     -> Delta ranked (TKProduct accShs (BuildTensorKind k bShs))
 
 deriving instance ( RankedOf (ShapedOf ranked) ~ ranked
+                  , CInterpretationTargetProduct ranked Show
                   , Show (HVectorOf ranked)
                   , Show (IntOf ranked)
                   , Show (IntOf (ShapedOf ranked))
@@ -686,10 +695,12 @@ shapeDeltaFull = \case
 
   HToH v ->
     FTKUntyped $ V.map (voidFromDynamicF (shapeToList . shapeDelta . unDeltaR)) v
-  MapAccumR k accShs bShs _eShs _q _es _df _rf _acc0' _es' ->
-    FTKProduct accShs (buildTensorKindFull k bShs)
-  MapAccumL k  accShs bShs _eShs _q _es _df _rf _acc0' _es' ->
-    FTKProduct accShs (buildTensorKindFull k bShs)
+  MapAccumR @_ @_ @_ @bShs k accShs bShs _eShs _q _es _df _rf _acc0' _es'
+    | Dict <- lemTensorKindOfBuild k (stensorKind @bShs) ->
+      FTKProduct accShs (buildTensorKindFull k bShs)
+  MapAccumL @_ @_ @_ @bShs k accShs bShs _eShs _q _es _df _rf _acc0' _es'
+    | Dict <- lemTensorKindOfBuild k (stensorKind @bShs) ->
+      FTKProduct accShs (buildTensorKindFull k bShs)
 
 shapeDelta :: forall ranked r n.
               (GoodScalar r, KnownNat n, RankedOf (ShapedOf ranked) ~ ranked)
@@ -1168,7 +1179,8 @@ evalR !s !c = \case
   HToH v -> evalHVector s (tunvector c) v
   MapAccumR k accShs@(FTKUntyped accShsH) (FTKUntyped bShsH)
             eShs@(FTKUntyped eShsH)
-            q es _df rf acc0' es' ->
+            (InterpretationTargetN q) (InterpretationTargetN es)
+            _df rf acc0' es' ->
     let accLen = V.length accShsH
         bLen = V.length bShsH
         (c0, crest1) = tunpair c
@@ -1192,7 +1204,8 @@ evalR !s !c = \case
     in evalR s2 des es'
   MapAccumL k accShs@(FTKUntyped accShsH) (FTKUntyped bShsH)
             eShs@(FTKUntyped eShsH)
-            q es _df rf acc0' es' ->
+            (InterpretationTargetN q) (InterpretationTargetN es)
+            _df rf acc0' es' ->
     let accLen = V.length accShsH
         bLen = V.length bShsH
         (c0, crest1) = tunpair c
@@ -1462,7 +1475,8 @@ fwdR params s = \case
   HToH v -> second (HVectorPseudoTensor . dmkHVector)
             $ fwdHVector params s v
   MapAccumR k accShs@(FTKUntyped accShsH) bShs (FTKUntyped eShsH)
-            q es df _rf acc0' es' ->
+            (InterpretationTargetN q) (InterpretationTargetN es)
+            df _rf acc0' es' ->
     let (s2, cacc0) = fwdR params s acc0'
         (s3, ces) = fwdR params s2 es'
         accLen = V.length accShsH
@@ -1481,7 +1495,8 @@ fwdR params s = \case
                           cacc0
                           (HVectorPseudoTensor $ dmkHVector $ V.concat [tunvector ces, tunvector q, tunvector es]))
   MapAccumL k accShs@(FTKUntyped accShsH) bShs (FTKUntyped eShsH)
-            q es df _rf acc0' es' ->
+            (InterpretationTargetN q) (InterpretationTargetN es)
+            df _rf acc0' es' ->
     let (s2, cacc0) = fwdR params s acc0'
         (s3, ces) = fwdR params s2 es'
         accLen = V.length accShsH

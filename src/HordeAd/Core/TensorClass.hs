@@ -16,7 +16,7 @@ module HordeAd.Core.TensorClass
   , HVectorTensor(..), ProductTensor(..)
   , HFun(..)
   , rfromD, sfromD, rscalar, rrepl, ringestData, ringestData1
-  , ingestData, sscalar, srepl
+  , ingestData, sscalar, srepl, unconcreteTarget
   , mapDynamic, mapDynamic2, mapInterpretationTarget
   , mapInterpretationTarget2Weak
     -- * The giga-constraint
@@ -1100,7 +1100,7 @@ class HVectorTensor (ranked :: RankedTensorType)
   -- constructor 'AstLambda' for it's instance of 'HFunOf'.
   dmapAccumR
     :: forall k accShs bShs eShs.
-       (accShs ~ TKUntyped, bShs ~ TKUntyped, eShs ~ TKUntyped)
+       (TensorKind accShs, TensorKind bShs, TensorKind eShs)
     => Proxy ranked
     -> SNat k
     -> TensorKindFull accShs
@@ -1127,7 +1127,7 @@ class HVectorTensor (ranked :: RankedTensorType)
                      (drevDt @ranked shs $ HFun fl)
                      acc0 es
   dmapAccumRDer
-    :: (accShs ~ TKUntyped, bShs ~ TKUntyped, eShs ~ TKUntyped)
+    :: (TensorKind accShs, TensorKind bShs, TensorKind eShs)
     => Proxy ranked
     -> SNat k
     -> TensorKindFull accShs  -- ^ shapes of acc, the accumulator
@@ -1148,7 +1148,7 @@ class HVectorTensor (ranked :: RankedTensorType)
   -- | A strict left mapAccum.
   dmapAccumL
     :: forall k accShs bShs eShs.
-       (accShs ~ TKUntyped, bShs ~ TKUntyped, eShs ~ TKUntyped)
+       (TensorKind accShs, TensorKind bShs, TensorKind eShs)
     => Proxy ranked
     -> SNat k
     -> TensorKindFull accShs
@@ -1175,7 +1175,7 @@ class HVectorTensor (ranked :: RankedTensorType)
                      (drevDt @ranked shs $ HFun fl)
                      acc0 es
   dmapAccumLDer
-    :: (accShs ~ TKUntyped, bShs ~ TKUntyped, eShs ~ TKUntyped)
+    :: (TensorKind accShs, TensorKind bShs, TensorKind eShs)
     => Proxy ranked
     -> SNat k
     -> TensorKindFull accShs
@@ -1295,6 +1295,17 @@ srepl =
   --   sreplicate0N . sscalar
   -- though we could also look at the low level in @isSmall@ and mark
   -- replicated constants as small
+
+unconcreteTarget :: forall ranked y.
+                    ( TensorKind y, HVectorTensor ranked (ShapedOf ranked)
+                    , ProductTensor ranked )
+                 => ConcreteTarget ranked y
+                 -> InterpretationTarget ranked y
+unconcreteTarget t = case stensorKind @y of
+  STKR{} -> t
+  STKS{} -> t
+  STKProduct{} -> uncurry ttuple t
+  STKUntyped -> HVectorPseudoTensor $ dmkHVector t
 
 mapDynamic
   :: (RankedTensor f, ShapedTensor (ShapedOf f))

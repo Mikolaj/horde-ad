@@ -702,16 +702,58 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
             $ AstLet var (astProject2 astP)
               $ simplifyInline $ unRankedY (stensorKind @z) derivative
     in AstLambda (varP, ftk2, ast)
-  dmapAccumRDer _ !k !accShs !bShs !eShs f df rf acc0 es =
-    rankedY stensorKind
-    $ AstMapAccumRDer k accShs bShs eShs f df rf
-                      (unRankedY (stensorKind @TKUntyped) acc0)
-                      (unRankedY (stensorKind @TKUntyped) es)
-  dmapAccumLDer _ !k !accShs !bShs !eShs f df rf acc0 es =
-    rankedY stensorKind
-    $ AstMapAccumLDer k accShs bShs eShs f df rf
-                      (unRankedY (stensorKind @TKUntyped) acc0)
-                      (unRankedY (stensorKind @TKUntyped) es)
+  dmapAccumRDer
+    :: forall accShs bShs eShs k.
+       (TensorKind accShs, TensorKind bShs, TensorKind eShs)
+    => Proxy (AstRanked s)
+    -> SNat k
+    -> TensorKindFull accShs
+    -> TensorKindFull bShs
+    -> TensorKindFull eShs
+    -> HFunOf (AstRanked s) (TKProduct accShs eShs) (TKProduct accShs bShs)
+    -> HFunOf (AstRanked s) (TKProduct (TKProduct accShs eShs)
+                                (TKProduct accShs eShs))
+                     (TKProduct accShs bShs)
+    -> HFunOf (AstRanked s) (TKProduct (TKProduct accShs bShs)
+                                (TKProduct accShs eShs))
+                     (TKProduct accShs eShs)
+    -> InterpretationTarget (AstRanked s) accShs
+    -> InterpretationTarget (AstRanked s) (BuildTensorKind k eShs)
+    -> InterpretationTarget (AstRanked s)
+                            (TKProduct accShs (BuildTensorKind k bShs))
+  dmapAccumRDer _ !k !accShs !bShs !eShs f df rf acc0 es
+    | Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
+    , Dict <- lemTensorKindOfBuild k (stensorKind @bShs) =
+      rankedY stensorKind
+      $ AstMapAccumRDer k accShs bShs eShs f df rf
+                        (unRankedY stensorKind acc0)
+                        (unRankedY stensorKind es)
+  dmapAccumLDer
+    :: forall accShs bShs eShs k.
+       (TensorKind accShs, TensorKind bShs, TensorKind eShs)
+    => Proxy (AstRanked s)
+    -> SNat k
+    -> TensorKindFull accShs
+    -> TensorKindFull bShs
+    -> TensorKindFull eShs
+    -> HFunOf (AstRanked s) (TKProduct accShs eShs) (TKProduct accShs bShs)
+    -> HFunOf (AstRanked s) (TKProduct (TKProduct accShs eShs)
+                                (TKProduct accShs eShs))
+                     (TKProduct accShs bShs)
+    -> HFunOf (AstRanked s) (TKProduct (TKProduct accShs bShs)
+                                (TKProduct accShs eShs))
+                     (TKProduct accShs eShs)
+    -> InterpretationTarget (AstRanked s) accShs
+    -> InterpretationTarget (AstRanked s) (BuildTensorKind k eShs)
+    -> InterpretationTarget (AstRanked s)
+                            (TKProduct accShs (BuildTensorKind k bShs))
+  dmapAccumLDer _ !k !accShs !bShs !eShs f df rf acc0 es
+    | Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
+    , Dict <- lemTensorKindOfBuild k (stensorKind @bShs) =
+      rankedY stensorKind
+      $ AstMapAccumLDer k accShs bShs eShs f df rf
+                        (unRankedY stensorKind acc0)
+                        (unRankedY stensorKind es)
 
 
 -- * The AstRaw instances
@@ -1002,16 +1044,58 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
   -- simplifying the resulting terms, but it's not clear that's more consistent.
   drevDt = drevDt @(AstRanked s)
   dfwd = dfwd @(AstRanked s)
-  dmapAccumRDer _ !k !accShs !bShs !eShs f df rf acc0 es =
+  dmapAccumRDer
+    :: forall accShs bShs eShs k.
+       (TensorKind accShs, TensorKind bShs, TensorKind eShs)
+    => Proxy (AstRaw s)
+    -> SNat k
+    -> TensorKindFull accShs
+    -> TensorKindFull bShs
+    -> TensorKindFull eShs
+    -> HFunOf (AstRaw s) (TKProduct accShs eShs) (TKProduct accShs bShs)
+    -> HFunOf (AstRaw s) (TKProduct (TKProduct accShs eShs)
+                                (TKProduct accShs eShs))
+                     (TKProduct accShs bShs)
+    -> HFunOf (AstRaw s) (TKProduct (TKProduct accShs bShs)
+                                (TKProduct accShs eShs))
+                     (TKProduct accShs eShs)
+    -> InterpretationTarget (AstRaw s) accShs
+    -> InterpretationTarget (AstRaw s) (BuildTensorKind k eShs)
+    -> InterpretationTarget (AstRaw s)
+                            (TKProduct accShs (BuildTensorKind k bShs))
+  dmapAccumRDer _ !k !accShs !bShs !eShs f df rf acc0 es
+    | Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
+    , Dict <- lemTensorKindOfBuild k (stensorKind @bShs) =
     rawY stensorKind
     $ AstMapAccumRDer k accShs bShs eShs f df rf
-                      (unRawY (stensorKind @TKUntyped) acc0)
-                      (unRawY (stensorKind @TKUntyped) es)
-  dmapAccumLDer _ !k !accShs !bShs !eShs f df rf acc0 es =
+                      (unRawY stensorKind acc0)
+                      (unRawY stensorKind es)
+  dmapAccumLDer
+    :: forall accShs bShs eShs k.
+       (TensorKind accShs, TensorKind bShs, TensorKind eShs)
+    => Proxy (AstRaw s)
+    -> SNat k
+    -> TensorKindFull accShs
+    -> TensorKindFull bShs
+    -> TensorKindFull eShs
+    -> HFunOf (AstRaw s) (TKProduct accShs eShs) (TKProduct accShs bShs)
+    -> HFunOf (AstRaw s) (TKProduct (TKProduct accShs eShs)
+                                (TKProduct accShs eShs))
+                     (TKProduct accShs bShs)
+    -> HFunOf (AstRaw s) (TKProduct (TKProduct accShs bShs)
+                                (TKProduct accShs eShs))
+                     (TKProduct accShs eShs)
+    -> InterpretationTarget (AstRaw s) accShs
+    -> InterpretationTarget (AstRaw s) (BuildTensorKind k eShs)
+    -> InterpretationTarget (AstRaw s)
+                            (TKProduct accShs (BuildTensorKind k bShs))
+  dmapAccumLDer _ !k !accShs !bShs !eShs f df rf acc0 es
+    | Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
+    , Dict <- lemTensorKindOfBuild k (stensorKind @bShs) =
     rawY stensorKind
     $ AstMapAccumLDer k accShs bShs eShs f df rf
-                      (unRawY (stensorKind @TKUntyped) acc0)
-                      (unRawY (stensorKind @TKUntyped) es)
+                      (unRawY stensorKind acc0)
+                      (unRawY stensorKind es)
 
 
 -- * The AstNoVectorize
@@ -1336,16 +1420,58 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
     $ AstBuildHVector1 k $ funToAstI (unAstNoVectorizeWrap . f . AstNoVectorize)
   drevDt = drevDt @(AstRanked s)
   dfwd = dfwd @(AstRanked s)
-  dmapAccumRDer _ !k !accShs !bShs !eShs f df rf acc0 es =
-    noVectorizeY stensorKind
-    $ AstMapAccumRDer k accShs bShs eShs f df rf
-                      (unNoVectorizeY (stensorKind @TKUntyped) acc0)
-                      (unNoVectorizeY (stensorKind @TKUntyped) es)
-  dmapAccumLDer _ !k !accShs !bShs !eShs f df rf acc0 es =
-    noVectorizeY stensorKind
-    $ AstMapAccumLDer k accShs bShs eShs f df rf
-                      (unNoVectorizeY (stensorKind @TKUntyped) acc0)
-                      (unNoVectorizeY (stensorKind @TKUntyped) es)
+  dmapAccumRDer
+    :: forall accShs bShs eShs k.
+       (TensorKind accShs, TensorKind bShs, TensorKind eShs)
+    => Proxy (AstNoVectorize s)
+    -> SNat k
+    -> TensorKindFull accShs
+    -> TensorKindFull bShs
+    -> TensorKindFull eShs
+    -> HFunOf (AstNoVectorize s) (TKProduct accShs eShs) (TKProduct accShs bShs)
+    -> HFunOf (AstNoVectorize s) (TKProduct (TKProduct accShs eShs)
+                                (TKProduct accShs eShs))
+                     (TKProduct accShs bShs)
+    -> HFunOf (AstNoVectorize s) (TKProduct (TKProduct accShs bShs)
+                                (TKProduct accShs eShs))
+                     (TKProduct accShs eShs)
+    -> InterpretationTarget (AstNoVectorize s) accShs
+    -> InterpretationTarget (AstNoVectorize s) (BuildTensorKind k eShs)
+    -> InterpretationTarget (AstNoVectorize s)
+                            (TKProduct accShs (BuildTensorKind k bShs))
+  dmapAccumRDer _ !k !accShs !bShs !eShs f df rf acc0 es
+    | Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
+    , Dict <- lemTensorKindOfBuild k (stensorKind @bShs) =
+      noVectorizeY stensorKind
+      $ AstMapAccumRDer k accShs bShs eShs f df rf
+                        (unNoVectorizeY stensorKind acc0)
+                        (unNoVectorizeY stensorKind es)
+  dmapAccumLDer
+    :: forall accShs bShs eShs k.
+       (TensorKind accShs, TensorKind bShs, TensorKind eShs)
+    => Proxy (AstNoVectorize s)
+    -> SNat k
+    -> TensorKindFull accShs
+    -> TensorKindFull bShs
+    -> TensorKindFull eShs
+    -> HFunOf (AstNoVectorize s) (TKProduct accShs eShs) (TKProduct accShs bShs)
+    -> HFunOf (AstNoVectorize s) (TKProduct (TKProduct accShs eShs)
+                                (TKProduct accShs eShs))
+                     (TKProduct accShs bShs)
+    -> HFunOf (AstNoVectorize s) (TKProduct (TKProduct accShs bShs)
+                                (TKProduct accShs eShs))
+                     (TKProduct accShs eShs)
+    -> InterpretationTarget (AstNoVectorize s) accShs
+    -> InterpretationTarget (AstNoVectorize s) (BuildTensorKind k eShs)
+    -> InterpretationTarget (AstNoVectorize s)
+                            (TKProduct accShs (BuildTensorKind k bShs))
+  dmapAccumLDer _ !k !accShs !bShs !eShs f df rf acc0 es
+    | Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
+    , Dict <- lemTensorKindOfBuild k (stensorKind @bShs) =
+      noVectorizeY stensorKind
+      $ AstMapAccumLDer k accShs bShs eShs f df rf
+                        (unNoVectorizeY stensorKind acc0)
+                        (unNoVectorizeY stensorKind es)
 
 
 -- * The AstNoSimplify instances
@@ -1707,16 +1833,58 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
                     k (unAstNoSimplifyWrap . f . AstNoSimplify)
   drevDt = drevDt @(AstRanked s)
   dfwd = dfwd @(AstRanked s)
-  dmapAccumRDer _ !k !accShs !bShs !eShs f df rf acc0 es =
-    noSimplifyY stensorKind
-    $ AstMapAccumRDer k accShs bShs eShs f df rf
-                      (unNoSimplifyY (stensorKind @TKUntyped) acc0)
-                      (unNoSimplifyY (stensorKind @TKUntyped) es)
-  dmapAccumLDer _ !k !accShs !bShs !eShs f df rf acc0 es =
-    noSimplifyY stensorKind
-    $ AstMapAccumLDer k accShs bShs eShs f df rf
-                      (unNoSimplifyY (stensorKind @TKUntyped) acc0)
-                      (unNoSimplifyY (stensorKind @TKUntyped) es)
+  dmapAccumRDer
+    :: forall accShs bShs eShs k.
+       (TensorKind accShs, TensorKind bShs, TensorKind eShs)
+    => Proxy (AstNoSimplify s)
+    -> SNat k
+    -> TensorKindFull accShs
+    -> TensorKindFull bShs
+    -> TensorKindFull eShs
+    -> HFunOf (AstNoSimplify s) (TKProduct accShs eShs) (TKProduct accShs bShs)
+    -> HFunOf (AstNoSimplify s) (TKProduct (TKProduct accShs eShs)
+                                (TKProduct accShs eShs))
+                     (TKProduct accShs bShs)
+    -> HFunOf (AstNoSimplify s) (TKProduct (TKProduct accShs bShs)
+                                (TKProduct accShs eShs))
+                     (TKProduct accShs eShs)
+    -> InterpretationTarget (AstNoSimplify s) accShs
+    -> InterpretationTarget (AstNoSimplify s) (BuildTensorKind k eShs)
+    -> InterpretationTarget (AstNoSimplify s)
+                            (TKProduct accShs (BuildTensorKind k bShs))
+  dmapAccumRDer _ !k !accShs !bShs !eShs f df rf acc0 es
+    | Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
+    , Dict <- lemTensorKindOfBuild k (stensorKind @bShs) =
+      noSimplifyY stensorKind
+      $ AstMapAccumRDer k accShs bShs eShs f df rf
+                        (unNoSimplifyY stensorKind acc0)
+                        (unNoSimplifyY stensorKind es)
+  dmapAccumLDer
+    :: forall accShs bShs eShs k.
+       (TensorKind accShs, TensorKind bShs, TensorKind eShs)
+    => Proxy (AstNoSimplify s)
+    -> SNat k
+    -> TensorKindFull accShs
+    -> TensorKindFull bShs
+    -> TensorKindFull eShs
+    -> HFunOf (AstNoSimplify s) (TKProduct accShs eShs) (TKProduct accShs bShs)
+    -> HFunOf (AstNoSimplify s) (TKProduct (TKProduct accShs eShs)
+                                (TKProduct accShs eShs))
+                     (TKProduct accShs bShs)
+    -> HFunOf (AstNoSimplify s) (TKProduct (TKProduct accShs bShs)
+                                (TKProduct accShs eShs))
+                     (TKProduct accShs eShs)
+    -> InterpretationTarget (AstNoSimplify s) accShs
+    -> InterpretationTarget (AstNoSimplify s) (BuildTensorKind k eShs)
+    -> InterpretationTarget (AstNoSimplify s)
+                            (TKProduct accShs (BuildTensorKind k bShs))
+  dmapAccumLDer _ !k !accShs !bShs !eShs f df rf acc0 es
+    | Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
+    , Dict <- lemTensorKindOfBuild k (stensorKind @bShs) =
+      noSimplifyY stensorKind
+      $ AstMapAccumLDer k accShs bShs eShs f df rf
+                        (unNoSimplifyY stensorKind acc0)
+                        (unNoSimplifyY stensorKind es)
 
 
 -- TODO: move to a better home:

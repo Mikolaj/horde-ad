@@ -299,14 +299,14 @@ instance HVectorTensor ORArray OSArray where
   sscan f x0 as =
     sfromList $ NonEmpty.fromList $ scanl' f x0 (sunravelToList as)
   -- The eta-expansion below is needed for typing.
-  dmapAccumR _ k _ bShs _ f acc0 es = oRdmapAccumR k bShs f acc0 es
-  dmapAccumRDer _ k _ bShs _ f _df _rf acc0 es =
-    oRdmapAccumR k bShs (\ !a !b ->
-      f (HVectorPseudoTensor a, HVectorPseudoTensor b)) acc0 es
-  dmapAccumL _ k _ bShs _ f acc0 es = oRdmapAccumL k bShs f acc0 es
-  dmapAccumLDer _ k _ bShs _ f _df _rf acc0 es =
-    oRdmapAccumL k bShs (\ !a !b ->
-      f (HVectorPseudoTensor a, HVectorPseudoTensor b)) acc0 es
+  dmapAccumR _ k accShs bShs eShs f acc0 es = oRdmapAccumR k accShs bShs eShs f acc0 es
+  dmapAccumRDer _ k accShs bShs eShs f _df _rf acc0 es =
+    oRdmapAccumR k accShs bShs eShs (\ !a !b ->
+      f (unconcreteTarget a, unconcreteTarget b)) acc0 es
+  dmapAccumL _ k accShs bShs eShs f acc0 es = oRdmapAccumL k accShs bShs eShs f acc0 es
+  dmapAccumLDer _ k accShs bShs eShs f _df _rf acc0 es =
+    oRdmapAccumL k accShs bShs eShs (\ !a !b ->
+      f (unconcreteTarget a, unconcreteTarget b)) acc0 es
 
 type instance InterpretationTarget ORArray (TKProduct x z) =
   (InterpretationTarget ORArray x, InterpretationTarget ORArray z)
@@ -354,26 +354,19 @@ concreteTarget t = case stensorKind @y of
   STKProduct{} -> t
   STKUntyped -> unHVectorPseudoTensor t
 
-unconcreteTarget :: forall y. TensorKind y
-                 => ConcreteTarget ORArray y
-                 -> InterpretationTarget ORArray y
-unconcreteTarget t = case stensorKind @y of
-  STKR{} -> t
-  STKS{} -> t
-  STKProduct{} -> t
-  STKUntyped -> HVectorPseudoTensor t
-
 oRdmapAccumR
   :: forall k accShs bShs eShs.
      (TensorKind accShs, TensorKind bShs, TensorKind eShs)
   => SNat k
+  -> TensorKindFull accShs
   -> TensorKindFull bShs
+  -> TensorKindFull eShs
   -> (ConcreteTarget ORArray accShs -> ConcreteTarget ORArray eShs
       -> InterpretationTarget ORArray (TKProduct accShs bShs))
   -> InterpretationTarget ORArray accShs
   -> InterpretationTarget ORArray (BuildTensorKind k eShs)
   -> InterpretationTarget ORArray (TKProduct accShs (BuildTensorKind k bShs))
-oRdmapAccumR k bShs f acc0 es = case sNatValue k of
+oRdmapAccumR k _ bShs _ f acc0 es = case sNatValue k of
   0 -> (acc0, treplicate k (stensorKind @bShs) (interpretationConstant 0 bShs))
   _ ->
     let g :: ConcreteTarget ORArray accShs -> ConcreteTarget ORArray eShs
@@ -391,13 +384,15 @@ oRdmapAccumL
   :: forall k accShs bShs eShs.
      (TensorKind accShs, TensorKind bShs, TensorKind eShs)
   => SNat k
+  -> TensorKindFull accShs
   -> TensorKindFull bShs
+  -> TensorKindFull eShs
   -> (ConcreteTarget ORArray accShs -> ConcreteTarget ORArray eShs
       -> InterpretationTarget ORArray (TKProduct accShs bShs))
   -> InterpretationTarget ORArray accShs
   -> InterpretationTarget ORArray (BuildTensorKind k eShs)
   -> InterpretationTarget ORArray (TKProduct accShs (BuildTensorKind k bShs))
-oRdmapAccumL k bShs f acc0 es = case sNatValue k of
+oRdmapAccumL k _ bShs _ f acc0 es = case sNatValue k of
   0 -> (acc0, treplicate k (stensorKind @bShs) (interpretationConstant 0 bShs))
   _ ->
     let g :: ConcreteTarget ORArray accShs -> ConcreteTarget ORArray eShs

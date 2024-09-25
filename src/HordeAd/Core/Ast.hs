@@ -521,7 +521,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType -> Type wh
   AstBuildHVector1 :: SNat k -> (IntVarName, AstTensor ms s TKUntyped)
                    -> AstTensor ms s TKUntyped
   AstMapAccumRDer
-    :: (accShs ~ TKUntyped, bShs ~ TKUntyped, eShs ~ TKUntyped)
+    :: (TensorKind accShs, TensorKind bShs, TensorKind eShs)
     => SNat k
     -> TensorKindFull accShs
     -> TensorKindFull bShs
@@ -537,7 +537,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType -> Type wh
     -> AstTensor ms s (BuildTensorKind k eShs)
     -> AstTensor ms s (TKProduct accShs (BuildTensorKind k bShs))
   AstMapAccumLDer
-    :: (accShs ~ TKUntyped, bShs ~ TKUntyped, eShs ~ TKUntyped)
+    :: (TensorKind accShs, TensorKind bShs, TensorKind eShs)
     => SNat k
     -> TensorKindFull accShs
     -> TensorKindFull bShs

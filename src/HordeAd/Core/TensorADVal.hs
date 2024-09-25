@@ -617,7 +617,10 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
         q = HVectorPseudoTensor $ dmkHVector $ V.take accLen qbs
         bs = V.drop accLen qbs
         !_A = assert (voidHVectorMatches (replicate1VoidHVector k bShsH) bs) ()
-        dual = wrapDelta $ MapAccumR k accShs bShs eShs q es df rf
+        dual = wrapDelta $ MapAccumR k accShs bShs eShs
+                                     (InterpretationTargetN q)
+                                     (InterpretationTargetN es)
+                                     df rf
                                      (HToH acc0') (HToH es')
     in ( HVectorPseudoTensor $ ahhToHVector accFin (Project1G dual)
        , HVectorPseudoTensor $ ahhToHVector bs (Project2G dual) )
@@ -692,7 +695,10 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
         q = HVectorPseudoTensor $ dmkHVector $ V.take accLen qbs
         bs = V.drop accLen qbs
         !_A = assert (voidHVectorMatches (replicate1VoidHVector k bShsH) bs) ()
-        dual = wrapDelta $ MapAccumL k accShs bShs eShs q es df rf
+        dual = wrapDelta $ MapAccumL k accShs bShs eShs
+                                     (InterpretationTargetN q)
+                                     (InterpretationTargetN es)
+                                     df rf
                                      (HToH acc0') (HToH es')
     in ( HVectorPseudoTensor $ ahhToHVector accFin (Project1G dual)
        , HVectorPseudoTensor $ ahhToHVector bs (Project2G dual) )

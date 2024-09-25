@@ -2466,20 +2466,22 @@ simplifyAst t = case t of
                                   (simplifyAst ll)
   Ast.AstBuildHVector1 k (var, v) ->
     Ast.AstBuildHVector1 k (var, simplifyAst v)
-  Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc0 es ->
-    Ast.AstMapAccumRDer k accShs bShs eShs
-                        (simplifyAstHFun f)
-                        (simplifyAstHFun df)
-                        (simplifyAstHFun rf)
-                        (simplifyAst acc0)
-                        (simplifyAst es)
-  Ast.AstMapAccumLDer k accShs bShs eShs f df rf acc0 es ->
-    Ast.AstMapAccumLDer k accShs bShs eShs
-                        (simplifyAstHFun f)
-                        (simplifyAstHFun df)
-                        (simplifyAstHFun rf)
-                        (simplifyAst acc0)
-                        (simplifyAst es)
+  Ast.AstMapAccumRDer @_ @_ @eShs k accShs bShs eShs f df rf acc0 es
+    | Dict <- lemTensorKindOfBuild k (stensorKind @eShs) ->
+      Ast.AstMapAccumRDer k accShs bShs eShs
+                          (simplifyAstHFun f)
+                          (simplifyAstHFun df)
+                          (simplifyAstHFun rf)
+                          (simplifyAst acc0)
+                          (simplifyAst es)
+  Ast.AstMapAccumLDer @_ @_ @eShs k accShs bShs eShs f df rf acc0 es
+    | Dict <- lemTensorKindOfBuild k (stensorKind @eShs) ->
+      Ast.AstMapAccumLDer k accShs bShs eShs
+                          (simplifyAstHFun f)
+                          (simplifyAstHFun df)
+                          (simplifyAstHFun rf)
+                          (simplifyAst acc0)
+                          (simplifyAst es)
 
 simplifyAstDynamic
   :: AstSpan s
@@ -2676,20 +2678,22 @@ expandAst t = case t of
                                   (expandAst ll)
   Ast.AstBuildHVector1 k (var, v) ->
     Ast.AstBuildHVector1 k (var, expandAst v)
-  Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc0 es ->
-    Ast.AstMapAccumRDer k accShs bShs eShs
-                        (expandAstHFun f)
-                        (expandAstHFun df)
-                        (expandAstHFun rf)
-                        (expandAst acc0)
-                        (expandAst es)
-  Ast.AstMapAccumLDer k accShs bShs eShs f df rf acc0 es ->
-    Ast.AstMapAccumLDer k accShs bShs eShs
-                        (expandAstHFun f)
-                        (expandAstHFun df)
-                        (expandAstHFun rf)
-                        (expandAst acc0)
-                        (expandAst es)
+  Ast.AstMapAccumRDer @_ @_ @eShs k accShs bShs eShs f df rf acc0 es
+    | Dict <- lemTensorKindOfBuild k (stensorKind @eShs) ->
+      Ast.AstMapAccumRDer k accShs bShs eShs
+                          (expandAstHFun f)
+                          (expandAstHFun df)
+                          (expandAstHFun rf)
+                          (expandAst acc0)
+                          (expandAst es)
+  Ast.AstMapAccumLDer @_ @_ @eShs k accShs bShs eShs f df rf acc0 es
+    | Dict <- lemTensorKindOfBuild k (stensorKind @eShs) ->
+      Ast.AstMapAccumLDer k accShs bShs eShs
+                          (expandAstHFun f)
+                          (expandAstHFun df)
+                          (expandAstHFun rf)
+                          (expandAst acc0)
+                          (expandAst es)
 
 expandAstDynamic
   :: AstSpan s
@@ -3233,30 +3237,32 @@ substitute1Ast i var v1 = case v1 of
       (mt, mll) -> Just $ astHApply (fromMaybe t mt) (fromMaybe ll mll)
   Ast.AstBuildHVector1 k (var2, v) ->
     Ast.AstBuildHVector1 k . (var2,) <$> substitute1Ast i var v
-  Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc0 es ->
-    case ( substitute1AstHFun i var f, substitute1AstHFun i var df
-         , substitute1AstHFun i var rf, substitute1Ast i var acc0
-         , substitute1Ast i var es ) of
-      (Nothing, Nothing, Nothing, Nothing, Nothing) -> Nothing
-      (mf, mdf, mrf, macc0, mes) ->
-        Just $ Ast.AstMapAccumRDer k accShs bShs eShs
-                                   (fromMaybe f mf)
-                                   (fromMaybe df mdf)
-                                   (fromMaybe rf mrf)
-                                   (fromMaybe acc0 macc0)
-                                   (fromMaybe es mes)
-  Ast.AstMapAccumLDer k accShs bShs eShs f df rf acc0 es ->
-    case ( substitute1AstHFun i var f, substitute1AstHFun i var df
-         , substitute1AstHFun i var rf, substitute1Ast i var acc0
-         , substitute1Ast i var es ) of
-      (Nothing, Nothing, Nothing, Nothing, Nothing) -> Nothing
-      (mf, mdf, mrf, macc0, mes) ->
-        Just $ Ast.AstMapAccumLDer k accShs bShs eShs
-                                   (fromMaybe f mf)
-                                   (fromMaybe df mdf)
-                                   (fromMaybe rf mrf)
-                                   (fromMaybe acc0 macc0)
-                                   (fromMaybe es mes)
+  Ast.AstMapAccumRDer @_ @_ @eShs k accShs bShs eShs f df rf acc0 es
+    | Dict <- lemTensorKindOfBuild k (stensorKind @eShs) ->
+      case ( substitute1AstHFun i var f, substitute1AstHFun i var df
+           , substitute1AstHFun i var rf, substitute1Ast i var acc0
+           , substitute1Ast i var es ) of
+        (Nothing, Nothing, Nothing, Nothing, Nothing) -> Nothing
+        (mf, mdf, mrf, macc0, mes) ->
+          Just $ Ast.AstMapAccumRDer k accShs bShs eShs
+                                     (fromMaybe f mf)
+                                     (fromMaybe df mdf)
+                                     (fromMaybe rf mrf)
+                                     (fromMaybe acc0 macc0)
+                                     (fromMaybe es mes)
+  Ast.AstMapAccumLDer @_ @_ @eShs k accShs bShs eShs f df rf acc0 es
+    | Dict <- lemTensorKindOfBuild k (stensorKind @eShs) ->
+      case ( substitute1AstHFun i var f, substitute1AstHFun i var df
+           , substitute1AstHFun i var rf, substitute1Ast i var acc0
+           , substitute1Ast i var es ) of
+        (Nothing, Nothing, Nothing, Nothing, Nothing) -> Nothing
+        (mf, mdf, mrf, macc0, mes) ->
+          Just $ Ast.AstMapAccumLDer k accShs bShs eShs
+                                     (fromMaybe f mf)
+                                     (fromMaybe df mdf)
+                                     (fromMaybe rf mrf)
+                                     (fromMaybe acc0 macc0)
+                                     (fromMaybe es mes)
 
 substitute1AstIndex
   :: AstSpan s2
@@ -3339,9 +3345,9 @@ substitute1AstBool i var = \case
 
 substituteAstInInterpretationTarget
   :: forall s s2 y z. (AstSpan s, AstSpan s2, TensorKind y)
-              => SubstitutionPayload s2 -> AstVarName s2 z
-              -> InterpretationTarget (AstRanked s) y
-              -> InterpretationTarget (AstRanked s) y
+  => SubstitutionPayload s2 -> AstVarName s2 z
+  -> InterpretationTarget (AstRanked s) y
+  -> InterpretationTarget (AstRanked s) y
 substituteAstInInterpretationTarget i var = case stensorKind @y of
   STKR{} -> AstRanked . substituteAst i var . unAstRanked
   STKS{} -> AstShaped . substituteAst i var . unAstShaped
