@@ -1107,8 +1107,6 @@ evalR !s !c = \case
   RFromS (SFromR d) -> evalR s c d  -- no information lost, so no checks
   RFromS @sh d | Dict <- lemKnownNatRank (knownShS @sh) -> evalR s (sfromR c) d
   -- We don't simplify deltas systematically elsewhere, so this is placed here.
-  RFromH (HToH hv) i -> evalDynamic s (DynamicRanked c, hv V.! i)
-  -- violates sharing: RFromH (ShareH _ (HToH hv)) i -> ...
   RFromH d i ->
     let cs = V.map dynamicFromVoid $ shapeDeltaH d
         ci = DynamicRanked c
@@ -1169,7 +1167,6 @@ evalR !s !c = \case
       Just Refl -> evalR s c d
       _ -> error "evalR: different shapes in SFromR(RFromS)"
   SFromR d -> evalR s (rfromS c) d
-  SFromH (HToH hv) i -> evalDynamic s (DynamicShaped c, hv V.! i)
   SFromH d i ->
     let cs = V.map dynamicFromVoid $ shapeDeltaH d
         ci = DynamicShaped c

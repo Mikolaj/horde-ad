@@ -10,7 +10,7 @@ module HordeAd.Core.DualNumber
   , indexPrimal, fromVector, indexPrimalS, fromVectorS
   , ensureToplevelSharing, scaleNotShared, addNotShared, multNotShared
 --  , addParameters, dotParameters
-  , generateDeltaInputs, makeADInputs, ahhToHVector
+  , generateDeltaInputs, makeADInputs, aDValInterpretation, ahhToHVector
   ) where
 
 import Prelude
@@ -152,29 +152,35 @@ makeADInputs
      (TensorKind x, ShareTensor ranked, RankedOf (ShapedOf ranked) ~ ranked)
   => InterpretationTarget ranked x -> Delta ranked x
   -> InterpretationTarget (ADVal ranked) x
-makeADInputs p0 d0 =
-  let g :: STensorKindType y
-        -> InterpretationTarget ranked y -> Delta ranked y
-        -> InterpretationTarget (ADVal ranked) y
-      g STKR{} p d = dDnotShared p (DeltaR d)
-      g STKS{} p d = dDnotShared p (DeltaS d)
-      g (STKProduct stk1 stk2) p d =
-        let (p1, p2) = tunpair p
-        in (g stk1 p1 (Project1G d), g stk2 p2 (Project2G d))
-          -- d is shared densely enough elsewhere, so can be duplicated here
-      g STKUntyped p d =
-        let pv = tunvector p
-        in HVectorPseudoTensor $ ahhToHVector pv d
-  in g (stensorKind @x) p0 d0
+makeADInputs = aDValInterpretation
+
+aDValInterpretation
+  :: forall y ranked.
+     (TensorKind y, ShareTensor ranked, RankedOf (ShapedOf ranked) ~ ranked)
+  => InterpretationTarget ranked y -> Delta ranked y
+  -> InterpretationTarget (ADVal ranked) y
+aDValInterpretation p d = case stensorKind @y of
+  STKR{} -> dDnotShared p (DeltaR d)
+  STKS{} -> dDnotShared p (DeltaS d)
+  STKProduct{} -> let (p1, p2) = tunpair p
+                      (d1, d2) = case d of
+                        TupleG t1 t2 -> (t1, t2)
+                        _ -> let dShared = wrapDelta d
+                             in (Project1G dShared, Project2G dShared)
+                  in (aDValInterpretation p1 d1, aDValInterpretation p2 d2)
+  STKUntyped -> let pv = tunvector p
+                in HVectorPseudoTensor $ ahhToHVector pv d
 
 ahhToHVector
   :: forall ranked. RankedOf (ShapedOf ranked) ~ ranked
   => HVector ranked -> Delta ranked TKUntyped -> HVector (ADVal ranked)
-ahhToHVector h h' =
-  let selectDual :: Int -> DynamicTensor ranked -> DynamicTensor (ADVal ranked)
+ahhToHVector h hUnshared' =
+  let h' = case hUnshared' of
+        HToH{} -> hUnshared'
+        _ -> wrapDelta hUnshared'
+      selectDual :: Int -> DynamicTensor ranked -> DynamicTensor (ADVal ranked)
       selectDual i d = case d of
         DynamicRanked t -> DynamicRanked $ dDnotShared t (DeltaR $ rFromH h' i)
-          -- h' is shared densely enough elsewhere, so can be duplicated here
         DynamicShaped t -> DynamicShaped $ dDnotShared t (DeltaS $ sFromH h' i)
         DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
         DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
