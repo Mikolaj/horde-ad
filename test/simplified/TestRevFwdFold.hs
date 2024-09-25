@@ -93,6 +93,7 @@ testTrees =
   , testCase "4Sin0Fold8rev2" testSin0Fold8rev2
   , testCase "4Sin0Fold8Srev" testSin0Fold8Srev
   , testCase "4Sin0Fold8Srev2" testSin0Fold8Srev2
+  , testCase "4Sin0Fold182Srev" testSin0Fold182Srev
   , testCase "4Sin0Fold182SrevPP" testSin0Fold182SrevPP
   , testCase "4Sin0Fold18Srev" testSin0Fold18Srev
   , testCase "4Sin0Fold8fwd" testSin0Fold8fwd
@@ -768,6 +769,19 @@ testSin0Fold8Srev2 = do
   assertEqualUpToEpsilon 1e-10
     (FlipS $ Nested.sscalar 6.182232283434464e-2)  -- seems quite unstable
     (crev h (srepl 0.0001))
+
+testSin0Fold182Srev :: Assertion
+testSin0Fold182Srev = do
+  assertEqualUpToEpsilon 1e-10
+    (rscalar (-0.4409160296923509) :: ORArray Double 0)
+    (rrev1 (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[5]
+                f a0 = sfold @_ @f @Double @Double @'[5] @'[] @1
+                        (\_x a -> atan2F (sreplicate @_ @5 a)
+                                         (sreplicate @_ @5
+                                          $ sin (ssum $ sreplicate @_ @7 a)))
+                        (sreplicate @_ @5 a0)
+                        (sreplicate @_ @1 a0)
+            in rfromS . f . sfromR) (rscalar 1.1))
 
 testSin0Fold182SrevPP :: Assertion
 testSin0Fold182SrevPP = do
