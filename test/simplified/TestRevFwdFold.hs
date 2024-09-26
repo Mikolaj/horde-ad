@@ -437,7 +437,7 @@ testSin0RfwdPP1FullUnsimp = do
   resetVarCounter
   let a1 = rfwd1 @(AstRanked FullSpan) @Double @0 @0 sin (rscalar 1.1)
   printAstPretty IM.empty a1
-    @?= "(\\x1 -> let x2 = tproject1 x1 ; x3 = tproject2 x1 in x2 * cos x3) (ttuple (1.0, 1.1))"
+    @?= "(\\x1 -> tproject1 x1 * cos (tproject2 x1)) (ttuple (1.0, 1.1))"
 
 testSin0RfwdPP1Full :: Assertion
 testSin0RfwdPP1Full = do

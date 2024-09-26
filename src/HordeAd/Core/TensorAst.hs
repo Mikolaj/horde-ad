@@ -681,7 +681,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
         (AstArtifactRev _varDt var gradient _primal, _delta) =
           revProduceArtifact False (unHFun f) emptyEnv ftkx
         (varP, ast) = funToAst ftkx $ \ !astP ->
-          AstLet var astP $ simplifyInline $ unRankedY (stensorKind @x) gradient
+          astLet var astP $ simplifyInline $ unRankedY (stensorKind @x) gradient
     in AstLambda (varP, ftkx, ast)
   drevDt :: forall x z. (TensorKind x, TensorKind z)
          => TensorKindFull x
@@ -699,8 +699,8 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
         ftkz = shapeAstFull $ unRankedY (stensorKind @z) primal
         ftk2 = FTKProduct ftkz ftkx
         (varP, ast) = funToAst ftk2 $ \ !astP ->
-          AstLet varDt (astProject1 astP)
-            $ AstLet var (astProject2 astP)
+          astLet varDt (astProject1 astP)
+            $ astLet var (astProject2 astP)
               $ simplifyInline $ unRankedY (stensorKind @x) gradient
     in AstLambda (varP, ftk2, ast)
   dfwd :: forall x z. (TensorKind x, TensorKind z)
@@ -714,8 +714,8 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
           fwdProduceArtifact (unHFun f) emptyEnv ftkx
         ftk2 = FTKProduct ftkx ftkx
         (varP, ast) = funToAst ftk2 $ \ !astP ->
-          AstLet varDs (astProject1 astP)
-            $ AstLet var (astProject2 astP)
+          astLet varDs (astProject1 astP)
+            $ astLet var (astProject2 astP)
               $ simplifyInline $ unRankedY (stensorKind @z) derivative
     in AstLambda (varP, ftk2, ast)
   dmapAccumRDer
