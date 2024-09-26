@@ -343,7 +343,9 @@ unravel k@SNat t = case stensorKind @y of
         lt2 = unravel k $ snd t
     in zip lt1 lt2
   STKUntyped ->
-    map HVectorPseudoTensor $ unravelHVector $ unHVectorPseudoTensor t
+    if V.null $ unHVectorPseudoTensor t
+    then replicate (sNatValue k) (HVectorPseudoTensor V.empty)
+    else map HVectorPseudoTensor $ unravelHVector $ unHVectorPseudoTensor t
 
 concreteTarget :: forall y. TensorKind y
                => InterpretationTarget ORArray y

@@ -45,6 +45,9 @@ module HordeAd.Core.Delta
     NodeId (..), InputId, toInputId
     -- * Exported to be specialized elsewhere
   , evalFromnMap, EvalState
+    -- * Misc
+  , interpretationTargetToD, evalInterpretationTargetD
+  , addInterpretationTargetDLet
   ) where
 
 import Prelude
@@ -961,6 +964,31 @@ addInterpretationTargetD a b = case (a, b) of
     DTKUntyped $ HVectorPseudoTensor $ dmkHVector
     $ V.zipWith addDynamic (tunvector hv1) (tunvector hv2)
 
+addInterpretationTargetDLet ::
+  ADReady ranked
+  => InterpretationTargetD ranked y
+  -> InterpretationTargetD ranked y
+  -> InterpretationTargetD ranked y
+addInterpretationTargetDLet a b = case (a, b) of
+  (DTKR ta, DTKR tb) -> DTKR $ ta + tb
+  (DTKS ta, DTKS tb) -> DTKS $ ta + tb
+  (DTKProduct ta, DTKProduct tb) -> DTKProduct $
+    tlet ta $ \ (!ta1, !ta2) ->
+    tlet tb $ \ (!tb1, !tb2) ->
+      ttuple (evalInterpretationTargetD
+              $ addInterpretationTargetDLet
+                  (interpretationTargetToD stensorKind ta1)
+                  (interpretationTargetToD stensorKind tb1))
+             (evalInterpretationTargetD
+              $ addInterpretationTargetDLet
+                  (interpretationTargetToD stensorKind ta2)
+                  (interpretationTargetToD stensorKind tb2))
+  (DTKUntyped hv1, DTKUntyped hv2) -> DTKUntyped $
+    tlet hv1 $ \ !v1 ->
+    tlet hv2 $ \ !v2 ->
+      HVectorPseudoTensor $ dmkHVector
+      $ V.zipWith addDynamic v1 v2
+
 addInterpretationTargetM ::
   (ADReadyNoLet ranked, ShareTensor ranked)
   => InterpretationTargetM ranked y
@@ -1174,53 +1202,37 @@ evalR !s !c = \case
        evalR s (HVectorPseudoTensor $ dmkHVector $ cs V.// [(i, ci)]) d
 
   HToH v -> evalHVector s (tunvector c) v
-  MapAccumR k accShs@(FTKUntyped accShsH) (FTKUntyped bShsH)
-            eShs@(FTKUntyped eShsH)
+  MapAccumR @_ @_ @_ @bShs
+            k accShs bShs eShs
             (InterpretationTargetN q) (InterpretationTargetN es)
-            _df rf acc0' es' ->
-    let accLen = V.length accShsH
-        bLen = V.length bShsH
-        (c0, crest1) = tunpair c
-        crest = tunvector crest1
+            _df rf acc0' es'
+   | Dict <- lemTensorKindOfBuild k (stensorKind @bShs) ->
+    let (c0, crest) = tunpair c
         dacc_desUnshared =
           dmapAccumL (Proxy @ranked)
-                     k accShs eShs (FTKUntyped $ bShsH V.++ accShsH V.++ eShsH)
-                     (\dx db_acc_e ->
-                        let (db, acc_eH) = V.splitAt bLen db_acc_e
-                            (acc, e) = V.splitAt accLen acc_eH
-                            dx1 = HVectorPseudoTensor $ dmkHVector dx
-                            db1 = HVectorPseudoTensor $ dmkHVector db
-                            acc1 = HVectorPseudoTensor $ dmkHVector acc
-                            e1 = HVectorPseudoTensor $ dmkHVector e
-                        in unHFun rf (ttuple (ttuple dx1 db1)
-                                             (ttuple acc1 e1)))
+                     k accShs eShs (FTKProduct bShs (FTKProduct accShs eShs))
+                     (\dx (db, acc_e) ->
+                        unHFun rf (ttuple (ttuple (unconcreteTarget dx) db)
+                                          acc_e))
                      c0
-                     (HVectorPseudoTensor $ dmkHVector $ V.concat [crest, tunvector q, tunvector es])
+                     (ttuple crest (ttuple q es))
         (dacc, des) = tunpair dacc_desUnshared
         s2 = evalR s dacc acc0'
     in evalR s2 des es'
-  MapAccumL k accShs@(FTKUntyped accShsH) (FTKUntyped bShsH)
-            eShs@(FTKUntyped eShsH)
+  MapAccumL @_ @_ @_ @bShs
+            k accShs bShs eShs
             (InterpretationTargetN q) (InterpretationTargetN es)
-            _df rf acc0' es' ->
-    let accLen = V.length accShsH
-        bLen = V.length bShsH
-        (c0, crest1) = tunpair c
-        crest = tunvector crest1
+            _df rf acc0' es'
+   | Dict <- lemTensorKindOfBuild k (stensorKind @bShs) ->
+    let (c0, crest) = tunpair c
         dacc_desUnshared =
           dmapAccumR (Proxy @ranked)
-                     k accShs eShs (FTKUntyped $ bShsH V.++ accShsH V.++ eShsH)
-                     (\dx db_acc_e ->
-                        let (db, acc_eH) = V.splitAt bLen db_acc_e
-                            (acc, e) = V.splitAt accLen acc_eH
-                            dx1 = HVectorPseudoTensor $ dmkHVector dx
-                            db1 = HVectorPseudoTensor $ dmkHVector db
-                            acc1 = HVectorPseudoTensor $ dmkHVector acc
-                            e1 = HVectorPseudoTensor $ dmkHVector e
-                        in unHFun rf (ttuple (ttuple dx1 db1)
-                                             (ttuple acc1 e1)))
+                     k accShs eShs (FTKProduct bShs (FTKProduct accShs eShs))
+                     (\dx (db, acc_e) ->
+                        unHFun rf (ttuple (ttuple (unconcreteTarget dx) db)
+                                          acc_e))
                      c0
-                     (HVectorPseudoTensor $ dmkHVector $ V.concat [crest, tunvector q, tunvector es])
+                     (ttuple crest (ttuple q es))
         (dacc, des) = tunpair dacc_desUnshared
         s2 = evalR s dacc acc0'
     in evalR s2 des es'
@@ -1471,43 +1483,27 @@ fwdR params s = \case
 
   HToH v -> second (HVectorPseudoTensor . dmkHVector)
             $ fwdHVector params s v
-  MapAccumR k accShs@(FTKUntyped accShsH) bShs (FTKUntyped eShsH)
+  MapAccumR k accShs bShs eShs
             (InterpretationTargetN q) (InterpretationTargetN es)
             df _rf acc0' es' ->
     let (s2, cacc0) = fwdR params s acc0'
         (s3, ces) = fwdR params s2 es'
-        accLen = V.length accShsH
-        eLen = V.length eShsH
     in (s3, dmapAccumR (Proxy @ranked)
-                          k accShs bShs (FTKUntyped $ eShsH V.++ accShsH V.++ eShsH)
-                          (\dacc de_acc_e ->
-                             let (de, acc_eH) = V.splitAt eLen de_acc_e
-                                 (acc, e) = V.splitAt accLen acc_eH
-                                 dacc1 = HVectorPseudoTensor $ dmkHVector dacc
-                                 de1 = HVectorPseudoTensor $ dmkHVector de
-                                 acc1 = HVectorPseudoTensor $ dmkHVector acc
-                                 e1 = HVectorPseudoTensor $ dmkHVector e
-                             in unHFun df (ttuple (ttuple dacc1 de1)
-                                                  (ttuple acc1 e1)))
-                          cacc0
-                          (HVectorPseudoTensor $ dmkHVector $ V.concat [tunvector ces, tunvector q, tunvector es]))
-  MapAccumL k accShs@(FTKUntyped accShsH) bShs (FTKUntyped eShsH)
+                       k accShs bShs (FTKProduct eShs (FTKProduct accShs eShs))
+                       (\dacc (de, acc_e) ->
+                          unHFun df (ttuple (ttuple (unconcreteTarget dacc) de)
+                                            acc_e))
+                       cacc0
+                       (ttuple ces (ttuple q es)))
+  MapAccumL k accShs bShs eShs
             (InterpretationTargetN q) (InterpretationTargetN es)
             df _rf acc0' es' ->
     let (s2, cacc0) = fwdR params s acc0'
         (s3, ces) = fwdR params s2 es'
-        accLen = V.length accShsH
-        eLen = V.length eShsH
     in (s3, dmapAccumL (Proxy @ranked)
-                          k accShs bShs (FTKUntyped $ eShsH V.++ accShsH V.++ eShsH)
-                          (\dacc de_acc_e ->
-                             let (de, acc_eH) = V.splitAt eLen de_acc_e
-                                 (acc, e) = V.splitAt accLen acc_eH
-                                 dacc1 = HVectorPseudoTensor $ dmkHVector dacc
-                                 de1 = HVectorPseudoTensor $ dmkHVector de
-                                 acc1 = HVectorPseudoTensor $ dmkHVector acc
-                                 e1 = HVectorPseudoTensor $ dmkHVector e
-                             in unHFun df (ttuple (ttuple dacc1 de1)
-                                                  (ttuple acc1 e1)))
-                          cacc0
-                          (HVectorPseudoTensor $ dmkHVector $ V.concat [tunvector ces, tunvector q, tunvector es]))
+                       k accShs bShs (FTKProduct eShs (FTKProduct accShs eShs))
+                       (\dacc (de, acc_e) ->
+                          unHFun df (ttuple (ttuple (unconcreteTarget dacc) de)
+                                            acc_e))
+                       cacc0
+                       (ttuple ces (ttuple q es)))

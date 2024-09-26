@@ -8,14 +8,13 @@
 -- the typing of tensors and so we give separate instances
 -- for ranked tensors and shaped tensors.
 module HordeAd.Core.TensorADVal
-  ( aDValToHVector, hVectorADValToADVal, unADValHVector, unADValDynamicTensor
+  ( hVectorADValToADVal, unADValHVector, unADValDynamicTensor
   , unADValInterpretation
   , crevOnADInputs, crevOnHVector, cfwdOnHVector
   ) where
 
 import Prelude hiding (foldl')
 
-import Control.Exception.Assert.Sugar
 import Data.Array.Internal (valueOf)
 import Data.Array.RankedS qualified as OR
 import Data.Function ((&))
@@ -546,56 +545,64 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
                              (unHFun h @(ADVal (ShareOf f)))
                              (toShare $ tproject1 da_aShared)
     in HFun df
-  dmapAccumRDer _ !k accShs@(FTKUntyped accShsH) bShs@(FTKUntyped bShsH)
-                eShs@(FTKUntyped eShsH) f df rf acc0D esD =
-    assert (voidHVectorMatches (replicate1VoidHVector k eShsH)
-                               (unHVectorPseudoTensor esD)
-            && voidHVectorMatches accShsH (unHVectorPseudoTensor acc0D)) $
-    let (acc0, acc0') = unADValHVector $ unHVectorPseudoTensor acc0D
-        (esUnshared, es') = unADValHVector $ unHVectorPseudoTensor esD
-        es = tshare $ HVectorPseudoTensor $ dmkHVector esUnshared
-        codomainShs = FTKUntyped $ accShsH V.++ bShsH
-        accLen = V.length accShsH
-        hvToPair :: forall f. HVector f -> (HVector f, HVector f)
-        hvToPair = V.splitAt accLen
+  dmapAccumRDer
+    :: forall k accShs bShs eShs.
+       (TensorKind accShs, TensorKind bShs, TensorKind eShs)
+    => Proxy (ADVal ranked)
+    -> SNat k
+    -> TensorKindFull accShs
+    -> TensorKindFull bShs
+    -> TensorKindFull eShs
+    -> HFunOf (ADVal ranked) (TKProduct accShs eShs) (TKProduct accShs bShs)
+    -> HFunOf (ADVal ranked) (TKProduct (TKProduct accShs eShs)
+                                (TKProduct accShs eShs))
+                     (TKProduct accShs bShs)
+    -> HFunOf (ADVal ranked) (TKProduct (TKProduct accShs bShs)
+                                (TKProduct accShs eShs))
+                     (TKProduct accShs eShs)
+    -> InterpretationTarget (ADVal ranked) accShs
+    -> InterpretationTarget (ADVal ranked) (BuildTensorKind k eShs)
+    -> InterpretationTarget (ADVal ranked) (TKProduct accShs (BuildTensorKind k bShs))
+  dmapAccumRDer _ !k accShs bShs eShs f df rf acc0D esD
+   | Dict <- lemTensorKindOfBuild k (stensorKind @accShs)
+   , Dict <- lemTensorKindOfBuild k (stensorKind @bShs)
+   , Dict <- lemTensorKindOfBuild k (stensorKind @eShs) =
+    let (acc0, acc0') = unADValInterpretation stensorKind acc0D
+        (esUnshared, es') = unADValInterpretation stensorKind esD
+        es = tshare esUnshared
+        codomainShs = FTKProduct accShs bShs
         g :: forall f. ADReady f
-          => InterpretationTarget f (TKProduct TKUntyped TKUntyped)
-          -> InterpretationTarget f (TKProduct TKUntyped TKUntyped)
+          => InterpretationTarget f (TKProduct accShs eShs)
+          -> InterpretationTarget f (TKProduct accShs (TKProduct accShs bShs))
         g !acc_e = tlet acc_e $ \ (!acc1, !_e) ->
-          tlet acc1 $ \ !acc ->
-          tlet (unHFun f acc_e) $ \ (accRes1, bRes1) ->
-          tlet bRes1 $ \ !bRes ->
-            -- TODO: adding a bang before accRes and bRes was causing
-            -- `error "tunshare: used not at PrimalSpan"` to fire;
-            -- check again, understand and document
-            ttuple accRes1
-                   (HVectorPseudoTensor $ dmkHVector $ acc V.++ bRes)
+          tlet (unHFun f acc_e) $ \ (!accRes1, !bRes1) ->
+            ttuple accRes1 (ttuple acc1 bRes1)
         dg :: forall f. ADReady f
-           => InterpretationTarget f (TKProduct (TKProduct TKUntyped TKUntyped)
-                                                (TKProduct TKUntyped TKUntyped))
-           -> InterpretationTarget f (TKProduct TKUntyped TKUntyped)
+           => InterpretationTarget f (TKProduct (TKProduct accShs eShs)
+                                                (TKProduct accShs eShs))
+           -> InterpretationTarget f (TKProduct accShs (TKProduct accShs bShs))
         dg !dacc_de_acc_e =
           tlet dacc_de_acc_e $ \(!dacc_de, !_acc_e) ->
           tlet dacc_de $ \ (!dacc1, !_de) ->
-          tlet dacc1 $ \ !dacc ->
           tlet (unHFun df dacc_de_acc_e) $ \ (!accRes1, !bRes1) ->
-          tlet bRes1 $ \ !bRes ->
-            ttuple accRes1 (HVectorPseudoTensor $ dmkHVector $ dacc V.++ bRes)
+            ttuple accRes1 (ttuple dacc1 bRes1)
         rg :: forall f. ADReady f
-           => InterpretationTarget f (TKProduct (TKProduct TKUntyped TKUntyped)
-                                                (TKProduct TKUntyped TKUntyped))
-           -> InterpretationTarget f (TKProduct TKUntyped TKUntyped)
+           => InterpretationTarget f (TKProduct (TKProduct
+                                                   accShs
+                                                   (TKProduct accShs bShs))
+                                                (TKProduct accShs eShs))
+           -> InterpretationTarget f (TKProduct accShs eShs)
         rg !args = tlet args $ \ (!dx_db, !acc_e) ->
                    tlet dx_db $ \ (!dx1, !db1) ->
-                   tlet db1 $ \ !db ->
-          let (dbacc, dbRes) = hvToPair db
-              dx_dbRes = ttuple dx1 (HVectorPseudoTensor $ dmkHVector dbRes)
+                   tlet db1 $ \ (!dbacc, !dbRes) ->
+          let dx_dbRes = ttuple dx1 dbRes
           in tlet (unHFun rf (ttuple dx_dbRes acc_e))
              $ \ (!daccRes1, !deRes1) ->
-                 tlet daccRes1 $ \ !daccRes ->
-                   ttuple (HVectorPseudoTensor $ dmkHVector
-                           $ V.zipWith addDynamic daccRes dbacc)
-                          deRes1
+                 let added = evalInterpretationTargetD
+                             $ addInterpretationTargetDLet
+                                 (interpretationTargetToD stensorKind daccRes1)
+                                 (interpretationTargetToD stensorKind dbacc)
+                 in ttuple added deRes1
         pUnshared = dmapAccumRDer (Proxy @ranked)
                                   k accShs codomainShs eShs
                                   (dlambda @ranked (FTKProduct accShs eShs)
@@ -608,72 +615,74 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
                                      (FTKProduct (FTKProduct accShs codomainShs)
                                                  (FTKProduct accShs eShs))
                                    $ HFun rg)
-                                  (HVectorPseudoTensor $ dmkHVector acc0) es
-        (accFin1, qbs1) = tunpair pUnshared
+                                  acc0 es
+        (accFin, qbs) = tunpair pUnshared
         -- This code makes sense only thanks to HVector being a representation
         -- of tuples in the struct of arrays format.
-        accFin = dunHVector $ unHVectorPseudoTensor accFin1
-        qbs = dunHVector $ unHVectorPseudoTensor qbs1
-        q = HVectorPseudoTensor $ dmkHVector $ V.take accLen qbs
-        bs = V.drop accLen qbs
-        !_A = assert (voidHVectorMatches (replicate1VoidHVector k bShsH) bs) ()
-        dual = wrapDelta $ MapAccumR k accShs bShs eShs
-                                     (InterpretationTargetN q)
-                                     (InterpretationTargetN es)
-                                     df rf
-                                     (HToH acc0') (HToH es')
-    in ( HVectorPseudoTensor $ ahhToHVector accFin (Project1G dual)
-       , HVectorPseudoTensor $ ahhToHVector bs (Project2G dual) )
-  dmapAccumLDer _ !k accShs@(FTKUntyped accShsH) bShs@(FTKUntyped bShsH)
-                eShs@(FTKUntyped eShsH) f df rf acc0D esD =
-    assert (voidHVectorMatches (replicate1VoidHVector k eShsH)
-                               (unHVectorPseudoTensor esD)
-            && voidHVectorMatches accShsH (unHVectorPseudoTensor acc0D)) $
-    let (acc0, acc0') = unADValHVector $ unHVectorPseudoTensor acc0D
-        (esUnshared, es') = unADValHVector $ unHVectorPseudoTensor esD
-        es = tshare $ HVectorPseudoTensor $ dmkHVector esUnshared
-        codomainShs = FTKUntyped $ accShsH V.++ bShsH
-        accLen = V.length accShsH
-        hvToPair :: forall f. HVector f -> (HVector f, HVector f)
-        hvToPair = V.splitAt accLen
+        (q, bs) = tunpair qbs
+        dual = MapAccumR k accShs bShs eShs
+                         (InterpretationTargetN q)
+                         (InterpretationTargetN es)
+                         df rf acc0' es'
+    in aDValInterpretation (ttuple accFin bs) dual
+  dmapAccumLDer
+    :: forall k accShs bShs eShs.
+       (TensorKind accShs, TensorKind bShs, TensorKind eShs)
+    => Proxy (ADVal ranked)
+    -> SNat k
+    -> TensorKindFull accShs
+    -> TensorKindFull bShs
+    -> TensorKindFull eShs
+    -> HFunOf (ADVal ranked) (TKProduct accShs eShs) (TKProduct accShs bShs)
+    -> HFunOf (ADVal ranked) (TKProduct (TKProduct accShs eShs)
+                                (TKProduct accShs eShs))
+                     (TKProduct accShs bShs)
+    -> HFunOf (ADVal ranked) (TKProduct (TKProduct accShs bShs)
+                                (TKProduct accShs eShs))
+                     (TKProduct accShs eShs)
+    -> InterpretationTarget (ADVal ranked) accShs
+    -> InterpretationTarget (ADVal ranked) (BuildTensorKind k eShs)
+    -> InterpretationTarget (ADVal ranked) (TKProduct accShs (BuildTensorKind k bShs))
+  dmapAccumLDer _ !k accShs bShs eShs f df rf acc0D esD
+   | Dict <- lemTensorKindOfBuild k (stensorKind @accShs)
+   , Dict <- lemTensorKindOfBuild k (stensorKind @bShs)
+   , Dict <- lemTensorKindOfBuild k (stensorKind @eShs) =
+    let (acc0, acc0') = unADValInterpretation stensorKind acc0D
+        (esUnshared, es') = unADValInterpretation stensorKind esD
+        es = tshare esUnshared
+        codomainShs = FTKProduct accShs bShs
         g :: forall f. ADReady f
-          => InterpretationTarget f (TKProduct TKUntyped TKUntyped)
-          -> InterpretationTarget f (TKProduct TKUntyped TKUntyped)
+          => InterpretationTarget f (TKProduct accShs eShs)
+          -> InterpretationTarget f (TKProduct accShs (TKProduct accShs bShs))
         g !acc_e = tlet acc_e $ \ (!acc1, !_e) ->
-          tlet acc1 $ \ !acc ->
-          tlet (unHFun f acc_e) $ \ (accRes1, bRes1) ->
-          tlet bRes1 $ \ !bRes ->
-            -- TODO: adding a bang before accRes and bRes was causing
-            -- `error "tunshare: used not at PrimalSpan"` to fire;
-            -- check again, understand and document
-            ttuple accRes1
-                   (HVectorPseudoTensor $ dmkHVector $ acc V.++ bRes)
+          tlet (unHFun f acc_e) $ \ (!accRes1, !bRes1) ->
+            ttuple accRes1 (ttuple acc1 bRes1)
         dg :: forall f. ADReady f
-           => InterpretationTarget f (TKProduct (TKProduct TKUntyped TKUntyped)
-                                                (TKProduct TKUntyped TKUntyped))
-           -> InterpretationTarget f (TKProduct TKUntyped TKUntyped)
+           => InterpretationTarget f (TKProduct (TKProduct accShs eShs)
+                                                (TKProduct accShs eShs))
+           -> InterpretationTarget f (TKProduct accShs (TKProduct accShs bShs))
         dg !dacc_de_acc_e =
           tlet dacc_de_acc_e $ \(!dacc_de, !_acc_e) ->
           tlet dacc_de $ \ (!dacc1, !_de) ->
-          tlet dacc1 $ \ !dacc ->
           tlet (unHFun df dacc_de_acc_e) $ \ (!accRes1, !bRes1) ->
-          tlet bRes1 $ \ !bRes ->
-            ttuple accRes1 (HVectorPseudoTensor $ dmkHVector $ dacc V.++ bRes)
+            ttuple accRes1 (ttuple dacc1 bRes1)
         rg :: forall f. ADReady f
-           => InterpretationTarget f (TKProduct (TKProduct TKUntyped TKUntyped)
-                                                (TKProduct TKUntyped TKUntyped))
-           -> InterpretationTarget f (TKProduct TKUntyped TKUntyped)
+           => InterpretationTarget f (TKProduct (TKProduct
+                                                   accShs
+                                                   (TKProduct accShs bShs))
+                                                (TKProduct accShs eShs))
+           -> InterpretationTarget f (TKProduct accShs eShs)
         rg !args = tlet args $ \ (!dx_db, !acc_e) ->
                    tlet dx_db $ \ (!dx1, !db1) ->
-                   tlet db1 $ \ !db ->
-          let (dbacc, dbRes) = hvToPair db
-              dx_dbRes = ttuple dx1 (HVectorPseudoTensor $ dmkHVector dbRes)
+                   tlet db1 $ \ (!dbacc, !dbRes) ->
+          let dx_dbRes = ttuple dx1 dbRes
           in tlet (unHFun rf (ttuple dx_dbRes acc_e))
              $ \ (!daccRes1, !deRes1) ->
-                 tlet daccRes1 $ \ !daccRes ->
-                   ttuple (HVectorPseudoTensor $ dmkHVector
-                           $ V.zipWith addDynamic daccRes dbacc)
-                          deRes1
+                 let added = evalInterpretationTargetD
+                             $ addInterpretationTargetDLet
+                                 (interpretationTargetToD stensorKind daccRes1)
+                                 (interpretationTargetToD stensorKind dbacc)
+                 in ttuple added deRes1
         pUnshared = dmapAccumLDer (Proxy @ranked)
                                   k accShs codomainShs eShs
                                   (dlambda @ranked (FTKProduct accShs eShs)
@@ -686,22 +695,16 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
                                      (FTKProduct (FTKProduct accShs codomainShs)
                                                  (FTKProduct accShs eShs))
                                    $ HFun rg)
-                                  (HVectorPseudoTensor $ dmkHVector acc0) es
-        (accFin1, qbs1) = tunpair pUnshared
+                                  acc0 es
+        (accFin, qbs) = tunpair pUnshared
         -- This code makes sense only thanks to HVector being a representation
         -- of tuples in the struct of arrays format.
-        accFin = dunHVector $ unHVectorPseudoTensor accFin1
-        qbs = dunHVector $ unHVectorPseudoTensor qbs1
-        q = HVectorPseudoTensor $ dmkHVector $ V.take accLen qbs
-        bs = V.drop accLen qbs
-        !_A = assert (voidHVectorMatches (replicate1VoidHVector k bShsH) bs) ()
-        dual = wrapDelta $ MapAccumL k accShs bShs eShs
-                                     (InterpretationTargetN q)
-                                     (InterpretationTargetN es)
-                                     df rf
-                                     (HToH acc0') (HToH es')
-    in ( HVectorPseudoTensor $ ahhToHVector accFin (Project1G dual)
-       , HVectorPseudoTensor $ ahhToHVector bs (Project2G dual) )
+        (q, bs) = tunpair qbs
+        dual = MapAccumL k accShs bShs eShs
+                         (InterpretationTargetN q)
+                         (InterpretationTargetN es)
+                         df rf acc0' es'
+    in aDValInterpretation (ttuple accFin bs) dual
 
 aDValToHVector
   :: (HVectorOf ranked ~ HVector ranked, RankedOf (ShapedOf ranked) ~ ranked)
@@ -756,7 +759,6 @@ unADValInterpretation stk t = case (stk, t) of
     let (!p, !d) = unADValHVector u
     in (HVectorPseudoTensor $ dmkHVector p, HToH d)
 
--- TODO: not dead code: will be used in dletHVectorInHVector.
 aDValHVector :: ADReadyNoLet f
              => HVector f -> HVector (Dual f) -> HVector (ADVal f)
 aDValHVector = V.zipWith aDValDynamicTensor
