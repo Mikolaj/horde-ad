@@ -188,20 +188,6 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
           fd = mapDynamic rconstant sconstant
       in HVectorPseudoTensor $ V.map fd $ tunvector t
 
-  rrev :: (GoodScalar r, KnownNat n)
-       => (forall f. ADReady f => HVector f -> f r n)
-       -> VoidHVector
-       -> HVector (ADVal ranked)
-       -> HVectorOf (ADVal ranked)
-  rrev f _parameters0 parameters =
-    let g :: InterpretationTarget (ADVal (ADVal ranked)) TKUntyped
-          -> InterpretationTarget (ADVal (ADVal ranked)) TKUntyped
-        -- This computes the derivative of g again for each new @parmeters@.
-        g !hv = HVectorPseudoTensor $ V.singleton $ DynamicRanked
-                $ f $ unHVectorPseudoTensor hv
-    in unHVectorPseudoTensor $ fst $ crevOnHVector Nothing g
-       $ HVectorPseudoTensor parameters
-
 instance ShareTensor (ADVal ranked) where
   tshare = id
   tunpair = id
@@ -515,6 +501,21 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
   dunHVector = id
   dbuild1 k f =
     ravelHVector $ map (f . fromIntegral) [0 .. sNatValue k - 1]
+  drev :: forall x z. (TensorKind x, TensorKind z)
+       => TensorKindFull x
+       -> HFun x z
+       -> HFun x x
+  drev _ftk h =
+    let rf :: forall f. ADReady f
+           => InterpretationTarget f x
+           -> InterpretationTarget f x
+        -- This computes the derivative of g again for each new a.
+        rf !a = blet a $ \ !aShared ->
+          tunshare $ fst $ crevOnHVector
+                             Nothing
+                             (unHFun h @(ADVal (ShareOf f)))
+                             (toShare aShared)
+    in HFun rf
   drevDt :: forall x z. (TensorKind x, TensorKind z)
          => TensorKindFull x
          -> HFun x z

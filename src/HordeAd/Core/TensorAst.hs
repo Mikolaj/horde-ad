@@ -528,8 +528,8 @@ instance AstSpan s => LetTensor (AstRanked s) (AstShaped s) where
         -- reinterprets @PrimalSpan@ terms in @s@ terms;
         -- we could shortcut when @s@ is @PrimalSpan@ and @parameters@
         -- are the same variables, but it's a very special case;
-        -- a faster implementation would be via AstHApply, but this tests
-        -- a slightly different code path, so let's keep it
+        -- a faster implementation is the default one via AstHApply, but it tests
+        -- a slightly different code path, so let's keep and exercise both
 
 instance AstSpan s => RankedTensor (AstRanked s) where
   rshape = shapeAst . unAstRanked
@@ -662,11 +662,27 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     in rankedHVector $ V.imap f $ shapeAstHVector hVectorOf
   dbuild1 k f = astBuild1Vectorize k (f . AstRanked)
   -- TODO: (still) relevant?
-  -- In this instance, these two ops are only used for some rare tests that
+  -- In this instance, these three ops are only used for some rare tests that
   -- use the non-symbolic pipeline to compute a symbolic
   -- value of the derivative at a particular fixed input.
   -- The limitation of AstRaw as a newtype make it impossible
   -- to switch the tests from AstRanked to AstRaw.
+  drev :: forall x z. (TensorKind x, TensorKind z)
+       => TensorKindFull x
+       -> HFun x z
+       -> AstHFun x x
+  drev ftkx f =
+    -- This computes the (AST of) derivative of f once and interprets it again
+    -- for each new tensor of arguments, which is better than computing it anew.
+    let -- No bangs here, because this goes under lambda and may be unneeded
+        -- or even incorrect (and so, e.g., trigger
+        -- `error "tunshare: used not at PrimalSpan"`, because no derivative
+        -- should be taken of spans other than PrimalSpan)
+        (AstArtifactRev _varDt var gradient _primal, _delta) =
+          revProduceArtifact False (unHFun f) emptyEnv ftkx
+        (varP, ast) = funToAst ftkx $ \ !astP ->
+          AstLet var astP $ simplifyInline $ unRankedY (stensorKind @x) gradient
+    in AstLambda (varP, ftkx, ast)
   drevDt :: forall x z. (TensorKind x, TensorKind z)
          => TensorKindFull x
          -> HFun x z
@@ -1042,6 +1058,7 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
   -- These three methods are called at this type in delta evaluation via
   -- dmapAccumR and dmapAccumL, they have to work. We could refrain from
   -- simplifying the resulting terms, but it's not clear that's more consistent.
+  drev = drev @(AstRanked s)
   drevDt = drevDt @(AstRanked s)
   dfwd = dfwd @(AstRanked s)
   dmapAccumRDer
@@ -1418,6 +1435,7 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
   dbuild1 k f =
     AstNoVectorizeWrap
     $ AstBuildHVector1 k $ funToAstI (unAstNoVectorizeWrap . f . AstNoVectorize)
+  drev = drev @(AstRanked s)
   drevDt = drevDt @(AstRanked s)
   dfwd = dfwd @(AstRanked s)
   dmapAccumRDer
@@ -1831,6 +1849,7 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
   dbuild1 k f = AstNoSimplifyWrap
                 $ astBuild1Vectorize
                     k (unAstNoSimplifyWrap . f . AstNoSimplify)
+  drev = drev @(AstRanked s)
   drevDt = drevDt @(AstRanked s)
   dfwd = dfwd @(AstRanked s)
   dmapAccumRDer

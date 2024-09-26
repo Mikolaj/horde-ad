@@ -184,6 +184,17 @@ class HVectorTensor ranked shaped
        -> VoidHVector
        -> HVector ranked
        -> HVectorOf ranked
+  rrev f shs =
+    let g :: forall f. ADReady f => HVectorOf f -> HVectorOf f
+        g !xOf = dletHVectorInHVector xOf $ \ !x ->
+          dmkHVector $ V.singleton $ DynamicRanked $ f x
+        h = drev @ranked (FTKUntyped shs)
+              (HFun @_ @TKUntyped
+               $ HVectorPseudoTensor . g . unHVectorPseudoTensor)
+    in \ !es ->
+         unHVectorPseudoTensor
+         $ dHApply @_ @_ @TKUntyped @TKUntyped h
+                   (HVectorPseudoTensor $ dmkHVector es)
   -- We can't get sh from anywhere, so this is not possible:
   -- rrev f shs es = rrevDt f shs es (rreplicate0N sh 1)
   rrevDt :: (GoodScalar r, KnownNat n, ProductTensor ranked)
@@ -952,6 +963,11 @@ class HVectorTensor (ranked :: RankedTensorType)
   -- These methods (and dlambda) producing HFunOf is analogous to dmkHVector
   -- producing HVectorOf and it's exactly what is needed as arguments
   -- of dmapAccumRDer
+  drev
+    :: (TensorKind x, TensorKind z)
+    => TensorKindFull x  -- shape of a and da
+    -> HFun x z  -- a |-> b
+    -> HFunOf ranked x x  -- a |-> da
   drevDt
     :: (TensorKind x, TensorKind z)
     => TensorKindFull x  -- shape of a and da
