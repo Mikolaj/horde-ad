@@ -4,7 +4,7 @@ module CrossTesting
   ( assertEqualUpToEpsilon1
   , rev', assertEqualUpToEpsilon', assertEqualUpToEpsilonShort
   , t16, t16OR, t16b, t48, t48OR, t128, t128OR, t128b, t128c
-  , rrev1, rfwd1, srev1, sfwd1
+  , rrev1, rrev2, rfwd1, srev1, sfwd1
   , treplicateR, tfromListR, tfromList0NR, tsumR
   ) where
 
@@ -85,7 +85,7 @@ rev' :: forall r m n v a.
         , v ~ FlipR OR.Array r m, a ~ FlipR OR.Array r n )
      => (forall f. ADReady f => f r n -> f r m)
      -> a
-     -> ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a, a, a, a, a, a
+     -> ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a, a, a, a, a, a, a
         , AstRanked PrimalSpan r m, AstRanked PrimalSpan r m
         , v, v, v, v, v, v, v, v, v, v, v, v, v, v
         , a, a, a, a, a, a, a, a, a, a, a, a, a, a
@@ -104,6 +104,7 @@ rev' f valsOR =
       (advalGrad, value1) = crevDtMaybeBoth dt g parameters
       gradient1 = parseHVector vals advalGrad
       gradientRrev1 = rrev1 @ORArray @r @n @m f vals
+      gradientRrev2 = rrev2 @ORArray @r @n @m f vals
       g9 :: HVector (ADVal (AstRaw PrimalSpan))
          -> ADVal (AstRaw PrimalSpan) r m
       g9 inputs = f @(ADVal (AstRaw PrimalSpan))
@@ -151,7 +152,7 @@ rev' f valsOR =
         crevDtMaybeBoth dt (h (AstRanked . unAstNoSimplify) (AstNoSimplify . unAstRanked) id) parameters
       gradient2UnSimp = parseHVector vals astGradUnSimp
       gradientRrev2UnSimp =
-        rrev1 @ORArray @r @n @m @r
+        rrev2 @ORArray @r @n @m @r
               (hGeneral (AstRanked . unAstNoSimplify) (AstNoSimplify . unAstRanked) id) vals
       (astSimpleUnSimp, value3UnSimp) =
         crevDtMaybeBoth dt (h (AstRanked . unAstNoSimplify) (AstNoSimplify . unAstRanked) simplifyInlineAst)
@@ -166,14 +167,15 @@ rev' f valsOR =
           -- use the AstNoVectorize instance that does no vectorization
           -- and then interpret the results as the Ast instance
       gradient4 = parseHVector vals astPrimal
-      gradientRrev4 = rrev1 @ORArray @r @n @m @r
-                            (hGeneral (AstRanked . unAstNoVectorize) (AstNoVectorize . unAstRanked) id) vals
+      gradientRrev4 =
+        rrev1 @ORArray @r @n @m @r
+              (hGeneral (AstRanked . unAstNoVectorize) (AstNoVectorize . unAstRanked) id) vals
       (astPSimple, value5) =
         crevDtMaybeBoth dt (h (AstRanked . unAstNoVectorize) (AstNoVectorize . unAstRanked) simplifyInlineAst)
                       parameters
       gradient5 = parseHVector vals astPSimple
       gradientRrev5 =
-       rrev1 @ORArray @r @n @m @r
+       rrev2 @ORArray @r @n @m @r
               (hGeneral (AstRanked . unAstNoVectorize) (AstNoVectorize . unAstRanked) simplifyInlineAst) vals
       astVectSimp = simplifyInlineAst $ AstRanked $ snd $ funToAst (FTKR $ rshape vals) (unAstRanked . f . AstRanked)
       astSimp =
@@ -260,7 +262,7 @@ rev' f valsOR =
       fromORArray (FlipR t) = FlipR $ Nested.rfromOrthotope SNat t
   in ( toORArray value0, toORArray value1, toORArray value2, toORArray value3, toORArray value2UnSimp, toORArray value3UnSimp
      , toORArray value4, toORArray value5
-     , toORArray gradient1, toORArray gradientRrev1, toORArray gradient2, toORArray gradient3
+     , toORArray gradient1, toORArray gradientRrev1, toORArray gradientRrev2, toORArray gradient2, toORArray gradient3
      , toORArray gradient2UnSimp, toORArray gradientRrev2UnSimp
      , toORArray gradient3UnSimp, toORArray gradientRrev3UnSimp
      , toORArray gradient4, toORArray gradientRrev4, toORArray gradient5, toORArray gradientRrev5
@@ -282,7 +284,7 @@ assertEqualUpToEpsilon'
        , GoodScalar r, HasCallStack)
     => Rational  -- ^ error margin (i.e., the epsilon)
     -> OR.Array n r  -- ^ expected reverse derivative value
-    -> ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a, a, a, a, a, a
+    -> ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a, a, a, a, a, a, a
        , AstRanked PrimalSpan r m, AstRanked PrimalSpan r m
        , v, v, v, v, v, v, v, v, v, v, v, v, v, v
        , a, a, a, a, a, a, a, a, a, a, a, a, a, a
@@ -293,7 +295,7 @@ assertEqualUpToEpsilon'
     errMargin expected'
     ( value0, value1, value2, value3, value2UnSimp, value3UnSimp
     , value4, value5
-    , gradient1, gradientRrev1, gradient2, gradient3
+    , gradient1, gradientRrev1, gradientRrev2, gradient2, gradient3
     , gradient2UnSimp, gradientRrev2UnSimp
     , gradient3UnSimp, gradientRrev3UnSimp
     , gradient4, gradientRrev4, gradient5, gradientRrev5
@@ -318,10 +320,12 @@ assertEqualUpToEpsilon'
   assertEqualUpToEpsilonWithMark "Grad ADVal" errMargin expected gradient1
   assertEqualUpToEpsilonWithMark "Grad ADVal rrev"
                                  errMargin expected gradientRrev1
+  assertEqualUpToEpsilonWithMark "Grad ADVal rrev2"
+                                 errMargin expected gradientRrev2
   assertEqualUpToEpsilonWithMark "Grad Vectorized" errMargin expected gradient2
   assertEqualUpToEpsilonWithMark "Grad Vect+Simp" errMargin expected gradient3
   assertEqualUpToEpsilonWithMark "Grad V UnS" errMargin expected gradient2UnSimp
-  assertEqualUpToEpsilonWithMark "Grad V UnS rrev"
+  assertEqualUpToEpsilonWithMark "Grad V UnS rrev2"
                                  errMargin expected gradientRrev2UnSimp
   assertEqualUpToEpsilonWithMark "Grad V+S UnS"
                                  errMargin expected gradient3UnSimp
@@ -331,7 +335,7 @@ assertEqualUpToEpsilon'
   assertEqualUpToEpsilonWithMark "Grad NotVect rrev"
                                  errMargin expected gradientRrev4
   assertEqualUpToEpsilonWithMark "Grad Simplified" errMargin expected gradient5
-  assertEqualUpToEpsilonWithMark "Grad Simplified rrev"
+  assertEqualUpToEpsilonWithMark "Grad Simplified rrev2"
                                  errMargin expected gradientRrev5
   assertEqualUpToEpsilonWithMark "Val Ast Vectorized" errMargin value0 value2Ast
   assertEqualUpToEpsilonWithMark "Val Ast V S" errMargin value0 value2AstS
@@ -427,7 +431,7 @@ assertEqualUpToEpsilonShort
        , GoodScalar r, HasCallStack)
     => Rational  -- ^ error margin (i.e., the epsilon)
     -> OR.Array n r  -- ^ expected reverse derivative value
-    -> ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a, a, a, a, a, a
+    -> ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a, a, a, a, a, a, a
        , AstRanked PrimalSpan r m, AstRanked PrimalSpan r m
        , v, v, v, v, v, v, v, v, v, v, v, v, v, v
        , a, a, a, a, a, a, a, a, a, a, a, a, a, a
@@ -438,7 +442,7 @@ assertEqualUpToEpsilonShort
     errMargin expected'
     ( value0, value1, value2, value3, value2UnSimp, value3UnSimp
     , _value4, value5
-    , gradient1, gradientRrev1, gradient2, gradient3
+    , gradient1, gradientRrev1, gradientRrev2, gradient2, gradient3
     , gradient2UnSimp, gradientRrev2UnSimp
     , gradient3UnSimp, gradientRrev3UnSimp
     , _gradient4, _gradientRrev4, gradient5, gradientRrev5
@@ -462,17 +466,19 @@ assertEqualUpToEpsilonShort
   assertEqualUpToEpsilonWithMark "Grad ADVal" errMargin expected gradient1
   assertEqualUpToEpsilonWithMark "Grad ADVal rrev"
                                  errMargin expected gradientRrev1
+  assertEqualUpToEpsilonWithMark "Grad ADVal rrev2"
+                                 errMargin expected gradientRrev2
   assertEqualUpToEpsilonWithMark "Grad Vectorized" errMargin expected gradient2
   assertEqualUpToEpsilonWithMark "Grad Vect+Simp" errMargin expected gradient3
   assertEqualUpToEpsilonWithMark "Grad V UnS" errMargin expected gradient2UnSimp
-  assertEqualUpToEpsilonWithMark "Grad V UnS rrev"
+  assertEqualUpToEpsilonWithMark "Grad V UnS rrev2"
                                  errMargin expected gradientRrev2UnSimp
   assertEqualUpToEpsilonWithMark "Grad V+S UnS"
                                  errMargin expected gradient3UnSimp
   assertEqualUpToEpsilonWithMark "Grad V+S UnS rrev"
                                  errMargin expected gradientRrev3UnSimp
   assertEqualUpToEpsilonWithMark "Grad Simplified" errMargin expected gradient5
-  assertEqualUpToEpsilonWithMark "Grad Simplified rrev"
+  assertEqualUpToEpsilonWithMark "Grad Simplified rrev2"
                                  errMargin expected gradientRrev5
   assertEqualUpToEpsilonWithMark "Val Ast Vectorized" errMargin value0 value2Ast
   assertEqualUpToEpsilonWithMark "Val Ast V S" errMargin value0 value2AstS
@@ -551,6 +557,15 @@ rrev1 :: forall g r n m r3.
          (ADReady g, GoodScalar r, GoodScalar r3, KnownNat n, KnownNat m)
       => (forall f. ADReady f => f r n -> f r3 m) -> g r n -> g r n
 rrev1 f u =
+  let sh = rshape u
+      ftk = FTKR sh
+      h = drev @g ftk (HFun @_ @(TKR r3 m) f)
+  in dHApply @_ @_ @(TKR r n) @(TKR r n) h u
+
+rrev2 :: forall g r n m r3.
+         (ADReady g, GoodScalar r, GoodScalar r3, KnownNat n, KnownNat m)
+      => (forall f. ADReady f => f r n -> f r3 m) -> g r n -> g r n
+rrev2 f u =
   let fHVector :: forall f. ADReady f => HVector f -> f r3 m
       fHVector v = f (rfromD $ v V.! 0)
       sh = rshape u
@@ -580,14 +595,9 @@ srev1 :: forall g r sh sh2 r3.
          (ADReadyS g, GoodScalar r, GoodScalar r3, KnownShS sh, KnownShS sh2)
       => (forall f. ADReadyS f => f r sh -> f r3 sh2) -> g r sh -> g r sh
 srev1 f u =
-  let fHVector :: forall f. ADReadyS f
-               => HVector (RankedOf f) -> f r3 sh2
-      fHVector v = f (sfromD $ v V.! 0)
-      zero = voidFromShS @r @sh
-      shapes = V.fromList [zero]
-      domsOf = srev @(RankedOf g)
-                    fHVector shapes (V.singleton $ DynamicShaped u)
-  in sletHVectorIn domsOf (\v -> sfromD $ v V.! 0)
+  let ftk = FTKS @r @sh
+      h = drev @(RankedOf g) ftk (HFun @_ @(TKS r3 sh2) f)
+  in dHApply @_ @_ @(TKS r sh) @(TKS r sh) h u
 
 sfwd1 :: forall g r sh sh2 r3.
          (ADReadyS g, GoodScalar r, GoodScalar r3, KnownShS sh, KnownShS sh2)
