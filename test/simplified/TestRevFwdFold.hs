@@ -71,6 +71,11 @@ testTrees =
   , testCase "4Sin0Fold0" testSin0Fold0
   , testCase "4Sin0Fold0ForComparison" testSin0Fold0ForComparison
   , testCase "4Sin0Fold1" testSin0Fold1
+  , testCase "4Sin0FoldB1" testSin0FoldB1
+  , testCase "4Sin0FoldB1PP" testSin0FoldB1PP
+  , testCase "4Sin0FoldB2" testSin0FoldB2
+  , testCase "4Sin0FoldB3" testSin0FoldB3
+  , testCase "4Sin0FoldB4" testSin0FoldB4
   , testCase "4Sin0Fold2" testSin0Fold2
   , testCase "4Sin0FoldForComparison" testSin0FoldForComparison
   , testCase "4Sin0Fold3" testSin0Fold3
@@ -532,6 +537,53 @@ testSin0Fold1 = do
     (0.4535961214255773 :: OR.Array 0 Double)
     (rev' (\x0 -> rfold (\x _a -> sin x)
                         x0 (rrepl @Double @1 [1] 42)) 1.1)
+
+testSin0FoldB1 :: Assertion
+testSin0FoldB1 = do
+  assertEqualUpToEpsilon 1e-10
+    (rscalar 0 :: ORArray Double 0)
+    (rrev1 (let f :: forall f. ADReady f => f Double 0 -> f Double 0
+                f x0 = rfold (\_x _a -> 7)
+                         (rscalar 5) (rreplicate 1 x0)
+            in f) (rscalar 1.1))
+
+testSin0FoldB1PP :: Assertion
+testSin0FoldB1PP = do
+  resetVarCounter
+  let a1 = rrev1 @(AstRanked FullSpan)
+             (let f :: forall f. ADReady f => f Double 0 -> f Double 0
+                  f x0 = rfold (\_x _a -> 7)
+                           (rscalar 5) (rreplicate 1 x0)
+              in f) (rscalar 1.1)
+  printAstPretty IM.empty a1
+    @?= "rsum (rproject (tproject2 (dmapAccumRDer (SNat @1) <lambda> <lambda> <lambda> [1.0] [rproject (tproject2 (dmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> [5.0] [rreplicate 1 1.1])) 0, rreplicate 1 1.1])) 0)"
+
+testSin0FoldB2 :: Assertion
+testSin0FoldB2 = do
+  assertEqualUpToEpsilon 1e-10
+    (rscalar 0 :: ORArray Double 0)
+    (rev (let f :: forall f. ADReady f => f Double 0 -> f Double 0
+              f x0 = rfold (\_x _a -> 7)
+                       (rscalar 5) (rreplicate 1 x0)
+          in f) (rscalar 1.1))
+
+testSin0FoldB3 :: Assertion
+testSin0FoldB3 = do
+  assertEqualUpToEpsilon' 1e-10
+    (0 :: OR.Array 0 Double)
+    (rev' (let f :: forall f. ADReady f => f Double 0 -> f Double 0
+               f x0 = rfold (\_x _a -> 7)
+                        (rscalar 5) (rreplicate 1 x0)
+           in f) 1.1)
+
+testSin0FoldB4 :: Assertion
+testSin0FoldB4 = do
+  assertEqualUpToEpsilon' 1e-10
+    (0 :: OR.Array 0 Double)
+    (rev' (let f :: forall f. ADReady f => f Double 0 -> f Double 0
+               f x0 = rfold (\_x _a -> 7)
+                        x0 (rrepl @Double @1 [1] 42)
+           in f) 1.1)
 
 testSin0Fold2 :: Assertion
 testSin0Fold2 = do
