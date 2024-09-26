@@ -89,7 +89,7 @@ rev' :: forall r m n v a.
         , AstRanked PrimalSpan r m, AstRanked PrimalSpan r m
         , v, v, v, v, v, v, v, v, v, v, v, v, v, v
         , a, a, a, a, a, a, a, a, a, a, a, a, a, a
-        , a, v, v, v )
+        , a, v, v, v, v )
 rev' f valsOR =
   let vals :: FlipR Nested.Ranked r n
       vals = fromORArray valsOR
@@ -258,6 +258,7 @@ rev' f valsOR =
       cderivative = cfwd f vals vals
       derivative = fwd f vals vals
       derivativeRfwd1 = rfwd1ds @ORArray @r @n @m f vals vals
+      derivativeRfwd2 = rfwd2ds @ORArray @r @n @m f vals vals
       toORArray (FlipR t) = FlipR $ Nested.rtoOrthotope t
       fromORArray (FlipR t) = FlipR $ Nested.rfromOrthotope SNat t
   in ( toORArray value0, toORArray value1, toORArray value2, toORArray value3, toORArray value2UnSimp, toORArray value3UnSimp
@@ -275,7 +276,7 @@ rev' f valsOR =
      , toORArray gradient2AstUnSimp, toORArray gradient2AstSUnSimp
      , toORArray gradient3AstUnSimp, toORArray gradient3AstSUnSimp
      , toORArray gradient4Ast, toORArray gradient4AstS, toORArray gradient5Ast, toORArray gradient5AstS
-     , valsOR, toORArray cderivative, toORArray derivative, toORArray derivativeRfwd1)
+     , valsOR, toORArray cderivative, toORArray derivative, toORArray derivativeRfwd1, toORArray derivativeRfwd2)
 
 assertEqualUpToEpsilon'
     :: ( v ~ FlipR OR.Array r m, a ~ FlipR OR.Array r n
@@ -288,7 +289,7 @@ assertEqualUpToEpsilon'
        , AstRanked PrimalSpan r m, AstRanked PrimalSpan r m
        , v, v, v, v, v, v, v, v, v, v, v, v, v, v
        , a, a, a, a, a, a, a, a, a, a, a, a, a, a
-       , a, v, v, v )
+       , a, v, v, v, v )
          -- ^ actual values
     -> Assertion
 assertEqualUpToEpsilon'
@@ -308,7 +309,7 @@ assertEqualUpToEpsilon'
     , gradient2AstUnSimp, gradient2AstSUnSimp
     , gradient3AstUnSimp, gradient3AstSUnSimp
     , gradient4Ast, gradient4AstS, gradient5Ast, gradient5AstS
-    , vals, cderivative, derivative, derivativeRfwd1 ) = do
+    , vals, cderivative, derivative, derivativeRfwd1, derivativeRfwd2 ) = do
   let expected = FlipR expected'
   assertEqualUpToEpsilonWithMark "Val ADVal" errMargin value0 value1
   assertEqualUpToEpsilonWithMark "Val Vectorized" errMargin value0 value2
@@ -385,6 +386,8 @@ assertEqualUpToEpsilon'
   assertEqualUpToEpsilonWithMark "Derivatives" errMargin cderivative derivative
   assertEqualUpToEpsilonWithMark "Derivatives rfwd"
                                  errMargin cderivative derivativeRfwd1
+  assertEqualUpToEpsilonWithMark "Derivatives rfwd2"
+                                 errMargin cderivative derivativeRfwd2
   -- The formula for comparing derivative and gradient is due to @awf
   -- at https://github.com/Mikolaj/horde-ad/issues/15#issuecomment-1063251319
   -- and a similar property stated mathematically is in Lemma 1 in
@@ -435,7 +438,7 @@ assertEqualUpToEpsilonShort
        , AstRanked PrimalSpan r m, AstRanked PrimalSpan r m
        , v, v, v, v, v, v, v, v, v, v, v, v, v, v
        , a, a, a, a, a, a, a, a, a, a, a, a, a, a
-       , a, v, v, v )
+       , a, v, v, v, v )
          -- ^ actual values
     -> Assertion
 assertEqualUpToEpsilonShort
@@ -455,7 +458,7 @@ assertEqualUpToEpsilonShort
     , gradient2AstUnSimp, gradient2AstSUnSimp
     , gradient3AstUnSimp, gradient3AstSUnSimp
     , _gradient4Ast, _gradient4AstS, _gradient5Ast, _gradient5AstS
-    , vals, cderivative, derivative, derivativeRfwd1) = do
+    , vals, cderivative, derivative, derivativeRfwd1, derivativeRfwd2) = do
   let expected = FlipR expected'
   assertEqualUpToEpsilonWithMark "Val ADVal" errMargin value0 value1
   assertEqualUpToEpsilonWithMark "Val Vectorized" errMargin value0 value2
@@ -514,6 +517,8 @@ assertEqualUpToEpsilonShort
   assertEqualUpToEpsilonWithMark "Derivatives" errMargin cderivative derivative
   assertEqualUpToEpsilonWithMark "Derivatives rfwd"
                                  errMargin cderivative derivativeRfwd1
+  assertEqualUpToEpsilonWithMark "Derivatives rfwd2"
+                                 errMargin cderivative derivativeRfwd2
   assertEqualUpToEpsilonWithMark "Forward vs reverse"
                                  1e-5 (tsum0R $ runFlipR derivative) (tdot0R (runFlipR expected) (runFlipR vals))
   {- disabled, see above
@@ -578,6 +583,15 @@ rfwd1ds :: forall g r n m r3.
            (ADReady g, GoodScalar r, GoodScalar r3, KnownNat n, KnownNat m)
         => (forall f. ADReady f => f r n -> f r3 m) -> g r n -> g r n -> g r3 m
 rfwd1ds f u ds =
+  let sh = rshape u
+      ftk = FTKR sh
+      h = dfwd @g ftk (HFun @_ @(TKR r3 m) f)
+  in dHApply @_ @_ @(TKProduct (TKR r n) (TKR r n)) @(TKR r3 m) h (ttuple ds u)
+
+rfwd2ds :: forall g r n m r3.
+           (ADReady g, GoodScalar r, GoodScalar r3, KnownNat n, KnownNat m)
+        => (forall f. ADReady f => f r n -> f r3 m) -> g r n -> g r n -> g r3 m
+rfwd2ds f u ds =
   let fHVector :: forall f. ADReady f => HVector f -> f r3 m
       fHVector v = f (rfromD $ v V.! 0)
       sh = rshape u
@@ -603,13 +617,10 @@ sfwd1 :: forall g r sh sh2 r3.
          (ADReadyS g, GoodScalar r, GoodScalar r3, KnownShS sh, KnownShS sh2)
       => (forall f. ADReadyS f => f r sh -> f r3 sh2) -> g r sh -> g r3 sh2
 sfwd1 f u =
-  let fHVector :: forall f. ADReadyS f
-               => HVector (RankedOf f) -> f r3 sh2
-      fHVector v = f (sfromD $ v V.! 0)
-      zero = voidFromShS @r @sh
-      shapes = V.fromList [zero]
-  in sfwd @(RankedOf g) fHVector shapes (V.singleton $ DynamicShaped u)
-                                        (V.singleton $ DynamicShaped @r @sh (srepl 1))
+  let ftk = FTKS
+      h = dfwd @(RankedOf g) ftk (HFun @_ @(TKS r3 sh2) f)
+  in dHApply @_ @_ @(TKProduct (TKS r sh) (TKS r sh)) @(TKS r3 sh2) h
+             (ttuple (srepl 1) u)
 
 treplicateR
   :: forall n r. (KnownNat n, KnownNat (1 + n), VS.Storable r)

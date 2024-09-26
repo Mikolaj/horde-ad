@@ -437,14 +437,14 @@ testSin0RfwdPP1FullUnsimp = do
   resetVarCounter
   let a1 = rfwd1 @(AstRanked FullSpan) @Double @0 @0 sin (rscalar 1.1)
   printAstPretty IM.empty a1
-    @?= "rproject ((\\h1 -> let h2 = tproject1 h1 ; h3 = tproject2 h1 in [rproject h2 0 * cos (rproject h3 0)]) (ttuple ([1.0], [1.1]))) 0"
+    @?= "(\\x1 -> let x2 = tproject1 x1 ; x3 = tproject2 x1 in x2 * cos x3) (ttuple (1.0, 1.1))"
 
 testSin0RfwdPP1Full :: Assertion
 testSin0RfwdPP1Full = do
   resetVarCounter
   let a1 = rfwd1 @(AstRanked FullSpan) @Double @0 @0 sin (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineAst a1)
-    @?= "rproject ((\\h1 -> [rproject (tproject1 h1) 0 * cos (rproject (tproject2 h1) 0)]) (ttuple ([1.0], [1.1]))) 0"
+    @?= "(\\x1 -> tproject1 x1 * cos (tproject2 x1)) (ttuple (1.0, 1.1))"
 
 testSin0Rfwd3 :: Assertion
 testSin0Rfwd3 = do
@@ -469,7 +469,7 @@ testSin0RfwdPP4Dual :: Assertion
 testSin0RfwdPP4Dual = do
   let a1 = (rfwd1 sin . rfwd1 @(AstRanked DualSpan) @Double @0 @0 sin) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineAst a1)
-    @?= "rproject ((\\h23 -> [rproject (tproject1 h23) 0 * cos (rproject (tproject2 h23) 0)]) (ttuple ([rdualPart 1.0], [rproject ((\\h18 -> [rproject (tproject1 h18) 0 * cos (rproject (tproject2 h18) 0)]) (ttuple ([rdualPart 1.0], [rdualPart 1.1]))) 0]))) 0"
+    @?= "(\\x18 -> tproject1 x18 * cos (tproject2 x18)) (ttuple (rdualPart 1.0, (\\x14 -> tproject1 x14 * cos (tproject2 x14)) (ttuple (rdualPart 1.0, rdualPart 1.1))))"
 
 testSin0Rfwd5 :: Assertion
 testSin0Rfwd5 = do
@@ -1095,7 +1095,7 @@ testSin0ScanFwdPP = do
                  (\x0 -> rscan (\x _a -> sin x) x0
                            (rrepl @Double @1 [2] 42)) (rscalar 1.1)
   printAstPrettyButNested IM.empty (simplifyInlineAst a1)
-    @?= "let v18 = rconst (rfromListLinear [2] [42.0,42.0]) in rappend (rreplicate 1 1.0) (rproject (tproject2 (dmapAccumLDer (SNat @2) (\\h19 -> let x28 = rproject (tproject1 h19) 0 * cos (rproject (tproject1 (tproject2 (tproject2 h19))) 0) in ttuple ([x28], [x28])) (\\h29 -> let x38 = rproject (tproject1 (tproject1 h29)) 0 * cos (rproject (tproject1 (tproject2 (tproject2 (tproject2 h29)))) 0) + (rproject (tproject1 (tproject2 (tproject2 (tproject1 h29)))) 0 * negate (sin (rproject (tproject1 (tproject2 (tproject2 (tproject2 h29)))) 0))) * rproject (tproject1 (tproject2 h29)) 0 in ttuple ([x38], [x38])) (\\h39 -> let x47 = rproject (tproject2 (tproject1 h39)) 0 + rproject (tproject1 (tproject1 h39)) 0 in ttuple ([0.0 + cos (rproject (tproject1 (tproject2 (tproject2 (tproject2 h39)))) 0) * x47], ttuple ([0.0], ttuple ([0.0 + negate (sin (rproject (tproject1 (tproject2 (tproject2 (tproject2 h39)))) 0)) * (rproject (tproject1 (tproject2 h39)) 0 * x47)], [0.0])))) [1.0] (ttuple ([rreplicate 2 0.0], ttuple (tproject1 (tproject2 (dmapAccumLDer (SNat @2) (\\h48 -> let x52 = sin (rproject (tproject1 h48) 0) in ttuple ([x52], ttuple (tproject1 h48, [x52]))) (\\h54 -> let x57 = rproject (tproject1 (tproject1 h54)) 0 * cos (rproject (tproject1 (tproject2 h54)) 0) in ttuple ([x57], ttuple (tproject1 (tproject1 h54), [x57]))) (\\h59 -> ttuple ([cos (rproject (tproject1 (tproject2 h59)) 0) * (rproject (tproject2 (tproject2 (tproject1 h59))) 0 + rproject (tproject1 (tproject1 h59)) 0) + rproject (tproject1 (tproject2 (tproject1 h59))) 0], [0.0])) [1.1] [v18])), [v18]))))) 0)"
+    @?= "let v17 = rconst (rfromListLinear [2] [42.0,42.0]) in rappend (rreplicate 1 1.0) (rproject (tproject2 (dmapAccumLDer (SNat @2) (\\h18 -> let x27 = rproject (tproject1 h18) 0 * cos (rproject (tproject1 (tproject2 (tproject2 h18))) 0) in ttuple ([x27], [x27])) (\\h28 -> let x37 = rproject (tproject1 (tproject1 h28)) 0 * cos (rproject (tproject1 (tproject2 (tproject2 (tproject2 h28)))) 0) + (rproject (tproject1 (tproject2 (tproject2 (tproject1 h28)))) 0 * negate (sin (rproject (tproject1 (tproject2 (tproject2 (tproject2 h28)))) 0))) * rproject (tproject1 (tproject2 h28)) 0 in ttuple ([x37], [x37])) (\\h38 -> let x46 = rproject (tproject2 (tproject1 h38)) 0 + rproject (tproject1 (tproject1 h38)) 0 in ttuple ([0.0 + cos (rproject (tproject1 (tproject2 (tproject2 (tproject2 h38)))) 0) * x46], ttuple ([0.0], ttuple ([0.0 + negate (sin (rproject (tproject1 (tproject2 (tproject2 (tproject2 h38)))) 0)) * (rproject (tproject1 (tproject2 h38)) 0 * x46)], [0.0])))) [1.0] (ttuple ([rreplicate 2 0.0], ttuple (tproject1 (tproject2 (dmapAccumLDer (SNat @2) (\\h47 -> let x51 = sin (rproject (tproject1 h47) 0) in ttuple ([x51], ttuple (tproject1 h47, [x51]))) (\\h53 -> let x56 = rproject (tproject1 (tproject1 h53)) 0 * cos (rproject (tproject1 (tproject2 h53)) 0) in ttuple ([x56], ttuple (tproject1 (tproject1 h53), [x56]))) (\\h58 -> ttuple ([cos (rproject (tproject1 (tproject2 h58)) 0) * (rproject (tproject2 (tproject2 (tproject1 h58))) 0 + rproject (tproject1 (tproject1 h58)) 0) + rproject (tproject1 (tproject2 (tproject1 h58))) 0], [0.0])) [1.1] [v17])), [v17]))))) 0)"
 
 testSin0ScanFwdPPFull :: Assertion
 testSin0ScanFwdPPFull = do
@@ -1104,7 +1104,7 @@ testSin0ScanFwdPPFull = do
                  (\x0 -> rscan (\x _a -> sin x) x0
                            (rrepl @Double @1 [2] 42)) (rscalar 1.1)
   printAstPrettyButNested IM.empty (simplifyInlineAst a1)
-    @?= "rproject ((\\h1 -> let v18 = rconst (rfromListLinear [2] [42.0,42.0]) in [rappend (rreplicate 1 (rproject (tproject1 h1) 0)) (rproject (tproject2 (dmapAccumLDer (SNat @2) (\\h19 -> let x28 = rproject (tproject1 h19) 0 * cos (rproject (tproject1 (tproject2 (tproject2 h19))) 0) in ttuple ([x28], [x28])) (\\h29 -> let x38 = rproject (tproject1 (tproject1 h29)) 0 * cos (rproject (tproject1 (tproject2 (tproject2 (tproject2 h29)))) 0) + (rproject (tproject1 (tproject2 (tproject2 (tproject1 h29)))) 0 * negate (sin (rproject (tproject1 (tproject2 (tproject2 (tproject2 h29)))) 0))) * rproject (tproject1 (tproject2 h29)) 0 in ttuple ([x38], [x38])) (\\h39 -> let x47 = rproject (tproject2 (tproject1 h39)) 0 + rproject (tproject1 (tproject1 h39)) 0 in ttuple ([0.0 + cos (rproject (tproject1 (tproject2 (tproject2 (tproject2 h39)))) 0) * x47], ttuple ([0.0], ttuple ([0.0 + negate (sin (rproject (tproject1 (tproject2 (tproject2 (tproject2 h39)))) 0)) * (rproject (tproject1 (tproject2 h39)) 0 * x47)], [0.0])))) [rproject (tproject1 h1) 0] (ttuple ([rreplicate 2 0.0], ttuple (tproject1 (tproject2 (dmapAccumLDer (SNat @2) (\\h48 -> let x52 = sin (rproject (tproject1 h48) 0) in ttuple ([x52], ttuple (tproject1 h48, [x52]))) (\\h54 -> let x57 = rproject (tproject1 (tproject1 h54)) 0 * cos (rproject (tproject1 (tproject2 h54)) 0) in ttuple ([x57], ttuple (tproject1 (tproject1 h54), [x57]))) (\\h59 -> ttuple ([cos (rproject (tproject1 (tproject2 h59)) 0) * (rproject (tproject2 (tproject2 (tproject1 h59))) 0 + rproject (tproject1 (tproject1 h59)) 0) + rproject (tproject1 (tproject2 (tproject1 h59))) 0], [0.0])) [rproject (tproject2 h1) 0] [v18])), [v18]))))) 0)]) (ttuple ([1.0], [1.1]))) 0"
+    @?= "(\\x1 -> let v17 = rconst (rfromListLinear [2] [42.0,42.0]) in rappend (rreplicate 1 (tproject1 x1)) (rproject (tproject2 (dmapAccumLDer (SNat @2) (\\h18 -> let x27 = rproject (tproject1 h18) 0 * cos (rproject (tproject1 (tproject2 (tproject2 h18))) 0) in ttuple ([x27], [x27])) (\\h28 -> let x37 = rproject (tproject1 (tproject1 h28)) 0 * cos (rproject (tproject1 (tproject2 (tproject2 (tproject2 h28)))) 0) + (rproject (tproject1 (tproject2 (tproject2 (tproject1 h28)))) 0 * negate (sin (rproject (tproject1 (tproject2 (tproject2 (tproject2 h28)))) 0))) * rproject (tproject1 (tproject2 h28)) 0 in ttuple ([x37], [x37])) (\\h38 -> let x46 = rproject (tproject2 (tproject1 h38)) 0 + rproject (tproject1 (tproject1 h38)) 0 in ttuple ([0.0 + cos (rproject (tproject1 (tproject2 (tproject2 (tproject2 h38)))) 0) * x46], ttuple ([0.0], ttuple ([0.0 + negate (sin (rproject (tproject1 (tproject2 (tproject2 (tproject2 h38)))) 0)) * (rproject (tproject1 (tproject2 h38)) 0 * x46)], [0.0])))) [tproject1 x1] (ttuple ([rreplicate 2 0.0], ttuple (tproject1 (tproject2 (dmapAccumLDer (SNat @2) (\\h47 -> let x51 = sin (rproject (tproject1 h47) 0) in ttuple ([x51], ttuple (tproject1 h47, [x51]))) (\\h53 -> let x56 = rproject (tproject1 (tproject1 h53)) 0 * cos (rproject (tproject1 (tproject2 h53)) 0) in ttuple ([x56], ttuple (tproject1 (tproject1 h53), [x56]))) (\\h58 -> ttuple ([cos (rproject (tproject1 (tproject2 h58)) 0) * (rproject (tproject2 (tproject2 (tproject1 h58))) 0 + rproject (tproject1 (tproject1 h58)) 0) + rproject (tproject1 (tproject2 (tproject1 h58))) 0], [0.0])) [tproject2 x1] [v17])), [v17]))))) 0)) (ttuple (1.0, 1.1))"
 
 testSin0Scan1Rev2PP1 :: Assertion
 testSin0Scan1Rev2PP1 = do
@@ -1175,7 +1175,7 @@ testSin0ScanFwd3PP = do
                  (\x0 -> rscan (\x a -> sin x - a) x0
                            (rfromList [x0 * 5, x0 * 7])) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineAst a1)
-    @?= "let v21 = rfromVector (fromList [1.1 * 5.0, 1.1 * 7.0]) in rappend (rreplicate 1 1.0) (rproject (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.0] (ttuple ([rfromVector (fromList [1.0 * 5.0, 1.0 * 7.0])], ttuple (tproject1 (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.1] [v21])), [v21]))))) 0)"
+    @?= "let v20 = rfromVector (fromList [1.1 * 5.0, 1.1 * 7.0]) in rappend (rreplicate 1 1.0) (rproject (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.0] (ttuple ([rfromVector (fromList [1.0 * 5.0, 1.0 * 7.0])], ttuple (tproject1 (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.1] [v20])), [v20]))))) 0)"
 
 testSin0Scan1Rev3 :: Assertion
 testSin0Scan1Rev3 = do
@@ -3224,7 +3224,7 @@ testSin0ScanDFwdPP = do
                            x0 (V.singleton $ DynamicRanked
                                (rrepl @Double @1 [2] 42))) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineAst a1)
-    @?= "let v24 = rconst (rfromListLinear [2] [42.0,42.0]) in rappend (rreplicate 1 1.0) (rproject (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.0] (ttuple ([rreplicate 2 0.0], ttuple (tproject1 (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.1] [v24])), [v24]))))) 0)"
+    @?= "let v23 = rconst (rfromListLinear [2] [42.0,42.0]) in rappend (rreplicate 1 1.0) (rproject (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.0] (ttuple ([rreplicate 2 0.0], ttuple (tproject1 (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.1] [v23])), [v23]))))) 0)"
 
 testSin0ScanD1Rev2PP :: Assertion
 testSin0ScanD1Rev2PP = do
@@ -3246,7 +3246,7 @@ testSin0ScanDFwd2PP = do
                          x0 (V.singleton $ DynamicRanked
                          $ rconst (Nested.Internal.rfromListPrimLinear @Double @1 (fromList [2]) [5, 7]))) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineAst a1)
-    @?= "let v24 = rconst (rfromListLinear [2] [5.0,7.0]) in rappend (rreplicate 1 1.0) (rproject (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.0] (ttuple ([rreplicate 2 0.0], ttuple (tproject1 (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.1] [v24])), [v24]))))) 0)"
+    @?= "let v23 = rconst (rfromListLinear [2] [5.0,7.0]) in rappend (rreplicate 1 1.0) (rproject (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.0] (ttuple ([rreplicate 2 0.0], ttuple (tproject1 (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.1] [v23])), [v23]))))) 0)"
 
 testSin0ScanD1Rev2 :: Assertion
 testSin0ScanD1Rev2 = do
@@ -3293,7 +3293,7 @@ testSin0ScanDFwd3PP = do
                                 x0 (V.singleton $ DynamicRanked
                                     $ rfromList [x0 * 5, x0 * 7])) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineAst a1)
-    @?= "let v27 = rfromVector (fromList [1.1 * 5.0, 1.1 * 7.0]) in rappend (rreplicate 1 1.0) (rproject (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.0] (ttuple ([rfromVector (fromList [1.0 * 5.0, 1.0 * 7.0])], ttuple (tproject1 (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.1] [v27])), [v27]))))) 0)"
+    @?= "let v26 = rfromVector (fromList [1.1 * 5.0, 1.1 * 7.0]) in rappend (rreplicate 1 1.0) (rproject (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.0] (ttuple ([rfromVector (fromList [1.0 * 5.0, 1.0 * 7.0])], ttuple (tproject1 (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.1] [v26])), [v26]))))) 0)"
 
 testSin0ScanD0fwd :: Assertion
 testSin0ScanD0fwd = do
