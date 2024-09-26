@@ -104,34 +104,37 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
       s1 = evalR s0 dt deltaTopLevel
       s2 = evalFromnMap s1
       elems = DMap.elems $ iMap s2
-      itm :: InterpretationTargetM ranked x
+      itm :: InterpretationTarget ranked x
       itm = case parameters0 of
         FTKR @r @n _ -> case elems of
-          [Some mt@(MTKR @r2 @n2 _)]
+          [Some (MTKR @r2 @n2 mt)]
             | Just Refl <- sameNat (Proxy @n) (Proxy @n2)
             , Just Refl <- testEquality (typeRep @r) (typeRep @r2) -> mt
           [Some mt@(MTKRDummy @r2 @sh2)]
             | Dict <- lemKnownNatRank (knownShS @sh2)
             , Just Refl <- sameNat (Proxy @n) (Proxy @(X.Rank sh2))
-            , Just Refl <- testEquality (typeRep @r) (typeRep @r2) -> mt
+            , Just Refl <- testEquality (typeRep @r) (typeRep @r2) ->
+              evalInterpretationTargetM mt
           _ -> error $ "gradientFromDelta: illegal InterpretationTargetM: "
                        ++ show_iMap (iMap s2)
         FTKS @r @sh -> case elems of
-          [Some mt@(MTKS @r2 @sh2 _)]
+          [Some (MTKS @r2 @sh2 mt)]
             | Just Refl <- sameShape @sh @sh2
             , Just Refl <- testEquality (typeRep @r) (typeRep @r2) -> mt
           [Some mt@(MTKSDummy @r2 @sh2)]
             | Just Refl <- sameShape @sh @sh2
-            , Just Refl <- testEquality (typeRep @r) (typeRep @r2) -> mt
+            , Just Refl <- testEquality (typeRep @r) (typeRep @r2) ->
+              evalInterpretationTargetM mt
           _ -> error $ "gradientFromDelta: illegal InterpretationTargetM: "
                        ++ show_iMap (iMap s2)
         FTKProduct @x3 @z3 _ _ -> case elems of
-          [Some mt@(MTKProduct @x2 @z2 _)]
+          [Some (MTKProduct @x2 @z2 mt)]
             | Just Refl <- sameTensorKind @x2 @x3
             , Just Refl <- sameTensorKind @z2 @z3 -> mt
           [Some mt@(MTKProductDummy @x2 @z2 _)]
             | Just Refl <- sameTensorKind @x2 @x3
-            , Just Refl <- sameTensorKind @z2 @z3 -> mt
+            , Just Refl <- sameTensorKind @z2 @z3 ->
+              evalInterpretationTargetM mt
           _ -> error $ "gradientFromDelta: illegal InterpretationTargetM: "
                        ++ show_iMap (iMap s2)
         FTKUntyped{} ->
@@ -145,10 +148,9 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
                 MTKSDummy @r @sh -> DynamicShapedDummy @r @sh Proxy Proxy
                 MTKProductDummy{} ->
                   error "toDynamicTensor: non-flattened cell"
-                MTKUntyped{} -> error "toDynamicTensor: non-flattened cell"
-          in MTKUntyped $ HVectorPseudoTensor $ dmkHVector
+          in HVectorPseudoTensor $ dmkHVector
              $ V.fromList $ map toDynamicTensor elems
-  in evalInterpretationTargetM itm
+  in itm
 
 showsPrec_iMap
   :: (forall y. TensorKind y => Show (InterpretationTargetM ranked y))
@@ -174,7 +176,6 @@ evalInterpretationTargetM = \case
   MTKR t -> t
   MTKS t -> t
   MTKProduct t -> t
-  MTKUntyped t -> t
   MTKRDummy @_ @sh -> withListSh (Proxy @sh) $ \sh4 -> rzero sh4
   MTKSDummy -> srepl 0
   MTKProductDummy ftk -> interpretationConstant 0 ftk
@@ -239,7 +240,7 @@ interpretationTargetToM stk t = case stk of
   STKR{} -> MTKR t
   STKS{} -> MTKS t
   STKProduct{} -> MTKProduct t
-  STKUntyped{} -> MTKUntyped t
+  STKUntyped{} -> error "interpretationTargetToM"
 
 
 -- * Abstract syntax trees of the delta expressions
@@ -1015,9 +1016,6 @@ addInterpretationTargetM a b = case (a, b) of
                      (interpretationTargetToM stensorKind tb2))
   (MTKProductDummy{}, _) -> b
   (_, MTKProductDummy{}) -> a
-  (MTKUntyped hv1, MTKUntyped hv2) ->
-    MTKUntyped $ HVectorPseudoTensor $ dmkHVector
-    $ V.zipWith addDynamic (tunvector hv1) (tunvector hv2)
 
 evalR
   :: forall y ranked.

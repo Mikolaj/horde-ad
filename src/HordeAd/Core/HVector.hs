@@ -122,8 +122,6 @@ data InterpretationTargetM ranked y where
   MTKProduct :: forall x z ranked. (TensorKind x, TensorKind z)
              => InterpretationTarget ranked (TKProduct x z)
              -> InterpretationTargetM ranked (TKProduct x z)
-  MTKUntyped :: InterpretationTarget ranked TKUntyped
-             -> InterpretationTargetM ranked TKUntyped
   MTKRDummy :: (GoodScalar r, KnownShS sh)
             => InterpretationTargetM ranked (TKR r (X.Rank sh))
   MTKSDummy  :: (GoodScalar r, KnownShS sh)
@@ -140,7 +138,6 @@ instance ( CRanked ranked Show, CShaped (ShapedOf ranked) Show
     MTKR t -> showsPrec d t
     MTKS t -> showsPrec d t
     MTKProduct t -> showsPrec d (InterpretationTargetProductN t)
-    MTKUntyped t -> showsPrec d t
     MTKRDummy -> showString "MTKRDummy"
     MTKSDummy -> showString "MTKSDummy"
     MTKProductDummy ftk ->
