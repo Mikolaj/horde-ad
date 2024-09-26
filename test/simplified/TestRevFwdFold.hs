@@ -322,15 +322,15 @@ testFooRrev2 = do
 testFooRrevPP1 :: Assertion
 testFooRrevPP1 = do
   resetVarCounter
-  let (a1, _, _) = fooRrev @(AstRanked FullSpan) @Double (1.1, 2.2, 3.3)
+  let (a1, _, _) = fooRrev @(AstRanked PrimalSpan) @Double (1.1, 2.2, 3.3)
   printAstPretty IM.empty a1
     @?= "let x61 = sin 2.2 ; x65 = 1.1 * x61 ; x66 = recip (3.3 * 3.3 + x65 * x65) ; x103 = sin 2.2 ; x108 = 3.3 * 1.0 ; x109 = (negate 3.3 * x66) * 1.0 in x61 * x109 + x103 * x108"
 
 testFooRrevPP2 :: Assertion
 testFooRrevPP2 = do
-  let (a1, _, _) = fooRrev @(AstRanked FullSpan) @Double (1.1, 2.2, 3.3)
+  let (a1, _, _) = fooRrev @(AstRanked PrimalSpan) @Double (1.1, 2.2, 3.3)
   printAstSimple IM.empty a1
-    @?= "rlet (sin (rconstant 2.2)) (\\x191 -> rlet (rconstant 1.1 * x191) (\\x195 -> rlet (recip (rconstant 3.3 * rconstant 3.3 + x195 * x195)) (\\x196 -> rlet (sin (rconstant 2.2)) (\\x233 -> rlet (rconstant 3.3 * rconstant 1.0) (\\x238 -> rlet ((negate (rconstant 3.3) * x196) * rconstant 1.0) (\\x239 -> x191 * x239 + x233 * x238))))))"
+    @?= "rlet (sin 2.2) (\\x191 -> rlet (1.1 * x191) (\\x195 -> rlet (recip (3.3 * 3.3 + x195 * x195)) (\\x196 -> rlet (sin 2.2) (\\x233 -> rlet (3.3 * 1.0) (\\x238 -> rlet ((negate 3.3 * x196) * 1.0) (\\x239 -> x191 * x239 + x233 * x238))))))"
 
 testFooRrev3 :: Assertion
 testFooRrev3 = do
@@ -351,16 +351,16 @@ testSin0Rrev = do
 testSin0RrevPP1 :: Assertion
 testSin0RrevPP1 = do
   resetVarCounter
-  let a1 = rrev1 @(AstRanked FullSpan) @Double @0 @0 sin (rscalar 1.1)
+  let a1 = rrev1 @(AstRanked PrimalSpan) @Double @0 @0 sin (rscalar 1.1)
   printAstPretty IM.empty a1
     @?= "cos 1.1 * 1.0"
 
 testSin0RrevPP2 :: Assertion
 testSin0RrevPP2 = do
   resetVarCounter
-  let a1 = rrev1 @(AstRanked FullSpan) @Double @0 @0 sin (rscalar 1.1)
+  let a1 = rrev1 @(AstRanked PrimalSpan) @Double @0 @0 sin (rscalar 1.1)
   printAstSimple IM.empty a1
-    @?= "cos (rconstant 1.1) * rconstant 1.0"
+    @?= "cos 1.1 * 1.0"
 
 testSin0Rrev3 :: Assertion
 testSin0Rrev3 = do
@@ -377,7 +377,7 @@ testSin0Rrev4 = do
 
 testSin0RrevPP4 :: Assertion
 testSin0RrevPP4 = do
-  let a1 = (rrev1 sin . rrev1 @(AstRanked FullSpan) @Double @0 @0 sin) (rscalar 1.1)
+  let a1 = (rrev1 sin . rrev1 @(AstRanked PrimalSpan) @Double @0 @0 sin) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineAst a1)
     @?= "cos (cos 1.1 * 1.0) * 1.0"
 
@@ -390,7 +390,7 @@ testSin0Rrev5 = do
 testSin0RrevPP5 :: Assertion
 testSin0RrevPP5 = do
   resetVarCounter
-  let a1 = rrev1 @(AstRanked FullSpan) @Double @0 @0 (rrev1 sin) (rscalar 1.1)
+  let a1 = rrev1 @(AstRanked PrimalSpan) @Double @0 @0 (rrev1 sin) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineAst a1)
     @?= "negate (sin 1.1) * 1.0"
 
@@ -550,7 +550,7 @@ testSin0FoldB1 = do
 testSin0FoldB1PP :: Assertion
 testSin0FoldB1PP = do
   resetVarCounter
-  let a1 = rrev1 @(AstRanked FullSpan)
+  let a1 = rrev1 @(AstRanked PrimalSpan)
              (let f :: forall f. ADReady f => f Double 0 -> f Double 0
                   f x0 = rfold (\_x _a -> 7)
                            (rscalar 5) (rreplicate 1 x0)
@@ -838,7 +838,7 @@ testSin0Fold182Srev = do
 testSin0Fold182SrevPP :: Assertion
 testSin0Fold182SrevPP = do
   resetVarCounter
-  let a1 = rrev1 @(AstRanked FullSpan)
+  let a1 = rrev1 @(AstRanked PrimalSpan)
            (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[5]
                 f a0 = sfold @_ @f @Double @Double @'[5] @'[] @1
                         (\_x a -> atan2F (sreplicate @_ @5 a)
@@ -1074,7 +1074,7 @@ testSin0Scan8rev2 = do
 testSin0Scan1RevPP1 :: Assertion
 testSin0Scan1RevPP1 = do
   resetVarCounter
-  let a1 = rrev1 @(AstRanked FullSpan) @Double @0 @1
+  let a1 = rrev1 @(AstRanked PrimalSpan) @Double @0 @1
                  (\x0 -> rscan (\x _a -> sin x) x0
                            (rrepl @Double @1 [2] 42)) (rscalar 1.1)
   printAstPrettyButNested IM.empty (simplifyInlineAst a1)
@@ -1083,7 +1083,7 @@ testSin0Scan1RevPP1 = do
 testSin0Scan1RevPPForComparison :: Assertion
 testSin0Scan1RevPPForComparison = do
   resetVarCounter
-  let a1 = rrev1 @(AstRanked FullSpan) @Double @0 @1
+  let a1 = rrev1 @(AstRanked PrimalSpan) @Double @0 @1
                  (\x0 -> rfromList [sin (sin x0), sin x0, x0]) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineAst a1)
     @?= "let v8 = rconst (rfromListLinear [3] [1.0,1.0,1.0]) in cos 1.1 * (cos (sin 1.1) * v8 ! [0]) + cos 1.1 * v8 ! [1] + v8 ! [2]"
@@ -1109,7 +1109,7 @@ testSin0ScanFwdPPFull = do
 testSin0Scan1Rev2PP1 :: Assertion
 testSin0Scan1Rev2PP1 = do
   resetVarCounter
-  let a1 = rrev1 @(AstRanked FullSpan) @Double @0 @1
+  let a1 = rrev1 @(AstRanked PrimalSpan) @Double @0 @1
                  (\x0 -> rscan (\x a -> sin x - a) x0
                            (rconst (Nested.Internal.rfromListPrimLinear @Double @1 (fromList [2]) [5, 7]))) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineAst a1)
@@ -1154,19 +1154,19 @@ testSin0Scan1Rev2ForComparison = do
 testSin0Scan1Rev3PP :: Assertion
 testSin0Scan1Rev3PP = do
   resetVarCounter
-  let a1 = rrev1 @(AstRanked FullSpan) @Double @0 @1
+  let a1 = rrev1 @(AstRanked PrimalSpan) @Double @0 @1
                  (\x0 -> rscan (\x a -> sin x - a) x0
                            (rfromList [x0 * 5, x0 * 7])) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineAst a1)
-    @?= "let v28 = rfromVector (fromList [1.1 * 5.0, 1.1 * 7.0]) ; v24 = rconst (rfromListLinear [3] [1.0,1.0,1.0]) ; h25 = dmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> [0.0] (ttuple ([rslice 1 2 v24], ttuple (tproject1 (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.1] [v28])), [v28]))) in 5.0 * rproject (tproject2 h25) 0 ! [0] + 7.0 * rproject (tproject2 h25) 0 ! [1] + rproject (tproject1 h25) 0 + v24 ! [0]"
+    @?= "let v28 = rconst (rfromListLinear [2] [5.5,7.700000000000001]) ; v24 = rconst (rfromListLinear [3] [1.0,1.0,1.0]) ; h25 = dmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> [0.0] (ttuple ([rslice 1 2 v24], ttuple (tproject1 (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.1] [v28])), [v28]))) in 5.0 * rproject (tproject2 h25) 0 ! [0] + 7.0 * rproject (tproject2 h25) 0 ! [1] + rproject (tproject1 h25) 0 + v24 ! [0]"
 
 testSin0Scan1Rev3PPForComparison :: Assertion
 testSin0Scan1Rev3PPForComparison = do
   resetVarCounter
-  let a1 = rrev1 @(AstRanked FullSpan) @Double @0 @1
+  let a1 = rrev1 @(AstRanked PrimalSpan) @Double @0 @1
                  (\x0 -> rfromList [sin (sin x0 - x0 * 5) - x0 * 7, sin x0 - x0 * 5, x0]) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineAst a1)
-    @?= "let v12 = rconst (rfromListLinear [3] [1.0,1.0,1.0]) ; x13 = v12 ! [1] ; x14 = v12 ! [0] ; x15 = cos (sin 1.1 - 1.1 * 5.0) * x14 in cos 1.1 * x15 + 5.0 * (-1.0 * x15) + 7.0 * (-1.0 * x14) + cos 1.1 * x13 + 5.0 * (-1.0 * x13) + v12 ! [2]"
+    @?= "let v12 = rconst (rfromListLinear [3] [1.0,1.0,1.0]) ; x13 = v12 ! [1] ; x14 = v12 ! [0] ; x15 = cos (sin 1.1 - 5.5) * x14 in cos 1.1 * x15 + 5.0 * (-1.0 * x15) + 7.0 * (-1.0 * x14) + cos 1.1 * x13 + 5.0 * (-1.0 * x13) + v12 ! [2]"
 
 testSin0ScanFwd3PP :: Assertion
 testSin0ScanFwd3PP = do
@@ -1245,7 +1245,7 @@ testUnitriangular0PP :: Assertion
 testUnitriangular0PP = do
   resetVarCounter
   let k = 1000000
-      a1 = rbuild1 @(AstRanked FullSpan) @Double @1 k
+      a1 = rbuild1 @(AstRanked PrimalSpan) @Double @1 k
            $ \i -> rbuild1 k
            $ \j -> ifF (i <=. j) 0 1
   printAstPretty IM.empty (simplifyInlineAst a1)
@@ -1263,7 +1263,7 @@ testUnitriangular1PP = do
   resetVarCounter
   let sh = 200 :$: 300 :$: 600 :$: ZSR
       k = 1000000
-      a1 = unitriangular1 @3 @Double @(AstRanked FullSpan) k sh
+      a1 = unitriangular1 @3 @Double @(AstRanked PrimalSpan) k sh
   printAstPretty IM.empty (simplifyInlineAst a1)
     @?= "rgather [1000000,1000000,200,300,600] (rfromVector (fromList [rreplicate 1000000 (rreplicate 1000000 (rreplicate 200 (rreplicate 300 (rreplicate 600 0.0)))), rreplicate 1000000 (rreplicate 1000000 (rreplicate 200 (rreplicate 300 (rreplicate 600 1.0))))])) (\\[i5, i6] -> [ifF (i5 <=. i6) 0 1, i5, i6])"
 
@@ -1280,7 +1280,7 @@ testUnitriangular2PP = do
   resetVarCounter
   let sh = 200 :$: 300 :$: 600 :$: ZSR
       k = 1000000
-      a1 = unitriangular2 @3 @Double @(AstRanked FullSpan) k sh
+      a1 = unitriangular2 @3 @Double @(AstRanked PrimalSpan) k sh
   printAstPretty IM.empty (simplifyInlineAst a1)
     @?= "rgather [1000000,1000000,200,300,600] (rfromVector (fromList [rreplicate 1000000 (rreplicate 1000000 (rreplicate 200 (rreplicate 300 (rreplicate 600 0.0)))), rreplicate 1000000 (rreplicate 1000000 (rreplicate 200 (rreplicate 300 (rreplicate 600 1.0))))])) (\\[i3, i4] -> [ifF (i3 <. i4) 0 1, i3, i4])"
 
@@ -2312,7 +2312,7 @@ testSin0rmapAccumRD01SN531b0PP = do
   printAstHVectorPrettyButNested
     IM.empty
     (simplifyInline
-     $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1)))
+     $ g @(AstRanked PrimalSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1)))
     @?= "[rfromS (sproject (tproject1 (dmapAccumLDer (SNat @0) (\\h28 -> ttuple ([sproject (tproject1 h28) 0], [0.0])) (\\h35 -> ttuple ([sproject (tproject1 (tproject1 h35)) 0], [0.0])) (\\h41 -> ttuple ([sproject (tproject1 (tproject1 h41)) 0], ttuple ([], ttuple ([0.0], [0.0])))) [4.0] (ttuple ([], ttuple (tproject1 (tproject2 (dmapAccumRDer (SNat @0) (\\h47 -> ttuple ([sproject (tproject1 h47) 0], ttuple (tproject1 h47, []))) (\\h54 -> ttuple ([sproject (tproject1 (tproject1 h54)) 0], ttuple (tproject1 (tproject1 h54), []))) (\\h63 -> ttuple ([0.0 + sproject (tproject1 (tproject2 (tproject1 h63))) 0 + sproject (tproject1 (tproject1 h63)) 0], [0.0])) [1.1] [rconst (rfromListLinear [0] [])])), [rconst (rfromListLinear [0] [])]))))) 0)]"
 
 testSin0rmapAccumRD01SN531bSPP :: Assertion
@@ -2401,8 +2401,8 @@ testSin0rmapAccumRD01SN531bRPP = do
   printAstHVectorSimple
     IM.empty
     (simplifyInline
-     $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1)))
-    @?= "dmkHVector (fromList [DynamicRanked (rproject (tproject1 (dmapAccumLDer (SNat @1) (\\h27 -> ttuple (dmkHVector (fromList [DynamicRanked (rproject (tproject1 h27) 0)]), dmkHVector (fromList [DynamicRanked 0.0]))) (\\h34 -> ttuple (dmkHVector (fromList [DynamicRanked (rproject (tproject1 (tproject1 h34)) 0)]), dmkHVector (fromList [DynamicRanked 0.0]))) (\\h40 -> ttuple (dmkHVector (fromList [DynamicRanked (rproject (tproject1 (tproject1 h40)) 0)]), ttuple (dmkHVector (fromList []), ttuple (dmkHVector (fromList [DynamicRanked 0.0]), dmkHVector (fromList [DynamicRanked 0.0]))))) (dmkHVector (fromList [DynamicRanked (rconstant 4.0)])) (ttuple (dmkHVector (fromList []), ttuple (tproject1 (tproject2 (dmapAccumRDer (SNat @1) (\\h46 -> ttuple (dmkHVector (fromList [DynamicRanked (rproject (tproject1 h46) 0)]), ttuple (tproject1 h46, dmkHVector (fromList [])))) (\\h53 -> ttuple (dmkHVector (fromList [DynamicRanked (rproject (tproject1 (tproject1 h53)) 0)]), ttuple (tproject1 (tproject1 h53), dmkHVector (fromList [])))) (\\h62 -> ttuple (dmkHVector (fromList [DynamicRanked (rproject (tproject1 (tproject1 h62)) 0 + rproject (tproject1 (tproject2 (tproject1 h62))) 0)]), dmkHVector (fromList [DynamicRanked 0.0]))) (dmkHVector (fromList [DynamicRanked (rconstant 1.1)])) (dmkHVector (fromList [DynamicRanked (rconstant (rconst (rfromListLinear [1] [0.0])))])))), dmkHVector (fromList [DynamicRanked (rconstant (rconst (rfromListLinear [1] [0.0])))])))))) 0)])"
+     $ g @(AstRanked PrimalSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1)))
+    @?= "dmkHVector (fromList [DynamicRanked (rproject (tproject1 (dmapAccumLDer (SNat @1) (\\h27 -> ttuple (dmkHVector (fromList [DynamicRanked (rproject (tproject1 h27) 0)]), dmkHVector (fromList [DynamicRanked 0.0]))) (\\h34 -> ttuple (dmkHVector (fromList [DynamicRanked (rproject (tproject1 (tproject1 h34)) 0)]), dmkHVector (fromList [DynamicRanked 0.0]))) (\\h40 -> ttuple (dmkHVector (fromList [DynamicRanked (rproject (tproject1 (tproject1 h40)) 0)]), ttuple (dmkHVector (fromList []), ttuple (dmkHVector (fromList [DynamicRanked 0.0]), dmkHVector (fromList [DynamicRanked 0.0]))))) (dmkHVector (fromList [DynamicRanked 4.0])) (ttuple (dmkHVector (fromList []), ttuple (tproject1 (tproject2 (dmapAccumRDer (SNat @1) (\\h46 -> ttuple (dmkHVector (fromList [DynamicRanked (rproject (tproject1 h46) 0)]), ttuple (tproject1 h46, dmkHVector (fromList [])))) (\\h53 -> ttuple (dmkHVector (fromList [DynamicRanked (rproject (tproject1 (tproject1 h53)) 0)]), ttuple (tproject1 (tproject1 h53), dmkHVector (fromList [])))) (\\h62 -> ttuple (dmkHVector (fromList [DynamicRanked (rproject (tproject1 (tproject1 h62)) 0 + rproject (tproject1 (tproject2 (tproject1 h62))) 0)]), dmkHVector (fromList [DynamicRanked 0.0]))) (dmkHVector (fromList [DynamicRanked 1.1])) (dmkHVector (fromList [DynamicRanked (rconst (rfromListLinear [1] [0.0]))])))), dmkHVector (fromList [DynamicRanked (rconst (rfromListLinear [1] [0.0]))])))))) 0)])"
 
 testSin0rmapAccumRD01SN531b0PPj :: Assertion
 testSin0rmapAccumRD01SN531b0PPj = do
@@ -2435,8 +2435,8 @@ testSin0rmapAccumRD01SN531b0PPj = do
   printAstHVectorPretty
     IM.empty
     (simplifyInline
-     $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1)))
-    @?= "[rfromS (ssum (ssum (sproject (tproject1 (dmapAccumLDer (SNat @0) <lambda> <lambda> <lambda> [sscatter (sscatter (sscatter (sconst @[2,2] (sfromListLinear [2,2] [1.0,1.0,1.0,1.0])) (\\[i55, i56] -> [i55, i56])) (\\[i54] -> [i54])) (\\[i53] -> [i53])] (ttuple ([], ttuple (tproject1 (tproject2 (dmapAccumRDer (SNat @0) <lambda> <lambda> <lambda> [sfromIntegral (sfromR (rtranspose [1,0] (rreplicate 2 (rconst (rfromListLinear [2] [0,1]))) + rreplicate 2 (rconst (rfromListLinear [2] [0,1])))) + sreplicate (sreplicate 1.1) + sconst @[2,2] (sfromListLinear [2,2] [0.0,0.0,0.0,0.0]) + sconst @[2,2] (sfromListLinear [2,2] [0.0,0.0,0.0,0.0])] [rtranspose [2,0,1] (rreplicate 2 (rreplicate 2 (rconst (rfromListLinear [0] []))))])), [rtranspose [2,0,1] (rreplicate 2 (rreplicate 2 (rconst (rfromListLinear [0] []))))]))))) 0)))]"
+     $ g @(AstRanked PrimalSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1)))
+    @?= "[rfromS (ssum (ssum (sproject (tproject1 (dmapAccumLDer (SNat @0) <lambda> <lambda> <lambda> [sscatter (sscatter (sscatter (sconst @[2,2] (sfromListLinear [2,2] [1.0,1.0,1.0,1.0])) (\\[i55, i56] -> [i55, i56])) (\\[i54] -> [i54])) (\\[i53] -> [i53])] (ttuple ([], ttuple (tproject1 (tproject2 (dmapAccumRDer (SNat @0) <lambda> <lambda> <lambda> [sconst @[2,2] (sfromListLinear [2,2] [0.0,0.0,0.0,0.0]) + sfromIntegral (sfromR (rtranspose [1,0] (rreplicate 2 (rconst (rfromListLinear [2] [0,1]))) + rreplicate 2 (rconst (rfromListLinear [2] [0,1])))) + sreplicate (sreplicate 1.1)] [rtranspose [2,0,1] (rreplicate 2 (rreplicate 2 (rconst (rfromListLinear [0] []))))])), [rtranspose [2,0,1] (rreplicate 2 (rreplicate 2 (rconst (rfromListLinear [0] []))))]))))) 0)))]"
 
 testSin0rmapAccumRD01SN531bSPPj :: Assertion
 testSin0rmapAccumRD01SN531bSPPj = do
@@ -2502,7 +2502,7 @@ testSin0rmapAccumRD01SN531bRPPj = do
   printAstHVectorPretty
     IM.empty
     (simplifyInline
-     $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1)))
+     $ g @(AstRanked PrimalSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1)))
     @?= "[rsum (rgather [4] (rproject (tproject1 (dmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> [rconst (rfromListLinear [2,2] [1.0,1.0,1.0,1.0])] (ttuple ([], ttuple (tproject1 (tproject2 (dmapAccumRDer (SNat @1) <lambda> <lambda> <lambda> [rfromIntegral (rtranspose [1,0] (rreplicate 2 (rconst (rfromListLinear [2] [0,1]))) + rreplicate 2 (rconst (rfromListLinear [2] [0,1]))) + rreplicate 2 (rreplicate 2 1.1)] [rtranspose [2,0,1] (rreplicate 2 (rreplicate 2 (rconst (rfromListLinear [1] [0.0]))))])), [rtranspose [2,0,1] (rreplicate 2 (rreplicate 2 (rconst (rfromListLinear [1] [0.0]))))]))))) 0) (\\[i38] -> [remF (quotF i38 2) 2, remF i38 2]))]"
 
 testSin0rmapAccumRD01SN531c :: Assertion
@@ -3207,7 +3207,7 @@ testSin0ScanD8rev4 = do
 testSin0ScanD1RevPP :: Assertion
 testSin0ScanD1RevPP = do
   resetVarCounter
-  let a1 = rrev1 @(AstRanked FullSpan) @Double @0 @1
+  let a1 = rrev1 @(AstRanked PrimalSpan) @Double @0 @1
                  (\x0 -> rscanZip (\x _a -> sin x)
                            (V.fromList [voidFromSh @Double ZSR])
                            x0 (V.singleton $ DynamicRanked
@@ -3229,7 +3229,7 @@ testSin0ScanDFwdPP = do
 testSin0ScanD1Rev2PP :: Assertion
 testSin0ScanD1Rev2PP = do
   resetVarCounter
-  let a1 = rrev1 @(AstRanked FullSpan) @Double @0 @1
+  let a1 = rrev1 @(AstRanked PrimalSpan) @Double @0 @1
                  (\x0 -> rscanZip (\x a -> sin x - rfromD (a V.! 0))
                          (V.fromList [voidFromSh @Double ZSR])
                          x0 (V.singleton $ DynamicRanked
@@ -3274,7 +3274,7 @@ testSin0ScanD1Rev3 = do
 testSin0ScanD1Rev3PP :: Assertion
 testSin0ScanD1Rev3PP = do
   resetVarCounter
-  let a1 = rrev1 @(AstRanked FullSpan) @Double @0 @1
+  let a1 = rrev1 @(AstRanked PrimalSpan) @Double @0 @1
                  (\x0 -> rscanZip (\x a -> x + rfromD (a V.! 0))
                            (V.fromList [voidFromSh @Double ZSR])
                            x0
@@ -3282,7 +3282,7 @@ testSin0ScanD1Rev3PP = do
                             $ rscan (\x a -> a * x) x0
                                     (rfromList [x0 * 5, x0]))) (rscalar 1.1)
   length (printAstSimple IM.empty (simplifyInlineAst a1))
-    @?= 5196
+    @?= 5083
 
 testSin0ScanDFwd3PP :: Assertion
 testSin0ScanDFwd3PP = do
@@ -3425,7 +3425,7 @@ testSin0FoldNestedR1PP = do
                  x
   printAstHVectorPretty
     IM.empty
-    (g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1)))
+    (g @(AstRanked PrimalSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1)))
     @?= "let h20 = dmapAccumRDer (SNat @11) <lambda> <lambda> <lambda> [1.0] (ttuple ([], ttuple (tproject1 (tproject2 (dmapAccumLDer (SNat @11) <lambda> <lambda> <lambda> [1.1] [rreplicate 11 1.1])), [rreplicate 11 1.1]))) in [rsum (rproject (tproject2 h20) 0) + rproject (tproject1 h20) 0]"
 
 testSin0FoldNestedR1SimpPP :: Assertion
@@ -3444,7 +3444,7 @@ testSin0FoldNestedR1SimpPP = do
   printAstHVectorPretty
     IM.empty
     (simplifyInline
-     $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1)))
+     $ g @(AstRanked PrimalSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1)))
     @?= "let h20 = dmapAccumRDer (SNat @11) <lambda> <lambda> <lambda> [1.0] (ttuple ([], ttuple (tproject1 (tproject2 (dmapAccumLDer (SNat @11) <lambda> <lambda> <lambda> [1.1] [rreplicate 11 1.1])), [rreplicate 11 1.1]))) in [rsum (rproject (tproject2 h20) 0) + rproject (tproject1 h20) 0]"
 
 testSin0FoldNestedR1SimpNestedPP :: Assertion
@@ -3463,7 +3463,7 @@ testSin0FoldNestedR1SimpNestedPP = do
   printAstHVectorPrettyButNested
     IM.empty
     (simplifyInline
-     $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1)))
+     $ g @(AstRanked PrimalSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1)))
     @?= "let h20 = dmapAccumRDer (SNat @11) (\\h23 -> let h51 = dmapAccumRDer (SNat @22) (\\h54 -> let x70 = cos (rproject (tproject2 (tproject2 (tproject2 h54))) 0) in ttuple ([0.0 + rproject (tproject1 h54) 0], [0.0 + recip (x70 * x70) * rproject (tproject1 h54) 0])) (\\h73 -> let x99 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 h73)))) 0) ; x100 = x99 * x99 ; x103 = rproject (tproject2 (tproject2 (tproject2 (tproject1 h73)))) 0 * negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 h73)))) 0)) in ttuple ([rproject (tproject1 (tproject1 h73)) 0], [((x103 * x99 + x103 * x99) * negate (recip (x100 * x100))) * rproject (tproject1 (tproject2 h73)) 0 + rproject (tproject1 (tproject1 h73)) 0 * recip x100])) (\\h107 -> let x130 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 h107)))) 0) ; x131 = x130 * x130 ; x134 = negate (recip (x131 * x131)) * (rproject (tproject1 (tproject2 h107)) 0 * rproject (tproject2 (tproject1 h107)) 0) in ttuple ([0.0 + rproject (tproject1 (tproject1 h107)) 0 + recip x131 * rproject (tproject2 (tproject1 h107)) 0], ttuple ([], ttuple ([0.0], [0.0 + negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 h107)))) 0)) * (x130 * x134 + x130 * x134)])))) [rproject (tproject1 h23) 0] (ttuple ([], ttuple (tproject1 (tproject2 (dmapAccumLDer (SNat @22) (\\h138 -> ttuple ([rproject (tproject1 h138) 0 + tan (rproject (tproject2 h138) 0)], ttuple (tproject1 h138, []))) (\\h152 -> let x174 = cos (rproject (tproject2 (tproject2 h152)) 0) in ttuple ([rproject (tproject1 (tproject1 h152)) 0 + rproject (tproject2 (tproject1 h152)) 0 * recip (x174 * x174)], ttuple (tproject1 (tproject1 h152), []))) (\\h177 -> let x197 = cos (rproject (tproject2 (tproject2 h177)) 0) in ttuple ([0.0 + rproject (tproject1 (tproject2 (tproject1 h177))) 0 + rproject (tproject1 (tproject1 h177)) 0], [0.0 + recip (x197 * x197) * rproject (tproject1 (tproject1 h177)) 0])) [rproject (tproject2 (tproject2 (tproject2 h23))) 0] [rreplicate 22 (rproject (tproject1 (tproject2 (tproject2 h23))) 0)])), [rreplicate 22 (rproject (tproject1 (tproject2 (tproject2 h23))) 0)]))) in ttuple ([0.0 + rsum (rproject (tproject2 h51) 0)], [0.0 + rproject (tproject1 h51) 0])) (\\h201 -> let h236 = dmapAccumLDer (SNat @22) (\\h251 -> ttuple ([rproject (tproject1 h251) 0 + tan (rproject (tproject2 h251) 0)], ttuple (tproject1 h251, ttuple (tproject1 h251, [])))) (\\h265 -> let x282 = cos (rproject (tproject2 (tproject2 h265)) 0) in ttuple ([rproject (tproject1 (tproject1 h265)) 0 + rproject (tproject2 (tproject1 h265)) 0 * recip (x282 * x282)], ttuple (tproject1 (tproject1 h265), ttuple (tproject1 (tproject1 h265), [])))) (\\h285 -> let x306 = cos (rproject (tproject2 (tproject2 h285)) 0) in ttuple ([0.0 + rproject (tproject1 (tproject2 (tproject1 h285))) 0 + rproject (tproject1 (tproject2 (tproject2 (tproject1 h285)))) 0 + rproject (tproject1 (tproject1 h285)) 0], [0.0 + recip (x306 * x306) * rproject (tproject1 (tproject1 h285)) 0])) [rproject (tproject2 (tproject2 (tproject2 (tproject2 h201)))) 0] [rreplicate 22 (rproject (tproject1 (tproject2 (tproject2 (tproject2 h201)))) 0)] ; h248 = dmapAccumRDer (SNat @22) (\\h311 -> let x333 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h311))))) 0) ; x334 = x333 * x333 ; x337 = rproject (tproject2 (tproject2 (tproject1 (tproject2 h311)))) 0 * negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h311))))) 0)) in ttuple ([rproject (tproject1 h311) 0], [((x337 * x333 + x337 * x333) * negate (recip (x334 * x334))) * rproject (tproject1 (tproject2 (tproject2 h311))) 0 + rproject (tproject1 h311) 0 * recip x334])) (\\h341 -> let x380 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h341)))))) 0) ; x381 = x380 * x380 ; x383 = negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h341)))))) 0)) ; x385 = rproject (tproject2 (tproject2 (tproject1 (tproject2 (tproject2 h341))))) 0 * x383 ; x386 = x381 * x381 ; x387 = x385 * x380 + x385 * x380 ; x388 = negate (recip x386) ; x393 = rproject (tproject2 (tproject2 (tproject1 (tproject2 (tproject1 h341))))) 0 * x383 + ((rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 h341)))))) 0 * cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h341)))))) 0)) * -1.0) * rproject (tproject2 (tproject2 (tproject1 (tproject2 (tproject2 h341))))) 0 ; x396 = rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 h341)))))) 0 * negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h341)))))) 0)) ; x397 = x396 * x380 + x396 * x380 in ttuple ([rproject (tproject1 (tproject1 h341)) 0], [((x393 * x380 + x396 * x385 + x393 * x380 + x396 * x385) * x388 + (((x397 * x381 + x397 * x381) * negate (recip (x386 * x386))) * -1.0) * x387) * rproject (tproject1 (tproject2 (tproject2 (tproject2 h341)))) 0 + rproject (tproject1 (tproject2 (tproject2 (tproject1 h341)))) 0 * (x387 * x388) + rproject (tproject1 (tproject1 h341)) 0 * recip x381 + (x397 * negate (recip (x381 * x381))) * rproject (tproject1 (tproject2 h341)) 0])) (\\h403 -> let x431 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h403)))))) 0) ; x432 = x431 * x431 ; x434 = negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h403)))))) 0)) ; x436 = rproject (tproject2 (tproject2 (tproject1 (tproject2 (tproject2 h403))))) 0 * x434 ; x437 = x432 * x432 ; x438 = x436 * x431 + x436 * x431 ; x439 = negate (recip x437) ; x442 = rproject (tproject1 (tproject2 (tproject2 (tproject2 h403)))) 0 * rproject (tproject2 (tproject1 h403)) 0 ; x443 = negate (recip (x437 * x437)) * (-1.0 * (x438 * x442)) ; x444 = x439 * x442 ; x445 = x431 * x444 + x431 * x444 ; x448 = x432 * x443 + x432 * x443 + negate (recip (x432 * x432)) * (rproject (tproject1 (tproject2 h403)) 0 * rproject (tproject2 (tproject1 h403)) 0) in ttuple ([0.0 + recip x432 * rproject (tproject2 (tproject1 h403)) 0 + rproject (tproject1 (tproject1 h403)) 0], ttuple (ttuple ([], ttuple ([0.0], [0.0 + x434 * x445])), ttuple ([0.0 + (x438 * x439) * rproject (tproject2 (tproject1 h403)) 0], ttuple ([], ttuple ([0.0], [0.0 + negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h403)))))) 0)) * (x431 * x448 + x431 * x448 + x436 * x444 + x436 * x444) + cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h403)))))) 0) * (-1.0 * (rproject (tproject2 (tproject2 (tproject1 (tproject2 (tproject2 h403))))) 0 * x445))])))))) [rproject (tproject1 (tproject1 h201)) 0] (ttuple (ttuple ([], ttuple ([rproject (tproject1 (tproject2 (dmapAccumLDer (SNat @22) (\\h455 -> let x462 = cos (rproject (tproject2 (tproject2 (tproject2 h455))) 0) in ttuple ([rproject (tproject1 h455) 0 + rproject (tproject1 (tproject2 h455)) 0 * recip (x462 * x462)], ttuple ([rproject (tproject1 h455) 0], []))) (\\h466 -> let x483 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 h466)))) 0) ; x484 = x483 * x483 ; x487 = rproject (tproject2 (tproject2 (tproject2 (tproject1 h466)))) 0 * negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 h466)))) 0)) in ttuple ([rproject (tproject1 (tproject1 h466)) 0 + rproject (tproject1 (tproject2 (tproject1 h466))) 0 * recip x484 + ((x487 * x483 + x487 * x483) * negate (recip (x484 * x484))) * rproject (tproject1 (tproject2 (tproject2 h466))) 0], ttuple ([rproject (tproject1 (tproject1 h466)) 0], []))) (\\h492 -> let x505 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 h492)))) 0) ; x506 = x505 * x505 ; x509 = negate (recip (x506 * x506)) * (rproject (tproject1 (tproject2 (tproject2 h492))) 0 * rproject (tproject1 (tproject1 h492)) 0) in ttuple ([0.0 + rproject (tproject1 (tproject1 h492)) 0 + rproject (tproject1 (tproject2 (tproject1 h492))) 0], ttuple ([0.0 + recip x506 * rproject (tproject1 (tproject1 h492)) 0], ttuple ([0.0], [0.0 + negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 h492)))) 0)) * (x505 * x509 + x505 * x509)])))) [rproject (tproject2 (tproject2 (tproject2 (tproject1 h201)))) 0] (ttuple ([rreplicate 22 (rproject (tproject1 (tproject2 (tproject2 (tproject1 h201)))) 0)], ttuple (tproject1 (tproject2 h236), [rreplicate 22 (rproject (tproject1 (tproject2 (tproject2 (tproject2 h201)))) 0)])))))) 0], [rreplicate 22 (rproject (tproject1 (tproject2 (tproject2 (tproject1 h201)))) 0)])), ttuple (tproject1 (tproject2 (dmapAccumRDer (SNat @22) (\\h514 -> let x531 = cos (rproject (tproject2 (tproject2 (tproject2 h514))) 0) in ttuple ([0.0 + rproject (tproject1 h514) 0], ttuple (tproject1 h514, [0.0 + recip (x531 * x531) * rproject (tproject1 h514) 0]))) (\\h534 -> let h555 = let x547 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 h534)))) 0) ; x548 = x547 * x547 ; x551 = rproject (tproject2 (tproject2 (tproject2 (tproject1 h534)))) 0 * negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 h534)))) 0)) in ttuple ([rproject (tproject1 (tproject1 h534)) 0], [((x551 * x547 + x551 * x547) * negate (recip (x548 * x548))) * rproject (tproject1 (tproject2 h534)) 0 + rproject (tproject1 (tproject1 h534)) 0 * recip x548]) in ttuple (tproject1 h555, ttuple (tproject1 (tproject1 h534), tproject2 h555))) (\\h556 -> let h589 = let x581 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 h556)))) 0) ; x582 = x581 * x581 ; x585 = negate (recip (x582 * x582)) * (rproject (tproject1 (tproject2 h556)) 0 * rproject (tproject2 (tproject2 (tproject1 h556))) 0) in ttuple ([0.0 + rproject (tproject1 (tproject1 h556)) 0 + recip x582 * rproject (tproject2 (tproject2 (tproject1 h556))) 0], ttuple ([], ttuple ([0.0], [0.0 + negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 h556)))) 0)) * (x581 * x585 + x581 * x585)]))) in ttuple ([rproject (tproject1 h589) 0 + rproject (tproject1 (tproject2 (tproject1 h556))) 0], tproject2 h589)) [rproject (tproject1 (tproject2 h201)) 0] (ttuple ([], ttuple ([rproject (tproject1 (tproject2 (tproject2 h236))) 0], [rreplicate 22 (rproject (tproject1 (tproject2 (tproject2 (tproject2 h201)))) 0)]))))), ttuple ([], ttuple ([rproject (tproject1 (tproject2 (tproject2 h236))) 0], [rreplicate 22 (rproject (tproject1 (tproject2 (tproject2 (tproject2 h201)))) 0)]))))) in ttuple ([rsum (rproject (tproject2 h248) 0)], [rproject (tproject1 h248) 0])) (\\h592 -> let h629 = dmapAccumLDer (SNat @22) (\\h645 -> ttuple ([rproject (tproject1 h645) 0 + tan (rproject (tproject2 h645) 0)], ttuple (tproject1 h645, ttuple (tproject1 h645, [])))) (\\h659 -> let x676 = cos (rproject (tproject2 (tproject2 h659)) 0) in ttuple ([rproject (tproject1 (tproject1 h659)) 0 + rproject (tproject2 (tproject1 h659)) 0 * recip (x676 * x676)], ttuple (tproject1 (tproject1 h659), ttuple (tproject1 (tproject1 h659), [])))) (\\h679 -> let x700 = cos (rproject (tproject2 (tproject2 h679)) 0) in ttuple ([0.0 + rproject (tproject1 (tproject2 (tproject1 h679))) 0 + rproject (tproject1 (tproject2 (tproject2 (tproject1 h679)))) 0 + rproject (tproject1 (tproject1 h679)) 0], [0.0 + recip (x700 * x700) * rproject (tproject1 (tproject1 h679)) 0])) [rproject (tproject2 (tproject2 (tproject2 (tproject2 h592)))) 0] [rreplicate 22 (rproject (tproject1 (tproject2 (tproject2 (tproject2 h592)))) 0)] ; h637 = dmapAccumLDer (SNat @22) (\\h705 -> let x727 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h705))))) 0) ; x728 = x727 * x727 ; x731 = negate (recip (x728 * x728)) * (rproject (tproject1 (tproject2 (tproject2 h705))) 0 * rproject (tproject1 (tproject2 h705)) 0) in ttuple ([0.0 + rproject (tproject1 h705) 0 + recip x728 * rproject (tproject1 (tproject2 h705)) 0], ttuple ([], ttuple ([0.0], [0.0 + negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h705))))) 0)) * (x727 * x731 + x727 * x731)])))) (\\h735 -> let x774 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h735)))))) 0) ; x775 = x774 * x774 ; x776 = x775 * x775 ; x777 = negate (recip x776) ; x780 = rproject (tproject1 (tproject2 (tproject2 (tproject2 h735)))) 0 * rproject (tproject1 (tproject2 (tproject2 h735))) 0 ; x781 = x777 * x780 ; x784 = rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 h735)))))) 0 * negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h735)))))) 0)) ; x785 = x784 * x774 + x784 * x774 ; x790 = (((x785 * x775 + x785 * x775) * negate (recip (x776 * x776))) * -1.0) * x780 + (rproject (tproject1 (tproject2 (tproject2 (tproject1 h735)))) 0 * rproject (tproject1 (tproject2 (tproject2 h735))) 0 + rproject (tproject1 (tproject2 (tproject1 h735))) 0 * rproject (tproject1 (tproject2 (tproject2 (tproject2 h735)))) 0) * x777 in ttuple ([rproject (tproject1 (tproject1 h735)) 0 + (x785 * negate (recip (x775 * x775))) * rproject (tproject1 (tproject2 (tproject2 h735))) 0 + rproject (tproject1 (tproject2 (tproject1 h735))) 0 * recip x775], ttuple ([], ttuple ([0.0], [((rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 h735)))))) 0 * cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h735)))))) 0)) * -1.0) * (x774 * x781 + x774 * x781) + (x784 * x781 + x790 * x774 + x784 * x781 + x790 * x774) * negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h735)))))) 0))])))) (\\h797 -> let x825 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h797)))))) 0) ; x826 = x825 * x825 ; x827 = x826 * x826 ; x828 = negate (recip x827) ; x831 = rproject (tproject1 (tproject2 (tproject2 (tproject2 h797)))) 0 * rproject (tproject1 (tproject2 (tproject2 h797))) 0 ; x832 = x828 * x831 ; x835 = negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h797)))))) 0)) * rproject (tproject2 (tproject2 (tproject2 (tproject1 h797)))) 0 ; x836 = x825 * x835 + x825 * x835 ; x837 = x828 * x836 ; x838 = negate (recip (x827 * x827)) * (-1.0 * (x831 * x836)) ; x841 = x826 * x838 + x826 * x838 + negate (recip (x826 * x826)) * (rproject (tproject1 (tproject2 (tproject2 h797))) 0 * rproject (tproject1 (tproject1 h797)) 0) in ttuple ([0.0 + rproject (tproject1 (tproject1 h797)) 0], ttuple ([0.0 + rproject (tproject1 (tproject2 (tproject2 (tproject2 h797)))) 0 * x837 + recip x826 * rproject (tproject1 (tproject1 h797)) 0], ttuple ([0.0 + rproject (tproject1 (tproject2 (tproject2 h797))) 0 * x837], ttuple ([], ttuple ([0.0], [0.0 + negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h797)))))) 0)) * (x825 * x841 + x825 * x841 + x832 * x835 + x832 * x835) + cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h797)))))) 0) * (-1.0 * ((x825 * x832 + x825 * x832) * rproject (tproject2 (tproject2 (tproject2 (tproject1 h797)))) 0))])))))) [0.0 + rproject (tproject2 (tproject1 h592)) 0] (ttuple ([rconst (rfromListLinear [22] [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]) + rreplicate 22 (rproject (tproject1 (tproject1 h592)) 0)], ttuple (tproject1 (tproject2 (dmapAccumRDer (SNat @22) (\\h849 -> let x866 = cos (rproject (tproject2 (tproject2 (tproject2 h849))) 0) in ttuple ([0.0 + rproject (tproject1 h849) 0], ttuple (tproject1 h849, [0.0 + recip (x866 * x866) * rproject (tproject1 h849) 0]))) (\\h869 -> let h900 = let x892 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 h869)))) 0) ; x893 = x892 * x892 ; x896 = rproject (tproject2 (tproject2 (tproject2 (tproject1 h869)))) 0 * negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 h869)))) 0)) in ttuple ([rproject (tproject1 (tproject1 h869)) 0], [((x896 * x892 + x896 * x892) * negate (recip (x893 * x893))) * rproject (tproject1 (tproject2 h869)) 0 + rproject (tproject1 (tproject1 h869)) 0 * recip x893]) in ttuple (tproject1 h900, ttuple (tproject1 (tproject1 h869), tproject2 h900))) (\\h901 -> let h924 = let x916 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 h901)))) 0) ; x917 = x916 * x916 ; x920 = negate (recip (x917 * x917)) * (rproject (tproject1 (tproject2 h901)) 0 * rproject (tproject2 (tproject2 (tproject1 h901))) 0) in ttuple ([0.0 + rproject (tproject1 (tproject1 h901)) 0 + recip x917 * rproject (tproject2 (tproject2 (tproject1 h901))) 0], ttuple ([], ttuple ([0.0], [0.0 + negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 h901)))) 0)) * (x916 * x920 + x916 * x920)]))) in ttuple ([rproject (tproject1 h924) 0 + rproject (tproject1 (tproject2 (tproject1 h901))) 0], tproject2 h924)) [rproject (tproject1 (tproject2 h592)) 0] (ttuple ([], ttuple ([rproject (tproject1 (tproject2 (tproject2 h629))) 0], [rreplicate 22 (rproject (tproject1 (tproject2 (tproject2 (tproject2 h592)))) 0)]))))), ttuple ([], ttuple ([rproject (tproject1 (tproject2 (tproject2 h629))) 0], [rreplicate 22 (rproject (tproject1 (tproject2 (tproject2 (tproject2 h592)))) 0)]))))) ; h640 = dmapAccumRDer (SNat @22) (\\h927 -> let x935 = cos (rproject (tproject2 (tproject2 (tproject2 h927))) 0) in ttuple ([0.0 + rproject (tproject1 (tproject1 (tproject2 h927))) 0 + rproject (tproject1 h927) 0], [0.0 + recip (x935 * x935) * rproject (tproject1 h927) 0])) (\\h939 -> let x957 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 h939)))) 0) ; x958 = x957 * x957 ; x961 = rproject (tproject2 (tproject2 (tproject2 (tproject1 h939)))) 0 * negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 h939)))) 0)) in ttuple ([rproject (tproject1 (tproject1 (tproject2 (tproject1 h939)))) 0 + rproject (tproject1 (tproject1 h939)) 0], [((x961 * x957 + x961 * x957) * negate (recip (x958 * x958))) * rproject (tproject1 (tproject2 h939)) 0 + rproject (tproject1 (tproject1 h939)) 0 * recip x958])) (\\h966 -> let x980 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 h966)))) 0) ; x981 = x980 * x980 ; x984 = negate (recip (x981 * x981)) * (rproject (tproject1 (tproject2 h966)) 0 * rproject (tproject2 (tproject1 h966)) 0) in ttuple ([0.0 + rproject (tproject1 (tproject1 h966)) 0 + recip x981 * rproject (tproject2 (tproject1 h966)) 0], ttuple (ttuple ([0.0 + rproject (tproject1 (tproject1 h966)) 0], []), ttuple ([0.0], [0.0 + negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 h966)))) 0)) * (x980 * x984 + x980 * x984)])))) [0.0] (ttuple (ttuple ([rproject (tproject1 (tproject2 (tproject2 h637))) 0], []), ttuple (tproject1 (tproject2 h629), [rreplicate 22 (rproject (tproject1 (tproject2 (tproject2 (tproject2 h592)))) 0)]))) in ttuple ([0.0 + rproject (tproject1 h637) 0], ttuple ([], ttuple ([0.0 + rsum (rproject (tproject2 h640) 0) + rsum (rproject (tproject2 (tproject2 (tproject2 h637))) 0)], [0.0 + rproject (tproject1 h640) 0])))) [1.0] (ttuple ([], ttuple (tproject1 (tproject2 (dmapAccumLDer (SNat @11) (\\h989 -> ttuple ([rproject (tproject1 (dmapAccumLDer (SNat @22) (\\h1007 -> ttuple ([rproject (tproject1 h1007) 0 + tan (rproject (tproject2 h1007) 0)], [])) (\\h1014 -> let x1027 = cos (rproject (tproject2 (tproject2 h1014)) 0) in ttuple ([rproject (tproject1 (tproject1 h1014)) 0 + rproject (tproject2 (tproject1 h1014)) 0 * recip (x1027 * x1027)], [])) (\\h1030 -> let x1041 = cos (rproject (tproject2 (tproject2 h1030)) 0) in ttuple ([0.0 + rproject (tproject1 (tproject1 h1030)) 0], [0.0 + recip (x1041 * x1041) * rproject (tproject1 (tproject1 h1030)) 0])) [rproject (tproject2 h989) 0] [rreplicate 22 (rproject (tproject1 h989) 0)])) 0], ttuple (tproject1 h989, []))) (\\h1044 -> ttuple ([rproject (tproject1 (dmapAccumLDer (SNat @22) (\\h1077 -> let x1095 = cos (rproject (tproject2 (tproject2 (tproject2 h1077))) 0) in ttuple ([rproject (tproject1 h1077) 0 + rproject (tproject1 (tproject2 h1077)) 0 * recip (x1095 * x1095)], [])) (\\h1098 -> let x1125 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 h1098)))) 0) ; x1126 = x1125 * x1125 ; x1129 = rproject (tproject2 (tproject2 (tproject2 (tproject1 h1098)))) 0 * negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 h1098)))) 0)) in ttuple ([rproject (tproject1 (tproject1 h1098)) 0 + rproject (tproject1 (tproject2 (tproject1 h1098))) 0 * recip x1126 + ((x1129 * x1125 + x1129 * x1125) * negate (recip (x1126 * x1126))) * rproject (tproject1 (tproject2 (tproject2 h1098))) 0], [])) (\\h1133 -> let x1156 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 h1133)))) 0) ; x1157 = x1156 * x1156 ; x1160 = negate (recip (x1157 * x1157)) * (rproject (tproject1 (tproject2 (tproject2 h1133))) 0 * rproject (tproject1 (tproject1 h1133)) 0) in ttuple ([0.0 + rproject (tproject1 (tproject1 h1133)) 0], ttuple ([0.0 + recip x1157 * rproject (tproject1 (tproject1 h1133)) 0], ttuple ([0.0], [0.0 + negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 h1133)))) 0)) * (x1156 * x1160 + x1156 * x1160)])))) [rproject (tproject2 (tproject1 h1044)) 0] (ttuple ([rreplicate 22 (rproject (tproject1 (tproject1 h1044)) 0)], ttuple (tproject1 (tproject2 (dmapAccumLDer (SNat @22) (\\h1164 -> ttuple ([rproject (tproject1 h1164) 0 + tan (rproject (tproject2 h1164) 0)], ttuple (tproject1 h1164, []))) (\\h1178 -> let x1194 = cos (rproject (tproject2 (tproject2 h1178)) 0) in ttuple ([rproject (tproject1 (tproject1 h1178)) 0 + rproject (tproject2 (tproject1 h1178)) 0 * recip (x1194 * x1194)], ttuple (tproject1 (tproject1 h1178), []))) (\\h1197 -> let x1221 = cos (rproject (tproject2 (tproject2 h1197)) 0) in ttuple ([0.0 + rproject (tproject1 (tproject2 (tproject1 h1197))) 0 + rproject (tproject1 (tproject1 h1197)) 0], [0.0 + recip (x1221 * x1221) * rproject (tproject1 (tproject1 h1197)) 0])) [rproject (tproject2 (tproject2 h1044)) 0] [rreplicate 22 (rproject (tproject1 (tproject2 h1044)) 0)])), [rreplicate 22 (rproject (tproject1 (tproject2 h1044)) 0)]))))) 0], ttuple (tproject1 (tproject1 h1044), []))) (\\h1225 -> let h1245 = dmapAccumRDer (SNat @22) (\\h1251 -> let x1258 = cos (rproject (tproject2 (tproject2 (tproject2 h1251))) 0) in ttuple ([0.0 + rproject (tproject1 h1251) 0], [0.0 + recip (x1258 * x1258) * rproject (tproject1 h1251) 0])) (\\h1261 -> let x1273 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 h1261)))) 0) ; x1274 = x1273 * x1273 ; x1277 = rproject (tproject2 (tproject2 (tproject2 (tproject1 h1261)))) 0 * negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 h1261)))) 0)) in ttuple ([rproject (tproject1 (tproject1 h1261)) 0], [((x1277 * x1273 + x1277 * x1273) * negate (recip (x1274 * x1274))) * rproject (tproject1 (tproject2 h1261)) 0 + rproject (tproject1 (tproject1 h1261)) 0 * recip x1274])) (\\h1281 -> let x1293 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 h1281)))) 0) ; x1294 = x1293 * x1293 ; x1297 = negate (recip (x1294 * x1294)) * (rproject (tproject1 (tproject2 h1281)) 0 * rproject (tproject2 (tproject1 h1281)) 0) in ttuple ([0.0 + rproject (tproject1 (tproject1 h1281)) 0 + recip x1294 * rproject (tproject2 (tproject1 h1281)) 0], ttuple ([], ttuple ([0.0], [0.0 + negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 h1281)))) 0)) * (x1293 * x1297 + x1293 * x1297)])))) [rproject (tproject1 (tproject1 h1225)) 0] (ttuple ([], ttuple (tproject1 (tproject2 (dmapAccumLDer (SNat @22) (\\h1301 -> ttuple ([rproject (tproject1 h1301) 0 + tan (rproject (tproject2 h1301) 0)], ttuple (tproject1 h1301, []))) (\\h1307 -> let x1314 = cos (rproject (tproject2 (tproject2 h1307)) 0) in ttuple ([rproject (tproject1 (tproject1 h1307)) 0 + rproject (tproject2 (tproject1 h1307)) 0 * recip (x1314 * x1314)], ttuple (tproject1 (tproject1 h1307), []))) (\\h1317 -> let x1325 = cos (rproject (tproject2 (tproject2 h1317)) 0) in ttuple ([0.0 + rproject (tproject1 (tproject2 (tproject1 h1317))) 0 + rproject (tproject1 (tproject1 h1317)) 0], [0.0 + recip (x1325 * x1325) * rproject (tproject1 (tproject1 h1317)) 0])) [rproject (tproject2 (tproject2 h1225)) 0] [rreplicate 22 (rproject (tproject1 (tproject2 h1225)) 0)])), [rreplicate 22 (rproject (tproject1 (tproject2 h1225)) 0)]))) in ttuple ([0.0 + rproject (tproject1 (tproject2 (tproject1 h1225))) 0 + rsum (rproject (tproject2 h1245) 0)], [0.0 + rproject (tproject1 h1245) 0])) [1.1] [rreplicate 11 1.1])), [rreplicate 11 1.1]))) in [rsum (rproject (tproject2 h20) 0) + rproject (tproject1 h20) 0]"
 
 testSin0FoldNestedR0LengthPPs :: Assertion
@@ -3481,8 +3481,8 @@ testSin0FoldNestedR0LengthPPs = do
     (printAstHVectorSimple
       IM.empty
       (simplifyInline
-       $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1))))
-    @?= 2728
+       $ g @(AstRanked PrimalSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1))))
+    @?= 2680
 
 testSin0FoldNestedR1LengthPPs :: Assertion
 testSin0FoldNestedR1LengthPPs = do
@@ -3501,8 +3501,8 @@ testSin0FoldNestedR1LengthPPs = do
     (printAstHVectorSimple
       IM.empty
       (simplifyInline
-       $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1))))
-    @?= 31616
+       $ g @(AstRanked PrimalSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1))))
+    @?= 31568
 
 testSin0FoldNestedR2LengthPPs :: Assertion
 testSin0FoldNestedR2LengthPPs = do
@@ -3523,8 +3523,8 @@ testSin0FoldNestedR2LengthPPs = do
     (printAstHVectorSimple
        IM.empty
        (simplifyInline
-        $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1))))
-    @?= 407800
+        $ g @(AstRanked PrimalSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1))))
+    @?= 407752
 
 testSin0FoldNestedR3LengthPPs :: Assertion
 testSin0FoldNestedR3LengthPPs = do
@@ -3547,8 +3547,8 @@ testSin0FoldNestedR3LengthPPs = do
     (printAstHVectorSimple
        IM.empty
        (simplifyInline
-        $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1))))
-    @?= 6106361
+        $ g @(AstRanked PrimalSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1))))
+    @?= 6106313
 
 -- Takes 100s, probably due to some of the pipelines forcing all derivs.
 _testSin0FoldNestedR4LengthPPs :: Assertion
@@ -3574,7 +3574,7 @@ _testSin0FoldNestedR4LengthPPs = do
     (printAstHVectorSimple
        IM.empty
        (simplifyInline
-        $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1))))
+        $ g @(AstRanked PrimalSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1))))
     @?= 0
 
 _testSin0FoldNestedR5LengthPPs :: Assertion
@@ -3602,7 +3602,7 @@ _testSin0FoldNestedR5LengthPPs = do
     (printAstHVectorSimple
        IM.empty
        (simplifyInline
-        $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1))))
+        $ g @(AstRanked PrimalSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1))))
     @?= 0
 
 testSin0FoldNestedR2LengthPPsDummy7 :: Assertion
@@ -3626,8 +3626,8 @@ testSin0FoldNestedR2LengthPPsDummy7 = do
     (printAstHVectorSimple
        IM.empty
        (simplifyInline
-        $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1))))
-    @?= 157691
+        $ g @(AstRanked PrimalSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1))))
+    @?= 157643
 
 testSin0FoldNestedR2Dummy7 :: Assertion
 testSin0FoldNestedR2Dummy7 = do
@@ -3688,7 +3688,7 @@ testSin0MapAccumNestedR1PP = do
   printAstHVectorPrettyButNested
     IM.empty
     (simplifyInline
-     $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1)))
+     $ g @(AstRanked PrimalSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1)))
     @?= "let h16 = dmapAccumRDer (SNat @2) (\\h19 -> let h42 = dmapAccumRDer (SNat @2) (\\h45 -> let x61 = cos (rproject (tproject2 (tproject2 (tproject2 h45))) 0) in ttuple ([0.0 + rproject (tproject1 h45) 0], [0.0 + recip (x61 * x61) * rproject (tproject1 h45) 0])) (\\h64 -> let x90 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 h64)))) 0) ; x91 = x90 * x90 ; x94 = rproject (tproject2 (tproject2 (tproject2 (tproject1 h64)))) 0 * negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 h64)))) 0)) in ttuple ([rproject (tproject1 (tproject1 h64)) 0], [((x94 * x90 + x94 * x90) * negate (recip (x91 * x91))) * rproject (tproject1 (tproject2 h64)) 0 + rproject (tproject1 (tproject1 h64)) 0 * recip x91])) (\\h98 -> let x121 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 h98)))) 0) ; x122 = x121 * x121 ; x125 = negate (recip (x122 * x122)) * (rproject (tproject1 (tproject2 h98)) 0 * rproject (tproject2 (tproject1 h98)) 0) in ttuple ([0.0 + rproject (tproject1 (tproject1 h98)) 0 + recip x122 * rproject (tproject2 (tproject1 h98)) 0], ttuple ([], ttuple ([0.0], [0.0 + negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 h98)))) 0)) * (x121 * x125 + x121 * x125)])))) [rproject (tproject1 h19) 0] (ttuple ([], ttuple (tproject1 (tproject2 (dmapAccumLDer (SNat @2) (\\h129 -> ttuple ([rproject (tproject1 h129) 0 + tan (rproject (tproject2 h129) 0)], ttuple (tproject1 h129, []))) (\\h143 -> let x165 = cos (rproject (tproject2 (tproject2 h143)) 0) in ttuple ([rproject (tproject1 (tproject1 h143)) 0 + rproject (tproject2 (tproject1 h143)) 0 * recip (x165 * x165)], ttuple (tproject1 (tproject1 h143), []))) (\\h168 -> let x188 = cos (rproject (tproject2 (tproject2 h168)) 0) in ttuple ([0.0 + rproject (tproject1 (tproject2 (tproject1 h168))) 0 + rproject (tproject1 (tproject1 h168)) 0], [0.0 + recip (x188 * x188) * rproject (tproject1 (tproject1 h168)) 0])) [rproject (tproject2 (tproject2 (tproject2 h19))) 0] [rreplicate 2 (rproject (tproject1 (tproject2 (tproject2 h19))) 0)])), [rreplicate 2 (rproject (tproject1 (tproject2 (tproject2 h19))) 0)]))) in ttuple ([0.0 + rsum (rproject (tproject2 h42) 0)], [0.0 + rproject (tproject1 h42) 0])) (\\h192 -> let h227 = dmapAccumLDer (SNat @2) (\\h242 -> ttuple ([rproject (tproject1 h242) 0 + tan (rproject (tproject2 h242) 0)], ttuple (tproject1 h242, ttuple (tproject1 h242, [])))) (\\h256 -> let x273 = cos (rproject (tproject2 (tproject2 h256)) 0) in ttuple ([rproject (tproject1 (tproject1 h256)) 0 + rproject (tproject2 (tproject1 h256)) 0 * recip (x273 * x273)], ttuple (tproject1 (tproject1 h256), ttuple (tproject1 (tproject1 h256), [])))) (\\h276 -> let x297 = cos (rproject (tproject2 (tproject2 h276)) 0) in ttuple ([0.0 + rproject (tproject1 (tproject2 (tproject1 h276))) 0 + rproject (tproject1 (tproject2 (tproject2 (tproject1 h276)))) 0 + rproject (tproject1 (tproject1 h276)) 0], [0.0 + recip (x297 * x297) * rproject (tproject1 (tproject1 h276)) 0])) [rproject (tproject2 (tproject2 (tproject2 (tproject2 h192)))) 0] [rreplicate 2 (rproject (tproject1 (tproject2 (tproject2 (tproject2 h192)))) 0)] ; h239 = dmapAccumRDer (SNat @2) (\\h302 -> let x324 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h302))))) 0) ; x325 = x324 * x324 ; x328 = rproject (tproject2 (tproject2 (tproject1 (tproject2 h302)))) 0 * negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h302))))) 0)) in ttuple ([rproject (tproject1 h302) 0], [((x328 * x324 + x328 * x324) * negate (recip (x325 * x325))) * rproject (tproject1 (tproject2 (tproject2 h302))) 0 + rproject (tproject1 h302) 0 * recip x325])) (\\h332 -> let x371 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h332)))))) 0) ; x372 = x371 * x371 ; x374 = negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h332)))))) 0)) ; x376 = rproject (tproject2 (tproject2 (tproject1 (tproject2 (tproject2 h332))))) 0 * x374 ; x377 = x372 * x372 ; x378 = x376 * x371 + x376 * x371 ; x379 = negate (recip x377) ; x384 = rproject (tproject2 (tproject2 (tproject1 (tproject2 (tproject1 h332))))) 0 * x374 + ((rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 h332)))))) 0 * cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h332)))))) 0)) * -1.0) * rproject (tproject2 (tproject2 (tproject1 (tproject2 (tproject2 h332))))) 0 ; x387 = rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 h332)))))) 0 * negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h332)))))) 0)) ; x388 = x387 * x371 + x387 * x371 in ttuple ([rproject (tproject1 (tproject1 h332)) 0], [((x384 * x371 + x387 * x376 + x384 * x371 + x387 * x376) * x379 + (((x388 * x372 + x388 * x372) * negate (recip (x377 * x377))) * -1.0) * x378) * rproject (tproject1 (tproject2 (tproject2 (tproject2 h332)))) 0 + rproject (tproject1 (tproject2 (tproject2 (tproject1 h332)))) 0 * (x378 * x379) + rproject (tproject1 (tproject1 h332)) 0 * recip x372 + (x388 * negate (recip (x372 * x372))) * rproject (tproject1 (tproject2 h332)) 0])) (\\h394 -> let x422 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h394)))))) 0) ; x423 = x422 * x422 ; x425 = negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h394)))))) 0)) ; x427 = rproject (tproject2 (tproject2 (tproject1 (tproject2 (tproject2 h394))))) 0 * x425 ; x428 = x423 * x423 ; x429 = x427 * x422 + x427 * x422 ; x430 = negate (recip x428) ; x433 = rproject (tproject1 (tproject2 (tproject2 (tproject2 h394)))) 0 * rproject (tproject2 (tproject1 h394)) 0 ; x434 = negate (recip (x428 * x428)) * (-1.0 * (x429 * x433)) ; x435 = x430 * x433 ; x436 = x422 * x435 + x422 * x435 ; x439 = x423 * x434 + x423 * x434 + negate (recip (x423 * x423)) * (rproject (tproject1 (tproject2 h394)) 0 * rproject (tproject2 (tproject1 h394)) 0) in ttuple ([0.0 + recip x423 * rproject (tproject2 (tproject1 h394)) 0 + rproject (tproject1 (tproject1 h394)) 0], ttuple (ttuple ([], ttuple ([0.0], [0.0 + x425 * x436])), ttuple ([0.0 + (x429 * x430) * rproject (tproject2 (tproject1 h394)) 0], ttuple ([], ttuple ([0.0], [0.0 + negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h394)))))) 0)) * (x422 * x439 + x422 * x439 + x427 * x435 + x427 * x435) + cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h394)))))) 0) * (-1.0 * (rproject (tproject2 (tproject2 (tproject1 (tproject2 (tproject2 h394))))) 0 * x436))])))))) [rproject (tproject1 (tproject1 h192)) 0] (ttuple (ttuple ([], ttuple ([rproject (tproject1 (tproject2 (dmapAccumLDer (SNat @2) (\\h446 -> let x453 = cos (rproject (tproject2 (tproject2 (tproject2 h446))) 0) in ttuple ([rproject (tproject1 h446) 0 + rproject (tproject1 (tproject2 h446)) 0 * recip (x453 * x453)], ttuple ([rproject (tproject1 h446) 0], []))) (\\h457 -> let x474 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 h457)))) 0) ; x475 = x474 * x474 ; x478 = rproject (tproject2 (tproject2 (tproject2 (tproject1 h457)))) 0 * negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 h457)))) 0)) in ttuple ([rproject (tproject1 (tproject1 h457)) 0 + rproject (tproject1 (tproject2 (tproject1 h457))) 0 * recip x475 + ((x478 * x474 + x478 * x474) * negate (recip (x475 * x475))) * rproject (tproject1 (tproject2 (tproject2 h457))) 0], ttuple ([rproject (tproject1 (tproject1 h457)) 0], []))) (\\h483 -> let x496 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 h483)))) 0) ; x497 = x496 * x496 ; x500 = negate (recip (x497 * x497)) * (rproject (tproject1 (tproject2 (tproject2 h483))) 0 * rproject (tproject1 (tproject1 h483)) 0) in ttuple ([0.0 + rproject (tproject1 (tproject1 h483)) 0 + rproject (tproject1 (tproject2 (tproject1 h483))) 0], ttuple ([0.0 + recip x497 * rproject (tproject1 (tproject1 h483)) 0], ttuple ([0.0], [0.0 + negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 h483)))) 0)) * (x496 * x500 + x496 * x500)])))) [rproject (tproject2 (tproject2 (tproject2 (tproject1 h192)))) 0] (ttuple ([rreplicate 2 (rproject (tproject1 (tproject2 (tproject2 (tproject1 h192)))) 0)], ttuple (tproject1 (tproject2 h227), [rreplicate 2 (rproject (tproject1 (tproject2 (tproject2 (tproject2 h192)))) 0)])))))) 0], [rreplicate 2 (rproject (tproject1 (tproject2 (tproject2 (tproject1 h192)))) 0)])), ttuple (tproject1 (tproject2 (dmapAccumRDer (SNat @2) (\\h505 -> let x522 = cos (rproject (tproject2 (tproject2 (tproject2 h505))) 0) in ttuple ([0.0 + rproject (tproject1 h505) 0], ttuple (tproject1 h505, [0.0 + recip (x522 * x522) * rproject (tproject1 h505) 0]))) (\\h525 -> let h546 = let x538 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 h525)))) 0) ; x539 = x538 * x538 ; x542 = rproject (tproject2 (tproject2 (tproject2 (tproject1 h525)))) 0 * negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 h525)))) 0)) in ttuple ([rproject (tproject1 (tproject1 h525)) 0], [((x542 * x538 + x542 * x538) * negate (recip (x539 * x539))) * rproject (tproject1 (tproject2 h525)) 0 + rproject (tproject1 (tproject1 h525)) 0 * recip x539]) in ttuple (tproject1 h546, ttuple (tproject1 (tproject1 h525), tproject2 h546))) (\\h547 -> let h580 = let x572 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 h547)))) 0) ; x573 = x572 * x572 ; x576 = negate (recip (x573 * x573)) * (rproject (tproject1 (tproject2 h547)) 0 * rproject (tproject2 (tproject2 (tproject1 h547))) 0) in ttuple ([0.0 + rproject (tproject1 (tproject1 h547)) 0 + recip x573 * rproject (tproject2 (tproject2 (tproject1 h547))) 0], ttuple ([], ttuple ([0.0], [0.0 + negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 h547)))) 0)) * (x572 * x576 + x572 * x576)]))) in ttuple ([rproject (tproject1 h580) 0 + rproject (tproject1 (tproject2 (tproject1 h547))) 0], tproject2 h580)) [rproject (tproject1 (tproject2 h192)) 0] (ttuple ([], ttuple ([rproject (tproject1 (tproject2 (tproject2 h227))) 0], [rreplicate 2 (rproject (tproject1 (tproject2 (tproject2 (tproject2 h192)))) 0)]))))), ttuple ([], ttuple ([rproject (tproject1 (tproject2 (tproject2 h227))) 0], [rreplicate 2 (rproject (tproject1 (tproject2 (tproject2 (tproject2 h192)))) 0)]))))) in ttuple ([rsum (rproject (tproject2 h239) 0)], [rproject (tproject1 h239) 0])) (\\h583 -> let h620 = dmapAccumLDer (SNat @2) (\\h636 -> ttuple ([rproject (tproject1 h636) 0 + tan (rproject (tproject2 h636) 0)], ttuple (tproject1 h636, ttuple (tproject1 h636, [])))) (\\h650 -> let x667 = cos (rproject (tproject2 (tproject2 h650)) 0) in ttuple ([rproject (tproject1 (tproject1 h650)) 0 + rproject (tproject2 (tproject1 h650)) 0 * recip (x667 * x667)], ttuple (tproject1 (tproject1 h650), ttuple (tproject1 (tproject1 h650), [])))) (\\h670 -> let x691 = cos (rproject (tproject2 (tproject2 h670)) 0) in ttuple ([0.0 + rproject (tproject1 (tproject2 (tproject1 h670))) 0 + rproject (tproject1 (tproject2 (tproject2 (tproject1 h670)))) 0 + rproject (tproject1 (tproject1 h670)) 0], [0.0 + recip (x691 * x691) * rproject (tproject1 (tproject1 h670)) 0])) [rproject (tproject2 (tproject2 (tproject2 (tproject2 h583)))) 0] [rreplicate 2 (rproject (tproject1 (tproject2 (tproject2 (tproject2 h583)))) 0)] ; h628 = dmapAccumLDer (SNat @2) (\\h696 -> let x718 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h696))))) 0) ; x719 = x718 * x718 ; x722 = negate (recip (x719 * x719)) * (rproject (tproject1 (tproject2 (tproject2 h696))) 0 * rproject (tproject1 (tproject2 h696)) 0) in ttuple ([0.0 + rproject (tproject1 h696) 0 + recip x719 * rproject (tproject1 (tproject2 h696)) 0], ttuple ([], ttuple ([0.0], [0.0 + negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h696))))) 0)) * (x718 * x722 + x718 * x722)])))) (\\h726 -> let x765 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h726)))))) 0) ; x766 = x765 * x765 ; x767 = x766 * x766 ; x768 = negate (recip x767) ; x771 = rproject (tproject1 (tproject2 (tproject2 (tproject2 h726)))) 0 * rproject (tproject1 (tproject2 (tproject2 h726))) 0 ; x772 = x768 * x771 ; x775 = rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 h726)))))) 0 * negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h726)))))) 0)) ; x776 = x775 * x765 + x775 * x765 ; x781 = (((x776 * x766 + x776 * x766) * negate (recip (x767 * x767))) * -1.0) * x771 + (rproject (tproject1 (tproject2 (tproject2 (tproject1 h726)))) 0 * rproject (tproject1 (tproject2 (tproject2 h726))) 0 + rproject (tproject1 (tproject2 (tproject1 h726))) 0 * rproject (tproject1 (tproject2 (tproject2 (tproject2 h726)))) 0) * x768 in ttuple ([rproject (tproject1 (tproject1 h726)) 0 + (x776 * negate (recip (x766 * x766))) * rproject (tproject1 (tproject2 (tproject2 h726))) 0 + rproject (tproject1 (tproject2 (tproject1 h726))) 0 * recip x766], ttuple ([], ttuple ([0.0], [((rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 h726)))))) 0 * cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h726)))))) 0)) * -1.0) * (x765 * x772 + x765 * x772) + (x775 * x772 + x781 * x765 + x775 * x772 + x781 * x765) * negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h726)))))) 0))])))) (\\h788 -> let x816 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h788)))))) 0) ; x817 = x816 * x816 ; x818 = x817 * x817 ; x819 = negate (recip x818) ; x822 = rproject (tproject1 (tproject2 (tproject2 (tproject2 h788)))) 0 * rproject (tproject1 (tproject2 (tproject2 h788))) 0 ; x823 = x819 * x822 ; x826 = negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h788)))))) 0)) * rproject (tproject2 (tproject2 (tproject2 (tproject1 h788)))) 0 ; x827 = x816 * x826 + x816 * x826 ; x828 = x819 * x827 ; x829 = negate (recip (x818 * x818)) * (-1.0 * (x822 * x827)) ; x832 = x817 * x829 + x817 * x829 + negate (recip (x817 * x817)) * (rproject (tproject1 (tproject2 (tproject2 h788))) 0 * rproject (tproject1 (tproject1 h788)) 0) in ttuple ([0.0 + rproject (tproject1 (tproject1 h788)) 0], ttuple ([0.0 + rproject (tproject1 (tproject2 (tproject2 (tproject2 h788)))) 0 * x828 + recip x817 * rproject (tproject1 (tproject1 h788)) 0], ttuple ([0.0 + rproject (tproject1 (tproject2 (tproject2 h788))) 0 * x828], ttuple ([], ttuple ([0.0], [0.0 + negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h788)))))) 0)) * (x816 * x832 + x816 * x832 + x823 * x826 + x823 * x826) + cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h788)))))) 0) * (-1.0 * ((x816 * x823 + x816 * x823) * rproject (tproject2 (tproject2 (tproject2 (tproject1 h788)))) 0))])))))) [0.0 + rproject (tproject2 (tproject1 h583)) 0] (ttuple ([rconst (rfromListLinear [2] [0.0,0.0]) + rreplicate 2 (rproject (tproject1 (tproject1 h583)) 0)], ttuple (tproject1 (tproject2 (dmapAccumRDer (SNat @2) (\\h840 -> let x857 = cos (rproject (tproject2 (tproject2 (tproject2 h840))) 0) in ttuple ([0.0 + rproject (tproject1 h840) 0], ttuple (tproject1 h840, [0.0 + recip (x857 * x857) * rproject (tproject1 h840) 0]))) (\\h860 -> let h891 = let x883 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 h860)))) 0) ; x884 = x883 * x883 ; x887 = rproject (tproject2 (tproject2 (tproject2 (tproject1 h860)))) 0 * negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 h860)))) 0)) in ttuple ([rproject (tproject1 (tproject1 h860)) 0], [((x887 * x883 + x887 * x883) * negate (recip (x884 * x884))) * rproject (tproject1 (tproject2 h860)) 0 + rproject (tproject1 (tproject1 h860)) 0 * recip x884]) in ttuple (tproject1 h891, ttuple (tproject1 (tproject1 h860), tproject2 h891))) (\\h892 -> let h915 = let x907 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 h892)))) 0) ; x908 = x907 * x907 ; x911 = negate (recip (x908 * x908)) * (rproject (tproject1 (tproject2 h892)) 0 * rproject (tproject2 (tproject2 (tproject1 h892))) 0) in ttuple ([0.0 + rproject (tproject1 (tproject1 h892)) 0 + recip x908 * rproject (tproject2 (tproject2 (tproject1 h892))) 0], ttuple ([], ttuple ([0.0], [0.0 + negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 h892)))) 0)) * (x907 * x911 + x907 * x911)]))) in ttuple ([rproject (tproject1 h915) 0 + rproject (tproject1 (tproject2 (tproject1 h892))) 0], tproject2 h915)) [rproject (tproject1 (tproject2 h583)) 0] (ttuple ([], ttuple ([rproject (tproject1 (tproject2 (tproject2 h620))) 0], [rreplicate 2 (rproject (tproject1 (tproject2 (tproject2 (tproject2 h583)))) 0)]))))), ttuple ([], ttuple ([rproject (tproject1 (tproject2 (tproject2 h620))) 0], [rreplicate 2 (rproject (tproject1 (tproject2 (tproject2 (tproject2 h583)))) 0)]))))) ; h631 = dmapAccumRDer (SNat @2) (\\h918 -> let x926 = cos (rproject (tproject2 (tproject2 (tproject2 h918))) 0) in ttuple ([0.0 + rproject (tproject1 (tproject1 (tproject2 h918))) 0 + rproject (tproject1 h918) 0], [0.0 + recip (x926 * x926) * rproject (tproject1 h918) 0])) (\\h930 -> let x948 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 h930)))) 0) ; x949 = x948 * x948 ; x952 = rproject (tproject2 (tproject2 (tproject2 (tproject1 h930)))) 0 * negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 h930)))) 0)) in ttuple ([rproject (tproject1 (tproject1 (tproject2 (tproject1 h930)))) 0 + rproject (tproject1 (tproject1 h930)) 0], [((x952 * x948 + x952 * x948) * negate (recip (x949 * x949))) * rproject (tproject1 (tproject2 h930)) 0 + rproject (tproject1 (tproject1 h930)) 0 * recip x949])) (\\h957 -> let x971 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 h957)))) 0) ; x972 = x971 * x971 ; x975 = negate (recip (x972 * x972)) * (rproject (tproject1 (tproject2 h957)) 0 * rproject (tproject2 (tproject1 h957)) 0) in ttuple ([0.0 + rproject (tproject1 (tproject1 h957)) 0 + recip x972 * rproject (tproject2 (tproject1 h957)) 0], ttuple (ttuple ([0.0 + rproject (tproject1 (tproject1 h957)) 0], []), ttuple ([0.0], [0.0 + negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 h957)))) 0)) * (x971 * x975 + x971 * x975)])))) [0.0] (ttuple (ttuple ([rproject (tproject1 (tproject2 (tproject2 h628))) 0], []), ttuple (tproject1 (tproject2 h620), [rreplicate 2 (rproject (tproject1 (tproject2 (tproject2 (tproject2 h583)))) 0)]))) in ttuple ([0.0 + rproject (tproject1 h628) 0], ttuple ([], ttuple ([0.0 + rsum (rproject (tproject2 h631) 0) + rsum (rproject (tproject2 (tproject2 (tproject2 h628))) 0)], [0.0 + rproject (tproject1 h631) 0])))) [1.0] (ttuple ([], ttuple (tproject1 (tproject2 (dmapAccumLDer (SNat @2) (\\h980 -> let h988 = dmapAccumLDer (SNat @2) (\\h989 -> ttuple ([rproject (tproject1 h989) 0 + tan (rproject (tproject2 h989) 0)], [])) (\\h996 -> let x1009 = cos (rproject (tproject2 (tproject2 h996)) 0) in ttuple ([rproject (tproject1 (tproject1 h996)) 0 + rproject (tproject2 (tproject1 h996)) 0 * recip (x1009 * x1009)], [])) (\\h1012 -> let x1023 = cos (rproject (tproject2 (tproject2 h1012)) 0) in ttuple ([0.0 + rproject (tproject1 (tproject1 h1012)) 0], [0.0 + recip (x1023 * x1023) * rproject (tproject1 (tproject1 h1012)) 0])) [rproject (tproject2 h980) 0] [rreplicate 2 (rproject (tproject1 h980) 0)] in ttuple (tproject1 h988, ttuple (tproject1 h980, tproject2 h988))) (\\h1026 -> ttuple ([rproject (tproject1 (dmapAccumLDer (SNat @2) (\\h1054 -> let x1072 = cos (rproject (tproject2 (tproject2 (tproject2 h1054))) 0) in ttuple ([rproject (tproject1 h1054) 0 + rproject (tproject1 (tproject2 h1054)) 0 * recip (x1072 * x1072)], [])) (\\h1075 -> let x1102 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 h1075)))) 0) ; x1103 = x1102 * x1102 ; x1106 = rproject (tproject2 (tproject2 (tproject2 (tproject1 h1075)))) 0 * negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 h1075)))) 0)) in ttuple ([rproject (tproject1 (tproject1 h1075)) 0 + rproject (tproject1 (tproject2 (tproject1 h1075))) 0 * recip x1103 + ((x1106 * x1102 + x1106 * x1102) * negate (recip (x1103 * x1103))) * rproject (tproject1 (tproject2 (tproject2 h1075))) 0], [])) (\\h1110 -> let x1133 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 h1110)))) 0) ; x1134 = x1133 * x1133 ; x1137 = negate (recip (x1134 * x1134)) * (rproject (tproject1 (tproject2 (tproject2 h1110))) 0 * rproject (tproject1 (tproject1 h1110)) 0) in ttuple ([0.0 + rproject (tproject1 (tproject1 h1110)) 0], ttuple ([0.0 + recip x1134 * rproject (tproject1 (tproject1 h1110)) 0], ttuple ([0.0], [0.0 + negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 h1110)))) 0)) * (x1133 * x1137 + x1133 * x1137)])))) [rproject (tproject2 (tproject1 h1026)) 0] (ttuple ([rreplicate 2 (rproject (tproject1 (tproject1 h1026)) 0)], ttuple (tproject1 (tproject2 (dmapAccumLDer (SNat @2) (\\h1141 -> ttuple ([rproject (tproject1 h1141) 0 + tan (rproject (tproject2 h1141) 0)], ttuple (tproject1 h1141, []))) (\\h1155 -> let x1171 = cos (rproject (tproject2 (tproject2 h1155)) 0) in ttuple ([rproject (tproject1 (tproject1 h1155)) 0 + rproject (tproject2 (tproject1 h1155)) 0 * recip (x1171 * x1171)], ttuple (tproject1 (tproject1 h1155), []))) (\\h1174 -> let x1198 = cos (rproject (tproject2 (tproject2 h1174)) 0) in ttuple ([0.0 + rproject (tproject1 (tproject2 (tproject1 h1174))) 0 + rproject (tproject1 (tproject1 h1174)) 0], [0.0 + recip (x1198 * x1198) * rproject (tproject1 (tproject1 h1174)) 0])) [rproject (tproject2 (tproject2 h1026)) 0] [rreplicate 2 (rproject (tproject1 (tproject2 h1026)) 0)])), [rreplicate 2 (rproject (tproject1 (tproject2 h1026)) 0)]))))) 0], ttuple (tproject1 (tproject1 h1026), []))) (\\h1202 -> let h1222 = dmapAccumRDer (SNat @2) (\\h1228 -> let x1235 = cos (rproject (tproject2 (tproject2 (tproject2 h1228))) 0) in ttuple ([0.0 + rproject (tproject1 h1228) 0], [0.0 + recip (x1235 * x1235) * rproject (tproject1 h1228) 0])) (\\h1238 -> let x1250 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 h1238)))) 0) ; x1251 = x1250 * x1250 ; x1254 = rproject (tproject2 (tproject2 (tproject2 (tproject1 h1238)))) 0 * negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 h1238)))) 0)) in ttuple ([rproject (tproject1 (tproject1 h1238)) 0], [((x1254 * x1250 + x1254 * x1250) * negate (recip (x1251 * x1251))) * rproject (tproject1 (tproject2 h1238)) 0 + rproject (tproject1 (tproject1 h1238)) 0 * recip x1251])) (\\h1258 -> let x1270 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 h1258)))) 0) ; x1271 = x1270 * x1270 ; x1274 = negate (recip (x1271 * x1271)) * (rproject (tproject1 (tproject2 h1258)) 0 * rproject (tproject2 (tproject1 h1258)) 0) in ttuple ([0.0 + rproject (tproject1 (tproject1 h1258)) 0 + recip x1271 * rproject (tproject2 (tproject1 h1258)) 0], ttuple ([], ttuple ([0.0], [0.0 + negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 h1258)))) 0)) * (x1270 * x1274 + x1270 * x1274)])))) [rproject (tproject1 (tproject1 h1202)) 0] (ttuple ([], ttuple (tproject1 (tproject2 (dmapAccumLDer (SNat @2) (\\h1278 -> ttuple ([rproject (tproject1 h1278) 0 + tan (rproject (tproject2 h1278) 0)], ttuple (tproject1 h1278, []))) (\\h1284 -> let x1291 = cos (rproject (tproject2 (tproject2 h1284)) 0) in ttuple ([rproject (tproject1 (tproject1 h1284)) 0 + rproject (tproject2 (tproject1 h1284)) 0 * recip (x1291 * x1291)], ttuple (tproject1 (tproject1 h1284), []))) (\\h1294 -> let x1302 = cos (rproject (tproject2 (tproject2 h1294)) 0) in ttuple ([0.0 + rproject (tproject1 (tproject2 (tproject1 h1294))) 0 + rproject (tproject1 (tproject1 h1294)) 0], [0.0 + recip (x1302 * x1302) * rproject (tproject1 (tproject1 h1294)) 0])) [rproject (tproject2 (tproject2 h1202)) 0] [rreplicate 2 (rproject (tproject1 (tproject2 h1202)) 0)])), [rreplicate 2 (rproject (tproject1 (tproject2 h1202)) 0)]))) in ttuple ([0.0 + rproject (tproject1 (tproject2 (tproject1 h1202))) 0 + rsum (rproject (tproject2 h1222) 0)], [0.0 + rproject (tproject1 h1222) 0])) [1.1] [rreplicate 2 1.1])), [rreplicate 2 1.1]))) in [rsum (rproject (tproject2 h16) 0) + rproject (tproject1 h16) 0]"
 
 testSin0MapAccumNestedR3LengthPP :: Assertion
@@ -3726,8 +3726,8 @@ testSin0MapAccumNestedR3LengthPP = do
     (printAstHVectorSimple
        IM.empty
        (simplifyInline
-        $ g @(AstRanked FullSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1))))
-    @?= 6103981
+        $ g @(AstRanked PrimalSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1))))
+    @?= 6103933
 
 testSin0MapAccumNestedR4 :: Assertion
 testSin0MapAccumNestedR4 = do
@@ -4462,7 +4462,7 @@ testSin0FoldNestedR21PP :: Assertion
 testSin0FoldNestedR21PP = do
   resetVarCounter
   let a1 =
-        rrev1 @(AstRanked FullSpan) @Double @0 @0
+        rrev1 @(AstRanked PrimalSpan) @Double @0 @0
           (let f :: forall f. ADReady f => f Double 0 -> f Double 0
                f a0 = rfold (\x a -> rlet (x + a) $ \xpa ->
                           rfold (\x3 a3 -> rscalar 0.1 * x3 * a3)
@@ -4473,7 +4473,7 @@ testSin0FoldNestedR21PP = do
                             a0 (rreplicate 2 a0)
            in f) (rscalar 1.1)
   length (printAstSimple IM.empty (simplifyInlineAst a1))
-    @?= 73907
+    @?= 73859
 
 testSin0revhV :: Assertion
 testSin0revhV = do
@@ -4496,10 +4496,10 @@ testSin0revhVPP = do
         rrev @g @_ @Double @0 (\v -> sin (rfromD $ v V.! 0))
              (V.singleton (voidFromSh @Double ZSR))
              x
-  printAstHVectorSimple IM.empty (f @(AstRanked FullSpan)
+  printAstHVectorSimple IM.empty (f @(AstRanked PrimalSpan)
                                     (V.singleton
                                      $ DynamicRanked @Double @0 (rscalar 1.1)))
-    @?= "dmkHVector (fromList [DynamicRanked (cos (rconstant 1.1) * rconstant 1.0)])"
+    @?= "dmkHVector (fromList [DynamicRanked (cos 1.1 * 1.0)])"
 
 testSin0revhV2 :: Assertion
 testSin0revhV2 = do
