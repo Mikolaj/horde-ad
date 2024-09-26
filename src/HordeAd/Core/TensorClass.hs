@@ -175,10 +175,10 @@ class HVectorTensor ranked shaped
   -- because otherwise in the ADVal instance one could put an illegal
   -- InputR there, confusing the two levels of contangents.
   --
-  -- These methods are in this class, because the types mention @ADReady@,
-  -- which contains a @HVectorTensor@ constraint, so it's awkward to put
-  -- the methods into @RankedTensor@, which shouldn't know
-  -- about @HVectorTensor@.
+  -- These methods are in this class, because their implementations
+  -- use the let operations and also their signatures mention @ADReady@,
+  -- so it's awkward to put the methods into @RankedTensor@,
+  -- which shouldn't know about lets, etc.
   rrev :: (GoodScalar r, KnownNat n)
        => (forall f. ADReady f => HVector f -> f r n)
        -> VoidHVector
@@ -344,7 +344,7 @@ class ( Num (IntOf ranked), IntegralF (IntOf ranked), CRanked ranked Num
   rmatmul2 m1 m2 = case rshape m2 of
     _ :$: width2 :$: ZSR -> rsum (rtranspose [2,1,0] (rreplicate width2 m1)
                                * rtranspose [1,0] (rreplicate (rlength m1) m2))
-    _ -> error "impossible pattern needlessly required"
+    _ -> error "rmatmul2: impossible pattern needlessly required"
   rscatter :: (GoodScalar r, KnownNat m, KnownNat n, KnownNat p)
            => IShR (p + n) -> ranked r (m + n)
            -> (IndexOf ranked m -> IndexOf ranked p)
@@ -975,7 +975,7 @@ class HVectorTensor (ranked :: RankedTensorType)
     let shm :: IShR m
         (width, shm) = case rshape es of
           width2 :$: shm2 -> (width2, shm2)
-          ZSR -> error "rscan: impossible pattern needlessly required"
+          ZSR -> error "rfold: impossible pattern needlessly required"
         sh = rshape acc0
     in withSNat width $ \snat ->
       tlet
