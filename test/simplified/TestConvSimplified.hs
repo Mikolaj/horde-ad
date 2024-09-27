@@ -571,7 +571,7 @@ testConv2dUnpaddedPP = do
 testConv2dUnpadded2PP :: Assertion
 testConv2dUnpadded2PP = do
   resetVarCounter
-  let f :: InterpretationTarget (AstRanked FullSpan) TKUntyped
+  let f :: Rep (AstRanked FullSpan) TKUntyped
         -> HVectorPseudoTensor (AstRanked FullSpan) Float '()
       f hv = let v = dunHVector $ unHVectorPseudoTensor hv
              in HVectorPseudoTensor $ dmkHVector
@@ -589,7 +589,7 @@ testConv2dUnpadded2PP = do
 testConv2dUnpadded3PP :: Assertion
 testConv2dUnpadded3PP = do
   resetVarCounter
-  let f :: InterpretationTarget (AstRanked FullSpan) TKUntyped
+  let f :: Rep (AstRanked FullSpan) TKUntyped
         -> HVectorPseudoTensor (AstRanked FullSpan) Float '()
       f hv = let v = dunHVector $ unHVectorPseudoTensor hv
              in HVectorPseudoTensor $ dmkHVector

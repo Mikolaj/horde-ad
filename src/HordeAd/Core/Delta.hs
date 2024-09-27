@@ -46,8 +46,8 @@ module HordeAd.Core.Delta
     -- * Exported to be specialized elsewhere
   , evalFromnMap, EvalState
     -- * Misc
-  , interpretationTargetToD, evalInterpretationTargetD
-  , addInterpretationTargetDLet
+  , repToD, evalRepD
+  , addRepDLet
   ) where
 
 import Prelude
@@ -94,19 +94,19 @@ gradientFromDelta
   :: forall x z ranked.
      (ADReadyNoLet ranked, ShareTensor ranked, TensorKind z)
   => TensorKindFull x
-  -> InterpretationTarget ranked z
-  -> Maybe (InterpretationTarget ranked z)
+  -> Rep ranked z
+  -> Maybe (Rep ranked z)
   -> Delta ranked z
-  -> InterpretationTarget ranked x
+  -> Rep ranked x
 gradientFromDelta !parameters0 value !mdt deltaTopLevel =
   let oneAtF = interpretationConstant 1 $ tshapeFull (stensorKind @z) value
       dt = fromMaybe oneAtF mdt
       s0 = initEvalState parameters0
       s1 = evalR s0 dt deltaTopLevel
       s2 = evalFromnMap s1
-      rebuildInputs :: [Some (InterpretationTargetM ranked)] -> TensorKindFull y
-                    -> ( InterpretationTarget ranked y
-                       , [Some (InterpretationTargetM ranked)] )
+      rebuildInputs :: [Some (RepM ranked)] -> TensorKindFull y
+                    -> ( Rep ranked y
+                       , [Some (RepM ranked)] )
       rebuildInputs els = \case
         FTKR @r @n _ -> case els of
           Some mt@(MTKR @r2 @n2 t) : rest ->
@@ -122,8 +122,8 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
             | Dict <- lemKnownNatRank (knownShS @sh2)
             , Just Refl <- sameNat (Proxy @n) (Proxy @(X.Rank sh2))
             , Just Refl <- testEquality (typeRep @r) (typeRep @r2) ->
-              (evalInterpretationTargetM mt, rest)
-          _ -> error $ "gradientFromDelta: illegal InterpretationTargetM: "
+              (evalRepM mt, rest)
+          _ -> error $ "gradientFromDelta: illegal RepM: "
                        ++ show_iMap (iMap s2)
         FTKS @r @sh -> case els of
           Some mt@(MTKS @r2 @sh2 t) : rest ->
@@ -138,15 +138,15 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
           Some mt@(MTKSDummy @r2 @sh2) : rest
             | Just Refl <- sameShape @sh @sh2
             , Just Refl <- testEquality (typeRep @r) (typeRep @r2) ->
-              (evalInterpretationTargetM mt, rest)
-          _ -> error $ "gradientFromDelta: illegal InterpretationTargetM: "
+              (evalRepM mt, rest)
+          _ -> error $ "gradientFromDelta: illegal RepM: "
                        ++ show_iMap (iMap s2)
         FTKProduct ftk1 ftk2 ->
           let (t1, rest1) = rebuildInputs els ftk1
               (t2, rest2) = rebuildInputs rest1 ftk2
           in (ttuple t1 t2, rest2)
         FTKUntyped shs ->
-          let toDynamicTensor :: Some (InterpretationTargetM ranked)
+          let toDynamicTensor :: Some (RepM ranked)
                               -> DynamicTensor ranked
               toDynamicTensor (Some b) = case b of
                 MTKR @r @n t -> DynamicRanked @r @n t
@@ -162,7 +162,7 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
   in assert (null remainder) res
 
 showsPrec_iMap
-  :: (forall y. TensorKind y => Show (InterpretationTargetM ranked y))
+  :: (forall y. TensorKind y => Show (RepM ranked y))
   => Int -> IMap ranked -> ShowS
 showsPrec_iMap d demap =
   showParen (d > 10) $
@@ -174,14 +174,14 @@ showsPrec_iMap d demap =
         (DMap.toList demap)
 
 show_iMap
-  :: (forall y. TensorKind y => Show (InterpretationTargetM ranked y))
+  :: (forall y. TensorKind y => Show (RepM ranked y))
   => IMap ranked -> String
 show_iMap iMap = showsPrec_iMap 0 iMap ""
 
-evalInterpretationTargetM :: ADReadyNoLet ranked
-                          => InterpretationTargetM ranked x
-                          -> InterpretationTarget ranked x
-evalInterpretationTargetM = \case
+evalRepM :: ADReadyNoLet ranked
+                          => RepM ranked x
+                          -> Rep ranked x
+evalRepM = \case
   MTKR t -> t
   MTKS t -> t
   MTKRDummy @_ @sh -> withListSh (Proxy @sh) $ \sh4 -> rzero sh4
@@ -190,12 +190,12 @@ evalInterpretationTargetM = \case
 derivativeFromDelta
   :: forall x z ranked.
      (ADReadyNoLet ranked, ShareTensor ranked, TensorKind x, TensorKind z)
-  => Delta ranked z -> InterpretationTarget ranked x
-  -> InterpretationTarget ranked z
+  => Delta ranked z -> Rep ranked x
+  -> Rep ranked z
 derivativeFromDelta deltaTopLevel ds =
   let -- Matches generateDeltaInputs.
-      generateDSums :: Int -> TensorKindFull y -> InterpretationTarget ranked y
-                    -> ( [DSum (InputId ranked) (InterpretationTargetM ranked)]
+      generateDSums :: Int -> TensorKindFull y -> Rep ranked y
+                    -> ( [DSum (InputId ranked) (RepM ranked)]
                        , Int )
       generateDSums j ftk t = case ftk of
         FTKR @r sh -> withShapeP (shapeToList sh) $ \(Proxy @sh) ->
@@ -210,7 +210,7 @@ derivativeFromDelta deltaTopLevel ds =
         FTKUntyped{} ->
           let ts = tunvector t
               len = V.length ts
-          in ( zipWith dynamicTensorToInterpretationTargetM [j ..] $ V.toList ts
+          in ( zipWith dynamicTensorToRepM [j ..] $ V.toList ts
              , j + len )
       iMap = DMap.fromDistinctAscList $ fst
              $ generateDSums 0 (tshapeFull stensorKind ds) ds
@@ -220,44 +220,44 @@ derivativeFromDelta deltaTopLevel ds =
       !(!_s2, !c) = fwdR iMap s0 deltaTopLevel
   in c
 
-evalInterpretationTargetD :: InterpretationTargetD ranked y
-                          -> InterpretationTarget ranked y
-evalInterpretationTargetD = \case
+evalRepD :: RepD ranked y
+                          -> Rep ranked y
+evalRepD = \case
   DTKR t -> t
   DTKS t -> t
   DTKProduct t -> t
   DTKUntyped t -> t
 
-dynamicTensorToInterpretationTargetM
+dynamicTensorToRepM
   :: Int -> DynamicTensor ranked
-  -> DSum (InputId ranked) (InterpretationTargetM ranked)
-dynamicTensorToInterpretationTargetM n = \case
+  -> DSum (InputId ranked) (RepM ranked)
+dynamicTensorToRepM n = \case
   DynamicRanked t -> InputId n :=> MTKR t
   DynamicShaped t -> InputId n :=> MTKS t
   DynamicRankedDummy{} ->
-    error "dynamicTensorToInterpretationTargetM: unexpected DynamicRankedDummy"
+    error "dynamicTensorToRepM: unexpected DynamicRankedDummy"
   DynamicShapedDummy{} ->
-    error "dynamicTensorToInterpretationTargetM: unexpected DynamicShapedDummy"
+    error "dynamicTensorToRepM: unexpected DynamicShapedDummy"
 
-interpretationTargetToD
-  :: STensorKindType x -> InterpretationTarget ranked x
-  -> InterpretationTargetD ranked x
-interpretationTargetToD stk t = case stk of
+repToD
+  :: STensorKindType x -> Rep ranked x
+  -> RepD ranked x
+repToD stk t = case stk of
   STKR{} -> DTKR t
   STKS{} -> DTKS t
   STKProduct{} -> DTKProduct t
   STKUntyped{} -> DTKUntyped t
 
-type IMap ranked = DEnumMap (InputId ranked) (InterpretationTargetM ranked)
+type IMap ranked = DEnumMap (InputId ranked) (RepM ranked)
 
-interpretationTargetToM
-  :: STensorKindType x -> InterpretationTarget ranked x
-  -> InterpretationTargetM ranked x
-interpretationTargetToM stk t = case stk of
+repToM
+  :: STensorKindType x -> Rep ranked x
+  -> RepM ranked x
+repToM stk t = case stk of
   STKR{} -> MTKR t
   STKS{} -> MTKS t
-  STKProduct{} -> error "interpretationTargetToM"
-  STKUntyped{} -> error "interpretationTargetToM"
+  STKProduct{} -> error "repToM"
+  STKUntyped{} -> error "repToM"
 
 
 -- * Abstract syntax trees of the delta expressions
@@ -336,7 +336,7 @@ newtype DeltaR ranked r n =
   DeltaR {unDeltaR :: Delta ranked (TKR r n)}
 instance ( RankedOf (ShapedOf ranked) ~ ranked
          , GoodScalar r, Show (IntOf ranked)
-         , CInterpretationTargetProduct ranked Show
+         , CRepProduct ranked Show
          , Show (HVectorOf ranked)
          , Show (IntOf (ShapedOf ranked))
          , CRanked ranked Show
@@ -352,7 +352,7 @@ newtype DeltaS shaped r sh =
   DeltaS {unDeltaS :: Delta (RankedOf shaped) (TKS r sh)}
 instance ( ranked ~ RankedOf shaped, RankedOf (ShapedOf ranked) ~ ranked
          , GoodScalar r, Show (IntOf ranked)
-         , CInterpretationTargetProduct ranked Show
+         , CRepProduct ranked Show
          , Show (HVectorOf ranked)
          , Show (IntOf (ShapedOf ranked))
          , CRanked ranked Show
@@ -569,8 +569,8 @@ data Delta :: RankedTensorType -> TensorKindType -> Type where
     -> TensorKindFull accShs
     -> TensorKindFull bShs
     -> TensorKindFull eShs
-    -> InterpretationTargetN ranked (BuildTensorKind k accShs)
-    -> InterpretationTargetN ranked (BuildTensorKind k eShs)
+    -> RepN ranked (BuildTensorKind k accShs)
+    -> RepN ranked (BuildTensorKind k eShs)
     -> HFun (TKProduct (TKProduct accShs eShs)
                        (TKProduct accShs eShs))
             (TKProduct accShs bShs)
@@ -589,8 +589,8 @@ data Delta :: RankedTensorType -> TensorKindType -> Type where
     -> TensorKindFull accShs
     -> TensorKindFull bShs
     -> TensorKindFull eShs
-    -> InterpretationTargetN ranked (BuildTensorKind k accShs)
-    -> InterpretationTargetN ranked (BuildTensorKind k eShs)
+    -> RepN ranked (BuildTensorKind k accShs)
+    -> RepN ranked (BuildTensorKind k eShs)
     -> HFun (TKProduct (TKProduct accShs eShs)
                        (TKProduct accShs eShs))
             (TKProduct accShs bShs)
@@ -602,7 +602,7 @@ data Delta :: RankedTensorType -> TensorKindType -> Type where
     -> Delta ranked (TKProduct accShs (BuildTensorKind k bShs))
 
 deriving instance ( RankedOf (ShapedOf ranked) ~ ranked
-                  , CInterpretationTargetProduct ranked Show
+                  , CRepProduct ranked Show
                   , Show (HVectorOf ranked)
                   , Show (IntOf ranked)
                   , Show (IntOf (ShapedOf ranked))
@@ -618,7 +618,7 @@ type instance ShapedOf (DeltaR ranked) = DeltaS (ShapedOf ranked)
 
 type instance HVectorOf (DeltaR ranked) = Delta ranked TKUntyped
 
-type instance InterpretationTarget (DeltaR ranked) (TKProduct x z) =
+type instance Rep (DeltaR ranked) (TKProduct x z) =
   Delta ranked (TKProduct x z)
 
 instance RankedOf (ShapedOf ranked) ~ ranked
@@ -631,7 +631,7 @@ instance RankedOf (ShapedOf ranked) ~ ranked
 
 deltaRY :: forall y ranked. RankedOf (ShapedOf ranked) ~ ranked
         => STensorKindType y -> Delta ranked y
-        -> InterpretationTarget (DeltaR ranked) y
+        -> Rep (DeltaR ranked) y
 deltaRY stk t = case stk of
   STKR{} -> DeltaR t
   STKS{} -> DeltaS t
@@ -639,7 +639,7 @@ deltaRY stk t = case stk of
   STKUntyped -> HVectorPseudoTensor t
 
 unDeltaRY :: forall y ranked. RankedOf (ShapedOf ranked) ~ ranked
-          => STensorKindType y -> InterpretationTarget (DeltaR ranked) y
+          => STensorKindType y -> Rep (DeltaR ranked) y
           -> Delta ranked y
 unDeltaRY stk t = case stk of
   STKR{} -> unDeltaR t
@@ -799,7 +799,7 @@ data EvalState ranked = EvalState
       -- (eventually copied to the vector representing the gradient
       -- of the objective function);
       -- the identifiers need to be contiguous and start at 0
-  , dMap :: DEnumMap (NodeId ranked) (InterpretationTargetD ranked)
+  , dMap :: DEnumMap (NodeId ranked) (RepD ranked)
       -- ^ eventually, cotangents of non-input subterms indexed
       -- by their node identifiers
   , nMap :: DEnumMap (NodeId ranked) (Delta ranked)
@@ -869,7 +869,7 @@ initEvalState
 initEvalState ftk0 =
   let -- Matches generateDeltaInputs.
       generateDSums :: Int -> TensorKindFull y
-                    -> ( [DSum (InputId ranked) (InterpretationTargetM ranked)]
+                    -> ( [DSum (InputId ranked) (RepM ranked)]
                        , Int )
       generateDSums j ftk  = case ftk of
         FTKR @r sh -> withShapeP (shapeToList sh) $ \(Proxy @sh) ->
@@ -897,7 +897,7 @@ initEvalState ftk0 =
       fromDynamicTensor
         :: forall ranked.
            Int -> DynamicTensor ranked
-        -> DSum (InputId ranked) (InterpretationTargetM ranked)
+        -> DSum (InputId ranked) (RepM ranked)
       fromDynamicTensor n b = case b of
         DynamicRanked{} -> error "fromDynamicTensor: impossible case"
         DynamicShaped{} -> error "fromDynamicTensor: impossible case"
@@ -956,61 +956,61 @@ evalSRuntimeSpecialized !s !c =
           Just Refl -> evalR @(TKS CInt sh) s c
           _ -> error "evalSRuntimeSpecialized: unexpected scalar"
 
-addInterpretationTargetD ::
+addRepD ::
   (ADReadyNoLet ranked, ShareTensor ranked)
-  => InterpretationTargetD ranked y
-  -> InterpretationTargetD ranked y
-  -> InterpretationTargetD ranked y
-addInterpretationTargetD a b = case (a, b) of
+  => RepD ranked y
+  -> RepD ranked y
+  -> RepD ranked y
+addRepD a b = case (a, b) of
   (DTKR ta, DTKR tb) -> DTKR $ ta + tb
   (DTKS ta, DTKS tb) -> DTKS $ ta + tb
   (DTKProduct ta, DTKProduct tb) ->
     let (ta1, ta2) = tunpair ta
         (tb1, tb2) = tunpair tb
     in DTKProduct
-       $ ttuple (evalInterpretationTargetD
-                 $ addInterpretationTargetD
-                     (interpretationTargetToD stensorKind ta1)
-                     (interpretationTargetToD stensorKind tb1))
-                (evalInterpretationTargetD
-                 $ addInterpretationTargetD
-                     (interpretationTargetToD stensorKind ta2)
-                     (interpretationTargetToD stensorKind tb2))
+       $ ttuple (evalRepD
+                 $ addRepD
+                     (repToD stensorKind ta1)
+                     (repToD stensorKind tb1))
+                (evalRepD
+                 $ addRepD
+                     (repToD stensorKind ta2)
+                     (repToD stensorKind tb2))
   (DTKUntyped hv1, DTKUntyped hv2) ->
     DTKUntyped $ HVectorPseudoTensor $ dmkHVector
     $ V.zipWith addDynamic (tunvector hv1) (tunvector hv2)
 
-addInterpretationTargetDLet ::
+addRepDLet ::
   ADReady ranked
-  => InterpretationTargetD ranked y
-  -> InterpretationTargetD ranked y
-  -> InterpretationTargetD ranked y
-addInterpretationTargetDLet a b = case (a, b) of
+  => RepD ranked y
+  -> RepD ranked y
+  -> RepD ranked y
+addRepDLet a b = case (a, b) of
   (DTKR ta, DTKR tb) -> DTKR $ ta + tb
   (DTKS ta, DTKS tb) -> DTKS $ ta + tb
   (DTKProduct ta, DTKProduct tb) -> DTKProduct $
     tlet ta $ \ (!ta1, !ta2) ->
     tlet tb $ \ (!tb1, !tb2) ->
-      ttuple (evalInterpretationTargetD
-              $ addInterpretationTargetDLet
-                  (interpretationTargetToD stensorKind ta1)
-                  (interpretationTargetToD stensorKind tb1))
-             (evalInterpretationTargetD
-              $ addInterpretationTargetDLet
-                  (interpretationTargetToD stensorKind ta2)
-                  (interpretationTargetToD stensorKind tb2))
+      ttuple (evalRepD
+              $ addRepDLet
+                  (repToD stensorKind ta1)
+                  (repToD stensorKind tb1))
+             (evalRepD
+              $ addRepDLet
+                  (repToD stensorKind ta2)
+                  (repToD stensorKind tb2))
   (DTKUntyped hv1, DTKUntyped hv2) -> DTKUntyped $
     tlet hv1 $ \ !v1 ->
     tlet hv2 $ \ !v2 ->
       HVectorPseudoTensor $ dmkHVector
       $ V.zipWith addDynamic v1 v2
 
-addInterpretationTargetM ::
+addRepM ::
   ADReadyNoLet ranked
-  => InterpretationTargetM ranked y
-  -> InterpretationTargetM ranked y
-  -> InterpretationTargetM ranked y
-addInterpretationTargetM a b = case (a, b) of
+  => RepM ranked y
+  -> RepM ranked y
+  -> RepM ranked y
+addRepM a b = case (a, b) of
   (MTKR ta, MTKR tb) -> MTKR $ ta + tb
   (MTKRDummy, _) -> b
   (_, MTKRDummy) -> a
@@ -1021,7 +1021,7 @@ addInterpretationTargetM a b = case (a, b) of
 evalR
   :: forall y ranked.
      (TensorKind y, ADReadyNoLet ranked, ShareTensor ranked)
-  => EvalState ranked -> InterpretationTarget ranked y -> Delta ranked y
+  => EvalState ranked -> Rep ranked y -> Delta ranked y
   -> EvalState ranked
 evalR !s !c = \case
   TupleG d1 d2 -> let (c1, c2) = tunpair c
@@ -1035,8 +1035,8 @@ evalR !s !c = \case
       let zero = interpretationConstant 0 ftk1
       in evalR s (ttuple zero c) d
   InputG _ftk i ->
-    let cs = interpretationTargetToM stensorKind c
-    in s {iMap = DMap.adjust (addInterpretationTargetM cs) i
+    let cs = repToM stensorKind c
+    in s {iMap = DMap.adjust (addRepM cs) i
                  $ iMap s}
     -- This and similar don't need to be runtime-specialized,
     -- because the type of c determines the Num instance for (+).
@@ -1079,10 +1079,10 @@ evalR !s !c = \case
               ShareG{} -> False  -- wasteful and nonsensical
               ZeroS -> False
               _ -> True)
-    $ let cd = interpretationTargetToD stensorKind c
+    $ let cd = repToD stensorKind c
       in case DMap.lookup n $ nMap s of
         Just _ ->
-          s {dMap = DMap.adjust (addInterpretationTargetD cd) n $ dMap s}
+          s {dMap = DMap.adjust (addRepD cd) n $ dMap s}
         Nothing ->
           s { nMap = DMap.insert n d $ nMap s
             , dMap = DMap.insert n cd $ dMap s }
@@ -1203,7 +1203,7 @@ evalR !s !c = \case
   HToH v -> evalHVector s (tunvector c) v
   MapAccumR @_ @_ @_ @bShs
             k accShs bShs eShs
-            (InterpretationTargetN q) (InterpretationTargetN es)
+            (RepN q) (RepN es)
             _df rf acc0' es'
    | Dict <- lemTensorKindOfBuild k (stensorKind @bShs) ->
     let (c0, crest) = tunpair c
@@ -1211,7 +1211,7 @@ evalR !s !c = \case
           dmapAccumL (Proxy @ranked)
                      k accShs eShs (FTKProduct bShs (FTKProduct accShs eShs))
                      (\dx (db, acc_e) ->
-                        unHFun rf (ttuple (ttuple (unconcreteTarget dx) db)
+                        unHFun rf (ttuple (ttuple (unrepShallow dx) db)
                                           acc_e))
                      c0
                      (ttuple crest (ttuple q es))
@@ -1220,7 +1220,7 @@ evalR !s !c = \case
     in evalR s2 des es'
   MapAccumL @_ @_ @_ @bShs
             k accShs bShs eShs
-            (InterpretationTargetN q) (InterpretationTargetN es)
+            (RepN q) (RepN es)
             _df rf acc0' es'
    | Dict <- lemTensorKindOfBuild k (stensorKind @bShs) ->
     let (c0, crest) = tunpair c
@@ -1228,7 +1228,7 @@ evalR !s !c = \case
           dmapAccumR (Proxy @ranked)
                      k accShs eShs (FTKProduct bShs (FTKProduct accShs eShs))
                      (\dx (db, acc_e) ->
-                        unHFun rf (ttuple (ttuple (unconcreteTarget dx) db)
+                        unHFun rf (ttuple (ttuple (unrepShallow dx) db)
                                           acc_e))
                      c0
                      (ttuple crest (ttuple q es))
@@ -1356,7 +1356,7 @@ fwdR
   :: forall ranked y.
      (ADReadyNoLet ranked, ShareTensor ranked, TensorKind y)
   => IMap ranked -> EvalState ranked -> Delta ranked y
-  -> (EvalState ranked, InterpretationTarget ranked y)
+  -> (EvalState ranked, Rep ranked y)
 fwdR params s = \case
   TupleG d1 d2 -> let (s2, t) = fwdR params s d1
                       (s3, u) = fwdR params s2 d2
@@ -1367,15 +1367,15 @@ fwdR params s = \case
                  in (s2, tproject2 v)
   InputG _ftk inputId ->
     case DMap.lookup inputId params of
-      Just dtk -> (s, evalInterpretationTargetM dtk)
+      Just dtk -> (s, evalRepM dtk)
       Nothing -> error "fwdR: missing input"
   ShareG n d ->
     case DMap.lookup n $ dMap s of
-      Just e1 -> (s, evalInterpretationTargetD e1)
+      Just e1 -> (s, evalRepD e1)
       Nothing ->
         let (s2, cRaw) = fwdR params s d
             cShared = tshare cRaw
-            cd = interpretationTargetToD stensorKind cShared
+            cd = repToD stensorKind cShared
               -- cRaw is shared, because it's put into the map and then
               -- potentially looked up many times, so it'd get duplicated
             s3 = s2 {dMap = DMap.insert n cd (dMap s2)}
@@ -1479,26 +1479,26 @@ fwdR params s = \case
   HToH v -> second (HVectorPseudoTensor . dmkHVector)
             $ fwdHVector params s v
   MapAccumR k accShs bShs eShs
-            (InterpretationTargetN q) (InterpretationTargetN es)
+            (RepN q) (RepN es)
             df _rf acc0' es' ->
     let (s2, cacc0) = fwdR params s acc0'
         (s3, ces) = fwdR params s2 es'
     in (s3, dmapAccumR (Proxy @ranked)
                        k accShs bShs (FTKProduct eShs (FTKProduct accShs eShs))
                        (\dacc (de, acc_e) ->
-                          unHFun df (ttuple (ttuple (unconcreteTarget dacc) de)
+                          unHFun df (ttuple (ttuple (unrepShallow dacc) de)
                                             acc_e))
                        cacc0
                        (ttuple ces (ttuple q es)))
   MapAccumL k accShs bShs eShs
-            (InterpretationTargetN q) (InterpretationTargetN es)
+            (RepN q) (RepN es)
             df _rf acc0' es' ->
     let (s2, cacc0) = fwdR params s acc0'
         (s3, ces) = fwdR params s2 es'
     in (s3, dmapAccumL (Proxy @ranked)
                        k accShs bShs (FTKProduct eShs (FTKProduct accShs eShs))
                        (\dacc (de, acc_e) ->
-                          unHFun df (ttuple (ttuple (unconcreteTarget dacc) de)
+                          unHFun df (ttuple (ttuple (unrepShallow dacc) de)
                                             acc_e))
                        cacc0
                        (ttuple ces (ttuple q es)))

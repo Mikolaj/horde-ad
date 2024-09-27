@@ -98,7 +98,7 @@ interpretAstPrimal
   :: forall ranked y. (ADReady ranked, TensorKind y)
   => AstEnv ranked
   -> AstTensor AstMethodLet PrimalSpan y
-  -> InterpretationTarget (PrimalOf ranked) y
+  -> Rep (PrimalOf ranked) y
 interpretAstPrimal !env v1 = case v1 of
   AstPrimalPart (AstD u _) -> interpretAstPrimal env u
   AstPrimalPart (AstConstant u) -> interpretAstPrimal env u
@@ -113,12 +113,12 @@ interpretAstPrimal !env v1 = case v1 of
 interpretAstDual
   :: forall ranked y. (ADReady ranked, TensorKind y)
   => AstEnv ranked
-  -> AstTensor AstMethodLet DualSpan y -> InterpretationTarget (DualOf ranked) y
+  -> AstTensor AstMethodLet DualSpan y -> Rep (DualOf ranked) y
 interpretAstDual !env v1 = case v1 of
   AstDualPart (AstD _ u') -> interpretAstDual env u'
   _ ->
-    -- TODO: get rid of mapInterpretationTarget similarly as with tprimalPart
-    mapInterpretationTarget @ranked @(DualOf ranked)
+    -- TODO: get rid of mapRep similarly as with tprimalPart
+    mapRep @ranked @(DualOf ranked)
       rdualPart sdualPart (stensorKind @y)
       (interpretAst env v1)
 
@@ -157,7 +157,7 @@ interpretAstSRuntimeSpecialized !env t =
 interpretAst
   :: forall ranked s y. (ADReady ranked, AstSpan s)
   => AstEnv ranked
-  -> AstTensor AstMethodLet s y -> InterpretationTarget ranked y
+  -> AstTensor AstMethodLet s y -> Rep ranked y
 interpretAst !env = \case
   AstTuple t1 t2 -> ttuple (interpretAst env t1) (interpretAst env t2)
   AstProject1 t -> tproject1 (interpretAst env t)
@@ -165,7 +165,7 @@ interpretAst !env = \case
   AstVar @y2 _sh var ->
    let var2 = mkAstVarName @FullSpan @y2 (varNameToAstVarId var)  -- TODO
    in case DMap.lookup var2 env of
-    Just (AstEnvElemTuple (InterpretationTargetN t)) ->
+    Just (AstEnvElemTuple (RepN t)) ->
       -- TODO: assert (rshape t == sh
       --         `blame` (sh, rshape t, var, t, env)) t
       t
@@ -202,10 +202,10 @@ interpretAst !env = \case
     -- Consequently, the result is a dual part, despite the appearances.
   AstConstant @y2 a -> tconstant (stensorKind @y2) (interpretAstPrimal env a)
   AstD @y2 u u' ->
-    -- TODO: get rid of mapInterpretationTarget2 similarly as for AstConstant and AstCond
+    -- TODO: get rid of mapRep2 similarly as for AstConstant and AstCond
     let t1 = interpretAstPrimal env u
         t2 = interpretAstDual env u'
-    in mapInterpretationTarget2Weak @(PrimalOf ranked) @(DualOf ranked) @ranked
+    in mapRep2Weak @(PrimalOf ranked) @(DualOf ranked) @ranked
          rD sD
          (stensorKind @y2)
          t1 t2
@@ -242,7 +242,7 @@ interpretAst !env = \case
   AstBuild1 snat@(SNat @n) (_, v)
     | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
       let emptyFromStk :: TensorKindFull z
-                       -> InterpretationTarget ranked (BuildTensorKind n z)
+                       -> Rep ranked (BuildTensorKind n z)
           emptyFromStk ftk = case ftk of
             FTKR sh -> rfromList0N (0 :$: sh) []
             FTKS -> sfromList0N []
@@ -267,8 +267,8 @@ interpretAst !env = \case
     let f i = interpretAst (extendEnvI var i env) v
         replStk :: forall z.
                    STensorKindType z
-                -> (IntOf ranked -> InterpretationTarget ranked z)
-                -> InterpretationTarget ranked (BuildTensorKind n z)
+                -> (IntOf ranked -> Rep ranked z)
+                -> Rep ranked (BuildTensorKind n z)
         replStk stk g = case stk of
           STKR{} -> rbuild1 (sNatValue snat) g
           STKS{} -> sbuild1 g

@@ -312,8 +312,8 @@ mnistTestCase1VTO prefix epochs maxBatches widthHidden widthHidden2
              MnistFcnnRanked1.afcnnMnistLoss1TensorData
                widthHidden widthHidden2
                (glyphR, labelR) pars
-           g :: InterpretationTarget (AstRanked FullSpan) TKUntyped
-             -> InterpretationTarget (AstRanked FullSpan) TKUntyped
+           g :: Rep (AstRanked FullSpan) TKUntyped
+             -> Rep (AstRanked FullSpan) TKUntyped
            g !hv = HVectorPseudoTensor
                    $ toHVectorOf $ f
                    $ parseHVector (fromValue (valsInit, dataInit)) $ dunHVector $ unHVectorPseudoTensor hv

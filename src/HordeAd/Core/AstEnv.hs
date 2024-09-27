@@ -53,12 +53,12 @@ type AstEnv ranked = DEnumMap (AstVarName FullSpan) (AstEnvElem ranked)
 
 type role AstEnvElem nominal nominal
 data AstEnvElem (ranked :: RankedTensorType) (y :: TensorKindType) where
-  AstEnvElemTuple :: InterpretationTargetN ranked y -> AstEnvElem ranked y
+  AstEnvElemTuple :: RepN ranked y -> AstEnvElem ranked y
   AstEnvElemHFun :: forall ranked x y. TensorKind x
                  => HFunOf ranked x y -> AstEnvElem ranked y
     -- the "y" is a lie; it should be "TKFun x y"; BTW, Proxy would not help
 
-deriving instance ( Show (InterpretationTargetN ranked y)
+deriving instance ( Show (RepN ranked y)
                   , CHFun ranked Show y )
                   => Show (AstEnvElem ranked y)
 
@@ -66,7 +66,7 @@ emptyEnv :: AstEnv ranked
 emptyEnv = DMap.empty
 
 showsPrecAstEnv
-  :: ( forall y. TensorKind y => Show (InterpretationTargetN ranked y)
+  :: ( forall y. TensorKind y => Show (RepN ranked y)
      , forall y. CHFun ranked Show y )
   => Int -> AstEnv ranked -> ShowS
 showsPrecAstEnv d demap =
@@ -82,14 +82,14 @@ showsPrecAstEnv d demap =
 -- and if s is PrimalSpan, ranked is their primal part.
 -- The same for all functions below.
 extendEnv :: forall ranked s y. TensorKind y
-          => AstVarName s y -> InterpretationTarget ranked y -> AstEnv ranked
+          => AstVarName s y -> Rep ranked y -> AstEnv ranked
           -> AstEnv ranked
 extendEnv var !t !env =
   let var2 :: AstVarName FullSpan y
       var2 = mkAstVarName (varNameToAstVarId var)
         -- to uphold the lie about FullSpan
   in DMap.insertWithKey (\_ _ _ -> error $ "extendEnv: duplicate " ++ show var)
-                        var2 (AstEnvElemTuple $ InterpretationTargetN t) env
+                        var2 (AstEnvElemTuple $ RepN t) env
 
 extendEnvHVector :: forall ranked. ADReady ranked
                  => [AstDynamicVarName] -> HVector ranked -> AstEnv ranked
@@ -251,7 +251,7 @@ interpretLambdaHsH
   :: TensorKind x
   => (forall ranked z. ADReady ranked
       => AstEnv ranked -> AstTensor ms s z
-      -> InterpretationTarget ranked z)
+      -> Rep ranked z)
   -> (AstVarName s x, AstTensor ms s y)
   -> HFun x y
 {-# INLINE interpretLambdaHsH #-}

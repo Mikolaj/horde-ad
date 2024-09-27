@@ -62,9 +62,9 @@ pattern D t u <- ADVal t u  -- enforces only pattern matching
 deriving instance (Show (f r z), Show (Dual f r z))
                   => Show (ADVal f r z)
 
-instance (Show (InterpretationTargetN (ADVal f) x), Show (InterpretationTargetN (ADVal f) y))
-         => Show (InterpretationTargetProductN (ADVal f) x y) where
-  showsPrec d (InterpretationTargetProductN (t1, t2)) = showsPrec d (InterpretationTargetN t1, InterpretationTargetN t2)
+instance (Show (RepN (ADVal f) x), Show (RepN (ADVal f) y))
+         => Show (RepProductN (ADVal f) x y) where
+  showsPrec d (RepProductN (t1, t2)) = showsPrec d (RepN t1, RepN t2)
 
 -- | Smart constructor for 'D' of 'ADVal' that additionally records delta
 -- expression sharing information (regardless if the basic value
@@ -157,15 +157,15 @@ generateDeltaInputs =
 makeADInputs
   :: forall x ranked.
      (TensorKind x, ShareTensor ranked, RankedOf (ShapedOf ranked) ~ ranked)
-  => InterpretationTarget ranked x -> Delta ranked x
-  -> InterpretationTarget (ADVal ranked) x
+  => Rep ranked x -> Delta ranked x
+  -> Rep (ADVal ranked) x
 makeADInputs = aDValInterpretation
 
 aDValInterpretation
   :: forall y ranked.
      (TensorKind y, ShareTensor ranked, RankedOf (ShapedOf ranked) ~ ranked)
-  => InterpretationTarget ranked y -> Delta ranked y
-  -> InterpretationTarget (ADVal ranked) y
+  => Rep ranked y -> Delta ranked y
+  -> Rep (ADVal ranked) y
 aDValInterpretation p d = case stensorKind @y of
   STKR{} -> dDnotShared p (DeltaR d)
   STKS{} -> dDnotShared p (DeltaS d)
@@ -304,8 +304,8 @@ type instance DualOf (ADVal f) = Dual f
 
 type instance ShareOf (ADVal f) = ADVal f
 
-type instance InterpretationTarget (ADVal ranked) (TKProduct x z) =
-  (InterpretationTarget (ADVal ranked) x, InterpretationTarget (ADVal ranked) z)
+type instance Rep (ADVal ranked) (TKProduct x z) =
+  (Rep (ADVal ranked) x, Rep (ADVal ranked) z)
 
 instance ProductTensor (ADVal ranked) where
   ttuple u v = (u, v)

@@ -9,11 +9,11 @@
 -- and also to hangle multiple arguments and results of fold-like operations.
 module HordeAd.Core.HVector
   ( HVectorOf, HVectorPseudoTensor(..)
-  , InterpretationTarget, InterpretationTargetN(..), InterpretationTargetProductN(..), ConcreteTarget
-  , InterpretationTargetD(..), InterpretationTargetM(..)
+  , Rep, RepN(..), RepProductN(..), RepShallow
+  , RepD(..), RepM(..)
   , TensorKindFull(..), lemTensorKindOfF, buildTensorKindFull
   , DynamicTensor(..)
-  , CRanked, CShaped, CHFun, CHFun2, CInterpretationTargetProduct
+  , CRanked, CShaped, CHFun, CHFun2, CRepProduct
   , HVector
   , VoidTensor, absurdTensor, VoidHVector, DynamicScalar(..)
   , scalarDynamic, shapeVoidDynamic, shapeVoidHVector, shapeDynamicF
@@ -57,80 +57,80 @@ deriving instance Show (HVectorOf ranked)
 
 type instance RankedOf (HVectorPseudoTensor ranked) = ranked
 
-type family InterpretationTarget (ranked :: RankedTensorType)
+type family Rep (ranked :: RankedTensorType)
                                  (y :: TensorKindType)
   = result | result -> ranked y
 
-type instance InterpretationTarget ranked (TKR r n) = ranked r n
-type instance InterpretationTarget ranked (TKS r sh) = ShapedOf ranked r sh
+type instance Rep ranked (TKR r n) = ranked r n
+type instance Rep ranked (TKS r sh) = ShapedOf ranked r sh
 -- The TKProduct case is defined separately for each ranked argument.
-type instance InterpretationTarget ranked TKUntyped =
+type instance Rep ranked TKUntyped =
   HVectorPseudoTensor ranked Float '()
     -- HVectorPseudoTensor instead of HVectorOf required for injectivity
 
--- TODO: can also InterpretationTargetD be replaced by cheese?
+-- TODO: can also RepD be replaced by cheese?
 -- This type lets us work around the woes with defining Show
--- for the InterpretationTarget type family. It gives us a concrete thing
+-- for the Rep type family. It gives us a concrete thing
 -- to attach a Show instance to.
-type role InterpretationTargetN nominal nominal
-newtype InterpretationTargetN ranked y = InterpretationTargetN (InterpretationTarget ranked y)
+type role RepN nominal nominal
+newtype RepN ranked y = RepN (Rep ranked y)
 
 instance ( CRanked ranked Show, CShaped (ShapedOf ranked) Show
-         , Show (HVectorOf ranked), CInterpretationTargetProduct ranked Show
+         , Show (HVectorOf ranked), CRepProduct ranked Show
          , TensorKind y )
-         => Show (InterpretationTargetN ranked y) where
-  showsPrec d (InterpretationTargetN t) = case stensorKind @y of
+         => Show (RepN ranked y) where
+  showsPrec d (RepN t) = case stensorKind @y of
     STKR{} -> showsPrec d t
     STKS{} -> showsPrec d t
-    STKProduct{} -> showsPrec d (InterpretationTargetProductN t)
+    STKProduct{} -> showsPrec d (RepProductN t)
     STKUntyped -> showsPrec d t
 
-type role InterpretationTargetProductN nominal nominal nominal
-newtype InterpretationTargetProductN ranked x y = InterpretationTargetProductN (InterpretationTarget ranked (TKProduct x y))
+type role RepProductN nominal nominal nominal
+newtype RepProductN ranked x y = RepProductN (Rep ranked (TKProduct x y))
 
 -- This is concrete only in the outermost layer.
-type family ConcreteTarget ranked y = result | result -> ranked y where
-  ConcreteTarget ranked (TKR r n) = ranked r n
-  ConcreteTarget ranked (TKS r sh) = ShapedOf ranked r sh
-  ConcreteTarget ranked (TKProduct x z) =
-    (InterpretationTarget ranked x, InterpretationTarget ranked z)
-  ConcreteTarget ranked TKUntyped = HVector ranked
+type family RepShallow ranked y = result | result -> ranked y where
+  RepShallow ranked (TKR r n) = ranked r n
+  RepShallow ranked (TKS r sh) = ShapedOf ranked r sh
+  RepShallow ranked (TKProduct x z) =
+    (Rep ranked x, Rep ranked z)
+  RepShallow ranked TKUntyped = HVector ranked
 
--- Needed because `InterpretationTarget` can't be partially applied.
-type role InterpretationTargetD nominal nominal
-data InterpretationTargetD ranked y where
+-- Needed because `Rep` can't be partially applied.
+type role RepD nominal nominal
+data RepD ranked y where
   DTKR :: (GoodScalar r, KnownNat n)
-       => InterpretationTarget ranked (TKR r n)
-       -> InterpretationTargetD ranked (TKR r n)
+       => Rep ranked (TKR r n)
+       -> RepD ranked (TKR r n)
   DTKS :: (GoodScalar r, KnownShS sh)
-       => InterpretationTarget ranked (TKS r sh)
-       -> InterpretationTargetD ranked (TKS r sh)
+       => Rep ranked (TKS r sh)
+       -> RepD ranked (TKS r sh)
   DTKProduct :: forall x z ranked. (TensorKind x, TensorKind z)
-             => InterpretationTarget ranked (TKProduct x z)
-             -> InterpretationTargetD ranked (TKProduct x z)
-  DTKUntyped :: InterpretationTarget ranked TKUntyped
-             -> InterpretationTargetD ranked TKUntyped
+             => Rep ranked (TKProduct x z)
+             -> RepD ranked (TKProduct x z)
+  DTKUntyped :: Rep ranked TKUntyped
+             -> RepD ranked TKUntyped
 
 -- This is very similar to DynamicTensor, but the second type parameter
 -- gives a peek of what's inside, which is crucial for dependent maps
 -- as opposed to existential vectors.
-type role InterpretationTargetM nominal nominal
-data InterpretationTargetM ranked y where
+type role RepM nominal nominal
+data RepM ranked y where
   MTKR :: (GoodScalar r, KnownNat n)
-       => InterpretationTarget ranked (TKR r n)
-       -> InterpretationTargetM ranked (TKR r n)
+       => Rep ranked (TKR r n)
+       -> RepM ranked (TKR r n)
   MTKS :: (GoodScalar r, KnownShS sh)
-       => InterpretationTarget ranked (TKS r sh)
-       -> InterpretationTargetM ranked (TKS r sh)
+       => Rep ranked (TKS r sh)
+       -> RepM ranked (TKS r sh)
   MTKRDummy :: (GoodScalar r, KnownShS sh)
-            => InterpretationTargetM ranked (TKR r (X.Rank sh))
+            => RepM ranked (TKR r (X.Rank sh))
   MTKSDummy  :: (GoodScalar r, KnownShS sh)
-             => InterpretationTargetM ranked (TKS r sh)
+             => RepM ranked (TKS r sh)
 
 instance ( CRanked ranked Show, CShaped (ShapedOf ranked) Show
-         , Show (HVectorOf ranked), CInterpretationTargetProduct ranked Show
+         , Show (HVectorOf ranked), CRepProduct ranked Show
          , TensorKind y )
-         => Show (InterpretationTargetM ranked y) where
+         => Show (RepM ranked y) where
   showsPrec d = \case
     MTKR @r @n t ->
       showParen (d > 10)
@@ -244,13 +244,13 @@ class (forall x y. c (HFunOf ranked x y)) => CHFun2 ranked c where
 instance
       (forall x y. c (HFunOf ranked x y)) => CHFun2 ranked c where
 
-type CInterpretationTargetProduct :: RankedTensorType -> (Type -> Constraint)
+type CRepProduct :: RankedTensorType -> (Type -> Constraint)
                                   -> Constraint
-class (forall x y. (TensorKind x, TensorKind y) => c (InterpretationTargetProductN ranked x y))
-       => CInterpretationTargetProduct ranked c where
+class (forall x y. (TensorKind x, TensorKind y) => c (RepProductN ranked x y))
+       => CRepProduct ranked c where
 instance
-      (forall x y. (TensorKind x, TensorKind y) => c (InterpretationTargetProductN ranked x y))
-       => CInterpretationTargetProduct ranked c where
+      (forall x y. (TensorKind x, TensorKind y) => c (RepProductN ranked x y))
+       => CRepProduct ranked c where
 
 -- | This is a heterogeneous vector, used as represenation of tuples
 -- of tensors that need to have the same Haskell type regardless

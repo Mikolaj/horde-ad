@@ -53,11 +53,11 @@ crevOnADInputs
   :: forall x z ranked.
      ( TensorKind x, TensorKind z, ADReadyNoLet ranked
      , ShareTensor ranked, ShareTensor (PrimalOf ranked) )
-  => Maybe (InterpretationTarget ranked z)
-  -> (InterpretationTarget (ADVal ranked) x
-      -> InterpretationTarget (ADVal ranked) z)
-  -> InterpretationTarget (ADVal ranked) x
-  -> (InterpretationTarget ranked x, InterpretationTarget ranked z)
+  => Maybe (Rep ranked z)
+  -> (Rep (ADVal ranked) x
+      -> Rep (ADVal ranked) z)
+  -> Rep (ADVal ranked) x
+  -> (Rep ranked x, Rep ranked z)
 -- The functions in which @revOnADInputs@ inlines are not inlined themselves
 -- in client code, so the bloat is limited.
 {-# INLINE crevOnADInputs #-}
@@ -73,11 +73,11 @@ crevOnHVector
   :: forall x z ranked.
      ( TensorKind x, TensorKind z, ADReadyNoLet ranked
      , ShareTensor ranked, ShareTensor (PrimalOf ranked) )
-  => Maybe (InterpretationTarget ranked z)
-  -> (InterpretationTarget (ADVal ranked) x
-      -> InterpretationTarget (ADVal ranked) z)
-  -> InterpretationTarget ranked x
-  -> (InterpretationTarget ranked x, InterpretationTarget ranked z)
+  => Maybe (Rep ranked z)
+  -> (Rep (ADVal ranked) x
+      -> Rep (ADVal ranked) z)
+  -> Rep ranked x
+  -> (Rep ranked x, Rep ranked z)
 crevOnHVector mdt f parameters =
   let deltaInputs = generateDeltaInputs
                     $ tshapeFull (stensorKind @x) parameters
@@ -87,11 +87,11 @@ crevOnHVector mdt f parameters =
 cfwdOnADInputs
   :: forall x z ranked.
      (TensorKind x, TensorKind z, ADReadyNoLet ranked, ShareTensor ranked)
-  => InterpretationTarget (ADVal ranked) x
-  -> (InterpretationTarget (ADVal ranked) x
-      -> InterpretationTarget (ADVal ranked) z)
-  -> InterpretationTarget ranked x
-  -> (InterpretationTarget ranked z, InterpretationTarget ranked z)
+  => Rep (ADVal ranked) x
+  -> (Rep (ADVal ranked) x
+      -> Rep (ADVal ranked) z)
+  -> Rep ranked x
+  -> (Rep ranked z, Rep ranked z)
 {-# INLINE cfwdOnADInputs #-}
 cfwdOnADInputs inputs f ds =
   let !(!v, !delta) = unADValInterpretation (stensorKind @z) $ f inputs in
@@ -101,11 +101,11 @@ cfwdOnADInputs inputs f ds =
 cfwdOnHVector
   :: forall x z ranked.
      (TensorKind x, TensorKind z, ADReadyNoLet ranked, ShareTensor ranked)
-  => InterpretationTarget ranked x
-  -> (InterpretationTarget (ADVal ranked) x
-      -> InterpretationTarget (ADVal ranked) z)
-  -> InterpretationTarget ranked x
-  -> (InterpretationTarget ranked z, InterpretationTarget ranked z)
+  => Rep ranked x
+  -> (Rep (ADVal ranked) x
+      -> Rep (ADVal ranked) z)
+  -> Rep ranked x
+  -> (Rep ranked z, Rep ranked z)
 cfwdOnHVector parameters f ds =
   let deltaInputs = generateDeltaInputs
                     $ tshapeFull (stensorKind @x) parameters
@@ -123,10 +123,10 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
   sletHFunIn = (&)
   dletHFunInHVector = (&)
   tlet :: forall x z. (TensorKind x, TensorKind z)
-       => InterpretationTarget (ADVal ranked) x
-       -> (ConcreteTarget (ADVal ranked) x
-           -> InterpretationTarget (ADVal ranked) z)
-       -> InterpretationTarget (ADVal ranked) z
+       => Rep (ADVal ranked) x
+       -> (RepShallow (ADVal ranked) x
+           -> Rep (ADVal ranked) z)
+       -> Rep (ADVal ranked) z
   tlet a f = case stensorKind @x of
     STKR{} -> blet a f
     STKS{} -> blet a f
@@ -145,10 +145,10 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
             -- to f is properly shared.
       in f (aDValHVector var2 u')
   blet :: forall x z. (TensorKind x, TensorKind z)
-       => InterpretationTarget (ADVal ranked) x
-       -> (InterpretationTarget (ADVal ranked) x
-           -> InterpretationTarget (ADVal ranked) z)
-       -> InterpretationTarget (ADVal ranked) z
+       => Rep (ADVal ranked) x
+       -> (Rep (ADVal ranked) x
+           -> Rep (ADVal ranked) z)
+       -> Rep (ADVal ranked) z
   blet a f = case stensorKind @x of
     STKR{} ->
       let (D u u') = a
@@ -173,8 +173,8 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
   toShare = id
   tunshare = id
   tconstant :: STensorKindType y
-            -> InterpretationTarget ranked y
-            -> InterpretationTarget (ADVal ranked) y
+            -> Rep ranked y
+            -> Rep (ADVal ranked) y
   tconstant stk t = case stk of
     STKR{} -> rconstant t
     STKS{} -> sconstant t
@@ -481,8 +481,8 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
       in HVectorPseudoTensor
          $ V.zipWith fd (unHVectorPseudoTensor u) (unHVectorPseudoTensor v)
   tprimalPart :: STensorKindType y
-              -> InterpretationTarget (ADVal ranked) y
-              -> InterpretationTarget ranked y
+              -> Rep (ADVal ranked) y
+              -> Rep ranked y
   tprimalPart stk t = case stk of
     STKR{} -> rprimalPart t
     STKS{} -> sprimalPart t
@@ -507,8 +507,8 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
        -> HFun x x
   drev _ftk h =
     let rf :: forall f. ADReady f
-           => InterpretationTarget f x
-           -> InterpretationTarget f x
+           => Rep f x
+           -> Rep f x
         -- This computes the derivative of g again for each new a.
         rf !a = blet a $ \ !aShared ->
           tunshare $ fst $ crevOnHVector
@@ -522,8 +522,8 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
          -> HFun (TKProduct z x) x
   drevDt _ftk h =
     let rf :: forall f. ADReady f
-           => InterpretationTarget f (TKProduct z x)
-           -> InterpretationTarget f x
+           => Rep f (TKProduct z x)
+           -> Rep f x
         -- This computes the derivative of g again for each new db and a.
         rf !db_a = blet db_a $ \ !db_aShared ->
           tunshare $ fst $ crevOnHVector
@@ -537,8 +537,8 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
        -> HFun (TKProduct x x) z
   dfwd _ftk h =
     let df :: forall f. ADReady f
-           => InterpretationTarget f (TKProduct x x)
-           -> InterpretationTarget f z
+           => Rep f (TKProduct x x)
+           -> Rep f z
         -- This computes the derivative of g again for each new da and a.
         df !da_a = blet da_a $ \ !da_aShared ->
           tunshare $ fst $ cfwdOnHVector
@@ -561,9 +561,9 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
     -> HFunOf (ADVal ranked) (TKProduct (TKProduct accShs bShs)
                                 (TKProduct accShs eShs))
                      (TKProduct accShs eShs)
-    -> InterpretationTarget (ADVal ranked) accShs
-    -> InterpretationTarget (ADVal ranked) (BuildTensorKind k eShs)
-    -> InterpretationTarget (ADVal ranked) (TKProduct accShs (BuildTensorKind k bShs))
+    -> Rep (ADVal ranked) accShs
+    -> Rep (ADVal ranked) (BuildTensorKind k eShs)
+    -> Rep (ADVal ranked) (TKProduct accShs (BuildTensorKind k bShs))
   dmapAccumRDer _ !k accShs bShs eShs f df rf acc0D esD
    | Dict <- lemTensorKindOfBuild k (stensorKind @accShs)
    , Dict <- lemTensorKindOfBuild k (stensorKind @bShs)
@@ -573,36 +573,36 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
         es = tshare esUnshared
         codomainShs = FTKProduct accShs bShs
         g :: forall f. ADReady f
-          => InterpretationTarget f (TKProduct accShs eShs)
-          -> InterpretationTarget f (TKProduct accShs (TKProduct accShs bShs))
+          => Rep f (TKProduct accShs eShs)
+          -> Rep f (TKProduct accShs (TKProduct accShs bShs))
         g !acc_e = tlet acc_e $ \ (!acc1, !_e) ->
           tlet (unHFun f acc_e) $ \ (!accRes1, !bRes1) ->
             ttuple accRes1 (ttuple acc1 bRes1)
         dg :: forall f. ADReady f
-           => InterpretationTarget f (TKProduct (TKProduct accShs eShs)
+           => Rep f (TKProduct (TKProduct accShs eShs)
                                                 (TKProduct accShs eShs))
-           -> InterpretationTarget f (TKProduct accShs (TKProduct accShs bShs))
+           -> Rep f (TKProduct accShs (TKProduct accShs bShs))
         dg !dacc_de_acc_e =
           tlet dacc_de_acc_e $ \(!dacc_de, !_acc_e) ->
           tlet dacc_de $ \ (!dacc1, !_de) ->
           tlet (unHFun df dacc_de_acc_e) $ \ (!accRes1, !bRes1) ->
             ttuple accRes1 (ttuple dacc1 bRes1)
         rg :: forall f. ADReady f
-           => InterpretationTarget f (TKProduct (TKProduct
+           => Rep f (TKProduct (TKProduct
                                                    accShs
                                                    (TKProduct accShs bShs))
                                                 (TKProduct accShs eShs))
-           -> InterpretationTarget f (TKProduct accShs eShs)
+           -> Rep f (TKProduct accShs eShs)
         rg !args = tlet args $ \ (!dx_db, !acc_e) ->
                    tlet dx_db $ \ (!dx1, !db1) ->
                    tlet db1 $ \ (!dbacc, !dbRes) ->
           let dx_dbRes = ttuple dx1 dbRes
           in tlet (unHFun rf (ttuple dx_dbRes acc_e))
              $ \ (!daccRes1, !deRes1) ->
-                 let added = evalInterpretationTargetD
-                             $ addInterpretationTargetDLet
-                                 (interpretationTargetToD stensorKind daccRes1)
-                                 (interpretationTargetToD stensorKind dbacc)
+                 let added = evalRepD
+                             $ addRepDLet
+                                 (repToD stensorKind daccRes1)
+                                 (repToD stensorKind dbacc)
                  in ttuple added deRes1
         pUnshared = dmapAccumRDer (Proxy @ranked)
                                   k accShs codomainShs eShs
@@ -622,8 +622,8 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
         -- of tuples in the struct of arrays format.
         (q, bs) = tunpair qbs
         dual = MapAccumR k accShs bShs eShs
-                         (InterpretationTargetN q)
-                         (InterpretationTargetN es)
+                         (RepN q)
+                         (RepN es)
                          df rf acc0' es'
     in aDValInterpretation (ttuple accFin bs) dual
   dmapAccumLDer
@@ -641,9 +641,9 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
     -> HFunOf (ADVal ranked) (TKProduct (TKProduct accShs bShs)
                                 (TKProduct accShs eShs))
                      (TKProduct accShs eShs)
-    -> InterpretationTarget (ADVal ranked) accShs
-    -> InterpretationTarget (ADVal ranked) (BuildTensorKind k eShs)
-    -> InterpretationTarget (ADVal ranked) (TKProduct accShs (BuildTensorKind k bShs))
+    -> Rep (ADVal ranked) accShs
+    -> Rep (ADVal ranked) (BuildTensorKind k eShs)
+    -> Rep (ADVal ranked) (TKProduct accShs (BuildTensorKind k bShs))
   dmapAccumLDer _ !k accShs bShs eShs f df rf acc0D esD
    | Dict <- lemTensorKindOfBuild k (stensorKind @accShs)
    , Dict <- lemTensorKindOfBuild k (stensorKind @bShs)
@@ -653,36 +653,36 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
         es = tshare esUnshared
         codomainShs = FTKProduct accShs bShs
         g :: forall f. ADReady f
-          => InterpretationTarget f (TKProduct accShs eShs)
-          -> InterpretationTarget f (TKProduct accShs (TKProduct accShs bShs))
+          => Rep f (TKProduct accShs eShs)
+          -> Rep f (TKProduct accShs (TKProduct accShs bShs))
         g !acc_e = tlet acc_e $ \ (!acc1, !_e) ->
           tlet (unHFun f acc_e) $ \ (!accRes1, !bRes1) ->
             ttuple accRes1 (ttuple acc1 bRes1)
         dg :: forall f. ADReady f
-           => InterpretationTarget f (TKProduct (TKProduct accShs eShs)
+           => Rep f (TKProduct (TKProduct accShs eShs)
                                                 (TKProduct accShs eShs))
-           -> InterpretationTarget f (TKProduct accShs (TKProduct accShs bShs))
+           -> Rep f (TKProduct accShs (TKProduct accShs bShs))
         dg !dacc_de_acc_e =
           tlet dacc_de_acc_e $ \(!dacc_de, !_acc_e) ->
           tlet dacc_de $ \ (!dacc1, !_de) ->
           tlet (unHFun df dacc_de_acc_e) $ \ (!accRes1, !bRes1) ->
             ttuple accRes1 (ttuple dacc1 bRes1)
         rg :: forall f. ADReady f
-           => InterpretationTarget f (TKProduct (TKProduct
+           => Rep f (TKProduct (TKProduct
                                                    accShs
                                                    (TKProduct accShs bShs))
                                                 (TKProduct accShs eShs))
-           -> InterpretationTarget f (TKProduct accShs eShs)
+           -> Rep f (TKProduct accShs eShs)
         rg !args = tlet args $ \ (!dx_db, !acc_e) ->
                    tlet dx_db $ \ (!dx1, !db1) ->
                    tlet db1 $ \ (!dbacc, !dbRes) ->
           let dx_dbRes = ttuple dx1 dbRes
           in tlet (unHFun rf (ttuple dx_dbRes acc_e))
              $ \ (!daccRes1, !deRes1) ->
-                 let added = evalInterpretationTargetD
-                             $ addInterpretationTargetDLet
-                                 (interpretationTargetToD stensorKind daccRes1)
-                                 (interpretationTargetToD stensorKind dbacc)
+                 let added = evalRepD
+                             $ addRepDLet
+                                 (repToD stensorKind daccRes1)
+                                 (repToD stensorKind dbacc)
                  in ttuple added deRes1
         pUnshared = dmapAccumLDer (Proxy @ranked)
                                   k accShs codomainShs eShs
@@ -702,8 +702,8 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
         -- of tuples in the struct of arrays format.
         (q, bs) = tunpair qbs
         dual = MapAccumL k accShs bShs eShs
-                         (InterpretationTargetN q)
-                         (InterpretationTargetN es)
+                         (RepN q)
+                         (RepN es)
                          df rf acc0' es'
     in aDValInterpretation (ttuple accFin bs) dual
 
@@ -746,8 +746,8 @@ unADValInterpretation
      ( HVectorTensor ranked (ShapedOf ranked), ProductTensor ranked
      , RankedOf (ShapedOf ranked) ~ ranked )
   => STensorKindType y
-  -> InterpretationTarget (ADVal ranked) y
-  -> ( InterpretationTarget ranked y
+  -> Rep (ADVal ranked) y
+  -> ( Rep ranked y
      , Delta ranked y )
 unADValInterpretation stk t = case (stk, t) of
   (STKR{}, D p (DeltaR d)) -> (p, d)

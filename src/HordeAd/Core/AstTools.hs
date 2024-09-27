@@ -362,7 +362,7 @@ bindsToLet u0 bs = foldl' bindToLet u0 (DMap.toDescList bs)
  where
   bindToLet :: AstTensor AstMethodLet s y
             -> DSum (AstVarName PrimalSpan)
-                    (InterpretationTargetD (AstRanked PrimalSpan))
+                    (RepD (AstRanked PrimalSpan))
             -> AstTensor AstMethodLet s y
   bindToLet !u (var :=> DTKR w) = AstLet var (unAstRanked w) u
   bindToLet u (var :=> DTKS w) = AstLet var (unAstShaped w) u

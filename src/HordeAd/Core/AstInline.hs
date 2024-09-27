@@ -38,20 +38,20 @@ import HordeAd.Util.SizedList
 simplifyArtifact :: (TensorKind x, TensorKind z)
                  => AstArtifactRev x z -> AstArtifactRev x z
 simplifyArtifact art =
-  let !der = simplifyInlineInterpretationTarget $ artDerivativeRev art in
-  let !prim = simplifyInlineInterpretationTarget $ artPrimalRev art
+  let !der = simplifyInlineRep $ artDerivativeRev art in
+  let !prim = simplifyInlineRep $ artPrimalRev art
   in art {artDerivativeRev = der, artPrimalRev = prim}
 
 simplifyArtifactGradient :: TensorKind x
                          => AstArtifactRev x z -> AstArtifactRev x z
 simplifyArtifactGradient art =
   art { artDerivativeRev =
-        simplifyInlineInterpretationTarget $ artDerivativeRev art }
+        simplifyInlineRep $ artDerivativeRev art }
 
-simplifyInlineInterpretationTarget
+simplifyInlineRep
   :: forall s z. (AstSpan s, TensorKind z)
-  => InterpretationTarget (AstRanked s) z -> InterpretationTarget (AstRanked s) z
-simplifyInlineInterpretationTarget = case stensorKind @z of
+  => Rep (AstRanked s) z -> Rep (AstRanked s) z
+simplifyInlineRep = case stensorKind @z of
   STKR{} -> AstRanked . simplifyInline . unAstRanked
   STKS{} -> AstShaped . simplifyInline . unAstShaped
   STKProduct{} -> simplifyInline

@@ -240,7 +240,7 @@ build1V snat@SNat (var, v00) =
       , Dict <- lemTensorKindOfBuild snat (stensorKind @y) ->
         let ftk2 = shapeAstFull u
             (var3, _ftk3, v2) =
-              substProjInterpretationTarget snat var ftk2 var1 v
+              substProjRep snat var ftk2 var1 v
         in astLet var3 (build1VOccurenceUnknown snat (var, u))
                        (build1VOccurenceUnknownRefresh snat (var, v2))
              -- ensures no duplicated bindings, see below
@@ -621,7 +621,7 @@ build1VHFun snat@SNat (var, v0) = case v0 of
       -- But note that, due to substProjVars, l2 has var occurences,
       -- so build1VOccurenceUnknownRefresh is neccessary to handle
       -- them and to eliminate them so that the function is closed again.
-      let (var2, ftk2, l2) = substProjInterpretationTarget snat var ftk var1 l
+      let (var2, ftk2, l2) = substProjRep snat var ftk var1 l
       in Ast.AstLambda
            (var2, ftk2, build1VOccurenceUnknownRefresh snat (var, l2))
   Ast.AstVarHFun ftkx ftky var2 ->
@@ -649,7 +649,7 @@ build1VOccurenceUnknownDynamic SNat (var, d) = case d of
 
 -- * Auxiliary machinery
 
-substProjInterpretationTarget
+substProjRep
   :: forall k s s2 y2 y.
      ( AstSpan s, AstSpan s2, TensorKind y2, TensorKind y )
   => SNat k -> IntVarName
@@ -657,7 +657,7 @@ substProjInterpretationTarget
   -> ( AstVarName s2 (BuildTensorKind k y2)
      , TensorKindFull (BuildTensorKind k y2)
      , AstTensor AstMethodLet s y )
-substProjInterpretationTarget snat@SNat var ftk2 var1 v
+substProjRep snat@SNat var ftk2 var1 v
   | Dict <- lemTensorKindOfBuild snat (stensorKind @y2) =
     let var3 :: AstVarName s2 (BuildTensorKind k y2)
         var3 = mkAstVarName (varNameToAstVarId var1)

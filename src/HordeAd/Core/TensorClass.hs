@@ -16,9 +16,9 @@ module HordeAd.Core.TensorClass
   , HVectorTensor(..), ProductTensor(..)
   , HFun(..)
   , rfromD, sfromD, rscalar, rrepl, ringestData, ringestData1
-  , ingestData, sscalar, srepl, unconcreteTarget
-  , mapDynamic, mapDynamic2, mapInterpretationTarget
-  , mapInterpretationTarget2Weak
+  , ingestData, sscalar, srepl, unrepShallow
+  , mapDynamic, mapDynamic2, mapRep
+  , mapRep2Weak
     -- * The giga-constraint
   , ADReady, ADReadyNoLet, ADReadyS, ADReadyNoLetS
   ) where
@@ -132,18 +132,18 @@ class HVectorTensor ranked shaped
   -- This type signature generalizes dletHVectorInHVector and is easier
   -- for the user to work with, giving him access to concrete vectors and tuples.
   tlet :: forall x z. (TensorKind x, TensorKind z)
-       => InterpretationTarget ranked x
-       -> (ConcreteTarget ranked x -> InterpretationTarget ranked z)
-       -> InterpretationTarget ranked z
+       => Rep ranked x
+       -> (RepShallow ranked x -> Rep ranked z)
+       -> Rep ranked z
   blet :: forall x z. (TensorKind x, TensorKind z)
-       => InterpretationTarget ranked x
-       -> (InterpretationTarget ranked x -> InterpretationTarget ranked z)
-       -> InterpretationTarget ranked z
+       => Rep ranked x
+       -> (Rep ranked x -> Rep ranked z)
+       -> Rep ranked z
   treplicate :: ( RankedTensor ranked, ShapedTensor shaped, ProductTensor ranked
                 , shaped ~ ShapedOf ranked, RankedOf shaped ~ ranked )
              => SNat k -> STensorKindType z
-             -> InterpretationTarget ranked z
-             -> InterpretationTarget ranked (BuildTensorKind k z)
+             -> Rep ranked z
+             -> Rep ranked (BuildTensorKind k z)
   treplicate snat@SNat stk u = case stk of
     STKR{} -> rreplicate (sNatValue snat) u
     STKS{} -> sreplicate u
@@ -158,15 +158,15 @@ class HVectorTensor ranked shaped
         $ replicate1HVectorF rreplicate sreplicate snat hv
 
   toShare :: TensorKind y
-          => InterpretationTarget ranked y
-          -> InterpretationTarget (ShareOf ranked) y
+          => Rep ranked y
+          -> Rep (ShareOf ranked) y
   tunshare :: TensorKind y
-           => InterpretationTarget (ShareOf ranked) y
-           -> InterpretationTarget ranked y
+           => Rep (ShareOf ranked) y
+           -> Rep ranked y
   tunshare = error "tunshare: this instance should never be used"
   tconstant :: STensorKindType y
-            -> InterpretationTarget (PrimalOf ranked) y
-            -> InterpretationTarget ranked y
+            -> Rep (PrimalOf ranked) y
+            -> Rep ranked y
 
   -- The second argument is only used to determine tensor shapes
   -- and the third has to have the same shapes as the second.
@@ -289,12 +289,12 @@ class HVectorTensor ranked shaped
 
 class ShareTensor (ranked :: RankedTensorType) where
   tshare :: forall y. (TensorKind y, ProductTensor ranked)
-         => InterpretationTarget ranked y -> InterpretationTarget ranked y
+         => Rep ranked y -> Rep ranked y
   tunpair :: (TensorKind x, TensorKind z)
-          => InterpretationTarget ranked (TKProduct x z)
-          -> ConcreteTarget ranked (TKProduct x z)
-  tunvector :: InterpretationTarget ranked TKUntyped
-            -> ConcreteTarget ranked TKUntyped
+          => Rep ranked (TKProduct x z)
+          -> RepShallow ranked (TKProduct x z)
+  tunvector :: Rep ranked TKUntyped
+            -> RepShallow ranked TKUntyped
 
 -- | The superclasses indicate that it's not only a container array,
 -- but also a mathematical tensor, sporting numeric operations.
@@ -924,22 +924,22 @@ class HVectorTensor (ranked :: RankedTensorType)
                     (shaped :: ShapedTensorType)
                     | ranked -> shaped, shaped -> ranked where
   dshape :: HVectorOf ranked -> VoidHVector
-  tshapeFull :: STensorKindType y -> InterpretationTarget ranked y
+  tshapeFull :: STensorKindType y -> Rep ranked y
              -> TensorKindFull y
   tcond :: IfF ranked
         => STensorKindType y
         -> BoolOf ranked
-        -> InterpretationTarget ranked y -> InterpretationTarget ranked y
-        -> InterpretationTarget ranked y
+        -> Rep ranked y -> Rep ranked y
+        -> Rep ranked y
   tprimalPart :: STensorKindType y
-              -> InterpretationTarget ranked y
-              -> InterpretationTarget (PrimalOf ranked) y
+              -> Rep ranked y
+              -> Rep (PrimalOf ranked) y
   dmkHVector :: HVector ranked -> HVectorOf ranked
   dlambda :: (TensorKind x, TensorKind z)
           => TensorKindFull x -> HFun x z -> HFunOf ranked x z
   dHApply :: (TensorKind x, TensorKind z)
-          => HFunOf ranked x z -> InterpretationTarget ranked x
-          -> InterpretationTarget ranked z
+          => HFunOf ranked x z -> Rep ranked x
+          -> Rep ranked z
   dunHVector :: HVectorOf ranked -> HVector ranked
     -- ^ Warning: this operation easily breaks sharing.
     -- The operation can't usually be implemented to preserve
@@ -1001,9 +1001,9 @@ class HVectorTensor (ranked :: RankedTensorType)
            (FTKUntyped V.empty)
            (FTKR @rm shm)
            (let g :: forall f. ADReady f
-                  => InterpretationTarget f (TKR rn n)
-                  -> InterpretationTarget f (TKR rm m)
-                  -> InterpretationTarget f (TKProduct (TKR rn n) TKUntyped)
+                  => Rep f (TKR rn n)
+                  -> Rep f (TKR rm m)
+                  -> Rep f (TKProduct (TKR rn n) TKUntyped)
                 g !acc !e =
                   ttuple (f acc e)
                          (HVectorPseudoTensor $ dmkHVector V.empty)
@@ -1034,9 +1034,9 @@ class HVectorTensor (ranked :: RankedTensorType)
                 (FTKR @rn sh)
                 (FTKR @rm shm)
                 (let g :: forall f. ADReady f
-                       => InterpretationTarget f (TKR rn n)
-                       -> InterpretationTarget f (TKR rm m)
-                       -> InterpretationTarget f (TKProduct (TKR rn n) (TKR rn n))
+                       => Rep f (TKR rn n)
+                       -> Rep f (TKR rm m)
+                       -> Rep f (TKProduct (TKR rn n) (TKR rn n))
                      g !acc !e = blet (f acc e) $ \ !res -> ttuple res res
                  in g)
                 acc0
@@ -1060,9 +1060,9 @@ class HVectorTensor (ranked :: RankedTensorType)
          (FTKUntyped V.empty)
          (FTKS @rm @shm)
          (let g :: forall f. ADReady f
-                => InterpretationTarget f (TKS rn sh)
-                -> InterpretationTarget f (TKS rm shm)
-                -> InterpretationTarget f (TKProduct (TKS rn sh) TKUntyped)
+                => Rep f (TKS rn sh)
+                -> Rep f (TKS rm shm)
+                -> Rep f (TKProduct (TKS rn sh) TKUntyped)
               g !acc !e =
                 ttuple (f acc e)
                        (HVectorPseudoTensor $ dmkHVector V.empty)
@@ -1087,9 +1087,9 @@ class HVectorTensor (ranked :: RankedTensorType)
              (FTKS @rn @sh)
              (FTKS @rm @shm)
              (let g :: forall f. ADReady f
-                    => InterpretationTarget f (TKS rn sh)
-                    -> InterpretationTarget f (TKS rm shm)
-                    -> InterpretationTarget f (TKProduct (TKS rn sh) (TKS rn sh))
+                    => Rep f (TKS rn sh)
+                    -> Rep f (TKS rm shm)
+                    -> Rep f (TKProduct (TKS rn sh) (TKS rn sh))
                   g !acc !e = blet (f acc e) $ \ !res -> ttuple res res
               in g)
              acc0
@@ -1111,16 +1111,16 @@ class HVectorTensor (ranked :: RankedTensorType)
     -> TensorKindFull bShs
     -> TensorKindFull eShs
     -> (forall f. ADReady f
-        => ConcreteTarget f accShs -> ConcreteTarget f eShs
-        -> InterpretationTarget f (TKProduct accShs bShs))
-    -> InterpretationTarget ranked accShs
-    -> InterpretationTarget ranked (BuildTensorKind k eShs)
-    -> InterpretationTarget ranked (TKProduct accShs (BuildTensorKind k bShs))
+        => RepShallow f accShs -> RepShallow f eShs
+        -> Rep f (TKProduct accShs bShs))
+    -> Rep ranked accShs
+    -> Rep ranked (BuildTensorKind k eShs)
+    -> Rep ranked (TKProduct accShs (BuildTensorKind k bShs))
   dmapAccumR proxy !k !accShs !bShs !eShs f acc0 es =
     let shs = FTKProduct accShs eShs
         fl :: forall f. ADReady f
-           => InterpretationTarget f (TKProduct accShs eShs)
-           -> InterpretationTarget f (TKProduct accShs bShs)
+           => Rep f (TKProduct accShs eShs)
+           -> Rep f (TKProduct accShs bShs)
         fl !args = tlet args $ \ (!acc1, !e1) ->
           tlet acc1 $ \ !acc ->
             tlet e1 $ \ !e ->
@@ -1144,10 +1144,10 @@ class HVectorTensor (ranked :: RankedTensorType)
     -> HFunOf ranked (TKProduct (TKProduct accShs bShs)
                                 (TKProduct accShs eShs))
                      (TKProduct accShs eShs)
-    -> InterpretationTarget ranked accShs  -- ^ acc0 :: accShs
-    -> InterpretationTarget ranked (BuildTensorKind k eShs)
+    -> Rep ranked accShs  -- ^ acc0 :: accShs
+    -> Rep ranked (BuildTensorKind k eShs)
          -- ^ es :: k ': eShs
-    -> InterpretationTarget ranked (TKProduct accShs (BuildTensorKind k bShs))
+    -> Rep ranked (TKProduct accShs (BuildTensorKind k bShs))
          -- ^ (x, bs) :: (accShs, k ': bShs)
   -- | A strict left mapAccum.
   dmapAccumL
@@ -1159,16 +1159,16 @@ class HVectorTensor (ranked :: RankedTensorType)
     -> TensorKindFull bShs
     -> TensorKindFull eShs
     -> (forall f. ADReady f
-        => ConcreteTarget f accShs -> ConcreteTarget f eShs
-        -> InterpretationTarget f (TKProduct accShs bShs))
-    -> InterpretationTarget ranked accShs
-    -> InterpretationTarget ranked (BuildTensorKind k eShs)
-    -> InterpretationTarget ranked (TKProduct accShs (BuildTensorKind k bShs))
+        => RepShallow f accShs -> RepShallow f eShs
+        -> Rep f (TKProduct accShs bShs))
+    -> Rep ranked accShs
+    -> Rep ranked (BuildTensorKind k eShs)
+    -> Rep ranked (TKProduct accShs (BuildTensorKind k bShs))
   dmapAccumL proxy !k !accShs !bShs !eShs f acc0 es =
     let shs = FTKProduct accShs eShs
         fl :: forall f. ADReady f
-           => InterpretationTarget f (TKProduct accShs eShs)
-           -> InterpretationTarget f (TKProduct accShs bShs)
+           => Rep f (TKProduct accShs eShs)
+           -> Rep f (TKProduct accShs bShs)
         fl !args = tlet args $ \ (!acc1, !e1) ->
           tlet acc1 $ \ !acc ->
             tlet e1 $ \ !e ->
@@ -1192,22 +1192,22 @@ class HVectorTensor (ranked :: RankedTensorType)
     -> HFunOf ranked (TKProduct (TKProduct accShs bShs)
                                 (TKProduct accShs eShs))
                      (TKProduct accShs eShs)
-    -> InterpretationTarget ranked accShs
-    -> InterpretationTarget ranked (BuildTensorKind k eShs)
-    -> InterpretationTarget ranked (TKProduct accShs (BuildTensorKind k bShs))
+    -> Rep ranked accShs
+    -> Rep ranked (BuildTensorKind k eShs)
+    -> Rep ranked (TKProduct accShs (BuildTensorKind k bShs))
 
 -- TODO: tmkHVector should be removed, but the Delta instance needed
 -- in interpreter makes this difficult.
 class ProductTensor (ranked :: RankedTensorType) where
   ttuple :: (TensorKind x, TensorKind z)
-         => InterpretationTarget ranked x -> InterpretationTarget ranked z
-         -> InterpretationTarget ranked (TKProduct x z)
+         => Rep ranked x -> Rep ranked z
+         -> Rep ranked (TKProduct x z)
   tproject1 :: (TensorKind x, TensorKind z)
-            => InterpretationTarget ranked (TKProduct x z)
-            -> InterpretationTarget ranked x
+            => Rep ranked (TKProduct x z)
+            -> Rep ranked x
   tproject2 :: (TensorKind x, TensorKind z)
-            => InterpretationTarget ranked (TKProduct x z)
-            -> InterpretationTarget ranked z
+            => Rep ranked (TKProduct x z)
+            -> Rep ranked z
   tmkHVector :: HVector ranked -> HVectorOf ranked
 
 rfromD :: forall r n ranked.
@@ -1300,12 +1300,12 @@ srepl =
   -- though we could also look at the low level in @isSmall@ and mark
   -- replicated constants as small
 
-unconcreteTarget :: forall ranked y.
+unrepShallow :: forall ranked y.
                     ( TensorKind y, HVectorTensor ranked (ShapedOf ranked)
                     , ProductTensor ranked )
-                 => ConcreteTarget ranked y
-                 -> InterpretationTarget ranked y
-unconcreteTarget t = case stensorKind @y of
+                 => RepShallow ranked y
+                 -> Rep ranked y
+unrepShallow t = case stensorKind @y of
   STKR{} -> t
   STKS{} -> t
   STKProduct{} -> uncurry ttuple t
@@ -1314,9 +1314,9 @@ unconcreteTarget t = case stensorKind @y of
 mapDynamic
   :: (RankedTensor f, ShapedTensor (ShapedOf f))
   => (forall r n. (GoodScalar r, KnownNat n)
-      => InterpretationTarget f (TKR r n) -> InterpretationTarget g (TKR r n))
+      => Rep f (TKR r n) -> Rep g (TKR r n))
   -> (forall r sh. (GoodScalar r, KnownShS sh)
-      => InterpretationTarget f (TKS r sh) -> InterpretationTarget g (TKS r sh))
+      => Rep f (TKS r sh) -> Rep g (TKS r sh))
   -> DynamicTensor f -> DynamicTensor g
 mapDynamic fr _fs (DynamicRanked t) = DynamicRanked $ fr t
 mapDynamic _fr fs (DynamicShaped t) = DynamicShaped $ fs t
@@ -1330,11 +1330,11 @@ mapDynamic2
   :: ( RankedTensor f1, ShapedTensor (ShapedOf f1)
      , RankedTensor f2, ShapedTensor (ShapedOf f2) )
   => (forall r n. (GoodScalar r, KnownNat n)
-      => InterpretationTarget f1 (TKR r n) -> InterpretationTarget f2 (TKR r n)
-      -> InterpretationTarget g (TKR r n))
+      => Rep f1 (TKR r n) -> Rep f2 (TKR r n)
+      -> Rep g (TKR r n))
   -> (forall r sh. (GoodScalar r, KnownShS sh)
-      => InterpretationTarget f1 (TKS r sh) -> InterpretationTarget f2 (TKS r sh)
-      -> InterpretationTarget g (TKS r sh))
+      => Rep f1 (TKS r sh) -> Rep f2 (TKS r sh)
+      -> Rep g (TKS r sh))
   -> DynamicTensor f1 -> DynamicTensor f2 -> DynamicTensor g
 mapDynamic2 fr _fs (DynamicRanked @r1 @n1 t1) (DynamicRanked @r2 @n2 t2) =
   case testEquality (typeRep @r1) (typeRep @r2) of
@@ -1391,24 +1391,24 @@ mapDynamic2 _fr fs (DynamicShapedDummy @r1 @sh1 _ _)
     Nothing -> error "mapDynamic2: r mismatch"
 mapDynamic2 _ _ _ _ = error "mapDynamic2: unexpected arguments"
 
-mapInterpretationTarget
+mapRep
   :: forall f g y.
      ( ProductTensor f, ProductTensor g
      , RankedTensor f, ShapedTensor (ShapedOf f)
      , HVectorTensor f (ShapedOf f) )
   => (forall r n. (GoodScalar r, KnownNat n)
-      => InterpretationTarget f (TKR r n) -> InterpretationTarget g (TKR r n))
+      => Rep f (TKR r n) -> Rep g (TKR r n))
   -> (forall r sh. (GoodScalar r, KnownShS sh)
-      => InterpretationTarget f (TKS r sh) -> InterpretationTarget g (TKS r sh))
+      => Rep f (TKS r sh) -> Rep g (TKS r sh))
   -> STensorKindType y
-  -> InterpretationTarget f y
-  -> InterpretationTarget g y
-mapInterpretationTarget fr fs stk b = case stk of
+  -> Rep f y
+  -> Rep g y
+mapRep fr fs stk b = case stk of
   STKR{} -> fr b
   STKS{} -> fs b
   STKProduct stk1 stk2 ->
-    let !t1 = mapInterpretationTarget fr fs stk1 $ tproject1 b
-        !t2 = mapInterpretationTarget fr fs stk2 $ tproject2 b
+    let !t1 = mapRep fr fs stk1 $ tproject1 b
+        !t2 = mapRep fr fs stk2 $ tproject2 b
     in ttuple t1 t2
       -- this shares properly only when the product instance for f is (,)
       -- and tlet wouldn't work because f and g differ
@@ -1422,7 +1422,7 @@ mapInterpretationTarget fr fs stk b = case stk of
        $ dunHVector $ unHVectorPseudoTensor b
 
 {- Not needed ATM and quite broken.
-mapInterpretationTarget2
+mapRep2
   :: forall f1 f2 g y.
      ( ProductTensor f1, ProductTensor f2, ProductTensor g
      , RankedTensor f1, ShapedTensor (ShapedOf f1)
@@ -1430,20 +1430,20 @@ mapInterpretationTarget2
      , HVectorTensor f1 (ShapedOf f1)
      , HVectorTensor f2 (ShapedOf f2) )
   => (forall r n. (GoodScalar r, KnownNat n)
-      => InterpretationTarget f1 (TKR r n) -> InterpretationTarget f2 (TKR r n)
-      -> InterpretationTarget g (TKR r n))
+      => Rep f1 (TKR r n) -> Rep f2 (TKR r n)
+      -> Rep g (TKR r n))
   -> (forall r sh. (GoodScalar r, KnownShS sh)
-      => InterpretationTarget f1 (TKS r sh) -> InterpretationTarget f2 (TKS r sh)
-      -> InterpretationTarget g (TKS r sh))
+      => Rep f1 (TKS r sh) -> Rep f2 (TKS r sh)
+      -> Rep g (TKS r sh))
   -> STensorKindType y
-  -> InterpretationTarget f1 y -> InterpretationTarget f2 y
-  -> InterpretationTarget g y
-mapInterpretationTarget2 fr fs stk b1 b2 = case stk of
+  -> Rep f1 y -> Rep f2 y
+  -> Rep g y
+mapRep2 fr fs stk b1 b2 = case stk of
   STKR{} -> fr b1 b2
   STKS{} -> fs b1 b2
   STKProduct stk1 stk2 ->
-    let !t1 = mapInterpretationTarget2 fr fs stk1 (tproject1 b1) (tproject1 b2)
-        !t2 = mapInterpretationTarget2 fr fs stk2 (tproject2 b1) (tproject2 b2)
+    let !t1 = mapRep2 fr fs stk1 (tproject1 b1) (tproject1 b2)
+        !t2 = mapRep2 fr fs stk2 (tproject2 b1) (tproject2 b2)
     in ttuple t1 t2
       -- this shares properly only when the product instance for f1 and f2 is (,)
   STKUntyped ->
@@ -1458,33 +1458,33 @@ mapInterpretationTarget2 fr fs stk b1 b2 = case stk of
 --           (dunHVector $ tshare $ unHVectorPseudoTensor b2)
 -}
 
-mapInterpretationTarget2Weak
+mapRep2Weak
   :: forall f1 f2 g y. (ProductTensor f1, ProductTensor f2, ProductTensor g)
   => (forall r n. (GoodScalar r, KnownNat n)
-      => InterpretationTarget f1 (TKR r n) -> InterpretationTarget f2 (TKR r n)
-      -> InterpretationTarget g (TKR r n))
+      => Rep f1 (TKR r n) -> Rep f2 (TKR r n)
+      -> Rep g (TKR r n))
   -> (forall r sh. (GoodScalar r, KnownShS sh)
-      => InterpretationTarget f1 (TKS r sh) -> InterpretationTarget f2 (TKS r sh)
-      -> InterpretationTarget g (TKS r sh))
+      => Rep f1 (TKS r sh) -> Rep f2 (TKS r sh)
+      -> Rep g (TKS r sh))
   -> STensorKindType y
-  -> InterpretationTarget f1 y -> InterpretationTarget f2 y
-  -> InterpretationTarget g y
-mapInterpretationTarget2Weak fr fs stk b1 b2 = case stk of
+  -> Rep f1 y -> Rep f2 y
+  -> Rep g y
+mapRep2Weak fr fs stk b1 b2 = case stk of
   STKR{} -> fr b1 b2
   STKS{} -> fs b1 b2
   STKProduct stk1 stk2 ->
-    let !t1 = mapInterpretationTarget2Weak fr fs stk1 (tproject1 b1) (tproject1 b2)
-        !t2 = mapInterpretationTarget2Weak fr fs stk2 (tproject2 b1) (tproject2 b2)
+    let !t1 = mapRep2Weak fr fs stk1 (tproject1 b1) (tproject1 b2)
+        !t2 = mapRep2Weak fr fs stk2 (tproject2 b1) (tproject2 b2)
     in ttuple t1 t2
       -- this shares properly only when the product instance for f1 and f2 is (,)
-  STKUntyped -> error "TODO: mapInterpretationTarget2Weak is weak"
+  STKUntyped -> error "TODO: mapRep2Weak is weak"
 
 -- These are user-accessible, so the constraint is `ADReady`, which means
 -- lets, but no shares.
 type role HFun nominal nominal
 newtype HFun (x :: TensorKindType) (z :: TensorKindType) =
   HFun {unHFun :: forall f. ADReady f
-               => InterpretationTarget f x -> InterpretationTarget f z}
+               => Rep f x -> Rep f z}
 
 instance Show (HFun x y) where
   show _ = "<lambda>"
@@ -1548,6 +1548,6 @@ type ADReadyClasses ranked shaped =
   , CRanked ranked Show
   , CShaped shaped Show
   , Show (HVectorOf ranked)
-  , CInterpretationTargetProduct ranked Show
+  , CRepProduct ranked Show
   , CHFun2 ranked Show
   )

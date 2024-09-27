@@ -38,7 +38,7 @@ module HordeAd.Core.AstSimplify
     -- * Substitution payload and adaptors for AstVarName
   , SubstitutionPayload(..)
   , substituteAst, substitute1Ast, substituteAstIndex, substituteAstIndexS
-  , substituteAstHVector, substituteAstInInterpretationTarget
+  , substituteAstHVector, substituteAstInRep
   ) where
 
 import Prelude
@@ -3343,12 +3343,12 @@ substitute1AstBool i var = \case
                                          (fromMaybe arg2 mr2)
        else Nothing
 
-substituteAstInInterpretationTarget
+substituteAstInRep
   :: forall s s2 y z. (AstSpan s, AstSpan s2, TensorKind y)
   => SubstitutionPayload s2 -> AstVarName s2 z
-  -> InterpretationTarget (AstRanked s) y
-  -> InterpretationTarget (AstRanked s) y
-substituteAstInInterpretationTarget i var = case stensorKind @y of
+  -> Rep (AstRanked s) y
+  -> Rep (AstRanked s) y
+substituteAstInRep i var = case stensorKind @y of
   STKR{} -> AstRanked . substituteAst i var . unAstRanked
   STKS{} -> AstShaped . substituteAst i var . unAstShaped
   STKProduct{} -> substituteAst i var

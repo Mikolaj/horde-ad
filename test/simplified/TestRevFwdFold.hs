@@ -1305,7 +1305,7 @@ rscanZip f eShs acc0 es =
          (FTKUntyped $ V.singleton $ voidFromSh @rn sh)
          (FTKUntyped eShs)
          (let g :: forall f. ADReady f
-                => HVector f -> HVector f -> InterpretationTarget f (TKProduct TKUntyped TKUntyped)
+                => HVector f -> HVector f -> Rep f (TKProduct TKUntyped TKUntyped)
               g acc e =
                blet
                 (f (rfromD $ acc V.! 0) e)
@@ -1338,7 +1338,7 @@ sscanZip f eShs acc0 es =
        (FTKUntyped $ V.singleton $ voidFromShS @rn @sh)
        (FTKUntyped eShs)
        (let g :: forall f. ADReady f
-              => HVector f -> HVector f -> InterpretationTarget f (TKProduct TKUntyped TKUntyped)
+              => HVector f -> HVector f -> Rep f (TKProduct TKUntyped TKUntyped)
             g acc e =
              blet
                 (f (sfromD $ acc V.! 0) e)
@@ -1377,7 +1377,7 @@ testSin0rmapAccumRD0SC = do
                           (FTKUntyped $ V.fromList [voidFromShS @Double @'[]])
                           (let g :: forall g. ADReadyS g
                                  => HVector (RankedOf g) -> HVector (RankedOf g)
-                                  -> InterpretationTarget (RankedOf g) (TKProduct TKUntyped TKUntyped)
+                                  -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
                                g xh _a =
                                  let x = sfromD @Double @'[] $ xh V.! 0
                                   in ttuple (HVectorPseudoTensor $ dmkHVector
@@ -1404,7 +1404,7 @@ testSin0rmapAccumRD0S = do
                           (FTKUntyped $ V.fromList [voidFromShS @Double @'[]])
                           (let g :: forall g. ADReadyS g
                                  => HVector (RankedOf g) -> HVector (RankedOf g)
-                                  -> InterpretationTarget (RankedOf g) (TKProduct TKUntyped TKUntyped)
+                                  -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
                                g xh _a =
                                  let x = sfromD @Double @'[] $ xh V.! 0
                                   in ttuple (HVectorPseudoTensor $ dmkHVector
@@ -1431,7 +1431,7 @@ testSin0rmapAccumRD00SC = do
                           (FTKUntyped $ V.fromList [])
                           (let g :: forall g. ADReadyS g
                                  => HVector (RankedOf g) -> HVector (RankedOf g)
-                                 -> InterpretationTarget (RankedOf g) (TKProduct TKUntyped TKUntyped)
+                                 -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
                                g xh _a =
                                  let x = sfromD @Double @'[] $ xh V.! 0
                                   in ttuple (HVectorPseudoTensor $ dmkHVector
@@ -1458,7 +1458,7 @@ testSin0rmapAccumRD00S0 = do
                           (FTKUntyped $ V.fromList [])
                           (let g :: forall g. ADReadyS g
                                  => HVector (RankedOf g) -> HVector (RankedOf g)
-                                 -> InterpretationTarget (RankedOf g) (TKProduct TKUntyped TKUntyped)
+                                 -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
                                g xh _a =
                                  let x = sfromD @Double @'[] $ xh V.! 0
                                   in ttuple (HVectorPseudoTensor $ dmkHVector
@@ -1486,7 +1486,7 @@ _testSin0rmapAccumRD00S = do
                           (FTKUntyped $ V.fromList [])
                           (let g :: forall g. ADReadyS g
                                  => HVector (RankedOf g) -> HVector (RankedOf g)
-                                 -> InterpretationTarget (RankedOf g) (TKProduct TKUntyped TKUntyped)
+                                 -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
                                g xh _a =
                                  let x = sfromD @Double @'[] $ xh V.! 0
                                   in ttuple (HVectorPseudoTensor $ dmkHVector
@@ -1514,7 +1514,7 @@ _testSin0rmapAccumRD00S7 = do
                           (FTKUntyped $ V.fromList [])
                           (let g :: forall g. ADReadyS g
                                  => HVector (RankedOf g) -> HVector (RankedOf g)
-                                 -> InterpretationTarget (RankedOf g) (TKProduct TKUntyped TKUntyped)
+                                 -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
                                g xh _a =
                                  let x = sfromD @Double @'[] $ xh V.! 0
                                  in ttuple (HVectorPseudoTensor $ dmkHVector
@@ -1540,7 +1540,7 @@ testSin0rmapAccumRD00SCacc0 = do
                           (FTKUntyped $ V.fromList [voidFromShS @Double @'[]])
                           (let g :: forall g. ADReadyS g
                                  => HVector (RankedOf g) -> HVector (RankedOf g)
-                                 -> InterpretationTarget (RankedOf g) (TKProduct TKUntyped TKUntyped)
+                                 -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
                                g xh _a = ttuple (HVectorPseudoTensor $ dmkHVector xh)
                                            (HVectorPseudoTensor $ dmkHVector V.empty)
                            in g)
@@ -1561,7 +1561,7 @@ testSin0rmapAccumRD00SCacc = do
                           (FTKUntyped $ V.fromList [voidFromShS @Double @'[]])
                           (let g :: forall g. ADReadyS g
                                  => HVector (RankedOf g) -> HVector (RankedOf g)
-                                 -> InterpretationTarget (RankedOf g) (TKProduct TKUntyped TKUntyped)
+                                 -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
                                g xh _a = ttuple (HVectorPseudoTensor $ dmkHVector xh)
                                            (HVectorPseudoTensor $ dmkHVector V.empty)
                            in g)
@@ -1583,7 +1583,7 @@ testSin0rmapAccumRD00Sacc0 = do
                           (FTKUntyped $ V.fromList [voidFromShS @Double @'[]])
                           (let g :: forall g. ADReadyS g
                                  => HVector (RankedOf g) -> HVector (RankedOf g)
-                                 -> InterpretationTarget (RankedOf g) (TKProduct TKUntyped TKUntyped)
+                                 -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
                                g xh _a = ttuple (HVectorPseudoTensor $ dmkHVector xh)
                                            (HVectorPseudoTensor $ dmkHVector V.empty)
                            in g)
@@ -1604,7 +1604,7 @@ testSin0rmapAccumRD00Sacc = do
                           (FTKUntyped $ V.fromList [voidFromShS @Double @'[]])
                           (let g :: forall g. ADReadyS g
                                  => HVector (RankedOf g) -> HVector (RankedOf g)
-                                 -> InterpretationTarget (RankedOf g) (TKProduct TKUntyped TKUntyped)
+                                 -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
                                g xh _a = ttuple (HVectorPseudoTensor $ dmkHVector xh)
                                            (HVectorPseudoTensor $ dmkHVector V.empty)
                            in g)
@@ -1626,7 +1626,7 @@ testSin0rmapAccumRD00SCall0 = do
                           (FTKUntyped $ V.fromList [])
                           (let g :: forall g. ADReadyS g
                                  => HVector (RankedOf g) -> HVector (RankedOf g)
-                                 -> InterpretationTarget (RankedOf g) (TKProduct TKUntyped TKUntyped)
+                                 -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
                                g xh _a = ttuple (HVectorPseudoTensor $ dmkHVector xh)
                                            (HVectorPseudoTensor $ dmkHVector V.empty)
                            in g)
@@ -1646,7 +1646,7 @@ testSin0rmapAccumRD00SCall = do
                           (FTKUntyped $ V.fromList [])
                           (let g :: forall g. ADReadyS g
                                  => HVector (RankedOf g) -> HVector (RankedOf g)
-                                 -> InterpretationTarget (RankedOf g) (TKProduct TKUntyped TKUntyped)
+                                 -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
                                g xh _a = ttuple (HVectorPseudoTensor $ dmkHVector xh)
                                            (HVectorPseudoTensor $ dmkHVector V.empty)
                            in g)
@@ -1666,7 +1666,7 @@ testSin0rmapAccumRD00Sall0 = do
                           (FTKUntyped $ V.fromList [])
                           (let g :: forall g. ADReadyS g
                                  => HVector (RankedOf g) -> HVector (RankedOf g)
-                                 -> InterpretationTarget (RankedOf g) (TKProduct TKUntyped TKUntyped)
+                                 -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
                                g xh _a = ttuple (HVectorPseudoTensor $ dmkHVector xh)
                                            (HVectorPseudoTensor $ dmkHVector V.empty)
                            in g)
@@ -1686,7 +1686,7 @@ testSin0rmapAccumRD00Sall = do
                           (FTKUntyped $ V.fromList [])
                           (let g :: forall g. ADReadyS g
                                  => HVector (RankedOf g) -> HVector (RankedOf g)
-                                 -> InterpretationTarget (RankedOf g) (TKProduct TKUntyped TKUntyped)
+                                 -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
                                g xh _a = ttuple (HVectorPseudoTensor $ dmkHVector xh)
                                            (HVectorPseudoTensor $ dmkHVector V.empty)
                            in g)
@@ -1768,7 +1768,7 @@ testSin0rmapAccumRD01SC = do
                           (FTKUntyped $ V.fromList [voidFromShS @Double @'[]])
                           (let g :: forall g. ADReadyS g
                                  => HVector (RankedOf g) -> HVector (RankedOf g)
-                                 -> InterpretationTarget (RankedOf g) (TKProduct TKUntyped TKUntyped)
+                                 -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
                                g xh _a =
                                  let x = sfromD @Double @'[] $ xh V.! 0
                                  in ttuple (HVectorPseudoTensor $ dmkHVector
@@ -1797,7 +1797,7 @@ testSin0rmapAccumRD01SN = do
                           (FTKUntyped $ V.fromList [voidFromShS @Double @'[]])
                           (let g :: forall g. ADReadyS g
                                  => HVector (RankedOf g) -> HVector (RankedOf g)
-                                 -> InterpretationTarget (RankedOf g) (TKProduct TKUntyped TKUntyped)
+                                 -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
                                g xh _a =
                                  let x = sfromD @Double @'[] $ xh V.! 1
                                  in ttuple (HVectorPseudoTensor $ dmkHVector
@@ -1826,7 +1826,7 @@ testSin0rmapAccumRD01SN2 = do
                           (FTKUntyped $ V.fromList [voidFromShS @Double @'[]])
                           (let g :: forall g. ADReadyS g
                                  => HVector (RankedOf g) -> HVector (RankedOf g)
-                                 -> InterpretationTarget (RankedOf g) (TKProduct TKUntyped TKUntyped)
+                                 -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
                                g xh _a =
                                  let x = sfromD @Double @'[] $ xh V.! 0
                                  in ttuple (HVectorPseudoTensor $ dmkHVector
@@ -1853,7 +1853,7 @@ testSin0rmapAccumRD01SN3 = do
                           (FTKUntyped $ V.fromList [voidFromShS @Double @'[2]])
                           (let g :: forall g. ADReadyS g
                                  => HVector (RankedOf g) -> HVector (RankedOf g)
-                                 -> InterpretationTarget (RankedOf g) (TKProduct TKUntyped TKUntyped)
+                                 -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
                                g xh _a =
                                  let x = sfromD @Double @'[] $ xh V.! 0
                                  in ttuple (HVectorPseudoTensor $ dmkHVector
@@ -1885,7 +1885,7 @@ testSin0rmapAccumRD01SN4 = do
                                       , voidFromShS @Double @'[2] ])
                           (let g :: forall g. ADReadyS g
                                  => HVector (RankedOf g) -> HVector (RankedOf g)
-                                 -> InterpretationTarget (RankedOf g) (TKProduct TKUntyped TKUntyped)
+                                 -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
                                g xh _a =
                                  let x = sfromD @Double @'[] $ xh V.! 0
                                  in ttuple (HVectorPseudoTensor $ dmkHVector
@@ -1922,7 +1922,7 @@ testSin0rmapAccumRD01SN5 = do
                                       , voidFromShS @Double @'[2] ])
                           (let g :: forall g. ADReadyS g
                                  => HVector (RankedOf g) -> HVector (RankedOf g)
-                                 -> InterpretationTarget (RankedOf g) (TKProduct TKUntyped TKUntyped)
+                                 -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
                                g xh a =
                                 let x = sfromD @Double @'[] $ xh V.! 0
                                 in ttuple (HVectorPseudoTensor $ dmkHVector
@@ -1971,7 +1971,7 @@ testSin0rmapAccumRD01SN51 = do
                                       , voidFromShS @Double @'[2] ])
                           (let g :: forall g. ADReadyS g
                                  => HVector (RankedOf g) -> HVector (RankedOf g)
-                                 -> InterpretationTarget (RankedOf g) (TKProduct TKUntyped TKUntyped)
+                                 -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
                                g xh a =
                                 let x = sfromD @Double @'[] $ xh V.! 0
                                     x1 = sfromD @Double @'[3] $ xh V.! 1
@@ -2022,7 +2022,7 @@ testSin0rmapAccumRD01SN52 = do
                                       , voidFromShS @Double @'[2] ])
                           (let g :: forall g. ADReadyS g
                                  => HVector (RankedOf g) -> HVector (RankedOf g)
-                                 -> InterpretationTarget (RankedOf g) (TKProduct TKUntyped TKUntyped)
+                                 -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
                                g xh a =
                                 let x = sfromD @Double @'[] $ xh V.! 0
                                 in ttuple (HVectorPseudoTensor $ dmkHVector
@@ -2070,7 +2070,7 @@ testSin0rmapAccumRD01SN53 = do
                                       , voidFromShS @Double @'[4] ])
                           (let g :: forall g. ADReadyS g
                                  => HVector (RankedOf g) -> HVector (RankedOf g)
-                                 -> InterpretationTarget (RankedOf g) (TKProduct TKUntyped TKUntyped)
+                                 -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
                                g xh a =
                                 let x = sfromD @Double @'[3] $ xh V.! 0
                                 in ttuple (HVectorPseudoTensor $ dmkHVector
@@ -2116,7 +2116,7 @@ testSin0rmapAccumRD01SN531 = do
                                       , voidFromShS @Double @'[3] ])
                           (let g :: forall g. ADReadyS g
                                  => HVector (RankedOf g) -> HVector (RankedOf g)
-                                 -> InterpretationTarget (RankedOf g) (TKProduct TKUntyped TKUntyped)
+                                 -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
                                g xh a =
                                 let x = sfromD @Double @'[3] $ xh V.! 0
                                 in ttuple (HVectorPseudoTensor $ dmkHVector
@@ -2169,7 +2169,7 @@ testSin0rmapAccumRD01SN531a = do
                                       , voidFromShS @Double @'[3] ])
                           (let g :: forall g. ADReadyS g
                                  => HVector (RankedOf g) -> HVector (RankedOf g)
-                                 -> InterpretationTarget (RankedOf g) (TKProduct TKUntyped TKUntyped)
+                                 -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
                                g xh a =
                                 let x = sfromD @Double @'[3] $ xh V.! 0
                                     x2 = sfromD @Double @'[6] $ xh V.! 1
@@ -2223,7 +2223,7 @@ testSin0rmapAccumRD01SN531b0 = do
                           (FTKUntyped $ V.fromList [ voidFromSh @Double ZSR ])
                           (let h :: forall g. ADReady g
                                  => HVector g -> HVector g
-                                 -> InterpretationTarget g (TKProduct TKUntyped TKUntyped)
+                                 -> Rep g (TKProduct TKUntyped TKUntyped)
                                h xh _a = ttuple (HVectorPseudoTensor $ dmkHVector xh)
                                             (HVectorPseudoTensor $ dmkHVector V.empty)
                            in h)
@@ -2249,7 +2249,7 @@ testSin0rmapAccumRD01SN531bS = do
                           (FTKUntyped $ V.fromList [ voidFromShS @Double @'[] ])
                           (let g :: forall g. ADReadyS g
                                  => HVector (RankedOf g) -> HVector (RankedOf g)
-                                 -> InterpretationTarget (RankedOf g) (TKProduct TKUntyped TKUntyped)
+                                 -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
                                g xh _a = ttuple (HVectorPseudoTensor $ dmkHVector xh)
                                             (HVectorPseudoTensor $ dmkHVector V.empty)
                            in g)
@@ -2273,7 +2273,7 @@ testSin0rmapAccumRD01SN531bR = do
                           (FTKUntyped $ V.fromList [ voidFromSh @Double ZSR ])
                           (let h :: forall g. ADReady g
                                  => HVector g -> HVector g
-                                 -> InterpretationTarget g (TKProduct TKUntyped TKUntyped)
+                                 -> Rep g (TKProduct TKUntyped TKUntyped)
                                h xh _a = ttuple (HVectorPseudoTensor $ dmkHVector xh)
                                             (HVectorPseudoTensor $ dmkHVector V.empty)
                            in h)
@@ -2297,7 +2297,7 @@ testSin0rmapAccumRD01SN531b0PP = do
                           (FTKUntyped $ V.fromList [ voidFromSh @Double ZSR ])
                           (let h :: forall g. ADReady g
                                  => HVector g -> HVector g
-                                 -> InterpretationTarget g (TKProduct TKUntyped TKUntyped)
+                                 -> Rep g (TKProduct TKUntyped TKUntyped)
                                h xh _a = ttuple (HVectorPseudoTensor $ dmkHVector xh)
                                             (HVectorPseudoTensor $ dmkHVector V.empty)
                            in h)
@@ -2329,7 +2329,7 @@ testSin0rmapAccumRD01SN531bSPP = do
                           (FTKUntyped $ V.fromList [ voidFromShS @Double @'[] ])
                           (let h :: forall g. ADReadyS g
                                  => HVector (RankedOf g) -> HVector (RankedOf g)
-                                 -> InterpretationTarget (RankedOf g) (TKProduct TKUntyped TKUntyped)
+                                 -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
                                h xh _a = ttuple (HVectorPseudoTensor $ dmkHVector xh)
                                             (HVectorPseudoTensor $ dmkHVector V.empty)
                            in h)
@@ -2358,7 +2358,7 @@ testSin0rmapAccumRD01SN531bSPPFull = do
                           (FTKUntyped $ V.fromList [ voidFromShS @Double @'[] ])
                           (let h :: forall g. ADReadyS g
                                  => HVector (RankedOf g) -> HVector (RankedOf g)
-                                 -> InterpretationTarget (RankedOf g) (TKProduct TKUntyped TKUntyped)
+                                 -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
                                h xh _a = ttuple (HVectorPseudoTensor $ dmkHVector xh)
                                             (HVectorPseudoTensor $ dmkHVector V.empty)
                            in h)
@@ -2387,7 +2387,7 @@ testSin0rmapAccumRD01SN531bRPP = do
                           (FTKUntyped $ V.fromList [ voidFromSh @Double ZSR ])
                           (let h :: forall g. ADReady g
                                  => HVector g -> HVector g
-                                 -> InterpretationTarget g (TKProduct TKUntyped TKUntyped)
+                                 -> Rep g (TKProduct TKUntyped TKUntyped)
                                h xh _a = ttuple (HVectorPseudoTensor $ dmkHVector xh)
                                             (HVectorPseudoTensor $ dmkHVector V.empty)
                            in h)
@@ -2418,7 +2418,7 @@ testSin0rmapAccumRD01SN531b0PPj = do
                           (FTKUntyped $ V.fromList [ voidFromSh @Double ZSR ])
                           (let h :: forall g. ADReady g
                                  => HVector g -> HVector g
-                                 -> InterpretationTarget g (TKProduct TKUntyped TKUntyped)
+                                 -> Rep g (TKProduct TKUntyped TKUntyped)
                                h xh _a = ttuple (HVectorPseudoTensor $ dmkHVector xh)
                                             (HVectorPseudoTensor $ dmkHVector V.empty)
                            in h)
@@ -2452,7 +2452,7 @@ testSin0rmapAccumRD01SN531bSPPj = do
                           (FTKUntyped $ V.fromList [ voidFromShS @Double @'[] ])
                           (let h :: forall g. ADReadyS g
                                  => HVector (RankedOf g) -> HVector (RankedOf g)
-                                 -> InterpretationTarget (RankedOf g) (TKProduct TKUntyped TKUntyped)
+                                 -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
                                h xh _a = ttuple (HVectorPseudoTensor $ dmkHVector xh)
                                             (HVectorPseudoTensor $ dmkHVector V.empty)
                            in h)
@@ -2484,7 +2484,7 @@ testSin0rmapAccumRD01SN531bRPPj = do
                           (FTKUntyped $ V.fromList [ voidFromSh @Double ZSR ])
                           (let h :: forall g. ADReady g
                                  => HVector g -> HVector g
-                                 -> InterpretationTarget g (TKProduct TKUntyped TKUntyped)
+                                 -> Rep g (TKProduct TKUntyped TKUntyped)
                                h xh _a = ttuple (HVectorPseudoTensor $ dmkHVector xh)
                                             (HVectorPseudoTensor $ dmkHVector V.empty)
 
@@ -2522,7 +2522,7 @@ testSin0rmapAccumRD01SN531c = do
                           (FTKUntyped $ V.fromList [ voidFromShS @Double @'[] ])
                           (let g :: forall g. ADReadyS g
                                  => HVector (RankedOf g) -> HVector (RankedOf g)
-                                 -> InterpretationTarget (RankedOf g) (TKProduct TKUntyped TKUntyped)
+                                 -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
                                g xh a =
                                 let x = sfromD @Double @'[] $ xh V.! 0
                                 in ttuple (HVectorPseudoTensor $ dmkHVector
@@ -2556,7 +2556,7 @@ testSin0rmapAccumRD01SN531d = do
                           (FTKUntyped $ V.fromList [ voidFromShS @Double @'[] ])
                           (let g :: forall g. ADReadyS g
                                  => HVector (RankedOf g) -> HVector (RankedOf g)
-                                 -> InterpretationTarget (RankedOf g) (TKProduct TKUntyped TKUntyped)
+                                 -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
                                g xh a =
                                 let x = sfromD @Double @'[] $ xh V.! 0
                                 in ttuple (HVectorPseudoTensor $ dmkHVector
@@ -2592,7 +2592,7 @@ _testSin0rmapAccumRD01SN531Slice = do
                           (FTKUntyped $ V.fromList [])
                           (let g :: forall g. ADReadyS g
                                  => HVector (RankedOf g) -> HVector (RankedOf g)
-                                 -> InterpretationTarget (RankedOf g) (TKProduct TKUntyped TKUntyped)
+                                 -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
                                g xh _a =
                                 let x = sfromD @Double @'[] $ xh V.! 0
                                 in ttuple (HVectorPseudoTensor $ dmkHVector
@@ -2619,7 +2619,7 @@ testSin0rmapAccumRD01SN54 = do
                                       , voidFromShS @Double @'[4] ])
                           (let g :: forall g. ADReadyS g
                                  => HVector (RankedOf g) -> HVector (RankedOf g)
-                                 -> InterpretationTarget (RankedOf g) (TKProduct TKUntyped TKUntyped)
+                                 -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
                                g xh a =
                                  let x = sfromD @Double @'[3] $ xh V.! 0
                                  in ttuple (HVectorPseudoTensor $ dmkHVector
@@ -2652,7 +2652,7 @@ _testSin0rmapAccumRD01SN55 = do
                           (FTKUntyped $ V.fromList [])
                           (let g :: forall g. ADReadyS g
                                  => HVector (RankedOf g) -> HVector (RankedOf g)
-                                 -> InterpretationTarget (RankedOf g) (TKProduct TKUntyped TKUntyped)
+                                 -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
                                g xh _a =
                                 let x = sfromD @Double @'[3] $ xh V.! 0
                                     a = xh
@@ -2698,7 +2698,7 @@ testSin0rmapAccumRD01SN55acc = do
                                       , voidFromShS @Double @'[3] ])
                           (let g :: forall g. ADReadyS g
                                  => HVector (RankedOf g) -> HVector (RankedOf g)
-                                 -> InterpretationTarget (RankedOf g) (TKProduct TKUntyped TKUntyped)
+                                 -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
                                g _xh a =
                                 let x = sreplicate @g @3 (sscalar 2)
                                 in ttuple (HVectorPseudoTensor $ dmkHVector
@@ -2745,7 +2745,7 @@ testSin0rmapAccumRD01SN56 = do
                           (FTKUntyped $ V.fromList [voidFromShS @Double @'[]])
                           (let g :: forall g. ADReadyS g
                                  => HVector (RankedOf g) -> HVector (RankedOf g)
-                                 -> InterpretationTarget (RankedOf g) (TKProduct TKUntyped TKUntyped)
+                                 -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
                                g xh _a =
                                  let x = sfromD @Double @'[] $ xh V.! 0
                                  in ttuple (HVectorPseudoTensor $ dmkHVector
@@ -2772,7 +2772,7 @@ testSin0rmapAccumRD01SN57 = do
                           (FTKUntyped $ V.fromList [voidFromShS @Double @'[]])
                           (let g :: forall g. ADReadyS g
                                  => HVector (RankedOf g) -> HVector (RankedOf g)
-                                 -> InterpretationTarget (RankedOf g) (TKProduct TKUntyped TKUntyped)
+                                 -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
                                g xh _a =
                                  let x = sfromD @Double @'[] $ xh V.! 0
                                  in ttuple (HVectorPseudoTensor $ dmkHVector
@@ -2798,7 +2798,7 @@ testSin0rmapAccumRD01SN58 = do
                           (FTKUntyped $ V.fromList [voidFromShS @Double @'[]])
                           (let g :: forall g. ADReadyS g
                                  => HVector (RankedOf g) -> HVector (RankedOf g)
-                                 -> InterpretationTarget (RankedOf g) (TKProduct TKUntyped TKUntyped)
+                                 -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
                                g xh _a =
                                  let x = sfromD @Double @'[] $ xh V.! 0
                                  in ttuple (HVectorPseudoTensor $ dmkHVector
@@ -2824,7 +2824,7 @@ testSin0rmapAccumRD01SN59 = do
                           (FTKUntyped $ V.fromList [ voidFromShS @Double @'[] ])
                           (let g :: forall g. ADReadyS g
                                  => HVector (RankedOf g) -> HVector (RankedOf g)
-                                 -> InterpretationTarget (RankedOf g) (TKProduct TKUntyped TKUntyped)
+                                 -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
                                g xh _a =
                                  let x = sfromD @Double @'[] $ xh V.! 0
                                  in ttuple (HVectorPseudoTensor $ dmkHVector
@@ -2854,7 +2854,7 @@ testSin0rmapAccumRD01SN6 = do
                                       , voidFromShS @Double @'[2] ])
                           (let g :: forall g. ADReadyS g
                                  => HVector (RankedOf g) -> HVector (RankedOf g)
-                                 -> InterpretationTarget (RankedOf g) (TKProduct TKUntyped TKUntyped)
+                                 -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
                                g xh a =
                                 let x = sfromD @Double @'[] $ xh V.! 0
                                 in
@@ -2902,7 +2902,7 @@ testSin0rmapAccumRD01SN7 = do
                                       , voidFromShS @Double @'[2] ])
                           (let g :: forall g. ADReadyS g
                                  => HVector (RankedOf g) -> HVector (RankedOf g)
-                                 -> InterpretationTarget (RankedOf g) (TKProduct TKUntyped TKUntyped)
+                                 -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
                                g xh a =
                                 let x = sfromD @Double @'[] $ xh V.! 0
                                 in
@@ -3114,7 +3114,7 @@ testSin0ScanD8MapAccum = do
                       [voidFromSh @Double (2 :$: 5 :$: 1 :$: 1 :$: 1 :$: ZSR)])
                    (FTKUntyped $ V.fromList [voidFromSh @Double (1 :$: 1 :$: 1 :$: ZSR)])
                    (let g :: forall g. ADReady g
-                          => HVector g -> HVector g -> InterpretationTarget g (TKProduct TKUntyped TKUntyped)
+                          => HVector g -> HVector g -> Rep g (TKProduct TKUntyped TKUntyped)
                         g xh a =
                          let x = rfromD @Double @5 $ xh V.! 0
                          in ttuple (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked
@@ -3349,7 +3349,7 @@ testSin0ScanD8fwdMapAccum = do
                    (FTKUntyped $ V.fromList [voidFromSh @Double (2 :$: 5 :$: ZSR)])
                    (FTKUntyped $ V.fromList [voidFromSh @Double ZSR])
                    (let g :: forall g. ADReady g
-                          => HVector g -> HVector g -> InterpretationTarget g (TKProduct TKUntyped TKUntyped)
+                          => HVector g -> HVector g -> Rep g (TKProduct TKUntyped TKUntyped)
                         g xh a =
                          let x = rfromD @Double @2 $ xh V.! 0
                          in ttuple (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked
@@ -3612,7 +3612,7 @@ testSin0FoldNestedR2LengthPPsDummy7 = do
       f z = rfold (\x a ->
                rfold (\x2 a2 ->
                  rfold (\_x3 _a3 -> 7)
-                   -- the 7 causes Dummy InterpretationTargetM values
+                   -- the 7 causes Dummy RepM values
                    -- with the more precise typing of folds
                        a2 (rreplicate 2 x2))
                      a (rreplicate 2 x))
@@ -3639,7 +3639,7 @@ testSin0FoldNestedR2Dummy7 = do
         f z = rfold (\x a ->
                rfold (\x2 a2 ->
                  rfold (\_x3 _a3 -> 7)
-                   -- the 7 causes Dummy InterpretationTargetM values
+                   -- the 7 causes Dummy RepM values
                    -- with the more precise typing of folds
                        a2 (rreplicate 2 x2))
                      a (rreplicate 2 x))
@@ -3996,7 +3996,7 @@ testSin0MapAccumNestedR10fN = do
                    (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked z)
                    (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked $ rreplicate 2 z)
       f :: forall f. ADReady f => f Double 0
-        -> InterpretationTarget f (TKProduct (TKS Float '[1]) (TKR Double 0))
+        -> Rep f (TKProduct (TKS Float '[1]) (TKR Double 0))
       f x = ttuple (sfromList [scast $ sfromR $ g x]) (g x + rscalar 0.2)
     in f) (rscalar 0.0001) (rscalar 0.0001))
 
@@ -4108,7 +4108,7 @@ testSin0MapAccumNestedR10rr = do
 
 productToVectorOf
   :: ADReady f
-  => InterpretationTarget f (TKProduct TKUntyped TKUntyped)
+  => Rep f (TKProduct TKUntyped TKUntyped)
   -> HVectorOf f
 productToVectorOf p = unHVectorPseudoTensor
                       $ tlet @_ @_ @_ @TKUntyped (tproject1 p) $ \p1 ->

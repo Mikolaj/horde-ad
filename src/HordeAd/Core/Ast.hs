@@ -68,7 +68,7 @@ type role AstGenericWrap nominal
 newtype AstGenericWrap t = AstGenericWrap {unAstGenericWrap :: t}
  deriving Show
 
-type instance InterpretationTarget (AstGeneric ms s) (TKProduct x z) =
+type instance Rep (AstGeneric ms s) (TKProduct x z) =
   AstGenericWrap (AstTensor ms s (TKProduct x z))
 type instance RankedOf (AstGeneric ms s) = AstGeneric ms s
 type instance ShapedOf (AstGeneric ms s) = AstGenericS ms s
@@ -84,11 +84,11 @@ type instance RankedOf (AstGenericS ms s) = AstGeneric ms s
 type instance PrimalOf (AstGenericS ms s) = AstGenericS ms PrimalSpan
 type instance DualOf (AstGenericS ms s) = AstGenericS ms DualSpan
 
-type instance InterpretationTarget (AstRanked s) (TKProduct x z) =
+type instance Rep (AstRanked s) (TKProduct x z) =
   AstTensor AstMethodLet s (TKProduct x z)
 
-instance Show (InterpretationTargetProductN (AstRanked s) x y) where
-  showsPrec d (InterpretationTargetProductN t) = showsPrec d t
+instance Show (RepProductN (AstRanked s) x y) where
+  showsPrec d (RepProductN t) = showsPrec d t
 
 type instance RankedOf (AstRanked s) = AstRanked s
 type instance ShapedOf (AstRanked s) = AstShaped s
@@ -225,8 +225,8 @@ type role AstArtifactRev nominal nominal
 data AstArtifactRev x z = AstArtifactRev
   { artVarDtRev      :: AstVarName PrimalSpan z
   , artVarDomainRev  :: AstVarName PrimalSpan x
-  , artDerivativeRev :: InterpretationTarget (AstRanked PrimalSpan) x
-  , artPrimalRev     :: InterpretationTarget (AstRanked PrimalSpan) z
+  , artDerivativeRev :: Rep (AstRanked PrimalSpan) x
+  , artPrimalRev     :: Rep (AstRanked PrimalSpan) z
   }
 
 -- The forward derivative artifact.
@@ -234,8 +234,8 @@ type role AstArtifactFwd nominal nominal
 data AstArtifactFwd x z = AstArtifactFwd
   { artVarDsFwd      :: AstVarName PrimalSpan x
   , artVarDomainFwd  :: AstVarName PrimalSpan x
-  , artDerivativeFwd :: InterpretationTarget (AstRanked PrimalSpan) z
-  , artPrimalFwd     :: InterpretationTarget (AstRanked PrimalSpan) z
+  , artDerivativeFwd :: Rep (AstRanked PrimalSpan) z
+  , artPrimalFwd     :: Rep (AstRanked PrimalSpan) z
   }
 
 -- | This is the (arbitrarily) chosen representation of terms denoting
@@ -267,10 +267,10 @@ type AstVarListS sh = SizedListS sh (Const IntVarName)
 
 -- * AstBindingsCase and AstBindings
 
-type AstBindingsCase y = InterpretationTargetD (AstRanked PrimalSpan) y
+type AstBindingsCase y = RepD (AstRanked PrimalSpan) y
 
 type AstBindings = DEnumMap (AstVarName PrimalSpan)
-                            (InterpretationTargetD (AstRanked PrimalSpan))
+                            (RepD (AstRanked PrimalSpan))
 
 
 -- * ASTs

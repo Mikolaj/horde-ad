@@ -59,7 +59,7 @@ rev
      , AdaptableHVector (AstRanked FullSpan) astvals
      , AdaptableHVector ORArray (Value astvals)
      , TermValue astvals )
-  => (astvals -> InterpretationTarget (AstRanked FullSpan) z)
+  => (astvals -> Rep (AstRanked FullSpan) z)
   -> Value astvals
   -> Value astvals
 {-# INLINE rev #-}
@@ -79,9 +79,9 @@ revDt
      , AdaptableHVector (AstRanked FullSpan) astvals
      , AdaptableHVector ORArray (Value astvals)
      , TermValue astvals )
-  => (astvals -> InterpretationTarget (AstRanked FullSpan) z)
+  => (astvals -> Rep (AstRanked FullSpan) z)
   -> Value astvals
-  -> InterpretationTarget ORArray z
+  -> Rep ORArray z
   -> Value astvals
 {-# INLINE revDt #-}
 revDt f vals dt = revDtMaybe f vals (Just dt)
@@ -92,14 +92,14 @@ revDtMaybe
      , AdaptableHVector (AstRanked FullSpan) astvals
      , AdaptableHVector ORArray (Value astvals)
      , TermValue astvals )
-  => (astvals -> InterpretationTarget (AstRanked FullSpan) z)
+  => (astvals -> Rep (AstRanked FullSpan) z)
   -> Value astvals
-  -> Maybe (InterpretationTarget ORArray z)
+  -> Maybe (Rep ORArray z)
   -> Value astvals
 {-# INLINE revDtMaybe #-}
 revDtMaybe f vals0 mdt =
-  let g :: InterpretationTarget (AstRanked FullSpan) TKUntyped
-        -> InterpretationTarget (AstRanked FullSpan) z
+  let g :: Rep (AstRanked FullSpan) TKUntyped
+        -> Rep (AstRanked FullSpan) z
       g !hv = tlet hv $ \ !hvShared -> f $ parseHVector (fromValue vals0) hvShared
       valsH = HVectorPseudoTensor $ toHVectorOf vals0
       voidH = tshapeFull (stensorKind @TKUntyped) valsH
@@ -123,12 +123,12 @@ revArtifactAdapt
      , AdaptableHVector ORArray (Value astvals)
      , TermValue astvals )
   => Bool
-  -> (astvals -> InterpretationTarget (AstRanked FullSpan) z)
+  -> (astvals -> Rep (AstRanked FullSpan) z)
   -> Value astvals
   -> (AstArtifactRev TKUntyped z, Delta (AstRaw PrimalSpan) z )
 revArtifactAdapt hasDt f vals0 =
-  let g :: InterpretationTarget (AstRanked FullSpan) TKUntyped
-        -> InterpretationTarget (AstRanked FullSpan) z
+  let g :: Rep (AstRanked FullSpan) TKUntyped
+        -> Rep (AstRanked FullSpan) z
       g !hv = tlet hv $ \ !hvShared -> f $ parseHVector (fromValue vals0) hvShared
       valsH = HVectorPseudoTensor $ toHVectorOf @ORArray vals0
       voidH = tshapeFull (stensorKind @TKUntyped) valsH
@@ -145,26 +145,26 @@ revProduceArtifactWithoutInterpretation
   :: forall x z. (x ~ TKUntyped, TensorKind z)
   => Bool
   -> (HVector (ADVal (AstRaw PrimalSpan))
-      -> InterpretationTarget (ADVal (AstRaw PrimalSpan)) z)
+      -> Rep (ADVal (AstRaw PrimalSpan)) z)
   -> TensorKindFull x
   -> (AstArtifactRev x z, Delta (AstRaw PrimalSpan) z)
 {-# INLINE revProduceArtifactWithoutInterpretation #-}
 revProduceArtifactWithoutInterpretation hasDt f =
-  let g :: InterpretationTarget (AstRaw PrimalSpan) x
+  let g :: Rep (AstRaw PrimalSpan) x
         -> AstVarName FullSpan x
-        -> InterpretationTarget (AstRanked FullSpan) x
-        -> InterpretationTarget (ADVal (AstRaw PrimalSpan)) z
+        -> Rep (AstRanked FullSpan) x
+        -> Rep (ADVal (AstRaw PrimalSpan)) z
       g = forwardPassByApplication (f . unHVectorPseudoTensor)
   in revArtifactFromForwardPass @x @z hasDt g
 
 forwardPassByApplication
   :: forall x z. x ~ TKUntyped
-  => (InterpretationTarget (ADVal (AstRaw PrimalSpan)) x
-      -> InterpretationTarget (ADVal (AstRaw PrimalSpan)) z)
-  -> InterpretationTarget (AstRaw PrimalSpan) x
+  => (Rep (ADVal (AstRaw PrimalSpan)) x
+      -> Rep (ADVal (AstRaw PrimalSpan)) z)
+  -> Rep (AstRaw PrimalSpan) x
   -> AstVarName FullSpan x
-  -> InterpretationTarget (AstRanked FullSpan) x
-  -> InterpretationTarget (ADVal (AstRaw PrimalSpan)) z
+  -> Rep (AstRanked FullSpan) x
+  -> Rep (ADVal (AstRaw PrimalSpan)) z
 {-# INLINE forwardPassByApplication #-}
 forwardPassByApplication g hVectorPrimal _var _hVector =
   let deltaInputs =
@@ -175,9 +175,9 @@ forwardPassByApplication g hVectorPrimal _var _hVector =
 revEvalArtifact
   :: forall x z. (TensorKind x, TensorKind z)
   => AstArtifactRev x z
-  -> InterpretationTarget ORArray x
-  -> Maybe (InterpretationTarget ORArray z)
-  -> (InterpretationTarget ORArray x, InterpretationTarget ORArray z)
+  -> Rep ORArray x
+  -> Maybe (Rep ORArray z)
+  -> (Rep ORArray x, Rep ORArray z)
 {-# INLINE revEvalArtifact #-}
 revEvalArtifact AstArtifactRev{..} parameters mdt =
   let oneAtF = interpretationConstant 1 $ tshapeFull (stensorKind @z) artPrimalRev
@@ -206,10 +206,10 @@ fwd
      , AdaptableHVector (AstRanked FullSpan) astvals
      , AdaptableHVector ORArray (Value astvals)
      , TermValue astvals )
-  => (astvals -> InterpretationTarget (AstRanked FullSpan) z)
+  => (astvals -> Rep (AstRanked FullSpan) z)
   -> Value astvals
   -> Value astvals
-  -> InterpretationTarget ORArray z
+  -> Rep ORArray z
 fwd f vals ds =
   let g !hv = tlet hv $ \ !hvShared -> f $ parseHVector (fromValue vals) hvShared
       valsH = HVectorPseudoTensor $ toHVectorOf vals
@@ -221,9 +221,9 @@ fwd f vals ds =
 fwdEvalArtifact
   :: forall x z. (TensorKind x, TensorKind z)
   => AstArtifactFwd x z
-  -> InterpretationTarget ORArray x
-  -> InterpretationTarget ORArray x
-  -> (InterpretationTarget ORArray z, InterpretationTarget ORArray z)
+  -> Rep ORArray x
+  -> Rep ORArray x
+  -> (Rep ORArray z, Rep ORArray z)
 {-# INLINE fwdEvalArtifact #-}
 fwdEvalArtifact AstArtifactFwd{..} parameters ds =
   if tshapeFull (stensorKind @x) parameters == tshapeFull (stensorKind @x) ds then
@@ -253,7 +253,7 @@ crev
      , AdaptableHVector (ADVal ORArray) advals
      , AdaptableHVector ORArray (DValue advals)
      , DualNumberValue advals)
-  => (advals -> InterpretationTarget (ADVal ORArray) z)
+  => (advals -> Rep (ADVal ORArray) z)
   -> DValue advals
   -> DValue advals
 {-# INLINE crev #-}
@@ -266,9 +266,9 @@ crevDt
      , AdaptableHVector (ADVal ORArray) advals
      , AdaptableHVector ORArray (DValue advals)
      , DualNumberValue advals)
-  => (advals -> InterpretationTarget (ADVal ORArray) z)
+  => (advals -> Rep (ADVal ORArray) z)
   -> DValue advals
-  -> InterpretationTarget ORArray z
+  -> Rep ORArray z
   -> DValue advals
 {-# INLINE crevDt #-}
 crevDt f vals dt = crevDtMaybe f vals (Just dt)
@@ -279,9 +279,9 @@ crevDtMaybe
      , AdaptableHVector (ADVal ORArray) advals
      , AdaptableHVector ORArray (DValue advals)
      , DualNumberValue advals)
-  => (advals -> InterpretationTarget (ADVal ORArray) z)
+  => (advals -> Rep (ADVal ORArray) z)
   -> DValue advals
-  -> Maybe (InterpretationTarget ORArray z)
+  -> Maybe (Rep ORArray z)
   -> DValue advals
 {-# INLINE crevDtMaybe #-}
 crevDtMaybe f vals mdt =
@@ -291,11 +291,11 @@ crevDtMaybe f vals mdt =
      $ fst $ crevOnHVector @TKUntyped @z mdt g valsH
 
 {-# SPECIALIZE crevOnHVector
-  :: Maybe (InterpretationTarget ORArray TKUntyped)
-  -> (InterpretationTarget (ADVal ORArray) TKUntyped
-      -> InterpretationTarget (ADVal ORArray) TKUntyped)
-  -> InterpretationTarget ORArray TKUntyped
-  -> (InterpretationTarget ORArray TKUntyped, InterpretationTarget ORArray TKUntyped) #-}
+  :: Maybe (Rep ORArray TKUntyped)
+  -> (Rep (ADVal ORArray) TKUntyped
+      -> Rep (ADVal ORArray) TKUntyped)
+  -> Rep ORArray TKUntyped
+  -> (Rep ORArray TKUntyped, Rep ORArray TKUntyped) #-}
 
 
 -- * Old derivative adaptors, with constant and fixed inputs
@@ -307,10 +307,10 @@ cfwd
      , AdaptableHVector (ADVal ORArray) advals
      , AdaptableHVector ORArray (DValue advals)
      , DualNumberValue advals )
-  => (advals -> InterpretationTarget (ADVal ORArray) z)
+  => (advals -> Rep (ADVal ORArray) z)
   -> DValue advals
   -> DValue advals
-  -> InterpretationTarget ORArray z
+  -> Rep ORArray z
 cfwd f vals ds =
   let g hVector = f $ parseHVector (fromDValue vals)
         $ unHVectorPseudoTensor hVector
