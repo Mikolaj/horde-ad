@@ -54,6 +54,7 @@ import Prelude
 
 import Control.Arrow (second)
 import Control.Exception.Assert.Sugar
+import Data.Array.Internal (valueOf)
 import Data.Array.Shape qualified as Sh
 import Data.Dependent.EnumMap.Strict (DEnumMap)
 import Data.Dependent.EnumMap.Strict qualified as DMap
@@ -103,54 +104,62 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
       s0 = initEvalState parameters0
       s1 = evalR s0 dt deltaTopLevel
       s2 = evalFromnMap s1
-      elems = DMap.elems $ iMap s2
-      itm :: InterpretationTarget ranked x
-      itm = case parameters0 of
-        FTKR @r @n _ -> case elems of
-          [Some (MTKR @r2 @n2 mt)]
-            | Just Refl <- sameNat (Proxy @n) (Proxy @n2)
-            , Just Refl <- testEquality (typeRep @r) (typeRep @r2) -> mt
-          [Some mt@(MTKRDummy @r2 @sh2)]
+      rebuildInputs :: [Some (InterpretationTargetM ranked)] -> TensorKindFull y
+                    -> ( InterpretationTarget ranked y
+                       , [Some (InterpretationTargetM ranked)] )
+      rebuildInputs els = \case
+        FTKR @r @n _ -> case els of
+          Some mt@(MTKR @r2 @n2 t) : rest ->
+            case ( sameNat (Proxy @n) (Proxy @n2)
+                 , testEquality (typeRep @r) (typeRep @r2) ) of
+              (Just Refl, Just Refl) -> (t, rest)
+              _ -> error $ "gradientFromDelta: wrong type: " ++ show mt
+                           ++ " instead of "
+                           ++ "FTKR @" ++ show (typeRep @r)
+                           ++ " @" ++ show (valueOf @n :: Int)
+                           ++ " within " ++ show_iMap (iMap s2)
+          Some mt@(MTKRDummy @r2 @sh2) : rest
             | Dict <- lemKnownNatRank (knownShS @sh2)
             , Just Refl <- sameNat (Proxy @n) (Proxy @(X.Rank sh2))
             , Just Refl <- testEquality (typeRep @r) (typeRep @r2) ->
-              evalInterpretationTargetM mt
+              (evalInterpretationTargetM mt, rest)
           _ -> error $ "gradientFromDelta: illegal InterpretationTargetM: "
                        ++ show_iMap (iMap s2)
-        FTKS @r @sh -> case elems of
-          [Some (MTKS @r2 @sh2 mt)]
-            | Just Refl <- sameShape @sh @sh2
-            , Just Refl <- testEquality (typeRep @r) (typeRep @r2) -> mt
-          [Some mt@(MTKSDummy @r2 @sh2)]
+        FTKS @r @sh -> case els of
+          Some mt@(MTKS @r2 @sh2 t) : rest ->
+            case ( sameShape @sh @sh2
+                 , testEquality (typeRep @r) (typeRep @r2) ) of
+              (Just Refl, Just Refl) -> (t, rest)
+              _ -> error $ "gradientFromDelta: wrong type: " ++ show mt
+                           ++ " instead of "
+                           ++ "FTKS @" ++ show (typeRep @r)
+                           ++ " @" ++ show (shapeT @sh)
+                           ++ " within " ++ show_iMap (iMap s2)
+          Some mt@(MTKSDummy @r2 @sh2) : rest
             | Just Refl <- sameShape @sh @sh2
             , Just Refl <- testEquality (typeRep @r) (typeRep @r2) ->
-              evalInterpretationTargetM mt
+              (evalInterpretationTargetM mt, rest)
           _ -> error $ "gradientFromDelta: illegal InterpretationTargetM: "
                        ++ show_iMap (iMap s2)
-        FTKProduct @x3 @z3 _ _ -> case elems of
-          [Some (MTKProduct @x2 @z2 mt)]
-            | Just Refl <- sameTensorKind @x2 @x3
-            , Just Refl <- sameTensorKind @z2 @z3 -> mt
-          [Some mt@(MTKProductDummy @x2 @z2 _)]
-            | Just Refl <- sameTensorKind @x2 @x3
-            , Just Refl <- sameTensorKind @z2 @z3 ->
-              evalInterpretationTargetM mt
-          _ -> error $ "gradientFromDelta: illegal InterpretationTargetM: "
-                       ++ show_iMap (iMap s2)
-        FTKUntyped{} ->
+        FTKProduct ftk1 ftk2 ->
+          let (t1, rest1) = rebuildInputs els ftk1
+              (t2, rest2) = rebuildInputs rest1 ftk2
+          in (ttuple t1 t2, rest2)
+        FTKUntyped shs ->
           let toDynamicTensor :: Some (InterpretationTargetM ranked)
                               -> DynamicTensor ranked
               toDynamicTensor (Some b) = case b of
                 MTKR @r @n t -> DynamicRanked @r @n t
                 MTKS @r @sh t -> DynamicShaped @r @sh t
-                MTKProduct{} -> error "toDynamicTensor: non-flattened cell"
                 MTKRDummy @r @sh -> DynamicRankedDummy @r @sh Proxy Proxy
                 MTKSDummy @r @sh -> DynamicShapedDummy @r @sh Proxy Proxy
-                MTKProductDummy{} ->
-                  error "toDynamicTensor: non-flattened cell"
-          in HVectorPseudoTensor $ dmkHVector
-             $ V.fromList $ map toDynamicTensor elems
-  in itm
+              len = V.length shs
+              (els1, els2) = splitAt len els
+          in ( HVectorPseudoTensor $ dmkHVector
+               $ V.fromList $ map toDynamicTensor els1
+             , els2 )
+      (res, remainder) = rebuildInputs (DMap.elems $ iMap s2) parameters0
+  in assert (null remainder) res
 
 showsPrec_iMap
   :: (forall y. TensorKind y => Show (InterpretationTargetM ranked y))
@@ -175,10 +184,8 @@ evalInterpretationTargetM :: ADReadyNoLet ranked
 evalInterpretationTargetM = \case
   MTKR t -> t
   MTKS t -> t
-  MTKProduct t -> t
   MTKRDummy @_ @sh -> withListSh (Proxy @sh) $ \sh4 -> rzero sh4
   MTKSDummy -> srepl 0
-  MTKProductDummy ftk -> interpretationConstant 0 ftk
 
 derivativeFromDelta
   :: forall x z ranked.
@@ -195,8 +202,11 @@ derivativeFromDelta deltaTopLevel ds =
           case lemKnownNatRank (knownShS @sh) of
             Dict -> ([InputId j :=> MTKR @r t], j + 1)
         FTKS @r @sh -> ([InputId j :=> MTKS @r @sh t], j + 1)
-        FTKProduct @x2 @z2 _ _ ->
-          ([InputId j :=> MTKProduct @x2 @z2 t], j + 1)
+        FTKProduct ftk1 ftk2 ->
+          let (t1, t2) = tunpair t
+              (ds1, j1) = generateDSums j ftk1 t1
+              (ds2, j2) = generateDSums j1 ftk2 t2
+          in (ds1 ++ ds2, j2)
         FTKUntyped{} ->
           let ts = tunvector t
               len = V.length ts
@@ -246,7 +256,7 @@ interpretationTargetToM
 interpretationTargetToM stk t = case stk of
   STKR{} -> MTKR t
   STKS{} -> MTKS t
-  STKProduct{} -> MTKProduct t
+  STKProduct{} -> error "interpretationTargetToM"
   STKUntyped{} -> error "interpretationTargetToM"
 
 
@@ -856,51 +866,49 @@ data EvalState ranked = EvalState
 -- value (usually set to @1@) are given as arguments.
 initEvalState
   :: TensorKindFull x -> EvalState ranked
-initEvalState = \case
-  FTKR @r sh -> withShapeP (shapeToList sh) $ \(Proxy @sh) ->
-    case lemKnownNatRank (knownShS @sh) of
-      Dict ->
-        let iMap = DMap.fromDistinctAscList [InputId 0 :=> MTKRDummy @r @sh]
-            dMap = DMap.empty
-            nMap = DMap.empty
-        in EvalState {..}
-  FTKS @r @sh ->
-    let iMap = DMap.fromDistinctAscList [InputId 0 :=> MTKSDummy @r @sh]
-        dMap = DMap.empty
-        nMap = DMap.empty
-    in EvalState {..}
-  ftk@(FTKProduct @x @z _ _) ->
-    let iMap = DMap.fromDistinctAscList
-                 [InputId 0 :=> MTKProductDummy @x @z ftk]
-        dMap = DMap.empty
-        nMap = DMap.empty
-    in EvalState {..}
-  FTKUntyped parameters0 ->
-    -- Create finite maps that hold values associated with inputs
-    -- and with (possibly shared) term tree nodes.
-    -- The former are usually initialized with dummy values so that it's cheap
-    -- to check if any update has already been performed to a cell
-    -- (allocating big vectors filled with zeros is too costly,
-    -- especially if never used in an iteration, and adding to such vectors
-    -- and especially using them as cotangent accumulators is wasteful.
-    -- We take care to keep the scalar type of the dummy correct,
-    -- but a shape is not preserved in a dummy, so it's not shape-correct.
-    let fromDynamicTensor
-          :: forall ranked.
-             Int -> DynamicTensor ranked
-          -> DSum (InputId ranked) (InterpretationTargetM ranked)
-        fromDynamicTensor n b = case b of
-          DynamicRanked{} -> error "fromDynamicTensor: impossible case"
-          DynamicShaped{} -> error "fromDynamicTensor: impossible case"
-          DynamicRankedDummy @r @sh _ _ | Dict <- lemKnownNatRank (knownShS @sh) ->
-            InputId n :=> MTKRDummy @r @sh
-          DynamicShapedDummy @r @sh _ _ ->
-            InputId n :=> MTKSDummy @r @sh
-        iMap = DMap.fromDistinctAscList $ zipWith fromDynamicTensor [0 ..]
-               $ map dynamicFromVoid $ V.toList parameters0
-        dMap = DMap.empty
-        nMap = DMap.empty
-    in EvalState {..}
+initEvalState ftk0 =
+  let -- Matches generateDeltaInputs.
+      generateDSums :: Int -> TensorKindFull y
+                    -> ( [DSum (InputId ranked) (InterpretationTargetM ranked)]
+                       , Int )
+      generateDSums j ftk  = case ftk of
+        FTKR @r sh -> withShapeP (shapeToList sh) $ \(Proxy @sh) ->
+          case lemKnownNatRank (knownShS @sh) of
+            Dict -> ([InputId j :=> MTKRDummy @r @sh], j + 1)
+        FTKS @r @sh -> ([InputId j :=> MTKSDummy @r @sh], j + 1)
+        FTKProduct ftk1 ftk2 ->
+          let (ds1, j1) = generateDSums j ftk1
+              (ds2, j2) = generateDSums j1 ftk2
+          in (ds1 ++ ds2, j2)
+        FTKUntyped shs ->
+          let len = V.length shs
+          in ( zipWith fromDynamicTensor [j ..]
+               $ map dynamicFromVoid $ V.toList shs
+             , j + len )
+      -- Create finite maps that hold values associated with inputs
+      -- and with (possibly shared) term tree nodes.
+      -- The former are usually initialized with dummy values so that it's cheap
+      -- to check if any update has already been performed to a cell
+      -- (allocating big vectors filled with zeros is too costly,
+      -- especially if never used in an iteration, and adding to such vectors
+      -- and especially using them as cotangent accumulators is wasteful.
+      -- We take care to keep the scalar type of the dummy correct,
+      -- but a shape is not preserved in a dummy, so it's not shape-correct.
+      fromDynamicTensor
+        :: forall ranked.
+           Int -> DynamicTensor ranked
+        -> DSum (InputId ranked) (InterpretationTargetM ranked)
+      fromDynamicTensor n b = case b of
+        DynamicRanked{} -> error "fromDynamicTensor: impossible case"
+        DynamicShaped{} -> error "fromDynamicTensor: impossible case"
+        DynamicRankedDummy @r @sh _ _ | Dict <- lemKnownNatRank (knownShS @sh) ->
+          InputId n :=> MTKRDummy @r @sh
+        DynamicShapedDummy @r @sh _ _ ->
+          InputId n :=> MTKSDummy @r @sh
+      iMap = DMap.fromDistinctAscList $ fst $ generateDSums 0 ftk0
+      dMap = DMap.empty
+      nMap = DMap.empty
+  in EvalState {..}
 
 
 -- * Reverse pass, transpose/evaluation of the delta expressions
@@ -998,7 +1006,7 @@ addInterpretationTargetDLet a b = case (a, b) of
       $ V.zipWith addDynamic v1 v2
 
 addInterpretationTargetM ::
-  (ADReadyNoLet ranked, ShareTensor ranked)
+  ADReadyNoLet ranked
   => InterpretationTargetM ranked y
   -> InterpretationTargetM ranked y
   -> InterpretationTargetM ranked y
@@ -1009,20 +1017,6 @@ addInterpretationTargetM a b = case (a, b) of
   (MTKS ta, MTKS tb) -> MTKS $ ta + tb
   (MTKSDummy, _) -> b
   (_, MTKSDummy) -> a
-  (MTKProduct ta, MTKProduct tb) ->
-    let (ta1, ta2) = tunpair ta
-        (tb1, tb2) = tunpair tb
-    in MTKProduct
-       $ ttuple (evalInterpretationTargetM
-                 $ addInterpretationTargetM
-                     (interpretationTargetToM stensorKind ta1)
-                     (interpretationTargetToM stensorKind tb1))
-                (evalInterpretationTargetM
-                 $ addInterpretationTargetM
-                     (interpretationTargetToM stensorKind ta2)
-                     (interpretationTargetToM stensorKind tb2))
-  (MTKProductDummy{}, _) -> b
-  (_, MTKProductDummy{}) -> a
 
 evalR
   :: forall y ranked.

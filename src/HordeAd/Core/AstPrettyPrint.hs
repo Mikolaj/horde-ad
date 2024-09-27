@@ -599,7 +599,7 @@ printAstUnDynamic :: AstSpan s
 printAstUnDynamic cfg d = \case
   DynamicRanked (AstGeneric v) -> printAst cfg d v
   DynamicShaped (AstGenericS v) -> printAst cfg d v
-  DynamicRankedDummy{} -> showString "0"
+  DynamicRankedDummy{} -> showString "0"  -- not "0.0" to mark a dummy
   DynamicShapedDummy{} -> showString "0"
 
 printHVectorAst :: forall s ms. AstSpan s

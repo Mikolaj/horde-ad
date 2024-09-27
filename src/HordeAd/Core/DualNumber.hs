@@ -130,18 +130,25 @@ dotParameters (HVector a0 a1) (HVector b0 b1) =
 generateDeltaInputs
   :: forall x ranked. RankedOf (ShapedOf ranked) ~ ranked
   => TensorKindFull x -> Delta ranked x
-generateDeltaInputs ftk = case ftk of
-  FTKR{} -> InputG ftk (toInputId 0)
-  FTKS -> InputG ftk (toInputId 0)
-  FTKProduct{} -> InputG ftk (toInputId 0)
-  FTKUntyped shs ->
-    let f :: Int -> DynamicTensor VoidTensor -> DynamicTensor (Dual ranked)
-        f i (DynamicRankedDummy @r @sh _ _) =
-          withListSh (Proxy @sh) $ \sh ->
-            DynamicRanked $ DeltaR $ InputG (FTKR @r sh) (toInputId i)
-        f i (DynamicShapedDummy @r @sh _ _) =
-          DynamicShaped $ DeltaS $ InputG (FTKS @r @sh) (toInputId i)
-    in HToH $ V.imap f shs
+generateDeltaInputs =
+  let gen :: Int -> TensorKindFull y -> (Delta ranked y, Int)
+      gen j ftk = case ftk of
+        FTKR{} -> (InputG ftk (toInputId j), j + 1)
+        FTKS -> (InputG ftk (toInputId j), j + 1)
+        FTKProduct ftk1 ftk2 ->
+          let (d1, j1) = gen j ftk1
+              (d2, j2) = gen j1 ftk2
+          in (TupleG d1 d2, j2)
+        FTKUntyped shs ->
+          let f :: (Int, DynamicTensor VoidTensor) -> DynamicTensor (Dual ranked)
+              f (i, DynamicRankedDummy @r @sh _ _) =
+                withListSh (Proxy @sh) $ \sh ->
+                  DynamicRanked $ DeltaR $ InputG (FTKR @r sh) (toInputId i)
+              f (i, DynamicShapedDummy @r @sh _ _) =
+                DynamicShaped $ DeltaS $ InputG (FTKS @r @sh) (toInputId i)
+              len = V.length shs
+          in (HToH $ V.map f $ V.zip (V.enumFromN j len) shs, j + len)
+  in fst . gen 0
 {- TODO: this causes a cyclic dependency:
 {-# SPECIALIZE generateDeltaInputs
   :: HVector (FlipR OR.Array) -> HVector (Dual (FlipR OR.Array)) #-}

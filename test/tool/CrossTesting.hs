@@ -100,7 +100,7 @@ rev' f valsOR =
       valsFrom = fromDValue vals
       g :: HVector (ADVal ORArray)
         -> ADVal ORArray r m
-      g inputs = f $ parseHVector valsFrom  inputs
+      g inputs = f $ parseHVector valsFrom inputs
       (advalGrad, value1) = crevDtMaybeBoth dt g parameters
       gradient1 = parseHVector vals advalGrad
       gradientRrev1 = rrev1 @ORArray @r @n @m f vals

@@ -119,30 +119,28 @@ data InterpretationTargetM ranked y where
   MTKS :: (GoodScalar r, KnownShS sh)
        => InterpretationTarget ranked (TKS r sh)
        -> InterpretationTargetM ranked (TKS r sh)
-  MTKProduct :: forall x z ranked. (TensorKind x, TensorKind z)
-             => InterpretationTarget ranked (TKProduct x z)
-             -> InterpretationTargetM ranked (TKProduct x z)
   MTKRDummy :: (GoodScalar r, KnownShS sh)
             => InterpretationTargetM ranked (TKR r (X.Rank sh))
   MTKSDummy  :: (GoodScalar r, KnownShS sh)
              => InterpretationTargetM ranked (TKS r sh)
-  MTKProductDummy :: forall x z ranked. (TensorKind x, TensorKind z)
-                  => TensorKindFull (TKProduct x z)
-                  -> InterpretationTargetM ranked (TKProduct x z)
 
 instance ( CRanked ranked Show, CShaped (ShapedOf ranked) Show
          , Show (HVectorOf ranked), CInterpretationTargetProduct ranked Show
          , TensorKind y )
          => Show (InterpretationTargetM ranked y) where
   showsPrec d = \case
-    MTKR t -> showsPrec d t
-    MTKS t -> showsPrec d t
-    MTKProduct t -> showsPrec d (InterpretationTargetProductN t)
+    MTKR @r @n t ->
+      showParen (d > 10)
+        (showString ("MTKR @" ++ show (typeRep @r)
+                     ++ " @" ++ show (valueOf @n :: Int) ++ " ")
+         . showParen True (showsPrec d t))
+    MTKS @r @sh t ->
+      showParen (d > 10)
+        (showString ("MTKS @" ++ show (typeRep @r)
+                     ++ " @" ++ show (shapeT @sh) ++ " ")
+         . showParen True (showsPrec d t))
     MTKRDummy -> showString "MTKRDummy"
     MTKSDummy -> showString "MTKSDummy"
-    MTKProductDummy ftk ->
-      showParen (d > 10) $
-        showString "MTKProductDummy (" . shows ftk . showString ")"
 
 -- TODO: the constraints should not be necessary
 type role TensorKindFull nominal
