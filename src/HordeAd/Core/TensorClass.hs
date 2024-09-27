@@ -982,7 +982,7 @@ class HVectorTensor (ranked :: RankedTensorType)
   rfold
     :: forall rn rm n m.
        ( GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m
-       , RankedTensor ranked, LetTensor ranked shaped )
+       , RankedTensor ranked, ProductTensor ranked )
     => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
     -> ranked rn n  -- ^ initial value
     -> ranked rm (1 + m)  -- ^ iteration is over the outermost dimension
@@ -994,30 +994,27 @@ class HVectorTensor (ranked :: RankedTensorType)
           ZSR -> error "rfold: impossible pattern needlessly required"
         sh = rshape acc0
     in withSNat width $ \snat ->
-      tlet
+      tproject1
         (dmapAccumL (Proxy @ranked)
            snat
-           (FTKUntyped $ V.singleton $ voidFromSh @rn sh)
+           (FTKR @rn sh)
            (FTKUntyped V.empty)
-           (FTKUntyped $ V.singleton $ voidFromSh @rm shm)
+           (FTKR @rm shm)
            (let g :: forall f. ADReady f
-                  => HVector f -> HVector f
-                  -> InterpretationTarget f (TKProduct TKUntyped TKUntyped)
+                  => InterpretationTarget f (TKR rn n)
+                  -> InterpretationTarget f (TKR rm m)
+                  -> InterpretationTarget f (TKProduct (TKR rn n) TKUntyped)
                 g !acc !e =
-                  ttuple (HVectorPseudoTensor $ dmkHVector
-                          $ V.singleton $ DynamicRanked
-                          $ f (rfromD $ acc V.! 0) (rfromD $ e V.! 0))
+                  ttuple (f acc e)
                          (HVectorPseudoTensor $ dmkHVector V.empty)
             in g)
-           (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked acc0)
-           (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked es))
-        (\(x1, _bs1) -> tlet x1 $ \ !x ->
-           rfromD $ x V.! 0)
+           acc0
+           es)
   -- | A strict left scan.
   rscan
     :: forall rn rm n m.
        ( GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m
-       , RankedTensor ranked, LetTensor ranked shaped )
+       , RankedTensor ranked, LetTensor ranked shaped, ProductTensor ranked  )
     => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
     -> ranked rn n
     -> ranked rm (1 + m)
@@ -1029,84 +1026,75 @@ class HVectorTensor (ranked :: RankedTensorType)
           ZSR -> error "rscan: impossible pattern needlessly required"
         sh = rshape acc0
     in withSNat width $ \snat ->
-      tlet
-        (dmapAccumL (Proxy @ranked)
-           snat
-           (FTKUntyped $ V.singleton $ voidFromSh @rn sh)
-           (FTKUntyped $ V.singleton $ voidFromSh @rn sh)
-           (FTKUntyped $ V.singleton $ voidFromSh @rm shm)
-           (let g :: forall f. ADReady f
-                  => HVector f -> HVector f
-                  -> InterpretationTarget f (TKProduct TKUntyped TKUntyped)
-                g !acc !e =
-                  tlet (f (rfromD $ acc V.! 0) (rfromD $ e V.! 0)) $ \ !res ->
-                    let singRes = HVectorPseudoTensor $ dmkHVector
-                                  $ V.singleton (DynamicRanked res)
-                    in ttuple singRes singRes
-            in g)
-           (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked acc0)
-           (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked es))
-        (\(_x1, bs1) -> tlet bs1 $ \ !bs ->
-           rappend (rfromList [acc0]) (rfromD $ bs V.! 0))
+      let bs =
+            tproject2
+            $ dmapAccumL (Proxy @ranked)
+                snat
+                (FTKR @rn sh)
+                (FTKR @rn sh)
+                (FTKR @rm shm)
+                (let g :: forall f. ADReady f
+                       => InterpretationTarget f (TKR rn n)
+                       -> InterpretationTarget f (TKR rm m)
+                       -> InterpretationTarget f (TKProduct (TKR rn n) (TKR rn n))
+                     g !acc !e = blet (f acc e) $ \ !res -> ttuple res res
+                 in g)
+                acc0
+                es
+      in rappend (rfromList [acc0]) bs
   -- | A strict left fold.
   sfold
     :: forall rn rm sh shm k.
        ( GoodScalar rn, GoodScalar rm, KnownShS sh, KnownShS shm, KnownNat k
-       , ShapedTensor shaped, LetTensor ranked shaped
+       , ProductTensor ranked
        , shaped ~ ShapedOf ranked, ranked ~ RankedOf shaped )
     => (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh)
     -> shaped rn sh
     -> shaped rm (k ': shm)
     -> shaped rn sh
   sfold f acc0 es =
-    tlet
+    tproject1
       (dmapAccumL (Proxy @ranked)
          (SNat @k)
-         (FTKUntyped $ V.singleton $ voidFromShS @rn @sh)
+         (FTKS @rn @sh)
          (FTKUntyped V.empty)
-         (FTKUntyped $ V.singleton $ voidFromShS @rm @shm)
+         (FTKS @rm @shm)
          (let g :: forall f. ADReady f
-                => HVector f -> HVector f
-                -> InterpretationTarget f (TKProduct TKUntyped TKUntyped)
+                => InterpretationTarget f (TKS rn sh)
+                -> InterpretationTarget f (TKS rm shm)
+                -> InterpretationTarget f (TKProduct (TKS rn sh) TKUntyped)
               g !acc !e =
-                ttuple (HVectorPseudoTensor $ dmkHVector
-                        $ V.singleton $ DynamicShaped
-                        $ f (sfromD $ acc V.! 0) (sfromD $ e V.! 0))
+                ttuple (f acc e)
                        (HVectorPseudoTensor $ dmkHVector V.empty)
           in g)
-         (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicShaped acc0)
-         (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicShaped es))
-      (\(x1, _bs1) -> tlet x1 $ \ !x ->
-         sfromD $ x V.! 0)
+         acc0
+         es)
   sscan
     :: forall rn rm sh shm k.
        ( GoodScalar rn, GoodScalar rm, KnownShS sh, KnownShS shm, KnownNat k
-       , ShapedTensor shaped, LetTensor ranked shaped
+       , ShapedTensor shaped, LetTensor ranked shaped, ProductTensor ranked
        , shaped ~ ShapedOf ranked, ranked ~ RankedOf shaped )
     => (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh)
     -> shaped rn sh
     -> shaped rm (k ': shm)
     -> shaped rn (1 + k ': sh)
   sscan f acc0 es =
-    tlet
-      (dmapAccumL (Proxy @ranked)
-         (SNat @k)
-         (FTKUntyped $ V.singleton $ voidFromShS @rn @sh)
-         (FTKUntyped $ V.singleton $ voidFromShS @rn @sh)
-         (FTKUntyped $ V.singleton $ voidFromShS @rm @shm)
-         (let g :: forall f. ADReady f
-                => HVector f -> HVector f
-                -> InterpretationTarget f (TKProduct TKUntyped TKUntyped)
-              g !acc !e =
-                tlet (f (sfromD $ acc V.! 0) (sfromD $ e V.! 0)) $ \ !res ->
-                  let singRes = HVectorPseudoTensor $ dmkHVector
-                                $ V.singleton (DynamicShaped res)
-                  in ttuple singRes singRes
-          in g)
-         (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicShaped acc0)
-         (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicShaped es))
-      (\(_x1, bs1) -> tlet bs1 $ \ !bs ->
-         sappend @_ @_ @1 (sfromList [acc0]) (sfromD $ bs V.! 0))
+    let bs =
+          tproject2
+          $ dmapAccumL (Proxy @ranked)
+             (SNat @k)
+             (FTKS @rn @sh)
+             (FTKS @rn @sh)
+             (FTKS @rm @shm)
+             (let g :: forall f. ADReady f
+                    => InterpretationTarget f (TKS rn sh)
+                    -> InterpretationTarget f (TKS rm shm)
+                    -> InterpretationTarget f (TKProduct (TKS rn sh) (TKS rn sh))
+                  g !acc !e = blet (f acc e) $ \ !res -> ttuple res res
+              in g)
+             acc0
+             es
+    in sappend (sfromList [acc0]) bs
   -- | A strict right mapAccum.
   --
   -- The applications of 'dfwd' and 'drevDt' performed already at this point

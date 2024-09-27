@@ -111,6 +111,9 @@ data InterpretationTargetD ranked y where
   DTKUntyped :: InterpretationTarget ranked TKUntyped
              -> InterpretationTargetD ranked TKUntyped
 
+-- This is very similar to DynamicTensor, but the second type parameter
+-- gives a peek of what's inside, which is crucial for dependent maps
+-- as opposed to existential vectors.
 type role InterpretationTargetM nominal nominal
 data InterpretationTargetM ranked y where
   MTKR :: (GoodScalar r, KnownNat n)
