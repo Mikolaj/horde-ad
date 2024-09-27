@@ -387,15 +387,6 @@ astSpanD _ u' | Just Refl <- sameAstSpan @s @DualSpan = u'
 astSpanD u u' | Just Refl <- sameAstSpan @s @FullSpan = AstD u u'
 astSpanD _ _ = error "a spuriuos case for pattern match coverage"
 
-astLetHVectorInFun
-  :: (AstSpan s, TensorKind z)
-  => AstTensor AstMethodLet s TKUntyped -> (HVector (AstGeneric AstMethodLet s) -> AstTensor AstMethodLet s z)
-  -> AstTensor AstMethodLet s z
-{-# INLINE astLetHVectorInFun #-}
-astLetHVectorInFun a f =
-  fun1DToAst (shapeAstHVector a) $ \ !vars !asts ->
-    astLetHVectorIn vars a (f asts)
-
 astLetHFunInFun
   :: (TensorKind x, TensorKind y, TensorKind z)
   => AstHFun x z -> (AstHFun x z -> AstTensor AstMethodLet s y)
@@ -441,7 +432,8 @@ instance AstSpan s => LetTensor (AstRanked s) (AstShaped s) where
   dlet u f = case stensorKind @x of
     STKR{} -> blet u f
     STKS{} -> blet u f
-    stk@STKProduct{} -> blet u $ \ !uShared -> f (repDeep stk uShared)
+    stk@STKProduct{} ->
+      blet u $ \ !uShared -> f (repDeep stk uShared)
     STKUntyped{} -> tlet u f
   tlet :: forall x z. (TensorKind x, TensorKind z)
        => Rep (AstRanked s) x
@@ -453,21 +445,8 @@ instance AstSpan s => LetTensor (AstRanked s) (AstShaped s) where
     STKS{} -> blet u f
     STKProduct{} ->
       blet u $ \ !uShared -> f (tproject1 uShared, tproject2 uShared)
-    STKUntyped{} -> case stensorKind @z of
-      STKR{} ->
-        AstRanked
-        $ astLetHVectorInFun (unHVectorPseudoTensor u)
-                             (unAstRanked . f . rankedHVector)
-      STKS{} ->
-        AstShaped
-        $ astLetHVectorInFun (unHVectorPseudoTensor u)
-                              (unAstShaped . f . rankedHVector)
-      STKProduct{} ->
-        blet u $ \ !uShared -> f $ dunHVector $ unHVectorPseudoTensor uShared
-      STKUntyped{} ->
-        HVectorPseudoTensor
-        $ astLetHVectorInFun (unHVectorPseudoTensor u)
-                                    (unHVectorPseudoTensor . f . rankedHVector)
+    STKUntyped{} ->
+      blet u $ \ !uShared -> f $ dunHVector $ unHVectorPseudoTensor uShared
   blet :: forall x z. (TensorKind x, TensorKind z)
        => Rep (AstRanked s) x
        -> (Rep (AstRanked s) x
@@ -1232,14 +1211,6 @@ unNoVectorizeHVectorR =
       f (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
   in V.map f
 
-noVectorizeHVector :: HVector (AstGeneric AstMethodLet s) -> HVector (AstNoVectorize s)
-noVectorizeHVector =
-  let f (DynamicRanked (AstGeneric t)) = DynamicRanked $ AstNoVectorize t
-      f (DynamicShaped (AstGenericS t)) = DynamicShaped $ AstNoVectorizeS t
-      f (DynamicRankedDummy p1 p2) = DynamicRankedDummy p1 p2
-      f (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
-  in V.map f
-
 noVectorizeHVectorR :: HVector (AstRanked s) -> HVector (AstNoVectorize s)
 noVectorizeHVectorR =
   let f (DynamicRanked (AstRanked t)) = DynamicRanked $ AstNoVectorize t
@@ -1262,7 +1233,8 @@ instance AstSpan s => LetTensor (AstNoVectorize s) (AstNoVectorizeS s) where
   dlet u f = case stensorKind @x of
     STKR{} -> blet u f
     STKS{} -> blet u f
-    stk@STKProduct{} -> blet u $ \ !uShared -> f (repDeep stk uShared)
+    stk@STKProduct{} ->
+      blet u $ \ !uShared -> f (repDeep stk uShared)
     STKUntyped{} -> tlet u f
   tlet :: forall x z. (TensorKind x, TensorKind z)
        => Rep (AstNoVectorize s) x
@@ -1274,25 +1246,8 @@ instance AstSpan s => LetTensor (AstNoVectorize s) (AstNoVectorizeS s) where
     STKS{} -> blet u f
     STKProduct{} ->
       blet u $ \ !uShared -> f (tproject1 uShared, tproject2 uShared)
-    STKUntyped{} -> case stensorKind @z of
-      STKR{} ->
-        AstNoVectorize
-        $ astLetHVectorInFun
-            (unAstNoVectorizeWrap $ unHVectorPseudoTensor u)
-            (unAstNoVectorize . f . noVectorizeHVector)
-      STKS{} ->
-        AstNoVectorizeS
-        $ astLetHVectorInFun
-            (unAstNoVectorizeWrap $ unHVectorPseudoTensor u)
-            (unAstNoVectorizeS . f . noVectorizeHVector)
-      STKProduct{} ->
-        blet u $ \ !uShared -> f $ dunHVector $ unHVectorPseudoTensor uShared
-      STKUntyped{} ->
-        HVectorPseudoTensor $ AstNoVectorizeWrap
-        $ astLetHVectorInFun
-            (unAstNoVectorizeWrap $ unHVectorPseudoTensor u)
-            (unAstNoVectorizeWrap . unHVectorPseudoTensor
-             . f . noVectorizeHVector)
+    STKUntyped{} ->
+      blet u $ \ !uShared -> f $ dunHVector $ unHVectorPseudoTensor uShared
   blet :: forall x z. (TensorKind x, TensorKind z)
        => Rep (AstNoVectorize s) x
        -> (Rep (AstNoVectorize s) x
@@ -1587,15 +1542,6 @@ astLetFunNoSimplify a f =
       (var, ast) = funToAst sh f
   in AstLet var a ast  -- safe, because subsitution ruled out above
 
-astLetHVectorInFunNoSimplify
-  :: (AstSpan s, TensorKind z)
-  => AstTensor AstMethodLet s TKUntyped
-  -> (HVector (AstGeneric AstMethodLet s) -> AstTensor AstMethodLet s z)
-  -> AstTensor AstMethodLet s z
-astLetHVectorInFunNoSimplify a f =
-  fun1DToAst (shapeAstHVector a) $ \ !vars !asts ->
-    AstLetHVectorIn vars a (f asts)
-
 astLetHFunInFunNoSimplify
   :: (TensorKind x, TensorKind y, TensorKind z)
   => AstHFun x y -> (AstHFun x y -> AstTensor AstMethodLet s z)
@@ -1659,7 +1605,8 @@ instance AstSpan s => LetTensor (AstNoSimplify s) (AstNoSimplifyS s) where
   dlet u f = case stensorKind @x of
     STKR{} -> blet u f
     STKS{} -> blet u f
-    stk@STKProduct{} -> blet u $ \ !uShared -> f (repDeep stk uShared)
+    stk@STKProduct{} ->
+      blet u $ \ !uShared -> f (repDeep stk uShared)
     STKUntyped{} -> tlet u f
   tlet :: forall x z. (TensorKind x, TensorKind z)
        => Rep (AstNoSimplify s) x
@@ -1671,25 +1618,8 @@ instance AstSpan s => LetTensor (AstNoSimplify s) (AstNoSimplifyS s) where
     STKS{} -> blet u f
     STKProduct{} ->
       blet u $ \ !uShared -> f (tproject1 uShared, tproject2 uShared)
-    STKUntyped{} -> case stensorKind @z of
-      STKR{} ->
-        AstNoSimplify
-        $ astLetHVectorInFunNoSimplify
-            (unAstNoSimplifyWrap $ unHVectorPseudoTensor u)
-            (unAstNoSimplify . f . noSimplifyHVector)
-      STKS{} ->
-        AstNoSimplifyS
-        $ astLetHVectorInFunNoSimplify
-            (unAstNoSimplifyWrap $ unHVectorPseudoTensor u)
-            (unAstNoSimplifyS . f . noSimplifyHVector)
-      STKProduct{} ->
-        blet u $ \ !uShared -> f $ dunHVector $ unHVectorPseudoTensor uShared
-      STKUntyped{} ->
-        HVectorPseudoTensor $ AstNoSimplifyWrap
-        $ astLetHVectorInFunNoSimplify
-            (unAstNoSimplifyWrap $ unHVectorPseudoTensor u)
-            (unAstNoSimplifyWrap . unHVectorPseudoTensor
-             . f . noSimplifyHVector)
+    STKUntyped{} ->
+      blet u $ \ !uShared -> f $ dunHVector $ unHVectorPseudoTensor uShared
   blet :: forall x z. (TensorKind x, TensorKind z)
        => Rep (AstNoSimplify s) x
        -> (Rep (AstNoSimplify s) x
