@@ -154,7 +154,7 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
 
 showsPrec_iMap
   :: (forall y. TensorKind y => Show (InterpretationTargetM ranked y))
-  => Int -> DEnumMap (InputId ranked) (InterpretationTargetM ranked) -> ShowS
+  => Int -> IMap ranked -> ShowS
 showsPrec_iMap d demap =
   showParen (d > 10) $
     showString "fromList "
@@ -166,7 +166,7 @@ showsPrec_iMap d demap =
 
 show_iMap
   :: (forall y. TensorKind y => Show (InterpretationTargetM ranked y))
-  => DEnumMap (InputId ranked) (InterpretationTargetM ranked) -> String
+  => IMap ranked -> String
 show_iMap iMap = showsPrec_iMap 0 iMap ""
 
 evalInterpretationTargetM :: ADReadyNoLet ranked
@@ -180,28 +180,34 @@ evalInterpretationTargetM = \case
   MTKSDummy -> srepl 0
   MTKProductDummy ftk -> interpretationConstant 0 ftk
 
-shapeD :: InterpretationTargetD ranked x -> STensorKindType x
-shapeD = \case
-  DTKR{} -> STKR typeRep SNat
-  DTKS{} -> STKS typeRep knownShS
-  DTKProduct @x @z _ -> STKProduct (stensorKind @x) (stensorKind @z)
-  DTKUntyped{} -> STKUntyped
-
 derivativeFromDelta
   :: forall x z ranked.
      (ADReadyNoLet ranked, ShareTensor ranked, TensorKind x, TensorKind z)
   => Delta ranked z -> InterpretationTarget ranked x
   -> InterpretationTarget ranked z
 derivativeFromDelta deltaTopLevel ds =
-  let params = case stensorKind @x of
-        STKUntyped{} ->
-          let dsv = tunvector ds
-          in V.map dynamicTensorToInterpretationTargetD dsv
-        stk -> V.singleton $ Some $ interpretationTargetToD stk ds
+  let -- Matches generateDeltaInputs.
+      generateDSums :: Int -> TensorKindFull y -> InterpretationTarget ranked y
+                    -> ( [DSum (InputId ranked) (InterpretationTargetM ranked)]
+                       , Int )
+      generateDSums j ftk t = case ftk of
+        FTKR @r sh -> withShapeP (shapeToList sh) $ \(Proxy @sh) ->
+          case lemKnownNatRank (knownShS @sh) of
+            Dict -> ([InputId j :=> MTKR @r t], j + 1)
+        FTKS @r @sh -> ([InputId j :=> MTKS @r @sh t], j + 1)
+        FTKProduct @x2 @z2 _ _ ->
+          ([InputId j :=> MTKProduct @x2 @z2 t], j + 1)
+        FTKUntyped{} ->
+          let ts = tunvector t
+              len = V.length ts
+          in ( zipWith dynamicTensorToInterpretationTargetM [j ..] $ V.toList ts
+             , j + len )
+      iMap = DMap.fromDistinctAscList $ fst
+             $ generateDSums 0 (tshapeFull stensorKind ds) ds
       -- EvalState is too complex for the forward derivative, but since
       -- it's already defined, let's use it.
       s0 = EvalState DMap.empty DMap.empty DMap.empty
-      !(!_s2, !c) = fwdR params s0 deltaTopLevel
+      !(!_s2, !c) = fwdR iMap s0 deltaTopLevel
   in c
 
 evalInterpretationTargetD :: InterpretationTargetD ranked y
@@ -212,15 +218,16 @@ evalInterpretationTargetD = \case
   DTKProduct t -> t
   DTKUntyped t -> t
 
-dynamicTensorToInterpretationTargetD
-  :: DynamicTensor ranked -> Some (InterpretationTargetD ranked)
-dynamicTensorToInterpretationTargetD = \case
-  DynamicRanked t -> Some (DTKR t)
-  DynamicShaped t -> Some (DTKS t)
+dynamicTensorToInterpretationTargetM
+  :: Int -> DynamicTensor ranked
+  -> DSum (InputId ranked) (InterpretationTargetM ranked)
+dynamicTensorToInterpretationTargetM n = \case
+  DynamicRanked t -> InputId n :=> MTKR t
+  DynamicShaped t -> InputId n :=> MTKS t
   DynamicRankedDummy{} ->
-    error "dynamicTensorToInterpretationTargetD: unexpected DynamicRankedDummy"
+    error "dynamicTensorToInterpretationTargetM: unexpected DynamicRankedDummy"
   DynamicShapedDummy{} ->
-    error "dynamicTensorToInterpretationTargetD: unexpected DynamicShapedDummy"
+    error "dynamicTensorToInterpretationTargetM: unexpected DynamicShapedDummy"
 
 interpretationTargetToD
   :: STensorKindType x -> InterpretationTarget ranked x
@@ -231,7 +238,7 @@ interpretationTargetToD stk t = case stk of
   STKProduct{} -> DTKProduct t
   STKUntyped{} -> DTKUntyped t
 
-type HDVector ranked = Data.Vector.Vector (Some (InterpretationTargetD ranked))
+type IMap ranked = DEnumMap (InputId ranked) (InterpretationTargetM ranked)
 
 interpretationTargetToM
   :: STensorKindType x -> InterpretationTarget ranked x
@@ -777,7 +784,7 @@ tensorKindFromInputId InputId{} = Dict
 -- 2. key `member` dMap == nMap!key is DynamicRanked
 type role EvalState nominal
 data EvalState ranked = EvalState
-  { iMap :: DEnumMap (InputId ranked) (InterpretationTargetM ranked)
+  { iMap :: IMap ranked
       -- ^ eventually, cotangents of objective function inputs
       -- (eventually copied to the vector representing the gradient
       -- of the objective function);
@@ -1329,7 +1336,7 @@ evalFromnMap s@EvalState{nMap, dMap} =
 -- formulation is adopted.
 fwdDynamic
   :: forall ranked. (ADReadyNoLet ranked, ShareTensor ranked)
-  => HDVector ranked
+  => IMap ranked
   -> EvalState ranked
   -> DynamicTensor (DeltaR ranked)
   -> (EvalState ranked, DynamicTensor ranked)
@@ -1345,7 +1352,7 @@ fwdDynamic params s (DynamicShapedDummy @r @sh _ _) =
 
 fwdHVector
   :: forall ranked. (ADReadyNoLet ranked, ShareTensor ranked)
-  => HDVector ranked
+  => IMap ranked
   -> EvalState ranked
   -> HVector (DeltaR ranked)
   -> (EvalState ranked, HVector ranked)
@@ -1354,7 +1361,7 @@ fwdHVector params = mapAccumL (fwdDynamic params)
 fwdR
   :: forall ranked y.
      (ADReadyNoLet ranked, ShareTensor ranked, TensorKind y)
-  => HDVector ranked -> EvalState ranked -> Delta ranked y
+  => IMap ranked -> EvalState ranked -> Delta ranked y
   -> (EvalState ranked, InterpretationTarget ranked y)
 fwdR params s = \case
   TupleG d1 d2 -> let (s2, t) = fwdR params s d1
@@ -1364,14 +1371,10 @@ fwdR params s = \case
                  in (s2, tproject1 v)
   Project2G d -> let (s2, v) = fwdR params s d
                  in (s2, tproject2 v)
-  InputG _ftk (InputId i) ->
-    if i < V.length params
-    then case params V.! i of
-      Some @_ @z dtk | Dict <- lemTensorKindOfS (shapeD dtk) ->
-        case sameTensorKind @y @z of
-          Just Refl -> (s, evalInterpretationTargetD dtk)
-          _ -> error "fwdR: kind mismatch"
-    else error "fwdR': wrong index for an input"
+  InputG _ftk inputId ->
+    case DMap.lookup inputId params of
+      Just dtk -> (s, evalInterpretationTargetM dtk)
+      Nothing -> error "fwdR: missing input"
   ShareG n d ->
     case DMap.lookup n $ dMap s of
       Just e1 -> (s, evalInterpretationTargetD e1)
