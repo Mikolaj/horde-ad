@@ -122,6 +122,20 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
   rletHFunIn = (&)
   sletHFunIn = (&)
   dletHFunInHVector = (&)
+  dlet :: forall x z. (TensorKind x, TensorKind z)
+       => Rep (ADVal ranked) x
+       -> (RepDeep (ADVal ranked) x
+           -> Rep (ADVal ranked) z)
+       -> Rep (ADVal ranked) z
+  dlet a f = case stensorKind @x of
+    STKR{} -> blet a f
+    STKS{} -> blet a f
+    stk@STKProduct{} -> blet a $ \ !uShared -> f (repDeep stk uShared)
+    STKUntyped{} ->
+      let (!u, !u') = unADValHVector $ unHVectorPseudoTensor a
+          !var2 = dunHVector $ unHVectorPseudoTensor $ tshare @_ @TKUntyped
+                  $ HVectorPseudoTensor $ dmkHVector u
+      in f (aDValHVector var2 u')
   tlet :: forall x z. (TensorKind x, TensorKind z)
        => Rep (ADVal ranked) x
        -> (RepShallow (ADVal ranked) x

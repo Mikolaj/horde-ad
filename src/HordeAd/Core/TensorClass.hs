@@ -16,7 +16,7 @@ module HordeAd.Core.TensorClass
   , HVectorTensor(..), ProductTensor(..)
   , HFun(..)
   , rfromD, sfromD, rscalar, rrepl, ringestData, ringestData1
-  , ingestData, sscalar, srepl, unrepShallow
+  , ingestData, sscalar, srepl, unrepShallow, repDeep
   , mapDynamic, mapDynamic2, mapRep
   , mapRep2Weak
     -- * The giga-constraint
@@ -131,6 +131,10 @@ class HVectorTensor ranked shaped
     -> HVectorOf ranked
   -- This type signature generalizes dletHVectorInHVector and is easier
   -- for the user to work with, giving him access to concrete vectors and tuples.
+  dlet :: forall x z. (TensorKind x, TensorKind z)
+       => Rep ranked x
+       -> (RepDeep ranked x -> Rep ranked z)
+       -> Rep ranked z
   tlet :: forall x z. (TensorKind x, TensorKind z)
        => Rep ranked x
        -> (RepShallow ranked x -> Rep ranked z)
@@ -1310,6 +1314,21 @@ unrepShallow t = case stensorKind @y of
   STKS{} -> t
   STKProduct{} -> uncurry ttuple t
   STKUntyped -> HVectorPseudoTensor $ dmkHVector t
+
+-- The argument of the first call (but not of recursive calls)
+-- is assumed to be duplicable. In AST case, this creates
+-- a tower of projections for product, but if it's balanced,
+-- that's of logarithmic length, so maybe even better than sharing
+-- excessively, which is hard for technical typing reasons.
+repDeep :: (HVectorTensor ranked (ShapedOf ranked), ProductTensor ranked)
+        => STensorKindType y -> Rep ranked y
+        -> RepDeep ranked y
+repDeep stk t = case stk of
+  STKR{} -> t
+  STKS{} -> t
+  STKProduct stk1 stk2 ->
+    (repDeep stk1 (tproject1 t), repDeep stk2 (tproject2 t))
+  STKUntyped -> dunHVector $ unHVectorPseudoTensor t
 
 mapDynamic
   :: (RankedTensor f, ShapedTensor (ShapedOf f))

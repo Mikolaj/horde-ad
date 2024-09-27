@@ -9,7 +9,7 @@
 -- and also to hangle multiple arguments and results of fold-like operations.
 module HordeAd.Core.HVector
   ( HVectorOf, HVectorPseudoTensor(..)
-  , Rep, RepN(..), RepProductN(..), RepShallow
+  , Rep, RepN(..), RepProductN(..), RepShallow, RepDeep
   , RepD(..), RepM(..)
   , TensorKindFull(..), lemTensorKindOfF, buildTensorKindFull
   , DynamicTensor(..)
@@ -95,6 +95,14 @@ type family RepShallow ranked y = result | result -> ranked y where
   RepShallow ranked (TKProduct x z) =
     (Rep ranked x, Rep ranked z)
   RepShallow ranked TKUntyped = HVector ranked
+
+-- This is concrete throughout.
+type family RepDeep ranked y = result | result -> ranked y where
+  RepDeep ranked (TKR r n) = ranked r n
+  RepDeep ranked (TKS r sh) = ShapedOf ranked r sh
+  RepDeep ranked (TKProduct x z) =
+    (RepDeep ranked x, RepDeep ranked z)
+  RepDeep ranked TKUntyped = HVector ranked
 
 -- Needed because `Rep` can't be partially applied.
 type role RepD nominal nominal

@@ -433,6 +433,16 @@ instance AstSpan s => LetTensor (AstRanked s) (AstShaped s) where
   rletHFunIn a f = AstRanked $ astLetHFunInFun a (unAstRanked . f)
   sletHFunIn a f = AstShaped $ astLetHFunInFun a (unAstShaped . f)
   dletHFunInHVector = astLetHFunInFun
+  dlet :: forall x z. (TensorKind x, TensorKind z)
+       => Rep (AstRanked s) x
+       -> (RepDeep (AstRanked s) x
+           -> Rep (AstRanked s) z)
+       -> Rep (AstRanked s) z
+  dlet u f = case stensorKind @x of
+    STKR{} -> blet u f
+    STKS{} -> blet u f
+    stk@STKProduct{} -> blet u $ \ !uShared -> f (repDeep stk uShared)
+    STKUntyped{} -> tlet u f
   tlet :: forall x z. (TensorKind x, TensorKind z)
        => Rep (AstRanked s) x
        -> (RepShallow (AstRanked s) x
@@ -1244,6 +1254,16 @@ instance AstSpan s => LetTensor (AstNoVectorize s) (AstNoVectorizeS s) where
   dletHFunInHVector t f =
     AstNoVectorizeWrap
     $ dletHFunInHVector t (unAstNoVectorizeWrap . f)
+  dlet :: forall x z. (TensorKind x, TensorKind z)
+       => Rep (AstNoVectorize s) x
+       -> (RepDeep (AstNoVectorize s) x
+           -> Rep (AstNoVectorize s) z)
+       -> Rep (AstNoVectorize s) z
+  dlet u f = case stensorKind @x of
+    STKR{} -> blet u f
+    STKS{} -> blet u f
+    stk@STKProduct{} -> blet u $ \ !uShared -> f (repDeep stk uShared)
+    STKUntyped{} -> tlet u f
   tlet :: forall x z. (TensorKind x, TensorKind z)
        => Rep (AstNoVectorize s) x
        -> (RepShallow (AstNoVectorize s) x
@@ -1631,6 +1651,16 @@ instance AstSpan s => LetTensor (AstNoSimplify s) (AstNoSimplifyS s) where
   dletHFunInHVector t f =
     AstNoSimplifyWrap
     $ astLetHFunInFunNoSimplify t (unAstNoSimplifyWrap . f)
+  dlet :: forall x z. (TensorKind x, TensorKind z)
+       => Rep (AstNoSimplify s) x
+       -> (RepDeep (AstNoSimplify s) x
+           -> Rep (AstNoSimplify s) z)
+       -> Rep (AstNoSimplify s) z
+  dlet u f = case stensorKind @x of
+    STKR{} -> blet u f
+    STKS{} -> blet u f
+    stk@STKProduct{} -> blet u $ \ !uShared -> f (repDeep stk uShared)
+    STKUntyped{} -> tlet u f
   tlet :: forall x z. (TensorKind x, TensorKind z)
        => Rep (AstNoSimplify s) x
        -> (RepShallow (AstNoSimplify s) x

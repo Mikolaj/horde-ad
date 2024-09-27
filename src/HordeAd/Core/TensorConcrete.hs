@@ -78,6 +78,16 @@ instance LetTensor ORArray OSArray where
   rletHFunIn = (&)
   sletHFunIn = (&)
   dletHFunInHVector = (&)
+  dlet :: forall x z. TensorKind x
+       => Rep ORArray x
+       -> (RepDeep ORArray x
+           -> Rep ORArray z)
+       -> Rep ORArray z
+  dlet a f = case stensorKind @x of
+    STKR{} -> f a
+    STKS{} -> f a
+    stk@STKProduct{} -> f (repDeep stk a)
+    STKUntyped{} -> f $ unHVectorPseudoTensor a
   tlet :: forall x z. TensorKind x
        => Rep ORArray x
        -> (RepShallow ORArray x
