@@ -28,6 +28,7 @@ module HordeAd.Core.Ast
   , AstRaw(..), AstRawS(..), AstRawWrap(..)
   , AstNoVectorize(..), AstNoVectorizeS(..), AstNoVectorizeWrap(..)
   , AstNoSimplify(..), AstNoSimplifyS(..), AstNoSimplifyWrap(..)
+  , rankedY, unRankedY
   ) where
 
 import Prelude hiding (foldl')
@@ -267,10 +268,10 @@ type AstVarListS sh = SizedListS sh (Const IntVarName)
 
 -- * AstBindingsCase and AstBindings
 
-type AstBindingsCase y = RepD (AstRanked PrimalSpan) y
+type AstBindingsCase y = RepN (AstRanked PrimalSpan) y
 
 type AstBindings = DEnumMap (AstVarName PrimalSpan)
-                            (RepD (AstRanked PrimalSpan))
+                            (RepN (AstRanked PrimalSpan))
 
 
 -- * ASTs
@@ -912,3 +913,19 @@ deriving instance (GoodScalar r, KnownShS sh) => Show (AstNoSimplifyS s r sh)
 type role AstNoSimplifyWrap nominal
 newtype AstNoSimplifyWrap t = AstNoSimplifyWrap {unAstNoSimplifyWrap :: t}
  deriving Show
+
+rankedY :: STensorKindType y -> AstTensor AstMethodLet s y
+        -> Rep (AstRanked s) y
+rankedY stk t = case stk of
+  STKR{} -> AstRanked t
+  STKS{} -> AstShaped t
+  STKProduct{} -> t
+  STKUntyped -> HVectorPseudoTensor t
+
+unRankedY :: STensorKindType y -> Rep (AstRanked s) y
+          -> AstTensor AstMethodLet s y
+unRankedY stk t = case stk of
+  STKR{} -> unAstRanked t
+  STKS{} -> unAstShaped t
+  STKProduct{} -> t
+  STKUntyped -> unHVectorPseudoTensor t

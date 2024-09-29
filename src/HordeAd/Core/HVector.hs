@@ -10,7 +10,7 @@
 module HordeAd.Core.HVector
   ( HVectorOf, HVectorPseudoTensor(..)
   , Rep, RepN(..), RepProductN(..), RepShallow, RepDeep
-  , RepD2(..), RepD(..), RepM(..)
+  , RepD(..), RepM(..)
   , TensorKindFull(..), lemTensorKindOfF, buildTensorKindFull
   , DynamicTensor(..)
   , CRanked, CShaped, CHFun, CHFun2, CRepProduct
@@ -68,12 +68,13 @@ type instance Rep ranked TKUntyped =
   HVectorPseudoTensor ranked Float '()
     -- HVectorPseudoTensor instead of HVectorOf required for injectivity
 
--- TODO: can also RepD be replaced by cheese?
--- This type lets us work around the woes with defining Show
+-- Needed because `Rep` can't be partially applied.
+-- This type also lets us work around the woes with defining Show
 -- for the Rep type family. It gives us a concrete thing
 -- to attach a Show instance to.
 type role RepN nominal nominal
-newtype RepN ranked y = RepN (Rep ranked y)
+newtype RepN ranked y =
+  RepN {unRepN :: Rep ranked y}
 
 instance ( CRanked ranked Show, CShaped (ShapedOf ranked) Show
          , Show (HVectorOf ranked), CRepProduct ranked Show
@@ -86,7 +87,8 @@ instance ( CRanked ranked Show, CShaped (ShapedOf ranked) Show
     STKUntyped -> showsPrec d t
 
 type role RepProductN nominal nominal nominal
-newtype RepProductN ranked x y = RepProductN (Rep ranked (TKProduct x y))
+newtype RepProductN ranked x y =
+  RepProductN {unRepProductN :: Rep ranked (TKProduct x y)}
 
 -- This is concrete only in the outermost layer.
 type family RepShallow ranked y = result | result -> ranked y where
@@ -104,22 +106,7 @@ type family RepDeep ranked y = result | result -> ranked y where
     (RepDeep ranked x, RepDeep ranked z)
   RepDeep ranked TKUntyped = HVector ranked
 
--- TODO: rename removing 2
-type role RepD2 nominal nominal
-data RepD2 ranked y where
-  DTKR2 :: (GoodScalar r, KnownNat n)
-        => Rep ranked (TKR r n)
-        -> RepD2 ranked (TKR r n)
-  DTKS2 :: (GoodScalar r, KnownShS sh)
-        => Rep ranked (TKS r sh)
-        -> RepD2 ranked (TKS r sh)
-  DTKProduct2 :: forall x z ranked. (TensorKind x, TensorKind z)
-              => RepD2 ranked x -> RepD2 ranked z
-              -> RepD2 ranked (TKProduct x z)
-  DTKUntyped2 :: HVector ranked
-              -> RepD2 ranked TKUntyped
-
--- Needed because `Rep` can't be partially applied.
+-- A datatype matching RepDeep.
 type role RepD nominal nominal
 data RepD ranked y where
   DTKR :: (GoodScalar r, KnownNat n)
@@ -129,9 +116,9 @@ data RepD ranked y where
        => Rep ranked (TKS r sh)
        -> RepD ranked (TKS r sh)
   DTKProduct :: forall x z ranked. (TensorKind x, TensorKind z)
-             => Rep ranked (TKProduct x z)
+             => RepD ranked x -> RepD ranked z
              -> RepD ranked (TKProduct x z)
-  DTKUntyped :: Rep ranked TKUntyped
+  DTKUntyped :: HVector ranked
              -> RepD ranked TKUntyped
 
 -- This is very similar to DynamicTensor, but the second type parameter

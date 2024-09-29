@@ -42,14 +42,14 @@ import HordeAd.Util.SizedList
 
 toRepDShare
   :: ShareTensor ranked
-  => STensorKindType x -> Rep ranked x -> RepD2 ranked x
+  => STensorKindType x -> Rep ranked x -> RepD ranked x
 toRepDShare stk t = case stk of
-  STKR{} -> DTKR2 t
-  STKS{} -> DTKS2 t
+  STKR{} -> DTKR t
+  STKS{} -> DTKS t
   STKProduct stk1 stk2 ->
     let (t1, t2) = tunpair t
-    in DTKProduct2 (toRepDShare stk1 t1) (toRepDShare stk2 t2)
-  STKUntyped{} -> DTKUntyped2 $ tunvector t
+    in DTKProduct (toRepDShare stk1 t1) (toRepDShare stk2 t2)
+  STKUntyped{} -> DTKUntyped $ tunvector t
 
 -- The argument of the first call (but not of recursive calls)
 -- is assumed to be duplicable. In AST case, this creates
@@ -59,36 +59,36 @@ toRepDShare stk t = case stk of
 -- See repDeepUnshared.
 toRepDUnshared
   :: (HVectorTensor ranked (ShapedOf ranked), ProductTensor ranked)
-  => STensorKindType x -> Rep ranked x -> RepD2 ranked x
+  => STensorKindType x -> Rep ranked x -> RepD ranked x
 toRepDUnshared stk t = case stk of
-  STKR{} -> DTKR2 t
-  STKS{} -> DTKS2 t
+  STKR{} -> DTKR t
+  STKS{} -> DTKS t
   STKProduct stk1 stk2 ->
-    DTKProduct2 (toRepDUnshared stk1 (tproject1 t))
+    DTKProduct (toRepDUnshared stk1 (tproject1 t))
                 (toRepDUnshared stk2 (tproject2 t))
   STKUntyped{} ->
-    DTKUntyped2 $ dunHVector $ unHVectorPseudoTensor t
+    DTKUntyped $ dunHVector $ unHVectorPseudoTensor t
 
 fromRepD :: (ProductTensor ranked, HVectorTensor ranked (ShapedOf ranked))
-         => RepD2 ranked y -> Rep ranked y
+         => RepD ranked y -> Rep ranked y
 fromRepD = \case
-  DTKR2 t -> t
-  DTKS2 t -> t
-  DTKProduct2 t1 t2 -> ttuple (fromRepD t1) (fromRepD t2)
-  DTKUntyped2 t -> HVectorPseudoTensor $ dmkHVector t
+  DTKR t -> t
+  DTKS t -> t
+  DTKProduct t1 t2 -> ttuple (fromRepD t1) (fromRepD t2)
+  DTKUntyped t -> HVectorPseudoTensor $ dmkHVector t
 
 addRepD ::
   ADReadyNoLet ranked
-  => RepD2 ranked y
-  -> RepD2 ranked y
-  -> RepD2 ranked y
+  => RepD ranked y
+  -> RepD ranked y
+  -> RepD ranked y
 addRepD a b = case (a, b) of
-  (DTKR2 ta, DTKR2 tb) -> DTKR2 $ ta + tb
-  (DTKS2 ta, DTKS2 tb) -> DTKS2 $ ta + tb
-  (DTKProduct2 ta1 ta2, DTKProduct2 tb1 tb2) ->
-    DTKProduct2 (addRepD ta1 tb1) (addRepD ta2 tb2)
-  (DTKUntyped2 hv1, DTKUntyped2 hv2) ->
-    DTKUntyped2 $ V.zipWith addDynamic hv1 hv2
+  (DTKR ta, DTKR tb) -> DTKR $ ta + tb
+  (DTKS ta, DTKS tb) -> DTKS $ ta + tb
+  (DTKProduct ta1 ta2, DTKProduct tb1 tb2) ->
+    DTKProduct (addRepD ta1 tb1) (addRepD ta2 tb2)
+  (DTKUntyped hv1, DTKUntyped hv2) ->
+    DTKUntyped $ V.zipWith addDynamic hv1 hv2
 
 raddDynamic :: forall ranked r n.
                (RankedTensor ranked, GoodScalar r, KnownNat n)

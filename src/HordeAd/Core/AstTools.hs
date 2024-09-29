@@ -301,11 +301,9 @@ varNameInAstHVector :: AstSpan s
                     => AstVarName f y -> AstTensor ms s TKUntyped -> Bool
 varNameInAstHVector var = varInAst (varNameToAstVarId var)
 
-varInAstBindingsCase :: AstVarId -> AstBindingsCase y -> Bool
-varInAstBindingsCase var (DTKR t) = varInAst var $ unAstRanked t
-varInAstBindingsCase var (DTKS t) = varInAst var $ unAstShaped t
-varInAstBindingsCase var (DTKProduct t) = varInAst var t
-varInAstBindingsCase var (DTKUntyped t) = varInAst var $ unHVectorPseudoTensor t
+varInAstBindingsCase :: TensorKind y
+                     => AstVarId -> AstBindingsCase y -> Bool
+varInAstBindingsCase var (RepN t) = varInAst var $ unRankedY stensorKind t
 
 
 -- * Determining if a term is too small to require sharing
@@ -362,9 +360,8 @@ bindsToLet u0 bs = foldl' bindToLet u0 (DMap.toDescList bs)
  where
   bindToLet :: AstTensor AstMethodLet s y
             -> DSum (AstVarName PrimalSpan)
-                    (RepD (AstRanked PrimalSpan))
+                    (RepN (AstRanked PrimalSpan))
             -> AstTensor AstMethodLet s y
-  bindToLet !u (var :=> DTKR w) = AstLet var (unAstRanked w) u
-  bindToLet u (var :=> DTKS w) = AstLet var (unAstShaped w) u
-  bindToLet u (var :=> DTKProduct w) = AstLet var w u
-  bindToLet u (var :=> DTKUntyped w) = AstLet var (unHVectorPseudoTensor w) u
+  bindToLet !u (var :=> RepN w)
+    | Dict <- tensorKindFromAstVarName var =
+      AstLet var (unRankedY stensorKind w) u

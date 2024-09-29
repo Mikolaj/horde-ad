@@ -45,8 +45,6 @@ module HordeAd.Core.Delta
     NodeId (..), InputId, toInputId
     -- * Exported to be specialized elsewhere
   , evalFromnMap, EvalState
-    -- * Misc
-  , repToD, evalRepD
   ) where
 
 import Prelude
@@ -219,13 +217,6 @@ derivativeFromDelta deltaTopLevel ds =
       !(!_s2, !c) = fwdR iMap s0 deltaTopLevel
   in c
 
-evalRepD :: RepD ranked y -> Rep ranked y
-evalRepD = \case
-  DTKR t -> t
-  DTKS t -> t
-  DTKProduct t -> t
-  DTKUntyped t -> t
-
 dynamicTensorToRepM
   :: Int -> DynamicTensor ranked
   -> DSum (InputId ranked) (RepM ranked)
@@ -237,17 +228,6 @@ dynamicTensorToRepM n = \case
   DynamicShapedDummy{} ->
     error "dynamicTensorToRepM: unexpected DynamicShapedDummy"
 
-repToD
-  :: STensorKindType x -> Rep ranked x
-  -> RepD ranked x
-repToD stk t = case stk of
-  STKR{} -> DTKR t
-  STKS{} -> DTKS t
-  STKProduct{} -> DTKProduct t
-  STKUntyped{} -> DTKUntyped t
-
-type IMap ranked = DEnumMap (InputId ranked) (RepM ranked)
-
 repToM
   :: STensorKindType x -> Rep ranked x
   -> RepM ranked x
@@ -256,6 +236,8 @@ repToM stk t = case stk of
   STKS{} -> MTKS t
   STKProduct{} -> error "repToM"
   STKUntyped{} -> error "repToM"
+
+type IMap ranked = DEnumMap (InputId ranked) (RepM ranked)
 
 
 -- * Abstract syntax trees of the delta expressions
@@ -797,7 +779,7 @@ data EvalState ranked = EvalState
       -- (eventually copied to the vector representing the gradient
       -- of the objective function);
       -- the identifiers need to be contiguous and start at 0
-  , dMap :: DEnumMap (NodeId ranked) (RepD ranked)
+  , dMap :: DEnumMap (NodeId ranked) (RepN ranked)
       -- ^ eventually, cotangents of non-input subterms indexed
       -- by their node identifiers
   , nMap :: DEnumMap (NodeId ranked) (Delta ranked)
@@ -1030,10 +1012,10 @@ evalR !s !c = \case
               _ -> True)
     $ case DMap.lookup n $ nMap s of
         Just _ ->
-          let addc x = repToD stensorKind $ taddShare c (evalRepD x)
+          let addc x = RepN $ taddShare c (unRepN x)
           in s {dMap = DMap.adjust addc n $ dMap s}
         Nothing ->
-          let cd = repToD stensorKind c
+          let cd = RepN c
           in s { nMap = DMap.insert n d $ nMap s
                , dMap = DMap.insert n cd $ dMap s }
 
@@ -1218,16 +1200,16 @@ evalFromnMap s@EvalState{nMap, dMap} =
           errorMissing = error $ "evalFromnMap: missing cotangent " ++ show n
           s3 = case stensorKind @y of
             STKR{} -> case DMap.lookup n dMap of
-              Just (DTKR c) -> evalRRuntimeSpecialized s2 c d
+              Just (RepN c) -> evalRRuntimeSpecialized s2 c d
               Nothing -> errorMissing
             STKS{} -> case DMap.lookup n dMap of
-              Just (DTKS c) -> evalSRuntimeSpecialized s2 c d
+              Just (RepN c) -> evalSRuntimeSpecialized s2 c d
               Nothing -> errorMissing
             STKProduct{} -> case DMap.lookup n dMap of
-              Just (DTKProduct c) -> evalR s2 c d
+              Just (RepN c) -> evalR s2 c d
               Nothing -> errorMissing
             STKUntyped -> case DMap.lookup n dMap of
-              Just (DTKUntyped c) -> evalR s2 c d
+              Just (RepN c) -> evalR s2 c d
               Nothing -> errorMissing
       in evalFromnMap s3
     Nothing -> s  -- loop ends
@@ -1321,11 +1303,11 @@ fwdR params s = \case
       Nothing -> error "fwdR: missing input"
   ShareG n d ->
     case DMap.lookup n $ dMap s of
-      Just e1 -> (s, evalRepD e1)
+      Just e1 -> (s, unRepN e1)
       Nothing ->
         let (s2, cRaw) = fwdR params s d
             cShared = tshare cRaw
-            cd = repToD stensorKind cShared
+            cd = RepN cShared
               -- cRaw is shared, because it's put into the map and then
               -- potentially looked up many times, so it'd get duplicated
             s3 = s2 {dMap = DMap.insert n cd (dMap s2)}

@@ -400,10 +400,16 @@ shareAstScoped
 shareAstScoped vars0 memo0 v0 =
   let (memo1, v1) = shareAst memo0 v0
       memoDiff = DMap.difference memo1 memo0
-      varsOccur vs d = any (`varInAstBindingsCase` d) vs
+      varsOccur :: [AstVarId]
+                -> AstVarName PrimalSpan y -> RepN (AstRanked PrimalSpan) y
+                -> Bool
+      varsOccur vs var d
+        | Dict <- tensorKindFromAstVarName var =
+          any (`varInAstBindingsCase` d) vs
       closeOccurs :: [AstVarId] -> AstBindings -> (AstBindings, AstBindings)
       closeOccurs vars memo =
-        let (memoLocal, memoGlobal) = DMap.partition (varsOccur vars) memo
+        let (memoLocal, memoGlobal) =
+              DMap.partitionWithKey (varsOccur vars) memo
         in if DMap.null memoLocal
            then (memoLocal, memoGlobal)
            else -- TODO: we probably need to include all variables from
@@ -452,17 +458,13 @@ shareAst memo = \case
     STKS{} -> error "WIP"
     STKProduct{} -> error "WIP"
     STKUntyped -> error "WIP"
-  Ast.AstShare @y2 var v | Just Refl <- sameAstSpan @s @PrimalSpan ->
+  Ast.AstShare var v | Just Refl <- sameAstSpan @s @PrimalSpan ->
     -- We assume v is the same if var is the same.
     let astVar = Ast.AstVar (shapeAstFull v) var
     in if var `DMap.member` memo
        then (memo, astVar)  -- TODO: memoize AstVar itself
        else let (memo1, v2) = shareAst memo v
-                d = case stensorKind @y2 of
-                  STKR{} -> DTKR $ AstRanked v2
-                  STKS{} -> DTKS $ AstShaped v2
-                  STKProduct{} -> DTKProduct v2
-                  STKUntyped{} -> DTKUntyped $ HVectorPseudoTensor v2
+                d = RepN $ rankedY stensorKind v2
             in (DMap.insert var d memo1, astVar)
   Ast.AstShare{} -> error "shareAst: AstShare not in PrimalSpan"
   Ast.AstMinIndex a -> second Ast.AstMinIndex $ shareAst memo a

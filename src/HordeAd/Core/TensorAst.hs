@@ -11,7 +11,6 @@ module HordeAd.Core.TensorAst
   , revArtifactFromForwardPass
   , revProduceArtifact
   , fwdArtifactFromForwardPass, fwdProduceArtifact
-  , rankedY, unRankedY
   , printArtifactSimple, printArtifactPretty
   , printArtifactPrimalSimple, printArtifactPrimalPretty
   ) where
@@ -343,22 +342,6 @@ instance AstSpan s => ProductTensor (AstRanked s) where
   tproject1 = rankedY stensorKind . astProject1
   tproject2 = rankedY stensorKind . astProject2
   tmkHVector = AstMkHVector . unRankedHVector
-
-rankedY :: STensorKindType y -> AstTensor AstMethodLet s y
-        -> Rep (AstRanked s) y
-rankedY stk t = case stk of
-  STKR{} -> AstRanked t
-  STKS{} -> AstShaped t
-  STKProduct{} -> t
-  STKUntyped -> HVectorPseudoTensor t
-
-unRankedY :: STensorKindType y -> Rep (AstRanked s) y
-          -> AstTensor AstMethodLet s y
-unRankedY stk t = case stk of
-  STKR{} -> unAstRanked t
-  STKS{} -> unAstShaped t
-  STKProduct{} -> t
-  STKUntyped -> unHVectorPseudoTensor t
 
 astSpanPrimal :: forall s y. (AstSpan s, TensorKind y)
               => AstTensor AstMethodLet s y
