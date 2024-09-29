@@ -86,7 +86,7 @@ instance LetTensor ORArray OSArray where
   dlet a f = case stensorKind @x of
     STKR{} -> f a
     STKS{} -> f a
-    stk@STKProduct{} -> f (repDeep stk a)
+    stk@STKProduct{} -> f (repDeepUnshared stk a)
     STKUntyped{} -> f $ unHVectorPseudoTensor a
   tlet :: forall x z. TensorKind x
        => Rep ORArray x
@@ -102,6 +102,11 @@ instance LetTensor ORArray OSArray where
   toShare = id
   tunshare = id
   tconstant _ t = t
+  taddLet t1 t2 =
+    blet t1 $ \ !u1 ->
+    blet t2 $ \ !u2 ->
+      fromRepD $ addRepD (toRepDUnshared stensorKind u1)
+                         (toRepDUnshared stensorKind u2)
 
 instance ShareTensor ORArray where
   tshare = id

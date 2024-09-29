@@ -16,7 +16,7 @@ module HordeAd.Core.TensorClass
   , HVectorTensor(..), ProductTensor(..)
   , HFun(..)
   , rfromD, sfromD, rscalar, rrepl, ringestData, ringestData1
-  , ingestData, sscalar, srepl, unrepShallow, repDeep
+  , ingestData, sscalar, srepl, unrepShallow, repDeepUnshared
   , mapDynamic, mapDynamic2, mapRep
   , mapRep2Weak
     -- * The giga-constraint
@@ -129,12 +129,12 @@ class HVectorTensor ranked shaped
     => HFunOf ranked x z
     -> (HFunOf ranked x z -> HVectorOf ranked)
     -> HVectorOf ranked
-  -- This type signature generalizes dletHVectorInHVector and is easier
-  -- for the user to work with, giving him access to concrete vectors and tuples.
   dlet :: forall x z. (TensorKind x, TensorKind z)
        => Rep ranked x
        -> (RepDeep ranked x -> Rep ranked z)
        -> Rep ranked z
+  -- This type signature generalizes dletHVectorInHVector and is easier
+  -- for the user to work with, giving him access to concrete vectors and tuples.
   tlet :: forall x z. (TensorKind x, TensorKind z)
        => Rep ranked x
        -> (RepShallow ranked x -> Rep ranked z)
@@ -171,6 +171,8 @@ class HVectorTensor ranked shaped
   tconstant :: STensorKindType y
             -> Rep (PrimalOf ranked) y
             -> Rep ranked y
+  taddLet :: TensorKind y
+          => Rep ranked y -> Rep ranked y -> Rep ranked y
 
   -- The second argument is only used to determine tensor shapes
   -- and the third has to have the same shapes as the second.
@@ -1322,14 +1324,16 @@ unrepShallow t = case stensorKind @y of
 -- a tower of projections for product, but if it's balanced,
 -- that's of logarithmic length, so maybe even better than sharing
 -- excessively, which is hard for technical typing reasons.
-repDeep :: (HVectorTensor ranked (ShapedOf ranked), ProductTensor ranked)
-        => STensorKindType y -> Rep ranked y
-        -> RepDeep ranked y
-repDeep stk t = case stk of
+-- See toRepDUnshared.
+repDeepUnshared
+  :: (HVectorTensor ranked (ShapedOf ranked), ProductTensor ranked)
+  => STensorKindType y -> Rep ranked y
+  -> RepDeep ranked y
+repDeepUnshared stk t = case stk of
   STKR{} -> t
   STKS{} -> t
   STKProduct stk1 stk2 ->
-    (repDeep stk1 (tproject1 t), repDeep stk2 (tproject2 t))
+    (repDeepUnshared stk1 (tproject1 t), repDeepUnshared stk2 (tproject2 t))
   STKUntyped -> dunHVector $ unHVectorPseudoTensor t
 
 mapDynamic

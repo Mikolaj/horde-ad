@@ -130,7 +130,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
   dlet a f = case stensorKind @x of
     STKR{} -> blet a f
     STKS{} -> blet a f
-    stk@STKProduct{} -> blet a $ \ !uShared -> f (repDeep stk uShared)
+    stk@STKProduct{} -> blet a $ \ !uShared -> f (repDeepUnshared stk uShared)
     STKUntyped{} ->
       let (!u, !u') = unADValHVector $ unHVectorPseudoTensor a
           !var2 = dunHVector $ unHVectorPseudoTensor $ tshare @_ @TKUntyped
@@ -201,6 +201,11 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
       let fd :: DynamicTensor ranked -> DynamicTensor (ADVal ranked)
           fd = mapDynamic rconstant sconstant
       in HVectorPseudoTensor $ V.map fd $ tunvector t
+  taddLet t1 t2 =
+    blet t1 $ \ !u1 ->
+    blet t2 $ \ !u2 ->
+      fromRepD $ addRepD (toRepDUnshared stensorKind u1)
+                         (toRepDUnshared stensorKind u2)
 
 instance (ADReadyNoLet ranked, ShareTensor ranked, ShareTensor (PrimalOf ranked))
          => ShareTensor (ADVal ranked) where
@@ -616,10 +621,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
           let dx_dbRes = ttuple dx1 dbRes
           in tlet (unHFun rf (ttuple dx_dbRes acc_e))
              $ \ (!daccRes1, !deRes1) ->
-                 let added = evalRepD
-                             $ addRepDLet
-                                 (repToD stensorKind daccRes1)
-                                 (repToD stensorKind dbacc)
+                 let added = taddLet daccRes1 dbacc
                  in ttuple added deRes1
         pUnshared = dmapAccumRDer (Proxy @ranked)
                                   k accShs codomainShs eShs
@@ -696,10 +698,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
           let dx_dbRes = ttuple dx1 dbRes
           in tlet (unHFun rf (ttuple dx_dbRes acc_e))
              $ \ (!daccRes1, !deRes1) ->
-                 let added = evalRepD
-                             $ addRepDLet
-                                 (repToD stensorKind daccRes1)
-                                 (repToD stensorKind dbacc)
+                 let added = taddLet daccRes1 dbacc
                  in ttuple added deRes1
         pUnshared = dmapAccumLDer (Proxy @ranked)
                                   k accShs codomainShs eShs

@@ -433,7 +433,7 @@ instance AstSpan s => LetTensor (AstRanked s) (AstShaped s) where
     STKR{} -> blet u f
     STKS{} -> blet u f
     stk@STKProduct{} ->
-      blet u $ \ !uShared -> f (repDeep stk uShared)
+      blet u $ \ !uShared -> f (repDeepUnshared stk uShared)
     STKUntyped{} -> tlet u f
   tlet :: forall x z. (TensorKind x, TensorKind z)
        => Rep (AstRanked s) x
@@ -494,6 +494,14 @@ instance AstSpan s => LetTensor (AstRanked s) (AstShaped s) where
     STKS{} -> sconstant t
     STKProduct{} -> fromPrimal t
     STKUntyped -> HVectorPseudoTensor $ fromPrimal $ unHVectorPseudoTensor t
+  taddLet t1 t2 =
+    -- when we have Num(AstTensor), this is better:
+    --   rankedY stensorKind
+    --   $ unRankedY stensorKind t1 + unRankedY stensorKind t2
+    blet t1 $ \ !u1 ->
+    blet t2 $ \ !u2 ->
+      fromRepD $ addRepD (toRepDUnshared stensorKind u1)
+                         (toRepDUnshared stensorKind u2)
 
   rrev :: forall r n. (GoodScalar r, KnownNat n)
        => (forall f. ADReady f => HVector f -> f r n)
@@ -1239,7 +1247,7 @@ instance AstSpan s => LetTensor (AstNoVectorize s) (AstNoVectorizeS s) where
     STKR{} -> blet u f
     STKS{} -> blet u f
     stk@STKProduct{} ->
-      blet u $ \ !uShared -> f (repDeep stk uShared)
+      blet u $ \ !uShared -> f (repDeepUnshared stk uShared)
     STKUntyped{} -> tlet u f
   tlet :: forall x z. (TensorKind x, TensorKind z)
        => Rep (AstNoVectorize s) x
@@ -1294,6 +1302,11 @@ instance AstSpan s => LetTensor (AstNoVectorize s) (AstNoVectorizeS s) where
     STKProduct{} -> AstNoVectorizeWrap $ fromPrimal $ unAstNoVectorizeWrap t
     STKUntyped -> HVectorPseudoTensor $ AstNoVectorizeWrap $ fromPrimal
                   $ unAstNoVectorizeWrap $ unHVectorPseudoTensor t
+  taddLet t1 t2 =
+    blet t1 $ \ !u1 ->
+    blet t2 $ \ !u2 ->
+      fromRepD $ addRepD (toRepDUnshared stensorKind u1)
+                         (toRepDUnshared stensorKind u2)
 
   rrev f parameters0 hVector =
     AstNoVectorizeWrap
@@ -1611,7 +1624,7 @@ instance AstSpan s => LetTensor (AstNoSimplify s) (AstNoSimplifyS s) where
     STKR{} -> blet u f
     STKS{} -> blet u f
     stk@STKProduct{} ->
-      blet u $ \ !uShared -> f (repDeep stk uShared)
+      blet u $ \ !uShared -> f (repDeepUnshared stk uShared)
     STKUntyped{} -> tlet u f
   tlet :: forall x z. (TensorKind x, TensorKind z)
        => Rep (AstNoSimplify s) x
@@ -1666,6 +1679,11 @@ instance AstSpan s => LetTensor (AstNoSimplify s) (AstNoSimplifyS s) where
     STKProduct{} -> AstNoSimplifyWrap $ fromPrimal $ unAstNoSimplifyWrap t
     STKUntyped -> HVectorPseudoTensor $ AstNoSimplifyWrap $ fromPrimal
                   $ unAstNoSimplifyWrap $ unHVectorPseudoTensor t
+  taddLet t1 t2 =
+    blet t1 $ \ !u1 ->
+    blet t2 $ \ !u2 ->
+      fromRepD $ addRepD (toRepDUnshared stensorKind u1)
+                         (toRepDUnshared stensorKind u2)
 
   rrev f parameters0 hVector =  -- we don't have an AST constructor to hold it
     AstNoSimplifyWrap

@@ -5,7 +5,7 @@
 -- API of the horde-ad library and it's relatively orthogonal to the
 -- differentiation interface in "HordeAd.Core.Engine".
 module HordeAd.Core.HVectorOps
-  ( toRepDShare, fromRepD, addRepD
+  ( toRepDShare, toRepDUnshared, fromRepD, addRepD
   , raddDynamic, saddDynamic, sumDynamicRanked, sumDynamicShaped, addDynamic
   , sizeHVector, shapeDynamic
   , dynamicsMatch, hVectorsMatch, voidHVectorMatches, voidHVectorsMatch
@@ -50,6 +50,24 @@ toRepDShare stk t = case stk of
     let (t1, t2) = tunpair t
     in DTKProduct2 (toRepDShare stk1 t1) (toRepDShare stk2 t2)
   STKUntyped{} -> DTKUntyped2 $ tunvector t
+
+-- The argument of the first call (but not of recursive calls)
+-- is assumed to be duplicable. In AST case, this creates
+-- a tower of projections for product, but if it's balanced,
+-- that's of logarithmic length, so maybe even better than sharing
+-- excessively, which is hard for technical typing reasons.
+-- See repDeepUnshared.
+toRepDUnshared
+  :: (HVectorTensor ranked (ShapedOf ranked), ProductTensor ranked)
+  => STensorKindType x -> Rep ranked x -> RepD2 ranked x
+toRepDUnshared stk t = case stk of
+  STKR{} -> DTKR2 t
+  STKS{} -> DTKS2 t
+  STKProduct stk1 stk2 ->
+    DTKProduct2 (toRepDUnshared stk1 (tproject1 t))
+                (toRepDUnshared stk2 (tproject2 t))
+  STKUntyped{} ->
+    DTKUntyped2 $ dunHVector $ unHVectorPseudoTensor t
 
 fromRepD :: (ProductTensor ranked, HVectorTensor ranked (ShapedOf ranked))
          => RepD2 ranked y -> Rep ranked y

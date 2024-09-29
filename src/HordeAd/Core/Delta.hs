@@ -47,7 +47,6 @@ module HordeAd.Core.Delta
   , evalFromnMap, EvalState
     -- * Misc
   , repToD, evalRepD
-  , addRepDLet
   ) where
 
 import Prelude
@@ -954,31 +953,6 @@ evalSRuntimeSpecialized !s !c =
         _ -> case testEquality (typeRep @r) (typeRep @CInt) of
           Just Refl -> evalR @(TKS CInt sh) s c
           _ -> error "evalSRuntimeSpecialized: unexpected scalar"
-
-addRepDLet ::
-  ADReady ranked
-  => RepD ranked y
-  -> RepD ranked y
-  -> RepD ranked y
-addRepDLet a b = case (a, b) of
-  (DTKR ta, DTKR tb) -> DTKR $ ta + tb
-  (DTKS ta, DTKS tb) -> DTKS $ ta + tb
-  (DTKProduct ta, DTKProduct tb) -> DTKProduct $
-    tlet ta $ \ (!ta1, !ta2) ->
-    tlet tb $ \ (!tb1, !tb2) ->
-      ttuple (evalRepD
-              $ addRepDLet
-                  (repToD stensorKind ta1)
-                  (repToD stensorKind tb1))
-             (evalRepD
-              $ addRepDLet
-                  (repToD stensorKind ta2)
-                  (repToD stensorKind tb2))
-  (DTKUntyped hv1, DTKUntyped hv2) -> DTKUntyped $
-    tlet hv1 $ \ !v1 ->
-    tlet hv2 $ \ !v2 ->
-      HVectorPseudoTensor $ dmkHVector
-      $ V.zipWith addDynamic v1 v2
 
 addRepM ::
   ADReadyNoLet ranked
