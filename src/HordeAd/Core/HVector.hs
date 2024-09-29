@@ -9,8 +9,7 @@
 -- and also to hangle multiple arguments and results of fold-like operations.
 module HordeAd.Core.HVector
   ( HVectorOf, HVectorPseudoTensor(..)
-  , Rep, RepN(..), RepProductN(..), RepShallow, RepDeep
-  , RepD(..), RepM(..)
+  , Rep, RepN(..), RepProductN(..), RepShallow, RepDeep, RepD(..)
   , TensorKindFull(..), lemTensorKindOfF, buildTensorKindFull
   , DynamicTensor(..)
   , CRanked, CShaped, CHFun, CHFun2, CRepProduct
@@ -120,40 +119,6 @@ data RepD ranked y where
              -> RepD ranked (TKProduct x z)
   DTKUntyped :: HVector ranked
              -> RepD ranked TKUntyped
-
--- This is very similar to DynamicTensor, but the second type parameter
--- gives a peek of what's inside, which is crucial for dependent maps
--- as opposed to existential vectors.
-type role RepM nominal nominal
-data RepM ranked y where
-  MTKR :: (GoodScalar r, KnownNat n)
-       => Rep ranked (TKR r n)
-       -> RepM ranked (TKR r n)
-  MTKS :: (GoodScalar r, KnownShS sh)
-       => Rep ranked (TKS r sh)
-       -> RepM ranked (TKS r sh)
-  MTKRDummy :: (GoodScalar r, KnownShS sh)
-            => RepM ranked (TKR r (X.Rank sh))
-  MTKSDummy  :: (GoodScalar r, KnownShS sh)
-             => RepM ranked (TKS r sh)
-
-instance ( CRanked ranked Show, CShaped (ShapedOf ranked) Show
-         , Show (HVectorOf ranked), CRepProduct ranked Show
-         , TensorKind y )
-         => Show (RepM ranked y) where
-  showsPrec d = \case
-    MTKR @r @n t ->
-      showParen (d > 10)
-        (showString ("MTKR @" ++ show (typeRep @r)
-                     ++ " @" ++ show (valueOf @n :: Int) ++ " ")
-         . showParen True (showsPrec d t))
-    MTKS @r @sh t ->
-      showParen (d > 10)
-        (showString ("MTKS @" ++ show (typeRep @r)
-                     ++ " @" ++ show (shapeT @sh) ++ " ")
-         . showParen True (showsPrec d t))
-    MTKRDummy -> showString "MTKRDummy"
-    MTKSDummy -> showString "MTKSDummy"
 
 -- TODO: the constraints should not be necessary
 type role TensorKindFull nominal

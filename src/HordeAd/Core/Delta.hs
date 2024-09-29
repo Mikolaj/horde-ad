@@ -87,6 +87,8 @@ import HordeAd.Util.SizedList
 
 -- * Reverse and forward derivative computation for HVectorPseudoTensor
 
+type IMap ranked = DEnumMap (InputId ranked) (RepM ranked)
+
 gradientFromDelta
   :: forall x z ranked.
      (ADReadyNoLet ranked, ShareTensor ranked, TensorKind z)
@@ -175,15 +177,6 @@ show_iMap
   => IMap ranked -> String
 show_iMap iMap = showsPrec_iMap 0 iMap ""
 
-evalRepM :: ADReadyNoLet ranked
-                          => RepM ranked x
-                          -> Rep ranked x
-evalRepM = \case
-  MTKR t -> t
-  MTKS t -> t
-  MTKRDummy @_ @sh -> withListSh (Proxy @sh) $ \sh4 -> rzero sh4
-  MTKSDummy -> srepl 0
-
 derivativeFromDelta
   :: forall x z ranked.
      (ADReadyNoLet ranked, ShareTensor ranked, TensorKind x, TensorKind z)
@@ -217,6 +210,15 @@ derivativeFromDelta deltaTopLevel ds =
       !(!_s2, !c) = fwdR iMap s0 deltaTopLevel
   in c
 
+evalRepM :: ADReadyNoLet ranked
+                          => RepM ranked x
+                          -> Rep ranked x
+evalRepM = \case
+  MTKR t -> t
+  MTKS t -> t
+  MTKRDummy @_ @sh -> withListSh (Proxy @sh) $ \sh4 -> rzero sh4
+  MTKSDummy -> srepl 0
+
 dynamicTensorToRepM
   :: Int -> DynamicTensor ranked
   -> DSum (InputId ranked) (RepM ranked)
@@ -237,7 +239,52 @@ repToM stk t = case stk of
   STKProduct{} -> error "repToM"
   STKUntyped{} -> error "repToM"
 
-type IMap ranked = DEnumMap (InputId ranked) (RepM ranked)
+addRepM ::
+  ADReadyNoLet ranked
+  => RepM ranked y
+  -> RepM ranked y
+  -> RepM ranked y
+addRepM a b = case (a, b) of
+  (MTKR ta, MTKR tb) -> MTKR $ ta + tb
+  (MTKRDummy, _) -> b
+  (_, MTKRDummy) -> a
+  (MTKS ta, MTKS tb) -> MTKS $ ta + tb
+  (MTKSDummy, _) -> b
+  (_, MTKSDummy) -> a
+
+-- This is very similar to DynamicTensor, but the second type parameter
+-- gives a peek of what's inside, which is crucial for dependent maps
+-- as opposed to existential vectors.
+type role RepM nominal nominal
+data RepM ranked y where
+  MTKR :: (GoodScalar r, KnownNat n)
+       => Rep ranked (TKR r n)
+       -> RepM ranked (TKR r n)
+  MTKS :: (GoodScalar r, KnownShS sh)
+       => Rep ranked (TKS r sh)
+       -> RepM ranked (TKS r sh)
+  MTKRDummy :: (GoodScalar r, KnownShS sh)
+            => RepM ranked (TKR r (X.Rank sh))
+  MTKSDummy  :: (GoodScalar r, KnownShS sh)
+             => RepM ranked (TKS r sh)
+
+instance ( CRanked ranked Show, CShaped (ShapedOf ranked) Show
+         , Show (HVectorOf ranked), CRepProduct ranked Show
+         , TensorKind y )
+         => Show (RepM ranked y) where
+  showsPrec d = \case
+    MTKR @r @n t ->
+      showParen (d > 10)
+        (showString ("MTKR @" ++ show (typeRep @r)
+                     ++ " @" ++ show (valueOf @n :: Int) ++ " ")
+         . showParen True (showsPrec d t))
+    MTKS @r @sh t ->
+      showParen (d > 10)
+        (showString ("MTKS @" ++ show (typeRep @r)
+                     ++ " @" ++ show (shapeT @sh) ++ " ")
+         . showParen True (showsPrec d t))
+    MTKRDummy -> showString "MTKRDummy"
+    MTKSDummy -> showString "MTKSDummy"
 
 
 -- * Abstract syntax trees of the delta expressions
@@ -935,19 +982,6 @@ evalSRuntimeSpecialized !s !c =
         _ -> case testEquality (typeRep @r) (typeRep @CInt) of
           Just Refl -> evalR @(TKS CInt sh) s c
           _ -> error "evalSRuntimeSpecialized: unexpected scalar"
-
-addRepM ::
-  ADReadyNoLet ranked
-  => RepM ranked y
-  -> RepM ranked y
-  -> RepM ranked y
-addRepM a b = case (a, b) of
-  (MTKR ta, MTKR tb) -> MTKR $ ta + tb
-  (MTKRDummy, _) -> b
-  (_, MTKRDummy) -> a
-  (MTKS ta, MTKS tb) -> MTKS $ ta + tb
-  (MTKSDummy, _) -> b
-  (_, MTKSDummy) -> a
 
 evalR
   :: forall y ranked.
