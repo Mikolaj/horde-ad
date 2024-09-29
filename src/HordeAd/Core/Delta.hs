@@ -220,8 +220,7 @@ derivativeFromDelta deltaTopLevel ds =
       !(!_s2, !c) = fwdR iMap s0 deltaTopLevel
   in c
 
-evalRepD :: RepD ranked y
-                          -> Rep ranked y
+evalRepD :: RepD ranked y -> Rep ranked y
 evalRepD = \case
   DTKR t -> t
   DTKS t -> t
@@ -956,30 +955,6 @@ evalSRuntimeSpecialized !s !c =
           Just Refl -> evalR @(TKS CInt sh) s c
           _ -> error "evalSRuntimeSpecialized: unexpected scalar"
 
-addRepD ::
-  (ADReadyNoLet ranked, ShareTensor ranked)
-  => RepD ranked y
-  -> RepD ranked y
-  -> RepD ranked y
-addRepD a b = case (a, b) of
-  (DTKR ta, DTKR tb) -> DTKR $ ta + tb
-  (DTKS ta, DTKS tb) -> DTKS $ ta + tb
-  (DTKProduct ta, DTKProduct tb) ->
-    let (ta1, ta2) = tunpair ta
-        (tb1, tb2) = tunpair tb
-    in DTKProduct
-       $ ttuple (evalRepD
-                 $ addRepD
-                     (repToD stensorKind ta1)
-                     (repToD stensorKind tb1))
-                (evalRepD
-                 $ addRepD
-                     (repToD stensorKind ta2)
-                     (repToD stensorKind tb2))
-  (DTKUntyped hv1, DTKUntyped hv2) ->
-    DTKUntyped $ HVectorPseudoTensor $ dmkHVector
-    $ V.zipWith addDynamic (tunvector hv1) (tunvector hv2)
-
 addRepDLet ::
   ADReady ranked
   => RepD ranked y
@@ -1079,13 +1054,14 @@ evalR !s !c = \case
               ShareG{} -> False  -- wasteful and nonsensical
               ZeroS -> False
               _ -> True)
-    $ let cd = repToD stensorKind c
-      in case DMap.lookup n $ nMap s of
+    $ case DMap.lookup n $ nMap s of
         Just _ ->
-          s {dMap = DMap.adjust (addRepD cd) n $ dMap s}
+          let addc x = repToD stensorKind $ taddShare c (evalRepD x)
+          in s {dMap = DMap.adjust addc n $ dMap s}
         Nothing ->
-          s { nMap = DMap.insert n d $ nMap s
-            , dMap = DMap.insert n cd $ dMap s }
+          let cd = repToD stensorKind c
+          in s { nMap = DMap.insert n d $ nMap s
+               , dMap = DMap.insert n cd $ dMap s }
 
   ZeroR{} -> s
   ScaleR k d -> evalR s (k * c) d

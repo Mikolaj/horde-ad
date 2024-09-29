@@ -107,6 +107,8 @@ instance ShareTensor ORArray where
   tshare = id
   tunpair = id
   tunvector = unHVectorPseudoTensor
+  taddShare t1 t2 = fromRepD $ addRepD (toRepDShare stensorKind t1)
+                                       (toRepDShare stensorKind t2)
 
 instance RankedTensor ORArray where
   rshape = tshapeR . runFlipR

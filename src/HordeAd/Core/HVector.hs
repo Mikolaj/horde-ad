@@ -10,7 +10,7 @@
 module HordeAd.Core.HVector
   ( HVectorOf, HVectorPseudoTensor(..)
   , Rep, RepN(..), RepProductN(..), RepShallow, RepDeep
-  , RepD(..), RepM(..)
+  , RepD2(..), RepD(..), RepM(..)
   , TensorKindFull(..), lemTensorKindOfF, buildTensorKindFull
   , DynamicTensor(..)
   , CRanked, CShaped, CHFun, CHFun2, CRepProduct
@@ -103,6 +103,21 @@ type family RepDeep ranked y = result | result -> ranked y where
   RepDeep ranked (TKProduct x z) =
     (RepDeep ranked x, RepDeep ranked z)
   RepDeep ranked TKUntyped = HVector ranked
+
+-- TODO: rename removing 2
+type role RepD2 nominal nominal
+data RepD2 ranked y where
+  DTKR2 :: (GoodScalar r, KnownNat n)
+        => Rep ranked (TKR r n)
+        -> RepD2 ranked (TKR r n)
+  DTKS2 :: (GoodScalar r, KnownShS sh)
+        => Rep ranked (TKS r sh)
+        -> RepD2 ranked (TKS r sh)
+  DTKProduct2 :: forall x z ranked. (TensorKind x, TensorKind z)
+              => RepD2 ranked x -> RepD2 ranked z
+              -> RepD2 ranked (TKProduct x z)
+  DTKUntyped2 :: HVector ranked
+              -> RepD2 ranked TKUntyped
 
 -- Needed because `Rep` can't be partially applied.
 type role RepD nominal nominal

@@ -202,10 +202,13 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
           fd = mapDynamic rconstant sconstant
       in HVectorPseudoTensor $ V.map fd $ tunvector t
 
-instance ShareTensor (ADVal ranked) where
+instance (ADReadyNoLet ranked, ShareTensor ranked, ShareTensor (PrimalOf ranked))
+         => ShareTensor (ADVal ranked) where
   tshare = id
   tunpair = id
   tunvector = unHVectorPseudoTensor
+  taddShare t1 t2 = fromRepD $ addRepD (toRepDShare stensorKind t1)
+                                       (toRepDShare stensorKind t2)
 
 -- * Ranked tensor instance
 

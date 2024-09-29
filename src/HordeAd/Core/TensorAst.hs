@@ -913,6 +913,11 @@ instance AstSpan s => ShareTensor (AstRaw s) where
               in (tproject1 tShared, tproject2 tShared)
   tunvector (HVectorPseudoTensor (AstRawWrap (AstMkHVector l))) = rawHVector l
   tunvector t = dunHVector $ unHVectorPseudoTensor $ tshare t
+  taddShare t1 t2 =
+    -- when we have Num(AstTensor), this is better:
+    --   rawY stensorKind $ unRawY stensorKind t1 + unRawY stensorKind t2
+    fromRepD $ addRepD (toRepDShare stensorKind t1)
+                       (toRepDShare stensorKind t2)
 
 instance AstSpan s => RankedTensor (AstRaw s) where
   rshape = shapeAst . unAstRaw
