@@ -136,7 +136,7 @@ rnnMnistTestR
   => ADRnnMnistParameters ranked r
   -> Int
   -> MnistDataBatchR r  -- batch_size
-  -> HVector ORArray
+  -> HVector ORArray  -- RepDeep ranked (X (ADRnnMnistParameters ranked r))
   -> r
 rnnMnistTestR _ 0 _ _ = 0
 rnnMnistTestR valsInit batch_size (glyphR, labelR) testParams =
@@ -148,7 +148,7 @@ rnnMnistTestR valsInit batch_size (glyphR, labelR) testParams =
                     -- SizeMnistHeight out_width
                -> ranked r 2  -- [SizeMnistLabel, batch_size]
             nn = rnnMnistZeroR batch_size input
-        in nn $ parseHVector valsInit testParams
+        in nn $ unAsHVector $ parseHVector (AsHVector valsInit) testParams
       outputs = map (Nested.rtoVector . runFlipR) $ runravelToList
                 $ rtranspose [1, 0] outputR
       labels = map (Nested.rtoVector . runFlipR) $ runravelToList

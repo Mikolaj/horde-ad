@@ -145,7 +145,7 @@ convMnistTestS
   -> SNat n_hidden -> SNat batch_size
   -> ADCnnMnistParametersShaped shaped h w kh kw c_out n_hidden r
   -> MnistDataBatchS batch_size r
-  -> HVector ORArray
+  -> HVector ORArray  -- RepDeep (RankedOf shaped) (X (ADCnnMnistParametersShaped shaped h w kh kw c_out n_hidden r))
   -> r
 convMnistTestS  _ _ _ _ batch_size@SNat _ _ _
   | sNatValue batch_size == 0 = 0
@@ -161,7 +161,7 @@ convMnistTestS kh@SNat kw@SNat
             nn = convMnistTwoS kh kw (SNat @h) (SNat @w)
                                c_out n_hidden batch_size
                                input
-        in nn $ parseHVector valsInit testParams
+        in nn $ unAsHVector $ parseHVector (AsHVector valsInit) testParams
       outputs = map (Nested.stoVector . runFlipS) $ sunravelToList
                 $ stranspose (Permutation.makePerm @'[1, 0]) outputS
       labels = map (Nested.stoVector . runFlipS) $ sunravelToList

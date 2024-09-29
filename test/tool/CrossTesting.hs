@@ -37,7 +37,6 @@ import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
   (cfwd, fwd, revEvalArtifact, revProduceArtifactWithoutInterpretation)
 import HordeAd.Core.HVector
-import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorADVal
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
@@ -57,28 +56,26 @@ assertEqualUpToEpsilon1 eps expected result =
   assertEqualUpToEpsilon eps expected (Nested.rtoOrthotope $ runFlipR result)
 
 crevDtMaybeBoth
-  :: forall r y f vals advals.
-     ( GoodScalar r, KnownNat y
+  :: forall r y f advals.
+     ( X advals ~ X (DValue advals), TensorKind (X advals), X (f r y) ~ TKR r y
+     , GoodScalar r, KnownNat y
      , RankedOf f ~ ORArray  -- this helps with type reconstruction later
      , AdaptableHVector (ADVal ORArray) advals
      , AdaptableHVector (ADVal ORArray) (ADVal f r y)
-     , AdaptableHVector ORArray vals
+     , AdaptableHVector ORArray (DValue advals)
      , AdaptableHVector ORArray (f r y)
-     , DualNumberValue advals, vals ~ DValue advals )
-  => Maybe (f r y) -> (advals -> ADVal f r y) -> vals -> (vals, RankedOf f r y)
+     , DualNumberValue advals )
+  => Maybe (f r y) -> (advals -> ADVal f r y) -> DValue advals
+  -> (DValue advals, RankedOf f r y)
 {-# INLINE crevDtMaybeBoth #-}
 crevDtMaybeBoth mdt f vals =
-  let g hVector = HVectorPseudoTensor
-                  $ toHVector
-                  $ f $ parseHVector (fromDValue vals)
-                  $ unHVectorPseudoTensor hVector
-      valsH = HVectorPseudoTensor $ toHVectorOf vals
+  let g :: Rep (ADVal ORArray) (X advals) -> Rep (ADVal ORArray) (TKR r y)
+      g = toHVector . f . parseHVector (fromDValue vals) . repDeepUnshared stensorKind
+      valsH = toHVectorOf vals
       mdth = toHVector <$> mdt
-      !(!grad, !res) =
-        crevOnHVector @TKUntyped @TKUntyped
-                      (HVectorPseudoTensor . dmkHVector <$> mdth) g valsH
-  in ( parseHVector vals $ unHVectorPseudoTensor grad
-     , rfromD $ unHVectorPseudoTensor res V.! 0 )
+      !(!grad, !res) = crevOnHVector mdth g valsH
+  in ( parseHVector vals $ repDeepUnshared stensorKind grad
+     , res )
 
 rev' :: forall r m n v a.
         ( KnownNat n, KnownNat m, GoodScalar r
@@ -94,34 +91,30 @@ rev' f valsOR =
   let vals :: FlipR Nested.Ranked r n
       vals = fromORArray valsOR
       value0 = f vals
-      parameters = toHVectorOf vals
-      parameters0 = voidFromHVector parameters
+      ftk = tshapeFull stensorKind vals
       dt = Nothing
       valsFrom = fromDValue vals
-      g :: HVector (ADVal ORArray)
+      g :: ADVal ORArray r n
         -> ADVal ORArray r m
       g inputs = f $ parseHVector valsFrom inputs
-      (advalGrad, value1) = crevDtMaybeBoth dt g parameters
+      (advalGrad, value1) = crevDtMaybeBoth dt g vals
       gradient1 = parseHVector vals advalGrad
       gradientRrev1 = rrev1 @ORArray @r @n @m f vals
       gradientRrev2 = rrev2 @ORArray @r @n @m f vals
-      g9 :: HVector (ADVal (AstRaw PrimalSpan))
+      g9 :: ADVal (AstRaw PrimalSpan) r n
          -> ADVal (AstRaw PrimalSpan) r m
       g9 inputs = f @(ADVal (AstRaw PrimalSpan))
                   $ parseHVector (fromDValue vals) inputs
       artifactsGradAst9 =
         fst $ revProduceArtifactWithoutInterpretation
-                False g9 (FTKUntyped parameters0)
-      (advalGrad9, value9) =
-        revEvalArtifact7 artifactsGradAst9 parameters
-      gradient9 = parseHVector vals advalGrad9
+                False g9 ftk
+      (gradient9, value9) = revEvalArtifact7 artifactsGradAst9
       revEvalArtifact7
-        :: AstArtifactRev TKUntyped (TKR r m)
-        -> HVector ORArray
-        -> (HVector ORArray, FlipR OR.Array r m)
-      revEvalArtifact7 a1 a2 =
-        let (grad, v) = revEvalArtifact a1 (HVectorPseudoTensor a2) Nothing
-        in (unHVectorPseudoTensor grad, toORArray v)
+        :: AstArtifactRev (TKR r n) (TKR r m)
+        -> (FlipR OR.Array r n, FlipR OR.Array r m)
+      revEvalArtifact7 a1 =
+        let (grad, v) = revEvalArtifact a1 vals Nothing
+        in (toORArray grad, toORArray v)
       hGeneral
         :: (ADReady fgen, ADReady f1)
         => (f1 r m -> AstRanked PrimalSpan r m)
@@ -137,33 +130,33 @@ rev' f valsOR =
         => (f1 r m -> AstRanked PrimalSpan r m)
         -> (AstRanked PrimalSpan r n -> f1 r n)
         -> (AstRanked PrimalSpan r m -> AstRanked PrimalSpan r m)
-        -> HVector (ADVal ORArray)
+        -> ADVal ORArray r n
         -> ADVal ORArray r m
       h fx1 fx2 gx inputs =
         hGeneral @(ADVal ORArray) fx1 fx2 gx
                  (parseHVector valsFrom inputs)
       (astGrad, value2) =
-        crevDtMaybeBoth dt (h id id id) parameters
+        crevDtMaybeBoth dt (h id id id) vals
       gradient2 = parseHVector vals astGrad
       (astSimple, value3) =
-        crevDtMaybeBoth dt (h id id simplifyInlineAst) parameters
+        crevDtMaybeBoth dt (h id id simplifyInlineAst) vals
       gradient3 = parseHVector vals astSimple
       (astGradUnSimp, value2UnSimp) =
-        crevDtMaybeBoth dt (h (AstRanked . unAstNoSimplify) (AstNoSimplify . unAstRanked) id) parameters
+        crevDtMaybeBoth dt (h (AstRanked . unAstNoSimplify) (AstNoSimplify . unAstRanked) id) vals
       gradient2UnSimp = parseHVector vals astGradUnSimp
       gradientRrev2UnSimp =
         rrev2 @ORArray @r @n @m @r
               (hGeneral (AstRanked . unAstNoSimplify) (AstNoSimplify . unAstRanked) id) vals
       (astSimpleUnSimp, value3UnSimp) =
         crevDtMaybeBoth dt (h (AstRanked . unAstNoSimplify) (AstNoSimplify . unAstRanked) simplifyInlineAst)
-                      parameters
+                      vals
       gradient3UnSimp = parseHVector vals astSimpleUnSimp
       gradientRrev3UnSimp =
         rrev1 @ORArray @r @n @m @r
               (hGeneral (AstRanked . unAstNoSimplify) (AstNoSimplify . unAstRanked) simplifyInlineAst) vals
       (astPrimal, value4) =
         crevDtMaybeBoth dt (h (AstRanked . unAstNoVectorize) (AstNoVectorize . unAstRanked) id)
-                      parameters
+                      vals
           -- use the AstNoVectorize instance that does no vectorization
           -- and then interpret the results as the Ast instance
       gradient4 = parseHVector vals astPrimal
@@ -172,7 +165,7 @@ rev' f valsOR =
               (hGeneral (AstRanked . unAstNoVectorize) (AstNoVectorize . unAstRanked) id) vals
       (astPSimple, value5) =
         crevDtMaybeBoth dt (h (AstRanked . unAstNoVectorize) (AstNoVectorize . unAstRanked) simplifyInlineAst)
-                      parameters
+                      vals
       gradient5 = parseHVector vals astPSimple
       gradientRrev5 =
         rrev2 @ORArray @r @n @m @r
@@ -186,75 +179,60 @@ rev' f valsOR =
            => (f1 r m -> AstRanked PrimalSpan r m)
            -> (AstRanked PrimalSpan r n -> f1 r n)
            -> (AstRanked PrimalSpan r m -> AstRanked PrimalSpan r m)
-           -> HVector (ADVal (AstRaw PrimalSpan))
+           -> ADVal (AstRaw PrimalSpan) r n
            -> ADVal (AstRaw PrimalSpan) r m
       hAst fx1 fx2 gx inputs
         = hGeneral @(ADVal (AstRaw PrimalSpan))
                    fx1 fx2 gx (parseHVector (fromDValue vals) inputs)
       artifactsGradAst =
         fst $ revProduceArtifactWithoutInterpretation
-                False (hAst id id id) (FTKUntyped parameters0)
-      (astGradAst, value2Ast) =
-        revEvalArtifact7 artifactsGradAst parameters
-      gradient2Ast = parseHVector vals astGradAst
-      (astGradAstS, value2AstS) =
-        revEvalArtifact7 (simplifyArtifact artifactsGradAst) parameters
-      gradient2AstS = parseHVector vals astGradAstS
+                False (hAst id id id) ftk
+      (gradient2Ast, value2Ast) =
+        revEvalArtifact7 artifactsGradAst
+      (gradient2AstS, value2AstS) =
+        revEvalArtifact7 (simplifyArtifact artifactsGradAst)
       artifactsGradAstT =
         fst $ revProduceArtifactWithoutInterpretation
-                True (hAst id id id) (FTKUntyped parameters0)
-      (astGradAstST, value2AstST) =
-        revEvalArtifact7 (simplifyArtifact artifactsGradAstT) parameters
-      gradient2AstST = parseHVector vals astGradAstST
+                True (hAst id id id) ftk
+      (gradient2AstST, value2AstST) =
+        revEvalArtifact7 (simplifyArtifact artifactsGradAstT)
       artifactsSimpleAst =
         fst $ revProduceArtifactWithoutInterpretation
-                False (hAst id id simplifyInlineAst) (FTKUntyped parameters0)
-      (astSimpleAst, value3Ast) =
-        revEvalArtifact7 artifactsSimpleAst parameters
-      gradient3Ast = parseHVector vals astSimpleAst
-      (astSimpleAstS, value3AstS) =
-        revEvalArtifact7 (simplifyArtifact artifactsSimpleAst) parameters
-      gradient3AstS = parseHVector vals astSimpleAstS
+                False (hAst id id simplifyInlineAst) ftk
+      (gradient3Ast, value3Ast) =
+        revEvalArtifact7 artifactsSimpleAst
+      (gradient3AstS, value3AstS) =
+        revEvalArtifact7 (simplifyArtifact artifactsSimpleAst)
       artifactsGradAstUnSimp =
         fst $ revProduceArtifactWithoutInterpretation
-                False (hAst (AstRanked . unAstNoSimplify) (AstNoSimplify . unAstRanked) id) (FTKUntyped parameters0)
-      (astGradAstUnSimp, value2AstUnSimp) =
-        revEvalArtifact7 artifactsGradAstUnSimp parameters
-      gradient2AstUnSimp = parseHVector vals astGradAstUnSimp
-      (astGradAstSUnSimp, value2AstSUnSimp) =
+                False (hAst (AstRanked . unAstNoSimplify) (AstNoSimplify . unAstRanked) id) ftk
+      (gradient2AstUnSimp, value2AstUnSimp) =
+        revEvalArtifact7 artifactsGradAstUnSimp
+      (gradient2AstSUnSimp, value2AstSUnSimp) =
         revEvalArtifact7 (simplifyArtifact artifactsGradAstUnSimp)
-                        parameters
-      gradient2AstSUnSimp = parseHVector vals astGradAstSUnSimp
       artifactsSimpleAstUnSimp =
         fst $ revProduceArtifactWithoutInterpretation
                 False (hAst (AstRanked . unAstNoSimplify) (AstNoSimplify . unAstRanked) simplifyInlineAst)
-                (FTKUntyped parameters0)
-      (astSimpleAstUnSimp, value3AstUnSimp) =
-        revEvalArtifact7 artifactsSimpleAstUnSimp parameters
-      gradient3AstUnSimp = parseHVector vals astSimpleAstUnSimp
-      (astSimpleAstSUnSimp, value3AstSUnSimp) =
+                ftk
+      (gradient3AstUnSimp, value3AstUnSimp) =
+        revEvalArtifact7 artifactsSimpleAstUnSimp
+      (gradient3AstSUnSimp, value3AstSUnSimp) =
         revEvalArtifact7 (simplifyArtifact artifactsSimpleAstUnSimp)
-                        parameters
-      gradient3AstSUnSimp = parseHVector vals astSimpleAstSUnSimp
       artifactsPrimalAst =
         fst $ revProduceArtifactWithoutInterpretation
-                False (hAst (AstRanked . unAstNoVectorize) (AstNoVectorize . unAstRanked) id) (FTKUntyped parameters0)
-      (astPrimalAst, value4Ast) =
-        revEvalArtifact7 artifactsPrimalAst parameters
-      gradient4Ast = parseHVector vals astPrimalAst
-      (astPrimalAstS, value4AstS) =
-        revEvalArtifact7 (simplifyArtifact artifactsPrimalAst) parameters
-      gradient4AstS = parseHVector vals astPrimalAstS
+                False (hAst (AstRanked . unAstNoVectorize) (AstNoVectorize . unAstRanked) id) ftk
+      (gradient4Ast, value4Ast) =
+        revEvalArtifact7 artifactsPrimalAst
+      (gradient4AstS, value4AstS) =
+        revEvalArtifact7 (simplifyArtifact artifactsPrimalAst)
       artifactsPSimpleAst =
         fst $ revProduceArtifactWithoutInterpretation
                 False (hAst (AstRanked . unAstNoVectorize) (AstNoVectorize . unAstRanked) simplifyInlineAst)
-                (FTKUntyped parameters0)
-      (astPSimpleAst, value5Ast) =
-        revEvalArtifact7 artifactsPSimpleAst parameters
-      gradient5Ast = parseHVector vals astPSimpleAst
-      (astPSimpleAstS, value5AstS) =
-        revEvalArtifact7 (simplifyArtifact artifactsPSimpleAst) parameters
-      gradient5AstS = parseHVector vals astPSimpleAstS
+                ftk
+      (gradient5Ast, value5Ast) =
+        revEvalArtifact7 artifactsPSimpleAst
+      (gradient5AstS, value5AstS) =
+        revEvalArtifact7 (simplifyArtifact artifactsPSimpleAst)
       cderivative = cfwd f vals vals
       derivative = fwd f vals vals
       derivativeRfwd1 = rfwd1ds @ORArray @r @n @m f vals vals
@@ -271,11 +249,11 @@ rev' f valsOR =
      , value9, value2Ast, value2AstS, value2AstST, value3Ast, value3AstS
      , value2AstUnSimp, value2AstSUnSimp, value3AstUnSimp, value3AstSUnSimp
      , value4Ast, value4AstS, value5Ast, value5AstS
-     , toORArray gradient9, toORArray gradient2Ast, toORArray gradient2AstS, toORArray gradient2AstST
-     , toORArray gradient3Ast, toORArray gradient3AstS
-     , toORArray gradient2AstUnSimp, toORArray gradient2AstSUnSimp
-     , toORArray gradient3AstUnSimp, toORArray gradient3AstSUnSimp
-     , toORArray gradient4Ast, toORArray gradient4AstS, toORArray gradient5Ast, toORArray gradient5AstS
+     , gradient9, gradient2Ast, gradient2AstS, gradient2AstST
+     , gradient3Ast, gradient3AstS
+     , gradient2AstUnSimp, gradient2AstSUnSimp
+     , gradient3AstUnSimp, gradient3AstSUnSimp
+     , gradient4Ast, gradient4AstS, gradient5Ast, gradient5AstS
      , valsOR, toORArray cderivative, toORArray derivative, toORArray derivativeRfwd1, toORArray derivativeRfwd2)
 
 assertEqualUpToEpsilon'

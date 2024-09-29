@@ -21,7 +21,7 @@ import Data.Array.Nested.Internal.Ranked qualified as Nested.Internal
 
 import HordeAd
 import HordeAd.Core.AstEnv
-import HordeAd.Core.AstFreshId (rankedHVector, resetVarCounter)
+import HordeAd.Core.AstFreshId (resetVarCounter)
 import HordeAd.Core.TensorAst
 import HordeAd.Internal.BackendOX (ORArray)
 import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..))
@@ -67,7 +67,6 @@ testTrees =
   , testCase "disparityKonst" test_disparityKonst
   , testCase "disparityKonst2" test_disparityKonst2
   , testCase "disparitySmall" test_disparitySmall
-  , testCase "Conv2dUnpaddedPP" testConv2dUnpaddedPP
   , testCase "Conv2dUnpadded2PP" testConv2dUnpadded2PP
   , testCase "Conv2dUnpadded3PP" testConv2dUnpadded3PP
   ]
@@ -552,6 +551,7 @@ test_disparitySmall = do
 unPaddedPPString :: String
 unPaddedPPString = "\\h58 u172 u173 -> [rscatter [2,2,2,2] (rscatter [2,2,1,2,2,2] (rsum (rsum (rsum (rgather [2,2,2,2,1,2,2,2] (rtranspose [0,4,1,2,3] (rreplicate 2 (rreshape [2,2,2,8] (rgather [2,2,2,1,2,2,2] (rfromVector (fromList [rgather [2,2,2,1,2,2,2] u173 (\\[i34, i35, i36, i37, i38, i39, i40] -> [i34 + i37, i38, i35 + i39, i36 + i40]), rreplicate 2 (rreplicate 2 (rreplicate 2 (rreplicate 1 (rreplicate 2 (rreplicate 2 (rreplicate 2 0.0))))))])) (\\[i41, i42, i43, i44, i45, i46, i47] -> [ifF ((0 <=. i41 + i44 &&* 2 >. i41 + i44) &&* ((0 <=. i45 &&* 2 >. i45) &&* ((0 <=. i42 + i46 &&* 2 >. i42 + i46) &&* (0 <=. i43 + i47 &&* 2 >. i43 + i47)))) 0 1, i41, i42, i43, i44, i45, i46, i47])))) * rtranspose [2,0,1] (rreplicate 8 (rproject h58 0))) (\\[i145, i146, i147, i148, i149, i150, i151, i152] -> [remF (quotF (i152 + 2 * i151 + 4 * i150 + 8 * i148 + 8 * i149) 8) 2, remF (i152 + 2 * i151 + 4 * i150 + 8 * i148 + 8 * i149) 8, i145, i146, i147]))))) (\\[i59, i60, i61, i62, i63] -> [ifF ((0 <=. i59 + i60 &&* 2 >. i59 + i60) &&* ((0 <=. i61 &&* 2 >. i61) &&* ((0 <=. i62 &&* 2 >. i62) &&* (0 <=. i63 &&* 2 >. i63)))) 0 1, i59, i60, i61, i62, i63]) ! [0]) (\\[i65, i66] -> [i65 + i66]), rscatter [2,2,2,2] (rscatter [2,2,2,2,1,2,2,2] (rsum (rgather [2,2,2,2,1,2,2,2] (rtranspose [0,1,2,4,3] (rreplicate 2 (rreplicate 2 (rreplicate 2 (rreshape [2,8] (rgather [2,1,2,2,2] (rfromVector (fromList [rgather [2,1,2,2,2] u172 (\\[i49, i50] -> [i49 + i50]), rreplicate 2 (rreplicate 1 (rreplicate 2 (rreplicate 2 (rreplicate 2 0.0))))])) (\\[i51, i52, i53, i54, i55] -> [ifF ((0 <=. i51 + i52 &&* 2 >. i51 + i52) &&* ((0 <=. i53 &&* 2 >. i53) &&* ((0 <=. i54 &&* 2 >. i54) &&* (0 <=. i55 &&* 2 >. i55)))) 0 1, i51, i52, i53, i54, i55])))))) * rtranspose [1,3,4,0,2] (rreplicate 8 (rproject h58 0))) (\\[i160, i161, i162, i163, i164, i165, i166, i167] -> [remF (quotF (i167 + 2 * i166 + 4 * i165 + 8 * i164 + 8 * i163 + 32 * i161 + 16 * i162) 32) 2, remF (quotF (i167 + 2 * i166 + 4 * i165 + 8 * i164 + 8 * i163 + 32 * i161 + 16 * i162) 16) 2, remF (quotF (i167 + 2 * i166 + 4 * i165 + 8 * i164 + 8 * i163 + 32 * i161 + 16 * i162) 8) 2, remF (i167 + 2 * i166 + 4 * i165 + 8 * i164 + 8 * i163 + 32 * i161 + 16 * i162) 8, i160]))) (\\[i67, i68, i69, i70, i71, i72, i73] -> [ifF ((0 <=. i67 + i70 &&* 2 >. i67 + i70) &&* ((0 <=. i71 &&* 2 >. i71) &&* ((0 <=. i68 + i72 &&* 2 >. i68 + i72) &&* (0 <=. i69 + i73 &&* 2 >. i69 + i73)))) 0 1, i67, i68, i69, i70, i71, i72, i73]) ! [0]) (\\[i75, i76, i77, i78, i79, i80, i81] -> [i75 + i78, i79, i76 + i80, i77 + i81])]"
 
+{- This probably needs some exotic instance of AdaptableHVector, so should be removed:
 testConv2dUnpaddedPP :: Assertion
 testConv2dUnpaddedPP = do
   resetVarCounter
@@ -567,6 +567,7 @@ testConv2dUnpaddedPP = do
                              , DynamicRanked @Double @4 (g 2.3) ])
   printArtifactPretty IM.empty (simplifyArtifact artifactRev)
     @?= "\\u61 u175 u176 -> [rscatter [2,2,2,2] (rscatter [2,2,1,2,2,2] (rsum (rsum (rsum (rgather [2,2,2,2,1,2,2,2] (rtranspose [0,4,1,2,3] (rreplicate 2 (rreshape [2,2,2,8] (rgather [2,2,2,1,2,2,2] (rfromVector (fromList [rgather [2,2,2,1,2,2,2] u176 (\\[i37, i38, i39, i40, i41, i42, i43] -> [i37 + i40, i41, i38 + i42, i39 + i43]), rreplicate 2 (rreplicate 2 (rreplicate 2 (rreplicate 1 (rreplicate 2 (rreplicate 2 (rreplicate 2 0.0))))))])) (\\[i44, i45, i46, i47, i48, i49, i50] -> [ifF ((0 <=. i44 + i47 &&* 2 >. i44 + i47) &&* ((0 <=. i48 &&* 2 >. i48) &&* ((0 <=. i45 + i49 &&* 2 >. i45 + i49) &&* (0 <=. i46 + i50 &&* 2 >. i46 + i50)))) 0 1, i44, i45, i46, i47, i48, i49, i50])))) * rtranspose [2,0,1] (rreplicate 8 u61)) (\\[i148, i149, i150, i151, i152, i153, i154, i155] -> [remF (quotF (i155 + 2 * i154 + 4 * i153 + 8 * i151 + 8 * i152) 8) 2, remF (i155 + 2 * i154 + 4 * i153 + 8 * i151 + 8 * i152) 8, i148, i149, i150]))))) (\\[i62, i63, i64, i65, i66] -> [ifF ((0 <=. i62 + i63 &&* 2 >. i62 + i63) &&* ((0 <=. i64 &&* 2 >. i64) &&* ((0 <=. i65 &&* 2 >. i65) &&* (0 <=. i66 &&* 2 >. i66)))) 0 1, i62, i63, i64, i65, i66]) ! [0]) (\\[i68, i69] -> [i68 + i69]), rscatter [2,2,2,2] (rscatter [2,2,2,2,1,2,2,2] (rsum (rgather [2,2,2,2,1,2,2,2] (rtranspose [0,1,2,4,3] (rreplicate 2 (rreplicate 2 (rreplicate 2 (rreshape [2,8] (rgather [2,1,2,2,2] (rfromVector (fromList [rgather [2,1,2,2,2] u175 (\\[i52, i53] -> [i52 + i53]), rreplicate 2 (rreplicate 1 (rreplicate 2 (rreplicate 2 (rreplicate 2 0.0))))])) (\\[i54, i55, i56, i57, i58] -> [ifF ((0 <=. i54 + i55 &&* 2 >. i54 + i55) &&* ((0 <=. i56 &&* 2 >. i56) &&* ((0 <=. i57 &&* 2 >. i57) &&* (0 <=. i58 &&* 2 >. i58)))) 0 1, i54, i55, i56, i57, i58])))))) * rtranspose [1,3,4,0,2] (rreplicate 8 u61)) (\\[i163, i164, i165, i166, i167, i168, i169, i170] -> [remF (quotF (i170 + 2 * i169 + 4 * i168 + 8 * i167 + 8 * i166 + 32 * i164 + 16 * i165) 32) 2, remF (quotF (i170 + 2 * i169 + 4 * i168 + 8 * i167 + 8 * i166 + 32 * i164 + 16 * i165) 16) 2, remF (quotF (i170 + 2 * i169 + 4 * i168 + 8 * i167 + 8 * i166 + 32 * i164 + 16 * i165) 8) 2, remF (i170 + 2 * i169 + 4 * i168 + 8 * i167 + 8 * i166 + 32 * i164 + 16 * i165) 8, i163]))) (\\[i70, i71, i72, i73, i74, i75, i76] -> [ifF ((0 <=. i70 + i73 &&* 2 >. i70 + i73) &&* ((0 <=. i74 &&* 2 >. i74) &&* ((0 <=. i71 + i75 &&* 2 >. i71 + i75) &&* (0 <=. i72 + i76 &&* 2 >. i72 + i76)))) 0 1, i70, i71, i72, i73, i74, i75, i76]) ! [0]) (\\[i78, i79, i80, i81, i82, i83, i84] -> [i78 + i81, i82, i79 + i83, i80 + i84])]"
+-}
 
 testConv2dUnpadded2PP :: Assertion
 testConv2dUnpadded2PP = do

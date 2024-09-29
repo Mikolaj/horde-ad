@@ -425,7 +425,17 @@ instance (GoodScalar r, KnownNat n)
   {-# SPECIALIZE instance
       KnownNat n
       => AdaptableHVector ORArray (ORArray Double n) #-}
-  toHVector = V.singleton . DynamicRanked
+  type X (ORArray r n) = TKR r n
+  toHVector = id
+  fromHVector _aInit t = Just (t, Nothing)
+
+instance (GoodScalar r, KnownNat n)
+         => AdaptableHVector ORArray (AsHVector (ORArray r n)) where
+  {-# SPECIALIZE instance
+      KnownNat n
+      => AdaptableHVector ORArray (AsHVector (ORArray Double n)) #-}
+  type X (AsHVector (ORArray r n)) = TKUntyped
+  toHVector = V.singleton . DynamicRanked . unAsHVector
   fromHVector _aInit = fromHVectorR
 
 instance ForgetShape (ORArray r n) where
@@ -434,7 +444,14 @@ instance ForgetShape (ORArray r n) where
 
 instance (GoodScalar r, KnownShS sh)
          => AdaptableHVector ORArray (OSArray r sh) where
-  toHVector = V.singleton . DynamicShaped
+  type X (OSArray r sh) = TKS r sh
+  toHVector = id
+  fromHVector _aInit t = Just (t, Nothing)
+
+instance (GoodScalar r, KnownShS sh)
+         => AdaptableHVector ORArray (AsHVector (OSArray r sh)) where
+  type X (AsHVector (OSArray r sh)) = TKUntyped
+  toHVector = V.singleton . DynamicShaped . unAsHVector
   fromHVector _aInit = fromHVectorS
 
 instance GoodScalar r
@@ -456,11 +473,12 @@ instance (KnownShS sh, GoodScalar r, Fractional r, Random r)
     in (arr, g2)
 
 instance AdaptableHVector ORArray
-                          (HVectorPseudoTensor ORArray r y) where
+                          (HVectorPseudoTensor ORArray Float '()) where
+  type X (HVectorPseudoTensor ORArray Float '()) = TKUntyped
   toHVector = unHVectorPseudoTensor
   fromHVector (HVectorPseudoTensor aInit) params =
     let (portion, rest) = V.splitAt (V.length aInit) params
-    in Just (HVectorPseudoTensor portion, rest)
+    in Just (HVectorPseudoTensor portion, Just rest)
 
 -- This specialization is not possible where the functions are defined,
 -- but is possible here:

@@ -66,7 +66,7 @@ mnistTestCaseRNNSA prefix epochs maxBatches width@SNat batch_size@SNat
   let valsInit :: MnistRnnShaped2.ADRnnMnistParametersShaped
                     shaped SizeMnistHeight width r
       valsInit = fst $ randomVals 0.4 (mkStdGen 44)
-      hVectorInit = toHVectorOf valsInit
+      hVectorInit = toHVector $ AsHVector valsInit
       miniBatchSize = sNatValue batch_size
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
@@ -99,7 +99,7 @@ mnistTestCaseRNNSA prefix epochs maxBatches width@SNat batch_size@SNat
                  f (glyphS, labelS) adinputs =
                    MnistRnnShaped2.rnnMnistLossFusedS
                      width batch_size (sconst $ Nested.sfromOrthotope knownShS glyphS, sconst $ Nested.sfromOrthotope knownShS labelS)
-                     (parseHVector (fromDValue valsInit) adinputs)
+                     (unAsHVector $ parseHVector (AsHVector $ fromDValue valsInit) adinputs)
                  chunkS = map packBatch
                           $ filter (\ch -> length ch == miniBatchSize)
                           $ chunksOf miniBatchSize chunk
@@ -165,7 +165,7 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
   let valsInit :: MnistRnnShaped2.ADRnnMnistParametersShaped
                     shaped SizeMnistHeight width r
       valsInit = fst $ randomVals 0.4 (mkStdGen 44)
-      hVectorInit = toHVectorOf valsInit
+      hVectorInit = toHVector $ AsHVector valsInit
       miniBatchSize = sNatValue batch_size
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
@@ -199,8 +199,9 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
        let ast :: AstShaped FullSpan r '[]
            ast = MnistRnnShaped2.rnnMnistLossFusedS
                    width batch_size (AstShaped astGlyph, AstShaped astLabel)
-                   (parseHVector (fromDValue valsInit)
-                                 (dunHVector $ unHVectorPseudoTensor (rankedY (stensorKind @TKUntyped) hVector)))
+                   (unAsHVector
+                    $ parseHVector (AsHVector $ fromDValue valsInit)
+                                   (dunHVector $ unHVectorPseudoTensor (rankedY (stensorKind @TKUntyped) hVector)))
            runBatch :: (HVector ORArray, StateAdam)
                     -> (Int, [MnistDataS r])
                     -> IO (HVector ORArray, StateAdam)
@@ -282,7 +283,7 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
     let valsInit :: MnistRnnShaped2.ADRnnMnistParametersShaped
                       shaped SizeMnistHeight width r
         valsInit = fst $ randomVals 0.4 (mkStdGen 44)
-        hVectorInit = toHVectorOf valsInit
+        hVectorInit = toHVector $ AsHVector valsInit
         miniBatchSize = sNatValue batch_size
         name = prefix ++ ": "
                ++ unwords [ show epochs, show maxBatches
@@ -311,10 +312,11 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
                       in ( FlipS $ Nested.sfromOrthotope knownShS dglyph
                          , FlipS $ Nested.sfromOrthotope knownShS dlabel )
              [] -> error "empty train data"
-           f = \ (pars, (glyphS, labelS)) ->
+           f = \ (AsHVector (pars, (glyphS, labelS))) ->
              MnistRnnShaped2.rnnMnistLossFusedS
                width batch_size (sprimalPart glyphS, sprimalPart labelS) pars
-           (artRaw, _) = revArtifactAdapt False f (valsInit, dataInit)
+           (artRaw, _) =
+             revArtifactAdapt False f (AsHVector (valsInit, dataInit))
            art = simplifyArtifactGradient artRaw
            go :: [MnistDataBatchS batch_size r] -> (HVector ORArray, StateAdam)
               -> (HVector ORArray, StateAdam)

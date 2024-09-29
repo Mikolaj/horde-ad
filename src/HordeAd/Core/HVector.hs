@@ -10,7 +10,7 @@
 module HordeAd.Core.HVector
   ( HVectorOf, HVectorPseudoTensor(..)
   , Rep, RepN(..), RepProductN(..), RepShallow, RepDeep, RepD(..)
-  , TensorKindFull(..), lemTensorKindOfF, buildTensorKindFull
+  , TensorKindFull(..), nullRepDeep, lemTensorKindOfF, buildTensorKindFull
   , DynamicTensor(..)
   , CRanked, CShaped, CHFun, CHFun2, CRepProduct
   , HVector
@@ -34,7 +34,6 @@ import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat, type (+))
 import Type.Reflection (typeRep)
 
-import Data.Array.Mixed.Shape qualified as X
 import Data.Array.Mixed.Types qualified as X
 import Data.Array.Nested (ShR (..))
 
@@ -56,8 +55,7 @@ deriving instance Show (HVectorOf ranked)
 
 type instance RankedOf (HVectorPseudoTensor ranked) = ranked
 
-type family Rep (ranked :: RankedTensorType)
-                                 (y :: TensorKindType)
+type family Rep (ranked :: RankedTensorType) (y :: TensorKindType)
   = result | result -> ranked y
 
 type instance Rep ranked (TKR r n) = ranked r n
@@ -132,6 +130,14 @@ data TensorKindFull y where
 
 deriving instance Show (TensorKindFull y)
 deriving instance Eq (TensorKindFull y)
+
+nullRepDeep :: forall y ranked. TensorKind y
+            => RepDeep ranked y -> Bool
+nullRepDeep t = case stensorKind @y of
+  STKR{} -> False
+  STKS{} -> False
+  STKProduct{} -> False
+  STKUntyped -> null t
 
 lemTensorKindOfF :: TensorKindFull y -> Dict TensorKind y
 lemTensorKindOfF = \case

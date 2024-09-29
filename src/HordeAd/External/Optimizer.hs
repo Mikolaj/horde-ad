@@ -32,9 +32,12 @@ sgd :: forall n r a. (KnownNat n, GoodScalar r)
     -> HVector ORArray  -- ^ initial parameters
     -> (HVector ORArray, ORArray r n)
 sgd gamma f trainingData parameters0 = go trainingData parameters0 where
+  g :: a -> Rep (ADVal ORArray) TKUntyped -> Rep (ADVal ORArray) TKUntyped
   g a hVector = HVectorPseudoTensor
-                $ toHVector
-                $ f a $ parseHVector (fromDValue parameters0)
+                $ V.singleton
+                $ DynamicRanked
+                $ f a
+                $ parseHVector (fromDValue parameters0)
                 $ unHVectorPseudoTensor hVector
   deltaInputs = generateDeltaInputs @TKUntyped @ORArray (tshapeFull (stensorKind @TKUntyped) $ HVectorPseudoTensor $ dmkHVector parameters0)
   go :: [a] -> HVector ORArray
@@ -56,8 +59,8 @@ sgd gamma f trainingData parameters0 = go trainingData parameters0 where
 -- | An implementation of the Adam gradient descent.
 sgdAdam
   :: forall f r a y.
-     ( RankedOf f ~ ORArray
-     , AdaptableHVector (ADVal ORArray) (ADVal f r y) )
+     ( RankedOf f ~ ORArray, X (AsHVector (ADVal f r y)) ~ TKUntyped
+     , AdaptableHVector (ADVal ORArray) (AsHVector (ADVal f r y)) )
   => (a -> HVector (ADVal ORArray) -> ADVal f r y)
   -> [a]
   -> HVector ORArray
@@ -68,8 +71,8 @@ sgdAdam = sgdAdamArgs updateWithGradientAdam defaultArgsAdam
 
 sgdAdamArgs
   :: forall f r a y.
-     ( RankedOf f ~ ORArray
-     , AdaptableHVector (ADVal ORArray) (ADVal f r y) )
+     ( RankedOf f ~ ORArray, X (AsHVector (ADVal f r y)) ~ TKUntyped
+     , AdaptableHVector (ADVal ORArray) (AsHVector (ADVal f r y)) )
   => (ArgsAdam -> StateAdam -> HVector (RankedOf f) -> HVectorOf (RankedOf f)
       -> (HVector (RankedOf f), StateAdam))
   -> ArgsAdam
@@ -83,7 +86,7 @@ sgdAdamArgs updateWith argsAdam f trainingData !parameters0 !stateAdam0 =
   go trainingData parameters0 stateAdam0
  where
   g a hVector = HVectorPseudoTensor
-                $ toHVector
+                $ toHVector . AsHVector
                 $ f a
                 $ parseHVector (fromDValue parameters0)
                 $ unHVectorPseudoTensor hVector

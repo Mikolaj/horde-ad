@@ -6,13 +6,13 @@ module MnistFcnnRanked2 where
 
 import Prelude
 
-import qualified Data.Array.RankedS as OR
-import           Data.Kind (Type)
-import qualified Data.Vector.Generic as V
-import           GHC.Exts (IsList (..), inline)
-import           GHC.TypeLits (Nat)
+import Data.Array.RankedS qualified as OR
+import Data.Kind (Type)
+import Data.Vector.Generic qualified as V
+import GHC.Exts (IsList (..), inline)
+import GHC.TypeLits (Nat)
 
-import qualified Data.Array.Nested as Nested
+import Data.Array.Nested qualified as Nested
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.HVector
@@ -95,7 +95,7 @@ afcnnMnistTest2
      (ranked ~ ORArray, GoodScalar r, Differentiable r)
   => ADFcnnMnist2Parameters ranked r
   -> [MnistData r]
-  -> HVector ORArray
+  -> HVector ORArray  -- RepDeep ranked (X (ADFcnnMnist2Parameters ranked r))
   -> r
 afcnnMnistTest2 _ [] _ = 0
 afcnnMnistTest2 valsInit dataList testParams =
@@ -105,7 +105,7 @@ afcnnMnistTest2 valsInit dataList testParams =
             nn :: ADFcnnMnist2Parameters ranked r
                -> ranked r 1
             nn = inline afcnnMnist2 logistic softMax1 glyph1
-            v = OR.toVector $ Nested.rtoOrthotope $ runFlipR $ nn $ parseHVector valsInit testParams
+            v = OR.toVector $ Nested.rtoOrthotope $ runFlipR $ nn $ unAsHVector $ parseHVector (AsHVector valsInit) testParams
         in V.maxIndex v == V.maxIndex label
   in fromIntegral (length (filter matchesLabels dataList))
      / fromIntegral (length dataList)

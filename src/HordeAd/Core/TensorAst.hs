@@ -24,7 +24,7 @@ import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, (:~:) (Refl))
 import Data.Vector qualified as Data.NonStrict.Vector
 import Data.Vector.Generic qualified as V
-import GHC.TypeLits (KnownNat)
+import GHC.TypeLits (KnownNat, Nat)
 import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Shape qualified as X
@@ -257,16 +257,26 @@ instance (GoodScalar r, KnownNat n, RankedTensor (AstRanked s), AstSpan s)
   {-# SPECIALIZE instance
       (KnownNat n, AstSpan s)
       => AdaptableHVector (AstRanked s) (AstRanked s Double n) #-}
-  toHVector = V.singleton . DynamicRanked
+  type X (AstRanked s r n) = TKR r n
+  toHVector = id
+  fromHVector _aInit t = Just (t, Nothing)
+
+instance (GoodScalar r, KnownNat n, RankedTensor (AstRanked s), AstSpan s)
+         => AdaptableHVector (AstRanked s) (AsHVector (AstRanked s r n)) where
+  {-# SPECIALIZE instance
+      (KnownNat n, AstSpan s)
+      => AdaptableHVector (AstRanked s) (AsHVector (AstRanked s Double n)) #-}
+  type X (AsHVector (AstRanked s r n)) = TKUntyped
+  toHVector = V.singleton . DynamicRanked . unAsHVector
   fromHVector _aInit = fromHVectorR
 
 instance (GoodScalar r, KnownNat n, RankedTensor (AstRanked s), AstSpan s)
          => AdaptableHVector (AstRanked s) (AstGeneric AstMethodLet s r n) where
-  toHVector = rankedHVector . V.singleton . DynamicRanked
-  fromHVector _aInit hv = case fromHVectorR hv of
-    Nothing -> Nothing
-    Just (ranked, rest) -> Just (AstGeneric $ unAstRanked ranked, rest)
+  type X (AstGeneric AstMethodLet s r n) = TKR r n
+  toHVector = AstRanked . unAstGeneric
+  fromHVector _aInit t = Just (AstGeneric $ unAstRanked t, Nothing)
 
+{-
 instance (RankedTensor (AstRanked s), AstSpan s)
          => AdaptableHVector (AstRanked s) (DynamicTensor (AstGeneric AstMethodLet s)) where
   toHVector = rankedHVector . V.singleton
@@ -274,7 +284,7 @@ instance (RankedTensor (AstRanked s), AstSpan s)
     Nothing -> Nothing
     Just (generic, rest) ->
       Just (generic, rankedHVector rest)
-
+-}
 instance (GoodScalar r, KnownNat n, AstSpan s)
          => DualNumberValue (AstRanked s r n) where
   type DValue (AstRanked s r n) = ORArray r n
@@ -287,7 +297,14 @@ instance (GoodScalar r, KnownNat n)
 
 instance (GoodScalar r, KnownShS sh, ShapedTensor (AstShaped s), AstSpan s)
          => AdaptableHVector (AstRanked s) (AstShaped s r sh) where
-  toHVector = V.singleton . DynamicShaped
+  type X (AstShaped s r sh) = TKS r sh
+  toHVector = id
+  fromHVector _aInit t = Just (t, Nothing)
+
+instance (GoodScalar r, KnownShS sh, ShapedTensor (AstShaped s), AstSpan s)
+         => AdaptableHVector (AstRanked s) (AsHVector (AstShaped s r sh)) where
+  type X (AsHVector (AstShaped s r sh)) = TKUntyped
+  toHVector = V.singleton . DynamicShaped . unAsHVector
   fromHVector _aInit = fromHVectorS
 
 instance (GoodScalar r, KnownShS sh, AstSpan s)
@@ -1877,13 +1894,14 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
 -- TODO: these can't easily be in AstSimplify, because of unRankedY
 
 prettifyArtifactRev
-  :: TensorKind z
-  => AstArtifactRev TKUntyped z
+  :: forall x z. (TensorKind x, TensorKind z)
+  => AstArtifactRev x z
   -> ( AstVarName PrimalSpan z
      , [AstDynamicVarName]
-     , Rep (AstRanked PrimalSpan) TKUntyped
+     , Rep (AstRanked PrimalSpan) x
      , Rep (AstRanked PrimalSpan) z )
-prettifyArtifactRev AstArtifactRev{..} =
+prettifyArtifactRev AstArtifactRev{..} = case stensorKind @x of
+ STKUntyped ->
   fun1DToAst (shapeAstHVector
               $ unHVectorPseudoTensor artDerivativeRev) $ \ !vars1 !asts1 ->
     let idom = SubstitutionPayload $ AstMkHVector asts1
@@ -1892,37 +1910,46 @@ prettifyArtifactRev AstArtifactRev{..} =
     let !primal = substituteAstInRep
                     idom artVarDomainRev artPrimalRev
     in (artVarDtRev, vars1, derivative, primal)
+ stk ->
+   let dynvar = case stk of
+         STKR @r _ _ ->
+           AstDynamicVarName @Nat @r @'[]  -- TODO: ftk
+                             (varNameToAstVarId artVarDomainRev)
+         STKS @r @sh _ _ ->
+           AstDynamicVarName @Nat @r @sh
+                             (varNameToAstVarId artVarDomainRev)
+         _ -> AstDynamicVarName @Nat @Double @'[]  -- TODO: product?
+                                (varNameToAstVarId artVarDomainRev)
+   in (artVarDtRev, [dynvar], artDerivativeRev, artPrimalRev)
 
 printArtifactSimple
-  :: TensorKind z
+  :: (TensorKind x, TensorKind z)
   => IntMap String
-  -> AstArtifactRev TKUntyped z
+  -> AstArtifactRev x z
   -> String
 printArtifactSimple renames art =
   let !(!varDt, !vars1, !derivative, _) = prettifyArtifactRev art in
   let !varsPP = printAstVarName renames varDt
                 : map (printAstDynamicVarNameBrief renames) vars1
   in "\\" ++ unwords varsPP
-          ++ " -> " ++ printAstHVectorSimple
-                         renames (unHVectorPseudoTensor derivative)
+          ++ " -> " ++ printAstSimpleY renames (unRankedY stensorKind derivative)
 
 printArtifactPretty
-  :: TensorKind z
+  :: (TensorKind x, TensorKind z)
   => IntMap String
-  -> AstArtifactRev TKUntyped z
+  -> AstArtifactRev x z
   -> String
 printArtifactPretty renames art =
   let !(!varDt, !vars1, !derivative, _) = prettifyArtifactRev art in
   let varsPP = printAstVarName renames varDt
                : map (printAstDynamicVarNameBrief renames) vars1
   in "\\" ++ unwords varsPP
-          ++ " -> " ++ printAstHVectorPretty
-                         renames (unHVectorPseudoTensor derivative)
+          ++ " -> " ++ printAstPrettyY renames (unRankedY stensorKind derivative)
 
 printArtifactPrimalSimple
-  :: forall z. TensorKind z
+  :: forall x z. (TensorKind x, TensorKind z)
   => IntMap String
-  -> AstArtifactRev TKUntyped z
+  -> AstArtifactRev x z
   -> String
 printArtifactPrimalSimple renames art =
   let !(_, !vars1, _, !primal) = prettifyArtifactRev art in
@@ -1931,9 +1958,9 @@ printArtifactPrimalSimple renames art =
           ++ " -> " ++ printAstSimpleY renames (unRankedY (stensorKind @z) primal)
 
 printArtifactPrimalPretty
-  :: forall z. TensorKind z
+  :: forall x z. (TensorKind x, TensorKind z)
   => IntMap String
-  -> AstArtifactRev TKUntyped z
+  -> AstArtifactRev x z
   -> String
 printArtifactPrimalPretty renames art =
   let !(_, !vars1, _, !primal) = prettifyArtifactRev art in

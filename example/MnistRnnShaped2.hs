@@ -143,6 +143,9 @@ rnnMnistLossFusedS out_width@SNat
       loss = lossSoftMaxCrossEntropyS targets result
   in sconstant (recip $ srepl $ fromIntegral $ sNatValue batch_size) * loss
 
+-- type XParams shaped out_width r =
+--  X (ADRnnMnistParametersShaped shaped SizeMnistHeight out_width r)
+
 rnnMnistTestS
   :: forall shaped h w out_width batch_size r.
      ( h ~ SizeMnistHeight, w ~ SizeMnistWidth
@@ -152,7 +155,7 @@ rnnMnistTestS
   -> SNat batch_size
   -> ADRnnMnistParametersShaped shaped h out_width r
   -> MnistDataBatchS batch_size r
-  -> HVector ORArray
+  -> HVector ORArray  -- RepDeep (RankedOf shaped) (XParams shaped out_width r)
   -> r
 rnnMnistTestS out_width@SNat batch_size@SNat
               valsInit (glyphS, labelS) testParams =
@@ -166,7 +169,7 @@ rnnMnistTestS out_width@SNat batch_size@SNat
                                batch_size
                                (SNat @h) (SNat @w)
                                input
-        in nn $ parseHVector valsInit testParams
+        in nn $ unAsHVector $ parseHVector (AsHVector valsInit) testParams
       outputs = map (Nested.stoVector . runFlipS) $ sunravelToList
                 $ stranspose (Permutation.makePerm @'[1, 0]) outputS
       labels = map (Nested.stoVector . runFlipS) $ sunravelToList

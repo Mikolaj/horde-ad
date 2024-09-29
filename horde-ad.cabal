@@ -409,7 +409,6 @@ library testCommonLibrary
       , orthotope
       , ox-arrays
       , random
-      , strict-containers
       , tasty >= 1.0
       , tasty-hunit
       , vector

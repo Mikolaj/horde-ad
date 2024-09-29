@@ -35,6 +35,7 @@ import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Shape qualified as X
 
+import HordeAd.Core.Adaptor
 import HordeAd.Core.HVector
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
@@ -308,18 +309,20 @@ fromDynamicS zero = \case
 fromHVectorR :: forall r n ranked.
                 (RankedTensor ranked, GoodScalar r, KnownNat n)
              => HVector ranked
-             -> Maybe (ranked r n, HVector ranked)
+             -> Maybe (AsHVector (ranked r n), Maybe (HVector ranked))
 fromHVectorR params = case V.uncons params of
-  Just (dynamic, rest) -> Just (fromDynamicR rzero dynamic, rest)
+  Just (dynamic, rest) ->
+    Just (AsHVector $ fromDynamicR rzero dynamic, Just rest)
   Nothing -> Nothing
 
 fromHVectorS :: forall r sh shaped
               . ( ShapedTensor shaped, GoodScalar r, KnownShS sh
                 , ShapedOf (RankedOf shaped) ~ shaped )
              => HVector (RankedOf shaped)
-             -> Maybe (shaped r sh,  HVector (RankedOf shaped))
+             -> Maybe (AsHVector (shaped r sh), Maybe (HVector (RankedOf shaped)))
 fromHVectorS params = case V.uncons params of
-  Just (dynamic, rest) -> Just (fromDynamicS (srepl 0) dynamic, rest)
+  Just (dynamic, rest) ->
+    Just (AsHVector $ fromDynamicS (srepl 0) dynamic, Just rest)
   Nothing -> Nothing
 
 unravelDynamic

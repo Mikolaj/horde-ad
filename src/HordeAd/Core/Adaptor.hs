@@ -10,11 +10,13 @@ module HordeAd.Core.Adaptor
   ( AdaptableHVector(..), parseHVector
   , TermValue(..), DualNumberValue(..)
   , ForgetShape(..), RandomHVector(..)
+  , AsHVector(..)
   ) where
 
 import Prelude
 
 import Control.Exception (assert)
+import Data.Maybe (fromMaybe)
 import Data.Strict.Vector qualified as Data.Vector
 import Data.Vector qualified as Data.NonStrict.Vector
 import Data.Vector.Generic qualified as V
@@ -33,15 +35,18 @@ import HordeAd.Core.Types
 
 -- Inspired by adaptors from @tomjaguarpaw's branch.
 class AdaptableHVector (ranked :: RankedTensorType) vals where
-  toHVectorOf :: HVectorTensor ranked (ShapedOf ranked)
-              => vals -> HVectorOf ranked
-  toHVectorOf = dmkHVector . toHVector
+  type X vals :: TensorKindType
+  toHVectorOf :: ( TensorKind (X vals)
+                 , HVectorTensor ranked (ShapedOf ranked)
+                 , ProductTensor ranked )
+              => vals -> Rep ranked (X vals)
+  toHVectorOf = unrepDeep . toHVector
     -- ^ represent a collection of tensors in much less typed but canonical way
     -- as an untyped product of tensors
-  toHVector :: vals -> HVector ranked
+  toHVector :: vals -> RepDeep ranked (X vals)
     -- ^ a helper function, not to be used, but to be a building block
     -- for @toHVectorOf@ for some instances
-  fromHVector :: vals -> HVector ranked -> Maybe (vals, HVector ranked)
+  fromHVector :: vals -> RepDeep ranked (X vals) -> Maybe (vals, Maybe (RepDeep ranked (X vals)))
     -- ^ recovers a collection of tensors from its canonical representation,
     -- using the general shape recorded in another collection of the same type;
     -- the remaining data may be used in a another structurally recursive
@@ -52,11 +57,11 @@ class AdaptableHVector (ranked :: RankedTensorType) vals where
 -- procedure where @fromHVector@ calls itself recursively for sub-values
 -- across mutliple instances.
 parseHVector
-  :: AdaptableHVector ranked vals
-  => vals -> HVector ranked -> vals
+  :: (TensorKind (X vals), AdaptableHVector ranked vals)
+  => vals -> RepDeep ranked (X vals) -> vals
 parseHVector aInit hVector =
   case fromHVector aInit hVector of
-    Just (vals, rest) -> assert (V.null rest) vals
+    Just (vals, mrest) -> assert (maybe True nullRepDeep mrest) vals
     Nothing -> error "parseHVector: truncated product of tensors"
 
 class TermValue vals where
@@ -106,18 +111,19 @@ instance ForgetShape a
   type NoShape [a] = [NoShape a]
   forgetShape = map forgetShape
 
-instance AdaptableHVector ranked a
+instance (X a ~ TKUntyped, AdaptableHVector ranked a)
          => AdaptableHVector ranked (Data.Vector.Vector a) where
+  type X (Data.Vector.Vector a) = TKUntyped
   toHVector = V.concatMap toHVector
   fromHVector lInit source =
     let f (!lAcc, !restAcc) !aInit =
           case fromHVector aInit restAcc of
-            Just (a, rest) -> (V.snoc lAcc a, rest)
+            Just (a, mrest) -> (V.snoc lAcc a, fromMaybe V.empty mrest)
               -- this snoc, if the vector is long, is very costly;
               -- a solution might be to define Value to be a list
-            Nothing -> error "fromHVector [a]"
+            _ -> error "fromHVector (Data.Vector.Vector a)"
         (!l, !restAll) = V.foldl' f (V.empty, source) lInit
-    in Just (l, restAll)
+    in Just (l, if V.null restAll then Nothing else Just restAll)
 
 instance TermValue a => TermValue (Data.Vector.Vector a) where
   type Value (Data.Vector.Vector a) = Data.Vector.Vector (Value a)
@@ -132,33 +138,38 @@ instance ForgetShape a
   type NoShape (Data.Vector.Vector a) = Data.Vector.Vector (NoShape a)
   forgetShape = V.map forgetShape
 
-instance AdaptableHVector ranked a
+instance (X a ~ TKUntyped, AdaptableHVector ranked a)
          => AdaptableHVector ranked (Data.NonStrict.Vector.Vector a) where
+  type X (Data.NonStrict.Vector.Vector a) = TKUntyped
   toHVector = V.concat . map toHVector . V.toList
   fromHVector lInit source =
     let f (!lAcc, !restAcc) !aInit =
           case fromHVector aInit restAcc of
-            Just (a, rest) -> (V.snoc lAcc a, rest)
+            Just (a, mrest) -> (V.snoc lAcc a, fromMaybe V.empty mrest)
               -- this snoc, if the vector is long, is very costly;
               -- a solution might be to define Value to be a list
-            Nothing -> error "fromHVector: Nothing"
+            _ -> error "fromHVector: Nothing"
         (!l, !restAll) = V.foldl' f (V.empty, source) lInit
-    in Just (l, restAll)
+    in Just (l, if V.null restAll then Nothing else Just restAll)
 
 instance AdaptableHVector ranked (DynamicTensor ranked) where
+  type X (DynamicTensor ranked) = TKUntyped
   toHVector = V.singleton
-  fromHVector _aInit = V.uncons
+  fromHVector _aInit v = case V.uncons v of
+    Just (t, rest) -> Just (t, if V.null rest then Nothing else Just rest)
+    Nothing -> Nothing
 
 instance ( AdaptableHVector ranked a
          , AdaptableHVector ranked b ) => AdaptableHVector ranked (a, b) where
+  type X (a, b) = TKProduct (X a) (X b)
   toHVector (a, b) =
     let a1 = toHVector a
         b1 = toHVector b
-    in V.concat [a1, b1]
-  fromHVector ~(aInit, bInit) source = do
-    (a, aRest) <- fromHVector aInit source
-    (b, bRest) <- fromHVector bInit aRest
-    return ((a, b), bRest)
+    in (a1, b1)
+  fromHVector ~(aInit, bInit) (a1, b1) = do
+    (a, Nothing) <- fromHVector aInit a1
+    (b, Nothing) <- fromHVector bInit b1
+    return ((a, b), Nothing)
 
 instance (TermValue a, TermValue b) => TermValue (a, b) where
   type Value (a, b) = (Value a, Value b)
@@ -184,16 +195,17 @@ instance ( AdaptableHVector ranked a
          , AdaptableHVector ranked b
          , AdaptableHVector ranked c )
          => AdaptableHVector ranked (a, b, c) where
+  type X (a, b, c) = TKProduct (TKProduct (X a) (X b)) (X c)
   toHVector (a, b, c) =
     let a1 = toHVector a
         b1 = toHVector b
         c1 = toHVector c
-    in V.concat [a1, b1, c1]
-  fromHVector ~(aInit, bInit, cInit) source = do
-    (a, aRest) <- fromHVector aInit source
-    (b, bRest) <- fromHVector bInit aRest
-    (c, cRest) <- fromHVector cInit bRest
-    return ((a, b, c), cRest)
+    in ((a1, b1), c1)
+  fromHVector ~(aInit, bInit, cInit) ((a1, b1), c1) = do
+    (a, Nothing) <- fromHVector aInit a1
+    (b, Nothing) <- fromHVector bInit b1
+    (c, Nothing) <- fromHVector cInit c1
+    return ((a, b, c), Nothing)
 
 instance (TermValue a, TermValue b, TermValue c)
          => TermValue (a, b, c) where
@@ -225,18 +237,20 @@ instance ( AdaptableHVector ranked a
          , AdaptableHVector ranked c
          , AdaptableHVector ranked d )
          => AdaptableHVector ranked (a, b, c, d) where
+  type X (a, b, c, d) = TKProduct (TKProduct (X a) (X b))
+                                  (TKProduct (X c) (X d))
   toHVector (a, b, c, d) =
     let a1 = toHVector a
         b1 = toHVector b
         c1 = toHVector c
         d1 = toHVector d
-    in V.concat [a1, b1, c1, d1]
-  fromHVector ~(aInit, bInit, cInit, dInit) source = do
-    (a, aRest) <- fromHVector aInit source
-    (b, bRest) <- fromHVector bInit aRest
-    (c, cRest) <- fromHVector cInit bRest
-    (d, dRest) <- fromHVector dInit cRest
-    return ((a, b, c, d), dRest)
+    in  ((a1, b1), (c1, d1))
+  fromHVector ~(aInit, bInit, cInit, dInit) ((a1, b1), (c1, d1)) = do
+    (a, Nothing) <- fromHVector aInit a1
+    (b, Nothing) <- fromHVector bInit b1
+    (c, Nothing) <- fromHVector cInit c1
+    (d, Nothing) <- fromHVector dInit d1
+    return ((a, b, c, d), Nothing)
 
 instance (TermValue a, TermValue b, TermValue c, TermValue d)
          => TermValue (a, b, c, d) where
@@ -277,20 +291,23 @@ instance ( AdaptableHVector ranked a
          , AdaptableHVector ranked d
          , AdaptableHVector ranked e )
          => AdaptableHVector ranked (a, b, c, d, e) where
+  type X (a, b, c, d, e) = TKProduct (TKProduct (TKProduct (X a) (X b)) (X c))
+                                     (TKProduct (X d) (X e))
   toHVector (a, b, c, d, e) =
     let a1 = toHVector a
         b1 = toHVector b
         c1 = toHVector c
         d1 = toHVector d
         e1 = toHVector e
-    in V.concat [a1, b1, c1, d1, e1]
-  fromHVector ~(aInit, bInit, cInit, dInit, eInit) source = do
-    (a, aRest) <- fromHVector aInit source
-    (b, bRest) <- fromHVector bInit aRest
-    (c, cRest) <- fromHVector cInit bRest
-    (d, dRest) <- fromHVector dInit cRest
-    (e, eRest) <- fromHVector eInit dRest
-    return ((a, b, c, d, e), eRest)
+    in (((a1, b1), c1), (d1, e1))
+  fromHVector ~(aInit, bInit, cInit, dInit, eInit)
+              (((a1, b1), c1), (d1, e1)) = do
+    (a, Nothing) <- fromHVector aInit a1
+    (b, Nothing) <- fromHVector bInit b1
+    (c, Nothing) <- fromHVector cInit c1
+    (d, Nothing) <- fromHVector dInit d1
+    (e, Nothing) <- fromHVector eInit e1
+    return ((a, b, c, d, e), Nothing)
 
 instance (TermValue a, TermValue b, TermValue c, TermValue d, TermValue e)
          => TermValue (a, b, c, d, e) where
@@ -328,3 +345,106 @@ instance ( RandomHVector a
         (v4, g4) = randomVals range g3
         (v5, g5) = randomVals range g4
     in ((v1, v2, v3, v4, v5), g5)
+
+type role AsHVector representational
+newtype AsHVector a =
+  AsHVector {unAsHVector :: a}
+
+instance ( AdaptableHVector ranked (AsHVector a), X (AsHVector a) ~ TKUntyped
+         , AdaptableHVector ranked (AsHVector b), X (AsHVector b) ~ TKUntyped )
+         => AdaptableHVector ranked (AsHVector (a, b)) where
+  type X (AsHVector (a, b)) = TKUntyped
+  toHVector (AsHVector (a, b)) =
+    let a1 = toHVector $ AsHVector a
+        b1 = toHVector $ AsHVector b
+    in V.concat [a1, b1]
+  fromHVector ~(AsHVector (aInit, bInit)) source = do
+    (AsHVector a, Just aRest) <- fromHVector (AsHVector aInit) source
+    (AsHVector b, Just bRest) <- fromHVector (AsHVector bInit) aRest
+    return (AsHVector (a, b), Just bRest)
+
+instance (TermValue a, TermValue b)
+         => TermValue (AsHVector (a, b)) where
+  type Value (AsHVector (a, b)) =
+    AsHVector (Value a, Value b)
+  fromValue (AsHVector (va, vb)) =
+    AsHVector (fromValue va, fromValue vb)
+
+instance ( AdaptableHVector ranked (AsHVector a), X (AsHVector a) ~ TKUntyped
+         , AdaptableHVector ranked (AsHVector b), X (AsHVector b) ~ TKUntyped
+         , AdaptableHVector ranked (AsHVector c), X (AsHVector c) ~ TKUntyped)
+         => AdaptableHVector ranked (AsHVector (a, b, c)) where
+  type X (AsHVector (a, b, c)) = TKUntyped
+  toHVector (AsHVector (a, b, c)) =
+    let a1 = toHVector $ AsHVector a
+        b1 = toHVector $ AsHVector b
+        c1 = toHVector $ AsHVector c
+    in V.concat [a1, b1, c1]
+  fromHVector ~(AsHVector (aInit, bInit, cInit)) source = do
+    (AsHVector a, Just aRest) <- fromHVector (AsHVector aInit) source
+    (AsHVector b, Just bRest) <- fromHVector (AsHVector bInit) aRest
+    (AsHVector c, Just cRest) <- fromHVector (AsHVector cInit) bRest
+    return (AsHVector (a, b, c), Just cRest)
+
+instance (TermValue a, TermValue b, TermValue c)
+         => TermValue (AsHVector (a, b, c)) where
+  type Value (AsHVector (a, b, c)) =
+    AsHVector (Value a, Value b, Value c)
+  fromValue (AsHVector (va, vb, vc)) =
+    AsHVector (fromValue va, fromValue vb, fromValue vc)
+
+instance ( AdaptableHVector ranked (AsHVector a), X (AsHVector a) ~ TKUntyped
+         , AdaptableHVector ranked (AsHVector b), X (AsHVector b) ~ TKUntyped
+         , AdaptableHVector ranked (AsHVector c), X (AsHVector c) ~ TKUntyped
+         , AdaptableHVector ranked (AsHVector d), X (AsHVector d) ~ TKUntyped )
+         => AdaptableHVector ranked (AsHVector (a, b, c, d)) where
+  type X (AsHVector (a, b, c, d)) = TKUntyped
+  toHVector (AsHVector (a, b, c, d)) =
+    let a1 = toHVector $ AsHVector a
+        b1 = toHVector $ AsHVector b
+        c1 = toHVector $ AsHVector c
+        d1 = toHVector $ AsHVector d
+    in V.concat [a1, b1, c1, d1]
+  fromHVector ~(AsHVector (aInit, bInit, cInit, dInit)) source = do
+    (AsHVector a, Just aRest) <- fromHVector (AsHVector aInit) source
+    (AsHVector b, Just bRest) <- fromHVector (AsHVector bInit) aRest
+    (AsHVector c, Just cRest) <- fromHVector (AsHVector cInit) bRest
+    (AsHVector d, Just dRest) <- fromHVector (AsHVector dInit) cRest
+    return (AsHVector (a, b, c, d), Just dRest)
+
+instance (TermValue a, TermValue b, TermValue c, TermValue d)
+         => TermValue (AsHVector (a, b, c, d)) where
+  type Value (AsHVector (a, b, c, d)) =
+    AsHVector (Value a, Value b, Value c, Value d)
+  fromValue (AsHVector (va, vb, vc, vd)) =
+    AsHVector (fromValue va, fromValue vb, fromValue vc, fromValue vd)
+
+instance ( AdaptableHVector ranked (AsHVector a), X (AsHVector a) ~ TKUntyped
+         , AdaptableHVector ranked (AsHVector b), X (AsHVector b) ~ TKUntyped
+         , AdaptableHVector ranked (AsHVector c), X (AsHVector c) ~ TKUntyped
+         , AdaptableHVector ranked (AsHVector d), X (AsHVector d) ~ TKUntyped
+         , AdaptableHVector ranked (AsHVector e), X (AsHVector e) ~ TKUntyped )
+         => AdaptableHVector ranked (AsHVector (a, b, c, d, e)) where
+  type X (AsHVector (a, b, c, d, e)) = TKUntyped
+  toHVector (AsHVector (a, b, c, d, e)) =
+    let a1 = toHVector $ AsHVector a
+        b1 = toHVector $ AsHVector b
+        c1 = toHVector $ AsHVector c
+        d1 = toHVector $ AsHVector d
+        e1 = toHVector $ AsHVector e
+    in V.concat [a1, b1, c1, d1, e1]
+  fromHVector ~(AsHVector (aInit, bInit, cInit, dInit, eInit)) source = do
+    (AsHVector a, Just aRest) <- fromHVector (AsHVector aInit) source
+    (AsHVector b, Just bRest) <- fromHVector (AsHVector bInit) aRest
+    (AsHVector c, Just cRest) <- fromHVector (AsHVector cInit) bRest
+    (AsHVector d, Just dRest) <- fromHVector (AsHVector dInit) cRest
+    (AsHVector e, Just eRest) <- fromHVector (AsHVector eInit) dRest
+    return (AsHVector (a, b, c, d, e), Just eRest)
+
+instance (TermValue a, TermValue b, TermValue c, TermValue d, TermValue e)
+         => TermValue (AsHVector (a, b, c, d, e)) where
+  type Value (AsHVector (a, b, c, d, e)) =
+    AsHVector (Value a, Value b, Value c, Value d, Value e)
+  fromValue (AsHVector (va, vb, vc, vd, ve)) =
+    AsHVector
+      (fromValue va, fromValue vb, fromValue vc, fromValue vd, fromValue ve)

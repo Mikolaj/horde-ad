@@ -16,11 +16,11 @@ module HordeAd.Core.TensorADVal
 import Prelude hiding (foldl')
 
 import Data.Array.Internal (valueOf)
-import Data.Array.RankedS qualified as OR
 import Data.Function ((&))
 import Data.List (foldl')
 import Data.List.Index (imap)
 import Data.List.NonEmpty qualified as NonEmpty
+import Data.Maybe (fromMaybe)
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
@@ -232,7 +232,16 @@ instance ( KnownNat n, GoodScalar r, ADReadyNoLet ranked
       => AdaptableHVector (ADVal (AstRanked PrimalSpan))
                           (ADVal (AstRanked PrimalSpan) Double n) #-}
 -}
-  toHVector = V.singleton . DynamicRanked
+  type X (ADVal ranked r n) = TKR r n
+  toHVector = id
+  fromHVector _aInit t = Just (t, Nothing)
+
+instance ( KnownNat n, GoodScalar r, ADReadyNoLet ranked
+         , ShareTensor ranked, ShareTensor (PrimalOf ranked) )
+         => AdaptableHVector (ADVal ranked)
+                             (AsHVector (ADVal ranked r n)) where
+  type X (AsHVector (ADVal ranked r n)) = TKUntyped
+  toHVector = V.singleton . DynamicRanked . unAsHVector
   fromHVector _aInit = fromHVectorR
 
 instance (KnownNat n, GoodScalar r, ADReadyNoLet ranked, ShareTensor ranked)
@@ -241,12 +250,15 @@ instance (KnownNat n, GoodScalar r, ADReadyNoLet ranked, ShareTensor ranked)
   fromDValue t = constantADVal $ rconst $ runFlipR t
 
 -- This is temporarily moved from Adaptor in order to specialize manually
-instance AdaptableHVector ranked a
+instance ( a ~ ranked r n, RankedTensor ranked, GoodScalar r, KnownNat n
+         , AdaptableHVector ranked a )
          => AdaptableHVector ranked [a] where
+{- TODO
   {-# SPECIALIZE instance
       AdaptableHVector ORArray (OR.Array n Double)
       => AdaptableHVector ORArray
                           [OR.Array n Double] #-}
+-}
 {- TODO: import loop:
   {-# SPECIALIZE instance
       AdaptableHVector (AstRanked s)
@@ -254,19 +266,35 @@ instance AdaptableHVector ranked a
       => AdaptableHVector (AstRanked s)
                           [AstRanked s Double n] #-}
 -}
-  toHVector = V.concat . map toHVector
+  type X [a] = TKUntyped
+  toHVector = V.concat . map (toHVector . DynamicRanked)
   fromHVector lInit source =
     let f (!lAcc, !restAcc) !aInit =
-          case fromHVector aInit restAcc of
-            Just (a, rest) -> (a : lAcc, rest)
-            Nothing -> error "fromHVector: Nothing"
+          case fromHVector (DynamicRanked aInit) restAcc of
+            Just (a, mrest) -> (rfromD @r @n a : lAcc, fromMaybe V.empty mrest)
+            _ -> error "fromHVector: Nothing"
         (l, !restAll) = foldl' f ([], source) lInit
         !rl = reverse l
-    in Just (rl, restAll)
+    in Just (rl, if V.null restAll then Nothing else Just restAll)
     -- is the following as performant? benchmark:
     -- > fromHVector lInit source =
     -- >   let f = swap . flip fromHVector
     -- >   in swap $ mapAccumL f source lInit
+
+instance ( RankedTensor ranked
+         , AdaptableHVector ranked (AsHVector a)
+         , X (AsHVector a) ~ TKUntyped )
+         => AdaptableHVector ranked (AsHVector [a]) where
+  type X (AsHVector [a]) = TKUntyped
+  toHVector = V.concat . map (toHVector . AsHVector) . unAsHVector
+  fromHVector (AsHVector lInit) source =
+    let f (!lAcc, !restAcc) !aInit =
+          case fromHVector (AsHVector aInit) restAcc of
+            Just (AsHVector a, mrest) -> (a : lAcc, fromMaybe V.empty mrest)
+            _ -> error "fromHVector: Nothing"
+        (l, !restAll) = foldl' f ([], source) lInit
+        !rl = reverse l
+    in Just (AsHVector rl, Just restAll)
 
 -- Note that these instances don't do vectorization. To enable it,
 -- use the Ast instance and only then interpret in ADVal.
@@ -364,7 +392,18 @@ instance ( ADReadyNoLetS shaped, ShareTensor ranked
          , ranked ~ RankedOf shaped )
          => AdaptableHVector (ADVal ranked)
                              (ADVal shaped r sh) where
-  toHVector = V.singleton . DynamicShaped
+  type X (ADVal shaped r sh) = TKS r sh
+  toHVector = id
+  fromHVector _aInit t = Just (t, Nothing)
+
+instance ( ADReadyNoLetS shaped, ShareTensor ranked
+         , ShareTensor (PrimalOf ranked)
+         , KnownShS sh, GoodScalar r
+         , ranked ~ RankedOf shaped )
+         => AdaptableHVector (ADVal ranked)
+                             (AsHVector (ADVal shaped r sh)) where
+  type X (AsHVector (ADVal shaped r sh)) = TKUntyped
+  toHVector = V.singleton . DynamicShaped . unAsHVector
   fromHVector _aInit = fromHVectorS
 
 instance ( ADReadyNoLetS shaped, ShareTensor (RankedOf shaped)
@@ -473,10 +512,11 @@ instance (ADReadyNoLet ranked, HVectorOf ranked ~ HVector ranked)
          => AdaptableHVector (ADVal ranked)
                              (ADVal (HVectorPseudoTensor ranked)
                                     Float '()) where
+  type X (ADVal (HVectorPseudoTensor ranked) Float '()) = TKUntyped
   toHVector = aDValToHVector
   fromHVector (D (HVectorPseudoTensor h) _) params =
     let (portion, rest) = V.splitAt (V.length h) params
-    in Just (hVectorADValToADVal portion, rest)
+    in Just (hVectorADValToADVal portion, if V.null rest then Nothing else Just rest)
 
 instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
          , ShareTensor ranked

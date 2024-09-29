@@ -16,7 +16,7 @@ module HordeAd.Core.TensorClass
   , HVectorTensor(..), ProductTensor(..)
   , HFun(..)
   , rfromD, sfromD, rscalar, rrepl, ringestData, ringestData1
-  , ingestData, sscalar, srepl, unrepShallow, repDeepUnshared
+  , ingestData, sscalar, srepl, unrepShallow, unrepDeep, repDeepUnshared
   , mapDynamic, mapDynamic2, mapRep
   , mapRep2Weak
     -- * The giga-constraint
@@ -1317,6 +1317,17 @@ unrepShallow t = case stensorKind @y of
   STKR{} -> t
   STKS{} -> t
   STKProduct{} -> uncurry ttuple t
+  STKUntyped -> HVectorPseudoTensor $ dmkHVector t
+
+unrepDeep :: forall ranked y.
+             ( TensorKind y, HVectorTensor ranked (ShapedOf ranked)
+             , ProductTensor ranked )
+          => RepDeep ranked y
+          -> Rep ranked y
+unrepDeep t = case stensorKind @y of
+  STKR{} -> t
+  STKS{} -> t
+  STKProduct{} -> ttuple (unrepDeep (fst t)) (unrepDeep (snd t))
   STKUntyped -> HVectorPseudoTensor $ dmkHVector t
 
 -- The argument of the first call (but not of recursive calls)

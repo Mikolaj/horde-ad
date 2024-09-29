@@ -55,7 +55,7 @@ import HordeAd.Internal.BackendOX (ORArray, OSArray)
 -- from different levels of differentiation if it's done multiple times.
 rev
   :: forall astvals z.
-     ( TensorKind z
+     ( X astvals ~ X (Value astvals), TensorKind (X astvals), TensorKind z
      , AdaptableHVector (AstRanked FullSpan) astvals
      , AdaptableHVector ORArray (Value astvals)
      , TermValue astvals )
@@ -75,7 +75,7 @@ rev f vals = revDtMaybe f vals Nothing
 -- tensor codomain.
 revDt
   :: forall astvals z.
-     ( TensorKind z
+     ( X astvals ~ X (Value astvals), TensorKind (X astvals), TensorKind z
      , AdaptableHVector (AstRanked FullSpan) astvals
      , AdaptableHVector ORArray (Value astvals)
      , TermValue astvals )
@@ -88,7 +88,7 @@ revDt f vals dt = revDtMaybe f vals (Just dt)
 
 revDtMaybe
   :: forall astvals z.
-     ( TensorKind z
+     ( X astvals ~ X (Value astvals), TensorKind (X astvals), TensorKind z
      , AdaptableHVector (AstRanked FullSpan) astvals
      , AdaptableHVector ORArray (Value astvals)
      , TermValue astvals )
@@ -98,14 +98,16 @@ revDtMaybe
   -> Value astvals
 {-# INLINE revDtMaybe #-}
 revDtMaybe f vals0 mdt =
-  let g :: Rep (AstRanked FullSpan) TKUntyped
+  let g :: Rep (AstRanked FullSpan) (X astvals)
         -> Rep (AstRanked FullSpan) z
-      g !hv = tlet hv $ \ !hvShared -> f $ parseHVector (fromValue vals0) hvShared
-      valsH = HVectorPseudoTensor $ toHVectorOf vals0
-      voidH = tshapeFull (stensorKind @TKUntyped) valsH
+      g !hv = dlet hv $ \ !hvShared ->
+        f $ parseHVector (fromValue vals0) hvShared
+      valsH = toHVectorOf vals0
+      voidH = tshapeFull stensorKind valsH
       artifact = fst $ revProduceArtifact (isJust mdt) g emptyEnv voidH
-  in parseHVector vals0 $ unHVectorPseudoTensor
+  in parseHVector vals0 $ repDeepUnshared stensorKind
      $ fst $ revEvalArtifact artifact valsH mdt
+{- TODO
 {-# SPECIALIZE revDtMaybe
   :: ( KnownNat n
      , AdaptableHVector (AstRanked FullSpan) astvals
@@ -115,24 +117,27 @@ revDtMaybe f vals0 mdt =
   -> Value astvals
   -> Maybe (ORArray Double n)
   -> Value astvals #-}
+-}
 
 revArtifactAdapt
   :: forall astvals z.
-     ( TensorKind z
+     ( X astvals ~ X (Value astvals), TensorKind (X astvals), TensorKind z
      , AdaptableHVector (AstRanked FullSpan) astvals
      , AdaptableHVector ORArray (Value astvals)
      , TermValue astvals )
   => Bool
   -> (astvals -> Rep (AstRanked FullSpan) z)
   -> Value astvals
-  -> (AstArtifactRev TKUntyped z, Delta (AstRaw PrimalSpan) z )
+  -> (AstArtifactRev (X astvals) z, Delta (AstRaw PrimalSpan) z )
 revArtifactAdapt hasDt f vals0 =
-  let g :: Rep (AstRanked FullSpan) TKUntyped
+  let g :: Rep (AstRanked FullSpan) (X astvals)
         -> Rep (AstRanked FullSpan) z
-      g !hv = tlet hv $ \ !hvShared -> f $ parseHVector (fromValue vals0) hvShared
-      valsH = HVectorPseudoTensor $ toHVectorOf @ORArray vals0
-      voidH = tshapeFull (stensorKind @TKUntyped) valsH
+      g !hv = dlet hv $ \ !hvShared ->
+        f $ parseHVector (fromValue vals0) hvShared
+      valsH = toHVectorOf @ORArray vals0
+      voidH = tshapeFull stensorKind valsH
   in revProduceArtifact hasDt g emptyEnv voidH
+{- TODO
 {-# SPECIALIZE revArtifactAdapt
   :: ( KnownNat n
      , AdaptableHVector (AstRanked FullSpan) astvals
@@ -140,25 +145,21 @@ revArtifactAdapt hasDt f vals0 =
      , TermValue astvals )
   => Bool -> (astvals -> AstRanked FullSpan Double n) -> Value astvals
   -> (AstArtifactRev TKUntyped (TKR Double n), Delta (AstRaw PrimalSpan) (TKR Double n)) #-}
+-}
 
 revProduceArtifactWithoutInterpretation
-  :: forall x z. (x ~ TKUntyped, TensorKind z)
+  :: forall x z. (TensorKind x, TensorKind z)
   => Bool
-  -> (HVector (ADVal (AstRaw PrimalSpan))
+  -> (Rep (ADVal (AstRaw PrimalSpan)) x
       -> Rep (ADVal (AstRaw PrimalSpan)) z)
   -> TensorKindFull x
   -> (AstArtifactRev x z, Delta (AstRaw PrimalSpan) z)
 {-# INLINE revProduceArtifactWithoutInterpretation #-}
 revProduceArtifactWithoutInterpretation hasDt f =
-  let g :: Rep (AstRaw PrimalSpan) x
-        -> AstVarName FullSpan x
-        -> Rep (AstRanked FullSpan) x
-        -> Rep (ADVal (AstRaw PrimalSpan)) z
-      g = forwardPassByApplication (f . unHVectorPseudoTensor)
-  in revArtifactFromForwardPass @x @z hasDt g
+  revArtifactFromForwardPass @x @z hasDt (forwardPassByApplication f)
 
 forwardPassByApplication
-  :: forall x z. x ~ TKUntyped
+  :: forall x z. TensorKind x
   => (Rep (ADVal (AstRaw PrimalSpan)) x
       -> Rep (ADVal (AstRaw PrimalSpan)) z)
   -> Rep (AstRaw PrimalSpan) x
@@ -202,7 +203,8 @@ revEvalArtifact AstArtifactRev{..} parameters mdt =
 -- may fail at runtime if it contains lists or vectors of tensors, etc.
 fwd
   :: forall astvals z.
-     ( TensorKind z
+     ( X astvals ~ X (Value astvals), TensorKind (X astvals)
+     , TensorKind z
      , AdaptableHVector (AstRanked FullSpan) astvals
      , AdaptableHVector ORArray (Value astvals)
      , TermValue astvals )
@@ -211,12 +213,14 @@ fwd
   -> Value astvals
   -> Rep ORArray z
 fwd f vals ds =
-  let g !hv = tlet hv $ \ !hvShared -> f $ parseHVector (fromValue vals) hvShared
-      valsH = HVectorPseudoTensor $ toHVectorOf vals
-      voidH = tshapeFull (stensorKind @TKUntyped) valsH
+  let g :: Rep (AstRanked FullSpan) (X astvals) -> Rep (AstRanked FullSpan) z
+      g !hv = dlet hv $ \ !hvShared ->
+        f $ parseHVector (fromValue vals) hvShared
+      valsH = toHVectorOf vals
+      voidH = tshapeFull stensorKind valsH
       artifact = fst $ fwdProduceArtifact g emptyEnv voidH
-      dsH = HVectorPseudoTensor $ toHVectorOf ds
-  in fst $ fwdEvalArtifact @TKUntyped @z artifact valsH dsH
+      dsH = toHVectorOf ds
+  in fst $ fwdEvalArtifact @_ @z artifact valsH dsH
 
 fwdEvalArtifact
   :: forall x z. (TensorKind x, TensorKind z)
@@ -249,7 +253,7 @@ fwdEvalArtifact AstArtifactFwd{..} parameters ds =
 -- These work for @f@ both ranked and shaped.
 crev
   :: forall advals z.
-     ( TensorKind z
+     ( X advals ~ X (DValue advals), TensorKind (X advals), TensorKind z
      , AdaptableHVector (ADVal ORArray) advals
      , AdaptableHVector ORArray (DValue advals)
      , DualNumberValue advals)
@@ -262,7 +266,7 @@ crev f vals = crevDtMaybe f vals Nothing
 -- | This version additionally takes the sensitivity parameter.
 crevDt
   :: forall advals z.
-     ( TensorKind z
+     ( X advals ~ X (DValue advals), TensorKind (X advals), TensorKind z
      , AdaptableHVector (ADVal ORArray) advals
      , AdaptableHVector ORArray (DValue advals)
      , DualNumberValue advals)
@@ -275,7 +279,7 @@ crevDt f vals dt = crevDtMaybe f vals (Just dt)
 
 crevDtMaybe
   :: forall advals z.
-     ( TensorKind z
+     ( X advals ~ X (DValue advals), TensorKind (X advals), TensorKind z
      , AdaptableHVector (ADVal ORArray) advals
      , AdaptableHVector ORArray (DValue advals)
      , DualNumberValue advals)
@@ -285,10 +289,15 @@ crevDtMaybe
   -> DValue advals
 {-# INLINE crevDtMaybe #-}
 crevDtMaybe f vals mdt =
-  let g !hv = f $ parseHVector (fromDValue vals) $ unHVectorPseudoTensor hv
-      valsH = HVectorPseudoTensor $ toHVectorOf vals
-  in parseHVector vals $ unHVectorPseudoTensor
-     $ fst $ crevOnHVector @TKUntyped @z mdt g valsH
+  let g :: Rep (ADVal ORArray) (X advals) -> Rep (ADVal ORArray) z
+      g = f . parseHVector (fromDValue vals) . repDeepUnshared stensorKind
+        -- repDeepUnshared requires its argument to be deeply duplicable and
+        -- crevOnHVector satisfies that via makeADInputs
+      valsH = toHVectorOf vals
+  in parseHVector vals $ repDeepUnshared stensorKind
+     $ fst $ crevOnHVector mdt g valsH
+       -- repDeepUnshared requires its argument to be deeply duplicable and
+       -- crevOnHVector satisfies that via gradientFromDelta
 
 {-# SPECIALIZE crevOnHVector
   :: Maybe (Rep ORArray TKUntyped)
@@ -303,7 +312,7 @@ crevDtMaybe f vals mdt =
 -- | This takes the sensitivity parameter, by convention.
 cfwd
   :: forall advals z.
-     ( TensorKind z
+     ( X advals ~ X (DValue advals), TensorKind (X advals), TensorKind z
      , AdaptableHVector (ADVal ORArray) advals
      , AdaptableHVector ORArray (DValue advals)
      , DualNumberValue advals )
@@ -312,11 +321,14 @@ cfwd
   -> DValue advals
   -> Rep ORArray z
 cfwd f vals ds =
-  let g hVector = f $ parseHVector (fromDValue vals)
-        $ unHVectorPseudoTensor hVector
-      valsH = HVectorPseudoTensor $ toHVectorOf vals
-      dsH = HVectorPseudoTensor $ toHVectorOf ds
-  in fst $ cfwdOnHVector @TKUntyped valsH g dsH
+  let g :: Rep (ADVal ORArray) (X advals) -> Rep (ADVal ORArray) z
+      g = f . parseHVector (fromDValue vals) . repDeepUnshared stensorKind
+        -- repDeepUnshared requires its argument to be deeply duplicable and
+        -- cfwdOnHVector satisfies that via makeADInputs
+        -- TODO: or use dlet as above?
+      valsH = toHVectorOf vals
+      dsH = toHVectorOf ds
+  in fst $ cfwdOnHVector valsH g dsH
 
 
 
