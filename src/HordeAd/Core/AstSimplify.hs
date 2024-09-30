@@ -2137,7 +2137,19 @@ astPrimalPart t = case t of
   Ast.AstCastS v -> astCastS $ astPrimalPart v
   Ast.AstProjectS l p -> astProjectS (astPrimalPart l) p
   Ast.AstSFromR v -> astSFromR $ astPrimalPart v
-  _ -> error "TODO"
+
+  Ast.AstMkHVector{} -> Ast.AstPrimalPart t  -- TODO
+  Ast.AstHApply v ll -> astHApply v (astPrimalPart ll)
+  Ast.AstBuildHVector1 k (var, v) ->
+    Ast.AstBuildHVector1 k (var, astPrimalPart v)
+  Ast.AstMapAccumRDer @_ @_ @eShs k accShs bShs eShs f df rf acc0 es
+    | Dict <- lemTensorKindOfBuild k (stensorKind @eShs) ->
+      Ast.AstMapAccumRDer k accShs bShs eShs f df rf
+                          (astPrimalPart acc0) (astPrimalPart es)
+  Ast.AstMapAccumLDer @_ @_ @eShs k accShs bShs eShs f df rf acc0 es
+    | Dict <- lemTensorKindOfBuild k (stensorKind @eShs) ->
+      Ast.AstMapAccumRDer k accShs bShs eShs f df rf
+                          (astPrimalPart acc0) (astPrimalPart es)
 
 -- Note how this can't be pushed down, say, multiplication, because it
 -- multiplies the dual part by the primal part. Addition is fine, though.
@@ -2195,7 +2207,19 @@ astDualPart t = case t of
   Ast.AstCastS v -> astCastS $ astDualPart v
   Ast.AstProjectS l p -> astProjectS (astDualPart l) p
   Ast.AstSFromR v -> astSFromR $ astDualPart v
-  _ -> error "TODO"
+
+  Ast.AstMkHVector{} -> Ast.AstDualPart t  -- TODO
+  Ast.AstHApply v ll -> astHApply v (astDualPart ll)
+  Ast.AstBuildHVector1 k (var, v) ->
+    Ast.AstBuildHVector1 k (var, astDualPart v)
+  Ast.AstMapAccumRDer @_ @_ @eShs k accShs bShs eShs f df rf acc0 es
+    | Dict <- lemTensorKindOfBuild k (stensorKind @eShs) ->
+      Ast.AstMapAccumRDer k accShs bShs eShs f df rf
+                          (astDualPart acc0) (astDualPart es)
+  Ast.AstMapAccumLDer @_ @_ @eShs k accShs bShs eShs f df rf acc0 es
+    | Dict <- lemTensorKindOfBuild k (stensorKind @eShs) ->
+      Ast.AstMapAccumRDer k accShs bShs eShs f df rf
+                          (astDualPart acc0) (astDualPart es)
 
 astHApply :: forall s x y. (AstSpan s, TensorKind x, TensorKind y)
           => AstHFun x y -> AstTensor AstMethodLet s x -> AstTensor AstMethodLet s y

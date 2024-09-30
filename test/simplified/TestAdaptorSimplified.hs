@@ -875,9 +875,9 @@ testReluPP2 = do
   resetVarCounter
   let (artifactRev, _deltas) = revArtifactAdapt True reluT2 (rreplicate0N [5] 128, 42)
   printArtifactPretty renames (simplifyArtifact artifactRev)
-    @?= "\\v17 v35 x36 -> let v18 = rgather [5] (rconst (rfromListLinear [2] [0.0,1.0])) (\\[i6] -> [ifF (v35 ! [i6] * x36 <=. 0.0) 0 1]) * v17 in [rreplicate 5 x36 * v18, rsum (v35 * v18)]"
+    @?= "\\v21 v55 x56 -> let v22 = rgather [5] (rconst (rfromListLinear [2] [0.0,1.0])) (\\[i6] -> [ifF (v55 ! [i6] * x56 <=. 0.0) 0 1]) * v21 in [rreplicate 5 x56 * v22, rsum (v55 * v22)]"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
-    @?= "\\v53 x54 -> rgather [5] (rconst (rfromListLinear [2] [0.0,1.0])) (\\[i6] -> [ifF (v53 ! [i6] * x54 <=. 0.0) 0 1]) * (v53 * rreplicate 5 x54)"
+    @?= "\\v89 x90 -> rgather [5] (rconst (rfromListLinear [2] [0.0,1.0])) (\\[i6] -> [ifF (v89 ! [i6] * x90 <=. 0.0) 0 1]) * (v89 * rreplicate 5 x90)"
 
 testReluSimpler :: Assertion
 testReluSimpler = do
@@ -1069,13 +1069,13 @@ testReluMaxPP2 = do
   resetVarCounter
   let (artifactRev, _deltas) = revArtifactAdapt True reluT2 (rreplicate0N [5] 128, 42)
   printArtifactPretty renames artifactRev
-    @?= "\\v16 v24 x25 -> let m22 = rscatter [2,5] v16 (\\[i17] -> [let x20 = v24 ! [i17] in ifF (0.0 >=. x20 * x25) 0 1, i17]) ; v23 = m22 ! [1] in [rreplicate 5 x25 * v23, rsum (v24 * v23)]"
+    @?= "\\v20 v32 x33 -> let m30 = rscatter [2,5] v20 (\\[i21] -> [let x28 = v32 ! [i21] in ifF (0.0 >=. x28 * x33) 0 1, i21]) ; v31 = m30 ! [1] in [rreplicate 5 x33 * v31, rsum (v32 * v31)]"
   printArtifactPrimalPretty renames artifactRev
-    @?= "\\v42 x43 -> rgather [5] (rfromVector (fromList [rreplicate 5 0.0, v42 * rreplicate 5 x43])) (\\[i11] -> [let x14 = v42 ! [i11] in ifF (0.0 >=. x14 * x43) 0 1, i11])"
+    @?= "\\v66 x67 -> rgather [5] (rfromVector (fromList [rreplicate 5 0.0, v66 * rreplicate 5 x67])) (\\[i11] -> [let x18 = v66 ! [i11] in ifF (0.0 >=. x18 * x67) 0 1, i11])"
   printArtifactPretty renames (simplifyArtifact artifactRev)
-    @?= "\\v16 v76 x77 -> let v23 = rscatter [2,5] v16 (\\[i17] -> [ifF (0.0 >=. v76 ! [i17] * x77) 0 1, i17]) ! [1] in [rreplicate 5 x77 * v23, rsum (v76 * v23)]"
+    @?= "\\v20 v132 x133 -> let v31 = rscatter [2,5] v20 (\\[i21] -> [ifF (0.0 >=. v132 ! [i21] * x133) 0 1, i21]) ! [1] in [rreplicate 5 x133 * v31, rsum (v132 * v31)]"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
-    @?= "\\v94 x95 -> rgather [5] (rfromVector (fromList [rreplicate 5 0.0, v94 * rreplicate 5 x95])) (\\[i11] -> [ifF (0.0 >=. v94 ! [i11] * x95) 0 1, i11])"
+    @?= "\\v166 x167 -> rgather [5] (rfromVector (fromList [rreplicate 5 0.0, v166 * rreplicate 5 x167])) (\\[i11] -> [ifF (0.0 >=. v166 ! [i11] * x167) 0 1, i11])"
 
 testReluMax3 :: Assertion
 testReluMax3 = do
