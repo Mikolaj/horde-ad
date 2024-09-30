@@ -1119,7 +1119,7 @@ class HVectorTensor (ranked :: RankedTensorType)
     -> TensorKindFull bShs
     -> TensorKindFull eShs
     -> (forall f. ADReady f
-        => RepShallow f accShs -> RepShallow f eShs
+        => RepDeep f accShs -> RepDeep f eShs
         -> Rep f (TKProduct accShs bShs))
     -> Rep ranked accShs
     -> Rep ranked (BuildTensorKind k eShs)
@@ -1130,8 +1130,8 @@ class HVectorTensor (ranked :: RankedTensorType)
            => Rep f (TKProduct accShs eShs)
            -> Rep f (TKProduct accShs bShs)
         fl !args = tlet args $ \ (!acc1, !e1) ->
-          tlet acc1 $ \ !acc ->
-            tlet e1 $ \ !e ->
+          dlet acc1 $ \ !acc ->
+            dlet e1 $ \ !e ->
               f acc e
     in dmapAccumRDer proxy k accShs bShs eShs
                      (dlambda @ranked shs (HFun fl))
@@ -1167,7 +1167,7 @@ class HVectorTensor (ranked :: RankedTensorType)
     -> TensorKindFull bShs
     -> TensorKindFull eShs
     -> (forall f. ADReady f
-        => RepShallow f accShs -> RepShallow f eShs
+        => RepDeep f accShs -> RepDeep f eShs
         -> Rep f (TKProduct accShs bShs))
     -> Rep ranked accShs
     -> Rep ranked (BuildTensorKind k eShs)
@@ -1178,8 +1178,8 @@ class HVectorTensor (ranked :: RankedTensorType)
            => Rep f (TKProduct accShs eShs)
            -> Rep f (TKProduct accShs bShs)
         fl !args = tlet args $ \ (!acc1, !e1) ->
-          tlet acc1 $ \ !acc ->
-            tlet e1 $ \ !e ->
+          dlet acc1 $ \ !acc ->
+            dlet e1 $ \ !e ->
               f acc e
     in dmapAccumLDer proxy k accShs bShs eShs
                      (dlambda @ranked shs (HFun fl))

@@ -1177,8 +1177,8 @@ evalR !s !c = \case
           dmapAccumL (Proxy @ranked)
                      k accShs eShs (FTKProduct bShs (FTKProduct accShs eShs))
                      (\dx (db, acc_e) ->
-                        unHFun rf (ttuple (ttuple (unrepShallow dx) db)
-                                          acc_e))
+                        unHFun rf (ttuple (ttuple (unrepDeep dx) (unrepDeep db))
+                                          (unrepDeep acc_e)))
                      c0
                      (ttuple crest (ttuple q es))
         (dacc, des) = tunpair dacc_desUnshared
@@ -1194,8 +1194,8 @@ evalR !s !c = \case
           dmapAccumR (Proxy @ranked)
                      k accShs eShs (FTKProduct bShs (FTKProduct accShs eShs))
                      (\dx (db, acc_e) ->
-                        unHFun rf (ttuple (ttuple (unrepShallow dx) db)
-                                          acc_e))
+                        unHFun rf (ttuple (ttuple (unrepDeep dx) (unrepDeep db))
+                                          (unrepDeep acc_e)))
                      c0
                      (ttuple crest (ttuple q es))
         (dacc, des) = tunpair dacc_desUnshared
@@ -1452,8 +1452,9 @@ fwdR params s = \case
     in (s3, dmapAccumR (Proxy @ranked)
                        k accShs bShs (FTKProduct eShs (FTKProduct accShs eShs))
                        (\dacc (de, acc_e) ->
-                          unHFun df (ttuple (ttuple (unrepShallow dacc) de)
-                                            acc_e))
+                          unHFun df (ttuple (ttuple (unrepDeep dacc)
+                                                    (unrepDeep de))
+                                            (unrepDeep acc_e)))
                        cacc0
                        (ttuple ces (ttuple q es)))
   MapAccumL k accShs bShs eShs
@@ -1464,7 +1465,8 @@ fwdR params s = \case
     in (s3, dmapAccumL (Proxy @ranked)
                        k accShs bShs (FTKProduct eShs (FTKProduct accShs eShs))
                        (\dacc (de, acc_e) ->
-                          unHFun df (ttuple (ttuple (unrepShallow dacc) de)
-                                            acc_e))
+                          unHFun df (ttuple (ttuple (unrepDeep dacc)
+                                                    (unrepDeep de))
+                                            (unrepDeep acc_e)))
                        cacc0
                        (ttuple ces (ttuple q es)))
