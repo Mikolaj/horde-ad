@@ -10,7 +10,7 @@ module HordeAd.Core.DualNumber
   , indexPrimal, fromVector, indexPrimalS, fromVectorS
   , ensureToplevelSharing, scaleNotShared, addNotShared, multNotShared
 --  , addParameters, dotParameters
-  , generateDeltaInputs, makeADInputs, aDValInterpretation, ahhToHVector
+  , generateDeltaInputs, makeADInputs, aDValRep, ahhToHVector
   ) where
 
 import Prelude
@@ -159,14 +159,14 @@ makeADInputs
      (TensorKind x, ShareTensor ranked, RankedOf (ShapedOf ranked) ~ ranked)
   => Rep ranked x -> Delta ranked x
   -> Rep (ADVal ranked) x
-makeADInputs = aDValInterpretation
+makeADInputs = aDValRep
 
-aDValInterpretation
+aDValRep
   :: forall y ranked.
      (TensorKind y, ShareTensor ranked, RankedOf (ShapedOf ranked) ~ ranked)
   => Rep ranked y -> Delta ranked y
   -> Rep (ADVal ranked) y
-aDValInterpretation p d = case stensorKind @y of
+aDValRep p d = case stensorKind @y of
   STKR{} -> dDnotShared p (DeltaR d)
   STKS{} -> dDnotShared p (DeltaS d)
   STKProduct{} -> let (p1, p2) = tunpair p
@@ -174,7 +174,7 @@ aDValInterpretation p d = case stensorKind @y of
                         TupleG t1 t2 -> (t1, t2)
                         _ -> let dShared = wrapDelta d
                              in (Project1G dShared, Project2G dShared)
-                  in (aDValInterpretation p1 d1, aDValInterpretation p2 d2)
+                  in (aDValRep p1 d1, aDValRep p2 d2)
   STKUntyped -> let pv = tunvector p
                 in HVectorPseudoTensor $ ahhToHVector pv d
 

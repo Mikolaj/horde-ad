@@ -16,7 +16,7 @@ module HordeAd.Core.HVectorOps
   , mapHVectorShaped11, mapHVectorShaped
   , mapRanked, mapRanked01, mapRanked10, mapRanked11
   , index1HVector, replicate1HVector, mkreplicate1HVector
-  , interpretationConstant
+  , repConstant
   ) where
 
 import Prelude
@@ -676,14 +676,14 @@ mkreplicate1HVector :: ADReady ranked
                     => SNat k -> HVector ranked -> HVectorOf ranked
 mkreplicate1HVector k = dmkHVector . replicate1HVector k
 
-interpretationConstant :: forall y ranked. ADReadyNoLet ranked
+repConstant :: forall y ranked. ADReadyNoLet ranked
                        => (forall r. GoodScalar r => r)
                        -> TensorKindFull y -> Rep ranked y
-interpretationConstant r = \case
+repConstant r = \case
   FTKR sh -> rrepl (toList sh) r
   FTKS -> srepl r
-  FTKProduct ftk1 ftk2 -> ttuple (interpretationConstant r ftk1)
-                                 (interpretationConstant r ftk2)
+  FTKProduct ftk1 ftk2 -> ttuple (repConstant r ftk1)
+                                 (repConstant r ftk2)
   FTKUntyped ssh ->  -- TODO: if r is 0, this would be cheaper with Dummy
     HVectorPseudoTensor $ dmkHVector
     $ mapHVectorShaped (const $ srepl @_ @_ @(ShapedOf ranked) r)

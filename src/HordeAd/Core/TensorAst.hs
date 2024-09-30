@@ -43,7 +43,7 @@ import HordeAd.Core.Delta
 import HordeAd.Core.DualNumber
 import HordeAd.Core.HVector
 import HordeAd.Core.HVectorOps
-import HordeAd.Core.TensorADVal (unADValInterpretation)
+import HordeAd.Core.TensorADVal (unADValRep)
 import HordeAd.Core.TensorClass
 import HordeAd.Core.TensorConcrete ()
 import HordeAd.Core.Types
@@ -90,7 +90,7 @@ revArtifactFromForwardPass hasDt forwardPass ftk =
   let -- Evaluate completely after terms constructed, to free memory
       -- before gradientFromDelta allocates new memory and new FFI is started.
       !(!primalBody, !delta) =
-        unADValInterpretation (stensorKind @z)
+        unADValRep (stensorKind @z)
         $ forwardPass (rawY (stensorKind @x) hVectorPrimal) var
                       (rankedY (stensorKind @x) hVector) in
   let (!varDt, !astDt) =
@@ -135,7 +135,7 @@ fwdArtifactFromForwardPass forwardPass ftk =
   let !(!varPrimalD, hVectorD, varPrimal, hVectorPrimal, var, hVector) =
         funToAstFwd ftk in
   let !(!primalBody, !delta) =
-        unADValInterpretation (stensorKind @z)
+        unADValRep (stensorKind @z)
         $ forwardPass (rawY (stensorKind @x) hVectorPrimal) var
                       (rankedY (stensorKind @x) hVector) in
   let !derivative = derivativeFromDelta delta (rawY (stensorKind @x) hVectorD)

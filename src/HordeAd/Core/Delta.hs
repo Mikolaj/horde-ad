@@ -98,7 +98,7 @@ gradientFromDelta
   -> Delta ranked z
   -> Rep ranked x
 gradientFromDelta !parameters0 value !mdt deltaTopLevel =
-  let oneAtF = interpretationConstant 1 $ tshapeFull (stensorKind @z) value
+  let oneAtF = repConstant 1 $ tshapeFull (stensorKind @z) value
       dt = fromMaybe oneAtF mdt
       s0 = initEvalState parameters0
       s1 = evalR s0 dt deltaTopLevel
@@ -993,11 +993,11 @@ evalR !s !c = \case
                   in evalR (evalR s c1 d1) c2 d2
   Project1G d -> case shapeDeltaFull d of
     FTKProduct _ ftk2 ->
-      let zero = interpretationConstant 0 ftk2
+      let zero = repConstant 0 ftk2
       in evalR s (ttuple c zero) d
   Project2G d -> case shapeDeltaFull d of
     FTKProduct ftk1 _ ->
-      let zero = interpretationConstant 0 ftk1
+      let zero = repConstant 0 ftk1
       in evalR s (ttuple zero c) d
   InputG _ftk i ->
     let cs = repToM stensorKind c

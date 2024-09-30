@@ -382,7 +382,7 @@ oRdmapAccumR
   -> Rep ORArray (BuildTensorKind k eShs)
   -> Rep ORArray (TKProduct accShs (BuildTensorKind k bShs))
 oRdmapAccumR k _ bShs _ f acc0 es = case sNatValue k of
-  0 -> (acc0, treplicate k (stensorKind @bShs) (interpretationConstant 0 bShs))
+  0 -> (acc0, treplicate k (stensorKind @bShs) (repConstant 0 bShs))
   _ ->
     let g :: RepShallow ORArray accShs -> RepShallow ORArray eShs
           -> ( RepShallow ORArray accShs
@@ -408,7 +408,7 @@ oRdmapAccumL
   -> Rep ORArray (BuildTensorKind k eShs)
   -> Rep ORArray (TKProduct accShs (BuildTensorKind k bShs))
 oRdmapAccumL k _ bShs _ f acc0 es = case sNatValue k of
-  0 -> (acc0, treplicate k (stensorKind @bShs) (interpretationConstant 0 bShs))
+  0 -> (acc0, treplicate k (stensorKind @bShs) (repConstant 0 bShs))
   _ ->
     let g :: RepShallow ORArray accShs -> RepShallow ORArray eShs
           -> ( RepShallow ORArray accShs

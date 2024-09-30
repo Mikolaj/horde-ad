@@ -9,7 +9,7 @@
 -- for ranked tensors and shaped tensors.
 module HordeAd.Core.TensorADVal
   ( hVectorADValToADVal, unADValHVector, unADValDynamicTensor
-  , unADValInterpretation
+  , unADValRep
   , crevOnADInputs, crevOnHVector, cfwdOnHVector
   ) where
 
@@ -64,7 +64,7 @@ crevOnADInputs
 crevOnADInputs mdt f inputs =
   let -- Evaluate completely after terms constructed, to free memory
       -- before evaluation allocates new memory and new FFI is started.
-      !(!v, !delta) = unADValInterpretation (stensorKind @z) $ f inputs in
+      !(!v, !delta) = unADValRep (stensorKind @z) $ f inputs in
   let parameters0 = tshapeFull (stensorKind @x) inputs
       !gradient = gradientFromDelta parameters0 v mdt delta
   in (gradient, v)
@@ -94,7 +94,7 @@ cfwdOnADInputs
   -> (Rep ranked z, Rep ranked z)
 {-# INLINE cfwdOnADInputs #-}
 cfwdOnADInputs inputs f ds =
-  let !(!v, !delta) = unADValInterpretation (stensorKind @z) $ f inputs in
+  let !(!v, !delta) = unADValRep (stensorKind @z) $ f inputs in
   let !derivative = derivativeFromDelta delta ds
   in (derivative, v)
 
@@ -630,8 +630,8 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
    | Dict <- lemTensorKindOfBuild k (stensorKind @accShs)
    , Dict <- lemTensorKindOfBuild k (stensorKind @bShs)
    , Dict <- lemTensorKindOfBuild k (stensorKind @eShs) =
-    let (acc0, acc0') = unADValInterpretation stensorKind acc0D
-        (esUnshared, es') = unADValInterpretation stensorKind esD
+    let (acc0, acc0') = unADValRep stensorKind acc0D
+        (esUnshared, es') = unADValRep stensorKind esD
         es = tshare esUnshared
         codomainShs = FTKProduct accShs bShs
         g :: forall f. ADReady f
@@ -684,7 +684,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
                          (RepN q)
                          (RepN es)
                          df rf acc0' es'
-    in aDValInterpretation (ttuple accFin bs) dual
+    in aDValRep (ttuple accFin bs) dual
   dmapAccumLDer
     :: forall k accShs bShs eShs.
        (TensorKind accShs, TensorKind bShs, TensorKind eShs)
@@ -707,8 +707,8 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
    | Dict <- lemTensorKindOfBuild k (stensorKind @accShs)
    , Dict <- lemTensorKindOfBuild k (stensorKind @bShs)
    , Dict <- lemTensorKindOfBuild k (stensorKind @eShs) =
-    let (acc0, acc0') = unADValInterpretation stensorKind acc0D
-        (esUnshared, es') = unADValInterpretation stensorKind esD
+    let (acc0, acc0') = unADValRep stensorKind acc0D
+        (esUnshared, es') = unADValRep stensorKind esD
         es = tshare esUnshared
         codomainShs = FTKProduct accShs bShs
         g :: forall f. ADReady f
@@ -761,7 +761,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
                          (RepN q)
                          (RepN es)
                          df rf acc0' es'
-    in aDValInterpretation (ttuple accFin bs) dual
+    in aDValRep (ttuple accFin bs) dual
 
 aDValToHVector
   :: (HVectorOf ranked ~ HVector ranked, RankedOf (ShapedOf ranked) ~ ranked)
@@ -797,7 +797,7 @@ unADValDynamicTensor (DynamicRankedDummy p1 p2) =
 unADValDynamicTensor (DynamicShapedDummy p1 p2) =
   (DynamicShapedDummy p1 p2, DynamicShapedDummy p1 p2)
 
-unADValInterpretation
+unADValRep
   :: forall y ranked.
      ( HVectorTensor ranked (ShapedOf ranked), ProductTensor ranked
      , RankedOf (ShapedOf ranked) ~ ranked )
@@ -805,12 +805,12 @@ unADValInterpretation
   -> Rep (ADVal ranked) y
   -> ( Rep ranked y
      , Delta ranked y )
-unADValInterpretation stk t = case (stk, t) of
+unADValRep stk t = case (stk, t) of
   (STKR{}, D p (DeltaR d)) -> (p, d)
   (STKS{}, D p (DeltaS d)) -> (p, d)
   (STKProduct stk1 stk2, (t1, t2)) ->
-    let (!p1, !d1) = unADValInterpretation stk1 t1 in
-    let (!p2, !d2) = unADValInterpretation stk2 t2
+    let (!p1, !d1) = unADValRep stk1 t1 in
+    let (!p2, !d2) = unADValRep stk2 t2
     in (ttuple p1 p2, TupleG d1 d2)
   (STKUntyped, HVectorPseudoTensor u) ->
     let (!p, !d) = unADValHVector u

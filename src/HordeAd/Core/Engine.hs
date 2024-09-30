@@ -181,7 +181,7 @@ revEvalArtifact
   -> (Rep ORArray x, Rep ORArray z)
 {-# INLINE revEvalArtifact #-}
 revEvalArtifact AstArtifactRev{..} parameters mdt =
-  let oneAtF = interpretationConstant 1 $ tshapeFull (stensorKind @z) artPrimalRev
+  let oneAtF = repConstant 1 $ tshapeFull (stensorKind @z) artPrimalRev
       dt = fromMaybe oneAtF mdt
       env = extendEnv artVarDomainRev parameters emptyEnv
       envDt = extendEnv artVarDtRev dt env
