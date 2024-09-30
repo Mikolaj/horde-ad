@@ -2003,8 +2003,6 @@ astProject1 u = case u of
   Ast.AstLetHVectorIn vars l v -> astLetHVectorIn vars l (astProject1 v)
   Ast.AstLetHFunIn vars l v -> astLetHFunIn vars l (astProject1 v)
 -- TODO: generalize AstConst, unless it's not the best idea? currently these must be explicit AstTuple, so the other rule works fine:  Ast.AstConst u1 -> Ast.AstConst $ tproject1 u1
-  Ast.AstPrimalPart u1 -> astPrimalPart $ astProject1 u1
-  Ast.AstDualPart u1 -> astDualPart $ astProject1 u1
   Ast.AstConstant u1 -> Ast.AstConstant $ astProject1 u1
   Ast.AstCond b v1 v2 -> Ast.AstCond b (astProject1 v1) (astProject1 v2)
   _ -> Ast.AstProject1 u
@@ -2017,8 +2015,6 @@ astProject2 u = case u of
   Ast.AstLet var t v -> Ast.AstLet var t (astProject2 v)
   Ast.AstLetHVectorIn vars l v -> astLetHVectorIn vars l (astProject2 v)
   Ast.AstLetHFunIn vars l v -> astLetHFunIn vars l (astProject2 v)
-  Ast.AstPrimalPart u1 -> astPrimalPart $ astProject2 u1
-  Ast.AstDualPart u1 -> astDualPart $ astProject2 u1
   Ast.AstConstant u1 -> Ast.AstConstant $ astProject2 u1
   Ast.AstCond b v1 v2 -> Ast.AstCond b (astProject2 v1) (astProject2 v2)
   _ -> Ast.AstProject2 u
@@ -2037,8 +2033,6 @@ astProjectR l p = case l of
     astLetHVectorIn vars d1 (astProjectR d2 p)
   Ast.AstLetHFunIn vars d1 d2 ->
     astLetHFunIn vars d1 (astProjectR d2 p)
-  Ast.AstPrimalPart l1 -> astPrimalPart $ astProjectR l1 p
-  Ast.AstDualPart l1 -> astDualPart $ astProjectR l1 p
   Ast.AstConstant l1 -> Ast.AstConstant $ astProjectR l1 p
   Ast.AstCond b v1 v2 -> Ast.AstCond b (astProjectR v1 p) (astProjectR v2 p)
   _ -> Ast.AstProjectR l p
@@ -2057,8 +2051,6 @@ astProjectS l p = case l of
     astLetHVectorIn vars d1 (astProjectS d2 p)
   Ast.AstLetHFunIn vars d1 d2 ->
     astLetHFunIn vars d1 (astProjectS d2 p)
-  Ast.AstPrimalPart l1 -> astPrimalPart $ astProjectS l1 p
-  Ast.AstDualPart l1 -> astDualPart $ astProjectS l1 p
   Ast.AstConstant l1 -> Ast.AstConstant $ astProjectS l1 p
   Ast.AstCond b v1 v2 -> Ast.AstCond b (astProjectS v1 p) (astProjectS v2 p)
   _ -> Ast.AstProjectS l p
@@ -2119,7 +2111,7 @@ astPrimalPart t = case t of
   Ast.AstReshape sh v -> astReshape sh (astPrimalPart v)
   Ast.AstGather sh v (vars, ix) -> astGatherR sh (astPrimalPart v) (vars, ix)
   Ast.AstCast v -> astCast $ astPrimalPart v
-  Ast.AstProjectR{} -> Ast.AstPrimalPart t  -- should get simplified early
+  Ast.AstProjectR l p -> astProjectR (astPrimalPart l) p
   Ast.AstLetHVectorIn vars l v -> astLetHVectorIn vars l (astPrimalPart v)
   Ast.AstLetHFunIn var f v -> astLetHFunIn var f (astPrimalPart v)
   Ast.AstRFromS v -> astRFromS $ astPrimalPart v
@@ -2143,7 +2135,7 @@ astPrimalPart t = case t of
   Ast.AstReshapeS v -> astReshapeS (astPrimalPart v)
   Ast.AstGatherS v (vars, ix) -> astGatherS (astPrimalPart v) (vars, ix)
   Ast.AstCastS v -> astCastS $ astPrimalPart v
-  Ast.AstProjectS{} -> Ast.AstPrimalPart t
+  Ast.AstProjectS l p -> astProjectS (astPrimalPart l) p
   Ast.AstSFromR v -> astSFromR $ astPrimalPart v
   _ -> error "TODO"
 
@@ -2179,7 +2171,7 @@ astDualPart t = case t of
   Ast.AstReshape sh v -> astReshape sh (astDualPart v)
   Ast.AstGather sh v (vars, ix) -> astGatherR sh (astDualPart v) (vars, ix)
   Ast.AstCast v -> astCast $ astDualPart v
-  Ast.AstProjectR{} -> Ast.AstDualPart t
+  Ast.AstProjectR l p -> astProjectR (astDualPart l) p
   Ast.AstLetHVectorIn vars l v -> astLetHVectorIn vars l (astDualPart v)
   Ast.AstLetHFunIn var f v -> astLetHFunIn var f (astDualPart v)
   Ast.AstRFromS v -> astRFromS $ astDualPart v
@@ -2201,7 +2193,7 @@ astDualPart t = case t of
   Ast.AstReshapeS v -> astReshapeS (astDualPart v)
   Ast.AstGatherS v (vars, ix) -> astGatherS (astDualPart v) (vars, ix)
   Ast.AstCastS v -> astCastS $ astDualPart v
-  Ast.AstProjectS{} -> Ast.AstDualPart t
+  Ast.AstProjectS l p -> astProjectS (astDualPart l) p
   Ast.AstSFromR v -> astSFromR $ astDualPart v
   _ -> error "TODO"
 
