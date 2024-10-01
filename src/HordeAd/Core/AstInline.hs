@@ -387,19 +387,19 @@ inlineAstBool memo v0 = case v0 of
 unshareAstTensor :: TensorKind y
                  => AstTensor AstMethodShare PrimalSpan y
                  -> AstTensor AstMethodLet PrimalSpan y
-unshareAstTensor t =
-  let (memoOut, share) = shareAst DMap.empty t
-  in bindsToLet share memoOut
+unshareAstTensor tShare =
+  let (memoOut, tLet) = unshareAst DMap.empty tShare
+  in bindsToLet tLet memoOut
 
 -- This works only because the other code never inserts the same rshare
 -- into more than one index element, with the share containing
 -- the gather/scatter/build variables corresponding to the index.
-shareAstScoped
+unshareAstScoped
   :: forall n s r. (GoodScalar r, KnownNat n, AstSpan s)
   => [IntVarName] -> AstBindings -> AstTensor AstMethodShare s (TKR r n)
   -> (AstBindings, AstTensor AstMethodLet s (TKR r n))
-shareAstScoped vars0 memo0 v0 =
-  let (memo1, v1) = shareAst memo0 v0
+unshareAstScoped vars0 memo0 v0 =
+  let (memo1, v1) = unshareAst memo0 v0
       memoDiff = DMap.difference memo1 memo0
       varsOccur :: [AstVarId]
                 -> AstVarName PrimalSpan y -> RepN (AstRanked PrimalSpan) y
@@ -427,34 +427,34 @@ shareAstScoped vars0 memo0 v0 =
 -- So far, there are no lets in the resulting term, but we mark it as potentially
 -- containing lets, because in the future we may optimize this by inserting
 -- some lets not at the top-level.
-shareAst
+unshareAst
   :: forall s y. AstSpan s
   => AstBindings -> AstTensor AstMethodShare s y
   -> (AstBindings, AstTensor AstMethodLet s y)
-shareAst memo = \case
+unshareAst memo = \case
   Ast.AstPair t1 t2 ->
-    let (memo1, v1) = shareAst memo t1
-        (memo2, v2) = shareAst memo1 t2
+    let (memo1, v1) = unshareAst memo t1
+        (memo2, v2) = unshareAst memo1 t2
     in (memo2, Ast.AstPair v1 v2)
-  Ast.AstProject1 t -> second Ast.AstProject1 (shareAst memo t)
-  Ast.AstProject2 t -> second Ast.AstProject2 (shareAst memo t)
+  Ast.AstProject1 t -> second Ast.AstProject1 (unshareAst memo t)
+  Ast.AstProject2 t -> second Ast.AstProject2 (unshareAst memo t)
   Ast.AstVar sh v -> (memo, Ast.AstVar sh v)
-  Ast.AstPrimalPart a -> second Ast.AstPrimalPart $ shareAst memo a
-  Ast.AstDualPart a -> second Ast.AstDualPart $ shareAst memo a
-  Ast.AstConstant a -> second Ast.AstConstant $ shareAst memo a
+  Ast.AstPrimalPart a -> second Ast.AstPrimalPart $ unshareAst memo a
+  Ast.AstDualPart a -> second Ast.AstDualPart $ unshareAst memo a
+  Ast.AstConstant a -> second Ast.AstConstant $ unshareAst memo a
   Ast.AstD u u' ->
-    let (memo1, t1) = shareAst memo u
-        (memo2, t2) = shareAst memo1 u'
+    let (memo1, t1) = unshareAst memo u
+        (memo2, t2) = unshareAst memo1 u'
     in (memo2, Ast.AstD t1 t2)
   Ast.AstCond b a2 a3 ->
-    let (memo1, b1) = shareAstBool memo b
-        (memo2, t2) = shareAst memo1 a2
-        (memo3, t3) = shareAst memo2 a3
+    let (memo1, b1) = unshareAstBool memo b
+        (memo2, t2) = unshareAst memo1 a2
+        (memo3, t3) = unshareAst memo2 a3
     in (memo3, Ast.AstCond b1 t2 t3)
-  Ast.AstReplicate k v -> second (Ast.AstReplicate k) (shareAst memo v)
+  Ast.AstReplicate k v -> second (Ast.AstReplicate k) (unshareAst memo v)
   Ast.AstBuild1 @y2 snat (var, v) -> case stensorKind @y2 of
     STKR{} ->
-      let (memo1, v2) = shareAstScoped [var] memo v
+      let (memo1, v2) = unshareAstScoped [var] memo v
       in (memo1, Ast.AstBuild1 snat (var, v2))
     STKS{} -> error "WIP"
     STKProduct{} -> error "WIP"
@@ -465,168 +465,168 @@ shareAst memo = \case
     let astVar = Ast.AstVar (shapeAstFull v) var
     in if var `DMap.member` memo
        then (memo, astVar)  -- TODO: memoize AstVar itself
-       else let (memo1, v2) = shareAst memo v
+       else let (memo1, v2) = unshareAst memo v
                 d = RepN $ rankedY stensorKind v2
             in (DMap.insert var d memo1, astVar)
-  Ast.AstShare{} -> error "shareAst: AstShare not in PrimalSpan"
-  Ast.AstMinIndex a -> second Ast.AstMinIndex $ shareAst memo a
-  Ast.AstMaxIndex a -> second Ast.AstMaxIndex $ shareAst memo a
-  Ast.AstFloor a -> second Ast.AstFloor $ shareAst memo a
+  Ast.AstShare{} -> error "unshareAst: AstShare not in PrimalSpan"
+  Ast.AstMinIndex a -> second Ast.AstMinIndex $ unshareAst memo a
+  Ast.AstMaxIndex a -> second Ast.AstMaxIndex $ unshareAst memo a
+  Ast.AstFloor a -> second Ast.AstFloor $ unshareAst memo a
   Ast.AstIota -> (memo, Ast.AstIota)
   Ast.AstN1 opCode u ->
-    let (memo2, u2) = shareAst memo u
+    let (memo2, u2) = unshareAst memo u
     in (memo2, Ast.AstN1 opCode u2)
   Ast.AstN2 opCode u v ->
-    let (memo2, u2) = shareAst memo u
-        (memo3, v3) = shareAst memo2 v
+    let (memo2, u2) = unshareAst memo u
+        (memo3, v3) = unshareAst memo2 v
     in (memo3, Ast.AstN2 opCode u2 v3)
   Ast.AstR1 opCode u ->
-    let (memo2, u2) = shareAst memo u
+    let (memo2, u2) = unshareAst memo u
     in (memo2, Ast.AstR1 opCode u2)
   Ast.AstR2 opCode u v ->
-    let (memo2, u2) = shareAst memo u
-        (memo3, v3) = shareAst memo2 v
+    let (memo2, u2) = unshareAst memo u
+        (memo3, v3) = unshareAst memo2 v
     in (memo3, Ast.AstR2 opCode u2 v3)
   Ast.AstI2 opCode u v ->
-    let (memo2, u2) = shareAst memo u
-        (memo3, v3) = shareAst memo2 v
+    let (memo2, u2) = unshareAst memo u
+        (memo3, v3) = unshareAst memo2 v
     in (memo3, Ast.AstI2 opCode u2 v3)
   Ast.AstSumOfList args ->
-    let (memo2, args2) = mapAccumR shareAst memo args
+    let (memo2, args2) = mapAccumR unshareAst memo args
     in (memo2, Ast.AstSumOfList args2)
   Ast.AstIndex v ix ->
-    let (memo1, v2) = shareAst memo v
-        (memo2, ix2) = mapAccumR shareAst memo1 (indexToList ix)
+    let (memo1, v2) = unshareAst memo v
+        (memo2, ix2) = mapAccumR unshareAst memo1 (indexToList ix)
     in (memo2, Ast.AstIndex v2 (listToIndex ix2))
-  Ast.AstSum v -> second Ast.AstSum (shareAst memo v)
+  Ast.AstSum v -> second Ast.AstSum (unshareAst memo v)
   Ast.AstScatter sh v (vars, ix) ->
-    let (memo1, ix2) = mapAccumR (shareAstScoped $ sizedToList vars)
+    let (memo1, ix2) = mapAccumR (unshareAstScoped $ sizedToList vars)
                                  memo (indexToList ix)
-        (memo2, v2) = shareAst memo1 v
+        (memo2, v2) = unshareAst memo1 v
     in (memo2, Ast.AstScatter sh v2 (vars, listToIndex ix2))
   Ast.AstFromVector l ->
-    let (memo2, l2) = mapAccumR shareAst memo (V.toList l)
+    let (memo2, l2) = mapAccumR unshareAst memo (V.toList l)
     in (memo2, Ast.AstFromVector $ V.fromList l2)
   Ast.AstAppend x y ->
-    let (memo1, t1) = shareAst memo x
-        (memo2, t2) = shareAst memo1 y
+    let (memo1, t1) = unshareAst memo x
+        (memo2, t2) = unshareAst memo1 y
     in (memo2, Ast.AstAppend t1 t2)
-  Ast.AstSlice i k v -> second (Ast.AstSlice i k) (shareAst memo v)
-  Ast.AstReverse v -> second Ast.AstReverse (shareAst memo v)
+  Ast.AstSlice i k v -> second (Ast.AstSlice i k) (unshareAst memo v)
+  Ast.AstReverse v -> second Ast.AstReverse (unshareAst memo v)
   Ast.AstTranspose perm v ->
-    second (Ast.AstTranspose perm) $ shareAst memo v
-  Ast.AstReshape sh v -> second (Ast.AstReshape sh) (shareAst memo v)
+    second (Ast.AstTranspose perm) $ unshareAst memo v
+  Ast.AstReshape sh v -> second (Ast.AstReshape sh) (unshareAst memo v)
   Ast.AstGather sh v (vars, ix) ->
-    let (memo1, ix2) = mapAccumR (shareAstScoped $ sizedToList vars)
+    let (memo1, ix2) = mapAccumR (unshareAstScoped $ sizedToList vars)
                                  memo (indexToList ix)
-        (memo2, v2) = shareAst memo1 v
+        (memo2, v2) = unshareAst memo1 v
     in (memo2, Ast.AstGather sh v2 (vars, listToIndex ix2))
-  Ast.AstCast v -> second Ast.AstCast $ shareAst memo v
-  Ast.AstFromIntegral v -> second Ast.AstFromIntegral $ shareAst memo v
+  Ast.AstCast v -> second Ast.AstCast $ unshareAst memo v
+  Ast.AstFromIntegral v -> second Ast.AstFromIntegral $ unshareAst memo v
   Ast.AstConst t -> (memo, Ast.AstConst t)
   Ast.AstProjectR l p ->
     -- This doesn't get simplified even if l is an HVector of vars freshly
-    -- created by shareAst. However, then l is shared, so the cost
+    -- created by unshareAst. However, then l is shared, so the cost
     -- per AstProjectR is only slightly (2 words? 1 indirection?)
     -- higher than if simplified.
-    let (memo1, l2) = shareAst memo l
+    let (memo1, l2) = unshareAst memo l
     in (memo1, Ast.AstProjectR l2 p)
-  Ast.AstRFromS v -> second Ast.AstRFromS $ shareAst memo v
+  Ast.AstRFromS v -> second Ast.AstRFromS $ unshareAst memo v
 
-  Ast.AstMinIndexS a -> second Ast.AstMinIndexS $ shareAst memo a
-  Ast.AstMaxIndexS a -> second Ast.AstMaxIndexS $ shareAst memo a
-  Ast.AstFloorS a -> second Ast.AstFloorS $ shareAst memo a
+  Ast.AstMinIndexS a -> second Ast.AstMinIndexS $ unshareAst memo a
+  Ast.AstMaxIndexS a -> second Ast.AstMaxIndexS $ unshareAst memo a
+  Ast.AstFloorS a -> second Ast.AstFloorS $ unshareAst memo a
   Ast.AstIotaS -> (memo, Ast.AstIotaS)
   Ast.AstN1S opCode u ->
-    let (memo2, u2) = shareAst memo u
+    let (memo2, u2) = unshareAst memo u
     in (memo2, Ast.AstN1S opCode u2)
   Ast.AstN2S opCode u v ->
-    let (memo2, u2) = shareAst memo u
-        (memo3, v3) = shareAst memo2 v
+    let (memo2, u2) = unshareAst memo u
+        (memo3, v3) = unshareAst memo2 v
     in (memo3, Ast.AstN2S opCode u2 v3)
   Ast.AstR1S opCode u ->
-    let (memo2, u2) = shareAst memo u
+    let (memo2, u2) = unshareAst memo u
     in (memo2, Ast.AstR1S opCode u2)
   Ast.AstR2S opCode u v ->
-    let (memo2, u2) = shareAst memo u
-        (memo3, v3) = shareAst memo2 v
+    let (memo2, u2) = unshareAst memo u
+        (memo3, v3) = unshareAst memo2 v
     in (memo3, Ast.AstR2S opCode u2 v3)
   Ast.AstI2S opCode u v ->
-    let (memo2, u2) = shareAst memo u
-        (memo3, v3) = shareAst memo2 v
+    let (memo2, u2) = unshareAst memo u
+        (memo3, v3) = unshareAst memo2 v
     in (memo3, Ast.AstI2S opCode u2 v3)
   Ast.AstSumOfListS args ->
-    let (memo2, args2) = mapAccumR shareAst memo args
+    let (memo2, args2) = mapAccumR unshareAst memo args
     in (memo2, Ast.AstSumOfListS args2)
   Ast.AstIndexS @sh1 v ix ->
-    let (memo1, v2) = shareAst memo v
-        (memo2, ix2) = mapAccumR shareAst memo1 (ShapedList.indexToList ix)
+    let (memo1, v2) = unshareAst memo v
+        (memo2, ix2) = mapAccumR unshareAst memo1 (ShapedList.indexToList ix)
     in (memo2, Ast.AstIndexS @sh1 v2 (ShapedList.listToIndex ix2))
-  Ast.AstSumS v -> second Ast.AstSumS (shareAst memo v)
+  Ast.AstSumS v -> second Ast.AstSumS (unshareAst memo v)
   Ast.AstScatterS @sh2 @p v (vars, ix) ->
     let (memo1, ix2) =
-          mapAccumR (shareAstScoped $ ShapedList.sizedToList vars)
+          mapAccumR (unshareAstScoped $ ShapedList.sizedToList vars)
                     memo (ShapedList.indexToList ix)
-        (memo2, v2) = shareAst memo1 v
+        (memo2, v2) = unshareAst memo1 v
     in (memo2, Ast.AstScatterS @sh2 @p v2 (vars, ShapedList.listToIndex ix2))
   Ast.AstFromVectorS l ->
-    let (memo2, l2) = mapAccumR shareAst memo (V.toList l)
+    let (memo2, l2) = mapAccumR unshareAst memo (V.toList l)
     in (memo2, Ast.AstFromVectorS $ V.fromList l2)
   Ast.AstAppendS x y ->
-    let (memo1, t1) = shareAst memo x
-        (memo2, t2) = shareAst memo1 y
+    let (memo1, t1) = unshareAst memo x
+        (memo2, t2) = unshareAst memo1 y
     in (memo2, Ast.AstAppendS t1 t2)
-  Ast.AstSliceS @i v -> second (Ast.AstSliceS @i) (shareAst memo v)
-  Ast.AstReverseS v -> second Ast.AstReverseS (shareAst memo v)
+  Ast.AstSliceS @i v -> second (Ast.AstSliceS @i) (unshareAst memo v)
+  Ast.AstReverseS v -> second Ast.AstReverseS (unshareAst memo v)
   Ast.AstTransposeS perm v ->
-    second (Ast.AstTransposeS perm) $ shareAst memo v
-  Ast.AstReshapeS v -> second Ast.AstReshapeS (shareAst memo v)
+    second (Ast.AstTransposeS perm) $ unshareAst memo v
+  Ast.AstReshapeS v -> second Ast.AstReshapeS (unshareAst memo v)
   Ast.AstGatherS @sh2 @p v (vars, ix) ->
     let (memo1, ix2) =
-          mapAccumR (shareAstScoped $ ShapedList.sizedToList vars)
+          mapAccumR (unshareAstScoped $ ShapedList.sizedToList vars)
                     memo (ShapedList.indexToList ix)
-        (memo2, v2) = shareAst memo1 v
+        (memo2, v2) = unshareAst memo1 v
     in (memo2, Ast.AstGatherS @sh2 @p v2 (vars, ShapedList.listToIndex ix2))
-  Ast.AstCastS v -> second Ast.AstCastS $ shareAst memo v
+  Ast.AstCastS v -> second Ast.AstCastS $ unshareAst memo v
   Ast.AstFromIntegralS v ->
-    second Ast.AstFromIntegralS $ shareAst memo v
+    second Ast.AstFromIntegralS $ unshareAst memo v
   Ast.AstConstS t -> (memo, Ast.AstConstS t)
   Ast.AstProjectS l p ->
-    let (memo1, l2) = shareAst memo l
+    let (memo1, l2) = unshareAst memo l
     in (memo1, Ast.AstProjectS l2 p)
-  Ast.AstSFromR v -> second Ast.AstSFromR $ shareAst memo v
+  Ast.AstSFromR v -> second Ast.AstSFromR $ unshareAst memo v
 
   Ast.AstMkHVector l ->
-    second Ast.AstMkHVector $ mapAccumR shareAstDynamic memo l
+    second Ast.AstMkHVector $ mapAccumR unshareAstDynamic memo l
   Ast.AstHApply t ll ->
-    let (memo1, t2) = shareAstHFun memo t
-        (memo2, ll2) = shareAst memo1 ll
+    let (memo1, t2) = unshareAstHFun memo t
+        (memo2, ll2) = unshareAst memo1 ll
     in (memo2, Ast.AstHApply t2 ll2)
-  Ast.AstBuildHVector1{} -> error "shareAst: AstBuildHVector1"  -- not hard to add
+  Ast.AstBuildHVector1{} -> error "unshareAst: AstBuildHVector1"  -- not hard to add
   Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc0 es ->
-    let (memo1, acc02) = shareAst memo acc0
-        (memo2, es2) = shareAst memo1 es
+    let (memo1, acc02) = unshareAst memo acc0
+        (memo2, es2) = unshareAst memo1 es
     in (memo2, Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc02 es2)
   Ast.AstMapAccumLDer k accShs bShs eShs f df rf acc0 es ->
-    let (memo1, acc02) = shareAst memo acc0
-        (memo2, es2) = shareAst memo1 es
+    let (memo1, acc02) = unshareAst memo acc0
+        (memo2, es2) = unshareAst memo1 es
     in (memo2, Ast.AstMapAccumLDer k accShs bShs eShs f df rf acc02 es2)
 
-shareAstDynamic
+unshareAstDynamic
   :: AstSpan s
   => AstBindings -> AstDynamic AstMethodShare s
   -> (AstBindings, AstDynamic AstMethodLet s)
-shareAstDynamic memo = \case
+unshareAstDynamic memo = \case
   DynamicRanked (AstGeneric w) ->
-    second (DynamicRanked . AstGeneric) $ shareAst memo w
+    second (DynamicRanked . AstGeneric) $ unshareAst memo w
   DynamicShaped (AstGenericS w) ->
-    second (DynamicShaped . AstGenericS) $ shareAst memo w
+    second (DynamicShaped . AstGenericS) $ unshareAst memo w
   DynamicRankedDummy p1 p2 -> (memo, DynamicRankedDummy p1 p2)
   DynamicShapedDummy p1 p2 -> (memo, DynamicShapedDummy p1 p2)
 
-shareAstHFun
+unshareAstHFun
   :: AstBindings -> AstHFun x y -> (AstBindings, AstHFun x y)
-shareAstHFun memo v0 = case v0 of
+unshareAstHFun memo v0 = case v0 of
   Ast.AstLambda{} ->
     -- No other free variables in l, so no outside lets can reach there,
     -- so we don't need to pass the information from v upwards
@@ -634,22 +634,22 @@ shareAstHFun memo v0 = case v0 of
     (memo, v0)
   Ast.AstVarHFun{} -> (memo, v0)
 
-shareAstBool :: AstBindings -> AstBool AstMethodShare
+unshareAstBool :: AstBindings -> AstBool AstMethodShare
              -> (AstBindings, AstBool AstMethodLet)
-shareAstBool memo = \case
+unshareAstBool memo = \case
   Ast.AstBoolNot arg ->
-    let (memo2, arg2) = shareAstBool memo arg
+    let (memo2, arg2) = unshareAstBool memo arg
     in (memo2, Ast.AstBoolNot arg2)
   Ast.AstB2 opCodeBool arg1 arg2 ->
-    let (memo1, b1) = shareAstBool memo arg1
-        (memo2, b2) = shareAstBool memo1 arg2
+    let (memo1, b1) = unshareAstBool memo arg1
+        (memo2, b2) = unshareAstBool memo1 arg2
     in (memo2, Ast.AstB2 opCodeBool b1 b2)
   Ast.AstBoolConst t -> (memo, Ast.AstBoolConst t)
   Ast.AstRel opCodeRel arg1 arg2 ->
-    let (memo1, r1) = shareAst memo arg1
-        (memo2, r2) = shareAst memo1 arg2
+    let (memo1, r1) = unshareAst memo arg1
+        (memo2, r2) = unshareAst memo1 arg2
     in (memo2, Ast.AstRel opCodeRel r1 r2)
   Ast.AstRelS opCodeRel arg1 arg2 ->
-    let (memo1, r1) = shareAst memo arg1
-        (memo2, r2) = shareAst memo1 arg2
+    let (memo1, r1) = unshareAst memo arg1
+        (memo2, r2) = unshareAst memo1 arg2
     in (memo2, Ast.AstRelS opCodeRel r1 r2)
