@@ -17,7 +17,6 @@ module HordeAd.Core.TensorAst
 
 import Prelude
 
-import Control.Exception.Assert.Sugar
 import Data.Array.Shape qualified as Sh
 import Data.IntMap.Strict (IntMap)
 import Data.Proxy (Proxy (Proxy))
@@ -503,31 +502,6 @@ instance AstSpan s => LetTensor (AstRanked s) (AstShaped s) where
       fromRepD $ addRepD (toRepDUnshared stensorKind u1)
                          (toRepDUnshared stensorKind u2)
 
-  rrev :: forall r n. (GoodScalar r, KnownNat n)
-       => (forall f. ADReady f => HVector f -> f r n)
-       -> VoidHVector
-       -> HVector (AstRanked s)
-       -> AstTensor AstMethodLet s TKUntyped
-  rrev f parameters0 =  -- we don't have an AST constructor to hold it
-    -- This computes the (AST of) derivative of f once and interprets it again
-    -- for each new @parmeters@, which is much better than computing anew.
-    let g :: Rep (AstRanked FullSpan) TKUntyped
-          -> Rep (AstRanked FullSpan) (TKR r n)
-        g !hv = tlet hv $ \ !hvShared -> f hvShared
-        !(!(AstArtifactRev _varDt var gradient _primal), _delta) =
-          revProduceArtifact False g emptyEnv (FTKUntyped parameters0)
-    in \ !parameters -> assert (voidHVectorMatches parameters0 parameters) $
-      let env = extendEnv
-                  var (HVectorPseudoTensor $ AstMkHVector (unRankedHVector parameters)) emptyEnv
-      in simplifyInline $ unHVectorPseudoTensor
-         $ interpretAst env $ unHVectorPseudoTensor gradient
-        -- this interpretation both substitutes parameters for the variables and
-        -- reinterprets @PrimalSpan@ terms in @s@ terms;
-        -- we could shortcut when @s@ is @PrimalSpan@ and @parameters@
-        -- are the same variables, but it's a very special case;
-        -- a faster implementation is the default one via AstHApply, but it tests
-        -- a slightly different code path, so let's keep and exercise both
-
 instance AstSpan s => RankedTensor (AstRanked s) where
   rshape = shapeAst . unAstRanked
   rminIndex = AstRanked . fromPrimal . AstMinIndex
@@ -668,7 +642,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
        => TensorKindFull x
        -> HFun x z
        -> AstHFun x x
-  drev ftkx f =
+  drev ftkx f =  -- we don't have an AST constructor to hold it, so we compute
     -- This computes the (AST of) derivative of f once and interprets it again
     -- for each new tensor of arguments, which is better than computing it anew.
     let -- No bangs here, because this goes under lambda and may be unneeded
@@ -687,11 +661,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   drevDt ftkx f =
     -- This computes the (AST of) derivative of f once and interprets it again
     -- for each new tensor of arguments, which is better than computing it anew.
-    let -- No bangs here, because this goes under lambda and may be unneeded
-        -- or even incorrect (and so, e.g., trigger
-        -- `error "tunshare: used not at PrimalSpan"`, because no derivative
-        -- should be taken of spans other than PrimalSpan)
-        (AstArtifactRev varDt var gradient primal, _delta) =
+    let (AstArtifactRev varDt var gradient primal, _delta) =
           revProduceArtifact True (unHFun f) emptyEnv ftkx
         ftkz = shapeAstFull $ unRankedY (stensorKind @z) primal
         ftk2 = FTKProduct ftkz ftkx
@@ -1216,14 +1186,6 @@ unNoVectorizeHVector =
       f (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
   in V.map f
 
-unNoVectorizeHVectorR :: HVector (AstNoVectorize s) -> HVector (AstRanked s)
-unNoVectorizeHVectorR =
-  let f (DynamicRanked (AstNoVectorize t)) = DynamicRanked (AstRanked t)
-      f (DynamicShaped (AstNoVectorizeS t)) = DynamicShaped (AstShaped t)
-      f (DynamicRankedDummy p1 p2) = DynamicRankedDummy p1 p2
-      f (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
-  in V.map f
-
 noVectorizeHVectorR :: HVector (AstRanked s) -> HVector (AstNoVectorize s)
 noVectorizeHVectorR =
   let f (DynamicRanked (AstRanked t)) = DynamicRanked $ AstNoVectorize t
@@ -1307,10 +1269,6 @@ instance AstSpan s => LetTensor (AstNoVectorize s) (AstNoVectorizeS s) where
     blet t2 $ \ !u2 ->
       fromRepD $ addRepD (toRepDUnshared stensorKind u1)
                          (toRepDUnshared stensorKind u2)
-
-  rrev f parameters0 hVector =
-    AstNoVectorizeWrap
-    $ rrev f parameters0 (unNoVectorizeHVectorR hVector)
 
 instance AstSpan s => RankedTensor (AstNoVectorize s) where
   rshape = rshape . unAstNoVectorize2
@@ -1593,14 +1551,6 @@ unNoSimplifyHVector =
       f (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
   in V.map f
 
-unNoSimplifyHVectorR :: HVector (AstNoSimplify s) -> HVector (AstRanked s)
-unNoSimplifyHVectorR =
-  let f (DynamicRanked (AstNoSimplify t)) = DynamicRanked $ AstRanked t
-      f (DynamicShaped (AstNoSimplifyS t)) = DynamicShaped (AstShaped t)
-      f (DynamicRankedDummy p1 p2) = DynamicRankedDummy p1 p2
-      f (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
-  in V.map f
-
 noSimplifyHVector :: HVector (AstGeneric AstMethodLet s) -> HVector (AstNoSimplify s)
 noSimplifyHVector =
   let f (DynamicRanked (AstGeneric t)) = DynamicRanked $ AstNoSimplify t
@@ -1684,10 +1634,6 @@ instance AstSpan s => LetTensor (AstNoSimplify s) (AstNoSimplifyS s) where
     blet t2 $ \ !u2 ->
       fromRepD $ addRepD (toRepDUnshared stensorKind u1)
                          (toRepDUnshared stensorKind u2)
-
-  rrev f parameters0 hVector =  -- we don't have an AST constructor to hold it
-    AstNoSimplifyWrap
-    $ rrev f parameters0 (unNoSimplifyHVectorR hVector)
 
 instance AstSpan s => RankedTensor (AstNoSimplify s) where
   rshape = shapeAst . unAstNoSimplify

@@ -539,11 +539,7 @@ t128c = FlipR $ OR.reshape [2, 2, 8, 4] $ runFlipR t128OR
 rrev1 :: forall g r n m r3.
          (ADReady g, GoodScalar r, GoodScalar r3, KnownNat n, KnownNat m)
       => (forall f. ADReady f => f r n -> f r3 m) -> g r n -> g r n
-rrev1 f u =
-  let sh = rshape u
-      ftk = FTKR sh
-      h = drev @g ftk (HFun @_ @(TKR r3 m) f)
-  in dHApply @_ @_ @(TKR r n) @(TKR r n) h u
+rrev1 f u = rrev f (tshapeFull stensorKind u) u
 
 rrev2 :: forall g r n m r3.
          (ADReady g, GoodScalar r, GoodScalar r3, KnownNat n, KnownNat m)
@@ -554,7 +550,9 @@ rrev2 f u =
       sh = rshape u
       zero = voidFromSh @r @n sh
       shapes = V.fromList [zero]
-      domsOf = rrev @g fHVector shapes (V.singleton $ DynamicRanked u)
+      domsOf =
+        unHVectorPseudoTensor
+        $ rrev @g fHVector (FTKUntyped shapes) (V.singleton $ DynamicRanked u)
   in rletHVectorIn domsOf (\v -> rfromD $ v V.! 0)
 
 rfwd1ds :: forall g r n m r3.
@@ -586,10 +584,7 @@ rfwd1 f u = rfwd1ds f u (rreplicate0N (rshape u) 1)
 srev1 :: forall g r sh sh2 r3.
          (ADReadyS g, GoodScalar r, GoodScalar r3, KnownShS sh, KnownShS sh2)
       => (forall f. ADReadyS f => f r sh -> f r3 sh2) -> g r sh -> g r sh
-srev1 f u =
-  let ftk = FTKS @r @sh
-      h = drev @(RankedOf g) ftk (HFun @_ @(TKS r3 sh2) f)
-  in dHApply @_ @_ @(TKS r sh) @(TKS r sh) h u
+srev1 f u = srev f (tshapeFull stensorKind u) u
 
 sfwd1 :: forall g r sh sh2 r3.
          (ADReadyS g, GoodScalar r, GoodScalar r3, KnownShS sh, KnownShS sh2)
