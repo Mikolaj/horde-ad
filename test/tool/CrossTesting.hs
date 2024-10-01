@@ -558,11 +558,7 @@ rrev2 f u =
 rfwd1ds :: forall g r n m r3.
            (ADReady g, GoodScalar r, GoodScalar r3, KnownNat n, KnownNat m)
         => (forall f. ADReady f => f r n -> f r3 m) -> g r n -> g r n -> g r3 m
-rfwd1ds f u ds =
-  let sh = rshape u
-      ftk = FTKR sh
-      h = dfwd @g ftk (HFun @_ @(TKR r3 m) f)
-  in dHApply @_ @_ @(TKProduct (TKR r n) (TKR r n)) @(TKR r3 m) h (ttuple ds u)
+rfwd1ds f u ds = rfwd f (tshapeFull stensorKind u) u ds
 
 rfwd2ds :: forall g r n m r3.
            (ADReady g, GoodScalar r, GoodScalar r3, KnownNat n, KnownNat m)
@@ -573,8 +569,8 @@ rfwd2ds f u ds =
       sh = rshape u
       zero = voidFromSh @r @n sh
       shapes = V.fromList [zero]
-  in rfwd @g fHVector shapes (V.singleton $ DynamicRanked u)
-                             (V.singleton $ DynamicRanked ds)
+  in rfwd @g fHVector (FTKUntyped shapes) (V.singleton $ DynamicRanked u)
+                                            (V.singleton $ DynamicRanked ds)
 
 rfwd1 :: forall g r n m r3.
          (ADReady g, GoodScalar r, GoodScalar r3, KnownNat n, KnownNat m)
@@ -589,11 +585,7 @@ srev1 f u = srev f (tshapeFull stensorKind u) u
 sfwd1 :: forall g r sh sh2 r3.
          (ADReadyS g, GoodScalar r, GoodScalar r3, KnownShS sh, KnownShS sh2)
       => (forall f. ADReadyS f => f r sh -> f r3 sh2) -> g r sh -> g r3 sh2
-sfwd1 f u =
-  let ftk = FTKS
-      h = dfwd @(RankedOf g) ftk (HFun @_ @(TKS r3 sh2) f)
-  in dHApply @_ @_ @(TKProduct (TKS r sh) (TKS r sh)) @(TKS r3 sh2) h
-             (ttuple (srepl 1) u)
+sfwd1 f u = sfwd f (tshapeFull stensorKind u) u (srepl 1)
 
 treplicateR
   :: forall n r. (KnownNat n, KnownNat (1 + n), VS.Storable r)

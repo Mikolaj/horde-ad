@@ -211,26 +211,19 @@ class HVectorTensor ranked shaped
         g !x = dlet x $ \ !xDeep -> f xDeep
     in \ !es !dt -> dHApply (drevDt @ranked ftk $ HFun g)
                             (ttuple dt (unrepDeep es))
-  rfwd :: (GoodScalar r, KnownNat n, ProductTensor ranked, RankedTensor ranked)
-       => (forall f. ADReady f => HVector f -> f r n)
-       -> VoidHVector
-       -> HVector ranked
-       -> HVector ranked  -- ^ incoming tangent (ds)
+  rfwd :: forall x r n.
+          ( TensorKind x, GoodScalar r, KnownNat n
+          , ProductTensor ranked, shaped ~ ShapedOf ranked )
+       => (forall f. ADReady f => RepDeep f x -> f r n)
+       -> TensorKindFull x
+       -> RepDeep ranked x
+       -> RepDeep ranked x  -- ^ incoming tangent (ds)
        -> ranked r n
-  rfwd f shs =
-    let g :: forall f. ADReady f => HVectorOf f -> HVectorOf f
-        g !xOf = dletHVectorInHVector xOf $ \ !x ->
-          dmkHVector $ V.singleton $ DynamicRanked $ f x
-        h = dfwd @ranked (FTKUntyped shs)
-              (HFun @_ @TKUntyped
-               $ HVectorPseudoTensor . g . unHVectorPseudoTensor)
-    in \ !es !ds ->
-         let hv = unHVectorPseudoTensor
-                  $ dHApply
-                      @_ @_ @(TKProduct TKUntyped TKUntyped) @TKUntyped h
-                      $ ttuple (HVectorPseudoTensor $ dmkHVector ds)
-                               (HVectorPseudoTensor $ dmkHVector es)
-         in rfromD $ dunHVector hv V.! 0
+  rfwd f ftk =
+    let g :: forall f. ADReady f => Rep f x -> Rep f (TKR r n)
+        g !x = dlet x $ \ !xDeep -> f xDeep
+    in \ !es !ds -> dHApply (dfwd @ranked ftk $ HFun g)
+                            (ttuple (unrepDeep ds) (unrepDeep es))
   srev :: ( TensorKind x, GoodScalar r, KnownShS sh, ProductTensor ranked
           , ShapedTensor shaped, shaped ~ ShapedOf ranked )
        => (forall f. ADReadyS f => RepDeep (RankedOf f) x -> f r sh)
@@ -251,28 +244,19 @@ class HVectorTensor ranked shaped
         g !x = dlet x $ \ !xDeep -> f xDeep
     in \ !es !dt -> dHApply (drevDt @ranked ftk $ HFun g)
                             (ttuple dt (unrepDeep es))
-  sfwd :: ( GoodScalar r, KnownShS sh, RankedTensor ranked, ShapedTensor shaped
-          , ProductTensor ranked
-          , shaped ~ ShapedOf ranked , ranked ~ RankedOf shaped )
-       => (forall f. ADReadyS f => HVector (RankedOf f) -> f r sh)
-       -> VoidHVector
-       -> HVector ranked
-       -> HVector ranked
+  sfwd :: forall x r sh.
+          ( TensorKind x, GoodScalar r, KnownShS sh
+          , ProductTensor ranked, shaped ~ ShapedOf ranked )
+       => (forall f. ADReadyS f => RepDeep (RankedOf f) x -> f r sh)
+       -> TensorKindFull x
+       -> RepDeep ranked x
+       -> RepDeep ranked x  -- ^ incoming tangent (ds)
        -> shaped r sh
-  sfwd f shs =
-    let g :: forall f. ADReady f => HVectorOf f -> HVectorOf f
-        g !xOf = dletHVectorInHVector xOf $ \ !x ->
-          dmkHVector $ V.singleton $ DynamicShaped $ f x
-        h = dfwd @ranked (FTKUntyped shs)
-              (HFun @_ @TKUntyped
-               $ HVectorPseudoTensor . g . unHVectorPseudoTensor)
-    in \ !es !ds ->
-         let hv = unHVectorPseudoTensor
-                  $ dHApply
-                      @_ @_ @(TKProduct TKUntyped TKUntyped) @TKUntyped h
-                      $ ttuple (HVectorPseudoTensor $ dmkHVector ds)
-                               (HVectorPseudoTensor $ dmkHVector es)
-         in sfromD $ dunHVector hv V.! 0
+  sfwd f ftk =
+    let g :: forall f. ADReady f => Rep f x -> Rep f (TKS r sh)
+        g !x = dlet x $ \ !xDeep -> f xDeep
+    in \ !es !ds -> dHApply (dfwd @ranked ftk $ HFun g)
+                            (ttuple (unrepDeep ds) (unrepDeep es))
 
 class ShareTensor (ranked :: RankedTensorType) where
   tshare :: forall y. (TensorKind y, ProductTensor ranked)
