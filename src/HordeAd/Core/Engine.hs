@@ -27,6 +27,7 @@ import HordeAd.Core.Adaptor
 import HordeAd.Core.Ast
 import HordeAd.Core.AstEnv
 import HordeAd.Core.AstInterpret
+import HordeAd.Core.AstTools
 import HordeAd.Core.Delta
 import HordeAd.Core.DualNumber
 import HordeAd.Core.HVector
@@ -181,12 +182,12 @@ revEvalArtifact
   -> (Rep ORArray x, Rep ORArray z)
 {-# INLINE revEvalArtifact #-}
 revEvalArtifact AstArtifactRev{..} parameters mdt =
-  let oneAtF = repConstant 1 $ tshapeFull (stensorKind @z) artPrimalRev
+  let oneAtF = repConstant 1 $ shapeAstFull artPrimalRev
       dt = fromMaybe oneAtF mdt
       env = extendEnv artVarDomainRev parameters emptyEnv
       envDt = extendEnv artVarDtRev dt env
-      gradient = interpretAst envDt $ unRankedY (stensorKind @x) artDerivativeRev
-      primal = interpretAst env $ unRankedY (stensorKind @z) artPrimalRev
+      gradient = interpretAst envDt artDerivativeRev
+      primal = interpretAst env artPrimalRev
   in (gradient, primal)
 
 
@@ -223,7 +224,7 @@ fwd f vals ds =
   in fst $ fwdEvalArtifact @_ @z artifact valsH dsH
 
 fwdEvalArtifact
-  :: forall x z. (TensorKind x, TensorKind z)
+  :: forall x z. TensorKind x
   => AstArtifactFwd x z
   -> Rep ORArray x
   -> Rep ORArray x
@@ -233,8 +234,8 @@ fwdEvalArtifact AstArtifactFwd{..} parameters ds =
   if tshapeFull (stensorKind @x) parameters == tshapeFull (stensorKind @x) ds then
     let env = extendEnv artVarDomainFwd parameters emptyEnv
         envD = extendEnv artVarDsFwd ds env
-        derivative = interpretAst envD $ unRankedY (stensorKind @z) artDerivativeFwd
-        primal = interpretAst env $ unRankedY (stensorKind @z) artPrimalFwd
+        derivative = interpretAst envD artDerivativeFwd
+        primal = interpretAst env artPrimalFwd
     in (derivative, primal)
  else error "fwdEvalArtifact: forward derivative input and sensitivity arguments should have same shapes"
 

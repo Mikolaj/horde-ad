@@ -96,8 +96,8 @@ revArtifactFromForwardPass hasDt forwardPass ftk =
         funToAst (shapeAstFull $ unRawY (stensorKind @z) primalBody) id in
   let mdt = if hasDt then Just $ rawY (stensorKind @z) astDt else Nothing
       !gradient = gradientFromDelta ftk primalBody mdt delta
-      !unGradient = gunshare (stensorKind @x) gradient
-      !unPrimal = gunshare (stensorKind @z) primalBody
+      !unGradient = unshareAstTensor $ unRawY (stensorKind @x) $ gradient
+      !unPrimal = unshareAstTensor $ unRawY (stensorKind @z) primalBody
   in ( AstArtifactRev varDt varPrimal unGradient unPrimal
      , delta )
 
@@ -112,14 +112,6 @@ revProduceArtifact
 {-# INLINE revProduceArtifact #-}
 revProduceArtifact hasDt g envInit =
   revArtifactFromForwardPass hasDt (forwardPassByInterpretation g envInit)
-
-gunshare
-  :: forall y.
-     STensorKindType y
-  -> Rep (AstRaw PrimalSpan) y
-  -> Rep (AstRanked PrimalSpan) y
-gunshare stk b | Dict <- lemTensorKindOfS stk =
-  rankedY stk $ unshareAstTensor $ unRawY stk b
 
 fwdArtifactFromForwardPass
   :: forall x z. (TensorKind x, TensorKind z)
@@ -138,8 +130,8 @@ fwdArtifactFromForwardPass forwardPass ftk =
         $ forwardPass (rawY (stensorKind @x) hVectorPrimal) var
                       (rankedY (stensorKind @x) hVector) in
   let !derivative = derivativeFromDelta delta (rawY (stensorKind @x) hVectorD)
-      !unDerivative = gunshare (stensorKind @z) derivative
-      !unPrimal = gunshare (stensorKind @z) primalBody
+      !unDerivative = unshareAstTensor $ unRawY (stensorKind @z) derivative
+      !unPrimal = unshareAstTensor $ unRawY (stensorKind @z) primalBody
   in ( AstArtifactFwd varPrimalD varPrimal unDerivative unPrimal
      , delta )
 
@@ -489,7 +481,7 @@ instance AstSpan s => LetTensor (AstRanked s) (AstShaped s) where
            -> Rep (AstRanked s) y
   tunshare =
     case sameAstSpan @s @PrimalSpan of
-      Just Refl -> gunshare (stensorKind @y)
+      Just Refl -> rankedY stensorKind . unshareAstTensor . unRawY stensorKind
       _ -> error "tunshare: used not at PrimalSpan"
   tconstant stk t = case stk of
     STKR{} -> rconstant t
@@ -659,7 +651,8 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
         (AstArtifactRev _varDt var gradient _primal, _delta) =
           revProduceArtifact False (unHFun f) emptyEnv ftkx
         (varP, ast) = funToAst ftkx $ \ !astP ->
-          astLet var astP $ simplifyInline $ unRankedY (stensorKind @x) gradient
+          astLet var astP
+          $ simplifyInline gradient
     in AstLambda (varP, ftkx, ast)
   drevDt :: forall x z. (TensorKind x, TensorKind z)
          => TensorKindFull x
@@ -670,12 +663,12 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     -- for each new tensor of arguments, which is better than computing it anew.
     let (AstArtifactRev varDt var gradient primal, _delta) =
           revProduceArtifact True (unHFun f) emptyEnv ftkx
-        ftkz = shapeAstFull $ unRankedY (stensorKind @z) primal
+        ftkz = shapeAstFull primal
         ftk2 = FTKProduct ftkz ftkx
         (varP, ast) = funToAst ftk2 $ \ !astP ->
           astLet varDt (astProject1 astP)
-            $ astLet var (astProject2 astP)
-              $ simplifyInline $ unRankedY (stensorKind @x) gradient
+          $ astLet var (astProject2 astP)
+          $ simplifyInline gradient
     in AstLambda (varP, ftk2, ast)
   dfwd :: forall x z. (TensorKind x, TensorKind z)
        => TensorKindFull x
@@ -689,8 +682,8 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
         ftk2 = FTKProduct ftkx ftkx
         (varP, ast) = funToAst ftk2 $ \ !astP ->
           astLet varDs (astProject1 astP)
-            $ astLet var (astProject2 astP)
-              $ simplifyInline $ unRankedY (stensorKind @z) derivative
+          $ astLet var (astProject2 astP)
+          $ simplifyInline derivative
     in AstLambda (varP, ftk2, ast)
   dmapAccumRDer
     :: forall accShs bShs eShs k.
@@ -1879,16 +1872,15 @@ prettifyArtifactRev
   => AstArtifactRev x z
   -> ( AstVarName PrimalSpan z
      , [AstDynamicVarName]
-     , Rep (AstRanked PrimalSpan) x
-     , Rep (AstRanked PrimalSpan) z )
+     , AstTensor AstMethodLet PrimalSpan x
+     , AstTensor AstMethodLet PrimalSpan z )
 prettifyArtifactRev AstArtifactRev{..} = case stensorKind @x of
  STKUntyped ->
-  fun1DToAst (shapeAstHVector
-              $ unHVectorPseudoTensor artDerivativeRev) $ \ !vars1 !asts1 ->
+  fun1DToAst (shapeAstHVector artDerivativeRev) $ \ !vars1 !asts1 ->
     let idom = SubstitutionPayload $ AstMkHVector asts1
-        !derivative = substituteAstInRep
+        !derivative = substituteAst
                         idom artVarDomainRev artDerivativeRev in
-    let !primal = substituteAstInRep
+    let !primal = substituteAst
                     idom artVarDomainRev artPrimalRev
     in (artVarDtRev, vars1, derivative, primal)
  stk ->
@@ -1913,7 +1905,7 @@ printArtifactSimple renames art =
   let !varsPP = printAstVarName renames varDt
                 : map (printAstDynamicVarNameBrief renames) vars1
   in "\\" ++ unwords varsPP
-          ++ " -> " ++ printAstSimpleY renames (unRankedY stensorKind derivative)
+          ++ " -> " ++ printAstSimpleY renames derivative
 
 printArtifactPretty
   :: (TensorKind x, TensorKind z)
@@ -1925,7 +1917,7 @@ printArtifactPretty renames art =
   let varsPP = printAstVarName renames varDt
                : map (printAstDynamicVarNameBrief renames) vars1
   in "\\" ++ unwords varsPP
-          ++ " -> " ++ printAstPrettyY renames (unRankedY stensorKind derivative)
+          ++ " -> " ++ printAstPrettyY renames derivative
 
 printArtifactPrimalSimple
   :: forall x z. (TensorKind x, TensorKind z)
@@ -1936,7 +1928,7 @@ printArtifactPrimalSimple renames art =
   let !(_, !vars1, _, !primal) = prettifyArtifactRev art in
   let !varsPP = map (printAstDynamicVarNameBrief renames) vars1
   in "\\" ++ unwords varsPP
-          ++ " -> " ++ printAstSimpleY renames (unRankedY (stensorKind @z) primal)
+          ++ " -> " ++ printAstSimpleY renames primal
 
 printArtifactPrimalPretty
   :: forall x z. (TensorKind x, TensorKind z)
@@ -1947,4 +1939,4 @@ printArtifactPrimalPretty renames art =
   let !(_, !vars1, _, !primal) = prettifyArtifactRev art in
   let !varsPP = map (printAstDynamicVarNameBrief renames) vars1
   in "\\" ++ unwords varsPP
-          ++ " -> " ++ printAstPrettyY renames (unRankedY (stensorKind @z) primal)
+          ++ " -> " ++ printAstPrettyY renames primal
