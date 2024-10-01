@@ -61,6 +61,7 @@ type family Rep (ranked :: RankedTensorType) (y :: TensorKindType)
 type instance Rep ranked (TKR r n) = ranked r n
 type instance Rep ranked (TKS r sh) = ShapedOf ranked r sh
 -- The TKProduct case is defined separately for each ranked argument.
+type instance Rep ranked TKUnit = RepN ranked TKUnit
 type instance Rep ranked TKUntyped =
   HVectorPseudoTensor ranked Float '()
     -- HVectorPseudoTensor instead of HVectorOf required for injectivity
@@ -81,6 +82,7 @@ instance ( CRanked ranked Show, CShaped (ShapedOf ranked) Show
     STKR{} -> showsPrec d t
     STKS{} -> showsPrec d t
     STKProduct{} -> showsPrec d (RepProductN t)
+    STKUnit -> showsPrec d t
     STKUntyped -> showsPrec d t
 
 type role RepProductN nominal nominal nominal
@@ -93,6 +95,7 @@ type family RepShallow ranked y = result | result -> ranked y where
   RepShallow ranked (TKS r sh) = ShapedOf ranked r sh
   RepShallow ranked (TKProduct x z) =
     (Rep ranked x, Rep ranked z)
+  RepShallow ranked TKUnit = RepN ranked TKUnit
   RepShallow ranked TKUntyped = HVector ranked
 
 -- This is concrete throughout.
@@ -101,6 +104,7 @@ type family RepDeep ranked y = result | result -> ranked y where
   RepDeep ranked (TKS r sh) = ShapedOf ranked r sh
   RepDeep ranked (TKProduct x z) =
     (RepDeep ranked x, RepDeep ranked z)
+  RepDeep ranked TKUnit = RepN ranked TKUnit
   RepDeep ranked TKUntyped = HVector ranked
 
 -- A datatype matching RepDeep.
@@ -115,6 +119,7 @@ data RepD ranked y where
   DTKProduct :: forall x z ranked. (TensorKind x, TensorKind z)
              => RepD ranked x -> RepD ranked z
              -> RepD ranked (TKProduct x z)
+  DTKUnit :: RepD ranked TKUnit
   DTKUntyped :: HVector ranked
              -> RepD ranked TKUntyped
 
@@ -126,6 +131,7 @@ data TensorKindFull y where
   FTKProduct :: (TensorKind y, TensorKind z)
              => TensorKindFull y -> TensorKindFull z
              -> TensorKindFull (TKProduct y z)
+  FTKUnit :: TensorKindFull TKUnit
   FTKUntyped :: VoidHVector -> TensorKindFull TKUntyped
 
 deriving instance Show (TensorKindFull y)
@@ -137,6 +143,7 @@ nullRepDeep t = case stensorKind @y of
   STKR{} -> False
   STKS{} -> False
   STKProduct{} -> False
+  STKUnit -> True
   STKUntyped -> null t
 
 lemTensorKindOfF :: TensorKindFull y -> Dict TensorKind y
@@ -145,6 +152,7 @@ lemTensorKindOfF = \case
   FTKS -> Dict
   FTKProduct stk1 stk2 | Dict <- lemTensorKindOfF stk1
                        , Dict <- lemTensorKindOfF stk2 -> Dict
+  FTKUnit -> Dict
   FTKUntyped{} -> Dict
 
 buildTensorKindFull :: SNat k -> TensorKindFull y
@@ -157,6 +165,7 @@ buildTensorKindFull snat@SNat = \case
     , Dict <- lemTensorKindOfBuild snat (stensorKind @z2) ->
       FTKProduct (buildTensorKindFull snat ftk1)
                  (buildTensorKindFull snat ftk2)
+  FTKUnit -> FTKUnit
   FTKUntyped shs -> FTKUntyped $ replicate1VoidHVector snat shs
 
 -- For thousands of tensor parameters, orthotope's dynamic tensors

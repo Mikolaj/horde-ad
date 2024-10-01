@@ -50,6 +50,7 @@ toRepDShare stk t = case stk of
   STKProduct stk1 stk2 ->
     let (t1, t2) = tunpair t
     in DTKProduct (toRepDShare stk1 t1) (toRepDShare stk2 t2)
+  STKUnit -> DTKUnit
   STKUntyped{} -> DTKUntyped $ tunvector t
 
 -- The argument of the first call (but not of recursive calls)
@@ -67,6 +68,7 @@ toRepDUnshared stk t = case stk of
   STKProduct stk1 stk2 ->
     DTKProduct (toRepDUnshared stk1 (tproject1 t))
                 (toRepDUnshared stk2 (tproject2 t))
+  STKUnit -> DTKUnit
   STKUntyped{} ->
     DTKUntyped $ dunHVector $ unHVectorPseudoTensor t
 
@@ -76,6 +78,7 @@ fromRepD = \case
   DTKR t -> t
   DTKS t -> t
   DTKProduct t1 t2 -> tpair (fromRepD t1) (fromRepD t2)
+  DTKUnit -> RepN undefined
   DTKUntyped t -> HVectorPseudoTensor $ dmkHVector t
 
 addRepD ::
@@ -88,6 +91,7 @@ addRepD a b = case (a, b) of
   (DTKS ta, DTKS tb) -> DTKS $ ta + tb
   (DTKProduct ta1 ta2, DTKProduct tb1 tb2) ->
     DTKProduct (addRepD ta1 tb1) (addRepD ta2 tb2)
+  (DTKUnit, DTKUnit) -> DTKUnit
   (DTKUntyped hv1, DTKUntyped hv2) ->
     DTKUntyped $ V.zipWith addDynamic hv1 hv2
 
@@ -684,6 +688,7 @@ repConstant r = \case
   FTKS -> srepl r
   FTKProduct ftk1 ftk2 -> tpair (repConstant r ftk1)
                                  (repConstant r ftk2)
+  FTKUnit -> tunit
   FTKUntyped ssh ->  -- TODO: if r is 0, this would be cheaper with Dummy
     HVectorPseudoTensor $ dmkHVector
     $ mapHVectorShaped (const $ srepl @_ @_ @(ShapedOf ranked) r)

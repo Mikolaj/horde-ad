@@ -250,6 +250,7 @@ interpretAst !env = \case
               | Dict <- lemTensorKindOfBuild snat (stensorKind @z1)
               , Dict <- lemTensorKindOfBuild snat (stensorKind @z2) ->
                 tpair (emptyFromStk ftk1) (emptyFromStk ftk2)
+            FTKUnit -> tunit
             FTKUntyped ssh -> HVectorPseudoTensor
                               $ mkreplicate1HVector (SNat @0)
                               $ V.map dynamicFromVoid ssh
@@ -280,6 +281,7 @@ interpretAst !env = \case
                     -- TODO: looks expensive, but hard to do better,
                     -- so let's hope g is full of variables
               in tpair (replStk stk1 f1) (replStk stk2 f2)
+          STKUnit -> tunit
           STKUntyped ->
             HVectorPseudoTensor $ dbuild1 snat (unHVectorPseudoTensor . g)
     in replStk (stensorKind @y2) f
@@ -297,6 +299,9 @@ interpretAst !env = \case
       let t = interpretAst env u
           env2 w = extendEnv var w env
       in blet t (\w -> interpretAst (env2 w) v)
+    STKUnit ->
+      let env2 w = extendEnv var w env
+      in interpretAst (env2 tunit) v
     STKUntyped{} ->
       let t = interpretAst env u
           env2 w = extendEnv var w env
@@ -548,7 +553,8 @@ interpretAst !env = \case
                                     , shapeVoidHVector (dshape lt) )) $
                     extendEnvHVector vars lw env
       in sletHVectorIn lt (\lw -> interpretAst (env2 lw) v)
-    STKProduct{} -> error "interpretAst: STKProduct"
+    STKProduct{} -> error "TODO"
+    STKUnit -> error "TODO"
     STKUntyped ->
       let lt = unHVectorPseudoTensor $ interpretAst env l
           env2 lw = assert (voidHVectorMatches (voidFromVars vars) lw
@@ -569,7 +575,8 @@ interpretAst !env = \case
       let g = interpretAstHFun env f
           env2 h = extendEnvHFun (Proxy @x2) (Proxy @z2) var h env
       in sletHFunIn @_ @_ @_ @_ @x2 @z2 g (\h -> interpretAst (env2 h) v)
-    STKProduct{} -> error "interpretAst: STKProduct"
+    STKProduct{} -> error "TODO"
+    STKUnit -> error "TODO"
     STKUntyped ->
       let g = interpretAstHFun env f
           env2 h = extendEnvHFun (Proxy @x2) (Proxy @z2) var h env

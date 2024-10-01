@@ -144,6 +144,7 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
           let (t1, rest1) = rebuildInputs els ftk1
               (t2, rest2) = rebuildInputs rest1 ftk2
           in (tpair t1 t2, rest2)
+        FTKUnit -> (tunit, els)
         FTKUntyped shs ->
           let toDynamicTensor :: Some (RepM ranked)
                               -> DynamicTensor ranked
@@ -197,6 +198,7 @@ derivativeFromDelta deltaTopLevel ds =
               (ds1, j1) = generateDSums j ftk1 t1
               (ds2, j2) = generateDSums j1 ftk2 t2
           in (ds1 ++ ds2, j2)
+        FTKUnit -> ([], j)
         FTKUntyped{} ->
           let ts = tunvector t
               len = V.length ts
@@ -237,6 +239,7 @@ repToM stk t = case stk of
   STKR{} -> MTKR t
   STKS{} -> MTKS t
   STKProduct{} -> error "repToM"
+  STKUnit -> error "repToM"
   STKUntyped{} -> error "repToM"
 
 addRepM ::
@@ -663,6 +666,7 @@ deltaRY stk t = case stk of
   STKR{} -> DeltaR t
   STKS{} -> DeltaS t
   STKProduct{} -> t
+  STKUnit -> tunit
   STKUntyped -> HVectorPseudoTensor t
 
 unDeltaRY :: forall y ranked. RankedOf (ShapedOf ranked) ~ ranked
@@ -672,6 +676,7 @@ unDeltaRY stk t = case stk of
   STKR{} -> unDeltaR t
   STKS{} -> unDeltaS t
   STKProduct{} -> t
+  STKUnit -> undefined
   STKUntyped -> unHVectorPseudoTensor t
 
 shapeDeltaFull :: forall ranked y.
@@ -907,6 +912,7 @@ initEvalState ftk0 =
           let (ds1, j1) = generateDSums j ftk1
               (ds2, j2) = generateDSums j1 ftk2
           in (ds1 ++ ds2, j2)
+        FTKUnit -> ([], j)
         FTKUntyped shs ->
           let len = V.length shs
           in ( zipWith fromDynamicTensor [j ..]
@@ -1242,6 +1248,7 @@ evalFromnMap s@EvalState{nMap, dMap} =
             STKProduct{} -> case DMap.lookup n dMap of
               Just (RepN c) -> evalR s2 c d
               Nothing -> errorMissing
+            STKUnit -> error "evalFromnMap: unit input is impossible"
             STKUntyped -> case DMap.lookup n dMap of
               Just (RepN c) -> evalR s2 c d
               Nothing -> errorMissing

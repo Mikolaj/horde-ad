@@ -148,6 +148,7 @@ type data TensorKindType =
     TKR Type Nat
   | TKS Type [Nat]
   | TKProduct TensorKindType TensorKindType
+  | TKUnit
   | TKUntyped
 
 type role STensorKindType nominal
@@ -159,6 +160,7 @@ data STensorKindType y where
   STKProduct :: (TensorKind y, TensorKind z)
              => STensorKindType y -> STensorKindType z
              -> STensorKindType (TKProduct y z)
+  STKUnit :: STensorKindType TKUnit
   STKUntyped :: STensorKindType TKUntyped
 
 deriving instance Show (STensorKindType y)
@@ -175,6 +177,9 @@ instance (GoodScalar r, KnownShS sh) => TensorKind (TKS r sh) where
 instance (TensorKind y, TensorKind z) => TensorKind (TKProduct y z) where
   stensorKind = STKProduct (stensorKind @y) (stensorKind @z)
 
+instance TensorKind TKUnit where
+  stensorKind = STKUnit
+
 instance TensorKind TKUntyped where
   stensorKind = STKUntyped
 
@@ -184,6 +189,7 @@ lemTensorKindOfS = \case
   STKS{} -> Dict
   STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
                        , Dict <- lemTensorKindOfS stk2 -> Dict
+  STKUnit -> Dict
   STKUntyped -> Dict
 
 sameTensorKind :: forall y1 y2. (TensorKind y1, TensorKind y2) => Maybe (y1 :~: y2)
@@ -202,14 +208,16 @@ sameTensorKind = sameTK (stensorKind @y1) (stensorKind @y2)
     (STKProduct x1 z1, STKProduct x2 z2) -> case (sameTK x1 x2, sameTK z1 z2) of
       (Just Refl, Just Refl) -> Just Refl
       _ -> Nothing
+    (STKUnit, STKUnit) -> Just Refl
     (STKUntyped, STKUntyped) -> Just Refl
     _ -> Nothing
 
-type family BuildTensorKind k tks where
+type family BuildTensorKind k tk where
   BuildTensorKind k (TKR r n) = TKR r (1 + n)
   BuildTensorKind k (TKS r sh) = TKS r (k : sh)
   BuildTensorKind k (TKProduct y z) =
     TKProduct (BuildTensorKind k y) (BuildTensorKind k z)
+  BuildTensorKind k TKUnit = TKUnit
   BuildTensorKind k TKUntyped = TKUntyped
 
 lemTensorKindOfBuild :: SNat k -> STensorKindType y
@@ -219,6 +227,7 @@ lemTensorKindOfBuild snat@SNat = \case
   STKS{} -> Dict
   STKProduct stk1 stk2 | Dict <- lemTensorKindOfBuild snat stk1
                        , Dict <- lemTensorKindOfBuild snat stk2 -> Dict
+  STKUnit -> Dict
   STKUntyped -> Dict
 
 

@@ -55,6 +55,7 @@ simplifyInlineRep = case stensorKind @z of
   STKR{} -> AstRanked . simplifyInline . unAstRanked
   STKS{} -> AstShaped . simplifyInline . unAstShaped
   STKProduct{} -> simplifyInline
+  STKUnit -> id
   STKUntyped -> HVectorPseudoTensor . simplifyInline . unHVectorPseudoTensor
 
 simplifyInlineAst
@@ -457,6 +458,7 @@ shareAst memo = \case
       in (memo1, Ast.AstBuild1 snat (var, v2))
     STKS{} -> error "WIP"
     STKProduct{} -> error "WIP"
+    STKUnit -> error "WIP"
     STKUntyped -> error "WIP"
   Ast.AstShare var v | Just Refl <- sameAstSpan @s @PrimalSpan ->
     -- We assume v is the same if var is the same.

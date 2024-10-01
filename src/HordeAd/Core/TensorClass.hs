@@ -156,6 +156,7 @@ class HVectorTensor ranked shaped
       , Dict <- lemTensorKindOfBuild snat (stensorKind @z2) ->
         tlet u $ \ (!u1, !u2) ->
           tpair (treplicate snat stk1 u1) (treplicate snat  stk2 u2)
+    STKUnit -> u
     STKUntyped ->
       tlet u $ \ !hv ->
         HVectorPseudoTensor $ dmkHVector
@@ -1181,6 +1182,8 @@ class ProductTensor (ranked :: RankedTensorType) where
   tproject2 :: (TensorKind x, TensorKind z)
             => Rep ranked (TKProduct x z)
             -> Rep ranked z
+  tunit :: Rep ranked TKUnit
+  tunit = RepN undefined
   tmkHVector :: HVector ranked -> HVectorOf ranked
 
 rfromD :: forall r n ranked.
@@ -1282,6 +1285,7 @@ unrepShallow t = case stensorKind @y of
   STKR{} -> t
   STKS{} -> t
   STKProduct{} -> uncurry tpair t
+  STKUnit -> t
   STKUntyped -> HVectorPseudoTensor $ dmkHVector t
 
 unrepDeep :: forall ranked y.
@@ -1293,6 +1297,7 @@ unrepDeep t = case stensorKind @y of
   STKR{} -> t
   STKS{} -> t
   STKProduct{} -> tpair (unrepDeep (fst t)) (unrepDeep (snd t))
+  STKUnit -> t
   STKUntyped -> HVectorPseudoTensor $ dmkHVector t
 
 -- The argument of the first call (but not of recursive calls)
@@ -1310,6 +1315,7 @@ repDeepUnshared stk t = case stk of
   STKS{} -> t
   STKProduct stk1 stk2 ->
     (repDeepUnshared stk1 (tproject1 t), repDeepUnshared stk2 (tproject2 t))
+  STKUnit -> t
   STKUntyped -> dunHVector $ unHVectorPseudoTensor t
 
 mapDynamic
@@ -1413,6 +1419,7 @@ mapRep fr fs stk b = case stk of
     in tpair t1 t2
       -- this shares properly only when the product instance for f is (,)
       -- and tlet wouldn't work because f and g differ
+  STKUnit -> tunit
   STKUntyped ->
     -- Here @dletHVectorInHVector@ or @tlet@ wouldn't work
     -- because f and g differ.
@@ -1478,6 +1485,7 @@ mapRep2Weak fr fs stk b1 b2 = case stk of
         !t2 = mapRep2Weak fr fs stk2 (tproject2 b1) (tproject2 b2)
     in tpair t1 t2
       -- this shares properly only when the product instance for f1 and f2 is (,)
+  STKUnit -> tunit
   STKUntyped -> error "TODO: mapRep2Weak is weak"
 
 -- These are user-accessible, so the constraint is `ADReady`, which means

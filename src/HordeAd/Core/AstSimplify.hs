@@ -2287,6 +2287,7 @@ astLetHVectorIn vars l v = case v of
         STKR{} -> astProjectR l i
         STKS{} -> astProjectS l i
         STKProduct{} -> error "astLetHVectorIn: STKProduct"
+        STKUnit -> error "astLetHVectorIn: STKUnit"
         STKUntyped -> error "astLetHVectorIn: STKUntyped"
       _ -> v
   Ast.AstPrimalPart (Ast.AstVar _ var2) ->
@@ -2296,6 +2297,7 @@ astLetHVectorIn vars l v = case v of
         STKR{} -> astPrimalPart $ astProjectR l i
         STKS{} -> astPrimalPart $ astProjectS l i
         STKProduct{} -> error "astLetHVectorIn: STKProduct"
+        STKUnit -> error "astLetHVectorIn: STKUnit"
         STKUntyped -> error "astLetHVectorIn: STKUntyped"
       _ -> v
   Ast.AstDualPart (Ast.AstVar _ var2) ->
@@ -2305,6 +2307,7 @@ astLetHVectorIn vars l v = case v of
         STKR{} -> astDualPart $ astProjectR l i
         STKS{} -> astDualPart $ astProjectS l i
         STKProduct{} -> error "astLetHVectorIn: STKProduct"
+        STKUnit -> error "astLetHVectorIn: STKUnit"
         STKUntyped -> error "astLetHVectorIn: STKUntyped"
       _ -> v
   _ -> case l of
@@ -3368,5 +3371,6 @@ substituteAstInRep i var = case stensorKind @y of
   STKR{} -> AstRanked . substituteAst i var . unAstRanked
   STKS{} -> AstShaped . substituteAst i var . unAstShaped
   STKProduct{} -> substituteAst i var
+  STKUnit -> const $ RepN undefined
   STKUntyped ->
     HVectorPseudoTensor . substituteAstHVector i var . unHVectorPseudoTensor
