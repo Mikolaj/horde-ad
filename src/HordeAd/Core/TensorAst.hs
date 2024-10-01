@@ -353,7 +353,7 @@ instance TermValue (DynamicTensor (AstGeneric AstMethodLet FullSpan)) where
     DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
 
 instance AstSpan s => ProductTensor (AstRanked s) where
-  ttuple t1 t2 = astTuple (unRankedY stensorKind t1)
+  tpair t1 t2 = astPair (unRankedY stensorKind t1)
                           (unRankedY stensorKind t2)
   tproject1 = rankedY stensorKind . astProject1
   tproject2 = rankedY stensorKind . astProject2
@@ -822,7 +822,7 @@ instance Show (RepProductN (AstRaw s) x y) where
   showsPrec d (RepProductN t) = showsPrec d t
 
 instance ProductTensor (AstRaw s) where
-  ttuple t1 t2 = AstRawWrap $ AstTuple (unRawY stensorKind t1)
+  tpair t1 t2 = AstRawWrap $ AstPair (unRawY stensorKind t1)
                                        (unRawY stensorKind t2)
   tproject1 t = rawY stensorKind $ AstProject1 $ unAstRawWrap t
   tproject2 t = rawY stensorKind $ AstProject2 $ unAstRawWrap t
@@ -885,7 +885,7 @@ instance AstSpan s => ShareTensor (AstRaw s) where
       AstRawWrap (AstDualPart(AstVar{})) -> t
       _ -> HVectorPseudoTensor $ AstRawWrap $ fun1ToAst $ \ !var ->
              AstShare var $ unAstRawWrap $ unHVectorPseudoTensor t
-  tunpair (AstRawWrap (AstTuple t1 t2)) =
+  tunpair (AstRawWrap (AstPair t1 t2)) =
      (rawY stensorKind t1, rawY stensorKind t2)
   tunpair t = let tShared = tshare t
               in (tproject1 tShared, tproject2 tShared)
@@ -1144,7 +1144,7 @@ instance Show (RepProductN (AstNoVectorize s) x y) where
   showsPrec d (RepProductN t) = showsPrec d t
 
 instance AstSpan s => ProductTensor (AstNoVectorize s) where
-  ttuple t1 t2 = AstNoVectorizeWrap $ astTuple (unNoVectorizeY stensorKind t1)
+  tpair t1 t2 = AstNoVectorizeWrap $ astPair (unNoVectorizeY stensorKind t1)
                                                (unNoVectorizeY stensorKind t2)
   tproject1 t = noVectorizeY stensorKind $ astProject1 $ unAstNoVectorizeWrap t
   tproject2 t = noVectorizeY stensorKind $ astProject2 $ unAstNoVectorizeWrap t
@@ -1500,7 +1500,7 @@ instance Show (RepProductN (AstNoSimplify s) x y) where
   showsPrec d (RepProductN t) = showsPrec d t
 
 instance AstSpan s => ProductTensor (AstNoSimplify s) where
-  ttuple t1 t2 = AstNoSimplifyWrap $ astTuple (unNoSimplifyY stensorKind t1)
+  tpair t1 t2 = AstNoSimplifyWrap $ astPair (unNoSimplifyY stensorKind t1)
                                               (unNoSimplifyY stensorKind t2)
   tproject1 t = noSimplifyY stensorKind $ astProject1 $ unAstNoSimplifyWrap t
   tproject2 t = noSimplifyY stensorKind $ astProject2 $ unAstNoSimplifyWrap t

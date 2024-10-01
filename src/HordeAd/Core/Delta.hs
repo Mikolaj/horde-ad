@@ -143,7 +143,7 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
         FTKProduct ftk1 ftk2 ->
           let (t1, rest1) = rebuildInputs els ftk1
               (t2, rest2) = rebuildInputs rest1 ftk2
-          in (ttuple t1 t2, rest2)
+          in (tpair t1 t2, rest2)
         FTKUntyped shs ->
           let toDynamicTensor :: Some (RepM ranked)
                               -> DynamicTensor ranked
@@ -390,7 +390,7 @@ instance ( ranked ~ RankedOf shaped, RankedOf (ShapedOf ranked) ~ ranked
 
 type role Delta nominal nominal
 data Delta :: RankedTensorType -> TensorKindType -> Type where
-  TupleG :: (TensorKind y, TensorKind z)
+  PairG :: (TensorKind y, TensorKind z)
          => Delta ranked y -> Delta ranked z
          -> Delta ranked (TKProduct y z)
   Project1G :: forall x z ranked. TensorKind z
@@ -650,7 +650,7 @@ type instance Rep (DeltaR ranked) (TKProduct x z) =
 
 instance RankedOf (ShapedOf ranked) ~ ranked
          => ProductTensor (DeltaR ranked) where
-  ttuple t1 t2 = TupleG (unDeltaRY stensorKind t1)
+  tpair t1 t2 = PairG (unDeltaRY stensorKind t1)
                         (unDeltaRY stensorKind t2)
   tproject1 = deltaRY stensorKind . Project1G
   tproject2 = deltaRY stensorKind . Project2G
@@ -678,7 +678,7 @@ shapeDeltaFull :: forall ranked y.
                   (TensorKind y, RankedOf (ShapedOf ranked) ~ ranked)
                => Delta ranked y -> TensorKindFull y
 shapeDeltaFull = \case
-  TupleG t1 t2 -> FTKProduct (shapeDeltaFull t1) (shapeDeltaFull t2)
+  PairG t1 t2 -> FTKProduct (shapeDeltaFull t1) (shapeDeltaFull t2)
   Project1G v -> case shapeDeltaFull v of
     FTKProduct ftk1 _ -> ftk1
   Project2G v -> case shapeDeltaFull v of
@@ -989,16 +989,16 @@ evalR
   => EvalState ranked -> Rep ranked y -> Delta ranked y
   -> EvalState ranked
 evalR !s !c = \case
-  TupleG d1 d2 -> let (c1, c2) = tunpair c
+  PairG d1 d2 -> let (c1, c2) = tunpair c
                   in evalR (evalR s c1 d1) c2 d2
   Project1G d -> case shapeDeltaFull d of
     FTKProduct _ ftk2 ->
       let zero = repConstant 0 ftk2
-      in evalR s (ttuple c zero) d
+      in evalR s (tpair c zero) d
   Project2G d -> case shapeDeltaFull d of
     FTKProduct ftk1 _ ->
       let zero = repConstant 0 ftk1
-      in evalR s (ttuple zero c) d
+      in evalR s (tpair zero c) d
   InputG _ftk i ->
     let cs = repToM stensorKind c
     in s {iMap = DMap.adjust (addRepM cs) i
@@ -1177,10 +1177,10 @@ evalR !s !c = \case
           dmapAccumL (Proxy @ranked)
                      k accShs eShs (FTKProduct bShs (FTKProduct accShs eShs))
                      (\dx (db, acc_e) ->
-                        unHFun rf (ttuple (ttuple (unrepDeep dx) (unrepDeep db))
+                        unHFun rf (tpair (tpair (unrepDeep dx) (unrepDeep db))
                                           (unrepDeep acc_e)))
                      c0
-                     (ttuple crest (ttuple q es))
+                     (tpair crest (tpair q es))
         (dacc, des) = tunpair dacc_desUnshared
         s2 = evalR s dacc acc0'
     in evalR s2 des es'
@@ -1194,10 +1194,10 @@ evalR !s !c = \case
           dmapAccumR (Proxy @ranked)
                      k accShs eShs (FTKProduct bShs (FTKProduct accShs eShs))
                      (\dx (db, acc_e) ->
-                        unHFun rf (ttuple (ttuple (unrepDeep dx) (unrepDeep db))
+                        unHFun rf (tpair (tpair (unrepDeep dx) (unrepDeep db))
                                           (unrepDeep acc_e)))
                      c0
-                     (ttuple crest (ttuple q es))
+                     (tpair crest (tpair q es))
         (dacc, des) = tunpair dacc_desUnshared
         s2 = evalR s dacc acc0'
     in evalR s2 des es'
@@ -1324,9 +1324,9 @@ fwdR
   => IMap ranked -> EvalState ranked -> Delta ranked y
   -> (EvalState ranked, Rep ranked y)
 fwdR params s = \case
-  TupleG d1 d2 -> let (s2, t) = fwdR params s d1
-                      (s3, u) = fwdR params s2 d2
-                  in (s3, ttuple t u)
+  PairG d1 d2 -> let (s2, t) = fwdR params s d1
+                     (s3, u) = fwdR params s2 d2
+                 in (s3, tpair t u)
   Project1G d -> let (s2, v) = fwdR params s d
                  in (s2, tproject1 v)
   Project2G d -> let (s2, v) = fwdR params s d
@@ -1452,11 +1452,11 @@ fwdR params s = \case
     in (s3, dmapAccumR (Proxy @ranked)
                        k accShs bShs (FTKProduct eShs (FTKProduct accShs eShs))
                        (\dacc (de, acc_e) ->
-                          unHFun df (ttuple (ttuple (unrepDeep dacc)
+                          unHFun df (tpair (tpair (unrepDeep dacc)
                                                     (unrepDeep de))
                                             (unrepDeep acc_e)))
                        cacc0
-                       (ttuple ces (ttuple q es)))
+                       (tpair ces (tpair q es)))
   MapAccumL k accShs bShs eShs
             (RepN q) (RepN es)
             df _rf acc0' es' ->
@@ -1465,8 +1465,8 @@ fwdR params s = \case
     in (s3, dmapAccumL (Proxy @ranked)
                        k accShs bShs (FTKProduct eShs (FTKProduct accShs eShs))
                        (\dacc (de, acc_e) ->
-                          unHFun df (ttuple (ttuple (unrepDeep dacc)
+                          unHFun df (tpair (tpair (unrepDeep dacc)
                                                     (unrepDeep de))
                                             (unrepDeep acc_e)))
                        cacc0
-                       (ttuple ces (ttuple q es)))
+                       (tpair ces (tpair q es)))

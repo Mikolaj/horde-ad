@@ -159,13 +159,13 @@ interpretAst
   => AstEnv ranked
   -> AstTensor AstMethodLet s y -> Rep ranked y
 interpretAst !env = \case
-  AstTuple t1 t2 -> ttuple (interpretAst env t1) (interpretAst env t2)
+  AstPair t1 t2 -> tpair (interpretAst env t1) (interpretAst env t2)
   AstProject1 t -> tproject1 (interpretAst env t)
   AstProject2 t -> tproject2 (interpretAst env t)
   AstVar @y2 _sh var ->
    let var2 = mkAstVarName @FullSpan @y2 (varNameToAstVarId var)  -- TODO
    in case DMap.lookup var2 env of
-    Just (AstEnvElemTuple (RepN t)) ->
+    Just (AstEnvElemRep (RepN t)) ->
       -- TODO: assert (rshape t == sh
       --         `blame` (sh, rshape t, var, t, env)) t
       t
@@ -249,7 +249,7 @@ interpretAst !env = \case
             FTKProduct @z1 @z2 ftk1 ftk2
               | Dict <- lemTensorKindOfBuild snat (stensorKind @z1)
               , Dict <- lemTensorKindOfBuild snat (stensorKind @z2) ->
-                ttuple (emptyFromStk ftk1) (emptyFromStk ftk2)
+                tpair (emptyFromStk ftk1) (emptyFromStk ftk2)
             FTKUntyped ssh -> HVectorPseudoTensor
                               $ mkreplicate1HVector (SNat @0)
                               $ V.map dynamicFromVoid ssh
@@ -279,7 +279,7 @@ interpretAst !env = \case
                   f2 i = tproject2 $ g i
                     -- TODO: looks expensive, but hard to do better,
                     -- so let's hope g is full of variables
-              in ttuple (replStk stk1 f1) (replStk stk2 f2)
+              in tpair (replStk stk1 f1) (replStk stk2 f2)
           STKUntyped ->
             HVectorPseudoTensor $ dbuild1 snat (unHVectorPseudoTensor . g)
     in replStk (stensorKind @y2) f

@@ -155,7 +155,7 @@ class HVectorTensor ranked shaped
       | Dict <- lemTensorKindOfBuild snat (stensorKind @z1)
       , Dict <- lemTensorKindOfBuild snat (stensorKind @z2) ->
         tlet u $ \ (!u1, !u2) ->
-          ttuple (treplicate snat stk1 u1) (treplicate snat  stk2 u2)
+          tpair (treplicate snat stk1 u1) (treplicate snat  stk2 u2)
     STKUntyped ->
       tlet u $ \ !hv ->
         HVectorPseudoTensor $ dmkHVector
@@ -210,7 +210,7 @@ class HVectorTensor ranked shaped
     let g :: forall f. ADReady f => Rep f x -> Rep f (TKR r n)
         g !x = dlet x $ \ !xDeep -> f xDeep
     in \ !es !dt -> dHApply (drevDt @ranked ftk $ HFun g)
-                            (ttuple dt (unrepDeep es))
+                            (tpair dt (unrepDeep es))
   rfwd :: forall x r n.
           ( TensorKind x, GoodScalar r, KnownNat n
           , ProductTensor ranked, shaped ~ ShapedOf ranked )
@@ -223,7 +223,7 @@ class HVectorTensor ranked shaped
     let g :: forall f. ADReady f => Rep f x -> Rep f (TKR r n)
         g !x = dlet x $ \ !xDeep -> f xDeep
     in \ !es !ds -> dHApply (dfwd @ranked ftk $ HFun g)
-                            (ttuple (unrepDeep ds) (unrepDeep es))
+                            (tpair (unrepDeep ds) (unrepDeep es))
   srev :: ( TensorKind x, GoodScalar r, KnownShS sh, ProductTensor ranked
           , ShapedTensor shaped, shaped ~ ShapedOf ranked )
        => (forall f. ADReadyS f => RepDeep (RankedOf f) x -> f r sh)
@@ -243,7 +243,7 @@ class HVectorTensor ranked shaped
     let g :: forall f. ADReady f => Rep f x -> Rep f (TKS r sh)
         g !x = dlet x $ \ !xDeep -> f xDeep
     in \ !es !dt -> dHApply (drevDt @ranked ftk $ HFun g)
-                            (ttuple dt (unrepDeep es))
+                            (tpair dt (unrepDeep es))
   sfwd :: forall x r sh.
           ( TensorKind x, GoodScalar r, KnownShS sh
           , ProductTensor ranked, shaped ~ ShapedOf ranked )
@@ -256,7 +256,7 @@ class HVectorTensor ranked shaped
     let g :: forall f. ADReady f => Rep f x -> Rep f (TKS r sh)
         g !x = dlet x $ \ !xDeep -> f xDeep
     in \ !es !ds -> dHApply (dfwd @ranked ftk $ HFun g)
-                            (ttuple (unrepDeep ds) (unrepDeep es))
+                            (tpair (unrepDeep ds) (unrepDeep es))
 
 class ShareTensor (ranked :: RankedTensorType) where
   tshare :: forall y. (TensorKind y, ProductTensor ranked)
@@ -978,7 +978,7 @@ class HVectorTensor (ranked :: RankedTensorType)
                   -> Rep f (TKR rm m)
                   -> Rep f (TKProduct (TKR rn n) TKUntyped)
                 g !acc !e =
-                  ttuple (f acc e)
+                  tpair (f acc e)
                          (HVectorPseudoTensor $ dmkHVector V.empty)
             in g)
            acc0
@@ -1010,7 +1010,7 @@ class HVectorTensor (ranked :: RankedTensorType)
                        => Rep f (TKR rn n)
                        -> Rep f (TKR rm m)
                        -> Rep f (TKProduct (TKR rn n) (TKR rn n))
-                     g !acc !e = blet (f acc e) $ \ !res -> ttuple res res
+                     g !acc !e = blet (f acc e) $ \ !res -> tpair res res
                  in g)
                 acc0
                 es
@@ -1037,7 +1037,7 @@ class HVectorTensor (ranked :: RankedTensorType)
                 -> Rep f (TKS rm shm)
                 -> Rep f (TKProduct (TKS rn sh) TKUntyped)
               g !acc !e =
-                ttuple (f acc e)
+                tpair (f acc e)
                        (HVectorPseudoTensor $ dmkHVector V.empty)
           in g)
          acc0
@@ -1063,7 +1063,7 @@ class HVectorTensor (ranked :: RankedTensorType)
                     => Rep f (TKS rn sh)
                     -> Rep f (TKS rm shm)
                     -> Rep f (TKProduct (TKS rn sh) (TKS rn sh))
-                  g !acc !e = blet (f acc e) $ \ !res -> ttuple res res
+                  g !acc !e = blet (f acc e) $ \ !res -> tpair res res
               in g)
              acc0
              es
@@ -1172,7 +1172,7 @@ class HVectorTensor (ranked :: RankedTensorType)
 -- TODO: tmkHVector should be removed, but the Delta instance needed
 -- in interpreter makes this difficult.
 class ProductTensor (ranked :: RankedTensorType) where
-  ttuple :: (TensorKind x, TensorKind z)
+  tpair :: (TensorKind x, TensorKind z)
          => Rep ranked x -> Rep ranked z
          -> Rep ranked (TKProduct x z)
   tproject1 :: (TensorKind x, TensorKind z)
@@ -1281,7 +1281,7 @@ unrepShallow :: forall ranked y.
 unrepShallow t = case stensorKind @y of
   STKR{} -> t
   STKS{} -> t
-  STKProduct{} -> uncurry ttuple t
+  STKProduct{} -> uncurry tpair t
   STKUntyped -> HVectorPseudoTensor $ dmkHVector t
 
 unrepDeep :: forall ranked y.
@@ -1292,7 +1292,7 @@ unrepDeep :: forall ranked y.
 unrepDeep t = case stensorKind @y of
   STKR{} -> t
   STKS{} -> t
-  STKProduct{} -> ttuple (unrepDeep (fst t)) (unrepDeep (snd t))
+  STKProduct{} -> tpair (unrepDeep (fst t)) (unrepDeep (snd t))
   STKUntyped -> HVectorPseudoTensor $ dmkHVector t
 
 -- The argument of the first call (but not of recursive calls)
@@ -1410,7 +1410,7 @@ mapRep fr fs stk b = case stk of
   STKProduct stk1 stk2 ->
     let !t1 = mapRep fr fs stk1 $ tproject1 b
         !t2 = mapRep fr fs stk2 $ tproject2 b
-    in ttuple t1 t2
+    in tpair t1 t2
       -- this shares properly only when the product instance for f is (,)
       -- and tlet wouldn't work because f and g differ
   STKUntyped ->
@@ -1445,7 +1445,7 @@ mapRep2 fr fs stk b1 b2 = case stk of
   STKProduct stk1 stk2 ->
     let !t1 = mapRep2 fr fs stk1 (tproject1 b1) (tproject1 b2)
         !t2 = mapRep2 fr fs stk2 (tproject2 b1) (tproject2 b2)
-    in ttuple t1 t2
+    in tpair t1 t2
       -- this shares properly only when the product instance for f1 and f2 is (,)
   STKUntyped ->
     let fd :: DynamicTensor f1 -> DynamicTensor f2 -> DynamicTensor g
@@ -1476,7 +1476,7 @@ mapRep2Weak fr fs stk b1 b2 = case stk of
   STKProduct stk1 stk2 ->
     let !t1 = mapRep2Weak fr fs stk1 (tproject1 b1) (tproject1 b2)
         !t2 = mapRep2Weak fr fs stk2 (tproject2 b1) (tproject2 b2)
-    in ttuple t1 t2
+    in tpair t1 t2
       -- this shares properly only when the product instance for f1 and f2 is (,)
   STKUntyped -> error "TODO: mapRep2Weak is weak"
 

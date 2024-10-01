@@ -21,7 +21,7 @@ module HordeAd.Core.AstSimplify
   , astNonIndexStep, astIndexStep, astIndexStepS
   , astGatherStep, astGatherStepS
     -- * The simplifying combinators, one for most AST constructors
-  , astTuple, astLet, astCond, astSumOfList, astSumOfListS
+  , astPair, astLet, astCond, astSumOfList, astSumOfListS
   , astSum, astSumS, astScatter, astScatterS, astFromVector, astFromVectorS
   , astReplicate, astAppend, astAppendS, astSlice, astSliceS
   , astReverse, astReverseS
@@ -258,7 +258,7 @@ astNonIndexStep
   :: (AstSpan s, TensorKind y)
   => AstTensor AstMethodLet s y -> AstTensor AstMethodLet s y
 astNonIndexStep t = case t of
-  Ast.AstTuple t1 t2 -> astTuple (astNonIndexStep t1) (astNonIndexStep t2)
+  Ast.AstPair t1 t2 -> astPair (astNonIndexStep t1) (astNonIndexStep t2)
   Ast.AstProject1 u -> astProject1 u
   Ast.AstProject2 u -> astProject2 u
   Ast.AstVar{} -> t
@@ -1276,15 +1276,15 @@ astSliceLax i k v =
 
 -- * The simplifying combinators, one for each AST constructor
 
-astTuple :: (TensorKind x, TensorKind y)
+astPair :: (TensorKind x, TensorKind y)
          => AstTensor AstMethodLet s x -> AstTensor AstMethodLet s y
          -> AstTensor AstMethodLet s (TKProduct x y)
 -- TODO, but maybe not the best idea?:
--- astTuple (Ast.AstConst v1) (Ast.AstConst v2) =
+-- astPair (Ast.AstConst v1) (Ast.AstConst v2) =
 --   Ast.AstConst (v1, v2)
-astTuple (Ast.AstConstant v1) (Ast.AstConstant v2) =
-  Ast.AstConstant $ astTuple v1 v2
-astTuple v1 v2 = Ast.AstTuple v1 v2
+astPair (Ast.AstConstant v1) (Ast.AstConstant v2) =
+  Ast.AstConstant $ astPair v1 v2
+astPair v1 v2 = Ast.AstPair v1 v2
 
 -- Inlining works for this let constructor, because it has just one variable,
 -- unlike astLetHVectorIn, etc., so we don't try to eliminate it.
@@ -1315,32 +1315,32 @@ astLet var u v@(Ast.AstDualPart (Ast.AstVar _ var2)) =  -- a noop
       Just Refl -> astDualPart u
       _ -> v
     _ -> v
-astLet var (Ast.AstTuple u1 u2) v =
+astLet var (Ast.AstPair u1 u2) v =
   astLetFun u1 $ \ !ast1 -> astLetFun u2 $ \ !ast2 ->
-    substituteAst (SubstitutionPayload $ Ast.AstTuple ast1 ast2) var v
-astLet var (Ast.AstConstant (Ast.AstTuple u1 u2)) v =
+    substituteAst (SubstitutionPayload $ Ast.AstPair ast1 ast2) var v
+astLet var (Ast.AstConstant (Ast.AstPair u1 u2)) v =
   astLetFun u1 $ \ !ast1 -> astLetFun u2 $ \ !ast2 ->
     substituteAst (SubstitutionPayload
-                   $ Ast.AstConstant (Ast.AstTuple ast1 ast2)) var v
-astLet var (Ast.AstLet varN uN (Ast.AstTuple u1 u2)) v =
+                   $ Ast.AstConstant (Ast.AstPair ast1 ast2)) var v
+astLet var (Ast.AstLet varN uN (Ast.AstPair u1 u2)) v =
   astLet varN uN
   $ astLetFun u1 $ \ !ast1 -> astLetFun u2 $ \ !ast2 ->
-      substituteAst (SubstitutionPayload $ Ast.AstTuple ast1 ast2) var v
-astLet var (Ast.AstLetHVectorIn varsN lN (Ast.AstTuple u1 u2)) v =
+      substituteAst (SubstitutionPayload $ Ast.AstPair ast1 ast2) var v
+astLet var (Ast.AstLetHVectorIn varsN lN (Ast.AstPair u1 u2)) v =
   astLetHVectorIn varsN lN
   $ astLetFun u1 $ \ !ast1 -> astLetFun u2 $ \ !ast2 ->
-      substituteAst (SubstitutionPayload $ Ast.AstTuple ast1 ast2) var v
-astLet var (Ast.AstConstant (Ast.AstLet varN uN (Ast.AstTuple u1 u2))) v =
+      substituteAst (SubstitutionPayload $ Ast.AstPair ast1 ast2) var v
+astLet var (Ast.AstConstant (Ast.AstLet varN uN (Ast.AstPair u1 u2))) v =
   astLet varN uN
   $ astLetFun u1 $ \ !ast1 -> astLetFun u2 $ \ !ast2 ->
       substituteAst (SubstitutionPayload
-                     $ Ast.AstConstant (Ast.AstTuple ast1 ast2)) var v
+                     $ Ast.AstConstant (Ast.AstPair ast1 ast2)) var v
 astLet var (Ast.AstConstant (Ast.AstLetHVectorIn
-                               varsN lN (Ast.AstTuple u1 u2))) v =
+                               varsN lN (Ast.AstPair u1 u2))) v =
   astLetHVectorIn varsN lN
   $ astLetFun u1 $ \ !ast1 -> astLetFun u2 $ \ !ast2 ->
       substituteAst (SubstitutionPayload
-                     $ Ast.AstConstant (Ast.AstTuple ast1 ast2)) var v
+                     $ Ast.AstConstant (Ast.AstPair ast1 ast2)) var v
 astLet var u@(Ast.AstMkHVector l3) v =
   let shs = shapeAstHVector u
       f !vars !asts =
@@ -1998,11 +1998,11 @@ astProject1
   :: forall x z s. (TensorKind x, TensorKind z, AstSpan s)
   => AstTensor AstMethodLet s (TKProduct x z) -> AstTensor AstMethodLet s x
 astProject1 u = case u of
-  Ast.AstTuple x _z -> x
+  Ast.AstPair x _z -> x
   Ast.AstLet var t v -> Ast.AstLet var t (astProject1 v)
   Ast.AstLetHVectorIn vars l v -> astLetHVectorIn vars l (astProject1 v)
   Ast.AstLetHFunIn vars l v -> astLetHFunIn vars l (astProject1 v)
--- TODO: generalize AstConst, unless it's not the best idea? currently these must be explicit AstTuple, so the other rule works fine:  Ast.AstConst u1 -> Ast.AstConst $ tproject1 u1
+-- TODO: generalize AstConst, unless it's not the best idea? currently these must be explicit AstPair, so the other rule works fine:  Ast.AstConst u1 -> Ast.AstConst $ tproject1 u1
   Ast.AstConstant u1 -> Ast.AstConstant $ astProject1 u1
   Ast.AstCond b v1 v2 -> Ast.AstCond b (astProject1 v1) (astProject1 v2)
   _ -> Ast.AstProject1 u
@@ -2011,7 +2011,7 @@ astProject2
   :: forall x z s. (TensorKind x, TensorKind z, AstSpan s)
   => AstTensor AstMethodLet s (TKProduct x z) -> AstTensor AstMethodLet s z
 astProject2 u = case u of
-  Ast.AstTuple _x z -> z
+  Ast.AstPair _x z -> z
   Ast.AstLet var t v -> Ast.AstLet var t (astProject2 v)
   Ast.AstLetHVectorIn vars l v -> astLetHVectorIn vars l (astProject2 v)
   Ast.AstLetHFunIn vars l v -> astLetHFunIn vars l (astProject2 v)
@@ -2083,7 +2083,7 @@ astSFromR v = Ast.AstSFromR v
 astPrimalPart :: TensorKind y
               => AstTensor AstMethodLet FullSpan y -> AstTensor AstMethodLet PrimalSpan y
 astPrimalPart t = case t of
-  Ast.AstTuple t1 t2 -> astTuple (astPrimalPart t1) (astPrimalPart t2)
+  Ast.AstPair t1 t2 -> astPair (astPrimalPart t1) (astPrimalPart t2)
   Ast.AstProject1 v -> astProject1 (astPrimalPart v)
   Ast.AstProject2 v -> astProject2 (astPrimalPart v)
   Ast.AstVar{} -> Ast.AstPrimalPart t  -- the only normal form
@@ -2155,7 +2155,7 @@ astPrimalPart t = case t of
 -- multiplies the dual part by the primal part. Addition is fine, though.
 astDualPart :: TensorKind y => AstTensor AstMethodLet FullSpan y -> AstTensor AstMethodLet DualSpan y
 astDualPart t = case t of
-  Ast.AstTuple t1 t2 -> astTuple (astDualPart t1) (astDualPart t2)
+  Ast.AstPair t1 t2 -> astPair (astDualPart t1) (astDualPart t2)
   Ast.AstProject1 v -> astProject1 (astDualPart v)
   Ast.AstProject2 v -> astProject2 (astDualPart v)
   Ast.AstVar{} -> Ast.AstDualPart t
@@ -2390,7 +2390,7 @@ simplifyAst
   :: forall s y. (AstSpan s, TensorKind y)
   => AstTensor AstMethodLet s y -> AstTensor AstMethodLet s y
 simplifyAst t = case t of
-  Ast.AstTuple t1 t2 -> astTuple (simplifyAst t1) (simplifyAst t2)
+  Ast.AstPair t1 t2 -> astPair (simplifyAst t1) (simplifyAst t2)
   Ast.AstProject1 v -> astProject1 (simplifyAst v)
   Ast.AstProject2 v -> astProject2 (simplifyAst v)
   Ast.AstVar{} -> t
@@ -2549,7 +2549,7 @@ expandAst
   :: forall s y. (AstSpan s, TensorKind y)
   => AstTensor AstMethodLet s y -> AstTensor AstMethodLet s y
 expandAst t = case t of
-  Ast.AstTuple t1 t2 -> astTuple (expandAst t1) (expandAst t2)
+  Ast.AstPair t1 t2 -> astPair (expandAst t1) (expandAst t2)
   Ast.AstProject1 v -> astProject1 (expandAst v)
   Ast.AstProject2 v -> astProject2 (expandAst v)
   Ast.AstVar{} -> t
@@ -3049,10 +3049,10 @@ substitute1Ast :: forall s s2 y. (AstSpan s, AstSpan s2, TensorKind y)
                -> AstTensor AstMethodLet s y
                -> Maybe (AstTensor AstMethodLet s y)
 substitute1Ast i var v1 = case v1 of
-  Ast.AstTuple u v ->
+  Ast.AstPair u v ->
     case (substitute1Ast i var u, substitute1Ast i var v) of
       (Nothing, Nothing) -> Nothing
-      (mu, mv) -> Just $ astTuple (fromMaybe u mu) (fromMaybe v mv)
+      (mu, mv) -> Just $ astPair (fromMaybe u mu) (fromMaybe v mv)
   Ast.AstProject1 a -> astProject1 <$> substitute1Ast i var a
   Ast.AstProject2 a -> astProject2 <$> substitute1Ast i var a
   Ast.AstVar @y2 _sh var2 ->

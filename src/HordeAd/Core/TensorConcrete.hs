@@ -197,7 +197,7 @@ type instance Rep DummyDual (TKProduct x z) =
                (Rep DummyDual z)
 
 instance ProductTensor DummyDual where
-  ttuple = DummyProduct
+  tpair = DummyProduct
   tproject1 (DummyProduct vx _vz) = vx
   tproject2 (DummyProduct _vx vz) = vz
   tmkHVector = error "tmkHVector of DummyDual"
@@ -331,7 +331,7 @@ instance (Show (RepN ORArray x), Show (RepN ORArray y))
   showsPrec d (RepProductN (t1, t2)) = showsPrec d (RepN t1, RepN t2)
 
 instance ProductTensor ORArray where
-  ttuple u v = (u, v)
+  tpair u v = (u, v)
   tproject1 = fst
   tproject2 = snd
   tmkHVector = id

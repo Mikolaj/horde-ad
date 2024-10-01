@@ -307,7 +307,7 @@ type role AstTensor nominal nominal nominal
   -- r has to be nominal, because type class arguments always are
 data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType -> Type where
   -- Here starts the general part.
-  AstTuple :: (TensorKind y, TensorKind z)
+  AstPair :: (TensorKind y, TensorKind z)
            => AstTensor ms s y -> AstTensor ms s z
            -> AstTensor ms s (TKProduct y z)
   AstProject1 :: forall x z s ms. (TensorKind x, TensorKind z)

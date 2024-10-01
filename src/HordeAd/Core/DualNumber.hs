@@ -138,7 +138,7 @@ generateDeltaInputs =
         FTKProduct ftk1 ftk2 ->
           let (d1, j1) = gen j ftk1
               (d2, j2) = gen j1 ftk2
-          in (TupleG d1 d2, j2)
+          in (PairG d1 d2, j2)
         FTKUntyped shs ->
           let f :: (Int, DynamicTensor VoidTensor) -> DynamicTensor (Dual ranked)
               f (i, DynamicRankedDummy @r @sh _ _) =
@@ -171,7 +171,7 @@ aDValRep p d = case stensorKind @y of
   STKS{} -> dDnotShared p (DeltaS d)
   STKProduct{} -> let (p1, p2) = tunpair p
                       (d1, d2) = case d of
-                        TupleG t1 t2 -> (t1, t2)
+                        PairG t1 t2 -> (t1, t2)
                         _ -> let dShared = wrapDelta d
                              in (Project1G dShared, Project2G dShared)
                   in (aDValRep p1 d1, aDValRep p2 d2)
@@ -308,7 +308,7 @@ type instance Rep (ADVal ranked) (TKProduct x z) =
   (Rep (ADVal ranked) x, Rep (ADVal ranked) z)
 
 instance ProductTensor (ADVal ranked) where
-  ttuple u v = (u, v)
+  tpair u v = (u, v)
   tproject1 = fst
   tproject2 = snd
   tmkHVector = id

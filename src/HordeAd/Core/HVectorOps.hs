@@ -75,7 +75,7 @@ fromRepD :: (ProductTensor ranked, HVectorTensor ranked (ShapedOf ranked))
 fromRepD = \case
   DTKR t -> t
   DTKS t -> t
-  DTKProduct t1 t2 -> ttuple (fromRepD t1) (fromRepD t2)
+  DTKProduct t1 t2 -> tpair (fromRepD t1) (fromRepD t2)
   DTKUntyped t -> HVectorPseudoTensor $ dmkHVector t
 
 addRepD ::
@@ -682,7 +682,7 @@ repConstant :: forall y ranked. ADReadyNoLet ranked
 repConstant r = \case
   FTKR sh -> rrepl (toList sh) r
   FTKS -> srepl r
-  FTKProduct ftk1 ftk2 -> ttuple (repConstant r ftk1)
+  FTKProduct ftk1 ftk2 -> tpair (repConstant r ftk1)
                                  (repConstant r ftk2)
   FTKUntyped ssh ->  -- TODO: if r is 0, this would be cheaper with Dummy
     HVectorPseudoTensor $ dmkHVector

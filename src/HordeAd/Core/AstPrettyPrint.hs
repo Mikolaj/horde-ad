@@ -72,7 +72,7 @@ areAllArgsInts = \case
   -- rank > 0, but also a likely float, as in the argument of AstFloor,
   -- or a likely dual number. There is an anavoidable ambiguity
   -- and so also aribtrary choices in resolving it.
-  AstTuple{} -> False
+  AstPair{} -> False
   AstVar{} -> True
   AstPrimalPart{} -> False
   AstDualPart{} -> False
@@ -217,9 +217,9 @@ printAst cfgOld d t =
 printAstAux :: forall s y ms. AstSpan s
             => PrintConfig -> Int -> AstTensor ms s y -> ShowS
 printAstAux cfg d = \case
-  AstTuple t1 t2 ->
+  AstPair t1 t2 ->
     showParen (d > 10)
-    $ showString "ttuple ("  -- TODO
+    $ showString "tpair ("  -- TODO
       . printAst cfg 0 t1
       . showString ", "
       . printAst cfg 0 t2

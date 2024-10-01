@@ -551,7 +551,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
     STKProduct stk1 stk2 ->
       let !t1 = tprimalPart stk1 $ fst t
           !t2 = tprimalPart stk2 $ snd t
-      in ttuple t1 t2
+      in tpair t1 t2
     STKUntyped ->
       let fd :: DynamicTensor (ADVal ranked) -> DynamicTensor ranked
           fd = mapDynamic rprimalPart sprimalPart
@@ -639,7 +639,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
           -> Rep f (TKProduct accShs (TKProduct accShs bShs))
         g !acc_e = tlet acc_e $ \ (!acc1, !_e) ->
           tlet (unHFun f acc_e) $ \ (!accRes1, !bRes1) ->
-            ttuple accRes1 (ttuple acc1 bRes1)
+            tpair accRes1 (tpair acc1 bRes1)
         dg :: forall f. ADReady f
            => Rep f (TKProduct (TKProduct accShs eShs)
                                                 (TKProduct accShs eShs))
@@ -648,7 +648,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
           tlet dacc_de_acc_e $ \(!dacc_de, !_acc_e) ->
           tlet dacc_de $ \ (!dacc1, !_de) ->
           tlet (unHFun df dacc_de_acc_e) $ \ (!accRes1, !bRes1) ->
-            ttuple accRes1 (ttuple dacc1 bRes1)
+            tpair accRes1 (tpair dacc1 bRes1)
         rg :: forall f. ADReady f
            => Rep f (TKProduct (TKProduct
                                                    accShs
@@ -658,11 +658,11 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
         rg !args = tlet args $ \ (!dx_db, !acc_e) ->
                    tlet dx_db $ \ (!dx1, !db1) ->
                    tlet db1 $ \ (!dbacc, !dbRes) ->
-          let dx_dbRes = ttuple dx1 dbRes
-          in tlet (unHFun rf (ttuple dx_dbRes acc_e))
+          let dx_dbRes = tpair dx1 dbRes
+          in tlet (unHFun rf (tpair dx_dbRes acc_e))
              $ \ (!daccRes1, !deRes1) ->
                  let added = taddLet daccRes1 dbacc
-                 in ttuple added deRes1
+                 in tpair added deRes1
         pUnshared = dmapAccumRDer (Proxy @ranked)
                                   k accShs codomainShs eShs
                                   (dlambda @ranked (FTKProduct accShs eShs)
@@ -684,7 +684,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
                          (RepN q)
                          (RepN es)
                          df rf acc0' es'
-    in aDValRep (ttuple accFin bs) dual
+    in aDValRep (tpair accFin bs) dual
   dmapAccumLDer
     :: forall k accShs bShs eShs.
        (TensorKind accShs, TensorKind bShs, TensorKind eShs)
@@ -716,7 +716,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
           -> Rep f (TKProduct accShs (TKProduct accShs bShs))
         g !acc_e = tlet acc_e $ \ (!acc1, !_e) ->
           tlet (unHFun f acc_e) $ \ (!accRes1, !bRes1) ->
-            ttuple accRes1 (ttuple acc1 bRes1)
+            tpair accRes1 (tpair acc1 bRes1)
         dg :: forall f. ADReady f
            => Rep f (TKProduct (TKProduct accShs eShs)
                                                 (TKProduct accShs eShs))
@@ -725,7 +725,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
           tlet dacc_de_acc_e $ \(!dacc_de, !_acc_e) ->
           tlet dacc_de $ \ (!dacc1, !_de) ->
           tlet (unHFun df dacc_de_acc_e) $ \ (!accRes1, !bRes1) ->
-            ttuple accRes1 (ttuple dacc1 bRes1)
+            tpair accRes1 (tpair dacc1 bRes1)
         rg :: forall f. ADReady f
            => Rep f (TKProduct (TKProduct
                                                    accShs
@@ -735,11 +735,11 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
         rg !args = tlet args $ \ (!dx_db, !acc_e) ->
                    tlet dx_db $ \ (!dx1, !db1) ->
                    tlet db1 $ \ (!dbacc, !dbRes) ->
-          let dx_dbRes = ttuple dx1 dbRes
-          in tlet (unHFun rf (ttuple dx_dbRes acc_e))
+          let dx_dbRes = tpair dx1 dbRes
+          in tlet (unHFun rf (tpair dx_dbRes acc_e))
              $ \ (!daccRes1, !deRes1) ->
                  let added = taddLet daccRes1 dbacc
-                 in ttuple added deRes1
+                 in tpair added deRes1
         pUnshared = dmapAccumLDer (Proxy @ranked)
                                   k accShs codomainShs eShs
                                   (dlambda @ranked (FTKProduct accShs eShs)
@@ -761,7 +761,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
                          (RepN q)
                          (RepN es)
                          df rf acc0' es'
-    in aDValRep (ttuple accFin bs) dual
+    in aDValRep (tpair accFin bs) dual
 
 aDValToHVector
   :: (HVectorOf ranked ~ HVector ranked, RankedOf (ShapedOf ranked) ~ ranked)
@@ -811,7 +811,7 @@ unADValRep stk t = case (stk, t) of
   (STKProduct stk1 stk2, (t1, t2)) ->
     let (!p1, !d1) = unADValRep stk1 t1 in
     let (!p2, !d2) = unADValRep stk2 t2
-    in (ttuple p1 p2, TupleG d1 d2)
+    in (tpair p1 p2, PairG d1 d2)
   (STKUntyped, HVectorPseudoTensor u) ->
     let (!p, !d) = unADValHVector u
     in (HVectorPseudoTensor $ dmkHVector p, HToH d)

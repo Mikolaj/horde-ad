@@ -94,10 +94,10 @@ inlineAst
   :: forall s y. AstSpan s
   => AstMemo -> AstTensor AstMethodLet s y -> (AstMemo, AstTensor AstMethodLet s y)
 inlineAst memo v0 = case v0 of
-  Ast.AstTuple t1 t2 ->
+  Ast.AstPair t1 t2 ->
     let (memo2, v1) = inlineAst memo t1
         (memo3, v2) = inlineAst memo2 t2
-    in (memo3, Ast.AstTuple v1 v2)
+    in (memo3, Ast.AstPair v1 v2)
   -- TODO: these are correct only if each component appears once,
   -- as opposed to one appearing twice and ther other not at all
   -- (or if both components are similar enough)
@@ -431,10 +431,10 @@ shareAst
   => AstBindings -> AstTensor AstMethodShare s y
   -> (AstBindings, AstTensor AstMethodLet s y)
 shareAst memo = \case
-  Ast.AstTuple t1 t2 ->
+  Ast.AstPair t1 t2 ->
     let (memo1, v1) = shareAst memo t1
         (memo2, v2) = shareAst memo1 t2
-    in (memo2, Ast.AstTuple v1 v2)
+    in (memo2, Ast.AstPair v1 v2)
   Ast.AstProject1 t -> second Ast.AstProject1 (shareAst memo t)
   Ast.AstProject2 t -> second Ast.AstProject2 (shareAst memo t)
   Ast.AstVar sh v -> (memo, Ast.AstVar sh v)

@@ -53,7 +53,7 @@ type AstEnv ranked = DEnumMap (AstVarName FullSpan) (AstEnvElem ranked)
 
 type role AstEnvElem nominal nominal
 data AstEnvElem (ranked :: RankedTensorType) (y :: TensorKindType) where
-  AstEnvElemTuple :: RepN ranked y -> AstEnvElem ranked y
+  AstEnvElemRep :: RepN ranked y -> AstEnvElem ranked y
   AstEnvElemHFun :: forall ranked x y. TensorKind x
                  => HFunOf ranked x y -> AstEnvElem ranked y
     -- the "y" is a lie; it should be "TKFun x y"; BTW, Proxy would not help
@@ -89,7 +89,7 @@ extendEnv var !t !env =
       var2 = mkAstVarName (varNameToAstVarId var)
         -- to uphold the lie about FullSpan
   in DMap.insertWithKey (\_ _ _ -> error $ "extendEnv: duplicate " ++ show var)
-                        var2 (AstEnvElemTuple $ RepN t) env
+                        var2 (AstEnvElemRep $ RepN t) env
 
 extendEnvHVector :: forall ranked. ADReady ranked
                  => [AstDynamicVarName] -> HVector ranked -> AstEnv ranked

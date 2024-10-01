@@ -46,7 +46,7 @@ import HordeAd.Util.SizedList
 shapeAstFull :: forall s y ms. TensorKind y
              => AstTensor ms s y -> TensorKindFull y
 shapeAstFull t = case t of
-  AstTuple t1 t2 -> FTKProduct (shapeAstFull t1) (shapeAstFull t2)
+  AstPair t1 t2 -> FTKProduct (shapeAstFull t1) (shapeAstFull t2)
   AstProject1 v -> case shapeAstFull v of
     FTKProduct ftk1 _ -> ftk1
   AstProject2 v -> case shapeAstFull v of
@@ -190,7 +190,7 @@ domainShapeAstHFun = \case
 varInAst :: AstSpan s
          => AstVarId -> AstTensor ms s y -> Bool
 varInAst var = \case
-  AstTuple t1 t2 -> varInAst var t1 || varInAst var t2
+  AstPair t1 t2 -> varInAst var t1 || varInAst var t2
   AstProject1 t -> varInAst var t
   AstProject2 t -> varInAst var t
   AstVar _ var2 -> var == varNameToAstVarId var2
@@ -310,7 +310,7 @@ varInAstBindingsCase var (RepN t) = varInAst var $ unRankedY stensorKind t
 
 astIsSmall :: Bool -> AstTensor ms s y -> Bool
 astIsSmall relaxed = \case
-  AstTuple t1 t2 -> astIsSmall relaxed t1 && astIsSmall relaxed t2
+  AstPair t1 t2 -> astIsSmall relaxed t1 && astIsSmall relaxed t2
   AstProject1 t -> astIsSmall relaxed t
   AstProject2 t -> astIsSmall relaxed t
   AstVar{} -> True

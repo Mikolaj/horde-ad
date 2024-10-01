@@ -573,7 +573,7 @@ testFooPP = do
   resetVarCounter
   let (artifactRev, _) = revArtifactAdapt True fooT (4, 5, 6)
   printArtifactSimple renames artifactRev
-    @?= "\\x7 x1 -> let (sin (tproject2 (tproject1 x1))) (\\x -> let (tproject1 (tproject1 x1) * x) (\\y -> let (recip (tproject2 x1 * tproject2 x1 + y * y)) (\\z -> let (sin (tproject2 (tproject1 x1))) (\\x5 -> let (tproject1 (tproject1 x1) * x5) (\\x6 -> let (tproject2 x1 * x7) (\\x8 -> let ((negate (tproject2 x1) * z) * x7) (\\x9 -> ttuple (ttuple (x * x9 + x5 * x8, cos (tproject2 (tproject1 x1)) * (tproject1 (tproject1 x1) * x9) + cos (tproject2 (tproject1 x1)) * (tproject1 (tproject1 x1) * x8)), (y * z) * x7 + x6 * x7))))))))"
+    @?= "\\x7 x1 -> let (sin (tproject2 (tproject1 x1))) (\\x -> let (tproject1 (tproject1 x1) * x) (\\y -> let (recip (tproject2 x1 * tproject2 x1 + y * y)) (\\z -> let (sin (tproject2 (tproject1 x1))) (\\x5 -> let (tproject1 (tproject1 x1) * x5) (\\x6 -> let (tproject2 x1 * x7) (\\x8 -> let ((negate (tproject2 x1) * z) * x7) (\\x9 -> tpair (tpair (x * x9 + x5 * x8, cos (tproject2 (tproject1 x1)) * (tproject1 (tproject1 x1) * x9) + cos (tproject2 (tproject1 x1)) * (tproject1 (tproject1 x1) * x8)), (y * z) * x7 + x6 * x7))))))))"
   printArtifactPrimalSimple renames artifactRev
     @?= "\\x1 -> rlet (sin (tproject2 (tproject1 x1))) (\\x -> rlet (tproject1 (tproject1 x1) * x) (\\y -> rlet (sin (tproject2 (tproject1 x1))) (\\x5 -> rlet (tproject1 (tproject1 x1) * x5) (\\x6 -> atan2F (tproject2 x1) y + tproject2 x1 * x6))))"
 
@@ -608,7 +608,7 @@ testFooLetPP = do
   resetVarCounter
   let (artifactRev, _) = revArtifactAdapt True fooLetT (4, 5, 6)
   printArtifactPretty renames (simplifyArtifact artifactRev)
-    @?= "\\x6 x1 -> let y = sin (tproject2 (tproject1 x1)) ; z = tproject1 (tproject1 x1) * y ; x5 = recip (tproject2 x1 * tproject2 x1 + z * z) ; x7 = (negate (tproject2 x1) * x5) * x6 + tproject2 x1 * x6 in ttuple (ttuple (y * x7, cos (tproject2 (tproject1 x1)) * (tproject1 (tproject1 x1) * x7)), (z * x5) * x6 + z * x6)"
+    @?= "\\x6 x1 -> let y = sin (tproject2 (tproject1 x1)) ; z = tproject1 (tproject1 x1) * y ; x5 = recip (tproject2 x1 * tproject2 x1 + z * z) ; x7 = (negate (tproject2 x1) * x5) * x6 + tproject2 x1 * x6 in tpair (tpair (y * x7, cos (tproject2 (tproject1 x1)) * (tproject1 (tproject1 x1) * x7)), (z * x5) * x6 + z * x6)"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
     @?= "\\x1 -> let z = tproject1 (tproject1 x1) * sin (tproject2 (tproject1 x1)) in atan2F (tproject2 x1) z + tproject2 x1 * z"
 
@@ -797,7 +797,7 @@ test2xyPP = do
       fT = ranked2xy
   let (artifactRev, _deltas) = revArtifactAdapt True fT (4, 5)
   printArtifactPretty renames (simplifyArtifact artifactRev)
-    @?= "\\x3 x1 -> ttuple (2.0 * (tproject2 x1 * x3), (2.0 * tproject1 x1) * x3)"
+    @?= "\\x3 x1 -> tpair (2.0 * (tproject2 x1 * x3), (2.0 * tproject1 x1) * x3)"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
     @?= "\\x1 -> (2.0 * tproject1 x1) * tproject2 x1"
 
@@ -831,7 +831,7 @@ test23PP = do
       fT = ranked23
   let (artifactRev, _deltas) = revArtifactAdapt True fT (4, 5)
   printArtifactPretty renames (simplifyArtifact artifactRev)
-    @?= "\\x2 x1 -> ttuple (2.0 * x2, 3.0 * x2)"
+    @?= "\\x2 x1 -> tpair (2.0 * x2, 3.0 * x2)"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
     @?= "\\x1 -> 2.0 * tproject1 x1 + 3.0 * tproject2 x1"
 
@@ -879,7 +879,7 @@ testReluPP2 = do
   resetVarCounter
   let (artifactRev, _deltas) = revArtifactAdapt True reluT2 (rreplicate0N [5] 128, 42)
   printArtifactPretty renames (simplifyArtifact artifactRev)
-    @?= "\\v7 x1 -> let v8 = rgather [5] (rconst (rfromListLinear [2] [0.0,1.0])) (\\[i3] -> [ifF (tproject1 v1 ! [i3] * tproject2 v1 <=. 0.0) 0 1]) * v7 in ttuple (rreplicate 5 (tproject2 v1) * v8, rsum (tproject1 v1 * v8))"
+    @?= "\\v7 x1 -> let v8 = rgather [5] (rconst (rfromListLinear [2] [0.0,1.0])) (\\[i3] -> [ifF (tproject1 v1 ! [i3] * tproject2 v1 <=. 0.0) 0 1]) * v7 in tpair (rreplicate 5 (tproject2 v1) * v8, rsum (tproject1 v1 * v8))"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
     @?= "\\x1 -> rgather [5] (rconst (rfromListLinear [2] [0.0,1.0])) (\\[i3] -> [ifF (tproject1 v1 ! [i3] * tproject2 v1 <=. 0.0) 0 1]) * (tproject1 v1 * rreplicate 5 (tproject2 v1))"
 
@@ -924,7 +924,7 @@ testReluSimplerPP2 = do
   resetVarCounter
   let (artifactRev, _deltas) = revArtifactAdapt True reluT2 (rreplicate0N [5] 128, 42)
   printArtifactPretty renames (simplifyArtifact artifactRev)
-    @?= "\\v7 x1 -> let v8 = rgather [5] (rconst (rfromListLinear [2] [0.0,1.0])) (\\[i5] -> [ifF (tproject1 v1 ! [i5] * tproject2 v1 <=. 0.0) 0 1]) * v7 in ttuple (rreplicate 5 (tproject2 v1) * v8, rsum (tproject1 v1 * v8))"
+    @?= "\\v7 x1 -> let v8 = rgather [5] (rconst (rfromListLinear [2] [0.0,1.0])) (\\[i5] -> [ifF (tproject1 v1 ! [i5] * tproject2 v1 <=. 0.0) 0 1]) * v7 in tpair (rreplicate 5 (tproject2 v1) * v8, rsum (tproject1 v1 * v8))"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
     @?= "\\x1 -> let v4 = tproject1 v1 * rreplicate 5 (tproject2 v1) in rgather [5] (rconst (rfromListLinear [2] [0.0,1.0])) (\\[i5] -> [ifF (v4 ! [i5] <=. 0.0) 0 1]) * v4"
 
@@ -943,7 +943,7 @@ testReluSimplerPP3 = do
   resetVarCounter
   let (artifactRev, _deltas) = revArtifactAdapt True reluT2 (rreplicate0N [3, 4] 128, 42)
   printArtifactPretty renames (simplifyArtifact artifactRev)
-    @?= "\\m10 x1 -> let m11 = rgather [3,4] (rconst (rfromListLinear [2] [0.0,1.0])) (\\[i7, i8] -> [ifF (tproject1 m1 ! [i7, i8] * tproject2 m1 <=. 0.0) 0 1]) * m10 in ttuple (rreplicate 3 (rreplicate 4 (tproject2 m1)) * m11, rsum (rsum (tproject1 m1 * m11)))"
+    @?= "\\m10 x1 -> let m11 = rgather [3,4] (rconst (rfromListLinear [2] [0.0,1.0])) (\\[i7, i8] -> [ifF (tproject1 m1 ! [i7, i8] * tproject2 m1 <=. 0.0) 0 1]) * m10 in tpair (rreplicate 3 (rreplicate 4 (tproject2 m1)) * m11, rsum (rsum (tproject1 m1 * m11)))"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
     @?= "\\x1 -> let m6 = tproject1 m1 * rreplicate 3 (rreplicate 4 (tproject2 m1)) in rgather [3,4] (rconst (rfromListLinear [2] [0.0,1.0])) (\\[i7, i8] -> [ifF (m6 ! [i7, i8] <=. 0.0) 0 1]) * m6"
 
@@ -972,7 +972,7 @@ testReluSimplerPP4 = do
   resetVarCounter
   let (artifactRev, _deltas) = revArtifactAdapt True reluT2 (rreplicate0N [3, 4] 128, 42)
   printArtifactPretty renames (simplifyArtifact artifactRev)
-    @?= "\\m11 x1 -> let m12 = rgather [3,4] (rconst (rfromListLinear [2] [0.0,1.0])) (\\[i8, i9] -> [ifF (tproject1 m1 ! [i8, i9] * tproject2 m1 <=. 0.0) 0 1]) * m11 in ttuple (rreplicate 3 (rreplicate 4 (tproject2 m1)) * m12, rsum (rreshape [12] (tproject1 m1) * rreshape [12] m12))"
+    @?= "\\m11 x1 -> let m12 = rgather [3,4] (rconst (rfromListLinear [2] [0.0,1.0])) (\\[i8, i9] -> [ifF (tproject1 m1 ! [i8, i9] * tproject2 m1 <=. 0.0) 0 1]) * m11 in tpair (rreplicate 3 (rreplicate 4 (tproject2 m1)) * m12, rsum (rreshape [12] (tproject1 m1) * rreshape [12] m12))"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
     @?= "\\x1 -> let m7 = tproject1 m1 * rreplicate 3 (rreplicate 4 (tproject2 m1)) in rgather [3,4] (rconst (rfromListLinear [2] [0.0,1.0])) (\\[i8, i9] -> [ifF (m7 ! [i8, i9] <=. 0.0) 0 1]) * m7"
 
@@ -1009,11 +1009,11 @@ testReluSimplerPP4S2 = do
       reluT2 (t, r) = reluS (t * sreplicate0N r)
   let (artifactRev, _deltas) = revArtifactAdapt True reluT2 (srepl 128, srepl 42)
   printArtifactPretty renames artifactRev
-    @?= "\\m11 x1 -> let m5 = sreshape (sreplicate (tproject2 m1)) ; m6 = tproject1 m1 * m5 ; m10 = sgather (sreplicate (sconst @[2] (sfromListLinear [2] [0.0,1.0]))) (\\[i7, i8] -> [i7, ifF (m6 !$ [i7, i8] <=. 0.0) 0 1]) ; m12 = m10 * m11 in ttuple (m5 * m12, ssum (sreshape (tproject1 m1 * m12)))"
+    @?= "\\m11 x1 -> let m5 = sreshape (sreplicate (tproject2 m1)) ; m6 = tproject1 m1 * m5 ; m10 = sgather (sreplicate (sconst @[2] (sfromListLinear [2] [0.0,1.0]))) (\\[i7, i8] -> [i7, ifF (m6 !$ [i7, i8] <=. 0.0) 0 1]) ; m12 = m10 * m11 in tpair (m5 * m12, ssum (sreshape (tproject1 m1 * m12)))"
   printArtifactPrimalPretty renames artifactRev
     @?= "\\x1 -> let m5 = sreshape (sreplicate (tproject2 m1)) ; m6 = tproject1 m1 * m5 ; m10 = sgather (sreplicate (sconst @[2] (sfromListLinear [2] [0.0,1.0]))) (\\[i7, i8] -> [i7, ifF (m6 !$ [i7, i8] <=. 0.0) 0 1]) in m10 * m6"
   printArtifactPretty renames (simplifyArtifact artifactRev)
-    @?= "\\m11 x1 -> let m5 = sreshape (sreplicate (tproject2 m1)) ; m12 = sgather (sreplicate (sconst @[2] (sfromListLinear [2] [0.0,1.0]))) (\\[i7, i8] -> [i7, ifF (tproject1 m1 !$ [i7, i8] * m5 !$ [i7, i8] <=. 0.0) 0 1]) * m11 in ttuple (m5 * m12, ssum (sreshape (tproject1 m1) * sreshape m12))"
+    @?= "\\m11 x1 -> let m5 = sreshape (sreplicate (tproject2 m1)) ; m12 = sgather (sreplicate (sconst @[2] (sfromListLinear [2] [0.0,1.0]))) (\\[i7, i8] -> [i7, ifF (tproject1 m1 !$ [i7, i8] * m5 !$ [i7, i8] <=. 0.0) 0 1]) * m11 in tpair (m5 * m12, ssum (sreshape (tproject1 m1) * sreshape m12))"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
     @?= "\\x1 -> let m6 = tproject1 m1 * sreshape (sreplicate (tproject2 m1)) in sgather (sreplicate (sconst @[2] (sfromListLinear [2] [0.0,1.0]))) (\\[i7, i8] -> [i7, ifF (m6 !$ [i7, i8] <=. 0.0) 0 1]) * m6"
 
@@ -1073,11 +1073,11 @@ testReluMaxPP2 = do
   resetVarCounter
   let (artifactRev, _deltas) = revArtifactAdapt True reluT2 (rreplicate0N [5] 128, 42)
   printArtifactPretty renames artifactRev
-    @?= "\\v6 x1 -> let m9 = rscatter [2,5] v6 (\\[i7] -> [let x8 = tproject1 v1 ! [i7] in ifF (0.0 >=. x8 * tproject2 v1) 0 1, i7]) ; v10 = m9 ! [1] in ttuple (rreplicate 5 (tproject2 v1) * v10, rsum (tproject1 v1 * v10))"
+    @?= "\\v6 x1 -> let m9 = rscatter [2,5] v6 (\\[i7] -> [let x8 = tproject1 v1 ! [i7] in ifF (0.0 >=. x8 * tproject2 v1) 0 1, i7]) ; v10 = m9 ! [1] in tpair (rreplicate 5 (tproject2 v1) * v10, rsum (tproject1 v1 * v10))"
   printArtifactPrimalPretty renames artifactRev
     @?= "\\x1 -> rgather [5] (rfromVector (fromList [rreplicate 5 0.0, tproject1 v1 * rreplicate 5 (tproject2 v1)])) (\\[i4] -> [let x5 = tproject1 v1 ! [i4] in ifF (0.0 >=. x5 * tproject2 v1) 0 1, i4])"
   printArtifactPretty renames (simplifyArtifact artifactRev)
-    @?= "\\v6 x1 -> let v10 = rscatter [2,5] v6 (\\[i7] -> [ifF (0.0 >=. tproject1 v1 ! [i7] * tproject2 v1) 0 1, i7]) ! [1] in ttuple (rreplicate 5 (tproject2 v1) * v10, rsum (tproject1 v1 * v10))"
+    @?= "\\v6 x1 -> let v10 = rscatter [2,5] v6 (\\[i7] -> [ifF (0.0 >=. tproject1 v1 ! [i7] * tproject2 v1) 0 1, i7]) ! [1] in tpair (rreplicate 5 (tproject2 v1) * v10, rsum (tproject1 v1 * v10))"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
     @?= "\\x1 -> rgather [5] (rfromVector (fromList [rreplicate 5 0.0, tproject1 v1 * rreplicate 5 (tproject2 v1)])) (\\[i4] -> [ifF (0.0 >=. tproject1 v1 ! [i4] * tproject2 v1) 0 1, i4])"
 
@@ -1100,7 +1100,7 @@ testDot1PP = do
                  ( ringestData [3] [1 .. 3]
                  , ringestData [3] [4 .. 6] )
   printArtifactPretty renames artifactRev
-    @?= "\\x2 x1 -> ttuple (tproject2 v1 * rreshape [3] (rreplicate 3 x2), tproject1 v1 * rreshape [3] (rreplicate 3 x2))"
+    @?= "\\x2 x1 -> tpair (tproject2 v1 * rreshape [3] (rreplicate 3 x2), tproject1 v1 * rreshape [3] (rreplicate 3 x2))"
   printArtifactPrimalPretty renames artifactRev
     @?= "\\x1 -> rsum (rreshape [3] (tproject1 v1 * tproject2 v1))"
 
@@ -1113,11 +1113,11 @@ testDot2PP = do
                  ( ringestData [2,3] [1 .. 6]
                  , ringestData [2,3] [7 .. 12] )
   printArtifactPretty renames artifactRev
-    @?= "\\x4 x1 -> let v2 = rreshape [6] (tproject1 m1) ; v3 = rreshape [6] (tproject2 m1) in ttuple (rreshape [2,3] (v3 * rreshape [6] (rreplicate 6 x4)), rreshape [2,3] (v2 * rreshape [6] (rreplicate 6 x4)))"
+    @?= "\\x4 x1 -> let v2 = rreshape [6] (tproject1 m1) ; v3 = rreshape [6] (tproject2 m1) in tpair (rreshape [2,3] (v3 * rreshape [6] (rreplicate 6 x4)), rreshape [2,3] (v2 * rreshape [6] (rreplicate 6 x4)))"
   printArtifactPrimalPretty renames artifactRev
     @?= "\\x1 -> let v2 = rreshape [6] (tproject1 m1) ; v3 = rreshape [6] (tproject2 m1) in rsum (rreshape [6] (v2 * v3))"
   printArtifactPretty renames (simplifyArtifact artifactRev)
-    @?= "\\x4 x1 -> ttuple (tproject2 m1 * rreplicate 2 (rreplicate 3 x4), tproject1 m1 * rreplicate 2 (rreplicate 3 x4))"
+    @?= "\\x4 x1 -> tpair (tproject2 m1 * rreplicate 2 (rreplicate 3 x4), tproject1 m1 * rreplicate 2 (rreplicate 3 x4))"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
     @?= "\\x1 -> rsum (rreshape [6] (tproject1 m1) * rreshape [6] (tproject2 m1))"
   show deltas
@@ -1133,11 +1133,11 @@ testMatvecmulPP = do
                  ( ringestData [2,3] [1 .. 6]
                  , ringestData [3] [7 .. 9] )
   printArtifactPretty @_ @(TKR Double 1) renames artifactRev
-    @?= "\\v3 x1 -> ttuple (rtranspose [1,0] (rtranspose [1,0] (rreplicate 2 (tproject2 m1)) * rreplicate 3 v3), rsum (rtranspose [1,0] (rtranspose [1,0] (tproject1 m1) * rreplicate 3 v3)))"
+    @?= "\\v3 x1 -> tpair (rtranspose [1,0] (rtranspose [1,0] (rreplicate 2 (tproject2 m1)) * rreplicate 3 v3), rsum (rtranspose [1,0] (rtranspose [1,0] (tproject1 m1) * rreplicate 3 v3)))"
   printArtifactPrimalPretty renames artifactRev
     @?= "\\x1 -> rsum (rtranspose [1,0] (rreplicate 2 (tproject2 m1)) * rtranspose [1,0] (tproject1 m1))"
   printArtifactPretty renames (simplifyArtifact artifactRev)
-    @?= "\\v3 x1 -> ttuple (rreplicate 2 (tproject2 m1) * rtranspose [1,0] (rreplicate 3 v3), rsum (tproject1 m1 * rtranspose [1,0] (rreplicate 3 v3)))"
+    @?= "\\v3 x1 -> tpair (rreplicate 2 (tproject2 m1) * rtranspose [1,0] (rreplicate 3 v3), rsum (tproject1 m1 * rtranspose [1,0] (rreplicate 3 v3)))"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
     @?= "\\x1 -> rsum (rtranspose [1,0] (rreplicate 2 (tproject2 m1)) * rtranspose [1,0] (tproject1 m1))"
 
@@ -1151,11 +1151,11 @@ testMatmul2PP = do
                  ( ringestData [2,3] [1 .. 6]
                  , ringestData [3,4] [7 .. 18] )
   printArtifactPretty @_ @(TKR Double 2) renames artifactRev
-    @?= "\\m2 x1 -> ttuple (rsum (rtranspose [2,1,0] (rtranspose [1,0] (rreplicate 2 (tproject2 m1)) * rreplicate 3 m2)), rsum (rtranspose [1,0] (rtranspose [2,1,0] (rreplicate 4 (tproject1 m1)) * rreplicate 3 m2)))"
+    @?= "\\m2 x1 -> tpair (rsum (rtranspose [2,1,0] (rtranspose [1,0] (rreplicate 2 (tproject2 m1)) * rreplicate 3 m2)), rsum (rtranspose [1,0] (rtranspose [2,1,0] (rreplicate 4 (tproject1 m1)) * rreplicate 3 m2)))"
   printArtifactPrimalPretty renames artifactRev
     @?= "\\x1 -> rsum (rtranspose [2,1,0] (rreplicate 4 (tproject1 m1)) * rtranspose [1,0] (rreplicate 2 (tproject2 m1)))"
   printArtifactPretty renames (simplifyArtifact artifactRev)
-    @?= "\\m2 x1 -> ttuple (rsum (rtranspose [2,0,1] (rreplicate 2 (tproject2 m1)) * rtranspose [2,1,0] (rreplicate 3 m2)), rsum (rtranspose [1,2,0] (rreplicate 4 (tproject1 m1)) * rtranspose [1,0] (rreplicate 3 m2)))"
+    @?= "\\m2 x1 -> tpair (rsum (rtranspose [2,0,1] (rreplicate 2 (tproject2 m1)) * rtranspose [2,1,0] (rreplicate 3 m2)), rsum (rtranspose [1,2,0] (rreplicate 4 (tproject1 m1)) * rtranspose [1,0] (rreplicate 3 m2)))"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
     @?= "\\x1 -> rsum (rtranspose [2,1,0] (rreplicate 4 (tproject1 m1)) * rtranspose [1,0] (rreplicate 2 (tproject2 m1)))"
 
@@ -1173,7 +1173,7 @@ testMatmul2FromMatvecmulPP = do
                  ( ringestData [2,3] [1 .. 6]
                  , ringestData [3,4] [7 .. 18] )
   printArtifactPretty @_ @(TKR Double 2) renames artifactRev
-    @?= "\\m7 x1 -> ttuple (rsum (rtranspose [2,1,0] (rtranspose [1,0] (rreplicate 2 (tproject2 m1)) * rreplicate 3 m7)), rsum (rtranspose [1,0] (rtranspose [2,1,0] (rreplicate 4 (tproject1 m1)) * rreplicate 3 m7)))"
+    @?= "\\m7 x1 -> tpair (rsum (rtranspose [2,1,0] (rtranspose [1,0] (rreplicate 2 (tproject2 m1)) * rreplicate 3 m7)), rsum (rtranspose [1,0] (rtranspose [2,1,0] (rreplicate 4 (tproject1 m1)) * rreplicate 3 m7)))"
   printArtifactPrimalPretty renames artifactRev
     @?= "\\x1 -> rsum (rtranspose [2,1,0] (rreplicate 4 (tproject1 m1)) * rtranspose [1,0] (rreplicate 2 (tproject2 m1)))"
 
@@ -1195,7 +1195,7 @@ testMatmul2PaperPP = do
                  ( ringestData [2,3] [1 .. 6]
                  , ringestData [3,4] [7 .. 18] )
   printArtifactPretty @_ @(TKR Double 2) renames artifactRev
-    @?= "\\m6 x1 -> ttuple (rsum (rtranspose [2,1,0] (rtranspose [1,0] (rreplicate 2 (tproject2 m1)) * rreplicate 3 m6)), rsum (rtranspose [1,0] (rtranspose [2,1,0] (rreplicate 4 (tproject1 m1)) * rreplicate 3 m6)))"
+    @?= "\\m6 x1 -> tpair (rsum (rtranspose [2,1,0] (rtranspose [1,0] (rreplicate 2 (tproject2 m1)) * rreplicate 3 m6)), rsum (rtranspose [1,0] (rtranspose [2,1,0] (rreplicate 4 (tproject1 m1)) * rreplicate 3 m6)))"
   printArtifactPrimalPretty renames artifactRev
     @?= "\\x1 -> rsum (rtranspose [2,1,0] (rreplicate 4 (tproject1 m1)) * rtranspose [1,0] (rreplicate 2 (tproject2 m1)))"
 
@@ -1209,11 +1209,11 @@ testMatmul2PPS = do
                  ( sconst $ Nested.Internal.sfromListPrimLinear @_ @'[2,3] knownShS [1 :: Double .. 6]
                  , sconst $ Nested.Internal.sfromListPrimLinear @_ @'[3,4] knownShS [7 .. 18] )
   printArtifactPretty renames artifactRev
-    @?= "\\m2 x1 -> ttuple (ssum (stranspose (stranspose (sreplicate (tproject2 m1)) * sreplicate m2)), ssum (stranspose (stranspose (sreplicate (tproject1 m1)) * sreplicate m2)))"
+    @?= "\\m2 x1 -> tpair (ssum (stranspose (stranspose (sreplicate (tproject2 m1)) * sreplicate m2)), ssum (stranspose (stranspose (sreplicate (tproject1 m1)) * sreplicate m2)))"
   printArtifactPrimalPretty renames artifactRev
     @?= "\\x1 -> ssum (stranspose (sreplicate (tproject1 m1)) * stranspose (sreplicate (tproject2 m1)))"
   printArtifactPretty renames (simplifyArtifact artifactRev)
-    @?= "\\m2 x1 -> ttuple (ssum (stranspose (sreplicate (tproject2 m1)) * stranspose (sreplicate m2)), ssum (stranspose (sreplicate (tproject1 m1)) * stranspose (sreplicate m2)))"
+    @?= "\\m2 x1 -> tpair (ssum (stranspose (sreplicate (tproject2 m1)) * stranspose (sreplicate m2)), ssum (stranspose (sreplicate (tproject1 m1)) * stranspose (sreplicate m2)))"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
     @?= "\\x1 -> ssum (stranspose (sreplicate (tproject1 m1)) * stranspose (sreplicate (tproject2 m1)))"
 

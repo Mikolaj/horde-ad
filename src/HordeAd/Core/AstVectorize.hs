@@ -143,10 +143,10 @@ build1V snat@SNat (var, v00) =
       traceRule | Dict <- lemTensorKindOfBuild snat (stensorKind @y) =
         mkTraceRule "build1V" bv v0 1
   in case v0 of
-    Ast.AstTuple @x @z t1 t2
+    Ast.AstPair @x @z t1 t2
       | Dict <- lemTensorKindOfBuild snat (stensorKind @x)
       , Dict <- lemTensorKindOfBuild snat (stensorKind @z) ->
-        astTuple (build1VOccurenceUnknown snat (var, t1))
+        astPair (build1VOccurenceUnknown snat (var, t1))
                  (build1VOccurenceUnknown snat (var, t2))
     Ast.AstProject1 @_ @z t
       | Dict <- lemTensorKindOfBuild snat (stensorKind @z)
@@ -220,7 +220,7 @@ build1V snat@SNat (var, v00) =
                           snat (stensorKind @(BuildTensorKind k2 z2)) ->
                 astLetFun u $ \ !uShared ->
                   let (u1, u2) = (astProject1 uShared, astProject2 uShared)
-                  in astTuple (repl2Stk stk1 u1) (repl2Stk stk2 u2)
+                  in astPair (repl2Stk stk1 u1) (repl2Stk stk2 u2)
             STKUntyped ->
               astTrAstHVector
               $ fun1DToAst (shapeAstHVector u) $ \ !vars !asts ->
@@ -455,7 +455,7 @@ build1V snat@SNat (var, v00) =
            (build1VOccurenceUnknown snat (var, acc0))
            (astTrGeneral @k @k5 (stensorKind @eShs)
             $ build1VOccurenceUnknown snat (var, es)))
-        (\x1bs1 -> astTuple (astProject1 x1bs1)
+        (\x1bs1 -> astPair (astProject1 x1bs1)
                             (astTrGeneral @k5 @k
                                           (stensorKind @bShs) (astProject2 x1bs1)))
     Ast.AstMapAccumLDer @accShs @bShs @eShs @k5
@@ -481,7 +481,7 @@ build1V snat@SNat (var, v00) =
            (build1VOccurenceUnknown snat (var, acc0))
            (astTrGeneral @k @k5 (stensorKind @eShs)
             $ build1VOccurenceUnknown snat (var, es)))
-        (\x1bs1 -> astTuple (astProject1 x1bs1)
+        (\x1bs1 -> astPair (astProject1 x1bs1)
                             (astTrGeneral @k5 @k
                                           (stensorKind @bShs) (astProject2 x1bs1)))
 
@@ -674,7 +674,7 @@ substProjRep snat@SNat var ftk2 var1 v
             , Dict <- lemTensorKindOfBuild snat (stensorKind @z2) ->
               let prVar1 = astProject1 prVar
                   prVar2 = astProject2 prVar
-              in astTuple (projection prVar1 ftk41)
+              in astPair (projection prVar1 ftk41)
                           (projection prVar2 ftk42)
           ftk@(FTKUntyped shs0) -> case buildTensorKindFull snat ftk of
             FTKUntyped shs -> fun1DToAst shs $ \ !vars !asts ->
@@ -822,7 +822,7 @@ astTrGeneral stk t = case stk of
                 (SNat @k2) (stensorKind @(BuildTensorKind k1 z2)) ->
       astLetFun t $ \ !tShared ->
         let (u1, u2) = (astProject1 tShared, astProject2 tShared)
-        in astTuple (astTrGeneral @k1 @k2 stk1 u1) (astTrGeneral @k1 @k2 stk2 u2)
+        in astPair (astTrGeneral @k1 @k2 stk1 u1) (astTrGeneral @k1 @k2 stk2 u2)
   STKUntyped -> astTrAstHVector t
 
 
