@@ -469,6 +469,7 @@ unshareAst memo = \case
                 d = RepN $ rankedY stensorKind v2
             in (DMap.insert var d memo1, astVar)
   Ast.AstShare{} -> error "unshareAst: AstShare not in PrimalSpan"
+  Ast.AstToShare v -> (memo, v)  -- nothing to unshare in this subtree
   Ast.AstMinIndex a -> second Ast.AstMinIndex $ unshareAst memo a
   Ast.AstMaxIndex a -> second Ast.AstMaxIndex $ unshareAst memo a
   Ast.AstFloor a -> second Ast.AstFloor $ unshareAst memo a

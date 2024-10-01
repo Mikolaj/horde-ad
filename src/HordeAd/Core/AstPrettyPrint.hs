@@ -329,6 +329,7 @@ printAstAux cfg d = \case
       . printAstVar cfg var
       . showString " "
       . printAst cfg 11 v
+  AstToShare v -> printAstAux cfg d v  -- ignored
 
   AstMinIndex a ->
     printPrefixOp printAst cfg d "rminIndex" [a]

@@ -472,16 +472,15 @@ instance AstSpan s => LetTensor (AstRanked s) (AstShaped s) where
       $ astLetFun (unHVectorPseudoTensor u)
                   (unRankedY (stensorKind @z) . f . HVectorPseudoTensor)
 
-  -- TODO: remove unsafeCoerce here and below
   toShare :: forall y. TensorKind y
           => Rep (AstRanked s) y
           -> Rep (AstRaw s) y
   toShare t = case stensorKind @y of
-    STKR{} -> AstRaw $ unsafeCoerce $ unAstRanked t
-    STKS{} -> AstRawS $ unsafeCoerce $ unAstShaped t
-    STKProduct{} -> AstRawWrap $ unsafeCoerce t
+    STKR{} -> AstRaw $ AstToShare $ unAstRanked t
+    STKS{} -> AstRawS $ AstToShare $ unAstShaped t
+    STKProduct{} -> AstRawWrap $ AstToShare t
     STKUnit -> tunit
-    STKUntyped -> HVectorPseudoTensor $ AstRawWrap $ unsafeCoerce
+    STKUntyped -> HVectorPseudoTensor $ AstRawWrap $ AstToShare
                   $ unHVectorPseudoTensor t
   -- For convenience and simplicity we define this for all spans,
   -- but it can only ever be used for PrimalSpan.
@@ -1273,11 +1272,11 @@ instance AstSpan s => LetTensor (AstNoVectorize s) (AstNoVectorizeS s) where
           => Rep (AstNoVectorize s) y
           -> Rep (AstRaw s) y
   toShare t = case (stensorKind @y) of
-    STKR{} -> AstRaw $ unsafeCoerce $ unAstNoVectorize t
-    STKS{} -> AstRawS $ unsafeCoerce $ unAstNoVectorizeS t
-    STKProduct{} -> AstRawWrap $ unsafeCoerce $ unAstNoVectorizeWrap t
+    STKR{} -> AstRaw $ AstToShare $ unAstNoVectorize t
+    STKS{} -> AstRawS $ AstToShare $ unAstNoVectorizeS t
+    STKProduct{} -> AstRawWrap $ AstToShare $ unAstNoVectorizeWrap t
     STKUnit -> tunit
-    STKUntyped -> HVectorPseudoTensor $ AstRawWrap $ unsafeCoerce
+    STKUntyped -> HVectorPseudoTensor $ AstRawWrap $ AstToShare
                   $ unAstNoVectorizeWrap $ unHVectorPseudoTensor t
   tconstant stk t = case stk of
     STKR{} -> rconstant t
@@ -1649,11 +1648,11 @@ instance AstSpan s => LetTensor (AstNoSimplify s) (AstNoSimplifyS s) where
           => Rep (AstNoSimplify s) y
           -> Rep (AstRaw s) y
   toShare t = case (stensorKind @y) of
-    STKR{} -> AstRaw $ unsafeCoerce $ unAstNoSimplify t
-    STKS{} -> AstRawS $ unsafeCoerce $ unAstNoSimplifyS t
-    STKProduct{} -> AstRawWrap $ unsafeCoerce $ unAstNoSimplifyWrap t
+    STKR{} -> AstRaw $ AstToShare $ unAstNoSimplify t
+    STKS{} -> AstRawS $ AstToShare $ unAstNoSimplifyS t
+    STKProduct{} -> AstRawWrap $ AstToShare $ unAstNoSimplifyWrap t
     STKUnit -> tunit
-    STKUntyped -> HVectorPseudoTensor $ AstRawWrap $ unsafeCoerce
+    STKUntyped -> HVectorPseudoTensor $ AstRawWrap $ AstToShare
                   $ unAstNoSimplifyWrap $ unHVectorPseudoTensor t
   tconstant stk t = case stk of
     STKR{} -> rconstant t

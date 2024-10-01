@@ -339,6 +339,8 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType -> Type wh
   AstShare :: TensorKind y
            => AstVarName s y -> AstTensor AstMethodShare s y
            -> AstTensor AstMethodShare s y
+  AstToShare :: AstTensor AstMethodLet s y
+             -> AstTensor AstMethodShare s y
 
   -- Here starts the ranked part.
   -- The r variable is often existential here, so a proper specialization needs

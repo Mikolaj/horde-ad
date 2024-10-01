@@ -61,7 +61,8 @@ shapeAstFull t = case t of
   AstBuild1 snat (_var, v) -> buildTensorKindFull snat (shapeAstFull v)
 
   AstLet _ _ v -> shapeAstFull v
-  AstShare _ v-> shapeAstFull v
+  AstShare _ v -> shapeAstFull v
+  AstToShare v -> shapeAstFull v
   AstMinIndex a -> FTKR $ initShape $ shapeAst a
   AstMaxIndex a -> FTKR $ initShape $ shapeAst a
   AstFloor a -> FTKR $ shapeAst a
@@ -204,6 +205,7 @@ varInAst var = \case
 
   AstLet _var2 u v -> varInAst var u || varInAst var v
   AstShare _ v -> varInAst var v
+  AstToShare v -> varInAst var v
   AstMinIndex a -> varInAst var a
   AstMaxIndex a -> varInAst var a
   AstFloor a -> varInAst var a
