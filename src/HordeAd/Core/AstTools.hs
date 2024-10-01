@@ -13,7 +13,6 @@ module HordeAd.Core.AstTools
   , varInIndexS
   , varInAstDynamic
   , varNameInAst, varNameInAstHVector
-  , varInAstBindingsCase
     -- * Determining if a term is too small to require sharing
   , astIsSmall
     -- * Odds and ends
@@ -303,10 +302,6 @@ varNameInAstHVector :: AstSpan s
                     => AstVarName f y -> AstTensor ms s TKUntyped -> Bool
 varNameInAstHVector var = varInAst (varNameToAstVarId var)
 
-varInAstBindingsCase :: TensorKind y
-                     => AstVarId -> AstBindingsCase y -> Bool
-varInAstBindingsCase var (RepN t) = varInAst var $ unRankedY stensorKind t
-
 
 -- * Determining if a term is too small to require sharing
 
@@ -362,8 +357,8 @@ bindsToLet u0 bs = foldl' bindToLet u0 (DMap.toDescList bs)
  where
   bindToLet :: AstTensor AstMethodLet s y
             -> DSum (AstVarName PrimalSpan)
-                    (RepN (AstRanked PrimalSpan))
+                    (AstTensor AstMethodLet PrimalSpan)
             -> AstTensor AstMethodLet s y
-  bindToLet !u (var :=> RepN w)
+  bindToLet !u (var :=> w)
     | Dict <- tensorKindFromAstVarName var =
-      AstLet var (unRankedY stensorKind w) u
+      AstLet var w u

@@ -268,10 +268,10 @@ type AstVarListS sh = SizedListS sh (Const IntVarName)
 
 -- * AstBindingsCase and AstBindings
 
-type AstBindingsCase y = RepN (AstRanked PrimalSpan) y
+type AstBindingsCase y = AstTensor AstMethodLet PrimalSpan y
 
 type AstBindings = DEnumMap (AstVarName PrimalSpan)
-                            (RepN (AstRanked PrimalSpan))
+                            (AstTensor AstMethodLet PrimalSpan)
 
 
 -- * ASTs

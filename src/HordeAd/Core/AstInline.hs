@@ -391,16 +391,12 @@ unshareAstScoped
 unshareAstScoped vars0 memo0 v0 =
   let (memo1, v1) = unshareAst memo0 v0
       memoDiff = DMap.difference memo1 memo0
-      varsOccur :: [AstVarId]
-                -> AstVarName PrimalSpan y -> RepN (AstRanked PrimalSpan) y
+      varsOccur :: [AstVarId] -> AstTensor AstMethodLet PrimalSpan y
                 -> Bool
-      varsOccur vs var d
-        | Dict <- tensorKindFromAstVarName var =
-          any (`varInAstBindingsCase` d) vs
+      varsOccur vs d = any (`varInAst` d) vs
       closeOccurs :: [AstVarId] -> AstBindings -> (AstBindings, AstBindings)
       closeOccurs vars memo =
-        let (memoLocal, memoGlobal) =
-              DMap.partitionWithKey (varsOccur vars) memo
+        let (memoLocal, memoGlobal) = DMap.partition (varsOccur vars) memo
         in if DMap.null memoLocal
            then (memoLocal, memoGlobal)
            else -- TODO: we probably need to include all variables from
@@ -456,8 +452,7 @@ unshareAst memo = \case
     in if var `DMap.member` memo
        then (memo, astVar)  -- TODO: memoize AstVar itself
        else let (memo1, v2) = unshareAst memo v
-                d = RepN $ rankedY stensorKind v2
-            in (DMap.insert var d memo1, astVar)
+            in (DMap.insert var v2 memo1, astVar)
   Ast.AstShare{} -> error "unshareAst: AstShare not in PrimalSpan"
   Ast.AstToShare v -> (memo, v)  -- nothing to unshare in this subtree
   Ast.AstMinIndex a -> second Ast.AstMinIndex $ unshareAst memo a
