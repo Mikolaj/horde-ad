@@ -104,8 +104,7 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
       s1 = evalR s0 dt deltaTopLevel
       s2 = evalFromnMap s1
       rebuildInputs :: [Some (RepM ranked)] -> TensorKindFull y
-                    -> ( Rep ranked y
-                       , [Some (RepM ranked)] )
+                    -> (Rep ranked y, [Some (RepM ranked)])
       rebuildInputs els = \case
         FTKR @r @n _ -> case els of
           Some mt@(MTKR @r2 @n2 t) : rest ->
@@ -213,8 +212,7 @@ derivativeFromDelta deltaTopLevel ds =
   in c
 
 evalRepM :: ADReadyNoLet ranked
-                          => RepM ranked x
-                          -> Rep ranked x
+         => RepM ranked x -> Rep ranked x
 evalRepM = \case
   MTKR t -> t
   MTKS t -> t
@@ -654,7 +652,7 @@ type instance Rep (DeltaR ranked) (TKProduct x z) =
 instance RankedOf (ShapedOf ranked) ~ ranked
          => ProductTensor (DeltaR ranked) where
   tpair t1 t2 = PairG (unDeltaRY stensorKind t1)
-                        (unDeltaRY stensorKind t2)
+                      (unDeltaRY stensorKind t2)
   tproject1 = deltaRY stensorKind . Project1G
   tproject2 = deltaRY stensorKind . Project2G
   tmkHVector = HToH
@@ -901,8 +899,7 @@ initEvalState
 initEvalState ftk0 =
   let -- Matches generateDeltaInputs.
       generateDSums :: Int -> TensorKindFull y
-                    -> ( [DSum (InputId ranked) (RepM ranked)]
-                       , Int )
+                    -> ([DSum (InputId ranked) (RepM ranked)], Int)
       generateDSums j ftk  = case ftk of
         FTKR @r sh -> withShapeP (shapeToList sh) $ \(Proxy @sh) ->
           case lemKnownNatRank (knownShS @sh) of

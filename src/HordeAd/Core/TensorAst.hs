@@ -417,8 +417,7 @@ instance AstSpan s => LetTensor (AstRanked s) (AstShaped s) where
   dletHFunInHVector = astLetHFunInFun
   dlet :: forall x z. (TensorKind x, TensorKind z)
        => Rep (AstRanked s) x
-       -> (RepDeep (AstRanked s) x
-           -> Rep (AstRanked s) z)
+       -> (RepDeep (AstRanked s) x -> Rep (AstRanked s) z)
        -> Rep (AstRanked s) z
   dlet u f = case stensorKind @x of
     STKR{} -> blet u f
@@ -429,8 +428,7 @@ instance AstSpan s => LetTensor (AstRanked s) (AstShaped s) where
     STKUntyped{} -> tlet u f
   tlet :: forall x z. (TensorKind x, TensorKind z)
        => Rep (AstRanked s) x
-       -> (RepShallow (AstRanked s) x
-           -> Rep (AstRanked s) z)
+       -> (RepShallow (AstRanked s) x -> Rep (AstRanked s) z)
        -> Rep (AstRanked s) z
   tlet u f = case stensorKind @x of
     STKR{} -> blet u f
@@ -442,8 +440,7 @@ instance AstSpan s => LetTensor (AstRanked s) (AstShaped s) where
       blet u $ \ !uShared -> f $ dunHVector $ unHVectorPseudoTensor uShared
   blet :: forall x z. (TensorKind x, TensorKind z)
        => Rep (AstRanked s) x
-       -> (Rep (AstRanked s) x
-           -> Rep (AstRanked s) z)
+       -> (Rep (AstRanked s) x -> Rep (AstRanked s) z)
        -> Rep (AstRanked s) z
   blet u f = case stensorKind @x of
     STKR{} ->
@@ -695,15 +692,14 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     -> TensorKindFull eShs
     -> HFunOf (AstRanked s) (TKProduct accShs eShs) (TKProduct accShs bShs)
     -> HFunOf (AstRanked s) (TKProduct (TKProduct accShs eShs)
-                                (TKProduct accShs eShs))
-                     (TKProduct accShs bShs)
+                                       (TKProduct accShs eShs))
+                            (TKProduct accShs bShs)
     -> HFunOf (AstRanked s) (TKProduct (TKProduct accShs bShs)
-                                (TKProduct accShs eShs))
-                     (TKProduct accShs eShs)
+                                       (TKProduct accShs eShs))
+                            (TKProduct accShs eShs)
     -> Rep (AstRanked s) accShs
     -> Rep (AstRanked s) (BuildTensorKind k eShs)
-    -> Rep (AstRanked s)
-                            (TKProduct accShs (BuildTensorKind k bShs))
+    -> Rep (AstRanked s) (TKProduct accShs (BuildTensorKind k bShs))
   dmapAccumRDer _ !k !accShs !bShs !eShs f df rf acc0 es
     | Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
     , Dict <- lemTensorKindOfBuild k (stensorKind @bShs) =
@@ -721,15 +717,14 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     -> TensorKindFull eShs
     -> HFunOf (AstRanked s) (TKProduct accShs eShs) (TKProduct accShs bShs)
     -> HFunOf (AstRanked s) (TKProduct (TKProduct accShs eShs)
-                                (TKProduct accShs eShs))
-                     (TKProduct accShs bShs)
+                                       (TKProduct accShs eShs))
+                            (TKProduct accShs bShs)
     -> HFunOf (AstRanked s) (TKProduct (TKProduct accShs bShs)
-                                (TKProduct accShs eShs))
-                     (TKProduct accShs eShs)
+                                       (TKProduct accShs eShs))
+                            (TKProduct accShs eShs)
     -> Rep (AstRanked s) accShs
     -> Rep (AstRanked s) (BuildTensorKind k eShs)
-    -> Rep (AstRanked s)
-                            (TKProduct accShs (BuildTensorKind k bShs))
+    -> Rep (AstRanked s) (TKProduct accShs (BuildTensorKind k bShs))
   dmapAccumLDer _ !k !accShs !bShs !eShs f df rf acc0 es
     | Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
     , Dict <- lemTensorKindOfBuild k (stensorKind @bShs) =
@@ -850,8 +845,7 @@ instance AstSpan s => ShareTensor (AstRaw s) where
   -- For convenience and simplicity we define this for all spans,
   -- but it can only ever be used for PrimalSpan.
   tshare :: forall y. TensorKind y
-         => Rep (AstRaw s) y
-         -> Rep (AstRaw s) y
+         => Rep (AstRaw s) y -> Rep (AstRaw s) y
   tshare t = case stensorKind @y of
     STKR{} | astIsSmall True (unAstRaw t) -> t
     STKR{} -> case t of
@@ -1049,22 +1043,21 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
     -> TensorKindFull eShs
     -> HFunOf (AstRaw s) (TKProduct accShs eShs) (TKProduct accShs bShs)
     -> HFunOf (AstRaw s) (TKProduct (TKProduct accShs eShs)
-                                (TKProduct accShs eShs))
-                     (TKProduct accShs bShs)
+                                    (TKProduct accShs eShs))
+                         (TKProduct accShs bShs)
     -> HFunOf (AstRaw s) (TKProduct (TKProduct accShs bShs)
-                                (TKProduct accShs eShs))
-                     (TKProduct accShs eShs)
+                                    (TKProduct accShs eShs))
+                         (TKProduct accShs eShs)
     -> Rep (AstRaw s) accShs
     -> Rep (AstRaw s) (BuildTensorKind k eShs)
-    -> Rep (AstRaw s)
-                            (TKProduct accShs (BuildTensorKind k bShs))
+    -> Rep (AstRaw s) (TKProduct accShs (BuildTensorKind k bShs))
   dmapAccumRDer _ !k !accShs !bShs !eShs f df rf acc0 es
     | Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
     , Dict <- lemTensorKindOfBuild k (stensorKind @bShs) =
-    rawY stensorKind
-    $ AstMapAccumRDer k accShs bShs eShs f df rf
-                      (unRawY stensorKind acc0)
-                      (unRawY stensorKind es)
+      rawY stensorKind
+      $ AstMapAccumRDer k accShs bShs eShs f df rf
+                        (unRawY stensorKind acc0)
+                        (unRawY stensorKind es)
   dmapAccumLDer
     :: forall accShs bShs eShs k.
        (TensorKind accShs, TensorKind bShs, TensorKind eShs)
@@ -1075,22 +1068,21 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
     -> TensorKindFull eShs
     -> HFunOf (AstRaw s) (TKProduct accShs eShs) (TKProduct accShs bShs)
     -> HFunOf (AstRaw s) (TKProduct (TKProduct accShs eShs)
-                                (TKProduct accShs eShs))
-                     (TKProduct accShs bShs)
+                                    (TKProduct accShs eShs))
+                         (TKProduct accShs bShs)
     -> HFunOf (AstRaw s) (TKProduct (TKProduct accShs bShs)
-                                (TKProduct accShs eShs))
-                     (TKProduct accShs eShs)
+                                    (TKProduct accShs eShs))
+                         (TKProduct accShs eShs)
     -> Rep (AstRaw s) accShs
     -> Rep (AstRaw s) (BuildTensorKind k eShs)
-    -> Rep (AstRaw s)
-                            (TKProduct accShs (BuildTensorKind k bShs))
+    -> Rep (AstRaw s) (TKProduct accShs (BuildTensorKind k bShs))
   dmapAccumLDer _ !k !accShs !bShs !eShs f df rf acc0 es
     | Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
     , Dict <- lemTensorKindOfBuild k (stensorKind @bShs) =
-    rawY stensorKind
-    $ AstMapAccumLDer k accShs bShs eShs f df rf
-                      (unRawY stensorKind acc0)
-                      (unRawY stensorKind es)
+      rawY stensorKind
+      $ AstMapAccumLDer k accShs bShs eShs f df rf
+                        (unRawY stensorKind acc0)
+                        (unRawY stensorKind es)
 
 
 -- * The AstNoVectorize
@@ -1151,7 +1143,7 @@ instance Show (RepProductN (AstNoVectorize s) x y) where
 
 instance AstSpan s => ProductTensor (AstNoVectorize s) where
   tpair t1 t2 = AstNoVectorizeWrap $ astPair (unNoVectorizeY stensorKind t1)
-                                               (unNoVectorizeY stensorKind t2)
+                                             (unNoVectorizeY stensorKind t2)
   tproject1 t = noVectorizeY stensorKind $ astProject1 $ unAstNoVectorizeWrap t
   tproject2 t = noVectorizeY stensorKind $ astProject2 $ unAstNoVectorizeWrap t
   tmkHVector = AstNoVectorizeWrap . AstMkHVector . unNoVectorizeHVector
@@ -1211,8 +1203,7 @@ instance AstSpan s => LetTensor (AstNoVectorize s) (AstNoVectorizeS s) where
     $ dletHFunInHVector t (unAstNoVectorizeWrap . f)
   dlet :: forall x z. (TensorKind x, TensorKind z)
        => Rep (AstNoVectorize s) x
-       -> (RepDeep (AstNoVectorize s) x
-           -> Rep (AstNoVectorize s) z)
+       -> (RepDeep (AstNoVectorize s) x -> Rep (AstNoVectorize s) z)
        -> Rep (AstNoVectorize s) z
   dlet u f = case stensorKind @x of
     STKR{} -> blet u f
@@ -1223,8 +1214,7 @@ instance AstSpan s => LetTensor (AstNoVectorize s) (AstNoVectorizeS s) where
     STKUntyped{} -> tlet u f
   tlet :: forall x z. (TensorKind x, TensorKind z)
        => Rep (AstNoVectorize s) x
-       -> (RepShallow (AstNoVectorize s) x
-           -> Rep (AstNoVectorize s) z)
+       -> (RepShallow (AstNoVectorize s) x -> Rep (AstNoVectorize s) z)
        -> Rep (AstNoVectorize s) z
   tlet u f = case stensorKind @x of
     STKR{} -> blet u f
@@ -1236,8 +1226,7 @@ instance AstSpan s => LetTensor (AstNoVectorize s) (AstNoVectorizeS s) where
       blet u $ \ !uShared -> f $ dunHVector $ unHVectorPseudoTensor uShared
   blet :: forall x z. (TensorKind x, TensorKind z)
        => Rep (AstNoVectorize s) x
-       -> (Rep (AstNoVectorize s) x
-           -> Rep (AstNoVectorize s) z)
+       -> (Rep (AstNoVectorize s) x -> Rep (AstNoVectorize s) z)
        -> Rep (AstNoVectorize s) z
   blet u f = case stensorKind @x of
     STKR{} -> noVectorizeY (stensorKind @z)
@@ -1310,7 +1299,7 @@ instance AstSpan s => RankedTensor (AstNoVectorize s) where
     $ unAstNoVectorize . f . AstNoVectorize
   rgather sh t f =
     astNoVectorize2 $ rgather sh (unAstNoVectorize2 t)
-                   $ fmap unAstNoVectorize2 . f . fmap astNoVectorize2
+                    $ fmap unAstNoVectorize2 . f . fmap astNoVectorize2
   rcast = astNoVectorize2 . rcast . unAstNoVectorize2
   rfromIntegral = astNoVectorize2 . rfromIntegral . unAstNoVectorize2
   rconst = astNoVectorize2 . rconst
@@ -1320,7 +1309,7 @@ instance AstSpan s => RankedTensor (AstNoVectorize s) where
   rdualPart = astNoVectorize2 . rdualPart . unAstNoVectorize2
   rD u u' = astNoVectorize2 $ rD (unAstNoVectorize2 u) (unAstNoVectorize2 u')
   rScale s t = astNoVectorize2 $ rScale @(AstRanked s)
-                                       (unAstNoVectorize2 s) (unAstNoVectorize2 t)
+                                        (unAstNoVectorize2 s) (unAstNoVectorize2 t)
 
 instance AstSpan s => ShapedTensor (AstNoVectorizeS s) where
   sminIndex = astNoVectorizeS2 . sminIndex . unAstNoVectorizeS2
@@ -1362,7 +1351,7 @@ instance AstSpan s => ShapedTensor (AstNoVectorizeS s) where
     astNoVectorizeS2 $ sD  (unAstNoVectorizeS2 u) (unAstNoVectorizeS2 u')
   sScale s t =
     astNoVectorizeS2 $ sScale @(AstShaped s)
-                             (unAstNoVectorizeS2 s) (unAstNoVectorizeS2 t)
+                              (unAstNoVectorizeS2 s) (unAstNoVectorizeS2 t)
 
 instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
   dshape = dshape . unAstNoVectorizeWrap
@@ -1416,15 +1405,14 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
     -> TensorKindFull eShs
     -> HFunOf (AstNoVectorize s) (TKProduct accShs eShs) (TKProduct accShs bShs)
     -> HFunOf (AstNoVectorize s) (TKProduct (TKProduct accShs eShs)
-                                (TKProduct accShs eShs))
-                     (TKProduct accShs bShs)
+                                            (TKProduct accShs eShs))
+                                 (TKProduct accShs bShs)
     -> HFunOf (AstNoVectorize s) (TKProduct (TKProduct accShs bShs)
-                                (TKProduct accShs eShs))
-                     (TKProduct accShs eShs)
+                                            (TKProduct accShs eShs))
+                                (TKProduct accShs eShs)
     -> Rep (AstNoVectorize s) accShs
     -> Rep (AstNoVectorize s) (BuildTensorKind k eShs)
-    -> Rep (AstNoVectorize s)
-                            (TKProduct accShs (BuildTensorKind k bShs))
+    -> Rep (AstNoVectorize s) (TKProduct accShs (BuildTensorKind k bShs))
   dmapAccumRDer _ !k !accShs !bShs !eShs f df rf acc0 es
     | Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
     , Dict <- lemTensorKindOfBuild k (stensorKind @bShs) =
@@ -1442,15 +1430,14 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
     -> TensorKindFull eShs
     -> HFunOf (AstNoVectorize s) (TKProduct accShs eShs) (TKProduct accShs bShs)
     -> HFunOf (AstNoVectorize s) (TKProduct (TKProduct accShs eShs)
-                                (TKProduct accShs eShs))
-                     (TKProduct accShs bShs)
+                                            (TKProduct accShs eShs))
+                                 (TKProduct accShs bShs)
     -> HFunOf (AstNoVectorize s) (TKProduct (TKProduct accShs bShs)
-                                (TKProduct accShs eShs))
-                     (TKProduct accShs eShs)
+                                            (TKProduct accShs eShs))
+                                 (TKProduct accShs eShs)
     -> Rep (AstNoVectorize s) accShs
     -> Rep (AstNoVectorize s) (BuildTensorKind k eShs)
-    -> Rep (AstNoVectorize s)
-                            (TKProduct accShs (BuildTensorKind k bShs))
+    -> Rep (AstNoVectorize s) (TKProduct accShs (BuildTensorKind k bShs))
   dmapAccumLDer _ !k !accShs !bShs !eShs f df rf acc0 es
     | Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
     , Dict <- lemTensorKindOfBuild k (stensorKind @bShs) =
@@ -1518,7 +1505,7 @@ instance Show (RepProductN (AstNoSimplify s) x y) where
 
 instance AstSpan s => ProductTensor (AstNoSimplify s) where
   tpair t1 t2 = AstNoSimplifyWrap $ astPair (unNoSimplifyY stensorKind t1)
-                                              (unNoSimplifyY stensorKind t2)
+                                            (unNoSimplifyY stensorKind t2)
   tproject1 t = noSimplifyY stensorKind $ astProject1 $ unAstNoSimplifyWrap t
   tproject2 t = noSimplifyY stensorKind $ astProject2 $ unAstNoSimplifyWrap t
   tmkHVector = AstNoSimplifyWrap . AstMkHVector . unNoSimplifyHVector
@@ -1587,8 +1574,7 @@ instance AstSpan s => LetTensor (AstNoSimplify s) (AstNoSimplifyS s) where
     $ astLetHFunInFunNoSimplify t (unAstNoSimplifyWrap . f)
   dlet :: forall x z. (TensorKind x, TensorKind z)
        => Rep (AstNoSimplify s) x
-       -> (RepDeep (AstNoSimplify s) x
-           -> Rep (AstNoSimplify s) z)
+       -> (RepDeep (AstNoSimplify s) x -> Rep (AstNoSimplify s) z)
        -> Rep (AstNoSimplify s) z
   dlet u f = case stensorKind @x of
     STKR{} -> blet u f
@@ -1599,8 +1585,7 @@ instance AstSpan s => LetTensor (AstNoSimplify s) (AstNoSimplifyS s) where
     STKUntyped{} -> tlet u f
   tlet :: forall x z. (TensorKind x, TensorKind z)
        => Rep (AstNoSimplify s) x
-       -> (RepShallow (AstNoSimplify s) x
-           -> Rep (AstNoSimplify s) z)
+       -> (RepShallow (AstNoSimplify s) x -> Rep (AstNoSimplify s) z)
        -> Rep (AstNoSimplify s)  z
   tlet u f = case stensorKind @x of
     STKR{} -> blet u f
@@ -1612,8 +1597,7 @@ instance AstSpan s => LetTensor (AstNoSimplify s) (AstNoSimplifyS s) where
       blet u $ \ !uShared -> f $ dunHVector $ unHVectorPseudoTensor uShared
   blet :: forall x z. (TensorKind x, TensorKind z)
        => Rep (AstNoSimplify s) x
-       -> (Rep (AstNoSimplify s) x
-           -> Rep (AstNoSimplify s) z)
+       -> (Rep (AstNoSimplify s) x -> Rep (AstNoSimplify s) z)
        -> Rep (AstNoSimplify s)  z
   blet u f = case stensorKind @x of
     STKR{} -> noSimplifyY (stensorKind @z)
@@ -1819,15 +1803,14 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
     -> TensorKindFull eShs
     -> HFunOf (AstNoSimplify s) (TKProduct accShs eShs) (TKProduct accShs bShs)
     -> HFunOf (AstNoSimplify s) (TKProduct (TKProduct accShs eShs)
-                                (TKProduct accShs eShs))
-                     (TKProduct accShs bShs)
+                                           (TKProduct accShs eShs))
+                                (TKProduct accShs bShs)
     -> HFunOf (AstNoSimplify s) (TKProduct (TKProduct accShs bShs)
-                                (TKProduct accShs eShs))
-                     (TKProduct accShs eShs)
+                                           (TKProduct accShs eShs))
+                                (TKProduct accShs eShs)
     -> Rep (AstNoSimplify s) accShs
     -> Rep (AstNoSimplify s) (BuildTensorKind k eShs)
-    -> Rep (AstNoSimplify s)
-                            (TKProduct accShs (BuildTensorKind k bShs))
+    -> Rep (AstNoSimplify s) (TKProduct accShs (BuildTensorKind k bShs))
   dmapAccumRDer _ !k !accShs !bShs !eShs f df rf acc0 es
     | Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
     , Dict <- lemTensorKindOfBuild k (stensorKind @bShs) =
@@ -1845,15 +1828,14 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
     -> TensorKindFull eShs
     -> HFunOf (AstNoSimplify s) (TKProduct accShs eShs) (TKProduct accShs bShs)
     -> HFunOf (AstNoSimplify s) (TKProduct (TKProduct accShs eShs)
-                                (TKProduct accShs eShs))
-                     (TKProduct accShs bShs)
+                                           (TKProduct accShs eShs))
+                                (TKProduct accShs bShs)
     -> HFunOf (AstNoSimplify s) (TKProduct (TKProduct accShs bShs)
-                                (TKProduct accShs eShs))
-                     (TKProduct accShs eShs)
+                                           (TKProduct accShs eShs))
+                                (TKProduct accShs eShs)
     -> Rep (AstNoSimplify s) accShs
     -> Rep (AstNoSimplify s) (BuildTensorKind k eShs)
-    -> Rep (AstNoSimplify s)
-                            (TKProduct accShs (BuildTensorKind k bShs))
+    -> Rep (AstNoSimplify s) (TKProduct accShs (BuildTensorKind k bShs))
   dmapAccumLDer _ !k !accShs !bShs !eShs f df rf acc0 es
     | Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
     , Dict <- lemTensorKindOfBuild k (stensorKind @bShs) =

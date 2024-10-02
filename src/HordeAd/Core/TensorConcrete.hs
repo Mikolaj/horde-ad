@@ -65,8 +65,7 @@ type instance ShapedOf ORArray = OSArray
 
 type instance HVectorOf ORArray = HVector ORArray
 
-type instance HFunOf ORArray x z =
-  Rep ORArray x -> Rep ORArray z
+type instance HFunOf ORArray x z = Rep ORArray x -> Rep ORArray z
 
 type instance PrimalOf ORArray = ORArray
 
@@ -80,8 +79,7 @@ instance LetTensor ORArray OSArray where
   dletHFunInHVector = (&)
   dlet :: forall x z. TensorKind x
        => Rep ORArray x
-       -> (RepDeep ORArray x
-           -> Rep ORArray z)
+       -> (RepDeep ORArray x -> Rep ORArray z)
        -> Rep ORArray z
   dlet a f = case stensorKind @x of
     STKR{} -> f a
@@ -91,8 +89,7 @@ instance LetTensor ORArray OSArray where
     STKUntyped{} -> f $ unHVectorPseudoTensor a
   tlet :: forall x z. TensorKind x
        => Rep ORArray x
-       -> (RepShallow ORArray x
-           -> Rep ORArray z)
+       -> (RepShallow ORArray x -> Rep ORArray z)
        -> Rep ORArray z
   tlet a f = case stensorKind @x of
     STKR{} -> f a
@@ -286,8 +283,7 @@ instance HVectorTensor ORArray OSArray where
        -> HFun x z
        -> HFunOf ORArray x x
   drev _ftk h =
-    let rf :: Rep ORArray x
-           -> Rep ORArray x
+    let rf :: Rep ORArray x -> Rep ORArray x
         rf !a = fst $ crevOnHVector Nothing (unHFun h) a
     in rf
   drevDt :: forall x z. (TensorKind x, TensorKind z)
@@ -295,17 +291,15 @@ instance HVectorTensor ORArray OSArray where
          -> HFun x z
          -> HFunOf ORArray (TKProduct z x) x
   drevDt _ftk h =
-    let rf :: Rep ORArray (TKProduct z x)
-           -> Rep ORArray x
+    let rf :: Rep ORArray (TKProduct z x) -> Rep ORArray x
         rf !db_a = fst $ crevOnHVector (Just $ fst db_a) (unHFun h) (snd db_a)
     in rf
   dfwd :: forall x z. (TensorKind x, TensorKind z)
-            => TensorKindFull x
-            -> HFun x z
-            -> HFunOf ORArray (TKProduct x x) z
+       => TensorKindFull x
+       -> HFun x z
+       -> HFunOf ORArray (TKProduct x x) z
   dfwd _shs h =
-    let df :: Rep ORArray (TKProduct x x)
-           -> Rep ORArray z
+    let df :: Rep ORArray (TKProduct x x) -> Rep ORArray z
         df !da_a = fst $ cfwdOnHVector (snd da_a) (unHFun h) (fst da_a)
     in df
   rfold f x0 as = foldl' f x0 (runravelToList as)
@@ -326,8 +320,7 @@ instance HVectorTensor ORArray OSArray where
     oRdmapAccumL k accShs bShs eShs (\ !a !b ->
       f (unrepDeep a, unrepDeep b)) acc0 es
 
-type instance Rep ORArray (TKProduct x z) =
-  (Rep ORArray x, Rep ORArray z)
+type instance Rep ORArray (TKProduct x z) = (Rep ORArray x, Rep ORArray z)
 
 instance (Show (RepN ORArray x), Show (RepN ORArray y))
          => Show (RepProductN ORArray x y) where

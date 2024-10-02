@@ -328,7 +328,7 @@ class ( Num (IntOf ranked), IntegralF (IntOf ranked), CRanked ranked Num
 -- rmatmul2 m1 m2 = rbuild1 (rlength m1) (\i -> rmatvecmul (rtr m2) (m1 ! [i]))
   rmatmul2 m1 m2 = case rshape m2 of
     _ :$: width2 :$: ZSR -> rsum (rtranspose [2,1,0] (rreplicate width2 m1)
-                               * rtranspose [1,0] (rreplicate (rlength m1) m2))
+                                  * rtranspose [1,0] (rreplicate (rlength m1) m2))
     _ -> error "rmatmul2: impossible pattern needlessly required"
   rscatter :: (GoodScalar r, KnownNat m, KnownNat n, KnownNat p)
            => IShR (p + n) -> ranked r (m + n)
@@ -975,8 +975,7 @@ class HVectorTensor (ranked :: RankedTensorType)
            (FTKUntyped V.empty)
            (FTKR @rm shm)
            (let g :: forall f. ADReady f
-                  => Rep f (TKR rn n)
-                  -> Rep f (TKR rm m)
+                  => Rep f (TKR rn n) -> Rep f (TKR rm m)
                   -> Rep f (TKProduct (TKR rn n) TKUntyped)
                 g !acc !e =
                   tpair (f acc e)
@@ -1008,8 +1007,7 @@ class HVectorTensor (ranked :: RankedTensorType)
                 (FTKR @rn sh)
                 (FTKR @rm shm)
                 (let g :: forall f. ADReady f
-                       => Rep f (TKR rn n)
-                       -> Rep f (TKR rm m)
+                       => Rep f (TKR rn n) -> Rep f (TKR rm m)
                        -> Rep f (TKProduct (TKR rn n) (TKR rn n))
                      g !acc !e = blet (f acc e) $ \ !res -> tpair res res
                  in g)
@@ -1034,8 +1032,7 @@ class HVectorTensor (ranked :: RankedTensorType)
          (FTKUntyped V.empty)
          (FTKS @rm @shm)
          (let g :: forall f. ADReady f
-                => Rep f (TKS rn sh)
-                -> Rep f (TKS rm shm)
+                => Rep f (TKS rn sh) -> Rep f (TKS rm shm)
                 -> Rep f (TKProduct (TKS rn sh) TKUntyped)
               g !acc !e =
                 tpair (f acc e)
@@ -1061,8 +1058,7 @@ class HVectorTensor (ranked :: RankedTensorType)
              (FTKS @rn @sh)
              (FTKS @rm @shm)
              (let g :: forall f. ADReady f
-                    => Rep f (TKS rn sh)
-                    -> Rep f (TKS rm shm)
+                    => Rep f (TKS rn sh) -> Rep f (TKS rm shm)
                     -> Rep f (TKProduct (TKS rn sh) (TKS rn sh))
                   g !acc !e = blet (f acc e) $ \ !res -> tpair res res
               in g)

@@ -54,8 +54,7 @@ crevOnADInputs
      ( TensorKind x, TensorKind z, ADReadyNoLet ranked
      , ShareTensor ranked, ShareTensor (PrimalOf ranked) )
   => Maybe (Rep ranked z)
-  -> (Rep (ADVal ranked) x
-      -> Rep (ADVal ranked) z)
+  -> (Rep (ADVal ranked) x -> Rep (ADVal ranked) z)
   -> Rep (ADVal ranked) x
   -> (Rep ranked x, Rep ranked z)
 -- The functions in which @revOnADInputs@ inlines are not inlined themselves
@@ -74,8 +73,7 @@ crevOnHVector
      ( TensorKind x, TensorKind z, ADReadyNoLet ranked
      , ShareTensor ranked, ShareTensor (PrimalOf ranked) )
   => Maybe (Rep ranked z)
-  -> (Rep (ADVal ranked) x
-      -> Rep (ADVal ranked) z)
+  -> (Rep (ADVal ranked) x -> Rep (ADVal ranked) z)
   -> Rep ranked x
   -> (Rep ranked x, Rep ranked z)
 crevOnHVector mdt f parameters =
@@ -88,8 +86,7 @@ cfwdOnADInputs
   :: forall x z ranked.
      (TensorKind x, TensorKind z, ADReadyNoLet ranked, ShareTensor ranked)
   => Rep (ADVal ranked) x
-  -> (Rep (ADVal ranked) x
-      -> Rep (ADVal ranked) z)
+  -> (Rep (ADVal ranked) x -> Rep (ADVal ranked) z)
   -> Rep ranked x
   -> (Rep ranked z, Rep ranked z)
 {-# INLINE cfwdOnADInputs #-}
@@ -102,8 +99,7 @@ cfwdOnHVector
   :: forall x z ranked.
      (TensorKind x, TensorKind z, ADReadyNoLet ranked, ShareTensor ranked)
   => Rep ranked x
-  -> (Rep (ADVal ranked) x
-      -> Rep (ADVal ranked) z)
+  -> (Rep (ADVal ranked) x -> Rep (ADVal ranked) z)
   -> Rep ranked x
   -> (Rep ranked z, Rep ranked z)
 cfwdOnHVector parameters f ds =
@@ -124,8 +120,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
   dletHFunInHVector = (&)
   dlet :: forall x z. (TensorKind x, TensorKind z)
        => Rep (ADVal ranked) x
-       -> (RepDeep (ADVal ranked) x
-           -> Rep (ADVal ranked) z)
+       -> (RepDeep (ADVal ranked) x -> Rep (ADVal ranked) z)
        -> Rep (ADVal ranked) z
   dlet a f = case stensorKind @x of
     STKR{} -> blet a f
@@ -139,8 +134,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
       in f (aDValHVector var2 u')
   tlet :: forall x z. (TensorKind x, TensorKind z)
        => Rep (ADVal ranked) x
-       -> (RepShallow (ADVal ranked) x
-           -> Rep (ADVal ranked) z)
+       -> (RepShallow (ADVal ranked) x -> Rep (ADVal ranked) z)
        -> Rep (ADVal ranked) z
   tlet a f = case stensorKind @x of
     STKR{} -> blet a f
@@ -162,8 +156,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
       in f (aDValHVector var2 u')
   blet :: forall x z. (TensorKind x, TensorKind z)
        => Rep (ADVal ranked) x
-       -> (Rep (ADVal ranked) x
-           -> Rep (ADVal ranked) z)
+       -> (Rep (ADVal ranked) x -> Rep (ADVal ranked) z)
        -> Rep (ADVal ranked) z
   blet a f = case stensorKind @x of
     STKR{} ->
@@ -625,11 +618,11 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
     -> TensorKindFull eShs
     -> HFunOf (ADVal ranked) (TKProduct accShs eShs) (TKProduct accShs bShs)
     -> HFunOf (ADVal ranked) (TKProduct (TKProduct accShs eShs)
-                                (TKProduct accShs eShs))
-                     (TKProduct accShs bShs)
+                                        (TKProduct accShs eShs))
+                             (TKProduct accShs bShs)
     -> HFunOf (ADVal ranked) (TKProduct (TKProduct accShs bShs)
-                                (TKProduct accShs eShs))
-                     (TKProduct accShs eShs)
+                                        (TKProduct accShs eShs))
+                             (TKProduct accShs eShs)
     -> Rep (ADVal ranked) accShs
     -> Rep (ADVal ranked) (BuildTensorKind k eShs)
     -> Rep (ADVal ranked) (TKProduct accShs (BuildTensorKind k bShs))
@@ -649,7 +642,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
             tpair accRes1 (tpair acc1 bRes1)
         dg :: forall f. ADReady f
            => Rep f (TKProduct (TKProduct accShs eShs)
-                                                (TKProduct accShs eShs))
+                               (TKProduct accShs eShs))
            -> Rep f (TKProduct accShs (TKProduct accShs bShs))
         dg !dacc_de_acc_e =
           tlet dacc_de_acc_e $ \(!dacc_de, !_acc_e) ->
@@ -657,10 +650,9 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
           tlet (unHFun df dacc_de_acc_e) $ \ (!accRes1, !bRes1) ->
             tpair accRes1 (tpair dacc1 bRes1)
         rg :: forall f. ADReady f
-           => Rep f (TKProduct (TKProduct
-                                                   accShs
-                                                   (TKProduct accShs bShs))
-                                                (TKProduct accShs eShs))
+           => Rep f (TKProduct (TKProduct accShs
+                                          (TKProduct accShs bShs))
+                               (TKProduct accShs eShs))
            -> Rep f (TKProduct accShs eShs)
         rg !args = tlet args $ \ (!dx_db, !acc_e) ->
                    tlet dx_db $ \ (!dx1, !db1) ->
@@ -688,8 +680,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
         -- of tuples in the struct of arrays format.
         (q, bs) = tunpair qbs
         dual = MapAccumR k accShs bShs eShs
-                         (RepN q)
-                         (RepN es)
+                         (RepN q) (RepN es)
                          df rf acc0' es'
     in aDValRep (tpair accFin bs) dual
   dmapAccumLDer
@@ -702,11 +693,11 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
     -> TensorKindFull eShs
     -> HFunOf (ADVal ranked) (TKProduct accShs eShs) (TKProduct accShs bShs)
     -> HFunOf (ADVal ranked) (TKProduct (TKProduct accShs eShs)
-                                (TKProduct accShs eShs))
-                     (TKProduct accShs bShs)
+                                        (TKProduct accShs eShs))
+                             (TKProduct accShs bShs)
     -> HFunOf (ADVal ranked) (TKProduct (TKProduct accShs bShs)
-                                (TKProduct accShs eShs))
-                     (TKProduct accShs eShs)
+                                        (TKProduct accShs eShs))
+                             (TKProduct accShs eShs)
     -> Rep (ADVal ranked) accShs
     -> Rep (ADVal ranked) (BuildTensorKind k eShs)
     -> Rep (ADVal ranked) (TKProduct accShs (BuildTensorKind k bShs))
@@ -726,7 +717,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
             tpair accRes1 (tpair acc1 bRes1)
         dg :: forall f. ADReady f
            => Rep f (TKProduct (TKProduct accShs eShs)
-                                                (TKProduct accShs eShs))
+                               (TKProduct accShs eShs))
            -> Rep f (TKProduct accShs (TKProduct accShs bShs))
         dg !dacc_de_acc_e =
           tlet dacc_de_acc_e $ \(!dacc_de, !_acc_e) ->
@@ -734,10 +725,9 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
           tlet (unHFun df dacc_de_acc_e) $ \ (!accRes1, !bRes1) ->
             tpair accRes1 (tpair dacc1 bRes1)
         rg :: forall f. ADReady f
-           => Rep f (TKProduct (TKProduct
-                                                   accShs
-                                                   (TKProduct accShs bShs))
-                                                (TKProduct accShs eShs))
+           => Rep f (TKProduct (TKProduct accShs
+                                          (TKProduct accShs bShs))
+                               (TKProduct accShs eShs))
            -> Rep f (TKProduct accShs eShs)
         rg !args = tlet args $ \ (!dx_db, !acc_e) ->
                    tlet dx_db $ \ (!dx1, !db1) ->
@@ -765,8 +755,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
         -- of tuples in the struct of arrays format.
         (q, bs) = tunpair qbs
         dual = MapAccumL k accShs bShs eShs
-                         (RepN q)
-                         (RepN es)
+                         (RepN q) (RepN es)
                          df rf acc0' es'
     in aDValRep (tpair accFin bs) dual
 
@@ -810,8 +799,7 @@ unADValRep
      , RankedOf (ShapedOf ranked) ~ ranked )
   => STensorKindType y
   -> Rep (ADVal ranked) y
-  -> ( Rep ranked y
-     , Delta ranked y )
+  -> (Rep ranked y, Delta ranked y)
 unADValRep stk t = case (stk, t) of
   (STKR{}, D p (DeltaR d)) -> (p, d)
   (STKS{}, D p (DeltaS d)) -> (p, d)
