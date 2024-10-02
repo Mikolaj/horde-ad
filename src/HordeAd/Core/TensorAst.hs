@@ -13,6 +13,7 @@ module HordeAd.Core.TensorAst
   , fwdArtifactFromForwardPass, fwdProduceArtifact
   , printArtifactSimple, printArtifactPretty
   , printArtifactPrimalSimple, printArtifactPrimalPretty
+  , rawY
   ) where
 
 import Prelude
@@ -58,25 +59,25 @@ forwardPassByInterpretation
   => (Rep (AstRanked FullSpan) x
       -> Rep (AstRanked FullSpan) z)
   -> AstEnv (ADVal (AstRaw PrimalSpan))
-  -> Rep (AstRaw PrimalSpan) x
+  -> AstTensor AstMethodShare PrimalSpan x
   -> AstVarName FullSpan x
-  -> Rep (AstRanked FullSpan) x
+  -> AstTensor AstMethodLet FullSpan x
   -> Rep (ADVal (AstRaw PrimalSpan)) z
 {-# INLINE forwardPassByInterpretation #-}
 forwardPassByInterpretation g envInit hVectorPrimal var hVector =
-  let deltaInputs = generateDeltaInputs
-                    $ tshapeFull (stensorKind @x) hVectorPrimal
-      varInputs = makeADInputs hVectorPrimal deltaInputs
-      ast = g hVector
+  let deltaInputs = generateDeltaInputs $ shapeAstFull hVectorPrimal
+      varInputs = makeADInputs (rawY (stensorKind @x) hVectorPrimal)
+                               deltaInputs
+      ast = g $ rankedY (stensorKind @x) hVector
       env = extendEnv var varInputs envInit
   in interpretAst env $ unRankedY (stensorKind @z) ast
 
 revArtifactFromForwardPass
   :: forall x z. (TensorKind x, TensorKind z)
   => Bool
-  -> (Rep (AstRaw PrimalSpan) x
+  -> (AstTensor AstMethodShare PrimalSpan x
       -> AstVarName FullSpan x
-      -> Rep (AstRanked FullSpan) x
+      -> AstTensor AstMethodLet FullSpan x
       -> Rep (ADVal (AstRaw PrimalSpan)) z)
   -> TensorKindFull x
   -> (AstArtifactRev x z, Delta (AstRaw PrimalSpan) z)
@@ -90,8 +91,7 @@ revArtifactFromForwardPass hasDt forwardPass ftk =
       -- before gradientFromDelta allocates new memory and new FFI is started.
       !(!primalBody, !delta) =
         unADValRep (stensorKind @z)
-        $ forwardPass (rawY (stensorKind @x) hVectorPrimal) var
-                      (rankedY (stensorKind @x) hVector) in
+        $ forwardPass hVectorPrimal var hVector in
   let (!varDt, !astDt) =
         funToAst (shapeAstFull $ unRawY (stensorKind @z) primalBody) id in
   let mdt = if hasDt then Just $ rawY (stensorKind @z) astDt else Nothing
@@ -115,9 +115,9 @@ revProduceArtifact hasDt g envInit =
 
 fwdArtifactFromForwardPass
   :: forall x z. (TensorKind x, TensorKind z)
-  => (Rep (AstRaw PrimalSpan) x
+  => (AstTensor AstMethodShare PrimalSpan x
       -> AstVarName FullSpan x
-      -> Rep (AstRanked FullSpan) x
+      -> AstTensor AstMethodLet FullSpan x
       -> Rep (ADVal (AstRaw PrimalSpan)) z)
   -> TensorKindFull x
   -> (AstArtifactFwd x z, Delta (AstRaw PrimalSpan) z)
@@ -127,8 +127,7 @@ fwdArtifactFromForwardPass forwardPass ftk =
         funToAstFwd ftk in
   let !(!primalBody, !delta) =
         unADValRep (stensorKind @z)
-        $ forwardPass (rawY (stensorKind @x) hVectorPrimal) var
-                      (rankedY (stensorKind @x) hVector) in
+        $ forwardPass hVectorPrimal var hVector in
   let !derivative = derivativeFromDelta delta (rawY (stensorKind @x) hVectorD)
       !unDerivative = unshareAstTensor $ unRawY (stensorKind @z) derivative
       !unPrimal = unshareAstTensor $ unRawY (stensorKind @z) primalBody

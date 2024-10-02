@@ -163,15 +163,15 @@ forwardPassByApplication
   :: forall x z. TensorKind x
   => (Rep (ADVal (AstRaw PrimalSpan)) x
       -> Rep (ADVal (AstRaw PrimalSpan)) z)
-  -> Rep (AstRaw PrimalSpan) x
+  -> AstTensor AstMethodShare PrimalSpan x
   -> AstVarName FullSpan x
-  -> Rep (AstRanked FullSpan) x
+  -> AstTensor AstMethodLet FullSpan x
   -> Rep (ADVal (AstRaw PrimalSpan)) z
 {-# INLINE forwardPassByApplication #-}
 forwardPassByApplication g hVectorPrimal _var _hVector =
-  let deltaInputs =
-        generateDeltaInputs $ tshapeFull (stensorKind @x) hVectorPrimal
-      varInputs = makeADInputs hVectorPrimal deltaInputs
+  let deltaInputs = generateDeltaInputs $ shapeAstFull hVectorPrimal
+      varInputs = makeADInputs (rawY (stensorKind @x) hVectorPrimal)
+                               deltaInputs
   in g varInputs
 
 revEvalArtifact
