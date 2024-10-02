@@ -16,7 +16,7 @@ module HordeAd.Core.TensorClass
   , HVectorTensor(..), ProductTensor(..)
   , HFun(..)
   , rfromD, sfromD, rscalar, rrepl, ringestData, ringestData1
-  , ingestData, sscalar, srepl, unrepShallow, unrepDeep, repDeepUnshared
+  , ingestData, sscalar, srepl, unrepShallow, unrepDeep, repDeepDuplicable
   , mapDynamic, mapDynamic2, mapRep
   , mapRep2Weak
     -- * The giga-constraint
@@ -1301,16 +1301,16 @@ unrepDeep t = case stensorKind @y of
 -- a tower of projections for product, but if it's balanced,
 -- that's of logarithmic length, so maybe even better than sharing
 -- excessively, which is hard for technical typing reasons.
--- See toRepDUnshared.
-repDeepUnshared
+-- See toRepDDuplicable.
+repDeepDuplicable
   :: (HVectorTensor ranked (ShapedOf ranked), ProductTensor ranked)
   => STensorKindType y -> Rep ranked y
   -> RepDeep ranked y
-repDeepUnshared stk t = case stk of
+repDeepDuplicable stk t = case stk of
   STKR{} -> t
   STKS{} -> t
   STKProduct stk1 stk2 ->
-    (repDeepUnshared stk1 (tproject1 t), repDeepUnshared stk2 (tproject2 t))
+    (repDeepDuplicable stk1 (tproject1 t), repDeepDuplicable stk2 (tproject2 t))
   STKUnit -> t
   STKUntyped -> dunHVector $ unHVectorPseudoTensor t
 

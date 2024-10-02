@@ -84,7 +84,7 @@ instance LetTensor ORArray OSArray where
   dlet a f = case stensorKind @x of
     STKR{} -> f a
     STKS{} -> f a
-    stk@STKProduct{} -> f (repDeepUnshared stk a)
+    stk@STKProduct{} -> f (repDeepDuplicable stk a)
     STKUnit -> f a
     STKUntyped{} -> f $ unHVectorPseudoTensor a
   tlet :: forall x z. TensorKind x
@@ -104,8 +104,8 @@ instance LetTensor ORArray OSArray where
   taddLet t1 t2 =
     blet t1 $ \ !u1 ->
     blet t2 $ \ !u2 ->
-      fromRepD $ addRepD (toRepDUnshared stensorKind u1)
-                         (toRepDUnshared stensorKind u2)
+      fromRepD $ addRepD (toRepDDuplicable stensorKind u1)
+                         (toRepDDuplicable stensorKind u2)
 
 instance ShareTensor ORArray where
   tshare = id
@@ -379,10 +379,10 @@ oRdmapAccumR k _ bShs _ f acc0 es = case sNatValue k of
           -> ( RepDeep ORArray accShs
              , RepDeep ORArray bShs )
         g !x !a = let (a1, b1) = f x a
-                  in (repDeepUnshared stensorKind a1, repDeepUnshared stensorKind b1)
+                  in (repDeepDuplicable stensorKind a1, repDeepDuplicable stensorKind b1)
                     -- TODO: coerce instead? elsewhere, too?
-        (xout, lout) = mapAccumR g (repDeepUnshared stensorKind acc0)
-                                   (map (repDeepUnshared stensorKind) $ unravel k es)
+        (xout, lout) = mapAccumR g (repDeepDuplicable stensorKind acc0)
+                                   (map (repDeepDuplicable stensorKind) $ unravel k es)
     in ( unrepDeep xout
        , ravel k $ map unrepDeep lout )
       -- TODO: reimplement not with Haskell's mapAccumR to avoid the ravels
@@ -406,9 +406,9 @@ oRdmapAccumL k _ bShs _ f acc0 es = case sNatValue k of
           -> ( RepDeep ORArray accShs
              , RepDeep ORArray bShs )
         g !x !a = let (a1, b1) = f x a
-                  in (repDeepUnshared stensorKind a1, repDeepUnshared stensorKind b1)
-        (xout, lout) = mapAccumL g (repDeepUnshared stensorKind acc0)
-                                   (map (repDeepUnshared stensorKind) $ unravel k es)
+                  in (repDeepDuplicable stensorKind a1, repDeepDuplicable stensorKind b1)
+        (xout, lout) = mapAccumL g (repDeepDuplicable stensorKind acc0)
+                                   (map (repDeepDuplicable stensorKind) $ unravel k es)
     in ( unrepDeep xout
        , ravel k $ map unrepDeep lout )
 

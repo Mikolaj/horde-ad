@@ -106,7 +106,7 @@ revDtMaybe f vals0 mdt =
       valsH = toHVectorOf vals0
       voidH = tshapeFull stensorKind valsH
       artifact = fst $ revProduceArtifact (isJust mdt) g emptyEnv voidH
-  in parseHVector vals0 $ repDeepUnshared stensorKind
+  in parseHVector vals0 $ repDeepDuplicable stensorKind
      $ fst $ revEvalArtifact artifact valsH mdt
 {- TODO
 {-# SPECIALIZE revDtMaybe
@@ -291,13 +291,13 @@ crevDtMaybe
 {-# INLINE crevDtMaybe #-}
 crevDtMaybe f vals mdt =
   let g :: Rep (ADVal ORArray) (X advals) -> Rep (ADVal ORArray) z
-      g = f . parseHVector (fromDValue vals) . repDeepUnshared stensorKind
-        -- repDeepUnshared requires its argument to be deeply duplicable and
+      g = f . parseHVector (fromDValue vals) . repDeepDuplicable stensorKind
+        -- repDeepDuplicable requires its argument to be deeply duplicable and
         -- crevOnHVector satisfies that via makeADInputs
       valsH = toHVectorOf vals
-  in parseHVector vals $ repDeepUnshared stensorKind
+  in parseHVector vals $ repDeepDuplicable stensorKind
      $ fst $ crevOnHVector mdt g valsH
-       -- repDeepUnshared requires its argument to be deeply duplicable and
+       -- repDeepDuplicable requires its argument to be deeply duplicable and
        -- crevOnHVector satisfies that via gradientFromDelta
 
 {-# SPECIALIZE crevOnHVector
@@ -323,8 +323,8 @@ cfwd
   -> Rep ORArray z
 cfwd f vals ds =
   let g :: Rep (ADVal ORArray) (X advals) -> Rep (ADVal ORArray) z
-      g = f . parseHVector (fromDValue vals) . repDeepUnshared stensorKind
-        -- repDeepUnshared requires its argument to be deeply duplicable and
+      g = f . parseHVector (fromDValue vals) . repDeepDuplicable stensorKind
+        -- repDeepDuplicable requires its argument to be deeply duplicable and
         -- cfwdOnHVector satisfies that via makeADInputs
         -- TODO: or use dlet as above?
       valsH = toHVectorOf vals

@@ -1176,7 +1176,7 @@ evalR !s !c = \case
             _df rf acc0' es'
    | Dict <- lemTensorKindOfBuild k (stensorKind @bShs) ->
     let (c0, crest) = tunpair c
-        dacc_desUnshared =
+        dacc_des =
           dmapAccumL (Proxy @ranked)
                      k accShs eShs (FTKProduct bShs (FTKProduct accShs eShs))
                      (\dx (db, acc_e) ->
@@ -1184,7 +1184,7 @@ evalR !s !c = \case
                                           (unrepDeep acc_e)))
                      c0
                      (tpair crest (tpair q es))
-        (dacc, des) = tunpair dacc_desUnshared
+        (dacc, des) = tunpair dacc_des
         s2 = evalR s dacc acc0'
     in evalR s2 des es'
   MapAccumL @_ @_ @_ @bShs
@@ -1193,7 +1193,7 @@ evalR !s !c = \case
             _df rf acc0' es'
    | Dict <- lemTensorKindOfBuild k (stensorKind @bShs) ->
     let (c0, crest) = tunpair c
-        dacc_desUnshared =
+        dacc_des =
           dmapAccumR (Proxy @ranked)
                      k accShs eShs (FTKProduct bShs (FTKProduct accShs eShs))
                      (\dx (db, acc_e) ->
@@ -1201,7 +1201,7 @@ evalR !s !c = \case
                                           (unrepDeep acc_e)))
                      c0
                      (tpair crest (tpair q es))
-        (dacc, des) = tunpair dacc_desUnshared
+        (dacc, des) = tunpair dacc_des
         s2 = evalR s dacc acc0'
     in evalR s2 des es'
 

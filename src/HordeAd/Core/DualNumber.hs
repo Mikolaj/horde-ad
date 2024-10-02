@@ -183,10 +183,10 @@ aDValRep p d = case stensorKind @y of
 ahhToHVector
   :: forall ranked. RankedOf (ShapedOf ranked) ~ ranked
   => HVector ranked -> Delta ranked TKUntyped -> HVector (ADVal ranked)
-ahhToHVector h hUnshared' =
-  let h' = case hUnshared' of
-        HToH{} -> hUnshared'
-        _ -> wrapDelta hUnshared'
+ahhToHVector h hNotShared' =
+  let h' = case hNotShared' of
+        HToH{} -> hNotShared'
+        _ -> wrapDelta hNotShared'
       selectDual :: Int -> DynamicTensor ranked -> DynamicTensor (ADVal ranked)
       selectDual i d = case d of
         DynamicRanked t -> DynamicRanked $ dDnotShared t (DeltaR $ rFromH h' i)

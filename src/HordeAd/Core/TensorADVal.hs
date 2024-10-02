@@ -125,7 +125,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
   dlet a f = case stensorKind @x of
     STKR{} -> blet a f
     STKS{} -> blet a f
-    stk@STKProduct{} -> blet a $ \ !uShared -> f (repDeepUnshared stk uShared)
+    stk@STKProduct{} -> blet a $ \ !uShared -> f (repDeepDuplicable stk uShared)
     STKUnit -> f a
     STKUntyped{} ->
       let (!u, !u') = unADValHVector $ unHVectorPseudoTensor a
@@ -201,8 +201,8 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
   taddLet t1 t2 =
     blet t1 $ \ !u1 ->
     blet t2 $ \ !u2 ->
-      fromRepD $ addRepD (toRepDUnshared stensorKind u1)
-                         (toRepDUnshared stensorKind u2)
+      fromRepD $ addRepD (toRepDDuplicable stensorKind u1)
+                         (toRepDDuplicable stensorKind u2)
 
 instance (ADReadyNoLet ranked, ShareTensor ranked, ShareTensor (PrimalOf ranked))
          => ShareTensor (ADVal ranked) where
@@ -631,8 +631,8 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
    , Dict <- lemTensorKindOfBuild k (stensorKind @bShs)
    , Dict <- lemTensorKindOfBuild k (stensorKind @eShs) =
     let (acc0, acc0') = unADValRep stensorKind acc0D
-        (esUnshared, es') = unADValRep stensorKind esD
-        es = tshare esUnshared
+        (esNotShared, es') = unADValRep stensorKind esD
+        es = tshare esNotShared
         codomainShs = FTKProduct accShs bShs
         g :: forall f. ADReady f
           => Rep f (TKProduct accShs eShs)
@@ -662,20 +662,20 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
              $ \ (!daccRes1, !deRes1) ->
                  let added = taddLet daccRes1 dbacc
                  in tpair added deRes1
-        pUnshared = dmapAccumRDer (Proxy @ranked)
-                                  k accShs codomainShs eShs
-                                  (dlambda @ranked (FTKProduct accShs eShs)
-                                   $ HFun g)
-                                  (dlambda @ranked
-                                     (FTKProduct (FTKProduct accShs eShs)
-                                                 (FTKProduct accShs eShs))
-                                   $ HFun dg)
-                                  (dlambda @ranked
-                                     (FTKProduct (FTKProduct accShs codomainShs)
-                                                 (FTKProduct accShs eShs))
-                                   $ HFun rg)
-                                  acc0 es
-        (accFin, qbs) = tunpair pUnshared
+        p = dmapAccumRDer (Proxy @ranked)
+                          k accShs codomainShs eShs
+                          (dlambda @ranked (FTKProduct accShs eShs)
+                           $ HFun g)
+                          (dlambda @ranked
+                             (FTKProduct (FTKProduct accShs eShs)
+                                         (FTKProduct accShs eShs))
+                           $ HFun dg)
+                          (dlambda @ranked
+                             (FTKProduct (FTKProduct accShs codomainShs)
+                                         (FTKProduct accShs eShs))
+                           $ HFun rg)
+                          acc0 es
+        (accFin, qbs) = tunpair p
         -- This code makes sense only thanks to HVector being a representation
         -- of tuples in the struct of arrays format.
         (q, bs) = tunpair qbs
@@ -706,8 +706,8 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
    , Dict <- lemTensorKindOfBuild k (stensorKind @bShs)
    , Dict <- lemTensorKindOfBuild k (stensorKind @eShs) =
     let (acc0, acc0') = unADValRep stensorKind acc0D
-        (esUnshared, es') = unADValRep stensorKind esD
-        es = tshare esUnshared
+        (esNotShared, es') = unADValRep stensorKind esD
+        es = tshare esNotShared
         codomainShs = FTKProduct accShs bShs
         g :: forall f. ADReady f
           => Rep f (TKProduct accShs eShs)
@@ -737,20 +737,20 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
              $ \ (!daccRes1, !deRes1) ->
                  let added = taddLet daccRes1 dbacc
                  in tpair added deRes1
-        pUnshared = dmapAccumLDer (Proxy @ranked)
-                                  k accShs codomainShs eShs
-                                  (dlambda @ranked (FTKProduct accShs eShs)
-                                   $ HFun g)
-                                  (dlambda @ranked
-                                     (FTKProduct (FTKProduct accShs eShs)
-                                                 (FTKProduct accShs eShs))
-                                   $ HFun dg)
-                                  (dlambda @ranked
-                                     (FTKProduct (FTKProduct accShs codomainShs)
-                                                 (FTKProduct accShs eShs))
-                                   $ HFun rg)
-                                  acc0 es
-        (accFin, qbs) = tunpair pUnshared
+        p = dmapAccumLDer (Proxy @ranked)
+                          k accShs codomainShs eShs
+                          (dlambda @ranked (FTKProduct accShs eShs)
+                           $ HFun g)
+                          (dlambda @ranked
+                             (FTKProduct (FTKProduct accShs eShs)
+                                         (FTKProduct accShs eShs))
+                           $ HFun dg)
+                          (dlambda @ranked
+                             (FTKProduct (FTKProduct accShs codomainShs)
+                                         (FTKProduct accShs eShs))
+                           $ HFun rg)
+                          acc0 es
+        (accFin, qbs) = tunpair p
         -- This code makes sense only thanks to HVector being a representation
         -- of tuples in the struct of arrays format.
         (q, bs) = tunpair qbs

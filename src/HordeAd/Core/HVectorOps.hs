@@ -5,7 +5,7 @@
 -- API of the horde-ad library and it's relatively orthogonal to the
 -- differentiation interface in "HordeAd.Core.Engine".
 module HordeAd.Core.HVectorOps
-  ( toRepDShare, toRepDUnshared, fromRepD, addRepD
+  ( toRepDShare, toRepDDuplicable, fromRepD, addRepD
   , raddDynamic, saddDynamic, sumDynamicRanked, sumDynamicShaped, addDynamic
   , sizeHVector, shapeDynamic
   , dynamicsMatch, hVectorsMatch, voidHVectorMatches, voidHVectorsMatch
@@ -58,16 +58,16 @@ toRepDShare stk t = case stk of
 -- a tower of projections for product, but if it's balanced,
 -- that's of logarithmic length, so maybe even better than sharing
 -- excessively, which is hard for technical typing reasons.
--- See repDeepUnshared.
-toRepDUnshared
+-- See repDeepDuplicable.
+toRepDDuplicable
   :: (HVectorTensor ranked (ShapedOf ranked), ProductTensor ranked)
   => STensorKindType x -> Rep ranked x -> RepD ranked x
-toRepDUnshared stk t = case stk of
+toRepDDuplicable stk t = case stk of
   STKR{} -> DTKR t
   STKS{} -> DTKS t
   STKProduct stk1 stk2 ->
-    DTKProduct (toRepDUnshared stk1 (tproject1 t))
-                (toRepDUnshared stk2 (tproject2 t))
+    DTKProduct (toRepDDuplicable stk1 (tproject1 t))
+               (toRepDDuplicable stk2 (tproject2 t))
   STKUnit -> DTKUnit
   STKUntyped{} ->
     DTKUntyped $ dunHVector $ unHVectorPseudoTensor t

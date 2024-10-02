@@ -423,7 +423,7 @@ instance AstSpan s => LetTensor (AstRanked s) (AstShaped s) where
     STKR{} -> blet u f
     STKS{} -> blet u f
     stk@STKProduct{} ->
-      blet u $ \ !uShared -> f (repDeepUnshared stk uShared)
+      blet u $ \ !uShared -> f (repDeepDuplicable stk uShared)
     STKUnit -> f u
     STKUntyped{} -> tlet u f
   tlet :: forall x z. (TensorKind x, TensorKind z)
@@ -492,8 +492,8 @@ instance AstSpan s => LetTensor (AstRanked s) (AstShaped s) where
     --   $ unRankedY stensorKind t1 + unRankedY stensorKind t2
     blet t1 $ \ !u1 ->
     blet t2 $ \ !u2 ->
-      fromRepD $ addRepD (toRepDUnshared stensorKind u1)
-                         (toRepDUnshared stensorKind u2)
+      fromRepD $ addRepD (toRepDDuplicable stensorKind u1)
+                         (toRepDDuplicable stensorKind u2)
 
 instance AstSpan s => RankedTensor (AstRanked s) where
   rshape = shapeAst . unAstRanked
@@ -1209,7 +1209,7 @@ instance AstSpan s => LetTensor (AstNoVectorize s) (AstNoVectorizeS s) where
     STKR{} -> blet u f
     STKS{} -> blet u f
     stk@STKProduct{} ->
-      blet u $ \ !uShared -> f (repDeepUnshared stk uShared)
+      blet u $ \ !uShared -> f (repDeepDuplicable stk uShared)
     STKUnit -> f u
     STKUntyped{} -> tlet u f
   tlet :: forall x z. (TensorKind x, TensorKind z)
@@ -1270,8 +1270,8 @@ instance AstSpan s => LetTensor (AstNoVectorize s) (AstNoVectorizeS s) where
   taddLet t1 t2 =
     blet t1 $ \ !u1 ->
     blet t2 $ \ !u2 ->
-      fromRepD $ addRepD (toRepDUnshared stensorKind u1)
-                         (toRepDUnshared stensorKind u2)
+      fromRepD $ addRepD (toRepDDuplicable stensorKind u1)
+                         (toRepDDuplicable stensorKind u2)
 
 instance AstSpan s => RankedTensor (AstNoVectorize s) where
   rshape = rshape . unAstNoVectorize2
@@ -1580,7 +1580,7 @@ instance AstSpan s => LetTensor (AstNoSimplify s) (AstNoSimplifyS s) where
     STKR{} -> blet u f
     STKS{} -> blet u f
     stk@STKProduct{} ->
-      blet u $ \ !uShared -> f (repDeepUnshared stk uShared)
+      blet u $ \ !uShared -> f (repDeepDuplicable stk uShared)
     STKUnit -> f u
     STKUntyped{} -> tlet u f
   tlet :: forall x z. (TensorKind x, TensorKind z)
@@ -1641,8 +1641,8 @@ instance AstSpan s => LetTensor (AstNoSimplify s) (AstNoSimplifyS s) where
   taddLet t1 t2 =
     blet t1 $ \ !u1 ->
     blet t2 $ \ !u2 ->
-      fromRepD $ addRepD (toRepDUnshared stensorKind u1)
-                         (toRepDUnshared stensorKind u2)
+      fromRepD $ addRepD (toRepDDuplicable stensorKind u1)
+                         (toRepDDuplicable stensorKind u2)
 
 instance AstSpan s => RankedTensor (AstNoSimplify s) where
   rshape = shapeAst . unAstNoSimplify
