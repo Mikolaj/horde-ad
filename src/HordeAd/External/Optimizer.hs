@@ -7,10 +7,6 @@ module HordeAd.External.Optimizer
 
 import Prelude
 
-import Data.Vector.Generic qualified as V
-import GHC.TypeLits (KnownNat)
-
-import HordeAd.Core.Adaptor
 import HordeAd.Core.Delta
 import HordeAd.Core.DualNumber
 import HordeAd.Core.HVector
@@ -24,34 +20,29 @@ import HordeAd.Internal.BackendOX (ORArray)
 -- These functions have their SPECIALIZE pragmas in MnistData.
 
 -- | Stochastic Gradient Descent.
-sgd :: forall n r a. (KnownNat n, GoodScalar r)
+sgd :: forall a z. TensorKind z
     => Double
-    -> (a
-        -> HVector (ADVal ORArray)
-        -> ADVal ORArray r n)
+    -> (a -> HVector (ADVal ORArray) -> Rep (ADVal ORArray) z)
     -> [a]  -- ^ training data
     -> HVector ORArray  -- ^ initial parameters
-    -> (HVector ORArray, ORArray r n)
+    -> (HVector ORArray, Rep ORArray z)
 sgd gamma f trainingData parameters0 = go trainingData parameters0 where
-  g :: a -> Rep (ADVal ORArray) TKUntyped -> Rep (ADVal ORArray) TKUntyped
-  g a hVector = HVectorPseudoTensor
-                $ V.singleton
-                $ DynamicRanked
-                $ f a
-                $ parseHVector (fromDValue parameters0)
-                $ unHVectorPseudoTensor hVector
-  deltaInputs = generateDeltaInputs @TKUntyped @ORArray (tshapeFull (stensorKind @TKUntyped) $ HVectorPseudoTensor $ dmkHVector parameters0)
+  g :: a -> Rep (ADVal ORArray) TKUntyped -> Rep (ADVal ORArray) z
+  g a = f a . unHVectorPseudoTensor
+  ftk = tshapeFull stensorKind $ HVectorPseudoTensor parameters0
+  deltaInputs :: Delta ORArray TKUntyped
+  deltaInputs = generateDeltaInputs ftk
   go :: [a] -> HVector ORArray
-     -> (HVector ORArray, ORArray r n)
-  go [] parameters = (parameters, 0)
+     -> (HVector ORArray, Rep ORArray z)
+  go [] parameters = (parameters, undefined)
   go (a : rest) !parameters =
-    let inputs = makeADInputs (HVectorPseudoTensor $ dmkHVector parameters) deltaInputs
-        (gradients, valueNew) =
-          crevOnADInputs @_ @TKUntyped Nothing (g a) inputs
+    let inputs :: Rep (ADVal ORArray) TKUntyped
+        inputs = makeADInputs (HVectorPseudoTensor parameters) deltaInputs
+        (gradients, valueNew) = crevOnADInputs Nothing (g a) inputs
         parametersNew = updateWithGradient gamma parameters
                         $ unHVectorPseudoTensor gradients
     in if null rest
-       then (parametersNew, rfromD $ unHVectorPseudoTensor valueNew V.! 0)
+       then (parametersNew, valueNew)
        else go rest parametersNew
 
 -- We inline (possibly causing a binary blowup) until we are able to work around
@@ -82,10 +73,9 @@ sgdAdamArgs argsAdam f trainingData !parameters0 !stateAdam0 =
  where
   g :: a -> Rep (ADVal ORArray) TKUntyped -> Rep (ADVal ORArray) z
   g a = f a . unHVectorPseudoTensor
+  ftk = tshapeFull stensorKind $ HVectorPseudoTensor parameters0
   deltaInputs :: Delta ORArray TKUntyped
-  deltaInputs = generateDeltaInputs
-                  (tshapeFull stensorKind
-                   $ HVectorPseudoTensor parameters0)
+  deltaInputs = generateDeltaInputs ftk
   go :: [a] -> HVector ORArray -> StateAdam
      -> (HVector ORArray, StateAdam)
   go [] parameters stateAdam = (parameters, stateAdam)
