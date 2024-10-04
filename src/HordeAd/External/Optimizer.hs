@@ -11,6 +11,7 @@ import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat)
 
 import HordeAd.Core.Adaptor
+import HordeAd.Core.Delta
 import HordeAd.Core.DualNumber
 import HordeAd.Core.HVector
 import HordeAd.Core.TensorADVal
@@ -58,10 +59,8 @@ sgd gamma f trainingData parameters0 = go trainingData parameters0 where
 -- and specialize.
 -- | An implementation of the Adam gradient descent.
 sgdAdam
-  :: forall f r a y.
-     ( RankedOf f ~ ORArray, X (AsHVector (ADVal f r y)) ~ TKUntyped
-     , AdaptableHVector (ADVal ORArray) (AsHVector (ADVal f r y)) )
-  => (a -> HVector (ADVal ORArray) -> ADVal f r y)
+  :: forall a z. TensorKind z
+  => (a -> HVector (ADVal ORArray) -> Rep (ADVal ORArray) z)
   -> [a]
   -> HVector ORArray
   -> StateAdam
@@ -70,32 +69,31 @@ sgdAdam
 sgdAdam = sgdAdamArgs defaultArgsAdam
 
 sgdAdamArgs
-  :: forall f r a y.
-     ( RankedOf f ~ ORArray, X (AsHVector (ADVal f r y)) ~ TKUntyped
-     , AdaptableHVector (ADVal ORArray) (AsHVector (ADVal f r y)) )
+  :: forall a z. TensorKind z
   => ArgsAdam
-  -> (a -> HVector (ADVal (RankedOf f)) -> ADVal f r y)
+  -> (a -> HVector (ADVal ORArray) -> Rep (ADVal ORArray) z)
   -> [a]
-  -> HVector (RankedOf f)
+  -> HVector ORArray
   -> StateAdam
-  -> (HVector (RankedOf f), StateAdam)
+  -> (HVector ORArray, StateAdam)
 {-# INLINE sgdAdamArgs #-}
 sgdAdamArgs argsAdam f trainingData !parameters0 !stateAdam0 =
   go trainingData parameters0 stateAdam0
  where
-  g a hVector = HVectorPseudoTensor
-                $ toHVector . AsHVector
-                $ f a
-                $ parseHVector (fromDValue parameters0)
-                $ unHVectorPseudoTensor hVector
-  deltaInputs = generateDeltaInputs (tshapeFull (stensorKind @TKUntyped) $ HVectorPseudoTensor $ dmkHVector parameters0)
-  go :: [a] -> HVector (RankedOf f) -> StateAdam
-     -> (HVector (RankedOf f), StateAdam)
+  g :: a -> Rep (ADVal ORArray) TKUntyped -> Rep (ADVal ORArray) z
+  g a = f a . unHVectorPseudoTensor
+  deltaInputs :: Delta ORArray TKUntyped
+  deltaInputs = generateDeltaInputs
+                  (tshapeFull stensorKind
+                   $ HVectorPseudoTensor parameters0)
+  go :: [a] -> HVector ORArray -> StateAdam
+     -> (HVector ORArray, StateAdam)
   go [] parameters stateAdam = (parameters, stateAdam)
   go (a : rest) !parameters !stateAdam =
-    let inputs = makeADInputs (HVectorPseudoTensor $ dmkHVector parameters) deltaInputs
+    let inputs :: Rep (ADVal ORArray) TKUntyped
+        inputs = makeADInputs (HVectorPseudoTensor parameters) deltaInputs
         gradients = unHVectorPseudoTensor $ fst
-                    $ crevOnADInputs @_ @TKUntyped Nothing (g a) inputs
+                    $ crevOnADInputs Nothing (g a) inputs
         (parametersNew, stateAdamNew) =
           updateWithGradientAdam argsAdam stateAdam parameters gradients
     in go rest parametersNew stateAdamNew
