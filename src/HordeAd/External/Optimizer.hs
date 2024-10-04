@@ -1,8 +1,11 @@
 -- | A couple of gradient descent scheme implementations.
 module HordeAd.External.Optimizer
   ( sgd
-  , sgdAdam, sgdAdamArgs, defaultArgsAdam
+  , sgdAdamDeep, sgdAdamArgsDeep
+  , StateAdamDeep, initialStateAdamDeep
+  , sgdAdam, sgdAdamArgs
   , StateAdam, initialStateAdam
+  , defaultArgsAdam
   ) where
 
 import Prelude
@@ -44,6 +47,47 @@ sgd gamma f trainingData parameters0 = go trainingData parameters0 where
     in if null rest
        then (parametersNew, valueNew)
        else go rest parametersNew
+
+-- We inline (possibly causing a binary blowup) until we are able to work around
+-- https://gitlab.haskell.org/ghc/ghc/-/issues/23798
+-- and specialize.
+-- | An implementation of the Adam gradient descent.
+sgdAdamDeep
+  :: forall a x z. (TensorKind x, TensorKind z)
+  => (a -> Rep (ADVal ORArray) x -> Rep (ADVal ORArray) z)
+  -> [a]
+  -> RepDeep ORArray x
+  -> StateAdamDeep x
+  -> (RepDeep ORArray x, StateAdamDeep x)
+{-# INLINE sgdAdamDeep #-}
+sgdAdamDeep = sgdAdamArgsDeep defaultArgsAdam
+
+sgdAdamArgsDeep
+  :: forall a x z. (TensorKind x, TensorKind z)
+  => ArgsAdam
+  -> (a -> Rep (ADVal ORArray) x -> Rep (ADVal ORArray) z)
+  -> [a]
+  -> RepDeep ORArray x
+  -> StateAdamDeep x
+  -> (RepDeep ORArray x, StateAdamDeep x)
+{-# INLINE sgdAdamArgsDeep #-}
+sgdAdamArgsDeep argsAdam f trainingData !parameters0 !stateAdam0 =
+  go trainingData parameters0 stateAdam0
+ where
+  ftk = tshapeFull stensorKind $ unrepDeep parameters0
+  deltaInputs :: Delta ORArray x
+  deltaInputs = generateDeltaInputs ftk
+  go :: [a] -> RepDeep ORArray x -> StateAdamDeep x
+     -> (RepDeep ORArray x, StateAdamDeep x)
+  go [] parameters stateAdam = (parameters, stateAdam)
+  go (a : rest) !parameters !stateAdam =
+    let inputs :: Rep (ADVal ORArray) x
+        inputs = makeADInputs (unrepDeep parameters) deltaInputs
+        gradients = repDeepDuplicable stensorKind
+                    $ fst $ crevOnADInputs Nothing (f a) inputs
+        (parametersNew, stateAdamNew) =
+          updateWithGradientAdamDeep argsAdam stateAdam parameters gradients
+    in go rest parametersNew stateAdamNew
 
 -- We inline (possibly causing a binary blowup) until we are able to work around
 -- https://gitlab.haskell.org/ghc/ghc/-/issues/23798
