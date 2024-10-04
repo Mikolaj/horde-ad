@@ -18,12 +18,10 @@ import Numeric.LinearAlgebra (Vector)
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Nested qualified as Nested
 
-import HordeAd.Core.Adaptor
-import HordeAd.Core.HVector
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.External.CommonShapedOps (lossSoftMaxCrossEntropyS)
-import HordeAd.Internal.BackendOX (ORArray, OSArray)
+import HordeAd.Internal.BackendOX (OSArray)
 import HordeAd.Internal.OrthotopeOrphanInstances (FlipS (..))
 import HordeAd.Util.ShapedList (pattern (:.$), pattern ZIS)
 import MnistData
@@ -143,9 +141,6 @@ rnnMnistLossFusedS out_width@SNat
       loss = lossSoftMaxCrossEntropyS targets result
   in sconstant (recip $ srepl $ fromIntegral $ sNatValue batch_size) * loss
 
--- type XParams shaped out_width r =
---  X (ADRnnMnistParametersShaped shaped SizeMnistHeight out_width r)
-
 rnnMnistTestS
   :: forall shaped h w out_width batch_size r.
      ( h ~ SizeMnistHeight, w ~ SizeMnistWidth
@@ -153,12 +148,11 @@ rnnMnistTestS
      , GoodScalar r )
   => SNat out_width
   -> SNat batch_size
-  -> ADRnnMnistParametersShaped shaped h out_width r
   -> MnistDataBatchS batch_size r
-  -> HVector ORArray  -- RepDeep (RankedOf shaped) (XParams shaped out_width r)
+  -> ADRnnMnistParametersShaped shaped h out_width r
   -> r
 rnnMnistTestS out_width@SNat batch_size@SNat
-              valsInit (glyphS, labelS) testParams =
+              (glyphS, labelS) testParams =
   let -- input :: PrimalOf shaped r '[sizeMnistW, sizeMnistH, batch_size]
       input = sconst $ Nested.stranspose (Permutation.makePerm @'[2, 1, 0]) $ Nested.sfromOrthotope knownShS glyphS
       outputS :: FlipS Nested.Shaped r '[SizeMnistLabel, batch_size]
@@ -169,7 +163,7 @@ rnnMnistTestS out_width@SNat batch_size@SNat
                                batch_size
                                (SNat @h) (SNat @w)
                                input
-        in nn $ unAsHVector $ parseHVector (AsHVector valsInit) testParams
+        in nn testParams
       outputs = map (Nested.stoVector . runFlipS) $ sunravelToList
                 $ stranspose (Permutation.makePerm @'[1, 0]) outputS
       labels = map (Nested.stoVector . runFlipS) $ sunravelToList

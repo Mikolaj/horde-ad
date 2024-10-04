@@ -13,8 +13,6 @@ import Numeric.LinearAlgebra (Vector)
 
 import Data.Array.Nested qualified as Nested
 
-import HordeAd.Core.Adaptor
-import HordeAd.Core.HVector
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.External.CommonRankedOps
@@ -133,22 +131,20 @@ rnnMnistLossFusedR batch_size (glyphR, labelR) adparameters =
 rnnMnistTestR
   :: forall ranked r.
      (ranked ~ ORArray, GoodScalar r, Differentiable r)
-  => ADRnnMnistParameters ranked r
-  -> Int
+  => Int
   -> MnistDataBatchR r  -- batch_size
-  -> HVector ORArray  -- RepDeep ranked (X (ADRnnMnistParameters ranked r))
+  -> ADRnnMnistParameters ranked r
   -> r
-rnnMnistTestR _ 0 _ _ = 0
-rnnMnistTestR valsInit batch_size (glyphR, labelR) testParams =
+rnnMnistTestR 0 _ _ = 0
+rnnMnistTestR batch_size (glyphR, labelR) testParams =
   let input :: ranked r 3
       input = rconst $ Nested.rtranspose [2, 1, 0] $ Nested.rfromOrthotope SNat glyphR
       outputR :: FlipR Nested.Ranked r 2
       outputR =
-        let nn :: ADRnnMnistParameters ranked r
-                    -- SizeMnistHeight out_width
+        let nn :: ADRnnMnistParameters ranked r  -- SizeMnistHeight out_width
                -> ranked r 2  -- [SizeMnistLabel, batch_size]
             nn = rnnMnistZeroR batch_size input
-        in nn $ unAsHVector $ parseHVector (AsHVector valsInit) testParams
+        in nn testParams
       outputs = map (Nested.rtoVector . runFlipR) $ runravelToList
                 $ rtranspose [1, 0] outputR
       labels = map (Nested.rtoVector . runFlipR) $ runravelToList

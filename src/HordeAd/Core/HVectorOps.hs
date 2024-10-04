@@ -681,8 +681,8 @@ mkreplicate1HVector :: ADReady ranked
 mkreplicate1HVector k = dmkHVector . replicate1HVector k
 
 repConstant :: forall y ranked. ADReadyNoLet ranked
-                       => (forall r. GoodScalar r => r)
-                       -> TensorKindFull y -> Rep ranked y
+            => (forall r. GoodScalar r => r)
+            -> TensorKindFull y -> Rep ranked y
 repConstant r = \case
   FTKR sh -> rrepl (toList sh) r
   FTKS -> srepl r

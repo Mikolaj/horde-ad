@@ -31,7 +31,11 @@ import HordeAd.Internal.OrthotopeOrphanInstances (FlipS (..))
 import EqEpsilon
 
 import MnistData
+import MnistRnnShaped2 (ADRnnMnistParametersShaped)
 import MnistRnnShaped2 qualified
+
+type XParams out_width r =
+ X (ADRnnMnistParametersShaped OSArray SizeMnistHeight out_width r)
 
 tshapeR
   :: KnownNat n
@@ -63,7 +67,7 @@ mnistTestCaseRNNSA
 mnistTestCaseRNNSA prefix epochs maxBatches width@SNat batch_size@SNat
                    totalBatchSize
                    expected =
-  let valsInit :: MnistRnnShaped2.ADRnnMnistParametersShaped
+  let valsInit :: ADRnnMnistParametersShaped
                     shaped SizeMnistHeight width r
       valsInit = fst $ randomVals 0.4 (mkStdGen 44)
       hVectorInit = toHVector $ AsHVector valsInit
@@ -80,7 +84,9 @@ mnistTestCaseRNNSA prefix epochs maxBatches width@SNat batch_size@SNat
         withSNat miniBatchSize' $ \bs@SNat ->
           let mnist = ( Data.Array.Convert.convert glyphs
                       , Data.Array.Convert.convert labels )
-          in MnistRnnShaped2.rnnMnistTestS width bs valsInit mnist testParams
+          in MnistRnnShaped2.rnnMnistTestS
+               width bs mnist
+               (unAsHVector $ parseHVector (AsHVector valsInit) testParams)
   in testCase name $ do
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
@@ -162,7 +168,7 @@ mnistTestCaseRNNSI
   -> TestTree
 mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
                    totalBatchSize expected =
-  let valsInit :: MnistRnnShaped2.ADRnnMnistParametersShaped
+  let valsInit :: ADRnnMnistParametersShaped
                     shaped SizeMnistHeight width r
       valsInit = fst $ randomVals 0.4 (mkStdGen 44)
       hVectorInit = toHVector $ AsHVector valsInit
@@ -180,7 +186,9 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
         withSNat miniBatchSize' $ \bs@SNat ->
           let mnist = ( Data.Array.Convert.convert glyphs
                       , Data.Array.Convert.convert labels )
-          in MnistRnnShaped2.rnnMnistTestS width bs valsInit mnist testParams
+          in MnistRnnShaped2.rnnMnistTestS
+               width bs mnist
+               (unAsHVector $ parseHVector (AsHVector valsInit) testParams)
   in testCase name $ do
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
@@ -280,7 +288,7 @@ mnistTestCaseRNNSO
 mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
                    totalBatchSize
                    expected =
-    let valsInit :: MnistRnnShaped2.ADRnnMnistParametersShaped
+    let valsInit :: ADRnnMnistParametersShaped
                       shaped SizeMnistHeight width r
         valsInit = fst $ randomVals 0.4 (mkStdGen 44)
         hVectorInit = toHVector $ AsHVector valsInit
@@ -297,7 +305,9 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
           withSNat miniBatchSize' $ \bs@SNat ->
             let mnist = ( Data.Array.Convert.convert glyphs
                         , Data.Array.Convert.convert labels )
-            in MnistRnnShaped2.rnnMnistTestS width bs valsInit mnist testParams
+            in MnistRnnShaped2.rnnMnistTestS
+                 width bs mnist
+                 (unAsHVector $ parseHVector (AsHVector valsInit) testParams)
     in testCase name $ do
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
@@ -374,6 +384,124 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
   -> Int -> Int -> SNat width -> SNat batch_size -> Int -> Double
   -> TestTree #-}
 
+-- JAX differentiation, Ast term built and differentiated only once
+-- and the result interpreted with different inputs in each gradient
+-- descent iteration.
+mnistTestCaseRNNSD
+  :: forall shaped width batch_size r.
+     ( shaped ~ OSArray, Differentiable r, GoodScalar r, Random r
+     , PrintfArg r, AssertEqualUpToEpsilon r )
+  => String
+  -> Int -> Int -> SNat width -> SNat batch_size -> Int -> r
+  -> TestTree
+mnistTestCaseRNNSD prefix epochs maxBatches width@SNat batch_size@SNat
+                   totalBatchSize
+                   expected =
+    let valsInit :: ADRnnMnistParametersShaped
+                      shaped SizeMnistHeight width r
+        valsInit = fst $ randomVals 0.4 (mkStdGen 44)
+        hVectorInit = toHVector valsInit
+        miniBatchSize = sNatValue batch_size
+        name = prefix ++ ": "
+               ++ unwords [ show epochs, show maxBatches
+                          , show (sNatValue width), show miniBatchSize ]
+--                          , show (V.length hVectorInit)
+--                          , show (sizeHVector hVectorInit) ]
+        ftest :: Int -> MnistDataBatchR r
+              -> RepDeep ORArray (XParams width r)
+              -> r
+        ftest 0 _ _ = 0
+        ftest miniBatchSize' (glyphs, labels) testParams =
+          assert (miniBatchSize' == tlengthR glyphs) $
+          withSNat miniBatchSize' $ \bs@SNat ->
+            let mnist = ( Data.Array.Convert.convert glyphs
+                        , Data.Array.Convert.convert labels )
+            in MnistRnnShaped2.rnnMnistTestS
+                 width bs mnist
+                 (parseHVector valsInit testParams)
+    in testCase name $ do
+       hPutStrLn stderr $
+         printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
+                prefix epochs maxBatches
+       trainData <- map shapeBatch
+                    <$> loadMnistData trainGlyphsPath trainLabelsPath
+       testData <- map rankBatch . take (totalBatchSize * maxBatches)
+                   <$> loadMnistData testGlyphsPath testLabelsPath
+       let testDataR = packBatchR testData
+           dataInit = case chunksOf miniBatchSize trainData of
+             d : _ -> let (dglyph, dlabel) = packBatch d
+                      in ( FlipS $ Nested.sfromOrthotope knownShS dglyph
+                         , FlipS $ Nested.sfromOrthotope knownShS dlabel )
+             [] -> error "empty train data"
+           f = \ (pars, (glyphS, labelS)) ->
+             MnistRnnShaped2.rnnMnistLossFusedS
+               width batch_size (sprimalPart glyphS, sprimalPart labelS) pars
+           (artRaw, _) = revArtifactAdapt False f (valsInit, dataInit)
+           art = simplifyArtifactGradient artRaw
+           go :: [MnistDataBatchS batch_size r]
+              -> ( RepDeep ORArray (XParams width r)
+                 , StateAdamDeep (XParams width r) )
+              -> ( RepDeep ORArray (XParams width r)
+                 , StateAdamDeep (XParams width r) )
+           go [] (parameters, stateAdam) = (parameters, stateAdam)
+           go ((glyph, label) : rest) (!parameters, !stateAdam) =
+             let glyphD = sconst $ Nested.sfromOrthotope knownShS glyph
+                 labelD = sconst $ Nested.sfromOrthotope knownShS label
+                 parametersAndInput = (parameters, (glyphD, labelD))
+                 (gradient, _gradientOnInput) =
+                   fst $ revEvalArtifact art parametersAndInput Nothing
+             in go rest (updateWithGradientAdamDeep defaultArgsAdam stateAdam
+                                                    parameters gradient)
+           runBatch :: ( RepDeep ORArray (XParams width r)
+                       , StateAdamDeep (XParams width r) )
+                    -> (Int, [MnistDataS r])
+                    -> IO ( RepDeep ORArray (XParams width r)
+                          , StateAdamDeep (XParams width r) )
+           runBatch (!parameters, !stateAdam) (k, chunk) = do
+             let chunkS = map packBatch
+                          $ filter (\ch -> length ch == miniBatchSize)
+                          $ chunksOf miniBatchSize chunk
+                 res@(parameters2, _) = go chunkS (parameters, stateAdam)
+                 smnistRFromS (glyphs, labels) =
+                   ( Data.Array.Convert.convert glyphs
+                   , Data.Array.Convert.convert labels )
+                 chunkDataR = packBatchR $ map smnistRFromS chunk
+                 !trainScore =
+                   ftest (length chunk) chunkDataR parameters2
+                 !testScore =
+                   ftest (totalBatchSize * maxBatches) testDataR parameters2
+                 !lenChunk = length chunk
+             unless (sNatValue width < 10) $ do
+               hPutStrLn stderr $ printf "\n%s: (Batch %d with %d points)" prefix k lenChunk
+               hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
+               hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
+             return res
+       let runEpoch :: Int
+                    -> ( RepDeep ORArray (XParams width r)
+                       , StateAdamDeep (XParams width r) )
+                    -> IO (RepDeep ORArray (XParams width r))
+           runEpoch n (params2, _) | n > epochs = return params2
+           runEpoch n paramsStateAdam@(!_, !_) = do
+             unless (sNatValue width < 10) $
+               hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
+             let trainDataShuffled = shuffle (mkStdGen $ n + 5) trainData
+                 chunks = take maxBatches
+                          $ zip [1 ..]
+                          $ chunksOf totalBatchSize trainDataShuffled
+             res <- foldM runBatch paramsStateAdam chunks
+             runEpoch (succ n) res
+       res <- runEpoch 1 ( hVectorInit
+                         , initialStateAdamDeep (tshapeFull stensorKind
+                                                 $ unrepDeep hVectorInit) )
+       let testErrorFinal =
+             1 - ftest (totalBatchSize * maxBatches) testDataR res
+       assertEqualUpToEpsilon 1e-1 expected testErrorFinal
+
+{-# SPECIALIZE mnistTestCaseRNNSD
+  :: String
+  -> Int -> Int -> SNat width -> SNat batch_size -> Int -> Double
+  -> TestTree #-}
+
 tensorADValMnistTestsRNNSO :: TestTree
 tensorADValMnistTestsRNNSO = testGroup "RNNS Once MNIST tests"
   [ mnistTestCaseRNNSO "RNNSO 1 epoch, 1 batch" 1 1 (SNat @32) (SNat @5) 2
@@ -385,5 +513,13 @@ tensorADValMnistTestsRNNSO = testGroup "RNNS Once MNIST tests"
   , mnistTestCaseRNNSO "RNNSO artificial 5 4 3 2 1" 5 4 (SNat @3) (SNat @2) 49
                        (0.9336734693877551 :: Double)
   , mnistTestCaseRNNSO "RNNSO 1 epoch, 0 batch" 1 0 (SNat @128) (SNat @5) 50
+                       (1.0 :: Float)
+  , mnistTestCaseRNNSD "RNNSOD 1 epoch, 1 batch" 1 1 (SNat @32) (SNat @5) 2
+                       (1 :: Double)
+  , mnistTestCaseRNNSD "RNNSOD artificial 1 2 3 4 5" 2 3 (SNat @4) (SNat @5) 50
+                       (0.8933333 :: Float)
+  , mnistTestCaseRNNSD "RNNSOD artificial 5 4 3 2 1" 5 4 (SNat @3) (SNat @2) 49
+                       (0.9336734693877551 :: Double)
+  , mnistTestCaseRNNSD "RNNSOD 1 epoch, 0 batch" 1 0 (SNat @128) (SNat @5) 50
                        (1.0 :: Float)
   ]

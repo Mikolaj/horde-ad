@@ -3,6 +3,8 @@ module HordeAd.External.OptimizerTools
   ( updateWithGradient
 --  , gradientIsNil, minimumGradient, maximumGradient
   , ArgsAdam(..), defaultArgsAdam
+  , StateAdamDeep(..), initialStateAdamDeep
+  , updateWithGradientAdamDeep
   , StateAdam(..), initialStateAdam
   , updateWithGradientAdam
   ) where
@@ -93,6 +95,115 @@ defaultArgsAdam = ArgsAdam
   , betaTwo = 0.999
   , epsilon = 1e-7
   }
+
+type family Triplify y where
+  Triplify (TKR r n) = TKProduct (TKProduct (TKR r n) (TKR r n)) (TKR r n)
+  Triplify (TKS r sh) = TKProduct (TKProduct (TKS r sh) (TKS r sh)) (TKS r sh)
+  Triplify (TKProduct x z) = TKProduct (Triplify x) (Triplify z)
+  Triplify TKUnit = TKUnit
+  Triplify TKUntyped = TKUntyped  -- this it not tripled
+
+unzip3RepDeep
+  :: STensorKindType y -> RepDeep ranked (Triplify y)
+  -> (RepDeep ranked y, RepDeep ranked y, RepDeep ranked y)
+unzip3RepDeep stk t = case stk of
+  STKR{} -> (fst $ fst t, snd $ fst t, snd t)
+  STKS{} -> (fst $ fst t, snd $ fst t, snd t)
+  STKProduct stk1 stk2 -> let (a1, b1, c1) = unzip3RepDeep stk1 $ fst t
+                              (a2, b2, c2) = unzip3RepDeep stk2 $ snd t
+                          in ((a1, a2), (b1, b2), (c1, c2))
+  STKUnit -> (t, t, t)
+  STKUntyped -> (t, t, t)
+
+type role StateAdamDeep nominal
+data StateAdamDeep y = StateAdamDeep
+  { tAdamDeep :: Int  -- iteration count
+  , mAdamDeep :: RepDeep ORArray y
+  , vAdamDeep :: RepDeep ORArray y
+  }
+
+initialStateAdamDeep :: TensorKindFull y -> StateAdamDeep y
+initialStateAdamDeep ftk =
+  StateAdamDeep { tAdamDeep = 0
+                , mAdamDeep = repDeepZero ftk
+                , vAdamDeep = repDeepZero ftk
+                }
+
+-- TODO: introduce and use dummies
+repDeepZero :: TensorKindFull y -> RepDeep ORArray y
+repDeepZero = \case
+  FTKR sh -> FlipR $ Nested.rreplicateScal sh 0
+  FTKS -> FlipS $ Nested.sreplicateScal knownShS 0
+  FTKProduct ftk1 ftk2 -> (repDeepZero ftk1, repDeepZero ftk2)
+  FTKUnit -> RepN undefined
+  FTKUntyped{} -> error "repDeepZero: FTKUntyped"
+
+updateWithGradientAdamDeep
+  :: TensorKind y
+  => ArgsAdam -> StateAdamDeep y -> RepDeep ORArray y -> RepDeep ORArray y
+  -> (RepDeep ORArray y, StateAdamDeep y)
+updateWithGradientAdamDeep ArgsAdam{..} StateAdamDeep{..} paramsR gradientR =
+  let mAdamR = mAdamDeep
+      vAdamR = vAdamDeep
+      tAdamNew = tAdamDeep + 1
+      oneMinusBeta1 = 1 - betaOne
+      oneMinusBeta2 = 1 - betaTwo
+      updateR :: ( Fractional r
+                 , Nested.NumElt r, Nested.FloatElt r, Nested.PrimElt r )
+              => Nested.Ranked n r -> Nested.Ranked n r
+              -> Nested.Ranked n r -> Nested.Ranked n r
+              -> (Nested.Ranked n r, Nested.Ranked n r, Nested.Ranked n r)
+      updateR mA vA p g =
+        let sh = Nested.rshape g
+            mANew = Nested.rreplicateScal sh (realToFrac betaOne) * mA
+                    + Nested.rreplicateScal sh (realToFrac oneMinusBeta1) * g
+            vANew = Nested.rreplicateScal sh (realToFrac betaTwo) * vA
+                    + Nested.rreplicateScal sh (realToFrac oneMinusBeta2)
+                      * (g * g)
+            alphat = alpha * sqrt (1 - betaTwo ^ tAdamNew)
+                             / (1 - betaOne ^ tAdamNew)
+        in ( mANew
+           , vANew
+           , p - (Nested.rreplicateScal sh (realToFrac alphat) * mANew)
+                 / (sqrt vANew
+                    + Nested.rreplicateScal sh (realToFrac epsilon)) )
+      updateProd :: STensorKindType y
+                 -> RepDeep ORArray y -> RepDeep ORArray y
+                 -> RepDeep ORArray y -> RepDeep ORArray y
+                 -> RepDeep ORArray (Triplify y)
+      updateProd stk mA vA p g = case stk of
+        STKR @r _ _ ->
+          ifDifferentiable @r
+            (let (mAN, vAN, pN) = updateR (runFlipR mA) (runFlipR vA)
+                                          (runFlipR p) (runFlipR g)
+             in ((FlipR mAN, FlipR vAN), FlipR pN))
+            ((mA, vA), p)
+        STKS @r _ _ ->
+          ifDifferentiable @r
+            (let (mAN, vAN, pN) =
+                   updateR (Nested.stoRanked (runFlipS mA))
+                           (Nested.stoRanked (runFlipS vA))
+                           (Nested.stoRanked (runFlipS p))
+                           (Nested.stoRanked (runFlipS g))
+             in ( ( FlipS $ Nested.rcastToShaped mAN knownShS
+                  , FlipS $ Nested.rcastToShaped vAN knownShS )
+                , FlipS $ Nested.rcastToShaped pN knownShS ))
+            ((mA, vA), p)
+        STKProduct stk1 stk2 ->
+          ( updateProd stk1 (fst mA) (fst vA) (fst p) (fst g)
+          , updateProd stk2 (snd mA) (snd vA) (snd p) (snd g) )
+        STKUnit -> RepN undefined
+        STKUntyped -> error "updateProd: STKUntyped"
+      (!mAdamRNew, !vAdamRNew, !paramsRNew) =
+        unzip3RepDeep stensorKind
+        $ updateProd stensorKind mAdamR vAdamR paramsR gradientR
+  in ( paramsRNew
+     , StateAdamDeep
+         { tAdamDeep = tAdamNew
+         , mAdamDeep = mAdamRNew
+         , vAdamDeep = vAdamRNew
+         }
+     )
 
 data StateAdam = StateAdam
   { tAdam :: Int  -- iteration count
