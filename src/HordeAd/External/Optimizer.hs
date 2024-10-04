@@ -1,7 +1,7 @@
 -- | A couple of gradient descent scheme implementations.
 module HordeAd.External.Optimizer
   ( sgd
-  , sgdAdam, sgdAdamArgs
+  , sgdAdam, sgdAdamArgs, defaultArgsAdam
   , StateAdam, initialStateAdam
   ) where
 
@@ -67,22 +67,20 @@ sgdAdam
   -> StateAdam
   -> (HVector ORArray, StateAdam)
 {-# INLINE sgdAdam #-}
-sgdAdam = sgdAdamArgs updateWithGradientAdam defaultArgsAdam
+sgdAdam = sgdAdamArgs defaultArgsAdam
 
 sgdAdamArgs
   :: forall f r a y.
      ( RankedOf f ~ ORArray, X (AsHVector (ADVal f r y)) ~ TKUntyped
      , AdaptableHVector (ADVal ORArray) (AsHVector (ADVal f r y)) )
-  => (ArgsAdam -> StateAdam -> HVector (RankedOf f) -> HVectorOf (RankedOf f)
-      -> (HVector (RankedOf f), StateAdam))
-  -> ArgsAdam
+  => ArgsAdam
   -> (a -> HVector (ADVal (RankedOf f)) -> ADVal f r y)
   -> [a]
   -> HVector (RankedOf f)
   -> StateAdam
   -> (HVector (RankedOf f), StateAdam)
 {-# INLINE sgdAdamArgs #-}
-sgdAdamArgs updateWith argsAdam f trainingData !parameters0 !stateAdam0 =
+sgdAdamArgs argsAdam f trainingData !parameters0 !stateAdam0 =
   go trainingData parameters0 stateAdam0
  where
   g a hVector = HVectorPseudoTensor
@@ -99,5 +97,5 @@ sgdAdamArgs updateWith argsAdam f trainingData !parameters0 !stateAdam0 =
         gradients = unHVectorPseudoTensor $ fst
                     $ crevOnADInputs @_ @TKUntyped Nothing (g a) inputs
         (parametersNew, stateAdamNew) =
-          updateWith argsAdam stateAdam parameters gradients
+          updateWithGradientAdam argsAdam stateAdam parameters gradients
     in go rest parametersNew stateAdamNew
