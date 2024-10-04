@@ -56,9 +56,9 @@ sgdAdamDeep
   :: forall a x z. (TensorKind x, TensorKind z)
   => (a -> Rep (ADVal ORArray) x -> Rep (ADVal ORArray) z)
   -> [a]
-  -> RepDeep ORArray x
+  -> Rep ORArray x
   -> StateAdamDeep x
-  -> (RepDeep ORArray x, StateAdamDeep x)
+  -> (Rep ORArray x, StateAdamDeep x)
 {-# INLINE sgdAdamDeep #-}
 sgdAdamDeep = sgdAdamArgsDeep defaultArgsAdam
 
@@ -67,24 +67,23 @@ sgdAdamArgsDeep
   => ArgsAdam
   -> (a -> Rep (ADVal ORArray) x -> Rep (ADVal ORArray) z)
   -> [a]
-  -> RepDeep ORArray x
+  -> Rep ORArray x
   -> StateAdamDeep x
-  -> (RepDeep ORArray x, StateAdamDeep x)
+  -> (Rep ORArray x, StateAdamDeep x)
 {-# INLINE sgdAdamArgsDeep #-}
 sgdAdamArgsDeep argsAdam f trainingData !parameters0 !stateAdam0 =
   go trainingData parameters0 stateAdam0
  where
-  ftk = tshapeFull stensorKind $ unrepDeep parameters0
+  ftk = tshapeFull stensorKind parameters0
   deltaInputs :: Delta ORArray x
   deltaInputs = generateDeltaInputs ftk
-  go :: [a] -> RepDeep ORArray x -> StateAdamDeep x
-     -> (RepDeep ORArray x, StateAdamDeep x)
+  go :: [a] -> Rep ORArray x -> StateAdamDeep x
+     -> (Rep ORArray x, StateAdamDeep x)
   go [] parameters stateAdam = (parameters, stateAdam)
   go (a : rest) !parameters !stateAdam =
     let inputs :: Rep (ADVal ORArray) x
-        inputs = makeADInputs (unrepDeep parameters) deltaInputs
-        gradients = repDeepDuplicable stensorKind
-                    $ fst $ crevOnADInputs Nothing (f a) inputs
+        inputs = makeADInputs parameters deltaInputs
+        gradients = fst $ crevOnADInputs Nothing (f a) inputs
         (parametersNew, stateAdamNew) =
           updateWithGradientAdamDeep argsAdam stateAdam parameters gradients
     in go rest parametersNew stateAdamNew

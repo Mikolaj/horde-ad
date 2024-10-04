@@ -387,7 +387,7 @@ mnistTestCaseRNND prefix epochs maxBatches width miniBatchSize totalBatchSize
 --                          , show (V.length hVectorInit)
 --                          , show (sizeHVector hVectorInit) ]
         ftest :: Int -> MnistDataBatchR r
-              -> RepDeep ORArray (X (ADRnnMnistParameters ORArray r))
+              -> Rep ORArray (X (ADRnnMnistParameters ORArray r))
               -> r
         ftest batch_size mnistData pars =
           MnistRnnRanked2.rnnMnistTestR
@@ -412,9 +412,9 @@ mnistTestCaseRNND prefix epochs maxBatches width miniBatchSize totalBatchSize
            (artRaw, _) = revArtifactAdapt False f (valsInit, dataInit)
            art = simplifyArtifactGradient artRaw
            go :: [MnistDataBatchR r]
-              -> ( RepDeep ORArray (X (ADRnnMnistParameters ORArray r))
+              -> ( Rep ORArray (X (ADRnnMnistParameters ORArray r))
                  , StateAdamDeep (X (ADRnnMnistParameters ORArray r)) )
-              -> ( RepDeep ORArray (X (ADRnnMnistParameters ORArray r))
+              -> ( Rep ORArray (X (ADRnnMnistParameters ORArray r))
                  , StateAdamDeep (X (ADRnnMnistParameters ORArray r)) )
            go [] (parameters, stateAdam) = (parameters, stateAdam)
            go ((glyph, label) : rest) (!parameters, !stateAdam) =
@@ -425,10 +425,10 @@ mnistTestCaseRNND prefix epochs maxBatches width miniBatchSize totalBatchSize
                    fst $ revEvalArtifact art parametersAndInput Nothing
              in go rest (updateWithGradientAdamDeep defaultArgsAdam stateAdam
                                                     parameters gradient)
-           runBatch :: ( RepDeep ORArray (X (ADRnnMnistParameters ORArray r))
+           runBatch :: ( Rep ORArray (X (ADRnnMnistParameters ORArray r))
                        , StateAdamDeep (X (ADRnnMnistParameters ORArray r)) )
                     -> (Int, [MnistDataR r])
-                    -> IO ( RepDeep ORArray (X (ADRnnMnistParameters ORArray r))
+                    -> IO ( Rep ORArray (X (ADRnnMnistParameters ORArray r))
                           , StateAdamDeep (X (ADRnnMnistParameters ORArray r)) )
            runBatch (!parameters, !stateAdam) (k, chunk) = do
              let chunkR = map packBatchR
@@ -446,9 +446,9 @@ mnistTestCaseRNND prefix epochs maxBatches width miniBatchSize totalBatchSize
                hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
        let runEpoch :: Int
-                    -> ( RepDeep ORArray (X (ADRnnMnistParameters ORArray r))
+                    -> ( Rep ORArray (X (ADRnnMnistParameters ORArray r))
                        , StateAdamDeep (X (ADRnnMnistParameters ORArray r)) )
-                    -> IO (RepDeep ORArray (X (ADRnnMnistParameters ORArray r)))
+                    -> IO (Rep ORArray (X (ADRnnMnistParameters ORArray r)))
            runEpoch n (params2, _) | n > epochs = return params2
            runEpoch n paramsStateAdam@(!_, !_) = do
              unless (width < 10) $
@@ -461,8 +461,8 @@ mnistTestCaseRNND prefix epochs maxBatches width miniBatchSize totalBatchSize
              runEpoch (succ n) res
        res <- runEpoch 1
                 ( hVectorInit
-                , initialStateAdamDeep (tshapeFull stensorKind
-                                        $ unrepDeep hVectorInit) )
+                , initialStateAdamDeep
+                    (tshapeFull stensorKind hVectorInit) )
        let testErrorFinal =
              1 - ftest (totalBatchSize * maxBatches) testDataR res
        assertEqualUpToEpsilon 1e-1 expected testErrorFinal
