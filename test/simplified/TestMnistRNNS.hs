@@ -114,11 +114,11 @@ mnistTestCaseRNNSA prefix epochs maxBatches width@SNat batch_size@SNat
                    MnistRnnShaped2.rnnMnistLossFusedS
                      width batch_size (sconst $ Nested.sfromOrthotope knownShS glyphS, sconst $ Nested.sfromOrthotope knownShS labelS)
                      (parseHVector (fromDValue valsInit)
-                      $ repDeepDuplicable stensorKind adinputs)
+                      $ repDeepDuplicable @(ADVal ORArray) @(XParams width r) (stensorKind @(XParams width r)) adinputs)
                  chunkS = map packBatch
                           $ filter (\ch -> length ch == miniBatchSize)
                           $ chunksOf miniBatchSize chunk
-                 res@(parameters2, _) = sgdAdamDeep f chunkS parameters stateAdam
+                 res@(parameters2, _) = sgdAdamDeep @(MnistDataBatchS batch_size r) @(XParams width r) f chunkS parameters stateAdam
                  smnistRFromS (glyphs, labels) =
                    ( Data.Array.Convert.convert glyphs
                    , Data.Array.Convert.convert labels )
@@ -235,14 +235,14 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
                    -> Rep (ADVal ORArray) (XParams width r)
                    -> ADVal shaped r '[]
                  f (glyph, label) varInputs =
-                   let env = extendEnv var varInputs emptyEnv
+                   let env = extendEnv @(ADVal ORArray) @_ @(XParams width r) var varInputs emptyEnv
                        envMnist = extendEnv varGlyph (sconst $ Nested.sfromOrthotope knownShS glyph)
                                   $ extendEnv varLabel (sconst $ Nested.sfromOrthotope knownShS label) env
                    in interpretAst envMnist $ unAstShaped ast
                  chunkS = map packBatch
                           $ filter (\ch -> length ch == miniBatchSize)
                           $ chunksOf miniBatchSize chunk
-                 res@(parameters2, _) = sgdAdamDeep f chunkS parameters stateAdam
+                 res@(parameters2, _) = sgdAdamDeep @(MnistDataBatchS batch_size r) @(XParams width r) f chunkS parameters stateAdam
                  smnistRFromS (glyphs, labels) =
                    ( Data.Array.Convert.convert glyphs
                    , Data.Array.Convert.convert labels )

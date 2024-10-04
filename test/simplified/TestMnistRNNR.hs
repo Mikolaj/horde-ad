@@ -107,11 +107,11 @@ mnistTestCaseRNNA prefix epochs maxBatches width miniBatchSize totalBatchSize
                    MnistRnnRanked2.rnnMnistLossFusedR
                      miniBatchSize (rconst $ Nested.rfromOrthotope SNat glyphR, rconst $ Nested.rfromOrthotope SNat labelR)
                      (parseHVector (fromDValue valsInit)
-                      $ repDeepDuplicable stensorKind adinputs)
+                      $ repDeepDuplicable @(ADVal ORArray) @(X (ADRnnMnistParameters ORArray r)) (stensorKind @(X (ADRnnMnistParameters ORArray r))) adinputs)
                  chunkR = map packBatchR
                           $ filter (\ch -> length ch == miniBatchSize)
                           $ chunksOf miniBatchSize chunk
-                 res@(parameters2, _) = sgdAdamDeep f chunkR parameters stateAdam
+                 res@(parameters2, _) = sgdAdamDeep @(MnistDataBatchR r) @(X (ADRnnMnistParameters ORArray r)) f chunkR parameters stateAdam
                  !trainScore =
                    ftest (length chunk) (packBatchR chunk) parameters2
                  !testScore =
@@ -225,14 +225,14 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
                    -> Rep (ADVal ORArray) (X (ADRnnMnistParameters ORArray r))
                    -> ADVal ranked r 0
                  f (glyph, label) varInputs =
-                   let env = extendEnv var varInputs emptyEnv
+                   let env = extendEnv @(ADVal ORArray) @_ @(X (ADRnnMnistParameters ORArray r)) var varInputs emptyEnv
                        envMnist = extendEnv varGlyph (rconst $ Nested.rfromOrthotope SNat glyph)
                                   $ extendEnv varLabel (rconst $ Nested.rfromOrthotope SNat label) env
                    in interpretAst envMnist $ unAstRanked ast
                  chunkR = map packBatchR
                           $ filter (\ch -> length ch == miniBatchSize)
                           $ chunksOf miniBatchSize chunk
-                 res@(parameters2, _) = sgdAdamDeep f chunkR parameters stateAdam
+                 res@(parameters2, _) = sgdAdamDeep @(MnistDataBatchR r) @(X (ADRnnMnistParameters ORArray r)) f chunkR parameters stateAdam
                  !trainScore =
                    ftest (length chunk) (packBatchR chunk) parameters2
                  !testScore =
