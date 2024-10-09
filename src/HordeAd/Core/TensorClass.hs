@@ -55,9 +55,14 @@ import HordeAd.Util.SizedList
 
 -- * Ranked tensor class definition
 
-type TensorSupports :: (Type -> Constraint) -> (Type -> Constraint) -> TensorType ty -> Constraint
+type TensorSupports :: (Type -> Constraint) -> (Type -> Constraint) -> RankedTensorType -> Constraint
 type TensorSupports c1 c2 f =
-  forall r y. (GoodScalar r, HasSingletonDict y)
+  forall r y. (GoodScalar r, KnownNat y)
+              => c1 r => c2 (f r y)
+
+type TensorSupportsS :: (Type -> Constraint) -> (Type -> Constraint) -> ShapedTensorType -> Constraint
+type TensorSupportsS c1 c2 f =
+  forall r y. (GoodScalar r, KnownShS y)
               => c1 r => c2 (f r y)
 
 class (RealFloat r, Nested.FloatElt r)
@@ -567,9 +572,9 @@ class ( Num (IntOf ranked), Num (IntOf (MixedOf ranked))
 -- * Shaped tensor class definition
 
 class ( Num (IntOf shaped), IntegralF (IntOf shaped), CShaped shaped Num
-      , TensorSupports RealFloatAndFloatElt Floating shaped
-      , TensorSupports RealFloatAndFloatElt RealFloatF shaped
-      , TensorSupports Integral IntegralF shaped
+      , TensorSupportsS RealFloatAndFloatElt Floating shaped
+      , TensorSupportsS RealFloatAndFloatElt RealFloatF shaped
+      , TensorSupportsS Integral IntegralF shaped
       , shaped ~ ShapedOf (RankedOf shaped) )
       => ShapedTensor (shaped :: ShapedTensorType) where
 
