@@ -12,7 +12,6 @@ module HordeAd.External.CommonShapedOps
 import Prelude
 
 import Data.Array.Internal (valueOf)
-import Data.Array.Shape qualified as Sh
 import Data.Int (Int64)
 import Data.List.NonEmpty qualified as NonEmpty
 import Data.Proxy (Proxy (Proxy))
@@ -22,13 +21,13 @@ import GHC.TypeLits
   (Div, KnownNat, SomeNat (..), sameNat, someNatVal, type (-), type (<=))
 import Unsafe.Coerce (unsafeCoerce)
 
-import Data.Array.Nested qualified as Nested
 import Data.Array.Nested (Rank)
+import Data.Array.Nested qualified as Nested
 
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.External.CommonRankedOps
-import HordeAd.Util.ShapedList (IndexSh)
+import HordeAd.Util.ShapedList (Drop, IndexSh, Take)
 import HordeAd.Util.ShapedList qualified as ShapedList
 import HordeAd.Util.SizedList
 
@@ -222,14 +221,14 @@ conv2dUnpaddedS arrK arrA =
 --   elements are set to zero.
 slicezS
   :: forall shOut sh shaped r.
-     ( KnownShS sh, KnownShS shOut, KnownShS (Sh.Take (Rank sh) shOut)
+     ( KnownShS sh, KnownShS shOut, KnownShS (Take (Rank sh) shOut)
      , KnownNat (Rank sh)
      , Rank shOut ~ Rank sh, ADReadyS shaped, GoodScalar r )
   => shaped r sh -> IndexSh shaped sh -> shaped r shOut
 slicezS d ixBase =
   gcastWith (unsafeCoerce Refl
-             :: Rank (Sh.Take (Rank shOut) shOut) :~: Rank shOut) $
-  gcastWith (unsafeCoerce Refl :: Sh.Drop (Rank sh) shOut :~: '[]) $
+             :: Rank (Take (Rank shOut) shOut) :~: Rank shOut) $
+  gcastWith (unsafeCoerce Refl :: Drop (Rank sh) shOut :~: '[]) $
   sbuild @shaped @r @(Rank shOut)
   $ \ixResult ->
       indexz0S @shOut d (zipWith_Index (+)

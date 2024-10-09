@@ -11,7 +11,6 @@ import Prelude hiding (foldl')
 import Control.Arrow (second)
 import Control.Exception.Assert.Sugar
 import Data.Array.Internal (valueOf)
-import Data.Array.Shape qualified as Sh
 import Data.Foldable qualified as Foldable
 import Data.Int (Int64)
 import Data.List (foldl')
@@ -32,10 +31,11 @@ import Numeric.LinearAlgebra (Numeric)
 import Numeric.LinearAlgebra qualified as LA
 import Unsafe.Coerce (unsafeCoerce)
 
-import Data.Array.Mixed.Internal.Arith qualified as Mixed.Internal.Arith (liftVEltwise1)
+import Data.Array.Mixed.Internal.Arith qualified as Mixed.Internal.Arith
+  (liftVEltwise1)
 import Data.Array.Mixed.Permutation qualified as Permutation
+import Data.Array.Nested (Rank, type (++))
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested (type (++), Rank)
 import Data.Array.Nested.Internal.Mixed qualified as Nested.Internal.Mixed
 import Data.Array.Nested.Internal.Ranked qualified as Nested.Internal
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
@@ -43,7 +43,7 @@ import Data.Array.Nested.Internal.Shaped qualified as Nested.Internal
 
 import HordeAd.Core.Types
 import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..), FlipS)
-import HordeAd.Util.ShapedList (IndexS)
+import HordeAd.Util.ShapedList (Drop, IndexS, Init, Take)
 import HordeAd.Util.ShapedList qualified as ShapedList
 import HordeAd.Util.SizedList
 
@@ -408,9 +408,9 @@ type IndexIntSh sh = IndexS sh Int64
 -- TODO: try to weave a similar magic as in tindex0R
 -- TODO: for the non-singleton case see
 -- https://github.com/Mikolaj/horde-ad/pull/81#discussion_r1096532164
-updateNS :: forall n sh r. (NumAndShow r, KnownShS sh, KnownShS (Sh.Drop n sh))
+updateNS :: forall n sh r. (NumAndShow r, KnownShS sh, KnownShS (Drop n sh))
          => Nested.Shaped sh r
-         -> [(IndexIntSh (Sh.Take n sh), Nested.Shaped (Sh.Drop n sh) r)]
+         -> [(IndexIntSh (Take n sh), Nested.Shaped (Drop n sh) r)]
          -> Nested.Shaped sh r
 updateNS arr upd =
   let values = Nested.stoVector arr
@@ -418,17 +418,17 @@ updateNS arr upd =
       f !t (ix, u) =
         let v = Nested.stoVector u
             i = gcastWith (unsafeCoerce Refl
-                           :: sh :~: Sh.Take n sh ++ Sh.Drop n sh)
+                           :: sh :~: Take n sh ++ Drop n sh)
                 $ fromIntegral
-                $ ShapedList.toLinearIdx @(Sh.Take n sh) @(Sh.Drop n sh)
+                $ ShapedList.toLinearIdx @(Take n sh) @(Drop n sh)
                                          fromIntegral sh ix
         in V.concat [V.take i t, v, V.drop (i + V.length v) t]
   in Nested.sfromVector knownShS (foldl' f values upd)
 
 tminIndexS
   :: forall n sh r r2. ( NumAndShow r, NumAndShow r2, KnownShS sh
-                       , KnownShS (Sh.Init (n ': sh)) )
-  => Nested.Shaped (n ': sh) r -> Nested.Shaped (Sh.Init (n ': sh)) r2
+                       , KnownShS (Init (n ': sh)) )
+  => Nested.Shaped (n ': sh) r -> Nested.Shaped (Init (n ': sh)) r2
 tminIndexS =
   let f :: Nested.Shaped '[m] r -> Nested.Shaped '[] r2
       f = Nested.sscalar . fromIntegral . Nested.Internal.Shape.ixsHead . Nested.sminIndexPrim
@@ -441,17 +441,17 @@ tminIndexS =
           case someNatVal $ toInteger $ length sh of
             Just (SomeNat _proxy) ->
               gcastWith (unsafeCoerce Refl
-                         :: Sh.Init (n ': sh) ++ '[m] :~: n ': sh) $
+                         :: Init (n ': sh) ++ '[m] :~: n ': sh) $
               gcastWith (unsafeCoerce Refl
-                         :: Sh.Init (n ': sh) :~: Sh.Init (n ': sh) ++ '[]) $
-              Nested.srerank @'[m] @'[] @(Sh.Init (n ': sh)) knownShS knownShS (f @m)
+                         :: Init (n ': sh) :~: Init (n ': sh) ++ '[]) $
+              Nested.srerank @'[m] @'[] @(Init (n ': sh)) knownShS knownShS (f @m)
             Nothing -> error "tminIndexS: impossible someNatVal error"
         Nothing -> error "tminIndexS: impossible someNatVal error"
 
 tmaxIndexS
   :: forall n sh r r2. ( NumAndShow r, NumAndShow r2, KnownShS sh
-                       , KnownShS (Sh.Init (n ': sh)) )
-  => Nested.Shaped (n ': sh) r -> Nested.Shaped (Sh.Init (n ': sh)) r2
+                       , KnownShS (Init (n ': sh)) )
+  => Nested.Shaped (n ': sh) r -> Nested.Shaped (Init (n ': sh)) r2
 tmaxIndexS =
   let f :: Nested.Shaped '[m] r -> Nested.Shaped '[] r2
       f = Nested.sscalar . fromIntegral . Nested.Internal.Shape.ixsHead . Nested.smaxIndexPrim
@@ -464,10 +464,10 @@ tmaxIndexS =
           case someNatVal $ toInteger $ length sh of
             Just (SomeNat _proxy) ->
               gcastWith (unsafeCoerce Refl
-                         :: Sh.Init (n ': sh) ++ '[m] :~: n ': sh) $
+                         :: Init (n ': sh) ++ '[m] :~: n ': sh) $
               gcastWith (unsafeCoerce Refl
-                         :: Sh.Init (n ': sh) :~: Sh.Init (n ': sh) ++ '[]) $
-              Nested.srerank @'[m] @'[] @(Sh.Init (n ': sh)) knownShS knownShS (f @m)
+                         :: Init (n ': sh) :~: Init (n ': sh) ++ '[]) $
+              Nested.srerank @'[m] @'[] @(Init (n ': sh)) knownShS knownShS (f @m)
             Nothing -> error "tmaxIndexS: impossible someNatVal error"
         Nothing -> error "tmaxIndexS: impossible someNatVal error"
 
@@ -583,9 +583,9 @@ tmatmul2S t u =
 -- Note how ix being in bounds is checked. The semantics of the operation
 -- permits index out of bounds and then no tensors is added at such an index.
 tscatterZS :: forall r sh2 p sh.
-              (NumAndShow r, KnownShS sh, KnownShS sh2, KnownShS (Sh.Drop p sh))
-           => Nested.Shaped (sh2 ++ Sh.Drop p sh) r
-           -> (IndexIntSh sh2 -> IndexIntSh (Sh.Take p sh))
+              (NumAndShow r, KnownShS sh, KnownShS sh2, KnownShS (Drop p sh))
+           => Nested.Shaped (sh2 ++ Drop p sh) r
+           -> (IndexIntSh sh2 -> IndexIntSh (Take p sh))
            -> Nested.Shaped sh r
 tscatterZS t f =
   let sh2 = knownShS @sh2
@@ -593,7 +593,7 @@ tscatterZS t f =
         let ix2 = f ix
         in if ixInBounds (ShapedList.indexToList ix2) (shapeT @sh)
            then M.insertWith (V.zipWith (+)) ix2
-                  (Nested.stoVector $ tindexNS @sh2 @(Sh.Drop p sh) t ix)
+                  (Nested.stoVector $ tindexNS @sh2 @(Drop p sh) t ix)
            else id
       ivs = foldr g M.empty [ ShapedList.fromLinearIdx fromIntegral sh2
                               $ fromIntegral i
@@ -607,9 +607,9 @@ tscatterZS t f =
 -- and then freezing it and calling OS.fromVector
 -- or optimize tscatterNS and instantiate it instead
 tscatterZ1S :: forall r n2 p sh.
-               (NumAndShow r, KnownShS sh, KnownShS (Sh.Drop p sh))
-            => Nested.Shaped (n2 ': Sh.Drop p sh) r
-            -> (Int64 -> IndexIntSh (Sh.Take p sh))
+               (NumAndShow r, KnownShS sh, KnownShS (Drop p sh))
+            => Nested.Shaped (n2 ': Drop p sh) r
+            -> (Int64 -> IndexIntSh (Take p sh))
             -> Nested.Shaped sh r
 tscatterZ1S t f =
     sum $ imap (\i ti ->
@@ -716,30 +716,30 @@ tzipWith0NS f =
 -- Note how tindexZS is used. The semantics of the operation
 -- permits index out of bounds and the result of such indexing is zero.
 tgatherZS :: forall sh2 p sh r.
-             ( NumAndShow r, KnownShS sh2, KnownShS (Sh.Drop p sh)
-             , KnownShS (sh2 ++ Sh.Drop p sh) )
+             ( NumAndShow r, KnownShS sh2, KnownShS (Drop p sh)
+             , KnownShS (sh2 ++ Drop p sh) )
           => Nested.Shaped sh r
-          -> (IndexIntSh sh2 -> IndexIntSh (Sh.Take p sh))
-          -> Nested.Shaped (sh2 ++ Sh.Drop p sh) r
+          -> (IndexIntSh sh2 -> IndexIntSh (Take p sh))
+          -> Nested.Shaped (sh2 ++ Drop p sh) r
 tgatherZS t f =
   let sh2 = knownShS @sh2
       s = sizeT @sh2
       l = gcastWith (unsafeCoerce Refl
-                     :: sh :~: Sh.Take p sh ++ Sh.Drop p sh)
+                     :: sh :~: Take p sh ++ Drop p sh)
           $ [ Nested.stoVector
                 (t `tindexZS` f (ShapedList.fromLinearIdx fromIntegral sh2
                                  $ fromIntegral i)
-                 :: Nested.Shaped (Sh.Drop p sh) r)
+                 :: Nested.Shaped (Drop p sh) r)
             | i <- [0 .. s - 1] ]
   in Nested.sfromVector knownShS $ V.concat l
 
 tgatherZ1S :: forall n2 p sh r.
-              (NumAndShow r, KnownNat n2, KnownShS (Sh.Drop p sh))
-           => Nested.Shaped sh r -> (Int64 -> IndexIntSh (Sh.Take p sh))
-           -> Nested.Shaped (n2 ': Sh.Drop p sh) r
+              (NumAndShow r, KnownNat n2, KnownShS (Drop p sh))
+           => Nested.Shaped sh r -> (Int64 -> IndexIntSh (Take p sh))
+           -> Nested.Shaped (n2 ': Drop p sh) r
 tgatherZ1S t f =
   let l = gcastWith (unsafeCoerce Refl
-                     :: sh :~: Sh.Take p sh ++ Sh.Drop p sh)
+                     :: sh :~: Take p sh ++ Drop p sh)
           $ NonEmpty.map (\i -> t `tindexZS` f i)
                          (NonEmpty.fromList [0 .. valueOf @n2 - 1])
   in Nested.sfromListOuter SNat l

@@ -1,4 +1,4 @@
-{-# LANGUAGE AllowAmbiguousTypes, DerivingStrategies #-}
+{-# LANGUAGE AllowAmbiguousTypes, DerivingStrategies, UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -fconstraint-solver-iterations=10000 #-}
@@ -6,7 +6,8 @@
 -- | @[Nat]@-indexed lists to be used as is for lists of tensor variables,
 -- tensor shapes and tensor indexes.
 module HordeAd.Util.ShapedList
-  ( -- * Shaped lists (sized, where size is shape) and their permutations
+  ( Take, Drop, Last, Init
+  , -- * Shaped lists (sized, where size is shape) and their permutations
     IndexSh
   , SizedListS, pattern (::$), pattern ZS
   -- , consShaped, unconsContShaped
@@ -36,21 +37,43 @@ module HordeAd.Util.ShapedList
 import Prelude
 
 import Data.Array.Internal (valueOf)
-import Data.Array.Shape qualified as Sh
 import Data.Foldable qualified as Foldable
 import Data.Functor.Const
 import GHC.Exts (IsList (..))
-import GHC.TypeLits (KnownNat, Nat)
+import GHC.TypeLits (KnownNat, Nat, type (-))
 
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Nested
-  (IxS (..), ListS, pattern (:.$), pattern (::$), pattern ZIS, pattern ZS,
-   type (++), Rank)
+  ( IxS (..)
+  , ListS
+  , Rank
+  , pattern (:.$)
+  , pattern (::$)
+  , pattern ZIS
+  , pattern ZS
+  , type (++)
+  )
 import Data.Array.Nested.Internal.Shape (listsToList, shsToList)
 
 import HordeAd.Core.Types
 import HordeAd.Internal.OrthotopeOrphanInstances (IntegralF (..))
 import HordeAd.Util.SizedList qualified as SizedList
+
+type family Take (n :: Nat) (xs :: [k]) :: [k] where
+    Take 0 xs = '[]
+    Take n (x ': xs) = x ': Take (n - 1) xs
+
+type family Drop (n :: Nat) (xs :: [k]) :: [k] where
+    Drop 0 xs = xs
+    Drop n (x ': xs) = Drop (n - 1) xs
+
+type family Last (xs :: [k]) where
+  Last '[x] = x
+  Last (x ': xs) = Last xs
+
+type family Init (xs :: [k]) where
+  Init '[x] = '[]
+  Init (x ': xs) = x ': Init xs
 
 -- * Shaped lists and their permutations
 
@@ -77,18 +100,18 @@ headSized (i ::$ _ix) = i
 tailSized :: SizedListS (n ': sh) i -> SizedListS sh i
 tailSized (_i ::$ ix) = ix
 
-takeSized :: forall len sh i. (KnownNat len, KnownShS (Sh.Take len sh))
-          => SizedListS sh (Const i) -> SizedListS (Sh.Take len sh) (Const i)
+takeSized :: forall len sh i. (KnownNat len, KnownShS (Take len sh))
+          => SizedListS sh (Const i) -> SizedListS (Take len sh) (Const i)
 takeSized ix = listToSized $ take (valueOf @len) $ sizedToList ix
 
-dropSized :: forall len sh i. (KnownNat len, KnownShS (Sh.Drop len sh))
-          => SizedListS sh (Const i) -> SizedListS  (Sh.Drop len sh) (Const i)
+dropSized :: forall len sh i. (KnownNat len, KnownShS (Drop len sh))
+          => SizedListS sh (Const i) -> SizedListS  (Drop len sh) (Const i)
 dropSized ix = listToSized $ drop (valueOf @len) $ sizedToList ix
 
 splitAt_Sized
-  :: (KnownNat len, KnownShS (Sh.Drop len sh), KnownShS (Sh.Take len sh))
+  :: (KnownNat len, KnownShS (Drop len sh), KnownShS (Take len sh))
   => SizedListS sh (Const i)
-  -> (SizedListS (Sh.Take len sh) (Const i), SizedListS (Sh.Drop len sh) (Const i))
+  -> (SizedListS (Take len sh) (Const i), SizedListS (Drop len sh) (Const i))
 splitAt_Sized ix = (takeSized ix, dropSized ix)
 
 {-
@@ -193,12 +216,12 @@ listToShape = fromList
 shapeToList :: ShapeS sh -> [Int]
 shapeToList = shsToList
 
-takeShS :: forall len sh. (KnownNat len, KnownShS (Sh.Take len sh))
-        => ShS sh -> ShS (Sh.Take len sh)
+takeShS :: forall len sh. (KnownNat len, KnownShS (Take len sh))
+        => ShS sh -> ShS (Take len sh)
 takeShS ix = listToShape $ take (valueOf @len) $ shapeToList ix
 
-dropShS :: forall len sh. (KnownNat len, KnownShS (Sh.Drop len sh))
-        => ShS sh -> ShS (Sh.Drop len sh)
+dropShS :: forall len sh. (KnownNat len, KnownShS (Drop len sh))
+        => ShS sh -> ShS (Drop len sh)
 dropShS ix = listToShape $ drop (valueOf @len) $ shapeToList ix
 
 

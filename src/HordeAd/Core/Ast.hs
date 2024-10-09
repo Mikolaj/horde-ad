@@ -34,7 +34,6 @@ module HordeAd.Core.Ast
 import Prelude hiding (foldl')
 
 import Data.Array.Internal (valueOf)
-import Data.Array.Shape qualified as Sh
 import Data.Dependent.EnumMap.Strict (DEnumMap)
 import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Functor.Const
@@ -51,14 +50,14 @@ import GHC.TypeLits (KnownNat, Nat, sameNat, type (+), type (<=))
 import Type.Reflection (Typeable, eqTypeRep, typeRep, (:~~:) (HRefl))
 
 import Data.Array.Mixed.Permutation qualified as Permutation
+import Data.Array.Nested (Rank, type (++))
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested (type (++), Rank)
 
 import HordeAd.Core.HVector
 import HordeAd.Core.Types
 import HordeAd.Internal.OrthotopeOrphanInstances
   (IntegralF (..), RealFloatF (..))
-import HordeAd.Util.ShapedList (IndexS, SizedListS)
+import HordeAd.Util.ShapedList (Drop, IndexS, Init, SizedListS, Take)
 import HordeAd.Util.SizedList
 
 -- * Basic type family instances
@@ -425,13 +424,13 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType -> Type wh
 
   -- Here starts the shaped part.
   AstMinIndexS :: ( KnownShS sh, KnownNat n, GoodScalar r, GoodScalar r2
-                  , GoodScalar r2, KnownShS (Sh.Init (n ': sh)) )
+                  , GoodScalar r2, KnownShS (Init (n ': sh)) )
                => AstTensor ms PrimalSpan (TKS r (n ': sh))
-               -> AstTensor ms PrimalSpan (TKS r2 (Sh.Init (n ': sh)))
+               -> AstTensor ms PrimalSpan (TKS r2 (Init (n ': sh)))
   AstMaxIndexS :: ( KnownShS sh, KnownNat n, GoodScalar r, GoodScalar r2
-                  , GoodScalar r2, KnownShS (Sh.Init (n ': sh)) )
+                  , GoodScalar r2, KnownShS (Init (n ': sh)) )
                => AstTensor ms PrimalSpan (TKS r (n ': sh))
-               -> AstTensor ms PrimalSpan (TKS r2 (Sh.Init (n ': sh)))
+               -> AstTensor ms PrimalSpan (TKS r2 (Init (n ': sh)))
   AstFloorS :: ( GoodScalar r, RealFrac r, Integral r2, GoodScalar r2
                , KnownShS sh )
             => AstTensor ms PrimalSpan (TKS r sh)
@@ -468,10 +467,10 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType -> Type wh
           => AstTensor ms s (TKS r (n ': sh)) -> AstTensor ms s (TKS r sh)
   AstScatterS :: forall sh2 p sh r s ms.
                  ( KnownShS sh2, KnownShS sh, KnownNat p
-                 , KnownShS (Sh.Take p sh), KnownShS (Sh.Drop p sh)
-                 , KnownShS (sh2 ++ Sh.Drop p sh), GoodScalar r )
-              => AstTensor ms s (TKS r (sh2 ++ Sh.Drop p sh))
-              -> (AstVarListS sh2, AstIndexS ms (Sh.Take p sh))
+                 , KnownShS (Take p sh), KnownShS (Drop p sh)
+                 , KnownShS (sh2 ++ Drop p sh), GoodScalar r )
+              => AstTensor ms s (TKS r (sh2 ++ Drop p sh))
+              -> (AstVarListS sh2, AstIndexS ms (Take p sh))
               -> AstTensor ms s (TKS r sh)
 
   AstFromVectorS :: (KnownNat n, KnownShS sh, GoodScalar r)
@@ -494,11 +493,11 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType -> Type wh
     -- and than the order of value arguments in the ranked version
   AstGatherS :: forall sh2 p sh r s ms.
                 ( GoodScalar r, KnownShS sh, KnownShS sh2, KnownNat p
-                , KnownShS (Sh.Take p sh), KnownShS (Sh.Drop p sh)
-                , KnownShS (sh2 ++ Sh.Drop p sh) )
+                , KnownShS (Take p sh), KnownShS (Drop p sh)
+                , KnownShS (sh2 ++ Drop p sh) )
              => AstTensor ms s (TKS r sh)
-             -> (AstVarListS sh2, AstIndexS ms (Sh.Take p sh))
-             -> AstTensor ms s (TKS r (sh2 ++ Sh.Drop p sh))
+             -> (AstVarListS sh2, AstIndexS ms (Take p sh))
+             -> AstTensor ms s (TKS r (sh2 ++ Drop p sh))
     -- out of bounds indexing is permitted
   AstCastS :: (GoodScalar r1, RealFrac r1, GoodScalar r2, RealFrac r2, KnownShS sh)
            => AstTensor ms s (TKS r1 sh) -> AstTensor ms s (TKS r2 sh)

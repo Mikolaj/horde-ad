@@ -20,7 +20,6 @@ import Prelude
 
 import Control.Exception.Assert.Sugar
 import Data.Array.Internal (valueOf)
-import Data.Array.Shape qualified as Sh
 import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Int (Int64)
 import Data.Proxy (Proxy (Proxy))
@@ -31,8 +30,8 @@ import GHC.TypeLits (KnownNat, sameNat)
 import Type.Reflection (Typeable, typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
+import Data.Array.Nested (Rank, type (++))
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested (type (++), Rank)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstEnv
@@ -42,7 +41,7 @@ import HordeAd.Core.HVector
 import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
-import HordeAd.Util.ShapedList (pattern (:.$), pattern ZIS)
+import HordeAd.Util.ShapedList (Drop, Take, pattern (:.$), pattern ZIS)
 import HordeAd.Util.SizedList
 
 interpretAstPrimalRuntimeSpecialized
@@ -759,9 +758,9 @@ interpretAst !env = \case
   AstTransposeS perm v -> stranspose perm $ interpretAst env v
   AstReshapeS v -> sreshape (interpretAst env v)
   AstGatherS @sh2 @p @sh @r AstIotaS (vars, i :.$ ZIS) ->
-    gcastWith (unsafeCoerce Refl :: Sh.Take (Rank sh2) sh2 :~: sh2)
-    $ gcastWith (unsafeCoerce Refl :: Sh.Drop (Rank sh2) sh2 :~: '[])
-    $ gcastWith (unsafeCoerce Refl :: sh2 :~: sh2 ++ Sh.Drop p sh)
+    gcastWith (unsafeCoerce Refl :: Take (Rank sh2) sh2 :~: sh2)
+    $ gcastWith (unsafeCoerce Refl :: Drop (Rank sh2) sh2 :~: '[])
+    $ gcastWith (unsafeCoerce Refl :: sh2 :~: sh2 ++ Drop p sh)
         -- transitivity of type equality doesn't work, by design,
         -- so this direct cast is needed instead of more basic laws
     $ sbuild @(ShapedOf ranked) @r @(Rank sh2)

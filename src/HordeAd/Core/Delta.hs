@@ -52,7 +52,6 @@ import Prelude
 import Control.Arrow (second)
 import Control.Exception.Assert.Sugar
 import Data.Array.Internal (valueOf)
-import Data.Array.Shape qualified as Sh
 import Data.Dependent.EnumMap.Strict (DEnumMap)
 import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Dependent.Sum (DSum (..))
@@ -74,7 +73,7 @@ import Type.Reflection (typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Nested (type (++), Rank)
+import Data.Array.Nested (Rank, type (++))
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
@@ -82,7 +81,7 @@ import HordeAd.Core.HVector
 import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
-import HordeAd.Util.ShapedList (IndexSh, pattern (:.$), pattern ZIS)
+import HordeAd.Util.ShapedList (Drop, IndexSh, Take, pattern (:.$), pattern ZIS)
 import HordeAd.Util.SizedList
 
 -- * Reverse and forward derivative computation for HVectorPseudoTensor
@@ -508,11 +507,11 @@ data Delta :: RankedTensorType -> TensorKindType -> Type where
         -> Delta ranked (TKS r '[])
   ScatterS :: forall ranked r sh2 p sh.
               ( GoodScalar r, KnownShS sh2, KnownShS sh, KnownNat p
-              , KnownShS (Sh.Take p sh), KnownShS (Sh.Drop p sh)
-              , KnownShS (sh2 ++ Sh.Drop p sh) )
-           => Delta ranked (TKS r (sh2 ++ Sh.Drop p sh))
+              , KnownShS (Take p sh), KnownShS (Drop p sh)
+              , KnownShS (sh2 ++ Drop p sh) )
+           => Delta ranked (TKS r (sh2 ++ Drop p sh))
            -> (IndexSh (ShapedOf ranked) sh2
-               -> IndexSh (ShapedOf ranked) (Sh.Take p sh))
+               -> IndexSh (ShapedOf ranked) (Take p sh))
            -> Delta ranked (TKS r sh)
     -- ^ Build a tensor by adding up tensors of rank @n@ taken from
     -- the third argument and inserted in a zero tensor
@@ -565,12 +564,12 @@ data Delta :: RankedTensorType -> TensorKindType -> Type where
     -- ^ Change the shape of the tensor from the first to the second.
   GatherS :: forall ranked r sh2 p sh.
              ( GoodScalar r, KnownShS sh2, KnownShS sh, KnownNat p
-             , KnownShS (Sh.Take p sh), KnownShS (Sh.Drop p sh)
-             , KnownShS (sh2 ++ Sh.Drop p sh) )
+             , KnownShS (Take p sh), KnownShS (Drop p sh)
+             , KnownShS (sh2 ++ Drop p sh) )
           => Delta ranked (TKS r sh)
           -> (IndexSh (ShapedOf ranked) sh2
-              -> IndexSh (ShapedOf ranked) (Sh.Take p sh))
-          -> Delta ranked (TKS r (sh2 ++ Sh.Drop p sh))
+              -> IndexSh (ShapedOf ranked) (Take p sh))
+          -> Delta ranked (TKS r (sh2 ++ Drop p sh))
     -- ^ Build a tensor by picking tensors of rank @n@ at the given indexes
     -- of length @p@. Index of length 0 results in identity, so that,
     -- e.g, @Gather1 (const ZR) [] (ScalarR d) k@ is equivalent
@@ -1118,9 +1117,9 @@ evalR !s !c = \case
 
   IndexS @sh1 @sh d ix ->
     gcastWith (unsafeCoerce Refl
-               :: Sh.Drop (Rank sh1) (sh1 ++ sh) :~: sh) $
+               :: Drop (Rank sh1) (sh1 ++ sh) :~: sh) $
     gcastWith (unsafeCoerce Refl
-               :: Sh.Take (Rank sh1) (sh1 ++ sh) :~: sh1) $
+               :: Take (Rank sh1) (sh1 ++ sh) :~: sh1) $
     withListSh (Proxy @sh1) $ \(_ :: IShR rankSh1) ->
     gcastWith (unsafeCoerce Refl :: rankSh1 :~: Rank sh1) $
     evalR s (sscatter @_ @_ @'[] @(Rank sh1) c (const ix)) d

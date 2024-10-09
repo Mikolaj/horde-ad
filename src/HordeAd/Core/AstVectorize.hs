@@ -27,7 +27,7 @@ import Type.Reflection (typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Nested (type (++), Rank)
+import Data.Array.Nested (Rank, type (++))
 
 import HordeAd.Core.Ast (AstTensor)
 import HordeAd.Core.Ast hiding (AstBool (..), AstTensor (..))
@@ -39,7 +39,7 @@ import HordeAd.Core.AstTools
 import HordeAd.Core.HVector
 import HordeAd.Core.Types
 import HordeAd.Util.ShapedList
-  (pattern (:.$), pattern (::$), pattern ZIS, pattern ZS)
+  (Drop, Take, pattern (:.$), pattern (::$), pattern ZIS, pattern ZS)
 import HordeAd.Util.SizedList
 
 -- * Vectorization of AstRanked
@@ -362,9 +362,9 @@ build1V snat@SNat (var, v00) =
     Ast.AstIndexS @sh1 v ix -> traceRule $ case stensorKind @y of
      STKS @_ @sh _ _ ->
       gcastWith (unsafeCoerce Refl
-                 :: Sh.Take (Rank sh1) (sh1 ++ sh) :~: sh1) $
+                 :: Take (Rank sh1) (sh1 ++ sh) :~: sh1) $
       gcastWith (unsafeCoerce Refl
-                 :: Sh.Drop (Rank sh1) (sh1 ++ sh) :~: sh) $
+                 :: Drop (Rank sh1) (sh1 ++ sh) :~: sh) $
       withListSh (Proxy @sh1) $ \(_ :: IShR rankSh1) ->
       gcastWith (unsafeCoerce Refl :: rankSh1 :~: Rank sh1) $
       build1VIndexS @k @(Rank sh1) (var, v, ix)  -- @var@ is in @v@ or @ix@
@@ -372,9 +372,9 @@ build1V snat@SNat (var, v00) =
       astSumS $ astTrS $ build1V snat (var, v)
     Ast.AstScatterS @sh2 @p @sh3 v (vars, ix) -> traceRule $
       gcastWith (unsafeCoerce Refl
-                 :: Sh.Take (1 + p) (k : sh3) :~: (k : Sh.Take p sh3)) $
+                 :: Take (1 + p) (k : sh3) :~: (k : Take p sh3)) $
       gcastWith (unsafeCoerce Refl
-                 :: Sh.Drop (1 + p) (k : sh3) :~: Sh.Drop p sh3) $
+                 :: Drop (1 + p) (k : sh3) :~: Drop p sh3) $
       let (varFresh, astVarFresh, ix2) = intBindingRefreshS var ix
       in astScatterS @(k ': sh2) @(1 + p)
                      (build1VOccurenceUnknown snat (var, v))
@@ -407,9 +407,9 @@ build1V snat@SNat (var, v00) =
       astReshapeS $ build1V snat (var, v)
     Ast.AstGatherS @sh2 @p @sh3 v (vars, ix) -> traceRule $
       gcastWith (unsafeCoerce Refl
-                 :: Sh.Take (1 + p) (k : sh3) :~: (k : Sh.Take p sh3)) $
+                 :: Take (1 + p) (k : sh3) :~: (k : Take p sh3)) $
       gcastWith (unsafeCoerce Refl
-                 :: Sh.Drop (1 + p) (k : sh3) :~: Sh.Drop p sh3) $
+                 :: Drop (1 + p) (k : sh3) :~: Drop p sh3) $
       let (varFresh, astVarFresh, ix2) = intBindingRefreshS var ix
       in astGatherStepS @(k ': sh2) @(1 + p)
                         (build1VOccurenceUnknown snat (var, v))
@@ -565,17 +565,17 @@ intBindingRefreshS var ix =
 
 build1VIndexS
   :: forall k p sh s r.
-     ( GoodScalar r, KnownNat k, KnownNat p, KnownShS sh, KnownShS (Sh.Take p sh)
-     , KnownShS (Sh.Drop p (Sh.Take p sh ++ Sh.Drop p sh)), AstSpan s )
-  => (IntVarName, AstTensor AstMethodLet s (TKS r sh), AstIndexS AstMethodLet (Sh.Take p sh))
-  -> AstTensor AstMethodLet s (TKS r (k ': Sh.Drop p sh))
+     ( GoodScalar r, KnownNat k, KnownNat p, KnownShS sh, KnownShS (Take p sh)
+     , KnownShS (Drop p (Take p sh ++ Drop p sh)), AstSpan s )
+  => (IntVarName, AstTensor AstMethodLet s (TKS r sh), AstIndexS AstMethodLet (Take p sh))
+  -> AstTensor AstMethodLet s (TKS r (k ': Drop p sh))
 build1VIndexS (var, v0, ZIS) =
   gcastWith (unsafeCoerce Refl :: p :~: 0)
     -- otherwise sh would need to be empty, but then Take gets stuck
     -- so the application of this function wouldn't type-check
   $ build1VOccurenceUnknown (SNat @k) (var, v0)
 build1VIndexS (var, v0, ix@(_ :.$ _)) =
-  gcastWith (unsafeCoerce Refl :: sh :~: Sh.Take p sh ++ Sh.Drop p sh) $
+  gcastWith (unsafeCoerce Refl :: sh :~: Take p sh ++ Drop p sh) $
   let vTrace = Ast.AstBuild1 (SNat @k) (var, Ast.AstIndexS v0 ix)
       traceRule = mkTraceRule "build1VIndexS" vTrace v0 1
   in if varNameInAst var v0
@@ -584,12 +584,12 @@ build1VIndexS (var, v0, ix@(_ :.$ _)) =
          build1VOccurenceUnknown (SNat @k) (var, v1)
        v@(Ast.AstIndexS @sh1 v1 ix1) -> traceRule $
          gcastWith (unsafeCoerce Refl
-                    :: k ': sh1 :~: Sh.Take (1 + Rank sh1)
-                                            (k ': sh1 ++ Sh.Drop p sh)) $
+                    :: k ': sh1 :~: Take (1 + Rank sh1)
+                                            (k ': sh1 ++ Drop p sh)) $
          gcastWith (unsafeCoerce Refl
-                    :: Sh.Drop p sh
-                       :~: Sh.Drop (1 + Rank sh1)
-                                   (k ': sh1 ++ Sh.Drop p sh)) $
+                    :: Drop p sh
+                       :~: Drop (1 + Rank sh1)
+                                   (k ': sh1 ++ Drop p sh)) $
          withListSh (Proxy @sh1) $ \(_ :: IShR rankSh1Plus1) ->
          gcastWith (unsafeCoerce Refl :: rankSh1Plus1 :~: 1 + Rank sh1) $
          let (varFresh, astVarFresh, ix2) = intBindingRefreshS var ix1
