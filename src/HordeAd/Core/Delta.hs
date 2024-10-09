@@ -40,7 +40,7 @@ module HordeAd.Core.Delta
   ( -- * Delta expression evaluation
     gradientFromDelta, derivativeFromDelta
     -- * Abstract syntax trees of the delta expressions
-  , DeltaR (..), DeltaS (..), Delta(..)
+  , DeltaR (..), DeltaS (..), DeltaX (..), Delta(..)
   , -- * Delta expression identifiers
     NodeId (..), InputId, toInputId
     -- * Exported to be specialized elsewhere
@@ -73,15 +73,18 @@ import Type.Reflection (typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Nested (Rank, type (++))
+import Data.Array.Mixed.Shape (pattern (:.%), pattern ZIX)
+import Data.Array.Nested (KnownShX, Rank, type (++))
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
+import Data.Array.Mixed.Shape (IShX)
 import HordeAd.Core.HVector
 import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
-import HordeAd.Util.ShapedList (Drop, IndexSh, Take, pattern (:.$), pattern ZIS)
+import HordeAd.Util.ShapedList
+  (Drop, IndexSh, IndexShX, Take, pattern (:.$), pattern ZIS)
 import HordeAd.Util.SizedList
 
 -- * Reverse and forward derivative computation for HVectorPseudoTensor
@@ -138,6 +141,7 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
               (evalRepM mt, rest)
           _ -> error $ "gradientFromDelta: illegal RepM: "
                        ++ show_iMap (iMap s2)
+        FTKX{} -> error "TODO"
         FTKProduct ftk1 ftk2 ->
           let (t1, rest1) = rebuildInputs els ftk1
               (t2, rest2) = rebuildInputs rest1 ftk2
@@ -191,6 +195,7 @@ derivativeFromDelta deltaTopLevel ds =
           case lemKnownNatRank (knownShS @sh) of
             Dict -> ([InputId j :=> MTKR @r t], j + 1)
         FTKS @r @sh -> ([InputId j :=> MTKS @r @sh t], j + 1)
+        FTKX{} -> error "TODO"
         FTKProduct ftk1 ftk2 ->
           let (t1, t2) = tunpair t
               (ds1, j1) = generateDSums j ftk1 t1
@@ -235,6 +240,7 @@ repToM
 repToM stk t = case stk of
   STKR{} -> MTKR t
   STKS{} -> MTKS t
+  STKX{} -> error "repToM"
   STKProduct{} -> error "repToM"
   STKUnit -> error "repToM"
   STKUntyped{} -> error "repToM"
@@ -366,8 +372,10 @@ instance ( RankedOf (ShapedOf ranked) ~ ranked
          , CRepProduct ranked Show
          , Show (HVectorOf ranked)
          , Show (IntOf (ShapedOf ranked))
+         , Show (IntOf (MixedOf ranked))
          , CRanked ranked Show
-         , CShaped (ShapedOf ranked) Show )
+         , CShaped (ShapedOf ranked) Show
+         , CMixed (MixedOf ranked) Show )
          => Show (DeltaR ranked r n) where
   showsPrec k (DeltaR t) = showsPrec k t
     -- to keep PP tests passing regardless of what wrappers we currently use
@@ -382,11 +390,30 @@ instance ( ranked ~ RankedOf shaped, RankedOf (ShapedOf ranked) ~ ranked
          , CRepProduct ranked Show
          , Show (HVectorOf ranked)
          , Show (IntOf (ShapedOf ranked))
+         , Show (IntOf (MixedOf ranked))
          , CRanked ranked Show
-         , CShaped (ShapedOf ranked) Show )
+         , CShaped (ShapedOf ranked) Show
+         , CMixed (MixedOf ranked) Show )
          => Show (DeltaS shaped r sh) where
   showsPrec k (DeltaS t) = showsPrec k t
     -- to keep PP tests passing regardless of what wrappers we currently use
+
+type role DeltaX nominal nominal nominal
+type DeltaX :: MixedTensorType -> MixedTensorType
+newtype DeltaX mixed r sh =
+  DeltaX {unDeltaX :: Delta (RankedOf mixed) (TKX r sh)}
+instance ( RankedOf (ShapedOf ranked) ~ ranked
+         , ranked ~ RankedOf mixed, RankedOf (MixedOf ranked) ~ ranked
+         , GoodScalar r, Show (IntOf ranked)
+         , CRepProduct ranked Show
+         , Show (HVectorOf ranked)
+         , Show (IntOf (ShapedOf ranked))
+         , Show (IntOf (MixedOf ranked))
+         , CRanked ranked Show
+         , CShaped (ShapedOf ranked) Show
+         , CMixed (MixedOf ranked) Show )
+         => Show (DeltaX mixed r sh) where
+  showsPrec k (DeltaX t) = showsPrec k t
 
 type role Delta nominal nominal
 data Delta :: RankedTensorType -> TensorKindType -> Type where
@@ -586,6 +613,21 @@ data Delta :: RankedTensorType -> TensorKindType -> Type where
   SFromH :: (GoodScalar r, KnownShS sh)
          => Delta ranked TKUntyped -> Int -> Delta ranked (TKS r sh)
 
+  ZeroX :: (GoodScalar r, KnownShX sh) => IShX sh -> Delta ranked (TKX r sh)
+  ScaleX :: (KnownShX sh, GoodScalar r)
+         => MixedOf ranked r sh -> Delta ranked (TKX r sh)
+         -> Delta ranked (TKX r sh)
+  AddX :: (GoodScalar r, KnownShX sh)
+       => Delta ranked (TKX r sh) -> Delta ranked (TKX r sh)
+       -> Delta ranked (TKX r sh)
+  IndexX :: (KnownShX sh1, KnownShX sh2, KnownShX (sh1 ++ sh2), GoodScalar r)
+         => Delta ranked (TKX r (sh1 ++ sh2))
+         -> IndexShX (MixedOf ranked) sh1
+         -> Delta ranked (TKX r sh2)
+  FromVectorX :: (GoodScalar r, KnownShX sh, KnownNat n)
+              => Data.Vector.Vector (Delta ranked (TKX r sh))
+              -> Delta ranked (TKX r (Just n ': sh))
+
   HToH :: HVector (DeltaR ranked) -> Delta ranked TKUntyped
   MapAccumR
     :: forall ranked k accShs bShs eShs.
@@ -633,8 +675,10 @@ deriving instance ( RankedOf (ShapedOf ranked) ~ ranked
                   , Show (HVectorOf ranked)
                   , Show (IntOf ranked)
                   , Show (IntOf (ShapedOf ranked))
+                  , Show (IntOf (MixedOf ranked))
                   , CRanked ranked Show
-                  , CShaped (ShapedOf ranked) Show )
+                  , CShaped (ShapedOf ranked) Show
+                  , CMixed (MixedOf ranked) Show )
                   => Show (Delta ranked y)
 
 -- This is needed for the Show instances due to HVector (Delta...)
@@ -643,12 +687,15 @@ type instance RankedOf (DeltaS shaped) = DeltaR (RankedOf shaped)
 
 type instance ShapedOf (DeltaR ranked) = DeltaS (ShapedOf ranked)
 
+type instance MixedOf (DeltaR ranked) = DeltaX (MixedOf ranked)
+
 type instance HVectorOf (DeltaR ranked) = Delta ranked TKUntyped
 
 type instance Rep (DeltaR ranked) (TKProduct x z) =
   Delta ranked (TKProduct x z)
 
-instance RankedOf (ShapedOf ranked) ~ ranked
+instance ( RankedOf (ShapedOf ranked) ~ ranked
+         , RankedOf (MixedOf ranked) ~ ranked )
          => ProductTensor (DeltaR ranked) where
   tpair t1 t2 = PairG (unDeltaRY stensorKind t1)
                       (unDeltaRY stensorKind t2)
@@ -656,22 +703,28 @@ instance RankedOf (ShapedOf ranked) ~ ranked
   tproject2 = deltaRY stensorKind . Project2G
   tmkHVector = HToH
 
-deltaRY :: forall y ranked. RankedOf (ShapedOf ranked) ~ ranked
+deltaRY :: forall y ranked.
+           ( RankedOf (ShapedOf ranked) ~ ranked
+           , RankedOf (MixedOf ranked) ~ ranked )
         => STensorKindType y -> Delta ranked y
         -> Rep (DeltaR ranked) y
 deltaRY stk t = case stk of
   STKR{} -> DeltaR t
   STKS{} -> DeltaS t
+  STKX{} -> DeltaX t
   STKProduct{} -> t
   STKUnit -> tunit
   STKUntyped -> HVectorPseudoTensor t
 
-unDeltaRY :: forall y ranked. RankedOf (ShapedOf ranked) ~ ranked
+unDeltaRY :: forall y ranked.
+             ( RankedOf (ShapedOf ranked) ~ ranked
+             , RankedOf (MixedOf ranked) ~ ranked )
           => STensorKindType y -> Rep (DeltaR ranked) y
           -> Delta ranked y
 unDeltaRY stk t = case stk of
   STKR{} -> unDeltaR t
   STKS{} -> unDeltaS t
+  STKX{} -> unDeltaX t
   STKProduct{} -> t
   STKUnit -> undefined
   STKUntyped -> unHVectorPseudoTensor t
@@ -742,6 +795,12 @@ shapeDeltaFull = \case
   CastS{} -> FTKS
   SFromR{} -> FTKS
   SFromH{} -> FTKS
+
+  ZeroX sh -> FTKX sh
+  ScaleX _ d -> shapeDeltaFull d
+  AddX d _ -> shapeDeltaFull d
+  IndexX{} -> error "TODO"
+  FromVectorX{} -> error "TODO"
 
   HToH v ->
     FTKUntyped $ V.map (voidFromDynamicF (shapeToList . shapeDelta . unDeltaR)) v
@@ -904,6 +963,7 @@ initEvalState ftk0 =
           case lemKnownNatRank (knownShS @sh) of
             Dict -> ([InputId j :=> MTKRDummy @r @sh], j + 1)
         FTKS @r @sh -> ([InputId j :=> MTKSDummy @r @sh], j + 1)
+        FTKX{} -> error "TODO"
         FTKProduct ftk1 ftk2 ->
           let (ds1, j1) = generateDSums j ftk1
               (ds2, j2) = generateDSums j1 ftk2
@@ -1168,6 +1228,16 @@ evalR !s !c = \case
     in assert (dynamicsMatch (cs V.! i) ci) $
        evalR s (HVectorPseudoTensor $ dmkHVector $ cs V.// [(i, ci)]) d
 
+  ZeroX{} -> s
+  ScaleX k d -> evalR s (k * c) d
+  AddX d e -> let cShared = tshare c
+              in evalR (evalR s cShared d) cShared e
+  IndexX{} -> error "TODO"
+  FromVectorX ld ->
+    let cShared = tshare c
+    in V.ifoldl' (\ !s2 i d2 ->
+         evalR s2 (cShared `xindex` (fromIntegral i :.% ZIX)) d2) s ld
+
   HToH v -> evalHVector s (tunvector c) v
   MapAccumR @_ @_ @_ @bShs
             k accShs bShs eShs
@@ -1240,6 +1310,9 @@ evalFromnMap s@EvalState{nMap, dMap} =
               Nothing -> errorMissing
             STKS{} -> case DMap.lookup n dMap of
               Just (RepN c) -> evalSRuntimeSpecialized s2 c d
+              Nothing -> errorMissing
+            STKX{} -> case DMap.lookup n dMap of
+              Just (RepN c) -> evalR s2 c d
               Nothing -> errorMissing
             STKProduct{} -> case DMap.lookup n dMap of
               Just (RepN c) -> evalR s2 c d
@@ -1444,6 +1517,16 @@ fwdR params s = \case
 -- Not needed, because we take only the i-th component of the vector,
 -- so v is not copied.
 --  in (s2, sfromD $ dunHVector (unHVectorPseudoTensor $ tshare v) V.! i)
+
+  ZeroX sh -> (s, xzero sh)
+  ScaleX k d -> second (* k) $ fwdR params s d
+  AddX d e -> let (s2, t) = fwdR params s d
+                  (s3, u) = fwdR params s2 e
+              in (s3, t + u)
+  IndexX d ix -> second (`xindex` ix) $ fwdR params s d
+  FromVectorX lsd ->
+    let (s2, l) = mapAccumL (fwdR params) s lsd
+    in (s2, xfromVector l)
 
   HToH v -> second (HVectorPseudoTensor . dmkHVector)
             $ fwdHVector params s v

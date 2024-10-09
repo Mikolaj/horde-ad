@@ -107,6 +107,7 @@ funToAstIO sh f = do
           !x = f (AstVar sh varName)
           dynVar = AstDynamicVarName @[Nat] @r @sh freshId
       return (varName, dynVar, x)
+    FTKX{} -> error "TODO"
     FTKProduct{} -> do
       let varName = mkAstVarName freshId
           !x = f (AstVar sh varName)
@@ -260,6 +261,8 @@ funToAstRevIO ftk | Dict <- lemTensorKindOfF ftk = do
       return (varPrimal, astVarPrimal, var, astVar)
     FTKS ->
       return (varPrimal, astVarPrimal, var, astVar)
+    FTKX{} ->
+      return (varPrimal, astVarPrimal, var, astVar)
     FTKProduct{} ->
       return (varPrimal, astVarPrimal, var, astVar)
     FTKUnit ->
@@ -319,6 +322,8 @@ funToAstFwdIO ftk | Dict <- lemTensorKindOfF ftk = do
     FTKR{} ->
       return (varPrimalD, astVarPrimalD, varPrimal, astVarPrimal, var, astVar)
     FTKS ->
+      return (varPrimalD, astVarPrimalD, varPrimal, astVarPrimal, var, astVar)
+    FTKX{} ->
       return (varPrimalD, astVarPrimalD, varPrimal, astVarPrimal, var, astVar)
     FTKProduct{} ->
       return (varPrimalD, astVarPrimalD, varPrimal, astVarPrimal, var, astVar)

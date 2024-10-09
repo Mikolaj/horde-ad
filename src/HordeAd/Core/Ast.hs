@@ -14,20 +14,20 @@ module HordeAd.Core.Ast
   , AstInt, IntVarName, pattern AstIntVar, isRankedInt
   , AstVarName, mkAstVarName, varNameToAstVarId, tensorKindFromAstVarName
   , AstArtifactRev(..), AstArtifactFwd(..)
-  , AstIndex, AstVarList, AstIndexS, AstVarListS
+  , AstIndex, AstVarList, AstIndexS, AstVarListS, AstIndexX
     -- * AstBindingsCase and AstBindings
   , AstBindingsCase, AstBindings
     -- * ASTs
   , AstMethodOfSharing(..)
-  , AstRanked(..), AstTensor(..), AstShaped(..)
+  , AstRanked(..), AstTensor(..), AstShaped(..), AstMixed(..)
   , AstGeneric(..), AstGenericS(..), AstGenericWrap(..)
   , AstDynamic, AstHFun(..)
   , AstBool(..), OpCodeNum1(..), OpCodeNum2(..), OpCode1(..), OpCode2(..)
   , OpCodeIntegral2(..), OpCodeBool(..), OpCodeRel(..)
     -- * The AstRaw, AstNoVectorize and AstNoSimplify definitions
-  , AstRaw(..), AstRawS(..), AstRawWrap(..)
-  , AstNoVectorize(..), AstNoVectorizeS(..), AstNoVectorizeWrap(..)
-  , AstNoSimplify(..), AstNoSimplifyS(..), AstNoSimplifyWrap(..)
+  , AstRaw(..), AstRawS(..), AstRawX(..), AstRawWrap(..)
+  , AstNoVectorize(..), AstNoVectorizeS(..), AstNoVectorizeX(..), AstNoVectorizeWrap(..)
+  , AstNoSimplify(..), AstNoSimplifyS(..), AstNoSimplifyX(..), AstNoSimplifyWrap(..)
   , rankedY, unRankedY
   ) where
 
@@ -50,7 +50,8 @@ import GHC.TypeLits (KnownNat, Nat, sameNat, type (+), type (<=))
 import Type.Reflection (Typeable, eqTypeRep, typeRep, (:~~:) (HRefl))
 
 import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Nested (Rank, type (++))
+import Data.Array.Mixed.Shape (IShX, IxX, ListX)
+import Data.Array.Nested (KnownShX, Rank, type (++))
 import Data.Array.Nested qualified as Nested
 
 import HordeAd.Core.HVector
@@ -90,6 +91,7 @@ instance Show (RepProductN (AstRanked s) x y) where
 
 type instance RankedOf (AstRanked s) = AstRanked s
 type instance ShapedOf (AstRanked s) = AstShaped s
+type instance MixedOf (AstRanked s) = AstMixed s
 type instance PrimalOf (AstRanked s) = AstRanked PrimalSpan
 type instance DualOf (AstRanked s) = AstRanked DualSpan
 type instance ShareOf (AstRanked s) = AstRaw s
@@ -108,6 +110,10 @@ type instance HFunOf (AstRanked s) x z = AstHFun x z
 type instance RankedOf (AstShaped s) = AstRanked s
 type instance PrimalOf (AstShaped s) = AstShaped PrimalSpan
 type instance DualOf (AstShaped s) = AstShaped DualSpan
+
+type instance RankedOf (AstMixed s) = AstRanked s
+type instance PrimalOf (AstMixed s) = AstMixed PrimalSpan
+type instance DualOf (AstMixed s) = AstMixed DualSpan
 
 
 -- * The AstSpan kind
@@ -262,6 +268,10 @@ type AstIndexS ms sh = IndexS sh (AstInt ms)
 
 type AstVarListS sh = SizedListS sh (Const IntVarName)
 
+type AstIndexX ms sh = IxX sh (AstInt ms)
+
+type AstVarListX sh = ListX sh (Const IntVarName)
+
 
 -- * AstBindingsCase and AstBindings
 
@@ -297,6 +307,12 @@ type role AstShaped nominal nominal nominal
 newtype AstShaped s r sh = AstShaped {unAstShaped :: AstTensor AstMethodLet s (TKS r sh)}
 instance GoodScalar r => Show (AstShaped s r sh) where
   showsPrec k (AstShaped t) = showsPrec k t
+    -- to keep PP tests passing regardless of what wrappers we currently use
+
+type role AstMixed nominal nominal nominal
+newtype AstMixed s r sh = AstMixed {unAstMixed :: AstTensor AstMethodLet s (TKX r sh)}
+instance GoodScalar r => Show (AstMixed s r sh) where
+  showsPrec k (AstMixed t) = showsPrec k t
     -- to keep PP tests passing regardless of what wrappers we currently use
 
 -- | AST for ranked and shaped tensors that are meant to be differentiated.
@@ -511,6 +527,98 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType -> Type wh
   AstSFromR :: (KnownShS sh, KnownNat (Rank sh), GoodScalar r)
             => AstTensor ms s (TKR r (Rank sh)) -> AstTensor ms s (TKS r sh)
 
+  -- Here starts the mixed part.
+  AstMinIndexX :: ( KnownShX sh, KnownNat n, GoodScalar r, GoodScalar r2
+                  , GoodScalar r2, KnownShX (Init (Just n ': sh)) )
+               => AstTensor ms PrimalSpan (TKX r (Just n ': sh))
+               -> AstTensor ms PrimalSpan (TKX r2 (Init (Just n ': sh)))
+  AstMaxIndexX :: ( KnownShX sh, KnownNat n, GoodScalar r, GoodScalar r2
+                  , GoodScalar r2, KnownShX (Init (Just n ': sh)) )
+               => AstTensor ms PrimalSpan (TKX r (Just n ': sh))
+               -> AstTensor ms PrimalSpan (TKX r2 (Init (Just n ': sh)))
+  AstFloorX :: ( GoodScalar r, RealFrac r, Integral r2, GoodScalar r2
+               , KnownShX sh )
+            => AstTensor ms PrimalSpan (TKX r sh)
+            -> AstTensor ms PrimalSpan (TKX r2 sh)
+  AstIotaX :: forall n r ms. (GoodScalar r, KnownNat n)
+           => AstTensor ms PrimalSpan (TKX r '[Just n])
+
+  -- For the numeric classes:
+  AstN1X :: (GoodScalar r, KnownShX sh)
+         => OpCodeNum1 -> AstTensor ms s (TKX r sh) -> AstTensor ms s (TKX r sh)
+  AstN2X :: (GoodScalar r, KnownShX sh)
+         => OpCodeNum2 -> AstTensor ms s (TKX r sh) -> AstTensor ms s (TKX r sh)
+         -> AstTensor ms s (TKX r sh)
+  AstR1X :: (Differentiable r, GoodScalar r, KnownShX sh)
+         => OpCode1 -> AstTensor ms s (TKX r sh) -> AstTensor ms s (TKX r sh)
+  AstR2X :: (Differentiable r, GoodScalar r, KnownShX sh)
+         => OpCode2 -> AstTensor ms s (TKX r sh) -> AstTensor ms s (TKX r sh)
+         -> AstTensor ms s (TKX r sh)
+  AstI2X :: (Integral r, GoodScalar r, KnownShX sh)
+         => OpCodeIntegral2 -> AstTensor ms s (TKX r sh)
+         -> AstTensor ms s (TKX r sh)
+         -> AstTensor ms s (TKX r sh)
+  AstSumOfListX :: (KnownShX sh, GoodScalar r)
+                => [AstTensor ms s (TKX r sh)] -> AstTensor ms s (TKX r sh)
+
+  AstIndexX :: forall sh1 sh2 s r ms.
+               (KnownShX sh1, KnownShX sh2, KnownShX (sh1 ++ sh2), GoodScalar r)
+            => AstTensor ms s (TKX r (sh1 ++ sh2)) -> AstIndexX ms sh1
+            -> AstTensor ms s (TKX r sh2)
+    -- first ix is for outermost dimension; empty index means identity,
+    -- if index is out of bounds, the result is defined and is 0,
+    -- but vectorization is permitted to change the value
+  AstSumX :: forall n sh r s ms. (KnownNat n, KnownShX sh, GoodScalar r)
+          => AstTensor ms s (TKX r (Just n ': sh)) -> AstTensor ms s (TKX r sh)
+  AstScatterX :: forall sh2 p sh r s ms.
+                 ( KnownShX sh2, KnownShX sh, KnownNat p
+                 , KnownShX (Take p sh), KnownShX (Drop p sh)
+                 , KnownShX (sh2 ++ Drop p sh), GoodScalar r )
+              => AstTensor ms s (TKX r (sh2 ++ Drop p sh))
+              -> (AstVarListX sh2, AstIndexX ms (Take p sh))
+              -> AstTensor ms s (TKX r sh)
+
+  AstFromVectorX :: (KnownNat n, KnownShX sh, GoodScalar r)
+                 => Data.Vector.Vector (AstTensor ms s (TKX r sh))
+                 -> AstTensor ms s (TKX r (Just n ': sh))
+  AstAppendX :: (KnownNat n, KnownNat m, KnownShX sh, GoodScalar r)
+             => AstTensor ms s (TKX r (Just m ': sh)) -> AstTensor ms s (TKX r (Just n ': sh))
+             -> AstTensor ms s (TKX r (Just (m + n) ': sh))
+  AstSliceX :: (KnownNat i, KnownNat n, KnownNat k, KnownShX sh, GoodScalar r)
+            => AstTensor ms s (TKX r (Just (i + n + k) ': sh)) -> AstTensor ms s (TKX r (Just n ': sh))
+  AstReverseX :: (KnownNat n, KnownShX sh, GoodScalar r)
+              => AstTensor ms s (TKX r (Just n ': sh)) -> AstTensor ms s (TKX r (Just n ': sh))
+  AstTransposeX :: forall perm sh r s ms.
+                   (PermC perm, KnownShX sh, Rank perm <= Rank sh, GoodScalar r)
+                => Permutation.Perm perm -> AstTensor ms s (TKX r sh)
+                -> AstTensor ms s (TKX r (Permutation.PermutePrefix perm sh))
+  AstReshapeX :: (KnownShX sh, GoodScalar r, KnownShX sh2)
+              => IShX sh2 -> AstTensor ms s (TKX r sh)
+              -> AstTensor ms s (TKX r sh2)
+    -- beware that the order of type arguments is different than in orthotope
+    -- and than the order of value arguments in the ranked version
+  AstGatherX :: forall sh2 p sh r s ms.
+                ( GoodScalar r, KnownShX sh, KnownShX sh2, KnownNat p
+                , KnownShX (Take p sh), KnownShX (Drop p sh)
+                , KnownShX (sh2 ++ Drop p sh) )
+             => AstTensor ms s (TKX r sh)
+             -> (AstVarListX sh2, AstIndexX ms (Take p sh))
+             -> AstTensor ms s (TKX r (sh2 ++ Drop p sh))
+    -- out of bounds indexing is permitted
+  AstCastX :: (GoodScalar r1, RealFrac r1, GoodScalar r2, RealFrac r2, KnownShX sh)
+           => AstTensor ms s (TKX r1 sh) -> AstTensor ms s (TKX r2 sh)
+  AstFromIntegralX :: (GoodScalar r1, Integral r1, GoodScalar r2, KnownShX sh)
+                   => AstTensor ms PrimalSpan (TKX r1 sh)
+                   -> AstTensor ms PrimalSpan (TKX r2 sh)
+  AstConstX :: forall sh r ms. (GoodScalar r, KnownShX sh)
+            => Nested.Mixed sh r -> AstTensor ms PrimalSpan (TKX r sh)
+  AstProjectX :: (GoodScalar r, KnownShX sh)
+              => AstTensor ms s TKUntyped -> Int -> AstTensor ms s (TKX r sh)
+  AstXFromR :: (KnownShX sh, KnownNat (Rank sh), GoodScalar r)
+            => AstTensor ms s (TKR r (Rank sh)) -> AstTensor ms s (TKX r sh)
+
+  -- Here starts the misc part
+
   -- There are existential variables inside DynamicTensor here.
   AstMkHVector :: HVector (AstGeneric ms s) -> AstTensor ms s TKUntyped
   AstHApply :: (TensorKind x, TensorKind z)
@@ -594,6 +702,9 @@ data AstBool ms where
          -> AstBool ms
   AstRelS :: (KnownShS sh, GoodScalar r)
           => OpCodeRel -> AstTensor ms PrimalSpan (TKS r sh) -> AstTensor ms PrimalSpan (TKS r sh)
+          -> AstBool ms
+  AstRelX :: (KnownShX sh, GoodScalar r)
+          => OpCodeRel -> AstTensor ms PrimalSpan (TKX r sh) -> AstTensor ms PrimalSpan (TKX r sh)
           -> AstBool ms
 deriving instance Show (AstBool ms)
 
@@ -822,6 +933,93 @@ instance (GoodScalar r, Differentiable r, KnownShS sh, Floating (Nested.Shaped s
          => RealFloatF (AstTensor ms s (TKS r sh)) where
   atan2F = AstR2S Atan2Op
 
+
+-- mixed
+
+instance Eq (AstTensor ms s (TKX r sh)) where
+  (==) = error "AST requires that EqF be used instead"
+  (/=) = error "AST requires that EqF be used instead"
+
+instance Ord (AstTensor ms s (TKX r sh)) where
+  (<=) = error "AST requires that OrdF be used instead"
+
+instance (GoodScalar r, Num (Nested.Mixed sh r), KnownShX sh)
+         => Num (AstTensor ms s (TKX r sh)) where
+  -- The normal form has AstConst, if any, as the first element of the list.
+  -- All lists fully flattened and length >= 2.
+  AstSumOfListX (AstConstX u : lu) + AstSumOfListX (AstConstX v : lv) =
+    AstSumOfListX (AstConstX (u + v) : lu ++ lv)
+  AstSumOfListX lu + AstSumOfListX (AstConstX v : lv) =
+    AstSumOfListX (AstConstX v : lv ++ lu)
+  AstSumOfListX lu + AstSumOfListX lv = AstSumOfListX (lu ++ lv)
+
+  AstConstX u + AstSumOfListX (AstConstX v : lv) =
+    AstSumOfListX (AstConstX (u + v) : lv)
+  u + AstSumOfListX (AstConstX v : lv) = AstSumOfListX (AstConstX v : u : lv)
+  u + AstSumOfListX lv = AstSumOfListX (u : lv)
+
+  AstSumOfListX (AstConstX u : lu) + AstConstX v =
+    AstSumOfListX (AstConstX (u + v) : lu)
+  AstSumOfListX (AstConstX u : lu) + v = AstSumOfListX (AstConstX u : v : lu)
+  AstSumOfListX lu + v = AstSumOfListX (v : lu)
+
+  AstConstX u + AstConstX v = AstConstX (u + v)
+  u + AstConstX v = AstSumOfListX [AstConstX v, u]
+  u + v = AstSumOfListX [u, v]
+
+  AstConstX u - AstConstX v = AstConstX (u - v)  -- common in indexing
+  u - v = AstN2X MinusOp u v
+
+  AstConstX u * AstConstX v = AstConstX (u * v)  -- common in indexing
+  u * v = AstN2X TimesOp u v
+
+  negate = AstN1X NegateOp
+  abs = AstN1X AbsOp
+  signum = AstN1X SignumOp
+  fromInteger i = error $ "fromInteger not defined for AstShaped: "
+                          ++ show i
+
+-- Warning: div and mod operations are very costly (simplifying them
+-- requires constructing conditionals, etc). If this error is removed,
+-- they are going to work, but slowly.
+instance (Integral r, GoodScalar r, KnownShX sh)
+         => IntegralF (AstTensor ms s (TKX r sh)) where
+  quotF = AstI2X QuotOp
+  remF = AstI2X RemOp
+
+instance ( GoodScalar r, Differentiable r, Fractional (Nested.Mixed sh r)
+         , KnownShX sh )
+         => Fractional (AstTensor ms s (TKX r sh)) where
+  u / v = AstR2X DivideOp u v
+  recip = AstR1X RecipOp
+  fromRational r = error $ "fromRational not defined for AstShaped: "
+                           ++ show r
+
+instance (GoodScalar r, Differentiable r, KnownShX sh, Floating (Nested.Mixed sh r), AstSpan s)
+         => Floating (AstTensor ms s (TKX r sh)) where
+  pi = fromPrimal $ AstConstX pi
+  exp = AstR1X ExpOp
+  log = AstR1X LogOp
+  sqrt = AstR1X SqrtOp
+  (**) = AstR2X PowerOp
+  logBase = AstR2X LogBaseOp
+  sin = AstR1X SinOp
+  cos = AstR1X CosOp
+  tan = AstR1X TanOp
+  asin = AstR1X AsinOp
+  acos = AstR1X AcosOp
+  atan = AstR1X AtanOp
+  sinh = AstR1X SinhOp
+  cosh = AstR1X CoshOp
+  tanh = AstR1X TanhOp
+  asinh = AstR1X AsinhOp
+  acosh = AstR1X AcoshOp
+  atanh = AstR1X AtanhOp
+
+instance (GoodScalar r, Differentiable r, KnownShX sh, Floating (Nested.Mixed sh r), AstSpan s)
+         => RealFloatF (AstTensor ms s (TKX r sh)) where
+  atan2F = AstR2X Atan2Op
+
 -- * Unlawful instances of AST for bool; they are lawful modulo evaluation
 
 instance Boolean (AstBool ms) where
@@ -838,6 +1036,7 @@ instance Boolean (AstBool ms) where
 
 type instance RankedOf (AstRaw s) = AstRaw s
 type instance ShapedOf (AstRaw s) = AstRawS s
+type instance MixedOf (AstRaw s) = AstRawX s
 type instance PrimalOf (AstRaw s) = AstRaw PrimalSpan
 type instance DualOf (AstRaw s) = AstRaw DualSpan
 type instance ShareOf (AstRaw s) = AstRaw s
@@ -846,9 +1045,13 @@ type instance HFunOf (AstRaw s) x y = AstHFun x y
 type instance RankedOf (AstRawS s) = AstRaw s
 type instance PrimalOf (AstRawS s) = AstRawS PrimalSpan
 type instance DualOf (AstRawS s) = AstRawS DualSpan
+type instance RankedOf (AstRawX s) = AstRaw s
+type instance PrimalOf (AstRawX s) = AstRawX PrimalSpan
+type instance DualOf (AstRawX s) = AstRawX DualSpan
 
 type instance RankedOf (AstNoVectorize s) = AstNoVectorize s
 type instance ShapedOf (AstNoVectorize s) = AstNoVectorizeS s
+type instance MixedOf (AstNoVectorize s) = AstNoVectorizeX s
 type instance PrimalOf (AstNoVectorize s) = AstNoVectorize PrimalSpan
 type instance DualOf (AstNoVectorize s) = AstNoVectorize DualSpan
 type instance ShareOf (AstNoVectorize s) = AstRaw s
@@ -858,9 +1061,13 @@ type instance HFunOf (AstNoVectorize s) x z = AstHFun x z
 type instance RankedOf (AstNoVectorizeS s) = AstNoVectorize s
 type instance PrimalOf (AstNoVectorizeS s) = AstNoVectorizeS PrimalSpan
 type instance DualOf (AstNoVectorizeS s) = AstNoVectorizeS DualSpan
+type instance RankedOf (AstNoVectorizeX s) = AstNoVectorize s
+type instance PrimalOf (AstNoVectorizeX s) = AstNoVectorizeX PrimalSpan
+type instance DualOf (AstNoVectorizeX s) = AstNoVectorizeX DualSpan
 
 type instance RankedOf (AstNoSimplify s) = AstNoSimplify s
 type instance ShapedOf (AstNoSimplify s) = AstNoSimplifyS s
+type instance MixedOf (AstNoSimplify s) = AstNoSimplifyX s
 type instance PrimalOf (AstNoSimplify s) = AstNoSimplify PrimalSpan
 type instance DualOf (AstNoSimplify s) = AstNoSimplify DualSpan
 type instance ShareOf (AstNoSimplify s) = AstRaw s
@@ -870,6 +1077,9 @@ type instance HFunOf (AstNoSimplify s) x z = AstHFun x z
 type instance RankedOf (AstNoSimplifyS s) = AstNoSimplify s
 type instance PrimalOf (AstNoSimplifyS s) = AstNoSimplifyS PrimalSpan
 type instance DualOf (AstNoSimplifyS s) = AstNoSimplifyS DualSpan
+type instance RankedOf (AstNoSimplifyX s) = AstNoSimplify s
+type instance PrimalOf (AstNoSimplifyX s) = AstNoSimplifyX PrimalSpan
+type instance DualOf (AstNoSimplifyX s) = AstNoSimplifyX DualSpan
 
 type role AstRaw nominal nominal nominal
 newtype AstRaw s r n =
@@ -880,6 +1090,11 @@ type role AstRawS nominal nominal nominal
 newtype AstRawS s r sh =
   AstRawS {unAstRawS :: AstTensor AstMethodShare s (TKS r sh)}
 deriving instance (GoodScalar r, KnownShS sh) => Show (AstRawS s r sh)
+
+type role AstRawX nominal nominal nominal
+newtype AstRawX s r sh =
+  AstRawX {unAstRawX :: AstTensor AstMethodShare s (TKX r sh)}
+deriving instance (GoodScalar r, KnownShX sh) => Show (AstRawX s r sh)
 
 type role AstRawWrap nominal
 newtype AstRawWrap t = AstRawWrap {unAstRawWrap :: t}
@@ -895,6 +1110,11 @@ newtype AstNoVectorizeS s r sh =
   AstNoVectorizeS {unAstNoVectorizeS :: AstTensor AstMethodLet s (TKS r sh)}
 deriving instance (GoodScalar r, KnownShS sh) => Show (AstNoVectorizeS s r sh)
 
+type role AstNoVectorizeX nominal nominal nominal
+newtype AstNoVectorizeX s r sh =
+  AstNoVectorizeX {unAstNoVectorizeX :: AstTensor AstMethodLet s (TKX r sh)}
+deriving instance (GoodScalar r, KnownShX sh) => Show (AstNoVectorizeX s r sh)
+
 type role AstNoVectorizeWrap nominal
 newtype AstNoVectorizeWrap t = AstNoVectorizeWrap {unAstNoVectorizeWrap :: t}
  deriving Show
@@ -909,6 +1129,11 @@ newtype AstNoSimplifyS s r sh =
   AstNoSimplifyS {unAstNoSimplifyS :: AstTensor AstMethodLet s (TKS r sh)}
 deriving instance (GoodScalar r, KnownShS sh) => Show (AstNoSimplifyS s r sh)
 
+type role AstNoSimplifyX nominal nominal nominal
+newtype AstNoSimplifyX s r sh =
+  AstNoSimplifyX {unAstNoSimplifyX :: AstTensor AstMethodLet s (TKX r sh)}
+deriving instance (GoodScalar r, KnownShX sh) => Show (AstNoSimplifyX s r sh)
+
 type role AstNoSimplifyWrap nominal
 newtype AstNoSimplifyWrap t = AstNoSimplifyWrap {unAstNoSimplifyWrap :: t}
  deriving Show
@@ -918,6 +1143,7 @@ rankedY :: STensorKindType y -> AstTensor AstMethodLet s y
 rankedY stk t = case stk of
   STKR{} -> AstRanked t
   STKS{} -> AstShaped t
+  STKX{} -> AstMixed t
   STKProduct{} -> t
   STKUnit -> RepN undefined
   STKUntyped -> HVectorPseudoTensor t
@@ -927,6 +1153,7 @@ unRankedY :: STensorKindType y -> Rep (AstRanked s) y
 unRankedY stk t = case stk of
   STKR{} -> unAstRanked t
   STKS{} -> unAstShaped t
+  STKX{} -> unAstMixed t
   STKProduct{} -> t
   STKUnit -> undefined
   STKUntyped -> unHVectorPseudoTensor t

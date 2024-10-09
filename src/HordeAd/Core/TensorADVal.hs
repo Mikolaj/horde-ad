@@ -124,6 +124,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
   dlet a f = case stensorKind @x of
     STKR{} -> blet a f
     STKS{} -> blet a f
+    STKX{} -> blet a f
     stk@STKProduct{} -> blet a $ \ !uShared -> f (repDeepDuplicable stk uShared)
     STKUnit -> f a
     STKUntyped{} ->
@@ -138,6 +139,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
   tlet a f = case stensorKind @x of
     STKR{} -> blet a f
     STKS{} -> blet a f
+    STKX{} -> blet a f
     STKProduct{} -> blet a f
     STKUnit -> f a
     STKUntyped{} ->
@@ -166,6 +168,10 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
       let (D u u') = a
           !var2 = tshare u
       in f (dDnotShared var2 u')
+    STKX{} ->
+      let (D u u') = a
+          !var2 = tshare u
+      in f (dDnotShared var2 u')
     STKProduct{} ->
       -- Sharing is preserved despite `a` being repeated, because
       -- each repetition concerns a disjoint portion of `a` and so the whole `a`
@@ -187,6 +193,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
   tconstant stk t = case stk of
     STKR{} -> rconstant t
     STKS{} -> sconstant t
+    STKX{} -> xconstant t
     STKProduct stk1 stk2 ->
       let (t1, t2) = tunpair t
           !c1 = tconstant stk1 t1
@@ -379,6 +386,17 @@ instance (ADReadyNoLet ranked, ShareTensor ranked, ShareTensor (PrimalOf ranked)
   rD = dD
   rScale = dScale
 
+  xshape (D u _) = xshape u
+  xindex d i = indexPrimalX d (rprimalPart <$> i)
+  xfromVector = fromVectorX
+  -- xreplicate (D u (DeltaX u')) = dD (xreplicate u) (DeltaX $ ReplicateX u')
+  xreplicate _ = error "TODO"
+  xconst t = constantADVal (xconst t)
+  xconstant t = dDnotShared t (dZeroOfShape t)
+  xprimalPart (D u _) = u
+  xdualPart (D _ u') = u'
+  xD = xD
+
 
 -- * Shaped tensor instance
 
@@ -523,6 +541,8 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
     STKR{} -> let D u _ = t
               in tshapeFull stk u
     STKS{} -> FTKS
+    STKX{} -> let D u _ = t
+              in tshapeFull stk u
     STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (fst t))
                                        (tshapeFull stk2 (snd t))
     STKUnit -> FTKUnit
@@ -531,6 +551,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
   tcond stk b u v = case stk of
     STKR{} -> ifF b u v
     STKS{} -> ifF b u v
+    STKX{} -> ifF b u v
     STKProduct stk1 stk2 ->
       let !t1 = tcond stk1 b (fst u) (fst v)
           !t2 = tcond stk2 b (snd u) (snd v)
@@ -546,6 +567,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
   tprimalPart stk t = case stk of
     STKR{} -> rprimalPart t
     STKS{} -> sprimalPart t
+    STKX{} -> xprimalPart t
     STKProduct stk1 stk2 ->
       let !t1 = tprimalPart stk1 $ fst t
           !t2 = tprimalPart stk2 $ snd t
@@ -795,13 +817,14 @@ unADValDynamicTensor (DynamicShapedDummy p1 p2) =
 unADValRep
   :: forall y ranked.
      ( HVectorTensor ranked (ShapedOf ranked), ProductTensor ranked
-     , RankedOf (ShapedOf ranked) ~ ranked )
+     , RankedOf (ShapedOf ranked) ~ ranked, RankedOf (MixedOf ranked) ~ ranked )
   => STensorKindType y
   -> Rep (ADVal ranked) y
   -> (Rep ranked y, Delta ranked y)
 unADValRep stk t = case (stk, t) of
   (STKR{}, D p (DeltaR d)) -> (p, d)
   (STKS{}, D p (DeltaS d)) -> (p, d)
+  (STKX{}, D p (DeltaX d)) -> (p, d)
   (STKProduct stk1 stk2, (t1, t2)) ->
     let (!p1, !d1) = unADValRep stk1 t1 in
     let (!p2, !d2) = unADValRep stk2 t2

@@ -27,6 +27,7 @@ import Type.Reflection (typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
+import Data.Array.Mixed.Shape (pattern (:.%), pattern ZIX)
 import Data.Array.Nested (Rank, type (++))
 
 import HordeAd.Core.Ast (AstTensor)
@@ -186,6 +187,7 @@ build1V snat@SNat (var, v00) =
                 $ astIndexStepS @'[2] (astFromVectorS $ V.fromList [v, w])
                                       (astCond b 0 1 :.$ ZIS)
         in build1V snat (var, t)
+      STKX{} ->  error "TODO"
       STKProduct{} -> error "TODO"
       STKUnit -> error "TODO"
       STKUntyped -> error "TODO"
@@ -198,6 +200,7 @@ build1V snat@SNat (var, v00) =
         let t = astIndexStepS @'[2] (astFromVectorS $ V.fromList [v, w])
                                     (astCond b 0 1 :.$ ZIS)
         in build1V snat (var, t)
+      STKX{} ->  error "TODO"
       STKProduct{} -> error "TODO"
       STKUnit -> error "TODO"
       STKUntyped -> error "TODO"
@@ -210,6 +213,7 @@ build1V snat@SNat (var, v00) =
           repl2Stk stk u = case stk of
             STKR{} -> astTr $ astReplicate snat2 u
             STKS{} -> astTrS $ astReplicate snat2 u
+            STKX{} -> astTrX $ astReplicate snat2 u
             STKProduct @z1 @z2 stk1 stk2
               | Dict <- lemTensorKindOfBuild snat stk1
               , Dict <- lemTensorKindOfBuild snat2 stk1
@@ -486,6 +490,7 @@ build1V snat@SNat (var, v00) =
         (\x1bs1 -> astPair (astProject1 x1bs1)
                             (astTrGeneral @k5 @k
                                           (stensorKind @bShs) (astProject2 x1bs1)))
+    _ -> error "TODO"
 
 -- | The application @build1VIndex snat (var, v, ix)@ vectorizes
 -- the term @AstBuild1 snat (var, AstIndex v ix)@, where it's unknown whether
@@ -552,6 +557,10 @@ astTrS :: forall n m sh s r.
           (KnownNat n, KnownNat m, KnownShS sh, GoodScalar r, AstSpan s)
        => AstTensor AstMethodLet s (TKS r (n ': m ': sh)) -> AstTensor AstMethodLet s (TKS r (m ': n ': sh))
 astTrS = withListSh (Proxy @sh) $ \_ -> astTransposeS (Permutation.makePerm @'[1, 0])
+astTrX :: forall n m sh s r.
+--          (KnownNat n, KnownNat m, KnownShX sh, GoodScalar r, AstSpan s)
+        AstTensor AstMethodLet s (TKX r (Just n ': Just m ': sh)) -> AstTensor AstMethodLet s (TKX r (Just m ': Just n ': sh))
+astTrX = error "TODO"
 
 intBindingRefreshS
   :: IntVarName -> AstIndexS AstMethodLet sh -> (IntVarName, AstInt AstMethodLet, AstIndexS AstMethodLet sh)
@@ -671,6 +680,7 @@ substProjRep snat@SNat var ftk2 var1 v
         projection prVar = \case
           FTKR{} -> Ast.AstIndex prVar (Ast.AstIntVar var :.: ZIR)
           FTKS -> Ast.AstIndexS prVar (Ast.AstIntVar var :.$ ZIS)
+          FTKX{} -> Ast.AstIndexX prVar (Ast.AstIntVar var :.% ZIX)
           FTKProduct @z1 @z2 ftk41 ftk42
             | Dict <- lemTensorKindOfBuild snat (stensorKind @z1)
             , Dict <- lemTensorKindOfBuild snat (stensorKind @z2) ->
@@ -809,6 +819,7 @@ astTrGeneral
 astTrGeneral stk t = case stk of
   STKR{} -> astTr t
   STKS{} -> astTrS t
+  STKX{} -> astTrX t
   STKProduct @z1 @z2 stk1 stk2
     | Dict <- lemTensorKindOfBuild (SNat @k1) stk
     , Dict <- lemTensorKindOfBuild (SNat @k1) stk1

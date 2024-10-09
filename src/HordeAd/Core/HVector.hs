@@ -12,7 +12,7 @@ module HordeAd.Core.HVector
   , Rep, RepN(..), RepProductN(..), RepShallow, RepDeep, RepD(..)
   , TensorKindFull(..), nullRepDeep, lemTensorKindOfF, buildTensorKindFull
   , DynamicTensor(..)
-  , CRanked, CShaped, CHFun, CHFun2, CRepProduct
+  , CRanked, CShaped, CMixed, CMixedSupports, CHFun, CHFun2, CRepProduct
   , HVector
   , VoidTensor, absurdTensor, VoidHVector, DynamicScalar(..)
   , scalarDynamic, shapeVoidDynamic, shapeVoidHVector, shapeDynamicF
@@ -34,7 +34,8 @@ import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat, type (+))
 import Type.Reflection (typeRep)
 
-import Data.Array.Nested (ShR (..), type (++))
+import Data.Array.Mixed.Shape (IShX)
+import Data.Array.Nested (KnownShX, SMayNat (..), ShX (..), type (++))
 
 import HordeAd.Core.Types
 import HordeAd.Internal.OrthotopeOrphanInstances ()
@@ -59,6 +60,7 @@ type family Rep (ranked :: RankedTensorType) (y :: TensorKindType)
 
 type instance Rep ranked (TKR r n) = ranked r n
 type instance Rep ranked (TKS r sh) = ShapedOf ranked r sh
+type instance Rep ranked (TKX r sh) = MixedOf ranked r sh
 -- The TKProduct case is defined separately for each ranked argument.
 type instance Rep ranked TKUnit = RepN ranked TKUnit
 type instance Rep ranked TKUntyped =
@@ -74,12 +76,14 @@ newtype RepN ranked y =
   RepN {unRepN :: Rep ranked y}
 
 instance ( CRanked ranked Show, CShaped (ShapedOf ranked) Show
+         , CMixed (MixedOf ranked) Show
          , Show (HVectorOf ranked), CRepProduct ranked Show
          , TensorKind y )
          => Show (RepN ranked y) where
   showsPrec d (RepN t) = case stensorKind @y of
     STKR{} -> showsPrec d t
     STKS{} -> showsPrec d t
+    STKX{} -> showsPrec d t
     STKProduct{} -> showsPrec d (RepProductN t)
     STKUnit -> showsPrec d t
     STKUntyped -> showsPrec d t
@@ -92,6 +96,7 @@ newtype RepProductN ranked x y =
 type family RepShallow ranked y = result | result -> ranked y where
   RepShallow ranked (TKR r n) = ranked r n
   RepShallow ranked (TKS r sh) = ShapedOf ranked r sh
+  RepShallow ranked (TKX r sh) = MixedOf ranked r sh
   RepShallow ranked (TKProduct x z) =
     (Rep ranked x, Rep ranked z)
   RepShallow ranked TKUnit = RepN ranked TKUnit
@@ -101,6 +106,7 @@ type family RepShallow ranked y = result | result -> ranked y where
 type family RepDeep ranked y = result | result -> ranked y where
   RepDeep ranked (TKR r n) = ranked r n
   RepDeep ranked (TKS r sh) = ShapedOf ranked r sh
+  RepDeep ranked (TKX r sh) = MixedOf ranked r sh
   RepDeep ranked (TKProduct x z) =
     (RepDeep ranked x, RepDeep ranked z)
   RepDeep ranked TKUnit = RepN ranked TKUnit
@@ -115,6 +121,9 @@ data RepD ranked y where
   DTKS :: (GoodScalar r, KnownShS sh)
        => Rep ranked (TKS r sh)
        -> RepD ranked (TKS r sh)
+  DTKX :: (GoodScalar r, KnownShX sh)
+       => Rep ranked (TKX r sh)
+       -> RepD ranked (TKX r sh)
   DTKProduct :: forall x z ranked. (TensorKind x, TensorKind z)
              => RepD ranked x -> RepD ranked z
              -> RepD ranked (TKProduct x z)
@@ -122,11 +131,13 @@ data RepD ranked y where
   DTKUntyped :: HVector ranked
              -> RepD ranked TKUntyped
 
--- TODO: the constraints should not be necessary
+-- TODO: the constraints should not be necessary if we instead add ShS singleton
+-- to FTKS
 type role TensorKindFull nominal
 data TensorKindFull y where
-  FTKR :: (GoodScalar r, KnownNat n) => ShR n Int -> TensorKindFull (TKR r n)
+  FTKR :: (GoodScalar r, KnownNat n) => IShR n -> TensorKindFull (TKR r n)
   FTKS :: (GoodScalar r, KnownShS sh) => TensorKindFull (TKS r sh)
+  FTKX :: (GoodScalar r, KnownShX sh) => IShX sh -> TensorKindFull (TKX r sh)
   FTKProduct :: (TensorKind y, TensorKind z)
              => TensorKindFull y -> TensorKindFull z
              -> TensorKindFull (TKProduct y z)
@@ -141,6 +152,7 @@ nullRepDeep :: forall y ranked. TensorKind y
 nullRepDeep t = case stensorKind @y of
   STKR{} -> False
   STKS{} -> False
+  STKX{} -> False
   STKProduct{} -> False
   STKUnit -> True
   STKUntyped -> null t
@@ -149,6 +161,7 @@ lemTensorKindOfF :: TensorKindFull y -> Dict TensorKind y
 lemTensorKindOfF = \case
   FTKR{} -> Dict
   FTKS -> Dict
+  FTKX{} -> Dict
   FTKProduct stk1 stk2 | Dict <- lemTensorKindOfF stk1
                        , Dict <- lemTensorKindOfF stk2 -> Dict
   FTKUnit -> Dict
@@ -159,6 +172,7 @@ buildTensorKindFull :: SNat k -> TensorKindFull y
 buildTensorKindFull snat@SNat = \case
   FTKR sh -> FTKR $ sNatValue snat :$: sh
   FTKS -> FTKS
+  FTKX sh -> FTKX $ SKnown snat :$% sh
   FTKProduct @z1 @z2 ftk1 ftk2
     | Dict <- lemTensorKindOfBuild snat (stensorKind @z1)
     , Dict <- lemTensorKindOfBuild snat (stensorKind @z2) ->
@@ -220,6 +234,22 @@ class (forall r30 y30. (KnownShS y30, GoodScalar r30) => c (shaped r30 y30))
 instance
       (forall r30 y30. (KnownShS y30, GoodScalar r30) => c (shaped r30 y30))
       => CShaped shaped c where
+
+type CMixed :: MixedTensorType -> (Type -> Constraint) -> Constraint
+class (forall r40 y40. (KnownShX y40, GoodScalar r40) => c (mixed r40 y40))
+      => CMixed mixed c where
+instance
+      (forall r40 y40. (KnownShX y40, GoodScalar r40) => c (mixed r40 y40))
+      => CMixed mixed c where
+
+type CMixedSupports :: (Type -> Constraint) -> (Type -> Constraint) -> MixedTensorType -> Constraint
+class (forall r40 y40. (KnownShX y40, GoodScalar r40)
+       => (c1 r40 => c2 (mixed r40 y40)))
+      => CMixedSupports c1 c2 mixed where
+instance
+      (forall r40 y40. (KnownShX y40, GoodScalar r40)
+       => (c1 r40 => c2 (mixed r40 y40)))
+      => CMixedSupports c1 c2 mixed where
 
 type CHFun :: RankedTensorType -> (Type -> Constraint) -> TensorKindType
            -> Constraint

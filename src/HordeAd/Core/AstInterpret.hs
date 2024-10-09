@@ -30,6 +30,7 @@ import GHC.TypeLits (KnownNat, sameNat)
 import Type.Reflection (Typeable, typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
+import Data.Array.Mixed.Shape (pattern (:.%), pattern ZIX)
 import Data.Array.Nested (Rank, type (++))
 import Data.Array.Nested qualified as Nested
 
@@ -115,7 +116,7 @@ interpretAstDual !env v1 = case v1 of
   _ ->
     -- TODO: get rid of mapRep similarly as with tprimalPart
     mapRep @ranked @(DualOf ranked)
-      rdualPart sdualPart (stensorKind @y)
+      rdualPart sdualPart xdualPart (stensorKind @y)
       (interpretAst env v1)
 
 interpretAstRuntimeSpecialized
@@ -202,7 +203,7 @@ interpretAst !env = \case
     let t1 = interpretAstPrimal env u
         t2 = interpretAstDual env u'
     in mapRep2Weak @(PrimalOf ranked) @(DualOf ranked) @ranked
-         rD sD
+         rD sD xD
          (stensorKind @y2)
          t1 t2
   AstCond @y2 b a1 a2 ->
@@ -242,6 +243,7 @@ interpretAst !env = \case
           emptyFromStk ftk = case ftk of
             FTKR sh -> rfromList0N (0 :$: sh) []
             FTKS -> sfromList0N []
+            FTKX{} -> error "TODO"
             FTKProduct @z1 @z2 ftk1 ftk2
               | Dict <- lemTensorKindOfBuild snat (stensorKind @z1)
               , Dict <- lemTensorKindOfBuild snat (stensorKind @z2) ->
@@ -269,6 +271,7 @@ interpretAst !env = \case
         replStk stk g = case stk of
           STKR{} -> rbuild1 (sNatValue snat) g
           STKS{} -> sbuild1 g
+          STKX{} -> error "TODO"
           STKProduct @z1 @z2 stk1 stk2
             | Dict <- lemTensorKindOfBuild snat (stensorKind @z1)
             , Dict <- lemTensorKindOfBuild snat (stensorKind @z2) ->
@@ -289,6 +292,10 @@ interpretAst !env = \case
       in blet t (\w -> interpretAst (env2 w) v)
     STKS{} ->
       let t = interpretAstSRuntimeSpecialized env u
+          env2 w = extendEnv var w env
+      in blet t (\w -> interpretAst (env2 w) v)
+    STKX{} ->
+      let t = interpretAst env u
           env2 w = extendEnv var w env
       in blet t (\w -> interpretAst (env2 w) v)
     STKProduct{} ->
@@ -549,6 +556,7 @@ interpretAst !env = \case
                                     , shapeVoidHVector (dshape lt) )) $
                     extendEnvHVector vars lw env
       in sletHVectorIn lt (\lw -> interpretAst (env2 lw) v)
+    STKX{} -> error "TODO"
     STKProduct{} -> error "TODO"
     STKUnit -> error "TODO"
     STKUntyped ->
@@ -571,6 +579,7 @@ interpretAst !env = \case
       let g = interpretAstHFun env f
           env2 h = extendEnvHFun (Proxy @x2) (Proxy @z2) var h env
       in sletHFunIn @_ @_ @_ @_ @x2 @z2 g (\h -> interpretAst (env2 h) v)
+    STKX{} -> error "TODO"
     STKProduct{} -> error "TODO"
     STKUnit -> error "TODO"
     STKUntyped ->
@@ -790,6 +799,59 @@ interpretAst !env = \case
     in sletHVectorIn lt (\lw -> sfromD $ lw V.! p)
   AstSFromR v -> sfromR $ interpretAst env v
 
+  AstMinIndexX _v -> error "TODO"
+  AstMaxIndexX _v -> error "TODO"
+  AstFloorX _v -> error "TODO"
+  AstIotaX -> error "TODO"
+  AstN1X opCode u ->
+    let u2 = interpretAst env u
+    in interpretAstN1 opCode u2
+  AstN2X opCode u v ->
+    let u2 = interpretAst env u
+        v2 = interpretAst env v
+    in interpretAstN2 opCode u2 v2
+  AstR1X opCode u ->
+    let u2 = interpretAst env u
+    in interpretAstR1 opCode u2
+  AstR2X opCode u v ->
+    let u2 = interpretAst env u
+        v2 = interpretAst env v
+    in interpretAstR2F opCode u2 v2
+  AstI2X opCode u v ->
+    let u2 = interpretAst env u
+        v2 = interpretAst env v
+    in interpretAstI2F opCode u2 v2
+  AstSumOfListX args ->
+    let args2 = interpretAst env <$> args
+    in foldr1 (+) args2  -- avoid @fromInteger 0@ in @sum@
+  AstIndexX AstIotaX (_i :.% ZIX) -> error "TODO"
+  AstIndexX @sh1 @_ @_ @r v ix ->
+    let v2 = interpretAst env v
+        ix3 = interpretAstPrimal env <$> ix
+    in xindex @ranked @r @sh1 v2 ix3
+      -- if index is out of bounds, the operations returns with an undefined
+      -- value of the correct rank and shape; this is needed, because
+      -- vectorization can produce out of bound indexing from code where
+      -- the indexing is guarded by conditionals
+  AstSumX _v -> error "TODO"
+  AstScatterX _v (_vars, _ix) -> error "TODO"
+  AstFromVectorX l ->
+    let l2 = V.map (interpretAst env) l
+    in xfromVector l2
+  AstAppendX _x _y -> error "TODO"
+  AstSliceX AstIotaX -> error "TODO"
+  AstSliceX _v -> error "TODO"
+  AstReverseX _v -> error "TODO"
+  AstTransposeX _perm _v -> error "TODO"
+  AstReshapeX _ _ -> error "TODO"
+  AstGatherX AstIotaX (_vars, _i :.% ZIX) -> error "TODO"
+  AstGatherX _v (_vars, _ix) -> error "TODO"
+  AstCastX _v ->  error "TODO"
+  AstFromIntegralX _v -> error "TODO"
+  AstConstX a -> xconst a
+  AstProjectX _l _p -> error "TODO"
+  AstXFromR _v ->  error "TODO"
+
   AstMkHVector l -> HVectorPseudoTensor
                     $ dmkHVector $ interpretAstDynamic env <$> l
   AstHApply t ll ->
@@ -866,4 +928,8 @@ interpretAstBool !env = \case
   AstRelS opCodeRel arg1 arg2 ->
     let r1 = interpretAstPrimalSRuntimeSpecialized env arg1
         r2 = interpretAstPrimalSRuntimeSpecialized env arg2
+    in interpretAstRelOp opCodeRel r1 r2
+  AstRelX opCodeRel arg1 arg2 ->
+    let r1 = interpretAstPrimal env arg1
+        r2 = interpretAstPrimal env arg2
     in interpretAstRelOp opCodeRel r1 r2

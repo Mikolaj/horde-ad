@@ -16,11 +16,13 @@ import Control.Arrow (second)
 import Data.Array.Internal (valueOf)
 import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.EnumMap.Strict qualified as EM
+import Data.Foldable qualified as Foldable
 import Data.List (mapAccumR)
 import Data.Maybe (fromMaybe)
 import Data.Some
 import Data.Type.Equality ((:~:) (Refl))
 import Data.Vector.Generic qualified as V
+import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat, fromSNat)
 
 import HordeAd.Core.Ast (AstBool, AstTensor)
@@ -302,6 +304,61 @@ inlineAst memo v0 = case v0 of
     in (memo1, Ast.AstProjectS l2 p)
   Ast.AstSFromR v -> second Ast.AstSFromR $ inlineAst memo v
 
+  Ast.AstMinIndexX a -> second Ast.AstMinIndexX $ inlineAst memo a
+  Ast.AstMaxIndexX a -> second Ast.AstMaxIndexX $ inlineAst memo a
+  Ast.AstFloorX a -> second Ast.AstFloorX $ inlineAst memo a
+  Ast.AstIotaX -> (memo, v0)
+  Ast.AstN1X opCode u ->
+    let (memo2, u2) = inlineAst memo u
+    in (memo2, Ast.AstN1X opCode u2)
+  Ast.AstN2X opCode u v ->
+    let (memo2, u2) = inlineAst memo u
+        (memo3, v3) = inlineAst memo2 v
+    in (memo3, Ast.AstN2X opCode u2 v3)
+  Ast.AstR1X opCode u ->
+    let (memo2, u2) = inlineAst memo u
+    in (memo2, Ast.AstR1X opCode u2)
+  Ast.AstR2X opCode u v ->
+    let (memo2, u2) = inlineAst memo u
+        (memo3, v3) = inlineAst memo2 v
+    in (memo3, Ast.AstR2X opCode u2 v3)
+  Ast.AstI2X opCode u v ->
+    let (memo2, u2) = inlineAst memo u
+        (memo3, v3) = inlineAst memo2 v
+    in (memo3, Ast.AstI2X opCode u2 v3)
+  Ast.AstSumOfListX args ->
+    let (memo2, args2) = mapAccumR inlineAst memo args
+    in (memo2, Ast.AstSumOfListX args2)
+  Ast.AstIndexX @sh1 v ix ->
+    let (memo1, v2) = inlineAst memo v
+        (memo2, ix2) = mapAccumR inlineAst memo1
+                                 (toList ix)
+    in (memo2, Ast.AstIndexX @sh1 v2 (fromList ix2))
+  Ast.AstSumX v -> second Ast.AstSumX (inlineAst memo v)
+  Ast.AstScatterX{} -> error "TODO"
+  Ast.AstFromVectorX l ->
+    let (memo2, l2) = mapAccumR inlineAst memo (V.toList l)
+    in (memo2, Ast.AstFromVectorX $ V.fromList l2)
+      -- TODO: emulate mapAccum using mapM?
+  Ast.AstAppendX x y ->
+    let (memo1, t1) = inlineAst memo x
+        (memo2, t2) = inlineAst memo1 y
+    in (memo2, Ast.AstAppendX t1 t2)
+  Ast.AstSliceX @i v -> second (Ast.AstSliceX @i) (inlineAst memo v)
+  Ast.AstReverseX v -> second Ast.AstReverseX (inlineAst memo v)
+  Ast.AstTransposeX perm v ->
+    second (Ast.AstTransposeX perm) $ inlineAst memo v
+  Ast.AstReshapeX sh v -> second (Ast.AstReshapeX sh) (inlineAst memo v)
+  Ast.AstGatherX{} -> error "TODO"
+  Ast.AstCastX v -> second Ast.AstCastX $ inlineAst memo v
+  Ast.AstFromIntegralX v ->
+    second Ast.AstFromIntegralX $ inlineAst memo v
+  Ast.AstConstX{} -> (memo, v0)
+  Ast.AstProjectX l p ->
+    let (memo1, l2) = inlineAst memo l
+    in (memo1, Ast.AstProjectX l2 p)
+  Ast.AstXFromR v -> second Ast.AstXFromR $ inlineAst memo v
+
   Ast.AstMkHVector l ->
     second Ast.AstMkHVector $ mapAccumR inlineAstDynamic memo l
   Ast.AstHApply t ll ->
@@ -370,6 +427,10 @@ inlineAstBool memo v0 = case v0 of
     let (memo1, r1) = inlineAst memo arg1
         (memo2, r2) = inlineAst memo1 arg2
     in (memo2, Ast.AstRelS opCodeRel r1 r2)
+  Ast.AstRelX opCodeRel arg1 arg2 ->
+    let (memo1, r1) = inlineAst memo arg1
+        (memo2, r2) = inlineAst memo1 arg2
+    in (memo2, Ast.AstRelX opCodeRel r1 r2)
 
 
 -- * The translates global sharing to normal lets
@@ -443,6 +504,7 @@ unshareAst memo = \case
       let (memo1, v2) = unshareAstScoped [var] memo v
       in (memo1, Ast.AstBuild1 snat (var, v2))
     STKS{} -> error "WIP"
+    STKX{} -> error "WIP"
     STKProduct{} -> error "WIP"
     STKUnit -> error "WIP"
     STKUntyped -> error "WIP"
@@ -582,6 +644,69 @@ unshareAst memo = \case
     in (memo1, Ast.AstProjectS l2 p)
   Ast.AstSFromR v -> second Ast.AstSFromR $ unshareAst memo v
 
+  Ast.AstMinIndexX a -> second Ast.AstMinIndexX $ unshareAst memo a
+  Ast.AstMaxIndexX a -> second Ast.AstMaxIndexX $ unshareAst memo a
+  Ast.AstFloorX a -> second Ast.AstFloorX $ unshareAst memo a
+  Ast.AstIotaX -> (memo, Ast.AstIotaX)
+  Ast.AstN1X opCode u ->
+    let (memo2, u2) = unshareAst memo u
+    in (memo2, Ast.AstN1X opCode u2)
+  Ast.AstN2X opCode u v ->
+    let (memo2, u2) = unshareAst memo u
+        (memo3, v3) = unshareAst memo2 v
+    in (memo3, Ast.AstN2X opCode u2 v3)
+  Ast.AstR1X opCode u ->
+    let (memo2, u2) = unshareAst memo u
+    in (memo2, Ast.AstR1X opCode u2)
+  Ast.AstR2X opCode u v ->
+    let (memo2, u2) = unshareAst memo u
+        (memo3, v3) = unshareAst memo2 v
+    in (memo3, Ast.AstR2X opCode u2 v3)
+  Ast.AstI2X opCode u v ->
+    let (memo2, u2) = unshareAst memo u
+        (memo3, v3) = unshareAst memo2 v
+    in (memo3, Ast.AstI2X opCode u2 v3)
+  Ast.AstSumOfListX args ->
+    let (memo2, args2) = mapAccumR unshareAst memo args
+    in (memo2, Ast.AstSumOfListX args2)
+  Ast.AstIndexX @sh1 v ix ->
+    let (memo1, v2) = unshareAst memo v
+        (memo2, ix2) = mapAccumR unshareAst memo1 (Foldable.toList ix)
+    in (memo2, Ast.AstIndexX @sh1 v2 (fromList ix2))
+  Ast.AstSumX v -> second Ast.AstSumX (unshareAst memo v)
+  Ast.AstScatterX @sh2 @p v (vars, ix) ->
+    let (memo1, ix2) =
+          mapAccumR (unshareAstScoped $ toList vars)
+                    memo (Foldable.toList ix)
+        (memo2, v2) = unshareAst memo1 v
+    in (memo2, Ast.AstScatterX @sh2 @p v2 (vars, fromList ix2))
+  Ast.AstFromVectorX l ->
+    let (memo2, l2) = mapAccumR unshareAst memo (V.toList l)
+    in (memo2, Ast.AstFromVectorX $ V.fromList l2)
+  Ast.AstAppendX x y ->
+    let (memo1, t1) = unshareAst memo x
+        (memo2, t2) = unshareAst memo1 y
+    in (memo2, Ast.AstAppendX t1 t2)
+  Ast.AstSliceX @i v -> second (Ast.AstSliceX @i) (unshareAst memo v)
+  Ast.AstReverseX v -> second Ast.AstReverseX (unshareAst memo v)
+  Ast.AstTransposeX perm v ->
+    second (Ast.AstTransposeX perm) $ unshareAst memo v
+  Ast.AstReshapeX sh v -> second (Ast.AstReshapeX sh) (unshareAst memo v)
+  Ast.AstGatherX @sh2 @p v (vars, ix) ->
+    let (memo1, ix2) =
+          mapAccumR (unshareAstScoped $ toList vars)
+                    memo (Foldable.toList ix)
+        (memo2, v2) = unshareAst memo1 v
+    in (memo2, Ast.AstGatherX @sh2 @p v2 (vars, fromList ix2))
+  Ast.AstCastX v -> second Ast.AstCastX $ unshareAst memo v
+  Ast.AstFromIntegralX v ->
+    second Ast.AstFromIntegralX $ unshareAst memo v
+  Ast.AstConstX t -> (memo, Ast.AstConstX t)
+  Ast.AstProjectX l p ->
+    let (memo1, l2) = unshareAst memo l
+    in (memo1, Ast.AstProjectX l2 p)
+  Ast.AstXFromR v -> second Ast.AstXFromR $ unshareAst memo v
+
   Ast.AstMkHVector l ->
     second Ast.AstMkHVector $ mapAccumR unshareAstDynamic memo l
   Ast.AstHApply t ll ->
@@ -621,7 +746,7 @@ unshareAstHFun memo v0 = case v0 of
   Ast.AstVarHFun{} -> (memo, v0)
 
 unshareAstBool :: AstBindings -> AstBool AstMethodShare
-             -> (AstBindings, AstBool AstMethodLet)
+               -> (AstBindings, AstBool AstMethodLet)
 unshareAstBool memo = \case
   Ast.AstBoolNot arg ->
     let (memo2, arg2) = unshareAstBool memo arg
@@ -639,3 +764,7 @@ unshareAstBool memo = \case
     let (memo1, r1) = unshareAst memo arg1
         (memo2, r2) = unshareAst memo1 arg2
     in (memo2, Ast.AstRelS opCodeRel r1 r2)
+  Ast.AstRelX opCodeRel arg1 arg2 ->
+    let (memo1, r1) = unshareAst memo arg1
+        (memo2, r2) = unshareAst memo1 arg2
+    in (memo2, Ast.AstRelX opCodeRel r1 r2)

@@ -47,6 +47,7 @@ toRepDShare
 toRepDShare stk t = case stk of
   STKR{} -> DTKR t
   STKS{} -> DTKS t
+  STKX{} -> DTKX t
   STKProduct stk1 stk2 ->
     let (t1, t2) = tunpair t
     in DTKProduct (toRepDShare stk1 t1) (toRepDShare stk2 t2)
@@ -65,6 +66,7 @@ toRepDDuplicable
 toRepDDuplicable stk t = case stk of
   STKR{} -> DTKR t
   STKS{} -> DTKS t
+  STKX{} -> DTKX t
   STKProduct stk1 stk2 ->
     DTKProduct (toRepDDuplicable stk1 (tproject1 t))
                (toRepDDuplicable stk2 (tproject2 t))
@@ -77,6 +79,7 @@ fromRepD :: (ProductTensor ranked, HVectorTensor ranked (ShapedOf ranked))
 fromRepD = \case
   DTKR t -> t
   DTKS t -> t
+  DTKX t -> t
   DTKProduct t1 t2 -> tpair (fromRepD t1) (fromRepD t2)
   DTKUnit -> RepN undefined
   DTKUntyped t -> HVectorPseudoTensor $ dmkHVector t
@@ -89,6 +92,7 @@ addRepD ::
 addRepD a b = case (a, b) of
   (DTKR ta, DTKR tb) -> DTKR $ ta + tb
   (DTKS ta, DTKS tb) -> DTKS $ ta + tb
+  (DTKX ta, DTKX tb) -> DTKX $ ta + tb
   (DTKProduct ta1 ta2, DTKProduct tb1 tb2) ->
     DTKProduct (addRepD ta1 tb1) (addRepD ta2 tb2)
   (DTKUnit, DTKUnit) -> DTKUnit
@@ -686,6 +690,7 @@ repConstant :: forall y ranked. ADReadyNoLet ranked
 repConstant r = \case
   FTKR sh -> rrepl (toList sh) r
   FTKS -> srepl r
+  FTKX sh -> xrepl sh r
   FTKProduct ftk1 ftk2 -> tpair (repConstant r ftk1)
                                 (repConstant r ftk2)
   FTKUnit -> tunit

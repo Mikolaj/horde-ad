@@ -27,6 +27,7 @@ import Data.Kind (Constraint, Type)
 import GHC.TypeLits (KnownNat, Nat)
 import System.IO.Unsafe (unsafePerformIO)
 
+import Data.Array.Nested (KnownShX)
 import Data.Array.Nested qualified as Nested
 
 import HordeAd.Core.Delta
@@ -41,6 +42,7 @@ type Dual :: TensorType ty -> TensorType ty
 type family Dual f = result | result -> f where
   Dual ranked = DeltaR ranked
   Dual shaped = DeltaS shaped
+  Dual mixed = DeltaX mixed
   Dual (HVectorPseudoTensor ranked) = HVectorPseudoTensor (DeltaR ranked)
 
 
@@ -128,6 +130,25 @@ instance ( GoodScalar r, KnownShS sh, ShapedTensor shaped
     InputG{} -> d
     ShareG{} -> d  -- should not happen, but older/lower id is safer anyway
     d1 -> DeltaS $ wrapDelta d1
+
+instance ( GoodScalar r, KnownShX sh, mixed ~ MixedOf (RankedOf mixed)
+         , RankedTensor (RankedOf mixed)
+         , ShareTensor (RankedOf mixed), ProductTensor (RankedOf mixed) )
+         => IsPrimal @[Maybe Nat] mixed r sh where
+  dZeroOfShape tsh = DeltaX $ ZeroX (xshape tsh)
+  dScale _ (DeltaX (ZeroX sh)) = DeltaX (ZeroX sh)
+  dScale v (DeltaX u') = DeltaX $ ScaleX v u'
+  dAdd (DeltaX ZeroX{}) w = w
+  dAdd v (DeltaX ZeroX{}) = v
+  dAdd (DeltaX v) (DeltaX w) = DeltaX $ AddX v w
+  intOfShape tsh c =
+    xconst $ Nested.mreplicateScal (xshape tsh) (fromIntegral c)
+  sharePrimal = tshare
+  shareDual d = case unDeltaX d of
+    ZeroX{} -> d
+    InputG{} -> d
+    ShareG{} -> d
+    d1 -> DeltaX $ wrapDelta d1
 
 
 -- * Counter handling

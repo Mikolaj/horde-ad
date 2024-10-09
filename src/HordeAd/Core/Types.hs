@@ -13,14 +13,14 @@ module HordeAd.Core.Types
   , withShapeP, sameShape, matchingRank, lemKnownNatRank
   , Dict(..), PermC, trustMeThisIsAPermutation
     -- * Kinds of the functors that determine the structure of a tensor type
-  , TensorType, RankedTensorType, ShapedTensorType
+  , TensorType, RankedTensorType, ShapedTensorType, MixedTensorType
   , TensorKindType (..), STensorKindType(..), TensorKind(..)
   , lemTensorKindOfS, sameTensorKind
   , BuildTensorKind, lemTensorKindOfBuild
     -- * Some fundamental constraints
   , GoodScalar, HasSingletonDict, Differentiable, IfDifferentiable(..)
     -- * Type families that tensors will belong to
-  , IntOf, RankedOf, ShapedOf
+  , IntOf, RankedOf, ShapedOf, MixedOf
   , HFunOf, PrimalOf, DualOf, ShareOf
   , DummyDual(..)
     -- * Generic types of booleans and related class definitions
@@ -44,9 +44,10 @@ import Type.Reflection (TypeRep, Typeable, typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
+import Data.Array.Mixed.Shape (KnownShX (..), StaticShX (..))
 import Data.Array.Mixed.Types (Dict (..))
 import Data.Array.Nested
-  (IxS (..), KnownShS (..), ListS (..), ShR (..), ShS (..), Rank)
+  (IxS (..), KnownShS (..), ListS (..), Rank, ShR (..), ShS (..))
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape (shsToList)
 
@@ -138,6 +139,8 @@ type RankedTensorType = TensorType Nat
 
 type ShapedTensorType = TensorType [Nat]
 
+type MixedTensorType = TensorType [Maybe Nat]
+
 type GoodScalarConstraint r =
   ( Show r, Ord r, Numeric r, Num r, Num (Vector r), Typeable r
   , IfDifferentiable r, NFData r, Nested.PrimElt r, Nested.Elt r, Nested.NumElt r, forall sh. Show (Nested.Mixed sh r), forall sh. Eq (Nested.Mixed sh r), forall sh. NFData (Nested.Mixed sh r), forall sh. Ord (Nested.Mixed sh r) )
@@ -145,6 +148,7 @@ type GoodScalarConstraint r =
 type data TensorKindType =
     TKR Type Nat
   | TKS Type [Nat]
+  | TKX Type [Maybe Nat]
   | TKProduct TensorKindType TensorKindType
   | TKUnit
   | TKUntyped
@@ -155,6 +159,8 @@ data STensorKindType y where
        => TypeRep r -> SNat n -> STensorKindType (TKR r n)
   STKS :: (GoodScalar r, KnownShS sh)
        => TypeRep r -> ShS sh -> STensorKindType (TKS r sh)
+  STKX :: (GoodScalar r, KnownShX sh)
+       => TypeRep r -> StaticShX sh -> STensorKindType (TKX r sh)
   STKProduct :: (TensorKind y, TensorKind z)
              => STensorKindType y -> STensorKindType z
              -> STensorKindType (TKProduct y z)
@@ -172,6 +178,9 @@ instance (GoodScalar r, KnownNat n) => TensorKind (TKR r n) where
 instance (GoodScalar r, KnownShS sh) => TensorKind (TKS r sh) where
   stensorKind = STKS typeRep knownShS
 
+instance (GoodScalar r, KnownShX sh) => TensorKind (TKX r sh) where
+  stensorKind = STKX typeRep knownShX
+
 instance (TensorKind y, TensorKind z) => TensorKind (TKProduct y z) where
   stensorKind = STKProduct (stensorKind @y) (stensorKind @z)
 
@@ -185,6 +194,7 @@ lemTensorKindOfS :: STensorKindType y -> Dict TensorKind y
 lemTensorKindOfS = \case
   STKR{} -> Dict
   STKS{} -> Dict
+  STKX{} -> Dict
   STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
                        , Dict <- lemTensorKindOfS stk2 -> Dict
   STKUnit -> Dict
@@ -203,6 +213,10 @@ sameTensorKind = sameTK (stensorKind @y1) (stensorKind @y2)
       case (testEquality r1 r2, testEquality shs1 shs2) of
         (Just Refl, Just Refl) -> Just Refl
         _ -> Nothing
+    (STKX r1 shs1, STKX r2 shs2) ->
+      case (testEquality r1 r2, testEquality shs1 shs2) of
+        (Just Refl, Just Refl) -> Just Refl
+        _ -> Nothing
     (STKProduct x1 z1, STKProduct x2 z2) -> case (sameTK x1 x2, sameTK z1 z2) of
       (Just Refl, Just Refl) -> Just Refl
       _ -> Nothing
@@ -213,6 +227,7 @@ sameTensorKind = sameTK (stensorKind @y1) (stensorKind @y2)
 type family BuildTensorKind k tk where
   BuildTensorKind k (TKR r n) = TKR r (1 + n)
   BuildTensorKind k (TKS r sh) = TKS r (k : sh)
+  BuildTensorKind k (TKX r sh) = TKX r (Just k : sh)
   BuildTensorKind k (TKProduct y z) =
     TKProduct (BuildTensorKind k y) (BuildTensorKind k z)
   BuildTensorKind k TKUnit = TKUnit
@@ -223,6 +238,7 @@ lemTensorKindOfBuild :: SNat k -> STensorKindType y
 lemTensorKindOfBuild snat@SNat = \case
   STKR{} -> Dict
   STKS{} -> Dict
+  STKX{} -> Dict
   STKProduct stk1 stk2 | Dict <- lemTensorKindOfBuild snat stk1
                        , Dict <- lemTensorKindOfBuild snat stk2 -> Dict
   STKUnit -> Dict
@@ -242,6 +258,7 @@ type family HasSingletonDict (y :: ty) where
   HasSingletonDict '() = ()
   HasSingletonDict n = KnownNat n
   HasSingletonDict sh = KnownShS sh
+  HasSingletonDict sh = KnownShX sh
 
 type Differentiable r =
   (RealFloat r, Nested.FloatElt r)
@@ -278,6 +295,9 @@ type family RankedOf (f :: TensorType ty) :: RankedTensorType
 type family ShapedOf (f :: RankedTensorType) = (result :: ShapedTensorType)
   | result -> f
 
+type family MixedOf (f :: RankedTensorType) = (result :: MixedTensorType)
+  | result -> f
+
 -- | The type family is defined in order to give a special instance
 -- for AST that preservs sharing and, even more importantly, keeps
 -- the computation of dervative functions lazy. See the definition
@@ -298,6 +318,7 @@ data DummyDual r (y :: ty) = DummyDual
 
 type instance RankedOf DummyDual = DummyDual
 type instance ShapedOf DummyDual = DummyDual
+type instance MixedOf DummyDual = DummyDual
 
 type family ShareOf (f :: RankedTensorType) :: RankedTensorType
 

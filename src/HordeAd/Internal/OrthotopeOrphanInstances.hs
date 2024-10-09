@@ -5,7 +5,7 @@
 -- tensors.
 module HordeAd.Internal.OrthotopeOrphanInstances
   ( -- * Numeric classes and instances for tensors
-    IntegralF(..), RealFloatF(..), FlipR(..), FlipS(..)
+    IntegralF(..), RealFloatF(..), FlipR(..), FlipS(..), FlipX(..)
   ) where
 
 import Prelude
@@ -30,9 +30,10 @@ import Data.Vector.Storable qualified as VS
 import GHC.TypeLits (KnownNat, Nat, sameNat)
 import Numeric.LinearAlgebra (Numeric)
 
-import Data.Array.Mixed.Internal.Arith qualified as Mixed.Internal.Arith (liftVEltwise2)
+import Data.Array.Mixed.Internal.Arith qualified as Mixed.Internal.Arith
+  (liftVEltwise2)
+import Data.Array.Nested (KnownShS (..), KnownShX, MapJust, Rank, Replicate)
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested (KnownShS (..), Rank, Replicate, MapJust)
 import Data.Array.Nested.Internal.Mixed qualified as Nested.Internal.Mixed
 import Data.Array.Nested.Internal.Ranked qualified as Nested.Internal
 import Data.Array.Nested.Internal.Shaped qualified as Nested.Internal
@@ -107,6 +108,33 @@ instance (Nested.PrimElt r, Integral r, Numeric r)
                           (\a b -> if b == 0 then 0 else rem a b) x y)))
                             -- TODO: do better somehow
 
+instance (Nested.PrimElt r, Integral r, Numeric r)
+         => IntegralF (Nested.Mixed sh r) where
+  quotF =   (Nested.Internal.Mixed.mliftNumElt2
+               (flip Mixed.Internal.Arith.liftVEltwise2
+                  (\x' y' ->
+                     let (x, y) = case (x', y') of
+                           (Left x2, Left y2) ->
+                             (V.singleton x2, V.singleton y2)
+                           _ ->
+                             ( either (V.replicate (V.length y)) id x'
+                             , either (V.replicate (V.length x)) id y' )
+                     in V.zipWith
+                          (\a b -> if b == 0 then 0 else quot a b) x y)))
+                            -- TODO: do better somehow
+  remF =    (Nested.Internal.Mixed.mliftNumElt2
+               (flip Mixed.Internal.Arith.liftVEltwise2
+                  (\x' y' ->
+                     let (x, y) = case (x', y') of
+                           (Left x2, Left y2) ->
+                             (V.singleton x2, V.singleton y2)
+                           _ ->
+                             ( either (V.replicate (V.length y)) id x'
+                             , either (V.replicate (V.length x)) id y' )
+                     in V.zipWith
+                          (\a b -> if b == 0 then 0 else rem a b) x y)))
+                            -- TODO: do better somehow
+
 class Floating a => RealFloatF a where
   atan2F :: a -> a -> a
 
@@ -128,6 +156,19 @@ instance (Nested.NumElt r, Nested.PrimElt r, RealFloat r, Nested.FloatElt r, Num
          => RealFloatF (Nested.Shaped sh r) where
   atan2F = Nested.Internal.arithPromoteShaped2
             (Nested.Internal.Mixed.mliftNumElt2
+               (flip Mixed.Internal.Arith.liftVEltwise2
+                  (\x' y' ->
+                     let (x, y) = case (x', y') of
+                           (Left x2, Left y2) ->
+                             (V.singleton x2, V.singleton y2)
+                           _ ->
+                             ( either (V.replicate (V.length y)) id x'
+                             , either (V.replicate (V.length x)) id y' )
+                     in V.zipWith atan2 x y)))  -- TODO: do better somehow
+
+instance (Nested.NumElt r, Nested.PrimElt r, RealFloat r, Nested.FloatElt r, Numeric r)
+         => RealFloatF (Nested.Mixed sh r) where
+  atan2F =   (Nested.Internal.Mixed.mliftNumElt2
                (flip Mixed.Internal.Arith.liftVEltwise2
                   (\x' y' ->
                      let (x, y) = case (x', y') of
@@ -218,6 +259,35 @@ deriving instance Floating (f a b) => Floating (FlipS f b a)
 deriving instance RealFloatF (f a b) => RealFloatF (FlipS f b a)
 
 deriving instance NFData (f a b) => NFData (FlipS f b a)
+
+type role FlipX nominal nominal nominal
+type FlipX :: forall {k}. ([Maybe Nat] -> k -> Type) -> k -> [Maybe Nat] -> Type
+newtype FlipX p a (b :: [Maybe Nat]) = FlipX { runFlipX :: p b a }
+
+instance (Nested.Elt r, Show r, Show (Nested.Mixed sh r))
+         => Show (FlipX Nested.Mixed r sh) where
+  showsPrec :: Int -> FlipX Nested.Mixed r sh -> ShowS
+  showsPrec d (FlipX u) =
+    showString "FlipX " . showParen True (showsPrec d u)
+
+instance (Eq r, KnownShX sh, Eq (Nested.Mixed sh r)) => Eq (FlipX Nested.Mixed r sh) where
+  (==) :: FlipX Nested.Mixed r sh -> FlipX Nested.Mixed r sh -> Bool
+  FlipX u == FlipX v = u == v
+
+instance (Ord r, KnownShX sh, Eq (Nested.Mixed sh r), Ord (Nested.Mixed sh r)) => Ord (FlipX Nested.Mixed r sh) where
+  FlipX u <= FlipX v = u <= v
+
+deriving instance Num (f a b) => Num (FlipX f b a)
+
+deriving instance IntegralF (f a b) => IntegralF (FlipX f b a)
+
+deriving instance Fractional (f a b) => Fractional (FlipX f b a)
+
+deriving instance Floating (f a b) => Floating (FlipX f b a)
+
+deriving instance RealFloatF (f a b) => RealFloatF (FlipX f b a)
+
+deriving instance NFData (f a b) => NFData (FlipX f b a)
 
 -- TODO: This one is for convenience in tests only. Overhaul tests and remove.
 instance (KnownNat n, VS.Storable r, Num r)

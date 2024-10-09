@@ -99,6 +99,7 @@ defaultArgsAdam = ArgsAdam
 type family Triplify y where
   Triplify (TKR r n) = TKProduct (TKProduct (TKR r n) (TKR r n)) (TKR r n)
   Triplify (TKS r sh) = TKProduct (TKProduct (TKS r sh) (TKS r sh)) (TKS r sh)
+  Triplify (TKX r sh) = TKProduct (TKProduct (TKX r sh) (TKX r sh)) (TKX r sh)
   Triplify (TKProduct x z) = TKProduct (Triplify x) (Triplify z)
   Triplify TKUnit = TKUnit
   Triplify TKUntyped = TKUntyped  -- this it not tripled
@@ -109,6 +110,7 @@ unzip3Rep
 unzip3Rep stk t = case stk of
   STKR{} -> (fst $ fst t, snd $ fst t, snd t)
   STKS{} -> (fst $ fst t, snd $ fst t, snd t)
+  STKX{} -> (fst $ fst t, snd $ fst t, snd t)
   STKProduct stk1 stk2 -> let (a1, b1, c1) = unzip3Rep stk1 $ fst t
                               (a2, b2, c2) = unzip3Rep stk2 $ snd t
                           in ((a1, a2), (b1, b2), (c1, c2))
@@ -134,6 +136,7 @@ repDeepZero :: TensorKindFull y -> Rep ORArray y
 repDeepZero = \case
   FTKR sh -> FlipR $ Nested.rreplicateScal sh 0
   FTKS -> FlipS $ Nested.sreplicateScal knownShS 0
+  FTKX sh -> FlipX $ Nested.mreplicateScal sh 0
   FTKProduct ftk1 ftk2 -> (repDeepZero ftk1, repDeepZero ftk2)
   FTKUnit -> RepN undefined
   FTKUntyped{} -> error "repDeepZero: FTKUntyped"
@@ -188,6 +191,20 @@ updateWithGradientAdamDeep ArgsAdam{..} StateAdamDeep{..} paramsR gradientR =
              in ( ( FlipS $ Nested.rcastToShaped mAN knownShS
                   , FlipS $ Nested.rcastToShaped vAN knownShS )
                 , FlipS $ Nested.rcastToShaped pN knownShS ))
+            ((mA, vA), p)
+        STKX @r _ _ ->
+          ifDifferentiable @r
+            (let (mAN, vAN, pN) =
+                   updateR (Nested.mtoRanked (runFlipX mA))
+                           (Nested.mtoRanked (runFlipX vA))
+                           (Nested.mtoRanked (runFlipX p))
+                           (Nested.mtoRanked (runFlipX g))
+             in ( ( FlipX $ Nested.mreshape (Nested.mshape (runFlipX mA))
+                          $ Nested.rtoMixed mAN
+                  , FlipX $ Nested.mreshape (Nested.mshape (runFlipX vA))
+                          $ Nested.rtoMixed vAN )
+                , FlipX $ Nested.mreshape (Nested.mshape (runFlipX p))
+                          $ Nested.rtoMixed pN ))
             ((mA, vA), p)
         STKProduct stk1 stk2 ->
           ( updateProd stk1 (fst mA) (fst vA) (fst p) (fst g)

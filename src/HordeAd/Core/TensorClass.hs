@@ -16,7 +16,7 @@ module HordeAd.Core.TensorClass
   , HVectorTensor(..), ProductTensor(..)
   , HFun(..)
   , rfromD, sfromD, rscalar, rrepl, ringestData, ringestData1
-  , ingestData, sscalar, srepl, unrepShallow, unrepDeep, repDeepDuplicable
+  , ingestData, sscalar, srepl, xrepl, unrepShallow, unrepDeep, repDeepDuplicable
   , mapDynamic, mapDynamic2, mapRep
   , mapRep2Weak
     -- * The giga-constraint
@@ -40,7 +40,8 @@ import Type.Reflection (typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Nested (Rank, type (++))
+import Data.Array.Mixed.Shape (IShX)
+import Data.Array.Nested (KnownShX (..), Rank, type (++))
 import Data.Array.Nested qualified as Nested
 
 import HordeAd.Core.HVector
@@ -48,7 +49,7 @@ import HordeAd.Core.Types
 import HordeAd.Internal.OrthotopeOrphanInstances
   (IntegralF (..), RealFloatF (..))
 import HordeAd.Util.ShapedList
-  (Drop, IndexSh, Init, ShapeS, Take, pattern (:.$), pattern ZIS)
+  (Drop, IndexSh, IndexShX, Init, ShapeS, Take, pattern (:.$), pattern ZIS)
 import HordeAd.Util.ShapedList qualified as ShapedList
 import HordeAd.Util.SizedList
 
@@ -146,6 +147,7 @@ class HVectorTensor ranked shaped
   treplicate snat@SNat stk u = case stk of
     STKR{} -> rreplicate (sNatValue snat) u
     STKS{} -> sreplicate u
+    STKX{} -> xreplicate u
     STKProduct @z1 @z2 stk1 stk2
       | Dict <- lemTensorKindOfBuild snat (stensorKind @z1)
       , Dict <- lemTensorKindOfBuild snat (stensorKind @z2) ->
@@ -267,10 +269,15 @@ class ShareTensor (ranked :: RankedTensorType) where
 
 -- | The superclasses indicate that it's not only a container array,
 -- but also a mathematical tensor, sporting numeric operations.
-class ( Num (IntOf ranked), IntegralF (IntOf ranked), CRanked ranked Num
+class ( Num (IntOf ranked), Num (IntOf (MixedOf ranked))
+      , IntegralF (IntOf ranked), IntegralF (IntOf (MixedOf ranked))
+      , CRanked ranked Num, CMixed (MixedOf ranked) Num
       , TensorSupports RealFloatAndFloatElt Floating ranked
       , TensorSupports RealFloatAndFloatElt RealFloatF ranked
-      , TensorSupports Integral IntegralF ranked )
+      , TensorSupports Integral IntegralF ranked
+      , CMixedSupports RealFloatAndFloatElt Floating (MixedOf ranked)
+      , CMixedSupports RealFloatAndFloatElt RealFloatF (MixedOf ranked)
+      , CMixedSupports Integral IntegralF (MixedOf ranked) )
       => RankedTensor (ranked :: RankedTensorType) where
 
   -- Integer codomain
@@ -487,7 +494,8 @@ class ( Num (IntOf ranked), IntegralF (IntOf ranked), CRanked ranked Num
            => Int -> ranked r (p + n)
            -> (IntOf ranked -> IndexOf ranked p)
            -> ranked r (1 + n)
-  rgather1 k v f = rgather @ranked @r @1 (k :$: dropShape (rshape v)) v
+  rgather1 k v f = rgather @ranked @r @1
+                           (k :$: dropShape (rshape v)) v
                            (\(i :.: ZIR) -> f i)
   rcast :: (RealFrac r1, RealFrac r2, GoodScalar r1, GoodScalar r2, KnownNat n)
         => ranked r1 n -> ranked r2 n
@@ -527,6 +535,33 @@ class ( Num (IntOf ranked), IntegralF (IntOf ranked), CRanked ranked Num
   -- instead of on terms (DualOf) that denote Deltas
   -- TODO: if DualOf is supposed to be user-visible, we needed
   -- a better name for it; TangentOf? CotangentOf? SecondaryOf?
+
+  xshape :: (GoodScalar r, KnownShX sh) => MixedOf ranked r sh -> IShX sh
+  xindex :: forall r sh1 sh2.
+            ( GoodScalar r, KnownShX sh1, KnownShX sh2
+            , KnownShX (sh1 ++ sh2) )
+         => MixedOf ranked r (sh1 ++ sh2) -> IndexShX (MixedOf ranked) sh1
+         -> MixedOf ranked r sh2
+  xfromVector :: (GoodScalar r, KnownNat n, KnownShX sh)
+              => Data.Vector.Vector (MixedOf ranked r sh)
+              -> MixedOf ranked r (Just n ': sh)
+  xreplicate :: (KnownNat n, KnownShX sh, GoodScalar r)
+             => MixedOf ranked r sh -> MixedOf ranked r (Just n ': sh)
+  xconst :: (GoodScalar r, KnownShX sh)
+         => Nested.Mixed sh r -> MixedOf ranked r sh
+  xzero :: forall r sh.
+           (GoodScalar r, KnownShX sh, RankedOf (MixedOf ranked) ~ ranked)
+        => IShX sh -> MixedOf ranked r sh
+  xzero sh = xrepl sh 0
+  xconstant :: (GoodScalar r, KnownShX sh)
+            => PrimalOf (MixedOf ranked) r sh -> MixedOf ranked r sh
+  xprimalPart :: (GoodScalar r, KnownShX sh)
+              => MixedOf ranked r sh -> PrimalOf (MixedOf ranked) r sh
+  xdualPart :: (GoodScalar r, KnownShX sh)
+            => MixedOf ranked r sh -> DualOf (MixedOf ranked) r sh
+  xD :: (GoodScalar r, KnownShX sh)
+     => PrimalOf (MixedOf ranked) r sh -> DualOf (MixedOf ranked) r sh
+     -> MixedOf ranked r sh
 
 
 -- * Shaped tensor class definition
@@ -1267,6 +1302,13 @@ srepl =
   -- though we could also look at the low level in @isSmall@ and mark
   -- replicated constants as small
 
+xrepl :: forall sh r mixed.
+         ( GoodScalar r, KnownShX sh, RankedTensor (RankedOf mixed)
+         , MixedOf (RankedOf mixed) ~ mixed )
+      => IShX sh -> r -> mixed r sh
+xrepl sh =
+  xconst . Nested.mreplicateScal sh
+
 unrepShallow :: forall ranked y.
                     ( TensorKind y, HVectorTensor ranked (ShapedOf ranked)
                     , ProductTensor ranked )
@@ -1275,6 +1317,7 @@ unrepShallow :: forall ranked y.
 unrepShallow t = case stensorKind @y of
   STKR{} -> t
   STKS{} -> t
+  STKX{} -> t
   STKProduct{} -> uncurry tpair t
   STKUnit -> t
   STKUntyped -> HVectorPseudoTensor $ dmkHVector t
@@ -1287,6 +1330,7 @@ unrepDeep :: forall ranked y.
 unrepDeep t = case stensorKind @y of
   STKR{} -> t
   STKS{} -> t
+  STKX{} -> t
   STKProduct{} -> tpair (unrepDeep (fst t)) (unrepDeep (snd t))
   STKUnit -> t
   STKUntyped -> HVectorPseudoTensor $ dmkHVector t
@@ -1304,6 +1348,7 @@ repDeepDuplicable
 repDeepDuplicable stk t = case stk of
   STKR{} -> t
   STKS{} -> t
+  STKX{} -> t
   STKProduct stk1 stk2 ->
     (repDeepDuplicable stk1 (tproject1 t), repDeepDuplicable stk2 (tproject2 t))
   STKUnit -> t
@@ -1398,15 +1443,18 @@ mapRep
       => Rep f (TKR r n) -> Rep g (TKR r n))
   -> (forall r sh. (GoodScalar r, KnownShS sh)
       => Rep f (TKS r sh) -> Rep g (TKS r sh))
+  -> (forall r sh. (GoodScalar r, KnownShX sh)
+      => Rep f (TKX r sh) -> Rep g (TKX r sh))
   -> STensorKindType y
   -> Rep f y
   -> Rep g y
-mapRep fr fs stk b = case stk of
+mapRep fr fs fx stk b = case stk of
   STKR{} -> fr b
   STKS{} -> fs b
+  STKX{} -> fx b
   STKProduct stk1 stk2 ->
-    let !t1 = mapRep fr fs stk1 $ tproject1 b
-        !t2 = mapRep fr fs stk2 $ tproject2 b
+    let !t1 = mapRep fr fs fx stk1 $ tproject1 b
+        !t2 = mapRep fr fs fx stk2 $ tproject2 b
     in tpair t1 t2
       -- this shares properly only when the product instance for f is (,)
       -- and tlet wouldn't work because f and g differ
@@ -1465,15 +1513,19 @@ mapRep2Weak
   -> (forall r sh. (GoodScalar r, KnownShS sh)
       => Rep f1 (TKS r sh) -> Rep f2 (TKS r sh)
       -> Rep g (TKS r sh))
+  -> (forall r sh. (GoodScalar r, KnownShX sh)
+      => Rep f1 (TKX r sh) -> Rep f2 (TKX r sh)
+      -> Rep g (TKX r sh))
   -> STensorKindType y
   -> Rep f1 y -> Rep f2 y
   -> Rep g y
-mapRep2Weak fr fs stk b1 b2 = case stk of
+mapRep2Weak fr fs fx stk b1 b2 = case stk of
   STKR{} -> fr b1 b2
   STKS{} -> fs b1 b2
+  STKX{} -> fx b1 b2
   STKProduct stk1 stk2 ->
-    let !t1 = mapRep2Weak fr fs stk1 (tproject1 b1) (tproject1 b2)
-        !t2 = mapRep2Weak fr fs stk2 (tproject2 b1) (tproject2 b2)
+    let !t1 = mapRep2Weak fr fs fx stk1 (tproject1 b1) (tproject1 b2)
+        !t2 = mapRep2Weak fr fs fx stk2 (tproject2 b1) (tproject2 b2)
     in tpair t1 t2
       -- this shares properly only when the product instance for f1 and f2 is (,)
   STKUnit -> tunit
@@ -1509,44 +1561,53 @@ type ADReadyBoth ranked shaped =
   )
 
 type ADReadyBothNoLet ranked shaped =
-  ( ADReadyEqsClasses ranked shaped
+  ( ADReadyEqsClasses ranked shaped (MixedOf ranked)
   , ADReadyEqsClasses (ShareOf ranked) (ShapedOf (ShareOf ranked))
+                      (MixedOf (ShareOf ranked))
   , ShareTensor (ShareOf ranked)
   , ShareTensor (PrimalOf (ShareOf ranked))
   , ShareOf (ShareOf ranked) ~ ShareOf ranked
   )
 
-type ADReadyEqsClasses ranked shaped =
-  ( ADReadyEqs ranked shaped
-  , ADReadyClasses ranked shaped
-  , ADReadyClasses (PrimalOf ranked) (PrimalOf shaped)
+type ADReadyEqsClasses ranked shaped mixed =
+  ( ADReadyEqs ranked shaped mixed
+  , ADReadyClasses ranked shaped mixed
+  , ADReadyClasses (PrimalOf ranked) (PrimalOf shaped) (PrimalOf mixed)
   , ProductTensor (DualOf ranked)
   )
 
-type ADReadyEqs ranked shaped =
-  ( RankedOf shaped ~ ranked
-  , RankedOf ranked ~ ranked
-  , RankedOf (PrimalOf shaped) ~ PrimalOf ranked
+type ADReadyEqs ranked shaped mixed =
+  ( RankedOf ranked ~ ranked
+  , RankedOf shaped ~ ranked
+  , RankedOf mixed ~ ranked
   , RankedOf (PrimalOf ranked) ~ PrimalOf ranked
+  , RankedOf (PrimalOf shaped) ~ PrimalOf ranked
+  , RankedOf (PrimalOf mixed) ~ PrimalOf ranked
   , ShapedOf (PrimalOf ranked) ~ PrimalOf shaped
   , ShapedOf (DualOf ranked) ~ DualOf shaped
   , ShapedOf (PrimalOf ranked) ~ PrimalOf shaped
+  , MixedOf (PrimalOf ranked) ~ PrimalOf mixed
+  , MixedOf (DualOf ranked) ~ DualOf mixed
+  , MixedOf (PrimalOf ranked) ~ PrimalOf mixed
   , BoolOf ranked ~ BoolOf shaped
+  , BoolOf ranked ~ BoolOf mixed
   , BoolOf (PrimalOf ranked) ~ BoolOf ranked
   , BoolOf (PrimalOf shaped) ~ BoolOf ranked
+  , BoolOf (PrimalOf mixed) ~ BoolOf ranked
   )
 
-type ADReadyClasses ranked shaped =
+type ADReadyClasses ranked shaped mixed =
   ( Boolean (BoolOf ranked)
-  , IfF ranked, IfF shaped
-  , EqF ranked, EqF shaped
-  , OrdF ranked, OrdF shaped
+  , IfF ranked, IfF shaped, IfF mixed
+  , EqF ranked, EqF shaped, EqF mixed
+  , OrdF ranked, OrdF shaped, OrdF mixed
   , RankedTensor ranked
   , ShapedTensor shaped
   , HVectorTensor ranked shaped
   , ProductTensor ranked
   , CRanked ranked Show
   , CShaped shaped Show
+  , CMixed mixed Show
   , Show (HVectorOf ranked)
   , CRepProduct ranked Show
   , CHFun2 ranked Show

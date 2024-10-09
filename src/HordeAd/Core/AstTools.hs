@@ -149,6 +149,8 @@ shapeAstFull t = case t of
     | Dict <- lemTensorKindOfBuild k (stensorKind @bShs) ->
       FTKProduct accShs (buildTensorKindFull k bShs)
 
+  _ -> error "TODO"
+
 -- This is cheap and dirty. We don't shape-check the terms and we don't
 -- unify or produce (partial) results with variables. Instead, we investigate
 -- only one path and fail if it doesn't contain enough information
@@ -259,6 +261,32 @@ varInAst var = \case
   AstProjectS l _p -> varInAst var l  -- conservative
   AstSFromR v -> varInAst var v
 
+  AstMinIndexX a -> varInAst var a
+  AstMaxIndexX a -> varInAst var a
+  AstFloorX a -> varInAst var a
+  AstIotaX -> False
+  AstN1X _ t -> varInAst var t
+  AstN2X _ t u -> varInAst var t || varInAst var u
+  AstR1X _ t -> varInAst var t
+  AstR2X _ t u -> varInAst var t || varInAst var u
+  AstI2X _ t u -> varInAst var t || varInAst var u
+  AstSumOfListX l -> any (varInAst var) l
+  AstIndexX v ix -> varInAst var v || varInIndexX var ix
+  AstSumX v -> varInAst var v
+  AstScatterX v (_vars, ix) -> varInIndexX var ix || varInAst var v
+  AstFromVectorX vl -> any (varInAst var) $ V.toList vl
+  AstAppendX v u -> varInAst var v || varInAst var u
+  AstSliceX v -> varInAst var v
+  AstReverseX v -> varInAst var v
+  AstTransposeX _perm v -> varInAst var v
+  AstReshapeX _ v -> varInAst var v
+  AstGatherX v (_vars, ix) -> varInIndexX var ix || varInAst var v
+  AstCastX t -> varInAst var t
+  AstFromIntegralX a -> varInAst var a
+  AstConstX{} -> False
+  AstProjectX l _p -> varInAst var l  -- conservative
+  AstXFromR v -> varInAst var v
+
   AstMkHVector l -> any (varInAstDynamic var) l
   AstHApply t ll -> varInAstHFun var t || varInAst var ll
   AstBuildHVector1 _ (_var2, v) -> varInAst var v
@@ -272,6 +300,9 @@ varInIndex var = any (varInAst var)
 
 varInIndexS :: AstVarId -> AstIndexS ms sh -> Bool
 varInIndexS var = any (varInAst var)
+
+varInIndexX :: AstVarId -> AstIndexX ms sh -> Bool
+varInIndexX var = any (varInAst var)
 
 varInAstDynamic :: AstSpan s
                 => AstVarId -> AstDynamic ms s -> Bool
@@ -293,6 +324,7 @@ varInAstBool var = \case
   AstBoolConst{} -> False
   AstRel _ arg1 arg2 -> varInAst var arg1 || varInAst var arg2
   AstRelS _ arg1 arg2 -> varInAst var arg1 || varInAst var arg2
+  AstRelX _ arg1 arg2 -> varInAst var arg1 || varInAst var arg2
 
 varNameInAst :: AstSpan s2
              => AstVarName f y -> AstTensor ms s2 y2 -> Bool

@@ -22,7 +22,8 @@ module HordeAd.Core.AstSimplify
   , astGatherStep, astGatherStepS
     -- * The simplifying combinators, one for most AST constructors
   , astPair, astLet, astCond, astSumOfList, astSumOfListS
-  , astSum, astSumS, astScatter, astScatterS, astFromVector, astFromVectorS
+  , astSum, astSumS, astScatter, astScatterS
+  , astFromVector, astFromVectorS, astFromVectorX
   , astReplicate, astAppend, astAppendS, astSlice, astSliceS
   , astReverse, astReverseS
   , astTranspose, astTransposeS, astReshape, astReshapeS
@@ -78,13 +79,13 @@ import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Types qualified as X (unsafeCoerceRefl)
-import Data.Array.Nested (Rank, type (++))
+import Data.Array.Nested (KnownShX, Rank, type (++))
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
 import HordeAd.Core.Ast
   ( AstBool (AstBoolConst)
-  , AstTensor (AstConst, AstConstS, AstN1, AstN1S, AstN2, AstN2S, AstSumOfList, AstSumOfListS)
+  , AstTensor (AstConst, AstConstS, AstConstX, AstN1, AstN1S, AstN2, AstN2S, AstSumOfList, AstSumOfListS)
   )
 import HordeAd.Core.Ast hiding (AstBool (..), AstTensor (..))
 import HordeAd.Core.Ast qualified as Ast
@@ -1569,6 +1570,29 @@ astFromVectorS l | Just Refl <- sameAstSpan @s @FullSpan =
     Nothing -> Ast.AstFromVectorS l
 astFromVectorS l = Ast.AstFromVectorS l
 
+astFromVectorX :: forall s r n sh.
+                  (KnownNat n, KnownShX sh, GoodScalar r, AstSpan s)
+               => Data.Vector.Vector (AstTensor AstMethodLet s (TKX r sh))
+               -> AstTensor AstMethodLet s (TKX r (Just n ': sh))
+astFromVectorX v | V.length v == 1 = astReplicate SNat (v V.! 0)
+astFromVectorX l | Just Refl <- sameAstSpan @s @PrimalSpan =
+  let unConst :: AstTensor AstMethodLet PrimalSpan (TKX r sh) -> Maybe (Nested.Mixed sh r)
+      unConst (AstConstX t) = Just t
+      unConst _ = Nothing
+  in case V.mapM unConst l of
+    Just l3 -> AstConstX $ tfromVectorX l3
+    Nothing -> Ast.AstFromVectorX l
+astFromVectorX l | Just Refl <- sameAstSpan @s @FullSpan =
+  let unConstant :: AstTensor AstMethodLet FullSpan (TKX r sh)
+                 -> Maybe (AstTensor AstMethodLet PrimalSpan (TKX r sh))
+      unConstant (Ast.AstConstant t) = Just t
+      unConstant _ = Nothing
+  in case V.mapM unConstant l of
+    Just l2 | V.null l2 -> Ast.AstFromVectorX V.empty
+    Just l2 -> Ast.AstConstant $ astFromVectorX l2
+    Nothing -> Ast.AstFromVectorX l
+astFromVectorX l = Ast.AstFromVectorX l
+
 astReplicate :: forall k y s. (TensorKind y, AstSpan s)
              => SNat k -> AstTensor AstMethodLet s y -> AstTensor AstMethodLet s (BuildTensorKind k y)
 astReplicate snat@SNat
@@ -2158,6 +2182,7 @@ astPrimalPart t = case t of
     | Dict <- lemTensorKindOfBuild k (stensorKind @eShs) ->
       Ast.AstMapAccumRDer k accShs bShs eShs f df rf
                           (astPrimalPart acc0) (astPrimalPart es)
+  _ -> error "TODO"
 
 -- Note how this can't be pushed down, say, multiplication, because it
 -- multiplies the dual part by the primal part. Addition is fine, though.
@@ -2228,6 +2253,7 @@ astDualPart t = case t of
     | Dict <- lemTensorKindOfBuild k (stensorKind @eShs) ->
       Ast.AstMapAccumRDer k accShs bShs eShs f df rf
                           (astDualPart acc0) (astDualPart es)
+  _ -> error "TODO"
 
 astHApply :: forall s x y. (AstSpan s, TensorKind x, TensorKind y)
           => AstHFun x y -> AstTensor AstMethodLet s x -> AstTensor AstMethodLet s y
@@ -2294,6 +2320,7 @@ astLetHVectorIn vars l v = case v of
       Just i | Just Refl <- sameAstSpan @s @s2 -> case stensorKind @z of
         STKR{} -> astProjectR l i
         STKS{} -> astProjectS l i
+        STKX{} -> error "TODO"
         STKProduct{} -> error "astLetHVectorIn: STKProduct"
         STKUnit -> error "astLetHVectorIn: STKUnit"
         STKUntyped -> error "astLetHVectorIn: STKUntyped"
@@ -2304,6 +2331,7 @@ astLetHVectorIn vars l v = case v of
       Just i | Just Refl <- sameAstSpan @s @FullSpan -> case stensorKind @z of
         STKR{} -> astPrimalPart $ astProjectR l i
         STKS{} -> astPrimalPart $ astProjectS l i
+        STKX{} -> error "TODO"
         STKProduct{} -> error "astLetHVectorIn: STKProduct"
         STKUnit -> error "astLetHVectorIn: STKUnit"
         STKUntyped -> error "astLetHVectorIn: STKUntyped"
@@ -2314,6 +2342,7 @@ astLetHVectorIn vars l v = case v of
       Just i | Just Refl <- sameAstSpan @s @FullSpan -> case stensorKind @z of
         STKR{} -> astDualPart $ astProjectR l i
         STKS{} -> astDualPart $ astProjectS l i
+        STKX{} -> error "TODO"
         STKProduct{} -> error "astLetHVectorIn: STKProduct"
         STKUnit -> error "astLetHVectorIn: STKUnit"
         STKUntyped -> error "astLetHVectorIn: STKUntyped"
@@ -2509,6 +2538,7 @@ simplifyAst t = case t of
                           (simplifyAstHFun rf)
                           (simplifyAst acc0)
                           (simplifyAst es)
+  _ -> error "TODO"
 
 simplifyAstDynamic
   :: AstSpan s
@@ -2543,6 +2573,8 @@ simplifyAstBool t = case t of
       -- we simplify them a bit more than the shaped ones.
   Ast.AstRelS opCodeRel arg1 arg2 ->
     Ast.AstRelS opCodeRel (simplifyAst arg1) (simplifyAst arg2)
+  Ast.AstRelX opCodeRel arg1 arg2 ->
+    Ast.AstRelX opCodeRel (simplifyAst arg1) (simplifyAst arg2)
 
 
 -- * The expanding (to gather expressions) bottom-up pass
@@ -2721,6 +2753,7 @@ expandAst t = case t of
                           (expandAstHFun rf)
                           (expandAst acc0)
                           (expandAst es)
+  _ -> error "TODO"
 
 expandAstDynamic
   :: AstSpan s
@@ -2755,6 +2788,8 @@ expandAstBool t = case t of
       -- we expand them a bit more than the shaped ones.
   Ast.AstRelS opCodeRel arg1 arg2 ->
     Ast.AstRelS opCodeRel (expandAst arg1) (expandAst arg2)
+  Ast.AstRelX opCodeRel arg1 arg2 ->
+    Ast.AstRelX opCodeRel (expandAst arg1) (expandAst arg2)
 
 
 -- * Contraction of arithmetic and boolean operation terms
@@ -3290,6 +3325,7 @@ substitute1Ast i var v1 = case v1 of
                                      (fromMaybe rf mrf)
                                      (fromMaybe acc0 macc0)
                                      (fromMaybe es mes)
+  _ -> error "TODO"
 
 substitute1AstIndex
   :: AstSpan s2
@@ -3367,5 +3403,12 @@ substitute1AstBool i var = \case
         mr2 = substitute1Ast i var arg2
     in if isJust mr1 || isJust mr2
        then Just $ Ast.AstRelS opCodeRel (fromMaybe arg1 mr1)
+                                         (fromMaybe arg2 mr2)
+       else Nothing
+  Ast.AstRelX opCodeRel arg1 arg2 ->
+    let mr1 = substitute1Ast i var arg1
+        mr2 = substitute1Ast i var arg2
+    in if isJust mr1 || isJust mr2
+       then Just $ Ast.AstRelX opCodeRel (fromMaybe arg1 mr1)
                                          (fromMaybe arg2 mr2)
        else Nothing

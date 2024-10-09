@@ -7,7 +7,7 @@ module HordeAd.Core.DualNumber
   ( -- * The main dual number type
     ADVal, dD, pattern D, dDnotShared, constantADVal
     -- * Auxiliary definitions
-  , indexPrimal, fromVector, indexPrimalS, fromVectorS
+  , indexPrimal, fromVector, indexPrimalS, fromVectorS, indexPrimalX, fromVectorX
   , ensureToplevelSharing, scaleNotShared, addNotShared, multNotShared
 --  , addParameters, dotParameters
   , generateDeltaInputs, makeADInputs, aDValRep, ahhToHVector
@@ -22,10 +22,11 @@ import Data.Proxy (Proxy (Proxy))
 import Data.Strict.Vector qualified as Data.Vector
 import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
-import GHC.TypeLits (KnownNat, sameNat, type (+))
+import GHC.TypeLits (KnownNat, Nat, sameNat, type (+))
 import Type.Reflection (typeRep)
 
-import Data.Array.Nested (type (++))
+import Data.Array.Mixed.Shape (pattern (:.%), pattern ZIX)
+import Data.Array.Nested (KnownShX, type (++))
 
 import HordeAd.Core.Delta
 import HordeAd.Core.HVector
@@ -34,7 +35,7 @@ import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.Internal.OrthotopeOrphanInstances
   (IntegralF (..), RealFloatF (..))
-import HordeAd.Util.ShapedList (IndexSh)
+import HordeAd.Util.ShapedList (IndexSh, IndexShX)
 import HordeAd.Util.ShapedList qualified as ShapedList
 import HordeAd.Util.SizedList
 
@@ -135,6 +136,7 @@ generateDeltaInputs =
       gen j ftk = case ftk of
         FTKR{} -> (InputG ftk (toInputId j), j + 1)
         FTKS -> (InputG ftk (toInputId j), j + 1)
+        FTKX{} -> (InputG ftk (toInputId j), j + 1)
         FTKProduct ftk1 ftk2 ->
           let (d1, j1) = gen j ftk1
               (d2, j2) = gen j1 ftk2
@@ -157,19 +159,22 @@ generateDeltaInputs =
 
 makeADInputs
   :: forall x ranked.
-     (TensorKind x, ShareTensor ranked, RankedOf (ShapedOf ranked) ~ ranked)
+     ( TensorKind x, ShareTensor ranked, RankedOf (ShapedOf ranked) ~ ranked
+     , RankedOf (MixedOf ranked) ~ ranked )
   => Rep ranked x -> Delta ranked x
   -> Rep (ADVal ranked) x
 makeADInputs = aDValRep
 
 aDValRep
   :: forall y ranked.
-     (TensorKind y, ShareTensor ranked, RankedOf (ShapedOf ranked) ~ ranked)
+     ( TensorKind y, ShareTensor ranked, RankedOf (ShapedOf ranked) ~ ranked
+     , RankedOf (MixedOf ranked) ~ ranked )
   => Rep ranked y -> Delta ranked y
   -> Rep (ADVal ranked) y
 aDValRep p d = case stensorKind @y of
   STKR{} -> dDnotShared p (DeltaR d)
   STKS{} -> dDnotShared p (DeltaS d)
+  STKX{} -> dDnotShared p (DeltaX d)
   STKProduct{} -> let (p1, p2) = tunpair p
                       (d1, d2) = case d of
                         PairG t1 t2 -> (t1, t2)
@@ -284,6 +289,35 @@ instance ( ShapedTensor shaped, ShareTensor (RankedOf shaped)
                                $ ifF b 0 1)
     in dDnotShared u u'
 
+indexPrimalX :: ( RankedTensor (RankedOf mixed), ShareTensor (RankedOf mixed)
+                , ProductTensor (RankedOf mixed), mixed ~ MixedOf (RankedOf mixed)
+                , GoodScalar r, KnownShX sh1, KnownShX sh2
+                , KnownShX (sh1 ++ sh2) )
+             => ADVal mixed r (sh1 ++ sh2) -> IndexShX mixed sh1
+             -> ADVal mixed r sh2
+indexPrimalX (D u u') ix = dD (xindex u ix) (DeltaX $ IndexX (unDeltaX u') ix)
+
+fromVectorX :: forall n sh mixed r.
+               ( RankedTensor (RankedOf mixed), ShareTensor (RankedOf mixed)
+               , ProductTensor (RankedOf mixed), mixed ~ MixedOf (RankedOf mixed)
+               , KnownNat n, KnownShX sh, GoodScalar r )
+            => Data.Vector.Vector (ADVal mixed r sh)
+            -> ADVal mixed r (Just n ': sh)
+fromVectorX lu = assert (length lu == valueOf @n) $
+  dD (xfromVector $ V.map (\(D u _) -> u) lu)
+     (DeltaX $ FromVectorX $ V.map (\(D _ u') -> unDeltaX u') lu)
+
+instance ( RankedTensor (RankedOf mixed), ShareTensor (RankedOf mixed)
+         , ProductTensor (RankedOf mixed), mixed ~ MixedOf (RankedOf mixed)
+         , IfF (RankedOf (PrimalOf mixed))
+         , Boolean (BoolOf mixed)
+         , BoolOf (RankedOf (PrimalOf mixed)) ~ BoolOf mixed )
+         => IfF (ADVal @[Maybe Nat] mixed) where
+  ifF !b !v !w =  -- bangs for the proper order of sharing stamps
+    let D u u' = indexPrimalX (fromVectorX @2 $ V.fromList [v, w])
+                              (ifF b 0 1 :.% ZIX)
+    in dDnotShared u u'
+
 {- TODO: use for speed-up, e.g,. by checking the type at runtime
 instance IfF (ADVal (FlipR OR.Array)) where
   ifF (_, b) v w = if b then v else w
@@ -295,6 +329,8 @@ instance IfF (ADVal (FlipS OS.Array)) where
 type instance RankedOf (ADVal f) = ADVal (RankedOf f)
 
 type instance ShapedOf (ADVal f) = ADVal (ShapedOf f)
+
+type instance MixedOf (ADVal f) = ADVal (MixedOf f)
 
 type instance HVectorOf (ADVal f) = HVector (ADVal f)
 

@@ -19,12 +19,14 @@ import Prelude
 import Data.IntMap.Strict (IntMap)
 import Data.IntMap.Strict qualified as IM
 import Data.List (intersperse)
+import Data.Maybe (fromJust)
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality ((:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import GHC.TypeLits (fromSNat, sameNat)
 import Type.Reflection (typeRep)
 
+import Data.Array.Mixed.Shape qualified as X
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape (shsRank)
 
@@ -127,6 +129,8 @@ printAstVar cfg var =
   let rankTensorKind :: STensorKindType x -> Int
       rankTensorKind (STKR _ snat) = fromIntegral $ fromSNat snat
       rankTensorKind (STKS _ sh) = fromIntegral $ fromSNat $ shsRank sh
+      rankTensorKind (STKX _ sh) =
+        fromIntegral $ fromSNat $ X.shxRank $ fromJust $ X.ssxToShX' sh
       rankTensorKind (STKProduct @y1 @z1 sy sz) =
         rankTensorKind @y1 sy `max` rankTensorKind @z1 sz
       rankTensorKind STKUnit = -1
@@ -256,6 +260,7 @@ printAstAux cfg d = \case
     STKR{} -> printPrefixOp printAst cfg d
                             ("rreplicate " ++ show (sNatValue snat)) [v]
     STKS{} -> printPrefixOp printAst cfg d "sreplicate" [v]
+    STKX{} -> printPrefixOp printAst cfg d "xreplicate" [v]
     STKProduct{} -> error "WIP"
     STKUnit -> error "WIP"
     STKUntyped -> error "WIP"
@@ -273,6 +278,14 @@ printAstAux cfg d = \case
    STKS{} ->
     showParen (d > 10)
     $ showString "sbuild1 "
+      . (showParen True
+         $ showString "\\"
+           . printAstIntVar cfg var
+           . showString " -> "
+           . printAst cfg 0 v)
+   STKX{} ->
+    showParen (d > 10)
+    $ showString "xbuild1 "
       . (showParen True
          $ showString "\\"
            . printAstIntVar cfg var
@@ -313,6 +326,7 @@ printAstAux cfg d = \case
       $ showString (case stensorKind @z2 of
           STKR{} -> "rlet "
           STKS{} -> "slet "
+          STKX{} -> "xlet "  -- TODO
           STKProduct{} -> "let "  -- TODO
           STKUnit -> "let "
           STKUntyped{} -> "dlet ")
@@ -577,6 +591,7 @@ printAstAux cfg d = \case
       . printAst cfg 11 acc0
       . showString " "
       . printAst cfg 11 es
+  _ -> error "TODO"
 
 -- Differs from standard only in the space after comma.
 showListWith :: (a -> ShowS) -> [a] -> ShowS
@@ -663,6 +678,7 @@ printAstBool cfg d = \case
   AstBoolConst b -> showString $ if b then "true" else "false"
   AstRel opCode arg1 arg2 -> printAstRelOp printAst cfg d opCode arg1 arg2
   AstRelS opCode arg1 arg2 -> printAstRelOp printAst cfg d opCode arg1 arg2
+  AstRelX opCode arg1 arg2 -> printAstRelOp printAst cfg d opCode arg1 arg2
 
 printAstN1 :: (PrintConfig -> Int -> a -> ShowS)
            -> PrintConfig -> Int -> OpCodeNum1 -> a -> ShowS

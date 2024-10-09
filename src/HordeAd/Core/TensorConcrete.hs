@@ -20,8 +20,8 @@ import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat)
 import System.Random
 
-import Data.Array.Nested qualified as Nested
 import Data.Array.Nested (Rank)
+import Data.Array.Nested qualified as Nested
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.Delta
@@ -32,7 +32,8 @@ import HordeAd.Core.TensorADVal
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.Internal.BackendOX
-import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..), FlipS (..))
+import HordeAd.Internal.OrthotopeOrphanInstances
+  (FlipR (..), FlipS (..), FlipX (..))
 
 type instance BoolOf (FlipR OR.Array) = Bool
 type instance RankedOf (FlipR OR.Array) = FlipR OR.Array
@@ -63,6 +64,8 @@ type instance RankedOf ORArray = ORArray
 
 type instance ShapedOf ORArray = OSArray
 
+type instance MixedOf ORArray = OXArray
+
 type instance HVectorOf ORArray = HVector ORArray
 
 type instance HFunOf ORArray x z = Rep ORArray x -> Rep ORArray z
@@ -84,6 +87,7 @@ instance LetTensor ORArray OSArray where
   dlet a f = case stensorKind @x of
     STKR{} -> f a
     STKS{} -> f a
+    STKX{} -> f a
     stk@STKProduct{} -> f (repDeepDuplicable stk a)
     STKUnit -> f a
     STKUntyped{} -> f $ unHVectorPseudoTensor a
@@ -94,6 +98,7 @@ instance LetTensor ORArray OSArray where
   tlet a f = case stensorKind @x of
     STKR{} -> f a
     STKS{} -> f a
+    STKX{} -> f a
     STKProduct{} -> f a
     STKUnit -> f a
     STKUntyped{} -> f $ unHVectorPseudoTensor a
@@ -166,6 +171,17 @@ instance RankedTensor ORArray where
   rD u _ = u
   rScale _ _ = DummyDual
 
+  xshape = Nested.mshape . runFlipX
+  xindex = error "TODO"
+  xfromVector = error "TODO"
+  xreplicate _ = error "TODO"
+  xconst = FlipX
+  xconstant = id
+  xprimalPart = id
+  xdualPart _ = DummyDual
+  xD u _ = u
+
+
 type instance BoolOf OSArray = Bool
 
 instance EqF OSArray where
@@ -186,6 +202,27 @@ type instance RankedOf OSArray = ORArray
 type instance PrimalOf OSArray = OSArray
 
 type instance DualOf OSArray = DummyDual
+
+type instance BoolOf OXArray = Bool
+
+instance EqF OXArray where
+  u ==. v = u == v
+  u /=. v = u /= v
+
+instance OrdF OXArray where
+  u <. v = u < v
+  u <=. v = u <= v
+  u >. v = u > v
+  u >=. v = u >= v
+
+instance IfF OXArray where
+  ifF b v w = if b then v else w
+
+type instance RankedOf OXArray = ORArray
+
+type instance PrimalOf OXArray = OXArray
+
+type instance DualOf OXArray = DummyDual
 
 type role DummyProduct representational representational
 type DummyProduct :: Type -> Type -> Type
@@ -264,6 +301,7 @@ instance HVectorTensor ORArray OSArray where
   tshapeFull stk t = case stk of
     STKR{} -> FTKR $ tshapeR $ runFlipR t
     STKS{} -> FTKS
+    STKX{} -> FTKX $ Nested.mshape $ runFlipX t
     STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (fst t))
                                        (tshapeFull stk2 (snd t))
     STKUnit -> FTKUnit
@@ -338,6 +376,7 @@ ravel :: forall k y. TensorKind y
 ravel k@SNat t = case stensorKind @y of
   STKR{} -> rfromList $ NonEmpty.fromList t
   STKS{} -> sfromList $ NonEmpty.fromList t
+  STKX{} -> error "TODO"
   STKProduct{} ->
     let (lt1, lt2) = unzip t
     in (ravel k lt1, ravel k lt2)
@@ -350,6 +389,7 @@ unravel :: forall k y. TensorKind y
 unravel k@SNat t = case stensorKind @y of
   STKR{} -> runravelToList t
   STKS{} -> sunravelToList t
+  STKX{} -> error "TODO"
   STKProduct{} ->
     let lt1 = unravel k $ fst t
         lt2 = unravel k $ snd t

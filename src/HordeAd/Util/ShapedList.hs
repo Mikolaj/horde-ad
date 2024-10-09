@@ -7,6 +7,7 @@
 -- tensor shapes and tensor indexes.
 module HordeAd.Util.ShapedList
   ( Take, Drop, Last, Init
+  , IndexShX
   , -- * Shaped lists (sized, where size is shape) and their permutations
     IndexSh
   , SizedListS, pattern (::$), pattern ZS
@@ -45,6 +46,7 @@ import GHC.TypeLits (KnownNat, Nat, type (-))
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Nested
   ( IxS (..)
+  , IxX
   , ListS
   , Rank
   , pattern (:.$)
@@ -75,13 +77,16 @@ type family Init (xs :: [k]) where
   Init '[x] = '[]
   Init (x ': xs) = x ': Init xs
 
+type IndexShX (f :: TensorType ty) (sh :: [Maybe Nat]) = IxX sh (IntOf f)
+
+
 -- * Shaped lists and their permutations
 
 -- TODO: ensure this is checked (runtime-checked, if necessary):
 -- | The values of this type are bounded by the shape.
 -- If the values are terms, this is relative to environment
 -- and up to evaluation.
-type IndexSh (f :: TensorType ty) (sh :: [Nat]) = IndexS sh (IntOf f)
+type IndexSh (f :: TensorType ty) (sh :: [Nat]) = IxS sh (IntOf f)
 
 -- | Lists indexed by shapes, that is, lists of the GHC @Nat@.
 type SizedListS n i = ListS n i

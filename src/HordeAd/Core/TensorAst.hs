@@ -343,6 +343,52 @@ instance TermValue (DynamicTensor (AstGeneric AstMethodLet FullSpan)) where
     DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
     DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
 
+type instance BoolOf (AstMixed s) = AstBool AstMethodLet
+
+instance AstSpan s => EqF (AstMixed s) where
+  AstMixed (AstConstX u) ==. AstMixed (AstConstX v) = AstBoolConst $ u == v
+    -- common in indexing
+  AstMixed v ==. AstMixed u = AstRelX EqOp (astSpanPrimal v) (astSpanPrimal u)
+  AstMixed (AstConstX u) /=. AstMixed (AstConstX v) = AstBoolConst $ u /= v
+    -- common in indexing
+  AstMixed v /=. AstMixed u = AstRelX NeqOp (astSpanPrimal v) (astSpanPrimal u)
+
+instance AstSpan s => OrdF (AstMixed s) where
+  AstMixed (AstConstX u) <. AstMixed (AstConstX v) = AstBoolConst $ u < v
+    -- common in indexing
+  v <. u = AstRelX LsOp (astSpanPrimal (unAstMixed v)) (astSpanPrimal (unAstMixed u))
+  AstMixed (AstConstX u) <=. AstMixed (AstConstX v) = AstBoolConst $ u <= v
+    -- common in indexing
+  v <=. u = AstRelX LeqOp (astSpanPrimal (unAstMixed v)) (astSpanPrimal (unAstMixed u))
+  AstMixed (AstConstX u) >. AstMixed (AstConstX v) = AstBoolConst $ u > v
+    -- common in indexing
+  v >. u = AstRelX GtOp (astSpanPrimal (unAstMixed v)) (astSpanPrimal (unAstMixed u))
+  AstMixed (AstConstX u) >=. AstMixed (AstConstX v) =  AstBoolConst $ u >= v
+    -- common in indexing
+  v >=. u = AstRelX GeqOp (astSpanPrimal (unAstMixed v)) (astSpanPrimal (unAstMixed u))
+
+instance IfF (AstMixed s) where
+  ifF cond a b = AstMixed $ astCond cond (unAstMixed a) (unAstMixed b)
+
+{-deriving instance IfF (AstMixed s)
+deriving instance AstSpan s => EqF (AstMixed s)
+deriving instance AstSpan s => OrdF (AstMixed s)-}
+deriving instance Eq (AstMixed s r sh)
+deriving instance Ord (AstMixed s r sh)
+deriving instance Num (AstTensor AstMethodLet s (TKX r sh)) => Num (AstMixed s r sh)
+deriving instance (Real (AstTensor AstMethodLet s (TKX r sh)))
+                   => Real (AstMixed s r sh)
+deriving instance (IntegralF (AstTensor AstMethodLet s (TKX r sh)))
+                  => IntegralF (AstMixed s r sh)
+deriving instance Fractional (AstTensor AstMethodLet s (TKX r sh))
+                  => Fractional (AstMixed s r sh)
+deriving instance Floating (AstTensor AstMethodLet s (TKX r sh))
+                  => Floating (AstMixed s r sh)
+deriving instance (RealFrac (AstTensor AstMethodLet s (TKX r sh)))
+                  => RealFrac (AstMixed s r sh)
+deriving instance (RealFloatF (AstTensor AstMethodLet s (TKX r sh)))
+                  => RealFloatF (AstMixed s r sh)
+
 instance AstSpan s => ProductTensor (AstRanked s) where
   tpair t1 t2 = astPair (unRankedY stensorKind t1)
                           (unRankedY stensorKind t2)
@@ -421,6 +467,7 @@ instance AstSpan s => LetTensor (AstRanked s) (AstShaped s) where
   dlet u f = case stensorKind @x of
     STKR{} -> blet u f
     STKS{} -> blet u f
+    STKX{} -> blet u f
     stk@STKProduct{} ->
       blet u $ \ !uShared -> f (repDeepDuplicable stk uShared)
     STKUnit -> f u
@@ -432,6 +479,7 @@ instance AstSpan s => LetTensor (AstRanked s) (AstShaped s) where
   tlet u f = case stensorKind @x of
     STKR{} -> blet u f
     STKS{} -> blet u f
+    STKX{} -> blet u f
     STKProduct{} ->
       blet u $ \ !uShared -> f (tproject1 uShared, tproject2 uShared)
     STKUnit -> f u
@@ -450,6 +498,10 @@ instance AstSpan s => LetTensor (AstRanked s) (AstShaped s) where
       rankedY (stensorKind @z)
       $ astLetFun (unAstShaped u)
                   (unRankedY (stensorKind @z) . f . AstShaped)
+    STKX{} ->
+      rankedY (stensorKind @z)
+      $ astLetFun (unAstMixed u)
+                  (unRankedY (stensorKind @z) . f . AstMixed)
     STKProduct{} ->
       rankedY (stensorKind @z)
       $ astLetFun u
@@ -466,6 +518,7 @@ instance AstSpan s => LetTensor (AstRanked s) (AstShaped s) where
   toShare t = case stensorKind @y of
     STKR{} -> AstRaw $ AstToShare $ unAstRanked t
     STKS{} -> AstRawS $ AstToShare $ unAstShaped t
+    STKX{} -> AstRawX $ AstToShare $ unAstMixed t
     STKProduct{} -> AstRawWrap $ AstToShare t
     STKUnit -> tunit
     STKUntyped -> HVectorPseudoTensor $ AstRawWrap $ AstToShare
@@ -482,6 +535,7 @@ instance AstSpan s => LetTensor (AstRanked s) (AstShaped s) where
   tconstant stk t = case stk of
     STKR{} -> rconstant t
     STKS{} -> sconstant t
+    STKX{} -> xconstant t
     STKProduct{} -> fromPrimal t
     STKUnit -> tunit
     STKUntyped -> HVectorPseudoTensor $ fromPrimal $ unHVectorPseudoTensor t
@@ -539,6 +593,19 @@ instance AstSpan s => RankedTensor (AstRanked s) where
   rD u u' = AstRanked $ astSpanD (unAstRanked u) (unAstRanked u')
   rScale s t = AstRanked $ astDualPart $ AstConstant (unAstRanked s) * AstD (unAstRanked $ rzero (rshape s)) (unAstRanked t)
 
+  xshape t = case shapeAstFull $ unAstMixed t of
+    FTKX sh -> sh
+  xindex v ix =
+    AstMixed $ AstIndexX (unAstMixed v) (unAstRanked <$> ix)
+  xfromVector = AstMixed . AstFromVectorX . V.map unAstMixed
+  xreplicate = AstMixed . AstReplicate SNat . unAstMixed
+  xconst = AstMixed . fromPrimal . AstConstX
+  xconstant = AstMixed . fromPrimal . unAstMixed
+  xprimalPart = AstMixed . astSpanPrimal . unAstMixed
+  xdualPart = AstMixed . astSpanDual . unAstMixed
+  xD u u' =
+    AstMixed $ astSpanD (unAstMixed u) (unAstMixed u')
+
 instance AstSpan s => ShapedTensor (AstShaped s) where
   sminIndex = AstShaped . fromPrimal . AstMinIndexS . astSpanPrimal . unAstShaped
   smaxIndex = AstShaped . fromPrimal . AstMaxIndexS . astSpanPrimal . unAstShaped
@@ -585,6 +652,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   tshapeFull stk t = case stk of
     STKR{} -> shapeAstFull $ unAstRanked t
     STKS{} -> FTKS
+    STKX{} -> shapeAstFull $ unAstMixed t
     STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (tproject1 t))
                                        (tshapeFull stk2 (tproject2 t))
     STKUnit -> FTKUnit
@@ -592,6 +660,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   tcond stk b u v = case stk of
     STKR{} -> ifF b u v
     STKS{} -> ifF b u v
+    STKX{} -> ifF b u v
     STKProduct{} -> AstCond b u v
     STKUnit -> tunit
     STKUntyped -> HVectorPseudoTensor
@@ -600,6 +669,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   tprimalPart stk t = case stk of
     STKR{} -> rprimalPart t
     STKS{} -> sprimalPart t
+    STKX{} -> xprimalPart t
     STKProduct{} -> astSpanPrimal t
     STKUnit -> tunit
     STKUntyped -> HVectorPseudoTensor $ astSpanPrimal $ unHVectorPseudoTensor t
@@ -809,6 +879,30 @@ deriving instance Floating (AstTensor AstMethodShare s (TKS r sh))
 deriving instance (RealFloatF (AstTensor AstMethodShare s (TKS r sh)))
                   => RealFloatF (AstRawS s r sh)
 
+type instance BoolOf (AstRawX s) = AstBool AstMethodShare
+
+instance IfF (AstRawX s) where
+  ifF cond a b = AstRawX $ AstCond cond (unAstRawX a) (unAstRawX b)
+instance AstSpan s => EqF (AstRawX s) where
+  AstRawX v ==. AstRawX u = AstRelX EqOp (astSpanPrimalRaw v) (astSpanPrimalRaw u)
+  AstRawX v /=. AstRawX u = AstRelX NeqOp (astSpanPrimalRaw v) (astSpanPrimalRaw u)
+instance AstSpan s => OrdF (AstRawX s) where
+  v <. u = AstRelX LsOp (astSpanPrimalRaw (unAstRawX v)) (astSpanPrimalRaw (unAstRawX u))
+  v <=. u = AstRelX LeqOp (astSpanPrimalRaw (unAstRawX v)) (astSpanPrimalRaw (unAstRawX u))
+  v >. u = AstRelX GtOp (astSpanPrimalRaw (unAstRawX v)) (astSpanPrimalRaw (unAstRawX u))
+  v >=. u = AstRelX GeqOp (astSpanPrimalRaw (unAstRawX v)) (astSpanPrimalRaw (unAstRawX u))
+deriving instance Eq (AstRawX s r sh)
+deriving instance Ord (AstRawX s r sh)
+deriving instance Num (AstTensor AstMethodShare s (TKX r sh)) => Num (AstRawX s r sh)
+deriving instance (IntegralF (AstTensor AstMethodShare s (TKX r sh)))
+                  => IntegralF (AstRawX s r sh)
+deriving instance Fractional (AstTensor AstMethodShare s (TKX r sh))
+                  => Fractional (AstRawX s r sh)
+deriving instance Floating (AstTensor AstMethodShare s (TKX r sh))
+                  => Floating (AstRawX s r sh)
+deriving instance (RealFloatF (AstTensor AstMethodShare s (TKX r sh)))
+                  => RealFloatF (AstRawX s r sh)
+
 type instance Rep (AstRaw s) (TKProduct x z) =
   AstRawWrap (AstTensor AstMethodShare s (TKProduct x z))
 
@@ -827,6 +921,7 @@ rawY :: STensorKindType y -> AstTensor AstMethodShare s y
 rawY stk t = case stk of
   STKR{} -> AstRaw t
   STKS{} -> AstRawS t
+  STKX{} -> AstRawX t
   STKProduct{} -> AstRawWrap t
   STKUnit -> tunit
   STKUntyped -> HVectorPseudoTensor $ AstRawWrap t
@@ -836,6 +931,7 @@ unRawY :: STensorKindType y -> Rep (AstRaw s) y
 unRawY stk t = case stk of
   STKR{} -> unAstRaw t
   STKS{} -> unAstRawS t
+  STKX{} -> unAstRawX t
   STKProduct{} -> unAstRawWrap t
   STKUnit -> undefined
   STKUntyped -> unAstRawWrap $ unHVectorPseudoTensor t
@@ -862,6 +958,14 @@ instance AstSpan s => ShareTensor (AstRaw s) where
       AstRawS (AstPrimalPart(AstVar{})) -> t
       AstRawS (AstDualPart(AstVar{})) -> t
       _ -> AstRawS $ fun1ToAst $ \ !var -> AstShare var (unAstRawS t)
+    STKX{} | astIsSmall True (unAstRawX t) -> t
+    STKX{} -> case t of
+      AstRawX (AstShare{}) -> t
+      AstRawX (AstVar{}) -> t
+      AstRawX (AstConstant(AstVar{})) -> t
+      AstRawX (AstPrimalPart(AstVar{})) -> t
+      AstRawX (AstDualPart(AstVar{})) -> t
+      _ -> AstRawX $ fun1ToAst $ \ !var -> AstShare var (unAstRawX t)
     STKProduct{} | astIsSmall True (unAstRawWrap t) -> t
     STKProduct{} -> case t of
       AstRawWrap (AstShare{}) -> t
@@ -933,6 +1037,19 @@ instance AstSpan s => RankedTensor (AstRaw s) where
                $ AstConstant (unAstRaw s)
                  * AstD (unAstRaw $ rzero (rshape s)) (unAstRaw t)
 
+  xshape t = case shapeAstFull $ unAstRawX t of
+    FTKX sh -> sh
+  xindex v ix =
+    AstRawX $ AstIndexX (unAstRawX v) (unAstRaw <$> ix)
+  xfromVector = AstRawX . AstFromVectorX . V.map unAstRawX
+  xreplicate = AstRawX . AstReplicate SNat . unAstRawX
+  xconst = AstRawX . fromPrimal . AstConstX
+  xconstant = AstRawX . fromPrimal . unAstRawX
+  xprimalPart = AstRawX . astSpanPrimalRaw . unAstRawX
+  xdualPart = AstRawX . astSpanDualRaw . unAstRawX
+  xD u u' =
+    AstRawX $ astSpanD (unAstRawX u) (unAstRawX u')
+
 instance AstSpan s => ShapedTensor (AstRawS s) where
   sminIndex = AstRawS . fromPrimal . AstMinIndexS . astSpanPrimalRaw . unAstRawS
   smaxIndex = AstRawS . fromPrimal . AstMaxIndexS . astSpanPrimalRaw . unAstRawS
@@ -977,6 +1094,7 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
   tshapeFull stk t = case stk of
     STKR{} -> shapeAstFull $ unAstRaw t
     STKS{} -> FTKS
+    STKX{} -> shapeAstFull $ unAstRawX t
     STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (tproject1 t))
                                        (tshapeFull stk2 (tproject2 t))
     STKUnit -> FTKUnit
@@ -984,6 +1102,7 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
   tcond stk b u v = case stk of
     STKR{} -> ifF b u v
     STKS{} -> ifF b u v
+    STKX{} -> ifF b u v
     STKProduct{} -> AstRawWrap
                     $ AstCond b (unAstRawWrap u) (unAstRawWrap v)
     STKUnit -> tunit
@@ -993,6 +1112,7 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
   tprimalPart stk t = case stk of
     STKR{} -> rprimalPart t
     STKS{} -> sprimalPart t
+    STKX{} -> xprimalPart t
     STKProduct{} -> AstRawWrap $ astSpanPrimalRaw $ unAstRawWrap t
     STKUnit -> tunit
     STKUntyped -> HVectorPseudoTensor $ AstRawWrap
@@ -1134,6 +1254,28 @@ deriving instance Floating (AstTensor AstMethodLet s (TKS r sh))
 deriving instance (RealFloatF (AstTensor AstMethodLet s (TKS r sh)))
                   => RealFloatF (AstNoVectorizeS s r sh)
 
+type instance BoolOf (AstNoVectorizeX s) = AstBool AstMethodLet
+
+instance IfF (AstNoVectorizeX s) where
+  ifF b v1 v2 =
+    AstNoVectorizeX $ unAstMixed
+    $ ifF b (AstMixed $ unAstNoVectorizeX v1) (AstMixed $ unAstNoVectorizeX v2)
+instance AstSpan s => EqF (AstNoVectorizeX s) where
+  v1 ==. v2 = AstMixed (unAstNoVectorizeX v1) ==. AstMixed (unAstNoVectorizeX v2)
+instance AstSpan s => OrdF (AstNoVectorizeX s) where
+  v1 <. v2 = AstMixed (unAstNoVectorizeX v1) <. AstMixed (unAstNoVectorizeX v2)
+deriving instance Eq ((AstNoVectorizeX s) r sh)
+deriving instance Ord ((AstNoVectorizeX s) r sh)
+deriving instance Num (AstTensor AstMethodLet s (TKX r sh)) => Num (AstNoVectorizeX s r sh)
+deriving instance (IntegralF (AstTensor AstMethodLet s (TKX r sh)))
+                  => IntegralF (AstNoVectorizeX s r sh)
+deriving instance Fractional (AstTensor AstMethodLet s (TKX r sh))
+                  => Fractional (AstNoVectorizeX s r sh)
+deriving instance Floating (AstTensor AstMethodLet s (TKX r sh))
+                  => Floating (AstNoVectorizeX s r sh)
+deriving instance (RealFloatF (AstTensor AstMethodLet s (TKX r sh)))
+                  => RealFloatF (AstNoVectorizeX s r sh)
+
 type instance Rep (AstNoVectorize s) (TKProduct x z) =
   AstNoVectorizeWrap (AstTensor AstMethodLet s (TKProduct x z))
 
@@ -1153,6 +1295,7 @@ noVectorizeY :: AstSpan s
 noVectorizeY stk t = case stk of
   STKR{} -> AstNoVectorize t
   STKS{} -> AstNoVectorizeS t
+  STKX{} -> AstNoVectorizeX t
   STKProduct{} -> AstNoVectorizeWrap t
   STKUnit -> tunit
   STKUntyped -> HVectorPseudoTensor $ AstNoVectorizeWrap t
@@ -1162,6 +1305,7 @@ unNoVectorizeY :: STensorKindType y -> Rep (AstNoVectorize s) y
 unNoVectorizeY stk t = case stk of
   STKR{} -> unAstNoVectorize t
   STKS{} -> unAstNoVectorizeS t
+  STKX{} -> unAstNoVectorizeX t
   STKProduct{} -> unAstNoVectorizeWrap t
   STKUnit -> undefined
   STKUntyped -> unAstNoVectorizeWrap $ unHVectorPseudoTensor t
@@ -1177,6 +1321,12 @@ unAstNoVectorizeS2 = AstShaped . unAstNoVectorizeS
 
 astNoVectorizeS2 :: AstShaped s r sh -> AstNoVectorizeS s r sh
 astNoVectorizeS2 = AstNoVectorizeS . unAstShaped
+
+unAstNoVectorizeX2 :: AstNoVectorizeX s r sh -> AstMixed s r sh
+unAstNoVectorizeX2 = AstMixed . unAstNoVectorizeX
+
+astNoVectorizeX2 :: AstMixed s r sh -> AstNoVectorizeX s r sh
+astNoVectorizeX2 = AstNoVectorizeX . unAstMixed
 
 unNoVectorizeHVector :: HVector (AstNoVectorize s) -> HVector (AstGeneric AstMethodLet s)
 unNoVectorizeHVector =
@@ -1207,6 +1357,7 @@ instance AstSpan s => LetTensor (AstNoVectorize s) (AstNoVectorizeS s) where
   dlet u f = case stensorKind @x of
     STKR{} -> blet u f
     STKS{} -> blet u f
+    STKX{} -> blet u f
     stk@STKProduct{} ->
       blet u $ \ !uShared -> f (repDeepDuplicable stk uShared)
     STKUnit -> f u
@@ -1218,6 +1369,7 @@ instance AstSpan s => LetTensor (AstNoVectorize s) (AstNoVectorizeS s) where
   tlet u f = case stensorKind @x of
     STKR{} -> blet u f
     STKS{} -> blet u f
+    STKX{} -> blet u f
     STKProduct{} ->
       blet u $ \ !uShared -> f (tproject1 uShared, tproject2 uShared)
     STKUnit -> f u
@@ -1236,6 +1388,10 @@ instance AstSpan s => LetTensor (AstNoVectorize s) (AstNoVectorizeS s) where
               $ astLetFun
                   (unAstNoVectorizeS u)
                   (unNoVectorizeY (stensorKind @z) . f . AstNoVectorizeS)
+    STKX{} -> noVectorizeY (stensorKind @z)
+              $ astLetFun
+                  (unAstNoVectorizeX u)
+                  (unNoVectorizeY (stensorKind @z) . f . AstNoVectorizeX)
     STKProduct{} ->
       noVectorizeY (stensorKind @z)
       $ astLetFun
@@ -1255,6 +1411,7 @@ instance AstSpan s => LetTensor (AstNoVectorize s) (AstNoVectorizeS s) where
   toShare t = case (stensorKind @y) of
     STKR{} -> AstRaw $ AstToShare $ unAstNoVectorize t
     STKS{} -> AstRawS $ AstToShare $ unAstNoVectorizeS t
+    STKX{} -> AstRawX $ AstToShare $ unAstNoVectorizeX t
     STKProduct{} -> AstRawWrap $ AstToShare $ unAstNoVectorizeWrap t
     STKUnit -> tunit
     STKUntyped -> HVectorPseudoTensor $ AstRawWrap $ AstToShare
@@ -1262,6 +1419,7 @@ instance AstSpan s => LetTensor (AstNoVectorize s) (AstNoVectorizeS s) where
   tconstant stk t = case stk of
     STKR{} -> rconstant t
     STKS{} -> sconstant t
+    STKX{} -> xconstant t
     STKProduct{} -> AstNoVectorizeWrap $ fromPrimal $ unAstNoVectorizeWrap t
     STKUnit -> tunit
     STKUntyped -> HVectorPseudoTensor $ AstNoVectorizeWrap $ fromPrimal
@@ -1310,6 +1468,19 @@ instance AstSpan s => RankedTensor (AstNoVectorize s) where
   rScale s t = astNoVectorize2 $ rScale @(AstRanked s)
                                         (unAstNoVectorize2 s) (unAstNoVectorize2 t)
 
+  xshape t = case shapeAstFull $ unAstNoVectorizeX t of
+    FTKX sh -> sh
+  xindex v ix =
+    astNoVectorizeX2 $ xindex (unAstNoVectorizeX2 v) (unAstNoVectorize2 <$> ix)
+  xfromVector = astNoVectorizeX2 . xfromVector . V.map unAstNoVectorizeX2
+  xreplicate = astNoVectorizeX2 . xreplicate . unAstNoVectorizeX2
+  xconst = astNoVectorizeX2 . xconst
+  xconstant = astNoVectorizeX2 . xconstant . unAstNoVectorizeX2
+  xprimalPart = astNoVectorizeX2 . xprimalPart . unAstNoVectorizeX2
+  xdualPart = astNoVectorizeX2 . xdualPart . unAstNoVectorizeX2
+  xD u u' =
+    astNoVectorizeX2 $ xD (unAstNoVectorizeX2 u) (unAstNoVectorizeX2 u')
+
 instance AstSpan s => ShapedTensor (AstNoVectorizeS s) where
   sminIndex = astNoVectorizeS2 . sminIndex . unAstNoVectorizeS2
   smaxIndex = astNoVectorizeS2 . smaxIndex . unAstNoVectorizeS2
@@ -1347,7 +1518,7 @@ instance AstSpan s => ShapedTensor (AstNoVectorizeS s) where
   sprimalPart = astNoVectorizeS2 . sprimalPart . unAstNoVectorizeS2
   sdualPart = astNoVectorizeS2 . sdualPart . unAstNoVectorizeS2
   sD u u' =
-    astNoVectorizeS2 $ sD  (unAstNoVectorizeS2 u) (unAstNoVectorizeS2 u')
+    astNoVectorizeS2 $ sD (unAstNoVectorizeS2 u) (unAstNoVectorizeS2 u')
   sScale s t =
     astNoVectorizeS2 $ sScale @(AstShaped s)
                               (unAstNoVectorizeS2 s) (unAstNoVectorizeS2 t)
@@ -1357,6 +1528,7 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
   tshapeFull stk t = case stk of
     STKR{} -> shapeAstFull $ unAstNoVectorize t
     STKS{} -> FTKS
+    STKX{} -> shapeAstFull $ unAstNoVectorizeX t
     STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (tproject1 t))
                                        (tshapeFull stk2 (tproject2 t))
     STKUnit -> FTKUnit
@@ -1364,6 +1536,7 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
   tcond stk b u v = case stk of
     STKR{} -> ifF b u v
     STKS{} -> ifF b u v
+    STKX{} -> ifF b u v
     STKProduct{} -> AstNoVectorizeWrap
                     $ AstCond b (unAstNoVectorizeWrap u) (unAstNoVectorizeWrap v)
     STKUnit -> tunit
@@ -1373,6 +1546,7 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
   tprimalPart stk t = case stk of
     STKR{} -> rprimalPart t
     STKS{} -> sprimalPart t
+    STKX{} -> xprimalPart t
     STKProduct{} -> AstNoVectorizeWrap $ astSpanPrimal $ unAstNoVectorizeWrap t
     STKUnit -> tunit
     STKUntyped -> HVectorPseudoTensor $ AstNoVectorizeWrap
@@ -1496,6 +1670,28 @@ deriving instance Floating (AstTensor AstMethodLet s (TKS r sh))
 deriving instance (RealFloatF (AstTensor AstMethodLet s (TKS r sh)))
                   => RealFloatF (AstNoSimplifyS s r sh)
 
+type instance BoolOf (AstNoSimplifyX s) = AstBool AstMethodLet
+
+instance IfF (AstNoSimplifyX s) where
+  ifF b v1 v2 =
+    AstNoSimplifyX $ unAstMixed
+    $ ifF b (AstMixed $ unAstNoSimplifyX v1) (AstMixed $ unAstNoSimplifyX v2)
+instance AstSpan s => EqF (AstNoSimplifyX s) where
+  v1 ==. v2 = AstMixed (unAstNoSimplifyX v1) ==. AstMixed (unAstNoSimplifyX v2)
+instance AstSpan s => OrdF (AstNoSimplifyX s) where
+  v1 <. v2 = AstMixed (unAstNoSimplifyX v1) <. AstMixed (unAstNoSimplifyX v2)
+deriving instance Eq (AstNoSimplifyX s r sh)
+deriving instance Ord (AstNoSimplifyX s r sh)
+deriving instance Num (AstTensor AstMethodLet s (TKX r sh)) => Num (AstNoSimplifyX s r sh)
+deriving instance (IntegralF (AstTensor AstMethodLet s (TKX r sh)))
+                  => IntegralF (AstNoSimplifyX s r sh)
+deriving instance Fractional (AstTensor AstMethodLet s (TKX r sh))
+                  => Fractional (AstNoSimplifyX s r sh)
+deriving instance Floating (AstTensor AstMethodLet s (TKX r sh))
+                  => Floating (AstNoSimplifyX s r sh)
+deriving instance (RealFloatF (AstTensor AstMethodLet s (TKX r sh)))
+                  => RealFloatF (AstNoSimplifyX s r sh)
+
 type instance Rep (AstNoSimplify s) (TKProduct x z) =
   AstNoSimplifyWrap (AstTensor AstMethodLet s (TKProduct x z))
 
@@ -1536,6 +1732,7 @@ noSimplifyY :: AstSpan s
 noSimplifyY stk t = case stk of
   STKR{} -> AstNoSimplify t
   STKS{} -> AstNoSimplifyS t
+  STKX{} -> AstNoSimplifyX t
   STKProduct{} -> AstNoSimplifyWrap t
   STKUnit -> tunit
   STKUntyped -> HVectorPseudoTensor $ AstNoSimplifyWrap t
@@ -1545,6 +1742,7 @@ unNoSimplifyY :: STensorKindType y -> Rep (AstNoSimplify s) y
 unNoSimplifyY stk t = case stk of
   STKR{} -> unAstNoSimplify t
   STKS{} -> unAstNoSimplifyS t
+  STKX{} -> unAstNoSimplifyX t
   STKProduct{} -> unAstNoSimplifyWrap t
   STKUnit -> undefined
   STKUntyped -> unAstNoSimplifyWrap $ unHVectorPseudoTensor t
@@ -1578,6 +1776,7 @@ instance AstSpan s => LetTensor (AstNoSimplify s) (AstNoSimplifyS s) where
   dlet u f = case stensorKind @x of
     STKR{} -> blet u f
     STKS{} -> blet u f
+    STKX{} -> blet u f
     stk@STKProduct{} ->
       blet u $ \ !uShared -> f (repDeepDuplicable stk uShared)
     STKUnit -> f u
@@ -1589,6 +1788,7 @@ instance AstSpan s => LetTensor (AstNoSimplify s) (AstNoSimplifyS s) where
   tlet u f = case stensorKind @x of
     STKR{} -> blet u f
     STKS{} -> blet u f
+    STKX{} -> blet u f
     STKProduct{} ->
       blet u $ \ !uShared -> f (tproject1 uShared, tproject2 uShared)
     STKUnit -> f u
@@ -1607,6 +1807,10 @@ instance AstSpan s => LetTensor (AstNoSimplify s) (AstNoSimplifyS s) where
               $ astLetFunNoSimplify
                   (unAstNoSimplifyS u)
                   (unNoSimplifyY (stensorKind @z) . f . AstNoSimplifyS)
+    STKX{} -> noSimplifyY (stensorKind @z)
+              $ astLetFunNoSimplify
+                  (unAstNoSimplifyX u)
+                  (unNoSimplifyY (stensorKind @z) . f . AstNoSimplifyX)
     STKProduct{} ->
       noSimplifyY (stensorKind @z)
       $ astLetFunNoSimplify
@@ -1626,6 +1830,7 @@ instance AstSpan s => LetTensor (AstNoSimplify s) (AstNoSimplifyS s) where
   toShare t = case (stensorKind @y) of
     STKR{} -> AstRaw $ AstToShare $ unAstNoSimplify t
     STKS{} -> AstRawS $ AstToShare $ unAstNoSimplifyS t
+    STKX{} -> AstRawX $ AstToShare $ unAstNoSimplifyX t
     STKProduct{} -> AstRawWrap $ AstToShare $ unAstNoSimplifyWrap t
     STKUnit -> tunit
     STKUntyped -> HVectorPseudoTensor $ AstRawWrap $ AstToShare
@@ -1633,6 +1838,7 @@ instance AstSpan s => LetTensor (AstNoSimplify s) (AstNoSimplifyS s) where
   tconstant stk t = case stk of
     STKR{} -> rconstant t
     STKS{} -> sconstant t
+    STKX{} -> xconstant t
     STKProduct{} -> AstNoSimplifyWrap $ fromPrimal $ unAstNoSimplifyWrap t
     STKUnit -> tunit
     STKUntyped -> HVectorPseudoTensor $ AstNoSimplifyWrap $ fromPrimal
@@ -1686,6 +1892,19 @@ instance AstSpan s => RankedTensor (AstNoSimplify s) where
   rScale s t = AstNoSimplify $ astDualPart
                $ AstConstant (unAstNoSimplify s)
                  * AstD (unAstRanked $ rzero (rshape s)) (unAstNoSimplify t)
+
+  xshape t = case shapeAstFull $ unAstNoSimplifyX t of
+    FTKX sh -> sh
+  xindex v ix =
+    AstNoSimplifyX $ AstIndexX (unAstNoSimplifyX v) (unAstNoSimplify <$> ix)
+  xfromVector = AstNoSimplifyX . AstFromVectorX . V.map unAstNoSimplifyX
+  xreplicate = AstNoSimplifyX . AstReplicate SNat . unAstNoSimplifyX
+  xconst = AstNoSimplifyX . fromPrimal . AstConstX
+  xconstant = AstNoSimplifyX . fromPrimal . unAstNoSimplifyX
+  xprimalPart = AstNoSimplifyX . astSpanPrimal . unAstNoSimplifyX
+  xdualPart = AstNoSimplifyX . astSpanDual . unAstNoSimplifyX
+  xD u u' =
+    AstNoSimplifyX $ astSpanD (unAstNoSimplifyX u) (unAstNoSimplifyX u')
 
 instance AstSpan s => ShapedTensor (AstNoSimplifyS s) where
   sminIndex = AstNoSimplifyS . fromPrimal . AstMinIndexS
@@ -1745,6 +1964,7 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
   tshapeFull stk t = case stk of
     STKR{} -> shapeAstFull $ unAstNoSimplify t
     STKS{} -> FTKS
+    STKX{} -> shapeAstFull $ unAstNoSimplifyX t
     STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (tproject1 t))
                                        (tshapeFull stk2 (tproject2 t))
     STKUnit -> FTKUnit
@@ -1752,6 +1972,7 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
   tcond stk b u v = case stk of
     STKR{} -> ifF b u v
     STKS{} -> ifF b u v
+    STKX{} -> ifF b u v
     STKProduct{} -> AstNoSimplifyWrap
                     $ AstCond b (unAstNoSimplifyWrap u) (unAstNoSimplifyWrap v)
     STKUnit -> tunit
@@ -1761,6 +1982,7 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
   tprimalPart stk t = case stk of
     STKR{} -> rprimalPart t
     STKS{} -> sprimalPart t
+    STKX{} -> xprimalPart t
     STKProduct{} -> AstNoSimplifyWrap $ astSpanPrimal $ unAstNoSimplifyWrap t
     STKUnit -> tunit
     STKUntyped -> HVectorPseudoTensor $ AstNoSimplifyWrap

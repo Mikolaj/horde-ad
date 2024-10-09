@@ -42,7 +42,7 @@ import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 import Data.Array.Nested.Internal.Shaped qualified as Nested.Internal
 
 import HordeAd.Core.Types
-import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..), FlipS)
+import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..), FlipS, FlipX)
 import HordeAd.Util.ShapedList (Drop, IndexS, Init, Take)
 import HordeAd.Util.ShapedList qualified as ShapedList
 import HordeAd.Util.SizedList
@@ -56,6 +56,8 @@ import HordeAd.Util.SizedList
 type ORArray = FlipR Nested.Ranked
 
 type OSArray = FlipS Nested.Shaped
+
+type OXArray = FlipX Nested.Mixed
 
 
 -- * Ranked tensor operations
@@ -625,6 +627,11 @@ tfromListS
   => NonEmpty (Nested.Shaped sh r) -> Nested.Shaped (n ': sh) r
 tfromListS = Nested.sfromListOuter SNat  -- TODO: make this strict
 
+tfromListX
+  :: forall n sh r. -- (NumAndShow r, KnownNat n)
+   NonEmpty (Nested.Mixed sh r) -> Nested.Mixed (Just n ': sh) r
+tfromListX = error "TODO"
+
 tfromList0NS
   :: forall r sh. (NumAndShow r, KnownShS sh)
   => [r] -> Nested.Shaped sh r
@@ -635,6 +642,11 @@ tfromVectorS
   :: forall n sh r. (NumAndShow r, KnownNat n)
   => Data.Vector.Vector (Nested.Shaped sh r) -> Nested.Shaped (n ': sh) r
 tfromVectorS = tfromListS . NonEmpty.fromList . V.toList
+
+tfromVectorX
+  :: forall n sh r. -- (NumAndShow r, KnownNat n)
+   Data.Vector.Vector (Nested.Mixed sh r) -> Nested.Mixed (Just n ': sh) r
+tfromVectorX = tfromListX . NonEmpty.fromList . V.toList
 
 tfromVector0NS
   :: forall r sh. (NumAndShow r, KnownShS sh)
