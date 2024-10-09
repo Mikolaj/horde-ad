@@ -31,11 +31,8 @@ import GHC.TypeLits (KnownNat, sameNat)
 import Type.Reflection (Typeable, typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
-import Data.Array.Mixed.Shape qualified as X
-import Data.Array.Mixed.Types qualified as X
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Internal.Ranked qualified as Nested.Internal
-import Data.Array.Nested.Internal.Shaped qualified as Nested.Internal
+import Data.Array.Nested (type (++), Rank)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstEnv
@@ -496,7 +493,7 @@ interpretAst !env = \case
     in rappend t1 t2
   AstSlice i n AstIota ->
     interpretAst env
-    $ AstConst $ Nested.Internal.rfromListPrimLinear (n :$: ZSR) $ map fromIntegral [i .. i + n - 1]
+    $ AstConst $ Nested.rfromListPrimLinear (n :$: ZSR) $ map fromIntegral [i .. i + n - 1]
   AstSlice i n v -> rslice i n (interpretAst env v)
   AstReverse v -> rreverse (interpretAst env v)
   AstTranspose perm v -> rtranspose perm $ interpretAst env v
@@ -755,19 +752,19 @@ interpretAst !env = \case
     let i = valueOf @i
         n = valueOf @n
     in interpretAst env
-       $ AstConstS $ Nested.Internal.sfromListPrimLinear Nested.knownShS
+       $ AstConstS $ Nested.sfromListPrimLinear Nested.knownShS
        $ map fromIntegral [i :: Int .. i + n - 1]
   AstSliceS @i v -> sslice (Proxy @i) Proxy (interpretAst env v)
   AstReverseS v -> sreverse (interpretAst env v)
   AstTransposeS perm v -> stranspose perm $ interpretAst env v
   AstReshapeS v -> sreshape (interpretAst env v)
   AstGatherS @sh2 @p @sh @r AstIotaS (vars, i :.$ ZIS) ->
-    gcastWith (unsafeCoerce Refl :: Sh.Take (X.Rank sh2) sh2 :~: sh2)
-    $ gcastWith (unsafeCoerce Refl :: Sh.Drop (X.Rank sh2) sh2 :~: '[])
-    $ gcastWith (unsafeCoerce Refl :: sh2 :~: sh2 X.++ Sh.Drop p sh)
+    gcastWith (unsafeCoerce Refl :: Sh.Take (Rank sh2) sh2 :~: sh2)
+    $ gcastWith (unsafeCoerce Refl :: Sh.Drop (Rank sh2) sh2 :~: '[])
+    $ gcastWith (unsafeCoerce Refl :: sh2 :~: sh2 ++ Sh.Drop p sh)
         -- transitivity of type equality doesn't work, by design,
         -- so this direct cast is needed instead of more basic laws
-    $ sbuild @(ShapedOf ranked) @r @(X.Rank sh2)
+    $ sbuild @(ShapedOf ranked) @r @(Rank sh2)
              (interpretLambdaIndexS
                 interpretAst env
                 (vars, fromPrimal @s $ AstFromIntegralS $ AstSFromR i))

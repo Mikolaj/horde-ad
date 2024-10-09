@@ -43,12 +43,10 @@ import Numeric.LinearAlgebra (Numeric, Vector)
 import Type.Reflection (TypeRep, Typeable, typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
-import Data.Array.Mixed.Internal.Arith qualified as Nested.Internal.Arith
 import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Mixed.Shape qualified as X
 import Data.Array.Mixed.Types (Dict (..))
 import Data.Array.Nested
-  (IxS (..), KnownShS (..), ListS (..), ShR (..), ShS (..))
+  (IxS (..), KnownShS (..), ListS (..), ShR (..), ShS (..), Rank)
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape (shsToList)
 
@@ -111,13 +109,13 @@ sameShape = if shapeT @sh1 == shapeT @sh2
             else Nothing
 
 matchingRank :: forall sh1 n2. (KnownShS sh1, KnownNat n2)
-             => Maybe (X.Rank sh1 :~: n2)
+             => Maybe (Rank sh1 :~: n2)
 matchingRank =
   if length (shapeT @sh1) == valueOf @n2
-  then Just (unsafeCoerce Refl :: X.Rank sh1 :~: n2)
+  then Just (unsafeCoerce Refl :: Rank sh1 :~: n2)
   else Nothing
 
-lemKnownNatRank :: ShS sh -> Dict KnownNat (X.Rank sh)
+lemKnownNatRank :: ShS sh -> Dict KnownNat (Rank sh)
 lemKnownNatRank ZSS = Dict
 lemKnownNatRank (_ :$$ sh) | Dict <- lemKnownNatRank sh = Dict
 
@@ -246,7 +244,7 @@ type family HasSingletonDict (y :: ty) where
   HasSingletonDict sh = KnownShS sh
 
 type Differentiable r =
-  (RealFloat r, Nested.Internal.Arith.FloatElt r)
+  (RealFloat r, Nested.FloatElt r)
 
 -- We white-list all types on which we permit differentiation (e.g., SGD)
 -- to work. This is for technical typing purposes and imposes updates

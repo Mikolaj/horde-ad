@@ -51,10 +51,8 @@ import GHC.TypeLits (KnownNat, Nat, sameNat, type (+), type (<=))
 import Type.Reflection (Typeable, eqTypeRep, typeRep, (:~~:) (HRefl))
 
 import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Mixed.Shape qualified as X
-import Data.Array.Mixed.Types qualified as X
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
+import Data.Array.Nested (type (++), Rank)
 
 import HordeAd.Core.HVector
 import HordeAd.Core.Types
@@ -423,7 +421,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType -> Type wh
                -> AstTensor AstMethodLet s2 y
                -> AstTensor AstMethodLet s2 y
   AstRFromS :: (KnownShS sh, GoodScalar r)
-            => AstTensor ms s (TKS r sh) -> AstTensor ms s (TKR r (X.Rank sh))
+            => AstTensor ms s (TKS r sh) -> AstTensor ms s (TKR r (Rank sh))
 
   -- Here starts the shaped part.
   AstMinIndexS :: ( KnownShS sh, KnownNat n, GoodScalar r, GoodScalar r2
@@ -460,8 +458,8 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType -> Type wh
 
   -- For the main part of the ShapedTensor class:
   AstIndexS :: forall sh1 sh2 s r ms.
-               (KnownShS sh1, KnownShS sh2, KnownShS (sh1 X.++ sh2), GoodScalar r)
-            => AstTensor ms s (TKS r (sh1 X.++ sh2)) -> AstIndexS ms sh1
+               (KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2), GoodScalar r)
+            => AstTensor ms s (TKS r (sh1 ++ sh2)) -> AstIndexS ms sh1
             -> AstTensor ms s (TKS r sh2)
     -- first ix is for outermost dimension; empty index means identity,
     -- if index is out of bounds, the result is defined and is 0,
@@ -471,8 +469,8 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType -> Type wh
   AstScatterS :: forall sh2 p sh r s ms.
                  ( KnownShS sh2, KnownShS sh, KnownNat p
                  , KnownShS (Sh.Take p sh), KnownShS (Sh.Drop p sh)
-                 , KnownShS (sh2 X.++ Sh.Drop p sh), GoodScalar r )
-              => AstTensor ms s (TKS r (sh2 X.++ Sh.Drop p sh))
+                 , KnownShS (sh2 ++ Sh.Drop p sh), GoodScalar r )
+              => AstTensor ms s (TKS r (sh2 ++ Sh.Drop p sh))
               -> (AstVarListS sh2, AstIndexS ms (Sh.Take p sh))
               -> AstTensor ms s (TKS r sh)
 
@@ -487,20 +485,20 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType -> Type wh
   AstReverseS :: (KnownNat n, KnownShS sh, GoodScalar r)
               => AstTensor ms s (TKS r (n ': sh)) -> AstTensor ms s (TKS r (n ': sh))
   AstTransposeS :: forall perm sh r s ms.
-                   (PermC perm, KnownShS sh, X.Rank perm <= X.Rank sh, GoodScalar r)
+                   (PermC perm, KnownShS sh, Rank perm <= Rank sh, GoodScalar r)
                 => Permutation.Perm perm -> AstTensor ms s (TKS r sh)
                 -> AstTensor ms s (TKS r (Permutation.PermutePrefix perm sh))
-  AstReshapeS :: (KnownShS sh, Nested.Internal.Shape.Product sh ~ Nested.Internal.Shape.Product sh2, GoodScalar r, KnownShS sh2)
+  AstReshapeS :: (KnownShS sh, Nested.Product sh ~ Nested.Product sh2, GoodScalar r, KnownShS sh2)
               => AstTensor ms s (TKS r sh) -> AstTensor ms s (TKS r sh2)
     -- beware that the order of type arguments is different than in orthotope
     -- and than the order of value arguments in the ranked version
   AstGatherS :: forall sh2 p sh r s ms.
                 ( GoodScalar r, KnownShS sh, KnownShS sh2, KnownNat p
                 , KnownShS (Sh.Take p sh), KnownShS (Sh.Drop p sh)
-                , KnownShS (sh2 X.++ Sh.Drop p sh) )
+                , KnownShS (sh2 ++ Sh.Drop p sh) )
              => AstTensor ms s (TKS r sh)
              -> (AstVarListS sh2, AstIndexS ms (Sh.Take p sh))
-             -> AstTensor ms s (TKS r (sh2 X.++ Sh.Drop p sh))
+             -> AstTensor ms s (TKS r (sh2 ++ Sh.Drop p sh))
     -- out of bounds indexing is permitted
   AstCastS :: (GoodScalar r1, RealFrac r1, GoodScalar r2, RealFrac r2, KnownShS sh)
            => AstTensor ms s (TKS r1 sh) -> AstTensor ms s (TKS r2 sh)
@@ -511,8 +509,8 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType -> Type wh
             => Nested.Shaped sh r -> AstTensor ms PrimalSpan (TKS r sh)
   AstProjectS :: (GoodScalar r, KnownShS sh)
               => AstTensor ms s TKUntyped -> Int -> AstTensor ms s (TKS r sh)
-  AstSFromR :: (KnownShS sh, KnownNat (X.Rank sh), GoodScalar r)
-            => AstTensor ms s (TKR r (X.Rank sh)) -> AstTensor ms s (TKS r sh)
+  AstSFromR :: (KnownShS sh, KnownNat (Rank sh), GoodScalar r)
+            => AstTensor ms s (TKR r (Rank sh)) -> AstTensor ms s (TKS r sh)
 
   -- There are existential variables inside DynamicTensor here.
   AstMkHVector :: HVector (AstGeneric ms s) -> AstTensor ms s TKUntyped

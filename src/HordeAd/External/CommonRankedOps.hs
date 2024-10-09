@@ -17,7 +17,7 @@ import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality ((:~:) (Refl))
 import GHC.TypeLits (KnownNat, sameNat)
 
-import Data.Array.Nested.Internal.Ranked qualified as Nested.Internal
+import Data.Array.Nested qualified as Nested
 
 import Data.Int (Int64)
 import HordeAd.Core.TensorClass
@@ -67,7 +67,7 @@ rfromIndex1 :: forall n r ranked.
                , GoodScalar r, RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
             => IndexOf ranked n -> ranked r 1
 rfromIndex1 = case sameNat (Proxy @n) (Proxy @0) of
-  Just Refl -> const $ rconst $ Nested.Internal.rfromListPrimLinear (0 :$: ZSR) []
+  Just Refl -> const $ rconst $ Nested.rfromListPrimLinear (0 :$: ZSR) []
   _ -> rfromIntegral . rconstant . rfromList . NonEmpty.fromList . indexToList
 
 rint64FromIndex1 :: forall n ranked.
@@ -76,7 +76,7 @@ rint64FromIndex1 :: forall n ranked.
                     , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
                  => IndexOf ranked n -> ranked Int64 1
 rint64FromIndex1 = case sameNat (Proxy @n) (Proxy @0) of
-  Just Refl -> const $ rconst $ Nested.Internal.rfromListPrimLinear (0 :$: ZSR) []
+  Just Refl -> const $ rconst $ Nested.rfromListPrimLinear (0 :$: ZSR) []
   _ -> rconstant . rfromList . NonEmpty.fromList . indexToList
 
 rint64ToIndex1 :: forall n ranked.

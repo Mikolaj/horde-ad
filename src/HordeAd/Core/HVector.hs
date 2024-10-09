@@ -34,8 +34,7 @@ import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat, type (+))
 import Type.Reflection (typeRep)
 
-import Data.Array.Mixed.Types qualified as X
-import Data.Array.Nested (ShR (..))
+import Data.Array.Nested (ShR (..), type (++))
 
 import HordeAd.Core.Types
 import HordeAd.Internal.OrthotopeOrphanInstances ()
@@ -376,8 +375,8 @@ index1HVectorF :: ( shaped ~ ShapedOf ranked
                    => ranked r (m + n) -> IndexOf ranked m -> ranked r n)
                -> (forall r sh1 sh2.
                    ( GoodScalar r, KnownShS sh1, KnownShS sh2
-                   , KnownShS (sh1 X.++ sh2) )
-                   => shaped r (sh1 X.++ sh2) -> ShapedList.IndexSh shaped sh1
+                   , KnownShS (sh1 ++ sh2) )
+                   => shaped r (sh1 ++ sh2) -> ShapedList.IndexSh shaped sh1
                    -> shaped r sh2)
                -> HVector ranked -> IntOf ranked -> HVector ranked
 {-# INLINE index1HVectorF #-}
@@ -394,8 +393,8 @@ index1DynamicF :: ( shaped ~ ShapedOf ranked
                    => ranked r (m + n) -> IndexOf ranked m -> ranked r n)
                -> (forall r sh1 sh2.
                    ( GoodScalar r, KnownShS sh1, KnownShS sh2
-                   , KnownShS (sh1 X.++ sh2) )
-                   => shaped r (sh1 X.++ sh2) -> ShapedList.IndexSh shaped sh1
+                   , KnownShS (sh1 ++ sh2) )
+                   => shaped r (sh1 ++ sh2) -> ShapedList.IndexSh shaped sh1
                    -> shaped r sh2)
                -> DynamicTensor ranked -> IntOf ranked -> DynamicTensor ranked
 {-# INLINE index1DynamicF #-}

@@ -14,7 +14,6 @@ import Test.Tasty
 import Test.Tasty.HUnit hiding (assert)
 
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Internal.Ranked qualified as Nested.Internal
 
 import HordeAd
 import HordeAd.Core.AstFreshId (resetVarCounter)
@@ -429,7 +428,7 @@ testGatherTransposeBuild335 =
     (OR.fromList [2, 1] [1,1])
     (rev' @Double @3
           (\t ->
-             rreplicate 2 t * rtranspose [2,0,1] (rreplicate 2 (rreplicate 1 (rfromIntegral @_ @Int64 (rconst $ Nested.Internal.rfromListPrimLinear (fromList [2]) [0, 1])))))
+             rreplicate 2 t * rtranspose [2,0,1] (rreplicate 2 (rreplicate 1 (rfromIntegral @_ @Int64 (rconst $ Nested.rfromListPrimLinear (fromList [2]) [0, 1])))))
          (FlipR $ OR.fromList [2, 1] [1,2]))
 
 testGatherTransposeBuild336 :: Assertion

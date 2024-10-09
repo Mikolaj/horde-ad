@@ -26,7 +26,7 @@ import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat, Nat)
 import System.IO.Unsafe (unsafePerformIO)
 
-import Data.Array.Mixed.Shape qualified as X
+import Data.Array.Nested (Rank)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.HVector
@@ -271,9 +271,9 @@ funToAstRevIO ftk | Dict <- lemTensorKindOfF ftk = do
           f i (DynamicRankedDummy @r @sh _ _)
             | Dict <- lemKnownNatRank (knownShS @sh) = do
               return
-                ( DynamicRanked @r @(X.Rank sh)
+                ( DynamicRanked @r @(Rank sh)
                                 (AstGeneric $ AstProjectR astVarPrimal i)
-                , DynamicRanked @r @(X.Rank sh)
+                , DynamicRanked @r @(Rank sh)
                                 (AstGeneric $ AstProjectR astVar i) )
           f i (DynamicShapedDummy @r @sh _ _) = do
             return
@@ -332,11 +332,11 @@ funToAstFwdIO ftk | Dict <- lemTensorKindOfF ftk = do
           f i (DynamicRankedDummy @r @sh _ _)
             | Dict <- lemKnownNatRank (knownShS @sh) = do
               return
-                ( DynamicRanked @r @(X.Rank sh)
+                ( DynamicRanked @r @(Rank sh)
                                 (AstGeneric $ AstProjectR astVarPrimalD i)
-                , DynamicRanked @r @(X.Rank sh)
+                , DynamicRanked @r @(Rank sh)
                                 (AstGeneric $ AstProjectR astVarPrimal i)
-                , DynamicRanked @r @(X.Rank sh)
+                , DynamicRanked @r @(Rank sh)
                                 (AstGeneric $ AstProjectR astVar i) )
           f i (DynamicShapedDummy @r @sh _ _) = do
             return
