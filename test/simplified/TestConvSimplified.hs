@@ -17,7 +17,6 @@ import Test.Tasty
 import Test.Tasty.HUnit hiding (assert)
 
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Internal.Ranked qualified as Nested.Internal
 
 import HordeAd
 import HordeAd.Core.AstEnv
@@ -112,12 +111,12 @@ slicezF shOut d ixBase =
 conv2d1
   :: (ADReady ranked, GoodScalar r, Differentiable r)
   => ranked r 4 -> ranked r 4
-conv2d1 = conv2d $ rconst $ Nested.Internal.rfromListPrimLinear (fromList [1, 1, 1, 1]) [-0.2]
+conv2d1 = conv2d $ rconst $ Nested.rfromListPrimLinear (fromList [1, 1, 1, 1]) [-0.2]
 
 conv2dA
   :: (ADReady ranked, GoodScalar r, Differentiable r)
   => ranked r 4 -> ranked r 4
-conv2dA = conv2d $ rconst $ Nested.Internal.rfromListPrimLinear (fromList [1, 2, 1, 1]) [-0.2, 25.0003]
+conv2dA = conv2d $ rconst $ Nested.rfromListPrimLinear (fromList [1, 2, 1, 1]) [-0.2, 25.0003]
 
 conv2dB
   :: (ADReady ranked, GoodScalar r, Differentiable r)
@@ -167,13 +166,13 @@ testKonstG0LittleA =
 conv2d1Laborious
   :: (ADReady ranked, GoodScalar r, Differentiable r)
   => ranked r 4 -> ranked r 4
-conv2d1Laborious = conv2dUnpadded $ rconst $ Nested.Internal.rfromListPrimLinear (fromList [1, 1, 1, 1]) [-0.2]
+conv2d1Laborious = conv2dUnpadded $ rconst $ Nested.rfromListPrimLinear (fromList [1, 1, 1, 1]) [-0.2]
 
 conv2dALaborious
   :: (ADReady ranked, GoodScalar r, Differentiable r)
   => ranked r 4 -> ranked r 4
 conv2dALaborious =
-  conv2dUnpadded $ rconst $ Nested.Internal.rfromListPrimLinear (fromList [1, 2, 1, 1]) [-0.2, 25.0003]
+  conv2dUnpadded $ rconst $ Nested.rfromListPrimLinear (fromList [1, 2, 1, 1]) [-0.2, 25.0003]
 
 conv2dBLaborious
   :: (ADReady ranked, GoodScalar r, Differentiable r)

@@ -30,11 +30,9 @@ import Data.Vector.Storable qualified as VS
 import GHC.TypeLits (KnownNat, Nat, sameNat)
 import Numeric.LinearAlgebra (Numeric)
 
-import Data.Array.Mixed.Internal.Arith qualified as Mixed.Internal.Arith
-import Data.Array.Mixed.Shape qualified as X
-import Data.Array.Mixed.Types qualified as Mixed.Types
-import Data.Array.Nested (KnownShS (..))
+import Data.Array.Mixed.Internal.Arith qualified as Mixed.Internal.Arith (liftVEltwise2)
 import Data.Array.Nested qualified as Nested
+import Data.Array.Nested (KnownShS (..), Rank, Replicate, MapJust)
 import Data.Array.Nested.Internal.Mixed qualified as Nested.Internal.Mixed
 import Data.Array.Nested.Internal.Ranked qualified as Nested.Internal
 import Data.Array.Nested.Internal.Shaped qualified as Nested.Internal
@@ -112,7 +110,7 @@ instance (Nested.PrimElt r, Integral r, Numeric r)
 class Floating a => RealFloatF a where
   atan2F :: a -> a -> a
 
-instance (Mixed.Internal.Arith.NumElt r, Nested.PrimElt r, RealFloat r, Mixed.Internal.Arith.FloatElt r, Numeric r)
+instance (Nested.NumElt r, Nested.PrimElt r, RealFloat r, Nested.FloatElt r, Numeric r)
          => RealFloatF (Nested.Ranked n r) where
   atan2F = Nested.Internal.arithPromoteRanked2
             (Nested.Internal.Mixed.mliftNumElt2
@@ -126,7 +124,7 @@ instance (Mixed.Internal.Arith.NumElt r, Nested.PrimElt r, RealFloat r, Mixed.In
                              , either (V.replicate (V.length x)) id y' )
                      in V.zipWith atan2 x y)))  -- TODO: do better somehow
 
-instance (Mixed.Internal.Arith.NumElt r, Nested.PrimElt r, RealFloat r, Mixed.Internal.Arith.FloatElt r, Numeric r)
+instance (Nested.NumElt r, Nested.PrimElt r, RealFloat r, Nested.FloatElt r, Numeric r)
          => RealFloatF (Nested.Shaped sh r) where
   atan2F = Nested.Internal.arithPromoteShaped2
             (Nested.Internal.Mixed.mliftNumElt2
@@ -150,17 +148,17 @@ instance (Show r, VS.Storable r, KnownNat n)
   showsPrec d (FlipR u) =
     showString "Flip " . showParen True (showsPrec d u)
 
-instance (Nested.Elt r, Show r, Show (Nested.Mixed (Mixed.Types.Replicate n Nothing) r))
+instance (Nested.Elt r, Show r, Show (Nested.Mixed (Replicate n Nothing) r))
          => Show (FlipR Nested.Ranked r n) where
   showsPrec :: Int -> FlipR Nested.Ranked r n -> ShowS
   showsPrec d (FlipR u) =
     showString "Flip " . showParen True (showsPrec d u)
 
-instance (Eq r, KnownNat n, Eq (Nested.Mixed (Mixed.Types.Replicate n Nothing) r)) => Eq (FlipR Nested.Ranked r n) where
+instance (Eq r, KnownNat n, Eq (Nested.Mixed (Replicate n Nothing) r)) => Eq (FlipR Nested.Ranked r n) where
   (==) :: FlipR Nested.Ranked r n -> FlipR Nested.Ranked r n -> Bool
   FlipR u == FlipR v = u == v
 
-instance (Ord r, KnownNat n, Eq (Nested.Mixed (Mixed.Types.Replicate n Nothing) r), Ord (Nested.Mixed (Mixed.Types.Replicate n Nothing) r)) => Ord (FlipR Nested.Ranked r n) where
+instance (Ord r, KnownNat n, Eq (Nested.Mixed (Replicate n Nothing) r), Ord (Nested.Mixed (Replicate n Nothing) r)) => Ord (FlipR Nested.Ranked r n) where
   FlipR u <= FlipR v = u <= v
 
 -- TODO: This is only to ensure fromInteger crashes promptly if not rank 0.
@@ -196,17 +194,17 @@ type role FlipS nominal nominal nominal
 type FlipS :: forall {k}. ([Nat] -> k -> Type) -> k -> [Nat] -> Type
 newtype FlipS p a (b :: [Nat]) = FlipS { runFlipS :: p b a }
 
-instance (Nested.Elt r, Show r, Show (Nested.Mixed (Mixed.Types.MapJust sh) r))
+instance (Nested.Elt r, Show r, Show (Nested.Mixed (MapJust sh) r))
          => Show (FlipS Nested.Shaped r sh) where
   showsPrec :: Int -> FlipS Nested.Shaped r sh -> ShowS
   showsPrec d (FlipS u) =
     showString "FlipS " . showParen True (showsPrec d u)
 
-instance (Eq r, KnownShS sh, Eq (Nested.Mixed (Mixed.Types.MapJust sh) r)) => Eq (FlipS Nested.Shaped r sh) where
+instance (Eq r, KnownShS sh, Eq (Nested.Mixed (MapJust sh) r)) => Eq (FlipS Nested.Shaped r sh) where
   (==) :: FlipS Nested.Shaped r sh -> FlipS Nested.Shaped r sh -> Bool
   FlipS u == FlipS v = u == v
 
-instance (Ord r, KnownShS sh, Eq (Nested.Mixed (Mixed.Types.MapJust sh) r), Ord (Nested.Mixed (Mixed.Types.MapJust sh) r)) => Ord (FlipS Nested.Shaped r sh) where
+instance (Ord r, KnownShS sh, Eq (Nested.Mixed (MapJust sh) r), Ord (Nested.Mixed (MapJust sh) r)) => Ord (FlipS Nested.Shaped r sh) where
   FlipS u <= FlipS v = u <= v
 
 deriving instance Num (f a b) => Num (FlipS f b a)
@@ -259,6 +257,6 @@ instance (KnownNat n, VS.Storable r, Fractional r)
     Nothing -> error $ "OR.fromRational: shape unknown at rank "
                        ++ show (valueOf @n :: Int)
 
-instance (Sh.Shape sh, X.Rank sh ~ n)
+instance (Sh.Shape sh, Rank sh ~ n)
          => Convert (OS.Array sh a) (OR.Array n a) where
   convert (SS.A a@(SG.A t)) = RS.A (RG.A (SG.shapeL a) t)

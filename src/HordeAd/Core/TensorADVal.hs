@@ -29,10 +29,9 @@ import Type.Reflection (typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Mixed.Shape qualified as X
-import Data.Array.Nested.Internal.Ranked qualified as Nested.Internal
+import Data.Array.Nested (Rank)
+import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
-import Data.Array.Nested.Internal.Shaped qualified as Nested.Internal
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.Delta
@@ -348,7 +347,7 @@ instance (ADReadyNoLet ranked, ShareTensor ranked, ShareTensor (PrimalOf ranked)
           => Int -> (IntOf (ADVal ranked) -> ADVal ranked r n)
           -> ADVal ranked r (1 + n)
   rbuild1 0 _ = case sameNat (Proxy @n) (Proxy @0) of
-    Just Refl -> rconst $ Nested.Internal.rfromListPrimLinear (0 :$: ZSR) []
+    Just Refl -> rconst $ Nested.rfromListPrimLinear (0 :$: ZSR) []
                    -- the only case where we can guess sh
     _ ->  error "rbuild1: shape ambiguity, no arguments"
   rbuild1 k f = rfromList $ NonEmpty.fromList
@@ -366,11 +365,11 @@ instance (ADReadyNoLet ranked, ShareTensor ranked, ShareTensor (PrimalOf ranked)
     in dDnotShared v (dZeroOfShape v)
   rconst t = constantADVal (rconst t)
   rfromS :: forall r sh. (GoodScalar r, KnownShS sh)
-         => ADVal (ShapedOf ranked) r sh -> ADVal ranked r (X.Rank sh)
+         => ADVal (ShapedOf ranked) r sh -> ADVal ranked r (Rank sh)
   rfromS (D u u') = dDnotShared (rfromS u) (DeltaR $ dRFromS $ unDeltaS u')
    where
     dRFromS :: (GoodScalar r2, KnownShS sh2)
-            => Delta ranked (TKS r2 sh2) -> Delta ranked (TKR r2 (X.Rank sh2))
+            => Delta ranked (TKS r2 sh2) -> Delta ranked (TKR r2 (Rank sh2))
     dRFromS (SFromR d) = d  -- no information lost, so no checks
     dRFromS d = RFromS d
 
@@ -457,14 +456,14 @@ instance (ADReadyNoLetS shaped, ShareTensor (RankedOf shaped)
 
   stranspose :: forall perm r sh.
                 ( PermC perm, KnownShS sh
-                , X.Rank perm <= X.Rank sh, GoodScalar r )
+                , Rank perm <= Rank sh, GoodScalar r )
              => Permutation.Perm perm -> ADVal shaped r sh
              -> ADVal shaped r (Permutation.PermutePrefix perm sh)
   stranspose perm (D u (DeltaS u')) | Dict <- Nested.Internal.Shape.shsKnownShS (Nested.Internal.Shape.shsPermutePrefix perm (knownShS @sh)) =
     dD (stranspose perm u) (DeltaS $ TransposeS @_ @_ @_ @(RankedOf shaped) perm u')
   sreshape :: forall sh sh2 r.
               ( GoodScalar r, KnownShS sh, KnownShS sh2
-              , Nested.Internal.Shape.Product sh ~ Nested.Internal.Shape.Product sh2)
+              , Nested.Product sh ~ Nested.Product sh2)
            => ADVal shaped r sh -> ADVal shaped r sh2
   sreshape t@(D u (DeltaS u')) = case sameShape @sh2 @sh of
     Just Refl -> t
@@ -473,7 +472,7 @@ instance (ADReadyNoLetS shaped, ShareTensor (RankedOf shaped)
           => (IntOf (ADVal shaped) -> ADVal shaped r sh)
           -> ADVal shaped r (n ': sh)
   sbuild1 f = case valueOf @n of
-    0 -> sconst $ Nested.Internal.sfromListPrimLinear knownShS []
+    0 -> sconst $ Nested.sfromListPrimLinear knownShS []
     k -> sfromList $ NonEmpty.fromList
                    $ map (f . fromIntegral)
                          [0 :: Int .. k - 1]
@@ -486,8 +485,8 @@ instance (ADReadyNoLetS shaped, ShareTensor (RankedOf shaped)
     let v = sfromIntegral u
     in dDnotShared v (dZeroOfShape v)
   sconst t = constantADVal (sconst t)
-  sfromR :: forall r sh. (GoodScalar r, KnownShS sh, KnownNat (X.Rank sh))
-         => ADVal (RankedOf shaped) r (X.Rank sh) -> ADVal shaped r sh
+  sfromR :: forall r sh. (GoodScalar r, KnownShS sh, KnownNat (Rank sh))
+         => ADVal (RankedOf shaped) r (Rank sh) -> ADVal shaped r sh
   sfromR (D u u') = dDnotShared (sfromR u) (DeltaS $ dSFromR u')
    where
     dSFromR (DeltaR (RFromS @sh1 d)) =
@@ -833,7 +832,7 @@ aDValDynamicTensor (DynamicRankedDummy @r1 @sh1 _ _)
   | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
   , Just Refl <- matchingRank @sh1 @n2 =
     withListShape (shapeT @sh1) $ \(sh4 :: IShR n4) ->
-      gcastWith (unsafeCoerce Refl :: n4 :~: X.Rank sh1) $
+      gcastWith (unsafeCoerce Refl :: n4 :~: Rank sh1) $
       DynamicRanked (dDnotShared (rzero sh4) t')
 aDValDynamicTensor (DynamicShapedDummy @r1 @sh1 _ _)
                    (DynamicShaped @r2 @sh2 t')
@@ -846,7 +845,7 @@ aDValDynamicTensor (DynamicRanked @r1 @n1 t')
   | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
   , Just Refl <- matchingRank @sh2 @n1 =
     withListShape (shapeT @sh2) $ \(sh4 :: IShR n4) ->
-      gcastWith (unsafeCoerce Refl :: n4 :~: X.Rank sh2) $
+      gcastWith (unsafeCoerce Refl :: n4 :~: Rank sh2) $
       DynamicRanked (dDnotShared t' (DeltaR $ ZeroR sh4))
 aDValDynamicTensor (DynamicShaped @r1 @sh1 t')
                    (DynamicShapedDummy @r2 @sh2 _ _)

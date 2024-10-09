@@ -27,8 +27,7 @@ import Type.Reflection (typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Mixed.Shape qualified as X
-import Data.Array.Mixed.Types qualified as X
+import Data.Array.Nested (type (++), Rank)
 
 import HordeAd.Core.Ast (AstTensor)
 import HordeAd.Core.Ast hiding (AstBool (..), AstTensor (..))
@@ -363,12 +362,12 @@ build1V snat@SNat (var, v00) =
     Ast.AstIndexS @sh1 v ix -> traceRule $ case stensorKind @y of
      STKS @_ @sh _ _ ->
       gcastWith (unsafeCoerce Refl
-                 :: Sh.Take (X.Rank sh1) (sh1 X.++ sh) :~: sh1) $
+                 :: Sh.Take (Rank sh1) (sh1 ++ sh) :~: sh1) $
       gcastWith (unsafeCoerce Refl
-                 :: Sh.Drop (X.Rank sh1) (sh1 X.++ sh) :~: sh) $
+                 :: Sh.Drop (Rank sh1) (sh1 ++ sh) :~: sh) $
       withListSh (Proxy @sh1) $ \(_ :: IShR rankSh1) ->
-      gcastWith (unsafeCoerce Refl :: rankSh1 :~: X.Rank sh1) $
-      build1VIndexS @k @(X.Rank sh1) (var, v, ix)  -- @var@ is in @v@ or @ix@
+      gcastWith (unsafeCoerce Refl :: rankSh1 :~: Rank sh1) $
+      build1VIndexS @k @(Rank sh1) (var, v, ix)  -- @var@ is in @v@ or @ix@
     Ast.AstSumS v -> traceRule $
       astSumS $ astTrS $ build1V snat (var, v)
     Ast.AstScatterS @sh2 @p @sh3 v (vars, ix) -> traceRule $
@@ -399,7 +398,7 @@ build1V snat@SNat (var, v00) =
         gcastWith (unsafeCoerce Refl
                    :: Permutation.PermutePrefix (0 : Permutation.MapSucc perm) (k : sh1) :~: k : sh) $
         gcastWith (unsafeCoerce Refl
-                   :: X.Rank (0 : Permutation.MapSucc perm) :~: 1 + X.Rank perm) $
+                   :: Rank (0 : Permutation.MapSucc perm) :~: 1 + Rank perm) $
         trustMeThisIsAPermutation @(0 : Permutation.MapSucc perm)
         $ astTransposeS zsuccPerm $ build1V snat (var, v)
     Ast.AstReshapeS @sh2 v -> traceRule $
@@ -544,7 +543,7 @@ build1VIndex snat@SNat (var, v0, ix@(_ :.: _)) =
 
 -- * Vectorization of AstShaped
 
--- TODO: we avoid constraint KnownNat (X.Rank sh) that would infect
+-- TODO: we avoid constraint KnownNat (Rank sh) that would infect
 -- a lot of AstShaped constructor and from there a lot of the codebase.
 -- This should be solved in a cleaner way.
 --
@@ -567,7 +566,7 @@ intBindingRefreshS var ix =
 build1VIndexS
   :: forall k p sh s r.
      ( GoodScalar r, KnownNat k, KnownNat p, KnownShS sh, KnownShS (Sh.Take p sh)
-     , KnownShS (Sh.Drop p (Sh.Take p sh X.++ Sh.Drop p sh)), AstSpan s )
+     , KnownShS (Sh.Drop p (Sh.Take p sh ++ Sh.Drop p sh)), AstSpan s )
   => (IntVarName, AstTensor AstMethodLet s (TKS r sh), AstIndexS AstMethodLet (Sh.Take p sh))
   -> AstTensor AstMethodLet s (TKS r (k ': Sh.Drop p sh))
 build1VIndexS (var, v0, ZIS) =
@@ -576,7 +575,7 @@ build1VIndexS (var, v0, ZIS) =
     -- so the application of this function wouldn't type-check
   $ build1VOccurenceUnknown (SNat @k) (var, v0)
 build1VIndexS (var, v0, ix@(_ :.$ _)) =
-  gcastWith (unsafeCoerce Refl :: sh :~: Sh.Take p sh X.++ Sh.Drop p sh) $
+  gcastWith (unsafeCoerce Refl :: sh :~: Sh.Take p sh ++ Sh.Drop p sh) $
   let vTrace = Ast.AstBuild1 (SNat @k) (var, Ast.AstIndexS v0 ix)
       traceRule = mkTraceRule "build1VIndexS" vTrace v0 1
   in if varNameInAst var v0
@@ -585,16 +584,16 @@ build1VIndexS (var, v0, ix@(_ :.$ _)) =
          build1VOccurenceUnknown (SNat @k) (var, v1)
        v@(Ast.AstIndexS @sh1 v1 ix1) -> traceRule $
          gcastWith (unsafeCoerce Refl
-                    :: k ': sh1 :~: Sh.Take (1 + X.Rank sh1)
-                                            (k ': sh1 X.++ Sh.Drop p sh)) $
+                    :: k ': sh1 :~: Sh.Take (1 + Rank sh1)
+                                            (k ': sh1 ++ Sh.Drop p sh)) $
          gcastWith (unsafeCoerce Refl
                     :: Sh.Drop p sh
-                       :~: Sh.Drop (1 + X.Rank sh1)
-                                   (k ': sh1 X.++ Sh.Drop p sh)) $
+                       :~: Sh.Drop (1 + Rank sh1)
+                                   (k ': sh1 ++ Sh.Drop p sh)) $
          withListSh (Proxy @sh1) $ \(_ :: IShR rankSh1Plus1) ->
-         gcastWith (unsafeCoerce Refl :: rankSh1Plus1 :~: 1 + X.Rank sh1) $
+         gcastWith (unsafeCoerce Refl :: rankSh1Plus1 :~: 1 + Rank sh1) $
          let (varFresh, astVarFresh, ix2) = intBindingRefreshS var ix1
-             ruleD = astGatherStepS @'[k] @(1 + X.Rank sh1)
+             ruleD = astGatherStepS @'[k] @(1 + Rank sh1)
                                     (build1V (SNat @k) (var, v1))
                                     (Const varFresh ::$ ZS, astVarFresh :.$ ix2)
              len = length $ shapeT @sh1
@@ -770,7 +769,7 @@ astTrDynamic t@(DynamicShaped @_ @sh (AstGenericS u)) =
       sh1Permuted = permute10 sh1
   in withShapeP sh1Permuted $ \(Proxy @shPermuted) ->
        withListSh (Proxy @sh) $ \_ ->
-         case cmpNat (Proxy @2) (Proxy @(X.Rank sh)) of
+         case cmpNat (Proxy @2) (Proxy @(Rank sh)) of
            EQI -> case astTransposeS (Permutation.makePerm @'[1, 0]) u of
              (w :: AstTensor AstMethodLet s4 (TKS r4 sh4)) ->
                gcastWith (unsafeCoerce Refl :: sh4 :~: shPermuted) $

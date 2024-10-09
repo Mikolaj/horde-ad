@@ -25,7 +25,7 @@ import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat, sameNat, type (+))
 import Type.Reflection (typeRep)
 
-import Data.Array.Mixed.Types qualified as X
+import Data.Array.Nested (type (++))
 
 import HordeAd.Core.Delta
 import HordeAd.Core.HVector
@@ -258,8 +258,8 @@ instance ( RankedTensor ranked, ShareTensor ranked
 indexPrimalS :: ( ShapedTensor shaped, ShareTensor (RankedOf shaped)
                 , ProductTensor (RankedOf shaped)
                 , GoodScalar r, KnownShS sh1, KnownShS sh2
-                , KnownShS (sh1 X.++ sh2) )
-             => ADVal shaped r (sh1 X.++ sh2) -> IndexSh shaped sh1
+                , KnownShS (sh1 ++ sh2) )
+             => ADVal shaped r (sh1 ++ sh2) -> IndexSh shaped sh1
              -> ADVal shaped r sh2
 indexPrimalS (D u u') ix = dD (sindex u ix) (DeltaS $ IndexS (unDeltaS u') ix)
 

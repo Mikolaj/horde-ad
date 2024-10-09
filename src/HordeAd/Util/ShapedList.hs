@@ -43,10 +43,9 @@ import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat, Nat)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Mixed.Shape qualified as X
-import Data.Array.Mixed.Types qualified as X
 import Data.Array.Nested
-  (IxS (..), ListS, pattern (:.$), pattern (::$), pattern ZIS, pattern ZS)
+  (IxS (..), ListS, pattern (:.$), pattern (::$), pattern ZIS, pattern ZS,
+   type (++), Rank)
 import Data.Array.Nested.Internal.Shape (listsToList, shsToList)
 
 import HordeAd.Core.Types
@@ -67,9 +66,9 @@ type SizedListS n i = ListS n i
 singletonSized :: KnownNat n => i n -> SizedListS '[n] i
 singletonSized i = i ::$ ZS
 
-appendSized :: KnownShS (sh2 X.++ sh)
+appendSized :: KnownShS (sh2 ++ sh)
             => SizedListS sh2 (Const i) -> SizedListS sh (Const i)
-            -> SizedListS (sh2 X.++ sh) (Const i)
+            -> SizedListS (sh2 ++ sh) (Const i)
 appendSized l1 l2 = listToSized $ sizedToList l1 ++ sizedToList l2
 
 headSized :: SizedListS (n ': sh) i -> i n
@@ -139,8 +138,8 @@ listToSized = fromList
 sizedToList :: SizedListS sh (Const i) -> [i]
 sizedToList = listsToList
 
--- shapedToSized :: KnownNat (X.Rank sh)
---               => SizedListS sh i -> SizedList.SizedList (X.Rank sh) i
+-- shapedToSized :: KnownNat (Rank sh)
+--               => SizedListS sh i -> SizedList.SizedList (Rank sh) i
 -- shapedToSized = SizedList.listToSized . sizedToList
 
 
@@ -156,8 +155,8 @@ pattern IndexS l = IxS l
 singletonIndex :: KnownNat n => i -> IndexS '[n] i
 singletonIndex i = i :.$ ZIS
 
-appendIndex :: KnownShS (sh2 X.++ sh)
-            => IndexS sh2 i -> IndexS sh i -> IndexS (sh2 X.++ sh) i
+appendIndex :: KnownShS (sh2 ++ sh)
+            => IndexS sh2 i -> IndexS sh i -> IndexS (sh2 ++ sh) i
 appendIndex (IndexS ix1) (IndexS ix2) = IndexS $ appendSized ix1 ix2
 
 zipWith_Index :: (i -> j -> k) -> IndexS sh i -> IndexS sh j -> IndexS sh k
@@ -175,11 +174,11 @@ indexToList = Foldable.toList
 -- sizedToIndex :: SizedListS sh i -> IndexS sh i
 -- sizedToIndex = IndexS
 
-shapedToIndex :: KnownNat (X.Rank sh)
-              => IndexS sh i -> SizedList.Index (X.Rank sh) i
+shapedToIndex :: KnownNat (Rank sh)
+              => IndexS sh i -> SizedList.Index (Rank sh) i
 shapedToIndex = SizedList.listToIndex . indexToList
 
-ixsLengthSNat :: IxS list i -> SNat (X.Rank list)
+ixsLengthSNat :: IxS list i -> SNat (Rank list)
 ixsLengthSNat ZIS = SNat
 ixsLengthSNat (_ :.$ l) | SNat <- ixsLengthSNat l = SNat
 
@@ -213,14 +212,14 @@ dropShS ix = listToShape $ drop (valueOf @len) $ shapeToList ix
 -- which is fine, that's pointing at the start of the empty buffer.
 -- Note that the resulting 0 may be a complex term.
 toLinearIdx :: forall sh1 sh2 j. (KnownShS sh2, Num j)
-            => (Int -> j) -> ShS (sh1 X.++ sh2) -> IndexS sh1 j -> j
+            => (Int -> j) -> ShS (sh1 ++ sh2) -> IndexS sh1 j -> j
 toLinearIdx fromInt = \sh idx -> go sh idx (fromInt 0)
   where
     -- Additional argument: index, in the @m - m1@ dimensional array so far,
     -- of the @m - m1 + n@ dimensional tensor pointed to by the current
     -- @m - m1@ dimensional index prefix.
-    go :: forall sh3. ShS (sh3 X.++ sh2) -> IndexS sh3 j -> j -> j
-    go _sh ZIS tensidx = fromInt (sizeT @(sh3 X.++ sh2)) * tensidx
+    go :: forall sh3. ShS (sh3 ++ sh2) -> IndexS sh3 j -> j -> j
+    go _sh ZIS tensidx = fromInt (sizeT @(sh3 ++ sh2)) * tensidx
     go ((:$$) n sh) (i :.$ idx) tensidx =
       go sh idx (fromInt (sNatValue n) * tensidx + i)
     go _ _ _ = error "toLinearIdx: impossible pattern needlessly required"

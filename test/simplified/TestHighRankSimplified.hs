@@ -11,10 +11,8 @@ import GHC.TypeLits (KnownNat, type (+), type (-), type (<=))
 import Test.Tasty
 import Test.Tasty.HUnit hiding (assert)
 
-import Data.Array.Mixed.Shape qualified as X
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
-import Data.Array.Nested.Internal.Shaped qualified as Nested.Internal
+import Data.Array.Nested (Rank)
 
 import HordeAd
 import HordeAd.Core.AstFreshId (resetVarCounter)
@@ -111,7 +109,7 @@ _testBar =
 _testBarS :: Assertion
 _testBarS =
   assertEqualUpToEpsilon 1e-5
-    (sconst $ Nested.Internal.sfromListPrimLinear @_ @'[3, 1, 2, 2, 1, 2, 2] knownShS [304.13867,914.9335,823.0187,1464.4688,5264.3306,1790.0055,1535.4309,3541.6572,304.13867,914.9335,823.0187,1464.4688,6632.4355,6047.113,1535.4309,1346.6815,45.92141,6.4903135,5.5406737,1.4242969,6.4903135,1.1458766,4.6446533,2.3550234,88.783676,27.467598,125.27507,18.177452,647.1915,0.3878851,2177.6152,786.1792,6.4903135,6.4903135,6.4903135,6.4903135,2.3550234,2.3550234,2.3550234,2.3550234,21.783596,2.3550234,2.3550234,2.3550234,21.783596,21.783596,21.783596,21.783596], sconst $ Nested.Internal.sfromListPrimLinear @_ @'[3, 1, 2, 2, 1, 2, 2] knownShS [-5728.7617,24965.113,32825.07,-63505.953,-42592.203,145994.88,-500082.5,-202480.06,-5728.7617,24965.113,32825.07,-63505.953,49494.473,-2446.7632,-500082.5,-125885.58,-43.092484,-1.9601002,-98.97709,2.1931143,-1.9601002,1.8243169,-4.0434446,-1.5266153,2020.9731,-538.0603,-84.28137,62.963814,-34986.996,-9.917454,135.30023,17741.998,-1.9601002,-1.9601002,-1.9601002,-1.9601002,-1.5266153,-1.5266153,-1.5266153,-1.5266153,-4029.1775,-1.5266153,-1.5266153,-1.5266153,-4029.1775,-4029.1775,-4029.1775,-4029.1775])
+    (sconst $ Nested.sfromListPrimLinear @_ @'[3, 1, 2, 2, 1, 2, 2] knownShS [304.13867,914.9335,823.0187,1464.4688,5264.3306,1790.0055,1535.4309,3541.6572,304.13867,914.9335,823.0187,1464.4688,6632.4355,6047.113,1535.4309,1346.6815,45.92141,6.4903135,5.5406737,1.4242969,6.4903135,1.1458766,4.6446533,2.3550234,88.783676,27.467598,125.27507,18.177452,647.1915,0.3878851,2177.6152,786.1792,6.4903135,6.4903135,6.4903135,6.4903135,2.3550234,2.3550234,2.3550234,2.3550234,21.783596,2.3550234,2.3550234,2.3550234,21.783596,21.783596,21.783596,21.783596], sconst $ Nested.sfromListPrimLinear @_ @'[3, 1, 2, 2, 1, 2, 2] knownShS [-5728.7617,24965.113,32825.07,-63505.953,-42592.203,145994.88,-500082.5,-202480.06,-5728.7617,24965.113,32825.07,-63505.953,49494.473,-2446.7632,-500082.5,-125885.58,-43.092484,-1.9601002,-98.97709,2.1931143,-1.9601002,1.8243169,-4.0434446,-1.5266153,2020.9731,-538.0603,-84.28137,62.963814,-34986.996,-9.917454,135.30023,17741.998,-1.9601002,-1.9601002,-1.9601002,-1.9601002,-1.5266153,-1.5266153,-1.5266153,-1.5266153,-4029.1775,-1.5266153,-1.5266153,-1.5266153,-4029.1775,-4029.1775,-4029.1775,-4029.1775])
     (crev (barF @(ADVal OSArray Float '[3, 1, 2, 2, 1, 2, 2])) (sfromR t48, sfromR t48))
 
 -- A dual-number and list-based version of a function that goes
@@ -212,8 +210,8 @@ testFooBuild25 =
 
 fooBuild2S
   :: forall k sh ranked r shaped.
-     (ADReady ranked, GoodScalar r, KnownNat k, Floating (shaped r sh), RealFloat r, shaped ~ ShapedOf ranked, KnownShS sh, KnownNat (Nested.Internal.Shape.Product (k : sh)))
-  => shaped r (k : sh) -> ranked r (1 + X.Rank sh)
+     (ADReady ranked, GoodScalar r, KnownNat k, Floating (shaped r sh), RealFloat r, shaped ~ ShapedOf ranked, KnownShS sh, KnownNat (Nested.Product (k : sh)))
+  => shaped r (k : sh) -> ranked r (1 + Rank sh)
 fooBuild2S v = rfromS $
   sbuild1 @_ @_ @2 $ \ix ->
     ifF (sfromR ix - (sprimalPart . sfloor) (ssum0 @shaped @r @[5,12,11,9,4]

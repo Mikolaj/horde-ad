@@ -32,11 +32,10 @@ import Numeric.LinearAlgebra (Numeric)
 import Numeric.LinearAlgebra qualified as LA
 import Unsafe.Coerce (unsafeCoerce)
 
-import Data.Array.Mixed.Internal.Arith qualified as Mixed.Internal.Arith
+import Data.Array.Mixed.Internal.Arith qualified as Mixed.Internal.Arith (liftVEltwise1)
 import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Mixed.Shape qualified as X
-import Data.Array.Mixed.Types qualified as X
 import Data.Array.Nested qualified as Nested
+import Data.Array.Nested (type (++), Rank)
 import Data.Array.Nested.Internal.Mixed qualified as Nested.Internal.Mixed
 import Data.Array.Nested.Internal.Ranked qualified as Nested.Internal
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
@@ -63,7 +62,7 @@ type OSArray = FlipS Nested.Shaped
 
 -- We often debug around here, so let's add Show and obfuscate it
 -- to avoid warnings that it's unused. The addition silences warnings upstream.
-type NumAndShow r = (Nested.Elt r, Nested.PrimElt r, Mixed.Internal.Arith.NumElt r, Num r, Show r)
+type NumAndShow r = (Nested.Elt r, Nested.PrimElt r, Nested.NumElt r, Num r, Show r)
 
 type IndexInt n = Index n Int64
 
@@ -274,7 +273,7 @@ tfromListR = Nested.rfromListOuter  -- TODO: make this strict
 tfromList0NR
   :: NumAndShow r
   => IShR n -> [r] -> Nested.Ranked n r
-tfromList0NR = Nested.Internal.rfromListPrimLinear
+tfromList0NR = Nested.rfromListPrimLinear
   -- TODO: make this strict
 
 tfromVectorR
@@ -419,7 +418,7 @@ updateNS arr upd =
       f !t (ix, u) =
         let v = Nested.stoVector u
             i = gcastWith (unsafeCoerce Refl
-                           :: sh :~: Sh.Take n sh X.++ Sh.Drop n sh)
+                           :: sh :~: Sh.Take n sh ++ Sh.Drop n sh)
                 $ fromIntegral
                 $ ShapedList.toLinearIdx @(Sh.Take n sh) @(Sh.Drop n sh)
                                          fromIntegral sh ix
@@ -442,9 +441,9 @@ tminIndexS =
           case someNatVal $ toInteger $ length sh of
             Just (SomeNat _proxy) ->
               gcastWith (unsafeCoerce Refl
-                         :: Sh.Init (n ': sh) X.++ '[m] :~: n ': sh) $
+                         :: Sh.Init (n ': sh) ++ '[m] :~: n ': sh) $
               gcastWith (unsafeCoerce Refl
-                         :: Sh.Init (n ': sh) :~: Sh.Init (n ': sh) X.++ '[]) $
+                         :: Sh.Init (n ': sh) :~: Sh.Init (n ': sh) ++ '[]) $
               Nested.srerank @'[m] @'[] @(Sh.Init (n ': sh)) knownShS knownShS (f @m)
             Nothing -> error "tminIndexS: impossible someNatVal error"
         Nothing -> error "tminIndexS: impossible someNatVal error"
@@ -465,9 +464,9 @@ tmaxIndexS =
           case someNatVal $ toInteger $ length sh of
             Just (SomeNat _proxy) ->
               gcastWith (unsafeCoerce Refl
-                         :: Sh.Init (n ': sh) X.++ '[m] :~: n ': sh) $
+                         :: Sh.Init (n ': sh) ++ '[m] :~: n ': sh) $
               gcastWith (unsafeCoerce Refl
-                         :: Sh.Init (n ': sh) :~: Sh.Init (n ': sh) X.++ '[]) $
+                         :: Sh.Init (n ': sh) :~: Sh.Init (n ': sh) ++ '[]) $
               Nested.srerank @'[m] @'[] @(Sh.Init (n ': sh)) knownShS knownShS (f @m)
             Nothing -> error "tmaxIndexS: impossible someNatVal error"
         Nothing -> error "tmaxIndexS: impossible someNatVal error"
@@ -488,7 +487,7 @@ liftVS f =
 
 tindexNS
   :: forall sh1 sh2 r. NumAndShow r
-  => Nested.Shaped (sh1 X.++ sh2) r -> IndexIntSh sh1 -> Nested.Shaped sh2 r
+  => Nested.Shaped (sh1 ++ sh2) r -> IndexIntSh sh1 -> Nested.Shaped sh2 r
 tindexNS v ix = Nested.sindexPartial v (fmap fromIntegral ix)
 {- TODO
 tindexNS (SS.A (SG.A OI.T{strides, offset, values})) ix =
@@ -506,7 +505,7 @@ tindexNS (SS.A (SG.A OI.T{strides, offset, values})) ix =
 -- and return 0, so it's fine. Similarly in gather and scatter.
 tindexZS
   :: forall sh1 sh2 r. (NumAndShow r, KnownShS sh2)
-  => Nested.Shaped (sh1 X.++ sh2) r -> IndexIntSh sh1 -> Nested.Shaped sh2 r
+  => Nested.Shaped (sh1 ++ sh2) r -> IndexIntSh sh1 -> Nested.Shaped sh2 r
 tindexZS v ix =
   let sh = Nested.Internal.Shape.shsToList $ Nested.sshape v
   in if ixInBounds (ShapedList.indexToList ix) sh
@@ -549,7 +548,7 @@ tdot0S = Nested.sdot
 
 tdot1InS
   :: NumAndShow r
-  => Proxy n -> Nested.Shaped (sh X.++ '[n]) r -> Nested.Shaped (sh X.++ '[n]) r
+  => Proxy n -> Nested.Shaped (sh ++ '[n]) r -> Nested.Shaped (sh ++ '[n]) r
   -> Nested.Shaped sh r
 tdot1InS = Nested.sdot1Inner
 
@@ -585,7 +584,7 @@ tmatmul2S t u =
 -- permits index out of bounds and then no tensors is added at such an index.
 tscatterZS :: forall r sh2 p sh.
               (NumAndShow r, KnownShS sh, KnownShS sh2, KnownShS (Sh.Drop p sh))
-           => Nested.Shaped (sh2 X.++ Sh.Drop p sh) r
+           => Nested.Shaped (sh2 ++ Sh.Drop p sh) r
            -> (IndexIntSh sh2 -> IndexIntSh (Sh.Take p sh))
            -> Nested.Shaped sh r
 tscatterZS t f =
@@ -629,7 +628,7 @@ tfromListS = Nested.sfromListOuter SNat  -- TODO: make this strict
 tfromList0NS
   :: forall r sh. (NumAndShow r, KnownShS sh)
   => [r] -> Nested.Shaped sh r
-tfromList0NS = Nested.Internal.sfromListPrimLinear knownShS
+tfromList0NS = Nested.sfromListPrimLinear knownShS
   -- TODO: make this strict
 
 tfromVectorS
@@ -670,18 +669,18 @@ treverseS = Nested.srev1
 -- TODO: remove the conversion and overhaul the whole codebase
 ttransposeS
   :: forall perm r sh.
-     (NumAndShow r, PermC perm, X.Rank perm <= X.Rank sh )
+     (NumAndShow r, PermC perm, Rank perm <= Rank sh )
   => Permutation.Perm perm -> Nested.Shaped sh r
   -> Nested.Shaped (Permutation.PermutePrefix perm sh) r
 ttransposeS perm =
-  gcastWith (unsafeCoerce Refl :: Compare (X.Rank perm) (X.Rank sh) :~: LT) $
+  gcastWith (unsafeCoerce Refl :: Compare (Rank perm) (Rank sh) :~: LT) $
   gcastWith (unsafeCoerce Refl
              :: Permutation.PermutePrefix perm sh :~: Permutation.PermutePrefix perm sh) $
   Nested.stranspose perm
 
 treshapeS
   :: forall r sh sh2.
-     (NumAndShow r, KnownShS sh2, Nested.Internal.Shape.Product sh ~ Nested.Internal.Shape.Product sh2)
+     (NumAndShow r, KnownShS sh2, Nested.Product sh ~ Nested.Product sh2)
   => Nested.Shaped sh r -> Nested.Shaped sh2 r
 treshapeS = Nested.sreshape knownShS
 
@@ -718,15 +717,15 @@ tzipWith0NS f =
 -- permits index out of bounds and the result of such indexing is zero.
 tgatherZS :: forall sh2 p sh r.
              ( NumAndShow r, KnownShS sh2, KnownShS (Sh.Drop p sh)
-             , KnownShS (sh2 X.++ Sh.Drop p sh) )
+             , KnownShS (sh2 ++ Sh.Drop p sh) )
           => Nested.Shaped sh r
           -> (IndexIntSh sh2 -> IndexIntSh (Sh.Take p sh))
-          -> Nested.Shaped (sh2 X.++ Sh.Drop p sh) r
+          -> Nested.Shaped (sh2 ++ Sh.Drop p sh) r
 tgatherZS t f =
   let sh2 = knownShS @sh2
       s = sizeT @sh2
       l = gcastWith (unsafeCoerce Refl
-                     :: sh :~: Sh.Take p sh X.++ Sh.Drop p sh)
+                     :: sh :~: Sh.Take p sh ++ Sh.Drop p sh)
           $ [ Nested.stoVector
                 (t `tindexZS` f (ShapedList.fromLinearIdx fromIntegral sh2
                                  $ fromIntegral i)
@@ -740,7 +739,7 @@ tgatherZ1S :: forall n2 p sh r.
            -> Nested.Shaped (n2 ': Sh.Drop p sh) r
 tgatherZ1S t f =
   let l = gcastWith (unsafeCoerce Refl
-                     :: sh :~: Sh.Take p sh X.++ Sh.Drop p sh)
+                     :: sh :~: Sh.Take p sh ++ Sh.Drop p sh)
           $ NonEmpty.map (\i -> t `tindexZS` f i)
                          (NonEmpty.fromList [0 .. valueOf @n2 - 1])
   in Nested.sfromListOuter SNat l

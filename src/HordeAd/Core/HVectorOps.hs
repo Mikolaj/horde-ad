@@ -33,7 +33,7 @@ import GHC.TypeLits (KnownNat, SomeNat (..), sameNat, someNatVal, type (+))
 import Type.Reflection (typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
-import Data.Array.Mixed.Shape qualified as X
+import Data.Array.Nested (Rank)
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.HVector
@@ -111,12 +111,12 @@ raddDynamic r (DynamicShaped @r2 @sh2 t) = case matchingRank @sh2 @n of
   _ -> error "raddDynamic: shape mismatch"
 raddDynamic r (DynamicRankedDummy @r2 @sh2 _ _) = case matchingRank @sh2 @n of
   Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
-    Just Refl -> r :: ranked r2 (X.Rank sh2)
+    Just Refl -> r :: ranked r2 (Rank sh2)
     _ -> error "raddDynamic: scalar mismatch"
   _ -> error "raddDynamic: rank mismatch"
 raddDynamic r (DynamicShapedDummy @r2 @sh2 _ _) = case matchingRank @sh2 @n of
   Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
-    Just Refl -> r :: ranked r2 (X.Rank sh2)
+    Just Refl -> r :: ranked r2 (Rank sh2)
     _ -> error "raddDynamic: scalar mismatch"
   _ -> error "raddDynamic: rank mismatch"
 
@@ -175,7 +175,7 @@ sumDynamicShaped dsOrig@(d : _) =
   in case (dsFiltered, d) of
     (DynamicRanked @_ @n t : ds, _) ->
       withShapeP (shapeToList $ rshape t) $ \(Proxy @sh) ->
-        gcastWith (unsafeCoerce Refl :: X.Rank sh :~: n) $
+        gcastWith (unsafeCoerce Refl :: Rank sh :~: n) $
         DynamicShaped $ foldl' saddDynamic (sfromR @_ @_ @sh t) ds
     (DynamicShaped t : ds, _) ->
       DynamicShaped $ foldl' saddDynamic t ds
@@ -451,7 +451,7 @@ mapRanked f (DynamicShaped @_ @sh t) =
   withListSh (Proxy @sh) $ \(_ :: IShR n) ->
     let res = f $ rfromS @_ @_ @sh t
     in withShapeP (shapeToList $ rshape res) $ \(Proxy @shr) ->
-        gcastWith (unsafeCoerce Refl :: X.Rank shr :~: n) $
+        gcastWith (unsafeCoerce Refl :: Rank shr :~: n) $
         DynamicShaped $ sfromR @_ @_ @shr res
 mapRanked f (DynamicRankedDummy @r @sh _ _) =
   withListSh (Proxy @sh) $ \sh1 ->
@@ -460,7 +460,7 @@ mapRanked f (DynamicShapedDummy @r @sh _ _) =
   withListSh (Proxy @sh) $ \(sh1 :: IShR n) ->
     let res = f @r (rzero sh1)
     in withShapeP (shapeToList $ rshape res) $ \(Proxy @shr) ->
-        gcastWith (unsafeCoerce Refl :: X.Rank shr :~: n) $
+        gcastWith (unsafeCoerce Refl :: Rank shr :~: n) $
         DynamicShaped $ sfromR @_ @_ @shr res
 
 -- Hindler-Milner polymorphism is not great for existential types programming.
@@ -486,7 +486,7 @@ mapRanked01 f (DynamicShaped @_ @sh t) =
       case someNatVal $ 1 + valueOf @n of
         Just (SomeNat @n1 _) ->
           gcastWith (unsafeCoerce Refl :: n1 :~: 1 + n) $
-          gcastWith (unsafeCoerce Refl :: X.Rank shr :~: n1) $
+          gcastWith (unsafeCoerce Refl :: Rank shr :~: n1) $
           DynamicShaped $ sfromR @_ @_ @shr res
         _ -> error "mapRanked01: impossible someNatVal"
 mapRanked01 f (DynamicRankedDummy @r @sh _ _) =
@@ -499,7 +499,7 @@ mapRanked01 f (DynamicShapedDummy @r @sh _ _) =
       case someNatVal $ 1 + valueOf @n of
         Just (SomeNat @n1 _) ->
           gcastWith (unsafeCoerce Refl :: n1 :~: 1 + n) $
-          gcastWith (unsafeCoerce Refl :: X.Rank shr :~: n1) $
+          gcastWith (unsafeCoerce Refl :: Rank shr :~: n1) $
           DynamicShaped $ sfromR @_ @_ @shr res
         _ -> error "mapRanked01: impossible someNatVal"
 
@@ -526,7 +526,7 @@ mapRanked10 f (DynamicShaped @_ @sh t) = case knownShS @sh of
     withListSh (Proxy @sh0) $ \(_ :: IShR n) ->
       let res = f $ rfromS @_ @_ @sh t
       in withShapeP (shapeToList $ rshape res) $ \(Proxy @shr) ->
-        gcastWith (unsafeCoerce Refl :: X.Rank shr :~: n) $
+        gcastWith (unsafeCoerce Refl :: Rank shr :~: n) $
         DynamicShaped $ sfromR @_ @_ @shr res
 mapRanked10 f (DynamicRankedDummy @r @sh _ _) = case knownShS @sh of
   ZSS -> error "mapRanked10: rank 0"
@@ -539,7 +539,7 @@ mapRanked10 f (DynamicShapedDummy @r @sh _ _) = case knownShS @sh of
     withListSh (Proxy @sh0) $ \(sh1 :: IShR n) ->
       let res = f @r (rzero $ sNatValue k :$: sh1)
       in withShapeP (shapeToList $ rshape res) $ \(Proxy @shr) ->
-        gcastWith (unsafeCoerce Refl :: X.Rank shr :~: n) $
+        gcastWith (unsafeCoerce Refl :: Rank shr :~: n) $
         DynamicShaped $ sfromR @_ @_ @shr res
 
 mapHVectorRanked11
@@ -568,7 +568,7 @@ mapRanked11 f (DynamicShaped @_ @sh t) = case knownShS @sh of
         case someNatVal $ 1 + valueOf @n of
           Just (SomeNat @n1 _) ->
             gcastWith (unsafeCoerce Refl :: n1 :~: 1 + n) $
-            gcastWith (unsafeCoerce Refl :: X.Rank shr :~: n1) $
+            gcastWith (unsafeCoerce Refl :: Rank shr :~: n1) $
             DynamicShaped $ sfromR @_ @_ @shr res
           _ -> error "mapRanked01: impossible someNatVal"
 mapRanked11 f (DynamicRankedDummy @r @sh _ _) = case knownShS @sh of
@@ -585,7 +585,7 @@ mapRanked11 f (DynamicShapedDummy @r @sh _ _) = case knownShS @sh of
         case someNatVal $ 1 + valueOf @n of
           Just (SomeNat @n1 _) ->
             gcastWith (unsafeCoerce Refl :: n1 :~: 1 + n) $
-            gcastWith (unsafeCoerce Refl :: X.Rank shr :~: n1) $
+            gcastWith (unsafeCoerce Refl :: Rank shr :~: n1) $
             DynamicShaped $ sfromR @_ @_ @shr res
           _ -> error "mapRanked01: impossible someNatVal"
 

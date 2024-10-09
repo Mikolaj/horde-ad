@@ -17,10 +17,8 @@ import GHC.TypeLits (KnownNat, type (+))
 import Test.Tasty
 import Test.Tasty.HUnit hiding (assert)
 
-import Data.Array.Mixed.Shape qualified as X
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Internal.Ranked qualified as Nested.Internal
-import Data.Array.Nested.Internal.Shaped qualified as Nested.Internal
+import Data.Array.Nested (Rank)
 
 import HordeAd
 import HordeAd.Core.AstFreshId (resetVarCounter)
@@ -1111,7 +1109,7 @@ testSin0Scan1Rev2PP1 = do
   resetVarCounter
   let a1 = rrev1 @(AstRanked PrimalSpan) @Double @0 @1
                  (\x0 -> rscan (\x a -> sin x - a) x0
-                           (rconst (Nested.Internal.rfromListPrimLinear @Double @1 (fromList [2]) [5, 7]))) (rscalar 1.1)
+                           (rconst (Nested.rfromListPrimLinear @Double @1 (fromList [2]) [5, 7]))) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineAst a1)
     @?= "let v3 = rconst (rfromListLinear [2] [5.0,7.0]) ; v6 = rconst (rfromListLinear [3] [1.0,1.0,1.0]) in v6 ! [0] + tproject1 (dmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> 0.0 (tpair (rslice 1 2 v6, tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> 1.1 v3)), v3))))"
 
@@ -1122,7 +1120,7 @@ testSin0Scan1Rev2PPA = do
         revArtifactAdapt
                  True
                  (\x0 -> rscan (\x a -> sin x - a) x0
-                           (rconst (Nested.Internal.rfromListPrimLinear @Double @1 (fromList [2]) [5, 7])))
+                           (rconst (Nested.rfromListPrimLinear @Double @1 (fromList [2]) [5, 7])))
                  (rscalar 1.1)
   printArtifactPretty IM.empty (simplifyArtifact art)
     @?= "\\v5 x1 -> let v2 = rconst (rfromListLinear [2] [5.0,7.0]) in v5 ! [0] + tproject1 (dmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> 0.0 (tpair (rslice 1 2 v5, tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> x1 v2)), v2))))"
@@ -1143,7 +1141,7 @@ testSin0Scan1Rev2 = do
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [] [1.1961317861865948] :: OR.Array 0 Double)
     (rev' (\x0 -> rscan (\x a -> sin x - a) x0
-                    (rconst (Nested.Internal.rfromListPrimLinear @Double @1 (fromList [2]) [5, 7]))) 1.1)
+                    (rconst (Nested.rfromListPrimLinear @Double @1 (fromList [2]) [5, 7]))) 1.1)
 
 testSin0Scan1Rev2ForComparison :: Assertion
 testSin0Scan1Rev2ForComparison = do
@@ -2230,7 +2228,7 @@ testSin0rmapAccumRD01SN531b0 = do
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [ DynamicShaped @Double @'[]
                                         $ sfromR x0 ])
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [ DynamicRanked @Double @1
-                                        $ rconst $ Nested.Internal.rfromListPrimLinear (fromList [0]) [] ]))))
+                                        $ rconst $ Nested.rfromListPrimLinear (fromList [0]) [] ]))))
                         $ \ !d -> rfromD $ d V.! 0
            in f) 1.1)
 
@@ -2279,7 +2277,7 @@ testSin0rmapAccumRD01SN531bR = do
                            in h)
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [ DynamicRanked x0 ])
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [ DynamicRanked @Double @1
-                                        $ rconst $ Nested.Internal.rfromListPrimLinear (fromList [1]) [0] ]))))
+                                        $ rconst $ Nested.rfromListPrimLinear (fromList [1]) [0] ]))))
                         $ \ !d -> rfromD $ d V.! 0
            in f) 1.1)
 
@@ -2304,7 +2302,7 @@ testSin0rmapAccumRD01SN531b0PP = do
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [ DynamicShaped @Double @'[]
                                         $ sfromD (x0 V.! 0) ])
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [ DynamicRanked @Double @1
-                                        $ rconst $ Nested.Internal.rfromListPrimLinear (fromList [0]) [] ]))))
+                                        $ rconst $ Nested.rfromListPrimLinear (fromList [0]) [] ]))))
                         $ \ !d -> rfromD $ d V.! 0
       g :: forall g. (LetTensor g (ShapedOf g), ProductTensor g)
         => HVector g -> HVectorOf g
@@ -2395,7 +2393,7 @@ testSin0rmapAccumRD01SN531bRPP = do
                            in h)
                           (HVectorPseudoTensor $ dmkHVector x0)
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [ DynamicRanked @Double @1
-                                        $ rconst $ Nested.Internal.rfromListPrimLinear (fromList [1]) [0] ]))))
+                                        $ rconst $ Nested.rfromListPrimLinear (fromList [1]) [0] ]))))
                         $ \ !d -> rfromD $ d V.! 0
       g :: forall g. (LetTensor g (ShapedOf g), ProductTensor g)
         => HVector g -> HVectorOf g
@@ -2429,7 +2427,7 @@ testSin0rmapAccumRD01SN531b0PPj = do
                                $ sfromIntegral (sconstant (sfromR (i + j)))
                                  + sfromD (x0 V.! 0) ])
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [ DynamicRanked @Double @1
-                                        $ rconst $ Nested.Internal.rfromListPrimLinear (fromList [0]) [] ]))))
+                                        $ rconst $ Nested.rfromListPrimLinear (fromList [0]) [] ]))))
                         $ \ !d -> rfromD $ d V.! 0
       g :: forall g. (LetTensor g (ShapedOf g), ProductTensor g)
         => HVector g -> HVectorOf g
@@ -2497,7 +2495,7 @@ testSin0rmapAccumRD01SN531bRPPj = do
                                $ rfromIntegral (rconstant (i + j))
                                  + rfromD (x0 V.! 0) ])
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [ DynamicRanked @Double @1
-                                        $ rconst $ Nested.Internal.rfromListPrimLinear (fromList [1]) [0] ]))))
+                                        $ rconst $ Nested.rfromListPrimLinear (fromList [1]) [0] ]))))
                         $ \ !d -> rfromD $ d V.! 0
       g :: forall g. (LetTensor g (ShapedOf g), ProductTensor g)
         => HVector g -> HVectorOf g
@@ -2765,7 +2763,7 @@ testSin0rmapAccumRD01SN56 = do
 testSin0rmapAccumRD01SN57 :: Assertion
 testSin0rmapAccumRD01SN57 = do
   assertEqualUpToEpsilon 1e-10
-    (sconst $ Nested.Internal.sfromListPrimLinear @_ @'[2] knownShS [0.4989557335681351,1.1])
+    (sconst $ Nested.sfromListPrimLinear @_ @'[2] knownShS [0.4989557335681351,1.1])
     (cfwd (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[2]
                f x0 = (sfromD . (V.! 1))
                       $ dunHVector $ productToVectorOf
@@ -2791,7 +2789,7 @@ testSin0rmapAccumRD01SN57 = do
 testSin0rmapAccumRD01SN58 :: Assertion
 testSin0rmapAccumRD01SN58 = do
   assertEqualUpToEpsilon 1e-10
-    (sconst $ Nested.Internal.sfromListPrimLinear @_ @'[5] knownShS [0,0,0,0,1.1])
+    (sconst $ Nested.sfromListPrimLinear @_ @'[5] knownShS [0,0,0,0,1.1])
     (cfwd (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[5]
                f x0 = (sfromD . (V.! 1))
                       $ dunHVector $ productToVectorOf
@@ -2817,7 +2815,7 @@ testSin0rmapAccumRD01SN58 = do
 testSin0rmapAccumRD01SN59 :: Assertion
 testSin0rmapAccumRD01SN59 = do
   assertEqualUpToEpsilon 1e-10
-    (sconst $ Nested.Internal.sfromListPrimLinear @_ @'[1] knownShS [1.1])
+    (sconst $ Nested.sfromListPrimLinear @_ @'[1] knownShS [1.1])
     (cfwd (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[1]
                f x0 = (sfromD . (V.! 1))
                       $ dunHVector $ productToVectorOf
@@ -3236,7 +3234,7 @@ testSin0ScanD1Rev2PP = do
                  (\x0 -> rscanZip (\x a -> sin x - rfromD (a V.! 0))
                          (V.fromList [voidFromSh @Double ZSR])
                          x0 (V.singleton $ DynamicRanked
-                             $ rconst (Nested.Internal.rfromListPrimLinear @Double @1 (fromList [2]) [5, 7]))) (rscalar 1.1)
+                             $ rconst (Nested.rfromListPrimLinear @Double @1 (fromList [2]) [5, 7]))) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineAst a1)
     @?= "let v25 = rconst (rfromListLinear [2] [5.0,7.0]) ; v20 = rconst (rfromListLinear [3] [1.0,1.0,1.0]) in rproject (tproject1 (dmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> [0.0] (tpair ([rslice 1 2 v20], tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.1] [v25])), [v25]))))) 0 + v20 ! [0]"
 
@@ -3247,7 +3245,7 @@ testSin0ScanDFwd2PP = do
                  (\x0 -> rscanZip (\x a -> sin x - rfromD (a V.! 0))
                          (V.fromList [voidFromSh @Double ZSR])
                          x0 (V.singleton $ DynamicRanked
-                         $ rconst (Nested.Internal.rfromListPrimLinear @Double @1 (fromList [2]) [5, 7]))) (rscalar 1.1)
+                         $ rconst (Nested.rfromListPrimLinear @Double @1 (fromList [2]) [5, 7]))) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineAst a1)
     @?= "let v24 = rconst (rfromListLinear [2] [5.0,7.0]) in rappend (rreplicate 1 1.0) (rproject (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.0] (tpair ([rreplicate 2 0.0], tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.1] [v24])), [v24]))))) 0)"
 
@@ -3259,7 +3257,7 @@ testSin0ScanD1Rev2 = do
        rscanZip (\x a -> sin x - rfromD (a V.! 0))
                 (V.fromList [voidFromShS @Double @'[]])
                 x0 (V.singleton $ DynamicShaped
-                    $ sconst (Nested.Internal.sfromListPrimLinear @Double @'[2, 2] knownShS [5, 7, 3, 4])
+                    $ sconst (Nested.sfromListPrimLinear @Double @'[2, 2] knownShS [5, 7, 3, 4])
                       !$ (k :.$ ZIS) ))
           1.1)
 
@@ -4752,7 +4750,7 @@ testSin0revhFoldZip4R = do
 fFoldS
   :: forall m k rm shm r sh shaped.
      ( KnownNat k, GoodScalar rm, KnownShS shm, GoodScalar r, KnownShS sh
-     , ADReadyS shaped, KnownNat m, X.Rank shm ~ m)
+     , ADReadyS shaped, KnownNat m, Rank shm ~ m)
   => shaped r (1 + k ': sh)
   -> shaped rm (k ': shm)
   -> (forall f. ADReadyS f

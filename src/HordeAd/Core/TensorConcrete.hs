@@ -20,8 +20,8 @@ import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat)
 import System.Random
 
-import Data.Array.Mixed.Shape qualified as X
 import Data.Array.Nested qualified as Nested
+import Data.Array.Nested (Rank)
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.Delta
@@ -246,7 +246,7 @@ instance ShapedTensor OSArray where
   sfromIntegral = FlipS . tfromIntegralS . runFlipS
   sconst = FlipS
   sfromR :: forall r sh. (GoodScalar r, KnownShS sh)
-         => ORArray r (X.Rank sh) -> OSArray r sh
+         => ORArray r (Rank sh) -> OSArray r sh
   sfromR = FlipS . flip Nested.rcastToShaped knownShS . runFlipR
 
   sscaleByScalar s v =
@@ -448,7 +448,7 @@ instance (GoodScalar r, KnownShS sh)
 
 instance GoodScalar r
          => ForgetShape (OSArray r sh) where
-  type NoShape (OSArray r sh) = ORArray r (X.Rank sh)  -- key case
+  type NoShape (OSArray r sh) = ORArray r (Rank sh)  -- key case
   forgetShape = FlipR . Nested.stoRanked . runFlipS
 
 instance (KnownShS sh, GoodScalar r, Fractional r, Random r)

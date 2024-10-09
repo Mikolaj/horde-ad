@@ -74,8 +74,8 @@ import Type.Reflection (typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Mixed.Shape qualified as X
-import Data.Array.Mixed.Types qualified as X
+import Data.Array.Nested (type (++), Rank)
+import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
 import HordeAd.Core.HVector
@@ -118,7 +118,7 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
                            ++ " within " ++ show_iMap (iMap s2)
           Some mt@(MTKRDummy @r2 @sh2) : rest
             | Dict <- lemKnownNatRank (knownShS @sh2)
-            , Just Refl <- sameNat (Proxy @n) (Proxy @(X.Rank sh2))
+            , Just Refl <- sameNat (Proxy @n) (Proxy @(Rank sh2))
             , Just Refl <- testEquality (typeRep @r) (typeRep @r2) ->
               (evalRepM mt, rest)
           _ -> error $ "gradientFromDelta: illegal RepM: "
@@ -265,7 +265,7 @@ data RepM ranked y where
        => Rep ranked (TKS r sh)
        -> RepM ranked (TKS r sh)
   MTKRDummy :: (GoodScalar r, KnownShS sh)
-            => RepM ranked (TKR r (X.Rank sh))
+            => RepM ranked (TKR r (Rank sh))
   MTKSDummy  :: (GoodScalar r, KnownShS sh)
              => RepM ranked (TKS r sh)
 
@@ -481,7 +481,7 @@ data Delta :: RankedTensorType -> TensorKindType -> Type where
         => Delta ranked (TKR r1 n) -> Delta ranked (TKR r2 n)
   RFromS :: forall sh r ranked. (GoodScalar r, KnownShS sh)
          => Delta ranked (TKS r sh)
-         -> Delta ranked (TKR r (X.Rank sh))
+         -> Delta ranked (TKR r (Rank sh))
   RFromH :: (GoodScalar r, KnownNat n)
          => Delta ranked TKUntyped -> Int -> Delta ranked (TKR r n)
 
@@ -493,24 +493,24 @@ data Delta :: RankedTensorType -> TensorKindType -> Type where
        => Delta ranked (TKS r sh) -> Delta ranked (TKS r sh)
        -> Delta ranked (TKS r sh)
 
-  IndexS :: (KnownShS sh1, KnownShS sh2, KnownShS (sh1 X.++ sh2), GoodScalar r)
-         => Delta ranked (TKS r (sh1 X.++ sh2))
+  IndexS :: (KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2), GoodScalar r)
+         => Delta ranked (TKS r (sh1 ++ sh2))
          -> IndexSh (ShapedOf ranked) sh1
          -> Delta ranked (TKS r sh2)
     -- ^ The sub-tensor at the given index.
     -- If index is out of bounds, the result is defined and is 0.
   SumS :: (GoodScalar r, KnownNat n, KnownShS sh)
        => Delta ranked (TKS r (n ': sh)) -> Delta ranked (TKS r sh)
-  Sum0S :: (GoodScalar r, KnownShS sh, KnownNat (Nested.Internal.Shape.Product sh))
+  Sum0S :: (GoodScalar r, KnownShS sh, KnownNat (Nested.Product sh))
         => Delta ranked (TKS r sh) -> Delta ranked (TKS r '[])
-  Dot0S :: (GoodScalar r, KnownShS sh, KnownNat (Nested.Internal.Shape.Product sh))
+  Dot0S :: (GoodScalar r, KnownShS sh, KnownNat (Nested.Product sh))
         => ShapedOf ranked r sh -> Delta ranked (TKS r sh)
         -> Delta ranked (TKS r '[])
   ScatterS :: forall ranked r sh2 p sh.
               ( GoodScalar r, KnownShS sh2, KnownShS sh, KnownNat p
               , KnownShS (Sh.Take p sh), KnownShS (Sh.Drop p sh)
-              , KnownShS (sh2 X.++ Sh.Drop p sh) )
-           => Delta ranked (TKS r (sh2 X.++ Sh.Drop p sh))
+              , KnownShS (sh2 ++ Sh.Drop p sh) )
+           => Delta ranked (TKS r (sh2 ++ Sh.Drop p sh))
            -> (IndexSh (ShapedOf ranked) sh2
                -> IndexSh (ShapedOf ranked) (Sh.Take p sh))
            -> Delta ranked (TKS r sh)
@@ -552,25 +552,25 @@ data Delta :: RankedTensorType -> TensorKindType -> Type where
            -> Delta ranked (TKS r (n ': sh))
     -- ^ Reverse elements of the outermost dimension.
   TransposeS :: forall perm sh r ranked.
-                (GoodScalar r, PermC perm, KnownShS sh, X.Rank perm <= X.Rank sh)
+                (GoodScalar r, PermC perm, KnownShS sh, Rank perm <= Rank sh)
              => Permutation.Perm perm
              -> Delta ranked (TKS r sh)
              -> Delta ranked (TKS r (Permutation.PermutePrefix perm sh))
     -- ^ Transpose according to the permutation.
   ReshapeS :: ( GoodScalar r, KnownShS sh, KnownShS sh2
-              , Nested.Internal.Shape.Product sh
-                ~ Nested.Internal.Shape.Product sh2 )
+              , Nested.Product sh
+                ~ Nested.Product sh2 )
            => Delta ranked (TKS r sh)
            -> Delta ranked (TKS r sh2)
     -- ^ Change the shape of the tensor from the first to the second.
   GatherS :: forall ranked r sh2 p sh.
              ( GoodScalar r, KnownShS sh2, KnownShS sh, KnownNat p
              , KnownShS (Sh.Take p sh), KnownShS (Sh.Drop p sh)
-             , KnownShS (sh2 X.++ Sh.Drop p sh) )
+             , KnownShS (sh2 ++ Sh.Drop p sh) )
           => Delta ranked (TKS r sh)
           -> (IndexSh (ShapedOf ranked) sh2
               -> IndexSh (ShapedOf ranked) (Sh.Take p sh))
-          -> Delta ranked (TKS r (sh2 X.++ Sh.Drop p sh))
+          -> Delta ranked (TKS r (sh2 ++ Sh.Drop p sh))
     -- ^ Build a tensor by picking tensors of rank @n@ at the given indexes
     -- of length @p@. Index of length 0 results in identity, so that,
     -- e.g, @Gather1 (const ZR) [] (ScalarR d) k@ is equivalent
@@ -581,8 +581,8 @@ data Delta :: RankedTensorType -> TensorKindType -> Type where
     -- TODO: this is a haddock for Gather1; fix.
   CastS :: (GoodScalar r1, RealFrac r1, GoodScalar r2, RealFrac r2, KnownShS sh)
         => Delta ranked (TKS r1 sh) -> Delta ranked (TKS r2 sh)
-  SFromR :: forall sh r ranked. (GoodScalar r, KnownShS sh, KnownNat (X.Rank sh))
-         => Delta ranked (TKR r (X.Rank sh))
+  SFromR :: forall sh r ranked. (GoodScalar r, KnownShS sh, KnownNat (Rank sh))
+         => Delta ranked (TKR r (Rank sh))
          -> Delta ranked (TKS r sh)
   SFromH :: (GoodScalar r, KnownShS sh)
          => Delta ranked TKUntyped -> Int -> Delta ranked (TKS r sh)
@@ -1118,12 +1118,12 @@ evalR !s !c = \case
 
   IndexS @sh1 @sh d ix ->
     gcastWith (unsafeCoerce Refl
-               :: Sh.Drop (X.Rank sh1) (sh1 X.++ sh) :~: sh) $
+               :: Sh.Drop (Rank sh1) (sh1 ++ sh) :~: sh) $
     gcastWith (unsafeCoerce Refl
-               :: Sh.Take (X.Rank sh1) (sh1 X.++ sh) :~: sh1) $
+               :: Sh.Take (Rank sh1) (sh1 ++ sh) :~: sh1) $
     withListSh (Proxy @sh1) $ \(_ :: IShR rankSh1) ->
-    gcastWith (unsafeCoerce Refl :: rankSh1 :~: X.Rank sh1) $
-    evalR s (sscatter @_ @_ @'[] @(X.Rank sh1) c (const ix)) d
+    gcastWith (unsafeCoerce Refl :: rankSh1 :~: Rank sh1) $
+    evalR s (sscatter @_ @_ @'[] @(Rank sh1) c (const ix)) d
     -- equivalent: evalR s (updateNR (replicate0NR sh 0) [(ix, c)]) d
   SumS d -> evalR s (sreplicate c) d
   Sum0S d -> evalR s (sreplicate0N c) d
@@ -1151,9 +1151,9 @@ evalR !s !c = \case
         gcastWith (unsafeCoerce Refl
                    :: Permutation.PermutePrefix permR (Permutation.PermutePrefix perm sh2) :~: sh2)
         $ gcastWith (unsafeCoerce Refl
-                     :: X.Rank (Permutation.PermutePrefix perm sh2) :~: X.Rank sh2)
+                     :: Rank (Permutation.PermutePrefix perm sh2) :~: Rank sh2)
         $ gcastWith (unsafeCoerce Refl
-                     :: X.Rank permR :~: X.Rank perm)
+                     :: Rank permR :~: Rank perm)
         $ evalR s (stranspose permRev c) d
   ReshapeS d -> evalR s (sreshape c) d
   GatherS d f -> evalR s (sscatter c f) d

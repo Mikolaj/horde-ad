@@ -27,7 +27,7 @@ import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat, Nat)
 import Unsafe.Coerce (unsafeCoerce)
 
-import Data.Array.Mixed.Shape qualified as X
+import Data.Array.Nested (Rank)
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.Ast
@@ -338,7 +338,7 @@ instance TermValue (DynamicTensor (AstGeneric AstMethodLet FullSpan)) where
   fromValue = \case
     DynamicRanked t -> DynamicRanked $ AstGeneric $ fromPrimal $ AstConst $ runFlipR t
     DynamicShaped @_ @sh t ->
-      gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: X.Rank sh) $
+      gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: Rank sh) $
       DynamicShaped @_ @sh $ AstGenericS $ fromPrimal $ AstConstS $ runFlipS t
     DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
     DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2

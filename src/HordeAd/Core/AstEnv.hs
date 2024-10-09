@@ -32,7 +32,7 @@ import GHC.TypeLits (Nat)
 import Text.Show (showListWith)
 import Type.Reflection (typeRep)
 
-import Data.Array.Mixed.Shape qualified as X
+import Data.Array.Nested (Rank)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.HVector
@@ -128,7 +128,7 @@ extendEnvD vd@(AstDynamicVarName @ty @r @sh varId, d) !env = case d of
     , Just Refl <- sameShape @sh3 @sh
     , Just Refl <- testEquality (typeRep @r) (typeRep @r3) ->
       withListSh (Proxy @sh) $ \sh4 ->
-        extendEnv @ranked @_ @(TKR r (X.Rank sh)) (mkAstVarName varId) (rzero sh4) env
+        extendEnv @ranked @_ @(TKR r (Rank sh)) (mkAstVarName varId) (rzero sh4) env
   DynamicShapedDummy @r3 @sh3 _ _
     | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat])
     , Just Refl <- sameShape @sh3 @sh
