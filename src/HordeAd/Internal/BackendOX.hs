@@ -197,18 +197,6 @@ tdot1InR = Nested.rdot1Inner
 tunravelToListR :: NumAndShow r => Nested.Ranked (1 + n) r -> [Nested.Ranked n r]
 tunravelToListR = Nested.rtoListOuter
 
-tmatvecmulR
-  :: (NumAndShow r, Numeric r)
-  => Nested.Ranked 2 r -> Nested.Ranked 1 r -> Nested.Ranked 1 r
-tmatvecmulR t u =
-  let t2 = Nested.rtoVector t
-      u2 = Nested.rtoVector u
-      (trows, tcols) = case Foldable.toList $ Nested.rshape t of
-        [r, c] -> (r, c)
-        _ -> error "tmatvecmulR: impossible wrong shape"
-  in Nested.rfromVector (IsList.fromList [trows])
-     $ LA.reshape tcols t2 LA.#> u2
-
 tmatmul2R
   :: (NumAndShow r, Numeric r)
   => Nested.Ranked 2 r -> Nested.Ranked 2 r -> Nested.Ranked 2 r
@@ -557,14 +545,6 @@ tdot1InS = Nested.sdot1Inner
 tunravelToListS :: forall r n sh. NumAndShow r
                 => Nested.Shaped (n ': sh) r -> [Nested.Shaped sh r]
 tunravelToListS = Nested.stoListOuter
-
-tmatvecmulS
-  :: forall m n r. (NumAndShow r, KnownNat m, KnownNat n, Numeric r)
-  => Nested.Shaped '[m, n] r -> Nested.Shaped '[n] r -> Nested.Shaped '[m] r
-tmatvecmulS t u =
-  let t2 = Nested.stoVector t
-      u2 = Nested.stoVector u
-  in Nested.sfromVector knownShS $ LA.reshape (valueOf @n) t2 LA.#> u2
 
 tmatmul2S
   :: forall m n p r. (NumAndShow r, KnownNat m, KnownNat n, KnownNat p, Numeric r)

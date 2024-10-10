@@ -129,7 +129,6 @@ instance RankedTensor ORArray where
   rsum = FlipR . tsumR . runFlipR
   rsum0 = FlipR . tscalarR . tsum0R . runFlipR
   rdot0 u v = FlipR $ tscalarR $ tdot0R (runFlipR u) (runFlipR v)
-  rmatvecmul m v = FlipR $ tmatvecmulR (runFlipR m) (runFlipR v)
   rmatmul2 m1 m2 = FlipR $ tmatmul2R (runFlipR m1) (runFlipR m2)
   rscatter sh t f = FlipR $ tscatterZR sh (runFlipR t)
                                          (fromIndexOfR . f . toIndexOfR)
@@ -252,7 +251,6 @@ instance ShapedTensor OSArray where
   ssum = FlipS . tsumS . runFlipS
   ssum0 = FlipS . tscalarS . tsum0S . runFlipS
   sdot0 u v = FlipS $ tscalarS $ tdot0S (runFlipS u) (runFlipS v)
-  smatvecmul m v = FlipS $ tmatvecmulS (runFlipS m) (runFlipS v)
   smatmul2 m1 m2 = FlipS $ tmatmul2S (runFlipS m1) (runFlipS m2)
   sscatter t f = FlipS $ tscatterZS (runFlipS t)
                                    (fromIndexOfS . f . toIndexOfS)
