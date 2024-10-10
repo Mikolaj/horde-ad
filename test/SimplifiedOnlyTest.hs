@@ -2,22 +2,22 @@ module Main (main) where
 
 import Prelude
 
-import           Data.Proxy
-import qualified System.IO as SIO
-import           Test.Tasty
-import           Test.Tasty.Options
-import           Test.Tasty.Runners
+import Data.Proxy
+import System.IO qualified as SIO
+import Test.Tasty
+import Test.Tasty.Options
+import Test.Tasty.Runners
 
-import           EqEpsilon
-import qualified TestAdaptorSimplified
-import qualified TestConvSimplified
-import qualified TestGatherSimplified
-import qualified TestHighRankSimplified
-import qualified TestMnistCNNR
-import qualified TestMnistFCNNR
-import qualified TestMnistRNNR
-import qualified TestMnistRNNS
-import qualified TestRevFwdFold
+import EqEpsilon
+import TestAdaptorSimplified qualified
+import TestConvSimplified qualified
+import TestGatherSimplified qualified
+import TestHighRankSimplified qualified
+import TestMnistCNNR qualified
+import TestMnistFCNNR qualified
+import TestMnistRNNR qualified
+import TestMnistRNNS qualified
+import TestRevFwdFold qualified
 
 main :: IO ()
 main = do

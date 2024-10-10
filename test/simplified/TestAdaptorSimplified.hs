@@ -18,8 +18,8 @@ import GHC.TypeLits (KnownNat)
 import Test.Tasty
 import Test.Tasty.HUnit hiding (assert)
 
-import Data.Array.Nested qualified as Nested
 import Data.Array.Nested (Rank)
+import Data.Array.Nested qualified as Nested
 
 import HordeAd
 import HordeAd.Core.AstEnv
@@ -114,6 +114,8 @@ testTrees =
   , testCase "2matmul2FromMatvecmulPP" testMatmul2FromMatvecmulPP
   , testCase "2matmul2PaperPP" testMatmul2PaperPP
   , testCase "2matmul2PPS" testMatmul2PPS
+  , testCase "2addSpeedBig" testAddSpeedBig
+  , testCase "2matmul2SpeedBig" testMatmul2SpeedBig
   , testCase "2bar" testBar
   , testCase "2barS" testBarS
   , testCase "2bar2S" testBar2S
@@ -1214,6 +1216,20 @@ testMatmul2PPS = do
     @?= "\\m2 x1 -> tpair (ssum (stranspose (sreplicate (tproject2 m1)) * stranspose (sreplicate m2)), ssum (stranspose (sreplicate (tproject1 m1)) * stranspose (sreplicate m2)))"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
     @?= "\\x1 -> ssum (stranspose (sreplicate (tproject1 m1)) * stranspose (sreplicate (tproject2 m1)))"
+
+testAddSpeedBig :: Assertion
+testAddSpeedBig =
+  let m1 :: ORArray Double 2
+      m1 = ringestData [1000,1000] [1 .. 1000000]
+      m2 = m1 + m1
+  in assertEqualUpToEpsilon 1e-10 m2 m2
+
+testMatmul2SpeedBig :: Assertion
+testMatmul2SpeedBig =
+  let m1 :: ORArray Double 2
+      m1 = ringestData [1000,1000] [1 .. 1000000]
+      m2 = rmatmul2 m1 m1
+  in assertEqualUpToEpsilon 1e-10 m2 m2
 
 bar :: forall a. RealFloatF a => (a, a) -> a
 bar (x, y) =
