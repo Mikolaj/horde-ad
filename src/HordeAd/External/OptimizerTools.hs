@@ -61,18 +61,18 @@ updateWithGradient gamma params gradient =
   in V.zipWith updateR params gradient
 
 {-
-gradientIsNil :: (Eq r, Numeric r) => HVector ORArray -> Bool
+gradientIsNil :: (Eq r) => HVector ORArray -> Bool
 gradientIsNil (HVector ORArray gradient0 gradientR) =
   V.all (== 0) gradient0
   && V.all isTensorDummyD gradientR
 
-minimumGradient :: (Ord r, Numeric r) => HVector ORArray -> r
+minimumGradient :: (Ord r) => HVector ORArray -> r
 minimumGradient (HVector ORArray gradient0 gradientR) =
   min (if V.null gradient0 then 0 else LA.minElement gradient0)
       (if V.null gradientR then 0
        else V.minimum (V.map OR.minimumA gradientR))
 
-maximumGradient :: (Ord r, Numeric r) => HVector ORArray -> r
+maximumGradient :: (Ord r) => HVector ORArray -> r
 maximumGradient (HVector ORArray gradient0 gradientR) =
   max (if V.null gradient0 then 0 else LA.maxElement gradient0)
       (if V.null gradientR then 0

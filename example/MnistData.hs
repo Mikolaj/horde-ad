@@ -16,9 +16,10 @@ import Data.IDX
 import Data.List (sortOn)
 import Data.Maybe (fromMaybe)
 import Data.Vector.Generic qualified as V
+import Data.Vector.Storable qualified as VS
 import Data.Vector.Unboxed qualified
 import GHC.TypeLits (KnownNat, Nat, type (*))
-import Numeric.LinearAlgebra (Numeric, Vector)
+import Numeric.LinearAlgebra (Vector)
 import System.IO (IOMode (ReadMode), withBinaryFile)
 import System.Random
 
@@ -87,12 +88,12 @@ type MnistDataBatchR r =
   ( OR.Array 3 r  -- [batch_size, SizeMnistHeight, SizeMnistWidth]
   , OR.Array 2 r )  -- [batch_size, SizeMnistLabel]
 
-shapeBatch :: Numeric r => MnistData r -> MnistDataS r
+shapeBatch :: VS.Storable r => MnistData r -> MnistDataS r
 shapeBatch (input, target) = (OS.fromVector input, OS.fromVector target)
 {-# SPECIALIZE shapeBatch :: MnistData Double -> MnistDataS Double #-}
 {-# SPECIALIZE shapeBatch :: MnistData Float -> MnistDataS Float #-}
 
-packBatch :: forall batch_size r. (Numeric r, KnownNat batch_size)
+packBatch :: forall batch_size r. (VS.Storable r, KnownNat batch_size)
           => [MnistDataS r] -> MnistDataBatchS batch_size r
 packBatch l =
   let (inputs, targets) = unzip l
@@ -100,19 +101,19 @@ packBatch l =
 {-# SPECIALIZE packBatch :: forall batch_size. KnownNat batch_size => [MnistDataS Double] -> MnistDataBatchS batch_size Double #-}
 {-# SPECIALIZE packBatch :: forall batch_size. KnownNat batch_size => [MnistDataS Float] -> MnistDataBatchS batch_size Float #-}
 
-rankBatch :: Numeric r => MnistData r -> MnistDataR r
+rankBatch :: VS.Storable r => MnistData r -> MnistDataR r
 rankBatch (input, target) =
   ( OR.fromVector [sizeMnistHeightInt, sizeMnistWidthInt] input
   , OR.fromVector [sizeMnistLabelInt] target )
 
-packBatchR :: Numeric r
+packBatchR :: VS.Storable r
            => [MnistDataR r] -> MnistDataBatchR r
 packBatchR l =
   let (inputs, targets) = unzip l
   in ( OR.ravel $ ORB.fromList [length inputs] inputs
      , OR.ravel $ ORB.fromList [length targets] targets )
 
-readMnistData :: forall r. (Numeric r, Fractional r)
+readMnistData :: forall r. (VS.Storable r, Fractional r)
               => LBS.ByteString -> LBS.ByteString -> [MnistData r]
 readMnistData glyphsBS labelsBS =
   let glyphs = fromMaybe (error "wrong MNIST glyphs file")
@@ -137,7 +138,7 @@ trainLabelsPath = "samplesData/train-labels-idx1-ubyte.gz"
 testGlyphsPath  = "samplesData/t10k-images-idx3-ubyte.gz"
 testLabelsPath  = "samplesData/t10k-labels-idx1-ubyte.gz"
 
-loadMnistData :: (Numeric r, Fractional r)
+loadMnistData :: (VS.Storable r, Fractional r)
               => FilePath -> FilePath -> IO [MnistData r]
 loadMnistData glyphsPath labelsPath =
   withBinaryFile glyphsPath ReadMode $ \glyphsHandle ->

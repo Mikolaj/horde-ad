@@ -111,14 +111,14 @@ multNotShared :: (Num (f r z), IsPrimal f r z)
 multNotShared (D u u') (D v v') =
   dDnotShared (u * v) (dAdd (dScale v u') (dScale u v'))
 {-
-addParameters :: (Numeric r, Num (Vector r), DTensorOf r ~ OD.Array r)
+addParameters :: (DTensorOf r ~ OD.Array r)
               => HVector r -> HVector r -> HVector r
 addParameters (HVector a0 a1) (HVector b0 b1) =
   HVector (a0 + b0)
           (V.zipWith (+) a1 b1)
 
 -- Dot product and sum respective ranks and then sum it all.
-dotParameters :: (Numeric r, DTensorOf r ~ OD.Array r)
+dotParameters :: (DTensorOf r ~ OD.Array r)
               => HVector r -> HVector r -> r
 dotParameters (HVector a0 a1) (HVector b0 b1) =
   a0 LA.<.> b0

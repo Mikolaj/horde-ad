@@ -28,7 +28,6 @@ import Data.Type.Equality ((:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import Data.Vector.Storable qualified as VS
 import GHC.TypeLits (KnownNat, Nat, sameNat)
-import Numeric.LinearAlgebra (Numeric)
 
 import Data.Array.Mixed.Internal.Arith qualified as Mixed.Internal.Arith
   (liftVEltwise2)
@@ -47,7 +46,7 @@ instance IntegralF Int64 where
   quotF = quot
   remF = rem
 
-instance (Nested.PrimElt r, Integral r, Numeric r)
+instance (Nested.PrimElt r, Integral r)
          => IntegralF (Nested.Ranked n r) where
   -- These can't be partial, because our conditionals are not lazy
   -- and so the counterfactual branches, with zeros, may get executed
@@ -79,7 +78,7 @@ instance (Nested.PrimElt r, Integral r, Numeric r)
                           (\a b -> if b == 0 then 0 else rem a b) x y)))
                             -- TODO: do better somehow
 
-instance (Nested.PrimElt r, Integral r, Numeric r)
+instance (Nested.PrimElt r, Integral r)
          => IntegralF (Nested.Shaped sh r) where
   quotF = Nested.Internal.arithPromoteShaped2
             (Nested.Internal.Mixed.mliftNumElt2
@@ -108,7 +107,7 @@ instance (Nested.PrimElt r, Integral r, Numeric r)
                           (\a b -> if b == 0 then 0 else rem a b) x y)))
                             -- TODO: do better somehow
 
-instance (Nested.PrimElt r, Integral r, Numeric r)
+instance (Nested.PrimElt r, Integral r)
          => IntegralF (Nested.Mixed sh r) where
   quotF =   (Nested.Internal.Mixed.mliftNumElt2
                (flip Mixed.Internal.Arith.liftVEltwise2
@@ -138,7 +137,7 @@ instance (Nested.PrimElt r, Integral r, Numeric r)
 class Floating a => RealFloatF a where
   atan2F :: a -> a -> a
 
-instance (Nested.NumElt r, Nested.PrimElt r, RealFloat r, Nested.FloatElt r, Numeric r)
+instance (Nested.NumElt r, Nested.PrimElt r, RealFloat r, Nested.FloatElt r)
          => RealFloatF (Nested.Ranked n r) where
   atan2F = Nested.Internal.arithPromoteRanked2
             (Nested.Internal.Mixed.mliftNumElt2
@@ -152,7 +151,7 @@ instance (Nested.NumElt r, Nested.PrimElt r, RealFloat r, Nested.FloatElt r, Num
                              , either (V.replicate (V.length x)) id y' )
                      in V.zipWith atan2 x y)))  -- TODO: do better somehow
 
-instance (Nested.NumElt r, Nested.PrimElt r, RealFloat r, Nested.FloatElt r, Numeric r)
+instance (Nested.NumElt r, Nested.PrimElt r, RealFloat r, Nested.FloatElt r)
          => RealFloatF (Nested.Shaped sh r) where
   atan2F = Nested.Internal.arithPromoteShaped2
             (Nested.Internal.Mixed.mliftNumElt2
@@ -166,7 +165,7 @@ instance (Nested.NumElt r, Nested.PrimElt r, RealFloat r, Nested.FloatElt r, Num
                              , either (V.replicate (V.length x)) id y' )
                      in V.zipWith atan2 x y)))  -- TODO: do better somehow
 
-instance (Nested.NumElt r, Nested.PrimElt r, RealFloat r, Nested.FloatElt r, Numeric r)
+instance (Nested.NumElt r, Nested.PrimElt r, RealFloat r, Nested.FloatElt r)
          => RealFloatF (Nested.Mixed sh r) where
   atan2F =   (Nested.Internal.Mixed.mliftNumElt2
                (flip Mixed.Internal.Arith.liftVEltwise2

@@ -371,7 +371,6 @@ library testToolLibrary
       , horde-ad:horde-ad-simplified
 
       , base
-      , hmatrix
       , orthotope
       , ox-arrays
       , tasty >= 1.0
