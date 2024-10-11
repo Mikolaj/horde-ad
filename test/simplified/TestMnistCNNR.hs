@@ -12,6 +12,7 @@ import Control.Monad (foldM, unless)
 import Data.IntMap.Strict qualified as IM
 import Data.Vector.Generic qualified as V
 import GHC.TypeLits (SomeNat (..), someNatVal)
+import Numeric.LinearAlgebra (Numeric)
 import System.IO (hPutStrLn, stderr)
 import System.Random
 import Test.Tasty
@@ -45,7 +46,7 @@ testTrees = [ tensorADValMnistTestsCNNA
 -- which side-steps vectorization.
 mnistTestCaseCNNA
   :: forall ranked r.
-     ( ranked ~ ORArray, Differentiable r, GoodScalar r, Random r
+     ( ranked ~ ORArray, Differentiable r, GoodScalar r, Numeric r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> r
@@ -144,7 +145,7 @@ tensorADValMnistTestsCNNA = testGroup "CNN ADVal MNIST tests"
 -- but differentiated anew in each gradient descent iteration.
 mnistTestCaseCNNI
   :: forall ranked r.
-     ( ranked ~ ORArray, Differentiable r, GoodScalar r, Random r
+     ( ranked ~ ORArray, Differentiable r, GoodScalar r, Numeric r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> r
@@ -259,7 +260,7 @@ tensorADValMnistTestsCNNI = testGroup "CNN Intermediate MNIST tests"
 -- descent iteration.
 mnistTestCaseCNNO
   :: forall ranked r.
-     ( ranked ~ ORArray, Differentiable r, GoodScalar r, Random r
+     ( ranked ~ ORArray, Differentiable r, GoodScalar r, Numeric r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> r

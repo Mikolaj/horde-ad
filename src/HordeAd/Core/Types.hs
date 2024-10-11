@@ -39,7 +39,6 @@ import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (testEquality, (:~:) (Refl))
 import GHC.TypeLits
   (KnownNat, Nat, SNat, fromSNat, pattern SNat, type (+), withSomeSNat)
-import Numeric.LinearAlgebra (Numeric, Vector)
 import Type.Reflection (TypeRep, Typeable, typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
@@ -142,8 +141,10 @@ type ShapedTensorType = TensorType [Nat]
 type MixedTensorType = TensorType [Maybe Nat]
 
 type GoodScalarConstraint r =
-  ( Show r, Ord r, Numeric r, Num r, Num (Vector r), Typeable r
-  , IfDifferentiable r, NFData r, Nested.PrimElt r, Nested.Elt r, Nested.NumElt r, forall sh. Show (Nested.Mixed sh r), forall sh. Eq (Nested.Mixed sh r), forall sh. NFData (Nested.Mixed sh r), forall sh. Ord (Nested.Mixed sh r) )
+  ( Show r, Ord r, Num r, Typeable r, IfDifferentiable r
+  , NFData r, Nested.PrimElt r, Nested.Elt r, Nested.NumElt r
+  , forall sh. Show (Nested.Mixed sh r), forall sh. Eq (Nested.Mixed sh r)
+  , forall sh. NFData (Nested.Mixed sh r), forall sh. Ord (Nested.Mixed sh r) )
 
 type data TensorKindType =
     TKR Type Nat

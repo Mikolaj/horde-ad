@@ -19,6 +19,7 @@ import Data.Array.RankedS qualified as OR
 import Data.IntMap.Strict qualified as IM
 import Data.Vector.Generic qualified as V
 import GHC.TypeLits (SomeNat (..), someNatVal)
+import Numeric.LinearAlgebra (Numeric)
 import System.IO (hPutStrLn, stderr)
 import System.Random
 import Test.Tasty
@@ -53,7 +54,7 @@ testTrees = [ tensorADValMnistTestsRNNA
 -- which side-steps vectorization.
 mnistTestCaseRNNA
   :: forall ranked r.
-     ( ranked ~ ORArray, Differentiable r, GoodScalar r, Random r
+     ( ranked ~ ORArray, Differentiable r, GoodScalar r, Numeric r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Int -> r
@@ -162,7 +163,7 @@ tensorADValMnistTestsRNNA = testGroup "RNN ADVal MNIST tests"
 -- but differentiated anew in each gradient descent iteration.
 mnistTestCaseRNNI
   :: forall ranked r.
-     ( ranked ~ ORArray, Differentiable r, GoodScalar r, Random r
+     ( ranked ~ ORArray, Differentiable r, GoodScalar r, Numeric r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Int -> r
@@ -284,7 +285,7 @@ tensorADValMnistTestsRNNI = testGroup "RNN Intermediate MNIST tests"
 -- descent iteration.
 mnistTestCaseRNNO
   :: forall ranked r.
-     ( ranked ~ ORArray, Differentiable r, GoodScalar r, Random r
+     ( ranked ~ ORArray, Differentiable r, GoodScalar r, Numeric r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Int -> r
@@ -385,7 +386,7 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
 
 mnistTestCaseRNND
   :: forall ranked r.
-     ( ranked ~ ORArray, Differentiable r, GoodScalar r, Random r
+     ( ranked ~ ORArray, Differentiable r, GoodScalar r, Numeric r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Int -> r

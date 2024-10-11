@@ -10,6 +10,7 @@ import Prelude
 import Data.Array.RankedS qualified as OR
 import Data.Int (Int64)
 import GHC.Exts (IsList (..))
+import Numeric.LinearAlgebra (Numeric)
 import Test.Tasty
 import Test.Tasty.HUnit hiding (assert)
 
@@ -341,7 +342,7 @@ testGatherSimpPP23 = do
 
 -- Depending on if and how transpose it desugared, this may or may not result
 -- in dozens of nested gathers that should vanish after simplification.
-gatherTranspose33 :: forall ranked r. (ADReady ranked, GoodScalar r, RealFloat r)
+gatherTranspose33 :: forall ranked r. (ADReady ranked, GoodScalar r, Numeric r, RealFloat r)
                   => ranked r 10 -> ranked r 2
 gatherTranspose33 t =
   rmatmul2 (rreshape [6, 8] (rconst $ Nested.rfromOrthotope SNat $ runFlipR t48OR))

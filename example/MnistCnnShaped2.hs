@@ -11,6 +11,7 @@ import Data.Type.Equality (gcastWith, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import Data.Vector.Storable (Vector)
 import GHC.TypeLits (type (*), type (+), type (<=), type Div)
+import Numeric.LinearAlgebra (Numeric)
 import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
@@ -48,7 +49,7 @@ convMnistLayerS
      -- @c_in@ will be alwayst 1, grayscale, but this function works for any
      ( 1 <= kh
      , 1 <= kw  -- wrongly reported as redundant due to plugins
-     , ADReadyS shaped, GoodScalar r, Differentiable r )
+     , ADReadyS shaped, GoodScalar r, Numeric r, Differentiable r )
   => SNat kh -> SNat kw
   -> SNat h -> SNat w
   -> SNat c_in -> SNat c_out
@@ -72,7 +73,7 @@ convMnistTwoS
        -- @h@ and @w@ are fixed for MNIST, but may be different, e.g., in tests
      ( 1 <= kh             -- kernel height is large enough
      , 1 <= kw             -- kernel width is large enough
-     , ADReadyS shaped, GoodScalar r, Differentiable r )
+     , ADReadyS shaped, GoodScalar r, Numeric r, Differentiable r )
   => SNat kh -> SNat kw
   -> SNat h -> SNat w
   -> SNat c_out -> SNat n_hidden -> SNat batch_size
@@ -113,7 +114,7 @@ convMnistLossFusedS
      , 1 <= kh
      , 1 <= kw
      , ADReadyS shaped, ADReadyS (PrimalOf shaped)
-     , GoodScalar r, Differentiable r )
+     , GoodScalar r, Numeric r, Differentiable r )
   => SNat kh -> SNat kw
   -> SNat c_out
   -> SNat n_hidden -> SNat batch_size
@@ -139,7 +140,7 @@ convMnistTestS
      , 1 <= kh
      , 1 <= kw
      , shaped ~ OSArray
-     , GoodScalar r, Differentiable r )
+     , GoodScalar r, Numeric r, Differentiable r )
   => SNat kh -> SNat kw
   -> SNat c_out
   -> SNat n_hidden -> SNat batch_size

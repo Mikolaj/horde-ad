@@ -36,6 +36,7 @@ import Data.Vector.Generic qualified as V
 import GHC.Exts (IsList (..))
 import GHC.TypeLits
   (KnownNat, OrderingI (..), cmpNat, sameNat, type (+), type (-), type (<=))
+import Numeric.LinearAlgebra (Numeric)
 import Type.Reflection (typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
@@ -327,7 +328,7 @@ class ( Num (IntOf ranked), Num (IntOf (MixedOf ranked))
 -- differ in types but all are far from matmul2.
   rmatvecmul m v = rbuild1 (rlength m) (\i -> rdot0 v (m ! [i]))
 -- rmatvecmul m v = rflatten $ rmap1 (rreplicate 1 . rdot0 v) m
-  rmatmul2 :: GoodScalar r
+  rmatmul2 :: (GoodScalar r, Numeric r)
            => ranked r 2 -> ranked r 2 -> ranked r 2
 -- How to generalize to tmatmul (#69)?
 -- Just rmatmul2 the two outermost dimensions?
@@ -629,7 +630,8 @@ class ( Num (IntOf shaped), IntegralF (IntOf shaped), CShaped shaped Num
   smatvecmul :: forall r m n. (GoodScalar r, KnownNat m, KnownNat n)
              => shaped r '[m, n] -> shaped r '[n] -> shaped r '[m]
   smatvecmul m v = sbuild1 (\i -> sdot0 v (m !$ (i :.$ ZIS)))
-  smatmul2 :: forall r n m p. (GoodScalar r, KnownNat n, KnownNat m, KnownNat p)
+  smatmul2 :: forall r n m p.
+              (GoodScalar r, Numeric r, KnownNat n, KnownNat m, KnownNat p)
            => shaped r '[m, n] -> shaped r '[n, p] -> shaped r '[m, p]
   smatmul2 m1 m2 =
     ssum (stranspose (Permutation.makePerm @'[2, 1, 0]) (sreplicate @shaped @p m1)

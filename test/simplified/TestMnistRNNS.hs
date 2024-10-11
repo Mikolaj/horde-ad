@@ -12,6 +12,7 @@ import Data.Array.Convert qualified
 import Data.Array.RankedS qualified as OR
 import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat)
+import Numeric.LinearAlgebra (Numeric)
 import System.IO (hPutStrLn, stderr)
 import System.Random
 import Test.Tasty
@@ -59,7 +60,7 @@ testTrees = [ tensorADValMnistTestsRNNSA
 -- which side-steps vectorization.
 mnistTestCaseRNNSA
   :: forall shaped width batch_size r.
-     ( shaped ~ OSArray, Differentiable r, GoodScalar r, Random r
+     ( shaped ~ OSArray, Differentiable r, GoodScalar r, Numeric r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> SNat width -> SNat batch_size -> Int -> r
@@ -173,7 +174,7 @@ tensorADValMnistTestsRNNSA = testGroup "RNNS ADVal MNIST tests"
 -- but differentiated anew in each gradient descent iteration.
 mnistTestCaseRNNSI
   :: forall shaped width batch_size r.
-     ( shaped ~ OSArray, Differentiable r, GoodScalar r, Random r
+     ( shaped ~ OSArray, Differentiable r, GoodScalar r, Numeric r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> SNat width -> SNat batch_size -> Int -> r
@@ -300,7 +301,7 @@ tensorADValMnistTestsRNNSI = testGroup "RNNS Intermediate MNIST tests"
 -- descent iteration.
 mnistTestCaseRNNSO
   :: forall shaped width batch_size r.
-     ( shaped ~ OSArray, Differentiable r, GoodScalar r, Random r
+     ( shaped ~ OSArray, Differentiable r, GoodScalar r, Numeric r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> SNat width -> SNat batch_size -> Int -> r
@@ -409,7 +410,7 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
 -- descent iteration.
 mnistTestCaseRNNSD
   :: forall shaped width batch_size r.
-     ( shaped ~ OSArray, Differentiable r, GoodScalar r, Random r
+     ( shaped ~ OSArray, Differentiable r, GoodScalar r, Numeric r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> SNat width -> SNat batch_size -> Int -> r

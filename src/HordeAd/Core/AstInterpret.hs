@@ -401,7 +401,7 @@ interpretAst !env = \case
       (AstLet vart vt (AstLet varu vu
          (AstSum (AstN2 TimesOp (AstTranspose tperm t)
                                 (AstTranspose uperm u)))))
-  AstSum @n
+  AstSum @n @r
          v@(AstN2 TimesOp (AstTranspose tperm (AstReplicate @yt _tk t))
                           (AstTranspose uperm (AstReplicate @yu _uk u)))
     | Just Refl <- sameNat (Proxy @n) (Proxy @2) ->
@@ -410,7 +410,18 @@ interpretAst !env = \case
         let interpretMatmul2 t1 u1 =
               let t2 = interpretAst env t1
                   u2 = interpretAst env u1
-              in rmatmul2 t2 u2
+              in case testEquality (typeRep @r) (typeRep @Double) of
+                Just Refl -> rmatmul2 t2 u2
+                _ -> case testEquality (typeRep @r) (typeRep @Float) of
+                  Just Refl -> rmatmul2 t2 u2
+                  _ -> case testEquality (typeRep @r) (typeRep @Int64) of
+                    Just Refl -> rmatmul2 t2 u2
+                    _ -> case testEquality (typeRep @r) (typeRep @CInt) of
+                      Just Refl -> rmatmul2 t2 u2
+                      _ -> case rshape u2 of
+                        _ :$: width2 :$: ZSR -> rsum (rtranspose [2,1,0] (rreplicate width2 t2)
+                                                    * rtranspose [1,0] (rreplicate (rlength t2) u2))
+                        _ -> error "impossible pattern needlessly required"
         in case (tperm, uperm) of
           ([2, 1, 0], [1, 0]) ->  -- tk and uk are fine due to perms matching
             interpretMatmul2 t u
