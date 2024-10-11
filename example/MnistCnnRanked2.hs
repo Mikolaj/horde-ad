@@ -7,8 +7,8 @@ module MnistCnnRanked2 where
 import Prelude
 
 import Data.Vector.Generic qualified as V
+import Data.Vector.Storable (Vector)
 import GHC.TypeLits (type (*), type (+), type Div)
-import Numeric.LinearAlgebra (Vector)
 
 import Data.Array.Nested qualified as Nested
 

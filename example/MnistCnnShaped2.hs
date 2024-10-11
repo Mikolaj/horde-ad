@@ -9,8 +9,8 @@ import Prelude
 
 import Data.Type.Equality (gcastWith, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
+import Data.Vector.Storable (Vector)
 import GHC.TypeLits (type (*), type (+), type (<=), type Div)
-import Numeric.LinearAlgebra (Vector)
 import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Permutation qualified as Permutation

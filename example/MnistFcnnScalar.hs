@@ -12,11 +12,11 @@ module MnistFcnnScalar where
 
 import Prelude
 
-import           Control.Exception (assert)
-import qualified Data.Strict.Vector as Data.Vector
-import qualified Data.Vector.Generic as V
-import           GHC.Exts (inline)
-import           Numeric.LinearAlgebra (Vector)
+import Control.Exception (assert)
+import Data.Strict.Vector qualified as Data.Vector
+import Data.Vector.Generic qualified as V
+import Data.Vector.Storable (Vector)
+import GHC.Exts (inline)
 
 import HordeAd
 import MnistData

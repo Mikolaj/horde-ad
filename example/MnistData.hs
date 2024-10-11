@@ -16,10 +16,10 @@ import Data.IDX
 import Data.List (sortOn)
 import Data.Maybe (fromMaybe)
 import Data.Vector.Generic qualified as V
+import Data.Vector.Storable (Vector)
 import Data.Vector.Storable qualified as VS
 import Data.Vector.Unboxed qualified
 import GHC.TypeLits (KnownNat, Nat, type (*))
-import Numeric.LinearAlgebra (Vector)
 import System.IO (IOMode (ReadMode), withBinaryFile)
 import System.Random
 

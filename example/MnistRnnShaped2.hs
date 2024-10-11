@@ -12,8 +12,8 @@ import Data.Kind (Type)
 import Data.List (foldl')
 import Data.Proxy (Proxy (Proxy))
 import Data.Vector.Generic qualified as V
+import Data.Vector.Storable (Vector)
 import GHC.TypeLits (KnownNat, Nat, type (*))
-import Numeric.LinearAlgebra (Vector)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Nested qualified as Nested

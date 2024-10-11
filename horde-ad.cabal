@@ -207,7 +207,6 @@ library exampleLibrary
       , bytestring
       , ghc-typelits-knownnat
       , ghc-typelits-natnormalise
-      , hmatrix
       , mnist-idx
       , orthotope
       , ox-arrays
