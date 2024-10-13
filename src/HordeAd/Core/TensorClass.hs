@@ -1216,7 +1216,7 @@ class ProductTensor (ranked :: RankedTensorType) where
             => Rep ranked (TKProduct x z)
             -> Rep ranked z
   tunit :: Rep ranked TKUnit
-  tunit = RepN undefined
+  tunit = RepUnit ()
   tmkHVector :: HVector ranked -> HVectorOf ranked
 
 rfromD :: forall r n ranked.

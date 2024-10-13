@@ -1145,7 +1145,7 @@ rankedY stk t = case stk of
   STKS{} -> AstShaped t
   STKX{} -> AstMixed t
   STKProduct{} -> t
-  STKUnit -> RepN undefined
+  STKUnit -> RepUnit ()
   STKUntyped -> HVectorPseudoTensor t
 
 unRankedY :: STensorKindType y -> Rep (AstRanked s) y

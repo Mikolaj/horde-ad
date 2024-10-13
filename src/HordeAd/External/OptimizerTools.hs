@@ -138,7 +138,7 @@ repDeepZero = \case
   FTKS -> FlipS $ Nested.sreplicateScal knownShS 0
   FTKX sh -> FlipX $ Nested.mreplicateScal sh 0
   FTKProduct ftk1 ftk2 -> (repDeepZero ftk1, repDeepZero ftk2)
-  FTKUnit -> RepN undefined
+  FTKUnit -> RepUnit ()
   FTKUntyped{} -> error "repDeepZero: FTKUntyped"
 
 updateWithGradientAdamDeep
@@ -209,7 +209,7 @@ updateWithGradientAdamDeep ArgsAdam{..} StateAdamDeep{..} paramsR gradientR =
         STKProduct stk1 stk2 ->
           ( updateProd stk1 (fst mA) (fst vA) (fst p) (fst g)
           , updateProd stk2 (snd mA) (snd vA) (snd p) (snd g) )
-        STKUnit -> RepN undefined
+        STKUnit -> RepUnit ()
         STKUntyped -> error "updateProd: STKUntyped"
       (!mAdamRNew, !vAdamRNew, !paramsRNew) =
         unzip3Rep stensorKind

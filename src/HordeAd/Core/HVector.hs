@@ -9,7 +9,7 @@
 -- and also to hangle multiple arguments and results of fold-like operations.
 module HordeAd.Core.HVector
   ( HVectorOf, HVectorPseudoTensor(..)
-  , Rep, RepN(..), RepProductN(..), RepShallow, RepDeep, RepD(..)
+  , Rep, RepN(..), RepUnit(..), RepProductN(..), RepShallow, RepDeep, RepD(..)
   , TensorKindFull(..), nullRepDeep, lemTensorKindOfF, buildTensorKindFull
   , DynamicTensor(..)
   , CRanked, CShaped, CMixed, CMixedSupports, CHFun, CHFun2, CRepProduct
@@ -62,7 +62,7 @@ type instance Rep ranked (TKR r n) = ranked r n
 type instance Rep ranked (TKS r sh) = ShapedOf ranked r sh
 type instance Rep ranked (TKX r sh) = MixedOf ranked r sh
 -- The TKProduct case is defined separately for each ranked argument.
-type instance Rep ranked TKUnit = RepN ranked TKUnit
+type instance Rep ranked TKUnit = RepUnit ranked
 type instance Rep ranked TKUntyped =
   HVectorPseudoTensor ranked Float '()
     -- HVectorPseudoTensor instead of HVectorOf required for injectivity
@@ -74,6 +74,11 @@ type instance Rep ranked TKUntyped =
 type role RepN nominal nominal
 newtype RepN ranked y =
   RepN {unRepN :: Rep ranked y}
+
+type role RepUnit nominal
+type RepUnit :: RankedTensorType -> Type
+newtype RepUnit ranked = RepUnit ()
+  deriving Show
 
 instance ( CRanked ranked Show, CShaped (ShapedOf ranked) Show
          , CMixed (MixedOf ranked) Show
@@ -99,7 +104,7 @@ type family RepShallow ranked y = result | result -> ranked y where
   RepShallow ranked (TKX r sh) = MixedOf ranked r sh
   RepShallow ranked (TKProduct x z) =
     (Rep ranked x, Rep ranked z)
-  RepShallow ranked TKUnit = RepN ranked TKUnit
+  RepShallow ranked TKUnit = RepUnit ranked
   RepShallow ranked TKUntyped = HVector ranked
 
 -- This is concrete throughout.
@@ -109,7 +114,7 @@ type family RepDeep ranked y = result | result -> ranked y where
   RepDeep ranked (TKX r sh) = MixedOf ranked r sh
   RepDeep ranked (TKProduct x z) =
     (RepDeep ranked x, RepDeep ranked z)
-  RepDeep ranked TKUnit = RepN ranked TKUnit
+  RepDeep ranked TKUnit = RepUnit ranked
   RepDeep ranked TKUntyped = HVector ranked
 
 -- A datatype matching RepDeep.
